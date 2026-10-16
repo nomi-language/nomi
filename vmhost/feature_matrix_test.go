@@ -252,6 +252,10 @@ var mxFeatures = []mxFeature{
 	{name: "range iter", typ: "Iter<Int>", expr: "1..=3 |> Iter.map(|n| n * n)",
 		obs: "Debug.inspect(Iter.to_list($v))", want: "[1, 4, 9]", tags: tagIter},
 	{name: "iter reduce", typ: "Int", expr: "[1, 2, 3] |> Iter.reduce(|acc = 0, n| acc + n)", want: "6"},
+	{name: "iter scan", typ: "Iter<Int>", expr: "[3, 1, 4] |> Iter.scan(|total = 0, n| total + n)",
+		obs: "Debug.inspect(Iter.to_list($v))", want: "[3, 4, 8]", tags: tagIter},
+	{name: "iter map_reduce", typ: "(List<String>, Int)", expr: `["a", "bb"] |> Iter.map_reduce(|at = 0, s| ("${at}${s}", at + 1))`,
+		want: `(["0a", "1bb"], 2)`},
 	// `Summable.empty_sum()` makes a T with no element, so T must be
 	// determined: by the position over `[]`, or by the inner lists' List.
 	{name: "sum of an empty list", typ: "Int", expr: "Iter.sum([])", want: "0", tags: tagUntyped, reject: mxUnsolved},

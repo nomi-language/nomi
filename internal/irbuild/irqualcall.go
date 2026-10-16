@@ -546,13 +546,13 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 			defer bl.markCtlRef(ident, method)()
 		}
 	}
-	if ti.Name == "Iter" && method == "reduce" {
-		return bl.iterReduceCall(t)
+	if ti.Name == "Iter" && irSeededIterMethod(method) {
+		return bl.iterReduceCall(t, method)
 	}
 	if ti.Name == "Struct" && method == "update" && !bl.g.isBoundTypeParam("Struct") {
 		return bl.structUpdateCall(t)
 	}
-	if signalOwner && method != "reduce" && callbackCarriesSignal(t.Args[1]) {
+	if signalOwner && !irSeededIterMethod(method) && callbackCarriesSignal(t.Args[1]) {
 		lam, ok := t.Args[1].(*ast.Lambda)
 		if !ok {
 			return no()

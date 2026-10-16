@@ -12,7 +12,7 @@
 population stdlib
 what one record per stdlib module carrying `//!` prompt cases, run as `nomi test std/<module>` runs it. N is the module's prompt-case count.
 records 34
-declared-cases 331
+declared-cases 333
 failing 0
 C assertions
 E 0
@@ -262,54 +262,56 @@ T test result: ok. 2 passed, 0 failed
 T
 C iter
 E 0
-N 45
-H 44680270ee3f36112e1e8de1b9d900d83676dabef6279e43cc75203d4439139e
+N 47
+H 37e1b5be8ef3cf5a6aeb57a846aa0d939129cb2800b1c06cee6eb88a49606db2
 T ok <root>/std/iter.nomi :: impl / loop //! test lines 125-133
 T ok <root>/std/iter.nomi :: impl / reduce //! test lines 160-161
-T ok <root>/std/iter.nomi :: impl / find //! test lines 167-168
-T ok <root>/std/iter.nomi :: impl / sort_with //! test line 189
-T ok <root>/std/iter.nomi :: impl / sort //! test lines 199-200
-T ok <root>/std/iter.nomi :: impl / sort_by //! test lines 218-219
-T ok <root>/std/iter.nomi :: impl / each //! test lines 233-235
-T ok <root>/std/iter.nomi :: impl / any? //! test lines 246-247
-T ok <root>/std/iter.nomi :: impl / all? //! test lines 262-263
-T ok <root>/std/iter.nomi :: impl / empty? //! test lines 277-278
-T ok <root>/std/iter.nomi :: impl / not_empty? //! test lines 286-287
-T ok <root>/std/iter.nomi :: impl / first //! test lines 298-299
-T ok <root>/std/iter.nomi :: impl / last //! test lines 308-309
-T ok <root>/std/iter.nomi :: impl / at //! test lines 318-320
-T ok <root>/std/iter.nomi :: impl / partition //! test line 344
-T ok <root>/std/iter.nomi :: impl / group_by //! test line 364
-T ok <root>/std/iter.nomi :: impl / frequencies //! test lines 381-386
-T ok <root>/std/iter.nomi :: impl / to_list //! test line 398
-T ok <root>/std/iter.nomi :: impl / to_vector //! test lines 407-419
-T ok <root>/std/iter.nomi :: impl / to_set //! test lines 426-427
-T ok <root>/std/iter.nomi :: impl / with_index //! test line 445
-T ok <root>/std/iter.nomi :: impl / take //! test line 454
-T ok <root>/std/iter.nomi :: impl / cycle //! test lines 462-465
-T ok <root>/std/iter.nomi :: impl / concat //! test line 473
-T ok <root>/std/iter.nomi :: impl / zip //! test line 492
-T ok <root>/std/iter.nomi :: impl / take_while //! test lines 508-510
-T ok <root>/std/iter.nomi :: impl / map //! test line 518
-T ok <root>/std/iter.nomi :: impl / filter //! test line 530
-T ok <root>/std/iter.nomi :: impl / drop //! test line 538
-T ok <root>/std/iter.nomi :: impl / drop_while //! test line 546
-T ok <root>/std/iter.nomi :: impl / flat_map //! test lines 554-557
-T ok <root>/std/iter.nomi :: impl / chunks //! test line 566
-T ok <root>/std/iter.nomi :: impl / chunk_by //! test lines 575-580
-T ok <root>/std/iter.nomi :: impl / from //! test line 594
-T ok <root>/std/iter.nomi :: impl / repeat //! test line 602
-T ok <root>/std/iter.nomi :: impl / iterate //! test lines 617-629
-T ok <root>/std/iter.nomi :: impl / to_map //! test line 638
-T ok <root>/std/iter.nomi :: impl / flatten //! test line 647
-T ok <root>/std/iter.nomi :: impl / reverse //! test line 661
-T ok <root>/std/iter.nomi :: impl / count //! test lines 678-679
-T ok <root>/std/iter.nomi :: impl / min //! test lines 691-693
-T ok <root>/std/iter.nomi :: impl / max //! test lines 707-709
-T ok <root>/std/iter.nomi :: impl / min_by //! test lines 724-725
-T ok <root>/std/iter.nomi :: impl / max_by //! test lines 744-745
-T ok <root>/std/iter.nomi :: impl / sum //! test lines 771-777
-T test result: ok. 45 passed, 0 failed
+T ok <root>/std/iter.nomi :: impl / scan //! test lines 178-182
+T ok <root>/std/iter.nomi :: impl / map_reduce //! test lines 198-212
+T ok <root>/std/iter.nomi :: impl / find //! test lines 218-219
+T ok <root>/std/iter.nomi :: impl / sort_with //! test line 240
+T ok <root>/std/iter.nomi :: impl / sort //! test lines 250-251
+T ok <root>/std/iter.nomi :: impl / sort_by //! test lines 269-270
+T ok <root>/std/iter.nomi :: impl / each //! test lines 284-286
+T ok <root>/std/iter.nomi :: impl / any? //! test lines 297-298
+T ok <root>/std/iter.nomi :: impl / all? //! test lines 313-314
+T ok <root>/std/iter.nomi :: impl / empty? //! test lines 328-329
+T ok <root>/std/iter.nomi :: impl / not_empty? //! test lines 337-338
+T ok <root>/std/iter.nomi :: impl / first //! test lines 349-350
+T ok <root>/std/iter.nomi :: impl / last //! test lines 359-360
+T ok <root>/std/iter.nomi :: impl / at //! test lines 369-371
+T ok <root>/std/iter.nomi :: impl / partition //! test line 395
+T ok <root>/std/iter.nomi :: impl / group_by //! test line 415
+T ok <root>/std/iter.nomi :: impl / frequencies //! test lines 432-437
+T ok <root>/std/iter.nomi :: impl / to_list //! test line 449
+T ok <root>/std/iter.nomi :: impl / to_vector //! test lines 458-470
+T ok <root>/std/iter.nomi :: impl / to_set //! test lines 477-478
+T ok <root>/std/iter.nomi :: impl / with_index //! test line 496
+T ok <root>/std/iter.nomi :: impl / take //! test line 505
+T ok <root>/std/iter.nomi :: impl / cycle //! test lines 513-516
+T ok <root>/std/iter.nomi :: impl / concat //! test line 524
+T ok <root>/std/iter.nomi :: impl / zip //! test line 543
+T ok <root>/std/iter.nomi :: impl / take_while //! test lines 559-561
+T ok <root>/std/iter.nomi :: impl / map //! test line 569
+T ok <root>/std/iter.nomi :: impl / filter //! test line 581
+T ok <root>/std/iter.nomi :: impl / drop //! test line 589
+T ok <root>/std/iter.nomi :: impl / drop_while //! test line 597
+T ok <root>/std/iter.nomi :: impl / flat_map //! test lines 605-608
+T ok <root>/std/iter.nomi :: impl / chunks //! test line 617
+T ok <root>/std/iter.nomi :: impl / chunk_by //! test lines 626-631
+T ok <root>/std/iter.nomi :: impl / from //! test line 645
+T ok <root>/std/iter.nomi :: impl / repeat //! test line 653
+T ok <root>/std/iter.nomi :: impl / iterate //! test lines 668-680
+T ok <root>/std/iter.nomi :: impl / to_map //! test line 689
+T ok <root>/std/iter.nomi :: impl / flatten //! test line 698
+T ok <root>/std/iter.nomi :: impl / reverse //! test line 712
+T ok <root>/std/iter.nomi :: impl / count //! test lines 729-730
+T ok <root>/std/iter.nomi :: impl / min //! test lines 742-744
+T ok <root>/std/iter.nomi :: impl / max //! test lines 758-760
+T ok <root>/std/iter.nomi :: impl / min_by //! test lines 775-776
+T ok <root>/std/iter.nomi :: impl / max_by //! test lines 795-796
+T ok <root>/std/iter.nomi :: impl / sum //! test lines 822-828
+T test result: ok. 47 passed, 0 failed
 T
 C json
 E 0

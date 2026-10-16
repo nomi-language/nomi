@@ -127,7 +127,7 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 		if p.Default == nil {
 			continue
 		}
-		if i == 0 && bl.reduceSeeds[t] {
+		if _, seeded := bl.reduceSeeds[t]; i == 0 && seeded {
 			continue
 		}
 		supplier, fk, _, ok := bl.lambdaFunction(t, group.kindsAt(group.before(i)), p.Default, group, i)

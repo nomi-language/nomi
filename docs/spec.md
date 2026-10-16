@@ -2906,7 +2906,7 @@ The one rule: **generic over any iterable → `Iter.X`; specific to a container'
 
 ### `break` and `continue` in Callbacks
 
-`break` and `continue` work inside iteration callbacks — the callbacks passed to the closed, analyzer-enforced set of iteration functions: the iter-family higher-order functions plus `Iter.loop`. `break` or `continue` anywhere outside an iteration callback is a compiler error — there's no iteration context.
+`break` and `continue` work inside iteration callbacks — the callbacks passed to the closed, analyzer-enforced set of iteration functions: `Iter.map`, `Iter.scan`, `Iter.filter`, `Iter.take_while`, `Iter.drop_while`, `Iter.flat_map`, `Iter.iterate`, `Iter.reduce`, `Iter.map_reduce`, `Iter.each`, `Iter.find`, `Iter.any?`, `Iter.all?`, `Map.map_values` and `Map.map_keys`, plus `Iter.loop`. `break` or `continue` anywhere outside an iteration callback is a compiler error — there's no iteration context.
 
 The keywords are the entire surface of the iteration control protocol. A callback's bare last expression means "here's my result for this element," `continue` means "skip this element," `break` means "stop iterating" (`break value` means "stop, producing this value"). These lower to a compiler/runtime-internal signal that the iteration machinery interprets — the signal has no surface spelling: it is not a Nomi type, and there is nothing to import, construct, or pattern-match.
 
@@ -2973,7 +2973,7 @@ names =
     |> Iter.to_list()
 ```
 
-The other callbacks read the value the same way. In `find`, `any?` and `all?` it is the predicate's answer for this element: `break True` in `find` answers `Some` of this element, and a bare `break` answers what has accumulated, which is `None` for `find`, `False` for `any?` and `True` for `all?`. In `drop_while` it is the drop decision: `break False` emits this element and ends the sequence, and `break True` or a bare `break` ends it with nothing more. In `flat_map` it is this element's expansion, emitted before the sequence ends. In `Map.map_values` and `Map.map_keys` it is this entry's new value or key; `continue` leaves the entry out, and a bare `break` keeps the entries made so far.
+The other callbacks read the value the same way. In `find`, `any?` and `all?` it is the predicate's answer for this element: `break True` in `find` answers `Some` of this element, and a bare `break` answers what has accumulated, which is `None` for `find`, `False` for `any?` and `True` for `all?`. In `drop_while` it is the drop decision: `break False` emits this element and ends the sequence, and `break True` or a bare `break` ends it with nothing more. In `flat_map` it is this element's expansion, emitted before the sequence ends. In `Map.map_values` and `Map.map_keys` it is this entry's new value or key; `continue` leaves the entry out, and a bare `break` keeps the entries made so far. In `scan` it is this element's new state, yielded before the sequence ends; `continue` yields nothing and keeps the state, and a bare `break` ends the sequence without yielding. In `map_reduce` it is this element's `(output, next_state)`, kept before the call answers; `continue` adds no output and keeps the state, and a bare `break` answers the outputs and state so far.
 
 **`loop`** follows the same rules:
 
@@ -3403,7 +3403,7 @@ An interface body is an item list. Each item's *form* determines its role, on tw
 
 Every bodied/host item is part of the contract (a default), reachable both interface-qualified (`Iter.known_count(xs)`) and type-qualified on an implementor (`List.known_count(xs)`) with full generic inference — the two are the *same* function, selected by the concrete type bound to `self`. Operations that take no `self` are **not** interface functions — put them in an inherent `impl Iface { ... }` block beside the interface and call them owner-qualified (`Iter.from(0)`).
 
-> The example uses `known_count` because, for `Iter`, that is the *only* default — the interface is pure protocol, just `each_while` (required) plus the lone `open` default `known_count`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`first`/`last`/`at`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.at`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` is the single op that's a dispatched default rather than an owner function, because it's the protocol hook `Iter.count` consults for an O(1) count (see §19).
+> The example uses `known_count` because, for `Iter`, that is the *only* default — the interface is pure protocol, just `each_while` (required) plus the lone `open` default `known_count`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`scan`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`map_reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`first`/`last`/`at`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.at`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` is the single op that's a dispatched default rather than an owner function, because it's the protocol hook `Iter.count` consults for an O(1) count (see §19).
 
 A Nomi-bodied default function may give its **trailing parameters default values**, exactly like a free `fn` (`fn announce(value: self, loud: Bool = False): String { … }`); a caller omitting the trailing argument gets the default. Defaults are rejected on a required or host-backed function — only a Nomi default body carries the value at runtime.
 
@@ -5626,6 +5626,8 @@ Iter.chunks(xs, n) / Iter.chunk_by(xs, key)
 
 Iter.reduce(xs, |acc = start, x| f(acc, x)) / Iter.each(xs, f) / Iter.find(xs, p)
 
+Iter.scan(xs, |acc = start, x| f(acc, x)) / Iter.map_reduce(xs, |acc = start, x| (out, next))
+
 Iter.min(xs) / Iter.max(xs) / Iter.min_by(xs, key) / Iter.max_by(xs, key) / Iter.sum(xs)
 
 Iter.any?(xs, p) / Iter.all?(xs, p)
@@ -5991,6 +5993,7 @@ fn iterate(seed: T, step: (T) -> T): Iter<T>   // seed, step(seed), step(step(se
 
 ```nomi
 fn map(source: Iter<T>, f: (T) -> U): Iter<U>
+fn scan<T, U>(source: Iter<T>, f: (U, T) -> U): Iter<U>   // f is a lambda whose first parameter has a default; yields each state after it
 fn filter(source: Iter<T>, f: (T) -> Bool): Iter<T>
 fn flat_map(source: Iter<T>, f: (T) -> Iter<U>): Iter<U>
 fn take(source: Iter<T>, n: Int): Iter<T>
@@ -6009,6 +6012,7 @@ fn chunk_by<T, K>(source: Iter<T>, key_fn: (T) -> K): Iter<List<T>> where K: Equ
 
 ```nomi
 fn reduce<T, U>(source: Iter<T>, f: (U, T) -> U): U   // f is a lambda whose first parameter has a default
+fn map_reduce<T, U, A>(source: Iter<T>, f: (A, T) -> (U, A)): (List<U>, A)   // seeded as reduce; the outputs in order and the final state
 fn each(source: Iter<T>, f: (T) -> Unit): Unit
 fn find(source: Iter<T>, f: (T) -> Bool): Maybe<T>
 fn any?(source: Iter<T>, f: (T) -> Bool): Bool
@@ -6046,6 +6050,13 @@ fn flatten(source: Iter<Iter<U>>): List<U>
 To join an `Iter<String>` into one `String`, use `String.join(parts, separator)`.
 
 `Iter.reduce` starts from the default of its callback lambda's first parameter: `Iter.reduce(xs, |sum = 0, x| sum + x)` is 0 for an empty `xs`. That default is the only starting value. A callback without one is a compile error at the callback, "`Iter.reduce` needs a starting value": a function value (`Iter.reduce(xs, Int.add)`, `xs |> Iter.reduce(add)`), a lambda whose first parameter has no default (`|a, b| a + b`), a partial application, a callback slot left open (`Iter.reduce(xs, _)`) and `Iter.reduce` named as a value. There is no first-element fallback, so a reduction never fails at run time for an empty source. For the least or greatest element, which has no answer for an empty source, use `Iter.min` and `Iter.max`: each answers a `Maybe`, `None` when the source is empty.
+
+`Iter.scan` and `Iter.map_reduce` take their starting value the same way, and a callback without one is the same error with their own name ("`Iter.scan` needs a starting value"). `Iter.scan` is lazy: it runs the fold and yields each state after the starting value, one per element, so an empty source yields nothing. `Iter.map_reduce` is eager: its callback answers `(output, next_state)` for each element, and the call answers the outputs in order with the final state, `([], start)` for an empty source.
+
+```nomi
+[3, 1, 4] |> Iter.scan(|total = 0, x| total + x) |> Iter.to_list() // [3, 4, 8]
+["a", "bb"] |> Iter.map_reduce(|at = 0, s| ((at, s), at + String.length(s))) // ([(0, "a"), (1, "bb")], 3)
+```
 
 `Iter.sum(xs)` adds the elements with `+`, left to right, from
 `T.empty_sum()`, so it is `Iter.reduce(xs, |total = T.empty_sum(), x| total +

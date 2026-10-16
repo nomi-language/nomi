@@ -29,16 +29,18 @@ var iterCallbackSlots = map[string]map[int]bool{
 
 	// Terminals: Iter owner functions that consume an iterator to a value.
 	// The callback-bearing ones are listed here.
-	"Iter.reduce": {1: true},
-	"Iter.each":   {1: true},
-	"Iter.find":   {1: true},
-	"Iter.any?":   {1: true},
-	"Iter.all?":   {1: true},
+	"Iter.reduce":     {1: true},
+	"Iter.map_reduce": {1: true},
+	"Iter.each":       {1: true},
+	"Iter.find":       {1: true},
+	"Iter.any?":       {1: true},
+	"Iter.all?":       {1: true},
 
 	// Lazy adapters: Iter owner functions, separate from concrete
 	// collection-specific methods.
 	"Iter.iterate":    {1: true},
 	"Iter.map":        {1: true},
+	"Iter.scan":       {1: true},
 	"Iter.filter":     {1: true},
 	"Iter.take_while": {1: true},
 	"Iter.drop_while": {1: true},
@@ -1355,15 +1357,23 @@ func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
 	}
 }
 
-// checkReduceSeed reports an `Iter.reduce` whose callback carries no starting
-// value. The only starting value is the callback lambda's first-parameter
-// default (`|acc = 0, x| acc + x`), so a function value (`Int.add`), a lambda
-// without a default, a partial application and a callback slot left open
-// (`Iter.reduce(xs, _)`) are all rejected: there is no first-element
-// fallback, and an empty source would have no answer. It runs in this pass
-// because the pass already visits every call.
+// checkReduceSeed reports an `Iter.reduce`, `Iter.scan` or `Iter.map_reduce`
+// whose callback carries no starting value. The only starting value is the
+// callback lambda's first-parameter default (`|acc = 0, x| acc + x`), so a
+// function value (`Int.add`), a lambda without a default, a partial
+// application and a callback slot left open (`Iter.reduce(xs, _)`) are all
+// rejected: there is no first-element fallback, and an empty source would
+// have no answer. It runs in this pass because the pass already visits every
+// call.
 func (s *iterSensitivity) checkReduceSeed(call *ast.Call, pipeLHS ast.Node) {
-	if !s.isIterReduceCall(call) {
+	name := ""
+	for _, seeded := range seededIterFuncs {
+		if s.isIterOwnerCall(call, seeded) {
+			name = seeded
+			break
+		}
+	}
+	if name == "" {
 		return
 	}
 	n := len(call.Args)
@@ -1375,10 +1385,10 @@ func (s *iterSensitivity) checkReduceSeed(call *ast.Call, pipeLHS ast.Node) {
 		return
 	}
 	if _, open := cb.(*ast.Placeholder); open {
-		s.errors = append(s.errors, reduceSeedError(cb, "pass the callback here, as a lambda whose accumulator has a starting value: `Iter.reduce(xs, |acc = <start>, x| ...)`"))
+		s.errors = append(s.errors, reduceSeedError(name, cb, fmt.Sprintf("pass the callback here, as a lambda whose accumulator has a starting value: `Iter.%s(xs, |acc = <start>, x| ...)`", name)))
 		return
 	}
-	s.errors = append(s.errors, reduceSeedError(cb, reduceSeedHints(cb)...))
+	s.errors = append(s.errors, reduceSeedError(name, cb, reduceSeedHints(name, cb)...))
 }
 
 // checkLoopSeed reports an `Iter.loop` whose callback carries no starting
@@ -1426,7 +1436,8 @@ func (s *iterSensitivity) checkLoopSeed(call *ast.Call, pipeLHS ast.Node) {
 const loopSeedMessage = "`Iter.loop` needs a starting state"
 
 // isIterOwnerCall reports whether call calls std's `Iter.<name>`, however it
-// is spelled, as isIterReduceCall does for `reduce`.
+// is spelled: owner-qualified, through an owner alias, or bare inside std's
+// own `impl Iter`. A program cannot declare its own `Iter`.
 func (s *iterSensitivity) isIterOwnerCall(call *ast.Call, name string) bool {
 	if callSiteKey(call) == "Iter."+name || s.canonicalQualifiedOwnerKey(call) == "Iter."+name {
 		return true
@@ -1435,22 +1446,14 @@ func (s *iterSensitivity) isIterOwnerCall(call *ast.Call, name string) bool {
 	return sym != nil && sym.OwningType == "Iter" && sym.Name == name
 }
 
-// isIterReduceCall reports whether call calls std's `Iter.reduce`, however
-// it is spelled: owner-qualified, through an owner alias, or bare inside
-// std's own `impl Iter`. A program cannot declare its own `Iter`.
-func (s *iterSensitivity) isIterReduceCall(call *ast.Call) bool {
-	if callSiteKey(call) == "Iter.reduce" || s.canonicalQualifiedOwnerKey(call) == "Iter.reduce" {
-		return true
-	}
-	sym := s.resolveIterCallbackSymbol(call.Func)
-	return sym != nil && sym.OwningType == "Iter" && sym.Name == "reduce"
-}
+// seededIterFuncs are the `Iter` owner functions whose callback carries the
+// starting value as its first parameter's default.
+var seededIterFuncs = []string{"reduce", "scan", "map_reduce"}
 
-// reduceSeedMessage is the error every unseeded `Iter.reduce` reports.
-const reduceSeedMessage = "`Iter.reduce` needs a starting value"
-
-func reduceSeedError(at ast.Node, hints ...string) TypeError {
-	e := errAt(at, reduceSeedMessage)
+// reduceSeedError is the error an unseeded call to the seeded `Iter`
+// function name reports: "`Iter.reduce` needs a starting value".
+func reduceSeedError(name string, at ast.Node, hints ...string) TypeError {
+	e := errAt(at, fmt.Sprintf("`Iter.%s` needs a starting value", name))
 	e.Hints = hints
 	return e
 }
@@ -1458,7 +1461,7 @@ func reduceSeedError(at ast.Node, hints ...string) TypeError {
 // reduceSeedHints shows the seeded form of cb: its own lambda with a default
 // on the accumulator, or a lambda that calls the named function. A function
 // named `min` or `max` also points at `Iter.min` / `Iter.max`.
-func reduceSeedHints(cb ast.Node) []string {
+func reduceSeedHints(fn string, cb ast.Node) []string {
 	switch n := cb.(type) {
 	case *ast.Lambda:
 		acc, item := "acc", "x"
@@ -1467,12 +1470,15 @@ func reduceSeedHints(cb ast.Node) []string {
 		}
 		return []string{fmt.Sprintf("give the accumulator a starting value: `|%s = <start>, %s| ...`", acc, item)}
 	case *ast.Ident, *ast.FieldAccess:
-		name := calleeText(n)
-		if name == "?" || strings.HasPrefix(name, "?.") {
+		callee := calleeText(n)
+		if callee == "?" || strings.HasPrefix(callee, "?.") {
 			break
 		}
-		hints := []string{fmt.Sprintf("call it from a lambda whose accumulator has a starting value: `|acc = <start>, x| %s(acc, x)`", name)}
-		switch name[strings.LastIndexByte(name, '.')+1:] {
+		hints := []string{fmt.Sprintf("call it from a lambda whose accumulator has a starting value: `|acc = <start>, x| %s(acc, x)`", callee)}
+		if fn != "reduce" {
+			return hints
+		}
+		switch callee[strings.LastIndexByte(callee, '.')+1:] {
 		case "min":
 			hints = append(hints, "for the least element, `Iter.min(xs)` answers a `Maybe`, with `None` for an empty source")
 		case "max":

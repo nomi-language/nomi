@@ -1457,3 +1457,27 @@ not `Iter.reduce(|total = 0, n| total + n)`, which spells out the starting
 value and the step the type's `Summable` and `Add` impls already name. Keep
 `Iter.reduce` when the fold does more than add (`total + n * weight`), starts
 from another value, or breaks early.
+
+## 27. Keep a fold's states with `Iter.scan` or `Iter.map_reduce`
+
+A fold whose every intermediate state is wanted is `Iter.scan`, and a map that
+threads a state from one element to the next is `Iter.map_reduce`:
+
+```nomi
+balances = deposits |> Iter.scan(|balance = opening, amount| balance + amount)
+
+(rows, _width) =
+    lines
+    |> Iter.reverse()
+    |> Iter.map_reduce(|width = 0, line| {
+        width = Int.max(width, String.length(line))
+        (String.pad_end(line, width), width)
+    })
+```
+
+not an `Iter.reduce` whose accumulator is a `(state, list)` pair that conses
+each result and is reversed afterwards. Use `scan` when the outputs are the
+states themselves, and it stays lazy, so it can run over an unbounded source
+under a `take`. Use `map_reduce` when each element has its own output and
+the state only carries what the next one needs. Keep `Iter.reduce` when only
+the final state is wanted.

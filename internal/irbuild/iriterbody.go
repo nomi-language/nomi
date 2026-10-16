@@ -18,7 +18,7 @@ import (
 // bodies as any generic std function is (`Iter.frequencies`).
 func irIterOwnArity(method string) (int, bool) {
 	switch method {
-	case "map", "filter", "reduce", "take", "sort_with", "sort_by", "any?", "all?", "each_while", "find", "zip", "concat", "at", "partition", "group_by",
+	case "map", "filter", "reduce", "scan", "map_reduce", "take", "sort_with", "sort_by", "any?", "all?", "each_while", "find", "zip", "concat", "at", "partition", "group_by",
 		"drop", "take_while", "drop_while", "each", "flat_map", "chunks", "chunk_by", "join":
 		return 2, true
 	case "to_list", "count", "empty?", "not_empty?", "sort", "first", "last", "reverse", "with_index", "known_count",
@@ -103,6 +103,10 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 			elem = kindString
 		} else if want == 2 && len(args.kinds) > 1 && args.kinds[1].tag == tagFunc && len(funcParams(args.kinds[1])) >= 1 {
 			elem = funcParams(args.kinds[1])[0]
+			if irSeededIterMethod(method) && len(funcParams(args.kinds[1])) == 2 {
+				// A seeded callback takes the accumulator first.
+				elem = funcParams(args.kinds[1])[1]
+			}
 		}
 		v, k, ok := bl.coerceEmpty(t.Args[0], src, sk, bl.g.listKind(elem))
 		if !ok {
@@ -231,9 +235,40 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 			return no()
 		}
 	}
+	accK := result
+	if method == "scan" {
+		// A reduce's callback whose every state is emitted.
+		fk := args.kinds[1]
+		if fk.tag != tagFunc || len(funcParams(fk)) != 2 || funcParams(fk)[1] != elem || funcParams(fk)[0] != funcResult(fk) || !irCallableValueKind(funcResult(fk)) {
+			return no()
+		}
+		accK = funcResult(fk)
+		result = seqKindIn(bl.g, accK)
+		if reduceSeed(t) == nil {
+			// The checker rejects a scan with no starting value.
+			return no()
+		}
+	}
+	if method == "map_reduce" {
+		// `(A, T) -> (U, A)`, answering `(List<U>, A)`.
+		fk := args.kinds[1]
+		if fk.tag != tagFunc || len(funcParams(fk)) != 2 || funcParams(fk)[1] != elem {
+			return no()
+		}
+		accK = funcParams(fk)[0]
+		r := funcResult(fk)
+		if r.tag != tagTuple || r.comp == nil || len(r.comp.parts) != 2 || r.comp.parts[1] != accK ||
+			!irCallableValueKind(accK) || !(irCallableValueKind(r.comp.parts[0]) || r.comp.parts[0] == kindUnit) {
+			return no()
+		}
+		result = bl.g.tupleKind([]kind{listKindIn(bl.g, r.comp.parts[0]), accK})
+		if !irRetainedTupleKind(result) || reduceSeed(t) == nil {
+			return no()
+		}
+	}
 	// A callback lowered under a signalling form makes its operation the
 	// signalling one.
-	signalling := (method == "map" || method == "filter" || method == "reduce" || method == "find" || method == "any?" || method == "all?") &&
+	signalling := (method == "map" || method == "filter" || irSeededIterMethod(method) || method == "find" || method == "any?" || method == "all?") &&
 		len(args.temps) > 1 && bl.iterSignalling(args, 1)
 	appendOp := func(at ast.Node, op ir.IterOp, over ir.IterDomain, k kind, operands ...ir.Temp) ir.Temp {
 		n := ir.NewIter(bl.g.irNodePos(at), bl.f.NewTemp(), op, over, operands...)
@@ -430,7 +465,8 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	if method == "filter" {
 		return appendOp(t, ir.IterFilter, ir.IterOverSeq, result, src, args.temps[1]), result, false, true
 	}
-	if method == "reduce" {
+	if irSeededIterMethod(method) {
+		// The source, the seed at the accumulator's kind, then the callback.
 		operands := []ir.Temp{src}
 		seed := reduceSeed(t)
 		if signalling && seed != nil {
@@ -439,26 +475,33 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 			}
 			operands = append(operands, bl.ctlSeed)
 		} else {
-			v, k, _, ok := bl.lowerWant(seed, result)
+			v, k, _, ok := bl.lowerWant(seed, accK)
 			if !ok {
 				return no()
 			}
-			v, _, ok = bl.coerceEmpty(seed, v, k, result)
+			v, _, ok = bl.coerceEmpty(seed, v, k, accK)
 			if !ok {
 				return no()
 			}
 			operands = append(operands, v)
 		}
 		operands = append(operands, args.temps[1])
-		return appendOp(t, ir.IterReduce, ir.IterOverSeq, result, operands...), result, false, true
+		op := ir.IterReduce
+		switch method {
+		case "scan":
+			op = ir.IterScan
+		case "map_reduce":
+			op = ir.IterMapReduce
+		}
+		return appendOp(t, op, ir.IterOverSeq, result, operands...), result, false, true
 	}
 	return appendOp(t, ir.IterToList, ir.IterOverSeq, result, src), result, false, true
 }
 
-// reduceSeed is the initial accumulator an `Iter.reduce` call writes: its
-// callback lambda's first parameter default. The checker rejects a reduce
-// with no seed (checkReduceSeed), so nil here means a call this builder
-// declines.
+// reduceSeed is the initial accumulator an `Iter.reduce`, `Iter.scan` or
+// `Iter.map_reduce` call writes: its callback lambda's first parameter
+// default. The checker rejects such a call with no seed (checkReduceSeed),
+// so nil here means a call this builder declines.
 func reduceSeed(t *ast.Call) ast.Node {
 	if len(t.Args) != 2 {
 		return nil
@@ -470,7 +513,11 @@ func reduceSeed(t *ast.Call) ast.Node {
 	return lam.Params[0].Default
 }
 
-func (bl *irScalarBuilder) iterReduceCall(t *ast.Call) (ir.Temp, kind, bool, bool) {
+// iterReduceCall lowers a seeded `Iter.` call, method `reduce`, `scan` or
+// `map_reduce`. A reduce's signalling callback is lowered in the reduce form
+// `(acc, bool)`; a scan's or a map_reduce's in the adapter form, since each
+// emits per element and its `continue` emits nothing.
+func (bl *irScalarBuilder) iterReduceCall(t *ast.Call, method string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if len(t.Args) != 2 {
 		return no()
@@ -482,11 +529,14 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call) (ir.Temp, kind, bool, boo
 	if bl.reduceSeeds == nil {
 		bl.reduceSeeds = map[*ast.Lambda]bool{}
 	}
-	bl.reduceSeeds[lam] = true
+	bl.reduceSeeds[lam] = method != "map_reduce"
 	defer delete(bl.reduceSeeds, lam)
-	named := bl.reduceForwardee(lam)
+	var named *ast.Ident
+	if method == "reduce" {
+		named = bl.reduceForwardee(lam)
+	}
 	if named == nil && !callbackCarriesSignal(lam) {
-		return bl.iterCall(t, bl.irQualLowerArgs(t), "reduce")
+		return bl.iterCall(t, bl.irQualLowerArgs(t), method)
 	}
 	// The order is the source, then the seed at the accumulator's kind, then
 	// the widened callback, so the seed is evaluated before the callback is
@@ -497,8 +547,10 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call) (ir.Temp, kind, bool, boo
 		// itself, lowered in the reduce form by its own body
 		// (irNamedCtlForm), from the lambda's seed.
 		defer bl.markCtlRef(named, "reduce")()
-	} else {
+	} else if method == "reduce" {
 		defer bl.markCtl(lam, irCtlReduce)()
+	} else {
+		defer bl.markCtl(lam, irCtlAdapter)()
 	}
 	args := irQualArgs{temps: make([]ir.Temp, 2), kinds: make([]kind, 2), mobile: make([]bool, 2), ok: true}
 	src, sk, mobile, ok := bl.lower(t.Args[0])
@@ -546,7 +598,7 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call) (ir.Temp, kind, bool, boo
 	if bl.qualRecord == t {
 		bl.qualRecordArgs, bl.qualRecordSeen = args, true
 	}
-	return bl.iterCall(t, args, "reduce")
+	return bl.iterCall(t, args, method)
 }
 
 // reduceForwardee is the iter-sensitive module function a seeded reduce
