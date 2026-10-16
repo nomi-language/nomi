@@ -84,6 +84,14 @@ func irCompositeDistinctIn(d *typeDef, outer []*typeDef) bool {
 		(in.tag == tagFunc && irCallableValueKind(in)) || irNominalInner(in)
 }
 
+// irDeclaredDistinct is a `type Name Inner` declaration: a distinct
+// irDistinctCoinductive decides. A std host instance (`Vector<Tree>`) carries
+// the distinct flag too, for its rt-declared record, but it has no inner
+// kind; a walk decides it by its element, as it decides a List.
+func irDeclaredDistinct(k kind) bool {
+	return k.tag == tagNamed && k.def != nil && k.def.isDistinct && k.def.genHostOf == nil
+}
+
 // irDistinctCoinductive decides a distinct reached inside a walk: one the
 // walk is already deciding (on outer) is assumed retained, as
 // irNominalCoinductive assumes a struct or enum.

@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 361
-declared-cases 1098
+records 362
+declared-cases 1103
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1031,6 +1031,17 @@ T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defa
 T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi :: a field with no default is still required
 T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi :: a defaulted field is kept when it is named
 T test result: ok. 7 passed, 0 failed
+T
+C 07-structs-and-enums/vector_trees_test.nomi
+E 0
+N 5
+H 4bba65bf62aa01b06728055ea7238dc89b945c72a1fda4d06c4da9644d1e6e6e
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: an enum holds itself through a Vector
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: a Vector tree compares and hashes by value
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: a Vector tree grows by pushing a kid
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: a struct holds itself through a Vector
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: an enum and a struct hold each other through Vectors
+T test result: ok. 5 passed, 0 failed
 T
 C 08-pattern-matching/as_patterns_test.nomi
 E 0
