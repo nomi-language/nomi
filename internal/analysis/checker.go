@@ -11817,6 +11817,10 @@ func (c *checker) checkDistinctDestructure(n *ast.DistinctDestructure) Type {
 			c.report(e)
 			return TypeUnit
 		}
+		if et, isEnum := valTy.(*EnumType); isEnum && len(et.Variants) == 1 {
+			c.checkSingleVariantDestructure(n, et)
+			return TypeUnit
+		}
 		c.addError(n.Line, n.Col, fmt.Sprintf("distinct type destructure requires a distinct type, got %s", valTy))
 		return TypeUnit
 	}
@@ -11835,6 +11839,61 @@ func (c *checker) checkDistinctDestructure(n *ast.DistinctDestructure) Type {
 	}
 
 	return TypeUnit
+}
+
+// checkSingleVariantDestructure checks `E.V(x) = value` over an enum with one
+// variant. The pattern is irrefutable, as it is as a parameter (§5), and x
+// binds the variant's payload as a `case` arm's `E.V(x)` would: the payload
+// value, or the record of a struct-shaped variant's fields.
+func (c *checker) checkSingleVariantDestructure(n *ast.DistinctDestructure, et *EnumType) {
+	if qt, ok := n.TypeNameExpr.(*ast.QualifiedType); ok && !c.checkPatternQualifier(qt, et) {
+		return
+	}
+	if et.Opaque && (c.fa == nil || c.fa.FilePath != et.OwningSourceFile) {
+		c.addError(n.Line, n.Col, fmt.Sprintf(
+			"cannot destructure opaque type '%s' outside its defining module", et.Name))
+		return
+	}
+	v := &et.Variants[0]
+	name := variantNameOfDotted(n.TypeName)
+	if st, ok := n.TypeNameExpr.(*ast.SimpleType); ok {
+		pos := Pos{Line: st.Line, Col: st.Col}
+		if sym := c.fa.References[pos]; sym != nil && sym.Resolved != nil && sym.Resolved.Name != "" {
+			name = sym.Resolved.Name
+		}
+		if name == v.Name && !c.allowsBareVariantPattern(st.Name, pos) {
+			c.addError(st.Line, st.Col, bareVariantPatternMessage(st.Name, et.Name))
+			return
+		}
+	}
+	if name != v.Name {
+		c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("variant %s not found in enum %s", name, et.Name)}.WithHint(didYouMean(name, variantNames(et))))
+		return
+	}
+	subs := enumTypeArgSubs(et)
+	var payload Type
+	switch {
+	case v.DataType != nil:
+		payload = v.DataType
+		if subs != nil {
+			payload = Substitute(payload, subs)
+		}
+	case v.Kind == VariantStruct && len(v.Fields) > 0:
+		payload = variantFieldsRecord(v, subs)
+	case v.Kind == VariantEmbedded && v.Embedded != nil:
+		// A zero-sized embed's payload is the marker itself.
+		payload = v.Embedded
+	default:
+		c.addError(n.Line, n.Col, fmt.Sprintf(
+			"variant %s carries no data; use the bare pattern %s", v.Name, v.Name))
+		return
+	}
+	if n.Binding != nil {
+		if sym := c.fa.Definitions[Pos{Line: n.Binding.Line, Col: n.Binding.Col}]; sym != nil {
+			sym.Type = payload
+		}
+		c.notePatternBindings([]patternSite{{n.Binding.Name, Pos{Line: n.Binding.Line, Col: n.Binding.Col}}}, n.Value)
+	}
 }
 
 func distinctTypeNameMatches(patternName, actualName string) bool {

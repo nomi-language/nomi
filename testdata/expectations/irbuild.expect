@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 370
+records 371
 declared-cases 0
 failing 77
 C assert_subject_test.nomi@76e4dc034f8c1f74
@@ -6457,6 +6457,16 @@ N 0
 H 333a888acc2fcc97b74ec53cbd245abbd7b05ddcd41c90b8ea1d9ab6e4a1ead9
 T alpha = True
 T beta  = False
+T
+C internal/irbuild/testdata/single_variant_binding.nomi@e1dbc41fd83be83a
+E 0
+N 0
+H 1128b6fa3f19c89ea00990db06f9658922cd032f45e5f27b9a8ea5c6da0f37d8
+T 3
+T {a: 1, b: "x"}
+T held
+T Circle{r: 2}
+T ada
 T
 C internal/irbuild/testdata/sortscope/main.nomi@a24affb8bdbad1b4
 E 0

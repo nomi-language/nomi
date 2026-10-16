@@ -879,11 +879,6 @@ var mxCheckerRules = []mxCheckerRule{
 	{feature: "existential list", context: "Iter.loop callback", before: true, want: "list element type mismatch",
 		why: "`Some([1, \"a\"])` where a Maybe<List<Display>> is expected checks the list without its element type: " +
 			"a checker inconsistency, reported"},
-	{match: func(c mxCell) bool { return mxHas(c, "variant binding pattern") },
-		want: "distinct type destructure requires a distinct type",
-		why: "a single-variant enum's pattern is irrefutable, and the checker takes it apart as a " +
-			"parameter (`fn open(Only.One(p))`, §5) but rejects the same pattern as a binding " +
-			"(`Only.One(p) = Only.One(x)`), calling the enum a distinct type: a checker inconsistency, reported"},
 }
 
 // mxOutcome is what checking and running one cell found.
