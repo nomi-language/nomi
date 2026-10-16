@@ -14,6 +14,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"math"
 
 	"github.com/nomi-language/nomi/rt"
 )
@@ -29,22 +30,35 @@ func splitmix64(state uint64) (out uint64, next uint64) {
 	return z, state
 }
 
-// FFIBelow returns an unbiased integer in [0, n) and the advanced state.
-// Rejection sampling removes modulo bias. n < 1 has no valid answer; the
-// callers in std/random pass `to - from + 1` and never reach it, so it
-// reports the state unchanged with a zero value rather than inventing one.
-func FFIBelow(state, n int64) (value int64, next int64) {
-	if n < 1 {
-		return 0, state
+// FFIBetween returns an unbiased integer in the inclusive range [from, to]
+// and the advanced state. The caller has checked from <= to
+// (FFIRequireIntRange). The span is counted in uint64, so a range wider than
+// Int can hold, up to all of Int, draws without overflow: a range of all 2^64
+// values takes the raw output, and any other draws an offset below its width
+// by rejection sampling, which removes modulo bias, and adds it to from
+// modulo 2^64. A reversed range answers from with the state unchanged
+// rather than inventing a value.
+func FFIBetween(state, from, to int64) (value int64, next int64) {
+	if from > to {
+		return from, state
 	}
-	s := uint64(state)
-	un := uint64(n)
-	limit := ^uint64(0) - (^uint64(0) % un) // largest multiple of n that fits
+	span := uint64(to) - uint64(from) // the width minus one, exact in uint64
+	if span == ^uint64(0) {
+		z, advanced := splitmix64(uint64(state))
+		return int64(z), int64(advanced)
+	}
+	offset, s := below(uint64(state), span+1)
+	return int64(uint64(from) + offset), int64(s)
+}
+
+// below is an unbiased integer in [0, n) for n >= 1 and the advanced state.
+func below(s, n uint64) (uint64, uint64) {
+	limit := ^uint64(0) - (^uint64(0) % n) // largest multiple of n that fits
 	for {
 		z, advanced := splitmix64(s)
 		s = advanced
 		if z < limit {
-			return int64(z % un), int64(s)
+			return z % n, s
 		}
 	}
 }
@@ -67,13 +81,24 @@ func IntRangeText(from, to int64) string {
 }
 
 // FFIRequireFloatRange is std/random's `require_float_range`, the check
-// `Generator.float` makes: it traps unless from < to, which also refuses a
-// NaN bound, since NaN is less than nothing.
+// `Generator.float` makes: it traps unless both bounds are finite and
+// from < to, which also refuses a NaN bound, since NaN is less than nothing.
+// An infinite bound has no uniform draw, so it is refused rather than
+// answered with infinities or NaN.
 func FFIRequireFloatRange(from, to float64) rt.Unit {
+	if math.IsInf(from, 0) || math.IsInf(to, 0) {
+		rt.Trap(FloatBoundsText(from, to))
+	}
 	if !(from < to) {
 		rt.Trap(FloatRangeText(from, to))
 	}
 	return rt.Unit{}
+}
+
+// FloatBoundsText is the trap a `Generator.float` with an infinite bound
+// raises: `Generator.float: bounds must be finite, got -Inf and 1.0`.
+func FloatBoundsText(from, to float64) string {
+	return fmt.Sprintf("Generator.float: bounds must be finite, got %s and %s", rt.FormatFloat(from), rt.FormatFloat(to))
 }
 
 // FloatRangeText is the trap an empty `Generator.float` range raises:

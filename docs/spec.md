@@ -9422,8 +9422,10 @@ die = Generator.int(1, 6)
 itself. The caller chooses the bounds, so a range with nothing in it is a
 broken promise and traps (§17): `Generator.int(6, 1)` stops the program with
 `Generator.int: from 6 is greater than to 1`, and `Generator.float` traps
-unless `from < to` (a NaN bound included). Compare the bounds first when they
-come from data. `Generator.bool()`, `Generator.constant(value)`, and
+unless both bounds are finite and `from < to` (a NaN bound included). Compare
+the bounds first when they come from data. Every range that passes draws
+uniformly, the whole of `Int` and a Float range wider than a Float can span
+included. `Generator.bool()`, `Generator.constant(value)`, and
 `Generator.uniform(first, rest)` cannot fail.
 `Generator.weighted(first, rest)` returns
 `Result<random.Generator<T>, random.Error>` because weights are often data:

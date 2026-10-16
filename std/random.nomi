@@ -64,10 +64,11 @@ impl Seed {
     }
 }
 
-/// Unbiased integer in `[0, n)` plus the advanced state (host rejection
-/// sampling). The Go adapter returns two values, which the FFI boundary
-/// projects element-by-element into this tuple.
-host fn below_state(state: Int, n: Int): (Int, Int)
+/// Unbiased integer in the inclusive range `[from, to]` plus the advanced
+/// state (host rejection sampling over the span counted without overflow, so
+/// every range up to all of `Int` draws). The Go adapter returns two values,
+/// which the FFI boundary projects element-by-element into this tuple.
+host fn between_state(state: Int, from: Int, to: Int): (Int, Int)
 
 /// Float in `[0.0, 1.0)` plus the advanced state.
 host fn unit_float_state(state: Int): (Float, Int)
@@ -77,13 +78,13 @@ host fn os_state(): Result<Int, String>
 /// Traps unless `from <= to`, naming both bounds.
 host fn require_int_range(from: Int, to: Int): Unit
 
-/// Traps unless `from < to`, naming both bounds.
+/// Traps unless both bounds are finite and `from < to`, naming both bounds.
 host fn require_float_range(from: Float, to: Float): Unit
 
-/// Unbiased integer in `[0, n)` plus the next seed (host rejection sampling).
-/// Module-private -- the building block the public generators draw on.
-fn below(Seed(state), n: Int): (Int, Seed) {
-    (value, next) = below_state(state, n)
+/// Unbiased integer in `[from, to]` plus the next seed. Module-private -- the
+/// building block the public integer generators draw on.
+fn between(Seed(state), from: Int, to: Int): (Int, Seed) {
+    (value, next) = between_state(state, from, to)
     (value, Seed(next))
 }
 
@@ -118,12 +119,15 @@ impl Generator<T> {
 
     /// Uniform integer in the inclusive range `[from, to]`, which must hold
     /// `from <= to`. A reversed range traps: `Generator.int: from 6 is greater
-    /// than to 1`. Compare the bounds first when they come from data.
+    /// than to 1`. Compare the bounds first when they come from data. Any
+    /// range that passes draws, up to all of `Int`.
     //! die = Generator.int(1, 6)
     //! (roll, _) = Generator.step(die, Seed.from_int(123))
     //! assert roll >= 1 and roll <= 6
     //! (only, _) = Generator.step(Generator.int(4, 4), Seed.from_int(123))
     //! assert only == 4
+    //! (n, _) = Generator.step(Generator.int(-5, Int.max_value), Seed.from_int(7))
+    //! assert n >= -5
     //
     pub fn int(from: Int, to: Int): Generator<Int> {
         require_int_range(from, to)
@@ -131,11 +135,15 @@ impl Generator<T> {
     }
 
     /// Uniform float in the half-open range `[from, to)`, which must hold
-    /// `from < to`. Any other pair, a NaN bound included, traps:
-    /// `Generator.float: from 2.5 is not less than to 1.5`.
+    /// `from < to`, with both bounds finite. Any other pair, a NaN bound
+    /// included, traps: `Generator.float: from 2.5 is not less than to 1.5`,
+    /// or `Generator.float: bounds must be finite, got -Inf and 1.0`. Bounds
+    /// whose difference is too large for a Float still draw.
     //! gen = Generator.float(1.5, 2.5)
     //! (x, _) = Generator.step(gen, Seed.from_int(123))
     //! assert x >= 1.5 and x < 2.5
+    //! (wide, _) = Generator.step(Generator.float(-1.0e308, 1.0e308), Seed.from_int(7))
+    //! assert Float.finite?(wide)
     //
     pub fn float(from: Float, to: Float): Generator<Float> {
         require_float_range(from, to)
@@ -246,8 +254,7 @@ impl Generator<T> {
 fn unsafe_int(from: Int, to: Int): Generator<Int> {
     Generator{
         run: |seed| {
-            (offset, seed) = below(seed, to - from + 1)
-            (from + offset, seed)
+            between(seed, from, to)
         },
     }
 }
@@ -256,7 +263,15 @@ fn unsafe_float(from: Float, to: Float): Generator<Float> {
     Generator{
         run: |seed| {
             (f, seed) = unit_float(seed)
-            (from + f * (to - from), seed)
+            span = to - from
+
+            // Finite bounds whose difference overflows (`-1.0e308` to
+            // `1.0e308`) interpolate instead, where no term exceeds a bound.
+            if Float.finite?(span) {
+                (from + f * span, seed)
+            } else {
+                (from * (1.0 - f) + to * f, seed)
+            }
         },
     }
 }

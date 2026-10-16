@@ -377,7 +377,7 @@ random.nomi:Generator.int	ran
 random.nomi:Seed.from_int	ran
 random.nomi:Seed.from_os	ran
 random.nomi:Seed.inspect	ran
-random.nomi:below	ran
+random.nomi:between	ran
 random.nomi:unit_float	ran
 random.nomi:unsafe_float	ran
 random.nomi:unsafe_int	ran

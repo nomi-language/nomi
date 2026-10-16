@@ -246,7 +246,7 @@ func Names() []string {
 		"calendar.zoned_offset_nanos",
 		"calendar.zoned_parse_raw",
 		"calendar.zoned_with_zone_raw",
-		"random.below_state",
+		"random.between_state",
 		"random.os_state",
 		"random.require_float_range",
 		"random.require_int_range",
@@ -545,7 +545,7 @@ func Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 		"calendar.zoned_offset_nanos":          b.fn78,
 		"calendar.zoned_parse_raw":             b.fn79,
 		"calendar.zoned_with_zone_raw":         b.fn80,
-		"random.below_state":                   b.fn81,
+		"random.between_state":                 b.fn81,
 		"random.os_state":                      b.fn82,
 		"random.require_float_range":           b.fn83,
 		"random.require_int_range":             b.fn86,
@@ -2126,21 +2126,25 @@ func (b *bound) fn80(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn81 adapts random.below_state: below_state(state: Int, n: Int): (Int, Int)
+// fn81 adapts random.between_state: between_state(state: Int, from: Int, to: Int): (Int, Int)
 func (b *bound) fn81(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("random.below_state", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("random.below_state", 2, len(args))
+	defer hostadapt.Recover("random.between_state", &err)
+	if len(args) != 3 {
+		return nil, hostadapt.Arity("random.between_state", 3, len(args))
 	}
 	a0, err := b.in35(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("random.below_state", 0, err)
+		return nil, hostadapt.Arg("random.between_state", 0, err)
 	}
 	a1, err := b.in35(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("random.below_state", 1, err)
+		return nil, hostadapt.Arg("random.between_state", 1, err)
 	}
-	r0, r1 := stdrandom.FFIBelow(a0, a1)
+	a2, err := b.in35(fr, args[2])
+	if err != nil {
+		return nil, hostadapt.Arg("random.between_state", 2, err)
+	}
+	r0, r1 := stdrandom.FFIBetween(a0, a1, a2)
 	tup := b.d10.New()
 	tup.W[0] = rt.IntWord(int64(r0))
 	tup.W[1] = rt.IntWord(int64(r1))

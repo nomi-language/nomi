@@ -187,7 +187,7 @@ func Funcs() []Binding {
 		{Name: "calendar.zoned_offset_nanos", Fn: stdcalendar.FFIZonedOffsetNanos},
 		{Name: "calendar.zoned_parse_raw", Fn: stdcalendar.FFIZonedParse},
 		{Name: "calendar.zoned_with_zone_raw", Fn: stdcalendar.FFIZonedWithZone},
-		{Name: "random.below_state", Fn: stdrandom.FFIBelow},
+		{Name: "random.between_state", Fn: stdrandom.FFIBetween},
 		{Name: "random.os_state", Fn: stdrandom.FFIFromOS},
 		{Name: "random.require_float_range", Fn: stdrandom.FFIRequireFloatRange, PanicsPropagate: true},
 		{Name: "random.require_int_range", Fn: stdrandom.FFIRequireIntRange, PanicsPropagate: true},
