@@ -1,7 +1,5 @@
 package vmhost
 
-import "regexp"
-
 // matrixLoweringGaps are the gaps the feature × context matrix found
 // (feature_matrix_test.go): programs the front end accepts and the builder
 // declines or panics on, each pinned by a minimal reproducer. They join
@@ -275,31 +273,7 @@ fn main() {
 
 // matrixCheckerGaps are the expressions the matrix found the checker
 // leaving without a type. They join knownCheckerGaps.
-var matrixCheckerGaps = []checkerGap{
-	{
-		// The enum payload context once wrote `Has {a: Int, b: String}`, a
-		// struct variant, for an anonymous struct payload, and found this.
-		name: "gapStructVariantCallForm",
-		fix: "the record call form of a struct variant, `Pay.Has({a: 1, b: \"x\"})`, leaves its " +
-			"anonymous struct argument without a type. The program runs",
-		match: regexp.MustCompile(`^main\.nomi:9:\d+: StructLit in Call has no type recorded: .got = case Pay\.Has\(\{a: 1, b: "x"\}\) \{.$`),
-		src: `import std/io
-
-enum Pay {
-    Has {a: Int, b: String}
-    Gone
-}
-
-fn main() {
-    got = case Pay.Has({a: 1, b: "x"}) {
-        Pay.Has(p) -> p
-        Pay.Gone -> todo
-    }
-    io.inspect(got)
-}
-`,
-	},
-}
+var matrixCheckerGaps = []checkerGap{}
 
 func init() {
 	knownLoweringGaps = append(knownLoweringGaps, matrixLoweringGaps...)
