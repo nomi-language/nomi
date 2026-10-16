@@ -7,7 +7,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/game-of-life.
 ## Choices
 
 - The board is `Vector<Vector<Int>>` (`typealias Board`), with cells as the canonical `0` and `1`. A `Bool` or a `Cell` enum would read better in the solution, but the test grids of `#[1, 0, 1]` read as the board; `next_state` is the only place that knows `1` means alive.
-- Neighbours are counted by indexed reads (`cell_at`), with an off-board neighbour read as `None` and counted as dead by `Maybe.with_default(0)`. A `Set<(Int, Int)>` of live cells, as minesweeper uses, was the other natural form; I chose the vector because the input already is one and `Vector.at`'s `None` is exactly "off the board".
+- Neighbours are counted by indexed reads (`cell_at`), with an off-board neighbour read as `None` and counted as dead by `Maybe.with_default(0)`. A `Set<(Int, Int)>` of live cells, as minesweeper uses, was the other natural form; I chose the vector because the input already is one and `Vector.get`'s `None` is exactly "off the board".
 - The next generation is built by mapping over rows and cells with `Iter.with_index`, not by updating cells of a copy, so no indexed update is needed. This was the natural form, not a retreat from `Vector.set`.
 - The eight offsets are a `once` literal, as in minesweeper.
 - `next_state` is one `case` on `(cell, live_neighbours)` with the or-pattern `(1, 2) or (_, 3)`.
@@ -22,22 +22,11 @@ Adapted from Exercism problem-specifications (MIT), exercises/game-of-life.
 
 Two indexed reads, both in `cell_at` (`game_of_life.nomi:28`); no indexed update.
 
-| Read | Leftover `Maybe` ends up | Real use for `None`? |
+| Read | Result | Real use for `None`? |
 |---|---|---|
-| `try Vector.at(board, row)` | `cell_at`'s result, then `Maybe.with_default(0)` in `live_neighbours` | Yes: `row + dr` is -1 or the height at an edge |
-| `Vector.at(cells, column)` | same | Yes: `column + dc` is off the row at an edge |
+| `try Vector.get(board, row)` | `cell_at`'s result, then `Maybe.with_default(0)` in `live_neighbours` | Yes: `row + dr` is -1 or the height at an edge |
+| `Vector.get(cells, column)` | same | Yes: `column + dc` is off the row at an edge |
 
-Today `cell_at` is 4 lines, plus the `|> Maybe.with_default(0)` on the line that calls it.
+`cell_at` is 4 lines, plus the `|> Maybe.with_default(0)` on the line that calls it. Both reads keep `Vector.get`, because their `None` is the edge of the board.
 
-(a) A trapping accessor makes this longer: the bounds checks `Vector.at` does have to be written by hand, 6 lines:
-
-```nomi
-fn alive_at(board: Board, row: Int, column: Int): Int {
-    if row < 0 or row >= Vector.length(board) { return 0 }
-    cells = Vector.get(board, row)
-    if column < 0 or column >= Vector.length(cells) { return 0 }
-    Vector.get(cells, column)
-}
-```
-
-(b) An indexed nested update does not apply: nothing is updated.
+The trapping `Vector.at` was added as a result of the indexing exercises, and it does not fit here: with it, the bounds checks `Vector.get` does would be written by hand, 6 lines instead of 4.

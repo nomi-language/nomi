@@ -7,17 +7,16 @@ pub fn spiral_matrix(size: Int): Grid {
     empty_row = Iter.repeat(0) |> Iter.take(size) |> Iter.to_vector()
     grid = Iter.repeat(empty_row) |> Iter.take(size) |> Iter.to_vector()
 
-    fill(grid, (0, 0), (0, 1), 1, size * size) |> Maybe.with_default(grid)
+    fill(grid, (0, 0), (0, 1), 1, size * size)
 }
 
 /// Writes `value` at `position`, then moves on along `heading`, turning
 /// clockwise when the next square is off the grid or already written, until
-/// `last` is written. `None` if the walk steps off the grid, which it never
-/// does.
-fn fill(grid: Grid, position: (Int, Int), heading: (Int, Int), value: Int, last: Int): Maybe<Grid> {
-    if value > last { return Some(grid) }
+/// `last` is written.
+fn fill(grid: Grid, position: (Int, Int), heading: (Int, Int), value: Int, last: Int): Grid {
+    if value > last { return grid }
 
-    grid = try set_cell(grid, position, value)
+    grid = set_cell(grid, position, value)
 
     heading = if empty?(grid, step(position, heading)) {
         heading
@@ -46,9 +45,9 @@ fn cell_at(grid: Grid, (row, column): (Int, Int)): Maybe<Int> {
     Vector.get(cells, column)
 }
 
-/// `grid` with `value` at `position`, or `None` if `position` is off the
-/// grid.
-fn set_cell(grid: Grid, (row, column): (Int, Int), value: Int): Maybe<Grid> {
-    cells = try Vector.get(grid, row)
-    Some(Vector.set(grid, row, Vector.set(cells, column, value)))
+/// `grid` with `value` at `position`, which is on the grid: `fill` only
+/// steps onto a square `empty?` accepted.
+fn set_cell(grid: Grid, (row, column): (Int, Int), value: Int): Grid {
+    cells = Vector.at(grid, row) |> Vector.set(column, value)
+    Vector.set(grid, row, cells)
 }

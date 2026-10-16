@@ -17,15 +17,14 @@ pub fn saddle_points(matrix: Vector<Vector<Int>>): List<Position> {
         heights
         |> Iter.with_index()
         |> Iter.filter(|(column, height)| {
-            Some(height) == tallest and Vector.get(minima, column) == Some(height)
+            Some(height) == tallest and Vector.at(minima, column) == height
         })
         |> Iter.map(|(column, _height)| Position{row: row + 1, column: column + 1})
     })
     |> Iter.to_list()
 }
 
-/// The shortest height in each column. A ragged matrix, whose rows are not
-/// all the same width, has none, so it has no saddle points.
+/// The shortest height in each column.
 fn column_minima(matrix: Vector<Vector<Int>>): Vector<Int> {
     width = matrix |> Iter.first() |> Maybe.map(Vector.length) |> Maybe.with_default(0)
 
@@ -37,10 +36,7 @@ fn column_minima(matrix: Vector<Vector<Int>>): Vector<Int> {
 }
 
 fn column_minimum(matrix: Vector<Vector<Int>>, column: Int): Maybe<Int> {
-    heights =
-        matrix
-        |> Iter.map(|cells| Vector.get(cells, column))
-        |> try Maybe.collect()
-
-    Iter.min(heights)
+    matrix
+    |> Iter.map(|cells| Vector.at(cells, column))
+    |> Iter.min()
 }

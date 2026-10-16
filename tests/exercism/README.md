@@ -12,7 +12,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [acronym](acronym/NOTES.md): clean
 - [allergies](allergies/NOTES.md): clean
 - [anagram](anagram/NOTES.md): friction
-- [binary-search](binary-search/NOTES.md): friction
+- [binary-search](binary-search/NOTES.md): clean
 - [bob](bob/NOTES.md): friction
 - [clock](clock/NOTES.md): clean
 - [collatz-conjecture](collatz-conjecture/NOTES.md): clean
@@ -38,7 +38,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [run-length-encoding](run-length-encoding/NOTES.md): friction
 - [saddle-points](saddle-points/NOTES.md): friction
 - [sieve](sieve/NOTES.md): friction
-- [spiral-matrix](spiral-matrix/NOTES.md): friction
+- [spiral-matrix](spiral-matrix/NOTES.md): clean
 - [sum-of-multiples](sum-of-multiples/NOTES.md): clean
 - [transpose](transpose/NOTES.md): friction
 - [triangle](triangle/NOTES.md): clean

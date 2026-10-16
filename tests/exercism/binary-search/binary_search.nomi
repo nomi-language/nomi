@@ -16,10 +16,7 @@ fn search<T>(
     }
 
     middle = (low + high) / 2
-
-    Some(item) = Vector.get(items, middle) else {
-        return Err("value not in array")
-    }
+    item = Vector.at(items, middle)
 
     case Comparable.compare(value, item) {
         .Less -> search(items, value, low, middle)
