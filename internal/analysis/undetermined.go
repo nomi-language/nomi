@@ -29,6 +29,13 @@ import (
 //     `Iter.to_map`). `Result.collect`'s E is not made: an error is passed
 //     through, so `Result.collect([Ok(1)])` is determined enough.
 //
+// A callee also makes values of a type argument whose bound declares a
+// function that takes no value of the type: `Iter.sum`'s T is `Summable`,
+// whose `empty_sum()` makes a T from nothing, so `Iter.sum([])` makes one
+// with no element in hand. A bound whose every function takes a value of
+// the type (`Comparable`, `Display`) is called only on the elements, so
+// `Iter.max([])` makes none.
+//
 // Such a type argument still unsolved once every body in the file is
 // checked is an error. Variables are checked at the end because a later
 // statement may still fix them: `r = Result.collect([])` followed by
@@ -152,8 +159,12 @@ func (c *checker) checkUndeterminedTypeArgs() {
 
 // typeParamUsedAsValue reports whether ft makes values of tp: its
 // parameters mention tp inside a function type, or two or more levels inside
-// a parameter type while its result holds tp in a collection.
+// a parameter type while its result holds tp in a collection, or a bound of
+// tp declares a function that takes no value of it.
 func typeParamUsedAsValue(ft *FuncType, tp *TypeParam_) bool {
+	if boundCallsWithoutAValue(ft, tp) {
+		return true
+	}
 	nested := false
 	for _, p := range ft.Params {
 		inFunc, deep := typeParamPlaces(p, tp, 0, false)
@@ -163,6 +174,37 @@ func typeParamUsedAsValue(ft *FuncType, tp *TypeParam_) bool {
 		nested = nested || deep
 	}
 	return nested && typeParamCollected(ft.Return, tp, 0, false)
+}
+
+// boundCallsWithoutAValue reports whether a bound of tp declares a function
+// with no parameter of the bound's own type (`Summable.empty_sum()`,
+// `Variants.variants()`): a callee can call it, and so dispatch on tp, with
+// no value of tp in hand.
+func boundCallsWithoutAValue(ft *FuncType, tp *TypeParam_) bool {
+	bounds := tp.Bounds
+	for _, wb := range ft.WhereBounds {
+		if wb.Param == tp {
+			bounds = append(bounds[:len(bounds):len(bounds)], wb.Bounds...)
+		}
+	}
+	for _, iface := range bounds {
+		if iface == nil || iface.SelfParam == nil {
+			continue
+		}
+		for _, m := range iface.Methods {
+			takesSelf := false
+			for _, p := range m.Params {
+				if isSelfPositionParam(p, iface) {
+					takesSelf = true
+					break
+				}
+			}
+			if !takesSelf {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // typeParamPlaces reports whether t mentions tp inside a function type, and

@@ -244,6 +244,11 @@ var mxFeatures = []mxFeature{
 	{name: "range iter", typ: "Iter<Int>", expr: "1..=3 |> Iter.map(|n| n * n)",
 		obs: "Debug.inspect(Iter.to_list($v))", want: "[1, 4, 9]", tags: tagIter},
 	{name: "iter reduce", typ: "Int", expr: "[1, 2, 3] |> Iter.reduce(|acc = 0, n| acc + n)", want: "6"},
+	// `Summable.empty_sum()` makes a T with no element, so T must be
+	// determined: by the position over `[]`, or by the inner lists' List.
+	{name: "sum of an empty list", typ: "Int", expr: "Iter.sum([])", want: "0", tags: tagUntyped, reject: mxUnsolved},
+	{name: "sum of empty lists", typ: "List<Int>", expr: "Iter.sum([[]])", want: "[]", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
+	{name: "sum turbofish", typ: "Int", expr: "Iter.sum<Int>([])", want: "0", tags: tagCall},
 
 	// Expressions.
 	{name: "case", typ: "String", expr: "case 2 {\n    1 -> \"one\"\n    _ -> \"many\"\n}", want: `"many"`, tags: tagNested},
@@ -881,7 +886,32 @@ func (r mxCheckerRule) applies(c mxCell) bool {
 	return c.shell.name == r.context || c.place.name == r.context
 }
 
-var mxCheckerRules = []mxCheckerRule{}
+var mxCheckerRules = []mxCheckerRule{
+	{match: mxBindsWhollyOpen, want: mxUnsolved,
+		why: "`Iter.sum([])`'s whole type is the T nothing has fixed yet, and the context binds a generic " +
+			"type whose type argument is that T before anything fixes it"},
+}
+
+// mxBindsWhollyOpen matches the sum of an empty list inside a context
+// whose own unannotated binding has a generic type whose type argument is
+// the unsolved T (`Gbox<T>`, `List<T>`, `Task<T>`), before a context
+// outside it gives T. An empty list in the same place binds `List<List<?>>`,
+// whose open part is nested, which a binding accepts.
+func mxBindsWhollyOpen(c mxCell) bool {
+	if c.f.name != "sum of an empty list" {
+		return false
+	}
+	for _, w := range c.wraps {
+		switch w.name {
+		case "Iter.map callback", "concurrent task", "generic struct field":
+			return true
+		}
+		if w.typing == mxGives || w.typing == mxUnifies {
+			return false
+		}
+	}
+	return false
+}
 
 // mxOutcome is what checking and running one cell found.
 type mxOutcome struct {

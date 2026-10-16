@@ -40,21 +40,7 @@ type loweringGap struct {
 	src    string
 }
 
-var knownLoweringGaps = []loweringGap{
-	{
-		name: "gapSumAtAnOpenType",
-		fix: "checker: in `Iter.sum([]) == Iter.sum([])` nothing determines T, so its `Summable` " +
-			"bound is never checked and the builder reads the hole as Unit, which has no `+`. " +
-			"The call should be rejected as `Iter.flatten`'s undetermined type argument is",
-		reason: "stdlib instance iter.Iter.sum<Unit>: an arithmetic operand or its kind",
-		src: `import std/io
-
-fn main() {
-    io.print(Iter.sum([]) == Iter.sum([]))
-}
-`,
-	},
-}
+var knownLoweringGaps = []loweringGap{}
 
 // knownGapFor is the known gap every one of reasons matches, or nil.
 func knownGapFor(reasons []string) *loweringGap {
