@@ -37,7 +37,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [roman-numerals](roman-numerals/NOTES.md): clean
 - [run-length-encoding](run-length-encoding/NOTES.md): friction
 - [saddle-points](saddle-points/NOTES.md): friction
-- [sieve](sieve/NOTES.md): friction
+- [sieve](sieve/NOTES.md): clean
 - [spiral-matrix](spiral-matrix/NOTES.md): friction
 - [sum-of-multiples](sum-of-multiples/NOTES.md): clean
 - [transpose](transpose/NOTES.md): friction

@@ -13,4 +13,4 @@ Adapted from Exercism problem-specifications (MIT), exercises/sieve.
 
 ## Friction
 
-- [verbose] `nomi fmt` puts each element of a long `List<Int>` literal on its own line, so the 168 expected primes take 170 lines. `rustfmt` and `gleam format` fill short numeric elements across the width (`2, 3, 5, 7, 11, ...` on about ten lines).
+- [verbose] Fixed: `nomi fmt` put each element of a long `List<Int>` literal on its own line, so the 168 expected primes took 170 lines. It now fills number literals across the width, and they take 11.
