@@ -884,10 +884,6 @@ var mxCheckerRules = []mxCheckerRule{
 		why: "a single-variant enum's pattern is irrefutable, and the checker takes it apart as a " +
 			"parameter (`fn open(Only.One(p))`, §5) but rejects the same pattern as a binding " +
 			"(`Only.One(p) = Only.One(x)`), calling the enum a distinct type: a checker inconsistency, reported"},
-	{hole: true, match: func(c mxCell) bool {
-		return c.f.name == "dot variant" && len(c.wraps) > 0 && c.wraps[0].name == "binding" && mxLaterGives(c, 1)
-	}, why: "the checker accepts `b = .Circle(2.0)` in a block whose position expects a Shape (`once o: Shape = { b = .Circle(2.0); b }`), " +
-		"though a binding must be locally determined and the same line in a function body is rejected: a checker hole, reported"},
 }
 
 // mxOutcome is what checking and running one cell found.

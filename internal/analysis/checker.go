@@ -2834,10 +2834,26 @@ func (c *checker) checkBlockStmts(block *ast.Block) Type {
 	defer c.enterBlockImports(block)()
 	var last Type = TypeUnit
 	for i, stmt := range block.Stmts {
-		last = c.checkNode(stmt)
+		if i == len(block.Stmts)-1 {
+			last = c.checkNode(stmt)
+		} else {
+			last = c.checkStmtUnexpected(stmt)
+		}
 		c.checkNonFinalExprStmt(stmt, last, i == len(block.Stmts)-1)
 	}
 	return last
+}
+
+// checkStmtUnexpected checks a statement before a block's tail. The type
+// the block's position expects is its tail's, so it reaches no statement
+// before the tail: `b = .Circle(2.0)` there is a binding that must be
+// locally determined (§2) whatever the block's position expects, as it is in
+// a function body.
+func (c *checker) checkStmtUnexpected(stmt ast.Node) Type {
+	prevAt, prevEnum := c.expectedAt, c.expectedEnum
+	c.expectedAt, c.expectedEnum = nil, nil
+	defer func() { c.expectedAt, c.expectedEnum = prevAt, prevEnum }()
+	return c.checkNode(stmt)
 }
 
 // enterBlockImports checks the rest of block under blockImportRegistry's
@@ -3900,7 +3916,7 @@ func (c *checker) checkBlockExpectingReturn(block *ast.Block) Type {
 				continue
 			}
 		}
-		last = c.checkNode(stmt)
+		last = c.checkStmtUnexpected(stmt)
 		c.checkNonFinalExprStmt(stmt, last, false)
 	}
 	return last
@@ -3944,7 +3960,7 @@ func (c *checker) checkBlockExpecting(block *ast.Block, expected Type) Type {
 				continue
 			}
 		}
-		last = c.checkNode(stmt)
+		last = c.checkStmtUnexpected(stmt)
 		c.checkNonFinalExprStmt(stmt, last, false)
 	}
 	return last
