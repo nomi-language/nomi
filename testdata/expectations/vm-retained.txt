@@ -1234,6 +1234,10 @@ exercism/clock/clock.nomi:wrap	ran
 exercism/collatz-conjecture/collatz_conjecture.nomi:next	ran
 exercism/collatz-conjecture/collatz_conjecture.nomi:steps	ran
 exercism/etl/etl.nomi:transform	ran
+exercism/game-of-life/game_of_life.nomi:cell_at	PROBE: a synthesized argument is not a value of the declared type
+exercism/game-of-life/game_of_life.nomi:live_neighbours	PROBE: a synthesized argument is not a value of the declared type
+exercism/game-of-life/game_of_life.nomi:next_state	ran
+exercism/game-of-life/game_of_life.nomi:tick	PROBE: a synthesized argument is not a value of the declared type
 exercism/hamming/hamming.nomi:distance	ran
 exercism/isogram/isogram.nomi:isogram?	ran
 exercism/leap/leap.nomi:leap_year?	ran
@@ -1305,8 +1309,22 @@ exercism/run-length-encoding/run_length_encoding.nomi:decode	ran
 exercism/run-length-encoding/run_length_encoding.nomi:decode_run	ran
 exercism/run-length-encoding/run_length_encoding.nomi:encode	ran
 exercism/run-length-encoding/run_length_encoding.nomi:encode_run	ran
+exercism/saddle-points/saddle_points.nomi:Position.inspect	ran
+exercism/saddle-points/saddle_points.nomi:column_minima	PROBE: a synthesized argument is not a value of the declared type
+exercism/saddle-points/saddle_points.nomi:column_minimum	PROBE: a synthesized argument is not a value of the declared type
+exercism/saddle-points/saddle_points.nomi:saddle_points	PROBE: a synthesized argument is not a value of the declared type
 exercism/sieve/sieve.nomi:primes	ran
+exercism/spiral-matrix/spiral_matrix.nomi:cell_at	PROBE: a synthesized argument is not a value of the declared type
+exercism/spiral-matrix/spiral_matrix.nomi:empty?	PROBE: a synthesized argument is not a value of the declared type
+exercism/spiral-matrix/spiral_matrix.nomi:fill	PROBE: a synthesized argument is not a value of the declared type
+exercism/spiral-matrix/spiral_matrix.nomi:row_with	PROBE: a synthesized argument is not a value of the declared type
+exercism/spiral-matrix/spiral_matrix.nomi:set_cell	PROBE: a synthesized argument is not a value of the declared type
+exercism/spiral-matrix/spiral_matrix.nomi:spiral_matrix	ran
+exercism/spiral-matrix/spiral_matrix.nomi:step	ran
+exercism/spiral-matrix/spiral_matrix.nomi:turn	ran
 exercism/sum-of-multiples/sum_of_multiples.nomi:sum	ran
+exercism/transpose/transpose.nomi:padded_rows	ran
+exercism/transpose/transpose.nomi:transpose	ran
 exercism/triangle/triangle.nomi:Kind.inspect	ran
 exercism/triangle/triangle.nomi:equilateral?	ran
 exercism/triangle/triangle.nomi:isosceles?	ran

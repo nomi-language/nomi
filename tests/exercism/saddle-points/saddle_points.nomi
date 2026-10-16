@@ -1,0 +1,46 @@
+/// A tree's place in the grid, counting rows and columns from 1.
+pub struct Position {
+    row: Int
+    column: Int
+}
+
+/// The trees that are the tallest in their row and the shortest in their
+/// column, row by row and left to right.
+pub fn saddle_points(matrix: Vector<Vector<Int>>): List<Position> {
+    minima = column_minima(matrix)
+
+    matrix
+    |> Iter.with_index()
+    |> Iter.flat_map(|(row, heights)| {
+        tallest = Iter.max(heights)
+
+        heights
+        |> Iter.with_index()
+        |> Iter.filter(|(column, height)| {
+            Some(height) == tallest and Vector.at(minima, column) == Some(height)
+        })
+        |> Iter.map(|(column, _height)| Position{row: row + 1, column: column + 1})
+    })
+    |> Iter.to_list()
+}
+
+/// The shortest height in each column. A ragged matrix, whose rows are not
+/// all the same width, has none, so it has no saddle points.
+fn column_minima(matrix: Vector<Vector<Int>>): Vector<Int> {
+    width = matrix |> Iter.first() |> Maybe.map(Vector.length) |> Maybe.with_default(0)
+
+    0..width
+    |> Iter.map(|column| column_minimum(matrix, column))
+    |> Maybe.collect()
+    |> Maybe.with_default([])
+    |> Iter.to_vector()
+}
+
+fn column_minimum(matrix: Vector<Vector<Int>>, column: Int): Maybe<Int> {
+    heights =
+        matrix
+        |> Iter.map(|cells| Vector.at(cells, column))
+        |> try Maybe.collect()
+
+    Iter.min(heights)
+}

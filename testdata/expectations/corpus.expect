@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 353
-declared-cases 1074
+records 361
+declared-cases 1098
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -2989,6 +2989,27 @@ T ok <root>/tests/exercism/etl/etl_test.nomi :: multiple scores with multiple le
 T ok <root>/tests/exercism/etl/etl_test.nomi :: multiple scores with differing numbers of letters
 T test result: ok. 4 passed, 0 failed
 T
+C exercism/game-of-life/game_of_life.nomi
+E 1
+N 0
+H 19d77080c8ebcf611b7d46b0ee895acfd030882c1c3da3aad773fb54cd2191c5
+T --- stderr ---
+T nomi run: <root>/tests/exercism/game-of-life/game_of_life.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/game-of-life/game_of_life_test.nomi
+E 0
+N 8
+H 833bcfca4a2774be0094005abb020a083926a67ebc7b14d2b822c5272d7c50a8
+T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: empty matrix
+T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with zero live neighbors die
+T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with only one live neighbor die
+T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with two live neighbors stay alive
+T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with three live neighbors stay alive
+T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: dead cells with three live neighbors become alive
+T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with four or more neighbors die
+T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: bigger matrix
+T test result: ok. 8 passed, 0 failed
+T
 C exercism/hamming/hamming.nomi
 E 1
 N 0
@@ -3287,6 +3308,28 @@ T ok <root>/tests/exercism/run-length-encoding/run_length_encoding_test.nomi :: 
 T ok <root>/tests/exercism/run-length-encoding/run_length_encoding_test.nomi :: encode and then decode / encode followed by decode gives original string
 T test result: ok. 3 passed, 0 failed
 T
+C exercism/saddle-points/saddle_points.nomi
+E 1
+N 0
+H de5583c1cc6e1669d11be467e9e3d69dcf7aa641779c3000d7c3f70c315d150c
+T --- stderr ---
+T nomi run: <root>/tests/exercism/saddle-points/saddle_points.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/saddle-points/saddle_points_test.nomi
+E 0
+N 9
+H 9c5f53068ba6b2b5a053872674180e52018ca939a46fbb3baecf2c8600fffb08
+T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify single saddle point
+T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify that empty matrix has no saddle points
+T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify lack of saddle points when there are none
+T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify multiple saddle points in a column
+T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify multiple saddle points in a row
+T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify saddle point in bottom right corner
+T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify saddle points in a non square matrix
+T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify that saddle points in a single column matrix are those with the minimum value
+T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify that saddle points in a single row matrix are those with the maximum value
+T test result: ok. 9 passed, 0 failed
+T
 C exercism/sieve/sieve.nomi
 E 1
 N 0
@@ -3305,6 +3348,25 @@ T ok <root>/tests/exercism/sieve/sieve_test.nomi :: limit is prime
 T ok <root>/tests/exercism/sieve/sieve_test.nomi :: find primes up to 1000
 T test result: ok. 5 passed, 0 failed
 T
+C exercism/spiral-matrix/spiral_matrix.nomi
+E 1
+N 0
+H 495ed93c2eb1de8654a6cce60916078b49bdfc826a7a1ec1a011aee3fc561d32
+T --- stderr ---
+T nomi run: <root>/tests/exercism/spiral-matrix/spiral_matrix.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/spiral-matrix/spiral_matrix_test.nomi
+E 0
+N 6
+H 7ee2b5f82afe5509676c9da4380a6dbcbe8f3e848bc32eac31de378e7ce85459
+T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: empty spiral
+T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: trivial spiral
+T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral of size 2
+T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral of size 3
+T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral of size 4
+T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral of size 5
+T test result: ok. 6 passed, 0 failed
+T
 C exercism/sum-of-multiples/sum_of_multiples.nomi
 E 1
 N 0
@@ -3317,6 +3379,20 @@ E 0
 N 1
 H 9898944c886dd087810e45ab468bc28620abfb6dedd79c152f0221f6a09687bf
 T ok <root>/tests/exercism/sum-of-multiples/sum_of_multiples_test.nomi :: sums the multiples
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/transpose/transpose.nomi
+E 1
+N 0
+H f6d97ae51c86bb2923bbae043ce01fbe1887f542fbebd3d6d933c1f1d3d8b6f8
+T --- stderr ---
+T nomi run: <root>/tests/exercism/transpose/transpose.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/transpose/transpose_test.nomi
+E 0
+N 1
+H 8769893f755722ac8cb83bd66c4360d24acf1b25eecb40558401e58868ee618d
+T ok <root>/tests/exercism/transpose/transpose_test.nomi :: transpose
 T test result: ok. 1 passed, 0 failed
 T
 C exercism/triangle/triangle.nomi

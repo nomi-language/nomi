@@ -138,6 +138,7 @@ exercism/bob/bob_test.nomi
 exercism/clock/clock_test.nomi
 exercism/collatz-conjecture/collatz_conjecture_test.nomi
 exercism/etl/etl_test.nomi
+exercism/game-of-life/game_of_life_test.nomi
 exercism/hamming/hamming_test.nomi
 exercism/isogram/isogram_test.nomi
 exercism/leap/leap_test.nomi
@@ -156,8 +157,11 @@ exercism/rna-transcription/rna_transcription_test.nomi
 exercism/robot-simulator/robot_simulator_test.nomi
 exercism/roman-numerals/roman_numerals_test.nomi
 exercism/run-length-encoding/run_length_encoding_test.nomi
+exercism/saddle-points/saddle_points_test.nomi
 exercism/sieve/sieve_test.nomi
+exercism/spiral-matrix/spiral_matrix_test.nomi
 exercism/sum-of-multiples/sum_of_multiples_test.nomi
+exercism/transpose/transpose_test.nomi
 exercism/triangle/triangle_test.nomi
 exercism/two-fer/two_fer_test.nomi
 exercism/word-count/word_count_test.nomi

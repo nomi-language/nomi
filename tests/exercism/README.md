@@ -17,6 +17,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [clock](clock/NOTES.md): clean
 - [collatz-conjecture](collatz-conjecture/NOTES.md): clean
 - [etl](etl/NOTES.md): clean
+- [game-of-life](game-of-life/NOTES.md): friction
 - [hamming](hamming/NOTES.md): clean
 - [isogram](isogram/NOTES.md): clean
 - [leap](leap/NOTES.md): friction
@@ -35,8 +36,11 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [robot-simulator](robot-simulator/NOTES.md): friction
 - [roman-numerals](roman-numerals/NOTES.md): clean
 - [run-length-encoding](run-length-encoding/NOTES.md): friction
+- [saddle-points](saddle-points/NOTES.md): friction
 - [sieve](sieve/NOTES.md): friction
+- [spiral-matrix](spiral-matrix/NOTES.md): bug
 - [sum-of-multiples](sum-of-multiples/NOTES.md): clean
+- [transpose](transpose/NOTES.md): friction
 - [triangle](triangle/NOTES.md): clean
 - [two-fer](two-fer/NOTES.md): clean
 - [word-count](word-count/NOTES.md): clean
