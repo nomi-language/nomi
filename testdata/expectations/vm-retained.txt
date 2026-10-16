@@ -1272,7 +1272,6 @@ exercism/queen-attack/queen_attack.nomi:Error.inspect	ran
 exercism/queen-attack/queen_attack.nomi:Queen.can_attack?	ran
 exercism/queen-attack/queen_attack.nomi:Queen.inspect	ran
 exercism/queen-attack/queen_attack.nomi:Queen.new	ran
-exercism/queen-attack/queen_attack.nomi:distance	ran
 exercism/raindrops/raindrops.nomi:convert	ran
 exercism/reverse-string/reverse_string.nomi:reverse	ran
 exercism/rna-transcription/rna_transcription.nomi:complement	ran
