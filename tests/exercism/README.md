@@ -18,7 +18,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [collatz-conjecture](collatz-conjecture/NOTES.md): clean
 - [etl](etl/NOTES.md): clean
 - [hamming](hamming/NOTES.md): clean
-- [isogram](isogram/NOTES.md): friction
+- [isogram](isogram/NOTES.md): clean
 - [leap](leap/NOTES.md): friction
 - [list-ops](list-ops/NOTES.md): friction
 - [luhn](luhn/NOTES.md): friction
@@ -26,7 +26,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [minesweeper](minesweeper/NOTES.md): friction
 - [nucleotide-count](nucleotide-count/NOTES.md): clean
 - [pangram](pangram/NOTES.md): clean
-- [phone-number](phone-number/NOTES.md): friction
+- [phone-number](phone-number/NOTES.md): clean
 - [prime-factors](prime-factors/NOTES.md): clean
 - [queen-attack](queen-attack/NOTES.md): friction
 - [raindrops](raindrops/NOTES.md): clean

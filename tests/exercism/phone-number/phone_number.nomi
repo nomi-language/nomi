@@ -16,19 +16,15 @@ pub enum Error {
 pub fn clean(phrase: String): Result<String, Error> {
     codepoints = String.to_codepoints(phrase)
 
-    if Iter.any?(codepoints, letter?) {
+    if Iter.any?(codepoints, Codepoint.letter?) {
         return Err(.Letters)
     }
 
-    if !Iter.all?(codepoints, |cp| digit?(cp) or separator?(cp)) {
+    if !Iter.all?(codepoints, |cp| Codepoint.digit?(cp) or separator?(cp)) {
         return Err(.Punctuation)
     }
 
-    digits =
-        codepoints
-        |> Iter.filter(digit?)
-        |> Iter.map(|cp| Codepoint.to_int(cp) - Codepoint.to_int('0'))
-        |> Iter.to_list()
+    digits = codepoints |> Iter.map(Codepoint.to_digit) |> Maybe.values()
 
     digits = try national(digits)
 
@@ -52,14 +48,6 @@ fn national(digits: List<Int>): Result<List<Int>, Error> {
         _ when count == 11 -> Err(.CountryCodeNotOne)
         _ -> Err(.TooManyDigits)
     }
-}
-
-fn letter?(cp: Codepoint): Bool {
-    (cp >= 'a' and cp <= 'z') or (cp >= 'A' and cp <= 'Z')
-}
-
-fn digit?(cp: Codepoint): Bool {
-    cp >= '0' and cp <= '9'
 }
 
 fn separator?(cp: Codepoint): Bool {

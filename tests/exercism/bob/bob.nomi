@@ -13,7 +13,9 @@ pub fn response(remark: String): String {
     }
 }
 
-/// A remark is shouted when it has letters and none of them is lower case.
+/// A remark is shouted when it has an upper-case letter and no lower-case
+/// one.
 fn shouting?(remark: String): Bool {
-    String.to_upper(remark) == remark and String.to_lower(remark) != remark
+    codepoints = String.to_codepoints(remark)
+    Iter.any?(codepoints, Codepoint.upper?) and !Iter.any?(codepoints, Codepoint.lower?)
 }

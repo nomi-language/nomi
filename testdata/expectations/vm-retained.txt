@@ -1261,8 +1261,6 @@ exercism/nucleotide-count/nucleotide_count.nomi:counts	ran
 exercism/pangram/pangram.nomi:pangram?	ran
 exercism/phone-number/phone_number.nomi:Error.inspect	ran
 exercism/phone-number/phone_number.nomi:clean	ran
-exercism/phone-number/phone_number.nomi:digit?	ran
-exercism/phone-number/phone_number.nomi:letter?	ran
 exercism/phone-number/phone_number.nomi:national	ran
 exercism/phone-number/phone_number.nomi:separator?	ran
 exercism/prime-factors/prime_factors.nomi:factors	ran
