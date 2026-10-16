@@ -533,6 +533,14 @@
         "required": true,
         "types": [
           {
+            "type": "(",
+            "named": false
+          },
+          {
+            "type": ")",
+            "named": false
+          },
+          {
             "type": "+",
             "named": false
           },
@@ -658,6 +666,10 @@
           },
           {
             "type": "map_update",
+            "named": true
+          },
+          {
+            "type": "or_pattern",
             "named": true
           },
           {
@@ -2814,6 +2826,10 @@
         },
         {
           "type": "map_update",
+          "named": true
+        },
+        {
+          "type": "or_pattern",
           "named": true
         },
         {
@@ -4992,6 +5008,10 @@
           "named": true
         },
         {
+          "type": "or_pattern",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -5133,6 +5153,10 @@
         "multiple": false,
         "required": false,
         "types": [
+          {
+            "type": "binary_expression",
+            "named": true
+          },
           {
             "type": "call_expression",
             "named": true
@@ -5462,6 +5486,10 @@
         },
         {
           "type": "list_pattern",
+          "named": true
+        },
+        {
+          "type": "or_pattern",
           "named": true
         },
         {
@@ -6875,6 +6903,14 @@
         "required": true,
         "types": [
           {
+            "type": "(",
+            "named": false
+          },
+          {
+            "type": ")",
+            "named": false
+          },
+          {
             "type": "+",
             "named": false
           },
@@ -6928,6 +6964,10 @@
           },
           {
             "type": "list_pattern",
+            "named": true
+          },
+          {
+            "type": "or_pattern",
             "named": true
           },
           {
@@ -8401,6 +8441,10 @@
             "named": true
           },
           {
+            "type": "or_pattern",
+            "named": true
+          },
+          {
             "type": "struct_pattern",
             "named": true
           },
@@ -8875,6 +8919,10 @@
         },
         {
           "type": "list_pattern",
+          "named": true
+        },
+        {
+          "type": "or_pattern",
           "named": true
         },
         {
@@ -9642,6 +9690,118 @@
     }
   },
   {
+    "type": "or_pattern",
+    "named": true,
+    "fields": {
+      "alternative": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "(",
+            "named": false
+          },
+          {
+            "type": ")",
+            "named": false
+          },
+          {
+            "type": "+",
+            "named": false
+          },
+          {
+            "type": ",",
+            "named": false
+          },
+          {
+            "type": "-",
+            "named": false
+          },
+          {
+            "type": ".",
+            "named": false
+          },
+          {
+            "type": "_",
+            "named": false
+          },
+          {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
+            "type": "boolean",
+            "named": true
+          },
+          {
+            "type": "codepoint",
+            "named": true
+          },
+          {
+            "type": "decimal",
+            "named": true
+          },
+          {
+            "type": "dot_variant",
+            "named": true
+          },
+          {
+            "type": "enum_pattern",
+            "named": true
+          },
+          {
+            "type": "float",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "integer",
+            "named": true
+          },
+          {
+            "type": "list_pattern",
+            "named": true
+          },
+          {
+            "type": "or_pattern",
+            "named": true
+          },
+          {
+            "type": "pattern_field",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "struct_pattern",
+            "named": true
+          },
+          {
+            "type": "tuple_pattern",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
+            "named": true
+          },
+          {
+            "type": "{",
+            "named": false
+          },
+          {
+            "type": "}",
+            "named": false
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "parameter",
     "named": true,
     "fields": {
@@ -9663,6 +9823,10 @@
           },
           {
             "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "or_pattern",
             "named": true
           },
           {
@@ -10512,6 +10676,10 @@
         "required": true,
         "types": [
           {
+            "type": "binary_expression",
+            "named": true
+          },
+          {
             "type": "call_expression",
             "named": true
           },
@@ -10774,6 +10942,10 @@
         },
         {
           "type": "list_pattern",
+          "named": true
+        },
+        {
+          "type": "or_pattern",
           "named": true
         },
         {
@@ -13048,6 +13220,10 @@
           "named": true
         },
         {
+          "type": "or_pattern",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -13614,6 +13790,10 @@
             "named": true
           },
           {
+            "type": "or_pattern",
+            "named": true
+          },
+          {
             "type": "struct_pattern",
             "named": true
           },
@@ -13931,6 +14111,10 @@
           },
           {
             "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "or_pattern",
             "named": true
           },
           {
@@ -14459,6 +14643,10 @@
         },
         {
           "type": "list_pattern",
+          "named": true
+        },
+        {
+          "type": "or_pattern",
           "named": true
         },
         {

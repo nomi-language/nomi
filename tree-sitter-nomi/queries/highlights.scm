@@ -138,6 +138,9 @@
 (enum_pattern
   (identifier) @comment
   (#match? @comment "^\\s*_($|[^_])"))
+(or_pattern
+  (identifier) @comment
+  (#match? @comment "^\\s*_($|[^_])"))
 ; A map pattern's value; its key (`key => v`) is an expression and is read.
 (struct_pattern
   "=>" . (identifier) @comment
@@ -420,6 +423,10 @@
 ; Enum variant in a binding's else arms
 (else_arm
   . (type_identifier) @constructor)
+
+; A bare enum variant as an `or` alternative (`None or Some(0)`)
+(or_pattern
+  (type_identifier) @constructor)
 
 ; Enum variant constructor in enum_pattern (e.g., Wrapped(v) in case branches)
 (enum_pattern

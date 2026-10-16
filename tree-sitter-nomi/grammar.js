@@ -469,8 +469,17 @@ module.exports = grammar({
       $.tuple_pattern,
       $.struct_pattern,
       $.enum_pattern,
+      alias($._param_or_pattern, $.or_pattern),
       alias($._param_as_pattern, $.as_pattern),
     ),
+
+    // `.L(n) or .R(n)` in parameter position, whose alternatives together
+    // match every argument.
+    _param_or_pattern: $ => prec.left(2, seq(
+      field('alternative', $._param_pattern),
+      'or',
+      field('alternative', $._param_pattern),
+    )),
 
     // `(a, b) as pair` in parameter position: the parameter's pattern and a
     // name for the whole argument. The name is as_pattern's.
@@ -1194,7 +1203,9 @@ module.exports = grammar({
     // d` read as two statements, `Day` and the destructure `(n) = d`; the
     // dynamic precedence keeps that reading from winning.
     pattern_binding: $ => prec.dynamic(1, seq(
-      field('pattern', choice($.call_expression, $.struct_construction)),
+      // `.L(n) or .R(n) = t`: alternatives that together always match,
+      // spelled as the boolean `or` of their expression spellings.
+      field('pattern', choice($.call_expression, $.struct_construction, $.binary_expression)),
       '=',
       field('value', $._expression),
     )),
@@ -1218,6 +1229,9 @@ module.exports = grammar({
       $.list,
       $.tuple_expression,
       $.struct_construction,
+      // `.A(n) or .B(n) = e else { ... }`: alternatives in their
+      // expression spelling, which is the boolean `or`.
+      $.binary_expression,
     ),
 
     else_arms: $ => seq('{', repeat1(seq($.else_arm, optional($._statement_end))), '}'),
@@ -1254,7 +1268,15 @@ module.exports = grammar({
       seq($.type_identifier, repeat(seq(token.immediate('.'), $.type_identifier)), '{', commaSep($.pattern_field), '}'),
       $.enum_pattern,
       $.list_pattern,
+      alias($._else_arm_or_pattern, $.or_pattern),
       alias($._else_arm_as_pattern, $.as_pattern),
+    )),
+
+    // `Err(.Empty) or Err(.Blank) ->`, an else arm's alternatives.
+    _else_arm_or_pattern: $ => prec.left(2, seq(
+      field('alternative', $._else_arm_pattern),
+      'or',
+      field('alternative', $._else_arm_pattern),
     )),
 
     // `Err(.NotFound) as e ->`. Its pattern is an else arm's, not any case
@@ -1782,7 +1804,18 @@ module.exports = grammar({
       seq($.string, '+', $.identifier),
       // Negative literal: -1, -3.14, -1.50d
       seq('-', choice($.integer, $.float, $.decimal)),
+      $.or_pattern,
       $.as_pattern,
+      // Parentheses only group: `(.A(n) as a) or (.B(n) as a)`.
+      seq('(', $._case_pattern, ')'),
+    )),
+
+    // `A or B`: either alternative. `or` binds looser than every pattern
+    // construct but `as`, so `A or B as x` names the whole value.
+    or_pattern: $ => prec.left(2, seq(
+      field('alternative', $._case_pattern),
+      'or',
+      field('alternative', $._case_pattern),
     )),
 
     // `P as name`: P, and a name for the whole value it matched. `as` binds

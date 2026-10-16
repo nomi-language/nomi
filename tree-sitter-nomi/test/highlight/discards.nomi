@@ -239,6 +239,15 @@ fn shapes(shape: Shape): Int {
     }
 }
 
+fn alternatives(pair: (Int, Int)): Int {
+    case pair {
+        (0, _a) or (_a, 0) -> 0
+        //  ^ comment
+        //          ^ comment
+        _ -> 1
+    }
+}
+
 fn helper_use(): List<Int> {
     [1, 2] |> Iter.map(_helper) |> Iter.to_list()
     //                 ^ variable

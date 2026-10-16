@@ -266,6 +266,7 @@ func parityInputs(t *testing.T) []parityInput {
 // and, in a declaration's signature, before `{` and `where`.
 var lineBreakInputs = []parityInput{
 	{"minus", "fn main() {\n    x = a\n    -1\n}\n"},
+	{"or pattern broken after its or", "fn main() {\n    case n {\n        1 or\n            2 -> 0\n        _ -> 1\n    }\n}\n"},
 	{"paren after a name", "fn main() {\n    x = f\n    (2)\n}\n"},
 	{"paren after a call", "fn main() {\n    x = f(1)\n    (2)\n}\n"},
 	{"tuple after a destructure", "fn main() {\n    (a, b) = f()\n    (a, b)\n}\n"},
