@@ -105,6 +105,7 @@
 13-iterators-and-pipes/loop_control_test.nomi
 13-iterators-and-pipes/min_max_test.nomi
 13-iterators-and-pipes/pipe_lambda_test.nomi
+13-iterators-and-pipes/scan_map_reduce_test.nomi
 13-iterators-and-pipes/sort_keys_test.nomi
 13-iterators-and-pipes/string_iterators_test.nomi
 13-iterators-and-pipes/take_drop_test.nomi

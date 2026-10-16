@@ -144,13 +144,20 @@ func irSignallingCallback(owner, method string) bool {
 	switch owner {
 	case "Iter":
 		switch method {
-		case "reduce", "map", "filter", "take_while", "drop_while", "flat_map", "each", "iterate", "find", "any?", "all?":
+		case "reduce", "scan", "map_reduce", "map", "filter", "take_while", "drop_while", "flat_map", "each", "iterate", "find", "any?", "all?":
 			return true
 		}
 	case "Map":
 		return method == "map_values" || method == "map_keys"
 	}
 	return false
+}
+
+// irSeededIterMethod reports whether `Iter.method` takes its seed from its
+// callback lambda's first-parameter default: `reduce`, `scan` and
+// `map_reduce`.
+func irSeededIterMethod(method string) bool {
+	return method == "reduce" || method == "scan" || method == "map_reduce"
 }
 
 // irNamedCtlForm is the signalling form a named function's own body is lowered

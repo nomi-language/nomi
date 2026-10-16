@@ -179,20 +179,22 @@ func TestIRIter_SignallingIsRefusedWhereTheFrontEndHasNoSlot(t *testing.T) {
 			ir.NewIterSignalling(at, 1, op, ir.IterOverSeq, 2, 3)
 		})
 	}
-	// THE PLANT: the twelve the front end does sanction must be accepted.
+	// THE PLANT: the fourteen the front end does sanction must be accepted.
 	signalling := 0
 	for _, op := range iterOps() {
 		if op.HasSignallingForm() {
 			signalling++
 		}
 	}
-	if signalling != 12 {
+	if signalling != 14 {
 		t.Fatalf("%d operations declare a signalling form and the front end's "+
-			"iterCallbackSlots sanctions twelve of this class's; the guard above is "+
+			"iterCallbackSlots sanctions fourteen of this class's; the guard above is "+
 			"measuring the wrong set", signalling)
 	}
 	ir.NewIterSignalling(at, 1, ir.IterMap, ir.IterOverSeq, 2, 3)
 	ir.NewIterSignalling(at, 1, ir.IterReduce, ir.IterOverSeq, 2, 3, 4)
+	ir.NewIterSignalling(at, 1, ir.IterScan, ir.IterOverSeq, 2, 3, 4)
+	ir.NewIterSignalling(at, 1, ir.IterMapReduce, ir.IterOverSeq, 2, 3, 4)
 	ir.NewIterSignalling(at, 1, ir.IterDropWhile, ir.IterOverSeq, 2, 3)
 	ir.NewIterSignalling(at, 1, ir.IterFind, ir.IterOverSeq, 2, 3)
 	if !ir.NewIterSignalling(at, 1, ir.IterEach, ir.IterOverSeq, 2, 3).Signalling() {

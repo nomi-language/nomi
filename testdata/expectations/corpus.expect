@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 362
-declared-cases 1083
+records 363
+declared-cases 1091
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -2027,6 +2027,20 @@ T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: partial applications
 T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: bare dbg pipe stages inspect and pass through the previous value
 T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: pipes into dispatch functions preserve interface dispatch
 T test result: ok. 4 passed, 0 failed
+T
+C 13-iterators-and-pipes/scan_map_reduce_test.nomi
+E 0
+N 8
+H cda942d9139f601fba1a5c8c4d149df50fc621f5af27b500e39cd9cde506f63c
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan yields each state after the seed
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan over an empty source yields nothing
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan is lazy
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: a scan replays from its seed
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan supports break and continue
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: map_reduce answers the outputs and the final state
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: map_reduce over an empty source answers no outputs and the seed
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: map_reduce supports break and continue
+T test result: ok. 8 passed, 0 failed
 T
 C 13-iterators-and-pipes/sort_keys_test.nomi
 E 0

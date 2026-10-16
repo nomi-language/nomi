@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover.
-records 145
+records 146
 declared-cases 21
 failing 0
 C bindings-and-expressions.md:L116
@@ -567,7 +567,14 @@ T Rex says woof
 T Rex says woof
 T 42
 T
-C iteration-and-loops.md:L122
+C iteration-and-loops.md:L103
+E 0
+N 0
+H ae8c6c2ef494f9c60ed2078f6531e13621dd3431a16064acc777190c26094019
+T dbg line 10: partial_sum = 60
+T dbg line 21: evens_doubled = [4, 8]
+T
+C iteration-and-loops.md:L150
 E 0
 N 0
 H ecc62c9823f6792ebcff1b7e7d34fa71c123677c06aebe0169f70bb9eefe57a1
@@ -581,12 +588,11 @@ T dbg line 8: countdown = 0
 T dbg line 17: a = 89
 T dbg line 18: b = 144
 T
-C iteration-and-loops.md:L75
+C iteration-and-loops.md:L76
 E 0
 N 0
-H ae8c6c2ef494f9c60ed2078f6531e13621dd3431a16064acc777190c26094019
-T dbg line 10: partial_sum = 60
-T dbg line 21: evens_doubled = [4, 8]
+H 705c065f1a3c20be19bef8698b675a80529cdc10531725085cab506eec22c30b
+T dbg line 7: running = [3, 4, 8, 9, 14]
 T
 C modules-and-imports.md:L120
 E 0

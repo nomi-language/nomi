@@ -244,6 +244,13 @@ const (
 	IterSortWith
 	// IterSortBy stably sorts by a projected key.
 	IterSortBy
+	// IterScan is the lazy running fold: the source, the seed and the
+	// callback, emitting each state after the seed.
+	IterScan
+	// IterMapReduce is the eager fold that keeps an output per element:
+	// the source, the seed and the callback, answering the outputs and the
+	// final state.
+	IterMapReduce
 )
 
 // iterOpSpec is one operation's Nomi-level facts: how it is spelled, what it
@@ -342,6 +349,11 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	// ordering, then an optional `Direction`: Descending projects and
 	// compares (b, a), as std's `Iter.sort_by` does.
 	IterSortBy: {name: "sort_by", form: IterFormTerminal, min: 3, max: 4, over: overSeq},
+	// `scan` and `map_reduce` take the source, the seed and the callback,
+	// the seed lifted from the callback's first-parameter default as
+	// `reduce`'s is.
+	IterScan:      {name: "scan", form: IterFormStage, min: 3, max: 3, over: overSeq, signal: true},
+	IterMapReduce: {name: "map_reduce", form: IterFormTerminal, min: 3, max: 3, over: overSeq, signal: true},
 }
 
 // Name is the operation's Nomi spelling. `IterView` has none, because no

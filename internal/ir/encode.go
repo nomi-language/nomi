@@ -47,7 +47,7 @@ import (
 
 // FormatVersion is the version the encoder writes and the only one the
 // decoder reads. Bump it with any change to what is written.
-const FormatVersion = 22
+const FormatVersion = 23
 
 // formatMagic opens every encoded image.
 const formatMagic = "NOMIIR\x00"

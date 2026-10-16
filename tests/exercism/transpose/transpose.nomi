@@ -20,14 +20,13 @@ pub fn transpose(lines: List<String>): List<String> {
 /// to the width of the longest line from it to the end. The widths never grow
 /// down the rows, so the rows that reach a column are always the first ones.
 fn padded_rows(lines: List<String>): List<Vector<String>> {
-    (_width, rows) =
+    (rows, _width) =
         lines
         |> Iter.reverse()
-        |> Iter.reduce(|(width, rows) = (0, []), line| {
+        |> Iter.map_reduce(|width = 0, line| {
             width = Int.max(width, String.length(line))
-            row = line |> String.pad_end(width) |> Iter.to_vector()
-            (width, [row, ..rows])
+            (line |> String.pad_end(width) |> Iter.to_vector(), width)
         })
 
-    rows
+    Iter.reverse(rows)
 }
