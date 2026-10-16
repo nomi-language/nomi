@@ -86,7 +86,7 @@ func (bl *irScalarBuilder) subtestsRowFunc(t *ast.Subtests, rowK kind) (ir.Temp,
 		g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl,
 		bound: map[string]ir.Temp{}, boundK: map[string]kind{},
 		inTest: true, testApp: bl.testApp, testWalked: true,
-		root: body, subtestsRow: true,
+		root: body, subtestsRow: true, deferOK: true,
 	}
 	defer bl.g.enterBlockTypes(body)()
 	param := bl.g.irAddParam(f, sh.localSym("|row"), rowK)

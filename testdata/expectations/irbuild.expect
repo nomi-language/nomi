@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 368
+records 369
 declared-cases 0
-failing 76
+failing 77
 C assert_subject_test.nomi@76e4dc034f8c1f74
 E 1
 N 0
@@ -1129,6 +1129,104 @@ T         = 4
 T       same(n)
 T         = 4
 T test result: FAILED. 2 passed, 1 failed
+T
+C control_test.nomi@c263d5702b997edc
+E 1
+N 0
+H c73ad2ab4ee3b888cfe353b4b0bfef9d146736636d3eeafb0c5095950209b2c0
+S -- control_test.nomi 1058 --
+S import std/io
+S
+S test "an if arm" {
+S   x = if True {
+S     defer io.print("if arm ends")
+S     io.print("in if arm")
+S     1
+S   } else {
+S     2
+S   }
+S   io.print("after if")
+S   assert x == 1
+S }
+S
+S test "nested case arms" {
+S   x = case 1 {
+S     1 -> {
+S       defer io.print("outer arm ends")
+S       y = case 2 {
+S         2 -> {
+S           defer io.print("inner arm ends")
+S           10
+S         }
+S         _ -> 0
+S       }
+S       y + 1
+S     }
+S     _ -> 0
+S   }
+S   assert x == 11
+S }
+S
+S test "a loop callback's arm" {
+S   n = Iter.loop(|n = 0| {
+S     case n {
+S       2 -> {
+S         defer io.print("break arm ends")
+S         break n
+S       }
+S       _ -> {
+S         defer io.print("next arm ends")
+S         n + 1
+S       }
+S     }
+S   })
+S   assert n == 2
+S }
+S
+S test "subtests rows" {
+S   subtests [1, 2], n {
+S     x = if n == 1 {
+S       defer io.print("row one ends")
+S       1
+S     } else {
+S       defer io.print("row two ends")
+S       n
+S     }
+S     assert x == n
+S   }
+S }
+S
+S test "a failed assertion in the arm" {
+S   x = if True {
+S     defer io.print("released on failure")
+S     assert False
+S     1
+S   } else {
+S     2
+S   }
+S   assert x == 1
+S }
+S
+S
+T ok <dir>/control_test.nomi :: an if arm
+T   in if arm
+T   if arm ends
+T   after if
+T ok <dir>/control_test.nomi :: nested case arms
+T   inner arm ends
+T   outer arm ends
+T ok <dir>/control_test.nomi :: a loop callback's arm
+T   next arm ends
+T   next arm ends
+T   break arm ends
+T ok <dir>/control_test.nomi :: subtests rows
+T   row one ends
+T   row two ends
+T FAIL <dir>/control_test.nomi :: a failed assertion in the arm
+T   released on failure
+T   line 65: assertion failed
+T     assert False
+T test result: FAILED. 4 passed, 1 failed
 T
 C control_test.nomi@d051e70e05c42d5b
 E 1

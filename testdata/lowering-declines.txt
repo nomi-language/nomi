@@ -821,24 +821,24 @@ b	gen.irTestBodyBuild | note | "a case the builder refused: " + c.refusedBy#1	ir
 b	gen.irTestBodyBuild | note | "an empty test body"#1	irtestbody.go:147	-	checker rejects: "test block must contain at least one assert or refute"
 b	gen.irTestBodyBuild | note | "a test on a synthesized line"#1	irtestbody.go:150	-	defensive fence: only synthesized test cases have a non-emittable line; source tests always have one
 a	gen.irTestBodyBuild | note | "a `group` setup outside the retained shape"#1	irtestbody.go:155	irbuild	
-c	irScalarBuilder.testStmts | note | "a test-body region that leaves, outside the shape"#1	irtestbody.go:365	-	pinned as gapSetupLeavingBinding (reason: a test-body region that leaves, outside the shape)
-a	irScalarBuilder.testStmts | note | fmt.Sprintf("a test-body statement outside the shape: %T", s)#1	irtestbody.go:374	irbuild,vmhost	
-a	irScalarBuilder.testLeaving | false | unguarded#1	irtestbody.go:416	expect,irbuild,projectgen,vmhost	
-a	irScalarBuilder.testLeaving | false | isStmt && region == e && !endless#1	irtestbody.go:424	irbuild	
--	irScalarBuilder.testLeaving | false | bl.recording > 0#1	irtestbody.go:428	-	
-b	irScalarBuilder.testStmt | false | !emittableLine(line)#1	irtestbody.go:473	-	defensive fence: source statements always carry an emittable line
-b	irScalarBuilder.testStmt | false | isNilNode(st.Expr)#1	irtestbody.go:518	-	defensive fence: the parser never builds an ExprStmt with a nil expression
-c	irScalarBuilder.testStmt | note | fmt.Sprintf("a test-body statement form: %T", s)#1	irtestbody.go:541	-	pinned as gapTestLocalImpl (reason: a test-body statement form: *ast.ImplBlock)
-b	irScalarBuilder.testReturn | note | "a return in a test body the builder reads back"#1	irtestbody.go:558	-	defensive fence: testStmt is only reached from test-body statement runs, never while an assertion subject is recording (subject blocks go through leading, not testStmt)
-b	irScalarBuilder.testRegion | note | "an `if` or `case` statement in a test body the builder reads back"#1	irtestbody.go:611	-	defensive fence: same as line 556
-b	irScalarBuilder.testBlock | note | "a test-body block in a body the builder reads back"#1	irtestbody.go:630	-	defensive fence: same as line 556
-b	irScalarBuilder.testBinding | note | "an annotated or discarded test-body binding"#1	irtestbody.go:719	-	defensive fence: testBinding is only reached from testStmt, whose builders (test body, setup, subtests row) all have inTest set, and a discard is handled above
-d	irScalarBuilder.testBinding | note | "a test-body binding that shadows or rebinds: " + b.Name#1	irtestbody.go:730	-	shadowing a `once` and rebinding setup/row pattern names all lowered; could not find a name g.lookup sees that the checker lets a test binding reuse
--	irScalarBuilder.testBinding | note | "an annotated pipe binding whose value is not the annotation's type: " + k.nomi() + " vs "…#1	irtestbody.go:749	-	
-c	irScalarBuilder.testAssertionBinding | note | "a test-body binding that shadows or rebinds: " + b.Name#1	irtestbody.go:794	-	pinned as gapTestAssertionBindingRebind (reason: a test-body binding that shadows or rebinds: v)
-c	irScalarBuilder.testPipeStages | note | "a defined-as block over a pipe whose stages are not its spine"#1	irtestbody.go:838	-	pinned as gapTestPipeBindingNestedPipe (reason: a defined-as block over a pipe whose stages are not its spine)
-b	irScalarBuilder.assertionValue | false | t.Check ¦¦ isNilNode(t.Expr)#1	irtestbody.go:902	-	defensive fence: nothing in the parser or analysis sets Assertion.Check, and the parser requires an expression
-d	irScalarBuilder.assertionValue | note | "an assertion subject that is not a Bool, Maybe, Result or retained Assertable"#1	irtestbody.go:930	-	could not find an Assertable subject type that is not retained
+c	irScalarBuilder.testStmts | note | "a test-body region that leaves, outside the shape"#1	irtestbody.go:370	-	pinned as gapSetupLeavingBinding (reason: a test-body region that leaves, outside the shape)
+a	irScalarBuilder.testStmts | note | fmt.Sprintf("a test-body statement outside the shape: %T", s)#1	irtestbody.go:379	irbuild,vmhost	
+a	irScalarBuilder.testLeaving | false | unguarded#1	irtestbody.go:421	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.testLeaving | false | isStmt && region == e && !endless#1	irtestbody.go:429	irbuild	
+-	irScalarBuilder.testLeaving | false | bl.recording > 0#1	irtestbody.go:433	-	
+b	irScalarBuilder.testStmt | false | !emittableLine(line)#1	irtestbody.go:478	-	defensive fence: source statements always carry an emittable line
+b	irScalarBuilder.testStmt | false | isNilNode(st.Expr)#1	irtestbody.go:523	-	defensive fence: the parser never builds an ExprStmt with a nil expression
+c	irScalarBuilder.testStmt | note | fmt.Sprintf("a test-body statement form: %T", s)#1	irtestbody.go:546	-	pinned as gapTestLocalImpl (reason: a test-body statement form: *ast.ImplBlock)
+b	irScalarBuilder.testReturn | note | "a return in a test body the builder reads back"#1	irtestbody.go:563	-	defensive fence: testStmt is only reached from test-body statement runs, never while an assertion subject is recording (subject blocks go through leading, not testStmt)
+b	irScalarBuilder.testRegion | note | "an `if` or `case` statement in a test body the builder reads back"#1	irtestbody.go:616	-	defensive fence: same as line 556
+b	irScalarBuilder.testBlock | note | "a test-body block in a body the builder reads back"#1	irtestbody.go:635	-	defensive fence: same as line 556
+b	irScalarBuilder.testBinding | note | "an annotated or discarded test-body binding"#1	irtestbody.go:724	-	defensive fence: testBinding is only reached from testStmt, whose builders (test body, setup, subtests row) all have inTest set, and a discard is handled above
+d	irScalarBuilder.testBinding | note | "a test-body binding that shadows or rebinds: " + b.Name#1	irtestbody.go:735	-	shadowing a `once` and rebinding setup/row pattern names all lowered; could not find a name g.lookup sees that the checker lets a test binding reuse
+-	irScalarBuilder.testBinding | note | "an annotated pipe binding whose value is not the annotation's type: " + k.nomi() + " vs "…#1	irtestbody.go:754	-	
+c	irScalarBuilder.testAssertionBinding | note | "a test-body binding that shadows or rebinds: " + b.Name#1	irtestbody.go:799	-	pinned as gapTestAssertionBindingRebind (reason: a test-body binding that shadows or rebinds: v)
+c	irScalarBuilder.testPipeStages | note | "a defined-as block over a pipe whose stages are not its spine"#1	irtestbody.go:843	-	pinned as gapTestPipeBindingNestedPipe (reason: a defined-as block over a pipe whose stages are not its spine)
+b	irScalarBuilder.assertionValue | false | t.Check ¦¦ isNilNode(t.Expr)#1	irtestbody.go:907	-	defensive fence: nothing in the parser or analysis sets Assertion.Check, and the parser requires an expression
+d	irScalarBuilder.assertionValue | note | "an assertion subject that is not a Bool, Maybe, Result or retained Assertable"#1	irtestbody.go:935	-	could not find an Assertable subject type that is not retained
 a	gen.irTestGroup | note | "a test boot that names no entry boot this program lowers"#1	irtestgroup.go:44	irbuild	
 b	gen.irTestStartup | note | "a test boot line that does not pass at most one Startup"#1	irtestgroup.go:105	-	checker rejects: a boot line must call an entry's boot ("`boot` in a `group` calls an entry's boot"), and boot takes at most one Startup
 b	gen.irTestStartup | note | "a test boot line that passes no Startup to a boot whose parameter has no default"#1	irtestgroup.go:120	-	checker rejects: "expected 1 arguments, got 0" for `boot app.boot()` when the parameter has no default

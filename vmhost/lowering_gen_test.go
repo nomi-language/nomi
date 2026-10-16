@@ -1967,7 +1967,7 @@ func (g *gen) holdBlock() string {
 // `defer`s, each run when its invocation or iteration ends (by its end,
 // `return`, `break`, `continue` or `try`), or, at file level, an `equal?`
 // that compares fields of its own type with `==`.
-func (g *gen) deferBlock(asTest bool) string {
+func (g *gen) deferBlock() string {
 	r := g.dfr
 	g.fdn++
 	name := func(s string) string { return fmt.Sprintf("%s%dd", s, g.fdn) }
@@ -1989,11 +1989,6 @@ func (g *gen) deferBlock(asTest bool) string {
 		fmt.Fprintf(&out, "%s: Result<Int, String> = %s(%d)\n", name("dv"), name("dr"), n+r.Intn(3))
 		fmt.Fprintf(&out, "io.inspect(%s)\n", name("dv"))
 	case 4:
-		if asTest {
-			// A test body declines a `defer` in an arm block (a known
-			// gap outside loops too), so only a function body gets one.
-			break
-		}
 		fmt.Fprintf(&out, "_ = Iter.loop(|n = 0| {\ndefer io.print(\"leave\")\ncase n {\n%d -> {\ndefer io.print(\"arm\")\nbreak n\n}\n_ -> {\ndefer io.print(\"next\")\nn + 1\n}\n}\n})\n", n)
 	default:
 		if g.local {
@@ -2080,7 +2075,7 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 			body.WriteString(boundedBlock(g.holdBlock()))
 		}
 		if g.dfr.Intn(3) == 0 {
-			body.WriteString(boundedBlock(g.deferBlock(asTest)))
+			body.WriteString(boundedBlock(g.deferBlock()))
 		}
 		if g.leave.Intn(3) == 0 {
 			body.WriteString(boundedBlock(g.leaveBlock()))

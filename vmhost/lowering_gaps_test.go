@@ -41,26 +41,6 @@ type loweringGap struct {
 
 var knownLoweringGaps = []loweringGap{
 	{
-		name: "gapDeferInTestValueArm",
-		fix: "builder: a `defer` in the block arm of an `if` or `case` used as a value in a test " +
-			"body. A test body's builder admits no ordinary defer scope (deferOK), so armInto " +
-			"opens none and the defer declines; the same arm in a function or lambda body runs. " +
-			"The lowering generator's deferBlock writes its defer-in-arm shape only outside tests",
-		reason: "a defer outside the own statements of a body, a block or a loop callback",
-		src: `import std/io
-
-test "a defer in a value arm" {
-    x = if True {
-        defer io.print("arm")
-        1
-    } else {
-        2
-    }
-    assert x == 1
-}
-`,
-	},
-	{
 		name: "gapPartialDefaultBeforeLaterPlaceholder",
 		fix: "builder: a partial application whose open slot has a computed default that reads an " +
 			"earlier slot of the callee left open by a placeholder written after it, as in " +

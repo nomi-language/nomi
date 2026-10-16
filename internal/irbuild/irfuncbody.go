@@ -62,8 +62,8 @@ type irScalarBuilder struct {
 	stalledStmt ast.Node
 	// defaultScope excludes caller locals while lowering callee defaults.
 	defaultScope bool
-	// deferOK admits `defer` and scoped block statements: only a named
-	// function's own body retains them. deferScope is the scope the next
+	// deferOK admits `defer` and scoped block statements: a named function's
+	// body, a lambda's and a test case's retain them. deferScope is the scope the next
 	// `leading` run registers deferred calls in, and defers counts the ids
 	// handed out. See irdefer.go.
 	deferOK    bool

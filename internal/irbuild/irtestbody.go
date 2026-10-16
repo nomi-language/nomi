@@ -316,6 +316,11 @@ func (g *gen) irTestBodyAttempt(c testCaseDecl, name string, group ir.TestGroup,
 		bound: map[string]ir.Temp{}, boundK: map[string]kind{},
 		inTest: true, testApp: group.Boot != nil, testWalked: walked,
 		root: c.body,
+		// A block lowered as a value (an arm of an `if` or `case` used as a
+		// value, `x = { ... }`) opens its own defer scope, as it does in a
+		// function body; the body's own statements register in
+		// testDeferScope.
+		deferOK: true,
 	}
 	// Types the body declares resolve by name for the extent of the body,
 	// as they do for the front end (blocklocaltype.go).

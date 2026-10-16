@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/vm"
@@ -420,5 +421,98 @@ fn main() {
 	}
 	if got := vmReference(path); got.exit != 1 || got.stdout != stdout || got.stderr != fault+"\n" {
 		t.Fatalf("vm command: %s", got)
+	}
+}
+
+// A block lowered as a value in a test body (an arm of an `if` or `case`
+// used as a value, an arm nested in one, a subtests row's arm, an arm of an
+// `Iter.loop` callback) runs its deferred calls when that block ends, and
+// on a failed assertion inside it, as it does in a function body.
+func TestIRDefer_ATestBodyValueArmRunsItsDeferredCalls(t *testing.T) {
+	const src = `import std/io
+
+test "an if arm" {
+  x = if True {
+    defer io.print("if arm ends")
+    io.print("in if arm")
+    1
+  } else {
+    2
+  }
+  io.print("after if")
+  assert x == 1
+}
+
+test "nested case arms" {
+  x = case 1 {
+    1 -> {
+      defer io.print("outer arm ends")
+      y = case 2 {
+        2 -> {
+          defer io.print("inner arm ends")
+          10
+        }
+        _ -> 0
+      }
+      y + 1
+    }
+    _ -> 0
+  }
+  assert x == 11
+}
+
+test "a loop callback's arm" {
+  n = Iter.loop(|n = 0| {
+    case n {
+      2 -> {
+        defer io.print("break arm ends")
+        break n
+      }
+      _ -> {
+        defer io.print("next arm ends")
+        n + 1
+      }
+    }
+  })
+  assert n == 2
+}
+
+test "subtests rows" {
+  subtests [1, 2], n {
+    x = if n == 1 {
+      defer io.print("row one ends")
+      1
+    } else {
+      defer io.print("row two ends")
+      n
+    }
+    assert x == n
+  }
+}
+
+test "a failed assertion in the arm" {
+  x = if True {
+    defer io.print("released on failure")
+    assert False
+    1
+  } else {
+    2
+  }
+  assert x == 1
+}
+`
+	out := irTestBodyVM(t, src, 5)
+	for _, want := range []string{
+		"  in if arm\n  if arm ends\n  after if\n",
+		"  inner arm ends\n  outer arm ends\n",
+		"  next arm ends\n  next arm ends\n  break arm ends\n",
+		"  row one ends\n",
+		"  row two ends\n",
+		"  released on failure\n",
+		"assertion failed",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the report lacks %q:\n%s", want, out)
+		}
 	}
 }
