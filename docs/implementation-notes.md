@@ -89,10 +89,23 @@ columns (`textWidth`), with no alignment into columns; an element wider
 than a line takes a line of its own. It is decided when the list renders,
 from the indent its elements start at (`filledList` in
 `internal/format/fill_list.go`), so it depends on the syntax tree and the
-list's position, never on how the input laid the list out. A list in a
-compound-depth cascade (`emitChildMustBreak`) is still written one element
-per line. The derive and impl conformance lists pack their entries with the
-same function (`packGreedy`).
+list's position, never on how the input laid the list out. The derive and
+impl conformance lists pack their entries with the same function
+(`packGreedy`).
+
+## Formatter: compound depth
+
+A list, vector, set, map or struct literal, or a list, map or struct
+pattern, three compound levels deep breaks one element per line even when it
+fits, since three levels of brackets on one line are hard to match up
+(`maxCompoundDepth` and `compoundDepth` in `internal/format/emit.go`). Each
+of those literals and patterns adds a level. A call (`Ok(...)`), an enum
+pattern's payload, a tuple, an `as` or `or` pattern and parentheses add
+none but pass their contents' depth through, so `[("a", #[#[0, 1]])]` is
+three deep. Only the literal or pattern that reaches the depth breaks for
+it: its elements are laid out on their own merits, by width and by their
+own depth, so `[R{p: P{x: 0, y: 0}, n: 1}]` breaks the list and keeps
+`R{p: P{x: 0, y: 0}, n: 1}` on one line inside it.
 
 ## Formatter: comments in lists
 

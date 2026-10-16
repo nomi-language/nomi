@@ -307,12 +307,12 @@ func mapPatternKeys(entries []ast.MapPatternEntry) []ast.Node {
 // reads them as the item's own. Written at the pattern instead, a comment
 // after it is a LineSuffix, which below an arm that ends in a comment
 // leaves the arm.
-func patternItems(nodes []ast.Node, mustBreak bool) ([]Doc, []*ast.ItemComments, bool) {
+func patternItems(nodes []ast.Node) ([]Doc, []*ast.ItemComments, bool) {
 	docs := make([]Doc, len(nodes))
 	var cs []*ast.ItemComments
 	for i, n := range nodes {
 		c := itemComments(n)
-		docs[i] = emitPatternItem(n, mustBreak)
+		docs[i] = emitPatternItem(n)
 		if d, ok := n.(ast.HasDangling); ok && patternTakesDangling(n) {
 			before, after := d.GetDanglingBefore(), d.GetDanglingAfter()
 			if len(before) > 0 || len(after) > 0 {
@@ -348,21 +348,11 @@ func patternTakesDangling(n ast.Node) bool {
 	return false
 }
 
-// emitPatternItem is emitPattern, or emitPatternChildMustBreak with
-// mustBreak, without the dangling comments patternItems writes as the
-// item's.
-func emitPatternItem(n ast.Node, mustBreak bool) Doc {
+// emitPatternItem is emitPattern without the dangling comments
+// patternItems writes as the item's.
+func emitPatternItem(n ast.Node) Doc {
 	if !patternTakesDangling(n) {
-		if mustBreak {
-			return emitPatternChildMustBreak(n)
-		}
 		return emitPattern(n)
-	}
-	if mustBreak {
-		switch n.(type) {
-		case *ast.MapPattern, *ast.ListPattern, *ast.StructPattern, *ast.EnumPattern, *ast.TuplePattern, *ast.AsPattern:
-			return emitPatternChildMustBreakNode(n)
-		}
 	}
 	return emitPatternNode(n)
 }
@@ -373,8 +363,8 @@ func emitPatternItem(n ast.Node, mustBreak bool) Doc {
 // group it (patternItems), it is written in those parentheses, the
 // comments one per line inside them, where the next parse finds them
 // again.
-func emitGroupedPattern(n ast.Node, mustBreak bool) Doc {
-	elems, cs, ok := patternItems([]ast.Node{n}, mustBreak)
+func emitGroupedPattern(n ast.Node) Doc {
+	elems, cs, ok := patternItems([]ast.Node{n})
 	if !ok {
 		return elems[0]
 	}
