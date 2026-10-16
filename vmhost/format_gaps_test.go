@@ -22,7 +22,19 @@ type formatGap struct {
 	src    string
 }
 
-var knownFormatGaps = []formatGap{}
+var knownFormatGaps = []formatGap{
+	{
+		// `(A(a)) = v` parses as a PatternBinding, whose pattern the
+		// parentheses only group; the formatter drops them, and `A(a) = v`
+		// parses as the DistinctDestructure statement. Both bind `a` the
+		// same way, but the syntax tree differs. Found by
+		// FuzzFormatKeepsMeaning; present on `next` before `or` patterns.
+		name:   "parenthesized variant pattern binding",
+		kind:   "meaning",
+		reason: `\*ast\.PatternBinding became \*ast\.DistinctDestructure`,
+		src:    "fn main() {\n    (A(a)) = 0\n}\n",
+	},
+}
 
 func (gap *formatGap) matches(f formatFailure) bool {
 	return gap.kind == f.kind && regexp.MustCompile(gap.reason).MatchString(f.msg)
