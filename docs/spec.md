@@ -6562,6 +6562,8 @@ generic code, where `a + b` with `a: Set<T>` and `b: Set<T>` is `Set<T>`.
 
 `and` and `or` short-circuit: the right operand runs only when the left does not decide the answer. `a and b` is `if a { b } else { False }`, and `a or b` is `if a { True } else { b }`. So the right operand may leave instead of answering: a block ending in `return`, `break` or `continue`, an `if` or `case` every arm of which leaves, a failing `try` or a trap. When it leaves, the expression has no value on that path, and its value is the left operand's on the other. `ok = ready? or { return Err("not ready") }` returns early when `ready?` is `False` and binds `ok` to `True` otherwise; `_ = n < limit or { break }` ends an `Iter` callback's iteration.
 
+`&&` and `||` are not operators. `a && b` is a parse error at the `&&` that says to write `a and b`. Two adjacent bars after an operand on its line, `a || b`, are a parse error at the `||` that says to write `a or b`: a zero-parameter lambda `|| b` cannot follow an expression on the same line without a `;`.
+
 **Other:**
 
 - `|>` — pipe

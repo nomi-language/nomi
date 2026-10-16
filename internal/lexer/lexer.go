@@ -1092,6 +1092,18 @@ func (l *lexer) scanOperatorOrDelimiter() {
 	case '%':
 		l.advance()
 		l.tokens = append(l.tokens, token.Token{Type: token.PERCENT, Lexeme: "%", Line: startLine, Col: startCol})
+	case '&':
+		// Nomi has no `&` operator. `&&` is the C-family spelling of `and`,
+		// so it is one ILLEGAL token that says so.
+		if l.peekAt(1) == '&' {
+			l.advance()
+			l.advance()
+			l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: "&&",
+				Problem: "Nomi spells logical and `and`: write `a and b`, not `a && b`", Line: startLine, Col: startCol})
+		} else {
+			l.advance()
+			l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: "&", Line: startLine, Col: startCol})
+		}
 	case '!':
 		if l.peekAt(1) == '=' {
 			l.advance()

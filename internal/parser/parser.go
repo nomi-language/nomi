@@ -1785,6 +1785,9 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 		if stopAtPipe && tok.Type == token.PIPE {
 			break
 		}
+		if p.atOrOperatorSpelledBars(tok) {
+			return nil, errorAt(tok.Line, tok.Col, "Nomi spells logical or `or`: write `a or b`, not `a || b`")
+		}
 		prec := infixPrecedence(tok.Type)
 		if prec < minPrec {
 			break
@@ -1878,6 +1881,25 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 
 	p.recordSpan(left, start)
 	return left, nil
+}
+
+// atOrOperatorSpelledBars reports whether tok, just after an operand, starts
+// `||` written as an operator: two adjacent bars on the operand's line,
+// followed by something other than a third bar. A zero-parameter lambda
+// cannot follow an operand there, since statements on one line are separated
+// by `;`, so `a || b` is the C-family `a or b`. Read as written it is the
+// statement `a` and then the lambda `|| b`, and the errors that gives never
+// mention `or`. A third bar is a lambda parameter list's closing bar before
+// a zero-parameter lambda body (`|x = a||| x`).
+func (p *Parser) atOrOperatorSpelledBars(tok token.Token) bool {
+	if tok.Type != token.BAR || p.pos == 0 || p.prevLine() != tok.Line {
+		return false
+	}
+	next := p.peekAt(1)
+	if next.Type != token.BAR || next.Line != tok.Line || next.Col != tok.Col+1 {
+		return false
+	}
+	return p.peekAt(2).Type != token.BAR
 }
 
 func (p *Parser) parsePipeRight(left ast.Node, pipeTok token.Token, leadingForRight []ast.Trivia) (ast.Node, error) {

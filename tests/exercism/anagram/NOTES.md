@@ -13,5 +13,4 @@ Adapted from Exercism problem-specifications (MIT), exercises/anagram.
 
 ## Friction
 
-- [error-message] Writing `&&` out of habit gives `unexpected token ILLEGAL "&"` at the `&`, with no hint that Nomi spells it `and`. Code: `candidate != subject && Iter.sort(candidate) == letters`. The `||` spelling is worse: `a || b` in a `Bool` function parses as the statement `a` followed by the lambda `|| b`, and reports `non-final expression has type Bool, but only Unit results can be ignored` and `return type mismatch: expected Bool, got () -> Bool`. Neither error mentions `or`.
 - [feature] A `subtests` row has no name of its own. To report a failing row by its canonical description, the description has to ride along as a discarded tuple column (`(_description, subject, candidates, expected)`). Go's `t.Run(name, ...)` and Rust's `rstest` `#[case::name]` give a row a name.
