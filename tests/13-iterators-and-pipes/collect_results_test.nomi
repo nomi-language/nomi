@@ -34,7 +34,7 @@ fn point_at(n: Int): Maybe<Point> {
 fn sum_all(texts: List<String>): Result<Int, ParseError> {
     numbers = texts |> Iter.map(|t| parse(t)) |> try Result.collect()
 
-    Ok(Iter.reduce(numbers, |acc = 0, n| acc + n))
+    Ok(Iter.sum(numbers))
 }
 
 test "Result.collect keeps every Ok value in order" {

@@ -2,7 +2,7 @@ fn sum_numbers(line: String): Int {
     String.words(line)
     |> Iter.map(String.to_int)
     |> Iter.map(|n| Maybe.with_default(n, 0))
-    |> Iter.reduce(|total = 0, n| total + n)
+    |> Iter.sum()
 }
 
 fn count_non_empty_lines(text: String): Int {

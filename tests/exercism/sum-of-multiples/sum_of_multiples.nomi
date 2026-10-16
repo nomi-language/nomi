@@ -5,5 +5,5 @@ pub fn sum(factors: List<Int>, limit: Int): Int {
     |> Iter.filter(|factor| factor > 0)
     |> Iter.flat_map(|factor| Range.step_by(factor..limit, factor))
     |> Iter.to_set()
-    |> Iter.reduce(|total = 0, multiple| total + multiple)
+    |> Iter.sum()
 }

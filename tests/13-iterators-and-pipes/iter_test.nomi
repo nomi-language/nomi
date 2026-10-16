@@ -212,7 +212,7 @@ test "iter pipelines can combine lazy adapters and terminals" {
         [1, 2, 3, 4, 5]
         |> Iter.filter(|x| x > 2)
         |> Iter.map(|x| x * 10)
-        |> Iter.reduce(|acc = 0, x| acc + x)
+        |> Iter.sum()
 
     assert total == 120
 }

@@ -31,7 +31,7 @@ impl Iter for Countdown {
 }
 
 fn total(xs: Iter<Int>): Int {
-    Iter.reduce(xs, |acc = 0, x| acc + x)
+    Iter.sum(xs)
 }
 
 fn doubled(xs: List<Int>): Iter<Int> {
