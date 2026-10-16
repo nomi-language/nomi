@@ -132,25 +132,6 @@ fn main() {
 `,
 	},
 	{
-		name: "gapRangeStructField",
-		fix: "builder: a struct literal with a field of type Range<Int> (`Hold{v: 1..4}`), and the " +
-			"same Range as a generic struct's field or a field default. A Range in a binding, a " +
-			"tuple or a list lowers",
-		reason: "a struct literal: Hold",
-		noSkip: true,
-		src: `import std/io
-
-struct Hold {
-    v: Range<Int>
-}
-
-fn main() {
-    h = Hold{v: 1..4}
-    io.inspect(h.v)
-}
-`,
-	},
-	{
 		name: "gapEmptyLiteralSolvedLater",
 		fix: "builder: an empty literal whose element type a later position solves, inside a list, " +
 			"a map or a struct literal: `[#{}]` as a case scrutinee in a function returning a " +

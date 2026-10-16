@@ -925,9 +925,6 @@ var mxKnown = []struct {
 	match func(c mxCell) bool
 }{
 	{"gapNestedFnInFieldDefault", func(c mxCell) bool { return mxWithin(c, "nested function", "field default") }},
-	{"gapRangeStructField", func(c mxCell) bool {
-		return c.f.name == "range" && (mxHas(c, "struct field") || mxHas(c, "generic struct field") || mxHas(c, "field default"))
-	}},
 	{"gapEmptyLiteralSolvedLater", func(c mxCell) bool {
 		switch c.f.name {
 		case "empty vector", "empty set", "empty map":

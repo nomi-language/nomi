@@ -439,6 +439,10 @@ func irUserStructFieldKind(k kind) bool {
 	case isDecimalKind(k):
 		// A Decimal field (`price: Decimal`), the rt.Decimal value.
 		return true
+	case irRetainedRangeKind(k):
+		// A Range field (`span: Range<Int>`), the rt range value a binding
+		// or a list element holds.
+		return true
 	case irExistentialKind(k):
 		// A local interface's existential: the VM holds the concrete value
 		// and dispatch selects its impl through ir.Module.Implement.
