@@ -79,6 +79,14 @@ func TestCompletion_CaseFillsMissingArms(t *testing.T) {
 	}
 }
 
+// An `or` arm covers each of its alternatives' variants.
+func TestCompletion_CaseOrArmCoversEachAlternative(t *testing.T) {
+	src := shapeDecls + "fn area(s: Shape): Float {\n    case s {\n        .Dot or .Circle(_) -> 0.0\n        " + cursorMark + "\n    }\n}\n"
+	items := complete(t, src)
+	labelsInclude(t, items, ".Rect")
+	labelsExclude(t, items, ".Dot", ".Circle", "all missing arms")
+}
+
 func TestCompletion_CaseWithCatchAllHasNothingMissing(t *testing.T) {
 	src := shapeDecls + "fn area(s: Shape): Float {\n    case s {\n        .Dot -> 0.0\n        _ -> 1.0\n        " + cursorMark + "\n    }\n}\n"
 	if items := complete(t, src); len(items) != 0 {

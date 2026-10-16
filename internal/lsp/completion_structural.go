@@ -128,18 +128,16 @@ func (r *completionRequest) caseArmCandidates() []candidate {
 // and reports a catch-all arm, after which no arm is missing.
 func coveredVariants(c *ast.Case, skip int) (map[string]bool, bool) {
 	covered := map[string]bool{}
-	for i, b := range c.Branches {
-		if i == skip {
-			continue
-		}
-		switch p := ast.WithoutAs(b.Pattern).(type) {
+	// mark records what p matches, and reports a catch-all. An `or`
+	// pattern matches what each of its alternatives does.
+	var mark func(p ast.Node, guarded bool) bool
+	mark = func(p ast.Node, guarded bool) bool {
+		switch p := ast.WithoutAs(p).(type) {
 		case *ast.WildcardPattern:
-			if b.Guard == nil {
-				return covered, true
-			}
+			return !guarded
 		case *ast.IdentPattern:
-			if b.Guard == nil && !ast.IsPublic(p.Name) {
-				return covered, true
+			if !guarded && !ast.IsPublic(p.Name) {
+				return true
 			}
 			covered[p.Name] = true
 		case *ast.DotVariant:
@@ -148,6 +146,21 @@ func coveredVariants(c *ast.Case, skip int) (map[string]bool, bool) {
 			covered[variantNameOf(p.Variant)] = true
 		case *ast.StructPattern:
 			covered[variantNameOf(p.TypeName)] = true
+		case *ast.OrPattern:
+			for _, alt := range p.Alternatives {
+				if mark(alt, guarded) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	for i, b := range c.Branches {
+		if i == skip {
+			continue
+		}
+		if mark(b.Pattern, b.Guard != nil) {
+			return covered, true
 		}
 	}
 	return covered, false
