@@ -90,21 +90,13 @@ test "a second instantiation of one template renders as the same Nomi type" {
 
 test "and a nested instantiation renders as its own declaration" {
     assert no_crate(Crate{
-        box: Box{
-            item: Inner{
-                value: 7,
-            },
-        },
+        box: Box{item: Inner{value: 7}},
     })
 }
 
 test "a nested instantiation resolves through an annotation" {
     c = Crate{
-        box: Box{
-            item: Inner{
-                value: 41,
-            },
-        },
+        box: Box{item: Inner{value: 41}},
     }
 
     io.print(Int.to_string(crate_value(c)))

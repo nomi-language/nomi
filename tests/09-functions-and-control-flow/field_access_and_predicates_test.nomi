@@ -38,27 +38,15 @@ impl Validatable for Password {
 
 test "field-access chains resolve through structs and generics" {
     o = Outer{
-        mid: Mid{
-            inner: Inner{
-                value: 42,
-            },
-        },
+        mid: Mid{inner: Inner{value: 42}},
     }
 
     c = Crate{
-        box: Box{
-            item: Inner{
-                value: 7,
-            },
-        },
+        box: Box{item: Inner{value: 7}},
     }
 
     p = Outer{
-        mid: Mid{
-            inner: Inner{
-                value: 100,
-            },
-        },
+        mid: Mid{inner: Inner{value: 100}},
     }
 
     pair = (p.mid.inner.value, p.mid.inner.value)

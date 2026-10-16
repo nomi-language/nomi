@@ -209,6 +209,51 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		}
 		fold := func(runtime *rt.Frame, acc, item any) any { return m.iterInvoke(f, runtime, acc, item) }
 		fr.write(n.Dst(), rt.SeqReduce(fr.runtime, seq, seed, fold))
+	case ir.IterScan, ir.IterMapReduce:
+		// The operands are reduce's: the source, the seed and the callback.
+		f, err := iterCallback(fr, n, 2, 2)
+		if err != nil {
+			return err
+		}
+		seed, err := fr.read(n.Arg(1))
+		if err != nil {
+			return err
+		}
+		if n.Op() == ir.IterScan {
+			if n.Signalling() {
+				fr.write(n.Dst(), rt.SeqScanCtl(seq, seed, func(runtime *rt.Frame, acc, item any) (any, rt.Ctl) {
+					return adapterOutcome(m.iterInvoke(f, runtime, acc, item))
+				}))
+				return nil
+			}
+			fr.write(n.Dst(), rt.SeqScan(seq, seed, func(runtime *rt.Frame, acc, item any) any {
+				return m.iterInvoke(f, runtime, acc, item)
+			}))
+			return nil
+		}
+		var failed error
+		split := func(result any) (any, any) {
+			return pairPart(result, 0, &failed), pairPart(result, 1, &failed)
+		}
+		var out any
+		if n.Signalling() {
+			out = rt.SeqMapReduceCtlCells[any, any, any, list](fr.runtime, seq, seed, func(runtime *rt.Frame, acc, item any) (any, any, rt.Ctl) {
+				result, ctl := adapterOutcome(m.iterInvoke(f, runtime, acc, item))
+				if ctl == rt.CtlSkip || ctl == rt.CtlStop {
+					return nil, nil, ctl
+				}
+				o, next := split(result)
+				return o, next, ctl
+			}, func(outs *list, acc any) any { return pair(outs, acc) })
+		} else {
+			out = rt.SeqMapReduceCells[any, any, any, list](fr.runtime, seq, seed, func(runtime *rt.Frame, acc, item any) (any, any) {
+				return split(m.iterInvoke(f, runtime, acc, item))
+			}, func(outs *list, acc any) any { return pair(outs, acc) })
+		}
+		if failed != nil {
+			return failed
+		}
+		fr.write(n.Dst(), out)
 	case ir.IterJoin:
 		arg, err := fr.read(n.Arg(1))
 		if err != nil {

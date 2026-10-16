@@ -53,11 +53,7 @@ test "nesting a list inside a list inside a struct" {
     d = Depot{
         bags: [
             Bag{
-                items: [
-                    Point{
-                        x: 3,
-                    },
-                ],
+                items: [Point{x: 3}],
                 label: "one",
             },
         ],

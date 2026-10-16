@@ -131,8 +131,12 @@ it, unless it closes its block. A block's final expression counts as a
 statement. Whether a statement spans lines is what `fmt` renders at the
 block's indent and the 100-column width, so a call that fits on one line in a
 shallow block may break, and be set apart, in a deeper one. A `case`, a nested
-block, a triple-quoted string and a struct literal you write across lines
-always span lines. The rule holds
+block, a triple-quoted string and a list, vector, set, map, tuple or struct
+literal you break after its opening bracket always span lines: `fmt` keeps such
+a literal one element per line (a list of numbers filled several to a line)
+even when it would fit on one, so write a grid of rows one row per line and it
+stays a grid. Delete the line break after the bracket to let `fmt` join a
+literal that fits. The rule holds
 in every block: function, lambda, test and `case` arm bodies and `if`/`else`
 branches. A pipe statement is no exception: a stacked pipeline, or one `fmt`
 breaks because it does not fit, is set apart, and one that fits on its line,
@@ -488,6 +492,20 @@ Keep a fenced ` ```nomi ` block inside `///` for code that is not an assertion,
 such as how to implement an interface (`Iter`'s doc comment shows a custom
 `each_while`). Nothing checks those blocks, so prefer `//!` whenever an
 assertion can show the point.
+
+Describe a whole file with `//#` lines at its top, in every file, not only in
+`std/`. A plain `//` comment directly above the first declaration reads as
+that declaration's comment, and `nomi fmt` keeps the two together; `//#`
+attaches to nothing, so it stays the file's.
+
+```nomi
+//# Parses and evaluates the word problems of the exercise.
+
+/// Answers a word problem.
+pub fn answer(question: String): Result<Int, Error> {
+    ...
+}
+```
 
 ## 8. Tests
 
@@ -1256,6 +1274,25 @@ Prefer a binding `else` to a `case` whose failure arm only leaves: the
 `else` whose arm returns the same error unchanged
 (`Err(e) -> return Err(e)`).
 
+To turn a missing value into an error, use a binding `else` when the value
+is bound for the lines that follow, and `Maybe.to_result` then `try` when the
+lookup is one stage of a pipe. Name the variant with its enum in
+`to_result`: nothing at that position fixes the error type, so `.NotFound`
+alone cannot be resolved there.
+
+```nomi
+// bound for later lines
+Some(user) = Map.get(users, id) else { return Err(.NotFound) }
+
+// one stage of a pipe
+count =
+    word
+    |> String.trim()
+    |> String.to_int()
+    |> Maybe.to_result(Error.NotANumber)
+    |> try
+```
+
 ## 17. Leave out a struct literal's type name where the context names it
 
 A brace literal builds the struct its position expects (spec, *Target-typed
@@ -1458,7 +1495,31 @@ value and the step the type's `Summable` and `Add` impls already name. Keep
 `Iter.reduce` when the fold does more than add (`total + n * weight`), starts
 from another value, or breaks early.
 
-## 27. Return `Maybe` for data, trap for a broken promise
+## 27. Keep a fold's states with `Iter.scan` or `Iter.map_reduce`
+
+A fold whose every intermediate state is wanted is `Iter.scan`, and a map that
+threads a state from one element to the next is `Iter.map_reduce`:
+
+```nomi
+balances = deposits |> Iter.scan(|balance = opening, amount| balance + amount)
+
+(rows, _width) =
+    lines
+    |> Iter.reverse()
+    |> Iter.map_reduce(|width = 0, line| {
+        width = Int.max(width, String.length(line))
+        (String.pad_end(line, width), width)
+    })
+```
+
+not an `Iter.reduce` whose accumulator is a `(state, list)` pair that conses
+each result and is reversed afterwards. Use `scan` when the outputs are the
+states themselves, and it stays lazy, so it can run over an unbounded source
+under a `take`. Use `map_reduce` when each element has its own output and
+the state only carries what the next one needs. Keep `Iter.reduce` when only
+the final state is wanted.
+
+## 28. Return `Maybe` for data, trap for a broken promise
 
 When a function you write cannot give the answer asked for, decide by who
 could have known (spec §17, *Traps, `Maybe` and `Result`*):

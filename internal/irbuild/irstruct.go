@@ -243,7 +243,7 @@ func irRecursiveFieldKind(k kind, deciding []*typeDef) bool {
 		// A std struct is decided as a user one is: `SubtestFailure.failure`
 		// is the `AssertionFailure` whose `subtests` hold it.
 		return irNominalCoinductive(k, deciding)
-	case k.tag == tagNamed && k.def != nil && k.def.isDistinct:
+	case irDeclaredDistinct(k):
 		// `b: B` for `type B W` where W is the struct being decided.
 		return irDistinctCoinductive(k, deciding)
 	case k.tag == tagFunc:
@@ -301,7 +301,7 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 			return irNominalCoinductive(p, outer)
 		case p.tag == tagFunc:
 			return irFuncFieldKind(p, outer)
-		case p.tag == tagNamed && p.def != nil && p.def.isDistinct && irKindReaches(p, outer):
+		case irDeclaredDistinct(p) && irKindReaches(p, outer):
 			// `b: Maybe<B>` for `type B W` inside W: the distinct is decided
 			// with the walk's stack, as a struct part is.
 			return irDistinctCoinductive(p, outer)

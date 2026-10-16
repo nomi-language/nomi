@@ -10,7 +10,7 @@ test "vector at traps on an index past the end" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains?(message, "index 7 is out of range for a Vector of length 5")
+    assert String.contains?(message, "line 2: index 7 is out of range for a Vector of length 5")
 }
 
 test "vector at traps on a negative index" {
@@ -23,7 +23,7 @@ test "vector at traps on a negative index" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains?(message, "index -1 is out of range for a Vector of length 2")
+    assert String.contains?(message, "line 2: index -1 is out of range for a Vector of length 2")
 }
 
 test "vector set traps on an index outside the vector" {
@@ -36,7 +36,7 @@ test "vector set traps on an index outside the vector" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains?(message, "index 1 is out of range for a Vector of length 1")
+    assert String.contains?(message, "line 2: index 1 is out of range for a Vector of length 1")
 }
 
 test "bytes at traps on an index outside the buffer" {
@@ -49,7 +49,21 @@ test "bytes at traps on an index outside the buffer" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains?(message, "index 2 is out of range for a Bytes of length 2")
+    assert String.contains?(message, "line 2: index 2 is out of range for a Bytes of length 2")
+}
+
+test "an index trap inside a std call is reported at the program's call" {
+    result =
+        """
+            fn main() {
+              rows = [#[1, 2], #[3]]
+              _ = rows |> Iter.map(Vector.at(_, 1)) |> Iter.to_list()
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains?(message, "line 3: index 1 is out of range for a Vector of length 1")
 }
 
 test "the get siblings answer None where at traps" {

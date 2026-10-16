@@ -1207,7 +1207,8 @@ func irOwnOperationFamily(owner, method string) bool {
 }
 
 // irOnlyEmptyListsUnsolved reports whether every operand of t whose checked
-// parameter the checker left open is an empty list literal, and one is.
+// parameter the checker left open is an empty list literal, or a list
+// literal of them (`Iter.sum([[]])`), and one is.
 func irOnlyEmptyListsUnsolved(t *ast.Call, ft *analysis.FuncType) bool {
 	if len(ft.Params) != len(t.Args) {
 		return false
@@ -1217,13 +1218,28 @@ func irOnlyEmptyListsUnsolved(t *ast.Call, ft *analysis.FuncType) bool {
 		if !irUnsolvedType(p) && !irUnsolvedIfaceArg(p) {
 			continue
 		}
-		lit, isList := t.Args[i].(*ast.ListLit)
-		if !isList || len(lit.Items) != 0 || lit.TypeName != nil {
+		if !irHoldsNoElement(t.Args[i]) {
 			return false
 		}
 		open = true
 	}
 	return open
+}
+
+// irHoldsNoElement reports an unannotated list literal whose items are, at
+// every depth, empty list literals: `[]`, `[[]]`, `[[], [[]]]`. The element
+// type its innermost lists leave open has no value anywhere in it.
+func irHoldsNoElement(n ast.Node) bool {
+	lit, isList := n.(*ast.ListLit)
+	if !isList || lit.TypeName != nil {
+		return false
+	}
+	for _, item := range lit.Items {
+		if !irHoldsNoElement(item) {
+			return false
+		}
+	}
+	return true
 }
 
 // irUnsolvedIfaceArg reports an interface type with an argument the checker

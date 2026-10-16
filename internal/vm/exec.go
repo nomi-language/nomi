@@ -70,7 +70,7 @@ func (s *regStack) newFrame() *frame {
 	if fr.trace != nil || fr.stages != nil || fr.deferred != nil || fr.releases != nil || fr.next != nil || fr.bad != nil {
 		fr.trace, fr.stages, fr.deferred, fr.releases, fr.next, fr.bad = nil, nil, nil, nil, nil, nil
 	}
-	fr.guarded = false
+	fr.guarded, fr.stdEntry = false, 0
 	s.nf++
 	if s.nf > s.hw {
 		s.hw = s.nf
@@ -256,6 +256,11 @@ type frame struct {
 	// started or a tail call replaced its function: its next statement is
 	// its function's first, where a function breakpoint stops.
 	entered bool
+	// stdEntry is the line of the program's own call whose tail call into
+	// the standard library replaced this activation's function, or 0: a
+	// trap leaving the activation from the stdlib is reported there
+	// (stdlibfault.go), since the caller's line is gone with it.
+	stdEntry int
 }
 
 // read is temporary t's value, boxed out of its bank.
@@ -663,6 +668,9 @@ func (m *Machine) fault(fr *frame, pc int, err error) (int, error) {
 		// is the call that asked for it, or the host call or iteration
 		// whose callback did, so its line is the fault's.
 		err = positionCallDepth(err, st.pos)
+		// A trap from the stdlib is reported at the program's call into
+		// it. See stdlibfault.go.
+		err = place(err, st.pos, isTodoAt(fr.c, pc))
 	}
 	if propagated, ok := err.(*tryReturn); ok {
 		if fr.testBody {
@@ -672,7 +680,7 @@ func (m *Machine) fault(fr *frame, pc int, err error) (int, error) {
 		return -1, nil
 	}
 	if st == nil || !st.faults {
-		return -1, err
+		return -1, fr.leaving(err)
 	}
 	// GAP 2. Where the fault goes is the block's, and no edge means it
 	// leaves the function. See internal/ir/fault.go.
@@ -690,7 +698,7 @@ func (m *Machine) fault(fr *frame, pc int, err error) (int, error) {
 	// fault, so a fault that left a CALLEE reaches this arm again at the
 	// call site; wrapping twice would say nothing new, and wrapping an
 	// assertion's unwind as a fault would say something false.
-	return -1, classifyFault(err)
+	return -1, fr.leaving(classifyFault(err))
 }
 
 // line is the source line of the instruction at pc.
@@ -855,7 +863,7 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 		case opRemF:
 			// `rt.ModFloat` always traps, and the checker rejects the
 			// construct; the text is rt's one home.
-			err = errors.New(rt.FloatModuloText(c.line(at)))
+			err = rt.FloatModuloError(c.line(at))
 			goto failed
 
 		case opCmpI:
@@ -1014,10 +1022,12 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 					for i, a := range args {
 						next.args[i] = fr.boxLoc(loc(a), callee.types[callee.fn.Params()[i].Temp])
 					}
+					fr.tailInto(next.fn, at)
 					if err = m.transfer(fr, next); err != nil {
 						return m.finish(fr, err)
 					}
 				} else {
+					fr.tailInto(callee.fn, at)
 					m.moveTailArgs(fr, callee, args)
 					if m.dbg != nil {
 						fr.tail, fr.taps, fr.entered = true, nil, true
@@ -1145,6 +1155,7 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			if err == errTailTransfer {
 				next := fr.next
 				fr.next = nil
+				fr.tailInto(next.fn, at)
 				if err = m.transfer(fr, next); err != nil {
 					return m.finish(fr, err)
 				}

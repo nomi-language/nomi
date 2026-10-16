@@ -29,13 +29,13 @@ group "concatenate a list of lists" {
     }
 
     test "list of nested lists" {
-        // Bound one by one: a literal three lists deep is laid out one
-        // number per line.
-        first = [[1], [2]]
-        second = [[3]]
-        third: List<List<Int>> = [[]]
-        fourth = [[4, 5, 6]]
-        lists = [first, second, third, fourth]
+        lists = [
+            [[1], [2]],
+            [[3]],
+            [[]],
+            [[4, 5, 6]],
+        ]
+
         assert list_ops.concat(lists) == [[1], [2], [3], [], [4, 5, 6]]
     }
 }

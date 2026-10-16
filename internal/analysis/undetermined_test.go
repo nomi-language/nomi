@@ -60,6 +60,13 @@ func TestUndeterminedTypeArgs_Rejected(t *testing.T) {
 			"the element type of `[]` is not determined", 7},
 		{"inside an assert", "assert Iter.count(Maybe.values([])) == 0",
 			"the element type of `[]` is not determined", 34},
+		// Summable's empty_sum() makes a T with no element in hand.
+		{"sum over an empty list", "dbg Iter.sum([]) == Iter.sum([])",
+			"the element type of `[]` is not determined: annotate it, as in `xs: List<T> = []` with T filled in", 16},
+		{"sum over an empty set literal", "dbg Iter.sum(#{})",
+			"the element type of `#{}` is not determined: annotate it, as in `xs: Set<T> = #{}`", 16},
+		{"sum over a call's empty set", "dbg Iter.sum(Set.new())",
+			"the type argument T of `Iter.sum` is not determined: annotate the value passed in, or give the call its type arguments, as in `Iter.sum<T>(…)`", 16},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -113,6 +120,18 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 		"dbg Iter.map([], |x| x + 1)",
 		"dbg Iter.flatten([[1], []])",
 		"dbg Maybe.values<Int>([])",
+		// Comparable's functions take the elements, so an empty input calls none.
+		"dbg Iter.max([])",
+		"dbg Iter.min([])",
+		"dbg Iter.max([]) == Iter.max([])",
+		"dbg Iter.sort([]) == []",
+		"dbg Set.new() == Set.new()",
+		"dbg Iter.to_set([]) == Iter.to_set([])",
+		// The element of [[]] is a List, whose empty_sum() is [].
+		"dbg Iter.sum([[]]) == []",
+		"dbg Iter.sum([]) == 0",
+		"dbg Iter.sum<Int>([])",
+		"xs: List<Int> = []\n  dbg Iter.sum(xs)",
 		"xs: List<Maybe<Int>> = []\n  dbg Maybe.values(xs)",
 	}
 	for _, body := range bodies {

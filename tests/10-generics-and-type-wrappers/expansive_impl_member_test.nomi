@@ -61,11 +61,7 @@ test "a generic caller gathers twice" {
     deep = twice(Box{items: ["a"]})
 
     assert deep.items == [
-        [
-            [
-                "a",
-            ],
-        ],
+        [["a"]],
     ]
 }
 
@@ -73,11 +69,7 @@ test "a pipe stage gathers" {
     deep = Box{items: [True]} |> Box.gather() |> Box.gather()
 
     assert deep.items == [
-        [
-            [
-                True,
-            ],
-        ],
+        [[True]],
     ]
 }
 

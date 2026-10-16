@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 363
-declared-cases 1107
+records 365
+declared-cases 1101
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -750,14 +750,15 @@ T test result: ok. 6 passed, 0 failed
 T
 C 06-collections/index_traps_test.nomi
 E 0
-N 5
-H ba41531774a571806f9b7b6204d00b23d236333d4220ae76afd210cadc28d19e
+N 6
+H 386e9e5375dcdd3e4000cb48543f3672db159e531b98e372f7db0f5510dd109c
 T ok <root>/tests/06-collections/index_traps_test.nomi :: vector at traps on an index past the end
 T ok <root>/tests/06-collections/index_traps_test.nomi :: vector at traps on a negative index
 T ok <root>/tests/06-collections/index_traps_test.nomi :: vector set traps on an index outside the vector
 T ok <root>/tests/06-collections/index_traps_test.nomi :: bytes at traps on an index outside the buffer
+T ok <root>/tests/06-collections/index_traps_test.nomi :: an index trap inside a std call is reported at the program's call
 T ok <root>/tests/06-collections/index_traps_test.nomi :: the get siblings answer None where at traps
-T test result: ok. 5 passed, 0 failed
+T test result: ok. 6 passed, 0 failed
 T
 C 06-collections/lists_test.nomi
 E 0
@@ -1042,6 +1043,17 @@ T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defa
 T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi :: a field with no default is still required
 T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi :: a defaulted field is kept when it is named
 T test result: ok. 7 passed, 0 failed
+T
+C 07-structs-and-enums/vector_trees_test.nomi
+E 0
+N 5
+H 4bba65bf62aa01b06728055ea7238dc89b945c72a1fda4d06c4da9644d1e6e6e
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: an enum holds itself through a Vector
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: a Vector tree compares and hashes by value
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: a Vector tree grows by pushing a kid
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: a struct holds itself through a Vector
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: an enum and a struct hold each other through Vectors
+T test result: ok. 5 passed, 0 failed
 T
 C 08-pattern-matching/as_patterns_test.nomi
 E 0
@@ -2038,6 +2050,20 @@ T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: bare dbg pipe stages
 T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: pipes into dispatch functions preserve interface dispatch
 T test result: ok. 4 passed, 0 failed
 T
+C 13-iterators-and-pipes/scan_map_reduce_test.nomi
+E 0
+N 8
+H cda942d9139f601fba1a5c8c4d149df50fc621f5af27b500e39cd9cde506f63c
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan yields each state after the seed
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan over an empty source yields nothing
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan is lazy
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: a scan replays from its seed
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan supports break and continue
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: map_reduce answers the outputs and the final state
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: map_reduce over an empty source answers no outputs and the seed
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: map_reduce supports break and continue
+T test result: ok. 8 passed, 0 failed
+T
 C 13-iterators-and-pipes/sort_keys_test.nomi
 E 0
 N 4
@@ -3019,17 +3045,10 @@ T nomi run: <root>/tests/exercism/game-of-life/game_of_life.nomi declares no `fn
 T
 C exercism/game-of-life/game_of_life_test.nomi
 E 0
-N 8
-H 833bcfca4a2774be0094005abb020a083926a67ebc7b14d2b822c5272d7c50a8
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: empty matrix
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with zero live neighbors die
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with only one live neighbor die
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with two live neighbors stay alive
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with three live neighbors stay alive
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: dead cells with three live neighbors become alive
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with four or more neighbors die
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: bigger matrix
-T test result: ok. 8 passed, 0 failed
+N 1
+H f95e3f021198b177627985f0a1e4dabcf28309ef832e76ce8bc866cb500641e0
+T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: tick
+T test result: ok. 1 passed, 0 failed
 T
 C exercism/hamming/hamming.nomi
 E 1
@@ -3338,18 +3357,10 @@ T nomi run: <root>/tests/exercism/saddle-points/saddle_points.nomi declares no `
 T
 C exercism/saddle-points/saddle_points_test.nomi
 E 0
-N 9
-H 9c5f53068ba6b2b5a053872674180e52018ca939a46fbb3baecf2c8600fffb08
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify single saddle point
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify that empty matrix has no saddle points
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify lack of saddle points when there are none
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify multiple saddle points in a column
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify multiple saddle points in a row
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify saddle point in bottom right corner
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify saddle points in a non square matrix
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify that saddle points in a single column matrix are those with the minimum value
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify that saddle points in a single row matrix are those with the maximum value
-T test result: ok. 9 passed, 0 failed
+N 1
+H dea91f4895297838c6cbfc575e6bd98f2e285ab18d798a68ca407e2525bb5d16
+T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: saddle_points
+T test result: ok. 1 passed, 0 failed
 T
 C exercism/sieve/sieve.nomi
 E 1
@@ -3378,15 +3389,10 @@ T nomi run: <root>/tests/exercism/spiral-matrix/spiral_matrix.nomi declares no `
 T
 C exercism/spiral-matrix/spiral_matrix_test.nomi
 E 0
-N 6
-H 7ee2b5f82afe5509676c9da4380a6dbcbe8f3e848bc32eac31de378e7ce85459
-T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: empty spiral
-T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: trivial spiral
-T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral of size 2
-T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral of size 3
-T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral of size 4
-T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral of size 5
-T test result: ok. 6 passed, 0 failed
+N 1
+H e56f9e33a2797064afa139d0efc109bf01addd230efe45dda19fedea18a8e927
+T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral_matrix
+T test result: ok. 1 passed, 0 failed
 T
 C exercism/sum-of-multiples/sum_of_multiples.nomi
 E 1

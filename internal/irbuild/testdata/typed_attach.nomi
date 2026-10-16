@@ -166,20 +166,12 @@ fn main() {
 
     // --- nesting, where the recursive structural kind shows up ---------------
     nested = JV.Obj{
-        "a" => JV.Obj{
-            "b" => JV.Arr[
-                JV.Num(99),
-            ],
-        },
+        "a" => JV.Obj{"b" => JV.Arr[JV.Num(99)]},
     }
 
     inner = case nested {
         .Obj{
-            "a" => .Obj{
-                "b" => .Arr[
-                    .Num(n),
-                ],
-            },
+            "a" => .Obj{"b" => .Arr[.Num(n)]},
         } -> n
         _ -> -1
     }

@@ -161,7 +161,7 @@ Some(n) = None else { 0 } // ✓ the fallback makes n an Int
 
 #### Determined type arguments
 
-A generic function runs at the type arguments of each call (§13), so a call must determine every type argument its function makes values of, wherever the call appears: an argument, a `dbg`, an `assert`, a pipe stage. A function makes values of a type parameter that its signature mentions inside a function type, or two levels inside a parameter type when its result holds that parameter in a collection: `Result.collect` takes `Iter<Result<T, E>>` and returns `Result<List<T>, E>`, so it makes Ts. A type argument nothing in the enclosing declaration fixes, by the end of it, is a compile error at the argument that carries it:
+A generic function runs at the type arguments of each call (§13), so a call must determine every type argument its function makes values of, wherever the call appears: an argument, a `dbg`, an `assert`, a pipe stage. A function makes values of a type parameter that its signature mentions inside a function type, or two levels inside a parameter type when its result holds that parameter in a collection: `Result.collect` takes `Iter<Result<T, E>>` and returns `Result<List<T>, E>`, so it makes Ts. It also makes values of a type parameter whose bound declares a function that takes no value of the type: `Iter.sum` is bounded by `Summable`, whose `empty_sum()` makes a T from nothing, so `Iter.sum([])` makes a T with no element in hand. A bound whose every function takes a value of the type, such as `Comparable`, is called only on the elements, so `Iter.max([])` makes none. A type argument nothing in the enclosing declaration fixes, by the end of it, is a compile error at the argument that carries it:
 
 ```nomi
 dbg Result.collect([]) // ✗ the element type of `[]` is not determined
@@ -169,9 +169,11 @@ dbg Result.collect([]) // ✗ the element type of `[]` is not determined
 dbg Maybe.values([None]) // ✗ the type argument T of `Maybe.values` is not determined
 
 dbg Iter.map([], |x| x) // ✗ the element type of `[]` is not determined: x has it
+
+dbg Iter.sum([]) // ✗ the element type of `[]` is not determined: `empty_sum()` makes a T
 ```
 
-An unsolved type argument that no value has is not an error: the element of an empty collection (`dbg []`, `Iter.to_list([])`, `List.head([])`, `Vector.empty()`) or the variant a value is not (`Ok(1)`, `Result.collect([Ok(1)])`, whose E only passes an error through). Fix the error as a binding: annotate the empty value (`xs: List<Result<Int, String>> = []`) or give the call its type arguments (`Result.collect<Int, String>([])`).
+An unsolved type argument that no value has is not an error: the element of an empty collection (`dbg []`, `Iter.to_list([])`, `List.head([])`, `Vector.empty()`, and `Iter.sum([[]])`, whose T is a `List` and whose sum is `[]`) or the variant a value is not (`Ok(1)`, `Result.collect([Ok(1)])`, whose E only passes an error through). Fix the error as a binding: annotate the empty value (`xs: List<Result<Int, String>> = []`) or give the call its type arguments (`Result.collect<Int, String>([])`).
 
 ### `once` Bindings
 
@@ -1543,7 +1545,7 @@ typealias Point {x: Int, y: Int} // a name for the shape
 
 A function parameter typed `{name: String, age: Int}` accepts any anonymous struct value with those fields and types — field order at the call site doesn't matter. Error messages and hover render the type in the order it was declared at its source site, so two equivalent shapes can render differently; that's intentional. Nominal struct values (declared with the `struct` keyword) do *not* coerce — they're nominal.
 
-`nomi fmt` keeps a short anonymous struct type or struct literal on one line, breaks a long one with a field per line, and keeps a multi-line shape you wrote; the layout rules are in [`implementation-notes.md`](implementation-notes.md#formatter-brace-bounded-field-constructs).
+`nomi fmt` keeps a short anonymous struct type or struct literal on one line and breaks a long one with a field per line. It keeps an anonymous struct type you wrote across lines that way, and a struct literal broken after its `{`; the layout rules are in [`implementation-notes.md`](implementation-notes.md#formatter-brace-bounded-field-constructs).
 
 **No width subtyping.** A function parameter typed `{x: Int, y: Int}` accepts only values with *exactly* that shape — not anon structs with additional fields, and not nominal structs that happen to have matching fields. Width is part of the type's identity. This is a deliberate choice against TypeScript-style structural over-acceptance: field-name coincidence is not a semantic contract (an `id: String` on `User`, `Order`, and `Invoice` shares a type but rarely a meaning), and silent acceptance erodes trust as the codebase grows. Code that genuinely needs to operate across multiple struct shapes has three explicit alternatives — declare an interface for the shared *behavior* (not the shared shape); construct an anon struct at the callsite (`distance({x: p.x, y: p.y}, {x: q.x, y: q.y})`); or define a nominal domain type and write a conversion function (`to_coord(p: Point): Coord2D`) so mismatches surface where they can be seen.
 
@@ -2920,7 +2922,7 @@ The one rule: **generic over any iterable → `Iter.X`; specific to a container'
 
 ### `break` and `continue` in Callbacks
 
-`break` and `continue` work inside iteration callbacks — the callbacks passed to the closed, analyzer-enforced set of iteration functions: the iter-family higher-order functions plus `Iter.loop`. `break` or `continue` anywhere outside an iteration callback is a compiler error — there's no iteration context.
+`break` and `continue` work inside iteration callbacks — the callbacks passed to the closed, analyzer-enforced set of iteration functions: `Iter.map`, `Iter.scan`, `Iter.filter`, `Iter.take_while`, `Iter.drop_while`, `Iter.flat_map`, `Iter.iterate`, `Iter.reduce`, `Iter.map_reduce`, `Iter.each`, `Iter.find`, `Iter.any?`, `Iter.all?`, `Map.map_values` and `Map.map_keys`, plus `Iter.loop`. `break` or `continue` anywhere outside an iteration callback is a compiler error — there's no iteration context.
 
 The keywords are the entire surface of the iteration control protocol. A callback's bare last expression means "here's my result for this element," `continue` means "skip this element," `break` means "stop iterating" (`break value` means "stop, producing this value"). These lower to a compiler/runtime-internal signal that the iteration machinery interprets — the signal has no surface spelling: it is not a Nomi type, and there is nothing to import, construct, or pattern-match.
 
@@ -2987,7 +2989,7 @@ names =
     |> Iter.to_list()
 ```
 
-The other callbacks read the value the same way. In `find`, `any?` and `all?` it is the predicate's answer for this element: `break True` in `find` answers `Some` of this element, and a bare `break` answers what has accumulated, which is `None` for `find`, `False` for `any?` and `True` for `all?`. In `drop_while` it is the drop decision: `break False` emits this element and ends the sequence, and `break True` or a bare `break` ends it with nothing more. In `flat_map` it is this element's expansion, emitted before the sequence ends. In `Map.map_values` and `Map.map_keys` it is this entry's new value or key; `continue` leaves the entry out, and a bare `break` keeps the entries made so far.
+The other callbacks read the value the same way. In `find`, `any?` and `all?` it is the predicate's answer for this element: `break True` in `find` answers `Some` of this element, and a bare `break` answers what has accumulated, which is `None` for `find`, `False` for `any?` and `True` for `all?`. In `drop_while` it is the drop decision: `break False` emits this element and ends the sequence, and `break True` or a bare `break` ends it with nothing more. In `flat_map` it is this element's expansion, emitted before the sequence ends. In `Map.map_values` and `Map.map_keys` it is this entry's new value or key; `continue` leaves the entry out, and a bare `break` keeps the entries made so far. In `scan` it is this element's new state, yielded before the sequence ends; `continue` yields nothing and keeps the state, and a bare `break` ends the sequence without yielding. In `map_reduce` it is this element's `(output, next_state)`, kept before the call answers; `continue` adds no output and keeps the state, and a bare `break` answers the outputs and state so far.
 
 **`loop`** follows the same rules:
 
@@ -3417,7 +3419,7 @@ An interface body is an item list. Each item's *form* determines its role, on tw
 
 Every bodied/host item is part of the contract (a default), reachable both interface-qualified (`Iter.known_count(xs)`) and type-qualified on an implementor (`List.known_count(xs)`) with full generic inference — the two are the *same* function, selected by the concrete type bound to `self`. Operations that take no `self` are **not** interface functions — put them in an inherent `impl Iface { ... }` block beside the interface and call them owner-qualified (`Iter.from(0)`).
 
-> The example uses `known_count` because, for `Iter`, that is the *only* default — the interface is pure protocol, just `each_while` (required) plus the lone `open` default `known_count`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.get`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` is the single op that's a dispatched default rather than an owner function, because it's the protocol hook `Iter.count` consults for an O(1) count (see §19).
+> The example uses `known_count` because, for `Iter`, that is the *only* default — the interface is pure protocol, just `each_while` (required) plus the lone `open` default `known_count`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`scan`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`map_reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.get`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` is the single op that's a dispatched default rather than an owner function, because it's the protocol hook `Iter.count` consults for an O(1) count (see §19).
 
 A Nomi-bodied default function may give its **trailing parameters default values**, exactly like a free `fn` (`fn announce(value: self, loud: Bool = False): String { … }`); a caller omitting the trailing argument gets the default. Defaults are rejected on a required or host-backed function — only a Nomi default body carries the value at runtime.
 
@@ -5501,7 +5503,9 @@ APIs written in Nomi:
 
 A trap's text names the broken promise: `line 4: division by zero`,
 `line 7: integer overflow: 9223372036854775807 + 1`,
-`index 7 is out of range for a Vector of length 5`.
+`line 9: index 7 is out of range for a Vector of length 5`. The line is the
+program's own, even when the trap happens inside the standard library
+(§22 *Where a trap is reported*).
 
 The naming convention follows from the rule. A function named **`get`**
 returns a `Maybe`, because what it looks for may not be there (`Map.get`,
@@ -5685,6 +5689,8 @@ Iter.chunks(xs, n) / Iter.chunk_by(xs, key)
 
 Iter.reduce(xs, |acc = start, x| f(acc, x)) / Iter.each(xs, f) / Iter.find(xs, p)
 
+Iter.scan(xs, |acc = start, x| f(acc, x)) / Iter.map_reduce(xs, |acc = start, x| (out, next))
+
 Iter.min(xs) / Iter.max(xs) / Iter.min_by(xs, key) / Iter.max_by(xs, key) / Iter.sum(xs)
 
 Iter.any?(xs, p) / Iter.all?(xs, p)
@@ -5716,7 +5722,8 @@ empty: Vector<Int> = #[]
 - Indexes start at 0. `Vector.get(v, i)` answers `None` for an index outside
   `0 <= i < length`; `Vector.at(v, i)` returns the element and traps on such an
   index, and so does `Vector.set(v, i, x)`, which returns the new vector. The
-  trap's text is `index 7 is out of range for a Vector of length 5`. Use `get`
+  trap reads `line 9: index 7 is out of range for a Vector of length 5`, at the
+  line of the call. Use `get`
   when the index comes from data and may miss, and `at` and `set` when the
   program guarantees it (§17 *Traps, `Maybe` and `Result`*)
 - `#[..v, x]` is `Vector.concat(v, #[x])` and `#[x, ..v]` is
@@ -6055,6 +6062,7 @@ fn iterate(seed: T, step: (T) -> T): Iter<T>   // seed, step(seed), step(step(se
 
 ```nomi
 fn map(source: Iter<T>, f: (T) -> U): Iter<U>
+fn scan<T, U>(source: Iter<T>, f: (U, T) -> U): Iter<U>   // f is a lambda whose first parameter has a default; yields each state after it
 fn filter(source: Iter<T>, f: (T) -> Bool): Iter<T>
 fn flat_map(source: Iter<T>, f: (T) -> Iter<U>): Iter<U>
 fn take(source: Iter<T>, n: Int): Iter<T>
@@ -6073,6 +6081,7 @@ fn chunk_by<T, K>(source: Iter<T>, key_fn: (T) -> K): Iter<List<T>> where K: Equ
 
 ```nomi
 fn reduce<T, U>(source: Iter<T>, f: (U, T) -> U): U   // f is a lambda whose first parameter has a default
+fn map_reduce<T, U, A>(source: Iter<T>, f: (A, T) -> (U, A)): (List<U>, A)   // seeded as reduce; the outputs in order and the final state
 fn each(source: Iter<T>, f: (T) -> Unit): Unit
 fn find(source: Iter<T>, f: (T) -> Bool): Maybe<T>
 fn any?(source: Iter<T>, f: (T) -> Bool): Bool
@@ -6110,6 +6119,13 @@ fn flatten(source: Iter<Iter<U>>): List<U>
 To join an `Iter<String>` into one `String`, use `String.join(parts, separator)`.
 
 `Iter.reduce` starts from the default of its callback lambda's first parameter: `Iter.reduce(xs, |sum = 0, x| sum + x)` is 0 for an empty `xs`. That default is the only starting value. A callback without one is a compile error at the callback, "`Iter.reduce` needs a starting value": a function value (`Iter.reduce(xs, Int.add)`, `xs |> Iter.reduce(add)`), a lambda whose first parameter has no default (`|a, b| a + b`), a partial application, a callback slot left open (`Iter.reduce(xs, _)`) and `Iter.reduce` named as a value. There is no first-element fallback, so a reduction never fails at run time for an empty source. For the least or greatest element, which has no answer for an empty source, use `Iter.min` and `Iter.max`: each answers a `Maybe`, `None` when the source is empty.
+
+`Iter.scan` and `Iter.map_reduce` take their starting value the same way, and a callback without one is the same error with their own name ("`Iter.scan` needs a starting value"). `Iter.scan` is lazy: it runs the fold and yields each state after the starting value, one per element, so an empty source yields nothing. `Iter.map_reduce` is eager: its callback answers `(output, next_state)` for each element, and the call answers the outputs in order with the final state, `([], start)` for an empty source.
+
+```nomi
+[3, 1, 4] |> Iter.scan(|total = 0, x| total + x) |> Iter.to_list() // [3, 4, 8]
+["a", "bb"] |> Iter.map_reduce(|at = 0, s| ((at, s), at + String.length(s))) // ([(0, "a"), (1, "bb")], 3)
+```
 
 `Iter.sum(xs)` adds the elements with `+`, left to right, from
 `T.empty_sum()`, so it is `Iter.reduce(xs, |total = T.empty_sum(), x| total +
@@ -6708,6 +6724,22 @@ Add<T, T> and Summable`. `Iter.sum` (§*`std/iter`*) is that code.
 **No implicit numeric conversion.** `Int`, `Float`, and `Decimal` are three non-mixing islands — none mixes implicitly with either of the others. Mixed-operand arithmetic (`1 + 2.0`, `1 + 1.50d`, `2.0 + 1.50d`), comparison (`1 < 2.0`, `1 < 2.50d`), and equality (`1 == 1.0`, `1.0 == 1d`) are all compile errors; convert explicitly across the boundary with `Int.to_float` / `Float.to_int` / `Decimal.from_int` / `Decimal.to_float` / `Decimal.from_float`. This avoids the silent precision loss that implicit `Int`→`Float` widening causes for magnitudes above 2^53. More generally, `==` / `!=` require operands of the same type — comparing unrelated types (e.g. `String` to `Int`) is a compile error, not a silent `false`.
 
 **Integer division and modulo.** `/` truncates toward zero and `%` takes the sign of the dividend, so the identity `(a / b) * b + (a % b) == a` holds (`-7 / 3 == -2`, `-7 % 3 == -1`). `%` is the remainder of that division. `Int.modulo(a, b)` is floored modulo: its result is zero or takes the sign of the divisor, which wraps a value into a range (`Int.modulo(-7, 3) == 2`, `Int.modulo(-1, 1440) == 1439`, `Int.modulo(7, -3) == -2`). The two agree when the operands have the same sign, and both answer `0` for `Int.min_value` and `-1`. `/`, `%` and `Int.modulo` raise a runtime error on a zero divisor. A zero divisor is a promise the caller broke, so it traps (§17 *Traps, `Maybe` and `Result`*). When the divisor is proven non-zero, `Int.divide` takes a `NonZeroInt` and is total; `Int.to_non_zero(d)` is the check that makes one. `Int.divide` is a `Divide<NonZeroInt, Int>` impl; the ordinary `/` operator uses `Divide<Int, Int>`. Modulo is not defined on `Float`.
+
+**Where a trap is reported.** A runtime fault (overflow, a zero divisor, a `case` with no arm, a call past the depth limit, a failed host function) prints `line N:` and then the fault's own text. `N` is a line of the program's own code: the line of the operation that faulted, or, when the fault happens inside the standard library, the line of the program's call into the standard library that led to it, however many std calls deep the fault is. The text after the line is the fault's own and does not name the std function; the call on line `N` does. So both of these programs print `line 2: integer overflow: 0 - -9223372036854775808`:
+
+```
+fn main() {
+    _ = -Int.min_value
+}
+```
+
+```
+fn main() {
+    _ = Int.abs(Int.min_value)
+}
+```
+
+A lambda of the program that faults while a std function runs it (`Iter.map(xs, |x| 10 / x)`) is the program's code, so the fault names the lambda's line. A fault whose text names no line (a host function's own fault, such as `String.repeat` with a negative count) is given the line of the program's call. A `todo` names its own file and line instead (§*Unwritten Code*). The same line is printed by `nomi run`, `nomi test`, a built executable, the REPL and `compiler.run`'s `Err`; the debugger stops where the fault happened, in std's frame when it is std's, and its exception text is the one the program prints.
 
 **Decimal arithmetic.** `Decimal` is the third blessed operator type (§*Primitive Types*): `+ - * /` and `< > <= >= == !=` work on two `Decimal` operands and yield a `Decimal` / `Bool`. `+ - *` are always **exact** — they never round; the scale grows as needed (`1.50d + 1.5d == 3.00d`, `1.50d * 1.5d == 2.250d`). The `/` operator is **exact-or-trap**: a quotient that terminates in base 10 just works at its preferred scale (`10.00d / 4d == 2.50d`), but a non-terminating quotient (`10d / 3d`) raises a runtime error pointing at `Decimal.divide(a, b, scale, mode)` — the explicit-rounding division path — rather than silently rounding. Division by zero is a runtime error (no Infinity). Both are traps by the rule in §17 *Traps, `Maybe` and `Result`*, and `Decimal.divide` is the total route for a quotient that may not terminate. There is **no `%`** on `Decimal`. Equality and comparison are value-based and scale-insensitive (`1.50d == 1.5d` is `True`); scale is preserved only for display (`Decimal.scale(1.50d) == 2`, `Decimal.to_string(1.50d) == "1.50"`). Decimal literals carry the `1.50d` / `1.50D` suffix.
 

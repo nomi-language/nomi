@@ -485,6 +485,17 @@ func fitsWalk(d Doc, rem *int, inTail bool) bool {
 		return fitsWalk(v.d, rem, inTail)
 	case docGroup:
 		// Nested Group: assume flat. fitsWalk recurses into its content.
+		// In a tail, a Group whose flat content does not fit the rest of
+		// the line will render broken, so its line is what its broken
+		// form writes before its first line break: a lambda that moves
+		// its body below the parameters ends the line with ` {`, which
+		// its flat form does not write.
+		if inTail {
+			flat := *rem
+			if !fitsWalk(v.d, &flat, false) {
+				return fitsWalk(brokenView(v.d), rem, true)
+			}
+		}
 		return fitsWalk(v.d, rem, inTail)
 	case docIfBroken:
 		// When probing flat fit, the enclosing group is (tentatively) flat,

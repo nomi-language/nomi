@@ -4653,11 +4653,9 @@ func TestFormat_CompoundDepth_Depth2_FitsStaysFlat(t *testing.T) {
 	}
 }
 
-// Depth 3 — fits in width but the depth threshold fires anyway. Chain-
-// aware: once the outermost Obj decides to break, every inner compound
-// in the chain ALSO breaks regardless of its own depth-from-itself.
-// Wrapper variants (Ok, String) propagate the break-decision to their
-// payload without breaking themselves.
+// Depth 3 — fits in width but the depth threshold fires anyway. Only the
+// pattern three levels deep breaks; the depth-2 pattern inside it fits and
+// stays on one line. Wrapper variants (Ok, String) add no level.
 func TestFormat_CompoundDepth_Depth3_BreaksEvenWhenFits(t *testing.T) {
 	src := `fn extract(x: Maybe<JV>): Maybe<String> {
     case x {
@@ -4669,31 +4667,19 @@ func TestFormat_CompoundDepth_Depth3_BreaksEvenWhenFits(t *testing.T) {
 	want := `fn extract(x: Maybe<JV>): Maybe<String> {
     case x {
         Ok(Obj{
-            "a" => Obj{
-                "b" => Obj{
-                    "c" => String(v),
-                },
-            },
+            "a" => Obj{"b" => Obj{"c" => String(v)}},
         }) -> Some(v)
         _ -> None
     }
 }
 `
-	got, _ := Format(src)
-	if got != want {
-		t.Errorf("depth-3 chain did not cascade.\n--- want ---\n%s\n--- got ---\n%s", want, got)
-	}
+	migrates(t, src, want)
 }
 
-// Chain-aware cascade: a parent's break-decision propagates through
-// every compound in the chain regardless of the inner's own
-// depth-from-itself. Pinned explicitly because it's easy for a later
-// refactor to silently drop the propagation and have only the outer
-// compound break.
-func TestFormat_CompoundDepth_ChainAware_PropagatesToChildren(t *testing.T) {
-	// Five-deep Obj chain. Per-node, only the outermost (depth 5) would
-	// fire; inner compounds (depths 4, 3, 2, 1) would each independently
-	// stay flat. Chain-aware: all five break.
+// Each level decides for itself: in a five-deep chain the levels three or
+// more deep (5, 4 and 3) break, and the depth-2 pattern inside them stays
+// on one line.
+func TestFormat_CompoundDepth_EachLevelDecidesOnItsOwn(t *testing.T) {
 	src := `fn main() {
     case x {
         Obj{"a" => Obj{"b" => Obj{"c" => Obj{"d" => Obj{"e" => v}}}}} -> v
@@ -4706,11 +4692,7 @@ func TestFormat_CompoundDepth_ChainAware_PropagatesToChildren(t *testing.T) {
         Obj{
             "a" => Obj{
                 "b" => Obj{
-                    "c" => Obj{
-                        "d" => Obj{
-                            "e" => v,
-                        },
-                    },
+                    "c" => Obj{"d" => Obj{"e" => v}},
                 },
             },
         } -> v
@@ -4718,16 +4700,7 @@ func TestFormat_CompoundDepth_ChainAware_PropagatesToChildren(t *testing.T) {
     }
 }
 `
-	got, _ := Format(src)
-	if got != want {
-		t.Errorf("chain-aware cascade did not propagate to all compounds.\n--- want ---\n%s\n--- got ---\n%s", want, got)
-	}
-	// Sanity: every Obj level must have its own break.
-	wantObjBreaks := 5
-	gotObjBreaks := strings.Count(got, "Obj{\n")
-	if gotObjBreaks != wantObjBreaks {
-		t.Errorf("expected %d Obj-open-then-newline pairs, got %d.\noutput:\n%s", wantObjBreaks, gotObjBreaks, got)
-	}
+	migrates(t, src, want)
 }
 
 // Width-driven break: a depth-2 compound whose single-line form exceeds
@@ -4779,31 +4752,18 @@ func TestFormat_CompoundDepth_MapLit_Depth3_Breaks(t *testing.T) {
 }
 
 // Construction-site analogue — List literal with depth 3 (List of List
-// of List) breaks even when single-line would fit. Chain-aware: every
-// compound level breaks once the outer fires.
+// of List) breaks even when single-line would fit. Its depth-2 elements
+// fit and stay on one line each.
 func TestFormat_CompoundDepth_ListLit_Depth3_Breaks(t *testing.T) {
 	src := "fn main() {\n    xs = [[[1, 2]], [[3, 4]]]\n}\n"
 	want := `fn main() {
     xs = [
-        [
-            [
-                1,
-                2,
-            ],
-        ],
-        [
-            [
-                3,
-                4,
-            ],
-        ],
+        [[1, 2]],
+        [[3, 4]],
     ]
 }
 `
-	got, _ := Format(src)
-	if got != want {
-		t.Errorf("depth-3 nested list literal cascade mismatch.\n--- want ---\n%s\n--- got ---\n%s", want, got)
-	}
+	migrates(t, src, want)
 }
 
 // Idempotency — formatting twice produces the same output across the

@@ -1,0 +1,8 @@
+// `Int.modulo` divides inside std/int.nomi; a zero divisor is reported at
+// the program's call, with the words `%` gives.
+import std/io
+
+fn main() {
+    io.print("before")
+    io.print(Int.modulo(5, 0))
+}

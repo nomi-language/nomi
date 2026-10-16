@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
 records 34
-declared-cases 331
+declared-cases 333
 failing 0
 C assertions
 E 0
@@ -234,10 +234,12 @@ T ok io.capture
 T ok io.replay
 C iter
 E 0
-N 45
-H 4ff39a4bd7bc557cca94ba1a038310deff345cd672c1569efc7771dedac1d231
+N 47
+H 69ecfad0c0ba169c00e4652ac931e17ccff1567a0e178ac416741b728e142fff
 T ok Iter.loop
 T ok Iter.reduce
+T ok Iter.scan
+T ok Iter.map_reduce
 T ok Iter.find
 T ok Iter.sort_with
 T ok Iter.sort

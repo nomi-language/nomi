@@ -101,6 +101,57 @@ fn main() {
 	}
 }
 
+// `Iter.scan` and `Iter.map_reduce` take their seed as `Iter.reduce` does,
+// and report the same error under their own names: a function value, a
+// lambda with no default, and the function named as a value. A seeded
+// lambda is accepted, and the min/max help stays `reduce`'s.
+func TestIterCallback_ScanAndMapReduceNeedAStartingValue(t *testing.T) {
+	const prelude = `fn max(a: Int, b: Int): Int {
+  if a > b { a } else { b }
+}
+
+fn apply(g: (List<Int>, (Int, Int) -> Int) -> Iter<Int>): Int {
+  Iter.count(g([1], |a = 0, b| a + b))
+}
+
+fn main() {
+  xs = [1, 2]
+  `
+	for _, c := range []struct {
+		src, msg, at, help string
+	}{
+		{`_ = Iter.scan(xs, max) |> Iter.to_list()`, "`Iter.scan` needs a starting value", "11:21",
+			"call it from a lambda whose accumulator has a starting value: `|acc = <start>, x| max(acc, x)`"},
+		{`_ = xs |> Iter.scan(|a, b| a + b) |> Iter.to_list()`, "`Iter.scan` needs a starting value", "11:23",
+			"give the accumulator a starting value: `|a = <start>, b| ...`"},
+		{"_ = apply(Iter.scan)\n  _ = xs", "`Iter.scan` needs a starting value", "11:13",
+			"call it from a lambda with a seeded callback instead: `|xs, f| Iter.scan(xs, |acc = <start>, x| f(acc, x))`"},
+		{`_ = Iter.map_reduce(xs, |n, x| (x, n + 1))`, "`Iter.map_reduce` needs a starting value", "11:27",
+			"give the accumulator a starting value: `|n = <start>, x| ...`"},
+	} {
+		err := checkSource(t, prelude+c.src+"\n}\n")
+		if err == nil {
+			t.Errorf("%s: admitted", c.src)
+			continue
+		}
+		got := err.Error()
+		if !strings.Contains(got, c.at+": "+c.msg) || !strings.Contains(got, c.help) || strings.Count(got, c.msg) != 1 {
+			t.Errorf("%s: want one %q at %s with help %q, got\n%s", c.src, c.msg, c.at, c.help, got)
+		}
+		if strings.Contains(got, "Iter.max") {
+			t.Errorf("%s: the Iter.max help is reduce's, got\n%s", c.src, got)
+		}
+	}
+	for _, good := range []string{
+		`_ = Iter.scan(xs, |acc = 0, x| max(acc, x)) |> Iter.to_list()`,
+		`_ = xs |> Iter.map_reduce(|n = 0, x| (x * n, n + 1))`,
+	} {
+		if err := checkSource(t, prelude+good+"\n}\n"); err != nil {
+			t.Errorf("%s: rejected: %v", good, err)
+		}
+	}
+}
+
 // `Iter.loop` starts only from its callback lambda's parameter default, or
 // with no state from a lambda with no parameter. A lambda whose parameter
 // has no default and a function value are rejected at the callback, in a

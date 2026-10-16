@@ -47,7 +47,7 @@ import (
 
 // FormatVersion is the version the encoder writes and the only one the
 // decoder reads. Bump it with any change to what is written.
-const FormatVersion = 22
+const FormatVersion = 24
 
 // formatMagic opens every encoded image.
 const formatMagic = "NOMIIR\x00"
@@ -468,6 +468,9 @@ func (e *encoder) pos(w *wbuf, p Pos) {
 	}
 	if p.synth {
 		flags |= 2
+	}
+	if p.stdlib {
+		flags |= 4
 	}
 	w.byte1(flags)
 	if flags&1 == 0 {

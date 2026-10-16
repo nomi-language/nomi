@@ -162,6 +162,57 @@ impl Iter<T> {
     //
     pub host fn reduce<T, U>(source: Iter<T>, f: (U, T) -> U): U
 
+    // `scan` and `map_reduce` are the folds that keep more than the final
+    // state. Both take their starting value as `reduce` does, from the
+    // callback lambda's first-parameter default.
+    /// Lazy: runs a fold and yields each state after it. The starting value
+    /// is the default of the callback lambda's first parameter, as in
+    /// `Iter.reduce`, and is not itself yielded, so there is one state per
+    /// element and an empty source yields nothing. A callback without a
+    /// starting value is a compile error.
+    ///
+    /// In the callback, `continue` skips the element: no state is yielded
+    /// and the state stays as it was. `break value` yields `value` as the
+    /// last state, then stops; a bare `break` stops without yielding.
+    //
+    //! running = [3, 1, 4] |> Iter.scan(|total = 0, x| total + x) |> Iter.to_list()
+    //! assert running == [3, 4, 8]
+    //!
+    //! peaks = [2, 5, 3, 7] |> Iter.scan(|peak = 0, x| Int.max(peak, x)) |> Iter.to_list()
+    //! assert peaks == [2, 5, 5, 7]
+    //
+    pub host fn scan<T, U>(source: Iter<T>, f: (U, T) -> U): Iter<U>
+
+    /// Maps each element with a state threaded through, and returns the
+    /// outputs in order with the final state. The callback takes the state
+    /// and an element and returns `(output, next_state)`; the starting state
+    /// is the default of its first parameter, as in `Iter.reduce`. An empty
+    /// source answers no outputs and the starting state. Consumes the whole
+    /// iterator.
+    ///
+    /// In the callback, `continue` skips the element: no output, and the
+    /// state stays as it was. `break (output, state)` keeps that output and
+    /// state, then stops; a bare `break` stops with the outputs and state so
+    /// far.
+    //
+    //! lines = ["a", "abc", "ab"]
+    //!
+    //! (rows, width) =
+    //!     lines
+    //!     |> Iter.reverse()
+    //!     |> Iter.map_reduce(|width = 0, line| {
+    //!         width = Int.max(width, String.length(line))
+    //!         (String.pad_end(line, width), width)
+    //!     })
+    //!
+    //! assert rows == ["ab", "abc", "a  "]
+    //! assert width == 3
+    //!
+    //! none: List<String> = []
+    //! assert Iter.map_reduce(none, |n = 0, s| (s, n + 1)) == ([], 0)
+    //
+    pub host fn map_reduce<T, U, A>(source: Iter<T>, f: (A, T) -> (U, A)): (List<U>, A)
+
     /// Returns the first element matching the predicate, or None.
     //
     //! assert Iter.find([1, 2, 3, 4], |x| x > 2) == Some(3)

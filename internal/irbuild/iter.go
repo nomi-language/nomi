@@ -19,7 +19,7 @@ import (
 //     speculatively and files them under one shared reason. That boundary is
 //     correct and is not relaxed here (see stdlib.go for why it is a
 //     consequence of cross-package type identity).
-//  2. The stdlib index holds all 39 `Iter.` keys
+//  2. The stdlib index holds every `Iter.` key
 //     (`TestIterRoute_TheStdlibIndexIsASecondRoute`), so there IS a second
 //     route from an `Iter.`-qualified call to a lowering, and the only thing
 //     keeping this file's anchor authoritative is ORDER: `iterCall` sits above

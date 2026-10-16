@@ -32,7 +32,7 @@ func TestIROnceSibling_CycleKeepsForcingLineage(t *testing.T) {
 	}
 	var out bytes.Buffer
 	_, err = vm.NewProgram(entry, r.IRModules(), &out).Run("main")
-	if err == nil || err.Error() != "cyclic 'once' binding: 'seed' depends on itself" || out.String() != "start\n" {
+	if err == nil || err.Error() != "line 8: cyclic 'once' binding: 'seed' depends on itself" || out.String() != "start\n" {
 		t.Fatalf("output %q, error %v", out.String(), err)
 	}
 }

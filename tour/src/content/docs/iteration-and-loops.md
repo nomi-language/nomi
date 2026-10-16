@@ -66,6 +66,34 @@ Iter.loop(|| {
 })
 ```
 
+## Keeping every step with `Iter.scan`
+
+`Iter.reduce` gives back only the final total.
+[`Iter.scan`](/reference/iter/#iterscan) gives back the total after each
+element, as a lazy iterator. Its starting value is written the same way, as
+the default of the callback's first parameter:
+
+```nomi-run
+fn main() {
+    running =
+        [3, 1, 4, 1, 5]
+        |> Iter.scan(|total = 0, x| total + x)
+        |> Iter.to_list()
+
+    dbg running
+}
+
+```
+<!-- expect
+dbg line 7: running = [3, 4, 8, 9, 14]
+-->
+
+The starting value itself is not in the output, so there is one total per
+element. When each element should produce its own result while a value is
+carried along, use [`Iter.map_reduce`](/reference/iter/#itermap_reduce). Its
+callback returns `(result, next_state)`, and the call gives back the list of
+results and the final state.
+
 ## `break` and `continue` in iter callbacks
 
 A callback is a function you pass to another function, like the lambda you

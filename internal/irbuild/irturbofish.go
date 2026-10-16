@@ -7,7 +7,10 @@ import (
 )
 
 // turbofishOnInterface reports whether t is `Iface.method<T>(args)`: a
-// turbofish on a function the qualifier names as an interface.
+// turbofish on a function the interface declares, whose type argument is
+// the implementor. An owner function in an `impl Iface { ... }` block
+// (`Iter.sum<Int>(xs)`) is generic in its own type parameters, which the
+// turbofish gives as any generic function's does.
 func (bl *irScalarBuilder) turbofishOnInterface(t *ast.Call) bool {
 	fa, qualified := t.Func.(*ast.FieldAccess)
 	if !qualified || fa.Field == nil || bl.g.fa == nil {
@@ -18,7 +21,15 @@ func (bl *irScalarBuilder) turbofishOnInterface(t *ast.Call) bool {
 		return false
 	}
 	sym := bl.g.srcFA().References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
-	return sym != nil && sym.Kind == analysis.SymbolInterface
+	if sym == nil || sym.Kind != analysis.SymbolInterface {
+		return false
+	}
+	ref := bl.g.srcFA().References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
+	if ref == nil {
+		return true
+	}
+	_, declared := ref.Node.(*ast.InterfaceMethod)
+	return declared
 }
 
 // turbofishDispatch lowers `Iface.method<T>(args)` whose type argument names

@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population failure
 what one record per deliberately-red fixture under internal/irbuild/testdata, run as the command that owns it would. Every record FAILS on purpose, so every record carries its transcript verbatim: this is the only population in the repo with power over a wrong failure message. Membership is measured by TestExpectation_FailureCensus.
-records 51
-declared-cases 242
-failing 51
+records 52
+declared-cases 247
+failing 52
 C anon_struct.nomi
 E 1
 N 1
@@ -529,7 +529,7 @@ T
 C generic_struct.nomi
 E 1
 N 7
-H c1ac9c30a641c3a8c520ce43c4fcecca77398c91b0c92da73ceb9dcc128e4fa6
+H 74c63c5dd86fcfeb8d9a62069ab604dd68a18646a88dcff109e039f98d605168
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: a second instantiation of one template renders as the same Nomi type
 T   line 88: assertion failed
 T     assert no_box_text(Box{item: "s"})
@@ -539,19 +539,11 @@ T         = Box{item: "s"}
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: and a nested instantiation renders as its own declaration
 T   line 92: assertion failed
 T     assert no_crate(Crate{
-T         box: Box{
-T             item: Inner{
-T                 value: 7,
-T             },
-T         },
+T         box: Box{item: Inner{value: 7}},
 T     })
 T     values:
 T       Crate{
-T           box: Box{
-T               item: Inner{
-T                   value: 7,
-T               },
-T           },
+T           box: Box{item: Inner{value: 7}},
 T       }
 T         = Crate{box: Box{item: Inner{value: 7}}}
 T ok <root>/internal/irbuild/testdata/generic_struct.nomi :: a nested instantiation resolves through an annotation
@@ -559,19 +551,19 @@ T   41
 T ok <root>/internal/irbuild/testdata/generic_struct.nomi :: the argument keeps its own dispatch through the instance
 T   inner:7
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: type arguments come from field names and not from field order
-T   line 122: assertion failed
+T   line 114: assertion failed
 T     assert no_pair(p)
 T     values:
 T       p
 T         = Pair{first: 7, second: "s"}
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: a same-shaped monomorphic twin stays a different type
-T   line 126: assertion failed
+T   line 118: assertion failed
 T     assert no_box(Box{item: 1})
 T     values:
 T       Box{item: 1}
 T         = Box{item: 1}
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: and the twin says so too
-T   line 130: assertion failed
+T   line 122: assertion failed
 T     assert no_twin(Twin{item: 1})
 T     values:
 T       Twin{item: 1}
@@ -657,7 +649,7 @@ T
 C inspect_through_list.nomi
 E 1
 N 3
-H bf4c9ab7a7f09d055dd987fefe04833e6c742fd5c023e65f863715b3197fcb52
+H 1bd7b17b6d7ff5a21906dc1d15ee99de104fc50f365a653f57b51768c4fb6af1
 T FAIL <root>/internal/irbuild/testdata/inspect_through_list.nomi :: a List of a user struct renders in a failure row
 T   line 35: assertion failed
 T     assert b.label == "right"
@@ -673,7 +665,7 @@ T         = Bag{items: [Point{x: 7}], label: "solo"}
 T       other
 T         = Bag{items: [], label: "empty"}
 T FAIL <root>/internal/irbuild/testdata/inspect_through_list.nomi :: nesting a list inside a list inside a struct
-T   line 67: assertion failed
+T   line 63: assertion failed
 T     assert d == empty
 T     values:
 T       d
@@ -980,6 +972,21 @@ T     values:
 T       chosen()
 T         = HalfEven
 T test result: FAILED. 4 passed, 1 failed
+T
+C stdlib_trap_tests.nomi
+E 1
+N 5
+H 9d5b8e81b4a385860d80cc3b6237d24fbbb75faaa442b19c0239f3a7db5503cc
+T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a stdlib trap in a test body
+T   line 11: division by zero
+T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a stdlib trap through a program function
+T   line 7: integer overflow: 0 - -9223372036854775808
+T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a lambda the stdlib runs
+T   line 19: division by zero
+T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a host function's trap
+T   line 24: strings.String.repeat: negative count -2
+T ok <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: the next case still runs
+T test result: FAILED. 1 passed, 4 failed
 T
 C subtests_names_report.nomi
 E 1

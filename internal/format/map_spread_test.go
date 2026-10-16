@@ -20,14 +20,20 @@ func TestFormat_MapSpreadInline(t *testing.T) {
 func TestFormat_MapSpreadSpacingAndLines(t *testing.T) {
 	migrates(t, `fn main() {
     a = {  ..m ,"b"=>2 }
-    b = {
-        ..m
+    b = {..m
         "b" => 2
     }
+    c = {
+        ..m, "b" => 2}
 }
 `, `fn main() {
     a = {..m, "b" => 2}
     b = {..m, "b" => 2}
+
+    c = {
+        ..m,
+        "b" => 2,
+    }
 }
 `)
 }
@@ -74,22 +80,16 @@ func TestFormat_MapSpreadCommentBreaksAFlatLiteral(t *testing.T) {
 `)
 }
 
-// Three levels of literal break as the depth cascade breaks any map, the
-// spread counted as an element.
-func TestFormat_MapSpreadNestedCascade(t *testing.T) {
+// A map three levels deep breaks as the depth rule breaks any map, the
+// spread counted as an element; the depth-2 map inside it fits on one line.
+func TestFormat_MapSpreadNestedDepth(t *testing.T) {
 	migrates(t, `fn main() {
     e = {..m, "x" => {..m, "y" => {..m, "z" => 1}}}
 }
 `, `fn main() {
     e = {
         ..m,
-        "x" => {
-            ..m,
-            "y" => {
-                ..m,
-                "z" => 1,
-            },
-        },
+        "x" => {..m, "y" => {..m, "z" => 1}},
     }
 }
 `)

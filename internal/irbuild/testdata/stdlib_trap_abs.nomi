@@ -1,0 +1,11 @@
+// A trap inside a stdlib function is reported at the program's call into
+// the stdlib. `Int.abs(Int.min_value)` overflows negating its argument inside
+// std/int.nomi, and the report names the line below, with the same words
+// `-Int.min_value` gives.
+import std/io
+
+fn main() {
+    io.print("before")
+    magnitude = Int.abs(Int.min_value)
+    io.print(magnitude)
+}

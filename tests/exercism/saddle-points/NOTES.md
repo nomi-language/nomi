@@ -12,7 +12,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/saddle-points.
 - Points come out row by row and left to right. The canonical "non square matrix" case lists (1, 3) before (1, 1); its comment allows reordering, so the test expects (1, 1) first.
 - `Some(height) == tallest` compares against `Iter.max`'s `Maybe` directly instead of unwrapping it; an empty row has no cells to compare.
 - Both indexed reads use `Vector.at`, which traps on an index outside the vector. The input is a matrix, so every row is as wide as the first. A ragged matrix (rows of different widths) is outside the problem, and a read past a short row stops the program rather than answering.
-- Plain `test` blocks rather than a `subtests` table, because `nomi fmt` breaks a table of grids one number per line (see game-of-life's NOTES).
+- The cases are one `subtests` table of `(description, matrix, expected)` rows. Its annotation names `List<Position>` so the `{row, column}` literals in the rows are typed; each row breaks into its three parts and each grid stays on one line.
 
 ## Friction
 

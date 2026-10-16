@@ -198,12 +198,13 @@ func groupedHasComments(g *ast.GroupedExpr) bool {
 }
 
 // emitTupleItems writes a tuple literal from its elements' documents,
-// broken one per line when an element holds a comment.
+// broken one per line when an element holds a comment or the source breaks
+// the line after its `(` (brokenAfterOpen).
 func emitTupleItems(elems []Doc, v *ast.TupleLit) Doc {
-	if cs, ok := nodesComments(v.Items); ok {
+	if cs, ok := nodesComments(v.Items); ok || itemsBrokenAfterOpen(v.Line, v.Items) {
 		return emitCommentedList("(", ")", elems, cs, nil)
 	}
-	return emitBracedListKeepingBreaks("(", ")", elems, keepsBrokenList(v.Line, v.Items, elems))
+	return emitBracedList("(", ")", elems)
 }
 
 // mapKeys is each entry's key, which holds the entry's comments as a list
@@ -307,12 +308,12 @@ func mapPatternKeys(entries []ast.MapPatternEntry) []ast.Node {
 // reads them as the item's own. Written at the pattern instead, a comment
 // after it is a LineSuffix, which below an arm that ends in a comment
 // leaves the arm.
-func patternItems(nodes []ast.Node, mustBreak bool) ([]Doc, []*ast.ItemComments, bool) {
+func patternItems(nodes []ast.Node) ([]Doc, []*ast.ItemComments, bool) {
 	docs := make([]Doc, len(nodes))
 	var cs []*ast.ItemComments
 	for i, n := range nodes {
 		c := itemComments(n)
-		docs[i] = emitPatternItem(n, mustBreak)
+		docs[i] = emitPatternItem(n)
 		if d, ok := n.(ast.HasDangling); ok && patternTakesDangling(n) {
 			before, after := d.GetDanglingBefore(), d.GetDanglingAfter()
 			if len(before) > 0 || len(after) > 0 {
@@ -348,21 +349,11 @@ func patternTakesDangling(n ast.Node) bool {
 	return false
 }
 
-// emitPatternItem is emitPattern, or emitPatternChildMustBreak with
-// mustBreak, without the dangling comments patternItems writes as the
-// item's.
-func emitPatternItem(n ast.Node, mustBreak bool) Doc {
+// emitPatternItem is emitPattern without the dangling comments
+// patternItems writes as the item's.
+func emitPatternItem(n ast.Node) Doc {
 	if !patternTakesDangling(n) {
-		if mustBreak {
-			return emitPatternChildMustBreak(n)
-		}
 		return emitPattern(n)
-	}
-	if mustBreak {
-		switch n.(type) {
-		case *ast.MapPattern, *ast.ListPattern, *ast.StructPattern, *ast.EnumPattern, *ast.TuplePattern, *ast.AsPattern:
-			return emitPatternChildMustBreakNode(n)
-		}
 	}
 	return emitPatternNode(n)
 }
@@ -373,12 +364,31 @@ func emitPatternItem(n ast.Node, mustBreak bool) Doc {
 // group it (patternItems), it is written in those parentheses, the
 // comments one per line inside them, where the next parse finds them
 // again.
-func emitGroupedPattern(n ast.Node, mustBreak bool) Doc {
-	elems, cs, ok := patternItems([]ast.Node{n}, mustBreak)
+func emitGroupedPattern(n ast.Node) Doc {
+	elems, cs, ok := patternItems([]ast.Node{n})
 	if !ok {
 		return elems[0]
 	}
 	return emitCommentedListNoLastComma("(", ")", elems, cs)
+}
+
+// brokenAfterOpen reports whether the source breaks the line between a
+// literal's opening bracket, on line open, and its first element, which
+// starts on line first (0 when it has none). A list, vector, set, map,
+// tuple or struct literal, or a list, map or struct pattern, broken there
+// stays broken whatever its width, as Prettier keeps an object expanded;
+// the author joins it again by deleting that one line break. Only this
+// break counts: line breaks between later elements do not. The broken form
+// starts its first element on the line below the bracket, so a second
+// format finds the same break and keeps it.
+func brokenAfterOpen(open, first int) bool {
+	return open > 0 && first > open
+}
+
+// itemsBrokenAfterOpen is brokenAfterOpen for a literal whose first element
+// is the first of items.
+func itemsBrokenAfterOpen(open int, items []ast.Node) bool {
+	return len(items) > 0 && brokenAfterOpen(open, nodeStartLine(items[0]))
 }
 
 // keepsBrokenList reports whether a list is written one element per line

@@ -22,32 +22,7 @@ type formatGap struct {
 	src    string
 }
 
-var knownFormatGaps = []formatGap{
-	{
-		// `(A(a)) = v` parses as a PatternBinding, whose pattern the
-		// parentheses only group; the formatter drops them, and `A(a) = v`
-		// parses as the DistinctDestructure statement. Both bind `a` the
-		// same way, but the syntax tree differs. Found by
-		// FuzzFormatKeepsMeaning; present on `next` before `or` patterns.
-		name:   "parenthesized variant pattern binding",
-		kind:   "meaning",
-		reason: `\*ast\.PatternBinding became \*ast\.DistinctDestructure`,
-		src:    "fn main() {\n    (A(a)) = 0\n}\n",
-	},
-	{
-		// A binding annotated with a function type whose value is a lambda
-		// with a block body, too long for its line: the first format keeps
-		// the annotation on one line and breaks the lambda's body, and a
-		// second format breaks the annotation's parameter list instead.
-		// Found by FuzzFormatKeepsMeaning; it involves no `subtests`
-		// statement, the only construct whose layout the change that found
-		// it touched.
-		name:   "function-typed binding of a long lambda",
-		kind:   "idempotence",
-		reason: "first at line \\d+: `\\w+: \\(\\w+\\) -> \\w+ = \\|\\w+\\| \\{` became `\\w+: \\(`",
-		src:    "{a00000000000000000000000000:(A00)->A00=|A000000000000000000000000000000000000000000000000|\"\"}",
-	},
-}
+var knownFormatGaps = []formatGap{}
 
 func (gap *formatGap) matches(f formatFailure) bool {
 	return gap.kind == f.kind && regexp.MustCompile(gap.reason).MatchString(f.msg)

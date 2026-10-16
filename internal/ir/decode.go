@@ -341,6 +341,7 @@ func (d *decoder) pos(r *rbuf) Pos {
 	var p Pos
 	p.file = r.file
 	p.synth = flags&2 != 0
+	p.stdlib = flags&4 != 0
 	p.line = int32(int64(r.last.line) + r.sv())
 	p.col = int32(r.uv())
 	p.endLine = int32(int64(p.line) + r.sv())

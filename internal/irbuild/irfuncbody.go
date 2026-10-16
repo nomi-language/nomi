@@ -150,7 +150,10 @@ type irScalarBuilder struct {
 	// than lowering them a second time.
 	stdInstPreCall *ast.Call
 	stdInstPreArgs irQualArgs
-	// Reduce seeds belong to these exact callback nodes, not ordinary defaults.
+	// Seeds of `Iter.reduce`, `Iter.scan` and `Iter.map_reduce` belong to
+	// these exact callback nodes, not ordinary defaults. The value says
+	// whether the callback answers its accumulator, as a reduce's and a
+	// scan's do; a map_reduce's answers a pair.
 	reduceSeeds map[*ast.Lambda]bool
 	// current is what each bare `..` of the update literals being lowered
 	// stands for (ircurrentvalue.go).

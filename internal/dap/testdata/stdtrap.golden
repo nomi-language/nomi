@@ -1,0 +1,22 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"console":"internalConsole","mode":"run","program":"$TESTDATA/stdtrap.nomi","request":"launch","type":"nomi"}
+<- response launch
+<- event initialized
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event output {"category":"stdout","output":"start\n"}
+<- event stopped {"allThreadsStopped":true,"description":"Trap","reason":"exception","text":"line 5: integer overflow: 0 - -9223372036854775808","threadId":1}
+-> exceptionInfo {"threadId":1}
+<- response exceptionInfo {"breakMode":"always","description":"line 5: integer overflow: 0 - -9223372036854775808","details":{"message":"line 5: integer overflow: 0 - -9223372036854775808","typeName":"Trap"},"exceptionId":"trap"}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":20,"id":1,"line":156,"name":"abs","presentationHint":"subtle","source":{"name":"int.nomi","path":"$STD/int.nomi","presentationHint":"deemphasize"}},{"column":24,"id":2,"line":5,"name":"main","source":{"name":"stdtrap.nomi","path":"$TESTDATA/stdtrap.nomi"}}],"totalFrames":2}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stderr","output":"line 5: integer overflow: 0 - -9223372036854775808\n"}
+<- event exited {"exitCode":1}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

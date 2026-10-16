@@ -7,14 +7,14 @@ Adapted from Exercism problem-specifications (MIT), exercises/transpose.
 ## Choices
 
 - Each line is padded on the right to the width of the longest line from it to the end. After that, the rows that reach column `i` are always a prefix of the rows, so output line `i` is every row's character at `i` where it has one, and no row needs trailing-space bookkeeping.
-- The padding widths are a running maximum from the bottom up, written as one `Iter.reduce` over the reversed lines with a `(width, rows)` accumulator that prepends each row.
+- The padding widths are a running maximum from the bottom up: one `Iter.map_reduce` over the reversed lines, whose state is the width so far and whose output is each padded row. The rows come out bottom first, so one `Iter.reverse` puts them back in order. `Iter.scan` over the widths, reversed and zipped back with the lines, is the other spelling; it needs a reverse and a zip where `map_reduce` needs one reverse.
 - Rows are `Vector<String>` of graphemes (`Iter.to_vector` over a `String`), since output line `i` reads column `i` of each row by index. The input and output stay `List<String>`.
 - A row too short for a column gives `Vector.get`'s `None`, and `Maybe.values` drops it. That `None` is the rule "don't pad on the right", not an error.
 - One `subtests` table: the cases share one shape, and a table of string lists is shallow enough for `nomi fmt` to keep.
 
 ## Friction
 
-- [stdlib] No `Iter.scan` for a running maximum. The padding widths needed `Iter.reduce` threading a `(width, rows)` tuple and prepending to a list, over `Iter.reverse(lines)`. Rust has `Iterator::scan`, Elixir `Enum.scan/2`, Gleam `list.scan`. With one, it is `lines |> Iter.reverse() |> Iter.scan(0, |width, line| Int.max(width, String.length(line)))`, zipped back with the lines.
+None.
 
 ## Indexing
 

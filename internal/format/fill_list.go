@@ -15,7 +15,12 @@ import (
 // indent its elements start at, so it depends on the syntax tree and the
 // list's position only. Flat, every separator renders `, `, whichever line
 // the packing put it on, so the flat form is bracedList's.
-func filledList(open, close string, texts []string) Doc {
+//
+// With broken (the source breaks the line after the opening bracket,
+// brokenAfterOpen) the list is filled broken even when it would fit flat,
+// as LocalBroken, as a kept-broken list of any other elements is. Its
+// output has that break too, so it stays filled.
+func filledList(open, close string, texts []string, broken bool) Doc {
 	widths := make([]int, len(texts))
 	for i, s := range texts {
 		widths[i] = textWidth(s)
@@ -40,6 +45,15 @@ func filledList(open, close string, texts []string) Doc {
 		}
 		return Concat(parts...)
 	})
+	if broken {
+		return LocalBroken(Concat(
+			Text(open),
+			Nest(defaultIndent, Concat(HardLine(), body)),
+			Text(","),
+			HardLine(),
+			Text(close),
+		))
+	}
 	return Group(Concat(
 		Text(open),
 		Nest(defaultIndent, Concat(LineOrEmpty(), body)),

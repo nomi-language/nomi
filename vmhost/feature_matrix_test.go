@@ -159,6 +159,8 @@ const (
 	mxBox   = "struct Box<T> {\n    v: T\n}"
 	mxTree  = "enum Tree<T> {\n    Leaf T\n    Nil\n}"
 	mxCoin  = "enum Coin {\n    Penny\n    Dime\n}"
+	mxVTree = "enum VTree {\n    Leaf Int\n    Node Vector<VTree>\n}\n\nderive Equatable for VTree"
+	mxVDir  = "struct VDir {\n    name: String\n    kids: Vector<VDir>\n}"
 )
 
 var mxFeatures = []mxFeature{
@@ -197,6 +199,10 @@ var mxFeatures = []mxFeature{
 	{name: "generic struct", decls: mxBox, typ: "Box<Int>", expr: "Box{v: 1}", want: "Box{v: 1}"},
 	{name: "generic enum", decls: mxTree, typ: "Tree<String>", expr: `Tree.Leaf("a")`, want: `Leaf("a")`},
 	{name: "generic bare variant", decls: mxTree, typ: "Tree<Int>", expr: "Tree.Nil", want: "Nil", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
+	{name: "recursive vector enum", decls: mxVTree, typ: "VTree", expr: "VTree.Node(#[VTree.Leaf(1), VTree.Node(#[])])",
+		obs: `"${Debug.inspect($v)} ${$v == $v}"`, want: "Node(#[Leaf(1), Node(#[])]) True"},
+	{name: "recursive vector struct", decls: mxVDir, typ: "VDir", expr: `VDir{name: "r", kids: #[VDir{name: "a", kids: #[]}]}`,
+		want: `VDir{name: "r", kids: #[VDir{name: "a", kids: #[]}]}`},
 
 	// Function values.
 	{name: "named function", decls: "fn twice(n: Int): Int {\n    n * 2\n}", typ: "(Int) -> Int", expr: "twice",
@@ -247,6 +253,15 @@ var mxFeatures = []mxFeature{
 	{name: "range iter", typ: "Iter<Int>", expr: "1..=3 |> Iter.map(|n| n * n)",
 		obs: "Debug.inspect(Iter.to_list($v))", want: "[1, 4, 9]", tags: tagIter},
 	{name: "iter reduce", typ: "Int", expr: "[1, 2, 3] |> Iter.reduce(|acc = 0, n| acc + n)", want: "6"},
+	{name: "iter scan", typ: "Iter<Int>", expr: "[3, 1, 4] |> Iter.scan(|total = 0, n| total + n)",
+		obs: "Debug.inspect(Iter.to_list($v))", want: "[3, 4, 8]", tags: tagIter},
+	{name: "iter map_reduce", typ: "(List<String>, Int)", expr: `["a", "bb"] |> Iter.map_reduce(|at = 0, s| ("${at}${s}", at + 1))`,
+		want: `(["0a", "1bb"], 2)`},
+	// `Summable.empty_sum()` makes a T with no element, so T must be
+	// determined: by the position over `[]`, or by the inner lists' List.
+	{name: "sum of an empty list", typ: "Int", expr: "Iter.sum([])", want: "0", tags: tagUntyped, reject: mxUnsolved},
+	{name: "sum of empty lists", typ: "List<Int>", expr: "Iter.sum([[]])", want: "[]", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
+	{name: "sum turbofish", typ: "Int", expr: "Iter.sum<Int>([])", want: "0", tags: tagCall},
 
 	// Expressions.
 	{name: "case", typ: "String", expr: "case 2 {\n    1 -> \"one\"\n    _ -> \"many\"\n}", want: `"many"`, tags: tagNested},
@@ -884,7 +899,32 @@ func (r mxCheckerRule) applies(c mxCell) bool {
 	return c.shell.name == r.context || c.place.name == r.context
 }
 
-var mxCheckerRules = []mxCheckerRule{}
+var mxCheckerRules = []mxCheckerRule{
+	{match: mxBindsWhollyOpen, want: mxUnsolved,
+		why: "`Iter.sum([])`'s whole type is the T nothing has fixed yet, and the context binds a generic " +
+			"type whose type argument is that T before anything fixes it"},
+}
+
+// mxBindsWhollyOpen matches the sum of an empty list inside a context
+// whose own unannotated binding has a generic type whose type argument is
+// the unsolved T (`Gbox<T>`, `List<T>`, `Task<T>`), before a context
+// outside it gives T. An empty list in the same place binds `List<List<?>>`,
+// whose open part is nested, which a binding accepts.
+func mxBindsWhollyOpen(c mxCell) bool {
+	if c.f.name != "sum of an empty list" {
+		return false
+	}
+	for _, w := range c.wraps {
+		switch w.name {
+		case "Iter.map callback", "concurrent task", "generic struct field":
+			return true
+		}
+		if w.typing == mxGives || w.typing == mxUnifies {
+			return false
+		}
+	}
+	return false
+}
 
 // mxOutcome is what checking and running one cell found.
 type mxOutcome struct {

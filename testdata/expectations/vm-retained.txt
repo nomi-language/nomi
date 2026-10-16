@@ -235,6 +235,18 @@
 07-structs-and-enums/variant_field_defaults/policy/nested.nomi:Timeout.After.seconds default	ran
 07-structs-and-enums/variant_field_defaults/policy/nested.nomi:Timeout.inspect	ran
 07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi:describe	ran
+07-structs-and-enums/vector_trees_test.nomi:Dir.equal?	ran
+07-structs-and-enums/vector_trees_test.nomi:Dir.inspect	ran
+07-structs-and-enums/vector_trees_test.nomi:Expr.inspect	ran
+07-structs-and-enums/vector_trees_test.nomi:Stmt.inspect	ran
+07-structs-and-enums/vector_trees_test.nomi:Tree.equal?	ran
+07-structs-and-enums/vector_trees_test.nomi:Tree.hash	ran
+07-structs-and-enums/vector_trees_test.nomi:Tree.inspect	ran
+07-structs-and-enums/vector_trees_test.nomi:depth	ran
+07-structs-and-enums/vector_trees_test.nomi:eval	ran
+07-structs-and-enums/vector_trees_test.nomi:sample	ran
+07-structs-and-enums/vector_trees_test.nomi:sum	ran
+07-structs-and-enums/vector_trees_test.nomi:total	PROBE: a synthesized argument is not a value of the declared type
 08-pattern-matching/as_patterns_test.nomi:Kind.inspect	ran
 08-pattern-matching/as_patterns_test.nomi:Tx.inspect	ran
 08-pattern-matching/as_patterns_test.nomi:change	ran
