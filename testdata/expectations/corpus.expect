@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 351
-declared-cases 1041
+records 352
+declared-cases 1047
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -479,8 +479,8 @@ T nomi run: <root>/tests/04-scalars-and-text/decimals/test_helpers.nomi declares
 T
 C 04-scalars-and-text/floats_test.nomi
 E 0
-N 7
-H 78ff54e0b9e563be35ec871a7cd3eb914d01c233346c44eaef17c6936e12adb3
+N 10
+H c82cbb211f4f794586e4029bd943b457a1fe455d6e2368decab37ef03e9e69a7
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: floats convert to ints by truncating toward zero
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float to int rejects overflow and special values
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float rounding helpers return integer-valued floats
@@ -488,7 +488,17 @@ T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float rounding can fee
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float special values can be produced and classified
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float equality treats NaN reflexively
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float special values propagate through arithmetic and rounding
-T test result: ok. 7 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float abs clears the sign
+T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float sign is -1, 0 or 1, and 0 for both zeros and NaN
+T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float min and max order the two zeros and propagate NaN
+T test result: ok. 10 passed, 0 failed
+T
+C 04-scalars-and-text/int_overflow_test.nomi
+E 0
+N 1
+H 28e0121d0f2dfa16ccab3b6b8d2d5f2f0566cc0699b7f78935b1fc22e2fd5ee4
+T ok <root>/tests/04-scalars-and-text/int_overflow_test.nomi :: int abs of the minimum overflows as negating it does
+T test result: ok. 1 passed, 0 failed
 T
 C 04-scalars-and-text/interpolate_composite_test.nomi
 E 0
@@ -516,15 +526,17 @@ T test result: ok. 4 passed, 0 failed
 T
 C 04-scalars-and-text/ints_test.nomi
 E 0
-N 6
-H 6861a66659693607f496e9011a86b3839e6c7c305057a9ff91eb0b297184ab27
+N 8
+H 256df0f54a6854481877d856b3e55d40a4160982b511065d45dfd9a3213267b1
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: ints convert to floats
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero refinement validates divisors
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero integers make division and modulo total
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive refinement is stricter than non-zero
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive integers can be used as non-zero divisors
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive refinement rejects zero divisors
-T test result: ok. 6 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: int abs and sign
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: int min and max
+T test result: ok. 8 passed, 0 failed
 T
 C 04-scalars-and-text/matcher_test.nomi
 E 0

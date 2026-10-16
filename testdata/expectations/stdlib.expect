@@ -12,7 +12,7 @@
 population stdlib
 what one record per stdlib module carrying `//!` prompt cases, run as `nomi test std/<module>` runs it. N is the module's prompt-case count.
 records 33
-declared-cases 303
+declared-cases 311
 failing 0
 C assertions
 E 0
@@ -178,8 +178,8 @@ T test result: ok. 18 passed, 0 failed
 T
 C float
 E 0
-N 12
-H b0d289f2b572ac5f562a25989917805c8ae2b5e007d5a67e5f5bc8ab98b7e0bf
+N 16
+H f3fb438cd796b3fcf7c7e74c784a1d4adca81a548e48ff12287295b06156f0dd
 T ok <root>/std/float.nomi :: impl / nan //! test line 31
 T ok <root>/std/float.nomi :: impl / positive_infinity //! test line 37
 T ok <root>/std/float.nomi :: impl / negative_infinity //! test line 43
@@ -191,8 +191,12 @@ T ok <root>/std/float.nomi :: impl / round //! test lines 81-83
 T ok <root>/std/float.nomi :: impl / floor //! test lines 88-89
 T ok <root>/std/float.nomi :: impl / ceil //! test lines 94-95
 T ok <root>/std/float.nomi :: impl / trunc //! test lines 100-101
-T ok <root>/std/float.nomi :: impl / to_string //! test lines 116-117
-T test result: ok. 12 passed, 0 failed
+T ok <root>/std/float.nomi :: impl / abs //! test lines 107-110
+T ok <root>/std/float.nomi :: impl / sign //! test lines 119-122
+T ok <root>/std/float.nomi :: impl / min //! test lines 135-137
+T ok <root>/std/float.nomi :: impl / max //! test lines 154-156
+T ok <root>/std/float.nomi :: impl / to_string //! test lines 181-182
+T test result: ok. 16 passed, 0 failed
 T
 C instant
 E 0
@@ -211,8 +215,8 @@ T test result: ok. 9 passed, 0 failed
 T
 C int
 E 0
-N 18
-H bb1036c5aad6145930bd260f6a9d9e77eaede394c5d83fa4fbf38b79ae1d88a2
+N 22
+H a311ad67e13935d38fcf701e34d1b88782b8ace7c51b5a5d08ce436c3de13f99
 T ok <root>/std/int.nomi :: impl / max_value //! test line 31
 T ok <root>/std/int.nomi :: impl / min_value //! test line 38
 T ok <root>/std/int.nomi :: impl / to_non_zero //! test lines 43-45
@@ -228,10 +232,14 @@ T ok <root>/std/int.nomi :: impl / bitwise_not //! test line 106
 T ok <root>/std/int.nomi :: impl / shift_left //! test line 112
 T ok <root>/std/int.nomi :: impl / shift_right //! test line 119
 T ok <root>/std/int.nomi :: impl / modulo //! test lines 125-126
-T ok <root>/std/int.nomi :: impl / to_string //! test lines 137-138
-T ok <root>/std/int.nomi :: impl / divide //! test lines 165-166
-T ok <root>/std/int.nomi :: impl / to_non_zero //! test lines 249-251
-T test result: ok. 18 passed, 0 failed
+T ok <root>/std/int.nomi :: impl / abs //! test lines 135-137
+T ok <root>/std/int.nomi :: impl / sign //! test lines 144-146
+T ok <root>/std/int.nomi :: impl / min //! test lines 157-158
+T ok <root>/std/int.nomi :: impl / max //! test lines 165-166
+T ok <root>/std/int.nomi :: impl / to_string //! test lines 176-177
+T ok <root>/std/int.nomi :: impl / divide //! test lines 204-205
+T ok <root>/std/int.nomi :: impl / to_non_zero //! test lines 288-290
+T test result: ok. 22 passed, 0 failed
 T
 C io
 E 0

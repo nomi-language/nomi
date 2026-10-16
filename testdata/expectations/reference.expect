@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
 records 33
-declared-cases 301
+declared-cases 309
 failing 0
 C assertions
 E 0
@@ -157,8 +157,8 @@ T ok Duration.to_string (impl Display for Duration)
 T ok Duration.inspect (impl Debug for Duration)
 C float
 E 0
-N 12
-H d3e61f780696f53e22f850f68660f0eb604db36e3f99ba6545723c2253b76775
+N 16
+H 34e46028169dce4b495e0552c83ee0dd8245236b4a4a631ba538c040c82d88d3
 T ok Float.nan
 T ok Float.positive_infinity
 T ok Float.negative_infinity
@@ -170,6 +170,10 @@ T ok Float.round
 T ok Float.floor
 T ok Float.ceil
 T ok Float.trunc
+T ok Float.abs
+T ok Float.sign
+T ok Float.min
+T ok Float.max
 T ok Float.to_string (impl Display for Float)
 C instant
 E 0
@@ -186,8 +190,8 @@ T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Insta
 T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
 C int
 E 0
-N 18
-H ed5d8eaeb3e92eb8f8ee0bc34db962257a36a74813d62fb00f3e55a50abba33c
+N 22
+H 3ddba818b9a32ae32ce20a9f32d9efe9f4cdad316dbabbe8477721614b5aa65a
 T ok Int.max_value
 T ok Int.min_value
 T ok Int.to_non_zero
@@ -203,6 +207,10 @@ T ok Int.bitwise_not
 T ok Int.shift_left
 T ok Int.shift_right
 T ok Int.modulo
+T ok Int.abs
+T ok Int.sign
+T ok Int.min
+T ok Int.max
 T ok Int.to_string (impl Display for Int)
 T ok Int.divide Divide<NonZeroInt, Int> (impl Divide<NonZeroInt, Int> for Int)
 T ok PositiveInt.to_non_zero

@@ -104,6 +104,7 @@
 04-scalars-and-text/codepoint_literals_test.nomi:token_kind	ran
 04-scalars-and-text/decimals/test_helpers.nomi:has_diagnostic?	ran
 04-scalars-and-text/decimals/test_helpers.nomi:hover_signature	ran
+04-scalars-and-text/floats_test.nomi:negative_zero?	ran
 04-scalars-and-text/interpolate_composite_test.nomi:Box.inspect	ran
 04-scalars-and-text/interpolate_composite_test.nomi:Box.inspect	ran
 04-scalars-and-text/interpolate_composite_test.nomi:Color.inspect	ran

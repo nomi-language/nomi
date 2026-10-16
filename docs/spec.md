@@ -6585,7 +6585,7 @@ impl Add<Set<T>, Set<T>> for Set<T> {
 The same holds for a user type (`impl Add<T, Box<T>> for Box<T>`) and inside
 generic code, where `a + b` with `a: Set<T>` and `b: Set<T>` is `Set<T>`.
 
-**Integer overflow traps.** `Int` is 64-bit. The arithmetic operators `+`, `-`, `*` (and `/` in the single `MinInt64 / -1` case) raise a runtime error on signed overflow rather than wrapping silently — the same fail-loud stance as division by zero. When modular (wrapping) arithmetic is the intent — hashing, checksums, ring counters — use the explicit `Int.wrapping_add` / `Int.wrapping_sub` / `Int.wrapping_mul` functions, which wrap two's-complement. `derive Hashable` uses wrapping multiply internally for exactly this reason.
+**Integer overflow traps.** `Int` is 64-bit. The arithmetic operators `+`, `-`, `*` (and `/` in the single `MinInt64 / -1` case) raise a runtime error on signed overflow rather than wrapping silently — the same fail-loud stance as division by zero. When modular (wrapping) arithmetic is the intent — hashing, checksums, ring counters — use the explicit `Int.wrapping_add` / `Int.wrapping_sub` / `Int.wrapping_mul` functions, which wrap two's-complement. `derive Hashable` uses wrapping multiply internally for exactly this reason. Unary `-` traps on `Int.min_value`, whose magnitude is one past `Int.max_value`, and so does `Int.abs(Int.min_value)`, with the same error.
 
 **No implicit numeric conversion.** `Int`, `Float`, and `Decimal` are three non-mixing islands — none mixes implicitly with either of the others. Mixed-operand arithmetic (`1 + 2.0`, `1 + 1.50d`, `2.0 + 1.50d`), comparison (`1 < 2.0`, `1 < 2.50d`), and equality (`1 == 1.0`, `1.0 == 1d`) are all compile errors; convert explicitly across the boundary with `Int.to_float` / `Float.to_int` / `Decimal.from_int` / `Decimal.to_float` / `Decimal.from_float`. This avoids the silent precision loss that implicit `Int`→`Float` widening causes for magnitudes above 2^53. More generally, `==` / `!=` require operands of the same type — comparing unrelated types (e.g. `String` to `Int`) is a compile error, not a silent `false`.
 
@@ -7649,6 +7649,19 @@ Float division by zero **does not error** — it produces the IEEE 754 value:
 Int division by zero still errors at the operator (`1 / 0` is a runtime error), because Int has no spare bit patterns to encode "no value" — every Int64 is a valid integer. Code that wants total integer division validates the divisor first with `Int.to_non_zero(y): Maybe<NonZeroInt>`, then calls `Int.divide(x, nz): Int`. The infix operator stays direct, and the fallible step is named at the boundary where the divisor becomes known-safe.
 
 NaN and ±Infinity propagate through arithmetic and through the rounding helpers (`Float.round`, `floor`, `ceil`, `trunc`) per IEEE 754 — `Float.round(NaN)` is `NaN`, `Float.floor(+Inf)` is `+Inf`, etc.
+
+`Int`, `Float` and `Decimal` each have `abs`, `sign` (an `Int`: -1, 0 or 1),
+`min` and `max`. On `Float` they follow IEEE 754-2019:
+
+- `Float.abs` clears the sign bit, so `Float.abs(-0.0)` is `0.0`, the abs of
+  either infinity is `+Inf`, and the abs of NaN is NaN.
+- `Float.sign` is 0 for both zeros, and 0 for NaN too: NaN is neither less
+  than nor greater than zero, and no `Float` function traps on a NaN operand.
+  Check `Float.nan?` first where NaN must be told apart from zero.
+- `Float.min` and `Float.max` are IEEE 754-2019's `minimum` and `maximum`:
+  NaN if either operand is NaN, and `-0.0` is the lesser zero, so
+  `Float.min(0.0, -0.0)` is `-0.0` and `Float.max(-0.0, 0.0)` is `0.0`. For
+  any other tie they return their first argument.
 
 #### NaN and the three comparison behaviours
 

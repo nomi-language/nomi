@@ -1,0 +1,24 @@
+import std/compiler
+
+test "int abs of the minimum overflows as negating it does" {
+    negated =
+        """
+            fn main() {
+              _ = -Int.min_value
+            }
+            """
+        |> compiler.run()
+
+    absolute =
+        """
+            fn main() {
+              _ = Int.abs(Int.min_value)
+            }
+            """
+        |> compiler.run()
+
+    assert Err(negated_message) = negated
+    assert Err(absolute_message) = absolute
+    assert String.contains?(negated_message, "integer overflow: 0 - -9223372036854775808")
+    assert String.contains?(absolute_message, "integer overflow: 0 - -9223372036854775808")
+}
