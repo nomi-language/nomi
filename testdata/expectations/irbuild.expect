@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 371
+records 372
 declared-cases 0
 failing 77
 C assert_subject_test.nomi@76e4dc034f8c1f74
@@ -6217,6 +6217,14 @@ T   line 58: integer overflow: -9223372036854775807 - 2
 T FAIL <dir>/scalar_operator_traps.nomi :: an impl-form Multiply overflow blames the call's own line
 T   line 63: integer overflow: 9223372036854775807 * 2
 T test result: FAILED. 2 passed, 6 failed
+T
+C internal/irbuild/testdata/seed_function_value.nomi@d80d3eb13cec75b3
+E 0
+N 0
+H 8f221c680225939632cb74346cd5bfe9639b2c94cdb428a8958be7574c8389a8
+T 7
+T 1,a
+T 9
 T
 C internal/irbuild/testdata/sets.nomi@7163c228351d4009
 E 0

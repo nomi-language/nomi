@@ -9121,6 +9121,63 @@ func needsExpectedType(node ast.Node) bool {
 	return false
 }
 
+// argsTakeExpectedType reports whether an argument is one more shape whose
+// type its slot's expected type decides, beyond needsExpectedType's: a
+// function named as a value, which a generic one needs to be instantiated
+// (§5, `Some(Display.to_string)` under a Maybe<(Int) -> String>), and a
+// collection literal of several items, each of which widens to the expected
+// element type on its own (`Some([1, "a"])` under a Maybe<List<Display>>).
+// A lambda takes its parameter types from the same seed. The caller does not
+// seed these from a Unit expectation (a Unit function's tail): a callback
+// slot whose result is Unit takes a function of any result, so `run(make)`
+// seeded with `() -> Unit` would leave make's own parameter unsolved and
+// unreported.
+func (c *checker) argsTakeExpectedType(args []ast.Node) bool {
+	for _, a := range args {
+		if c.argTakesExpectedType(a) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *checker) argTakesExpectedType(node ast.Node) bool {
+	switch v := node.(type) {
+	case *ast.NamedArg:
+		return c.argTakesExpectedType(v.Value)
+	case *ast.GroupedExpr:
+		return c.argTakesExpectedType(v.Expr)
+	case *ast.Ident:
+		return c.namesFunction(Pos{Line: v.Line, Col: v.Col})
+	case *ast.FieldAccess:
+		return v.Field != nil && c.namesFunction(Pos{Line: v.Field.Line, Col: v.Field.Col})
+	case *ast.ListLit:
+		return v.TypeName == nil && (len(v.Items) > 1 || c.argsTakeExpectedType(v.Items))
+	case *ast.VectorLit:
+		return len(v.Items) > 1 || c.argsTakeExpectedType(v.Items)
+	case *ast.SetLit:
+		return len(v.Items) > 1 || c.argsTakeExpectedType(v.Items)
+	case *ast.TupleLit:
+		return c.argsTakeExpectedType(v.Items)
+	}
+	// A call's arguments take their types from its own parameters, not
+	// from this call's expected type.
+	return false
+}
+
+// namesFunction reports whether the name at pos refers to a function or an
+// interface function.
+func (c *checker) namesFunction(pos Pos) bool {
+	sym := c.fa.References[pos]
+	if sym == nil {
+		return false
+	}
+	for sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	return sym.Kind == SymbolFunction || sym.Kind == SymbolInterfaceMethod
+}
+
 // checkGenericCall handles calls to generic functions by inferring type params.
 // When skipReturnInfer is true, the post-argument unification of the return
 // type against the enclosing function's return type is skipped — used for
@@ -9222,7 +9279,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		resultTy = c.partialCallShape(n, ft)
 	}
 	if concreteExpected(expected) && !skipReturnInfer &&
-		ContainsTypeParam(resultTy) && (flatVariant || callArgsNeedExpectedType(n.Args)) {
+		ContainsTypeParam(resultTy) && (flatVariant || callArgsNeedExpectedType(n.Args) || !isUnitLike(expected) && c.argsTakeExpectedType(n.Args)) {
 		trial := make(map[*TypeParam_]Type, len(subs))
 		for k, v := range subs {
 			trial[k] = v

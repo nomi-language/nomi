@@ -873,12 +873,6 @@ var mxCheckerRules = []mxCheckerRule{
 		why: "a function's result does not widen a tuple element to an interface (`fn pair(): (Int, Named) { (1, Pt{x: 5}) }`), " +
 			"though an annotated binding does (`t: (Int, Named) = (1, Pt{x: 5})`) and an enum's embedded type widens in both: " +
 			"a checker inconsistency, reported, not a design rule"},
-	{feature: "interface function value", context: "Iter.loop callback", before: true, want: "cannot infer type parameter",
-		why: "`Some(Display.to_string)` where a Maybe<(Int) -> String> is expected does not instantiate the generic function value, " +
-			"though `Some(|x| x * 3)` takes its parameter type from the same position (§5): a checker inconsistency, reported"},
-	{feature: "existential list", context: "Iter.loop callback", before: true, want: "list element type mismatch",
-		why: "`Some([1, \"a\"])` where a Maybe<List<Display>> is expected checks the list without its element type: " +
-			"a checker inconsistency, reported"},
 }
 
 // mxOutcome is what checking and running one cell found.
