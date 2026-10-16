@@ -256,15 +256,17 @@ func irNestedEmbeds(k kind) bool {
 // literalParts is the checker's type of an unannotated collection literal,
 // projected, when one of its type arguments holds, below its top, an
 // embedded type's enum (`[(1, c), (2, shape)]` is a `List<(Int, Shape)>`)
-// or a collection (`[(1, []), (2, [3])]` is a `List<(Int, List<Int>)>`):
-// its items are then lowered against those parts, so each embedded value
-// is widened, and each empty collection typed, where it sits. It answers
-// nil otherwise; a top-level join (`[c, shape]`, `[[], [1]]`) is found from
-// the lowered items (irEmbedsJoin, literalItemsCoerced).
+// or a collection (`[(1, []), (2, [3])]` is a `List<(Int, List<Int>)>`), or
+// is a fully typed collection (`[#{}]` is a `List<Set<Int>>` where a later
+// use fixes the set's element): its items are then lowered against those
+// parts, so each embedded value is widened, and each empty collection
+// typed, where it sits. It answers nil otherwise; a top-level join of
+// embedded values (`[c, shape]`) is found from the lowered items
+// (irEmbedsJoin, literalItemsCoerced).
 func (bl *irScalarBuilder) literalParts(at ast.Node, of tag) []kind {
 	parts := bl.checkedLiteralParts(at, of)
 	for _, p := range parts {
-		if irNestedEmbeds(p) || (irNestedCollection(p) && irFullyTyped(p)) {
+		if irNestedEmbeds(p) || ((irIsCollection(p) || irNestedCollection(p)) && irFullyTyped(p)) {
 			return parts
 		}
 	}

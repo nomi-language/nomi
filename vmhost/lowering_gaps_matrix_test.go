@@ -124,26 +124,6 @@ fn main() {
 `,
 	},
 	{
-		name: "gapEmptyLiteralSolvedLater",
-		fix: "builder: an empty literal whose element type a later position solves, inside a list, " +
-			"a map or a struct literal: `[#{}]` as a case scrutinee in a function returning a " +
-			"Set<Int>, `{\"k\" => #{}}`, `Hold{v: {f: #{}}.f}`. The checker records the solved " +
-			"type on the outer literal, and the builder reads the inner `#{}` as an unsolved Set<_>",
-		reason: "a ListLit",
-		noSkip: true,
-		src: `fn make(): Set<Int> {
-    case [#{}] {
-        [p] -> p
-        _ -> todo
-    }
-}
-
-fn main() {
-    _ = make()
-}
-`,
-	},
-	{
 		name: "gapUnitVariantParameterPattern",
 		fix: "builder: a parameter that takes apart a single-variant enum whose payload is Unit, " +
 			"`fn open(Only.One(p)): Unit`. The builder binds `p` to a temporary it never " +
