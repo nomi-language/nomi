@@ -763,10 +763,15 @@ func emitNode(n ast.Node) Doc {
 		if hasEndTrivia || nodesHaveComments(v.Items) || tooDeep(v, len(v.Items)) {
 			return forceBrokenItems(open, "]", elems, v.Items, v.EndTrivia)
 		}
+		// A line break after the `[` keeps it broken (brokenAfterOpen).
+		authored := itemsBrokenAfterOpen(v.Line, v.Items)
 		if texts, ok := fillTexts(v.Items); ok {
-			return filledList(open, "]", texts)
+			return filledList(open, "]", texts, authored)
 		}
-		return emitBracedListKeepingBreaks(open, "]", elems, keepsBrokenList(v.Line, v.Items, elems))
+		if authored {
+			return forceBrokenItems(open, "]", elems, v.Items, v.EndTrivia)
+		}
+		return emitBracedList(open, "]", elems)
 	case *ast.VectorLit:
 		// A `..` written last ends the literal: the parser takes no comma
 		// after it, as after a list's `..tail`, so a broken vector ending
@@ -775,15 +780,21 @@ func emitNode(n ast.Node) Doc {
 		hasEndTrivia := trailingHasComment(v.EndTrivia)
 		items := v.Operands()
 		elems := vectorLitElems(v, emit)
-		if hasEndTrivia || nodesHaveComments(items) || tooDeep(v, len(v.Items)) {
+		first := 0
+		if v.Spread != nil && (!v.SpreadLast || len(v.Items) == 0) {
+			first = v.SpreadLine
+		} else if len(v.Items) > 0 {
+			first = nodeStartLine(v.Items[0])
+		}
+		authored := brokenAfterOpen(v.Line, first)
+		texts, fills := fillTexts(items)
+		fills = fills && v.Spread == nil
+		if hasEndTrivia || nodesHaveComments(items) || tooDeep(v, len(v.Items)) || authored && !fills {
 			cs, _ := nodesComments(items)
 			return commentedList("#[", "]", elems, cs, v.EndTrivia, lastComma)
 		}
-		if texts, ok := fillTexts(items); ok && v.Spread == nil {
-			return filledList("#[", "]", texts)
-		}
-		if keepsBrokenList(v.Line, items, elems) {
-			return brokenList("#[", "]", elems, lastComma)
+		if fills {
+			return filledList("#[", "]", texts, authored)
 		}
 		return bracedList("#[", "]", elems, lastComma)
 	case *ast.SetLit:
@@ -794,10 +805,20 @@ func emitNode(n ast.Node) Doc {
 		if hasEndTrivia || nodesHaveComments(items) || tooDeep(v, len(v.Items)) {
 			return forceBrokenItems("#{", "}", elems, items, v.EndTrivia)
 		}
-		if texts, ok := fillTexts(items); ok && v.Spread == nil {
-			return filledList("#{", "}", texts)
+		first := 0
+		if v.Spread != nil {
+			first = v.SpreadLine
+		} else if len(v.Items) > 0 {
+			first = nodeStartLine(v.Items[0])
 		}
-		return emitBracedListKeepingBreaks("#{", "}", elems, keepsBrokenList(v.Line, items, elems))
+		authored := brokenAfterOpen(v.Line, first)
+		if texts, ok := fillTexts(items); ok && v.Spread == nil {
+			return filledList("#{", "}", texts, authored)
+		}
+		if authored {
+			return forceBrokenItems("#{", "}", elems, items, v.EndTrivia)
+		}
+		return emitBracedList("#{", "}", elems)
 	case *ast.ListSpreadLit:
 		// [head1, head2, ..tail] — emit flat with literal delimiters. We
 		// don't bother with the broken form: spread literals are
@@ -839,11 +860,18 @@ func emitNode(n ast.Node) Doc {
 		for _, e := range v.Entries {
 			elems = append(elems, Concat(emit(e.Key), Text(" => "), emit(e.Value)))
 		}
-		// A comment forces the broken form, and so does depth.
-		if hasEndTrivia || nodesHaveComments(mapLitItems(v)) || tooDeep(v, len(v.Entries)) {
+		first := 0
+		if v.Spread != nil {
+			first = v.SpreadLine
+		} else if len(v.Entries) > 0 {
+			first = nodeStartLine(v.Entries[0].Key)
+		}
+		// A comment forces the broken form, and so do depth and a line
+		// break after the `{` (brokenAfterOpen).
+		if hasEndTrivia || nodesHaveComments(mapLitItems(v)) || tooDeep(v, len(v.Entries)) || brokenAfterOpen(v.Line, first) {
 			return forceBrokenItems(open, "}", elems, mapLitItems(v), v.EndTrivia)
 		}
-		return emitBracedListKeepingBreaks(open, "}", elems, keepsBrokenList(v.Line, mapKeys(v.Entries), elems))
+		return emitBracedList(open, "}", elems)
 	case *ast.TupleLit:
 		elems := make([]Doc, 0, len(v.Items))
 		for _, it := range v.Items {
@@ -2279,9 +2307,8 @@ func bracedList(open, close string, elems []Doc, lastComma bool) Doc {
 // anonymous (`{...}`). Field punning — where the parser synthesizes
 // Value=Ident{Name:FieldName} — is re-emitted as just the field name.
 //
-// Width-based with the same preserve-user-multi-line escape as
-// emitBracedStructFieldsWithEndTrivia: a literal the user wrote across multiple source
-// lines stays multi-line even when it would fit flat.
+// Width-based, except that a literal whose source breaks the line after
+// its `{` stays broken even when it would fit flat (brokenAfterOpen).
 func emitStructLit(v *ast.StructLit) Doc {
 	open := "{"
 	if v.TypeName != nil {
@@ -2302,12 +2329,13 @@ func emitStructLit(v *ast.StructLit) Doc {
 	}
 	// EndTrivia (trailing in-body comment) or any inter-field leading
 	// comment forces the broken form — a `// comment` can't share a
-	// line with the surrounding fields / closing `}`. So does a literal
-	// three compound levels deep (tooDeep).
-	if structLitUserMultiLine(v) || hasEndTrivia || hasInterFieldTrivia || tooDeep(v, len(v.Fields)) {
+	// line with the surrounding fields / closing `}`. So do a literal
+	// three compound levels deep (tooDeep) and a line break after the `{`
+	// (brokenAfterOpen).
+	if brokenAfterOpen(v.Line, structLitFirstLine(v)) || hasEndTrivia || hasInterFieldTrivia || tooDeep(v, len(v.Fields)) {
 		return emitCommentedList(open, "}", elems, structLitComments(v), v.EndTrivia)
 	}
-	return emitBracedListKeepingBreaks(open, "}", elems, keepsBrokenLines(v.Line, structLitFirstLine(v), elems))
+	return emitBracedList(open, "}", elems)
 }
 
 // structLitFirstLine is the line v's first element starts on, its spread's
@@ -2328,29 +2356,6 @@ func nodeStartLine(n ast.Node) int {
 		return s.GetSpan().StartLine
 	}
 	return n.LineNum()
-}
-
-// structLitUserMultiLine reports whether the source had this struct
-// literal's elements spread across multiple lines.
-//
-// The SPREAD COUNTS AS AN ELEMENT, and it has to: `{..p\n  x: 11\n}` has one
-// field, so a fields-only rule read it as single-line and flattened a
-// deliberately stacked literal. The spread's line is the `..` token's.
-func structLitUserMultiLine(v *ast.StructLit) bool {
-	first, last := -1, -1
-	if v.Spread != nil {
-		first, last = v.SpreadLine, v.SpreadLine
-	}
-	for _, f := range v.Fields {
-		if first < 0 {
-			first = f.Line
-		}
-		last = f.Line
-	}
-	if first < 0 || last < 0 {
-		return false
-	}
-	return first != last
 }
 
 // structFieldValsHaveLeading reports whether any field carries inter-field
@@ -3221,12 +3226,24 @@ func emitOrPattern(v *ast.OrPattern) Doc {
 	for _, alt := range v.Alternatives[1:] {
 		broken = broken || len(comments(alt)) > 0
 	}
+	docs := make([]Doc, len(v.Alternatives))
+	for i, alt := range v.Alternatives {
+		docs[i] = emitPattern(alt)
+		if _, isAs := alt.(*ast.AsPattern); isAs {
+			docs[i] = Concat(Text("("), docs[i], Text(")"))
+		}
+	}
+	// Written one alternative per line and holding an alternative broken
+	// whatever the width (a pattern kept broken after its bracket), the
+	// alternatives stay one per line, as keepsBrokenLines says for a list:
+	// otherwise alternatives broken for width would hug that pattern on
+	// the next format.
+	if len(v.Alternatives) > 1 {
+		broken = broken || keepsBrokenLines(nodeEndLine(v.Alternatives[0]), nodeStartLine(v.Alternatives[1]), docs)
+	}
 	parts := make([]Doc, 0, len(v.Alternatives))
 	for i, alt := range v.Alternatives {
-		doc := emitPattern(alt)
-		if _, isAs := alt.(*ast.AsPattern); isAs {
-			doc = Concat(Text("("), doc, Text(")"))
-		}
+		doc := docs[i]
 		if i == 0 {
 			parts = append(parts, doc)
 			continue
@@ -3293,15 +3310,16 @@ func emitPatternNode(n ast.Node) Doc {
 				elems = append(elems, Text(f.Name))
 			}
 		}
-		// A comment forces the broken form, and so does depth.
-		if cs := structPatternComments(v.Fields); anyComments(cs) || tooDeep(v, len(v.Fields)) {
-			return emitCommentedList(open, "}", elems, cs, nil)
-		}
 		first := 0
 		if len(v.Fields) > 0 {
 			first = v.Fields[0].NameLine
 		}
-		return emitBracedListKeepingBreaks(open, "}", elems, keepsBrokenLines(v.Line, first, elems))
+		// A comment forces the broken form, and so do depth and a line
+		// break after the `{` (brokenAfterOpen).
+		if cs := structPatternComments(v.Fields); anyComments(cs) || tooDeep(v, len(v.Fields)) || brokenAfterOpen(v.Line, first) {
+			return emitCommentedList(open, "}", elems, cs, nil)
+		}
+		return emitBracedList(open, "}", elems)
 	case *ast.EnumPattern:
 		name := Text(v.Variant.TypeString())
 		switch {
@@ -3378,11 +3396,12 @@ func emitPatternNode(n ast.Node) Doc {
 			return Concat(parts...)
 		}
 		elems, cs, ok := patternItems(v.Heads)
-		// A comment forces the broken form, and so does depth.
-		if hasEndTrivia || ok || tooDeep(v, len(v.Heads)) {
+		// A comment forces the broken form, and so do depth and a line
+		// break after the `[` (brokenAfterOpen).
+		if hasEndTrivia || ok || tooDeep(v, len(v.Heads)) || itemsBrokenAfterOpen(v.Line, v.Heads) {
 			return emitCommentedList(open, "]", elems, cs, v.EndTrivia)
 		}
-		return emitBracedListKeepingBreaks(open, "]", elems, keepsBrokenList(v.Line, v.Heads, elems))
+		return emitBracedList(open, "]", elems)
 	case *ast.MapPattern:
 		open := "{"
 		if v.TypeName != nil {
@@ -3393,11 +3412,13 @@ func emitPatternNode(n ast.Node) Doc {
 		for _, e := range v.Entries {
 			elems = append(elems, Concat(emit(e.Key), Text(" => "), emitGroupedPattern(e.Pattern)))
 		}
-		// A comment forces the broken form, and so does depth.
-		if hasEndTrivia || nodesHaveComments(mapPatternKeys(v.Entries)) || tooDeep(v, len(v.Entries)) {
-			return forceBrokenItems(open, "}", elems, mapPatternKeys(v.Entries), v.EndTrivia)
+		// A comment forces the broken form, and so do depth and a line
+		// break after the `{` (brokenAfterOpen).
+		keys := mapPatternKeys(v.Entries)
+		if hasEndTrivia || nodesHaveComments(keys) || tooDeep(v, len(v.Entries)) || itemsBrokenAfterOpen(v.Line, keys) {
+			return forceBrokenItems(open, "}", elems, keys, v.EndTrivia)
 		}
-		return emitBracedListKeepingBreaks(open, "}", elems, keepsBrokenList(v.Line, mapPatternKeys(v.Entries), elems))
+		return emitBracedList(open, "}", elems)
 	}
 	// A string prefix pattern, `"/users/" + id`: the parser builds a Binary
 	// whose right operand is the bound name's IdentPattern.
@@ -5463,8 +5484,7 @@ func emitPipeChainWithMode(n *ast.Binary, mode pipeStackMode) Doc {
 	// Leftmost non-pipe node is the source.
 	source, steps := collectPipeChain(n)
 	// Stack when the source wrote the chain across multiple lines (any step
-	// on a different line than the source; mirrors structLitUserMultiLine's
-	// `.Line` comparison), or when it has a `then` stage.
+	// on a different line than the source), or when it has a `then` stage.
 	var authoredMultiline bool
 	switch mode {
 	case pipeStackAlways:

@@ -20,14 +20,20 @@ func TestFormat_MapSpreadInline(t *testing.T) {
 func TestFormat_MapSpreadSpacingAndLines(t *testing.T) {
 	migrates(t, `fn main() {
     a = {  ..m ,"b"=>2 }
-    b = {
-        ..m
+    b = {..m
         "b" => 2
     }
+    c = {
+        ..m, "b" => 2}
 }
 `, `fn main() {
     a = {..m, "b" => 2}
     b = {..m, "b" => 2}
+
+    c = {
+        ..m,
+        "b" => 2,
+    }
 }
 `)
 }

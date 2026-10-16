@@ -198,12 +198,13 @@ func groupedHasComments(g *ast.GroupedExpr) bool {
 }
 
 // emitTupleItems writes a tuple literal from its elements' documents,
-// broken one per line when an element holds a comment.
+// broken one per line when an element holds a comment or the source breaks
+// the line after its `(` (brokenAfterOpen).
 func emitTupleItems(elems []Doc, v *ast.TupleLit) Doc {
-	if cs, ok := nodesComments(v.Items); ok {
+	if cs, ok := nodesComments(v.Items); ok || itemsBrokenAfterOpen(v.Line, v.Items) {
 		return emitCommentedList("(", ")", elems, cs, nil)
 	}
-	return emitBracedListKeepingBreaks("(", ")", elems, keepsBrokenList(v.Line, v.Items, elems))
+	return emitBracedList("(", ")", elems)
 }
 
 // mapKeys is each entry's key, which holds the entry's comments as a list
@@ -369,6 +370,25 @@ func emitGroupedPattern(n ast.Node) Doc {
 		return elems[0]
 	}
 	return emitCommentedListNoLastComma("(", ")", elems, cs)
+}
+
+// brokenAfterOpen reports whether the source breaks the line between a
+// literal's opening bracket, on line open, and its first element, which
+// starts on line first (0 when it has none). A list, vector, set, map,
+// tuple or struct literal, or a list, map or struct pattern, broken there
+// stays broken whatever its width, as Prettier keeps an object expanded;
+// the author joins it again by deleting that one line break. Only this
+// break counts: line breaks between later elements do not. The broken form
+// starts its first element on the line below the bracket, so a second
+// format finds the same break and keeps it.
+func brokenAfterOpen(open, first int) bool {
+	return open > 0 && first > open
+}
+
+// itemsBrokenAfterOpen is brokenAfterOpen for a literal whose first element
+// is the first of items.
+func itemsBrokenAfterOpen(open int, items []ast.Node) bool {
+	return len(items) > 0 && brokenAfterOpen(open, nodeStartLine(items[0]))
 }
 
 // keepsBrokenList reports whether a list is written one element per line

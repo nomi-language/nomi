@@ -131,8 +131,12 @@ it, unless it closes its block. A block's final expression counts as a
 statement. Whether a statement spans lines is what `fmt` renders at the
 block's indent and the 100-column width, so a call that fits on one line in a
 shallow block may break, and be set apart, in a deeper one. A `case`, a nested
-block, a triple-quoted string and a struct literal you write across lines
-always span lines. The rule holds
+block, a triple-quoted string and a list, vector, set, map, tuple or struct
+literal you break after its opening bracket always span lines: `fmt` keeps such
+a literal one element per line (a list of numbers filled several to a line)
+even when it would fit on one, so write a grid of rows one row per line and it
+stays a grid. Delete the line break after the bracket to let `fmt` join a
+literal that fits. The rule holds
 in every block: function, lambda, test and `case` arm bodies and `if`/`else`
 branches. A pipe statement is no exception: a stacked pipeline, or one `fmt`
 breaks because it does not fit, is set apart, and one that fits on its line,

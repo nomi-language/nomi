@@ -36,22 +36,49 @@ comments (`x = 1 // explanatory note`) are invisible to fits, so the formatter
 does not break code to make room for a comment; the comment can run past the
 width instead.
 
-All four brace-bounded field constructs (anonymous struct types, struct-shaped
-variant payloads, named struct literals, anonymous struct literals) keep a
-multi-line shape: if the source had fields on more than one line, the
-multi-line shape is preserved even when it would fit flat. This is the same
-rule as for `fn` bodies: typing a brace, pressing enter and saving does not
-collapse the layout just made. The preserved shape is local; it does not force
-the surrounding constructs (parameter lists, call argument lists, struct
-literals containing it) to break, so a call can hug it (`f(Point{` on one
-line). The exception is a surrounding list already written one element per
-line, its first element on a line below its opening bracket: it stays that
-way when it holds an element that breaks whatever the width. Otherwise a
-list broken for width would hug its literal on the next format. The same
-holds for a function's parameters, a struct and map literal's fields, the
-short form of a block of one statement (`if`, `else`), and a case arm's body
-below its `->` (`keepsBrokenLines` in
-`internal/format/list_comments.go`).
+Anonymous struct types and struct-shaped variant payloads keep a multi-line
+shape: if the source had fields on more than one line, the multi-line shape is
+preserved even when it would fit flat. This is the same rule as for `fn`
+bodies: typing a brace, pressing enter and saving does not collapse the layout
+just made. Literals follow Prettier's rule for objects instead (below): a line
+break right after the opening bracket keeps one broken.
+
+The preserved shape is local; it does not force the surrounding constructs
+(parameter lists, call argument lists, struct literals containing it) to
+break, so a call can hug it (`f(Point{` on one line). The exception is a
+surrounding call argument list or parameter list already written one element
+per line, its first element on a line below its opening bracket: it stays that
+way when it holds an element that breaks whatever the width. Otherwise a list
+broken for width would hug its literal on the next format. The same holds for
+an or-pattern written one alternative per line, the short form of a block of
+one statement (`if`, `else`), and a case arm's body below its `->`
+(`keepsBrokenLines` in `internal/format/list_comments.go`).
+
+## Formatter: a line break after a literal's opening bracket
+
+A list, vector, set, map, tuple or struct literal, and a list, map or struct
+pattern, whose source has a line break between its opening bracket and its
+first element stays broken, one element per line, even when it would fit on
+one line (`brokenAfterOpen` in `internal/format/list_comments.go`). It is
+Prettier's rule for objects, and the author joins the literal again by
+deleting that one line break. Only that break counts: `[1,\n 2]` and
+`Point{x: 1,\n y: 2}` join when they fit. The parser records the line of the
+opening bracket on each literal (`Line`), and the formatter compares it with
+the line its first element starts on, the `..` of a leading spread included,
+so the flag needs no field of its own. The broken form puts the first element
+on the line below the bracket, so the next format finds the same break and
+the layout is stable. Without that break the width and depth rules decide. A
+literal written with a spread last (`[a, ..rest]`, a list pattern with a
+`..rest`) is written on one line as before, and every other bracketed form
+(call arguments, parameter lists, type argument lists, pipes) is laid out by
+width alone. A kept-broken literal is local, as a struct literal written
+across lines is, so a call hugs it (`f([` on one line).
+
+A kept-broken list, vector or set whose elements are all number literals is
+filled (below), broken even when it fits: the fill's own output breaks after
+the bracket, so a list filled for width stays filled. A list of anything else,
+strings included, is written one element per line, so a board written one row
+per line keeps one row per line.
 
 A lambda body written in braces whose first statement starts on a line below the `{` stays a block,
 each statement on its own line, however short; this is Prettier's rule that
@@ -88,8 +115,9 @@ list, and every map literal. The packing is greedy, measured in display
 columns (`textWidth`), with no alignment into columns; an element wider
 than a line takes a line of its own. It is decided when the list renders,
 from the indent its elements start at (`filledList` in
-`internal/format/fill_list.go`), so it depends on the syntax tree and the
-list's position, never on how the input laid the list out. The derive and
+`internal/format/fill_list.go`), so it depends on the syntax tree, the
+list's position and whether the source breaks the line after its opening
+bracket, which keeps it broken and filled even when it fits. The derive and
 impl conformance lists pack their entries with the same function
 (`packGreedy`).
 
