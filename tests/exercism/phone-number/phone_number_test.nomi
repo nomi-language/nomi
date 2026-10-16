@@ -53,7 +53,7 @@ test "cleans phone numbers" {
         ),
     ]
 
-    subtests cases, (_description, phrase, expected) {
+    subtests cases, (description, phrase, expected), description {
         assert phone_number.clean(phrase) == expected
     }
 }

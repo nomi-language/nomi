@@ -25,7 +25,7 @@ test "sums the multiples" {
         ),
     ]
 
-    subtests cases, (_description, factors, limit, expected) {
+    subtests cases, (description, factors, limit, expected), description {
         assert sum_of_multiples.sum(factors, limit) == expected
     }
 }

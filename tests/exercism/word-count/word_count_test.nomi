@@ -64,7 +64,7 @@ test "counts words" {
         ("quotation for word with apostrophe", "can, can't, 'can't'", {"can" => 1, "can't" => 2}),
     ]
 
-    subtests cases, (_description, sentence, expected) {
+    subtests cases, (description, sentence, expected), description {
         assert count_words(sentence) == expected
     }
 }

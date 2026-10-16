@@ -20,7 +20,7 @@ test "finds a value" {
         ),
     ]
 
-    subtests cases, (_description, items, value, expected) {
+    subtests cases, (description, items, value, expected), description {
         assert binary_search.find(items, value) == Ok(expected)
     }
 }
@@ -38,7 +38,7 @@ test "reports a missing value" {
         ("nothing is found when the left and right bounds cross", #[1, 2], 0),
     ]
 
-    subtests cases, (_description, items, value) {
+    subtests cases, (description, items, value), description {
         assert binary_search.find(items, value) == Err("value not in array")
     }
 }

@@ -13,7 +13,7 @@ group "Test creation of Queens with valid and invalid positions" {
             ("queen must have column on board", 4, 8, .ColumnNotOnBoard),
         ]
 
-        subtests cases, (_description, row, column, error) {
+        subtests cases, (description, row, column, error), description {
             assert Queen.new(row, column) == Err(error)
         }
     }
@@ -37,9 +37,14 @@ group "Test the ability of one queen to attack another" {
             ),
         ]
 
-        subtests cases, (_description, (white_row, white_col), (black_row, black_col), expected) {
-            assert Ok(white) = Queen.new(white_row, white_col)
-            assert Ok(black) = Queen.new(black_row, black_col)
+        subtests cases, (
+            description,
+            (white_row, white_column),
+            (black_row, black_column),
+            expected
+        ), description {
+            assert Ok(white) = Queen.new(white_row, white_column)
+            assert Ok(black) = Queen.new(black_row, black_column)
             assert Queen.can_attack?(white, black) == expected
         }
     }

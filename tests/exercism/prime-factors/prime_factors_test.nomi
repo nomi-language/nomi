@@ -16,7 +16,7 @@ test "factors" {
         ("factors include a large prime", 93819012551, [11, 9539, 894119]),
     ]
 
-    subtests cases, (_description, value, expected) {
+    subtests cases, (description, value, expected), description {
         assert prime_factors.factors(value) == expected
     }
 }

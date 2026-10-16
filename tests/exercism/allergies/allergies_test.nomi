@@ -13,7 +13,7 @@ group "testing for eggs allergy" {
             ("allergic to everything", 255, True),
         ]
 
-        subtests cases, (_description, score, expected) {
+        subtests cases, (description, score, expected), description {
             assert allergies.allergic_to?(score, Allergen.Eggs) == expected
         }
     }
@@ -29,7 +29,7 @@ group "testing for peanuts allergy" {
             ("allergic to everything", 255, True),
         ]
 
-        subtests cases, (_description, score, expected) {
+        subtests cases, (description, score, expected), description {
             assert allergies.allergic_to?(score, Allergen.Peanuts) == expected
         }
     }
@@ -45,7 +45,7 @@ group "testing for shellfish allergy" {
             ("allergic to everything", 255, True),
         ]
 
-        subtests cases, (_description, score, expected) {
+        subtests cases, (description, score, expected), description {
             assert allergies.allergic_to?(score, Allergen.Shellfish) == expected
         }
     }
@@ -61,7 +61,7 @@ group "testing for strawberries allergy" {
             ("allergic to everything", 255, True),
         ]
 
-        subtests cases, (_description, score, expected) {
+        subtests cases, (description, score, expected), description {
             assert allergies.allergic_to?(score, Allergen.Strawberries) == expected
         }
     }
@@ -77,7 +77,7 @@ group "testing for tomatoes allergy" {
             ("allergic to everything", 255, True),
         ]
 
-        subtests cases, (_description, score, expected) {
+        subtests cases, (description, score, expected), description {
             assert allergies.allergic_to?(score, Allergen.Tomatoes) == expected
         }
     }
@@ -93,7 +93,7 @@ group "testing for chocolate allergy" {
             ("allergic to everything", 255, True),
         ]
 
-        subtests cases, (_description, score, expected) {
+        subtests cases, (description, score, expected), description {
             assert allergies.allergic_to?(score, Allergen.Chocolate) == expected
         }
     }
@@ -109,7 +109,7 @@ group "testing for pollen allergy" {
             ("allergic to everything", 255, True),
         ]
 
-        subtests cases, (_description, score, expected) {
+        subtests cases, (description, score, expected), description {
             assert allergies.allergic_to?(score, Allergen.Pollen) == expected
         }
     }
@@ -125,7 +125,7 @@ group "testing for cats allergy" {
             ("allergic to everything", 255, True),
         ]
 
-        subtests cases, (_description, score, expected) {
+        subtests cases, (description, score, expected), description {
             assert allergies.allergic_to?(score, Allergen.Cats) == expected
         }
     }
@@ -154,7 +154,7 @@ group "list when:" {
             ("no allergen score parts without highest valid score", 257, [.Eggs]),
         ]
 
-        subtests cases, (_description, score, expected) {
+        subtests cases, (description, score, expected), description {
             assert allergies.list(score) == expected
         }
     }

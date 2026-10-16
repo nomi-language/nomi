@@ -8,7 +8,7 @@ test "counts the steps" {
         ("large number of even and odd steps", 1000000, 152),
     ]
 
-    subtests cases, (_description, number, expected) {
+    subtests cases, (description, number, expected), description {
         assert collatz_conjecture.steps(number) == Ok(expected)
     }
 }

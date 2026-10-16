@@ -25,7 +25,7 @@ group "Create a new clock with an initial time" {
             ("negative hour and minutes both roll over continuously", (-121, -5810), "22:10"),
         ]
 
-        subtests cases, (_description, (hour, minute), expected) {
+        subtests cases, (description, (hour, minute), expected), description {
             assert "${Clock.new(hour, minute)}" == expected
         }
     }
@@ -44,7 +44,7 @@ group "Add minutes" {
             ("add more than two days", (1, 1), 3500, "11:21"),
         ]
 
-        subtests cases, (_description, (hour, minute), minutes, expected) {
+        subtests cases, (description, (hour, minute), minutes, expected), description {
             clock = Clock.new(hour, minute)
             assert "${Clock.add(clock, minutes)}" == expected
         }
@@ -64,7 +64,7 @@ group "Subtract minutes" {
             ("subtract more than two days", (2, 20), 3000, "00:20"),
         ]
 
-        subtests cases, (_description, (hour, minute), minutes, expected) {
+        subtests cases, (description, (hour, minute), minutes, expected), description {
             clock = Clock.new(hour, minute)
             assert "${Clock.subtract(clock, minutes)}" == expected
         }
@@ -92,7 +92,7 @@ group "Compare two clocks for equality" {
             ("full clock and zeroed clock", (24, 0), (0, 0), True),
         ]
 
-        subtests cases, (_description, (hour1, minute1), (hour2, minute2), expected) {
+        subtests cases, (description, (hour1, minute1), (hour2, minute2), expected), description {
             assert (Clock.new(hour1, minute1) == Clock.new(hour2, minute2)) == expected
         }
     }

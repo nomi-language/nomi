@@ -13,7 +13,7 @@ test "hamming distance" {
         ("disallow empty second strand", "G", "", Err("strands must be of equal length")),
     ]
 
-    subtests cases, (_description, strand1, strand2, expected) {
+    subtests cases, (description, strand1, strand2, expected), description {
         assert distance(strand1, strand2) == expected
     }
 }

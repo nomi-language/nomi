@@ -12,7 +12,8 @@ Adapted from Exercism problem-specifications (MIT), exercises/leap.
 - The function is `leap_year?`, a `?` predicate, since it answers a yes/no
   question about its argument.
 - The cases are one `subtests` table. Each row's first column is the
-  canonical description, bound to `_description`, so a failed row's report
+  canonical description, which names the row (`subtests cases, (description,
+  year, expected), description`), so a failed row's report
   shows which case it was.
 
 ## Friction
@@ -35,3 +36,5 @@ Adapted from Exercism problem-specifications (MIT), exercises/leap.
   first column. A form such as `subtests cases, name: .description, (...)`, or
   rendering a row's first String as its label, would read better than
   `(_description, year, expected)` repeated through every exercise here.
+  Fixed: `subtests rows, pattern, name { ... }` names each row, and every
+  table here names its rows with the description column.

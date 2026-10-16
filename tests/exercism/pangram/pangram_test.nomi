@@ -26,7 +26,7 @@ test "pangrams" {
         ),
     ]
 
-    subtests cases, (_description, sentence, expected) {
+    subtests cases, (description, sentence, expected), description {
         assert pangram?(sentence) == expected
     }
 }

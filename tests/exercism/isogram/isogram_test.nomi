@@ -22,7 +22,7 @@ test "isograms" {
         ("word with duplicated character and with two hyphens", "up-to-date", False),
     ]
 
-    subtests cases, (_description, phrase, expected) {
+    subtests cases, (description, phrase, expected), description {
         assert isogram?(phrase) == expected
     }
 }

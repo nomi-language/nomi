@@ -10,7 +10,7 @@ group "equilateral triangle" {
             ("sides may be floats", (0.5, 0.5, 0.5), True),
         ]
 
-        subtests cases, (_description, sides, expected) {
+        subtests cases, (description, sides, expected), description {
             assert triangle.equilateral?(sides) == expected
         }
     }
@@ -30,7 +30,7 @@ group "isosceles triangle" {
             ("sides may be floats", (0.5, 0.4, 0.5), True),
         ]
 
-        subtests cases, (_description, sides, expected) {
+        subtests cases, (description, sides, expected), description {
             assert triangle.isosceles?(sides) == expected
         }
     }
@@ -48,7 +48,7 @@ group "scalene triangle" {
             ("sides may be floats", (0.5, 0.4, 0.6), True),
         ]
 
-        subtests cases, (_description, sides, expected) {
+        subtests cases, (description, sides, expected), description {
             assert triangle.scalene?(sides) == expected
         }
     }

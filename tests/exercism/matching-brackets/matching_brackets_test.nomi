@@ -28,7 +28,7 @@ test "checks bracket pairing" {
         ),
     ]
 
-    subtests cases, (_description, text, expected) {
+    subtests cases, (description, text, expected), description {
         assert matching_brackets.paired?(text) == expected
     }
 }

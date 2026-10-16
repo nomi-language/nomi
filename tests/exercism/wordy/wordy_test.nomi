@@ -34,7 +34,7 @@ test "answers word problems" {
         ("reject prefix notation", "What is plus 1 2?", Err(.SyntaxError)),
     ]
 
-    subtests cases, (_description, question, expected) {
+    subtests cases, (description, question, expected), description {
         assert wordy.answer(question) == expected
     }
 }

@@ -31,7 +31,7 @@ test "converts to Roman numerals" {
         ("3999 is MMMCMXCIX", 3999, "MMMCMXCIX"),
     ]
 
-    subtests cases, (_description, number, expected) {
+    subtests cases, (description, number, expected), description {
         assert roman_numerals.roman(number) == expected
     }
 }

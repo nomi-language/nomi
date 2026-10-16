@@ -23,7 +23,14 @@ group "Rotating clockwise" {
             ("changes west to north", (0, 0), .West, "R", (0, 0), .North),
         ]
 
-        subtests cases, (_description, (x, y), facing, instructions, (to_x, to_y), to_facing) {
+        subtests cases, (
+            description,
+            (x, y),
+            facing,
+            instructions,
+            (to_x, to_y),
+            to_facing
+        ), description {
             robot = Robot{position: {x, y}, direction: facing}
             expected = Robot{position: {x: to_x, y: to_y}, direction: to_facing}
             assert Robot.move(robot, instructions) == Ok(expected)
@@ -40,7 +47,14 @@ group "Rotating counter-clockwise" {
             ("changes east to north", (0, 0), .East, "L", (0, 0), .North),
         ]
 
-        subtests cases, (_description, (x, y), facing, instructions, (to_x, to_y), to_facing) {
+        subtests cases, (
+            description,
+            (x, y),
+            facing,
+            instructions,
+            (to_x, to_y),
+            to_facing
+        ), description {
             robot = Robot{position: {x, y}, direction: facing}
             expected = Robot{position: {x: to_x, y: to_y}, direction: to_facing}
             assert Robot.move(robot, instructions) == Ok(expected)
@@ -57,7 +71,14 @@ group "Moving forward one" {
             ("facing west decrements X", (0, 0), .West, "A", (-1, 0), .West),
         ]
 
-        subtests cases, (_description, (x, y), facing, instructions, (to_x, to_y), to_facing) {
+        subtests cases, (
+            description,
+            (x, y),
+            facing,
+            instructions,
+            (to_x, to_y),
+            to_facing
+        ), description {
             robot = Robot{position: {x, y}, direction: facing}
             expected = Robot{position: {x: to_x, y: to_y}, direction: to_facing}
             assert Robot.move(robot, instructions) == Ok(expected)
@@ -74,7 +95,14 @@ group "Follow series of instructions" {
             ("moving east and north", (8, 4), .South, "LAAARRRALLLL", (11, 5), .North),
         ]
 
-        subtests cases, (_description, (x, y), facing, instructions, (to_x, to_y), to_facing) {
+        subtests cases, (
+            description,
+            (x, y),
+            facing,
+            instructions,
+            (to_x, to_y),
+            to_facing
+        ), description {
             robot = Robot{position: {x, y}, direction: facing}
             expected = Robot{position: {x: to_x, y: to_y}, direction: to_facing}
             assert Robot.move(robot, instructions) == Ok(expected)

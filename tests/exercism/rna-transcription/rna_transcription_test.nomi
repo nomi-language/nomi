@@ -10,7 +10,7 @@ test "transcribes DNA to RNA" {
         ("RNA complement", "ACGTGGTCTTAA", "UGCACCAGAAUU"),
     ]
 
-    subtests cases, (_description, dna, expected) {
+    subtests cases, (description, dna, expected), description {
         assert to_rna(dna) == Ok(expected)
     }
 }

@@ -30,7 +30,7 @@ test "raindrop sounds" {
         ("the sound for 3125 is Plang as it has a factor 5", 3125, "Plang"),
     ]
 
-    subtests cases, (_description, number, expected) {
+    subtests cases, (description, number, expected), description {
         assert convert(number) == expected
     }
 }

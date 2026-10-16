@@ -17,7 +17,7 @@ test "abbreviates phrases" {
         ("underscore emphasis", "The Road _Not_ Taken", "TRNT"),
     ]
 
-    subtests cases, (_description, phrase, expected) {
+    subtests cases, (description, phrase, expected), description {
         assert abbreviate(phrase) == expected
     }
 }

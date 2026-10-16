@@ -13,7 +13,7 @@ test "reverses strings" {
         ("grapheme clusters", "ผู้เขียนโปรแกรม", "มรกแรปโนยขีเผู้"),
     ]
 
-    subtests cases, (_description, text, expected) {
+    subtests cases, (description, text, expected), description {
         assert reverse(text) == expected
     }
 }

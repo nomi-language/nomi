@@ -46,7 +46,7 @@ test "bob's responses" {
         ),
     ]
 
-    subtests cases, (_description, remark, expected) {
+    subtests cases, (description, remark, expected), description {
         assert response(remark) == expected
     }
 }

@@ -34,7 +34,7 @@ test "validates numbers with the Luhn checksum" {
         ),
     ]
 
-    subtests cases, (_description, number, expected) {
+    subtests cases, (description, number, expected), description {
         assert luhn.valid?(number) == expected
     }
 }

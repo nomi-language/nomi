@@ -57,7 +57,7 @@ test "finds anagrams" {
         ("different characters may have the same bytes", "a⬂", ["€a"], []),
     ]
 
-    subtests cases, (_description, subject, candidates, expected) {
+    subtests cases, (description, subject, candidates, expected), description {
         assert anagram.find(subject, candidates) == expected
     }
 }

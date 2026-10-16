@@ -13,7 +13,7 @@ test "leap years" {
         ("year divisible by 200, not divisible by 400 in common year", 1800, False),
     ]
 
-    subtests cases, (_description, year, expected) {
+    subtests cases, (description, year, expected), description {
         assert leap_year?(year) == expected
     }
 }

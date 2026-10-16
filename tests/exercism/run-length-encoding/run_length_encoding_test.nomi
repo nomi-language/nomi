@@ -15,7 +15,7 @@ group "run-length encode a string" {
             ("lowercase characters", "aabbbcccc", "2a3b4c"),
         ]
 
-        subtests cases, (_description, text, expected) {
+        subtests cases, (description, text, expected), description {
             assert run_length_encoding.encode(text) == expected
         }
     }
@@ -36,7 +36,7 @@ group "run-length decode a string" {
             ("lowercase string", "2a3b4c", "aabbbcccc"),
         ]
 
-        subtests cases, (_description, encoded, expected) {
+        subtests cases, (description, encoded, expected), description {
             assert run_length_encoding.decode(encoded) == expected
         }
     }
