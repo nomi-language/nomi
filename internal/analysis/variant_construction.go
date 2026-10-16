@@ -241,7 +241,16 @@ func (c *checker) checkStructShapedVariantCall(n *ast.Call, form variantCtor) Ty
 	}
 	arg := n.Args[0]
 	if lit, ok := anonStructLitArg(arg); ok {
-		return c.checkStructVariantLit(lit, form.et, form.vd.Name, form.line, form.col)
+		ty := c.checkStructVariantLit(lit, form.et, form.vd.Name, form.line, form.col)
+		// The literal is the variant's payload, as the pattern `.V(r)`
+		// binds it: the embedded struct, or the record of an inline
+		// variant's fields at the enum's instance.
+		if st, ok := form.vd.Embedded.(*StructType); ok {
+			c.fa.recordExprType(arg, st)
+		} else if et, ok := resolveTypeVar(ty).(*EnumType); ok {
+			c.fa.recordExprType(arg, variantFieldsRecord(form.vd, enumTypeArgSubs(et)))
+		}
+		return ty
 	}
 	return c.checkVariantRecordArg(arg, c.checkNode(arg), form)
 }

@@ -262,3 +262,32 @@ fn s(): Set<Maybe<Int>> {
   _ = #[Some(1), Some("a")]
 }`), "vector element type mismatch: expected Maybe<Int>, got Maybe<String>")
 }
+
+// A function named as a value and a list literal of several items take
+// their type from a generic call's expected type, as a lambda does: the
+// seed solves Some's T, so `Display.to_string` and `ident` are instantiated
+// at `(Int) -> String` and `(Int) -> Int` (§5), and each of the list's items
+// widens to Display. Without the seed the reference had nothing to solve its
+// type parameter from, and the list took its first item's type.
+func TestExpectedTypeSeed_FunctionValueAndWideningList(t *testing.T) {
+	src := `fn ident<T>(x: T): T {
+  x
+}
+fn demo(): Int {
+  a: Maybe<(Int) -> String> = Some(Display.to_string)
+  b: Maybe<List<Display>> = Some([1, "a"])
+  c: Maybe<(Int) -> Int> = Some(ident)
+  d: Maybe<(Int) -> Int> = Some(|x| x * 3)
+  _ = (a, b, c, d)
+  1
+}`
+	expectNoErrorsT(t, checkWithStdlib(src))
+	expectErrorContaining(t, checkWithStdlib(`fn demo(): Maybe<List<Int>> {
+  Some([1, "a"])
+}`), "list element type mismatch: expected Int, got String")
+	expectErrorContaining(t, checkWithStdlib(`fn demo(): Int {
+  f: Maybe<(Int) -> Int> = Some(Display.to_string)
+  _ = f
+  1
+}`), "argument 1: expected (Int) -> Int, got (Int) -> String")
+}

@@ -138,6 +138,13 @@ var deterministicCrossings = map[string]bool{
 	// `io.capture` runs its function inside the machine and reads and writes
 	// only its own strings.
 	"io.run_captured": true, "io.run_replayed": true,
+	// A Context's values are what the program put there.
+	"Context.value": true, "Context.with_value": true,
+	// Pure functions vm.Effects reports because one Go call's cost follows
+	// an operand rather than the operands' size, so an editor's evaluation
+	// does not make them (vm's pureCrossings). A run here has no such
+	// limit: `String.pad_start` reaches `String.repeat`.
+	"strings.String.repeat": true, "decimal.Decimal.divide": true, "decimal.Decimal.round": true,
 }
 
 var nondeterministicCrossingPrefixes = []string{
@@ -626,6 +633,7 @@ func TestRunInputClassifies(t *testing.T) {
 		{"a trap", "import std/io\n\nfn half(n: Int): Int {\n    10 / n\n}\n\nfn main() {\n    io.print(half(0))\n}\n", runTrap, ""},
 		{"a failed test case", "test \"t\" {\n    assert 1 == 2\n}\n", runTrap, ""},
 		{"recursion past the budget", "import std/io\n\nfn spin(n: Int): Int {\n    spin(n + 1)\n}\n\nfn main() {\n    io.print(spin(0))\n}\n", runTooLong, "it may loop"},
+		{"pure std functions", "import std/io\n\nfn main() {\n    io.print(String.pad_start(\"7\", 3, \"0\"))\n    io.inspect(String.words(\"a b\"))\n    io.inspect(String.lines(\"a\\nb\"))\n}\n", runOK, ""},
 		{"a file read", "import std/io\n\nfn main() {\n    io.inspect(io.read_file(\"x\"))\n}\n", runSkipped, "it reaches outside the machine"},
 		{"a rejection", "fn main() {\n    x = \n}\n", runSkipped, "the front end rejects it"},
 		{"a planted compile panic", "import std/io\n\nfn " + plantedTarget + "(): Int {\n    1\n}\n\nfn main() {\n    io.print(" + plantedTarget + "())\n}\n", runCrash, ""},

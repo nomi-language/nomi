@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 369
+records 373
 declared-cases 0
 failing 77
 C assert_subject_test.nomi@76e4dc034f8c1f74
@@ -4104,6 +4104,15 @@ T {North => Cave}
 T {North => Cave}
 T {=>}
 T
+C internal/irbuild/testdata/field_default_nested_fn.nomi@010cb2ed37801916
+E 0
+N 0
+H a18813244fed2de3518207a74320a01c87a98820d6bd7d07e6a2a171970cf40d
+T Unit
+T 8
+T one
+T Run{label: "job"}
+T
 C internal/irbuild/testdata/float_semantics.nomi@60cdcbc2453e8ee9
 E 0
 N 0
@@ -6152,6 +6161,14 @@ T before
 T 0
 T after
 T
+C internal/irbuild/testdata/result_widening.nomi@0d43cc6c00a397a3
+E 0
+N 0
+H 5a1de0867ae3f850e25811d8e6790fbde61043404c33c16dc71cecbc65bd55b8
+T 1 pt5
+T pt6
+T pt7
+T
 C internal/irbuild/testdata/run_file/main.nomi@70b62597f07cfec9
 E 0
 N 0
@@ -6208,6 +6225,14 @@ T   line 58: integer overflow: -9223372036854775807 - 2
 T FAIL <dir>/scalar_operator_traps.nomi :: an impl-form Multiply overflow blames the call's own line
 T   line 63: integer overflow: 9223372036854775807 * 2
 T test result: FAILED. 2 passed, 6 failed
+T
+C internal/irbuild/testdata/seed_function_value.nomi@d80d3eb13cec75b3
+E 0
+N 0
+H 8f221c680225939632cb74346cd5bfe9639b2c94cdb428a8958be7574c8389a8
+T 7
+T 1,a
+T 9
 T
 C internal/irbuild/testdata/sets.nomi@7163c228351d4009
 E 0
@@ -6448,6 +6473,16 @@ N 0
 H 333a888acc2fcc97b74ec53cbd245abbd7b05ddcd41c90b8ea1d9ab6e4a1ead9
 T alpha = True
 T beta  = False
+T
+C internal/irbuild/testdata/single_variant_binding.nomi@e1dbc41fd83be83a
+E 0
+N 0
+H 1128b6fa3f19c89ea00990db06f9658922cd032f45e5f27b9a8ea5c6da0f37d8
+T 3
+T {a: 1, b: "x"}
+T held
+T Circle{r: 2}
+T ada
 T
 C internal/irbuild/testdata/sortscope/main.nomi@a24affb8bdbad1b4
 E 0

@@ -1,0 +1,36 @@
+import std/io
+
+// A generic call's expected type gives a function named as its argument
+// its instance, and each item of a list argument its element type, as it
+// gives a lambda its parameter types.
+fn ident<T>(x: T): T {
+    x
+}
+
+fn main() {
+    a: Maybe<(Int) -> String> = Some(Display.to_string)
+    b: Maybe<List<Display>> = Some([1, "a"])
+    c: Maybe<(Int) -> Int> = Some(ident)
+
+    case a {
+        Some(f) -> io.print(f(7))
+        None -> io.print("none")
+    }
+
+    case b {
+        Some(xs) ->
+            io.print(
+                xs
+                |> Iter.map(|x| Display.to_string(x))
+                |> String.join(",")
+            )
+
+        None ->
+            io.print("none")
+    }
+
+    case c {
+        Some(f) -> io.inspect(f(9))
+        None -> io.print("none")
+    }
+}

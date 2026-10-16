@@ -1,0 +1,52 @@
+import std/io
+
+// A `fn` declared inside a field's default is checked as one inside a
+// function body is, so its body and its call have types and the default
+// runs.
+struct Defaults {
+    unit: Unit = {
+        fn inner(): Unit {
+            Unit
+        }
+
+        inner()
+    }
+    twice: (Int) -> Int = {
+        fn double(n: Int): Int {
+            n * 2
+        }
+
+        double
+    }
+    word: String = {
+        fn pick(n: Int): String {
+            case n {
+                1 -> "one"
+                _ -> "many"
+            }
+        }
+
+        pick(1)
+    }
+}
+
+enum Job {
+    Run {
+        label: String = {
+            fn name(): String {
+                "job"
+            }
+
+            name()
+        },
+    }
+    Idle
+}
+
+fn main() {
+    d = Defaults{}
+    io.inspect(d.unit)
+    io.inspect(d.twice(4))
+    io.print(d.word)
+    io.inspect(Job.Run{})
+}

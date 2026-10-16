@@ -870,27 +870,7 @@ func (r mxCheckerRule) applies(c mxCell) bool {
 	return c.shell.name == r.context || c.place.name == r.context
 }
 
-var mxCheckerRules = []mxCheckerRule{
-	{feature: "existential widening", context: "generic function body", before: true, want: "return type mismatch",
-		why: "a function's result does not widen a tuple element to an interface (`fn pair(): (Int, Named) { (1, Pt{x: 5}) }`), " +
-			"though an annotated binding does (`t: (Int, Named) = (1, Pt{x: 5})`) and an enum's embedded type widens in both: " +
-			"a checker inconsistency, reported, not a design rule"},
-	{feature: "interface function value", context: "Iter.loop callback", before: true, want: "cannot infer type parameter",
-		why: "`Some(Display.to_string)` where a Maybe<(Int) -> String> is expected does not instantiate the generic function value, " +
-			"though `Some(|x| x * 3)` takes its parameter type from the same position (§5): a checker inconsistency, reported"},
-	{feature: "existential list", context: "Iter.loop callback", before: true, want: "list element type mismatch",
-		why: "`Some([1, \"a\"])` where a Maybe<List<Display>> is expected checks the list without its element type: " +
-			"a checker inconsistency, reported"},
-	{match: func(c mxCell) bool { return mxHas(c, "variant binding pattern") },
-		want: "distinct type destructure requires a distinct type",
-		why: "a single-variant enum's pattern is irrefutable, and the checker takes it apart as a " +
-			"parameter (`fn open(Only.One(p))`, §5) but rejects the same pattern as a binding " +
-			"(`Only.One(p) = Only.One(x)`), calling the enum a distinct type: a checker inconsistency, reported"},
-	{hole: true, match: func(c mxCell) bool {
-		return c.f.name == "dot variant" && len(c.wraps) > 0 && c.wraps[0].name == "binding" && mxLaterGives(c, 1)
-	}, why: "the checker accepts `b = .Circle(2.0)` in a block whose position expects a Shape (`once o: Shape = { b = .Circle(2.0); b }`), " +
-		"though a binding must be locally determined and the same line in a function body is rejected: a checker hole, reported"},
-}
+var mxCheckerRules = []mxCheckerRule{}
 
 // mxOutcome is what checking and running one cell found.
 type mxOutcome struct {
@@ -923,25 +903,12 @@ func checkCell(dir string, c mxCell) mxOutcome {
 var mxKnown = []struct {
 	gap   string
 	match func(c mxCell) bool
-}{
-	{"gapNestedFnInFieldDefault", func(c mxCell) bool { return mxWithin(c, "nested function", "field default") }},
-}
+}{}
 
 // mxHas reports whether one of c's wrapping contexts is named name.
 func mxHas(c mxCell, name string) bool {
 	for _, w := range c.wraps {
 		if w.name == name {
-			return true
-		}
-	}
-	return false
-}
-
-// mxWithin reports whether c's wrapping context inner sits directly inside
-// outer.
-func mxWithin(c mxCell, inner, outer string) bool {
-	for i := 0; i+1 < len(c.wraps); i++ {
-		if c.wraps[i].name == inner && c.wraps[i+1].name == outer {
 			return true
 		}
 	}

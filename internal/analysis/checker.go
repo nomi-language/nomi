@@ -2181,6 +2181,14 @@ func (c *checker) checkFunc(fn *ast.FuncDef) {
 					matched = true
 				}
 			}
+			// The declared result is the tail's expected type, as an
+			// annotation is a binding's and as it is a `return`'s value
+			// (checkReturn): what `t: (Int, Named) = (1, Pt{x: 5})`
+			// accepts, `fn pair(): (Int, Named) { (1, Pt{x: 5}) }`
+			// accepts.
+			if !matched && c.unifiesAsResult(c.returnTy, bodyTy, c.fnTypeParams) {
+				matched = true
+			}
 			// Interface subtyping at the return-type boundary: a
 			// concrete struct that `impl`s the declared interface type
 			// satisfies the declaration, including the interface's type
@@ -2834,10 +2842,26 @@ func (c *checker) checkBlockStmts(block *ast.Block) Type {
 	defer c.enterBlockImports(block)()
 	var last Type = TypeUnit
 	for i, stmt := range block.Stmts {
-		last = c.checkNode(stmt)
+		if i == len(block.Stmts)-1 {
+			last = c.checkNode(stmt)
+		} else {
+			last = c.checkStmtUnexpected(stmt)
+		}
 		c.checkNonFinalExprStmt(stmt, last, i == len(block.Stmts)-1)
 	}
 	return last
+}
+
+// checkStmtUnexpected checks a statement before a block's tail. The type
+// the block's position expects is its tail's, so it reaches no statement
+// before the tail: `b = .Circle(2.0)` there is a binding that must be
+// locally determined (§2) whatever the block's position expects, as it is in
+// a function body.
+func (c *checker) checkStmtUnexpected(stmt ast.Node) Type {
+	prevAt, prevEnum := c.expectedAt, c.expectedEnum
+	c.expectedAt, c.expectedEnum = nil, nil
+	defer func() { c.expectedAt, c.expectedEnum = prevAt, prevEnum }()
+	return c.checkNode(stmt)
 }
 
 // enterBlockImports checks the rest of block under blockImportRegistry's
@@ -3900,7 +3924,7 @@ func (c *checker) checkBlockExpectingReturn(block *ast.Block) Type {
 				continue
 			}
 		}
-		last = c.checkNode(stmt)
+		last = c.checkStmtUnexpected(stmt)
 		c.checkNonFinalExprStmt(stmt, last, false)
 	}
 	return last
@@ -3944,7 +3968,7 @@ func (c *checker) checkBlockExpecting(block *ast.Block, expected Type) Type {
 				continue
 			}
 		}
-		last = c.checkNode(stmt)
+		last = c.checkStmtUnexpected(stmt)
 		c.checkNonFinalExprStmt(stmt, last, false)
 	}
 	return last
@@ -5662,6 +5686,9 @@ func (c *checker) checkInterfaceDefaults(n *ast.InterfaceDef) {
 				if err := c.unifyInto(ft.Return, bodyTy, nil); err == nil {
 					matched = true
 				}
+			}
+			if !matched && c.unifiesAsResult(ft.Return, bodyTy, collectTypeParamsByName(ft)) {
+				matched = true
 			}
 			if !matched && c.argMatchesParam(bodyTy, ft.Return, c.recPos(m.Line, m.Col), RecordingKindInterfaceTypedParam) {
 				matched = true
@@ -9105,6 +9132,63 @@ func needsExpectedType(node ast.Node) bool {
 	return false
 }
 
+// argsTakeExpectedType reports whether an argument is one more shape whose
+// type its slot's expected type decides, beyond needsExpectedType's: a
+// function named as a value, which a generic one needs to be instantiated
+// (§5, `Some(Display.to_string)` under a Maybe<(Int) -> String>), and a
+// collection literal of several items, each of which widens to the expected
+// element type on its own (`Some([1, "a"])` under a Maybe<List<Display>>).
+// A lambda takes its parameter types from the same seed. The caller does not
+// seed these from a Unit expectation (a Unit function's tail): a callback
+// slot whose result is Unit takes a function of any result, so `run(make)`
+// seeded with `() -> Unit` would leave make's own parameter unsolved and
+// unreported.
+func (c *checker) argsTakeExpectedType(args []ast.Node) bool {
+	for _, a := range args {
+		if c.argTakesExpectedType(a) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *checker) argTakesExpectedType(node ast.Node) bool {
+	switch v := node.(type) {
+	case *ast.NamedArg:
+		return c.argTakesExpectedType(v.Value)
+	case *ast.GroupedExpr:
+		return c.argTakesExpectedType(v.Expr)
+	case *ast.Ident:
+		return c.namesFunction(Pos{Line: v.Line, Col: v.Col})
+	case *ast.FieldAccess:
+		return v.Field != nil && c.namesFunction(Pos{Line: v.Field.Line, Col: v.Field.Col})
+	case *ast.ListLit:
+		return v.TypeName == nil && (len(v.Items) > 1 || c.argsTakeExpectedType(v.Items))
+	case *ast.VectorLit:
+		return len(v.Items) > 1 || c.argsTakeExpectedType(v.Items)
+	case *ast.SetLit:
+		return len(v.Items) > 1 || c.argsTakeExpectedType(v.Items)
+	case *ast.TupleLit:
+		return c.argsTakeExpectedType(v.Items)
+	}
+	// A call's arguments take their types from its own parameters, not
+	// from this call's expected type.
+	return false
+}
+
+// namesFunction reports whether the name at pos refers to a function or an
+// interface function.
+func (c *checker) namesFunction(pos Pos) bool {
+	sym := c.fa.References[pos]
+	if sym == nil {
+		return false
+	}
+	for sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	return sym.Kind == SymbolFunction || sym.Kind == SymbolInterfaceMethod
+}
+
 // checkGenericCall handles calls to generic functions by inferring type params.
 // When skipReturnInfer is true, the post-argument unification of the return
 // type against the enclosing function's return type is skipped — used for
@@ -9206,7 +9290,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		resultTy = c.partialCallShape(n, ft)
 	}
 	if concreteExpected(expected) && !skipReturnInfer &&
-		ContainsTypeParam(resultTy) && (flatVariant || callArgsNeedExpectedType(n.Args)) {
+		ContainsTypeParam(resultTy) && (flatVariant || callArgsNeedExpectedType(n.Args) || !isUnitLike(expected) && c.argsTakeExpectedType(n.Args)) {
 		trial := make(map[*TypeParam_]Type, len(subs))
 		for k, v := range subs {
 			trial[k] = v
@@ -11801,6 +11885,10 @@ func (c *checker) checkDistinctDestructure(n *ast.DistinctDestructure) Type {
 			c.report(e)
 			return TypeUnit
 		}
+		if et, isEnum := valTy.(*EnumType); isEnum && len(et.Variants) == 1 {
+			c.checkSingleVariantDestructure(n, et)
+			return TypeUnit
+		}
 		c.addError(n.Line, n.Col, fmt.Sprintf("distinct type destructure requires a distinct type, got %s", valTy))
 		return TypeUnit
 	}
@@ -11819,6 +11907,61 @@ func (c *checker) checkDistinctDestructure(n *ast.DistinctDestructure) Type {
 	}
 
 	return TypeUnit
+}
+
+// checkSingleVariantDestructure checks `E.V(x) = value` over an enum with one
+// variant. The pattern is irrefutable, as it is as a parameter (§5), and x
+// binds the variant's payload as a `case` arm's `E.V(x)` would: the payload
+// value, or the record of a struct-shaped variant's fields.
+func (c *checker) checkSingleVariantDestructure(n *ast.DistinctDestructure, et *EnumType) {
+	if qt, ok := n.TypeNameExpr.(*ast.QualifiedType); ok && !c.checkPatternQualifier(qt, et) {
+		return
+	}
+	if et.Opaque && (c.fa == nil || c.fa.FilePath != et.OwningSourceFile) {
+		c.addError(n.Line, n.Col, fmt.Sprintf(
+			"cannot destructure opaque type '%s' outside its defining module", et.Name))
+		return
+	}
+	v := &et.Variants[0]
+	name := variantNameOfDotted(n.TypeName)
+	if st, ok := n.TypeNameExpr.(*ast.SimpleType); ok {
+		pos := Pos{Line: st.Line, Col: st.Col}
+		if sym := c.fa.References[pos]; sym != nil && sym.Resolved != nil && sym.Resolved.Name != "" {
+			name = sym.Resolved.Name
+		}
+		if name == v.Name && !c.allowsBareVariantPattern(st.Name, pos) {
+			c.addError(st.Line, st.Col, bareVariantPatternMessage(st.Name, et.Name))
+			return
+		}
+	}
+	if name != v.Name {
+		c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("variant %s not found in enum %s", name, et.Name)}.WithHint(didYouMean(name, variantNames(et))))
+		return
+	}
+	subs := enumTypeArgSubs(et)
+	var payload Type
+	switch {
+	case v.DataType != nil:
+		payload = v.DataType
+		if subs != nil {
+			payload = Substitute(payload, subs)
+		}
+	case v.Kind == VariantStruct && len(v.Fields) > 0:
+		payload = variantFieldsRecord(v, subs)
+	case v.Kind == VariantEmbedded && v.Embedded != nil:
+		// A zero-sized embed's payload is the marker itself.
+		payload = v.Embedded
+	default:
+		c.addError(n.Line, n.Col, fmt.Sprintf(
+			"variant %s carries no data; use the bare pattern %s", v.Name, v.Name))
+		return
+	}
+	if n.Binding != nil {
+		if sym := c.fa.Definitions[Pos{Line: n.Binding.Line, Col: n.Binding.Col}]; sym != nil {
+			sym.Type = payload
+		}
+		c.notePatternBindings([]patternSite{{n.Binding.Name, Pos{Line: n.Binding.Line, Col: n.Binding.Col}}}, n.Value)
+	}
 }
 
 func distinctTypeNameMatches(patternName, actualName string) bool {
@@ -13007,6 +13150,25 @@ func (c *checker) tryErrTypesAgree(want, got Type, line, col int) bool {
 	return c.argMatchesParam(got, want, c.recPos(line, col), RecordingKindInterfaceTypedParam)
 }
 
+// unifiesAsResult reports whether a function's result of type got fits its
+// declared result type, by the unification an annotated binding's value
+// gets: a tuple, list or generic argument widens to an interface or an
+// enum its element implements or embeds. The function's own type
+// parameters stay rigid: unification treats a type parameter as a hole, so
+// each is replaced on both sides by a type that equals only itself, and
+// `fn wrap<T>(x: T): List<T> { x }` stays a mismatch.
+func (c *checker) unifiesAsResult(declared, got Type, own map[string]*TypeParam_) bool {
+	var rigid map[*TypeParam_]Type
+	for _, tp := range own {
+		if rigid == nil {
+			rigid = map[*TypeParam_]Type{}
+		}
+		rigid[tp] = &StructType{Origin: "\x00rigid type parameter", Name: tp.Name_}
+	}
+	declared, got = Substitute(declared, rigid), Substitute(got, rigid)
+	return c.unifyInto(declared, got, map[*TypeParam_]Type{}) == nil
+}
+
 func (c *checker) checkReturn(n *ast.Return) Type {
 	if c.rejectExitlessExit("return", n.Line, n.Col) {
 		if n.Value != nil {
@@ -13033,8 +13195,7 @@ func (c *checker) checkReturn(n *ast.Return) Type {
 	valTy := c.checkNodeExpecting(n.Value, c.returnTy)
 	c.recordBoundaryReturn(n, valTy)
 	if valTy != nil && c.returnTy != nil && !TypeAssignable(c.returnTy, valTy) {
-		subs := map[*TypeParam_]Type{}
-		if !containsProtectedTypeParam(c.returnTy, c.fnTypeParams) && c.unifyInto(c.returnTy, valTy, subs) == nil {
+		if c.unifiesAsResult(c.returnTy, valTy, c.fnTypeParams) {
 			return TypeInfallible
 		}
 		if !c.argMatchesParam(valTy, c.returnTy, c.recPos(n.Line, n.Col), RecordingKindInterfaceTypedParam) {
