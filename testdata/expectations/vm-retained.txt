@@ -1317,7 +1317,6 @@ exercism/sieve/sieve.nomi:primes	ran
 exercism/spiral-matrix/spiral_matrix.nomi:cell_at	PROBE: a synthesized argument is not a value of the declared type
 exercism/spiral-matrix/spiral_matrix.nomi:empty?	PROBE: a synthesized argument is not a value of the declared type
 exercism/spiral-matrix/spiral_matrix.nomi:fill	PROBE: a synthesized argument is not a value of the declared type
-exercism/spiral-matrix/spiral_matrix.nomi:row_with	PROBE: a synthesized argument is not a value of the declared type
 exercism/spiral-matrix/spiral_matrix.nomi:set_cell	PROBE: a synthesized argument is not a value of the declared type
 exercism/spiral-matrix/spiral_matrix.nomi:spiral_matrix	ran
 exercism/spiral-matrix/spiral_matrix.nomi:step	ran

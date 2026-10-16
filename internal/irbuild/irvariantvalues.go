@@ -532,6 +532,14 @@ func irRetainedPreludePayload(k kind) bool {
 		// equality over the payload keep their own checks.
 		return true
 	}
+	if elem, vector := vectorElem(k); vector && k != kindEmptyVector && irCallableValueKind(elem) ||
+		k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && irCallableValueKind(k.comp.parts[0]) {
+		// A List or Vector of any value the callable domain holds
+		// (`Maybe<Vector<Vector<Int>>>`, what `Vector.set` answers over a
+		// grid; `Ok([f, g])`), as irRetainedValueKind admits one: the VM's
+		// containers hold values of every kind.
+		return true
+	}
 	if k.tag == tagMap && k != kindEmptyMap && irRetainedMapKind(k) {
 		// A map (`Result<Map<String, Int>, E>`), held as the map value.
 		return true
@@ -555,10 +563,6 @@ func irRetainedPreludePayload(k kind) bool {
 	if k.tag == tagFunc && irCallableValueKind(k) {
 		// A function value (`List.head(fns)`'s `Maybe<(Int) -> Int>`), held
 		// in the variant's reference slot.
-		return true
-	}
-	if k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && k.comp.parts[0].tag == tagFunc && irCallableValueKind(k.comp.parts[0]) {
-		// A list of function values (`Ok([f, g])`), held as the list.
 		return true
 	}
 	if k.tag == tagNamed && k.def != nil && k.def.preludeOf != nil && irRetainedEnumKind(k.def) {

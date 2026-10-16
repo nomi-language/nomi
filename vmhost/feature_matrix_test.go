@@ -237,6 +237,8 @@ var mxFeatures = []mxFeature{
 	{name: "ok", typ: "Result<Int, String>", expr: "Ok(1)", want: "Ok(1)", tags: tagPartial, reject: mxRows},
 	{name: "err", typ: "Result<Int, String>", expr: `Err("bad")`, want: `Err("bad")`, tags: tagPartial, reject: mxRows},
 	{name: "maybe map", typ: "Maybe<Int>", expr: "Maybe.map(Some(2), |n| n * 3)", want: "Some(6)"},
+	{name: "maybe grid", typ: "Maybe<Vector<Vector<Int>>>", expr: "Vector.set(#[#[1], #[2]], 1, #[3])",
+		want: "Some(#[#[1], #[3]])"},
 
 	// Iter chains.
 	{name: "iter chain", typ: "Iter<Int>", expr: "[1, 2, 3] |> Iter.map(|n| n * 2) |> Iter.filter(|n| n > 2)",
