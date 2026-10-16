@@ -178,7 +178,12 @@ func (g *gen) checkedFuncKinds(ref ast.Node, fill bool) ([]kind, kind, bool) {
 	}
 	ft, _ := sym.CallType.(*analysis.FuncType)
 	if ft == nil {
-		ft, _ = sym.Type.(*analysis.FuncType)
+		// An imported name (`import lib.add3`) references its import, whose
+		// Resolved is the declaration that carries the type; a generic
+		// call's instantiated CallType is on the reference itself.
+		for decl := sym; ft == nil && decl != nil; decl = decl.Resolved {
+			ft, _ = decl.Type.(*analysis.FuncType)
+		}
 	}
 	if ft != nil && fill && irUnsolvedType(ft) {
 		ft, _ = irFillHolesByPosition(ft, false).(*analysis.FuncType)

@@ -59,26 +59,6 @@ fn main() {
 `,
 	},
 	{
-		name: "gapImportedFnPartial",
-		fix: "builder: a partial application of a function another file declares, " +
-			"`add3(_, 10)` after `import lib.add3`. The same partial of a function of the entry " +
-			"file lowers; the builder does not see the imported callee's parameters and defaults",
-		reason: "a partial application over a callee whose parameters the builder cannot see",
-		src: `// FILE: main.nomi
-import std/io
-import lib.add3
-
-fn main() {
-    f = add3(_, 10)
-    io.inspect(f(2))
-}
-// FILE: lib.nomi
-pub fn add3(a: Int, b: Int, c: Int = 100): Int {
-    a + b + c
-}
-`,
-	},
-	{
 		name: "gapUnitAppField",
 		fix: "builder: an application field of type Unit. Boot builds the app and `with App.v = Unit` " +
 			"writes the field, but the builder retains no slot for a Unit field, so the write declines",
