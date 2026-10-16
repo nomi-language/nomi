@@ -358,12 +358,11 @@ T ok Range.contains?
 T ok Range.bounded?
 C regex
 E 0
-N 6
-H 7b2471e0347e2f7c031e699da6f59d7d2dc1aa9ca8f0100f73e31a62b792cce5
+N 5
+H be19ab721f66f997cc0d0f68ff981f833127a576d9dbcb89f9933b0ff5158aa2
 T ok type Regex
 T ok Regex.compile
 T ok Regex.pattern
-T ok Regex.find
 T ok Regex.replace_all
 T ok Regex.inspect (impl Debug for Regex)
 C results
@@ -398,8 +397,8 @@ T ok Set.empty_sum (impl Summable for Set<T>)
 T ok Set.subtract (impl Subtract<Set<T>, Set<T>> for Set<T>)
 C strings
 E 0
-N 25
-H b5fb1d38e8be0fb5446c3efa85badb35b4dfacc641c784e939f3b7a7970972cf
+N 26
+H f954a6fc777ca0c82ecbc8b2a7e24e690f0b4c65ed7a3ed4947eeda5e756ab5a
 T ok String.contains?
 T ok String.starts_with?
 T ok String.ends_with?
@@ -415,6 +414,7 @@ T ok String.pad_end
 T ok String.join
 T ok String.split
 T ok String.find_all
+T ok String.find
 T ok String.words
 T ok String.lines
 T ok String.trim

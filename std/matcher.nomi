@@ -1,13 +1,14 @@
 import {
     bool.Bool
     lists.List
+    maybe.Maybe
     strings.String
 }
 
 //# The `Matcher` interface: what `String.split`, `String.replace`,
-//# `String.contains?`, `String.starts_with?`, `String.ends_with?` and
-//# `String.find_all` accept as the thing to look for. A `String` matches its own
-//# text and a `Regex` matches its pattern.
+//# `String.contains?`, `String.starts_with?`, `String.ends_with?`,
+//# `String.find` and `String.find_all` accept as the thing to look for. A
+//# `String` matches its own text and a `Regex` matches its pattern.
 
 /// Something to look for in a string. `String` and `Regex` implement it, so
 /// the String search functions take either:
@@ -42,4 +43,7 @@ pub interface Matcher {
     fn replace_in(m: self, text: String, replacement: String): String
     /// Every non-overlapping match in `text`, left to right.
     fn find_all_in(m: self, text: String): List<String>
+    /// The first match in `text`, the leftmost: the first element `find_all_in`
+    /// returns, or `None` when there is no match.
+    fn find_in(m: self, text: String): Maybe<String>
 }

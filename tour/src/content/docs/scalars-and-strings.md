@@ -148,8 +148,8 @@ To split text:
 The [`String` reference](/reference/strings/) lists the rest.
 
 `String.split`, `String.contains?`, `String.starts_with?`,
-`String.ends_with?`, `String.replace` and `String.find_all` take a
-[`Matcher`](/reference/matcher/) for the text to look for. A `Matcher` is
+`String.ends_with?`, `String.replace`, `String.find` and `String.find_all`
+take a [`Matcher`](/reference/matcher/) for the text to look for. A `Matcher` is
 either a plain `String` or a [`Regex`](/typed-literals/#regex-literals):
 
 ```nomi-run

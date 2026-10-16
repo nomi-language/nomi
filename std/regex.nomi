@@ -7,8 +7,8 @@
 //# A `Regex` is a `Matcher`, so String's search functions take one in place of
 //# a plain string. Test for a match with ``String.contains?(text, Regex`\d+`)``,
 //# collect every match with `String.find_all(text, re)`, and split around
-//# matches with ``String.split(text, Regex`,\s*`)``. `Regex.find` returns the
-//# first match, and `Regex.replace_all` replaces matches with `$1`-style
+//# matches with ``String.split(text, Regex`,\s*`)``. Find the first match with
+//# `String.find(text, re)`. `Regex.replace_all` replaces matches with `$1`-style
 //# capture expansion, which `String.replace` does not do.
 
 import {
@@ -31,11 +31,12 @@ import {
 /// Prefer raw typed literals for patterns so regex escapes stay readable and
 /// the pattern is checked at compile time: `` Regex`\d+` ``.
 ///
-/// A `Regex` is a `Matcher`: test, collect and split with the String
+/// A `Regex` is a `Matcher`: test, find, collect and split with the String
 /// functions.
 //! assert String.contains?("order 66", Regex`\d+`)
 //! assert String.contains?("room", Regex`\d+`) == False
 //! assert String.find_all("order 66, aisle 7", Regex`\d+`) == ["66", "7"]
+//! assert String.find("order 66, aisle 7", Regex`\d+`) == Maybe.Some("66")
 //! assert String.split("a, b,c", Regex`,\s*`) == ["a", "b", "c"]
 //
 pub host type Regex
@@ -51,12 +52,6 @@ impl Regex {
     //! assert Regex.pattern(Regex`\d+`) == "\\d+"
     //
     pub host fn pattern(re: Regex): String
-
-    /// Return the first matching substring.
-    //! assert Regex.find(Regex`\d+`, "order 66, aisle 7") == Maybe.Some("66")
-    //! assert Regex.find(Regex`\d+`, "none") == Maybe.None
-    //
-    pub host fn find(re: Regex, value: String): Maybe<String>
 
     /// Replace every non-overlapping match with `replacement`.
     ///
@@ -87,6 +82,9 @@ impl Matcher for Regex {
 
     /// Every non-overlapping match, left to right.
     host fn find_all_in(re: Regex, text: String): List<String>
+
+    /// The leftmost match, which may be empty.
+    host fn find_in(re: Regex, text: String): Maybe<String>
 }
 
 impl Literal for Regex {

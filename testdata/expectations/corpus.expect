@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
 records 353
-declared-cases 1060
+declared-cases 1064
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -544,18 +544,22 @@ T test result: ok. 8 passed, 0 failed
 T
 C 04-scalars-and-text/matcher_test.nomi
 E 0
-N 9
-H 3bd0cbe5bd07cd63a2a9f0f6a937e5a1046f4e6c4035cccc075a11d10c9dba30
+N 13
+H 22355292a0df112eac08627a363a16330084dd0354b108b5849491cae3f759c2
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: split takes a string or a regex
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: contains? takes a string or a regex
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: starts_with? and ends_with? anchor a regex to that end
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: ends_with? finds a match ending at the end, not only the leftmost one
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: replace takes a string or a regex and inserts the replacement literally
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find_all lists every match
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find returns the first match, from a string or a regex
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find with an empty needle or an empty regex match finds the empty string
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find works over Unicode text
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find is the first element find_all returns
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a function of your own takes any matcher
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a matcher prints what each call finds
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a value that is not a matcher is rejected
-T test result: ok. 9 passed, 0 failed
+T test result: ok. 13 passed, 0 failed
 T
 C 04-scalars-and-text/random_test.nomi
 E 0

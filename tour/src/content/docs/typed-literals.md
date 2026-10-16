@@ -141,7 +141,7 @@ fn main(): Result<Unit, String> {
 
     dbg String.find_all(text, letters)
     dbg String.contains?(text, digits)
-    dbg Regex.find(digits, text)
+    dbg String.find(text, digits)
     dbg String.find_all(text, digits)
     dbg String.contains?(text, prefixed)
 
@@ -151,7 +151,7 @@ fn main(): Result<Unit, String> {
 <!-- expect
 dbg line 12: String.find_all(text, letters) = ["room", "floor"]
 dbg line 13: String.contains?(text, digits) = True
-dbg line 14: Regex.find(digits, text) = Some("42")
+dbg line 14: String.find(text, digits) = Some("42")
 dbg line 15: String.find_all(text, digits) = ["42", "7"]
 dbg line 16: String.contains?(text, prefixed) = True
 -->
@@ -172,10 +172,10 @@ If `from_fragments` cannot fail, as with `Sql` and `Box` above, both kinds of
 quote give the same type.
 
 A `Regex` is a [`Matcher`](/reference/matcher/). That is why the example can
-pass it to `String.contains?`, `String.find_all` and `String.split`, which
-accept a `Regex` wherever they accept a plain string. `Regex.find` returns
-the first match. `Regex.replace_all` replaces each match, and `$1` in the
-replacement stands for the first capture group.
+pass it to `String.contains?`, `String.find`, `String.find_all` and
+`String.split`, which accept a `Regex` wherever they accept a plain string.
+`String.find` returns the first match. `Regex.replace_all` replaces each
+match, and `$1` in the replacement stands for the first capture group.
 
 The next chapter, [FFI & Dynamic](/ffi-and-dynamic/), shows how Nomi calls
 Go code, and how to handle a value whose shape you don't know yet with

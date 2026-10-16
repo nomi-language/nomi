@@ -188,7 +188,7 @@ func Funcs() []Binding {
 		{Name: "random.unit_float_state", Fn: stdrandom.FFIUnitFloat},
 		{Name: "Regex.compile", Fn: stdregex.FFICompile},
 		{Name: "Regex.contained_in?", Fn: stdregex.FFIMatch},
-		{Name: "Regex.find", Fn: stdregex.FFIFind},
+		{Name: "Regex.find_in", Fn: stdregex.FFIFind},
 		{Name: "Regex.find_all_in", Fn: stdregex.FFIFindAll},
 		{Name: "Regex.pattern", Fn: stdregex.FFIPattern},
 		{Name: "Regex.prefix_of?", Fn: stdregex.FFIPrefixOf},

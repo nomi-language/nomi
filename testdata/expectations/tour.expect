@@ -1141,10 +1141,10 @@ T
 C typed-literals.md:L130
 E 0
 N 0
-H afd3365de58525ee43340834df7dda912b572b1d30c3ee8f7ce87b0bd47184ba
+H 75f00c061b6acd0649041592b3790af7936d844f965336adad05c85f4c3c6447
 T dbg line 12: String.find_all(text, letters) = ["room", "floor"]
 T dbg line 13: String.contains?(text, digits) = True
-T dbg line 14: Regex.find(digits, text) = Some("42")
+T dbg line 14: String.find(text, digits) = Some("42")
 T dbg line 15: String.find_all(text, digits) = ["42", "7"]
 T dbg line 16: String.contains?(text, prefixed) = True
 T

@@ -251,7 +251,7 @@ func Names() []string {
 		"random.unit_float_state",
 		"Regex.compile",
 		"Regex.contained_in?",
-		"Regex.find",
+		"Regex.find_in",
 		"Regex.find_all_in",
 		"Regex.pattern",
 		"Regex.prefix_of?",
@@ -545,7 +545,7 @@ func Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 		"random.unit_float_state":              b.fn83,
 		"Regex.compile":                        b.fn84,
 		"Regex.contained_in?":                  b.fn86,
-		"Regex.find":                           b.fn89,
+		"Regex.find_in":                        b.fn89,
 		"Regex.find_all_in":                    b.fn91,
 		"Regex.pattern":                        b.fn93,
 		"Regex.prefix_of?":                     b.fn94,
@@ -2255,19 +2255,19 @@ func (b *bound) out90(v *string) (rt.Value, error) {
 	return r, nil
 }
 
-// fn89 adapts Regex.find: find(re: Regex, value: String): Maybe<String>
+// fn89 adapts Regex.find_in: find_in(re: Regex, text: String): Maybe<String>
 func (b *bound) fn89(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("Regex.find", &err)
+	defer hostadapt.Recover("Regex.find_in", &err)
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("Regex.find", 2, len(args))
+		return nil, hostadapt.Arity("Regex.find_in", 2, len(args))
 	}
 	a0, err := b.in87(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("Regex.find", 0, err)
+		return nil, hostadapt.Arg("Regex.find_in", 0, err)
 	}
 	a1, err := b.in42(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("Regex.find", 1, err)
+		return nil, hostadapt.Arg("Regex.find_in", 1, err)
 	}
 	r0 := stdregex.FFIFind(a0, a1)
 	v0, err := b.out90(r0)

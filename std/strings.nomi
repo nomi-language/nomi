@@ -22,7 +22,7 @@ import {
 //# pipelines over a `String`. Transform graphemes with `Iter.map(s, f) |>
 //# String.join()`; join any `Iter<String>` back into one string with `String.join`.
 //# The search functions (`contains?`, `starts_with?`, `ends_with?`, `replace`,
-//# `split`, `find_all`) take any `Matcher`: a `String` or a `Regex`.
+//# `split`, `find`, `find_all`) take any `Matcher`: a `String` or a `Regex`.
 
 /// UTF-8 encoded string.
 pub host type String
@@ -202,6 +202,21 @@ impl String {
         M.find_all_in(needle, s)
     }
 
+    /// The first match of `needle` in `s`, the leftmost, or `None` when there is
+    /// none. It is the first element `find_all` would return. With a `String`
+    /// needle the match is the needle itself, and an empty needle matches at the
+    /// start of any text; an empty regex match is `Some("")`.
+    //! import std/regex.Regex
+    //!
+    //! assert String.find("order 66, aisle 7", Regex`\d+`) == Some("66")
+    //! assert String.find("banana", "an") == Some("an")
+    //! assert String.find("banana", "x") == None
+    //! assert String.find("none", Regex`\d+`) == None
+    //
+    pub fn find<M>(s: String, needle: M): Maybe<String> where M: Matcher {
+        M.find_in(needle, s)
+    }
+
     /// The words of `s`: the pieces between runs of Unicode whitespace, which
     /// includes U+00A0 NO-BREAK SPACE and U+3000. Unlike `split`, leading,
     /// trailing and repeated whitespace never produce empty strings.
@@ -338,6 +353,15 @@ impl Matcher for String {
 
     /// One copy of `needle` per non-overlapping occurrence.
     host fn find_all_in(needle: String, text: String): List<String>
+
+    /// `needle` itself when it occurs in `text`.
+    fn find_in(needle: String, text: String): Maybe<String> {
+        if String.contained_in?(needle, text) {
+            Some(needle)
+        } else {
+            None
+        }
+    }
 }
 
 impl Iter for String {
