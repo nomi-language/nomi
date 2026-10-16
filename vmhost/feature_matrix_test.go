@@ -606,11 +606,13 @@ var mxShells = []*mxContext{
 			mxString(want) + "\n    }\n}", nil, "\n--- " + mxCase + ": ok: <nil>\n"
 	}},
 	{name: "defer", shell: func(b *mxBuild, e, obs, want string) (string, []string, string) {
-		// The deferred call reads a local: a deferred call whose operand is
-		// itself a call declines (gapDeferredCallOperand).
+		// One deferred call reads the local, widening it to the parameter's
+		// type; the other's operand is a call, evaluated where the `defer`
+		// stands.
 		show := "fn show(v: " + b.typ + ") {\n    io.print(" + mxObs(obs, "v") + ")\n}"
-		return "fn main() {\n    got = " + mxIndentTail(e) + "\n    defer show(got)\n    io.print(\"body\")\n}", []string{show},
-			"body\n" + want + "\n\n--- ok: <nil>"
+		return "fn main() {\n    got = " + mxIndentTail(e) + "\n    defer show(got)\n    defer io.print(" + mxObs(obs, "got") +
+				")\n    io.print(\"body\")\n}", []string{show},
+			"body\n" + want + "\n" + want + "\n\n--- ok: <nil>"
 	}},
 	{name: "with", shell: func(b *mxBuild, e, obs, want string) (string, []string, string) {
 		decls := []string{"struct App {\n    v: " + b.typ + "\n}", "fn boot(): App {\n    App{v: " + mxIndentTail(mxIndentTail(e)) + "}\n}"}

@@ -225,31 +225,6 @@ fn main() {
 	}
 }
 
-// A deferred call whose operand is itself a call needs its operand evaluated
-// at the `defer`. The builder retains a deferred call only over stable
-// operands, so the function is not retained.
-func TestIRDefer_AnImpureOperandPreservesFallback(t *testing.T) {
-	names, _ := irRetainedNames(t, `import std/io
-
-fn label(): String {
-  io.print("label")
-  "x"
-}
-
-fn note(s: String): Unit {
-  io.print(s)
-}
-
-fn main() {
-  defer note(label())
-  io.print("body")
-}
-`)
-	if names["main"] {
-		t.Fatal("a defer with a call operand was retained")
-	}
-}
-
 // A `defer` in a lambda runs when that invocation ends, on each exit: the
 // normal end, `return`, `try` propagating, and in an iteration callback
 // `break` and `continue`. Several run most recent first. The builder

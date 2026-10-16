@@ -53,10 +53,10 @@ func (bl *irScalarBuilder) closeDefers(scope *irDeferScope, at ast.Node) {
 // deferCall lowers `defer call(...)`: the call is lowered at the defer site
 // and only the call itself is deferred.
 //
-// ONLY A CALL OVER STABLE OPERANDS IS RETAINED. A deferred call's operands
-// take their values at the `defer`, and the call is retained only when every
-// operand is a constant or a local read. A call whose operands need hoisted statements, forcing or defaults
-// is declined, as is a void Go target.
+// The spec evaluates a deferred call's operands where the `defer` stands, so
+// whatever computes them (another call, a `case` or `if`, a widening, a
+// default) stays where it was lowered, and the ir.Defer that replaces the
+// call reads their temporaries there. A void Go target is declined.
 func (bl *irScalarBuilder) deferCall(t *ast.Defer, scope *irDeferScope) bool {
 	call, isCall := t.Call.(*ast.Call)
 	switch {
@@ -76,8 +76,8 @@ func (bl *irScalarBuilder) deferCall(t *ast.Defer, scope *irDeferScope) bool {
 	if !ok {
 		return false
 	}
-	instrs := entry.Instrs()
-	if bl.b != entry || len(instrs) == start || instrs[len(instrs)-1].Dst() != val {
+	instrs := bl.b.Instrs()
+	if (bl.b == entry && len(instrs) == start) || len(instrs) == 0 || instrs[len(instrs)-1].Dst() != val {
 		irDeclineNote("a deferred call that does not lower to one call")
 		return false
 	}
@@ -86,32 +86,11 @@ func (bl *irScalarBuilder) deferCall(t *ast.Defer, scope *irDeferScope) bool {
 		irDeclineNote("a deferred call to a function that answers no value")
 		return false
 	}
-	for _, in := range instrs[start : len(instrs)-1] {
-		if !irDeferOperand(in) {
-			irDeclineNote("a deferred call whose operands are not constants or local reads")
-			return false
-		}
-	}
 	bl.defers++
-	entry.DeferLastCall(bl.g.irNodePos(t), bl.defers)
+	bl.b.DeferLastCall(bl.g.irNodePos(t), bl.defers)
 	scope.ids = append(scope.ids, bl.defers)
 	bl.irDiscardStmtUnit(t)
 	return true
-}
-
-// irDeferOperand reports whether an instruction computing a deferred call's
-// operand reads the same value at the `defer` and when the call runs.
-func irDeferOperand(in ir.Instr) bool {
-	switch n := in.(type) {
-	case *ir.Const:
-		switch n.Kind() {
-		case ir.ConstUnit, ir.ConstBool, ir.ConstInt, ir.ConstFloat, ir.ConstString:
-			return true
-		}
-	case *ir.Ref:
-		return n.Kind() == ir.RefLocal
-	}
-	return false
 }
 
 // scopedBlock lowers a block statement, `{ ... }`, with no destination: a Go

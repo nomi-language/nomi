@@ -11,24 +11,6 @@ import "regexp"
 // it fails by their shape.
 var matrixLoweringGaps = []loweringGap{
 	{
-		name: "gapDeferredCallOperand",
-		fix: "builder: a `defer`'d call whose operand is anything but a constant or a local read: " +
-			"another call (`defer io.print(Debug.inspect(x))`), a `case` or `if`, or a local read " +
-			"that widens to the parameter's type (an embedded struct passed as its enum). The spec " +
-			"evaluates the operands where the `defer` stands, so the builder can bind each to a " +
-			"temporary there and defer the call over the temporaries",
-		reason:   "a deferred call whose operands are not constants or local reads",
-		alsoSkip: []string{"a deferred call that does not lower to one call"},
-		src: `import std/io
-
-fn main() {
-    x = 1
-    defer io.print(Debug.inspect(x))
-    io.print("body")
-}
-`,
-	},
-	{
 		name: "gapNestedFnWidenedResult",
 		fix: "builder: a nested `fn` whose body's result is not exactly its declared return type: an " +
 			"embedded struct or distinct type returned as its enum (`fn inner(): Shape { Spot{n: 3} }`), " +
