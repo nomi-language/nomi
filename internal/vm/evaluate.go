@@ -219,6 +219,8 @@ var pureCrossings = map[string]bool{
 	"strings.String.split_in": true, "strings.String.length": true,
 	"strings.String.slice": true, "strings.String.reverse": true, "strings.String.to_bytes": true,
 	"strings.String.to_codepoints": true, "strings.String.normalize": true,
+	"strings.String.words": true, "strings.String.lines": true,
+	"assertions.AssertionFailure.format": true,
 	// strings.String.repeat is not here: its cost is its Int operand.
 	"bytes.Byte.from_int": true, "bytes.Byte.to_int": true, "bytes.Bytes.length": true,
 	"bytes.Bytes.at": true, "bytes.Bytes.slice": true, "bytes.Bytes.concat": true,
