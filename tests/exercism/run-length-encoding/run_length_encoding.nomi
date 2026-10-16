@@ -1,3 +1,5 @@
+import std/regex.Regex
+
 /// `text` with each run of a repeated character written as its length and
 /// the character once. A character that is not repeated keeps no count.
 pub fn encode(text: String): String {
@@ -18,12 +20,20 @@ fn encode_run(run: List<String>): String {
 /// The text `encode` was given for `encoded`: each character is repeated as
 /// many times as the number before it says, or once when there is none.
 pub fn decode(encoded: String): String {
-    (_, text) = Iter.reduce(encoded, |(count, text) = (0, ""), letter| {
-        case String.to_int(letter) {
-            Some(digit) -> (count * 10 + digit, text)
-            None -> (0, text + String.repeat(letter, if count == 0 { 1 } else { count }))
-        }
-    })
+    encoded
+    |> String.captures_all(Regex`(\d*)(\D)`)
+    |> Iter.map(decode_run)
+    |> String.join()
+}
 
-    text
+fn decode_run(groups: List<Maybe<String>>): String {
+    case groups {
+        [Some(count), Some(letter)] -> {
+            times = String.to_int(count) |> Maybe.with_default(1)
+            String.repeat(letter, times)
+        }
+
+        _ ->
+            ""
+    }
 }

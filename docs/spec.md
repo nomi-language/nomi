@@ -5253,6 +5253,9 @@ fn trim(s: String): String
 fn split<M>(s: String, separator: M): List<String> where M: Matcher
 fn replace<M>(s: String, old: M, new: String): String where M: Matcher  // every match; `new` is literal
 fn find_all<M>(s: String, needle: M): List<String> where M: Matcher     // every match, left to right
+fn find<M>(s: String, needle: M): Maybe<String> where M: Matcher        // the first match: find_all's first element
+fn captures(s: String, re: Regex): Maybe<List<Maybe<String>>>      // the first match's groups 1.., None for one that did not take part
+fn captures_all(s: String, re: Regex): List<List<Maybe<String>>>    // the groups of every match, left to right
 fn words(s: String): List<String>                                  // split on runs of whitespace
 fn lines(s: String): List<String>                                  // split on \n or \r\n
 fn repeat(s: String, count: Int): String                           // count >= 0
@@ -5266,7 +5269,7 @@ fn strip_suffix(s: String, suffix: String): Maybe<String>
 fn join(parts: Iter<String>, separator: String = ""): String       // any Iter<String>, driven once
 ```
 
-The search functions take any `Matcher` (`std/matcher`) as the thing to look for: a `String` matches its own text and a `Regex` (`std/regex`) matches its pattern, so `String.split("a,b", ",")` and `` String.split(text, Regex`\s+`) `` are the same function. Each Matcher function answers one of these operations with the matcher first (`contained_in?`, `prefix_of?`, `suffix_of?`, `split_in`, `replace_in`, `find_all_in`), and a type of your own implements it to become searchable. A generic function of your own takes either with `where M: Matcher`. "Pattern" is not the name because a pattern in Nomi is a destructuring shape (§10). `String.replace` inserts its replacement literally for a regex too; `Regex.replace_all` expands `$1` capture references. `String.split` and the other search functions are generic, so naming one as a value needs a function type to settle `M`: `contains: (String, String) -> Bool = String.contains?`.
+The search functions take any `Matcher` (`std/matcher`) as the thing to look for: a `String` matches its own text and a `Regex` (`std/regex`) matches its pattern, so `String.split("a,b", ",")` and `` String.split(text, Regex`\s+`) `` are the same function. Each Matcher function answers one of these operations with the matcher first (`contained_in?`, `prefix_of?`, `suffix_of?`, `split_in`, `replace_in`, `find_all_in`, `find_in`), and a type of your own implements it to become searchable. A generic function of your own takes either with `where M: Matcher`. "Pattern" is not the name because a pattern in Nomi is a destructuring shape (§10). `String.replace` inserts its replacement literally for a regex too; `Regex.replace_all` expands `$1` capture references. `String.captures` and `String.captures_all` take a `Regex` rather than any `Matcher`, since only a regex has groups. Each match gives one entry per group from group 1 in the order the pattern opens them (the whole match is `String.find`'s answer, not an entry), `Some` of the text for a group that took part, even an empty one, and `None` for one that did not: `` String.captures("b", Regex`(a)|(b)`) `` is `Some([None, Some("b")])`. `String.split` and the other search functions are generic, so naming one as a value needs a function type to settle `M`: `contains: (String, String) -> Bool = String.contains?`.
 
 `String` also implements `Iter<String>` (one grapheme cluster per step), so every `Iter` owner function works on a string. To map or filter graphemes, run the generic adapter and join the result back into a `String`: `Iter.map(s, f) |> String.join()`, `Iter.filter(s, p) |> String.join()`. `String.join` takes any `Iter<String>` (a List, Set or Vector, graphemes, or a lazy chain) and a separator that defaults to `""`. `String.reverse`/`String.length` stay container-specific (native, by grapheme cluster).
 
@@ -6752,7 +6755,7 @@ Batteries-included philosophy (like Go): minimize the need for third-party depen
 | `duration`, `instant`, `calendar` | `Duration`, `Instant` (`Instant.now`), and the civil date-time types (§39) |
 | `random` | Pure, seeded random generation (§40) |
 | `json`, `toml`, `dynamic` | `Json` with `ToJson`/`FromJson` and their derives, the `Toml` typed literal, `Dynamic` for untyped host data |
-| `regex` | `Regex`, with a `Regex"..."` typed literal. A `Regex` is a `Matcher`, so `String.contains?`, `String.find_all`, `String.split` and the other search functions take one; `Regex.find` (first match) and `Regex.replace_all` (`$1` expansion) are its own |
+| `regex` | `Regex`, with a `Regex"..."` typed literal. A `Regex` is a `Matcher`, so `String.contains?`, `String.find`, `String.find_all`, `String.split` and the other search functions take one; `String.captures` and `String.captures_all` take only a `Regex` and answer its capture groups; `Regex.replace_all` (`$1` expansion) is its own |
 | `literals` | `Literal` and `Fragment`, for typed-literal authors (§16) |
 | `assertions`, `testing` | `AssertionFailure`, `Assertable`, `testing.check`, test `Clock` (§36) |
 | `compiler` | The compiler as a library: `check`, `run`, `hover` |

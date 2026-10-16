@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
 records 353
-declared-cases 1065
+declared-cases 1074
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -549,18 +549,22 @@ T test result: ok. 12 passed, 0 failed
 T
 C 04-scalars-and-text/matcher_test.nomi
 E 0
-N 9
-H 3bd0cbe5bd07cd63a2a9f0f6a937e5a1046f4e6c4035cccc075a11d10c9dba30
+N 13
+H 22355292a0df112eac08627a363a16330084dd0354b108b5849491cae3f759c2
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: split takes a string or a regex
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: contains? takes a string or a regex
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: starts_with? and ends_with? anchor a regex to that end
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: ends_with? finds a match ending at the end, not only the leftmost one
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: replace takes a string or a regex and inserts the replacement literally
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find_all lists every match
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find returns the first match, from a string or a regex
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find with an empty needle or an empty regex match finds the empty string
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find works over Unicode text
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find is the first element find_all returns
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a function of your own takes any matcher
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a matcher prints what each call finds
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a value that is not a matcher is rejected
-T test result: ok. 9 passed, 0 failed
+T test result: ok. 13 passed, 0 failed
 T
 C 04-scalars-and-text/random_test.nomi
 E 0
@@ -590,8 +594,8 @@ T test result: ok. 9 passed, 0 failed
 T
 C 04-scalars-and-text/strings_test.nomi
 E 0
-N 9
-H 872536747ce63a7d695192ef532e7ab4cfde6b31d1a9eb57f1ea188d18dafe36
+N 14
+H 5d077b0944a01e1eda0a8174ffef316fb4c9ae16f90f4814c83aa19d00236a92
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings report length containment and slices
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings join and split text
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings expose bytes, graphemes, and codepoints
@@ -601,7 +605,12 @@ T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings parse signed 
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: grapheme transforms materialize back to strings
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: normalization is explicit before byte-based equality
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: join reads any iterator of strings and defaults to no separator
-T test result: ok. 9 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures lists the groups of the first match, without the whole match
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: a group that does not take part is None, and an empty one is Some("")
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures_all lists the groups of every match, left to right
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures work over Unicode text
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures_all finds the matches find_all finds
+T test result: ok. 14 passed, 0 failed
 T
 C 04-scalars-and-text/words_and_lines_test.nomi
 E 0

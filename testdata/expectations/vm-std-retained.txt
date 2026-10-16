@@ -395,6 +395,7 @@ strings.nomi:NormalForm.to_string	ran
 strings.nomi:String.compare	ran
 strings.nomi:String.empty_sum	ran
 strings.nomi:String.equal?	ran
+strings.nomi:String.find_in	ran
 strings.nomi:String.inspect	ran
 strings.nomi:String.pad_end	ran
 strings.nomi:String.pad_start	ran

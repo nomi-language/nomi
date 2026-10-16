@@ -206,10 +206,11 @@ var pureCrossings = map[string]bool{
 	"calendar.zoned_add_years": true, "calendar.zoned_from_instant_in_raw": true,
 	"calendar.zoned_in_zone_raw": true, "calendar.zoned_offset_nanos": true,
 	"calendar.zoned_parse_raw": true, "calendar.zoned_with_zone_raw": true,
-	"Regex.compile": true, "Regex.find": true,
+	"Regex.compile": true, "Regex.find_in": true,
 	"Regex.pattern": true, "Regex.replace_all": true,
 	"Regex.contained_in?": true, "Regex.prefix_of?": true, "Regex.suffix_of?": true,
 	"Regex.split_in": true, "Regex.replace_in": true, "Regex.find_all_in": true,
+	"String.captures": true, "String.captures_all": true,
 
 	"strings.String.contained_in?": true, "strings.String.prefix_of?": true,
 	"strings.String.suffix_of?": true, "strings.String.find_all_in": true,

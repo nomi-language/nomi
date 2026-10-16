@@ -981,8 +981,8 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 		"}\n\n"+
 		"test \"regex search helpers return Nomi shapes\" {\n"+
 		"  digits = Regex`\\d+`\n"+
-		"  assert Regex.find(digits, \"a12b34\") == Some(\"12\")\n"+
-		"  assert Regex.find(digits, \"abc\") == None\n"+
+		"  assert String.find(\"a12b34\", digits) == Some(\"12\")\n"+
+		"  assert String.find(\"abc\", digits) == None\n"+
 		"  assert String.find_all(\"a12b34\", digits) == [\"12\", \"34\"]\n"+
 		"  assert Regex.replace_all(digits, \"a12b34\", \"#\") == \"a#b#\"\n"+
 		"}\n\n"+

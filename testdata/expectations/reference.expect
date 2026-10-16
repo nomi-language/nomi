@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
 records 34
-declared-cases 327
+declared-cases 329
 failing 0
 C assertions
 E 0
@@ -358,12 +358,11 @@ T ok Range.contains?
 T ok Range.bounded?
 C regex
 E 0
-N 6
-H 7b2471e0347e2f7c031e699da6f59d7d2dc1aa9ca8f0100f73e31a62b792cce5
+N 5
+H be19ab721f66f997cc0d0f68ff981f833127a576d9dbcb89f9933b0ff5158aa2
 T ok type Regex
 T ok Regex.compile
 T ok Regex.pattern
-T ok Regex.find
 T ok Regex.replace_all
 T ok Regex.inspect (impl Debug for Regex)
 C results
@@ -398,8 +397,8 @@ T ok Set.empty_sum (impl Summable for Set<T>)
 T ok Set.subtract (impl Subtract<Set<T>, Set<T>> for Set<T>)
 C strings
 E 0
-N 25
-H b5fb1d38e8be0fb5446c3efa85badb35b4dfacc641c784e939f3b7a7970972cf
+N 28
+H 7bbc6c3a82287e5410e4fb44224407cb99ef1f6708905bdb23280a7c8cb67cd0
 T ok String.contains?
 T ok String.starts_with?
 T ok String.ends_with?
@@ -415,6 +414,9 @@ T ok String.pad_end
 T ok String.join
 T ok String.split
 T ok String.find_all
+T ok String.find
+T ok String.captures
+T ok String.captures_all
 T ok String.words
 T ok String.lines
 T ok String.trim
