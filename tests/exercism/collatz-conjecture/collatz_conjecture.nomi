@@ -1,0 +1,16 @@
+/// How many Collatz steps take `number` to 1: halve an even number, and
+/// triple an odd one and add 1.
+pub fn steps(number: Int): Result<Int, String> {
+    if number < 1 {
+        return Err("Only positive integers are allowed")
+    }
+
+    Iter.iterate(number, next)
+    |> Iter.take_while(|n| n != 1)
+    |> Iter.count()
+    |> Ok()
+}
+
+fn next(n: Int): Int {
+    if n % 2 == 0 { n / 2 } else { 3 * n + 1 }
+}

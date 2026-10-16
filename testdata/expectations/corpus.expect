@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 286
-declared-cases 927
+records 308
+declared-cases 954
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -2798,4 +2798,174 @@ H f6aed4f1296b2ae2d5f4c1ee9b973692d81678385d8fb423610cca4d9632996d
 T ok <root>/tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi :: Go time.Time projects to Nomi Instant
 T ok <root>/tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi :: Nomi Instant passes back to Go time.Time
 T test result: ok. 2 passed, 0 failed
+T
+C exercism/anagram/anagram.nomi
+E 1
+N 0
+H 24056ce371e01daaee19bd8ed2815a7b2c5dc1d6b8b3ffbdcc8e020105b07a91
+T --- stderr ---
+T nomi run: <root>/tests/exercism/anagram/anagram.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/anagram/anagram_test.nomi
+E 0
+N 1
+H eae9de2bd81cebcc0d249f743b2159e051f870496bd13c89de0210e0e813a2fb
+T ok <root>/tests/exercism/anagram/anagram_test.nomi :: finds anagrams
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/binary-search/binary_search.nomi
+E 1
+N 0
+H a787d79fe26647d5edba523d494a1de6d11080c1465791629612b8957cb0d545
+T --- stderr ---
+T nomi run: <root>/tests/exercism/binary-search/binary_search.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/binary-search/binary_search_test.nomi
+E 0
+N 2
+H 012162033c9f20809d366588718d9ebe2f2fa698e1a553e4937b0ca25d178e07
+T ok <root>/tests/exercism/binary-search/binary_search_test.nomi :: finds a value
+T ok <root>/tests/exercism/binary-search/binary_search_test.nomi :: reports a missing value
+T test result: ok. 2 passed, 0 failed
+T
+C exercism/collatz-conjecture/collatz_conjecture.nomi
+E 1
+N 0
+H 7ceadc6a3512c5a1d9764cda31f31b9a3d981c4ebe6effc64c9b87f4a032e378
+T --- stderr ---
+T nomi run: <root>/tests/exercism/collatz-conjecture/collatz_conjecture.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/collatz-conjecture/collatz_conjecture_test.nomi
+E 0
+N 3
+H 2a1c26774bf04ef899d04361feb206fbd2745b1e477ceac97b1174b62cba5787
+T ok <root>/tests/exercism/collatz-conjecture/collatz_conjecture_test.nomi :: counts the steps
+T ok <root>/tests/exercism/collatz-conjecture/collatz_conjecture_test.nomi :: zero is an error
+T ok <root>/tests/exercism/collatz-conjecture/collatz_conjecture_test.nomi :: negative value is an error
+T test result: ok. 3 passed, 0 failed
+T
+C exercism/etl/etl.nomi
+E 1
+N 0
+H 2d2eee25e62bf051c7086fa47e6670d73f07185808830ec643aa424d031bc317
+T --- stderr ---
+T nomi run: <root>/tests/exercism/etl/etl.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/etl/etl_test.nomi
+E 0
+N 4
+H 84eee210a560e0f239215b57e2254b9177898f2bbe6d8702956f1154831a9b04
+T ok <root>/tests/exercism/etl/etl_test.nomi :: single letter
+T ok <root>/tests/exercism/etl/etl_test.nomi :: single score with multiple letters
+T ok <root>/tests/exercism/etl/etl_test.nomi :: multiple scores with multiple letters
+T ok <root>/tests/exercism/etl/etl_test.nomi :: multiple scores with differing numbers of letters
+T test result: ok. 4 passed, 0 failed
+T
+C exercism/matching-brackets/matching_brackets.nomi
+E 1
+N 0
+H 6a99d8a7119810c0f920f0eb3688ec3a8ec19bc45cb4c0368fab0ff04895bc8c
+T --- stderr ---
+T nomi run: <root>/tests/exercism/matching-brackets/matching_brackets.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/matching-brackets/matching_brackets_test.nomi
+E 0
+N 1
+H 8ec464bf3177530f340769b6d5430b885f69c7b2cbfb0c5a09420b980acfef29
+T ok <root>/tests/exercism/matching-brackets/matching_brackets_test.nomi :: checks bracket pairing
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/nucleotide-count/nucleotide_count.nomi
+E 1
+N 0
+H 7045bbada98e22e996835cb96a79133c60ece475082fe1bc913d8d9d51f55de9
+T --- stderr ---
+T nomi run: <root>/tests/exercism/nucleotide-count/nucleotide_count.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/nucleotide-count/nucleotide_count_test.nomi
+E 0
+N 5
+H 45b044fa5bbc65c68ef01aae5aa483d964d253c66b1f9f0b2ce68026488d97a5
+T ok <root>/tests/exercism/nucleotide-count/nucleotide_count_test.nomi :: empty strand
+T ok <root>/tests/exercism/nucleotide-count/nucleotide_count_test.nomi :: can count one nucleotide in single-character input
+T ok <root>/tests/exercism/nucleotide-count/nucleotide_count_test.nomi :: strand with repeated nucleotide
+T ok <root>/tests/exercism/nucleotide-count/nucleotide_count_test.nomi :: strand with multiple nucleotides
+T ok <root>/tests/exercism/nucleotide-count/nucleotide_count_test.nomi :: strand with invalid nucleotides
+T test result: ok. 5 passed, 0 failed
+T
+C exercism/prime-factors/prime_factors.nomi
+E 1
+N 0
+H bcb008dde7eeb113bc1c2bc5f27c26e8ddf39f1ab2d3bad7b7dae095a195ab28
+T --- stderr ---
+T nomi run: <root>/tests/exercism/prime-factors/prime_factors.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/prime-factors/prime_factors_test.nomi
+E 0
+N 1
+H 3594e4272aa9ce4876445487f507bc5110af67b7f0e347cb7e81927ae4386a78
+T ok <root>/tests/exercism/prime-factors/prime_factors_test.nomi :: factors
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/roman-numerals/roman_numerals.nomi
+E 1
+N 0
+H b5ee69c99a9b08d844c5f714ce5afee4cff6dd39cf42d1623f23af13ebd78fab
+T --- stderr ---
+T nomi run: <root>/tests/exercism/roman-numerals/roman_numerals.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/roman-numerals/roman_numerals_test.nomi
+E 0
+N 1
+H a5cde748ee8fe632e7beb8b8e74b6ad8c0ea83da2409f80f51189bddb1fa5e6d
+T ok <root>/tests/exercism/roman-numerals/roman_numerals_test.nomi :: converts to Roman numerals
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/run-length-encoding/run_length_encoding.nomi
+E 1
+N 0
+H 40e71e9c2b7fbec9495fc578a11eea0d8b1cc59313e16b4a38347754478b3df7
+T --- stderr ---
+T nomi run: <root>/tests/exercism/run-length-encoding/run_length_encoding.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/run-length-encoding/run_length_encoding_test.nomi
+E 0
+N 3
+H 55cd15ab638195bedd53e0e499cd0d57d0de3a059dab724aa60553223aa29770
+T ok <root>/tests/exercism/run-length-encoding/run_length_encoding_test.nomi :: run-length encode a string / encodes
+T ok <root>/tests/exercism/run-length-encoding/run_length_encoding_test.nomi :: run-length decode a string / decodes
+T ok <root>/tests/exercism/run-length-encoding/run_length_encoding_test.nomi :: encode and then decode / encode followed by decode gives original string
+T test result: ok. 3 passed, 0 failed
+T
+C exercism/sieve/sieve.nomi
+E 1
+N 0
+H 891badbe93f7954f2eb6ca5ba2d465750658b542a4f7aaada7b8bb95ccdab43e
+T --- stderr ---
+T nomi run: <root>/tests/exercism/sieve/sieve.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/sieve/sieve_test.nomi
+E 0
+N 5
+H 9884ac7ced31b310c16db2723f1490b139e324d0b208184e446e182db97bc386
+T ok <root>/tests/exercism/sieve/sieve_test.nomi :: no primes under two
+T ok <root>/tests/exercism/sieve/sieve_test.nomi :: find first prime
+T ok <root>/tests/exercism/sieve/sieve_test.nomi :: find primes up to 10
+T ok <root>/tests/exercism/sieve/sieve_test.nomi :: limit is prime
+T ok <root>/tests/exercism/sieve/sieve_test.nomi :: find primes up to 1000
+T test result: ok. 5 passed, 0 failed
+T
+C exercism/sum-of-multiples/sum_of_multiples.nomi
+E 1
+N 0
+H 3135b5729b86ade821788337fa43069e9d509d3ca816fa15710b4d1b88ebac9c
+T --- stderr ---
+T nomi run: <root>/tests/exercism/sum-of-multiples/sum_of_multiples.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/sum-of-multiples/sum_of_multiples_test.nomi
+E 0
+N 1
+H 9898944c886dd087810e45ab468bc28620abfb6dedd79c152f0221f6a09687bf
+T ok <root>/tests/exercism/sum-of-multiples/sum_of_multiples_test.nomi :: sums the multiples
+T test result: ok. 1 passed, 0 failed
 T

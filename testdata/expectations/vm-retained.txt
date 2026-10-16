@@ -1179,3 +1179,26 @@
 18-ffi-and-dynamic/time_ffi_app/ffi.nomi:created_at	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/time_ffi_app/ffi.nomi:plus_second	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/time_ffi_app/main.nomi:main	UNLINKED: a project Go binding this process does not link
+exercism/anagram/anagram.nomi:find	ran
+exercism/binary-search/binary_search.nomi:find	PROBE: a synthesized argument is not a value of the declared type
+exercism/binary-search/binary_search.nomi:search	ran
+exercism/collatz-conjecture/collatz_conjecture.nomi:next	ran
+exercism/collatz-conjecture/collatz_conjecture.nomi:steps	ran
+exercism/etl/etl.nomi:transform	ran
+exercism/matching-brackets/matching_brackets.nomi:balanced?	PROBE: a synthesized argument is not a value of the declared type
+exercism/matching-brackets/matching_brackets.nomi:closer?	ran
+exercism/matching-brackets/matching_brackets.nomi:paired?	ran
+exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.equal?	ran
+exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.hash	ran
+exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.inspect	ran
+exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.parse	ran
+exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.variants	ran
+exercism/nucleotide-count/nucleotide_count.nomi:counts	ran
+exercism/prime-factors/prime_factors.nomi:factors	ran
+exercism/prime-factors/prime_factors.nomi:factors_from	ran
+exercism/roman-numerals/roman_numerals.nomi:roman	ran
+exercism/run-length-encoding/run_length_encoding.nomi:decode	ran
+exercism/run-length-encoding/run_length_encoding.nomi:encode	ran
+exercism/run-length-encoding/run_length_encoding.nomi:encode_run	ran
+exercism/sieve/sieve.nomi:primes	ran
+exercism/sum-of-multiples/sum_of_multiples.nomi:sum	ran

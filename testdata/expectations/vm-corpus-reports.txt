@@ -129,3 +129,14 @@
 18-ffi-and-dynamic/json_derive_test.nomi
 18-ffi-and-dynamic/json_enum_derive_test.nomi
 18-ffi-and-dynamic/json_test.nomi
+exercism/anagram/anagram_test.nomi
+exercism/binary-search/binary_search_test.nomi
+exercism/collatz-conjecture/collatz_conjecture_test.nomi
+exercism/etl/etl_test.nomi
+exercism/matching-brackets/matching_brackets_test.nomi
+exercism/nucleotide-count/nucleotide_count_test.nomi
+exercism/prime-factors/prime_factors_test.nomi
+exercism/roman-numerals/roman_numerals_test.nomi
+exercism/run-length-encoding/run_length_encoding_test.nomi
+exercism/sieve/sieve_test.nomi
+exercism/sum-of-multiples/sum_of_multiples_test.nomi

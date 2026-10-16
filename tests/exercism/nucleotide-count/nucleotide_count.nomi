@@ -1,0 +1,40 @@
+/// One of the four nucleotides in a DNA strand.
+pub enum Nucleotide {
+    A
+    C
+    G
+    T
+}
+
+impl Nucleotide {
+    /// The nucleotide a one-letter code names.
+    pub fn parse(letter: String): Result<Nucleotide, String> {
+        case letter {
+            "A" -> Ok(.A)
+            "C" -> Ok(.C)
+            "G" -> Ok(.G)
+            "T" -> Ok(.T)
+            _ -> Err("Invalid nucleotide in strand")
+        }
+    }
+}
+
+derive Equatable for Nucleotide
+derive Hashable for Nucleotide
+derive Variants for Nucleotide
+
+/// How many times each nucleotide occurs in `strand`, with every nucleotide
+/// present, or an error when the strand holds anything else.
+pub fn counts(strand: String): Result<Map<Nucleotide, Int>, String> {
+    nucleotides =
+        strand
+        |> Iter.map(Nucleotide.parse)
+        |> try Result.collect()
+
+    none =
+        Nucleotide.variants()
+        |> Iter.map(|nucleotide| (nucleotide, 0))
+        |> Iter.to_map()
+
+    Ok(none + Iter.frequencies(nucleotides))
+}
