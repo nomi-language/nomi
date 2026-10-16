@@ -59,27 +59,6 @@ fn main() {
 `,
 	},
 	{
-		name: "gapUnitAppField",
-		fix: "builder: an application field of type Unit. Boot builds the app and `with App.v = Unit` " +
-			"writes the field, but the builder retains no slot for a Unit field, so the write declines",
-		reason: "an app-field write of an unretained field",
-		src: `import std/io
-
-struct App {
-    v: Unit
-}
-
-fn boot(): App {
-    App{v: Unit}
-}
-
-fn main() {
-    with App.v = Unit
-    io.inspect(App.v)
-}
-`,
-	},
-	{
 		name: "gapTodoArmBesideUnit",
 		fix: "builder: a `case` whose arms are a Unit value and a `todo`, used as an argument. " +
 			"`todo` is Infallible and fits any arm type, as it does beside an Int arm, but the " +

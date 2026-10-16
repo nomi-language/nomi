@@ -70,11 +70,11 @@ func irBootStructKind(d *typeDef) bool {
 }
 
 // irAppFieldKind is the kind an application field may hold: a retained
-// value, an interface's existential, or a function value whose inputs and
-// output the callable domain holds (`steps: (Int) -> Int`). A function
+// value, Unit, an interface's existential, or a function value whose inputs
+// and output the callable domain holds (`steps: (Int) -> Int`). A function
 // field is read, written and called as a struct's function field is.
 func irAppFieldKind(k kind) bool {
-	return irRetainedValueKind(k) || irExistentialKind(k) || (k.tag == tagFunc && irCallableValueKind(k))
+	return k == kindUnit || irRetainedValueKind(k) || irExistentialKind(k) || (k.tag == tagFunc && irCallableValueKind(k))
 }
 
 // irBootRecordKind is an anonymous record a boot may answer: every field a
