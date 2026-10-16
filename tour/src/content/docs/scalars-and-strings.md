@@ -254,6 +254,50 @@ dbg line 14:
   = ["a", "comma", "space", "b"]
 -->
 
+To classify a codepoint, ask `Codepoint`:
+[`letter?`](/reference/codepoints/#codepointletter),
+[`whitespace?`](/reference/codepoints/#codepointwhitespace),
+[`upper?`](/reference/codepoints/#codepointupper) and
+[`lower?`](/reference/codepoints/#codepointlower) follow Unicode, so `é` and
+`ж` are letters. [`digit?`](/reference/codepoints/#codepointdigit) and
+[`to_digit`](/reference/codepoints/#codepointto_digit) accept only ASCII `0`
+to `9`, which is what a phone number or a checksum means.
+
+```nomi-run
+fn main() {
+    text = "Tél 555-01"
+
+    text
+    |> String.to_codepoints()
+    |> Iter.filter(Codepoint.letter?)
+    |> Iter.map(Codepoint.to_string)
+    |> String.join()
+    |> dbg
+
+    text
+    |> String.to_codepoints()
+    |> Iter.map(Codepoint.to_digit)
+    |> Maybe.values()
+    |> dbg
+}
+
+```
+<!-- expect
+dbg line 9:
+  text
+  |> String.to_codepoints()
+  |> Iter.filter(Codepoint.letter?)
+  |> Iter.map(Codepoint.to_string)
+  |> String.join()
+  = "Tél"
+dbg line 15:
+  text
+  |> String.to_codepoints()
+  |> Iter.map(Codepoint.to_digit)
+  |> Maybe.values()
+  = [5, 5, 5, 0, 1]
+-->
+
 `==` compares strings byte by byte. The same visible text can be stored in
 more than one Unicode form, and two such strings are not equal. Before
 comparing text from different sources, put both in the same form with

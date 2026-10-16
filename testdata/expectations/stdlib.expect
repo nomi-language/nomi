@@ -12,7 +12,7 @@
 population stdlib
 what one record per stdlib module carrying `//!` prompt cases, run as `nomi test std/<module>` runs it. N is the module's prompt-case count.
 records 33
-declared-cases 303
+declared-cases 309
 failing 0
 C assertions
 E 0
@@ -95,16 +95,22 @@ T test result: ok. 5 passed, 0 failed
 T
 C codepoints
 E 0
-N 7
-H 334a5f7fa1b4f3ea4099e43853fb063a814948df1c7b75bef866ae787c0836a8
+N 13
+H fe6241909a4d3b84fa99aea758cbef6344d9b7387f4ce21633e1002cfe42f628
 T ok <root>/std/codepoints.nomi :: impl / from_int //! test lines 26-27
 T ok <root>/std/codepoints.nomi :: impl / to_int //! test line 40
-T ok <root>/std/codepoints.nomi :: impl / to_string //! test line 53
-T ok <root>/std/codepoints.nomi :: impl / inspect //! test line 60
-T ok <root>/std/codepoints.nomi :: impl / next //! test lines 70-71
-T ok <root>/std/codepoints.nomi :: impl / steps_between //! test line 87
-T ok <root>/std/codepoints.nomi :: impl / step_by //! test line 108
-T test result: ok. 7 passed, 0 failed
+T ok <root>/std/codepoints.nomi :: impl / letter? //! test lines 50-53
+T ok <root>/std/codepoints.nomi :: impl / digit? //! test lines 62-65
+T ok <root>/std/codepoints.nomi :: impl / to_digit //! test lines 75-78
+T ok <root>/std/codepoints.nomi :: impl / whitespace? //! test lines 93-96
+T ok <root>/std/codepoints.nomi :: impl / upper? //! test lines 104-107
+T ok <root>/std/codepoints.nomi :: impl / lower? //! test lines 115-118
+T ok <root>/std/codepoints.nomi :: impl / to_string //! test line 129
+T ok <root>/std/codepoints.nomi :: impl / inspect //! test line 136
+T ok <root>/std/codepoints.nomi :: impl / next //! test lines 146-147
+T ok <root>/std/codepoints.nomi :: impl / steps_between //! test line 163
+T ok <root>/std/codepoints.nomi :: impl / step_by //! test line 184
+T test result: ok. 13 passed, 0 failed
 T
 C compiler
 E 0

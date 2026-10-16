@@ -4985,6 +4985,25 @@ The literal is infallible: its type is std's `Codepoint` whatever the file has i
 
 **ASCII only (U+0000–U+007F).** For ASCII the codepoint, the UTF-8 byte and the grapheme are the same thing, so `'a'` cannot mean anything other than what it looks like. Above 127 they come apart: `é` is one grapheme, but it is one codepoint (U+00E9) precomposed or two (`e` + U+0301) decomposed, and two UTF-8 bytes either way. A literal there would have to pick one reading, so text stays a `String` (`"é"`), and another scalar value comes from `Codepoint.from_int(0xE9)`, which returns a `Maybe` because it validates.
 
+**What a Codepoint offers.** Besides the literal, `std/codepoints` gives `Codepoint.from_int` and `Codepoint.to_int`, `Codepoint.to_string` (`Display`), `next`, `steps_between` and `step_by` (`Discrete`, `Steppable`), and six classifiers:
+
+| Function | Answers |
+|---|---|
+| `Codepoint.letter?(cp): Bool` | Unicode general category L (Lu, Ll, Lt, Lm, Lo), Go's `unicode.IsLetter`. `é`, `ж` and `中` are letters; U+0301 COMBINING ACUTE ACCENT is not. |
+| `Codepoint.digit?(cp): Bool` | ASCII `'0'` through `'9'` only. Arabic-Indic `٣` and full-width `１` are not digits here. |
+| `Codepoint.to_digit(cp): Maybe<Int>` | `Some(0)` through `Some(9)` for ASCII `'0'` through `'9'`, `None` for everything `digit?` rejects. |
+| `Codepoint.whitespace?(cp): Bool` | The Unicode White_Space property, Go's `unicode.IsSpace`: `' '`, `'\t'`, `'\n'`, U+00A0, U+3000 and the rest. |
+| `Codepoint.upper?(cp): Bool` | General category Lu, Go's `unicode.IsUpper`. |
+| `Codepoint.lower?(cp): Bool` | General category Ll, Go's `unicode.IsLower`. |
+
+`digit?` and `to_digit` are ASCII-only on purpose: a phone number, a checksum or a number to parse means ASCII digits. There is no function for Unicode decimal digits (category Nd). A title-case letter such as `ǅ` (U+01C5, category Lt) is a letter but neither `upper?` nor `lower?`, and so is a letter without case, such as `中`. The Unicode answers come from the Go toolchain's tables, so they follow its Unicode version.
+
+```nomi
+String.to_codepoints("Call 555-0134")
+|> Iter.map(Codepoint.to_digit)
+|> Maybe.values() // [5, 5, 5, 0, 1, 3, 4]
+```
+
 **Escapes.** The 95 printable ASCII characters are written directly, except the single quote and the backslash, which are written `'\''` and `'\\'`. A control character (U+0000–U+001F, U+007F) has to be escaped. The escapes are the string escapes with the literal's own delimiter in place of the string's: `\n`, `\t`, `\\`, `\'` and `\u{...}` (braces, 1–6 hex digits, at most `7F` here). There is no `\r` or `\0`, as in strings: write `'\u{D}'` and `'\u{0}'`. Each literal escapes only its own quote: `\"` is an error in a codepoint literal (write `'"'`), and `\'` is an error in a string (write `"it's"`).
 
 These are compile errors, each naming the literal: an empty `''`; more than one character (`'ab'`, which suggests `"ab"`); a character or `\u{...}` above U+007F (`'é'`, which suggests `"é"` or `Codepoint.from_int`); a control character written directly; an unknown escape; and a literal with no closing quote on its line.

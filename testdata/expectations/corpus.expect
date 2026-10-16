@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
 records 351
-declared-cases 1041
+declared-cases 1045
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -445,13 +445,17 @@ T test result: ok. 8 passed, 0 failed
 T
 C 04-scalars-and-text/codepoints_test.nomi
 E 0
-N 4
-H 9a2acafef8e549ae1bc8a6083a85f365a915c548db912ec9d693b22fe4b20b65
+N 8
+H 7817adeee73f10ad6b03d1da9d130e334e1240403cdeeda03642bc0f3675af1f
 T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoints convert to and from integers and strings
 T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoint construction rejects surrogate values
 T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoint ranges iterate over scalar values
 T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoint ranges skip surrogate values
-T test result: ok. 4 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: letter? is Unicode general category L
+T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: digit? and to_digit read ASCII digits only
+T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: whitespace? is Unicode White_Space
+T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: upper? and lower? are general categories Lu and Ll
+T test result: ok. 8 passed, 0 failed
 T
 C 04-scalars-and-text/decimals/decimals_test.nomi
 E 0

@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
 records 33
-declared-cases 301
+declared-cases 307
 failing 0
 C assertions
 E 0
@@ -84,10 +84,16 @@ T ok Sender.close
 T ok Receiver.receive
 C codepoints
 E 0
-N 7
-H 0af1e2d744aa36fcea0a24d76639f4f8bb0f2b5439d27e460425a382d534cf50
+N 13
+H 5953dd980aa7374eb62f211ef783b9eca59b6ff4d5c847b6fe5e8e04279f1e0a
 T ok Codepoint.from_int
 T ok Codepoint.to_int
+T ok Codepoint.letter?
+T ok Codepoint.digit?
+T ok Codepoint.to_digit
+T ok Codepoint.whitespace?
+T ok Codepoint.upper?
+T ok Codepoint.lower?
 T ok Codepoint.to_string (impl Display for Codepoint)
 T ok Codepoint.inspect (impl Debug for Codepoint)
 T ok Codepoint.next (impl Discrete for Codepoint)

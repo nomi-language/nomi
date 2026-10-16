@@ -1,6 +1,8 @@
 package rt
 
-// std/codepoints.Codepoint — a Unicode scalar value — and the two externs over
+import "unicode"
+
+// std/codepoints.Codepoint — a Unicode scalar value — and the externs over
 // it.
 //
 // # Why this is an int64 and not an int32
@@ -31,11 +33,30 @@ package rt
 // everything above 0x10FFFF are unconstructible from Nomi.
 type Codepoint int64
 
+// The classifiers below answer from Go's unicode tables, so their Unicode
+// version is the Go toolchain's (unicode.Version).
+
 // CodepointToString is `Codepoint.to_string`: the one-codepoint string.
 //
 // One expression, so there is no formatting decision to keep in step, unlike
 // DurationToString's unit ladder.
 func CodepointToString(cp Codepoint) string { return string(rune(cp)) }
+
+// CodepointIsLetter is `Codepoint.letter?`: general category L (Lu, Ll, Lt,
+// Lm, Lo), Go's unicode.IsLetter.
+func CodepointIsLetter(cp Codepoint) bool { return unicode.IsLetter(rune(cp)) }
+
+// CodepointIsWhitespace is `Codepoint.whitespace?`: the Unicode White_Space
+// property, Go's unicode.IsSpace.
+func CodepointIsWhitespace(cp Codepoint) bool { return unicode.IsSpace(rune(cp)) }
+
+// CodepointIsUpper is `Codepoint.upper?`: general category Lu, Go's
+// unicode.IsUpper. Title case (Lt, `ǅ`) and Other_Uppercase (`Ⅰ`) are not Lu.
+func CodepointIsUpper(cp Codepoint) bool { return unicode.IsUpper(rune(cp)) }
+
+// CodepointIsLower is `Codepoint.lower?`: general category Ll, Go's
+// unicode.IsLower. Title case (Lt, `ǅ`) and Other_Lowercase (`ª`) are not Ll.
+func CodepointIsLower(cp Codepoint) bool { return unicode.IsLower(rune(cp)) }
 
 // StringToCodepoints is `String.to_codepoints`: the string's Unicode scalar
 // values in order, as a `List<Codepoint>`.

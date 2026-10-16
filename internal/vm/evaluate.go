@@ -242,6 +242,8 @@ var pureCrossings = map[string]bool{
 	// decimal.Decimal.divide and round are not here: their cost is their
 	// scale operand.
 	"duration.Duration.to_string": true, "codepoints.Codepoint.to_string": true,
+	"codepoints.Codepoint.letter?": true, "codepoints.Codepoint.whitespace?": true,
+	"codepoints.Codepoint.upper?": true, "codepoints.Codepoint.lower?": true,
 	"json.Json.decode": true, "json.Json.encode": true, "json.Json.to_dynamic": true,
 	"dynamic.Dynamic.field": true, "dynamic.Dynamic.index": true, "dynamic.Dynamic.path": true,
 	"dynamic.Dynamic.as_string": true, "dynamic.Dynamic.as_int": true,

@@ -42,6 +42,82 @@ impl Codepoint {
     pub fn to_int(Codepoint(n)): Int {
         n
     }
+
+    /// Reports whether `cp` is a Unicode letter: general category L (Lu, Ll,
+    /// Lt, Lm or Lo), as Go's `unicode.IsLetter` answers it. Letters from any
+    /// script count. Digits, punctuation, emoji and combining marks (category
+    /// M, such as U+0301 COMBINING ACUTE ACCENT) do not.
+    //! assert Codepoint.letter?('a')
+    //! zhe = try Codepoint.from_int(0x0436)
+    //! assert Codepoint.letter?(zhe)
+    //! assert !Codepoint.letter?('7')
+    //
+    pub host fn letter?(cp: Codepoint): Bool
+
+    /// Reports whether `cp` is an ASCII digit, `'0'` through `'9'`. This is
+    /// ASCII-only on purpose: a phone number, a checksum or a number to parse
+    /// means ASCII digits, so Arabic-Indic `٣` (U+0663) and full-width `１`
+    /// (U+FF11) are not digits here. There is no function for Unicode decimal
+    /// digits (general category Nd).
+    //! assert Codepoint.digit?('7')
+    //! three = try Codepoint.from_int(0x0663)
+    //! assert !Codepoint.digit?(three)
+    //! assert !Codepoint.digit?('x')
+    //
+    pub fn digit?(Codepoint(n)): Bool {
+        n >= 48 and n <= 57
+    }
+
+    /// Returns the value of an ASCII digit: `Some(0)` for `'0'` through
+    /// `Some(9)` for `'9'`, and `None` for every codepoint `Codepoint.digit?`
+    /// rejects. ASCII-only on purpose, as `digit?` is: Arabic-Indic and
+    /// full-width digits answer `None`.
+    //! assert Codepoint.to_digit('7') == Some(7)
+    //! one = try Codepoint.from_int(0xFF11)
+    //! assert Codepoint.to_digit(one) == None
+    //! assert Codepoint.to_digit('x') == None
+    //
+    pub fn to_digit(Codepoint(n)): Maybe<Int> {
+        if n >= 48 and n <= 57 {
+            Some(n - 48)
+        } else {
+            None
+        }
+    }
+
+    /// Reports whether `cp` has the Unicode White_Space property, as Go's
+    /// `unicode.IsSpace` answers it: ASCII space, `'\t'`, `'\n'`, `'\r'`,
+    /// vertical tab and form feed, U+0085, no-break space U+00A0, the
+    /// ideographic space U+3000 and the other Unicode spaces and line
+    /// separators. Zero-width space U+200B is not White_Space.
+    //! assert Codepoint.whitespace?('\t')
+    //! nbsp = try Codepoint.from_int(0x00A0)
+    //! assert Codepoint.whitespace?(nbsp)
+    //! assert !Codepoint.whitespace?('a')
+    //
+    pub host fn whitespace?(cp: Codepoint): Bool
+
+    /// Reports whether `cp` is an uppercase letter: general category Lu, as
+    /// Go's `unicode.IsUpper` answers it. Title-case letters (category Lt,
+    /// such as `ǅ` U+01C5) are neither upper nor lower, and neither are
+    /// letters without case, such as `中`.
+    //! assert Codepoint.upper?('A')
+    //! zhe = try Codepoint.from_int(0x0416)
+    //! assert Codepoint.upper?(zhe)
+    //! assert !Codepoint.upper?('a')
+    //
+    pub host fn upper?(cp: Codepoint): Bool
+
+    /// Reports whether `cp` is a lowercase letter: general category Ll, as
+    /// Go's `unicode.IsLower` answers it. Title-case letters (category Lt,
+    /// such as `ǅ` U+01C5) are neither lower nor upper, and neither are
+    /// letters without case, such as `中`.
+    //! assert Codepoint.lower?('a')
+    //! e_acute = try Codepoint.from_int(0x00E9)
+    //! assert Codepoint.lower?(e_acute)
+    //! assert !Codepoint.lower?('A')
+    //
+    pub host fn lower?(cp: Codepoint): Bool
 }
 
 derive Equatable for Codepoint

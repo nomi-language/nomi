@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover.
-records 143
+records 144
 declared-cases 21
 failing 0
 C bindings-and-expressions.md:L116
@@ -832,7 +832,25 @@ T   |> Iter.map(kind)
 T   |> Iter.to_list()
 T   = ["a", "comma", "space", "b"]
 T
-C scalars-and-strings.md:L264
+C scalars-and-strings.md:L266
+E 0
+N 0
+H eae8f3109ecc025c2a41c9cbe8776658c511899325e41be9c3c63c1efaa1ad56
+T dbg line 9:
+T   text
+T   |> String.to_codepoints()
+T   |> Iter.filter(Codepoint.letter?)
+T   |> Iter.map(Codepoint.to_string)
+T   |> String.join()
+T   = "Tél"
+T dbg line 15:
+T   text
+T   |> String.to_codepoints()
+T   |> Iter.map(Codepoint.to_digit)
+T   |> Maybe.values()
+T   = [5, 5, 5, 0, 1]
+T
+C scalars-and-strings.md:L308
 E 0
 N 0
 H dfecebecfe8f77f56a26a60b330f2ea38c8bcefc2ee946485f23896b0f451f2e
@@ -840,7 +858,7 @@ T dbg line 7: Bytes.length(raw) = 5
 T dbg line 8: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 169]
 T go:café
 T
-C scalars-and-strings.md:L304
+C scalars-and-strings.md:L348
 E 0
 N 0
 H 6b7fa18b982141013e7f33144f4ded532201bb493dbbdcea608b7e16f022455e
@@ -848,7 +866,7 @@ T SELECT *
 T FROM users
 T WHERE name = 'Alice'
 T
-C scalars-and-strings.md:L331
+C scalars-and-strings.md:L375
 E 0
 N 0
 H 6e0610ac3a3c4d4b78b33e733d23365a0b7af665a34bfc86fbd364392d3bed15

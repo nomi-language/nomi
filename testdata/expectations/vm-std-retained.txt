@@ -247,6 +247,7 @@ calendar.nomi:calendar.Time.new default 3	ran
 calendar.nomi:calendar.Time.new default 4	ran
 calendar.nomi:day_nanos	ran
 codepoints.nomi:Codepoint.compare	ran
+codepoints.nomi:Codepoint.digit?	ran
 codepoints.nomi:Codepoint.equal?	ran
 codepoints.nomi:Codepoint.from_int	ran
 codepoints.nomi:Codepoint.hash	ran
@@ -254,6 +255,7 @@ codepoints.nomi:Codepoint.inspect	ran
 codepoints.nomi:Codepoint.next	ran
 codepoints.nomi:Codepoint.step_by	ran
 codepoints.nomi:Codepoint.steps_between	ran
+codepoints.nomi:Codepoint.to_digit	ran
 codepoints.nomi:Codepoint.to_int	ran
 comparable.nomi:Direction.inspect	ran
 comparable.nomi:Direction.to_string	ran
