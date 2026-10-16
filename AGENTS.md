@@ -374,6 +374,24 @@ programs and every seed with a `fn main` (about 13 seconds), and
 `TestKnownRunGaps` pins each known crash in `knownRunGaps`
 (`vmhost/run_gaps_test.go`) by a reproducer.
 
+The generator and the fuzzers find a gap by chance; the feature × context
+matrix (`vmhost/feature_matrix_test.go`) looks for one on purpose. A feature
+is a small construct with a known value (a literal, a declared type, a
+function value, an existential, an `Iter` chain, a pattern, a call with
+named arguments, a derived impl); a context is a place the value stands (a
+binding, an argument, a `case` arm, a list element, a lambda, a `once`, a
+task body, a test, a `defer`, a `with` write, another file).
+`TestFeatureContextMatrix` (about 10 seconds) builds every feature in every
+context and a fixed twelfth of the triples (a fragile feature in two
+contexts); each program must be rejected with the text the matrix expects
+for it, or lower and print the feature's value. `NOMI_MATRIX=full` checks
+every triple (about a minute), `NOMI_MATRIX_ONLY=<text>` the cells whose
+name holds text, and `TestFeatureContextMatrixRotating` 60 more triples a
+day. A new feature or context is one entry in `mxFeatures`, `mxWraps`,
+`mxShells` or `mxPlacements`; a pair the type system makes invalid gets a
+tag or an `mxCheckerRules` entry that says why. Its findings are pinned in
+`vmhost/lowering_gaps_matrix_test.go`.
+
 A debug machine must run every program as a plain one does.
 `TestExpectation_ADebugMachineRunsEveryProgramAsAPlainOneDoes`
 (`internal/expectation`) runs every fourth corpus file and tour block, and
