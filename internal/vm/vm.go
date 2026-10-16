@@ -1060,11 +1060,10 @@ func (m *Machine) arith(fr *frame, n *ir.Arith) error {
 			// keeping it: a backstop costs one function.
 			//
 			// THE TEXT IS READ, NOT SPELLED. `rt.FloatModuloText` is the one
-			// home; this machine boxes it as an error, which is
-			// the ONLY part of the fault this consumer owns. Spelling the
+			// home, and `rt.FloatModuloError` boxes it as the fault. Spelling the
 			// string here instead would be a second copy, and
 			// `TestTrapText_OneHomePerText` fails if one appears.
-			return errors.New(rt.FloatModuloText(line))
+			return rt.FloatModuloError(line)
 		}
 		return nil
 	}

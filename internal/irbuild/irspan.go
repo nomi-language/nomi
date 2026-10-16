@@ -56,7 +56,7 @@ func (g *gen) irSpan(line, col, endLine, endCol int) ir.Pos {
 	if endLine < line || (endLine == line && endCol < col) {
 		return start
 	}
-	return ir.Spanning(g.nomiPath, line, col, endLine, endCol)
+	return g.ownPos(ir.Spanning(g.nomiPath, line, col, endLine, endCol))
 }
 
 // irNodeSpan is a node's position WITH its source extent: a span for the node

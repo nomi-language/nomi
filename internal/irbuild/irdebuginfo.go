@@ -32,7 +32,7 @@ func (g *gen) irAddVar(f *ir.Func, root ast.Node, name string, t ir.Temp, k kind
 		return
 	}
 	endLine, endCol := irScopeEnd(root, line, col)
-	f.AddVar(name, t, debugSpelling(k), ir.Spanning(g.nomiPath, line, col, endLine, endCol), decl)
+	f.AddVar(name, t, debugSpelling(k), g.ownPos(ir.Spanning(g.nomiPath, line, col, endLine, endCol)), decl)
 }
 
 // irNameSite is the extent of name written at (line, col), its end
@@ -42,7 +42,7 @@ func (g *gen) irNameSite(name string, line, col int) ir.Pos {
 	if !emittableLine(line) || col < 1 {
 		return ir.Pos{}
 	}
-	return ir.Spanning(g.nomiPath, line, col, line, col+len(name))
+	return g.ownPos(ir.Spanning(g.nomiPath, line, col, line, col+len(name)))
 }
 
 // irBindingSite is where pattern n writes the name it binds: the name
@@ -381,7 +381,7 @@ func (bl *irScalarBuilder) finishPipe(root *ast.Binary) {
 	if len(stages) < 2 {
 		return
 	}
-	bl.f.AddPipe(ir.Pipe{Pos: ir.Spanning(bl.g.nomiPath, span.StartLine, span.StartCol, span.EndLine, span.EndCol),
+	bl.f.AddPipe(ir.Pipe{Pos: bl.g.ownPos(ir.Spanning(bl.g.nomiPath, span.StartLine, span.StartCol, span.EndLine, span.EndCol)),
 		Stages: stages})
 }
 

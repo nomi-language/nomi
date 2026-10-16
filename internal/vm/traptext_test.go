@@ -161,13 +161,14 @@ func TestTrapText_TheVMRetypesNone(t *testing.T) {
 	}
 	// The VM must nevertheless REACH the text, or this zero is the zero of an
 	// engine that simply has no Float `%` arm. `arith`'s FaultUndefined arm is
-	// the caller and `rt.FloatModuloText` is what it calls.
+	// the caller and `rt.FloatModuloError`, over `rt.FloatModuloText`, is
+	// what it calls.
 	src, err := os.ReadFile(filepath.Join(root, "internal", "vm", "vm.go"))
 	if err != nil {
 		t.Fatalf("reading vm.go: %v", err)
 	}
-	if !strings.Contains(string(src), "rt.FloatModuloText(line)") {
-		t.Error("vm.go does not call rt.FloatModuloText, so the zero above is the zero of " +
+	if !strings.Contains(string(src), "rt.FloatModuloError(line)") {
+		t.Error("vm.go does not call rt.FloatModuloError, so the zero above is the zero of " +
 			"an engine that never reaches the text rather than one that reads it")
 	}
 }

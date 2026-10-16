@@ -1,5 +1,7 @@
 import std/compiler
 
+// A trap inside std is reported at the program's call into std: both
+// programs name their own line 2, never a line of std/int.nomi.
 test "int abs of the minimum overflows as negating it does" {
     negated =
         """
@@ -19,8 +21,8 @@ test "int abs of the minimum overflows as negating it does" {
 
     assert Err(negated_message) = negated
     assert Err(absolute_message) = absolute
-    assert String.contains?(negated_message, "integer overflow: 0 - -9223372036854775808")
-    assert String.contains?(absolute_message, "integer overflow: 0 - -9223372036854775808")
+    assert negated_message == "line 2: integer overflow: 0 - -9223372036854775808"
+    assert absolute_message == "line 2: integer overflow: 0 - -9223372036854775808"
 }
 
 test "int modulo by zero traps as the remainder does" {
@@ -42,6 +44,6 @@ test "int modulo by zero traps as the remainder does" {
 
     assert Err(remainder_message) = remainder
     assert Err(modulo_message) = modulo
-    assert String.contains?(remainder_message, "division by zero")
-    assert String.contains?(modulo_message, "division by zero")
+    assert remainder_message == "line 2: division by zero"
+    assert modulo_message == "line 2: division by zero"
 }

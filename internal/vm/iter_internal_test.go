@@ -45,7 +45,7 @@ func TestIterationCallbackKeepsOnceLineage(t *testing.T) {
 	go func() { _, err := m.Run("read"); done <- err }()
 	select {
 	case err := <-done:
-		if err == nil || err.Error() != "cyclic 'once' binding: 'seed' depends on itself" {
+		if err == nil || err.Error() != "line 1: cyclic 'once' binding: 'seed' depends on itself" {
 			t.Fatalf("iteration lost cyclic initializer fault: %v", err)
 		}
 	case <-time.After(5 * time.Second):

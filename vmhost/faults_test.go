@@ -20,8 +20,8 @@ func runVM(t *testing.T, src string) (string, error) {
 	return out.String(), err
 }
 
-// A cyclic `once` is the program's fault, with rt's text, not a limit of the
-// machine.
+// A cyclic `once` is the program's fault, with rt's text at the line of the
+// read that re-entered it, not a limit of the machine.
 func TestRun_ACyclicOnceIsTheProgramsFault(t *testing.T) {
 	out, err := runVM(t, `import std/io
 
@@ -39,7 +39,7 @@ fn main() {
 	if b, blocked := vmhost.IsBlocked(err); blocked {
 		t.Fatalf("a cyclic once reported as the VM's limit: %q", b.Reasons)
 	}
-	if out != "start\n" || err == nil || err.Error() != "cyclic 'once' binding: 'seed' depends on itself" {
+	if out != "start\n" || err == nil || err.Error() != "line 4: cyclic 'once' binding: 'seed' depends on itself" {
 		t.Fatalf("output %q, error %v", out, err)
 	}
 }

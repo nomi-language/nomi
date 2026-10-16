@@ -87,6 +87,23 @@ func TestSession_ATailCallAndATrap(t *testing.T) {
 	h.check("failures")
 }
 
+// A trap inside the standard library stops where it arose, in std's frame
+// (deemphasized, so a client focuses the program's call below it), and its
+// exception text names the program's line, as the program's failure on the
+// error stream does.
+func TestSession_ATrapInsideTheStdlib(t *testing.T) {
+	h := newHarness(t)
+	h.start(false, runConfig("stdtrap.nomi"))
+	h.configure()
+	thread := h.stopped()
+	h.request("exceptionInfo", map[string]any{"threadId": thread})
+	h.stack(thread)
+	h.do("continue", thread)
+	h.wait("terminated")
+	h.disconnect()
+	h.check("stdtrap")
+}
+
 func TestSession_AnErrFromMain(t *testing.T) {
 	h := newHarness(t)
 	h.start(false, runConfig("mainerr.nomi"))
