@@ -1757,6 +1757,11 @@ func (s *uniquifyState) node(n ast.Node) {
 		e.Line, e.Col = s.bump()
 		s.node(e.Pattern)
 		e.NameLine, e.NameCol = s.bump()
+	case *ast.OrPattern:
+		e.Line, e.Col = s.bump()
+		for _, alt := range e.Alternatives {
+			s.node(alt)
+		}
 	case *ast.EnumPattern:
 		e.Line, e.Col = s.bump()
 		if e.Binding != "" {

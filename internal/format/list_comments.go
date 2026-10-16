@@ -342,7 +342,7 @@ func patternItems(nodes []ast.Node, mustBreak bool) ([]Doc, []*ast.ItemComments,
 func patternTakesDangling(n ast.Node) bool {
 	switch n.(type) {
 	case *ast.IdentPattern, *ast.WildcardPattern, *ast.TuplePattern, *ast.StructPattern,
-		*ast.EnumPattern, *ast.ListPattern, *ast.MapPattern, *ast.AsPattern:
+		*ast.EnumPattern, *ast.ListPattern, *ast.MapPattern, *ast.AsPattern, *ast.OrPattern:
 		return true
 	}
 	return false

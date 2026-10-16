@@ -4655,6 +4655,9 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 		}
 	}
 	if pattern != nil && hasValue {
+		if pattern, err = p.parsePatternOr(pattern, patternStart); err != nil {
+			return nil, nil, err
+		}
 		if pattern, err = p.parsePatternAs(pattern, patternStart); err != nil {
 			return nil, nil, err
 		}
@@ -5457,6 +5460,8 @@ func patternCol(n ast.Node) int {
 	case *ast.ListPattern:
 		return p.Col
 	case *ast.AsPattern:
+		return p.Col
+	case *ast.OrPattern:
 		return p.Col
 	}
 	return n.LineNum()
@@ -7595,7 +7600,67 @@ func (p *Parser) parseSinglePattern() (node ast.Node, err error) {
 	if err != nil {
 		return nil, err
 	}
+	if node, err = p.parsePatternOr(node, start); err != nil {
+		return nil, err
+	}
 	return p.parsePatternAs(node, start)
+}
+
+// parsePatternOr gathers first, whose tokens began at start, and each `or`
+// alternative after it into an OrPattern: `.Circle{r} or .Square{r}`. `or`
+// binds looser than every pattern construct but `as`. An alternative that is
+// itself a parenthesized `or` is spliced in, so `(A or B) or C` is the
+// pattern `A or B or C`. Comments after an `or` are the next alternative's
+// leading comments.
+func (p *Parser) parsePatternOr(first ast.Node, start int) (ast.Node, error) {
+	if p.atEnd() || p.peek().Type != token.OR {
+		return first, nil
+	}
+	p.recordSpan(first, start)
+	var alts []ast.Node
+	add := func(alt ast.Node) {
+		if or, ok := alt.(*ast.OrPattern); ok {
+			alts = append(alts, or.Alternatives...)
+			return
+		}
+		alts = append(alts, alt)
+	}
+	add(first)
+	for !p.atEnd() && p.peek().Type == token.OR {
+		orTok := p.peek()
+		p.advance() // consume OR
+		var comments []ast.Trivia
+		for !p.atEnd() && p.peek().Type == token.COMMENT {
+			c := p.peek()
+			comments = append(comments, ast.Trivia{Kind: ast.TriviaComment, Text: c.Lexeme, Line: c.Line, Col: c.Col})
+			p.advance()
+		}
+		if p.atEnd() || !canStartPatternAssertion(p.peek().Type) {
+			return nil, errorAt(orTok.Line, orTok.Col, "expected a pattern after `or`; `A or B` matches a value either pattern matches")
+		}
+		if err := p.enterNested(); err != nil {
+			return nil, err
+		}
+		altStart := p.pos
+		alt, err := p.parseSinglePatternInner()
+		p.leaveNested()
+		if err != nil {
+			return nil, err
+		}
+		p.recordSpan(alt, altStart)
+		if len(comments) > 0 {
+			if h, ok := alt.(ast.HasTrivia); ok {
+				for _, c := range comments {
+					h.AddLeading(c)
+				}
+			}
+		}
+		add(alt)
+	}
+	first0 := p.tokens[start]
+	or := &ast.OrPattern{Alternatives: alts, Line: first0.Line, Col: first0.Col}
+	p.recordSpan(or, start)
+	return or, nil
 }
 
 // parsePatternAs wraps pattern, whose tokens began at start, in an AsPattern
@@ -7628,6 +7693,10 @@ func (p *Parser) parsePatternAs(pattern ast.Node, start int) (ast.Node, error) {
 			NameCol:  nameTok.Col,
 			Line:     first.Line,
 			Col:      first.Col,
+		}
+		if !p.atEnd() && p.peek().Type == token.OR {
+			orTok := p.peek()
+			return nil, errorAt(orTok.Line, orTok.Col, "an `as` names the whole `or` pattern, so it goes after the last alternative; to name one alternative, parenthesize it: `(P as %s) or ...`", nameTok.Lexeme)
 		}
 	}
 	return pattern, nil
@@ -8064,7 +8133,7 @@ func (p *Parser) parseTypePrefixedBracePattern(typeName ast.TypeExpr, startLine,
 // COLON has already been consumed. Shared by the typed-struct pattern parser
 // (parseTypePrefixedBracePattern) and the case-branch anonymous-struct parser.
 func (p *Parser) parseStructFieldValue(spf *ast.StructPatternField) error {
-	if !p.atEnd() && p.peek().Type == token.IDENT {
+	if !p.atEnd() && p.peek().Type == token.IDENT && p.peekAt(1).Type != token.OR {
 		valTok := p.peek()
 		p.advance()
 		spf.Binding = valTok.Lexeme

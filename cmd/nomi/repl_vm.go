@@ -531,6 +531,11 @@ func replPatternNames(p ast.Node) []string {
 		names = append(names, q.Name)
 	case *ast.AsPattern:
 		names = append(replPatternNames(q.Pattern), q.Name)
+	case *ast.OrPattern:
+		// Every alternative binds the same names.
+		if len(q.Alternatives) > 0 {
+			names = replPatternNames(q.Alternatives[0])
+		}
 	case *ast.EnumPattern:
 		if q.Binding != "" {
 			names = append(names, q.Binding)

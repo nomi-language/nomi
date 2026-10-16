@@ -2445,6 +2445,24 @@ type AsPattern struct {
 func (*AsPattern) NodeType() string { return "AsPattern" }
 func (n *AsPattern) LineNum() int   { return n.Line }
 
+// OrPattern matches when any of its alternatives matches:
+// `.Circle{r} or .Square{r}`. Every alternative binds the same names at the
+// same types, and the names bind from whichever alternative matched. `or`
+// binds looser than every pattern construct but `as`, so `A or B as x` names
+// the whole value; parentheses group (`(A as a) or (B as a)`). The parser
+// flattens a parenthesized `or` among alternatives, so Alternatives never
+// holds an OrPattern. Line/Col are the first alternative's start.
+type OrPattern struct {
+	TriviaCarrier
+	SpanCarrier
+	Alternatives []Node
+	Line         int
+	Col          int
+}
+
+func (*OrPattern) NodeType() string { return "OrPattern" }
+func (n *OrPattern) LineNum() int   { return n.Line }
+
 // WithoutAs returns the pattern an `as` names, looking through every
 // AsPattern around it: `Ok(x) as r` is `Ok(x)`. What a pattern matches never
 // depends on its `as` names, so a question about matching asks it of this.

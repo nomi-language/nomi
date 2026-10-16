@@ -2186,6 +2186,15 @@ func compoundDepth(n ast.Node) int {
 	case *ast.AsPattern:
 		// `Obj{...} as o` — the name adds no level.
 		return compoundDepth(v.Pattern)
+	case *ast.OrPattern:
+		// `Obj{...} or Obj{...}` — the deepest alternative's level.
+		d := 0
+		for _, alt := range v.Alternatives {
+			if c := compoundDepth(alt); c > d {
+				d = c
+			}
+		}
+		return d
 	case *ast.TupleLit:
 		// Tuples aren't in the compound set, but a tuple holding a
 		// compound payload must propagate the depth so an outer
@@ -3562,10 +3571,56 @@ func emitLambdaParam(p ast.Param) Doc {
 func emitPattern(n ast.Node) Doc {
 	switch n.(type) {
 	case *ast.IdentPattern, *ast.WildcardPattern, *ast.TuplePattern, *ast.StructPattern,
-		*ast.EnumPattern, *ast.ListPattern, *ast.MapPattern, *ast.AsPattern:
+		*ast.EnumPattern, *ast.ListPattern, *ast.MapPattern, *ast.AsPattern, *ast.OrPattern:
 		return withDangling(n, emitPatternNode(n))
 	}
 	return emitPatternNode(n)
+}
+
+// emitOrPattern writes `A or B or C` on one line when it fits, and
+// otherwise one alternative per line, each `or` ending the line before the
+// next alternative (the lexer reads a line ending in `or` as continuing),
+// the later alternatives indented one level. An alternative that is an `as`
+// pattern is parenthesized, since `as` binds looser than `or`. A comment
+// written after an `or` stays after it, which breaks the pattern.
+func emitOrPattern(v *ast.OrPattern) Doc {
+	comments := func(alt ast.Node) []ast.Trivia {
+		var out []ast.Trivia
+		if ht, ok := alt.(ast.HasTrivia); ok {
+			for _, t := range ht.GetLeading() {
+				if t.Kind == ast.TriviaComment {
+					out = append(out, t)
+				}
+			}
+		}
+		return out
+	}
+	broken := false
+	for _, alt := range v.Alternatives[1:] {
+		broken = broken || len(comments(alt)) > 0
+	}
+	parts := make([]Doc, 0, len(v.Alternatives))
+	for i, alt := range v.Alternatives {
+		doc := emitPattern(alt)
+		if _, isAs := alt.(*ast.AsPattern); isAs {
+			doc = Concat(Text("("), doc, Text(")"))
+		}
+		if i == 0 {
+			parts = append(parts, doc)
+			continue
+		}
+		step := []Doc{Text(" or")}
+		for _, t := range comments(alt) {
+			step = append(step, LineSuffix(t.Text))
+		}
+		if broken {
+			step = append(step, HardLine(), doc)
+		} else {
+			step = append(step, Line(), doc)
+		}
+		parts = append(parts, Nest(defaultIndent, Concat(step...)))
+	}
+	return Group(Concat(parts...))
 }
 
 func emitPatternNode(n ast.Node) Doc {
@@ -3580,6 +3635,8 @@ func emitPatternNode(n ast.Node) Doc {
 		// parentheses. When the inner pattern breaks, the name follows its
 		// closing bracket.
 		return Concat(emitGroupedPattern(v.Pattern, false), Text(" as "+v.Name))
+	case *ast.OrPattern:
+		return emitOrPattern(v)
 	case *ast.TuplePattern:
 		elems, cs, ok := patternItems(v.Patterns, false)
 		if ok {

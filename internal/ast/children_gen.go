@@ -196,6 +196,10 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfOnceBinding(n, fn)
 		}
+	case *OrPattern:
+		if n != nil {
+			childrenOfOrPattern(n, fn)
+		}
 	case *PatternBinding:
 		if n != nil {
 			childrenOfPatternBinding(n, fn)
@@ -428,6 +432,8 @@ func absent(n Node) bool {
 	case *NamedArg:
 		return n == nil
 	case *OnceBinding:
+		return n == nil
+	case *OrPattern:
 		return n == nil
 	case *PatternBinding:
 		return n == nil
@@ -1185,6 +1191,14 @@ func childrenOfOnceBinding(x *OnceBinding, fn func(Node)) {
 	}
 }
 
+func childrenOfOrPattern(x *OrPattern, fn func(Node)) {
+	for _, e1 := range x.Alternatives {
+		if !absent(e1) {
+			fn(e1)
+		}
+	}
+}
+
 func childrenOfParam(x *Param, fn func(Node)) {
 	if !absent(x.Destructure) {
 		fn(x.Destructure)
@@ -1610,6 +1624,7 @@ var generatedTypes = []any{
 	(*MapPattern)(nil),
 	(*NamedArg)(nil),
 	(*OnceBinding)(nil),
+	(*OrPattern)(nil),
 	(*PatternBinding)(nil),
 	(*PatternDestructure)(nil),
 	(*Placeholder)(nil),

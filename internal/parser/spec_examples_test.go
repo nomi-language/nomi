@@ -59,9 +59,6 @@ const specPath = "../../docs/spec.md"
 // occurs in exactly one spec block. These are findings, not fragments; the
 // value is why the block does not parse.
 var specDivergences = map[string]string{
-	".Circle{r} or .Square{r}": "an `or` pattern in a case branch; the parser expects `->` after the first pattern. " +
-		"A genuine missing feature — no alternative-pattern node exists in `ast/`, `parser/` or `analysis/` — " +
-		"and §10 Guards carries the matching `Status: not yet implemented` callout.",
 	"typealias Lookup<V> Map<String, V>": "`typealias` IS a keyword the parser knows and `typealias Name Target` (no `=`) works end to end; " +
 		"only the GENERIC form is refused, as a hard parse error at the `<` (`expected type name, got LT`). " +
 		"`ast.TypeAlias` has no type-parameter field to hold one. §15 Type Aliases carries the callout.",

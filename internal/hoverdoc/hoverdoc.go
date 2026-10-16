@@ -1031,6 +1031,15 @@ func renderParamPattern(n ast.Node) string {
 		return "_"
 	case *ast.AsPattern:
 		return renderParamPattern(p.Pattern) + " as " + p.Name
+	case *ast.OrPattern:
+		parts := make([]string, len(p.Alternatives))
+		for i, alt := range p.Alternatives {
+			parts[i] = renderParamPattern(alt)
+			if _, isAs := alt.(*ast.AsPattern); isAs {
+				parts[i] = "(" + parts[i] + ")"
+			}
+		}
+		return strings.Join(parts, " or ")
 	case *ast.EnumPattern:
 		// `Dur(x)`, `Wrapper.Only(n)`, `Foo((a, b))`. A flat tuple payload
 		// (`Foo(a, b)`) renders its elements directly inside the `()` the
