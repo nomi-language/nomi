@@ -872,6 +872,20 @@
 12-derives-and-standard-interfaces/set_debug_test.nomi:Color.inspect	ran
 12-derives-and-standard-interfaces/set_debug_test.nomi:Palette.inspect	ran
 12-derives-and-standard-interfaces/set_debug_test.nomi:Point.inspect	ran
+12-derives-and-standard-interfaces/summable_test.nomi:Cents.add	ran
+12-derives-and-standard-interfaces/summable_test.nomi:Cents.empty_sum	ran
+12-derives-and-standard-interfaces/summable_test.nomi:Cents.inspect	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	PROBE: a synthesized argument is not a value of the declared type
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	PROBE: a synthesized argument is not a value of the declared type
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	PROBE: a synthesized argument is not a value of the declared type
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
 12-derives-and-standard-interfaces/unit_hashable_test.nomi:Tagged.equal?	ran
 12-derives-and-standard-interfaces/unit_hashable_test.nomi:Tagged.hash	ran
 12-derives-and-standard-interfaces/unit_hashable_test.nomi:Tagged.inspect	ran

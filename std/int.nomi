@@ -15,6 +15,7 @@ import {
     steppable.Steppable
     strings.String
     subtract.Subtract
+    summable.Summable
 }
 
 //# Operations on the 64-bit signed `Int` type: total division/modulo gated on
@@ -142,6 +143,16 @@ impl Display for Int {
 
 impl Add<Int, Int> for Int {
     host fn add(lhs: Int, rhs: Int): Int
+}
+
+impl Summable for Int {
+    /// The sum of no Ints: `0`.
+    //! assert Int.empty_sum() == 0
+    //! assert 7 + Int.empty_sum() == 7
+    //
+    fn empty_sum(): Int {
+        0
+    }
 }
 
 impl Subtract<Int, Int> for Int {

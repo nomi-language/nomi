@@ -13,6 +13,7 @@ import {
     multiply.Multiply
     strings.String
     subtract.Subtract
+    summable.Summable
 }
 
 //# Operations on the IEEE 754 double-precision `Float` type: the special
@@ -121,6 +122,17 @@ impl Display for Float {
 
 impl Add<Float, Float> for Float {
     host fn add(lhs: Float, rhs: Float): Float
+}
+
+impl Summable for Float {
+    /// The sum of no Floats: `0.0`. `x + 0.0` is `x` for every Float but
+    /// `-0.0`, which it turns into `0.0` (equal under `==`).
+    //! assert Float.empty_sum() == 0.0
+    //! assert 2.5 + Float.empty_sum() == 2.5
+    //
+    fn empty_sum(): Float {
+        0.0
+    }
 }
 
 impl Subtract<Float, Float> for Float {

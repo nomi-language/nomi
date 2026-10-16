@@ -1,0 +1,25 @@
+import {
+    int.Int
+    iter.Iter
+    strings.String
+}
+
+/// A type whose values can be summed: `empty_sum()` is the sum of no values,
+/// so adding it changes nothing: `T.add(x, T.empty_sum()) == x`.
+///
+/// `Iter.sum` starts from `T.empty_sum()` and adds each element with `+`, so
+/// a type implements `Summable` beside an `Add<T, T>` whose `+` takes two
+/// values of the type and returns one. Nomi has no interface inheritance, so
+/// a function that sums writes both bounds: `where T: Add<T, T> and Summable`.
+///
+/// `empty_sum()` is not a default or "unset" value. It is the one value that
+/// `+` leaves alone: `0` for Int, `""` for String, `[]` for List, the empty
+/// Map for Map. A type with no `+` that adds two of its values, such as
+/// Bool, Maybe, an enum or a Date, does not implement it.
+//! assert Int.empty_sum() == 0
+//! assert String.empty_sum() == ""
+//! assert Iter.sum([1, 2, 3]) == 6
+//
+pub interface Summable {
+    fn empty_sum(): self
+}

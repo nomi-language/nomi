@@ -1,0 +1,127 @@
+import {
+    std/compiler
+    std/duration.Duration
+}
+
+// A user type that sums: its own `+` and the value that `+` leaves alone.
+type Cents Int
+
+impl Add<Cents, Cents> for Cents {
+    fn add(Cents(a), Cents(b)): Cents {
+        Cents(a + b)
+    }
+}
+
+impl Summable for Cents {
+    fn empty_sum(): Cents {
+        Cents(0)
+    }
+}
+
+// Generic over the bound, so each law below is one call per type.
+fn adds_nothing<T>(x: T): Bool where T: Add<T, T> and Summable {
+    x + T.empty_sum() == x and T.empty_sum() + x == x
+}
+
+test "each std implementor's empty_sum" {
+    assert Int.empty_sum() == 0
+    assert Float.empty_sum() == 0.0
+    assert Decimal.empty_sum() == 0d
+    assert Duration.empty_sum() == Duration.seconds(0)
+    assert String.empty_sum() == ""
+    ints: List<Int> = List.empty_sum()
+    assert ints == []
+    vector: Vector<Int> = Vector.empty_sum()
+    assert Vector.length(vector) == 0
+    set: Set<Int> = Set.empty_sum()
+    assert Set.size(set) == 0
+    map: Map<String, Int> = Map.empty_sum()
+    assert Map.size(map) == 0
+    assert Bytes.length(Bytes.empty_sum()) == 0
+}
+
+test "adding empty_sum changes nothing" {
+    assert adds_nothing(42)
+    assert adds_nothing(-7)
+    assert adds_nothing(2.5)
+    assert adds_nothing(1.50d)
+    assert adds_nothing(Duration.milliseconds(1500))
+    assert adds_nothing("nomi")
+    assert adds_nothing([1, 2])
+    assert adds_nothing(#[1, 2])
+    assert adds_nothing(#{1, 2})
+    assert adds_nothing({"a" => 1})
+    a = try Byte.from_int(97)
+    assert adds_nothing(Bytes.from_list([a]))
+    assert adds_nothing(Cents(5))
+}
+
+test "a Decimal sum keeps the widest scale" {
+    assert Decimal.to_string(1.50d + Decimal.empty_sum()) == "1.50"
+    assert Decimal.scale(Decimal.empty_sum()) == 0
+    assert Decimal.to_string(Iter.sum([19.99d, 5.00d, 2.50d, 0.99d])) == "28.48"
+}
+
+test "Iter.sum over each kind of value" {
+    assert Iter.sum([1, 2, 3, 4]) == 10
+    assert Iter.sum([0.1, 0.2, 0.3]) == Iter.reduce([0.1, 0.2, 0.3], |total = 0.0, x| total + x)
+    assert Iter.sum([1.5d, 2.25d]) == 3.75d
+
+    assert Iter.sum([Duration.seconds(1), Duration.milliseconds(250)]) == Duration.milliseconds(
+        1250
+    )
+
+    assert Iter.sum(["a", "b", "c"]) == "abc"
+    assert Iter.sum([[1], [], [2, 3]]) == [1, 2, 3]
+    assert Iter.sum([#{1, 2}, #{2, 3}]) == #{1, 2, 3}
+    assert Iter.sum([#[1], #[2]]) == #[1, 2]
+    assert Iter.sum([Cents(3), Cents(4)]) == Cents(7)
+}
+
+test "summing maps lets a later map win on a shared key" {
+    assert Iter.sum([{"a" => 1, "b" => 2}, {"a" => 9}]) == {"a" => 9, "b" => 2}
+}
+
+test "Iter.sum over a Range and a lazy chain" {
+    assert Iter.sum(1..=100) == 5050
+    assert 1..=10 |> Iter.filter(|n| n % 2 == 0) |> Iter.sum() == 30
+}
+
+test "an empty source sums to empty_sum" {
+    none: List<Int> = []
+    assert Iter.sum(none) == 0
+    words: List<String> = []
+    assert Iter.sum(words) == ""
+    lists: List<List<Int>> = []
+    assert Iter.sum(lists) == []
+    cents: List<Cents> = []
+    assert Iter.sum(cents) == Cents(0)
+    assert Iter.sum(1..0) == 0
+}
+
+test "a sum past the Int range traps as + does" {
+    result =
+        """
+            fn main() {
+                _ = Iter.sum([9_223_372_036_854_775_807, 1])
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains?(message, "overflow")
+}
+
+test "summing a type that is not Summable is a compile error" {
+    diagnostics =
+        """
+            fn main() {
+                _ = Iter.sum([True, False])
+            }
+            """
+        |> compiler.check()
+
+    assert Iter.any?(diagnostics, |d| {
+        String.contains?(d.message, "Bool does not implement Summable")
+    })
+}

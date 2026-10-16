@@ -44,6 +44,7 @@
 //# protocol as every other iteration callback here.
 
 import {
+    add.Add
     bool.Bool.{self, False, True}
     comparable.{Comparable, Direction, Ordering}
     equatable.Equatable
@@ -54,6 +55,7 @@ import {
     maybe.Maybe.{None, Some}
     sets.Set
     strings.String
+    summable.Summable
     unit.Unit
     vectors.Vector
 }
@@ -753,6 +755,29 @@ impl Iter<T> {
         })
 
         Maybe.map(best, |(item, _)| item)
+    }
+
+    /// Adds the elements with `+`, left to right, starting from
+    /// `T.empty_sum()`. An empty source sums to `T.empty_sum()`: 0 for Int,
+    /// "" for String, `[]` for List.
+    ///
+    /// `Iter.sum(xs)` is exactly
+    /// `Iter.reduce(xs, |total = T.empty_sum(), x| total + x)`, so it rounds
+    /// Floats as that fold does, and an Int sum past the Int range traps as
+    /// `+` does. Summing Maps follows Map's `+`: a later map wins on a shared
+    /// key. Consumes the whole iterator, so it does not end on an infinite
+    /// source.
+    //
+    //! assert Iter.sum([1, 2, 3]) == 6
+    //! assert Iter.sum([0.5, 0.25]) == 0.75
+    //! assert Iter.sum(["a", "b", "c"]) == "abc"
+    //! assert Iter.sum([[1], [2, 3]]) == [1, 2, 3]
+    //! assert Iter.sum(1..=4) == 10
+    //! none: List<Int> = []
+    //! assert Iter.sum(none) == 0
+    //
+    pub fn sum<T>(source: Iter<T>): T where T: Add<T, T> and Summable {
+        reduce(source, |total = T.empty_sum(), x| total + x)
     }
 }
 

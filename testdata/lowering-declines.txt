@@ -885,8 +885,8 @@ a	irScalarBuilder.returnSelfDispatch | false | owner == nil ¦¦ owner.Kind != a
 a	irScalarBuilder.returnSelfDispatch | false | ref == nil ¦¦ ref.ReturnSelf == nil#1	irturbofish.go:82	expect,irbuild,projectgen,vmhost	
 b	irScalarBuilder.returnSelfDispatch | false | !isMethod ¦¦ selfShapeOf(im.Params, im.ReturnTypeExpr).recvAt() >= 0#1	irturbofish.go:86	-	the checker sets ReturnSelf only for interface methods whose self is in the return alone
 d	irScalarBuilder.returnSelfDispatch | false | k == kindInvalid#1	irturbofish.go:91	-	needs a ReturnSelf type with no representation; not found
-b	irScalarBuilder.userOperatorCall | false | !found ¦¦ lk.def == nil#1	iruseroperator.go:13	-	`%` on a named type is a checker error ("modulo is not defined on Meters"); the other arithmetic ops are all in operIfaceByOp
-a	irScalarBuilder.userOperatorCall | false | rival ¦¦ it == nil ¦¦ !it.lowerable ¦¦ len(it.params) != 2 ¦¦ len(it.params0) != 2 ¦¦ it.p…#1	iruseroperator.go:17	irbuild	
+b	irScalarBuilder.userOperatorCall | false | !found ¦¦ lk.def == nil#1	iruseroperator.go:18	-	`%` on a named type is a checker error ("modulo is not defined on Meters"); the other arithmetic ops are all in operIfaceByOp
+a	irScalarBuilder.userOperatorCall | false | rival ¦¦ it == nil ¦¦ !it.lowerable ¦¦ len(params) != 2 ¦¦ len(it.params0) != 2 ¦¦ params[…#1	iruseroperator.go:30	irbuild	
 b	gen.retainedEnumPattern | false | !ok ¦¦ k.tag != tagNamed ¦¦ !irRetainedEnumKind(k.def)#1	irvariantpattern.go:11	-	enumCaseTest calls it only for a retained enum subject
 c	gen.retainedEnumPattern | false | !ok ¦¦ (owner != "" && !g.declaredAs(owner, k.def) && !g.preludeOwns(owner, k.def) && !g.s…#1	irvariantpattern.go:15	-	pinned as gapVariantPatternAliasQualifier (reason: a `case` enum pattern outside retained bare/positional payload tests)
 b	gen.retainedEnumPattern | false | v == nil#1	irvariantpattern.go:19	-	checker rejects an unknown variant
@@ -984,23 +984,27 @@ a	gen.compareResolves | computed | return scalarCompares(k)#1	stdenum.go:1428	ir
 a	irScalarBuilder.stdInstCallAt | false | f == nil ¦¦ bl.g.stdInsts == nil#1	stdinst.go:610	expect,irbuild,projectgen,vmhost	
 a	irScalarBuilder.stdInstCallAt/no | false | unguarded#1	stdinst.go:616	expect,irbuild,vmhost	
 b	irScalarBuilder.stdInstCallAt | note | "a generic stdlib call with no type parameters to solve: " + f.key#1	stdinst.go:633	-	std-only fence: every usable std generic template declares type parameters
-d	irScalarBuilder.stdInstCallAt | note | "a generic stdlib call whose type arguments are unsolved or outside the domain: " + f.key#1	stdinst.go:678	-	unsolved std generics (Maybe.some?(None), Maybe.to_result(None, e)) fill holes and lower; not found
-a	irScalarBuilder.stdInstCallAt | note | why#1	stdinst.go:693	expect,irbuild,vmhost	
-b	irScalarBuilder.stdInstCall | false | len(t.Args) != len(params)#1	stdinst.go:717	-	no std generic template has defaulted params, and the checker rejects arity mismatches
-d	irScalarBuilder.stdInstCall | false | !pre.ok ¦¦ len(pre.temps) != len(params)#1	stdinst.go:724	-	pre-lowered operands always match the instance arity; not found
-d	irScalarBuilder.stdInstCall | false | !ok ¦¦ k != params[i]#1	stdinst.go:729	-	not found
-d	irScalarBuilder.stdInstCall | false | named#1	stdinst.go:740	-	named args to std generics (Maybe.map(f: ...), Generator.uniform(rest: ...)) lower, so they are reordered before here; not found
-d	irScalarBuilder.stdInstCall | false | !ok ¦¦ k != params[i]#2	stdinst.go:748	-	not found
-a	irScalarBuilder.stdGenericQualCall | false | local && bl.g.stdModule == ""#1	stdinst.go:777	expect,irbuild,projectgen,vmhost	
-a	irScalarBuilder.stdGenericQualCall | false | irOwnOperationFamily(owner, method)#1	stdinst.go:781	expect,irbuild,projectgen,vmhost	
-a	irScalarBuilder.stdGenericFileCall | false | bl.g.stdInsts == nil#1	stdinst.go:793	irbuild	
--	irScalarBuilder.stdGenericFileCall | false | isSibling#1	stdinst.go:797	-	
-a	irScalarBuilder.stdGenericFileCall | false | f == nil#1	stdinst.go:809	expect,irbuild,vmhost	
-a	irScalarBuilder.stdGenericSiblingCall | false | g.stdModule == "" ¦¦ g.stdInsts == nil#1	stdinst.go:857	expect,irbuild,projectgen,vmhost	
-b	irScalarBuilder.stdKindQualCall | false | !qualified ¦¦ fa.Field == nil#1	stdinst.go:916	-	parser always sets FieldAccess.Field
-c	irScalarBuilder.stdKindQualCall | false | base == ""#1	stdinst.go:950	-	pinned as gapNestedGenericBoundCallTuple (reason: qualified call, Type.method: T.to_string)
-d	irScalarBuilder.stdKindQualCall | false | f == nil#1	stdinst.go:954	-	bounded calls at List/Map/Set/Vector/Maybe/Result for Display/Equatable/Hashable lower; not found
-c	irScalarBuilder.kindImplCall | false | plan == nil#1	stdinst.go:1049	-	pinned as gapGenericBoundImplOtherFile (reason: qualified call, Type.method: T.to_string)
+d	irScalarBuilder.stdInstCallAt | note | "a generic stdlib call whose type arguments are unsolved or outside the domain: " + f.key#1	stdinst.go:688	-	unsolved std generics (Maybe.some?(None), Maybe.to_result(None, e)) fill holes and lower; not found
+a	irScalarBuilder.stdInstCallAt | note | why#1	stdinst.go:703	expect,irbuild,vmhost	
+b	irScalarBuilder.stdInstCall | false | len(t.Args) != len(params)#1	stdinst.go:727	-	no std generic template has defaulted params, and the checker rejects arity mismatches
+d	irScalarBuilder.stdInstCall | false | !pre.ok ¦¦ len(pre.temps) != len(params)#1	stdinst.go:734	-	pre-lowered operands always match the instance arity; not found
+d	irScalarBuilder.stdInstCall | false | !ok ¦¦ k != params[i]#1	stdinst.go:739	-	not found
+d	irScalarBuilder.stdInstCall | false | named#1	stdinst.go:750	-	named args to std generics (Maybe.map(f: ...), Generator.uniform(rest: ...)) lower, so they are reordered before here; not found
+d	irScalarBuilder.stdInstCall | false | !ok ¦¦ k != params[i]#2	stdinst.go:758	-	not found
+a	irScalarBuilder.stdGenericQualCall | false | local && bl.g.stdModule == ""#1	stdinst.go:787	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.stdGenericQualCall | false | irOwnOperationFamily(owner, method)#1	stdinst.go:791	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.stdGenericFileCall | false | bl.g.stdInsts == nil#1	stdinst.go:803	irbuild	
+-	irScalarBuilder.stdGenericFileCall | false | isSibling#1	stdinst.go:807	-	
+a	irScalarBuilder.stdGenericFileCall | false | f == nil#1	stdinst.go:819	expect,irbuild,vmhost	
+a	irScalarBuilder.stdGenericSiblingCall | false | g.stdModule == "" ¦¦ g.stdInsts == nil#1	stdinst.go:867	expect,irbuild,projectgen,vmhost	
+b	irScalarBuilder.stdKindQualCall | false | !qualified ¦¦ fa.Field == nil#1	stdinst.go:926	-	parser always sets FieldAccess.Field
+c	irScalarBuilder.stdKindQualCall | false | base == ""#1	stdinst.go:972	-	pinned as gapNestedGenericBoundCallTuple (reason: qualified call, Type.method: T.to_string)
+d	irScalarBuilder.stdKindQualCall | false | f == nil#1	stdinst.go:976	-	bounded calls at List/Map/Set/Vector/Maybe/Result for Display/Equatable/Hashable lower; not found
+d	irScalarBuilder.stdReceiverlessImplCall | false | bl.g.std == nil ¦¦ k.tag != tagNamed ¦¦ k.def == nil#1	stdinst.go:987	-	the call reaches it only after irKindOwnerName took the scalars and irKindDeclared the program's types, so k is a std named kind (Decimal, Duration, Bytes); not found
+b	irScalarBuilder.stdReceiverlessImplCall | false | f != nil#1	stdinst.go:995	-	two impls of one interface for one type is a coherence error the checker rejects
+d	irScalarBuilder.stdReceiverlessImplCall | false | f == nil#1	stdinst.go:1000	-	the bound resolves T.method to an interface std implements for k, so std declares the function; not found
+d	irScalarBuilder.stdReceiverlessImplCall | false | plan == nil#1	stdinst.go:1005	-	every std receiverless impl function (Summable.empty_sum) plans; not found
+c	irScalarBuilder.kindImplCall | false | plan == nil#1	stdinst.go:1101	-	pinned as gapGenericBoundImplOtherFile (reason: qualified call, Type.method: T.to_string)
 a	irScalarBuilder.stdTestOwnType | false | bl.g.stdModule == ""#1	stdtests.go:179	expect,irbuild,projectgen,vmhost	
 a	irScalarBuilder.stdTestOwnType | false | unguarded#1	stdtests.go:186	expect,irbuild,projectgen,vmhost	
 -	irScalarBuilder.testImport/no | note | "an `import` in a block that rebinds a name the module scope binds differently"#1	stdtests.go:214	-	pinned as gapTestImportRebind (reason: an `import` in a block that rebinds a name the module scope binds differently)

@@ -11,6 +11,7 @@ import {
     iter.Iter
     maybe.Maybe.{self, None, Some}
     strings.String
+    summable.Summable
 }
 
 //# Operations on the persistent linked `List<T>` type. Container-specific ops
@@ -82,6 +83,18 @@ impl Iter for List<T> {
 impl Add<List<T>, List<T>> for List<T> {
     fn add(lhs: List<T>, rhs: List<T>): List<T> {
         concat(lhs, rhs)
+    }
+}
+
+impl Summable for List<T> {
+    /// The sum of no Lists: `[]`. Summing Lists concatenates them in order.
+    //! none: List<Int> = List.empty_sum()
+    //! assert none == []
+    //! assert [1, 2] + List.empty_sum() == [1, 2]
+    //! assert Iter.sum([[1], [2, 3], []]) == [1, 2, 3]
+    //
+    fn empty_sum(): List<T> {
+        []
     }
 }
 

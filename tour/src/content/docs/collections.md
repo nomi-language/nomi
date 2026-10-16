@@ -23,8 +23,8 @@ can walk through one value at a time. So is a range of whole numbers or
 codepoints, and so is a `String`, which gives one character at a time.
 
 The general operations live on `Iter` and work on all of them: `Iter.map`,
-`Iter.filter`, `Iter.take`, `Iter.reduce`, `Iter.count`, `Iter.min`,
-`Iter.max` and more. Each collection type keeps only the operations specific to
+`Iter.filter`, `Iter.take`, `Iter.reduce`, `Iter.sum`, `Iter.count`,
+`Iter.min`, `Iter.max` and more. Each collection type keeps only the operations specific to
 it, such as `Map.get` or `List.head`.
 
 ```nomi-run
@@ -62,7 +62,7 @@ That is because `Iter.map`, `Iter.filter` and `Iter.take` are lazy. Each one
 describes a step but runs nothing, and no list is built between steps. The work
 starts when a final call asks for values. Here that is `Iter.to_list`. Others
 are `Iter.to_vector`, `Iter.to_set`, `Iter.to_map`, `String.join`,
-`Iter.reduce`, `Iter.count` and `Iter.each`.
+`Iter.reduce`, `Iter.sum`, `Iter.count` and `Iter.each`.
 
 Each value goes through every step before the next value starts. The work stops
 as soon as the final call has what it needs. `Iter.take(2)` has its two values
@@ -77,7 +77,7 @@ fn main() {
     xs
     |> Iter.filter(|n| n > 2)
     |> Iter.map(|n| n * n)
-    |> Iter.reduce(|acc = 0, n| acc + n)
+    |> Iter.sum()
     |> dbg
 }
 
@@ -87,7 +87,7 @@ dbg line 8:
   xs
   |> Iter.filter(|n| n > 2)
   |> Iter.map(|n| n * n)
-  |> Iter.reduce(|acc = 0, n| acc + n)
+  |> Iter.sum()
   = 50
 -->
 

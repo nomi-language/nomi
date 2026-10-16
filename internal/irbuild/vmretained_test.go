@@ -1001,6 +1001,15 @@ func vmProbeArgFailure(fn *ir.Func, err error) bool {
 		if t.Kind() == ir.KindIface {
 			return true
 		}
+		// A Set, Map or Vector parameter the body compares with `==` gets
+		// the list the probe builds for any container a comparison reads
+		// (vmShaper.argFor's Compare arm), so a Set or Map operation on it
+		// then meets a List (`x + T.empty_sum() == x` in a generic body
+		// instantiated at Set<Int>).
+		if k := t.Kind(); (k == ir.KindSet || k == ir.KindMap || k == ir.KindVector) &&
+			strings.Contains(err.Error(), "is *rt.List[interface {}], want ") {
+			return true
+		}
 		// A function parameter the body only passes on, captured in a
 		// lambda or as an argument, states no call for the probe to build
 		// a callback from, so it holds a leaf when a callee calls it

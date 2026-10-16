@@ -11,6 +11,7 @@ import {
     iter.Iter
     maybe.Maybe.{self, None, Some}
     strings.String
+    summable.Summable
 }
 
 //# Operations on the immutable random-access `Vector<T>` type. Use `List<T>`
@@ -80,6 +81,19 @@ impl Add<Vector<T>, Vector<T>> for Vector<T> {
     //
     fn add(lhs: Vector<T>, rhs: Vector<T>): Vector<T> {
         concat(lhs, rhs)
+    }
+}
+
+impl Summable for Vector<T> {
+    /// The sum of no Vectors: the empty Vector. Summing Vectors concatenates
+    /// them in order.
+    //! none: Vector<Int> = Vector.empty_sum()
+    //! assert Vector.length(none) == 0
+    //! assert #[1, 2] + Vector.empty_sum() == #[1, 2]
+    //! assert Iter.sum([#[1], #[2, 3]]) == #[1, 2, 3]
+    //
+    fn empty_sum(): Vector<T> {
+        Vector.empty()
     }
 }
 

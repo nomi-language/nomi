@@ -11,6 +11,7 @@ import {
     maybe.Maybe.{self, Some}
     strings.String
     subtract.Subtract
+    summable.Summable
 }
 
 /// Immutable collection of unique `T` values. `a + b` is the union and `a - b`
@@ -150,6 +151,18 @@ impl Add<Set<T>, Set<T>> for Set<T> {
     //
     fn add(a: Set<T>, rhs: Set<T>): Set<T> {
         Set.union(a, rhs)
+    }
+}
+
+impl Summable for Set<T> {
+    /// The sum of no Sets: the empty Set. Summing Sets is their union.
+    //! empty: Set<Int> = Set.empty_sum()
+    //! assert Set.size(empty) == 0
+    //! assert #{1, 2} + Set.empty_sum() == #{1, 2}
+    //! assert Iter.sum([#{1, 2}, #{2, 3}]) == #{1, 2, 3}
+    //
+    fn empty_sum(): Set<T> {
+        Set.new()
     }
 }
 
