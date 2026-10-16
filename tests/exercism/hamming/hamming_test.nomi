@@ -1,0 +1,19 @@
+import hamming.distance
+
+test "hamming distance" {
+    cases = [
+        ("empty strands", "", "", Ok(0)),
+        ("single letter identical strands", "A", "A", Ok(0)),
+        ("single letter different strands", "G", "T", Ok(1)),
+        ("long identical strands", "GGACTGAAATCTG", "GGACTGAAATCTG", Ok(0)),
+        ("long different strands", "GGACGGATTCTG", "AGGACGGATTCT", Ok(9)),
+        ("disallow first strand longer", "AATG", "AAA", Err("strands must be of equal length")),
+        ("disallow second strand longer", "ATA", "AGTG", Err("strands must be of equal length")),
+        ("disallow empty first strand", "", "G", Err("strands must be of equal length")),
+        ("disallow empty second strand", "G", "", Err("strands must be of equal length")),
+    ]
+
+    subtests cases, (_description, strand1, strand2, expected) {
+        assert distance(strand1, strand2) == expected
+    }
+}

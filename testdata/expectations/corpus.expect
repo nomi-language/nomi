@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 286
-declared-cases 927
+records 308
+declared-cases 940
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -2798,4 +2798,160 @@ H f6aed4f1296b2ae2d5f4c1ee9b973692d81678385d8fb423610cca4d9632996d
 T ok <root>/tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi :: Go time.Time projects to Nomi Instant
 T ok <root>/tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi :: Nomi Instant passes back to Go time.Time
 T test result: ok. 2 passed, 0 failed
+T
+C exercism/acronym/acronym.nomi
+E 1
+N 0
+H 259ae2be98d6af4fe264fd145995eda441daa8b16b45a97fa90e7add5c0cab9e
+T --- stderr ---
+T nomi run: <root>/tests/exercism/acronym/acronym.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/acronym/acronym_test.nomi
+E 0
+N 1
+H 3e6dea47baf1eb5cd74c04b684e658b695ecdff828f36100b27b397807c8b9ec
+T ok <root>/tests/exercism/acronym/acronym_test.nomi :: abbreviates phrases
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/bob/bob.nomi
+E 1
+N 0
+H f46c4bfb6ee1555eff81b3f1dd962dc3e00ada550eee44a31c32f8b4050a038f
+T --- stderr ---
+T nomi run: <root>/tests/exercism/bob/bob.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/bob/bob_test.nomi
+E 0
+N 1
+H 1b59900ca85bd30477ca551a255a57f0eb176b8d2f609712b4d3afa8cfbc109b
+T ok <root>/tests/exercism/bob/bob_test.nomi :: bob's responses
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/hamming/hamming.nomi
+E 1
+N 0
+H 0fb607684568c4dcdf3ba46d5036926b74be35b14cbb9130207bc763b5c40bad
+T --- stderr ---
+T nomi run: <root>/tests/exercism/hamming/hamming.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/hamming/hamming_test.nomi
+E 0
+N 1
+H 870faa16649281297584fa90872bbb32b282e3a6e7e1baf94177acea1d19e54d
+T ok <root>/tests/exercism/hamming/hamming_test.nomi :: hamming distance
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/isogram/isogram.nomi
+E 1
+N 0
+H a25781175e61cc4155704b24727fbc2c5f31984fb216100f95725ff218396c17
+T --- stderr ---
+T nomi run: <root>/tests/exercism/isogram/isogram.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/isogram/isogram_test.nomi
+E 0
+N 1
+H f8067cdf31324cfa56c79602038b94d0ea4a74d4b72f6f3361884db7cb56bb93
+T ok <root>/tests/exercism/isogram/isogram_test.nomi :: isograms
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/leap/leap.nomi
+E 1
+N 0
+H 460b962487731d0ca9cc4607c0e5d5d6bc6d09af9f8dd0d4a8d59c9fdb738485
+T --- stderr ---
+T nomi run: <root>/tests/exercism/leap/leap.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/leap/leap_test.nomi
+E 0
+N 1
+H 3fdc5e77b54f5ea2888e9d6947a1ba84dd6fcf093cd71542416f05c9bcac141c
+T ok <root>/tests/exercism/leap/leap_test.nomi :: leap years
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/pangram/pangram.nomi
+E 1
+N 0
+H 64197fd1d94b4b777fa8250738ee18369d29f34d6f64dd798d37be13cb5da060
+T --- stderr ---
+T nomi run: <root>/tests/exercism/pangram/pangram.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/pangram/pangram_test.nomi
+E 0
+N 1
+H fdd7d6a63f54364f2080b0565089e183e7613c659fc07ac15fad0434102f308e
+T ok <root>/tests/exercism/pangram/pangram_test.nomi :: pangrams
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/raindrops/raindrops.nomi
+E 1
+N 0
+H b9bd59a9c6baefcbfe23ddfe0b956d63ad5b44bc4a2508d245760b7e2769efc5
+T --- stderr ---
+T nomi run: <root>/tests/exercism/raindrops/raindrops.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/raindrops/raindrops_test.nomi
+E 0
+N 1
+H fb0923935617c694556ca4e6ccbfd3ff5401ad8e356938420ca3800c36126487
+T ok <root>/tests/exercism/raindrops/raindrops_test.nomi :: raindrop sounds
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/reverse-string/reverse_string.nomi
+E 1
+N 0
+H 471aaf788bc8472c30db80fe739e54a02c150287b6382b42e4a42b32702cc1c7
+T --- stderr ---
+T nomi run: <root>/tests/exercism/reverse-string/reverse_string.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/reverse-string/reverse_string_test.nomi
+E 0
+N 1
+H 7ad3e2031fe8141a03b71b8273895f940388337a83e0314f69b63e884bb0dede
+T ok <root>/tests/exercism/reverse-string/reverse_string_test.nomi :: reverses strings
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/rna-transcription/rna_transcription.nomi
+E 1
+N 0
+H b1d83f27d52b2163c0e359125216b7f89605f44653a1bbbedc51d171c3c2337b
+T --- stderr ---
+T nomi run: <root>/tests/exercism/rna-transcription/rna_transcription.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/rna-transcription/rna_transcription_test.nomi
+E 0
+N 1
+H e74fafdc73b9e8b3d49b1b78c66370feb1b594fb05694549f75a79c9120c390d
+T ok <root>/tests/exercism/rna-transcription/rna_transcription_test.nomi :: transcribes DNA to RNA
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/two-fer/two_fer.nomi
+E 1
+N 0
+H 54b28870b53de36380c379ce5864045e25a052b5a6de41e851e65156731c87d4
+T --- stderr ---
+T nomi run: <root>/tests/exercism/two-fer/two_fer.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/two-fer/two_fer_test.nomi
+E 0
+N 3
+H 534bd15833ca4e3e0ff3c0337a29c291f2b771011a07142950655e2446b90fb0
+T ok <root>/tests/exercism/two-fer/two_fer_test.nomi :: no name given
+T ok <root>/tests/exercism/two-fer/two_fer_test.nomi :: a name given
+T ok <root>/tests/exercism/two-fer/two_fer_test.nomi :: another name given
+T test result: ok. 3 passed, 0 failed
+T
+C exercism/word-count/word_count.nomi
+E 1
+N 0
+H 4596dac03fac071af061027cc4f2ba60c42230c217b25d022be6f915b5cd0b14
+T --- stderr ---
+T nomi run: <root>/tests/exercism/word-count/word_count.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/word-count/word_count_test.nomi
+E 0
+N 1
+H ff55403a5496bb93986c8071d8039f04c7bd00e3331ec364a7dcc484e36866ea
+T ok <root>/tests/exercism/word-count/word_count_test.nomi :: counts words
+T test result: ok. 1 passed, 0 failed
 T

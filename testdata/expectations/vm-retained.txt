@@ -1179,3 +1179,17 @@
 18-ffi-and-dynamic/time_ffi_app/ffi.nomi:created_at	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/time_ffi_app/ffi.nomi:plus_second	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/time_ffi_app/main.nomi:main	UNLINKED: a project Go binding this process does not link
+exercism/acronym/acronym.nomi:abbreviate	ran
+exercism/bob/bob.nomi:response	ran
+exercism/bob/bob.nomi:shouting?	ran
+exercism/hamming/hamming.nomi:distance	ran
+exercism/isogram/isogram.nomi:isogram?	ran
+exercism/leap/leap.nomi:leap_year?	ran
+exercism/pangram/pangram.nomi:pangram?	ran
+exercism/raindrops/raindrops.nomi:convert	ran
+exercism/reverse-string/reverse_string.nomi:reverse	ran
+exercism/rna-transcription/rna_transcription.nomi:complement	ran
+exercism/rna-transcription/rna_transcription.nomi:to_rna	ran
+exercism/two-fer/two_fer.nomi:two_fer	ran
+exercism/two-fer/two_fer.nomi:two_fer default 1	ran
+exercism/word-count/word_count.nomi:count_words	ran

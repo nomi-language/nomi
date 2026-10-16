@@ -1,0 +1,19 @@
+/// Bob's reply to `remark`. He answers a question, a shout, a shouted
+/// question and silence each in his own way, and anything else with
+/// "Whatever."
+pub fn response(remark: String): String {
+    remark = String.trim(remark)
+    if remark == "" { return "Fine. Be that way!" }
+
+    case (String.ends_with?(remark, "?"), shouting?(remark)) {
+        (True, True) -> "Calm down, I know what I'm doing!"
+        (True, False) -> "Sure."
+        (False, True) -> "Whoa, chill out!"
+        (False, False) -> "Whatever."
+    }
+}
+
+/// A remark is shouted when it has letters and none of them is lower case.
+fn shouting?(remark: String): Bool {
+    String.to_upper(remark) == remark and String.to_lower(remark) != remark
+}

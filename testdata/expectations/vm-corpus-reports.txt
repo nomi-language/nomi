@@ -129,3 +129,14 @@
 18-ffi-and-dynamic/json_derive_test.nomi
 18-ffi-and-dynamic/json_enum_derive_test.nomi
 18-ffi-and-dynamic/json_test.nomi
+exercism/acronym/acronym_test.nomi
+exercism/bob/bob_test.nomi
+exercism/hamming/hamming_test.nomi
+exercism/isogram/isogram_test.nomi
+exercism/leap/leap_test.nomi
+exercism/pangram/pangram_test.nomi
+exercism/raindrops/raindrops_test.nomi
+exercism/reverse-string/reverse_string_test.nomi
+exercism/rna-transcription/rna_transcription_test.nomi
+exercism/two-fer/two_fer_test.nomi
+exercism/word-count/word_count_test.nomi

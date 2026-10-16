@@ -1,0 +1,4 @@
+/// Says who gets the cookie: "One for Alice, one for me."
+pub fn two_fer(name: String = "you"): String {
+    "One for ${name}, one for me."
+}

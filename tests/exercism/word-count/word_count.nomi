@@ -1,0 +1,11 @@
+import std/regex.Regex
+
+/// How many times each word occurs in `sentence`, lower-cased. A word is a
+/// run of letters and digits, and may hold an apostrophe between two of them,
+/// as in "can't"; quotes around a word are not part of it.
+pub fn count_words(sentence: String): Map<String, Int> {
+    sentence
+    |> String.to_lower()
+    |> String.find_all(Regex`[a-z0-9]+('[a-z0-9]+)*`)
+    |> Iter.frequencies()
+}

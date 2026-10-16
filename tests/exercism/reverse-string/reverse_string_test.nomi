@@ -1,0 +1,23 @@
+import reverse_string.reverse
+
+test "reverses strings" {
+    cases = [
+        ("an empty string", "", ""),
+        ("a word", "robot", "tobor"),
+        ("a capitalized word", "Ramen", "nemaR"),
+        ("a sentence with punctuation", "I'm hungry!", "!yrgnuh m'I"),
+        ("a palindrome", "racecar", "racecar"),
+        ("an even-sized word", "drawer", "reward"),
+        ("wide characters", "子猫", "猫子"),
+        ("grapheme cluster with pre-combined form", "Würstchenstand", "dnatsnehctsrüW"),
+        (
+            "grapheme clusters",
+            "ผู้เขียนโปรแกรม",
+            "มรกแรปโนยขีเผู้",
+        ),
+    ]
+
+    subtests cases, (_description, text, expected) {
+        assert reverse(text) == expected
+    }
+}
