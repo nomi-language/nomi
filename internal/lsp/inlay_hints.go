@@ -245,6 +245,9 @@ func (c *hintCollector) walkNode(node ast.Node) {
 
 	case *ast.Subtests:
 		c.walkNode(n.Rows)
+		if n.Name != nil {
+			c.walkNode(n.Name)
+		}
 		if n.Body != nil {
 			for _, stmt := range n.Body.Stmts {
 				c.walkNode(stmt)

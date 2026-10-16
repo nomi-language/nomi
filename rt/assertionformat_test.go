@@ -58,6 +58,28 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 			"  assert False\n" +
 			"1 of 1 subtest failed",
 	}, {
+		// Named rows: a row's name, rendered as a String, stands where the
+		// row would, and a name that trapped falls back to the row, with the
+		// trap's text after its own line, which the header already names.
+		name: "named subtests",
+		failure: SubtestsFailure(4, "cases", 3, []SubtestFailure{{
+			Row:     `"empty input"`,
+			Failure: &AssertionFailure{Line: 5, Keyword: "assert", Expr: "False", Reason: "assertion failed"},
+		}, {
+			Row:     "0",
+			Failure: SubtestNameTrapFailure(4, `"${10 / n}"`, "line 4: division by zero"),
+		}, {
+			Row:     "3",
+			Failure: SubtestNameTrapFailure(4, "label(n)", "line 12: division by zero"),
+		}}),
+		want: "subtest \"empty input\": line 5: assertion failed\n" +
+			"  assert False\n" +
+			"subtest 0: line 4: its name trapped: division by zero\n" +
+			"  \"${10 / n}\"\n" +
+			"subtest 3: line 4: its name trapped: line 12: division by zero\n" +
+			"  label(n)\n" +
+			"3 of 3 subtests failed",
+	}, {
 		// The floor: header plus the assertion as written, keyword prefixed.
 		name: "bare bool",
 		failure: &AssertionFailure{

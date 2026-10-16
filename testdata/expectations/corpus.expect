@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
 records 351
-declared-cases 1037
+declared-cases 1041
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -310,8 +310,8 @@ T test result: ok. 5 passed, 0 failed
 T
 C 02-testing/subtests_test.nomi
 E 0
-N 9
-H 34b5f202e9d72b22a7f2a4f8d887b0b3a03c956c2bb976775c8d4661f3d922c6
+N 13
+H 4814dc9a36570160b72ec7e203c22073003767f8c2fdf44323f8ff1d146c4a6f
 T ok <root>/tests/02-testing/subtests_test.nomi :: each row runs the body once
 T ok <root>/tests/02-testing/subtests_test.nomi :: rows from a range
 T ok <root>/tests/02-testing/subtests_test.nomi :: rows of structs bound by a struct pattern
@@ -321,7 +321,11 @@ T ok <root>/tests/02-testing/subtests_test.nomi :: a row may bind and assert sev
 T ok <root>/tests/02-testing/subtests_test.nomi :: in a function, the failed rows are its Err
 T ok <root>/tests/02-testing/subtests_test.nomi :: subtests is a name everywhere else
 T ok <root>/tests/02-testing/subtests_test.nomi :: a row may end with a helper that asserts
-T test result: ok. 9 passed, 0 failed
+T ok <root>/tests/02-testing/subtests_test.nomi :: a row may be named by a column it carries
+T ok <root>/tests/02-testing/subtests_test.nomi :: a failed row's name stands where its row would
+T ok <root>/tests/02-testing/subtests_test.nomi :: a name that traps fails its row under the rendered row
+T ok <root>/tests/02-testing/subtests_test.nomi :: discarded columns work with and without a name
+T test result: ok. 13 passed, 0 failed
 T
 C 03-tooling-and-diagnostics/compiler_project/compiler_project_test.nomi
 E 0

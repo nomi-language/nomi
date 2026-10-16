@@ -191,6 +191,7 @@ func mark(n ast.Node, tail bool) {
 	case *ast.Subtests:
 		// A statement whose body runs once per row and answers nothing.
 		mark(x.Rows, false)
+		mark(x.Name, false)
 		markBlock(x.Body, false)
 	case *ast.Defer:
 		mark(x.Call, false)

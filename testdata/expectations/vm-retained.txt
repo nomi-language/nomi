@@ -60,6 +60,8 @@
 02-testing/subtests_test.nomi:Point.inspect	ran
 02-testing/subtests_test.nomi:all_ordered	ran
 02-testing/subtests_test.nomi:check_palindrome	ran
+02-testing/subtests_test.nomi:named_by_quotient	ran
+02-testing/subtests_test.nomi:named_ordered	ran
 02-testing/subtests_test.nomi:palindrome?	ran
 02-testing/subtests_test.nomi:subtests	ran
 03-tooling-and-diagnostics/compiler_project/test_helpers.nomi:has_diagnostic?	ran

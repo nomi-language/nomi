@@ -97,6 +97,9 @@ func normalizeNestedImportLayout(node ast.Node) {
 		normalizeNestedImportLayout(n.Value)
 	case *ast.Subtests:
 		normalizeNestedImportLayout(n.Rows)
+		if n.Name != nil {
+			normalizeNestedImportLayout(n.Name)
+		}
 		normalizeBlockImportLayout(n.Body)
 	case *ast.Defer:
 		normalizeNestedImportLayout(n.Call)

@@ -4431,13 +4431,20 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 
 	case *ast.Subtests:
 		// The rows are read in the enclosing scope; the pattern's names
-		// are the body's, a fresh scope each row runs in.
+		// are the name's and the body's, a fresh scope each row runs in.
 		b.walkNode(n.Rows, scope)
 		if n.Body != nil {
 			child := NewScope(scope)
-			setScopeSpan(child, n.Body.Line, n.Body.Col, n.Body.EndLine, n.Body.EndCol)
+			startLine, startCol := n.Body.Line, n.Body.Col
+			if hs, ok := n.Name.(ast.HasSpan); ok && !hs.GetSpan().IsZero() {
+				startLine, startCol = hs.GetSpan().StartLine, hs.GetSpan().StartCol-1
+			}
+			setScopeSpan(child, startLine, startCol, n.Body.EndLine, n.Body.EndCol)
 			b.definePatternIn(n.Pattern, child, n.Body)
 			b.walkNode(n.Pattern, child)
+			if n.Name != nil {
+				b.walkNode(n.Name, child)
+			}
 			b.walkBlock(n.Body, child)
 		}
 

@@ -1396,6 +1396,9 @@ func childrenOfSubtests(x *Subtests, fn func(Node)) {
 	if !absent(x.Pattern) {
 		fn(x.Pattern)
 	}
+	if !absent(x.Name) {
+		fn(x.Name)
+	}
 	if x.Body != nil {
 		fn(x.Body)
 	}

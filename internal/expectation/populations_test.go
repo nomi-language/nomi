@@ -496,6 +496,7 @@ var failureFixtures = []string{
 	"sibimpl/report_test.nomi",
 	"siblings/report_test.nomi",
 	"std_enum_modes.nomi",
+	"subtests_names_report.nomi",
 	"subtests_report.nomi",
 	"tests_attached.nomi",
 	"tests_call_boundary.nomi",

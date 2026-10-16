@@ -3934,7 +3934,14 @@ func (p *Parser) tryParseSubtests() (ast.Node, bool, error) {
 	if err != nil {
 		return nil, true, err
 	}
+	name, err := p.parseSubtestsName(tok)
+	if err != nil {
+		return nil, true, err
+	}
 	if p.atEnd() || p.peek().Type != token.LBRACE {
+		if name != nil {
+			return nil, true, errorAt(tok.Line, tok.Col, "expected '{' for the `subtests` body after its name")
+		}
 		return nil, true, errorAt(tok.Line, tok.Col, "expected '{' for the `subtests` body after its pattern")
 	}
 	bodyNode, err := p.parseBlock()
@@ -3944,10 +3951,36 @@ func (p *Parser) tryParseSubtests() (ast.Node, bool, error) {
 	return &ast.Subtests{
 		Rows:    rows,
 		Pattern: pattern,
+		Name:    name,
 		Body:    bodyNode.(*ast.Block),
 		Line:    tok.Line,
 		Col:     tok.Col,
 	}, true, nil
+}
+
+// parseSubtestsName parses the optional `, name` after a `subtests` pattern,
+// and answers nil when no comma follows the pattern. The name is an
+// expression that starts on its comma's line and ends where the body's `{`
+// begins. As in an `if` condition, `Type {` there is not a struct literal: the
+// `{` opens the body, so a name that is a struct literal, or that starts with
+// a block, is written in parentheses.
+func (p *Parser) parseSubtestsName(kw token.Token) (ast.Node, error) {
+	if p.atEnd() || p.peek().Type != token.COMMA {
+		return nil, nil
+	}
+	comma := p.peek()
+	p.advance() // consume COMMA
+	if p.atEnd() || p.peek().Line != comma.Line || p.peek().Type == token.LBRACE || !canStartRangeOperand(p.peek().Type) {
+		return nil, errorAt(kw.Line, kw.Col, "expected the row's name after the pattern in `subtests`, such as `subtests cases, (description, input), description { ... }`")
+	}
+	oldNoStructLit := p.noStructLit
+	p.noStructLit = true
+	name, err := p.parseExpr(1)
+	p.noStructLit = oldNoStructLit
+	if err != nil {
+		return nil, err
+	}
+	return name, nil
 }
 
 func (p *Parser) tryParseHeadPatternAssertion(assertTok token.Token) (ast.Node, bool, error) {

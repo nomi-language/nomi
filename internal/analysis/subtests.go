@@ -68,6 +68,9 @@ func (c *checker) checkSubtests(n *ast.Subtests) Type {
 		}
 		c.checkPattern(n.Pattern, rowTy)
 	}
+	if n.Name != nil {
+		c.checkSubtestsName(n.Name)
+	}
 	if rowTy != nil {
 		if c.fa.SubtestsRowTypes == nil {
 			c.fa.SubtestsRowTypes = map[*ast.Subtests]Type{}
@@ -90,6 +93,35 @@ func (c *checker) checkSubtests(n *ast.Subtests) Type {
 	// which the IR builder reads back as it does an assertion's.
 	c.registerAssertionHoverAt(n.Line, n.Col, n, "subtests", rowsTy, rowTy, TypeUnit)
 	return TypeUnit
+}
+
+// subtestsNameExitless is the site of a row's name: the VM evaluates it on
+// its own, before the row's body runs, so it is no part of the row an exit
+// could leave (rejectExitlessExit).
+var subtestsNameExitless = &exitlessSite{
+	what: "the name of a `subtests` row",
+	why:  "the name is evaluated on its own, before the row runs",
+	hint: "handle the Result or Maybe inside the name with `case`, or compute the name in a function",
+}
+
+// checkSubtestsName checks a row's name, `subtests rows, pattern, name`: a
+// String expression in the scope of the pattern's bindings. An exit or an
+// assertion written directly in it is an error, as in a `once` initializer.
+func (c *checker) checkSubtestsName(name ast.Node) {
+	prevRow, prevUnwinds := c.subtestsRow, c.tryUnwinds
+	c.subtestsRow, c.tryUnwinds = nil, nil
+	ty := c.checkExitless(subtestsNameExitless, func() Type {
+		return c.checkNodeExpecting(name, TypeString)
+	})
+	c.subtestsRow, c.tryUnwinds = prevRow, prevUnwinds
+	if ty == nil {
+		return
+	}
+	if c.unify(TypeString, ty, nil) != nil {
+		c.report(errAt(name, c.typef(
+			"the name of a `subtests` row must be a String, got %s", ty)).WithHint(
+			"build a String from the row's values, as in `\"${input}\"`"))
+	}
 }
 
 // checkSubtestsBoundary places the statement as an assertion is placed: its

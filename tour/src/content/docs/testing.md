@@ -197,6 +197,51 @@ FAIL palindrome_test.nomi :: determines palindromes
 The whole statement is still one test. A row cannot `return`, `break` or
 `try`: every row runs to its end.
 
+### Naming Rows
+
+A third part after the pattern names each row. It is any `String`, and it can
+use the names the pattern binds. A table often carries a description column
+for this:
+
+```nomi-run
+fn leap_year?(year: Int): Bool {
+    year % 400 == 0 or (year % 4 == 0 and year % 100 != 0)
+}
+
+test "leap years" {
+    cases = [
+        ("year divisible by 400 is leap year", 2000, True),
+        ("year divisible by 100, not divisible by 400 in common year", 1900, False),
+        ("year divisible by 4, not divisible by 100 in leap year", 1996, True),
+    ]
+
+    subtests cases, (description, year, expected), description {
+        assert leap_year?(year) == expected
+    }
+}
+```
+
+A failed row's report shows its name in place of the row. If `leap_year?`
+returned `False` for 2000, the test would report:
+
+```text
+FAIL leap_test.nomi :: leap years
+  subtest "year divisible by 400 is leap year": line 13: assertion failed
+    assert leap_year?(year) == expected
+    values:
+      year
+        = 2000
+      leap_year?(year)
+        = False
+      expected
+        = True
+  1 of 3 subtests failed
+```
+
+You can also build a name from the row, as in
+`subtests cases, (a, b, sum), "${a} + ${b}" { ... }`. To leave a column out,
+name it `_` as usual.
+
 ## Input And Output
 
 [`io.capture`](/reference/io/) runs a function and gives it the text you pass

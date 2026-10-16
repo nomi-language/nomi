@@ -8343,6 +8343,69 @@ test "determines palindromes" {
 }
 ```
 
+`subtests rows, pattern, name { body }` names each row. `name` is any
+expression of type `String`, written after the pattern and a comma. It is
+evaluated once per row, after the pattern binds and before the body runs, in
+the scope of the pattern's bindings and the enclosing test's, so it may read
+a column (`description`) or build a name from several
+(`` "${a} + ${b}" ``). A binding that only the name reads counts as used. A
+name of another type is
+`` the name of a `subtests` row must be a String, got Int ``.
+
+```nomi
+test "leap years" {
+    cases = [
+        ("year divisible by 400 is leap year", 2000, True),
+        ("year divisible by 100, not divisible by 400 in common year", 1900, False),
+    ]
+
+    subtests cases, (description, year, expected), description {
+        assert leap_year?(year) == expected
+    }
+}
+```
+
+A failed row's report shows its name, rendered as a String literal, where the
+rendered row would be; the rest of the report is unchanged. Two rows may share
+a name, and each failed one is listed under it. Were `leap_year?(2000)`
+`False`, the test above would report:
+
+```text
+FAIL leap_test.nomi :: leap years
+  subtest "year divisible by 400 is leap year": line 8: assertion failed
+    assert leap_year?(year) == expected
+    values:
+      year
+        = 2000
+      leap_year?(year)
+        = False
+      expected
+        = True
+  1 of 2 subtests failed
+```
+
+`_` and a `_`-prefixed name discard a column with or without a name, so a
+description column may still be left out of a pattern
+(`subtests cases, (_, year, expected) { ... }`). The name runs on its own,
+before its row, so `return`, `break`, `continue`, `try` and an assertion
+written directly in it are errors, such as
+``` `try` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs ```.
+A name that traps fails its row, and the row's body does not run. That row is
+reported under the rendered row, with the header
+`its name trapped:` and the trap's text, without the trap's own `line N:`
+when the trap is on the name's line, then the name as written:
+
+```text
+  subtest 0: line 12: its name trapped: division by zero
+    "${10 / n}"
+```
+
+The name ends where the body's `{` begins. As in an `if` condition, a
+`Type {` there opens the body rather than a struct literal, so a name built
+from a struct literal is written in parentheses:
+`subtests pairs, (x, y), (Point{x, y}) |> Point.describe { ... }`. A name that ends in its own
+block, such as an `if`, needs none.
+
 A `subtests` statement is its test's assertion, so its body must be able to
 fail a row: one with no `assert` or `refute` of its own (outside a lambda or
 a nested `fn`) whose final value is not a `Result<_, AssertionFailure>`, in

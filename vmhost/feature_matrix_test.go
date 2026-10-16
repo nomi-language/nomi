@@ -34,7 +34,7 @@ import (
 //     makes the triples.
 //   - A shell (mxShells) is where the program observes the final value:
 //     `fn main` (the default), a test body, an `assert` subject, a
-//     `subtests` row, a `defer`'d call, or an application field written by
+//     `subtests` row or row name, a `defer`'d call, or an application field written by
 //     `with`.
 //   - A placement (mxPlacements) says which file holds what: one file (the
 //     default), the feature's declarations in a second file, or the whole
@@ -610,6 +610,12 @@ var mxShells = []*mxContext{
 		return "test \"" + mxCase + "\" {\n    subtests [" + mxIndentTail(e) + "], got {\n        assert " + mxObs(obs, "got") + " == " +
 			mxString(want) + "\n    }\n}", nil, "\n--- " + mxCase + ": ok: <nil>\n"
 	}},
+	{name: "subtests name", shell: func(b *mxBuild, e, obs, want string) (string, []string, string) {
+		// The row's name observes the value: it divides by zero, which
+		// fails the row, unless the observation is the one expected.
+		return "test \"" + mxCase + "\" {\n    subtests [" + mxIndentTail(e) + "], got, Int.to_string(100 / (if " + mxObs(obs, "got") + " == " +
+			mxString(want) + " { 1 } else { 0 })) {\n        assert True\n    }\n}", nil, "\n--- " + mxCase + ": ok: <nil>\n"
+	}},
 	{name: "defer", shell: func(b *mxBuild, e, obs, want string) (string, []string, string) {
 		// One deferred call reads the local, widening it to the parameter's
 		// type; the other's operand is a call, evaluated where the `defer`
@@ -818,7 +824,7 @@ func mxExpectedRejection(c mxCell) (want, why, skip string) {
 		// The other file's function returns the type, and an application
 		// field has it.
 		return "", "", ""
-	case c.f.tags.has(tagPartial) && c.shell.name != "subtests row":
+	case c.f.tags.has(tagPartial) && c.shell.name != "subtests row" && c.shell.name != "subtests name":
 		return "", "", ""
 	case c.f.tags.has(tagBareOK) && c.shell.name == "assert subject":
 		// Debug.inspect's argument: a part of a type that no value has may

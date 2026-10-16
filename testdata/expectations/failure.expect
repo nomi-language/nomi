@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population failure
 what one record per deliberately-red fixture under internal/irbuild/testdata, run as the command that owns it would. Every record FAILS on purpose, so every record carries its transcript verbatim: this is the only population in the repo with power over a wrong failure message. Membership is measured by TestExpectation_FailureCensus.
-records 50
-declared-cases 237
-failing 50
+records 51
+declared-cases 242
+failing 51
 C anon_struct.nomi
 E 1
 N 1
@@ -980,6 +980,53 @@ T     values:
 T       chosen()
 T         = HalfEven
 T test result: FAILED. 4 passed, 1 failed
+T
+C subtests_names_report.nomi
+E 1
+N 5
+H 4dfa240c904ce842c2e2ff5901890a1f2a37018e367f7e52c3dbfef8535ff305
+T FAIL <root>/internal/irbuild/testdata/subtests_names_report.nomi :: a failed row reports its name
+T   subtest "year divisible by 400 is leap year": line 20: assertion failed
+T     assert leap_year?(year) == expected
+T     values:
+T       year
+T         = 2000
+T       leap_year?(year)
+T         = False
+T       expected
+T         = True
+T   1 of 3 subtests failed
+T FAIL <root>/internal/irbuild/testdata/subtests_names_report.nomi :: a built name, shared by two rows
+T   subtest "3 == 4": line 26: assertion failed
+T     assert a + b == sum
+T     values:
+T       a + b
+T         = 3
+T       sum
+T         = 4
+T   subtest "3 == 4": line 26: assertion failed
+T     assert a + b == sum
+T     values:
+T       a + b
+T         = 3
+T       sum
+T         = 4
+T   2 of 3 subtests failed
+T FAIL <root>/internal/irbuild/testdata/subtests_names_report.nomi :: a name that traps fails its row without running it
+T   subtest 0: line 31: its name trapped: division by zero
+T     "${10 / n}"
+T   subtest "10": line 32: assertion failed
+T     assert n > 1
+T     values:
+T       n
+T         = 1
+T   2 of 3 subtests failed
+T FAIL <root>/internal/irbuild/testdata/subtests_names_report.nomi :: a name that traps in a function it calls
+T   subtest 0: line 37: its name trapped: line 9: division by zero
+T     label(n)
+T   1 of 1 subtest failed
+T ok <root>/internal/irbuild/testdata/subtests_names_report.nomi :: every named row passes
+T test result: FAILED. 1 passed, 4 failed
 T
 C subtests_report.nomi
 E 1

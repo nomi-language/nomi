@@ -1,0 +1,46 @@
+// Named `subtests` rows: a failed row's report shows its name as a String
+// literal where the rendered row would be, a name that traps fails its row
+// under the rendered row, and a row with no name reports as before.
+fn leap_year?(year: Int): Bool {
+    year % 4 == 0 and year % 100 != 0
+}
+
+fn label(n: Int): String {
+    "${100 / n}"
+}
+
+test "a failed row reports its name" {
+    cases = [
+        ("year divisible by 400 is leap year", 2000, True),
+        ("year divisible by 100, not divisible by 400 in common year", 1900, False),
+        ("year divisible by 4, not divisible by 100 in leap year", 1996, True),
+    ]
+
+    subtests cases, (description, year, expected), description {
+        assert leap_year?(year) == expected
+    }
+}
+
+test "a built name, shared by two rows" {
+    subtests [(1, 2, 4), (2, 1, 4), (2, 2, 4)], (a, b, sum), "${a + b} == ${sum}" {
+        assert a + b == sum
+    }
+}
+
+test "a name that traps fails its row without running it" {
+    subtests [2, 0, 1], n, "${10 / n}" {
+        assert n > 1
+    }
+}
+
+test "a name that traps in a function it calls" {
+    subtests [0], n, label(n) {
+        assert n > 1
+    }
+}
+
+test "every named row passes" {
+    subtests [("one", 1), ("two", 2)], (name, n), name {
+        assert n > 0
+    }
+}

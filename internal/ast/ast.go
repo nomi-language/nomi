@@ -872,6 +872,11 @@ func (n *Assertion) LineNum() int   { return n.Line }
 // report lists each failing row. Pattern is irrefutable for the element
 // type. The statement's value is Unit.
 //
+// Name is the optional third part, `subtests rows, pattern, name { body }`:
+// a String expression evaluated once per row in the scope of Pattern's
+// bindings, which a failed row's report shows in place of the rendered row.
+// It is nil when the statement has none.
+//
 // `subtests` is a keyword only where a statement starts with it, an
 // expression starts on its line, and a comma follows the expression;
 // anywhere else it is an ordinary identifier.
@@ -880,6 +885,7 @@ type Subtests struct {
 	SpanCarrier
 	Rows    Node
 	Pattern Node
+	Name    Node
 	Body    *Block
 	Line    int // the `subtests` keyword
 	Col     int

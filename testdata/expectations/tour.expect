@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover.
-records 142
-declared-cases 20
+records 143
+declared-cases 21
 failing 0
 C bindings-and-expressions.md:L116
 E 0
@@ -1023,7 +1023,14 @@ H 8eeca313765dd04281036cf844cec131b22a8e5e72a400c514cfdef774f77606
 T ok arithmetic has the expected shape
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L207
+C testing.md:L206
+E 0
+N 1
+H c8686871c85e80a4afd39b03eaa975daf7c13f00e537a10c6ca1d0a501b66956
+T ok leap years
+T test result: ok. 1 passed, 0 failed
+T
+C testing.md:L252
 E 0
 N 1
 H a529d2aef3956d5ef189622e65532fffad58bf2db7f89c3238addc7971a12287
@@ -1032,22 +1039,13 @@ T ok greets the name it reads
 T ok greets a stranger when there is no input
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L248
+C testing.md:L293
 E 0
 N 1
 H 11e6df1f55bd27672717d56bebed415683122c04b2efa0e8ef7dc0976d009a56
 T What is your name?
 T hello, stranger
 T ok asks for a name, then an age
-T test result: ok. 1 passed, 0 failed
-T
-C testing.md:L307
-E 0
-N 1
-H 29f9191f9f1843ac32f0130f1f324909f10c53f3ca9cfbdb082f6f379d988540
-T -10.0 C |   14.0 F
-T  -5.0 C |   23.0 F
-T ok converts to Fahrenheit
 T test result: ok. 1 passed, 0 failed
 T
 C testing.md:L31
@@ -1058,7 +1056,16 @@ T ok assert checks successful results
 T ok refute checks result errors
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L336
+C testing.md:L352
+E 0
+N 1
+H 29f9191f9f1843ac32f0130f1f324909f10c53f3ca9cfbdb082f6f379d988540
+T -10.0 C |   14.0 F
+T  -5.0 C |   23.0 F
+T ok converts to Fahrenheit
+T test result: ok. 1 passed, 0 failed
+T
+C testing.md:L381
 E 0
 N 1
 H f2bd4d358a0711cb60aa46191c1246f835d81388acdd02b91f70b68200206fc8
@@ -1066,7 +1073,7 @@ T ok user labels / setup value is explicit
 T ok user labels / a test may ignore the setup value
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L373
+C testing.md:L418
 E 0
 N 1
 H 6f7cc69cd602b57272358318906f7cbbca164ac2f14b83912bd321c886fd9426
@@ -1075,7 +1082,7 @@ T ok app-backed behavior / reads the booted field
 T ok app-backed behavior / a with line replaces a field for the rest of the body
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L415
+C testing.md:L460
 E 0
 N 1
 H 5e5a6007494211f6690adb2b128d0333f87e2c428ddeb5a37b336cbbc10b226e

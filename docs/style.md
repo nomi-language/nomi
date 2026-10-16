@@ -563,9 +563,30 @@ test "parses ids" {
 }
 ```
 
-Write separate tests instead when the rows need different setup, different
-assertions or a name of their own: a row has no name beyond its data, and a
-`subtests` body that branches on its row is several tests in one. Keep a
+When the data alone does not say what a row checks, give each row a
+description column and name the row with it, so a failure reads as the case
+it is:
+
+```nomi
+test "leap years" {
+    cases = [
+        ("year divisible by 400 is leap year", 2000, True),
+        ("year divisible by 100, not divisible by 400 in common year", 1900, False),
+    ]
+
+    subtests cases, (description, year, expected), description {
+        assert leap_year?(year) == expected
+    }
+}
+```
+
+Name rows with a column rather than a string built from the other columns
+when the table already carries one, and leave the name out when the rendered
+row says enough.
+
+Write separate tests instead when the rows need different setup or different
+assertions: a `subtests` body that branches on its row is several tests in
+one. Keep a
 table to one claim, and split a long one into tests by what the rows have in
 common.
 

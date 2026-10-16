@@ -1393,11 +1393,38 @@ func emitWith(v *ast.With) Doc {
 	return Group(Concat(Text("with "), emit(v.Target), Text(" = "), emit(value)))
 }
 
-// emitSubtests renders `subtests rows, pattern { body }`. The body is always
-// broken across lines, as a test's is.
+// emitSubtests renders `subtests rows, pattern { body }` and
+// `subtests rows, pattern, name { body }`. The body is always broken across
+// lines, as a test's is. A header too long for its line breaks its tuple
+// pattern one element per line, as a call breaks its arguments:
+//
+//	subtests cases, (
+//	    description,
+//	    (white_row, white_column),
+//	    expected
+//	), description {
 func emitSubtests(v *ast.Subtests) Doc {
-	header := Concat(Text("subtests "), emit(v.Rows), Text(", "), emitPattern(v.Pattern))
+	header := Concat(Text("subtests "), emit(v.Rows), Text(", "), emitSubtestsPattern(v.Pattern))
+	if v.Name != nil {
+		header = Concat(header, Text(", "), emit(v.Name))
+	}
 	return Concat(header, Text(" "), emitBlockForceBroken(v.Body))
+}
+
+// emitSubtestsPattern is a `subtests` pattern: a tuple pattern without
+// comments is a Group that breaks one element per line, with no comma after
+// the last, which a tuple pattern's syntax has none of; any other pattern is
+// laid out as anywhere.
+func emitSubtestsPattern(n ast.Node) Doc {
+	tp, ok := n.(*ast.TuplePattern)
+	if !ok || len(tp.Patterns) < 2 {
+		return emitPattern(n)
+	}
+	elems, _, hasComments := patternItems(tp.Patterns, false)
+	if hasComments {
+		return emitPattern(n)
+	}
+	return withDangling(n, bracedList("(", ")", elems, false))
 }
 
 // emitDefer renders `defer call(...)`.

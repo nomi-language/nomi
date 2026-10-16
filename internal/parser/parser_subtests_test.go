@@ -114,3 +114,61 @@ func TestParseSubtestsCountsAsATestsAssertion(t *testing.T) {
 		}
 	}
 }
+
+// A third part after the pattern, `subtests rows, pattern, name { body }`,
+// is the row's name: any expression up to the body's `{`, read as an `if`
+// condition is, so a `Type {` there opens the body. A tuple pattern may
+// break across lines, as the formatter breaks a long header.
+func TestParseSubtestsName(t *testing.T) {
+	src := "test \"t\" {\n" +
+		"  subtests cases, (description, year, expected), description {\n    assert year > 0\n  }\n" +
+		"  subtests cases, (a, b, sum), \"${a} + ${b}\" {\n    assert a + b == sum\n  }\n" +
+		"  subtests cases, Ok(n) or Err(n), label(n) |> String.trim {\n    assert n > 0\n  }\n" +
+		"  subtests cases, n, (Label{text: \"x\"}).text {\n    assert n > 0\n  }\n" +
+		"  subtests cases, (_, year), if year > 0 { \"after\" } else { \"before\" } {\n    assert year != 0\n  }\n" +
+		"  subtests cases, (\n    _description,\n    year\n  ), year {\n    assert year != 0\n  }\n" +
+		"  subtests cases, (_description, year) {\n    assert year != 0\n  }\n" +
+		"}"
+	stmts := parse(t, src)[0].(*ast.TestDecl).Body.Stmts
+	if len(stmts) != 7 {
+		t.Fatalf("%d statements, want 7", len(stmts))
+	}
+	names := []string{"Ident", "StringInterp", "Binary", "FieldAccess", "If", "Ident", ""}
+	for i, want := range names {
+		st, ok := stmts[i].(*ast.Subtests)
+		if !ok {
+			t.Fatalf("statement %d: %#v", i, stmts[i])
+		}
+		if st.Body == nil || len(st.Body.Stmts) != 1 {
+			t.Errorf("statement %d's body: %#v", i, st.Body)
+		}
+		if want == "" {
+			if st.Name != nil {
+				t.Errorf("statement %d has a name: %#v", i, st.Name)
+			}
+			continue
+		}
+		if st.Name == nil || st.Name.NodeType() != want {
+			t.Errorf("statement %d's name: %#v, want a %s", i, st.Name, want)
+		}
+	}
+	if _, ok := stmts[2].(*ast.Subtests).Pattern.(*ast.OrPattern); !ok {
+		t.Errorf("or pattern: %#v", stmts[2].(*ast.Subtests).Pattern)
+	}
+}
+
+// A comma after the pattern commits to a name: a missing name, or a missing
+// body after it, is an error at the keyword.
+func TestParseSubtestsNameErrors(t *testing.T) {
+	cases := []struct{ src, want string }{
+		{"test \"t\" {\n  subtests cases, row, {\n    assert True\n  }\n}", "line 2, col 3: expected the row's name after the pattern in `subtests`"},
+		{"test \"t\" {\n  subtests cases, row,\n  assert True\n}", "line 2, col 3: expected the row's name after the pattern in `subtests`"},
+		{"test \"t\" {\n  subtests cases, row, name\n  assert True\n}", "line 2, col 3: expected '{' for the `subtests` body after its name"},
+	}
+	for _, tc := range cases {
+		err := parseError(t, tc.src)
+		if !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("Parse(%q) = %v, want %q", tc.src, err, tc.want)
+		}
+	}
+}

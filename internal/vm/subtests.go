@@ -12,7 +12,10 @@ package vm
 // `fn` as its `Err(AssertionFailure)`.
 //
 // The row is rendered by rowText, as a `values:` row renders a value, and
-// only for a row that failed.
+// only for a row that failed. A statement with a name calls the name
+// function once per row, before the row, and records a failed row under
+// the name rendered as a String; a name that faults fails its row without
+// running it, recorded under the rendered row (rt.SubtestNameTrapFailure).
 
 import (
 	"errors"
@@ -62,11 +65,43 @@ func (m *Machine) subtestsInstr(fr *frame, n *ir.Subtests) (err error) {
 		view.dvia = "subtests"
 		run = &view
 	}
+	var name *functionValue
+	if n.Name() != ir.NoTemp {
+		nv, err := fr.read(n.Name())
+		if err != nil {
+			return err
+		}
+		name, ok = nv.(*functionValue)
+		if !ok || name == nil || name.arity != 1 || name.host != nil {
+			return fmt.Errorf("vm: subtests requires a name function of one parameter")
+		}
+	}
 	var failed []rt.SubtestFailure
 	total := 0
 	var stop error
 	seq.Run(fr.runtime, func(runtime *rt.Frame, item any) bool {
 		total++
+		label := ""
+		if name != nil {
+			text, trap, nameErr := run.rowName(name, item, runtime)
+			if nameErr != nil {
+				stop = nameErr
+				return false
+			}
+			if trap != nil {
+				// The name faulted: the row fails without running its body,
+				// under the rendered row, with the fault's text.
+				rowText, textErr := run.rowText(fr, item)
+				if textErr != nil {
+					stop = textErr
+					return false
+				}
+				failed = append(failed, rt.SubtestFailure{Row: rowText,
+					Failure: rt.SubtestNameTrapFailure(n.NameLine(), n.NameText(), trap.Error())})
+				return true
+			}
+			label = rt.RowText(text)
+		}
 		_, rowErr := run.activateSlot(row.fnSlot(run), []any{item}, row.captures, runtime, true, run.depth, nil)
 		if rowErr == nil {
 			return true
@@ -79,10 +114,13 @@ func (m *Machine) subtestsInstr(fr *frame, n *ir.Subtests) (err error) {
 			stop = rowErr
 			return false
 		}
-		text, textErr := run.rowText(fr, item)
-		if textErr != nil {
-			stop = textErr
-			return false
+		text := label
+		if name == nil {
+			var textErr error
+			if text, textErr = run.rowText(fr, item); textErr != nil {
+				stop = textErr
+				return false
+			}
 		}
 		failed = append(failed, rt.SubtestFailure{Row: text, Failure: failure})
 		return true
@@ -95,6 +133,38 @@ func (m *Machine) subtestsInstr(fr *frame, n *ir.Subtests) (err error) {
 		return nil
 	}
 	return assertExit(fr, combined)
+}
+
+// rowName runs a row's name function on item. It answers the name, or trap
+// when the name faulted (a Nomi trap, which fails the row), or err for
+// anything else that leaves it (a machine limit), which leaves the
+// statement.
+func (m *Machine) rowName(name *functionValue, item any, runtime *rt.Frame) (text string, trap error, err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			if fault, ok := p.(*rt.Error); ok {
+				text, trap, err = "", fault, nil
+				return
+			}
+			panic(p)
+		}
+	}()
+	out, callErr := m.activateSlot(name.fnSlot(m), []any{item}, name.captures, runtime, false, m.depth, nil)
+	if callErr != nil {
+		if fault, ok := asFault(callErr); ok {
+			return "", fault, nil
+		}
+		var fault *rt.Error
+		if errors.As(callErr, &fault) {
+			return "", fault, nil
+		}
+		return "", nil, callErr
+	}
+	s, ok := out.(string)
+	if !ok {
+		return "", nil, fmt.Errorf("vm: a subtests name answered %T, not a String", out)
+	}
+	return s, nil, nil
 }
 
 // rowVerdict is the AssertionFailure a `try` whose boundary is a test body

@@ -205,6 +205,55 @@ test "t" {
 			msg: "`subtests` body must contain an assert or refute, or end each row with a Result<_, AssertionFailure>",
 		},
 		{
+			name: "a name that is no String",
+			src: `test "t" {
+    subtests [1, 2], n, n {
+        assert n > 0
+    }
+}`,
+			line: 2, col: 25,
+			msg:  "the name of a `subtests` row must be a String, got Int",
+			hint: "build a String from the row's values, as in `\"${input}\"`",
+		},
+		{
+			name: "a try in a name",
+			src: `fn label(n: Int): Result<String, String> {
+    Ok("${n}")
+}
+
+test "t" {
+    subtests [1, 2], n, try label(n) {
+        assert n > 0
+    }
+}`,
+			line: 6, col: 25,
+			msg:  "`try` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs",
+			hint: "handle the Result or Maybe inside the name with `case`, or compute the name in a function",
+		},
+		{
+			name: "an assertion in a name",
+			src: `test "t" {
+    subtests [1, 2], n, ({
+        assert n > 0
+        "row"
+    }) {
+        assert n > 0
+    }
+}`,
+			line: 3, col: 9,
+			msg: "`assert` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs",
+		},
+		{
+			name: "a return in a name",
+			src: `test "t" {
+    subtests [1, 2], n, if n > 1 { return } else { "small" } {
+        assert n > 0
+    }
+}`,
+			line: 2, col: 36,
+			msg: "`return` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs",
+		},
+		{
 			name: "an assertion only in a lambda in the body",
 			src: `test "t" {
     subtests [1, 2], n {
@@ -334,6 +383,42 @@ test "t" {
                 refute n == 2
             }
         }
+    }
+}`},
+		{"a row named by a pattern binding the body never reads", `test "t" {
+    cases = [("leap", 2000, True), ("common", 1900, False)]
+    subtests cases, (description, year, expected), description {
+        assert (year % 400 == 0) == expected
+    }
+}`},
+		{"a built name, and a name reading the enclosing test", `test "t" {
+    prefix = "sum"
+    subtests [(1, 2, 3)], (a, b, sum), "${prefix}: ${a} + ${b}" {
+        assert a + b == sum
+    }
+}`},
+		{"discarded columns with and without a name", `test "t" {
+    cases = [("leap", 2000, True)]
+    subtests cases, (_, year, expected) {
+        assert (year % 400 == 0) == expected
+    }
+    subtests cases, (_description, year, expected) {
+        assert (year % 400 == 0) == expected
+    }
+    subtests cases, (description, _, expected), description {
+        assert expected
+    }
+    subtests cases, (_description, year, _), "${year}" {
+        assert year > 0
+    }
+}`},
+		{"a name over an or pattern, two rows sharing a name, and a lambda in a name", `test "t" {
+    rows: List<Result<Int, Int>> = [Ok(1), Err(1)]
+    subtests rows, Ok(n) or Err(n), "same" {
+        assert n == 1
+    }
+    subtests [1, 2], n, [n] |> Iter.map(|m| Int.to_string(m)) |> String.join(", ") {
+        assert n > 0
     }
 }`},
 		{"subtests as a name", `fn subtests(n: Int): Int {
