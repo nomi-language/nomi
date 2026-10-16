@@ -93,6 +93,9 @@ func (bl *irScalarBuilder) casePatternTest(br *ast.CaseBranch, adHoc bool, subj 
 		bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(br.Pattern), cond, target.ID(), next.ID()))
 		return true
 	}
+	if or, isOr := br.Pattern.(*ast.OrPattern); isOr {
+		return bl.orPatternTest(or, subj, sk, target, next)
+	}
 	if cp, isCodepoint := br.Pattern.(*ast.CodepointLit); isCodepoint {
 		if !bl.codepointCaseTest(cp, subj, sk, target, next) {
 			irDeclineNote("a codepoint literal pattern over a subject that is not a Codepoint")

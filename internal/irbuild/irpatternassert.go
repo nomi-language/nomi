@@ -84,6 +84,11 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 		bl.tupleCaseBindings(p, subj, sk)
 	case *ast.IdentPattern:
 		bl.patternBinding(p, p.Name, subj, sk)
+	case *ast.OrPattern:
+		if !bl.orPatternTest(p, subj, sk, matched, failed) {
+			irDeclineAtPattern(p, "an `assert pattern = value` `or` pattern outside the retained case tests")
+			return false
+		}
 	case *ast.IntLit, *ast.StringLit, *ast.CodepointLit, *ast.FloatLit, *ast.DecimalLit:
 		lit, lk, _, lok := bl.litFor(p, sk)
 		if !lok || lk != sk {

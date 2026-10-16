@@ -118,5 +118,5 @@ func (bl *irScalarBuilder) patternParams(params []irPatternParam) bool {
 		bl.bound[b.Sym().Name()], bl.boundK[b.Sym().Name()] = b.Dst(), k
 		bl.declareBind(b, k)
 	}
-	return true
+	return bl.orParamTests()
 }

@@ -40,6 +40,7 @@ import "github.com/nomi-language/nomi/internal/ir"
 func (g *gen) irPrologueOpen(sh *irFuncShell) func(bool) {
 	prevPro := g.irPro
 	g.irPro = sh
+	sh.orParams = nil
 	return func(ok bool) {
 		g.irPro = prevPro
 		sh.prologue = len(sh.entry.Instrs())

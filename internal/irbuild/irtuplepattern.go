@@ -118,6 +118,12 @@ func (bl *irScalarBuilder) patternBinding(at ast.Node, name string, part ir.Temp
 	if ast.IsDiscardName(name) {
 		return
 	}
+	if bl.orJoin != nil {
+		// An alternative of an `or` pattern: the name is declared once,
+		// where the alternatives join (irorpattern.go).
+		bl.orJoinCopy(at, name, part, k)
+		return
+	}
 	// Pattern declarations belong to this arm, including when they shadow an
 	// enclosing declaration. Its caller owns the cloned lexical symbol tables.
 	sym := ir.NewSymbol(name)

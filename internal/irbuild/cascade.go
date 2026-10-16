@@ -47,6 +47,13 @@ func patternBinders(p ast.Node) []string {
 	case *ast.AsPattern:
 		return append(patternBinders(t.Pattern), t.Name)
 
+	case *ast.OrPattern:
+		// Every alternative binds the same names.
+		if len(t.Alternatives) == 0 {
+			return nil
+		}
+		return patternBinders(t.Alternatives[0])
+
 	case *ast.EnumPattern:
 		// A variant binds either one name directly (`Some(x)`) or a nested
 		// pattern (`Some((a, b))`), never both — see ast.EnumPattern.Binding.

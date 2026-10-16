@@ -215,6 +215,20 @@ func (g *gen) destructure(pat ast.Node, src expr, at ast.Node) bool {
 		g.bindDestructured(p.Name, src, p)
 		return true
 
+	case *ast.OrPattern:
+		// The checker admits an `or` here only when its alternatives
+		// together match every value, but which one matches is a test,
+		// and the prologue is straight-line: the value is held, and the
+		// body's builder tests it before the body (orParamTests).
+		sh := g.irPro
+		if sh == nil {
+			g.reject("destructuring parameter", "an `or` pattern", at)
+			return false
+		}
+		c := g.irCopyNode(p, src.k, g.irHold(src))
+		sh.orParams = append(sh.orParams, irOrParam{pat: p, t: c.Dst(), k: src.k})
+		return true
+
 	case *ast.StructPattern:
 		return g.destructureStruct(p, src, at)
 

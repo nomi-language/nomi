@@ -33,6 +33,12 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 			if p.TypeName == nil && pat.Binding == "" {
 				return pat, v, true
 			}
+		case *ast.OrPattern:
+			// `.One({w: 0, h} or {w, h: 0})`: each alternative matches the
+			// record as the payload alone would.
+			if pat.Binding == "" && irRecordAlternatives(p) {
+				return pat, v, true
+			}
 		}
 		return nil, nil, false
 	}
@@ -98,7 +104,7 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 		if _, ok := tupleCaseComponents(pat.Payload, pk); pat.Binding != "" || !ok {
 			return nil, nil, false
 		}
-	case *ast.AsPattern, *ast.Binary:
+	case *ast.AsPattern, *ast.Binary, *ast.OrPattern:
 		// `Some(P as name)`: P tested against the projected payload as a
 		// field's sub-pattern is, and name bound to the payload.
 		// `Some("/users/" + id)` is a string prefix test of the payload.
@@ -109,6 +115,26 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 		return nil, nil, false
 	}
 	return pat, v, true
+}
+
+// irRecordAlternatives reports whether each alternative of p, the payload
+// pattern of a struct-shaped variant, is one its record matches as the
+// payload alone would: a name, `_` or an anonymous struct pattern, with or
+// without an `as`. A typed struct pattern does not match an anonymous
+// struct, which the checker reports.
+func irRecordAlternatives(p *ast.OrPattern) bool {
+	for _, alt := range p.Alternatives {
+		switch a := ast.WithoutAs(alt).(type) {
+		case *ast.IdentPattern, *ast.WildcardPattern:
+		case *ast.StructPattern:
+			if a.TypeName != nil {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // payloadPatternKind is the kind the checker types a single-payload
@@ -248,6 +274,15 @@ func (bl *irScalarBuilder) enumCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 			rec, rk, ok := bl.variantRecord(pat, subj, k.def, v)
 			return ok && bl.nominalCaseTest(rp, rec, rk, arm, next)
 		}
+		if op, isOr := pat.Payload.(*ast.OrPattern); isOr {
+			// `.Rec({w: 0, h} or {w, h: 0})`: the record, matched by each
+			// alternative in turn.
+			fields := bl.f.NewBlock(bl.g.irNodePos(op), "payload test")
+			bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(pat), match.Dst(), fields.ID(), next.ID()))
+			bl.b = fields
+			rec, rk, ok := bl.variantRecord(pat, subj, k.def, v)
+			return ok && bl.orPatternTest(op, rec, rk, arm, next)
+		}
 		bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(pat), match.Dst(), arm.ID(), next.ID()))
 		bl.b = arm
 		return bl.variantRecordBinding(pat, subj, k.def, v)
@@ -268,6 +303,11 @@ func (bl *irScalarBuilder) enumCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 	_, nestedMap := pat.Payload.(*ast.MapPattern)
 	_, nestedList := pat.Payload.(*ast.ListPattern)
 	_, nestedAs := pat.Payload.(*ast.AsPattern)
+	if _, nestedOr := pat.Payload.(*ast.OrPattern); nestedOr {
+		// `Some(.A or .B)` tests the projected payload as an `as` payload
+		// does.
+		nestedAs = true
+	}
 	if _, _, prefix := strPrefixPattern(pat.Payload); prefix {
 		// A string prefix payload tests the projected payload as an `as`
 		// payload does.
@@ -529,6 +569,14 @@ func irFieldSubPattern(p ast.Node, k kind) bool {
 	case *ast.AsPattern:
 		// The name binds the field; its pattern decides the test.
 		return irFieldSubPattern(ast.WithoutAs(p), k)
+	case *ast.OrPattern:
+		// Each alternative is tested as the field's sub-pattern would be.
+		for _, alt := range p.(*ast.OrPattern).Alternatives {
+			if !irFieldSubPattern(alt, k) {
+				return false
+			}
+		}
+		return true
 	case *ast.Binary:
 		_, _, prefix := strPrefixPattern(p)
 		return prefix && k == kindString

@@ -149,6 +149,13 @@ func (g *gen) probePattern(p ast.Node) {
 		// pattern matched), so no refusal of its own.
 		g.probePattern(pat.Pattern)
 
+	case *ast.OrPattern:
+		// Lowered wherever its alternatives are (irorpattern.go), so no
+		// refusal of its own.
+		for _, alt := range pat.Alternatives {
+			g.probePattern(alt)
+		}
+
 	case *ast.StructPattern:
 		// Lowered in both spellings (structArm — nominal and anonymous), so no
 		// refusal of its own, for the reason the TuplePattern arm below gives.

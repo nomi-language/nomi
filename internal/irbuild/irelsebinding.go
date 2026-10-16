@@ -178,6 +178,10 @@ func (g *gen) irPatternAlwaysMatches(p ast.Node, k kind) bool {
 		return true
 	case *ast.AsPattern:
 		return g.irPatternAlwaysMatches(v.Pattern, k)
+	case *ast.OrPattern:
+		// `.L(n) or .R(n)` over a two-variant enum: the checker records an
+		// `or` whose alternatives together cover their position.
+		return g.srcFA().OrPatternCovers(v)
 	case *ast.TuplePattern:
 		if !irRetainedTupleKind(k) || len(v.Patterns) != len(k.comp.parts) {
 			return false

@@ -159,6 +159,8 @@ func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k k
 		}
 		bl.patternBinding(p, p.Name, value, k)
 		return true
+	case *ast.OrPattern:
+		return bl.orPatternTest(p, value, k, arm, next)
 	case *ast.IntLit, *ast.StringLit, *ast.CodepointLit, *ast.FloatLit, *ast.DecimalLit:
 		// A Float or Decimal literal is tested as a top-level `case` arm
 		// tests it (litFor): MatchLit, which the VM answers with rt.Equal,

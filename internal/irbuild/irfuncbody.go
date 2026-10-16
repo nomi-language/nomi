@@ -113,6 +113,10 @@ type irScalarBuilder struct {
 	// def-use chain crosses the statement boundary.
 	bound  map[string]ir.Temp
 	boundK map[string]kind
+	// orJoin is set while an alternative of an `or` pattern is tested: the
+	// names it binds are written to the pattern's join temporaries rather
+	// than declared (irorpattern.go).
+	orJoin *irOrJoin
 	// inTest marks a body this builder is retaining for a `test` declaration.
 	// It gates four widenings; irtestbody.go's header names each and the
 	// reason it is safe only here.
@@ -2048,6 +2052,9 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 		}
 		bl.bound[b.Sym().Name()], bl.boundK[b.Sym().Name()] = b.Dst(), k
 		bl.declareBind(b, k)
+	}
+	if !bl.orParamTests() {
+		return nil, false
 	}
 	scope := bl.openDeferScope(fd.Body)
 	bl.openWithScope(true)
