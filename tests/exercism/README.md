@@ -14,7 +14,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [anagram](anagram/NOTES.md): friction
 - [binary-search](binary-search/NOTES.md): friction
 - [bob](bob/NOTES.md): friction
-- [clock](clock/NOTES.md): friction
+- [clock](clock/NOTES.md): clean
 - [collatz-conjecture](collatz-conjecture/NOTES.md): clean
 - [etl](etl/NOTES.md): clean
 - [hamming](hamming/NOTES.md): clean

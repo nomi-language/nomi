@@ -11,6 +11,8 @@ Adapted from Exercism problem-specifications (MIT), exercises/clock.
 - Rendering is an `impl Display`, and tests compare `"${clock}"` with the canonical `HH:MM` text.
 - Parameters destructure the distinct directly (`fn add(Clock(time), minutes: Int)`).
 
+- `wrap` brings any count of minutes into one day with `Int.modulo`, whose result takes the divisor's sign, so `-1` minutes is `1439`. `%` takes the dividend's sign and would leave it negative.
+
 ## Friction
 
-- [stdlib] No floored or Euclidean modulo: `%` takes the dividend's sign and `Int.modulo` is the same operation over a `NonZeroInt`. `wrap` writes `(minutes % day + day) % day`. Rust has `i64::rem_euclid`, Elixir `Integer.mod/2`, Gleam `int.modulo`.
+None.

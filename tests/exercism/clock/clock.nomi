@@ -31,7 +31,7 @@ impl Display for Clock {
 /// Brings any count of minutes into one day, rounding toward the past, so
 /// `-1` is `23:59`.
 fn wrap(minutes: Int): Int {
-    (minutes % minutes_per_day + minutes_per_day) % minutes_per_day
+    Int.modulo(minutes, minutes_per_day)
 }
 
 fn two_digits(n: Int): String {
