@@ -489,6 +489,20 @@ such as how to implement an interface (`Iter`'s doc comment shows a custom
 `each_while`). Nothing checks those blocks, so prefer `//!` whenever an
 assertion can show the point.
 
+Describe a whole file with `//#` lines at its top, in every file, not only in
+`std/`. A plain `//` comment directly above the first declaration reads as
+that declaration's comment, and `nomi fmt` keeps the two together; `//#`
+attaches to nothing, so it stays the file's.
+
+```nomi
+//# Parses and evaluates the word problems of the exercise.
+
+/// Answers a word problem.
+pub fn answer(question: String): Result<Int, Error> {
+    ...
+}
+```
+
 ## 8. Tests
 
 Prefer `_test.nomi` files with explicit `test "..." { ... }` blocks for
@@ -1255,6 +1269,25 @@ Prefer a binding `else` to a `case` whose failure arm only leaves: the
 `case` would nest the whole success path one level in. Prefer `try` to an
 `else` whose arm returns the same error unchanged
 (`Err(e) -> return Err(e)`).
+
+To turn a missing value into an error, use a binding `else` when the value
+is bound for the lines that follow, and `Maybe.to_result` then `try` when the
+lookup is one stage of a pipe. Name the variant with its enum in
+`to_result`: nothing at that position fixes the error type, so `.NotFound`
+alone cannot be resolved there.
+
+```nomi
+// bound for later lines
+Some(user) = Map.get(users, id) else { return Err(.NotFound) }
+
+// one stage of a pipe
+count =
+    word
+    |> String.trim()
+    |> String.to_int()
+    |> Maybe.to_result(Error.NotANumber)
+    |> try
+```
 
 ## 17. Leave out a struct literal's type name where the context names it
 
