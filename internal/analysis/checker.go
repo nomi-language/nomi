@@ -15613,7 +15613,9 @@ func (c *checker) checkLambda(n *ast.Lambda, undeterminedErr bool) Type {
 			// uses nor the lambda's own type can be checked. A later use of
 			// the lambda (`case Some(|x| ...) { Some(h) -> f(h) }`) does
 			// not fix it; the checker has no variable for it to solve.
-			c.addError(p.Line, p.Col, fmt.Sprintf("cannot infer type for parameter %s", p.Name))
+			c.report(TypeError{Line: p.Line, Col: p.Col,
+				Message: fmt.Sprintf("cannot infer type for parameter %s", p.Name)}.
+				WithHint(fmt.Sprintf("annotate the parameter with its type, as in `|%s: T|`; a later use of the lambda does not give it one", p.Name)))
 			undetermined = true
 		}
 	}

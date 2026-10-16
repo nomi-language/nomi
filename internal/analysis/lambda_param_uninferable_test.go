@@ -45,3 +45,23 @@ fn main() {
 		t.Fatalf("errors:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }
+
+// The error's hint shows the annotation that fixes it, with the parameter's
+// own name: a lambda bound to a name does not take its parameter's type from
+// its body or a later call (spec, "A later use never types a parameter").
+func TestLambdaParamUninferable_HintShowsTheAnnotation(t *testing.T) {
+	errs := checkWithStdlib(`
+fn leap?(year: Int): Bool {
+  divisible? = |n| year % n == 0
+  divisible?(4) and (!divisible?(100) or divisible?(400))
+}
+`)
+	if len(errs) == 0 {
+		t.Fatal("the checker admits `|n| year % n == 0` bound to a name")
+	}
+	want := "cannot infer type for parameter n\n" +
+		"help: annotate the parameter with its type, as in `|n: T|`; a later use of the lambda does not give it one"
+	if got := diagText(errs[0]); got != want || errs[0].Line != 3 || errs[0].Col != 17 {
+		t.Fatalf("first error at %d:%d:\n%s\nwant at 3:17:\n%s", errs[0].Line, errs[0].Col, got, want)
+	}
+}

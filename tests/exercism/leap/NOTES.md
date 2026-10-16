@@ -28,8 +28,8 @@ Adapted from Exercism problem-specifications (MIT), exercises/leap.
   and got `error: cannot infer type for parameter n` at `|n|`. `year` is an
   `Int`, so `n` can only be an `Int`, and Gleam infers it from the same body
   (`let divisible = fn(n) { year % n == 0 }`). The spec says this is deliberate ("A later use
-  never types a parameter"), and `|n: Int|` fixes it, but the error has no
-  hint suggesting that annotation.
+  never types a parameter"), and `|n: Int|` fixes it. Fixed: the error now has
+  a hint showing that annotation (`|n: T|`).
 - [feature] A `subtests` row has no name of its own, so a table that wants
   the canonical description in its failure report carries it as a discarded
   first column. A form such as `subtests cases, name: .description, (...)`, or
