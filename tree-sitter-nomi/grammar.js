@@ -1310,12 +1310,14 @@ module.exports = grammar({
     bare_assertion: $ => choice('assert', 'refute'),
 
     // `subtests rows, pattern { body }`: the body runs once per row, with the
-    // pattern bound to it.
+    // pattern bound to it. `subtests rows, pattern, name { body }` names each
+    // row with a String expression that reads the pattern's bindings.
     subtests_statement: $ => seq(
       alias($._subtests_keyword, 'subtests'),
       field('rows', $._expression),
       ',',
       field('pattern', $._param_pattern),
+      optional(seq(',', field('name', $._expression))),
       field('body', $.body),
     ),
 
