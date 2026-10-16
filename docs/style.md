@@ -1528,8 +1528,9 @@ could have known (spec §17, *Traps, `Maybe` and `Result`*):
   not control or cannot cheaply check: a lookup that may miss, a parse, input,
   a file, a position that may legitimately fall off the edge.
 - Trap when the caller broke a promise it could have checked: an index it
-  computed, a divisor it chose, a count that must not be negative. A trap
-  reports a bug; nothing in the program catches it.
+  computed, a divisor it chose, a count that must not be negative, a range
+  whose bounds it picked (`Generator.int(6, 1)`). A trap reports a bug;
+  nothing in the program catches it.
 - Give every trapping function a total way around it: a sibling that returns
   `Maybe`, or a cheap check the caller can run first.
 

@@ -2,7 +2,7 @@ import std/random.{Generator, Seed}
 
 test "seeded generators produce deterministic values" {
     seed = Seed.from_int(123)
-    assert Ok(die) = Generator.int(1, 6)
+    die = Generator.int(1, 6)
 
     (roll, seed) = die |> Generator.step(seed)
 
@@ -24,7 +24,7 @@ test "seeded generators produce deterministic values" {
 
 test "random generators compose dependent draws" {
     seed = Seed.from_int(123)
-    assert Ok(size) = Generator.int(1, 4)
+    size = Generator.int(1, 4)
 
     (sized, _) =
         size
@@ -32,11 +32,6 @@ test "random generators compose dependent draws" {
         |> Generator.step(seed)
 
     assert sized == [False, False, True, False]
-}
-
-test "invalid integer ranges return an error" {
-    assert Generator.int(6, 1)
-        |> Result.err?()
 }
 
 test "weighted generators require positive total weight" {

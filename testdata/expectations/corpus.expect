@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 365
-declared-cases 1101
+records 366
+declared-cases 1105
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -568,13 +568,23 @@ T test result: ok. 13 passed, 0 failed
 T
 C 04-scalars-and-text/random_test.nomi
 E 0
-N 5
-H 422311789570825e3080c77395752b43a10ae9473e8cea84770449680c3911fc
+N 4
+H 07a1c972fed717fff50a03adf911b42c1a9ff2a698b9996657221d742915e619
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: seeded generators produce deterministic values
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: random generators compose dependent draws
-T ok <root>/tests/04-scalars-and-text/random_test.nomi :: invalid integer ranges return an error
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: weighted generators require positive total weight
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: weighted generators reject negative weights
+T test result: ok. 4 passed, 0 failed
+T
+C 04-scalars-and-text/random_traps_test.nomi
+E 0
+N 5
+H 70d4ea8a958d41008ebe79ee32957b0282fd3cdb67b0e3e8992e5b6a52a5adcc
+T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: a reversed integer range traps at the program's call
+T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: an empty float range traps at the program's call
+T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: equal float bounds trap
+T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: a range trap inside a lambda names the lambda's line
+T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: equal integer bounds make a constant draw
 T test result: ok. 5 passed, 0 failed
 T
 C 04-scalars-and-text/ranges_test.nomi

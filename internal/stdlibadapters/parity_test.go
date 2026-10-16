@@ -221,6 +221,10 @@ func randomCases() map[string][]argSet {
 			a(i(math.MaxInt64), i(math.MaxInt64)), a(i(7), i(0))),
 		"random.unit_float_state": sets(a(i(1)), a(i(42)), a(i(-1)), a(i(math.MinInt64))),
 		"random.os_state":         {{args: a(), shapeOnly: true}},
+		"random.require_int_range": sets(a(i(1), i(6)), a(i(4), i(4)), a(i(6), i(1)),
+			a(i(math.MinInt64), i(math.MaxInt64)), a(i(math.MaxInt64), i(math.MinInt64))),
+		"random.require_float_range": sets(a(hFloat(1.5), hFloat(2.5)), a(hFloat(2.5), hFloat(1.5)),
+			a(hFloat(1.0), hFloat(1.0)), a(hFloat(math.NaN()), hFloat(1.0)), a(hFloat(math.Inf(-1)), hFloat(math.Inf(1)))),
 	}
 }
 

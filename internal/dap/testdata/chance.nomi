@@ -7,7 +7,7 @@ import {
 fn main() {
     started = Instant.as_nanos(Instant.now())
     seed = Result.with_default(Seed.from_os(), Seed.from_int(7))
-    die = Result.with_default(Generator.int(1, 1000000), Generator.constant(0))
+    die = Generator.int(1, 1000000)
     (roll, _) = Generator.step(die, seed)
     io.print("rolled")
     done = roll + started % 10

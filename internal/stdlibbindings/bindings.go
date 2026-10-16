@@ -98,7 +98,9 @@ type Binding struct {
 	// text `<name>: panic: <value>` (hostadapt.Recover). Set on every RtFuncs
 	// row: an rt trap (*rt.Error) is a Nomi fault the VM reports with rt's
 	// text, and a cancellation unwind (rt.TimerSleep in a cancelled task) must
-	// keep unwinding the task. Unset on Funcs rows, whose adapters recover.
+	// keep unwinding the task. Set too on the Funcs rows whose job is to trap
+	// (std/random's range checks); unset on the other Funcs rows, whose
+	// adapters recover.
 	PanicsPropagate bool
 }
 
@@ -187,6 +189,8 @@ func Funcs() []Binding {
 		{Name: "calendar.zoned_with_zone_raw", Fn: stdcalendar.FFIZonedWithZone},
 		{Name: "random.below_state", Fn: stdrandom.FFIBelow},
 		{Name: "random.os_state", Fn: stdrandom.FFIFromOS},
+		{Name: "random.require_float_range", Fn: stdrandom.FFIRequireFloatRange, PanicsPropagate: true},
+		{Name: "random.require_int_range", Fn: stdrandom.FFIRequireIntRange, PanicsPropagate: true},
 		{Name: "random.unit_float_state", Fn: stdrandom.FFIUnitFloat},
 		{Name: "Regex.compile", Fn: stdregex.FFICompile},
 		{Name: "Regex.contained_in?", Fn: stdregex.FFIMatch},

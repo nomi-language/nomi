@@ -15,14 +15,13 @@ import {
     lists.List
     results.Result.{self, Err, Ok}
     strings.String
+    unit.Unit
     vectors.Vector
 }
 
-/// Errors returned when constructing a generator whose invariants can be
-/// checked before any random draw happens, or when OS entropy is unavailable.
+/// Errors returned when weights cannot make a generator, or when OS entropy is
+/// unavailable.
 pub enum Error {
-    InvalidIntRange {from: Int, to: Int}
-    InvalidFloatRange {from: Float, to: Float}
     InvalidWeight {weight: Float}
     ZeroWeightTotal
     OsEntropy {reason: String}
@@ -33,8 +32,6 @@ derive Equatable for Error
 impl Display for Error {
     fn to_string(e: Error): String {
         case e {
-            Error.InvalidIntRange{from, to} -> "invalid integer range: ${from}..=${to}"
-            Error.InvalidFloatRange{from, to} -> "invalid float range: [${from}, ${to})"
             Error.InvalidWeight{weight} -> "invalid random weight: ${weight}"
             Error.ZeroWeightTotal -> "random weights must include at least one positive weight"
             Error.OsEntropy{reason} -> "OS entropy unavailable: ${reason}"
@@ -50,8 +47,7 @@ pub opaque type Seed Int
 impl Seed {
     /// A reproducible seed from an integer. Same `n` -> same sequence, forever.
     //! seed = Seed.from_int(123)
-    //! assert Ok(die) = Generator.int(1, 6)
-    //! (roll, _) = Generator.step(die, seed)
+    //! (roll, _) = Generator.step(Generator.int(1, 6), seed)
     //! assert roll == 2
     //
     pub fn from_int(n: Int): Seed {
@@ -78,6 +74,12 @@ host fn unit_float_state(state: Int): (Float, Int)
 
 host fn os_state(): Result<Int, String>
 
+/// Traps unless `from <= to`, naming both bounds.
+host fn require_int_range(from: Int, to: Int): Unit
+
+/// Traps unless `from < to`, naming both bounds.
+host fn require_float_range(from: Float, to: Float): Unit
+
 /// Unbiased integer in `[0, n)` plus the next seed (host rejection sampling).
 /// Module-private -- the building block the public generators draw on.
 fn below(Seed(state), n: Int): (Int, Seed) {
@@ -93,8 +95,8 @@ fn unit_float(Seed(state)): (Float, Seed) {
 
 /// An immutable recipe for producing a `T`. Build one with a constructor
 /// (`Generator.int`, ...), reshape it with `map` / `flat_map`, then run it with
-/// `Generator.step`. Constructors whose invariants can be invalid return
-/// `Result`; unwrap them with `try` or `case` before composing.
+/// `Generator.step`. `Generator.weighted` returns a `Result`, since its weights
+/// may come from data; unwrap it with `try` or `case` before composing.
 pub opaque struct Generator<T> {
     run: (Seed) -> (T, Seed)
 }
@@ -103,7 +105,7 @@ impl Generator<T> {
     /// Produce a value and the next seed. The pure core of `Generator`.
     ///
     /// ```nomi
-    /// die = try Generator.int(1, 6)
+    /// die = Generator.int(1, 6)
     /// (n, _) = die |> Generator.step(Seed.from_int(42))
     /// ```
     //! gen = Generator.constant("heads")
@@ -114,34 +116,30 @@ impl Generator<T> {
         gen.run(seed)
     }
 
-    /// Uniform integer in the inclusive range `[from, to]`. Returns Err when
-    /// `from > to`.
-    //! assert Ok(die) = Generator.int(1, 6)
+    /// Uniform integer in the inclusive range `[from, to]`, which must hold
+    /// `from <= to`. A reversed range traps: `Generator.int: from 6 is greater
+    /// than to 1`. Compare the bounds first when they come from data.
+    //! die = Generator.int(1, 6)
     //! (roll, _) = Generator.step(die, Seed.from_int(123))
     //! assert roll >= 1 and roll <= 6
-    //! assert Err(Error.InvalidIntRange{from: 6, to: 1}) = Generator.int(6, 1)
+    //! (only, _) = Generator.step(Generator.int(4, 4), Seed.from_int(123))
+    //! assert only == 4
     //
-    pub fn int(from: Int, to: Int): Result<Generator<Int>, Error> {
-        if from <= to {
-            Ok(unsafe_int(from, to))
-        } else {
-            Err(Error.InvalidIntRange{from, to})
-        }
+    pub fn int(from: Int, to: Int): Generator<Int> {
+        require_int_range(from, to)
+        unsafe_int(from, to)
     }
 
-    /// Uniform float in the half-open range `[from, to)`. Returns Err when
-    /// `from >= to`.
-    //! assert Ok(gen) = Generator.float(1.5, 2.5)
+    /// Uniform float in the half-open range `[from, to)`, which must hold
+    /// `from < to`. Any other pair, a NaN bound included, traps:
+    /// `Generator.float: from 2.5 is not less than to 1.5`.
+    //! gen = Generator.float(1.5, 2.5)
     //! (x, _) = Generator.step(gen, Seed.from_int(123))
     //! assert x >= 1.5 and x < 2.5
-    //! assert Err(Error.InvalidFloatRange{from: 2.5, to: 1.5}) = Generator.float(2.5, 1.5)
     //
-    pub fn float(from: Float, to: Float): Result<Generator<Float>, Error> {
-        if from < to {
-            Ok(unsafe_float(from, to))
-        } else {
-            Err(Error.InvalidFloatRange{from, to})
-        }
+    pub fn float(from: Float, to: Float): Generator<Float> {
+        require_float_range(from, to)
+        unsafe_float(from, to)
     }
 
     /// `True` or `False` with equal probability.
@@ -212,7 +210,7 @@ impl Generator<T> {
     /// Sequence a dependent generator -- the bind operation.
     ///
     /// ```nomi
-    /// gen = try Generator.int(1, 6)
+    /// gen = Generator.int(1, 6)
     /// gen |> Generator.flat_map(|n|
     ///     Generator.list(Generator.bool(), n)
     /// )

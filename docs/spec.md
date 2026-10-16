@@ -5483,9 +5483,10 @@ APIs written in Nomi:
   off the edge (`Vector.get`, `Iter.first`).
 - **A trap** when the caller broke a promise it could have checked: a divisor
   it chose (`/`, §22), arithmetic past 64 bits (§22 *Integer overflow traps*),
-  an index it computed (`Vector.at`, `Vector.set`), or a `todo` it left in
-  (§5 *Unwritten Code*). A trap means the program has a bug. It is not a
-  situation to handle.
+  an index it computed (`Vector.at`, `Vector.set`), a range whose bounds it
+  picked (`Generator.int`, §40), or a `todo` it left in (§5 *Unwritten
+  Code*). A trap means the program has a bug. It is not a situation to
+  handle.
 - **Every trapping operation has a total way around it**: a sibling that
   returns `Maybe`, or a cheap check the caller can make first. `Int.divide`
   takes a `NonZeroInt` that `Int.to_non_zero` makes, `Decimal.divide` takes a
@@ -9397,7 +9398,7 @@ One runner:
 ```nomi
 seed = Seed.from_int(42)
 
-die = try Generator.int(1, 6)
+die = Generator.int(1, 6)
 
 (roll, seed) = die |> Generator.step(seed)
 
@@ -9417,14 +9418,17 @@ die = try Generator.int(1, 6)
 ### Constructors
 
 `Generator.int(from, to)` (inclusive) and
-`Generator.float(from, to)` (half-open `[from, to)`) return
-`Result<random.Generator<_>, random.Error>` because their ranges can be
-invalid. `Generator.bool()`, `Generator.constant(value)`, and
-`Generator.uniform(first, rest)` are infallible.
+`Generator.float(from, to)` (half-open `[from, to)`) return the generator
+itself. The caller chooses the bounds, so a range with nothing in it is a
+broken promise and traps (§17): `Generator.int(6, 1)` stops the program with
+`Generator.int: from 6 is greater than to 1`, and `Generator.float` traps
+unless `from < to` (a NaN bound included). Compare the bounds first when they
+come from data. `Generator.bool()`, `Generator.constant(value)`, and
+`Generator.uniform(first, rest)` cannot fail.
 `Generator.weighted(first, rest)` returns
-`Result<random.Generator<T>, random.Error>` because weights must be
-non-negative and at least one weight must be positive; weights need not sum to
-1.
+`Result<random.Generator<T>, random.Error>` because weights are often data:
+they must be non-negative and at least one must be positive; they need not sum
+to 1.
 
 ### Combinators and collections
 
@@ -9437,7 +9441,7 @@ non-negative and at least one weight must be positive; weights need not sum to
 ```nomi
 seed = Seed.from_int(7)
 
-die = try Generator.int(1, 6)
+die = Generator.int(1, 6)
 
 (hand, _) = die
 |> Generator.list(5)

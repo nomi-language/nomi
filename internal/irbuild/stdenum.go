@@ -734,30 +734,18 @@ var stdEnumSpecs = []stdEnumSpec{{
 	},
 }, {
 	// std/random's `Error`. Here for CalendarError's reason and the same shape of
-	// dependency: every fallible `std/random` constructor returns
-	// `Result<Generator<T>, Error>`, so with `Generator<T>` represented and this
-	// not, no random signature projects at all.
+	// dependency: `Generator.weighted` returns `Result<Generator<T>, Error>`,
+	// so with `Generator<T>` represented and this not, its signature does not
+	// project.
 	//
-	// THE WIDEST ROW BY PAYLOAD SHAPE, and deliberately so: the first to mix
-	// four forms in one enum — two payloadStructFields, two payloadStructScalar,
-	// one bare. This table's header says a one-row mechanism proves nothing about
-	// generality; the same is true per FORM.
-	//
-	// Its slots do not collapse the way CalendarError's five do; see
-	// rt/randomerror.go for the layout and why Int and Float cannot share.
+	// It mixes two payloadStructScalar variants with a bare one. Its slots do
+	// not collapse the way CalendarError's five do; see rt/randomerror.go for
+	// the layout.
 	origin:   "std/random",
 	nomi:     "Error",
 	goType:   reflect.TypeFor[rt.RandomError](),
 	tagField: "Tag",
 	variants: []stdEnumVariantSpec{
-		structFieldsVariant("InvalidIntRange",
-			scalarField("from", "From", kindInt, ""),
-			scalarField("to", "To", kindInt, ""),
-		),
-		structFieldsVariant("InvalidFloatRange",
-			scalarField("from", "FloatFrom", kindFloat, ""),
-			scalarField("to", "FloatTo", kindFloat, ""),
-		),
 		structScalarVariant("InvalidWeight", "weight", "Weight", kindFloat),
 		bareVariant("ZeroWeightTotal"),
 		structScalarVariant("OsEntropy", "reason", "Reason", kindString),

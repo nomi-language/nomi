@@ -14,6 +14,8 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+
+	"github.com/nomi-language/nomi/rt"
 )
 
 // splitmix64 advances `state` and returns (scrambled output, next state).
@@ -45,6 +47,40 @@ func FFIBelow(state, n int64) (value int64, next int64) {
 			return int64(z % un), int64(s)
 		}
 	}
+}
+
+// FFIRequireIntRange is std/random's `require_int_range`, the check
+// `Generator.int` makes before it builds a generator: it traps unless
+// from <= to. The caller chose both bounds and can compare them first, so a
+// reversed range is a broken promise (spec §17), not an Err.
+func FFIRequireIntRange(from, to int64) rt.Unit {
+	if from > to {
+		rt.Trap(IntRangeText(from, to))
+	}
+	return rt.Unit{}
+}
+
+// IntRangeText is the trap a reversed `Generator.int` range raises:
+// `Generator.int: from 6 is greater than to 1`.
+func IntRangeText(from, to int64) string {
+	return fmt.Sprintf("Generator.int: from %d is greater than to %d", from, to)
+}
+
+// FFIRequireFloatRange is std/random's `require_float_range`, the check
+// `Generator.float` makes: it traps unless from < to, which also refuses a
+// NaN bound, since NaN is less than nothing.
+func FFIRequireFloatRange(from, to float64) rt.Unit {
+	if !(from < to) {
+		rt.Trap(FloatRangeText(from, to))
+	}
+	return rt.Unit{}
+}
+
+// FloatRangeText is the trap an empty `Generator.float` range raises:
+// `Generator.float: from 2.5 is not less than to 1.5`. The bounds read as
+// Nomi prints a Float.
+func FloatRangeText(from, to float64) string {
+	return fmt.Sprintf("Generator.float: from %s is not less than to %s", rt.FormatFloat(from), rt.FormatFloat(to))
 }
 
 // FFIUnitFloat returns a float in [0.0, 1.0) and the advanced state, using the
