@@ -29,35 +29,6 @@ fn main() {
 `,
 	},
 	{
-		name: "gapNestedFnWidenedResult",
-		fix: "builder: a nested `fn` whose body's result is not exactly its declared return type: an " +
-			"embedded struct or distinct type returned as its enum (`fn inner(): Shape { Spot{n: 3} }`), " +
-			"or an empty literal whose element type only the return type fixes (`#[]`, `#{}`, " +
-			"`Map.empty()` returned as a Vector<Int>, Set<Int>, Map<String, Int>). A top-level `fn` " +
-			"with the same body lowers; the nested one compares the body's kind with the declared " +
-			"one instead of widening it as a return does",
-		reason: "a nested fn: a result that is not the declared return type",
-		src: `import std/io
-
-struct Spot {
-    n: Int
-}
-
-enum Shape {
-    embeds Spot
-    Dot
-}
-
-fn main() {
-    fn inner(): Shape {
-        Spot{n: 3}
-    }
-
-    io.inspect(inner())
-}
-`,
-	},
-	{
 		name: "gapCaseOverListOfIters",
 		fix: "builder: a `case` whose scrutinee is a list of values a list pattern cannot compare, " +
 			"an Iter, a Range or a Map whose type a later use solves (`case [it] { [p] -> ... }` " +
@@ -213,25 +184,6 @@ struct Gbox<A> {
 
 fn main() {
     io.inspect(Gbox{v: []})
-}
-`,
-	},
-	{
-		name: "gapExistentialListInNestedFn",
-		fix: "builder: a list literal of two implementors of an interface, typed as a list of the " +
-			"interface by a nested `fn`'s return type (`fn inner(): List<Display> { [1, \"a\"] }`) " +
-			"or by the expected type of a block whose tail it is. The same literal returned by a " +
-			"top-level `fn` or bound with an annotation lowers",
-		reason: "a ListLit",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fn inner(): List<Display> {
-        [1, "a"]
-    }
-
-    io.print(inner() |> Iter.map(|d| Display.to_string(d)) |> String.join(","))
 }
 `,
 	},

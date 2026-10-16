@@ -284,7 +284,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 				sig = irFuncSig{result: want}
 			}
 		}
-		if want.tag == tagSeq || irExistentialKind(want) {
+		if want.tag == tagSeq || irExistentialKind(want) || bl.g.declaredFnLambda == t {
 			// `|_| [20]` where an `(Int) -> Iter<Int>` is expected: the
 			// body's list enters the declared sequence, as a named
 			// function's result does. `|n| n + 1` where an

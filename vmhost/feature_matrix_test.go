@@ -940,10 +940,6 @@ var mxKnown = []struct {
 	{"gapUnitVariantParameterPattern", func(c mxCell) bool {
 		return c.f.name == "unit" && mxHas(c, "variant parameter pattern")
 	}},
-	{"gapExistentialListInNestedFn", func(c mxCell) bool {
-		return c.f.name == "existential list" &&
-			(mxHas(c, "nested function") || len(c.wraps) > 0 && c.wraps[0].name == "block tail")
-	}},
 }
 
 // mxHas reports whether one of c's wrapping contexts is named name.
