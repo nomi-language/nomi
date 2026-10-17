@@ -23,7 +23,7 @@ import "strconv"
 // It does not, because the storage is a function of the KIND and the kind is a
 // function of WHAT IS BEING READ rather than of how the consumer stores it.
 //
-// Element access at a computed position is not in this class. `Vector.at(v, i)` and
+// Element access at a computed position is not in this class. `Vector.get(v, i)` and
 // `Map.get(m, k)` are CALLS — `vectorCall` and `mapCall`, in the `call` class
 // — and they are calls in the consumer too. What is here is exactly the set of
 // reads whose location is fixed by the subject's STATIC TYPE plus a

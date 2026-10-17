@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 277
-declared-cases 886
+records 366
+declared-cases 1110
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -36,6 +36,14 @@ N 1
 H 0df4e18e55ebb0e72e613dc4dd41522d5a6f9b3763a032f34c8cd7cd1d42590e
 T ok <root>/tests/01-foundations/comment_positions_test.nomi :: comments are accepted around declarations and expressions
 T test result: ok. 1 passed, 0 failed
+T
+C 01-foundations/destructure_rebind_test.nomi
+E 0
+N 2
+H 0df1280a587c17d475beb14289ad2a0fb8d7b0064aa002e22167a600f9a65fe6
+T ok <root>/tests/01-foundations/destructure_rebind_test.nomi :: a destructure can rebind a parameter or a function value
+T ok <root>/tests/01-foundations/destructure_rebind_test.nomi :: a distinct destructure may name its type through its file
+T test result: ok. 2 passed, 0 failed
 T
 C 01-foundations/if_else/if_else_test.nomi
 E 0
@@ -211,11 +219,12 @@ T nomi run: <root>/tests/02-testing/assertion_context/test_helpers.nomi declares
 T
 C 02-testing/assertion_pattern_destructuring_test.nomi
 E 0
-N 2
-H e1ebe049936aea096474d1acc766cc0d89f4d05a3573199f6d60e39c09860331
+N 3
+H 081743bf7aa8e21ac16088445f30292ebc2633a80ced038fcb7ab81793c9af11
 T ok <root>/tests/02-testing/assertion_pattern_destructuring_test.nomi :: assert can destructure list tuple struct map type and enum patterns
 T ok <root>/tests/02-testing/assertion_pattern_destructuring_test.nomi :: assert can match literal patterns
-T test result: ok. 2 passed, 0 failed
+T ok <root>/tests/02-testing/assertion_pattern_destructuring_test.nomi :: assert can match a string prefix
+T test result: ok. 3 passed, 0 failed
 T
 C 02-testing/assertion_pipe_test.nomi
 E 0
@@ -301,8 +310,8 @@ T test result: ok. 5 passed, 0 failed
 T
 C 02-testing/subtests_test.nomi
 E 0
-N 9
-H 34b5f202e9d72b22a7f2a4f8d887b0b3a03c956c2bb976775c8d4661f3d922c6
+N 13
+H 4814dc9a36570160b72ec7e203c22073003767f8c2fdf44323f8ff1d146c4a6f
 T ok <root>/tests/02-testing/subtests_test.nomi :: each row runs the body once
 T ok <root>/tests/02-testing/subtests_test.nomi :: rows from a range
 T ok <root>/tests/02-testing/subtests_test.nomi :: rows of structs bound by a struct pattern
@@ -312,7 +321,11 @@ T ok <root>/tests/02-testing/subtests_test.nomi :: a row may bind and assert sev
 T ok <root>/tests/02-testing/subtests_test.nomi :: in a function, the failed rows are its Err
 T ok <root>/tests/02-testing/subtests_test.nomi :: subtests is a name everywhere else
 T ok <root>/tests/02-testing/subtests_test.nomi :: a row may end with a helper that asserts
-T test result: ok. 9 passed, 0 failed
+T ok <root>/tests/02-testing/subtests_test.nomi :: a row may be named by a column it carries
+T ok <root>/tests/02-testing/subtests_test.nomi :: a failed row's name stands where its row would
+T ok <root>/tests/02-testing/subtests_test.nomi :: a name that traps fails its row under the rendered row
+T ok <root>/tests/02-testing/subtests_test.nomi :: discarded columns work with and without a name
+T test result: ok. 13 passed, 0 failed
 T
 C 03-tooling-and-diagnostics/compiler_project/compiler_project_test.nomi
 E 0
@@ -432,13 +445,17 @@ T test result: ok. 8 passed, 0 failed
 T
 C 04-scalars-and-text/codepoints_test.nomi
 E 0
-N 4
-H 9a2acafef8e549ae1bc8a6083a85f365a915c548db912ec9d693b22fe4b20b65
+N 8
+H 7817adeee73f10ad6b03d1da9d130e334e1240403cdeeda03642bc0f3675af1f
 T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoints convert to and from integers and strings
 T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoint construction rejects surrogate values
 T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoint ranges iterate over scalar values
 T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoint ranges skip surrogate values
-T test result: ok. 4 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: letter? is Unicode general category L
+T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: digit? and to_digit read ASCII digits only
+T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: whitespace? is Unicode White_Space
+T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: upper? and lower? are general categories Lu and Ll
+T test result: ok. 8 passed, 0 failed
 T
 C 04-scalars-and-text/decimals/decimals_test.nomi
 E 0
@@ -466,8 +483,8 @@ T nomi run: <root>/tests/04-scalars-and-text/decimals/test_helpers.nomi declares
 T
 C 04-scalars-and-text/floats_test.nomi
 E 0
-N 7
-H 78ff54e0b9e563be35ec871a7cd3eb914d01c233346c44eaef17c6936e12adb3
+N 10
+H c82cbb211f4f794586e4029bd943b457a1fe455d6e2368decab37ef03e9e69a7
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: floats convert to ints by truncating toward zero
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float to int rejects overflow and special values
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float rounding helpers return integer-valued floats
@@ -475,7 +492,18 @@ T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float rounding can fee
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float special values can be produced and classified
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float equality treats NaN reflexively
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float special values propagate through arithmetic and rounding
-T test result: ok. 7 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float abs clears the sign
+T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float sign is -1, 0 or 1, and 0 for both zeros and NaN
+T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float min and max order the two zeros and propagate NaN
+T test result: ok. 10 passed, 0 failed
+T
+C 04-scalars-and-text/int_overflow_test.nomi
+E 0
+N 2
+H 6fb8980603da57b9e60f54d48fab15b28e615b09d354b6e950e27b7bffded421
+T ok <root>/tests/04-scalars-and-text/int_overflow_test.nomi :: int abs of the minimum overflows as negating it does
+T ok <root>/tests/04-scalars-and-text/int_overflow_test.nomi :: int modulo by zero traps as the remainder does
+T test result: ok. 2 passed, 0 failed
 T
 C 04-scalars-and-text/interpolate_composite_test.nomi
 E 0
@@ -503,41 +531,64 @@ T test result: ok. 4 passed, 0 failed
 T
 C 04-scalars-and-text/ints_test.nomi
 E 0
-N 6
-H 6861a66659693607f496e9011a86b3839e6c7c305057a9ff91eb0b297184ab27
+N 12
+H 03e56c4b392aabe234173689797c97bfd8422a30eae1467a238029e2bffa1a29
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: ints convert to floats
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero refinement validates divisors
-T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero integers make division and modulo total
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero integers make division total
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: modulo takes the sign of the divisor
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: remainder takes the sign of the dividend
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: modulo of the minimum by minus one is zero
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: modulo is the dividend less the divisor times the floored quotient
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive refinement is stricter than non-zero
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive integers can be used as non-zero divisors
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive refinement rejects zero divisors
-T test result: ok. 6 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: int abs and sign
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: int min and max
+T test result: ok. 12 passed, 0 failed
 T
 C 04-scalars-and-text/matcher_test.nomi
 E 0
-N 9
-H 3bd0cbe5bd07cd63a2a9f0f6a937e5a1046f4e6c4035cccc075a11d10c9dba30
+N 13
+H 22355292a0df112eac08627a363a16330084dd0354b108b5849491cae3f759c2
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: split takes a string or a regex
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: contains? takes a string or a regex
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: starts_with? and ends_with? anchor a regex to that end
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: ends_with? finds a match ending at the end, not only the leftmost one
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: replace takes a string or a regex and inserts the replacement literally
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find_all lists every match
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find returns the first match, from a string or a regex
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find with an empty needle or an empty regex match finds the empty string
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find works over Unicode text
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find is the first element find_all returns
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a function of your own takes any matcher
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a matcher prints what each call finds
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a value that is not a matcher is rejected
-T test result: ok. 9 passed, 0 failed
+T test result: ok. 13 passed, 0 failed
 T
 C 04-scalars-and-text/random_test.nomi
 E 0
-N 5
-H 422311789570825e3080c77395752b43a10ae9473e8cea84770449680c3911fc
+N 6
+H e671c0c5bf06678ad1f84c92ff522daa61ea5e318b67578d86d96172b18affae
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: seeded generators produce deterministic values
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: random generators compose dependent draws
-T ok <root>/tests/04-scalars-and-text/random_test.nomi :: invalid integer ranges return an error
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: weighted generators require positive total weight
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: weighted generators reject negative weights
-T test result: ok. 5 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/random_test.nomi :: an integer range as wide as Int draws in range
+T ok <root>/tests/04-scalars-and-text/random_test.nomi :: a float range wider than a Float can span draws in range
+T test result: ok. 6 passed, 0 failed
+T
+C 04-scalars-and-text/random_traps_test.nomi
+E 0
+N 6
+H 782118b96455a7489f5f703ab306544daeb7d5a634092543693899624dc0a7e0
+T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: a reversed integer range traps at the program's call
+T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: an empty float range traps at the program's call
+T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: equal float bounds trap
+T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: a range trap inside a lambda names the lambda's line
+T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: equal integer bounds make a constant draw
+T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: an infinite float bound traps
+T test result: ok. 6 passed, 0 failed
 T
 C 04-scalars-and-text/ranges_test.nomi
 E 0
@@ -556,8 +607,8 @@ T test result: ok. 9 passed, 0 failed
 T
 C 04-scalars-and-text/strings_test.nomi
 E 0
-N 9
-H 872536747ce63a7d695192ef532e7ab4cfde6b31d1a9eb57f1ea188d18dafe36
+N 14
+H 5d077b0944a01e1eda0a8174ffef316fb4c9ae16f90f4814c83aa19d00236a92
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings report length containment and slices
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings join and split text
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings expose bytes, graphemes, and codepoints
@@ -567,7 +618,12 @@ T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings parse signed 
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: grapheme transforms materialize back to strings
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: normalization is explicit before byte-based equality
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: join reads any iterator of strings and defaults to no separator
-T test result: ok. 9 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures lists the groups of the first match, without the whole match
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: a group that does not take part is None, and an empty one is Some("")
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures_all lists the groups of every match, left to right
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures work over Unicode text
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures_all finds the matches find_all finds
+T test result: ok. 14 passed, 0 failed
 T
 C 04-scalars-and-text/words_and_lines_test.nomi
 E 0
@@ -705,6 +761,18 @@ T ok <root>/tests/05-calendar-and-time/times_test.nomi :: times sort chronologic
 T ok <root>/tests/05-calendar-and-time/times_test.nomi :: time construction rejects invalid components
 T test result: ok. 6 passed, 0 failed
 T
+C 06-collections/index_traps_test.nomi
+E 0
+N 6
+H 386e9e5375dcdd3e4000cb48543f3672db159e531b98e372f7db0f5510dd109c
+T ok <root>/tests/06-collections/index_traps_test.nomi :: vector at traps on an index past the end
+T ok <root>/tests/06-collections/index_traps_test.nomi :: vector at traps on a negative index
+T ok <root>/tests/06-collections/index_traps_test.nomi :: vector set traps on an index outside the vector
+T ok <root>/tests/06-collections/index_traps_test.nomi :: bytes at traps on an index outside the buffer
+T ok <root>/tests/06-collections/index_traps_test.nomi :: an index trap inside a std call is reported at the program's call
+T ok <root>/tests/06-collections/index_traps_test.nomi :: the get siblings answer None where at traps
+T test result: ok. 6 passed, 0 failed
+T
 C 06-collections/lists_test.nomi
 E 0
 N 6
@@ -720,10 +788,10 @@ T
 C 06-collections/maps_test.nomi
 E 0
 N 6
-H cef0c5a511198a092394ec41a2e917a578cf39746d5de559a0a475a0b892d2f2
+H 68dadc83458398a7ec9217376e5a99dda4c9cb88530f86f8221cb713a74ae620
 T ok <root>/tests/06-collections/maps_test.nomi :: maps expose size lookup insert keys and empty construction
 T ok <root>/tests/06-collections/maps_test.nomi :: map patterns match keys literals and wildcard values
-T ok <root>/tests/06-collections/maps_test.nomi :: map destructuring binds requested keys
+T ok <root>/tests/06-collections/maps_test.nomi :: an asserted map pattern binds requested keys
 T ok <root>/tests/06-collections/maps_test.nomi :: maps iterate as key value tuples
 T ok <root>/tests/06-collections/maps_test.nomi :: map bulk construction and transforms preserve insertion behavior
 T ok <root>/tests/06-collections/maps_test.nomi :: maps merge with +
@@ -825,13 +893,14 @@ T test result: ok. 5 passed, 0 failed
 T
 C 07-structs-and-enums/enums_test.nomi
 E 0
-N 4
-H f8d769ffb3bb11ffff58ad5dd91b4c8ffa4387f39019e2d96c06496786248f11
+N 5
+H 26898f5c388a7fe2a566a4cd61bdae3e09e3ae59b68d274be3d93f2e8f854b05
 T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: enum variants construct and compare by value
 T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: enum tuple payloads match and bind their contents
 T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: enum struct variants expose fields and defaults
 T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: embedded enum variants expose embedded fields
-T test result: ok. 4 passed, 0 failed
+T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: an enum field holding a function reads and calls
+T test result: ok. 5 passed, 0 failed
 T
 C 07-structs-and-enums/field_default_types/field_default_types_test.nomi
 E 0
@@ -847,14 +916,14 @@ T
 C 07-structs-and-enums/nested_update/nested_update_test.nomi
 E 0
 N 23
-H 5e0f4f47783d715be0eb2488f269b50c43857b6f94698cb96f297ac1c7654faa
+H e8454e680cb007a4fef00aff38098156068ebf55daf0aa8ea4c2347d7478bdd7
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a `..` literal at a struct field changes only the fields it writes
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a brace without `..` replaces the field whole
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: updates nest three deep
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a list field takes `[x, ..]`, the new element then the old list
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a set field takes `#{.., x}`, the old set then the new element
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a vector field takes `..` at either end
-T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a map field takes `{.., k => v}`, merged over the old map
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a map field takes `%{.., k => v}`, merged over the old map
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a `..` literal at a present key updates the value there
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a missing key starts from an empty collection
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a missing key builds a struct from the fields written and the defaults
@@ -988,6 +1057,17 @@ T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defa
 T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi :: a defaulted field is kept when it is named
 T test result: ok. 7 passed, 0 failed
 T
+C 07-structs-and-enums/vector_trees_test.nomi
+E 0
+N 5
+H 4bba65bf62aa01b06728055ea7238dc89b945c72a1fda4d06c4da9644d1e6e6e
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: an enum holds itself through a Vector
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: a Vector tree compares and hashes by value
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: a Vector tree grows by pushing a kid
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: a struct holds itself through a Vector
+T ok <root>/tests/07-structs-and-enums/vector_trees_test.nomi :: an enum and a struct hold each other through Vectors
+T test result: ok. 5 passed, 0 failed
+T
 C 08-pattern-matching/as_patterns_test.nomi
 E 0
 N 3
@@ -1031,14 +1111,35 @@ H 9bf2bf2aad5db4068aa73d2f6956330cfe671f305f0a1ef70b9d242e1f9cc92f
 T ok <root>/tests/08-pattern-matching/compound_patterns_test.nomi :: compound patterns can match nested maps without wrappers counting as depth
 T test result: ok. 1 passed, 0 failed
 T
+C 08-pattern-matching/distinct_sub_patterns_test.nomi
+E 0
+N 3
+H 0a862748e1181cdd4683c3b8584a764986b695fd16976b0bc9fcf034b3d6af0c
+T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: tuple distinct sub-patterns
+T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: distinct sub-patterns in variants
+T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: list and map distinct sub-patterns
+T test result: ok. 3 passed, 0 failed
+T
+C 08-pattern-matching/map_binding_else_test.nomi
+E 0
+N 6
+H 4144aa0f4d797cfac63165f6165e49024eb24c5e656299a93002831201895900
+T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map binding with else binds every key it names
+T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map binding runs its else when a key is missing
+T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map binding's else arms match the map that missed
+T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map pattern in a case arm falls through to the next arm
+T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map pattern in an if binds when every key is present
+T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map pattern in an if inside a test body
+T test result: ok. 6 passed, 0 failed
+T
 C 08-pattern-matching/map_patterns_test.nomi
 E 0
 N 5
-H 1074a0dfdf82c852231489e732902d02f3b1884c30b20a168216250da19c695e
+H 5068c7fea146b4bb4e9ab599344f3d91ce070f71076083e8dbdb0248f57804af
 T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: maps can use structurally keyable values
 T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: map literals support composite expression keys
 T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: map patterns match composite expression keys
-T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: map destructuring binds composite expression keys
+T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: an asserted map pattern binds composite expression keys
 T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: negative numeric literals can be map pattern keys
 T test result: ok. 5 passed, 0 failed
 T
@@ -1050,6 +1151,18 @@ T ok <root>/tests/08-pattern-matching/maybe_result_test.nomi :: maybe and result
 T ok <root>/tests/08-pattern-matching/maybe_result_test.nomi :: maybe helpers map and default values
 T ok <root>/tests/08-pattern-matching/maybe_result_test.nomi :: result helpers map and default values
 T test result: ok. 3 passed, 0 failed
+T
+C 08-pattern-matching/or_patterns_test.nomi
+E 0
+N 6
+H c10a05faa3dfd7bce285c16369487465c91801254676b9fe44e88614d9b2e430
+T ok <root>/tests/08-pattern-matching/or_patterns_test.nomi :: alternatives at the top of an arm share one body
+T ok <root>/tests/08-pattern-matching/or_patterns_test.nomi :: a guard applies to the arm whichever alternative matched
+T ok <root>/tests/08-pattern-matching/or_patterns_test.nomi :: literal alternatives
+T ok <root>/tests/08-pattern-matching/or_patterns_test.nomi :: alternatives nested in a payload, a tuple, a field and a list
+T ok <root>/tests/08-pattern-matching/or_patterns_test.nomi :: alternatives in each binding position
+T ok <root>/tests/08-pattern-matching/or_patterns_test.nomi :: a binding's fallback stands in for a payload whose alternatives always match
+T test result: ok. 6 passed, 0 failed
 T
 C 08-pattern-matching/try_error_conversion_test.nomi
 E 0
@@ -1080,11 +1193,12 @@ T test result: ok. 3 passed, 0 failed
 T
 C 08-pattern-matching/variant_payloads_test.nomi
 E 0
-N 2
-H 3ded11e505b0cafed05c33bede76d621ddf258497449cfb2bdf590ce16f090c0
+N 3
+H f5c86970bbc23e9735b91624d819fa815c8ed840d541c8d42d8b755f478a9647
 T ok <root>/tests/08-pattern-matching/variant_payloads_test.nomi :: variant payloads support every payload shape
 T ok <root>/tests/08-pattern-matching/variant_payloads_test.nomi :: variant payloads can be pattern matched by shape
-T test result: ok. 2 passed, 0 failed
+T ok <root>/tests/08-pattern-matching/variant_payloads_test.nomi :: a struct-shaped variant's payload matches a record pattern
+T test result: ok. 3 passed, 0 failed
 T
 C 08-pattern-matching/variant_resolution/test_helpers.nomi
 E 1
@@ -1154,6 +1268,32 @@ T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: try o
 T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: a nested fn's try inside a named fn
 T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: a recursive nested fn with try
 T test result: ok. 4 passed, 0 failed
+T
+C 09-functions-and-control-flow/nested_statements_test.nomi
+E 0
+N 13
+H 14a5e7171aee32372057bf559481e4a06eae4299f855c9b740c16816ffe08d9f
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a guard's body may branch before it returns
+T   big
+T   one
+T   very negative
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: an Iter.loop binding else may branch
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: an empty case over Infallible is never reached
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a block may declare an interface
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: regions and blocks inside an assertion subject
+T   inner
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a case subject in a function reports its rows
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a Type witness is a row
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a nested block may rebind a name, and the outer one keeps its definition
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: an assertion binding and a pattern may rebind a name
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a pipe binding whose stage holds a pipe records its spine
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: an annotated pipe binding
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a defer in a test arm runs at the arm's end
+T   arm
+T   arm done
+T   after
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a setup binding whose every arm returns / the setup's value is the returned one
+T test result: ok. 13 passed, 0 failed
 T
 C 09-functions-and-control-flow/parameter_destructuring/parameter_destructuring_test.nomi
 E 0
@@ -1301,13 +1441,22 @@ T test result: ok. 3 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/type_wrappers_test.nomi
 E 0
-N 4
-H 4210d8f0885ba9a1d9a30bb278b2b228845559750446a28f23839186e83f0c3d
+N 5
+H f31934a702a01cb1520674cd898d250c63d1e133df05edbe4819fef419ec38b1
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: distinct types construct unwrap destructure and compare
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: type aliases can name function shapes
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: map distinct wrappers support literal attach and destructuring
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: tuple distinct wrappers support literal attach and destructuring
-T test result: ok. 4 passed, 0 failed
+T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: an enum alias qualifies variants in patterns and constructors
+T test result: ok. 5 passed, 0 failed
+T
+C 11-interfaces-and-impls/block_impl_diagnostics_test.nomi
+E 0
+N 2
+H 706d16cd65b39d135fe03375fd3e2fd411cc5888c67cad2f4f671848617c7cb8
+T ok <root>/tests/11-interfaces-and-impls/block_impl_diagnostics_test.nomi :: an impl block inside a test body is rejected
+T ok <root>/tests/11-interfaces-and-impls/block_impl_diagnostics_test.nomi :: a derive inside a lambda body is rejected
+T test result: ok. 2 passed, 0 failed
 T
 C 11-interfaces-and-impls/impl_blocks_test.nomi
 E 0
@@ -1579,6 +1728,25 @@ H aa03f2a3f1ed7da63eac5b737834b99e3df15cfba1b98185cbb7a2265c8f1321
 T --- stderr ---
 T nomi run: <root>/tests/12-derives-and-standard-interfaces/cross_file_debug/shapes.nomi declares no `fn main`, so there is no program to run
 T
+C 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi
+E 0
+N 6
+H 8c7740605382191205277cefc891d5620cad27d9524ab0ee75724c21ef05eade
+T ok <root>/tests/12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi :: a derived Equatable compares another file's types
+T ok <root>/tests/12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi :: a derived Hashable hashes another file's types
+T ok <root>/tests/12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi :: a derived Comparable orders by another file's types
+T ok <root>/tests/12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi :: a derived Debug and Display render another file's types
+T ok <root>/tests/12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi :: a derived ToJson and FromJson convert another file's types
+T ok <root>/tests/12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi :: another file's derived Variants lists its variants
+T test result: ok. 6 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/cross_file_derives/money.nomi
+E 1
+N 0
+H bb079796813ea41444e739ede427430c51f7357ab465d6144e7bb621917d09bc
+T --- stderr ---
+T nomi run: <root>/tests/12-derives-and-standard-interfaces/cross_file_derives/money.nomi declares no `fn main`, so there is no program to run
+T
 C 12-derives-and-standard-interfaces/derives_test.nomi
 E 0
 N 5
@@ -1658,6 +1826,31 @@ T ok <root>/tests/12-derives-and-standard-interfaces/set_debug_test.nomi :: a Se
 T ok <root>/tests/12-derives-and-standard-interfaces/set_debug_test.nomi :: a Set of declared members nested in other values inspects
 T test result: ok. 3 passed, 0 failed
 T
+C 12-derives-and-standard-interfaces/summable_test.nomi
+E 0
+N 9
+H 45b2e63f43cb87b81933980e541714e888260fd9edb813a101965caf097e2f50
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: each std implementor's empty_sum
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: adding empty_sum changes nothing
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: a Decimal sum keeps the widest scale
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: Iter.sum over each kind of value
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: summing maps lets a later map win on a shared key
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: Iter.sum over a Range and a lazy chain
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: an empty source sums to empty_sum
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: a sum past the Int range traps as + does
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: summing a type that is not Summable is a compile error
+T test result: ok. 9 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/unit_hashable_test.nomi
+E 0
+N 4
+H 53026442eda5b1ef38a99264fc303d01533896e814dbd17b1d4026a0ad4305b4
+T ok <root>/tests/12-derives-and-standard-interfaces/unit_hashable_test.nomi :: unit is equatable and always hashes the same
+T ok <root>/tests/12-derives-and-standard-interfaces/unit_hashable_test.nomi :: tuples holding unit hash through unit's impl
+T ok <root>/tests/12-derives-and-standard-interfaces/unit_hashable_test.nomi :: a derived hash over a struct with a unit field
+T ok <root>/tests/12-derives-and-standard-interfaces/unit_hashable_test.nomi :: unit and values holding it key sets and maps
+T test result: ok. 4 passed, 0 failed
+T
 C 12-derives-and-standard-interfaces/universal_debug/token.nomi
 E 1
 N 0
@@ -1672,6 +1865,24 @@ H 8e0b4cda33bad8c75a6f672390fe5d7e38ab53e4ed0e62f42ea96c84424c2e8b
 T ok <root>/tests/12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi :: universal Debug renders declared types structurally
 T ok <root>/tests/12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi :: universal Debug works for opaque values generics and existentials
 T test result: ok. 2 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/variants/coins.nomi
+E 1
+N 0
+H dea0df3401c98a16f04b1086c3fbba450a6698be0636467a8e8ecb3e7b91acb0
+T --- stderr ---
+T nomi run: <root>/tests/12-derives-and-standard-interfaces/variants/coins.nomi declares no `fn main`, so there is no program to run
+T
+C 12-derives-and-standard-interfaces/variants/variants_test.nomi
+E 0
+N 5
+H ecdec660b737a4ae27b8345712ab9517632746aa131e4bbd46cc29cf26e524d8
+T ok <root>/tests/12-derives-and-standard-interfaces/variants/variants_test.nomi :: variants lists every variant in declaration order
+T ok <root>/tests/12-derives-and-standard-interfaces/variants/variants_test.nomi :: an enum declared in another file lists its variants
+T ok <root>/tests/12-derives-and-standard-interfaces/variants/variants_test.nomi :: variants agrees with the order derive Comparable ranks them in
+T ok <root>/tests/12-derives-and-standard-interfaces/variants/variants_test.nomi :: variants feeds a pipe
+T ok <root>/tests/12-derives-and-standard-interfaces/variants/variants_test.nomi :: generic code calls variants through a bound
+T test result: ok. 5 passed, 0 failed
 T
 C 13-iterators-and-pipes/collect_results_test.nomi
 E 0
@@ -1853,6 +2064,20 @@ T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: partial applications
 T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: bare dbg pipe stages inspect and pass through the previous value
 T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: pipes into dispatch functions preserve interface dispatch
 T test result: ok. 4 passed, 0 failed
+T
+C 13-iterators-and-pipes/scan_map_reduce_test.nomi
+E 0
+N 8
+H cda942d9139f601fba1a5c8c4d149df50fc621f5af27b500e39cd9cde506f63c
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan yields each state after the seed
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan over an empty source yields nothing
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan is lazy
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: a scan replays from its seed
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan supports break and continue
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: map_reduce answers the outputs and the final state
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: map_reduce over an empty source answers no outputs and the seed
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: map_reduce supports break and continue
+T test result: ok. 8 passed, 0 failed
 T
 C 13-iterators-and-pipes/sort_keys_test.nomi
 E 0
@@ -2178,15 +2403,16 @@ T nomi run: <root>/tests/15-app-and-defer/config_pattern/test.nomi declares no `
 T
 C 15-app-and-defer/context_module_values/context_module_values_test.nomi
 E 0
-N 6
-H 02b057978694cbd10f3b12dccdf7ad061fde0012cd154e12ccf836afb2e0d9a7
+N 7
+H ad58584b1cdf56f5fab547f22c8175352218b6874f6d49e0360d43c7ed5826c2
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared wrapped type round-trips through a Context
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared zero-sized type round-trips through a Context
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared struct round-trips through a Context
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared enum round-trips through a Context
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: two same-named module types keep separate Context slots
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a Type witness passed as a parameter still resolves
-T test result: ok. 6 passed, 0 failed
+T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a Type witness may name its type through its file
+T test result: ok. 7 passed, 0 failed
 T
 C 15-app-and-defer/context_module_values/domain.nomi
 E 1
@@ -2392,13 +2618,14 @@ T base
 T
 C 15-app-and-defer/with_overrides/with_overrides_test.nomi
 E 0
-N 4
-H cff594e117a44a75b05decf92b8fe32dcc792fc9d628f346a61ce5d1916d0f29
+N 5
+H 614c8ffea68a0ea84ad66e66ba77ff067908457c204057c6c1662608ce93f054
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a .Variant value takes the field's enum
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a later with line sees the overrides above it
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a closure reads the fields in force when it is called
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a with in a branch ends with the branch
-T test result: ok. 4 passed, 0 failed
+T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a with in an assertion subject's arm ends with the arm
+T test result: ok. 5 passed, 0 failed
 T
 C 16-concurrency/concurrent_diagnostics/concurrent_diagnostics_test.nomi
 E 0
@@ -2693,5 +2920,581 @@ N 2
 H f6aed4f1296b2ae2d5f4c1ee9b973692d81678385d8fb423610cca4d9632996d
 T ok <root>/tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi :: Go time.Time projects to Nomi Instant
 T ok <root>/tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi :: Nomi Instant passes back to Go time.Time
+T test result: ok. 2 passed, 0 failed
+T
+C exercism/acronym/acronym.nomi
+E 1
+N 0
+H 259ae2be98d6af4fe264fd145995eda441daa8b16b45a97fa90e7add5c0cab9e
+T --- stderr ---
+T nomi run: <root>/tests/exercism/acronym/acronym.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/acronym/acronym_test.nomi
+E 0
+N 1
+H 3e6dea47baf1eb5cd74c04b684e658b695ecdff828f36100b27b397807c8b9ec
+T ok <root>/tests/exercism/acronym/acronym_test.nomi :: abbreviates phrases
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/allergies/allergies.nomi
+E 1
+N 0
+H 90a543cabf065a7f6d7fa046494a73abe30dfba936c7ab1aa7a57838eb147f79
+T --- stderr ---
+T nomi run: <root>/tests/exercism/allergies/allergies.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/allergies/allergies_test.nomi
+E 0
+N 9
+H ed771278ab6f3f2a2ecd44e3d33f8b2864d05486e95b384a54fef7f424a7d8bb
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for eggs allergy / allergic_to? eggs
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for peanuts allergy / allergic_to? peanuts
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for shellfish allergy / allergic_to? shellfish
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for strawberries allergy / allergic_to? strawberries
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for tomatoes allergy / allergic_to? tomatoes
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for chocolate allergy / allergic_to? chocolate
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for pollen allergy / allergic_to? pollen
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for cats allergy / allergic_to? cats
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: list when: / list
+T test result: ok. 9 passed, 0 failed
+T
+C exercism/anagram/anagram.nomi
+E 1
+N 0
+H 24056ce371e01daaee19bd8ed2815a7b2c5dc1d6b8b3ffbdcc8e020105b07a91
+T --- stderr ---
+T nomi run: <root>/tests/exercism/anagram/anagram.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/anagram/anagram_test.nomi
+E 0
+N 1
+H eae9de2bd81cebcc0d249f743b2159e051f870496bd13c89de0210e0e813a2fb
+T ok <root>/tests/exercism/anagram/anagram_test.nomi :: finds anagrams
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/binary-search/binary_search.nomi
+E 1
+N 0
+H a787d79fe26647d5edba523d494a1de6d11080c1465791629612b8957cb0d545
+T --- stderr ---
+T nomi run: <root>/tests/exercism/binary-search/binary_search.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/binary-search/binary_search_test.nomi
+E 0
+N 2
+H 012162033c9f20809d366588718d9ebe2f2fa698e1a553e4937b0ca25d178e07
+T ok <root>/tests/exercism/binary-search/binary_search_test.nomi :: finds a value
+T ok <root>/tests/exercism/binary-search/binary_search_test.nomi :: reports a missing value
+T test result: ok. 2 passed, 0 failed
+T
+C exercism/bob/bob.nomi
+E 1
+N 0
+H f46c4bfb6ee1555eff81b3f1dd962dc3e00ada550eee44a31c32f8b4050a038f
+T --- stderr ---
+T nomi run: <root>/tests/exercism/bob/bob.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/bob/bob_test.nomi
+E 0
+N 1
+H 1b59900ca85bd30477ca551a255a57f0eb176b8d2f609712b4d3afa8cfbc109b
+T ok <root>/tests/exercism/bob/bob_test.nomi :: bob's responses
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/clock/clock.nomi
+E 1
+N 0
+H 93a0a741f0173b8d691aa94a81c242a6ed528ac6f57b4925d3c2c9e5b40b90c3
+T --- stderr ---
+T nomi run: <root>/tests/exercism/clock/clock.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/clock/clock_test.nomi
+E 0
+N 4
+H ad17de0ffdd8c31058582e13486f029072aacd2d583252a0f42796590296430a
+T ok <root>/tests/exercism/clock/clock_test.nomi :: Create a new clock with an initial time / create
+T ok <root>/tests/exercism/clock/clock_test.nomi :: Add minutes / add
+T ok <root>/tests/exercism/clock/clock_test.nomi :: Subtract minutes / subtract
+T ok <root>/tests/exercism/clock/clock_test.nomi :: Compare two clocks for equality / equal
+T test result: ok. 4 passed, 0 failed
+T
+C exercism/collatz-conjecture/collatz_conjecture.nomi
+E 1
+N 0
+H 7ceadc6a3512c5a1d9764cda31f31b9a3d981c4ebe6effc64c9b87f4a032e378
+T --- stderr ---
+T nomi run: <root>/tests/exercism/collatz-conjecture/collatz_conjecture.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/collatz-conjecture/collatz_conjecture_test.nomi
+E 0
+N 3
+H 2a1c26774bf04ef899d04361feb206fbd2745b1e477ceac97b1174b62cba5787
+T ok <root>/tests/exercism/collatz-conjecture/collatz_conjecture_test.nomi :: counts the steps
+T ok <root>/tests/exercism/collatz-conjecture/collatz_conjecture_test.nomi :: zero is an error
+T ok <root>/tests/exercism/collatz-conjecture/collatz_conjecture_test.nomi :: negative value is an error
+T test result: ok. 3 passed, 0 failed
+T
+C exercism/etl/etl.nomi
+E 1
+N 0
+H 2d2eee25e62bf051c7086fa47e6670d73f07185808830ec643aa424d031bc317
+T --- stderr ---
+T nomi run: <root>/tests/exercism/etl/etl.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/etl/etl_test.nomi
+E 0
+N 4
+H 84eee210a560e0f239215b57e2254b9177898f2bbe6d8702956f1154831a9b04
+T ok <root>/tests/exercism/etl/etl_test.nomi :: single letter
+T ok <root>/tests/exercism/etl/etl_test.nomi :: single score with multiple letters
+T ok <root>/tests/exercism/etl/etl_test.nomi :: multiple scores with multiple letters
+T ok <root>/tests/exercism/etl/etl_test.nomi :: multiple scores with differing numbers of letters
+T test result: ok. 4 passed, 0 failed
+T
+C exercism/game-of-life/game_of_life.nomi
+E 1
+N 0
+H 19d77080c8ebcf611b7d46b0ee895acfd030882c1c3da3aad773fb54cd2191c5
+T --- stderr ---
+T nomi run: <root>/tests/exercism/game-of-life/game_of_life.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/game-of-life/game_of_life_test.nomi
+E 0
+N 1
+H f95e3f021198b177627985f0a1e4dabcf28309ef832e76ce8bc866cb500641e0
+T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: tick
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/hamming/hamming.nomi
+E 1
+N 0
+H 0fb607684568c4dcdf3ba46d5036926b74be35b14cbb9130207bc763b5c40bad
+T --- stderr ---
+T nomi run: <root>/tests/exercism/hamming/hamming.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/hamming/hamming_test.nomi
+E 0
+N 1
+H 870faa16649281297584fa90872bbb32b282e3a6e7e1baf94177acea1d19e54d
+T ok <root>/tests/exercism/hamming/hamming_test.nomi :: hamming distance
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/isogram/isogram.nomi
+E 1
+N 0
+H a25781175e61cc4155704b24727fbc2c5f31984fb216100f95725ff218396c17
+T --- stderr ---
+T nomi run: <root>/tests/exercism/isogram/isogram.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/isogram/isogram_test.nomi
+E 0
+N 1
+H f8067cdf31324cfa56c79602038b94d0ea4a74d4b72f6f3361884db7cb56bb93
+T ok <root>/tests/exercism/isogram/isogram_test.nomi :: isograms
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/leap/leap.nomi
+E 1
+N 0
+H 460b962487731d0ca9cc4607c0e5d5d6bc6d09af9f8dd0d4a8d59c9fdb738485
+T --- stderr ---
+T nomi run: <root>/tests/exercism/leap/leap.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/leap/leap_test.nomi
+E 0
+N 1
+H 3fdc5e77b54f5ea2888e9d6947a1ba84dd6fcf093cd71542416f05c9bcac141c
+T ok <root>/tests/exercism/leap/leap_test.nomi :: leap years
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/list-ops/list_ops.nomi
+E 1
+N 0
+H cd80c430eb636ba3ba69cbd7db8741bd6a7486f134d64054c131f789dc089473
+T --- stderr ---
+T nomi run: <root>/tests/exercism/list-ops/list_ops.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/list-ops/list_ops_test.nomi
+E 0
+N 23
+H 19775c046f34f001ceea08f317c667bb604783072d365eeacfb7803bc06ecff1
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: append entries to a list and return the new list / empty lists
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: append entries to a list and return the new list / list to empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: append entries to a list and return the new list / empty list to list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: append entries to a list and return the new list / non-empty lists
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: concatenate a list of lists / empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: concatenate a list of lists / list of lists
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: concatenate a list of lists / list of nested lists
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: filter list returning only values that satisfy the filter function / empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: filter list returning only values that satisfy the filter function / non-empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: returns the length of a list / empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: returns the length of a list / non-empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: return a list of elements whose values equal the list value transformed by the mapping function / empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: return a list of elements whose values equal the list value transformed by the mapping function / non-empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: folds (reduces) the given list from the left with a function / empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: folds (reduces) the given list from the left with a function / direction independent function applied to non-empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: folds (reduces) the given list from the left with a function / direction dependent function applied to non-empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: folds (reduces) the given list from the right with a function / empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: folds (reduces) the given list from the right with a function / direction independent function applied to non-empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: folds (reduces) the given list from the right with a function / direction dependent function applied to non-empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: reverse the elements of the list / empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: reverse the elements of the list / non-empty even-length list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: reverse the elements of the list / non-empty odd-length list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: reverse the elements of the list / list of lists is not flattened
+T test result: ok. 23 passed, 0 failed
+T
+C exercism/luhn/luhn.nomi
+E 1
+N 0
+H 3c0f23d944f81e2bfc53b11bc55eb2e28ef076a3367f15d44ecd7996c6cad9b2
+T --- stderr ---
+T nomi run: <root>/tests/exercism/luhn/luhn.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/luhn/luhn_test.nomi
+E 0
+N 1
+H ebb44fde48d1f33938a94f7721b043735e4ac4aef14e48380e8ca61f3ff143e7
+T ok <root>/tests/exercism/luhn/luhn_test.nomi :: validates numbers with the Luhn checksum
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/matching-brackets/matching_brackets.nomi
+E 1
+N 0
+H 6a99d8a7119810c0f920f0eb3688ec3a8ec19bc45cb4c0368fab0ff04895bc8c
+T --- stderr ---
+T nomi run: <root>/tests/exercism/matching-brackets/matching_brackets.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/matching-brackets/matching_brackets_test.nomi
+E 0
+N 1
+H 8ec464bf3177530f340769b6d5430b885f69c7b2cbfb0c5a09420b980acfef29
+T ok <root>/tests/exercism/matching-brackets/matching_brackets_test.nomi :: checks bracket pairing
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/minesweeper/minesweeper.nomi
+E 1
+N 0
+H ceb45506af099edfea7b6be89e981e80a26b25a1e54db04b6095ecd207d5d209
+T --- stderr ---
+T nomi run: <root>/tests/exercism/minesweeper/minesweeper.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/minesweeper/minesweeper_test.nomi
+E 0
+N 12
+H 1283dbc9d4848609ec88ba49e88c8a8751e05ddf4797fc6a3359abdc3af70549
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: no rows
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: no columns
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: no mines
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: minefield with only mines
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: mine surrounded by spaces
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: space surrounded by mines
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: horizontal line
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: horizontal line, mines at edges
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: vertical line
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: vertical line, mines at edges
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: cross
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: large minefield
+T test result: ok. 12 passed, 0 failed
+T
+C exercism/nucleotide-count/nucleotide_count.nomi
+E 1
+N 0
+H 7045bbada98e22e996835cb96a79133c60ece475082fe1bc913d8d9d51f55de9
+T --- stderr ---
+T nomi run: <root>/tests/exercism/nucleotide-count/nucleotide_count.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/nucleotide-count/nucleotide_count_test.nomi
+E 0
+N 5
+H 45b044fa5bbc65c68ef01aae5aa483d964d253c66b1f9f0b2ce68026488d97a5
+T ok <root>/tests/exercism/nucleotide-count/nucleotide_count_test.nomi :: empty strand
+T ok <root>/tests/exercism/nucleotide-count/nucleotide_count_test.nomi :: can count one nucleotide in single-character input
+T ok <root>/tests/exercism/nucleotide-count/nucleotide_count_test.nomi :: strand with repeated nucleotide
+T ok <root>/tests/exercism/nucleotide-count/nucleotide_count_test.nomi :: strand with multiple nucleotides
+T ok <root>/tests/exercism/nucleotide-count/nucleotide_count_test.nomi :: strand with invalid nucleotides
+T test result: ok. 5 passed, 0 failed
+T
+C exercism/pangram/pangram.nomi
+E 1
+N 0
+H 64197fd1d94b4b777fa8250738ee18369d29f34d6f64dd798d37be13cb5da060
+T --- stderr ---
+T nomi run: <root>/tests/exercism/pangram/pangram.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/pangram/pangram_test.nomi
+E 0
+N 1
+H fdd7d6a63f54364f2080b0565089e183e7613c659fc07ac15fad0434102f308e
+T ok <root>/tests/exercism/pangram/pangram_test.nomi :: pangrams
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/phone-number/phone_number.nomi
+E 1
+N 0
+H 5e52987f5ea441ec912a0d936ff307aa1d8bd21beed33853833c095fd0a093e6
+T --- stderr ---
+T nomi run: <root>/tests/exercism/phone-number/phone_number.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/phone-number/phone_number_test.nomi
+E 0
+N 1
+H 71f8196d669d5e931c5a8025cad286c81b3f149a198d8003997a750b1bfab6f6
+T ok <root>/tests/exercism/phone-number/phone_number_test.nomi :: cleans phone numbers
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/prime-factors/prime_factors.nomi
+E 1
+N 0
+H bcb008dde7eeb113bc1c2bc5f27c26e8ddf39f1ab2d3bad7b7dae095a195ab28
+T --- stderr ---
+T nomi run: <root>/tests/exercism/prime-factors/prime_factors.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/prime-factors/prime_factors_test.nomi
+E 0
+N 1
+H 3594e4272aa9ce4876445487f507bc5110af67b7f0e347cb7e81927ae4386a78
+T ok <root>/tests/exercism/prime-factors/prime_factors_test.nomi :: factors
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/queen-attack/queen_attack.nomi
+E 1
+N 0
+H b34c612bbcfc41ca62a3e3f7866f9f964be80fd748f310f6f22d0c501b0fe0ab
+T --- stderr ---
+T nomi run: <root>/tests/exercism/queen-attack/queen_attack.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/queen-attack/queen_attack_test.nomi
+E 0
+N 3
+H 5d0d9d9be66f150e9214d58f018c8affc3ba8d08660fd8e430ffaae22e519d48
+T ok <root>/tests/exercism/queen-attack/queen_attack_test.nomi :: Test creation of Queens with valid and invalid positions / queen with a valid position
+T ok <root>/tests/exercism/queen-attack/queen_attack_test.nomi :: Test creation of Queens with valid and invalid positions / invalid positions
+T ok <root>/tests/exercism/queen-attack/queen_attack_test.nomi :: Test the ability of one queen to attack another / can_attack?
+T test result: ok. 3 passed, 0 failed
+T
+C exercism/raindrops/raindrops.nomi
+E 1
+N 0
+H b9bd59a9c6baefcbfe23ddfe0b956d63ad5b44bc4a2508d245760b7e2769efc5
+T --- stderr ---
+T nomi run: <root>/tests/exercism/raindrops/raindrops.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/raindrops/raindrops_test.nomi
+E 0
+N 1
+H fb0923935617c694556ca4e6ccbfd3ff5401ad8e356938420ca3800c36126487
+T ok <root>/tests/exercism/raindrops/raindrops_test.nomi :: raindrop sounds
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/reverse-string/reverse_string.nomi
+E 1
+N 0
+H 471aaf788bc8472c30db80fe739e54a02c150287b6382b42e4a42b32702cc1c7
+T --- stderr ---
+T nomi run: <root>/tests/exercism/reverse-string/reverse_string.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/reverse-string/reverse_string_test.nomi
+E 0
+N 1
+H 7ad3e2031fe8141a03b71b8273895f940388337a83e0314f69b63e884bb0dede
+T ok <root>/tests/exercism/reverse-string/reverse_string_test.nomi :: reverses strings
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/rna-transcription/rna_transcription.nomi
+E 1
+N 0
+H b1d83f27d52b2163c0e359125216b7f89605f44653a1bbbedc51d171c3c2337b
+T --- stderr ---
+T nomi run: <root>/tests/exercism/rna-transcription/rna_transcription.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/rna-transcription/rna_transcription_test.nomi
+E 0
+N 1
+H e74fafdc73b9e8b3d49b1b78c66370feb1b594fb05694549f75a79c9120c390d
+T ok <root>/tests/exercism/rna-transcription/rna_transcription_test.nomi :: transcribes DNA to RNA
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/robot-simulator/robot_simulator.nomi
+E 1
+N 0
+H 2aa33119e124ba52084288b13a76fa37ffd9710c9394576b1aab12bf29435741
+T --- stderr ---
+T nomi run: <root>/tests/exercism/robot-simulator/robot_simulator.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/robot-simulator/robot_simulator_test.nomi
+E 0
+N 6
+H f416eeb741989989001de65ea590edf2918ae8b6b083f12fe7c38e755958d48c
+T ok <root>/tests/exercism/robot-simulator/robot_simulator_test.nomi :: Create robot / at origin facing north
+T ok <root>/tests/exercism/robot-simulator/robot_simulator_test.nomi :: Create robot / at negative position facing south
+T ok <root>/tests/exercism/robot-simulator/robot_simulator_test.nomi :: Rotating clockwise / move
+T ok <root>/tests/exercism/robot-simulator/robot_simulator_test.nomi :: Rotating counter-clockwise / move
+T ok <root>/tests/exercism/robot-simulator/robot_simulator_test.nomi :: Moving forward one / move
+T ok <root>/tests/exercism/robot-simulator/robot_simulator_test.nomi :: Follow series of instructions / move
+T test result: ok. 6 passed, 0 failed
+T
+C exercism/roman-numerals/roman_numerals.nomi
+E 1
+N 0
+H b5ee69c99a9b08d844c5f714ce5afee4cff6dd39cf42d1623f23af13ebd78fab
+T --- stderr ---
+T nomi run: <root>/tests/exercism/roman-numerals/roman_numerals.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/roman-numerals/roman_numerals_test.nomi
+E 0
+N 1
+H a5cde748ee8fe632e7beb8b8e74b6ad8c0ea83da2409f80f51189bddb1fa5e6d
+T ok <root>/tests/exercism/roman-numerals/roman_numerals_test.nomi :: converts to Roman numerals
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/run-length-encoding/run_length_encoding.nomi
+E 1
+N 0
+H 40e71e9c2b7fbec9495fc578a11eea0d8b1cc59313e16b4a38347754478b3df7
+T --- stderr ---
+T nomi run: <root>/tests/exercism/run-length-encoding/run_length_encoding.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/run-length-encoding/run_length_encoding_test.nomi
+E 0
+N 3
+H 55cd15ab638195bedd53e0e499cd0d57d0de3a059dab724aa60553223aa29770
+T ok <root>/tests/exercism/run-length-encoding/run_length_encoding_test.nomi :: run-length encode a string / encodes
+T ok <root>/tests/exercism/run-length-encoding/run_length_encoding_test.nomi :: run-length decode a string / decodes
+T ok <root>/tests/exercism/run-length-encoding/run_length_encoding_test.nomi :: encode and then decode / encode followed by decode gives original string
+T test result: ok. 3 passed, 0 failed
+T
+C exercism/saddle-points/saddle_points.nomi
+E 1
+N 0
+H de5583c1cc6e1669d11be467e9e3d69dcf7aa641779c3000d7c3f70c315d150c
+T --- stderr ---
+T nomi run: <root>/tests/exercism/saddle-points/saddle_points.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/saddle-points/saddle_points_test.nomi
+E 0
+N 1
+H dea91f4895297838c6cbfc575e6bd98f2e285ab18d798a68ca407e2525bb5d16
+T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: saddle_points
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/sieve/sieve.nomi
+E 1
+N 0
+H 891badbe93f7954f2eb6ca5ba2d465750658b542a4f7aaada7b8bb95ccdab43e
+T --- stderr ---
+T nomi run: <root>/tests/exercism/sieve/sieve.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/sieve/sieve_test.nomi
+E 0
+N 5
+H 9884ac7ced31b310c16db2723f1490b139e324d0b208184e446e182db97bc386
+T ok <root>/tests/exercism/sieve/sieve_test.nomi :: no primes under two
+T ok <root>/tests/exercism/sieve/sieve_test.nomi :: find first prime
+T ok <root>/tests/exercism/sieve/sieve_test.nomi :: find primes up to 10
+T ok <root>/tests/exercism/sieve/sieve_test.nomi :: limit is prime
+T ok <root>/tests/exercism/sieve/sieve_test.nomi :: find primes up to 1000
+T test result: ok. 5 passed, 0 failed
+T
+C exercism/spiral-matrix/spiral_matrix.nomi
+E 1
+N 0
+H 495ed93c2eb1de8654a6cce60916078b49bdfc826a7a1ec1a011aee3fc561d32
+T --- stderr ---
+T nomi run: <root>/tests/exercism/spiral-matrix/spiral_matrix.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/spiral-matrix/spiral_matrix_test.nomi
+E 0
+N 1
+H e56f9e33a2797064afa139d0efc109bf01addd230efe45dda19fedea18a8e927
+T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral_matrix
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/sum-of-multiples/sum_of_multiples.nomi
+E 1
+N 0
+H 3135b5729b86ade821788337fa43069e9d509d3ca816fa15710b4d1b88ebac9c
+T --- stderr ---
+T nomi run: <root>/tests/exercism/sum-of-multiples/sum_of_multiples.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/sum-of-multiples/sum_of_multiples_test.nomi
+E 0
+N 1
+H 9898944c886dd087810e45ab468bc28620abfb6dedd79c152f0221f6a09687bf
+T ok <root>/tests/exercism/sum-of-multiples/sum_of_multiples_test.nomi :: sums the multiples
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/transpose/transpose.nomi
+E 1
+N 0
+H f6d97ae51c86bb2923bbae043ce01fbe1887f542fbebd3d6d933c1f1d3d8b6f8
+T --- stderr ---
+T nomi run: <root>/tests/exercism/transpose/transpose.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/transpose/transpose_test.nomi
+E 0
+N 1
+H 8769893f755722ac8cb83bd66c4360d24acf1b25eecb40558401e58868ee618d
+T ok <root>/tests/exercism/transpose/transpose_test.nomi :: transpose
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/triangle/triangle.nomi
+E 1
+N 0
+H 362fb344e0138f051fbbdeef9a011989ec25c5e4876f23da06237529edeb7cc2
+T --- stderr ---
+T nomi run: <root>/tests/exercism/triangle/triangle.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/triangle/triangle_test.nomi
+E 0
+N 3
+H 9f46cf02c9d07239bae33614d6d6ad9abb89ca2d904faca3d73b47092f701045
+T ok <root>/tests/exercism/triangle/triangle_test.nomi :: equilateral triangle / equilateral?
+T ok <root>/tests/exercism/triangle/triangle_test.nomi :: isosceles triangle / isosceles?
+T ok <root>/tests/exercism/triangle/triangle_test.nomi :: scalene triangle / scalene?
+T test result: ok. 3 passed, 0 failed
+T
+C exercism/two-fer/two_fer.nomi
+E 1
+N 0
+H 54b28870b53de36380c379ce5864045e25a052b5a6de41e851e65156731c87d4
+T --- stderr ---
+T nomi run: <root>/tests/exercism/two-fer/two_fer.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/two-fer/two_fer_test.nomi
+E 0
+N 3
+H 534bd15833ca4e3e0ff3c0337a29c291f2b771011a07142950655e2446b90fb0
+T ok <root>/tests/exercism/two-fer/two_fer_test.nomi :: no name given
+T ok <root>/tests/exercism/two-fer/two_fer_test.nomi :: a name given
+T ok <root>/tests/exercism/two-fer/two_fer_test.nomi :: another name given
+T test result: ok. 3 passed, 0 failed
+T
+C exercism/word-count/word_count.nomi
+E 1
+N 0
+H 4596dac03fac071af061027cc4f2ba60c42230c217b25d022be6f915b5cd0b14
+T --- stderr ---
+T nomi run: <root>/tests/exercism/word-count/word_count.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/word-count/word_count_test.nomi
+E 0
+N 1
+H ff55403a5496bb93986c8071d8039f04c7bd00e3331ec364a7dcc484e36866ea
+T ok <root>/tests/exercism/word-count/word_count_test.nomi :: counts words
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/wordy/wordy.nomi
+E 1
+N 0
+H 983ca45838a6e83cdd25b2febf0f673a691fc75da37ed521bceba3d1a0420a26
+T --- stderr ---
+T nomi run: <root>/tests/exercism/wordy/wordy.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/wordy/wordy_test.nomi
+E 0
+N 2
+H e7bd9bc1a1a3d5263fdc24dccc61cb4673cc0111322329d8a57d9c1f76eff56d
+T ok <root>/tests/exercism/wordy/wordy_test.nomi :: answers word problems
+T ok <root>/tests/exercism/wordy/wordy_test.nomi :: division by zero
 T test result: ok. 2 passed, 0 failed
 T

@@ -15,12 +15,12 @@ struct Box<T> {
 }
 
 impl Add<T, Box<T>> for Box<T> {
-    fn add(b: Box<T>, rhs: T): Box<T> {
+    fn add(b: Box<T>, rhs: T) -> Box<T> {
         Box{items: b.items + [rhs]}
     }
 }
 
-fn grow<T>(b: Box<T>, x: T): Box<T> {
+fn grow<T>(b: Box<T>, x: T) -> Box<T> {
     b + x
 }
 
@@ -35,11 +35,11 @@ fn main() {
 func TestIRGenericOperImpl_StdSet(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
-fn plus<T>(a: Set<T>, b: Set<T>): Set<T> where T: Hashable {
+fn plus<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hashable {
     a + b
 }
 
-fn left(): Set<Int> {
+fn left() -> Set<Int> {
     io.print("left")
     #{1, 2}
 }
@@ -68,7 +68,7 @@ struct Point {
     x: Int
 }
 
-fn join<T>(a: Vector<T>, b: Vector<T>): Vector<T> {
+fn join<T>(a: Vector<T>, b: Vector<T>) -> Vector<T> {
     a + b
 }
 
@@ -95,20 +95,20 @@ struct Point {
 
 derive Hashable for Point
 
-fn merged<K, V>(a: Map<K, V>, b: Map<K, V>): Map<K, V> {
+fn merged<K, V>(a: Map<K, V>, b: Map<K, V>) -> Map<K, V> {
     a + b
 }
 
 fn main() {
-    io.print({"a" => 1} + {"a" => 9, "b" => 2})
-    io.print(Add.add({"a" => 1}, {"b" => 2}))
-    io.print(merged({1 => "x"}, {2 => "y", 1 => "z"}))
-    io.print(Map.size({Point{x: 1} => True} + {Point{x: 2} => False}))
-    io.print({"p" => Point{x: 1}} + {"p" => Point{x: 2}} == {"p" => Point{x: 2}})
+    io.print(%{"a" => 1} + %{"a" => 9, "b" => 2})
+    io.print(Add.add(%{"a" => 1}, %{"b" => 2}))
+    io.print(merged(%{1 => "x"}, %{2 => "y", 1 => "z"}))
+    io.print(Map.size(%{Point{x: 1} => True} + %{Point{x: 2} => False}))
+    io.print(%{"p" => Point{x: 1}} + %{"p" => Point{x: 2}} == %{"p" => Point{x: 2}})
     e: Map<String, Int> = Map.empty()
     io.print(e + e)
 }
-`, "{a => 9, b => 2}\n{a => 1, b => 2}\n{1 => z, 2 => y}\n2\nTrue\n{=>}\n")
+`, "%{a => 9, b => 2}\n%{a => 1, b => 2}\n%{1 => z, 2 => y}\n2\nTrue\n%{}\n")
 }
 
 // Instant has two `Subtract` impls, told apart by the right operand: `Instant -

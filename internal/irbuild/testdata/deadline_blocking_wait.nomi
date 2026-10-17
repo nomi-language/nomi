@@ -54,35 +54,35 @@ struct Run {
     context: Context
 }
 
-fn boot(): Run {
+fn boot() -> Run {
     Run{context: Context.root()}
 }
 
 // An hour, so a wait that is not bounded cannot finish inside any timeout.
-fn slow(): Int {
+fn slow() -> Int {
     timer.sleep(Duration.hours(1))
     1
 }
 
-fn quick(): Int {
+fn quick() -> Int {
     timer.sleep(Duration.milliseconds(1))
     2
 }
 
 // The deadline covers `slow` and nothing else. `Task.outcome` sits outside it.
-fn slow_bounded(): Int {
+fn slow_bounded() -> Int {
     with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(20))
     slow()
 }
 
 // A deadline the work fits inside, so the bounded case is not "always
 // cancelled". Same construct, opposite answer.
-fn quick_bounded(): Int {
+fn quick_bounded() -> Int {
     with Run.context = Context.with_timeout(Run.context, Duration.seconds(30))
     quick()
 }
 
-fn describe(label: String, outcome: Outcome<Int>): Unit {
+fn describe(label: String, outcome: Outcome<Int>) -> Unit {
     case outcome {
         .Completed(v) -> io.print(label + ": completed " + Display.to_string(v))
         .Cancelled -> io.print(label + ": cancelled")
@@ -93,7 +93,7 @@ fn describe(label: String, outcome: Outcome<Int>): Unit {
 fn main() {
     // BOUNDED AND EXCEEDED: the sleep must end early and the task unwind.
     bounded = concurrent {
-        t = Task.spawn(|| slow_bounded())
+        t = Task.spawn(fn -> slow_bounded())
         Task.outcome(t)
     }
 
@@ -102,7 +102,7 @@ fn main() {
     // BOUNDED AND MET: the same construct with room to finish. The control that
     // stops the row above from passing for a build that cancels everything.
     met = concurrent {
-        t = Task.spawn(|| quick_bounded())
+        t = Task.spawn(fn -> quick_bounded())
         Task.outcome(t)
     }
 
@@ -111,7 +111,7 @@ fn main() {
     // NO REBIND AT ALL: a deadline-free scope must still complete, so the frame
     // the rebind installs is shown to be scoped rather than sticky.
     plain = concurrent {
-        t = Task.spawn(|| quick())
+        t = Task.spawn(fn -> quick())
         Task.outcome(t)
     }
 
@@ -122,7 +122,7 @@ fn main() {
     // frame restore buys, and a build that installed the deadline without
     // restoring it would print `cancelled` here.
     after = concurrent {
-        t = Task.spawn(|| quick())
+        t = Task.spawn(fn -> quick())
         Task.outcome(t)
     }
 

@@ -45,7 +45,7 @@ import {
 // `try` inside `fn main()` is refused by the builder (`try boundary mismatch`:
 // a Unit-returning body cannot propagate), so the fallible half lives here and
 // main discharges it. A property of `main`, not of these types.
-fn run(): Result<Unit, Error> {
+fn run() -> Result<Unit, Error> {
     // 2026-11-01 01:30 in New York is the FOLD: clocks go back at 02:00 EDT, so
     // this wall reading happens twice, an hour apart.
     fold = try NaiveDateTime"2026-11-01T01:30:00"

@@ -12,11 +12,11 @@ func TestIRStdRetention_ProgramsRunOnTheVM(t *testing.T) {
 	}{
 		{"Int and Float rt hosts", `import std/io
 
-fn wrap(a: Int, b: Int): Int {
+fn wrap(a: Int, b: Int) -> Int {
   Int.wrapping_add(Int.wrapping_mul(a, b), Int.bitwise_xor(a, 5))
 }
 
-fn classify(x: Float): String {
+fn classify(x: Float) -> String {
   if Float.nan?(x) {
     "nan"
   } else if x == Float.positive_infinity() {
@@ -26,11 +26,11 @@ fn classify(x: Float): String {
   }
 }
 
-fn text(n: Int): String {
+fn text(n: Int) -> String {
   Int.to_string(n)
 }
 
-fn whole(x: Float): Maybe<Int> {
+fn whole(x: Float) -> Maybe<Int> {
   Float.to_int(x)
 }
 
@@ -47,11 +47,11 @@ fn main() {
 			[]string{"wrap", "classify", "text", "whole", "main"}},
 		{"String hosts", `import std/io
 
-fn shout(s: String): String {
+fn shout(s: String) -> String {
   String.to_upper(String.replace(s, "a", "o"))
 }
 
-fn trimmed(s: String): String {
+fn trimmed(s: String) -> String {
   if String.starts_with?(s, "<") and String.ends_with?(s, ">") {
     String.slice(s, 1, String.length(s) - 1)
   } else {
@@ -59,11 +59,11 @@ fn trimmed(s: String): String {
   }
 }
 
-fn words(s: String): List<String> {
+fn words(s: String) -> List<String> {
   String.split(s, " ")
 }
 
-fn joined(xs: List<String>): String {
+fn joined(xs: List<String>) -> String {
   String.join(xs, "-")
 }
 
@@ -79,11 +79,11 @@ fn main() {
 			[]string{"shout", "trimmed", "words", "joined"}},
 		{"Decimal ordering", `import std/io
 
-fn smaller(a: Decimal, b: Decimal): Decimal {
+fn smaller(a: Decimal, b: Decimal) -> Decimal {
   if a <= b { a } else { b }
 }
 
-fn sign(d: Decimal): Int {
+fn sign(d: Decimal) -> Int {
   case {
     d < 0d -> -1
     d > 0d -> 1
@@ -103,43 +103,43 @@ fn main() {
 			[]string{"smaller", "sign", "main"}},
 		{"lists of String pairs", `import std/io
 
-fn entry_name(entry: (String, String)): String {
-  (name, _) = entry
+fn entry_name(entry: #(String, String)) -> String {
+  #(name, _) = entry
   name
 }
 
-fn entry_value(entry: (String, String)): String {
-  (_, value) = entry
+fn entry_value(entry: #(String, String)) -> String {
+  #(_, value) = entry
   value
 }
 
-fn lookup(entries: List<(String, String)>, key: String): Maybe<String> {
-  case Iter.find(entries, |entry| entry_name(entry) == key) {
+fn lookup(entries: List<#(String, String)>, key: String) -> Maybe<String> {
+  case Iter.find(entries, fn entry -> entry_name(entry) == key) {
     .Some(entry) -> Maybe.Some(entry_value(entry))
     .None -> Maybe.None
   }
 }
 
-fn values(entries: List<(String, String)>, key: String): List<String> {
+fn values(entries: List<#(String, String)>, key: String) -> List<String> {
   entries
-  |> Iter.filter(|entry| entry_name(entry) == key)
-  |> Iter.map(|entry| entry_value(entry))
+  |> Iter.filter(fn entry -> entry_name(entry) == key)
+  |> Iter.map(fn entry -> entry_value(entry))
   |> Iter.to_list()
 }
 
-fn put(entries: List<(String, String)>, key: String, value: String): List<(String, String)> {
+fn put(entries: List<#(String, String)>, key: String, value: String) -> List<#(String, String)> {
   entries
-  |> Iter.filter(|entry| entry_name(entry) != key)
-  |> Iter.concat([(key, value)])
+  |> Iter.filter(fn entry -> entry_name(entry) != key)
+  |> Iter.concat([#(key, value)])
   |> Iter.to_list()
 }
 
 fn main() {
-  xs = [("a", "1"), ("b", "2"), ("a", "3")]
+  xs = [#("a", "1"), #("b", "2"), #("a", "3")]
   io.inspect(lookup(xs, "a"))
   io.inspect(lookup(xs, "z"))
   io.inspect(values(xs, "a"))
-  io.inspect(Iter.any?(xs, |entry| entry_value(entry) == "2"))
+  io.inspect(Iter.any?(xs, fn entry -> entry_value(entry) == "2"))
   io.inspect(values(put(xs, "a", "9"), "a"))
   io.inspect(Iter.count(put(xs, "c", "4")))
 }
@@ -148,11 +148,11 @@ fn main() {
 		{"std Debug through io.inspect", `import std/io
 import std/calendar.{Date}
 
-fn show(d: Decimal): Decimal {
+fn show(d: Decimal) -> Decimal {
   d
 }
 
-fn day(d: Date): Date {
+fn day(d: Date) -> Date {
   d
 }
 
@@ -168,19 +168,19 @@ fn main() {
 		{"std/json's DecodeError and ShapeError", `import std/io
 import std/json.Json
 
-fn failure(): Json.DecodeError {
+fn failure() -> Json.DecodeError {
   Json.DecodeError{message: "bad", line: 2, col: 3, offset: 9}
 }
 
-fn position(e: Json.DecodeError): String {
+fn position(e: Json.DecodeError) -> String {
   "${e.line}:${e.col}"
 }
 
-fn shape(): Json.ShapeError {
+fn shape() -> Json.ShapeError {
   Json.ShapeError{path: ["a", "b"], expected: "Int", got: "String"}
 }
 
-fn depth(e: Json.ShapeError): Int {
+fn depth(e: Json.ShapeError) -> Int {
   Iter.count(e.path)
 }
 
@@ -198,15 +198,15 @@ fn main() {
 import std/compiler.Project
 import std/toml.Toml
 
-fn project(): Project {
-  Project{entry_point: "main", files: {"main" => "fn main() {}"}}
+fn project() -> Project {
+  Project{entry_point: "main", files: %{"main" => "fn main() {}"}}
 }
 
-fn configured(p: Project): Project {
+fn configured(p: Project) -> Project {
   {..p, manifest: Some(Toml"[module]\nname = \"demo\"\n")}
 }
 
-fn has_manifest?(p: Project): Bool {
+fn has_manifest?(p: Project) -> Bool {
   case p.manifest {
     Some(_) -> True
     None -> False

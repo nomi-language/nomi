@@ -9,7 +9,7 @@ func TestUnreachable_BareLoopResolvedBySymbol(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `import std/iter.Iter.{loop, loop as forever}
 
 fn bare() {
-  loop(|| {
+  loop(fn -> {
     _ = 1
   })
   _ = 2
@@ -18,13 +18,13 @@ fn bare() {
 fn aliased() {
   _ = 0
   {
-    forever(|| { _ = 1 })
+    forever(fn -> { _ = 1 })
   }
   _ = 3
 }
 
 fn guarded() {
-  loop(|n = 0| {
+  loop(fn n = 0 -> {
     if n > 3 { break }
     n + 1
   })
@@ -65,7 +65,7 @@ fn loop(f: () -> Unit) {
 }
 
 fn caller() {
-  loop(|| {
+  loop(fn -> {
     _ = 1
   })
   _ = 2

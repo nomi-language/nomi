@@ -11,6 +11,10 @@ package irbuild
 // leaves the row's activation as a test case's does. The function captures
 // what the body reads from the enclosing body, as a lambda does.
 //
+// A name, `subtests rows, pattern, name { body }`, lowers to a second
+// function of the row, which binds the pattern the same way and answers the
+// name's String; the VM calls it once per row, before the row's body.
+//
 // The VM runs the function once per row, catches each row's failure, and
 // delivers the combined failure the way an assertion in the enclosing body
 // would (internal/vm/subtests.go). So where the statement may stand is where
@@ -60,12 +64,64 @@ func (bl *irScalarBuilder) subtests(t *ast.Subtests) bool {
 		irDeclineAtNode(t.Rows)
 		return false
 	}
+	name := ir.NoTemp
+	if t.Name != nil {
+		if name, ok = bl.subtestsNameFunc(t, rowK); !ok {
+			return false
+		}
+	}
 	row, ok := bl.subtestsRowFunc(t, rowK)
 	if !ok {
 		return false
 	}
-	bl.b.Append(ir.NewSubtests(bl.g.irPos(t.Line, t.Col), seq, row, renderNode(t.Rows)))
+	n := ir.NewSubtests(bl.g.irPos(t.Line, t.Col), seq, row, renderNode(t.Rows))
+	if name != ir.NoTemp {
+		line, _ := nodePos(t.Name)
+		n.WithName(name, line, renderNode(t.Name))
+	}
+	bl.b.Append(n)
 	return true
+}
+
+// subtestsNameFunc builds the name function, `subtests rows, pattern, name`:
+// one parameter, the row, which binds the pattern as the row function does,
+// and answers the name's String. The checker rejects an exit or an
+// assertion written directly in the name, so it is an ordinary expression.
+func (bl *irScalarBuilder) subtestsNameFunc(t *ast.Subtests, rowK kind) (ir.Temp, bool) {
+	at := bl.g.irNodePos(t.Name)
+	f := ir.NewFunc(at, "row_name")
+	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{},
+		patternOK: true, at: t.Name}
+	sh.frame = newIRFuncFrame(f)
+	sh.entry = f.NewBlock(at, "entry")
+	child := &irScalarBuilder{
+		g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl,
+		bound: map[string]ir.Temp{}, boundK: map[string]kind{},
+		root: t.Name,
+	}
+	child.openWithScope(true)
+	param := bl.g.irAddParam(f, sh.localSym("|row"), rowK)
+	if !child.testDestructure(t.Pattern, param, rowK) {
+		return ir.NoTemp, false
+	}
+	name, k, _, ok := child.lower(t.Name)
+	if !ok {
+		return ir.NoTemp, false
+	}
+	if k != kindString {
+		irDeclineNote("a `subtests` name that does not lower to a String: " + k.nomi())
+		irDeclineAtNode(t.Name)
+		return ir.NoTemp, false
+	}
+	child.b.SetTerm(ir.NewReturn(at, name))
+	if err := bl.g.irLint(f); err != nil {
+		irDeclineNote("a `subtests` name graph that does not lint: " + err.Error())
+		return ir.NoTemp, false
+	}
+	n := ir.NewFuncValue(at, bl.f.NewTemp(), f, child.captures...)
+	bl.b.Append(n)
+	bl.side(n.Dst(), irScalarSide{k: funcKindIn(bl.g, []kind{rowK}, kindString)})
+	return n.Dst(), true
 }
 
 // subtestsRowFunc builds the row function and answers the function value
@@ -86,7 +142,7 @@ func (bl *irScalarBuilder) subtestsRowFunc(t *ast.Subtests, rowK kind) (ir.Temp,
 		g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl,
 		bound: map[string]ir.Temp{}, boundK: map[string]kind{},
 		inTest: true, testApp: bl.testApp, testWalked: true,
-		root: body, subtestsRow: true,
+		root: body, subtestsRow: true, deferOK: true,
 	}
 	defer bl.g.enterBlockTypes(body)()
 	param := bl.g.irAddParam(f, sh.localSym("|row"), rowK)

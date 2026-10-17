@@ -7,7 +7,7 @@ import (
 )
 
 func TestIRExtern_TourRegexLiterals(t *testing.T) {
-	verifyLambdaProgram(t, "import {\n  std/regex.Regex\n}\n\nfn main(): Result<Unit, String> {\n  digits = Regex`\\d+`\n  prefixed = try Regex\"room ${Regex.pattern(digits)}\"\n  text = \"room 42, floor 7\"\n\n  dbg Regex.pattern(digits)\n  dbg String.contains?(text, digits)\n  dbg Regex.find(digits, text)\n  dbg String.find_all(text, digits)\n  dbg String.contains?(text, prefixed)\n\n  Ok(Unit)\n}\n", "dbg line 10: Regex.pattern(digits) = \"\\\\d+\"\ndbg line 11: String.contains?(text, digits) = True\ndbg line 12: Regex.find(digits, text) = Some(\"42\")\ndbg line 13: String.find_all(text, digits) = [\"42\", \"7\"]\ndbg line 14: String.contains?(text, prefixed) = True\n")
+	verifyLambdaProgram(t, "import {\n  std/regex.Regex\n}\n\nfn main() -> Result<Unit, String> {\n  digits = Regex`\\d+`\n  prefixed = try Regex\"room ${Regex.pattern(digits)}\"\n  text = \"room 42, floor 7\"\n\n  dbg Regex.pattern(digits)\n  dbg String.contains?(text, digits)\n  dbg String.find(text, digits)\n  dbg String.find_all(text, digits)\n  dbg String.contains?(text, prefixed)\n\n  Ok(Unit)\n}\n", "dbg line 10: Regex.pattern(digits) = \"\\\\d+\"\ndbg line 11: String.contains?(text, digits) = True\ndbg line 12: String.find(text, digits) = Some(\"42\")\ndbg line 13: String.find_all(text, digits) = [\"42\", \"7\"]\ndbg line 14: String.contains?(text, prefixed) = True\n")
 }
 
 // A `try` in main leaves main with the Err, which fails the run: the error on
@@ -19,20 +19,20 @@ func TestIRExtern_RegexHandlesAndErrors(t *testing.T) {
   std/regex.Regex
 }
 
-fn words(re: Regex, text: String): List<String> {
+fn words(re: Regex, text: String) -> List<String> {
   String.split(text, re)
 }
 
-fn compiled(pattern: String): Result<Regex, String> {
+fn compiled(pattern: String) -> Result<Regex, String> {
   re = try Regex.compile(pattern)
   Ok(re)
 }
 
-fn main(): Result<Unit, String> {
+fn main() -> Result<Unit, String> {
   spaces = try compiled("\\s+")
   dbg words(spaces, "a b  c")
   dbg Regex.replace_all(spaces, "a b  c", "_")
-  dbg Regex.find(spaces, "none")
+  dbg String.find("none", spaces)
   case compiled("(") {
     Ok(_) -> io.print("compiled")
     Err(e) -> io.print(e)
@@ -46,7 +46,7 @@ fn main(): Result<Unit, String> {
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)
 	}
-	want := "dbg line 17: words(spaces, \"a b  c\") = [\"a\", \"b\", \"c\"]\ndbg line 18: Regex.replace_all(spaces, \"a b  c\", \"_\") = \"a_b_c\"\ndbg line 19: Regex.find(spaces, \"none\") = None\nerror parsing regexp: missing closing ): `(`\nbefore\n"
+	want := "dbg line 17: words(spaces, \"a b  c\") = [\"a\", \"b\", \"c\"]\ndbg line 18: Regex.replace_all(spaces, \"a b  c\", \"_\") = \"a_b_c\"\ndbg line 19: String.find(\"none\", spaces) = None\nerror parsing regexp: missing closing ): `(`\nbefore\n"
 	wantErr := "error: error parsing regexp: missing closing ]: `[`\n"
 	if got := vmReference(path); got.stdout != want || got.stderr != wantErr || got.exit != 1 {
 		t.Fatalf("vm command: %s; want stdout %q, stderr %q, exit 1", got, want, wantErr)

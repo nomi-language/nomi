@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"context"
 	"fmt"
 	"hash/fnv"
 	"math"
@@ -54,7 +55,7 @@ func sharedLoweringDoc(t *testing.T, s *Server, rel string) (path, uri, text str
 // lowerAnalyzed lowers a, which must be lowered from the analysis, and
 // must report lowering diagnostics.
 func lowerAnalyzed(t *testing.T, path, text string, a *analyzedlowering.Analyzed) {
-	problems, ok, err := analyzedlowering.Check(path, text, a)
+	problems, ok, err := analyzedlowering.Check(context.Background(), path, text, a)
 	if !ok || err != nil || problems == nil {
 		t.Errorf("%s: lowered from its analysis %v, problems %v, err %v; want problems from the analysis", path, ok, problems, err)
 	}
@@ -66,12 +67,13 @@ func lowerAnalyzed(t *testing.T, path, text string, a *analyzedlowering.Analyzed
 // after the lowering as before it. The process's first lowering, which
 // lowers the stdlib once, runs before the first fingerprint.
 func TestLoweringFromAnalysis_LeavesTheAnalysisUnchanged(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
 	s := NewServer()
 	warm, _, warmText, _ := sharedLoweringDoc(t, s, "tests/01-foundations/literals_test.nomi")
-	if _, err := vmhost.CheckLowering(warm, warmText); err != nil {
+	if _, err := vmhost.CheckLowering(context.Background(), warm, warmText); err != nil {
 		t.Fatal(err)
 	}
 	for _, rel := range sharedLoweringFiles {
@@ -108,6 +110,7 @@ func TestLoweringFromAnalysis_LeavesTheAnalysisUnchanged(t *testing.T) {
 // handlers read it, other documents are analyzed, and the front end checks
 // another program, all over the one stdlib analysis. Run with -race.
 func TestLoweringFromAnalysis_ConcurrentWithRequests(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
@@ -164,7 +167,7 @@ func TestLoweringFromAnalysis_ConcurrentWithRequests(t *testing.T) {
 	})
 	run(func() {
 		for range rounds {
-			if _, err := vmhost.CheckLowering(otherPath, otherText); err != nil {
+			if _, err := vmhost.CheckLowering(context.Background(), otherPath, otherText); err != nil {
 				t.Errorf("checking %s: %v", otherPath, err)
 			}
 		}

@@ -4,7 +4,7 @@ struct Feed {
 }
 
 impl Equatable for Feed {
-    fn equal?(a: Feed, b: Feed): Bool {
+    fn equal?(a: Feed, b: Feed) -> Bool {
         a.name == b.name
     }
 }
@@ -19,7 +19,7 @@ struct Countdown {
 }
 
 impl Iter for Countdown {
-    fn each_while(c: Countdown, yield: (Int) -> Bool): Bool {
+    fn each_while(c: Countdown, yield: (Int) -> Bool) -> Bool {
         if c.from == 0 {
             True
         } else if yield(c.from) {
@@ -30,24 +30,24 @@ impl Iter for Countdown {
     }
 }
 
-fn total(xs: Iter<Int>): Int {
-    Iter.reduce(xs, |acc = 0, x| acc + x)
+fn total(xs: Iter<Int>) -> Int {
+    Iter.sum(xs)
 }
 
-fn doubled(xs: List<Int>): Iter<Int> {
-    xs |> Iter.map(|x| x * 2)
+fn doubled(xs: List<Int>) -> Iter<Int> {
+    xs |> Iter.map(fn x -> x * 2)
 }
 
-fn evens(): Iter<Int> {
+fn evens() -> Iter<Int> {
     [2, 4, 6]
 }
 
-fn first_of<T>(xs: Iter<T>): Maybe<T> {
+fn first_of<T>(xs: Iter<T>) -> Maybe<T> {
     Iter.first(xs)
 }
 
 test "an Iter is a struct field" {
-    feed = Feed{name: "odds", items: [1, 3, 5] |> Iter.map(|x| x + 1)}
+    feed = Feed{name: "odds", items: [1, 3, 5] |> Iter.map(fn x -> x + 1)}
 
     assert Iter.to_list(feed.items) == [2, 4, 6]
 }
@@ -59,26 +59,26 @@ test "a struct field takes any source" {
 }
 
 test "an Iter is a tuple part and a record field" {
-    pair = (1, [1, 2] |> Iter.map(|x| x * 10))
-    (_, tens) = pair
-    record = {label: "r", items: [3] |> Iter.map(|x| x + 1)}
+    pair = #(1, [1, 2] |> Iter.map(fn x -> x * 10))
+    #(_, tens) = pair
+    record = {label: "r", items: [3] |> Iter.map(fn x -> x + 1)}
 
     assert Iter.to_list(tens) == [10, 20]
     assert Iter.to_list(record.items) == [4]
 }
 
 test "an Iter is a Some and an Ok payload" {
-    bumped = [1, 2] |> Iter.map(|x| x + 1)
+    bumped = [1, 2] |> Iter.map(fn x -> x + 1)
 
     found = Some(bumped)
     checked: Result<Iter<Int>, String> = Ok([7, 8])
 
-    assert found |> Maybe.map(|it| Iter.to_list(it)) == Some([2, 3])
-    assert checked |> Result.map(|it| Iter.count(it)) == Ok(2)
+    assert found |> Maybe.map(fn it -> Iter.to_list(it)) == Some([2, 3])
+    assert checked |> Result.map(fn it -> Iter.count(it)) == Ok(2)
 }
 
 test "an Iter is an enum payload" {
-    large = [4, 5] |> Iter.filter(|x| x > 4)
+    large = [4, 5] |> Iter.filter(fn x -> x > 4)
 
     source = Source.Lazy(large)
 
@@ -97,21 +97,21 @@ test "an Iter is a parameter and a return type" {
 }
 
 test "a list holds Iters" {
-    streams: List<Iter<Int>> = [[1] |> Iter.map(|x| x * 3), [4, 5]]
+    streams: List<Iter<Int>> = [[1] |> Iter.map(fn x -> x * 3), [4, 5]]
 
-    assert streams |> Iter.flat_map(|s| s) |> Iter.to_list() == [3, 4, 5]
+    assert streams |> Iter.flat_map(fn s -> s) |> Iter.to_list() == [3, 4, 5]
 }
 
 test "a closure captures an Iter" {
-    squares = [1, 2, 3] |> Iter.map(|x| x * x)
+    squares = [1, 2, 3] |> Iter.map(fn x -> x * x)
 
-    sum_squares = || total(squares)
+    sum_squares = fn -> total(squares)
 
     assert sum_squares() == 14
 }
 
 test "a lambda parameter is an Iter" {
-    size = |xs: Iter<Int>| Iter.count(xs)
+    size = fn xs: Iter<Int> -> Iter.count(xs)
 
     assert size([1, 2, 3]) == 3
 }
@@ -128,15 +128,15 @@ test "every source enters an Iter parameter" {
 }
 
 test "storing an Iter does not consume it" {
-    feed = Feed{name: "twice", items: [1, 2] |> Iter.map(|x| x * 5)}
+    feed = Feed{name: "twice", items: [1, 2] |> Iter.map(fn x -> x * 5)}
 
     assert Iter.to_list(feed.items) == [5, 10]
     assert Iter.to_list(feed.items) == [5, 10]
 }
 
 test "an Iter over a source keeps the source's count" {
-    known = |xs: Iter<Int>| Iter.known_count(xs)
-    mapped = [1, 2] |> Iter.map(|x| x)
+    known = fn xs: Iter<Int> -> Iter.known_count(xs)
+    mapped = [1, 2] |> Iter.map(fn x -> x)
 
     assert known([1, 2, 3]) == Some(3)
     assert known(1..4) == Some(3)
@@ -146,10 +146,10 @@ test "an Iter over a source keeps the source's count" {
 }
 
 test "an Iter over a collection inspects as the collection" {
-    shown = |xs: Iter<Int>| Debug.inspect(xs)
-    mapped = [1, 2] |> Iter.map(|x| x)
+    shown = fn xs: Iter<Int> -> Debug.inspect(xs)
+    mapped = [1, 2] |> Iter.map(fn x -> x)
 
-    feed = Feed{name: "f", items: [1] |> Iter.map(|x| x)}
+    feed = Feed{name: "f", items: [1] |> Iter.map(fn x -> x)}
 
     assert shown([1, 2]) == "[1, 2]"
     assert shown(mapped) == "<iter>"

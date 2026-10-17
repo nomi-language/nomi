@@ -29,57 +29,57 @@ enum Shape {
   Dot
 }
 
-fn sum_list(xs: List<Int>): Int {
+fn sum_list(xs: List<Int>) -> Int {
   Iter.count(xs)
 }
 
-fn cnt(xs: Iter<Int>): Int {
+fn cnt(xs: Iter<Int>) -> Int {
   Iter.count(xs)
 }
 
-fn shown(x: Display): String {
+fn shown(x: Display) -> String {
   Display.to_string(x)
 }
 
-fn float_str(f: Float): String {
+fn float_str(f: Float) -> String {
   Float.to_string(f)
 }
 
-fn r_of(c: Circle): Int {
+fn r_of(c: Circle) -> Int {
   c.r
 }
 
-fn pick<T>(c: Bool, a: T, b: T): T {
+fn pick<T>(c: Bool, a: T, b: T) -> T {
   if c { a } else { b }
 }
 
-fn use_iter(f: (Iter<Int>) -> Int): Int {
+fn use_iter(f: (Iter<Int>) -> Int) -> Int {
   f([1, 2])
 }
 
-fn use_display(f: (Display) -> String): String {
+fn use_display(f: (Display) -> String) -> String {
   f("hi")
 }
 
-fn use_shape(f: (Shape) -> Int): Int {
+fn use_shape(f: (Shape) -> Int) -> Int {
   f(Shape.Dot)
 }
 
-fn give_iter(f: (Iter<Int>) -> Int): Int {
+fn give_iter(f: (Iter<Int>) -> Int) -> Int {
   f([5, 6])
 }
 
-fn higher(g: ((List<Int>) -> Int) -> Int): Int {
+fn higher(g: ((List<Int>) -> Int) -> Int) -> Int {
   g(sum_list)
 }
 
 `
 
-const funcAssignReturns = `fn ret_bad(): (Iter<Int>) -> Int {
+const funcAssignReturns = `fn ret_bad() -> (Iter<Int>) -> Int {
   sum_list
 }
 
-fn ret_bad_early(b: Bool): (Iter<Int>) -> Int {
+fn ret_bad_early(b: Bool) -> (Iter<Int>) -> Int {
   if b {
     return sum_list
   }
@@ -114,7 +114,7 @@ func TestFuncTypeAssign_UnsoundIsRejected(t *testing.T) {
 			"return type mismatch: expected (Iter<Int>) -> Int, got (List<Int>) -> Int"},
 		{"an early return", funcAssignReturns, "  _ = ret_bad_early(True)\n",
 			"return type mismatch: expected (Iter<Int>) -> Int, got (List<Int>) -> Int"},
-		{"a result where the function returns a narrower one", "", "  n: (Int) -> List<Int> = |x: Int| 0..x\n  _ = n(2)\n",
+		{"a result where the function returns a narrower one", "", "  n: (Int) -> List<Int> = fn x: Int -> 0..x\n  _ = n(2)\n",
 			"type mismatch: expected (Int) -> List<Int>, got (Int) -> Range<Int>"},
 		{"a generic join, wider first", "", "  c = pick(True, shown, float_str)\n  _ = c(\"hi\")\n",
 			"argument 3: expected (Display) -> String, got (Float) -> String"},
@@ -141,16 +141,16 @@ func TestFuncTypeAssign_UnsoundIsRejected(t *testing.T) {
 func TestFuncTypeAssign_SoundIsAccepted(t *testing.T) {
 	for _, body := range []string{
 		"  _ = use_display(shown)\n",
-		"  _ = higher(|g| g([1]))\n",
+		"  _ = higher(fn g -> g([1]))\n",
 		"  _ = use_iter(cnt)\n",
 		"  f: (List<Int>) -> Int = cnt\n  _ = f([1])\n",
 		"  fs: List<(List<Int>) -> Int> = [cnt, sum_list]\n  _ = Iter.count(fs)\n",
-		"  m: (Int) -> Iter<Int> = |n: Int| [n]\n  _ = m(1)\n",
-		"  s: (Circle) -> Int = |sh: Shape| case sh {\n    .Circle{r} -> r\n    .Dot -> 0\n  }\n  _ = s(Circle{r: 1})\n",
+		"  m: (Int) -> Iter<Int> = fn n: Int -> [n]\n  _ = m(1)\n",
+		"  s: (Circle) -> Int = fn sh: Shape -> case sh {\n    .Circle{r} -> r\n    .Dot -> 0\n  }\n  _ = s(Circle{r: 1})\n",
 		"  _ = Iter.map([1, 2], shown) |> Iter.to_list()\n",
-		"  _ = Map.map_values({\"a\" => [1]}, cnt)\n",
+		"  _ = Map.map_values(%{\"a\" => [1]}, cnt)\n",
 		"  c = pick(True, shown, shown)\n  _ = c(1)\n",
-		"  c = pick(True, float_str, |x| shown(x))\n  _ = c(1.5)\n",
+		"  c = pick(True, float_str, fn x -> shown(x))\n  _ = c(1.5)\n",
 	} {
 		src := funcAssignDecls + "fn main() {\n" + body + "}\n"
 		_, errs := checkSourceWithStdlib(src)

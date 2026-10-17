@@ -16,7 +16,7 @@ struct Pt {
 
 type Id Int
 
-fn pick<T>(c: Bool, a: T, b: T): T {
+fn pick<T>(c: Bool, a: T, b: T) -> T {
   if c { b } else { a }
 }
 `
@@ -26,8 +26,8 @@ fn pick<T>(c: Bool, a: T, b: T): T {
 // TestIRPattern_EveryShapeThroughATypeVariable.
 func TestChecker_PatternsResolveABoundTypeVariable(t *testing.T) {
 	for _, tc := range []struct{ name, arms string }{
-		{"tuple", `case pick(True, Opt.Nothing, Opt.Has((1, "x"))) {
-    .Has((s, t)) -> s + String.length(t)
+		{"tuple", `case pick(True, Opt.Nothing, Opt.Has(#(1, "x"))) {
+    .Has(#(s, t)) -> s + String.length(t)
     .Nothing -> 0
   }`},
 		{"struct", `case pick(True, Opt.Nothing, Opt.Has(Pt{x: 3, y: 4})) {
@@ -44,8 +44,8 @@ func TestChecker_PatternsResolveABoundTypeVariable(t *testing.T) {
     .Has(.Nothing) -> 0
     .Nothing -> 0
   }`},
-		{"map", `case pick(True, Opt.Nothing, Opt.Has({"k" => 8})) {
-    .Has({"k" => v}) -> v
+		{"map", `case pick(True, Opt.Nothing, Opt.Has(%{"k" => 8})) {
+    .Has(%{"k" => v}) -> v
     .Has(_) -> 0
     .Nothing -> 0
   }`},
@@ -55,7 +55,7 @@ func TestChecker_PatternsResolveABoundTypeVariable(t *testing.T) {
   }`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := patternTypeVarPrelude + "\nfn f(): Int {\n  " + tc.arms + "\n}\n"
+			src := patternTypeVarPrelude + "\nfn f() -> Int {\n  " + tc.arms + "\n}\n"
 			_, errs := checkSourceWithStdlib(src)
 			expectNoErrorsT(t, errs)
 		})
@@ -67,7 +67,7 @@ func TestChecker_PatternsResolveABoundTypeVariable(t *testing.T) {
 func TestChecker_PatternMismatchThroughATypeVariableIsRejected(t *testing.T) {
 	for _, tc := range []struct{ name, arms, want string }{
 		{"tuple", `case pick(True, Opt.Nothing, Opt.Has(5)) {
-    .Has((s, t)) -> s + String.length(t)
+    .Has(#(s, t)) -> s + String.length(t)
     .Nothing -> 0
   }`, "tuple pattern requires a tuple type, got Int"},
 		{"struct", `case pick(True, Opt.Nothing, Opt.Has(5)) {
@@ -84,14 +84,14 @@ func TestChecker_PatternMismatchThroughATypeVariableIsRejected(t *testing.T) {
     .Has(_) -> 0
     .Nothing -> 0
   }`, "enum pattern requires an enum type, got Int"},
-		{"tuple arity", `case pick(True, Opt.Nothing, Opt.Has((1, 2))) {
-    .Has((a, b, c)) -> a
+		{"tuple arity", `case pick(True, Opt.Nothing, Opt.Has(#(1, 2))) {
+    .Has(#(a, b, c)) -> a
     .Has(_) -> 0
     .Nothing -> 0
   }`, "tuple pattern has 3 elements but expected 2"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := patternTypeVarPrelude + "\nfn f(): Int {\n  " + tc.arms + "\n}\n"
+			src := patternTypeVarPrelude + "\nfn f() -> Int {\n  " + tc.arms + "\n}\n"
 			_, errs := checkSourceWithStdlib(src)
 			expectErrorT(t, errs, tc.want)
 		})

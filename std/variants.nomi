@@ -1,0 +1,18 @@
+import {
+    comparable.Ordering
+    lists.List
+}
+
+/// Variants lists every value of an enum whose variants carry no data.
+/// `T.variants()` returns them in declaration order, the order
+/// `derive Comparable` ranks them in, so the list is sorted when the enum
+/// derives both.
+///
+/// `derive Variants for T` writes the impl. It accepts an enum without type
+/// parameters whose variants all carry no data; a variant that carries data
+/// has no single value to list, so deriving it there is a compile error.
+//! assert Ordering.variants() == [Ordering.Less, Ordering.Equal, Ordering.Greater]
+//
+pub interface Variants {
+    fn variants() -> List<self>
+}

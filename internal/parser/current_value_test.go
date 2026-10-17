@@ -39,7 +39,7 @@ func TestParseCurrentValue_Struct(t *testing.T) {
 }
 
 func TestParseCurrentValue_Map(t *testing.T) {
-	lit, ok := parseExpr(t, `{.., "city" => "Atlanta"}`).(*ast.MapLit)
+	lit, ok := parseExpr(t, `%{.., "city" => "Atlanta"}`).(*ast.MapLit)
 	if !ok {
 		t.Fatalf("want *ast.MapLit")
 	}

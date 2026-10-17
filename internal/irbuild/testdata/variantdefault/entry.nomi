@@ -12,7 +12,7 @@ import {
 
 once label = "entry"
 
-fn describe(b: Backoff): String {
+fn describe(b: Backoff) -> String {
     case b {
         Backoff.Exponential{max_restarts, max_elapsed} -> "${max_restarts}/${max_elapsed}"
         Backoff.Off -> "off"

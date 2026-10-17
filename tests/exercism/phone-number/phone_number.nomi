@@ -1,0 +1,58 @@
+/// Why a phrase is not a NANP phone number.
+pub enum Error {
+    Letters
+    Punctuation
+    TooFewDigits
+    TooManyDigits
+    CountryCodeNotOne
+    AreaCodeStartsWithZero
+    AreaCodeStartsWithOne
+    ExchangeCodeStartsWithZero
+    ExchangeCodeStartsWithOne
+}
+
+/// Cleans a NANP phone number down to its ten digits, dropping punctuation
+/// and a leading country code of 1.
+pub fn clean(phrase: String) -> Result<String, Error> {
+    codepoints = String.to_codepoints(phrase)
+
+    if Iter.any?(codepoints, Codepoint.letter?) {
+        return Err(.Letters)
+    }
+
+    if !Iter.all?(codepoints, fn cp -> Codepoint.digit?(cp) or separator?(cp)) {
+        return Err(.Punctuation)
+    }
+
+    digits = codepoints |> Iter.map(Codepoint.to_digit) |> Maybe.values()
+
+    digits = try national(digits)
+
+    case digits {
+        [0, .._] -> Err(.AreaCodeStartsWithZero)
+        [1, .._] -> Err(.AreaCodeStartsWithOne)
+        [_, _, _, 0, .._] -> Err(.ExchangeCodeStartsWithZero)
+        [_, _, _, 1, .._] -> Err(.ExchangeCodeStartsWithOne)
+        _ -> digits |> Iter.map(Int.to_string) |> String.join() |> Ok()
+    }
+}
+
+/// Strips the country code from eleven digits, so ten remain.
+fn national(digits: List<Int>) -> Result<List<Int>, Error> {
+    count = Iter.count(digits)
+
+    case digits {
+        _ when count < 10 -> Err(.TooFewDigits)
+        _ when count == 10 -> Ok(digits)
+        [1, ..rest] when count == 11 -> Ok(rest)
+        _ when count == 11 -> Err(.CountryCodeNotOne)
+        _ -> Err(.TooManyDigits)
+    }
+}
+
+fn separator?(cp: Codepoint) -> Bool {
+    case cp {
+        ' ' or '(' or ')' or '-' or '.' or '+' -> True
+        _ -> False
+    }
+}

@@ -17,7 +17,7 @@ struct User {
 derive ToJson for User with ToJson.Options{rename_all: Camel}
 derive FromJson for User with FromJson.Options{rename_all: Camel}
 
-fn main(): Result<Unit, Json.ShapeError> {
+fn main() -> Result<Unit, Json.ShapeError> {
   user = User{first_name: "Ada", age: 36}
   shape = User.to_json(user)
 
@@ -73,7 +73,7 @@ derive FromJson for Point
 derive ToJson for Flag
 derive FromJson for Flag
 
-fn point_of(text: String): String {
+fn point_of(text: String) -> String {
   case Json.decode(text) {
     Err(e) -> "decode error at ${e.line}:${e.col}: ${e.message}"
     Ok(shape) ->
@@ -115,8 +115,8 @@ func TestIRJSON_DecodedValueAndDebug(t *testing.T) {
   std/json.{Json}
 }
 
-fn wrap(j: Json): Json {
-  Json.Obj{"items" => j}
+fn wrap(j: Json) -> Json {
+  Json.Obj%{"items" => j}
 }
 
 fn main() {
@@ -138,7 +138,7 @@ func TestIRJSON_NestedPayloadPatternRetains(t *testing.T) {
   std/json.{Json}
 }
 
-fn first(j: Json): Int {
+fn first(j: Json) -> Int {
   case j {
     Json.Arr([Json.Int(n), .._rest]) -> n
     _ -> 0

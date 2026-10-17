@@ -20,7 +20,7 @@ import (
 const namedCtorDecls = `
 enum Shape {
   Sq Int
-  Pair (Int, Int)
+  Pair #(Int, Int)
   Rect {w: Int, h: Int}
   embeds Id
 }
@@ -32,7 +32,7 @@ enum Box<T> {
 
 type Id Int
 
-type Two (Int, String)
+type Two #(Int, String)
 
 struct Point {
   x: Int
@@ -46,38 +46,38 @@ const (
 
 func TestNamedArgToConstructor_IsAnError(t *testing.T) {
 	for _, tc := range []struct{ name, src, at, hint string }{
-		{"Some with an expected type", `fn f(): Maybe<Int> {
+		{"Some with an expected type", `fn f() -> Maybe<Int> {
   Some(l: 1)
 }`, "l: 1", variantNameHint},
 		{"Some without an expected type", `fn f() {
   x = Some(l: 1)
   _ = x
 }`, "l: 1", variantNameHint},
-		{"Ok", `fn f(): Result<Int, String> {
+		{"Ok", `fn f() -> Result<Int, String> {
   Ok(v: 1)
 }`, "v: 1", variantNameHint},
-		{"Err", `fn f(): Result<Int, String> {
+		{"Err", `fn f() -> Result<Int, String> {
   Err(e: "x")
 }`, `e: "x"`, variantNameHint},
-		{"a user variant", `fn f(): Shape {
+		{"a user variant", `fn f() -> Shape {
   Shape.Sq(n: 1)
 }`, "n: 1", variantNameHint},
-		{"a dot variant", `fn f(): Shape {
+		{"a dot variant", `fn f() -> Shape {
   .Sq(n: 1)
 }`, "n: 1", variantNameHint},
-		{"a tuple-payload variant, flat", `fn f(): Shape {
+		{"a tuple-payload variant, flat", `fn f() -> Shape {
   Shape.Pair(a: 1, 2)
 }`, "a: 1", variantNameHint},
-		{"a tuple-payload variant, whole", `fn f(): Shape {
-  Shape.Pair(a: (1, 2))
-}`, "a: (1, 2)", variantNameHint},
-		{"a generic variant", `fn f(): Box<Int> {
+		{"a tuple-payload variant, whole", `fn f() -> Shape {
+  Shape.Pair(a: #(1, 2))
+}`, "a: #(1, 2)", variantNameHint},
+		{"a generic variant", `fn f() -> Box<Int> {
   Box.Full(v: 1)
 }`, "v: 1", variantNameHint},
-		{"a named placeholder", `fn f(): (Int) -> Maybe<Int> {
+		{"a named placeholder", `fn f() -> (Int) -> Maybe<Int> {
   Some(l: _)
 }`, "l: _", variantNameHint},
-		{"a pipe", `fn f(): Maybe<Int> {
+		{"a pipe", `fn f() -> Maybe<Int> {
   1 |> Some(l: _)
 }`, "l: _", variantNameHint},
 		{"the fuzzer's Assertable impl", `import std/assertions.{Assertable, AssertionDetails}
@@ -86,7 +86,7 @@ struct Same {
   b: Int
 }
 impl Assertable for Same {
-  fn failure(s: Same): Maybe<AssertionDetails> {
+  fn failure(s: Same) -> Maybe<AssertionDetails> {
     if s.a == s.b {
       None
     } else {
@@ -96,16 +96,16 @@ impl Assertable for Same {
     }
   }
 }`, "l: AssertionDetails", variantNameHint},
-		{"a distinct", `fn f(): Id {
+		{"a distinct", `fn f() -> Id {
   Id(n: 5)
 }`, "n: 5", distinctNameHint},
-		{"a tuple distinct", `fn f(): Two {
-  Two(t: (1, "x"))
-}`, `t: (1, "x")`, distinctNameHint},
-		{"an embedded distinct", `fn f(): Shape {
+		{"a tuple distinct", `fn f() -> Two {
+  Two(t: #(1, "x"))
+}`, `t: #(1, "x")`, distinctNameHint},
+		{"an embedded distinct", `fn f() -> Shape {
   Shape.Id(n: 3)
 }`, "n: 3", distinctNameHint},
-		{"a struct's call form", `fn f(): Point {
+		{"a struct's call form", `fn f() -> Point {
   Point(p: {x: 1})
 }`, "p: {x: 1}", "a struct's call form takes one record with the fields in it; write Point({...}) or Point{...}"},
 	} {
@@ -124,7 +124,7 @@ impl Assertable for Same {
 // A struct-shaped variant keeps its own message: it has no positional form,
 // named or not.
 func TestNamedArgToConstructor_StructVariantNamesItsForms(t *testing.T) {
-	src := namedCtorDecls + `fn f(): Shape {
+	src := namedCtorDecls + `fn f() -> Shape {
   Shape.Rect(w: 1, h: 2)
 }
 fn main() {
@@ -155,9 +155,9 @@ func TestNamedArgToConstructor_ImportedVariant(t *testing.T) {
 		{"file-qualified", "import shapes", "shapes.Shape.Sq(n: 1)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := tc.imp + "\nimport shapes.Shape\n\nfn f(): Shape {\n  " + tc.call + "\n}\n\nfn main() {\n}\n"
+			src := tc.imp + "\nimport shapes.Shape\n\nfn f() -> Shape {\n  " + tc.call + "\n}\n\nfn main() {\n}\n"
 			if tc.imp == "import shapes" {
-				src = tc.imp + "\n\nfn f(): shapes.Shape {\n  " + tc.call + "\n}\n\nfn main() {\n}\n"
+				src = tc.imp + "\n\nfn f() -> shapes.Shape {\n  " + tc.call + "\n}\n\nfn main() {\n}\n"
 			}
 			_, errs := checkProjectWithFiles(t, src, map[string]string{"shapes.nomi": namedCtorShapes})
 			expectNamedArgError(t, src, errs, "n: 1", variantNameHint)
@@ -179,7 +179,7 @@ func TestNamedArgToConstructor_PositionalStillChecks(t *testing.T) {
   i: Two = Two(1, "x")
   j: Shape = Shape.Id(3)
   k: Point = Point({x: 1})
-  _ = (a, b, c, d, e, f(1), g, h, i, j, k)
+  _ = #(a, b, c, d, e, f(1), g, h, i, j, k)
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -215,13 +215,13 @@ func expectNamedArgError(t *testing.T, src string, errs []analysis.TypeError, at
 // and the IR builder declined them.
 func TestNamedArgToInterfaceFunction_ChecksTheName(t *testing.T) {
 	for _, tc := range []struct{ name, src, at string }{
-		{"Struct.update", `fn f(p: Point): Point {
+		{"Struct.update", `fn f(p: Point) -> Point {
   Struct.update(p, patch: {x: 2})
 }`, "patch: {x: 2}"},
-		{"Display.to_string", `fn f(): String {
+		{"Display.to_string", `fn f() -> String {
   Display.to_string(v: 1)
 }`, "v: 1"},
-		{"a bounded type parameter", `fn f<T>(x: T): String where T: Display {
+		{"a bounded type parameter", `fn f<T>(x: T) -> String where T: Display {
   T.to_string(v: x)
 }`, "v: x"},
 	} {
@@ -239,7 +239,7 @@ func TestNamedArgToInterfaceFunction_ChecksTheName(t *testing.T) {
 				want, line, col, errorList(errs))
 		})
 	}
-	_, errs := checkSourceWithStdlib(namedCtorDecls + `fn show<T>(x: T): String where T: Display {
+	_, errs := checkSourceWithStdlib(namedCtorDecls + `fn show<T>(x: T) -> String where T: Display {
   T.to_string(value: x)
 }
 fn main() {
@@ -247,7 +247,7 @@ fn main() {
   a: Point = Struct.update(p, updates: {x: 2})
   b: Point = Struct.update(updates: {x: 3}, original: p)
   c: String = Display.to_string(value: 4)
-  _ = (a, b, c, show(5))
+  _ = #(a, b, c, show(5))
 }
 `)
 	expectNoStdlibErrors(t, errs)

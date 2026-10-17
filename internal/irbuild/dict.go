@@ -16,7 +16,7 @@ import (
 // anything runs.
 //
 // Part (b), WHICH IMPL. Bound names can never answer this. For
-// `FromJson.from_json(json: Json): Result<self, …>`, self occurs only in the
+// `FromJson.from_json(json: Json) -> Result<self, …>`, self occurs only in the
 // RETURN, so a dispatch on the first argument's runtime type probes `Json`
 // and every `impl FromJson for List<T>` is unreachable. The answer needs a
 // SEPARATE binding carrying the concrete type ARGUMENT.
@@ -290,7 +290,7 @@ func (g *gen) dictSeamFor(fd *ast.FuncDef) (*dictSeam, bool) {
 	// Part (a) makes a bounded type parameter an existential over its bound
 	// (dictTypeParamKind), so `m: Maybe<T>` resolves to `Maybe<Display>` and the
 	// signature demands a container whose PAYLOAD is already erased. For
-	// `fn label<T>(prefix: String, m: Maybe<T>): String where T: Display`:
+	// `fn label<T>(prefix: String, m: Maybe<T>) -> String where T: Display`:
 	//
 	//	label("a: ", Some(1))        argument type mismatch | Maybe<Display> got Maybe<Int>
 	//	label<Int>("a: ", Some(1))   IDENTICAL — the turbofish changes what SOLVES
@@ -305,13 +305,13 @@ func (g *gen) dictSeamFor(fd *ast.FuncDef) (*dictSeam, bool) {
 	// is enough to make the call unwritable.
 	//
 	// Declining hands the declaration to monomorphization, which lowers the
-	// shape (`fn wrap<T>(m: Maybe<T>): Int`): in an instance the bound
+	// shape (`fn wrap<T>(m: Maybe<T>) -> Int`): in an instance the bound
 	// dissolves — `T` is `Int` and `Display.to_string(v)` is an ordinary
 	// concrete dispatch. The `where T: Struct` arm below declines for the same
 	// reason.
 	//
 	// PARAMETERS ONLY. A type parameter at depth in the RETURN (`fn decode<T>(
-	// json: Json): Result<T, ShapeError> where T: FromJson`) is NOT declined
+	// json: Json) -> Result<T, ShapeError> where T: FromJson`) is NOT declined
 	// here, because the argument above is about what a caller must pass.
 	if boundedParamAtDepth(fd, bounds[0].name) {
 		return nil, false
@@ -352,7 +352,7 @@ func (g *gen) dictSeamFor(fd *ast.FuncDef) (*dictSeam, bool) {
 			// `declareFuncs` is where `dictSeamFor` is called from. So a
 			// `len(d.order) == 0` test reads zero for EVERY interface at this
 			// point in the pipeline and would decline a plain
-			// `interface Shout { fn shout(v: self): String }`. The declaration
+			// `interface Shout { fn shout(v: self) -> String }`. The declaration
 			// is available at declare time; the resolution is not.
 			//
 			// `std/structs.Struct` is the case this arm exists for: a universal

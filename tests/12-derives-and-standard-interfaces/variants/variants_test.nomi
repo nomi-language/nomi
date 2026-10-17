@@ -1,0 +1,39 @@
+import coins.{self, Coin}
+
+enum Suit {
+    Clubs
+    Diamonds
+    Hearts
+    Spades
+}
+
+derive Variants for Suit
+
+fn others<T>(value: T) -> List<T> where T: Variants {
+    T.variants() |> Iter.filter(fn other -> other != value) |> Iter.to_list()
+}
+
+test "variants lists every variant in declaration order" {
+    assert Suit.variants() == [Suit.Clubs, Suit.Diamonds, Suit.Hearts, Suit.Spades]
+}
+
+test "an enum declared in another file lists its variants" {
+    assert Coin.variants() == [Coin.Penny, Coin.Nickel, Coin.Dime, Coin.Quarter]
+}
+
+test "variants agrees with the order derive Comparable ranks them in" {
+    assert Coin.variants() == (Coin.variants() |> Iter.sort() |> Iter.to_list())
+    assert Coin.Penny < Coin.Quarter
+}
+
+test "variants feeds a pipe" {
+    assert Coin.variants() |> Iter.map(coins.cents) |> Iter.to_list() == [1, 5, 10, 25]
+
+    names = Suit.variants() |> Iter.map(fn suit -> Debug.inspect(suit)) |> String.join(", ")
+    assert names == "Clubs, Diamonds, Hearts, Spades"
+}
+
+test "generic code calls variants through a bound" {
+    assert others(Coin.Dime) == [Coin.Penny, Coin.Nickel, Coin.Quarter]
+    assert others(Suit.Hearts) == [Suit.Clubs, Suit.Diamonds, Suit.Spades]
+}

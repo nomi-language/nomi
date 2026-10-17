@@ -11,7 +11,7 @@ derive FromJson for Circle
 enum Shape {
     embeds Circle
     Rect {width_px: Int, height_px: Int}
-    Pair (Int, String)
+    Pair #(Int, String)
     Label String
     Dot
 }
@@ -20,9 +20,9 @@ derive Equatable for Shape
 derive ToJson for Shape with ToJson.Options{rename_all: Json.Case.Camel}
 derive FromJson for Shape with FromJson.Options{rename_all: Json.Case.Camel}
 
-fn decoded(text: String): Result<Shape, String> {
+fn decoded(text: String) -> Result<Shape, String> {
     case Json.decode(text) {
-        Ok(json) -> Shape.from_json(json) |> Result.map_err(|e| Display.to_string(e))
+        Ok(json) -> Shape.from_json(json) |> Result.map_err(fn e -> Display.to_string(e))
         Err(e) -> Err(Display.to_string(e))
     }
 }
@@ -31,12 +31,12 @@ test "a derived enum's FromJson reads what its ToJson writes" {
     shapes = [
         Shape.Circle{radius: 2.5},
         Shape.Rect{width_px: 3, height_px: 4},
-        Shape.Pair((1, "one")),
+        Shape.Pair(#(1, "one")),
         Shape.Label("hi"),
         Shape.Dot,
     ]
 
-    texts = Iter.map(shapes, |s| Json.encode(ToJson.to_json(s))) |> Iter.to_list()
+    texts = Iter.map(shapes, fn s -> Json.encode(ToJson.to_json(s))) |> Iter.to_list()
 
     assert texts == [
         "{\"Circle\":{\"radius\":2.5}}",
@@ -46,8 +46,8 @@ test "a derived enum's FromJson reads what its ToJson writes" {
         "\"Dot\"",
     ]
 
-    back = Iter.map(texts, |t| decoded(t)) |> Iter.to_list()
-    assert back == Iter.map(shapes, |s| Ok(s)) |> Iter.to_list()
+    back = Iter.map(texts, fn t -> decoded(t)) |> Iter.to_list()
+    assert back == Iter.map(shapes, fn s -> Ok(s)) |> Iter.to_list()
 }
 
 test "a derived enum's FromJson names what it could not read" {

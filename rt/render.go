@@ -92,6 +92,9 @@ func DisplayText(v any) string {
 		return InspectBytes(x)
 	case Unit:
 		return InspectUnit(x)
+	case Type[any]:
+		// A `Type<T>` witness renders as its Debug does: the bare name.
+		return "Type"
 	case Dynamic:
 		return InspectDynamic(x)
 	case *List[any]:
@@ -119,7 +122,7 @@ func DisplayText(v any) string {
 // every nested value — a tuple's components, a record's fields, a list's,
 // vector's or map's elements, a variant's payload — rendered by elem, which is
 // the engine's Display over a nested value (a declared type's `impl Display`,
-// or this again). The spec's intrinsics table: `(Display(a), Display(b))`,
+// or this again). The spec's intrinsics table: `#(Display(a), Display(b))`,
 // `{f: Display(v)}`, `[Display(v1), ...]`, `Some(Display(v))`. DisplayText is
 // the assertion row's rendering, whose nested Strings are quoted.
 func DisplayTextWith(v any, elem func(any) string) string {
@@ -202,24 +205,24 @@ func namedParts(r *Record, render func(any) string) []string {
 	return parts
 }
 
-// FormatTuple joins rendered tuple components: `(1, "a")`.
-func FormatTuple(parts []string) string { return "(" + strings.Join(parts, ", ") + ")" }
+// FormatTuple joins rendered tuple components: `#(1, "a")`.
+func FormatTuple(parts []string) string { return "#(" + strings.Join(parts, ", ") + ")" }
 
 // FormatVariant is a payload-carrying variant or a distinct value around its
 // rendered payload: `Some(1)`, `Id(5)`.
 func FormatVariant(name, payload string) string { return name + "(" + payload + ")" }
 
-// FormatMapPairs joins rendered key/value pairs in the order given: `{=>}` when
-// empty, `{k => v, w => x}` otherwise. FormatMap is this over an rt.Map.
+// FormatMapPairs joins rendered key/value pairs in the order given: `%{}` when
+// empty, `%{k => v, w => x}` otherwise. FormatMap is this over an rt.Map.
 func FormatMapPairs(keys, vals []string) string {
 	if len(keys) == 0 {
-		return "{=>}"
+		return "%{}"
 	}
 	parts := make([]string, len(keys))
 	for i := range keys {
 		parts[i] = keys[i] + " => " + vals[i]
 	}
-	return "{" + strings.Join(parts, ", ") + "}"
+	return "%{" + strings.Join(parts, ", ") + "}"
 }
 
 // DebugHook renders a nominal value through the Debug impl the program linked
@@ -449,7 +452,7 @@ func debugSet(r *Record, hook DebugHook) (string, error) {
 
 // DebugString is std's `impl Debug for String`, transcribed:
 //
-//	Iter.map(s, |g| if g == "\\" { "\\\\" } else if g == "\"" { "\\\"" } else { g })
+//	Iter.map(s, fn g -> if g == "\\" { "\\\\" } else if g == "\"" { "\\\"" } else { g })
 //	|> String.join()  and then wrapped in quotes
 //
 // Two escapes and no more: a newline and a tab pass through raw, as std's

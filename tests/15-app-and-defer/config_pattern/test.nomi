@@ -1,7 +1,7 @@
 // test deployment overrides applied on top of the base app.
 import app.ConfigApp
 
-pub fn configure(app: ConfigApp): ConfigApp {
+pub fn configure(app: ConfigApp) -> ConfigApp {
     Struct.update(app, {
         deployment: "test",
         database_url: "postgres://localhost/myapp_test",

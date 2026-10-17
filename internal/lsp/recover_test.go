@@ -148,7 +148,7 @@ func TestRecover_AnalysisPanic(t *testing.T) {
 	}
 
 	faultHook.Store(nil)
-	c.change(uri, 2, text+"\nfn broken(): Int { \"no\" }\n")
+	c.change(uri, 2, text+"\nfn broken() -> Int { \"no\" }\n")
 	p = c.waitErrors(uri)
 	for _, m := range p.msgs {
 		if strings.Contains(m, "internal language server error") {

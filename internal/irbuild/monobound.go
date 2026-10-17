@@ -9,8 +9,8 @@ import (
 //
 // # The population, and why nothing else could serve it
 //
-// `fn first<T, I>(it: I): Maybe<T> where I: Iter<T>` and
-// `fn saw_any?<T, I>(it: I): Bool where I: Iter<T>`
+// `fn first<T, I>(it: I) -> Maybe<T> where I: Iter<T>` and
+// `fn saw_any?<T, I>(it: I) -> Bool where I: Iter<T>`
 // (`11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi`).
 // `T` is named by no parameter annotation, and in `saw_any?` by no return
 // annotation either. Every channel monoTypeArgs already had is therefore silent
@@ -23,7 +23,7 @@ import (
 //	                     dictSolveFromArgs states this case by name and
 //	                     declines it: "`where I: Iter<T>` mentions `T` in a
 //	                     BOUND rather than in any parameter annotation, so
-//	                     `fn first<T, I>(it: I): Maybe<T>` does not solve `T`
+//	                     `fn first<T, I>(it: I) -> Maybe<T>` does not solve `T`
 //	                     here and must not appear to"
 //	the SOLVED RETURN    the checker leaves it OPEN: the CallType
 //	                     for `first([10, 20, 30])` is `Maybe<?2>` with `?2`
@@ -72,7 +72,7 @@ import (
 // The old rule's reason, quoted in monoTemplateFor, is that "a type parameter no
 // parameter mentions cannot be solved from the arguments and nothing could
 // produce a value of it inside the body either". The return half of that was
-// already retracted once, for `fn plus<L, R, Out>(lhs: L, rhs: R): Out where
+// already retracted once, for `fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where
 // L: Add<R, Out>` — `Out` is named only by the return. THIS is the same
 // retraction one step further: `T` in `where I: Iter<T>` is solvable exactly
 // when `I` is, and monoSolveFromBounds is what solves it.

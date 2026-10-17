@@ -30,77 +30,17 @@ type loweringGap struct {
 	// alsoSkip are other reasons the same cause declines with, in other
 	// shapes the fuzzer finds; the fuzz target skips them too.
 	alsoSkip []string
-	src      string
+	// noSkip marks a reason the builder derives from the node alone
+	// (declineReason: "a named argument", "a ListLit", "qualified call,
+	// Type.method: Iter.map"), which unrelated declines share, or a panic
+	// text any lint violation of its kind shares. The fuzz target does not
+	// excuse a decline or a panic by it, so a new cause behind the same node
+	// still fails there.
+	noSkip bool
+	src    string
 }
 
-var knownLoweringGaps = []loweringGap{
-	{
-		name: "gapListPatternOverFunctions",
-		fix: "builder: a `case` whose subject is a list of function values, as in `case xs { [] -> 0 " +
-			"[_, ..rest] -> 1 + size(rest) }` with `xs: List<(Int) -> Int>`. caseRegion admits a list " +
-			"subject only when its element is a retained leaf or transport kind, and a function value " +
-			"is neither, though the VM holds one in a list like any reference",
-		reason: "a tail `case` scrutinee outside retained literal-pattern kinds: List<(",
-		src: `import std/io
-
-fn size(xs: List<(Int) -> Int>): Int {
-    case xs {
-        [] -> 0
-        [_, ..rest] -> 1 + size(rest)
-    }
-}
-
-fn main() {
-    io.inspect(size([|x: Int| x + 1]))
-}
-`,
-	},
-	{
-		name: "gapBlockLocalTypeEscapesItsBlock",
-		fix: "builder or checker: a block whose value has a type declared inside the block. The " +
-			"checker types the binding at that block-local type; the builder projects the binding's " +
-			"type outside the block, where the declaration does not resolve, so the block's value " +
-			"has no IR type. Either the builder resolves it by declaration or the checker rejects " +
-			"the escape",
-		reason: "a branch or block value kind with no IR type: an unsupported type",
-		src: `import std/io
-
-fn main() {
-    w = {
-        struct Loc {
-            n: Int
-        }
-        Loc{n: 1}
-    }
-    io.inspect(w)
-}
-`,
-	},
-	{
-		name: "gapShortCircuitOperandWhoseArmsAllLeave",
-		fix: "builder: an `if` or `case` every arm of which leaves the body by `return`, `break` " +
-			"or `continue`, as the right operand of `and` or `or`, as in `x > 0 and case x { 1 -> " +
-			"return True  _ -> return False }`. The operand runs only when the left one lets it, " +
-			"so the `and` still has a value on the other path, and the builder does not lower a " +
-			"region with no value there. An operand evaluated whatever the values before it (an " +
-			"argument, a field, a list item, a pipe's source) runs. The builder could lower the " +
-			"`and` as an `if` whose one arm is the region",
-		reason: "an `if` or `case` whose every arm leaves the body, used for its value",
-		src: `import std/io
-
-fn short(x: Int): Bool {
-    x > 0 and case x {
-        1 -> return True
-        _ -> return False
-    }
-}
-
-fn main() {
-    io.inspect(short(1))
-}
-`,
-	},
-}
+var knownLoweringGaps = []loweringGap{}
 
 // knownGapFor is the known gap every one of reasons matches, or nil.
 func knownGapFor(reasons []string) *loweringGap {
@@ -109,7 +49,7 @@ func knownGapFor(reasons []string) *loweringGap {
 		var match *loweringGap
 		for i := range knownLoweringGaps {
 			gap := &knownLoweringGaps[i]
-			if gap.panics {
+			if gap.panics || gap.noSkip {
 				continue
 			}
 			for _, want := range append([]string{gap.reason}, gap.alsoSkip...) {
@@ -133,7 +73,7 @@ func knownGapFor(reasons []string) *loweringGap {
 // or stack holds, or nil.
 func knownPanicFor(internal string) *loweringGap {
 	for i := range knownLoweringGaps {
-		if knownLoweringGaps[i].panics && strings.Contains(internal, knownLoweringGaps[i].reason) {
+		if knownLoweringGaps[i].panics && !knownLoweringGaps[i].noSkip && strings.Contains(internal, knownLoweringGaps[i].reason) {
 			return &knownLoweringGaps[i]
 		}
 	}

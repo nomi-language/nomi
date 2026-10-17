@@ -392,8 +392,8 @@ func (l *layout) wrap(src string, p float64) string {
 // enumPayloads finds each positional payload in an enum body, and no bare,
 // struct-shaped or embedded variant.
 func TestLayoutWrap_EnumPayloads(t *testing.T) {
-	src := "enum E {\n    A\n    Full Int // c\n    Pair (\n        Int,\n        String\n    )\n    Gen Map<String, List<Int>>\n    F (Int) -> Int\n    S {x: Int}\n    embeds G\n    Last T\n}\n"
-	want := []string{"Int", "(\n        Int,\n        String\n    )", "Map<String, List<Int>>", "(Int) -> Int", "T"}
+	src := "enum E {\n    A\n    Full Int // c\n    Pair #(\n        Int,\n        String\n    )\n    Gen Map<String, List<Int>>\n    F (Int) -> Int\n    S {x: Int}\n    embeds G\n    Last T\n}\n"
+	want := []string{"Int", "#(\n        Int,\n        String\n    )", "Map<String, List<Int>>", "(Int) -> Int", "T"}
 	toks := sourceTokens(src)
 	var got []string
 	for _, s := range enumPayloads(toks) {
@@ -438,7 +438,7 @@ func enumPayloads(toks []vtok) [][2]int {
 				continue
 			}
 			switch next.typ {
-			case token.TYPE_IDENT, token.IDENT, token.LPAREN:
+			case token.TYPE_IDENT, token.IDENT, token.LPAREN, token.HASH:
 			default:
 				continue
 			}

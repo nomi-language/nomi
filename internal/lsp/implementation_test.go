@@ -12,20 +12,20 @@ import (
 // for `name`), so the response should be three Locations.
 func TestImplementation_InterfaceName(t *testing.T) {
 	input := "interface Speech {\n" +
-		"  fn speak(value: self): String\n" +
-		"  fn name(value: self): String\n" +
+		"  fn speak(value: self) -> String\n" +
+		"  fn name(value: self) -> String\n" +
 		"}\n" +
 		"\n" +
 		"struct Dog { sound: String }\n" +
 		"struct Cat { sound: String }\n" +
 		"\n" +
 		"impl Speech for Dog {\n" +
-		"  fn speak(value: self): String { value.sound }\n" +
-		"  fn name(_value: self): String { \"Rex\" }\n" +
+		"  fn speak(value: self) -> String { value.sound }\n" +
+		"  fn name(_value: self) -> String { \"Rex\" }\n" +
 		"}\n" +
 		"\n" +
 		"impl Speech for Cat {\n" +
-		"  fn speak(value: self): String { value.sound }\n" +
+		"  fn speak(value: self) -> String { value.sound }\n" +
 		"}\n"
 	uri := "file:///test.nomi"
 
@@ -58,20 +58,20 @@ func TestImplementation_InterfaceName(t *testing.T) {
 // `name` impl; the response should be two Locations (the speaks).
 func TestImplementation_InterfaceMethod(t *testing.T) {
 	input := "interface Speech {\n" +
-		"  fn speak(value: self): String\n" +
-		"  fn name(value: self): String\n" +
+		"  fn speak(value: self) -> String\n" +
+		"  fn name(value: self) -> String\n" +
 		"}\n" +
 		"\n" +
 		"struct Dog { sound: String }\n" +
 		"struct Cat { sound: String }\n" +
 		"\n" +
 		"impl Speech for Dog {\n" +
-		"  fn speak(value: self): String { value.sound }\n" +
-		"  fn name(_value: self): String { \"Rex\" }\n" +
+		"  fn speak(value: self) -> String { value.sound }\n" +
+		"  fn name(_value: self) -> String { \"Rex\" }\n" +
 		"}\n" +
 		"\n" +
 		"impl Speech for Cat {\n" +
-		"  fn speak(value: self): String { value.sound }\n" +
+		"  fn speak(value: self) -> String { value.sound }\n" +
 		"}\n"
 	uri := "file:///test.nomi"
 
@@ -79,7 +79,7 @@ func TestImplementation_InterfaceMethod(t *testing.T) {
 	s.docs.Open(uri, input)
 
 	// Cursor on `speak` inside the interface body. The line reads
-	// `  fn speak(value: self): String` — `speak` starts at line 1
+	// `  fn speak(value: self) -> String` — `speak` starts at line 1
 	// (zero-based), col 5.
 	params := &protocol.ImplementationParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{

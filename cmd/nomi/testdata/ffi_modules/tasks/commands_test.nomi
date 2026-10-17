@@ -14,7 +14,7 @@ struct FixedClock {
 }
 
 impl Clock for FixedClock {
-    fn now(clock: FixedClock): Instant {
+    fn now(clock: FixedClock) -> Instant {
         clock.at
     }
 }
@@ -26,22 +26,22 @@ struct FakeStore {
 }
 
 impl Store for FakeStore {
-    fn load(_store: FakeStore): Result<Map<Int, Task>, String> {
+    fn load(_store: FakeStore) -> Result<Map<Int, Task>, String> {
         Ok(Map.empty())
     }
 
-    fn save(store: FakeStore, task: Task): Result<Unit, String> {
+    fn save(store: FakeStore, task: Task) -> Result<Unit, String> {
         _ = task
         outcome(store)
     }
 
-    fn delete(store: FakeStore, id: Int): Result<Unit, String> {
+    fn delete(store: FakeStore, id: Int) -> Result<Unit, String> {
         _ = id
         outcome(store)
     }
 }
 
-fn outcome(store: FakeStore): Result<Unit, String> {
+fn outcome(store: FakeStore) -> Result<Unit, String> {
     case store.error {
         None -> Ok(Unit)
         Some(error) -> Err(error)
@@ -50,9 +50,9 @@ fn outcome(store: FakeStore): Result<Unit, String> {
 
 /// Runs each line in turn, starting from no tasks, and returns the tasks and
 /// the lines the last command showed.
-fn run_lines(lines: List<String>): Result<(Map<Int, Task>, List<String>), String> {
-    Iter.reduce(lines, |state = Ok((Map.empty(), [])), line| {
-        (tasks, _shown) = try state
+fn run_lines(lines: List<String>) -> Result<#(Map<Int, Task>, List<String>), String> {
+    Iter.reduce(lines, fn state = Ok(#(Map.empty(), [])), line -> {
+        #(tasks, _shown) = try state
         command = try commands.parse(line)
         commands.run(command, tasks, FakeStore{}, FixedClock{at: noon})
     })
@@ -71,13 +71,13 @@ test "malformed lines are errors" {
 }
 
 test "added tasks are numbered from 1 and stamped by the clock" {
-    (tasks, _shown) = try run_lines(["add first", "add second"])
+    #(tasks, _shown) = try run_lines(["add first", "add second"])
 
     assert Map.get(tasks, 2) == Some(Task{id: 2, title: "second", created: noon})
 }
 
 test "list shows the tasks with a status, in id order" {
-    (_tasks, shown) = try run_lines(
+    #(_tasks, shown) = try run_lines(
         ["add a", "add b", "add c", "done 3", "start 2", "done 1", "list done"]
     )
 

@@ -20,15 +20,15 @@ func TestIRRangeIter_TourCollectionsRanges(t *testing.T) {
 
 func TestIRRangeIter_BoundsAndStages(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn span(lo: Int, hi: Int): Range<Int> { lo..=hi }
+fn span(lo: Int, hi: Int) -> Range<Int> { lo..=hi }
 fn main() {
   io.inspect(Iter.to_list(5..1))
   io.inspect(Iter.to_list(3..3))
   io.inspect(Iter.to_list(3..=3))
   io.inspect(Iter.to_list(-2..=2))
-  io.inspect(span(4, 6) |> Iter.map(|n: Int| n * n) |> Iter.to_list())
-  io.inspect(1..=10 |> Iter.filter(|n: Int| n % 3 == 0) |> Iter.to_list())
-  io.print(1..=100 |> Iter.reduce(|acc = 0, n: Int| acc + n))
+  io.inspect(span(4, 6) |> Iter.map(fn n: Int -> n * n) |> Iter.to_list())
+  io.inspect(1..=10 |> Iter.filter(fn n: Int -> n % 3 == 0) |> Iter.to_list())
+  io.print(1..=100 |> Iter.reduce(fn acc = 0, n: Int -> acc + n))
   io.inspect(Range.from(7) |> Iter.take(2) |> Iter.to_list())
   io.inspect(Iter.sort(3..=1))
 }
@@ -57,7 +57,7 @@ fn main() {
 }
 
 func TestIRRangeIter_TourCodepointRange(t *testing.T) {
-	verifyLambdaProgram(t, `fn run(): Maybe<List<String>> {
+	verifyLambdaProgram(t, `fn run() -> Maybe<List<String>> {
   a = try Codepoint.from_int(97)
   d = try Codepoint.from_int(100)
 

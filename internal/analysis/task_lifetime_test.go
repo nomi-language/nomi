@@ -7,9 +7,9 @@ import (
 // Rule 2 (positive case): a Task binding is consumed by `await` inside
 // the block. Accepted.
 func TestTaskLifetime_BindingAwaited_OK(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   concurrent {
-    t = Task.spawn(|| 42)
+    t = Task.spawn(fn -> 42)
     Task.await(t)
   }
 }`
@@ -20,9 +20,9 @@ func TestTaskLifetime_BindingAwaited_OK(t *testing.T) {
 // Rule 2 (negative case): a Task binding whose name is never
 // referenced after the binding. Rejected.
 func TestTaskLifetime_BindingNeverAwaited_Errors(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   concurrent {
-    t = Task.spawn(|| 42)
+    t = Task.spawn(fn -> 42)
     0
   }
 }`
@@ -37,9 +37,9 @@ func TestTaskLifetime_BindingNeverAwaited_Errors(t *testing.T) {
 // (broader uses of the binding are also accepted; only the wholly-
 // unused case is rejected).
 func TestTaskLifetime_BindingReferencedAsTail_OK(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   concurrent {
-    t = Task.spawn(|| 42)
+    t = Task.spawn(fn -> 42)
     Task.await(t)
   }
 }`
@@ -55,9 +55,9 @@ func TestTaskLifetime_BindingReferencedAsTail_OK(t *testing.T) {
 // The nested block's own Rule 2/Rule 3 checks still run
 // independently.
 func TestTaskLifetime_BindingReferencedInNestedConcurrent_OK(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   concurrent {
-    t = Task.spawn(|| 42)
+    t = Task.spawn(fn -> 42)
     concurrent {
       Task.await(t)
     }
@@ -71,9 +71,9 @@ func TestTaskLifetime_BindingReferencedInNestedConcurrent_OK(t *testing.T) {
 // Rule 3 (positive case): the block's tail expression has a non-Task
 // type. Accepted.
 func TestTaskLifetime_BlockTailNonTask_OK(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   concurrent {
-    t = Task.spawn(|| 42)
+    t = Task.spawn(fn -> 42)
     Task.await(t)
   }
 }`
@@ -85,12 +85,12 @@ func TestTaskLifetime_BlockTailNonTask_OK(t *testing.T) {
 // `Task.spawn(...)` call directly — Task value escapes via the block's
 // return value into the enclosing function's return.
 func TestTaskLifetime_BlockTailIsSpawn_Errors(t *testing.T) {
-	src := `fn spawn_one(): Task<Int> {
+	src := `fn spawn_one() -> Task<Int> {
   concurrent {
-    Task.spawn(|| 42)
+    Task.spawn(fn -> 42)
   }
 }
-fn demo(): Int {
+fn demo() -> Int {
   spawn_one()
   0
 }`
@@ -101,13 +101,13 @@ fn demo(): Int {
 // Rule 3 (negative case via reference): the block's tail expression is
 // a reference to a binding whose value is a Task. Same escape.
 func TestTaskLifetime_BlockTailRefersToTaskBinding_Errors(t *testing.T) {
-	src := `fn spawn_one(): Task<Int> {
+	src := `fn spawn_one() -> Task<Int> {
   concurrent {
-    t = Task.spawn(|| 42)
+    t = Task.spawn(fn -> 42)
     t
   }
 }
-fn demo(): Int {
+fn demo() -> Int {
   spawn_one()
   0
 }`
@@ -119,13 +119,13 @@ fn demo(): Int {
 // tuple containing a Task value. The tuple value escapes when the
 // block returns it.
 func TestTaskLifetime_BlockTailTupleWithTask_Errors(t *testing.T) {
-	src := `fn spawn_pair(): (Int, Task<Int>) {
+	src := `fn spawn_pair() -> #(Int, Task<Int>) {
   concurrent {
-    t = Task.spawn(|| 42)
-    (1, t)
+    t = Task.spawn(fn -> 42)
+    #(1, t)
   }
 }
-fn demo(): Int {
+fn demo() -> Int {
   spawn_pair()
   0
 }`

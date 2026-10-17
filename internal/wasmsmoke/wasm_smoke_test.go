@@ -64,32 +64,32 @@ struct Config {
   work: Supervisor
 }
 
-fn boot(): Config {
+fn boot() -> Config {
   Config{context: Context.root(),
       work: Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 2),
     }
 }
 
-fn slow(): Int {
+fn slow() -> Int {
   timer.sleep(Duration.seconds(30))
   1
 }
 
-fn quick(n: Int): Int {
+fn quick(n: Int) -> Int {
   timer.sleep(Duration.milliseconds(10))
   n * 2
 }
 
 fn main() {
   total = concurrent {
-    a = Task.spawn(|| quick(10))
-    b = Task.spawn(|| quick(20))
-    doomed = Task.spawn(|| slow())
+    a = Task.spawn(fn -> quick(10))
+    b = Task.spawn(fn -> quick(20))
+    doomed = Task.spawn(fn -> slow())
     Task.cancel(doomed)
     _ = Task.outcome(doomed)
     Task.await(a) + Task.await(b)
   }
-  _ = Supervisor.spawn(Config.work, || timer.sleep(Duration.milliseconds(10)))
+  _ = Supervisor.spawn(Config.work, fn -> timer.sleep(Duration.milliseconds(10)))
   _ = Supervisor.flush(Config.work)
   dbg total
 }

@@ -341,6 +341,7 @@ func (d *decoder) pos(r *rbuf) Pos {
 	var p Pos
 	p.file = r.file
 	p.synth = flags&2 != 0
+	p.stdlib = flags&4 != 0
 	p.line = int32(int64(r.last.line) + r.sv())
 	p.col = int32(r.uv())
 	p.endLine = int32(int64(p.line) + r.sv())
@@ -666,11 +667,12 @@ func (d *decoder) instr(r *rbuf) Instr {
 			kind: MatchKind(r.byte1()), sym: d.sym(r.uv()), text: d.str(r.uv()),
 			idx: int(r.sv()), embeds: d.sym(r.uv())}
 	case tagNoMatch:
-		return &NoMatch{pos: d.pos(r), key: r.temp()}
+		return &NoMatch{pos: d.pos(r)}
 	case tagTodo:
 		return &Todo{pos: d.pos(r), dst: r.temp(), reason: d.str(r.uv())}
 	case tagSubtests:
-		return &Subtests{pos: d.pos(r), rows: r.temp(), row: r.temp(), text: d.str(r.uv())}
+		return &Subtests{pos: d.pos(r), rows: r.temp(), row: r.temp(), text: d.str(r.uv()),
+			name: r.temp(), nameLine: int(r.uv()), nameText: d.str(r.uv())}
 	case tagNot:
 		return &Not{pos: d.pos(r), dst: r.temp(), val: r.temp()}
 	case tagProj:

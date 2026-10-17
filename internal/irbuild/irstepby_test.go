@@ -13,7 +13,7 @@ func TestIRStepBy_TourDecimalRange(t *testing.T) {
 }
 
 func TestIRStepBy_BoundsZeroStepAndLaziness(t *testing.T) {
-	verifyLambdaProgram(t, `fn steps(r: Range<Decimal>, by: Decimal): List<Decimal> {
+	verifyLambdaProgram(t, `fn steps(r: Range<Decimal>, by: Decimal) -> List<Decimal> {
   Range.step_by(r, by) |> Iter.to_list()
 }
 fn main() {

@@ -28,7 +28,7 @@ pub struct EffectsApp {
     console: Console
 }
 
-pub fn load(deployment: String, context: Context): EffectsApp {
+pub fn load(deployment: String, context: Context) -> EffectsApp {
     case deployment {
         "prod" -> prod.build(context)
         "test" -> test_env.build(context)

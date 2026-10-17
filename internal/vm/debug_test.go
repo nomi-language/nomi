@@ -141,7 +141,7 @@ func (s *debugSession) at(st vm.Stop, reason vm.StopReason, stack, locals string
 
 const stepSrc = `import std/io
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
   m = n * 2
   m
 }
@@ -202,7 +202,7 @@ fn main() {
   xs = [1, 2, 3]
   k = 10
   ys = xs
-    |> Iter.map(|v| {
+    |> Iter.map(fn v -> {
       w = v + k
       w
     })
@@ -275,7 +275,7 @@ func TestDebug_StepInEntersTheStagesAndTheirCallbacks(t *testing.T) {
 
 const tailSrc = `import std/io
 
-fn count(n: Int, acc: Int): Int {
+fn count(n: Int, acc: Int) -> Int {
   if n == 0 {
     acc
   } else {
@@ -334,7 +334,7 @@ func TestDebug_AShadowedNameShowsTheBindingInForce(t *testing.T) {
 
 const trapSrc = `import std/io
 
-fn ratio(a: Int, b: Int): Int {
+fn ratio(a: Int, b: Int) -> Int {
   q = a / b
   q
 }
@@ -369,7 +369,7 @@ func TestDebug_TrapsAreNotStopsWithoutTheFilter(t *testing.T) {
 	}
 }
 
-const assertSrc = `fn half(n: Int): Int {
+const assertSrc = `fn half(n: Int) -> Int {
   n / 2
 }
 
@@ -393,7 +393,7 @@ func TestDebug_AFailedAssertionStops(t *testing.T) {
 	}
 }
 
-const mainErrSrc = `fn main(): Result<Unit, String> {
+const mainErrSrc = `fn main() -> Result<Unit, String> {
   reason = "boom"
   Err(reason)
 }
@@ -416,14 +416,14 @@ func TestDebug_AnErrFromMainStopsBeforeMainEnds(t *testing.T) {
 const taskSrc = `import std/io
 import std/tasks.Task
 
-fn work(n: Int): Int {
+fn work(n: Int) -> Int {
   r = n * 2
   r
 }
 
 fn main() {
   v = concurrent {
-    t = Task.spawn(|| work(21))
+    t = Task.spawn(fn -> work(21))
     Task.await(t)
   }
   io.print("${v}")
@@ -456,7 +456,7 @@ func TestDebug_ABreakpointInATask(t *testing.T) {
 const loopSrc = `import std/io
 
 fn main() {
-  n = Iter.loop(|i = 0|
+  n = Iter.loop(fn i = 0 ->
     if i == 1000000 {
       break i
     } else {

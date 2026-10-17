@@ -1,8 +1,8 @@
 // The LOAD-BEARING fixture: an interface function with NO self-position
 // parameter, dispatched through a bounded type parameter.
 //
-// `Zero.zero(): self` mentions self only in its RETURN, which is the
-// `FromJson.from_json(json: Json): Result<self, …>` shape — the one that proved
+// `Zero.zero() -> self` mentions self only in its RETURN, which is the
+// `FromJson.from_json(json: Json) -> Result<self, …>` shape — the one that proved
 // interface bound NAMES are not a dictionary. A bounds-only implementation
 // cannot pass this: there is no receiver anywhere in the call from which to
 // recover which implementation to run, so the only thing that can answer is the
@@ -17,7 +17,7 @@
 import std/io
 
 interface Zero {
-    fn zero(): self
+    fn zero() -> self
 }
 
 struct Meters {
@@ -29,22 +29,22 @@ struct Feet {
 }
 
 impl Zero for Meters {
-    fn zero(): Meters {
+    fn zero() -> Meters {
         Meters{n: 0}
     }
 }
 
 impl Zero for Feet {
-    fn zero(): Feet {
+    fn zero() -> Feet {
         Feet{n: 100}
     }
 }
 
-fn origin<T>(): T where T: Zero {
+fn origin<T>() -> T where T: Zero {
     T.zero()
 }
 
-fn scaled<U>(): U where U: Zero {
+fn scaled<U>() -> U where U: Zero {
     origin<U>()
 }
 

@@ -1,0 +1,32 @@
+/// The lines of `lines` read down its columns: the nth line of the result is
+/// the nth character of each line. A line shorter than one below it is padded
+/// with spaces on the right first, so a character never moves left; nothing
+/// pads past the last line that reaches a column.
+pub fn transpose(lines: List<String>) -> List<String> {
+    rows = padded_rows(lines)
+    width = rows |> List.head() |> Maybe.map(Vector.length) |> Maybe.with_default(0)
+
+    0..width
+    |> Iter.map(fn column -> {
+        rows
+        |> Iter.map(fn row -> Vector.get(row, column))
+        |> Maybe.values()
+        |> String.join()
+    })
+    |> Iter.to_list()
+}
+
+/// Each line as a vector of its characters, padded with spaces on the right
+/// to the width of the longest line from it to the end. The widths never grow
+/// down the rows, so the rows that reach a column are always the first ones.
+fn padded_rows(lines: List<String>) -> List<Vector<String>> {
+    #(rows, _width) =
+        lines
+        |> Iter.reverse()
+        |> Iter.map_reduce(fn width = 0, line -> {
+            width = Int.max(width, String.length(line))
+            #(line |> String.pad_end(width) |> Iter.to_vector(), width)
+        })
+
+    Iter.reverse(rows)
+}

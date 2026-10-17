@@ -29,17 +29,17 @@ struct Wrap {
     shape: Shape
 }
 
-fn take(c: Circle): String {
+fn take(c: Circle) -> String {
     "circle ${c.radius}"
 }
 
-fn tag_text(t: Tag): String {
+fn tag_text(t: Tag) -> String {
     case t {
         Tag(s) -> "tag ${s}"
     }
 }
 
-fn name(s: Shape): String {
+fn name(s: Shape) -> String {
     case s {
         .Circle{radius: _} -> "a circle"
         .Tag(_) -> "a tag"
@@ -47,7 +47,7 @@ fn name(s: Shape): String {
     }
 }
 
-fn plain(value: Shape): String {
+fn plain(value: Shape) -> String {
     case value {
         .Circle{radius} -> "${take(value)} r=${radius}"
         .Tag(_) -> tag_text(value)
@@ -55,7 +55,7 @@ fn plain(value: Shape): String {
     }
 }
 
-fn guarded(value: Shape): String {
+fn guarded(value: Shape) -> String {
     case value {
         .Circle{radius: _} when value.radius > 1.0 -> "big ${take(value)}"
         .Circle{radius: _} -> "small ${value.radius}"
@@ -63,24 +63,24 @@ fn guarded(value: Shape): String {
     }
 }
 
-fn captured(value: Shape): String {
+fn captured(value: Shape) -> String {
     case value {
         .Circle{radius: _} -> {
-            f = || take(value)
+            f = fn -> take(value)
             f()
         }
         _ -> "other"
     }
 }
 
-fn as_bound(value: Shape): String {
+fn as_bound(value: Shape) -> String {
     case value {
         Shape.Circle{radius: _} as s -> "${take(value)}, ${name(s)}"
         _ -> "other"
     }
 }
 
-fn destructured(w: Wrap): String {
+fn destructured(w: Wrap) -> String {
     Wrap{shape: s} = w
     case s {
         .Tag(_) -> tag_text(s)
@@ -88,7 +88,7 @@ fn destructured(w: Wrap): String {
     }
 }
 
-fn by_if(value: Shape): String {
+fn by_if(value: Shape) -> String {
     if .Circle{radius: _} = value {
         take(value)
     } else {
@@ -96,7 +96,7 @@ fn by_if(value: Shape): String {
     }
 }
 
-fn by_if_distinct(value: Shape): String {
+fn by_if_distinct(value: Shape) -> String {
     if .Tag(_) = value {
         tag_text(value)
     } else {
@@ -166,13 +166,13 @@ derive Equatable for Circle
 derive Equatable for Shape
 
 impl Display for Circle {
-    fn to_string(c: Circle): String {
+    fn to_string(c: Circle) -> String {
         "circle of ${c.radius}"
     }
 }
 
 impl Display for Shape {
-    fn to_string(s: Shape): String {
+    fn to_string(s: Shape) -> String {
         case s {
             .Circle{radius: _} -> "a shape"
             .Point -> "a point"
@@ -180,14 +180,14 @@ impl Display for Shape {
     }
 }
 
-fn same(value: Shape): Shape {
+fn same(value: Shape) -> Shape {
     case value {
         .Circle{radius: _} -> value
         .Point -> value
     }
 }
 
-fn describe(value: Shape, other: Shape): String {
+fn describe(value: Shape, other: Shape) -> String {
     case value {
         .Circle{radius: _} -> {
             all: List<Shape> = [value, Shape.Point]
@@ -234,12 +234,12 @@ struct Wrap {
     n: Int
 }
 
-fn mk(): Circle {
+fn mk() -> Circle {
     io.print("mk")
     Circle{radius: 2.0}
 }
 
-fn num(): Int {
+fn num() -> Int {
     io.print("num")
     1
 }

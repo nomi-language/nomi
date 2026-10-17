@@ -14,11 +14,11 @@ import {
     beta.{self, Point as Coord}
 }
 
-fn same_point(a: Point, b: Point): Bool {
+fn same_point(a: Point, b: Point) -> Bool {
     a == b
 }
 
-fn same_coord(a: Coord, b: Coord): Bool {
+fn same_coord(a: Coord, b: Coord) -> Bool {
     a == b
 }
 

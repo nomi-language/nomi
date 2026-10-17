@@ -23,8 +23,8 @@ can walk through one value at a time. So is a range of whole numbers or
 codepoints, and so is a `String`, which gives one character at a time.
 
 The general operations live on `Iter` and work on all of them: `Iter.map`,
-`Iter.filter`, `Iter.take`, `Iter.reduce`, `Iter.count`, `Iter.min`,
-`Iter.max` and more. Each collection type keeps only the operations specific to
+`Iter.filter`, `Iter.take`, `Iter.reduce`, `Iter.sum`, `Iter.count`,
+`Iter.min`, `Iter.max` and more. Each collection type keeps only the operations specific to
 it, such as `Map.get` or `List.head`.
 
 ```nomi-run
@@ -33,11 +33,11 @@ import std/io
 fn main() {
     result =
         Range.naturals()
-        |> Iter.map(|n| {
+        |> Iter.map(fn n -> {
             io.print("squaring ${n}")
             n * n
         })
-        |> Iter.filter(|sq| sq > 10)
+        |> Iter.filter(fn sq -> sq > 10)
         |> Iter.take(2)
         |> Iter.to_list()
 
@@ -62,7 +62,7 @@ That is because `Iter.map`, `Iter.filter` and `Iter.take` are lazy. Each one
 describes a step but runs nothing, and no list is built between steps. The work
 starts when a final call asks for values. Here that is `Iter.to_list`. Others
 are `Iter.to_vector`, `Iter.to_set`, `Iter.to_map`, `String.join`,
-`Iter.reduce`, `Iter.count` and `Iter.each`.
+`Iter.reduce`, `Iter.sum`, `Iter.count` and `Iter.each`.
 
 Each value goes through every step before the next value starts. The work stops
 as soon as the final call has what it needs. `Iter.take(2)` has its two values
@@ -75,9 +75,9 @@ fn main() {
     xs = [1, 2, 3, 4, 5]
 
     xs
-    |> Iter.filter(|n| n > 2)
-    |> Iter.map(|n| n * n)
-    |> Iter.reduce(|acc = 0, n| acc + n)
+    |> Iter.filter(fn n -> n > 2)
+    |> Iter.map(fn n -> n * n)
+    |> Iter.sum()
     |> dbg
 }
 
@@ -85,9 +85,9 @@ fn main() {
 <!-- expect
 dbg line 8:
   xs
-  |> Iter.filter(|n| n > 2)
-  |> Iter.map(|n| n * n)
-  |> Iter.reduce(|acc = 0, n| acc + n)
+  |> Iter.filter(fn n -> n > 2)
+  |> Iter.map(fn n -> n * n)
+  |> Iter.sum()
   = 50
 -->
 
@@ -110,6 +110,8 @@ fn main() {
 
     dbg names
     dbg Vector.length(names)
+    dbg Vector.get(names, 1)
+    dbg Vector.get(names, 5)
     dbg Vector.at(names, 1)
     dbg names + #["Dorothy"]
     Unit
@@ -119,8 +121,10 @@ fn main() {
 <!-- expect
 dbg line 6: names = #["Ada", "Grace", "Katherine"]
 dbg line 7: Vector.length(names) = 3
-dbg line 8: Vector.at(names, 1) = Some("Grace")
-dbg line 9: names + #["Dorothy"] = #["Ada", "Grace", "Katherine", "Dorothy"]
+dbg line 8: Vector.get(names, 1) = Some("Grace")
+dbg line 9: Vector.get(names, 5) = None
+dbg line 10: Vector.at(names, 1) = "Grace"
+dbg line 11: names + #["Dorothy"] = #["Ada", "Grace", "Katherine", "Dorothy"]
 -->
 
 You write a vector as `#[a, b, c]`.
@@ -130,6 +134,14 @@ A vector is a sequence you can read by position. Use a vector when you look
 items up by index or add them at the end. Use a list when you add items at the
 front or take it apart with patterns.
 
+Indexes start at 0.
+[`Vector.get`](/reference/vectors/#vectorget) answers `None` when the index is
+outside the vector, so use it when the index comes from data.
+[`Vector.at`](/reference/vectors/#vectorat) returns the item itself and stops
+the program when the index is outside, so use it when your code guarantees the
+index. [`Vector.set`](/reference/vectors/#vectorset) replaces the item at an
+index and stops the program the same way.
+
 `xs + ys` joins two lists, or two vectors.
 [`List.concat`](/reference/lists/#listconcat) and
 [`Vector.concat`](/reference/vectors/#vectorconcat) do the same thing by name.
@@ -138,7 +150,7 @@ front or take it apart with patterns.
 
 ```nomi-run
 fn main() {
-    config = {"host" => "localhost", "port" => "8080"}
+    config = %{"host" => "localhost", "port" => "8080"}
 
     dbg Map.size(config)
     dbg Map.get(config, "host")
@@ -152,7 +164,7 @@ dbg line 5: Map.get(config, "host") = Some("localhost")
 dbg line 6: Map.get(config, "user") = None
 -->
 
-You write a map as `{"key" => value, ...}`.
+You write a map as `%{"key" => value, ...}`, and the empty map as `%{}`.
 
 [`Map.get`](/reference/maps/#mapget) returns a [`Maybe<V>`](/reference/maybe/).
 That is `Some(value)` when the key is there and `None` when it is not.
@@ -209,13 +221,13 @@ fn main() {
     xs = ["Bo"]
     v = #["Bo"]
     s = #{"red"}
-    m = {"host" => "localhost", "port" => "8080"}
+    m = %{"host" => "localhost", "port" => "8080"}
 
     dbg ["Ada", ..xs]
     dbg #[..v, "Cy"]
     dbg #["Ada", ..v]
     dbg #{..s, "blue"}
-    dbg {..m, "port" => "9090", "user" => "ada"}
+    dbg %{..m, "port" => "9090", "user" => "ada"}
 }
 
 ```
@@ -224,7 +236,7 @@ dbg line 7: ["Ada", ..xs] = ["Ada", "Bo"]
 dbg line 8: #[..v, "Cy"] = #["Bo", "Cy"]
 dbg line 9: #["Ada", ..v] = #["Ada", "Bo"]
 dbg line 10: #{..s, "blue"} = #{"red", "blue"}
-dbg line 11: {..m, "port" => "9090", "user" => "ada"} = {"host" => "localhost", "port" => "9090", "user" => "ada"}
+dbg line 11: %{..m, "port" => "9090", "user" => "ada"} = %{"host" => "localhost", "port" => "9090", "user" => "ada"}
 -->
 
 Where the spread goes depends on the collection:
@@ -232,7 +244,7 @@ Where the spread goes depends on the collection:
 - In a list it goes last, so you add items at the front.
 - In a vector it can go first or last.
 - In a set or a map it goes first. `#{..s, x}` is `s` with `x` added.
-  `{..m, k => v}` is `m` with the entry `k => v` added or replaced.
+  `%{..m, k => v}` is `m` with the entry `k => v` added or replaced.
 
 A spread also works inside a struct or a map that you are updating. There, a
 `..` with nothing after it means the value that is already there:
@@ -248,17 +260,17 @@ fn main() {
     team = Team{members: ["Bo"], roster: #["Bo"], tags: #{"red"}}
     dbg {..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: #{.., "blue"}}
 
-    teams = {"hawks" => {"name" => "Hawks"}}
-    scores = {"ada" => [3]}
-    dbg {..teams, "hawks" => {.., "city" => "Atlanta"}, "kites" => {.., "city" => "Leeds"}}
-    dbg {..scores, "ada" => [5, ..], "bob" => [1, ..]}
+    teams = %{"hawks" => %{"name" => "Hawks"}}
+    scores = %{"ada" => [3]}
+    dbg %{..teams, "hawks" => %{.., "city" => "Atlanta"}, "kites" => %{.., "city" => "Leeds"}}
+    dbg %{..scores, "ada" => [5, ..], "bob" => [1, ..]}
 }
 
 ```
 <!-- expect
 dbg line 9: {..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: #{.., "blue"}} = Team{members: ["Ada", "Bo"], roster: #["Bo", "Cy"], tags: #{"red", "blue"}}
-dbg line 13: {..teams, "hawks" => {.., "city" => "Atlanta"}, "kites" => {.., "city" => "Leeds"}} = {"hawks" => {"name" => "Hawks", "city" => "Atlanta"}, "kites" => {"city" => "Leeds"}}
-dbg line 14: {..scores, "ada" => [5, ..], "bob" => [1, ..]} = {"ada" => [5, 3], "bob" => [1]}
+dbg line 13: %{..teams, "hawks" => %{.., "city" => "Atlanta"}, "kites" => %{.., "city" => "Leeds"}} = %{"hawks" => %{"name" => "Hawks", "city" => "Atlanta"}, "kites" => %{"city" => "Leeds"}}
+dbg line 14: %{..scores, "ada" => [5, ..], "bob" => [1, ..]} = %{"ada" => [5, 3], "bob" => [1]}
 -->
 
 `members: ["Ada", ..]` puts `"Ada"` in front of the members the team already
@@ -364,7 +376,7 @@ dbg line 5:
 
 ```nomi-run
 fn main() {
-    m1 = {"a" => 1, "b" => 2}
+    m1 = %{"a" => 1, "b" => 2}
     m2 = Map.put(m1, "c", 3)
 
     dbg Map.size(m1)

@@ -24,9 +24,9 @@ func TestTypeCycle_RejectedAtTheDeclaration(t *testing.T) {
 		{"distinct over a list of itself", "type L List<L>\n", 1, "type 'L' is defined in terms of itself"},
 		{"distinct over a maybe of itself", "type M Maybe<M>\n", 1, "type 'M' is defined in terms of itself"},
 		{"distinct over a generic struct of itself", "struct Box<T> {\n    v: T\n}\n\ntype B Box<B>\n", 5, "type 'B' is defined in terms of itself"},
-		{"distinct over a tuple holding itself", "type P (Int, P)\n", 1, "type 'P' is defined in terms of itself"},
+		{"distinct over a tuple holding itself", "type P #(Int, P)\n", 1, "type 'P' is defined in terms of itself"},
 		{"distinct over a function of itself", "type F (F) -> Int\n", 1, "type 'F' is defined in terms of itself"},
-		{"distinct over an anonymous struct holding itself", "type R (Int, {next: Maybe<R>})\n", 1, "type 'R' is defined in terms of itself"},
+		{"distinct over an anonymous struct holding itself", "type R #(Int, {next: Maybe<R>})\n", 1, "type 'R' is defined in terms of itself"},
 		{"distinct through a typealias", "type A B\n\ntypealias B List<A>\n", 1, "type 'A' is defined in terms of itself"},
 		{"typealias of itself", "typealias X X\n", 1, "typealias 'X' refers to itself"},
 		{"two typealiases", "typealias X Y\n\ntypealias Y X\n", 1, "typealias 'X' refers to itself (X → Y → X)"},
@@ -66,7 +66,7 @@ func TestTypeCycle_LegalRecursionAndOrderStayLegal(t *testing.T) {
 
 enum Tree {
     Leaf
-    Branch(Tree, Tree)
+    Branch#(Tree, Tree)
 }
 
 struct W {

@@ -10,7 +10,7 @@ import "testing"
 // function".
 
 const partialOfPartialDecls = `
-fn connect(host: String, port: Int = 8080, timeout: Int = 30): String {
+fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String {
   "${host}:${Int.to_string(port)}/${Int.to_string(timeout)}"
 }
 `
@@ -36,7 +36,7 @@ func TestPartialOfPartial_TypesAsAFunctionOfTheOpenSlots(t *testing.T) {
 		// The lone named `_` names the partial's parameter.
 		{`  lone = connect("h", port: _)
   x: Unit = lone(port: _)`, "expected Unit, got (Int) -> String"},
-		{`  lam = |a: String, b: Int = 5| a
+		{`  lam = fn a: String, b: Int = 5 -> a
   la = lam(b: _, a: _)
   x: Unit = la(a: "a", b: _)`, "expected Unit, got (Int) -> String"},
 	} {
@@ -57,7 +57,7 @@ fn main() {
   u: String = e()
   three = connect(_, port: _, timeout: _)
   m: (Int, Int) -> String = three(timeout: _, host: "h", _)
-  _ = (s, t, u, m)
+  _ = #(s, t, u, m)
 }
 `)
 	expectNoStdlibErrors(t, errs)

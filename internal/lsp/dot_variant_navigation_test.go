@@ -41,21 +41,21 @@ enum Slot<T> {
     Empty
 }
 
-fn paint(c: Color): Int {
+fn paint(c: Color) -> Int {
     case c {
         .Red -> 1
         .Green -> 2
     }
 }
 
-fn area(s: Shape): Float {
+fn area(s: Shape) -> Float {
     case s {
         .Circle(r) -> r * r
         .Rect{w, h} -> w * h
     }
 }
 
-fn fill(s: Slot<Int>): Int {
+fn fill(s: Slot<Int>) -> Int {
     case s {
         Slot.Full(n) -> n
         Slot.Empty -> 0
@@ -65,17 +65,17 @@ fn fill(s: Slot<Int>): Int {
 fn main() {
     _a = paint(.Red)
     _b = Iter.sort([3, 1, 2], .Descending)
-    _c = Iter.sort_with([3, 1, 2], |_x, _y| .Less)
+    _c = Iter.sort_with([3, 1, 2], fn _x, _y -> .Less)
     _d = area(.Circle(1.0))
     _e = area(.Rect{w: 1.0, h: 2.0})
     _f = paint(Color.Red)
     _g = area(Shape.Circle(1.0))
-    _h = Iter.sort_with([3, 1, 2], |_x, _y| Ordering.Less)
+    _h = Iter.sort_with([3, 1, 2], fn _x, _y -> Ordering.Less)
     enum Local {
         One
         Two
     }
-    pick = |l: Local| l
+    pick = fn l: Local -> l
     _i = pick(.Two)
     _j = pick(Local.Two)
     _k = tones.tint(.Warm)
@@ -91,7 +91,7 @@ const dotVariantTones = `pub enum Tone {
     Cool
 }
 
-pub fn tint(t: Tone): Int {
+pub fn tint(t: Tone) -> Int {
     case t {
         Tone.Warm -> 1
         Tone.Cool -> 2
@@ -290,11 +290,11 @@ func TestDotVariant_NavigatesLikeTheWrittenVariant(t *testing.T) {
 			hover: "variant Warm", decl: "tones.nomi:1:4",
 			uses: []string{m("tones.tint(.Warm)", "Warm"), "tones.nomi:7:13"}},
 		{name: "std function argument", marker: "[3, 1, 2], .Descending", word: "Descending",
-			hover: "variant Descending", decl: "comparable.nomi:20:4", uses: []string{m("[3, 1, 2], .Descending", "Descending")}, std: true},
+			hover: "variant Descending", decl: "comparable.nomi:24:4", uses: []string{m("[3, 1, 2], .Descending", "Descending")}, std: true},
 		{name: "prelude enum", marker: "= .Some(1)", written: "= Maybe.Some(1)", word: "Some",
 			hover: "variant Some", decl: "maybe.nomi:20:4", uses: []string{m("= .Some(1)", "Some"), m("= Maybe.Some(1)", "Some")}, std: true},
-		{name: "lambda result", marker: "|_x, _y| .Less", written: "|_x, _y| Ordering.Less", word: "Less",
-			hover: "variant Less", decl: "comparable.nomi:6:4", uses: []string{m("|_x, _y| .Less", "Less"), m("|_x, _y| Ordering.Less", "Less")}, std: true},
+		{name: "lambda result", marker: "fn _x, _y -> .Less", written: "fn _x, _y -> Ordering.Less", word: "Less",
+			hover: "variant Less", decl: "comparable.nomi:9:4", uses: []string{m("fn _x, _y -> .Less", "Less"), m("fn _x, _y -> Ordering.Less", "Less")}, std: true},
 	}
 	for _, s := range sites {
 		t.Run(s.name, func(t *testing.T) {

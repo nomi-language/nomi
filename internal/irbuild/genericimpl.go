@@ -53,7 +53,7 @@ import (
 //
 // # Type-parameter dispatch falls out
 //
-// In `impl Greet for Wrapper<T> { fn hello(v: Wrapper<T>): String {
+// In `impl Greet for Wrapper<T> { fn hello(v: Wrapper<T>) -> String {
 // T.hello(v.value) } }`, `T` outside an instantiation is an unresolved
 // type-parameter name at the position the qualified-call path reads it. A body
 // built only INSIDE an instantiation has no such position: the frame is pushed,

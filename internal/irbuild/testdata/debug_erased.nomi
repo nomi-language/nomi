@@ -32,7 +32,7 @@ struct Custom {
 }
 
 impl Debug for Custom {
-    fn inspect(c: Custom): String {
+    fn inspect(c: Custom) -> String {
         _ = c
         "CUSTOM-DEBUG"
     }
@@ -41,18 +41,18 @@ impl Debug for Custom {
 opaque type Meters Int
 
 interface Tagged {
-    fn tag_of(value: self): String
+    fn tag_of(value: self) -> String
 }
 
 impl Tagged for Rev {
-    fn tag_of(r: Rev): String {
+    fn tag_of(r: Rev) -> String {
         _ = r
         "rev"
     }
 }
 
 impl Tagged for Custom {
-    fn tag_of(c: Custom): String {
+    fn tag_of(c: Custom) -> String {
         _ = c
         "custom"
     }
@@ -61,17 +61,17 @@ impl Tagged for Custom {
 // The BARE type parameter: no bound written, which is the whole point. A
 // developer inspecting a value writes no ceremony, and the bound is sound to
 // infer only because every type satisfies Debug.
-fn erased_param<T>(value: T): String {
+fn erased_param<T>(value: T) -> String {
     Debug.inspect(value)
 }
 
 // The EXISTENTIAL: the concrete type is chosen by the caller and erased at the
 // boundary.
-fn erased_iface(value: Tagged): String {
+fn erased_iface(value: Tagged) -> String {
     Debug.inspect(value)
 }
 
-fn no_rev(_r: Rev): Bool {
+fn no_rev(_r: Rev) -> Bool {
     False
 }
 

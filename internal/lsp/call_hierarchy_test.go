@@ -15,12 +15,12 @@ const callUsersSrc = `pub struct User {
     name: String
 }
 
-pub fn make(): User { User{name: normalize("a")} }
+pub fn make() -> User { User{name: normalize("a")} }
 
-fn normalize(s: String): String { String.trim(s) }
+fn normalize(s: String) -> String { String.trim(s) }
 
 impl User {
-    pub fn rename(u: User, name: String): User { User{name: normalize(name)} }
+    pub fn rename(u: User, name: String) -> User { User{name: normalize(name)} }
 }
 `
 
@@ -33,7 +33,7 @@ fn main() {
     v = User.rename(u, "b")
     w = users.make() |> User.rename("c")
     f = users.make
-    io.inspect((v, w, f(), seed))
+    io.inspect(#(v, w, f(), seed))
 }
 
 once seed = users.make()
@@ -110,7 +110,7 @@ func TestCallHierarchy(t *testing.T) {
 	if len(items) != 1 {
 		t.Fatalf("prepare on a call: %d items", len(items))
 	}
-	if got, want := itemString(dir, items[0]), "make models/users.nomi 4:0-4:50 sel 4:7-4:11"; got != want {
+	if got, want := itemString(dir, items[0]), "make models/users.nomi 4:0-4:52 sel 4:7-4:11"; got != want {
 		t.Errorf("prepare: %s, want %s", got, want)
 	}
 
@@ -147,8 +147,8 @@ func TestCallHierarchy(t *testing.T) {
 	for _, c := range out {
 		got = append(got, c.To.Name+" "+itemString(dir, c.To)[len(c.To.Name)+1:]+" from "+rangesString(c.FromRanges))
 	}
-	if len(got) != 3 || !strings.HasPrefix(got[0], "make models/users.nomi 4:0-4:50 sel 4:7-4:11 from 5:14-5:18 7:14-7:18") ||
-		!strings.HasPrefix(got[1], "rename models/users.nomi 9:4-9:78 sel 9:11-9:17 from 6:13-6:19 7:29-7:35") ||
+	if len(got) != 3 || !strings.HasPrefix(got[0], "make models/users.nomi 4:0-4:52 sel 4:7-4:11 from 5:14-5:18 7:14-7:18") ||
+		!strings.HasPrefix(got[1], "rename models/users.nomi 9:4-9:80 sel 9:11-9:17 from 6:13-6:19 7:29-7:35") ||
 		!strings.HasPrefix(got[2], "inspect std:io.nomi") {
 		t.Errorf("outgoing of main:\n%s", strings.Join(got, "\n"))
 	}
@@ -166,7 +166,7 @@ func TestCallHierarchy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(out) != 1 || itemString(dir, out[0].To) != "normalize models/users.nomi 6:0-6:50 sel 6:3-6:12" || rangesString(out[0].FromRanges) != "9:60-9:69" {
+	if len(out) != 1 || itemString(dir, out[0].To) != "normalize models/users.nomi 6:0-6:52 sel 6:3-6:12" || rangesString(out[0].FromRanges) != "9:62-9:71" {
 		for _, c := range out {
 			t.Logf("%s from %s", itemString(dir, c.To), rangesString(c.FromRanges))
 		}
@@ -180,7 +180,7 @@ func TestCallHierarchy(t *testing.T) {
 	for _, c := range in {
 		got = append(got, c.From.Name+" from "+rangesString(c.FromRanges))
 	}
-	if strings.Join(got, ", ") != "make from 4:33-4:42, rename from 9:60-9:69" {
+	if strings.Join(got, ", ") != "make from 4:35-4:44, rename from 9:62-9:71" {
 		t.Errorf("incoming of normalize: %v", got)
 	}
 

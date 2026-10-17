@@ -15,7 +15,7 @@ import (
 // `gen.iterCall` records them, and a call through a function value records its
 // arguments too. Some cases fail on purpose, so the report text itself is
 // compared between the VM and the golden record.
-const irIterTestBodySource = `fn double(n: Int): Int {
+const irIterTestBodySource = `fn double(n: Int) -> Int {
   n * 2
 }
 
@@ -25,13 +25,13 @@ test "a count in a subject" {
 }
 
 test "a pipeline bound before the assertion" {
-  total = [1, 2, 3, 4] |> Iter.filter(|x| x % 2 == 0) |> Iter.reduce(|a = 0, x| a + x)
+  total = [1, 2, 3, 4] |> Iter.filter(fn x -> x % 2 == 0) |> Iter.reduce(fn a = 0, x -> a + x)
   assert total == 6
 }
 
 test "a predicate call records its source" {
   xs = [2, 4, 5]
-  assert Iter.all?(xs, |x| x % 2 == 0)
+  assert Iter.all?(xs, fn x -> x % 2 == 0)
 }
 
 test "a multi-line call leaves the cursor on its last line" {
@@ -41,14 +41,14 @@ test "a multi-line call leaves the cursor on its last line" {
 }
 
 test "a call through a function value shows its argument" {
-  small? = |n: Int| n > 90
+  small? = fn n: Int -> n > 90
   w = 5
   assert small?(w)
 }
 
 test "a folded count in a subject" {
   assert Iter.count(
-    [1, 2] |> Iter.map(|x| x + 1)
+    [1, 2] |> Iter.map(fn x -> x + 1)
   ) == 2
 }
 `

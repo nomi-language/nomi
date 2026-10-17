@@ -244,7 +244,7 @@ type FuncType struct {
 	TriviaCarrier
 	SpanCarrier
 	Params []TypeExpr
-	Return TypeExpr // nil for tuple types like (Int, String) with no ->
+	Return TypeExpr // nil for tuple types like #(Int, String)
 	Line   int
 	Col    int
 }
@@ -254,6 +254,9 @@ func (n *FuncType) LineNum() int   { return n.Line }
 func (*FuncType) typeExpr()        {}
 func (n *FuncType) TypeString() string {
 	s := "("
+	if n.Return == nil {
+		s = "#("
+	}
 	for i, p := range n.Params {
 		if i > 0 {
 			s += ", "
@@ -325,7 +328,7 @@ func (n *AnonStructType) TypeString() string {
 // in TypeName positions of literal-attach forms and patterns. Examples:
 //
 //	StructLit{TypeName: &DotVariantType{Name: "Rect"}}  // .Rect{w: 4.0}
-//	MapLit{TypeName: &DotVariantType{Name: "Obj"}}      // .Obj{"k" => v}
+//	MapLit{TypeName: &DotVariantType{Name: "Obj"}}      // .Obj%{"k" => v}
 //	ListLit{TypeName: &DotVariantType{Name: "Arr"}}     // .Arr[1, 2, 3]
 //	StructPattern{TypeName: &DotVariantType{Name: ...}} // case x { .Rect{...} -> ... }
 //
@@ -618,19 +621,19 @@ type MapEntry struct {
 	Value Node
 }
 
-// MapLit represents a map literal: {key => value, ...}, or a map update
-// `{..base, key => value, ...}`.
+// MapLit represents a map literal: %{key => value, ...}, or a map update
+// `%{..base, key => value, ...}`.
 //
 // TypeName is non-nil for type-prefixed map literals like
-// `Kvs{"a" => 1}` — the literal-attach construction form for
-// map-distinct types. nil for anonymous map literals `{"a" => 1}`.
+// `Kvs%{"a" => 1}` — the literal-attach construction form for
+// map-distinct types. nil for anonymous map literals `%{"a" => 1}`.
 type MapLit struct {
 	TriviaCarrier
 	SpanCarrier
 	TypeName TypeExpr // nil for anonymous map literals
 	Entries  []MapEntry
-	// Spread holds the base of a map update, `{..base, key => value}`:
-	// the literal means `Map.merge(base, {key => value})`. Nil for every
+	// Spread holds the base of a map update, `%{..base, key => value}`:
+	// the literal means `Map.merge(base, %{key => value})`. Nil for every
 	// other map literal, and only ever set on the anonymous form. Entries
 	// then hold the overrides, at least one.
 	Spread Node
@@ -872,6 +875,11 @@ func (n *Assertion) LineNum() int   { return n.Line }
 // report lists each failing row. Pattern is irrefutable for the element
 // type. The statement's value is Unit.
 //
+// Name is the optional third part, `subtests rows, pattern, name { body }`:
+// a String expression evaluated once per row in the scope of Pattern's
+// bindings, which a failed row's report shows in place of the rendered row.
+// It is nil when the statement has none.
+//
 // `subtests` is a keyword only where a statement starts with it, an
 // expression starts on its line, and a comma follows the expression;
 // anywhere else it is an ordinary identifier.
@@ -880,6 +888,7 @@ type Subtests struct {
 	SpanCarrier
 	Rows    Node
 	Pattern Node
+	Name    Node
 	Body    *Block
 	Line    int // the `subtests` keyword
 	Col     int
@@ -932,7 +941,7 @@ func (n *Todo) ReasonText() string {
 // concurrency scope from spec §20. The body type-checks
 // like a lambda body (last expression is the value; `return` / `try`
 // unwind to the block boundary, not the enclosing fn). At runtime
-// `Task.spawn(|| ...)` calls inside this block spawn goroutines that
+// `Task.spawn(fn -> ...)` calls inside this block spawn goroutines that
 // must all be awaited (or explicitly discarded via `_ = Task.await(t)`)
 // before the block exits; the runtime cancels any in-flight
 // siblings on non-normal exit.
@@ -1002,7 +1011,7 @@ func (n *Call) LineNum() int   { return n.Line }
 // the no-payload (`.Red`) and call-form (`.Circle(1.0)`) cases.
 //
 // Bare `.X` is a *DotVariant directly; `.X(args)` is a Call whose Func is a
-// *DotVariant. The literal-attach forms (`.X{...}`, `.X[...]`, `.X{"k" => v}`)
+// *DotVariant. The literal-attach forms (`.X{...}`, `.X[...]`, `.X%{"k" => v}`)
 // produce StructLit / ListLit / MapLit with `TypeName: &DotVariantType{...}`
 // rather than wrapping them in a DotVariant — those literal nodes already
 // carry the payload directly, and they own their own TypeName slot.
@@ -1409,19 +1418,6 @@ type StructDestructure struct {
 func (*StructDestructure) NodeType() string { return "StructDestructure" }
 func (n *StructDestructure) LineNum() int   { return n.Line }
 
-// MapDestructure binds map values to names: {"key" => name} = expr
-type MapDestructure struct {
-	TriviaCarrier
-	SpanCarrier
-	Entries []MapPatternEntry // key => binding pairs
-	Value   Node
-	Line    int
-	Col     int
-}
-
-func (*MapDestructure) NodeType() string { return "MapDestructure" }
-func (n *MapDestructure) LineNum() int   { return n.Line }
-
 // PatternDestructure binds a general pattern using assertion semantics:
 //
 //	assert pattern = expr
@@ -1578,7 +1574,7 @@ func (n *ErrorNode) LineNum() int   { return n.Line }
 // final by default; the analyzer rejects
 // overrides of a non-Open default. Required methods (Body == nil) ignore
 // this flag — they always need an implementation and `open` is meaningless on
-// them (the parser rejects `open fn name(...): T` without a body).
+// them (the parser rejects `open fn name(...) -> T` without a body).
 type InterfaceMethod struct {
 	TriviaCarrier
 	SpanCarrier
@@ -1598,7 +1594,7 @@ type InterfaceMethod struct {
 	ReturnTypeExpr  TypeExpr // structured return type annotation, nil if absent
 	Body            Node     // nil for abstract methods, *Block for default implementations
 	Open            bool     // `open fn name(...) { ... }` / `open host fn ...` — default may be overridden
-	// Extern marks a host-backed default: `host fn name(...): T` (no Nomi
+	// Extern marks a host-backed default: `host fn name(...) -> T` (no Nomi
 	// body — the host provides the implementation, shared by every
 	// implementor). A contract method like a Nomi default, but supplied by
 	// the runtime rather than an interface body block. Combines with Open
@@ -1661,8 +1657,8 @@ func (n *InterfaceDef) LineNum() int   { return n.Line }
 //   - Directly by the parser for the `impl Iface for Type { ... }` surface
 //     form:
 //
-//     impl Display for Money { fn to_string(m: Money): String { ... } }
-//     impl<T> Iter for Box<T> { fn next(b: Box<T>): Maybe<(T, Box<T>)> { ... } }
+//     impl Display for Money { fn to_string(m: Money) -> String { ... } }
+//     impl<T> Iter for Box<T> { fn next(b: Box<T>) -> Maybe<#(T, Box<T>)> { ... } }
 //
 //     The interface is named once before `for`; methods inside are plain
 //     `fn` / `host fn` because the header names the single interface.
@@ -1899,9 +1895,11 @@ type ImportStmt struct {
 	SpanCarrier
 	ModulePath []Node // *Ident or *TypeIdent for each path segment
 	// FileSegments is how many leading ModulePath segments are the file
-	// path, the `/`-joined part; the segments after it are owners written
-	// after a `.` (`Shape` in `shape.Shape.{Circle}`). Zero when the import
-	// was not parsed from source.
+	// path; the segments after it are owners written after a `.` (`Shape`
+	// in `shape.Shape.{Circle}`). The file path is the `/`-joined part and
+	// any lowercase segment written after a `.` (`io` in `std.io.print`):
+	// an owner is a type, and only a trailing run of PascalCase segments
+	// is owners. Zero when the import was not parsed from source.
 	FileSegments int
 	Names        []Node // *Ident or *TypeIdent for each imported name
 	Aliases      []Node // parallel to Names; nil entry = no alias for that name
@@ -2148,11 +2146,11 @@ func (*ExternFunc) isImplMethodDecl() {}
 // carry an optional `{ ... }` item body (type-body item syntax):
 //
 //	pub host type List<T> {
-//	  fn map(list: List<T>, f: (T) -> U): List<U> { ... }
+//	  fn map(list: List<T>, f: (T) -> U) -> List<U> { ... }
 //	}
 //
 //	impl Iter for List<T> {
-//	  host fn next(s: List<T>): Maybe<(T, List<T>)>
+//	  host fn next(s: List<T>) -> Maybe<#(T, List<T>)>
 //	}
 //
 // A bodiless declaration (`pub host type Unit`) is unchanged.
@@ -2265,8 +2263,8 @@ type TryOp struct {
 func (*TryOp) NodeType() string { return "TryOp" }
 func (n *TryOp) LineNum() int   { return n.Line }
 
-// Then is the pipe stage `x |> then |v| body`, which applies Lambda to the
-// piped value: `(|v| body)(x)`. It is only ever the right operand of a `|>`.
+// Then is the pipe stage `x |> then fn v -> body`, which applies Lambda to the
+// piped value: `(fn v -> body)(x)`. It is only ever the right operand of a `|>`.
 // Line and Col are the `then` keyword's.
 type Then struct {
 	TriviaCarrier
@@ -2279,7 +2277,7 @@ type Then struct {
 func (*Then) NodeType() string { return "Then" }
 func (n *Then) LineNum() int   { return n.Line }
 
-// Tap is the pipe stage `x |> tap |v| body`, which runs Lambda on the piped
+// Tap is the pipe stage `x |> tap fn v -> body`, which runs Lambda on the piped
 // value for its effect and passes the value on unchanged. The lambda returns
 // Unit. It is only ever the right operand of a `|>`. Line and Col are the
 // `tap` keyword's.
@@ -2295,7 +2293,7 @@ func (*Tap) NodeType() string { return "Tap" }
 func (n *Tap) LineNum() int   { return n.Line }
 
 // CurrentValue is a bare `..` written as the spread of an update literal:
-// `{.., city: "NYC"}`, `{.., "k" => v}`, `#{.., x}` or `[t, ..]`. It stands
+// `{.., city: "NYC"}`, `%{.., "k" => v}`, `#{.., x}` or `[t, ..]`. It stands
 // for the value already at the field or key the literal is written at, so
 // `{..user, address: {.., city: "NYC"}}` changes only `address.city`. It is
 // only ever the Spread of a StructLit, MapLit or SetLit or the TailSpread of a
@@ -2443,6 +2441,24 @@ type AsPattern struct {
 func (*AsPattern) NodeType() string { return "AsPattern" }
 func (n *AsPattern) LineNum() int   { return n.Line }
 
+// OrPattern matches when any of its alternatives matches:
+// `.Circle{r} or .Square{r}`. Every alternative binds the same names at the
+// same types, and the names bind from whichever alternative matched. `or`
+// binds looser than every pattern construct but `as`, so `A or B as x` names
+// the whole value; parentheses group (`(A as a) or (B as a)`). The parser
+// flattens a parenthesized `or` among alternatives, so Alternatives never
+// holds an OrPattern. Line/Col are the first alternative's start.
+type OrPattern struct {
+	TriviaCarrier
+	SpanCarrier
+	Alternatives []Node
+	Line         int
+	Col          int
+}
+
+func (*OrPattern) NodeType() string { return "OrPattern" }
+func (n *OrPattern) LineNum() int   { return n.Line }
+
 // WithoutAs returns the pattern an `as` names, looking through every
 // AsPattern around it: `Ok(x) as r` is `Ok(x)`. What a pattern matches never
 // depends on its `as` names, so a question about matching asks it of this.
@@ -2508,8 +2524,8 @@ func (n *StructPattern) LineNum() int   { return n.Line }
 // argument list. This flag lets the type-checker accept the shape only for
 // tuple-distinct constructors of arity ≥ 2 (where the parallel construction
 // form is the literal-attach `Foo(1, "x")`) and reject it for variant
-// patterns with tuple payloads, where `Foo((a, b))` remains the canonical
-// form. For explicit `(a, b)` patterns Flat is false.
+// patterns with tuple payloads, where `Foo(#(a, b))` remains the canonical
+// form. For explicit `#(a, b)` patterns Flat is false.
 type TuplePattern struct {
 	TriviaCarrier
 	SpanCarrier
@@ -2549,11 +2565,11 @@ type MapPatternEntry struct {
 	Pattern Node // value pattern: IdentPattern, WildcardPattern, literal, nested
 }
 
-// MapPattern matches a map in a case branch: {"key" => val, 0 => x}
+// MapPattern matches a map in a case branch: %{"key" => val, 0 => x}
 // Matching is partial — extra keys in the map are ignored.
 //
 // TypeName is non-nil for type-prefixed map patterns like
-// `Kvs{"a" => v}` — the literal-attach destructure form for
+// `Kvs%{"a" => v}` — the literal-attach destructure form for
 // map-distinct types. nil for anonymous map patterns.
 type MapPattern struct {
 	TriviaCarrier

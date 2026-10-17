@@ -11,7 +11,7 @@ import "testing"
 // same comments and breaks around a list's tail, a set's, a map's and a
 // struct's `..` already kept their place.
 func TestFormat_BareSpreadLayout(t *testing.T) {
-	const head = "fn f(p: P, t: Int): P {\n"
+	const head = "fn f(p: P, t: Int) -> P {\n"
 	const tail = "}\n"
 	for _, c := range []struct{ name, src, want string }{
 		{
@@ -51,8 +51,8 @@ func TestFormat_BareSpreadLayout(t *testing.T) {
 		},
 		{
 			"a map's `..` with comments",
-			head + "    {..p, notes: {\n        .., // a\n        // b\n        \"k\" => \"v\"}}\n" + tail,
-			head + "    {..p, notes: {\n        .., // a\n        // b\n        \"k\" => \"v\",\n    }}\n" + tail,
+			head + "    {..p, notes: %{\n        .., // a\n        // b\n        \"k\" => \"v\"}}\n" + tail,
+			head + "    {..p, notes: %{\n        .., // a\n        // b\n        \"k\" => \"v\",\n    }}\n" + tail,
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {

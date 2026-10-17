@@ -36,30 +36,30 @@ import std/io
 
 once base: Int = 7
 
-fn helper(x: Int): Int {
+fn helper(x: Int) -> Int {
     x + 1
 }
 
-fn shadows_a_module_fn(): Int {
-    fn helper(x: Int): Int {
+fn shadows_a_module_fn() -> Int {
+    fn helper(x: Int) -> Int {
         x + 100
     }
 
     helper(1)
 }
 
-fn shadows_a_module_once(): Int {
-    fn base(x: Int): Int {
+fn shadows_a_module_once() -> Int {
+    fn base(x: Int) -> Int {
         x * 3
     }
 
     base(2)
 }
 
-fn captures_a_rebound_local(): String {
+fn captures_a_rebound_local() -> String {
     offset = 30
 
-    fn adjust(x: Int): Int {
+    fn adjust(x: Int) -> Int {
         x + offset
     }
 
@@ -67,8 +67,8 @@ fn captures_a_rebound_local(): String {
     "adjust(100) = ${adjust(100)}, offset = ${offset}"
 }
 
-fn factorial(n: Int): Int {
-    fn fact(k: Int): Int {
+fn factorial(n: Int) -> Int {
+    fn fact(k: Int) -> Int {
         if k <= 1 { 1 } else { k * fact(k - 1) }
     }
 

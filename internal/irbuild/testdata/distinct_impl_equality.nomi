@@ -26,7 +26,7 @@ enum Color {
 }
 
 impl Equatable for Color {
-    fn equal?(a: Color, b: Color): Bool {
+    fn equal?(a: Color, b: Color) -> Bool {
         _ = b
         _ = a
         True
@@ -36,14 +36,14 @@ impl Equatable for Color {
 type Tag Int
 
 impl Equatable for Tag {
-    fn equal?(a: Tag, b: Tag): Bool {
+    fn equal?(a: Tag, b: Tag) -> Bool {
         _ = b
         _ = a
         True
     }
 }
 
-fn main(): Unit {
+fn main() -> Unit {
     io.print("enum same: ${Bool.to_string(Color.Red == Color.Red)}")
     io.print("enum diff: ${Bool.to_string(Color.Red == Color.Green)}")
     io.print("enum ne:   ${Bool.to_string(Color.Red != Color.Blue)}")

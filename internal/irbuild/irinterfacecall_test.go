@@ -6,7 +6,7 @@ func TestIRInterfaceCall_Tour(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
 interface Speech {
-  fn speak(animal: self): String
+  fn speak(animal: self) -> String
 }
 
 struct Dog {
@@ -14,7 +14,7 @@ struct Dog {
 }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     "${d.name} says woof"
   }
 }
@@ -38,22 +38,22 @@ fn main() {
 func TestIRInterfaceCall_NonFirstReceiverAndEffects(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 interface Speech {
- fn speak(prefix: String, animal: self): String
+ fn speak(prefix: String, animal: self) -> String
 }
 struct Cat { name: String }
 struct Dog { name: String }
 impl Speech for Cat {
- fn speak(prefix: String, animal: Cat): String { prefix + " " + animal.name + " meow" }
+ fn speak(prefix: String, animal: Cat) -> String { prefix + " " + animal.name + " meow" }
 }
 impl Speech for Dog {
- fn speak(prefix: String, animal: Dog): String { prefix + " " + animal.name + " woof" }
+ fn speak(prefix: String, animal: Dog) -> String { prefix + " " + animal.name + " woof" }
 }
-fn prefix(): String { io.print("prefix"); "hello" }
-fn cat(): Cat { io.print("cat"); Cat{name: "Milo"} }
+fn prefix() -> String { io.print("prefix"); "hello" }
+fn cat() -> Cat { io.print("cat"); Cat{name: "Milo"} }
 fn main() {
  io.print(Speech.speak(prefix(), cat()))
  dog = Dog{name: "Rex"}
- speak = |prefix: String| Speech.speak(prefix, dog)
+ speak = fn prefix: String -> Speech.speak(prefix, dog)
  io.print(speak("hi"))
 }
 `, "prefix\ncat\nhello Milo meow\nhi Rex woof\n")
@@ -61,7 +61,7 @@ fn main() {
 
 func TestIRInterfaceCall_MultilineInterpolationCursor(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn message(name: String): String {
+fn message(name: String) -> String {
  """
  hello
  ${name}
@@ -74,8 +74,8 @@ fn main() { io.print(message("Nomi")) }
 
 func TestIRInterfaceCall_MultilineInterpolationEffects(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn piece(s: String): String { io.print(s); s }
-fn message(): String {
+fn piece(s: String) -> String { io.print(s); s }
+fn message() -> String {
  """
  ${piece("first")}
  ${piece("second")}

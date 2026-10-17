@@ -23,11 +23,11 @@ struct Holder {
   f: (String, Int) -> String
 }
 
-fn connect(host: String, port: Int): String {
+fn connect(host: String, port: Int) -> String {
   if port > 0 { host } else { "" }
 }
 
-fn make(): (String, Int) -> String {
+fn make() -> (String, Int) -> String {
   connect
 }
 `
@@ -51,33 +51,33 @@ func TestNamedArgThroughFunctionValue_IsAnError(t *testing.T) {
   x = "h" |> holder.f(port: 1)
   _ = x
 }`, "port: 1"},
-		{"parameter, full call", `fn through(g: (String, Int) -> String): String {
+		{"parameter, full call", `fn through(g: (String, Int) -> String) -> String {
   g(port: 1, host: "h")
 }
 fn main() {
   _ = through(connect)
 }`, "port: 1"},
-		{"parameter, named placeholder", `fn through(g: (String, Int) -> String): (String) -> String {
+		{"parameter, named placeholder", `fn through(g: (String, Int) -> String) -> (String) -> String {
   g(port: 1, host: _)
 }
 fn main() {
   _ = through(connect)
 }`, "port: 1"},
-		{"parameter named like the enclosing function's parameter", `fn through(port: Int, g: (Int) -> Int): Int {
+		{"parameter named like the enclosing function's parameter", `fn through(port: Int, g: (Int) -> Int) -> Int {
   g(port: port)
 }
 fn main() {
-  _ = through(1, |n| n)
+  _ = through(1, fn n -> n)
 }`, "port: port"},
 		{"lambda parameter", `fn main() {
-  f = |g: (String, Int) -> String| g(port: 1, host: "h")
+  f = fn g: (String, Int) -> String -> g(port: 1, host: "h")
   _ = f(connect)
 }`, "port: 1"},
-		{"generic parameter", `fn apply<T>(g: (T) -> T, v: T): T {
+		{"generic parameter", `fn apply<T>(g: (T) -> T, v: T) -> T {
   g(value: v)
 }
 fn main() {
-  _ = apply(|n: Int| n, 1)
+  _ = apply(fn n: Int -> n, 1)
 }`, "value: v"},
 		{"call result", `fn main() {
   x = make()(port: 1, host: "h")
@@ -103,7 +103,7 @@ fn main() {
   _ = x
 }`, "port: 1"},
 		{"alias of a lambda", `fn main() {
-  f = |host: String, port: Int| if port > 0 { host } else { "" }
+  f = fn host: String, port: Int -> if port > 0 { host } else { "" }
   g = f
   x = g(port: 1, host: "h")
   _ = x
@@ -144,14 +144,14 @@ fn main() {
 func TestNamedArgThroughFunctionValue_DeclaredCalleesKeepNames(t *testing.T) {
 	_, errs := checkSourceWithStdlib(namelessDecls + `fn main() {
   a: String = connect(port: 1, host: "h")
-  f = |host: String, port: Int| if port > 0 { host } else { "" }
+  f = fn host: String, port: Int -> if port > 0 { host } else { "" }
   b: String = f(port: 1, host: "h")
   c = connect(_, port: _)
   d: String = c(port: 1, host: "h")
   e: String = c(port: _, host: "h")(9)
   holder = Holder{f: connect}
   g: String = holder.f("h", 1)
-  _ = (a, b, d, e, g)
+  _ = #(a, b, d, e, g)
 }
 `)
 	expectNoStdlibErrors(t, errs)

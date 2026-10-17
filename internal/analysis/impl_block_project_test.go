@@ -51,7 +51,7 @@ func TestImplBlockProject_ModuleFunctionWithLocalTypeAccepted(t *testing.T) {
   y: Int
 }
 
-pub fn origin(): Point { Point{x: 0, y: 0} }
+pub fn origin() -> Point { Point{x: 0, y: 0} }
 
 
 fn main() { origin() }`
@@ -69,8 +69,8 @@ func TestImplBlockProject_Collision_DuplicateModuleFunction(t *testing.T) {
   y: Int
 }
 
-pub fn make(): Point { Point{x: 0, y: 0} }
-pub fn make(): Point { Point{x: 1, y: 1} }
+pub fn make() -> Point { Point{x: 0, y: 0} }
+pub fn make() -> Point { Point{x: 1, y: 1} }
 
 
 fn main() {}`
@@ -84,16 +84,16 @@ fn main() {}`
 // type-checks and a bare-name dispatch call resolves (no spurious errors).
 func TestImplBlockProject_InterfaceImpl_Dispatch(t *testing.T) {
 	src := `pub interface Speech {
-    fn speak(value: self): String
+    fn speak(value: self) -> String
 }
 
 pub struct Dog { name: String }
 
 impl Speech for Dog {
-    fn speak(d: Dog): String { d.name }
+    fn speak(d: Dog) -> String { d.name }
 }
 
-fn demo(): String {
+fn demo() -> String {
     Speech.speak(Dog{name: "Rex"})
 }`
 	errs := buildImplBlockProject(src)

@@ -111,6 +111,11 @@ func irDebugValueKind(k kind) bool {
 		}
 		return true
 	}
+	if irStdMarkerKind(k) {
+		// std's payload-free marker (`ChannelClosed`) has no impl of its own
+		// and renders as its bare name, as rt's value does.
+		return true
+	}
 	if k.tag == tagNamed && k.def != nil && k.def == namedPayloadDefs()[outcomeFailure] {
 		// A task's Failure, Outcome.Failed's payload: two String variants.
 		return true

@@ -1,0 +1,40 @@
+/// The allergens a score covers, in score order: eggs are worth 1, peanuts 2,
+/// and each one after twice the one before.
+pub enum Allergen {
+    Eggs
+    Peanuts
+    Shellfish
+    Strawberries
+    Tomatoes
+    Chocolate
+    Pollen
+    Cats
+}
+
+derive Variants for Allergen
+
+/// Reports whether `score` includes `allergen`.
+pub fn allergic_to?(score: Int, allergen: Allergen) -> Bool {
+    Int.bitwise_and(score, value(allergen)) != 0
+}
+
+/// Lists every allergen `score` includes, in score order. Parts of the score
+/// above the last allergen are ignored.
+pub fn list(score: Int) -> List<Allergen> {
+    Allergen.variants()
+    |> Iter.filter(fn allergen -> allergic_to?(score, allergen))
+    |> Iter.to_list()
+}
+
+fn value(allergen: Allergen) -> Int {
+    case allergen {
+        .Eggs -> 1
+        .Peanuts -> 2
+        .Shellfish -> 4
+        .Strawberries -> 8
+        .Tomatoes -> 16
+        .Chocolate -> 32
+        .Pollen -> 64
+        .Cats -> 128
+    }
+}

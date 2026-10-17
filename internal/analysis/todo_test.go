@@ -24,43 +24,43 @@ enum Shape {
     Square(Float)
 }
 
-fn parse(text: String): Header {
+fn parse(text: String) -> Header {
     todo "parse the header"
 }
 
-fn area(s: Shape): Float {
+fn area(s: Shape) -> Float {
     case s {
         .Square(_) -> todo
         .Circle(r) -> r * r
     }
 }
 
-fn first<T>(xs: List<T>): T {
+fn first<T>(xs: List<T>) -> T {
     todo
 }
 
-fn pick<T>(xs: List<T>, d: T): T {
+fn pick<T>(xs: List<T>, d: T) -> T {
     case List.head(xs) {
         Some(x) -> x
         None -> todo ` + "`raw reason`" + `
     }
 }
 
-fn make(): Header {
+fn make() -> Header {
     Header{name: "x", size: todo """
         a multi-line reason
         """}
 }
 
-fn twice(n: Int): Int {
+fn twice(n: Int) -> Int {
     n * 2
 }
 
-fn uses(flag: Bool): Int {
+fn uses(flag: Bool) -> Int {
     n: Int = todo
     _ = todo
-    f = |x: Int| if x > 1 { todo } else { x }
-    g: (Int) -> String = |_| todo
+    f = fn x: Int -> if x > 1 { todo } else { x }
+    g: (Int) -> String = fn _ -> todo
     m: Int = 3 |> todo
     _ = g
     if flag {
@@ -83,8 +83,8 @@ func TestTodo_AnUnannotatedBindingAsksForAType(t *testing.T) {
 		name, src string
 		line, col int
 	}{
-		{"bare", "fn f(): Int {\n    x = todo\n    x\n}\n", 2, 5},
-		{"pipe stage", "fn f(): Int {\n    x = 3 |> todo\n    x\n}\n", 2, 5},
+		{"bare", "fn f() -> Int {\n    x = todo\n    x\n}\n", 2, 5},
+		{"pipe stage", "fn f() -> Int {\n    x = 3 |> todo\n    x\n}\n", 2, 5},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(tc.src)
@@ -95,7 +95,7 @@ func TestTodo_AnUnannotatedBindingAsksForAType(t *testing.T) {
 			}
 		})
 	}
-	if _, errs := checkSourceWithStdlib("fn f(): Int {\n    _ = todo\n    1\n}\n"); len(errs) > 0 {
+	if _, errs := checkSourceWithStdlib("fn f() -> Int {\n    _ = todo\n    1\n}\n"); len(errs) > 0 {
 		t.Fatalf("`_ = todo` rejected: %v", errs)
 	}
 }
@@ -104,7 +104,7 @@ func TestTodo_AnUnannotatedBindingAsksForAType(t *testing.T) {
 // arm does not decide a `case`'s type: the later arms are still checked
 // against the arm that produces a value.
 func TestTodo_CaseTypeComesFromTheFirstArmWithAValue(t *testing.T) {
-	src := "fn f(n: Int): Int {\n    case n {\n        0 -> todo\n        1 -> 1\n        _ -> \"two\"\n    }\n}\n"
+	src := "fn f(n: Int) -> Int {\n    case n {\n        0 -> todo\n        1 -> 1\n        _ -> \"two\"\n    }\n}\n"
 	_, errs := checkSourceWithStdlib(src)
 	found := false
 	for _, e := range errs {
@@ -130,10 +130,10 @@ func TestTodo_UnfinishedBodiesDoNotReportUnreadParameters(t *testing.T) {
 		}
 		return out
 	}
-	if got := unread("fn parse(text: String, n: Int): Int {\n    todo\n}\n\nfn g(): (Int) -> Int {\n    |x| todo\n}\n"); len(got) > 0 {
+	if got := unread("fn parse(text: String, n: Int) -> Int {\n    todo\n}\n\nfn g() -> (Int) -> Int {\n    fn x -> todo\n}\n"); len(got) > 0 {
 		t.Fatalf("an unfinished body reports unread parameters: %q", got)
 	}
-	got := unread("fn parse(text: String): Int {\n    1\n}\n")
+	got := unread("fn parse(text: String) -> Int {\n    1\n}\n")
 	if len(got) != 1 || !strings.HasPrefix(got[0], "parameter 'text' is never read") {
 		t.Fatalf("a finished body's unread parameter = %q", got)
 	}
@@ -142,7 +142,7 @@ func TestTodo_UnfinishedBodiesDoNotReportUnreadParameters(t *testing.T) {
 // TestTodos_ListsEveryTodoInSourceOrder pins the walk `nomi build` and the
 // language server share.
 func TestTodos_ListsEveryTodoInSourceOrder(t *testing.T) {
-	src := "fn a(): Int {\n    todo \"one\"\n}\n\nfn b(f: Bool): Int {\n    if f { todo } else { [1] |> Iter.map(|x| todo \"two\") |> Iter.count() }\n}\n"
+	src := "fn a() -> Int {\n    todo \"one\"\n}\n\nfn b(f: Bool) -> Int {\n    if f { todo } else { [1] |> Iter.map(fn x -> todo \"two\") |> Iter.count() }\n}\n"
 	nodes, perrs := parser.ParseWithRecovery(lexer.Lex(src))
 	if len(perrs) > 0 {
 		t.Fatalf("parse: %v", perrs)
@@ -151,7 +151,7 @@ func TestTodos_ListsEveryTodoInSourceOrder(t *testing.T) {
 	for _, td := range analysis.Todos(nodes) {
 		got = append(got, todoSite(td))
 	}
-	want := []string{`2:5 "one"`, `6:12 ""`, `6:46 "two"`}
+	want := []string{`2:5 "one"`, `6:12 ""`, `6:50 "two"`}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("Todos = %q, want %q", got, want)
 	}

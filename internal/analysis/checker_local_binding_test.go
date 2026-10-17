@@ -10,7 +10,7 @@ func TestLocallyDetermined_UnannotatedChannelNew_Rejected(t *testing.T) {
 	src := `import {
   std/channels.{Channel, Sender}
 }
-fn main(): Unit {
+fn main() -> Unit {
   ch = Channel.buffered(4)
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "not locally determined")
@@ -18,7 +18,7 @@ fn main(): Unit {
 
 // An empty-list binding with no annotation is undetermined → rejected.
 func TestLocallyDetermined_EmptyList_Rejected(t *testing.T) {
-	src := `fn main(): Unit {
+	src := `fn main() -> Unit {
   xs = []
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "not locally determined")
@@ -30,7 +30,7 @@ func TestLocallyDetermined_ForwardUseDoesNotRescue(t *testing.T) {
 	src := `import {
   std/channels.{Channel, Sender}
 }
-fn main(): Unit {
+fn main() -> Unit {
   ch = Channel.buffered(4)
   r = Sender.send(ch.sender, 5)
 }`
@@ -42,7 +42,7 @@ func TestLocallyDetermined_TurbofishSatisfies_Clean(t *testing.T) {
 	src := `import {
   std/channels.{Channel, Sender}
 }
-fn main(): Unit {
+fn main() -> Unit {
   ch = Channel.buffered<Int>(4)
   r = Sender.send(ch.sender, 5)
 }`
@@ -54,7 +54,7 @@ func TestLocallyDetermined_AnnotationSatisfies_Clean(t *testing.T) {
 	src := `import {
   std/channels.{Channel, Sender}
 }
-fn main(): Unit {
+fn main() -> Unit {
   ch: Channel<Int> = Channel.buffered(4)
   r = Sender.send(ch.sender, 5)
 }`
@@ -63,7 +63,7 @@ fn main(): Unit {
 
 // Self-determining RHSs need no annotation: literals, pinned generics.
 func TestLocallyDetermined_ConcreteRHS_Clean(t *testing.T) {
-	src := `fn main(): Unit {
+	src := `fn main() -> Unit {
   x = 5
   xs = [1, 2, 3]
   s = "hi"
@@ -77,7 +77,7 @@ func TestLocallyDetermined_OnceUndetermined_Rejected(t *testing.T) {
   std/channels.{Channel, Sender}
 }
 once shared = Channel.buffered(1)
-fn main(): Unit {
+fn main() -> Unit {
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "not locally determined")
 }

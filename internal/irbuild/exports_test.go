@@ -25,16 +25,16 @@ derive FromJson for Game
 fn main() {
 }
 
-export fn new_game(word: String): Game {
+export fn new_game(word: String) -> Game {
     Game{word}
 }
 
-fn helper(): Int {
+fn helper() -> Int {
     1
 }
 
-export fn tries(game: Game, limit: Int): Unit {
-    _ = (game, limit)
+export fn tries(game: Game, limit: Int) -> Unit {
+    _ = #(game, limit)
 }
 `
 	if err := os.WriteFile(path, []byte(src), 0o600); err != nil {

@@ -24,7 +24,7 @@ struct Point {
 derive Equatable for Point
 
 impl Display for Point {
-    fn to_string(p: Point): String {
+    fn to_string(p: Point) -> String {
         "(${p.x}, ${p.y})"
     }
 }

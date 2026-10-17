@@ -79,6 +79,15 @@ func PopulateImplsByIdentity(idx *ProjectImplIndex, filesByKey map[string]*FileA
 	if idx == nil {
 		return
 	}
+	covered, blocked := recordImplsByIdentity(idx, filesByKey, primitiveOriginIndex(filesByKey))
+	idx.implNamesWithIdentity = coveredNotBlocked(covered, blocked)
+}
+
+// recordImplsByIdentity fills idx.ImplsByIdentity from idx's impls and
+// answers the (T, Iface) pairs some supplier of which resolved an origin
+// (covered) and those some supplier of which did not (blocked).
+// primitives is primitiveOriginIndex over filesByKey.
+func recordImplsByIdentity(idx *ProjectImplIndex, filesByKey map[string]*FileAnalysis, primitives map[string]string) (covered, blocked map[string]map[string]bool) {
 	if idx.ImplsByIdentity == nil {
 		idx.ImplsByIdentity = make(map[ImplIdentityKey]bool, len(idx.ImplBlockReceiver))
 	}
@@ -87,8 +96,8 @@ func PopulateImplsByIdentity(idx *ProjectImplIndex, filesByKey map[string]*FileA
 	// walks a scope and an import chain on every call.
 	type memoKey struct{ module, head string }
 	memo := make(map[memoKey]string)
-	primitives := primitiveOriginIndex(filesByKey)
 	originOf := func(module, recv string) string {
+		noteStdlibWork(module)
 		k := memoKey{module: module, head: typeNameHead(recv)}
 		origin, seen := memo[k]
 		if !seen {
@@ -106,8 +115,8 @@ func PopulateImplsByIdentity(idx *ProjectImplIndex, filesByKey map[string]*FileA
 	// (ImplFiles carries interface-impl FuncDefs only, so filesByKey[""] is
 	// nil and the origin is unresolved), and that is exactly the case this
 	// has to survive rather than assume away.
-	covered := make(map[string]map[string]bool)
-	blocked := make(map[string]map[string]bool)
+	covered = make(map[string]map[string]bool)
+	blocked = make(map[string]map[string]bool)
 	mark := func(into map[string]map[string]bool, recv, iface string) {
 		if into[recv] == nil {
 			into[recv] = make(map[string]bool)
@@ -152,15 +161,25 @@ func PopulateImplsByIdentity(idx *ProjectImplIndex, filesByKey map[string]*FileA
 		}
 	}
 
-	idx.implNamesWithIdentity = make(map[string]map[string]bool, len(covered))
+	return covered, blocked
+}
+
+// coveredNotBlocked answers the pairs of covered that blocked does not hold:
+// the pairs the identity index can judge.
+func coveredNotBlocked(covered, blocked map[string]map[string]bool) map[string]map[string]bool {
+	out := make(map[string]map[string]bool, len(covered))
 	for recv, ifaces := range covered {
 		for iface := range ifaces {
 			if blocked[recv][iface] {
 				continue
 			}
-			mark(idx.implNamesWithIdentity, recv, iface)
+			if out[recv] == nil {
+				out[recv] = make(map[string]bool)
+			}
+			out[recv][iface] = true
 		}
 	}
+	return out
 }
 
 // UncoverImplIdentity drops a (T, Iface) pair from the identity index's

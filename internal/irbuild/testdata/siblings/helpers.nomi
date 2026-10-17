@@ -7,11 +7,11 @@ import {
     deeper
 }
 
-pub fn double(x: Int): Int {
+pub fn double(x: Int) -> Int {
     scaled(x, 2)
 }
 
-pub fn shout(name: String): String {
+pub fn shout(name: String) -> String {
     name + "!"
 }
 
@@ -22,10 +22,10 @@ pub fn announce() {
 // A cross-file call whose callee is itself in a third file: the reference
 // graph is main -> helpers -> deeper, and the builder's unit import graph has
 // to be the same shape.
-pub fn tripled(x: Int): Int {
+pub fn tripled(x: Int) -> Int {
     deeper.times(x, 3)
 }
 
-fn scaled(x: Int, by: Int): Int {
+fn scaled(x: Int, by: Int) -> Int {
     x * by
 }

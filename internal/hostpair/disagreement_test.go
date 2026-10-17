@@ -77,10 +77,10 @@ func TestDisagree_ModulePrefixOnAnImplOwnedDeclaration(t *testing.T) {
 pub opaque type Pat go ffi.Pattern
 
 impl Pat {
-  pub fn compile(source: String): Pat go ffi.Compile
+  pub fn compile(source: String) -> Pat go ffi.Compile
 }
 
-fn helper(n: Int): Int go ffi.Helper
+fn helper(n: Int) -> Int go ffi.Helper
 `
 	_, pairings := hostpairKeysForSource(t, "patterns.nomi", source)
 
@@ -141,10 +141,10 @@ func TestDisagree_EntryScopedSecondKeyExistsOnlyInFfirun(t *testing.T) {
 
 opaque type RawBox go ffi.Box
 
-pub fn echo(s: String): String go ffi.Echo
+pub fn echo(s: String) -> String go ffi.Echo
 
 impl RawBox {
-  fn label(b: RawBox): String go ffi.Label
+  fn label(b: RawBox) -> String go ffi.Label
 }
 `
 	root := writeProject(t, map[string]string{"main.nomi": "import ffi\n", "ffi.nomi": source})

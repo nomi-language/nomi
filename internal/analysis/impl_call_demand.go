@@ -44,7 +44,7 @@ import (
 // `<` operator.
 //
 // Not covered, deliberately: a method that declares `self` only in its
-// RETURN type (`FromJson.from_json(json: Json): Result<self, E>`) has no
+// RETURN type (`FromJson.from_json(json: Json) -> Result<self, E>`) has no
 // receiver-typed parameter for this to read, so nothing is recorded and
 // the pre-existing behaviour stands. Deriving self positions from the
 // impl signature rather than from a parameter scan is a separate piece

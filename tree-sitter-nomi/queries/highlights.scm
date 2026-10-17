@@ -100,7 +100,7 @@
 (destructuring_binding
   binding: (identifier) @comment
   (#match? @comment "^\\s*_($|[^_])"))
-; A destructure's nested pattern (`((_a, b), c) = pair`,
+; A destructure's nested pattern (`#(#(_a, b), c) = pair`,
 ; `{x: Some(_n), y} = q else { ... }`), spelled as an expression.
 (destructuring_binding
   pattern: [
@@ -128,7 +128,7 @@
   . (identifier) @comment
   (#eq? @comment "_"))
 ; Pattern nodes. Each rule names a direct parent, so a discard nested in
-; patterns at any depth (`Some(Ok((_a, b)))`, `[_x, .._rest]`) matches one.
+; patterns at any depth (`Some(Ok(#(_a, b)))`, `[_x, .._rest]`) matches one.
 (tuple_pattern
   (identifier) @comment
   (#match? @comment "^\\s*_($|[^_])"))
@@ -136,6 +136,9 @@
   (identifier) @comment
   (#match? @comment "^\\s*_($|[^_])"))
 (enum_pattern
+  (identifier) @comment
+  (#match? @comment "^\\s*_($|[^_])"))
+(or_pattern
   (identifier) @comment
   (#match? @comment "^\\s*_($|[^_])"))
 ; A map pattern's value; its key (`key => v`) is an expression and is read.
@@ -157,7 +160,7 @@
     (identifier) @comment)
   (#match? @comment "^\\s*_($|[^_])"))
 ; A pattern spelled as the expression it looks like: the left side of a
-; binding with `else` or a pattern assertion (`Some((_n, o)) = opt`,
+; binding with `else` or a pattern assertion (`Some(#(_n, o)) = opt`,
 ; `assert Err(_) = r`), the pattern before `as`, and a case, guard or else
 ; arm that took the expression reading (`Some(Ok((_g, n))) when n > 0 ->`).
 ; Those expressions also occur as values, where an identifier is read, so
@@ -167,7 +170,7 @@
 ; (`ready(_x) ->`); inside a pattern every call is a variant. A query has no
 ; descendant operator, so the alternation spells out each depth: a discard
 ; directly in a call, tuple, list, struct construction, anonymous struct or
-; map value, under at most two calls, tuples or lists (`Ok(Some((_a, b)))`).
+; map value, under at most two calls, tuples or lists (`Ok(Some(#(_a, b)))`).
 ; A deeper one keeps its colour. Each depth costs query compile time (the
 ; tour compiles this file once per page), which is what stops it at three.
 ((_ .
@@ -421,6 +424,10 @@
 (else_arm
   . (type_identifier) @constructor)
 
+; A bare enum variant as an `or` alternative (`None or Some(0)`)
+(or_pattern
+  (type_identifier) @constructor)
+
 ; Enum variant constructor in enum_pattern (e.g., Wrapped(v) in case branches)
 (enum_pattern
   (type_identifier) @constructor)
@@ -439,7 +446,7 @@
   (type_field_access
     (type_identifier) @type))
 
-; Map construction (TypeName{key => value, ...})
+; Map construction (TypeName%{key => value, ...})
 (map_construction
   (type_identifier) @type)
 
@@ -611,7 +618,6 @@
 ; === Operators and punctuation ===
 
 "|>" @operator
-"|" @operator
 "=>" @operator
 ".." @operator
 "..=" @operator
@@ -633,39 +639,37 @@
 ; Delimiters. The delimiters of data shape are @type, the colour of a struct
 ; name: a literal that builds a value (the braces of a struct, anonymous
 ; struct, map, set, struct update or map update, the brackets of a list or
-; vector, a tuple's parentheses), a constructor call's parentheses, and every
+; vector, a tuple's `#(` and `)`), a constructor call's parentheses, and every
 ; pattern's delimiters (tuple, list, struct, map and variant-payload patterns,
 ; wherever they appear). Every other delimiter is program structure and is
 ; @punctuation.bracket: blocks, declaration bodies, function calls, grouping,
 ; parameter lists and types. A pattern spelled as the expression it looks like
-; (`Some((n, [a])) = found else {...}`, `assert Err(_) = r`) parses as the
+; (`Some(#(n, [a])) = found else {...}`, `assert Err(_) = r`) parses as the
 ; literal and call nodes below, so it takes @type with no rule of its own.
 ;
-; An anonymous struct or map literal, a struct or map pattern and a destructure
-; are captured whole, because the scanner may lex the opening brace as a hidden
-; token that no query can name; every other token inside has a capture of its
-; own, so each visible delimiter is also captured directly.
+; An anonymous struct literal, a struct pattern and a destructure are captured
+; whole, because the scanner may lex the opening brace as a hidden token that
+; no query can name; every other token inside has a capture of its own, so each
+; visible delimiter is also captured directly.
 [
   (anon_struct)
-  (map_literal)
   (struct_update)
-  (map_update)
   (struct_pattern)
   (destructuring_binding)
 ] @type
 (anon_struct ["{" "}"] @type)
-(map_literal ["{" "}"] @type)
+(map_literal ["%{" "}"] @type)
 (struct_update ["{" "}"] @type)
-(map_update ["{" "}"] @type)
+(map_update ["%{" "}"] @type)
 (struct_construction ["{" "}"] @type)
-(map_construction ["{" "}"] @type)
+(map_construction ["%{" "}"] @type)
 (set ["#{" "}"] @type)
 (list ["[" "]"] @type)
 (vector ["#[" "]"] @type)
-(tuple_expression ["(" ")"] @type)
-(struct_pattern ["{" "}"] @type)
-(destructuring_binding ["(" ")" "{" "}"] @type)
-(tuple_pattern ["(" ")"] @type)
+(tuple_expression ["#(" ")"] @type)
+(struct_pattern ["{" "%{" "}"] @type)
+(destructuring_binding ["#(" ")" "{" "%{" "}"] @type)
+(tuple_pattern ["#(" ")"] @type)
 (list_pattern ["[" "]"] @type)
 (enum_pattern ["(" ")"] @type)
 
@@ -682,8 +686,11 @@
 
 "#[" @punctuation.bracket
 "#{" @punctuation.bracket
+"#(" @punctuation.bracket
+"%{" @punctuation.bracket
 ":" @punctuation.delimiter
 "," @punctuation.delimiter
+";" @punctuation.delimiter
 "." @punctuation.delimiter
 "(" @punctuation.bracket
 ")" @punctuation.bracket

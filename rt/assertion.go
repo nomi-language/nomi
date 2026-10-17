@@ -3,6 +3,7 @@ package rt
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -45,6 +46,25 @@ type AssertionFailure struct {
 type SubtestFailure struct {
 	Row     string
 	Failure *AssertionFailure
+}
+
+// SubtestNameTrapFailure is the failure of a `subtests` row whose name, the
+// expression expr at line, trapped with the text trap. The row's body did
+// not run. The trap's own `line N: ` prefix is dropped when N is line, which
+// the header already names:
+//
+//	subtest 0: line 12: its name trapped: division by zero
+//	  "${10 / n}"
+func SubtestNameTrapFailure(line int, expr, trap string) *AssertionFailure {
+	// The prefix a positioned fault text at line opens with; it is read
+	// here, never written, so it is no fault text of this module's
+	// (TestFaultPosition_EveryOwnedTextIsListed).
+	trap = strings.TrimPrefix(trap, "line "+strconv.Itoa(line)+": ")
+	return &AssertionFailure{
+		Line:   line,
+		Expr:   expr,
+		Reason: "its name trapped: " + trap,
+	}
 }
 
 // SubtestsFailure is the failure of the `subtests` statement at line over

@@ -3,8 +3,10 @@
 // lists.
 //
 //   - Funcs: the three stdlib modules whose implementation is Go
-//     (std/calendar, std/random and std/regex), in their FFI-shaped surface. The
-//     VM calls them through generated adapters (internal/stdlibadapters).
+//     (std/calendar, std/random and std/regex), in their FFI-shaped surface,
+//     plus std/strings' `String.captures` and `String.captures_all`, which
+//     take a `Regex` handle and so cannot be RtFuncs rows. The VM calls them
+//     through generated adapters (internal/stdlibadapters).
 //   - RtFuncs: the rt functions the VM reaches for std's scalar, text, byte,
 //     JSON, Decimal and concurrency primitives. The VM calls every row
 //     through a generated adapter, and internal/irbuild's IR builder retains a
@@ -96,7 +98,9 @@ type Binding struct {
 	// text `<name>: panic: <value>` (hostadapt.Recover). Set on every RtFuncs
 	// row: an rt trap (*rt.Error) is a Nomi fault the VM reports with rt's
 	// text, and a cancellation unwind (rt.TimerSleep in a cancelled task) must
-	// keep unwinding the task. Unset on Funcs rows, whose adapters recover.
+	// keep unwinding the task. Set too on the Funcs rows whose job is to trap
+	// (std/random's range checks); unset on the other Funcs rows, whose
+	// adapters recover.
 	PanicsPropagate bool
 }
 
@@ -183,12 +187,14 @@ func Funcs() []Binding {
 		{Name: "calendar.zoned_offset_nanos", Fn: stdcalendar.FFIZonedOffsetNanos},
 		{Name: "calendar.zoned_parse_raw", Fn: stdcalendar.FFIZonedParse},
 		{Name: "calendar.zoned_with_zone_raw", Fn: stdcalendar.FFIZonedWithZone},
-		{Name: "random.below_state", Fn: stdrandom.FFIBelow},
+		{Name: "random.between_state", Fn: stdrandom.FFIBetween},
 		{Name: "random.os_state", Fn: stdrandom.FFIFromOS},
+		{Name: "random.require_float_range", Fn: stdrandom.FFIRequireFloatRange, PanicsPropagate: true},
+		{Name: "random.require_int_range", Fn: stdrandom.FFIRequireIntRange, PanicsPropagate: true},
 		{Name: "random.unit_float_state", Fn: stdrandom.FFIUnitFloat},
 		{Name: "Regex.compile", Fn: stdregex.FFICompile},
 		{Name: "Regex.contained_in?", Fn: stdregex.FFIMatch},
-		{Name: "Regex.find", Fn: stdregex.FFIFind},
+		{Name: "Regex.find_in", Fn: stdregex.FFIFind},
 		{Name: "Regex.find_all_in", Fn: stdregex.FFIFindAll},
 		{Name: "Regex.pattern", Fn: stdregex.FFIPattern},
 		{Name: "Regex.prefix_of?", Fn: stdregex.FFIPrefixOf},
@@ -196,6 +202,8 @@ func Funcs() []Binding {
 		{Name: "Regex.replace_in", Fn: stdregex.FFIReplaceLiteral},
 		{Name: "Regex.split_in", Fn: stdregex.FFISplit},
 		{Name: "Regex.suffix_of?", Fn: stdregex.FFISuffixOf},
+		{Name: "String.captures", Fn: stdstrings.FFICaptures},
+		{Name: "String.captures_all", Fn: stdstrings.FFICapturesAll},
 	}
 }
 
@@ -223,6 +231,7 @@ func RtFuncs() []Binding {
 		{Name: "bytes.Byte.from_int", Fn: rt.ByteFromInt},
 		{Name: "bytes.Byte.to_int", Fn: rt.ByteToInt},
 		{Name: "bytes.Bytes.length", Fn: rt.BytesLength},
+		{Name: "bytes.Bytes.get", Fn: rt.BytesGet},
 		{Name: "bytes.Bytes.at", Fn: rt.BytesAt},
 		{Name: "bytes.Bytes.slice", Fn: rt.BytesSlice},
 		{Name: "bytes.Bytes.concat", Fn: rt.BytesConcat},
@@ -256,6 +265,10 @@ func RtFuncs() []Binding {
 		{Name: "duration.Duration.to_string", Fn: rt.DurationToString},
 		{Name: "instant.Instant.now", Fn: rt.InstantNow},
 		{Name: "codepoints.Codepoint.to_string", Fn: rt.CodepointToString},
+		{Name: "codepoints.Codepoint.letter?", Fn: rt.CodepointIsLetter},
+		{Name: "codepoints.Codepoint.whitespace?", Fn: rt.CodepointIsWhitespace},
+		{Name: "codepoints.Codepoint.upper?", Fn: rt.CodepointIsUpper},
+		{Name: "codepoints.Codepoint.lower?", Fn: rt.CodepointIsLower},
 		{Name: "strings.String.to_codepoints", Fn: rt.StringToCodepoints},
 		{Name: "context.Context.with_timeout", Fn: rt.ContextWithTimeout},
 		{Name: "context.Context.root", Fn: rt.ContextRoot},

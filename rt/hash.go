@@ -8,7 +8,7 @@ import "math"
 // # Why not `Hashable.hash`, which is right there and already means "hash"
 //
 // `Hashable` is a Nomi interface (std/hashable.nomi) and therefore
-// user-overridable: `impl Hashable for Point { fn hash(p: Point): Int { 0 } }`
+// user-overridable: `impl Hashable for Point { fn hash(p: Point) -> Int { 0 } }`
 // is legal Nomi, and so is one that disagrees with `impl Equatable for Point`.
 // A Map keyed on `Hashable.hash` would then go wrong silently and only for
 // programs that got the hash/equality law wrong: two keys Equal considers
@@ -89,7 +89,7 @@ func HashUnit(Unit) uint64 { return 0x1 }
 // and the constant is what keeps a List and a Vector of the same elements in
 // different buckets.
 //
-// Not `Hashable.hash`, which is std's `Iter.reduce(v, |acc = 19, x|
+// Not `Hashable.hash`, which is std's `Iter.reduce(v, fn acc = 19, x ->
 // wrapping_add(wrapping_mul(acc, 31), Hashable.hash(x)))`, a user-visible number
 // a Nomi program can print. This one is the map-key identity `rt.Map` buckets on,
 // and it must agree with Hash (anyvalue.go) rather than with std, because an

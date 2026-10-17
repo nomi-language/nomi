@@ -17,41 +17,41 @@ import (
 func TestRun_AnAssertionAsAValueInAFunction(t *testing.T) {
 	out := runSourceOutput(t, `import std/assertions.AssertionFailure
 
-fn stmt(x: Bool): Result<Int, AssertionFailure> {
+fn stmt(x: Bool) -> Result<Int, AssertionFailure> {
   assert x
   Ok(1)
 }
 
-fn bind(x: Bool): Result<Bool, AssertionFailure> {
+fn bind(x: Bool) -> Result<Bool, AssertionFailure> {
   ok = assert x
   Ok(ok)
 }
 
-fn typed(x: Bool): Result<Bool, AssertionFailure> {
+fn typed(x: Bool) -> Result<Bool, AssertionFailure> {
   ok: Bool = refute x
   Ok(ok)
 }
 
-fn wild(x: Bool): Result<Int, AssertionFailure> {
+fn wild(x: Bool) -> Result<Int, AssertionFailure> {
   _ = assert x
   Ok(2)
 }
 
-fn some(m: Maybe<Int>): Result<Int, AssertionFailure> {
+fn some(m: Maybe<Int>) -> Result<Int, AssertionFailure> {
   Some(n) = assert m else {
     return Ok(0)
   }
   Ok(n)
 }
 
-fn blk(x: Bool): Result<Bool, AssertionFailure> {
+fn blk(x: Bool) -> Result<Bool, AssertionFailure> {
   ok = {
     assert x
   }
   Ok(ok)
 }
 
-fn iff(c: Bool, x: Bool): Result<Bool, AssertionFailure> {
+fn iff(c: Bool, x: Bool) -> Result<Bool, AssertionFailure> {
   ok = if c {
     assert x
   } else {
@@ -60,7 +60,7 @@ fn iff(c: Bool, x: Bool): Result<Bool, AssertionFailure> {
   Ok(ok)
 }
 
-fn cas(c: Bool, x: Bool): Result<Bool, AssertionFailure> {
+fn cas(c: Bool, x: Bool) -> Result<Bool, AssertionFailure> {
   ok = case c {
     True -> assert x
     False -> False
@@ -68,11 +68,11 @@ fn cas(c: Bool, x: Bool): Result<Bool, AssertionFailure> {
   Ok(ok)
 }
 
-fn tail(r: Result<Int, AssertionFailure>): Result<Int, AssertionFailure> {
+fn tail(r: Result<Int, AssertionFailure>) -> Result<Int, AssertionFailure> {
   assert r
 }
 
-fn show<T>(r: Result<T, AssertionFailure>): String {
+fn show<T>(r: Result<T, AssertionFailure>) -> String {
   case r {
     Ok(_) -> "Ok"
     Err(f) -> "Err(line ${Int.to_string(f.line)})"
@@ -128,7 +128,7 @@ dbg line 83: tail(Ok(4)) = Ok(4)
 func TestRun_AFailedAssertionBoundInMainEndsTheProgram(t *testing.T) {
 	p, err := vmhost.LoadSource("main.nomi", `import std/assertions.AssertionFailure
 
-fn main(): Result<Unit, AssertionFailure> {
+fn main() -> Result<Unit, AssertionFailure> {
   n = 0
   ok = assert n > 1
   dbg(ok)
@@ -156,7 +156,7 @@ fn main(): Result<Unit, AssertionFailure> {
 // The same forms in a test body: each passing one binds the subject, and
 // each failing one fails its case with the assertion's report.
 func TestTest_AnAssertionAsAValueInATestBody(t *testing.T) {
-	p, err := vmhost.Load(writeProgram(t, `fn flag(b: Bool): Bool {
+	p, err := vmhost.Load(writeProgram(t, `fn flag(b: Bool) -> Bool {
   b
 }
 

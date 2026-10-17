@@ -47,7 +47,9 @@ func (bl *irScalarBuilder) vectorMakeOf(t *ast.VectorLit, elem kind) (ir.Temp, k
 		want = parts[0]
 	}
 	values, elem, ok := bl.lowerSameKindItems(t, tagEmptyVector, t.Items, want, func(k kind) bool {
-		return irScalarLeafKind(k) || bl.g.irStructuralValueKind(k)
+		// A sequence is held as the value its temporary carries, as a
+		// list holds one.
+		return irScalarLeafKind(k) || bl.g.irStructuralValueKind(k) || irRetainedSeqKind(k) || irHeldValueKind(k)
 	})
 	if !ok {
 		return no()
@@ -67,7 +69,7 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 		return nil
 	}
 	switch method {
-	case "length", "at", "push", "concat", "set", "next_item":
+	case "length", "get", "at", "push", "concat", "set", "next_item":
 	default:
 		return nil
 	}
@@ -95,7 +97,9 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 	if !ok {
 		return nil
 	}
-	if !irScalarLeafKind(elem) && !bl.g.irStructuralValueKind(elem) {
+	// A sequence element is held as a list holds one; these operations
+	// never read an element.
+	if !irScalarLeafKind(elem) && !bl.g.irStructuralValueKind(elem) && !irRetainedSeqKind(elem) && !irHeldValueKind(elem) {
 		return nil
 	}
 	for i, have := range args.kinds {
@@ -112,7 +116,7 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 		}
 		args.temps[i], args.kinds[i] = v, got
 	}
-	if method == "at" || method == "set" || method == "next_item" {
+	if method == "get" || method == "next_item" {
 		if _, anchored := bl.g.preludeNamed("Maybe"); !anchored {
 			return nil
 		}
@@ -143,6 +147,7 @@ func (bl *irScalarBuilder) lowerSameKindItems(at ast.Node, of tag, items []ast.N
 	// kindInvalid: sentinel — no element kind is given.
 	if want != kindInvalid {
 		if !accept(want) {
+			irDeclineNote("a literal whose element kind is outside its collection's domain: " + want.nomi())
 			return nil, kindInvalid, false
 		}
 		for i, item := range items {

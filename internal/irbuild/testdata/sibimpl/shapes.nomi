@@ -20,26 +20,26 @@ pub opaque enum Status {
 }
 
 impl Status {
-    pub fn active(): Status {
+    pub fn active() -> Status {
         Status.Active
     }
 
-    pub fn inactive(reason: String): Status {
+    pub fn inactive(reason: String) -> Status {
         Status.Inactive(reason)
     }
 
-    pub fn suspend(until: Int, reason: String): Status {
+    pub fn suspend(until: Int, reason: String) -> Status {
         Status.Suspended{until, reason}
     }
 
-    pub fn is_active(s: Status): Bool {
+    pub fn is_active(s: Status) -> Bool {
         case s {
             .Active -> True
             _ -> False
         }
     }
 
-    pub fn reason(s: Status): Maybe<String> {
+    pub fn reason(s: Status) -> Maybe<String> {
         case s {
             .Inactive(r) -> Some(r)
             .Suspended{reason} -> Some(reason)
@@ -47,7 +47,7 @@ impl Status {
         }
     }
 
-    fn bare(): Int {
+    fn bare() -> Int {
         0
     }
 }
@@ -56,12 +56,12 @@ pub struct Tag {
     label: String
 }
 
-pub fn tag(label: String): Tag {
+pub fn tag(label: String) -> Tag {
     Tag{label}
 }
 
 impl Debug for Tag {
-    fn inspect(t: Tag): String {
+    fn inspect(t: Tag) -> String {
         "tag:" + t.label
     }
 }

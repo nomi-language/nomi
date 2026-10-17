@@ -31,7 +31,7 @@ import (
 // no longer hides it.
 func TestNestedFunc_BodyIsCheckedInsideAFunction(t *testing.T) {
 	src := `fn main() {
-  fn bad(): Int {
+  fn bad() -> Int {
     "nope"
   }
 
@@ -46,7 +46,7 @@ func TestNestedFunc_BodyIsCheckedInsideAFunction(t *testing.T) {
 // `sym.Type` was nil, so `checkFunc` returned before looking at the body.
 func TestNestedFunc_BodyIsCheckedInsideATestBody(t *testing.T) {
 	src := `test "t" {
-  fn bad(): Int {
+  fn bad() -> Int {
     "nope"
   }
 
@@ -62,7 +62,7 @@ func TestNestedFunc_BodyIsCheckedInsideATestBody(t *testing.T) {
 func TestNestedFunc_BodyIsCheckedInsideAGroupedTestBody(t *testing.T) {
 	src := `group "group" {
   test "t" {
-    fn bad(): Int {
+    fn bad() -> Int {
       "nope"
     }
 
@@ -102,12 +102,12 @@ func TestNestedFunc_BodyIsCheckedInsideAGroupedTestBody(t *testing.T) {
 //     covered branch, and it is kept for the same reason a bounds check is:
 //     the wrong answer it forecloses is silent.
 func TestNestedFunc_IsNotCheckedAgainstAModuleSignatureOfTheSameName(t *testing.T) {
-	src := `fn helper(): String {
+	src := `fn helper() -> String {
   "module"
 }
 
 fn main() {
-  fn helper(): Int {
+  fn helper() -> Int {
     101
   }
 
@@ -127,7 +127,7 @@ fn main() {
 // body; keyed on the declaration's position, both are right at once.
 func TestNestedFunc_TwoTestBodiesDeclaringTheSameNameDoNotUnify(t *testing.T) {
 	src := `test "first" {
-  fn mk(): Int {
+  fn mk() -> Int {
     1
   }
 
@@ -135,7 +135,7 @@ func TestNestedFunc_TwoTestBodiesDeclaringTheSameNameDoNotUnify(t *testing.T) {
 }
 
 test "second" {
-  fn mk(): String {
+  fn mk() -> String {
     "s"
   }
 
@@ -153,12 +153,12 @@ test "second" {
 // for `mk` and cannot answer all three; the assertion is that each POSITION
 // answers with its own declared return type.
 func TestNestedFunc_SignaturesAreKeyedByPositionNotName(t *testing.T) {
-	src := `fn mk(): Bool {
+	src := `fn mk() -> Bool {
   true
 }
 
 test "first" {
-  fn mk(): Int {
+  fn mk() -> Int {
     1
   }
 
@@ -166,7 +166,7 @@ test "first" {
 }
 
 test "second" {
-  fn mk(): String {
+  fn mk() -> String {
     "s"
   }
 
@@ -217,7 +217,7 @@ func TestNestedFunc_BodyIsCheckedInEveryExpressionPosition(t *testing.T) {
 	}{
 		{"list element", `fn main() {
   xs = [{
-    fn bad(): Int {
+    fn bad() -> Int {
       "nope"
     }
     bad()
@@ -225,13 +225,13 @@ func TestNestedFunc_BodyIsCheckedInEveryExpressionPosition(t *testing.T) {
   assert xs == [1, 2]
 }`},
 		{"tuple element", `fn main() {
-  v = ({
-    fn bad(): Int {
+  v = #({
+    fn bad() -> Int {
       "nope"
     }
     bad()
   }, 2)
-  assert v == (1, 2)
+  assert v == #(1, 2)
 }`},
 		{"struct field", `struct P {
   x: Int
@@ -239,7 +239,7 @@ func TestNestedFunc_BodyIsCheckedInEveryExpressionPosition(t *testing.T) {
 
 fn main() {
   p = P{x: {
-    fn bad(): Int {
+    fn bad() -> Int {
       "nope"
     }
     bad()
@@ -248,7 +248,7 @@ fn main() {
 }`},
 		{"operand", `fn main() {
   n = 1 + {
-    fn bad(): Int {
+    fn bad() -> Int {
       "nope"
     }
     bad()
@@ -261,7 +261,7 @@ fn main() {
 
 fn main() {
   n = {
-    fn bad(): P {
+    fn bad() -> P {
       "nope"
     }
     bad()
@@ -269,8 +269,8 @@ fn main() {
   assert n == 1
 }`},
 		{"lambda body in a list", `fn main() {
-  fs = [|k: Int| {
-    fn bad(): Int {
+  fs = [fn k: Int -> {
+    fn bad() -> Int {
       "nope"
     }
     bad() + k
@@ -279,8 +279,8 @@ fn main() {
 }`},
 		{"then body", `fn main() {
   n = 1
-    |> then |k| {
-      fn bad(): Int {
+    |> then fn k -> {
+      fn bad() -> Int {
         "nope"
       }
       bad() + k
@@ -289,7 +289,7 @@ fn main() {
 }`},
 		{"pipe head", `fn main() {
   n = {
-    fn bad(): List<Int> {
+    fn bad() -> List<Int> {
       "nope"
     }
     bad()
@@ -299,7 +299,7 @@ fn main() {
 }`},
 		{"interpolation", `fn main() {
   s = "${{
-    fn bad(): Int {
+    fn bad() -> Int {
       "nope"
     }
     bad()
@@ -308,7 +308,7 @@ fn main() {
 }`},
 		{"case on the nested fn's call", `fn main() {
   xs = [{
-    fn bad(): Maybe<Int> {
+    fn bad() -> Maybe<Int> {
       "nope"
     }
     case bad() {
@@ -333,7 +333,7 @@ fn main() {
 func TestNestedFunc_ExternIsRejectedInEveryExpressionPosition(t *testing.T) {
 	src := `fn main() {
   xs = [{
-    host fn now(): Int
+    host fn now() -> Int
     now()
   }]
   assert xs == [1]

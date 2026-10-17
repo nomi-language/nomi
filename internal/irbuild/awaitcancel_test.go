@@ -32,7 +32,7 @@ func TestAwaitCancelledTask_PropagatesTheCancellation(t *testing.T) {
 
 fn main() {
   concurrent {
-    t = Task.spawn(|| {
+    t = Task.spawn(fn -> {
       timer.sleep(Duration.seconds(5))
       1
     })
@@ -53,7 +53,7 @@ fn main() {
 fn main() {
   with Run.context = Context.with_timeout(Run.context, Duration.seconds(30))
   xs = concurrent {
-    a = Task.spawn(|| {
+    a = Task.spawn(fn -> {
       timer.sleep(Duration.seconds(5))
       1
     })
@@ -66,7 +66,7 @@ struct Run {
   context: Context
 }
 
-fn boot(): Run {
+fn boot() -> Run {
   Run{context: Context.root()}
 }
 `, "", true},
@@ -76,9 +76,9 @@ fn boot(): Run {
   std/timer
 }
 
-fn inner(): Int {
+fn inner() -> Int {
   concurrent {
-    t = Task.spawn(|| {
+    t = Task.spawn(fn -> {
       timer.sleep(Duration.seconds(5))
       1
     })
@@ -89,7 +89,7 @@ fn inner(): Int {
 
 fn main() {
   outcome = concurrent {
-    o = Task.spawn(|| inner())
+    o = Task.spawn(fn -> inner())
     Task.outcome(o)
   }
   dbg outcome

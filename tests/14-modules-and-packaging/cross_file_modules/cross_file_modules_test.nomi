@@ -10,7 +10,7 @@ struct Guest {
 }
 
 impl Greeting for Guest {
-    fn greet(guest: Guest): String {
+    fn greet(guest: Guest) -> String {
         "Welcome, " + guest.name + "!"
     }
 }

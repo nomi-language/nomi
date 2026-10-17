@@ -19,7 +19,7 @@
 type Slug String
 
 impl Equatable for Slug {
-    fn equal?(a: Slug, b: Slug): Bool {
+    fn equal?(a: Slug, b: Slug) -> Bool {
         Slug(x) = a
         Slug(y) = b
         String.to_lower(x) == String.to_lower(y)
@@ -50,7 +50,7 @@ opaque type Marker Int
 // row that fails if the operator silently keeps the structural answer while
 // `Equatable.equal?` runs the impl.
 impl Equatable for Marker {
-    fn equal?(_a: Marker, _b: Marker): Bool {
+    fn equal?(_a: Marker, _b: Marker) -> Bool {
         False
     }
 }

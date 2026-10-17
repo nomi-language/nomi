@@ -19,7 +19,7 @@ type keywordShape struct {
 var keywordShapes = map[string]keywordShape{
 	"if":     {"if ${1:condition} {\n\t$0\n}", "if condition { … }"},
 	"case":   {"case ${1:value} {\n\t$0\n}", "case value { … }"},
-	"fn":     {"fn ${1:name}(${2}): ${3:Unit} {\n\t$0\n}", "fn name(…): Type { … }"},
+	"fn":     {"fn ${1:name}(${2}) -> ${3:Unit} {\n\t$0\n}", "fn name(…) -> Type { … }"},
 	"struct": {"struct ${1:Name} {\n\t$0\n}", "struct Name { … }"},
 	"enum":   {"enum ${1:Name} {\n\t$0\n}", "enum Name { … }"},
 	"impl":   {"impl ${1:Type} {\n\t$0\n}", "impl Type { … }"},

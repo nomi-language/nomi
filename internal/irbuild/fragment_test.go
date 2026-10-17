@@ -161,7 +161,7 @@ func TestFragmentIdentityIsNotAName(t *testing.T) {
 		"  Static String\n" +
 		"  Dynamic T\n" +
 		"}\n\n" +
-		"fn main(): Unit {\n  if True { }\n}\n"
+		"fn main() -> Unit {\n  if True { }\n}\n"
 	p, err := AnalyzeSource("frag_shadow", src)
 	if err != nil {
 		if strings.Contains(err.Error(), "Fragment") {

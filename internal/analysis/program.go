@@ -1,6 +1,11 @@
 package analysis
 
-import "github.com/nomi-language/nomi/internal/ast"
+import (
+	"sort"
+	"sync"
+
+	"github.com/nomi-language/nomi/internal/ast"
+)
 
 // Program is what one build knows about the whole program rather than about
 // one file: the impl index, the impl-method tables of the build's own files,
@@ -15,9 +20,10 @@ import "github.com/nomi-language/nomi/internal/ast"
 // CheckDeriveBounds, the boot signature check) are given what they read as
 // arguments.
 //
-// The one part that changes while checking is Onces' inference state: an
-// unannotated `once` gets its type when the first checker reads it, from
-// whichever file that is. See OnceTable.
+// The one part that changes after that is Onces' inference state, and only
+// in the phase the program's first CheckTypes runs before it checks
+// anything: every unannotated `once` gets its type there, in a fixed order,
+// and the table is read-only from then on. See OnceTable.
 type Program struct {
 	// ImplIndex is the impl index of every file the program reaches, the
 	// stdlib's included. Nil for a file analyzed on its own with no stdlib
@@ -40,6 +46,19 @@ type Program struct {
 	BootFunctions       map[*ast.FuncDef]bool
 	AppTypes            []*StructType
 
+	// Errors are the build's diagnostics about the program as a whole
+	// rather than about one of its files: duplicate impls and impls that
+	// break the orphan rule, each positioned at an impl. The front end
+	// reports them with the entry's diagnostics, right after the entry's
+	// build-phase errors.
+	Errors []TypeError
+	// programErrors works Errors out again from the program's declarations
+	// as they are now; nil for a program no project build made.
+	programErrors func() []TypeError
+	// revision counts the rechecks that rewrote the program in place
+	// (FileAnalysis.Revision).
+	revision int
+
 	// ContextType is the canonical std/context.Context identity.
 	ContextType Type
 	// StdlibModuleScopes maps each stdlib module's short name ("iter",
@@ -48,6 +67,171 @@ type Program struct {
 	// stdlib symbol (the iter-sensitivity pass, derive synthesis, the IR
 	// builder).
 	StdlibModuleScopes map[string]*Scope
+
+	// files is every file the program reaches, the stdlib's analyses
+	// included, in module-key order: the files whose own facts the
+	// program-wide reductions fold. filesByKey holds them by module key.
+	files      []*FileAnalysis
+	filesByKey map[string]*FileAnalysis
+
+	// unindexedImpls is the union of the Impls of the program's files that
+	// ImplIndex does not fold: a project build's modules a function body's
+	// import loaded after the index was built, and a file analyzed on its own
+	// with the user modules its imports loaded. A file holds only its own
+	// impls, so this is how such a file sees another's.
+	unindexedImpls map[string]map[string]bool
+
+	// results holds what the checks that run once every file is checked
+	// decide about the program, and only that: no file's analysis records
+	// it. Those checks write it; nothing else does.
+	results *programResults
+
+	// demands is FinalizeCoherence's cache of what each file demands and
+	// the diagnostics the demands draw, which it keeps up to date as files'
+	// bodies are rebuilt (programDemands), and entryDemands the language
+	// server's for its entry document (Program.entryCoherence). implUses
+	// is CheckImplImports' kept the same way (checkImplImportsKept).
+	// demandsMu guards the three.
+	demandsMu    sync.Mutex
+	demands      *programDemands
+	entryDemands *programDemands
+	implUses     *keptImplUses
+
+	// stdBase is the stdlib's share of the program's facts when the program
+	// takes it from a base rather than from its stdlib files (StdBase): its
+	// ImplIndex holds every impl of the base's files, and the checks that
+	// fold every file's facts after checking (MissingImpls,
+	// CheckImplImports) take the base's files' part from it.
+	stdBase *StdBase
+
+	// formsBase is set on the stdlib's own program only: the base its files
+	// form (BuildStdBase), which a build given those files takes.
+	formsBase *StdBase
+}
+
+// programResults are the program-wide decisions made after every file is
+// checked.
+type programResults struct {
+	// implImportsUnused holds each whole-file import CheckImplImports
+	// settled, and whether the program uses none of its file's impl blocks.
+	implImportsUnused map[*ImplImport]bool
+}
+
+// newProgramResults answers an empty set of results.
+func newProgramResults() *programResults {
+	return &programResults{implImportsUnused: map[*ImplImport]bool{}}
+}
+
+// settleImplImport records CheckImplImports' decision on ii.
+func (p *Program) settleImplImport(ii *ImplImport, unused bool) {
+	if p.results == nil {
+		return
+	}
+	p.results.implImportsUnused[ii] = unused
+}
+
+// ImplImportUnused reports whether CheckImplImports found that the program
+// uses none of the impl blocks of the file ii imports. An import it has not
+// settled counts as used.
+func (p *Program) ImplImportUnused(ii *ImplImport) bool {
+	return p.results != nil && p.results.implImportsUnused[ii]
+}
+
+// unionImpls answers the union of files' own Impls, or nil when they have
+// none.
+func unionImpls(files []*FileAnalysis) map[string]map[string]bool {
+	var out map[string]map[string]bool
+	for _, fa := range files {
+		for typeName, ifaces := range fa.Impls {
+			if out == nil {
+				out = make(map[string]map[string]bool)
+			}
+			if out[typeName] == nil {
+				out[typeName] = make(map[string]bool, len(ifaces))
+			}
+			for iface := range ifaces {
+				out[typeName][iface] = true
+			}
+		}
+	}
+	return out
+}
+
+// HasImpl reports whether an impl fa can see supplies (typeName, iface), by
+// bare name: one fa declares, one the program's impl index holds, or one of
+// a file of the program the index does not fold.
+func (fa *FileAnalysis) HasImpl(typeName, iface string) bool {
+	if fa == nil {
+		return false
+	}
+	if fa.Impls[typeName][iface] {
+		return true
+	}
+	p := fa.Program()
+	return (p.ImplIndex != nil && p.ImplIndex.Impls[typeName][iface]) || p.unindexedImpls[typeName][iface]
+}
+
+// ImplementedInterfaces answers, sorted, every interface HasImpl sees an impl
+// of for typeName.
+func (fa *FileAnalysis) ImplementedInterfaces(typeName string) []string {
+	if fa == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, ifaces := range fa.implsOf(typeName) {
+		for iface := range ifaces {
+			if !seen[iface] {
+				seen[iface] = true
+				out = append(out, iface)
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// implsOf answers the impl tables HasImpl reads, each narrowed to typeName.
+func (fa *FileAnalysis) implsOf(typeName string) []map[string]bool {
+	p := fa.Program()
+	out := []map[string]bool{fa.Impls[typeName]}
+	if p.ImplIndex != nil {
+		out = append(out, p.ImplIndex.Impls[typeName])
+	}
+	return append(out, p.unindexedImpls[typeName])
+}
+
+// setFiles records byKey as the program's files.
+func (p *Program) setFiles(byKey map[string]*FileAnalysis) {
+	p.filesByKey = byKey
+	p.files = filesInKeyOrder(byKey)
+}
+
+// File answers the analysis of the program's file with module key key ("std/iter",
+// "shapes"), or nil.
+func (p *Program) File(key string) *FileAnalysis {
+	return p.filesByKey[key]
+}
+
+// entryOrigin is the Origin of the program's entry: its module key, or
+// OriginEntry when the build was given none.
+func (p *Program) entryOrigin() string {
+	return entryOriginOf(p.filesByKey)
+}
+
+// entryOriginOf is the Origin of the entry among a build's files by key,
+// which holds the entry under "".
+func entryOriginOf(filesByKey map[string]*FileAnalysis) string {
+	if entry := filesByKey[""]; entry != nil {
+		return entry.Origin
+	}
+	return OriginEntry
+}
+
+// Files answers every file the program reaches, the stdlib's included, in
+// module-key order.
+func (p *Program) Files() []*FileAnalysis {
+	return p.files
 }
 
 // implTables are the impl-method tables of a build's own files.
@@ -102,17 +286,52 @@ func (fa *FileAnalysis) Program() *Program {
 
 // standaloneProgram is the Program of a file analyzed on its own: its own
 // impl-block tables and `once` bindings, the stdlib it was built against, and
-// impls (nil, or an index over the stdlib).
-func standaloneProgram(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplIndex, stdlibScopes map[string]*Scope, contextType Type) *Program {
+// impls (nil, or an index over the stdlib). Its files are fa and the modules
+// its build loaded (loaded, by module key).
+func standaloneProgram(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplIndex, stdlibScopes map[string]*Scope, contextType Type, loaded map[string]*FileAnalysis) *Program {
 	onces := NewOnceTable()
 	onces.Index(fa, nodes)
-	return &Program{
+	files := map[string]*FileAnalysis{"": fa}
+	users := []*FileAnalysis{fa}
+	for key, file := range loaded {
+		if file != fa {
+			files[key] = file
+			if !IsStdlibKey(key) {
+				users = append(users, file)
+			}
+		}
+	}
+	p := &Program{
 		ImplIndex:          impls,
 		implTables:         fileImplTables(fa),
 		Onces:              onces,
 		ContextType:        contextType,
 		StdlibModuleScopes: stdlibScopes,
+		// The user modules' impls. The stdlib's are not among them: an
+		// index over the stdlib, when one is attached, holds those.
+		unindexedImpls: unionImpls(users),
+		results:        newProgramResults(),
 	}
+	p.setFiles(files)
+	return p
+}
+
+// filesInKeyOrder answers the distinct analyses of byKey in module-key order.
+func filesInKeyOrder(byKey map[string]*FileAnalysis) []*FileAnalysis {
+	keys := make([]string, 0, len(byKey))
+	for key := range byKey {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	out := make([]*FileAnalysis, 0, len(keys))
+	seen := make(map[*FileAnalysis]bool, len(keys))
+	for _, key := range keys {
+		if file := byKey[key]; file != nil && !seen[file] {
+			seen[file] = true
+			out = append(out, file)
+		}
+	}
+	return out
 }
 
 // implTablesOf answers the impl-method tables fa's impls are listed in: own

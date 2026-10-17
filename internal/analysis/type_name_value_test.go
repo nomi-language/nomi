@@ -25,7 +25,7 @@ enum Dir {
 }
 
 interface Named {
-  fn name(n: self): String
+  fn name(n: self) -> String
 }
 
 `
@@ -148,7 +148,7 @@ func TestTypeName_DistinctDestructuringIsAccepted(t *testing.T) {
 		"x = case Id(4) { Id(n) -> n }",
 		"x = if Some(Id(n)) = Some(Id(4)) { n } else { 0 }",
 		"Some(Id(x)) = Some(Id(4)) else { return }",
-		"f = |Id(n)| n\n  x = f(Id(4))",
+		"f = fn Id(n) -> n\n  x = f(Id(4))",
 		"Label(x) = Label(\"a\")",
 	} {
 		src := typeNameDecls + "fn main() {\n  " + stmt + "\n  _ = x\n}\n"
@@ -205,11 +205,11 @@ func TestTypeName_ConstructionAndValuesAreAccepted(t *testing.T) {
 // the one tuple they take: the flat call `Pair(1, "x")` is a call form, not a
 // second parameter list.
 func TestConstructorValue_TupleTakesTheTuple(t *testing.T) {
-	decls := "type Pair (Int, String)\n\nenum Shape {\n  Seg (Int, Int)\n}\n\n"
+	decls := "type Pair #(Int, String)\n\nenum Shape {\n  Seg #(Int, Int)\n}\n\n"
 	for _, stmt := range []string{
-		`x = Iter.map([(1, "a")], Pair) |> Iter.to_list()`,
-		`x = Iter.map([(1, 2)], Shape.Seg) |> Iter.to_list()`,
-		"f: ((Int, String)) -> Pair = Pair\n  x = f((1, \"a\"))",
+		`x = Iter.map([#(1, "a")], Pair) |> Iter.to_list()`,
+		`x = Iter.map([#(1, 2)], Shape.Seg) |> Iter.to_list()`,
+		"f: (#(Int, String)) -> Pair = Pair\n  x = f(#(1, \"a\"))",
 	} {
 		src := decls + "fn main() {\n  " + stmt + "\n  _ = x\n}\n"
 		_, errs := checkSourceWithStdlib(src)
@@ -249,7 +249,7 @@ func TestConstructorValue_RejectedForms(t *testing.T) {
 // called or named as a value; inside its file the value is accepted.
 func TestConstructorValue_OpaqueDistinctOutsideItsFile(t *testing.T) {
 	files := map[string]string{
-		"secret.nomi": "pub opaque type Secret String\n\npub fn all(xs: List<String>): List<Secret> {\n  Iter.map(xs, Secret) |> Iter.to_list()\n}\n",
+		"secret.nomi": "pub opaque type Secret String\n\npub fn all(xs: List<String>) -> List<Secret> {\n  Iter.map(xs, Secret) |> Iter.to_list()\n}\n",
 		"main.nomi":   "import secret\n\nfn main() {\n  xs = Iter.map([\"a\"], secret.Secret) |> Iter.to_list()\n  _ = xs\n  _ = secret.all([\"b\"])\n}\n",
 	}
 	_, errs := opaqueProject(t, files)

@@ -5,36 +5,36 @@ import std/io
 // would answer WRONG: a tuple holding a list (an address comparison of
 // cells) and a tuple holding a NaN (IEEE `==` is not reflexive).
 fn main() {
-    pair = ("hello", 42)
+    pair = #("hello", 42)
     io.print("${pair.0} / ${pair.1}")
     io.print("${pair}")
 
-    mixed = (1, "two", 3.5, True)
+    mixed = #(1, "two", 3.5, True)
     io.print("${mixed}")
     io.print("${mixed.0} ${mixed.1} ${mixed.2} ${mixed.3}")
 
-    nested = (1, ("x", (2, 3.0)))
+    nested = #(1, #("x", #(2, 3.0)))
     io.print("${nested}")
     inner = nested.1
     io.print("${inner.0} ${inner.1}")
 
-    (x, y) = (10, 20)
+    #(x, y) = #(10, 20)
     io.print("${x + y}")
-    (q, r) = divide(17, 5)
+    #(q, r) = divide(17, 5)
     io.print("${q} rem ${r}")
-    (_, second) = ("dropped", "kept")
+    #(_, second) = #("dropped", "kept")
     io.print("${second}")
 
-    io.print("${(1, 2) == (1, 2)}")
-    io.print("${(1, 2) != (1, 3)}")
-    io.print("${("a", True) == ("a", True)}")
+    io.print("${#(1, 2) == #(1, 2)}")
+    io.print("${#(1, 2) != #(1, 3)}")
+    io.print("${#("a", True) == #("a", True)}")
 
     // Two structurally equal tuples over two SEPARATE cons chains. An address
     // comparison of the list fields would say False; Nomi's equality is
     // structural and says True.
-    io.print("${(1, [2, 3]) == (1, [2, 3])}")
-    io.print("${(1, [2, 3]) == (1, [2, 4])}")
-    io.print("${([1], ([2], 3)) == ([1], ([2], 3))}")
+    io.print("${#(1, [2, 3]) == #(1, [2, 3])}")
+    io.print("${#(1, [2, 3]) == #(1, [2, 4])}")
+    io.print("${#([1], #([2], 3)) == #([1], #([2], 3))}")
 
     // Nomi's Float equality is reflexive for NaN and IEEE's is not, so a
     // field-by-field IEEE `==` would answer False for both of these.
@@ -43,35 +43,35 @@ fn main() {
     // on a Float value rather than on two literals. See lists.nomi.
     zero = 0.0
     nan = zero / zero
-    io.print("${(1, nan) == (1, nan)}")
-    io.print("${(1, (nan, 2)) == (1, (nan, 2))}")
+    io.print("${#(1, nan) == #(1, nan)}")
+    io.print("${#(1, #(nan, 2)) == #(1, #(nan, 2))}")
 
-    io.print("${classify((0, 0))}")
-    io.print("${classify((0, 7))}")
-    io.print("${classify((3, 0))}")
-    io.print("${classify((1, 2))}")
+    io.print("${classify(#(0, 0))}")
+    io.print("${classify(#(0, 7))}")
+    io.print("${classify(#(3, 0))}")
+    io.print("${classify(#(1, 2))}")
 
-    io.print("${[(1, "a"), (2, "b")]}")
-    io.print("${first_of([(7, "seven")])}")
+    io.print("${[#(1, "a"), #(2, "b")]}")
+    io.print("${first_of([#(7, "seven")])}")
 }
 
-fn divide(a: Int, b: Int): (Int, Int) {
-    (a / b, a % b)
+fn divide(a: Int, b: Int) -> #(Int, Int) {
+    #(a / b, a % b)
 }
 
-fn classify(point: (Int, Int)): String {
+fn classify(point: #(Int, Int)) -> String {
     case point {
-        (0, 0) -> "origin"
-        (0, _) -> "y-axis"
-        (_, 0) -> "x-axis"
+        #(0, 0) -> "origin"
+        #(0, _) -> "y-axis"
+        #(_, 0) -> "x-axis"
         _ -> "other"
     }
 }
 
 // A tuple pattern nested inside a list pattern, so the two recursions meet.
-fn first_of(pairs: List<(Int, String)>): String {
+fn first_of(pairs: List<#(Int, String)>) -> String {
     case pairs {
-        [(n, name), ..rest] -> "${name}=${n} then ${rest}"
+        [#(n, name), ..rest] -> "${name}=${n} then ${rest}"
         [] -> "none"
     }
 }

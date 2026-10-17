@@ -10,38 +10,38 @@ struct Box<T> {
 }
 
 impl Box<T> {
-    fn gather(b: Box<T>): Box<List<T>> {
+    fn gather(b: Box<T>) -> Box<List<T>> {
         Box{items: [b.items]}
     }
 
-    fn pairs<U>(b: Box<T>, u: U): Box<(T, U)> {
-        Box{items: b.items |> Iter.map(|x| (x, u)) |> Iter.to_list()}
+    fn pairs<U>(b: Box<T>, u: U) -> Box<#(T, U)> {
+        Box{items: b.items |> Iter.map(fn x -> #(x, u)) |> Iter.to_list()}
     }
 
-    fn size(b: Box<T>): Int {
+    fn size(b: Box<T>) -> Int {
         Iter.count(b.items)
     }
 }
 
 interface Grow {
-    fn grow(x: self): Box<self>
+    fn grow(x: self) -> Box<self>
 }
 
 impl Grow for Box<T> {
-    fn grow(x: Box<T>): Box<Box<T>> {
+    fn grow(x: Box<T>) -> Box<Box<T>> {
         Box{items: [x, x]}
     }
 }
 
-fn twice<A>(b: Box<A>): Box<List<List<A>>> {
+fn twice<A>(b: Box<A>) -> Box<List<List<A>>> {
     Box.gather(Box.gather(b))
 }
 
-fn self_pairs<A>(b: Box<A>, a: A): Box<(A, A)> {
+fn self_pairs<A>(b: Box<A>, a: A) -> Box<#(A, A)> {
     Box.pairs(b, a)
 }
 
-fn grown<X>(x: X): Box<X> where X: Grow {
+fn grown<X>(x: X) -> Box<X> where X: Grow {
     X.grow(x)
 }
 
@@ -61,11 +61,7 @@ test "a generic caller gathers twice" {
     deep = twice(Box{items: ["a"]})
 
     assert deep.items == [
-        [
-            [
-                "a",
-            ],
-        ],
+        [["a"]],
     ]
 }
 
@@ -73,17 +69,13 @@ test "a pipe stage gathers" {
     deep = Box{items: [True]} |> Box.gather() |> Box.gather()
 
     assert deep.items == [
-        [
-            [
-                True,
-            ],
-        ],
+        [[True]],
     ]
 }
 
 test "a member with its own type parameter from a generic caller" {
-    assert self_pairs(Box{items: [1, 2]}, 9).items == [(1, 9), (2, 9)]
-    assert Box.pairs(Box{items: ["s"]}, 'c').items == [("s", 'c')]
+    assert self_pairs(Box{items: [1, 2]}, 9).items == [#(1, 9), #(2, 9)]
+    assert Box.pairs(Box{items: ["s"]}, 'c').items == [#("s", 'c')]
 }
 
 test "a bounded type parameter dispatches to an expansive interface impl" {

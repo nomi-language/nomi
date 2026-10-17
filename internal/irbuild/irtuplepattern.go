@@ -27,7 +27,7 @@ func tupleCaseComponents(pattern ast.Node, k kind) ([]int, bool) {
 			}
 			tested = append(tested, i)
 		default:
-			// A nested pattern (`(Some(id), _)`) is a component test that
+			// A nested pattern (`#(Some(id), _)`) is a component test that
 			// patternValueTest builds.
 			if !irFieldSubPattern(component, k.comp.parts[i]) {
 				return nil, false
@@ -116,6 +116,12 @@ func (bl *irScalarBuilder) bindAsNames(pattern ast.Node, value ir.Temp, k kind) 
 
 func (bl *irScalarBuilder) patternBinding(at ast.Node, name string, part ir.Temp, k kind) {
 	if ast.IsDiscardName(name) {
+		return
+	}
+	if bl.orJoin != nil {
+		// An alternative of an `or` pattern: the name is declared once,
+		// where the alternatives join (irorpattern.go).
+		bl.orJoinCopy(at, name, part, k)
 		return
 	}
 	// Pattern declarations belong to this arm, including when they shadow an

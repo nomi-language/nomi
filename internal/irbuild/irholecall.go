@@ -16,11 +16,11 @@ const irUnreachableHost = "vm.unreachable"
 
 // holeBoundCall lowers a bound dispatch whose receiver is a HOLE of the
 // instance being built: a type parameter the checker left unsolved and the
-// builder filled with Unit (stdInst.holes). `Maybe.hash(None)` instantiates
-// the derived `Hashable.hash` at such a T, and its Some arm calls
-// `Hashable.hash` on the payload. No value of a hole is ever built, so that
-// call is unreachable, and Unit has no Hashable impl to call. It lowers to an
-// explicit fault naming the hole rather than declining the instance.
+// builder filled with Unit (stdInst.holes). `Maybe.to_string(None)`
+// instantiates the derived `Display.to_string` at such a T, and its Some arm
+// calls `Display.to_string` on the payload. No value of a hole is ever built,
+// so that call is unreachable, and Unit has no Display impl to call. It lowers
+// to an explicit fault naming the hole rather than declining the instance.
 //
 // ONLY THE BUILDER'S OWN HOLES QUALIFY. A receiver whose type the checker
 // solved, to Unit or anything else, is not a hole and takes the ordinary

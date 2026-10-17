@@ -21,11 +21,11 @@ struct Left { n: Int }
 struct Right { n: Int }
 
 impl Left {
-  fn read(p: Left): Int { p.n + 1 }
-  fn label(p: Left): String { "left ${Left.read(p)}" }
+  fn read(p: Left) -> Int { p.n + 1 }
+  fn label(p: Left) -> String { "left ${Left.read(p)}" }
 }
 impl Right {
-  fn read(p: Right): Int { p.n + 10 }
+  fn read(p: Right) -> Int { p.n + 10 }
 }
 
 fn main() {
@@ -79,14 +79,14 @@ fn main() {
 
 func TestIRImpl_SpecializationsHaveDistinctDeclarations(t *testing.T) {
 	const src = `import std/io
-interface Read { fn read(p: self): Int }
+interface Read { fn read(p: self) -> Int }
 struct Box<T> {
   item: T
   n: Int
 }
 
 impl Read for Box<T> {
-  fn read(_p: Box<T>): Int { 7 }
+  fn read(_p: Box<T>) -> Int { 7 }
 }
 fn main() {
   io.print(Read.read(Box{item: 1, n: 3}))

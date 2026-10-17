@@ -32,25 +32,25 @@
 // THE PAIRED NEGATIVE: each impl case's OPERATOR twin must blame a DIFFERENT
 // line, so a lowering that took the position from the wrong node would make
 // the pair agree, and only the pair sees it.
-fn overflow_via_impl(): Int {
+fn overflow_via_impl() -> Int {
     big = 9223372036854775807
     Add.add(big, 1)
 }
 
-fn overflow_via_operator(): Int {
+fn overflow_via_operator() -> Int {
     big = 9223372036854775807
     big + 1
 }
 
-fn zero_divide_via_impl(): Int {
+fn zero_divide_via_impl() -> Int {
     Divide.divide(20, 0)
 }
 
-fn zero_divide_via_operator(): Int {
+fn zero_divide_via_operator() -> Int {
     20 / 0
 }
 
-fn subtract_overflow_via_impl(): Int {
+fn subtract_overflow_via_impl() -> Int {
     // Written as MinInt64+1 minus 2 rather than as MinInt64 minus 1, because the
     // literal -9223372036854775808 is unary minus applied to a magnitude Int
     // cannot hold and the front end rejects it.
@@ -58,7 +58,7 @@ fn subtract_overflow_via_impl(): Int {
     Subtract.subtract(small, 2)
 }
 
-fn multiply_overflow_via_impl(): Int {
+fn multiply_overflow_via_impl() -> Int {
     big = 9223372036854775807
     Multiply.multiply(big, 2)
 }

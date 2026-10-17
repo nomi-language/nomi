@@ -11,17 +11,17 @@ pub struct Point {
     y: Int
 }
 
-pub fn at(x: Int, y: Int): Point {
+pub fn at(x: Int, y: Int) -> Point {
     Point{x, y}
 }
 
 /// A sibling type in RETURN position.
-pub fn origin(): Point {
+pub fn origin() -> Point {
     Point{x: 0, y: 0}
 }
 
 /// A sibling type in PARAMETER position, and in the return.
-pub fn shift(p: Point, by: Int): Point {
+pub fn shift(p: Point, by: Int) -> Point {
     Point{x: p.x + by, y: p.y + by}
 }
 
@@ -29,7 +29,7 @@ pub fn shift(p: Point, by: Int): Point {
 /// is interned in the DECLARING gen against its own rendering of `Point`, and
 /// re-interned in the caller's against the caller's alias for it — which is why
 /// a mirror exists rather than one shared def. See foreign.go's importKind.
-pub fn spread(ps: List<Point>): Int {
+pub fn spread(ps: List<Point>) -> Int {
     case ps {
         [a, b] -> (b.x - a.x) + (b.y - a.y)
         _ -> 0
@@ -37,7 +37,7 @@ pub fn spread(ps: List<Point>): Int {
 }
 
 /// A sibling type as a container ELEMENT, in RETURN position.
-pub fn twice(p: Point): List<Point> {
+pub fn twice(p: Point) -> List<Point> {
     [p, p]
 }
 
@@ -45,6 +45,6 @@ pub fn twice(p: Point): List<Point> {
 /// one implementation of "which parameters resolve" and it answers this; the
 /// sibling path uses the same answer, so a call the declaring file lowers
 /// also lowers at the call site.
-pub fn sum(Point{x, y}): Int {
+pub fn sum(Point{x, y}) -> Int {
     x + y
 }

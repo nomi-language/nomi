@@ -44,8 +44,32 @@ func irWitnessableKind(x kind) bool {
 		return true
 	case tagNamed:
 		d := x.def
-		return d != nil && d.preludeOf == nil && d.genericOf == nil && !d.rtOpaque &&
-			(irRetainedStructKind(d) || irRetainedEnumKind(d) || d.isDistinct)
+		if d == nil || d.preludeOf != nil || d.genericOf != nil || d.genHostOf != nil {
+			return false
+		}
+		if d.rtOpaque {
+			return irStdLeafIdentity(d)
+		}
+		return irRetainedStructKind(d) || irRetainedEnumKind(d) || d.isDistinct
+	}
+	return false
+}
+
+// irStdLeafIdentity reports whether d is one of std's process-wide types
+// with an rt Go type, an opaque one (`Duration`, `Codepoint`) or a host
+// type with a declaring module (`Regex`): its symbol's name is its
+// declaring module's qualified spelling in every gen (irTypeSymName), so
+// a witness for it names one slot wherever it is written.
+func irStdLeafIdentity(d *typeDef) bool {
+	for _, od := range opaqueDefs() {
+		if od == d {
+			return true
+		}
+	}
+	for i, hd := range stdHostDefs() {
+		if hd == d && stdHostSpecs[i].origin != "" {
+			return true
+		}
 	}
 	return false
 }
@@ -82,29 +106,71 @@ func (bl *irScalarBuilder) typeWitnessValue(at ast.Node, x, want kind) (ir.Temp,
 // namesType reports whether at is a type name, not a binding, that resolves to
 // x.
 func (bl *irScalarBuilder) namesType(at ast.Node, x kind) bool {
-	var name string
+	k, ok := bl.witnessTypeKind(at)
+	return ok && k == x
+}
+
+// witnessTypeKind is the kind the type name at spells in value position,
+// bare (`Token`) or through a whole-file import's qualifier
+// (`domain.Token`). ok is false when at is not a type name: a binding, or
+// a field chain over one. A type name this builder cannot resolve answers
+// kindInvalid.
+func (bl *irScalarBuilder) witnessTypeKind(at ast.Node) (kind, bool) {
 	switch t := at.(type) {
 	case *ast.TypeIdent:
-		name = t.Name
+		return bl.g.namedWitnessKind(t, t.Name), true
 	case *ast.Ident:
-		if _, local := bl.bound[t.Name]; local {
-			return false
+		if bl.isBoundName(t.Name) {
+			return kindInvalid, false
 		}
-		if _, bound := bl.g.lookup(t.Name); bound {
-			return false
+		return bl.g.namedWitnessKind(t, t.Name), true
+	case *ast.FieldAccess:
+		root := t.Object
+		for fa, chained := root.(*ast.FieldAccess); chained; fa, chained = root.(*ast.FieldAccess) {
+			root = fa.Object
 		}
-		name = t.Name
-	default:
-		return false
+		if id, isIdent := root.(*ast.Ident); !isIdent || bl.isBoundName(id.Name) {
+			return kindInvalid, false
+		}
+		name, ok := bl.g.dottedTypeQualifier(t)
+		if !ok {
+			return kindInvalid, false
+		}
+		if d, found := bl.g.namedType(name); found && d.lowerable {
+			return named(d), true
+		}
+		return kindInvalid, true
 	}
-	return bl.g.qualifierKind(name) == x
+	return kindInvalid, false
+}
+
+// namedWitnessKind is the kind the bare type name at spells: one this file
+// declares or a primitive (qualifierKind), else the X of the `Type<X>` the
+// checker typed at as, which names an imported std type (`Duration` after
+// `import std/duration.Duration`) that this file's type table does not
+// hold.
+func (g *gen) namedWitnessKind(at ast.Node, name string) kind {
+	// kindInvalid: lookup — a name this file's table does not hold tries the checker's type.
+	if k := g.qualifierKind(name); k != kindInvalid {
+		return k
+	}
+	t := g.checkedExprType(at)
+	if t == nil {
+		return kindInvalid
+	}
+	if x, ok := typeWitnessArg(g.project(t)); ok {
+		return x
+	}
+	return kindInvalid
 }
 
 // contextValueCall lowers `Context.with_value(c, v)` and
 // `Context.value(c, T)`.
 func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if len(t.Args) != 2 || len(t.TypeArgs) != 0 {
+	// A turbofish (`Context.value<TraceId>(c, TraceId)`) names the type
+	// the witness argument already does.
+	if len(t.Args) != 2 {
 		return no()
 	}
 	for _, a := range t.Args {
@@ -144,24 +210,19 @@ func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp
 		if id, isIdent := arg.(*ast.Ident); isIdent && bl.isBoundName(id.Name) {
 			// A `Type<T>` parameter or binding is already a witness.
 			v, k, _, ok := bl.lower(arg)
-			if !ok || !irTypeWitnessKind(k) || bl.recording > 0 {
+			if !ok || !irTypeWitnessKind(k) {
 				return no()
 			}
 			w, wk = v, k
 			x, _ = typeWitnessArg(k)
 		} else {
-			var name string
-			switch n := arg.(type) {
-			case *ast.TypeIdent:
-				name = n.Name
-			case *ast.Ident:
-				name = n.Name
-			default:
+			var typeName bool
+			if x, typeName = bl.witnessTypeKind(arg); !typeName {
 				irDeclineNote("a Context.value witness that is not a type name")
 				return no()
 			}
 			// kindInvalid: lookup — a name that is not a type declines.
-			if x = bl.g.qualifierKind(name); x == kindInvalid || !irWitnessableKind(x) {
+			if x == kindInvalid || !irWitnessableKind(x) {
 				irDeclineNote("a Context.value witness whose type has no single-name identity")
 				return no()
 			}

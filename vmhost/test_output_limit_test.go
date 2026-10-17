@@ -14,7 +14,7 @@ func TestCases_ALimitedCaseKeepsItsOutput(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 	p, err := LoadSource("main_test.nomi", `import std/io
 
-fn spin(n: Int): Int {
+fn spin(n: Int) -> Int {
     spin(n + 1)
 }
 

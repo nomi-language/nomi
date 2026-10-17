@@ -216,7 +216,7 @@ func cloneImportStmtForInject(src *ast.ImportStmt, index int) *ast.ImportStmt {
 	// top-level Line/Col point into the synth band rather than the
 	// (0, 0) zero default. No consumer reads ImportStmt.Line/Col today,
 	// but a future diagnostic anchored at the statement-level position
-	// would otherwise surface as `(0, 0)`. Subsequent nextSynthPos()
+	// would otherwise surface as `#(0, 0)`. Subsequent nextSynthPos()
 	// calls (for each Names/Aliases/ModulePath ident and the SelfLine/
 	// SelfCol slot) take cols 2, 3, … in the same synth-line band.
 	stmtLine, stmtCol := nextSynthPos()

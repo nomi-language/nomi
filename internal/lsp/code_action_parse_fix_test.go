@@ -60,7 +60,7 @@ func TestParseFix_RepairsTheProgram(t *testing.T) {
 			"case arm, body on the next line", "Put the arm's body in braces",
 			`import std/io
 
-pub fn f(r: Result<Int, String>): Int {
+pub fn f(r: Result<Int, String>) -> Int {
     case r {
         Ok(n) ->
             io.print("got ${n}")
@@ -73,7 +73,7 @@ pub fn f(r: Result<Int, String>): Int {
 `,
 			`import std/io
 
-pub fn f(r: Result<Int, String>): Int {
+pub fn f(r: Result<Int, String>) -> Int {
     case r {
         Ok(n) -> {
             io.print("got ${n}")
@@ -90,7 +90,7 @@ pub fn f(r: Result<Int, String>): Int {
 			"case arm, body on the arrow's line", "Put the arm's body in braces",
 			`import std/io
 
-pub fn f(r: Result<Int, String>): Int {
+pub fn f(r: Result<Int, String>) -> Int {
     case r {
         Ok(n) -> io.print("got ${n}")
               n
@@ -102,7 +102,7 @@ pub fn f(r: Result<Int, String>): Int {
 `,
 			`import std/io
 
-pub fn f(r: Result<Int, String>): Int {
+pub fn f(r: Result<Int, String>) -> Int {
     case r {
         Ok(n) -> {
             io.print("got ${n}")
@@ -119,7 +119,7 @@ pub fn f(r: Result<Int, String>): Int {
 			"else arm", "Put the arm's body in braces",
 			`import std/io
 
-pub fn f(r: Result<Int, String>): Int {
+pub fn f(r: Result<Int, String>) -> Int {
     Ok(n) = r else {
         Err(msg) ->
             io.print(msg)
@@ -131,7 +131,7 @@ pub fn f(r: Result<Int, String>): Int {
 `,
 			`import std/io
 
-pub fn f(r: Result<Int, String>): Int {
+pub fn f(r: Result<Int, String>) -> Int {
     Ok(n) = r else {
         Err(msg) -> {
             io.print(msg)
@@ -147,18 +147,18 @@ pub fn f(r: Result<Int, String>): Int {
 			"lambda argument", "Put the lambda's body in braces",
 			`import std/io
 
-pub fn f(xs: List<Int>): Int {
+pub fn f(xs: List<Int>) -> Int {
     xs
-    |> Iter.reduce(|acc = 0, x|
+    |> Iter.reduce(fn acc = 0, x ->
         io.print("x")
         acc + x)
 }
 `,
 			`import std/io
 
-pub fn f(xs: List<Int>): Int {
+pub fn f(xs: List<Int>) -> Int {
     xs
-    |> Iter.reduce(|acc = 0, x| {
+    |> Iter.reduce(fn acc = 0, x -> {
         io.print("x")
         acc + x
     })
@@ -171,7 +171,7 @@ pub fn f(xs: List<Int>): Int {
 
 pub fn f(xs: List<Int>) {
     xs
-    |> Iter.each(|x|
+    |> Iter.each(fn x ->
         io.print("x")
         io.print("${x}")
     )
@@ -181,7 +181,7 @@ pub fn f(xs: List<Int>) {
 
 pub fn f(xs: List<Int>) {
     xs
-    |> Iter.each(|x| {
+    |> Iter.each(fn x -> {
         io.print("x")
         io.print("${x}")
     })
@@ -190,13 +190,13 @@ pub fn f(xs: List<Int>) {
 		},
 		{
 			"doc comment run", "Use `//` comments",
-			`pub fn f(text: String): Int {
+			`pub fn f(text: String) -> Int {
     /// if text == "" { 0 }
     /// else
     String.length(text)
 }
 `,
-			`pub fn f(text: String): Int {
+			`pub fn f(text: String) -> Int {
     // if text == "" { 0 }
     // else
     String.length(text)
@@ -205,12 +205,12 @@ pub fn f(xs: List<Int>) {
 		},
 		{
 			"prompt before a statement", "Use `//` comments",
-			`pub fn f(x: Int): Int {
+			`pub fn f(x: Int) -> Int {
     //! assert f(1) == 1
     x
 }
 `,
-			`pub fn f(x: Int): Int {
+			`pub fn f(x: Int) -> Int {
     // assert f(1) == 1
     x
 }
@@ -250,7 +250,7 @@ pub fn f(xs: List<Int>) {
 // A parse error with no fix gets none.
 func TestParseFix_NoneForOtherErrors(t *testing.T) {
 	s := NewServer()
-	src := "pub fn f(): Int {\n    1 +\n}\n"
+	src := "pub fn f() -> Int {\n    1 +\n}\n"
 	for _, title := range []string{"Put the arm's body in braces", "Put the lambda's body in braces", "Use `//` comments"} {
 		if got := parseFixActions(t, s, src, title); len(got) != 0 {
 			t.Errorf("offered %q for an unrelated error", title)

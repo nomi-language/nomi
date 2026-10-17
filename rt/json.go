@@ -391,7 +391,7 @@ func JsonSortedKeys(m map[string]any) []string {
 // between tokens.
 //
 // Object keys are emitted in the Map's own insertion order (MapEntries), which
-// is why a hand-built `Json.Obj{"x" => …, "y" => …}` round-trips its own
+// is why a hand-built `Json.Obj%{"x" => …, "y" => …}` round-trips its own
 // spelling while a decoded object comes out sorted — decode inserts sorted.
 //
 // Number rendering: `Float(36.0)` renders as `36`, not `36.0`, because 'g' with

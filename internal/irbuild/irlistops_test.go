@@ -22,11 +22,11 @@ fn main() {
 
 func TestIRListOps_NestedPayloadAndEvaluationOrder(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn source(label: String, value: Int): List<Int> {
+fn source(label: String, value: Int) -> List<Int> {
   io.print(label)
   [value]
 }
-fn first_tail(nested: List<List<Int>>): Maybe<List<Int>> {
+fn first_tail(nested: List<List<Int>>) -> Maybe<List<Int>> {
   case List.head(nested) {
     Some(xs) -> List.tail(xs)
     None -> None
@@ -36,7 +36,7 @@ fn main() {
   io.inspect(List.concat(source("left", 1), source("right", 2)))
   nested = [[1, 2], [3]]
   io.inspect(first_tail(nested))
-  read = || List.head(nested)
+  read = fn -> List.head(nested)
   io.inspect(read())
 }
 `, "left\nright\n[1, 2]\nSome([2])\nSome([1, 2])\n")

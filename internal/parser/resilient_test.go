@@ -12,12 +12,12 @@ import (
 
 // A half-typed body, as an editor sees it mid-edit, with the dangling
 // operator at the end of the body so the parse genuinely fails. (The
-// snippet `|x| n + ` with another
+// snippet `fn x -> n + ` with another
 // statement below — parses: `+` continues onto the next line and takes
 // that statement as its right operand.)
-const halfTypedBody = "fn compute(n: Int): Int {\n" +
+const halfTypedBody = "fn compute(n: Int) -> Int {\n" +
 	"  total = n * 2\n" +
-	"  f = |x| n + \n" +
+	"  f = fn x -> n + \n" +
 	"}\n"
 
 // findErrorNodes walks every exported field of every node reachable from
@@ -138,7 +138,7 @@ func TestParseResilient_KeepsFunctionWithHalfTypedBody(t *testing.T) {
 	if len(lambda.Params) != 1 || lambda.Params[0].Name != "x" {
 		t.Fatalf("recovered lambda lost its parameter: %+v", lambda.Params)
 	}
-	// The caret sits after the trailing space of `  f = |x| n + `, at
+	// The caret sits after the trailing space of `  f = fn x -> n + `, at
 	// 1-based column 15. ScopeAt only reaches the lambda's parameter if
 	// the lambda's span contains that point, so the span has to stretch
 	// past the last token the parser actually read (the `+`, ending at
@@ -165,10 +165,10 @@ func TestParseResilient_KeepsFunctionWithHalfTypedBody(t *testing.T) {
 func TestParseWithRecovery_ProducesNoErrorNodes(t *testing.T) {
 	broken := []string{
 		halfTypedBody,
-		"fn f(): Int {\n  a = 1\n  ] junk\n  a\n}\n",
-		"fn f(): Int {\n  a = 1\n  g(a\n  a\n}\n",
-		"fn f(): Int {\n  a = 1\n\nfn g(): Int { 1 }\n",
-		"fn f(): Int {\n  if True {\n    b = 1\n    ] junk\n    b\n  } else { 0 }\n}\n",
+		"fn f() -> Int {\n  a = 1\n  ] junk\n  a\n}\n",
+		"fn f() -> Int {\n  a = 1\n  g(a\n  a\n}\n",
+		"fn f() -> Int {\n  a = 1\n\nfn g() -> Int { 1 }\n",
+		"fn f() -> Int {\n  if True {\n    b = 1\n    ] junk\n    b\n  } else { 0 }\n}\n",
 		"test \"t\" {\n  assert 1 ==\n}\n",
 	}
 	errorNodesUnderResilient := 0
@@ -205,7 +205,7 @@ func TestParseWithRecovery_ProducesNoErrorNodes(t *testing.T) {
 // commonest mid-edit state: the `{` is open and the `}` has not been
 // typed yet. The declarations below must not be swallowed as nested ones.
 func TestParseResilient_ClosesUnclosedBodyAndKeepsFollowingDecl(t *testing.T) {
-	src := "fn compute(n: Int): Int {\n  total = n * 2\n\nfn other(): Int { 1 }\n"
+	src := "fn compute(n: Int) -> Int {\n  total = n * 2\n\nfn other() -> Int { 1 }\n"
 	nodes, _, damaged := ParseResilient(lexer.Lex(src))
 	if len(nodes) != 2 {
 		t.Fatalf("want 2 top-level nodes (the unclosed function and the one after it), got %d", len(nodes))
@@ -229,7 +229,7 @@ func TestParseResilient_ClosesUnclosedBodyAndKeepsFollowingDecl(t *testing.T) {
 // group's earlier binding and the declaration it is attached to survive,
 // so completion has the binding to offer. The declaration is damaged.
 func TestParseResilient_KeepsAttachedTestWithHalfTypedLine(t *testing.T) {
-	src := "//! u = 1\n//! assert u.\npub fn double(n: Int): Int {\n    n * 2\n}\n"
+	src := "//! u = 1\n//! assert u.\npub fn double(n: Int) -> Int {\n    n * 2\n}\n"
 	if _, errs := ParseWithRecovery(lexer.Lex(src)); len(errs) == 0 {
 		t.Fatal("the source parses; it must fail to parse for this test")
 	}

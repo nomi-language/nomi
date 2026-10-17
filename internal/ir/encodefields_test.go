@@ -21,7 +21,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Image]():         "Modules Entry HostKeys HasMain Root Exports",
 	reflect.TypeFor[ir.Export]():        "Name Func Params Result Encode",
 	reflect.TypeFor[ir.ExportParam]():   "Name Type Decode",
-	reflect.TypeFor[ir.Pos]():           "file line col endLine endCol synth",
+	reflect.TypeFor[ir.Pos]():           "file line col endLine endCol synth stdlib",
 	reflect.TypeFor[ir.Symbol]():        "name",
 	reflect.TypeFor[ir.Block]():         "pos id label instrs term owner fault faultPos hasFault stmts",
 	reflect.TypeFor[ir.Region]():        "pos label blocks owner",
@@ -59,7 +59,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Const]():         "pos dst kind num flt text typ",
 	reflect.TypeFor[ir.Bind]():          "pos dst src sym",
 	reflect.TypeFor[ir.Match]():         "pos dst subj arg kind sym text idx embeds",
-	reflect.TypeFor[ir.NoMatch]():       "pos key",
+	reflect.TypeFor[ir.NoMatch]():       "pos",
 	reflect.TypeFor[ir.Todo]():          "pos dst reason",
 	reflect.TypeFor[ir.Not]():           "pos dst val",
 	reflect.TypeFor[ir.Proj]():          "pos dst subj kind sym text idx faults shape field embeds",
@@ -71,7 +71,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Render]():        "pos dst src kind impls erased",
 	reflect.TypeFor[ir.DebugImpl]():     "Type Inst Fn",
 	reflect.TypeFor[ir.Try]():           "pos src text",
-	reflect.TypeFor[ir.Subtests]():      "pos rows row text",
+	reflect.TypeFor[ir.Subtests]():      "pos rows row text name nameLine nameText",
 }
 
 func TestImage_EveryNodeFieldIsEncoded(t *testing.T) {

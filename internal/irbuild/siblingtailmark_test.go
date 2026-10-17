@@ -67,7 +67,7 @@ func tailMarkCount(nodes []ast.Node) int {
 
 // siblingTailLib is the module under measurement. `down` is tail-recursive, so
 // a correctly analysed tree has at least one mark in it.
-const siblingTailLib = `pub fn down(n: Int, acc: Int): Int {
+const siblingTailLib = `pub fn down(n: Int, acc: Int) -> Int {
   if n <= 0 {
     acc
   } else {

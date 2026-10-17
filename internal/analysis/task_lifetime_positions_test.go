@@ -6,52 +6,52 @@ import (
 )
 
 // escapingBlock is a concurrent block whose tail carries its task out.
-const escapingBlock = "concurrent { Task.spawn(|| 42) }"
+const escapingBlock = "concurrent { Task.spawn(fn -> 42) }"
 
 // The task-lifetime rules apply to a concurrent block wherever it sits:
 // every expression position, every kind of body. Each fixture puts
 // escapingBlock (spelled E) in one position.
 func TestTaskLifetime_EscapeIsFoundInEveryPosition(t *testing.T) {
 	for _, tc := range []struct{ name, src string }{
-		{"function tail", `fn f(): Task<Int> {
+		{"function tail", `fn f() -> Task<Int> {
   E
 }`},
-		{"case scrutinee", `fn f(): Int {
+		{"case scrutinee", `fn f() -> Int {
   case E {
     _ -> 0
   }
 }`},
-		{"case arm", `fn f(n: Int): Task<Int> {
+		{"case arm", `fn f(n: Int) -> Task<Int> {
   case n {
     _ -> E
   }
 }`},
-		{"case guard", `fn f(n: Int): Int {
+		{"case guard", `fn f(n: Int) -> Int {
   case n {
     _ when Task.await(E) == 1 -> 0
     _ -> 1
   }
 }`},
-		{"pipe", `fn f(): Int {
+		{"pipe", `fn f() -> Int {
   E |> Task.await
 }`},
-		{"interpolation", `fn f(): String {
+		{"interpolation", `fn f() -> String {
   "${Task.await(E)}"
 }`},
-		{"named argument", `fn g(n: Int): Int {
+		{"named argument", `fn g(n: Int) -> Int {
   n
 }
-fn f(): Int {
+fn f() -> Int {
   g(n: Task.await(E))
 }`},
-		{"range bound", `fn f(): Int {
+		{"range bound", `fn f() -> Int {
   r = 0..Task.await(E)
   0
 }`},
-		{"list spread", `fn f(): List<Int> {
+		{"list spread", `fn f() -> List<Int> {
   [1, ..[Task.await(E)]]
 }`},
-		{"if pattern", `fn f(): Int {
+		{"if pattern", `fn f() -> Int {
   if 42 = Task.await(E) {
     1
   } else {
@@ -62,7 +62,7 @@ fn f(): Int {
   n: Int
 }
 impl Box {
-  fn spawn(): Task<Int> {
+  fn spawn() -> Task<Int> {
     E
   }
 }`},
@@ -94,12 +94,12 @@ func TestTaskLifetime_AwaitIsFoundInEveryPosition(t *testing.T) {
 		{"assertion", "assert Task.await(t) == 42"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := `fn g(n: Int): Int {
+			src := `fn g(n: Int) -> Int {
   n
 }
 test "await" {
   concurrent {
-    t = Task.spawn(|| 42)
+    t = Task.spawn(fn -> 42)
     USE
   }
   assert True

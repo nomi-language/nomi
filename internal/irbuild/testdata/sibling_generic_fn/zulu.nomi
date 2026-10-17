@@ -3,6 +3,6 @@
 // arrives after alpha.nomi's.
 import zeta
 
-pub fn floats(): String {
+pub fn floats() -> String {
     "floats ${zeta.boxed(1.5)}"
 }

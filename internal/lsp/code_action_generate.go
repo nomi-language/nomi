@@ -113,7 +113,7 @@ func (r *refactorRequest) generateFunction(line, col int, msg string) (string, s
 	return "", "", false
 }
 
-// signature is `fn name(params): Ret` for call.
+// signature is `fn name(params) -> Ret` for call.
 func (r *refactorRequest) signature(name string, call *ast.Call) (string, bool) {
 	args := append([]ast.Node(nil), call.Args...)
 	site := ast.Node(call)
@@ -169,7 +169,7 @@ func (r *refactorRequest) signature(name string, call *ast.Call) (string, bool) 
 	sig := "fn " + name + "(" + strings.Join(params, ", ") + ")"
 	if t := typeText(r.fa.ExpectedTypes[site]); t != "" {
 		if t != "Unit" {
-			sig += ": " + t
+			sig += " -> " + t
 		}
 		return sig, true
 	}

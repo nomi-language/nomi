@@ -127,18 +127,18 @@ enum Code {
   Blank
 }
 
-fn parse(s: String): Result<Int, String> {
+fn parse(s: String) -> Result<Int, String> {
   case s {
     "one" -> Ok(1)
     _ -> Err("not a number: " + s)
   }
 }
 
-fn found(n: Int): Maybe<Int> {
+fn found(n: Int) -> Maybe<Int> {
   if n > 0 { Some(n) } else { None }
 }
 
-fn three(): Code {
+fn three() -> Code {
   Code.Num(3)
 }
 

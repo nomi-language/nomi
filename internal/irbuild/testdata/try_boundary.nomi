@@ -17,7 +17,7 @@
 // those are two types.
 import std/io
 
-fn parse(n: Int): Result<Int, String> {
+fn parse(n: Int) -> Result<Int, String> {
     if n < 0 {
         Err("negative ${n}")
     } else {
@@ -25,19 +25,19 @@ fn parse(n: Int): Result<Int, String> {
     }
 }
 
-fn find(n: Int): Maybe<Int> {
+fn find(n: Int) -> Maybe<Int> {
     if n == 3 { Some(30) } else { None }
 }
 
 // The plain shape: unwrap on `Ok`, propagate on `Err`.
-fn calc(n: Int): Result<Int, String> {
+fn calc(n: Int) -> Result<Int, String> {
     v = try parse(n)
 
     Ok(v + 1)
 }
 
 // The boundary's SUCCESS type differs from the operand's.
-fn positive?(n: Int): Result<Bool, String> {
+fn positive?(n: Int) -> Result<Bool, String> {
     v = try parse(n)
 
     Ok(v > 0)
@@ -46,12 +46,12 @@ fn positive?(n: Int): Result<Bool, String> {
 // Two `try`s in one expression. The left guard has to run before the right
 // operand is evaluated at all, which the second row observes: `parse(-2)` is
 // never reached because `parse(-1)` already unwound.
-fn sum_two(a: Int, b: Int): Result<Int, String> {
+fn sum_two(a: Int, b: Int) -> Result<Int, String> {
     Ok(try parse(a) + try parse(b))
 }
 
 // `Maybe` propagates `None`, which carries nothing.
-fn scaled(n: Int): Maybe<Int> {
+fn scaled(n: Int) -> Maybe<Int> {
     v = try find(n)
 
     Some(v + 1)
@@ -60,13 +60,13 @@ fn scaled(n: Int): Maybe<Int> {
 // The two pipe spellings. `n |> try parse()` is desugared by the parser into
 // `(n |> parse()) |> try`, so both of these are one shape by the time the
 // builder sees them.
-fn piped(n: Int): Result<Int, String> {
+fn piped(n: Int) -> Result<Int, String> {
     v = n |> try parse()
 
     Ok(v + 100)
 }
 
-fn piped_bare(r: Result<Int, String>): Result<Int, String> {
+fn piped_bare(r: Result<Int, String>) -> Result<Int, String> {
     v = r |> try
 
     Ok(v + 1000)
@@ -74,8 +74,8 @@ fn piped_bare(r: Result<Int, String>): Result<Int, String> {
 
 // THE BOUNDARY. `try` unwinds the lambda, so `after the lambda` prints on both
 // paths and the enclosing function observes the failure as an ordinary value.
-fn through_lambda(n: Int): Result<Int, String> {
-    f = |x: Int| {
+fn through_lambda(n: Int) -> Result<Int, String> {
+    f = fn x: Int -> {
         v = try parse(x)
 
         Ok(v + 7)
@@ -93,9 +93,9 @@ fn through_lambda(n: Int): Result<Int, String> {
 // The innermost boundary, and a `try` whose own boundary is not settled when it
 // is emitted: `outer`'s result is decided by its tail, which comes after its
 // `try`.
-fn nested_lambda(n: Int): Result<Int, String> {
-    outer = |x: Int| {
-        inner = |y: Int| {
+fn nested_lambda(n: Int) -> Result<Int, String> {
+    outer = fn x: Int -> {
+        inner = fn y: Int -> {
             v = try parse(y)
 
             Ok(v + 1)
@@ -110,21 +110,21 @@ fn nested_lambda(n: Int): Result<Int, String> {
     outer(n)
 }
 
-fn show(r: Result<Int, String>): String {
+fn show(r: Result<Int, String>) -> String {
     case r {
         Ok(v) -> "ok ${v}"
         Err(e) -> "err ${e}"
     }
 }
 
-fn show_bool(r: Result<Bool, String>): String {
+fn show_bool(r: Result<Bool, String>) -> String {
     case r {
         Ok(v) -> "ok ${v}"
         Err(e) -> "err ${e}"
     }
 }
 
-fn show_maybe(m: Maybe<Int>): String {
+fn show_maybe(m: Maybe<Int>) -> String {
     case m {
         Some(v) -> "some ${v}"
         None -> "none"

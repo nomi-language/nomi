@@ -21,7 +21,7 @@ struct App {
   context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{port: 8080, context: Context.root()}
 }
 
@@ -34,19 +34,19 @@ fn main() {
 }
 
 interface Logger {
-  fn log(logger: self, msg: String): Unit
+  fn log(logger: self, msg: String) -> Unit
 }
 
 type Stdout
 impl Logger for Stdout {
-  fn log(_logger: Stdout, msg: String): Unit {
+  fn log(_logger: Stdout, msg: String) -> Unit {
     io.print("[log] ${msg}")
   }
 }
 
 struct PrefixedLogger { tag: String }
 impl Logger for PrefixedLogger {
-  fn log(logger: PrefixedLogger, msg: String): Unit {
+  fn log(logger: PrefixedLogger, msg: String) -> Unit {
     io.print("[${logger.tag}] ${msg}")
   }
 }
@@ -56,7 +56,7 @@ struct App {
   context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{logger: Stdout, context: Context.root()}
 }
 
@@ -84,13 +84,13 @@ struct App {
   context: Context
 }
 
-fn base(): Int { 8000 }
+fn base() -> Int { 8000 }
 
-fn boot(): App {
+fn boot() -> App {
   App{name: "api", port: base() + 80, context: Context.root()}
 }
 
-fn address(): String { "${App.name}:${App.port}" }
+fn address() -> String { "${App.name}:${App.port}" }
 
 fn main() {
   io.print(address())
@@ -109,7 +109,7 @@ struct App {
   context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{config: Config{host: "localhost", port: 5432}, context: Context.root()}
 }
 
@@ -126,13 +126,13 @@ struct App {
   context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{level: 1, label: "base", context: Context.root()}
 }
 
-fn show(): String { "${App.label}@${App.level}" }
+fn show() -> String { "${App.label}@${App.level}" }
 
-fn louder(): String {
+fn louder() -> String {
   with App.level = App.level + 10
   with App.label = String.to_lower("LOUD")
   io.print(App.level)
@@ -140,7 +140,7 @@ fn louder(): String {
   deeper()
 }
 
-fn deeper(): String {
+fn deeper() -> String {
   with App.level = App.level * 2
   show()
 }
@@ -154,17 +154,17 @@ fn main() {
 		{"an erased field bound, then dispatched", `import std/io
 
 interface Shape {
-  fn area(shape: self): Int
+  fn area(shape: self) -> Int
 }
 
 struct Square { side: Int }
 impl Shape for Square {
-  fn area(square: Square): Int { square.side * square.side }
+  fn area(square: Square) -> Int { square.side * square.side }
 }
 
-struct Rect { w: Int  h: Int }
+struct Rect { w: Int; h: Int }
 impl Shape for Rect {
-  fn area(rect: Rect): Int { rect.w * rect.h }
+  fn area(rect: Rect) -> Int { rect.w * rect.h }
 }
 
 struct App {
@@ -172,16 +172,16 @@ struct App {
   context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{shape: Square{side: 3}, context: Context.root()}
 }
 
-fn report(label: String): Unit {
+fn report(label: String) -> Unit {
   s = App.shape
   io.print("${label}: ${Shape.area(s)}")
 }
 
-fn wide(): Unit {
+fn wide() -> Unit {
   with App.shape = Rect{w: 2, h: 5}
   report("rect")
 }
@@ -210,21 +210,21 @@ struct Ports {
   execution: Context
 }
 
-fn boot(): Ports {
+fn boot() -> Ports {
   Ports{port: 8080, execution: Context.root()}
 }
 
-fn note(s: String): Unit {
+fn note(s: String) -> Unit {
   io.print(s + " " + Int.to_string(Ports.port))
 }
 
-fn deferred(): Unit {
+fn deferred() -> Unit {
   defer note("done")
   with Ports.port = 9090
   io.print(Ports.port)
 }
 
-fn branching(on: Bool): Unit {
+fn branching(on: Bool) -> Unit {
   with Ports.port = 7070
   if on {
     io.print(Ports.port)
@@ -248,7 +248,7 @@ fn main() {
 func TestIRAppBoot_AnonymousBootRuns(t *testing.T) {
 	verifyDeferProgram(t, `import std/io
 
-fn boot(): {port: Int, execution: Context} {
+fn boot() -> {port: Int, execution: Context} {
   {port: 8080, execution: Context.root()}
 }
 
@@ -265,12 +265,12 @@ func TestIRAppBoot_AFinalErasedReceiverRuns(t *testing.T) {
 	verifyDeferProgram(t, `import std/io
 
 interface Named {
-  fn name(named: self): String
+  fn name(named: self) -> String
 }
 
 struct Plain { label: String }
 impl Named for Plain {
-  fn name(plain: Plain): String { plain.label }
+  fn name(plain: Plain) -> String { plain.label }
 }
 
 struct App {
@@ -278,11 +278,11 @@ struct App {
   context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{named: Plain{label: "p"}, context: Context.root()}
 }
 
-fn show(): String { Named.name(App.named) }
+fn show() -> String { Named.name(App.named) }
 
 fn main() {
   io.print(show())
@@ -303,13 +303,13 @@ struct App {
   context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{label: "base", context: Context.root()}
 }
 
-fn label(): String { App.label }
+fn label() -> String { App.label }
 
-fn early(on: Bool): String {
+fn early(on: Bool) -> String {
   with App.label = "early"
   if on {
     return label()
@@ -317,7 +317,7 @@ fn early(on: Bool): String {
   "late ${label()}"
 }
 
-fn branch(on: Bool): String {
+fn branch(on: Bool) -> String {
   if on {
     with App.label = "branch"
     io.print(label())
@@ -325,18 +325,18 @@ fn branch(on: Bool): String {
   label()
 }
 
-fn mapped(): List<String> {
+fn mapped() -> List<String> {
   [1, 2]
-    |> Iter.map(|i| {
+    |> Iter.map(fn i -> {
       with App.label = "lambda ${i}"
       label()
     })
     |> Iter.to_list()
 }
 
-fn maker(): () -> String {
+fn maker() -> () -> String {
   with App.label = "made"
-  || label()
+  fn -> label()
 }
 
 fn main() {
@@ -365,14 +365,14 @@ struct App {
   context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{label: "base", context: Context.root()}
 }
 
-fn label(): String { App.label }
+fn label() -> String { App.label }
 
-fn counted(): Int {
-  Iter.loop(|n = 0| {
+fn counted() -> Int {
+  Iter.loop(fn n = 0 -> {
     io.print("start ${label()}")
     with App.label = "iter ${n}"
     io.print(label())
@@ -383,8 +383,8 @@ fn counted(): Int {
   })
 }
 
-fn single(): String {
-  Iter.loop(|| {
+fn single() -> String {
+  Iter.loop(fn -> {
     with App.label = "single"
     io.print(label())
     break
@@ -413,18 +413,18 @@ struct App {
   context: Context
 }
 
-fn boot(_startup: Startup): App {
+fn boot(_startup: Startup) -> App {
   App{label: "base", context: Context.root()}
 }
 
-fn label(): String { App.label }
+fn label() -> String { App.label }
 
-fn pick(n: Int): Maybe<String> {
+fn pick(n: Int) -> Maybe<String> {
   if n == 1 { None } else { Some("v${n}") }
 }
 
-fn walk(): Int {
-  Iter.loop(|n = 0| {
+fn walk() -> Int {
+  Iter.loop(fn n = 0 -> {
     Some(v) = pick(n) else {
       with App.label = "fallback ${n}"
       io.print(label())
@@ -459,17 +459,17 @@ struct App {
   context: Context
 }
 
-fn boot(_startup: Startup): App {
+fn boot(_startup: Startup) -> App {
   App{label: "base", context: Context.root()}
 }
 
-fn label(): String { App.label }
+fn label() -> String { App.label }
 
-fn close(name: String): Unit {
+fn close(name: String) -> Unit {
   io.print("close ${name} ${label()}")
 }
 
-fn first(on: Bool): String {
+fn first(on: Bool) -> String {
   {
     defer close("first")
     with App.label = "inner"
@@ -482,7 +482,7 @@ fn first(on: Bool): String {
   "late ${label()}"
 }
 
-fn quiet(on: Bool): Unit {
+fn quiet(on: Bool) -> Unit {
   {
     if on {
       io.print("quiet early")
@@ -493,9 +493,9 @@ fn quiet(on: Bool): Unit {
   io.print("quiet late ${label()}")
 }
 
-fn mapped(): List<String> {
+fn mapped() -> List<String> {
   [1, 2]
-    |> Iter.map(|i| {
+    |> Iter.map(fn i -> {
       {
         with App.label = "lambda"
         if i == 1 {
@@ -530,15 +530,15 @@ struct App {
   context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{label: "base", context: Context.root()}
 }
 
-fn label(): String { App.label }
+fn label() -> String { App.label }
 
-fn both(): List<String> {
+fn both() -> List<String> {
   ["a"]
-    |> Iter.map(|tag| {
+    |> Iter.map(fn tag -> {
       {
         with App.label = "inner ${tag}"
         io.print(label())

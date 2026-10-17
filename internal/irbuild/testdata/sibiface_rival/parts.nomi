@@ -23,25 +23,25 @@ pub struct B {
 }
 
 pub interface Combine {
-    fn combine(a: self, b: B): String
+    fn combine(a: self, b: B) -> String
 }
 
 impl Combine for A {
-    fn combine(a: A, b: B): String {
+    fn combine(a: A, b: B) -> String {
         "A" + Int.to_string(a.n) + Int.to_string(b.n)
     }
 }
 
 impl Combine for B {
-    fn combine(a: B, b: B): String {
+    fn combine(a: B, b: B) -> String {
         "B" + Int.to_string(a.n) + Int.to_string(b.n)
     }
 }
 
-pub fn a(n: Int): A {
+pub fn a(n: Int) -> A {
     A{n}
 }
 
-pub fn b(n: Int): B {
+pub fn b(n: Int) -> B {
     B{n}
 }

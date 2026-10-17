@@ -140,6 +140,12 @@ func (bl *irScalarBuilder) structuralEqual(t *ast.Binary, lhs, rhs ir.Temp, k ki
 	switch {
 	case k == kindInt || k == kindFloat || k == kindString || k == kindBool:
 		return bl.equalityCompare(t, ir.OpEq, irParamShape(k), lhs, rhs), true
+	case k == kindUnit:
+		// Unit has one value, so a Unit slot is always equal.
+		c := ir.NewBool(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), true)
+		bl.b.Append(c)
+		bl.side(c.Dst(), irScalarSide{k: kindBool})
+		return c.Dst(), true
 	case isDecimalKind(k):
 		return bl.equalityCompare(t, ir.OpEq, ir.ValDecimal, lhs, rhs), true
 	case irByteValueKind(k):
@@ -207,11 +213,11 @@ func (bl *irScalarBuilder) equatableImplCall(t *ast.Binary, op ir.CompareOp, lhs
 	if u := irGenUnit(bl.g, og); og != bl.g && u < 0 {
 		return ir.NoTemp, false
 	}
+	// Inside the impl's own `equal?` this is a recursive call: on fields
+	// of the type (a tree's children) it ends with the data, and the
+	// checker rejects comparing the impl's own arguments
+	// (self_recursion.go, protocolErrors).
 	sym := og.irCalleeSym(it, d.recv.nomi()+"."+it.name)
-	if bl.f.Sym() == sym {
-		// `a == b` inside the impl it would call recurses without end.
-		return ir.NoTemp, false
-	}
 	call := ir.NewCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), sym, lhs, rhs)
 	bl.b.Append(call)
 	bl.side(call.Dst(), irScalarSide{k: kindBool})
@@ -356,6 +362,14 @@ func (bl *irScalarBuilder) equatableContainerOwner(t *ast.Call) string {
 // a second time by a later arm.
 func (bl *irScalarBuilder) containerEqualCall(t *ast.Call, owner string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	if (owner == "Maybe" || owner == "Result") && bl.recording == 0 && !bl.preludeEqualStructural(t) {
+		// `Maybe.equal?(a, b)` over payloads whose own impls decide (a
+		// struct with a derived Equatable) or of two instances an embedded
+		// value tells apart (`Some(circle)`, `Some(shape)`): the prelude
+		// wrapper's Equatable is derived, so the call is `a == b`, lowered
+		// as the operator is.
+		return bl.compare(&ast.Binary{Op: "==", Left: t.Args[0], Right: t.Args[1], Line: t.Line, Col: t.Col}, ir.OpEq)
+	}
 	// kindInvalid: sentinel — the operand at this position is not bare.
 	bare := []kind{kindInvalid, kindInvalid}
 	for i, arg := range t.Args {
@@ -434,6 +448,22 @@ func (bl *irScalarBuilder) containerEqualCall(t *ast.Call, owner string) (ir.Tem
 	bl.b.Append(c)
 	bl.side(c.Dst(), irScalarSide{k: kindBool})
 	return c.Dst(), kindBool, false, true
+}
+
+// preludeEqualStructural reports whether the checker typed both operands of
+// a `Maybe.equal?` or `Result.equal?` call as one instance whose payloads
+// compare structurally (irPreludeEqualityKind), which containerEqualCall
+// compares directly.
+func (bl *irScalarBuilder) preludeEqualStructural(t *ast.Call) bool {
+	if len(t.Args) != 2 {
+		return true
+	}
+	tl, tr := bl.g.checkedExprType(t.Args[0]), bl.g.checkedExprType(t.Args[1])
+	if tl == nil || tr == nil {
+		return true
+	}
+	l, r := bl.g.project(tl), bl.g.project(tr)
+	return l == r && bl.g.irPreludeEqualityKind(l)
 }
 
 // irEqualityListKind is a list `==` compares with rt.Equal: equality never

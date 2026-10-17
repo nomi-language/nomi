@@ -16,7 +16,7 @@ func TestFullPipeline(t *testing.T) {
     age: Int
 }
 
-fn greet(_user: User): String {
+fn greet(_user: User) -> String {
     greeting = "Hello, "
     greeting
 }
@@ -73,7 +73,7 @@ enum Color {
 func TestFullPipeline_WithErrors(t *testing.T) {
 	input := `fn broken( {
 
-fn valid(x: Int): Int { x + 1 }`
+fn valid(x: Int) -> Int { x + 1 }`
 
 	tokens := lexer.Lex(input)
 	nodes, errs := parser.ParseWithRecovery(tokens)
@@ -100,7 +100,7 @@ fn valid(x: Int): Int { x + 1 }`
 }
 
 func TestFullPipeline_AllDefinitionTypes(t *testing.T) {
-	input := `fn add(x: Int, y: Int): Int { x + y }
+	input := `fn add(x: Int, y: Int) -> Int { x + y }
 
 struct Point {
     x: Float
@@ -117,11 +117,11 @@ enum Direction {
 type UserId Int
 
 interface Display {
-    fn to_string(value: self): String
+    fn to_string(value: self) -> String
 }
 
 impl Display for Point {
-    fn to_string(_p: Point): String { "point" }
+    fn to_string(_p: Point) -> String { "point" }
 }`
 
 	tokens := lexer.Lex(input)

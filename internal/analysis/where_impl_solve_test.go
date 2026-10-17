@@ -17,31 +17,31 @@ type Days Int
 type Weeks Int
 
 interface Combine<Rhs, Out> {
-  fn combine(lhs: self, rhs: Rhs): Out
+  fn combine(lhs: self, rhs: Rhs) -> Out
 }
 
 impl Combine<Days, Day> for Day {
-  fn combine(lhs: Day, rhs: Days): Day {
+  fn combine(lhs: Day, rhs: Days) -> Day {
     lhs
   }
 }
 
 impl Combine<Weeks, Weeks> for Day {
-  fn combine(lhs: Day, rhs: Weeks): Weeks {
+  fn combine(lhs: Day, rhs: Weeks) -> Weeks {
     rhs
   }
 }
 
-fn plus<L, R, Out>(lhs: L, rhs: R): Out where L: Combine<R, Out> {
+fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Combine<R, Out> {
   Combine.combine(lhs, rhs)
 }
 
-fn day(d: Day): Int {
+fn day(d: Day) -> Int {
   Day(n) = d
   n
 }
 
-fn weeks(w: Weeks): Int {
+fn weeks(w: Weeks) -> Int {
   Weeks(n) = w
   n
 }
@@ -52,7 +52,7 @@ fn weeks(w: Weeks): Int {
 		{"a direct call in a Unit body", "fn f() {\n  x = plus(Day(1), Days(2))\n  _ = day(x)\n}\n", ""},
 		{"the other impl, chosen by the right operand", "fn f() {\n  x = plus(Day(1), Weeks(2))\n  _ = weeks(x)\n}\n", ""},
 		{"a pipe stage", "fn f() {\n  x = Day(1) |> plus(Days(2))\n  _ = day(x)\n}\n", ""},
-		{"the solved result used at another type", "fn f(): Int {\n  s: String = plus(Day(1), Days(2))\n  String.length(s)\n}\n",
+		{"the solved result used at another type", "fn f() -> Int {\n  s: String = plus(Day(1), Days(2))\n  String.length(s)\n}\n",
 			"expected String, got Day"},
 	}
 	for _, r := range rows {

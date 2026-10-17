@@ -225,6 +225,17 @@ func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 // buildTypes is BuildTypes against the stdlib module scopes stdlib, which a
 // project build passes before its files have their Program.
 func buildTypes(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) []TypeError {
+	declErrs, bodyErrs := buildTypeHalves(fa, nodes, stdlib)
+	return append(declErrs, bodyErrs...)
+}
+
+// buildTypeHalves is buildTypes with its errors in two halves: those about
+// the file's declarations, and those about what its bodies declare
+// (buildBodyTypes). The impl type-argument pass appends its own errors to
+// fa.TypeErrors, which come before both. When fa is kept (keepDecls), the
+// work on declarations is recorded (typingDecls), and so is the registry the
+// bodies are typed with.
+func buildTypeHalves(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) (declErrs, bodyErrs []TypeError) {
 	reg := NewTypeRegistry()
 
 	// Pre-populate registry with types from parent scopes (e.g. primitives types
@@ -353,6 +364,30 @@ func buildTypes(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) []
 	// Pass 2: resolve details and attach to symbols. An alias is built at
 	// its declaration or at the first lookup of its name, whichever comes
 	// first (newAliasBuilder).
+	fa.typingDecls(func() { declErrs = buildDeclTypes(fa, reg, nodes, stdlib, unnamed) })
+
+	bodyErrs = buildBodyTypes(fa, reg, nodes)
+
+	// Pass 3: after all impl/extend method signatures are resolved, solve the
+	// interface type-argument template for each `impl Iface for T` block. The
+	// unifier consults these templates to bind any generic interface's type
+	// parameters from a concrete receiver — `Iter<T>` against std/iter's `Seq`
+	// or a user iterator binds `T` from `each_while`'s `yield: (T) -> Bool`
+	// parameter, and a user `Chooser<T>` binds `T` from whichever
+	// method carries it. See recordImplTypeArgsFromBlock + the
+	// general-interface-typearg-inference design.
+	fa.typingDecls(func() { recordImplTypeArgsInNodes(fa, reg, nodes) })
+
+	if fa.kept != nil {
+		fa.kept.types = reg
+	}
+	return declErrs, bodyErrs
+}
+
+// buildDeclTypes is BuildTypes' pass 2: it types the file's declarations
+// against reg, each declaration whose name belongs to something else in the
+// file (unnamed) against a registry of its own.
+func buildDeclTypes(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node, stdlib map[string]*Scope, unnamed map[string]bool) []TypeError {
 	var errs []TypeError
 	aliases := newAliasBuilder(fa, nodes, func(n *ast.TypeAlias) (*TypeRegistry, bool) {
 		_, owns := typeDeclSymbol(fa, fa.ModuleScope, n.Name, n.Line, n.Col)
@@ -396,8 +431,13 @@ func buildTypes(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) []
 		}
 	}
 
-	errs = append(errs, aliases.errs...)
+	return append(errs, aliases.errs...)
+}
 
+// buildBodyTypes is BuildTypes' pass 2b, which types what the file's bodies
+// declare against reg, the registry of the file's own types.
+func buildBodyTypes(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node) []TypeError {
+	var errs []TypeError
 	// Pass 2b: resolve nested fn signatures inside function bodies. Their
 	// Symbols were registered by the builder; we just need to attach FuncType.
 	// Also reject declarations that only make sense at module level.
@@ -408,7 +448,7 @@ func buildTypes(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) []
 	// and its Type left nil, so checkNestedFunc's `sym.Type.(*FuncType)` missed
 	// and the body went unchecked — which meant no generic call inside it ever
 	// recorded an instantiated CallType, and the IR builder refused `Some(1)`
-	// inside `test "…" { fn f(): Maybe<Int> { Some(1) } }` under `generic enum
+	// inside `test "…" { fn f() -> Maybe<Int> { Some(1) } }` under `generic enum
 	// over a type parameter` while the identical declaration inside `fn main`
 	// lowered.
 	//
@@ -425,9 +465,18 @@ func buildTypes(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) []
 			}
 		case *ast.TestDecl:
 			errs = append(errs, buildTestDeclFuncTypes(fa, reg, n)...)
+		case *ast.StructDef:
+			// A field's default may declare a `fn` in a block, as a `once`
+			// may; without its signature its body went unchecked and its
+			// call had no type.
+			errs = append(errs, buildFieldDefaultFuncTypes(fa, reg, n.Fields)...)
+		case *ast.EnumDef:
+			for _, v := range n.Variants {
+				errs = append(errs, buildFieldDefaultFuncTypes(fa, reg, v.Fields)...)
+			}
 		}
 		// A module-level `once`'s value may declare a `fn` in a block,
-		// `once g = { fn h(x: Int): Int { x + 1 } \n h(4) }`; without its
+		// `once g = { fn h(x: Int) -> Int { x + 1 } \n h(4) }`; without its
 		// signature `h(4)` had no type and neither did `g`.
 		for _, once := range moduleOnces(node) {
 			if once.Value != nil {
@@ -436,17 +485,18 @@ func buildTypes(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) []
 		}
 		errs = append(errs, buildAttachedTestTypes(fa, reg, node)...)
 	}
+	return errs
+}
 
-	// Pass 3: after all impl/extend method signatures are resolved, solve the
-	// interface type-argument template for each `impl Iface for T` block. The
-	// unifier consults these templates to bind any generic interface's type
-	// parameters from a concrete receiver — `Iter<T>` against std/iter's `Seq`
-	// or a user iterator binds `T` from `each_while`'s `yield: (T) -> Bool`
-	// parameter, and a user `Chooser<T>` binds `T` from whichever
-	// method carries it. See recordImplTypeArgsFromBlock + the
-	// general-interface-typearg-inference design.
-	recordImplTypeArgsInNodes(fa, reg, nodes)
-
+// buildFieldDefaultFuncTypes resolves the signatures of the `fn`s declared in
+// struct or record-variant field defaults.
+func buildFieldDefaultFuncTypes(fa *FileAnalysis, reg *TypeRegistry, fields []ast.StructField) []TypeError {
+	var errs []TypeError
+	for _, f := range fields {
+		if f.Default != nil {
+			errs = append(errs, buildNestedFuncTypes(fa, reg, f.Default)...)
+		}
+	}
 	return errs
 }
 
@@ -662,46 +712,113 @@ func validateNoIllegalNestedDecls(node ast.Node) []TypeError {
 // into a fresh child registry. Returns the child registry plus any errors
 // from resolving type details. The child registry chains to `reg` so
 // outer/module types remain visible.
+//
+// The block binds a name to its first type declaration of that name, as its
+// scope does; a later one is the builder's "already defined in this scope"
+// error. Such a declaration is still built, against a registry of its own
+// that maps the name to its own type, so it never fills in the type the
+// name binds (ownRegistry does the same for a top-level declaration).
 func buildBlockNestedTypes(fa *FileAnalysis, reg *TypeRegistry, block *ast.Block) (*TypeRegistry, []TypeError) {
 	if block == nil {
 		return reg, nil
 	}
 	child := NewChildTypeRegistry(reg)
+	binds := blockTypeDeclsBinding(block)
+	// regFor is the registry the declaration n named name is built against.
+	regFor := func(n ast.Node, name string) *TypeRegistry {
+		if binds[n] {
+			return child
+		}
+		own := NewChildTypeRegistry(child)
+		if shell := blockTypeShell(fa, n); shell != nil {
+			own.Register(name, shell)
+		}
+		return own
+	}
 	// Pass 1: register shells so types can reference each other.
 	for _, stmt := range block.Stmts {
-		switch n := stmt.(type) {
-		case *ast.StructDef:
-			child.Register(n.Name, &StructType{Name: n.Name, unbuilt: &unbuiltDecl{}})
-		case *ast.EnumDef:
-			child.Register(n.Name, &EnumType{Name: n.Name, unbuilt: &unbuiltDecl{}})
-		case *ast.TypeDef:
-			child.Register(n.Name, &DistinctType{Name: n.Name, unbuilt: &unbuiltDecl{}})
-		case *ast.InterfaceDef:
-			child.Register(n.Name, &InterfaceType{Origin: declaredOrigin(fa), Name: n.Name, TypeParams: typeParamNames(n.TypeParams), unbuilt: &unbuiltDecl{}})
+		if !binds[stmt] {
+			continue
+		}
+		if shell := blockTypeShell(fa, stmt); shell != nil {
+			child.Register(blockTypeDeclName(stmt), shell)
 		}
 	}
 	// Pass 2: resolve details against the child registry, each alias at its
 	// declaration or its first lookup (newAliasBuilder).
 	var errs []TypeError
-	aliases := newAliasBuilder(fa, block.Stmts, func(*ast.TypeAlias) (*TypeRegistry, bool) {
-		return child, true
+	aliases := newAliasBuilder(fa, block.Stmts, func(n *ast.TypeAlias) (*TypeRegistry, bool) {
+		if binds[n] {
+			return child, true
+		}
+		return NewChildTypeRegistry(child), false
 	})
 	for _, stmt := range block.Stmts {
 		switch n := stmt.(type) {
 		case *ast.TypeAlias:
 			aliases.build(n)
 		case *ast.StructDef:
-			errs = append(errs, buildStructType(fa, child, n)...)
+			errs = append(errs, buildStructType(fa, regFor(n, n.Name), n)...)
 		case *ast.EnumDef:
-			errs = append(errs, buildEnumType(fa, child, n)...)
+			errs = append(errs, buildEnumType(fa, regFor(n, n.Name), n)...)
 		case *ast.TypeDef:
-			errs = append(errs, buildTypeDef(fa, child, n)...)
+			errs = append(errs, buildTypeDef(fa, regFor(n, n.Name), n)...)
 		case *ast.InterfaceDef:
-			errs = append(errs, buildInterfaceMethods(fa, child, n)...)
+			errs = append(errs, buildInterfaceMethods(fa, regFor(n, n.Name), n)...)
 		}
 	}
 	errs = append(errs, aliases.errs...)
 	return child, errs
+}
+
+// blockTypeDeclName answers the name a block's type declaration n
+// declares, or "" when n is not one.
+func blockTypeDeclName(n ast.Node) string {
+	switch n := n.(type) {
+	case *ast.StructDef:
+		return n.Name
+	case *ast.EnumDef:
+		return n.Name
+	case *ast.TypeDef:
+		return n.Name
+	case *ast.TypeAlias:
+		return n.Name
+	case *ast.InterfaceDef:
+		return n.Name
+	}
+	return ""
+}
+
+// blockTypeDeclsBinding answers the type declarations of block that bind
+// their names: the first declaration of each name.
+func blockTypeDeclsBinding(block *ast.Block) map[ast.Node]bool {
+	binds := map[ast.Node]bool{}
+	seen := map[string]bool{}
+	for _, stmt := range block.Stmts {
+		name := blockTypeDeclName(stmt)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		binds[stmt] = true
+	}
+	return binds
+}
+
+// blockTypeShell answers the unbuilt type a block's type declaration n
+// fills in, or nil for an alias, which registers its target when built.
+func blockTypeShell(fa *FileAnalysis, n ast.Node) Type {
+	switch n := n.(type) {
+	case *ast.StructDef:
+		return &StructType{Name: n.Name, unbuilt: &unbuiltDecl{}}
+	case *ast.EnumDef:
+		return &EnumType{Name: n.Name, unbuilt: &unbuiltDecl{}}
+	case *ast.TypeDef:
+		return &DistinctType{Name: n.Name, unbuilt: &unbuiltDecl{}}
+	case *ast.InterfaceDef:
+		return &InterfaceType{Origin: declaredOrigin(fa), Name: n.Name, TypeParams: typeParamNames(n.TypeParams), unbuilt: &unbuiltDecl{}}
+	}
+	return nil
 }
 
 // buildNestedFuncTypes walks a function body looking for nested FuncDef
@@ -724,6 +841,11 @@ func buildNestedFuncTypes(fa *FileAnalysis, reg *TypeRegistry, node ast.Node) []
 	case *ast.Block:
 		// Build a child registry containing this block's nested type defs,
 		// then process the block's statements with that registry visible.
+		// Both see the types the block's own imports bind, as the checker's
+		// walk of the block does (enterBlockImports).
+		if imported := blockImportTypes(fa, reg, n); imported != nil {
+			reg = imported
+		}
 		childReg, typeErrs := buildBlockNestedTypes(fa, reg, n)
 		errs = append(errs, typeErrs...)
 		for _, stmt := range n.Stmts {
@@ -762,11 +884,11 @@ func buildTestDeclFuncTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.TestDecl
 }
 
 // missingParamType is the error for a declared function's parameter written
-// without a type, `fn tag(_v): String`: a parameter of a `fn`, an impl's or
+// without a type, `fn tag(_v) -> String`: a parameter of a `fn`, an impl's or
 // an interface's function, or a `host fn` needs one (only a lambda's may be
 // inferred). A synthesized declaration's parameters are the compiler's. An
 // interface's or a `host fn`'s parameter written as a bare type,
-// `host fn f(String): Int`, is a destructuring pattern to the parser and gets
+// `host fn f(String) -> Int`, is a destructuring pattern to the parser and gets
 // unnamedParam's error; a `fn`'s goes through paramPatternType instead.
 func missingParamType(p ast.Param, fa *FileAnalysis, reg *TypeRegistry) []TypeError {
 	if IsSynthesizedLine(p.Line) {
@@ -914,8 +1036,9 @@ func buildTypeParamsWithFA(tps []ast.TypeParam, reg *TypeRegistry, fa *FileAnaly
 		entry := &TypeParam_{Name_: tp.Name}
 		m[tp.Name] = entry
 		if fa != nil {
-			if sym, ok := fa.Definitions[Pos{Line: tp.Line, Col: tp.Col}]; ok && sym != nil {
-				sym.Type = entry
+			pos := Pos{Line: tp.Line, Col: tp.Col}
+			if sym, ok := fa.Definitions[pos]; ok && sym != nil {
+				fa.attachDeclType(pos, sym, entry)
 			}
 		}
 	}
@@ -1195,7 +1318,7 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 		if vd == nil {
 			continue
 		}
-		if vd.DataType != nil && !IsZeroSized(vd.DataType) {
+		if !variantIsValue(vd, vd.DataType) {
 			// Data-carrying variant: constructor function, e.g. Ok: (T) -> Result<T, E>
 			vsym.Type = &FuncType{Params: []Type{vd.DataType}, Return: enumReturnTy}
 		} else if len(vd.Fields) > 0 {
@@ -1405,7 +1528,7 @@ func buildInterfaceMethods(fa *FileAnalysis, reg *TypeRegistry, n *ast.Interface
 		// parameter (the call-site slot-mapping binds a trailing lambda to the
 		// last param and fills the skipped middle default), which is how
 		// `sort_by(xs, direction = Ascending, key)` lets callers write
-		// `Iter.sort_by(xs, |x| key)`. The one restriction: only a
+		// `Iter.sort_by(xs, fn x -> key)`. The one restriction: only a
 		// Nomi-bodied default method carries the default at runtime (its
 		// DefaultFn is a FuncVal that applies it). A required method dispatches
 		// to an impl that never saw the interface's default, and a host
@@ -1594,7 +1717,7 @@ func buildFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef, 
 	params := make([]Type, 0, len(n.Params))
 	for _, p := range n.Params {
 		// Destructuring param: the type comes from the annotation OR the
-		// self-typing pattern head (`fn unwrap(Dur(x)): Int` derives Dur).
+		// self-typing pattern head (`fn unwrap(Dur(x)) -> Int` derives Dur).
 		// paramPatternType resolves both and reports the missing-annotation
 		// error for type-less shapes. The bound inner names are typed later
 		// by checkFunc via checkPattern; here we only need the slot type so
@@ -1956,7 +2079,7 @@ func buildImplBlockTypes(fa *FileAnalysis, stdlib map[string]*Scope, reg *TypeRe
 		params := make([]Type, 0, len(fn.Params))
 		for _, p := range fn.Params {
 			// Destructuring param: the slot type comes from the annotation OR
-			// the self-typing pattern head (`fn as_nanos(Dur(ns)): Int` derives
+			// the self-typing pattern head (`fn as_nanos(Dur(ns)) -> Int` derives
 			// Dur). Mirror buildFuncType — without this the self-typed head was
 			// ignored (only p.TypeAnnotation, nil here, was consulted), the slot
 			// stayed nil, and checkPattern never typed the inner bindings. The
@@ -2094,7 +2217,7 @@ func buildImplBlockTypes(fa *FileAnalysis, stdlib map[string]*Scope, reg *TypeRe
 func attachParamType(fa *FileAnalysis, name string, line, col int, typ Type) {
 	pos := Pos{Line: line, Col: col}
 	if sym, ok := fa.Definitions[pos]; ok && sym.Kind == SymbolParam && sym.Name == name {
-		sym.Type = typ
+		fa.attachDeclType(pos, sym, typ)
 	}
 }
 
@@ -2110,9 +2233,9 @@ func recordLambdaPatternType(fa *FileAnalysis, pat ast.Node, typ Type) {
 // attachFieldType finds field symbols in Definitions matching the given name
 // that are on or after the given struct line.
 func attachFieldType(fa *FileAnalysis, name string, structLine int, typ Type) {
-	for _, sym := range fa.Definitions {
+	for pos, sym := range fa.Definitions {
 		if sym.Kind == SymbolField && sym.Name == name && sym.Pos.Line >= structLine {
-			sym.Type = typ
+			fa.attachDeclType(pos, sym, typ)
 		}
 	}
 }
@@ -2127,7 +2250,7 @@ func buildExternFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.Ext
 	//     function-local type parameters.
 	//   - Implicit fallback: scan parameter / return annotations for
 	//     PascalCase names not in the type registry and treat each as an
-	//     unbound TypeParam_. Preserves the bare `fn f(x: T): T` shape
+	//     unbound TypeParam_. Preserves the bare `fn f(x: T) -> T` shape
 	//     that the rest of the stdlib uses.
 	tp := cloneTypeParamMap(base)
 	explicit := buildTypeParamsWithFA(n.TypeParams, reg, fa)

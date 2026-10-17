@@ -48,7 +48,7 @@ once d = x - -y
 Negative value in map literal
 ==========
 
-once m = {1 => -2}
+once m = %{1 => -2}
 
 ---
 

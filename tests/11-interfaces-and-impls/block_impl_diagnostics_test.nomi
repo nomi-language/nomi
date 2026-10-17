@@ -1,0 +1,52 @@
+// A block may declare a type or an interface, but behavior is declared at
+// module top level: an `impl` or `derive` inside a body is an error.
+import std/compiler.{self, Diagnostic}
+
+fn only(diagnostics: List<Diagnostic>) -> List<#(Int, Int, String)> {
+    diagnostics
+    |> Iter.map(fn d -> #(d.line, d.col, d.message))
+    |> Iter.to_list()
+}
+
+test "an impl block inside a test body is rejected" {
+    diagnostics = compiler.check(
+        """
+        test "t" {
+            struct Q {
+                a: Int
+            }
+            impl Display for Q {
+                fn to_string(_q: Q) -> String {
+                    "q"
+                }
+            }
+            assert Q{a: 1}.a == 1
+        }
+        """
+    )
+
+    assert only(diagnostics) == [
+        #(5, 5, "an `impl` block must appear at module top-level, not inside a body"),
+    ]
+}
+
+test "a derive inside a lambda body is rejected" {
+    diagnostics = compiler.check(
+        """
+        fn main() {
+            f = fn x: Int -> {
+                struct Q {
+                    v: Int
+                }
+                derive Debug for Q
+                Q{v: x}.v
+            }
+            _ = f(1)
+        }
+        """
+    )
+
+    assert only(diagnostics) == [
+        #(6, 9, "a `derive` declaration must appear at module top-level, not inside a body"),
+    ]
+}

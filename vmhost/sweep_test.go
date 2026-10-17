@@ -41,11 +41,11 @@ var sweepTypes = []sweepType{
 	{"Decimal", "Decimal", "1.5d", "2.5d", true, true, true},
 	{"Struct", "P", "P{a: 1}", "P{a: 2}", true, true, false},
 	{"Enum", "Color", "Color.Red", "Color.Green", true, true, false},
-	{"Tuple", "(Int, String)", `(1, "a")`, `(2, "b")`, false, true, false},
+	{"Tuple", "#(Int, String)", `#(1, "a")`, `#(2, "b")`, false, true, false},
 	{"Maybe", "Maybe<Int>", "Some(1)", "None", false, true, false},
 	{"List", "List<Int>", "[1]", "[2]", true, true, false},
 	{"Vector", "Vector<Int>", "#[1]", "#[2]", true, true, false},
-	{"Map", "Map<String, Int>", `{"k" => 1}`, `{"k" => 2}`, false, true, false},
+	{"Map", "Map<String, Int>", `%{"k" => 1}`, `%{"k" => 2}`, false, true, false},
 	{"Set", "Set<Int>", "#{1}", "#{2}", false, true, false},
 	{"Record", "{x: Int}", "{x: 1}", "{x: 2}", false, false, false},
 	// A struct whose hand-written Equatable and Hashable ignore its `note`.
@@ -68,25 +68,25 @@ func sweepAll(sweepType) bool { return true }
 var sweepConstructs = []sweepConstruct{
 	{"equality", sweepAll, "assert $A == $A\n  refute $A == $B"},
 	{"binding and if", sweepAll, "v = if True { $A } else { $B }\n  assert v == $A"},
-	{"list map", sweepAll, "xs = [$A, $B]\n  ys = xs |> Iter.map(|x| x) |> Iter.to_list()\n  assert ys == xs"},
-	{"list filter count", sweepAll, "n = [$A, $B, $A] |> Iter.filter(|x| x == $A) |> Iter.count()\n  assert n == 2"},
+	{"list map", sweepAll, "xs = [$A, $B]\n  ys = xs |> Iter.map(fn x -> x) |> Iter.to_list()\n  assert ys == xs"},
+	{"list filter count", sweepAll, "n = [$A, $B, $A] |> Iter.filter(fn x -> x == $A) |> Iter.count()\n  assert n == 2"},
 	{"list pattern", sweepAll, "case [$A, $B] {\n    [h, .._] -> assert h == $A\n    [] -> assert False\n  }"},
 	{"list head", sweepAll, "assert List.head([$A, $B]) == Some($A)"},
 	{"maybe", sweepAll, "assert Maybe.with_default(Some($A), $B) == $A"},
 	{"result", sweepAll, "r: Result<$T, String> = Ok($A)\n  assert r == Ok($A)"},
-	{"tuple destructure", sweepAll, "(x, y) = ($A, $B)\n  assert x == $A\n  assert y == $B"},
+	{"tuple destructure", sweepAll, "#(x, y) = #($A, $B)\n  assert x == $A\n  assert y == $B"},
 	{"generic struct field", sweepAll, "box = Box{inner: $A}\n  assert box.inner == $A"},
 	{"generic fn", sweepAll, "assert same($A) == $A"},
 	{"generic list fn", sweepAll, "assert first_or([$B, $A], $A) == $B"},
-	{"nested fn recursion", sweepAll, "fn pick(n: Int): $T {\n    if n == 0 { $A } else { pick(n - 1) }\n  }\n  assert pick(3) == $A"},
-	{"lambda capture", sweepAll, "f = || $A\n  assert f() == $A"},
-	{"reduce", sweepAll, "n = Iter.reduce([$A, $B], |acc = 0, _x| acc + 1)\n  assert n == 2"},
+	{"nested fn recursion", sweepAll, "fn pick(n: Int) -> $T {\n    if n == 0 { $A } else { pick(n - 1) }\n  }\n  assert pick(3) == $A"},
+	{"lambda capture", sweepAll, "f = fn -> $A\n  assert f() == $A"},
+	{"reduce", sweepAll, "n = Iter.reduce([$A, $B], fn acc = 0, _x -> acc + 1)\n  assert n == 2"},
 	{"debug", sweepAll, "s = Debug.inspect($A)\n  assert String.length(s) > 0"},
 	{"io inspect", sweepAll, "io.inspect($A)\n  assert True"},
 	{"once", sweepAll, "assert shared == $A"},
-	{"concurrent", sweepAll, "v = concurrent {\n    t = Task.spawn(|| $A)\n    Task.await(t)\n  }\n  assert v == $A"},
-	{"map value", sweepAll, "m = {\"k\" => $A}\n  assert Map.get(m, \"k\") == Some($A)"},
-	{"vector", sweepAll, "v = #[$A, $B]\n  assert Vector.at(v, 1) == Some($B)"},
+	{"concurrent", sweepAll, "v = concurrent {\n    t = Task.spawn(fn -> $A)\n    Task.await(t)\n  }\n  assert v == $A"},
+	{"map value", sweepAll, "m = %{\"k\" => $A}\n  assert Map.get(m, \"k\") == Some($A)"},
+	{"vector", sweepAll, "v = #[$A, $B]\n  assert Vector.get(v, 1) == Some($B)"},
 	{"struct holding", sweepAll, "h = Holder{item: $A}\n  assert h.item == $A"},
 	{"field default none", sweepAll, "o = Opt{}\n  assert o.v == None\n  assert Opt{v: Some($A)}.v == Some($A)"},
 	{"enum payload", sweepAll, "w = Wrap.One($A)\n  case w {\n    .One(x) -> assert x == $A\n    .Zero -> assert False\n  }"},
@@ -96,7 +96,7 @@ var sweepConstructs = []sweepConstruct{
 	{"fn reduce with equality", sweepAll, "assert count_eq([$A, $B, $A], $A) == 2"},
 	{"fn tail recursion", sweepAll, "assert tail_find([$A, $B], $B, 0) == 1"},
 	{"interpolation", func(t sweepType) bool { return t.display }, "s = \"${$A}\"\n  assert String.length(s) > 0"},
-	{"map key", func(t sweepType) bool { return t.hashable }, "m = {$A => 1}\n  assert Map.get(m, $A) == Some(1)"},
+	{"map key", func(t sweepType) bool { return t.hashable }, "m = %{$A => 1}\n  assert Map.get(m, $A) == Some(1)"},
 	{"set", func(t sweepType) bool { return t.hashable }, "first = $A\n  s = #{first, $B, first}\n  assert Set.size(s) == 2"},
 	{"hash", func(t sweepType) bool { return t.hashable }, "assert Hashable.hash($A) == Hashable.hash($A)"},
 	{"ordering", func(t sweepType) bool { return t.ordered }, "assert $A < $B\n  refute $B < $A"},
@@ -106,10 +106,10 @@ var sweepConstructs = []sweepConstruct{
 	// Two values the hand-written `equal?` calls equal are one element and
 	// one key, at the top and nested.
 	{"hand set", sweepHand, "s = Iter.to_set([H{k: 1, note: \"x\"}, H{k: 1, note: \"y\"}, $B])\n  assert Set.size(s) == 2\n  assert Set.contains?(s, H{k: 2, note: \"z\"})"},
-	{"hand map key", sweepHand, "m = {H{k: 1, note: \"x\"} => 1}\n  assert Map.get(m, H{k: 1, note: \"y\"}) == Some(1)\n  assert Map.size(Map.put(m, H{k: 1, note: \"z\"}, 2)) == 1"},
+	{"hand map key", sweepHand, "m = %{H{k: 1, note: \"x\"} => 1}\n  assert Map.get(m, H{k: 1, note: \"y\"}) == Some(1)\n  assert Map.size(Map.put(m, H{k: 1, note: \"z\"}, 2)) == 1"},
 	{"hand nested", sweepHand, "s = Iter.to_set([[H{k: 1, note: \"x\"}], [H{k: 1, note: \"y\"}]])\n  assert Set.size(s) == 1\n  assert #{$A} == Iter.to_set([H{k: 1, note: \"q\"}])"},
 	{"hand derived holder", sweepHand, "assert Set.size(Iter.to_set([Keep{h: H{k: 1, note: \"x\"}}, Keep{h: H{k: 1, note: \"y\"}}])) == 1"},
-	{"hand group by", sweepHand, "g = [H{k: 1, note: \"x\"}, H{k: 1, note: \"y\"}] |> Iter.group_by(|h| h)\n  assert Map.size(g) == 1"},
+	{"hand group by", sweepHand, "g = [H{k: 1, note: \"x\"}, H{k: 1, note: \"y\"}] |> Iter.group_by(fn h -> h)\n  assert Map.size(g) == 1"},
 }
 
 const sweepPrelude = `import std/io
@@ -142,13 +142,13 @@ struct H {
 }
 
 impl Equatable for H {
-  fn equal?(a: H, b: H): Bool {
+  fn equal?(a: H, b: H) -> Bool {
     a.k == b.k
   }
 }
 
 impl Hashable for H {
-  fn hash(h: H): Int {
+  fn hash(h: H) -> Int {
     Hashable.hash(h.k)
   }
 }
@@ -165,11 +165,11 @@ struct Box<X> {
   inner: X
 }
 
-fn same<X>(x: X): X {
+fn same<X>(x: X) -> X {
   x
 }
 
-fn first_or<X>(xs: List<X>, d: X): X {
+fn first_or<X>(xs: List<X>, d: X) -> X {
   case xs {
     [h, .._] -> h
     [] -> d
@@ -191,26 +191,26 @@ enum Wrap {
 
 once shared: $T = $A
 
-fn echo(x: $T): $T {
+fn echo(x: $T) -> $T {
   x
 }
 
-fn pick_first(xs: List<$T>): Maybe<$T> {
+fn pick_first(xs: List<$T>) -> Maybe<$T> {
   case xs {
     [h, .._] -> Some(h)
     [] -> None
   }
 }
 
-fn wrap_ok(x: $T): Result<$T, String> {
+fn wrap_ok(x: $T) -> Result<$T, String> {
   Ok(x)
 }
 
-fn count_eq(xs: List<$T>, y: $T): Int {
-  Iter.reduce(xs, |acc = 0, x| if x == y { acc + 1 } else { acc })
+fn count_eq(xs: List<$T>, y: $T) -> Int {
+  Iter.reduce(xs, fn acc = 0, x -> if x == y { acc + 1 } else { acc })
 }
 
-fn tail_find(xs: List<$T>, y: $T, i: Int): Int {
+fn tail_find(xs: List<$T>, y: $T, i: Int) -> Int {
   case xs {
     [] -> -1
     [h, ..rest] -> if h == y { i } else { tail_find(rest, y, i + 1) }

@@ -47,12 +47,12 @@ enum Toggle {
     On
 }
 
-fn noisy(n: Int): Int {
+fn noisy(n: Int) -> Int {
     io.print("eval ${n}")
     n
 }
 
-fn noisyf(x: Float): Float {
+fn noisyf(x: Float) -> Float {
     io.print("evalf ${x}")
     x
 }
@@ -60,7 +60,7 @@ fn noisyf(x: Float): Float {
 /// An enum value passes through a signature by value. Nothing in this slice can
 /// read the payload back — that is `case`, which is not lowered — so what the
 /// fixture pins is construction, evaluation order, and agreement.
-fn pass(_s: Shape): Int {
+fn pass(_s: Shape) -> Int {
     7
 }
 

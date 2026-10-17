@@ -1,8 +1,9 @@
 package rt
 
 import (
-	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 // Error is a Nomi runtime fault: integer overflow, a zero divisor, an operation
@@ -19,6 +20,11 @@ import (
 // Nothing wraps it and nothing prefixes it: `nomi run` prints it verbatim.
 type Error struct {
 	Msg string
+	// Line is the line Msg's `line N:` prefix names, or 0 for a fault whose
+	// text names no line (a host function's trap, a `todo`, which names its
+	// file and line in its own words). A positioned constructor in this
+	// package sets both, so the prefix and the field always agree.
+	Line int
 	// Awaited says the fault is a task's failure reaching the code that
 	// awaited it (TrapAwaited), rather than one that started here. A
 	// debugger stops for it under its own filter.
@@ -27,12 +33,38 @@ type Error struct {
 
 func (e *Error) Error() string { return e.Msg }
 
+// positioned is the fault text, already opening with line's `line N:`
+// prefix, carried with its line.
+func positioned(line int, text string) *Error { return &Error{Msg: text, Line: line} }
+
+// At is e reported at line instead: the same text after e's own `line N:`
+// prefix (all of it when e names no line) behind line's prefix.
+//
+// A trap raised inside the standard library is reported at the program's
+// own call into it, the line its author wrote, rather than at a line of
+// std's source (internal/vm's Machine.fault decides where). The words after
+// the line are the trap's, unchanged, so `Int.abs(Int.min_value)` reads as
+// `-Int.min_value` does: `line N: integer overflow: 0 - -9223372036854775808`.
+func (e *Error) At(line int) *Error {
+	text := e.Msg
+	if e.Line > 0 {
+		text = strings.TrimPrefix(text, linePrefix(e.Line))
+	}
+	return &Error{Msg: linePrefix(line) + text, Line: line, Awaited: e.Awaited}
+}
+
+// linePrefix is the `line N: ` every positioned fault text opens with.
+func linePrefix(line int) string { return "line " + strconv.Itoa(line) + ": " }
+
 // Trap aborts with a Nomi runtime fault.
 //
 // Not inlinable and not meant to be. Every caller is a cold path guarded by a
 // check that the optimizer can see through, which is what keeps the checks
 // themselves cheap.
 func Trap(msg string) { panic(&Error{Msg: msg}) }
+
+// trapAt aborts with the positioned fault text for line, as Trap does.
+func trapAt(line int, text string) { panic(positioned(line, text)) }
 
 // TrapAwaited aborts the awaiter of a failed task with the task's fault.
 func TrapAwaited(msg string) { panic(&Error{Msg: msg, Awaited: true}) }
@@ -46,31 +78,18 @@ func TrapAwaited(msg string) { panic(&Error{Msg: msg, Awaited: true}) }
 // unguarded arms leave some value of the scrutinee's type unmatched, so on
 // checked code this is unreachable. Every lowered `case` still ends in a
 // fall-through block that reports it.
-func NoCaseMatchError(line int) error { return errors.New(noCaseMatchText(line)) }
+func NoCaseMatchError(line int) error { return positioned(line, noCaseMatchText(line)) }
 
 func noCaseMatchText(line int) string {
 	return fmt.Sprintf("line %d: no matching case branch", line)
 }
 
-// MapKeyMissingError is the failure a map destructuring reports when a key it
-// names is absent.
-//
-// Here for the reason NoCaseMatchError is: an observable string has one owner.
-//
-// A map destructuring is refutable and this is its miss, which is what makes it
-// a trap rather than an assertion failure — the sibling statement form
-// `assert {"a" => v} = m` reports through the assertion channel instead, and
-// nothing but the two call sites keeps the exits apart.
-//
-// `key` arrives already rendered, by Display and not by Debug, so a String key
-// prints bare with no quotes. Taking the text rather than a value is what lets
-// one function serve every caller whatever the key's Go type.
-func MapKeyMissingError(line int, key string) error {
-	return errors.New(mapKeyMissingText(line, key))
-}
-
-func mapKeyMissingText(line int, key string) string {
-	return fmt.Sprintf("line %d: key %s not found in map", line, key)
+// IndexOutOfRangeText is the trap a positional access whose caller promised
+// the position exists (`Vector.at`, `Vector.set`, `Bytes.at`) raises when it
+// does not: `index 7 is out of range for a Vector of length 5`. A negative
+// index is out of range the same way. owner is the type the index is into.
+func IndexOutOfRangeText(owner string, index, length int64) string {
+	return fmt.Sprintf("index %d is out of range for a %s of length %d", index, owner, length)
 }
 
 // TodoError is the failure a `todo` reports when a program reaches it: the
@@ -82,7 +101,7 @@ func mapKeyMissingText(line int, key string) string {
 // file too, because a `todo` is a note to find and finish, and it is read
 // outside the file being edited.
 func TodoError(file string, line int, reason string) error {
-	return errors.New(todoText(file, line, reason))
+	return &Error{Msg: todoText(file, line, reason)}
 }
 
 func todoText(file string, line int, reason string) string {
@@ -99,13 +118,13 @@ func todoText(file string, line int, reason string) string {
 // another variant type-checks and has nowhere to read from. The VM's enum
 // field read returns it.
 func EnumFieldMissingError(line int, variant, field string) error {
-	return fmt.Errorf("line %d: variant '%s' has no field '%s'", line, variant, field)
+	return positioned(line, fmt.Sprintf("line %d: variant '%s' has no field '%s'", line, variant, field))
 }
 
 // EnumFieldAccessError is EnumFieldMissingError's sibling for a variant whose
 // payload is not a struct, or that has none.
 func EnumFieldAccessError(line int, variant, field string) error {
-	return fmt.Errorf("line %d: cannot access field '%s' on variant '%s'", line, field, variant)
+	return positioned(line, fmt.Sprintf("line %d: cannot access field '%s' on variant '%s'", line, field, variant))
 }
 
 // MaxCallDepth is how many Nomi activations one goroutine may have in progress
@@ -135,7 +154,7 @@ const MaxCallDepth = maxCallDepth
 
 // CallDepthError is the fault the call that would exceed MaxCallDepth reports.
 // line is that call's line.
-func CallDepthError(line int) error { return errors.New(callDepthText(line)) }
+func CallDepthError(line int) error { return positioned(line, callDepthText(line)) }
 
 func callDepthText(line int) string {
 	return fmt.Sprintf("line %d: stack overflow: more than %d nested calls", line, MaxCallDepth)
@@ -146,5 +165,5 @@ func callDepthText(line int) string {
 // call left it unconstrained. reason is the compiler's account of why.
 // Arriving here means that proof was wrong.
 func UnreachableError(line int, reason string) error {
-	return fmt.Errorf("line %d: unreachable: %s", line, reason)
+	return positioned(line, fmt.Sprintf("line %d: unreachable: %s", line, reason))
 }

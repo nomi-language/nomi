@@ -734,30 +734,18 @@ var stdEnumSpecs = []stdEnumSpec{{
 	},
 }, {
 	// std/random's `Error`. Here for CalendarError's reason and the same shape of
-	// dependency: every fallible `std/random` constructor returns
-	// `Result<Generator<T>, Error>`, so with `Generator<T>` represented and this
-	// not, no random signature projects at all.
+	// dependency: `Generator.weighted` returns `Result<Generator<T>, Error>`,
+	// so with `Generator<T>` represented and this not, its signature does not
+	// project.
 	//
-	// THE WIDEST ROW BY PAYLOAD SHAPE, and deliberately so: the first to mix
-	// four forms in one enum — two payloadStructFields, two payloadStructScalar,
-	// one bare. This table's header says a one-row mechanism proves nothing about
-	// generality; the same is true per FORM.
-	//
-	// Its slots do not collapse the way CalendarError's five do; see
-	// rt/randomerror.go for the layout and why Int and Float cannot share.
+	// It mixes two payloadStructScalar variants with a bare one. Its slots do
+	// not collapse the way CalendarError's five do; see rt/randomerror.go for
+	// the layout.
 	origin:   "std/random",
 	nomi:     "Error",
 	goType:   reflect.TypeFor[rt.RandomError](),
 	tagField: "Tag",
 	variants: []stdEnumVariantSpec{
-		structFieldsVariant("InvalidIntRange",
-			scalarField("from", "From", kindInt, ""),
-			scalarField("to", "To", kindInt, ""),
-		),
-		structFieldsVariant("InvalidFloatRange",
-			scalarField("from", "FloatFrom", kindFloat, ""),
-			scalarField("to", "FloatTo", kindFloat, ""),
-		),
 		structScalarVariant("InvalidWeight", "weight", "Weight", kindFloat),
 		bareVariant("ZeroWeightTotal"),
 		structScalarVariant("OsEntropy", "reason", "Reason", kindString),
@@ -988,7 +976,7 @@ func stdEnumAnchors(fa *analysis.FileAnalysis) (map[*ast.EnumDef]int, map[string
 //
 // stdEnumAnchors above resolves through `fa.ModuleScope`, i.e. through the
 // deriving file's IMPORTS, and for a hand-written declaration that is exactly
-// right: `Int.compare(a: Int, b: Int): Ordering` is written in std/int.nomi,
+// right: `Int.compare(a: Int, b: Int) -> Ordering` is written in std/int.nomi,
 // which imports `std/comparable.Ordering`, and a file that did not import it
 // could not write that signature at all.
 //
@@ -998,7 +986,7 @@ func stdEnumAnchors(fa *analysis.FileAnalysis) (map[*ast.EnumDef]int, map[string
 // of `Ordering.Less` value/pattern refs) ... Synthesized code is compiler output
 // — these names resolve through the compiler-known route, never through the
 // deriving file's imports". So `derive Comparable for Codepoint` yields
-// `compare(a: Codepoint, b: Codepoint): Ordering` in a file that never mentions
+// `compare(a: Codepoint, b: Codepoint) -> Ordering` in a file that never mentions
 // `Ordering`, and the module-scope lookup answers nil.
 //
 // Four std files derive Comparable, and three of them (std/bool,
@@ -1246,7 +1234,7 @@ func (g *gen) stdEnumOwns(owner string, d *typeDef) bool {
 // (stdEnumDeclaredInStd): stdStructOfType's rule for std records. Not by this
 // module's anchor, because the positions that reach a projection are the ones
 // where the program never writes the name. `Date.parse(s) |>
-// Result.map_err(|e| "${e}")` solves `e` as std/calendar's `Error` in a file
+// Result.map_err(fn e -> "${e}")` solves `e` as std/calendar's `Error` in a file
 // that imports only `Date`, and an anchor keyed on this file's scope refused
 // the parameter there while lowering it once the file imported `Error`. The
 // Origin keeps a user's own `Error` out, since its origin is the user's file.

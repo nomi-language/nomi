@@ -20,8 +20,8 @@ func TestDiscoverProject_FindsTransitiveImports(t *testing.T) {
 	}
 
 	mainPath := mustWrite("main.nomi", "import a\n\nfn main() { Unit }\n")
-	mustWrite("a.nomi", "import b\n\npub fn run(): Int { 1 }\n")
-	mustWrite("b.nomi", "pub fn helper(): Int { 2 }\n")
+	mustWrite("a.nomi", "import b\n\npub fn run() -> Int { 1 }\n")
+	mustWrite("b.nomi", "pub fn helper() -> Int { 2 }\n")
 
 	entryNodes := parseFileForDiscoveryTest(t, mainPath)
 
@@ -59,8 +59,8 @@ func TestDiscoverProject_FollowsBlockImports(t *testing.T) {
 		return full
 	}
 	mainPath := mustWrite("main.nomi", "fn main() {\n    import shapes\n    Unit\n}\n")
-	mustWrite("shapes.nomi", "pub fn area(): Int {\n    f = |x: Int| {\n        import geo/units\n        x\n    }\n    f(1)\n}\n")
-	mustWrite("geo/units.nomi", "pub fn scale(): Int { 2 }\n")
+	mustWrite("shapes.nomi", "pub fn area() -> Int {\n    f = fn x: Int -> {\n        import geo/units\n        x\n    }\n    f(1)\n}\n")
+	mustWrite("geo/units.nomi", "pub fn scale() -> Int { 2 }\n")
 
 	entryNodes := parseFileForDiscoveryTest(t, mainPath)
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {

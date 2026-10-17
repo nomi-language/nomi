@@ -27,7 +27,7 @@
 // (`-1 |> try parse()`).
 import std/io
 
-fn parse(n: Int): Result<Int, String> {
+fn parse(n: Int) -> Result<Int, String> {
     if n < 0 {
         Err("negative ${n}")
     } else {
@@ -35,7 +35,7 @@ fn parse(n: Int): Result<Int, String> {
     }
 }
 
-fn find(n: Int): Maybe<Int> {
+fn find(n: Int) -> Maybe<Int> {
     if n == 3 { Some(30) } else { None }
 }
 
@@ -78,7 +78,7 @@ test "try in pipe position" {
 }
 
 test "try inside a lambda" {
-    f = |x: Int| {
+    f = fn x: Int -> {
         v = try parse(x)
 
         Ok(v + 7)

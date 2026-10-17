@@ -11,7 +11,7 @@ struct Game {
     hint: String = "no ${"hint"}"
     ratio: Float = -0.5
     hard: Bool = if 1 > 2 { True } else { False }
-    letters: List<String> = ["a", "b"] |> Iter.map(|s| String.to_upper(s)) |> Iter.to_list()
+    letters: List<String> = ["a", "b"] |> Iter.map(fn s -> String.to_upper(s)) |> Iter.to_list()
 }
 
 derive Equatable for Game
@@ -30,7 +30,7 @@ derive ToJson for Shape
 derive FromJson for Shape
 
 test "a derived FromJson fills a missing field from its default" {
-    decoded = Game.from_json(Json.Obj{"word" => Json.String("cat")})
+    decoded = Game.from_json(Json.Obj%{"word" => Json.String("cat")})
 
     assert decoded == Result.Ok(Game{word: "cat"})
 
@@ -48,7 +48,7 @@ test "a derived FromJson fills a missing field from its default" {
 
 test "a derived FromJson decodes a present field over its default" {
     decoded = Game.from_json(
-        Json.Obj{
+        Json.Obj%{
             "word" => Json.String("cat"),
             "guessed" => Json.Arr([Json.String("a")]),
             "misses" => Json.Int(2),
@@ -65,7 +65,7 @@ test "a struct with defaulted fields round-trips through ToJson and FromJson" {
 }
 
 test "a derived FromJson fills a record variant's missing field from its default" {
-    decoded = Shape.from_json(Json.Obj{"Box" => Json.Obj{"width" => Json.Int(3)}})
+    decoded = Shape.from_json(Json.Obj%{"Box" => Json.Obj%{"width" => Json.Int(3)}})
 
     assert decoded == Result.Ok(Shape.Box{width: 3})
     assert decoded == Result.Ok(Shape.Box{tags: #{"x"}, width: 3})

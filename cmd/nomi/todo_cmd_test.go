@@ -33,11 +33,11 @@ fn main() {
     }
 }
 `)
-	mustWrite(t, filepath.Join(dir, "header.nomi"), `pub fn parse(text: String): Int {
+	mustWrite(t, filepath.Join(dir, "header.nomi"), `pub fn parse(text: String) -> Int {
     todo "parse the header"
 }
 
-pub fn size(): Int {
+pub fn size() -> Int {
     todo
 }
 `)

@@ -107,7 +107,7 @@ func irDistinctIdentities(fn *ir.Func) (checked, built int, bad []string) {
 // TestIRDistinct_ABareIdentityOnAGraphIsReported is the failing side of the
 // check above, on a graph the producer could have built.
 //
-// `fn f(n: Int): Meters { Meters(n) }` with the symbol interned bare. Two
+// `fn f(n: Int) -> Meters { Meters(n) }` with the symbol interned bare. Two
 // violations are expected and both are asserted: the node's own symbol, and
 // the `TypeName` on the value the machine returns, so a check that only read
 // the graph would report one and this says which.
@@ -193,7 +193,7 @@ func TestIRQualifiedRuntimeName(t *testing.T) {
 // rule, over real source, in both directions.
 //
 // A two-level distinct is not a program at all: `type A Int; type B A;
-// fn f(b: B): A { A(b) }` is refused by `distinctCallNamed` (`argument type
+// fn f(b: B) -> A { A(b) }` is refused by `distinctCallNamed` (`argument type
 // mismatch (A wraps Int, got B)`), and destructuring reads one level. So
 // that edge is checked in the predicate table of
 // TestIRDistinct_ThePredicateEdges, because no lowerable source reaches it.
@@ -204,18 +204,18 @@ func TestIRDistinct_WhichShapesAreRetained(t *testing.T) {
 		body     string
 		retained bool
 	}{
-		{"construct", "type Meters Int", "fn f(n: Int): Meters {\n  Meters(n * 3)\n}\n", true},
-		{"unwrap", "type Meters Int", "fn f(m: Meters): Int {\n  Meters(n) = m\n  n + 1\n}\n", true},
-		{"round trip", "type Meters Int", "fn f(m: Meters): Meters {\n  Meters(n) = m\n  Meters(n * 2)\n}\n", true},
-		{"over String", "type Tag String", "fn f(s: String): Tag {\n  Tag(s)\n}\n", true},
-		{"a marker", "type Expired", "fn f(): Expired {\n  Expired\n}\n", true},
+		{"construct", "type Meters Int", "fn f(n: Int) -> Meters {\n  Meters(n * 3)\n}\n", true},
+		{"unwrap", "type Meters Int", "fn f(m: Meters) -> Int {\n  Meters(n) = m\n  n + 1\n}\n", true},
+		{"round trip", "type Meters Int", "fn f(m: Meters) -> Meters {\n  Meters(n) = m\n  Meters(n * 2)\n}\n", true},
+		{"over String", "type Tag String", "fn f(s: String) -> Tag {\n  Tag(s)\n}\n", true},
+		{"a marker", "type Expired", "fn f() -> Expired {\n  Expired\n}\n", true},
 		// A composite inner is retained through irCompositeDistinct.
-		{"tuple inner", "type Pair (Int, Int)", "fn f(p: Pair): Pair {\n  p\n}\n", true},
-		{"list inner", "type Ns List<Int>", "fn f(p: Ns): Ns {\n  p\n}\n", true},
-		{"a list of functions inner", "type Fs List<(Int) -> Int>", "fn f(p: Fs): Fs {\n  p\n}\n", true},
-		{"an enum inner", "type Wrapped Maybe<Int>", "fn f(p: Wrapped): Wrapped {\n  p\n}\n", true},
+		{"tuple inner", "type Pair #(Int, Int)", "fn f(p: Pair) -> Pair {\n  p\n}\n", true},
+		{"list inner", "type Ns List<Int>", "fn f(p: Ns) -> Ns {\n  p\n}\n", true},
+		{"a list of functions inner", "type Fs List<(Int) -> Int>", "fn f(p: Fs) -> Fs {\n  p\n}\n", true},
+		{"an enum inner", "type Wrapped Maybe<Int>", "fn f(p: Wrapped) -> Wrapped {\n  p\n}\n", true},
 		// An inner that reaches the distinct back is decided co-inductively.
-		{"an inner that reaches it back", "struct Node {\n  next: Maybe<Link>\n}\n\ntype Link Node", "fn f(p: Link): Link {\n  p\n}\n", true},
+		{"an inner that reaches it back", "struct Node {\n  next: Maybe<Link>\n}\n\ntype Link Node", "fn f(p: Link) -> Link {\n  p\n}\n", true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

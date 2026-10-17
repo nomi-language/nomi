@@ -37,7 +37,7 @@ struct Equals {
 }
 
 impl Assertable for Equals {
-    fn failure(e: Equals): Maybe<AssertionDetails> {
+    fn failure(e: Equals) -> Maybe<AssertionDetails> {
         if e.actual == e.expected { None } else { Some(AssertionDetails{
                 reason: "values were not equal",
                 actual: Some(Debug.inspect(e.actual)),
@@ -49,7 +49,7 @@ impl Assertable for Equals {
     }
 }
 
-fn equals(actual: Int, expected: Int): Equals {
+fn equals(actual: Int, expected: Int) -> Equals {
     Equals{actual, expected}
 }
 

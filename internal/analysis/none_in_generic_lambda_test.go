@@ -8,14 +8,14 @@ import "testing"
 // branch mismatch against `Maybe<Float>`.
 func TestNoneInGenericLambdaBranch_Checks(t *testing.T) {
 	expectClean(t, checkWithStdlib(`
-fn apply<T, U>(x: T, f: (T) -> U): U {
+fn apply<T, U>(x: T, f: (T) -> U) -> U {
   f(x)
 }
 
 fn main() {
-  a = apply(1, |x| if x > 5 { None } else { Some(2.5) })
-  b = Maybe.map(Some(1), |x| if x > 5 { None } else { Some(2.5) })
-  c = [1] |> Iter.map(|x| if x > 5 { None } else { Some(2.5) }) |> Iter.to_list()
+  a = apply(1, fn x -> if x > 5 { None } else { Some(2.5) })
+  b = Maybe.map(Some(1), fn x -> if x > 5 { None } else { Some(2.5) })
+  c = [1] |> Iter.map(fn x -> if x > 5 { None } else { Some(2.5) }) |> Iter.to_list()
   _ = a
   _ = b
   _ = c

@@ -76,7 +76,7 @@ import (
 //
 // # What is NOT claimed
 //
-// `.Arr[1, 2, 3]` and `.Obj{"k" => v}` — the LIST and MAP literal-attach forms
+// `.Arr[1, 2, 3]` and `.Obj%{"k" => v}` — the LIST and MAP literal-attach forms
 // — are not routed here. Their TypeName slot carries a DotVariantType too, but
 // the value under it is a list or a map literal, and those refuse for their own
 // reasons in their own files. Routing them through here would replace one

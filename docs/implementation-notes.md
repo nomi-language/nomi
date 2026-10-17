@@ -16,7 +16,7 @@ applies to struct-shaped enum variant payloads (`HttpError {status: Int, ...}`)
 and to struct literals (named `Point{x: 3, y: 4}` and anonymous
 `{x: 3, y: 4}`), since the surface syntax is identical. An anonymous struct
 nested inside another type expression also breaks at its own column:
-`(String, {long anon})`, `List<{long anon}>` and
+`#(String, {long anon})`, `List<{long anon}>` and
 `Map<String, List<{long anon}>>` all keep the outer container inline and flow
 the inner anonymous struct multi-line. The one exception is an anonymous struct
 inside a function type's parameter list (`({long anon}) -> R`): the function
@@ -28,33 +28,63 @@ the inner indent.
 Fits are tail-aware: every Group's flat-or-broken decision considers the rest
 of the line that follows it, not only the Group's own content. A struct literal
 whose flat form fits at its column but whose trailing siblings push the line
-past the width breaks, instead of staying flat and overflowing. Trailing
+past the width breaks, instead of staying flat and overflowing. The rest of
+the line ends at the first place it may break, and at the `{` of a
+construct kept multi-line (below), so `A{a} + B{` measures the same whether
+`B{...}` was broken for width or kept broken from the source. Trailing
 comments (`x = 1 // explanatory note`) are invisible to fits, so the formatter
 does not break code to make room for a comment; the comment can run past the
 width instead.
 
-All four brace-bounded field constructs (anonymous struct types, struct-shaped
-variant payloads, named struct literals, anonymous struct literals) keep a
-multi-line shape: if the source had fields on more than one line, the
-multi-line shape is preserved even when it would fit flat. This is the same
-rule as for `fn` bodies: typing a brace, pressing enter and saving does not
-collapse the layout just made. The preserved shape is local; it does not force
-the surrounding constructs (parameter lists, call argument lists, struct
-literals containing it) to break, so a call can hug it (`f(Point{` on one
-line). The exception is a surrounding list already written one element per
-line, its first element on a line below its opening bracket: it stays that
-way when it holds an element that breaks whatever the width. Otherwise a
-list broken for width would hug its literal on the next format. The same
-holds for a function's parameters, a struct and map literal's fields, the
-short form of a block of one statement (`if`, `else`), and a case arm's body
-below its `->` (`keepsBrokenLines` in
-`internal/format/list_comments.go`).
+Anonymous struct types and struct-shaped variant payloads keep a multi-line
+shape: if the source had fields on more than one line, the multi-line shape is
+preserved even when it would fit flat. This is the same rule as for `fn`
+bodies: typing a brace, pressing enter and saving does not collapse the layout
+just made. Literals follow Prettier's rule for objects instead (below): a line
+break right after the opening bracket keeps one broken.
+
+The preserved shape is local; it does not force the surrounding constructs
+(parameter lists, call argument lists, struct literals containing it) to
+break, so a call can hug it (`f(Point{` on one line). The exception is a
+surrounding call argument list or parameter list already written one element
+per line, its first element on a line below its opening bracket: it stays that
+way when it holds an element that breaks whatever the width. Otherwise a list
+broken for width would hug its literal on the next format. The same holds for
+an or-pattern written one alternative per line, the short form of a block of
+one statement (`if`, `else`), and a case arm's body below its `->`
+(`keepsBrokenLines` in `internal/format/list_comments.go`).
+
+## Formatter: a line break after a literal's opening bracket
+
+A list, vector, set, map, tuple or struct literal, and a list, map or struct
+pattern, whose source has a line break between its opening bracket and its
+first element stays broken, one element per line, even when it would fit on
+one line (`brokenAfterOpen` in `internal/format/list_comments.go`). It is
+Prettier's rule for objects, and the author joins the literal again by
+deleting that one line break. Only that break counts: `[1,\n 2]` and
+`Point{x: 1,\n y: 2}` join when they fit. The parser records the line of the
+opening bracket on each literal (`Line`), and the formatter compares it with
+the line its first element starts on, the `..` of a leading spread included,
+so the flag needs no field of its own. The broken form puts the first element
+on the line below the bracket, so the next format finds the same break and
+the layout is stable. Without that break the width and depth rules decide. A
+literal written with a spread last (`[a, ..rest]`, a list pattern with a
+`..rest`) is written on one line as before, and every other bracketed form
+(call arguments, parameter lists, type argument lists, pipes) is laid out by
+width alone. A kept-broken literal is local, as a struct literal written
+across lines is, so a call hugs it (`f([` on one line).
+
+A kept-broken list, vector or set whose elements are all number literals is
+filled (below), broken even when it fits: the fill's own output breaks after
+the bracket, so a list filled for width stays filled. A list of anything else,
+strings included, is written one element per line, so a board written one row
+per line keeps one row per line.
 
 A lambda body written in braces whose first statement starts on a line below the `{` stays a block,
 each statement on its own line, however short; this is Prettier's rule that
 a line break after an object literal's `{` keeps it expanded. A braced body
-whose contents start on the `{` line (`|x| { x + 1 }`) and a bare body
-(`|x| x + 1`) are laid out by width, one expression going on the
+whose contents start on the `{` line (`fn x -> { x + 1 }`) and a bare body
+(`fn x -> x + 1`) are laid out by width, one expression going on the
 parameters' line without braces when it fits. When it does not fit, the
 formatter writes the body as a braced block below the parameters, as
 rustfmt writes a closure, wherever the lambda stands: a call argument, a
@@ -62,12 +92,48 @@ named argument, a pipe or `then`/`tap` stage, a binding, a struct field or
 a list item (`openBraceWhenBroken` and `closeBraceWhenBroken`, inside the
 lambda's own Group). An `if` that holds `break`, `continue` or `return`
 always goes there, broken. The parser builds the same tree for
-`|x| { e }` and `|x| e`, a `Block` holding one `ExprStmt`, and records the
+`fn x -> { e }` and `fn x -> e`, a `Block` holding one `ExprStmt`, and records the
 `{` line and the first statement's line, which is all the formatter reads
 (`lambdaKeepsBlock` in `internal/format/emit.go`). So the braces the
 formatter adds stay on later runs, even after the body shrinks to fit the
 parameters' line; delete the line break after the `{` to let it go back.
 A block as a call's last argument hugs its `)` (`})`).
+
+## Formatter: filled literal lists
+
+A list, vector (`#[...]`) or set (`#{...}`) literal too wide for its line
+breaks after its opening bracket. When every element is a number literal
+(an Int, Float or Decimal literal, alone, after a unary `-` or in
+parentheses the formatter drops), the formatter then fills: it packs as
+many elements on each line as fit the width, each followed by `,` (the
+last one too), and puts the closing bracket on a line of its own. Any other
+element keeps the one-element-per-line layout: a string, codepoint or
+boolean (a list of those is usually read one element at a time, as
+messages or the rows of a grid), a name, a dot variant (`.Red`), a call, a
+compound literal or a lambda. So does a spread, a comment anywhere in the
+list, and every map literal. The packing is greedy, measured in display
+columns (`textWidth`), with no alignment into columns; an element wider
+than a line takes a line of its own. It is decided when the list renders,
+from the indent its elements start at (`filledList` in
+`internal/format/fill_list.go`), so it depends on the syntax tree, the
+list's position and whether the source breaks the line after its opening
+bracket, which keeps it broken and filled even when it fits. The derive and
+impl conformance lists pack their entries with the same function
+(`packGreedy`).
+
+## Formatter: compound depth
+
+A list, vector, set, map or struct literal, or a list, map or struct
+pattern, three compound levels deep breaks one element per line even when it
+fits, since three levels of brackets on one line are hard to match up
+(`maxCompoundDepth` and `compoundDepth` in `internal/format/emit.go`). Each
+of those literals and patterns adds a level. A call (`Ok(...)`), an enum
+pattern's payload, a tuple, an `as` or `or` pattern and parentheses add
+none but pass their contents' depth through, so `[#("a", #[#[0, 1]])]` is
+three deep. Only the literal or pattern that reaches the depth breaks for
+it: its elements are laid out on their own merits, by width and by their
+own depth, so `[R{p: P{x: 0, y: 0}, n: 1}]` breaks the list and keeps
+`R{p: P{x: 0, y: 0}, n: 1}` on one line inside it.
 
 ## Formatter: comments in lists
 
@@ -91,7 +157,7 @@ and type parameters, a tuple or variant pattern, a tuple destructure, a list
 ending in a spread, and a call with one argument. Parentheses around an
 expression holding a comment stay, the comment inside them. A lambda header
 whose only comments each end the line of a parameter other than the last
-keeps its own layout, the first parameter on the `|` line.
+keeps its own layout, the first parameter on the `fn` line.
 
 ## Formatter: comments with no slot
 
@@ -126,9 +192,21 @@ A generic `typealias Name<T> ...` stops in the parser. The AST has no field for
 a type-parameter list: `ast.TypeAlias` carries `Name`, `Public`,
 `TargetTypeExpr` and `Bounds`.
 
-There is no partial implementation of `or` between patterns: no
-alternative-pattern node exists in `internal/ast`, `internal/parser` or
-`internal/analysis`.
+## `or` patterns
+
+`A or B` is `ast.OrPattern`. The builder makes each name the alternatives
+bind one symbol, defined at every alternative's site
+(`builder.bindPatternName`), and the checker compares the alternatives' name
+sets and types (`internal/analysis/or_pattern.go`). Coverage expands an `or`
+into its alternatives in each column of the constructor matrix.
+
+The IR builder tests the alternatives in order against one value
+(`internal/irbuild/irorpattern.go`). An alternative that matches copies each
+name into a join temporary and jumps to the pattern's success block, where
+each name gets its one `ir.Bind`; so an arm's guard and body are lowered once.
+A parameter's straight-line destructuring prologue cannot branch, so it holds
+the value an `or` inside a parameter matches, and the body's builder tests it
+before the body.
 
 ## Go FFI wrapper
 

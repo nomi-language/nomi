@@ -1,11 +1,11 @@
 import std/io
 
-fn square(n: Int): Int {
+fn square(n: Int) -> Int {
     s = n * n
     s
 }
 
-fn sum_squares(n: Int, acc: Int): Int {
+fn sum_squares(n: Int, acc: Int) -> Int {
     case n {
         0 ->
             acc

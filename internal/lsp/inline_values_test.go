@@ -16,10 +16,10 @@ import (
 
 const inlineValueSrc = `import std/io
 
-fn scale(xs: List<Int>, by: Int): List<Int> {
+fn scale(xs: List<Int>, by: Int) -> List<Int> {
     factor = by * 2
     _ = factor
-    xs |> Iter.map(|x| x * factor) |> Iter.to_list()
+    xs |> Iter.map(fn x -> x * factor) |> Iter.to_list()
 }
 
 fn main() {
@@ -52,7 +52,7 @@ func inlineValuesFor(t *testing.T, src string, stop int) []string {
 // nothing of another function, and nothing after the paused line.
 func TestInlineValues_LookUpTheLocalsOfThePausedFunction(t *testing.T) {
 	got := strings.Join(inlineValuesFor(t, inlineValueSrc, 6), ", ")
-	want := "3:10 xs, 3:25 by, 4:5 factor, 4:14 by, 5:9 factor, 6:5 xs, 6:21 x, 6:28 factor"
+	want := "3:10 xs, 3:25 by, 4:5 factor, 4:14 by, 5:9 factor, 6:5 xs, 6:23 x, 6:32 factor"
 	if got != want {
 		t.Fatalf("paused on line 6:\n got %s\nwant %s", got, want)
 	}

@@ -7,14 +7,14 @@ struct Point {
     y: Int
 }
 
-fn palindrome?(s: String): Bool {
+fn palindrome?(s: String) -> Bool {
     String.reverse(s) == s
 }
 
 test "two of four rows fail" {
-    cases = [("abba", True), ("abc", True), ("ab", True), ("x", True)]
+    cases = [#("abba", True), #("abc", True), #("ab", True), #("x", True)]
 
-    subtests cases, (line, known_palindrome) {
+    subtests cases, #(line, known_palindrome) {
         assert palindrome?(line) == known_palindrome
     }
 }
@@ -27,7 +27,7 @@ test "a row ends at its first failed assertion" {
     }
 }
 
-fn all_ordered(points: List<Point>): Result<Unit, AssertionFailure> {
+fn all_ordered(points: List<Point>) -> Result<Unit, AssertionFailure> {
     subtests points, Point{x, y} {
         assert x < y
     }

@@ -5,7 +5,7 @@ Trailing comma in a multi-line parameter list
 pub host fn f(
   a: Int,
   b: Int,
-): Int
+) -> Int
 
 ---
 

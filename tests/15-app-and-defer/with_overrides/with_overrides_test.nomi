@@ -2,11 +2,11 @@
 // the end of the enclosing block, for every function called there.
 import app.{self, App, Level}
 
-fn label(): String {
+fn label() -> String {
     App.label
 }
 
-fn labelled(on: Bool): String {
+fn labelled(on: Bool) -> String {
     if on {
         with App.label = "branch"
         label()
@@ -15,20 +15,20 @@ fn labelled(on: Bool): String {
     }
 }
 
-fn debug_level(): Level {
+fn debug_level() -> Level {
     with App.level = .Debug
     App.level
 }
 
-fn sequential(): (Int, String) {
+fn sequential() -> #(Int, String) {
     with App.n = 2
     with App.label = "n was ${App.n}"
-    (App.n, label())
+    #(App.n, label())
 }
 
-fn labeller(): () -> String {
+fn labeller() -> () -> String {
     with App.label = "made"
-    || label()
+    fn -> label()
 }
 
 group "with" {
@@ -40,7 +40,7 @@ group "with" {
     }
 
     test "a later with line sees the overrides above it" {
-        assert sequential() == (2, "n was 2")
+        assert sequential() == #(2, "n was 2")
         assert App.n == 1
     }
 
@@ -55,5 +55,16 @@ group "with" {
     test "a with in a branch ends with the branch" {
         assert labelled(True) == "branch"
         assert labelled(False) == "base"
+    }
+
+    test "a with in an assertion subject's arm ends with the arm" {
+        assert if label() == "base" {
+            with App.label = "arm"
+            label() == "arm"
+        } else {
+            False
+        }
+
+        assert label() == "base"
     }
 }

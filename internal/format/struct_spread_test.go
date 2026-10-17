@@ -9,10 +9,9 @@ import "testing"
 // program into a different one, which is the same class of defect the
 // single-field punning rule above `structLitFieldsPunnable` records.
 //
-// Two layouts, inline and stacked, and the choice is the AUTHOR's:
-// `structLitUserMultiLine` now counts the `..` token's line as an element,
-// because a spread plus one field is two elements on two lines and a
-// fields-only rule read it as single-line and flattened it.
+// Two layouts, inline and stacked, and the choice is the AUTHOR's: a line
+// break after the `{` keeps the literal stacked (brokenAfterOpen), and the
+// spread, when there is one, is the first element it is measured to.
 
 func TestFormat_StructSpreadInline(t *testing.T) {
 	roundTrip(t, `struct Point {

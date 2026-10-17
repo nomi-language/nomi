@@ -18,7 +18,7 @@ impl Shade {
     pub once name: String = "shade"
 }
 
-fn cap_value(): Int {
+fn cap_value() -> Int {
     io.print("forcing Limits.cap")
     42
 }

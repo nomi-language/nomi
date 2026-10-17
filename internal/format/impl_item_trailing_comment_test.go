@@ -8,11 +8,11 @@ import "testing"
 // formatted file changed it again.
 func TestFormat_ImplFunctionKeepsItsTrailingComment(t *testing.T) {
 	src := "impl R {\n" +
-		"    fn a(): Int {\n" +
+		"    fn a() -> Int {\n" +
 		"        1\n" +
 		"    } // the first\n" +
 		"\n" +
-		"    fn b(): Int {\n" +
+		"    fn b() -> Int {\n" +
 		"        2\n" +
 		"    }\n" +
 		"}\n"

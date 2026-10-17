@@ -88,8 +88,6 @@ func mark(n ast.Node, tail bool) {
 		mark(x.Value, false)
 	case *ast.StructDestructure:
 		mark(x.Value, false)
-	case *ast.MapDestructure:
-		mark(x.Value, false)
 	case *ast.DistinctDestructure:
 		mark(x.Value, false)
 	case *ast.PatternBinding:
@@ -191,6 +189,7 @@ func mark(n ast.Node, tail bool) {
 	case *ast.Subtests:
 		// A statement whose body runs once per row and answers nothing.
 		mark(x.Rows, false)
+		mark(x.Name, false)
 		markBlock(x.Body, false)
 	case *ast.Defer:
 		mark(x.Call, false)

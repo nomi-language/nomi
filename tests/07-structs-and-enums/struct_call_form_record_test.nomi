@@ -36,7 +36,7 @@ struct Config {
 
 derive Display for Config
 
-fn defaults(): {retries: Int, host: String} {
+fn defaults() -> {retries: Int, host: String} {
     {retries: 3, host: "localhost"}
 }
 

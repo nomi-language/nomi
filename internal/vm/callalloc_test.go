@@ -41,7 +41,7 @@ func allocsPerActivation(t *testing.T, src string) float64 {
 // One comparison, one subtraction, one addition and one call per activation.
 const oneComparison = `import std/io
 
-fn down(n: Int): Int {
+fn down(n: Int) -> Int {
   if n < 1 { 0 } else { down(n - 1) + 1 }
 }
 
@@ -54,7 +54,7 @@ fn main() {
 // every n that recurses.
 const fourComparisons = `import std/io
 
-fn down(n: Int): Int {
+fn down(n: Int) -> Int {
   if n < 1 { 0 } else if n < 250 and n < 251 and n < 252 { down(n - 1) + 1 } else { 0 }
 }
 

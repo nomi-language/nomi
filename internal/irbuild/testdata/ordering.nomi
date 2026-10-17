@@ -41,14 +41,14 @@ pub struct Priority {
 }
 
 impl Comparable for Priority {
-    fn compare(a: Priority, b: Priority): Ordering {
+    fn compare(a: Priority, b: Priority) -> Ordering {
         Int.compare(a.level, b.level)
     }
 }
 
 /// name renders an Ordering, so the three variants are observable rather than
 /// only comparable. A `case` over every variant plus a qualified head.
-fn name(o: Ordering): String {
+fn name(o: Ordering) -> String {
     case o {
         .Less -> "less"
         Ordering.Equal -> "equal"

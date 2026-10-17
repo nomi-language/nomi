@@ -38,7 +38,7 @@ import (
 // entered, never to a name:
 //
 //	x = 5
-//	fn add(a: Int): Int { a + x }
+//	fn add(a: Int) -> Int { a + x }
 //	x = 100
 //	add(1)        // 6: add reads the x it was written against
 //
@@ -63,10 +63,10 @@ import (
 //   - every other declaration earlier inputs made (struct, enum, type,
 //     typealias, interface, impl, derive, import), the latest of each key;
 //   - every live entity: a function's declaration; for a session value,
-//     `host fn nomi_repl_get_<id>(): T` and `once <name>: T =
+//     `host fn nomi_repl_get_<id>() -> T` and `once <name>: T =
 //     nomi_repl_get_<id>()`, which the session answers from its store; for a
-//     `once`, `host fn nomi_repl_once_<id>(init: () -> T): T` and `once
-//     <name>: T = nomi_repl_once_<id>(|| { <initializer> })`. The session
+//     `once`, `host fn nomi_repl_once_<id>(init: () -> T) -> T` and `once
+//     <name>: T = nomi_repl_once_<id>(fn -> { <initializer> })`. The session
 //     calls init on the first force in the whole session and answers the
 //     stored value after that, so an initializer runs at most once, on first
 //     use, whichever input forces it;
@@ -501,10 +501,6 @@ func replBoundNames(n ast.Node) []string {
 		for _, f := range s.Fields {
 			names = append(names, replStructFieldNames(f)...)
 		}
-	case *ast.MapDestructure:
-		for _, e := range s.Entries {
-			names = append(names, replPatternNames(e.Pattern)...)
-		}
 	case *ast.DistinctDestructure:
 		if s.Binding != nil {
 			names = append(names, s.Binding.Name)
@@ -531,6 +527,11 @@ func replPatternNames(p ast.Node) []string {
 		names = append(names, q.Name)
 	case *ast.AsPattern:
 		names = append(replPatternNames(q.Pattern), q.Name)
+	case *ast.OrPattern:
+		// Every alternative binds the same names.
+		if len(q.Alternatives) > 0 {
+			names = replPatternNames(q.Alternatives[0])
+		}
 	case *ast.EnumPattern:
 		if q.Binding != "" {
 			names = append(names, q.Binding)
@@ -720,18 +721,18 @@ func (in *replInput) program(plan *replPlan) *replSource {
 			src.add(e.tmpl.render(plan.name), replEarlier, replOwner{ent: e})
 		case replValue:
 			get := vmhost.SessionGetName(e.vid)
-			src.gen(fmt.Sprintf("host fn %s(): %s", get, e.typ))
+			src.gen(fmt.Sprintf("host fn %s() -> %s", get, e.typ))
 			src.add(fmt.Sprintf("once %s: %s = %s()", name, e.typ, get), replGenerated, replOwner{ent: e})
 		case replLazy:
 			force := vmhost.SessionOnceName(e.vid)
-			src.gen(fmt.Sprintf("host fn %s(init: () -> %s): %s", force, e.typ, e.typ))
-			src.add(fmt.Sprintf("once %s: %s = %s(|| {", name, e.typ, force), replGenerated, replOwner{ent: e})
+			src.gen(fmt.Sprintf("host fn %s(init: () -> %s) -> %s", force, e.typ, e.typ))
+			src.add(fmt.Sprintf("once %s: %s = %s(fn -> {", name, e.typ, force), replGenerated, replOwner{ent: e})
 			src.add(e.tmpl.render(plan.name), replEarlier, replOwner{ent: e})
 			src.gen("})")
 		}
 	}
 	for _, st := range plan.stores {
-		src.gen(fmt.Sprintf("host fn %s(value: %s): Unit", vmhost.SessionPutName(st.id), st.typ))
+		src.gen(fmt.Sprintf("host fn %s(value: %s) -> Unit", vmhost.SessionPutName(st.id), st.typ))
 	}
 	for i, d := range in.decls {
 		if !d.isImport {
@@ -744,8 +745,8 @@ func (in *replInput) program(plan *replPlan) *replSource {
 			continue
 		}
 		force := vmhost.SessionOnceName(o.ent.vid)
-		src.gen(fmt.Sprintf("host fn %s(init: () -> %s): %s", force, o.typ, o.typ))
-		src.add(fmt.Sprintf("once %s: %s = %s(|| {", o.name, o.typ, force), replGenerated, replOwner{once: i + 1})
+		src.gen(fmt.Sprintf("host fn %s(init: () -> %s) -> %s", force, o.typ, o.typ))
+		src.add(fmt.Sprintf("once %s: %s = %s(fn -> {", o.name, o.typ, force), replGenerated, replOwner{once: i + 1})
 		src.add(o.rhs().text, o.line+o.rhsLine-1, replOwner{once: i + 1})
 		src.gen("})")
 	}

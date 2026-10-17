@@ -16,7 +16,7 @@ struct Widget {
 }
 
 impl Widget {
-  fn echo(value: String): String go ffi.Echo
+  fn echo(value: String) -> String go ffi.Echo
 }
 `
 	nodes, err := parser.Parse(lexer.Lex(src))

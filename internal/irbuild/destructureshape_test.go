@@ -15,11 +15,11 @@ import "testing"
 func TestUnsupported_DestructureShapesStillRefused(t *testing.T) {
 	cases := []struct{ name, src, frontEnd string }{{
 		"a list pattern: its arity is not in the type, so it is refutable",
-		"fn main() {\n  _ = |[a, b]: List<Int>| a + b\n}\n",
+		"fn main() {\n  _ = fn [a, b]: List<Int> -> a + b\n}\n",
 		"refutable pattern in parameter",
 	}, {
 		"a map pattern: its keys may be absent, so it is refutable",
-		"fn main() {\n  _ = |{\"a\" => v}: Map<String, Int>| v\n}\n",
+		"fn main() {\n  _ = fn %{\"a\" => v}: Map<String, Int> -> v\n}\n",
 		"refutable pattern in parameter",
 	}}
 	for _, tc := range cases {

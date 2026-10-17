@@ -172,7 +172,7 @@ type Symbol struct {
 	Opaque     bool
 	Doc        string             // from /// comments
 	Node       ast.Node           // the AST node that defined this symbol
-	SourceFile string             // file path where this symbol is defined (set for cross-file imports)
+	SourceFile string             // path of the user file that defines this symbol, set by that file (builder.define); "" for stdlib and path-less files
 	Resolved   *Symbol            // for selective imports: the real symbol in the imported module
 	Type       Type               // resolved type (filled by type resolution)
 	Members    map[string]*Symbol // child symbols (e.g., interface methods)
@@ -211,7 +211,7 @@ type Symbol struct {
 	// enclosing expression is checked, so a reader reads it after checking.
 	VariantType Type
 	// ParamOf is the function, lambda or interface method whose DESTRUCTURED
-	// parameter introduced this binding (`|(word, count)| count`), and nil for
+	// parameter introduced this binding (`fn #(word, count) -> count`), and nil for
 	// every other symbol. The unused-binding check reports such a name as a
 	// parameter.
 	ParamOf ast.Node

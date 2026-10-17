@@ -152,13 +152,13 @@ const stdSettleSource = `
 /// a failure of the rows below is distinguishable from the whole harness being
 /// broken. Without it a fixed point that settled nothing at all would pass every
 /// negative row.
-fn doubled(n: Int): Int {
+fn doubled(n: Int) -> Int {
   n * 2
 }
 
 /// Phase 1 with a sibling, the shape that already worked: settles in round 2,
 /// against a sibling that settled in round 1.
-fn quadrupled(n: Int): Int {
+fn quadrupled(n: Int) -> Int {
   doubled(doubled(n))
 }
 
@@ -166,7 +166,7 @@ fn quadrupled(n: Int): Int {
 /// of ` + "`+`" + `. This is what the least fixed point could never settle, because it
 /// only offers a function once ` + "`settled[c.sib]`" + ` is true and that is false for the
 /// whole of the round in which this one is tried.
-fn depth(n: Int): Int {
+fn depth(n: Int) -> Int {
   case n {
     0 -> 0
     _ -> 1 + depth(n - 1)
@@ -176,14 +176,14 @@ fn depth(n: Int): Int {
 /// A MUTUAL cycle, both members non-tail. A different fixed-point problem from
 /// self-recursion — neither member can be settled before the other — so it is
 /// stated separately rather than assumed to follow.
-fn ping(n: Int): Int {
+fn ping(n: Int) -> Int {
   case n {
     0 -> 0
     _ -> 1 + pong(n - 1)
   }
 }
 
-fn pong(n: Int): Int {
+fn pong(n: Int) -> Int {
   case n {
     0 -> 0
     _ -> 1 + ping(n - 1)
@@ -194,7 +194,7 @@ fn pong(n: Int): Int {
 /// offered there — so it becomes a phase-2 candidate itself and settles with no
 /// cycle of its own. Here because the emission pass binds two sibling scopes and
 /// this is the row that fails if the second one is not bound.
-fn depth_plus(n: Int): Int {
+fn depth_plus(n: Int) -> Int {
   depth(n) + 1
 }
 
@@ -202,7 +202,7 @@ fn depth_plus(n: Int): Int {
 /// constant stack for this call (spec §12.7) and a stdlib gen has no trampoline,
 /// so lowering it as plain Go recursion would be a stack overflow on a large
 /// input rather than a Nomi answer.
-fn spin(n: Int, acc: Int): Int {
+fn spin(n: Int, acc: Int) -> Int {
   case n {
     0 -> acc
     _ -> spin(n - 1, acc + n)
@@ -220,14 +220,14 @@ struct Box {
 }
 
 /// UNSETTLEABLE, by signature. Never a candidate at all.
-fn boxed(b: Box): Int {
+fn boxed(b: Box) -> Int {
   b.n
 }
 
 /// Self-recursive AND dependent on the unsettleable one. THE discriminating
 /// row: a fixed point that assumed its members settle would emit this, and the
 /// call it emitted would name a function nothing generates.
-fn needs_boxed(n: Int): Int {
+fn needs_boxed(n: Int) -> Int {
   case n {
     0 -> boxed(Box { n: n })
     _ -> 1 + needs_boxed(n - 1)
@@ -243,7 +243,7 @@ fn needs_boxed(n: Int): Int {
 /// ` + "`needs_boxed(n)`" + ` in a case arm is in TAIL position, so the interlock would
 /// claim this declaration in round 1 and the row would stop testing propagation
 /// while still passing under a different name.
-fn needs_needs_boxed(n: Int): Int {
+fn needs_needs_boxed(n: Int) -> Int {
   case n {
     0 -> needs_boxed(n) + 1
     _ -> 1 + needs_needs_boxed(n - 1)

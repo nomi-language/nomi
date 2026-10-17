@@ -7,7 +7,7 @@ import (
 // CheckConcurrentScope enforces Rule 1 of structured concurrency (spec §20):
 //
 //	A `Task.spawn(...)` call is legal only inside the dynamic extent of a
-//	`concurrent { }` block. Reaches transitively — `Task.spawn(|| helper())`
+//	`concurrent { }` block. Reaches transitively — `Task.spawn(fn -> helper())`
 //	where `helper` itself calls `Task.spawn` is legal as long as every chain
 //	from `Task.spawn` up through the call graph bottoms out inside a
 //	`concurrent` block.
@@ -192,7 +192,7 @@ func isStdTasksFile(path string) bool {
 // handles it returns must be consumed (Rule 2), and they must not escape
 // the block (Rule 3). Treating it as a recognised producer is also what
 // covers the alternative spelling,
-// `Iter.map(items, |i| Task.spawn(…))`, is a shape the syntactic trace
+// `Iter.map(items, fn i -> Task.spawn(…))`, is a shape the syntactic trace
 // cannot see at all.
 //
 // `Supervisor.spawn_all` is deliberately absent: group-owned tasks have
@@ -238,7 +238,7 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 
 	case *ast.Lambda:
 		// A lambda's body inherits the inConcurrent depth from its
-		// surrounding context. `Task.spawn(|| body)` is a Call whose arg is
+		// surrounding context. `Task.spawn(fn -> body)` is a Call whose arg is
 		// this Lambda; the Call case below bumps depth around the
 		// callback's body when the callee resolves to `spawn`.
 		if node.Body != nil {
@@ -279,8 +279,6 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 	case *ast.TupleDestructure:
 		s.walkBody(owner, node.Value, inConcurrent)
 	case *ast.StructDestructure:
-		s.walkBody(owner, node.Value, inConcurrent)
-	case *ast.MapDestructure:
 		s.walkBody(owner, node.Value, inConcurrent)
 	case *ast.DistinctDestructure:
 		s.walkBody(owner, node.Value, inConcurrent)
@@ -359,7 +357,7 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 // walkCall is the Call-specific arm of walkBody. The callee is
 // resolved; if it's `spawn`, the call is either covered (inConcurrent
 // > 0) or recorded as a needs-concurrent demand on owner. Either way,
-// the call's arguments are descended into — `Task.spawn(|| body)`'s lambda
+// the call's arguments are descended into — `Task.spawn(fn -> body)`'s lambda
 // body is walked at +1 depth so the body's own nested calls also count
 // as inside-concurrent.
 func (s *concurrentScope) walkCall(owner *Symbol, call *ast.Call, inConcurrent int) {
@@ -388,7 +386,7 @@ func (s *concurrentScope) walkCall(owner *Symbol, call *ast.Call, inConcurrent i
 		}
 	}
 
-	// Walk arguments. For `Task.spawn(|| body)` the lambda body counts as
+	// Walk arguments. For `Task.spawn(fn -> body)` the lambda body counts as
 	// inside-concurrent (the goroutine runs there), so descend its
 	// arguments at +1 depth when the callee is `spawn`.
 	argDepth := inConcurrent
@@ -591,8 +589,6 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 			walk(node.Value, enclosing, inConcurrent)
 		case *ast.StructDestructure:
 			walk(node.Value, enclosing, inConcurrent)
-		case *ast.MapDestructure:
-			walk(node.Value, enclosing, inConcurrent)
 		case *ast.DistinctDestructure:
 			walk(node.Value, enclosing, inConcurrent)
 		case *ast.PatternBinding:
@@ -664,6 +660,7 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 			walk(node.Value, enclosing, inConcurrent)
 		case *ast.Subtests:
 			walk(node.Rows, enclosing, inConcurrent)
+			walk(node.Name, enclosing, inConcurrent)
 			walk(node.Body, enclosing, inConcurrent)
 		case *ast.Defer:
 			walk(node.Call, enclosing, inConcurrent)

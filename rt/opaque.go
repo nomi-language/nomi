@@ -126,7 +126,7 @@ func InstantNow() Instant { return Instant(time.Now().UnixNano()) }
 //
 // A cancelled sleep unwinds the task, which unwinds the enclosing block.
 // Returning Unit instead would let a cancelled task run on past its sleep:
-// `Task.spawn(|| { timer.sleep(Duration.hours(1)); io.print("done") })` would
+// `Task.spawn(fn -> { timer.sleep(Duration.hours(1)); io.print("done") })` would
 // print, and `Task.outcome` would report `Completed` where std says
 // `Cancelled`. `16-concurrency/supervisors/supervisors_test.nomi`
 // asserts exactly the second of those.

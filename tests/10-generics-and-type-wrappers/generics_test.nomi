@@ -9,18 +9,18 @@ enum Wrapper<T> {
 }
 
 interface Mappable<T> {
-    fn get(key: String): T
+    fn get(key: String) -> T
 }
 
-fn identity<T>(x: T): T {
+fn identity<T>(x: T) -> T {
     x
 }
 
-fn make_pair<A, B>(a: A, b: B): Pair<A, B> {
+fn make_pair<A, B>(a: A, b: B) -> Pair<A, B> {
     Pair{first: a, second: b}
 }
 
-fn wrap_list<T>(items: List<T>): List<List<T>> {
+fn wrap_list<T>(items: List<T>) -> List<List<T>> {
     [items]
 }
 

@@ -28,7 +28,7 @@ func runTapProgram(t *testing.T, src string) string {
 func TestTapStage_RunsInOrderAndPassesTheValueOn(t *testing.T) {
 	src := `import std/io
 
-fn next(n: Int): Int {
+fn next(n: Int) -> Int {
     io.print("next ${n}")
     n + 1
 }
@@ -37,20 +37,20 @@ fn main() {
     total =
         1
         |> next()
-        |> tap |n| io.print("tap ${n}")
+        |> tap fn n -> io.print("tap ${n}")
         |> next()
-        |> tap |n| {
+        |> tap fn n -> {
             io.print("braced ${n}")
             io.print("again ${n}")
         }
-        |> then |n| n * 10
-        |> tap |n| io.print("last ${n}")
+        |> then fn n -> n * 10
+        |> tap fn n -> io.print("last ${n}")
 
     io.print("total ${total}")
     words =
         "go north"
         |> String.words()
-        |> tap |ws| io.print("got ${Iter.count(ws)} words")
+        |> tap fn ws -> io.print("got ${Iter.count(ws)} words")
         |> Iter.map(String.to_upper)
         |> Iter.to_list()
 
@@ -69,11 +69,11 @@ func TestTapStage_InsideACapture(t *testing.T) {
 	src := `import std/io
 
 fn main() {
-    run = io.capture("", || {
+    run = io.capture("", fn -> {
         io.print("start")
         7
-        |> tap |n| io.print("saw ${n}")
-        |> then |n| n + 1
+        |> tap fn n -> io.print("saw ${n}")
+        |> then fn n -> n + 1
     })
     io.print("value ${run.value}")
     io.write("output [${run.output}]\n")
@@ -91,7 +91,7 @@ func TestTapStage_DbgTail(t *testing.T) {
 	src := `import std/io
 
 fn main() {
-    n = 4 |> tap |v| dbg v * 2
+    n = 4 |> tap fn v -> dbg v * 2
     io.print("n ${n}")
 }
 `
@@ -106,14 +106,14 @@ fn main() {
 func TestTapStage_GenericAndInLambda(t *testing.T) {
 	src := `import std/io
 
-fn logged<T>(x: T, label: String): T {
-    x |> tap |v| io.print("${label}: ${Debug.inspect(v)}")
+fn logged<T>(x: T, label: String) -> T {
+    x |> tap fn v -> io.print("${label}: ${Debug.inspect(v)}")
 }
 
 fn main() {
     a = logged(5, "five")
     b = logged("s", "str")
-    xs = Iter.map([1, 2], |x| x |> tap |y| io.print("in ${y}")) |> Iter.to_list()
+    xs = Iter.map([1, 2], fn x -> x |> tap fn y -> io.print("in ${y}")) |> Iter.to_list()
     io.print("${a} ${b} ${xs}")
 }
 `

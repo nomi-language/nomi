@@ -1,6 +1,6 @@
 import std/compiler
 
-fn unfinished(flag: Bool, n: Int): Int {
+fn unfinished(flag: Bool, n: Int) -> Int {
     if flag { todo "handle the flag" } else { n * 2 }
 }
 
@@ -16,11 +16,11 @@ test "a todo checks wherever a value is expected" {
               y: Int
             }
 
-            fn parse(text: String): Point {
+            fn parse(text: String) -> Point {
               todo "parse the point"
             }
 
-            fn make(n: Int): Point {
+            fn make(n: Int) -> Point {
               Point{x: n, y: todo}
             }
 
@@ -57,7 +57,7 @@ test "an unannotated binding of a todo asks for a type" {
             """
         |> compiler.check()
 
-    assert Iter.any?(diagnostics, |d| {
+    assert Iter.any?(diagnostics, fn d -> {
         String.contains?(d.message, "cannot infer a type for 'x' from `todo`")
     })
 }

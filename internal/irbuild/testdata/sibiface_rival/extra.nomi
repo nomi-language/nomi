@@ -17,11 +17,11 @@
 import parts.Box
 
 impl Debug for Box {
-    fn inspect(x: Box): String {
+    fn inspect(x: Box) -> String {
         "written<" + Int.to_string(x.w) + ">"
     }
 }
 
-pub fn boxed(w: Int): Box {
+pub fn boxed(w: Int) -> Box {
     Box{w}
 }

@@ -369,11 +369,11 @@ func TestChannelKindsAgreeAcrossEveryChannel(t *testing.T) {
 		// derived from that table — so the witness has to name it or the
 		// ANNOTATION door has nothing in scope to resolve and reads as a refusal.
 		"import std/tasks.Task\n\n" +
-		"fn a(_x: Channel<Int>): Int { 1 }\n" +
-		"fn e(_x: Task<Int>): Int { 1 }\n" +
-		"fn b(_x: Sender<Int>): Int { 1 }\n" +
-		"fn c(_x: Receiver<Int>): Int { 1 }\n" +
-		"fn d(_x: ChannelClosed): Int { 1 }\n\n" +
+		"fn a(_x: Channel<Int>) -> Int { 1 }\n" +
+		"fn e(_x: Task<Int>) -> Int { 1 }\n" +
+		"fn b(_x: Sender<Int>) -> Int { 1 }\n" +
+		"fn c(_x: Receiver<Int>) -> Int { 1 }\n" +
+		"fn d(_x: ChannelClosed) -> Int { 1 }\n\n" +
 		"test \"t\" {\n  assert True\n}\n"
 	p, err := AnalyzeSource("agree", src)
 	if err != nil {
@@ -382,6 +382,7 @@ func TestChannelKindsAgreeAcrossEveryChannel(t *testing.T) {
 	g := newGen(p.Entry(), "nomimod0", nil, nil, -1, nil)
 	g.declareTypes()
 	g.declareFuncs()
+	g.settleImpls()
 
 	// The generic host rows, both doors.
 	for i := range stdGenHostSpecs {

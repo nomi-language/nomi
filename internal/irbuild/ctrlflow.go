@@ -35,7 +35,7 @@ import (
 //
 // # The encoding: Go's own break, because `loop` has no closure
 //
-// `pub host fn loop<S>(f: (S) -> S): S` (std/iter.nomi:120) never mentions
+// `pub host fn loop<S>(f: (S) -> S) -> S` (std/iter.nomi:120) never mentions
 // `Iter`. It has no source, no `Seq` and no `each_while` — it is a
 // state-threading loop whose `break` is its terminator. So the call is lowered
 // as an INLINE Go `for`, the callback's body is emitted directly into it, and
@@ -144,13 +144,20 @@ func irSignallingCallback(owner, method string) bool {
 	switch owner {
 	case "Iter":
 		switch method {
-		case "reduce", "map", "filter", "take_while", "drop_while", "flat_map", "each", "iterate", "find", "any?", "all?":
+		case "reduce", "scan", "map_reduce", "map", "filter", "take_while", "drop_while", "flat_map", "each", "iterate", "find", "any?", "all?":
 			return true
 		}
 	case "Map":
 		return method == "map_values" || method == "map_keys"
 	}
 	return false
+}
+
+// irSeededIterMethod reports whether `Iter.method` takes its seed from its
+// callback lambda's first-parameter default: `reduce`, `scan` and
+// `map_reduce`.
+func irSeededIterMethod(method string) bool {
+	return method == "reduce" || method == "scan" || method == "map_reduce"
 }
 
 // irNamedCtlForm is the signalling form a named function's own body is lowered

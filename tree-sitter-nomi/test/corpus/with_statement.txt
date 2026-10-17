@@ -107,7 +107,7 @@ fn nested(quiet: Bool) {
     with MyApp.logger = Silent
     run()
   }
-  f = || {
+  f = fn -> {
     with MyApp.logger = Silent
     run()
   }

@@ -22,7 +22,7 @@ struct Price {
   weight: Float
 }
 
-fn top(f: Float): String {
+fn top(f: Float) -> String {
   case f {
     0.0 -> "top zero"
     1.5 -> "top 1.5"
@@ -30,36 +30,36 @@ fn top(f: Float): String {
   }
 }
 
-fn top_decimal(d: Decimal): String {
+fn top_decimal(d: Decimal) -> String {
   case d {
     1.5d -> "top 1.5d"
     _ -> "top decimal miss"
   }
 }
 
-fn tuple(x: (Float, Int)): String {
+fn tuple(x: #(Float, Int)) -> String {
   case x {
-    (1.5, n) -> "tuple ${n}"
-    (0.0, n) -> "tuple zero ${n}"
+    #(1.5, n) -> "tuple ${n}"
+    #(0.0, n) -> "tuple zero ${n}"
     _ -> "tuple miss"
   }
 }
 
-fn payload(m: Maybe<Float>): String {
+fn payload(m: Maybe<Float>) -> String {
   case m {
     Some(-2.5) -> "payload -2.5"
     _ -> "payload miss"
   }
 }
 
-fn decimal_payload(m: Maybe<Decimal>): String {
+fn decimal_payload(m: Maybe<Decimal>) -> String {
   case m {
     Some(1.5d) -> "decimal payload"
     _ -> "decimal payload miss"
   }
 }
 
-fn field(p: Price): String {
+fn field(p: Price) -> String {
   case p {
     {amount: 1.50d, weight: 2.0} -> "field both"
     Price{amount: 1.5d} -> "field amount"
@@ -67,43 +67,43 @@ fn field(p: Price): String {
   }
 }
 
-fn list_head(xs: List<Float>): String {
+fn list_head(xs: List<Float>) -> String {
   case xs {
     [1.5, ..rest] -> "list ${rest}"
     _ -> "list miss"
   }
 }
 
-fn decimal_list(xs: List<Decimal>): String {
+fn decimal_list(xs: List<Decimal>) -> String {
   case xs {
     [_, 2.0d] -> "decimal list"
     _ -> "decimal list miss"
   }
 }
 
-fn map_value(m: Map<String, Decimal>): String {
+fn map_value(m: Map<String, Decimal>) -> String {
   case m {
-    {"a" => 2.0d} -> "map a"
+    %{"a" => 2.0d} -> "map a"
     _ -> "map miss"
   }
 }
 
-fn as_whole(x: (Float, Int)): String {
+fn as_whole(x: #(Float, Int)) -> String {
   case x {
-    (2.5 as f, _) -> "as ${f}"
+    #(2.5 as f, _) -> "as ${f}"
     _ -> "as miss"
   }
 }
 
-fn pattern_if(x: (Decimal, Int)): String {
-  if (1.5d, n) = x {
+fn pattern_if(x: #(Decimal, Int)) -> String {
+  if #(1.5d, n) = x {
     "if ${n}"
   } else {
     "if miss"
   }
 }
 
-fn top_if(f: Float): String {
+fn top_if(f: Float) -> String {
   if 1.5 = f {
     "top if"
   } else {
@@ -111,14 +111,14 @@ fn top_if(f: Float): String {
   }
 }
 
-fn else_binding(x: (Float, Int)): String {
-  (0.0, n) = x else {
+fn else_binding(x: #(Float, Int)) -> String {
+  #(0.0, n) = x else {
     return "else miss"
   }
   "else ${n}"
 }
 
-fn top_else(d: Decimal): String {
+fn top_else(d: Decimal) -> String {
   1.5d = d else {
     return "top else miss"
   }
@@ -132,10 +132,10 @@ fn main() {
   io.print(top(nan))
   io.print(top_decimal(1.500d))
   io.print(top_decimal(1.51d))
-  io.print(tuple((1.5, 2)))
-  io.print(tuple((-0.0, 3)))
-  io.print(tuple((1.25, 2)))
-  io.print(tuple((nan, 2)))
+  io.print(tuple(#(1.5, 2)))
+  io.print(tuple(#(-0.0, 3)))
+  io.print(tuple(#(1.25, 2)))
+  io.print(tuple(#(nan, 2)))
   io.print(payload(Some(-2.5)))
   io.print(payload(Some(2.5)))
   io.print(decimal_payload(Some(1.500d)))
@@ -147,21 +147,21 @@ fn main() {
   io.print(list_head([2.0]))
   io.print(decimal_list([1d, 2.00d]))
   io.print(decimal_list([1d, 2.01d]))
-  io.print(map_value({"a" => 2.00d}))
-  io.print(map_value({"a" => 2.01d}))
-  io.print(as_whole((2.5, 1)))
-  io.print(as_whole((2.4, 1)))
-  io.print(pattern_if((1.50d, 7)))
-  io.print(pattern_if((1.51d, 7)))
+  io.print(map_value(%{"a" => 2.00d}))
+  io.print(map_value(%{"a" => 2.01d}))
+  io.print(as_whole(#(2.5, 1)))
+  io.print(as_whole(#(2.4, 1)))
+  io.print(pattern_if(#(1.50d, 7)))
+  io.print(pattern_if(#(1.51d, 7)))
   io.print(top_if(1.5))
   io.print(top_if(1.6))
-  io.print(else_binding((-0.0, 9)))
-  io.print(else_binding((0.1, 9)))
+  io.print(else_binding(#(-0.0, 9)))
+  io.print(else_binding(#(0.1, 9)))
   io.print(top_else(1.5000d))
   io.print(top_else(1.4d))
-  near = |x: (Float, Int)| if (0.5, n) = x { "lambda ${n}" } else { "lambda miss" }
-  io.print(near((0.5, 4)))
-  io.print(near((0.25, 4)))
+  near = fn x: #(Float, Int) -> if #(0.5, n) = x { "lambda ${n}" } else { "lambda miss" }
+  io.print(near(#(0.5, 4)))
+  io.print(near(#(0.25, 4)))
 }
 `)
 	want := strings.Join([]string{
@@ -212,26 +212,26 @@ func TestRun_FloatAndDecimalLiteralPatternsInATestBody(t *testing.T) {
 	p, err := vmhost.LoadSource(name, `import std/io
 
 test "assert matched" {
-  assert (1.5, n) = (1.5, 2)
-  assert (1.5d, m) = (1.50d, 3)
+  assert #(1.5, n) = #(1.5, 2)
+  assert #(1.5d, m) = #(1.50d, 3)
   assert 0.0 = -0.0
   io.print("assert ${n} ${m}")
 }
 
 test "assert missed" {
-  assert (1.5, _) = (1.25, 2)
+  assert #(1.5, _) = #(1.25, 2)
 }
 
 test "case" {
-  zero = (-0.0, 4)
+  zero = #(-0.0, 4)
   a = case zero {
-    (0.0, n) -> "zero ${n}"
-    (_, n) -> "other ${n}"
+    #(0.0, n) -> "zero ${n}"
+    #(_, n) -> "other ${n}"
   }
-  one = (1.0, 5)
+  one = #(1.0, 5)
   b = case one {
-    (0.0, n) -> "zero ${n}"
-    (_, n) -> "other ${n}"
+    #(0.0, n) -> "zero ${n}"
+    #(_, n) -> "other ${n}"
   }
   io.print("${a}, ${b}")
   assert a == "zero 4"
@@ -250,8 +250,8 @@ test "case" {
 		"  assert 2 3",
 		"FAIL main_test.nomi :: assert missed",
 		"  line 11: pattern did not match",
-		"    assert (1.5, _) = (1.25, 2)",
-		"    actual: (1.25, 2)",
+		"    assert #(1.5, _) = #(1.25, 2)",
+		"    actual: #(1.25, 2)",
 		"ok main_test.nomi :: case",
 		"  zero 4, other 5",
 		"test result: FAILED. 2 passed, 1 failed",

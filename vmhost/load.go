@@ -2,6 +2,7 @@ package vmhost
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -34,6 +35,9 @@ type config struct {
 	env          map[string]string
 	input        io.Reader
 	stop         context.Context
+	// lowering, when set, stops a lowering when it is done (CheckLowering):
+	// the load answers its error.
+	lowering context.Context
 	// allowUnusedBindings drops unused-binding errors. See
 	// WithUnusedBindingsAllowed.
 	allowUnusedBindings bool
@@ -166,6 +170,15 @@ func hostKeys(tables []HostTable) (map[string]bool, error) {
 // internal/irbuild.
 var lowering sync.Mutex
 
+// loweringStopped is the error of c's lowering context once it is done, or
+// nil.
+func (c *config) loweringStopped() error {
+	if c.lowering == nil {
+		return nil
+	}
+	return c.lowering.Err()
+}
+
 // Load runs the front end over the program at path and lowers it for the VM.
 // A front-end error is returned as `nomi run` reports it.
 func Load(path string, opts ...Option) (*Program, error) {
@@ -266,9 +279,22 @@ func lower(cfg config, analyze func() (*irbuild.Program, error)) (*Program, erro
 		irbuild.IRDeclineObserved = func(fn, reason string) { declines[fn] = reason }
 		irbuild.IRDeclineAt = func(d *irbuild.Decline) { details = append(details, d) }
 		defer func() { irbuild.IRDeclineObserved, irbuild.IRDeclineAt = nil, nil }()
+		if err := cfg.loweringStopped(); err != nil {
+			return err
+		}
 		prog, err = analyze()
-		if err == nil {
-			res, _, err = irbuild.GenerateIR(prog)
+		if err != nil {
+			return err
+		}
+		if err := cfg.loweringStopped(); err != nil {
+			return err
+		}
+		if cfg.lowering != nil {
+			prog.Stop = func() bool { return cfg.lowering.Err() != nil }
+		}
+		res, _, err = irbuild.GenerateIR(prog)
+		if errors.Is(err, irbuild.ErrStopped) {
+			err = cfg.lowering.Err()
 		}
 		return err
 	}()

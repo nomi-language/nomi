@@ -1,0 +1,20 @@
+/// A US coin, smallest first.
+pub enum Coin {
+    Penny
+    Nickel
+    Dime
+    Quarter
+}
+
+derive Comparable for Coin
+derive Variants for Coin
+
+/// The coin's value in cents.
+pub fn cents(coin: Coin) -> Int {
+    case coin {
+        .Penny -> 1
+        .Nickel -> 5
+        .Dime -> 10
+        .Quarter -> 25
+    }
+}

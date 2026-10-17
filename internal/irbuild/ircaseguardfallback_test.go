@@ -13,7 +13,7 @@ func TestIRCaseGuard_GuardsOverAnyPatternRun(t *testing.T) {
 		{"0 when n >= 0 -> 1", "0\n1\n0\n"},
 		{"value when (if value > 0 { True } else { False }) -> 1", "1\n0\n0\n"},
 	} {
-		verifyLambdaProgram(t, "import std/io\nfn choose(n: Int): Int {\n case n {\n"+tc.arm+
+		verifyLambdaProgram(t, "import std/io\nfn choose(n: Int) -> Int {\n case n {\n"+tc.arm+
 			"\n _ -> 0\n }\n}\nfn main() {\n io.print(choose(7))\n io.print(choose(0))\n io.print(choose(-1))\n}\n",
 			tc.want)
 	}

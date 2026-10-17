@@ -62,6 +62,7 @@ var stdlibInventory = []stdModuleRow{
 	{module: "strings"},
 	{module: "structs"},
 	{module: "subtract"},
+	{module: "summable"},
 	{module: "supervisors"},
 	{module: "tasks"},
 	{module: "testing"},
@@ -69,5 +70,6 @@ var stdlibInventory = []stdModuleRow{
 	{module: "toml"},
 	{module: "type"},
 	{module: "unit"},
+	{module: "variants"},
 	{module: "vectors"},
 }

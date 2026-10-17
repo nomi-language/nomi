@@ -119,7 +119,8 @@ func (bl *irScalarBuilder) testDestructure(pat ast.Node, ctx ir.Temp, k kind) bo
 		return false
 	}
 	g, sh := bl.g, bl.sh
-	entry, at, prologue, patternOK := sh.entry, sh.at, sh.prologue, sh.patternOK
+	entry, at, prologue, patternOK, orParams := sh.entry, sh.at, sh.prologue, sh.patternOK, sh.orParams
+	defer func() { sh.orParams = orParams }()
 	sh.entry = bl.b
 	if sh.at == nil {
 		sh.at = pat
@@ -156,7 +157,7 @@ func (bl *irScalarBuilder) testDestructure(pat ast.Node, ctx ir.Temp, k kind) bo
 		bl.bound[b.Sym().Name()], bl.boundK[b.Sym().Name()] = b.Dst(), bk
 		bl.declareBind(b, bk)
 	}
-	return true
+	return bl.orParamTests()
 }
 
 // irSetupExit is where a group's `setup` that holds a `return` leaves: the

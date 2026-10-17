@@ -16,11 +16,7 @@ fn main() {
     io.print("${[[1, 2], [3]]}")
 
     io.print("${[
-        [
-            [
-                "deep",
-            ],
-        ],
+        [["deep"]],
     ]}")
 
     tail = [4, 5]
@@ -57,16 +53,16 @@ fn main() {
     io.print("${order([note(1), note(2), note(3)])}")
 }
 
-fn note(n: Int): Int {
+fn note(n: Int) -> Int {
     io.print("evaluating ${n}")
     n
 }
 
-fn order(xs: List<Int>): String {
+fn order(xs: List<Int>) -> String {
     "${xs}"
 }
 
-fn sum(xs: List<Int>): Int {
+fn sum(xs: List<Int>) -> Int {
     case xs {
         [] -> 0
         [h, ..t] -> h + sum(t)
@@ -75,7 +71,7 @@ fn sum(xs: List<Int>): Int {
 
 // Exact-length arms sit between spread arms deliberately: arm order is
 // observable, and `[a, b]` must NOT match a three-element list.
-fn describe(xs: List<Int>): String {
+fn describe(xs: List<Int>) -> String {
     case xs {
         [] -> "empty"
         [a] -> "one: ${a}"
@@ -84,7 +80,7 @@ fn describe(xs: List<Int>): String {
     }
 }
 
-fn flagged(args: List<String>): String {
+fn flagged(args: List<String>) -> String {
     case args {
         ["--verbose", ..rest] -> "verbose with ${rest}"
         _ -> "plain ${args}"

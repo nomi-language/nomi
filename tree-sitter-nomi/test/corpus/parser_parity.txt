@@ -3,7 +3,7 @@ An assertion whose subject starts like a pattern is a comparison
 ================================================================================
 
 test "t" {
-    assert (1, 2) == (1, 2)
+    assert #(1, 2) == #(1, 2)
     assert [1, ..[2]] == [1, 2]
     assert Some(1) == Some(1)
     assert "ab" + "c" == "abc"
@@ -132,7 +132,7 @@ test "t" {
 A guard arm takes a when clause
 ================================================================================
 
-fn f(n: Int): String {
+fn f(n: Int) -> String {
     case {
         loud("b", n > 10) when n != 50 -> "b"
         _ -> "c"
@@ -173,7 +173,7 @@ fn f(n: Int): String {
 A struct pattern names the whole value with as
 ================================================================================
 
-fn f(s: Shape): Int {
+fn f(s: Shape) -> Int {
     case s {
         .Rect{w, h} as r when w == h -> 1
         other -> 2
@@ -195,11 +195,13 @@ fn f(s: Shape): Int {
         (identifier)
         (case_branch
           (as_pattern
-            (struct_construction
+            (struct_pattern
               (dot_variant
                 (type_identifier))
-              (identifier)
-              (identifier))
+              (pattern_field
+                (identifier))
+              (pattern_field
+                (identifier)))
             (identifier))
           (binary_expression
             (identifier)
@@ -275,7 +277,7 @@ fn f(p: Point) {
 An if condition on a type name keeps its block
 ================================================================================
 
-fn f(): Unit {
+fn f() -> Unit {
     when_true = if True { Unit }
     if False {}
 }
@@ -303,7 +305,7 @@ An interface declares a host function
 ================================================================================
 
 pub interface Struct {
-    host fn update(original: self, updates: Partial<self>): self
+    host fn update(original: self, updates: Partial<self>) -> self
 }
 
 --------------------------------------------------------------------------------
@@ -343,7 +345,7 @@ x = 1e20
 A keyword's operand starts on its line
 ================================================================================
 
-fn f(n: Int): Int {
+fn f(n: Int) -> Int {
     d = n |> dbg
 
     same = dbg n
@@ -387,7 +389,7 @@ fn f(n: Int): Int {
 A case arm ends before a negative literal on the next line
 ================================================================================
 
-fn f(d: Decimal): Int {
+fn f(d: Decimal) -> Int {
     case d {
         2d -> 2
         -0.001d -> 3
@@ -425,7 +427,7 @@ A case arm in an attached test ends before the next prompted arm
 //!     .Ok(v) -> v
 //!     .Err(_) -> "?"
 //! }
-fn parse(s: String): Result<String, String> {
+fn parse(s: String) -> Result<String, String> {
     Ok(s)
 }
 
@@ -497,8 +499,8 @@ A headless brace is classified by its contents
 
 fn f() {
     a = {x: 1}
-    m = {"k" => 1}
-    g = || {
+    m = %{"k" => 1}
+    g = fn -> {
         t: Map<String, Int> = Map.empty()
         t
     }

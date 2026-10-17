@@ -3,7 +3,7 @@
 // must NOT reach it.
 //
 // `siblingEqualCall` resolves through `fileIndex.implMembers`, which is keyed on
-// `(declaration node, method)` and says nothing about the interface — two blocks
+// `#(declaration node, method)` and says nothing about the interface — two blocks
 // may legally provide one method name for one receiver, and only the qualifier
 // says which. So without the `iface != "Equatable"` skip the operator would call
 // `Loose.equal?`, whose body deliberately answers True for values the structural
@@ -18,7 +18,7 @@ import {
     shapes.{self, Loose, Point}
 }
 
-fn tag(p: Point): String {
+fn tag(p: Point) -> String {
     Int.to_string(p.x)
 }
 

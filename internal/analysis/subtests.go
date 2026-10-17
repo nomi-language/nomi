@@ -52,7 +52,7 @@ func (c *checker) checkSubtests(n *ast.Subtests) Type {
 	case c.subtestsRow != nil:
 		c.report(TypeError{Line: n.Line, Col: n.Col,
 			Message: "`subtests` cannot be written inside another `subtests` body: each row of the outer statement is one case",
-			Hints:   []string{"combine the two row lists into one, as in `subtests pairs, (a, b) { ... }`, or write the inner rows as a test of their own"}})
+			Hints:   []string{"combine the two row lists into one, as in `subtests pairs, #(a, b) { ... }`, or write the inner rows as a test of their own"}})
 	case c.setupBoundary != "" && c.tryBoundary == c.setupBoundary:
 		c.report(TypeError{Line: n.Line, Col: n.Col,
 			Message: "`subtests` cannot be used in a `setup`: a setup builds the value each test binds",
@@ -62,11 +62,14 @@ func (c *checker) checkSubtests(n *ast.Subtests) Type {
 	}
 	if n.Pattern != nil {
 		if rowTy != nil {
-			checkParamPatternRefutable(n.Pattern, rowTy, c.reg, func(line, col int, _ string) {
+			c.checkParamPatternRefutable(n.Pattern, rowTy, func(line, col int, _ string) {
 				c.addError(line, col, refutableSubtestsPatternMsg)
 			})
 		}
 		c.checkPattern(n.Pattern, rowTy)
+	}
+	if n.Name != nil {
+		c.checkSubtestsName(n.Name)
 	}
 	if rowTy != nil {
 		if c.fa.SubtestsRowTypes == nil {
@@ -92,6 +95,35 @@ func (c *checker) checkSubtests(n *ast.Subtests) Type {
 	return TypeUnit
 }
 
+// subtestsNameExitless is the site of a row's name: the VM evaluates it on
+// its own, before the row's body runs, so it is no part of the row an exit
+// could leave (rejectExitlessExit).
+var subtestsNameExitless = &exitlessSite{
+	what: "the name of a `subtests` row",
+	why:  "the name is evaluated on its own, before the row runs",
+	hint: "handle the Result or Maybe inside the name with `case`, or compute the name in a function",
+}
+
+// checkSubtestsName checks a row's name, `subtests rows, pattern, name`: a
+// String expression in the scope of the pattern's bindings. An exit or an
+// assertion written directly in it is an error, as in a `once` initializer.
+func (c *checker) checkSubtestsName(name ast.Node) {
+	prevRow, prevUnwinds := c.subtestsRow, c.tryUnwinds
+	c.subtestsRow, c.tryUnwinds = nil, nil
+	ty := c.checkExitless(subtestsNameExitless, func() Type {
+		return c.checkNodeExpecting(name, TypeString)
+	})
+	c.subtestsRow, c.tryUnwinds = prevRow, prevUnwinds
+	if ty == nil {
+		return
+	}
+	if c.unify(TypeString, ty, nil) != nil {
+		c.report(errAt(name, c.typef(
+			"the name of a `subtests` row must be a String, got %s", ty)).WithHint(
+			"build a String from the row's values, as in `\"${input}\"`"))
+	}
+}
+
 // checkSubtestsBoundary places the statement as an assertion is placed: its
 // failure leaves the activation it is written in.
 func (c *checker) checkSubtestsBoundary(n *ast.Subtests) {
@@ -107,7 +139,7 @@ func (c *checker) checkSubtestsBoundary(n *ast.Subtests) {
 
 // subtestsRowType is the element type of rowsTy as an `Iter` sees it: T for
 // an `Iter<T>`, and for anything else whatever its `Iter` impl yields (a
-// List's or Vector's element, a Set's member, a Map's `(key, value)` pair, a
+// List's or Vector's element, a Set's member, a Map's `#(key, value)` pair, a
 // Range's value, a user type's own). ok is false when rowsTy is no Iter, and
 // the type is nil with ok true when it is one whose element is not
 // determined (`[]`).
@@ -238,7 +270,7 @@ func (c *checker) rowTailCannotFail(n ast.Node) bool {
 func isRowStatement(n ast.Node) bool {
 	switch n.(type) {
 	case *ast.Binding, *ast.Defer, *ast.With, *ast.TupleDestructure, *ast.StructDestructure,
-		*ast.MapDestructure, *ast.DistinctDestructure, *ast.PatternBinding:
+		*ast.DistinctDestructure, *ast.PatternBinding:
 		return true
 	}
 	return false

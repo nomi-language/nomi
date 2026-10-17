@@ -58,10 +58,10 @@ func buildBarePipeStageActions(content, uri string, diags []protocol.Diagnostic)
 }
 
 // "Write `then`" answers the checker's error for a lambda piped into
-// (`x |> |v| v + 1`): a lambda is not a stage, and `then |v| ...` is. The
-// fix inserts `then ` before the lambda, and is offered only when the
-// diagnostic starts at a `|` that directly follows a `|>`, so a lambda in
-// parentheses, `x |> (|v| v + 1)`, gets none.
+// (`x |> fn v -> v + 1`): a lambda is not a stage, and `then fn v -> ...`
+// is. The fix inserts `then ` before the lambda, and is offered only when the
+// diagnostic starts at a lambda's `fn` that directly follows a `|>`, so a
+// lambda in parentheses, `x |> (fn v -> v + 1)`, gets none.
 func buildLambdaPipeStageActions(content, uri string, diags []protocol.Diagnostic) []protocol.CodeAction {
 	var lines *lineIndex
 	var actions []protocol.CodeAction
@@ -77,7 +77,7 @@ func buildLambdaPipeStageActions(content, uri string, diags []protocol.Diagnosti
 			continue
 		}
 		start := lines.byteCol(d.Range.Start.Line, d.Range.Start.Character) - 1
-		if start < 0 || start >= len(text) || text[start] != '|' {
+		if start < 0 || start+2 > len(text) || text[start:start+2] != "fn" {
 			continue
 		}
 		if !strings.HasSuffix(strings.TrimRight(text[:start], " \t"), "|>") {

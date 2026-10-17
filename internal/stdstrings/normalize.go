@@ -1,12 +1,14 @@
 // Package stdstrings is std/strings' host implementation for the operations
-// that need a dependency `rt` does not carry.
+// that need a dependency `rt` does not carry: `String.normalize` needs
+// x/text, and `String.captures` and `String.captures_all` (captures.go) need
+// std/regex's compiled pattern, which only nomi/stdregex can open.
 //
 // # Why this is not in rt, and how the reason differs from stdio's
 //
-// One function today: `String.normalize`, which needs
-// golang.org/x/text/unicode/norm. rt does not import x/text, and rt is linked
-// by everything that runs Nomi, so an x/text import in rt would be a decision
-// about every binary. Placed here, it is a decision about the compiler only.
+// `String.normalize` needs golang.org/x/text/unicode/norm. rt does not import
+// x/text, and rt is linked by everything that runs Nomi, so an x/text import
+// in rt would be a decision about every binary. Placed here, it is a decision
+// about the compiler only.
 //
 // rt does import `github.com/rivo/uniseg`, for `String.length`'s grapheme
 // clusters, because `String.length` is an ordinary language primitive rather

@@ -98,8 +98,8 @@ func TestIRRtOperationsThatTakeAPosition(t *testing.T) {
 			continue
 		}
 		// The error/text/failure CONSTRUCTORS build a boxed error or a
-		// report for the same operation (rt.SubtestsFailure is a
-		// `subtests` statement's report). They carry a line for the
+		// report for the same operation (rt.SubtestsFailure and rt.SubtestNameTrapFailure are
+		// `subtests` statement's report and a row's). They carry a line for the
 		// message, not as an operation's position.
 		if strings.HasSuffix(n, "Error") || strings.HasSuffix(n, "Text") || strings.HasSuffix(n, "Failure") {
 			continue

@@ -5,12 +5,12 @@ struct Point {
     y: Int
 }
 
-fn norm(p: Point): Int {
+fn norm(p: Point) -> Int {
     p.x * p.x + p.y * p.y
 }
 
-fn spin(n: Int): Int {
-    Iter.loop(|i = 0| {
+fn spin(n: Int) -> Int {
+    Iter.loop(fn i = 0 -> {
         if i < 0 {
             break i
         } else {
@@ -25,7 +25,7 @@ fn main() {
     label = "pt"
 
     (1..=6)
-    |> Iter.each(|i| {
+    |> Iter.each(fn i -> {
         text = "${label} ${i}"
         io.print(text)
     })

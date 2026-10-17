@@ -182,8 +182,8 @@ func (c *checker) declaredHere(sym *Symbol) bool {
 		return true
 	}
 	for _, top := range c.fa.ModuleScope.Symbols {
-		if top.SourceFile == "" && c.fa.Definitions[top.Pos] == top {
-			if m, ok := top.Members[sym.Name]; ok && m == sym {
+		if c.fa.Definitions[top.Pos] == top {
+			if m, ok := top.Members[sym.Name]; ok && m == sym && (sym.SourceFile == "" || sym.SourceFile == c.fa.FilePath) {
 				return true
 			}
 		}

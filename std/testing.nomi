@@ -41,4 +41,4 @@ pub enum Clock {
 /// `nomi test`.
 //! refute testing.check(1 == 2)
 //
-pub host fn check<T>(subject: T): Result<T, AssertionFailure>
+pub host fn check<T>(subject: T) -> Result<T, AssertionFailure>

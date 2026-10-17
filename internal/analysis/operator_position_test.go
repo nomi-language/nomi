@@ -45,11 +45,11 @@ fn main() {
 }
 `, "comparison type mismatch: Int vs String"},
 		{"unorderable operand", `fn main() {
-    _ = (1, 2) ‸< (1, 3)
+    _ = #(1, 2) ‸< #(1, 3)
 }
 `, "no impl of `Comparable`"},
 		{"type without an operator impl", `fn main() {
-    _ = {"a" => 1} ‸- {"a" => 1}
+    _ = %{"a" => 1} ‸- %{"a" => 1}
 }
 `, "no impl of `Subtract` for `Map`"},
 		{"right operand of a single impl", `fn main() {

@@ -20,7 +20,7 @@ func TestExitless_EarlyExitWithNoFunctionIsRejected(t *testing.T) {
 			name: "try in a once",
 			src: `once n = try Ok(3)
 
-fn f(): Result<Int, String> {
+fn f() -> Result<Int, String> {
     Ok(n)
 }`,
 			line: 1, col: 10,
@@ -32,7 +32,7 @@ fn f(): Result<Int, String> {
 			// `try`: the once is checked from its read, and the reader's
 			// boundary must not count.
 			name: "try stage in a once read above it",
-			src: `fn f(): Maybe<Int> {
+			src: `fn f() -> Maybe<Int> {
     Some(n)
 }
 
@@ -107,7 +107,7 @@ impl P {
 		},
 		{
 			name: "try in a fn parameter default",
-			src: `fn f(x: Int = try Some(3)): Maybe<Int> {
+			src: `fn f(x: Int = try Some(3)) -> Maybe<Int> {
     Some(x)
 }`,
 			line: 1, col: 15,
@@ -121,7 +121,7 @@ impl P {
         return 3
     }
     4
-}): Int {
+}) -> Int {
     x
 }`,
 			line: 3, col: 9,
@@ -129,20 +129,20 @@ impl P {
 		},
 		{
 			name: "try in a lambda parameter default",
-			src: `fn f(): Maybe<Int> {
-    g = |x: Int = try Some(3)| x + 1
+			src: `fn f() -> Maybe<Int> {
+    g = fn x: Int = try Some(3) -> x + 1
     Some(g())
 }`,
-			line: 2, col: 19,
+			line: 2, col: 21,
 			msg: "`try` cannot be used in the default of parameter 'x'",
 		},
 		{
 			name: "try in an unannotated lambda parameter default",
-			src: `fn f(): Maybe<Int> {
-    g = |x = try Some(3)| x + 1
+			src: `fn f() -> Maybe<Int> {
+    g = fn x = try Some(3) -> x + 1
     Some(g())
 }`,
-			line: 2, col: 14,
+			line: 2, col: 16,
 			msg: "`try` cannot be used in the default of parameter 'x'",
 		},
 		{
@@ -199,18 +199,18 @@ impl P {
 // are boundaries of their own: an exit there leaves that boundary.
 func TestExitless_ExitInsideANestedBoundaryIsAccepted(t *testing.T) {
 	cases := []struct{ name, src string }{
-		{"try in a lambda in a once", `once f = |x: Result<Int, String>| {
+		{"try in a lambda in a once", `once f = fn x: Result<Int, String> -> {
     v = try x
     Ok(v + 1)
 }`},
-		{"return in a lambda in a once", `once k = |x: Int| {
+		{"return in a lambda in a once", `once k = fn x: Int -> {
     if x > 0 {
         return 1
     }
     0
 }`},
 		{"try in a nested fn in a once", `once g: Maybe<Int> = {
-    fn h(x: Maybe<Int>): Maybe<Int> {
+    fn h(x: Maybe<Int>) -> Maybe<Int> {
         Some(try x)
     }
     h(Some(4))
@@ -219,17 +219,17 @@ func TestExitless_ExitInsideANestedBoundaryIsAccepted(t *testing.T) {
     v = try Ok(3)
     Ok(v)
 }`},
-		{"continue in an iteration callback in a once", `once total = [1, 2, 3] |> Iter.map(|x| {
+		{"continue in an iteration callback in a once", `once total = [1, 2, 3] |> Iter.map(fn x -> {
     if x == 2 {
         continue
     }
     x
 }) |> Iter.to_list()`},
-		{"try in a lambda in a parameter default", `fn f(g: (Maybe<Int>) -> Maybe<Int> = |m| Some(try m + 1)): Maybe<Int> {
+		{"try in a lambda in a parameter default", `fn f(g: (Maybe<Int>) -> Maybe<Int> = fn m -> Some(try m + 1)) -> Maybe<Int> {
     g(Some(1))
 }`},
 		{"try in a lambda in a field default", `struct P {
-    g: (Maybe<Int>) -> Maybe<Int> = |m| Some(try m + 1)
+    g: (Maybe<Int>) -> Maybe<Int> = fn m -> Some(try m + 1)
 }`},
 	}
 	for _, tc := range cases {

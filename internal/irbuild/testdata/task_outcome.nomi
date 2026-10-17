@@ -44,7 +44,7 @@ import {
 // Outcome — is still refused, and a fixture that reached for it would be
 // measuring somebody else's gap.
 // Read the payload back out, so a construction that dropped it fails here.
-fn value_of(o: Outcome<Int>): Int {
+fn value_of(o: Outcome<Int>) -> Int {
     case o {
         Outcome.Completed(v) -> v
         Outcome.Cancelled -> -1
@@ -54,7 +54,7 @@ fn value_of(o: Outcome<Int>): Int {
 
 // The DOT SHORTHAND in pattern position, which reads the parameter's annotation
 // rather than a written qualifier.
-fn tag_of(o: Outcome<Int>): String {
+fn tag_of(o: Outcome<Int>) -> String {
     case o {
         .Completed(_) -> "completed"
         .Cancelled -> "cancelled"
@@ -65,7 +65,7 @@ fn tag_of(o: Outcome<Int>): String {
 // The NAMED payload, destructured. `Failure` has no representation of its own
 // outside this type, so reading its variants is what shows the payload enum's
 // tags and its single shared `Msg` slot are right.
-fn why(o: Outcome<Int>): String {
+fn why(o: Outcome<Int>) -> String {
     case o {
         Outcome.Failed(.Panicked(m)) -> "panicked:${m}"
         Outcome.Failed(.Errored(m)) -> "errored:${m}"
@@ -77,7 +77,7 @@ fn why(o: Outcome<Int>): String {
 // A DIFFERENT type argument, so the instantiation is not the only one in the
 // file: a shared intern keyed on the base name rather than on the whole
 // instantiation would collapse these two and this row would print the wrong thing.
-fn label(o: Outcome<String>): String {
+fn label(o: Outcome<String>) -> String {
     case o {
         Outcome.Completed(s) -> s
         Outcome.Cancelled -> "(cancelled)"
@@ -88,7 +88,7 @@ fn label(o: Outcome<String>): String {
 // The bare variant NESTED inside a prelude variant, so the descent reaches it
 // rather than stopping at the `Maybe` — and so the two sentinels (`None` and
 // `Outcome.Cancelled`) are both live in one expression.
-fn nested(m: Maybe<Outcome<Int>>): Int {
+fn nested(m: Maybe<Outcome<Int>>) -> Int {
     case m {
         Some(Outcome.Completed(v)) -> v
         Some(Outcome.Cancelled) -> -1
@@ -116,11 +116,11 @@ fn nested(m: Maybe<Outcome<Int>>): Int {
 // it predates this file, and `Fragment` has it too. Recorded here and asserted
 // by TestOutcome_ConcretePayloadBindingIsAPreExistingGap rather than worked
 // around silently.
-fn broke_with(msg: String): Outcome<Int> {
+fn broke_with(msg: String) -> Outcome<Int> {
     Outcome.Failed(Failure.Errored(msg))
 }
 
-fn panicked_with(msg: String): Outcome<Int> {
+fn panicked_with(msg: String) -> Outcome<Int> {
     Outcome.Failed(Failure.Panicked(msg))
 }
 

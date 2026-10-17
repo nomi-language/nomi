@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -142,10 +143,10 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 	if !ok {
 		return ty
 	}
-	if c.namesIterReduce(node) {
+	if seeded := c.namesSeededIterFunc(node); seeded != "" {
 		// Its callback arrives later, so nothing here can give it a starting
 		// value (checkReduceSeed).
-		c.report(reduceSeedError(node, "call it from a lambda with a seeded callback instead: `|xs, f| Iter.reduce(xs, |acc = <start>, x| f(acc, x))`"))
+		c.report(reduceSeedError(seeded, node, fmt.Sprintf("call it from a lambda with a seeded callback instead: `fn xs, f -> Iter.%s(xs, fn acc = <start>, x -> f(acc, x))`", seeded)))
 		return nil
 	}
 	line, col := nodeLineCol(node)
@@ -198,16 +199,20 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 	return inst
 }
 
-// namesIterReduce reports whether node, a function named as a value, is
-// std's `Iter.reduce`. A program cannot declare its own `Iter`.
-func (c *checker) namesIterReduce(node ast.Node) bool {
+// namesSeededIterFunc answers the name of the seeded `Iter` function
+// (seededIterFuncs) node names as a value, or "". A program cannot declare
+// its own `Iter`.
+func (c *checker) namesSeededIterFunc(node ast.Node) string {
 	fa, ok := node.(*ast.FieldAccess)
-	if !ok || fa.Field == nil || fa.Field.Name != "reduce" {
-		return false
+	if !ok || fa.Field == nil || !slices.Contains(seededIterFuncs, fa.Field.Name) {
+		return ""
 	}
 	sym := c.fa.References[Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
 	for sym != nil && sym.Resolved != nil {
 		sym = sym.Resolved
 	}
-	return sym != nil && sym.OwningType == "Iter"
+	if sym == nil || sym.OwningType != "Iter" {
+		return ""
+	}
+	return fa.Field.Name
 }

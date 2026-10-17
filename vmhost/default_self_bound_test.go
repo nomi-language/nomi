@@ -8,9 +8,9 @@ import "testing"
 // it writes the function itself.
 
 const defaultSelfBoundScale = `interface Scale {
-    fn label(scale: self): String
+    fn label(scale: self) -> String
 
-    fn format(scale: self): String where self: Display {
+    fn format(scale: self) -> String where self: Display {
         "${label(scale)}=${scale}"
     }
 }
@@ -21,13 +21,13 @@ func TestDefaultSelfBound_Runs(t *testing.T) {
 type Shown Int
 
 impl Display for Shown {
-    fn to_string(_s: Shown): String {
+    fn to_string(_s: Shown) -> String {
         "shown"
     }
 }
 
 impl Scale for Shown {
-    fn label(_s: Shown): String {
+    fn label(_s: Shown) -> String {
         "a"
     }
 }
@@ -35,16 +35,16 @@ impl Scale for Shown {
 type Plain Int
 
 impl Scale for Plain {
-    fn label(_p: Plain): String {
+    fn label(_p: Plain) -> String {
         "b"
     }
 
-    fn format(_p: Plain): String {
+    fn format(_p: Plain) -> String {
         "plain"
     }
 }
 
-fn show<T>(x: T): String where T: Scale {
+fn show<T>(x: T) -> String where T: Scale {
     T.format(x)
 }
 
@@ -55,7 +55,7 @@ fn main() {
     io.print(show(Shown(3)))
     io.print(show(Plain(4)))
     all: List<Scale> = [Shown(5), Plain(6)]
-    all |> Iter.each(|s| io.print(Scale.format(s)))
+    all |> Iter.each(fn s -> io.print(Scale.format(s)))
 }
 `})
 	if want := "a=shown\na=shown\nplain\na=shown\nplain\na=shown\nplain\n"; got != want {
@@ -69,7 +69,7 @@ func TestDefaultSelfBound_SeveralBoundsRun(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
 
 interface Scale {
-    fn c(scale: self): String where self: Display and Hashable and Comparable {
+    fn c(scale: self) -> String where self: Display and Hashable and Comparable {
         "${scale} ${Hashable.hash(scale)} ${[scale]} ${scale < scale}"
     }
 }
@@ -77,13 +77,13 @@ interface Scale {
 type Shown Int
 
 impl Display for Shown {
-    fn to_string(Shown(n)): String {
+    fn to_string(Shown(n)) -> String {
         "s${n}"
     }
 }
 
 impl Hashable for Shown {
-    fn hash(Shown(n)): Int {
+    fn hash(Shown(n)) -> Int {
         n
     }
 }
@@ -108,9 +108,9 @@ func TestDefaultSelfBound_UnboundedDefaultsStayAdmitted(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
 
 interface Named {
-    fn name(n: self): String
+    fn name(n: self) -> String
 
-    fn greet(n: self): String {
+    fn greet(n: self) -> String {
         "hi ${Named.name(n)} ${Debug.inspect(n)} ${n == n}"
     }
 }
@@ -120,14 +120,14 @@ interface Marker {}
 type Bare Int
 
 impl Named for Bare {
-    fn name(_b: Bare): String {
+    fn name(_b: Bare) -> String {
         "bare"
     }
 }
 
 impl Marker for Bare
 
-fn marked<T>(x: T): String where T: Marker and Named {
+fn marked<T>(x: T) -> String where T: Marker and Named {
     T.greet(x)
 }
 
@@ -146,7 +146,7 @@ func TestDefaultSelfBound_ImplWithoutTheBoundMustWriteTheFunction(t *testing.T) 
 type Plain Int
 
 impl Scale for Plain {
-    fn label(_p: Plain): String {
+    fn label(_p: Plain) -> String {
         "b"
     }
 }
@@ -166,17 +166,17 @@ func TestDefaultSelfBound_ImplWithTheBoundCannotOverrideAFinalDefault(t *testing
 type Shown Int
 
 impl Display for Shown {
-    fn to_string(_s: Shown): String {
+    fn to_string(_s: Shown) -> String {
         "shown"
     }
 }
 
 impl Scale for Shown {
-    fn label(_s: Shown): String {
+    fn label(_s: Shown) -> String {
         "a"
     }
 
-    fn format(_s: Shown): String {
+    fn format(_s: Shown) -> String {
         "own"
     }
 }
@@ -190,16 +190,16 @@ fn main() {
 
 func TestDefaultSelfBound_OnlyOnADefaultFunction(t *testing.T) {
 	rejects(t, `interface Scale {
-    fn label(scale: self): String where self: Display
+    fn label(scale: self) -> String where self: Display
 }
 
 fn main() {
     Unit
 }
 `,
-		"main.nomi:2:41: interface function 'label': `where self` is only allowed on a default function, and 'label' is a required function",
+		"main.nomi:2:43: interface function 'label': `where self` is only allowed on a default function, and 'label' is a required function",
 		"drop it, or give `fn label` a default body that uses Display")
-	rejects(t, `fn top(x: Int): Int where self: Display {
+	rejects(t, `fn top(x: Int) -> Int where self: Display {
     x
 }
 
@@ -207,7 +207,7 @@ fn main() {
     _ = top(1)
 }
 `,
-		"main.nomi:1:27: function 'top': `where self` is only allowed on an interface's default function")
+		"main.nomi:1:29: function 'top': `where self` is only allowed on an interface's default function")
 }
 
 // What a default body demands of `self` beyond its own interface and Debug
@@ -223,12 +223,12 @@ func TestDefaultSelfBound_UnboundedUseIsAnError(t *testing.T) {
 		{"hash", "Hashable.hash(scale)", "Int", "main.nomi:3:23: `scale` is a `self`", "Hashable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "interface Scale {\n    fn format(scale: self): " + tc.ret + " {\n        " + tc.body +
+			src := "interface Scale {\n    fn format(scale: self) -> " + tc.ret + " {\n        " + tc.body +
 				"\n    }\n}\n\nfn main() {\n    Unit\n}\n"
 			rejects(t, src, tc.want,
 				", and Scale does not require "+tc.iface+" of its implementors",
-				"`fn format(scale: self): "+tc.ret+" where self: "+tc.iface+"`")
-			bounded := "interface Scale {\n    fn format(scale: self): " + tc.ret + " where self: " + tc.iface + " {\n        " + tc.body +
+				"`fn format(scale: self) -> "+tc.ret+" where self: "+tc.iface+"`")
+			bounded := "interface Scale {\n    fn format(scale: self) -> " + tc.ret + " where self: " + tc.iface + " {\n        " + tc.body +
 				"\n    }\n}\n\nfn main() {\n    Unit\n}\n"
 			admits(t, bounded)
 		})

@@ -32,27 +32,27 @@
 //     it.
 import std/io
 
-fn counted(): Int {
+fn counted() -> Int {
     io.print("count: default ran")
     7
 }
 
-fn apply_one(f: (Int) -> Int): Int {
+fn apply_one(f: (Int) -> Int) -> Int {
     f(1)
 }
 
 fn main() {
-    fi = |x = 5| x
-    fs = |s = "hi"| s
-    fb = |b = True| b
-    ff = |q = 1.5| q
+    fi = fn x = 5 -> x
+    fs = fn s = "hi" -> s
+    fb = fn b = True -> b
+    ff = fn q = 1.5 -> q
 
     io.print("zero: int ${fi(0)} vs ${fi()}")
     io.print("zero: str [" + fs("") + "] vs [" + fs() + "]")
     io.print("zero: bool ${fb(False)} vs ${fb()}")
     io.print("zero: float ${ff(0.0)} vs ${ff()}")
 
-    earlier = |a: Int, b = a + 1| a * 100 + b
+    earlier = fn a: Int, b = a + 1 -> a * 100 + b
     io.print("earlier: ${earlier(3)} and ${earlier(3, 9)}")
 
     // `twice:` — an IMPURE argument that a later slot's default also reads.
@@ -65,18 +65,18 @@ fn main() {
     // argument goes to the last SLOT and the middle one takes its default, so
     // this is the case where the omitted slot is in the MIDDLE rather than at the
     // end — and where checking an argument against its written POSITION instead
-    // of its slot would type `|x| x * 2` against a String.
-    routing = |a: Int, label = "z", cb: (Int) -> Int| cb(a) + String.length(label)
-    io.print("routed: ${routing(7, |x| x * 2)}")
-    io.print("routed: full ${routing(7, "tag", |x| x * 2)}")
+    // of its slot would type `fn x -> x * 2` against a String.
+    routing = fn a: Int, label = "z", cb: (Int) -> Int -> cb(a) + String.length(label)
+    io.print("routed: ${routing(7, fn x -> x * 2)}")
+    io.print("routed: full ${routing(7, "tag", fn x -> x * 2)}")
 
-    c = |x = counted()| x
+    c = fn x = counted() -> x
     io.print("count: supplied ${c(1)}")
     io.print("count: omitted ${c()}")
     io.print("count: omitted again ${c()}")
 
     x = 5
-    shadowed = |a = x| a
+    shadowed = fn a = x -> a
     io.print("shadow: ${shadowed()}")
 
     if True {
@@ -87,14 +87,14 @@ fn main() {
     io.print("shadow: ${shadowed()}")
 
     y = 5
-    rebound = |a = y| a
+    rebound = fn a = y -> a
     io.print("rebind: ${rebound()}")
     y = 99
     io.print("rebind: ${rebound()} with y now ${y}")
 
-    io.print("higher: ${apply_one(|q = 9| q)}")
+    io.print("higher: ${apply_one(fn q = 9 -> q)}")
 
-    multi = |a = 1, b = 2| a + b
+    multi = fn a = 1, b = 2 -> a + b
     io.print("multi: ${multi()} ${multi(9)} ${multi(9, 8)}")
 
     // A default NOBODY READS, pinned here as an answer.
@@ -103,7 +103,7 @@ fn main() {
     // `Iter.map` reads no default at all — so the `= 9` and the `= 5` below are
     // ignored. The seeded row beside them is what proves the
     // FIRST-parameter default is still read while the second is not.
-    io.print("unread: ${Iter.reduce([1, 2], |acc = 0, x = 9| acc + x)}")
-    io.print("unread: ${[1, 2] |> Iter.map(|x = 5| x * 2) |> Iter.to_list()}")
-    io.print("unread: ${Iter.reduce([1, 2], |acc = 100, x = 9| acc + x)}")
+    io.print("unread: ${Iter.reduce([1, 2], fn acc = 0, x = 9 -> acc + x)}")
+    io.print("unread: ${[1, 2] |> Iter.map(fn x = 5 -> x * 2) |> Iter.to_list()}")
+    io.print("unread: ${Iter.reduce([1, 2], fn acc = 100, x = 9 -> acc + x)}")
 }

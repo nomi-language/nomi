@@ -50,7 +50,7 @@ struct Equals {
 }
 
 impl Assertable for Equals {
-    fn failure(e: Equals): Maybe<AssertionDetails> {
+    fn failure(e: Equals) -> Maybe<AssertionDetails> {
         if e.actual == e.expected { None } else { Some(AssertionDetails{
                 reason: "values were not equal",
                 actual: Some(Debug.inspect(e.actual)),
@@ -70,7 +70,7 @@ struct Defaulted {
 }
 
 impl Assertable for Defaulted {
-    fn failure(d: Defaulted): Maybe<AssertionDetails> {
+    fn failure(d: Defaulted) -> Maybe<AssertionDetails> {
         if d.ok { None } else { Some(AssertionDetails{}) }
     }
 }
@@ -80,7 +80,7 @@ struct Silent {
 }
 
 impl Assertable for Silent {
-    fn failure(s: Silent): Maybe<AssertionDetails> {
+    fn failure(s: Silent) -> Maybe<AssertionDetails> {
         if s.ok {
             None
         } else {
@@ -89,19 +89,19 @@ impl Assertable for Silent {
     }
 }
 
-fn equals(actual: Int, expected: Int): Equals {
+fn equals(actual: Int, expected: Int) -> Equals {
     Equals{actual, expected}
 }
 
 // `assert` and `refute` over an Assertable, reached as VALUES so the failure can
 // be read rather than ending the case. The keyword is what changes the reason,
 // and a `check` cannot produce either of these two.
-fn fails_silently(): Result<Unit, AssertionFailure> {
+fn fails_silently() -> Result<Unit, AssertionFailure> {
     assert Silent{ok: False}
     Ok(Unit)
 }
 
-fn fails_refutation(): Result<Unit, AssertionFailure> {
+fn fails_refutation() -> Result<Unit, AssertionFailure> {
     refute equals(3, 3)
     Ok(Unit)
 }

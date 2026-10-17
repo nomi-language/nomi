@@ -9,12 +9,12 @@ enum Box {
 // EXACTLY ONCE however many arms test it. A tree that inlined the scrutinee's
 // text into each arm's test would print `built` four times and still answer
 // correctly.
-fn build(n: Int): Box {
+fn build(n: Int) -> Box {
     io.print("built ${n}")
     Box.Num(n)
 }
 
-fn describe(n: Int): String {
+fn describe(n: Int) -> String {
     case build(n) {
         Box.Num(0) -> "zero"
         Box.Num(1) -> "one"

@@ -4,15 +4,15 @@ pub enum Command {
     Unknown {reason: String}
 }
 
-pub fn parse(words: List<String>): Command {
+pub fn parse(words: List<String>) -> Command {
     case words {
-        ["done", id] -> with_id(id, |id| Command.Done{id})
-        ["start", id] -> with_id(id, |id| Command.Start{id})
+        ["done", id] -> with_id(id, fn id -> Command.Done{id})
+        ["start", id] -> with_id(id, fn id -> Command.Start{id})
         _ -> Command.Unknown{reason: "unknown command"}
     }
 }
 
-fn with_id(text: String, build: (Int) -> Command): Command {
+fn with_id(text: String, build: (Int) -> Command) -> Command {
     case String.to_int(text) {
         Some(id) -> build(id)
         None -> Command.Unknown{reason: "expected a numeric id, got '${text}'"}

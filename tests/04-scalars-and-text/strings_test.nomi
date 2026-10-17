@@ -1,4 +1,7 @@
-import std/strings.NormalForm.{NFC, NFD}
+import {
+    std/regex.Regex
+    std/strings.NormalForm.{NFC, NFD}
+}
 
 test "strings report length containment and slices" {
     assert String.length("hello") == 5
@@ -58,12 +61,12 @@ test "strings parse signed integers or return none" {
 
 test "grapheme transforms materialize back to strings" {
     assert "abc"
-        |> Iter.map(|g| g + g)
+        |> Iter.map(fn g -> g + g)
         |> String.join()
         |> String.equal?("aabbcc")
 
     assert "a1b2c3"
-        |> Iter.filter(|g| g == "1" or g == "2" or g == "3")
+        |> Iter.filter(fn g -> g == "1" or g == "2" or g == "3")
         |> String.join()
         |> String.equal?("123")
 }
@@ -77,7 +80,7 @@ test "normalization is explicit before byte-based equality" {
     assert String.normalize(nfc, NFD) == nfd
 }
 
-fn slash_joined(parts: Iter<String>): String {
+fn slash_joined(parts: Iter<String>) -> String {
     String.join(parts, "/")
 }
 
@@ -90,13 +93,70 @@ test "join reads any iterator of strings and defaults to no separator" {
     assert 1..=3 |> Iter.map(Int.to_string) |> String.join("-") == "1-2-3"
 
     assert Iter.from(1)
-        |> Iter.filter(|n| n % 2 == 0)
+        |> Iter.filter(fn n -> n % 2 == 0)
         |> Iter.map(Int.to_string)
         |> Iter.take(3)
         |> String.join(" ")
         |> String.equal?("2 4 6")
 
-    assert {"k" => 1} |> Iter.map(|(k, v)| k + "=" + Int.to_string(v)) |> String.join("&") == "k=1"
+    assert %{"k" => 1}
+    |> Iter.map(fn #(k, v) -> k + "=" + Int.to_string(v))
+    |> String.join("&") == "k=1"
+
     assert slash_joined(["p", "q"]) == "p/q"
     assert slash_joined(#{"r"}) == "r"
+}
+
+test "captures lists the groups of the first match, without the whole match" {
+    pair = Regex`(\w+)@(\w+)`
+
+    assert String.captures("mail ann@home now", pair) == Some([Some("ann"), Some("home")])
+    assert String.captures("no address", pair) == None
+    assert String.captures("x", Regex`x`) == Some([])
+}
+
+test "a group that does not take part is None, and an empty one is Some(\"\")" {
+    assert String.captures("b", Regex`(a)|(b)`) == Some([None, Some("b")])
+    assert String.captures("y", Regex`(x*)(y)`) == Some([Some(""), Some("y")])
+    assert String.captures("ac", Regex`a(b)?c`) == Some([None])
+}
+
+test "captures_all lists the groups of every match, left to right" {
+    assert String.captures_all("a=1, b=22", Regex`(\w)=(\d+)`) == [
+        [Some("a"), Some("1")],
+        [Some("b"), Some("22")],
+    ]
+
+    assert "ab b" |> String.captures_all(Regex`(a)|(b)`) == [
+        [Some("a"), None],
+        [None, Some("b")],
+        [None, Some("b")],
+    ]
+
+    assert String.captures_all("none", Regex`(\d)`) == []
+}
+
+test "captures work over Unicode text" {
+    assert String.captures("café crème", Regex`(\p{L}+) (\p{L}+)`) == Some(
+        [Some("café"), Some("crème")]
+    )
+
+    assert String.captures_all("🙂=1 é=2", Regex`(\S)=(\d)`) == [
+        [Some("🙂"), Some("1")],
+        [Some("é"), Some("2")],
+    ]
+}
+
+test "captures_all finds the matches find_all finds" {
+    re = Regex`(\d)(\d)?`
+    text = "1 23 456"
+
+    assert Iter.count(String.captures_all(text, re)) == Iter.count(String.find_all(text, re))
+
+    assert String.captures_all(text, re) == [
+        [Some("1"), None],
+        [Some("2"), Some("3")],
+        [Some("4"), Some("5")],
+        [Some("6"), None],
+    ]
 }

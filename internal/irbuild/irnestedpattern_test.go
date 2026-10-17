@@ -45,7 +45,7 @@ enum Shape {
   Box {w: Int, h: Int}
 }
 
-fn classify(m: Maybe<Shape>): Int {
+fn classify(m: Maybe<Shape>) -> Int {
   case m {
     Some(Shape.Circle(r)) -> r * 3
     Some(Shape.Square(4)) -> 100
@@ -58,7 +58,7 @@ fn classify(m: Maybe<Shape>): Int {
   }
 }
 
-fn outcome(r: Result<Shape, String>): String {
+fn outcome(r: Result<Shape, String>) -> String {
   case r {
     Ok(Shape.Circle(_)) -> "circle"
     Ok(_other) -> "other"
@@ -111,19 +111,19 @@ struct Counter {
   inbox: Channel<Request>
 }
 
-fn increment(counter: Counter, n: Int): Unit {
+fn increment(counter: Counter, n: Int) -> Unit {
   case Sender.send(counter.inbox.sender, Request.Increment(n)) {
     Ok(_) -> Unit
     Err(_) -> Unit
   }
 }
 
-fn ask(counter: Counter, reply: Channel<Int>): Unit {
+fn ask(counter: Counter, reply: Channel<Int>) -> Unit {
   _ = Sender.send(counter.inbox.sender, Request.Get{reply})
   Unit
 }
 
-fn handle(counter: Counter, count: Int): Int {
+fn handle(counter: Counter, count: Int) -> Int {
   case Receiver.receive(counter.inbox.receiver) {
     Some(Request.Increment(n)) -> count + n
     Some(Request.Get{reply}) -> {
@@ -212,22 +212,22 @@ pub struct App {
   done: Channel<Int>
 }
 
-fn group(timeout: Duration): Supervisor {
+fn group(timeout: Duration) -> Supervisor {
   Supervisor.new(shutdown_timeout: timeout, max_running: 2, restart: Restart.Temporary)
 }
 
-fn start(done: Channel<Int>): Unit {
-  _ = Supervisor.spawn(group(Duration.seconds(1)), || report(done, 1))
-  _ = group(Duration.seconds(2)) |> Supervisor.spawn(|| report(done, 2))
+fn start(done: Channel<Int>) -> Unit {
+  _ = Supervisor.spawn(group(Duration.seconds(1)), fn -> report(done, 1))
+  _ = group(Duration.seconds(2)) |> Supervisor.spawn(fn -> report(done, 2))
   Unit
 }
 
-fn report(done: Channel<Int>, n: Int): Unit {
+fn report(done: Channel<Int>, n: Int) -> Unit {
   _ = Sender.send(done.sender, n)
   Unit
 }
 
-pub fn boot(): App {
+pub fn boot() -> App {
   done = Channel.buffered<Int>(4)
   start(done)
   App{context: Context.root(), done}
@@ -273,7 +273,7 @@ enum Request {
   Stop
 }
 
-fn pick(inbox: Channel<Request>): Int {
+fn pick(inbox: Channel<Request>) -> Int {
   case Receiver.receive(inbox.receiver) {
     Some(Request.Stop) -> 1
     Some(_) -> 2
@@ -325,7 +325,7 @@ enum Shape {
   Dot
 }
 
-fn pick(m: Maybe<Shape>): Int {
+fn pick(m: Maybe<Shape>) -> Int {
   case m {
     Some(Shape.Box{w: 2.0, h}) -> h
     Some(_) -> 0
@@ -351,7 +351,7 @@ func TestIRNestedPattern_PatternAssertion(t *testing.T) {
   Dot
 }
 
-fn pick(n: Int): Maybe<Shape> {
+fn pick(n: Int) -> Maybe<Shape> {
   if n > 0 { Some(Shape.Circle(n)) } else { Some(Shape.Dot) }
 }
 
@@ -382,14 +382,14 @@ pub struct App {
   context: Context
   s: Supervisor
 }
-fn boot(): App {
+fn boot() -> App {
   App{context: Context.root(), s: Supervisor.new(max_running: 1)}
 }
-fn pick(): Supervisor {
+fn pick() -> Supervisor {
   App.s
 }
-fn spawn_into(): Unit {
-  _ = Supervisor.spawn(pick(), || io.print("ran"))
+fn spawn_into() -> Unit {
+  _ = Supervisor.spawn(pick(), fn -> io.print("ran"))
   Unit
 }
 fn main() {
@@ -418,14 +418,14 @@ pub struct App {
   context: Context
   s: Supervisor
 }
-fn boot(): App {
+fn boot() -> App {
   start()
   App{context: Context.root(), s: Supervisor.new(max_running: 1)}
 }
-fn group(timeout: Duration): Supervisor {
+fn group(timeout: Duration) -> Supervisor {
   Supervisor.new(shutdown_timeout: timeout, max_running: 1)
 }
-fn start(): Unit {
+fn start() -> Unit {
   _ =
     Supervisor.new(
       shutdown_timeout: Duration.seconds(5),
@@ -436,14 +436,14 @@ fn start(): Unit {
         max_elapsed: Duration.minutes(5),
       },
     )
-    |> Supervisor.spawn(|| idle(1))
+    |> Supervisor.spawn(fn -> idle(1))
   _ = Supervisor.spawn(
     group(Duration.seconds(1)),
-    || idle(2),
+    fn -> idle(2),
   )
   Unit
 }
-fn idle(n: Int): Unit {
+fn idle(n: Int) -> Unit {
   _ = n
   Unit
 }

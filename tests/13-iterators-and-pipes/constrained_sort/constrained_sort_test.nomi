@@ -4,14 +4,14 @@ import {
     sort_widget.{self, SortWidget}
 }
 
-fn sort_widget_weights(ws: List<SortWidget>): List<Int> {
+fn sort_widget_weights(ws: List<SortWidget>) -> List<Int> {
     ws
     |> Iter.sort()
     |> Iter.map(.weight)
     |> Iter.to_list()
 }
 
-fn named_widget_names(ws: List<NamedWidget>): List<String> {
+fn named_widget_names(ws: List<NamedWidget>) -> List<String> {
     ws
     |> Iter.map(.name)
     |> Iter.to_list()

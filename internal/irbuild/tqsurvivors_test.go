@@ -68,26 +68,26 @@ func TestTypeQualMember_SurvivorPreconditionsStillHold(t *testing.T) {
 			name:   "two Equatable impls for one type",
 			mutant: "the rival refusal in siblingEqualCall",
 			src: "struct P {\n  x: Int\n}\n\n" +
-				"impl Equatable for P {\n  fn equal?(a: P, b: P): Bool {\n    a.x == b.x\n  }\n}\n\n" +
+				"impl Equatable for P {\n  fn equal?(a: P, b: P) -> Bool {\n    a.x == b.x\n  }\n}\n\n" +
 				"derive Equatable for P\n\nfn main() {\n  _ = 1\n}\n",
 		},
 		{
 			name:   "an Equatable equal? that does not return Bool",
 			mutant: "the result-is-Bool check in siblingEqualCall",
 			src: "struct P {\n  x: Int\n}\n\n" +
-				"impl Equatable for P {\n  fn equal?(a: P, b: P): Int { _ = b;\n    a.x\n  }\n}\n\n" +
+				"impl Equatable for P {\n  fn equal?(a: P, b: P) -> Int { _ = b;\n    a.x\n  }\n}\n\n" +
 				"fn main() {\n  _ = 1\n}\n",
 		},
 		{
 			name:   "subtraction on two lists",
 			mutant: "the `+` gate in listConcat",
-			src: "fn f(xs: List<Int>, ys: List<Int>): List<Int> {\n  xs - ys\n}\n\n" +
+			src: "fn f(xs: List<Int>, ys: List<Int>) -> List<Int> {\n  xs - ys\n}\n\n" +
 				"fn main() {\n  _ = f([], [])\n}\n",
 		},
 		{
 			name:   "multiplication on two lists",
 			mutant: "the `+` gate in listConcat",
-			src: "fn f(xs: List<Int>, ys: List<Int>): List<Int> {\n  xs * ys\n}\n\n" +
+			src: "fn f(xs: List<Int>, ys: List<Int>) -> List<Int> {\n  xs * ys\n}\n\n" +
 				"fn main() {\n  _ = f([], [])\n}\n",
 		},
 	} {

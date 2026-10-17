@@ -22,25 +22,25 @@ pub struct Fixed {
 pub type Zero
 
 impl Logger for Prod {
-    fn log(p: Prod, message: String): String {
+    fn log(p: Prod, message: String) -> String {
         "${p.prefix}: ${message}"
     }
 }
 
 impl Logger for Tagged {
-    fn log(t: Tagged, message: String): String {
+    fn log(t: Tagged, message: String) -> String {
         "[${t.tag}] ${message}"
     }
 }
 
 impl Clock for Fixed {
-    fn now(f: Fixed): Int {
+    fn now(f: Fixed) -> Int {
         f.at
     }
 }
 
 impl Clock for Zero {
-    fn now(z: Zero): Int {
+    fn now(z: Zero) -> Int {
         _ = z
         0
     }

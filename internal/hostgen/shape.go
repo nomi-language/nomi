@@ -121,6 +121,9 @@ func (s *Shape) String() string {
 			parts[i] = e.String()
 		}
 		out := "(" + strings.Join(parts, ", ") + ")"
+		if s.Kind == STuple {
+			out = "#" + out
+		}
 		if s.Kind == SFunc {
 			out += " -> " + s.Ret.String()
 		}

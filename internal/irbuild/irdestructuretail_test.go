@@ -18,18 +18,18 @@ struct Point {
   y: Int
 }
 
-fn make(n: Int): (Int, Int) {
+fn make(n: Int) -> #(Int, Int) {
   io.print("make ${n}")
-  (n, n + 1)
+  #(n, n + 1)
 }
 
-fn point(): Point {
+fn point() -> Point {
   io.print("point")
   Point{x: 1, y: 2}
 }
 
 fn tuple_tail() {
-  (_, _) = make(20)
+  #(_, _) = make(20)
 }
 
 fn struct_tail() {
@@ -42,16 +42,16 @@ fn named_struct_tail() {
 
 fn arm_tail(flag: Bool) {
   if flag {
-    (_, _) = make(1)
+    #(_, _) = make(1)
   } else {
-    (_, _) = make(2)
+    #(_, _) = make(2)
   }
 }
 
 fn block_tail() {
   {
     io.print("in block")
-    (_, _) = make(3)
+    #(_, _) = make(3)
   }
 }
 
@@ -62,11 +62,11 @@ fn main() {
   arm_tail(True)
   arm_tail(False)
   block_tail()
-  f = || {
-    (_, _) = make(4)
+  f = fn -> {
+    #(_, _) = make(4)
   }
   f()
-  (_, _) = make(5)
+  #(_, _) = make(5)
 }
 `
 	names, _ := irRetainedNames(t, src)
@@ -82,14 +82,14 @@ fn main() {
 func TestIRDestructureTail_EndsATestBody(t *testing.T) {
 	const src = `import std/io
 
-fn make(n: Int): (Int, Int) {
+fn make(n: Int) -> #(Int, Int) {
   io.print("make ${n}")
-  (n, n + 1)
+  #(n, n + 1)
 }
 
 test "a test body ending in a destructure" {
   assert True
-  (_, _) = make(6)
+  #(_, _) = make(6)
 }
 `
 	out, exit := irShapesRun(t, src, []string{"a test body ending in a destructure"})

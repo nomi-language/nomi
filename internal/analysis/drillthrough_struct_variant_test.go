@@ -16,7 +16,7 @@ import std/supervisors.Backoff.Exponential
 fn main() {
   a: Backoff = Exponential{}
   b: Backoff = Exponential{max_restarts: 3}
-  _pair = (a, b)
+  _pair = #(a, b)
 }
 `)
 	if len(errs) != 0 {

@@ -37,7 +37,7 @@ struct Conf {
   retries: Int
 }
 
-fn conf_defaults(): {retries: Int, host: String} {
+fn conf_defaults() -> {retries: Int, host: String} {
   {retries: 3, host: "h"}
 }
 
@@ -46,18 +46,18 @@ enum Color {
   Blue
 }
 
-fn add(x: Int, y: Int): Int {
+fn add(x: Int, y: Int) -> Int {
   x + y
 }
 
-fn first_of(m: Maybe<(Int, String)>): Int {
+fn first_of(m: Maybe<#(Int, String)>) -> Int {
   case m {
-    Some((n, _)) -> n
+    Some(#(n, _)) -> n
     None -> 0
   }
 }
 
-fn unwrap(m: Maybe<Result<Int, String>>): Int {
+fn unwrap(m: Maybe<Result<Int, String>>) -> Int {
   case m {
     Some(Ok(n)) -> n
     Some(Err(_)) -> -1
@@ -85,10 +85,10 @@ test "prelude predicates" {
 test "nested prelude payloads and tuple payload patterns" {
   assert unwrap(Some(Ok(9))) == 9
   assert unwrap(Some(Err("e"))) == -1
-  assert first_of(Some((4, "a"))) == 4
-  deep = Some(Some((7, "deep")))
+  assert first_of(Some(#(4, "a"))) == 4
+  deep = Some(Some(#(7, "deep")))
   got = case deep {
-    Some(Some((_, s))) -> s
+    Some(Some(#(_, s))) -> s
     _ -> "miss"
   }
   assert got == "deep"
@@ -102,10 +102,10 @@ test "bare std variants and attached literals" {
   }
   assert kind == "arr"
   b: Box = .Items[1, 2]
-  p = Box.Pairs{"k" => 1}
+  p = Box.Pairs%{"k" => 1}
   assert b == Box.Items[1, 2]
   refute p == Box.Empty
-  colors: Map<String, Color> = {"a" => Color.Red}
+  colors: Map<String, Color> = %{"a" => Color.Red}
   assert Map.get(colors, "a") == Some(Color.Red)
 }
 
@@ -114,7 +114,7 @@ test "partial application and lambda patterns" {
   assert add1(9) == 10
   doubled =
     [Dur(1), Dur(2)]
-    |> Iter.map(|Dur(n)| n * 2)
+    |> Iter.map(fn Dur(n) -> n * 2)
     |> Iter.to_list()
   assert doubled == [2, 4]
   Dur(raw) = Dur(5)
@@ -123,7 +123,7 @@ test "partial application and lambda patterns" {
 
 test "a filter callback breaks from a tail if" {
   kept =
-    Iter.filter([1, 2, 3, 4], |x|
+    Iter.filter([1, 2, 3, 4], fn x ->
       if x == 3 {
         break True
       } else {
@@ -135,7 +135,7 @@ test "a filter callback breaks from a tail if" {
 }
 
 test "sets of tuples, lists of maps and branch bindings" {
-  ts = #{(1, 2), (3, 4), (1, 1 + 1)}
+  ts = #{#(1, 2), #(3, 4), #(1, 1 + 1)}
   assert Set.size(ts) == 2
   buckets: List<Map<String, Int>> = []
   assert Iter.count(buckets) == 0

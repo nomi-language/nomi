@@ -4,7 +4,7 @@ package irbuild
 // the field or key the literal is written at.
 //
 //	{..user, address: {.., city: "NYC"}}
-//	{..team, "address" => {.., "city" => "Atlanta"}}
+//	%{..team, "address" => %{.., "city" => "Atlanta"}}
 //	{..account, transactions: [t, ..]}
 //
 // The update that owns the position reads the old value there and records it

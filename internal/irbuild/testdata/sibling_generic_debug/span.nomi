@@ -16,13 +16,13 @@ pub struct Tagged<T> {
 }
 
 impl Debug for Tagged<T> {
-    fn inspect(_: Tagged<T>): String {
+    fn inspect(_: Tagged<T>) -> String {
         "tagged"
     }
 }
 
 impl Display for Tagged<T> where T: Display {
-    fn to_string(t: Tagged<T>): String {
+    fn to_string(t: Tagged<T>) -> String {
         "#" + Display.to_string(t.tag)
     }
 }

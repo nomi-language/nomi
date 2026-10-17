@@ -2,7 +2,6 @@ package vmrunner
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -59,6 +58,5 @@ func (in *Instance) ExportsResult() []byte {
 	for i, x := range in.exports {
 		sigs[i] = x.Signature()
 	}
-	text, _ := json.Marshal(map[string][]string{"ok": sigs})
-	return text
+	return plainJSON(map[string][]string{"ok": sigs})
 }

@@ -30,3 +30,181 @@ fn main() {
           (body
             (string
               (string_content))))))))
+
+================================================================================
+A map pattern in an if condition
+================================================================================
+
+fn host_or(config: Map<String, String>, fallback: String) -> String {
+    if %{"host" => host} = config {
+        host
+    } else if %{"mode" => "debug", "port" => port} = config {
+        port
+    } else {
+        fallback
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)
+          (type_identifier)))
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (body
+      (if_expression
+        (if_match_condition
+          (struct_pattern
+            (string
+              (string_content))
+            (identifier))
+          (identifier))
+        (body
+          (identifier))
+        (if_expression
+          (if_match_condition
+            (struct_pattern
+              (string
+                (string_content))
+              (string
+                (string_content))
+              (string
+                (string_content))
+              (identifier))
+            (identifier))
+          (body
+            (identifier))
+          (body
+            (identifier)))))))
+
+================================================================================
+A struct pattern with punned fields in an if condition
+================================================================================
+
+fn f(p: Point) -> Int {
+    if Point{x, y} = p {
+        x + y
+    } else if {x: 0, y} = p {
+        y
+    } else {
+        0
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (body
+      (if_expression
+        (if_match_condition
+          (struct_pattern
+            (type_identifier)
+            (pattern_field
+              (identifier))
+            (pattern_field
+              (identifier)))
+          (identifier))
+        (body
+          (binary_expression
+            (identifier)
+            (identifier)))
+        (if_expression
+          (if_match_condition
+            (struct_pattern
+              (pattern_field
+                (identifier)
+                (integer))
+              (pattern_field
+                (identifier)))
+            (identifier))
+          (body
+            (identifier))
+          (body
+            (integer)))))))
+
+================================================================================
+List and or patterns in an if condition
+================================================================================
+
+fn f(xs: List<Int>, m: Map<String, Int>) -> Int {
+    if [first, ..rest] = xs {
+        first
+    } else if [a] or [a, _] = xs {
+        a
+    } else if %{"a" => v} or %{"b" => v} = m {
+        v
+    } else {
+        0
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)))
+      (parameter
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (if_expression
+        (if_match_condition
+          (list_pattern
+            (identifier)
+            (identifier))
+          (identifier))
+        (body
+          (identifier))
+        (if_expression
+          (if_match_condition
+            (or_pattern
+              (list_pattern
+                (identifier))
+              (list_pattern
+                (identifier)))
+            (identifier))
+          (body
+            (identifier))
+          (if_expression
+            (if_match_condition
+              (or_pattern
+                (struct_pattern
+                  (string
+                    (string_content))
+                  (identifier))
+                (struct_pattern
+                  (string
+                    (string_content))
+                  (identifier)))
+              (identifier))
+            (body
+              (identifier))
+            (body
+              (integer))))))))

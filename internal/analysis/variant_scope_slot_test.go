@@ -29,30 +29,30 @@ struct P {
 }
 
 impl ToJson for P {
-    fn to_json(p: P): Json {
+    fn to_json(p: P) -> Json {
         Json.Int(p.n)
     }
 }
 
-fn encode<T>(v: T): Json where T: ToJson {
+fn encode<T>(v: T) -> Json where T: ToJson {
     ToJson.to_json(v)
 }
 
-fn name(op: Op): String {
+fn name(op: Op) -> String {
     case op {
         .ToJson -> "to_json"
         Op.Other -> "other"
     }
 }
 
-fn qualified(op: Op): Bool {
+fn qualified(op: Op) -> Bool {
     case op {
         Op.ToJson -> True
         _ -> False
     }
 }
 
-pub fn demo(): String {
+pub fn demo() -> String {
     a: Op = .ToJson
     b = Op.ToJson
     j = encode(P{n: 1})
@@ -91,27 +91,27 @@ pub enum Value {
 }
 
 pub interface Shout {
-    fn shout(v: self): String
+    fn shout(v: self) -> String
 }
 
 impl Shout for Date {
-    fn shout(v: Date): String {
+    fn shout(v: Date) -> String {
         Display.to_string(v)
     }
 }
 
-fn span(a: Date, b: Date): Int {
+fn span(a: Date, b: Date) -> Int {
     Date.days_between(a, b)
 }
 
-fn describe(v: Value): String {
+fn describe(v: Value) -> String {
     case v {
         .Date(d) -> Shout.shout(d) + Int.to_string(span(d, d))
         Value.Count(n) -> Int.to_string(n)
     }
 }
 
-pub fn demo(): String {
+pub fn demo() -> String {
     describe(.Count(2))
 }
 `
@@ -148,7 +148,7 @@ func TestVariantSlot_ImportedTypeOutranksASameNamedVariant(t *testing.T) {
 func TestVariantSlot_LocalTypeOutranksASameNamedVariantInEitherOrder(t *testing.T) {
 	structDecl := "pub struct Circle {\n    r: Float\n}\n"
 	enumDecl := "pub enum Shape {\n    Circle Float\n    Dot\n}\n"
-	use := "\npub fn area(c: Circle): Float {\n    c.r\n}\n\npub fn make(): Shape {\n    Shape.Circle(1.0)\n}\n"
+	use := "\npub fn area(c: Circle) -> Float {\n    c.r\n}\n\npub fn make() -> Shape {\n    Shape.Circle(1.0)\n}\n"
 	for _, c := range []struct{ name, src string }{
 		{"struct first", structDecl + "\n" + enumDecl + use},
 		{"enum first", enumDecl + "\n" + structDecl + use},

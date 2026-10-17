@@ -15,7 +15,7 @@ func TestJSONUserElements_StdInstancesCallTheUsersImpl(t *testing.T) {
 	const want = "" +
 		"dbg line 31: notes = [Note{title: \"b\"}, Note{title: \"a\"}]\n" +
 		"dbg line 33: turbo = [Note{title: \"c\"}]\n" +
-		"dbg line 35: by_key = {\"k\" => Note{title: \"d\"}}\n" +
+		"dbg line 35: by_key = %{\"k\" => Note{title: \"d\"}}\n" +
 		"dbg line 37: maybe = Some(Note{title: \"e\"})\n" +
 		"dbg line 39: none = None\n" +
 		"dbg line 41: nested = [[Note{title: \"f\"}], []]\n" +

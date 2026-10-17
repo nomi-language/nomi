@@ -7,8 +7,8 @@ import (
 	"github.com/nomi-language/nomi/internal/lexer"
 )
 
-// Map update by spread: `{..base, key => value}`, which means
-// `Map.merge(base, {key => value})`. The first element after the spread
+// Map update by spread: `%{..base, key => value}`, which means
+// `Map.merge(base, %{key => value})`. The first element after the spread
 // decides between it and the struct spread: `=>` makes it a map.
 
 func TestParseMapSpread(t *testing.T) {
@@ -17,15 +17,15 @@ func TestParseMapSpread(t *testing.T) {
 		spread  string // %T of the head
 		entries int
 	}{
-		{`{..m, "b" => 2}`, "*ast.Ident", 1},
-		{`{..m, "b" => 2, "c" => 3}`, "*ast.Ident", 2},
-		{`{..f(y), "b" => 2}`, "*ast.Call", 1},
-		{`{..a.b, "c" => 2}`, "*ast.FieldAccess", 1},
-		{`{..m, "b" => 2,}`, "*ast.Ident", 1},
-		{"{\n  ..m\n  \"b\" => 2\n}", "*ast.Ident", 1},
-		{"{\n  ..m,\n  // note\n  \"b\" => 2,\n}", "*ast.Ident", 1},
+		{`%{..m, "b" => 2}`, "*ast.Ident", 1},
+		{`%{..m, "b" => 2, "c" => 3}`, "*ast.Ident", 2},
+		{`%{..f(y), "b" => 2}`, "*ast.Call", 1},
+		{`%{..a.b, "c" => 2}`, "*ast.FieldAccess", 1},
+		{`%{..m, "b" => 2,}`, "*ast.Ident", 1},
+		{"%{\n  ..m\n  \"b\" => 2\n}", "*ast.Ident", 1},
+		{"%{\n  ..m,\n  // note\n  \"b\" => 2,\n}", "*ast.Ident", 1},
 		// A key that is not a literal.
-		{`{..m, k => v}`, "*ast.Ident", 1},
+		{`%{..m, k => v}`, "*ast.Ident", 1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.src, func(t *testing.T) {
@@ -68,9 +68,9 @@ func TestParseMapSpreadRejectsBadPositions(t *testing.T) {
 		want      string
 		line, col int
 	}{
-		"after an entry":         {`{"a" => 1, ..m}`, "map spread `..` must be the first element", 1, 16},
-		"second spread later":    {`{..m, "a" => 1, ..n}`, "map spread `..` must be the first element", 1, 21},
-		"two spreads then entry": {`{..m, ..n, "a" => 1}`, "map spread `..` must be the first element", 1, 11},
+		"after an entry":         {`%{"a" => 1, ..m}`, "map spread `..` must be the first element", 1, 17},
+		"second spread later":    {`%{..m, "a" => 1, ..n}`, "map spread `..` must be the first element", 1, 22},
+		"two spreads then entry": {`%{..m, ..n, "a" => 1}`, "map spread `..` must be the first element", 1, 12},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

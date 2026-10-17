@@ -64,7 +64,7 @@ func TestBytecode_BenchmarkHotPathsAreTyped(t *testing.T) {
 func TestBytecode_TailCallsCompileToTail(t *testing.T) {
 	p, err := vmhost.LoadSource("main", `import std/io
 
-fn count(n: Int, acc: Int): Int {
+fn count(n: Int, acc: Int) -> Int {
   if n == 0 { acc } else { count(n - 1, acc + 1) }
 }
 
@@ -97,13 +97,13 @@ func TestBytecode_AHostForwarderRunsAsItsCrossing(t *testing.T) {
     std/regex.Regex
 }
 
-fn probe(s: String, re: Regex): Bool {
+fn probe(s: String, re: Regex) -> Bool {
     parts = String.split(s, ",")
     words = String.split(s, re)
     String.contains?(s, "b") and Iter.count(parts) == Iter.count(words)
 }
 
-fn main(): Result<Unit, String> {
+fn main() -> Result<Unit, String> {
     probe("a,b", try Regex.compile(",")) |> io.print()
     Ok(Unit)
 }

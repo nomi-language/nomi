@@ -50,7 +50,7 @@ fn main() {
 	const helper = `import std/calendar.{Days}
 import std/io
 
-pub fn greet(name: String): String {
+pub fn greet(name: String) -> String {
   m: Maybe<String> = Some(name)
   io.print(Debug.inspect(Days(1)))
   io.print(name)
@@ -135,7 +135,7 @@ func TestSharedStd_ChecksLeaveItUnchanged(t *testing.T) {
 	// A single-file build defines a file's imports before its later
 	// declarations, so these reach the stdlib's own symbols.
 	for _, src := range []string{
-		"import std/json.{Json}\n\nimpl Json {\n  pub fn extra(): Int {\n    1\n  }\n}\n",
+		"import std/json.{Json}\n\nimpl Json {\n  pub fn extra() -> Int {\n    1\n  }\n}\n",
 		"import std/json.{Json}\n\npub enum Json.Extra {\n  A\n}\n",
 		"pub enum Maybe.Extra {\n  A\n}\n",
 	} {

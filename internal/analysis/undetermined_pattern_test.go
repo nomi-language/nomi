@@ -21,7 +21,7 @@ func TestUndeterminedPatternBinding_Rejected(t *testing.T) {
 		{"a case arm", "case Maybe.to_result(None, \"x\") {\n    Ok(z) -> {\n      dbg z\n      Unit\n    }\n    Err(_) -> Unit\n  }", 3, 8, "z"},
 		{"a case arm over a piped value", "Maybe.to_result(None, \"x\") |> case {\n    Ok(z) -> {\n      dbg z\n      Unit\n    }\n    Err(_) -> Unit\n  }", 3, 8, "z"},
 		{"the variant a value is not", "x = Ok(42)\n  case x {\n    Ok(_) -> Unit\n    Err(e) -> {\n      dbg e\n      Unit\n    }\n  }", 5, 9, "e"},
-		{"inside a tuple pattern", "case (Maybe.to_result(None, \"x\"), 1) {\n    (Ok(z), _) -> {\n      dbg z\n      Unit\n    }\n    _ -> Unit\n  }", 3, 9, "z"},
+		{"inside a tuple pattern", "case #(Maybe.to_result(None, \"x\"), 1) {\n    #(Ok(z), _) -> {\n      dbg z\n      Unit\n    }\n    _ -> Unit\n  }", 3, 10, "z"},
 		{"interpolated", "Ok(z) = Maybe.to_result(None, \"x\") else { return }\n  dbg \"${z}\"", 2, 6, "z"},
 	}
 	for _, tc := range cases {
@@ -57,13 +57,13 @@ func TestUndeterminedPatternBinding_Accepted(t *testing.T) {
 		"none: Maybe<Int> = None\n  Ok(z) = Maybe.to_result(none, \"x\") else { return }\n  dbg z",
 		"Ok(z) = Maybe.to_result<Int, String>(None, \"x\") else { return }\n  dbg z",
 		// The name's type holds a free variable, and is a value like `None`.
-		"(a, b) = (None, 1)\n  dbg a\n  dbg b",
+		"#(a, b) = #(None, 1)\n  dbg a\n  dbg b",
 		"Some(a) = Some(None) else { return }\n  dbg a",
 		"Ok(xs) = Ok([]) else { return }\n  dbg xs",
 		// Nothing is bound.
 		"case Maybe.to_result(None, \"x\") {\n    Ok(_) -> Unit\n    Err(e) -> {\n      dbg e\n      Unit\n    }\n  }",
 		// A lambda parameter whose later lines fix what a destructure bound.
-		"pairs = Iter.reduce([1, 2], |state = ([], []), item| {\n    (ts, fs) = state\n    ([item, ..ts], fs)\n  })\n  dbg pairs",
+		"pairs = Iter.reduce([1, 2], fn state = #([], []), item -> {\n    #(ts, fs) = state\n    #([item, ..ts], fs)\n  })\n  dbg pairs",
 	}
 	for _, body := range bodies {
 		t.Run(body, func(t *testing.T) {
@@ -76,7 +76,7 @@ func TestUndeterminedPatternBinding_Accepted(t *testing.T) {
 // A matched value whose own call is undetermined is reported once, at the
 // pattern's name.
 func TestUndeterminedPatternBinding_CallIsNotRepeated(t *testing.T) {
-	src := "fn main() {\n  Some(z) = Iter.first(Iter.map([], |x| x)) else { return }\n  dbg z\n  Unit\n}\n"
+	src := "fn main() {\n  Some(z) = Iter.first(Iter.map([], fn x -> x)) else { return }\n  dbg z\n  Unit\n}\n"
 	errs := checkWithStdlib(src)
 	got := undeterminedErrors(errs)
 	if len(got) != 1 || !strings.HasPrefix(got[0].Message, "the type of 'z' is not determined") {

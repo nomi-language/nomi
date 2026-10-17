@@ -61,7 +61,7 @@ func TestPatternBindingElse_Arms(t *testing.T) {
 // the item looks like.
 func TestPatternBindingElse_BlockStartingWithAPatternShape(t *testing.T) {
 	for _, src := range []string{
-		"Ok((w, h)) = parse(text) else { (80, 24) }",
+		"Ok(#(w, h)) = parse(text) else { #(80, 24) }",
 		"Some(e) = m else { \"none\" }",
 		"Some(e) = m else {\n    x = 1\n    \"${x}\"\n}",
 		"Some(e) = m else { continue }",
@@ -77,14 +77,14 @@ func TestPatternBindingElse_BlockStartingWithAPatternShape(t *testing.T) {
 // without else; the checker decides whether the pattern can fail.
 func TestPatternBindingElse_GeneralPatterns(t *testing.T) {
 	for src, pattern := range map[string]string{
-		"Ok((w, h)) = parse(text) else { (80, 24) }":       "*ast.EnumPattern",
+		"Ok(#(w, h)) = parse(text) else { #(80, 24) }":     "*ast.EnumPattern",
 		"[first, ..rest] = xs else { return 0 }":           "*ast.ListPattern",
 		".Valid{addr, score} = check(x) else { return 0 }": "*ast.StructPattern",
-		"Ok(Some(n)) = r":                    "*ast.EnumPattern",
-		"(Some(a), b) = p else { return 0 }": "*ast.TuplePattern",
-		"{\"k\" => v} = m else { return 0 }": "*ast.MapPattern",
-		"x = 5 else { return 0 }":            "*ast.IdentPattern",
-		"(a, b) = p else { return 0 }":       "*ast.TuplePattern",
+		"Ok(Some(n)) = r":                     "*ast.EnumPattern",
+		"#(Some(a), b) = p else { return 0 }": "*ast.TuplePattern",
+		"%{\"k\" => v} = m else { return 0 }": "*ast.MapPattern",
+		"x = 5 else { return 0 }":             "*ast.IdentPattern",
+		"#(a, b) = p else { return 0 }":       "*ast.TuplePattern",
 	} {
 		pb := parsePatternBinding(t, src)
 		if got := typeName(pb.Pattern); got != pattern {
@@ -123,7 +123,7 @@ func TestPatternBindingElse_ElseOnNextLine(t *testing.T) {
 func TestPatternBindingElse_DestructuresWithoutElseUnchanged(t *testing.T) {
 	for src, want := range map[string]string{
 		"Some(x) = m":  "*ast.DistinctDestructure",
-		"(a, b) = p":   "*ast.TupleDestructure",
+		"#(a, b) = p":  "*ast.TupleDestructure",
 		"{a, b} = p":   "*ast.StructDestructure",
 		"x = 5":        "*ast.Binding",
 		"io.print(x)":  "*ast.ExprStmt",

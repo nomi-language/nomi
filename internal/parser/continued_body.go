@@ -76,11 +76,11 @@ func (p *Parser) continuedLambdaArg(arg ast.Node) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	bars, ok := p.lambdaBars[lam]
+	head, ok := p.lambdaHeads[lam]
 	if !ok || p.atEnd() {
 		return false, nil
 	}
-	indent := p.lineIndentCol(bars[0])
+	indent := p.lineIndentCol(head[0])
 	next, ok := p.continuationAt(indent)
 	if !ok {
 		return false, nil
@@ -91,14 +91,14 @@ func (p *Parser) continuedLambdaArg(arg ast.Node) (bool, error) {
 		return false, err
 	}
 	endLine, endCol := tokenEnd(p.tokens[p.pos-1])
-	afterLine, afterCol := tokenEnd(p.tokens[bars[1]])
+	afterLine, afterCol := tokenEnd(p.tokens[head[1]])
 	lam.Body.Stmts = append(lam.Body.Stmts, stmts...)
 	lam.EndLine, lam.EndCol = endLine, endCol
 	p.softError(ParseError{
 		Line:    first.Line,
 		Col:     first.Col,
 		Message: "this lambda's body continues on the next line; a lambda body with more than one statement needs braces",
-		Hints:   []string{bracedHint("put the lambda's body in braces", p.tokensText(bars[0], bars[1]+1, "|x|"))},
+		Hints:   []string{bracedHint("put the lambda's body in braces", p.tokensText(head[0], head[1]+1, "fn x ->"))},
 		Fix: &Fix{Wrap: &BodyWrap{
 			After: Pos{afterLine, afterCol},
 			End:   Pos{endLine, endCol},

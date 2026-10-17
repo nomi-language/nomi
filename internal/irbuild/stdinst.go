@@ -646,7 +646,7 @@ func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir
 			// kindInvalid: sentinel — no receiver kind selects this member.
 			if !ok && self != kindInvalid {
 				// A receiver built with a type argument nothing determined
-				// (`(1, Ok(f)).1`, whose error type is the Unit the
+				// (`#(1, Ok(f)).1`, whose error type is the Unit the
 				// constructor read the hole as): the receiver's own kind
 				// is the instance, Unit included.
 				args, ok = bl.g.stdInstSolveHoled(f, tps, ib, params, result, self, true)
@@ -673,6 +673,16 @@ func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir
 				holed[i] = bl.g.project(irFillHoles(p, analysis.TypeInt))
 			}
 			args, ok = bl.g.stdInstSolveHoled(f, tps, ib, holed, bl.g.project(irFillHoles(ft.Return, analysis.TypeInt)), self, true)
+		}
+		if ft := bl.g.checkedCallSignature(t); !ok && ft != nil && len(ft.Params) == 0 && len(t.Args) == 0 {
+			// `List.empty_sum() == []`: a call with no operands whose result
+			// holds a collection element nothing determines, so no value of
+			// it is built or observed. The element is filled as an empty
+			// collection's is (projectFilledHoles).
+			// kindInvalid: lookup — a result with no filled kind leaves the call unsolved, and it declines below.
+			if result := bl.g.projectFilledHoles(ft.Return); result != kindInvalid {
+				args, ok = bl.g.stdInstSolveHoled(f, tps, ib, []kind{}, result, self, true)
+			}
 		}
 		if !ok {
 			return no("a generic stdlib call whose type arguments are unsolved or outside the domain: " + f.key)
@@ -929,19 +939,35 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 	}
 	base := irContainerBaseName(k)
 	if base == "" {
+		if len(t.Args) == 0 {
+			if iface := bl.boundCallIface(fa); iface != "" {
+				// `T.empty_sum()` in `Iter.sum<Decimal>`: an interface
+				// function with no receiver, at a std type no std module's
+				// scope names. No operand selects the impl, so the
+				// interface-qualified spelling below has nothing to
+				// dispatch on; T is k, and k's owner selects it.
+				if v, rk, mobile, ok, handled := bl.stdReceiverlessImplCall(t, iface, method, k); handled {
+					return v, rk, mobile, ok, true
+				}
+			}
+		}
 		if ti, isType := fa.Object.(*ast.TypeIdent); isType {
 			if iface := bl.stdBoundIfaceAt(ti.Name, k, method); iface != "" {
 				// `M.split_in(sep, s)` in `String.split<Regex>`: a std host
 				// type no std module's scope names, so the call is the
 				// bound interface's at that receiver, which stdIfacePlan
 				// selects by the receiver's kind.
-				call := *t
-				call.TypeArgs = nil
-				call.Func = &ast.FieldAccess{Object: &ast.TypeIdent{Name: iface, Line: fa.Line, Col: fa.Col},
-					Field: fa.Field, Line: fa.Line, Col: fa.Col}
-				v, rk, mobile, ok := bl.lower(&call)
+				v, rk, mobile, ok := bl.lower(ifaceQualified(t, fa, iface))
 				return v, rk, mobile, ok, true
 			}
+		}
+		if iface := bl.boundCallIface(fa); iface != "" {
+			// `T.to_string(x)` at a tuple or record: a type with no owner
+			// to spell the call by, so it is the bound interface's
+			// (`Display.to_string(x)`), which renders or dispatches by the
+			// argument's kind.
+			v, rk, mobile, ok := bl.lower(ifaceQualified(t, fa, iface))
+			return v, rk, mobile, ok, true
 		}
 		return no()
 	}
@@ -950,6 +976,36 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 		return no()
 	}
 	return bl.stdInstCallAt(t, f, k)
+}
+
+// stdReceiverlessImplCall lowers `T.method()`, an interface function of iface
+// that takes no value of T, at the std kind k the instance binds T to: the one
+// function std's `impl iface for <k's owner>` declares under method. handled
+// is false when std declares no such function for k.
+func (bl *irScalarBuilder) stdReceiverlessImplCall(t *ast.Call, iface, method string, k kind) (ir.Temp, kind, bool, bool, bool) {
+	if bl.g.std == nil || k.tag != tagNamed || k.def == nil {
+		return ir.NoTemp, kindInvalid, false, false, false
+	}
+	var f *stdFunc
+	for _, c := range bl.g.std.byType[k.def.nomi+"."+method] {
+		if c.iface != iface {
+			continue
+		}
+		if f != nil {
+			return ir.NoTemp, kindInvalid, false, false, false
+		}
+		f = c
+	}
+	if f == nil {
+		return ir.NoTemp, kindInvalid, false, false, false
+	}
+	args := bl.irQualLowerArgs(t)
+	plan := bl.stdFuncPlan(t, args, f)
+	if plan == nil {
+		return ir.NoTemp, kindInvalid, false, false, true
+	}
+	v, rk, mobile, ok := bl.qualEmit(t, args, plan)
+	return v, rk, mobile, ok, true
 }
 
 // stdBoundIfaceAt is the interface among the bounds the instance being built
@@ -1030,11 +1086,48 @@ func (bl *irScalarBuilder) kindImplCall(t *ast.Call, k kind, method string) (ir.
 		}
 	} else {
 		plan = bl.qualSiblingImplPlanFor(t, args, k.def, method)
+		if plan == nil {
+			// The impl is not beside the type: `impl Display for
+			// lib.Dog` in the file that calls `T.to_string`. The bound
+			// interface's call finds it, as `Display.to_string(d)` does.
+			if fa, qualified := t.Func.(*ast.FieldAccess); qualified {
+				if iface := bl.boundCallIface(fa); iface != "" {
+					plan = bl.qualImplPlan(t, args, iface, method)
+				}
+			}
+		}
 	}
 	if plan == nil {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	return bl.qualEmit(t, args, plan)
+}
+
+// boundCallIface is the interface the checker resolved a bounded
+// `T.method` call to (`Display` for `T.to_string` under `T: Display`), or ""
+// when the call is not an interface function's.
+func (bl *irScalarBuilder) boundCallIface(fa *ast.FieldAccess) string {
+	if bl.g.fa == nil || fa.Field == nil {
+		return ""
+	}
+	sym := bl.g.srcFA().References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
+	for sym != nil && sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym == nil || sym.Kind != analysis.SymbolInterfaceMethod {
+		return ""
+	}
+	return sym.OwningInterface
+}
+
+// ifaceQualified is the call t spelled through iface: `Display.to_string(x)`
+// for `T.to_string(x)`.
+func ifaceQualified(t *ast.Call, fa *ast.FieldAccess, iface string) *ast.Call {
+	call := *t
+	call.TypeArgs = nil
+	call.Func = &ast.FieldAccess{Object: &ast.TypeIdent{Name: iface, Line: fa.Line, Col: fa.Col},
+		Field: fa.Field, Line: fa.Line, Col: fa.Col}
+	return &call
 }
 
 // callerKindIface is the one interface whose impl for k, among the program's
@@ -1114,23 +1207,57 @@ func irOwnOperationFamily(owner, method string) bool {
 }
 
 // irOnlyEmptyListsUnsolved reports whether every operand of t whose checked
-// parameter the checker left open is an empty list literal, and one is.
+// parameter the checker left open is an empty list literal, or a list
+// literal of them (`Iter.sum([[]])`), and one is.
 func irOnlyEmptyListsUnsolved(t *ast.Call, ft *analysis.FuncType) bool {
 	if len(ft.Params) != len(t.Args) {
 		return false
 	}
 	open := false
 	for i, p := range ft.Params {
-		if !irUnsolvedType(p) {
+		if !irUnsolvedType(p) && !irUnsolvedIfaceArg(p) {
 			continue
 		}
-		lit, isList := t.Args[i].(*ast.ListLit)
-		if !isList || len(lit.Items) != 0 || lit.TypeName != nil {
+		if !irHoldsNoElement(t.Args[i]) {
 			return false
 		}
 		open = true
 	}
 	return open
+}
+
+// irHoldsNoElement reports an unannotated list literal whose items are, at
+// every depth, empty list literals: `[]`, `[[]]`, `[[], [[]]]`. The element
+// type its innermost lists leave open has no value anywhere in it.
+func irHoldsNoElement(n ast.Node) bool {
+	lit, isList := n.(*ast.ListLit)
+	if !isList || lit.TypeName != nil {
+		return false
+	}
+	for _, item := range lit.Items {
+		if !irHoldsNoElement(item) {
+			return false
+		}
+	}
+	return true
+}
+
+// irUnsolvedIfaceArg reports an interface type with an argument the checker
+// left open: `Iter<List<?>>`, the parameter `Iter.sum([])` is checked at.
+func irUnsolvedIfaceArg(t analysis.Type) bool {
+	if tv, isVar := t.(*analysis.TypeVar); isVar && tv.Resolved != nil {
+		return irUnsolvedIfaceArg(tv.Resolved)
+	}
+	it, isIface := t.(*analysis.InterfaceType)
+	if !isIface {
+		return false
+	}
+	for _, a := range it.TypeArgs {
+		if irUnsolvedType(a) {
+			return true
+		}
+	}
+	return false
 }
 
 // projectFilledHoles is the kind of ty with the holes the checker left open
@@ -1178,19 +1305,25 @@ func irFillHolesByPosition(ty analysis.Type, elem bool) analysis.Type {
 		c.Return = irFillHolesByPosition(t.Return, false)
 		return &c
 	case *analysis.EnumType:
+		// A user generic enum's argument is a payload's type, filled as an
+		// element is: a user enum at Unit has no representation, since a
+		// Unit payload does not lower. A std enum's (`Ok(1)`'s error type)
+		// is Unit.
+		user := !analysis.IsStdlibKey(t.Origin)
 		c := *t
 		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
 		for i, a := range t.TypeArgs {
-			c.TypeArgs[i] = irFillHolesByPosition(a, false)
+			c.TypeArgs[i] = irFillHolesByPosition(a, user)
 		}
 		return &c
 	case *analysis.StructType:
-		// A generic std struct here is a collection (`Set<T>`); a user
-		// generic struct's argument is filled as an enum's is.
+		// A generic std struct here is a collection (`Set<T>`), and a user
+		// generic struct's argument is a field's type, filled as a user
+		// enum's is.
 		c := *t
 		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
 		for i, a := range t.TypeArgs {
-			c.TypeArgs[i] = irFillHolesByPosition(a, analysis.IsStdlibKey(t.Origin))
+			c.TypeArgs[i] = irFillHolesByPosition(a, true)
 		}
 		return &c
 	case *analysis.DistinctType:
@@ -1232,6 +1365,14 @@ func irFillHoles(ty analysis.Type, fill analysis.Type) analysis.Type {
 		}
 		return &c
 	case *analysis.StructType:
+		c := *t
+		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
+		for i, a := range t.TypeArgs {
+			c.TypeArgs[i] = irFillHoles(a, fill)
+		}
+		return &c
+	case *analysis.InterfaceType:
+		// `Iter<List<?>>`, the parameter `Iter.sum([])` is checked at.
 		c := *t
 		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
 		for i, a := range t.TypeArgs {

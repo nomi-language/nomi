@@ -40,21 +40,21 @@ enum Reading {
     Missing
 }
 
-fn signal(s: Signal): String {
+fn signal(s: Signal) -> String {
     case s {
         Signal.Go{n} -> "signal-go-${n}"
         Signal.Halt -> "signal-halt"
     }
 }
 
-fn gear(g: Gear = .Drive{}): String {
+fn gear(g: Gear = .Drive{}) -> String {
     case g {
         Gear.Drive{n} -> "gear-drive-${n}"
         Gear.Park -> "gear-park"
     }
 }
 
-fn reading(r: Reading): String {
+fn reading(r: Reading) -> String {
     case r {
         Reading.Exact(v) -> "exact-${v}"
         Reading.Missing -> "missing"

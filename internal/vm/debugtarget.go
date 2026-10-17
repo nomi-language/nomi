@@ -19,7 +19,7 @@ package vm
 //     frame stopped, named by the variable that holds it;
 //   - a callback: a lambda or a named function passed to a call or an
 //     `Iter` operation of the statement, named by both as source code
-//     spells them, `Iter.map(|n| ...) callback`, `Maybe.map(double)
+//     spells them, `Iter.map(fn n -> ...) callback`, `Maybe.map(double)
 //     callback`.
 //
 // A call into Go (a host function) is not a target itself; a callback it
@@ -325,7 +325,7 @@ func calleeName(m *Machine, c *ir.Call) string {
 	return c.Callee().Name()
 }
 
-// lambdaText is a lambda as a target names it: its parameters, `|n| ...`.
+// lambdaText is a lambda as a target names it: its parameters, `fn n -> ...`.
 func lambdaText(fv *ir.FuncValue) string {
 	body := fv.Body()
 	params := body.Params()
@@ -344,7 +344,10 @@ func lambdaText(fv *ir.FuncValue) string {
 		// A nested `fn` passed by name.
 		return frameName(body)
 	}
-	return "|" + strings.Join(names, ", ") + "| ..."
+	if len(names) == 0 {
+		return "fn -> ..."
+	}
+	return "fn " + strings.Join(names, ", ") + " -> ..."
 }
 
 // StepInto resumes every thread, and stops thread when it enters the target

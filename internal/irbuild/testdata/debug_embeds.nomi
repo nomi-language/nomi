@@ -78,7 +78,7 @@ struct Worker {
 }
 
 impl Display for Worker {
-    fn to_string(v: Worker): String {
+    fn to_string(v: Worker) -> String {
         _ = v
         "WORKER-DISPLAY"
     }
@@ -92,7 +92,7 @@ struct Custom {
 }
 
 impl Debug for Custom {
-    fn inspect(v: Custom): String {
+    fn inspect(v: Custom) -> String {
         _ = v
         "CUSTOM-DEBUG"
     }
@@ -123,15 +123,15 @@ enum Other {
     Blank
 }
 
-fn no_node(_v: Node): Bool {
+fn no_node(_v: Node) -> Bool {
     False
 }
 
-fn no_worker(_v: Worker): Bool {
+fn no_worker(_v: Worker) -> Bool {
     False
 }
 
-fn no_meters(_v: Meters): Bool {
+fn no_meters(_v: Meters) -> Bool {
     False
 }
 

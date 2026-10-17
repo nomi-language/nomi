@@ -55,32 +55,32 @@ pub struct Twin {
 }
 
 impl Display for Inner {
-    fn to_string(i: Inner): String {
+    fn to_string(i: Inner) -> String {
         "inner:${Int.to_string(i.value)}"
     }
 }
 
-fn no_box(_b: Box<Int>): Bool {
+fn no_box(_b: Box<Int>) -> Bool {
     False
 }
 
-fn no_pair(_p: Pair<Int, String>): Bool {
+fn no_pair(_p: Pair<Int, String>) -> Bool {
     False
 }
 
-fn no_twin(_t: Twin): Bool {
+fn no_twin(_t: Twin) -> Bool {
     False
 }
 
-fn crate_value(c: Crate<Inner>): Int {
+fn crate_value(c: Crate<Inner>) -> Int {
     c.box.item.value
 }
 
-fn no_box_text(_b: Box<String>): Bool {
+fn no_box_text(_b: Box<String>) -> Bool {
     False
 }
 
-fn no_crate(_c: Crate<Inner>): Bool {
+fn no_crate(_c: Crate<Inner>) -> Bool {
     False
 }
 
@@ -90,21 +90,13 @@ test "a second instantiation of one template renders as the same Nomi type" {
 
 test "and a nested instantiation renders as its own declaration" {
     assert no_crate(Crate{
-        box: Box{
-            item: Inner{
-                value: 7,
-            },
-        },
+        box: Box{item: Inner{value: 7}},
     })
 }
 
 test "a nested instantiation resolves through an annotation" {
     c = Crate{
-        box: Box{
-            item: Inner{
-                value: 41,
-            },
-        },
+        box: Box{item: Inner{value: 41}},
     }
 
     io.print(Int.to_string(crate_value(c)))

@@ -16,7 +16,7 @@ import std/io
 //  2. A POSITIONAL SWAP MUST CHANGE THE OUTPUT. A tuple is addressed only by
 //     position, so a fixture whose components are distinguishable ONLY by type
 //     lets a transposition fail to COMPILE instead of failing the assertion —
-//     which reads as coverage and is not. `Pos` is `(Int, Int)`, same type both
+//     which reads as coverage and is not. `Pos` is `#(Int, Int)`, same type both
 //     sides, holding 10 and 20: an F0/F1 transposition compiles and prints
 //     `Pos(20, 10)`. `Span` adds a third position with a String in the middle,
 //     so a 0<->2 swap also compiles and also changes the text.
@@ -41,8 +41,8 @@ import std/io
 enum Point {
     Origin
     One Int
-    Pos (Int, Int)
-    Span (Int, String, Int)
+    Pos #(Int, Int)
+    Span #(Int, String, Int)
     Bag List<Int>
 }
 
@@ -58,7 +58,7 @@ enum Point {
 enum Key {
     Nothing
     Single Int
-    Pos (Int, Int)
+    Pos #(Int, Int)
 }
 
 derive Equatable for Key
@@ -68,17 +68,17 @@ derive Hashable for Key
 // level, and none needs to be: the failure this pins is in the DECLARATION.
 enum Node {
     Leaf Int
-    Branch (Node, Int, Node)
+    Branch #(Node, Int, Node)
 }
 
 // Arms, in order: bare, single payload, FLAT tuple destructure, EXPLICIT tuple
 // destructure at arity 3 whose middle component is a String, container payload.
-fn describe(p: Point): String {
+fn describe(p: Point) -> String {
     case p {
         .Origin -> "origin"
         .One(n) -> "one ${n}"
         .Pos(x, y) -> "pos ${x},${y}"
-        .Span((lo, label, hi)) -> "span ${label} ${lo}..${hi}"
+        .Span(#(lo, label, hi)) -> "span ${label} ${lo}..${hi}"
         .Bag(xs) -> "bag ${Iter.count(xs)}"
     }
 }
@@ -86,9 +86,9 @@ fn describe(p: Point): String {
 // The OTHER spelling of each of the two tuple patterns above — explicit at
 // arity 2, flat at arity 3 — so the file holds both forms of each rather than
 // one form of each.
-fn describe_explicit(p: Point): String {
+fn describe_explicit(p: Point) -> String {
     case p {
-        .Pos((x, y)) -> "pos ${x},${y}"
+        .Pos(#(x, y)) -> "pos ${x},${y}"
         .Span(lo, label, hi) -> "span ${label} ${lo}..${hi}"
         _ -> "other"
     }
@@ -96,7 +96,7 @@ fn describe_explicit(p: Point): String {
 
 // A flat destructure whose payload components are the enum itself, so the boxed
 // slot is dereferenced rather than merely declared.
-fn total(n: Node): Int {
+fn total(n: Node) -> Int {
     case n {
         .Leaf(v) -> v
         .Branch(l, v, r) -> total(l) + v + total(r)
@@ -107,13 +107,13 @@ fn main() {
     // CONSTRUCTION, flat and explicit, at both arities. The two spellings build
     // the same value, which is the property each pair exists to state.
     flat = Point.Pos(10, 20)
-    call = Point.Pos((10, 20))
+    call = Point.Pos(#(10, 20))
     io.print(describe(flat))
     io.print(describe(call))
-    io.print("${Equatable.equal?(Key.Pos(10, 20), Key.Pos((10, 20)))}")
+    io.print("${Equatable.equal?(Key.Pos(10, 20), Key.Pos(#(10, 20)))}")
 
     flat3 = Point.Span(1, "mid", 9)
-    call3 = Point.Span((1, "mid", 9))
+    call3 = Point.Span(#(1, "mid", 9))
     io.print(describe(flat3))
     io.print(describe_explicit(call3))
     io.print(describe_explicit(flat))
@@ -121,7 +121,7 @@ fn main() {
 
     // RENDERING through the synthesized universal Debug. The tuple's own
     // parentheses become the variant's, so this is `Pos(10, 20)` and NOT
-    // `Pos((10, 20))` — a rendering decision this builder must not reinvent.
+    // `Pos(#(10, 20))` — a rendering decision this builder must not reinvent.
     io.print(Debug.inspect(flat))
     io.print(Debug.inspect(flat3))
     io.print(Debug.inspect(Point.Origin))
@@ -141,7 +141,7 @@ fn main() {
     io.print("${inner}")
 
     // RECURSIVE, one level down each side.
-    tree = Node.Branch((Node.Leaf(1), 2, Node.Leaf(3)))
+    tree = Node.Branch(#(Node.Leaf(1), 2, Node.Leaf(3)))
     io.print("${total(tree)}")
     io.print(Debug.inspect(tree))
 

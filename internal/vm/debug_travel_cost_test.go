@@ -12,7 +12,7 @@ import (
 func TestTravel_ReplayingForwardRestartsWhereTheRecordingDid(t *testing.T) {
 	s := travelProgram(t, `import std/io
 
-fn add(acc: Int, n: Int): Int {
+fn add(acc: Int, n: Int) -> Int {
     io.print("adding ${acc} ${n}")
     s = acc + n
     s
@@ -60,7 +60,7 @@ fn main() {
 func TestTravel_GoingBackCostsTheStatementsBeforeItsTarget(t *testing.T) {
 	s := travelProgram(t, `import std/io
 
-fn count(n: Int, acc: Int): Int {
+fn count(n: Int, acc: Int) -> Int {
     case n {
         0 ->
             acc

@@ -26,7 +26,7 @@
 //     `a0: 2` before `a: 1`, where the name sort, and `Debug.inspect`, put `a`
 //     first.
 interface Speech {
-    fn speak(animal: self): String
+    fn speak(animal: self) -> String
 }
 
 struct Dog {
@@ -35,7 +35,7 @@ struct Dog {
 }
 
 impl Speech for Dog {
-    fn speak(d: Dog): String {
+    fn speak(d: Dog) -> String {
         d.name + " says woof"
     }
 }
@@ -46,29 +46,29 @@ struct Cat {
 }
 
 impl Speech for Cat {
-    fn speak(c: Cat): String {
+    fn speak(c: Cat) -> String {
         "meow x" + Int.to_string(c.a)
     }
 }
 
-fn announce(s: Speech): String {
+fn announce(s: Speech) -> String {
     Speech.speak(s)
 }
 
 interface Handler {
-    fn handle(handler: self, input: String): String
+    fn handle(handler: self, input: String) -> String
 }
 
 type Callback (String) -> String
 
 impl Handler for Callback {
-    fn handle(handler: Callback, input: String): String {
+    fn handle(handler: Callback, input: String) -> String {
         handler(input)
     }
 }
 
 test "a value of a distinct-over-function type is callable" {
-    h = Callback(|s| "handled: " + s)
+    h = Callback(fn s -> "handled: " + s)
 
     assert Handler.handle(h, "request") == "handled: request"
 }

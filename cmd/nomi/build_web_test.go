@@ -22,7 +22,7 @@ import (
 var webPrograms = map[string]string{
 	// A program with no main whose function a page calls: it builds, and
 	// the page's run() runs nothing.
-	"exports.nomi": `export fn double(n: Int): Int {
+	"exports.nomi": `export fn double(n: Int) -> Int {
   n * 2
 }
 `,
@@ -50,38 +50,38 @@ fn main() {
   io.print("ready")
 }
 
-export fn new_game(word: String): Game {
+export fn new_game(word: String) -> Game {
   Game{word, guesses: []}
 }
 
-export fn guess(game: Game, letter: String): Game {
+export fn guess(game: Game, letter: String) -> Game {
   io.print("guessed ${letter}")
   {..game, guesses: [letter, ..game.guesses]}
 }
 
-export fn outcome(game: Game): Outcome {
+export fn outcome(game: Game) -> Outcome {
   if List.head(game.guesses) == Some("w") { Outcome.Won } else { Outcome.Playing{left: 6 - Iter.count(game.guesses)} }
 }
 
-export fn describe(o: Outcome): String {
+export fn describe(o: Outcome) -> String {
   case o {
     Outcome.Won -> "won"
     Outcome.Playing{left} -> "${left} left"
   }
 }
 
-export fn divide(a: Int, b: Int): Int {
+export fn divide(a: Int, b: Int) -> Int {
   a / b
 }
 
 export fn nothing() {
 }
 `,
-	"failing.nomi": `fn main(): Result<Unit, String> {
+	"failing.nomi": `fn main() -> Result<Unit, String> {
   Err("no setup")
 }
 
-export fn one(): Int {
+export fn one() -> Int {
   1
 }
 `,
@@ -101,7 +101,7 @@ struct App {
   context: Context
 }
 
-fn boot(startup: Startup): App {
+fn boot(startup: Startup) -> App {
   io.print(startup.args)
   io.print(Map.get(startup.env, "NAME"))
   App{context: Context.root()}
@@ -120,7 +120,7 @@ fn main() {
 }
 `,
 	"spin.nomi": `fn main() {
-  _ = Iter.loop(|n = 0| n + 1)
+  _ = Iter.loop(fn n = 0 -> n + 1)
 }
 `,
 	"oom.nomi": `import std/io
@@ -602,7 +602,7 @@ func TestBuildWeb(t *testing.T) {
 		}
 		for i, want := range map[int]string{
 			5: "line 45: division by zero",
-			7: "argument `o` of `describe(o: Outcome): String`: expected Outcome, got \"Lost\"",
+			7: "argument `o` of `describe(o: Outcome) -> String`: expected Outcome, got \"Lost\"",
 			8: "no exported function `nope`; the exported functions are describe, divide, guess, new_game, nothing, outcome",
 		} {
 			if got := g.Results[i].Error; got != want {
@@ -619,8 +619,8 @@ func TestBuildWeb(t *testing.T) {
 		for _, x := range g.Exports {
 			sigs = append(sigs, x.Signature)
 		}
-		if strings.Join(sigs, "; ") != "new_game(word: String): Game; guess(game: Game, letter: String): Game; outcome(game: Game): Outcome; "+
-			"describe(o: Outcome): String; divide(a: Int, b: Int): Int; nothing()" ||
+		if strings.Join(sigs, "; ") != "new_game(word: String) -> Game; guess(game: Game, letter: String) -> Game; outcome(game: Game) -> Outcome; "+
+			"describe(o: Outcome) -> String; divide(a: Int, b: Int) -> Int; nothing()" ||
 			g.Exports[1].Params[1].Name != "letter" || g.Exports[1].Params[1].Type != "String" || g.Exports[5].Result != "" {
 			t.Errorf("exports() resolved %+v", g.Exports)
 		}

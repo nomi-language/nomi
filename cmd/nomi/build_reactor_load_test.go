@@ -22,16 +22,16 @@ const loadCounter = `import std/io
 
 once greeting = make_greeting()
 
-fn make_greeting(): String {
+fn make_greeting() -> String {
     io.print("counter booted")
     "Hello"
 }
 
-export fn add(a: Int, b: Int): Int {
+export fn add(a: Int, b: Int) -> Int {
     a + b
 }
 
-export fn greet(name: String): String {
+export fn greet(name: String) -> String {
     "${greeting}, ${name}!"
 }
 `
@@ -42,7 +42,7 @@ fn main() {
     io.print("words main ran")
 }
 
-export fn shout(text: String): String {
+export fn shout(text: String) -> String {
     String.to_upper(text)
 }
 `
@@ -95,7 +95,7 @@ func TestBuildCommand_ReactorLoadsOneProgramPerInstance(t *testing.T) {
 	}
 	mustWrite(t, filepath.Join(dir, "counter.nomi"), loadCounter)
 	mustWrite(t, filepath.Join(dir, "words.nomi"), loadWords)
-	mustWrite(t, filepath.Join(dir, "lib.nomi"), "export fn twice(n: Int): Int {\n    n * 2\n}\n")
+	mustWrite(t, filepath.Join(dir, "lib.nomi"), "export fn twice(n: Int) -> Int {\n    n * 2\n}\n")
 	nomi("build-vm", "--reactor", "--target", "wasip1/wasm", "-o", "reactor.wasm")
 	nomi("build-vm", "--reactor", "-o", "vm-reactor.wasm")
 	nomi("build", "--no-vm", "counter.nomi")
@@ -145,8 +145,8 @@ func TestBuildCommand_ReactorLoadsOneProgramPerInstance(t *testing.T) {
 		"not a .nomic: error:the loaded program: not a compiled Nomi program (.nomic)",
 		"truncated: error:the loaded program is truncated",
 		"another format: error:in program format 4294967295",
-		`load counter into a: {"ok":["add(a: Int, b: Int): Int","greet(name: String): String"]}`,
-		`load words into b: {"ok":["shout(text: String): String"]}`,
+		`load counter into a: {"ok":["add(a: Int, b: Int) -> Int","greet(name: String) -> String"]}`,
+		`load words into b: {"ok":["shout(text: String) -> String"]}`,
 		`a add: {"ok":5}`,
 		`b shout: {"ok":"HI"}`,
 		`a greet: {"ok":"Hello, Ada!"}`,
@@ -158,7 +158,7 @@ func TestBuildCommand_ReactorLoadsOneProgramPerInstance(t *testing.T) {
 		"second load into a: error:this reactor already loaded a program, and a reactor runs one program for its life. To run another, instantiate the module again",
 		`a add after the second load: {"ok":9}`,
 		"load into an embedding reactor: error:this reactor carries the program `nomi build` embedded in it, so it loads no other. Load programs into a reactor `nomi build-vm --reactor` writes, which carries none",
-		`empty load into an embedding reactor: {"ok":["twice(n: Int): Int"]}`,
+		`empty load into an embedding reactor: {"ok":["twice(n: Int) -> Int"]}`,
 		`embedded twice: {"ok":42}`,
 	}
 	lines := strings.Split(strings.TrimSuffix(got.stdout, "\n"), "\n")

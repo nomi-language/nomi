@@ -344,8 +344,9 @@ func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef) *fileFunc {
 	// A Go-bound `host fn` has no Body and IS lowerable, so the body clause is
 	// asked about the shell rather than about the shape. Everything else here
 	// still applies to one: it must be `pub` to be reachable and it must not be
-	// generic. A call omitting one of its defaulted parameters declines, since
-	// its unit builds no default accessors. See hostpkg.go's hostShellOf.
+	// generic. Its unit builds the accessors a call that omits a defaulted
+	// parameter fills it with, as for a `fn` (irHostFnRetain). See
+	// hostpkg.go's hostShellOf.
 	_, host := hostExtOf(fd)
 	if len(fd.Decorators) > 0 || (fd.Body == nil && !host) {
 		// Its own file refuses it under `decorator` / `function without a
@@ -360,7 +361,7 @@ func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef) *fileFunc {
 
 // typeFileFunc types one sibling function's signature in its OWN file's gen.
 //
-// In the declaring gen and nowhere else: `pub fn build(): EffectsApp` names
+// In the declaring gen and nowhere else: `pub fn build() -> EffectsApp` names
 // `EffectsApp` through ITS file's scope, and resolving that name at a caller
 // that never imported it would answer nothing — or, worse, answer with a
 // DIFFERENT `EffectsApp` the caller does import, which is a silent wrong answer
@@ -375,7 +376,7 @@ func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef) *fileFunc {
 // the ONE implementation of "which parameters resolve", so a second walk here
 // that refused a shape funcDecl lowers would refuse a call the declaring file
 // compiles, for instance a destructuring parameter whose pattern head NAMES a
-// type and is its own annotation (`pub fn shift(Point{x, y}): Int`).
+// type and is its own annotation (`pub fn shift(Point{x, y}) -> Int`).
 //
 // A signature this builder cannot type is ECHOED, not reported. Every user file
 // in the import graph is lowered, so that file's own funcDecl already names the
@@ -466,6 +467,11 @@ func (x *fileIndex) closeReferences(p *Program, reg *typeRegistry) {
 		x.reaches[i] = make([]bool, n)
 	}
 	for i := range p.Modules {
+		// A stopped lowering leaves the index unfinished; GenerateIR asks
+		// again before it reads it.
+		if p.stopped() {
+			return
+		}
 		scopedTypeEdges(p, i, func(j int) { x.reaches[i][j] = true })
 		fa := p.Modules[i].FA
 		if fa == nil {

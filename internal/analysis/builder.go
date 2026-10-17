@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/nomi-language/nomi/internal/ast"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -303,7 +304,7 @@ const (
 	RecordingKindTypedLiteralSlot
 	// RecordingKindGenericBoundCheck marks a recording produced when a
 	// generic call's solved type-param binding is checked against the
-	// param's interface bound (`fn show<T>(x: T): String where T: Display`
+	// param's interface bound (`fn show<T>(x: T) -> String where T: Display`
 	// called with `T := Int` records (Int, Display) here). Pos is the call
 	// expression.
 	RecordingKindGenericBoundCheck
@@ -404,206 +405,6 @@ type Recording struct {
 	TypeOrigin string
 }
 
-// FileAnalysis holds the analysis results for a single file.
-type FileAnalysis struct {
-	ModuleScope *Scope
-	// FilePath is the absolute path of the file this analysis describes.
-	// Set by BuildProject for every project-loaded file (so its value
-	// matches the SourceFile imported sibling files set on shared
-	// symbols). Empty for the project entry and for standalone single-
-	// file analysis (BuildFile). Used by the opaque-types boundary check
-	// to tell same-module access apart from out-of-module access.
-	FilePath string
-	// Origin is the nominal-identity key for types this file declares —
-	// the build's own module-path key (`std/calendar`, `shapes`,
-	// `stringkit/pad`), or OriginEntry for the project entry file. It is
-	// build-relative and stable, unlike FilePath, which is absolute and
-	// (for stdlib) points into the per-process materialization cache.
-	// A nominal type's identity is (Origin, Name); see nominal_identity.go.
-	Origin string
-	// References maps each identifier's position to the symbol it refers to.
-	References map[Pos]*Symbol
-	// PunnedFieldLabels maps the position of a punned struct-literal field,
-	// the `context` of `App{context}` or `{context}`, to the field it
-	// labels. One token there is both the field's label and a read of the
-	// variable, and References holds the variable. Find References and
-	// rename read this map for the field. Nil until a punned label is
-	// recorded (setPunnedFieldLabel).
-	PunnedFieldLabels map[Pos]*Symbol
-	// Definitions maps each definition's position to its symbol.
-	Definitions map[Pos]*Symbol
-	// BlockImportScopes maps an `import` at the top of a block to the
-	// block scope it binds into. The checker registers the types it binds
-	// for the rest of that block, as it registers a file-level import's for
-	// the whole file. Nil until a block import is walked.
-	BlockImportScopes map[*ast.ImportStmt]*Scope
-	// LambdaPatternTypes maps a lambda's destructuring parameter, keyed by
-	// its pattern node (`(_, v)` in `|(_, v)| v`), to the type the checker
-	// gave the whole parameter. The parameter has no name and so no symbol
-	// in Definitions, and a wildcard part binds nothing, so the names the
-	// pattern introduces cannot always say what the parameter is. Nil until
-	// a pattern is recorded (recordLambdaPatternType).
-	LambdaPatternTypes map[ast.Node]Type
-	// SubtestsRowTypes maps each `subtests` statement the checker accepted
-	// to the type of its rows: the element type of what it iterates, which
-	// its pattern binds. Nil until the first record.
-	SubtestsRowTypes map[*ast.Subtests]Type
-	// ExprTypes maps every node the checker checked to the type it gave the
-	// node, and ExpectedTypes maps every node checked against an expected
-	// type to that expected type: the declared parameter type at an argument,
-	// the annotation at a binding's value, the enclosing function's return
-	// type at its tail, the subject's type at a case arm. Both are keyed by
-	// node, as LambdaPatternTypes is, and hold the checker's types as it left
-	// them, so a type variable inside one resolves through TypeVar.Resolved.
-	// The editor's completion reads them to know what a value is and what a
-	// position wants. Writing them changes nothing the checker decides.
-	// Nodes in the derive-synthesis line band are not recorded. Nil until
-	// the first record.
-	ExprTypes     map[ast.Node]Type
-	ExpectedTypes map[ast.Node]Type
-	// TargetStructs maps a brace literal with no type name and no spread
-	// (`{street: "1 Main", city: "Bath"}`) to the nominal struct it builds
-	// because the position expected that struct (checkTargetTypedStructLit).
-	// The IR builder lowers such a literal exactly as the named literal
-	// `Address{...}`; a brace literal absent from this map is an anonymous
-	// struct. Generic structs carry their solved type arguments. Nil until
-	// the first record.
-	TargetStructs map[*ast.StructLit]*StructType
-	// FieldAccessors maps a field accessor (`.name`, `.address.city`) the
-	// checker accepted to the type it reads from: the parameter type of the
-	// function type its position expected. The IR builder lowers the
-	// accessor as a one-parameter closure over that type. Nil until the
-	// first record.
-	FieldAccessors map[*ast.FieldAccessor]Type
-	// DispatchNames tracks function names defined by impl/extend blocks.
-	// These are runtime-dispatched and should not be type-checked at call sites.
-	DispatchNames map[string]bool
-	// Impls tracks which types implement which interfaces, collected from
-	// `impl I for T` and `extend T as I` blocks. Map: typeName → interfaceName → true.
-	// Used by the type checker to validate interface-typed struct fields.
-	Impls map[string]map[string]bool
-	// ImplManifest records (interfaceName, typeName) pairs the file's
-	// call sites statically demand impls for, along with the list of
-	// Recording entries that each demanded the pair. Populated by the
-	// checker on every successful interface-conformance check; consumed
-	// by DetectMissingImpls. Keyed interface→type (not type→interface
-	// like Impls): walk interfaces, look up `impl Iface for T` block
-	// methods by their receiver type.
-	//
-	// Each Recording carries the source Pos of the demand site, a
-	// RecordingKind that classifies the site (plain call, typed-literal
-	// slot, generic where bound check, derive synth, …), and — when the
-	// recording was triggered by `@derive Iface` walking a component
-	// type — a DeriveCtx with the @derive decorator's position and the
-	// offending field's name+position. The recording list is preserved
-	// (not collapsed to a bool) so DetectMissingImpls can
-	// surface every demand site individually when a pair has no impl.
-	// RecordManifest deduplicates by full Recording equality, so repeated
-	// recordings from the same site contribute exactly one entry.
-	ImplManifest map[string]map[string][]Recording
-	// InferredTypeParamBounds is the interface bound a generic function's own
-	// type parameter is USED AT, per declaration node and type-parameter name,
-	// deduped and in first-seen order.
-	//
-	// # Why this exists, and why it is not a `where` clause
-	//
-	// `Debug` is UNIVERSAL: `SynthesizeUniversalDebug` writes an
-	// `impl Debug for T` for every declared type, so `typeImplementsInterface`
-	// answers TRUE for it at every concrete type AND at a bare type variable.
-	// That is what lets a developer write
-	//
-	//	fn show<T>(x: T): String { Debug.inspect(x) }
-	//
-	// with no annotation at all — and it is also why nothing ever recorded that
-	// `T` is used at a Debug bound. The conformance check cannot reject
-	// anything, so there was nothing to enforce and no reason to write it down.
-	//
-	// A CONSUMER that compiles the body rather than walking it needs it anyway,
-	// because a bound is what tells it which dispatch table the body's
-	// `Debug.inspect(x)` goes through. So this records the bound the checker
-	// INFERS rather than the one it enforces, and the two are deliberately
-	// separate fields: an inferred entry must never make a program fail to
-	// check, and `ft.WhereBounds` is where a failure would come from.
-	//
-	// SOUNDNESS, which is the whole justification for inferring at all: every
-	// type satisfies `Debug`, so adding it to a type parameter rejects nothing
-	// that would otherwise be accepted. That is a property of Debug and not of
-	// interfaces, which is why only the universal ones are recorded here —
-	// inferring `Display` would turn a legal program into an error.
-	//
-	// Keyed by the DECLARATION NODE rather than by function name: a nested `fn`
-	// beside a module-level one of the same name is a different function, and
-	// two impl blocks may declare the same method name.
-	InferredTypeParamBounds map[*ast.FuncDef]map[string][]string
-	// TypeMethodModules is the set of provider module paths for cross-module
-	// type-promoted methods this file's call sites USE (resolved via the
-	// project-level Program().ImplIndex.TypeMethods table — e.g. `List.concat` resolves
-	// to std/lists). The runtime type-method bridge force-loads
-	// these so the inherent method registers even when the file never imported
-	// the provider; without it `List.concat` only works when something else
-	// happens to load std/lists. Unioned across siblings by mergeImplManifest.
-	// Keyed by the loadable module path (the filesByKey key); never "" (the
-	// entry's own methods need no provider).
-	TypeMethodModules map[string]bool
-	// ImplTypeArgs records the first interface type-argument template for each
-	// (implementing-type, interface) pair. ImplTypeArgSets records every
-	// template for the same pair, which matters for operator-like interfaces
-	// such as Add where interface arguments are part of impl identity.
-	// Populated after BuildTypes so the unifier can bind any generic
-	// interface's type params from a concrete receiver.
-	ImplTypeArgs    map[string]map[string]*ImplTypeArgs
-	ImplTypeArgSets map[string]map[string][]*ImplTypeArgs
-	// BootErrors are this file's boot errors from the project build: a
-	// `fn boot` outside an entry file, or a boot signature or application
-	// struct that is not valid. The checker reports them with the file.
-	BootErrors []TypeError
-	// AppReads holds each checked application-field read (`MyApp.logger`)
-	// and each `with` override's target, keyed by the *ast.FieldAccess, and
-	// AppReadsByPos the same keyed by the field name's position.
-	AppReads      map[ast.Node]AppRead
-	AppReadsByPos map[Pos]AppRead
-	// program is the program this file belongs to; read it with Program().
-	// A build sets it once the Program is complete, and never changes it.
-	program *Program
-	// TypeMethods is the per-file type-qualified method table:
-	// receiver-type base name → method name → Symbol. Populated by
-	// defineImplBlock for compiler-synthesized type-owned functions and
-	// interface (`impl Iface for Type { fn foo }`) blocks. The
-	// Symbol carries OwningType = the receiver type. The precise table powers
-	// receiver-specific lookup even when a module exposes one flattened name
-	// such as `users.inspect(...)` for several receiver types.
-	TypeMethods map[string]map[string]*Symbol
-	// ImplBlockReceiver records, for each impl-block item FuncDef this file
-	// declares, the receiver type base name taken from the BLOCK HEADER (not
-	// the first parameter). Coherence (detectImplCollisions /
-	// detectOrphanImpls) keys interface-impl methods on the receiver; for
-	// block forms the first parameter is the concrete receiver type.
-	// Bodyless marker impls have no function item at all, so
-	// funcDefReceiverBaseName can't recover it — this override map supplies
-	// the header receiver when a function item exists. Also lets the
-	// inherent collision check group an inherent block's methods by their
-	// owning type. Nil for files with no impl blocks. These are the file's
-	// own; Program() holds the build's.
-	ImplBlockReceiver     map[*ast.FuncDef]string
-	ImplBlockInterfaceKey map[*ast.FuncDef]string
-	// ImplBlockReceiverExtern and ImplBlockInterfaceKeyExtern are the
-	// `host fn` parallel of ImplBlockReceiver and ImplBlockInterfaceKey,
-	// which are FuncDef-typed and so exclude the `host fn` items of an
-	// `impl Iface for Type` block. Carrying externs lets resolveConcreteImpl
-	// resolve an extern interface impl to its concrete source for go-to-def
-	// and hover.
-	ImplBlockReceiverExtern     map[*ast.ExternFunc]string
-	ImplBlockInterfaceKeyExtern map[*ast.ExternFunc]string
-	// TypeErrors holds type-checking errors discovered after analysis.
-	TypeErrors []TypeError
-	// ImplImports are this file's imports of whole project files that no
-	// name in the file uses. Such an import may still be needed for the
-	// impl blocks the file brings into the program, and that is decided
-	// over the whole program once every file is type-checked
-	// (CheckImplImports). See unused_imports.go.
-	ImplImports []*ImplImport
-}
-
 // LookupTypeMethod returns the impl-block method symbol for (typeName,
 // methodName) from the file's type-method table, or nil if absent. Inherent
 // and interface-impl methods both land here; inherent wins on a name clash
@@ -616,6 +417,65 @@ func (fa *FileAnalysis) LookupTypeMethod(typeName, methodName string) *Symbol {
 		return byName[methodName]
 	}
 	return nil
+}
+
+// LookupVisibleTypeMethod is LookupTypeMethod over what the file can name:
+// its own type-method table, then the public functions each user module it
+// imports declares (ImportedModules), the first import that has one winning.
+// A stdlib module's functions are not among them; the program's impl index
+// answers for those.
+func (fa *FileAnalysis) LookupVisibleTypeMethod(typeName, methodName string) *Symbol {
+	return fa.lookupVisibleTypeMethod(typeName, methodName, fa.Program().File)
+}
+
+func (fa *FileAnalysis) lookupVisibleTypeMethod(typeName, methodName string, module func(key string) *FileAnalysis) *Symbol {
+	if sym := fa.LookupTypeMethod(typeName, methodName); sym != nil {
+		return sym
+	}
+	if fa == nil {
+		return nil
+	}
+	for _, key := range fa.ImportedModules {
+		if sym := importedTypeMethod(module(key), typeName, methodName); sym != nil {
+			return sym
+		}
+	}
+	return nil
+}
+
+// importedTypeMethod is the function an importer reaches as
+// `typeName.methodName` in the module file declares: a public one.
+func importedTypeMethod(file *FileAnalysis, typeName, methodName string) *Symbol {
+	if sym := file.LookupTypeMethod(typeName, methodName); sym != nil && sym.Public {
+		return sym
+	}
+	return nil
+}
+
+// VisibleTypeMethods answers every function LookupVisibleTypeMethod reaches
+// on typeName, by name.
+func (fa *FileAnalysis) VisibleTypeMethods(typeName string) map[string]*Symbol {
+	out := map[string]*Symbol{}
+	if fa == nil {
+		return out
+	}
+	for name, sym := range fa.TypeMethods[typeName] {
+		if sym != nil {
+			out[name] = sym
+		}
+	}
+	for _, key := range fa.ImportedModules {
+		file := fa.Program().File(key)
+		if file == nil {
+			continue
+		}
+		for name, sym := range file.TypeMethods[typeName] {
+			if _, present := out[name]; !present && sym != nil && sym.Public {
+				out[name] = sym
+			}
+		}
+	}
+	return out
 }
 
 // RecordManifest appends `rec` to the file's ImplManifest entry for
@@ -750,7 +610,7 @@ func findContextType(modules map[string]*Scope) Type {
 //
 // Reserving interface names (defineInterfaceStub) closes a soundness gap;
 // it is not a language design decision. Without it,
-// `pub interface Display { fn render(value: self): String }` plus
+// `pub interface Display { fn render(value: self) -> String }` plus
 // `impl Display for Point { fn render }` makes `where T: Display`
 // STATICALLY PASS, and the program then dies at runtime with
 // `Display.to_string: no implementation for type 'Point'` — where the
@@ -954,7 +814,7 @@ func buildFileWithStdlibAtPath(nodes []ast.Node, primitives *Scope, modules map[
 		loading:      make(map[string]bool),
 	}
 	b.buildModule(nodes, moduleScope)
-	b.file.program = standaloneProgram(b.file, nodes, nil, stdlibScopes, findContextType(modules))
+	b.file.program = standaloneProgram(b.file, nodes, nil, stdlibScopes, findContextType(modules), b.cache)
 	return b.file
 }
 
@@ -1019,6 +879,11 @@ type builder struct {
 	// patternBodyOf is the body an arm or condition pattern definePattern is
 	// binding scopes over, and nil otherwise (Symbol.PatternBody).
 	patternBodyOf ast.Node
+	// orBound holds, while definePattern is inside an `or` pattern, the
+	// symbol each name its alternatives bind so far. A later alternative's
+	// site for the name is another definition site of the same symbol
+	// (bindPatternName), so the name is one binding with several sites.
+	orBound map[string]*Symbol
 }
 
 // typeMethodSlot is one (receiver, method) key of FileAnalysis.TypeMethods.
@@ -1159,9 +1024,7 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 
 	// Check cache first
 	if cached, ok := b.cache[cacheKey]; ok {
-		mergeImpls(b.file, cached)
-		mergeImplManifest(b.file, cached)
-		mergeTypeMethods(b.file, cached, filePath)
+		b.recordImportedModule(cacheKey, filePath)
 		return cached.ModuleScope, filePath, nil
 	}
 
@@ -1216,158 +1079,36 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 	sub.file.TypeErrors = append(sub.file.TypeErrors, lowerErrs...)
 	sub.buildModule(loweredNodes, moduleScope)
 	BuildTypes(sub.file, loweredNodes)
-	sub.file.program = standaloneProgram(sub.file, loweredNodes, nil, nil, nil)
+	sub.file.program = standaloneProgram(sub.file, loweredNodes, nil, nil, nil, sub.cache)
 	b.cache[cacheKey] = sub.file
-	mergeImpls(b.file, sub.file)
-	mergeImplManifest(b.file, sub.file)
-	mergeTypeMethods(b.file, sub.file, filePath)
+	b.recordImportedModule(cacheKey, filePath)
 	return moduleScope, filePath, nil
 }
 
-// mergeImpls copies the source file's Impls table into the destination's,
-// so an importing file sees the impls declared in any imported file.
-// Without this, the type checker rejects assignments like
-// `Effects { logger: ProdLogger {} }` whenever the impl
-// `impl Logger for ProdLogger` lives in a different file from the
-// Effects struct definition. Stdlib impls reach files the same way
-// (post-stdlib-as-package they flow through the regular import path),
-// supplemented by the project-level ImplIndex for impls the importing
-// file never imported directly. Idempotent — repeated calls leave the
-// dst table unchanged.
-func mergeImpls(dst, src *FileAnalysis) {
-	if dst == nil || src == nil || src.Impls == nil {
+// recordImportedModule records that this file imports the user module cached
+// under key, whose file is at filePath, for the type-qualified lookups that
+// reach an imported module's public functions (LookupVisibleTypeMethod). A
+// stdlib module is not recorded: its functions are reached through the
+// program's impl index, and go-to-definition finds them through the stdlib's
+// own module scopes.
+func (b *builder) recordImportedModule(key, filePath string) {
+	if key == "" || filePath == "" {
 		return
 	}
-	if dst.Impls == nil {
-		dst.Impls = make(map[string]map[string]bool)
+	if _, std := stdlibModuleForPath(filePath); std {
+		return
 	}
-	for typeName, ifaces := range src.Impls {
-		if dst.Impls[typeName] == nil {
-			dst.Impls[typeName] = make(map[string]bool)
-		}
-		for ifaceName := range ifaces {
-			dst.Impls[typeName][ifaceName] = true
-		}
+	if slices.Contains(b.file.ImportedModules, key) {
+		return
 	}
+	b.file.ImportedModules = append(b.file.ImportedModules, key)
 }
 
-// mergeTypeMethods copies an imported USER module's own public impl methods
-// into the importing file's per-file TypeMethods table, so single-file analysis
-// (the LSP path, where Program().ImplIndex is nil) resolves a type-qualified call to
-// an imported user type's interface method.
-// It is the per-file sibling of mergeImpls, scoped narrowly to keep go-to-def
-// correct:
-//
-//   - Stdlib modules are skipped. Their type-qualified methods already resolve
-//     in single-file mode via the References table / prebuilt scopes, and
-//     go-to-def routes stdlib symbols through the embedded-stdlib FileURI
-//     machinery — which requires SourceFile to stay empty. Merging them would
-//     inject a competing TypeMethods entry that mis-attributes go-to-def
-//     (e.g. `List.head` → lists.nomi).
-//   - Only a module's OWN methods are merged — SourceFile empty, or already
-//     equal to srcPath — not ones it transitively merged from its own imports
-//     (those reach the importer through its own direct import of the defining
-//     module). This keeps first-wins from picking a non-authoritative source.
-//   - A merged symbol's SourceFile is stamped with srcPath when empty, so
-//     cross-file go-to-def lands in the defining user file.
-//
-// Idempotent; an existing entry (the importing file's own method) is not
-// overwritten, matching mergeImpls.
-func mergeTypeMethods(dst, src *FileAnalysis, srcPath string) {
-	if dst == nil || src == nil || src.TypeMethods == nil || srcPath == "" {
-		return
-	}
-	if _, std := stdlibModuleForPath(srcPath); std {
-		return
-	}
-	for typeName, byName := range src.TypeMethods {
-		for method, sym := range byName {
-			if sym == nil {
-				continue
-			}
-			// Module-private methods stay callable only within their defining
-			// module. Project-wide analysis applies the same public-only filter
-			// when it builds Program().ImplIndex.TypeMethods.
-			if !sym.Public {
-				continue
-			}
-			// Non-transitive: skip a method the source itself merged from
-			// elsewhere (its SourceFile names a different file).
-			if sym.SourceFile != "" && sym.SourceFile != srcPath {
-				continue
-			}
-			if sym.SourceFile == "" {
-				sym.SourceFile = srcPath
-			}
-			if dst.TypeMethods == nil {
-				dst.TypeMethods = make(map[string]map[string]*Symbol)
-			}
-			if dst.TypeMethods[typeName] == nil {
-				dst.TypeMethods[typeName] = make(map[string]*Symbol)
-			}
-			if _, present := dst.TypeMethods[typeName][method]; !present {
-				dst.TypeMethods[typeName][method] = sym
-			}
-		}
-	}
-}
-
-// MergeImplManifest is the exported alias of mergeImplManifest, used by
-// internal/frontend's Checker.Analyze and the stdcompiler package to fold each
-// sibling's manifest (populated by per-sibling CheckTypes runs) into
-// the entry's manifest. The export contract is intentionally narrow:
-// merge ImplManifest only — no error fold-in, no Impls fold-in (those
-// already happen inside BuildProject's sweeps).
-func MergeImplManifest(dst, src *FileAnalysis) { mergeImplManifest(dst, src) }
-
-// mergeImplManifest copies the source file's ImplManifest into the
-// destination's, unioning Recording slices on collision and
-// deduplicating by full Recording equality. Used during cross-file
-// analysis the same way mergeImpls is used to fold static "type
-// implements interface" facts. Idempotent — re-merging the same src
-// leaves dst unchanged.
-func mergeImplManifest(dst, src *FileAnalysis) {
-	if dst == nil || src == nil {
-		return
-	}
-	// Type-method provider demands union independently of ImplManifest — a
-	// file may use cross-module type-promoted methods without any interface
-	// dispatch (so src.ImplManifest could be nil while TypeMethodModules isn't).
-	if src.TypeMethodModules != nil {
-		if dst.TypeMethodModules == nil {
-			dst.TypeMethodModules = make(map[string]bool)
-		}
-		for path := range src.TypeMethodModules {
-			dst.TypeMethodModules[path] = true
-		}
-	}
-	if src.ImplManifest == nil {
-		return
-	}
-	if dst.ImplManifest == nil {
-		dst.ImplManifest = make(map[string]map[string][]Recording)
-	}
-	for ifaceName, types := range src.ImplManifest {
-		if dst.ImplManifest[ifaceName] == nil {
-			dst.ImplManifest[ifaceName] = make(map[string][]Recording)
-		}
-		for typeName, recs := range types {
-			existing := dst.ImplManifest[ifaceName][typeName]
-			for _, rec := range recs {
-				dup := false
-				for _, prev := range existing {
-					if prev == rec {
-						dup = true
-						break
-					}
-				}
-				if !dup {
-					existing = append(existing, rec)
-				}
-			}
-			dst.ImplManifest[ifaceName][typeName] = existing
-		}
-	}
+// lookupVisibleTypeMethod is FileAnalysis.LookupVisibleTypeMethod while the
+// file is being built, before it has a Program: the modules it imports are
+// read from the build's cache.
+func (b *builder) lookupVisibleTypeMethod(typeName, methodName string) *Symbol {
+	return b.file.lookupVisibleTypeMethod(typeName, methodName, func(key string) *FileAnalysis { return b.cache[key] })
 }
 
 // stdlibSiblingPath is QualifyIntraStdlibImport bound to the file this
@@ -1591,11 +1332,19 @@ func (b *builder) buildModule(nodes []ast.Node, scope *Scope) {
 	// bodies), and CheckTypes hasn't yet replaced any entry with proxy
 	// copies — so this is the one correct point on the single-file path.
 	// Project builds run the same checks as a sweep in buildProjectWithCache.
-	b.file.TypeErrors = append(b.file.TypeErrors, CheckUnusedImports(b.file, nodes)...)
-	b.file.TypeErrors = append(b.file.TypeErrors, CheckRedundantPreludeImports(b.file, nodes)...)
-	b.file.TypeErrors = append(b.file.TypeErrors, CheckUnusedBindings(b.file)...)
-	b.file.TypeErrors = append(b.file.TypeErrors, CheckUselessReturns(nodes)...)
-	b.file.TypeErrors = append(b.file.TypeErrors, CheckRepeatedFields(nodes)...)
+	b.file.TypeErrors = append(b.file.TypeErrors, checkUnused(b.file, nodes)...)
+}
+
+// checkUnused runs the checks that read the references a file's bodies walk
+// records before CheckTypes replaces any: unused imports and bindings,
+// redundant prelude imports, useless returns and repeated fields.
+func checkUnused(fa *FileAnalysis, nodes []ast.Node) []TypeError {
+	var errs []TypeError
+	errs = append(errs, CheckUnusedImports(fa, nodes)...)
+	errs = append(errs, CheckRedundantPreludeImports(fa, nodes)...)
+	errs = append(errs, CheckUnusedBindings(fa)...)
+	errs = append(errs, CheckUselessReturns(nodes)...)
+	return append(errs, CheckRepeatedFields(nodes)...)
 }
 
 func moduleAliasForFile(key, filePath string) string {
@@ -1662,7 +1411,7 @@ func (b *builder) buildModuleBodies(nodes []ast.Node, scope *Scope) {
 					scope.Define(sym)
 				}
 			}
-			b.file.Definitions[sym.Pos] = sym
+			b.define(sym.Pos, sym)
 
 		case *ast.StructDestructure:
 			b.walkNode(s.Value, scope)
@@ -1678,7 +1427,7 @@ func (b *builder) buildModuleBodies(nodes []ast.Node, scope *Scope) {
 					if !ast.IsDiscardName(f.Binding) {
 						scope.Define(sym)
 					}
-					b.file.Definitions[sym.Pos] = sym
+					b.define(sym.Pos, sym)
 				}
 			}
 
@@ -1702,27 +1451,7 @@ func (b *builder) buildModuleBodies(nodes []ast.Node, scope *Scope) {
 					if !ast.IsDiscardName(binding.Name) {
 						scope.Define(sym)
 					}
-					b.file.Definitions[sym.Pos] = sym
-				}
-			}
-
-		case *ast.MapDestructure:
-			b.walkNode(s.Value, scope)
-			for _, entry := range s.Entries {
-				b.walkNode(entry.Key, scope)
-			}
-			for _, entry := range s.Entries {
-				if ip, ok := entry.Pattern.(*ast.IdentPattern); ok {
-					sym := &Symbol{
-						Name: ip.Name,
-						Kind: SymbolBinding,
-						Pos:  Pos{Line: ip.Line, Col: ip.Col},
-						Node: s,
-					}
-					if !ast.IsDiscardName(ip.Name) {
-						scope.Define(sym)
-					}
-					b.file.Definitions[sym.Pos] = sym
+					b.define(sym.Pos, sym)
 				}
 			}
 
@@ -1743,7 +1472,7 @@ func (b *builder) buildModuleBodies(nodes []ast.Node, scope *Scope) {
 				if !ast.IsDiscardName(s.Binding.Name) {
 					scope.Define(sym)
 				}
-				b.file.Definitions[sym.Pos] = sym
+				b.define(sym.Pos, sym)
 			}
 
 		case *ast.ImportStmt:
@@ -1903,21 +1632,28 @@ func (b *builder) recordImportedTypeQualifiedAccess(n *ast.FieldAccess, scope *S
 	}
 	if real.Members != nil {
 		if member := real.Members[n.Field.Name]; member != nil {
-			b.file.References[Pos{Line: n.Field.Line, Col: n.Field.Col}] = symbolWithCallReceiver(member, obj.Name)
+			b.file.References[Pos{Line: n.Field.Line, Col: n.Field.Col}] = b.symbolWithCallReceiver(member, obj.Name)
 			return
 		}
 	}
-	if method := b.file.LookupTypeMethod(real.Name, n.Field.Name); method != nil {
-		b.file.References[Pos{Line: n.Field.Line, Col: n.Field.Col}] = symbolWithCallReceiver(method, obj.Name)
+	if method := b.lookupVisibleTypeMethod(real.Name, n.Field.Name); method != nil {
+		b.file.References[Pos{Line: n.Field.Line, Col: n.Field.Col}] = b.symbolWithCallReceiver(method, obj.Name)
 	}
 }
 
-func symbolWithCallReceiver(sym *Symbol, receiver string) *Symbol {
+// symbolWithCallReceiver answers a copy of sym, a member of an imported
+// type, that names receiver as the type it was reached through. The file
+// notes which member the copy is of (FileBodies.receiverMembers).
+func (b *builder) symbolWithCallReceiver(sym *Symbol, receiver string) *Symbol {
 	if sym == nil || receiver == "" {
 		return sym
 	}
 	proxy := *sym
 	proxy.CallReceiver = receiver
+	if b.file.receiverMembers == nil {
+		b.file.receiverMembers = map[*Symbol]*Symbol{}
+	}
+	b.file.receiverMembers[&proxy] = sym
 	return &proxy
 }
 
@@ -2024,7 +1760,7 @@ func (b *builder) defineTypeParams(typeParams []ast.TypeParam, parent *Scope) *S
 			Pos:  Pos{Line: tp.Line, Col: tp.Col},
 		}
 		child.Define(sym)
-		b.file.Definitions[sym.Pos] = sym
+		b.define(sym.Pos, sym)
 	}
 	for _, tp := range typeParams {
 		sym := child.LookupLocal(tp.Name)
@@ -2212,7 +1948,7 @@ func (b *builder) defineInterfaceMethodSymbols(n *ast.InterfaceDef, iface *Symbo
 			OwningInterface: n.Name,
 		}
 		iface.Members[m.Name] = methodSym
-		b.file.Definitions[methodSym.Pos] = methodSym
+		b.define(methodSym.Pos, methodSym)
 		for _, p := range m.Params {
 			// A destructuring parameter's names are defined by
 			// defineParamPattern when the body is walked; its synthesized
@@ -2221,12 +1957,12 @@ func (b *builder) defineInterfaceMethodSymbols(n *ast.InterfaceDef, iface *Symbo
 				continue
 			}
 			ppos := Pos{Line: p.Line, Col: p.Col}
-			b.file.Definitions[ppos] = &Symbol{
+			b.define(ppos, &Symbol{
 				Name: p.Name,
 				Kind: SymbolParam,
 				Pos:  ppos,
 				Node: m,
-			}
+			})
 		}
 	}
 }
@@ -2254,11 +1990,11 @@ func (b *builder) defineInterface(n *ast.InterfaceDef, scope *Scope) *Scope {
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[pos] = sym
+		b.define(pos, sym)
 	}
 	inner := b.defineTypeParams(n.TypeParams, scope)
 	// Define `self` in the method-signature scope so `self` in type position
-	// (`fn hello(value: self): String`) records a hover / go-to-def reference
+	// (`fn hello(value: self) -> String`) records a hover / go-to-def reference
 	// via walkTypeExpr's SelfType case. It resolves to the interface itself —
 	// `self` here stands for "any implementor of this interface." Mirrors the
 	// impl-block `self` symbol, which resolves to the concrete receiver.
@@ -2299,7 +2035,7 @@ func (b *builder) defineTypeDef(n *ast.TypeDef, scope *Scope) {
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[pos] = sym
+		b.define(pos, sym)
 	}
 	b.walkTypeExpr(n.InnerTypeExpr, scope)
 	b.walkNamespaceItems(n.Items, scope)
@@ -2322,7 +2058,7 @@ func (b *builder) defineTypeAlias(n *ast.TypeAlias, scope *Scope) {
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[pos] = sym
+		b.define(pos, sym)
 	}
 	// For a bound alias (`typealias Foo A and B`), walk every entry in
 	// the bound list so each interface name registers a Reference. Without
@@ -2358,7 +2094,7 @@ func (b *builder) defineEnum(n *ast.EnumDef, scope *Scope) {
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(enumSym)
 		}
-		b.file.Definitions[pos] = enumSym
+		b.define(pos, enumSym)
 	} else if enumSym.Members == nil {
 		enumSym.Members = make(map[string]*Symbol)
 	}
@@ -2394,7 +2130,7 @@ func (b *builder) defineEnum(n *ast.EnumDef, scope *Scope) {
 						Doc:  f.Doc,
 					}
 					vsym.Members[f.Name] = fieldSym
-					b.file.Definitions[fieldSym.Pos] = fieldSym
+					b.define(fieldSym.Pos, fieldSym)
 				}
 			}
 			// Embed variants share their name with the underlying type
@@ -2409,7 +2145,7 @@ func (b *builder) defineEnum(n *ast.EnumDef, scope *Scope) {
 			if v.Kind != "embedded" && variantMayTakeScopeSlot(scope, v.Name) {
 				scope.Define(vsym)
 			}
-			b.file.Definitions[vsym.Pos] = vsym
+			b.define(vsym.Pos, vsym)
 			// Also expose the variant via the enum's Members so qualified
 			// access (`Error.HttpError`) can resolve through the enum
 			// without doing its own scope lookup.
@@ -2453,12 +2189,12 @@ func (b *builder) defineStruct(n *ast.StructDef, scope *Scope) {
 				Doc:  f.Doc,
 			}
 			sym.Members[f.Name] = fieldSym
-			b.file.Definitions[fieldSym.Pos] = fieldSym
+			b.define(fieldSym.Pos, fieldSym)
 		}
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[pos] = sym
+		b.define(pos, sym)
 	}
 	inner := b.defineTypeParams(n.TypeParams, scope)
 	for _, f := range n.Fields {
@@ -2492,7 +2228,7 @@ func (b *builder) defineOnce(n *ast.OnceBinding, scope *Scope) {
 	if n.Public {
 		b.defineInterfaceModuleMethods(sym, scope)
 	}
-	b.file.Definitions[pos] = sym
+	b.define(pos, sym)
 }
 
 // defineFunc registers a FuncDef's symbol in the given scope and walks its
@@ -2516,7 +2252,7 @@ func (b *builder) defineFunc(n *ast.FuncDef, scope *Scope) *Scope {
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[pos] = sym
+		b.define(pos, sym)
 	}
 	inner := b.defineTypeParams(n.TypeParams, scope)
 	for _, p := range n.Params {
@@ -2580,7 +2316,7 @@ func (b *builder) defineSymbolStub(node ast.Node, scope *Scope) {
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[sym.Pos] = sym
+		b.define(sym.Pos, sym)
 
 	case *ast.ExternType:
 		sourceFile := ""
@@ -2603,7 +2339,7 @@ func (b *builder) defineSymbolStub(node ast.Node, scope *Scope) {
 			scope.Define(sym)
 		}
 		b.defineQualifiedTypeMember(scope, sym, n.Line, n.Col)
-		b.file.Definitions[sym.Pos] = sym
+		b.define(sym.Pos, sym)
 
 	case *ast.OnceBinding:
 		b.defineOnce(n, scope)
@@ -2632,7 +2368,7 @@ func (b *builder) defineSymbolStub(node ast.Node, scope *Scope) {
 		if !b.checkRedeclareInScope(scope, n.Alias, n.AliasLine, n.AliasCol) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[pos] = sym
+		b.define(pos, sym)
 
 	case *ast.Binding:
 		// Bindings are NOT defined in pass 1 — they need sequential visibility
@@ -2748,7 +2484,7 @@ func (b *builder) defineFuncStub(n *ast.FuncDef, scope *Scope) {
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 		scope.Define(sym)
 	}
-	b.file.Definitions[pos] = sym
+	b.define(pos, sym)
 }
 
 // defineFuncAnnotations walks the FuncDef's type-param declarations, where
@@ -2825,13 +2561,13 @@ func (b *builder) defineStructStub(n *ast.StructDef, scope *Scope) {
 			Doc:  f.Doc,
 		}
 		sym.Members[f.Name] = fieldSym
-		b.file.Definitions[fieldSym.Pos] = fieldSym
+		b.define(fieldSym.Pos, fieldSym)
 	}
 	b.collidesWithImportedModule(scope, n.Name, n.Line, n.Col)
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 		scope.Define(sym)
 	}
-	b.file.Definitions[pos] = sym
+	b.define(pos, sym)
 }
 
 func applyNodeDefinitionOverride(sym *Symbol, node ast.Node) {
@@ -2946,7 +2682,7 @@ func (b *builder) defineEnumStub(n *ast.EnumDef, scope *Scope) {
 			scope.Define(enumSym)
 		}
 		b.defineQualifiedTypeMember(scope, enumSym, n.Line, n.Col)
-		b.file.Definitions[pos] = enumSym
+		b.define(pos, enumSym)
 	} else if enumSym.Members == nil {
 		enumSym.Members = make(map[string]*Symbol)
 	}
@@ -2976,7 +2712,7 @@ func (b *builder) defineEnumStub(n *ast.EnumDef, scope *Scope) {
 					Doc:  f.Doc,
 				}
 				vsym.Members[f.Name] = fieldSym
-				b.file.Definitions[fieldSym.Pos] = fieldSym
+				b.define(fieldSym.Pos, fieldSym)
 			}
 		}
 		// Embed variants share their name with the underlying type they
@@ -2991,7 +2727,7 @@ func (b *builder) defineEnumStub(n *ast.EnumDef, scope *Scope) {
 		if v.Kind != "embedded" && variantMayTakeScopeSlot(scope, v.Name) {
 			scope.Define(vsym)
 		}
-		b.file.Definitions[vsym.Pos] = vsym
+		b.define(vsym.Pos, vsym)
 		// Also expose the variant via the enum's Members so qualified
 		// access (`Error.HttpError`) can resolve through the enum without
 		// doing its own scope lookup.
@@ -3063,7 +2799,7 @@ func (b *builder) defineTypeDefStub(n *ast.TypeDef, scope *Scope) {
 		scope.Define(sym)
 	}
 	b.defineQualifiedTypeMember(scope, sym, n.Line, n.Col)
-	b.file.Definitions[pos] = sym
+	b.define(pos, sym)
 }
 
 // defineTypeAliasStub registers a TypeAlias's symbol in scope. Does not
@@ -3087,7 +2823,7 @@ func (b *builder) defineTypeAliasStub(n *ast.TypeAlias, scope *Scope) {
 		scope.Define(sym)
 	}
 	b.defineQualifiedTypeMember(scope, sym, n.Line, n.Col)
-	b.file.Definitions[pos] = sym
+	b.define(pos, sym)
 }
 
 // defineInterfaceStub registers an InterfaceDef's symbol with method
@@ -3125,7 +2861,7 @@ func (b *builder) defineInterfaceStub(n *ast.InterfaceDef, scope *Scope) {
 	if n.Public {
 		b.defineInterfaceModuleMethods(sym, scope)
 	}
-	b.file.Definitions[pos] = sym
+	b.define(pos, sym)
 }
 
 func (b *builder) defineInterfaceModuleMethods(ifaceSym *Symbol, scope *Scope) {
@@ -3283,7 +3019,7 @@ func (b *builder) defineImplBlockStub(n *ast.ImplBlock, scope *Scope) {
 				Node:       node,
 				OwningType: recv,
 			}
-			b.file.Definitions[pos] = sym
+			b.define(pos, sym)
 		}
 		if sym.OwningType == "" {
 			sym.OwningType = recv
@@ -3874,38 +3610,29 @@ func (b *builder) registerStructLitFieldRefs(n *ast.StructLit, scope *Scope) {
 	}
 }
 
-// stampImportedSymbol records filePath, the user file an import resolved to,
-// as the file that declares sym and its members, where they name none yet.
-// Cross-file go-to-definition, related-information locations and the
-// module-private checks read it.
+// define records sym as the symbol this file defines at pos, and records
+// the file as the one that declares it (SourceFile), where sym names none
+// yet. Cross-file go-to-definition, related-information locations and the
+// module-private checks read SourceFile. Only the owning file writes it, so
+// a symbol says where it is declared whichever files import it and in
+// whatever order they are built.
 //
-// A stdlib import resolves to no file path and stamps nothing. Its symbols
+// A symbol a stdlib file defines keeps an empty SourceFile. Its symbols
 // belong to the process's one stdlib analysis (std.Shared), which every
-// check reads at once, and they keep an empty SourceFile: go-to-definition
-// finds a stdlib symbol through the stdlib's own module scopes instead.
-func stampImportedSymbol(sym *Symbol, filePath string) {
-	if sym == nil || filePath == "" {
-		return
-	}
-	if sym.SourceFile == "" {
-		sym.SourceFile = filePath
-	}
-	for _, m := range sym.Members {
-		if m != nil && m.SourceFile == "" {
-			m.SourceFile = filePath
-		}
+// check reads at once: go-to-definition finds a stdlib symbol through the
+// stdlib's own module scopes instead. So does a symbol of a file with no
+// path (an in-memory entry).
+func (b *builder) define(pos Pos, sym *Symbol) {
+	b.file.Definitions[pos] = sym
+	if sym != nil && sym.SourceFile == "" && b.stampsSourceFile() {
+		sym.SourceFile = b.file.FilePath
 	}
 }
 
-// stampImportedScope is stampImportedSymbol for every symbol a user module
-// declares at its top level.
-func stampImportedScope(modScope *Scope, filePath string) {
-	if modScope == nil || filePath == "" {
-		return
-	}
-	for _, s := range modScope.Symbols {
-		stampImportedSymbol(s, filePath)
-	}
+// stampsSourceFile reports whether the symbols this builder's file defines
+// carry its path as their SourceFile: a user file with a path.
+func (b *builder) stampsSourceFile() bool {
+	return b.file.FilePath != "" && !IsStdlibKey(b.file.Origin)
 }
 
 // defineImport registers the symbols and module bindings for an import
@@ -4011,17 +3738,16 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 		// field-access can find members regardless of b.modules state
 		// (notably for nested aliases that don't touch b.modules).
 		var modScope *Scope
-		var filePath string
 		if stdScope := b.resolveStdlibImport(modPathStrings); stdScope != nil {
 			modScope = stdScope
 		} else {
 			var miss *importMiss
-			modScope, filePath, miss = b.resolveImportOrMiss(modPathStrings)
+			modScope, _, miss = b.resolveImportOrMiss(modPathStrings)
 			b.reportMissingModule(n, n.ModulePath, miss)
 		}
 		sym.ModuleScope = modScope
 		scope.Define(sym)
-		b.file.Definitions[sym.Pos] = sym
+		b.define(sym.Pos, sym)
 
 		// Top-level imports also update b.modules so qualified-type
 		// resolution and FieldAccess (which currently consult it) use the
@@ -4029,9 +3755,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 		// defineImport — and instead rely on sym.ModuleScope, which is set
 		// above for both nested and top-level cases.
 		if nested {
-			// Tag user symbols with source path even for nested user
-			// imports so go-to-def works.
-			stampImportedScope(modScope, filePath)
+			// A nested import binds sym and nothing else.
 		} else if b.isStdlibImport(modPathStrings) {
 			b.moduleSyms[bindName] = sym
 			if bindName != origName {
@@ -4054,7 +3778,6 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 			}
 			b.modules[bindName] = modScope
 			b.moduleSyms[bindName] = sym
-			stampImportedScope(modScope, filePath)
 			// Track explicit import for the function-shadow fallback.
 			if b.imported == nil {
 				b.imported = make(map[string]*Scope)
@@ -4084,7 +3807,6 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 		}
 
 		var modScope *Scope
-		var filePath string
 		// The `/`-joined segments name the file, so the module is never a
 		// shorter prefix of them: `import utils/inner.Thing` with no
 		// utils/inner.nomi is a missing file, not an owner `inner` in
@@ -4098,11 +3820,10 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 				modScope = stdScope
 				break
 			}
-			if scope, path := b.resolveImport(candidate); scope != nil {
+			if scope, _ := b.resolveImport(candidate); scope != nil {
 				modulePath = candidate
 				ownerSegments = modPathStrings[split:]
 				modScope = scope
-				filePath = path
 				break
 			}
 		}
@@ -4126,10 +3847,9 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 			modulePath = modPathStrings[:len(filePart)]
 			ownerSegments = nil
 			var miss *importMiss
-			modScope, filePath, miss = b.resolveImportOrMiss(modulePath)
+			modScope, _, miss = b.resolveImportOrMiss(modulePath)
 			b.reportMissingModule(n, filePart, miss)
 		}
-		stampImportedScope(modScope, filePath)
 
 		// For drill-through, look up the owner path within modScope and
 		// register references so hover/go-to-def works on every owner segment.
@@ -4175,7 +3895,6 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 					Message: fmt.Sprintf("'%s' is private and cannot be imported through", ownerSym.Name),
 				})
 			}
-			stampImportedSymbol(ownerSym, filePath)
 			if ownerSym.ModuleScope != nil {
 				ownerScope = ownerSym.ModuleScope
 			} else {
@@ -4218,9 +3937,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 					return nameOwnerSym.ModuleScope.LookupLocal(lookupName)
 				}
 				if nameOwnerSym != nil {
-					if byMethod := b.file.TypeMethods[nameOwnerSym.Name]; byMethod != nil {
-						return byMethod[lookupName]
-					}
+					return b.lookupVisibleTypeMethod(nameOwnerSym.Name, lookupName)
 				}
 				return nil
 			}
@@ -4295,7 +4012,6 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 						Message: fmt.Sprintf("cannot import variant '%s' directly%s", origName, hint),
 					})
 				}
-				stampImportedSymbol(real, filePath)
 				sym.Resolved = real
 				sym.Kind = real.Kind
 			} else if modScope != nil {
@@ -4349,7 +4065,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 			if b.importMayTakeScopeSlot(scope, bindName, sym.Pos) {
 				scope.Define(sym)
 			}
-			b.file.Definitions[sym.Pos] = sym
+			b.define(sym.Pos, sym)
 
 			// A dotted name is one name that happens to contain a dot — the
 			// declaration `pub enum Probe.Reading` is an ordinary module
@@ -4386,7 +4102,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 						sym.SourceFile = ownerSym.SourceFile
 					}
 					scope.Define(sym)
-					b.file.Definitions[sym.Pos] = sym
+					b.define(sym.Pos, sym)
 					b.defineDottedImportsForOwner(scope, modScope, ownerSym.Name, ownerName, sym.Pos, n)
 					// Register a hover/go-to-def target at the `self` token
 					// itself so clicking on `self` behaves like clicking on
@@ -4403,7 +4119,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 						if ownerSym.SourceFile != "" {
 							selfSym.SourceFile = ownerSym.SourceFile
 						}
-						b.file.Definitions[selfSym.Pos] = selfSym
+						b.define(selfSym.Pos, selfSym)
 					}
 				}
 			} else {
@@ -4420,7 +4136,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 					ModuleScope: modScope,
 				}
 				scope.Define(sym)
-				b.file.Definitions[sym.Pos] = sym
+				b.define(sym.Pos, sym)
 				if b.imported == nil {
 					b.imported = map[string]*Scope{}
 				}
@@ -4448,7 +4164,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 						Node:        n,
 						ModuleScope: modScope,
 					}
-					b.file.Definitions[selfSym.Pos] = selfSym
+					b.define(selfSym.Pos, selfSym)
 				}
 			}
 		}
@@ -4486,6 +4202,12 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	}
 
 	switch n := node.(type) {
+	case *ast.ExternFunc:
+		// A `host fn` or `go` binding has no body, but its defaults are
+		// code: one may name the file's functions and an earlier
+		// parameter, as a `fn`'s default may.
+		inner := b.defineTypeParams(n.TypeParams, scope)
+		b.defineParams(n.Params, NewScope(inner), n)
 	case *ast.OnceBinding:
 		// `once` is module-level only. A nested `once` inside a function
 		// body is rejected — function bodies use ordinary `name = value`
@@ -4589,7 +4311,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 					child.Define(sym)
 				}
 				if p.Line > 0 {
-					b.file.Definitions[sym.Pos] = sym
+					b.define(sym.Pos, sym)
 				}
 			}
 			if block, ok := m.Body.(*ast.Block); ok {
@@ -4689,13 +4411,20 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 
 	case *ast.Subtests:
 		// The rows are read in the enclosing scope; the pattern's names
-		// are the body's, a fresh scope each row runs in.
+		// are the name's and the body's, a fresh scope each row runs in.
 		b.walkNode(n.Rows, scope)
 		if n.Body != nil {
 			child := NewScope(scope)
-			setScopeSpan(child, n.Body.Line, n.Body.Col, n.Body.EndLine, n.Body.EndCol)
+			startLine, startCol := n.Body.Line, n.Body.Col
+			if hs, ok := n.Name.(ast.HasSpan); ok && !hs.GetSpan().IsZero() {
+				startLine, startCol = hs.GetSpan().StartLine, hs.GetSpan().StartCol-1
+			}
+			setScopeSpan(child, startLine, startCol, n.Body.EndLine, n.Body.EndCol)
 			b.definePatternIn(n.Pattern, child, n.Body)
 			b.walkNode(n.Pattern, child)
+			if n.Name != nil {
+				b.walkNode(n.Name, child)
+			}
 			b.walkBlock(n.Body, child)
 		}
 
@@ -4712,9 +4441,6 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		b.walkNode(n.Value, scope)
 
 	case *ast.StructDestructure:
-		b.walkNode(n.Value, scope)
-
-	case *ast.MapDestructure:
 		b.walkNode(n.Value, scope)
 
 	case *ast.DistinctDestructure:
@@ -5003,7 +4729,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		}
 
 	case *ast.MapLit:
-		// Type-prefixed map literals (`Kvs{"a" => 1}`) attach a TypeName for
+		// Type-prefixed map literals (`Kvs%{"a" => 1}`) attach a TypeName for
 		// the map-distinct's name; resolve it like StructLit does so hover
 		// and goto-definition work on the type name.
 		if n.TypeName != nil {
@@ -5069,9 +4795,9 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	// TypeAlias/InterfaceDef/ImportStmt are handled above for nested-decl support.)
 	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.StringLit, *ast.Placeholder,
 		*ast.WildcardPattern,
-		*ast.IdentPattern, *ast.AsPattern, *ast.EnumPattern, *ast.StructPattern,
+		*ast.IdentPattern, *ast.AsPattern, *ast.OrPattern, *ast.EnumPattern, *ast.StructPattern,
 		*ast.TuplePattern, *ast.ListPattern, *ast.MapPattern,
-		*ast.ExternFunc, *ast.ExternPackage:
+		*ast.ExternPackage:
 		// nothing to walk
 	}
 }
@@ -5290,7 +5016,7 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 					scope.Define(sym)
 				}
 			}
-			b.file.Definitions[sym.Pos] = sym
+			b.define(sym.Pos, sym)
 
 		case *ast.Defer:
 			b.walkNode(s.Call, scope)
@@ -5311,7 +5037,7 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 					if !ast.IsDiscardName(binding.Name) {
 						scope.Define(sym)
 					}
-					b.file.Definitions[sym.Pos] = sym
+					b.define(sym.Pos, sym)
 				}
 			}
 
@@ -5329,7 +5055,7 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 					if !ast.IsDiscardName(f.Binding) {
 						scope.Define(sym)
 					}
-					b.file.Definitions[sym.Pos] = sym
+					b.define(sym.Pos, sym)
 				}
 			}
 
@@ -5339,26 +5065,6 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 
 		case *ast.PatternBinding:
 			b.walkPatternBinding(s, scope)
-
-		case *ast.MapDestructure:
-			b.walkNode(s.Value, scope)
-			for _, entry := range s.Entries {
-				b.walkNode(entry.Key, scope)
-			}
-			for _, entry := range s.Entries {
-				if ip, ok := entry.Pattern.(*ast.IdentPattern); ok {
-					sym := &Symbol{
-						Name: ip.Name,
-						Kind: SymbolBinding,
-						Pos:  Pos{Line: ip.Line, Col: ip.Col},
-						Node: s,
-					}
-					if !ast.IsDiscardName(ip.Name) {
-						scope.Define(sym)
-					}
-					b.file.Definitions[sym.Pos] = sym
-				}
-			}
 
 		case *ast.DistinctDestructure:
 			// Register a Reference at the type-name position (`Id` in
@@ -5379,8 +5085,26 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 				if !ast.IsDiscardName(s.Binding.Name) {
 					scope.Define(sym)
 				}
-				b.file.Definitions[sym.Pos] = sym
+				b.define(sym.Pos, sym)
 			}
+
+		case *ast.ImplBlock, *ast.ImplConformance:
+			// Behavior is declared at module top level (spec §5): a block
+			// may declare a type or an interface, never an impl of one.
+			// Its references are still walked for hover and navigation.
+			form, line, col := "an `impl` block", 0, 0
+			if c, isDerive := s.(*ast.ImplConformance); isDerive {
+				form, line, col = "a `derive` declaration", c.Line, c.Col
+			} else {
+				ib := s.(*ast.ImplBlock)
+				line, col = ib.Line, ib.Col
+			}
+			b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
+				Line:    line,
+				Col:     col,
+				Message: form + " must appear at module top-level, not inside a body",
+			})
+			b.walkNode(stmt, scope)
 
 		default:
 			b.walkNode(stmt, scope)
@@ -5501,7 +5225,7 @@ func (b *builder) defineParams(params []ast.Param, scope *Scope, parentNode ast.
 			scope.Define(sym)
 		}
 		if p.Line > 0 {
-			b.file.Definitions[sym.Pos] = sym
+			b.define(sym.Pos, sym)
 		}
 	}
 }
@@ -5521,7 +5245,7 @@ func (b *builder) definePattern(node ast.Node, scope *Scope) {
 }
 
 // definePatternRoot binds a whole pattern's names (definePatternOwned) and
-// reports a name it binds twice: `(a, a)` and `Some(n) as n` would leave the
+// reports a name it binds twice: `#(a, a)` and `Some(n) as n` would leave the
 // first binding unreachable.
 func (b *builder) definePatternRoot(node ast.Node, scope *Scope, owner ast.Node) {
 	b.definePatternOwned(node, scope, owner)
@@ -5560,6 +5284,32 @@ func (b *builder) defineParamPattern(node ast.Node, scope *Scope, fn ast.Node) {
 	b.definePattern(node, scope)
 }
 
+// bindPatternName defines the name a pattern binds at pos. Inside an `or`
+// pattern whose earlier alternative already bound the name, pos is another
+// definition site of that symbol instead (builder.orBound).
+func (b *builder) bindPatternName(name string, pos Pos, bindingNode ast.Node, scope *Scope) {
+	if sym := b.orBound[name]; sym != nil {
+		b.define(pos, sym)
+		return
+	}
+	sym := &Symbol{
+		Name:            name,
+		Kind:            SymbolBinding,
+		Pos:             pos,
+		Node:            bindingNode,
+		ReceiverDisplay: scope.ReceiverTypeDisplay(),
+		ParamOf:         b.paramPatternOf,
+		PatternBody:     b.patternBodyOf,
+	}
+	if !ast.IsDiscardName(name) {
+		scope.Define(sym)
+	}
+	b.define(sym.Pos, sym)
+	if b.orBound != nil {
+		b.orBound[name] = sym
+	}
+}
+
 func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node) {
 	if node == nil {
 		return
@@ -5571,37 +5321,34 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 
 	switch n := node.(type) {
 	case *ast.IdentPattern:
-		sym := &Symbol{
-			Name:            n.Name,
-			Kind:            SymbolBinding,
-			Pos:             Pos{Line: n.Line, Col: n.Col},
-			Node:            bindingNode,
-			ReceiverDisplay: scope.ReceiverTypeDisplay(),
-			ParamOf:         b.paramPatternOf,
-			PatternBody:     b.patternBodyOf,
-		}
-		if !ast.IsDiscardName(n.Name) {
-			scope.Define(sym)
-		}
-		b.file.Definitions[sym.Pos] = sym
+		b.bindPatternName(n.Name, Pos{Line: n.Line, Col: n.Col}, bindingNode, scope)
 
 	case *ast.AsPattern:
 		// The inner pattern's names first, then the name for the whole
 		// value: source order, so a duplicate reports at the later one.
 		b.definePatternOwned(n.Pattern, scope, owner)
-		sym := &Symbol{
-			Name:            n.Name,
-			Kind:            SymbolBinding,
-			Pos:             Pos{Line: n.NameLine, Col: n.NameCol},
-			Node:            bindingNode,
-			ReceiverDisplay: scope.ReceiverTypeDisplay(),
-			ParamOf:         b.paramPatternOf,
-			PatternBody:     b.patternBodyOf,
+		b.bindPatternName(n.Name, Pos{Line: n.NameLine, Col: n.NameCol}, bindingNode, scope)
+
+	case *ast.OrPattern:
+		// Each name the alternatives bind is one symbol: the first site
+		// defines it, and every later alternative's site for the name is
+		// another definition site of it. The checker requires every
+		// alternative to bind the same names (checkOrPattern).
+		outer := b.orBound
+		bound := make(map[string]*Symbol, len(outer))
+		for k, v := range outer {
+			bound[k] = v
 		}
-		if !ast.IsDiscardName(n.Name) {
-			scope.Define(sym)
+		b.orBound = bound
+		for _, alt := range n.Alternatives {
+			b.definePatternOwned(alt, scope, owner)
 		}
-		b.file.Definitions[sym.Pos] = sym
+		b.orBound = outer
+		if outer != nil {
+			for k, v := range bound {
+				outer[k] = v
+			}
+		}
 
 	case *ast.Binary:
 		b.definePatternOwned(n.Left, scope, owner)
@@ -5612,19 +5359,7 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 		if n.Payload != nil {
 			b.definePatternOwned(n.Payload, scope, owner)
 		} else if n.Binding != "" {
-			sym := &Symbol{
-				Name:            n.Binding,
-				Kind:            SymbolBinding,
-				Pos:             Pos{Line: n.Line, Col: n.BindingCol},
-				Node:            bindingNode,
-				ReceiverDisplay: scope.ReceiverTypeDisplay(),
-				ParamOf:         b.paramPatternOf,
-				PatternBody:     b.patternBodyOf,
-			}
-			if !ast.IsDiscardName(n.Binding) {
-				scope.Define(sym)
-			}
-			b.file.Definitions[sym.Pos] = sym
+			b.bindPatternName(n.Binding, Pos{Line: n.Line, Col: n.BindingCol}, bindingNode, scope)
 		}
 
 	case *ast.StructPattern:
@@ -5634,19 +5369,7 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 				b.definePatternOwned(f.Pattern, scope, owner)
 			} else if f.Binding != "" {
 				line := structPatternFieldBindingLine(f, n.Line)
-				sym := &Symbol{
-					Name:            f.Binding,
-					Kind:            SymbolBinding,
-					Pos:             Pos{Line: line, Col: f.BindingCol},
-					Node:            bindingNode,
-					ReceiverDisplay: scope.ReceiverTypeDisplay(),
-					ParamOf:         b.paramPatternOf,
-					PatternBody:     b.patternBodyOf,
-				}
-				if !ast.IsDiscardName(f.Binding) {
-					scope.Define(sym)
-				}
-				b.file.Definitions[sym.Pos] = sym
+				b.bindPatternName(f.Binding, Pos{Line: line, Col: f.BindingCol}, bindingNode, scope)
 			}
 		}
 
@@ -5669,7 +5392,7 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 		}
 
 	case *ast.MapPattern:
-		// Type-prefixed map patterns (`Kvs{"a" => v}`) resolve the type
+		// Type-prefixed map patterns (`Kvs%{"a" => v}`) resolve the type
 		// name like StructPattern does — supports hover/goto on the prefix.
 		if n.TypeName != nil {
 			b.walkTypeExpr(n.TypeName, scope)

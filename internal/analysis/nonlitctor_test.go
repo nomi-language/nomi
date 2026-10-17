@@ -48,7 +48,7 @@ func errorTexts(t *testing.T, src string) []string {
 //
 // Order-independence is REQUIRED rather than incidental: the motivating
 // program declares `struct MyApp { context, port }` and calls
-// `MyApp(defaults())` where `defaults(): {port: Int, context: Context}`. The
+// `MyApp(defaults())` where `defaults() -> {port: Int, context: Context}`. The
 // reversed row is that program's shape reduced to two scalars, and it is the
 // row that would fail if the match were positional.
 func TestStructCallForm_RecordArgumentAccepted(t *testing.T) {
@@ -56,13 +56,13 @@ func TestStructCallForm_RecordArgumentAccepted(t *testing.T) {
 		name string
 		src  string
 	}{
-		{"literal (control)", nonLitP + "\nfn f(): P { P({a: 1, b: \"x\"}) }\n"},
-		{"local binding", nonLitP + "\nfn f(): P {\n  m = {a: 1, b: \"x\"}\n  P(m)\n}\n"},
-		{"annotated binding", nonLitP + "\nfn f(): P {\n  m: {a: Int, b: String} = {a: 1, b: \"x\"}\n  P(m)\n}\n"},
-		{"call result, declaration order", nonLitP + "\nfn rec(): {a: Int, b: String} { {a: 1, b: \"x\"} }\n\nfn f(): P { P(rec()) }\n"},
-		{"call result, REVERSED order", nonLitP + "\nfn rec(): {b: String, a: Int} { {b: \"x\", a: 1} }\n\nfn f(): P { P(rec()) }\n"},
-		{"parameter", nonLitP + "\nfn f(m: {a: Int, b: String}): P { P(m) }\n"},
-		{"parameter, REVERSED order", nonLitP + "\nfn f(m: {b: String, a: Int}): P { P(m) }\n"},
+		{"literal (control)", nonLitP + "\nfn f() -> P { P({a: 1, b: \"x\"}) }\n"},
+		{"local binding", nonLitP + "\nfn f() -> P {\n  m = {a: 1, b: \"x\"}\n  P(m)\n}\n"},
+		{"annotated binding", nonLitP + "\nfn f() -> P {\n  m: {a: Int, b: String} = {a: 1, b: \"x\"}\n  P(m)\n}\n"},
+		{"call result, declaration order", nonLitP + "\nfn rec() -> {a: Int, b: String} { {a: 1, b: \"x\"} }\n\nfn f() -> P { P(rec()) }\n"},
+		{"call result, REVERSED order", nonLitP + "\nfn rec() -> {b: String, a: Int} { {b: \"x\", a: 1} }\n\nfn f() -> P { P(rec()) }\n"},
+		{"parameter", nonLitP + "\nfn f(m: {a: Int, b: String}) -> P { P(m) }\n"},
+		{"parameter, REVERSED order", nonLitP + "\nfn f(m: {b: String, a: Int}) -> P { P(m) }\n"},
 	}
 	for _, r := range rows {
 		t.Run(r.name, func(t *testing.T) {
@@ -84,7 +84,7 @@ struct D {
 }
 `
 	t.Run("omitted defaulted field is accepted", func(t *testing.T) {
-		src := defaulted + "\nfn rec(): {a: Int} { {a: 1} }\n\nfn f(): D { D(rec()) }\n"
+		src := defaulted + "\nfn rec() -> {a: Int} { {a: 1} }\n\nfn f() -> D { D(rec()) }\n"
 		if got := errorTexts(t, src); len(got) != 0 {
 			t.Errorf("want accepted, got %v", got)
 		}
@@ -98,13 +98,13 @@ struct A {
 `
 		// A record with no fields is not expressible, so the parameter
 		// position is how an all-defaulted struct is reached by a record.
-		src := allDef + "\nfn f(m: {p: Int}): A { A(m) }\n"
+		src := allDef + "\nfn f(m: {p: Int}) -> A { A(m) }\n"
 		if got := errorTexts(t, src); len(got) != 0 {
 			t.Errorf("want accepted, got %v", got)
 		}
 	})
 	t.Run("omitted required field names the field", func(t *testing.T) {
-		src := nonLitP + "\nfn rec(): {a: Int} { {a: 1} }\n\nfn f(): P { P(rec()) }\n"
+		src := nonLitP + "\nfn rec() -> {a: Int} { {a: 1} }\n\nfn f() -> P { P(rec()) }\n"
 		got := errorTexts(t, src)
 		want := "missing field 'b' of P"
 		if len(got) != 1 || got[0] != want {
@@ -114,7 +114,7 @@ struct A {
 	t.Run("the LITERAL form says the same thing", func(t *testing.T) {
 		// The identical-behaviour claim, asserted rather than inspected: the
 		// two argument shapes must produce the same words for the same fault.
-		src := nonLitP + "\nfn f(): P { P({a: 1}) }\n"
+		src := nonLitP + "\nfn f() -> P { P({a: 1}) }\n"
 		got := errorTexts(t, src)
 		want := "missing field 'b' of P"
 		if len(got) != 1 || got[0] != want {
@@ -134,12 +134,12 @@ func TestStructCallForm_RecordArgumentFieldFaults(t *testing.T) {
 	}{
 		{
 			"field the target does not have",
-			nonLitP + "\nfn rec(): {a: Int, b: String, c: Int} { {a: 1, b: \"x\", c: 2} }\n\nfn f(): P { P(rec()) }\n",
+			nonLitP + "\nfn rec() -> {a: Int, b: String, c: Int} { {a: 1, b: \"x\", c: 2} }\n\nfn f() -> P { P(rec()) }\n",
 			"P has no field 'c'",
 		},
 		{
 			"field of the wrong type",
-			nonLitP + "\nfn rec(): {a: String, b: String} { {a: \"n\", b: \"x\"} }\n\nfn f(): P { P(rec()) }\n",
+			nonLitP + "\nfn rec() -> {a: String, b: String} { {a: \"n\", b: \"x\"} }\n\nfn f() -> P { P(rec()) }\n",
 			"field 'a' of P: expected Int, got String",
 		},
 	}
@@ -162,8 +162,8 @@ func TestStructCallForm_RecordArgumentFieldFaults(t *testing.T) {
 		src  string
 		want string
 	}{
-		{"literal, unknown field", nonLitP + "\nfn f(): P { P({a: 1, b: \"x\", c: 2}) }\n", "P has no field 'c'"},
-		{"literal, wrong type", nonLitP + "\nfn f(): P { P({a: \"n\", b: \"x\"}) }\n", "field 'a' of P: expected Int, got String"},
+		{"literal, unknown field", nonLitP + "\nfn f() -> P { P({a: 1, b: \"x\", c: 2}) }\n", "P has no field 'c'"},
+		{"literal, wrong type", nonLitP + "\nfn f() -> P { P({a: \"n\", b: \"x\"}) }\n", "field 'a' of P: expected Int, got String"},
 	} {
 		t.Run(r.name, func(t *testing.T) {
 			got := errorTexts(t, r.src)
@@ -188,22 +188,22 @@ func TestStructCallForm_StillRefusesNonRecordArguments(t *testing.T) {
 	}{
 		{
 			"scalar argument",
-			nonLitP + "\nfn f(): P { P(7) }\n",
+			nonLitP + "\nfn f() -> P { P(7) }\n",
 			"P expects an anonymous struct literal {...} matching its fields, got Int",
 		},
 		{
 			"same-shaped NOMINAL struct",
-			nonLitP + "\nstruct Q {\n  a: Int\n  b: String\n}\n\nfn f(): P { P(Q{a: 1, b: \"x\"}) }\n",
+			nonLitP + "\nstruct Q {\n  a: Int\n  b: String\n}\n\nfn f() -> P { P(Q{a: 1, b: \"x\"}) }\n",
 			"P expects an anonymous struct literal {...} matching its fields, got Q",
 		},
 		{
 			"tuple argument",
-			nonLitP + "\nfn rec(): (Int, String) { (1, \"x\") }\n\nfn f(): P { P(rec()) }\n",
-			"P expects an anonymous struct literal {...} matching its fields, got (Int, String)",
+			nonLitP + "\nfn rec() -> #(Int, String) { #(1, \"x\") }\n\nfn f() -> P { P(rec()) }\n",
+			"P expects an anonymous struct literal {...} matching its fields, got #(Int, String)",
 		},
 		{
 			"two arguments",
-			nonLitP + "\nfn f(): P { P({a: 1}, {b: \"x\"}) }\n",
+			nonLitP + "\nfn f() -> P { P({a: 1}, {b: \"x\"}) }\n",
 			"P takes 1 argument, got 2; expected P({...}) with the struct's fields",
 		},
 	}
@@ -237,11 +237,11 @@ func TestStructCallForm_OpaqueStructStillPrivate(t *testing.T) {
   ttl: Int
 }
 
-fn defaults(): {ttl: Int, token: String} { {ttl: 30, token: "t"} }
+fn defaults() -> {ttl: Int, token: String} { {ttl: 30, token: "t"} }
 
-pub fn make(): Secret { Secret(defaults()) }
+pub fn make() -> Secret { Secret(defaults()) }
 
-pub fn make_literal(): Secret { Secret({token: "t", ttl: 30}) }
+pub fn make_literal() -> Secret { Secret({token: "t", ttl: 30}) }
 `
 	const priv = "constructor of opaque type 'Secret' is private to its defining module — use an exported constructor function"
 
@@ -249,7 +249,7 @@ pub fn make_literal(): Secret { Secret({token: "t", ttl: 30}) }
 		// THE POSITIVE. `make` and `make_literal` both construct in the
 		// owning file; if this row failed, the refusals below would be
 		// telling us nothing about opacity.
-		_, errs := checkSourceWithModules(t, "import secret\n\nfn f(): Int { 0 }\n",
+		_, errs := checkSourceWithModules(t, "import secret\n\nfn f() -> Int { 0 }\n",
 			map[string]string{"secret": owner})
 		for _, e := range errs {
 			if strings.Contains(e.Message, "Secret") {
@@ -259,15 +259,15 @@ pub fn make_literal(): Secret { Secret({token: "t", ttl: 30}) }
 	})
 	t.Run("outside, record form still refuses", func(t *testing.T) {
 		src := "import secret.{self, Secret}\n\n" +
-			"fn rec(): {token: String, ttl: Int} { {token: \"t\", ttl: 9} }\n\n" +
-			"fn sneak(): Secret { Secret(rec()) }\n"
+			"fn rec() -> {token: String, ttl: Int} { {token: \"t\", ttl: 9} }\n\n" +
+			"fn sneak() -> Secret { Secret(rec()) }\n"
 		if !hasMessage(t, src, map[string]string{"secret": owner}, priv) {
 			t.Error("the record form got past the opacity guard")
 		}
 	})
 	t.Run("outside, literal form still refuses", func(t *testing.T) {
 		src := "import secret.{self, Secret}\n\n" +
-			"fn sneak(): Secret { Secret({token: \"t\", ttl: 9}) }\n"
+			"fn sneak() -> Secret { Secret({token: \"t\", ttl: 9}) }\n"
 		if !hasMessage(t, src, map[string]string{"secret": owner}, priv) {
 			t.Error("the literal form got past the opacity guard")
 		}
@@ -296,11 +296,11 @@ struct Box<T> {
   v: T
 }
 
-fn rec(): {v: Int} { {v: 1} }
+fn rec() -> {v: Int} { {v: 1} }
 
-fn f(): Box<Int> { Box(rec()) }
+fn f() -> Box<Int> { Box(rec()) }
 
-fn g(): Box<Int> { Box({v: 1}) }
+fn g() -> Box<Int> { Box({v: 1}) }
 `
 	if got := errorTexts(t, src); len(got) != 0 {
 		t.Errorf("want accepted, got %v", got)
@@ -313,9 +313,9 @@ struct Box<T> {
   v: T
 }
 
-fn rec(): {v: String} { {v: "s"} }
+fn rec() -> {v: String} { {v: "s"} }
 
-fn f(): Box<Int> { Box(rec()) }
+fn f() -> Box<Int> { Box(rec()) }
 `
 	if got := errorTexts(t, bad); len(got) == 0 {
 		t.Error("Box<Int> accepted a {v: String} record")
@@ -335,7 +335,7 @@ fn f(): Box<Int> { Box(rec()) }
 func TestStructCallForm_InterfaceTypedFieldFromARecord(t *testing.T) {
 	const decl = `
 interface Greeter {
-  fn greet(g: self): String
+  fn greet(g: self) -> String
 }
 
 struct En {
@@ -347,27 +347,27 @@ struct Site {
   port: Int
 }
 
-fn defaults(): {port: Int, greeter: En} { {port: 80, greeter: En{name: "x"}} }
+fn defaults() -> {port: Int, greeter: En} { {port: 80, greeter: En{name: "x"}} }
 `
 	const impl = `
 impl Greeter for En {
-  fn greet(g: En): String { g.name }
+  fn greet(g: En) -> String { g.name }
 }
 `
 	t.Run("with an impl, accepted", func(t *testing.T) {
-		if got := errorTexts(t, decl+impl+"\nfn f(): Site { Site(defaults()) }\n"); len(got) != 0 {
+		if got := errorTexts(t, decl+impl+"\nfn f() -> Site { Site(defaults()) }\n"); len(got) != 0 {
 			t.Errorf("want accepted, got %v", got)
 		}
 	})
 	t.Run("without an impl, refused by field name", func(t *testing.T) {
-		got := errorTexts(t, decl+"\nfn f(): Site { Site(defaults()) }\n")
+		got := errorTexts(t, decl+"\nfn f() -> Site { Site(defaults()) }\n")
 		want := "field 'greeter' of Site: expected Greeter, got En"
 		if len(got) != 1 || got[0] != want {
 			t.Errorf("got %v, want exactly [%q]", got, want)
 		}
 	})
 	t.Run("the LITERAL form says the same thing", func(t *testing.T) {
-		got := errorTexts(t, decl+"\nfn f(): Site { Site({port: 80, greeter: En{name: \"x\"}}) }\n")
+		got := errorTexts(t, decl+"\nfn f() -> Site { Site({port: 80, greeter: En{name: \"x\"}}) }\n")
 		want := "field 'greeter' of Site: expected Greeter, got En"
 		if len(got) != 1 || got[0] != want {
 			t.Errorf("got %v, want exactly [%q]", got, want)

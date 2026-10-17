@@ -47,7 +47,7 @@ import (
 //   - `p == q` on an ENUM or a DISTINCT dispatches when the impl is
 //     HAND-WRITTEN and not when it is derived. See equatableDispatches for
 //     the struct rule and handWrittenNominalEquatable for the nominal one.
-//   - `[p] == [q]`, `(p, 1) == (q, 1)`, a `p` key inside a Map: never, at any
+//   - `[p] == [q]`, `#(p, 1) == #(q, 1)`, a `p` key inside a Map: never, at any
 //     depth, because each is structural equality from the outermost step down
 //     and structural equality does not dispatch. A `derive Equatable` on a
 //     struct FIELD is likewise not consulted when the containing struct falls
@@ -364,7 +364,7 @@ type mapFn struct {
 // with the Nomi body is a shared bottom rather than an argument.
 //
 // `map_keys` lowers in mapMapValuesPlan. `map_next` is a row above: it
-// answers `Maybe<((K, V), Map<K, V>)>`, the first entry in insertion order and
+// answers `Maybe<#(#(K, V), Map<K, V>)>`, the first entry in insertion order and
 // the map without it.
 var mapFuncs = map[string]mapFn{
 	"get":           {rtCall: "rt.MapGet", args: 2, opsAfter: 1, result: "maybe"},
@@ -386,7 +386,7 @@ func (g *gen) mapResultKind(tag string, key, val kind, at ast.Node) (kind, bool)
 	case "map":
 		return g.mapKind(key, val), true
 	case "next":
-		// `Map.map_next` is `Maybe<((K, V), Map<K, V>)>`.
+		// `Map.map_next` is `Maybe<#(#(K, V), Map<K, V>)>`.
 		entry := g.tupleKind([]kind{key, val})
 		// kindInvalid: reports — an unrepresentable tuple part, named by tupleKind.
 		if entry == kindInvalid {

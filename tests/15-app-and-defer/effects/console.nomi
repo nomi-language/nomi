@@ -11,7 +11,7 @@ import {
 pub type StdConsole
 
 impl Console for StdConsole {
-    fn writeln(_value: StdConsole, msg: String): Unit {
+    fn writeln(_value: StdConsole, msg: String) -> Unit {
         io.print(msg)
     }
 }

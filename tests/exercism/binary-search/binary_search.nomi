@@ -1,0 +1,26 @@
+/// The index of `value` in `items`, which must be sorted, found by halving
+/// the range it could be in.
+pub fn find<T>(items: Vector<T>, value: T) -> Result<Int, String> where T: Comparable {
+    search(items, value, 0, Vector.length(items))
+}
+
+/// Searches the indices from `low` up to, not including, `high`.
+fn search<T>(
+    items: Vector<T>,
+    value: T,
+    low: Int,
+    high: Int,
+) -> Result<Int, String> where T: Comparable {
+    if low >= high {
+        return Err("value not in array")
+    }
+
+    middle = (low + high) / 2
+    item = Vector.at(items, middle)
+
+    case Comparable.compare(value, item) {
+        .Less -> search(items, value, low, middle)
+        .Equal -> Ok(middle)
+        .Greater -> search(items, value, middle + 1, high)
+    }
+}

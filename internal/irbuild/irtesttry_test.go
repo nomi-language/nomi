@@ -10,7 +10,7 @@ import (
 // its text as the formatter renders it (the whole pipe for the pipe spelling)
 // and the propagated variant inspected structurally.
 func TestIRTestBody_TryEndsTheCaseEarly(t *testing.T) {
-	const src = `fn parse(n: Int): Result<Int, String> {
+	const src = `fn parse(n: Int) -> Result<Int, String> {
   if n < 0 {
     Err("negative")
   } else {
@@ -18,7 +18,7 @@ func TestIRTestBody_TryEndsTheCaseEarly(t *testing.T) {
   }
 }
 
-fn half(n: Int): Maybe<Int> {
+fn half(n: Int) -> Maybe<Int> {
   if n % 2 == 0 {
     Some(n / 2)
   } else {

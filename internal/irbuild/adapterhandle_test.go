@@ -39,7 +39,7 @@ func TestAdapterWall_TheCoLocatedAdapterLowersEndToEnd(t *testing.T) {
 		// The `go`-bound externs.
 		"regex.Regex.compile",
 		"regex.Regex.pattern",
-		"regex.Regex.find",
+		"regex.Regex.find_in",
 		"regex.Regex.replace_all",
 		"regex.Regex.contained_in?",
 		"regex.Regex.find_all_in",

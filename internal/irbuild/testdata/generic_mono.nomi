@@ -28,27 +28,27 @@ pub struct Pair<A, B> {
 /// mentions it inside a PRELUDE enum. Both are depth positions, and the prelude
 /// one is where the type argument has to survive a construction rather than
 /// merely a pass-through.
-fn recv<T>(r: Half<T>): Maybe<T> {
+fn recv<T>(r: Half<T>) -> Maybe<T> {
     Maybe.Some(r.slot)
 }
 
 /// Pass-through: the container arrives and leaves unchanged. This is the row an
 /// erased lowering could ALMOST do, which is why the fixture also has `wrapped`.
-fn ids<T>(xs: List<T>): List<T> {
+fn ids<T>(xs: List<T>) -> List<T> {
     xs
 }
 
 /// CONSTRUCTION: the body builds the container. This is the row erasure cannot
 /// do at all — the body would build a `*rt.List[any]` and the caller wants a
 /// `*rt.List[int64]` — so it is the direct witness for monomorphization.
-fn wrapped<T>(x: T): List<T> {
+fn wrapped<T>(x: T) -> List<T> {
     [x]
 }
 
 /// TWO type parameters, so the instantiation key is a tuple rather than a single
 /// kind. `Pair<Int, String>` and `Pair<String, Int>` are different instances of
 /// one declaration and must not collide.
-fn swap<A, B>(p: Pair<A, B>): Pair<B, A> {
+fn swap<A, B>(p: Pair<A, B>) -> Pair<B, A> {
     Pair{left: p.right, right: p.left}
 }
 
@@ -56,14 +56,14 @@ fn swap<A, B>(p: Pair<A, B>): Pair<B, A> {
 /// parameter. Inside the instance, `T` is concrete, so the inner call is
 /// instantiated at the outer instance's argument — the chain the worklist
 /// exists for.
-fn recv_twice<T>(r: Half<T>): Maybe<T> {
+fn recv_twice<T>(r: Half<T>) -> Maybe<T> {
     recv(r)
 }
 
 /// A tuple is a depth position too, and it is a STRUCTURAL kind rather than a
 /// nominal one, so it exercises kindParts rather than genericArgs.
-fn tag<T>(x: T): (T, Int) {
-    (x, 1)
+fn tag<T>(x: T) -> #(T, Int) {
+    #(x, 1)
 }
 
 test "one declaration, two concrete type arguments" {
@@ -123,8 +123,8 @@ test "a generic function calls a generic function at its own type parameter" {
 }
 
 test "a tuple return keeps the element type at each instantiation" {
-    assert Debug.inspect(tag(3)) == "(3, 1)"
-    assert Debug.inspect(tag("three")) == "(\"three\", 1)"
+    assert Debug.inspect(tag(3)) == "#(3, 1)"
+    assert Debug.inspect(tag("three")) == "#(\"three\", 1)"
 }
 
 test "the same instantiation reached twice is one function" {

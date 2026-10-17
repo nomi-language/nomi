@@ -13,6 +13,14 @@ import "strconv"
 // what catches each report, records it with the row rendered as a `values:`
 // row renders a value, and runs the next row.
 //
+// THE NAME. `subtests rows, pattern, name { body }` also lowers its name to a
+// function value of one parameter, the row, answering a String: it binds the
+// pattern as the body does and evaluates the name. The instruction calls it
+// once per row, before the row's body, and a failed row is recorded under
+// that String instead of the rendered row. A name that faults fails its row
+// without running the body, recorded under the rendered row with the fault's
+// text (internal/vm/subtests.go).
+//
 // THE DELIVERY IS AN ASSERTION'S. After the last row, when any row failed,
 // the combined failure (rt.SubtestsFailure) leaves the activation exactly as
 // one failed `assert` does: a test body's case fails with the report, and an
@@ -28,6 +36,11 @@ type Subtests struct {
 	rows Temp
 	row  Temp
 	text string
+	// name is the name function, or NoTemp when the statement has none;
+	// nameLine and nameText are its expression's line and text.
+	name     Temp
+	nameLine int
+	nameText string
 }
 
 // NewSubtests runs row once per element of rows. text is the rows expression
@@ -41,7 +54,17 @@ func NewSubtests(pos Pos, rows, row Temp, text string) *Subtests {
 	if text == "" {
 		panic("ir.NewSubtests: the combined failure names its rows and these have no text")
 	}
-	return &Subtests{pos: pos, rows: rows, row: row, text: text}
+	return &Subtests{pos: pos, rows: rows, row: row, text: text, name: NoTemp}
+}
+
+// WithName gives the statement its name function, whose expression is text
+// at line.
+func (n *Subtests) WithName(name Temp, line int, text string) *Subtests {
+	if name == NoTemp || text == "" {
+		panic("ir.Subtests.WithName: a name needs its function and its text")
+	}
+	n.name, n.nameLine, n.nameText = name, line, text
+	return n
 }
 
 // Rows is the sequence of rows.
@@ -53,14 +76,31 @@ func (n *Subtests) Row() Temp { return n.row }
 // Text is the rows expression as written.
 func (n *Subtests) Text() string { return n.text }
 
+// Name is the function value that answers a row's name, or NoTemp.
+func (n *Subtests) Name() Temp { return n.name }
+
+// NameLine is the line of the name expression, or 0.
+func (n *Subtests) NameLine() int { return n.nameLine }
+
+// NameText is the name expression as written, or "".
+func (n *Subtests) NameText() string { return n.nameText }
+
 func (n *Subtests) Pos() Pos  { return n.pos }
 func (n *Subtests) Dst() Temp { return NoTemp }
 func (n *Subtests) AppendUses(dst []Temp) []Temp {
-	return append(dst, n.rows, n.row)
+	dst = append(dst, n.rows, n.row)
+	if n.name != NoTemp {
+		dst = append(dst, n.name)
+	}
+	return dst
 }
 
 func (n *Subtests) String() string {
-	return "subtests " + n.rows.String() + ", " + n.row.String() + " " + strconv.Quote(n.text)
+	s := "subtests " + n.rows.String() + ", " + n.row.String() + " " + strconv.Quote(n.text)
+	if n.name != NoTemp {
+		s += " name " + n.name.String() + " " + strconv.Itoa(n.nameLine) + " " + strconv.Quote(n.nameText)
+	}
+	return s
 }
 func (n *Subtests) irNode()  {}
 func (n *Subtests) irInstr() {}

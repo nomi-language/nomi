@@ -49,24 +49,24 @@ struct H {
 }
 
 impl Display for WP {
-    fn to_string(w: WP): String {
+    fn to_string(w: WP) -> String {
         WP(p) = w
         "wp ${p.x}"
     }
 }
 
-fn first<T>(xs: List<T>): Maybe<T> {
+fn first<T>(xs: List<T>) -> Maybe<T> {
     List.head(xs)
 }
 
-fn get(w: Wrapped): Int {
+fn get(w: Wrapped) -> Int {
     case w {
         Wrapped(Some(v)) -> v
         Wrapped(None) -> 0
     }
 }
 
-fn unwrap(Wrapped(m): Wrapped): Maybe<Int> {
+fn unwrap(Wrapped(m): Wrapped) -> Maybe<Int> {
     m
 }
 
@@ -92,8 +92,8 @@ fn main() {
     io.inspect(Vs(#[1, 2]))
     io.inspect(Ms([Meters(1)]))
     io.inspect(first([Wrapped(Some(1))]))
-    io.inspect([1, 2] |> Iter.map(|n| Wrapped(Some(n))) |> Iter.to_list())
-    io.inspect(Map.get({Wrapped(Some(1)) => "a"}, Wrapped(Some(1))))
+    io.inspect([1, 2] |> Iter.map(fn n -> Wrapped(Some(n))) |> Iter.to_list())
+    io.inspect(Map.get(%{Wrapped(Some(1)) => "a"}, Wrapped(Some(1))))
     h = H{p: WP(P{x: 2}), w: Wrapped(None)}
     io.inspect(h)
     io.inspect(h == H{p: WP(P{x: 2}), w: Wrapped(Some(1))})
@@ -164,7 +164,7 @@ enum Expr {
 
 type Boxed Expr
 
-fn total(n: Node): Int {
+fn total(n: Node) -> Int {
     case n.next {
         Some(Link(m)) -> n.v + total(m)
         None -> n.v

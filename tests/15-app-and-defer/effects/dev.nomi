@@ -9,7 +9,7 @@ import {
     log.ProdLogger
 }
 
-pub fn build(context: Context): EffectsApp {
+pub fn build(context: Context) -> EffectsApp {
     EffectsApp{
         context,
         logger: ProdLogger,

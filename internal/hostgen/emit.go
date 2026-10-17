@@ -331,7 +331,7 @@ func (g *Generator) adapter(b Binding) (string, error) {
 	name := g.fresh("fn")
 	var w bytes.Buffer
 	key := strconv.Quote(b.Key)
-	fmt.Fprintf(&w, "// %s adapts %s: %s(%s): %s\n", name, b.Key, decl.Name, paramList(decl), want)
+	fmt.Fprintf(&w, "// %s adapts %s: %s(%s) -> %s\n", name, b.Key, decl.Name, paramList(decl), want)
 	fmt.Fprintf(&w, "func (b *bound) %s(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {\n", name)
 	if !b.PanicsPropagate {
 		fmt.Fprintf(&w, "\tdefer hostadapt.Recover(%s, &err)\n", key)

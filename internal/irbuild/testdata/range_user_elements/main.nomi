@@ -13,7 +13,7 @@ struct Meters {
 derive Comparable for Meters
 
 impl Steppable<Int> for Meters {
-    fn step_by(value: Meters, by: Int): Maybe<Meters> {
+    fn step_by(value: Meters, by: Int) -> Maybe<Meters> {
         if value.n + by > 9 {
             None
         } else {
@@ -31,12 +31,12 @@ enum Level {
 derive Comparable for Level
 
 impl Steppable<Int> for Level {
-    fn step_by(value: Level, by: Int): Maybe<Level> {
-        case (value, by) {
-            (_, 0) -> Some(value)
-            (Level.Low, _) -> Some(Level.Mid)
-            (Level.Mid, _) -> Some(Level.High)
-            (Level.High, _) -> None
+    fn step_by(value: Level, by: Int) -> Maybe<Level> {
+        case #(value, by) {
+            #(_, 0) -> Some(value)
+            #(Level.Low, _) -> Some(Level.Mid)
+            #(Level.Mid, _) -> Some(Level.High)
+            #(Level.High, _) -> None
         }
     }
 }

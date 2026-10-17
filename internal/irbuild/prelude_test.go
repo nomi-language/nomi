@@ -340,9 +340,9 @@ func TestPreludeInstancesAreDistinctTypes(t *testing.T) {
 func preludeGenForTest(t *testing.T) *gen {
 	t.Helper()
 	const src = "import {\n  std/literals.Fragment\n  std/tasks.Outcome\n}\n\n" +
-		"fn tag(_f: Fragment<String>): Int {\n  0\n}\n\n" +
-		"fn ended(_o: Outcome<Int>): Int {\n  0\n}\n\n" +
-		"fn main(): Unit {\n  if True { } \n}\n"
+		"fn tag(_f: Fragment<String>) -> Int {\n  0\n}\n\n" +
+		"fn ended(_o: Outcome<Int>) -> Int {\n  0\n}\n\n" +
+		"fn main() -> Unit {\n  if True { } \n}\n"
 	p, err := AnalyzeSource("prelude_probe", src)
 	if err != nil {
 		t.Fatalf("analyzing the prelude program: %v", err)
@@ -367,7 +367,7 @@ func TestPreludeIdentityIsNotAName(t *testing.T) {
   None
 }
 
-fn main(): Unit {
+fn main() -> Unit {
   if True { }
 }
 `

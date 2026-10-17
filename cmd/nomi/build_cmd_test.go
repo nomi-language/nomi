@@ -76,7 +76,7 @@ struct Settings {
   context: Context
 }
 
-fn boot(startup: Startup): Settings {
+fn boot(startup: Startup) -> Settings {
   io.print(Map.get(startup.env, "NOMI_BUILD_TEST"))
   io.print(startup.args)
   Settings{context: Context.root()}
@@ -91,7 +91,7 @@ fn main() {
   std/io
 }
 
-fn main(): Result<Unit, AssertionFailure> {
+fn main() -> Result<Unit, AssertionFailure> {
   io.print("before")
   x = 2
   assert x + 1 == 4
@@ -100,7 +100,7 @@ fn main(): Result<Unit, AssertionFailure> {
 `,
 		"fault.nomi": `import std/io
 
-fn divide(a: Int, b: Int): Int {
+fn divide(a: Int, b: Int) -> Int {
   a / b
 }
 
@@ -176,7 +176,7 @@ func TestBuildCommand_AnEntryThatDeclaresAGoBindingRuns(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"entry_ffi\"\nentry_points = [\"app\"]\n")
 	mustWrite(t, filepath.Join(dir, "binding.go"), "package entryffi\n\nfunc Answer() int64 {\n\treturn 42\n}\n")
 	entry := filepath.Join(dir, "app.nomi")
-	mustWrite(t, entry, "import std/io\n\ngopkg \"entryffi\" as ffi\n\nfn answer(): Int go ffi.Answer\n\nfn main() {\n  io.print(answer())\n}\n")
+	mustWrite(t, entry, "import std/io\n\ngopkg \"entryffi\" as ffi\n\nfn answer() -> Int go ffi.Answer\n\nfn main() {\n  io.print(answer())\n}\n")
 	bin := filepath.Join(t.TempDir(), "app")
 	if b := runProcess(t, env, dir, "", nomiBin, "build", entry, "-o", bin); b.exit != 0 {
 		t.Fatalf("nomi build: exit %d\n%s", b.exit, b.transcript())
@@ -216,7 +216,7 @@ func TestBuildCommand_RefusesWhatRunRefuses(t *testing.T) {
 	broken := filepath.Join(dir, "broken.nomi")
 	mustWrite(t, broken, "import std/io\n\nfn main() {\n  io.print(undefined_name)\n}\n")
 	library := filepath.Join(dir, "library.nomi")
-	mustWrite(t, library, "pub fn double(x: Int): Int {\n  x * 2\n}\n")
+	mustWrite(t, library, "pub fn double(x: Int) -> Int {\n  x * 2\n}\n")
 	testFile := filepath.Join(dir, "thing_test.nomi")
 	mustWrite(t, testFile, "test \"t\" {\n  assert 1 == 1\n}\n")
 

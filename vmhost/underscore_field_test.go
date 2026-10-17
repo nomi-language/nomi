@@ -20,7 +20,7 @@ enum Plain {
 
 enum E {
     Trim {_w: Int, __x: String, y: Int}
-    Pair (Int, String)
+    Pair #(Int, String)
     Other
 }
 
@@ -44,7 +44,7 @@ derive Debug for S
 derive ToJson for S
 derive FromJson for S
 
-type W (Int, String)
+type W #(Int, String)
 
 derive Equatable for W
 derive Debug for W
@@ -63,7 +63,7 @@ fn main() {
     e = E.Trim {_w: 3, __x: "x", y: 4}
     case e {
         E.Trim {_w: n, __x: s, y} -> io.print("${n} ${s} ${y}")
-        E.Pair((a, b)) -> io.print("${a}${b}")
+        E.Pair(#(a, b)) -> io.print("${a}${b}")
         E.Other -> io.print("0")
     }
     io.inspect(e)
@@ -72,13 +72,13 @@ fn main() {
     io.print(Comparable.compare(e, E.Trim {_w: 2, __x: "x", y: 4}))
     io.print(Hashable.hash(e) == Hashable.hash(E.Trim {_w: 3, __x: "x", y: 4}))
     io.print(ToJson.to_json(e))
-    io.print(ToJson.to_json(E.Pair((1, "p"))))
+    io.print(ToJson.to_json(E.Pair(#(1, "p"))))
     s = S{_a: 1, b: 7}
     io.print(s)
     io.print(ToJson.to_json(s))
     io.print(S.from_json(ToJson.to_json(S{_a: 2, b: 3})))
-    io.print(W((1, "w")) == W((1, "w")))
-    io.inspect(W((1, "w")))
+    io.print(W(#(1, "w")) == W(#(1, "w")))
+    io.inspect(W(#(1, "w")))
     g = G.Hold {_v: 5}
     io.inspect(g)
     io.print(g)

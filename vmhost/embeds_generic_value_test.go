@@ -43,7 +43,7 @@ struct Holder<T> {
   value: T
 }
 
-fn describe(s: Shape): String {
+fn describe(s: Shape) -> String {
   case s {
     Shape.Circle{r} -> "circle ${r}"
     Shape.Wrapped({r}) -> "wrapped ${r}"
@@ -51,18 +51,18 @@ fn describe(s: Shape): String {
   }
 }
 
-fn take(m: Maybe<Shape>): String {
+fn take(m: Maybe<Shape>) -> String {
   case m {
     Some(s) -> "some ${describe(s)}"
     None -> "none"
   }
 }
 
-fn give(m: Maybe<Circle>): Maybe<Shape> {
+fn give(m: Maybe<Circle>) -> Maybe<Shape> {
   m
 }
 
-fn boxed(b: Box<Shape>): String {
+fn boxed(b: Box<Shape>) -> String {
   case b {
     Box.Full(s) -> "full ${describe(s)}"
     Box.Named{value, n} -> "named ${describe(value)} ${n}"
@@ -97,11 +97,11 @@ fn main() {
   io.inspect(ok == Ok(s))
   io.inspect(bad == Err(s))
   io.inspect(Err(Circle{r: 2}) == rb)
-  t = (1, c)
-  tw: (Int, Shape) = t
+  t = #(1, c)
+  tw: #(Int, Shape) = t
   io.inspect(tw)
-  io.inspect(t == (1, Shape.Dot))
-  io.inspect((1, s) == t)
+  io.inspect(t == #(1, Shape.Dot))
+  io.inspect(#(1, s) == t)
   l = [c, Circle{r: 3}]
   lw: List<Shape> = l
   io.print(lw |> Iter.map(describe) |> String.join(", "))
@@ -111,11 +111,11 @@ fn main() {
   st = #{c}
   sw: Set<Shape> = st
   io.inspect(Set.contains?(sw, s))
-  mp = {c => Circle{r: 5}}
+  mp = %{c => Circle{r: 5}}
   mw: Map<Shape, Shape> = mp
   io.inspect(Map.get(mw, s))
-  io.inspect(mp == {s => Shape.Dot})
-  io.inspect({s => Circle{r: 5}} == mp)
+  io.inspect(mp == %{s => Shape.Dot})
+  io.inspect(%{s => Circle{r: 5}} == mp)
   b = Box.Full(c)
   bw: Box<Shape> = b
   io.print(boxed(bw))
@@ -164,7 +164,7 @@ False
 True
 False
 True
-(1, Circle{r: 1})
+#(1, Circle{r: 1})
 False
 True
 circle 1, circle 3
@@ -215,14 +215,14 @@ enum Chain<T> {
   End
 }
 
-fn describe(s: Shape): String {
+fn describe(s: Shape) -> String {
   case s {
     Shape.Circle{r} -> "circle ${r}"
     Shape.Dot -> "dot"
   }
 }
 
-fn walk(c: Chain<Shape>): String {
+fn walk(c: Chain<Shape>) -> String {
   case c {
     Chain.Link{head, tail} -> "${describe(head)} -> ${walk(tail)}"
     Chain.End -> "end"
@@ -292,13 +292,13 @@ fn main() {
   io.inspect([s, Plain.Spot] != [c, c])
   cs = [c]
   io.inspect(cs == [Plain.Spot])
-  io.inspect((c, Plain.Spot) == (s, Plain.Spot))
-  io.inspect((s, Plain.Spot) == (Circle{r: 2}, Plain.Spot))
+  io.inspect(#(c, Plain.Spot) == #(s, Plain.Spot))
+  io.inspect(#(s, Plain.Spot) == #(Circle{r: 2}, Plain.Spot))
   m = Some(c)
   io.inspect(m == Some(Plain.Spot))
   io.inspect(Some(Plain.Spot) != m)
-  io.inspect({c => c} == {s => Plain.Spot})
-  io.inspect({s => Plain.Circle{r: 1}} == {c => c})
+  io.inspect(%{c => c} == %{s => Plain.Spot})
+  io.inspect(%{s => Plain.Circle{r: 1}} == %{c => c})
   io.inspect([Some(c)] == [Some(s), Some(Plain.Spot)])
 }
 `)

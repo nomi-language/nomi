@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 // A type declared in a body, named in that body's annotations, runs: a
-// lambda parameter of it inside a generic variant (`Some(|x: Meters| ..)`),
+// lambda parameter of it inside a generic variant (`Some(fn x: Meters -> ..)`),
 // a nested fn over it passed to a user generic, and binding annotations of
 // it and of a block-local generic struct.
 func TestIRBlockLocalTypeInAnnotations_Runs(t *testing.T) {
@@ -12,7 +12,7 @@ func TestIRBlockLocalTypeInAnnotations_Runs(t *testing.T) {
 	}
 	const src = `import std/io
 
-fn ident<T>(x: T): T {
+fn ident<T>(x: T) -> T {
     x
 }
 
@@ -21,7 +21,7 @@ fn main() {
     struct Box<T> {
         v: T
     }
-    f = Some(|x: Meters| {
+    f = Some(fn x: Meters -> {
         Meters(n) = x
         n + 1
     })
@@ -30,7 +30,7 @@ fn main() {
         Some(g) -> io.inspect(g(Meters(4)))
         None -> io.inspect(0)
     }
-    fn len(m: Meters): Int {
+    fn len(m: Meters) -> Int {
         Meters(n) = m
         n
     }

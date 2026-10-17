@@ -17,9 +17,10 @@ package irbuild
 //
 // The patterns are the ones a retained `case` already tests: a scalar
 // literal, an enum variant with a flat payload (irvariantpattern.go), a list
-// (irlistpattern.go) and a tuple (irtuplepattern.go). A pattern name that
-// rebinds a name the body already bound, and a bare-name value bound by a
-// pipe whose `pipeline values:` stages were not recorded, decline.
+// (irlistpattern.go) and a tuple (irtuplepattern.go). A pattern name may
+// rebind a name the body already bound: it is a fresh identity. A bare-name
+// value bound by a pipe whose `pipeline values:` stages were not recorded
+// declines.
 //
 // NEITHER FORM IS READ BACK. The test-body reader spells one straight block
 // and passes no binding to the site it writes, so a body holding either is
@@ -42,10 +43,6 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 	def, ok := bl.assertDefinedAs(t.Value, subj)
 	if !ok {
 		return false
-	}
-	before := make(map[string]ir.Temp, len(bl.bound))
-	for name, temp := range bl.bound {
-		before[name] = temp
 	}
 	pos := bl.g.irPos(t.Line, t.Col)
 	var matched, failed *ir.Block
@@ -87,6 +84,11 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 		bl.tupleCaseBindings(p, subj, sk)
 	case *ast.IdentPattern:
 		bl.patternBinding(p, p.Name, subj, sk)
+	case *ast.OrPattern:
+		if !bl.orPatternTest(p, subj, sk, matched, failed) {
+			irDeclineAtPattern(p, "an `assert pattern = value` `or` pattern outside the retained case tests")
+			return false
+		}
 	case *ast.IntLit, *ast.StringLit, *ast.CodepointLit, *ast.FloatLit, *ast.DecimalLit:
 		lit, lk, _, lok := bl.litFor(p, sk)
 		if !lok || lk != sk {
@@ -102,7 +104,7 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 		switch {
 		case sk == kindBool || (sk.tag == tagNamed && irRetainedEnumKind(sk.def)):
 			tested = bl.enumCaseTest(p, subj, sk, matched, failed)
-		case irRetainedListKind(sk) || irListTransportKind(sk):
+		case irCaseListKind(sk):
 			// Nominal elements too: the body is retained for the VM only,
 			// whose list projections do not depend on the element.
 			tested = bl.listCaseTest(p, subj, sk, matched, failed)
@@ -117,6 +119,10 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 				next = matched
 			}
 			tested = bl.nominalCaseTest(p, subj, sk, matched, next)
+		default:
+			// A string prefix (`"a" + rest`), tested as a nested pattern
+			// is.
+			tested = bl.patternValueTest(p, subj, sk, matched, failed)
 		}
 		if !tested {
 			irDeclineAtPattern(p, "an `assert pattern = value` pattern outside the retained case tests: "+sk.nomi())
@@ -124,12 +130,6 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 		}
 	}
 	bl.bindAsNames(t.Pattern, subj, sk)
-	for name, temp := range before {
-		if bl.bound[name] != temp {
-			irDeclineNote("an `assert pattern = value` that rebinds " + name)
-			return false
-		}
-	}
 	if refutable && !irBlockTargeted(bl.f, failed.ID()) {
 		// The tests built no failure edge: every nested sub-pattern only
 		// binds (`Holder{r: {a, b}}`, a record inside a struct). The
@@ -158,15 +158,16 @@ func (bl *irScalarBuilder) assertDefinedAs(at ast.Node, val ir.Temp) (*ir.Assert
 	if !bare {
 		return nil, true
 	}
-	b := bl.testDefs[id.Name]
-	if b == nil {
+	held, isBound := bl.bound[id.Name]
+	b := bl.testDefs[held]
+	if !isBound || b == nil {
 		// A name a pattern or a context pattern bound: debug information
 		// is recorded only for an ordinary binding.
 		return nil, true
 	}
 	def := &ir.AssertBinding{Name: id.Name, Expr: renderNode(b.Value), Val: val}
 	if pipe, isBinary := b.Value.(*ast.Binary); isBinary && pipe.Op == "|>" {
-		stages, recorded := bl.testStages[id.Name]
+		stages, recorded := bl.testStages[held]
 		if !recorded {
 			irDeclineNote("a defined-as block over a pipe binding")
 			return nil, false

@@ -76,7 +76,7 @@ fn main() {
 
 func TestUnusedBinding_ReadBindingIsAccepted(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn demo(): Int {
+fn demo() -> Int {
   total = 5
   dbg total
 }
@@ -105,7 +105,7 @@ test "pattern binding is used" {
 
 func TestUnusedBinding_ShadowedBindingMustBeReadBeforeShadow(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn demo(): String {
+fn demo() -> String {
   name = "Jane"
   name = "John"
   dbg name
@@ -116,7 +116,7 @@ fn demo(): String {
 
 func TestUnusedBinding_RefinementShadowingIsAccepted(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn demo(): String {
+fn demo() -> String {
   name = "  JANE  "
   name = String.trim(name)
   name = String.to_lower(name)
@@ -129,7 +129,7 @@ fn demo(): String {
 func TestUnusedBinding_WildcardPatternIsIgnored(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
 fn main() {
-  (_, value) = (1, 2)
+  #(_, value) = #(1, 2)
   dbg value
 }
 `)
@@ -138,7 +138,7 @@ fn main() {
 
 func TestUnusedBinding_DiscardBindingDoesNotEnterScope(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn demo(): Int {
+fn demo() -> Int {
   _total = 5
   _total
 }
@@ -157,7 +157,7 @@ fn main() {
 
 func TestUnusedBinding_DiscardParameterDoesNotEnterScope(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn ignore(_value: Int): Int {
+fn ignore(_value: Int) -> Int {
   _value
 }
 `)
@@ -166,7 +166,7 @@ fn ignore(_value: Int): Int {
 
 func TestUnusedBinding_DoubleUnderscoreBindingEntersScope(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn demo(): Int {
+fn demo() -> Int {
   __internal = 5
   __internal
 }
@@ -176,11 +176,11 @@ fn demo(): Int {
 
 func TestUnusedBinding_MapPatternKeyReadsBinding(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn demo(): String {
+fn demo() -> String {
   base = 1
-  numbers = {2 => "computed"}
+  numbers = %{2 => "computed"}
   case numbers {
-    {base + 1 => value} -> value
+    %{base + 1 => value} -> value
     _ -> "?"
   }
 }
@@ -194,7 +194,7 @@ func TestUnusedBinding_DestructuredParameterNeverRead(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"lambda tuple", `
 fn main() {
-  _ = Iter.map([("a", 1)], |(word, count)| count) |> Iter.to_list()
+  _ = Iter.map([#("a", 1)], fn #(word, count) -> count) |> Iter.to_list()
 }
 `, "parameter 'word' is never read"},
 		{"lambda struct", `
@@ -203,15 +203,15 @@ struct P {
   y: Int
 }
 fn main() {
-  _ = Iter.map([P{x: 1, y: 2}], |{x, y}| x) |> Iter.to_list()
+  _ = Iter.map([P{x: 1, y: 2}], fn {x, y} -> x) |> Iter.to_list()
 }
 `, "parameter 'y' is never read"},
 		{"fn tuple", `
-fn first((a, b): (Int, Int)): Int {
+fn first(#(a, b): #(Int, Int)) -> Int {
   a
 }
 fn main() {
-  _ = first((1, 2))
+  _ = first(#(1, 2))
 }
 `, "parameter 'b' is never read"},
 	} {
@@ -229,7 +229,7 @@ fn main() {
 func TestUnusedBinding_ArmPatternBindingNeverRead(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"case arm", `
-fn f(m: Maybe<Int>): Int {
+fn f(m: Maybe<Int>) -> Int {
   case m {
     Some(v) -> 1
     None -> 0
@@ -237,7 +237,7 @@ fn f(m: Maybe<Int>): Int {
 }
 `, "binding 'v' is never read"},
 		{"case arm list rest", `
-fn f(xs: List<Int>): Int {
+fn f(xs: List<Int>) -> Int {
   case xs {
     [x, ..rest] -> x
     [] -> 0
@@ -245,7 +245,7 @@ fn f(xs: List<Int>): Int {
 }
 `, "binding 'rest' is never read"},
 		{"else arm", `
-fn f(r: Result<Int, String>): Int {
+fn f(r: Result<Int, String>) -> Int {
   Ok(n) = r else {
     Err(e) -> 0
   }
@@ -253,7 +253,7 @@ fn f(r: Result<Int, String>): Int {
 }
 `, "binding 'e' is never read"},
 		{"if condition", `
-fn f(m: Maybe<Int>): Int {
+fn f(m: Maybe<Int>) -> Int {
   if Some(v) = m {
     1
   } else {
@@ -279,15 +279,15 @@ struct P {
   x: Int
   y: Int
 }
-fn f(m: Maybe<Int>, xs: List<Int>, p: (Int, Int)): Int {
-  _ = Iter.map([("a", 1)], |(_word, count)| count) |> Iter.to_list()
-  _ = Iter.map([P{x: 1, y: 2}], |{x}| x) |> Iter.to_list()
+fn f(m: Maybe<Int>, xs: List<Int>, p: #(Int, Int)) -> Int {
+  _ = Iter.map([#("a", 1)], fn #(_word, count) -> count) |> Iter.to_list()
+  _ = Iter.map([P{x: 1, y: 2}], fn {x} -> x) |> Iter.to_list()
   _ = case xs {
     [_, .._rest] -> 1
     [] -> 0
   }
   _ = case p {
-    (a, b) when a > b -> 1
+    #(a, b) when a > b -> 1
     _ -> 0
   }
   case m {

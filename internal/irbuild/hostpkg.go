@@ -17,7 +17,7 @@ import (
 //
 //	gopkg "example.com/app/ffi" as ffi
 //	opaque type RawBox go ffi.Box
-//	pub fn echo_upper(s: String): String go ffi.EchoUpper
+//	pub fn echo_upper(s: String) -> String go ffi.EchoUpper
 //
 // The builder does not convert anything at this boundary. A Go-bound `host
 // fn` becomes an ordinary function whose VM body is one crossing under the
@@ -56,7 +56,7 @@ func hostTableFn(ef *ast.ExternFunc) bool {
 }
 
 // hostBoundImplFn reports whether ef, an item of an impl block (inherent or
-// interface), is bound to a Go symbol (`impl Box<T> { pub fn origin(): Int
+// interface), is bound to a Go symbol (`impl Box<T> { pub fn origin() -> Int
 // go ffi.Origin }`). The Go function is the same whatever the receiver's type
 // arguments are, so its VM body is one crossing under the binding's key
 // (hostImplKey), built wherever the block's items are.
@@ -547,7 +547,9 @@ func (g *gen) hostFnReject(construct, detail string, n ast.Node) {
 // Built here rather than by signature() because the shell has no body, and
 // EVERY lowerability clause in signature() keys on that. The clauses this one
 // keeps are the ones that are still true of a foreign declaration: an
-// unrepresentable parameter or result type, and a defaulted parameter.
+// unrepresentable parameter or result type. A defaulted parameter is not
+// one: its default is Nomi code the caller lowers before the crossing, as
+// it does a `fn`'s (callDefaults, siblingdefault.go).
 func (g *gen) hostSignature(ef *ast.ExternFunc) *fnSig {
 	shell := hostShellOf(ef)
 	sig := &fnSig{decl: shell, lowerable: true}
@@ -557,17 +559,6 @@ func (g *gen) hostSignature(ef *ast.ExternFunc) *fnSig {
 		if k == kindInvalid {
 			sig.lowerable = false
 			sig.genericWhy = "host fn declaration"
-		}
-		if p.Default != nil {
-			// A DEFAULTED parameter of a foreign function. The default is
-			// evaluated at the CALL in the callee's own scope (sugar.go), and
-			// the callee here is a Go function with no Nomi scope to evaluate
-			// one in — so a call that omits the argument has nowhere to get it
-			// from. Its own key, because it is the same gap
-			// `stdlib host function with a defaulted parameter` names one
-			// module over.
-			sig.lowerable = false
-			sig.genericWhy = "host fn with a defaulted parameter"
 		}
 		sig.params = append(sig.params, k)
 	}

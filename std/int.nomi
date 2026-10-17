@@ -15,11 +15,12 @@ import {
     steppable.Steppable
     strings.String
     subtract.Subtract
+    summable.Summable
 }
 
-//# Operations on the 64-bit signed `Int` type: total division/modulo gated on
-//# the refinement types `NonZeroInt`/`PositiveInt`, conversion to `Float`,
-//# wrapping (modular) arithmetic, bit operations, and the `Int` limits. The
+//# Operations on the 64-bit signed `Int` type: total division gated on the
+//# refinement types `NonZeroInt`/`PositiveInt`, floored modulo, conversion to
+//# `Float`, wrapping (modular) arithmetic, bit operations, and the `Int` limits. The
 //# arithmetic, `Display`/`Debug`/`Equatable`/`Hashable`/`Comparable` impls give `Int` its
 //# string form, hashing, and total order.
 
@@ -44,7 +45,7 @@ impl Int {
     //! assert Int.to_non_zero(-3) == Some(NonZeroInt(-3))
     //! assert Int.to_non_zero(0) == None
     //
-    pub fn to_non_zero(n: Int): Maybe<NonZeroInt> {
+    pub fn to_non_zero(n: Int) -> Maybe<NonZeroInt> {
         if n == 0 { None } else { Some(NonZeroInt(n)) }
     }
 
@@ -54,7 +55,7 @@ impl Int {
     //! assert Int.to_positive(0) == None
     //! assert Int.to_positive(-3) == None
     //
-    pub fn to_positive(n: Int): Maybe<PositiveInt> {
+    pub fn to_positive(n: Int) -> Maybe<PositiveInt> {
         if n > 0 { Some(PositiveInt(n)) } else { None }
     }
 
@@ -64,24 +65,24 @@ impl Int {
     //! assert Int.to_float(5) == 5.0
     //! assert Int.to_float(-7) == -7.0
     //
-    pub host fn to_float(x: Int): Float
+    pub host fn to_float(x: Int) -> Float
 
     /// Wrapping (modular, two's-complement) addition. Unlike `+`, which traps on
     /// overflow, this silently wraps — for hashing, checksums, and any algorithm
     /// that deliberately wants modular arithmetic.
     //! assert Int.wrapping_add(9223372036854775807, 1) == Int.min_value
     //
-    pub host fn wrapping_add(a: Int, b: Int): Int
+    pub host fn wrapping_add(a: Int, b: Int) -> Int
 
     /// Wrapping (modular, two's-complement) subtraction. See `Int.wrapping_add`.
     //! assert Int.wrapping_sub(Int.min_value, 1) == Int.max_value
     //
-    pub host fn wrapping_sub(a: Int, b: Int): Int
+    pub host fn wrapping_sub(a: Int, b: Int) -> Int
 
     /// Wrapping (modular, two's-complement) multiplication. See `Int.wrapping_add`.
     //! assert Int.wrapping_mul(9223372036854775807, 2) == -2
     //
-    pub host fn wrapping_mul(a: Int, b: Int): Int
+    pub host fn wrapping_mul(a: Int, b: Int) -> Int
 
     /// Bitwise AND of two Ints. Nomi has no bitwise operators; these functions are
     /// the surface, as in Gleam (`int.bitwise_*`) and Elm (`Bitwise.*`).
@@ -90,44 +91,98 @@ impl Int {
     //! assert Int.bitwise_xor(12, 10) == 6
     //! assert Int.bitwise_not(0) == -1
     //
-    pub host fn bitwise_and(a: Int, b: Int): Int
+    pub host fn bitwise_and(a: Int, b: Int) -> Int
 
     /// See `Int.bitwise_and`.
     //! assert Int.bitwise_or(12, 10) == 14
     //
-    pub host fn bitwise_or(a: Int, b: Int): Int
+    pub host fn bitwise_or(a: Int, b: Int) -> Int
 
     /// See `Int.bitwise_and`.
     //! assert Int.bitwise_xor(12, 10) == 6
     //
-    pub host fn bitwise_xor(a: Int, b: Int): Int
+    pub host fn bitwise_xor(a: Int, b: Int) -> Int
 
     /// Bitwise NOT (one's complement) of one Int. See `Int.bitwise_and`.
     //! assert Int.bitwise_not(0) == -1
     //
-    pub host fn bitwise_not(a: Int): Int
+    pub host fn bitwise_not(a: Int) -> Int
 
     /// Left shift `a` by `n` bit positions. `n` must be non-negative (a negative
     /// count is a runtime error); a count >= 64 shifts every bit out, yielding 0.
     //! assert Int.shift_left(1, 4) == 16
     //
-    pub host fn shift_left(a: Int, n: Int): Int
+    pub host fn shift_left(a: Int, n: Int) -> Int
 
     /// Arithmetic (sign-extending) right shift of `a` by `n` bit positions. `n`
     /// must be non-negative; a count >= 64 yields 0 for non-negative `a` and -1
     /// for negative `a`.
     //! assert Int.shift_right(-8, 1) == -4
     //
-    pub host fn shift_right(a: Int, n: Int): Int
+    pub host fn shift_right(a: Int, n: Int) -> Int
 
-    /// Integer modulo. Total — same shape as `Int.divide`, requires
-    /// `y: NonZeroInt`.
-    //! nz = try Int.to_non_zero(3)
-    //! assert Int.modulo(10, nz) == 1
+    /// Floored modulo: the result is zero or has the sign of the divisor `y`,
+    /// as Python's `%`, Elixir's `Integer.mod/2` and Gleam's `int.modulo`
+    /// answer, so it wraps a value into a range: `Int.modulo(-1, 1440)` is
+    /// `1439`. `x % y` differs for operands of opposite signs: it is the
+    /// remainder, takes the sign of the dividend `x`, and matches `/`
+    /// (`-1 % 1440` is `-1`). `Int.modulo(x, y)` is `x - y * floor(x / y)`.
+    /// A zero `y` traps with the division-by-zero error `%` gives, and
+    /// `Int.modulo(Int.min_value, -1)` is `0`.
+    //! assert Int.modulo(7, 3) == 1
+    //! assert Int.modulo(-7, 3) == 2
+    //! assert Int.modulo(7, -3) == -2
+    //! assert Int.modulo(-7, -3) == -1
+    //! assert Int.modulo(-1, 1440) == 1439
+    //! assert -1 % 1440 == -1
     //
-    pub fn modulo(x: Int, y: NonZeroInt): Int {
-        NonZeroInt(n) = y
-        x % n
+    pub fn modulo(x: Int, y: Int) -> Int {
+        r = x % y
+
+        if r != 0 and (r < 0) != (y < 0) {
+            r + y
+        } else {
+            r
+        }
+    }
+
+    /// Returns |n|. `Int.abs(Int.min_value)` traps with the integer overflow
+    /// `-Int.min_value` gives: its magnitude is one past `Int.max_value`.
+    //! assert Int.abs(-5) == 5
+    //! assert Int.abs(0) == 0
+    //! assert Int.abs(Int.min_value + 1) == Int.max_value
+    //
+    pub fn abs(n: Int) -> Int {
+        if n < 0 { -n } else { n }
+    }
+
+    /// Returns the sign of `n` as -1, 0, or +1.
+    //! assert Int.sign(-7) == -1
+    //! assert Int.sign(0) == 0
+    //! assert Int.sign(7) == 1
+    //
+    pub fn sign(n: Int) -> Int {
+        case {
+            n < 0 -> -1
+            n > 0 -> 1
+            _ -> 0
+        }
+    }
+
+    /// Returns the lesser of `a` and `b` (ties return `a`).
+    //! assert Int.min(3, -2) == -2
+    //! assert Int.min(Int.min_value, Int.max_value) == Int.min_value
+    //
+    pub fn min(a: Int, b: Int) -> Int {
+        if a <= b { a } else { b }
+    }
+
+    /// Returns the greater of `a` and `b` (ties return `a`).
+    //! assert Int.max(3, -2) == 3
+    //! assert Int.max(Int.min_value, Int.max_value) == Int.max_value
+    //
+    pub fn max(a: Int, b: Int) -> Int {
+        if a >= b { a } else { b }
     }
 }
 
@@ -137,23 +192,33 @@ impl Display for Int {
     //! assert Int.to_string(42) == "42"
     //! assert Int.to_string(-7) == "-7"
     //
-    host fn to_string(n: Int): String
+    host fn to_string(n: Int) -> String
 }
 
 impl Add<Int, Int> for Int {
-    host fn add(lhs: Int, rhs: Int): Int
+    host fn add(lhs: Int, rhs: Int) -> Int
+}
+
+impl Summable for Int {
+    /// The sum of no Ints: `0`.
+    //! assert Int.empty_sum() == 0
+    //! assert 7 + Int.empty_sum() == 7
+    //
+    fn empty_sum() -> Int {
+        0
+    }
 }
 
 impl Subtract<Int, Int> for Int {
-    host fn subtract(lhs: Int, rhs: Int): Int
+    host fn subtract(lhs: Int, rhs: Int) -> Int
 }
 
 impl Multiply<Int, Int> for Int {
-    host fn multiply(lhs: Int, rhs: Int): Int
+    host fn multiply(lhs: Int, rhs: Int) -> Int
 }
 
 impl Divide<Int, Int> for Int {
-    host fn divide(lhs: Int, rhs: Int): Int
+    host fn divide(lhs: Int, rhs: Int) -> Int
 }
 
 impl Divide<NonZeroInt, Int> for Int {
@@ -165,32 +230,32 @@ impl Divide<NonZeroInt, Int> for Int {
     //! nz = try Int.to_non_zero(3)
     //! assert Int.divide(10, nz) == 3
     //
-    fn divide(lhs: Int, rhs: NonZeroInt): Int {
+    fn divide(lhs: Int, rhs: NonZeroInt) -> Int {
         NonZeroInt(n) = rhs
         lhs / n
     }
 }
 
 impl Debug for Int {
-    fn inspect(n: Int): String {
+    fn inspect(n: Int) -> String {
         to_string(n)
     }
 }
 
 impl Equatable for Int {
-    fn equal?(a: Int, b: Int): Bool {
+    fn equal?(a: Int, b: Int) -> Bool {
         a == b
     }
 }
 
 impl Hashable for Int {
-    fn hash(n: Int): Int {
+    fn hash(n: Int) -> Int {
         n
     }
 }
 
 impl Comparable for Int {
-    fn compare(a: Int, b: Int): Ordering {
+    fn compare(a: Int, b: Int) -> Ordering {
         case {
             a < b -> Less
             a == b -> Equal
@@ -200,7 +265,7 @@ impl Comparable for Int {
 }
 
 impl Discrete for Int {
-    fn next(n: Int): Maybe<Int> {
+    fn next(n: Int) -> Maybe<Int> {
         if n == Int.max_value {
             None
         } else {
@@ -208,7 +273,7 @@ impl Discrete for Int {
         }
     }
 
-    fn steps_between(start: Int, end: Int): Maybe<Int> {
+    fn steps_between(start: Int, end: Int) -> Maybe<Int> {
         if start > end {
             Some(0)
         } else {
@@ -218,7 +283,7 @@ impl Discrete for Int {
 }
 
 impl Steppable for Int {
-    fn step_by(n: Int, by: Int): Maybe<Int> {
+    fn step_by(n: Int, by: Int) -> Maybe<Int> {
         if by > 0 and n > Int.max_value - by {
             None
         } else if by < 0 and n < Int.min_value - by {
@@ -230,8 +295,8 @@ impl Steppable for Int {
 }
 
 /// An Int proven to be non-zero. The smart constructor `Int.to_non_zero` is
-/// the only way to obtain a value; once you have one, dividing or modding
-/// by it cannot fail.
+/// the only way to obtain a value; once you have one, `Int.divide` by it
+/// cannot fail.
 pub opaque type NonZeroInt Int
 
 derive Debug for NonZeroInt
@@ -250,7 +315,7 @@ impl PositiveInt {
     //! NonZeroInt(n) = PositiveInt.to_non_zero(p)
     //! assert n == 5
     //
-    pub fn to_non_zero(p: PositiveInt): NonZeroInt {
+    pub fn to_non_zero(p: PositiveInt) -> NonZeroInt {
         PositiveInt(n) = p
         NonZeroInt(n)
     }

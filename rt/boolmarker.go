@@ -19,7 +19,7 @@ package rt
 // plus `stringifyVariantBody`'s `"embedded"` arm produce, for `derive Debug for
 // Bool`,
 //
-//	fn inspect(value: Bool): String {
+//	fn inspect(value: Bool) -> String {
 //	  case value {
 //	    Bool.False(v0) -> Debug.inspect(v0)
 //	    Bool.True(v0)  -> Debug.inspect(v0)

@@ -10,24 +10,24 @@
 // Every assertion here FAILS on purpose. A pass renders no rows, so a passing
 // assertion could not see this: the difference is entirely in the `values:`
 // rows of the failure report.
-fn applies?(v: Int, f: (Int) -> Bool): Bool {
+fn applies?(v: Int, f: (Int) -> Bool) -> Bool {
     f(v)
 }
 
-fn count_if(v: Int, f: (Int) -> Bool): Int {
+fn count_if(v: Int, f: (Int) -> Bool) -> Int {
     if f(v) { 1 } else { 0 }
 }
 
 test "a lambda body's comparison stays out of the report" {
-    assert applies?(2, |x| x * 5 > 90)
+    assert applies?(2, fn x -> x * 5 > 90)
 }
 
 test "the enclosing comparison is still recorded" {
-    assert count_if(7, |x| x * 5 > 90) == 1
+    assert count_if(7, fn x -> x * 5 > 90) == 1
 }
 
 test "a lambda that ran contributes nothing" {
-    seen = applies?(4, |x| x + 1000 > 0)
+    seen = applies?(4, fn x -> x + 1000 > 0)
     assert seen and 2 > 3
 }
 
@@ -36,7 +36,7 @@ test "a lambda that ran contributes nothing" {
 // boundary is a property of the body rather than of one operator. The
 // report shows no `v` row here.
 test "a case scrutinee inside a lambda body stays out too" {
-    assert applies?(2, |v| {
+    assert applies?(2, fn v -> {
         case v {
             1 -> True
             _ -> v > 90
@@ -48,7 +48,7 @@ test "a case scrutinee inside a lambda body stays out too" {
 // run has ONE recording site for a call and does not care whether the
 // callee came from a `fn` or from a binding, so `w` must appear.
 test "a call through a function value records its arguments" {
-    small? = |n: Int| n > 90
+    small? = fn n: Int -> n > 90
     w = 5
     assert small?(w)
 }

@@ -38,8 +38,8 @@ fn main() {
 pub type Joiner
 
 impl Literal for Joiner {
-  fn from_fragments(fragments: List<Fragment<Display>>): String {
-    Iter.reduce(fragments, |acc = "", frag|
+  fn from_fragments(fragments: List<Fragment<Display>>) -> String {
+    Iter.reduce(fragments, fn acc = "", frag ->
       case frag {
         .Static(s) -> acc + s
         .Dynamic(v) -> acc + Display.to_string(v)
@@ -247,7 +247,7 @@ func TestTypedLiteral_DiagnosticSlotMismatch(t *testing.T) {
 	// Display impl, so this is a slot-type mismatch.
 	mainSrc := `import joiner.{Joiner}
 
-fn helper(x: Int): Int { x + 1 }
+fn helper(x: Int) -> Int { x + 1 }
 
 fn main() {
   msg = Joiner"x = ${helper}"
@@ -258,8 +258,8 @@ fn main() {
 pub type Joiner
 
 impl Literal for Joiner {
-  fn from_fragments(fragments: List<Fragment<Display>>): String {
-    Iter.reduce(fragments, |acc = "", _frag| acc)
+  fn from_fragments(fragments: List<Fragment<Display>>) -> String {
+    Iter.reduce(fragments, fn acc = "", _frag -> acc)
   }
 }
 
@@ -305,7 +305,7 @@ impl Literal for Joiner {
 func TestTypedLiteral_InlayHintsWalkSlots(t *testing.T) {
 	mainSrc := `import joiner.{Joiner}
 
-fn add(x: Int, y: Int): Int { x + y }
+fn add(x: Int, y: Int) -> Int { x + y }
 
 fn main() {
   msg = Joiner"sum: ${add(1, 2)}"
@@ -316,8 +316,8 @@ fn main() {
 pub type Joiner
 
 impl Literal for Joiner {
-  fn from_fragments(fragments: List<Fragment<Display>>): String {
-    Iter.reduce(fragments, |acc = "", _frag| acc)
+  fn from_fragments(fragments: List<Fragment<Display>>) -> String {
+    Iter.reduce(fragments, fn acc = "", _frag -> acc)
   }
 }
 

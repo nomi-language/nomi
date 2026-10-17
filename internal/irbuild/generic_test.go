@@ -78,12 +78,12 @@ func TestGeneric_TheFrontEndForecloses(t *testing.T) {
 		// conflict — and bindTypeParam refuses the conflict rather than
 		// letting either side win.
 		name: "a turbofish that disagrees with the argument",
-		src: "fn first<T>(x: T): T {\n  x\n}\n\n" +
+		src: "fn first<T>(x: T) -> T {\n  x\n}\n\n" +
 			"fn main() {\n  _ = first<String>(7)\n}\n",
 	}, {
 		// One type parameter in two slots, bound to two types.
 		name: "one type parameter bound to two types",
-		src: "fn pair_of<T>(a: T, _b: T): T {\n  a\n}\n\n" +
+		src: "fn pair_of<T>(a: T, _b: T) -> T {\n  a\n}\n\n" +
 			"fn main() {\n  _ = pair_of(1, \"x\")\n}\n",
 	}}
 	for _, tc := range cases {
@@ -113,11 +113,11 @@ func TestGeneric_TheBoundFreeLineIsOneImplementation(t *testing.T) {
 		src  string
 		want bool
 	}{
-		{"no type parameters at all", "fn plain(n: Int): Int {\n  n\n}\n", false},
-		{"one bound-free type parameter", "fn first<T>(x: T): T {\n  x\n}\n", false},
-		{"two bound-free type parameters", "fn pick<A, B>(a: A, _b: B): A {\n  a\n}\n", false},
-		{"a where clause", "interface Shout {\n  fn shout(v: self): String\n}\n\n" +
-			"fn announce<T>(x: T): String where T: Shout {\n  Shout.shout(x)\n}\n", true},
+		{"no type parameters at all", "fn plain(n: Int) -> Int {\n  n\n}\n", false},
+		{"one bound-free type parameter", "fn first<T>(x: T) -> T {\n  x\n}\n", false},
+		{"two bound-free type parameters", "fn pick<A, B>(a: A, _b: B) -> A {\n  a\n}\n", false},
+		{"a where clause", "interface Shout {\n  fn shout(v: self) -> String\n}\n\n" +
+			"fn announce<T>(x: T) -> String where T: Shout {\n  Shout.shout(x)\n}\n", true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

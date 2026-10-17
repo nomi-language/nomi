@@ -6,7 +6,7 @@ pub enum Severity {
     Custom {label: String}
 }
 
-pub fn of(n: Int): Severity {
+pub fn of(n: Int) -> Severity {
     case n {
         0 -> Severity.Low
         1 -> Severity.High(9)

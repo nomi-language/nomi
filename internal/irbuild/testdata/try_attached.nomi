@@ -26,18 +26,18 @@
 //! v = try parse(1)
 //! assert v == 1
 //
-fn passing(n: Int): Int {
+fn passing(n: Int) -> Int {
     n
 }
 
 //! bad = try parse(-1)
 //! assert bad == 0
 //
-fn propagating(n: Int): Int {
+fn propagating(n: Int) -> Int {
     n
 }
 
-fn parse(n: Int): Result<Int, String> {
+fn parse(n: Int) -> Result<Int, String> {
     if n < 0 { Err("negative") } else { Ok(n) }
 }
 

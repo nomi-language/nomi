@@ -7,32 +7,32 @@ struct Counter {
     value: Int
 }
 
-fn bump(c: Counter): Counter {
+fn bump(c: Counter) -> Counter {
     Counter{value: c.value + 1}
 }
 
-fn bump_twice(c: Counter): Counter {
+fn bump_twice(c: Counter) -> Counter {
     bump(bump(c))
 }
 
 interface Label {
-    fn label(value: self): String
+    fn label(value: self) -> String
 }
 
 struct Tagged {
     name: String
 }
 
-fn display(t: Tagged): String {
+fn display(t: Tagged) -> String {
     Label.label(t)
 }
 
-fn bracket(t: Tagged): String {
+fn bracket(t: Tagged) -> String {
     "[" + t.name + "]"
 }
 
 impl Label for Tagged {
-    fn label(t: Tagged): String {
+    fn label(t: Tagged) -> String {
         bracket(t)
     }
 }
@@ -51,11 +51,11 @@ test "self is not an expression qualifier" {
             value: Int
           }
 
-          fn get(b: Box): Int {
+          fn get(b: Box) -> Int {
             b.value
           }
 
-          fn read(b: Box): Int {
+          fn read(b: Box) -> Int {
             self.get(b)
           }
 
@@ -77,15 +77,15 @@ test "ambiguous same-owner interface functions require qualification" {
     diagnostics = compiler.check(
         """
         interface Greeter {
-          fn greet(value: self): String
+          fn greet(value: self) -> String
         }
 
         interface Farewell {
-          fn greet(value: self): String
+          fn greet(value: self) -> String
         }
 
         interface Message {
-          fn message(value: self): String
+          fn message(value: self) -> String
         }
 
         struct Person {
@@ -94,20 +94,20 @@ test "ambiguous same-owner interface functions require qualification" {
 
         impl Greeter for Person {
 
-          fn greet(p: Person): String {
+          fn greet(p: Person) -> String {
             "Hello, " + p.name
           }
         }
 
         impl Farewell for Person {
 
-          fn greet(p: Person): String {
+          fn greet(p: Person) -> String {
             "Goodbye, " + p.name
           }
         }
 
         impl Message for Person {
-          fn message(p: Person): String {
+          fn message(p: Person) -> String {
             greet(p)
           }
         }

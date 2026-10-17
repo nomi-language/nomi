@@ -180,7 +180,7 @@ pub enum FlushOutcome {
 ///     notify: Supervisor
 /// }
 ///
-/// fn boot(): Config {
+/// fn boot() -> Config {
 ///     Config{context: Context.root(),
 ///         audit: Supervisor.new(shutdown_timeout: Duration.seconds(30), max_running: 4),
 ///         notify: Supervisor.new(shutdown_timeout: Duration.milliseconds(200), max_running: 50),
@@ -238,7 +238,7 @@ impl Supervisor {
         restart: Restart = .Temporary,
         backoff: Backoff = .Exponential{},
         on_give_up: GiveUp = .Report,
-    ): Supervisor {
+    ) -> Supervisor {
         Supervisor.new_exact(max_running, shutdown_timeout, restart, backoff, on_give_up)
     }
 
@@ -265,7 +265,7 @@ impl Supervisor {
         restart: Restart,
         backoff: Backoff,
         on_give_up: GiveUp,
-    ): Supervisor
+    ) -> Supervisor
 
     /// Put `body` under `supervisor`, and return immediately.
     ///
@@ -284,7 +284,7 @@ impl Supervisor {
     /// fire-and-forget bug in every language that has the feature. Wrap
     /// the call in a function that decides what failure means, and report
     /// it somewhere.
-    pub host fn spawn(supervisor: Supervisor, body: () -> Unit): Task<Unit>
+    pub host fn spawn(supervisor: Supervisor, body: () -> Unit) -> Task<Unit>
 
     /// Spawn one task per item of `source` under `supervisor`.
     ///
@@ -301,7 +301,7 @@ impl Supervisor {
         supervisor: Supervisor,
         source: Iter<T>,
         f: (T) -> Unit,
-    ): List<Task<Unit>>
+    ) -> List<Task<Unit>>
 
     /// Block until every task outstanding under `supervisor` has finished.
     ///
@@ -332,12 +332,12 @@ impl Supervisor {
     /// aborts the work that exceeds it. Use the deadline to put a ceiling
     /// on a whole region; use this to ask one question and get an answer
     /// back either way.
-    pub fn flush(supervisor: Supervisor, bound: Wait = Wait.Forever): FlushOutcome {
+    pub fn flush(supervisor: Supervisor, bound: Wait = Wait.Forever) -> FlushOutcome {
         Supervisor.flush_bounded(supervisor, bound)
     }
 
     // The two-argument extern, with no default of its own. See `new_exact`
     // above: one owner for `bound: Wait = Wait.Forever`, and the only shape the
     // IR builder lowers.
-    host fn flush_bounded(supervisor: Supervisor, bound: Wait): FlushOutcome
+    host fn flush_bounded(supervisor: Supervisor, bound: Wait) -> FlushOutcome
 }

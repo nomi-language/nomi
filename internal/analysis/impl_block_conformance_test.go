@@ -13,13 +13,13 @@ import (
 // A block `fn` whose return type disagrees with the interface is rejected.
 func TestImplBlock_FnReturnTypeMismatch_Rejected(t *testing.T) {
 	src := `pub interface Speech {
-    fn speak(value: self): String
+    fn speak(value: self) -> String
 }
 
 pub struct Dog { name: String }
 
 impl Speech for Dog {
-    fn speak(_d: Dog): Int { 0 }
+    fn speak(_d: Dog) -> Int { 0 }
 }`
 	_, errs := checkSource(src)
 	if !hasErrorContaining(errs, "speak") {
@@ -30,13 +30,13 @@ impl Speech for Dog {
 // A block `fn` whose parameter type disagrees with the interface is rejected.
 func TestImplBlock_FnParamTypeMismatch_Rejected(t *testing.T) {
 	src := `pub interface Greeter {
-    fn greet(value: self, name: String): String
+    fn greet(value: self, name: String) -> String
 }
 
 pub struct Bot { id: Int }
 
 impl Greeter for Bot {
-    fn greet(_b: Bot, _name: Int): String { "hi" }
+    fn greet(_b: Bot, _name: Int) -> String { "hi" }
 }`
 	_, errs := checkSource(src)
 	if !hasErrorContaining(errs, "greet") {
@@ -48,13 +48,13 @@ impl Greeter for Bot {
 // rejected — same as the fn case, since the extern IS the method.
 func TestImplBlock_ExternReturnTypeMismatch_Rejected(t *testing.T) {
 	src := `pub interface Speech {
-    fn speak(value: self): String
+    fn speak(value: self) -> String
 }
 
 pub struct Dog { name: String }
 
 impl Speech for Dog {
-    host fn speak(d: Dog): Int
+    host fn speak(d: Dog) -> Int
 }`
 	_, errs := checkSource(src)
 	if !hasErrorContaining(errs, "speak") {
@@ -67,13 +67,13 @@ impl Speech for Dog {
 // default contract.
 func TestImplBlock_OverridesFinalDefault_Rejected(t *testing.T) {
 	src := `pub interface Greeter {
-    fn greet(_value: self): String { "hi" }
+    fn greet(_value: self) -> String { "hi" }
 }
 
 pub struct Bot { id: Int }
 
 impl Greeter for Bot {
-    fn greet(_b: Bot): String { "yo" }
+    fn greet(_b: Bot) -> String { "yo" }
 }`
 	_, errs := checkSource(src)
 	if !hasErrorContaining(errs, "greet") {
@@ -84,13 +84,13 @@ impl Greeter for Bot {
 // Overriding an `open` interface default IS allowed — no error.
 func TestImplBlock_OverridesOpenDefault_Allowed(t *testing.T) {
 	src := `pub interface Greeter {
-    open fn greet(_value: self): String { "hi" }
+    open fn greet(_value: self) -> String { "hi" }
 }
 
 pub struct Bot { id: Int }
 
 impl Greeter for Bot {
-    fn greet(_b: Bot): String { "yo" }
+    fn greet(_b: Bot) -> String { "yo" }
 }`
 	_, errs := checkSource(src)
 	if hasErrorContaining(errs, "greet") {
@@ -103,13 +103,13 @@ impl Greeter for Bot {
 // self-position parameter name stays free.
 func TestImplBlock_ParamNameMismatch_Rejected(t *testing.T) {
 	src := `pub interface Adder {
-    fn add(value: self, amount: Int): Int
+    fn add(value: self, amount: Int) -> Int
 }
 
 pub struct counter { n: Int }
 
 impl Adder for counter {
-    fn add(c: counter, _delta: Int): Int { c.n }
+    fn add(c: counter, _delta: Int) -> Int { c.n }
 }`
 	_, errs := checkSource(src)
 	if !hasErrorContaining(errs, "delta") {
@@ -121,13 +121,13 @@ impl Adder for counter {
 // interface's `value` is allowed.
 func TestImplBlock_SelfParamNameFree_Allowed(t *testing.T) {
 	src := `pub interface Adder {
-    fn add(value: self, amount: Int): Int
+    fn add(value: self, amount: Int) -> Int
 }
 
 pub struct counter { n: Int }
 
 impl Adder for counter {
-    fn add(counter: counter, amount: Int): Int { _ = amount; counter.n }
+    fn add(counter: counter, amount: Int) -> Int { _ = amount; counter.n }
 }`
 	_, errs := checkSource(src)
 	if hasErrorContaining(errs, "parameter name") {
@@ -137,14 +137,14 @@ impl Adder for counter {
 
 func TestImplBlock_DestructuredParamNameFree_Allowed(t *testing.T) {
 	src := `pub interface Adder {
-    fn add(value: self, rhs: Step): counter
+    fn add(value: self, rhs: Step) -> counter
 }
 
 pub type Step Int
 pub type counter Int
 
 impl Adder for counter {
-    fn add(lhs: counter, Step(n)): counter { lhs }
+    fn add(lhs: counter, Step(n)) -> counter { lhs }
 }`
 	_, errs := checkSource(src)
 	if hasErrorContaining(errs, "parameter name") {
@@ -155,18 +155,18 @@ impl Adder for counter {
 // A correct block impl (fn + extern) produces no conformance error.
 func TestImplBlock_CorrectSignatures_NoError(t *testing.T) {
 	src := `pub interface Speech {
-    fn speak(value: self): String
+    fn speak(value: self) -> String
 }
 
 pub struct Dog { name: String }
 pub struct Cat { name: String }
 
 impl Speech for Dog {
-    fn speak(d: Dog): String { d.name }
+    fn speak(d: Dog) -> String { d.name }
 }
 
 impl Speech for Cat {
-    host fn speak(c: Cat): String
+    host fn speak(c: Cat) -> String
 }`
 	_, errs := checkSource(src)
 	if hasErrorContaining(errs, "speak") {

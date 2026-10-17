@@ -2,7 +2,7 @@
 Bare todo is a function body
 ================================================================================
 
-fn parse(text: String): Int {
+fn parse(text: String) -> Int {
     todo
 }
 
@@ -15,7 +15,7 @@ fn parse(text: String): Int {
       (parameter
         name: (identifier)
         (type_identifier)))
-    (type_identifier)
+    return_type: (type_identifier)
     (body
       (todo_expression))))
 

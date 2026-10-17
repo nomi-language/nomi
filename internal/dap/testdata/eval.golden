@@ -32,9 +32,9 @@
 <- response evaluate {"namedVariables":2,"result":"Point{x: 4, y: 3}","type":"Point","variablesReference":2}
 -> variables {"variablesReference":2}
 <- response variables {"variables":[{"name":"x","type":"Int","value":"4","variablesReference":0},{"name":"y","type":"Int","value":"3","variablesReference":0}]}
--> evaluate {"context":"repl","expression":"xs |> Iter.map(|x| x * label.length) |> Iter.to_list()","frameId":1}
+-> evaluate {"context":"repl","expression":"xs |> Iter.map(fn x -> x * label.length) |> Iter.to_list()","frameId":1}
 <- response evaluate failed "String has no field 'length'"
--> evaluate {"context":"repl","expression":"xs |> Iter.map(|x| x * 10) |> Iter.to_list()","frameId":1}
+-> evaluate {"context":"repl","expression":"xs |> Iter.map(fn x -> x * 10) |> Iter.to_list()","frameId":1}
 <- response evaluate {"indexedVariables":3,"result":"[10, 20, 30]","type":"List<Int>","variablesReference":3}
 -> evaluate {"context":"repl","expression":"io.print(\"from the console\")","frameId":1}
 <- response evaluate failed "not run, because the expression calls io.print, which is an effect. End the expression with `// allow effects` to run it anyway; what it does is not undone."

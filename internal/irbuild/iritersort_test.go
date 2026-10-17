@@ -6,7 +6,7 @@ import (
 
 func TestIRIterSort_CompleteGenericProgram(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn first_two_sorted<T>(xs: List<T>): List<T> where T: Comparable {
+fn first_two_sorted<T>(xs: List<T>) -> List<T> where T: Comparable {
  xs |> Iter.sort() |> Iter.take(2) |> Iter.to_list()
 }
 fn main() {
@@ -20,7 +20,7 @@ func TestIRIterSort_StableExplicitComparator(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
  xs = [21, 12, 11, 22, 31]
- ys = Iter.sort_with(xs, |a, b| Int.compare(a % 10, b % 10))
+ ys = Iter.sort_with(xs, fn a, b -> Int.compare(a % 10, b % 10))
  io.inspect(ys)
  io.inspect(xs)
 }
@@ -39,17 +39,17 @@ func TestIRIterSort_DescendingDirection(t *testing.T) {
 fn main() {
  io.inspect(Iter.sort([2, 3, 1], Direction.Descending))
  io.inspect(Iter.sort([2, 3, 1], Direction.Ascending))
- io.inspect(Iter.sort_by([21, 12, 11, 22], Direction.Descending, |n| n % 10))
- io.inspect(Iter.sort_by([2, 1], Direction.Descending, |n| { io.print(n); n }))
+ io.inspect(Iter.sort_by([21, 12, 11, 22], Direction.Descending, fn n -> n % 10))
+ io.inspect(Iter.sort_by([2, 1], Direction.Descending, fn n -> { io.print(n); n }))
 }
 `, "[3, 2, 1]\n[1, 2, 3]\n[12, 22, 21, 11]\n2\n1\n[2, 1]\n")
 }
 
 func TestIRIterSort_TakeIsLazyAndRepeatable(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn empty(): List<Int> { [] }
+fn empty() -> List<Int> { [] }
 fn main() {
- xs = Iter.map([3, 1, 2], |n| { io.print(n); n })
+ xs = Iter.map([3, 1, 2], fn n -> { io.print(n); n })
  ys = Iter.take(xs, 2)
  io.print("created")
  io.inspect(Iter.to_list(ys))
@@ -64,8 +64,8 @@ fn main() {
 func TestIRIterSort_CallbackFault(t *testing.T) {
 	verifyIterFault(t, `import std/io
 fn main() {
- xs = Iter.map([2, 1], |n| { io.print(n); n })
- io.inspect(Iter.sort_with(xs, |a, b| {
+ xs = Iter.map([2, 1], fn n -> { io.print(n); n })
+ io.inspect(Iter.sort_with(xs, fn a, b -> {
   io.print("compare")
   Int.compare(a / 0, b)
  }))

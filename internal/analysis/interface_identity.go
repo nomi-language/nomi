@@ -99,6 +99,7 @@ func PopulateImplIfaceOrigins(idx *ProjectImplIndex, filesByKey map[string]*File
 				if fn == nil {
 					continue
 				}
+				noteStdlibWork(idx.ImplFiles[fn])
 				origin := declaringOriginOfInterface(filesByKey[idx.ImplFiles[fn]], ifaceName)
 				if origin == OriginUnresolved {
 					continue

@@ -5,7 +5,7 @@
 // call.
 import std/io
 
-fn count(n: Int): Int {
+fn count(n: Int) -> Int {
     if n == 0 { 0 } else { count(n - 1) }
 }
 

@@ -243,7 +243,7 @@ func irRecursiveFieldKind(k kind, deciding []*typeDef) bool {
 		// A std struct is decided as a user one is: `SubtestFailure.failure`
 		// is the `AssertionFailure` whose `subtests` hold it.
 		return irNominalCoinductive(k, deciding)
-	case k.tag == tagNamed && k.def != nil && k.def.isDistinct:
+	case irDeclaredDistinct(k):
 		// `b: B` for `type B W` where W is the struct being decided.
 		return irDistinctCoinductive(k, deciding)
 	case k.tag == tagFunc:
@@ -283,7 +283,7 @@ func irStdStructNominal(k kind) bool {
 // irComposedFieldKind is a user struct field composed of retained values:
 // a tuple, a List, a Vector, a Set or a Map whose parts are field kinds
 // themselves, a declared struct among them (`items: List<Point>`,
-// `pair: (Int, Int)`). A struct reached through a part is decided
+// `pair: #(Int, Int)`). A struct reached through a part is decided
 // co-inductively with `outer` extended, so a struct that names itself through
 // a list (`kids: List<Tree>`) is decided once rather than recursing.
 func irComposedFieldKind(k kind, outer []*typeDef) bool {
@@ -301,7 +301,7 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 			return irNominalCoinductive(p, outer)
 		case p.tag == tagFunc:
 			return irFuncFieldKind(p, outer)
-		case p.tag == tagNamed && p.def != nil && p.def.isDistinct && irKindReaches(p, outer):
+		case irDeclaredDistinct(p) && irKindReaches(p, outer):
 			// `b: Maybe<B>` for `type B W` inside W: the distinct is decided
 			// with the walk's stack, as a struct part is.
 			return irDistinctCoinductive(p, outer)
@@ -322,7 +322,7 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 			return part(p.comp.parts[0]) && part(p.comp.parts[1])
 		}
 		if p.tag == tagNamed && p.def != nil && p.def.preludeOf != nil && p.def.isEnum && irKindReaches(p, outer) {
-			// `pair: (Int, Maybe<Tree>)` inside Tree: a prelude wrapper's
+			// `pair: #(Int, Maybe<Tree>)` inside Tree: a prelude wrapper's
 			// payloads decided with the walk's stack, as the field-level
 			// wrapper below is. irRetainedValueKind would restart the walk.
 			if !irPreludeWrapperOver(p, outer) {
@@ -438,6 +438,10 @@ func irUserStructFieldKind(k kind) bool {
 		return true
 	case isDecimalKind(k):
 		// A Decimal field (`price: Decimal`), the rt.Decimal value.
+		return true
+	case irRetainedRangeKind(k):
+		// A Range field (`span: Range<Int>`), the rt range value a binding
+		// or a list element holds.
 		return true
 	case irExistentialKind(k):
 		// A local interface's existential: the VM holds the concrete value
@@ -642,13 +646,13 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 	switch tn := t.TypeName.(type) {
 	case *ast.QualifiedType:
 		// A namespaced struct's whole dotted name wins over the variant
-		// reading. A generic template's dotted name declines.
-		if tn.Member == nil || bl.g.genericTemplates[tn.Module+"."+tn.Member.TypeString()] != nil {
+		// reading.
+		if tn.Member == nil {
 			return no()
 		}
 		if _, isSimple := tn.Member.(*ast.SimpleType); isSimple {
 			// `span.Span{...}`: another file's generic struct, named through
-			// its module.
+			// its module, or this file's dotted one (`Tree.Node{v: 1}`).
 			if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Module + "." + tn.Member.TypeString()); isTemplate && tpl.structDecl() != nil {
 				return bl.genericStructMake(t, tpl, instantiate)
 			}

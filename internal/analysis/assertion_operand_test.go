@@ -59,7 +59,7 @@ func TestAssertionAsValue_IsRejected(t *testing.T) {
 		{"call argument", "assert id(assert x)", "assert", 13, ""},
 		{"call statement", "id(assert x)", "assert", 6, ""},
 		{"list element", "xs = [assert x]\n  assert xs == [True]", "assert", 9, ""},
-		{"tuple element", "t = (assert x, 1)\n  assert t == (True, 1)", "assert", 8, ""},
+		{"tuple element", "t = #(assert x, 1)\n  assert t == #(True, 1)", "assert", 9, ""},
 		{"variant payload", "m = Some(refute !x)\n  assert m", "refute", 12, ""},
 		{"parenthesized binding value", "ok = (assert x)\n  assert ok", "assert", 9, ""},
 		{"if condition", "assert if assert x { True } else { False }", "assert", 13, ""},
@@ -68,7 +68,7 @@ func TestAssertionAsValue_IsRejected(t *testing.T) {
 		{"pipe head", "ok = (assert x) |> id()\n  assert ok", "assert", 9, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "fn id(b: Bool): Bool {\n  b\n}\n\ntest \"x\" {\n  x = True\n  " + tc.stmt + "\n}\n"
+			src := "fn id(b: Bool) -> Bool {\n  b\n}\n\ntest \"x\" {\n  x = True\n  " + tc.stmt + "\n}\n"
 			_, errs := checkSourceWithStdlib(src)
 			errs = withoutUnusedBindingErrors(errs)
 			if len(errs) == 0 {
@@ -106,7 +106,7 @@ func TestAssertionAsValue_StatementPositions(t *testing.T) {
 		"assert True = x",
 		"case id(x) {\n    True -> assert x\n    False -> refute x\n  }",
 	} {
-		src := "fn id(b: Bool): Bool {\n  b\n}\n\ntest \"x\" {\n  x = True\n  " + stmt + "\n}\n"
+		src := "fn id(b: Bool) -> Bool {\n  b\n}\n\ntest \"x\" {\n  x = True\n  " + stmt + "\n}\n"
 		_, errs := checkSourceWithStdlib(src)
 		expectNoStdlibErrors(t, errs)
 	}

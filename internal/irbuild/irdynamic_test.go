@@ -13,11 +13,11 @@ func TestIRDynamic_NavigationAndExtractionRunOnTheVM(t *testing.T) {
 import std/json.Json
 import std/dynamic.{Dynamic, DecodeError}
 
-fn show_error(e: DecodeError): String {
+fn show_error(e: DecodeError) -> String {
   "expected " + e.expected + ", got " + e.got
 }
 
-fn string_at(d: Dynamic, name: String): String {
+fn string_at(d: Dynamic, name: String) -> String {
   case Dynamic.field(d, name) {
     Err(e) -> show_error(e)
     Ok(v) ->
@@ -28,7 +28,7 @@ fn string_at(d: Dynamic, name: String): String {
   }
 }
 
-fn int_at(d: Dynamic, dotted: String): String {
+fn int_at(d: Dynamic, dotted: String) -> String {
   case Dynamic.path(d, dotted) {
     Err(e) -> show_error(e)
     Ok(v) ->
@@ -39,7 +39,7 @@ fn int_at(d: Dynamic, dotted: String): String {
   }
 }
 
-fn tag_at(d: Dynamic, i: Int): String {
+fn tag_at(d: Dynamic, i: Int) -> String {
   case Dynamic.field(d, "tags") {
     Err(e) -> show_error(e)
     Ok(tags) ->
@@ -54,7 +54,7 @@ fn tag_at(d: Dynamic, i: Int): String {
   }
 }
 
-fn kinds(d: Dynamic): String {
+fn kinds(d: Dynamic) -> String {
   pi = case Dynamic.path(d, "pi") {
     Ok(v) ->
       case Dynamic.as_float(v) {

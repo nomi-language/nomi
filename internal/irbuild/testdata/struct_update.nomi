@@ -47,7 +47,7 @@ struct Wrapper {
 /// SURVIVING field, so this line would appear three times where it appears
 /// once. `io.print` rather than a counter because Nomi has no mutable
 /// bindings, so the trace IS the count.
-fn bump(): Person {
+fn bump() -> Person {
     io.print("  (built)")
 
     Person{
@@ -57,7 +57,7 @@ fn bump(): Person {
     }
 }
 
-fn show(p: Person): String {
+fn show(p: Person) -> String {
     "${p.name}/${p.age}/${p.address.city}/${p.address.zip}"
 }
 

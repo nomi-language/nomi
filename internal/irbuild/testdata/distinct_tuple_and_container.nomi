@@ -20,13 +20,13 @@
 // corpus file three categories away.
 import std/io
 
-type Coord (Int, Int)
-type Triple (Int, Int, Int)
+type Coord #(Int, Int)
+type Triple #(Int, Int, Int)
 type Items List<Int>
 type Kvs Map<String, Int>
 
 enum Shape {
-    Pos (Int, Int)
+    Pos #(Int, Int)
     Tagged Coord
 }
 
@@ -34,7 +34,7 @@ fn main() {
     // FLAT construction, and the explicit one-tuple spelling beside it. Nomi has
     // no 1-tuple, so the two arities can never collide.
     flat = Coord(3, 4)
-    explicit = Coord((3, 4))
+    explicit = Coord(#(3, 4))
     three = Triple(1, 2, 3)
 
     io.print("flat=${Debug.inspect(flat)}")
@@ -45,14 +45,14 @@ fn main() {
     // The variant spelling of the same rule, which already worked, kept here so
     // the two cannot drift: one helper serves both.
     io.print("variant-flat=${Debug.inspect(Shape.Pos(10, 20))}")
-    io.print("variant-explicit=${Debug.inspect(Shape.Pos((10, 20)))}")
+    io.print("variant-explicit=${Debug.inspect(Shape.Pos(#(10, 20)))}")
     io.print("variant-over-distinct=${Debug.inspect(Shape.Tagged(Coord(7, 8)))}")
 
     // A distinct over a reference-typed inner. `List` is `*rt.List[T]` and
     // `Map` is a value struct (`rt.Map`), so the two exercise different
     // conversion paths.
     items = Items([4, 5, 6])
-    kvs = Kvs{"a" => 1, "b" => 2}
+    kvs = Kvs%{"a" => 1, "b" => 2}
 
     io.print("items=${Debug.inspect(items)}")
     io.print("kvs=${Debug.inspect(kvs)}")
@@ -75,14 +75,14 @@ fn main() {
     io.print("coord-parts=${parts}")
 
     nested = case flat {
-        Coord((cx, cy)) -> "${cx}/${cy}"
+        Coord(#(cx, cy)) -> "${cx}/${cy}"
     }
 
     io.print("coord-nested=${nested}")
 
     // A distinct over a container used as a MAP KEY, which reaches the hash and
     // the equality unwrap — two more sites that spelled the conversion bare.
-    keyed = {Items([1, 2]) => "one-two"}
+    keyed = %{Items([1, 2]) => "one-two"}
     hit = Map.get(keyed, Items([1, 2])) |> Maybe.with_default("?")
 
     miss = Map.get(keyed, Items([9])) |> Maybe.with_default("?")

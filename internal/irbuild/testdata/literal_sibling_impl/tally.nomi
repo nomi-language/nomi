@@ -13,8 +13,8 @@ import std/literals.{Fragment, Literal}
 pub type Tally
 
 impl Literal for Tally {
-    fn from_fragments(fragments: List<Fragment<Int>>): Int {
-        Iter.reduce(fragments, |acc = 0, frag| {
+    fn from_fragments(fragments: List<Fragment<Int>>) -> Int {
+        Iter.reduce(fragments, fn acc = 0, frag -> {
             case frag {
                 .Static(s) -> acc + String.length(s)
                 .Dynamic(n) -> acc + n

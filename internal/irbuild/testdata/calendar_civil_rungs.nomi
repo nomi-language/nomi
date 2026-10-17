@@ -37,7 +37,7 @@ import {
     std/io
 }
 
-fn run(): Result<Unit, Error> {
+fn run() -> Result<Unit, Error> {
     // --- END-OF-MONTH CLAMPING, with the leap-year variant --------------------
     //
     // The 31st of January has no counterpart in February, so `+ Months(1)` must

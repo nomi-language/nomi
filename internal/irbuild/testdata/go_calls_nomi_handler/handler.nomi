@@ -23,4 +23,4 @@ pub struct Response {
 pub fn serve_concurrently(
     paths: List<String>,
     handler: (Request) -> Result<Response, String>,
-): Result<List<String>, String> go nomihandler.ServeConcurrently
+) -> Result<List<String>, String> go nomihandler.ServeConcurrently

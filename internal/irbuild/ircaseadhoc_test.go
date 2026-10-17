@@ -4,8 +4,8 @@ import "testing"
 
 func TestIRCaseAdHoc_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn below(n: Int, limit: Int): Bool { io.print(limit) n < limit }
-fn classify(n: Int): String {
+fn below(n: Int, limit: Int) -> Bool { io.print(limit) n < limit }
+fn classify(n: Int) -> String {
  case { below(n, 0) -> "negative" below(n, 10) -> "small" _ -> "large" }
 }
 
@@ -14,7 +14,7 @@ fn main() {
  io.print(classify(5))
  io.print(classify(20))
  base = 10
- choose = |n: Int| case { n < base -> "low" _ -> "high" }
+ choose = fn n: Int -> case { n < base -> "low" _ -> "high" }
  io.print(choose(2))
  io.print(choose(12))
  x = 42
@@ -29,8 +29,8 @@ fn main() {
 
 func TestIRCaseAdHoc_ConditionCursors(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn check(flag: Bool = False): Bool { flag }
-fn choose(flag: Bool): String {
+fn check(flag: Bool = False) -> Bool { flag }
+fn choose(flag: Bool) -> String {
  case {
   check() -> "default"
   flag -> "flag"

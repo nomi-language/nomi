@@ -20,7 +20,7 @@ import std/io
 //     key type and lookup is not.
 //
 // NOT here, and MEASURED rather than omitted: a CALLBACK over an untyped `[]`
-// (`Iter.each_while([], |_x| False)`) refuses, and under somebody else's key —
+// (`Iter.each_while([], fn _x -> False)`) refuses, and under somebody else's key —
 // `unrepresentable inferred type (_x: ?12)`. The checker leaves the callback
 // parameter's type variable unsolved because nothing constrains it, so the
 // placeholder in iter.go's source arm does not reach it: that arm supplies an
@@ -34,11 +34,11 @@ import std/io
 // (which Nomi's Float equality makes reflexive) and
 // -0.0 (which must find the 0.0 entry). Each is a key whose hashing a wrong
 // instantiation would get wrong in a different way.
-fn lookup(m: Map<List<Int>, String>, key: List<Int>): String {
+fn lookup(m: Map<List<Int>, String>, key: List<Int>) -> String {
     Map.get(m, key) |> Maybe.with_default("?")
 }
 
-fn lookup_f(m: Map<Float, String>, key: Float): String {
+fn lookup_f(m: Map<Float, String>, key: Float) -> String {
     Map.get(m, key) |> Maybe.with_default("?")
 }
 

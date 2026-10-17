@@ -45,7 +45,7 @@ func checkUniversalDebugProject(t *testing.T, src string) []analysis.TypeError {
 		t.Fatal("BuildProjectWithCache returned nil")
 	}
 	var errs []analysis.TypeError
-	errs = append(errs, entryFA.TypeErrors...)
+	errs = append(errs, entryErrors(entryFA)...)
 	errs = append(errs, analysis.CheckTypes(entryFA, entryNodes)...)
 	errs = append(errs, analysis.FinalizeCoherence(entryFA)...)
 	return errs
@@ -83,11 +83,11 @@ func expectErrContaining(t *testing.T, errs []analysis.TypeError, substr string)
 func TestUniversalDebug_NoBoundGenericTypeChecks(t *testing.T) {
 	src := `import std/io
 
-fn show<T>(x: T): String {
+fn show<T>(x: T) -> String {
     Debug.inspect(x)
 }
 
-fn main(): Unit {
+fn main() -> Unit {
     io.print(show(42))
     io.print(show("hi"))
 }
@@ -106,11 +106,11 @@ func TestUniversalDebug_BoundDebugOnNonDebugTypeChecks(t *testing.T) {
 
 struct P { x: Int }
 
-fn show<T>(x: T): String where T: Debug {
+fn show<T>(x: T) -> String where T: Debug {
     Debug.inspect(x)
 }
 
-fn main(): Unit {
+fn main() -> Unit {
     io.print(show(P{x: 1}))
 }
 `
@@ -126,11 +126,11 @@ func TestUniversalDebug_DisplayBoundStillErrors(t *testing.T) {
 
 struct P { x: Int }
 
-fn show<T>(x: T): String where T: Display {
+fn show<T>(x: T) -> String where T: Display {
     Display.to_string(x)
 }
 
-fn main(): Unit {
+fn main() -> Unit {
     io.print(show(P{x: 1}))
 }
 `

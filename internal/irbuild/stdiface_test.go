@@ -15,7 +15,7 @@ func TestStdIface_ShadowingDeclarationIsNotTheSharedDef(t *testing.T) {
 	g := stdIfaceGen(t, `import std/io
 
 pub interface ToJson {
-  fn to_string(value: self): String
+  fn to_string(value: self) -> String
 }
 
 struct Mine {
@@ -23,12 +23,12 @@ struct Mine {
 }
 
 impl ToJson for Mine {
-  fn to_string(m: Mine): String {
+  fn to_string(m: Mine) -> String {
     "mine(${m.n})"
   }
 }
 
-fn show(d: ToJson): String {
+fn show(d: ToJson) -> String {
   ToJson.to_string(d)
 }
 
@@ -68,7 +68,7 @@ func TestStdIface_SpecNamesAreUnshadowableBySource(t *testing.T) {
 	for _, d := range stdIfaceDefs() {
 		name := d.nomi
 		t.Run(name, func(t *testing.T) {
-			src := "pub interface " + name + " {\n  fn probe(value: self): String\n}\n\nfn main() {\n  io.print(\"x\")\n}\n"
+			src := "pub interface " + name + " {\n  fn probe(value: self) -> String\n}\n\nfn main() {\n  io.print(\"x\")\n}\n"
 			if _, err := AnalyzeSource("stdiface_fence", src); err == nil {
 				t.Fatalf("the analyzer accepted `pub interface %s`; stdIfaceByName is name-keyed, so a "+
 					"declarable spec name is a reachable wrong answer rather than a coverage gap", name)
@@ -226,7 +226,7 @@ func TestStdIfaceSpecsAreReachable(t *testing.T) {
 
 const stdIfaceProbeSource = `import std/io
 
-fn show(d: Display): String {
+fn show(d: Display) -> String {
   Display.to_string(d)
 }
 

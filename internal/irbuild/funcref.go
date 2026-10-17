@@ -43,7 +43,7 @@ import (
 // a reference to a monomorphic module function is its Go name and nothing else —
 // no wrapper, no closure, no allocation. The frame threads through exactly as it
 // does for a lambda, which is what makes a named function and a lambda
-// interchangeable in every position: `apply(double, 7)` and `apply(|x| x * 2, 7)`
+// interchangeable in every position: `apply(double, 7)` and `apply(fn x -> x * 2, 7)`
 // produce the same Go type at the same slot.
 //
 // That equivalence is also the argument that this is not a dispatch. Nomi has no
@@ -52,23 +52,6 @@ import (
 // and turning one into a dispatch would be inventing a construct the language
 // does not have. See methodref.go for the qualified spelling, which is the same
 // value through a different resolver.
-
-// funcHasDefault reports whether any parameter carries a default value.
-//
-// Read off the DECLARATION rather than the signature, because fnSig records
-// parameter KINDS and a default is an expression: sugar.go evaluates it at the
-// call site, in the callee's scope, so nothing about it survives into the kind.
-func funcHasDefault(fd *ast.FuncDef) bool {
-	if fd == nil {
-		return false
-	}
-	for _, p := range fd.Params {
-		if p.Default != nil {
-			return true
-		}
-	}
-	return false
-}
 
 // checkedRefKinds is the signature the checker instantiated a generic function
 // REFERENCE at (generic_func_ref.go records it on the reference as a call's is
@@ -99,7 +82,9 @@ func (g *gen) funcTypeKinds(ft *analysis.FuncType, arity int) ([]kind, kind, boo
 			return nil, kindInvalid, false
 		}
 		params[i] = g.project(pt)
-		if !irCallableValueKind(params[i]) {
+		// A Unit parameter (`Iter.each(units, io.inspect)`) is in the
+		// domain, as irCallableValueKind admits it in a function kind.
+		if params[i] != kindUnit && !irCallableValueKind(params[i]) {
 			return nil, kindInvalid, false
 		}
 	}

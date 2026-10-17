@@ -428,14 +428,14 @@ pub enum Holder.Box<T> {
   Empty
 }
 
-fn flag(f: Holder.Flag): Int {
+fn flag(f: Holder.Flag) -> Int {
   case f {
     .On -> 1
     .Off -> 0
   }
 }
 
-fn boxed(x: Holder.Box<Int>): Int {
+fn boxed(x: Holder.Box<Int>) -> Int {
   case x {
     .Full(n) -> n
     .Empty -> 0

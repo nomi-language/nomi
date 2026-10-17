@@ -11,20 +11,20 @@ struct Flags {
 }
 
 // The same collision one level out: a predicate function beside its twin.
-fn ready?(): Int {
+fn ready?() -> Int {
     10
 }
 
-fn ready_(): Int {
+fn ready_() -> Int {
     20
 }
 
 impl Flags {
-    fn score?(f: Flags): Int {
+    fn score?(f: Flags) -> Int {
         f.ok?
     }
 
-    fn score_(f: Flags): Int {
+    fn score_(f: Flags) -> Int {
         f.ok_
     }
 }

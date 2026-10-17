@@ -36,7 +36,7 @@
 // drops a row whose operand text reads exactly like its value, so
 // `Some(3) = Some(3)` would be suppressed in both spellings and they would
 // present identically. `wrap(3) = Some(3)` is the row that distinguishes them.
-fn wrap(n: Int): Maybe<Int> {
+fn wrap(n: Int) -> Maybe<Int> {
     Some(n)
 }
 

@@ -25,8 +25,8 @@ A line starting with a paren is a new statement, not a call
 ================================================================================
 
 fn main() {
-    (value, next) = step(state)
-    (value, next)
+    #(value, next) = step(state)
+    #(value, next)
 }
 
 --------------------------------------------------------------------------------
@@ -74,7 +74,7 @@ A lambda body ends at the line break
 ================================================================================
 
 fn main() {
-    f = |x| x
+    f = fn x -> x
     -1
 }
 
@@ -117,7 +117,7 @@ A case arm ends at the line break before a tuple pattern
 fn main() {
     case n {
         1 -> f
-        (x, y) -> b
+        #(x, y) -> b
     }
 }
 
@@ -173,7 +173,7 @@ fn f() {
 A pipe, else, body brace or where clause on the next line continues
 ================================================================================
 
-fn f<T>(x: T): T
+fn f<T>(x: T) -> T
 where T: Display
 {
     y = x
@@ -201,7 +201,7 @@ where T: Display
       (parameter
         name: (identifier)
         (type_identifier)))
-    (type_identifier)
+    return_type: (type_identifier)
     (where_clause
       (where_constraint
         name: (type_parameter_identifier
@@ -262,7 +262,7 @@ import std/iter.Iter.loop
 
 pub type Probe.Absent
 
-fn worst(a: Probe.Reading): Probe.Reading {
+fn worst(a: Probe.Reading) -> Probe.Reading {
     a
 }
 
@@ -292,8 +292,8 @@ fn worst(a: Probe.Reading): Probe.Reading {
         name: (identifier)
         (type_identifier)
         (type_identifier)))
-    (type_identifier)
-    (type_identifier)
+    return_type: (type_identifier)
+    return_type: (type_identifier)
     (body
       (identifier))))
 

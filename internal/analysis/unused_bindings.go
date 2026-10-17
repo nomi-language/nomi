@@ -27,15 +27,19 @@ func CheckUnusedBindings(fa *FileAnalysis) []TypeError {
 	}
 
 	var errs []TypeError
+	// A name an `or` pattern binds is one symbol defined at each
+	// alternative's site; it is reported once.
+	seen := make(map[*Symbol]bool)
 	for _, sym := range fa.Definitions {
-		if sym == nil || ast.IsDiscardName(sym.Name) {
+		if sym == nil || ast.IsDiscardName(sym.Name) || seen[sym] {
 			continue
 		}
+		seen[sym] = true
 		kind := "binding"
 		owner := sym.Node
 		switch {
 		case sym.Kind == SymbolBinding && sym.ParamOf != nil:
-			// A name a destructured parameter binds (`|(word, count)| count`)
+			// A name a destructured parameter binds (`fn #(word, count) -> count`)
 			// is a parameter of the function the pattern belongs to.
 			owner = sym.ParamOf
 			if !isUnusedParameterCandidate(owner) {
@@ -96,7 +100,6 @@ func isUnusedBindingCandidate(node ast.Node) bool {
 	case *ast.Binding,
 		*ast.TupleDestructure,
 		*ast.StructDestructure,
-		*ast.MapDestructure,
 		*ast.DistinctDestructure,
 		*ast.PatternDestructure,
 		*ast.PatternBinding,

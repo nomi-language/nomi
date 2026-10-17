@@ -44,13 +44,13 @@ impl Task<T> {
     /// the analyzer rejects `Task.spawn` calls reachable from a function body
     /// without a `concurrent` ancestor.
     //! value = concurrent {
-    //!     task = Task.spawn(|| 42)
+    //!     task = Task.spawn(fn -> 42)
     //!     Task.await(task)
     //! }
     //!
     //! assert value == 42
     //
-    pub host fn spawn<T>(body: () -> T): Task<T>
+    pub host fn spawn<T>(body: () -> T) -> Task<T>
 
     /// Block until `task` completes and return its value.
     ///
@@ -70,13 +70,13 @@ impl Task<T> {
     /// Reach for `Task.outcome` when you want that fate as a value instead
     /// of inheriting it — always, if you cancelled the task yourself.
     //! value = concurrent {
-    //!     task = Task.spawn(|| "done")
+    //!     task = Task.spawn(fn -> "done")
     //!     Task.await(task)
     //! }
     //!
     //! assert value == "done"
     //
-    pub host fn await<T>(task: Task<T>): T
+    pub host fn await<T>(task: Task<T>) -> T
 
     /// Spawn one task per item of `source`, running at most `max_running`
     /// of them at once, and hand back a handle for each.
@@ -97,13 +97,13 @@ impl Task<T> {
     /// enqueueing.
     //! results = concurrent {
     //!     [1, 2, 3]
-    //!     |> Task.spawn_all(|n| n * 2, max_running: 2)
+    //!     |> Task.spawn_all(fn n -> n * 2, max_running: 2)
     //!     |> Task.await_all()
     //! }
     //!
     //! assert results == [2, 4, 6]
     //
-    pub host fn spawn_all<T, U>(source: Iter<T>, f: (T) -> U, max_running: Int): List<Task<U>>
+    pub host fn spawn_all<T, U>(source: Iter<T>, f: (T) -> U, max_running: Int) -> List<Task<U>>
 
     /// Wait for every task in `tasks` and collect their values, in the
     /// order the tasks were spawned.
@@ -122,13 +122,13 @@ impl Task<T> {
     /// lowest-indexed one.
     //! results = concurrent {
     //!     ["a", "b"]
-    //!     |> Task.spawn_all(|s| s + "!", max_running: 2)
+    //!     |> Task.spawn_all(fn s -> s + "!", max_running: 2)
     //!     |> Task.await_all()
     //! }
     //!
     //! assert results == ["a!", "b!"]
     //
-    pub host fn await_all<U>(tasks: List<Task<U>>): List<U>
+    pub host fn await_all<U>(tasks: List<Task<U>>) -> List<U>
 
     /// Wait for `task` and hand back how it ended, rather than inheriting
     /// it. `Task.await` is this with the non-`Completed` cases propagated
@@ -138,14 +138,14 @@ impl Task<T> {
     /// cancellation you asked for makes no sense — or when you are
     /// deliberately inspecting a task's fate rather than using its value.
     //! outcome = concurrent {
-    //!     task = Task.spawn(|| 42)
+    //!     task = Task.spawn(fn -> 42)
     //!     Task.outcome(task)
     //! }
     //!
     //! expected: Outcome<Int> = .Completed(42)
     //! assert outcome == expected
     //
-    pub host fn outcome<T>(task: Task<T>): Outcome<T>
+    pub host fn outcome<T>(task: Task<T>) -> Outcome<T>
 
     /// Ask one task to stop, leaving its siblings alone. Cancellation
     /// reaches the body's cancellation-aware operations and any
@@ -169,5 +169,5 @@ impl Task<T> {
     /// (No doctest here: whether a cancel lands before a short body
     /// finishes is a race, so the only deterministic examples need a
     /// sleeping task. Those live in rt/concurrent_test.go.)
-    pub host fn cancel<T>(task: Task<T>): Unit
+    pub host fn cancel<T>(task: Task<T>) -> Unit
 }

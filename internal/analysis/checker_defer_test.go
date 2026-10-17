@@ -12,7 +12,7 @@ func TestDeferRequiresCall(t *testing.T) {
 }
 
 func TestDeferRequiresUnitReturn(t *testing.T) {
-	src := `fn close(): Int {
+	src := `fn close() -> Int {
   1
 }
 
@@ -25,7 +25,7 @@ fn main() {
 }
 
 func TestDeferWithUnitCall(t *testing.T) {
-	src := `fn close(): Unit {}
+	src := `fn close() -> Unit {}
 
 fn main() {
   defer close()

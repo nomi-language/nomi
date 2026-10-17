@@ -25,7 +25,7 @@ import (
 //
 // # A tuple is an ANONYMOUS Go struct
 //
-// `(Int, String)` becomes `struct { F0 int64; F1 string }`. Fixed-arity and
+// `#(Int, String)` becomes `struct { F0 int64; F1 string }`. Fixed-arity and
 // heterogeneous IS a struct, so the alternative was a uniform box — a slice of
 // `any`, or a generic `Tuple2[A, B]` — and both are worse for the same reason:
 // they throw the element types away at the boundary and pay an interface word or
@@ -41,7 +41,7 @@ import (
 // different.
 //
 // The cost is legibility of the Go spelling: a nested tuple's type is spelled out
-// in full at every mention, so `(Int, (String, Bool))` reads as
+// in full at every mention, so `#(Int, #(String, Bool))` reads as
 // `struct { F0 int64; F1 struct { F0 string; F1 bool } }`. That is a
 // NOMI_IRBUILD_DUMP readability cost and nothing else.
 //
@@ -50,7 +50,7 @@ import (
 // Two independent reasons, and each one is a silent wrong answer:
 //
 // Go's `==` on a struct compares fields with Go's `==`, and for a
-// `*rt.List[T]` field that compares ADDRESSES. `(1, [2, 3]) == (1, [2, 3])` is
+// `*rt.List[T]` field that compares ADDRESSES. `#(1, [2, 3]) == #(1, [2, 3])` is
 // True in Nomi, whose `==` is structural and recursive, and would be false in
 // Go, because two cons chains are two allocations. The failure is quiet
 // precisely because pointers ARE comparable in Go.
@@ -97,7 +97,7 @@ func (g *gen) tupleKind(parts []kind) kind {
 		return kindInvalid
 	}
 	var nomi strings.Builder
-	nomi.WriteByte('(')
+	nomi.WriteString("#(")
 	for i, p := range parts {
 		// kindInvalid: propagates — a kind CONSTRUCTOR; the part`s own decline is counted in items().
 		if p == kindInvalid {
@@ -115,7 +115,7 @@ func (g *gen) tupleKind(parts []kind) kind {
 // structuralTypeOf reads a type annotation this file owns, or kindInvalid.
 //
 // A tuple type is spelled `*ast.FuncType` with a nil Return — the parser reuses
-// one node for `(Int, String)` and `(Int) -> String`, and the arrow is the only
+// one node for `#(Int, String)` and `(Int) -> String`, and the arrow is the only
 // difference. typeOf handles the arrow form; this handles the other.
 func (g *gen) structuralTypeOf(te ast.TypeExpr) kind {
 	switch t := te.(type) {
@@ -169,7 +169,7 @@ func (g *gen) structuralTypeOf(te ast.TypeExpr) kind {
 //   - components drives SIZE reachability, which is what decides boxing. A list
 //     field is a POINTER, so it cannot make its container infinite and must NOT
 //     be followed: following it would box a field that is already indirect. A
-//     tuple field is INLINE and must be, or `struct Node { pair: (Int, Node) }`
+//     tuple field is INLINE and must be, or `struct Node { pair: #(Int, Node) }`
 //     spells a Go type of infinite size.
 func (d *typeDef) note(k kind) {
 	d.mentions = appendMentionedDefs(d.mentions, k)
@@ -196,7 +196,7 @@ func appendInlineDefs(out []*typeDef, k kind) []*typeDef {
 		// Both are a flat Go struct, so a component of either is stored INLINE
 		// and can make its container's size infinite:
 		// `struct Node { p: {next: Node} }` needs the same boxed edge
-		// `struct Node { pair: (Int, Node) }` does.
+		// `struct Node { pair: #(Int, Node) }` does.
 		for _, p := range k.comp.parts {
 			out = appendInlineDefs(out, p)
 		}

@@ -296,7 +296,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			// When there's no explicit return annotation but a FuncType has
 			// been attached (BuildTypes ran), synthesize a Unit return-type
 			// expression and pass it down — nil Return means Unit, which is
-			// also the implicit default. Lets hover show `fn helper(): Unit`
+			// also the implicit default. Lets hover show `fn helper() -> Unit`
 			// instead of bare `fn helper()`.
 			ret := n.ReturnTypeExpr
 			if ret == nil {
@@ -426,16 +426,8 @@ func implementedInterfaceNames(sym *analysis.Symbol, fa *analysis.FileAnalysis) 
 	}
 	typeName := sym.Name
 	seen := make(map[string]bool)
-	collect := func(ifaces map[string]bool) {
-		for iface := range ifaces {
-			seen[iface] = true
-		}
-	}
-	if fa.Impls != nil {
-		collect(fa.Impls[typeName])
-	}
-	if fa.Program().ImplIndex != nil && fa.Program().ImplIndex.Impls != nil {
-		collect(fa.Program().ImplIndex.Impls[typeName])
+	for _, iface := range fa.ImplementedInterfaces(typeName) {
+		seen[iface] = true
 	}
 	if seen["Debug"] && !hasExplicitDebugImpl(typeName, fa) {
 		delete(seen, "Debug")
@@ -570,7 +562,7 @@ func displayValueTypeWithReceiver(t analysis.Type, receiver string) string {
 		for i, e := range v.Elems {
 			parts[i] = displayValueTypeWithReceiver(e, receiver)
 		}
-		return "(" + strings.Join(parts, ", ") + ")"
+		return "#(" + strings.Join(parts, ", ") + ")"
 	case *analysis.FuncType:
 		params := make([]string, len(v.Params))
 		for i, p := range v.Params {
@@ -909,7 +901,7 @@ func RenderFuncSigResolvedSelf(name string, typeParams []ast.TypeParam, params [
 	b.WriteString(")")
 
 	if ret != nil {
-		b.WriteString(": ")
+		b.WriteString(" -> ")
 		var retTy analysis.Type
 		if ft != nil {
 			retTy = ft.Return
@@ -985,6 +977,15 @@ func typeExprIsSelf(te ast.TypeExpr) bool {
 	}
 }
 
+// tupleOrParams writes a FuncType's rendered parts in parentheses: a tuple
+// type's as `#(A, B)`, a function type's parameters as `#(A, B)`.
+func tupleOrParams(tuple bool, parts []string) string {
+	if tuple {
+		return "#(" + strings.Join(parts, ", ") + ")"
+	}
+	return "(" + strings.Join(parts, ", ") + ")"
+}
+
 func renderTypeExprSubstitutingSelf(te ast.TypeExpr, receiver string) string {
 	switch t := te.(type) {
 	case *ast.SimpleType:
@@ -1007,7 +1008,7 @@ func renderTypeExprSubstitutingSelf(te ast.TypeExpr, receiver string) string {
 		for i, p := range t.Params {
 			parts[i] = renderTypeExprSubstitutingSelf(p, receiver)
 		}
-		out := "(" + strings.Join(parts, ", ") + ")"
+		out := tupleOrParams(t.Return == nil, parts)
 		if t.Return != nil {
 			out += " -> " + renderTypeExprSubstitutingSelf(t.Return, receiver)
 		}
@@ -1039,8 +1040,17 @@ func renderParamPattern(n ast.Node) string {
 		return "_"
 	case *ast.AsPattern:
 		return renderParamPattern(p.Pattern) + " as " + p.Name
+	case *ast.OrPattern:
+		parts := make([]string, len(p.Alternatives))
+		for i, alt := range p.Alternatives {
+			parts[i] = renderParamPattern(alt)
+			if _, isAs := alt.(*ast.AsPattern); isAs {
+				parts[i] = "(" + parts[i] + ")"
+			}
+		}
+		return strings.Join(parts, " or ")
 	case *ast.EnumPattern:
-		// `Dur(x)`, `Wrapper.Only(n)`, `Foo((a, b))`. A flat tuple payload
+		// `Dur(x)`, `Wrapper.Only(n)`, `Foo(#(a, b))`. A flat tuple payload
 		// (`Foo(a, b)`) renders its elements directly inside the `()` the
 		// enum supplies — renderParamPattern of a flat TuplePattern omits its
 		// own parens.
@@ -1083,7 +1093,7 @@ func renderParamPattern(n ast.Node) string {
 			// Caller (EnumPattern) supplies the surrounding parens.
 			return inner
 		}
-		return "(" + inner + ")"
+		return "#(" + inner + ")"
 	default:
 		return ""
 	}
@@ -1276,7 +1286,7 @@ func RenderInterfaceMethodSig(m *ast.InterfaceMethod) string {
 	}
 	b.WriteString(")")
 	if m.ReturnTypeExpr != nil {
-		b.WriteString(": ")
+		b.WriteString(" -> ")
 		b.WriteString(m.ReturnTypeExpr.TypeString())
 	}
 	if len(m.WhereClauses) > 0 {
@@ -1341,7 +1351,7 @@ func renderFuncSigFromType(prefix, name string, ft *analysis.FuncType, defNode a
 	}
 	b.WriteString(")")
 	if ft.Return != nil {
-		b.WriteString(": ")
+		b.WriteString(" -> ")
 		if ret := returnTypeExprOf(defNode); ret != nil && typeExprContainsSelf(ret) && receiverName != "" {
 			b.WriteString(renderTypeExprSubstitutingSelf(ret, receiverName))
 		} else {
@@ -1528,7 +1538,7 @@ func renderTypeExprWithDisplaySubs(te ast.TypeExpr, subs map[string]string) stri
 		for i, param := range t.Params {
 			parts[i] = renderTypeExprWithDisplaySubs(param, subs)
 		}
-		out := "(" + strings.Join(parts, ", ") + ")"
+		out := tupleOrParams(t.Return == nil, parts)
 		if t.Return != nil {
 			out += " -> " + renderTypeExprWithDisplaySubs(t.Return, subs)
 		}
@@ -2041,7 +2051,7 @@ func renderInterfaceDef(n *ast.InterfaceDef) string {
 		}
 		b.WriteString(")")
 		if m.ReturnTypeExpr != nil {
-			b.WriteString(": ")
+			b.WriteString(" -> ")
 			b.WriteString(m.ReturnTypeExpr.TypeString())
 		}
 		b.WriteString("\n")
@@ -2075,7 +2085,7 @@ func renderImportPath(imp *ast.ImportStmt) string {
 }
 
 // SignatureAndDoc splits the hover for sym in two: the first line of its code
-// fence (`fn trim(s: String): String`, `x: Int`, `struct Point`), which is
+// fence (`fn trim(s: String) -> String`, `x: Int`, `struct Point`), which is
 // what completion shows as an item's detail, and the markdown that follows
 // the fence (doc comment, implemented interfaces), which completion delivers
 // on resolve. Both come from RenderWithAnalysis, so a completion item and a

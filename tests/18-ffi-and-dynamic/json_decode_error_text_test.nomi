@@ -26,7 +26,7 @@
 
 import std/json.Json
 
-fn decode_error(src: String): String {
+fn decode_error(src: String) -> String {
     case Json.decode(src) {
         Ok(_) -> "unexpectedly parsed"
         Err(e) -> Json.DecodeError.to_string(e)

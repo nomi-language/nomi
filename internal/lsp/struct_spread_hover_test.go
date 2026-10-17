@@ -21,7 +21,7 @@ func TestHover_StructSpread(t *testing.T) {
   y: Int
 }
 
-fn shift(): Point {
+fn shift() -> Point {
   origin = Point{x: 1, y: 2}
   MARK
 }
@@ -60,7 +60,7 @@ fn shift(): Point {
 // An ANONYMOUS head. The field labels come from the head's own inferred shape,
 // so this also pins that the anonymous case reaches the same validator.
 func TestHover_StructSpreadAnonymousHead(t *testing.T) {
-	const prog = `fn shift(): Int {
+	const prog = `fn shift() -> Int {
   base = {x: 1, y: 2}
   moved = {..base, ▮x: 9}
   moved.x

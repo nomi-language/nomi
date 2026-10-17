@@ -16,31 +16,30 @@ import (
 // and this test would say nothing about lowering.
 func TestCheck_ReportsWhatTheCompilerCannotLower(t *testing.T) {
 	path := writeProgram(t, `import std/io
-import std/iter.Iter.{find}
 
-fn skip_odd(n: Int): Int {
+fn skip_odd(n: Int) -> Int {
   if n % 2 == 1 {
     continue
   }
   n
 }
 
-fn is_big(n: Int): Bool {
+fn is_big(n: Int) -> Bool {
   if n > 100 {
     break True
   }
   n > 2
 }
 
-fn evens(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| skip_odd(x)) |> Iter.to_list()
+fn evens(xs: List<Int>) -> List<Int> {
+  Iter.map(xs, fn x -> skip_odd(x)) |> Iter.to_list()
 }
 
-fn first_big(xs: List<Int>): Maybe<Int> {
-  find(xs, is_big)
+fn first_big(xs: List<Int>) -> Maybe<Int> {
+  Iter.find(xs, f: is_big)
 }
 
-fn unused(xs: List<Int>): Maybe<Int> {
+fn unused(xs: List<Int>) -> Maybe<Int> {
   Iter.find(xs, is_big)
 }
 
@@ -60,9 +59,9 @@ fn main() {
 		hint      string
 	}
 	wants := []want{
-		{19, 20, "this call to `skip_odd` is not supported yet, so `fn evens` cannot run",
+		{18, 24, "this call to `skip_odd` is not supported yet, so `fn evens` cannot run",
 			"`skip_odd` uses break or continue, so pass it as the callback itself"},
-		{23, 12, "using `is_big` here is not supported yet, so `fn first_big` cannot run",
+		{22, 20, "using `is_big` here is not supported yet, so `fn first_big` cannot run",
 			"runs as a callback only when the iteration function is named with its owner, as in `Iter.find(xs, is_big)`"},
 	}
 	if len(ds) != len(wants) {
@@ -89,12 +88,12 @@ fn main() {
 func TestCheck_ALoweredProgramChecksClean(t *testing.T) {
 	path := writeProgram(t, `import std/io
 
-fn add(a: Int, b: Int): Int {
+fn add(a: Int, b: Int) -> Int {
   a + b
 }
 
 fn main() {
-  io.print(Iter.reduce([1, 2, 3], |acc = 0, n| add(acc, n)))
+  io.print(Iter.reduce([1, 2, 3], fn acc = 0, n -> add(acc, n)))
 }
 `)
 	if err := vmhost.Check(path); err != nil {
@@ -103,17 +102,18 @@ fn main() {
 }
 
 // When `main` itself cannot be lowered, the report is at the expression it
-// stopped at.
+// stopped at: under plantDecline, the call to `planted_decline`.
 func TestCheck_ReportsADeclinedMainAtTheExpression(t *testing.T) {
+	plantDecline(t)
 	path := writeProgram(t, `import std/io
 
-fn parse(s: String, strict: Bool = False): Int {
-  if strict { 0 } else { String.length(s) }
+fn planted_decline(a: Int) -> Int {
+    a
 }
 
 fn main() {
-  g = parse
-  io.print(g("ab"))
+    u = planted_decline(1)
+    io.inspect(u)
 }
 `)
 	err := vmhost.Check(path)
@@ -121,7 +121,7 @@ fn main() {
 	if !errors.As(err, &ds) || len(ds) != 1 {
 		t.Fatalf("Check answered %v; want one diagnostic", err)
 	}
-	if d := ds[0]; d.Line != 8 || d.Col != 7 || d.Message != "using `parse` here is not supported yet, so `fn main` cannot run" {
+	if d := ds[0]; d.Line != 8 || d.Col != 9 || d.Message != "this call to `planted_decline` is not supported yet, so `fn main` cannot run" {
 		t.Errorf("got %d:%d %q", d.Line, d.Col, d.Message)
 	}
 }

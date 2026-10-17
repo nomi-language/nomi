@@ -82,7 +82,7 @@ func TestParseWithValueOnTheNextLine(t *testing.T) {
 
 // `with` is not an expression.
 func TestParseWithIsNotAnExpression(t *testing.T) {
-	if _, err := Parse(lexer.Lex("fn f(): Int {\n  n = with A.x = 1\n  n\n}")); err == nil {
+	if _, err := Parse(lexer.Lex("fn f() -> Int {\n  n = with A.x = 1\n  n\n}")); err == nil {
 		t.Fatal("`with` parsed as a binding's value")
 	}
 }

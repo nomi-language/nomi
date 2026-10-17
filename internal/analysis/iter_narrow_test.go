@@ -16,15 +16,15 @@ const iterNarrowDecls = `struct Box {
   xs: List<Int>
 }
 
-fn it(): Iter<Int> {
+fn it() -> Iter<Int> {
   [1, 2]
 }
 
-fn take(xs: List<Int>): Int {
+fn take(xs: List<Int>) -> Int {
   Iter.count(xs)
 }
 
-fn gen<T>(xs: List<T>): Int {
+fn gen<T>(xs: List<T>) -> Int {
   Iter.count(xs)
 }
 
@@ -62,9 +62,9 @@ func TestIterNarrow_EveryPositionRefusesTheIter(t *testing.T) {
 		name, src, want, at string
 	}{
 		{"a once annotation",
-			"once xs: List<Int> = [1, 2] |> Iter.map(|x| x + 1)\n",
+			"once xs: List<Int> = [1, 2] |> Iter.map(fn x -> x + 1)\n",
 			"type mismatch: expected List<Int>, got Iter<Int>" + iterHint("Iter.to_list"),
-			"[1, 2] |> Iter.map(|x| x + 1)"},
+			"[1, 2] |> Iter.map(fn x -> x + 1)"},
 		{"an annotated binding",
 			"fn main() {\n  a: List<Int> = it()\n  _ = a\n}\n",
 			"type mismatch: expected List<Int>, got Iter<Int>" + iterHint("Iter.to_list"),
@@ -94,25 +94,25 @@ func TestIterNarrow_EveryPositionRefusesTheIter(t *testing.T) {
 			"list element type mismatch: expected List<Int>, got Iter<Int>" + iterHint("Iter.to_list"),
 			"it()"},
 		{"a function's tail",
-			"fn get(): List<Int> {\n  [1, 2] |> Iter.map(|x| x + 1)\n}\n",
+			"fn get() -> List<Int> {\n  [1, 2] |> Iter.map(fn x -> x + 1)\n}\n",
 			"return type mismatch: expected List<Int>, got Iter<Int>" + iterHint("Iter.to_list"),
-			"[1, 2] |> Iter.map(|x| x + 1)"},
+			"[1, 2] |> Iter.map(fn x -> x + 1)"},
 		{"a return",
-			"fn get(): List<Int> {\n  return it()\n}\n",
+			"fn get() -> List<Int> {\n  return it()\n}\n",
 			"return type mismatch: expected List<Int>, got Iter<Int>" + iterHint("Iter.to_list"),
 			"it()"},
 		{"a Set",
-			"fn get(): Set<Int> {\n  it()\n}\n",
+			"fn get() -> Set<Int> {\n  it()\n}\n",
 			"return type mismatch: expected Set<Int>, got Iter<Int>" + iterHint("Iter.to_set"),
 			"it()"},
 		{"a Vector",
-			"fn get(): Vector<Int> {\n  it()\n}\n",
+			"fn get() -> Vector<Int> {\n  it()\n}\n",
 			"return type mismatch: expected Vector<Int>, got Iter<Int>" + iterHint("Iter.to_vector"),
 			"it()"},
 		{"a Map",
-			"fn get(): Map<Int, Int> {\n  [(1, 2)] |> Iter.map(|p| p)\n}\n",
-			"return type mismatch: expected Map<Int, Int>, got Iter<(Int, Int)>" + iterHint("Iter.to_map"),
-			"[(1, 2)] |> Iter.map(|p| p)"},
+			"fn get() -> Map<Int, Int> {\n  [#(1, 2)] |> Iter.map(fn p -> p)\n}\n",
+			"return type mismatch: expected Map<Int, Int>, got Iter<#(Int, Int)>" + iterHint("Iter.to_map"),
+			"[#(1, 2)] |> Iter.map(fn p -> p)"},
 		{"a struct type",
 			"fn main() {\n  n: Int = it()\n  _ = n\n}\n",
 			"type mismatch: expected Int, got Iter<Int>",
@@ -130,7 +130,7 @@ func TestIterNarrow_EveryPositionRefusesTheIter(t *testing.T) {
 // implementers is expected.
 func TestIterNarrow_AnInterfaceIsNotItsImplementer(t *testing.T) {
 	src := `interface Area {
-  fn area(a: self): Int
+  fn area(a: self) -> Int
 }
 
 struct Sq {
@@ -138,12 +138,12 @@ struct Sq {
 }
 
 impl Area for Sq {
-  fn area(s: Sq): Int {
+  fn area(s: Sq) -> Int {
     s.side
   }
 }
 
-fn some(): Area {
+fn some() -> Area {
   Sq{side: 1}
 }
 
@@ -161,7 +161,7 @@ fn main() {
 // interface, and a join of a List and an Iter is an Iter.
 func TestIterNarrow_ACollectionIsAnIter(t *testing.T) {
 	src := `interface Area {
-  fn area(a: self): Int
+  fn area(a: self) -> Int
 }
 
 struct Sq {
@@ -169,7 +169,7 @@ struct Sq {
 }
 
 impl Area for Sq {
-  fn area(s: Sq): Int {
+  fn area(s: Sq) -> Int {
     s.side
   }
 }
@@ -178,19 +178,19 @@ struct Holder {
   xs: Iter<Int>
 }
 
-fn total(xs: Iter<Int>): Int {
+fn total(xs: Iter<Int>) -> Int {
   Iter.count(xs)
 }
 
-fn bounded<I>(xs: I): Int where I: Iter<Int> {
+fn bounded<I>(xs: I) -> Int where I: Iter<Int> {
   Iter.count(xs)
 }
 
-fn as_iter(): Iter<Int> {
+fn as_iter() -> Iter<Int> {
   [1, 2, 3]
 }
 
-fn as_area(): Area {
+fn as_area() -> Area {
   Sq{side: 2}
 }
 
@@ -203,7 +203,7 @@ fn main() {
   _ = d
   _ = Holder{xs: [1]}
   areas: List<Area> = [Sq{side: 1}, Sq{side: 3}]
-  _ = areas |> Iter.map(|a| Area.area(a)) |> Iter.to_list()
+  _ = areas |> Iter.map(fn a -> Area.area(a)) |> Iter.to_list()
   _ = Area.area(as_area())
   xs: List<Int> = as_iter() |> Iter.to_list()
   _ = xs

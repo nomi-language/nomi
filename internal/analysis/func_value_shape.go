@@ -30,11 +30,14 @@ func funcShapeDiffers(param, arg Type) bool {
 
 // headDiffers reports a generic parameter and an argument whose outermost
 // type constructors differ, where both are fixed: `Set<T>` given Unit or an
-// Int, `List<T>` given a String, `(A, B)` given a three-tuple. No type
-// argument makes them equal, so the argument is a mismatch even though the
-// parameter's type variables are unsolved. As in funcShapeDiffers, a bare
-// type parameter or inference variable, an interface, a distinct type, Any
-// and Infallible are left to unification's other rules, and so are the
+// Int, `List<T>` given a String, `Vector<T>` given a String, `#(A, B)` given
+// a three-tuple. No type argument makes them equal, so the argument is a
+// mismatch even though the parameter's type variables are unsolved. A
+// distinct type (a host type such as `Vector` or `Task`, or a declared
+// distinct type) is as fixed as a struct: unify admits only the same
+// distinct type. As in funcShapeDiffers, a bare type parameter or inference
+// variable, an interface, a function type (which a distinct type may wrap),
+// Any and Infallible are left to unification's other rules, and so are the
 // widenings unify admits: an embedded type into its enum and True or False
 // into Bool.
 func headDiffers(param, arg Type) bool {
@@ -44,7 +47,7 @@ func headDiffers(param, arg Type) bool {
 	}
 	open := func(t Type) bool {
 		switch t.(type) {
-		case *TypeParam_, *TypeVar, *InterfaceType, *DistinctType, *BoundAliasType, *PartialType, *FuncType:
+		case *TypeParam_, *TypeVar, *InterfaceType, *BoundAliasType, *PartialType, *FuncType:
 			return true
 		}
 		return t == TypeAny || t == TypeInfallible
@@ -64,7 +67,13 @@ func headDiffers(param, arg Type) bool {
 	if et, ok := param.(*EnumType); ok && isEmbeddedTypeOf(arg, et) {
 		return false
 	}
+	if a, ok := arg.(*DistinctType); ok {
+		p, ok := param.(*DistinctType)
+		return !ok || !sameNominalIdentity(p.Origin, p.Name, a.Origin, a.Name)
+	}
 	switch p := param.(type) {
+	case *DistinctType:
+		return true
 	case *PrimitiveType:
 		a, ok := arg.(*PrimitiveType)
 		return !ok || !samePrimitive(p, a)

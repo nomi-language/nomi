@@ -9,13 +9,13 @@
 
 import std/io
 
-fn grow(acc: String, n: Int): String {
+fn grow(acc: String, n: Int) -> String {
     s = "${acc}${n},"
     if String.length(s) > 60 { "x" } else { s }
 }
 
 fn main() {
-    total = Iter.reduce(1..=100000, |t = 0, n| t + String.length(grow("ab", n)))
-    last = Iter.reduce(1..=100000, |acc = "", n| grow(acc, n))
+    total = Iter.reduce(1..=100000, fn t = 0, n -> t + String.length(grow("ab", n)))
+    last = Iter.reduce(1..=100000, fn acc = "", n -> grow(acc, n))
     io.print(total + String.length(last))
 }

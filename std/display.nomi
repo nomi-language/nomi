@@ -19,9 +19,9 @@ import strings.String
 /// }
 ///
 /// impl Display for Greeter {
-///     fn to_string(g: Greeter): String { "hi ${g.name}" }
+///     fn to_string(g: Greeter) -> String { "hi ${g.name}" }
 /// }
 /// ```
 pub interface Display {
-    fn to_string(value: self): String
+    fn to_string(value: self) -> String
 }

@@ -48,7 +48,7 @@ import {
 // `try` inside `fn main()` is refused by the builder (`try boundary mismatch`:
 // a Unit-returning body cannot propagate), so the fallible half lives here and
 // main discharges it. A property of `main`, not of these types.
-fn run(): Result<Unit, Error> {
+fn run() -> Result<Unit, Error> {
     // --- every spellable arity, with a written value in a defaultable slot ----
     // All seven written, nanosecond non-zero: the full path, and the fraction
     // rendering that a truncation to six arguments would silently drop.

@@ -19,19 +19,19 @@
 import std/io
 
 fn main() {
-    pairs = Iter.to_map([("a", 1), ("b", 2)])
-    dup = Iter.to_map([("x", 1), ("x", 9)])
-    dup3 = Iter.to_map([("x", 1), ("y", 2), ("x", 9)])
-    order = Iter.to_map([("z", 1), ("a", 2), ("m", 3)])
-    one = Iter.to_map([(1, 10)])
-    intkeys = Iter.to_map([(3, "c"), (1, "a"), (2, "b")])
-    boolkey = Iter.to_map([(True, 1), (False, 0)])
-    tupkey = Iter.to_map([((1, 2), "a"), ((3, 4), "b")])
-    listkey = Iter.to_map([([1, 2], "a"), ([3], "b")])
-    floatk = Iter.to_map([(1.5, "a")])
-    nankey = Iter.to_map([(0.0 / 0.0, "nan")])
-    dupsize = Iter.to_map([("a", 1), ("b", 2), ("a", 3)])
-    single = Iter.to_map([("a", 1)])
+    pairs = Iter.to_map([#("a", 1), #("b", 2)])
+    dup = Iter.to_map([#("x", 1), #("x", 9)])
+    dup3 = Iter.to_map([#("x", 1), #("y", 2), #("x", 9)])
+    order = Iter.to_map([#("z", 1), #("a", 2), #("m", 3)])
+    one = Iter.to_map([#(1, 10)])
+    intkeys = Iter.to_map([#(3, "c"), #(1, "a"), #(2, "b")])
+    boolkey = Iter.to_map([#(True, 1), #(False, 0)])
+    tupkey = Iter.to_map([#(#(1, 2), "a"), #(#(3, 4), "b")])
+    listkey = Iter.to_map([#([1, 2], "a"), #([3], "b")])
+    floatk = Iter.to_map([#(1.5, "a")])
+    nankey = Iter.to_map([#(0.0 / 0.0, "nan")])
+    dupsize = Iter.to_map([#("a", 1), #("b", 2), #("a", 3)])
+    single = Iter.to_map([#("a", 1)])
     // `Map.get` returns a `Maybe`, and `==` on a prelude enum is a separate gap
     // (prelude.go) rather than this fixture's subject, so the payload is read
     // with `case`. Reading it is also the stronger assertion: it distinguishes
@@ -58,17 +58,17 @@ fn main() {
     io.print("size    ${Map.size(dupsize)}")
     io.print("get     ${get_hit}")
     io.print("miss    ${get_miss}")
-    io.print("empty   ${Map.size(Iter.to_map([(1, 2)])) == 1}")
+    io.print("empty   ${Map.size(Iter.to_map([#(1, 2)])) == 1}")
 }
 
-fn found(got: Maybe<String>, want: String): Bool {
+fn found(got: Maybe<String>, want: String) -> Bool {
     case got {
         .Some(v) -> v == want
         .None -> False
     }
 }
 
-fn found_int(got: Maybe<Int>, want: Int): Bool {
+fn found_int(got: Maybe<Int>, want: Int) -> Bool {
     case got {
         .Some(v) -> v == want
         .None -> False

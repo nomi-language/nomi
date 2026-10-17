@@ -221,7 +221,7 @@ func formatExternFuncDetail(f *ast.ExternFunc) string {
 	}
 	result += ")"
 	if f.ReturnTypeExpr != nil {
-		result += ": " + f.ReturnTypeExpr.TypeString()
+		result += " -> " + f.ReturnTypeExpr.TypeString()
 	}
 	return result
 }
@@ -239,7 +239,7 @@ func formatFuncDetail(f *ast.FuncDef) string {
 	}
 	result += ")"
 	if f.ReturnTypeExpr != nil {
-		result += ": " + f.ReturnTypeExpr.TypeString()
+		result += " -> " + f.ReturnTypeExpr.TypeString()
 	}
 	return result
 }

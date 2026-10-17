@@ -1,0 +1,107 @@
+// Each derive here compares, hashes, orders, renders or converts a field
+// whose type another file declares, through that file's impl: derived for
+// `Money`, `Coin` and `Cents`, written by hand for `Tally`.
+import {
+    std/json.{FromJson, Json, ToJson}
+    money.{Cents, Coin, Money, Tally}
+}
+
+struct Wallet {
+    money: Money
+    coin: Coin
+    cents: Cents
+    tally: Tally
+    bills: List<Money>
+}
+
+derive Equatable for Wallet
+derive Hashable for Wallet
+derive Comparable for Wallet
+derive Debug for Wallet
+derive Display for Wallet
+derive ToJson for Wallet
+derive FromJson for Wallet
+
+struct Spare {
+    money: Maybe<Money>
+}
+
+derive Equatable for Spare
+derive Hashable for Spare
+derive Debug for Spare
+derive Display for Spare
+derive ToJson for Spare
+derive FromJson for Spare
+
+enum Purse {
+    Empty
+    Holding #(Money, Coin)
+    Counted {total: Cents, tally: Tally}
+}
+
+derive Equatable for Purse
+derive Hashable for Purse
+derive Comparable for Purse
+derive Debug for Purse
+derive Display for Purse
+derive ToJson for Purse
+derive FromJson for Purse
+
+fn wallet(cents: Int) -> Wallet {
+    Wallet{
+        money: Money{cents},
+        coin: Coin.Dime,
+        cents: Cents(3),
+        tally: Tally{n: 4},
+        bills: [Money{cents: 5}],
+    }
+}
+
+fn counted() -> Purse {
+    Purse.Counted{total: Cents(1), tally: Tally{n: 2}}
+}
+
+test "a derived Equatable compares another file's types" {
+    assert wallet(1) == wallet(1)
+    assert wallet(1) != wallet(2)
+    assert Spare{money: Some(Money{cents: 1})} == Spare{money: Some(Money{cents: 1})}
+    assert Purse.Holding(Money{cents: 1}, Coin.Penny) != Purse.Holding(Money{cents: 1}, Coin.Dime)
+}
+
+test "a derived Hashable hashes another file's types" {
+    assert Hashable.hash(wallet(1)) == Hashable.hash(wallet(1))
+    assert Hashable.hash(Spare{money: None}) == Hashable.hash(Spare{money: None})
+    assert Hashable.hash(counted()) == Hashable.hash(counted())
+}
+
+test "a derived Comparable orders by another file's types" {
+    assert wallet(1) < wallet(2)
+    assert Comparable.compare(wallet(2), wallet(2)) == Ordering.Equal
+    assert Purse.Holding(Money{cents: 1}, Coin.Penny) < Purse.Holding(Money{cents: 1}, Coin.Dime)
+}
+
+test "a derived Debug and Display render another file's types" {
+    inspected = "Wallet{money: Money{cents: 1}, coin: Dime, cents: Cents(3), tally: Tally#4, bills: [Money{cents: 5}]}"
+    shown = "Wallet{money: Money{cents: 1}, coin: Dime, cents: Cents(3), tally: tally 4, bills: [Money{cents: 5}]}"
+    assert Debug.inspect(wallet(1)) == inspected
+    assert Display.to_string(wallet(1)) == shown
+    spare = Spare{money: Some(Money{cents: 6})}
+    assert Display.to_string(spare) == "Spare{money: Some(Money{cents: 6})}"
+    assert Display.to_string(counted()) == "Counted{total: Cents(1), tally: tally 2}"
+}
+
+test "a derived ToJson and FromJson convert another file's types" {
+    json = ToJson.to_json(wallet(1))
+    text = "{\"money\":{\"cents\":1},\"coin\":\"Dime\",\"cents\":3,\"tally\":4,\"bills\":[{\"cents\":5}]}"
+    assert Json.encode(json) == text
+    assert FromJson.from_json<Wallet>(json) == Ok(wallet(1))
+    spare = Spare{money: Some(Money{cents: 6})}
+    assert FromJson.from_json<Spare>(ToJson.to_json(spare)) == Ok(spare)
+    purse = Purse.Holding(Money{cents: 7}, Coin.Penny)
+    assert FromJson.from_json<Purse>(ToJson.to_json(purse)) == Ok(purse)
+}
+
+test "another file's derived Variants lists its variants" {
+    assert Coin.variants() == [Coin.Penny, Coin.Dime]
+    assert Variants.variants<Coin>() == [Coin.Penny, Coin.Dime]
+}

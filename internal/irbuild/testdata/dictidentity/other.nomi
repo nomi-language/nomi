@@ -22,15 +22,15 @@ pub struct Widget {
 }
 
 impl Shout for Widget {
-    fn shout(w: Widget): String {
+    fn shout(w: Widget) -> String {
         "other widget ${w.n}"
     }
 }
 
-fn announce<T>(x: T): String where T: Shout {
+fn announce<T>(x: T) -> String where T: Shout {
     T.shout(x)
 }
 
-pub fn other_announced(): String {
+pub fn other_announced() -> String {
     announce(Widget{n: 7})
 }

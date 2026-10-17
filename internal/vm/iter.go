@@ -209,6 +209,51 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		}
 		fold := func(runtime *rt.Frame, acc, item any) any { return m.iterInvoke(f, runtime, acc, item) }
 		fr.write(n.Dst(), rt.SeqReduce(fr.runtime, seq, seed, fold))
+	case ir.IterScan, ir.IterMapReduce:
+		// The operands are reduce's: the source, the seed and the callback.
+		f, err := iterCallback(fr, n, 2, 2)
+		if err != nil {
+			return err
+		}
+		seed, err := fr.read(n.Arg(1))
+		if err != nil {
+			return err
+		}
+		if n.Op() == ir.IterScan {
+			if n.Signalling() {
+				fr.write(n.Dst(), rt.SeqScanCtl(seq, seed, func(runtime *rt.Frame, acc, item any) (any, rt.Ctl) {
+					return adapterOutcome(m.iterInvoke(f, runtime, acc, item))
+				}))
+				return nil
+			}
+			fr.write(n.Dst(), rt.SeqScan(seq, seed, func(runtime *rt.Frame, acc, item any) any {
+				return m.iterInvoke(f, runtime, acc, item)
+			}))
+			return nil
+		}
+		var failed error
+		split := func(result any) (any, any) {
+			return pairPart(result, 0, &failed), pairPart(result, 1, &failed)
+		}
+		var out any
+		if n.Signalling() {
+			out = rt.SeqMapReduceCtlCells[any, any, any, list](fr.runtime, seq, seed, func(runtime *rt.Frame, acc, item any) (any, any, rt.Ctl) {
+				result, ctl := adapterOutcome(m.iterInvoke(f, runtime, acc, item))
+				if ctl == rt.CtlSkip || ctl == rt.CtlStop {
+					return nil, nil, ctl
+				}
+				o, next := split(result)
+				return o, next, ctl
+			}, func(outs *list, acc any) any { return pair(outs, acc) })
+		} else {
+			out = rt.SeqMapReduceCells[any, any, any, list](fr.runtime, seq, seed, func(runtime *rt.Frame, acc, item any) (any, any) {
+				return split(m.iterInvoke(f, runtime, acc, item))
+			}, func(outs *list, acc any) any { return pair(outs, acc) })
+		}
+		if failed != nil {
+			return failed
+		}
+		fr.write(n.Dst(), out)
 	case ir.IterJoin:
 		arg, err := fr.read(n.Arg(1))
 		if err != nil {
@@ -336,16 +381,16 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			}
 			return b
 		})))
-	case ir.IterAt:
+	case ir.IterGet:
 		arg, err := fr.read(n.Arg(1))
 		if err != nil {
 			return err
 		}
 		index, ok := arg.(int64)
 		if !ok {
-			return fmt.Errorf("vm: Iter.at requires an Int index")
+			return fmt.Errorf("vm: Iter.get requires an Int index")
 		}
-		fr.write(n.Dst(), maybeOf(rt.SeqAt(fr.runtime, seq, index)))
+		fr.write(n.Dst(), maybeOf(rt.SeqGet(fr.runtime, seq, index)))
 	case ir.IterPartition:
 		callback, err := fr.read(n.Arg(1))
 		if err != nil {
@@ -678,9 +723,23 @@ func (m *Machine) userView(fr *frame, n *ir.Iter, src any) error {
 		}
 		return more
 	})
-	// The builder views only a source that inherits known_count's
-	// declining default, so the view has no Count.
-	fr.write(n.Dst(), sourceView(view, src, nil))
+	// A source that inherits known_count's declining default has no
+	// Count; one whose impl writes known_count carries it as operand 2.
+	var count func(*rt.Frame) rt.Maybe[int64]
+	if n.NumArgs() == 3 {
+		v, err := fr.read(n.Arg(2))
+		if err != nil {
+			return err
+		}
+		kc, ok := v.(*functionValue)
+		if !ok || kc == nil || kc.arity != 1 {
+			return fmt.Errorf("vm: user source view operand 2 is %T, not its known_count", v)
+		}
+		count = func(runtime *rt.Frame) rt.Maybe[int64] {
+			return rangeSteps(m.iterInvoke(kc, runtime, src))
+		}
+	}
+	fr.write(n.Dst(), sourceView(view, src, count))
 	return nil
 }
 
@@ -802,7 +861,7 @@ func countValue(m rt.Maybe[int64]) any {
 // entry, a partition's two lists, an index and its element, a zip.
 var pairDesc = rt.TupleDesc(rt.SlotRef, rt.SlotRef)
 
-// pair is the tuple `(a, b)`.
+// pair is the tuple `#(a, b)`.
 func pair(a, b any) any { return pairDesc.Make(a, b) }
 
 // iterCallback reads operand i of n as a function value of the given arity.

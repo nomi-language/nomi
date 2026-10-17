@@ -8,7 +8,7 @@ import (
 
 // A `then` or `tap` stage's bare body ends at the next `|>`, so in
 //
-//	xs |> then |v| v |> Iter.filter(|x| x > Iter.count(v))
+//	xs |> then fn v -> v |> Iter.filter(fn x -> x > Iter.count(v))
 //
 // `Iter.filter(...)` is the next stage of the outer pipeline and `v` is not
 // in scope there. The plain "undefined variable" error does not say why, so
@@ -73,7 +73,7 @@ func (c *checker) pipeLambdaBoundaryError(n *ast.Ident) (TypeError, bool) {
 		p := c.pipeLambdaParams[i]
 		if p.name == n.Name {
 			msg := fmt.Sprintf("'%s' is the parameter of the `%s` stage on line %d, whose body ends at the next `|>`", n.Name, p.keyword, p.line)
-			return errAt(n, msg).WithHint(fmt.Sprintf("write `%s |%s| { ... }` to keep the pipe inside it", p.keyword, n.Name)), true
+			return errAt(n, msg).WithHint(fmt.Sprintf("write `%s fn %s -> { ... }` to keep the pipe inside it", p.keyword, n.Name)), true
 		}
 	}
 	return TypeError{}, false

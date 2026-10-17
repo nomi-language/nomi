@@ -8,7 +8,7 @@ package rt
 // `Toml.text`, `Toml.from_fragments` — is an ordinary Nomi body that lowers
 // into std/toml's generated package. What a Go type in rt buys is the thing
 // opaque.go's header says a spec row is for: letting a stdlib signature name
-// the type. `Toml.from_fragments(fragments: List<Fragment<Display>>): Toml`
+// the type. `Toml.from_fragments(fragments: List<Fragment<Display>>) -> Toml`
 // cannot be admitted while `Toml` has no representation a call site in another
 // generated package can compare against, because a stdFunc's kinds are built
 // once and compared by pointer across gens.

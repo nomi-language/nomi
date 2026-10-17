@@ -17,11 +17,11 @@ func TestFindNomiFiles(t *testing.T) {
 	dir := t.TempDir()
 	// Create files
 	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("fn main() {}"), 0644)
-	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("fn double(n: Int): Int { n + n }"), 0644)
+	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("fn double(n: Int) -> Int { n + n }"), 0644)
 	os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("not nomi"), 0644)
 	// Create subdirectory with a .nomi file
 	os.MkdirAll(filepath.Join(dir, "utils"), 0755)
-	os.WriteFile(filepath.Join(dir, "utils", "helpers.nomi"), []byte("fn helper(): Int { 1 }"), 0644)
+	os.WriteFile(filepath.Join(dir, "utils", "helpers.nomi"), []byte("fn helper() -> Int { 1 }"), 0644)
 	// Create hidden directory that should be skipped
 	os.MkdirAll(filepath.Join(dir, ".git"), 0755)
 	os.WriteFile(filepath.Join(dir, ".git", "config.nomi"), []byte("ignored"), 0644)
@@ -47,7 +47,7 @@ func TestFindNomiFiles(t *testing.T) {
 }
 
 func TestFindReferences_SameFile(t *testing.T) {
-	src := "fn double(n: Int): Int { n + n }\nfn main() { double(1) }"
+	src := "fn double(n: Int) -> Int { n + n }\nfn main() { double(1) }"
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -86,7 +86,7 @@ func TestFindReferences_CrossFile(t *testing.T) {
 	mathFile := filepath.Join(dir, "math.nomi")
 	mainFile := filepath.Join(dir, "main.nomi")
 
-	os.WriteFile(mathFile, []byte("/// Doubles it.\npub fn double(n: Int): Int { n + n }"), 0644)
+	os.WriteFile(mathFile, []byte("/// Doubles it.\npub fn double(n: Int) -> Int { n + n }"), 0644)
 	os.WriteFile(mainFile, []byte("import math\nfn main() { math.double(21) }"), 0644)
 
 	dm := analysis.NewDocumentManager()
@@ -127,7 +127,7 @@ func TestFindReferences_CrossFile(t *testing.T) {
 }
 
 func TestFindReferences_IncludeDeclaration(t *testing.T) {
-	src := "fn greet(): String { \"hi\" }\nfn main() { greet() }"
+	src := "fn greet() -> String { \"hi\" }\nfn main() { greet() }"
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -254,8 +254,8 @@ func TestFindReferences_InterfaceMethodIncludesImplDeclarations(t *testing.T) {
 	dir := t.TempDir()
 	mainFile := filepath.Join(dir, "main.nomi")
 	src := "interface Stepper {\n" +
-		"  fn next(value: self): Int\n" +
-		"  open fn steps_between(start: self, end: self): Int {\n" +
+		"  fn next(value: self) -> Int\n" +
+		"  open fn steps_between(start: self, end: self) -> Int {\n" +
 		"    0\n" +
 		"  }\n" +
 		"}\n" +
@@ -264,13 +264,13 @@ func TestFindReferences_InterfaceMethodIncludesImplDeclarations(t *testing.T) {
 		"struct Code { n: Int }\n" +
 		"\n" +
 		"impl Stepper for counter {\n" +
-		"  fn next(value: self): Int { value.n + 1 }\n" +
-		"  fn steps_between(start: self, end: self): Int { end.n - start.n }\n" +
+		"  fn next(value: self) -> Int { value.n + 1 }\n" +
+		"  fn steps_between(start: self, end: self) -> Int { end.n - start.n }\n" +
 		"}\n" +
 		"\n" +
 		"impl Stepper for Code {\n" +
-		"  fn next(value: self): Int { value.n + 1 }\n" +
-		"  fn steps_between(start: self, end: self): Int { end.n - start.n }\n" +
+		"  fn next(value: self) -> Int { value.n + 1 }\n" +
+		"  fn steps_between(start: self, end: self) -> Int { end.n - start.n }\n" +
 		"}\n"
 	if err := os.WriteFile(mainFile, []byte(src), 0644); err != nil {
 		t.Fatal(err)

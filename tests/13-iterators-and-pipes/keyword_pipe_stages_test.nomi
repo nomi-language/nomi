@@ -3,14 +3,14 @@ import {
     std/testing
 }
 
-fn parse_id(s: String): Result<Int, String> {
+fn parse_id(s: String) -> Result<Int, String> {
     case String.to_int(s) {
         Some(id) -> Ok(id)
         None -> Err("expected numeric id")
     }
 }
 
-fn parsed_id(s: String): Result<Int, String> {
+fn parsed_id(s: String) -> Result<Int, String> {
     id = s |> try parse_id()
 
     Ok(id)
@@ -91,7 +91,7 @@ test "dbg can inspect a pipeline stage" {
         """
         import std/io
 
-        fn double(n: Int): Int {
+        fn double(n: Int) -> Int {
           n * 2
         }
 

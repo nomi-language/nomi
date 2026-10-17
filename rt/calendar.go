@@ -192,13 +192,13 @@ type OffsetDateTime struct {
 // They appear in no bound Go signature. `internal/ffitypes` is a closed projection
 // table — String, Bool, Byte, Int, Float, Bytes, Duration, Instant, Dynamic,
 // Unit — with no clause for a Nomi distinct over Int, so `fn add(lhs: Date,
-// rhs: Years): Date go pkg.Sym` cannot bind: the boundary reports "parameter 2
+// rhs: Years) -> Date go pkg.Sym` cannot bind: the boundary reports "parameter 2
 // projects to Int, but Nomi declares Years". Each ladder rung is therefore a
 // Nomi body that destructures its period (`Years(n)`) and calls an
 // `Int`-taking adapter function, which is the shape std/calendar uses for
 // `Add<Weeks, Date>`. Two rungs cannot collide on one Go signature
 // (`Add<Hours, DateTime>` and `Add<Minutes, DateTime>` would both be
-// `(DateTime, int64) DateTime`), because a Nomi body is lowered rather than
+// `#(DateTime, int64) DateTime`), because a Nomi body is lowered rather than
 // dispatched through stdPick.
 //
 // # The width is int64 and TestOpaqueGoWidthMatchesTheDeclaredInner checks it

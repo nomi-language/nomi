@@ -17,6 +17,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -425,6 +426,29 @@ func (s *vmShaper) index(f *ir.Func) {
 			}
 		}
 	}
+	// A slot several paths copy into (a binding's `else` joins the payload
+	// it read with the fallback it built) demands of each source what is
+	// read off the slot, so `Some(#(Pair(x, _), y)) = m else { ... }`
+	// demands a tuple of m's payload. Repeated while a copy into a copied
+	// slot still carries a demand on.
+	for carried := true; carried; {
+		carried = false
+		for _, b := range f.Blocks() {
+			for _, in := range b.Instrs() {
+				c, isCopy := in.(*ir.Copy)
+				if !isCopy {
+					continue
+				}
+				dst, src := resolve(c.Dst()), resolve(c.Src())
+				for _, p := range byProj[dst] {
+					if dst != src && !slices.Contains(byProj[src], p) {
+						byProj[src] = append(byProj[src], p)
+						carried = true
+					}
+				}
+			}
+		}
+	}
 	s.projs[f], s.fwd[f] = byProj, byFwd
 }
 
@@ -562,7 +586,7 @@ func (s *vmShaper) argFor(f *ir.Func, t ir.Temp, leaf *probeLeaf, depth int) any
 		// shapes of one argument is a graph the checker would have refused,
 		// so there is nothing to reconcile.
 		//
-		// EXCEPT FIELD DEMANDS, which compose: `NaiveDateTime.at` forwards
+		// EXCEPT FIELD DEMANDS, which compose: `NaiveDateTime.of` forwards
 		// one Date to `Date.year` and `Date.month`, and each reads its own
 		// field of the same struct. Their fields are merged into one value.
 		var found any = leaf
@@ -958,14 +982,39 @@ func vmProbeArgFailure(fn *ir.Func, err error) bool {
 		return false
 	}
 	if strings.Contains(err.Error(), "reads a field off") || strings.Contains(err.Error(), "variant test reads rt.Context") ||
-		strings.Contains(err.Error(), "iteration reads rt.Context") || strings.Contains(err.Error(), "set receiver is rt.Context") {
-		// A field read, variant test, iteration or Set operation on the leaf
-		// the probe supplied for a parameter it cannot build (a nominal type,
-		// an `Iter<T>`, or a struct whose field is a Set).
+		strings.Contains(err.Error(), "iteration reads rt.Context") || strings.Contains(err.Error(), "set receiver is rt.Context") ||
+		strings.Contains(err.Error(), "list test reads rt.Context") || strings.Contains(err.Error(), "is rt.Context, want Vector") ||
+		strings.Contains(err.Error(), "list tail is rt.Context") {
+		// A field read, variant test, iteration, Set operation, list pattern
+		// or Vector operation on the leaf the probe supplied for a parameter
+		// it cannot build (a nominal type, an `Iter<T>`, a struct whose field
+		// is a Set, a list matched as part of a tuple the body builds or whose
+		// shape only a callee more than four call edges away states, or a
+		// generic Vector only a host call reads).
 		return true
 	}
 	for _, p := range fn.Params() {
-		if t := fn.TempType(p.Temp); t != nil && t.Kind() == ir.KindIface {
+		t := fn.TempType(p.Temp)
+		if t == nil {
+			continue
+		}
+		if t.Kind() == ir.KindIface {
+			return true
+		}
+		// A Set, Map or Vector parameter the body compares with `==` gets
+		// the list the probe builds for any container a comparison reads
+		// (vmShaper.argFor's Compare arm), so a Set or Map operation on it
+		// then meets a List (`x + T.empty_sum() == x` in a generic body
+		// instantiated at Set<Int>).
+		if k := t.Kind(); (k == ir.KindSet || k == ir.KindMap || k == ir.KindVector) &&
+			strings.Contains(err.Error(), "is *rt.List[interface {}], want ") {
+			return true
+		}
+		// A function parameter the body only passes on, captured in a
+		// lambda or as an argument, states no call for the probe to build
+		// a callback from, so it holds a leaf when a callee calls it
+		// (exercism/list-ops' filter and map, through foldr).
+		if t.Kind() == ir.KindFunc && strings.Contains(err.Error(), "indirect callee is not a function") {
 			return true
 		}
 	}

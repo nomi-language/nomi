@@ -5,6 +5,6 @@
 // from outside this file.
 pub opaque type Token Int
 
-pub fn make(n: Int): Token {
+pub fn make(n: Int) -> Token {
     Token(n)
 }

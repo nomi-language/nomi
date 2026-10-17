@@ -4,9 +4,9 @@ package irbuild
 //
 // A Supervisor is a retained value kind: a boot result field, an app-field
 // read, and the parameter of std's Nomi-bodied `Supervisor.new` and
-// `Supervisor.flush`. `Supervisor.spawn(sup, || body)` is a host crossing
+// `Supervisor.flush`. `Supervisor.spawn(sup, fn -> body)` is a host crossing
 // spelled with the `rt.SupervisorSpawn` target, and
-// `Supervisor.spawn_all(sup, list, f)` one spelled `rt.SupervisorSpawnAll`,
+// `Supervisor.spawn_all(sup, source, f)` one spelled `rt.SupervisorSpawnAll`,
 // answering supervised `Task<Unit>` handles. The two module-private externs
 // the Nomi bodies call, `new_exact` and `flush_bounded`, are frame-taking rt
 // hosts (irFrameHost). The VM runs all of them on the rt supervisor
@@ -38,45 +38,28 @@ func irSupervisorKind(k kind) bool {
 	return k == stdHostOriginKind("std/supervisors", "Supervisor")
 }
 
-// supervisorSpawn lowers `Supervisor.spawn(sup, || body)`. It admits a
-// zero-parameter lambda literal whose result is Unit,
-// and a `Task<Unit>` handle. Its owner resolved to std's `Supervisor`
-// declaration (stdIntrinsicOwner).
+// supervisorSpawn lowers `Supervisor.spawn(sup, body)`: a supervisor, a
+// zero-parameter function whose result is Unit (a lambda literal or any other
+// function value), and a `Task<Unit>` handle. Its owner resolved to std's
+// `Supervisor` declaration (stdIntrinsicOwner).
 func (bl *irScalarBuilder) supervisorSpawn(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if bl.rowsUnrecorded(t) || namedArgNode(t.Args) != nil || len(t.Args) != 2 {
 		return no()
 	}
-	lam, isLambda := t.Args[1].(*ast.Lambda)
-	if !isLambda || len(lam.Params) != 0 {
+	args := bl.irQualLowerArgs(t)
+	if !args.ok || !irSupervisorKind(args.kinds[0]) {
 		return no()
 	}
-	// The supervisor operand is a read, an app field or a call, written
-	// directly or piped (`Supervisor.new(...) |> Supervisor.spawn(...)`). A
-	// read emits no statement of its own; a call forces its own operands
-	// first and the Go reader spells it inline in the spawn.
-	switch t.Args[0].(type) {
-	case *ast.Ident, *ast.Call:
-	case *ast.FieldAccess:
-		if _, app := bl.g.appRead(t.Args[0]); !app {
-			return no()
-		}
-	default:
-		return no()
-	}
-	sup, sk, _, ok := bl.lower(t.Args[0])
-	if !ok || !irSupervisorKind(sk) {
-		return no()
-	}
-	fn, fk, _, ok := bl.lower(lam)
-	if !ok || funcResult(fk) != kindUnit {
+	fk := args.kinds[1]
+	if fk.tag != tagFunc || fk.comp == nil || len(funcParams(fk)) != 0 || funcResult(fk) != kindUnit {
 		return no()
 	}
 	handle, built := bl.g.taskHandleKind(kindUnit)
 	if !built {
 		return no()
 	}
-	return bl.concHostEmit(t, "Supervisor.spawn", handle, sup, fn)
+	return bl.concHostEmit(t, "Supervisor.spawn", handle, args.temps...)
 }
 
 // irStdArity identifies one std function's arity-reduced wrapper, which is its
@@ -370,9 +353,9 @@ func (bl *irScalarBuilder) goDefault(at ast.Node, k kind, n int64) ir.Temp {
 }
 
 // supervisorSpawnAll lowers `Supervisor.spawn_all(sup, source, f)`:
-// positional arguments evaluated in order, a List source, a one-parameter
-// function over its element returning Unit, and a `List<Task<Unit>>` of
-// handles. rt takes the source as a List, so a lazy Iter declines.
+// positional arguments evaluated in order, any Iter source viewed as the
+// sequence rt takes, a one-parameter function over its element returning
+// Unit, and a `List<Task<Unit>>` of handles.
 func (bl *irScalarBuilder) supervisorSpawnAll(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if bl.rowsUnrecorded(t) || namedArgNode(t.Args) != nil || len(t.Args) != 3 {
@@ -382,11 +365,14 @@ func (bl *irScalarBuilder) supervisorSpawnAll(t *ast.Call) (ir.Temp, kind, bool,
 	if !args.ok || !irSupervisorKind(args.kinds[0]) {
 		return no()
 	}
-	src, fn := args.kinds[1], args.kinds[2]
-	if src.tag != tagList || src.comp == nil {
+	// The source is viewed as the sequence rt takes, as Task.spawn_all's
+	// is.
+	view, elem, ok := bl.iterPlainView(argExpr(t.Args[1]), args.temps[1], args.kinds[1])
+	if !ok {
 		return no()
 	}
-	elem := src.comp.parts[0]
+	args.temps[1] = view
+	fn := args.kinds[2]
 	if fn.tag != tagFunc || fn.comp == nil || len(funcParams(fn)) != 1 || funcParams(fn)[0] != elem || funcResult(fn) != kindUnit {
 		return no()
 	}

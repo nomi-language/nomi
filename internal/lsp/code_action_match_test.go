@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-const matchDecls = "enum Shape {\n    Circle Float\n    Rect {w: Float, h: Float}\n    Empty\n}\n\nfn make(): Shape {\n    .Empty\n}\n\n"
+const matchDecls = "enum Shape {\n    Circle Float\n    Rect {w: Float, h: Float}\n    Empty\n}\n\nfn make() -> Shape {\n    .Empty\n}\n\n"
 
 func TestPatternMatch_OnBinding(t *testing.T) {
 	src := fnMainAfter(matchDecls, "sh‸ape = make()\nio.inspect(shape)\n")
@@ -25,7 +25,7 @@ func TestPatternMatch_GenericPayloads(t *testing.T) {
 }
 
 func TestPatternMatch_WrapsCall(t *testing.T) {
-	decls := "fn parse(s: String): Result<Int, String> {\n    Maybe.with_default(String.to_int(s), 0) |> Ok()\n}\n\n"
+	decls := "fn parse(s: String) -> Result<Int, String> {\n    Maybe.with_default(String.to_int(s), 0) |> Ok()\n}\n\n"
 	src := fnMainAfter(decls, "io.inspect(par‸se(\"4\"))\n")
 	got := checkRefactor(t, src, "Pattern match on the result of parse", rewrite)
 	want := fnMainAfter(decls, "io.inspect(\n    case parse(\"4\") {\n        .Ok(value) -> todo\n        .Err(value) -> todo\n    }\n)\n")

@@ -34,30 +34,19 @@ func TestIRGenericStruct_MissingFieldMetadataKeepsNativeFallback(t *testing.T) {
 	}
 }
 
-func TestIRGenericStruct_DeclinedRetentionDoesNotChangeEmission(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", "import std/io\nstruct Box<T> { value: T }\nstruct Point { x: Int }\nstruct Outer { p: List<Point>\n f: Map<String, (Int) -> Int> }\nfn main() { box = Box{value: 42} io.print(box.value) dbg Outer{p: [Point{x: 2}], f: Map.empty()} return }")
-	if err != nil {
-		t.Fatal(err)
-	}
-	retained, _, err := GenerateIR(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, mod := range retained.IR {
-		for _, fn := range mod.Funcs() {
-			if fn.Name() == "main" {
-				t.Fatal("nominal Debug must decline")
-			}
-		}
-	}
+// A generic struct's field read runs beside a struct whose field holds a
+// Map of function values.
+func TestIRGenericStruct_BesideAFunctionMapFieldRuns(t *testing.T) {
+	verifyLambdaProgram(t, "import std/io\nstruct Box<T> { value: T }\nstruct Point { x: Int }\nstruct Outer { p: List<Point>\n f: Map<String, (Int) -> Int> }\nfn main() { box = Box{value: 42} io.print(box.value) io.inspect(Outer{p: [Point{x: 2}], f: Map.empty()}) }\n",
+		"42\nOuter{p: [Point{x: 2}], f: %{}}\n")
 }
 
 func TestIRGenericStruct_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"generic factory and typed parameter", `import std/io
 struct Box<T> { value: T }
-fn wrap<T>(x: T): Box<T> { Box{value: x} }
-fn read(box: Box<Int>): Int { box.value }
+fn wrap<T>(x: T) -> Box<T> { Box{value: x} }
+fn read(box: Box<Int>) -> Int { box.value }
 fn main() {
   a = wrap(42)
   b = wrap("x")
@@ -84,7 +73,7 @@ struct Pair<T, U> {
   first: T
   second: U
 }
-fn mark(n: Int): Int { io.print(n) return n }
+fn mark(n: Int) -> Int { io.print(n) return n }
 fn main() {
   pair = Pair{second: mark(2), first: mark(1)}
   io.print(pair.first)

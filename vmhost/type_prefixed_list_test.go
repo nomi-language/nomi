@@ -20,14 +20,14 @@ enum JV {
 
 type Ids List<Int>
 
-fn total(ids: Ids): Int {
+fn total(ids: Ids) -> Int {
   case ids {
     Ids[a, b] -> a + b
     _ -> 0
   }
 }
 
-fn arr(): JV {
+fn arr() -> JV {
   .Arr[.Num(1), .Arr[.Num(2)]]
 }
 

@@ -8,7 +8,7 @@ import (
 // A decimal literal types as Decimal, and the blessed operators on two
 // Decimals type-check cleanly.
 func TestDecimalLiteralsAndOperatorsTypecheck(t *testing.T) {
-	src := `fn f(): Bool {
+	src := `fn f() -> Bool {
   sum = 1.50d + 1.5d
   prod = 1.50d * 1.5d
   quot = 10.00d / 4d
@@ -23,7 +23,7 @@ func TestDecimalLiteralsAndOperatorsTypecheck(t *testing.T) {
 // Comparisons and equality between two Decimals type-check (Bool result),
 // including the scale-insensitive equality 1.50d == 1.5d.
 func TestDecimalComparisonsTypecheck(t *testing.T) {
-	src := `fn f(): Bool {
+	src := `fn f() -> Bool {
   a = 1.50d < 2d
   b = 1.50d == 1.5d
   c = 1.50d >= 1.5d
@@ -36,7 +36,7 @@ func TestDecimalComparisonsTypecheck(t *testing.T) {
 
 // Mixed Int/Decimal arithmetic is rejected (no implicit conversion).
 func TestDecimalMixedArithmeticRejected(t *testing.T) {
-	src := `fn f(): Decimal {
+	src := `fn f() -> Decimal {
   1 + 1.50d
 }
 `
@@ -46,7 +46,7 @@ func TestDecimalMixedArithmeticRejected(t *testing.T) {
 
 // Mixed Float/Decimal equality is rejected.
 func TestDecimalMixedEqualityRejected(t *testing.T) {
-	src := `fn f(): Bool {
+	src := `fn f() -> Bool {
   1.0 == 1d
 }
 `
@@ -56,7 +56,7 @@ func TestDecimalMixedEqualityRejected(t *testing.T) {
 
 // Mixed Int/Decimal comparison is rejected.
 func TestDecimalMixedComparisonRejected(t *testing.T) {
-	src := `fn f(): Bool {
+	src := `fn f() -> Bool {
   1 < 2.50d
 }
 `
@@ -66,7 +66,7 @@ func TestDecimalMixedComparisonRejected(t *testing.T) {
 
 // Modulo is not defined on Decimal — a Decimal % Decimal is a compile error.
 func TestDecimalModuloRejected(t *testing.T) {
-	src := `fn f(): Decimal {
+	src := `fn f() -> Decimal {
   5.0d % 2d
 }
 `

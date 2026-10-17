@@ -292,7 +292,7 @@ func TestOpaqueStdlibIndexResolvesTheOpaqueSurface(t *testing.T) {
 	// implicit file alias is for.
 	//
 	// A `pub` gate here would make every module-private `go`-bound extern
-	// unreachable however carefully it is bound: std/random's `below_state`,
+	// unreachable however carefully it is bound: std/random's `between_state`,
 	// `unit_float_state` and `os_state` and most of std/calendar's boundary are
 	// of that shape.
 	if f := idx.byFile["strings.string_compare"]; f == nil {

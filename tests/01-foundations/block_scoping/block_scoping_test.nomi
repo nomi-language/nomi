@@ -4,7 +4,7 @@ import {
 }
 
 test "block-scoped declarations are visible inside their enclosing block" {
-    fn double(n: Int): Int {
+    fn double(n: Int) -> Int {
         n * 2
     }
 
@@ -12,7 +12,7 @@ test "block-scoped declarations are visible inside their enclosing block" {
 
     scale_factor = 10
 
-    fn scale(n: Int): Int {
+    fn scale(n: Int) -> Int {
         n * scale_factor
     }
 
@@ -23,7 +23,7 @@ test "block-scoped declarations are visible inside their enclosing block" {
         y: Int
     }
 
-    fn make_point(): Point {
+    fn make_point() -> Point {
         Point{x: 3, y: 4}
     }
 
@@ -39,7 +39,7 @@ test "block-scoped declarations are visible inside their enclosing block" {
 
     typealias Count Int
 
-    fn make_count(n: Int): Count {
+    fn make_count(n: Int) -> Count {
         n
     }
 
@@ -55,7 +55,7 @@ test "block-scoped declarations are visible inside their enclosing block" {
         Blue
     }
 
-    fn pick(): Color {
+    fn pick() -> Color {
         Color.Green
     }
 
@@ -69,7 +69,7 @@ test "block-scoped declarations are visible inside their enclosing block" {
 
     base = 100
 
-    fn add_base(n: Int): Int {
+    fn add_base(n: Int) -> Int {
         n + base
     }
 
@@ -80,14 +80,14 @@ test "nested functions do not leak outside their enclosing function" {
     diagnostics = compiler.check(
         """
           fn main() {
-            fn helper(): Int {
+            fn helper() -> Int {
               1
             }
 
             _ = helper()
           }
 
-          fn other(): Int {
+          fn other() -> Int {
             helper()
           }
         """
@@ -97,13 +97,13 @@ test "nested functions do not leak outside their enclosing function" {
 }
 
 test "imports can be declared inside function bodies" {
-    fn first(): Maybe<Int> {
+    fn first() -> Maybe<Int> {
         import std/maybe.Maybe as Local
 
         Local.Some(1)
     }
 
-    fn second(): Result<Int, String> {
+    fn second() -> Result<Int, String> {
         import std/results.Result as Local
 
         Local.Ok(2)

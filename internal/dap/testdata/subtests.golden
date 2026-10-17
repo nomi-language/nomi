@@ -36,7 +36,7 @@
 -> continue {"threadId":1}
 <- response continue {"allThreadsContinued":true}
 <- event output {"category":"stdout","output":"FAIL testdata/subtests_test.nomi :: halves\n"}
-<- event output {"category":"stdout","output":"  subtest (10, 6): line 4: assertion failed\n"}
+<- event output {"category":"stdout","output":"  subtest #(10, 6): line 4: assertion failed\n"}
 <- event output {"category":"stdout","output":"    assert got == want\n"}
 <- event output {"category":"stdout","output":"    values:\n"}
 <- event output {"category":"stdout","output":"      got\n"}

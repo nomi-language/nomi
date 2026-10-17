@@ -8,7 +8,7 @@ import "testing"
 // subject, `|> case if { ... } {`, which does not parse. The `if` keeps the
 // condition stage it was written with, parentheses included.
 func TestFormat_KeywordStageIsNoCaseSubject(t *testing.T) {
-	src := "fn mixed(n: Int): String {\n" +
+	src := "fn mixed(n: Int) -> String {\n" +
 		"    n\n" +
 		"    |> if ((big?())) { Some(\"large\") } else { None }\n" +
 		"    |> case {\n" +
@@ -16,7 +16,7 @@ func TestFormat_KeywordStageIsNoCaseSubject(t *testing.T) {
 		"        None -> \"no\"\n" +
 		"    }\n" +
 		"}\n"
-	want := "fn mixed(n: Int): String {\n" +
+	want := "fn mixed(n: Int) -> String {\n" +
 		"    n\n" +
 		"    |> if (big?()) { Some(\"large\") } else { None }\n" +
 		"    |> case {\n" +
@@ -27,7 +27,7 @@ func TestFormat_KeywordStageIsNoCaseSubject(t *testing.T) {
 	formatsKeepingMeaning(t, src, want)
 
 	// A bare `try` stage is no `if` condition either.
-	src = "fn f(n: Result<Bool, String>): Result<Int, String> {\n" +
+	src = "fn f(n: Result<Bool, String>) -> Result<Int, String> {\n" +
 		"    n\n" +
 		"    |> try\n" +
 		"    |> if { Ok(1) } else { Ok(2) }\n" +

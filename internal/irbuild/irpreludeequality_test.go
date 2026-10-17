@@ -6,8 +6,8 @@ import (
 
 func TestIRPreludeEquality_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import { std/io std/literals.Fragment }
-fn same(a: Maybe<String>, b: Maybe<String>): Bool { a == b }
-fn different(a: Result<Int, String>, b: Result<Int, String>): Bool { a != b }
+fn same(a: Maybe<String>, b: Maybe<String>) -> Bool { a == b }
+fn different(a: Result<Int, String>, b: Result<Int, String>) -> Bool { a != b }
 fn main() {
   io.print(same(Some("Ada"), Some("Ada")))
   io.print(same(Some("Ada"), Some("Grace")))
@@ -26,14 +26,14 @@ fn main() {
 
 func TestIRPreludeEquality_LambdaPipelineEffects(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn mark(s: String): Maybe<String> { io.print(s) Some(s) }
+fn mark(s: String) -> Maybe<String> { io.print(s) Some(s) }
 fn main() {
   expected = Some("left")
   answer = mark("left")
-    |> then |name| name == expected
+    |> then fn name -> name == expected
   io.print(answer)
   io.print(mark("first") != mark("second"))
-  io.print(40 |> then |n| n + 2)
+  io.print(40 |> then fn n -> n + 2)
 }
 `, "left\nTrue\nfirst\nsecond\nTrue\n42\n")
 }
@@ -46,7 +46,7 @@ enum Answer {
   Value Int
 }
 impl Equatable for Answer {
-  fn equal?(_a: Answer, _b: Answer): Bool { True }
+  fn equal?(_a: Answer, _b: Answer) -> Bool { True }
 }
 fn main() {
   io.print(Answer.Value(1) == Answer.Value(2))

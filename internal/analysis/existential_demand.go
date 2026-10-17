@@ -130,7 +130,7 @@ func (c *checker) sigWithTypeParamFor(it *InterfaceType, param string, all bool)
 	}
 	sig := "fn " + fn.Name + "<" + strings.Join(tps, ", ") + ">(" + strings.Join(ps, ", ") + ")"
 	if ft.Return != nil && !isUnitLike(ft.Return) {
-		sig += ": " + typeString(ft.Return)
+		sig += " -> " + typeString(ft.Return)
 	}
 	return sig, true
 }
@@ -250,7 +250,7 @@ func (c *checker) reportOnce(line, col int, msg, hint string) {
 }
 
 // mentionsInterface reports whether t holds a value of interface name
-// somewhere inside it (`List<Scale>`, `(Int, Scale)`).
+// somewhere inside it (`List<Scale>`, `#(Int, Scale)`).
 func mentionsInterface(t Type, name string) bool {
 	t = resolveTypeVar(t)
 	if at, ok := t.(*InterfaceType); ok && !at.DefaultSelf && at.Name == name {

@@ -62,3 +62,18 @@ test "embedded enum variants expose embedded fields" {
 
     assert c.radius == 5.0
 }
+
+enum Op {
+    Unary {f: (Int) -> Int, name: String}
+    Scaled {f: (Int) -> Int, name: String, by: Int}
+    Nop
+}
+
+test "an enum field holding a function reads and calls" {
+    o = Op.Unary{f: fn x -> x + 1, name: "inc"}
+    g = o.f
+    assert g(1) == 2
+    s = Op.Scaled{f: fn x -> x * 3, name: "triple", by: 2}
+    assert s.f(4) == 12
+    assert s.name == "triple"
+}

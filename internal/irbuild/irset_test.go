@@ -4,31 +4,16 @@ import (
 	"testing"
 )
 
-func TestIRSet_DiscardedBuildPreservesNativeEmission(t *testing.T) {
-	for _, src := range []string{
-		`struct Point { x: Int }
+// A Set's size builds a struct whose field holds a Map of function values.
+func TestIRSet_BesideAFunctionMapFieldRuns(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+struct Point { x: Int }
 struct Outer {
   p: List<Point>
   hooks: Map<String, (Int) -> Int> = Map.empty()
 }
-fn main() { s = #{1, 2} dbg Outer{p: [Point{x: Set.size(s)}]} return }`,
-	} {
-		p, err := AnalyzeSource("main.nomi", src)
-		if err != nil {
-			t.Fatal(err)
-		}
-		got, _, err := GenerateIR(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, mod := range got.IR {
-			for _, f := range mod.Funcs() {
-				if f.Name() == "main" {
-					t.Fatal("unsupported nominal body retained")
-				}
-			}
-		}
-	}
+fn main() { s = #{1, 2} io.inspect(Outer{p: [Point{x: Set.size(s)}]}) }
+`, "Outer{p: [Point{x: 2}], hooks: %{}}\n")
 }
 
 // A declared distinct is a set element: hashed and compared as `==` is.
@@ -45,7 +30,7 @@ fn main() {
 
 func TestIRSet_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn add(s: Set<Int>, n: Int): Set<Int> { Set.insert(s, n) }
+fn add(s: Set<Int>, n: Int) -> Set<Int> { Set.insert(s, n) }
 fn main() {
   one = 1
   two = 2
@@ -59,7 +44,7 @@ fn main() {
   io.inspect(more)
   io.inspect(fewer)
   io.inspect(Set.insert(fewer, 2))
-  has = |n: Int| Set.contains?(fewer, n)
+  has = fn n: Int -> Set.contains?(fewer, n)
   io.print(has(2))
   io.print(has(4))
 }
@@ -68,7 +53,7 @@ fn main() {
 
 func TestIRSet_EmptyAndScalarSemantics(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn empty(): Set<Int> { #{} }
+fn empty() -> Set<Int> { #{} }
 fn main() {
   s: Set<Int> = #{}
   io.inspect(s)
@@ -91,8 +76,8 @@ fn main() {
 
 func TestIRSet_EvaluationOrder(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn mark(n: Int): Int { io.print(n) n }
-fn set(s: Set<Int>): Set<Int> { io.print("set") s }
+fn mark(n: Int) -> Int { io.print(n) n }
+fn set(s: Set<Int>) -> Set<Int> { io.print("set") s }
 fn main() {
   s = #{mark(1), mark(2), mark(1)}
   more = Set.insert(set(s), mark(3))

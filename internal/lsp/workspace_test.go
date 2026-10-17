@@ -27,14 +27,14 @@ func generatedWorkspace(t testing.TB, projects, perProject int) (string, int) {
 			fmt.Fprintf(&b, "import mod%d\n\n", i-1)
 		}
 		fmt.Fprintf(&b, "/// Item %d.\npub struct Item%d {\n    id: Int\n    name: String\n}\n\n", i, i)
-		fmt.Fprintf(&b, "/// Makes item %d.\npub fn make_%d(n: Int): Item%d {\n", i, i, i)
+		fmt.Fprintf(&b, "/// Makes item %d.\npub fn make_%d(n: Int) -> Item%d {\n", i, i, i)
 		if chained {
 			fmt.Fprintf(&b, "    prev = mod%d.make_%d(n + 1)\n    Item%d{id: prev.id + n, name: \"item %d\"}\n}\n\n", i-1, i-1, i, i)
 		} else {
 			fmt.Fprintf(&b, "    Item%d{id: n, name: \"item %d\"}\n}\n\n", i, i)
 		}
-		fmt.Fprintf(&b, "pub fn total_%d(items: List<Item%d>): Int {\n    items |> Iter.map(|it| it.id) |> Iter.count()\n}\n\n", i, i)
-		fmt.Fprintf(&b, "fn label_%d(it: Item%d): String {\n    \"${it.name} #${it.id}\"\n}\n", i, i)
+		fmt.Fprintf(&b, "pub fn total_%d(items: List<Item%d>) -> Int {\n    items |> Iter.map(fn it -> it.id) |> Iter.count()\n}\n\n", i, i)
+		fmt.Fprintf(&b, "fn label_%d(it: Item%d) -> String {\n    \"${it.name} #${it.id}\"\n}\n", i, i)
 		return b.String()
 	}
 	covered := 0
@@ -157,10 +157,10 @@ func TestWorkspaceScan_KeepsNoAnalyses(t *testing.T) {
 // b.nomi call it, and c.nomi never mentions it.
 func crossFileProject(t *testing.T) (string, *Server) {
 	dir := writeProject(t, map[string]string{
-		"lib.nomi":  "/// Doubles n.\npub fn double(n: Int): Int {\n    n * 2\n}\n\npub struct Pair {\n    a: Int\n}\n",
-		"a.nomi":    "import lib\n\npub fn quad(n: Int): Int {\n    lib.double(lib.double(n))\n}\n",
-		"b.nomi":    "import lib.{double}\n\npub fn six(n: Int): Int {\n    double(n) + double(n) + double(n)\n}\n",
-		"c.nomi":    "pub fn other(): Int {\n    1\n}\n",
+		"lib.nomi":  "/// Doubles n.\npub fn double(n: Int) -> Int {\n    n * 2\n}\n\npub struct Pair {\n    a: Int\n}\n",
+		"a.nomi":    "import lib\n\npub fn quad(n: Int) -> Int {\n    lib.double(lib.double(n))\n}\n",
+		"b.nomi":    "import lib.{double}\n\npub fn six(n: Int) -> Int {\n    double(n) + double(n) + double(n)\n}\n",
+		"c.nomi":    "pub fn other() -> Int {\n    1\n}\n",
 		"main.nomi": "import a\n\nfn main() {\n    a.quad(1)\n}\n",
 	})
 	s := NewServer()
@@ -172,7 +172,7 @@ func crossFileProject(t *testing.T) (string, *Server) {
 func TestReferences_IntoClosedFiles(t *testing.T) {
 	dir, s := crossFileProject(t)
 	libURI := "file://" + filepath.Join(dir, "lib.nomi")
-	src := "/// Doubles n.\npub fn double(n: Int): Int {\n    n * 2\n}\n\npub struct Pair {\n    a: Int\n}\n"
+	src := "/// Doubles n.\npub fn double(n: Int) -> Int {\n    n * 2\n}\n\npub struct Pair {\n    a: Int\n}\n"
 	s.docs.Open(libURI, src)
 
 	locs, err := s.textDocumentReferences(nil, &protocol.ReferenceParams{
@@ -203,7 +203,7 @@ func TestReferences_IntoClosedFiles(t *testing.T) {
 func TestRename_IntoClosedFiles(t *testing.T) {
 	dir, s := crossFileProject(t)
 	libURI := "file://" + filepath.Join(dir, "lib.nomi")
-	s.docs.Open(libURI, "/// Doubles n.\npub fn double(n: Int): Int {\n    n * 2\n}\n\npub struct Pair {\n    a: Int\n}\n")
+	s.docs.Open(libURI, "/// Doubles n.\npub fn double(n: Int) -> Int {\n    n * 2\n}\n\npub struct Pair {\n    a: Int\n}\n")
 
 	edit, err := s.textDocumentRename(nil, &protocol.RenameParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -227,7 +227,7 @@ func TestRename_IntoClosedFiles(t *testing.T) {
 func TestDefinition_SelectiveImportIntoClosedFile(t *testing.T) {
 	dir, s := crossFileProject(t)
 	bURI := "file://" + filepath.Join(dir, "b.nomi")
-	s.docs.Open(bURI, "import lib.{double}\n\npub fn six(n: Int): Int {\n    double(n) + double(n) + double(n)\n}\n")
+	s.docs.Open(bURI, "import lib.{double}\n\npub fn six(n: Int) -> Int {\n    double(n) + double(n) + double(n)\n}\n")
 
 	res, err := s.textDocumentDefinition(nil, &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -275,8 +275,8 @@ func TestWorkspaceSymbol_ReadsTheIndex(t *testing.T) {
 // to a file it imports queues it again.
 func TestClosedDiagnostics_PublishedAndRepublished(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"lib.nomi":  "pub fn double(n: Int): Int {\n    n * 2\n}\n",
-		"user.nomi": "import lib\n\npub fn f(): Int {\n    lib.double(1)\n}\n",
+		"lib.nomi":  "pub fn double(n: Int) -> Int {\n    n * 2\n}\n",
+		"user.nomi": "import lib\n\npub fn f() -> Int {\n    lib.double(1)\n}\n",
 		"main.nomi": "fn main() {\n}\n",
 	})
 	s, published := recordingServer()
@@ -289,7 +289,7 @@ func TestClosedDiagnostics_PublishedAndRepublished(t *testing.T) {
 	}
 
 	libURI := "file://" + filepath.Join(dir, "lib.nomi")
-	s.docs.Open(libURI, "pub fn halve(n: Int): Int {\n    n / 2\n}\n")
+	s.docs.Open(libURI, "pub fn halve(n: Int) -> Int {\n    n / 2\n}\n")
 	s.docs.UpdateImportEdges(libURI)
 	s.propagateAsync(libURI)
 	deadline := time.Now().Add(time.Minute)
@@ -309,7 +309,7 @@ func TestClosedDiagnostics_PublishedAndRepublished(t *testing.T) {
 // reopened document counts versions from 1.
 func TestDidClose_RepublishesDiskThenReopenPublishes(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"lib.nomi": "pub fn f(): Int {\n    1\n}\n",
+		"lib.nomi": "pub fn f() -> Int {\n    1\n}\n",
 	})
 	s, published := recordingServer()
 	s.docs.SetWorkspaceRoot(dir)
@@ -331,7 +331,7 @@ func TestDidClose_RepublishesDiskThenReopenPublishes(t *testing.T) {
 		s.textDocumentDidOpen(ctx, &protocol.DidOpenTextDocumentParams{TextDocument: protocol.TextDocumentItem{URI: protocol.DocumentUri(uri), Text: text}})
 	}
 
-	open("pub fn f(): Int {\n    undefined_name\n}\n")
+	open("pub fn f() -> Int {\n    undefined_name\n}\n")
 	waitFor("the open text's error", hasError)
 
 	s.textDocumentDidClose(ctx, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)}})
@@ -340,6 +340,6 @@ func TestDidClose_RepublishesDiskThenReopenPublishes(t *testing.T) {
 		t.Fatal("closed document still held")
 	}
 
-	open("pub fn f(): Int {\n    undefined_name\n}\n")
+	open("pub fn f() -> Int {\n    undefined_name\n}\n")
 	waitFor("the reopened text's error", hasError)
 }

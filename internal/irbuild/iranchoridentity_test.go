@@ -116,7 +116,7 @@ func irAnchorGen(fa *analysis.FileAnalysis, nodes []ast.Node) *gen {
 // MENTIONS it without declaring it, and returns that gen too.
 func irAnchorMentioningGen(t *testing.T, nomi string) (*typeDef, *gen) {
 	t.Helper()
-	src := "import std/io\nimport std/duration.Duration\n\nfn hold(d: " + nomi + "): " + nomi + " {\n  d\n}\n\nfn main() {\n  io.print(\"x\")\n}\n"
+	src := "import std/io\nimport std/duration.Duration\n\nfn hold(d: " + nomi + ") -> " + nomi + " {\n  d\n}\n\nfn main() {\n  io.print(\"x\")\n}\n"
 	p, err := AnalyzeSource("iranchor_probe", src)
 	if err != nil {
 		t.Fatalf("analyzing the mentioning program: %v", err)

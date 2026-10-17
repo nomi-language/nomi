@@ -40,7 +40,7 @@ func rtDir(t *testing.T) string {
 
 const helperFile = "helper.nomi"
 
-// buildShortCircuitFunc builds `fn f(): Bool { a and b }` where the right
+// buildShortCircuitFunc builds `fn f() -> Bool { a and b }` where the right
 // operand needs a block: it contains a `once` read, which FORCES, and a
 // materialized constant.
 //

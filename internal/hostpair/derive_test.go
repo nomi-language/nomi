@@ -27,7 +27,7 @@ func TestDeriveSourceReportsAParseFailure(t *testing.T) {
 		},
 		{
 			name: "declarations with no bindings are not an error",
-			src:  "pub fn double(n: Int): Int {\n  n * 2\n}\n",
+			src:  "pub fn double(n: Int) -> Int {\n  n * 2\n}\n",
 		},
 		{
 			name:    "unparseable source is an error",
@@ -36,13 +36,13 @@ func TestDeriveSourceReportsAParseFailure(t *testing.T) {
 		},
 		{
 			name:        "a rejected declaration is an error even though recovery still sees the binding",
-			src:         "gopkg \"e/f\" as ffi\n\npub opaque type Box<T> Int\n\nimpl Box<T> {\n  fn peek(b: Box<T>): Int go ffi.Peek\n}\n",
+			src:         "gopkg \"e/f\" as ffi\n\npub opaque type Box<T> Int\n\nimpl Box<T> {\n  fn peek(b: Box<T>) -> Int go ffi.Peek\n}\n",
 			wantErr:     true,
 			wantPairing: 1,
 		},
 		{
 			name:        "valid bindings derive with no error",
-			src:         "gopkg \"e/f\" as ffi\n\nfn echo(s: String): String go ffi.Echo\n",
+			src:         "gopkg \"e/f\" as ffi\n\nfn echo(s: String) -> String go ffi.Echo\n",
 			wantPairing: 1,
 		},
 	}
@@ -79,13 +79,13 @@ func TestDeriveNodesIsSourceOrdered(t *testing.T) {
 
 opaque type Handle go ffi.Handle
 
-fn first(): Int go ffi.First
+fn first() -> Int go ffi.First
 
 impl Handle {
-  fn middle(h: Handle): Int go ffi.Middle
+  fn middle(h: Handle) -> Int go ffi.Middle
 }
 
-fn last(): Int go ffi.Last
+fn last() -> Int go ffi.Last
 `
 	pairings, err := DeriveSource("order.nomi", "order", []byte(src))
 	if err != nil {
@@ -107,7 +107,7 @@ fn last(): Int go ffi.Last
 // there is no Go symbol. ffirun drops it (discovery.go:510); inventing one
 // would give a consumer a call it cannot link.
 func TestSelectorWithNoHandleIsNotAPairing(t *testing.T) {
-	const src = `fn echo(s: String): String go nobody.Echo
+	const src = `fn echo(s: String) -> String go nobody.Echo
 `
 	pairings, err := DeriveSource("orphan.nomi", "orphan", []byte(src))
 	if err != nil {

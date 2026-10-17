@@ -46,7 +46,7 @@ struct Run {
     context: Context
 }
 
-fn boot(): Run {
+fn boot() -> Run {
     Run{context: Context.root()}
 }
 

@@ -12,7 +12,7 @@ import (
 // a line of its own, then on a partial line, and reads until end of input.
 const bankProgram = `import std/io
 
-fn main(): Result<Unit, String> {
+fn main() -> Result<Unit, String> {
     io.print("What is the starting balance?")
     balance = case io.read_line() {
         Ok(line) -> String.to_int(line) |> Maybe.with_default(0)
@@ -25,7 +25,7 @@ fn main(): Result<Unit, String> {
     Ok(Unit)
 }
 
-fn loop(balance: Int): Unit {
+fn loop(balance: Int) -> Unit {
     io.write("amount: ")
     case io.read_line() {
         Ok(line) -> case String.split(line, " ") {
@@ -181,7 +181,7 @@ test "walks north" {
 	got, err := runCaptureProgram(t, `import std/io
 
 fn main() {
-    run = io.capture("north\n", || {
+    run = io.capture("north\n", fn -> {
         io.write("> ")
         _ = io.read_line()
         io.print("ok")
@@ -242,7 +242,7 @@ test "not escaped" {
         """
             > quoted
         """,
-        || io.print("    > quoted"),
+        fn -> io.print("    > quoted"),
     )
 }
 
@@ -251,7 +251,7 @@ test "a backslash in the output" {
         """
             \\> slashed
         """,
-        || io.print("    \\> slashed"),
+        fn -> io.print("    \\> slashed"),
     )
 }
 `)
@@ -292,7 +292,7 @@ test "input left over" {
         amount: bye
             > 7
             > 8
-        """, || {
+        """, fn -> {
         io.print("What is the starting balance?")
         _ = io.read_line()
         io.print("Your starting balance: 500")
@@ -318,7 +318,7 @@ test "input left over" {
              │   ... 3 lines match ...
 FAIL bank_test.nomi :: input left over
   line 49: 2 input lines of the script were never read
-    assert io.replay(""" lines 50-57 """, || {
+    assert io.replay(""" lines 50-57 """, fn -> {
 `
 	if !strings.HasPrefix(out, want) {
 		t.Fatalf("got:\n%s\nwant it to start with:\n%s", out, want)
@@ -445,10 +445,10 @@ func TestReplay_TranscriptFields(t *testing.T) {
 	got, err := runCaptureProgram(t, `import std/io
 
 fn main() {
-    run = io.capture("Ada\nGrace\n", || {
+    run = io.capture("Ada\nGrace\n", fn -> {
         io.write("name: ")
         _ = io.read_line()
-        inner = io.capture("x\n", || {
+        inner = io.capture("x\n", fn -> {
             io.print("inner")
             io.read_line()
         })
@@ -460,7 +460,7 @@ fn main() {
     })
     io.write("transcript [${run.transcript}]\n")
     io.write("output [${run.output}]\n")
-    r = io.replay("q?\n  > a  \n\t> b\n", || {
+    r = io.replay("q?\n  > a  \n\t> b\n", fn -> {
         io.print("q?  ")
         _ = io.read_line()
     })
@@ -492,7 +492,7 @@ test "script first" {
 }
 
 test "run first" {
-    assert io.replay(run: || io.print("hullo"), script: """
+    assert io.replay(run: fn -> io.print("hullo"), script: """
         hello
         """)
 }
@@ -512,7 +512,7 @@ test "run first" {
 	}
 	tail := `FAIL bank_test.nomi :: run first
   line 43: the transcript differs from the script
-    assert io.replay(run: || io.print("hullo"), script: """ line 44 """)
+    assert io.replay(run: fn -> io.print("hullo"), script: """ line 44 """)
     io.replay: the transcript (-) and what the function printed (+) differ
 
         44 - │ hello

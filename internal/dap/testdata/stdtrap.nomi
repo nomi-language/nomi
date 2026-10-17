@@ -1,0 +1,7 @@
+import std/io
+
+fn main() {
+    io.print("start")
+    magnitude = Int.abs(Int.min_value)
+    io.print(magnitude)
+}

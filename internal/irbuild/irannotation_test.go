@@ -8,7 +8,7 @@ func TestIRAnnotation_CompletePrograms(t *testing.T) {
  n: Int = 20
  text: String = "answer"
  flag: Bool = True
- add: (Int) -> Int = |x: Int| x + n
+ add: (Int) -> Int = fn x: Int -> x + n
  _ignored: Int = add(1)
  dbg text
  dbg flag
@@ -17,7 +17,7 @@ func TestIRAnnotation_CompletePrograms(t *testing.T) {
 }`, "dbg line 7: text = \"answer\"\ndbg line 8: flag = True\ndbg line 9: add(22) = 42\n"},
 		{"lists and annotated discards", `import std/io
 fn main() {
- empty = || { io.print("empty") [] }
+ empty = fn -> { io.print("empty") [] }
  xs: List<Int> = empty()
  _drop: List<Int> = empty()
  ys: List<List<Int>> = [[], [1]]

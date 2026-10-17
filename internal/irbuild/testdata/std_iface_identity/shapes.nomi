@@ -18,21 +18,21 @@ pub struct Point {
 }
 
 impl Display for Point {
-    fn to_string(p: Point): String {
+    fn to_string(p: Point) -> String {
         "${p.tag}(${p.weight})"
     }
 }
 
 impl Comparable for Point {
-    fn compare(a: Point, b: Point): Ordering {
+    fn compare(a: Point, b: Point) -> Ordering {
         Int.compare(a.weight, b.weight)
     }
 }
 
-pub fn theirs(): Display {
+pub fn theirs() -> Display {
     Point{tag: "theirs", weight: 7}
 }
 
-pub fn theirs_ordered(): Comparable {
+pub fn theirs_ordered() -> Comparable {
     Point{tag: "theirs", weight: 7}
 }

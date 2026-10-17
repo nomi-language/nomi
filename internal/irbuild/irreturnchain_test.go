@@ -16,7 +16,7 @@ import (
 func TestIRReturnChain_EveryArmReturnsInTailPosition(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"else if chain", `import std/io
-fn sign(x: Int): Int {
+fn sign(x: Int) -> Int {
  if x < 0 {
   return -1
  } else if x == 0 {
@@ -36,7 +36,7 @@ enum Shape {
  Square(Int)
  Dot
 }
-fn area(s: Shape): Int {
+fn area(s: Shape) -> Int {
  case s {
   .Circle(r) -> {
    return 3 * r * r
@@ -55,7 +55,7 @@ fn main() {
  io.print(area(Shape.Dot))
 }`, "12\n9\n0\n"},
 		{"subjectless case", `import std/io
-fn size(x: Int): String {
+fn size(x: Int) -> String {
  case {
   x > 10 -> {
    return "big"
@@ -74,7 +74,7 @@ fn main() {
  io.print(size(0))
 }`, "big\npositive\nother\n"},
 		{"nested if and case", `import std/io
-fn which(x: Int, y: Int): String {
+fn which(x: Int, y: Int) -> String {
  if x > 0 {
   if y > 0 {
    return "both"
@@ -102,7 +102,7 @@ fn main() {
  io.print(which(-1, 0))
 }`, "both\nx only\ny only\nzero\nneither\n"},
 		{"pattern if chain", `import std/io
-fn pick(m: Maybe<Int>, loud: Bool): String {
+fn pick(m: Maybe<Int>, loud: Bool) -> String {
  if Some(n) = m {
   return "some ${n}"
  } else if loud {
@@ -117,7 +117,7 @@ fn main() {
  io.print(pick(None, False))
 }`, "some 4\nNONE\nnone\n"},
 		{"some arms return and others fall through", `import std/io
-fn mixed(x: Int): Int {
+fn mixed(x: Int) -> Int {
  if x < 0 {
   return -1
  } else if x == 0 {
@@ -126,7 +126,7 @@ fn mixed(x: Int): Int {
   x * 2
  }
 }
-fn named(x: Int): String {
+fn named(x: Int) -> String {
  case x {
   1 -> {
    return "one"
@@ -152,7 +152,7 @@ fn main() {
 }`, "-1\n0\n8\none\ntwo\nhuge\nmany\n"},
 		{"lambda", `import std/io
 fn main() {
- sign: (Int) -> Int = |x| {
+ sign: (Int) -> Int = fn x -> {
   if x < 0 {
    return -1
   } else if x == 0 {
@@ -161,7 +161,7 @@ fn main() {
    return 1
   }
  }
- name = |x: Int| {
+ name = fn x: Int -> {
   case x {
    0 -> {
     return "lz"
@@ -202,7 +202,7 @@ fn report_case(x: Int) {
  }
 }
 fn main() {
- say = |x: Int| {
+ say = fn x: Int -> {
   if x > 0 {
    dbg "h pos"
    return

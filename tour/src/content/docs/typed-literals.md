@@ -30,8 +30,8 @@ import {
 type Sql String
 
 impl Literal for Sql {
-    fn from_fragments(fragments: List<Fragment<String>>): Sql {
-        body = Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Sql {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + "'" + v + "'"
@@ -78,8 +78,8 @@ struct Box {
 }
 
 impl Literal for Box {
-    fn from_fragments(fragments: List<Fragment<String>>): Box {
-        body = Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Box {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -134,14 +134,14 @@ import {
 
 once letters = Regex`[A-Za-z]+`
 
-fn main(): Result<Unit, String> {
+fn main() -> Result<Unit, String> {
     digits: Regex = Regex`\d+`
     prefixed = try Regex"room ${Regex.pattern(digits)}"
     text = "room 42, floor 7"
 
     dbg String.find_all(text, letters)
     dbg String.contains?(text, digits)
-    dbg Regex.find(digits, text)
+    dbg String.find(text, digits)
     dbg String.find_all(text, digits)
     dbg String.contains?(text, prefixed)
 
@@ -151,7 +151,7 @@ fn main(): Result<Unit, String> {
 <!-- expect
 dbg line 12: String.find_all(text, letters) = ["room", "floor"]
 dbg line 13: String.contains?(text, digits) = True
-dbg line 14: Regex.find(digits, text) = Some("42")
+dbg line 14: String.find(text, digits) = Some("42")
 dbg line 15: String.find_all(text, digits) = ["42", "7"]
 dbg line 16: String.contains?(text, prefixed) = True
 -->
@@ -172,10 +172,30 @@ If `from_fragments` cannot fail, as with `Sql` and `Box` above, both kinds of
 quote give the same type.
 
 A `Regex` is a [`Matcher`](/reference/matcher/). That is why the example can
-pass it to `String.contains?`, `String.find_all` and `String.split`, which
-accept a `Regex` wherever they accept a plain string. `Regex.find` returns
-the first match. `Regex.replace_all` replaces each match, and `$1` in the
-replacement stands for the first capture group.
+pass it to `String.contains?`, `String.find`, `String.find_all` and
+`String.split`, which accept a `Regex` wherever they accept a plain string.
+`String.find` returns the first match. `Regex.replace_all` replaces each
+match, and `$1` in the replacement stands for the first capture group.
+
+`String.captures` takes only a `Regex`, because only a regex has capture
+groups. It returns the groups of the first match, from group 1, and
+`String.captures_all` returns them for every match. A group that did not
+take part in the match is `None`:
+
+```nomi-run
+import std/regex.Regex
+
+fn main() {
+    dbg String.captures("ann@home", Regex`(\w+)@(\w+)`)
+    dbg String.captures("b", Regex`(a)|(b)`)
+    dbg "a=1, b=22" |> String.captures_all(Regex`(\w)=(\d+)`)
+}
+```
+<!-- expect
+dbg line 4: String.captures("ann@home", Regex`(\w+)@(\w+)`) = Some([Some("ann"), Some("home")])
+dbg line 5: String.captures("b", Regex`(a)|(b)`) = Some([None, Some("b")])
+dbg line 6: "a=1, b=22" |> String.captures_all(Regex`(\w)=(\d+)`) = [[Some("a"), Some("1")], [Some("b"), Some("22")]]
+-->
 
 The next chapter, [FFI & Dynamic](/ffi-and-dynamic/), shows how Nomi calls
 Go code, and how to handle a value whose shape you don't know yet with

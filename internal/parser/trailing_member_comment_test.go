@@ -51,7 +51,7 @@ func TestParse_EnumVariant_TrailingComment(t *testing.T) {
 	}{
 		{"bare", "enum Op {\n    ToJson // note\n    FromJson\n}\n", []string{"// note", ""}},
 		{"bare last", "enum Op {\n    ToJson\n    FromJson // note\n}\n", []string{"", "// note"}},
-		{"type payload", "enum Op {\n    Add Int // a\n    Mul (Int, Int) // m\n}\n", []string{"// a", "// m"}},
+		{"type payload", "enum Op {\n    Add Int // a\n    Mul #(Int, Int) // m\n}\n", []string{"// a", "// m"}},
 		{"paren payload", "enum Op {\n    Add(Int) // a\n    Sub(Int)\n}\n", []string{"// a", ""}},
 		{"generic and function payloads", "enum Op<T> {\n    A Maybe<T> // a\n    B (T) -> T // b\n}\n", []string{"// a", "// b"}},
 		{"struct payload", "enum Shape {\n    Rect {w: Int, h: Int} // r\n    Circle {r: Int} // c\n}\n", []string{"// r", "// c"}},
@@ -115,7 +115,7 @@ func TestParse_StructVariantField_TrailingComment(t *testing.T) {
 }
 
 func TestParse_AnonStructTypeField_TrailingComment(t *testing.T) {
-	src := "fn f(p: {\n    x: Int, // x\n    y: Int // y\n}): Int {\n    1\n}\n"
+	src := "fn f(p: {\n    x: Int, // x\n    y: Int // y\n}) -> Int {\n    1\n}\n"
 	fd := parseOne(t, src).(*ast.FuncDef)
 	anon, ok := fd.Params[0].TypeAnnotation.(*ast.AnonStructType)
 	if !ok {
@@ -138,7 +138,7 @@ func TestParse_StructField_TrailingComment(t *testing.T) {
 }
 
 func TestParse_InterfaceMember_TrailingComment(t *testing.T) {
-	src := "interface Shape {\n    fn area(s: self): Int // a\n    fn twice(s: self): Int {\n        2\n    } // t\n    fn last(s: self): Int\n}\n"
+	src := "interface Shape {\n    fn area(s: self) -> Int // a\n    fn twice(s: self) -> Int {\n        2\n    } // t\n    fn last(s: self) -> Int\n}\n"
 	id := parseOne(t, src).(*ast.InterfaceDef)
 	if len(id.Methods) != 3 {
 		t.Fatalf("want 3 methods, got %d", len(id.Methods))
@@ -157,7 +157,7 @@ func TestParse_TrailingComment_OtherItemPositions(t *testing.T) {
 	for name, src := range map[string]string{
 		"import block": "import {\n    std/math // m\n    std/strings // s\n}\n",
 		"binding":      "fn main() {\n    x = 1 // x\n    y: Int = x + 1 // y\n}\n",
-		"case arm":     "fn f(x: Int): Int {\n    case x {\n        1 -> 2 // one\n        _ -> 3 // other\n    }\n}\n",
+		"case arm":     "fn f(x: Int) -> Int {\n    case x {\n        1 -> 2 // one\n        _ -> 3 // other\n    }\n}\n",
 		"group":        "group \"g\" {\n    clock Clock.Virtual // c\n    boot server.boot() // b\n    setup {name: \"x\"} // s\n\n    test \"a\", {name} {\n        assert name == \"x\" // a\n    } // end\n}\n",
 	} {
 		if _, err := Parse(lexer.Lex(src)); err != nil {

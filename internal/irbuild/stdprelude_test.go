@@ -63,7 +63,7 @@ func TestSharedPreludeInternKeysOnTheWholeInstantiation(t *testing.T) {
 // *compKind lives, in both directions.
 //
 // The false rows matter more than the true ones. Structural kinds over
-// neutral components (`List<Int>`, `Maybe<List<Int>>`, `(Int, Int)`,
+// neutral components (`List<Int>`, `Maybe<List<Int>>`, `#(Int, Int)`,
 // `(Int) -> Int`) are neutral, because sharedcomp.go interns them
 // process-wide.
 //
@@ -93,11 +93,11 @@ func TestPackageNeutralIsClosed(t *testing.T) {
 		{"kindInvalid", kindInvalid, false},
 		{"List<Int>", g.listKind(kindInt), true},
 		{"Maybe<List<Int>>", g.preludeInstance(g.preludeByName["Maybe"], []kind{g.listKind(kindInt)}), true},
-		{"(Int, Int)", g.tupleKind([]kind{kindInt, kindInt}), true},
+		{"#(Int, Int)", g.tupleKind([]kind{kindInt, kindInt}), true},
 		{"(Int) -> Int", g.funcKind([]kind{kindInt}, kindInt), true},
 		{"a generated package's own type", named(localDefForTest()), false},
 		{"List<that type>", g.listKind(named(localDefForTest())), false},
-		{"(Int, that type)", g.tupleKind([]kind{kindInt, named(localDefForTest())}), false},
+		{"#(Int, that type)", g.tupleKind([]kind{kindInt, named(localDefForTest())}), false},
 		{"Maybe<List<that type>>",
 			g.preludeInstance(g.preludeByName["Maybe"], []kind{g.listKind(named(localDefForTest()))}), false},
 	} {
@@ -128,7 +128,7 @@ func localDefForTest() *typeDef {
 // is refused.
 func TestSharedPreludeDefsAreNeverInPreludeOrder(t *testing.T) {
 	const src = "struct Node {\n  next: Maybe<Node>\n}\n\n" +
-		"fn head(): Maybe<Int> {\n  None\n}\n\nfn main() {\n  _ = head()\n}\n"
+		"fn head() -> Maybe<Int> {\n  None\n}\n\nfn main() {\n  _ = head()\n}\n"
 	p, err := AnalyzeSource("main", src)
 	if err != nil {
 		t.Fatalf("analyze: %v", err)
@@ -136,6 +136,7 @@ func TestSharedPreludeDefsAreNeverInPreludeOrder(t *testing.T) {
 	g := newGen(p.Entry(), "nomimod0", nil, nil, -1, nil)
 	g.declareTypes()
 	g.declareFuncs()
+	g.settleImpls()
 
 	neutral, nonNeutral := 0, 0
 	for _, d := range g.preludeOrder {

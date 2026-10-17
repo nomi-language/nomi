@@ -25,6 +25,7 @@ func buildProjectForDefaultConfig(src string) []analysis.TypeError {
 	lib := std.Load()
 	fa := analysis.BuildProject(nodes, lib.Primitives, lib.Modules, lib.Files, "", nil)
 	checkErrs := analysis.CheckTypes(fa, nodes)
+	checkErrs = append(checkErrs, analysis.CheckAppRoots(fa, nodes)...)
 	all := append([]analysis.TypeError{}, fa.TypeErrors...)
 	all = append(all, checkErrs...)
 	return all

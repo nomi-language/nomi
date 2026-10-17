@@ -42,8 +42,8 @@ func SameMeaning(src, formatted string) error {
 	}
 	bindGroupedNames(reflect.ValueOf(orig))
 	bindGroupedNames(reflect.ValueOf(out))
-	splitImportPaths(orig)
-	splitImportPaths(out)
+	nameImportSegments(reflect.ValueOf(orig))
+	nameImportSegments(reflect.ValueOf(out))
 	if path, ok := equalAST(reflect.ValueOf(orig), reflect.ValueOf(out), "file"); !ok {
 		return fmt.Errorf("the syntax tree changed at %s", path)
 	}
@@ -205,9 +205,13 @@ func bindGroupedNames(v reflect.Value) {
 		for i := 0; i < v.Len(); i++ {
 			if e := v.Index(i); e.Kind() == reflect.Interface && e.CanSet() && !e.IsNil() {
 				if pb, ok := e.Interface().(*ast.PatternBinding); ok && pb.Else == nil {
-					// `(a) = v` is the binding `a = v`.
-					if id, ok := pb.Pattern.(*ast.IdentPattern); ok {
+					// `(a) = v` is the binding `a = v`, and `(_) = v`
+					// is `_ = v`.
+					switch id := pb.Pattern.(type) {
+					case *ast.IdentPattern:
 						e.Set(reflect.ValueOf(&ast.Binding{Name: id.Name, Value: pb.Value}))
+					case *ast.WildcardPattern:
+						e.Set(reflect.ValueOf(&ast.Binding{Name: "_", Value: pb.Value}))
 					}
 				}
 			}
@@ -220,34 +224,35 @@ func bindGroupedNames(v reflect.Value) {
 	}
 }
 
-// splitImportPaths sets each import's FileSegments where the formatter
-// splits its path (importPathAndOwners): the trailing PascalCase segments
-// of an import that names things are owners, and the others the file path.
-// `api.http.header.{self}` and `api/http/header.{self}` import the same
-// thing: an owner is a type, whose name is PascalCase, so the analyzer
-// never resolves a lowercase segment as one. Each segment then compares by
-// its name alone.
-func splitImportPaths(nodes []ast.Node) {
-	split := func(n *ast.ImportStmt) {
-		if n.FileSegments == 0 {
+// nameImportSegments rewrites, in place, each path segment of every import
+// in the tree, at any depth, to an Ident of its name: `import "Mod"` and
+// `import Mod` name the same file, though the quoted one parses as an Ident
+// and the other as a TypeIdent. The parser records where the file path ends
+// (FileSegments) before this runs, so the split still compares.
+func nameImportSegments(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.Interface, reflect.Ptr:
+		if v.IsNil() {
 			return
 		}
-		path, _ := importPathAndOwners(n)
-		n.FileSegments = len(path)
-		// A segment is its name: `import "Mod"` and `import Mod` name the
-		// same file, though the quoted one parses as an Ident.
-		for i, seg := range n.ModulePath {
-			n.ModulePath[i] = &ast.Ident{Name: ast.ImportNodeName(seg)}
-		}
-	}
-	for _, n := range nodes {
-		switch v := n.(type) {
-		case *ast.ImportStmt:
-			split(v)
-		case *ast.ImportBlock:
-			for _, e := range v.Entries {
-				split(e)
+		if n, ok := v.Interface().(*ast.ImportStmt); ok {
+			for i, seg := range n.ModulePath {
+				n.ModulePath[i] = &ast.Ident{Name: ast.ImportNodeName(seg)}
 			}
+			return
+		}
+		nameImportSegments(v.Elem())
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			nameImportSegments(v.Field(i))
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			nameImportSegments(v.Index(i))
+		}
+	case reflect.Map:
+		for _, k := range v.MapKeys() {
+			nameImportSegments(v.MapIndex(k))
 		}
 	}
 }

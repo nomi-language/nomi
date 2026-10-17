@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"strconv"
+
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -31,6 +33,61 @@ type irLambdaPlan struct {
 type irLambdaGroup struct {
 	params    []kind
 	suppliers []ir.Temp
+	// order is the parameters in the order a call fills the ones it omits,
+	// nil for their own order. A supplier takes the parameters before its
+	// slot in this order (before). A partial application's lambda takes its
+	// placeholders in written order but fills them in the callee's order,
+	// since a callee's default reads the callee's earlier parameters:
+	// `span(b: _, _)` over `fn span(a: Int, b: Int = a * 2)` is `#(b, a)`,
+	// and b's supplier takes a.
+	order []int
+}
+
+// fillOrder is the parameters in the order a call fills the ones it omits.
+func (g *irLambdaGroup) fillOrder() []int {
+	if g.order != nil {
+		return g.order
+	}
+	order := make([]int, len(g.params))
+	for i := range order {
+		order[i] = i
+	}
+	return order
+}
+
+// before is the parameters slot i's supplier takes, in the order it takes
+// them: the ones before i in fillOrder.
+func (g *irLambdaGroup) before(i int) []int {
+	order := g.fillOrder()
+	for at, p := range order {
+		if p == i {
+			return order[:at]
+		}
+	}
+	return nil
+}
+
+// supplierKind is slot i's supplier's function kind.
+func (g *irLambdaGroup) supplierKind(gen *gen, i int) kind {
+	return funcKindIn(gen, g.kindsAt(g.before(i)), g.params[i])
+}
+
+// kindsAt is the parameters' kinds at slots.
+func (g *irLambdaGroup) kindsAt(slots []int) []kind {
+	out := make([]kind, len(slots))
+	for j, s := range slots {
+		out[j] = g.params[s]
+	}
+	return out
+}
+
+// argsAt is args at slots, the arguments a supplier takes.
+func argsAt(args []ir.Temp, slots []int) []ir.Temp {
+	out := make([]ir.Temp, len(slots))
+	for j, s := range slots {
+		out[j] = args[s]
+	}
+	return out
 }
 
 func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
@@ -43,15 +100,15 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 		} else if p.TypeAnnotation != nil {
 			params[i] = bl.g.typeOf(p.TypeAnnotation)
 		} else if p.Destructure != nil && !tuple {
-			// A self-typing pattern names its type: `|Dur(n)|` takes a Dur,
-			// `|Point{x, y}|` a Point and `|Box.Extent{w, h}|` a Box.
+			// A self-typing pattern names its type: `fn Dur(n) ->` takes a Dur,
+			// `fn Point{x, y} ->` a Point and `fn Box.Extent{w, h} ->` a Box.
 			params[i] = bl.g.irPatternHeadKind(p.Destructure)
 			// kindInvalid: lookup — the head names no distinct; a struct or enum head may name the type, and a miss declines below.
 			if params[i] == kindInvalid {
 				params[i] = bl.g.irParamPatternKind(p)
 			}
 		} else if tuple {
-			// `|(k, v)|`, `|(_, v)|`, `|(a, (b, _))|`: the type the checker
+			// `fn #(k, v) ->`, `fn #(_, v) ->`, `fn #(a, #(b, _)) ->`: the type the checker
 			// recorded for the whole pattern; a miss declines below.
 			params[i] = bl.g.irParamPatternKind(p)
 		} else {
@@ -62,7 +119,7 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 			return no()
 		}
 	}
-	group := &irLambdaGroup{params: params, suppliers: make([]ir.Temp, len(params))}
+	group := &irLambdaGroup{params: params, suppliers: make([]ir.Temp, len(params)), order: bl.partialOpen[t].order}
 	for i := range group.suppliers {
 		group.suppliers[i] = ir.NoTemp
 	}
@@ -70,10 +127,10 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 		if p.Default == nil {
 			continue
 		}
-		if i == 0 && bl.reduceSeeds[t] {
+		if _, seeded := bl.reduceSeeds[t]; i == 0 && seeded {
 			continue
 		}
-		supplier, fk, _, ok := bl.lambdaFunction(t, params[:i], p.Default, group, i)
+		supplier, fk, _, ok := bl.lambdaFunction(t, group.kindsAt(group.before(i)), p.Default, group, i)
 		if !ok || funcResult(fk) != params[i] {
 			irDeclineNote("a lambda parameter default outside the parameter's kind: " + params[i].nomi())
 			return no()
@@ -141,7 +198,16 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		child.ctl = bl.ctlCallbacks[t]
 	}
 	var patterned []irPatternParam
-	for i, p := range t.Params[:len(params)] {
+	// A supplier takes the parameters before its slot in the group's fill
+	// order (irLambdaGroup.before).
+	taken := t.Params[:len(params)]
+	if supplier >= 0 {
+		taken = make([]ast.Param, len(params))
+		for j, s := range group.before(supplier) {
+			taken[j] = t.Params[s]
+		}
+	}
+	for i, p := range taken {
 		temp := bl.g.irAddParam(f, sh.paramSym(p), params[i])
 		if i == 0 && child.ctl == irCtlReduce {
 			child.ctlAcc = temp
@@ -163,7 +229,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 			continue
 		}
 		if p.Destructure != nil {
-			// `|Dur(n)|`: the argument's inner value, bound to n, as a
+			// `fn Dur(n) ->`: the argument's inner value, bound to n, as a
 			// distinct destructure statement binds it.
 			name, _ := irDistinctParamBinding(p.Destructure, params[i])
 			if !ast.IsDiscardName(name) {
@@ -203,7 +269,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		case *ast.If, *ast.Case:
 			sig = irFuncSig{result: want}
 		case *ast.ListLit:
-			// `|| { io.print("left") [] }`: an untyped literal answers the
+			// `fn -> { io.print("left") [] }`: an untyped literal answers the
 			// solved result.
 			if len(b.Items) == 0 && b.TypeName == nil {
 				sig = irFuncSig{result: want}
@@ -213,15 +279,18 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 				sig = irFuncSig{result: want}
 			}
 		default:
-			// `|| { io.print("empty") None }`.
+			// `fn -> { io.print("empty") None }`.
 			if _, _, _, bare := preludeValueName(body); bare {
 				sig = irFuncSig{result: want}
 			}
 		}
-		if want.tag == tagSeq {
-			// `|_| [20]` where an `(Int) -> Iter<Int>` is expected: the
+		if want.tag == tagSeq || irExistentialKind(want) || bl.g.declaredFnLambda == t {
+			// `fn _ -> [20]` where an `(Int) -> Iter<Int>` is expected: the
 			// body's list enters the declared sequence, as a named
-			// function's result does.
+			// function's result does. `fn n -> n + 1` where an
+			// `(Int) -> Display` is expected, or a nested fn declared to
+			// return `Display`: the body's value and every `return`'s
+			// enter the existential.
 			sig = irFuncSig{result: want}
 			child.returnKind = want
 		}
@@ -229,7 +298,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	if supplier < 0 && child.ctl != irCtlNone {
 		lead, body = bl.g.irCtlTailGuard(lead, body)
 		if cond, isIf := body.(*ast.If); isIf && cond.Else == nil && sig.inferResult {
-			// `|s| if s == "STOP" { break }`: an `if` with no `else` is Unit
+			// `fn s -> if s == "STOP" { break }`: an `if` with no `else` is Unit
 			// either way, so a signalling arm has a known result to leave
 			// with.
 			sig = irFuncSig{result: kindUnit}
@@ -238,9 +307,13 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	if block := t.Body; block != nil && supplier < 0 {
 		// The lambda's own statements: a `with` there holds for the rest of
 		// the lambda's activation, as a named function's does for its own.
-		// A defer is still declined.
+		// A `defer` there runs when this invocation ends: the VM runs an
+		// activation's pending deferred calls at each of its exits (a
+		// normal end, a `return`, a callback's `break` or `continue`, a
+		// `try` and a trap). A block statement in the body scopes its own.
 		child.body = block
-		child.deferScope = &irDeferScope{block: block}
+		child.deferOK = true
+		child.openDeferScope(block)
 		child.openWithScope(true)
 	}
 	if !child.leading(lead) {
@@ -266,7 +339,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		}
 		k, ok = child.explicitReturn(t)
 	case *ast.Break, *ast.Continue:
-		// `|acc, x| { break Some(x) }`: a signalling callback whose whole
+		// `fn acc, x -> { break Some(x) }`: a signalling callback whose whole
 		// body leaves it, as a `break` ending an arm does (armInto).
 		if supplier >= 0 || child.ctl == irCtlNone {
 			return no()
@@ -286,10 +359,10 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 			}
 		}
 	case *ast.If:
-		sh.result = f.NewTemp()
+		sh.result = child.lambdaResultSlot(sig)
 		k, ok = child.tailIf(t, sig)
 	case *ast.Case:
-		sh.result = f.NewTemp()
+		sh.result = child.lambdaResultSlot(sig)
 		k, ok = child.tailCase(t, sig)
 	default:
 		if supplier < 0 && bl.g.neverFinishes(body) {
@@ -310,7 +383,12 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 			}
 			break
 		}
-		if supplier >= 0 {
+		if fill := bl.partialOpen[lam].defaults; supplier >= 0 && fill != nil && fill[supplier] != nil {
+			// A partial's open slot whose callee default is not a literal:
+			// the callee's default, evaluated in the callee's scope.
+			answer, ok = fill[supplier](child)
+			k = group.params[supplier]
+		} else if supplier >= 0 {
 			answer, k, _, ok = child.lowerWant(body, group.params[supplier])
 		} else if !sig.inferResult {
 			answer, k, _, ok = child.lowerWant(body, sig.result)
@@ -326,7 +404,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		// what those returns settled.
 		k = child.returnKind
 		// In a signalling callback every arm may leave by `break` or
-		// `continue` (`|x| case x { 1 -> continue  _ -> break 9 }`), and the
+		// `continue` (`fn x -> case x { 1 -> continue  _ -> break 9 }`), and the
 		// result is the checker's.
 		// kindInvalid: sentinel — no `return` settled it.
 		if k == kindInvalid && child.ctl != irCtlNone {
@@ -370,10 +448,26 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	return n.Dst(), fk, true, true
 }
 
+// lambdaResultSlot is the temporary a lambda's tail `if` or `case` writes.
+// A declared result types it, so an arm whose value enters the result by
+// erasure (a Pt where a Named is declared) is copied into the declared
+// type's storage, as a module function's result slot is, and an arm that
+// produces the declared type itself (a `todo`) agrees with it.
+func (bl *irScalarBuilder) lambdaResultSlot(sig irFuncSig) ir.Temp {
+	t := bl.f.NewTemp()
+	if !sig.inferResult {
+		bl.g.irTypeTemp(bl.f, t, sig.result)
+	}
+	return t
+}
+
 // A captured parent binding has one parameter identity across all arm scopes.
 type irLambdaCapture struct {
 	temp ir.Temp
 	k    kind
+	// src is the enclosing builder's temporary the capture is supplied
+	// from, by which capturedPlan finds the captured value's plan.
+	src ir.Temp
 }
 
 // capture makes name a parameter of this closure, supplied by the value the
@@ -394,14 +488,15 @@ func (bl *irScalarBuilder) capture(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	if bl.captured == nil {
 		bl.captured = map[string]irLambdaCapture{}
 	}
-	bl.captured[t.Name] = irLambdaCapture{temp: dst, k: k}
+	bl.captured[t.Name] = irLambdaCapture{temp: dst, k: k, src: src}
 	bl.bound[t.Name], bl.boundK[t.Name] = dst, k
 	bl.declareCapture(t.Name, dst, k, bl.capturedDecl(t.Name, src))
 	return dst, k, true, true
 }
 
-// callablePlan follows only plain local aliases. Callable parameters and
-// branch-selected or returned values carry no statically recoverable defaults.
+// callablePlan follows only plain local aliases and captures. Callable
+// parameters and branch-selected or returned values carry no statically
+// recoverable defaults.
 func (bl *irScalarBuilder) callablePlan(temp ir.Temp) *irLambdaPlan {
 	for {
 		switch n := bl.f.Def(temp).(type) {
@@ -414,10 +509,59 @@ func (bl *irScalarBuilder) callablePlan(temp ir.Temp) *irLambdaPlan {
 			temp = n.Src()
 		case *ir.FuncValue:
 			return bl.sides[n.Dst()].lambda
+		case nil:
+			return bl.capturedPlan(temp)
 		default:
 			return nil
 		}
 	}
+}
+
+// capturedPlan is the plan of a lambda this closure captured, as the
+// enclosing builder holds it: `g = fn -> f(1)` calls the f its parent built.
+// The plan's names carry over. Its default suppliers are closures of the
+// parent's graph, so each is captured too, beside the value, and the copy's
+// suppliers are those captures. nil when temp is no capture, or the parent
+// has no plan for the value.
+func (bl *irScalarBuilder) capturedPlan(temp ir.Temp) *irLambdaPlan {
+	if bl.parent == nil {
+		return nil
+	}
+	for name, held := range bl.captured {
+		if held.temp != temp {
+			continue
+		}
+		if plan, done := bl.capturedPlans[temp]; done {
+			return plan
+		}
+		outer := bl.parent.callablePlan(held.src)
+		if outer == nil {
+			return nil
+		}
+		plan := *outer
+		if outer.group != nil {
+			group := &irLambdaGroup{params: outer.group.params, suppliers: make([]ir.Temp, len(outer.group.suppliers)), order: outer.group.order}
+			for i, s := range outer.group.suppliers {
+				group.suppliers[i] = ir.NoTemp
+				if s == ir.NoTemp {
+					continue
+				}
+				// A supplier takes the parameters before its slot in
+				// the group's fill order and answers the slot's value.
+				sk := outer.group.supplierKind(bl.g, i)
+				dst := bl.g.irAddParam(bl.f, bl.sh.localSym(name+"\x00default"+strconv.Itoa(i)), sk)
+				bl.captures = append(bl.captures, s)
+				group.suppliers[i] = dst
+			}
+			plan.group = group
+		}
+		if bl.capturedPlans == nil {
+			bl.capturedPlans = map[ir.Temp]*irLambdaPlan{}
+		}
+		bl.capturedPlans[temp] = &plan
+		return &plan
+	}
+	return nil
 }
 
 func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool) {
@@ -469,7 +613,11 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 		}
 		args[slot] = v
 	}
-	for i := range args {
+	var order []int
+	if defaulted {
+		order = metadata.group.fillOrder()
+	}
+	for _, i := range order {
 		if args[i] != ir.NoTemp {
 			continue
 		}
@@ -477,7 +625,7 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 		if supplier == ir.NoTemp {
 			return no()
 		}
-		call := ir.NewIndirectCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), supplier, args[:i]...)
+		call := ir.NewIndirectCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), supplier, argsAt(args, metadata.group.before(i))...)
 		bl.b.Append(call)
 		bl.side(call.Dst(), irScalarSide{k: params[i], deferrable: true})
 		args[i] = call.Dst()
@@ -532,7 +680,9 @@ func irRetainedSeqKind(k kind) bool {
 	return k.tag == tagSeq && k.comp != nil && len(k.comp.parts) == 1 && (irCallableValueKind(k.comp.parts[0]) || k.comp.parts[0] == kindUnit)
 }
 
-// funcRef retains module-function values with no defaults. A generic one is
+// funcRef retains module-function values. A function with defaults is its
+// full parameter list as a value, since defaults apply to calls (spec
+// "Defaults apply to calls, not to function values"). A generic one is
 // the instance the checker instantiated the reference at (funcref.go). The
 // symbol is shared with direct calls and bodies.
 func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
@@ -561,7 +711,7 @@ func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 		}
 		sig = inst.sig
 	}
-	if sig == nil || !sig.lowerable || sig.decl == nil || sig.dict != nil || sig.tps != nil || funcHasDefault(sig.decl) {
+	if sig == nil || !sig.lowerable || sig.decl == nil || sig.dict != nil || sig.tps != nil {
 		return no()
 	}
 	fk := funcKindIn(bl.g, sig.params, sig.result)
@@ -662,7 +812,7 @@ func (g *gen) lambdaCheckedResult(lam *ast.Lambda) kind {
 }
 
 // lambdaTypedResult is lambdaCheckedResult, or where no function type was
-// expected at lam (`f = || …`), the result of the type the checker gave lam
+// expected at lam (`f = fn -> …`), the result of the type the checker gave lam
 // itself. A lambda ending in an `Iter.loop` with no `break` asks it: the loop
 // has its state type there, not Infallible.
 func (g *gen) lambdaTypedResult(lam *ast.Lambda) kind {

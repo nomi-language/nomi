@@ -46,7 +46,7 @@ const highlightSrc = `struct Point {
     y: Int
 }
 
-fn shift(p: Point, by: Int): Point {
+fn shift(p: Point, by: Int) -> Point {
     x = p.x + by
     y = p.y + by
     Point{x, y: y}
@@ -55,7 +55,7 @@ fn shift(p: Point, by: Int): Point {
 fn main() {
     total = shift(Point{x: 1, y: 2}, 3)
     total = shift(total, 4)
-    w = ("é", total.x)
+    w = #("é", total.x)
     w
 }
 `
@@ -76,11 +76,11 @@ func TestDocumentHighlight(t *testing.T) {
 		// A shadowing binding is its own symbol: the second `total`
 		// reads the first and defines another.
 		{"first binding", 12, 4, []string{"12:4-9 write", "13:18-23 read"}},
-		{"shadowing binding", 13, 4, []string{"13:4-9 write", "14:14-19 read"}},
+		{"shadowing binding", 13, 4, []string{"13:4-9 write", "14:15-20 read"}},
 		// A field: its declaration and its accesses in this file.
-		{"field", 1, 4, []string{"1:4-5 write", "6:10-11 read", "8:10-11 read", "12:24-25 read", "14:20-21 read"}},
+		{"field", 1, 4, []string{"1:4-5 write", "6:10-11 read", "8:10-11 read", "12:24-25 read", "14:21-22 read"}},
 		// Columns are UTF-16 after a non-ASCII character.
-		{"after non-ASCII", 14, 15, []string{"13:4-9 write", "14:14-19 read"}},
+		{"after non-ASCII", 14, 16, []string{"13:4-9 write", "14:15-20 read"}},
 		// A keyword has no symbol.
 		{"keyword", 5, 0, nil},
 	}

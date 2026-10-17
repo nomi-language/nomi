@@ -7,8 +7,8 @@ import std/io
 // the lambda's `return` escaped to the enclosing function, the print below it
 // would never run and the function's result would be the bare word rather than
 // the wrapped one.
-fn scoped(n: Int): String {
-    classify = |x: Int| {
+fn scoped(n: Int) -> String {
+    classify = fn x: Int -> {
         if x > 0 { return "positive" }
         "non-positive"
     }
@@ -19,9 +19,9 @@ fn scoped(n: Int): String {
 }
 
 // A `return` in a nested lambda exits only the INNER lambda.
-fn nested(n: Int): String {
-    outer = |x: Int| {
-        inner = |y: Int| {
+fn nested(n: Int) -> String {
+    outer = fn x: Int -> {
+        inner = fn y: Int -> {
             if y > 0 { return "inner-positive" }
             "inner-other"
         }

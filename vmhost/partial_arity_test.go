@@ -27,19 +27,19 @@ func TestPartialApplication_ArgumentCountIsChecked(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			src := `import std/io
 
-fn pick<T>(c: Bool, a: T, b: T): T {
+fn pick<T>(c: Bool, a: T, b: T) -> T {
     if c { a } else { b }
 }
 
-fn add(a: Int, b: Int): Int {
+fn add(a: Int, b: Int) -> Int {
     a + b
 }
 
-fn connect(host: Int, port: Int = 80, timeout: Int = 30): Int {
+fn connect(host: Int, port: Int = 80, timeout: Int = 30) -> Int {
     host + port + timeout
 }
 
-fn middle(a: Int, b: Int = 10, c: Int): Int {
+fn middle(a: Int, b: Int = 10, c: Int) -> Int {
     a + b + c
 }
 
@@ -69,16 +69,16 @@ fn main() {
 func TestPartialApplication_WrittenArgumentsRunOnce(t *testing.T) {
 	src := `import std/io
 
-fn pick<T>(c: Bool, a: T, b: T): T {
+fn pick<T>(c: Bool, a: T, b: T) -> T {
     if c { a } else { b }
 }
 
-fn noisy(label: String, n: Int): Int {
+fn noisy(label: String, n: Int) -> Int {
     io.print(label)
     n
 }
 
-fn connect(host: String, port: Int = 80, timeout: Int = 30): String {
+fn connect(host: String, port: Int = 80, timeout: Int = 30) -> String {
     "${host}:${port}/${timeout}"
 }
 

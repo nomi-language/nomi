@@ -21,7 +21,7 @@ pub struct App {
   done: Channel<Int>
 }
 
-pub fn boot(): App {
+pub fn boot() -> App {
   App{context: Context.root(), done: Channel.buffered<Int>(4)}
 }
 
@@ -89,21 +89,21 @@ pub struct App {
   alerts: Channel<String>
 }
 
-fn report(message: String): Unit {
+fn report(message: String) -> Unit {
   case Sender.send(App.alerts.sender, message) {
     Ok(_) -> Unit
     Err(_) -> Unit
   }
 }
 
-fn slow(): Unit {
+fn slow() -> Unit {
   timer.sleep(Duration.seconds(30))
   report("SHOULD NOT ARRIVE")
 }
 
-fn drain(): List<String> {
+fn drain() -> List<String> {
   Sender.close(App.alerts.sender)
-  Iter.loop(|seen = []|
+  Iter.loop(fn seen = [] ->
     case Receiver.receive(App.alerts.receiver) {
       Some(message) -> [message, ..seen]
       None -> break seen
@@ -111,7 +111,7 @@ fn drain(): List<String> {
   )
 }
 
-pub fn boot(): App {
+pub fn boot() -> App {
   App{
     context: Context.root(),
     work: Supervisor.new(max_running: 2),
@@ -127,32 +127,32 @@ group "tasks" {
   boot boot()
 
   test "a cancelled task reports Cancelled" {
-    doomed = Supervisor.spawn(App.work, || slow())
+    doomed = Supervisor.spawn(App.work, fn -> slow())
     Task.cancel(doomed)
     cancelled: Outcome<Unit> = .Cancelled
     assert Task.outcome(doomed) == cancelled
   }
 
   test "a failing outcome comparison shows its rows" {
-    done = Supervisor.spawn(App.work, || report("quick"))
+    done = Supervisor.spawn(App.work, fn -> report("quick"))
     _ = Supervisor.flush(App.work)
     cancelled: Outcome<Unit> = .Cancelled
     assert Task.outcome(done) == cancelled
   }
 
   test "any and all over a drained list" {
-    _ = Supervisor.spawn(App.work, || report("audited 7"))
+    _ = Supervisor.spawn(App.work, fn -> report("audited 7"))
     _ = Supervisor.flush(App.work)
     seen = drain()
-    assert Iter.any?(seen, |m| m == "audited 7")
-    assert Iter.all?(seen, |m| String.contains?(m, "audited"))
-    refute Iter.any?(seen, |m| m == "missing")
+    assert Iter.any?(seen, fn m -> m == "audited 7")
+    assert Iter.all?(seen, fn m -> String.contains?(m, "audited"))
+    refute Iter.any?(seen, fn m -> m == "missing")
   }
 
   test "a failing any shows its operand" {
-    _ = Supervisor.spawn(App.work, || report("x"))
+    _ = Supervisor.spawn(App.work, fn -> report("x"))
     _ = Supervisor.flush(App.work)
-    assert drain() |> Iter.all?(|m| m == "y")
+    assert drain() |> Iter.all?(fn m -> m == "y")
   }
 }
 `
@@ -184,11 +184,11 @@ const irGroupGapsClockSource = `import {
   std/timer
 }
 
-fn long_sleep(): Unit {
+fn long_sleep() -> Unit {
   timer.sleep(Duration.seconds(5))
 }
 
-fn short_fail(): Result<Int, String> {
+fn short_fail() -> Result<Int, String> {
   Err("boom")
 }
 
@@ -199,8 +199,8 @@ group "virtual clock" {
     before = Instant.now()
 
     outcome = concurrent {
-      short = Task.spawn(|| short_fail())
-      long = Task.spawn(|| long_sleep())
+      short = Task.spawn(fn -> short_fail())
+      long = Task.spawn(fn -> long_sleep())
       _l = long
       Ok(try Task.await(short))
     }
@@ -232,8 +232,8 @@ func TestIRGroupGaps_InstantNowAndConcurrentBlocks(t *testing.T) {
 
 const irGroupGapsLoopProgram = `import std/io
 
-fn collect(n: Int): List<Int> {
-  Iter.loop(|seen = []|
+fn collect(n: Int) -> List<Int> {
+  Iter.loop(fn seen = [] ->
     case Iter.count(seen) >= n {
       True -> break seen
       False -> [Iter.count(seen), ..seen]
@@ -241,12 +241,12 @@ fn collect(n: Int): List<Int> {
   )
 }
 
-fn has_big(xs: List<Int>): Bool {
-  Iter.any?(xs, |n| n > 2)
+fn has_big(xs: List<Int>) -> Bool {
+  Iter.any?(xs, fn n -> n > 2)
 }
 
-fn all_small(xs: List<Int>): Bool {
-  Iter.all?(xs, |n| n < 3)
+fn all_small(xs: List<Int>) -> Bool {
+  Iter.all?(xs, fn n -> n < 3)
 }
 
 fn main() {

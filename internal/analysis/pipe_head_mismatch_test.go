@@ -10,7 +10,7 @@ import (
 const pipeHeadDecls = `type Fahrenheit Decimal
 
 impl Display for Fahrenheit {
-  fn to_string(Fahrenheit(n)): String {
+  fn to_string(Fahrenheit(n)) -> String {
     "${n} F"
   }
 }
@@ -18,7 +18,7 @@ impl Display for Fahrenheit {
 type Celsius Decimal
 
 impl Celsius {
-  fn to_fahrenheit(Celsius(n)): Fahrenheit {
+  fn to_fahrenheit(Celsius(n)) -> Fahrenheit {
     Fahrenheit(n * 9d / 5d + 32d)
   }
 }
@@ -27,23 +27,23 @@ struct Plain {
   x: Int
 }
 
-fn half(x: Float): Float {
+fn half(x: Float) -> Float {
   x / 2.0
 }
 
-fn dec(x: Decimal): Decimal {
+fn dec(x: Decimal) -> Decimal {
   x
 }
 
-fn label(width: Int, text: String): String {
+fn label(width: Int, text: String) -> String {
   String.pad_start(text, width)
 }
 
-fn total(xs: List<Int>): Int {
+fn total(xs: List<Int>) -> Int {
   Iter.count(xs)
 }
 
-fn first<T>(xs: List<T>): Maybe<T> {
+fn first<T>(xs: List<T>) -> Maybe<T> {
   List.head(xs)
 }
 
@@ -67,10 +67,10 @@ func TestPipeHeadMismatch_IsReportedAtTheStage(t *testing.T) {
 				"help: to get the Decimal inside, destructure the Celsius: `Celsius(inner) = cel`",
 			"dec", "cel"},
 		{"an Iter into a List stage",
-			"  _ = [1] |> Iter.map(|x| x + 1) |> total()\n",
+			"  _ = [1] |> Iter.map(fn x -> x + 1) |> total()\n",
 			"`total` takes a List<Int> as its first argument, but the pipe passes an Iter<Int>\n" +
 				"help: an Iter is not a collection; materialize it with `|> Iter.to_list()`",
-			"total", "Iter.map(|x| x + 1)"},
+			"total", "Iter.map(fn x -> x + 1)"},
 		{"a Maybe into a stage that takes its payload",
 			"  _ = \"4\" |> String.to_int() |> Int.to_string()\n",
 			"`Int.to_string` takes an Int as its first argument, but the pipe passes a Maybe<Int>\n" +
@@ -120,10 +120,10 @@ func TestPipeHeadMismatch_IsReportedAtTheStage(t *testing.T) {
 				"help: Int implements Display; add `|> Display.to_string()` before this stage",
 			"_", "3"},
 		{"a generic stage",
-			"  _ = [1] |> Iter.map(|x| x + 1) |> first()\n",
+			"  _ = [1] |> Iter.map(fn x -> x + 1) |> first()\n",
 			"`first` takes a List<T> as its first argument, but the pipe passes an Iter<Int>\n" +
 				"help: an Iter is not a collection; materialize it with `|> Iter.to_list()`",
-			"first", "Iter.map(|x| x + 1)"},
+			"first", "Iter.map(fn x -> x + 1)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := pipeHeadDecls + "fn main() {\n" + tc.body + "}\n"
@@ -156,7 +156,7 @@ func TestPipeHeadMismatch_AMatchingStageIsAccepted(t *testing.T) {
   _ = c |> Celsius.to_fahrenheit() |> Display.to_string() |> String.pad_start(6)
   _ = "x" |> label(4, _)
   _ = "x" |> label(width: 4, text: _)
-  _ = [1] |> Iter.map(|x| x + 1) |> Iter.to_list() |> total()
+  _ = [1] |> Iter.map(fn x -> x + 1) |> Iter.to_list() |> total()
   _ = 3 |> Int.to_float() |> half()
 }
 `

@@ -14,7 +14,7 @@ import {
     std/toml.Toml
 }
 
-fn unwrap(t: Toml): String {
+fn unwrap(t: Toml) -> String {
     Toml(raw) = t
     "raw:" + raw
 }

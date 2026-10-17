@@ -3,7 +3,7 @@ package analysis
 import "fmt"
 
 // PartialType represents `Partial<T>` — a partial of a struct `T`. It is the
-// parameter type of `Struct.update(original: T, updates: Partial<T>): T`,
+// parameter type of `Struct.update(original: T, updates: Partial<T>) -> T`,
 // expressing that the patch may omit fields (they are taken from `original`).
 // Each field it writes is a whole value of that field, or, in a literal patch
 // of a `Struct.update` call, a literal with a bare `..` that updates the

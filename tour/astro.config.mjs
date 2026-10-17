@@ -47,6 +47,7 @@ const referenceItems = [
 		'strings',
 		'structs',
 		'subtract',
+		'summable',
 		'supervisors',
 		'tasks',
 		'testing',
@@ -54,6 +55,7 @@ const referenceItems = [
 		'toml',
 		'type',
 		'unit',
+		'variants',
 		'vectors',
 	].map((name) => ({ label: `std/${name}`, link: `/reference/${name}/` })),
 ];

@@ -22,7 +22,9 @@ import (
 // program's types sit at file level or inside the body that uses them, and
 // statement blocks, some nested, declare types of their own, among them
 // distinct types over Decimal, Bytes, Regex, Unit and containers of them
-// (leafDistinctBlock). The body is a `fn main` or a test.
+// (leafDistinctBlock), store concrete values where Display's existential
+// is expected (erasedBlock), or iterate over sources and hold function
+// values in containers (iterBlock). The body is a `fn main` or a test.
 //
 // The generator stays clear of the shapes knownLoweringGaps lists, each at
 // the line that avoids it, so every decline it produces is a new cause. When
@@ -45,7 +47,7 @@ func (t *gt) String() string {
 	case "Result":
 		return "Result<" + t.args[0].String() + ", String>"
 	case "Tuple":
-		return "(" + t.args[0].String() + ", " + t.args[1].String() + ")"
+		return "#(" + t.args[0].String() + ", " + t.args[1].String() + ")"
 	case "Fn":
 		return "(" + t.args[0].String() + ") -> " + t.args[1].String()
 	}
@@ -100,7 +102,27 @@ type gen struct {
 	// wrap draws the blocks leafDistinctBlock writes, and wn names their
 	// types apart, so the rest of each program is the one it was without
 	// them.
-	wrap    *rand.Rand
+	wrap *rand.Rand
+	// dyn draws the blocks erasedBlock writes, and en names their
+	// declarations apart, so the rest of each program is the one it was
+	// without them.
+	dyn *rand.Rand
+	en  int
+	// fix draws the blocks fixedKindBlock writes, and fn names their
+	// declarations apart, so the rest of each program is the one it was
+	// without them.
+	fix *rand.Rand
+	fn  int
+	// itr draws the blocks iterBlock writes, and itn names their
+	// bindings apart, so the rest of each program is the one it was
+	// without them.
+	itr *rand.Rand
+	itn int
+	// call draws the blocks callBlock writes, and cn names their
+	// declarations apart, so the rest of each program is the one it was
+	// without them.
+	call    *rand.Rand
+	cn      int
 	wn      int
 	dn      int
 	n       int
@@ -112,6 +134,27 @@ type gen struct {
 	// Opt, which the helpers and the file-level derives name, stay at file
 	// level.
 	local bool
+	// pat draws the blocks patternBlock writes, and pn names their
+	// declarations apart, so the rest of each program is the one it was
+	// without them.
+	pat *rand.Rand
+	pn  int
+	// hold draws the blocks holdBlock writes, and hn names their
+	// declarations apart, so the rest of each program is the one it was
+	// without them.
+	hold *rand.Rand
+	hn   int
+	// dfr draws the blocks deferBlock writes (a `defer` in a lambda or a loop
+	// callback, an `equal?` recursing into fields of its own type), and fdn
+	// names their declarations apart, so the rest of each program is the one
+	// it was without them.
+	dfr *rand.Rand
+	fdn int
+	// leave draws the blocks leaveBlock writes, and ln names their
+	// declarations apart, so the rest of each program is the one it was
+	// without them.
+	leave *rand.Rand
+	ln    int
 }
 
 func (g *gen) fresh(prefix string) string {
@@ -209,7 +252,7 @@ func (g *gen) boolLit() string {
 // pipeHead parenthesizes a lambda that heads a pipe, whose body would
 // otherwise take the pipe in.
 func pipeHead(e string) string {
-	if strings.HasPrefix(e, "|") {
+	if strings.HasPrefix(e, "fn ") {
 		return "(" + e + ")"
 	}
 	return e
@@ -274,7 +317,7 @@ func (g *gen) leaf(t *gt, sc []gvar) string {
 	case "Result":
 		return g.okOf(t.args[0], g.leaf(t.args[0], sc))
 	case "Tuple":
-		return "(" + g.leaf(t.args[0], sc) + ", " + g.leaf(t.args[1], sc) + ")"
+		return "#(" + g.leaf(t.args[0], sc) + ", " + g.leaf(t.args[1], sc) + ")"
 	case "Box":
 		return "Box{v: " + g.leaf(t.args[0], sc) + "}"
 	case "Opt":
@@ -328,7 +371,13 @@ func (g *gen) use(t *gt, v gvar, depth int, sc []gvar) string {
 		add(func() string { return "case " + n + " {\nMeters(k) -> k\n}" },
 			func() string { return "{\nMeters(n) = " + n + "\nn\n}" })
 	case t.k == "Int" && v.t.k == "Shape":
-		add(func() string { return "case " + n + " {\n.Circle(r) -> r\n.Square(s) -> s * s\n.Dot -> 0\n}" })
+		add(func() string {
+			if g.aux.Intn(2) == 0 {
+				// An `or` pattern: one arm for both payload variants.
+				return "case " + n + " {\n.Circle(r) or .Square(r) when r > 2 -> r\n.Circle(_) or .Square(_) or .Dot -> 0\n}"
+			}
+			return "case " + n + " {\n.Circle(r) -> r\n.Square(s) -> s * s\n.Dot -> 0\n}"
+		})
 	case t.k == "Bool" && v.t.k == "Maybe":
 		add(func() string { return "Maybe.some?(" + n + ")" })
 	case t.k == "Bool" && v.t.k == "Result":
@@ -340,7 +389,7 @@ func (g *gen) use(t *gt, v gvar, depth int, sc []gvar) string {
 			add(func() string { return n + ".0" },
 				func() string {
 					as, read := g.asWhole()
-					return "{\n(a, _)" + as + " = " + n + "\n" + read + "a\n}"
+					return "{\n#(a, _)" + as + " = " + n + "\n" + read + "a\n}"
 				})
 		}
 		if v.t.args[1].eq(t) {
@@ -386,7 +435,7 @@ func (g *gen) use(t *gt, v gvar, depth int, sc []gvar) string {
 			add(func() string { return "first_or(" + n + ", " + g.expr(t, d, sc) + ")" },
 				func() string {
 					init := g.expr(t, d, sc)
-					return "Iter.reduce(" + n + ", |acc = " + init + ", x| pick(" + g.boolLit() + ", acc, x))"
+					return "Iter.reduce(" + n + ", fn acc = " + init + ", x -> pick(" + g.boolLit() + ", acc, x))"
 				})
 		}
 	case "Fn":
@@ -429,11 +478,11 @@ func (g *gen) asWhole() (as, read string) {
 func (g *gen) tapStage() string {
 	switch g.aux.Intn(6) {
 	case 0:
-		return "\n|> tap |tapped| io.inspect(tapped)"
+		return "\n|> tap fn tapped -> io.inspect(tapped)"
 	case 1:
-		return "\n|> tap |tapped| { _ = tapped }"
+		return "\n|> tap fn tapped -> { _ = tapped }"
 	case 2:
-		return "\n|> tap |_| {}"
+		return "\n|> tap fn _ -> {}"
 	}
 	return ""
 }
@@ -446,16 +495,16 @@ func (g *gen) tapStage() string {
 func (g *gen) holdFn(cb string, ft *gt) (string, *gt) {
 	switch cb {
 	case "ident", "wrap", "box", "show", "Some", "Opt.Has", "tally", "Iter.count", "Iter.first":
-		cb = "|y: " + ft.args[0].String() + "| " + cb + "(y)"
+		cb = "fn y: " + ft.args[0].String() + " -> " + cb + "(y)"
 	}
 	holder, ht := cb, ft
 	for i := 1 + g.aux.Intn(3); i > 0; i-- {
 		n := fmt.Sprint(g.aux.Intn(10))
 		switch g.aux.Intn(3) {
 		case 0:
-			holder, ht = "("+holder+", "+n+")", of("Tuple", ht, tInt)
+			holder, ht = "#("+holder+", "+n+")", of("Tuple", ht, tInt)
 		case 1:
-			holder, ht = "("+n+", "+holder+")", of("Tuple", tInt, ht)
+			holder, ht = "#("+n+", "+holder+")", of("Tuple", tInt, ht)
 		default:
 			holder, ht = "Box{v: "+holder+"}", of("Box", ht)
 		}
@@ -518,14 +567,14 @@ func fnPaths(t *gt, chain string, depth int) []fnPath {
 	return out
 }
 
-// lambda is `|x| body` of type (u) -> t, its parameter read by its body.
+// lambda is `fn x -> body` of type (u) -> t, its parameter read by its body.
 func (g *gen) lambda(u, t *gt, depth int, sc []gvar, annotate bool) string {
 	x := g.fresh("x")
 	body := g.use(t, gvar{x, u}, depth, append(sc, gvar{x, u}))
 	if annotate {
-		return "|" + x + ": " + u.String() + "| " + body
+		return "fn " + x + ": " + u.String() + " -> " + body
 	}
-	return "|" + x + "| " + body
+	return "fn " + x + " -> " + body
 }
 
 // namedCallback declares a function of type (u) -> t beside the helpers and
@@ -534,7 +583,7 @@ func (g *gen) namedCallback(u, t *gt, depth int) string {
 	name := g.fresh("cb")
 	x := g.fresh("x")
 	body := g.use(t, gvar{x, u}, depth, []gvar{{x, u}})
-	g.helpers = append(g.helpers, fmt.Sprintf("fn %s(%s: %s): %s {\n%s\n}", name, x, u, t, body))
+	g.helpers = append(g.helpers, fmt.Sprintf("fn %s(%s: %s) -> %s {\n%s\n}", name, x, u, t, body))
 	return name
 }
 
@@ -637,10 +686,10 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 			u := other()
 			x := g.fresh("p")
 			body := g.use(t, gvar{x, u}, d, append(sc, gvar{x, u}))
-			return pipeHead(g.expr(u, d, sc)) + "\n|> then |" + x + "| " + body + g.tapStage()
+			return pipeHead(g.expr(u, d, sc)) + "\n|> then fn " + x + " -> " + body + g.tapStage()
 		},
-		func() string { return paren("("+lit(t)+", "+lit(g.typ(1))+")") + ".0" },
-		func() string { return paren("("+lit(g.typ(1))+", "+lit(t)+")") + ".1" },
+		func() string { return paren("#("+lit(t)+", "+lit(g.typ(1))+")") + ".0" },
+		func() string { return paren("#("+lit(g.typ(1))+", "+lit(t)+")") + ".1" },
 		func() string {
 			u := other()
 			f := g.fresh("f")
@@ -681,7 +730,7 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 			if !uses(body, acc) {
 				acc = "_" + acc
 			}
-			return "Iter.reduce([" + lit(u) + "], |" + acc + " = " + lit(t) + ", " + x + "| " + body + ")"
+			return "Iter.reduce([" + lit(u) + "], fn " + acc + " = " + lit(t) + ", " + x + " -> " + body + ")"
 		},
 		func() string {
 			u := g.typ(1)
@@ -701,11 +750,11 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 			u := other()
 			f, x := g.fresh("local"), g.fresh("y")
 			body := g.use(t, gvar{x, u}, d, append(sc, gvar{x, u}))
-			return "{\nfn " + f + "(" + x + ": " + u.String() + "): " + t.String() + " {\n" + body + "\n}\n" + f + "(" + g.expr(u, d, sc) + ")\n}"
+			return "{\nfn " + f + "(" + x + ": " + u.String() + ") -> " + t.String() + " {\n" + body + "\n}\n" + f + "(" + g.expr(u, d, sc) + ")\n}"
 		},
 		func() string {
 			f, v := g.fresh("attempt"), g.fresh("t")
-			return "{\nfn " + f + "(): Result<" + t.String() + ", String> {\n" + v + " = try ok(" + g.expr(t, d, sc) + ")\nOk(" + v + ")\n}\n" +
+			return "{\nfn " + f + "() -> Result<" + t.String() + ", String> {\n" + v + " = try ok(" + g.expr(t, d, sc) + ")\nOk(" + v + ")\n}\n" +
 				"case " + f + "() {\nOk(r) -> r\nErr(_) -> " + g.expr(t, d, sc) + "\n}\n}"
 		},
 	)
@@ -784,7 +833,7 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 		add(func() string { return g.okOf(u, g.expr(u, d, sc)) },
 			func() string { return "pick(" + g.boolLit() + ", Err(\"bad\"), Ok(" + g.expr(u, d, sc) + "))" })
 	case "Tuple":
-		add(func() string { return "(" + lit(t.args[0]) + ", " + lit(t.args[1]) + ")" })
+		add(func() string { return "#(" + lit(t.args[0]) + ", " + lit(t.args[1]) + ")" })
 	case "Box":
 		u := t.args[0]
 		add(func() string { return "Box{v: " + lit(u) + "}" },
@@ -816,7 +865,7 @@ func (g *gen) sortedStd(u *gt, list string) string {
 		return list + " |> Iter.sort(" + dir + ")"
 	case 2:
 		x := g.fresh("k")
-		return "Iter.sort_by(" + list + ", " + dir + ", |" + x + "| " + x + ")"
+		return "Iter.sort_by(" + list + ", " + dir + ", fn " + x + " -> " + x + ")"
 	case 3:
 		a, b := g.fresh("a"), g.fresh("b")
 		return list + " |> Iter.sort_with(|" + a + ", " + b + "| if " + a + " < " + b + " { .Greater } else { .Less })"
@@ -873,47 +922,47 @@ const genShapeDerive = `derive Equatable for Shape
 // genHelpers are the generic functions every generated program declares:
 // at file level, or, in a program whose types are local, in the body, each
 // one the body uses.
-const genHelpers = `fn ident<T>(x: T): T {
+const genHelpers = `fn ident<T>(x: T) -> T {
 x
 }
 
-fn pick<T>(c: Bool, a: T, b: T): T {
+fn pick<T>(c: Bool, a: T, b: T) -> T {
 if c { a } else { b }
 }
 
-fn wrap<T>(x: T): List<T> {
+fn wrap<T>(x: T) -> List<T> {
 [x]
 }
 
-fn first_or<T>(xs: List<T>, d: T): T {
+fn first_or<T>(xs: List<T>, d: T) -> T {
 Maybe.with_default(List.head(xs), d)
 }
 
-fn apply<T, U>(x: T, f: (T) -> U): U {
+fn apply<T, U>(x: T, f: (T) -> U) -> U {
 f(x)
 }
 
-fn show<T>(x: T): String where T: Display {
+fn show<T>(x: T) -> String where T: Display {
 Display.to_string(x)
 }
 
-fn tally<T>(xs: Iter<T>): Int {
+fn tally<T>(xs: Iter<T>) -> Int {
 Iter.count(xs)
 }
 
-fn same<T>(a: T, b: T): Bool where T: Equatable {
+fn same<T>(a: T, b: T) -> Bool where T: Equatable {
 a == b
 }
 
-fn box<T>(x: T): Box<T> {
+fn box<T>(x: T) -> Box<T> {
 Box{v: x}
 }
 
-fn unbox<T>(b: Box<T>): T {
+fn unbox<T>(b: Box<T>) -> T {
 b.v
 }
 
-fn ok<T>(x: T): Result<T, String> {
+fn ok<T>(x: T) -> Result<T, String> {
 Ok(x)
 }
 `
@@ -925,50 +974,50 @@ Ok(x)
 // file level, since nested functions cannot call each other mutually. They
 // name no other helper, so a program whose helpers are local can still call
 // them.
-const genRecursiveHelpers = `fn len_of<T>(xs: List<T>): Int {
+const genRecursiveHelpers = `fn len_of<T>(xs: List<T>) -> Int {
 case xs {
 [] -> 0
 [_, ..rest] -> 1 + len_of(rest)
 }
 }
 
-fn count_from<T>(xs: List<T>, acc: Int): Int {
+fn count_from<T>(xs: List<T>, acc: Int) -> Int {
 case xs {
 [] -> acc
 [_, ..rest] -> count_from(rest, acc + 1)
 }
 }
 
-fn evens<T>(xs: List<T>): List<T> {
+fn evens<T>(xs: List<T>) -> List<T> {
 case xs {
 [] -> []
 [x, ..rest] -> [x, ..odds(rest)]
 }
 }
 
-fn odds<T>(xs: List<T>): List<T> {
+fn odds<T>(xs: List<T>) -> List<T> {
 case xs {
 [] -> []
 [_, ..rest] -> evens(rest)
 }
 }
 
-fn last_or<T>(xs: List<T>, d: T): T {
+fn last_or<T>(xs: List<T>, d: T) -> T {
 case xs {
 [] -> d
 [x, ..rest] -> last_or(rest, x)
 }
 }
 
-fn drop_all<T>(xs: List<T>): Int {
+fn drop_all<T>(xs: List<T>) -> Int {
 case xs {
 [] -> 0
-[_, ..rest] -> Iter.map([rest], |r| 1 + drop_all(r)) |> Iter.reduce(|a = 0, b| a + b)
+[_, ..rest] -> Iter.map([rest], fn r -> 1 + drop_all(r)) |> Iter.reduce(fn a = 0, b -> a + b)
 }
 }
 
-fn stack<T>(b: Box<T>, n: Int): List<Box<T>> {
-1..=n |> Iter.reduce(|acc = [b], _| [b, ..acc])
+fn stack<T>(b: Box<T>, n: Int) -> List<Box<T>> {
+1..=n |> Iter.reduce(fn acc = [b], _ -> [b, ..acc])
 }
 `
 
@@ -1010,11 +1059,6 @@ func recursiveHelperCalled(src string) bool {
 func (g *gen) recursiveCall(sc []gvar) string {
 	r := g.rec
 	v := sc[r.Intn(len(sc))]
-	if hasFn(v.t) {
-		// gapListPatternOverFunctions: the helpers' list patterns over a
-		// list of functions decline.
-		v = sc[0]
-	}
 	list := "[" + v.name + ", " + v.name + "]"
 	if v.t.k == "List" && r.Intn(2) == 0 {
 		list = v.name
@@ -1051,19 +1095,19 @@ var genLeafInners = []struct {
 }{
 	{typ: "Decimal", val: func(n int) string { return fmt.Sprintf("%d.%dd", n, n+1) }},
 	{typ: "Bytes", val: func(n int) string { return fmt.Sprintf("String.to_bytes(\"b%d\")", n) }},
-	{typ: "Maybe<Byte>", val: func(n int) string { return fmt.Sprintf("Bytes.at(String.to_bytes(\"b%d\"), 0)", n) }},
+	{typ: "Maybe<Byte>", val: func(n int) string { return fmt.Sprintf("Bytes.get(String.to_bytes(\"b%d\"), 0)", n) }},
 	{typ: "Codepoint", val: func(n int) string { return fmt.Sprintf("'%c'", 'a'+rune(n%26)) }},
 	{typ: "Unit", val: func(int) string { return "Unit" }},
 	{typ: "Regex", val: func(n int) string { return fmt.Sprintf("Regex`a{%d}`", n+1) }},
 	{typ: "Duration", val: func(n int) string { return fmt.Sprintf("Duration.seconds(%d)", n) }},
 	{typ: "List<Decimal>", val: func(n int) string { return fmt.Sprintf("[%d.5d, 0.25d]", n) }},
 	{typ: "Maybe<Decimal>", val: func(n int) string { return fmt.Sprintf("Some(%d.5d)", n) }},
-	{typ: "(Decimal, Bytes)", val: func(n int) string { return fmt.Sprintf("(%d.5d, String.to_bytes(\"t\"))", n) }},
-	{typ: "Map<String, Decimal>", val: func(n int) string { return fmt.Sprintf("{\"k\" => %d.5d}", n) }},
+	{typ: "#(Decimal, Bytes)", val: func(n int) string { return fmt.Sprintf("#(%d.5d, String.to_bytes(\"t\"))", n) }},
+	{typ: "Map<String, Decimal>", val: func(n int) string { return fmt.Sprintf("%%{\"k\" => %d.5d}", n) }},
 	{typ: "Set<Decimal>", val: func(n int) string { return fmt.Sprintf("#{%d.5d}", n) }},
 	{typ: "Vector<Bytes>", val: func(n int) string { return fmt.Sprintf("#[String.to_bytes(\"v%d\")]", n) }},
 	{typ: "InnerAmount", decl: "type InnerAmount Decimal", val: func(n int) string { return fmt.Sprintf("InnerAmount(%d.5d)", n) }},
-	{typ: "(Decimal) -> Decimal", val: func(n int) string { return fmt.Sprintf("|dd: Decimal| dd + %d.5d", n) }},
+	{typ: "(Decimal) -> Decimal", val: func(n int) string { return fmt.Sprintf("fn dd: Decimal -> dd + %d.5d", n) }},
 }
 
 // leafDistinctBlock is a statement block that declares a distinct type over
@@ -1102,7 +1146,7 @@ func (g *gen) leafDistinctBlock() string {
 	}
 	fmt.Fprintf(&out, "io.inspect(case %s {\n%s(%s) -> %s\n})\n", v(0), name, v(2), show(v(2)))
 	fmt.Fprintf(&out, "%s = [%s, %s] |> Iter.map(%s) |> Iter.to_list()\n", v(3), a, b, name)
-	fmt.Fprintf(&out, "io.inspect(Iter.map(%s, |%s(%s)| %s) |> Iter.to_list())\n", v(3), name, v(4), show(v(4)))
+	fmt.Fprintf(&out, "io.inspect(Iter.map(%s, fn %s(%s) -> %s) |> Iter.to_list())\n", v(3), name, v(4), show(v(4)))
 	out.WriteString("}\n")
 	return out.String()
 }
@@ -1177,13 +1221,13 @@ func (g *gen) divergingBlock(sc []gvar) string {
 	default:
 		loopBody = "case di > " + limit + " {\nTrue -> " + leave("break di", "di") + "\nFalse -> " + leave(next, "di") + "\n}"
 	}
-	loop := "Iter.loop(|di = 0| {\n" + loopBody + "\n})"
+	loop := "Iter.loop(fn di = 0 -> {\n" + loopBody + "\n})"
 	xs := "[1, 2, 3]"
 	switch r.Intn(9) {
 	case 7:
 		// The other callback positions: find, any?, all?, drop_while,
 		// flat_map and Map.map_values.
-		pred := "|dx| case dx {\n" + arms("dx", "2", []string{"break", "break True", "break False"}[r.Intn(3)], "return dx == 1") + "}"
+		pred := "fn dx -> case dx {\n" + arms("dx", "2", []string{"break", "break True", "break False"}[r.Intn(3)], "return dx == 1") + "}"
 		switch r.Intn(6) {
 		case 0, 1, 2:
 			op := []string{"find", "any?", "all?"}[r.Intn(3)]
@@ -1191,37 +1235,786 @@ func (g *gen) divergingBlock(sc []gvar) string {
 		case 3:
 			return "{\n" + name + " = Iter.drop_while(" + xs + ", " + pred + ") |> Iter.to_list()\nio.inspect(" + name + ")\n}\n"
 		case 4:
-			cb := "|dx| case dx {\n" + arms("dx", "2", "break [dx, "+src()+"]", "return [dx, dx]") + "}"
+			cb := "fn dx -> case dx {\n" + arms("dx", "2", "break [dx, "+src()+"]", "return [dx, dx]") + "}"
 			return "{\n" + name + " = Iter.flat_map(" + xs + ", " + cb + ") |> Iter.to_list()\nio.inspect(" + name + ")\n}\n"
 		}
-		cb := "|dx| case dx {\n" + arms("dx", "2", "break dx + "+src(), "return dx * 10") + "}"
-		return "{\n" + name + " = Map.map_values({\"a\" => 1, \"b\" => 2, \"c\" => 3}, " + cb + ")\nio.inspect(" + name + ")\n}\n"
+		cb := "fn dx -> case dx {\n" + arms("dx", "2", "break dx + "+src(), "return dx * 10") + "}"
+		return "{\n" + name + " = Map.map_values(%{\"a\" => 1, \"b\" => 2, \"c\" => 3}, " + cb + ")\nio.inspect(" + name + ")\n}\n"
 	case 0, 1, 2:
 		return "{\n" + name + " = " + loop + "\nio.inspect(" + name + ")\n}\n"
 	case 3:
 		// The loop inside a lambda.
-		lam := strings.ReplaceAll(loop, "|di = 0|", "|di = dn|")
-		return "{\n" + name + " = |dn: Int| " + lam + "\nio.inspect(" + name + "(0))\n}\n"
+		lam := strings.ReplaceAll(loop, "fn di = 0 ->", "fn di = dn ->")
+		return "{\n" + name + " = fn dn: Int -> " + lam + "\nio.inspect(" + name + "(0))\n}\n"
 	case 4:
 		var cb string
 		switch r.Intn(3) {
 		case 0:
-			cb = "|dx| case dx {\n" + arms("dx", "2", "break dx + "+src(), "return dx") + "}"
+			cb = "fn dx -> case dx {\n" + arms("dx", "2", "break dx + "+src(), "return dx") + "}"
 		case 1:
-			cb = "|dx| if dx < 2 {\n" + leave("continue", "dx") + "\n} else {\n" + leave("break dx + "+src(), "dx") + "\n}"
+			cb = "fn dx -> if dx < 2 {\n" + leave("continue", "dx") + "\n} else {\n" + leave("break dx + "+src(), "dx") + "\n}"
 		default:
-			cb = "|dx| {\ndy = case dx {\n" + arms("dx", "2", "break dx", "return dx") + "}\nio.inspect(dx)\ndy\n}"
+			cb = "fn dx -> {\ndy = case dx {\n" + arms("dx", "2", "break dx", "return dx") + "}\nio.inspect(dx)\ndy\n}"
 		}
 		return "{\n" + name + " = Iter.map(" + xs + ", " + cb + ") |> Iter.to_list()\nio.inspect(" + name + ")\n}\n"
 	case 5:
-		cb := "|dx| case dx {\n" + arms("dx", "2", "break", "return dx == 1") + "}"
+		cb := "fn dx -> case dx {\n" + arms("dx", "2", "break", "return dx == 1") + "}"
 		return "{\n" + name + " = Iter.filter(" + xs + ", " + cb + ") |> Iter.to_list()\nio.inspect(" + name + ")\n}\n"
 	case 6:
-		cb := "|dx| case dx {\n" + arms("dx", "2", "break", "continue") + "}"
+		cb := "fn dx -> case dx {\n" + arms("dx", "2", "break", "continue") + "}"
 		return "{\nIter.each(" + xs + ", " + cb + ")\n}\n"
 	}
-	cb := "|dacc = " + src() + ", dx| case dx {\n" + arms("dx", "3", "break dacc + dx", "return dacc + dx") + "}"
+	cb := "fn dacc = " + src() + ", dx -> case dx {\n" + arms("dx", "3", "break dacc + dx", "return dacc + dx") + "}"
 	return "{\n" + name + " = Iter.reduce(" + xs + ", " + cb + ")\nio.inspect(" + name + ")\n}\n"
+}
+
+// genDisplayValues are concrete values of types that implement Display, as
+// functions of a small number: scalars in each register bank, a String, a
+// derived generic struct and a list.
+var genDisplayValues = []func(n int) string{
+	func(n int) string { return fmt.Sprint(n) },
+	func(n int) string { return fmt.Sprintf("\"e%d\"", n) },
+	func(n int) string { return []string{"True", "False"}[n%2] },
+	func(n int) string { return fmt.Sprintf("%d.5", n) },
+	func(n int) string { return fmt.Sprintf("Box{v: %d}", n) },
+}
+
+// erasedBlock is a statement block that stores concrete values where
+// Display's existential is expected, in every position that moves a value
+// into it: a nested fn's result and early `return`, `if` and `case` arms as
+// a result and under a binding annotation, an annotated binding, an
+// argument, a partial application's bound argument, a struct field, a
+// list's elements, a lambda's result under an annotated function type, a
+// list held as Display itself, a tuple's part, a map's values and a
+// record's field paired by `Iter.with_index`. Each value is then shown
+// through the existential. It draws from g.dyn
+// only and names from g.en, so the program around it is the one it would be
+// without it.
+func (g *gen) erasedBlock() string {
+	r := g.dyn
+	g.en++
+	name := func(s string) string { return fmt.Sprintf("%s%d", s, g.en) }
+	val := func() string { return genDisplayValues[r.Intn(len(genDisplayValues))](r.Intn(10)) }
+	show := func(e string) string { return "io.print(Display.to_string(" + e + "))\n" }
+	var out strings.Builder
+	out.WriteString("{\n")
+	switch r.Intn(13) {
+	case 9:
+		a := genDisplayValues[r.Intn(len(genDisplayValues))]
+		fmt.Fprintf(&out, "%s: Display = [%s, %s]\n", name("ev"), a(1), a(2))
+		out.WriteString(show(name("ev")))
+	case 10:
+		fmt.Fprintf(&out, "%s: #(Display, Int) = #(%s, %d)\n#(%s, %s) = %s\n", name("ev"), val(), r.Intn(10),
+			name("ea"), name("eb"), name("ev"))
+		fmt.Fprintf(&out, "io.print(\"${Display.to_string(%s)} ${Int.to_string(%s)}\")\n", name("ea"), name("eb"))
+	case 11:
+		fmt.Fprintf(&out, "%s: Map<String, Display> = Map.put(Map.put(Map.empty(), \"a\", %s), \"b\", %s)\n", name("ev"), val(), val())
+		fmt.Fprintf(&out, "io.print(Map.values(%s) |> Iter.map(Display.to_string) |> String.join(\",\"))\n", name("ev"))
+	case 12:
+		fmt.Fprintf(&out, "%s: Display = %s\n%s = [{n: 1, d: %s}]\n", name("ed"), val(), name("ev"), name("ed"))
+		fmt.Fprintf(&out, "io.print(%s |> Iter.with_index() |> Iter.map(fn #(i, x) -> \"${Int.to_string(i)}:${Display.to_string(x.d)}\") |> String.join(\",\"))\n", name("ev"))
+	case 0:
+		fmt.Fprintf(&out, "fn %s() -> Display {\n%s\n}\n", name("er"), val())
+		out.WriteString(show(name("er") + "()"))
+	case 1:
+		fmt.Fprintf(&out, "fn %s(c: Bool) -> Display {\nif c {\nreturn %s\n}\n%s\n}\n", name("er"), val(), val())
+		out.WriteString(show(name("er") + "(" + g.boolLitFrom(r) + ")"))
+	case 2:
+		a, b := genDisplayValues[r.Intn(len(genDisplayValues))], r.Intn(10)
+		fmt.Fprintf(&out, "fn %s(c: Bool) -> Display {\nif c { %s } else { %s }\n}\n", name("er"), a(b), a(b+1))
+		out.WriteString(show(name("er") + "(" + g.boolLitFrom(r) + ")"))
+	case 3:
+		a := genDisplayValues[r.Intn(len(genDisplayValues))]
+		fmt.Fprintf(&out, "%s: Display = case %d {\n0 -> %s\n_ -> %s\n}\n", name("ev"), r.Intn(2), a(1), a(2))
+		out.WriteString(show(name("ev")))
+	case 4:
+		a := genDisplayValues[r.Intn(len(genDisplayValues))]
+		fmt.Fprintf(&out, "%s: Display = if %s { %s } else { %s }\n", name("ev"), g.boolLitFrom(r), a(3), a(4))
+		out.WriteString(show(name("ev")))
+	case 5:
+		fmt.Fprintf(&out, "fn %s(d: Display, n: Int) -> String {\n\"${Display.to_string(d)}/${Int.to_string(n)}\"\n}\n", name("ef"))
+		if r.Intn(2) == 0 {
+			fmt.Fprintf(&out, "io.print(%s(%s, 1))\n", name("ef"), val())
+		} else {
+			fmt.Fprintf(&out, "%s = %s(%s, _)\nio.print(%s(2))\n", name("ep"), name("ef"), val(), name("ep"))
+		}
+	case 6:
+		fmt.Fprintf(&out, "struct %s {\nd: Display\n}\n", name("Held"))
+		fmt.Fprintf(&out, "%s = %s{d: %s}\n", name("ev"), name("Held"), val())
+		out.WriteString(show(name("ev") + ".d"))
+	case 7:
+		fmt.Fprintf(&out, "%s: List<Display> = [%s, %s]\n", name("ev"), val(), val())
+		fmt.Fprintf(&out, "io.print(%s |> Iter.map(Display.to_string) |> String.join(\",\"))\n", name("ev"))
+	default:
+		a := genDisplayValues[r.Intn(len(genDisplayValues))]
+		fmt.Fprintf(&out, "%s: (Bool) -> Display = fn c -> if c { %s } else { %s }\n", name("ev"), a(5), a(6))
+		out.WriteString(show(name("ev") + "(" + g.boolLitFrom(r) + ")"))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
+// fixedKindBlock is a statement block that writes a value where its type
+// is already fixed by what surrounds it: an empty list literal after or
+// before a typed one (a lambda's and a nested fn's returns, a recursive
+// nested fn's tail, `break` in an `Iter.map` callback, `break`, `return`
+// and the tail of an `Iter.loop` over `List<Int>` state, a tuple compared
+// with another, a generic struct's field), or a value of an embedded type
+// where its embedding enum's `Iter` is expected (an annotated binding, a
+// distinct tuple's payload, a field default, a spread, `Struct.update`, a
+// Vector's elements, and Captured holding the embedded type). It draws
+// from g.fix only and names from g.fn, so the program around it is the one
+// it would be without it.
+func (g *gen) fixedKindBlock() string {
+	r := g.fix
+	g.fn++
+	name := func(s string) string { return fmt.Sprintf("%s%d", s, g.fn) }
+	n := r.Intn(4)
+	var out strings.Builder
+	out.WriteString("{\n")
+	fig, pt, fc := name("Fig"), name("Fig")+"."+name("Pt"), name("fc")
+	embeds := func() {
+		fmt.Fprintf(&out, "struct %s {\nr: Int\n}\n", name("Ring"))
+		fmt.Fprintf(&out, "enum %s {\nembeds %s\n%s\n}\n", fig, name("Ring"), name("Pt"))
+		fmt.Fprintf(&out, "%s = %s{r: %d}\n", fc, name("Ring"), n)
+	}
+	switch r.Intn(12) {
+	case 0:
+		fmt.Fprintf(&out, "%s = fn x: Int -> {\nif x > 1 {\nreturn []\n}\nif x < 1 {\nreturn [x]\n}\n[x, x]\n}\n", name("fl"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("fl"), n)
+	case 1:
+		fmt.Fprintf(&out, "fn %s(x: Int) -> List<Int> {\nif x > 1 {\nreturn [x]\n}\n[]\n}\n", name("fe"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("fe"), n)
+	case 2:
+		fmt.Fprintf(&out, "fn %s(x: Int) -> List<Int> {\nif x > 0 {\nio.inspect(%s(x - 1))\n}\n[]\n}\n", name("fr"), name("fr"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("fr"), n)
+	case 3:
+		fmt.Fprintf(&out, "%s = [1, 2, 3]\n|> Iter.map(fn x -> {\nif x > %d {\nbreak []\n}\nif x > 1 {\nbreak [x]\n}\n[x, x]\n})\n|> Iter.to_list()\n", name("fm"), n)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("fm"))
+	case 4:
+		exits := []string{"break []", "return []", "break acc"}
+		fmt.Fprintf(&out, "%s = Iter.loop(fn acc: List<Int> = [1] -> {\nif Iter.count(acc) > %d {\nbreak []\n}\nif Iter.count(acc) == 0 {\n%s\n}\n[1, ..acc]\n})\n", name("fo"), n, exits[r.Intn(len(exits))])
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("fo"))
+	case 5:
+		rhs := []string{"[]", fmt.Sprintf("[%d]", n)}[r.Intn(2)]
+		fmt.Fprintf(&out, "io.print(#(%d, []) == #(%d, %s))\n", n, n, rhs)
+	case 6:
+		fmt.Fprintf(&out, "%s: Captured<List<Int>> = Captured{value: [], output: \"\", transcript: \"\"}\n", name("fk"))
+		fmt.Fprintf(&out, "io.inspect(%s.value)\n", name("fk"))
+	case 7:
+		embeds()
+		fmt.Fprintf(&out, "%s: Iter<%s> = [%s, %s]\n", name("fi"), fig, fc, pt)
+		fmt.Fprintf(&out, "io.print(Iter.count(%s))\n", name("fi"))
+	case 8:
+		embeds()
+		fmt.Fprintf(&out, "type %s #(Iter<%s>, Int)\n", name("Pair"), fig)
+		fmt.Fprintf(&out, "%s(%s, %s) = %s([%s], %d)\n", name("Pair"), name("fi"), name("fq"), name("Pair"), fc, n)
+		fmt.Fprintf(&out, "io.print(Iter.count(%s) + %s)\n", name("fi"), name("fq"))
+	case 9:
+		embeds()
+		fmt.Fprintf(&out, "struct %s {\nit: Iter<%s> = [%s{r: 1}]\nn: Int = 0\n}\n", name("Held"), fig, name("Ring"))
+		fmt.Fprintf(&out, "%s = %s{}\n", name("fh"), name("Held"))
+		switch r.Intn(3) {
+		case 0:
+			fmt.Fprintf(&out, "%s = {..%s, it: [%s, %s]}\n", name("fg"), name("fh"), fc, fc)
+		case 1:
+			fmt.Fprintf(&out, "%s = Struct.update(updates: {it: [%s, %s]}, original: %s)\n", name("fg"), fc, fc, name("fh"))
+		default:
+			fmt.Fprintf(&out, "%s = %s{it: [%s], n: Iter.count(%s.it)}\n", name("fg"), name("Held"), fc, name("fh"))
+		}
+		fmt.Fprintf(&out, "io.print(Iter.count(%s.it))\n", name("fg"))
+	case 10:
+		embeds()
+		if r.Intn(2) == 0 {
+			fmt.Fprintf(&out, "%s: Vector<Iter<%s>> = #[[%s], [%s, %s]]\n", name("fv"), fig, fc, pt, fc)
+		} else {
+			fmt.Fprintf(&out, "%s: Vector<Captured<%s>> = #[Captured{value: %s, output: \"\", transcript: \"\"}]\n", name("fv"), fig, fc)
+		}
+		fmt.Fprintf(&out, "io.print(Vector.length(%s))\n", name("fv"))
+	default:
+		fmt.Fprintf(&out, "%s: Vector<Iter<Int>> = #[[%d], [1, 2]]\n", name("fv"), n)
+		fmt.Fprintf(&out, "io.print(%s |> Iter.map(Iter.count) |> Iter.reduce(fn t = 0, c -> t + c))\n", name("fv"))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
+// genIterDecls are the file-level declarations iterBlock's user sources
+// read: a user Iter source that writes its own known_count, and a distinct
+// with its own Discrete impl, one that counts and one that leaves
+// steps_between to the default. Written only when a block names them.
+const genIterDecls = `struct ItPair {
+    a: Int
+    b: Int
+}
+
+impl Iter for ItPair {
+    fn each_while(p: ItPair, yield: (Int) -> Bool) -> Bool {
+        if yield(p.a) { yield(p.b) } else { False }
+    }
+
+    fn known_count(_p: ItPair) -> Maybe<Int> {
+        Some(2)
+    }
+}
+
+type ItId Int
+
+derive Equatable for ItId
+derive Comparable for ItId
+
+impl Discrete for ItId {
+    fn next(ItId(n)) -> Maybe<ItId> {
+        Some(ItId(n + 1))
+    }
+
+    fn steps_between(ItId(a), ItId(b)) -> Maybe<Int> {
+        Some(b - a)
+    }
+}
+
+type ItLap Int
+
+derive Equatable for ItLap
+derive Comparable for ItLap
+
+impl Discrete for ItLap {
+    fn next(ItLap(n)) -> Maybe<ItLap> {
+        if n >= 9 { None } else { Some(ItLap(n + 1)) }
+    }
+}
+`
+
+// iterBlock is a statement block over iteration and containers of function
+// values: a list of lambdas through every Iter stage that builds a
+// container or a tuple from it (concat, zip, chunks, flatten, flat_map,
+// to_vector, to_map, group_by, repeat, iterate) and a list pattern over
+// one; vector and map literals of lambdas; flat_map and flatten over a
+// String, Range, Set or Vector inner part; a user source with its own
+// known_count and a Range over a user Discrete type (genIterDecls); a
+// Range's own members, ranges as set elements and a Bool range; Iter.loop
+// over a function state, an if-pattern tail and a defaulted parameter;
+// and an empty Set or Vector passed as an Iter. It draws from g.itr only
+// and names from g.itn, so the program around it is the one it would be
+// without it.
+func (g *gen) iterBlock() string {
+	r := g.itr
+	g.itn++
+	name := func(s string) string { return fmt.Sprintf("%s%d", s, g.itn) }
+	a, b, k := 1+r.Intn(5), 2+r.Intn(4), r.Intn(4)
+	fs := name("it")
+	lambdas := fmt.Sprintf("[fn x: Int -> x + %d, fn x: Int -> x * %d]", a, b)
+	apply := func(src string) string {
+		return fmt.Sprintf("io.inspect(%s |> Iter.map(fn f -> f(%d)) |> Iter.to_list())\n", src, k)
+	}
+	var out strings.Builder
+	out.WriteString("{\n")
+	switch r.Intn(10) {
+	case 0:
+		sub := r.Intn(10)
+		if sub != 4 && sub != 8 && sub != 9 {
+			fmt.Fprintf(&out, "%s = %s\n", fs, lambdas)
+		}
+		switch sub {
+		case 0:
+			out.WriteString(apply(fmt.Sprintf("Iter.concat(%s, %s)", fs, fs)))
+		case 1:
+			fmt.Fprintf(&out, "io.inspect(Iter.zip([%d, %d], %s) |> Iter.map(fn #(n, f) -> f(n)) |> Iter.to_list())\n", a, b, fs)
+		case 2:
+			fmt.Fprintf(&out, "io.inspect(Iter.chunks(%s, %d) |> Iter.map(fn c -> Iter.count(c)) |> Iter.to_list())\n", fs, 1+r.Intn(2))
+		case 3:
+			out.WriteString(apply(fmt.Sprintf("Iter.flatten([%s, %s])", fs, fs)))
+		case 4:
+			out.WriteString(apply(fmt.Sprintf("[%d, %d] |> Iter.flat_map(fn n -> [fn y: Int -> y + n])", a, b)))
+		case 5:
+			fmt.Fprintf(&out, "%s = Iter.to_vector(%s)\nio.inspect(Vector.length(%s))\n", name("iv"), fs, name("iv"))
+			out.WriteString(apply(name("iv")))
+		case 6:
+			fmt.Fprintf(&out, "%s = Iter.to_map(Iter.with_index(%s))\nio.inspect(Map.keys(%s))\n", name("im"), fs, name("im"))
+		case 7:
+			fmt.Fprintf(&out, "io.inspect(Map.keys(Iter.group_by(%s, fn f -> f(%d) %% 2)))\n", fs, k)
+		case 8:
+			out.WriteString(apply(fmt.Sprintf("Iter.repeat(fn x: Int -> x + %d) |> Iter.take(%d)", a, 1+k)))
+		default:
+			out.WriteString(apply(fmt.Sprintf("Iter.iterate(fn x: Int -> x, fn f -> fn x: Int -> f(x) + %d) |> Iter.take(%d)", a, 1+k)))
+		}
+	case 1:
+		fmt.Fprintf(&out, "%s = %s\n", fs, lambdas)
+		fmt.Fprintf(&out, "case %s {\n[] -> io.inspect(0)\n[f, .._] -> io.inspect(f(%d))\n}\n", fs, k)
+		fmt.Fprintf(&out, "%s = #[fn x: Int -> x + %d, fn x: Int -> x * %d]\n", name("iv"), a, b)
+		fmt.Fprintf(&out, "case Vector.get(%s, 1) {\nSome(f) -> io.inspect(f(%d))\nNone -> io.inspect(0)\n}\n", name("iv"), k)
+		fmt.Fprintf(&out, "%s = %%{\"a\" => fn x: Int -> x + %d}\n", name("im"), a)
+		fmt.Fprintf(&out, "case Map.get(%s, \"a\") {\nSome(f) -> io.inspect(f(%d))\nNone -> io.inspect(0)\n}\n", name("im"), k)
+	case 2:
+		inner := []string{
+			`fn s -> s`,
+			fmt.Sprintf(`fn s -> 1..String.length(s) + %d`, k),
+			`fn s -> #{s}`,
+			`fn s -> #[s, s]`,
+		}[r.Intn(4)]
+		fmt.Fprintf(&out, "io.inspect([\"ab\", \"c\"] |> Iter.flat_map(%s) |> Iter.to_list())\n", inner)
+		flat := []string{`["ab", "c"]`, fmt.Sprintf("[1..%d, %d..=%d]", a, b, b+k), fmt.Sprintf("[#{%d}, #{%d}]", a, b), fmt.Sprintf("#[#[%d], #[%d, %d]]", a, b, k)}[r.Intn(4)]
+		fmt.Fprintf(&out, "io.inspect(Iter.flatten(%s))\n", flat)
+	case 3:
+		fmt.Fprintf(&out, "%s = ItPair{a: %d, b: %d}\n", name("ip"), a, b)
+		fmt.Fprintf(&out, "fn %s(xs: Iter<Int>) -> Int {\nIter.count(xs)\n}\n", name("tot"))
+		fmt.Fprintf(&out, "io.inspect(%s(%s))\n", name("tot"), name("ip"))
+		fmt.Fprintf(&out, "io.inspect(Iter.known_count(%s))\n", name("ip"))
+		fmt.Fprintf(&out, "io.inspect(%s |> Iter.map(fn x -> x + %d) |> Iter.to_list())\n", name("ip"), k)
+	case 4:
+		fmt.Fprintf(&out, "%s = ItId(%d)..ItId(%d)\n", name("ir"), a, a+b)
+		fmt.Fprintf(&out, "io.inspect(%s |> Iter.map(fn ItId(n) -> n) |> Iter.to_list())\n", name("ir"))
+		fmt.Fprintf(&out, "io.inspect(Iter.known_count(%s))\n", name("ir"))
+		fmt.Fprintf(&out, "io.inspect(Iter.zip([%d], %s) |> Iter.count())\n", k, name("ir"))
+		fmt.Fprintf(&out, "io.inspect(Iter.known_count(ItLap(%d)..ItLap(%d)))\n", a, a+k)
+		fmt.Fprintf(&out, "io.inspect(ItLap(%d)..=ItLap(%d) |> Iter.count())\n", a, a+k)
+	case 5:
+		fmt.Fprintf(&out, "io.print(Range.to_string(%d..%d))\n", a, a+b)
+		fmt.Fprintf(&out, "io.print(Range.inspect(%d..=%d))\n", a, a+b)
+		fmt.Fprintf(&out, "io.inspect(Range.known_count(%d..%d))\n", a, a+b)
+		fmt.Fprintf(&out, "io.inspect(Range.each_while(%d..=%d, fn n -> n < %d))\n", a, a+b, a+k)
+		fmt.Fprintf(&out, "io.inspect(Iter.to_set([%d..%d, %d..%d]))\n", a, b, a, b)
+		fmt.Fprintf(&out, "io.inspect(Range.contains?(False..=True, %s))\n", g.boolLitFrom(r))
+	case 6:
+		fmt.Fprintf(&out, "%s = Iter.loop(fn g = fn x: Int -> x -> {\nif g(0) > %d { break g }\nfn x: Int -> g(x) + 1\n})\nio.inspect(%s(%d))\n", name("il"), k, name("il"), a)
+	case 7:
+		fmt.Fprintf(&out, "%s: Maybe<Int> = Some(%d)\n", name("io"), a)
+		fmt.Fprintf(&out, "io.inspect(Iter.loop(fn n = 0 -> {\nif n > %d { break n }\nif Some(v) = %s { n + v } else { n + 1 }\n}))\n", b+k, name("io"))
+		fmt.Fprintf(&out, "io.inspect(Iter.loop(fn n = 0, step = %d -> {\nif n > %d { break n }\nn + step\n}))\n", a, b+k)
+	case 8:
+		fmt.Fprintf(&out, "fn %s(xs: Iter<Int>) -> Int {\nIter.count(xs)\n}\n", name("tot"))
+		fmt.Fprintf(&out, "io.inspect(%s(#{}))\nio.inspect(%s(#[]))\nio.inspect(%s(#{%d, %d}))\n", name("tot"), name("tot"), name("tot"), a, a+10)
+	default:
+		fmt.Fprintf(&out, "%s = %s\n", fs, lambdas)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", fs)
+		out.WriteString(apply(fmt.Sprintf("[fn x: Int -> x, ..%s]", fs)))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
+// patternBlock is a statement block that declares a distinct type over a
+// tuple, and over a list or a map, and an enum that holds one, and matches
+// them as sub-patterns: inside a tuple pattern in a `case`, a destructuring
+// binding and a binding `else`, in a variant's payload, struct field and
+// `as` pattern, and a list or map pattern through the distinct, bare or by
+// its name. Or it declares an enum and a `typealias` of it, and builds and
+// matches its variants through the alias, with a record pattern over a
+// struct-shaped variant's payload (`.Rec({w, h})`). Or it matches a string
+// prefix, by `assert pattern = value` in a test (inTest) and by a `case`
+// elsewhere. Or it rebinds a name through a distinct destructure and a
+// function value through a tuple destructure, or reads a function-typed
+// field off an enum value and calls it. It draws from g.pat
+// only and names from g.pn, so the program around it is the one it would
+// be without it.
+func (g *gen) patternBlock(inTest bool) string {
+	r := g.pat
+	g.pn++
+	name := func(s string) string { return fmt.Sprintf("%s%d", s, g.pn) }
+	pair := name("Pr")
+	a, b := r.Intn(4), r.Intn(4)
+	str := []string{`"a"`, `"b"`}[r.Intn(2)]
+	var out strings.Builder
+	out.WriteString("{\n")
+	shape := r.Intn(10)
+	if shape < 4 {
+		fmt.Fprintf(&out, "type %s #(Int, String)\n", pair)
+	}
+	switch shape {
+	case 0:
+		fmt.Fprintf(&out, "%s = #(%s(%d, %s), %d)\n", name("pv"), pair, a, str, b)
+		fmt.Fprintf(&out, "io.inspect(case %s {\n(%s(%d, \"a\"), _) -> 1\n(%s(n, _), %d) -> n\n_ -> 0\n})\n",
+			name("pv"), pair, r.Intn(4), pair, r.Intn(4))
+	case 1:
+		fmt.Fprintf(&out, "#(%s(%s, _), %s) = #(%s(%d, %s), %d)\n", pair, name("px"), name("py"), pair, a, str, b)
+		fmt.Fprintf(&out, "io.inspect(%s + %s)\n", name("px"), name("py"))
+	case 2:
+		fmt.Fprintf(&out, "fn %s(m: Maybe<#(%s, Int)>) -> Int {\nSome(#(%s(x, _), %d)) = m else { return -1 }\nx\n}\n",
+			name("pf"), pair, pair, r.Intn(3))
+		fmt.Fprintf(&out, "io.inspect(%s(Some(#(%s(%d, %s), %d))))\nio.inspect(%s(None))\n",
+			name("pf"), pair, a, str, r.Intn(3), name("pf"))
+	case 3:
+		en := name("Pe")
+		fmt.Fprintf(&out, "enum %s {\nRec {p: %s}\nDist %s\nTp #(%s, Int)\nNope\n}\n", en, pair, pair, pair)
+		vals := []string{
+			fmt.Sprintf("%s.Rec{p: %s(%d, %s)}", en, pair, a, str),
+			fmt.Sprintf("%s.Dist(%s(%d, %s))", en, pair, a, str),
+			fmt.Sprintf("%s.Tp(#(%s(%d, %s), %d))", en, pair, a, str, b),
+			en + ".Nope",
+		}
+		fmt.Fprintf(&out, "%s = %s\nio.inspect(case %s {\n.Rec{p: %s(n, \"a\")} -> n\n.Dist(%s(n, _) as _w) -> n + 10\n.Tp((%s(n, _), m)) -> n + m\n_ -> 0\n})\n",
+			name("pe"), vals[r.Intn(len(vals))], name("pe"), pair, pair, pair)
+	case 4:
+		stack := name("Stk")
+		fmt.Fprintf(&out, "type %s List<Int>\n", stack)
+		head := "[h, .._]"
+		if r.Intn(2) == 0 {
+			head = stack + head
+		}
+		fmt.Fprintf(&out, "%s = {r: %d, q: %s([%d, %d])}\nio.inspect(case %s {\n{q: %s} -> h\n_ -> 0\n})\n", name("pr"), a, stack, b, a, name("pr"), head)
+		fmt.Fprintf(&out, "io.inspect(case %s([%d]) {\n%s -> h\n_ -> 0\n})\n", stack, b, head)
+	case 6:
+		en, alias := name("Pa"), name("PaAlias")
+		fmt.Fprintf(&out, "enum %s {\nNum Int\nRec {w: Int, h: Int}\nDot\n}\ntypealias %s %s\n", en, alias, en)
+		vals := []string{
+			fmt.Sprintf("%s.Num(%d)", alias, a),
+			fmt.Sprintf("%s.Rec{w: %d, h: %d}", alias, a, b),
+			alias + ".Dot",
+		}
+		fmt.Fprintf(&out, "%s: %s = %s\nio.inspect(case %s {\n%s.Num(n) -> n\n.Rec({w: %d, h}) -> h + 100\n%s.Rec{w, h} -> w * h\n%s.Dot -> -1\n})\n",
+			name("pa"), en, vals[r.Intn(len(vals))], name("pa"), alias, r.Intn(4), alias, alias)
+	case 9:
+		en := name("Pop")
+		fmt.Fprintf(&out, "enum %s {\nUn {f: (Int) -> Int, k: Int}\nBi {f: (Int) -> Int, k: Int, m: Int}\nNo\n}\n", en)
+		vals := []string{
+			fmt.Sprintf("%s.Un{f: fn x -> x + %d, k: %d}", en, a, b),
+			fmt.Sprintf("%s.Bi{f: fn x -> x * %d, k: %d, m: 1}", en, a, b),
+		}
+		fmt.Fprintf(&out, "%s = %s\n%s = %s.f\nio.inspect(%s(%s.k))\n", name("po"), vals[r.Intn(len(vals))], name("pg"), name("po"), name("pg"), name("po"))
+	case 8:
+		id, f, v := name("Pid"), name("pf"), name("pn")
+		fmt.Fprintf(&out, "type %s Int\n%s = fn x: Int -> x + %d\n%s = %d\nio.inspect(%s(%s))\n%s(%s) = %s(%s + 1)\n#(%s, %s) = #(fn x: Int -> x * 2, %s)\nio.inspect(%s(%s))\n",
+			id, f, a, v, b, f, v, id, v, id, v, f, v, v, f, v)
+	case 7:
+		subject := fmt.Sprintf(`"/p/%d"`, a)
+		if inTest {
+			fmt.Fprintf(&out, "assert \"/p/\" + %s = %s\nio.inspect(%s)\n", name("ps"), subject, name("ps"))
+		} else {
+			fmt.Fprintf(&out, "io.inspect(case %s {\n\"/p/\" + %s -> %s\n_ -> \"\"\n})\n", subject, name("ps"), name("ps"))
+		}
+	default:
+		kvs := name("Kv")
+		fmt.Fprintf(&out, "type %s Map<String, Int>\n", kvs)
+		inner := `%{"a" => v}`
+		if r.Intn(2) == 0 {
+			inner = kvs + inner
+		}
+		fmt.Fprintf(&out, "%s = %%{\"k\" => %s(%%{%s => %d})}\nio.inspect(case %s {\n%%{\"k\" => %s} -> v\n_ -> 0\n})\n", name("pm"), kvs, str, a, name("pm"), inner)
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
+// callBlock is a statement block of calls placed by name, functions passed
+// as values and the sources std's concurrency functions take: named
+// arguments to the concurrency functions in any order, a named function
+// spawned as a task, and `Task.spawn_all` over each kind of Iter.
+func (g *gen) callBlock() string {
+	r := g.call
+	g.cn++
+	name := func(s string) string { return fmt.Sprintf("%s%dc", s, g.cn) }
+	n := r.Intn(4)
+	var out strings.Builder
+	out.WriteString("{\n")
+	switch r.Intn(12) {
+	case 11:
+		// A partial that leaves a slot with a computed default unmentioned,
+		// before a slot it names or after the open one.
+		fmt.Fprintf(&out, "fn %s(a: Int, b: Int = a + %d, c: Int = 0) -> Int {\na * 100 + b * 10 + c\n}\n", name("cpf"), n)
+		partials := []string{"%s(_, c: 1)", "%s(_)", "%s(c: 2, a: _)"}
+		fmt.Fprintf(&out, "%s = %s\n", name("cpg"), fmt.Sprintf(partials[r.Intn(len(partials))], name("cpf")))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("cpg"), n)
+	case 10:
+		// A typed literal whose handler answers a function.
+		if g.local {
+			break
+		}
+		g.helpers = append(g.helpers, fmt.Sprintf("type %s\n\nimpl Literal for %s {\n"+
+			"fn from_fragments(fragments: List<Fragment<Int>>) -> (Int) -> Int {\nn = Iter.count(fragments)\nfn x -> x + n\n}\n}",
+			name("Adder"), name("Adder")))
+		fmt.Fprintf(&out, "%s = %s\"a${%d}\"\n", name("cl"), name("Adder"), n)
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("cl"), n)
+	case 9:
+		// testing.check, an intrinsic with no body, as a value.
+		fmt.Fprintf(&out, "%s: (Bool) -> Result<Bool, testing.AssertionFailure> = testing.check\n", name("cck"))
+		fmt.Fprintf(&out, "io.print(Result.ok?(%s(%d > 1)))\n", name("cck"), n)
+	case 8:
+		// A function with a default named as a value: its full parameter
+		// list.
+		fmt.Fprintf(&out, "fn %s(x: Int, y: Int = %d) -> Int {\nx + y\n}\n", name("cdf"), n)
+		fmt.Fprintf(&out, "%s = %s\n", name("cdv"), name("cdf"))
+		fmt.Fprintf(&out, "io.inspect(%s(1, 2))\n", name("cdv"))
+		fmt.Fprintf(&out, "io.inspect(%s(1))\n", name("cdf"))
+	case 6:
+		// A lambda with a default, captured by another closure and called
+		// there short, by name and partially.
+		calls := []string{"%s(2)", "%s(y: 3, x: 2)", "%s(_, 3)(2)", "%s(2, _)(4)"}
+		call := fmt.Sprintf(calls[r.Intn(len(calls))], name("cf"))
+		fmt.Fprintf(&out, "%s = fn x: Int, y: Int = x + %d -> x * y\n", name("cf"), n)
+		fmt.Fprintf(&out, "%s = fn -> %s\n", name("cg"), call)
+		fmt.Fprintf(&out, "io.inspect(%s())\n", name("cg"))
+	case 7:
+		// A partial over a generic helper whose instantiation leaves a
+		// hole: the Result's error type.
+		fmt.Fprintf(&out, "%s = pick(%s, _, Some(Ok(%d)))\n", name("cp"), g.boolLitFrom(r), n)
+		fmt.Fprintf(&out, "io.inspect(%s(None))\n", name("cp"))
+	case 5:
+		// A generic helper with a destructuring parameter and a default
+		// that reads its names, called with named arguments.
+		g.helpers = append(g.helpers, fmt.Sprintf("fn %s<A, B>(#(a, b): #(A, B), keep: Bool = False, fallback: A = a) -> #(B, A) {\n"+
+			"if keep {\n#(b, fallback)\n} else {\n#(b, a)\n}\n}", name("csw")))
+		fmt.Fprintf(&out, "io.inspect(%s(keep: True, #(%d, \"x\")))\n", name("csw"), n)
+		fmt.Fprintf(&out, "io.inspect(%s(#(%d, %s), fallback: 9, keep: %s))\n", name("csw"), n, g.boolLitFrom(r), g.boolLitFrom(r))
+	case 0:
+		fmt.Fprintf(&out, "%s = concurrent {\n%s = Task.spawn(body: fn -> %d)\nTask.await(task: %s)\n}\n", name("ct"), name("tk"), n, name("tk"))
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("ct"))
+	case 1:
+		fmt.Fprintf(&out, "%s = Channel.buffered<Int>(1)\n", name("ch"))
+		if r.Intn(2) == 0 {
+			fmt.Fprintf(&out, "_ = Sender.send(value: %d, sender: %s.sender)\n", n, name("ch"))
+		} else {
+			fmt.Fprintf(&out, "_ = Sender.send(%s.sender, value: %d)\n", name("ch"), n)
+		}
+		fmt.Fprintf(&out, "io.inspect(Receiver.receive(receiver: %s.receiver))\n", name("ch"))
+	case 2:
+		fmt.Fprintf(&out, "%s = Context.with_value(value: %d, c: Context.root())\n", name("cx"), n)
+		fmt.Fprintf(&out, "io.inspect(Context.value(value_type: Int, c: %s))\n", name("cx"))
+	case 3:
+		fmt.Fprintf(&out, "fn %s() -> Int {\n%d\n}\n", name("cw"), n)
+		fmt.Fprintf(&out, "%s = concurrent {\nTask.await(Task.spawn(%s))\n}\n", name("ct"), name("cw"))
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("ct"))
+	default:
+		sources := []string{fmt.Sprintf("#[%d, 2]", n), fmt.Sprintf("#{%d}", n), fmt.Sprintf("1..=%d", n+1),
+			fmt.Sprintf("[%d] |> Iter.map(fn x: Int -> x + 1)", n), fmt.Sprintf("[%d]", n)}
+		fmt.Fprintf(&out, "fn %s(x: Int) -> Int {\nx * 2\n}\n", name("cd"))
+		fmt.Fprintf(&out, "%s = concurrent {\nTask.await_all(Task.spawn_all(%s, %s, max_running: %d))\n}\n",
+			name("ct"), sources[r.Intn(len(sources))], name("cd"), n+1)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("ct"))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
+// leaveBlock writes a block whose code the IR builder once declined for
+// engineering reasons alone: an `and` or `or` whose right operand leaves (a
+// block ending in `return`, `break` or `continue`, a `case` or `if` every
+// arm of which leaves, in parentheses, under `!` or as a call's argument,
+// a failing `try`), a nested fn's destructuring parameter, and a
+// `Struct.update` patch that is a value rather than a literal, and a
+// partial whose open slot has a computed default, and a Context value keyed
+// by a std type with an rt Go type, list patterns over `[]` and of a suffix
+// alone, and a value of a block-local type escaping its block.
+func (g *gen) leaveBlock() string {
+	r := g.leave
+	g.ln++
+	name := func(s string) string { return fmt.Sprintf("%s%dl", s, g.ln) }
+	n := r.Intn(5)
+	op, other := "and", "or"
+	if r.Intn(2) == 0 {
+		op, other = "or", "and"
+	}
+	// leaving is a right operand that leaves the fn whose result is res,
+	// with x an Int in scope.
+	leaving := func(res string) string {
+		ret := map[string]string{"Bool": "True", "Int": fmt.Sprint(n), "String": `"left"`}[res]
+		switch r.Intn(5) {
+		case 0:
+			return "{\nreturn " + ret + "\n}"
+		case 1:
+			return fmt.Sprintf("case x {\n%d -> return %s\n_ -> return %s\n}", n, ret, ret)
+		case 2:
+			return fmt.Sprintf("(if x > %d { return %s } else { return %s })", n, ret, ret)
+		case 3:
+			return fmt.Sprintf("!case x {\n%d -> return %s\n_ -> return %s\n}", n, ret, ret)
+		}
+		return fmt.Sprintf("Debug.inspect(case x {\n%d -> return %s\n_ -> return %s\n}) == \"True\"", n, ret, ret)
+	}
+	var out strings.Builder
+	out.WriteString("{\n")
+	switch r.Intn(10) {
+	case 9:
+		// A value of a block-local type, generic or not, escaping the
+		// block that declares it.
+		if r.Intn(2) == 0 {
+			fmt.Fprintf(&out, "%s = {\nstruct %s {\nn: Int\n}\n%s{n: %d}\n}\n", name("lb"), name("Lk"), name("Lk"), n)
+		} else {
+			fmt.Fprintf(&out, "%s = {\nstruct %s<T> {\nn: T\n}\n%s{n: %d}\n}\n", name("lb"), name("Lk"), name("Lk"), n)
+		}
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("lb"))
+		fmt.Fprintf(&out, "io.inspect(%s.n + 1)\n", name("lb"))
+	case 8:
+		// A list pattern over the untyped `[]`, and one that is only a
+		// suffix.
+		heads := []string{"[_]", "[_, .._]", "[_, _]"}
+		fmt.Fprintf(&out, "io.inspect(case [] {\n%s -> %d\n_ -> %d\n})\n", heads[r.Intn(3)], n, n+1)
+		fmt.Fprintf(&out, "io.inspect(case [%d, %d] {\n[_, _, _] -> 0\n[..%s] -> Iter.count(%s)\n})\n", n, n+1, name("lr"), name("lr"))
+	case 7:
+		// A Context value keyed by std's rt-backed Duration or Codepoint.
+		vals := [][2]string{{fmt.Sprintf("Duration.seconds(%d)", n), "Duration"}, {"'c'", "Codepoint"}}
+		v := vals[r.Intn(2)]
+		fmt.Fprintf(&out, "%s = Context.with_value(Context.root(), %s)\n", name("lx"), v[0])
+		fmt.Fprintf(&out, "io.inspect(Context.value(%s, %s))\n", name("lx"), v[1])
+		fmt.Fprintf(&out, "io.inspect(Context.value(Context.root(), %s))\n", v[1])
+	case 6:
+		// A partial whose open slot has a computed default, over a nested
+		// fn, called omitting the slot and giving it.
+		fmt.Fprintf(&out, "fn %s(a: Int, b: Int = a * %d + 1) -> Int {\na + b\n}\n", name("lo"), n)
+		fmt.Fprintf(&out, "%s = %s(%d, _)\n", name("lq"), name("lo"), r.Intn(9))
+		fmt.Fprintf(&out, "io.inspect(%s())\n", name("lq"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lq"), r.Intn(9))
+	case 5:
+		// A Struct.update patch held in a binding or answered by a call.
+		fmt.Fprintf(&out, "struct %s {\nname: String\nage: Int\n}\n", name("Lu"))
+		fmt.Fprintf(&out, "%s = %s{name: \"n\", age: %d}\n", name("lu"), name("Lu"), n)
+		patches := []string{"{age: %d}", "{name: \"p\", age: %d}"}
+		fmt.Fprintf(&out, "%s = %s\n", name("lp"), fmt.Sprintf(patches[r.Intn(2)], r.Intn(9)))
+		if r.Intn(2) == 0 {
+			fmt.Fprintf(&out, "io.inspect(Struct.update(%s, %s))\n", name("lu"), name("lp"))
+		} else {
+			fmt.Fprintf(&out, "io.inspect(Struct.update(updates: %s, original: %s))\n", name("lp"), name("lu"))
+		}
+	case 0:
+		res := []string{"Bool", "Int", "String"}[r.Intn(3)]
+		answer := map[string]string{"Bool": "b", "Int": "if b { 1 } else { 2 }", "String": `"${b}"`}[res]
+		fmt.Fprintf(&out, "fn %s(x: Int) -> %s {\nb = x > %d %s %s\n%s\n}\n", name("lf"), res, n, op, leaving(res), answer)
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lf"), n+r.Intn(3)-1)
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lf"), r.Intn(7)-1)
+	case 1:
+		// A chain whose last operand leaves.
+		fmt.Fprintf(&out, "fn %s(x: Int, y: Bool) -> String {\nb = x > %d %s y %s %s\n\"${b}\"\n}\n",
+			name("lc"), n, other, op, leaving("String"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d, %s))\n", name("lc"), r.Intn(7)-1, g.boolLitFrom(r))
+	case 2:
+		// `continue` and `break` in an Iter.map callback.
+		fmt.Fprintf(&out, "%s = Iter.map([1, 2, 3, 4, 5, 6], fn x -> {\n_ = x != %d or {\ncontinue\n}\n_ = x < %d or {\nbreak\n}\nx * 10\n}) |> Iter.to_list()\n",
+			name("lm"), n+1, n+2+r.Intn(3))
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("lm"))
+	case 3:
+		// A `try` that fails as the right operand.
+		fmt.Fprintf(&out, "fn %s(x: Int) -> Result<Int, String> {\nif x %% 2 == 0 { Ok(x) } else { Err(\"odd ${x}\") }\n}\n", name("lh"))
+		fmt.Fprintf(&out, "fn %s(x: Int) -> Result<Bool, String> {\nOk(x > %d %s try %s(x) > 0)\n}\n", name("lt"), n, op, name("lh"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lt"), r.Intn(7)-1)
+	default:
+		// A nested fn's destructuring parameter.
+		fmt.Fprintf(&out, "fn %s(#(a, b): #(Int, String)) -> String {\n\"${b}${a + %d}\"\n}\n", name("ld"), n)
+		fmt.Fprintf(&out, "io.inspect(%s(#(%d, \"d\")))\n", name("ld"), r.Intn(9))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
+// holdBlock writes a block over values a container or a variant holds:
+// a variant whose payload has one value (Unit, a marker), a Range in a
+// Maybe, a map of Iters, ChannelClosed inspected, a record hashed,
+// `Equatable.equal?` over tuples through a bound, and a partial that leaves
+// a defaulted slot open, passed through a generic call.
+// boundedBlockStart and boundedBlockEnd fence a block whose loops,
+// ranges, spreads and recursion are bounded by construction (erasedBlock,
+// fixedKindBlock, iterBlock, patternBlock, callBlock, holdBlock), so
+// TestRunInputClassifies can leave it out when it checks that the rest of
+// a generated program writes no loop.
+const (
+	boundedBlockStart = "// bounded block"
+	boundedBlockEnd   = "// end bounded block"
+)
+
+func boundedBlock(block string) string {
+	return boundedBlockStart + "\n" + block + boundedBlockEnd + "\n"
+}
+
+func (g *gen) holdBlock() string {
+	r := g.hold
+	g.hn++
+	name := func(s string) string { return fmt.Sprintf("%s%dh", s, g.hn) }
+	n := r.Intn(5)
+	var out strings.Builder
+	out.WriteString("{\n")
+	switch r.Intn(7) {
+	case 0:
+		if g.local {
+			break
+		}
+		g.helpers = append(g.helpers, fmt.Sprintf("type %s\n\nderive Equatable for %s\n\n"+
+			"enum %s {\n%s\nMarked(%s)\nPinged(Unit)\nTagged {m: %s, n: Int}\n}\n\nderive Equatable for %s",
+			name("Mk"), name("Mk"), name("Kd"), name("Plain"), name("Mk"), name("Mk"), name("Kd")))
+		vals := []string{
+			fmt.Sprintf("%s.Marked(%s)", name("Kd"), name("Mk")), fmt.Sprintf("%s.Pinged(Unit)", name("Kd")),
+			fmt.Sprintf("%s.Tagged{m: %s, n: %d}", name("Kd"), name("Mk"), n), fmt.Sprintf("%s.%s", name("Kd"), name("Plain")),
+		}
+		v := vals[r.Intn(len(vals))]
+		fmt.Fprintf(&out, "%s = %s\n", name("hv"), v)
+		fmt.Fprintf(&out, "%s = [#(%s, %d)]\n", name("hk"), name("hv"), n)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("hk"))
+		fmt.Fprintf(&out, "io.inspect(%s == %s)\n", name("hv"), vals[r.Intn(len(vals))])
+		fmt.Fprintf(&out, "io.print(case %s {\n%s.Pinged(u) -> Debug.inspect(u)\n%s.Marked(m) -> Debug.inspect(m)\n_ -> \"other\"\n})\n",
+			name("hv"), name("Kd"), name("Kd"))
+	case 1:
+		// A Range spelled without `..`, which mayLoop reads as a loop.
+		fmt.Fprintf(&out, "%s = Some(Range.from(%d))\n", name("hr"), n)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("hr"))
+		fmt.Fprintf(&out, "io.inspect(%s == Some(Range.from(%d)))\n", name("hr"), n+r.Intn(2))
+	case 2:
+		fmt.Fprintf(&out, "%s: Map<String, Iter<Int>> = %%{\"a\" => [%d, 2] |> Iter.map(fn x: Int -> x + 1)}\n", name("hm"), n)
+		fmt.Fprintf(&out, "io.inspect(Map.get(%s, \"a\") |> Maybe.map(fn it: Iter<Int> -> Iter.to_list(it)))\n", name("hm"))
+	case 3:
+		fmt.Fprintf(&out, "%s: Result<Unit, ChannelClosed> = %s\n", name("hc"), []string{"Ok(Unit)", "Err(ChannelClosed)"}[r.Intn(2)])
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("hc"))
+	case 4:
+		fmt.Fprintf(&out, "io.inspect(Hashable.hash({a: %d, b: \"x\"}) == Hashable.hash({b: \"x\", a: %d}))\n", n, n+r.Intn(2))
+	case 5:
+		if g.local {
+			break
+		}
+		g.helpers = append(g.helpers, fmt.Sprintf("fn %s<T>(a: T, b: T) -> Bool where T: Equatable {\nEquatable.equal?(a, b)\n}", name("heq")))
+		fmt.Fprintf(&out, "io.inspect(%s(#(%d, \"x\"), #(%d, \"x\")))\n", name("heq"), n, n+r.Intn(2))
+		fmt.Fprintf(&out, "io.inspect(Equatable.equal?({a: %d}, {a: %d}))\n", n, n+r.Intn(2))
+	default:
+		fmt.Fprintf(&out, "fn %s(a: Int, b: Int = %d) -> Int {\na * 10 + b\n}\n", name("hd"), n)
+		fmt.Fprintf(&out, "%s = %s(_, b: _)\n", name("hp"), name("hd"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("hp"), n)
+		fmt.Fprintf(&out, "io.inspect(ident(%s)(%d, 1))\n", name("hp"), n)
+		fmt.Fprintf(&out, "io.inspect(Some(%s) |> Maybe.map(fn f: (Int, Int) -> Int -> f(1, 2)))\n", name("hp"))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
+// deferBlock writes a block whose lambdas and `Iter.loop` callbacks hold
+// `defer`s, each run when its invocation or iteration ends (by its end,
+// `return`, `break`, `continue` or `try`), or, at file level, an `equal?`
+// that compares fields of its own type with `==`.
+func (g *gen) deferBlock() string {
+	r := g.dfr
+	g.fdn++
+	name := func(s string) string { return fmt.Sprintf("%s%dd", s, g.fdn) }
+	n := r.Intn(5)
+	var out strings.Builder
+	out.WriteString("{\n")
+	switch r.Intn(6) {
+	case 0:
+		fmt.Fprintf(&out, "%s = fn x: Int -> {\ndefer io.print(\"first %d\")\ndefer io.print(\"second\")\nif x > %d {\nreturn x * 2\n}\nx + 1\n}\n", name("dl"), n, n)
+		fmt.Fprintf(&out, "io.inspect(%s(%d) + %s(%d))\n", name("dl"), n, name("dl"), n+1+r.Intn(3))
+	case 1:
+		fmt.Fprintf(&out, "%s = Iter.loop(fn n = %d -> {\ndefer io.print(\"leave\")\nif n == %d {\nreturn n + 2\n}\nif n > %d {\ndefer io.print(\"guard\")\nbreak n * 10\n}\nn + 1\n})\n", name("dt"), n, n+1, n+2)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("dt"))
+	case 2:
+		fmt.Fprintf(&out, "%s = [%d, %d, %d, %d]\n|> Iter.filter(fn x -> {\ndefer io.print(\"seen\")\nif x == %d {\ncontinue\n}\nif x > %d {\nbreak\n}\nTrue\n})\n|> Iter.to_list()\n", name("df"), n, n+1, n+2, n+3, n+1, n+2)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("df"))
+	case 3:
+		fmt.Fprintf(&out, "%s = fn x: Int -> {\ndefer io.print(\"tried\")\nchecked: Result<Int, String> = if x > %d { Ok(x) } else { Err(\"low\") }\nv = try checked\nOk(v + 1)\n}\n", name("dr"), n)
+		fmt.Fprintf(&out, "%s: Result<Int, String> = %s(%d)\n", name("dv"), name("dr"), n+r.Intn(3))
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("dv"))
+	case 4:
+		fmt.Fprintf(&out, "_ = Iter.loop(fn n = 0 -> {\ndefer io.print(\"leave\")\ncase n {\n%d -> {\ndefer io.print(\"arm\")\nbreak n\n}\n_ -> {\ndefer io.print(\"next\")\nn + 1\n}\n}\n})\n", n)
+	default:
+		if g.local {
+			break
+		}
+		g.helpers = append(g.helpers, fmt.Sprintf("enum %s {\nLeaf\nNode#(%s, Int)\n}\n\n"+
+			"impl Equatable for %s {\nfn equal?(a: %s, b: %s) -> Bool {\ncase #(a, b) {\n#(.Leaf, .Leaf) -> True\n#(.Node(l, x), .Node(r, y)) -> x == y and l == r\n_ -> False\n}\n}\n}",
+			name("Tr"), name("Tr"), name("Tr"), name("Tr"), name("Tr")))
+		leaf := name("Tr") + ".Leaf"
+		node := func(k int) string { return fmt.Sprintf("%s.Node(%s.Node(%s, %d), 1)", name("Tr"), name("Tr"), leaf, k) }
+		fmt.Fprintf(&out, "io.inspect(%s == %s)\n", node(n), node(n+r.Intn(2)))
+		fmt.Fprintf(&out, "io.inspect(%s != %s)\n", leaf, node(n))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
+// boolLitFrom is a Bool literal drawn from r.
+func (g *gen) boolLitFrom(r *rand.Rand) string {
+	return []string{"True", "False"}[r.Intn(2)]
 }
 
 // generatedProgram is program i.
@@ -1232,7 +2025,14 @@ func generatedProgram(i int) loweringSeed { return generatedProgramSized(i, 3, 3
 func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	g := &gen{r: rand.New(rand.NewSource(int64(i))), aux: rand.New(rand.NewSource(int64(i) + 1<<32)),
 		div: rand.New(rand.NewSource(int64(i) + 2<<32)), rec: rand.New(rand.NewSource(int64(i) + 3<<32)),
-		wrap: rand.New(rand.NewSource(int64(i) + 4<<32))}
+		wrap: rand.New(rand.NewSource(int64(i) + 4<<32)), dyn: rand.New(rand.NewSource(int64(i) + 5<<32)),
+		fix:   rand.New(rand.NewSource(int64(i) + 6<<32)),
+		itr:   rand.New(rand.NewSource(int64(i) + 11<<32)),
+		pat:   rand.New(rand.NewSource(int64(i) + 20<<32)),
+		hold:  rand.New(rand.NewSource(int64(i) + 27<<32)),
+		dfr:   rand.New(rand.NewSource(int64(i) + 43<<32)),
+		leave: rand.New(rand.NewSource(int64(i) + 41<<32)),
+		call:  rand.New(rand.NewSource(int64(i) + 7<<32))}
 	g.local = g.chance(0.3)
 	asTest := g.chance(0.3)
 	var body strings.Builder
@@ -1261,6 +2061,30 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		}
 		if g.wrap.Intn(3) == 0 {
 			body.WriteString(g.leafDistinctBlock())
+		}
+		if g.dyn.Intn(3) == 0 {
+			body.WriteString(boundedBlock(g.erasedBlock()))
+		}
+		if g.fix.Intn(3) == 0 {
+			body.WriteString(boundedBlock(g.fixedKindBlock()))
+		}
+		if g.itr.Intn(3) == 0 {
+			body.WriteString(boundedBlock(g.iterBlock()))
+		}
+		if g.pat.Intn(3) == 0 {
+			body.WriteString(boundedBlock(g.patternBlock(asTest)))
+		}
+		if g.call.Intn(3) == 0 {
+			body.WriteString(boundedBlock(g.callBlock()))
+		}
+		if g.hold.Intn(3) == 0 {
+			body.WriteString(boundedBlock(g.holdBlock()))
+		}
+		if g.dfr.Intn(3) == 0 {
+			body.WriteString(boundedBlock(g.deferBlock()))
+		}
+		if g.leave.Intn(3) == 0 {
+			body.WriteString(boundedBlock(g.leaveBlock()))
 		}
 	}
 	body.WriteString("io.inspect(s0)\n")
@@ -1291,6 +2115,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		helpers, localHelpers = "", strings.Join(used, "\n\n")+"\n\n"
 	}
 	src.WriteString(helpers + "\n" + usedRecursiveHelpers(body.String()) + genGenericTypes + "\n" + genDerives + "\n")
+	if uses(body.String(), "ItPair") || uses(body.String(), "ItId") {
+		src.WriteString(genIterDecls + "\n")
+	}
 	if !g.local {
 		src.WriteString(genPlainTypes + "\n" + genShapeDerive + "\n" + strings.Join(g.helpers, "\n\n") + "\n\n")
 	}
@@ -1315,6 +2142,27 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	// leafDistinctBlock's std types outside the prelude.
 	if strings.Contains(out, "Regex`") {
 		out = "import std/regex.Regex\n" + out
+	}
+	// fixedKindBlock's Captured.
+	if strings.Contains(out, "Captured{") {
+		out = "import std/io.Captured\n" + out
+	}
+	// callBlock's std types outside the prelude.
+	if strings.Contains(out, "Task.") {
+		out = "import std/tasks.Task\n" + out
+	}
+	if strings.Contains(out, "Channel.") {
+		out = "import std/channels.{Channel, Receiver, Sender}\n" + out
+	}
+	// holdBlock's ChannelClosed.
+	if strings.Contains(out, "ChannelClosed") {
+		out = "import std/channels.ChannelClosed\n" + out
+	}
+	if strings.Contains(out, "testing.check") {
+		out = "import std/testing\n" + out
+	}
+	if strings.Contains(out, "impl Literal for") {
+		out = "import std/literals.{Fragment, Literal}\n" + out
 	}
 	if strings.Contains(out, "Duration.seconds(") {
 		out = "import std/duration.Duration\n" + out

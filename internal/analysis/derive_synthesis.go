@@ -14,7 +14,7 @@ import (
 // Use a map for O(1) membership but keep the canonical list as a slice so the
 // "unknown protocol" error message can name the supported set in deterministic
 // order.
-var deriveSupportedList = []string{"Equatable", "Hashable", "Comparable", "Debug", "Display", "ToJson", "FromJson"}
+var deriveSupportedList = []string{"Equatable", "Hashable", "Comparable", "Debug", "Display", "ToJson", "FromJson", "Variants"}
 
 var deriveSupported = func() map[string]bool {
 	m := make(map[string]bool, len(deriveSupportedList))
@@ -39,6 +39,7 @@ var deriveProtocolHomeModule = map[string]string{
 	"Debug":      "std/debug",
 	"ToJson":     "std/json",
 	"FromJson":   "std/json",
+	"Variants":   "std/variants",
 }
 
 // synthSupportNames is the closed set of names synthesized derive /
@@ -71,6 +72,7 @@ var synthSupportNames = map[string]bool{
 	"Debug":      true,
 	"ToJson":     true,
 	"FromJson":   true,
+	"Variants":   true,
 	"Result":     true,
 	"Map":        true,
 	"maps":       true,
@@ -373,6 +375,7 @@ const (
 	synthKindDisplay
 	synthKindToJson
 	synthKindFromJson
+	synthKindVariants
 	// synthKindAutoDebug is the universal-default Debug pass. It is a
 	// separate slot from synthKindDebug even though the two never fire for
 	// one declaration (SynthesizeUniversalDebug skips types that already
@@ -475,8 +478,9 @@ func SynthesizeDerives(nodes []ast.Node) ([]ast.Node, []TypeError) {
 	wrapping := wrappingDistincts(typeDeclsInNodeList(nodes))
 	var synthesized []ast.Node
 	var errs []TypeError
+	index := sourceIndices(nodes)
 	for i, n := range nodes {
-		site := synthSiteOf(i, n)
+		site := synthSiteOf(index[i], n)
 		site.wrapping = wrapping
 		decls, decErrs := processTypeDeclDeriveDecorators(n, site, prior)
 		synthesized = append(synthesized, decls...)
@@ -493,6 +497,24 @@ func SynthesizeDerives(nodes []ast.Node) ([]ast.Node, []TypeError) {
 	out = append(out, nodes...)
 	out = append(out, synthesized...)
 	return out, errs
+}
+
+// sourceIndices answers each node's index among the nodes the file's source
+// wrote. A prelude import a project build prepends to a user file takes no
+// index, so a declaration's synthesized positions are the same whether its
+// file was synthesized before the build prepended them (the front end's and
+// the language server's entry) or after (every other file of the build).
+func sourceIndices(nodes []ast.Node) []int {
+	out := make([]int, len(nodes))
+	next := 0
+	for i, n := range nodes {
+		out[i] = next
+		if imp, ok := n.(*ast.ImportStmt); ok && isPreludeInjectLine(imp.Line) {
+			continue
+		}
+		next++
+	}
+	return out
 }
 
 // synthSiteOf builds the site for the declaration at top-level index i.
@@ -796,6 +818,7 @@ func processTypeDeclDeriveDecorators(n ast.Node, site synthSite, prior priorDeri
 // validated (supported) interface name. Each synthesizer emits a full
 // structural body (Equatable / Hashable / Comparable / Debug).
 func synthesizeDeriveFor(ifaceName string, typeNode ast.Node, options ast.Node, site synthSite) []ast.Node {
+	typeNode = withoutRepeatedNames(typeNode)
 	var fns []ast.Node
 	opts := parseDeriveOptionsForSynthesis(ifaceName, options)
 	switch ifaceName {
@@ -813,6 +836,8 @@ func synthesizeDeriveFor(ifaceName string, typeNode ast.Node, options ast.Node, 
 		fns = synthesizeDeriveToJson(typeNode, opts, site)
 	case "FromJson":
 		fns = synthesizeDeriveFromJson(typeNode, opts, site)
+	case "Variants":
+		fns = synthesizeDeriveVariants(typeNode, site)
 	default:
 		// deriveSupported gate above guarantees this is unreachable; kept as
 		// a belt-and-braces guard so a future addition to deriveSupported
@@ -829,7 +854,8 @@ func synthesizeDeriveFor(ifaceName string, typeNode ast.Node, options ast.Node, 
 // T { fn }` blocks. The interface comes from the caller-supplied
 // ifaceName, the receiver from the FuncDef's first param type except for
 // receiver-less constructor interfaces such as FromJson, whose receiver is
-// recovered from `Result<Receiver, Json.ShapeError>`. Generics are COPIED onto the block
+// recovered from `Result<Receiver, Json.ShapeError>`, and Variants, whose
+// `variants()` takes nothing and returns `List<Receiver>`. Generics are COPIED onto the block
 // header (so the receiver `Box<T>` resolves through the block) AND kept on the
 // FuncDef (checkImplBlock checks each item via checkFunc, which reads
 // fn.TypeParams to bring T into scope; the generic-derive tests also read the
@@ -880,6 +906,12 @@ func synthImplReceiver(fn *ast.FuncDef, ifaceName string) ast.TypeExpr {
 		}
 		return nil
 	}
+	if ifaceName == "Variants" {
+		if ret, ok := fn.ReturnTypeExpr.(*ast.GenericType); ok && ret.Name == "List" && len(ret.Params) == 1 {
+			return ret.Params[0]
+		}
+		return nil
+	}
 	if len(fn.Params) == 0 {
 		return nil
 	}
@@ -918,6 +950,7 @@ func SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 	explicit := typesWithExplicitDebug(nodes)
 	wrapping := wrappingDistincts(typeDeclsInNodeList(nodes))
 	var synthesized []ast.Node
+	index := sourceIndices(nodes)
 	for i, n := range nodes {
 		// typeDeclName recognises struct/enum/typedef AND host types:
 		// declared host types are nominal types too — values of them
@@ -941,7 +974,7 @@ func SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 		// synthesized impl would add a duplicate-impl error at a
 		// synthesized line that says nothing about the real cause.
 		explicit[typeName] = true
-		site := synthSiteOf(i, n)
+		site := synthSiteOf(index[i], n)
 		site.wrapping = wrapping
 		synthesized = append(synthesized, synthesizeAutoDebug(n, site)...)
 	}
@@ -1041,6 +1074,7 @@ func typesWithExplicitDebug(nodes []ast.Node) map[string]bool {
 // structural OVERRIDE (`NonZeroInt(5)`), so the structural synthesizer must
 // stay opacity-blind. Only this auto path goes name-only for opaque types.
 func synthesizeAutoDebug(typeNode ast.Node, site synthSite) []ast.Node {
+	typeNode = withoutRepeatedNames(typeNode)
 	var out []ast.Node
 	if et, ok := typeNode.(*ast.ExternType); ok {
 		out = synthesizeExternNameOnlyDebug(et, site)
@@ -1077,7 +1111,7 @@ func typeDeclIsOpaque(n ast.Node) bool {
 }
 
 // synthesizeOpaqueNameOnlyDebug emits the degenerate name-only Debug impl for
-// an opaque type: `impl Debug for T { fn inspect(value: T): String { "<opaque T>" } }`.
+// an opaque type: `impl Debug for T { fn inspect(value: T) -> String { "<opaque T>" } }`.
 // The body is a single static StringLit — no field access, no recursion —
 // so nothing about the type's hidden representation is exposed. Generic
 // opaque types still carry their type params on the impl (with a harmless
@@ -1111,7 +1145,7 @@ func synthesizeOpaqueNameOnlyDebug(typeNode ast.Node, site synthSite) []ast.Node
 }
 
 // synthesizeExternNameOnlyDebug emits the bare-name Debug impl for a declared
-// `host type`: `impl Debug for T { fn inspect(value: T): String { "T" } }`.
+// `host type`: `impl Debug for T { fn inspect(value: T) -> String { "T" } }`.
 // Like the opaque body it is a single static StringLit — extern internals are
 // host-side, so there is nothing structural for the body to reach — but the
 // rendering is the BARE name (matching zero-sized distincts like
@@ -1147,7 +1181,7 @@ func synthesizeExternNameOnlyDebug(et *ast.ExternType, site synthSite) []ast.Nod
 // ---------------------------------------------------------------------------
 
 // synthesizeDeriveEquatable emits a single `impl Equatable for T { fn equal?(a: T, b:
-// T): Bool { ... } }` block whose body is structurally appropriate for the
+// T) -> Bool { ... } }` block whose body is structurally appropriate for the
 // type's shape:
 //
 //   - Struct: AND-chain of pairwise `Equatable.equal?(a.f, b.f)` calls; for a
@@ -1308,7 +1342,7 @@ func enumVariantPattern(enumName string, v ast.EnumVariant, suffix string, line,
 		// DataTypeExpr is either a single type or a FuncType (tuple) for
 		// arity ≥ 2. Single → one ident binding. Tuple → nested tuple
 		// pattern with one ident per arg. Canonical form is
-		// `Variant((a0, a1, ...))` (Flat: false); the analyzer rejects
+		// `Variant(#(a0, a1, ...))` (Flat: false); the analyzer rejects
 		// the flat shorthand for variant payloads (checker.go: "variant
 		// pattern '...': multi-binding is not supported").
 		if ft, isTuple := v.DataTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
@@ -1723,6 +1757,11 @@ func (s *uniquifyState) node(n ast.Node) {
 		e.Line, e.Col = s.bump()
 		s.node(e.Pattern)
 		e.NameLine, e.NameCol = s.bump()
+	case *ast.OrPattern:
+		e.Line, e.Col = s.bump()
+		for _, alt := range e.Alternatives {
+			s.node(alt)
+		}
 	case *ast.EnumPattern:
 		e.Line, e.Col = s.bump()
 		if e.Binding != "" {
@@ -2285,9 +2324,8 @@ func recordDeriveTypeArg(fa *FileAnalysis, impls *ProjectImplIndex, ifaceName st
 // hasInterfaceImpl reports whether the named type has an Iface impl
 // visible from this file's analysis. Consults two sources in order:
 //
-//   - fa.Impls — the file's local impl table (already absorbs imports'
-//     impls via mergeImpls and carries the @derive synthesizer's own emitted
-//     entries from the earlier build pass.
+//   - fa.Impls — the file's own impl table, which carries the @derive
+//     synthesizer's own emitted entries from the earlier build pass.
 //   - impls.Impls — the project-level impl index built by
 //     buildProjectImplIndex (covers stdlib + sibling impls). In
 //     BuildProjectWithCache it is built BEFORE CheckDeriveBounds
@@ -2364,7 +2402,7 @@ func boundedTypeParams(typeParams []ast.TypeParam, ifaceName string, line, col i
 // Hashable synthesizer
 // ---------------------------------------------------------------------------
 
-// synthesizeDeriveHashable emits a single `impl Hashable for T { fn hash(value: T): Int }`
+// synthesizeDeriveHashable emits a single `impl Hashable for T { fn hash(value: T) -> Int }`
 // block whose body is structurally appropriate for the type's shape:
 //
 //   - Struct: left-fold mix `Hashable.hash(value.f0) * 31 + Hashable.hash(value.f1) * 31 + ...`.
@@ -2637,7 +2675,7 @@ func intLit(n int64, line, col int) *ast.IntLit {
 // ---------------------------------------------------------------------------
 
 // synthesizeDeriveComparable emits a single `impl Comparable for T { fn compare(a: T,
-// b: T): Ordering }` block whose body is structurally appropriate for the
+// b: T) -> Ordering }` block whose body is structurally appropriate for the
 // type's shape:
 //
 //   - Struct: lexicographic chain of `Comparable.compare(a.f, b.f)` over
@@ -4080,4 +4118,58 @@ func deriveSupportedDescription() string {
 		out += ", " + name
 	}
 	return out
+}
+
+// withoutRepeatedNames answers a struct or enum declaration as synthesis
+// should read it: each field and variant once, the first of a repeated name
+// kept. A repeated name is CheckRepeatedFields' error at the declaration; the
+// code synthesized from the declaration as written would repeat it again, in
+// a pattern or literal with no source of its own. A declaration with no
+// repeat is answered unchanged.
+func withoutRepeatedNames(typeNode ast.Node) ast.Node {
+	switch n := typeNode.(type) {
+	case *ast.StructDef:
+		if fields, ok := firstOfEachField(n.Fields); ok {
+			c := *n
+			c.Fields = fields
+			return &c
+		}
+	case *ast.EnumDef:
+		changed := false
+		seen := map[string]bool{}
+		var variants []ast.EnumVariant
+		for _, v := range n.Variants {
+			if seen[v.Name] {
+				changed = true
+				continue
+			}
+			seen[v.Name] = true
+			if fields, ok := firstOfEachField(v.Fields); ok {
+				v.Fields = fields
+				changed = true
+			}
+			variants = append(variants, v)
+		}
+		if changed {
+			c := *n
+			c.Variants = variants
+			return &c
+		}
+	}
+	return typeNode
+}
+
+// firstOfEachField answers fields with each name's first field only, and
+// whether that dropped any.
+func firstOfEachField(fields []ast.StructField) ([]ast.StructField, bool) {
+	seen := map[string]bool{}
+	var out []ast.StructField
+	for _, f := range fields {
+		if seen[f.Name] {
+			continue
+		}
+		seen[f.Name] = true
+		out = append(out, f)
+	}
+	return out, len(out) != len(fields)
 }

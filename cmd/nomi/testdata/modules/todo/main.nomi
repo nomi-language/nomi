@@ -17,7 +17,7 @@ fn main() {
 
     open =
         items
-        |> Iter.filter(|item| !Item.done?(item))
+        |> Iter.filter(fn item -> !Item.done?(item))
         |> Iter.count()
 
     io.print("${open} open")

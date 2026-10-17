@@ -27,13 +27,13 @@ enum Shape {
 type Id Int
 type Kvs Map<String, Int>
 
-fn pick<T>(c: Bool, a: T, b: T): T {
+fn pick<T>(c: Bool, a: T, b: T) -> T {
   if c { b } else { a }
 }
 
 fn main() {
-  case pick(True, Opt.Nothing, Opt.Has((1, "x"))) {
-    .Has((s, t)) -> io.print("tuple ${s} ${t}")
+  case pick(True, Opt.Nothing, Opt.Has(#(1, "x"))) {
+    .Has(#(s, t)) -> io.print("tuple ${s} ${t}")
     .Nothing -> io.print("none")
   }
   case pick(True, Opt.Nothing, Opt.Has(Pt{x: 3, y: 4})) {
@@ -55,8 +55,8 @@ fn main() {
     .Has(.Nothing) -> io.print("inner none")
     .Nothing -> io.print("none")
   }
-  case pick(True, Opt.Nothing, Opt.Has({"k" => 8})) {
-    .Has({"k" => v}) -> io.print("map ${v}")
+  case pick(True, Opt.Nothing, Opt.Has(%{"k" => 8})) {
+    .Has(%{"k" => v}) -> io.print("map ${v}")
     .Has(_) -> io.print("no k")
     .Nothing -> io.print("none")
   }
@@ -64,8 +64,8 @@ fn main() {
     .Has(Id(i)) -> io.print("distinct ${i}")
     .Nothing -> io.print("none")
   }
-  case pick(True, Opt.Nothing, Opt.Has(Kvs{"a" => 10})) {
-    .Has(Kvs{"a" => v}) -> io.print("map distinct ${v}")
+  case pick(True, Opt.Nothing, Opt.Has(Kvs%{"a" => 10})) {
+    .Has(Kvs%{"a" => v}) -> io.print("map distinct ${v}")
     .Has(_) -> io.print("no a")
     .Nothing -> io.print("none")
   }

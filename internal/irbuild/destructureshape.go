@@ -14,7 +14,7 @@ import (
 // both its tuple and brace spellings. This file handles the other two:
 //
 //	{x, y}: Point       an ANONYMOUS STRUCT pattern over a NAMED struct.
-//	(a, b): (Int, Int)  a TUPLE pattern, over an interned tagTuple whose
+//	#(a, b): #(Int, Int) a TUPLE pattern, over an interned tagTuple whose
 //	                    components are addressed by position, as `case`'s
 //	                    tupleArm matches one.
 //
@@ -66,7 +66,7 @@ func (g *gen) destructureNamedFields(p *ast.StructPattern, src expr, at ast.Node
 	return g.destructureFields(d, src, p, at)
 }
 
-// destructureTuple binds `(a, b)` in a destructuring parameter — case.go's
+// destructureTuple binds `#(a, b)` in a destructuring parameter — case.go's
 // tupleArm with the arm-abandoning removed, since an irrefutable pattern has no
 // arm to abandon.
 //

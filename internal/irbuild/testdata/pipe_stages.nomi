@@ -35,11 +35,11 @@ import {
     std/testing
 }
 
-fn shout(s: String): String {
+fn shout(s: String) -> String {
     String.to_upper(s)
 }
 
-fn piped_check(): Result<Bool, AssertionFailure> {
+fn piped_check() -> Result<Bool, AssertionFailure> {
     found = try testing.check(
         "Ada Lovelace"
         |> String.contains?("Grace")
@@ -48,7 +48,7 @@ fn piped_check(): Result<Bool, AssertionFailure> {
     Ok(found)
 }
 
-fn unpiped_check(): Result<Bool, AssertionFailure> {
+fn unpiped_check() -> Result<Bool, AssertionFailure> {
     found = try testing.check(String.contains?("Ada Lovelace", "Grace"))
 
     Ok(found)

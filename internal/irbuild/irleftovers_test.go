@@ -21,19 +21,19 @@ func TestIRLeftovers_ProgramsRunOnTheVM(t *testing.T) {
 	}{
 		{"range count and known_count", `import std/io
 
-fn count(n: Int): Int {
+fn count(n: Int) -> Int {
   Iter.count(1..=n)
 }
 
-fn known(n: Int): Maybe<Int> {
+fn known(n: Int) -> Maybe<Int> {
   Iter.known_count(1..n)
 }
 
-fn empty(n: Int): Bool {
+fn empty(n: Int) -> Bool {
   Iter.empty?(1..n)
 }
 
-fn full(n: Int): Bool {
+fn full(n: Int) -> Bool {
   Iter.not_empty?(1..n)
 }
 
@@ -54,12 +54,12 @@ fn main() {
 			[]string{"count", "known", "empty", "full", "main"}},
 		{"group_by builds a Map of Lists", `import std/io
 
-fn by_parity(xs: List<Int>): Map<Int, List<Int>> {
-  xs |> Iter.group_by(|x| x % 2)
+fn by_parity(xs: List<Int>) -> Map<Int, List<Int>> {
+  xs |> Iter.group_by(fn x -> x % 2)
 }
 
-fn by_initial(words: List<String>): Map<String, List<String>> {
-  Iter.group_by(words, |w: String| Int.to_string(String.length(w)))
+fn by_initial(words: List<String>) -> Map<String, List<String>> {
+  Iter.group_by(words, fn w: String -> Int.to_string(String.length(w)))
 }
 
 fn main() {
@@ -69,10 +69,10 @@ fn main() {
   io.inspect(Map.size(grouped))
   io.inspect(by_parity([]))
   io.inspect(by_initial(["ab", "c", "de", "fgh"]))
-  io.inspect(Iter.group_by(1..=6, |x| x > 3))
-  io.inspect([1, 2, 3] |> Iter.map(|x| x * 10) |> Iter.group_by(|x| x < 15))
+  io.inspect(Iter.group_by(1..=6, fn x -> x > 3))
+  io.inspect([1, 2, 3] |> Iter.map(fn x -> x * 10) |> Iter.group_by(fn x -> x < 15))
 }
-`, "{1 => [5, 3, 1], 0 => [2, 4, 6]}\nSome([5, 3, 1])\n2\n{=>}\n{\"2\" => [\"ab\", \"de\"], \"1\" => [\"c\"], \"3\" => [\"fgh\"]}\n{False => [1, 2, 3], True => [4, 5, 6]}\n{True => [10], False => [20, 30]}\n",
+`, "%{1 => [5, 3, 1], 0 => [2, 4, 6]}\nSome([5, 3, 1])\n2\n%{}\n%{\"2\" => [\"ab\", \"de\"], \"1\" => [\"c\"], \"3\" => [\"fgh\"]}\n%{False => [1, 2, 3], True => [4, 5, 6]}\n%{True => [10], False => [20, 30]}\n",
 			[]string{"by_parity", "by_initial", "main"}},
 		{"field sub-patterns inside a variant pattern", `import std/io
 
@@ -92,7 +92,7 @@ enum Drawing {
   Blank
 }
 
-fn describe(s: Maybe<Shape>): String {
+fn describe(s: Maybe<Shape>) -> String {
   case s {
     Some(Shape.Box{w: 2, h}) -> "narrow box of height ${h}"
     Some(Shape.Box{w, h: 0}) -> "flat box of width ${w}"
@@ -103,7 +103,7 @@ fn describe(s: Maybe<Shape>): String {
   }
 }
 
-fn top(s: Shape): Int {
+fn top(s: Shape) -> Int {
   case s {
     Shape.Box{w: 1, h: 1} -> 1
     Shape.Box{w, h} -> w * h
@@ -111,7 +111,7 @@ fn top(s: Shape): Int {
   }
 }
 
-fn drawn(d: Drawing): String {
+fn drawn(d: Drawing) -> String {
   case d {
     Drawing.Circle{r: 0, tag} -> "point ${tag}"
     Drawing.Circle{r, tag: "big"} -> "big ${r}"
@@ -151,7 +151,7 @@ enum Code {
   Word(String)
 }
 
-fn get_id(m: Maybe<Req>): Int {
+fn get_id(m: Maybe<Req>) -> Int {
   if Some(Req.Get(n)) = m {
     n
   } else {
@@ -159,7 +159,7 @@ fn get_id(m: Maybe<Req>): Int {
   }
 }
 
-fn put_key(m: Maybe<Req>): String {
+fn put_key(m: Maybe<Req>) -> String {
   if Some(Req.Put{key, value: 0}) = m {
     "zero " + key
   } else {
@@ -167,7 +167,7 @@ fn put_key(m: Maybe<Req>): String {
   }
 }
 
-fn stopped(m: Result<Req, String>): Bool {
+fn stopped(m: Result<Req, String>) -> Bool {
   if Ok(.Stop) = m {
     True
   } else {
@@ -175,7 +175,7 @@ fn stopped(m: Result<Req, String>): Bool {
   }
 }
 
-fn seven(c: Code): String {
+fn seven(c: Code) -> String {
   if Code.Num(7) = c {
     "lucky"
   } else if Code.Word("seven") = c {
@@ -256,11 +256,11 @@ func irLeftoversRetained(t *testing.T, src string, names ...string) {
 // `Seq`, and Range cardinality and `group_by` run inside a
 // body. Several cases fail on purpose so the report text itself is compared
 // between the VM and the golden record.
-const irLeftoversTestBodySource = `fn double(n: Int): Int {
+const irLeftoversTestBodySource = `fn double(n: Int) -> Int {
   n * 2
 }
 
-fn big?(n: Int): Bool {
+fn big?(n: Int) -> Bool {
   n > 100
 }
 
@@ -270,7 +270,7 @@ test "a piped binding asserted bare" {
 }
 
 test "a piped binding refuted bare" {
-  small = [1, 2, 3] |> Iter.map(|x| x * 2) |> Iter.any?(|x| x > 4)
+  small = [1, 2, 3] |> Iter.map(fn x -> x * 2) |> Iter.any?(fn x -> x > 4)
   refute small
 }
 
@@ -285,7 +285,7 @@ test "a piped binding over a pattern" {
 }
 
 test "a sequence row" {
-  ys = [1, 2] |> Iter.map(|x| x + 1)
+  ys = [1, 2] |> Iter.map(fn x -> x + 1)
   assert Iter.count(ys) == 3
 }
 

@@ -59,7 +59,7 @@ pub struct B {
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
-	for _, e := range fa.TypeErrors {
+	for _, e := range entryErrors(fa) {
 		if e.Code == analysis.UnusedBindingCode {
 			continue
 		}
@@ -69,11 +69,10 @@ pub struct B {
 	}
 }
 
-// TestBuildProject_PropagatesCrossFileImpls exercises Sweep B-impls:
-// when one file declares an impl and a sibling depends on the
-// conformance through a struct field typed as the interface, both
-// files must end up with the impl propagated into their merged Impls
-// table — regardless of the (random) order Sweep B-ann visited them.
+// TestBuildProject_PropagatesCrossFileImpls: when one file declares an
+// impl and a sibling depends on the conformance through a struct field
+// typed as the interface, both files see the impl through the program —
+// regardless of the order Sweep B-ann visited them.
 //
 // Topology:
 //
@@ -85,12 +84,10 @@ pub struct B {
 //	                inside effects.make() is the conformance site
 //	                that needs log's impl visible in effects.fa.
 //	main.nomi     — imports both, constructs a Holder via the
-//	                cross-file impl, and asserts the impl is in
-//	                main.fa.Impls.
+//	                cross-file impl, and asserts main sees the impl.
 //
-// The assertion is on the merged table directly (rather than purely
-// through CheckTypes) so the test is explicit about *what* the new
-// sweep produces, and surfaces the bug regardless of which file
+// The assertion is on HasImpl directly (rather than purely through
+// CheckTypes) so the test says where the impl is found, whichever file
 // CheckTypes happens to run on.
 func TestBuildProject_PropagatesCrossFileImpls(t *testing.T) {
 	tmp := t.TempDir()
@@ -113,13 +110,13 @@ fn main() {
 }
 `)
 	mustWrite("log.nomi", `pub interface Iface {
-  fn op(value: self): Unit
+  fn op(value: self) -> Unit
 }
 
 pub type ProdImpl
 
 impl Iface for ProdImpl {
-  fn op(_value: ProdImpl): Unit { Unit }
+  fn op(_value: ProdImpl) -> Unit { Unit }
 }
 `)
 	mustWrite("effects.nomi", `import log.{Iface, ProdImpl}
@@ -128,7 +125,7 @@ pub struct Holder {
   handler: Iface
 }
 
-pub fn make(): Holder {
+pub fn make() -> Holder {
   Holder{handler: ProdImpl{}}
 }
 
@@ -155,13 +152,14 @@ pub fn make(): Holder {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
 
-	// Direct assertion on the merged Impls table: main.fa.Impls must
-	// contain ProdImpl→Iface, propagated from log.nomi. The legacy
-	// merge-during-resolveImport path could miss this when
-	// log.nomi's annotations hadn't run yet at the moment effects.nomi
-	// processed its log import (Go map iteration order is random).
-	if fa.Impls == nil || !fa.Impls["ProdImpl"]["Iface"] {
-		t.Errorf("expected main.fa.Impls to contain ProdImpl as Iface (propagated from log.nomi), got: %v", fa.Impls)
+	// main sees log.nomi's impl through the program, whatever order the
+	// sweeps visited the files in, and its own table holds only its own
+	// impls.
+	if !fa.HasImpl("ProdImpl", "Iface") {
+		t.Errorf("expected main to see ProdImpl as Iface (declared in log.nomi)")
+	}
+	if fa.Impls["ProdImpl"]["Iface"] {
+		t.Errorf("main.fa.Impls holds log.nomi's impl: %v", fa.Impls)
 	}
 
 	// And, since CheckTypes is the consumer that turns Impls into
@@ -169,7 +167,7 @@ pub fn make(): Holder {
 	// entry file's CheckTypes pass.
 	checkErrs := analysis.CheckTypes(fa, entryNodes)
 
-	allErrs := append([]analysis.TypeError{}, fa.TypeErrors...)
+	allErrs := append([]analysis.TypeError{}, entryErrors(fa)...)
 	allErrs = append(allErrs, checkErrs...)
 	for _, e := range allErrs {
 		if e.Code == analysis.UnusedBindingCode {
@@ -221,7 +219,7 @@ func buildProjectExpectingErrors(t *testing.T, entry string, siblings map[string
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
-	errs := append([]analysis.TypeError{}, fa.TypeErrors...)
+	errs := append([]analysis.TypeError{}, entryErrors(fa)...)
 	errs = append(errs, analysis.CheckTypes(fa, entryNodes)...)
 	return errs
 }
@@ -240,7 +238,7 @@ func TestBuildProject_PrivateModuleMemberHiddenAcrossFiles(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, `
 import api.{self, Widget}
 
-fn demo(): String {
+fn demo() -> String {
   w: Widget = api.make("Ada")
   api.secret(w)
 }
@@ -250,11 +248,11 @@ pub struct Widget {
   name: String
 }
 
-pub fn make(name: String): Widget {
+pub fn make(name: String) -> Widget {
   Widget{name}
 }
 
-fn secret(w: Widget): String {
+fn secret(w: Widget) -> String {
   w.name
 }
 `,
@@ -287,8 +285,8 @@ func hasTypeErrorContaining(errs []analysis.TypeError, substrs ...string) bool {
 // needed to put the same receiver type in both modules.)
 func TestImplCollision_CrossModuleRejected(t *testing.T) {
 	siblings := map[string]string{
-		"widgets": "impl Display for Int {\n  fn to_string(_n: self): String { \"widgets\" }\n}\n",
-		"legacy":  "impl Display for Int {\n  fn to_string(_n: self): String { \"legacy\" }\n}\n",
+		"widgets": "impl Display for Int {\n  fn to_string(_n: self) -> String { \"widgets\" }\n}\n",
+		"legacy":  "impl Display for Int {\n  fn to_string(_n: self) -> String { \"legacy\" }\n}\n",
 	}
 	entry := "import {\n  std/io\n  widgets\n  legacy\n}\n\nfn main() { io.print(\"x\") }\n"
 	errs := buildProjectExpectingErrors(t, entry, siblings)
@@ -306,10 +304,10 @@ func TestImplCollision_CrossModuleRejected(t *testing.T) {
 // real BuildProject pipeline — the path that does assemble the index.
 func TestImplCollision_SameFileRejected(t *testing.T) {
 	entry := "impl Display for Int {\n" +
-		"  fn to_string(_n: self): String { \"first\" }\n" +
+		"  fn to_string(_n: self) -> String { \"first\" }\n" +
 		"}\n\n" +
 		"impl Display for Int {\n" +
-		"  fn to_string(_n: self): String { \"second\" }\n" +
+		"  fn to_string(_n: self) -> String { \"second\" }\n" +
 		"}\n\n" +
 		"fn main() {}\n"
 	errs := buildProjectExpectingErrors(t, entry, nil)
@@ -353,7 +351,7 @@ func TestBuildProject_MalformedManifestSurfacesAsTypeError(t *testing.T) {
 		t.Fatal("expected non-nil FileAnalysis even with malformed nomi.toml")
 	}
 	found := false
-	for _, e := range fa.TypeErrors {
+	for _, e := range entryErrors(fa) {
 		if strings.Contains(e.Message, "nomi.toml") {
 			found = true
 			break
@@ -361,7 +359,7 @@ func TestBuildProject_MalformedManifestSurfacesAsTypeError(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("expected a TypeError mentioning nomi.toml, got %d errors: %v",
-			len(fa.TypeErrors), fa.TypeErrors)
+			len(entryErrors(fa)), entryErrors(fa))
 	}
 }
 
@@ -424,7 +422,7 @@ replace stringkit => ../stringkit
 // resolution worked, no "module not found" or "undefined name" type
 // errors should fire on the entry file.
 func TestBuildProject_CrossModuleImportResolves(t *testing.T) {
-	stringkitPad := `pub fn pad_left(s: String, _width: Int, _pad: String): String {
+	stringkitPad := `pub fn pad_left(s: String, _width: Int, _pad: String) -> String {
   s
 }
 `
@@ -460,7 +458,7 @@ fn main() {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
 	checkErrs := analysis.CheckTypes(fa, entryNodes)
-	allErrs := append([]analysis.TypeError{}, fa.TypeErrors...)
+	allErrs := append([]analysis.TypeError{}, entryErrors(fa)...)
 	allErrs = append(allErrs, checkErrs...)
 	for _, e := range allErrs {
 		if e.Message == "" {
@@ -488,7 +486,7 @@ fn main() {
 func TestBuildProject_CrossModuleInternalRejected(t *testing.T) {
 	// stringkit exposes an internal helper; todo tries to reach across
 	// the module boundary into it.
-	stringkitPad := `pub fn pad_left(s: String, _width: Int, _pad: String): String {
+	stringkitPad := `pub fn pad_left(s: String, _width: Int, _pad: String) -> String {
   s
 }
 `
@@ -510,7 +508,7 @@ fn main() {
 	if err := os.MkdirAll(filepath.Dir(internalPath), 0755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(internalPath, []byte("module secret\n\npub fn s(): Int { 0 }\n"), 0644); err != nil {
+	if err := os.WriteFile(internalPath, []byte("module secret\n\npub fn s() -> Int { 0 }\n"), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 
@@ -533,7 +531,7 @@ fn main() {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
 	found := false
-	for _, e := range fa.TypeErrors {
+	for _, e := range entryErrors(fa) {
 		if strings.Contains(e.Message, "internal/") && strings.Contains(e.Message, "unreachable") {
 			found = true
 			break
@@ -541,7 +539,7 @@ fn main() {
 	}
 	if !found {
 		t.Errorf("expected an `internal/ paths are unreachable` type error, got %d: %v",
-			len(fa.TypeErrors), fa.TypeErrors)
+			len(entryErrors(fa)), entryErrors(fa))
 	}
 }
 
@@ -558,7 +556,7 @@ fn main() {
 // <root>/todo/helper.nomi (which doesn't exist) and silently drop the
 // import.
 func TestBuildProject_SelfNameReferenceResolves(t *testing.T) {
-	stringkitPad := `pub fn pad_left(s: String, _width: Int, _pad: String): String {
+	stringkitPad := `pub fn pad_left(s: String, _width: Int, _pad: String) -> String {
   s
 }
 `
@@ -572,7 +570,7 @@ fn main() {
 }
 `
 	extra := map[string]string{
-		"helper.nomi": "pub fn greet(): String { \"hi\" }\n",
+		"helper.nomi": "pub fn greet() -> String { \"hi\" }\n",
 	}
 	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, stringkitPad, extra)
 
@@ -607,7 +605,7 @@ fn main() {
 		t.Errorf("expected siblingFAs to contain key %q", "helper")
 	}
 	checkErrs := analysis.CheckTypes(fa, entryNodes)
-	allErrs := append([]analysis.TypeError{}, fa.TypeErrors...)
+	allErrs := append([]analysis.TypeError{}, entryErrors(fa)...)
 	allErrs = append(allErrs, checkErrs...)
 	for _, e := range allErrs {
 		if e.Message == "" {
@@ -639,7 +637,7 @@ func TestOrphanImpl_CrossModuleRejected(t *testing.T) {
 }
 
 impl Display for Pad {
-  fn to_string(_p: Pad): String { "pad" }
+  fn to_string(_p: Pad) -> String { "pad" }
 }
 
 fn main() {
@@ -668,8 +666,8 @@ fn main() {
 	}
 
 	var orphanErr *analysis.TypeError
-	for i := range fa.TypeErrors {
-		e := &fa.TypeErrors[i]
+	for i := range entryErrors(fa) {
+		e := &entryErrors(fa)[i]
 		if strings.Contains(e.Message, "orphan impl") {
 			orphanErr = e
 			break
@@ -677,7 +675,7 @@ fn main() {
 	}
 	if orphanErr == nil {
 		t.Fatalf("expected an `orphan impl` TypeError, got %d errors: %v",
-			len(fa.TypeErrors), fa.TypeErrors)
+			len(entryErrors(fa)), entryErrors(fa))
 	}
 	for _, substr := range []string{"Display", "Pad", "todo"} {
 		if !strings.Contains(orphanErr.Message, substr) {
@@ -692,7 +690,7 @@ func TestBuildProject_AllowsImplBlockForCurrentPackageType(t *testing.T) {
 }
 `
 	todoMain := `pub interface Label {
-  fn label(value: self): String
+  fn label(value: self) -> String
 }
 
 pub struct Thing {
@@ -700,7 +698,7 @@ pub struct Thing {
 }
 
 impl Label for Thing {
-  fn label(value: Thing): String { value.name }
+  fn label(value: Thing) -> String { value.name }
 }
 
 fn main() {
@@ -720,8 +718,8 @@ fn main() {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
 
-	if len(fa.TypeErrors) != 0 {
-		t.Fatalf("local type impl block should be allowed, got %v", fa.TypeErrors)
+	if len(entryErrors(fa)) != 0 {
+		t.Fatalf("local type impl block should be allowed, got %v", entryErrors(fa))
 	}
 }
 
@@ -731,7 +729,7 @@ func TestBuildProject_AllowsConstrainedGenericImplBlockForCurrentPackageType(t *
 }
 `
 	todoMain := `pub interface StepLabel {
-  fn label(value: self): String
+  fn label(value: self) -> String
 }
 
 pub struct Box<T> {
@@ -739,7 +737,7 @@ pub struct Box<T> {
 }
 
 impl StepLabel for Box<T> where T: Display {
-  fn label(value: Box<T>): String { Display.to_string(value.value) }
+  fn label(value: Box<T>) -> String { Display.to_string(value.value) }
 }
 
 fn main() {
@@ -758,8 +756,8 @@ fn main() {
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
-	if len(fa.TypeErrors) != 0 {
-		t.Fatalf("local constrained generic impl block should be allowed, got %v", fa.TypeErrors)
+	if len(entryErrors(fa)) != 0 {
+		t.Fatalf("local constrained generic impl block should be allowed, got %v", entryErrors(fa))
 	}
 }
 
@@ -768,9 +766,9 @@ func TestBuildProject_RejectsDuplicateModuleFunctions(t *testing.T) {
 	  name: String
 	}
 
-	pub fn name(value: Thing): String { value.name }
+	pub fn name(value: Thing) -> String { value.name }
 
-	pub fn name(_value: Thing, fallback: String): String { fallback }
+	pub fn name(_value: Thing, fallback: String) -> String { fallback }
 
 
 
@@ -790,8 +788,8 @@ fn main() {
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
-	if !hasTypeErrorContaining(fa.TypeErrors, "'name' is already defined") {
-		t.Fatalf("expected duplicate module function error, got %v", fa.TypeErrors)
+	if !hasTypeErrorContaining(entryErrors(fa), "'name' is already defined") {
+		t.Fatalf("expected duplicate module function error, got %v", entryErrors(fa))
 	}
 }
 
@@ -803,11 +801,11 @@ func TestBuildProject_AllowsForeignImplBlockForExternalReceiverType(t *testing.T
 	todoMain := `import stringkit/pad: Pad
 
 pub interface Label {
-  fn label(value: self): String
+  fn label(value: self) -> String
 }
 
 impl Label for Pad {
-  fn label(_value: Pad): String { "pad" }
+  fn label(_value: Pad) -> String { "pad" }
 }
 
 fn main() {
@@ -827,7 +825,7 @@ fn main() {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
 	checkErrs := analysis.CheckTypes(fa, entryNodes)
-	allErrs := append([]analysis.TypeError{}, fa.TypeErrors...)
+	allErrs := append([]analysis.TypeError{}, entryErrors(fa)...)
 	allErrs = append(allErrs, checkErrs...)
 	for _, e := range allErrs {
 		if e.Message == "" {
@@ -944,7 +942,7 @@ func TestBuildProject_AllowsLocalAppFileAlongsideStdApp(t *testing.T) {
   app: EffectsApp
 }
 
-fn boot(): EffectsApp {
+fn boot() -> EffectsApp {
   EffectsApp{context: Context.root(), }
 }
 `)
@@ -1033,7 +1031,7 @@ func TestOrphanRule_CacheFoldBranch_PreludeImplicitUse(t *testing.T) {
 }
 
 impl Display for Pad {
-  fn to_string(_p: Pad): String { "pad" }
+  fn to_string(_p: Pad) -> String { "pad" }
 }
 
 fn main() {
@@ -1066,8 +1064,8 @@ fn main() {
 	}
 
 	var orphanErr *analysis.TypeError
-	for i := range fa.TypeErrors {
-		e := &fa.TypeErrors[i]
+	for i := range entryErrors(fa) {
+		e := &entryErrors(fa)[i]
 		if strings.Contains(e.Message, "orphan impl") {
 			orphanErr = e
 			break
@@ -1077,11 +1075,11 @@ fn main() {
 		// Dump all errors to make debugging regressions easier
 		// (e.g. stdlib loading misconfigured).
 		var allMsgs []string
-		for _, e := range fa.TypeErrors {
+		for _, e := range entryErrors(fa) {
 			allMsgs = append(allMsgs, e.Message)
 		}
 		t.Fatalf("expected an `orphan impl` TypeError from prelude-implicit Display use, got %d errors: %v",
-			len(fa.TypeErrors), allMsgs)
+			len(entryErrors(fa)), allMsgs)
 	}
 	for _, substr := range []string{"Display", "Pad", "todo"} {
 		if !strings.Contains(orphanErr.Message, substr) {

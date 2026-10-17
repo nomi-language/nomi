@@ -12,7 +12,7 @@ func TestIRBlockDeclaredTypes_RunAnywhere(t *testing.T) {
 	}
 	const src = `import std/io
 
-fn pick(c: Bool): Int {
+fn pick(c: Bool) -> Int {
     if c {
         struct A {
             n: Int
@@ -41,7 +41,7 @@ fn main() {
             struct Inner {
                 p: P<Int>
             }
-            fn get(i: Inner): Int {
+            fn get(i: Inner) -> Int {
                 i.p.a
             }
             io.inspect(get(Inner{p: P{a: 4}}))
@@ -62,7 +62,7 @@ fn main() {
     })
     io.inspect(pick(True))
     io.inspect(pick(False))
-    f = |x: Int| {
+    f = fn x: Int -> {
         struct W {
             w: Int
         }
@@ -70,7 +70,7 @@ fn main() {
     }
     io.inspect(f(21))
     xs = [1, 2]
-    |> Iter.map(|x| {
+    |> Iter.map(fn x -> {
         struct V {
             v: Int
         }

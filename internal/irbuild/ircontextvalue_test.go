@@ -22,11 +22,11 @@ struct Tag {
   name: String
 }
 
-fn user_of(c: Context): Maybe<UserId> {
+fn user_of(c: Context) -> Maybe<UserId> {
   Context.value(c, UserId)
 }
 
-fn find_in(c: Context, witness: Type<Tag>): Maybe<Tag> {
+fn find_in(c: Context, witness: Type<Tag>) -> Maybe<Tag> {
   Context.value(c, witness)
 }
 

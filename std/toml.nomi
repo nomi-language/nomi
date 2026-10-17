@@ -29,15 +29,15 @@ impl Toml {
     //!
     //! assert Toml.text(Toml"title = 'demo'") == "title = 'demo'"
     //
-    pub fn text(source: Toml): String {
+    pub fn text(source: Toml) -> String {
         Toml(raw) = source
         raw
     }
 }
 
 impl Literal for Toml {
-    fn from_fragments(fragments: List<Fragment<Display>>): Toml {
-        body = Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<Display>>) -> Toml {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + "${v}"

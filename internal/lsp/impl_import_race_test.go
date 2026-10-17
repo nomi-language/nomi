@@ -34,7 +34,7 @@ func TestRPC_ImplImportCheckWhileSiblingIsRead(t *testing.T) {
 		files[name] = string(src)
 	}
 	// A dot variant in hop: checking hop records its enum on the node.
-	files["hop.nomi"] += "\nfn order(): Ordering {\n    .Less\n}\n"
+	files["hop.nomi"] += "\nfn order() -> Ordering {\n    .Less\n}\n"
 	dir := writeProject(t, files)
 	declsURI := "file://" + filepath.Join(dir, "decls.nomi")
 	hopURI := "file://" + filepath.Join(dir, "hop.nomi")
@@ -65,7 +65,7 @@ func TestRPC_ImplImportCheckWhileSiblingIsRead(t *testing.T) {
 		params map[string]any
 	}{
 		{"textDocument/hover", map[string]any{"textDocument": doc, "position": at("Other.beta")}},
-		{"textDocument/hover", map[string]any{"textDocument": doc, "position": at("Thing):")}},
+		{"textDocument/hover", map[string]any{"textDocument": doc, "position": at("Thing) ->")}},
 		{"textDocument/hover", map[string]any{"textDocument": doc, "position": at(".Less")}},
 		{"textDocument/definition", map[string]any{"textDocument": doc, "position": at("Other.beta")}},
 		{"textDocument/completion", map[string]any{"textDocument": doc, "position": at("decls.other")}},

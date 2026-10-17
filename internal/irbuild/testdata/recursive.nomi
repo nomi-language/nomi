@@ -22,7 +22,7 @@ enum Loop {
     Go Cell
 }
 
-fn depth(_c: Chain): Int {
+fn depth(_c: Chain) -> Int {
     2
 }
 

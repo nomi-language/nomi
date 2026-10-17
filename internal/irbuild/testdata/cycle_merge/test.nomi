@@ -9,25 +9,25 @@ pub struct Slot {
 }
 
 impl Show for Slot {
-    fn show(value: Slot): String {
+    fn show(value: Slot) -> String {
         "test-slot-${value.id}"
     }
 }
 
 pub once tag: String = "test"
 
-pub fn slot(): Slot {
+pub fn slot() -> Slot {
     Slot{id: 9090}
 }
 
-pub fn badge(): String {
+pub fn badge() -> String {
     Show.show(slot())
 }
 
-pub fn build(): Config {
+pub fn build() -> Config {
     Config{name: tag, level: 2}
 }
 
-pub fn label(): String {
+pub fn label() -> String {
     "test-label"
 }

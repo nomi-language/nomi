@@ -23,14 +23,14 @@ enum Shape {
   Dot
 }
 
-fn area(s: Shape): Int {
+fn area(s: Shape) -> Int {
   case s {
     .Circle{r: r} -> r
     .Dot -> 0
   }
 }
 
-fn take(c: Circle): Int {
+fn take(c: Circle) -> Int {
   c.r
 }
 
@@ -40,7 +40,7 @@ fn main() {
   io.inspect(circles |> Iter.map(area) |> Iter.to_list())
   io.inspect(Maybe.map(Some(Circle{r: 4}), area))
   shapes: List<Shape> = [.Dot, Circle{r: 5}]
-  matched = Iter.map(shapes, |value| case value {
+  matched = Iter.map(shapes, fn value -> case value {
     .Circle{} -> take(value)
     .Dot -> 0
   })

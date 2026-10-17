@@ -6,20 +6,20 @@
 // half a value-only fixture cannot see.
 import std/io
 
-fn noisy(label: String, v: Int): Int {
+fn noisy(label: String, v: Int) -> Int {
     io.print("  eval ${label}")
     v
 }
 
-fn add(x: Int, y: Int): Int {
+fn add(x: Int, y: Int) -> Int {
     x + y
 }
 
-fn divide(x: Int, y: Int): Int {
+fn divide(x: Int, y: Int) -> Int {
     x / y
 }
 
-fn apply(f: (Int) -> Int, v: Int): Int {
+fn apply(f: (Int) -> Int, v: Int) -> Int {
     f(v)
 }
 

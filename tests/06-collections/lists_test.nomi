@@ -71,7 +71,7 @@ test "recursive functions can consume list cons patterns" {
     assert sum([1, 2, 3, 4, 5]) == 15
 }
 
-fn sum(xs: List<Int>): Int {
+fn sum(xs: List<Int>) -> Int {
     case xs {
         [] -> 0
         [h, ..t] -> h + sum(t)

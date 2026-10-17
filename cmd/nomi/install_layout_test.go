@@ -107,7 +107,7 @@ struct App {
   context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{port: 8080, context: Context.root()}
 }
 
@@ -171,7 +171,7 @@ func TestDevelopmentBuildWithoutSourceRunsAGoFFIProjectOnlyWithACheckout(t *test
 	write("shout.go", "package fficheck\n\nimport \"strings\"\n\n"+
 		"func Shout(s string) string { return strings.ToUpper(s) }\n")
 	write("ffi.nomi", "gopkg \"fficheck\" as shout\n\n"+
-		"pub fn shout_it(s: String): String go shout.Shout\n")
+		"pub fn shout_it(s: String) -> String go shout.Shout\n")
 	write("main.nomi", `import {
   std/io
   ffi

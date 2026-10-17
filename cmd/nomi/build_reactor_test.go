@@ -35,18 +35,18 @@ enum Shape {
 derive ToJson for Shape
 derive FromJson for Shape
 
-export fn moved(p: Point, dx: Int): Point {
+export fn moved(p: Point, dx: Int) -> Point {
     {..p, x: p.x + dx}
 }
 
-export fn grow(s: Shape): Shape {
+export fn grow(s: Shape) -> Shape {
     case s {
         Shape.Circle{radius} -> Shape.Circle{radius: radius * 2}
         Shape.Dot -> Shape.Dot
     }
 }
 
-export fn divide(a: Int, b: Int): Int {
+export fn divide(a: Int, b: Int) -> Int {
     a / b
 }
 
@@ -61,7 +61,7 @@ fn main() {
     io.print("main ran")
 }
 
-export fn twice(n: Int): Int {
+export fn twice(n: Int) -> Int {
     n * 2
 }
 `
@@ -243,13 +243,13 @@ func TestBuildCommand_Wasip1ReactorRefusesGoBindings(t *testing.T) {
 
 gopkg "strings" as strings
 
-fn upper(s: String): String go strings.ToUpper
+fn upper(s: String) -> String go strings.ToUpper
 
 fn main() {
     io.print(upper("hi"))
 }
 
-export fn shout(s: String): String {
+export fn shout(s: String) -> String {
     upper(s)
 }
 `)

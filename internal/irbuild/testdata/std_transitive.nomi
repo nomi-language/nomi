@@ -15,7 +15,7 @@ import {
 // load-bearing. It has to be its own file: put this beside a test
 // that calls `Duration.seconds` and std/duration becomes a direct use, the
 // closure stops mattering, and a mutation that removes it is invisible.
-fn shift(base: Instant, from: Instant, to: Instant): Instant {
+fn shift(base: Instant, from: Instant, to: Instant) -> Instant {
     base + Instant.between(from, to)
 }
 

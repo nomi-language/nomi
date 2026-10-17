@@ -8,7 +8,7 @@ package vmhost
 // frame's file, whose parameters are the frame's variables the expression
 // names, at the types the variable table records:
 //
-//	fn nomi_debug_eval(total: Int, p: Point): <the expression's type> {
+//	fn nomi_debug_eval(total: Int, p: Point) -> <the expression's type> {
 //	    _ = total
 //	    _ = p
 //	    (<the expression>)
@@ -306,7 +306,7 @@ func debugFunc(params []DebugParam, result, body string) string {
 	}
 	b.WriteString(")")
 	if result != "" {
-		b.WriteString(": " + result)
+		b.WriteString(" -> " + result)
 	}
 	b.WriteString(" {\n")
 	for _, v := range params {

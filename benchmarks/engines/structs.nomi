@@ -16,7 +16,7 @@ struct Particle {
     dy: Int
 }
 
-fn step(p: Particle): Particle {
+fn step(p: Particle) -> Particle {
     nx = p.x + p.dx
     ny = p.y + p.dy
     ndx = if nx > 1000 or nx < 0 { 0 - p.dx } else { p.dx }
@@ -26,6 +26,6 @@ fn step(p: Particle): Particle {
 
 fn main() {
     start = Particle{x: 1, y: 2, dx: 3, dy: 5}
-    last = Iter.reduce(1..=300000, |p = start, _i| step(p))
+    last = Iter.reduce(1..=300000, fn p = start, _i -> step(p))
     io.print(last.x + last.y)
 }

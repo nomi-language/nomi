@@ -3,13 +3,13 @@ import std/compiler.Diagnostic
 // A sibling file's signature naming a STD type whose representation rt declares. The
 // entry file calls this and never names `Diagnostic` itself: its only mention of
 // std/compiler is `compiler.check(source)`.
-pub fn any?(diagnostics: List<Diagnostic>): Bool {
-    Iter.any?(diagnostics, |diagnostic| diagnostic.line >= 0)
+pub fn any?(diagnostics: List<Diagnostic>) -> Bool {
+    Iter.any?(diagnostics, fn diagnostic -> diagnostic.line >= 0)
 }
 
 // The same type in the RESULT position, and as a prelude instance's type
 // argument, so `importKind`'s list, prelude and named arms are all crossed.
-pub fn first_message(diagnostics: List<Diagnostic>): String {
+pub fn first_message(diagnostics: List<Diagnostic>) -> String {
     case List.head(diagnostics) {
         Some(diagnostic) -> diagnostic.message
         None -> "none"

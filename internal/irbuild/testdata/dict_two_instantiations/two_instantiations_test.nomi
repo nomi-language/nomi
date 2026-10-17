@@ -18,10 +18,10 @@
 // representations (an Int and a String), so a collapse cannot coincidentally
 // produce the right bytes.
 interface Chooser<T> {
-    fn left(p: self): T
-    fn right(p: self): T
+    fn left(p: self) -> T
+    fn right(p: self) -> T
 
-    fn pick(p: self): T {
+    fn pick(p: self) -> T {
         Chooser.left(p)
     }
 }
@@ -32,11 +32,11 @@ struct Pair<E> {
 }
 
 impl Chooser for Pair<E> {
-    fn left(p: Pair<E>): E {
+    fn left(p: Pair<E>) -> E {
         p.a
     }
 
-    fn right(p: Pair<E>): E {
+    fn right(p: Pair<E>) -> E {
         p.b
     }
 }

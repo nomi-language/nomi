@@ -11,6 +11,11 @@ import (
 // own receiver through the function it is defining.
 const RecursiveRenderCode = "recursive-render"
 
+// RecursiveProtocolCode tags an Equatable `equal?`, Comparable `compare` or
+// Hashable `hash` implementation that compares or hashes its own arguments
+// through the function it is defining.
+const RecursiveProtocolCode = "recursive-protocol"
+
 // UnconditionalRecursionCode tags a function every path of which calls the
 // function itself with its own parameters before it can return.
 const UnconditionalRecursionCode = "unconditional-recursion"
@@ -24,6 +29,8 @@ type selfRecursion struct {
 	// iface is the interface the enclosing `impl Iface for T` block
 	// implements, when fn is one of that block's functions; nil otherwise.
 	iface *ast.InterfaceDef
+	// recvDecl is the declaration of the impl block's receiver type, or nil.
+	recvDecl ast.Node
 	// owner is how the function is spelled at a call site: `Foo.to_string`
 	// for an impl function, the bare name otherwise.
 	owner string
@@ -63,8 +70,13 @@ func (c *checker) checkSelfRecursion(fn *ast.FuncDef, impl *ast.ImplBlock) {
 		if recv := TypeExprBaseName(impl.Receiver); recv != "" {
 			r.owner = recv + "." + fn.Name
 		}
+		r.recvDecl = r.typeDeclOf(impl.Receiver)
 	}
 	if errs := r.renderErrors(); len(errs) > 0 {
+		c.errors = append(c.errors, errs...)
+		return
+	}
+	if errs := r.protocolErrors(); len(errs) > 0 {
 		c.errors = append(c.errors, errs...)
 		return
 	}
@@ -105,6 +117,23 @@ func (r *selfRecursion) interfaceOf(t ast.TypeExpr) *ast.InterfaceDef {
 	}
 	def, _ := s.Node.(*ast.InterfaceDef)
 	return def
+}
+
+// typeDeclOf is the declaration a receiver type names, or nil.
+func (r *selfRecursion) typeDeclOf(t ast.TypeExpr) ast.Node {
+	var line, col int
+	switch x := t.(type) {
+	case *ast.SimpleType:
+		line, col = x.Line, x.Col
+	case *ast.GenericType:
+		line, col = x.Line, x.Col
+	default:
+		return nil
+	}
+	if s := r.ref(line, col); s != nil {
+		return s.Node
+	}
+	return nil
 }
 
 func unparen(n ast.Node) ast.Node {
@@ -345,6 +374,103 @@ func (r *selfRecursion) renderErrors() []TypeError {
 	return errs
 }
 
+// protocolErrors applies the protocol rule to an Equatable `equal?`,
+// Comparable `compare` or Hashable `hash` implementation: comparing its own
+// arguments with the operator that dispatches to it (`a == b` and `a != b`
+// in `equal?`, `a < b` and the other orderings in `compare`), or calling it
+// through its interface or its type (`Equatable.equal?(a, b)`,
+// `P.hash(p)`) with its own arguments, calls the function being defined
+// with values it was given, which takes the same path again. Like the render
+// rule it applies wherever the comparison appears in the body. Comparing a
+// field, even one of the impl's own type (a tree's children), is legal.
+func (r *selfRecursion) protocolErrors() []TypeError {
+	if r.iface == nil || IsStdlibKey(r.fa.Origin) {
+		// The stdlib's collections (`Set` is a struct there) compare in
+		// the runtime, so their `equal?` is `a == b`.
+		return nil
+	}
+	switch r.recvDecl.(type) {
+	case *ast.StructDef, *ast.EnumDef, *ast.TypeDef:
+		// A declared type, whose `==` and orderings dispatch to its impls.
+		// A host type's (`Int`, `List`) are the runtime's own, so its
+		// `equal?` may be `a == b`.
+	default:
+		return nil
+	}
+	var ops map[string]bool
+	var verb, example string
+	switch {
+	case r.iface.Name == "Equatable" && r.fn.Name == "equal?" && len(r.fn.Params) == 2:
+		ops = map[string]bool{"==": true, "!=": true}
+		verb, example = "compare", "%s.field == %s.field"
+	case r.iface.Name == "Comparable" && r.fn.Name == "compare" && len(r.fn.Params) == 2:
+		ops = map[string]bool{"<": true, ">": true, "<=": true, ">=": true}
+		verb, example = "compare", "Comparable.compare(%s.field, %s.field)"
+	case r.iface.Name == "Hashable" && r.fn.Name == "hash" && len(r.fn.Params) == 1:
+		verb, example = "hash", "Hashable.hash(%s.field)"
+	default:
+		return nil
+	}
+	typeName := strings.TrimSuffix(r.owner, "."+r.fn.Name)
+	names := make([]any, len(r.fn.Params))
+	for i, p := range r.fn.Params {
+		names[i] = p.Name
+	}
+	hint := fmt.Sprintf("%s the fields instead (`%s`), or write `derive %s for %s`",
+		verb, fmt.Sprintf(example, names...), r.iface.Name, typeName)
+	isArg := func(n ast.Node) bool {
+		for i := range r.fn.Params {
+			if r.isParam(n, i) {
+				return true
+			}
+		}
+		return false
+	}
+	var errs []TypeError
+	report := func(n ast.Node, form string) {
+		line, col := stmtStart(n)
+		e := TypeError{
+			Line: line,
+			Col:  col,
+			Message: fmt.Sprintf("%s calls %s's `%s`, the function being defined, with its own arguments, so it calls itself forever",
+				form, typeName, r.fn.Name),
+			Code: RecursiveProtocolCode,
+		}
+		if sp, ok := spanOf(n); ok && sp.StartLine == line && sp.StartCol == col {
+			e.EndLine, e.EndCol = sp.EndLine, sp.EndCol
+		}
+		errs = append(errs, e.WithHint(hint))
+	}
+	WalkNodes(r.fn.Body, func(n ast.Node) {
+		switch x := n.(type) {
+		case *ast.Binary:
+			if ops[x.Op] && isArg(x.Left) && isArg(x.Right) {
+				report(x, "`"+exprText(x.Left)+" "+x.Op+" "+exprText(x.Right)+"`")
+				return
+			}
+		}
+		switch n.(type) {
+		case *ast.Call, *ast.Binary:
+			callee, args, ok := call(n)
+			if !ok || len(args) != len(r.fn.Params) || !r.isSelfCallee(callee) {
+				return
+			}
+			texts := make([]string, len(args))
+			for i, a := range args {
+				if na, named := a.(*ast.NamedArg); named {
+					a = na.Value
+				}
+				if !isArg(a) {
+					return
+				}
+				texts[i] = exprText(a)
+			}
+			report(n, "`"+calleeText(unparen(callee))+"("+strings.Join(texts, ", ")+")`")
+		}
+	})
+	return errs
+}
+
 // isStdIORender reports whether callee is the std/io function that renders
 // its argument through the interface being implemented: `io.print` and
 // `io.write` through Display, `io.inspect` through Debug.
@@ -437,8 +563,6 @@ func (r *selfRecursion) mustRecurse(n ast.Node, tail, clean bool) bool {
 	case *ast.TupleDestructure:
 		return r.mustRecurse(x.Value, false, clean)
 	case *ast.StructDestructure:
-		return r.mustRecurse(x.Value, false, clean)
-	case *ast.MapDestructure:
 		return r.mustRecurse(x.Value, false, clean)
 	case *ast.DistinctDestructure:
 		return r.mustRecurse(x.Value, false, clean)

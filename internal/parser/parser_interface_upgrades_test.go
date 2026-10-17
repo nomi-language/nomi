@@ -23,17 +23,17 @@ func TestInterfaceFieldItemIsRefused(t *testing.T) {
 		{
 			"a well-formed field item",
 			"pub interface Named {\n  field name: String\n}",
-			"line 2, col 3: interfaces declare functions only; replace `field name: String` with a function requirement such as `fn name(value: self): String`",
+			"line 2, col 3: interfaces declare functions only; replace `field name: String` with a function requirement such as `fn name(value: self) -> String`",
 		},
 		{
 			"a generic field type, beside a function",
-			"interface Container<T> {\n  fn size(value: self): Int\n  field items: List<T>\n}",
-			"line 3, col 3: interfaces declare functions only; replace `field items: List<T>` with a function requirement such as `fn items(value: self): List<T>`",
+			"interface Container<T> {\n  fn size(value: self) -> Int\n  field items: List<T>\n}",
+			"line 3, col 3: interfaces declare functions only; replace `field items: List<T>` with a function requirement such as `fn items(value: self) -> List<T>`",
 		},
 		{
 			"a field item with no type",
 			"interface Bad {\n  field context\n}",
-			"line 2, col 3: interfaces declare functions only; replace `field name: String` with a function requirement such as `fn name(value: self): String`",
+			"line 2, col 3: interfaces declare functions only; replace `field name: String` with a function requirement such as `fn name(value: self) -> String`",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -50,7 +50,7 @@ func TestInterfaceFieldItemIsRefused(t *testing.T) {
 
 // `field` is an ordinary identifier outside an interface body.
 func TestFieldIsAnOrdinaryIdentifier(t *testing.T) {
-	nodes := parse(t, "struct Box {\n  field: Int\n}\nfn f(field: Int): Int {\n  field + 1\n}")
+	nodes := parse(t, "struct Box {\n  field: Int\n}\nfn f(field: Int) -> Int {\n  field + 1\n}")
 	if len(nodes) != 2 {
 		t.Fatalf("expected 2 nodes, got %d", len(nodes))
 	}
@@ -58,9 +58,9 @@ func TestFieldIsAnOrdinaryIdentifier(t *testing.T) {
 
 func TestInterfaceOpenDefault(t *testing.T) {
 	nodes := parse(t, `interface MyIface {
-  fn required_method(value: self): Int
-  fn final_default(_value: self): String { "fixed" }
-  open fn extension_point(_value: self): String { "hi" }
+  fn required_method(value: self) -> Int
+  fn final_default(_value: self) -> String { "fixed" }
+  open fn extension_point(_value: self) -> String { "hi" }
 }`)
 	idef := nodes[0].(*ast.InterfaceDef)
 	if len(idef.Methods) != 3 {
@@ -83,9 +83,9 @@ func TestInterfaceOpenDefault(t *testing.T) {
 // the overridable variant.
 func TestInterfaceHostBackedDefault(t *testing.T) {
 	nodes := parse(t, `interface Seq {
-  fn next(value: self): Int
-  host fn reduce(value: self): Int
-  open host fn sort(value: self): Int
+  fn next(value: self) -> Int
+  host fn reduce(value: self) -> Int
+  open host fn sort(value: self) -> Int
 }`)
 	idef := nodes[0].(*ast.InterfaceDef)
 	if len(idef.Methods) != 3 {
@@ -113,8 +113,8 @@ func TestInterfaceHostBackedDefault(t *testing.T) {
 // defaults, host defaults are `host fn`.)
 func TestInterfacePubItemRejected(t *testing.T) {
 	for _, src := range []string{
-		"interface I {\n  pub fn foo(x: self): Int { 1 }\n}",
-		"interface I {\n  pub host fn foo(x: self): Int\n}",
+		"interface I {\n  pub fn foo(x: self) -> Int { 1 }\n}",
+		"interface I {\n  pub host fn foo(x: self) -> Int\n}",
 	} {
 		tokens := lexer.Lex(src)
 		_, err := Parse(tokens)
@@ -130,7 +130,7 @@ func TestInterfacePubItemRejected(t *testing.T) {
 
 func TestInterfaceOpenRequiresDefault(t *testing.T) {
 	src := `interface Bad {
-  open fn no_body(value: self): Int
+  open fn no_body(value: self) -> Int
 }`
 	tokens := lexer.Lex(src)
 	_, err := Parse(tokens)
@@ -147,7 +147,7 @@ func TestInterfaceOpenRequiresDefault(t *testing.T) {
 // bindings named `open` parse.
 func TestFieldOpenAreContextualKeywords(t *testing.T) {
 	nodes := parse(t, `struct Box { field: Int }
-fn make(): Int {
+fn make() -> Int {
   open = 42
   open
 }`)

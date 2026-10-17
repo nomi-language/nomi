@@ -12,8 +12,8 @@ import (
 // Check analyzes a file's `//!` tests, as run and test do: an import only an
 // attached test uses is used, and one nothing uses is still reported.
 func TestCheck_AttachedTestUsesCountForImports(t *testing.T) {
-	const used = "import helper.four\n\n/// Doubles.\n//! assert double(2) == four()\n//\npub fn double(x: Int): Int {\n    x * 2\n}\n"
-	const unused = "import helper.{four, five}\n\n/// Doubles.\n//! assert double(2) == four()\n//\npub fn double(x: Int): Int {\n    x * 2\n}\n"
+	const used = "import helper.four\n\n/// Doubles.\n//! assert double(2) == four()\n//\npub fn double(x: Int) -> Int {\n    x * 2\n}\n"
+	const unused = "import helper.{four, five}\n\n/// Doubles.\n//! assert double(2) == four()\n//\npub fn double(x: Int) -> Int {\n    x * 2\n}\n"
 	for _, tc := range []struct {
 		name, main, wantErr string
 	}{
@@ -23,7 +23,7 @@ func TestCheck_AttachedTestUsesCountForImports(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
 			for name, src := range map[string]string{
-				"helper.nomi": "pub fn four(): Int {\n    4\n}\n\npub fn five(): Int {\n    5\n}\n",
+				"helper.nomi": "pub fn four() -> Int {\n    4\n}\n\npub fn five() -> Int {\n    5\n}\n",
 				"main.nomi":   tc.main,
 			} {
 				if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o644); err != nil {

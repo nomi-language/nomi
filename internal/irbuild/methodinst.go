@@ -9,8 +9,8 @@ import (
 
 // An impl function with its OWN type parameters, instantiated per call.
 //
-// `fn prefer<K>(_r: self, lhs: K, rhs: K): Bool where K: Comparable` (an
-// interface default) and `fn choose<K>(c: ChoiceBox<T>, lhs: K, rhs: K): K`
+// `fn prefer<K>(_r: self, lhs: K, rhs: K) -> Bool where K: Comparable` (an
+// interface default) and `fn choose<K>(c: ChoiceBox<T>, lhs: K, rhs: K) -> K`
 // (an impl member) are withheld from their block when it is registered,
 // because their parameters name a type nothing has bound (implItemSig's and
 // inheritDefaults' `generic impl function` gap). A call knows the binding:
@@ -87,7 +87,7 @@ func (d *implDef) withheldMember(method string) (withheldMember, bool) {
 		return w, false
 	}
 	// An expansive member may have no type parameters of its own
-	// (`fn gather(b: Box<T>): Box<List<T>>` in `impl Box<T>`): its frame is
+	// (`fn gather(b: Box<T>) -> Box<List<T>>` in `impl Box<T>`): its frame is
 	// the block's alone, and the key is the block and the method.
 	if len(w.tps) == 0 && gap.why != "expansive impl function" {
 		return w, false
@@ -212,7 +212,7 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, here [
 			inherited: true,
 			lowerable: true,
 		}
-		// A `self` inside a parameter or result type (`(self, U)`) is the
+		// A `self` inside a parameter or result type (`#(self, U)`) is the
 		// implementor, as in inheritedDefaultSig.
 		prevSelf := g.defaultSelf
 		g.defaultSelf = &irDefaultSelf{iface: d.iface, recv: d.recv}
@@ -268,7 +268,7 @@ func (g *gen) flushMethodInsts() {
 // expansiveImplItem reports whether fd, a member of a block registered for an
 // instance of a generic template, names that same template at an argument that
 // wraps a type parameter. In `impl Result<T, E>`,
-// `fn collect<T, E>(results: Iter<Result<T, E>>): Result<List<T>, E>` is one.
+// `fn collect<T, E>(results: Iter<Result<T, E>>) -> Result<List<T>, E>` is one.
 //
 // A block registered for an instance builds every member it supplies, and
 // this member's signature mints a larger instance: built for `Result<Int, E>`

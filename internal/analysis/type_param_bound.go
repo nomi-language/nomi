@@ -143,7 +143,7 @@ func symType(sym *Symbol) Type {
 	return sym.Type
 }
 
-// sigWithBound renders `head(params): Ret where ...`, the where clause
+// sigWithBound renders `head(params) -> Ret where ...`, the where clause
 // naming each type parameter's present bounds and ifaceName added to tp's.
 func sigWithBound(head string, names []string, params []Type, ret Type, inScope map[string]*TypeParam_, tp *TypeParam_, ifaceName string, own func(*TypeParam_) bool) string {
 	ps := make([]string, len(params))
@@ -156,7 +156,7 @@ func sigWithBound(head string, names []string, params []Type, ret Type, inScope 
 	}
 	out := head + "(" + strings.Join(ps, ", ") + ")"
 	if ret != nil && !isUnitLike(ret) {
-		out += ": " + typeString(ret)
+		out += " -> " + typeString(ret)
 	}
 	var clauses []string
 	order := make([]string, 0, len(inScope))

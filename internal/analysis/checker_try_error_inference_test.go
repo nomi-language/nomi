@@ -23,12 +23,12 @@ func expectClean(t *testing.T, errs []analysis.TypeError) {
 // side of its Result from the `try` site (here `String`), so a downstream
 // String use of the Err binding type-checks without an annotation.
 func TestTryErrInference_ConcurrentBlockInfersResultErr(t *testing.T) {
-	src := `fn short_fail(): Result<Int, String> {
+	src := `fn short_fail() -> Result<Int, String> {
   Err("boom")
 }
-fn demo(): String {
+fn demo() -> String {
   outcome = concurrent {
-    x = Task.spawn(|| short_fail())
+    x = Task.spawn(fn -> short_fail())
     Ok(try Task.await(x))
   }
   case outcome {
@@ -42,11 +42,11 @@ fn demo(): String {
 // An unannotated lambda whose body is `Ok(try parse())` infers
 // `() -> Result<Int, String>` from the `try` site.
 func TestTryErrInference_UnannotatedLambdaInfersResultErr(t *testing.T) {
-	src := `fn parse(): Result<Int, String> {
+	src := `fn parse() -> Result<Int, String> {
   Ok(1)
 }
-fn demo(): String {
-  f = || Ok(try parse())
+fn demo() -> String {
+  f = fn -> Ok(try parse())
   case f() {
     Ok(n) -> "ok"
     Err(e) -> e + "!"
@@ -59,16 +59,16 @@ fn demo(): String {
 // (`String` and `Int`) are rejected — the boundary's error type would
 // be ambiguous.
 func TestTryErrInference_ConflictingTryErrTypes_Rejected(t *testing.T) {
-	src := `fn a(): Result<Int, String> {
+	src := `fn a() -> Result<Int, String> {
   Ok(1)
 }
-fn b(): Result<Int, Int> {
+fn b() -> Result<Int, Int> {
   Ok(2)
 }
-fn demo(): Int {
+fn demo() -> Int {
   outcome = concurrent {
-    x = Task.spawn(|| a())
-    y = Task.spawn(|| b())
+    x = Task.spawn(fn -> a())
+    y = Task.spawn(fn -> b())
     r1 = try Task.await(x)
     r2 = try Task.await(y)
     Ok(r1 + r2)
@@ -84,12 +84,12 @@ fn demo(): Int {
 // A `Maybe`-flavored boundary is unaffected: `try` on a `Maybe` carries no
 // error type, so nothing is accumulated and the block infers `Maybe<T>`.
 func TestTryErrInference_MaybeBoundaryUnaffected(t *testing.T) {
-	src := `fn find(): Maybe<Int> {
+	src := `fn find() -> Maybe<Int> {
   Some(1)
 }
-fn demo(): Int {
+fn demo() -> Int {
   outcome = concurrent {
-    x = Task.spawn(|| find())
+    x = Task.spawn(fn -> find())
     Some(try Task.await(x))
   }
   case outcome {
@@ -103,14 +103,14 @@ fn demo(): Int {
 // A normal function with `try` is unchanged — its declared return type
 // pins the error side; the accumulator must not disturb it.
 func TestTryErrInference_FunctionUnchanged(t *testing.T) {
-	src := `fn h(): Result<Int, String> {
+	src := `fn h() -> Result<Int, String> {
   Ok(1)
 }
-fn g(): Result<Int, String> {
+fn g() -> Result<Int, String> {
   x = try h()
   Ok(x)
 }
-fn demo(): Int {
+fn demo() -> Int {
   case g() {
     Ok(n) -> n
     Err(_) -> 0

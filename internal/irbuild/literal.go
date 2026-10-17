@@ -16,7 +16,7 @@ import (
 //	<Type>.from_fragments([Fragment.Static(…), Fragment.Dynamic(…), …])
 //
 // backed by `impl Literal for <Type> { fn from_fragments(fragments:
-// List<Fragment<I>>): R }`. So there is no typed-literal MACHINERY to lower —
+// List<Fragment<I>>) -> R }`. So there is no typed-literal MACHINERY to lower —
 // there is a list to build and a type-qualified call to emit, both of which
 // this builder already does for every other spelling.
 //

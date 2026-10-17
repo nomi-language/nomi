@@ -17,18 +17,18 @@
 // scheduling question, and the subject here is purely where a `return` lands.
 import std/io
 
-fn fails(): Result<Int, String> {
+fn fails() -> Result<Int, String> {
     Err("nope")
 }
 
-fn works(): Result<Int, String> {
+fn works() -> Result<Int, String> {
     Ok(3)
 }
 
 // The `try` propagates out of the CONCURRENT BLOCK, so the block's value is the
 // Err and `after block` still prints. If the boundary were the function, `after
 // block` would vanish and the report would show it.
-fn block_boundary(): String {
+fn block_boundary() -> String {
     outcome = concurrent {
         v = try fails()
 
@@ -46,7 +46,7 @@ fn block_boundary(): String {
 // The same shape with a successful operand, so the Ok path through the block's
 // own guard is exercised too. A guard emitted with an inverted condition passes
 // the Err case and fails this one.
-fn block_boundary_ok(): String {
+fn block_boundary_ok() -> String {
     outcome = concurrent {
         v = try works()
 
@@ -63,9 +63,9 @@ fn block_boundary_ok(): String {
 // `lambda`, not `concurrent`, and the builder's cross-check is IDENTITY on the
 // result inference rather than a flag precisely so this case selects the lambda
 // arm. The lambda's Err becomes an ordinary value and the block runs on.
-fn lambda_boundary(): String {
+fn lambda_boundary() -> String {
     inner = concurrent {
-        f = |n: Int| {
+        f = fn n: Int -> {
             v = try fails()
 
             Ok(v + n)

@@ -16,7 +16,7 @@ func TestInheritedDefault_ReadsTheDeclaringFilesFacts(t *testing.T) {
 }
 
 impl Powered for Widget {
-    fn label(w: Widget): String {
+    fn label(w: Widget) -> String {
         w.name
     }
 }
@@ -32,9 +32,9 @@ impl Powered for Widget {
 }
 
 pub interface Powered {
-    fn label(w: self): String
+    fn label(w: self) -> String
 
-    fn origin(w: self): Point {
+    fn origin(w: self) -> Point {
         {x: 7, y: String.length(Powered.label(w))}
     }
 }
@@ -60,10 +60,10 @@ fn main() {
 }
 
 pub interface Powered {
-    fn label(w: self): String
+    fn label(w: self) -> String
 
-    fn xs(w: self): String {
-        [Point{x: 3, y: 4}] |> Iter.map(.x) |> Iter.map(|n| Powered.label(w) + "${n}") |> String.join(",")
+    fn xs(w: self) -> String {
+        [Point{x: 3, y: 4}] |> Iter.map(.x) |> Iter.map(fn n -> Powered.label(w) + "${n}") |> String.join(",")
     }
 }
 `,
@@ -85,9 +85,9 @@ fn main() {
 			lib: `import main.App
 
 pub interface Powered {
-    fn label(w: self): String
+    fn label(w: self) -> String
 
-    fn greet(w: self): String {
+    fn greet(w: self) -> String {
         App.greeting + " " + Powered.label(w)
     }
 }
@@ -102,7 +102,7 @@ pub struct App {
     greeting: String
 }
 
-fn boot(): App {
+fn boot() -> App {
     App{context: Context.root(), greeting: "hello"}
 }
 
@@ -116,7 +116,7 @@ fn main() {
 		{
 			name: "a bare call bound by a block import",
 			lib: `pub interface Powered {
-    fn label(w: self): String
+    fn label(w: self) -> String
 
     fn shout(w: self) {
         import std/io.print

@@ -18,7 +18,7 @@ func TestCollect_ForeignAliasDefinitionsAndImplReferences(t *testing.T) {
 pub opaque type Box go ffi.Box
 
 impl Box {
-  fn echo(value: String): String go ffi.Echo
+  fn echo(value: String) -> String go ffi.Echo
 }
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
@@ -49,7 +49,7 @@ impl Box {
 // repaint the `impl` keyword itself as either type.
 func TestCollect_NoTokenAtImplKeyword(t *testing.T) {
 	src := `interface Speech {
-  fn speak(s: self): String
+  fn speak(s: self) -> String
 }
 
 struct Dog {
@@ -57,7 +57,7 @@ struct Dog {
 }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name
   }
 }
@@ -95,7 +95,7 @@ impl Speech for Dog {
 // "interface" semantic token.
 func TestCollect_InterfaceTokenAtImplHeader(t *testing.T) {
 	src := `interface Speech {
-  fn speak(s: self): String
+  fn speak(s: self) -> String
 }
 
 struct Dog {
@@ -103,7 +103,7 @@ struct Dog {
 }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name
   }
 }
@@ -131,7 +131,7 @@ impl Speech for Dog {
 }
 
 func TestCollect_DiscardBindersDoNotEmitSemanticTokens(t *testing.T) {
-	src := `fn ignore(_param: Int): Int {
+	src := `fn ignore(_param: Int) -> Int {
   _count = 5
   0
 }
@@ -164,7 +164,7 @@ func TestCollect_FieldsDoNotEmitSemanticTokens(t *testing.T) {
   x: Int
 }
 
-fn read(p: Point): Int {
+fn read(p: Point) -> Int {
   p.x
 }
 `
@@ -234,7 +234,7 @@ derive FromJson for User with FromJson.Options{rename_all: Json.Case.Camel}
 }
 
 func TestCollect_ParamsUseParameterTokenType(t *testing.T) {
-	src := `fn add_base(n: Int): Int {
+	src := `fn add_base(n: Int) -> Int {
   n + 1
 }
 `
@@ -270,7 +270,7 @@ func TestCollect_ParamsUseParameterTokenType(t *testing.T) {
 func TestCollect_NestedFunctionParamsUseParameterTokenType(t *testing.T) {
 	src := `test "nested params" {
   base = 100
-  fn add_base(n: Int): Int {
+  fn add_base(n: Int) -> Int {
     n + base
   }
 
@@ -336,7 +336,7 @@ func TestCollect_ImportPathSegmentsDoNotEmitSemanticTokens(t *testing.T) {
 func TestCollect_GoPackageHandleReferencesEmitNamespaceTokens(t *testing.T) {
 	src := `gopkg "urltools"
 
-pub fn escape_query(value: String): String go urltools.EscapeQuery
+pub fn escape_query(value: String) -> String go urltools.EscapeQuery
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
@@ -345,7 +345,7 @@ pub fn escape_query(value: String): String go urltools.EscapeQuery
 	fa := buildFile(nodes)
 
 	decl := analysis.Pos{Line: 1, Col: 8}
-	ref := analysis.Pos{Line: 3, Col: 47}
+	ref := analysis.Pos{Line: 3, Col: 49}
 	sawRef := false
 	for _, tok := range semtokens.Collect(fa) {
 		pos := analysis.Pos{Line: tok.Line, Col: tok.Col}
@@ -402,7 +402,7 @@ func TestCollect_HoverOnlyKeywordMarkersDoNotEmitSemanticTokens(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
 host type AssertionFailure
 
-fn parse(): Result<Int, String> {
+fn parse() -> Result<Int, String> {
   Result.Ok(42)
 }
 
@@ -538,16 +538,16 @@ func TestAttachedTestLines_CoversEveryPromptLineAndNothingElse(t *testing.T) {
 //! assert ready() == 1
 //
 //! xs = [1, 2]
-//!   |> Iter.map(|x| x + ready())
+//!   |> Iter.map(fn x -> x + ready())
 //!   |> Iter.to_list()
 //! assert xs == [2, 3]
-fn ready(): Int {
+fn ready() -> Int {
   1
 }
 
 impl Label {
   //! assert Label.wrap("x").text == "[x]"
-  fn wrap(text: String): Label {
+  fn wrap(text: String) -> Label {
     Label{text: "[${text}]"}
   }
 }
@@ -574,7 +574,7 @@ func TestCollect_DotVariantShorthandIsAnEnumMember(t *testing.T) {
     Green
 }
 
-fn paint(c: Color): Int {
+fn paint(c: Color) -> Int {
     case c {
         .Red -> 1
         .Green -> 2
@@ -588,7 +588,7 @@ fn main() {
         One
         Two
     }
-    pick = |l: Local| l
+    pick = fn l: Local -> l
     _c = pick(.Two)
     _d = paint(Color.Red)
 }

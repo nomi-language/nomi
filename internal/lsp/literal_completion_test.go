@@ -62,8 +62,8 @@ func TestLiteralCompletion_PlainTextReplacesTheTypedBody(t *testing.T) {
 
 func TestLiteralCompletion_TypeWithoutExamplesOffersNothing(t *testing.T) {
 	src := "import std/literals.{Fragment, Literal}\n\n/// A probe.\ntype Probe\n\nimpl Literal for Probe {\n" +
-		"    fn from_fragments(fragments: List<Fragment<String>>): Probe {\n        _ = fragments\n        Probe\n    }\n}\n\n" +
-		"fn f(): Probe {\n    Probe\"" + cursorMark + "\"\n}\n"
+		"    fn from_fragments(fragments: List<Fragment<String>>) -> Probe {\n        _ = fragments\n        Probe\n    }\n}\n\n" +
+		"fn f() -> Probe {\n    Probe\"" + cursorMark + "\"\n}\n"
 	if items := complete(t, src); len(items) != 0 {
 		t.Fatalf("offered %v for a type whose docs have no example", itemLabels(items))
 	}
@@ -72,8 +72,8 @@ func TestLiteralCompletion_TypeWithoutExamplesOffersNothing(t *testing.T) {
 func TestLiteralCompletion_UserTypeExamples(t *testing.T) {
 	src := "import std/literals.{Fragment, Literal}\n\n/// A probe, written `Probe\"a-1\"`.\ntype Probe\n\nimpl Literal for Probe {\n" +
 		"    //! assert Probe.name(Probe\"b-2\") == \"\"\n" +
-		"    fn from_fragments(fragments: List<Fragment<String>>): Probe {\n        _ = fragments\n        Probe\n    }\n}\n\n" +
-		"fn f(): Probe {\n    Probe\"" + cursorMark + "\"\n}\n"
+		"    fn from_fragments(fragments: List<Fragment<String>>) -> Probe {\n        _ = fragments\n        Probe\n    }\n}\n\n" +
+		"fn f() -> Probe {\n    Probe\"" + cursorMark + "\"\n}\n"
 	if got := strings.Join(itemLabels(complete(t, src)), " "); got != "a-1 b-2" {
 		t.Fatalf("examples = %q, want \"a-1 b-2\"", got)
 	}
@@ -150,7 +150,7 @@ func TestDocExamples_ReadCodeNotProse(t *testing.T) {
 		"    /// Number of whole days between two `Date`s — positive if `later` is",
 		"    //! assert Date.days_between(try Date\"2026-05-04\", try Date\"2026-05-07\") == 3",
 		"    //! assert try Date\"2026-${m}-04\" == x",
-		"    pub fn days_between(a: Date, b: Date): Int {",
+		"    pub fn days_between(a: Date, b: Date) -> Int {",
 		"        0",
 		"    }",
 		"}",

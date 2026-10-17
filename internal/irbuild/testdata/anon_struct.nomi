@@ -13,11 +13,11 @@ import std/io
 // The test corpus has no field-name pair where the two sorts disagree, so this
 // fixture is the only coverage for that case. Anyone changing either renderer
 // should check this file's recorded output.
-fn greet(p: {name: String, age: Int}): String {
+fn greet(p: {name: String, age: Int}) -> String {
     "Hi " + p.name + ", you are " + Int.to_string(p.age)
 }
 
-fn no(_v: {a: Int, a0: Int}): Bool {
+fn no(_v: {a: Int, a0: Int}) -> Bool {
     False
 }
 

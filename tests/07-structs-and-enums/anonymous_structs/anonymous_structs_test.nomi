@@ -35,14 +35,14 @@ test "anonymous struct parameters match by field set" {
     assert greet({age: 30, name: "Carol"}) == "Hi Carol, you are 30"
 }
 
-fn greet(p: {name: String, age: Int}): String {
+fn greet(p: {name: String, age: Int}) -> String {
     "Hi " + p.name + ", you are " + Int.to_string(p.age)
 }
 
 test "anonymous struct parameter mismatches report diagnostics" {
     diagnostics = compiler.check(
         """
-          fn greet(p: {name: String, age: Int}): String {
+          fn greet(p: {name: String, age: Int}) -> String {
             p.name
           }
 

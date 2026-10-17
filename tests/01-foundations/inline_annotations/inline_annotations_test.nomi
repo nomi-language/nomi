@@ -36,7 +36,7 @@ test "annotations drive otherwise-unconstrained generic inference" {
 }
 
 test "function annotations drive lambda parameter types" {
-    add_one: (Int) -> Int = |x| x + 1
+    add_one: (Int) -> Int = fn x -> x + 1
 
     assert add_one(41) == 42
 }

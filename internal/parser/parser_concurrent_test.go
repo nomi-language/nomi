@@ -10,7 +10,7 @@ import (
 // Asserts position info, body wiring, and node type — not just absence
 // of error.
 func TestParseConcurrentBlock_LiteralBody(t *testing.T) {
-	src := `fn main(): Int {
+	src := `fn main() -> Int {
   concurrent {
     42
   }
@@ -47,14 +47,14 @@ func TestParseConcurrentBlock_LiteralBody(t *testing.T) {
 }
 
 // TestParseConcurrentBlock_SpawnAwait — the canonical layer-1 smoke
-// shape: a binding wrapping `Task.spawn(|| ...)`, then `Task.await(x)` as the
+// shape: a binding wrapping `Task.spawn(fn -> ...)`, then `Task.await(x)` as the
 // tail expression. Asserts body has two statements (binding + call) so
 // the parser produces a well-formed AST the analyzer and checker can
 // walk.
 func TestParseConcurrentBlock_SpawnAwait(t *testing.T) {
-	src := `fn main(): Int {
+	src := `fn main() -> Int {
   concurrent {
-    x = Task.spawn(|| 42)
+    x = Task.spawn(fn -> 42)
     Task.await(x)
   }
 }`

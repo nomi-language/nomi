@@ -83,6 +83,7 @@ func appScopeAnalyze(t *testing.T, root, entry string, counts *appScopeCounts) (
 	}
 	errs := append([]analysis.TypeError{}, fa.TypeErrors...)
 	errs = append(errs, analysis.CheckTypes(fa, nodes)...)
+	errs = append(errs, analysis.CheckAppRoots(fa, nodes)...)
 	return fa, errs
 }
 

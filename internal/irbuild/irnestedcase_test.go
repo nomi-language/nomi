@@ -9,7 +9,7 @@ func TestIRLambda_NestedCases(t *testing.T) {
 		{"case in both Boolean arms", `import std/io
 fn main() {
  base = 10
- choose = |a: Bool, x: Int| {
+ choose = fn a: Bool, x: Int -> {
   if a {
    amount = base + 1
    case x {
@@ -30,7 +30,7 @@ fn main() {
 `, "zero\n12\n13\n14\n10\n19\n"},
 		{"Boolean and case inside case", `import std/io
 fn main() {
- choose = |x: Int, text: String, flag: Bool| {
+ choose = fn x: Int, text: String, flag: Bool -> {
   case x {
    0 -> if flag { 1 } else { 2 }
    _ -> case text {
@@ -48,15 +48,15 @@ fn main() {
 `, "1\n2\n3\n4\nwild\n5\n"},
 		{"nested cases return closures", `import std/io
 fn main() {
- choose = |x: Int, y: Int| {
+ choose = fn x: Int, y: Int -> {
   case x {
    0 -> case y {
-    0 -> { amount = 1; |n: Int| n + amount }
-    _ -> { amount = 2; |n: Int| n + amount }
+    0 -> { amount = 1; fn n: Int -> n + amount }
+    _ -> { amount = 2; fn n: Int -> n + amount }
    }
    _ -> case y {
-    0 -> { amount = 3; |n: Int| n + amount }
-    _ -> { amount = 4; |n: Int| n + amount }
+    0 -> { amount = 3; fn n: Int -> n + amount }
+    _ -> { amount = 4; fn n: Int -> n + amount }
    }
   }
  }
@@ -73,7 +73,7 @@ fn main() {
 `, "11\n12\n13\n14\n21\n"},
 		{"nested Unit cases", `import std/io
 fn main() {
- emit = |x: Int, y: Int| {
+ emit = fn x: Int, y: Int -> {
   case x {
    0 -> case y { 0 -> io.print("both"); _ -> io.print("first") }
    _ -> case y { 0 -> io.print("second"); _ -> io.print("neither") }

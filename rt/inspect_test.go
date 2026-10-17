@@ -89,7 +89,7 @@ func TestInspect_MapEntries(t *testing.T) {
 	var byPair Map[any, any]
 	byPair = MapPut(byPair, Hash, Equal, any(key), any("x"))
 	entry := Inspect(byPair).Children(0, 1)[0]
-	if entry.Name != "[0]" || childNames(entry.Value.Children(0, 2)) != `key=(1, 2) value="x"` {
+	if entry.Name != "[0]" || childNames(entry.Value.Children(0, 2)) != `key=#(1, 2) value="x"` {
 		t.Errorf("a tuple key: %s %s", entry.Name, childNames(entry.Value.Children(0, 2)))
 	}
 }

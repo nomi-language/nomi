@@ -31,6 +31,10 @@ func preludeGenFor(t *testing.T, src string) (*gen, *Program) {
 	for _, g := range gens {
 		g.declareFuncs()
 	}
+	files.resolveImplMembers(gens)
+	for _, g := range gens {
+		g.settleImpls()
+	}
 	return gens[0], p
 }
 
@@ -109,7 +113,7 @@ struct User {
 
 derive FromJson for User
 
-fn f(j: Json): Result<Int, String> {
+fn f(j: Json) -> Result<Int, String> {
   _ = j
   Ok(1)
 }

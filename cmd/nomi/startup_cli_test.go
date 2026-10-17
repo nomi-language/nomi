@@ -16,7 +16,7 @@ func TestStartupCLIInputs(t *testing.T) {
 struct Settings {
   context: Context
 }
-fn boot(startup: Startup): Settings {
+fn boot(startup: Startup) -> Settings {
  io.print(Map.get(startup.env, "NOMI_STARTUP_CLI_TEST"))
  io.print(startup.args)
  Settings{context: Context.root(), }

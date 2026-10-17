@@ -13,7 +13,7 @@
 //
 // The result takes the SPREAD HEAD's type — nominal in, nominal out; anonymous
 // in, anonymous out. It is the same rule as `Struct.update`'s signature,
-// `Struct.update(original: self, updates: Partial<self>): self`, which
+// `Struct.update(original: self, updates: Partial<self>) -> self`, which
 // returns the base's type.
 //
 // Two rules of the shared struct-literal validator change in a patch, and
@@ -52,7 +52,7 @@ struct Point {
 derive Display for Point
 
 interface Speaker {
-    fn say(s: self): String
+    fn say(s: self) -> String
 }
 
 struct Loud {
@@ -60,7 +60,7 @@ struct Loud {
 }
 
 impl Speaker for Loud {
-    fn say(s: Loud): String {
+    fn say(s: Loud) -> String {
         "LOUD${Int.to_string(s.n)}"
     }
 }
@@ -70,7 +70,7 @@ struct Quiet {
 }
 
 impl Speaker for Quiet {
-    fn say(s: Quiet): String {
+    fn say(s: Quiet) -> String {
         "quiet${Int.to_string(s.n)}"
     }
 }
@@ -85,7 +85,7 @@ struct Box<T> {
     tag: String
 }
 
-fn make_point(n: Int): Point {
+fn make_point(n: Int) -> Point {
     Point{x: n, y: 0}
 }
 
@@ -304,10 +304,7 @@ test "a nested spread is a value, and its own head is the base" {
 
 test "the patch reaches three levels down" {
     d = Deep{
-        person: Person{
-            name: "Ada",
-            address: Address{street: "1 Main", city: "Boston"},
-        },
+        person: Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}},
         n: 7,
     }
 
@@ -317,13 +314,7 @@ test "the patch reaches three levels down" {
     }
 
     patch = Struct.update(d, {
-        person: {
-            ..,
-            address: {
-                ..,
-                city: "NYC",
-            },
-        },
+        person: {.., address: {.., city: "NYC"}},
     })
 
     assert spread.person.address.city == "NYC"
@@ -443,7 +434,7 @@ test "a brace at an interface-typed field is rejected" {
     diagnostics = compiler.check(
         """
           interface Speaker {
-            fn say(s: self): String
+            fn say(s: self) -> String
           }
 
           struct Loud {
@@ -451,7 +442,7 @@ test "a brace at an interface-typed field is rejected" {
           }
 
           impl Speaker for Loud {
-            fn say(_s: Loud): String {
+            fn say(_s: Loud) -> String {
               "loud"
             }
           }

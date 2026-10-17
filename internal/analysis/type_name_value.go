@@ -118,7 +118,7 @@ func typeNameValueHint(name, what string, ty Type) string {
 	}
 	switch name {
 	case "String":
-		return "to turn a value into a String, interpolate it (`|x| \"${x}\"`) or pass `Display.to_string`"
+		return "to turn a value into a String, interpolate it (`fn x -> \"${x}\"`) or pass `Display.to_string`"
 	case "Int", "Float", "Bool":
 		return "a type is not a function; pass a function that converts, such as a lambda"
 	}
@@ -139,7 +139,7 @@ func typeNameValueHint(name, what string, ty Type) string {
 // distinctCtorValue types a distinct type named as a value, `Id` in
 // `Iter.map(ints, Id)` for `type Id Int`, as its constructor: a function of
 // the one value it wraps, `(Int) -> Id`. A tuple-distinct's constructor takes
-// the tuple, `((Int, String)) -> Pair`, as a positional variant over a tuple
+// the tuple, `(#(Int, String)) -> Pair`, as a positional variant over a tuple
 // does: the flat `Pair(1, "x")` is a call form, not a second parameter list.
 // The instantiated type is recorded on the reference (attachCallType), which
 // is what the IR builder reads to build the function. A zero-sized type is

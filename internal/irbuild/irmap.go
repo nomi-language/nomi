@@ -18,11 +18,11 @@ func irRetainedMapKind(k kind) bool {
 // irMapKeyKind is a retained map's key domain. The VM hashes and compares a
 // key as `==` does: a declared type through its hand-written Equatable and
 // Hashable (recorded by irRecordKeyImpls), everything else structurally
-// (vm/keys.go). So a key may be a scalar leaf, a Decimal (scale-insensitive:
-// rt.EqDecimal and rt.HashDecimal), a tuple, a list, or a retained
-// struct or enum (a prelude Maybe among them).
+// (vm/keys.go). So a key may be a scalar leaf, Unit (one value, rt.HashUnit),
+// a Decimal (scale-insensitive: rt.EqDecimal and rt.HashDecimal), a tuple, a
+// list, or a retained struct or enum (a prelude Maybe among them).
 func irMapKeyKind(k kind) bool {
-	if isDecimalKind(k) || irScalarLeafKind(k) || irRetainedTupleKind(k) || irRetainedListKind(k) || irRetainedLeafKind(k) || irByteValueKind(k) {
+	if k == kindUnit || isDecimalKind(k) || irScalarLeafKind(k) || irRetainedTupleKind(k) || irRetainedListKind(k) || irRetainedLeafKind(k) || irByteValueKind(k) {
 		return true
 	}
 	if elem, vector := vectorElem(k); vector && k != kindEmptyVector {
@@ -32,6 +32,11 @@ func irMapKeyKind(k kind) bool {
 		// A Set is a record over its membership map: hashed and compared
 		// order-insensitively, as its elements are.
 		return irSetElemKind(elem)
+	}
+	if elem, isRange := rangeElem(k); isRange && irRetainedRangeKind(k) {
+		// A Range is std's struct of its bounds: hashed and compared
+		// structurally, as its endpoints are.
+		return irMapKeyKind(elem)
 	}
 	// kindInvalid: marker — a zero-sized marker has no inner value.
 	if k.tag == tagNamed && k.def != nil && k.def.isDistinct && !k.def.rtOpaque && irCompositeDistinct(k.def) && k.def.inner != kindInvalid {
@@ -109,8 +114,39 @@ func irMapTransportKind(k kind) bool {
 // hashing and ordering are unchanged.
 func irMapValueKind(k kind) bool {
 	return irScalarLeafKind(k) || (k.tag == tagList && irRetainedListKind(k)) || irSelfContainerEnum(k) || irNominalElemKind(k) || irDynamicKind(k) || irHostHandleKind(k) ||
+		// An interface's existential, which the map holds as the
+		// concrete value (`Map<String, Display>`).
+		irExistentialKind(k) ||
 		// Any value a key may be, a nested map among them.
-		(k != kindEmptyMap && k != kindEmptyList && irMapKeyKind(k))
+		(k != kindEmptyMap && k != kindEmptyList && irMapKeyKind(k)) ||
+		irHeldValueKind(k)
+}
+
+// irHeldValueKind is a function value, an Iter, a map of such values, or a
+// List or Vector of any value the callable domain holds (`(Int) -> Int`, `group_by`'s `List<(Int) -> Int>`
+// groups), as a container's element or a map's value. The VM's containers
+// hold values of every kind, and nothing a container does with an element
+// it only carries looks at one: the checker rejects `==` over functions,
+// and Debug keeps its own checks.
+func irHeldValueKind(k kind) bool {
+	if k.tag == tagFunc {
+		return irCallableValueKind(k)
+	}
+	if irRetainedSeqKind(k) {
+		// An Iter, held as the closure over its source (`Map<String,
+		// Iter<Int>>`), as a binding or a field holds one.
+		return true
+	}
+	if k.tag == tagMap && k != kindEmptyMap && irRetainedMapKind(k) {
+		// A map of held values (`Map<String, Map<String, Iter<Int>>>`),
+		// which has no equality to be a key with.
+		return true
+	}
+	if k == kindEmptyList || k == kindEmptyVector {
+		return false
+	}
+	_, vector := vectorElem(k)
+	return (k.tag == tagList || vector) && irRetainedValueKind(k)
 }
 
 // irSelfContainerEnum is a retained std enum whose payloads include its own
@@ -139,21 +175,46 @@ func (bl *irScalarBuilder) mapMake(t *ast.MapLit) (ir.Temp, kind, bool, bool) {
 func (bl *irScalarBuilder) mapMakeOf(t *ast.MapLit, wants []kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if t.TypeName != nil {
-		// `Json.Obj{"k" => v}` is the variant call over the anonymous map.
+		// `Json.Obj%{"k" => v}` is the variant call over the anonymous map.
 		anon := *t
 		anon.TypeName = nil
 		return bl.attachedVariant(t, t.TypeName, &anon)
 	}
-	if t.TypeName != nil || len(t.Entries) == 0 {
-		return no()
-	}
 	if t.Spread != nil {
+		if len(t.Entries) == 0 {
+			return no()
+		}
 		return bl.mapUpdate(t, wants)
+	}
+	if len(t.Entries) == 0 {
+		return bl.emptyMapLit(t, wants)
 	}
 	return bl.mapEntries(t, wants)
 }
 
-// mapUpdate builds `{..base, key => value}`: the base, then the entries as
+// emptyMapLit builds `%{}`, the empty map. Like `[]`, it is the map its
+// position makes it when the checker solved the key and value types there,
+// and otherwise the empty map of no type yet.
+func (bl *irScalarBuilder) emptyMapLit(t *ast.MapLit, wants []kind) (ir.Temp, kind, bool, bool) {
+	n := ir.NewMakeMap(bl.g.irNodePos(t), bl.f.NewTemp(), nil)
+	bl.b.Append(n)
+	bl.side(n.Dst(), irScalarSide{k: kindEmptyMap, pureMake: true})
+	parts := wants
+	if len(parts) != 2 {
+		parts = bl.checkedLiteralParts(t, tagMap)
+	}
+	if len(parts) == 2 && irFullyTyped(parts[0]) && irFullyTyped(parts[1]) {
+		want := bl.g.mapKind(parts[0], parts[1])
+		if irRetainedMapKind(want) {
+			if v, k, ok := bl.coerceEmpty(t, n.Dst(), kindEmptyMap, want); ok && k == want {
+				return v, k, true, true
+			}
+		}
+	}
+	return n.Dst(), kindEmptyMap, true, true
+}
+
+// mapUpdate builds `%{..base, key => value}`: the base, then the entries as
 // a map literal, then `Map.merge(base, literal)`, so the entries win and
 // keep the order Map.merge gives them. The checker typed the literal as the
 // base's `Map<K, V>`, which is the kind both operands are lowered to.
@@ -180,7 +241,7 @@ func (bl *irScalarBuilder) mapUpdate(t *ast.MapLit, wants []kind) (ir.Temp, kind
 		return no()
 	}
 	if bk == kindEmptyMap {
-		// `{..Map.empty(), "a" => 1}`: the entries say what the base holds.
+		// `%{..Map.empty(), "a" => 1}`: the entries say what the base holds.
 		if base, bk, ok = bl.coerceEmpty(t.Spread, base, bk, lk); !ok {
 			return no()
 		}
@@ -219,13 +280,13 @@ func (bl *irScalarBuilder) mapEntriesOver(t *ast.MapLit, wants []kind, base ir.T
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	// Keys and values are lowered in source order. Entries whose keys (or
 	// values) differ only by an embedded type join to the enum that embeds
-	// it (`{1 => circle, 2 => shape}` is a `Map<Int, Shape>`), as the
+	// it (`%{1 => circle, 2 => shape}` is a `Map<Int, Shape>`), as the
 	// checker joins them; the embedded ones are widened afterwards.
 	var temps [2][]ir.Temp
 	var items [2][]ast.Node
 	var kinds [2][]kind
 	// A key or value type holding an embedded type's enum below its top
-	// (`Map<Int, (Int, Shape)>`) is each entry's context (literalParts).
+	// (`Map<Int, #(Int, Shape)>`) is each entry's context (literalParts).
 	if wants == nil {
 		wants = bl.literalParts(t, tagMap)
 	}
@@ -303,6 +364,11 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 	if !known || len(args.kinds) != fn.args {
 		return nil
 	}
+	if method == "put" && args.kinds[0].tag == tagMap && args.kinds[0] != kindEmptyMap {
+		if v, k, ok := bl.mapAtSolvedExistential(t, args.temps[0], args.kinds[0]); ok {
+			args.temps[0], args.kinds[0] = v, k
+		}
+	}
 	if args.kinds[0] == kindEmptyMap && method == "put" && irMapKeyKind(args.kinds[1]) && irMapValueKind(args.kinds[2]) {
 		want := bl.g.mapKind(args.kinds[1], args.kinds[2])
 		v, k, ok := bl.coerceEmpty(t.Args[0], args.temps[0], args.kinds[0], want)
@@ -323,7 +389,9 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 	} else if len(args.kinds) > 1 && args.kinds[1] != key {
 		return nil
 	}
-	if method == "put" && args.kinds[2] != val {
+	if method == "put" && args.kinds[2] != val && !(irExistentialKind(val) && bl.g.irErases(val, args.kinds[2])) {
+		// A value entering an interface's existential value is the value
+		// itself (`Map.put(m, "b", True)` for a `Map<String, Display>`).
 		return nil
 	}
 	if method == "get" {
@@ -341,6 +409,32 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 	}
 	name := "Map." + method
 	return &irQualPlan{token: name, name: name, result: result, host: true}
+}
+
+// mapAtSolvedExistential is the map v of kind have retyped as the checker's
+// instantiation of call t's map parameter when that instantiation's value
+// is an interface's existential that have's value erases into
+// (`Map.put(m, "b", True)` for an `m` built as `Map<String, Int>` and solved
+// as `Map<String, Display>`). The existential is the concrete value, so the
+// map is the same value at the wider kind.
+func (bl *irScalarBuilder) mapAtSolvedExistential(t *ast.Call, v ir.Temp, have kind) (ir.Temp, kind, bool) {
+	ft := bl.g.checkedCallSignature(t)
+	if ft == nil || len(ft.Params) == 0 || have.comp == nil || len(have.comp.parts) != 2 {
+		return v, have, false
+	}
+	solved := bl.g.project(ft.Params[0])
+	if solved == have || solved.tag != tagMap || solved.comp == nil || len(solved.comp.parts) != 2 ||
+		!irRetainedMapKind(solved) || solved.comp.parts[0] != have.comp.parts[0] {
+		return v, have, false
+	}
+	val := solved.comp.parts[1]
+	if !irExistentialKind(val) || !bl.g.irErases(val, have.comp.parts[1]) {
+		return v, have, false
+	}
+	n := ir.NewCopy(bl.g.irNodePos(t), bl.f.NewTemp(), v)
+	bl.b.Append(n)
+	bl.side(n.Dst(), irScalarSide{k: solved})
+	return n.Dst(), solved, true
 }
 
 // openEmptyCallKind is the collection an empty constructor's call stands

@@ -11,13 +11,13 @@ pub enum Mood {
 
 pub type Meters Int
 
-pub fn meters(n: Int): Meters {
+pub fn meters(n: Int) -> Meters {
     Meters(n)
 }
 
 pub opaque type Secret String
 
-pub fn secret(s: String): Secret {
+pub fn secret(s: String) -> Secret {
     Secret(s)
 }
 
@@ -26,7 +26,7 @@ pub struct Shown {
 }
 
 impl Debug for Shown {
-    fn inspect(s: Shown): String {
+    fn inspect(s: Shown) -> String {
         "Shown<${s.n}>"
     }
 }

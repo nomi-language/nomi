@@ -15,7 +15,7 @@ pub enum Item {
     Coin
 }
 
-fn base(): Int {
+fn base() -> Int {
     io.print("base")
     41
 }
@@ -31,7 +31,7 @@ pub struct Loot {
     rare: Bool = rarity() == Rarity.Rare
 }
 
-fn rarity(): Rarity {
+fn rarity() -> Rarity {
     Rarity.Common
 }
 

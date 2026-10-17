@@ -8,7 +8,7 @@ import (
 )
 
 func TestParseExportFunc(t *testing.T) {
-	nodes, err := Parse(lexer.Lex("export fn guess(n: Int): Int {\n    n\n}\n"))
+	nodes, err := Parse(lexer.Lex("export fn guess(n: Int) -> Int {\n    n\n}\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,9 +38,9 @@ func TestParseExportRefusals(t *testing.T) {
 		{"after import", "import a.{B} export\n", "`export` marks a function: `export fn name(...)`", 1, 14},
 		{"export pub", "export pub fn f() {}\n", "`export` marks a function: `export fn name(...)`", 1, 1},
 		{"pub export", "pub export fn f() {}\n", "an exported function takes no `pub`: write `export fn`", 1, 1},
-		{"host", "export host fn f(): Int\n", "a `host fn` is supplied by the host and cannot be exported; an `export fn` has a body", 1, 1},
+		{"host", "export host fn f() -> Int\n", "a `host fn` is supplied by the host and cannot be exported; an `export fn` has a body", 1, 1},
 		{"host type", "export host type Conn\n", "`export` marks a function: `export fn name(...)`", 1, 1},
-		{"go binding", "gopkg \"strings\" as s\nexport fn up(x: String): String go s.ToUpper\n", "a Go binding cannot be exported; an `export fn` has a body", 2, 1},
+		{"go binding", "gopkg \"strings\" as s\nexport fn up(x: String) -> String go s.ToUpper\n", "a Go binding cannot be exported; an `export fn` has a body", 2, 1},
 		{"in a body", "fn main() {\n    export fn g() {}\n}\n", "`export` applies to top-level functions only", 2, 5},
 		{"in an impl", "struct P {\n    x: Int\n}\nimpl P {\n    export fn g() {}\n}\n", "a function in an `impl Type` block cannot be exported: `export fn` declares a top-level function", 5, 5},
 	}
@@ -60,7 +60,7 @@ func TestParseExportRefusals(t *testing.T) {
 
 // A refused `export` steps past the keyword, so recovery parses what follows.
 func TestParseWithRecovery_ResumesAfterARefusedExport(t *testing.T) {
-	nodes, errs := ParseWithRecovery(lexer.Lex("export { foo }\nfn helper(): Int { 1 }"))
+	nodes, errs := ParseWithRecovery(lexer.Lex("export { foo }\nfn helper() -> Int { 1 }"))
 	if len(errs) == 0 {
 		t.Fatal("the parser accepts `export { foo }`")
 	}
@@ -80,10 +80,10 @@ func TestParsePubInABlockIsRefused(t *testing.T) {
 	}{
 		{"fn body", "fn main() {\n    pub fn g() {}\n}\n", 2, 5},
 		{"import in a body", "fn main() {\n    pub import std/io\n}\n", 2, 5},
-		{"lambda", "fn main() {\n    f = |x| {\n        pub fn g() {}\n        x\n    }\n}\n", 3, 9},
+		{"lambda", "fn main() {\n    f = fn x -> {\n        pub fn g() {}\n        x\n    }\n}\n", 3, 9},
 		{"test body", "test \"t\" {\n    pub fn g() {}\n}\n", 2, 5},
 		{"once initializer", "once v = {\n    pub fn g() {}\n    1\n}\n", 2, 5},
-		{"case arm", "fn f(x: Int): Int {\n    case x {\n        _ -> {\n            pub fn g() {}\n            x\n        }\n    }\n}\n", 4, 13},
+		{"case arm", "fn f(x: Int) -> Int {\n    case x {\n        _ -> {\n            pub fn g() {}\n            x\n        }\n    }\n}\n", 4, 13},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -55,7 +55,7 @@ const (
 	// KindDistinct is `type Name Inner` (Elems[0] is Inner) or a zero-sized
 	// marker `type Name` (no Elems).
 	KindDistinct
-	// KindTuple is `(A, B, ...)`; Elems are the components in order.
+	// KindTuple is `#(A, B, ...)`; Elems are the components in order.
 	KindTuple
 	// KindRecord is an anonymous struct `{x: A, y: B}`; Names are the field
 	// names in canonical (sorted) order and Elems their types, parallel.
@@ -482,13 +482,11 @@ func (want *ValType) Accepts(have *ValType) bool {
 		return true
 	}
 	// Widening to an existential: an erased value is its concrete value,
-	// held where the interface is stated, so a declared type in the same
-	// register class is stored as it is.
-	if want.kind == KindIface && have.kind != KindIface && want.Class() == have.Class() {
-		switch have.kind {
-		case KindStruct, KindEnum, KindDistinct, KindHandle:
-			return true
-		}
+	// held where the interface is stated. A value in another register class
+	// (an Int, a String) is boxed as its own type by the move across banks
+	// (the VM's opXMov), so the existential still holds the concrete value.
+	if want.kind == KindIface && have.kind != KindIface {
+		return true
 	}
 	if want.kind != have.kind || want.sym != have.sym ||
 		len(want.elems) != len(have.elems) || len(want.names) != len(have.names) {
@@ -559,7 +557,7 @@ func (t *ValType) write(b *strings.Builder) {
 		b.WriteString("dyn ")
 		b.WriteString(t.sym.Name())
 	case KindTuple:
-		args("(", ")")
+		args("#(", ")")
 	case KindRecord:
 		b.WriteString("{")
 		for i, e := range t.elems {

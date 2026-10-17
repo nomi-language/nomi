@@ -168,8 +168,8 @@ type stdIfaceParamSpec struct {
 // DICTIONARY carries the TypeID as its own `*rt.TypeID` parameter, so it needs
 // no self-typed argument to dispatch on, and it re-boxes the `any` result under
 // exactly the TypeID that selected the implementation. With a USER interface,
-// `fn make(n: Int): self` lowers, while `Result<self, String>`, `Maybe<self>`
-// and `List<self>` refuse; `from_json(json: Json): Result<self, ShapeError>` is
+// `fn make(n: Int) -> self` lowers, while `Result<self, String>`, `Maybe<self>`
+// and `List<self>` refuse; `from_json(json: Json) -> Result<self, ShapeError>` is
 // the second group. impl.go's `gapNestedSelfResult` states the mechanism and is
 // the row that fires. See ifaceturbofish_selfreturn_test.go, which pins both
 // halves.

@@ -1,6 +1,6 @@
 import std/io
 
-fn op(a: Int, b: Int): Int {
+fn op(a: Int, b: Int) -> Int {
     a - b
 }
 

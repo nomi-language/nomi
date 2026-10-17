@@ -34,7 +34,7 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	if sym == nil {
 		return no()
 	}
-	if ti, isType := fa.Object.(*ast.TypeIdent); isType && ti.Name == "Struct" && fa.Field.Name == "update" {
+	if ti, isType := fa.Object.(*ast.TypeIdent); isType && ti.Name == "Struct" && fa.Field.Name == "update" && !bl.g.isBoundTypeParam("Struct") {
 		// `Struct.update(updates: {x: 1}, original: p)`: the patch must stay
 		// a literal the merge reads, which a stand-in for an evaluated
 		// temporary is not, so the update places its own arguments.
@@ -62,11 +62,10 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		return no()
 	}
 	isFunc := fd != nil
+	// A destructuring parameter's name is the parser's synthesized one,
+	// which no named argument can spell, so only a positional fills it.
 	names := make([]string, len(params))
 	for i, p := range params {
-		if p.Destructure != nil {
-			return no()
-		}
 		names[i] = p.Name
 	}
 	plan, planned := argSlotPlan(t.Args, make([]kind, len(names)), names)
@@ -130,13 +129,23 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		// `Date.new(2026, day: 5)`: a slot omitted before a supplied one
 		// takes its default here, evaluated in the callee's scope after the
 		// written operands, as a direct call's is (callDefaults). The
-		// planners then see every slot up to the last supplied one.
+		// planners then see every slot up to the last supplied one. A
+		// generic callee's slot (`other: Maybe<T> = None`) is read at the
+		// call's instantiation, which the checker recorded.
+		checked := bl.g.checkedCallSignature(t)
+		if checked != nil && len(checked.Params) != len(fd.Params) {
+			checked = nil
+		}
 		for i, p := range fd.Params {
-			if p.TypeAnnotation == nil {
-				return no()
-			}
 			if temps[i] == ir.NoTemp {
-				kinds[i] = bl.g.typeOf(p.TypeAnnotation)
+				if p.TypeAnnotation == nil {
+					return no()
+				}
+				if checked != nil {
+					kinds[i] = bl.g.projectFilledHoles(checked.Params[i])
+				} else {
+					kinds[i] = bl.g.typeOf(p.TypeAnnotation)
+				}
 				if !irCallOperandKind(kinds[i]) {
 					return no()
 				}
@@ -221,7 +230,12 @@ func (bl *irScalarBuilder) ifaceGapDefaults(t *ast.Call, im *ast.InterfaceMethod
 			continue
 		}
 		impl := bl.g.implsByIface[d.nomi][recv]
-		if impl == nil || !impl.lowerable {
+		if impl == nil {
+			// The impl is another file's (`impl Shape for Sq` beside
+			// `Sq`).
+			break
+		}
+		if !impl.lowerable {
 			return nil, false
 		}
 		it := impl.items[im.Name]
@@ -237,5 +251,50 @@ func (bl *irScalarBuilder) ifaceGapDefaults(t *ast.Call, im *ast.InterfaceMethod
 		}
 		return &fnSig{decl: fd, params: append([]kind(nil), it.params...)}, true
 	}
-	return nil, false
+	return bl.siblingIfaceGapDefaults(t, im, recv, len(temps))
+}
+
+// siblingIfaceGapDefaults is ifaceGapDefaults for an impl another file
+// declares, of an interface declared in this file or another: the
+// declaring file's impl function, whose defaults are lowered here when
+// every name they mention resolves to the same declaration in both files
+// (siblingDefaultsAgree), as siblingDefaultArgs fills trailing ones.
+func (bl *irScalarBuilder) siblingIfaceGapDefaults(t *ast.Call, im *ast.InterfaceMethod, recv kind, arity int) (*fnSig, bool) {
+	fa, isField := t.Func.(*ast.FieldAccess)
+	if !isField || recv.tag != tagNamed || recv.def == nil {
+		return nil, false
+	}
+	owner, isType := fa.Object.(*ast.TypeIdent)
+	if !isType {
+		return nil, false
+	}
+	sym := resolvedTypeSymbol(bl.g.fa, owner.Name)
+	if sym == nil {
+		return nil, false
+	}
+	decl, isIface := sym.Node.(*ast.InterfaceDef)
+	if !isIface {
+		return nil, false
+	}
+	declares := false
+	for i := range decl.Methods {
+		declares = declares || &decl.Methods[i] == im
+	}
+	if !declares {
+		return nil, false
+	}
+	chosen, params, _, owning := bl.g.siblingImplMember(recv.def, im.Name, decl.Name)
+	if chosen == nil || len(chosen.fn.params0) != arity || len(params) != arity {
+		return nil, false
+	}
+	var slots []int
+	for i, p := range chosen.fn.params0 {
+		if p.Default != nil {
+			slots = append(slots, i)
+		}
+	}
+	if !bl.siblingDefaultsAgree(chosen.fn, owning, slots) {
+		return nil, false
+	}
+	return &fnSig{decl: &ast.FuncDef{Name: im.Name, Params: chosen.fn.params0}, params: params}, true
 }

@@ -52,9 +52,9 @@ func TestCheckMainParams_RejectsParameters(t *testing.T) {
 func TestCheckMainParams_AcceptsTheEntryForms(t *testing.T) {
 	for name, src := range map[string]string{
 		"no parameters": "fn main() {\n    Unit\n}\n",
-		"boot with startup": "struct App {\n    name: String\n}\n\nfn boot(startup: Startup): App {\n    App{name: List.head(startup.args) |> Maybe.with_default(\"x\")}\n}\n\n" +
+		"boot with startup": "struct App {\n    name: String\n}\n\nfn boot(startup: Startup) -> App {\n    App{name: List.head(startup.args) |> Maybe.with_default(\"x\")}\n}\n\n" +
 			"fn main() {\n    _ = App.name\n}\n",
-		"impl function named main": "struct Box {\n    n: Int\n}\n\nimpl Box {\n    fn main(b: Box): Int {\n        b.n\n    }\n}\n\nfn main() {\n    _ = Box.main(Box{n: 1})\n}\n",
+		"impl function named main": "struct Box {\n    n: Int\n}\n\nimpl Box {\n    fn main(b: Box) -> Int {\n        b.n\n    }\n}\n\nfn main() {\n    _ = Box.main(Box{n: 1})\n}\n",
 		"test":                     "fn main() {\n    Unit\n}\n\ntest \"runs\" {\n    assert 1 == 1\n}\n",
 	} {
 		t.Run(name, func(t *testing.T) {

@@ -6,9 +6,9 @@ import {
 }
 
 interface Announcer<T> {
-    fn item(s: self): T
+    fn item(s: self) -> T
 
-    fn announce(_s: self, loud: Bool = False): String {
+    fn announce(_s: self, loud: Bool = False) -> String {
         base = "item"
         if loud { base + "!" } else { base }
     }
@@ -19,19 +19,19 @@ struct Box {
 }
 
 impl Announcer for Box {
-    fn item(s: Box): Int {
+    fn item(s: Box) -> Int {
         s.value
     }
 }
 
 interface IdentityWithDefaults {
-    fn name(value: self): String
+    fn name(value: self) -> String
 
-    fn describe(value: self): String {
+    fn describe(value: self) -> String {
         "I am " + IdentityWithDefaults.name(value)
     }
 
-    open fn greeting(value: self): String {
+    open fn greeting(value: self) -> String {
         "Hello from " + IdentityWithDefaults.name(value)
     }
 }
@@ -41,7 +41,7 @@ struct Robot {
 }
 
 impl IdentityWithDefaults for Robot {
-    fn name(robot: Robot): String {
+    fn name(robot: Robot) -> String {
         robot.model
     }
 }
@@ -51,23 +51,23 @@ struct User {
 }
 
 impl IdentityWithDefaults for User {
-    fn name(u: User): String {
+    fn name(u: User) -> String {
         u.handle
     }
 
-    fn greeting(u: User): String {
+    fn greeting(u: User) -> String {
         "hey, it's " + u.handle
     }
 }
 
 interface Formatted {
-    fn label(value: self): String
+    fn label(value: self) -> String
 
-    fn shout(value: self): String {
+    fn shout(value: self) -> String {
         "${label(value)}!"
     }
 
-    open fn brief(value: self): String {
+    open fn brief(value: self) -> String {
         label(value)
     }
 }
@@ -77,11 +77,11 @@ struct FormattedUser {
 }
 
 impl Formatted for FormattedUser {
-    fn label(u: FormattedUser): String {
+    fn label(u: FormattedUser) -> String {
         u.name
     }
 
-    fn brief(u: FormattedUser): String {
+    fn brief(u: FormattedUser) -> String {
         "user:${u.name}"
     }
 }
@@ -91,15 +91,15 @@ struct Holder<T> {
 }
 
 impl Ranked for Holder<T> {
-    fn item(h: Holder<T>): T {
+    fn item(h: Holder<T>) -> T {
         h.item
     }
 }
 
 interface Ranked<T> {
-    fn item(r: self): T
+    fn item(r: self) -> T
 
-    fn prefer<K>(_r: self, lhs: K, rhs: K): Bool where K: Comparable {
+    fn prefer<K>(_r: self, lhs: K, rhs: K) -> Bool where K: Comparable {
         case Comparable.compare(lhs, rhs) {
             .Less -> False
             _ -> True
@@ -108,8 +108,8 @@ interface Ranked<T> {
 }
 
 interface Chooser<T> {
-    fn item(c: self): T
-    fn choose<K>(c: self, lhs: K, rhs: K): K where K: Comparable
+    fn item(c: self) -> T
+    fn choose<K>(c: self, lhs: K, rhs: K) -> K where K: Comparable
 }
 
 struct ChoiceBox<T> {
@@ -117,11 +117,11 @@ struct ChoiceBox<T> {
 }
 
 impl Chooser for ChoiceBox<T> {
-    fn item(c: ChoiceBox<T>): T {
+    fn item(c: ChoiceBox<T>) -> T {
         c.item
     }
 
-    fn choose<K>(_c: ChoiceBox<T>, lhs: K, rhs: K): K where K: Comparable {
+    fn choose<K>(_c: ChoiceBox<T>, lhs: K, rhs: K) -> K where K: Comparable {
         case Comparable.compare(lhs, rhs) {
             .Greater -> lhs
             _ -> rhs
@@ -192,7 +192,7 @@ test "required interface functions cannot have parameter defaults" {
     diagnostics = compiler.check(
         """
           interface Greeter<T> {
-            fn greet(s: self, excited: Bool = False): String
+            fn greet(s: self, excited: Bool = False) -> String
           }
         """
     )
@@ -214,15 +214,15 @@ test "interface default parameter values must match parameter types" {
 
         impl Powered for Engine {
 
-          fn label(e: Engine): String {
+          fn label(e: Engine) -> String {
             e.name
           }
         }
 
         interface Powered {
-          fn label(e: self): String
+          fn label(e: self) -> String
 
-          fn describe(e: self, _count: Int = "nope"): String {
+          fn describe(e: self, _count: Int = "nope") -> String {
             Powered.label(e)
           }
         }
@@ -246,15 +246,15 @@ test "function-level where clauses on defaults reject unsatisfied arguments" {
 
         impl Ranked for Holder<T> {
 
-          fn item(h: Holder<T>): T {
+          fn item(h: Holder<T>) -> T {
             h.item
           }
         }
 
         interface Ranked<T> {
-          fn item(r: self): T
+          fn item(r: self) -> T
 
-          fn prefer<K>(_r: self, lhs: K, rhs: K): Bool where K: Comparable {
+          fn prefer<K>(_r: self, lhs: K, rhs: K) -> Bool where K: Comparable {
             case Comparable.compare(lhs, rhs) {
               .Less -> False
               _ -> True
@@ -279,9 +279,9 @@ test "function-level where clauses on required signatures reject unsatisfied arg
 
 
         interface Chooser<T> {
-          fn item(c: self): T
+          fn item(c: self) -> T
 
-          fn choose<K>(c: self, lhs: K, rhs: K): K where K: Comparable
+          fn choose<K>(c: self, lhs: K, rhs: K) -> K where K: Comparable
         }
 
         struct ChoiceBox<T> {
@@ -294,11 +294,11 @@ test "function-level where clauses on required signatures reject unsatisfied arg
 
         impl Chooser for ChoiceBox<T> {
 
-          fn item(c: ChoiceBox<T>): T {
+          fn item(c: ChoiceBox<T>) -> T {
             c.item
           }
 
-          fn choose<K>(_c: ChoiceBox<T>, lhs: K, rhs: K): K where K: Comparable {
+          fn choose<K>(_c: ChoiceBox<T>, lhs: K, rhs: K) -> K where K: Comparable {
             _ = rhs
             lhs
           }
@@ -320,9 +320,9 @@ test "interface method-local generics must be declared explicitly" {
         import std/comparable: Comparable
 
         interface Chooser<T> {
-          fn item(c: self): T
+          fn item(c: self) -> T
 
-          fn choose(c: self, lhs: K, rhs: K): K where K: Comparable
+          fn choose(c: self, lhs: K, rhs: K) -> K where K: Comparable
         }
         """
     )

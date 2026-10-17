@@ -29,11 +29,11 @@ struct Point {
     label: String
 }
 
-fn local_same(a: Point, b: Point): Bool {
+fn local_same(a: Point, b: Point) -> Bool {
     a == b
 }
 
-fn main(): Unit {
+fn main() -> Unit {
     zero = 0.0
     nan = zero / zero
 

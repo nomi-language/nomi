@@ -7,15 +7,15 @@ import {
     span.{self, Span}
 }
 
-fn width(s: Span<Int>): Int {
+fn width(s: Span<Int>) -> Int {
     s.stop - s.start
 }
 
-fn label(s: span.Span<String>): String {
+fn label(s: span.Span<String>) -> String {
     "${s.start}..${s.stop}"
 }
 
-fn widen(s: Span<Int>, by: Int): Span<Int> {
+fn widen(s: Span<Int>, by: Int) -> Span<Int> {
     Span{start: s.start - by, stop: s.stop + by}
 }
 

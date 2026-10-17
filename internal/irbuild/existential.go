@@ -125,8 +125,9 @@ func (g *gen) mirrorIface(o *typeOwner) *ifaceDef {
 		return d
 	}
 	d := g.blockedIface(o, "", "")
+	deferred := g.reg.defersIfaceMirror(g.fileUnit, o.unit)
 	switch {
-	case !g.reg.ensureTypes(o.unit):
+	case !deferred && !g.reg.ensureIfaces(o.unit):
 		// The owner's interface shells are declared by the same demand-driven
 		// pass that builds its type table, so a build already in progress is
 		// the same cycle, reported under the same key.
@@ -140,6 +141,10 @@ func (g *gen) mirrorIface(o *typeOwner) *ifaceDef {
 			d = g.blockedIface(o, "duplicate interface declaration", o.fileKey+"."+o.nomi)
 		case !src.lowerable:
 			d = g.blockedIface(o, src.why, o.fileKey+"."+o.nomi)
+		case deferred:
+			// A member of this file's type group, whose interface signatures
+			// are not resolved yet. See typecycle.go.
+			return g.pendingIfaceMirror(src, o)
 		default:
 			d = g.importIface(src, o)
 		}
@@ -344,6 +349,17 @@ func (g *gen) blockedIface(o *typeOwner, why, detail string) *ifaceDef {
 // somebody wrote. Refusing the whole interface would make a file unlowerable
 // for a method it may never call.
 func (g *gen) importIface(src *ifaceDef, o *typeOwner) *ifaceDef {
+	d := g.ifaceMirrorShell(src, o)
+	g.importIfaceMethods(d, src)
+	return d
+}
+
+// ifaceMirrorShell is an interface mirror with no methods yet, registered in
+// the intern map.
+//
+// Registered before the methods are imported: an interface function may name a
+// type whose own mirror reaches back here.
+func (g *gen) ifaceMirrorShell(src *ifaceDef, o *typeOwner) *ifaceDef {
 	d := &ifaceDef{
 		nomi:      src.nomi,
 		decl:      src.decl,
@@ -353,9 +369,12 @@ func (g *gen) importIface(src *ifaceDef, o *typeOwner) *ifaceDef {
 		unit:      o.unit,
 		lowerable: true,
 	}
-	// Registered before the methods are imported: an interface function may
-	// name a type whose own mirror reaches back here.
 	g.foreignIfaces[o.decl] = d
+	return d
+}
+
+// importIfaceMethods imports the owner's resolved method shapes into a mirror.
+func (g *gen) importIfaceMethods(d, src *ifaceDef) {
 	for _, sm := range src.order {
 		m := &ifaceMethod{
 			name: sm.name,
@@ -411,7 +430,6 @@ func (g *gen) importIface(src *ifaceDef, o *typeOwner) *ifaceDef {
 		d.methods[m.name] = m
 		d.order = append(d.order, m)
 	}
-	return d
 }
 
 // ifaceNamed resolves an interface NAME to this package's def for it: its own

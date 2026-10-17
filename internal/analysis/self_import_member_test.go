@@ -11,7 +11,7 @@ import (
 func TestSelfImportMissingFileMemberIsRejected(t *testing.T) {
 	errs := checkWithStdlib(`import std/io.{self, IOError}
 
-fn f(e: IOError): IOError {
+fn f(e: IOError) -> IOError {
   e
 }
 

@@ -41,7 +41,9 @@ pub import {
     strings.String
     structs.{Distinct, Struct}
     subtract.Subtract
+    summable.Summable
     type.Type
     unit.Unit
+    variants.Variants
     vectors.Vector
 }

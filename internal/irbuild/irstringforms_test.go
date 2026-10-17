@@ -14,7 +14,7 @@ fn main() {
  io.print(text)
 }
 `, "first\nsecond\n"},
-		{"captured and returned", "import std/io\nfn text(): String { `\\n` }\nfn main() {\n prefix = `#{raw}:`\n join = |suffix: String| prefix + suffix\n io.print(join(text()))\n}\n", "#{raw}:\\n\n"},
+		{"captured and returned", "import std/io\nfn text() -> String { `\\n` }\nfn main() {\n prefix = `#{raw}:`\n join = fn suffix: String -> prefix + suffix\n io.print(join(text()))\n}\n", "#{raw}:\\n\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}

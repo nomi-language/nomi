@@ -17,7 +17,7 @@ fn choose(flag: Bool) {
   _ = 2
 }
 
-fn chain(n: Int): Int {
+fn chain(n: Int) -> Int {
   if n > 0 {
     return 1
   } else if n < 0 {
@@ -28,7 +28,7 @@ fn chain(n: Int): Int {
   n
 }
 
-fn arms(m: Maybe<Int>): Int {
+fn arms(m: Maybe<Int>) -> Int {
   case m {
     Some(n) -> return n
     None -> {
@@ -38,15 +38,15 @@ fn arms(m: Maybe<Int>): Int {
   1
 }
 
-fn scoped(): Int {
+fn scoped() -> Int {
   {
     return 1
   }
   2
 }
 
-fn looped(): Int {
-  Iter.loop(|n = 0| {
+fn looped() -> Int {
+  Iter.loop(fn n = 0 -> {
     if n > 3 {
       break n
     } else {
@@ -91,7 +91,7 @@ fn looped(): Int {
 // stays legal while it is written.
 func TestUnreachable_APathThatFallsThroughIsClean(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn f(n: Int): Int {
+fn f(n: Int) -> Int {
   if n > 0 {
     return 1
   }

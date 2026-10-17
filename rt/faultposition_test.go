@@ -88,7 +88,6 @@ func positionedFaults() []positionedFault {
 			return (&EarlyReturnFailure{Line: l}).Error()
 		}},
 		{"NoCaseMatchError", func(l int) string { return NoCaseMatchError(l).Error() }},
-		{"MapKeyMissingError", func(l int) string { return MapKeyMissingError(l, "z").Error() }},
 		{"EnumFieldMissingError", func(l int) string { return EnumFieldMissingError(l, "Rect", "radius").Error() }},
 		{"EnumFieldAccessError", func(l int) string { return EnumFieldAccessError(l, "Point", "height").Error() }},
 		{"CallDepthError", func(l int) string { return CallDepthError(l).Error() }},
@@ -118,7 +117,6 @@ var wantAtLine7 = map[string]string{
 	"AssertionFailure.Error":    "line 7: assertion failed",
 	"EarlyReturnFailure.Error":  "line 7: test returned early",
 	"NoCaseMatchError":          "line 7: no matching case branch",
-	"MapKeyMissingError":        "line 7: key z not found in map",
 	"EnumFieldMissingError":     "line 7: variant 'Rect' has no field 'radius'",
 	"EnumFieldAccessError":      "line 7: cannot access field 'height' on variant 'Point'",
 	"CallDepthError":            "line 7: stack overflow: more than 100000 nested calls",

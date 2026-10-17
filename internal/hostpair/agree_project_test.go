@@ -36,7 +36,7 @@ var projectFixtures = []struct {
 
 opaque type RawBox go ffi.Box
 
-fn echo(s: String): String go ffi.Echo
+fn echo(s: String) -> String go ffi.Echo
 `,
 		},
 	},
@@ -48,9 +48,9 @@ fn echo(s: String): String go ffi.Echo
 
 opaque type RawBox go ffi.Box
 
-pub fn echo(s: String): String go ffi.Echo
+pub fn echo(s: String) -> String go ffi.Echo
 
-fn tick(): Int go ffi.Tick
+fn tick() -> Int go ffi.Tick
 `,
 		},
 	},
@@ -63,9 +63,9 @@ fn tick(): Int go ffi.Tick
 opaque type RawConn go db.Conn
 
 impl RawConn {
-  fn open(path: String): Result<RawConn, String> go db.Open
+  fn open(path: String) -> Result<RawConn, String> go db.Open
 
-  fn close(conn: RawConn): Unit go db.Close
+  fn close(conn: RawConn) -> Unit go db.Close
 }
 `,
 		},
@@ -76,9 +76,9 @@ impl RawConn {
 			"main.nomi": `gopkg "example.com/app/one" as one
 gopkg "example.com/app/two" as two
 
-fn first(): Int go one.First
+fn first() -> Int go one.First
 
-fn second(): Int go two.Second
+fn second() -> Int go two.Second
 `,
 		},
 	},
@@ -88,11 +88,11 @@ fn second(): Int go two.Second
 			"main.nomi": "import lib\n",
 			"lib.nomi": `gopkg "example.com/app/ffi" as ffi
 
-pub fn echo(s: String): String go ffi.Echo
+pub fn echo(s: String) -> String go ffi.Echo
 `,
 			"lib_test.nomi": `gopkg "example.com/app/ffi" as ffi
 
-fn probe(): Int go ffi.Probe
+fn probe() -> Int go ffi.Probe
 `,
 		},
 	},
@@ -101,7 +101,7 @@ fn probe(): Int go ffi.Probe
 		files: map[string]string{
 			"main.nomi": `gopkg "example.com/app/url-tools" as urltools
 
-fn parse(s: String): String go urltools.Parse
+fn parse(s: String) -> String go urltools.Parse
 `,
 		},
 	},
@@ -116,9 +116,9 @@ pub struct Box<T> {
 }
 
 impl Box<T> {
-  pub fn peek(b: Box<T>): Int go ffi.Peek
+  pub fn peek(b: Box<T>) -> Int go ffi.Peek
 
-  pub fn origin(): Int go ffi.Origin
+  pub fn origin() -> Int go ffi.Origin
 }
 `,
 		},
@@ -138,15 +138,15 @@ pub struct Bonus {
 }
 
 impl Add<Score, Score> for Score {
-  fn add(a: Score, b: Score): Score go ffi.AddScores
+  fn add(a: Score, b: Score) -> Score go ffi.AddScores
 }
 
 impl Add<Bonus, Score> for Score {
-  fn add(a: Score, b: Bonus): Score go ffi.AddBonus
+  fn add(a: Score, b: Bonus) -> Score go ffi.AddBonus
 }
 
 impl Display for Score {
-  fn to_string(s: Score): String go ffi.ScoreString
+  fn to_string(s: Score) -> String go ffi.ScoreString
 }
 `,
 		},

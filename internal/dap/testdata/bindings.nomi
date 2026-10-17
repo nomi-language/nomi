@@ -1,11 +1,11 @@
 import std/io
 
-fn total(pair: (Int, Int), limit: Int): Int {
-    (a, b) = pair
+fn total(pair: #(Int, Int), limit: Int) -> Int {
+    #(a, b) = pair
     sum = a + b
     sum = sum * 2
 
-    Iter.loop(|i = 0| {
+    Iter.loop(fn i = 0 -> {
         if i >= limit {
             break sum + i
         } else {
@@ -15,5 +15,5 @@ fn total(pair: (Int, Int), limit: Int): Int {
 }
 
 fn main() {
-    io.print(total((1, 2), 2))
+    io.print(total(#(1, 2), 2))
 }

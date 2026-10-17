@@ -1,4 +1,7 @@
-import display.Display
+import {
+    display.Display
+    variants.Variants
+}
 
 /// Ordering is the result of a three-way comparison: `Less`, `Equal`, or
 /// `Greater`. Returned by `Comparable.compare(a, b)` and by sort
@@ -10,6 +13,7 @@ pub enum Ordering {
 }
 
 derive Display for Ordering
+derive Variants for Ordering
 
 /// Direction selects ascending or descending order along a `Comparable`
 /// type. Used as a modifier on sort APIs (`Iter.sort`, `Iter.sort_by`)
@@ -46,5 +50,5 @@ derive Display for Direction
 /// (field-by-field in declaration order), enums (variant-tag-then-payload),
 /// and distinct types (delegating to the inner value).
 pub interface Comparable {
-    fn compare(a: self, b: self): Ordering
+    fn compare(a: self, b: self) -> Ordering
 }

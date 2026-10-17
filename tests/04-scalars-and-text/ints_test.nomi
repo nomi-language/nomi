@@ -12,13 +12,62 @@ test "non-zero refinement validates divisors" {
     assert Int.to_non_zero(0) == None
 }
 
-test "non-zero integers make division and modulo total" {
+test "non-zero integers make division total" {
     assert Some(divisor) = Int.to_non_zero(3)
     assert Some(negative_divisor) = Int.to_non_zero(2)
 
     assert Int.divide(10, divisor) == 3
     assert Int.divide(-7, negative_divisor) == -3
-    assert Int.modulo(10, divisor) == 1
+}
+
+test "modulo takes the sign of the divisor" {
+    assert Int.modulo(7, 3) == 1
+    assert Int.modulo(-7, 3) == 2
+    assert Int.modulo(7, -3) == -2
+    assert Int.modulo(-7, -3) == -1
+    assert Int.modulo(-1, 1440) == 1439
+    assert Int.modulo(6, -3) == 0
+    assert Int.modulo(-6, 3) == 0
+}
+
+test "remainder takes the sign of the dividend" {
+    assert 7 % 3 == 1
+    assert -7 % 3 == -1
+    assert 7 % -3 == 1
+    assert -7 % -3 == -1
+}
+
+test "modulo of the minimum by minus one is zero" {
+    assert Int.modulo(Int.min_value, -1) == 0
+    assert Int.min_value % -1 == 0
+    assert Int.modulo(Int.min_value, Int.max_value) == Int.max_value - 1
+    assert Int.modulo(Int.max_value, Int.min_value) == -1
+}
+
+fn floor_divide(x: Int, y: Int) -> Int {
+    q = x / y
+
+    if x % y != 0 and (x < 0) != (y < 0) {
+        q - 1
+    } else {
+        q
+    }
+}
+
+test "modulo is the dividend less the divisor times the floored quotient" {
+    values = [-7, -6, -5, -1, 0, 1, 5, 6, 7]
+    divisors = [-3, -2, -1, 1, 2, 3]
+
+    mismatches =
+        values
+        |> Iter.flat_map(fn x -> {
+            divisors
+            |> Iter.filter(fn y -> Int.modulo(x, y) != x - y * floor_divide(x, y))
+            |> Iter.map(fn y -> #(x, y))
+        })
+        |> Iter.to_list()
+
+    assert mismatches == []
 }
 
 test "positive refinement is stricter than non-zero" {
@@ -27,7 +76,7 @@ test "positive refinement is stricter than non-zero" {
     assert Int.to_positive(-3) == None
 }
 
-fn divide_by_positive(x: Int, divisor: Int): Int {
+fn divide_by_positive(x: Int, divisor: Int) -> Int {
     case Int.to_positive(divisor) {
         .Some(p) -> Int.divide(x, PositiveInt.to_non_zero(p))
         .None -> 0
@@ -40,4 +89,29 @@ test "positive integers can be used as non-zero divisors" {
 
 test "positive refinement rejects zero divisors" {
     assert divide_by_positive(20, 0) == 0
+}
+
+test "int abs and sign" {
+    assert Int.abs(-5) == 5
+    assert Int.abs(5) == 5
+    assert Int.abs(0) == 0
+    assert Int.abs(Int.max_value) == Int.max_value
+    assert Int.abs(Int.min_value + 1) == Int.max_value
+
+    assert Int.sign(-5) == -1
+    assert Int.sign(0) == 0
+    assert Int.sign(5) == 1
+    assert Int.sign(Int.min_value) == -1
+    assert Int.sign(Int.max_value) == 1
+}
+
+test "int min and max" {
+    assert Int.min(3, -2) == -2
+    assert Int.max(3, -2) == 3
+    assert Int.min(-2, 3) == -2
+    assert Int.max(-2, 3) == 3
+    assert Int.min(4, 4) == 4
+    assert Int.max(4, 4) == 4
+    assert Int.min(Int.min_value, Int.max_value) == Int.min_value
+    assert Int.max(Int.min_value, Int.max_value) == Int.max_value
 }

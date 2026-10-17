@@ -263,7 +263,7 @@ var stdGenStructSpecs = []stdGenStructSpec{
 	},
 	{
 		// `std/random.Generator<T>`, the row in either struct family whose field
-		// kind is a FUNCTION: `(Seed) -> (T, Seed)`.
+		// kind is a FUNCTION: `(Seed) -> #(T, Seed)`.
 		//
 		// `packageNeutral`'s structural arm names `tagFunc` beside `tagTuple` and
 		// recurses into components, so a function over an rt-declared `Seed` and a
@@ -280,7 +280,7 @@ var stdGenStructSpecs = []stdGenStructSpec{
 		params: []string{"T"},
 		opaque: true,
 		fields: []stdGenStructField{{
-			nomi: "run", decl: "(Seed) -> (T, Seed)",
+			nomi: "run", decl: "(Seed) -> #(T, Seed)",
 			kindOf: func(g *gen, args []kind) kind {
 				return generatorFieldKind(g, args[0])
 			},

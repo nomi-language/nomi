@@ -9,24 +9,24 @@ import "testing"
 func TestFormat_TapStageStacksThePipeline(t *testing.T) {
 	cases := map[string]struct{ src, want string }{
 		"binding": {
-			"fn main(): Int {\n    x = 5 |> tap |n| io.print(\"${n}\") |> then |n| n * 2\n    x\n}\n",
-			"fn main(): Int {\n    x =\n        5\n        |> tap |n| io.print(\"${n}\")\n        |> then |n| n * 2\n\n    x\n}\n",
+			"fn main() -> Int {\n    x = 5 |> tap fn n -> io.print(\"${n}\") |> then fn n -> n * 2\n    x\n}\n",
+			"fn main() -> Int {\n    x =\n        5\n        |> tap fn n -> io.print(\"${n}\")\n        |> then fn n -> n * 2\n\n    x\n}\n",
 		},
 		"statement": {
-			"fn main() {\n    1 |> tap |n| io.print(\"${n}\")\n}\n",
-			"fn main() {\n    1\n    |> tap |n| io.print(\"${n}\")\n}\n",
+			"fn main() {\n    1 |> tap fn n -> io.print(\"${n}\")\n}\n",
+			"fn main() {\n    1\n    |> tap fn n -> io.print(\"${n}\")\n}\n",
 		},
 		"braces kept around a pipe body": {
-			"fn main(): Int {\n    3 |> tap |n| { n |> Int.to_string() |> io.print() }\n}\n",
-			"fn main(): Int {\n    3\n    |> tap |n| { n |> Int.to_string() |> io.print() }\n}\n",
+			"fn main() -> Int {\n    3 |> tap fn n -> { n |> Int.to_string() |> io.print() }\n}\n",
+			"fn main() -> Int {\n    3\n    |> tap fn n -> { n |> Int.to_string() |> io.print() }\n}\n",
 		},
 		"braces kept around a non-pipe body": {
-			"fn main(): Int {\n    3 |> tap |n| { io.print(\"${n}\") }\n}\n",
-			"fn main(): Int {\n    3\n    |> tap |n| { io.print(\"${n}\") }\n}\n",
+			"fn main() -> Int {\n    3 |> tap fn n -> { io.print(\"${n}\") }\n}\n",
+			"fn main() -> Int {\n    3\n    |> tap fn n -> { io.print(\"${n}\") }\n}\n",
 		},
 		"a trailing try stays its own stage": {
-			"fn main(): Maybe<Int> {\n    x = Some(2) |> tap |n| io.print(\"${n}\") |> try\n    Some(x)\n}\n",
-			"fn main(): Maybe<Int> {\n    x =\n        Some(2)\n        |> tap |n| io.print(\"${n}\")\n        |> try\n\n    Some(x)\n}\n",
+			"fn main() -> Maybe<Int> {\n    x = Some(2) |> tap fn n -> io.print(\"${n}\") |> try\n    Some(x)\n}\n",
+			"fn main() -> Maybe<Int> {\n    x =\n        Some(2)\n        |> tap fn n -> io.print(\"${n}\")\n        |> try\n\n    Some(x)\n}\n",
 		},
 	}
 	for name, tc := range cases {

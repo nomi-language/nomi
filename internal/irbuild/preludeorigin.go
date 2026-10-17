@@ -24,7 +24,7 @@ import (
 // matter are the ones no module writes. A typed literal's `<Type>"…"` desugars
 // to a call whose parameter is the HANDLER's `List<Fragment<I>>` — declared in
 // std/calendar or std/toml, and named in the using file NOWHERE. A sibling
-// file's `pub fn f(): Fragment<String>` is the same shape one file boundary
+// file's `pub fn f() -> Fragment<String>` is the same shape one file boundary
 // closer, and testdata/literal_sibling is that program.
 //
 // # The route that does NOT transfer

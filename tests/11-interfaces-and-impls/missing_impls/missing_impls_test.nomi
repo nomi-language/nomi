@@ -7,7 +7,7 @@ test "direct interface calls report missing implementations" {
     diagnostics = compiler.check(
         """
           interface Greeter {
-            fn hello(value: self): String
+            fn hello(value: self) -> String
           }
 
           struct Visitor {
@@ -75,7 +75,7 @@ test "generic bound recursion reports missing element implementations" {
             n: Int
           }
 
-          fn show<T>(value: T): String where T: Display {
+          fn show<T>(value: T) -> String where T: Display {
             Display.to_string(value)
           }
 

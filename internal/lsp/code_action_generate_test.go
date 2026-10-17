@@ -13,7 +13,7 @@ func TestGenerateFunction_FromCall(t *testing.T) {
 	src := fnMain("count = 3\nlabel: String = for‸mat_count(count, \"items\", count + 1)\nio.print(label)\n")
 	got := checkRefactor(t, src, "Generate function 'format_count'", quickfix)
 	want := fnMain("count = 3\nlabel: String = format_count(count, \"items\", count + 1)\nio.print(label)\n") +
-		"\nfn format_count(count: Int, arg2: String, arg3: Int): String {\n    todo\n}\n"
+		"\nfn format_count(count: Int, arg2: String, arg3: Int) -> String {\n    todo\n}\n"
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
@@ -35,14 +35,14 @@ func TestGenerateFunction_InherentImpl(t *testing.T) {
 	// No inherent block yet: a new one follows the calling declaration.
 	got := checkRefactor(t, fnMainAfter(user, body), "Generate function 'User.greet'", quickfix)
 	want := fnMainAfter(user, "u = User{name: \"a\"}\ngreeting: String = User.greet(u)\nio.print(greeting)\n") +
-		"\nimpl User {\n    fn greet(u: User): String {\n        todo\n    }\n}\n"
+		"\nimpl User {\n    fn greet(u: User) -> String {\n        todo\n    }\n}\n"
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 	// An existing block gains the function at its end.
-	impl := "impl User {\n    fn new(name: String): User {\n        User{name}\n    }\n}\n\n"
+	impl := "impl User {\n    fn new(name: String) -> User {\n        User{name}\n    }\n}\n\n"
 	got = checkRefactor(t, fnMainAfter(user+impl, body), "Generate function 'User.greet'", quickfix)
-	want = fnMainAfter(user+"impl User {\n    fn new(name: String): User {\n        User{name}\n    }\n\n    fn greet(u: User): String {\n        todo\n    }\n}\n\n", "u = User{name: \"a\"}\ngreeting: String = User.greet(u)\nio.print(greeting)\n")
+	want = fnMainAfter(user+"impl User {\n    fn new(name: String) -> User {\n        User{name}\n    }\n\n    fn greet(u: User) -> String {\n        todo\n    }\n}\n\n", "u = User{name: \"a\"}\ngreeting: String = User.greet(u)\nio.print(greeting)\n")
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}

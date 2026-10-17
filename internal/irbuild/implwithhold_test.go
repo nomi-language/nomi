@@ -147,6 +147,7 @@ func implWithholdGensOf(p *Program) []*gen {
 			defer func() { _ = recover() }()
 			g.declareTypes()
 			g.declareFuncs()
+			g.settleImpls()
 			g.emitModule(m)
 			// Test bodies are built after the module walk, and a body is what
 			// instantiates a generic impl block.

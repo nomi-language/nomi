@@ -7,10 +7,10 @@ import "testing"
 // pipe in the body broke to make room for it, stacking its stages at the
 // arm's indent; the next format found the arm too wide and broke every arm.
 func TestFormat_CaseArmTrailingCommentDoesNotBreakItsBody(t *testing.T) {
-	src := "fn total(t: Tree): Int {\n" +
+	src := "fn total(t: Tree) -> Int {\n" +
 		"    case t {\n" +
 		"        Tree.Leaf(n) -> n\n" +
-		"        Tree.Branch(groves) -> groves |> Iter.map(grove_total) |> Iter.reduce(|acc = 0, x| acc + x) // t10\n" +
+		"        Tree.Branch(gs) -> gs |> Iter.map(grove_total) |> Iter.reduce(fn acc = 0, x -> acc + x) // t10\n" +
 		"    }\n" +
 		"}\n"
 	formatsKeepingMeaning(t, src, src)

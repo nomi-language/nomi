@@ -392,7 +392,7 @@ func (bl *irScalarBuilder) qualCheckedFuncWant(t *ast.Call, i int, k kind) (kind
 	}
 	// Only a parameter makes the value need an adapter here: a callback
 	// whose result is a List where an Iter is expected (`Iter.flat_map(xs,
-	// |x| [x])`) is read by the operation as it is.
+	// fn x -> [x])`) is read by the operation as it is.
 	for i, p := range funcParams(want) {
 		if p != funcParams(k)[i] {
 			return want, true
@@ -432,7 +432,7 @@ func (bl *irScalarBuilder) qualCall(t *ast.Call, fa *ast.FieldAccess) (ir.Temp, 
 	if bl.recording > 0 {
 		// Inside an assertion subject the call's rows are recorded after the
 		// call (recordedQualCall).
-		if ti, isType := fa.Object.(*ast.TypeIdent); isType && ti.Name == "Iter" && fa.Field != nil && fa.Field.Name == "loop" && bl.inTest {
+		if ti, isType := fa.Object.(*ast.TypeIdent); isType && ti.Name == "Iter" && fa.Field != nil && fa.Field.Name == "loop" {
 			// The callback is inlined and records nothing; the loop's
 			// answer is the row its enclosing operand records.
 			return bl.iterLoop(t)
@@ -453,6 +453,18 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 	obj, isIdent := fa.Object.(*ast.Ident)
 	ti, isType := fa.Object.(*ast.TypeIdent)
 	if isType {
+		if owner, mod, rebound := bl.g.stdOwnerByDecl(ti); rebound {
+			// `Duration.seconds(1)` where the checker bound `Duration` to
+			// std/duration's type and this file's tables bind the name to
+			// another declaration (a local `struct Duration`, under an import
+			// at the top of the block), or an alias of a std type whose own
+			// name this file declares: the call is the one
+			// `duration.Duration.seconds(1)` is.
+			if v, rk, mobile, ok, handled := bl.stdModuleOwnerCall(t, mod, owner, method, false); handled {
+				return v, rk, mobile, ok
+			}
+			return no()
+		}
 		if canon := bl.g.stdOwnerAlias(ti); canon != "" {
 			// `import std/iter.Iter as It`, then `It.count(xs)`: the call
 			// is std's `Iter.count`, which every arm below names by its
@@ -482,23 +494,8 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 			return no()
 		}
 		if mod != "" {
-			if !irOwnOperationFamily(owner, method) {
-				// `random.Generator.bool()`: a generic std member, or a
-				// monomorphic one whose body calls a generic sibling, is
-				// instantiated per program as the two-segment
-				// `Generator.bool()` is (stdGenericQualCall), from the
-				// named module's declaration only.
-				if v, rk, mobile, ok, handled := bl.stdInstCallAt(t, bl.g.stdModuleTypeTemplate(mod, owner, method), kindInvalid); handled {
-					return v, rk, mobile, ok
-				}
-			}
-			if !irOwnOperationFamily(owner, method) || !bl.g.stdOwnerUnshadowed(owner) {
-				args := bl.irQualLowerArgs(t)
-				plan := bl.stdModuleTypePlan(t, args, mod, owner, method)
-				if plan == nil {
-					return no()
-				}
-				return bl.qualEmit(t, args, plan)
+			if v, rk, mobile, ok, handled := bl.stdModuleOwnerCall(t, mod, owner, method, bl.g.stdOwnerUnshadowed(owner)); handled {
+				return v, rk, mobile, ok
 			}
 			// `lists.List.head(xs)`, `iter.Iter.find(xs, f)`: an operation
 			// of a family the VM owns, which the two-segment spelling
@@ -507,7 +504,36 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 		}
 		ti, isType = &ast.TypeIdent{Name: owner, Line: fa.Line, Col: fa.Col}, true
 	}
-	signalOwner := isType && len(t.Args) == 2 && irSignallingCallback(ti.Name, method)
+	if isType {
+		return bl.typeQualCall(t, ti, method)
+	}
+	bl.qualPreResolve(nil, obj, false, method)
+	if bl.qualBare == nil {
+		bl.qualBare = bl.checkedBareOperands(t)
+	}
+	args := bl.irQualLowerArgs(t)
+	if irQualIsLocal(bl, obj.Name) {
+		// Shape C: a bound local's member holding a callable, which is
+		// `CalleeIndirect` and a different resolution.
+		return no()
+	}
+	if v, rk, mobile, ok, handled := bl.stdGenericFileCall(t, obj, method); handled {
+		return v, rk, mobile, ok
+	}
+	plan := bl.qualFilePlan(t, args, obj, method)
+	if plan == nil {
+		return no()
+	}
+	return bl.qualEmit(t, args, plan)
+}
+
+// typeQualCall lowers `Owner.method(args)` for the type owner ti, which
+// qualCallLowered resolved from the qualifier and the bare std-method route
+// from the declaration the checker bound the callee to (bareStdMethodCall).
+// Every fact it reads about the call is keyed on t, the call as written.
+func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method string) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	signalOwner := len(t.Args) == 2 && irSignallingCallback(ti.Name, method)
 	if signalOwner && ti.Name == "Map" {
 		// A program's own `Map` type takes no signalling callback.
 		if _, shadowed := bl.g.namedType("Map"); shadowed && bl.g.stdModule == "" {
@@ -520,48 +546,46 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 			defer bl.markCtlRef(ident, method)()
 		}
 	}
-	if isType && ti.Name == "Iter" && method == "reduce" {
-		return bl.iterReduceCall(t)
+	if ti.Name == "Iter" && irSeededIterMethod(method) {
+		return bl.iterReduceCall(t, method)
 	}
-	if isType && ti.Name == "Struct" && method == "update" {
+	if ti.Name == "Struct" && method == "update" && !bl.g.isBoundTypeParam("Struct") {
 		return bl.structUpdateCall(t)
 	}
-	if signalOwner && method != "reduce" && callbackCarriesSignal(t.Args[1]) {
+	if signalOwner && !irSeededIterMethod(method) && callbackCarriesSignal(t.Args[1]) {
 		lam, ok := t.Args[1].(*ast.Lambda)
 		if !ok {
 			return no()
 		}
 		defer bl.markCtl(lam, irCtlAdapter)()
 	}
-	if isType && ti.Name == "Iter" && method == "loop" {
+	if ti.Name == "Iter" && method == "loop" {
 		// The callback is inlined rather than lowered as a value.
 		return bl.iterLoop(t)
 	}
-	if isType && ti.Name == "Context" && (method == "with_value" || method == "value") {
+	if ti.Name == "Context" && (method == "with_value" || method == "value") {
 		// The name must resolve to std's Context, not a local declaration.
 		if d, found := bl.g.namedType(ti.Name); found && irContextKind(named(d)) {
 			return bl.contextValueCall(t, method)
 		}
 	}
-	if isType {
-		if v, rk, mobile, ok, handled := bl.holeBoundCall(t, ti, method); handled {
-			return v, rk, mobile, ok
-		}
+	if v, rk, mobile, ok, handled := bl.holeBoundCall(t, ti, method); handled {
+		return v, rk, mobile, ok
 	}
-	bl.qualPreResolve(ti, obj, isType, method)
-	if isType && method == "equal?" && len(t.Args) == 2 && (ti.Name == "List" || ti.Name == "Maybe" || ti.Name == "Result" || ti.Name == "Vector" || ti.Name == "Map") {
+	bl.qualPreResolve(ti, nil, true, method)
+	if method == "equal?" && len(t.Args) == 2 && (ti.Name == "List" || ti.Name == "Maybe" || ti.Name == "Result" || ti.Name == "Vector" || ti.Name == "Map") {
 		if _, shadowed := bl.g.namedType(ti.Name); !shadowed {
 			return bl.containerEqualCall(t, ti.Name)
 		}
 	}
-	if isType && ti.Name == "Hashable" && method == "hash" {
+	if ti.Name == "Hashable" && method == "hash" {
 		if _, local := bl.g.types["Hashable"]; !local {
 			if v, rk, mobile, ok, handled := bl.tupleHashCall(t); handled {
 				return v, rk, mobile, ok
 			}
 		}
 	}
-	if isType && ti.Name == "Equatable" && method == "equal?" && len(t.Args) == 2 && bl.g.stdModule != "" {
+	if ti.Name == "Equatable" && method == "equal?" && len(t.Args) == 2 && bl.g.stdModule != "" {
 		// `Equatable.equal?(a.max_age, b.max_age)` in a std body (a derived
 		// impl's field over a `Maybe<Int>`): a std module holds no generic
 		// instance, and the container's equality is the structural
@@ -570,163 +594,152 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 			return bl.containerEqualCall(t, owner)
 		}
 	}
-	if isType && len(t.Args) == 1 && irPreludePredicate(ti.Name, method) != "" {
+	if len(t.Args) == 1 && irPreludePredicate(ti.Name, method) != "" {
 		if _, shadowed := bl.g.namedType(ti.Name); !shadowed || bl.stdTestOwnType() {
 			return bl.preludePredicateCall(t, ti.Name, method)
 		}
 	}
-	if isType {
-		if k, bound := bl.g.genericSubstKind(ti.Name); bound {
-			// `T.from_json(item)` inside an instance: T is the instance's
-			// concrete argument, and the call is that type's.
-			if v, rk, mobile, ok, handled := bl.stdKindQualCall(t, k, method); handled {
-				return v, rk, mobile, ok
-			}
-			return no()
-		}
-		if v, rk, mobile, ok, handled := bl.stdGenericQualCall(t, ti.Name, method); handled {
+	if k, bound := bl.g.genericSubstKind(ti.Name); bound {
+		// `T.from_json(item)` inside an instance: T is the instance's
+		// concrete argument, and the call is that type's.
+		if v, rk, mobile, ok, handled := bl.stdKindQualCall(t, k, method); handled {
 			return v, rk, mobile, ok
 		}
+		return no()
+	}
+	if v, rk, mobile, ok, handled := bl.stdGenericQualCall(t, ti.Name, method); handled {
+		return v, rk, mobile, ok
 	}
 	if bl.qualBare == nil {
 		bl.qualBare = bl.checkedBareOperands(t)
 	}
 	args := bl.irQualLowerArgs(t)
 	var plan *irQualPlan
-	switch {
-	case isType:
-		if v, k, mobile, ok := bl.scalarOperatorCall(t, args, ti.Name, method); ok {
-			return v, k, mobile, true
-		}
-		if v, k, mobile, ok, owned := bl.scalarEqualCall(t, args, ti.Name, method); owned {
+	if v, k, mobile, ok := bl.scalarOperatorCall(t, args, ti.Name, method); ok {
+		return v, k, mobile, true
+	}
+	if v, k, mobile, ok, owned := bl.scalarEqualCall(t, args, ti.Name, method); owned {
+		return v, k, mobile, ok
+	}
+	if v, ok, owned := bl.structuralEqualCall(t, args, ti.Name, method); owned {
+		return v, kindBool, false, ok
+	}
+	if method == "to_string" && (ti.Name == "Int" || ti.Name == "Float" || ti.Name == "Bool" || ti.Name == "String") {
+		return bl.scalarTextCall(t, args, ti.Name)
+	}
+	if method == "to_string" && ti.Name == "Display" && args.ok && len(args.kinds) == 1 && args.mobile[0] && irDisplayScalar(args.kinds[0]) {
+		if _, local := bl.g.types["Display"]; !local && bl.g.stdModule == "" {
+			v, k, mobile, ok := bl.scalarTextCall(t, args, args.kinds[0].nomi())
 			return v, k, mobile, ok
 		}
-		if method == "to_string" && (ti.Name == "Int" || ti.Name == "Float" || ti.Name == "Bool" || ti.Name == "String") {
-			return bl.scalarTextCall(t, args, ti.Name)
-		}
-		if method == "to_string" && ti.Name == "Display" && args.ok && len(args.kinds) == 1 && args.mobile[0] && irDisplayScalar(args.kinds[0]) {
-			if _, local := bl.g.types["Display"]; !local && bl.g.stdModule == "" {
-				v, k, mobile, ok := bl.scalarTextCall(t, args, args.kinds[0].nomi())
-				return v, k, mobile, ok
+	}
+	if method == "to_string" && ti.Name == "Display" && args.ok && len(args.kinds) == 1 && irStdDisplayExistential(args.kinds[0]) {
+		// `Display.to_string(v)` over std Display's existential: the VM
+		// renders the value it holds through that value's own impl.
+		r := ir.NewRenderDisplayErased(bl.g.irNodePos(t.Args[0]), bl.f.NewTemp(), args.temps[0])
+		bl.b.Append(r)
+		bl.side(r.Dst(), irScalarSide{k: kindString})
+		return r.Dst(), kindString, false, true
+	}
+	if ti.Name == "Iter" {
+		return bl.iterCall(t, args, method)
+	}
+	if _, local := bl.g.types[ti.Name]; !local && method == "each_while" && args.ok && len(args.kinds) == 2 &&
+		((ti.Name == "Bytes" && args.kinds[0] == irBytesKind()) || (ti.Name == "String" && args.kinds[0] == kindString)) {
+		// `Bytes.each_while(b, f)` / `String.each_while(s, f)`: the impl's
+		// host fn is the protocol the VM's byte and grapheme views already
+		// drive, so the type-qualified call is `Iter.each_while` over that
+		// view rather than a crossing no host table answers.
+		return bl.iterCall(t, args, "each_while")
+	}
+	if _, local := bl.g.types[ti.Name]; (!local || bl.g.stdModule != "") && ti.Name == "String" && method == "join" && args.ok && (len(args.kinds) == 1 || len(args.kinds) == 2) {
+		// `String.join(parts, separator)` drives any Iter<String> once,
+		// so it is an Iter terminal over the source's view. Inside std
+		// the String type is its own module's, which reads as local. The
+		// separator's default is "".
+		if len(args.kinds) == 1 {
+			sep := ir.NewString(bl.g.irNodePos(t), bl.f.NewTemp(), "")
+			bl.b.Append(sep)
+			bl.side(sep.Dst(), irScalarSide{k: kindString})
+			args = irQualArgs{
+				temps:  []ir.Temp{args.temps[0], sep.Dst()},
+				kinds:  []kind{args.kinds[0], kindString},
+				mobile: []bool{args.mobile[0], true},
+				ok:     true,
 			}
 		}
-		if method == "to_string" && ti.Name == "Display" && args.ok && len(args.kinds) == 1 && irStdDisplayExistential(args.kinds[0]) {
-			// `Display.to_string(v)` over std Display's existential: the VM
-			// renders the value it holds through that value's own impl.
-			r := ir.NewRenderDisplayErased(bl.g.irNodePos(t.Args[0]), bl.f.NewTemp(), args.temps[0])
+		return bl.iterCall(t, args, "join")
+	}
+	if ti.Name == "Range" {
+		return bl.rangeCall(t, args, method)
+	}
+	if v, k, mobile, ok := bl.synthDebugRender(t, args, ti.Name, method); ok {
+		return v, k, mobile, true
+	}
+	if v, k, mobile, ok, handled := bl.ifaceContainerCall(t, args, ti.Name, method); handled {
+		return v, k, mobile, ok
+	}
+	if method == "to_string" && ti.Name == "Display" && args.ok && len(args.kinds) == 1 && irStructuralDisplayKind(args.kinds[0]) {
+		// `Display.to_string(x)` over a value with no nominal part, as
+		// std's own instances call it on an element (`List.to_string<Bool>`
+		// renders each Bool this way): the text is structural, which
+		// rt.DisplayText is.
+		if _, local := bl.g.types["Display"]; !local {
+			r := ir.NewRenderDisplay(bl.g.irNodePos(t.Args[0]), bl.f.NewTemp(), args.temps[0])
 			bl.b.Append(r)
 			bl.side(r.Dst(), irScalarSide{k: kindString})
 			return r.Dst(), kindString, false, true
 		}
-		if ti.Name == "Iter" {
-			return bl.iterCall(t, args, method)
+	}
+	if method == "to_string" && ti.Name == "Display" && args.ok && len(args.kinds) == 1 &&
+		(irRetainedRecordKind(args.kinds[0]) || irRetainedTupleKind(args.kinds[0])) {
+		// A tuple or record with a nominal part renders as its
+		// interpolation does.
+		if r, ok := bl.displayHole(t.Args[0], args.temps[0], args.kinds[0], true); ok {
+			return r, kindString, false, true
 		}
-		if _, local := bl.g.types[ti.Name]; !local && method == "each_while" && args.ok && len(args.kinds) == 2 &&
-			((ti.Name == "Bytes" && args.kinds[0] == irBytesKind()) || (ti.Name == "String" && args.kinds[0] == kindString)) {
-			// `Bytes.each_while(b, f)` / `String.each_while(s, f)`: the impl's
-			// host fn is the protocol the VM's byte and grapheme views already
-			// drive, so the type-qualified call is `Iter.each_while` over that
-			// view rather than a crossing no host table answers.
-			return bl.iterCall(t, args, "each_while")
+	}
+	if ti.Name == "Result" && method == "map_err" {
+		plan = bl.resultMapErrPlan(t, args)
+	} else if ti.Name == "Maybe" && method == "to_result" {
+		plan = bl.preludeToResultPlan(t, args)
+	} else if (ti.Name == "Maybe" || ti.Name == "Result") && method == "with_default" {
+		plan = bl.preludeWithDefaultPlan(t, args, ti.Name)
+	} else if (ti.Name == "List" || ti.Name == "Vector") && method == "compare" {
+		return bl.containerCompareAny(t, args, ti.Name)
+	} else if ti.Name == "Map" {
+		plan = bl.mapCallPlan(t, args, method)
+	} else if ti.Name == "List" {
+		plan = bl.listCallPlan(t, args, method)
+	} else if ti.Name == "Vector" {
+		plan = bl.vectorCallPlan(t, args, method)
+	} else if ti.Name == "Set" {
+		plan = bl.setCallPlan(t, args, method)
+	} else if p := bl.synthStdFilePlan(t, args, ti, method); p != nil {
+		plan = p
+	} else {
+		plan = bl.qualImplPlan(t, args, ti.Name, method)
+	}
+	if plan == nil {
+		plan = bl.siblingReceiverPlan(t, args, ti.Name, method)
+	}
+	if plan == nil && (ti.Name == "Map" || ti.Name == "Set" || ti.Name == "Vector" || ti.Name == "List") && (bl.g.stdModule == "" || bl.stdTestOwnType()) {
+		// A Map, Set or Vector function with no intrinsic is std's Nomi body,
+		// instantiated at the call's types like any generic std member.
+		// kindInvalid: sentinel — no receiver kind selects the member.
+		self := kindInvalid
+		if args.ok && len(args.kinds) > 0 && irContainerBaseName(args.kinds[0]) == ti.Name {
+			// An impl member (`impl Display for Vector<T>`) is solved
+			// from its receiver, which the first operand is.
+			self = args.kinds[0]
 		}
-		if _, local := bl.g.types[ti.Name]; (!local || bl.g.stdModule != "") && ti.Name == "String" && method == "join" && args.ok && (len(args.kinds) == 1 || len(args.kinds) == 2) {
-			// `String.join(parts, separator)` drives any Iter<String> once,
-			// so it is an Iter terminal over the source's view. Inside std
-			// the String type is its own module's, which reads as local. The
-			// separator's default is "".
-			if len(args.kinds) == 1 {
-				sep := ir.NewString(bl.g.irNodePos(t), bl.f.NewTemp(), "")
-				bl.b.Append(sep)
-				bl.side(sep.Dst(), irScalarSide{k: kindString})
-				args = irQualArgs{
-					temps:  []ir.Temp{args.temps[0], sep.Dst()},
-					kinds:  []kind{args.kinds[0], kindString},
-					mobile: []bool{args.mobile[0], true},
-					ok:     true,
-				}
-			}
-			return bl.iterCall(t, args, "join")
-		}
-		if ti.Name == "Range" {
-			return bl.rangeCall(t, args, method)
-		}
-		if v, k, mobile, ok := bl.synthDebugRender(t, args, ti.Name, method); ok {
-			return v, k, mobile, true
-		}
-		if v, k, mobile, ok, handled := bl.ifaceContainerCall(t, args, ti.Name, method); handled {
-			return v, k, mobile, ok
-		}
-		if method == "to_string" && ti.Name == "Display" && args.ok && len(args.kinds) == 1 && irStructuralDisplayKind(args.kinds[0]) {
-			// `Display.to_string(x)` over a value with no nominal part, as
-			// std's own instances call it on an element (`List.to_string<Bool>`
-			// renders each Bool this way): the text is structural, which
-			// rt.DisplayText is.
-			if _, local := bl.g.types["Display"]; !local {
-				r := ir.NewRenderDisplay(bl.g.irNodePos(t.Args[0]), bl.f.NewTemp(), args.temps[0])
-				bl.b.Append(r)
-				bl.side(r.Dst(), irScalarSide{k: kindString})
-				return r.Dst(), kindString, false, true
-			}
-		}
-		if method == "to_string" && ti.Name == "Display" && args.ok && len(args.kinds) == 1 &&
-			(irRetainedRecordKind(args.kinds[0]) || irRetainedTupleKind(args.kinds[0])) {
-			// A tuple or record with a nominal part renders as its
-			// interpolation does.
-			if r, ok := bl.displayHole(t.Args[0], args.temps[0], args.kinds[0], true); ok {
-				return r, kindString, false, true
-			}
-		}
-		if ti.Name == "Result" && method == "map_err" {
-			plan = bl.resultMapErrPlan(t, args)
-		} else if ti.Name == "Maybe" && method == "to_result" {
-			plan = bl.preludeToResultPlan(t, args)
-		} else if (ti.Name == "Maybe" || ti.Name == "Result") && method == "with_default" {
-			plan = bl.preludeWithDefaultPlan(t, args, ti.Name)
-		} else if (ti.Name == "List" || ti.Name == "Vector") && method == "compare" {
-			return bl.containerCompareAny(t, args, ti.Name)
-		} else if ti.Name == "Map" {
-			plan = bl.mapCallPlan(t, args, method)
-		} else if ti.Name == "List" {
-			plan = bl.listCallPlan(t, args, method)
-		} else if ti.Name == "Vector" {
-			plan = bl.vectorCallPlan(t, args, method)
-		} else if ti.Name == "Set" {
-			plan = bl.setCallPlan(t, args, method)
-		} else if p := bl.synthStdFilePlan(t, args, ti, method); p != nil {
-			plan = p
-		} else {
-			plan = bl.qualImplPlan(t, args, ti.Name, method)
-		}
-		if plan == nil {
-			plan = bl.siblingReceiverPlan(t, args, ti.Name, method)
-		}
-		if plan == nil && (ti.Name == "Map" || ti.Name == "Set" || ti.Name == "Vector" || ti.Name == "List") && (bl.g.stdModule == "" || bl.stdTestOwnType()) {
-			// A Map, Set or Vector function with no intrinsic is std's Nomi body,
-			// instantiated at the call's types like any generic std member.
-			// kindInvalid: sentinel — no receiver kind selects the member.
-			self := kindInvalid
-			if args.ok && len(args.kinds) > 0 && irContainerBaseName(args.kinds[0]) == ti.Name {
-				// An impl member (`impl Display for Vector<T>`) is solved
-				// from its receiver, which the first operand is.
-				self = args.kinds[0]
-			}
-			prevCall, prevArgs := bl.stdInstPreCall, bl.stdInstPreArgs
-			bl.stdInstPreCall, bl.stdInstPreArgs = t, args
-			v, rk, mobile, ok, handled := bl.stdInstCallAt(t, bl.g.stdGenericTemplate(ti.Name, method), self)
-			bl.stdInstPreCall, bl.stdInstPreArgs = prevCall, prevArgs
-			if handled {
-				return v, rk, mobile, ok
-			}
-		}
-	case irQualIsLocal(bl, obj.Name):
-		// Shape C: a bound local's member holding a callable, which is
-		// `CalleeIndirect` and a different resolution.
-		return no()
-	default:
-		if v, rk, mobile, ok, handled := bl.stdGenericFileCall(t, obj, method); handled {
+		prevCall, prevArgs := bl.stdInstPreCall, bl.stdInstPreArgs
+		bl.stdInstPreCall, bl.stdInstPreArgs = t, args
+		v, rk, mobile, ok, handled := bl.stdInstCallAt(t, bl.g.stdGenericTemplate(ti.Name, method), self)
+		bl.stdInstPreCall, bl.stdInstPreArgs = prevCall, prevArgs
+		if handled {
 			return v, rk, mobile, ok
 		}
-		plan = bl.qualFilePlan(t, args, obj, method)
 	}
 	if plan == nil {
 		return no()
@@ -1131,19 +1144,12 @@ func (bl *irScalarBuilder) siblingDefaultArgs(t *ast.Call, args irQualArgs, f *f
 			return args, false
 		}
 	}
+	var slots []int
 	for i := len(args.temps); i < len(params); i++ {
-		d := f.params0[i].Default
-		if d == nil {
-			return args, false
-		}
-		names := map[string]bool{}
-		walkNames(d, names, pickAnyName)
-		for name := range names {
-			there, here := resolvedTypeSymbol(owning.fa, name), resolvedTypeSymbol(g.fa, name)
-			if (there == nil) != (here == nil) || (there != nil && there.Node != here.Node) {
-				return args, false
-			}
-		}
+		slots = append(slots, i)
+	}
+	if !bl.siblingDefaultsAgree(f, owning, slots) {
+		return args, false
 	}
 	temps := make([]ir.Temp, len(params))
 	copy(temps, args.temps)
@@ -1154,6 +1160,29 @@ func (bl *irScalarBuilder) siblingDefaultArgs(t *ast.Call, args irQualArgs, f *f
 		return args, false
 	}
 	return irQualArgs{temps: temps, kinds: append([]kind(nil), params...), mobile: make([]bool, len(temps)), ok: true}, true
+}
+
+// siblingDefaultsAgree reports whether each of slots of f, a sibling file's
+// function, has a default whose every name resolves to the same declaration
+// in owning's file and in this one, so lowering it here means what it means
+// there.
+func (bl *irScalarBuilder) siblingDefaultsAgree(f *fileFunc, owning *gen, slots []int) bool {
+	g := bl.g
+	for _, i := range slots {
+		d := f.params0[i].Default
+		if d == nil {
+			return false
+		}
+		names := map[string]bool{}
+		walkNames(d, names, pickAnyName)
+		for name := range names {
+			there, here := resolvedTypeSymbol(owning.fa, name), resolvedTypeSymbol(g.fa, name)
+			if (there == nil) != (here == nil) || (there != nil && there.Node != here.Node) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // qualFilePlan resolves `owner.method(args)` where owner is a FILE: a sibling
@@ -1345,8 +1374,7 @@ func (bl *irScalarBuilder) siblingCall(t *ast.Call, site fileSite) (ir.Temp, kin
 		// A generic declaration's instance, interned in the declaring unit.
 		plan.sym = sym
 	}
-	if len(t.Args) != len(params) && (site.host || !bl.siblingFill(t, bl.g.unitGen(site.unit), plan.sym, f.decl, params, temps, mobile)) {
-		// A Go-bound declaration's defaults have no accessor.
+	if len(t.Args) != len(params) && !bl.siblingFill(t, bl.g.unitGen(site.unit), plan.sym, f.decl, params, temps, mobile) {
 		return no()
 	}
 	if t != bl.pipedCall {
@@ -1596,6 +1624,34 @@ func (bl *irScalarBuilder) qualDottedOwner(n ast.Node) (owner, stdModule string,
 		return "", "", false
 	}
 	return inner.Field.Name, std, true
+}
+
+// stdModuleOwnerCall lowers `mod.Owner.method(args)`, the method std module
+// mod's type Owner declares, from that module's declarations only, so a
+// declaration of the same name elsewhere cannot capture it. handled is false
+// only for an operation of a family the VM owns when bareReaches says the
+// bare owner names the same std type at the call, which the caller lowers as
+// the two-segment `Owner.method(args)`.
+func (bl *irScalarBuilder) stdModuleOwnerCall(t *ast.Call, mod, owner, method string, bareReaches bool) (ir.Temp, kind, bool, bool, bool) {
+	if !irOwnOperationFamily(owner, method) {
+		// `random.Generator.bool()`: a generic std member, or a
+		// monomorphic one whose body calls a generic sibling, is
+		// instantiated per program as the two-segment
+		// `Generator.bool()` is (stdGenericQualCall), from the
+		// named module's declaration only.
+		if v, rk, mobile, ok, handled := bl.stdInstCallAt(t, bl.g.stdModuleTypeTemplate(mod, owner, method), kindInvalid); handled {
+			return v, rk, mobile, ok, true
+		}
+	} else if bareReaches {
+		return ir.NoTemp, kindInvalid, false, false, false
+	}
+	args := bl.irQualLowerArgs(t)
+	plan := bl.stdModuleTypePlan(t, args, mod, owner, method)
+	if plan == nil {
+		return ir.NoTemp, kindInvalid, false, false, true
+	}
+	v, rk, mobile, ok := bl.qualEmit(t, args, plan)
+	return v, rk, mobile, ok, true
 }
 
 // stdModuleTypePlan resolves `mod.Type.method(args)` for a stdlib module

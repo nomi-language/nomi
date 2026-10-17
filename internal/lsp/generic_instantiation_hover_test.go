@@ -43,22 +43,22 @@ func TestHover_GenericCallsShowTheirInstantiation(t *testing.T) {
 	}{
 		{
 			"stage after an unknown member",
-			"fn f(n: Int): List<Int> {\n  ▮evens = List.range(0, n)\n    |> Iter.filter(|x| x % 2 == 0)\n    |> Iter.to_list()\n  evens\n}\n",
+			"fn f(n: Int) -> List<Int> {\n  ▮evens = List.range(0, n)\n    |> Iter.filter(fn x -> x % 2 == 0)\n    |> Iter.to_list()\n  evens\n}\n",
 			"```nomi\nevens: List<Int>\n```",
 		},
 		{
 			"lambda parameter after an unknown member",
-			"fn f(n: Int): List<Int> {\n  List.range(0, n)\n    |> Iter.filter(|▮x| x % 2 == 0)\n    |> Iter.to_list()\n}\n",
+			"fn f(n: Int) -> List<Int> {\n  List.range(0, n)\n    |> Iter.filter(fn ▮x -> x % 2 == 0)\n    |> Iter.to_list()\n}\n",
 			"```nomi\nx: Int\n```",
 		},
 		{
 			"seeded reduce inside map",
-			"fn f(): List<Int> {\n  ▮sums = [[1, 2], [3]]\n    |> Iter.map(|xs| { xs |> Iter.reduce(|a = 0, b| a + b) })\n    |> Iter.to_list()\n  sums\n}\n",
+			"fn f() -> List<Int> {\n  ▮sums = [[1, 2], [3]]\n    |> Iter.map(fn xs -> { xs |> Iter.reduce(fn a = 0, b -> a + b) })\n    |> Iter.to_list()\n  sums\n}\n",
 			"```nomi\nsums: List<Int>\n```",
 		},
 		{
 			"seeded reduce accumulator",
-			"fn f(): List<Int> {\n  [[1, 2], [3]]\n    |> Iter.map(|xs| { xs |> Iter.reduce(|▮a = 0, b| a + b) })\n    |> Iter.to_list()\n}\n",
+			"fn f() -> List<Int> {\n  [[1, 2], [3]]\n    |> Iter.map(fn xs -> { xs |> Iter.reduce(fn ▮a = 0, b -> a + b) })\n    |> Iter.to_list()\n}\n",
 			"```nomi\na: Int\n```",
 		},
 	}

@@ -26,7 +26,7 @@ enum Shape {
   Rect {w: Float, h: Float}
 }
 
-fn area(s: Shape): Float {
+fn area(s: Shape) -> Float {
   case s {
     .Dot -> 0.0
     .Circle(r) -> r * r
@@ -34,11 +34,11 @@ fn area(s: Shape): Float {
   }
 }
 
-fn total(n: Node): Int {
+fn total(n: Node) -> Int {
   n.value + 1
 }
 
-fn describe(s: Shape): String {
+fn describe(s: Shape) -> String {
   a = area(s)
   "area ${a}"
 }

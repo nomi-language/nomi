@@ -21,7 +21,7 @@ import (
 // siblings), a read above the declaration in its own file, and an owner-level
 // `once` read through its owner (`Limits.top`). A bare read then passed
 // anything, and a read inside a composite gave Unit or an unsolved T:
-// `(n, help)` was `(Int, Unit)`, `Int.max_value` was "type 'Int' has no
+// `#(n, help)` was `#(Int, Unit)`, `Int.max_value` was "type 'Int' has no
 // member 'max_value'", and iterating a `once` list of enum variants gave
 // "expected Direction, got T". A read now checks the declaration on demand.
 
@@ -102,9 +102,9 @@ pub once help = ["a", "b"]
 
 pub once directions = [Direction.North, Direction.South]
 
-pub once doubled = help |> Iter.map(|s| s + s) |> Iter.to_list()
+pub once doubled = help |> Iter.map(fn s -> s + s) |> Iter.to_list()
 
-pub once pairs = [(Limits.next, help)]
+pub once pairs = [#(Limits.next, help)]
 `
 
 const onceMain = `import {
@@ -116,60 +116,60 @@ struct Box {
     items: List<String>
 }
 
-fn tuple(n: Int): (Int, List<String>) {
-    (n, help)
+fn tuple(n: Int) -> #(Int, List<String>) {
+    #(n, help)
 }
 
-fn listed(): List<List<String>> {
+fn listed() -> List<List<String>> {
     [help]
 }
 
-fn boxed(): Box {
+fn boxed() -> Box {
     Box { items: help }
 }
 
-fn count(xs: List<String>): Int {
+fn count(xs: List<String>) -> Int {
     Iter.count(xs)
 }
 
-fn argument(): Int {
+fn argument() -> Int {
     count(help)
 }
 
-fn arm(b: Bool): (Int, List<String>) {
+fn arm(b: Bool) -> #(Int, List<String>) {
     case b {
-        True -> (1, help)
-        False -> (0, lib.help)
+        True -> #(1, help)
+        False -> #(0, lib.help)
     }
 }
 
-fn keyed(): Map<String, List<String>> {
-    {"k" => help}
+fn keyed() -> Map<String, List<String>> {
+    %{"k" => help}
 }
 
-fn name(d: Direction): String {
+fn name(d: Direction) -> String {
     case d {
         Direction.North -> "n"
         Direction.South -> "s"
     }
 }
 
-fn names(): List<String> {
+fn names() -> List<String> {
     directions |> Iter.map(name) |> Iter.to_list()
 }
 
-fn chained(): (List<String>, Int, Int, List<(Int, List<String>)>) {
-    (doubled, Limits.top, Limits.next, pairs)
+fn chained() -> #(List<String>, Int, Int, List<#(Int, List<String>)>) {
+    #(doubled, Limits.top, Limits.next, pairs)
 }
 
-fn later(): (Int, List<String>) {
+fn later() -> #(Int, List<String>) {
     local
 }
 
-once local = (Limits.top, help)
+once local = #(Limits.top, help)
 
 fn main() {
-    _ = (tuple(1), listed(), boxed(), argument(), arm(True), keyed(), names(), chained(), later())
+    _ = #(tuple(1), listed(), boxed(), argument(), arm(True), keyed(), names(), chained(), later())
 }
 `
 
@@ -193,7 +193,7 @@ func TestOnceType_InferredOnceIsTypedAtEveryRead(t *testing.T) {
 func TestOnceType_WrongUseOfInferredOnceIsRejected(t *testing.T) {
 	src := `import lib.help
 
-fn wrong(): Int {
+fn wrong() -> Int {
     help
 }
 
@@ -213,8 +213,8 @@ fn main() {
 func TestOnceType_FileQualifiedReadIsTyped(t *testing.T) {
 	src := `import lib
 
-fn first(): (Int, List<String>) {
-    (1, lib.doubled)
+fn first() -> #(Int, List<String>) {
+    #(1, lib.doubled)
 }
 
 fn main() {
@@ -248,7 +248,7 @@ impl Limits {
 `
 	src := `import lib.Limits
 
-fn span(): Int {
+fn span() -> Int {
     Limits.top - Limits.bottom
 }
 

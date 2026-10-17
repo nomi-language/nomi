@@ -5,17 +5,17 @@ struct Account {
 }
 
 impl Account {
-    fn deposit(a: Account, n: Int): Account {
+    fn deposit(a: Account, n: Int) -> Account {
         Account{balance: a.balance + n}
     }
 }
 
-fn ident<T>(x: T): T {
+fn ident<T>(x: T) -> T {
     x
 }
 
-fn transact(start: Account, amounts: List<Int>): Account {
-    amounts |> Iter.reduce(|acc = start, n| Account.deposit(acc, n))
+fn transact(start: Account, amounts: List<Int>) -> Account {
+    amounts |> Iter.reduce(fn acc = start, n -> Account.deposit(acc, n))
 }
 
 fn main() {

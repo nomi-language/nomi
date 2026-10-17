@@ -31,8 +31,8 @@ func TestFormat_StripsTrailingBlankLinesInBlocks(t *testing.T) {
 			// blank collapses to one line once the blank is gone — and does so
 			// in a single pass (idempotency, not a second-pass collapse).
 			name: "short if/else with trailing blank collapses in one pass",
-			in:   "fn h(x: Int): Int {\n    if x > 0 {\n        1\n\n    } else {\n        2\n    }\n}\n",
-			want: "fn h(x: Int): Int {\n    if x > 0 { 1 } else { 2 }\n}\n",
+			in:   "fn h(x: Int) -> Int {\n    if x > 0 {\n        1\n\n    } else {\n        2\n    }\n}\n",
+			want: "fn h(x: Int) -> Int {\n    if x > 0 { 1 } else { 2 }\n}\n",
 		},
 		{
 			name: "empty block with only blank lines becomes {}",

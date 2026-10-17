@@ -15,7 +15,7 @@ enum Shape {
     Point
 }
 
-fn area(s: Shape): Int {
+fn area(s: Shape) -> Int {
     case s {
         Shape.Circle{radius} -> radius * radius * 3
         Shape.Rect{width, height} -> width * height

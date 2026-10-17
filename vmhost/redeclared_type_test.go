@@ -81,9 +81,9 @@ func TestCheckAndLoad_ReportAnImportedFilesBuildErrorOnce(t *testing.T) {
 	for name, src := range map[string]string{
 		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"main.nomi":   "import std/io\nimport left\nimport right\n\nfn main() {\n  io.print(\"${left.f()}${right.f()}\")\n}\n",
-		"left.nomi":   "import shared\n\npub fn f(): String {\n  shared.s()\n}\n",
-		"right.nomi":  "import shared\n\npub fn f(): String {\n  shared.s()\n}\n",
-		"shared.nomi": "import std/regex\n\npub fn s(): String {\n  \"h\"\n}\n",
+		"left.nomi":   "import shared\n\npub fn f() -> String {\n  shared.s()\n}\n",
+		"right.nomi":  "import shared\n\npub fn f() -> String {\n  shared.s()\n}\n",
+		"shared.nomi": "import std/regex\n\npub fn s() -> String {\n  \"h\"\n}\n",
 	} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o644); err != nil {
 			t.Fatal(err)

@@ -16,21 +16,21 @@ fn main() {
   ["x", "y"] |> Iter.each(io.print)
 }`,
 		"user generic into Iter.map": `import std/io
-fn ident<T>(x: T): T {
+fn ident<T>(x: T) -> T {
   x
 }
 fn main() {
   [1, 2] |> Iter.map(ident) |> Iter.each(io.print)
 }`,
 		"bounded generic at a type meeting the bound": `import std/io
-fn show<T>(x: T): String where T: Display {
+fn show<T>(x: T) -> String where T: Display {
   Display.to_string(x)
 }
 fn main() {
   [1, 2] |> Iter.map(show) |> Iter.each(io.print)
 }`,
 		"annotated binding": `import std/io
-fn ident<T>(x: T): T {
+fn ident<T>(x: T) -> T {
   x
 }
 fn main() {
@@ -38,20 +38,20 @@ fn main() {
   io.print(f(1))
 }`,
 		"non-generic parameter": `import std/io
-fn ident<T>(x: T): T {
+fn ident<T>(x: T) -> T {
   x
 }
-fn apply(f: (Int) -> Int, x: Int): Int {
+fn apply(f: (Int) -> Int, x: Int) -> Int {
   f(x)
 }
 fn main() {
   io.print(apply(ident, 7))
 }`,
 		"generic body passes its own type parameter on": `import std/io
-fn ident<T>(x: T): T {
+fn ident<T>(x: T) -> T {
   x
 }
-fn same<U>(xs: List<U>): List<U> {
+fn same<U>(xs: List<U>) -> List<U> {
   xs |> Iter.map(ident) |> Iter.to_list()
 }
 fn main() {
@@ -69,17 +69,17 @@ fn main() {
 // is rejected and asks for an annotation.
 func TestGenericFuncRef_NothingConstrainsTheTypeParameter(t *testing.T) {
 	cases := map[string]struct{ src, want string }{
-		"unannotated binding": {`fn ident<T>(x: T): T {
+		"unannotated binding": {`fn ident<T>(x: T) -> T {
   x
 }
 fn main() {
   f = ident
   f(1)
 }`, "cannot infer type parameter T of generic function 'ident' used as a value"},
-		"expected type leaves T open": {`fn make<T>(): List<T> {
+		"expected type leaves T open": {`fn make<T>() -> List<T> {
   []
 }
-fn run<B>(f: () -> B): B {
+fn run<B>(f: () -> B) -> B {
   f()
 }
 fn main() {
@@ -103,7 +103,7 @@ func TestGenericFuncRef_BoundCheckedAtInstantiation(t *testing.T) {
 struct Opaque {
   n: Int
 }
-fn show<T>(x: T): String where T: Display {
+fn show<T>(x: T) -> String where T: Display {
   Display.to_string(x)
 }
 fn main() {
@@ -114,7 +114,7 @@ fn main() {
 
 // An expected type of the wrong shape is a mismatch, not an inference failure.
 func TestGenericFuncRef_WrongShapeIsAMismatch(t *testing.T) {
-	src := `fn ident<T>(x: T): T {
+	src := `fn ident<T>(x: T) -> T {
   x
 }
 fn main() {
@@ -136,7 +136,7 @@ fn main() {
 // signature is recorded on the reference for the IR builder to read.
 func TestGenericFuncRef_InterfaceFunctionValueRecordsTheInstance(t *testing.T) {
 	fa, errs := checkSourceWithStdlib(`
-fn f(): List<String> {
+fn f() -> List<String> {
     [1, 2] |> Iter.map(Display.to_string) |> Iter.to_list()
 }
 `)

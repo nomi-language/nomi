@@ -2,12 +2,12 @@ pub struct SortWidget {
     weight: Int
 }
 
-pub fn make(weight: Int): SortWidget {
+pub fn make(weight: Int) -> SortWidget {
     SortWidget{weight}
 }
 
 impl Comparable for SortWidget {
-    fn compare(a: SortWidget, b: SortWidget): Ordering {
+    fn compare(a: SortWidget, b: SortWidget) -> Ordering {
         Int.compare(a.weight, b.weight)
     }
 }

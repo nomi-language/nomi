@@ -16,6 +16,6 @@ pub struct Limits {
     hard: Int = 50
 }
 
-pub fn origin(): String {
+pub fn origin() -> String {
     label
 }

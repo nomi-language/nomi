@@ -106,6 +106,15 @@ func (c *checker) isVariantQualifier(fa *ast.FieldAccess, et *EnumType) bool {
 	return false
 }
 
+// variantIsValue reports whether a variant, whose payload at the instance in
+// hand is dataType, is a value rather than a constructor: it carries no
+// payload, or it embeds a zero-sized type (`embeds Expired`), which is its
+// one value. A positional payload of a zero-sized type (`Ping(Unit)`) is
+// still a payload: `Signal.Ping(Unit)` constructs the variant.
+func variantIsValue(vd *VariantDef, dataType Type) bool {
+	return dataType == nil || vd.Kind == VariantEmbedded && IsZeroSized(dataType)
+}
+
 // embeddedZeroSized reports whether an embedded variant's type carries no
 // value, so the variant is a value rather than a constructor.
 func embeddedZeroSized(vd *VariantDef) bool {
@@ -232,7 +241,16 @@ func (c *checker) checkStructShapedVariantCall(n *ast.Call, form variantCtor) Ty
 	}
 	arg := n.Args[0]
 	if lit, ok := anonStructLitArg(arg); ok {
-		return c.checkStructVariantLit(lit, form.et, form.vd.Name, form.line, form.col)
+		ty := c.checkStructVariantLit(lit, form.et, form.vd.Name, form.line, form.col)
+		// The literal is the variant's payload, as the pattern `.V(r)`
+		// binds it: the embedded struct, or the record of an inline
+		// variant's fields at the enum's instance.
+		if st, ok := form.vd.Embedded.(*StructType); ok {
+			c.fa.recordExprType(arg, st)
+		} else if et, ok := resolveTypeVar(ty).(*EnumType); ok {
+			c.fa.recordExprType(arg, variantFieldsRecord(form.vd, enumTypeArgSubs(et)))
+		}
+		return ty
 	}
 	return c.checkVariantRecordArg(arg, c.checkNode(arg), form)
 }

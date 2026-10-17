@@ -1,7 +1,7 @@
 import std/io
 
 fn main() {
-    n = Iter.loop(|i = 0| {
+    n = Iter.loop(fn i = 0 -> {
         if i < 0 {
             break i
         } else {

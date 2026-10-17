@@ -4,7 +4,7 @@ import {
     status.Status
 }
 
-fn describe(maybe_email: Maybe<Email>): String {
+fn describe(maybe_email: Maybe<Email>) -> String {
     case maybe_email {
         Some(e) -> "valid: " + email.to_string(e)
         None -> "invalid"

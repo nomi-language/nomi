@@ -18,25 +18,25 @@ const distinctTemperature = `type Celsius Decimal
 type Fahrenheit Decimal
 
 interface Temperature {
-    fn unit(t: self): String
+    fn unit(t: self) -> String
 
-    fn label(self(n) as t): String where self: Distinct<Decimal> {
+    fn label(self(n) as t) -> String where self: Distinct<Decimal> {
         "${Decimal.round(n, 1, .HalfUp)} ${Temperature.unit(t)}"
     }
 
-    fn scale(self(n), by: Decimal): self where self: Distinct<Decimal> {
+    fn scale(self(n), by: Decimal) -> self where self: Distinct<Decimal> {
         self(n * by)
     }
 
-    fn all(_t: self, ns: List<Decimal>): String where self: Distinct<Decimal> {
+    fn all(_t: self, ns: List<Decimal>) -> String where self: Distinct<Decimal> {
         ns |> Iter.map(self) |> Iter.to_list() |> Debug.inspect()
     }
 
-    fn piped(_t: self, n: Decimal): self where self: Distinct<Decimal> {
+    fn piped(_t: self, n: Decimal) -> self where self: Distinct<Decimal> {
         n |> self()
     }
 
-    fn warmer(a: self, b: self): self where self: Distinct<Decimal> {
+    fn warmer(a: self, b: self) -> self where self: Distinct<Decimal> {
         self(m) = b
         case a {
             self(n) when n > m -> a
@@ -44,7 +44,7 @@ interface Temperature {
         }
     }
 
-    fn sign(t: self): String where self: Distinct<Decimal> {
+    fn sign(t: self) -> String where self: Distinct<Decimal> {
         case t {
             self(0d) -> "zero"
             self(n) when n < 0d -> "below"
@@ -54,13 +54,13 @@ interface Temperature {
 }
 
 impl Temperature for Celsius {
-    fn unit(_t: Celsius): String {
+    fn unit(_t: Celsius) -> String {
         "C"
     }
 }
 
 impl Temperature for Fahrenheit {
-    fn unit(_t: Fahrenheit): String {
+    fn unit(_t: Fahrenheit) -> String {
         "F"
     }
 }
@@ -68,7 +68,7 @@ impl Temperature for Fahrenheit {
 
 func TestDistinctSelf_TemperatureRuns(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": "import std/io\n\n" + distinctTemperature + `
-fn show<T>(t: T): String where T: Temperature {
+fn show<T>(t: T) -> String where T: Temperature {
     T.label(t)
 }
 
@@ -86,7 +86,7 @@ fn main() {
     io.print(Temperature.sign(Fahrenheit(3d)))
     io.print(show(Fahrenheit(3d)))
     temps: List<Temperature> = [Celsius(1d), Fahrenheit(2d)]
-    temps |> Iter.map(|t| Temperature.label(t)) |> String.join(", ") |> io.print()
+    temps |> Iter.map(fn t -> Temperature.label(t)) |> String.join(", ") |> io.print()
 }
 `})
 	want := "21.5 C\n70.0 F\nCelsius(20d)\nFahrenheit(3.0d)\n[Celsius(1d), Celsius(2d)]\nFahrenheit(4d)\n" +
@@ -105,16 +105,16 @@ type UserId Int
 type Name String
 
 interface Wrapper<T> {
-    fn unwrap(self(x)): T where self: Distinct<T> {
+    fn unwrap(self(x)) -> T where self: Distinct<T> {
         x
     }
 
-    fn rewrap(w: self, f: (T) -> T): self where self: Distinct<T> {
+    fn rewrap(w: self, f: (T) -> T) -> self where self: Distinct<T> {
         self(x) = w
         self(f(x))
     }
 
-    fn show(self(x)): String where self: Distinct<T> {
+    fn show(self(x)) -> String where self: Distinct<T> {
         "<${Debug.inspect(x)}>"
     }
 }
@@ -126,8 +126,8 @@ impl Wrapper<String> for Name {}
 fn main() {
     io.print(Wrapper.unwrap(UserId(7)) + 1)
     io.print(Wrapper.unwrap(Name("ada")))
-    io.inspect(UserId.rewrap(UserId(1), |n| n * 10))
-    io.inspect(Name.rewrap(Name("a"), |s| "${s}b"))
+    io.inspect(UserId.rewrap(UserId(1), fn n -> n * 10))
+    io.inspect(Name.rewrap(Name("a"), fn s -> "${s}b"))
     io.print(Wrapper.show(Name("x")))
     io.print(Wrapper.show(UserId(3)))
 }
@@ -145,7 +145,7 @@ func TestDistinctSelf_BoundOnAFunction(t *testing.T) {
 type UserId Int
 type Name String
 
-fn tag<D>(d: D): String where D: Distinct<Int> {
+fn tag<D>(d: D) -> String where D: Distinct<Int> {
     "#${Debug.inspect(d)}"
 }
 
@@ -170,9 +170,9 @@ fn main() {
 }
 
 const distinctScaled = `pub interface Scaled {
-    fn describe(s: self): String
+    fn describe(s: self) -> String
 
-    fn scale(self(n), by: Int): self where self: Distinct<Int> {
+    fn scale(self(n), by: Int) -> self where self: Distinct<Int> {
         self(n * by)
     }
 }
@@ -180,11 +180,11 @@ const distinctScaled = `pub interface Scaled {
 
 const distinctMeters = `pub opaque type Meters Int
 
-pub fn of(n: Int): Meters {
+pub fn of(n: Int) -> Meters {
     Meters(n)
 }
 
-pub fn raw(Meters(n)): Int {
+pub fn raw(Meters(n)) -> Int {
     n
 }
 `
@@ -198,12 +198,12 @@ func TestDistinctSelf_OpaqueImplementors(t *testing.T) {
 
 pub opaque type PositiveInt Int
 
-pub fn of(n: Int): PositiveInt {
+pub fn of(n: Int) -> PositiveInt {
     PositiveInt(n)
 }
 
 impl Scaled for PositiveInt {
-    fn describe(PositiveInt(n)): String {
+    fn describe(PositiveInt(n)) -> String {
         "+${n}"
     }
 }
@@ -216,11 +216,11 @@ impl Scaled for PositiveInt {
 }
 
 impl Scaled for Meters {
-    fn describe(m: Meters): String {
+    fn describe(m: Meters) -> String {
         "${meters.raw(m)} m"
     }
 
-    fn scale(m: Meters, by: Int): Meters {
+    fn scale(m: Meters, by: Int) -> Meters {
         meters.of(meters.raw(m) * by)
     }
 }
@@ -238,7 +238,7 @@ fn main() {
 	}
 
 	unwritten := strings.Replace(written, `
-    fn scale(m: Meters, by: Int): Meters {
+    fn scale(m: Meters, by: Int) -> Meters {
         meters.of(meters.raw(m) * by)
     }
 `, "", 1)
@@ -267,7 +267,7 @@ func checkSiblingFiles(t *testing.T, files map[string]string) error {
 
 func TestDistinctSelf_NeedsTheBound(t *testing.T) {
 	src := `interface Shown {
-    fn label(self(n)): String where self: Display {
+    fn label(self(n)) -> String where self: Display {
         "${n}"
     }
 }
@@ -289,12 +289,12 @@ func TestDistinctSelf_OnlyInADefault(t *testing.T) {
 	rejects(t, `type Celsius Decimal
 
 impl Celsius {
-    fn make(n: Decimal): Celsius {
+    fn make(n: Decimal) -> Celsius {
         self(n)
     }
 }
 
-fn free(n: Decimal): Int {
+fn free(n: Decimal) -> Int {
     _ = self(n)
     1
 }
@@ -310,7 +310,7 @@ fn main() {
 	admits(t, `type Celsius Decimal
 
 impl Celsius {
-    fn make(n: Decimal): Celsius {
+    fn make(n: Decimal) -> Celsius {
         Celsius(n)
     }
 }
@@ -325,14 +325,14 @@ fn main() {
 // what `self` wraps.
 func TestDistinctSelf_InnerTypeMismatch(t *testing.T) {
 	src := `interface Temperature {
-    fn bad(self(s)): String where self: Distinct<Decimal> {
+    fn bad(self(s)) -> String where self: Distinct<Decimal> {
         case s {
             "x" -> "y"
             _ -> "z"
         }
     }
 
-    fn build(_t: self): self where self: Distinct<Decimal> {
+    fn build(_t: self) -> self where self: Distinct<Decimal> {
         self("no")
     }
 }
@@ -357,7 +357,7 @@ struct Point {
 }
 
 interface Temperature {
-    fn label(self(n)): String where self: Distinct<Decimal> {
+    fn label(self(n)) -> String where self: Distinct<Decimal> {
         "${n}"
     }
 }
@@ -376,11 +376,11 @@ fn main() {
 		"main.nomi:15:1: `Point` does not implement Distinct<Decimal>",
 		"`Point` is not a distinct type, so it is not a Distinct<Decimal>; write `fn label` in this impl")
 	admits(t, strings.NewReplacer("impl Temperature for Count {}", `impl Temperature for Count {
-    fn label(_c: Count): String {
+    fn label(_c: Count) -> String {
         "count"
     }
 }`, "impl Temperature for Point {}", `impl Temperature for Point {
-    fn label(_p: Point): String {
+    fn label(_p: Point) -> String {
         "point"
     }
 }`).Replace(src))
@@ -391,7 +391,7 @@ fn main() {
 // a parameter. A `case` over `self` patterns must cover the wrapped value.
 func TestDistinctSelf_PatternPlaces(t *testing.T) {
 	rejects(t, `interface Temperature {
-    fn other(_t: self, x: Temperature): Int where self: Distinct<Int> {
+    fn other(_t: self, x: Temperature) -> Int where self: Distinct<Int> {
         self(n) = x
         n
     }
@@ -403,7 +403,7 @@ fn main() {
 `,
 		"main.nomi:3:9: `self(...)` takes apart a value of type `self`, got Temperature")
 	rejects(t, `interface Temperature {
-    fn zero(self(0)): Int where self: Distinct<Int> {
+    fn zero(self(0)) -> Int where self: Distinct<Int> {
         0
     }
 }
@@ -414,7 +414,7 @@ fn main() {
 `,
 		"main.nomi:2: refutable pattern in parameter")
 	src := `interface Temperature {
-    fn sign(t: self): String where self: Distinct<Int> {
+    fn sign(t: self) -> String where self: Distinct<Int> {
         case t {
             self(0) -> "zero"
             self(n) when n < 0 -> "below"

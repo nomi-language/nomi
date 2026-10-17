@@ -61,11 +61,11 @@ enum Shape {
     Wrapped Circle
 }
 
-fn bool_text(b: Bool): String {
+fn bool_text(b: Bool) -> String {
     if b { "yes" } else { "no" }
 }
 
-fn shape_text(s: Shape): String {
+fn shape_text(s: Shape) -> String {
     case s {
         .Dot -> "dot"
         .Round(r) -> "round ${r}"
@@ -74,35 +74,35 @@ fn shape_text(s: Shape): String {
     }
 }
 
-fn result_text(r: Result<Int, String>): String {
+fn result_text(r: Result<Int, String>) -> String {
     case r {
         Ok(n) -> "ok ${n}"
         Err(e) -> "err ${e}"
     }
 }
 
-fn bools(x: Bool): String {
+fn bools(x: Bool) -> String {
     case x {
         True -> bool_text(x)
         False -> bool_text(x)
     }
 }
 
-fn maybes(m: Maybe<Int>): String {
+fn maybes(m: Maybe<Int>) -> String {
     case m {
         Some(_) -> Maybe.with_default(m, 0) |> Int.to_string()
         None -> Maybe.with_default(m, -1) |> Int.to_string()
     }
 }
 
-fn results(r: Result<Int, String>): String {
+fn results(r: Result<Int, String>) -> String {
     case r {
         Ok(_) -> result_text(r)
         Err(_) -> result_text(r)
     }
 }
 
-fn shapes(s: Shape): String {
+fn shapes(s: Shape) -> String {
     case s {
         .Dot -> shape_text(s)
         .Round(_) -> shape_text(s)

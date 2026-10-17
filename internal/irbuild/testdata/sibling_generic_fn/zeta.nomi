@@ -7,26 +7,26 @@ pub struct Tag {
     name: String
 }
 
-pub fn ident<T>(x: T): T {
+pub fn ident<T>(x: T) -> T {
     x
 }
 
-pub fn pair<T>(x: T): List<T> {
+pub fn pair<T>(x: T) -> List<T> {
     both(x, x)
 }
 
-fn both<T>(a: T, b: T): List<T> {
+fn both<T>(a: T, b: T) -> List<T> {
     [ident(a), ident(b)]
 }
 
-pub fn apply<T, U>(x: T, f: (T) -> U): U {
+pub fn apply<T, U>(x: T, f: (T) -> U) -> U {
     f(x)
 }
 
-pub fn show<T>(x: T): String where T: Display {
+pub fn show<T>(x: T) -> String where T: Display {
     "<${Display.to_string(x)}>"
 }
 
-pub fn boxed<T>(x: T): List<T> {
+pub fn boxed<T>(x: T) -> List<T> {
     alpha.wrap(x)
 }

@@ -26,7 +26,7 @@ fn main() {
         io.print("start")
         {
             io.print("inner")
-            Iter.loop(|| {
+            Iter.loop(fn -> {
                 io.print("again")
                 io.print(1 / zero)
             })
@@ -39,10 +39,10 @@ fn main() {
 	// and a block ending an Int function.
 	verifyEndlessTrap(t, `import std/io
 
-fn tail_block(): Int {
+fn tail_block() -> Int {
     {
         io.print("tail block")
-        Iter.loop(|n = 0| {
+        Iter.loop(fn n = 0 -> {
             if n == 1 { io.print(1 / (n - 1)) }
             n + 1
         })
@@ -53,7 +53,7 @@ fn main() {
     x = {
         io.print("value block")
         _ = tail_block()
-        Iter.loop(|| {
+        Iter.loop(fn -> {
             io.print("never")
         })
     }
@@ -66,12 +66,12 @@ fn main() {
 	// finishes as an operand. Each main reaches a different one.
 	pick := `import std/io
 
-fn pick(flag: Int): Int {
+fn pick(flag: Int) -> Int {
     y = case flag {
         0 -> {
             io.print("arm 0")
             {
-                Iter.loop(|n = 0| {
+                Iter.loop(fn n = 0 -> {
                     if n == 1 { io.print(1 / (n - 1)) }
                     n + 1
                 })
@@ -83,7 +83,7 @@ fn pick(flag: Int): Int {
     if y > 15 {
         {
             io.print("if branch")
-            Iter.loop(|| {
+            Iter.loop(fn -> {
                 io.print(1 / (y - y))
             })
         }
@@ -107,7 +107,7 @@ fn main() {
 fn main() {
     io.inspect(pick(1) + {
         io.print("operand")
-        Iter.loop(|n = 0| {
+        Iter.loop(fn n = 0 -> {
             if n == 1 { io.print(1 / (n - 1)) }
             n + 1
         })
@@ -121,16 +121,16 @@ fn main() {
 
 fn main() {
     zero = 0
-    f = |label: String| {
+    f = fn label: String -> {
         io.print(label)
         {
-            Iter.loop(|| {
+            Iter.loop(fn -> {
                 io.print("lambda loop")
                 io.print(1 / zero)
             })
         }
     }
-    total = Iter.loop(|i = 0| {
+    total = Iter.loop(fn i = 0 -> {
         if i == 2 { break i }
         io.print("outer ${i}")
         i + 1
@@ -148,11 +148,11 @@ fn main() {
 	verifyEndlessTrap(t, `import std/io
 
 fn main() {
-    _ = Iter.loop(|i = 0| {
+    _ = Iter.loop(fn i = 0 -> {
         io.print("outer ${i}")
         {
             io.print("inner block")
-            Iter.loop(|n = 0| {
+            Iter.loop(fn n = 0 -> {
                 if n == 1 { io.print(1 / (n - 1)) }
                 n + 1
             })
@@ -173,7 +173,7 @@ test "a block statement" {
     assert 1 == 1
     {
         io.print("block")
-        Iter.loop(|| {
+        Iter.loop(fn -> {
             io.print(1 / 0)
         })
     }
@@ -184,7 +184,7 @@ test "a bound block" {
     x = {
         io.print("bound block")
         {
-            Iter.loop(|n = 0| {
+            Iter.loop(fn n = 0 -> {
                 if n == 1 { io.print(1 / (n - 1)) }
                 n + 1
             })

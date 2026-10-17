@@ -349,7 +349,7 @@
 "io.read_file#2(\"<dir>\")"	"value results.Result/4.Err{0=io.IOError/4.Other{reason=String(\"read <dir>: is a directory\")}}"
 "io.write_file#0(\"<dir>/out.txt\", \"written\")"	"value results.Result/4.Ok{0=Unit}"
 "io.write_file#1(\"<dir>/no/such/dir.txt\", \"x\")"	"value results.Result/4.Err{0=io.IOError/4.Other{reason=String(\"open <dir>/no/such/dir.txt: no such file or directory\")}}"
-"json.Json.to_dynamic#0(Obj({\"a\" => Arr([Int(1), Float(2.5), String(\"x\"), Bool(True), Null]), \"b\" => Obj({=>})}))"	"value Dynamic(map[string]interface {}{\"a\":[]interface {}{1, 2.5, \"x\", true, interface {}(nil)}, \"b\":map[string]interface {}{}})"
+"json.Json.to_dynamic#0(Obj(%{\"a\" => Arr([Int(1), Float(2.5), String(\"x\"), Bool(True), Null]), \"b\" => Obj(%{})}))"	"value Dynamic(map[string]interface {}{\"a\":[]interface {}{1, 2.5, \"x\", true, interface {}(nil)}, \"b\":map[string]interface {}{}})"
 "json.Json.to_dynamic#1(Null)"	"value Dynamic(<nil>)"
 "json.Json.to_dynamic#2(String(\"s\"))"	"value Dynamic(\"s\")"
 "json.Json.to_dynamic#3(Int(-3))"	"value Dynamic(-3)"

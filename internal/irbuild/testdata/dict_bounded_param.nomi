@@ -13,7 +13,7 @@
 import std/io
 
 interface Shout {
-    fn shout(v: self): String
+    fn shout(v: self) -> String
 }
 
 struct Dog {
@@ -25,22 +25,22 @@ struct Cat {
 }
 
 impl Shout for Dog {
-    fn shout(d: Dog): String {
+    fn shout(d: Dog) -> String {
         "woof from " + d.name
     }
 }
 
 impl Shout for Cat {
-    fn shout(c: Cat): String {
+    fn shout(c: Cat) -> String {
         "meow from " + c.name
     }
 }
 
-fn announce<T>(x: T): String where T: Shout {
+fn announce<T>(x: T) -> String where T: Shout {
     T.shout(x)
 }
 
-fn twice<U>(y: U): String where U: Shout {
+fn twice<U>(y: U) -> String where U: Shout {
     announce(y) + " / " + announce(y)
 }
 

@@ -15,7 +15,7 @@ import (
 
 const recursesForever = `import std/io
 
-fn down(n: Int): Int {
+fn down(n: Int) -> Int {
   down(n + 1) + 1
 }
 

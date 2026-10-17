@@ -26,7 +26,7 @@ test "dbg pipe stage prints source and passes the value through" {
         """
         import std/io
 
-        fn double(n: Int): Int {
+        fn double(n: Int) -> Int {
           n + n
         }
 

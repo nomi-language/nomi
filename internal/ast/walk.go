@@ -1,5 +1,7 @@
 package ast
 
+//go:generate go run ./gen
+
 import (
 	"reflect"
 	"sync"
@@ -14,11 +16,24 @@ import (
 // expressions are nodes and are visited like any other. A nil or typed-nil
 // n has no children.
 //
-// The fields are found by reflection, so a node type or field added to the
-// AST is walked with no change here. Each Go type's walk is worked out once
-// and cached; fields that cannot hold a node (names, positions, trivia) are
-// never looked at.
+// The walk of each of this package's node types is generated
+// (children_gen.go, by `go generate ./internal/ast`) from ReflectChildren's
+// rules, so it answers what ReflectChildren answers without reflection; a
+// node type declared elsewhere is walked by ReflectChildren itself.
+// TestGeneratedChildrenAreCurrent fails while the generated file is stale,
+// and TestChildrenMatchTheReflectiveWalk holds the two walks to the same
+// answer on every tree the repository's sources parse to.
 func Children(n Node, fn func(Node)) {
+	if !generatedChildren(n, fn) {
+		ReflectChildren(n, fn)
+	}
+}
+
+// ReflectChildren is the reference walk Children's generated code follows:
+// Children's answer, found by reflection over n's fields. Each Go type's
+// walk is worked out once and cached; fields that cannot hold a node
+// (names, positions, trivia) are never looked at.
+func ReflectChildren(n Node, fn func(Node)) {
 	v := reflect.ValueOf(n)
 	if !v.IsValid() || v.Kind() != reflect.Pointer || v.IsNil() {
 		return
@@ -48,13 +63,24 @@ type inspector struct {
 }
 
 func (in *inspector) inspect(n Node) {
-	v := reflect.ValueOf(n)
-	if !v.IsValid() || v.Kind() == reflect.Pointer && v.IsNil() {
+	if absent(n) {
 		return
 	}
 	if in.f(n) {
 		Children(n, in.visit)
 	}
+}
+
+// reflectAbsent is absent for a node type declared outside this package.
+func reflectAbsent(n Node) bool {
+	v := reflect.ValueOf(n)
+	return !v.IsValid() || v.Kind() == reflect.Pointer && v.IsNil()
+}
+
+// reflectDynamic is the generated walk's fallback for an interface field
+// holding a type declared outside this package.
+func reflectDynamic(v any, fn func(Node)) {
+	interfaceStep(reflect.ValueOf(&v).Elem(), fn)
 }
 
 // step walks one value of a fixed Go type, calling fn on each node it

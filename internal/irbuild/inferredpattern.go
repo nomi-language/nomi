@@ -11,11 +11,11 @@ import (
 // checkLambdaExpecting solves it from the expected FuncType at the call site
 // and records the answer on the parameter's SymbolParam, which
 // `inferredParamKind` reads back (see inferred.go). A destructuring parameter
-// has no name and so no symbol: `|acc = Map.empty(), (k, v)| …` writes a
+// has no name and so no symbol: `fn acc = Map.empty(), #(k, v) -> …` writes a
 // pattern where the name would go. The checker records the type it checked the
 // whole pattern against in FileAnalysis.LambdaPatternTypes, keyed by the
 // pattern node, and this reads it back. The names the pattern binds cannot
-// stand in for it: a wildcard binds nothing, so `|(_, v)|` alone does not say
+// stand in for it: a wildcard binds nothing, so `fn #(_, v) ->` alone does not say
 // what its first component is.
 //
 // inferred.go's safety net covers this as it covers a plain parameter: a lambda

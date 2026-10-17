@@ -1,0 +1,13 @@
+import two_fer.two_fer
+
+test "no name given" {
+    assert two_fer() == "One for you, one for me."
+}
+
+test "a name given" {
+    assert two_fer("Alice") == "One for Alice, one for me."
+}
+
+test "another name given" {
+    assert two_fer("Bob") == "One for Bob, one for me."
+}

@@ -23,7 +23,7 @@ func TestIRSiblingGenericDebug_InstanceImplsAreTheOwnersInstances(t *testing.T) 
 		"tagged\n" +
 		"#7\n" +
 		"#x\n" +
-		"(Span{start: 1, stop: 2}, 9)\n" +
+		"#(Span{start: 1, stop: 2}, 9)\n" +
 		"{s: tagged}\n" +
 		"[Span{start: 1, stop: 2}]\n" +
 		"[Span{start: \"p\", stop: \"q\"}]\n" +

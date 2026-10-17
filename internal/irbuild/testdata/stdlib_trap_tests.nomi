@@ -1,0 +1,29 @@
+// A trap inside the stdlib fails the test that reached it, reported at the
+// test's own line: directly, through a program function whose tail call
+// into the stdlib replaced it (the function's line), through a lambda the
+// stdlib runs (the lambda's line), and in a host function (the call's
+// line, which the host's text does not name).
+fn magnitude(n: Int) -> Int {
+    Int.abs(n)
+}
+
+test "a stdlib trap in a test body" {
+    assert Int.modulo(5, 0) == 0
+}
+
+test "a stdlib trap through a program function" {
+    assert magnitude(Int.min_value) > 0
+}
+
+test "a lambda the stdlib runs" {
+    quotients = [5, 0] |> Iter.map(fn x -> 10 / x) |> Iter.to_list()
+    assert quotients == []
+}
+
+test "a host function's trap" {
+    assert String.repeat("ab", 0 - 2) == ""
+}
+
+test "the next case still runs" {
+    assert Int.abs(0 - 3) == 3
+}

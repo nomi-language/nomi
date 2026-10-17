@@ -21,7 +21,7 @@ type caseDeform struct {
 }
 
 // buildCaseFunc builds the graph `internal/irbuild`'s `tailCase` builds for
-// `fn f(n: Int): String { case n { 0 -> "z" _ -> "m" } }`: one literal test,
+// `fn f(n: Int) -> String { case n { 0 -> "z" _ -> "m" } }`: one literal test,
 // two arms, a fallthrough holding the trap, and one exit.
 //
 // A HAND-BUILT FIXTURE AND NOT A LOWERING, so the lint plants below can

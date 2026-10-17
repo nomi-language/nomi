@@ -43,7 +43,7 @@ func EchoUpper(s string) string {
 
 gopkg "localbindingtest" as ffi
 
-fn echo_upper(s: String): String go ffi.EchoUpper
+fn echo_upper(s: String) -> String go ffi.EchoUpper
 
 fn main() {
   io.print(echo_upper("hello"))
@@ -165,7 +165,7 @@ func TestDocumentManager_FunctionSignatureCycleAcrossFiles(t *testing.T) {
 	mustWrite("main.nomi", "import a\n\nfn main() { io.inspect(a.bounce(0)) }\n")
 	aPath := mustWrite("a.nomi", `import b
 
-pub fn bounce(n: Int): Int {
+pub fn bounce(n: Int) -> Int {
   case n {
     0 -> 0
     _ -> b.pong(n - 1)
@@ -174,7 +174,7 @@ pub fn bounce(n: Int): Int {
 `)
 	mustWrite("b.nomi", `import a
 
-pub fn pong(n: Int): Int {
+pub fn pong(n: Int) -> Int {
   case n {
     0 -> 0
     _ -> a.bounce(n - 1)
@@ -221,7 +221,7 @@ func TestDocumentManager_CycleWithCrossFileImpl(t *testing.T) {
 	aPath := mustWrite("a.nomi", `import b: T
 
 pub interface I {
-  fn label(value: self): String
+  fn label(value: self) -> String
 }
 
 pub struct A {
@@ -235,7 +235,7 @@ pub struct T {
 }
 
 impl I for T {
-  fn label(value: T): String { value.name }
+  fn label(value: T) -> String { value.name }
 }
 `)
 
@@ -276,7 +276,7 @@ func TestDocumentManager_AppFieldAccessResolvesAcrossFiles(t *testing.T) {
   greeter
 }
 
-fn boot(): AppEnv {
+fn boot() -> AppEnv {
   env.load(Context.root())
 }
 
@@ -293,7 +293,7 @@ pub struct AppEnv {
   logger: Logger
 }
 
-pub fn load(context: Context): AppEnv {
+pub fn load(context: Context) -> AppEnv {
   AppEnv{context, logger: ProdLogger}
 }
 
@@ -308,13 +308,13 @@ pub fn greet(name: String) {
 }
 `)
 	mustWrite("log.nomi", `pub interface Logger {
-  fn log(value: self, level: String, message: String): Unit
+  fn log(value: self, level: String, message: String) -> Unit
 }
 
 pub type ProdLogger
 
 impl Logger for ProdLogger {
-  fn log(_logger: ProdLogger, _level: String, _message: String): Unit { Unit }
+  fn log(_logger: ProdLogger, _level: String, _message: String) -> Unit { Unit }
 }
 `)
 

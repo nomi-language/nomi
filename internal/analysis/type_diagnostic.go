@@ -247,7 +247,7 @@ func writeQualifiedType(sb *strings.Builder, t Type, amb map[string]bool, entry 
 			writeQualifiedType(sb, v.Return, amb, entry)
 		}
 	case *TupleType:
-		sb.WriteString("(")
+		sb.WriteString("#(")
 		list(v.Elems)
 		sb.WriteString(")")
 	case *ListType:

@@ -73,7 +73,7 @@ func TestParseGroup(t *testing.T) {
 // is an ordinary identifier everywhere.
 func TestParseGroupIsAContextualKeyword(t *testing.T) {
 	src := "struct Row {\n  group: String\n}\n\n" +
-		"fn group(group: Int): Int {\n  group\n}\n\n" +
+		"fn group(group: Int) -> Int {\n  group\n}\n\n" +
 		"fn f(row: Row) {\n  group = row.group\n  tests = group\n  g(group, tests)\n  group(2)\n  r = Row{group: \"a\"}\n  if group {\n    g(1)\n  }\n}\n\n" +
 		"group(3)"
 	nodes := parse(t, src)

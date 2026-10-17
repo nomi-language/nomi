@@ -46,11 +46,11 @@ fn main() {
     io.print("nested-no ${List.equal?([[1], [2, 3]], [[1], [2, 4]])}")
     strs = ["a", "b"]
     strs2 = List.concat(["a"], ["b"])
-    tups = [(1, "a")]
-    tups2 = List.concat([(1, "a")], [])
+    tups = [#(1, "a")]
+    tups2 = List.concat([#(1, "a")], [])
     io.print("strings   ${List.equal?(strs, strs2)} ${strs == strs2}")
     io.print("tuples    ${List.equal?(tups, tups2)} ${tups == tups2}")
-    io.print("tup-float ${List.equal?([(1, nan)], [(1, 0.0 / 0.0)])}")
+    io.print("tup-float ${List.equal?([#(1, nan)], [#(1, 0.0 / 0.0)])}")
     io.print("bools     ${List.equal?([True, False], [True, False])}")
 
     io.print("concat    ${List.concat([1, 2], [3, 4])}")
@@ -68,14 +68,14 @@ fn main() {
     io.print("tail-0    ${tail_text([])}")
 }
 
-fn head_text(xs: List<Int>): String {
+fn head_text(xs: List<Int>) -> String {
     case List.head(xs) {
         .Some(h) -> "Some(${h})"
         .None -> "None"
     }
 }
 
-fn tail_text(xs: List<Int>): String {
+fn tail_text(xs: List<Int>) -> String {
     case List.tail(xs) {
         .Some(t) -> "Some(${t})"
         .None -> "None"

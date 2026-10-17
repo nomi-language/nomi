@@ -7,7 +7,7 @@
 // below is deliberately COARSER than structural equality (it compares the
 // sign, not the payload), so a structural fallback cannot pass these tests by
 // accident: `Sign.Raw(3) == Sign.Raw(9)` is False structurally and True here.
-fn positive?(s: Sign): Bool {
+fn positive?(s: Sign) -> Bool {
     case s {
         Sign.Plus -> True
         Sign.Minus -> False
@@ -22,7 +22,7 @@ enum Sign {
 }
 
 impl Equatable for Sign {
-    fn equal?(a: Sign, b: Sign): Bool {
+    fn equal?(a: Sign, b: Sign) -> Bool {
         positive?(a) == positive?(b)
     }
 }

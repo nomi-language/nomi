@@ -22,11 +22,11 @@
 // lowering that "improved" it would make every piped assertion failure report
 // differently from what `nomi test` specifies, which is the one output this
 // project treats as byte-for-byte contract.
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 
-fn scaled(n: Int, factor: Int): Int {
+fn scaled(n: Int, factor: Int) -> Int {
     n * factor
 }
 

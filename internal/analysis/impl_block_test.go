@@ -16,8 +16,8 @@ import (
 // must satisfy the interface — no "missing function" error for the extern.
 func TestInterfaceHostBackedDefault_NotRequired(t *testing.T) {
 	src := `pub interface Seq {
-  fn next(value: self): Int
-  host fn reduce(value: self): Int
+  fn next(value: self) -> Int
+  host fn reduce(value: self) -> Int
 }
 
 pub struct counter {
@@ -26,7 +26,7 @@ pub struct counter {
 
 impl Seq for counter {
 
-  fn next(c: counter): Int {
+  fn next(c: counter) -> Int {
     c.n
   }
 }
@@ -45,13 +45,13 @@ impl Seq for counter {
 }
 
 // An interface default method may carry explicit function-local type params
-// (the `U` in `fn mapped<U>(b: self, f: (T) -> U): U`), not bound by the
+// (the `U` in `fn mapped<U>(b: self, f: (T) -> U) -> U`), not bound by the
 // interface header. The signature must resolve without "unknown type" errors.
 func TestInterfaceDefaultExplicitTypeParam_SigResolves(t *testing.T) {
 	src := `pub interface Box<T> {
-  fn get(b: self): T
+  fn get(b: self) -> T
 
-  fn mapped<U>(b: self, f: (T) -> U): U {
+  fn mapped<U>(b: self, f: (T) -> U) -> U {
     f(Box.get(b))
   }
 }`
@@ -69,13 +69,13 @@ func TestInterfaceDefaultExplicitTypeParam_SigResolves(t *testing.T) {
 
 func TestInterfaceDefaultBareSiblingCallInInterpolationResolves(t *testing.T) {
 	src := `pub interface Formatted {
-  fn label(value: self): String
+  fn label(value: self) -> String
 
-  fn shout(value: self): String {
+  fn shout(value: self) -> String {
     "${label(value)}!"
   }
 
-  open fn brief(value: self): String {
+  open fn brief(value: self) -> String {
     label(value)
   }
 }
@@ -85,7 +85,7 @@ pub struct User {
 }
 
 impl Formatted for User {
-  fn label(user: User): String {
+  fn label(user: User) -> String {
     user.name
   }
 }
@@ -98,7 +98,7 @@ impl Formatted for User {
 
 func TestImplBlock_ImplBlockAcceptsPlainFunction(t *testing.T) {
 	src := `pub interface Greeting {
-  fn greet(value: self): String
+  fn greet(value: self) -> String
 }
 
 pub struct Guest {
@@ -107,7 +107,7 @@ pub struct Guest {
 
 impl Greeting for Guest {
 
-  fn greet(g: Guest): String {
+  fn greet(g: Guest) -> String {
     "hi ${g.name}"
   }
 }
@@ -126,25 +126,25 @@ impl Greeting for Guest {
 
 func TestImplBlock_BareOperatorInterfaceCallSelectsMatchingImplArgs(t *testing.T) {
 	src := `pub interface Divide<Rhs, Out> {
-  fn divide(lhs: self, rhs: Rhs): Out
+  fn divide(lhs: self, rhs: Rhs) -> Out
 }
 
 pub opaque type NonZeroInt Int
 
 impl Divide<Int, Int> for Int {
-  fn divide(lhs: Int, rhs: Int): Int {
+  fn divide(lhs: Int, rhs: Int) -> Int {
     _ = rhs
     lhs
   }
 }
 
 impl Divide<NonZeroInt, Int> for Int {
-  fn divide(lhs: Int, rhs: NonZeroInt): Int {
+  fn divide(lhs: Int, rhs: NonZeroInt) -> Int {
     divide(lhs, rhs)
   }
 }
 
-fn use_non_zero(nz: NonZeroInt): Int {
+fn use_non_zero(nz: NonZeroInt) -> Int {
   divide(10, nz)
 }
 `
@@ -156,14 +156,14 @@ fn use_non_zero(nz: NonZeroInt): Int {
 
 func TestImplBlock_PlainFunctionDoesNotSatisfyImplEntry(t *testing.T) {
 	src := `pub interface Greeting {
-  fn greet(value: self): String
+  fn greet(value: self) -> String
 }
 
 pub struct Guest {
   name: String
 }
 
-pub fn greet(g: Guest): String {
+pub fn greet(g: Guest) -> String {
   "hi ${g.name}"
 }
 
@@ -178,7 +178,7 @@ impl Greeting for Guest
 
 func TestImplBlock_ImplementsBlockMissingRequiredMethod(t *testing.T) {
 	src := `pub interface Greeting {
-  fn greet(value: self): String
+  fn greet(value: self) -> String
 }
 
 pub struct Guest {
@@ -195,7 +195,7 @@ impl Greeting for Guest
 
 func TestImplBlock_ModuleNestedImplementsMissingRequiredMethod(t *testing.T) {
 	src := `pub interface Display {
-  fn to_string(value: self): String
+  fn to_string(value: self) -> String
 }
 
 host type RawConn
@@ -214,11 +214,11 @@ impl Display for Conn
 
 func TestImplBlock_DuplicateInterfaceMethodNamesAreScopedByBlock(t *testing.T) {
 	src := `pub interface Speaker {
-  fn label(value: self): String
+  fn label(value: self) -> String
 }
 
 pub interface Performer {
-  fn label(value: self): String
+  fn label(value: self) -> String
 }
 
 pub struct Guest {
@@ -227,14 +227,14 @@ pub struct Guest {
 
 impl Speaker for Guest {
 
-  fn label(g: Guest): String {
+  fn label(g: Guest) -> String {
     g.name
   }
 }
 
 impl Performer for Guest {
 
-  fn label(g: Guest): String {
+  fn label(g: Guest) -> String {
     g.name
   }
 }
@@ -247,11 +247,11 @@ impl Performer for Guest {
 
 func TestImplBlock_DuplicateInterfaceMethodBlocksCanUseDifferentBodies(t *testing.T) {
 	src := `pub interface Speaker {
-  fn label(value: self): String
+  fn label(value: self) -> String
 }
 
 pub interface Performer {
-  fn label(value: self): String
+  fn label(value: self) -> String
 }
 
 pub struct Guest {
@@ -260,14 +260,14 @@ pub struct Guest {
 
 impl Speaker for Guest {
 
-  fn label(g: Guest): String {
+  fn label(g: Guest) -> String {
     g.name
   }
 }
 
 impl Performer for Guest {
 
-  fn label(g: Guest): String {
+  fn label(g: Guest) -> String {
     "guest ${g.name}"
   }
 }
@@ -280,7 +280,7 @@ impl Performer for Guest {
 
 func TestImplBlock_PlainImplFunctionAllowedWhenUnambiguous(t *testing.T) {
 	src := `pub interface Greeting {
-  fn greet(value: self): String
+  fn greet(value: self) -> String
 }
 
 pub struct Guest {
@@ -289,7 +289,7 @@ pub struct Guest {
 
 impl Greeting for Guest {
 
-  fn greet(g: Guest): String {
+  fn greet(g: Guest) -> String {
     "hi ${g.name}"
   }
 }
@@ -305,7 +305,7 @@ func TestImplBlock_ConcreteReceiverType_GenericResolves(t *testing.T) {
   item: T
 }
 
-pub fn echo<T>(b: Box<T>): Box<T> {
+pub fn echo<T>(b: Box<T>) -> Box<T> {
   copy: Box<T> = Box{item: b.item}
   copy
 }`
@@ -326,7 +326,7 @@ func TestImplBlock_SelfAsBodyTypeRejected(t *testing.T) {
   item: T
 }
 
-pub fn echo(b: self): self {
+pub fn echo(b: self) -> self {
   copy: self = Box{item: b.item}
   copy
 }`
@@ -341,11 +341,11 @@ func TestImplBlock_BareSameOwnerCallResolves(t *testing.T) {
   item: Int
 }
 
-fn get(b: Box): Int {
+fn get(b: Box) -> Int {
   b.item
 }
 
-fn twice(b: Box): Int {
+fn twice(b: Box) -> Int {
   get(b) + get(b)
 }`
 	tokens := lexer.Lex(src)
@@ -365,11 +365,11 @@ func TestImplBlock_SelfQualifierRejected(t *testing.T) {
   item: Int
 }
 
-fn get(b: Box): Int {
+fn get(b: Box) -> Int {
   b.item
 }
 
-fn twice(b: Box): Int {
+fn twice(b: Box) -> Int {
   self.get(b)
 }`
 	tokens := lexer.Lex(src)
@@ -386,29 +386,29 @@ fn twice(b: Box): Int {
 
 func TestImplBlock_BareSameOwnerAmbiguousInterfaceMethodRejected(t *testing.T) {
 	src := `pub interface A {
-  fn label(value: self): String
+  fn label(value: self) -> String
 }
 
 pub interface B {
-  fn label(value: self): String
+  fn label(value: self) -> String
 }
 
 pub struct Item {
   name: String
 }
 
-fn show(value: Item): String {
+fn show(value: Item) -> String {
   label(value)
 }
 
 impl A for Item {
-  fn label(value: Item): String {
+  fn label(value: Item) -> String {
     value.name
   }
 }
 
 impl B for Item {
-  fn label(value: Item): String {
+  fn label(value: Item) -> String {
     value.name
   }
 }
@@ -431,7 +431,7 @@ func TestImplBlock_SelfAsNestedBodyTypeRejected(t *testing.T) {
 	src := `pub struct Box<T> {
   item: T
 
-  pub fn bad(b: Box<T>): Box<T> {
+  pub fn bad(b: Box<T>) -> Box<T> {
     wrong: self = "not a box"
     b
   }
@@ -452,7 +452,7 @@ func TestImplBlock_SelfAsNestedBodyTypeRejected(t *testing.T) {
 func TestImplBlock_SelfAsType_FreeFunctionRejected(t *testing.T) {
 	src := `pub struct Point { x: Int }
 
-fn make(): Int {
+fn make() -> Int {
   p: self = Point{x: 1}
   p.x
 }`
@@ -474,13 +474,13 @@ fn make(): Int {
 // the Impls / DispatchNames structures.
 func TestImplBlock_InterfaceImpl_RegistersImpls(t *testing.T) {
 	src := `pub interface Formatted {
-    fn format(value: self, style: String): String
+    fn format(value: self, style: String) -> String
 }
 
 pub struct User { name: String }
 
 impl Formatted for User {
-    fn format(user: User, _style: String): String {
+    fn format(user: User, _style: String) -> String {
         user.name
     }
 }`
@@ -501,13 +501,13 @@ impl Formatted for User {
 // populates the dispatch structures (Impls / DispatchNames).
 func TestImplBlock_VsDecorator_SameDispatch(t *testing.T) {
 	blockSrc := `pub interface Speech {
-    fn speak(value: self): String
+    fn speak(value: self) -> String
 }
 
 pub struct Dog { name: String }
 
 impl Speech for Dog {
-    fn speak(d: Dog): String { d.name }
+    fn speak(d: Dog) -> String { d.name }
 }`
 
 	fa, errs := buildTypesFromSource(blockSrc)
@@ -527,13 +527,13 @@ impl Speech for Dog {
 // inherit visibility from the interface).
 func TestImplBlock_VisibilityInheritance(t *testing.T) {
 	src := `pub interface Formatted {
-    fn format(value: self): String
+    fn format(value: self) -> String
 }
 
 pub struct User { name: String }
 
 impl Formatted for User {
-    fn format(user: User): String { user.name }
+    fn format(user: User) -> String { user.name }
 }`
 	fa, errs := buildTypesFromSource(src)
 	if len(errs) > 0 {
@@ -556,7 +556,7 @@ func TestImplBlock_UndefinedInterfaceErrors(t *testing.T) {
 	src := `pub struct FakeClock { at: Int }
 
 impl Clock for FakeClock {
-    fn now(value: FakeClock): Int { value.at }
+    fn now(value: FakeClock) -> Int { value.at }
 }`
 	fa, errs := buildTypesFromSource(src)
 	all := append([]TypeError{}, fa.TypeErrors...)
@@ -573,7 +573,7 @@ func TestImplBlock_NotAnInterfaceErrors(t *testing.T) {
 pub struct Bar { y: Int }
 
 impl Foo for Bar {
-    fn handle(b: Bar): Int { b.y }
+    fn handle(b: Bar) -> Int { b.y }
 }`
 	fa, errs := buildTypesFromSource(src)
 	all := append([]TypeError{}, fa.TypeErrors...)
@@ -591,8 +591,8 @@ func TestImplBlock_ModuleFunctionIndexed(t *testing.T) {
   y: Int
 }
 
-pub fn origin(): Point { Point{x: 0, y: 0} }
-fn helper(p: Point): Int { p.x }`
+pub fn origin() -> Point { Point{x: 0, y: 0} }
+fn helper(p: Point) -> Int { p.x }`
 	fa, errs := buildTypesFromSource(src)
 	if len(errs) > 0 {
 		t.Fatalf("unexpected errors: %v", errs)
@@ -623,11 +623,11 @@ func TestImplBlock_ModuleFunctionCall_CrossModule(t *testing.T) {
   y: Int
 }
 
-pub fn origin(): Point { Point{x: 0, y: 0} }`,
+pub fn origin() -> Point { Point{x: 0, y: 0} }`,
 	})
 	src := `import geo.{self, Point}
 
-fn make(): Point {
+fn make() -> Point {
     geo.origin()
 }`
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
@@ -648,11 +648,11 @@ func TestImplBlock_ModuleFunctionCall_CrossModuleResolvesType(t *testing.T) {
   y: Int
 }
 
-pub fn origin(): Point { Point{x: 0, y: 0} }`,
+pub fn origin() -> Point { Point{x: 0, y: 0} }`,
 	})
 	src := `import geo
 
-fn bad(): Int {
+fn bad() -> Int {
     geo.origin()
 }`
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
@@ -676,7 +676,7 @@ func TestImplBlock_SelfResolves_Concrete(t *testing.T) {
   y: Int
 }
 
-pub fn shift(p: Point): Point { p }`
+pub fn shift(p: Point) -> Point { p }`
 	fa, errs := buildTypesFromSource(src)
 	if len(errs) > 0 {
 		t.Fatalf("unexpected errors: %v", errs)
@@ -707,7 +707,7 @@ func TestImplBlock_ConcreteReceiverTypeResolves_Generic(t *testing.T) {
   value: T
 }
 
-pub fn unwrap<T>(b: Box<T>): T { b.value }`
+pub fn unwrap<T>(b: Box<T>) -> T { b.value }`
 	fa, errs := buildTypesFromSource(src)
 	if len(errs) > 0 {
 		t.Fatalf("unexpected errors: %v", errs)
@@ -739,7 +739,7 @@ func TestImplBlock_BodylessConformance(t *testing.T) {
 }
 
 pub interface Greets {
-    fn greet(_value: self): String {
+    fn greet(_value: self) -> String {
         "hi"
     }
 }
@@ -766,13 +766,13 @@ impl Greets for Robot`
 // clean, so a checker that refused everything would fail.
 func TestFieldAccess_InterfaceValuesAndTypeParametersHaveNoFields(t *testing.T) {
 	const decls = `pub interface HasName {
-    fn name(value: self): String
+    fn name(value: self) -> String
 }
 
 pub struct Person { name: String }
 
 impl HasName for Person {
-    fn name(person: Person): String { person.name }
+    fn name(person: Person) -> String { person.name }
 }
 
 `
@@ -780,17 +780,17 @@ impl HasName for Person {
 		name, bad, want, good string
 	}{
 		{"an interface value",
-			"fn read(n: HasName): String { n.label }",
+			"fn read(n: HasName) -> String { n.label }",
 			"interface 'HasName' has no field 'label'",
-			"fn read(n: HasName): String { HasName.name(n) }"},
+			"fn read(n: HasName) -> String { HasName.name(n) }"},
 		{"a bounded type parameter",
-			"fn read<T>(x: T): String where T: HasName { x.name }",
+			"fn read<T>(x: T) -> String where T: HasName { x.name }",
 			"type parameter `T` has no field 'name'",
-			"fn read<T>(x: T): String where T: HasName { T.name(x) }"},
+			"fn read<T>(x: T) -> String where T: HasName { T.name(x) }"},
 		{"a field accessor over a bounded type parameter",
-			"fn apply<T>(x: T, f: (T) -> String): String { f(x) }\nfn read<T>(x: T): String where T: HasName { apply(x, .name) }",
+			"fn apply<T>(x: T, f: (T) -> String) -> String { f(x) }\nfn read<T>(x: T) -> String where T: HasName { apply(x, .name) }",
 			"`.name` reads a field of a struct, a record or a tuple, and T is none of those",
-			"fn apply<T>(x: T, f: (T) -> String): String { f(x) }\nfn read<T>(x: T): String where T: HasName { apply(x, |y| T.name(y)) }"},
+			"fn apply<T>(x: T, f: (T) -> String) -> String { f(x) }\nfn read<T>(x: T) -> String where T: HasName { apply(x, fn y -> T.name(y)) }"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, all := buildAndCheckFromSource(decls + tc.bad)
@@ -816,31 +816,31 @@ impl HasName for Person {
 // check clean.
 func TestFieldAccess_AFunctionIsNotAFieldOfAValue(t *testing.T) {
 	const decls = `pub interface HasName {
-    fn name(value: self): String
+    fn name(value: self) -> String
 }
 
 pub interface Labeled {
-    fn name(value: self): String
+    fn name(value: self) -> String
 }
 
 pub struct Person { first: String }
 
 impl HasName for Person {
-    fn name(person: Person): String { person.first }
+    fn name(person: Person) -> String { person.first }
 }
 
 impl Person {
-    fn initial(person: Person): String { person.first }
+    fn initial(person: Person) -> String { person.first }
 }
 
 pub struct Robot { serial: String }
 
 impl HasName for Robot {
-    fn name(robot: Robot): String { robot.serial }
+    fn name(robot: Robot) -> String { robot.serial }
 }
 
 impl Labeled for Robot {
-    fn name(robot: Robot): String { robot.serial }
+    fn name(robot: Robot) -> String { robot.serial }
 }
 
 pub struct Holder { inner: HasName }
@@ -850,65 +850,65 @@ pub struct Holder { inner: HasName }
 		name, bad, msg, hint, good string
 	}{
 		{"an interface-typed parameter",
-			"fn read(h: HasName): String { h.name }",
+			"fn read(h: HasName) -> String { h.name }",
 			"interface 'HasName' has no field 'name'",
 			"`HasName` declares `fn name`; call it as `HasName.name(h)`",
-			"fn read(h: HasName): String { HasName.name(h) }"},
+			"fn read(h: HasName) -> String { HasName.name(h) }"},
 		{"an interface-typed parameter as a function value",
-			"fn read(h: HasName): String {\n    f = h.name\n    f(h)\n}",
+			"fn read(h: HasName) -> String {\n    f = h.name\n    f(h)\n}",
 			"interface 'HasName' has no field 'name'",
 			"`HasName` declares `fn name`; call it as `HasName.name(h)`",
-			"fn read(h: HasName): String {\n    f: (HasName) -> String = HasName.name\n    f(h)\n}"},
+			"fn read(h: HasName) -> String {\n    f: (HasName) -> String = HasName.name\n    f(h)\n}"},
 		{"an interface-typed parameter called through the read",
-			"fn read(h: HasName): String { h.name(h) }",
+			"fn read(h: HasName) -> String { h.name(h) }",
 			"interface 'HasName' has no field 'name'",
 			"`HasName` declares `fn name`; call it as `HasName.name(h)`",
-			"fn read(h: HasName): String { HasName.name(h) }"},
+			"fn read(h: HasName) -> String { HasName.name(h) }"},
 		{"an interface-typed binding",
-			"fn read(p: Person): String {\n    h: HasName = p\n    h.name\n}",
+			"fn read(p: Person) -> String {\n    h: HasName = p\n    h.name\n}",
 			"interface 'HasName' has no field 'name'",
 			"`HasName` declares `fn name`; call it as `HasName.name(h)`",
-			"fn read(p: Person): String {\n    h: HasName = p\n    HasName.name(h)\n}"},
+			"fn read(p: Person) -> String {\n    h: HasName = p\n    HasName.name(h)\n}"},
 		{"an interface-typed field",
-			"fn read(o: Holder): String { o.inner.name }",
+			"fn read(o: Holder) -> String { o.inner.name }",
 			"interface 'HasName' has no field 'name'",
 			"`HasName` declares `fn name`; call it as `HasName.name(o.inner)`",
-			"fn read(o: Holder): String { HasName.name(o.inner) }"},
+			"fn read(o: Holder) -> String { HasName.name(o.inner) }"},
 		{"an interface-typed lambda parameter",
-			"fn read(h: HasName): String {\n    f = |v: HasName| v.name\n    f(h)\n}",
+			"fn read(h: HasName) -> String {\n    f = fn v: HasName -> v.name\n    f(h)\n}",
 			"interface 'HasName' has no field 'name'",
 			"`HasName` declares `fn name`; call it as `HasName.name(v)`",
-			"fn read(h: HasName): String {\n    f = |v: HasName| HasName.name(v)\n    f(h)\n}"},
+			"fn read(h: HasName) -> String {\n    f = fn v: HasName -> HasName.name(v)\n    f(h)\n}"},
 		{"a value of a bounded type parameter",
-			"fn read<T>(x: T): String where T: HasName { x.name }",
+			"fn read<T>(x: T) -> String where T: HasName { x.name }",
 			"type parameter `T` has no field 'name'",
 			"`HasName` declares `fn name`; call it as `T.name(x)`",
-			"fn read<T>(x: T): String where T: HasName { T.name(x) }"},
+			"fn read<T>(x: T) -> String where T: HasName { T.name(x) }"},
 		{"a value of a type parameter whose two bounds declare the function",
-			"fn read<T>(x: T): String where T: HasName and Labeled { x.name }",
+			"fn read<T>(x: T) -> String where T: HasName and Labeled { x.name }",
 			"type parameter `T` has no field 'name'",
 			"bounds `HasName` and `Labeled` each declare `fn name`; call it as `HasName.name(x)` or `Labeled.name(x)`",
-			"fn read<T>(x: T): String where T: HasName and Labeled { HasName.name(x) }"},
+			"fn read<T>(x: T) -> String where T: HasName and Labeled { HasName.name(x) }"},
 		{"a struct value whose impl provides the function",
-			"fn read(p: Person): String { p.name }",
+			"fn read(p: Person) -> String { p.name }",
 			"struct 'Person' has no field 'name'",
 			"`name` is a function of `Person`, not a field; call it as `Person.name(p)` or `HasName.name(p)`",
-			"fn read(p: Person): String { Person.name(p) }"},
+			"fn read(p: Person) -> String { Person.name(p) }"},
 		{"a struct value as a function value",
-			"fn read(p: Person): String {\n    f = p.name\n    f(p)\n}",
+			"fn read(p: Person) -> String {\n    f = p.name\n    f(p)\n}",
 			"struct 'Person' has no field 'name'",
 			"`name` is a function of `Person`, not a field; call it as `Person.name(p)` or `HasName.name(p)`",
-			"fn read(p: Person): String {\n    f = Person.name\n    f(p)\n}"},
+			"fn read(p: Person) -> String {\n    f = Person.name\n    f(p)\n}"},
 		{"a struct value whose inherent impl provides the function",
-			"fn read(p: Person): String { p.initial }",
+			"fn read(p: Person) -> String { p.initial }",
 			"struct 'Person' has no field 'initial'",
 			"`initial` is a function of `Person`, not a field; call it as `Person.initial(p)`",
-			"fn read(p: Person): String { Person.initial(p) }"},
+			"fn read(p: Person) -> String { Person.initial(p) }"},
 		{"a struct value whose two interfaces provide the function",
-			"fn read(r: Robot): String { r.name }",
+			"fn read(r: Robot) -> String { r.name }",
 			"struct 'Robot' has no field 'name'",
 			"`name` is a function of `Robot`, not a field; call it as `HasName.name(r)` or `Labeled.name(r)`",
-			"fn read(r: Robot): String { Labeled.name(r) }"},
+			"fn read(r: Robot) -> String { Labeled.name(r) }"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, all := buildAndCheckFromSource(decls + tc.bad)

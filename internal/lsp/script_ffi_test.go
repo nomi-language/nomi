@@ -38,7 +38,7 @@ func BoxLabel(box *Box) string {
 	return box.Label
 }
 `,
-	"bin/helper.nomi": "pub fn answer(): Int {\n  42\n}\n",
+	"bin/helper.nomi": "pub fn answer() -> Int {\n  42\n}\n",
 	"bin/hi": `#!/usr/bin/env nomi
 import {
   std/io
@@ -49,11 +49,11 @@ gopkg "scriptbinding" as ffi
 
 opaque type RawBox go ffi.Box
 
-fn echo_upper(s: String): String go ffi.EchoUpper
+fn echo_upper(s: String) -> String go ffi.EchoUpper
 
-fn make_box(label: String): RawBox go ffi.MakeBox
+fn make_box(label: String) -> RawBox go ffi.MakeBox
 
-fn box_label(box: RawBox): String go ffi.BoxLabel
+fn box_label(box: RawBox) -> String go ffi.BoxLabel
 
 fn main() {
   io.print(echo_upper("hello"))
@@ -103,7 +103,7 @@ func TestRPC_ExtensionlessScriptGoBindings(t *testing.T) {
 	if p := c.waitDiagnostics(uri); p.n != 0 {
 		t.Fatalf("the script's analysis reports %v; want none", p.msgs)
 	}
-	if d := safeLoweringDiagnostics(uri, text, nil); len(d) != 0 {
+	if d := s.safeLoweringDiagnostics(context.Background(), uri, text, nil); len(d) != 0 {
 		t.Fatalf("the script's lowering reports %+v; want none", d)
 	}
 
@@ -114,7 +114,7 @@ func TestRPC_ExtensionlessScriptGoBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, _ := json.Marshal(hover.Contents)
-	if !strings.Contains(string(b), "fn echo_upper(s: String): String") {
+	if !strings.Contains(strings.ReplaceAll(string(b), `\u003e`, ">"), "fn echo_upper(s: String) -> String") {
 		t.Errorf("hover = %s, want the binding's signature", b)
 	}
 

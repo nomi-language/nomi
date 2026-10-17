@@ -46,8 +46,8 @@ test "sets support insertion and algebra operations" {
 }
 
 test "sets deduplicate structural values" {
-    p = (1, 2)
-    ts = #{p, (3, 4), p}
+    p = #(1, 2)
+    ts = #{p, #(3, 4), p}
 
     assert Set.size(ts) == 2
 }
@@ -69,23 +69,23 @@ test "set iter pipelines can materialize back into sets" {
     xs = #{1, 2, 3}
 
     assert xs
-        |> Iter.map(|x| x * 10)
+        |> Iter.map(fn x -> x * 10)
         |> Iter.to_list()
         |> List.equal?([10, 20, 30])
 
     doubled =
         #{1, 2, 3}
-        |> Iter.map(|x| x * 2)
+        |> Iter.map(fn x -> x * 2)
         |> Iter.to_set()
 
     parity =
         #{1, 2, 3, 4}
-        |> Iter.map(|x| x % 2)
+        |> Iter.map(fn x -> x % 2)
         |> Iter.to_set()
 
     filtered =
         #{1, 2, 3, 4}
-        |> Iter.filter(|x| x > 2)
+        |> Iter.filter(fn x -> x > 2)
         |> Iter.to_set()
 
     assert Set.size(doubled) == 3
@@ -105,7 +105,7 @@ test "set iter pipelines can materialize back into sets" {
 test "sets can feed iter reductions" {
     total =
         #{1, 2, 3, 4}
-        |> Iter.reduce(|acc = 0, x| acc + x)
+        |> Iter.reduce(fn acc = 0, x -> acc + x)
 
     assert total == 10
 }

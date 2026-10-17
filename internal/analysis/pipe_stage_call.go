@@ -15,11 +15,11 @@ import (
 // `x |> Type.func` are errors that name the call to write.
 //
 // The stages that are not calls are the keyword stages (`|> dbg`,
-// `|> try`, `|> todo`, `|> if`, `|> case`, `|> then |v| ...`), which
+// `|> try`, `|> todo`, `|> if`, `|> case`, `|> then fn v -> ...`), which
 // checkBinary recognizes before it reaches reportBarePipeStage. A field
 // accessor (`user |> .name`) has its own error
 // (fieldAccessorPipeStageMessage), and so does a bare lambda
-// (`x |> |v| ...`, reportLambdaPipeStage): a lambda's body runs to the end
+// (`x |> fn v -> ...`, reportLambdaPipeStage): a lambda's body runs to the end
 // of its expression, so `then` is what applies one to the piped value.
 
 // isPipeKeywordStage reports the keyword stages checkBinary judges after
@@ -80,22 +80,26 @@ func (c *checker) reportBarePipeStage(stage ast.Node) {
 // reports. The LSP keys its quick fix, which inserts `then `, on it.
 const LambdaPipeStagePrefix = "a lambda is not a pipe stage"
 
-// reportLambdaPipeStage reports `x |> |v| ...`. A lambda's body runs to the
-// end of its expression, so the lambda is not a stage; `then |v| ...` is.
+// reportLambdaPipeStage reports `x |> fn v -> ...`. A lambda's body runs to
+// the end of its expression, so the lambda is not a stage; `then fn v -> ...`
+// is.
 func (c *checker) reportLambdaPipeStage(lam *ast.Lambda) {
 	msg := fmt.Sprintf("%s: write `then %s ...`", LambdaPipeStagePrefix, lambdaHeaderText(lam))
 	c.report(errAt(lam, msg).WithHint("`then` applies a lambda to the piped value; a named function, called as `|> f()`, is the other way to write the step"))
 }
 
-// lambdaHeaderText is lam's parameter list, `|v|` or `|a, b|`, with `|v|`
-// standing in for a list that holds a pattern.
+// lambdaHeaderText is lam's parameter list, `fn v ->` or `fn a, b ->`, with
+// `fn v ->` standing in for a list that holds a pattern.
 func lambdaHeaderText(lam *ast.Lambda) string {
 	names := make([]string, 0, len(lam.Params))
 	for _, p := range lam.Params {
 		if p.Destructure != nil || p.Name == "" {
-			return "|v|"
+			return "fn v ->"
 		}
 		names = append(names, p.Name)
 	}
-	return "|" + strings.Join(names, ", ") + "|"
+	if len(names) == 0 {
+		return "fn ->"
+	}
+	return "fn " + strings.Join(names, ", ") + " ->"
 }

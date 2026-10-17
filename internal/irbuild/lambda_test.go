@@ -10,7 +10,7 @@ import (
 
 func TestLambda_ConflictingReturnTypesAreRejected(t *testing.T) {
 	_, err := AnalyzeSource("main", `fn main() {
-  _ = |x: Int| {
+  _ = fn x: Int -> {
     if x > 0 { return "positive" }
     1
   }

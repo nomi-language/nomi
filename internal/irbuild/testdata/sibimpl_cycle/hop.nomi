@@ -4,7 +4,7 @@
 import decls.{self, Alpha, Other, Thing}
 
 impl Alpha for Thing {
-    fn go(x: Thing): Int {
+    fn go(x: Thing) -> Int {
         if x.n <= 0 {
             0
         } else {

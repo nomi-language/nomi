@@ -54,7 +54,7 @@ func TestInlayHintBindingType(t *testing.T) {
 }
 
 func TestInlayHintParamNames(t *testing.T) {
-	src := `fn add(x: Int, y: Int): Int { x + y }
+	src := `fn add(x: Int, y: Int) -> Int { x + y }
 fn main() { add(1, 2) }`
 	hints := getInlayHints(t, src)
 	found := filterByKind(hints, InlayHintKindParameter)
@@ -70,7 +70,7 @@ fn main() { add(1, 2) }`
 }
 
 func TestInlayHintSkipsNamedArgs(t *testing.T) {
-	src := `fn greet(name: String): String { name }
+	src := `fn greet(name: String) -> String { name }
 fn main() { greet(name: "Alice") }`
 	hints := getInlayHints(t, src)
 	found := filterByKind(hints, InlayHintKindParameter)
@@ -80,7 +80,7 @@ fn main() { greet(name: "Alice") }`
 }
 
 func TestInlayHintNested(t *testing.T) {
-	src := `fn add(x: Int, y: Int): Int { x + y }
+	src := `fn add(x: Int, y: Int) -> Int { x + y }
 fn main() {
     result = add(1, add(2, 3))
 }`
@@ -101,8 +101,8 @@ fn main() {
 }
 
 func TestInlayHintLambdaParams(t *testing.T) {
-	src := `fn apply(f: (Int) -> Int, x: Int): Int { f(x) }
-fn main() { apply(|n| n + 1, 5) }`
+	src := `fn apply(f: (Int) -> Int, x: Int) -> Int { f(x) }
+fn main() { apply(fn n -> n + 1, 5) }`
 	hints := getInlayHints(t, src)
 	typeHints := filterByKind(hints, InlayHintKindType)
 	foundLambda := false
@@ -157,7 +157,7 @@ fn main() { String.length("hello") }`
 func TestInlayHintWrappedInModuleCall(t *testing.T) {
 	// Tests that hints work inside io.Inspect() etc.
 	src := `import std/io
-fn add(x: Int, y: Int): Int { x + y }
+fn add(x: Int, y: Int) -> Int { x + y }
 fn main() {
     io.inspect(add(1, 2))
 }`

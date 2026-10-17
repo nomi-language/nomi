@@ -8,8 +8,8 @@ package rt
 // std/iter.nomi writes every streaming terminal over `reduce` plus a callback
 // carrying a lambda-parameter default:
 //
-//	pub fn any?<T>(source: Iter<T>, f: (T) -> Bool): Bool {
-//	  reduce(source, |_acc = False, item| if f(item) { break True } else { False })
+//	pub fn any?<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
+//	  reduce(source, fn _acc = False, item -> if f(item) { break True } else { False })
 //	}
 //
 // Read as a fold, that needs two mechanisms a Go func value has nowhere to
@@ -23,12 +23,12 @@ package rt
 // protocol already carries both. `each_while` returns True when the source
 // exhausted and False when a consumer stopped it, so:
 //
-//	any?        seed False  == "nothing stopped me"     -> !Run(|x| !f(x))
+//	any?        seed False  == "nothing stopped me"     -> !Run(fn x -> !f(x))
 //	all?        seed True   == vacuous truth            ->  Run(f)
-//	empty?      seed True   == "no element arrived"     ->  Run(|_| false)
-//	not_empty?  seed False                             -> !Run(|_| false)
+//	empty?      seed True   == "no element arrived"     ->  Run(fn _ -> false)
+//	not_empty?  seed False                             -> !Run(fn _ -> false)
 //	first/find  seed None   == "no element arrived"     -> a captured local
-//	each        seed 0, discarded by `case _ -> Unit`   ->  Run(|x| { f(x); true })
+//	each        seed 0, discarded by `case _ -> Unit`   ->  Run(fn x -> { f(x); true })
 //	count       seed 0, and the fold is std's own       ->  a captured counter
 //
 // So none of these needs a seed mechanism, and none needs a `break` channel.
@@ -38,7 +38,7 @@ package rt
 //
 // # Polarity is the failure mode here, not cost
 //
-// `!Run(|x| !f(x))` type-checks whichever way the negations land, and a version
+// `!Run(fn x -> !f(x))` type-checks whichever way the negations land, and a version
 // that drains the source still answers correctly. Two things therefore have to
 // be pinned separately and both are: the answer for a predicate that matches in
 // the middle / nowhere / everywhere, and the fact that the source is asked for
@@ -63,7 +63,7 @@ package rt
 
 // --- terminals: the predicate family ----------------------------------------
 
-// SeqAny is `pub fn any?<T>(source: Iter<T>, f: (T) -> Bool): Bool`.
+// SeqAny is `pub fn any?<T>(source: Iter<T>, f: (T) -> Bool) -> Bool`.
 //
 // The yield is the negated predicate: keep asking while nothing has matched. So
 // a source that ran to exhaustion is a source in which nothing matched, and the
@@ -75,7 +75,7 @@ func SeqAny[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bool) boo
 	})
 }
 
-// SeqAll is `pub fn all?<T>(source: Iter<T>, f: (T) -> Bool): Bool`.
+// SeqAll is `pub fn all?<T>(source: Iter<T>, f: (T) -> Bool) -> Bool`.
 //
 // The predicate is the yield, with no adaptation at all: "keep going while the
 // element passes" and "every element passed" are the same statement read from
@@ -85,7 +85,7 @@ func SeqAll[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bool) boo
 	return src.Run(fr, pred)
 }
 
-// SeqEmpty is `pub fn empty?<T>(source: Iter<T>): Bool`.
+// SeqEmpty is `pub fn empty?<T>(source: Iter<T>) -> Bool`.
 //
 // Refuses the first element unconditionally, so the answer is the protocol's
 // Bool unchanged: True means nothing was ever yielded. One element is asked for
@@ -94,10 +94,10 @@ func SeqEmpty[T any](fr *Frame, src Seq[T]) bool {
 	return src.Run(fr, func(fr *Frame, item T) bool { return false })
 }
 
-// SeqNotEmpty is `pub fn not_empty?<T>(source: Iter<T>): Bool`.
+// SeqNotEmpty is `pub fn not_empty?<T>(source: Iter<T>) -> Bool`.
 func SeqNotEmpty[T any](fr *Frame, src Seq[T]) bool { return !SeqEmpty(fr, src) }
 
-// SeqFirst is `pub fn first<T>(source: Iter<T>): Maybe<T>`.
+// SeqFirst is `pub fn first<T>(source: Iter<T>) -> Maybe<T>`.
 //
 // The captured local is what std's `break Some(item)` becomes: the value leaves
 // through a variable rather than through a control signal, and the source is
@@ -116,7 +116,7 @@ func SeqFirst[T any](fr *Frame, src Seq[T]) Maybe[T] {
 	return out
 }
 
-// SeqFind is `pub fn find<T>(source: Iter<T>, f: (T) -> Bool): Maybe<T>`.
+// SeqFind is `pub fn find<T>(source: Iter<T>, f: (T) -> Bool) -> Maybe<T>`.
 //
 // SeqFirst with a predicate in front of it. Note which value is captured — the
 // element, not the predicate's answer — the same distinction FilterEach keeps
@@ -138,7 +138,7 @@ func SeqFind[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bool) Ma
 // SeqEach is `pub fn each<T>(source: Iter<T>, f: (T) -> Unit)`.
 //
 // Generic in the callback's result and not fixed to Unit, which is std's own
-// shape: `each`'s body is `case reduce(source, |_acc = 0, item| f(item)) { _ ->
+// shape: `each`'s body is `case reduce(source, fn _acc = 0, item -> f(item)) { _ ->
 // Unit }`, so whatever the callback answers is accumulated and then discarded.
 // Fixing U to Unit here would refuse a callback std accepts.
 func SeqEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) U) Unit {
@@ -149,18 +149,21 @@ func SeqEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) U) Unit 
 	return Unit{}
 }
 
-// SeqCount is `Iter.count`'s fold arm: `reduce(source, |acc = 0, _item| acc + 1)`.
-//
-// Reached only when `known_count` answers None, which for a `Seq` it always
-// does — a List is answered in O(1) from its cached length by ListCount, and
-// internal/irbuild chooses between the two from the source's static kind, exactly
-// as std chooses between them at run time (std/iter.nomi:659).
+// SeqCount is `Iter.count`: the source's `known_count` when its view carries
+// one that answers Some (a user source's written override among them), and
+// otherwise the fold arm `reduce(source, fn acc = 0, _item -> acc + 1)`, as std
+// chooses between them (std/iter.nomi's `count`). A List is answered in O(1)
+// from its cached length by ListCount, which internal/irbuild chooses from the
+// source's static kind.
 //
 // The counter is `n++` and not CheckedAdd, and unlike FromEach's `n++` this is
 // not even a reachable divergence: every increment costs one yield, so tripping
 // Nomi's Int overflow trap would take 2^63 elements. std's `acc + 1` would trap
 // there and this would wrap; no program can reach the disagreement.
 func SeqCount[T any](fr *Frame, src Seq[T]) int64 {
+	if known := SeqKnownCount(fr, src); known.Tag == 1 {
+		return known.Some
+	}
 	var n int64
 	src.Run(fr, func(fr *Frame, item T) bool {
 		n++
@@ -171,7 +174,7 @@ func SeqCount[T any](fr *Frame, src Seq[T]) int64 {
 
 // --- adapters bounded by a predicate ----------------------------------------
 
-// TakeWhileEach is `host fn take_while_each<T>(source, pred, yield): Bool`.
+// TakeWhileEach is `host fn take_while_each<T>(source, pred, yield) -> Bool`.
 //
 // A callback answering with a control signal is not handled here:
 // `break`/`continue` in a callback are refused by name at the call site. The
@@ -192,19 +195,19 @@ func TakeWhileEach[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bo
 	return completed || ended
 }
 
-// SeqTakeWhile is `pub fn take_while<T>(source: Iter<T>, pred: (T) -> Bool): Iter<T>`.
+// SeqTakeWhile is `pub fn take_while<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T>`.
 func SeqTakeWhile[T any](src Seq[T], pred func(fr *Frame, item T) bool) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return TakeWhileEach(fr, src, pred, yield)
 	}}
 }
 
-// DropWhileEach is `host fn drop_while_each<T>(source, pred, yield): Bool`.
+// DropWhileEach is `host fn drop_while_each<T>(source, pred, yield) -> Bool`.
 //
 // The predicate is consulted only while
 // the leading run lasts: the element that fails it is yielded (it is the first
 // kept element, not a discarded boundary), and after that the predicate is
-// never called again — `[1, 2, 3, 1] |> Iter.drop_while(|x| x < 3)` is
+// never called again — `[1, 2, 3, 1] |> Iter.drop_while(fn x -> x < 3)` is
 // `[3, 1]`, so a version that kept testing would drop the trailing 1.
 //
 // `started` lives inside the call and not in SeqDropWhile's closure, which is
@@ -223,7 +226,7 @@ func DropWhileEach[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bo
 	})
 }
 
-// SeqDropWhile is `pub fn drop_while<T>(source: Iter<T>, pred: (T) -> Bool): Iter<T>`.
+// SeqDropWhile is `pub fn drop_while<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T>`.
 func SeqDropWhile[T any](src Seq[T], pred func(fr *Frame, item T) bool) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return DropWhileEach(fr, src, pred, yield)
@@ -241,7 +244,7 @@ func SeqDropWhile[T any](src Seq[T], pred func(fr *Frame, item T) bool) Seq[T] {
 // where Go requires `comparable`. The
 // caller resolves both from the key's type.
 
-// SeqToMap is `pub host fn to_map<K, V>(source: Iter<(K, V)>): Map<K, V>`.
+// SeqToMap is `pub host fn to_map<K, V>(source: Iter<#(K, V)>) -> Map<K, V>`.
 //
 // The element is a Nomi tuple, which lowers to a per-package anonymous Go struct
 // this package cannot name — so the two projections arrive as closures the call

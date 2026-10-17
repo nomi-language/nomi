@@ -21,11 +21,11 @@ impl Box {
   }
 }
 
-fn twice(n: Int): Int {
+fn twice(n: Int) -> Int {
   dbg n * 2
 }
 
-fn report(): Unit {
+fn report() -> Unit {
   defer io.print("deferred")
   dbg twice(4)
 }
@@ -39,7 +39,7 @@ fn main() {
   report()
   io.print("total ${twice(1)}")
   [1, 2]
-  |> Iter.map(|n| n * 10)
+  |> Iter.map(fn n -> n * 10)
   |> Iter.to_list()
   |> dbg
 }
@@ -50,5 +50,5 @@ fn main() {
 		"deferred\n"+
 		"dbg line 14: n * 2 = 2\n"+
 		"total 2\n"+
-		"dbg line 33:\n  [1, 2]\n  |> Iter.map(|n| n * 10)\n  |> Iter.to_list()\n  = [10, 20]\n")
+		"dbg line 33:\n  [1, 2]\n  |> Iter.map(fn n -> n * 10)\n  |> Iter.to_list()\n  = [10, 20]\n")
 }

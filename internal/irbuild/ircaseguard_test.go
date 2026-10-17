@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRCaseGuard_CompleteProgram(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn classify(n: Int): String {
+fn classify(n: Int) -> String {
   case n {
     0 -> "zero"
     n when n < 0 -> "negative"
@@ -25,7 +25,7 @@ fn main() {
 // subjects, and its body may shadow and read it.
 func TestIRCaseGuard_IdentifierFallback(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn describe(s: String): String {
+fn describe(s: String) -> String {
   case s {
     "q" -> "quit"
     other -> {
@@ -34,7 +34,7 @@ fn describe(s: String): String {
     }
   }
 }
-fn bump(n: Int): Int {
+fn bump(n: Int) -> Int {
   case n + 1 {
     1 -> 100
     m -> m * 2

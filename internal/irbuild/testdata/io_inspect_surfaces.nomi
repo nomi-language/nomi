@@ -50,7 +50,7 @@ struct Custom {
 }
 
 impl Debug for Custom {
-    fn inspect(v: Custom): String {
+    fn inspect(v: Custom) -> String {
         _ = v
         "CUSTOM-DEBUG"
     }
@@ -75,7 +75,7 @@ fn main() {
 
     // Containers and prelude instances, composed from the same leaf renderings.
     console.inspect([Rev{zeta: 1, alpha: 2}])
-    console.inspect((1, "two"))
+    console.inspect(#(1, "two"))
     console.inspect(Some(42))
     none: Maybe<Int> = None
     console.inspect(none)

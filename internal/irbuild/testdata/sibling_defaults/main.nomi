@@ -10,12 +10,12 @@ import {
     lib.{add, label, spread}
 }
 
-fn note(s: String): String {
+fn note(s: String) -> String {
     io.print("arg ${s}")
     s
 }
 
-fn pick<T>(a: T, b: T, first: Bool = True): T {
+fn pick<T>(a: T, b: T, first: Bool = True) -> T {
     if first { a } else { b }
 }
 

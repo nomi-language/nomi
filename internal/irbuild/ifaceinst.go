@@ -353,8 +353,8 @@ func (g *gen) popIfaceSubst() {
 // A generic interface method can mention two kinds of type parameter and they
 // are not the same construct:
 //
-//	fn top(p: self): T where T: Comparable                        // the INTERFACE's T
-//	fn prefer<K>(r: self, l: K, r: K): Bool where K: Comparable   // the METHOD's K
+//	fn top(p: self) -> T where T: Comparable                        // the INTERFACE's T
+//	fn prefer<K>(r: self, l: K, r: K) -> Bool where K: Comparable   // the METHOD's K
 //
 // `T` is bound by the IMPL BLOCK, so inside an instantiation it is a concrete
 // type and `where T: Comparable` is a question about THAT type. `K` is bound by

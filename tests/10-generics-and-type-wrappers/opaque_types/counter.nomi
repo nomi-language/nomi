@@ -29,21 +29,21 @@ pub opaque struct Counter {
 }
 
 /// Returns a fresh counter at zero.
-pub fn new(): Counter {
+pub fn new() -> Counter {
     Counter{value: 0, increments: 0}
 }
 
 /// Returns a new counter with `value` and `increments` both bumped by one.
-pub fn bump(c: Counter): Counter {
+pub fn bump(c: Counter) -> Counter {
     Counter{value: c.value + 1, increments: c.increments + 1}
 }
 
 /// Reads the counter's current value.
-pub fn value(c: Counter): Int {
+pub fn value(c: Counter) -> Int {
     c.value
 }
 
 /// Reads how many times this counter has been incremented.
-pub fn increments(c: Counter): Int {
+pub fn increments(c: Counter) -> Int {
     c.increments
 }

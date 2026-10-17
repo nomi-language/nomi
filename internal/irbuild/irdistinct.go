@@ -84,6 +84,14 @@ func irCompositeDistinctIn(d *typeDef, outer []*typeDef) bool {
 		(in.tag == tagFunc && irCallableValueKind(in)) || irNominalInner(in)
 }
 
+// irDeclaredDistinct is a `type Name Inner` declaration: a distinct
+// irDistinctCoinductive decides. A std host instance (`Vector<Tree>`) carries
+// the distinct flag too, for its rt-declared record, but it has no inner
+// kind; a walk decides it by its element, as it decides a List.
+func irDeclaredDistinct(k kind) bool {
+	return k.tag == tagNamed && k.def != nil && k.def.isDistinct && k.def.genHostOf == nil
+}
+
 // irDistinctCoinductive decides a distinct reached inside a walk: one the
 // walk is already deciding (on outer) is assumed retained, as
 // irNominalCoinductive assumes a struct or enum.
@@ -137,6 +145,13 @@ func irCallableDistinct(k kind) bool {
 // writes: a scalar-wrapping one or a composite one.
 func irDistinctOverValue(d *typeDef) bool {
 	return irWrappingDistinct(d) || irCompositeDistinct(d)
+}
+
+// irDistinctOverKind reports whether k is a composite distinct whose inner
+// is a map or a list (inner), which a map or list pattern matches through the
+// distinct (`Kvs%{"a" => v}`, `Stack[a, .._]`, or the bare `[a, .._]`).
+func irDistinctOverKind(k kind, inner tag) bool {
+	return k.tag == tagNamed && irCompositeDistinct(k.def) && k.def.inner.tag == inner
 }
 
 // irRetainedLeafKind is the value domain the retained shape admits: the four
@@ -213,7 +228,7 @@ func (bl *irScalarBuilder) distinctMakeOf(t *ast.Call, d *typeDef) (ir.Temp, kin
 	return m.Dst(), out, pure, true
 }
 
-// compositeDistinctMake lowers `Coord(3, 4)` and `Coord((3, 4))` over a tuple
+// compositeDistinctMake lowers `Coord(3, 4)` and `Coord(#(3, 4))` over a tuple
 // inner, and `Headers({...})` over a map inner: the inner value, built at the
 // declared inner type, wrapped by MakeDistinct. A tuple inner written flat
 // is one argument per component.

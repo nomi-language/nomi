@@ -74,7 +74,7 @@ struct Rev {
 }
 
 impl Display for Rev {
-    fn to_string(v: Rev): String {
+    fn to_string(v: Rev) -> String {
         _ = v
         "REV-DISPLAY"
     }
@@ -88,14 +88,14 @@ struct Custom {
 }
 
 impl Display for Custom {
-    fn to_string(v: Custom): String {
+    fn to_string(v: Custom) -> String {
         _ = v
         "CUSTOM-DISPLAY"
     }
 }
 
 impl Debug for Custom {
-    fn inspect(v: Custom): String {
+    fn inspect(v: Custom) -> String {
         _ = v
         "CUSTOM-DEBUG"
     }
@@ -107,27 +107,27 @@ struct Plain {
     alpha: Int
 }
 
-fn no_rev(_v: Rev): Bool {
+fn no_rev(_v: Rev) -> Bool {
     False
 }
 
-fn no_custom(_v: Custom): Bool {
+fn no_custom(_v: Custom) -> Bool {
     False
 }
 
-fn no_plain(_v: Plain): Bool {
+fn no_plain(_v: Plain) -> Bool {
     False
 }
 
-fn no_meters(_v: Meters): Bool {
+fn no_meters(_v: Meters) -> Bool {
     False
 }
 
-fn no_bool(_v: Bool): Bool {
+fn no_bool(_v: Bool) -> Bool {
     False
 }
 
-fn no_bools(_v: List<Bool>): Bool {
+fn no_bools(_v: List<Bool>) -> Bool {
     False
 }
 

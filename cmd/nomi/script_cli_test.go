@@ -16,7 +16,7 @@ struct App {
     context: Context
 }
 
-fn boot(startup: Startup): App {
+fn boot(startup: Startup) -> App {
     io.print(startup.args)
     App{context: Context.root()}
 }
@@ -92,7 +92,7 @@ func TestScriptMode_ExtensionlessScript(t *testing.T) {
 	script := filepath.Join(bin, "hi")
 	mustWrite(t, script, strings.Replace(shebangScript, "import std/io\n", "import std/io\nimport greet\n", 1)+
 		"\ntest \"greets\" {\n    assert greet.hello() == \"hello\"\n}\n")
-	mustWrite(t, filepath.Join(bin, "greet.nomi"), "pub fn hello(): String {\n    \"hello\"\n}\n")
+	mustWrite(t, filepath.Join(bin, "greet.nomi"), "pub fn hello() -> String {\n    \"hello\"\n}\n")
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -151,9 +151,9 @@ func Exclaim(s string) string { return s + "!" }
 `)
 	mustWrite(t, filepath.Join(bin, "loud.nomi"), `gopkg "upscript/shout" as shout
 
-fn exclaim(s: String): String go shout.Exclaim
+fn exclaim(s: String) -> String go shout.Exclaim
 
-pub fn loud(s: String): String {
+pub fn loud(s: String) -> String {
     exclaim(s)
 }
 `)
@@ -164,7 +164,7 @@ import loud
 
 gopkg "upscript/shout" as shout
 
-fn upper(s: String): String go shout.Upper
+fn upper(s: String) -> String go shout.Upper
 
 fn main() {
     io.print(upper("hi") |> loud.loud())
@@ -173,7 +173,7 @@ fn main() {
 	mustWrite(t, filepath.Join(bin, "other"), `#!/usr/bin/env nomi
 gopkg "upscript/shout" as shout
 
-fn missing(s: String): String go shout.Missing
+fn missing(s: String) -> String go shout.Missing
 
 fn main() {}
 `)
@@ -209,7 +209,7 @@ import std/io
 
 gopkg "hiproj/shout" as shout
 
-fn upper(s: String): String go shout.Upper
+fn upper(s: String) -> String go shout.Upper
 
 fn main() {
     io.print(upper("hi"))

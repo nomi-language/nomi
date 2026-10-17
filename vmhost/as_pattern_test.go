@@ -29,14 +29,14 @@ struct Line {
     to: Tx
 }
 
-fn failure(r: Result<Tx, String>): String {
+fn failure(r: Result<Tx, String>) -> String {
     case r {
         Err(m) -> m
         Ok(_) -> "?"
     }
 }
 
-fn describe(result: Result<Tx, String>): String {
+fn describe(result: Result<Tx, String>) -> String {
     case result {
         Ok(Tx{kind: .Deposit} as t) -> "deposited ${t.end - t.start}"
         Ok(t) -> "other ${t.start}"
@@ -44,7 +44,7 @@ fn describe(result: Result<Tx, String>): String {
     }
 }
 
-fn head(xs: List<Maybe<Int>>): String {
+fn head(xs: List<Maybe<Int>>) -> String {
     case xs {
         [Some(n) as first, ..rest] as all -> "${n} ${Maybe.with_default(first, 0)} ${Iter.count(rest)} of ${Iter.count(all)}"
         [None, .._] -> "none first"
@@ -52,43 +52,43 @@ fn head(xs: List<Maybe<Int>>): String {
     }
 }
 
-fn entry(m: Map<String, Int>): String {
+fn entry(m: Map<String, Int>) -> String {
     case m {
-        {"k" => 1 as one} as all -> "one ${one} of ${Map.size(all)}"
+        %{"k" => 1 as one} as all -> "one ${one} of ${Map.size(all)}"
         _ -> "other"
     }
 }
 
-fn start_of(l: Line): Int {
+fn start_of(l: Line) -> Int {
     case l {
         Line{from: Tx{kind: .Withdrawal} as src} -> src.start
         _ -> 0
     }
 }
 
-fn tuple_arm(p: (Maybe<Int>, String)): String {
+fn tuple_arm(p: #(Maybe<Int>, String)) -> String {
     case p {
-        (Some(_) as m, label) -> "${label} ${Maybe.with_default(m, 0)}"
-        (None, label) as whole -> "${label} none ${whole.1}"
+        #(Some(_) as m, label) -> "${label} ${Maybe.with_default(m, 0)}"
+        #(None, label) as whole -> "${label} none ${whole.1}"
     }
 }
 
-fn param({start, end} as tx: Tx): Int {
+fn param({start, end} as tx: Tx) -> Int {
     start + end + tx.start
 }
 
-fn binding(m: Maybe<Int>, pair: (Int, Int)): String {
-    (x, y) as both = pair
+fn binding(m: Maybe<Int>, pair: #(Int, Int)) -> String {
+    #(x, y) as both = pair
     Some(n) as found = m else { return "none" }
     "${x} ${y} ${both.0} ${n} ${Maybe.with_default(found, 0)}"
 }
 
-fn fallback(r: Result<(Int, Int), String>): Int {
-    Ok((w, h) as size) = r else { (10, 20) }
+fn fallback(r: Result<#(Int, Int), String>) -> Int {
+    Ok(#(w, h) as size) = r else { #(10, 20) }
     w + h + size.0
 }
 
-fn if_pattern(r: Result<Int, String>): String {
+fn if_pattern(r: Result<Int, String>) -> String {
     if Ok(v) as res = r {
         "${v} ${case res { Ok(_) -> "ok", Err(_) -> "err" }}"
     } else {
@@ -102,19 +102,19 @@ fn main() {
     io.print(describe(Err("boom")))
     io.print(head([Some(4), None, Some(6)]))
     io.print(head([None]))
-    io.print(entry({"k" => 1, "j" => 2}))
-    io.print(entry({"k" => 2}))
+    io.print(entry(%{"k" => 1, "j" => 2}))
+    io.print(entry(%{"k" => 2}))
     io.print(start_of(Line{from: Tx{kind: .Withdrawal, start: 7, end: 8}, to: Tx{kind: .Deposit, start: 0, end: 0}}))
-    io.print(tuple_arm((Some(3), "three")))
-    io.print(tuple_arm((None, "nothing")))
+    io.print(tuple_arm(#(Some(3), "three")))
+    io.print(tuple_arm(#(None, "nothing")))
     io.print(param(Tx{kind: .Deposit, start: 2, end: 3}))
-    io.print(binding(Some(5), (1, 2)))
-    io.print(binding(None, (1, 2)))
-    io.print(fallback(Ok((1, 2))))
+    io.print(binding(Some(5), #(1, 2)))
+    io.print(binding(None, #(1, 2)))
+    io.print(fallback(Ok(#(1, 2))))
     io.print(fallback(Err("no")))
     io.print(if_pattern(Ok(9)))
     io.print(if_pattern(Err("e")))
-    sums = [(1, 2), (3, 4)] |> Iter.map(|(a, b) as p| a + b + p.0) |> Iter.to_list()
+    sums = [#(1, 2), #(3, 4)] |> Iter.map(fn #(a, b) as p -> a + b + p.0) |> Iter.to_list()
     io.print("${sums}")
 }
 `)
@@ -146,7 +146,7 @@ not ok
 func TestAsPattern_RunsInTests(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 	const name = "as_test.nomi"
-	p, err := vmhost.LoadSource(name, `fn find(n: Int): Maybe<Int> {
+	p, err := vmhost.LoadSource(name, `fn find(n: Int) -> Maybe<Int> {
     if n > 0 { Some(n) } else { None }
 }
 
@@ -163,10 +163,10 @@ test "assert fails on a mismatch" {
 
 group "setup" {
     setup {
-        (1, "one")
+        #(1, "one")
     }
 
-    test "binds the whole setup value", (n, word) as pair {
+    test "binds the whole setup value", #(n, word) as pair {
         assert n == 1
         assert word == "one"
         assert pair.1 == "one"
@@ -228,8 +228,8 @@ test "binding with else" {
 }
 
 test "lambda parameter" {
-    pairs = [({a: 1, b: 2}, 3), ({a: 4, b: 5}, 6)]
-    sums = pairs |> Iter.map(|({a: x, b} as whole, c)| x + b + c + whole.a) |> Iter.to_list()
+    pairs = [#({a: 1, b: 2}, 3), #({a: 4, b: 5}, 6)]
+    sums = pairs |> Iter.map(fn #({a: x, b} as whole, c) -> x + b + c + whole.a) |> Iter.to_list()
     assert sums == [7, 19]
 }
 
@@ -237,7 +237,7 @@ test "struct field and tuple" {
     h = Holder{r: {a: 1, b: 2}}
     assert Holder{r: {a: x, b}} = h
     assert Holder{r: {a: 1, b: y} as whole} = h
-    assert ({a: p, b: q} as rec, c) = (whole, 3)
+    assert #({a: p, b: q} as rec, c) = #(whole, 3)
     assert x + b + y + p + q + c + rec.a == 12
 }
 

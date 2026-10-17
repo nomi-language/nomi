@@ -54,13 +54,9 @@ package ir
 // `RuleNoMatchIsLast` is what keeps (2) honest: an instruction after the trap
 // is code the graph claims is reachable and no execution reaches. See lint.go.
 
-// NoMatch faults because no arm of a `case` matched its scrutinee, or,
-// built by NewMapKeyMissing, because a map destructuring's key is absent.
+// NoMatch faults because no arm of a `case` matched its scrutinee.
 type NoMatch struct {
 	pos Pos
-	// key is the absent key a map destructuring reports, or NoTemp for the
-	// `case` trap.
-	key Temp
 }
 
 // NewNoMatch is the fault a `case` takes when every arm's test answered false.
@@ -75,22 +71,6 @@ func NewNoMatch(pos Pos) *NoMatch {
 	return &NoMatch{pos: pos}
 }
 
-// NewMapKeyMissing is the fault a map destructuring (`{"k" => v} = m`) takes
-// when m has no entry for the key in key: rt.MapKeyMissingError's text, with
-// the key rendered by Display, at pos's line. It diverges exactly as the
-// `case` trap does, so it is the same instruction with one operand.
-func NewMapKeyMissing(pos Pos, key Temp) *NoMatch {
-	requirePos(pos, "NewMapKeyMissing")
-	if key == NoTemp {
-		panic("ir.NewMapKeyMissing: a missing-key fault names the key")
-	}
-	return &NoMatch{pos: pos, key: key}
-}
-
-// Key is the absent key of a map destructuring's fault, or NoTemp for the
-// `case` trap.
-func (n *NoMatch) Key() Temp { return n.key }
-
 // Faults is FaultNoMatch, always.
 //
 // THE FIRST `Faulting` INSTRUCTION WHOSE FAULT SET DOES NOT VARY, and that is
@@ -102,20 +82,10 @@ func (n *NoMatch) Key() Temp { return n.key }
 // derivation a rule instead of a table.
 func (n *NoMatch) Faults() Faults { return FaultNoMatch }
 
-func (n *NoMatch) Pos() Pos  { return n.pos }
-func (n *NoMatch) Dst() Temp { return NoTemp }
-func (n *NoMatch) AppendUses(dst []Temp) []Temp {
-	if n.key != NoTemp {
-		dst = append(dst, n.key)
-	}
-	return dst
-}
+func (n *NoMatch) Pos() Pos                     { return n.pos }
+func (n *NoMatch) Dst() Temp                    { return NoTemp }
+func (n *NoMatch) AppendUses(dst []Temp) []Temp { return dst }
 
-func (n *NoMatch) String() string {
-	if n.key != NoTemp {
-		return "nomatch mapkey " + n.key.String()
-	}
-	return "nomatch"
-}
-func (n *NoMatch) irNode()  {}
-func (n *NoMatch) irInstr() {}
+func (n *NoMatch) String() string { return "nomatch" }
+func (n *NoMatch) irNode()        {}
+func (n *NoMatch) irInstr()       {}

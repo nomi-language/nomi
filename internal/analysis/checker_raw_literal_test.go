@@ -12,12 +12,12 @@ import (
 // Result, interpolated or not.
 func TestTypedLiteral_BacktickLiteralHasTheHandlersOkType(t *testing.T) {
 	src := "import std/regex.Regex\n\n" +
-		"fn f(w: String): List<Regex> {\n" +
+		"fn f(w: String) -> List<Regex> {\n" +
 		"  a: Regex = Regex`\\d+`\n" +
 		"  b: Result<Regex, String> = Regex\"\\\\d+\"\n" +
 		"  c: Result<Regex, String> = Regex\"${w}\\\\d\"\n" +
-		"  case (b, c) {\n" +
-		"    (Ok(x), Ok(y)) -> [a, x, y]\n" +
+		"  case #(b, c) {\n" +
+		"    #(Ok(x), Ok(y)) -> [a, x, y]\n" +
 		"    _ -> [a]\n" +
 		"  }\n" +
 		"}\n"
@@ -28,7 +28,7 @@ func TestTypedLiteral_BacktickLiteralHasTheHandlersOkType(t *testing.T) {
 		"  a: Result<Regex, String> = Regex`\\d+`\n",
 		"  a: Regex = Regex\"\\\\d+\"\n",
 	} {
-		src := "import std/regex.Regex\n\nfn f(): Unit {\n" + mistyped + "  _ = a\n}\n"
+		src := "import std/regex.Regex\n\nfn f() -> Unit {\n" + mistyped + "  _ = a\n}\n"
 		if errs := checkTypedLiteralSource(src); len(errs) == 0 {
 			t.Errorf("%q is admitted", strings.TrimSpace(mistyped))
 		}
@@ -43,7 +43,7 @@ func TestTypedLiteral_TryOnBacktickLiteralIsRejectedWithHint(t *testing.T) {
 		"  digits = try Regex`\\d+`\n",
 		"  digits = Regex`\\d+` |> try\n",
 	} {
-		src := "import std/regex.Regex\n\nfn f(): Result<Regex, String> {\n" + line + "  Ok(digits)\n}\n"
+		src := "import std/regex.Regex\n\nfn f() -> Result<Regex, String> {\n" + line + "  Ok(digits)\n}\n"
 		errs := checkTypedLiteralSource(src)
 		var found *analysis.TypeError
 		for i := range errs {
@@ -63,7 +63,7 @@ func TestTypedLiteral_TryOnBacktickLiteralIsRejectedWithHint(t *testing.T) {
 		}
 	}
 	// A double-quoted literal is still a Result, so `try` on it stands.
-	src := "import std/regex.Regex\n\nfn f(): Result<Regex, String> {\n  digits = try Regex\"\\\\d+\"\n  Ok(digits)\n}\n"
+	src := "import std/regex.Regex\n\nfn f() -> Result<Regex, String> {\n  digits = try Regex\"\\\\d+\"\n  Ok(digits)\n}\n"
 	if errs := checkTypedLiteralSource(src); len(errs) != 0 {
 		t.Fatalf("try on a double-quoted literal is rejected: %v", errs)
 	}

@@ -20,12 +20,12 @@ fn main() {
     m = users.maybe()
     p = Point{x: 1}
     xs = [p]
-    pair = (p, u)
+    pair = #(p, u)
     f = make_point
-    io.inspect((u.name, p.x, xs, m, pair, f(), make_point()))
+    io.inspect(#(u.name, p.x, xs, m, pair, f(), make_point()))
 }
 
-fn make_point(): Point { Point{x: 2} }
+fn make_point() -> Point { Point{x: 2} }
 `
 
 func TestTypeDefinition(t *testing.T) {
@@ -40,7 +40,7 @@ func TestTypeDefinition(t *testing.T) {
 		}
 	}
 	write("nomi.toml", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	write("models/users.nomi", "pub struct User {\n    name: String\n}\n\npub fn make(): User { User{name: \"a\"} }\n\npub fn maybe(): Maybe<User> { None }\n")
+	write("models/users.nomi", "pub struct User {\n    name: String\n}\n\npub fn make() -> User { User{name: \"a\"} }\n\npub fn maybe() -> Maybe<User> { None }\n")
 	src := strings.Replace(typeDefMain, "import models/users\n", "import models/users\nimport std/io\n", 1)
 	write("main.nomi", src)
 	s := NewServer()

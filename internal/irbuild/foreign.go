@@ -76,7 +76,9 @@ import (
 //   - `sibling file type cycle` — file A's type table needs B's while B's needs
 //     A's. Distinct from the import-cycle key because it is detected while
 //     BUILDING the tables rather than at a reference, and the two can be
-//     reached independently.
+//     reached independently. A cycle of type declarations is built as a type
+//     group (typecycle.go), so this is reached only by a demand the group's
+//     edges miss.
 //   - `existential over a sibling file type` — a fail-safe, not a reachable
 //     key. `hasTID`'s mirror path answers from the OWNER's table, and
 //     `mintTypeIDs` records eagerly in the declaring file, so a boxed value
@@ -139,6 +141,10 @@ type typeRegistry struct {
 	// `NomiT_ProdLogger redeclared in this block`. Keyed on `(pkg, name)`
 	// because a mirror in a DIFFERENT package must still declare its own.
 	aliasOwner map[string]bool
+	// groupOf is each unit's type group, nil for a unit on no cycle of type
+	// references, found on the first ensureTypes. See typecycle.go.
+	groupOf     []*typeGroup
+	groupsFound bool
 }
 
 // buildTypeRegistry indexes a program's type declarations by the node that
@@ -196,6 +202,11 @@ func buildTypeRegistry(p *Program) *typeRegistry {
 // busy flag catches the case a topological sort would have had to reject
 // anyway — A's table needing B's while B's needs A's — and reports it as
 // `sibling file type cycle` rather than resolving against a half-built table.
+//
+// Files whose type declarations refer to each other are a type group and are
+// built together, phase by phase (typecycle.go). While a group is being built,
+// a member's table answers true once its shells and generic templates are
+// registered; ensureLayout and ensureIfaces ask for more.
 func (r *typeRegistry) ensureTypes(unit int) bool {
 	if unit < 0 || unit >= len(r.gens) {
 		return false
@@ -207,10 +218,19 @@ func (r *typeRegistry) ensureTypes(unit int) bool {
 	if g.typesDone {
 		return true
 	}
+	if grp := r.groupFor(unit); grp != nil {
+		if grp.state == groupIdle {
+			r.buildGroup(grp)
+		}
+		return grp.state >= groupResolving
+	}
 	if g.typesBusy {
-		return false
+		// Its own build is under way: a file asking for its types while it
+		// resolves fields gets pending mirrors (deferringGroup).
+		return g.building != nil && g.building.state >= groupResolving
 	}
 	g.typesBusy = true
+	g.building = &typeGroup{units: []int{unit}}
 	g.declareTypes()
 	g.typesBusy = false
 	return true
@@ -352,16 +372,22 @@ func (g *gen) mirrorOf(o *typeOwner) *typeDef {
 		return d
 	}
 	var d *typeDef
+	// A member of this file's type group whose fields are being resolved has
+	// no layout to copy yet. See typecycle.go.
+	deferred := g.reg.deferringGroup(g.fileUnit, o.unit)
 	switch {
-	case !g.reg.ensureTypes(o.unit):
+	case deferred == nil && !g.reg.ensureLayout(o.unit):
 		d = g.blockedMirror(o, "sibling file type cycle", o.fileKey+"."+o.nomi)
 	default:
 		src := g.reg.gens[o.unit].types[o.nomi]
-		if src == nil {
+		switch {
+		case src == nil:
 			// The declaring file registered no shell for it, which happens
 			// only for a duplicate declaration its own file refuses.
 			d = g.blockedMirror(o, "unlowered type", o.fileKey+"."+o.nomi)
-		} else {
+		case deferred != nil:
+			return g.pendingMirror(deferred, src, o)
+		default:
 			d = g.importDef(src, o)
 		}
 	}
@@ -416,10 +442,21 @@ func (g *gen) siblingOwner(origin, name string) *typeOwner {
 // `Point` is a front-end error, and if it ever stops being one the local
 // declaration is the one the checker resolves.
 func (g *gen) namedType(name string) (*typeDef, bool) {
+	// A `typealias` names its target's declaration (`typealias S Shape`).
+	// See typealias.go.
+	if d, isAlias := g.aliasNamedDef(name); isAlias {
+		return d, d != nil
+	}
 	// A type declared in an enclosing BLOCK, which the name-keyed table below
 	// cannot hold: two bodies may each declare `Point`. Innermost-first, which
 	// is the analyzer's own resolution order. See blocklocaltype.go.
 	if d, isBlockLocal := g.blockLocalNamed(name); isBlockLocal {
+		return d, true
+	}
+	// A type an `import` at the top of an enclosing block binds, which
+	// shadows the module scope's binding of the name there, as it does for
+	// the checker. See bindBlockImports.
+	if d, isImported := g.blockImportedNamed(name); isImported {
 		return d, true
 	}
 	if d, local := g.types[name]; local {
@@ -484,6 +521,11 @@ func (g *gen) userTypeNamed(name string) bool {
 	if _, isBlockLocal := g.blockLocalNamed(name); isBlockLocal {
 		return true
 	}
+	if d, isImported := g.blockImportedNamed(name); isImported {
+		// A block import of a std type names no user type, though this
+		// file may declare one of the same name.
+		return d.foreign != ""
+	}
 	if _, local := g.types[name]; local {
 		return true
 	}
@@ -517,11 +559,25 @@ type foreignAlias struct {
 // owner declared and this package is naming that same type, not declaring a
 // second one. Only the KINDS are re-derived, through importKind, so every
 // component renders relative to this package.
-//
-// Registered in the intern map BEFORE its components are imported, so a
-// recursive type (`struct Tree { left: Tree }`, whose field is boxed) reaches
-// its own mirror rather than recursing forever.
 func (g *gen) importDef(src *typeDef, o *typeOwner) *typeDef {
+	d := g.mirrorShell(src, o)
+	if !src.lowerable {
+		refuseMirror(d, src, o)
+		return d
+	}
+	if g.importMirrorKinds(d, src, o) {
+		g.copyMirrorLayout(d, src, o)
+	}
+	return d
+}
+
+// mirrorShell is a mirror's identity with no layout yet, registered in the
+// intern map.
+//
+// Registered BEFORE its components are imported, so a recursive type (`struct
+// Tree { left: Tree }`, whose field is boxed) reaches its own mirror rather
+// than recursing forever.
+func (g *gen) mirrorShell(src *typeDef, o *typeOwner) *typeDef {
 	d := &typeDef{nomi: src.nomi, decl: src.decl, line: src.line, isEnum: src.isEnum, isDistinct: src.isDistinct, tagName: src.tagName, foreign: o.fileKey, lowerable: src.lowerable, ownerDef: src}
 	if o.instSrc != nil {
 		// A MONOMORPHIZED instance, interned by the owner's def rather than
@@ -547,21 +603,36 @@ func (g *gen) importDef(src *typeDef, o *typeOwner) *typeDef {
 	} else {
 		g.foreignDefs[o.decl] = d
 	}
-	if !src.lowerable {
-		// Its own file refuses it and reports why at its own position; every
-		// use here reports the same thing a use in that file would, through
-		// declRefusal, so one refusal reads the same from either side of a file
-		// boundary. `unlowered type` is only the fallback.
-		if construct, detail, named := declRefusal(src); named {
-			d.why, d.whyDetail = construct, o.fileKey+"."+detail
-			return d
-		}
-		d.why, d.whyDetail = "unlowered type", o.fileKey+"."+src.nomi
-		return d
+	return d
+}
+
+// refuseMirror makes a mirror of a declaration its own file refuses report
+// what a use in that file would.
+//
+// Its own file reports why at its own position; every use here reports the
+// same thing through declRefusal, so one refusal reads the same from either
+// side of a file boundary. `unlowered type` is only the fallback.
+func refuseMirror(d, src *typeDef, o *typeOwner) {
+	d.lowerable = false
+	if construct, detail, named := declRefusal(src); named {
+		d.why, d.whyDetail = construct, o.fileKey+"."+detail
+		return
 	}
-	fail := func(why, detail string) *typeDef {
+	d.why, d.whyDetail = "unlowered type", o.fileKey+"."+src.nomi
+}
+
+// importMirrorKinds re-derives the owner's inner, field and payload kinds into
+// a mirror, reporting whether every one imported. A failure refuses the mirror
+// under the component's reason.
+//
+// The layout that depends on the whole type graph (which fields are boxed,
+// which slot a payload uses) is copied apart, by copyMirrorLayout, because a
+// group of files whose types refer to each other imports every mirror's kinds
+// before any of them has a layout. See typecycle.go.
+func (g *gen) importMirrorKinds(d, src *typeDef, o *typeOwner) bool {
+	fail := func(why, detail string) bool {
 		d.lowerable, d.why, d.whyDetail = false, why, detail
-		return d
+		return false
 	}
 	// kindInvalid: marker — asks whether the distinct has an inner at all; the fail arm reports.
 	if src.inner != kindInvalid {
@@ -576,7 +647,7 @@ func (g *gen) importDef(src *typeDef, o *typeOwner) *typeDef {
 		if !ok {
 			return fail(g.importWhy, o.fileKey+"."+src.nomi+"."+f.nomi+": "+f.k.nomi())
 		}
-		d.fields = append(d.fields, fieldDef{nomi: f.nomi, k: k, deflt: f.deflt, boxed: f.boxed})
+		d.fields = append(d.fields, fieldDef{nomi: f.nomi, k: k, deflt: f.deflt})
 		d.note(k)
 	}
 	for _, v := range src.variants {
@@ -598,14 +669,28 @@ func (g *gen) importDef(src *typeDef, o *typeOwner) *typeDef {
 		}
 		d.variants = append(d.variants, vd)
 	}
+	return true
+}
+
+// copyMirrorLayout copies the owner's boxing and slot assignment into a mirror
+// whose kinds importMirrorKinds imported.
+func (g *gen) copyMirrorLayout(d, src *typeDef, o *typeOwner) {
+	for i := range d.fields {
+		d.fields[i].boxed = src.fields[i].boxed
+	}
+	for i := range d.variants {
+		for j := range d.variants[i].payloads {
+			d.variants[i].payloads[j].slot = src.variants[i].payloads[j].slot
+		}
+	}
 	for _, s := range src.slots {
 		k, ok := g.importKind(s.k)
 		if !ok {
-			return fail(g.importWhy, o.fileKey+"."+src.nomi+" stores "+s.k.nomi())
+			d.lowerable, d.why, d.whyDetail = false, g.importWhy, o.fileKey+"."+src.nomi+" stores "+s.k.nomi()
+			return
 		}
 		d.slots = append(d.slots, slotDef{k: k, boxed: s.boxed, users: s.users})
 	}
-	return d
 }
 
 // importKind re-derives one of the owner's kinds relative to THIS package.
@@ -625,9 +710,31 @@ func (g *gen) importKind(k kind) (kind, bool) {
 	case tagInvalid:
 		g.importWhy = "unlowered type"
 		return kindInvalid, false
-	case tagUnit, tagInt, tagFloat, tagString, tagBool,
+	case tagUnit, tagInt, tagFloat, tagString, tagBool, tagNever,
 		tagEmptyList, tagBareNone, tagEmptyMap, tagEmptySet, tagEmptyVector:
 		return k, true
+	case tagSeq:
+		elem, ok := g.importKind(k.comp.parts[0])
+		if !ok {
+			return kindInvalid, false
+		}
+		return seqKindIn(g, elem), true
+	case tagAnonStruct:
+		parts := make([]kind, 0, len(k.comp.parts))
+		for _, p := range k.comp.parts {
+			ip, ok := g.importKind(p)
+			if !ok {
+				return kindInvalid, false
+			}
+			parts = append(parts, ip)
+		}
+		rk := g.anonStructKind(k.comp.names, parts)
+		// kindInvalid: reports — sets importWhy, which the caller rejects under.
+		if rk == kindInvalid {
+			g.importWhy = "unlowered type"
+			return kindInvalid, false
+		}
+		return rk, true
 	case tagIface:
 		if _, isStd := stdIfaceOf(k.iface); isStd {
 			// A STDLIB interface's *ifaceDef is PROCESS-WIDE and its dispatch
@@ -831,7 +938,10 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 		}
 		return named(d), true
 	}
-	if !g.reg.ensureTypes(o.unit) {
+	// A member of this file's type group whose fields are being resolved has
+	// no layout to copy yet. See typecycle.go.
+	deferred := g.reg.deferringGroup(g.fileUnit, o.unit)
+	if deferred == nil && !g.reg.ensureLayout(o.unit) {
 		g.importWhy = "sibling file type cycle"
 		return kindInvalid, false
 	}
@@ -839,6 +949,9 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 	if inner == nil {
 		g.importWhy = "unlowered type"
 		return kindInvalid, false
+	}
+	if deferred != nil {
+		return named(g.pendingMirror(deferred, inner, o)), true
 	}
 	d := g.importDef(inner, o)
 	if !d.lowerable {

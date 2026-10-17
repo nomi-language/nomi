@@ -9,6 +9,14 @@ import (
 )
 
 // irRetainedEnumKind reports whether the VM carries values of enum d.
+// irSlotlessPayload is a payload of a type with one value, Unit or a
+// zero-sized marker (`Ping(Unit)`, `Marked(Mark)`, `Tagged {m: Mark}`): it
+// is stored nowhere (assignSlots) and read back from its type alone
+// (irSlotlessValue).
+func irSlotlessPayload(k kind) bool {
+	return k == kindUnit || k.tag == tagNamed && irRetainedMarker(k.def)
+}
+
 func irRetainedEnumKind(d *typeDef) bool {
 	return irRetainedEnumKindIn(d, nil)
 }
@@ -31,7 +39,7 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 			// in a boxed slot and is decided co-inductively
 			// (irNominalCoinductive), so its check never re-enters this one.
 			for _, p := range v.payloads {
-				if irSelfPayload(d, p.k) {
+				if irSelfPayload(d, p.k) || irSlotlessPayload(p.k) {
 					// `Let {value: Expr, body: Expr}`: the enum itself, held
 					// by reference; the layout does not recurse.
 					continue
@@ -83,7 +91,7 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 			// (irSelfTuplePayload), which compares kinds without re-entering;
 			// boxing is a Go spelling and the VM holds records by reference.
 			payload := v.payloads[0].k
-			if irSelfPayload(d, payload) {
+			if irSelfPayload(d, payload) || irSlotlessPayload(payload) {
 				continue
 			}
 			if slot := v.payloads[0].slot; d.preludeOf == nil && slot >= 0 && slot < len(d.slots) && irCyclicNominal(payload, d.slots[slot].boxed, outer) {
@@ -236,7 +244,7 @@ func irCyclicNominal(k kind, boxed bool, outer []*typeDef) bool {
 // walk is deciding (`Neg(Boxed)` for `type Boxed Expr` inside Expr), which
 // irDistinctCoinductive decides with the walk's stack.
 func irCyclicDistinct(k kind, deciding []*typeDef) bool {
-	return k.tag == tagNamed && k.def != nil && k.def.isDistinct && irKindReaches(k, deciding)
+	return irDeclaredDistinct(k) && irKindReaches(k, deciding)
 }
 
 // irNominalCoinductive decides a user struct or enum co-inductively: one the
@@ -503,11 +511,11 @@ func (bl *irScalarBuilder) effectFree(t ir.Temp) bool {
 // Prelude wrappers can carry one represented user enum. Its own payloads are
 // scalar leaves, so this does not recursively admit nominal layouts.
 func irRetainedPreludePayload(k kind) bool {
-	if k == kindUnit || irByteValueKind(k) || isDecimalKind(k) || irHostHandleKind(k) || irDynamicKind(k) || irStdMarkerKind(k) || irRetainedLeafKind(k) || irRetainedListKind(k) || irRetainedVectorKind(k) || irLeafTupleKind(k) {
+	if k == kindUnit || irRetainedRangeKind(k) || irByteValueKind(k) || isDecimalKind(k) || irHostHandleKind(k) || irDynamicKind(k) || irStdMarkerKind(k) || irRetainedLeafKind(k) || irRetainedListKind(k) || irRetainedVectorKind(k) || irLeafTupleKind(k) {
 		return true
 	}
 	if irRetainedTupleKind(k) {
-		// A tuple of retained values (`List.next_item`'s `(T, List<T>)`).
+		// A tuple of retained values (`List.next_item`'s `#(T, List<T>)`).
 		return true
 	}
 	if k.tag == tagNamed && irCompositeDistinct(k.def) {
@@ -522,6 +530,14 @@ func irRetainedPreludePayload(k kind) bool {
 	if irListTransportKind(k) {
 		// A list of represented elements (`List<Maybe<Int>>`); Debug and
 		// equality over the payload keep their own checks.
+		return true
+	}
+	if elem, vector := vectorElem(k); vector && k != kindEmptyVector && irCallableValueKind(elem) ||
+		k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && irCallableValueKind(k.comp.parts[0]) {
+		// A List or Vector of any value the callable domain holds
+		// (`Maybe<Vector<Int>>`, what `Vector.get` answers over a
+		// grid; `Ok([f, g])`), as irRetainedValueKind admits one: the VM's
+		// containers hold values of every kind.
 		return true
 	}
 	if k.tag == tagMap && k != kindEmptyMap && irRetainedMapKind(k) {
@@ -547,10 +563,6 @@ func irRetainedPreludePayload(k kind) bool {
 	if k.tag == tagFunc && irCallableValueKind(k) {
 		// A function value (`List.head(fns)`'s `Maybe<(Int) -> Int>`), held
 		// in the variant's reference slot.
-		return true
-	}
-	if k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && k.comp.parts[0].tag == tagFunc && irCallableValueKind(k.comp.parts[0]) {
-		// A list of function values (`Ok([f, g])`), held as the list.
 		return true
 	}
 	if k.tag == tagNamed && k.def != nil && k.def.preludeOf != nil && irRetainedEnumKind(k.def) {
@@ -730,7 +742,7 @@ func (bl *irScalarBuilder) genericVariant(field *ast.FieldAccess, call *ast.Call
 	} else if k == kindInvalid {
 		// No expected type: the instance the checker solved for this
 		// payload-free variant. A type argument nothing constrained
-		// (`(Box.Empty, 1)`) projects to no kind and declines.
+		// (`#(Box.Empty, 1)`) projects to no kind and declines.
 		if bl.g.fa == nil {
 			return nil, nil, false
 		}

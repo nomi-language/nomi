@@ -100,7 +100,7 @@ func TestParseStructBody_WithSiblingImplBlocks(t *testing.T) {
 impl HasName for Dog
 
 impl Speech for Dog {
-  fn speak(_d: self): String {
+  fn speak(_d: self) -> String {
     "woof"
   }
 }
@@ -152,6 +152,30 @@ func TestParseStructBody_CommaSeparatedFieldsRejected(t *testing.T) {
 		if err := parseError(t, src); !strings.Contains(err.Error(), "expected") {
 			t.Errorf("Parse(%q): expected a parse error mentioning the expected item, got %q", src, err.Error())
 		}
+	}
+}
+
+// A type body holds one item per line: a second field or interface function
+// after an item on its line is rejected at the second item, and a semicolon
+// or a trailing comment is still allowed.
+func TestParseTypeBody_TwoItemsOnOneLineRejected(t *testing.T) {
+	for _, tc := range []struct{ src, msg string }{
+		{"struct Point {\n    x: Int    y: Int\n}\n", "struct fields are newline- or semicolon-separated"},
+		{"struct Point {\n    x: Int    x: Int\n}\n", "struct fields are newline- or semicolon-separated"},
+		{"struct Point {\n    x: Int = 1 y: Int\n}\n", "struct fields are newline- or semicolon-separated"},
+		{"interface Named {\n    fn name(value: self) -> String    fn other(value: self) -> String\n}\n", "interface functions are newline- or semicolon-separated"},
+	} {
+		err := parseError(t, tc.src)
+		if !strings.Contains(err.Error(), tc.msg) || !strings.Contains(err.Error(), "line 2,") {
+			t.Errorf("Parse(%q): want %q on line 2, got %q", tc.src, tc.msg, err.Error())
+		}
+	}
+	for _, src := range []string{
+		"struct Point {\n    x: Int; y: Int\n}\n",
+		"struct Point {\n    x: Int // across\n    y: Int\n}\n",
+		"interface Named {\n    fn name(value: self) -> String; fn other(value: self) -> String\n}\n",
+	} {
+		parse(t, src)
 	}
 }
 
@@ -235,7 +259,7 @@ derive Hashable for Dog
 impl Named for Dog
 
 impl Speech for Dog {
-  fn speak(_d: self): String {
+  fn speak(_d: self) -> String {
     "woof"
   }
 }
@@ -274,7 +298,7 @@ derive Equatable for Dog
 derive Hashable for Dog
 
 impl Speech for Dog {
-  fn speak(_d: self): String {
+  fn speak(_d: self) -> String {
     "woof"
   }
 }
@@ -314,10 +338,10 @@ func TestParseConformanceBlock_Rejected(t *testing.T) {
 func TestParseTypeBody_ImplBlockPubFnRejected(t *testing.T) {
 	cases := []string{
 		`impl Speech for Dog {
-  pub fn speak(d: self): String { "woof" }
+  pub fn speak(d: self) -> String { "woof" }
 }`,
 		`impl Speech for Dog {
-  pub host fn speak(d: self): String
+  pub host fn speak(d: self) -> String
 }`,
 	}
 	for _, src := range cases {
@@ -329,7 +353,7 @@ func TestParseTypeBody_ImplBlockPubFnRejected(t *testing.T) {
 }
 
 func TestParseTypeBody_NestedImplBlock(t *testing.T) {
-	err := parseError(t, "struct Dog {\n  impl Speech {\n    fn speak(d: self): String { \"woof\" }\n  }\n}\n")
+	err := parseError(t, "struct Dog {\n  impl Speech {\n    fn speak(d: self) -> String { \"woof\" }\n  }\n}\n")
 	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type { ... }` blocks outside the type body") {
 		t.Fatalf("expected nested impl rejection, got %q", err.Error())
 	}
@@ -338,7 +362,7 @@ func TestParseTypeBody_NestedImplBlock(t *testing.T) {
 // A type-body `derive Iface { ... }` entry is rejected — derives are sibling
 // declarations.
 func TestParseConformanceLine_DeriveBodyRejected(t *testing.T) {
-	err := parseError(t, "struct Dog {\n  derive Equatable {\n    fn eq(a: Dog, b: Dog): Bool { True }\n  }\n}\n")
+	err := parseError(t, "struct Dog {\n  derive Equatable {\n    fn eq(a: Dog, b: Dog) -> Bool { True }\n  }\n}\n")
 	if !strings.Contains(err.Error(), "outside the type body") {
 		t.Errorf("expected derive-body rejection, got %q", err.Error())
 	}
@@ -368,7 +392,7 @@ func TestParseEnumBody_VariantKeywordItems(t *testing.T) {
 }
 
 impl Display for Status {
-  fn to_string(_s: self): String {
+  fn to_string(_s: self) -> String {
     "status"
   }
 }
@@ -465,7 +489,7 @@ func TestParseEnumBody_FnItemRejected(t *testing.T) {
 	src := `enum Status {
   Active
 
-  pub fn label(s: self): String { "x" }
+  pub fn label(s: self) -> String { "x" }
 }
 `
 	err := parseError(t, src)
@@ -511,13 +535,13 @@ impl iter for Box<T> where T: Display
 
 func TestParseExternType_WithBodyRejected(t *testing.T) {
 	src := `pub host type List<T> {
-  fn first(xs: self): T {
+  fn first(xs: self) -> T {
     panic("x")
   }
 }
 
 impl iter for List<T> {
-  host fn next(list: self): Maybe<(T, self)>
+  host fn next(list: self) -> Maybe<#(T, self)>
 }
 
 `
@@ -551,7 +575,7 @@ func TestParseTypeDef_OpaqueDistinctWithBody(t *testing.T) {
 	src := `pub opaque type NonZeroInt Int
 
 impl Display for NonZeroInt {
-  fn to_string(_n: self): String {
+  fn to_string(_n: self) -> String {
     "n"
   }
 }
@@ -581,7 +605,7 @@ func TestParseTypeDef_ZeroSizedWithLiteralImpl(t *testing.T) {
 	src := `type Sql
 
 impl Literal for Sql {
-  fn from_fragments(_fragments: List<Fragment<String>>): String {
+  fn from_fragments(_fragments: List<Fragment<String>>) -> String {
     "q"
   }
 }
@@ -641,13 +665,13 @@ func TestParseTypeDef_BareFieldBodyStillRejected(t *testing.T) {
 func TestParseInterfaceDef_DocCommentsOnMembers(t *testing.T) {
 	src := `interface Speech {
   /// The required noise.
-  fn speak(s: self): String
+  fn speak(s: self) -> String
 
   /// Overridable politeness.
-  open fn greet(_s: self): String { "hi" }
+  open fn greet(_s: self) -> String { "hi" }
 
   /// Host-backed shout.
-  host fn shout(s: self): String
+  host fn shout(s: self) -> String
 }`
 	nodes := parse(t, src)
 	id, ok := nodes[0].(*ast.InterfaceDef)
@@ -691,7 +715,7 @@ func TestParseSourceDeriveDecoratorRejected(t *testing.T) {
 // fn-with-body as an inherent item lands with the corpus migration.
 func TestParseInterfaceDef_PlainFnWithBodyStaysFinalDefault(t *testing.T) {
 	src := `interface Greeter {
-  fn greet(_g: self): String { "hi" }
+  fn greet(_g: self) -> String { "hi" }
 }`
 	nodes := parse(t, src)
 	id, ok := nodes[0].(*ast.InterfaceDef)
@@ -706,7 +730,7 @@ func TestParseInterfaceDef_PlainFnWithBodyStaysFinalDefault(t *testing.T) {
 // --- `field` / `variant` stay ordinary identifiers in expressions ------------
 
 func TestFieldAndVariantAsOrdinaryIdentifiers(t *testing.T) {
-	src := `fn f(field: Int, variant: Int): Int {
+	src := `fn f(field: Int, variant: Int) -> Int {
   field = field + 1
   variant = variant * 2
   field + variant

@@ -157,6 +157,15 @@ type Pos struct {
 	// carries the ORIGIN it was derived from, so a consumer can blame the
 	// `derive` the programmer wrote instead of inheriting.
 	synth bool
+	// stdlib marks a position in a standard library module's source. A
+	// trap raised there is reported at the program's own call into the
+	// stdlib (internal/vm's Machine.fault), since a line of std's source
+	// means nothing to the program's author. It is a fact of the file, set
+	// by the builder that lowers a stdlib module (WithStdlib), and not a
+	// list of paths a consumer is told: a built image names std files
+	// `std/<file>.nomi` and an in-process program by where std's source
+	// is, and the VM reads neither.
+	stdlib bool
 }
 
 // At is a position the front end read from source, for a construct whose text
@@ -278,6 +287,15 @@ func (p Pos) Covers(line int) bool {
 // rather than a position read from source. A consumer emitting debug
 // information blames the origin; it must not fall back to an ambient cursor.
 func (p Pos) Synthesized() bool { return p.synth }
+
+// Stdlib reports whether p is a position in a standard library module.
+func (p Pos) Stdlib() bool { return p.stdlib }
+
+// WithStdlib is p marked as a position in a standard library module.
+func (p Pos) WithStdlib() Pos {
+	p.stdlib = true
+	return p
+}
 
 func (p Pos) String() string {
 	if !p.IsValid() {
@@ -888,7 +906,7 @@ func (b *Branch) irTerm()                      {}
 // Return leaves the function.
 //
 // Its position is the tail's own. An inherited position would be wrong here:
-// the return for `fn total(limit: Int): Int { Iter.loop(...) }` is lowered
+// the return for `fn total(limit: Int) -> Int { Iter.loop(...) }` is lowered
 // after the loop's arms, so an ambient cursor would attribute it to whichever
 // arm's line was lowered last.
 type Return struct {

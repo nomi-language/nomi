@@ -9,9 +9,9 @@ import (
 // (`import facade.{leaf}`) is an error at the name that says to import the file
 // directly, whether or not the facade uses it, and whatever alias it takes.
 func TestSelectingAnotherFilesImportIsRejected(t *testing.T) {
-	leaf := "pub fn make_box(n: Int): Box { Box{value: n} }\n" +
+	leaf := "pub fn make_box(n: Int) -> Box { Box{value: n} }\n" +
 		"pub struct Box { value: Int }\n"
-	facade := "import leaf\n\npub fn seven(): Int { leaf.make_box(7).value }\n"
+	facade := "import leaf\n\npub fn seven() -> Int { leaf.make_box(7).value }\n"
 	want := "`leaf` is a file that `facade` imports, not an item it exports; import `leaf` directly"
 	for _, entry := range []string{
 		"import facade.{leaf}\n\nfn main() {\n  _b = leaf.make_box(7)\n}\n",
@@ -46,7 +46,7 @@ func TestSelectingAnotherFilesImportIsRejected(t *testing.T) {
 func TestImportingTheFileDirectlyIsAccepted(t *testing.T) {
 	errs := buildProjectExpectingErrors(t,
 		"import leaf\n\nfn main() {\n  _n = leaf.make_box(7).value\n}\n",
-		map[string]string{"leaf": "pub fn make_box(n: Int): Box { Box{value: n} }\npub struct Box { value: Int }\n"})
+		map[string]string{"leaf": "pub fn make_box(n: Int) -> Box { Box{value: n} }\npub struct Box { value: Int }\n"})
 	for _, e := range errs {
 		t.Errorf("unexpected error: %s", diagText(e))
 	}

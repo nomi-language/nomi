@@ -20,7 +20,7 @@ import (
 func TestIRLoopInInitializer_OnceSpecProgram(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
-once total = Iter.loop(|i = 0| {
+once total = Iter.loop(fn i = 0 -> {
     if i > 3 { break i * 10 }
     i + 1
 })
@@ -43,11 +43,11 @@ import std/tasks.Task
 once total = {
     io.print("forcing total")
     ch = Channel.buffered<Int>(10)
-    Iter.each([1, 0, 2, 7, 4, 9, 6], |n| {
+    Iter.each([1, 0, 2, 7, 4, 9, 6], fn n -> {
         _ = Sender.send(ch.sender, n)
     })
     Sender.close(ch.sender)
-    Iter.loop(|acc = 0| {
+    Iter.loop(fn acc = 0 -> {
         n = case Receiver.receive(ch.receiver) {
             Some(n) -> n
             None -> break acc
@@ -61,7 +61,7 @@ once total = {
     })
 }
 
-once scale = |k: Int| Iter.loop(|n = 1| {
+once scale = fn k: Int -> Iter.loop(fn n = 1 -> {
     if n == 2 { return 5 }
     if n >= k { break n }
     n * 2
@@ -70,8 +70,8 @@ once scale = |k: Int| Iter.loop(|n = 1| {
 fn main() {
     io.print("before")
     got = concurrent {
-        tasks = Iter.map([1, 2, 3, 4], |i| Task.spawn(|| total + i)) |> Iter.to_list()
-        Iter.map(tasks, |t| Task.await(t)) |> Iter.to_list()
+        tasks = Iter.map([1, 2, 3, 4], fn i -> Task.spawn(fn -> total + i)) |> Iter.to_list()
+        Iter.map(tasks, fn t -> Task.await(t)) |> Iter.to_list()
     }
     io.inspect(got)
     io.inspect(total)
@@ -95,13 +95,13 @@ pub struct App {
     stepped: Int
 }
 
-fn boot(): App {
+fn boot() -> App {
     ch = Channel.buffered<Int>(10)
-    Iter.each([1, 0, 2, 7, 4, 9, 6], |n| {
+    Iter.each([1, 0, 2, 7, 4, 9, 6], fn n -> {
         _ = Sender.send(ch.sender, n)
     })
     Sender.close(ch.sender)
-    total = Iter.loop(|acc = 0| {
+    total = Iter.loop(fn acc = 0 -> {
         n = case Receiver.receive(ch.receiver) {
             Some(n) -> n
             None -> break acc
@@ -111,7 +111,7 @@ fn boot(): App {
         if n == 9 { break acc * 2 }
         acc + n
     })
-    steps = |k: Int| Iter.loop(|n = 0| {
+    steps = fn k: Int -> Iter.loop(fn n = 0 -> {
         if n == 3 { return 4 }
         if n >= k { break n }
         n + 3
@@ -127,16 +127,16 @@ fn main() {
     io.inspect(lib.Cfg{}.n)
 }
 `, "214\n10\n32\n24\n12\n", map[string]string{"lib.nomi": `pub struct Cfg {
-    n: Int = Iter.loop(|i = 0| {
+    n: Int = Iter.loop(fn i = 0 -> {
         if i >= 4 { break i * 3 }
         i + 1
     })
 }
 
-pub fn pick(a: Int = 1, k: Int = Iter.loop(|i = a| {
+pub fn pick(a: Int = 1, k: Int = Iter.loop(fn i = a -> {
     if i > 20 { break i }
     i * 2
-})): Int {
+})) -> Int {
     k
 }
 `})
@@ -147,17 +147,17 @@ func TestIRLoopInInitializer_SameFileDefaults(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
 struct Cfg {
-    n: Int = Iter.loop(|i = 0| {
+    n: Int = Iter.loop(fn i = 0 -> {
         if i == 1 { return 3 }
         if i >= 4 { break i }
         i + 1
     })
 }
 
-fn pick(k: Int = Iter.loop(|i = 1| {
+fn pick(k: Int = Iter.loop(fn i = 1 -> {
     if i > 20 { break i }
     i * 2
-})): Int {
+})) -> Int {
     k
 }
 
@@ -179,8 +179,8 @@ pub struct App {
     base: Int
 }
 
-pub fn boot(): App {
-    base = Iter.loop(|i = 0| {
+pub fn boot() -> App {
+    base = Iter.loop(fn i = 0 -> {
         if i == 1 { return 6 }
         if i > 5 { break i * 10 }
         i + 1
@@ -198,13 +198,13 @@ struct Fix {
 group "loops in boot and setup" {
     boot boot()
     setup {
-        n = Iter.loop(|i = 0| {
+        n = Iter.loop(fn i = 0 -> {
             if i == 2 { return 7 }
             if i > 10 { break i }
             i + 1
         })
         io.print("setup ${n}")
-        Fix{n: n, f: |k: Int| Iter.loop(|m = 0| {
+        Fix{n: n, f: fn k: Int -> Iter.loop(fn m = 0 -> {
             if m == 4 { return 6 }
             if m >= k { break m }
             m + 4

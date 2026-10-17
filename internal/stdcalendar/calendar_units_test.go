@@ -98,7 +98,7 @@ func withYMD(dt rt.NaiveDateTime, y, m, d int64) rt.NaiveDateTime {
 // TestCivilShiftFaultTextIsOneString covers the arm no Nomi program reaches.
 //
 // std declares the zoned civil rungs TOTAL (`host fn add(lhs: DateTime, rhs:
-// Days): DateTime`), and the one residual failure is a zone the tzdb does not
+// Days) -> DateTime`), and the one residual failure is a zone the tzdb does not
 // carry. No DateTime a program can hold has one — every constructor validates
 // the zone — so this arm is unreachable through the language and therefore
 // invisible to the golden files, to the corpus and to every fixture.

@@ -9,7 +9,7 @@ func TestIRSignal_TourBreakAndContinue(t *testing.T) {
   // break in reduce — stop accumulating once total would exceed 60.
   partial_sum =
     [10, 20, 30, 40, 50]
-    |> Iter.reduce(|acc = 0, x| {
+    |> Iter.reduce(fn acc = 0, x -> {
       if acc + x > 60 { break }
       acc + x
     })
@@ -19,7 +19,7 @@ func TestIRSignal_TourBreakAndContinue(t *testing.T) {
   // continue in map — skip odd numbers from the output.
   evens_doubled =
     [1, 2, 3, 4, 5]
-    |> Iter.map(|x| {
+    |> Iter.map(fn x -> {
       if x % 2 != 0 { continue }
       x * 2
     })
@@ -32,32 +32,32 @@ func TestIRSignal_TourBreakAndContinue(t *testing.T) {
 
 func TestIRSignal_ReduceAndAdapterOutcomes(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn seed(): Int {
+fn seed() -> Int {
   io.print("seed")
   100
 }
 fn main() {
-  capped = [5, 10, 15, 20] |> Iter.reduce(|acc = seed(), x| {
+  capped = [5, 10, 15, 20] |> Iter.reduce(fn acc = seed(), x -> {
     if x == 15 { break acc * 2 }
     acc + x
   })
   io.print(capped)
-  positives = [3, -1, 4, -5, 2] |> Iter.reduce(|acc = 0, x| {
+  positives = [3, -1, 4, -5, 2] |> Iter.reduce(fn acc = 0, x -> {
     if x < 0 { continue }
     acc + x
   })
   io.print(positives)
-  until = [1, 2, 3, 4, 5] |> Iter.map(|x| {
+  until = [1, 2, 3, 4, 5] |> Iter.map(fn x -> {
     if x == 4 { break }
     x * 10
   }) |> Iter.to_list()
   dbg until
-  last = [1, 2, 3, 4, 5] |> Iter.map(|x| {
+  last = [1, 2, 3, 4, 5] |> Iter.map(fn x -> {
     if x == 3 { break 99 }
     x
   }) |> Iter.to_list()
   dbg last
-  kept = [1, 2, 3, 4, 5, 6] |> Iter.filter(|x| {
+  kept = [1, 2, 3, 4, 5, 6] |> Iter.filter(fn x -> {
     if x == 5 { break }
     x % 2 == 0
   }) |> Iter.to_list()
@@ -73,21 +73,21 @@ fn main() {
 func TestIRSignal_CaseArmSignalLeavesTheCallback(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
-  total = [1, 2, 3] |> Iter.reduce(|acc = 0, x| {
+  total = [1, 2, 3] |> Iter.reduce(fn acc = 0, x -> {
     case x {
       2 -> break
       _ -> acc + x
     }
   })
   io.print(total)
-  kept = Iter.reduce([1, 2, 3], |acc = 0, n| {
+  kept = Iter.reduce([1, 2, 3], fn acc = 0, n -> {
     case n {
       2 -> break acc + 10
       _ -> acc + n
     }
   })
   io.print(kept)
-  skip = Iter.reduce([1, 2, 3], |acc = 0, n| {
+  skip = Iter.reduce([1, 2, 3], fn acc = 0, n -> {
     case n {
       2 -> continue
       _ -> acc + n

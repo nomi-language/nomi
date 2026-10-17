@@ -14,11 +14,11 @@ func TestImplBlock_TopLevel_InterfaceDeclaredLater(t *testing.T) {
 	src := `pub struct Dog { name: String }
 
 impl Speech for Dog {
-    fn speak(d: Dog): String { d.name }
+    fn speak(d: Dog) -> String { d.name }
 }
 
 pub interface Speech {
-    fn speak(value: self): String
+    fn speak(value: self) -> String
 }`
 	fa, errs := buildTypesFromSource(src)
 	all := append([]TypeError{}, fa.TypeErrors...)
@@ -39,13 +39,13 @@ func TestImplBlock_InterfaceDeclaredLater(t *testing.T) {
 }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name
   }
 }
 
 pub interface Speech {
-  fn speak(value: self): String
+  fn speak(value: self) -> String
 }
 
 `

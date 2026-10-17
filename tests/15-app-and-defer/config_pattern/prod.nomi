@@ -3,7 +3,7 @@
 // (e.g. port) keep their defaults.
 import app.ConfigApp
 
-pub fn configure(app: ConfigApp): ConfigApp {
+pub fn configure(app: ConfigApp) -> ConfigApp {
     Struct.update(app, {
         deployment: "prod",
         database_url: "postgres://prod-host/myapp",

@@ -15,7 +15,7 @@ import (
 )
 
 const codeLensSrc = `//! assert double(2) == 4
-fn double(n: Int): Int { n * 2 }
+fn double(n: Int) -> Int { n * 2 }
 
 struct Box {
     n: Int
@@ -23,7 +23,7 @@ struct Box {
 
 impl Box {
     //! assert Box.get(Box{n: 1}) == 1
-    fn get(b: Box): Int { b.n }
+    fn get(b: Box) -> Int { b.n }
 }
 
 fn main() {

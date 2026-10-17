@@ -3,7 +3,7 @@ package irbuild
 // A RETAINED FUNCTION'S PARAMETER IS THE STRUCTURE, AND A DESTRUCTURING
 // PARAMETER'S NAMES ARE `ir.Proj` READS OFF IT.
 //
-// `fn sum_point(Point{x, y}): Int { x + y }` has ONE parameter, the Point, in
+// `fn sum_point(Point{x, y}) -> Int { x + y }` has ONE parameter, the Point, in
 // its `ir.Func` — the arity the Nomi declaration and every call site agree on
 // — and `x` and `y` are `ir.Bind`s of projections read off it at the head of
 // the entry block. `Params()` keeps one entry per declared parameter; the
@@ -40,6 +40,7 @@ import "github.com/nomi-language/nomi/internal/ir"
 func (g *gen) irPrologueOpen(sh *irFuncShell) func(bool) {
 	prevPro := g.irPro
 	g.irPro = sh
+	sh.orParams = nil
 	return func(ok bool) {
 		g.irPro = prevPro
 		sh.prologue = len(sh.entry.Instrs())

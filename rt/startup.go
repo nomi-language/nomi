@@ -120,5 +120,5 @@ func DeferBootAt(fr *Frame, line int, cleanup func()) {
 }
 
 func DeferredCleanupError(line int, failure any) error {
-	return &Error{Msg: fmt.Sprintf("line %d: deferred cleanup failed: %v", line, failure)}
+	return positioned(line, fmt.Sprintf("line %d: deferred cleanup failed: %v", line, failure))
 }

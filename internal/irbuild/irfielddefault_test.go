@@ -32,11 +32,11 @@ fn main() {
 // order, and resolve against the declaring file rather than the caller.
 func TestIRFieldDefault_OrderAndScope(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn mark(label: String, n: Int): Int {
+fn mark(label: String, n: Int) -> Int {
   io.print(label)
   n
 }
-fn base(): Int { 7 }
+fn base() -> Int { 7 }
 struct Cfg {
   a: Int = mark("a", 1)
   b: Int
@@ -98,7 +98,7 @@ struct User {
 }
 
 impl Display for User {
-  fn to_string(u: User): String {
+  fn to_string(u: User) -> String {
     "${u.name} (${u.age})"
   }
 }
@@ -119,7 +119,7 @@ enum E {
   A
   B Int
 }
-fn make(n: Int): P {
+fn make(n: Int) -> P {
   io.print("made")
   P{x: n, s: "q\"q"}
 }

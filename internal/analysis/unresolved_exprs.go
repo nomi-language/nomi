@@ -43,7 +43,7 @@ func (u UnresolvedExpr) String() string {
 //   - a name: the field of `x.f`, the type or file qualifier of `T.f` and
 //     `io.print`, a field accessor's path, the target of `with App.f = v`,
 //     an import, a derive decorator and its options.
-//   - a pipe stage, the right of `|>` (`f(a)`, `try f()`, `then |x| ...`,
+//   - a pipe stage, the right of `|>` (`f(a)`, `try f()`, `then fn x -> ...`,
 //     `dbg`, an `if` or `case` stage): it is a call with its subject
 //     missing, and the pipe's own type is recorded. Its arguments count.
 //   - a partial application's `_`, a `todo`'s message, and a block: a
@@ -159,7 +159,7 @@ func (w *unresolvedWalk) visit(n ast.Node) bool {
 		if n.Binding != nil {
 			w.skip[n.Binding] = true
 		}
-	case *ast.StructDestructure, *ast.MapDestructure:
+	case *ast.StructDestructure:
 		w.skipPatternFields(n)
 	case *ast.With:
 		w.skip[n.Target] = true
@@ -203,14 +203,12 @@ func (w *unresolvedWalk) skipParamPatterns(params []ast.Param) {
 	}
 }
 
-// skipPatternFields marks the patterns of a struct or map destructuring,
+// skipPatternFields marks the patterns of a struct destructuring,
 // leaving its value.
 func (w *unresolvedWalk) skipPatternFields(n ast.Node) {
 	var value ast.Node
 	switch d := n.(type) {
 	case *ast.StructDestructure:
-		value = d.Value
-	case *ast.MapDestructure:
 		value = d.Value
 	}
 	ast.Children(n, func(c ast.Node) {

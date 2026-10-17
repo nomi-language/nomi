@@ -24,30 +24,30 @@ struct Point {
   y: Int
 }
 
-fn note(s: String): String {
+fn note(s: String) -> String {
   io.print("key ${s}")
   s
 }
 
-fn map_constant(m: Map<String, String>): String {
-  if {"mode" => b} = m {
+fn map_constant(m: Map<String, String>) -> String {
+  if %{"mode" => b} = m {
     "mode ${b}"
   } else {
     "no mode"
   }
 }
 
-fn map_computed(m: Map<String, Maybe<Int>>): String {
-  if {note("n") => Some(n)} = m {
+fn map_computed(m: Map<String, Maybe<Int>>) -> String {
+  if %{note("n") => Some(n)} = m {
     "n ${n}"
   } else {
     "no n"
   }
 }
 
-fn map_rebind(m: Map<String, String>): String {
+fn map_rebind(m: Map<String, String>) -> String {
   a = "host"
-  if {"mode" => a, a => b} = m {
+  if %{"mode" => a, a => b} = m {
     "rebind ${a} ${b}"
   } else {
     "rebind miss ${a}"
@@ -55,13 +55,13 @@ fn map_rebind(m: Map<String, String>): String {
 }
 
 fn map_statement(m: Map<String, String>) {
-  if {"mode" => b} = m {
+  if %{"mode" => b} = m {
     io.print("statement ${b}")
   }
   io.print("after")
 }
 
-fn list_rest(xs: List<Int>): String {
+fn list_rest(xs: List<Int>) -> String {
   if [first, ..rest] = xs {
     "first ${first} rest ${Iter.count(rest)}"
   } else {
@@ -69,15 +69,15 @@ fn list_rest(xs: List<Int>): String {
   }
 }
 
-fn tuple_part(p: (Int, Int)): String {
-  if (0, y) = p {
+fn tuple_part(p: #(Int, Int)) -> String {
+  if #(0, y) = p {
     "y ${y}"
   } else {
     "x not 0"
   }
 }
 
-fn int_lit(n: Int): String {
+fn int_lit(n: Int) -> String {
   if 1 = n {
     "one"
   } else {
@@ -85,7 +85,7 @@ fn int_lit(n: Int): String {
   }
 }
 
-fn string_lit(s: String): String {
+fn string_lit(s: String) -> String {
   if "go" = s {
     "go!"
   } else {
@@ -93,7 +93,7 @@ fn string_lit(s: String): String {
   }
 }
 
-fn struct_field(p: Point): String {
+fn struct_field(p: Point) -> String {
   if Point{x: 0, y} = p {
     "on axis at ${y}"
   } else {
@@ -101,7 +101,7 @@ fn struct_field(p: Point): String {
   }
 }
 
-fn as_list(xs: List<Int>): String {
+fn as_list(xs: List<Int>) -> String {
   if [a, _] as whole = xs {
     "pair from ${a} of ${Iter.count(whole)}"
   } else {
@@ -109,16 +109,16 @@ fn as_list(xs: List<Int>): String {
   }
 }
 
-fn as_map(m: Map<String, String>): String {
-  if {"mode" => md} as whole = m {
+fn as_map(m: Map<String, String>) -> String {
+  if %{"mode" => md} as whole = m {
     "${md} in ${Map.size(whole)}"
   } else {
     "no mode in ${Map.size(m)}"
   }
 }
 
-fn nested(v: Maybe<List<(Int, String)>>): String {
-  if Some([(0, s), .._]) = v {
+fn nested(v: Maybe<List<#(Int, String)>>) -> String {
+  if Some([#(0, s), .._]) = v {
     "nested ${s}"
   } else {
     "nested miss"
@@ -126,19 +126,19 @@ fn nested(v: Maybe<List<(Int, String)>>): String {
 }
 
 fn main() {
-  io.print(map_constant({"mode" => "debug", "host" => "h1"}))
-  io.print(map_constant({"host" => "h1"}))
-  io.print(map_computed({"n" => Some(3)}))
-  io.print(map_computed(Map.put({"n" => Some(1)}, "n", None)))
-  io.print(map_computed({"m" => Some(1)}))
-  io.print(map_rebind({"mode" => "debug", "host" => "h1"}))
-  io.print(map_rebind({"host" => "h1"}))
-  map_statement({"mode" => "debug"})
-  map_statement({"host" => "h1"})
+  io.print(map_constant(%{"mode" => "debug", "host" => "h1"}))
+  io.print(map_constant(%{"host" => "h1"}))
+  io.print(map_computed(%{"n" => Some(3)}))
+  io.print(map_computed(Map.put(%{"n" => Some(1)}, "n", None)))
+  io.print(map_computed(%{"m" => Some(1)}))
+  io.print(map_rebind(%{"mode" => "debug", "host" => "h1"}))
+  io.print(map_rebind(%{"host" => "h1"}))
+  map_statement(%{"mode" => "debug"})
+  map_statement(%{"host" => "h1"})
   io.print(list_rest([1, 2, 3]))
   io.print(list_rest([]))
-  io.print(tuple_part((0, 5)))
-  io.print(tuple_part((1, 5)))
+  io.print(tuple_part(#(0, 5)))
+  io.print(tuple_part(#(1, 5)))
   io.print(int_lit(1))
   io.print(int_lit(2))
   io.print(string_lit("go"))
@@ -147,10 +147,10 @@ fn main() {
   io.print(struct_field(Point{x: 1, y: 4}))
   io.print(as_list([7, 8]))
   io.print(as_list([7]))
-  io.print(as_map({"mode" => "m", "a" => "b"}))
-  io.print(as_map({"a" => "b"}))
-  io.print(nested(Some([(0, "zero"), (1, "one")])))
-  io.print(nested(Some([(1, "one")])))
+  io.print(as_map(%{"mode" => "m", "a" => "b"}))
+  io.print(as_map(%{"a" => "b"}))
+  io.print(nested(Some([#(0, "zero"), #(1, "one")])))
+  io.print(nested(Some([#(1, "one")])))
   io.print(nested(None))
 }
 `)
@@ -180,15 +180,15 @@ func TestRun_PatternIfOverMapListAndTupleInATestBody(t *testing.T) {
 	p, err := vmhost.LoadSource(name, `import std/io
 
 test "pattern if kinds" {
-  m = {"mode" => "debug"}
-  if {"mode" => b} = m {
+  m = %{"mode" => "debug"}
+  if %{"mode" => b} = m {
     io.print("mode ${b}")
   }
-  if {"host" => h} = m {
+  if %{"host" => h} = m {
     io.print("host ${h}")
   }
-  r = if (0, y) = (0, 5) { y } else { -1 }
-  f = |xs: List<Int>| if [x, .._] = xs { x } else { 0 }
+  r = if #(0, y) = #(0, 5) { y } else { -1 }
+  f = fn xs: List<Int> -> if [x, .._] = xs { x } else { 0 }
   io.print("${r} ${f([4, 5])} ${f([])}")
   assert r == 5
 }

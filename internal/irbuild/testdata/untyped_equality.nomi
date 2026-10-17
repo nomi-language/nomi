@@ -44,11 +44,11 @@
 // builder's business.
 import std/io
 
-fn to_maybe(n: Int): Maybe<Int> {
+fn to_maybe(n: Int) -> Maybe<Int> {
     if n > 0 { Some(n) } else { None }
 }
 
-fn name_of(id: Int): Maybe<String> {
+fn name_of(id: Int) -> Maybe<String> {
     if id == 1 { Some("Ada") } else { None }
 }
 
@@ -63,7 +63,7 @@ fn main() {
     built = List.concat([1], [2, 3])
     drained = List.concat(empty, empty)
     empty_m: Map<String, Int> = Map.empty()
-    filled_m = {"a" => 1}
+    filled_m = %{"a" => 1}
 
     io.print("absent-eq    ${absent == None} ${None == absent}")
     io.print("present-eq   ${present == None} ${None == present}")

@@ -26,7 +26,7 @@ struct Txn {
     amount: Int
 }
 
-fn describe(r: Result<Txn, String>): String {
+fn describe(r: Result<Txn, String>) -> String {
     case r {
         Ok(t) when t.kind == .Deposit -> "in ${t.amount}"
         Ok(t) when .Withdrawal == t.kind -> "out ${t.amount}"

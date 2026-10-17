@@ -3,7 +3,7 @@ self patterns and construction in an interface default
 ================================================================================
 
 interface Scaled {
-  fn scale(self(n) as t, by: Int): self where self: Distinct<Int> {
+  fn scale(self(n) as t, by: Int) -> self where self: Distinct<Int> {
     self(m) = t
     case t {
       self(0) -> self(m)
@@ -11,7 +11,7 @@ interface Scaled {
     }
   }
 
-  fn all(_t: self, ns: List<Int>): Int where self: Distinct<Int> {
+  fn all(_t: self, ns: List<Int>) -> Int where self: Distinct<Int> {
     ns |> Iter.map(self) |> Iter.count()
   }
 }
@@ -33,7 +33,7 @@ interface Scaled {
         (parameter
           name: (identifier)
           (type_identifier)))
-      (self_type)
+      return_type: (self_type)
       (where_clause
         (where_constraint
           name: (self_type)
@@ -71,7 +71,7 @@ interface Scaled {
           (generic_type
             (type_identifier)
             (type_identifier))))
-      (type_identifier)
+      return_type: (type_identifier)
       (where_clause
         (where_constraint
           name: (self_type)

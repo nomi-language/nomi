@@ -176,8 +176,8 @@ func parseSrc(t *testing.T, src string) []ast.Node {
 func TestInternalAccessWiring_NonSiblingRejected(t *testing.T) {
 	const projectRoot = "/project"
 	sources := map[string]string{
-		"helper":                   "import tools/internal/seed_data\npub fn run(): Int { seed_data.data() }\n",
-		"tools/internal/seed_data": "pub fn data(): Int { 0 }\n",
+		"helper":                   "import tools/internal/seed_data\npub fn run() -> Int { seed_data.data() }\n",
+		"tools/internal/seed_data": "pub fn data() -> Int { 0 }\n",
 	}
 	loader := func(_ string, modulePath []string) ([]ast.Node, error) {
 		key := strings.Join(modulePath, "/")
@@ -219,8 +219,8 @@ func TestInternalAccessWiring_NonSiblingRejected(t *testing.T) {
 func TestInternalAccessWiring_ErrorPositionIsImport(t *testing.T) {
 	const projectRoot = "/project"
 	sources := map[string]string{
-		"helper":                   "\n\nimport tools/internal/seed_data\npub fn run(): Int { seed_data.data() }\n",
-		"tools/internal/seed_data": "pub fn data(): Int { 0 }\n",
+		"helper":                   "\n\nimport tools/internal/seed_data\npub fn run() -> Int { seed_data.data() }\n",
+		"tools/internal/seed_data": "pub fn data() -> Int { 0 }\n",
 	}
 	loader := func(_ string, modulePath []string) ([]ast.Node, error) {
 		key := strings.Join(modulePath, "/")
@@ -261,8 +261,8 @@ func TestInternalAccessWiring_ErrorPositionIsImport(t *testing.T) {
 func TestInternalAccessWiring_SiblingAllowed(t *testing.T) {
 	const projectRoot = "/project"
 	sources := map[string]string{
-		"tools/seed":               "import tools/internal/seed_data\npub fn run(): Int { seed_data.data() }\n",
-		"tools/internal/seed_data": "pub fn data(): Int { 0 }\n",
+		"tools/seed":               "import tools/internal/seed_data\npub fn run() -> Int { seed_data.data() }\n",
+		"tools/internal/seed_data": "pub fn data() -> Int { 0 }\n",
 	}
 	loader := func(_ string, modulePath []string) ([]ast.Node, error) {
 		key := strings.Join(modulePath, "/")
@@ -291,7 +291,7 @@ func TestInternalAccessWiring_SiblingAllowed(t *testing.T) {
 func TestInternalAccessWiring_RootInternalFromRootEntry(t *testing.T) {
 	const projectRoot = "/project"
 	sources := map[string]string{
-		"internal/x": "pub fn x(): Int { 0 }\n",
+		"internal/x": "pub fn x() -> Int { 0 }\n",
 	}
 	loader := func(_ string, modulePath []string) ([]ast.Node, error) {
 		key := strings.Join(modulePath, "/")

@@ -24,7 +24,7 @@ import (
 // plain import does (TestSiblingCompare_AnAliasedTypeImportOrdersARange).
 //
 // The INTERFACE clause is load-bearing. `implMemberKey` is only (declaration,
-// method), so an inherent `impl Widget { pub fn compare(a, b): Ordering }`
+// method), so an inherent `impl Widget { pub fn compare(a, b) -> Ordering }`
 // lands under the same key as `impl Comparable for Widget`'s member and both
 // return `Ordering`. A lookup ignoring `iface` would pick one by index order.
 

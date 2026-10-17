@@ -6,7 +6,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// todoFunc is `fn f(): Int { todo "why" }`: a trap whose destination is the
+// todoFunc is `fn f() -> Int { todo "why" }`: a trap whose destination is the
 // function's result, read after it by the return.
 func todoFunc(reason string) *ir.Func {
 	const file = "todo.nomi"

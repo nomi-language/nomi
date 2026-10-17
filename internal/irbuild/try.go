@@ -19,7 +19,7 @@ import (
 // The boundary is decided by where the lowered return lands, which is decided
 // by lexical nesting, the same argument returnStmt makes for `return`:
 //
-//	f = |x: Int| { v = try parse(x); Ok(v + 1) }
+//	f = fn x: Int -> { v = try parse(x); Ok(v + 1) }
 //	inner = f(n)          // Err(_) here, not an unwind of the caller
 //	io.print("after lambda call")   // prints
 //
@@ -32,9 +32,9 @@ import (
 // `try` propagates the operand's own `Err(e)` value, so the propagated value
 // must have the boundary's return type:
 //
-//	fn a(): Result<Int, String> { v = try m(); Ok(v) }   // m(): Maybe<Int>
-//	fn b(): Int                 { v = try r(); v }       // r(): Result<Int, Int>
-//	_ = |x: Int| { v = try parse(x); v }                 // lambda result Int
+//	fn a() -> Result<Int, String> { v = try m(); Ok(v) }   // m(): Maybe<Int>
+//	fn b() -> Int                 { v = try r(); v }       // r(): Result<Int, Int>
+//	_ = fn x: Int -> { v = try parse(x); v }                 // lambda result Int
 //
 // `analysis.checkTryBoundary` rejects all three at the `try`, naming both
 // types, and spec §9 states the rule as three clauses. This arm is a FENCE:

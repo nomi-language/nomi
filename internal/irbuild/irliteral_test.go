@@ -12,8 +12,8 @@ struct Box {
 }
 
 impl Literal for Box {
-  fn from_fragments(fragments: List<Fragment<String>>): Box {
-    body = Iter.reduce(fragments, |acc = "", frag|
+  fn from_fragments(fragments: List<Fragment<String>>) -> Box {
+    body = Iter.reduce(fragments, fn acc = "", frag ->
       case frag {
         .Static(s) -> acc + s
         .Dynamic(v) -> acc + v
@@ -39,8 +39,8 @@ func TestIRTypedLiteral_TourDistinctHandler(t *testing.T) {
 type Sql String
 
 impl Literal for Sql {
-  fn from_fragments(fragments: List<Fragment<String>>): Sql {
-    body = Iter.reduce(fragments, |acc = "", frag|
+  fn from_fragments(fragments: List<Fragment<String>>) -> Sql {
+    body = Iter.reduce(fragments, fn acc = "", frag ->
       case frag {
         .Static(s) -> acc + s
         .Dynamic(v) -> acc + "'" + v + "'"
@@ -70,8 +70,8 @@ struct Sum {
 }
 
 impl Literal for Sum {
-  fn from_fragments(fragments: List<Fragment<Int>>): Sum {
-    Iter.reduce(fragments, |acc = Sum{total: 0, text: ""}, frag|
+  fn from_fragments(fragments: List<Fragment<Int>>) -> Sum {
+    Iter.reduce(fragments, fn acc = Sum{total: 0, text: ""}, frag ->
       case frag {
         .Static(s) -> Sum{total: acc.total, text: acc.text + s}
         .Dynamic(n) -> Sum{total: acc.total + n, text: acc.text + "#"}
@@ -80,7 +80,7 @@ impl Literal for Sum {
   }
 }
 
-fn mark(n: Int): Int {
+fn mark(n: Int) -> Int {
   io.print(n)
   n
 }

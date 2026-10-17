@@ -14,6 +14,7 @@
 01-foundations/comment_positions_test.nomi:Shape.inspect	ran
 01-foundations/comment_positions_test.nomi:add	ran
 01-foundations/comment_positions_test.nomi:greet	ran
+01-foundations/destructure_rebind_test.nomi:Name.inspect	ran
 01-foundations/if_else/if_else_test.nomi:parse_id	ran
 01-foundations/if_else/test_helpers.nomi:has_diagnostic?	ran
 01-foundations/if_else/test_helpers.nomi:hover_signature	ran
@@ -59,6 +60,8 @@
 02-testing/subtests_test.nomi:Point.inspect	ran
 02-testing/subtests_test.nomi:all_ordered	ran
 02-testing/subtests_test.nomi:check_palindrome	ran
+02-testing/subtests_test.nomi:named_by_quotient	ran
+02-testing/subtests_test.nomi:named_ordered	ran
 02-testing/subtests_test.nomi:palindrome?	ran
 02-testing/subtests_test.nomi:subtests	ran
 03-tooling-and-diagnostics/compiler_project/test_helpers.nomi:has_diagnostic?	ran
@@ -101,6 +104,7 @@
 04-scalars-and-text/codepoint_literals_test.nomi:token_kind	ran
 04-scalars-and-text/decimals/test_helpers.nomi:has_diagnostic?	ran
 04-scalars-and-text/decimals/test_helpers.nomi:hover_signature	ran
+04-scalars-and-text/floats_test.nomi:negative_zero?	ran
 04-scalars-and-text/interpolate_composite_test.nomi:Box.inspect	ran
 04-scalars-and-text/interpolate_composite_test.nomi:Box.inspect	ran
 04-scalars-and-text/interpolate_composite_test.nomi:Color.inspect	ran
@@ -123,8 +127,11 @@
 04-scalars-and-text/interpolate_display_value_test.nomi:show_bounded	ran
 04-scalars-and-text/interpolate_display_value_test.nomi:show_bounded	ran
 04-scalars-and-text/ints_test.nomi:divide_by_positive	ran
+04-scalars-and-text/ints_test.nomi:floor_divide	ran
 04-scalars-and-text/matcher_test.nomi:count	ran
 04-scalars-and-text/matcher_test.nomi:count	ran
+04-scalars-and-text/matcher_test.nomi:first_agrees	ran
+04-scalars-and-text/matcher_test.nomi:first_agrees	ran
 04-scalars-and-text/strings_test.nomi:slash_joined	PROBE: a synthesized argument is not a value of the declared type
 04-scalars-and-text/words_and_lines_test.nomi:count_non_empty_lines	ran
 04-scalars-and-text/words_and_lines_test.nomi:sum_numbers	ran
@@ -158,6 +165,7 @@
 07-structs-and-enums/enums_test.nomi:Direction.inspect	ran
 07-structs-and-enums/enums_test.nomi:Drawable.inspect	ran
 07-structs-and-enums/enums_test.nomi:Error.inspect	ran
+07-structs-and-enums/enums_test.nomi:Op.inspect	ran
 07-structs-and-enums/enums_test.nomi:Shape.inspect	ran
 07-structs-and-enums/field_default_types/field_default_types_test.nomi:Box.inspect	ran
 07-structs-and-enums/field_default_types/field_default_types_test.nomi:Configured.inspect	ran
@@ -227,6 +235,18 @@
 07-structs-and-enums/variant_field_defaults/policy/nested.nomi:Timeout.After.seconds default	ran
 07-structs-and-enums/variant_field_defaults/policy/nested.nomi:Timeout.inspect	ran
 07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi:describe	ran
+07-structs-and-enums/vector_trees_test.nomi:Dir.equal?	ran
+07-structs-and-enums/vector_trees_test.nomi:Dir.inspect	ran
+07-structs-and-enums/vector_trees_test.nomi:Expr.inspect	ran
+07-structs-and-enums/vector_trees_test.nomi:Stmt.inspect	ran
+07-structs-and-enums/vector_trees_test.nomi:Tree.equal?	ran
+07-structs-and-enums/vector_trees_test.nomi:Tree.hash	ran
+07-structs-and-enums/vector_trees_test.nomi:Tree.inspect	ran
+07-structs-and-enums/vector_trees_test.nomi:depth	ran
+07-structs-and-enums/vector_trees_test.nomi:eval	ran
+07-structs-and-enums/vector_trees_test.nomi:sample	ran
+07-structs-and-enums/vector_trees_test.nomi:sum	ran
+07-structs-and-enums/vector_trees_test.nomi:total	PROBE: a synthesized argument is not a value of the declared type
 08-pattern-matching/as_patterns_test.nomi:Kind.inspect	ran
 08-pattern-matching/as_patterns_test.nomi:Tx.inspect	ran
 08-pattern-matching/as_patterns_test.nomi:change	ran
@@ -269,6 +289,22 @@
 08-pattern-matching/case_patterns_test.nomi:unwrap	ran
 08-pattern-matching/case_patterns_test.nomi:unwrap_or	ran
 08-pattern-matching/compound_patterns_test.nomi:JV.inspect	ran
+08-pattern-matching/distinct_sub_patterns_test.nomi:Circle.inspect	ran
+08-pattern-matching/distinct_sub_patterns_test.nomi:E.inspect	ran
+08-pattern-matching/distinct_sub_patterns_test.nomi:Kvs.inspect	ran
+08-pattern-matching/distinct_sub_patterns_test.nomi:Pair.inspect	ran
+08-pattern-matching/distinct_sub_patterns_test.nomi:Stack.inspect	ran
+08-pattern-matching/distinct_sub_patterns_test.nomi:bind_else	ran
+08-pattern-matching/distinct_sub_patterns_test.nomi:fallback	ran
+08-pattern-matching/distinct_sub_patterns_test.nomi:kvs	ran
+08-pattern-matching/distinct_sub_patterns_test.nomi:record_stack	ran
+08-pattern-matching/distinct_sub_patterns_test.nomi:top	ran
+08-pattern-matching/distinct_sub_patterns_test.nomi:tuple_case	ran
+08-pattern-matching/distinct_sub_patterns_test.nomi:variant	ran
+08-pattern-matching/map_binding_else_test.nomi:address	ran
+08-pattern-matching/map_binding_else_test.nomi:host_or	ran
+08-pattern-matching/map_binding_else_test.nomi:mode	ran
+08-pattern-matching/map_binding_else_test.nomi:port_or_default	ran
 08-pattern-matching/map_patterns_test.nomi:Color.inspect	ran
 08-pattern-matching/map_patterns_test.nomi:Id.inspect	ran
 08-pattern-matching/map_patterns_test.nomi:Point.inspect	ran
@@ -284,6 +320,20 @@
 08-pattern-matching/map_patterns_test.nomi:lookup_negative_int	ran
 08-pattern-matching/map_patterns_test.nomi:lookup_nested	ran
 08-pattern-matching/maybe_result_test.nomi:double	ran
+08-pattern-matching/or_patterns_test.nomi:Reading.inspect	ran
+08-pattern-matching/or_patterns_test.nomi:Shape.inspect	ran
+08-pattern-matching/or_patterns_test.nomi:Side.inspect	ran
+08-pattern-matching/or_patterns_test.nomi:Tri.inspect	ran
+08-pattern-matching/or_patterns_test.nomi:answer	ran
+08-pattern-matching/or_patterns_test.nomi:closer	ran
+08-pattern-matching/or_patterns_test.nomi:off_axis	ran
+08-pattern-matching/or_patterns_test.nomi:opener?	ran
+08-pattern-matching/or_patterns_test.nomi:reading	ran
+08-pattern-matching/or_patterns_test.nomi:side	ran
+08-pattern-matching/or_patterns_test.nomi:size	ran
+08-pattern-matching/or_patterns_test.nomi:small?	ran
+08-pattern-matching/or_patterns_test.nomi:two_equal?	ran
+08-pattern-matching/or_patterns_test.nomi:value	ran
 08-pattern-matching/try_error_conversion_test.nomi:ParseError.inspect	ran
 08-pattern-matching/try_error_conversion_test.nomi:describe	ran
 08-pattern-matching/try_error_conversion_test.nomi:describe_twice	ran
@@ -302,6 +352,7 @@
 08-pattern-matching/try_test.nomi:try_boolean_expression	ran
 08-pattern-matching/try_test.nomi:try_multiple_operands	ran
 08-pattern-matching/variant_literal_attach_test.nomi:JV.inspect	ran
+08-pattern-matching/variant_payloads_test.nomi:Box.inspect	ran
 08-pattern-matching/variant_payloads_test.nomi:Circle.inspect	ran
 08-pattern-matching/variant_payloads_test.nomi:Expired.inspect	ran
 08-pattern-matching/variant_payloads_test.nomi:Items.inspect	ran
@@ -314,6 +365,7 @@
 08-pattern-matching/variant_payloads_test.nomi:Robot.render	ran
 08-pattern-matching/variant_payloads_test.nomi:Token.inspect	ran
 08-pattern-matching/variant_payloads_test.nomi:UserId.inspect	ran
+08-pattern-matching/variant_payloads_test.nomi:box_area	ran
 08-pattern-matching/variant_payloads_test.nomi:describe	ran
 08-pattern-matching/variant_payloads_test.nomi:double	ran
 08-pattern-matching/variant_resolution/test_helpers.nomi:has_diagnostic?	ran
@@ -370,6 +422,22 @@
 09-functions-and-control-flow/nested_fn_try_test.nomi:doubled_sum	ran
 09-functions-and-control-flow/nested_fn_try_test.nomi:find	ran
 09-functions-and-control-flow/nested_fn_try_test.nomi:parse	ran
+09-functions-and-control-flow/nested_statements_test.nomi:TraceId.inspect	ran
+09-functions-and-control-flow/nested_statements_test.nomi:case_subject	ran
+09-functions-and-control-flow/nested_statements_test.nomi:double	ran
+09-functions-and-control-flow/nested_statements_test.nomi:find	ran
+09-functions-and-control-flow/nested_statements_test.nomi:find_nested	ran
+09-functions-and-control-flow/nested_statements_test.nomi:guarded	ran
+09-functions-and-control-flow/nested_statements_test.nomi:has	ran
+09-functions-and-control-flow/nested_statements_test.nomi:id	ran
+09-functions-and-control-flow/nested_statements_test.nomi:loop_else_both_break	ran
+09-functions-and-control-flow/nested_statements_test.nomi:loop_else_branches	ran
+09-functions-and-control-flow/nested_statements_test.nomi:loop_else_fallback	ran
+09-functions-and-control-flow/nested_statements_test.nomi:loop_subject	ran
+09-functions-and-control-flow/nested_statements_test.nomi:returning_arms	ran
+09-functions-and-control-flow/nested_statements_test.nomi:unwrap	ran
+09-functions-and-control-flow/nested_statements_test.nomi:with_local_interface	ran
+09-functions-and-control-flow/nested_statements_test.nomi:witness	ran
 09-functions-and-control-flow/parameter_destructuring/parameter_destructuring_test.nomi:Dur.inspect	ran
 09-functions-and-control-flow/parameter_destructuring/parameter_destructuring_test.nomi:Point.inspect	ran
 09-functions-and-control-flow/parameter_destructuring/parameter_destructuring_test.nomi:Wrapper.inspect	ran
@@ -511,8 +579,11 @@
 10-generics-and-type-wrappers/type_wrappers_test.nomi:Id.inspect	ran
 10-generics-and-type-wrappers/type_wrappers_test.nomi:Kvs.inspect	ran
 10-generics-and-type-wrappers/type_wrappers_test.nomi:Pair.inspect	ran
+10-generics-and-type-wrappers/type_wrappers_test.nomi:Shape.inspect	ran
 10-generics-and-type-wrappers/type_wrappers_test.nomi:Triple.inspect	ran
 10-generics-and-type-wrappers/type_wrappers_test.nomi:run	ran
+10-generics-and-type-wrappers/type_wrappers_test.nomi:shape_size	ran
+11-interfaces-and-impls/block_impl_diagnostics_test.nomi:only	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Cat.inspect	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Cat.speak	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Describe.describe	ran
@@ -694,6 +765,57 @@
 12-derives-and-standard-interfaces/collections_test.nomi:Holder.inspect	ran
 12-derives-and-standard-interfaces/cross_file_debug/cross_file_debug_test.nomi:Box.inspect	ran
 12-derives-and-standard-interfaces/cross_file_debug/shapes.nomi:Box.inspect	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.compare	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.equal?	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.from_json	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.hash	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.inspect	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.to_json	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.to_string	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.equal?	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.from_json	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.hash	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.inspect	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.to_json	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.to_string	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.compare	PROBE: a synthesized argument is not a value of the declared type
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.equal?	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.from_json	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.hash	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.inspect	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.to_json	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.to_string	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:counted	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:wallet	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.compare	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.equal?	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.from_json	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.hash	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.inspect	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.to_json	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.to_string	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.compare	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.equal?	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.from_json	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.hash	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.inspect	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.to_json	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.to_string	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.variants	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.compare	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.equal?	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.from_json	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.hash	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.inspect	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.to_json	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.to_string	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.compare	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.equal?	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.from_json	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.hash	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.inspect	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.to_json	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.to_string	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Coord.compare	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Coord.equal?	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Coord.hash	ran
@@ -770,6 +892,26 @@
 12-derives-and-standard-interfaces/set_debug_test.nomi:Color.inspect	ran
 12-derives-and-standard-interfaces/set_debug_test.nomi:Palette.inspect	ran
 12-derives-and-standard-interfaces/set_debug_test.nomi:Point.inspect	ran
+12-derives-and-standard-interfaces/summable_test.nomi:Cents.add	ran
+12-derives-and-standard-interfaces/summable_test.nomi:Cents.empty_sum	ran
+12-derives-and-standard-interfaces/summable_test.nomi:Cents.inspect	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	PROBE: a synthesized argument is not a value of the declared type
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	PROBE: a synthesized argument is not a value of the declared type
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	PROBE: a synthesized argument is not a value of the declared type
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/unit_hashable_test.nomi:Tagged.equal?	ran
+12-derives-and-standard-interfaces/unit_hashable_test.nomi:Tagged.hash	ran
+12-derives-and-standard-interfaces/unit_hashable_test.nomi:Tagged.inspect	ran
+12-derives-and-standard-interfaces/unit_hashable_test.nomi:digest	ran
+12-derives-and-standard-interfaces/unit_hashable_test.nomi:digest	ran
+12-derives-and-standard-interfaces/unit_hashable_test.nomi:same	ran
 12-derives-and-standard-interfaces/universal_debug/token.nomi:Token.inspect	ran
 12-derives-and-standard-interfaces/universal_debug/token.nomi:make	ran
 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi:UniversalDog.inspect	ran
@@ -781,6 +923,14 @@
 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi:debug_show	ran
 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi:debug_show	ran
 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi:describe_named	ran
+12-derives-and-standard-interfaces/variants/coins.nomi:Coin.compare	ran
+12-derives-and-standard-interfaces/variants/coins.nomi:Coin.inspect	ran
+12-derives-and-standard-interfaces/variants/coins.nomi:Coin.variants	ran
+12-derives-and-standard-interfaces/variants/coins.nomi:cents	ran
+12-derives-and-standard-interfaces/variants/variants_test.nomi:Suit.inspect	ran
+12-derives-and-standard-interfaces/variants/variants_test.nomi:Suit.variants	ran
+12-derives-and-standard-interfaces/variants/variants_test.nomi:others	ran
+12-derives-and-standard-interfaces/variants/variants_test.nomi:others	ran
 13-iterators-and-pipes/collect_results_test.nomi:ParseError.inspect	ran
 13-iterators-and-pipes/collect_results_test.nomi:Point.inspect	ran
 13-iterators-and-pipes/collect_results_test.nomi:parse	ran
@@ -903,6 +1053,7 @@
 15-app-and-defer/config_pattern/app.nomi:load	ran
 15-app-and-defer/config_pattern/prod.nomi:configure	ran
 15-app-and-defer/config_pattern/test.nomi:configure	ran
+15-app-and-defer/context_module_values/context_module_values_test.nomi:stored_qualified	ran
 15-app-and-defer/context_module_values/context_module_values_test.nomi:stored_token	ran
 15-app-and-defer/context_module_values/domain.nomi:Marker.inspect	ran
 15-app-and-defer/context_module_values/domain.nomi:Mode.inspect	ran
@@ -1078,3 +1229,128 @@
 18-ffi-and-dynamic/time_ffi_app/ffi.nomi:created_at	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/time_ffi_app/ffi.nomi:plus_second	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/time_ffi_app/main.nomi:main	UNLINKED: a project Go binding this process does not link
+exercism/acronym/acronym.nomi:abbreviate	ran
+exercism/allergies/allergies.nomi:Allergen.inspect	ran
+exercism/allergies/allergies.nomi:Allergen.variants	ran
+exercism/allergies/allergies.nomi:allergic_to?	ran
+exercism/allergies/allergies.nomi:list	ran
+exercism/allergies/allergies.nomi:value	ran
+exercism/anagram/anagram.nomi:find	ran
+exercism/binary-search/binary_search.nomi:find	PROBE: a synthesized argument is not a value of the declared type
+exercism/binary-search/binary_search.nomi:search	ran
+exercism/bob/bob.nomi:response	ran
+exercism/bob/bob.nomi:shouting?	ran
+exercism/clock/clock.nomi:Clock.add	ran
+exercism/clock/clock.nomi:Clock.inspect	ran
+exercism/clock/clock.nomi:Clock.new	ran
+exercism/clock/clock.nomi:Clock.subtract	ran
+exercism/clock/clock.nomi:Clock.to_string	ran
+exercism/clock/clock.nomi:two_digits	ran
+exercism/clock/clock.nomi:wrap	ran
+exercism/collatz-conjecture/collatz_conjecture.nomi:next	ran
+exercism/collatz-conjecture/collatz_conjecture.nomi:steps	ran
+exercism/etl/etl.nomi:transform	ran
+exercism/game-of-life/game_of_life.nomi:cell_at	PROBE: a synthesized argument is not a value of the declared type
+exercism/game-of-life/game_of_life.nomi:live_neighbours	PROBE: a synthesized argument is not a value of the declared type
+exercism/game-of-life/game_of_life.nomi:next_state	ran
+exercism/game-of-life/game_of_life.nomi:tick	PROBE: a synthesized argument is not a value of the declared type
+exercism/hamming/hamming.nomi:distance	ran
+exercism/isogram/isogram.nomi:isogram?	ran
+exercism/leap/leap.nomi:leap_year?	ran
+exercism/list-ops/list_ops.nomi:append	PROBE: a synthesized argument is not a value of the declared type
+exercism/list-ops/list_ops.nomi:append	PROBE: a synthesized argument is not a value of the declared type
+exercism/list-ops/list_ops.nomi:concat	PROBE: a synthesized argument is not a value of the declared type
+exercism/list-ops/list_ops.nomi:concat	PROBE: a synthesized argument is not a value of the declared type
+exercism/list-ops/list_ops.nomi:filter	PROBE: a synthesized argument is not a value of the declared type
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldr	ran
+exercism/list-ops/list_ops.nomi:foldr	ran
+exercism/list-ops/list_ops.nomi:foldr	ran
+exercism/list-ops/list_ops.nomi:foldr	ran
+exercism/list-ops/list_ops.nomi:foldr	ran
+exercism/list-ops/list_ops.nomi:foldr	ran
+exercism/list-ops/list_ops.nomi:length	ran
+exercism/list-ops/list_ops.nomi:map	PROBE: a synthesized argument is not a value of the declared type
+exercism/list-ops/list_ops.nomi:reverse	ran
+exercism/list-ops/list_ops.nomi:reverse	ran
+exercism/list-ops/list_ops.nomi:reverse	ran
+exercism/list-ops/list_ops.nomi:reverse	ran
+exercism/luhn/luhn.nomi:checksum	ran
+exercism/luhn/luhn.nomi:double	ran
+exercism/luhn/luhn.nomi:valid?	ran
+exercism/matching-brackets/matching_brackets.nomi:balanced?	PROBE: a synthesized argument is not a value of the declared type
+exercism/matching-brackets/matching_brackets.nomi:paired?	ran
+exercism/minesweeper/minesweeper.nomi:annotate	ran
+exercism/minesweeper/minesweeper.nomi:annotate_square	PROBE: a synthesized argument is not a value of the declared type
+exercism/minesweeper/minesweeper.nomi:mines_in_row	ran
+exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.equal?	ran
+exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.hash	ran
+exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.inspect	ran
+exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.parse	ran
+exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.variants	ran
+exercism/nucleotide-count/nucleotide_count.nomi:counts	ran
+exercism/pangram/pangram.nomi:pangram?	ran
+exercism/phone-number/phone_number.nomi:Error.inspect	ran
+exercism/phone-number/phone_number.nomi:clean	ran
+exercism/phone-number/phone_number.nomi:national	ran
+exercism/phone-number/phone_number.nomi:separator?	ran
+exercism/prime-factors/prime_factors.nomi:factors	ran
+exercism/prime-factors/prime_factors.nomi:factors_from	ran
+exercism/queen-attack/queen_attack.nomi:Error.inspect	ran
+exercism/queen-attack/queen_attack.nomi:Queen.can_attack?	ran
+exercism/queen-attack/queen_attack.nomi:Queen.inspect	ran
+exercism/queen-attack/queen_attack.nomi:Queen.new	ran
+exercism/raindrops/raindrops.nomi:convert	ran
+exercism/reverse-string/reverse_string.nomi:reverse	ran
+exercism/rna-transcription/rna_transcription.nomi:complement	ran
+exercism/rna-transcription/rna_transcription.nomi:to_rna	ran
+exercism/robot-simulator/robot_simulator.nomi:Direction.inspect	ran
+exercism/robot-simulator/robot_simulator.nomi:Direction.left	ran
+exercism/robot-simulator/robot_simulator.nomi:Direction.right	ran
+exercism/robot-simulator/robot_simulator.nomi:Error.inspect	ran
+exercism/robot-simulator/robot_simulator.nomi:Position.inspect	ran
+exercism/robot-simulator/robot_simulator.nomi:Robot.inspect	ran
+exercism/robot-simulator/robot_simulator.nomi:Robot.move	ran
+exercism/robot-simulator/robot_simulator.nomi:advance	ran
+exercism/robot-simulator/robot_simulator.nomi:step	ran
+exercism/roman-numerals/roman_numerals.nomi:roman	ran
+exercism/run-length-encoding/run_length_encoding.nomi:decode	ran
+exercism/run-length-encoding/run_length_encoding.nomi:decode_run	ran
+exercism/run-length-encoding/run_length_encoding.nomi:encode	ran
+exercism/run-length-encoding/run_length_encoding.nomi:encode_run	ran
+exercism/saddle-points/saddle_points.nomi:Position.inspect	ran
+exercism/saddle-points/saddle_points.nomi:column_minima	PROBE: a synthesized argument is not a value of the declared type
+exercism/saddle-points/saddle_points.nomi:column_minimum	PROBE: a synthesized argument is not a value of the declared type
+exercism/saddle-points/saddle_points.nomi:saddle_points	PROBE: a synthesized argument is not a value of the declared type
+exercism/sieve/sieve.nomi:primes	ran
+exercism/spiral-matrix/spiral_matrix.nomi:cell_at	PROBE: a synthesized argument is not a value of the declared type
+exercism/spiral-matrix/spiral_matrix.nomi:empty?	PROBE: a synthesized argument is not a value of the declared type
+exercism/spiral-matrix/spiral_matrix.nomi:fill	PROBE: a synthesized argument is not a value of the declared type
+exercism/spiral-matrix/spiral_matrix.nomi:set_cell	PROBE: a synthesized argument is not a value of the declared type
+exercism/spiral-matrix/spiral_matrix.nomi:spiral_matrix	ran
+exercism/spiral-matrix/spiral_matrix.nomi:step	ran
+exercism/spiral-matrix/spiral_matrix.nomi:turn	ran
+exercism/sum-of-multiples/sum_of_multiples.nomi:sum	ran
+exercism/transpose/transpose.nomi:padded_rows	ran
+exercism/transpose/transpose.nomi:transpose	ran
+exercism/triangle/triangle.nomi:Kind.inspect	ran
+exercism/triangle/triangle.nomi:equilateral?	ran
+exercism/triangle/triangle.nomi:isosceles?	ran
+exercism/triangle/triangle.nomi:kind	ran
+exercism/triangle/triangle.nomi:scalene?	ran
+exercism/two-fer/two_fer.nomi:two_fer	ran
+exercism/two-fer/two_fer.nomi:two_fer default 1	ran
+exercism/word-count/word_count.nomi:count_words	ran
+exercism/wordy/wordy.nomi:Error.inspect	ran
+exercism/wordy/wordy.nomi:Operation.inspect	ran
+exercism/wordy/wordy.nomi:answer	ran
+exercism/wordy/wordy.nomi:apply	ran
+exercism/wordy/wordy.nomi:evaluate	ran
+exercism/wordy/wordy.nomi:operand	ran

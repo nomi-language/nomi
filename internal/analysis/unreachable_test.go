@@ -20,14 +20,14 @@ func unreachableErrors(errs []analysis.TypeError) []analysis.TypeError {
 // that statement's first token, once per block.
 func TestUnreachable_StatementAfterReturnBreakContinue(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn early(n: Int): Int {
+fn early(n: Int) -> Int {
   return n
   _ = n + 1
   n
 }
 
-fn looped(): Int {
-  Iter.loop(|n = 0| {
+fn looped() -> Int {
+  Iter.loop(fn n = 0 -> {
     if n > 3 {
       break n
       _ = n
@@ -69,7 +69,7 @@ fn looped(): Int {
 // return as the last statement leaves nothing behind it.
 func TestUnreachable_ConditionalAndTrailingReturnAreClean(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn f(n: Int): Int {
+fn f(n: Int) -> Int {
   if n > 0 {
     return n
   }

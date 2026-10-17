@@ -26,6 +26,7 @@
 package irbuild
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -83,6 +84,25 @@ type Program struct {
 	// analyzed with (frontend.Config.VirtualFiles), or nil. std/compiler's hosts
 	// resolve a checked or run source's imports against them.
 	VirtualFiles map[string]string
+	// Stop, when set, reports that the lowering's caller no longer wants
+	// it. GenerateIR asks before each phase, and in each per-file phase
+	// before each file, and answers ErrStopped once it reports true.
+	Stop func() bool
+	// halted records that Stop reported true: a phase that stopped part
+	// way leaves its work unfinished, and every later question answers
+	// true.
+	halted bool
+}
+
+// ErrStopped is GenerateIR's error when Program.Stop stopped it.
+var ErrStopped = errors.New("irbuild: lowering stopped")
+
+// stopped reports whether p's caller stopped the lowering.
+func (p *Program) stopped() bool {
+	if !p.halted && p.Stop != nil && p.Stop() {
+		p.halted = true
+	}
+	return p.halted
 }
 
 // Entry returns the entry module.
@@ -287,11 +307,17 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	// Every type declaration in the program, keyed by the node that declared
 	// it and named program-uniquely, so one module can name both its own
 	// `Point` and a sibling file's. See foreign.go.
+	if p.stopped() {
+		return nil, nil, ErrStopped
+	}
 	reg := buildTypeRegistry(p)
 	// The program's own files as each other's call sites see them, indexed
 	// before any of them is lowered: whether a cross-file reference closes an
 	// import cycle is a whole-program property. See siblings.go.
 	files := buildFileIndex(p, reg)
+	if p.stopped() {
+		return nil, nil, ErrStopped
+	}
 	// Three declaration waves before any body is lowered, and the order is forced
 	// rather than chosen. A signature in file B may name a type declared in
 	// file A while A's names one of B's, and Nomi has no forward-declaration
@@ -311,16 +337,32 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		g.stdInsts = insts
 	}
 	for i := range gens {
+		if p.stopped() {
+			return nil, nil, ErrStopped
+		}
 		reg.ensureTypes(i)
 	}
 	files.resolveSignatures(gens)
 	for _, g := range gens {
+		if p.stopped() {
+			return nil, nil, ErrStopped
+		}
 		g.declareFuncs()
 	}
 	// Every impl block in the program, by the declaration of the type it is
 	// for, in the same window and for the same reason as the index below: a
 	// type-qualified call in one file may name an impl function declared in
 	// another. See siblingimpl.go.
+	files.resolveImplMembers(gens)
+	// The synthesized impls are lowered once the index exists, since a
+	// derived body may call another file's impl, and indexed again after,
+	// so a call never plans one the speculation refused. See settleImpls.
+	for _, g := range gens {
+		if p.stopped() {
+			return nil, nil, ErrStopped
+		}
+		g.settleImpls()
+	}
 	files.resolveImplMembers(gens)
 	// Every file's impls are registered now and no body has been lowered yet,
 	// which is the one window in which "does this PROGRAM implement I for T?"
@@ -331,6 +373,9 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		g.impls = impls
 	}
 	for i := range p.Modules {
+		if p.stopped() {
+			return nil, nil, ErrStopped
+		}
 		errs, hidden := gens[i].emitModule(&p.Modules[i])
 		unsupported = append(unsupported, errs...)
 		masked = append(masked, hidden...)
@@ -358,6 +403,9 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	// VM-only test bodies are built last.
 	for _, g := range gens {
 		g.irRetryWalkOnlyTestBodies()
+	}
+	if p.stopped() {
+		return nil, nil, ErrStopped
 	}
 	// A generic function instance one file asked another for after that
 	// file's walk ended. See siblinggeneric.go.
@@ -396,6 +444,9 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		}
 	}
 	for _, m := range irMods {
+		if p.stopped() {
+			return nil, nil, ErrStopped
+		}
 		irLintFinished(m)
 	}
 	return &Result{HasMain: hasMain,

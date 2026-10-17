@@ -48,7 +48,7 @@ func finiteSeq(n int64) Seq[int64] {
 
 // TestTerminalAnswersArePinnedAbsolutely is the polarity guard.
 //
-// `SeqAny` is `!Run(|x| !pred(x))`, which type-checks with the two negations in
+// `SeqAny` is `!Run(fn x -> !pred(x))`, which type-checks with the two negations in
 // either place, and three of the four wrong arrangements answer correctly for
 // some input. So each terminal is asked four questions whose answers differ:
 // a predicate matching in the middle, one matching nothing, one matching
@@ -269,7 +269,7 @@ func TestTakeWhileBoolIsObservableThroughConcat(t *testing.T) {
 // `drop_while` different from `filter`, and the two produce the same list for
 // every input where the dropped elements happen to be a prefix.
 //
-// `[1, 2, 3, 1] |> Iter.drop_while(|x| x < 3)` is `[3, 1]`: the trailing 1 is
+// `[1, 2, 3, 1] |> Iter.drop_while(fn x -> x < 3)` is `[3, 1]`: the trailing 1 is
 // kept, because the predicate is never asked again once the run has ended. A
 // version that kept testing produces `[3]` — a plausible-looking answer, and
 // the reason the predicate's call count is asserted here as well as the list.

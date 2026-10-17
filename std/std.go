@@ -98,6 +98,11 @@ type StdLib struct {
 	// front end and the language server report these ahead of anything else
 	// (SyntaxError).
 	SyntaxErrors map[string][]parser.ParseError
+	// Base is the stdlib's share of a program's whole-program facts
+	// (analysis.StdBase), which a build given Files takes rather than
+	// folding the stdlib's files itself. Nil when the stdlib does not fit
+	// one, and every build then folds them.
+	Base *analysis.StdBase
 }
 
 // SyntaxError answers every parse error in the embedded stdlib, one
@@ -531,9 +536,14 @@ func Load() *StdLib {
 	// are kept in lib.Errors rather than reported: the user-facing project
 	// pipeline reports errors against user code, and a stdlib error is a
 	// defect in this repository, caught by TestStdlib_AnalyzesWithoutErrors.
+	checked := make(map[string][]analysis.TypeError, len(names))
 	for _, name := range names {
 		errs := append([]analysis.TypeError(nil), lib.Files[name].TypeErrors...)
-		errs = append(errs, analysis.CheckTypes(lib.Files[name], lib.Nodes[name])...)
+		checked[name] = append(errs, analysis.CheckTypes(lib.Files[name], lib.Nodes[name])...)
+	}
+	// The application-field roots, once every module is checked.
+	for _, name := range names {
+		errs := append(checked[name], analysis.CheckAppRoots(lib.Files[name], lib.Nodes[name])...)
 		if len(errs) > 0 {
 			lib.Errors[name] = errs
 		}
@@ -556,6 +566,11 @@ func Load() *StdLib {
 			fa.ModuleScope.MarkShared()
 		}
 	}
+
+	// The stdlib's share of every program's whole-program facts, worked out
+	// once now that every module is checked. A program built against these
+	// analyses folds only its own files over it.
+	lib.Base = analysis.BuildStdBase(lib.Files)
 
 	return lib
 }

@@ -1,0 +1,46 @@
+//# The exercise asks for these without the standard library's list and Iter
+//# functions, so `foldl` walks the list with a pattern and the rest are
+//# folds.
+
+/// Folds `list` from the left: `f(f(f(initial, a), b), c)`.
+pub fn foldl<T, U>(list: List<T>, initial: U, f: (U, T) -> U) -> U {
+    case list {
+        [] -> initial
+        [head, ..tail] -> foldl(tail, f(initial, head), f)
+    }
+}
+
+/// Folds `list` from the right: `f(f(f(initial, c), b), a)`.
+pub fn foldr<T, U>(list: List<T>, initial: U, f: (U, T) -> U) -> U {
+    foldl(reverse(list), initial, f)
+}
+
+/// The items of `list` in the opposite order.
+pub fn reverse<T>(list: List<T>) -> List<T> {
+    foldl(list, [], fn reversed, item -> [item, ..reversed])
+}
+
+/// How many items `list` holds.
+pub fn length<T>(list: List<T>) -> Int {
+    foldl(list, 0, fn count, _item -> count + 1)
+}
+
+/// The items of `first`, then the items of `second`.
+pub fn append<T>(first: List<T>, second: List<T>) -> List<T> {
+    foldr(first, second, fn rest, item -> [item, ..rest])
+}
+
+/// The items of every list in `lists`, in order, in one list.
+pub fn concat<T>(lists: List<List<T>>) -> List<T> {
+    foldr(lists, [], fn rest, list -> append(list, rest))
+}
+
+/// The items of `list` that `keep?` holds for.
+pub fn filter<T>(list: List<T>, keep?: (T) -> Bool) -> List<T> {
+    foldr(list, [], fn rest, item -> if keep?(item) { [item, ..rest] } else { rest })
+}
+
+/// `f` applied to each item of `list`.
+pub fn map<T, U>(list: List<T>, f: (T) -> U) -> List<U> {
+    foldr(list, [], fn rest, item -> [f(item), ..rest])
+}

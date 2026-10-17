@@ -333,6 +333,11 @@
     "operators": {
       "patterns": [
         {
+          "comment": "A map literal's `%{` opens a collection, as `#{` does; only a `%` standing alone is the remainder operator.",
+          "name": "punctuation.section.nomi",
+          "match": "%(?=\\{)"
+        },
+        {
           "name": "keyword.operator.pipe.nomi",
           "match": "\\|>"
         },
@@ -350,7 +355,7 @@
         },
         {
           "name": "keyword.operator.nomi",
-          "match": "[+\\-*/%<>!=|]"
+          "match": "[+\\-*/%<>!=]"
         }
       ]
     },
@@ -426,7 +431,7 @@
       "patterns": [
         {
           "name": "punctuation.section.nomi",
-          "match": "#(?=[\\[{])"
+          "match": "#(?=[\\[{(])"
         },
         {
           "name": "punctuation.separator.nomi",

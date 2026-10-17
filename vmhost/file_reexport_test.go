@@ -9,11 +9,11 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-const reexportLeaf = `pub fn make_box(n: Int): Box {
+const reexportLeaf = `pub fn make_box(n: Int) -> Box {
     Box{value: n}
 }
 
-pub fn open_box(b: Box): Int {
+pub fn open_box(b: Box) -> Int {
     b.value
 }
 

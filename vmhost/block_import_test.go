@@ -41,7 +41,7 @@ func TestBlockImport_StdlibAttachedTest(t *testing.T) {
 /// Probe.
 ` + imp + `//! assert Range.naturals() |> Iter.take(2) |> Iter.to_list() == [0, 1]
 //
-pub fn block_import_probe(): Int {
+pub fn block_import_probe() -> Int {
     0
 }
 `
@@ -79,12 +79,12 @@ pub fn block_import_probe(): Int {
 // scope binds none of those names, so each use resolves through the
 // checker's reference to the block's import.
 func TestBlockImport_UserBodiesAndTests(t *testing.T) {
-	path := writeProgram(t, `fn millis(): Int {
+	path := writeProgram(t, `fn millis() -> Int {
   import std/duration.Duration
   Duration.seconds(2) |> Duration.as_millis()
 }
 
-fn less(): Bool {
+fn less() -> Bool {
   import std/comparable.Ordering.{Less}
   Int.compare(1, 2) == Less
 }
@@ -99,7 +99,7 @@ fn shout(message: String) {
 //! import std/duration.Duration
 //!
 //! assert Duration.minutes(1) |> Duration.as_seconds() == three() * 20
-fn three(): Int {
+fn three() -> Int {
   3
 }
 
@@ -146,12 +146,12 @@ test "a test block imports" {
 // resolve a qualified type name through any import in the file, so a body
 // with no import of its own type-checked against another body's.
 func TestBlockImport_DoesNotReachOtherBodies(t *testing.T) {
-	_, err := vmhost.Load(writeProgram(t, `fn millis(): Int {
+	_, err := vmhost.Load(writeProgram(t, `fn millis() -> Int {
   import std/duration.Duration
   Duration.seconds(2) |> Duration.as_millis()
 }
 
-fn leaked(): Int {
+fn leaked() -> Int {
   Duration.seconds(1) |> Duration.as_millis()
 }
 

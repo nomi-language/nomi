@@ -7,9 +7,9 @@ pub once help = ["a", "b"]
 
 pub once directions = [Direction.North, Direction.South]
 
-pub once doubled = help |> Iter.map(|s| s + s) |> Iter.to_list()
+pub once doubled = help |> Iter.map(fn s -> s + s) |> Iter.to_list()
 
-pub once table = [("a", 1)] |> Iter.to_map()
+pub once table = [#("a", 1)] |> Iter.to_map()
 
 pub struct Limits {
     low: Int

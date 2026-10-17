@@ -39,7 +39,7 @@ replace stringkit => ../stringkit
 	writeFile(t, filepath.Join(todo, "nomi.toml"), `[module]
 name = "todo"
 `)
-	writeFile(t, filepath.Join(todo, "main.nomi"), `fn main(): Unit { () }`)
+	writeFile(t, filepath.Join(todo, "main.nomi"), `fn main() -> Unit { () }`)
 
 	writeFile(t, filepath.Join(stringkit, "go.mod"), `module stringkit
 
@@ -48,7 +48,7 @@ go 1.22
 	writeFile(t, filepath.Join(stringkit, "nomi.toml"), `[module]
 name = "stringkit"
 `)
-	writeFile(t, filepath.Join(stringkit, "pad.nomi"), `pub fn pad(): Unit { () }`)
+	writeFile(t, filepath.Join(stringkit, "pad.nomi"), `pub fn pad() -> Unit { () }`)
 
 	idx, err := BuildModuleIndex(todo)
 	if err != nil {

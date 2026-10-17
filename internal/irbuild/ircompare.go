@@ -218,6 +218,29 @@ func irEmptyCollectionKind(k kind) bool {
 	return k == kindEmptyMap || k == kindEmptySet || k == kindEmptyVector
 }
 
+// irEmptyListsAtInt is tuple kind k with each untyped empty list in it, at
+// any depth of tuples, a `List<Int>`, and whether k held one. An element
+// nothing reads is unobservable, so any element type compares the same.
+func (g *gen) irEmptyListsAtInt(k kind) (kind, bool) {
+	if k == kindEmptyList {
+		return listKindIn(g, kindInt), true
+	}
+	if k.tag != tagTuple || k.comp == nil {
+		return k, false
+	}
+	parts := make([]kind, len(k.comp.parts))
+	held := false
+	for i, p := range k.comp.parts {
+		var h bool
+		parts[i], h = g.irEmptyListsAtInt(p)
+		held = held || h
+	}
+	if !held {
+		return k, false
+	}
+	return g.tupleKind(parts), true
+}
+
 // compareOperands is `compare` once both operands are lowered.
 func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs ir.Temp, lk kind,
 	rhs ir.Temp, rk kind, rmobile bool) (ir.Temp, kind, bool, bool) {
@@ -228,6 +251,12 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 			// `[] == []`: no element is read, so the element type is
 			// unobservable; see untypedListPair.
 			want := listKindIn(bl.g, kindInt)
+			if lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, want); ok {
+				rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, want)
+			}
+		} else if want, holds := bl.g.irEmptyListsAtInt(lk); holds && lk == rk {
+			// `#(1, []) == #(1, [])`: the same, as `[] == []` is, for an
+			// empty list inside a tuple whose element type nothing fixed.
 			if lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, want); ok {
 				rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, want)
 			}
@@ -449,6 +478,25 @@ func (bl *irScalarBuilder) shortCircuit(t *ast.Binary) (ir.Temp, kind, bool, boo
 	}
 	dst := bl.f.NewTemp()
 	sc := ir.BeginShortCircuit(bl.f.Region, bl.b, op, opPos, leftPos, rightPos, dst, lhs)
+	if _, _, leaves := bl.g.exitingOperand(t.Right); leaves {
+		// `ready? or { return Err(e) }`, `x > 0 and f(case x { 1 -> return
+		// True  _ -> return False })`: the right operand leaves the body
+		// when it runs, so the operation is `if ready? { True } else {
+		// <right> }` (`and`: `if x { <right> } else { False }`), the right
+		// operand an arm into dst. Where it leaves, the answer is the
+		// left's, which the entry already copied into dst.
+		join := sc.Branched()
+		outer := bl.sh.result
+		bl.sh.result = dst
+		rk, ok := bl.armInto(sc.Rhs(), join, t.Right, irFuncSig{result: kindBool})
+		bl.sh.result = outer
+		if !ok || (rk != kindBool && rk != kindDiverged) {
+			return no()
+		}
+		bl.b = join
+		bl.side(dst, irScalarSide{k: kindBool})
+		return dst, kindBool, true, true
+	}
 	bl.b = sc.Rhs()
 	rhs, rk, _, ok := bl.lower(t.Right)
 	if !ok || rk != kindBool {

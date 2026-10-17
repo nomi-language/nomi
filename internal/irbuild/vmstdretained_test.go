@@ -112,7 +112,7 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 		vectors := vmArgShapes(mod, fn, modules...)
 		if f := byBody[fn]; f != nil {
 			if args, ok := vmArgsForKindsIn(f.params, irModuleQualifier(mod.Name())); ok {
-				vectors = append([][]any{args}, vectors...)
+				vectors = append([][]any{args, vmAscending(args)}, vectors...)
 			}
 		}
 		for _, args := range vectors {
@@ -193,6 +193,25 @@ func vmArgsForKindsIn(params []kind, qual string) ([]any, bool) {
 		args[i] = v
 	}
 	return args, true
+}
+
+// vmAscending is args with each Int and Float raised by its position, so a
+// body whose scalar parameters must be ordered (`Generator.float(from, to)`
+// traps unless from < to) has a vector that keeps the order. It is tried after
+// args, so a body that runs on equal samples keeps its first answer.
+func vmAscending(args []any) []any {
+	out := make([]any, len(args))
+	for i, a := range args {
+		switch x := a.(type) {
+		case int64:
+			out[i] = x + int64(i)
+		case float64:
+			out[i] = x + float64(i)
+		default:
+			out[i] = a
+		}
+	}
+	return out
 }
 
 // vmTypeNameIn is the run-time name of a declared type, as irTypeSymName

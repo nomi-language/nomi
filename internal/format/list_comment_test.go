@@ -46,7 +46,7 @@ var listCommentCases = []struct {
     x = run(
         // the first
         1, // the end
-        |y| y + 1,
+        fn y -> y + 1,
     )
 }
 `},
@@ -85,7 +85,7 @@ var listCommentCases = []struct {
 }
 `},
 	{"map", `fn main() {
-    x = {
+    x = %{
         // the first
         "a" => 1,
         "b" => 2, // the second
@@ -110,7 +110,7 @@ var listCommentCases = []struct {
 }
 `},
 	{"tuple", `fn main() {
-    x = (
+    x = #(
         // the first
         1,
         2, // the second
@@ -119,12 +119,12 @@ var listCommentCases = []struct {
 }
 `},
 	{"lambda params", `fn main() {
-    f = |
+    f = fn
         // the first
         a, // the first's
         b // the second
         // the end
-    | a + b
+    -> a + b
 }
 `},
 	{"fn params", `fn add(
@@ -132,7 +132,7 @@ var listCommentCases = []struct {
     a: Int,
     b: Int, // the second
     // the end
-): Int {
+) -> Int {
     a + b
 }
 `},
@@ -140,13 +140,13 @@ var listCommentCases = []struct {
     fn add(
         a: self, // the first
         b: self,
-    ): self
+    ) -> self
 }
 `},
 	{"host fn params", `host fn add(
     a: Int, // the first
     b: Int,
-): Int
+) -> Int
 `},
 	{"type args", `fn main() {
     x: Map<
@@ -160,7 +160,7 @@ var listCommentCases = []struct {
     // the first
     A,
     B // the second
->(a: A, b: B): A {
+>(a: A, b: B) -> A {
     a
 }
 `},
@@ -195,7 +195,7 @@ var listCommentCases = []struct {
 `},
 	{"tuple pattern", `fn main() {
     y = case xs {
-        (
+        #(
             // the first
             a, // the first's
             b // the second
@@ -205,7 +205,7 @@ var listCommentCases = []struct {
 `},
 	{"map pattern", `fn main() {
     y = case xs {
-        {
+        %{
             // the first
             "a" => a,
             "b" => b, // the second
@@ -246,7 +246,7 @@ var listCommentCases = []struct {
 }
 `},
 	{"enum payloads", `enum E {
-    Pair (
+    Pair #(
         // the first
         Int,
         Int // the second
@@ -275,15 +275,15 @@ var listCommentCases = []struct {
 }
 `},
 	{"tuple type", `fn main() {
-    f: (
+    f: #(
         // the first
         Int,
         Int // the second
-    ) = (1, 2)
+    ) = #(1, 2)
 }
 `},
 	{"tuple destructure", `fn main() {
-    (
+    #(
         // the first
         a, // the first's
         _,
@@ -300,7 +300,7 @@ var listCommentCases = []struct {
 }
 `},
 	{"map destructure", `fn main() {
-    {
+    %{
         "a" => a, // the first
         // the second
         "b" => b,
@@ -316,7 +316,7 @@ var listCommentCases = []struct {
 }
 `},
 	{"case subject tuple", `fn main() {
-    x = case (
+    x = case #(
         a, // the first
         b,
     ) {
@@ -332,7 +332,7 @@ var listCommentCases = []struct {
 }
 `},
 	{"type-prefixed literals", `fn main() {
-    x = Kvs{
+    x = Kvs%{
         "a" => 1, // the first
     }
 
@@ -382,18 +382,18 @@ func TestListComment_BreaksAListWrittenFlat(t *testing.T) {
 			"x = f(\n    a: 1, // the first\n    b: 2,\n)\n",
 		},
 		{
-			"x = (1, 2 // the second\n)\n",
-			"x = (\n    1,\n    2, // the second\n)\n",
+			"x = #(1, 2 // the second\n)\n",
+			"x = #(\n    1,\n    2, // the second\n)\n",
 		},
 		{
 			// A comment after a lambda parameter's comma keeps the
 			// header's own layout (TestFormat_LambdaParameterCommentStaysAfterItsComma).
-			"f = |a, // the first\n    b| a\n",
-			"f = |a, // the first\n    b| {\n    a\n}\n",
+			"f = fn a, // the first\n    b -> a\n",
+			"f = fn a, // the first\n    b -> {\n    a\n}\n",
 		},
 		{
-			"f = |a, b // the second\n| a\n",
-			"f = |\n    a,\n    b // the second\n| a\n",
+			"f = fn a, b // the second\n-> a\n",
+			"f = fn\n    a,\n    b // the second\n-> a\n",
 		},
 		{
 			"x = A{a: 1, // the first\n    b: 2}\n",
@@ -436,13 +436,13 @@ func TestListComment_AtTheBrackets(t *testing.T) {
 	for _, c := range []struct{ name, src, want string }{
 		{
 			"after a parameter list's (",
-			"fn double( // why\n    n: Int,\n): Int {\n    n * 2\n}\n",
-			"fn double(\n    // why\n    n: Int,\n): Int {\n    n * 2\n}\n",
+			"fn double( // why\n    n: Int,\n) -> Int {\n    n * 2\n}\n",
+			"fn double(\n    // why\n    n: Int,\n) -> Int {\n    n * 2\n}\n",
 		},
 		{
 			"inside a map pattern",
-			"fn f(m: Map<String, Int>): Int {\n    case m {\n        { // the key\n            \"a\" => n,\n        } -> n\n        _ -> 0\n    }\n}\n",
-			"fn f(m: Map<String, Int>): Int {\n    case m {\n        {\n            // the key\n            \"a\" => n,\n        } -> n\n        _ -> 0\n    }\n}\n",
+			"fn f(m: Map<String, Int>) -> Int {\n    case m {\n        %{ // the key\n            \"a\" => n,\n        } -> n\n        _ -> 0\n    }\n}\n",
+			"fn f(m: Map<String, Int>) -> Int {\n    case m {\n        %{\n            // the key\n            \"a\" => n,\n        } -> n\n        _ -> 0\n    }\n}\n",
 		},
 		{
 			"closing a spread list",
@@ -451,29 +451,29 @@ func TestListComment_AtTheBrackets(t *testing.T) {
 		},
 		{
 			"closing a tuple",
-			"fn main() {\n    t = (1, 2 // why\n    )\n    _ = t\n}\n",
-			"fn main() {\n    t = (\n        1,\n        2, // why\n    )\n\n    _ = t\n}\n",
+			"fn main() {\n    t = #(1, 2 // why\n    )\n    _ = t\n}\n",
+			"fn main() {\n    t = #(\n        1,\n        2, // why\n    )\n\n    _ = t\n}\n",
 		},
 		{
 			"an interface function's parameters",
-			"interface Greeter {\n  fn greet( // c1\nvalue: self): String // t2\n}\n",
-			"interface Greeter {\n    fn greet(\n        // c1\n        value: self,\n    ): String // t2\n}\n",
+			"interface Greeter {\n  fn greet( // c1\nvalue: self) -> String // t2\n}\n",
+			"interface Greeter {\n    fn greet(\n        // c1\n        value: self,\n    ) -> String // t2\n}\n",
 		},
 		{
 			"a map pattern in a variant pattern",
-			"fn f(j: Maybe<Map<String, Int>>): Int {\n    case j {\n        Some({ // t10\n            \"a_rather_long_key_rather_long_key_rather_long_key\" => a,\n            \"b_rather_long_key_rather_long_key_rather_long_key\" => b,\n        }) -> a + b\n        _ -> 0\n    }\n}\n",
-			"fn f(j: Maybe<Map<String, Int>>): Int {\n    case j {\n        Some({\n            // t10\n            \"a_rather_long_key_rather_long_key_rather_long_key\" => a,\n            \"b_rather_long_key_rather_long_key_rather_long_key\" => b,\n        }) -> a + b\n        _ -> 0\n    }\n}\n",
+			"fn f(j: Maybe<Map<String, Int>>) -> Int {\n    case j {\n        Some(%{ // t10\n            \"a_rather_long_key_rather_long_key_rather_long_key\" => a,\n            \"b_rather_long_key_rather_long_key_rather_long_key\" => b,\n        }) -> a + b\n        _ -> 0\n    }\n}\n",
+			"fn f(j: Maybe<Map<String, Int>>) -> Int {\n    case j {\n        Some(%{\n            // t10\n            \"a_rather_long_key_rather_long_key_rather_long_key\" => a,\n            \"b_rather_long_key_rather_long_key_rather_long_key\" => b,\n        }) -> a + b\n        _ -> 0\n    }\n}\n",
 		},
 		{
 			// The parentheses stay for the comment, which they hold.
 			"inside grouping parentheses",
-			"fn f(): Int {\n    y = try ( // why\n        g())\n    y\n}\n",
-			"fn f(): Int {\n    y = try (\n        // why\n        g()\n    )\n\n    y\n}\n",
+			"fn f() -> Int {\n    y = try ( // why\n        g())\n    y\n}\n",
+			"fn f() -> Int {\n    y = try (\n        // why\n        g()\n    )\n\n    y\n}\n",
 		},
 		{
 			"a struct pattern in a case arm",
-			"fn area(s: Shape): Int {\n    case s {\n        Shape.Rect{ // c2\n            width_rather_long_rather_long_rather_long_rather_long_rather_long, height} -> width_rather_long_rather_long_rather_long_rather_long_rather_long * height\n        Shape.Point -> 0\n    }\n}\n",
-			"fn area(s: Shape): Int {\n    case s {\n        Shape.Rect{\n            // c2\n            width_rather_long_rather_long_rather_long_rather_long_rather_long,\n            height,\n        } -> width_rather_long_rather_long_rather_long_rather_long_rather_long * height\n        Shape.Point -> 0\n    }\n}\n",
+			"fn area(s: Shape) -> Int {\n    case s {\n        Shape.Rect{ // c2\n            width_rather_long_rather_long_rather_long_rather_long_rather_long, height} -> width_rather_long_rather_long_rather_long_rather_long_rather_long * height\n        Shape.Point -> 0\n    }\n}\n",
+			"fn area(s: Shape) -> Int {\n    case s {\n        Shape.Rect{\n            // c2\n            width_rather_long_rather_long_rather_long_rather_long_rather_long,\n            height,\n        } -> width_rather_long_rather_long_rather_long_rather_long_rather_long * height\n        Shape.Point -> 0\n    }\n}\n",
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -498,27 +498,27 @@ func TestListComment_KeepsMeaningOnFoundLayouts(t *testing.T) {
 			"fn main() {\n    x =\n        Map.empty<String, Int>(\n            // b4\n        )\n        |> Map.size(\n            // a5\n        )\n        |> dbg // t6\n}\n",
 		},
 		{
-			"fn long_sleep( // b12\n     ): Result<Int, // a13\n\t\tString> { // t14\n    1\n}\n",
-			"fn long_sleep(\n    // b12\n): Result<\n    Int, // a13\n    String\n> {\n    // t14\n    1\n}\n",
+			"fn long_sleep( // b12\n     ) -> Result<Int, // a13\n\t\tString> { // t14\n    1\n}\n",
+			"fn long_sleep(\n    // b12\n) -> Result<\n    Int, // a13\n    String\n> {\n    // t14\n    1\n}\n",
 		},
 		{
-			"fn main() {\n    (sized,\n// b12\n_) = pair\n}\n",
-			"fn main() {\n    (\n        sized,\n        // b12\n        _\n    ) = pair\n}\n",
+			"fn main() {\n    #(sized,\n// b12\n_) = pair\n}\n",
+			"fn main() {\n    #(\n        sized,\n        // b12\n        _\n    ) = pair\n}\n",
 		},
 		{
 			"fn main() {\n    io.print(\n        ( // a4\n   fetch.waits())\n        |> Iter.to_list()\n    )\n}\n",
 			"fn main() {\n    io.print(\n        (\n            // a4\n            fetch.waits()\n        )\n        |> Iter.to_list()\n    )\n}\n",
 		},
 		{
-			"fn main() {\n    f = |acc1 = g(1), // a79\n        // a18\n        // b19\n        e2| e2\n}\n",
-			"fn main() {\n    f = |\n        acc1 = g(1), // a79\n        // a18\n        // b19\n        e2\n    | e2\n}\n",
+			"fn main() {\n    f = fn acc1 = g(1), // a79\n        // a18\n        // b19\n        e2 -> e2\n}\n",
+			"fn main() {\n    f = fn\n        acc1 = g(1), // a79\n        // a18\n        // b19\n        e2\n    -> e2\n}\n",
 		},
 		{
 			// A comment after a map destructure's `{` used to move below
 			// the statement, leaving the file without its last newline
 			// (vmhost's gapMapPatternOpeningCommentEndsFileWithoutNewline).
-			"x = 1\n\n{ // t4\n \"a\" => y} = m // end\n",
-			"x = 1\n\n{\n    // t4\n    \"a\" => y,\n} = m // end\n",
+			"x = 1\n\n%{ // t4\n \"a\" => y} = m // end\n",
+			"x = 1\n\n%{\n    // t4\n    \"a\" => y,\n} = m // end\n",
 		},
 		{
 			// A comment the last statement could not end goes below it as
@@ -536,8 +536,8 @@ func TestListComment_KeepsMeaningOnFoundLayouts(t *testing.T) {
 			// A struct spread's comments, two comments after one item,
 			// and comments in parentheses around a parameter, a
 			// destructured name, a `with` value and a variant's payload.
-			"fn main() {\n    also_same = {.. // c1\n           user, address: {..user.address, city: \"NYC\"}}\n    f = |( // a23\n     _acc1) = 1, e2| e2\n    (numbers, (\n    // b10\n  errors)) = pair\n    with App.clock = ( // a9\nFakeClock{at: 1})\n    y = case xs {\n        .Dynamic( // a3\n         v) -> v\n    }\n}\n\ninterface Formatted {\n    fn format(\n   // b1\n             value: self // c2\n            , // a3\n\tstyle: String): String // t4\n}\n",
-			"fn main() {\n    also_same = {\n        ..user, // c1\n        address: {..user.address, city: \"NYC\"},\n    }\n\n    f = |\n        // a23\n        _acc1 = 1,\n        e2\n    | e2\n\n    (\n        numbers,\n        // b10\n        errors\n    ) = pair\n\n    with App.clock = (\n        // a9\n        FakeClock{at: 1}\n    )\n\n    y = case xs {\n        .Dynamic(\n            // a3\n            v\n        ) -> v\n    }\n}\n\ninterface Formatted {\n    fn format(\n        // b1\n        value: self, // c2\n        // a3\n        style: String,\n    ): String // t4\n}\n",
+			"fn main() {\n    also_same = {.. // c1\n           user, address: {..user.address, city: \"NYC\"}}\n    f = fn ( // a23\n     _acc1) = 1, e2 -> e2\n    #(numbers, (\n    // b10\n  errors)) = pair\n    with App.clock = ( // a9\nFakeClock{at: 1})\n    y = case xs {\n        .Dynamic( // a3\n         v) -> v\n    }\n}\n\ninterface Formatted {\n    fn format(\n   // b1\n             value: self // c2\n            , // a3\n\tstyle: String) -> String // t4\n}\n",
+			"fn main() {\n    also_same = {\n        ..user, // c1\n        address: {..user.address, city: \"NYC\"},\n    }\n\n    f = fn\n        // a23\n        _acc1 = 1,\n        e2\n    -> e2\n\n    #(\n        numbers,\n        // b10\n        errors\n    ) = pair\n\n    with App.clock = (\n        // a9\n        FakeClock{at: 1}\n    )\n\n    y = case xs {\n        .Dynamic(\n            // a3\n            v\n        ) -> v\n    }\n}\n\ninterface Formatted {\n    fn format(\n        // b1\n        value: self, // c2\n        // a3\n        style: String,\n    ) -> String // t4\n}\n",
 		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

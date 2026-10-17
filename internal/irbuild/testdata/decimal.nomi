@@ -225,7 +225,7 @@ test "min and max pick by value, not by scale" {
 // fails only here — and the arm order below is what makes a too-eager match
 // visible too, since a first arm that matched everything would answer 1 for all
 // four calls.
-fn classify(d: Decimal): Int {
+fn classify(d: Decimal) -> Int {
     case d {
         1.5d -> 1
         2d -> 2

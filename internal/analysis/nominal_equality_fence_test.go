@@ -16,8 +16,8 @@ import (
 // checks, and only the first one was ever quoted.
 func TestNominalEquality_TwoModulesSameNameIsRefused(t *testing.T) {
 	siblings := map[string]string{
-		"alpha": "pub struct Point {\n  x: Int\n}\n\npub fn make(): Point {\n  Point{x: 1}\n}\n",
-		"beta":  "pub struct Point {\n  x: Int\n}\n\npub fn make(): Point {\n  Point{x: 1}\n}\n",
+		"alpha": "pub struct Point {\n  x: Int\n}\n\npub fn make() -> Point {\n  Point{x: 1}\n}\n",
+		"beta":  "pub struct Point {\n  x: Int\n}\n\npub fn make() -> Point {\n  Point{x: 1}\n}\n",
 	}
 
 	// Route 1: the `==` operator. checker.go's equality arm compares origins.
@@ -30,7 +30,7 @@ func TestNominalEquality_TwoModulesSameNameIsRefused(t *testing.T) {
 	// same comparison (`Map.get(m, otherModulesKey)`). A different check,
 	// naming both origins the same way.
 	errs = buildProjectExpectingErrors(t,
-		"import alpha\nimport beta\n\nfn take(p: alpha.Point): Int {\n  p.x\n}\n\nfn main() {\n  n = take(beta.make())\n}\n",
+		"import alpha\nimport beta\n\nfn take(p: alpha.Point) -> Int {\n  p.x\n}\n\nfn main() {\n  n = take(beta.make())\n}\n",
 		siblings)
 	assertErrorContains(t, errs, "argument 1: expected alpha.Point, got beta.Point")
 }

@@ -7,14 +7,14 @@ import "testing"
 // an annotation was never checked at all: each of these was accepted.
 func TestParamDefault_WrongTypeIsRejected(t *testing.T) {
 	for name, src := range map[string]string{
-		"fn": `fn f(x: Int = "s"): Int {
+		"fn": `fn f(x: Int = "s") -> Int {
   x
 }`,
-		"lambda": `fn main(): Unit {
-  g = |a: Int = "t", b: Int| a + b
+		"lambda": `fn main() -> Unit {
+  g = fn a: Int = "t", b: Int -> a + b
 }`,
-		"reduce seed": `fn main(): Unit {
-  n = Iter.reduce([1, 2], |c: Int = "u", x| c + x)
+		"reduce seed": `fn main() -> Unit {
+  n = Iter.reduce([1, 2], fn c: Int = "u", x -> c + x)
 }`,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -34,13 +34,13 @@ impl Count {
   once zero: Count = Count{n: 0}
 }
 
-fn bump(by: Int, c: Count = Count.zero, seen: List<Int> = []): Count {
+fn bump(by: Int, c: Count = Count.zero, seen: List<Int> = []) -> Count {
   Count{n: c.n + by}
 }
 
-fn main(): Unit {
-  total = Iter.reduce([1, 2], |c: Count = Count.zero, x| Count{n: c.n + x})
-  add = |by: Int, c: Count = Count.zero| Count{n: c.n + by}
+fn main() -> Unit {
+  total = Iter.reduce([1, 2], fn c: Count = Count.zero, x -> Count{n: c.n + x})
+  add = fn by: Int, c: Count = Count.zero -> Count{n: c.n + by}
 }`
 	expectClean(t, checkWithStdlib(src))
 }

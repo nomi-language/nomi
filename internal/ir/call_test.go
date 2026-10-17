@@ -299,7 +299,7 @@ func TestIRCall_TailIsTheOnlyPredicate(t *testing.T) {
 	// a model that could not express the shape would make it uncountable.
 	if !ir.NewIndirectCall(callPos(), 1, ir.TailCall, 2, 3).Tail() {
 		t.Errorf("an indirect call cannot be in tail position in this model. " +
-			"`fn applies?(v: Int, f: (Int) -> Bool): Bool { f(v) }` is one, and it is the " +
+			"`fn applies?(v: Int, f: (Int) -> Bool) -> Bool { f(v) }` is one, and it is the " +
 			"shape of every one-line higher-order wrapper")
 	}
 }

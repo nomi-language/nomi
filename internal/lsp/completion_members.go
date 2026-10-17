@@ -134,10 +134,8 @@ func (r *completionRequest) ownerFunctions(owner string) map[string]*analysis.Sy
 			}
 		}
 	}
-	for name, sym := range r.fa.TypeMethods[owner] {
-		if sym != nil {
-			out[name] = sym
-		}
+	for name, sym := range r.fa.VisibleTypeMethods(owner) {
+		out[name] = sym
 	}
 	return out
 }

@@ -27,7 +27,7 @@ struct Labeled<T> {
 }
 
 impl Debug for Labeled<T> {
-    fn inspect(labeled: Labeled<T>): String {
+    fn inspect(labeled: Labeled<T>) -> String {
         "<${labeled.label}>"
     }
 }

@@ -21,11 +21,11 @@
 // rows use, chosen from the value's kind, and
 // `assert Ok(d) = parse(s)`, which is what the construct is actually for in the
 // corpus, is here.
-fn compute(): Int {
+fn compute() -> Int {
     7
 }
 
-fn label(): String {
+fn label() -> String {
     "ok"
 }
 
@@ -56,7 +56,7 @@ test "a String that does not match shows its quotes in the report" {
     assert "no" = label()
 }
 
-fn parse(s: String): Result<Int, String> {
+fn parse(s: String) -> Result<Int, String> {
     Err("not a number: " + s)
 }
 

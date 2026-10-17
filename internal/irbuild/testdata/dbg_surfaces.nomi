@@ -50,25 +50,25 @@ struct Custom {
 }
 
 impl Debug for Custom {
-    fn inspect(v: Custom): String {
+    fn inspect(v: Custom) -> String {
         _ = v
         "CUSTOM-DEBUG"
     }
 }
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 
-fn no_rev(_v: Rev): Bool {
+fn no_rev(_v: Rev) -> Bool {
     False
 }
 
-fn no_custom(_v: Custom): Bool {
+fn no_custom(_v: Custom) -> Bool {
     False
 }
 
-fn no_meters(_v: Meters): Bool {
+fn no_meters(_v: Meters) -> Bool {
     False
 }
 
@@ -104,7 +104,7 @@ test "the values row for the same opaque value shows the payload" {
 
 test "dbg over containers and prelude instances" {
     _list = dbg [Rev{zeta: 1, alpha: 2}]
-    _pair = dbg (1, "two")
+    _pair = dbg #(1, "two")
     _some = dbg Some(42)
     _none: Maybe<Int> = dbg None
     _rec = dbg {a: 1, a0: 2}

@@ -21,7 +21,7 @@
 // rendering surface in the family and no field-by-field assertion reaches it.
 import std/testing
 
-fn find_name(id: Int): Maybe<String> {
+fn find_name(id: Int) -> Maybe<String> {
     if id == 1 { Some("Ada") } else { None }
 }
 

@@ -98,7 +98,7 @@ func (g *gen) inferredParamKind(p ast.Param) (analysis.Type, kind) {
 		// NAME — so this asks the same question that recording answered, and
 		// cannot read some other symbol that happens to share a position.
 		//
-		// Despite the name match, a DISCARD parameter does NOT land here. `|_| 7` gets a real SymbolParam named
+		// Despite the name match, a DISCARD parameter does NOT land here. `fn _ -> 7` gets a real SymbolParam named
 		// "_" carrying the caller's type, so it lowers, and
 		// testdata/lambda_inferred.nomi pins that. What lands here is a lambda
 		// in a position no expected type reaches — an element of a list or
@@ -192,7 +192,7 @@ func (g *gen) project(t analysis.Type) kind {
 		}
 		// A BLESSED primitive with an rt type. Named through the same
 		// singleton-pointer identity the annotation channel uses, so
-		// `|b| Byte.to_int(b)` and `fn f(b: Byte)` cannot become two rows.
+		// `fn b -> Byte.to_int(b)` and `fn f(b: Byte)` cannot become two rows.
 		// See stdhost.go.
 		// kindInvalid: lookup — origin-backed hosts need a declaration anchor.
 		if k := stdHostKindOfPrimitive(ty); k != kindInvalid {
@@ -217,7 +217,7 @@ func (g *gen) project(t analysis.Type) kind {
 			if k, isGenStruct := g.genStructOfType(ty.Origin, ty.Name, args); isGenStruct {
 				return k
 			}
-			// A generic instantiation the checker solved — `|b| b.item` over a
+			// A generic instantiation the checker solved — `fn b -> b.item` over a
 			// `Box<Inner>`. Answered so the annotated `b: Box<Inner>` and the
 			// inferred one are not two different answers about one position,
 			// which is the rule the Map arm below states. A template this
@@ -228,7 +228,7 @@ func (g *gen) project(t analysis.Type) kind {
 			// AFTER the std arm above, matching typeOf's precedence: a program
 			// declaring its own `Set` cannot shadow the std family through this
 			// door either.
-			if k, isUserGeneric := g.projectGenericInstance(ty.Origin, ty.Name, ty.TypeArgs); isUserGeneric {
+			if k, isUserGeneric := g.projectGenericInstance(ty.TypeParamDefs, ty.Origin, ty.Name, ty.TypeArgs); isUserGeneric {
 				return k
 			}
 			// A generic instantiation with no representation. types.go refuses a
@@ -239,13 +239,13 @@ func (g *gen) project(t analysis.Type) kind {
 		// A stdlib RECORD struct — `Diagnostic`, `DateTime` — whose Go type rt
 		// declares. Answered before localNamed and by (Origin, Name) rather
 		// than through module scope, because the checker solves this type for
-		// positions where the program never writes the NAME: `|diagnostic|`
+		// positions where the program never writes the NAME: `fn diagnostic ->`
 		// over `compiler.check(src)`. Same rule as the EnumType arm's
 		// projectStdEnum below. See stdstruct.go's stdStructOfType.
 		if d, isStdStruct := stdStructOfType(ty.Origin, ty.Name); isStdStruct {
 			return named(d)
 		}
-		return g.localNamed(ty.Origin, ty.Name, func(d *typeDef) bool {
+		return g.localNamed(ty, ty.Origin, ty.Name, func(d *typeDef) bool {
 			return !d.isEnum && !d.isDistinct
 		})
 
@@ -261,7 +261,7 @@ func (g *gen) project(t analysis.Type) kind {
 		}
 		// A MONOMORPHIC stdlib enum — `Ordering` — whose Go type rt also
 		// declares. Answered here so the annotated `o: Ordering` and the
-		// inferred `|o|` over one are not two different answers about one
+		// inferred `fn o ->` over one are not two different answers about one
 		// parameter, which is the rule this file's Map arm below states.
 		if k, isStdEnum := g.projectStdEnum(ty); isStdEnum {
 			return k
@@ -269,12 +269,12 @@ func (g *gen) project(t analysis.Type) kind {
 		if len(ty.TypeArgs) > 0 {
 			// A user generic enum the checker solved (`Wrapper<Int>`), by
 			// the struct arm's rule.
-			if k, isUserGeneric := g.projectGenericInstance(ty.Origin, ty.Name, ty.TypeArgs); isUserGeneric {
+			if k, isUserGeneric := g.projectGenericInstance(ty.TypeParamDefs, ty.Origin, ty.Name, ty.TypeArgs); isUserGeneric {
 				return k
 			}
 			return kindInvalid
 		}
-		return g.localNamed(ty.Origin, ty.Name, func(d *typeDef) bool { return d.isEnum })
+		return g.localNamed(ty, ty.Origin, ty.Name, func(d *typeDef) bool { return d.isEnum })
 
 	case *analysis.DistinctType:
 		// A GENERIC std HOST type — `Sender<Int>` — asked FIRST because it is
@@ -309,7 +309,7 @@ func (g *gen) project(t analysis.Type) kind {
 		if k, isStd := g.projectStdOpaque(ty); isStd {
 			return k
 		}
-		return g.localNamed(ty.Origin, ty.Name, func(d *typeDef) bool { return d.isDistinct })
+		return g.localNamed(ty, ty.Origin, ty.Name, func(d *typeDef) bool { return d.isDistinct })
 
 	case *analysis.ListType:
 		return g.listKind(g.project(ty.Elem))
@@ -317,7 +317,7 @@ func (g *gen) project(t analysis.Type) kind {
 	case *analysis.MapType:
 		// The annotated spelling lowers through maps.go's `Map<K, V>`; this
 		// arm stops the two spellings of one parameter from disagreeing.
-		// `m: Map<String, Int>` lowering while `|m|` over the same value
+		// `m: Map<String, Int>` lowering while `fn m ->` over the same value
 		// refuses would not be a smaller subset, it would be two answers to
 		// one question.
 		return g.mapKind(g.project(ty.Key), g.project(ty.Val))
@@ -342,12 +342,13 @@ func (g *gen) project(t analysis.Type) kind {
 		return g.anonStructKind(names, parts)
 
 	case *analysis.FuncType:
-		// A function VALUE with defaults or a method-level `where` bound is
-		// not a plain Go func: the first needs a call-site arity rule the
-		// builder does not encode in a kind, the second is dispatch. Both are
-		// refused rather than flattened away, because flattening them
-		// produces a kind that lowers and then loses an argument.
-		if ty.Return == nil || ty.DefaultCount > 0 || len(ty.WhereBounds) > 0 {
+		// A function type with defaults is its full parameter list: a call
+		// that omits one goes through a declaration (a declared fn, a lambda
+		// or partial bound to a name), whose suppliers the builder finds from
+		// the value (callablePlan), and the checker requires every argument
+		// of any other call through a function value. A function VALUE with
+		// a method-level `where` bound is dispatch, and is refused.
+		if ty.Return == nil || len(ty.WhereBounds) > 0 {
 			return kindInvalid
 		}
 		params := make([]kind, len(ty.Params))
@@ -418,7 +419,17 @@ func (g *gen) project(t analysis.Type) kind {
 // ANNOTATION (namedType consults foreignType). Without it project would answer
 // kindInvalid, and the reason-walk behind it would name `unlowered type` for a
 // mirror that is lowerable.
-func (g *gen) localNamed(origin, name string, shape func(*typeDef) bool) kind {
+func (g *gen) localNamed(t analysis.Type, origin, name string, shape func(*typeDef) bool) kind {
+	if bd := g.blockLocalOfType(t); bd != nil {
+		// A type a block of this file declares, found by the checker's
+		// type for its declaration rather than by name, so a value of it
+		// that escapes its block (`w = { struct Loc {…}  Loc{n: 1} }`) is
+		// still that type where the name no longer resolves.
+		if !bd.lowerable || !shape(bd) {
+			return kindInvalid
+		}
+		return named(bd)
+	}
 	if bd, isBlockLocal := g.blockLocalNamed(name); isBlockLocal && (origin == "" || origin == g.fa.Origin) {
 		// A type the enclosing block declares, which the checker stamps with
 		// no origin or with this file's. Its identity there is the name, so
@@ -446,7 +457,7 @@ func (g *gen) localNamed(origin, name string, shape func(*typeDef) bool) kind {
 //
 // Resolved by ORIGIN rather than by this file's imports, because the positions
 // that reach here are exactly the ones where the program never writes the name
-// — `|w| w.name` over a list a sibling's function returned. There is no import
+// — `fn w -> w.name` over a list a sibling's function returned. There is no import
 // binding to consult.
 func (g *gen) siblingNamed(origin, name string, shape func(*typeDef) bool) kind {
 	o := g.siblingOwner(origin, name)

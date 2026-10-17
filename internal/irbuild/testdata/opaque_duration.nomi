@@ -4,7 +4,7 @@ import {
     std/timer
 }
 
-fn main(): Unit {
+fn main() -> Unit {
     d = Duration.seconds(3)
     io.print("d = ${Duration.to_string(d)}")
     io.print("nanos = ${Int.to_string(Duration.as_nanos(d))}")

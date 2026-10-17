@@ -144,10 +144,12 @@ var vmReportWithValueRows = []string{
 	"debug_display_surfaces.nomi",
 	"iter_operand_report.nomi",
 	"subtests_report.nomi",
+	"subtests_names_report.nomi",
 }
 
 var vmReportWithSourceFragment = []string{
 	"subtests_report.nomi",
+	"subtests_names_report.nomi",
 	"untyped_list_report.nomi",
 	"dbg_surfaces.nomi",
 	"anon_struct.nomi",

@@ -25,10 +25,10 @@
 import std/io
 
 interface Tagger {
-    fn tag(label: String, target: self): String
-    fn wrap(prefix: String, suffix: String, target: self): String
+    fn tag(label: String, target: self) -> String
+    fn wrap(prefix: String, suffix: String, target: self) -> String
 
-    open fn describe(label: String, target: self): String {
+    open fn describe(label: String, target: self) -> String {
         "<" + Tagger.tag(label, target) + ">"
     }
 }
@@ -46,48 +46,48 @@ struct Shelf {
 }
 
 impl Tagger for Box {
-    fn tag(label: String, b: Box): String {
+    fn tag(label: String, b: Box) -> String {
         "${label}:${b.n}"
     }
 
-    fn wrap(prefix: String, suffix: String, b: Box): String {
+    fn wrap(prefix: String, suffix: String, b: Box) -> String {
         _ = b
         prefix + "box" + suffix
     }
 }
 
 impl Tagger for Cup {
-    fn tag(label: String, c: Cup): String {
+    fn tag(label: String, c: Cup) -> String {
         "${label}=${c.n}"
     }
 
-    fn wrap(prefix: String, suffix: String, c: Cup): String {
+    fn wrap(prefix: String, suffix: String, c: Cup) -> String {
         _ = c
         prefix + "cup" + suffix
     }
 
-    fn describe(label: String, c: Cup): String {
+    fn describe(label: String, c: Cup) -> String {
         "[" + Tagger.tag(label, c) + "]"
     }
 }
 
-fn as_box(n: Int): Tagger {
+fn as_box(n: Int) -> Tagger {
     Box{n}
 }
 
-fn as_cup(n: Int): Tagger {
+fn as_cup(n: Int) -> Tagger {
     Cup{n}
 }
 
-fn tag_erased(t: Tagger): String {
+fn tag_erased(t: Tagger) -> String {
     Tagger.tag("erased", t)
 }
 
-fn wrap_erased(t: Tagger): String {
+fn wrap_erased(t: Tagger) -> String {
     Tagger.wrap("<", ">", t)
 }
 
-fn shelf_tag(s: Shelf): String {
+fn shelf_tag(s: Shelf) -> String {
     Tagger.tag("shelf", s.item)
 }
 

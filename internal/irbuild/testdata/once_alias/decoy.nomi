@@ -3,6 +3,6 @@
 // across units picks the wrong declaration and prints 99 where 7 is correct.
 pub once config: Int = 99
 
-pub fn reveal(): Int {
+pub fn reveal() -> Int {
     config
 }

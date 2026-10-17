@@ -11,7 +11,7 @@ import {
 pub type ProdLogger
 
 impl Logger for ProdLogger {
-    fn log(_value: ProdLogger, level: String, message: String): Unit {
+    fn log(_value: ProdLogger, level: String, message: String) -> Unit {
         io.print("[${level}] ${message}")
     }
 }
@@ -23,7 +23,7 @@ pub struct TaggedLogger {
 }
 
 impl Logger for TaggedLogger {
-    fn log(value: TaggedLogger, level: String, message: String): Unit {
+    fn log(value: TaggedLogger, level: String, message: String) -> Unit {
         io.print("[${value.tag}|${level}] ${message}")
     }
 
@@ -33,7 +33,7 @@ impl Logger for TaggedLogger {
     // The matching final `warn` default cannot be overridden — the
     // interface omitted `open` deliberately, so any `fn warn(...)` here
     // would error with "mark it `open` on the interface to allow overriding."
-    fn info(value: TaggedLogger, message: String): Unit {
+    fn info(value: TaggedLogger, message: String) -> Unit {
         io.print("[${value.tag}] ${message}")
     }
 }

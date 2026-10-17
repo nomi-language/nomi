@@ -100,7 +100,7 @@ const (
 	// tagIface is an existential. Its identity is the *ifaceDef, so two
 	// interfaces are two kinds however identically they lower.
 	tagIface
-	// tagList is `List<T>` and tagTuple `(A, B, …)`. Both structural: the
+	// tagList is `List<T>` and tagTuple `#(A, B, …)`. Both structural: the
 	// identity is the interned *compKind, not the tag, because one tag covers
 	// unboundedly many Go types. See collections.go.
 	tagList
@@ -223,7 +223,7 @@ func (k kind) key() string {
 //
 // Deliberately NOT generic over structural kinds: whether one stores nothing
 // depends on the tag. A Go func value is a pointer pair and never vanishes,
-// while a hypothetical `(Unit, Unit)` genuinely stores nothing — so each
+// while a hypothetical `#(Unit, Unit)` genuinely stores nothing — so each
 // structural tag answers for itself rather than inheriting a guess.
 func (k kind) zeroSized() bool {
 	return k.zeroSizedOn(nil)
@@ -532,6 +532,14 @@ type gen struct {
 	blockTypeOrder  []*ast.Block
 	blockLocalOrder []*typeDef
 	typeScopes      []*blockTypeDecls
+	// blockLocalByType is each non-generic block-local def by the checker's
+	// type for its declaration, and blockLocalTemplates each generic one's
+	// template by its declaration's first type parameter, built by
+	// indexBlockLocals over the first blockLocalIndexed blocks of
+	// blockTypeOrder.
+	blockLocalByType    map[analysis.Type]*typeDef
+	blockLocalTemplates map[*analysis.TypeParam_]*genericTemplate
+	blockLocalIndexed   int
 	// nestedCalls is the checker's instantiated signature at each call of a
 	// generic fn, by the fn, indexed once (nestedGenericCalls in
 	// irnestedfn.go).
@@ -721,6 +729,10 @@ type gen struct {
 	// them by (interface spelling, receiver kind) for dispatch.
 	implOrder    []*implDef
 	implsByIface map[string]map[kind]*implDef
+	// erasedInstances are the generic struct instances this unit holds as
+	// an interface's existential (irErases), whose per-instance impls
+	// irInstanceImpls records for the VM's dispatch.
+	erasedInstances map[kind]bool
 	// ownerImpls is the owner functions of each inherent block on a generic
 	// type or an interface, by the owner's name: the functions whose
 	// signature names none of the block's type parameters, built once with
@@ -843,6 +855,10 @@ type gen struct {
 	// unitFnLambda is the lambda a nested Unit `fn` is lowering as: its
 	// body may end in a `dbg` observation, whose value is discarded.
 	unitFnLambda *ast.Lambda
+	// declaredFnLambda is the lambda a nested `fn` with a declared result
+	// is lowering as: its result is that type (lambdaWant), never the
+	// body's own.
+	declaredFnLambda *ast.Lambda
 	// rebuilding is the path of (have, want) pairs whose widening adapter is
 	// being built (irembedsrebuild.go), each with the adapter's function and
 	// its self parameter, so a generic enum that holds itself calls its own
@@ -919,6 +935,10 @@ type gen struct {
 	importWhy       string
 	typesBusy       bool
 	typesDone       bool
+	// building is the type group this file's types are built in, a group
+	// of this file alone when it is on no cycle; nil until the build starts
+	// and for a stdlib module. See typecycle.go.
+	building *typeGroup
 	// funcsDone marks declareFuncs having finished, which is the earliest this
 	// package's impl table is COMPLETE. A cross-package question about whether
 	// the program declares an impl at all — noEquatableImpl's foreign arm —
@@ -1065,13 +1085,11 @@ func (g *gen) declareFuncs() {
 	// Signatures are collected before any body is emitted: Nomi has no
 	// forward-declaration rule, so a call on line 3 to a function declared on
 	// line 30 is legal and must resolve.
-	decls := map[string]*ast.FuncDef{}
 	for _, n := range g.nodes {
 		fd, ok := n.(*ast.FuncDef)
 		if !ok || fd.ImplFunction {
 			continue
 		}
-		decls[fd.Name] = fd
 		g.funcs[fd.Name] = g.signature(fd)
 	}
 	// A Go-bound `host fn`, on the same footing as a `fn` and for the reason
@@ -1093,15 +1111,36 @@ func (g *gen) declareFuncs() {
 	// once.go.
 	g.declareOnces()
 
-	// Impls next: an impl item's signature may name any declared type, and a
-	// synthesized block's body — which buildImpls lowers speculatively — may
-	// call any module function. Both have to be resolvable first.
+	// Impls next: an impl item's signature may name any declared type. Only
+	// registered here; settleImpls lowers the synthesized ones once every
+	// file's impls are registered and indexed.
 	g.buildImpls(g.nodes)
+	g.funcsDone = true
+}
 
+// settleImpls lowers the module's synthesized impl blocks speculatively, then
+// builds its tail-call graph.
+//
+// It runs after every file's declareFuncs and after the program's impl
+// members are indexed (resolveImplMembers), because a synthesized body may
+// call an impl another file declares: `derive Equatable for Rec` over a field
+// of a type another file declares compares that field with the other file's
+// `Equatable.equal?`. Lowered before that index exists, the call found no
+// candidate and the whole derived block was refused.
+func (g *gen) settleImpls() {
+	g.emitSynthImpls(g.implOrder)
+
+	decls := map[string]*ast.FuncDef{}
+	for _, n := range g.nodes {
+		if fd, ok := n.(*ast.FuncDef); ok && !fd.ImplFunction {
+			decls[fd.Name] = fd
+		}
+	}
 	// The tail-call graph LAST, because an impl block's items are half its
-	// nodes and buildImpls is what creates them. Built before buildImpls, or
-	// keyed on `decls` alone, it would miss an impl function's tail self-call.
-	// See tail.go.
+	// nodes and buildImpls is what creates them, and a synthesized block's
+	// lowerability is settled just above. Built before buildImpls, or keyed
+	// on `decls` alone, it would miss an impl function's tail self-call. See
+	// tail.go.
 	g.buildTailGraph(decls)
 
 	// A BOUND-FREE generic function on a tail cycle is refused, and this is the
@@ -1111,7 +1150,6 @@ func (g *gen) declareFuncs() {
 	// "" on the stated ground that every member is refused at its own
 	// declaration, which does not hold for a lowerable generic. See generic.go.
 	g.refuseGenericTailCycles()
-	g.funcsDone = true
 }
 
 func (g *gen) emitModule(m *Module) ([]Unsupported, []Suppression) {
@@ -1329,7 +1367,7 @@ func (g *gen) signature(fd *ast.FuncDef) *fnSig {
 		sig.params, sig.result, sig.tps, sig.genericWhy = params, result, tps, why
 		sig.lowerable = why == ""
 		// Erasure declined. The DEPTH residue — a type parameter mentioned
-		// inside `List<T>`, `Half<T>`, `(T, Int)` — is monomorphizable per call
+		// inside `List<T>`, `Half<T>`, `#(T, Int)` — is monomorphizable per call
 		// site instead, and monoTemplateFor re-derives its OWN preconditions
 		// rather than reading `why`: that string is one spelling for eight
 		// different reasons, so keying off it would make a decorator on a

@@ -28,18 +28,18 @@ type Day Int
 
 type Day.Hours Int
 
-fn day_value(d: Day): Int {
+fn day_value(d: Day) -> Int {
     Day(n) = d
     n
 }
 
-fn hours_value(h: Day.Hours): Int {
+fn hours_value(h: Day.Hours) -> Int {
     Day.Hours(n) = h
     n
 }
 
 impl Day {
-    fn Hours(d: Day): Int {
+    fn Hours(d: Day) -> Int {
         day_value(d)
     }
 }

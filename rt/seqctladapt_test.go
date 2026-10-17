@@ -12,7 +12,7 @@ import "testing"
 // and 100,000 elements and the counts must be equal.
 //
 // Two assertions, because the second is weaker than seqctl_test.go's. `rt.Ctl`
-// is a `uint8`, so `(U, Ctl)` is two registers exactly as `(U, bool)` is and
+// is a `uint8`, so `#(U, Ctl)` is two registers exactly as `(U, bool)` is and
 // the signal is free — but an adapter needs one bit of per-Run state that a
 // reduce does not: `ended`, which distinguishes "this stage finished" from "a
 // downstream consumer refused an element". It is captured by the yield closure

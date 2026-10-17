@@ -29,9 +29,9 @@ enum Place {
   Home(Address)
   Nowhere
 }
-fn show(a: Address): String { a.city }
-fn unbox<T>(b: Box<T>): T { b.item }
-fn ident<T>(x: T): T { x }
+fn show(a: Address) -> String { a.city }
+fn unbox<T>(b: Box<T>) -> T { b.item }
+fn ident<T>(x: T) -> T { x }
 `
 
 // targetStructNames lists the struct names TargetStructs recorded, so a test
@@ -76,12 +76,12 @@ fn main() {
   _m: Maybe<Address> = Some({street: "1 Main", city: "Bath"})
 }
 `},
-		{"return value", `fn home(): Address { {street: "1 Main", city: "Bath"} }
+		{"return value", `fn home() -> Address { {street: "1 Main", city: "Bath"} }
 fn main() {
   _s = show(home())
 }
 `},
-		{"explicit return", `fn home(n: Int): Address {
+		{"explicit return", `fn home(n: Int) -> Address {
   if n > 0 {
     return {street: "1 Main", city: "Bath"}
   }
@@ -100,10 +100,10 @@ fn main() {
 }
 `},
 		{"map value", `fn main() {
-  _m: Map<String, Address> = {"home" => {street: "1 Main", city: "Bath"}}
+  _m: Map<String, Address> = %{"home" => {street: "1 Main", city: "Bath"}}
 }
 `},
-		{"case arm", `fn pick(n: Int): Address {
+		{"case arm", `fn pick(n: Int) -> Address {
   case n {
     0 -> {street: "a", city: "Zero"}
     _ -> {street: "b", city: "Many"}
@@ -113,7 +113,7 @@ fn main() {
   _s = show(pick(0))
 }
 `},
-		{"if branch", `fn pick(b: Bool): Address {
+		{"if branch", `fn pick(b: Bool) -> Address {
   if b { {street: "a", city: "Yes"} } else { {street: "b", city: "No"} }
 }
 fn main() {
@@ -175,7 +175,7 @@ func TestTargetTypedStruct_ErrorsNameTheNominalType(t *testing.T) {
 }
 
 func TestTargetTypedStruct_ReturnPositionMissingField(t *testing.T) {
-	_, errs := checkSourceWithStdlib(targetTypedDecls + `fn home(): Address { {city: "York"} }
+	_, errs := checkSourceWithStdlib(targetTypedDecls + `fn home() -> Address { {city: "York"} }
 fn main() {
   _s = show(home())
 }
@@ -303,7 +303,7 @@ func TestTargetTypedStruct_RecordsTheNominalType(t *testing.T) {
 func TestTargetTypedStruct_OpaqueFromOutsideIsRefused(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}
 
-fn forge(): Counter {
+fn forge() -> Counter {
   {value: -999, increments: 0}
 }
 `))
@@ -319,7 +319,7 @@ fn forge(): Counter {
 func TestTargetTypedStruct_TransparentFromOutsideIsBuilt(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import open.Open
 
-fn make(): Open {
+fn make() -> Open {
   {a: 1, b: 2}
 }
 `))
@@ -332,7 +332,7 @@ func TestTargetTypedStruct_OpaqueInsideItsFileIsBuilt(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`opaque struct Counter {
   value: Int
 }
-fn new(): Counter { {value: 0} }
+fn new() -> Counter { {value: 0} }
 fn main() {
   _c = new()
 }

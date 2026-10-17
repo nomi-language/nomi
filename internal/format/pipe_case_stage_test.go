@@ -12,31 +12,31 @@ import (
 // body does.
 func TestFormat_PipedCaseStaysAsWritten(t *testing.T) {
 	for name, src := range map[string]string{
-		"bare case after a stage": "fn f(x: Int): Int {\n" +
+		"bare case after a stage": "fn f(x: Int) -> Int {\n" +
 			"    x |> g() |> case {\n" +
 			"        6 -> 1\n" +
 			"        _ -> 2\n" +
 			"    }\n" +
 			"}\n",
-		"bare case": "fn f(x: Int): Int {\n" +
+		"bare case": "fn f(x: Int) -> Int {\n" +
 			"    x |> case {\n" +
 			"        6 -> 1\n" +
 			"        _ -> 2\n" +
 			"    }\n" +
 			"}\n",
-		"case with a subject stage": "fn f(x: Int): Int {\n" +
+		"case with a subject stage": "fn f(x: Int) -> Int {\n" +
 			"    x |> case g() {\n" +
 			"        6 -> 1\n" +
 			"        _ -> 2\n" +
 			"    }\n" +
 			"}\n",
-		"parenthesized subject stage": "fn f(x: Int): Int {\n" +
+		"parenthesized subject stage": "fn f(x: Int) -> Int {\n" +
 			"    x |> case (x) {\n" +
 			"        6 -> 1\n" +
 			"        _ -> 2\n" +
 			"    }\n" +
 			"}\n",
-		"bound": "fn f(x: Int): Int {\n" +
+		"bound": "fn f(x: Int) -> Int {\n" +
 			"    y = x |> g() |> case {\n" +
 			"        6 -> 1\n" +
 			"        _ -> 2\n" +
@@ -44,7 +44,7 @@ func TestFormat_PipedCaseStaysAsWritten(t *testing.T) {
 			"\n" +
 			"    y\n" +
 			"}\n",
-		"bound with a subject stage": "fn f(x: Int): Int {\n" +
+		"bound with a subject stage": "fn f(x: Int) -> Int {\n" +
 			"    y = x |> case g() {\n" +
 			"        6 -> 1\n" +
 			"        _ -> 2\n" +
@@ -52,13 +52,13 @@ func TestFormat_PipedCaseStaysAsWritten(t *testing.T) {
 			"\n" +
 			"    y\n" +
 			"}\n",
-		"stage after it": "fn f(x: Int): Int {\n" +
+		"stage after it": "fn f(x: Int) -> Int {\n" +
 			"    x |> case {\n" +
 			"        6 -> 1\n" +
 			"        _ -> 2\n" +
 			"    } |> g()\n" +
 			"}\n",
-		"stacked": "fn f(x: Int): Int {\n" +
+		"stacked": "fn f(x: Int) -> Int {\n" +
 			"    x\n" +
 			"    |> g()\n" +
 			"    |> case {\n" +
@@ -67,7 +67,7 @@ func TestFormat_PipedCaseStaysAsWritten(t *testing.T) {
 			"    }\n" +
 			"    |> g()\n" +
 			"}\n",
-		"stacked with a subject stage": "fn f(x: Int): Int {\n" +
+		"stacked with a subject stage": "fn f(x: Int) -> Int {\n" +
 			"    x\n" +
 			"    |> case g() {\n" +
 			"        6 -> 1\n" +
@@ -75,7 +75,7 @@ func TestFormat_PipedCaseStaysAsWritten(t *testing.T) {
 			"    }\n" +
 			"    |> g()\n" +
 			"}\n",
-		"stacked and bound": "fn f(x: Int): Int {\n" +
+		"stacked and bound": "fn f(x: Int) -> Int {\n" +
 			"    y =\n" +
 			"        x\n" +
 			"        |> g()\n" +
@@ -93,7 +93,7 @@ func TestFormat_PipedCaseStaysAsWritten(t *testing.T) {
 			"            _ -> False\n" +
 			"        }\n" +
 			"}\n",
-		"case in an arm": "fn f(x: Int): Int {\n" +
+		"case in an arm": "fn f(x: Int) -> Int {\n" +
 			"    x |> case {\n" +
 			"        6 -> x |> g() |> case {\n" +
 			"            7 -> 1\n" +
@@ -102,7 +102,7 @@ func TestFormat_PipedCaseStaysAsWritten(t *testing.T) {
 			"        _ -> 3\n" +
 			"    }\n" +
 			"}\n",
-		"comments": "fn f(x: Int): Int {\n" +
+		"comments": "fn f(x: Int) -> Int {\n" +
 			"    x\n" +
 			"    // before the subject stage\n" +
 			"    |> g()\n" +
@@ -114,7 +114,7 @@ func TestFormat_PipedCaseStaysAsWritten(t *testing.T) {
 			"        // after the arms\n" +
 			"    }\n" +
 			"}\n",
-		"comments with a subject stage": "fn f(x: Int): Int {\n" +
+		"comments with a subject stage": "fn f(x: Int) -> Int {\n" +
 			"    x\n" +
 			"    // before the case\n" +
 			"    |> case g() {\n" +
@@ -132,7 +132,7 @@ func TestFormat_PipedCaseStaysAsWritten(t *testing.T) {
 
 // The arms of a piped `case` written deeper than one indent come back to it.
 func TestFormat_PipedCaseArmsIndentOneLevel(t *testing.T) {
-	src := "fn f(x: Int): Int {\n" +
+	src := "fn f(x: Int) -> Int {\n" +
 		"    y = x |> case g() {\n" +
 		"                6 -> 1\n" +
 		"                _ -> 2\n" +
@@ -142,7 +142,7 @@ func TestFormat_PipedCaseArmsIndentOneLevel(t *testing.T) {
 		"            _ -> 2\n" +
 		"        }\n" +
 		"}\n"
-	want := "fn f(x: Int): Int {\n" +
+	want := "fn f(x: Int) -> Int {\n" +
 		"    y = x |> case g() {\n" +
 		"        6 -> 1\n" +
 		"        _ -> 2\n" +
@@ -169,13 +169,13 @@ func TestFormat_PipedCaseInABrokenPipeline(t *testing.T) {
 			if c.stage == "case" {
 				head += " |> Int.add(" + long + ")"
 			}
-			src := "fn f(x: Int): Int {\n" +
+			src := "fn f(x: Int) -> Int {\n" +
 				"    x |> " + head + " |> " + c.stage + " {\n" +
 				"        6 -> 1\n" +
 				"        _ -> 2\n" +
 				"    }\n" +
 				"}\n"
-			want := "fn f(x: Int): Int {\n" +
+			want := "fn f(x: Int) -> Int {\n" +
 				"    x\n" +
 				"    |> Int.add(" + long + ")\n" +
 				"    |> Int.add(" + long + ")\n"
@@ -196,16 +196,16 @@ func TestFormat_PipedCaseInABrokenPipeline(t *testing.T) {
 // branches sit one indent in from the `|>` line.
 func TestFormat_PipedIfStaysAsWritten(t *testing.T) {
 	for name, src := range map[string]string{
-		"bare if after a stage": "fn f(x: Int): Int {\n" +
+		"bare if after a stage": "fn f(x: Int) -> Int {\n" +
 			"    x |> g() |> if { 1 } else { 2 }\n" +
 			"}\n",
-		"if with a condition stage": "fn f(x: Int): Int {\n" +
+		"if with a condition stage": "fn f(x: Int) -> Int {\n" +
 			"    x |> if g() { 1 } else { 2 }\n" +
 			"}\n",
-		"parenthesized condition stage": "fn f(x: Int): Int {\n" +
+		"parenthesized condition stage": "fn f(x: Int) -> Int {\n" +
 			"    x |> if (g()) { 1 } else { 2 }\n" +
 			"}\n",
-		"broken branches": "fn main(): String {\n" +
+		"broken branches": "fn main() -> String {\n" +
 			"    \"Ada\"\n" +
 			"    |> if String.contains?(\"A\") {\n" +
 			"        \"initialed\"\n" +
@@ -214,7 +214,7 @@ func TestFormat_PipedIfStaysAsWritten(t *testing.T) {
 			"    }\n" +
 			"    |> dbg\n" +
 			"}\n",
-		"broken branches after a stage": "fn main(): String {\n" +
+		"broken branches after a stage": "fn main() -> String {\n" +
 			"    \"Ada\"\n" +
 			"    |> String.contains?(\"A\")\n" +
 			"    |> if {\n" +

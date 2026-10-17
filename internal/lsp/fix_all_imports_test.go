@@ -57,13 +57,13 @@ func TestFixAll_AddOnlyNoImports(t *testing.T) {
 // rather than adding a duplicate statement.
 func TestFixAll_SelfMerge(t *testing.T) {
 	src := "import std/calendar.Date\n\n" +
-		"fn f(_t: Time, _d: Date): Bool {\n  True\n}\n"
+		"fn f(_t: Time, _d: Date) -> Bool {\n  True\n}\n"
 	got, ok := runFixAll(t, src)
 	if !ok {
 		t.Fatal("expected a fixAll action")
 	}
 	want := "import std/calendar.{Date, Time}\n\n" +
-		"fn f(_t: Time, _d: Date): Bool {\n  True\n}\n"
+		"fn f(_t: Time, _d: Date) -> Bool {\n  True\n}\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -93,7 +93,7 @@ func TestFixAll_KeepsImportUsedOnlyByAttachedExternTest(t *testing.T) {
 	src := "import std/duration.Duration\n\n" +
 		"pub host type Thing\n\n" +
 		"//! assert Duration.as_seconds(Duration.seconds(1)) == 1\n" +
-		"pub host fn value(): Int\n"
+		"pub host fn value() -> Int\n"
 	if _, ok := runFixAll(t, src); ok {
 		t.Fatal("expected no fixAll action when every import is used")
 	}
@@ -102,7 +102,7 @@ func TestFixAll_KeepsImportUsedOnlyByAttachedExternTest(t *testing.T) {
 func TestFixAll_KeepsImportUsedByFileFunction(t *testing.T) {
 	src := "import std/duration.Duration\n\n" +
 		"pub host type Thing\n\n" +
-		"fn one_second(value: Thing): Duration {\n" +
+		"fn one_second(value: Thing) -> Duration {\n" +
 		"  Duration.seconds(1)\n" +
 		"}\n"
 	if _, ok := runFixAll(t, src); ok {
@@ -135,7 +135,7 @@ func TestFixAll_SelfMergeInBlock(t *testing.T) {
 	src := "import {\n" +
 		"  std/calendar.Date\n" +
 		"}\n\n" +
-		"fn f(t: Time, d: Date): Bool {\n" +
+		"fn f(t: Time, d: Date) -> Bool {\n" +
 		"  Iter.count([1])\n" +
 		"  True\n" +
 		"}\n"
@@ -144,7 +144,7 @@ func TestFixAll_SelfMergeInBlock(t *testing.T) {
 		t.Fatal("expected a fixAll action")
 	}
 	want := "import std/calendar.{Date, Time}\n\n" +
-		"fn f(t: Time, d: Date): Bool {\n" +
+		"fn f(t: Time, d: Date) -> Bool {\n" +
 		"  Iter.count([1])\n" +
 		"  True\n" +
 		"}\n"
@@ -248,7 +248,7 @@ func TestFixAll_AddsModuleIntoBlock(t *testing.T) {
 // between imports means decline rather than clobber.
 func TestFixAll_BailsOnInterleavedCode(t *testing.T) {
 	src := "import std/io\n\n" +
-		"fn helper(): Int { 1 }\n\n" +
+		"fn helper() -> Int { 1 }\n\n" +
 		"import std/lists\n\n" +
 		"fn main() {\n  io.print(\"x\")\n  io.print(List.head([1]))\n}\n"
 	if _, ok := runFixAll(t, src); ok {
@@ -261,14 +261,14 @@ func TestFixAll_BailsOnInterleavedCode(t *testing.T) {
 // block, would re-export it. The add is a plain import of its own.
 func TestFixAll_NeverAddsToAReExport(t *testing.T) {
 	src := "pub import std/calendar.Date\n\n" +
-		"pub fn f(_t: Time): Bool {\n  True\n}\n"
+		"pub fn f(_t: Time) -> Bool {\n  True\n}\n"
 	got, ok := runFixAll(t, src)
 	if !ok {
 		t.Fatal("expected a fixAll action")
 	}
 	want := "import std/calendar.Time\n" +
 		"pub import std/calendar.Date\n\n" +
-		"pub fn f(_t: Time): Bool {\n  True\n}\n"
+		"pub fn f(_t: Time) -> Bool {\n  True\n}\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}

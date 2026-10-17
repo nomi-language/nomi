@@ -12,7 +12,7 @@ func TestTypePrefixedListLit_UnknownPrefixWhereAListIsExpected(t *testing.T) {
 		"annotated binding": `fn main() {
   _x: List<Int> = X[1, 2]
 }`,
-		"argument": `fn f(xs: List<Int>): List<Int> { xs }
+		"argument": `fn f(xs: List<Int>) -> List<Int> { xs }
 fn main() {
   _y = f(X[1])
 }`,
@@ -56,7 +56,7 @@ fn main() {
 
 func TestTypePrefixedListLit_DistinctIsNotTheListItWraps(t *testing.T) {
 	src := `type Ids List<Int>
-fn f(xs: List<Int>): List<Int> { xs }
+fn f(xs: List<Int>) -> List<Int> { xs }
 fn main() {
   _y = f(Ids[1, 2])
 }`
@@ -70,7 +70,7 @@ func TestTypePrefixedListLit_ValidFormsCheck(t *testing.T) {
   Arr List<JV>
 }
 type Ids List<Int>
-fn arr(): JV { .Arr[.Num(1), .Arr[.Num(2)]] }
+fn arr() -> JV { .Arr[.Num(1), .Arr[.Num(2)]] }
 fn main() {
   _a: JV = JV.Arr[.Num(1), .Num(2)]
   _b: JV = .Arr[.Num(3)]

@@ -40,7 +40,7 @@ enum Mode {
     Slow
 }
 
-fn ping(): Int {
+fn ping() -> Int {
     io.print("default ran")
     7
 }
@@ -54,36 +54,36 @@ struct Quiet {
 }
 
 interface Powered {
-    fn label(e: self): String
+    fn label(e: self) -> String
 
-    open fn describe(e: self, mode: Mode = Mode.Fast): String {
+    open fn describe(e: self, mode: Mode = Mode.Fast) -> String {
         case mode {
             .Fast -> Powered.label(e) + " (fast)"
             .Slow -> Powered.label(e) + " (slow)"
         }
     }
 
-    fn tagged(e: self, suffix: String = tag): String {
+    fn tagged(e: self, suffix: String = tag) -> String {
         Powered.label(e) + ":" + suffix
     }
 
-    fn counted(_e: self, n: Int = ping()): Int {
+    fn counted(_e: self, n: Int = ping()) -> Int {
         n
     }
 }
 
 impl Powered for Engine {
-    fn label(e: Engine): String {
+    fn label(e: Engine) -> String {
         e.name
     }
 }
 
 impl Powered for Quiet {
-    fn label(q: Quiet): String {
+    fn label(q: Quiet) -> String {
         q.name
     }
 
-    fn describe(q: Quiet, mode: Mode = Mode.Slow): String {
+    fn describe(q: Quiet, mode: Mode = Mode.Slow) -> String {
         case mode {
             .Fast -> q.name + " (quiet-fast)"
             .Slow -> q.name + " (quiet-slow)"

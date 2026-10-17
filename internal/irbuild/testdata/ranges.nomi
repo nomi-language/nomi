@@ -50,7 +50,7 @@
 import std/io
 
 // --- rendering helpers, so every answer is one printed line -----------------
-fn show_ints(xs: List<Int>): String {
+fn show_ints(xs: List<Int>) -> String {
     case List.head(xs) {
         None ->
             "."
@@ -66,20 +66,20 @@ fn show_ints(xs: List<Int>): String {
     }
 }
 
-fn show_count(m: Maybe<Int>): String {
+fn show_count(m: Maybe<Int>) -> String {
     case m {
         Some(n) -> "Some(${n})"
         None -> "None"
     }
 }
 
-fn show_bool(b: Bool): String {
+fn show_bool(b: Bool) -> String {
     "${b}"
 }
 
 /// Two Codepoints and a stepped walk over the range between them, rendered as
 /// their scalar values so ORDER and LENGTH are both in the output.
-fn cp_steps(from: Int, to: Int, by: Int): Maybe<String> {
+fn cp_steps(from: Int, to: Int, by: Int) -> Maybe<String> {
     a = try Codepoint.from_int(from)
     b = try Codepoint.from_int(to)
 
@@ -93,7 +93,7 @@ fn cp_steps(from: Int, to: Int, by: Int): Maybe<String> {
 }
 
 /// The plain inclusive walk over a Codepoint range, same rendering.
-fn cp_walk(from: Int, to: Int): Maybe<String> {
+fn cp_walk(from: Int, to: Int) -> Maybe<String> {
     a = try Codepoint.from_int(from)
     b = try Codepoint.from_int(to)
 
@@ -106,7 +106,7 @@ fn cp_walk(from: Int, to: Int): Maybe<String> {
     )
 }
 
-fn show_maybe_str(m: Maybe<String>): String {
+fn show_maybe_str(m: Maybe<String>) -> String {
     case m {
         Some(s) -> s
         None -> "None"
@@ -148,7 +148,7 @@ fn main() {
     io.print(
         show_ints(
             Int.max_value - 2..=Int.max_value
-            |> Iter.map(|n| Int.max_value - n)
+            |> Iter.map(fn n -> Int.max_value - n)
             |> Iter.to_list()
         )
     )
@@ -156,7 +156,7 @@ fn main() {
     io.print(
         show_ints(
             Int.max_value - 2..Int.max_value
-            |> Iter.map(|n| Int.max_value - n)
+            |> Iter.map(fn n -> Int.max_value - n)
             |> Iter.to_list()
         )
     )
@@ -188,7 +188,7 @@ fn main() {
     // drives, to keep this fixture fast. The property under test is "the
     // walk does not consume a frame per element", and 20_000 shows that as
     // well as 200_000 does; the corpus keeps the larger drive.
-    io.print("${1..=20_000 |> Iter.map(|x| x) |> Iter.reduce(|acc = 0, x| acc + x)}")
+    io.print("${1..=20_000 |> Iter.map(fn x -> x) |> Iter.reduce(fn acc = 0, x -> acc + x)}")
 
     // --- 7. UNBOUNDED SOURCES, BOUNDED BEFORE CONSUMPTION -------------------
     // `Range.from` and `Range.naturals` differ only in their start. Neither may
@@ -340,12 +340,12 @@ fn main() {
     io.print(Debug.inspect("a".."m"))
 
     // --- 14. PIPELINES, so the Range reaches the ordinary Iter surface ----
-    io.print("${Iter.reduce(1..=10, |acc = 0, x| acc + x)}")
+    io.print("${Iter.reduce(1..=10, fn acc = 0, x -> acc + x)}")
 
     io.print(
         show_ints(
             0..10
-            |> Iter.filter(|x| x % 2 == 0)
+            |> Iter.filter(fn x -> x % 2 == 0)
             |> Iter.to_list()
         )
     )
@@ -353,11 +353,11 @@ fn main() {
     io.print(
         show_ints(
             1..=5
-            |> Iter.map(|x| x * x)
+            |> Iter.map(fn x -> x * x)
             |> Iter.to_list()
         )
     )
 
-    io.print("${1..=5 |> Iter.any?(|x| x == 3)}")
-    io.print("${1..5 |> Iter.all?(|x| x < 5)}")
+    io.print("${1..=5 |> Iter.any?(fn x -> x == 3)}")
+    io.print("${1..5 |> Iter.all?(fn x -> x < 5)}")
 }

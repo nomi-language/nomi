@@ -2,7 +2,7 @@
 Bare line comment
 ==========
 
-fn f(): Int {
+fn f() -> Int {
   //
   1
 }
@@ -22,7 +22,7 @@ fn f(): Int {
 Four slashes are a line comment
 ==========
 
-fn f(): Int {
+fn f() -> Int {
   //// not documentation
   1
 }
@@ -43,7 +43,7 @@ Bare doc comment
 ==========
 
 ///
-fn f(): Int {
+fn f() -> Int {
   1
 }
 

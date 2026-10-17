@@ -15,8 +15,8 @@ parameters. You don't usually write the types at the call. Nomi works them out
 from the arguments:
 
 ```nomi-run
-fn pair<T, U>(first: T, second: U): (T, U) {
-    (first, second)
+fn pair<T, U>(first: T, second: U) -> #(T, U) {
+    #(first, second)
 }
 
 fn main() {
@@ -25,7 +25,7 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 6: pair("age", 30) = ("age", 30)
+dbg line 6: pair("age", 30) = #("age", 30)
 -->
 
 In this call, `T` is `String` and `U` is `Int`. Another call can use
@@ -65,7 +65,7 @@ compared." `Comparable` is an interface. The
 [next chapter](/interfaces-and-dispatch/) explains interfaces.
 
 ```nomi-run
-fn first_two_sorted<T>(xs: List<T>): List<T> where T: Comparable {
+fn first_two_sorted<T>(xs: List<T>) -> List<T> where T: Comparable {
     xs
     |> Iter.sort()
     |> Iter.take(2)
@@ -92,7 +92,7 @@ implement [`Comparable`](/reference/comparable/), so both calls are allowed.
 To require more than one interface, join them with `and`:
 
 ```nomi ignore
-fn describe<T>(value: T): String where T: Display and Debug
+fn describe<T>(value: T) -> String where T: Display and Debug
 ```
 
 `T` must implement every interface listed.
@@ -104,19 +104,19 @@ without making them the same type:
 
 ```nomi-run
 interface StepBy<S> {
-    fn step_by(value: self, step: S): self
+    fn step_by(value: self, step: S) -> self
 }
 
 type Counter Int
 
 impl StepBy for Counter {
-    fn step_by(value: Counter, step: Int): Counter {
+    fn step_by(value: Counter, step: Int) -> Counter {
         Counter(n) = value
         Counter(n + step)
     }
 }
 
-fn advance<T, S>(value: T, step: S): T where T: StepBy<S> {
+fn advance<T, S>(value: T, step: S) -> T where T: StepBy<S> {
     T.step_by(value, step)
 }
 
@@ -146,25 +146,25 @@ right-hand side of `+` may be, and what type the sum is. So do
 ```nomi-run
 type Day Int
 
-fn day_number(day: Day): Int {
+fn day_number(day: Day) -> Int {
     Day(n) = day
     n
 }
 
 type Days Int
 
-fn days_number(days: Days): Int {
+fn days_number(days: Days) -> Int {
     Days(n) = days
     n
 }
 
 impl Add<Days, Day> for Day {
-    fn add(lhs: Day, rhs: Days): Day {
+    fn add(lhs: Day, rhs: Days) -> Day {
         Day(day_number(lhs) + days_number(rhs))
     }
 }
 
-fn plus<L, R, Out>(lhs: L, rhs: R): Out where L: Add<R, Out> {
+fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out> {
     lhs + rhs
 }
 
@@ -192,7 +192,7 @@ struct Range<T> where T: Comparable {
 }
 
 impl Range<T> {
-    fn contains?(r: Range<T>, value: T): Bool {
+    fn contains?(r: Range<T>, value: T) -> Bool {
         r.start <= value and value <= r.end
     }
 }
@@ -207,8 +207,8 @@ A function in an interface can have its own type parameters:
 
 ```nomi ignore
 interface Ranked<T> {
-    fn item(value: self): T
-    fn prefer<K>(value: self, lhs: K, rhs: K): Bool where K: Comparable
+    fn item(value: self) -> T
+    fn prefer<K>(value: self, lhs: K, rhs: K) -> Bool where K: Comparable
 }
 ```
 

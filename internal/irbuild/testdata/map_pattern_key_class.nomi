@@ -48,37 +48,37 @@ struct Q {
     x: Int
 }
 
-fn note_color(tag: String, c: Color): Color {
+fn note_color(tag: String, c: Color) -> Color {
     io.print("  eval ${tag}")
     c
 }
 
-fn note_bool(tag: String, b: Bool): Bool {
+fn note_bool(tag: String, b: Bool) -> Bool {
     io.print("  eval ${tag}")
     b
 }
 
-fn note_id(tag: String, n: Int): Id {
+fn note_id(tag: String, n: Int) -> Id {
     io.print("  eval ${tag}")
     Id(n)
 }
 
-fn note_text(tag: String, s: String): String {
+fn note_text(tag: String, s: String) -> String {
     io.print("  eval ${tag}")
     s
 }
 
 fn main() {
-    both = {True => "yes", False => "no"}
-    only_true = {True => "yes"}
-    points = {P{x: 1} => "p"}
-    numbers = {5 => "five"}
+    both = %{True => "yes", False => "no"}
+    only_true = %{True => "yes"}
+    points = %{P{x: 1} => "p"}
+    numbers = %{5 => "five"}
 
     // A variant key against a Bool-keyed map. The key runs, then misses.
     io.print("variant vs Bool:")
 
     a = case both {
-        {note_color("k", Color.Blue) => v} -> "matched ${v}"
+        %{note_color("k", Color.Blue) => v} -> "matched ${v}"
         _ -> "fell through"
     }
 
@@ -88,7 +88,7 @@ fn main() {
     io.print("struct name:")
 
     b = case points {
-        {Q{x: 1} => v} -> "matched ${v}"
+        %{Q{x: 1} => v} -> "matched ${v}"
         _ -> "fell through"
     }
 
@@ -98,7 +98,7 @@ fn main() {
     io.print("distinct vs Int:")
 
     c = case numbers {
-        {note_id("k", 5) => v} -> "matched ${v}"
+        %{note_id("k", 5) => v} -> "matched ${v}"
         _ -> "fell through"
     }
 
@@ -108,7 +108,7 @@ fn main() {
     io.print("String vs Int:")
 
     d = case numbers {
-        {note_text("k", "5") => v} -> "matched ${v}"
+        %{note_text("k", "5") => v} -> "matched ${v}"
         _ -> "fell through"
     }
 
@@ -119,7 +119,7 @@ fn main() {
     io.print("present then mismatch:")
 
     e = case both {
-        {note_bool("k0", True) => v, note_color("k1", Color.Blue) => w} -> "matched ${v}${w}"
+        %{note_bool("k0", True) => v, note_color("k1", Color.Blue) => w} -> "matched ${v}${w}"
         _ -> "fell through"
     }
 
@@ -131,7 +131,7 @@ fn main() {
     io.print("absent then mismatch:")
 
     f = case only_true {
-        {note_bool("k0", False) => v, note_color("k1", Color.Blue) => w} -> "matched ${v}${w}"
+        %{note_bool("k0", False) => v, note_color("k1", Color.Blue) => w} -> "matched ${v}${w}"
         _ -> "fell through"
     }
 
@@ -142,8 +142,8 @@ fn main() {
     io.print("later arm still matches:")
 
     g = case both {
-        {note_color("k", Color.Blue) => v} -> "matched ${v}"
-        {True => v} -> "second arm ${v}"
+        %{note_color("k", Color.Blue) => v} -> "matched ${v}"
+        %{True => v} -> "second arm ${v}"
         _ -> "fell through"
     }
 

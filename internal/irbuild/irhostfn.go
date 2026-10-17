@@ -12,7 +12,7 @@ import (
 // A user `host fn` bound to a Go symbol, as the VM calls it.
 //
 //	gopkg "durationffiapp" as ffi
-//	pub fn timeout(): Duration go ffi.Timeout
+//	pub fn timeout() -> Duration go ffi.Timeout
 //
 // Every call site reaches the declaration through the ordinary direct,
 // sibling and bare-sibling routes, under the declaration symbol of the shell
@@ -80,7 +80,13 @@ func (g *gen) irHostFnRetain(ef *ast.ExternFunc, sig *fnSig) {
 	}
 	if why := g.irHostCrossingBody(ef, sh, sig.result, g.irHostBindingKey(ef)); why != "" {
 		decline(why)
+		return
 	}
+	// A defaulted parameter is filled in Nomi before the crossing, as a
+	// `fn`'s is: by the caller in this file (callDefaults), and through
+	// the accessors built here when another file calls a `pub` one
+	// (siblingdefault.go).
+	g.irFileSlotDefaults(shell, sig)
 }
 
 // irHostCrossingBody fills sh, the VM function of a Go-bound declaration,

@@ -21,10 +21,10 @@ func TestIRGenericFuncValue_RunsTheInstantiatedInstance(t *testing.T) {
 		"4\n" +
 		"[\"a\", \"a\"]\n" +
 		"10\n" +
-		"[(1, p), (2, q)]\n" +
+		"[#(1, p), #(2, q)]\n" +
 		"6\n" +
 		"7\n" +
-		"(k, 8)\n" +
+		"#(k, 8)\n" +
 		"[<9>, <10>]\n"
 	got := vmReference(fixture("generic_func_value/main.nomi"))
 	if got.stdout != want || got.stderr != "" || got.exit != 0 {

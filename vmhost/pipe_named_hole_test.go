@@ -12,37 +12,37 @@ import "testing"
 func TestPipe_FillsANamedHole(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
 
-fn tag(a: Int, w: String): String {
+fn tag(a: Int, w: String) -> String {
     "${a}:${w}"
 }
 
-fn spaced(a: Int = 1, b: Int = 2, w: String): String {
+fn spaced(a: Int = 1, b: Int = 2, w: String) -> String {
     "${a}/${b}/${w}"
 }
 
-fn copies<T>(n: Int, item: T): List<T> {
+fn copies<T>(n: Int, item: T) -> List<T> {
     if n > 1 { [item, item] } else { [item] }
 }
 
-fn halve(by: Int, n: Int): Result<Int, String> {
+fn halve(by: Int, n: Int) -> Result<Int, String> {
     if n % by == 0 { Ok(n / by) } else { Err("odd ${n}") }
 }
 
-fn add(a: Int, b: Int): Int {
+fn add(a: Int, b: Int) -> Int {
     a + b
 }
 
-fn noted(n: Int): Int {
+fn noted(n: Int) -> Int {
     io.print("made ${n}")
     n
 }
 
-fn word(s: String): String {
+fn word(s: String) -> String {
     io.print("word ${s}")
     s
 }
 
-fn run(n: Int): Result<Int, String> {
+fn run(n: Int) -> Result<Int, String> {
     half = n |> try halve(by: 2, n: _)
     Ok(half + 1)
 }

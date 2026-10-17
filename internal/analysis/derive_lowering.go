@@ -60,6 +60,8 @@ package analysis
 //   - duplicate derive declarations.
 //   - derive: `derive X for T` for an unknown derivable protocol; conflicting
 //     with a hand-written `impl X for T { ... }` block.
+//   - `derive Variants for T` where T is not an enum without type parameters
+//     whose variants all carry no data (variantsDeriveError).
 
 import (
 	"fmt"
@@ -95,9 +97,10 @@ func lowerNodeListDerives(nodes []ast.Node, errs *[]TypeError) ([]ast.Node, bool
 	seenDerives := map[string]map[string]bool{}
 	var out []ast.Node
 	changed := false
+	index := sourceIndices(nodes)
 	for i, n := range nodes {
 		if conf, ok := n.(*ast.ImplConformance); ok && conf.Derive && conf.Receiver != nil {
-			replacement := lowerTopLevelDerive(conf, i, decls, manualImpls, seenDerives, errs)
+			replacement := lowerTopLevelDerive(conf, index[i], decls, manualImpls, seenDerives, errs)
 			if !changed {
 				out = append(out, nodes[:i]...)
 				changed = true
@@ -192,6 +195,12 @@ func lowerTopLevelDerive(conf *ast.ImplConformance, index int, decls map[string]
 		if manualImpls[recvName][ifaceName] {
 			addErr(line, col, "`derive %s for %s` conflicts with a hand-written `impl %s for %s { ... }` block — a derived impl is synthesized whole, so it cannot coexist with a manual impl; drop one", ifaceName, recvName, ifaceName, recvName)
 			continue
+		}
+		if ifaceName == "Variants" {
+			if msg := variantsDeriveError(decl); msg != "" {
+				addErr(line, col, "%s", msg)
+				continue
+			}
 		}
 		one := *conf
 		one.Interface = iface

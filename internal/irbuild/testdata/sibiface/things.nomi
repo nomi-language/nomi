@@ -23,7 +23,7 @@ pub struct Point {
 }
 
 impl Display for Point {
-    fn to_string(p: Point): String {
+    fn to_string(p: Point) -> String {
         "things(${Int.to_string(p.x)}, ${Int.to_string(p.y)})"
     }
 }
@@ -33,37 +33,37 @@ pub struct Quiet {
 }
 
 impl Display for Quiet {
-    fn to_string(q: Quiet): String {
+    fn to_string(q: Quiet) -> String {
         "quiet#${Int.to_string(q.n)}"
     }
 }
 
 pub interface Loud {
-    fn say(x: self): String
+    fn say(x: self) -> String
 }
 
 pub interface Soft {
-    fn say(x: self): String
+    fn say(x: self) -> String
 }
 
 impl Loud for Quiet {
-    fn say(q: Quiet): String {
+    fn say(q: Quiet) -> String {
         "LOUD${Int.to_string(q.n)}"
     }
 }
 
 impl Soft for Quiet {
-    fn say(q: Quiet): String {
+    fn say(q: Quiet) -> String {
         "soft${Int.to_string(q.n)}"
     }
 }
 
 pub interface Tagger {
-    fn tag(label: String, target: self): String
+    fn tag(label: String, target: self) -> String
 }
 
 impl Tagger for Point {
-    fn tag(label: String, target: Point): String {
+    fn tag(label: String, target: Point) -> String {
         label + ":" + Int.to_string(target.x)
     }
 }
@@ -84,7 +84,7 @@ pub struct Bare {
 }
 
 impl Debug for Bare {
-    fn inspect(b: Bare): String {
+    fn inspect(b: Bare) -> String {
         "bare<" + b.tag + ">"
     }
 }
@@ -100,18 +100,18 @@ impl Debug for Bare {
 /// spellings of one body are pinned against each other rather than separately.
 pub opaque type Hidden Int
 
-pub fn hide(n: Int): Hidden {
+pub fn hide(n: Int) -> Hidden {
     Hidden(n)
 }
 
-pub fn origin(): Point {
+pub fn origin() -> Point {
     Point{x: 0, y: 7}
 }
 
-pub fn quiet(n: Int): Quiet {
+pub fn quiet(n: Int) -> Quiet {
     Quiet{n}
 }
 
-pub fn bare(t: String): Bare {
+pub fn bare(t: String) -> Bare {
     Bare{tag: t}
 }

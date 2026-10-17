@@ -7,10 +7,10 @@ fn main() {
     return Err("none")
   }
   Some(e) = m else { "none" }
-  Ok((w, h)) = parse(text) else { (80, 24) }
+  Ok(#(w, h)) = parse(text) else { #(80, 24) }
   [first, ..rest] = xs else { return 0 }
   .Valid(r) = c else { {addr: "none", score: 0} }
-  {"a" => a} = m else { return 0 }
+  %{"a" => a} = m else { return 0 }
 }
 
 ---
@@ -153,3 +153,191 @@ fn main() {
           (body
             (string
               (string_content))))))))
+
+================================================================================
+Map, struct, list and or patterns in a binding with else
+================================================================================
+
+fn f(m: Map<String, Int>, p: Point, xs: List<Int>) -> Int {
+    %{"port" => port} = m else {
+        %{"fallback" => fallback} -> return fallback
+        _ -> return 80
+    }
+    {x: 0, y} = p else {
+        return 0
+    }
+    {done: True, n} = p else {
+        return 0
+    }
+    [first, ..rest] = xs else {
+        return 0
+    }
+    %{"a" => v} or %{"b" => v} = m else {
+        return 0
+    }
+    port + y + n + first + v
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)
+          (type_identifier)))
+      (parameter
+        (identifier)
+        (type_identifier))
+      (parameter
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (else_binding
+        (destructuring_binding
+          (string
+            (string_content))
+          (identifier)
+          (identifier))
+        (else_arms
+          (else_arm
+            (map_literal
+              (map_entry
+                (string
+                  (string_content))
+                (identifier)))
+            (return_statement
+              (identifier)))
+          (else_arm
+            (return_statement
+              (integer)))))
+      (else_binding
+        (destructuring_binding
+          (identifier)
+          (integer)
+          (identifier)
+          (identifier))
+        (body
+          (return_statement
+            (integer))))
+      (else_binding
+        (destructuring_binding
+          (identifier)
+          (type_identifier)
+          (identifier)
+          (identifier))
+        (body
+          (return_statement
+            (integer))))
+      (else_binding
+        (list
+          (identifier)
+          (identifier))
+        (identifier)
+        (body
+          (return_statement
+            (integer))))
+      (else_binding
+        (binary_expression
+          (map_literal
+            (map_entry
+              (string
+                (string_content))
+              (identifier)))
+          (map_literal
+            (map_entry
+              (string
+                (string_content))
+              (identifier))))
+        (identifier)
+        (body
+          (return_statement
+            (integer))))
+      (binary_expression
+        (binary_expression
+          (binary_expression
+            (binary_expression
+              (identifier)
+              (identifier))
+            (identifier))
+          (identifier))
+        (identifier)))))
+
+================================================================================
+A binding, parameter and field named host
+================================================================================
+
+struct Server {
+    host: String
+}
+
+host fn now() -> Int
+
+fn address(host: String) -> Server {
+    host = String.trim(host)
+    %{"host" => h} = config() else {
+        return Server{host}
+    }
+    host
+    Server{host: "${host}:${h}"}
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (struct_definition
+    (qualified_type_identifier
+      (type_identifier))
+    (struct_body
+      (field_definition
+        (identifier)
+        (type_identifier))))
+  (extern_func_definition
+    (host_keyword)
+    (identifier)
+    (parameters)
+    (type_identifier))
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (body
+      (binding
+        (identifier)
+        (call_expression
+          (field_access
+            (type_identifier)
+            (identifier))
+          (identifier)))
+      (else_binding
+        (destructuring_binding
+          (string
+            (string_content))
+          (identifier)
+          (call_expression
+            (identifier)))
+        (body
+          (return_statement
+            (struct_construction
+              (type_identifier)
+              (identifier)))))
+      (identifier)
+      (struct_construction
+        (type_identifier)
+        (identifier)
+        (string
+          (string_interpolation
+            (identifier))
+          (string_content)
+          (string_interpolation
+            (identifier)))))))

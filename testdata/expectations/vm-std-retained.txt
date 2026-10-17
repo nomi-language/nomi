@@ -30,6 +30,7 @@ bytes.nomi:Byte.hash	ran
 bytes.nomi:Byte.inspect	ran
 bytes.nomi:Byte.to_string	ran
 bytes.nomi:Bytes.Add<Bytes, Bytes>.add	ran
+bytes.nomi:Bytes.empty_sum	ran
 bytes.nomi:Bytes.equal?	ran
 bytes.nomi:Bytes.inspect	ran
 bytes.nomi:join_debug_parts	ran
@@ -147,7 +148,6 @@ calendar.nomi:NaiveDateTime.Subtract<Nanoseconds, NaiveDateTime>.subtract	ran
 calendar.nomi:NaiveDateTime.Subtract<Seconds, NaiveDateTime>.subtract	ran
 calendar.nomi:NaiveDateTime.Subtract<Weeks, NaiveDateTime>.subtract	ran
 calendar.nomi:NaiveDateTime.Subtract<Years, NaiveDateTime>.subtract	ran
-calendar.nomi:NaiveDateTime.at	ran
 calendar.nomi:NaiveDateTime.at_midnight	ran
 calendar.nomi:NaiveDateTime.between	ran
 calendar.nomi:NaiveDateTime.compare	ran
@@ -162,6 +162,7 @@ calendar.nomi:NaiveDateTime.month	ran
 calendar.nomi:NaiveDateTime.nanosecond	ran
 calendar.nomi:NaiveDateTime.new	ran
 calendar.nomi:NaiveDateTime.new_exact	ran
+calendar.nomi:NaiveDateTime.of	ran
 calendar.nomi:NaiveDateTime.parse	ran
 calendar.nomi:NaiveDateTime.second	ran
 calendar.nomi:NaiveDateTime.year	ran
@@ -247,6 +248,7 @@ calendar.nomi:calendar.Time.new default 3	ran
 calendar.nomi:calendar.Time.new default 4	ran
 calendar.nomi:day_nanos	ran
 codepoints.nomi:Codepoint.compare	ran
+codepoints.nomi:Codepoint.digit?	ran
 codepoints.nomi:Codepoint.equal?	ran
 codepoints.nomi:Codepoint.from_int	ran
 codepoints.nomi:Codepoint.hash	ran
@@ -254,17 +256,20 @@ codepoints.nomi:Codepoint.inspect	ran
 codepoints.nomi:Codepoint.next	ran
 codepoints.nomi:Codepoint.step_by	ran
 codepoints.nomi:Codepoint.steps_between	ran
+codepoints.nomi:Codepoint.to_digit	ran
 codepoints.nomi:Codepoint.to_int	ran
 comparable.nomi:Direction.inspect	ran
 comparable.nomi:Direction.to_string	ran
 comparable.nomi:Ordering.inspect	ran
 comparable.nomi:Ordering.to_string	ran
+comparable.nomi:Ordering.variants	ran
 compiler.nomi:Diagnostic.inspect	ran
 compiler.nomi:Hover.inspect	ran
 compiler.nomi:Project.inspect	ran
 compiler.nomi:RunFile.inspect	ran
 context.nomi:Context.inspect	ran
 decimal.nomi:Decimal.abs	ran
+decimal.nomi:Decimal.empty_sum	ran
 decimal.nomi:Decimal.inspect	ran
 decimal.nomi:Decimal.max	ran
 decimal.nomi:Decimal.min	ran
@@ -285,6 +290,7 @@ duration.nomi:Duration.as_minutes	ran
 duration.nomi:Duration.as_nanos	ran
 duration.nomi:Duration.as_seconds	ran
 duration.nomi:Duration.compare	ran
+duration.nomi:Duration.empty_sum	ran
 duration.nomi:Duration.equal?	ran
 duration.nomi:Duration.hash	ran
 duration.nomi:Duration.hours	ran
@@ -298,12 +304,17 @@ dynamic.nomi:DecodeError.inspect	ran
 dynamic.nomi:DecodeError.to_string	ran
 dynamic.nomi:PathSegment.inspect	ran
 dynamic.nomi:PathSegment.to_string	ran
+float.nomi:Float.abs	ran
 float.nomi:Float.compare	ran
+float.nomi:Float.empty_sum	ran
 float.nomi:Float.equal?	ran
 float.nomi:Float.finite?	ran
 float.nomi:Float.hash	ran
 float.nomi:Float.infinite?	ran
 float.nomi:Float.inspect	ran
+float.nomi:Float.max	ran
+float.nomi:Float.min	ran
+float.nomi:Float.sign	ran
 instant.nomi:Instant.Add<Duration, Instant>.add	ran
 instant.nomi:Instant.Subtract<Duration, Instant>.subtract	ran
 instant.nomi:Instant.Subtract<Instant, Duration>.subtract	ran
@@ -315,12 +326,17 @@ instant.nomi:Instant.from_seconds	ran
 instant.nomi:Instant.inspect	ran
 instant.nomi:Instant.to_seconds	ran
 int.nomi:Int.Divide<NonZeroInt, Int>.divide	ran
+int.nomi:Int.abs	ran
 int.nomi:Int.compare	ran
+int.nomi:Int.empty_sum	ran
 int.nomi:Int.equal?	ran
 int.nomi:Int.hash	ran
 int.nomi:Int.inspect	ran
+int.nomi:Int.max	ran
+int.nomi:Int.min	ran
 int.nomi:Int.modulo	ran
 int.nomi:Int.next	ran
+int.nomi:Int.sign	ran
 int.nomi:Int.step_by	ran
 int.nomi:Int.steps_between	ran
 int.nomi:Int.to_non_zero	ran
@@ -361,7 +377,7 @@ random.nomi:Generator.int	ran
 random.nomi:Seed.from_int	ran
 random.nomi:Seed.from_os	ran
 random.nomi:Seed.inspect	ran
-random.nomi:below	ran
+random.nomi:between	ran
 random.nomi:unit_float	ran
 random.nomi:unsafe_float	ran
 random.nomi:unsafe_int	ran
@@ -377,7 +393,9 @@ startup.nomi:Startup.inspect	ran
 strings.nomi:NormalForm.inspect	ran
 strings.nomi:NormalForm.to_string	ran
 strings.nomi:String.compare	ran
+strings.nomi:String.empty_sum	ran
 strings.nomi:String.equal?	ran
+strings.nomi:String.find_in	ran
 strings.nomi:String.inspect	ran
 strings.nomi:String.pad_end	ran
 strings.nomi:String.pad_start	ran
@@ -408,4 +426,6 @@ supervisors.nomi:supervisors.Supervisor.new default 5	ran
 toml.nomi:Toml.from_fragments	ran
 toml.nomi:Toml.inspect	ran
 toml.nomi:Toml.text	ran
+unit.nomi:Unit.equal?	ran
+unit.nomi:Unit.hash	ran
 unit.nomi:Unit.inspect	ran

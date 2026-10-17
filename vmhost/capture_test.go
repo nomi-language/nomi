@@ -28,7 +28,7 @@ func runCaptureProgram(t *testing.T, src, input string) (string, error) {
 func TestCapture_RedirectsOnlyInsideTheCall(t *testing.T) {
 	src := `import std/io
 
-fn echo(): Int {
+fn echo() -> Int {
     case io.read_line() {
         Ok(line) -> io.print("got " + line)
         Err(e) -> io.print("err " + e)
@@ -39,7 +39,7 @@ fn echo(): Int {
 
 fn main() {
     io.print("before")
-    run = io.capture("inner\n", || {
+    run = io.capture("inner\n", fn -> {
         a = echo()
         b = echo()
         a + b
@@ -68,7 +68,7 @@ fn main() {
 // what the call printed before it is dropped. In a task, the trap settles the
 // task and the spawner's output is its own again.
 func TestCapture_TrapPropagatesAndRestoresOutput(t *testing.T) {
-	const boom = `fn boom(): Int {
+	const boom = `fn boom() -> Int {
     io.print("partial")
     1 / 0
 }
@@ -88,7 +88,7 @@ func TestCapture_TrapPropagatesAndRestoresOutput(t *testing.T) {
 	}
 	got, err = runCaptureProgram(t, "import std/io\nimport std/tasks.Task\n\n"+boom+`fn main() {
     outcome = concurrent {
-        t = Task.spawn(|| io.capture("", boom).value)
+        t = Task.spawn(fn -> io.capture("", boom).value)
         Task.outcome(t)
     }
     io.print("after")
@@ -109,7 +109,7 @@ func TestCapture_SelectiveImport(t *testing.T) {
 	got, err := runCaptureProgram(t, `import std/io.{capture, print}
 
 fn main() {
-    c = capture("", || {
+    c = capture("", fn -> {
         print("in")
         42
     })
@@ -130,9 +130,9 @@ func TestCapture_WithOutputStillReceivesNormalOutput(t *testing.T) {
 	var out bytes.Buffer
 	p, err := vmhost.LoadSource("main.nomi", `import std/io
 
-pub fn shout(): String {
+pub fn shout() -> String {
     io.print("outside")
-    io.capture("", || io.print("inside")).output
+    io.capture("", fn -> io.print("inside")).output
 }
 `, vmhost.WithOutput(&out))
 	if err != nil {
@@ -163,23 +163,23 @@ struct Point {
     x: Int
 }
 
-fn show(c: Captured<Point>): String {
+fn show(c: Captured<Point>) -> String {
     "${c.value.x}|${c.output}"
 }
 
 fn main() {
-    run = io.capture("", || {
+    run = io.capture("", fn -> {
         io.write("hi")
         42
     })
     io.inspect(run)
     _ = dbg run
     io.print(Debug.inspect([run]))
-    p = io.capture("", || Point{x: 3})
+    p = io.capture("", fn -> Point{x: 3})
     io.inspect(p)
     io.print(show(p))
-    u = io.capture("", || io.write("u"))
-    io.inspect((u, run))
+    u = io.capture("", fn -> io.write("u"))
+    io.inspect(#(u, run))
 }
 `, "")
 	if err != nil {
@@ -190,7 +190,7 @@ fn main() {
 		"[Captured{value: 42, output: \"hi\", transcript: \"hi\"}]\n" +
 		"Captured{value: Point{x: 3}, output: \"\", transcript: \"\"}\n" +
 		"3|\n" +
-		"(Captured{value: Unit, output: \"u\", transcript: \"u\"}, Captured{value: 42, output: \"hi\", transcript: \"hi\"})\n"
+		"#(Captured{value: Unit, output: \"u\", transcript: \"u\"}, Captured{value: 42, output: \"hi\", transcript: \"hi\"})\n"
 	if got != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", got, want)
 	}

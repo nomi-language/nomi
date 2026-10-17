@@ -138,6 +138,13 @@ var deterministicCrossings = map[string]bool{
 	// `io.capture` runs its function inside the machine and reads and writes
 	// only its own strings.
 	"io.run_captured": true, "io.run_replayed": true,
+	// A Context's values are what the program put there.
+	"Context.value": true, "Context.with_value": true,
+	// Pure functions vm.Effects reports because one Go call's cost follows
+	// an operand rather than the operands' size, so an editor's evaluation
+	// does not make them (vm's pureCrossings). A run here has no such
+	// limit: `String.pad_start` reaches `String.repeat`.
+	"strings.String.repeat": true, "decimal.Decimal.divide": true, "decimal.Decimal.round": true,
 }
 
 var nondeterministicCrossingPrefixes = []string{
@@ -181,7 +188,7 @@ func effectClass(effects []string) (outside string, nondeterministic bool) {
 // towards "may loop").
 var loopMarkers = regexp.MustCompile(`Iter\.(loop|repeat|from|iterate|cycle|unfold)\b|\.\.|concurrent|Task\.|spawn`)
 
-var fnDecl = regexp.MustCompile(`\bfn\s+([a-z_][A-Za-z0-9_]*\??)`)
+var fnDecl = regexp.MustCompile(`\bfn\s+([a-z_][A-Za-z0-9_]*\??)[(<]`)
 
 // mayLoop reports whether src may repeat work without a bound its text
 // shows: it holds a loop marker, or a function reaches itself through the
@@ -623,12 +630,13 @@ func TestRunInputClassifies(t *testing.T) {
 		skip      string
 	}{
 		{"ok", "import std/io\n\nfn main() {\n    io.print(1 + 2)\n}\n", runOK, ""},
-		{"a trap", "import std/io\n\nfn half(n: Int): Int {\n    10 / n\n}\n\nfn main() {\n    io.print(half(0))\n}\n", runTrap, ""},
+		{"a trap", "import std/io\n\nfn half(n: Int) -> Int {\n    10 / n\n}\n\nfn main() {\n    io.print(half(0))\n}\n", runTrap, ""},
 		{"a failed test case", "test \"t\" {\n    assert 1 == 2\n}\n", runTrap, ""},
-		{"recursion past the budget", "import std/io\n\nfn spin(n: Int): Int {\n    spin(n + 1)\n}\n\nfn main() {\n    io.print(spin(0))\n}\n", runTooLong, "it may loop"},
+		{"recursion past the budget", "import std/io\n\nfn spin(n: Int) -> Int {\n    spin(n + 1)\n}\n\nfn main() {\n    io.print(spin(0))\n}\n", runTooLong, "it may loop"},
+		{"pure std functions", "import std/io\n\nfn main() {\n    io.print(String.pad_start(\"7\", 3, \"0\"))\n    io.inspect(String.words(\"a b\"))\n    io.inspect(String.lines(\"a\\nb\"))\n}\n", runOK, ""},
 		{"a file read", "import std/io\n\nfn main() {\n    io.inspect(io.read_file(\"x\"))\n}\n", runSkipped, "it reaches outside the machine"},
 		{"a rejection", "fn main() {\n    x = \n}\n", runSkipped, "the front end rejects it"},
-		{"a planted compile panic", "import std/io\n\nfn " + plantedTarget + "(): Int {\n    1\n}\n\nfn main() {\n    io.print(" + plantedTarget + "())\n}\n", runCrash, ""},
+		{"a planted compile panic", "import std/io\n\nfn " + plantedTarget + "() -> Int {\n    1\n}\n\nfn main() {\n    io.print(" + plantedTarget + "())\n}\n", runCrash, ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -645,19 +653,40 @@ func TestRunInputClassifies(t *testing.T) {
 		})
 	}
 	// The generator writes no loop but divergingBlock's
-	// `Iter.loop(|di = ...|`, which counts to a limit of at most 3, and no
-	// recursion but recursiveCall's helpers, which walk one of the
-	// program's short lists or a range of at most two numbers. A generated program
-	// with neither that uses its budget is a crash, not a skip; one with
-	// either is classed as one that may loop.
+	// `Iter.loop(fn di = ... ->`, which counts to a limit of at most 3, the
+	// blocks it fences as bounded (boundedBlock), and no recursion but
+	// recursiveCall's helpers, which walk one of the program's short lists
+	// or a range of at most two numbers. A generated program with neither
+	// that uses its budget is a crash, not a skip; one with either is
+	// classed as one that may loop.
 	for _, g := range generatedPrograms() {
 		if recursiveHelperCalled(g.src) {
 			continue
 		}
-		if mayLoop(strings.ReplaceAll(g.src, "Iter.loop(|di = ", "bounded(|di = ")) {
+		if mayLoop(strings.ReplaceAll(withoutBoundedBlocks(g.src), "Iter.loop(fn di = ", "bounded(fn di = ")) {
 			t.Fatalf("%s: mayLoop says it may loop; the generator writes neither recursion nor loops other than divergingBlock's:\n%s", g.name, g.src)
 		}
 	}
+}
+
+// withoutBoundedBlocks drops the lines between a boundedBlock's fences.
+func withoutBoundedBlocks(src string) string {
+	var out strings.Builder
+	depth := 0
+	for _, l := range strings.Split(src, "\n") {
+		switch strings.TrimSpace(l) {
+		case boundedBlockStart:
+			depth++
+			continue
+		case boundedBlockEnd:
+			depth--
+			continue
+		}
+		if depth == 0 {
+			out.WriteString(l + "\n")
+		}
+	}
+	return out.String()
 }
 
 // TestLoweredProgramsRun runs every generated program and every seed with a

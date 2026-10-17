@@ -59,7 +59,7 @@ func requireDepthFault(t *testing.T, err error, line int) {
 func TestCallDepth_InfiniteRecursionFaultsAtTheCall(t *testing.T) {
 	out, err := runDepth(t, `import std/io
 
-fn down(n: Int): Int {
+fn down(n: Int) -> Int {
   io.print("x")
   down(n + 1) + 1
 }
@@ -87,7 +87,7 @@ func TestCallDepth_RecursionUpToTheLimitRuns(t *testing.T) {
 	src := func(n int) string {
 		return fmt.Sprintf(`import std/io
 
-fn sum(n: Int): Int {
+fn sum(n: Int) -> Int {
   if n == 0 {
     0
   } else {
@@ -119,8 +119,8 @@ fn main() {
 func TestCallDepth_RecursionThroughACallbackFaults(t *testing.T) {
 	_, err := runDepth(t, `import std/io
 
-fn walk(n: Int): Int {
-  [n] |> Iter.map(|x| walk(x + 1) + 1) |> Iter.reduce(|acc = 0, x| acc + x)
+fn walk(n: Int) -> Int {
+  [n] |> Iter.map(fn x -> walk(x + 1) + 1) |> Iter.reduce(fn acc = 0, x -> acc + x)
 }
 
 fn main() {
@@ -136,13 +136,13 @@ func TestCallDepth_AFaultInATaskIsItsFailure(t *testing.T) {
 	out, err := runDepth(t, `import std/io
 import std/tasks.Task
 
-fn down(n: Int): Int {
+fn down(n: Int) -> Int {
   down(n + 1) + 1
 }
 
 fn main() {
   concurrent {
-    worker = Task.spawn(|| down(0))
+    worker = Task.spawn(fn -> down(0))
     case Task.outcome(worker) {
       .Completed(v) -> io.print("done: ${v}")
       .Cancelled -> io.print("cancelled")
@@ -164,7 +164,7 @@ fn main() {
 // A test case that recurses without bound fails with the fault, and the next
 // case still runs.
 func TestCallDepth_ATestCaseFailsAndTheNextRuns(t *testing.T) {
-	p := depthProgram(t, `fn down(n: Int): Int {
+	p := depthProgram(t, `fn down(n: Int) -> Int {
   down(n + 1) + 1
 }
 

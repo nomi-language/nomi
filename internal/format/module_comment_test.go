@@ -12,8 +12,8 @@ func TestFormat_BlankLineAfterModuleComment(t *testing.T) {
 	}{
 		{
 			name: "before a doc comment",
-			in:   "//# Geometry.\n/// Area.\nfn area(): Int {\n    1\n}\n",
-			want: "//# Geometry.\n\n/// Area.\nfn area(): Int {\n    1\n}\n",
+			in:   "//# Geometry.\n/// Area.\nfn area() -> Int {\n    1\n}\n",
+			want: "//# Geometry.\n\n/// Area.\nfn area() -> Int {\n    1\n}\n",
 		},
 		{
 			name: "a multi-line block before an import",
@@ -27,8 +27,8 @@ func TestFormat_BlankLineAfterModuleComment(t *testing.T) {
 		},
 		{
 			name: "a blank line already there stays one",
-			in:   "//# Geometry.\n\n\nfn area(): Int {\n    1\n}\n",
-			want: "//# Geometry.\n\nfn area(): Int {\n    1\n}\n",
+			in:   "//# Geometry.\n\n\nfn area() -> Int {\n    1\n}\n",
+			want: "//# Geometry.\n\nfn area() -> Int {\n    1\n}\n",
 		},
 		{
 			name: "after the imports, before a plain comment",
@@ -37,8 +37,8 @@ func TestFormat_BlankLineAfterModuleComment(t *testing.T) {
 		},
 		{
 			name: "a plain comment still attaches",
-			in:   "// Plain.\n\nfn area(): Int {\n    1\n}\n",
-			want: "// Plain.\nfn area(): Int {\n    1\n}\n",
+			in:   "// Plain.\n\nfn area() -> Int {\n    1\n}\n",
+			want: "// Plain.\nfn area() -> Int {\n    1\n}\n",
 		},
 	}
 	for _, c := range cases {

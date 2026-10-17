@@ -365,7 +365,7 @@ func TestReplayDiffHeader(t *testing.T) {
 	if got := ReplayDiffHeader("main"); got != "io.replay: the transcript (-) and what main printed (+) differ" {
 		t.Fatalf("main: %q", got)
 	}
-	if got := ReplayDiffHeader("|| {\n    f()\n}"); got != "io.replay: the transcript (-) and what the function printed (+) differ" {
+	if got := ReplayDiffHeader("fn -> {\n    f()\n}"); got != "io.replay: the transcript (-) and what the function printed (+) differ" {
 		t.Fatalf("a lambda: %q", got)
 	}
 	d := &AssertionStringDiff{Expected: "a\n", Actual: "b\n", Header: ReplayDiffHeader("bank.main")}

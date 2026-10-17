@@ -21,7 +21,7 @@ import (
 // and
 //
 //	impl Stepper for Down {
-//	  fn step(value: Down, n: Int): Int {
+//	  fn step(value: Down, n: Int) -> Int {
 //	    if n == 0 { 0 } else { Stepper.step(value, n - 1) }
 //	  }
 //	}
@@ -326,7 +326,7 @@ func (g *gen) planTailCycles() {
 // What is still refused, each a real shape with a witness rather than a hedge:
 //
 //   - Members whose declared results differ. The driver has one result slot.
-//     `fn wide(n: Int): Shape` / `fn narrow(n: Int): Circle` over
+//     `fn wide(n: Int) -> Shape` / `fn narrow(n: Int) -> Circle` over
 //     `enum Shape { embeds Circle; ... }` type-checks clean, so this is a
 //     lowering limit rather than a soundness bug, and the
 //     refusal costs nothing because the shape had to be constructed.
@@ -433,7 +433,7 @@ func (g *gen) tailMemberSig(u *tailUnit) (tailSig, bool) {
 		// the same reason the synth line fallback below is: a block refused at
 		// DECLARATION time has `order` empty, so it contributes no graph node
 		// at all; and the only route to an unlowerable block that still has
-		// items is buildImpls' speculation, which runs for SYNTHESIZED blocks
+		// items is settleImpls' speculation, which runs for SYNTHESIZED blocks
 		// only — and no synthesized body contains a tail-marked call. Falsified,
 		// this predicate is a wrong answer rather than a refusal, which is the
 		// wrong side to be cheap on.

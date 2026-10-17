@@ -14,7 +14,7 @@ import (
 func TestTypeMethodModule_RecordedAtCrossModuleCall(t *testing.T) {
 	src := `pub struct Foo { x: Int }
 
-fn use_foo(f: Foo): Int {
+fn use_foo(f: Foo) -> Int {
     Foo.bar(f)
 }`
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))

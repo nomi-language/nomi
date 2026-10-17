@@ -13,7 +13,7 @@ struct Outcome {
     parsed: Result<Int, String>
 }
 
-fn parse(s: String): Result<Int, String> {
+fn parse(s: String) -> Result<Int, String> {
     if s == "1" {
         Ok(1)
     } else {
@@ -21,7 +21,7 @@ fn parse(s: String): Result<Int, String> {
     }
 }
 
-fn render(r: Result<Int, String>): String {
+fn render(r: Result<Int, String>) -> String {
     case r {
         Ok(v) -> "ok ${v}"
         Err(e) -> "err ${e}"
@@ -30,7 +30,7 @@ fn render(r: Result<Int, String>): String {
 
 // The qualified spellings, and a payload literal test that MISSES so the arm
 // falls through to a later one with the same tag.
-fn classify(r: Result<Int, String>): String {
+fn classify(r: Result<Int, String>) -> String {
     case r {
         Result.Ok(0) -> "zero"
         Result.Ok(n) -> "nonzero ${n}"
@@ -42,7 +42,7 @@ fn classify(r: Result<Int, String>): String {
 // `Result<Int, String>` and `Result<String, Int>` apart. Each instantiation
 // gets its own kind, which is the point of instantiating rather than
 // erasing.
-fn flip(r: Result<Int, String>): Result<String, Int> {
+fn flip(r: Result<Int, String>) -> Result<String, Int> {
     case r {
         Ok(v) -> Err(v)
         Err(e) -> Ok(e)
@@ -52,18 +52,18 @@ fn flip(r: Result<Int, String>): Result<String, Int> {
 // A Result whose two type arguments are the SAME type. rt's generic struct
 // carries two fields here where a monomorphic enum would dedup them into one;
 // this reads both back to prove the payloads do not alias.
-fn unflip(r: Result<String, Int>): Result<Int, String> {
+fn unflip(r: Result<String, Int>) -> Result<Int, String> {
     case r {
         Ok(s) -> Err(s)
         Err(n) -> Ok(n)
     }
 }
 
-fn same_types(pick_left: Bool): Result<Int, Int> {
+fn same_types(pick_left: Bool) -> Result<Int, Int> {
     if pick_left { Ok(11) } else { Err(22) }
 }
 
-fn show_same(r: Result<Int, Int>): String {
+fn show_same(r: Result<Int, Int>) -> String {
     case r {
         Ok(a) -> "ok ${a}"
         Err(b) -> "err ${b}"
@@ -71,14 +71,14 @@ fn show_same(r: Result<Int, Int>): String {
 }
 
 // A prelude enum nested in the other one.
-fn maybe_result(m: Maybe<Result<Int, String>>): String {
+fn maybe_result(m: Maybe<Result<Int, String>>) -> String {
     case m {
         Some(r) -> render(r)
         None -> "absent"
     }
 }
 
-fn main(): Unit {
+fn main() -> Unit {
     io.print(render(parse("1")))
     io.print(render(parse("2")))
     io.print(classify(Ok(0)))

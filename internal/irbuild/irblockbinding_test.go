@@ -14,7 +14,7 @@ fn main() {
  io.print(second)
  io.print(item)
  base = 5
- calculate = |n: Int| { answer = { offset = base + n offset * 2 } answer + 1 }
+ calculate = fn n: Int -> { answer = { offset = base + n offset * 2 } answer + 1 }
 	io.print(calculate(3))
 }`, "dbg line 4: total = 30\n3\n4\n14\n100\n17\n")
 }
@@ -22,8 +22,8 @@ fn main() {
 func TestIRBlockBinding_EscapingCallable(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
- f = { base = 4 |n: Int| base + n }
- g = { base = 10 |n: Int| base * n }
+ f = { base = 4 fn n: Int -> base + n }
+ g = { base = 10 fn n: Int -> base * n }
  io.print(f(3))
  io.print(g(3))
  io.print(f(5))
@@ -43,11 +43,11 @@ enum Shape {
     Square Int
 }
 
-fn note(s: String): Unit {
+fn note(s: String) -> Unit {
     io.print(s)
 }
 
-fn classify(n: Int): String {
+fn classify(n: Int) -> String {
     label = {
         small = n < 10
         if small {
@@ -61,7 +61,7 @@ fn classify(n: Int): String {
     "${n} is ${label}"
 }
 
-fn area(s: Shape): Int {
+fn area(s: Shape) -> Int {
     a: Int = {
         scale = 2
         case s {
@@ -72,9 +72,9 @@ fn area(s: Shape): Int {
     a + 1
 }
 
-fn first_even(xs: List<Int>): Maybe<Int> {
+fn first_even(xs: List<Int>) -> Maybe<Int> {
     found = {
-        evens = Iter.filter(xs, |x| x % 2 == 0) |> Iter.to_list()
+        evens = Iter.filter(xs, fn x -> x % 2 == 0) |> Iter.to_list()
         case List.head(evens) {
             Some(e) -> Some(e * 10)
             None -> None
@@ -83,7 +83,7 @@ fn first_even(xs: List<Int>): Maybe<Int> {
     found
 }
 
-fn early(n: Int): Int {
+fn early(n: Int) -> Int {
     v = {
         m = n * 2
         if m > 10 {
@@ -95,7 +95,7 @@ fn early(n: Int): Int {
     v + 1
 }
 
-fn nested(n: Int): Int {
+fn nested(n: Int) -> Int {
     v = {
         a = n + 1
         {
@@ -113,7 +113,7 @@ fn nested(n: Int): Int {
     v
 }
 
-fn deferred(n: Int): String {
+fn deferred(n: Int) -> String {
     v = {
         defer note("block done")
         case n {
@@ -141,7 +141,7 @@ fn main() {
     io.inspect(nested(5))
     io.print(deferred(1))
     io.print(deferred(2))
-    f = |x: Int| {
+    f = fn x: Int -> {
         y = {
             z = x + 1
             if z > 2 { "big" } else { "small" }

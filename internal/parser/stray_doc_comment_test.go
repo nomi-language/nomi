@@ -15,7 +15,7 @@ func TestStrayDocComment_IsAnError(t *testing.T) {
 	cases := map[string]string{
 		"import":                              "/// Explains the imports.\nimport std/io\n",
 		"test block":                          "/// Explains the test.\ntest \"t\" {\n  assert True\n}\n",
-		"after a blank line before an import": "fn f(): Int {\n  1\n}\n\n/// Stray.\nimport std/io\n",
+		"after a blank line before an import": "fn f() -> Int {\n  1\n}\n\n/// Stray.\nimport std/io\n",
 	}
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -53,7 +53,7 @@ func TestStrayDocComment_ResilientParseReportsIt(t *testing.T) {
 // A doc comment on a declaration still attaches.
 func TestStrayDocComment_DeclarationsStillTakeDocs(t *testing.T) {
 	for _, src := range []string{
-		"/// Doubles n.\nfn double(n: Int): Int {\n  n * 2\n}\n",
+		"/// Doubles n.\nfn double(n: Int) -> Int {\n  n * 2\n}\n",
 		"/// A point.\nstruct Point {\n  x: Int\n}\n",
 		"/// Cached.\nonce answer = 42\n",
 	} {

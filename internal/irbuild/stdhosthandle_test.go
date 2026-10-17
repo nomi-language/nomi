@@ -28,7 +28,7 @@ import (
 //     handle down the rt-implemented path, which is the wrong-layout direction.
 //
 // The registry's names are `<module>.<Type>` and this table's identity is
-// `(origin, nomi)` — `std/regex` + `Regex` against `regex.Regex` — so the
+// `#(origin, nomi)` — `std/regex` + `Regex` against `regex.Regex` — so the
 // comparison strips the `std/` prefix rather than matching on the bare name. A
 // bare-name match would let a row for one module's `Regex` satisfy another's.
 func TestStdHostHandleRowsMatchTheBindingsTypeTable(t *testing.T) {

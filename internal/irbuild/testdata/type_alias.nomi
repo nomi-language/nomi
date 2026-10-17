@@ -12,31 +12,31 @@ import std/io
 // other shows up as a difference between two adjacent lines.
 typealias Count Int
 typealias Handler (String, String) -> Result<String, String>
-typealias Pairs List<(Int, String)>
+typealias Pairs List<#(Int, String)>
 typealias Row {name: String, size: Int}
 typealias Answer Maybe<Int>
 
-fn bump(n: Count): Count {
+fn bump(n: Count) -> Count {
     n + 1
 }
 
-fn run_alias(handler: Handler): Result<String, String> {
+fn run_alias(handler: Handler) -> Result<String, String> {
     handler("request", "/home")
 }
 
-fn run_direct(handler: (String, String) -> Result<String, String>): Result<String, String> {
+fn run_direct(handler: (String, String) -> Result<String, String>) -> Result<String, String> {
     handler("request", "/home")
 }
 
-fn total(rows: Pairs): Int {
+fn total(rows: Pairs) -> Int {
     Iter.count(rows)
 }
 
-fn label(r: Row): String {
+fn label(r: Row) -> String {
     "${r.name}:${r.size}"
 }
 
-fn unwrap_or(a: Answer, fallback: Int): Int {
+fn unwrap_or(a: Answer, fallback: Int) -> Int {
     case a {
         Some(v) -> v
         None -> fallback
@@ -46,12 +46,12 @@ fn unwrap_or(a: Answer, fallback: Int): Int {
 fn main() {
     io.print("bump=${bump(41)}")
 
-    aliased = run_alias(|method, path| Ok(method + " " + path))
-    direct = run_direct(|method, path| Ok(method + " " + path))
+    aliased = run_alias(fn method, path -> Ok(method + " " + path))
+    direct = run_direct(fn method, path -> Ok(method + " " + path))
     io.print("alias-and-direct-agree=${Bool.to_string(aliased == direct)}")
     io.print("aliased=${Debug.inspect(aliased)}")
 
-    io.print("total=${total([(1, "a"), (2, "b")])}")
+    io.print("total=${total([#(1, "a"), #(2, "b")])}")
     io.print("row=${label({name: "disk", size: 3})}")
     io.print("some=${unwrap_or(Some(7), 0)}")
     io.print("none=${unwrap_or(None, 9)}")

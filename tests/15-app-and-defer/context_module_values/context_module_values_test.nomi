@@ -1,5 +1,5 @@
 import {
-    domain.{Marker, Mode, Tag, Token}
+    domain.{self, Marker, Mode, Tag, Token}
     other
 }
 
@@ -33,11 +33,21 @@ test "two same-named module types keep separate Context slots" {
 
 /// A `Type<T>` PARAMETER is a value already, and must pass through
 /// untouched rather than being re-resolved from the parameter's own name.
-fn stored_token(c: Context, token_type: Type<Token>): Maybe<Token> {
+fn stored_token(c: Context, token_type: Type<Token>) -> Maybe<Token> {
     Context.value(c, token_type)
 }
 
 test "a Type witness passed as a parameter still resolves" {
     c = Context.with_value(Context.root(), Token(7))
     assert stored_token(c, Token) == Some(Token(7))
+}
+
+fn stored_qualified(c: Context, token_type: Type<domain.Token>) -> Maybe<domain.Token> {
+    Context.value(c, token_type)
+}
+
+test "a Type witness may name its type through its file" {
+    c = Context.with_value(Context.root(), domain.Token(7))
+    assert Context.value(c, domain.Token) == Some(Token(7))
+    assert stored_qualified(c, domain.Token) == Some(Token(7))
 }

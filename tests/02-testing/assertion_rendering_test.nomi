@@ -3,7 +3,7 @@ import {
     std/testing
 }
 
-fn fails_pattern_binding(): Result<Unit, AssertionFailure> {
+fn fails_pattern_binding() -> Result<Unit, AssertionFailure> {
     assert [_, _] = [1]
     Ok(Unit)
 }
@@ -36,11 +36,11 @@ test "rendered pattern binding failure shows the expected shape" {
 
 test "rendered predicate failure shows direct inputs" {
     items = [1, 2, 3]
-    assert Err(failure) = testing.check(Iter.any?(items, |n| n == 4))
+    assert Err(failure) = testing.check(Iter.any?(items, fn n -> n == 4))
 
     assert AssertionFailure.format(failure) == """
         line 39: check failed
-          check Iter.any?(items, |n| n == 4)
+          check Iter.any?(items, fn n -> n == 4)
           values:
             items
               = [1, 2, 3]
@@ -50,7 +50,7 @@ test "rendered predicate failure shows direct inputs" {
 test "rendered binding failure includes the binding source" {
     has_four =
         [1, 2, 3]
-        |> Iter.any?(|n| n == 4)
+        |> Iter.any?(fn n -> n == 4)
 
     assert Err(failure) = testing.check(has_four)
 
@@ -59,12 +59,12 @@ test "rendered binding failure includes the binding source" {
           check has_four
           defined as:
             [1, 2, 3]
-            |> Iter.any?(|n| n == 4)
+            |> Iter.any?(fn n -> n == 4)
           pipeline values:
             [1, 2, 3]
               = [1, 2, 3]
             [1, 2, 3]
-            |> Iter.any?(|n| n == 4)
+            |> Iter.any?(fn n -> n == 4)
               = False
         """
 }
@@ -72,7 +72,7 @@ test "rendered binding failure includes the binding source" {
 test "rendered pipe-stage check includes pipeline source and values" {
     result = testing.check(
         [1, 2, 3]
-        |> Iter.any?(|n| n == 4)
+        |> Iter.any?(fn n -> n == 4)
     )
 
     assert Err(failure) = result
@@ -80,11 +80,11 @@ test "rendered pipe-stage check includes pipeline source and values" {
     assert AssertionFailure.format(failure) == """
         line 73: check failed
           check [1, 2, 3]
-          |> Iter.any?(|n| n == 4)
+          |> Iter.any?(fn n -> n == 4)
           pipeline values:
             [1, 2, 3]
               = [1, 2, 3]
-            |> Iter.any?(|n| n == 4)
+            |> Iter.any?(fn n -> n == 4)
               = False
         """
 }
@@ -110,7 +110,7 @@ test "a Set reads in the values row as its Debug form" {
 }
 
 test "a lazy Iter reads in the values row as a placeholder" {
-    doubled = [1, 2, 3] |> Iter.map(|x| x * 2)
+    doubled = [1, 2, 3] |> Iter.map(fn x -> x * 2)
 
     wrapped = [doubled]
     assert Err(failure) = testing.check(Iter.count(doubled) == Iter.count(wrapped))

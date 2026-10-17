@@ -1,10 +1,10 @@
 import std/io
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 
-fn add(n: Int, m: Int): Int {
+fn add(n: Int, m: Int) -> Int {
     n + m
 }
 
@@ -18,8 +18,8 @@ fn main() {
 
     big =
         xs
-        |> Iter.map(|x| x * 10)
-        |> Iter.filter(|x| x > 15)
+        |> Iter.map(fn x -> x * 10)
+        |> Iter.filter(fn x -> x > 15)
         |> Iter.to_list()
 
     io.print("${total} ${big}")

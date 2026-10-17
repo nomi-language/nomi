@@ -5,14 +5,14 @@ struct Point {
     y: Int
 }
 
-fn palindrome?(s: String): Bool {
+fn palindrome?(s: String) -> Bool {
     String.reverse(s) == s
 }
 
 test "each row runs the body once" {
-    cases = [("abba", True), ("abc", False), ("x", True), ("", True)]
+    cases = [#("abba", True), #("abc", False), #("x", True), #("", True)]
 
-    subtests cases, (line, known_palindrome) {
+    subtests cases, #(line, known_palindrome) {
         assert palindrome?(line) == known_palindrome
     }
 }
@@ -33,9 +33,9 @@ test "rows of structs bound by a struct pattern" {
 }
 
 test "rows from a map are its entries" {
-    lengths = {"a" => 1, "bb" => 2}
+    lengths = %{"a" => 1, "bb" => 2}
 
-    subtests lengths, (word, length) {
+    subtests lengths, #(word, length) {
         assert String.length(word) == length
     }
 }
@@ -56,7 +56,7 @@ test "a row may bind and assert several times" {
     }
 }
 
-fn all_ordered(points: List<Point>): Result<Unit, AssertionFailure> {
+fn all_ordered(points: List<Point>) -> Result<Unit, AssertionFailure> {
     subtests points, Point{x, y} {
         assert x < y
     }
@@ -95,7 +95,7 @@ test "in a function, the failed rows are its Err" {
         """
 }
 
-fn subtests(n: Int): Int {
+fn subtests(n: Int) -> Int {
     n + 1
 }
 
@@ -111,14 +111,85 @@ test "subtests is a name everywhere else" {
     }
 }
 
-fn check_palindrome(line: String, known_palindrome: Bool): Result<Unit, AssertionFailure> {
+fn check_palindrome(line: String, known_palindrome: Bool) -> Result<Unit, AssertionFailure> {
     assert palindrome?(line) == known_palindrome
 
     Ok(Unit)
 }
 
 test "a row may end with a helper that asserts" {
-    subtests [("abba", True), ("abc", False)], (line, known_palindrome) {
+    subtests [#("abba", True), #("abc", False)], #(line, known_palindrome) {
         check_palindrome(line, known_palindrome)
+    }
+}
+
+test "a row may be named by a column it carries" {
+    cases = [
+        #("a word that reads the same both ways", "abba", True),
+        #("a word that does not", "abc", False),
+    ]
+
+    subtests cases, #(description, line, known_palindrome), description {
+        assert palindrome?(line) == known_palindrome
+    }
+}
+
+fn named_ordered(points: List<Point>) -> Result<Unit, AssertionFailure> {
+    subtests points, Point{x, y}, "${x} before ${y}" {
+        assert x < y
+    }
+
+    Ok(Unit)
+}
+
+test "a failed row's name stands where its row would" {
+    assert Err(failure) = named_ordered([Point{x: 1, y: 2}, Point{x: 4, y: 3}])
+
+    assert Some(first) = List.head(failure.subtests)
+    assert first.row == "\"4 before 3\""
+
+    assert AssertionFailure.format(failure) == """
+        subtest "4 before 3": line 139: assertion failed
+          assert x < y
+          values:
+            x
+              = 4
+            y
+              = 3
+        1 of 2 subtests failed
+        """
+}
+
+fn named_by_quotient(ns: List<Int>) -> Result<Unit, AssertionFailure> {
+    subtests ns, n, "${12 / n}" {
+        assert n > 0
+    }
+
+    Ok(Unit)
+}
+
+test "a name that traps fails its row under the rendered row" {
+    assert Err(failure) = named_by_quotient([3, 0, 4])
+
+    assert AssertionFailure.format(failure) == """
+        subtest 0: line 164: its name trapped: division by zero
+          "\${12 / n}"
+        1 of 3 subtests failed
+        """
+}
+
+test "discarded columns work with and without a name" {
+    cases = [#("leap", 2000, True), #("common", 1900, False)]
+
+    subtests cases, #(_, year, leap) {
+        assert (year % 400 == 0) == leap
+    }
+
+    subtests cases, #(_description, year, leap) {
+        assert (year % 400 == 0) == leap
+    }
+
+    subtests cases, #(description, _, leap), description {
+        assert leap == (description == "leap")
     }
 }

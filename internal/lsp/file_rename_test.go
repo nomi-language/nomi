@@ -27,8 +27,8 @@ func renameProject(t *testing.T) (*Server, string) {
 		}
 	}
 	write("nomi.toml", "[module]\nname = \"app\"\n")
-	write("models/users.nomi", "pub fn make(): Int { 1 }\n\npub struct User {\n    name: String\n}\n")
-	write("models/roles.nomi", "pub fn admin(): Int { 2 }\n")
+	write("models/users.nomi", "pub fn make() -> Int { 1 }\n\npub struct User {\n    name: String\n}\n")
+	write("models/roles.nomi", "pub fn admin() -> Int { 2 }\n")
 	main := `import models/users
 import models/roles
 
@@ -44,9 +44,9 @@ fn main() {
     models/roles.{admin}
 }
 
-pub fn report(p: User): Int { u.make() + admin() }
+pub fn report(p: User) -> Int { u.make() + admin() }
 `)
-	write("audit.nomi", "import models/users\nimport models/users.User.{self}\n\npub fn audit(): Int { users.make() }\npub fn name(u: User): String { u.name }\n")
+	write("audit.nomi", "import models/users\nimport models/users.User.{self}\n\npub fn audit() -> Int { users.make() }\npub fn name(u: User) -> String { u.name }\n")
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)
 	s.docs.Open(pathToURI(filepath.Join(dir, "main.nomi")), main)
@@ -103,7 +103,7 @@ func TestWillRenameFiles_File(t *testing.T) {
 	wantEdits(t, got, []string{
 		"audit.nomi: 0:7-0:19 models/people",
 		"audit.nomi: 1:7-1:19 models/people",
-		"audit.nomi: 3:22-3:27 people",
+		"audit.nomi: 3:24-3:29 people",
 		"main.nomi: 0:7-0:19 models/people",
 		"main.nomi: 4:8-4:13 people",
 		"main.nomi: 5:8-5:13 people",

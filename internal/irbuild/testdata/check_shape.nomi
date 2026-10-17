@@ -29,15 +29,15 @@ import {
     std/testing
 }
 
-fn find_name(id: Int): Maybe<String> {
+fn find_name(id: Int) -> Maybe<String> {
     if id == 1 { Some("Ada") } else { None }
 }
 
-fn score(id: Int): Maybe<Int> {
+fn score(id: Int) -> Maybe<Int> {
     if id == 1 { Some(41) } else { None }
 }
 
-fn parse_id(s: String): Result<Int, String> {
+fn parse_id(s: String) -> Result<Int, String> {
     case String.to_int(s) {
         Some(id) -> Ok(id)
         None -> Err("expected a numeric id")
@@ -52,7 +52,7 @@ struct Marker {
     count: Int
 }
 
-fn marker(id: Int): Maybe<Marker> {
+fn marker(id: Int) -> Maybe<Marker> {
     if id == 1 {
         Some(Marker{label: "one", count: 1})
     } else {
@@ -60,7 +60,7 @@ fn marker(id: Int): Maybe<Marker> {
     }
 }
 
-fn missing_marker(): Result<Int, Marker> {
+fn missing_marker() -> Result<Int, Marker> {
     Err(Marker{label: "two", count: 2})
 }
 

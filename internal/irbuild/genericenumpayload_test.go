@@ -32,8 +32,8 @@ enum Shape {
 
 enum Plain {
     Deep Maybe<Maybe<Int>>
-    Pair (Shape, String)
-    Polygon {sides: (Int, (Int) -> Int)}
+    Pair #(Shape, String)
+    Polygon {sides: #(Int, (Int) -> Int)}
 }
 
 fn main() {
@@ -45,19 +45,19 @@ fn main() {
     }
     io.inspect(a == Opt.Has(Some(Some(1))))
     io.inspect(a == Opt.Has(Some(None)))
-    io.inspect(Opt.Has((Shape.Dot, "")))
+    io.inspect(Opt.Has(#(Shape.Dot, "")))
     r = Ok<Int, String>(3)
     io.inspect(Opt.Has(Some(r)))
     io.inspect(Opt.Has(Opt.Has(Some(2))))
     io.inspect(Holder.Of{value: Some(Some(1))})
-    case Holder.Of{value: (Shape.Circle(4), [Some("a")])} {
+    case Holder.Of{value: #(Shape.Circle(4), [Some("a")])} {
         .Of{value} -> io.inspect(value)
         .Empty -> io.inspect(0)
     }
     io.inspect(Plain.Deep(Some(None)))
-    io.inspect(Plain.Pair((Shape.Dot, "p")))
-    case Plain.Polygon{sides: (3, |x: Int| x * 2)} {
-        .Polygon{sides: (n, f)} -> io.inspect(f(n))
+    io.inspect(Plain.Pair(#(Shape.Dot, "p")))
+    case Plain.Polygon{sides: #(3, fn x: Int -> x * 2)} {
+        .Polygon{sides: #(n, f)} -> io.inspect(f(n))
         _ -> io.inspect(0)
     }
 }
@@ -65,11 +65,11 @@ fn main() {
 	const want = "1\n" +
 		"True\n" +
 		"False\n" +
-		"Has((Dot, \"\"))\n" +
+		"Has(#(Dot, \"\"))\n" +
 		"Has(Some(Ok(3)))\n" +
 		"Has(Has(Some(2)))\n" +
 		"Of{value: Some(Some(1))}\n" +
-		"(Circle(4), [Some(\"a\")])\n" +
+		"#(Circle(4), [Some(\"a\")])\n" +
 		"Deep(Some(None))\n" +
 		"Pair(Dot, \"p\")\n" +
 		"6\n"

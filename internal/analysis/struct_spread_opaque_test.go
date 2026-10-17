@@ -16,7 +16,7 @@ import "testing"
 func TestOpaqueUpdate_SpreadNamingAFieldFromOutsideIsRefused(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}
 
-fn wreck(c: Counter): Counter {
+fn wreck(c: Counter) -> Counter {
   {..c, value: -999}
 }
 `))
@@ -26,7 +26,7 @@ fn wreck(c: Counter): Counter {
 func TestOpaqueUpdate_SpreadNamingNoFieldIsTheNoFieldError(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{Counter}
 
-fn copy(c: Counter): Counter {
+fn copy(c: Counter) -> Counter {
   {..c}
 }
 `))
@@ -42,14 +42,14 @@ fn copy(c: Counter): Counter {
 func TestOpaqueUpdate_SpreadInsideTheDeclaringFileIsAccepted(t *testing.T) {
 	_, errs := opaqueProject(t, map[string]string{
 		"counter.nomi": counterModule + `
-pub fn set_value_by_spread(c: Counter, v: Int): Counter {
+pub fn set_value_by_spread(c: Counter, v: Int) -> Counter {
   {..c, value: v}
 }
 `,
 		"open.nomi": openModule,
 		"main.nomi": `import counter.{self, Counter}
 
-fn use(c: Counter): Int {
+fn use(c: Counter) -> Int {
   counter.value(counter.set_value_by_spread(c, 3))
 }
 `,
@@ -65,7 +65,7 @@ fn use(c: Counter): Int {
 func TestOpaqueUpdate_SpreadOnATransparentStructIsUntouched(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import open.{Open}
 
-fn shift(o: Open): Open {
+fn shift(o: Open) -> Open {
   {..o, a: 9}
 }
 `))

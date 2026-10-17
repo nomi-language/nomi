@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRPipeKeyword_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn mark(s: String): String { io.print(s) return s }
+fn mark(s: String) -> String { io.print(s) return s }
 fn main() {
   label = mark("Ada")
     |> if String.contains?("A") {
@@ -25,10 +25,10 @@ fn main() {
 
 func TestIRPipeKeyword_BareStagesAndFollowingCalls(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn choose(b: Bool): String {
+fn choose(b: Bool) -> String {
   b |> if { "yes" } else { "no" } |> String.to_lower()
 }
-fn describe(m: Maybe<Int>): Int {
+fn describe(m: Maybe<Int>) -> Int {
   m |> case { Some(n) -> n + 1 None -> 0 }
 }
 fn main() {

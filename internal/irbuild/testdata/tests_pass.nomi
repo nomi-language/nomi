@@ -2,11 +2,11 @@
 // summary. The point is the shape of a test binary, not a failure: a file that
 // declares tests builds a test program whose report is fully specified even
 // when nothing goes wrong.
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 
-fn even?(n: Int): Bool {
+fn even?(n: Int) -> Bool {
     n % 2 == 0
 }
 

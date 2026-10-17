@@ -7,7 +7,7 @@ import std/io
 // decision tree. These arms can: several of them match the same value, so the
 // printed answer is decided by arm ORDER, and the nested arms bind through two
 // layers of variant unwrapping.
-fn classify(n: Int): String {
+fn classify(n: Int) -> String {
     case n {
         0 -> "zero"
         1 -> "one"
@@ -18,7 +18,7 @@ fn classify(n: Int): String {
 }
 
 // Every arm below matches `Some(Ok(5))`. Only the first may fire.
-fn nested(v: Maybe<Result<Int, String>>): String {
+fn nested(v: Maybe<Result<Int, String>>) -> String {
     case v {
         Some(Ok(0)) -> "some ok zero"
         Some(Ok(n)) when n > 3 -> "some ok big ${n}"
@@ -31,7 +31,7 @@ fn nested(v: Maybe<Result<Int, String>>): String {
 
 // A wildcard placed FIRST shadows everything after it. An open-coded tree that
 // reordered arms for efficiency would print the later answer.
-fn wildcard_first(n: Int): String {
+fn wildcard_first(n: Int) -> String {
     case n {
         _ -> "wildcard"
         0 -> "zero"

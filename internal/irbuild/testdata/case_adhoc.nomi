@@ -3,7 +3,7 @@ import std/io
 // The scrutinee-less form. Every arm's PATTERN is an ordinary Bool expression
 // evaluated in order, `_` matches unconditionally, and a `when` guard on top
 // of a condition has to pass as well.
-fn classify(n: Int): String {
+fn classify(n: Int) -> String {
     case {
         n > 100 -> "huge"
         n > 10 -> "big"
@@ -12,7 +12,7 @@ fn classify(n: Int): String {
     }
 }
 
-fn loud(label: String, ok: Bool): Bool {
+fn loud(label: String, ok: Bool) -> Bool {
     io.print("test ${label}")
     ok
 }
@@ -20,7 +20,7 @@ fn loud(label: String, ok: Bool): Bool {
 // Conditions must be evaluated lazily and in order: arm 2's condition must not
 // run when arm 1's answered True, and arm 3's must run when arm 2's guard
 // failed.
-fn pick(n: Int): String {
+fn pick(n: Int) -> String {
     case {
         loud("a", n > 100) -> "a"
         loud("b", n > 10) when n != 50 -> "b"

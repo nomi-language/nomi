@@ -23,10 +23,10 @@ pub struct Query {
 pub type Sql
 
 impl Literal for Sql {
-    fn from_fragments(fragments: List<Fragment<Display>>): Query {
+    fn from_fragments(fragments: List<Fragment<Display>>) -> Query {
         sql =
             fragments
-            |> Iter.map(|fragment| {
+            |> Iter.map(fn fragment -> {
                 case fragment {
                     .Static(text) -> text
                     .Dynamic(_) -> "?"
@@ -36,7 +36,7 @@ impl Literal for Sql {
 
         args =
             fragments
-            |> Iter.flat_map(|fragment| {
+            |> Iter.flat_map(fn fragment -> {
                 case fragment {
                     .Static(_) -> []
                     .Dynamic(value) -> [Display.to_string(value)]

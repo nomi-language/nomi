@@ -1,3 +1,3 @@
-pub fn times(x: Int, by: Int): Int {
+pub fn times(x: Int, by: Int) -> Int {
     x * by
 }

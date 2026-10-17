@@ -4,7 +4,7 @@ import "testing"
 
 func TestFromMarkedSourceSplitsFilesAndManifest(t *testing.T) {
 	project, err := FromMarkedSource(`// FILE: math.nomi
-pub fn double(n: Int): Int {
+pub fn double(n: Int) -> Int {
   n * 2
 }
 
@@ -37,7 +37,7 @@ entry_points = ["main"]
 func TestFromSourcesNormalizesEntryAndFileNames(t *testing.T) {
 	project, err := FromSources("./main.nomi", map[string]string{
 		"main.nomi": "fn main() {}",
-		"api.nomi":  "pub fn ping(): Int { 1 }",
+		"api.nomi":  "pub fn ping() -> Int { 1 }",
 	}, nil)
 	if err != nil {
 		t.Fatalf("FromSources: %v", err)

@@ -19,7 +19,7 @@ struct App {
   port: Int
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{port: 8080}
 }
 
@@ -36,7 +36,7 @@ pub struct App {
   label: String
 }
 
-pub fn boot(): App {
+pub fn boot() -> App {
   io.print("boot")
   App{label: "zero"}
 }
@@ -78,11 +78,11 @@ pub struct App {
   first: String
 }
 
-fn default_startup(): Startup {
+fn default_startup() -> Startup {
   Startup{args: ["default"]}
 }
 
-pub fn boot(startup: Startup = default_startup()): App {
+pub fn boot(startup: Startup = default_startup()) -> App {
   io.print("boot ${startup.args}")
   App{first: Iter.first(startup.args) |> Maybe.with_default("none")}
 }

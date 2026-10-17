@@ -138,12 +138,12 @@ func TestTypedLiteral_SlotTypeDoesNotImplementInterface(t *testing.T) {
 pub type DisplayTag
 
 impl Literal for DisplayTag {
-  fn from_fragments(fragments: List<Fragment<Display>>): String {
-    Iter.reduce(fragments, |acc = "", _frag| { acc })
+  fn from_fragments(fragments: List<Fragment<Display>>) -> String {
+    Iter.reduce(fragments, fn acc = "", _frag -> { acc })
   }
 }
 
-fn helper(x: Int): Int { x + 1 }
+fn helper(x: Int) -> Int { x + 1 }
 
 fn main() {
   q = DisplayTag"value: ${helper}"
@@ -165,8 +165,8 @@ func TestTypedLiteral_BlockFormTypeAttachedTag(t *testing.T) {
 pub struct Box { contents: String }
 
 impl Literal for Box {
-  fn from_fragments(fragments: List<Fragment<String>>): Box {
-    body = Iter.reduce(fragments, |acc = "", frag|
+  fn from_fragments(fragments: List<Fragment<String>>) -> Box {
+    body = Iter.reduce(fragments, fn acc = "", frag ->
       case frag {
         .Static(s) -> acc + s
         .Dynamic(v) -> acc + v
@@ -204,7 +204,7 @@ fn main() {
 pub type Tag String
 
 impl Literal for Tag {
-  fn from_fragments(_fragments: List<Fragment<String>>): Tag {
+  fn from_fragments(_fragments: List<Fragment<String>>) -> Tag {
     Tag("ok")
   }
 }
@@ -237,9 +237,9 @@ func TestTypedLiteral_TagMustBeAType(t *testing.T) {
 // type-check and fault at run time.
 func pickDecls(inherentFirst bool) string {
 	iface := "impl Literal for Pick {\n" +
-		"  fn from_fragments(fragments: List<Fragment<String>>): Int {\n    7\n  }\n}\n"
+		"  fn from_fragments(fragments: List<Fragment<String>>) -> Int {\n    7\n  }\n}\n"
 	inherent := "impl Pick {\n" +
-		"  pub fn from_fragments(fragments: List<Fragment<String>>): String {\n    \"inherent\"\n  }\n}\n"
+		"  pub fn from_fragments(fragments: List<Fragment<String>>) -> String {\n    \"inherent\"\n  }\n}\n"
 	if inherentFirst {
 		return "pub type Pick\n\n" + inherent + "\n" + iface
 	}
@@ -297,11 +297,11 @@ func TestTypedLiteral_AmbiguousHandlerIsRejected(t *testing.T) {
 // check, `s: String = Pick"x"` type-checked against the `Literal` handler's
 // `String` and could run the other body, which answers `7`.
 func rivalIfaceDecls(rivalFirst bool) string {
-	decl := "interface Other {\n  fn from_fragments(fragments: List<Fragment<String>>): Int\n}\n"
+	decl := "interface Other {\n  fn from_fragments(fragments: List<Fragment<String>>) -> Int\n}\n"
 	iface := "impl Literal for Pick {\n" +
-		"  fn from_fragments(fragments: List<Fragment<String>>): String {\n    \"literal\"\n  }\n}\n"
+		"  fn from_fragments(fragments: List<Fragment<String>>) -> String {\n    \"literal\"\n  }\n}\n"
 	rival := "impl Other for Pick {\n" +
-		"  fn from_fragments(fragments: List<Fragment<String>>): Int {\n    7\n  }\n}\n"
+		"  fn from_fragments(fragments: List<Fragment<String>>) -> Int {\n    7\n  }\n}\n"
 	if rivalFirst {
 		return "pub type Pick\n\n" + decl + "\n" + rival + "\n" + iface
 	}
@@ -361,12 +361,12 @@ func TestTypedLiteral_ASecondInterfaceProviderIsRejected(t *testing.T) {
 // unstamped item would get.
 func TestTypedLiteral_ASecondInterfaceNotDeclaringFromFragmentsIsNotARival(t *testing.T) {
 	entry := "import std/literals.{Fragment, Literal}\n\npub type Pick\n\n" +
-		"interface Quiet {\n  fn hush(p: Pick): String\n}\n\n" +
+		"interface Quiet {\n  fn hush(p: Pick) -> String\n}\n\n" +
 		"impl Literal for Pick {\n" +
-		"  fn from_fragments(fragments: List<Fragment<String>>): String {\n    \"literal\"\n  }\n}\n\n" +
+		"  fn from_fragments(fragments: List<Fragment<String>>) -> String {\n    \"literal\"\n  }\n}\n\n" +
 		"impl Quiet for Pick {\n" +
-		"  fn hush(_p: Pick): String {\n    \"hush\"\n  }\n\n" +
-		"  fn from_fragments(fragments: List<Fragment<String>>): Int {\n    7\n  }\n}\n\n" +
+		"  fn hush(_p: Pick) -> String {\n    \"hush\"\n  }\n\n" +
+		"  fn from_fragments(fragments: List<Fragment<String>>) -> Int {\n    7\n  }\n}\n\n" +
 		"fn main() {\n  q = Pick\"x\"\n}\n"
 	expectTypedLiteralError(t, checkTypedLiteralProject(t, entry, nil), "is not part of the interface")
 }

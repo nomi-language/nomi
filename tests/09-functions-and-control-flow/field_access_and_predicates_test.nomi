@@ -18,12 +18,12 @@ pub struct Crate<T> {
     box: Box<T>
 }
 
-fn even?(n: Int): Bool {
+fn even?(n: Int) -> Bool {
     n % 2 == 0
 }
 
 interface Validatable {
-    fn valid?(value: self): Bool
+    fn valid?(value: self) -> Bool
 }
 
 struct Password {
@@ -31,41 +31,29 @@ struct Password {
 }
 
 impl Validatable for Password {
-    fn valid?(p: Password): Bool {
+    fn valid?(p: Password) -> Bool {
         String.length(p.text) >= 6
     }
 }
 
 test "field-access chains resolve through structs and generics" {
     o = Outer{
-        mid: Mid{
-            inner: Inner{
-                value: 42,
-            },
-        },
+        mid: Mid{inner: Inner{value: 42}},
     }
 
     c = Crate{
-        box: Box{
-            item: Inner{
-                value: 7,
-            },
-        },
+        box: Box{item: Inner{value: 7}},
     }
 
     p = Outer{
-        mid: Mid{
-            inner: Inner{
-                value: 100,
-            },
-        },
+        mid: Mid{inner: Inner{value: 100}},
     }
 
-    pair = (p.mid.inner.value, p.mid.inner.value)
+    pair = #(p.mid.inner.value, p.mid.inner.value)
 
     assert o.mid.inner.value == 42
     assert c.box.item.value == 7
-    assert pair == (100, 100)
+    assert pair == #(100, 100)
 }
 
 test "predicate-named functions and bindings stay callable" {

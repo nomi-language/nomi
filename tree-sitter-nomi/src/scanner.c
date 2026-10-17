@@ -32,13 +32,16 @@
 //                                `${` is literal, `\${` keeps its `\`.
 //   STATEMENT_END              — zero-width end of a statement or a `case`
 //                                arm at a line break.
-//   ANON_STRUCT_OPEN, MAP_OPEN — a classified headless `{`.
+//   ANON_STRUCT_OPEN           — a classified headless `{`.
 //   ATTACHED_COMMENT_TEST_PROMPT — the line-leading `//!` attached-test opener.
 //   ATTACHED_COMMENT_TEST_LINE_PROMPT — the line-leading `//!` attached-test
 //                                body prompt, skipped as an extra.
 //   ATTACHED_TEST_PROMPT_GROUP_END — zero-width end of a contiguous `//!`
 //                                attached-test group.
 //   SAME_LINE                  — zero-width mark before a keyword's operand.
+//   SUBTESTS_KEYWORD, GROUP_KEYWORD, HOST_KEYWORD — the contextual keywords
+//                                `subtests`, `group` and `host`, each emitted
+//                                only where what follows makes it one.
 //
 // Each string scanner emits at least one character; if the first character
 // is already a boundary, the scanner returns false and lets the main
@@ -51,16 +54,14 @@ enum TokenType {
     // Zero-width, at the start of a line, where the line break before it ends
     // a statement or a `case` arm (see line_continues).
     STATEMENT_END,
-    // Opening brace of a *headless* anonymous struct literal (`{a: 1}`) or map
-    // literal (`{k => v}`) in value/scrutinee position. The scanner classifies
-    // a whitespace-preceded `{` by peeking its content and emits one of these
-    // (or nothing → a plain `{`, leaving block / case-block / construction
-    // alone). Distinct opening tokens give `anon_struct` / `map_literal` their
-    // own un-merged LR state, so a field value extends (`{a: Map.put(x)}`) and
-    // a map literal can be a `case` scrutinee. A head-hugging construction
-    // brace (`Set{…}`, no leading whitespace) is left to `token.immediate`.
+    // Opening brace of a *headless* anonymous struct literal (`{a: 1}`) in
+    // value/scrutinee position. The scanner classifies a whitespace-preceded
+    // `{` by peeking its content and emits this (or nothing → a plain `{`,
+    // leaving block / case-block / construction alone). A distinct opening
+    // token gives `anon_struct` its own un-merged LR state, so a field value
+    // extends (`{a: Map.put(x)}`). A head-hugging construction brace
+    // (`Set{…}`, no leading whitespace) is left to `token.immediate`.
     ANON_STRUCT_OPEN,
-    MAP_OPEN,
     ATTACHED_COMMENT_TEST_PROMPT,
     ATTACHED_COMMENT_TEST_LINE_PROMPT,
     ATTACHED_TEST_PROMPT_GROUP_END,
@@ -74,6 +75,9 @@ enum TokenType {
     // when the group's name string or its `{` follows it
     // (scan_group_keyword).
     GROUP_KEYWORD,
+    // The contextual keyword `host` that opens a host declaration, emitted
+    // only when `fn` or `type` follows it on its line (scan_host_keyword).
+    HOST_KEYWORD,
 };
 
 typedef struct {
@@ -153,7 +157,7 @@ static void skip_ws_comments(TSLexer *lexer) {
 
 // Classify the content immediately after a headless `{` (lookahead positioned
 // just past the brace). Pure look-ahead — advances beyond mark_end, never into
-// the emitted token. Returns: 0 = block, 1 = anon struct, 2 = map literal.
+// the emitted token. Returns: 0 = block, 1 = anon struct.
 //
 // Heuristics, matching the Go parser's intent:
 //   - A leading `IDENT :` (not `::`) with no top-level binding `=` → anon struct
@@ -166,13 +170,10 @@ static void skip_ws_comments(TSLexer *lexer) {
 //     `struct_update_spread` follows. No Nomi block can begin with `..` — the
 //     open-ended range forms (`..5`, `..`) were removed precisely so a prefix
 //     `..` inside a literal is unambiguously a spread — so this steals nothing.
-//   - A top-level `=>` (before any decisive binding `=`) → map (`{k => v}`,
-//     `{(1,2) => "a"}`). Checked by the scan loop below, so it still wins over a
-//     leading `..`: `{..m, "b" => 2}` classifies as a map, the grammar's
-//     `map_update`.
 //   - Anything else (bare statements, `foo()`, guard `n < 0 -> …`) → block.
-// Depth-tracked across `()[]{}`; strings skipped; comparison `=` (`==`/`!=`/
-// `<=`/`>=`/`=>`) never mistaken for a binding.
+// A map literal opens with `%{`, so no brace is classified as one. Depth-tracked
+// across `()[]{}`; strings skipped; comparison `=` (`==`/`!=`/`<=`/`>=`) and
+// `=>` never mistaken for a binding.
 static int classify_brace(TSLexer *lexer) {
     skip_ws_comments(lexer);
     if (lexer->lookahead == '}' || lexer->lookahead == 0) return 0; // empty → block
@@ -230,8 +231,7 @@ static int classify_brace(TSLexer *lexer) {
             int32_t before = prev;
             advance(lexer);
             int32_t next = lexer->lookahead;
-            if (next == '>') return 2; // `=>` → map
-            if (next == '=' || before == '=' || before == '!' ||
+            if (next == '>' || next == '=' || before == '=' || before == '!' ||
                 before == '<' || before == '>') {
                 prev = '='; // `==` / comparison half — keep scanning
                 continue;
@@ -244,7 +244,7 @@ static int classify_brace(TSLexer *lexer) {
     return leading_ident_colon ? 1 : 0;
 }
 
-// Classify and emit the opening brace of a headless anon-struct / map literal.
+// Classify and emit the opening brace of a headless anon-struct literal.
 // scan_layout calls it only after whitespace, so a head-hugging construction
 // brace (`Set{…}`), which has none and is owned by `token.immediate('{')`, is
 // never stolen.
@@ -255,10 +255,6 @@ static bool scan_headless_brace(TSLexer *lexer, const bool *valid_symbols) {
     int kind = classify_brace(lexer); // look-ahead beyond mark_end
     if (kind == 1 && valid_symbols[ANON_STRUCT_OPEN]) {
         lexer->result_symbol = ANON_STRUCT_OPEN;
-        return true;
-    }
-    if (kind == 2 && valid_symbols[MAP_OPEN]) {
-        lexer->result_symbol = MAP_OPEN;
         return true;
     }
     return false; // block (or the wanted kind isn't valid) → rewind, plain `{`
@@ -565,6 +561,23 @@ static bool scan_group_keyword(TSLexer *lexer) {
     return true;
 }
 
+// The contextual keyword `host`, at the lookahead where a declaration can
+// start. As in the Go parser (startsHostDecl), the word is the keyword only
+// when `fn` or `type` follows it: `host fn now(): Instant`, `pub host type
+// Regex`. A `host` binding, parameter or field (`host = "localhost"`, `{host:
+// h}`) leaves it an identifier. The token ends after the word.
+static bool scan_host_keyword(TSLexer *lexer) {
+    if (!at_word(lexer, "host")) return false;
+    lexer->mark_end(lexer);
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') advance(lexer);
+    bool declares = lexer->lookahead == 'f' ? at_word(lexer, "fn")
+        : lexer->lookahead == 't' ? at_word(lexer, "type")
+        : false;
+    if (!declares) return false;
+    lexer->result_symbol = HOST_KEYWORD;
+    return true;
+}
+
 // Scan a line-leading `//!` prompt, or the end of a prompt group, at the
 // position after the leading whitespace run, which held `newlines` line
 // breaks. A prompt token ends right after its `!`: the spaces after it are
@@ -686,6 +699,10 @@ static bool scan_layout(Scanner *scanner, TSLexer *lexer, const bool *valid_symb
         return scan_group_keyword(lexer);
     }
 
+    if (valid_symbols[HOST_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 'h') {
+        return scan_host_keyword(lexer);
+    }
+
     // The operand of `dbg`, `try`, `return`, `break` and `todo` must start on
     // the keyword's line, as in the Go parser: `n |> dbg` then a line
     // `same = dbg n` is two statements.
@@ -696,7 +713,7 @@ static bool scan_layout(Scanner *scanner, TSLexer *lexer, const bool *valid_symb
         return true;
     }
 
-    if ((valid_symbols[ANON_STRUCT_OPEN] || valid_symbols[MAP_OPEN]) && spaced) {
+    if (valid_symbols[ANON_STRUCT_OPEN] && spaced) {
         return scan_headless_brace(lexer, valid_symbols);
     }
     return false;

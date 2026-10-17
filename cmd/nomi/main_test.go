@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/nomi-language/nomi/internal/expectation"
+	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/internal/termcolor"
 	"os"
 	"os/exec"
@@ -21,7 +22,31 @@ import (
 // installed from a different worktree.
 var nomiBin string
 
+// plantedEnv, set in a child's environment, makes the test binary run as
+// `nomi` with every call to `planted_decline` declined by the IR builder
+// (irbuild.PlantDeclineForTest), so a test about how `nomi run`, `nomi test`
+// and `nomi check` report a blocked program needs no real lowering gap.
+// withPlantedDecline sets it.
+const plantedEnv = "NOMI_TEST_RUN_AS_NOMI_WITH_PLANTED_DECLINE"
+
+// plantedReason is the builder's reason for a planted decline.
+const plantedReason = "a planted decline"
+
+// testBin is this test binary, which runs as `nomi` under plantedEnv.
+var testBin string
+
 func TestMain(m *testing.M) {
+	if os.Getenv(plantedEnv) != "" {
+		irbuild.PlantDeclineForTest("planted_decline", plantedReason)
+		main()
+		os.Exit(0)
+	}
+	self, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "TestMain: %v\n", err)
+		os.Exit(1)
+	}
+	testBin = self
 	tmp, err := os.MkdirTemp("", "nomi-test-*")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "TestMain: mkdir: %v\n", err)
@@ -42,6 +67,22 @@ func TestMain(m *testing.M) {
 	}
 	nomiBin = binPath
 	os.Exit(m.Run())
+}
+
+// withPlantedDecline makes nomiBin this test binary run as `nomi` with a
+// planted decline (plantedEnv) until t ends.
+func withPlantedDecline(t *testing.T) {
+	t.Setenv(plantedEnv, "1")
+	bin := nomiBin
+	nomiBin = testBin
+	t.Cleanup(func() { nomiBin = bin })
+}
+
+// plantDecline makes the builder decline every call to `planted_decline`
+// in this process until t ends (irbuild.PlantDeclineForTest), for a test of
+// the in-process REPL.
+func plantDecline(t *testing.T) {
+	t.Cleanup(irbuild.PlantDeclineForTest("planted_decline", plantedReason))
 }
 
 // repoRoot returns the absolute path of the repository root, two
@@ -217,7 +258,7 @@ func TestRunFile_GoBindingsInTwoFilesWithOneBaseName(t *testing.T) {
 		mustWrite(t, filepath.Join(root, "go"+side, "go"+side+".go"), fmt.Sprintf(
 			"package go%[1]s\n\nfunc Greet() string { return \"greet from %[1]s\" }\n\nfunc Only() string { return \"only %[1]s\" }\n", side))
 		mustWrite(t, filepath.Join(root, side, "util.nomi"), fmt.Sprintf(
-			"gopkg \"twoutil/go%[1]s\"\n\npub fn greet(): String go go%[1]s.Greet\n\npub fn only_%[1]s(): String go go%[1]s.Only\n", side))
+			"gopkg \"twoutil/go%[1]s\"\n\npub fn greet() -> String go go%[1]s.Greet\n\npub fn only_%[1]s() -> String go go%[1]s.Only\n", side))
 	}
 	entry := filepath.Join(root, "main.nomi")
 	mustWrite(t, entry, `import {
@@ -270,9 +311,9 @@ func TestRunFile_FFINumericWidthHelpersRoundTrip(t *testing.T) {
 
 gopkg "widthbinding" as ffi
 
-fn double_int(n: Int): Int go ffi.DoubleInt
+fn double_int(n: Int) -> Int go ffi.DoubleInt
 
-fn add_u32(n: Int): Int go ffi.AddUint32
+fn add_u32(n: Int) -> Int go ffi.AddUint32
 
 fn main() {
   io.print(double_int(21))
@@ -305,7 +346,7 @@ func TestRunFile_FFINumericWidthHelperOverflow(t *testing.T) {
 
 gopkg "widthbinding" as ffi
 
-fn double_tiny(n: Int): Int go ffi.DoubleInt8
+fn double_tiny(n: Int) -> Int go ffi.DoubleInt8
 
 fn main() {
   io.print(double_tiny(128))
@@ -408,12 +449,12 @@ func TestSyntaxErrorRefusedByRun(t *testing.T) {
 	}
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "main.nomi")
-	// `|x| n + ` with the operand not yet typed, as mid-edit in an editor.
+	// `fn x -> n + ` with the operand not yet typed, as mid-edit in an editor.
 	mustWrite(t, entry, `import std/io
 
-fn compute(n: Int): Int {
+fn compute(n: Int) -> Int {
   total = n * 2
-  f = |x| n + 
+  f = fn x -> n + 
 }
 
 fn main() {
@@ -437,8 +478,8 @@ fn main() {
 	fixed := filepath.Join(dir, "fixed.nomi")
 	mustWrite(t, fixed, `import std/io
 
-fn compute(n: Int): Int {
-  f = |x: Int| n + x
+fn compute(n: Int) -> Int {
+  f = fn x: Int -> n + x
   f(2)
 }
 
@@ -545,7 +586,7 @@ func TestCheckAndRun_ReturningElseIfChain(t *testing.T) {
 	entry := filepath.Join(t.TempDir(), "main.nomi")
 	mustWrite(t, entry, `import std/io
 
-fn sign(x: Int): Int {
+fn sign(x: Int) -> Int {
   if x < 0 {
     return -1
   } else if x == 0 {
@@ -646,7 +687,7 @@ func TestCheckCommand_DirectoryChecksHelpersThroughImporters(t *testing.T) {
 `)
 	mustWrite(t, filepath.Join(dir, "reader.nomi"), `import settings.Settings
 
-pub fn read(): String {
+pub fn read() -> String {
     Settings.tag
 }
 `)
@@ -656,7 +697,7 @@ pub fn read(): String {
     settings.Settings
 }
 
-pub fn boot(): Settings {
+pub fn boot() -> Settings {
     Settings{context: Context.root(), tag: "root"}
 }
 
@@ -686,12 +727,12 @@ fn main() {
 	// helper.
 	mustWrite(t, filepath.Join(dir, "reader.nomi"), `import settings.Settings
 
-pub fn read(): String {
+pub fn read() -> String {
     Settings.tag + 1
 }
 `)
 	// A file nothing imports is checked on its own.
-	mustWrite(t, filepath.Join(dir, "orphan.nomi"), `fn lonely(): Int {
+	mustWrite(t, filepath.Join(dir, "orphan.nomi"), `fn lonely() -> Int {
     "not an int"
 }
 `)
@@ -721,6 +762,7 @@ func TestCheckCommand_TestFiles(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
+	withPlantedDecline(t)
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "main.nomi"), `fn main() {}
@@ -729,17 +771,14 @@ func TestCheckCommand_TestFiles(t *testing.T) {
   assert 1 + 1 == 2
 }
 `)
-	// skip_odd's `continue` cannot be lowered inside a callback; the case
-	// type-checks, so its error is the lowering's.
-	mustWrite(t, filepath.Join(dir, "lowering_test.nomi"), `fn skip_odd(n: Int): Int {
-  if n % 2 == 1 {
-    continue
-  }
+	// The case type-checks and declines at its call to `planted_decline`
+	// (withPlantedDecline), so its error is the lowering's.
+	mustWrite(t, filepath.Join(dir, "lowering_test.nomi"), `fn planted_decline(n: Int) -> Int {
   n
 }
 
 test "evens" {
-  assert Iter.map([1, 2], |x| skip_odd(x)) |> Iter.to_list() == [2]
+  assert Iter.map([1, 2], fn x -> planted_decline(x)) |> Iter.to_list() == [1, 2]
 }
 `)
 	mustWrite(t, filepath.Join(dir, "types_test.nomi"), `test "collect" {
@@ -755,7 +794,7 @@ test "evens" {
 		"ok " + filepath.Join(dir, "main.nomi"),
 		"ok " + filepath.Join(dir, "passes_test.nomi"),
 		"FAIL " + filepath.Join(dir, "lowering_test.nomi"),
-		"this call to `skip_odd` is not supported yet, so test \"evens\" cannot run",
+		"this call to `planted_decline` is not supported yet, so test \"evens\" cannot run",
 		"FAIL " + filepath.Join(dir, "types_test.nomi"),
 		"the element type of `[]` is not determined",
 	} {
@@ -878,7 +917,7 @@ func TestTestCommand_FFIRoundTrip(t *testing.T) {
 	testPath := filepath.Join(projectRoot, "main_test.nomi")
 	mustWrite(t, testPath, `gopkg "echobinding" as ffi
 
-fn echo_upper(s: String): String go ffi.EchoUpper
+fn echo_upper(s: String) -> String go ffi.EchoUpper
 
 test "source-declared Go binding is available in tests" {
   assert echo_upper("hello") == "HELLO"
@@ -942,8 +981,8 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 		"}\n\n"+
 		"test \"regex search helpers return Nomi shapes\" {\n"+
 		"  digits = Regex`\\d+`\n"+
-		"  assert Regex.find(digits, \"a12b34\") == Some(\"12\")\n"+
-		"  assert Regex.find(digits, \"abc\") == None\n"+
+		"  assert String.find(\"a12b34\", digits) == Some(\"12\")\n"+
+		"  assert String.find(\"abc\", digits) == None\n"+
 		"  assert String.find_all(\"a12b34\", digits) == [\"12\", \"34\"]\n"+
 		"  assert Regex.replace_all(digits, \"a12b34\", \"#\") == \"a#b#\"\n"+
 		"}\n\n"+
@@ -970,7 +1009,7 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 		"  std/io\n"+
 		"  std/regex.Regex\n"+
 		"}\n\n"+
-		"fn main(): Result<Unit, String> {\n"+
+		"fn main() -> Result<Unit, String> {\n"+
 		"  digits = Regex`\\d+`\n"+
 		"  io.inspect(digits)\n"+
 		"  Ok(Unit)\n"+
@@ -1078,9 +1117,9 @@ func TestTestCommand_RunsGroups(t *testing.T) {
 }
 
 group "sibling" {
-  setup (2, 3)
+  setup #(2, 3)
 
-  test "setup is bound by a tuple pattern", (base, extra) {
+  test "setup is bound by a tuple pattern", #(base, extra) {
     assert base + extra == 5
   }
 }
@@ -1119,7 +1158,7 @@ test "nomi test defaults NOMI_ENV" {
       name: String
     }
 
-    fn boot(startup: Startup): Env {
+    fn boot(startup: Startup) -> Env {
       name =
         case Map.get(startup.env, "NOMI_ENV") {
           Some(value) -> value
@@ -1156,7 +1195,7 @@ func TestTestCommand_FileTestsSeePrivateMembers(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "module_test.nomi")
-	mustWrite(t, testPath, `fn secret_add(a: Int, b: Int): Int {
+	mustWrite(t, testPath, `fn secret_add(a: Int, b: Int) -> Int {
   a + b
 }
 
@@ -1215,7 +1254,7 @@ func TestTestCommand_MultiLineStringFailureIsALineDiff(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "bank_test.nomi")
-	mustWrite(t, testPath, `fn transcript(): String {
+	mustWrite(t, testPath, `fn transcript() -> String {
     "balance?\nYour balance is 500\n\ndeposited 25\nnew balance 525\nbye  \n"
 }
 
@@ -1574,7 +1613,7 @@ func TestTestCommand_TryEarlyReturnShowsSourceAndValue(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "failure_test.nomi")
-	mustWrite(t, testPath, `fn parse_id(_text: String): Result<Int, String> {
+	mustWrite(t, testPath, `fn parse_id(_text: String) -> Result<Int, String> {
   Err("expected a numeric id")
 }
 
@@ -1607,7 +1646,7 @@ func TestTestCommand_AssertionFailureShowsPipelineValues(t *testing.T) {
 test "fails" {
   passes =
     [1, 2, 3]
-    |> Iter.any?(|n| n == 4)
+    |> Iter.any?(fn n -> n == 4)
 
   assert passes
 }
@@ -1657,7 +1696,7 @@ func TestTestCommand_AssertionFailureSuppressesLiteralCallArgsInComparison(t *te
 	testPath := filepath.Join(dir, "failure_test.nomi")
 	mustWrite(t, testPath, `
 
-fn parse_id(s: String): Result<Int, String> {
+fn parse_id(s: String) -> Result<Int, String> {
   case String.to_int(s) {
     Some(id) -> Ok(id)
     None -> Err("expected a numeric id")
@@ -1692,7 +1731,7 @@ func TestTestCommand_AssertionFailureShowsLogicalDecider(t *testing.T) {
 	testPath := filepath.Join(dir, "failure_test.nomi")
 	mustWrite(t, testPath, `
 
-fn parse_id(s: String): Result<Int, String> {
+fn parse_id(s: String) -> Result<Int, String> {
   case String.to_int(s) {
     Some(id) -> Ok(id)
     None -> Err("expected a numeric id")
@@ -1834,7 +1873,7 @@ func TestTestCommand_AssertionFailureDoesNotLeakCallbackComparisons(t *testing.T
 
 test "fails" {
   items = [1, 2, 3]
-  assert Iter.any?(items, |n| n == 4)
+  assert Iter.any?(items, fn n -> n == 4)
 }
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
@@ -1892,7 +1931,7 @@ func TestTestCommand_AssertionFailureShowsCaseScrutineeValue(t *testing.T) {
 	testPath := filepath.Join(dir, "failure_test.nomi")
 	mustWrite(t, testPath, `
 
-fn parse_id(s: String): Result<Int, String> {
+fn parse_id(s: String) -> Result<Int, String> {
   case String.to_int(s) {
     Some(id) -> Ok(id)
     None -> Err("expected a numeric id")
@@ -2176,12 +2215,12 @@ func TestTestCommand_LineFilterDoesNotRunUnselectedAttachedTests(t *testing.T) {
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "attached_line_filter_test.nomi")
 	mustWrite(t, testPath, `//! assert answer() == 41
-fn answer(): Int {
+fn answer() -> Int {
   42
 }
 
 //! assert False
-fn unrelated(): Int {
+fn unrelated() -> Int {
   0
 }
 `)
@@ -2207,12 +2246,12 @@ func TestTestCommand_LineFilterRunsAttachedTestFromBodyLine(t *testing.T) {
 	testPath := filepath.Join(dir, "attached_body_line_filter_test.nomi")
 	mustWrite(t, testPath, `//! value = answer()
 //! assert value == 41
-fn answer(): Int {
+fn answer() -> Int {
   42
 }
 
 //! assert False
-fn unrelated(): Int {
+fn unrelated() -> Int {
   0
 }
 `)
@@ -2358,7 +2397,7 @@ struct Conn {
   label: String
 }
 
-fn close(conn: Conn): Unit {
+fn close(conn: Conn) -> Unit {
   io.print("close " + conn.label)
 }
 
@@ -2436,7 +2475,7 @@ func TestTestCommand_DirectoryDiscoversTestsInOrdinaryModules(t *testing.T) {
 	}
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "math.nomi"), `fn add(a: Int, b: Int): Int {
+	mustWrite(t, filepath.Join(dir, "math.nomi"), `fn add(a: Int, b: Int) -> Int {
   a + b
 }
 
@@ -2444,7 +2483,7 @@ test "inline add test" {
   assert add(2, 3) == 5
 }
 `)
-	mustWrite(t, filepath.Join(dir, "helper.nomi"), `fn helper(): Int {
+	mustWrite(t, filepath.Join(dir, "helper.nomi"), `fn helper() -> Int {
   42
 }
 `)
@@ -2566,9 +2605,9 @@ func TestRunCommand_NoMainErrors(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	library := filepath.Join(dir, "library.nomi")
-	mustWrite(t, library, "pub fn one(): Int {\n  1\n}\n")
+	mustWrite(t, library, "pub fn one() -> Int {\n  1\n}\n")
 	suite := filepath.Join(dir, "suite.nomi")
-	mustWrite(t, suite, "fn one(): Int {\n  1\n}\n\ntest \"one\" {\n  assert one() == 1\n}\n")
+	mustWrite(t, suite, "fn one() -> Int {\n  1\n}\n\ntest \"one\" {\n  assert one() == 1\n}\n")
 
 	out, err := runNomi(t, cacheRoot, "run", library)
 	if err == nil {
@@ -2604,7 +2643,7 @@ func TestRunCommand_AssertionsOutsideTestsRun(t *testing.T) {
 	path := filepath.Join(dir, "main.nomi")
 	mustWrite(t, path, `import std/assertions.AssertionFailure
 
-fn main(): Result<Unit, AssertionFailure> {
+fn main() -> Result<Unit, AssertionFailure> {
   assert 1 + 1 == 2
   refute 1 == 2
   Ok(Unit)
@@ -2625,7 +2664,7 @@ func TestRunCommand_AssertionFailureShowsComparisonValues(t *testing.T) {
 	path := filepath.Join(dir, "main.nomi")
 	mustWrite(t, path, `import std/assertions.AssertionFailure
 
-fn main(): Result<Unit, AssertionFailure> {
+fn main() -> Result<Unit, AssertionFailure> {
   a = 4
   assert 12345 == a
   Ok(Unit)
@@ -2651,7 +2690,7 @@ func TestRunCommand_AssertionFailureSuppressesObviousLiteralValues(t *testing.T)
 	path := filepath.Join(dir, "main.nomi")
 	mustWrite(t, path, `import std/assertions.AssertionFailure
 
-fn main(): Result<Unit, AssertionFailure> {
+fn main() -> Result<Unit, AssertionFailure> {
   assert 1 == 2
   Ok(Unit)
 }
@@ -2678,7 +2717,7 @@ func TestRunCommand_AssertionFailureCanBeHandledAsResult(t *testing.T) {
 	mustWrite(t, path, `import std/assertions.AssertionFailure
 import std/io
 
-fn validate(): Result<Unit, AssertionFailure> {
+fn validate() -> Result<Unit, AssertionFailure> {
   assert 1 == 2
   Ok(Unit)
 }
@@ -2811,7 +2850,7 @@ entry_points = ["main"]
 
 gopkg "echobinding" as ffi
 
-fn echo_upper(s: String): String go ffi.EchoUpper
+fn echo_upper(s: String) -> String go ffi.EchoUpper
 
 fn main() {
   io.print(echo_upper("hello"))
@@ -2837,7 +2876,7 @@ fn main() {
 // # Every module-qualified position the fixture uses, and why each is here
 //
 //	pub struct Store { conn: sqlite.Conn }              the field
-//	pub fn open_raw(...): Result<sqlite.Conn, String>   the return under a prelude
+//	pub fn open_raw(...) -> Result<sqlite.Conn, String>   the return under a prelude
 //	                                                    enum, tasks/store.nomi's shape
 //
 // Those are the two spellings this test covers, reproduced in a fixture it
@@ -2848,7 +2887,7 @@ fn main() {
 // `Iter.map` over `List<List<String>>` with an inferred lambda parameter hits
 // an unrelated open gap (`lambda parameter with no inferred type`, then `Iter
 // over an unlowered source`). Writing
-// the row walk with `Iter.at` and `case` keeps the test aimed at the handle
+// the row walk with `Iter.get` and `case` keeps the test aimed at the handle
 // instead of failing for a reason it does not measure.
 func stageCrossModuleSqliteFixture(t *testing.T) (string, string) {
 	t.Helper()
@@ -2882,11 +2921,11 @@ pub struct Store {
   conn: sqlite.Conn
 }
 
-pub fn open_raw(path: String): Result<sqlite.Conn, String> {
+pub fn open_raw(path: String) -> Result<sqlite.Conn, String> {
   sqlite.open(path)
 }
 
-pub fn open_store(path: String): Result<Store, String> {
+pub fn open_store(path: String) -> Result<Store, String> {
   conn = try open_raw(path)
   case sqlite.exec(conn, "CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)", []) {
     Err(e) -> {
@@ -2897,18 +2936,18 @@ pub fn open_store(path: String): Result<Store, String> {
   }
 }
 
-pub fn add(store: Store, title: String): Result<Unit, String> {
+pub fn add(store: Store, title: String) -> Result<Unit, String> {
   sqlite.exec(store.conn, "INSERT INTO notes (title) VALUES (?)", [title])
 }
 
-pub fn cell(store: Store, query: String): Result<String, String> {
+pub fn cell(store: Store, query: String) -> Result<String, String> {
   case sqlite.query_all(store.conn, query, []) {
     Err(e) -> Err(e)
     Ok(rows) ->
-      case Iter.at(rows, 0) {
+      case Iter.get(rows, 0) {
         None -> Err("no rows")
         Some(row) ->
-          case Iter.at(row, 0) {
+          case Iter.get(row, 0) {
             None -> Err("no columns")
             Some(c) -> Ok(c)
           }
@@ -2916,7 +2955,7 @@ pub fn cell(store: Store, query: String): Result<String, String> {
   }
 }
 
-pub fn close_store(store: Store): Unit {
+pub fn close_store(store: Store) -> Unit {
   sqlite.close(store.conn)
 }
 `)
@@ -2927,7 +2966,7 @@ pub fn close_store(store: Store): Unit {
   store
 }
 
-fn main(): Result<Unit, String> {
+fn main() -> Result<Unit, String> {
   s = try store.open_store("driver.db")
   _ = try store.add(s, "first")
   _ = try store.add(s, "second")
@@ -2997,13 +3036,13 @@ entry_points = ["main"]
 
 gopkg "bytebinding" as ffi
 
-fn add_prefix(data: Bytes): Bytes go ffi.AddPrefix
+fn add_prefix(data: Bytes) -> Bytes go ffi.AddPrefix
 
-fn first(data: Bytes): Byte go ffi.First
+fn first(data: Bytes) -> Byte go ffi.First
 
-fn singleton(b: Byte): Bytes go ffi.Singleton
+fn singleton(b: Byte) -> Bytes go ffi.Singleton
 
-fn main(): Result<Unit, String> {
+fn main() -> Result<Unit, String> {
   prefixed = add_prefix(String.to_bytes("hi"))
   text = try Bytes.to_string(prefixed)
   io.print(text)
@@ -3078,9 +3117,9 @@ entry_points = ["main"]
 
 gopkg "mapbinding" as ffi
 
-fn counts(): Map<String, Int> go ffi.Counts
+fn counts() -> Map<String, Int> go ffi.Counts
 
-fn add_totals(items: Map<String, Int>): Map<String, Int> go ffi.AddTotals
+fn add_totals(items: Map<String, Int>) -> Map<String, Int> go ffi.AddTotals
 
 fn main() {
   counted = counts()
@@ -3218,9 +3257,9 @@ entry_points = ["main"]
 
 gopkg "maybeokbinding" as ffi
 
-fn lookup(key: String): Maybe<Int> go ffi.LookupMaybe
+fn lookup(key: String) -> Maybe<Int> go ffi.LookupMaybe
 
-fn describe(value: Maybe<Int>): String go ffi.DescribeMaybe
+fn describe(value: Maybe<Int>) -> String go ffi.DescribeMaybe
 
 fn main() {
   present = lookup("present")
@@ -3307,15 +3346,15 @@ entry_points = ["main"]
 
 gopkg "resultbinding" as ffi
 
-fn parse_direct(s: String): Result<Int, String> go ffi.Parse
+fn parse_direct(s: String) -> Result<Int, String> go ffi.Parse
 
-fn parse_positive(s: String): Result<Int, String> go ffi.ParsePositive
+fn parse_positive(s: String) -> Result<Int, String> go ffi.ParsePositive
 
-fn validate_nonempty(s: String): Result<Unit, String> go ffi.ValidateNonEmpty
+fn validate_nonempty(s: String) -> Result<Unit, String> go ffi.ValidateNonEmpty
 
-fn validate_custom(s: String): Result<Unit, String> go ffi.ValidateCustom
+fn validate_custom(s: String) -> Result<Unit, String> go ffi.ValidateCustom
 
-fn main(): Result<Unit, String> {
+fn main() -> Result<Unit, String> {
   io.print(try parse_direct("123"))
   io.print(try parse_positive("5"))
 
@@ -3440,13 +3479,13 @@ struct Profile {
 
 derive Equatable for Profile
 
-fn load_user(name: String): User go ffi.LoadUser
+fn load_user(name: String) -> User go ffi.LoadUser
 
-fn load_profile(name: String): Profile go ffi.LoadProfile
+fn load_profile(name: String) -> Profile go ffi.LoadProfile
 
-fn find_profile(name: String): Result<Profile, String> go ffi.FindProfile
+fn find_profile(name: String) -> Result<Profile, String> go ffi.FindProfile
 
-fn birthday(user: User): User go ffi.Birthday
+fn birthday(user: User) -> User go ffi.Birthday
 
 fn main() {
   user = load_user("Ada") |> birthday()
@@ -3523,7 +3562,7 @@ entry_points = ["main"]
 
 gopkg "hiddenbinding" as ffi
 
-fn hidden(): String go ffi.Hidden
+fn hidden() -> String go ffi.Hidden
 
 fn main() {
   io.print(hidden())

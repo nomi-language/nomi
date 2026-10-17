@@ -1,6 +1,6 @@
 import std/io
 
-fn connect(host: String, port: Int = 8080, timeout: Int = 30): String {
+fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String {
     "${host}:${Int.to_string(port)}/${Int.to_string(timeout)}"
 }
 
@@ -8,12 +8,12 @@ struct Holder {
     f: (String, Int) -> String
 }
 
-fn apply_partial(g: (String, Int) -> String): String {
+fn apply_partial(g: (String, Int) -> String) -> String {
     h = g(_, 7)
     h("arg")
 }
 
-fn each(n: Int, scale: Int = 10, cb: (Int) -> Int): Int {
+fn each(n: Int, scale: Int = 10, cb: (Int) -> Int) -> Int {
     cb(n * scale)
 }
 
@@ -38,15 +38,15 @@ fn main() {
     lone = connect("lone", port: _)
     again = lone(port: _)
     io.print(again(8))
-    holder = Holder{f: |h, p| connect(h, p)}
+    holder = Holder{f: fn h, p -> connect(h, p)}
     field = holder.f(_, 9)
     io.print(field("field"))
-    io.print(apply_partial(|h, p| connect(h, port: p)))
-    lam = |a: String, b: Int = 5| "${a}/${Int.to_string(b)}"
+    io.print(apply_partial(fn h, p -> connect(h, port: p)))
+    lam = fn a: String, b: Int = 5 -> "${a}/${Int.to_string(b)}"
     la = lam(b: _, a: _)
     lb = la(a: "lambda", b: _)
     io.print(lb(10))
     io.print(lb())
-    routed = each(_, |x| x + 1)
+    routed = each(_, fn x -> x + 1)
     io.print(Int.to_string(routed(2)))
 }

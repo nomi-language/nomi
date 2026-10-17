@@ -17,7 +17,7 @@ import (
 // front end once, leaving `nomi run` to stop at a BLOCKED line from the
 // lowering.
 func TestMissingImport_IsAnErrorAtThePath(t *testing.T) {
-	utils := "pub fn greet(): Int {\n    1\n}\n"
+	utils := "pub fn greet() -> Int {\n    1\n}\n"
 	cases := []struct {
 		name     string
 		entry    string
@@ -124,7 +124,7 @@ func TestMissingImport_IsAnErrorAtThePath(t *testing.T) {
 // with the module's file the path misspells.
 func TestMissingImport_CrossModule(t *testing.T) {
 	todoMain := "import stringkit/pda.pad_left\n\nfn main() {\n  _ = pad_left(\"hi\")\n}\n"
-	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, "pub fn pad_left(s: String): String {\n  s\n}\n", nil)
+	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, "pub fn pad_left(s: String) -> String {\n  s\n}\n", nil)
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 	lib := std.Load()
@@ -185,8 +185,8 @@ func TestMissingImport_NameInAnExistingModule(t *testing.T) {
 // import cycle and a nested path.
 func TestMissingImport_PresentModulesStayAccepted(t *testing.T) {
 	siblings := map[string]string{
-		"utils":       "import tools/shape\n\npub fn greet(): Int {\n    shape.area()\n}\n",
-		"tools/shape": "import utils\n\npub enum Shape {\n    Circle(Float)\n}\n\npub fn area(): Int {\n    1\n}\n\npub fn twice(): Int {\n    utils.greet() + 1\n}\n",
+		"utils":       "import tools/shape\n\npub fn greet() -> Int {\n    shape.area()\n}\n",
+		"tools/shape": "import utils\n\npub enum Shape {\n    Circle(Float)\n}\n\npub fn area() -> Int {\n    1\n}\n\npub fn twice() -> Int {\n    utils.greet() + 1\n}\n",
 	}
 	entry := "import {\n    std/io\n    tools/shape.Shape.{Circle}\n    utils\n    utils.greet\n}\n\nfn main() {\n    _ = Circle(1.0)\n    io.print(Int.to_string(utils.greet() + greet()))\n}\n"
 	errs := buildProjectExpectingErrors(t, entry, siblings)
@@ -263,7 +263,7 @@ func TestMissingImport_ModuleRootIsNotAFile(t *testing.T) {
 // Another module's short name alone is the same error, naming that module.
 func TestMissingImport_CrossModuleRootIsNotAFile(t *testing.T) {
 	todoMain := "import stringkit.pad\n\nfn main() {\n  _ = pad.pad_left(\"hi\")\n}\n"
-	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, "pub fn pad_left(s: String): String {\n  s\n}\n", nil)
+	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, "pub fn pad_left(s: String) -> String {\n  s\n}\n", nil)
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 	lib := std.Load()

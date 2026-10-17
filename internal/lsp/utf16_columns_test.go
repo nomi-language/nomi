@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -98,7 +99,7 @@ func TestLoweringDiagnostics_RelatedInAnotherFileIsUTF16(t *testing.T) {
 	}
 	b := strings.Index(text, "x")
 	saved := checkLoweringFn
-	checkLoweringFn = func(path, src string, _ *analyzedlowering.Analyzed) (error, error) {
+	checkLoweringFn = func(_ context.Context, path, src string, _ *analyzedlowering.Analyzed, _ *analyzedlowering.Memo) (error, error) {
 		return frontend.Diagnostics{{Path: other, Line: 1, Col: b + 1, EndLine: 1, EndCol: b + 2, Message: "m"}}, nil
 	}
 	t.Cleanup(func() { checkLoweringFn = saved })
@@ -126,7 +127,7 @@ func utf16Col(line string, off int) int {
 // two tokens so the same-line deltas cross it. Counted in bytes, `unit`
 // after `°` lit up one column right, its `u` uncoloured.
 func TestSemanticTokens_ColumnsAreUTF16(t *testing.T) {
-	src := "fn label(n: Int, unit: String): String {\n" +
+	src := "fn label(n: Int, unit: String) -> String {\n" +
 		"  \"${n} °${unit} é${n} é${unit} 👍🏽${n} 日本${unit} 語\"\n" +
 		"}\n"
 	s := NewServer()

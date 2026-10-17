@@ -99,7 +99,7 @@ func (r *completionRequest) scopeCandidates(keep func(*analysis.Symbol) bool) []
 				continue
 			}
 			l := phase
-			if phase == 1 && !sameFileSymbol(sym) {
+			if phase == 1 && !sameFileSymbol(r.fa, sym) {
 				l = 2
 			}
 			out = append(out, candidate{
@@ -115,8 +115,8 @@ func (r *completionRequest) scopeCandidates(keep func(*analysis.Symbol) bool) []
 
 // sameFileSymbol reports whether a module-scope symbol is declared in the
 // file itself rather than imported or copied from the prelude.
-func sameFileSymbol(sym *analysis.Symbol) bool {
-	return sym.Resolved == nil && sym.SourceFile == "" && sym.Node != nil &&
+func sameFileSymbol(fa *analysis.FileAnalysis, sym *analysis.Symbol) bool {
+	return sym.Resolved == nil && (sym.SourceFile == "" || sym.SourceFile == fa.FilePath) && sym.Node != nil &&
 		sym.Pos.Line > 0 && !analysis.IsSynthesizedLine(sym.Pos.Line) && sym.Kind != analysis.SymbolModule
 }
 

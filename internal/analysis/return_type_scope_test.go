@@ -36,13 +36,13 @@ func expectBindingType(t *testing.T, src, name, want string) {
 	}
 }
 
-const returnScopeF = `fn f(): Result<Int, String> { Ok(1) }
-fn mi(): Maybe<Int> { Some(1) }
+const returnScopeF = `fn f() -> Result<Int, String> { Ok(1) }
+fn mi() -> Maybe<Int> { Some(1) }
 `
 
 func TestReturnTypeScope_ErrInBoundCaseArm(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn g(s: String): Result<Unit, String> {
+fn g(s: String) -> Result<Unit, String> {
   r = case s {
     "a" -> f()
     _ -> Err("bad")
@@ -53,7 +53,7 @@ fn g(s: String): Result<Unit, String> {
 
 func TestReturnTypeScope_ErrInBoundCaseArmBlock(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn h(s: String): Result<Unit, String> {
+fn h(s: String) -> Result<Unit, String> {
   r = case s {
     "a" -> f()
     _ -> { Err("bad") }
@@ -64,7 +64,7 @@ fn h(s: String): Result<Unit, String> {
 
 func TestReturnTypeScope_ErrInBoundIfElse(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn k(s: String): Result<Unit, String> {
+fn k(s: String) -> Result<Unit, String> {
   r = if s == "a" { f() } else { Err("bad") }
   Ok(Unit)
 }`, "r", "Result<Int, String>")
@@ -72,7 +72,7 @@ fn k(s: String): Result<Unit, String> {
 
 func TestReturnTypeScope_ErrInNonResultFunction(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn m(s: String): Int {
+fn m(s: String) -> Int {
   r = case s {
     "a" -> f()
     _ -> Err("bad")
@@ -85,7 +85,7 @@ fn m(s: String): Int {
 // function's `Result<Int, Int>`.
 func TestReturnTypeScope_OkInBoundCaseArm(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn g(s: String): Result<Int, Int> {
+fn g(s: String) -> Result<Int, Int> {
   r = case s {
     "a" -> f()
     _ -> Ok(2)
@@ -96,7 +96,7 @@ fn g(s: String): Result<Int, Int> {
 
 func TestReturnTypeScope_OkInBoundIfElse(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn g(s: String): Result<Int, Int> {
+fn g(s: String) -> Result<Int, Int> {
   r = if s == "a" { f() } else { Ok(2) }
   Ok(1)
 }`, "r", "Result<Int, String>")
@@ -104,7 +104,7 @@ fn g(s: String): Result<Int, Int> {
 
 func TestReturnTypeScope_SomeAndNoneInBoundArms(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn g(s: String): Maybe<String> {
+fn g(s: String) -> Maybe<String> {
   r = case s {
     "a" -> mi()
     _ -> Some(2)
@@ -112,7 +112,7 @@ fn g(s: String): Maybe<String> {
   Some("x")
 }`, "r", "Maybe<Int>")
 	expectBindingType(t, returnScopeF+`
-fn g(s: String): Maybe<String> {
+fn g(s: String) -> Maybe<String> {
   r = if s == "a" { mi() } else { None }
   Some("x")
 }`, "r", "Maybe<Int>")
@@ -122,7 +122,7 @@ fn g(s: String): Maybe<String> {
 // fixes it, where the function's `Result<Unit, String>` used to make it
 // `Result<Unit, String>` and reject the annotation.
 func TestReturnTypeScope_BoundErrStaysOpen(t *testing.T) {
-	src := `fn g(): Result<Unit, String> {
+	src := `fn g() -> Result<Unit, String> {
   e = Err("bad")
   r: Result<Int, String> = e
   Ok(Unit)
@@ -141,8 +141,8 @@ func TestReturnTypeScope_BoundErrStaysOpen(t *testing.T) {
 // function's.
 func TestReturnTypeScope_Lambda(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn g(): Result<Unit, Int> {
-  h = |s: String| case s {
+fn g() -> Result<Unit, Int> {
+  h = fn s: String -> case s {
     "a" -> f()
     _ -> Err("bad")
   }
@@ -158,7 +158,7 @@ enum Color {
   Red
   Blue
 }
-fn ret(s: String): Result<Int, String> {
+fn ret(s: String) -> Result<Int, String> {
   if s == "" {
     return Err("empty")
   }
@@ -167,26 +167,26 @@ fn ret(s: String): Result<Int, String> {
     _ -> Err("no")
   }
 }
-fn tail_if(s: String): Result<Int, String> {
+fn tail_if(s: String) -> Result<Int, String> {
   if s == "a" { Ok(1) } else { Err("no") }
 }
-fn tail_err(): Result<Int, String> {
+fn tail_err() -> Result<Int, String> {
   e = Err("bad")
   e
 }
-fn tries(s: String): Result<Int, String> {
+fn tries(s: String) -> Result<Int, String> {
   x = try f()
   y = try ret(s)
   Ok(x + y)
 }
-fn fallback(m: Maybe<Int>): Result<Int, String> {
+fn fallback(m: Maybe<Int>) -> Result<Int, String> {
   Some(n) = m else { return Err("none") }
   Ok(n)
 }
-fn wrapped(): Maybe<Result<Int, String>> {
+fn wrapped() -> Maybe<Result<Int, String>> {
   Some(Err("boom"))
 }
-fn tail_color(s: String): Color {
+fn tail_color(s: String) -> Color {
   case s {
     "a" -> .Red
     _ -> .Blue
@@ -203,7 +203,7 @@ func TestReturnTypeScope_DotVariantInBoundArmStillNeedsAType(t *testing.T) {
   Red
   Blue
 }
-fn g(s: String): Maybe<Color> {
+fn g(s: String) -> Maybe<Color> {
   c = case s {
     "a" -> Color.Red
     _ -> .Blue

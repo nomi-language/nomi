@@ -63,7 +63,7 @@ func TestFormat_GoSelectorBindings(t *testing.T) {
 
 opaque type RawBox go ffi.Box
 
-fn echo_upper(s: String): String go ffi.EchoUpper
+fn echo_upper(s: String) -> String go ffi.EchoUpper
 `
 	roundTrip(t, src)
 }
@@ -73,7 +73,7 @@ fn echo_upper(s: String): String go ffi.EchoUpper
 func TestFormat_EnumPayloadShapesRoundTrip(t *testing.T) {
 	src := `enum Shape {
     Circle Float
-    Position (Int, Int)
+    Position #(Int, Int)
     Rect {width: Float, height: Float}
     embeds Click
 }
@@ -119,7 +119,7 @@ func TestFormat_EnumVariantDocPreserved(t *testing.T) {
 // is a fixed point.
 func TestFormat_ReferenceExampleRoundTrips(t *testing.T) {
 	src := `pub interface Speech {
-    fn speak(animal: self): String
+    fn speak(animal: self) -> String
 }
 
 struct Dog {
@@ -127,12 +127,12 @@ struct Dog {
     breed: String
 }
 
-fn rename(d: Dog, new_name: String): Dog {
+fn rename(d: Dog, new_name: String) -> Dog {
     Dog{name: new_name, breed: d.breed}
 }
 
 impl Speech for Dog {
-    fn speak(d: Dog): String {
+    fn speak(d: Dog) -> String {
         "${d.name} says woof"
     }
 }
@@ -142,7 +142,7 @@ enum Status {
     Pending Int
 }
 
-pub fn is_active(s: Status): Bool {
+pub fn is_active(s: Status) -> Bool {
     case s {
         .Active -> True
         _ -> False
@@ -150,7 +150,7 @@ pub fn is_active(s: Status): Bool {
 }
 
 impl Speech for Status {
-    fn speak(_s: Status): String {
+    fn speak(_s: Status) -> String {
         "status"
     }
 }
@@ -165,12 +165,12 @@ func TestFormat_StructBodyItems_BlankLineSeparation(t *testing.T) {
     name: String
 }
 
-fn bark(_d: Dog): String {
+fn bark(_d: Dog) -> String {
     "woof"
 }
 
 impl Speech for Dog {
-    fn speak(_d: Dog): String {
+    fn speak(_d: Dog) -> String {
         "woof"
     }
 }
@@ -180,12 +180,12 @@ impl Speech for Dog {
     name: String
 }
 
-fn bark(_d: Dog): String {
+fn bark(_d: Dog) -> String {
     "woof"
 }
 
 impl Speech for Dog {
-    fn speak(_d: Dog): String {
+    fn speak(_d: Dog) -> String {
         "woof"
     }
 }
@@ -210,11 +210,11 @@ impl HasName for Watcher
 func TestFormat_ExternTypeBody(t *testing.T) {
 	src := `pub host type Channel<T>
 
-pub fn label<T>(_c: Channel<T>): String {
+pub fn label<T>(_c: Channel<T>) -> String {
     "channel"
 }
 
-host fn next<T>(s: Channel<T>): Maybe<(T, Channel<T>)>
+host fn next<T>(s: Channel<T>) -> Maybe<#(T, Channel<T>)>
 
 impl iter for Channel<T>
 
@@ -240,12 +240,12 @@ pub host type Handle
 func TestFormat_TypeDefBody_ZeroSizedWithImpl(t *testing.T) {
 	src := `type Sql
 
-fn from_fragments(_fragments: List<Fragment<String>>): String {
+fn from_fragments(_fragments: List<Fragment<String>>) -> String {
     "q"
 }
 
 impl Literal for Sql {
-    fn from_fragments(fragments: List<Fragment<String>>): String {
+    fn from_fragments(fragments: List<Fragment<String>>) -> String {
         from_fragments(fragments)
     }
 }
@@ -258,7 +258,7 @@ impl Literal for Sql {
 func TestFormat_TypeDefBody_OpaqueDistinct(t *testing.T) {
 	src := `pub opaque type Id Int
 
-pub fn zero(): Id {
+pub fn zero() -> Id {
     Id(0)
 }
 `
@@ -271,19 +271,19 @@ pub fn zero(): Id {
 func TestFormat_InterfaceAllMemberKindsWithDocs(t *testing.T) {
 	src := `pub interface Greeter {
     /// Required.
-    fn greet(g: self): String
+    fn greet(g: self) -> String
 
     /// Overridable default.
-    open fn hello(_g: self): String {
+    open fn hello(_g: self) -> String {
         "hello"
     }
 
     /// Final default.
-    fn sealed(_g: self): String {
+    fn sealed(_g: self) -> String {
         "sealed"
     }
     /// Host-backed default.
-    host fn fast_path(g: self): String
+    host fn fast_path(g: self) -> String
 }
 `
 	roundTrip(t, src)
@@ -293,8 +293,8 @@ func TestFormat_InterfaceAllMemberKindsWithDocs(t *testing.T) {
 // modifiers preserved.
 func TestFormat_InterfaceOpenExternDefault(t *testing.T) {
 	src := `interface Seq {
-    fn next(s: self): Int
-    open host fn sort(s: self): Int
+    fn next(s: self) -> Int
+    open host fn sort(s: self) -> Int
 }
 `
 	roundTrip(t, src)
@@ -307,7 +307,7 @@ func TestFormat_InterfaceMethodWhereClause(t *testing.T) {
     fn sort_by_key<K>(
         source: self,
         _key_of_each_element: (T) -> K,
-    ): List<T> where T: Comparable, K: Hashable {
+    ) -> List<T> where T: Comparable, K: Hashable {
         source
     }
 }
@@ -320,7 +320,7 @@ func TestFormat_InterfaceRequiredMethodWhereClause(t *testing.T) {
     fn sort_by_key<K>(
         source: self,
         key_of_each_element: (T) -> K,
-    ): List<T> where T: Comparable, K: Hashable
+    ) -> List<T> where T: Comparable, K: Hashable
 }
 `
 	roundTrip(t, src)
@@ -330,7 +330,7 @@ func TestFormat_FuncWhereClause(t *testing.T) {
 	src := `fn step_by<T, S>(
     range_to_step_through: Range<T>,
     _by: S,
-): Iter<T> where T: Comparable and Steppable<S> {
+) -> Iter<T> where T: Comparable and Steppable<S> {
     r
 }
 `
@@ -338,7 +338,7 @@ func TestFormat_FuncWhereClause(t *testing.T) {
 }
 
 func TestFormat_ExternFuncWhereClause(t *testing.T) {
-	src := `host fn sorted<T>(items: List<T>): List<T> where T: Comparable
+	src := `host fn sorted<T>(items: List<T>) -> List<T> where T: Comparable
 `
 	roundTrip(t, src)
 }
@@ -354,7 +354,7 @@ derive Equatable for Tag
 derive Hashable for Tag
 
 impl Speech for Tag {
-    fn speak(t: Tag): String {
+    fn speak(t: Tag) -> String {
         t.name
     }
 }
@@ -435,10 +435,10 @@ impl Shift for Date
 func TestFormat_InterfaceContractMemberDocsPreserved(t *testing.T) {
 	src := `interface Speech {
     /// The required noise.
-    fn speak(s: self): String
+    fn speak(s: self) -> String
 
     /// Overridable politeness.
-    open fn greet(_s: self): String {
+    open fn greet(_s: self) -> String {
         "hi"
     }
 }
@@ -456,10 +456,10 @@ func TestFormat_InterfaceContractMemberDocsPreserved(t *testing.T) {
 		}
 	}
 	// Doc lines must sit immediately above their member.
-	if !strings.Contains(got, "/// The required noise.\n    fn speak(s: self): String") {
+	if !strings.Contains(got, "/// The required noise.\n    fn speak(s: self) -> String") {
 		t.Errorf("doc comment not attached above required method:\n%s", got)
 	}
-	if !strings.Contains(got, "/// Overridable politeness.\n    open fn greet(_s: self): String") {
+	if !strings.Contains(got, "/// Overridable politeness.\n    open fn greet(_s: self) -> String") {
 		t.Errorf("doc comment not attached above open default method:\n%s", got)
 	}
 	roundTrip(t, got)

@@ -16,7 +16,7 @@ struct Local {
     note: String
 }
 
-fn note_of(l: Local): String {
+fn note_of(l: Local) -> String {
     l.note
 }
 
@@ -51,7 +51,7 @@ fn main() {
     io.print("local = ${note_of(Local{note: "mine"})}")
 }
 
-fn tell(r: Reading): String {
+fn tell(r: Reading) -> String {
     case r {
         Reading.Empty -> "e"
         Reading.Whole(n) -> "w${n}"

@@ -18,6 +18,16 @@ func DeriveHomeModule(iface string) string {
 	return deriveProtocolHomeModule[iface]
 }
 
+// DeriveTakes reports whether `derive iface for <decl>` can be synthesized
+// for the type declaration's shape. Only `Variants` restricts it: to an enum
+// without type parameters whose variants all carry no data.
+func DeriveTakes(iface string, decl ast.Node) bool {
+	if iface == "Variants" {
+		return variantsDeriveError(decl) == ""
+	}
+	return true
+}
+
 // DerivedJSONKeys reports whether decl, a type declaration, derives iface
 // (`ToJson` or `FromJson`), and the JSON object key the derived impl uses
 // for a field of the given Nomi name, after its `rename_all` option.

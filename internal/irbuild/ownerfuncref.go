@@ -160,6 +160,14 @@ func (bl *irScalarBuilder) callFuncValueOf(ref ast.Node, name string, params []k
 // function type, leaves anything unsolved, or names a kind outside the value
 // domain.
 func (g *gen) checkedValueKinds(ref ast.Node) ([]kind, kind, bool) {
+	return g.checkedFuncKinds(ref, false)
+}
+
+// checkedFuncKinds is checkedValueKinds, with each hole the checker left open
+// filled as a call's operand fills it (irFillHolesByPosition) when fill is
+// set: `pick(False, _, Some(Ok(6.5)))` leaves the Result's error type open,
+// and nothing the partial runs reads a value of it.
+func (g *gen) checkedFuncKinds(ref ast.Node, fill bool) ([]kind, kind, bool) {
 	if g.fa == nil {
 		return nil, kindInvalid, false
 	}
@@ -170,7 +178,15 @@ func (g *gen) checkedValueKinds(ref ast.Node) ([]kind, kind, bool) {
 	}
 	ft, _ := sym.CallType.(*analysis.FuncType)
 	if ft == nil {
-		ft, _ = sym.Type.(*analysis.FuncType)
+		// An imported name (`import lib.add3`) references its import, whose
+		// Resolved is the declaration that carries the type; a generic
+		// call's instantiated CallType is on the reference itself.
+		for decl := sym; ft == nil && decl != nil; decl = decl.Resolved {
+			ft, _ = decl.Type.(*analysis.FuncType)
+		}
+	}
+	if ft != nil && fill && irUnsolvedType(ft) {
+		ft, _ = irFillHolesByPosition(ft, false).(*analysis.FuncType)
 	}
 	if ft == nil || irUnsolvedType(ft) {
 		return nil, kindInvalid, false

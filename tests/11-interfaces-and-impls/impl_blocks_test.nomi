@@ -5,7 +5,7 @@ import {
 }
 
 interface Speech {
-    fn speak(animal: self): String
+    fn speak(animal: self) -> String
 }
 
 struct Dog {
@@ -13,15 +13,15 @@ struct Dog {
     breed: String
 }
 
-fn rename(d: Dog, new_name: String): Dog {
+fn rename(d: Dog, new_name: String) -> Dog {
     Dog{name: new_name, breed: d.breed}
 }
 
-fn describe(d: Dog): String {
+fn describe(d: Dog) -> String {
     d.name + " the " + d.breed
 }
 
-fn loud_name(d: Dog): String {
+fn loud_name(d: Dog) -> String {
     String.to_upper(d.name)
 }
 
@@ -29,7 +29,7 @@ derive Equatable for Dog
 derive Hashable for Dog
 
 impl Speech for Dog {
-    fn speak(d: Dog): String {
+    fn speak(d: Dog) -> String {
         d.name + " says woof"
     }
 }
@@ -39,7 +39,7 @@ struct Cat {
 }
 
 impl Speech for Cat {
-    fn speak(c: Cat): String {
+    fn speak(c: Cat) -> String {
         c.name + " says meow"
     }
 }
@@ -49,7 +49,7 @@ enum Status {
     Pending Int
 }
 
-fn is_active(s: Status): Bool {
+fn is_active(s: Status) -> Bool {
     case s {
         .Active -> True
         _ -> False
@@ -57,7 +57,7 @@ fn is_active(s: Status): Bool {
 }
 
 impl Display for Status {
-    fn to_string(s: Status): String {
+    fn to_string(s: Status) -> String {
         case s {
             .Active -> "active"
             .Pending(n) -> "pending (" + Int.to_string(n) + " ahead)"
@@ -66,7 +66,7 @@ impl Display for Status {
 }
 
 interface Describe {
-    fn describe(value: self): String
+    fn describe(value: self) -> String
 }
 
 struct Point {
@@ -74,7 +74,7 @@ struct Point {
 }
 
 impl Describe for Point {
-    fn describe(p: Point): String {
+    fn describe(p: Point) -> String {
         "Point(" + Int.to_string(p.x) + ")"
     }
 }
@@ -83,12 +83,12 @@ struct Wrapped<T> {
     value: T
 }
 
-fn get<T>(b: Wrapped<T>): T {
+fn get<T>(b: Wrapped<T>) -> T {
     b.value
 }
 
 impl Describe for Wrapped<T> where T: Describe {
-    fn describe(b: Wrapped<T>): String {
+    fn describe(b: Wrapped<T>) -> String {
         "Wrapped(" + Describe.describe(b.value) + ")"
     }
 }
@@ -96,8 +96,8 @@ impl Describe for Wrapped<T> where T: Describe {
 type Sql
 
 impl Literal for Sql {
-    fn from_fragments(fragments: List<Fragment<String>>): String {
-        Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> String {
+        Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + "'" + v + "'"
@@ -154,20 +154,20 @@ test "Literal impl blocks back typed literals" {
 test "functions in type bodies are rejected" {
     diagnostics = compiler.check_project(Project{
         entry_point: "main",
-        files: {
+        files: %{
             "main" => """
                 struct Thing {
                   name: String
 
-                  fn name(t: Thing): String {
+                  fn name(t: Thing) -> String {
                     t.name
                   }
 
-                  fn name_again(t: Thing): String {
+                  fn name_again(t: Thing) -> String {
                     String.to_upper(t.name)
                   }
 
-                  fn name(t: Thing): String {
+                  fn name(t: Thing) -> String {
                     "duplicate"
                   }
                 }
@@ -188,7 +188,7 @@ test "functions in type bodies are rejected" {
 test "old inherent impl block syntax is rejected" {
     diagnostics = compiler.check_project(Project{
         entry_point: "main",
-        files: {
+        files: %{
             "main" => """
                 import {
                   api: api
@@ -208,7 +208,7 @@ test "old inherent impl block syntax is rejected" {
                 import model: Thing
 
                 impl Thing {
-                  pub fn shout(t: Thing): String {
+                  pub fn shout(t: Thing) -> String {
                     String.to_upper(t.name)
                   }
                 }

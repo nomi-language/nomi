@@ -57,25 +57,25 @@ import {
 // MARKER, so there is nothing inside one to render and the only observable is
 // that binding one and passing it works at all — which is exactly what a def
 // with the wrong shape breaks.
-fn describe(_c: ChannelClosed): String {
+fn describe(_c: ChannelClosed) -> String {
     "channel-closed"
 }
 
-fn feed(s: Sender<Int>, n: Int): String {
+fn feed(s: Sender<Int>, n: Int) -> String {
     case Sender.send(s, n) {
         Ok(_) -> "ok"
         Err(c) -> describe(c)
     }
 }
 
-fn take_one(r: Receiver<Int>): Int {
+fn take_one(r: Receiver<Int>) -> Int {
     case Receiver.receive(r) {
         Some(v) -> v
         None -> 0
     }
 }
 
-fn both(ch: Channel<Int>): String {
+fn both(ch: Channel<Int>) -> String {
     _ = Sender.send(ch.sender, 41)
     "both = ${take_one(ch.receiver)}"
 }

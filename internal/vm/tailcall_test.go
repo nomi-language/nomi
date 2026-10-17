@@ -27,7 +27,7 @@ func TestTailCall_DeepSelfRecursionRunsInConstantStack(t *testing.T) {
 	defer debug.SetMaxStack(debug.SetMaxStack(64 << 20))
 	out, err := runDepth(t, `import std/io
 
-fn count(n: Int, acc: Int): Int {
+fn count(n: Int, acc: Int) -> Int {
   if n == 0 { acc } else { count(n - 1, acc + 1) }
 }
 
@@ -51,14 +51,14 @@ func TestTailCall_NestedFnSelfRecursionRunsInConstantStack(t *testing.T) {
 	out, err := runDepth(t, `import std/io
 
 once total: Int = {
-  fn down(n: Int, acc: Int): Int {
+  fn down(n: Int, acc: Int) -> Int {
     if n == 0 { acc } else { down(n - 1, acc + 2) }
   }
   down(300000, 0)
 }
 
 fn main() {
-  fn count(n: Int, acc: Int): Int {
+  fn count(n: Int, acc: Int) -> Int {
     if n == 0 { acc } else { count(n - 1, acc + 1) }
   }
   io.print(count(300000, 0))
@@ -79,34 +79,34 @@ fn main() {
 func TestTailCall_MutualIndirectAndDispatchedCallsRunInConstantStack(t *testing.T) {
 	out, err := runDepth(t, `import std/io
 
-fn is_even(n: Int): Bool {
+fn is_even(n: Int) -> Bool {
   case n {
     0 -> True
     _ -> is_odd(n - 1)
   }
 }
 
-fn is_odd(n: Int): Bool {
+fn is_odd(n: Int) -> Bool {
   case n {
     0 -> False
     _ -> is_even(n - 1)
   }
 }
 
-fn apply(f: (Int, Int) -> Int, n: Int, acc: Int): Int {
+fn apply(f: (Int, Int) -> Int, n: Int, acc: Int) -> Int {
   f(n, acc)
 }
 
-fn bounce(n: Int, acc: Int): Int {
+fn bounce(n: Int, acc: Int) -> Int {
   if n == 0 { acc } else { apply(bounce, n - 1, acc + 1) }
 }
 
-fn via(step: (Int) -> Int, n: Int): Int {
+fn via(step: (Int) -> Int, n: Int) -> Int {
   if n == 0 { 0 } else { via(step, step(n)) }
 }
 
 interface Stepper {
-  fn step(value: self, n: Int): Int
+  fn step(value: self, n: Int) -> Int
 }
 
 struct Down {
@@ -114,7 +114,7 @@ struct Down {
 }
 
 impl Stepper for Down {
-  fn step(value: Down, n: Int): Int {
+  fn step(value: Down, n: Int) -> Int {
     if n <= 0 { n } else { Stepper.step(value, n - value.by) }
   }
 }
@@ -122,7 +122,7 @@ impl Stepper for Down {
 fn main() {
   io.print(is_even(1000001))
   io.print(bounce(1000000, 0))
-  io.print(via(|x| x - 1, 1000000))
+  io.print(via(fn x -> x - 1, 1000000))
   io.print(Stepper.step(Down{by: 1}, 1000000))
 }
 `)
@@ -139,7 +139,7 @@ fn main() {
 func TestTailCall_ANonTailCallStillReachesTheDepthLimit(t *testing.T) {
 	_, err := runDepth(t, `import std/io
 
-fn count(n: Int): Int {
+fn count(n: Int) -> Int {
   if n == 0 { 0 } else { 1 + count(n - 1) }
 }
 
@@ -155,7 +155,7 @@ fn main() {
 func TestTailCall_AFaultInADeepLoopReportsItsLine(t *testing.T) {
 	out, err := runDepth(t, `import std/io
 
-fn spin(n: Int): Int {
+fn spin(n: Int) -> Int {
   if n == 0 {
     10 / n
   } else {
@@ -193,18 +193,18 @@ fn note(label: String, n: Int) {
   io.print("${label} ${n}")
 }
 
-fn arg(n: Int): Int {
+fn arg(n: Int) -> Int {
   io.print("operand ${n}")
   n
 }
 
-fn down(n: Int): Int {
+fn down(n: Int) -> Int {
   defer note("leave", n)
   io.print("enter ${n}")
   step(arg(n))
 }
 
-fn step(n: Int): Int {
+fn step(n: Int) -> Int {
   if n == 0 { 0 } else { down(n - 1) }
 }
 
@@ -232,13 +232,13 @@ func TestTailCall_ATaskBodyLoopsInConstantStack(t *testing.T) {
 	out, err := runDepth(t, `import std/io
 import std/tasks.Task
 
-fn count(n: Int, acc: Int): Int {
+fn count(n: Int, acc: Int) -> Int {
   if n == 0 { acc } else { count(n - 1, acc + 1) }
 }
 
 fn main() {
   concurrent {
-    worker = Task.spawn(|| count(500000, 0))
+    worker = Task.spawn(fn -> count(500000, 0))
     case Task.outcome(worker) {
       .Completed(v) -> io.print("done: ${v}")
       .Cancelled -> io.print("cancelled")
@@ -261,7 +261,7 @@ fn main() {
 func TestTailCall_TailCallsDoNotCountTowardTheLimit(t *testing.T) {
 	src := strings.ReplaceAll(`import std/io
 
-fn count(n: Int): Int {
+fn count(n: Int) -> Int {
   if n == 0 { 0 } else { count(n - 1) }
 }
 

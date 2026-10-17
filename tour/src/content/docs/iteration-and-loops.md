@@ -18,7 +18,7 @@ you pass to these calls.
 ```nomi-run
 fn main() {
     // Countdown — break when n reaches 0.
-    countdown = Iter.loop(|n = 5| {
+    countdown = Iter.loop(fn n = 5 -> {
         if n == 0 { break n }
         n - 1
     })
@@ -26,10 +26,10 @@ fn main() {
     dbg countdown
 
     // Tuple state — first Fibonacci pair where the second is > 100.
-    (a, b) = Iter.loop(|state = (0, 1)| {
-        (x, y) = state
-        if y > 100 { break (x, y) }
-        (y, x + y)
+    #(a, b) = Iter.loop(fn state = #(0, 1) -> {
+        #(x, y) = state
+        if y > 100 { break #(x, y) }
+        #(y, x + y)
     })
 
     dbg a
@@ -54,17 +54,45 @@ with the current state.
 The state is a single value. To carry more than one thing, use a tuple or a
 struct. The Fibonacci loop carries a pair.
 
-A loop with nothing to carry takes no parameter: `Iter.loop(|| ...)`. It ends
+A loop with nothing to carry takes no parameter: `Iter.loop(fn -> ...)`. It ends
 with a bare `break`, and its result is `Unit`. `break 0` in such a loop is a
 compile error. To end with a value, give the loop a state and break with that.
 
 ```nomi
-Iter.loop(|| {
+Iter.loop(fn -> {
     Ok(line) = io.read_line() else { break }
     if line == "quit" { break }
     io.print(line)
 })
 ```
+
+## Keeping every step with `Iter.scan`
+
+`Iter.reduce` gives back only the final total.
+[`Iter.scan`](/reference/iter/#iterscan) gives back the total after each
+element, as a lazy iterator. Its starting value is written the same way, as
+the default of the callback's first parameter:
+
+```nomi-run
+fn main() {
+    running =
+        [3, 1, 4, 1, 5]
+        |> Iter.scan(fn total = 0, x -> total + x)
+        |> Iter.to_list()
+
+    dbg running
+}
+
+```
+<!-- expect
+dbg line 7: running = [3, 4, 8, 9, 14]
+-->
+
+The starting value itself is not in the output, so there is one total per
+element. When each element should produce its own result while a value is
+carried along, use [`Iter.map_reduce`](/reference/iter/#itermap_reduce). Its
+callback returns `#(result, next_state)`, and the call gives back the list of
+results and the final state.
 
 ## `break` and `continue` in iter callbacks
 
@@ -77,7 +105,7 @@ fn main() {
     // break in reduce — stop accumulating once total would exceed 60.
     partial_sum =
         [10, 20, 30, 40, 50]
-        |> Iter.reduce(|acc = 0, x| {
+        |> Iter.reduce(fn acc = 0, x -> {
             if acc + x > 60 { break }
             acc + x
         })
@@ -87,7 +115,7 @@ fn main() {
     // continue in map — skip odd numbers from the output.
     evens_doubled =
         [1, 2, 3, 4, 5]
-        |> Iter.map(|x| {
+        |> Iter.map(fn x -> {
             if x % 2 != 0 { continue }
             x * 2
         })
@@ -125,7 +153,7 @@ fn main() {
     // and the value lands in the output list at this position.
     mapped =
         [1, 2, 3, 4, 5]
-        |> Iter.map(|x| {
+        |> Iter.map(fn x -> {
             if x == 3 { return 300 }
             x * 10
         })

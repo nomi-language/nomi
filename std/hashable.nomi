@@ -9,8 +9,9 @@ import int.Int
 /// between runs of the runtime; it is suitable only for in-process
 /// bucketing.
 ///
-/// All four primitive types — `Int`, `Float`, `Bool`, `String` —
-/// implement `Hashable`. To implement it for a custom type:
+/// The primitive types `Int`, `Float`, `Bool` and `String` implement
+/// `Hashable`, and so does `Unit`, whose one value always hashes the same.
+/// To implement it for a custom type:
 ///
 /// ```nomi
 /// pub struct Point {
@@ -19,7 +20,7 @@ import int.Int
 /// }
 ///
 /// impl Hashable for Point {
-///     fn hash(p: Point): Int { Hashable.hash(p.x) + Hashable.hash(p.y) * 31 }
+///     fn hash(p: Point) -> Int { Hashable.hash(p.x) + Hashable.hash(p.y) * 31 }
 /// }
 /// ```
 ///
@@ -27,5 +28,5 @@ import int.Int
 /// field hashes), enums (mixing the variant tag and payload), and distinct
 /// types (delegating to the inner value).
 pub interface Hashable {
-    fn hash(value: self): Int
+    fn hash(value: self) -> Int
 }

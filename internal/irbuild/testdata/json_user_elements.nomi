@@ -14,19 +14,19 @@ derive ToJson for Note
 derive Hashable for Note
 
 impl Comparable for Note {
-    fn compare(a: Note, b: Note): Ordering {
+    fn compare(a: Note, b: Note) -> Ordering {
         String.compare(a.title, b.title)
     }
 }
 
-fn shape(text: String): Json {
+fn shape(text: String) -> Json {
     case Json.decode(text) {
         Ok(j) -> j
         Err(_) -> Json.Null
     }
 }
 
-fn main(): Result<Unit, Json.ShapeError> {
+fn main() -> Result<Unit, Json.ShapeError> {
     notes: List<Note> = try FromJson.from_json(shape("[{\"title\": \"b\"}, {\"title\": \"a\"}]"))
     dbg notes
     turbo = try FromJson.from_json<List<Note>>(shape("[{\"title\": \"c\"}]"))

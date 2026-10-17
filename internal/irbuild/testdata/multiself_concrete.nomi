@@ -22,9 +22,9 @@
 import std/io
 
 interface Cmp {
-    fn cmp(a: self, b: self): Int
+    fn cmp(a: self, b: self) -> Int
 
-    open fn spread(a: self, b: self): Int {
+    open fn spread(a: self, b: self) -> Int {
         Cmp.cmp(a, b) - Cmp.cmp(b, a)
     }
 }
@@ -38,26 +38,26 @@ struct Cup {
 }
 
 impl Cmp for Box {
-    fn cmp(x: Box, y: Box): Int {
+    fn cmp(x: Box, y: Box) -> Int {
         x.n - y.n
     }
 }
 
 impl Cmp for Cup {
-    fn cmp(x: Cup, y: Cup): Int {
+    fn cmp(x: Cup, y: Cup) -> Int {
         x.n + y.n
     }
 
-    fn spread(x: Cup, y: Cup): Int {
+    fn spread(x: Cup, y: Cup) -> Int {
         Cmp.cmp(x, y) * 10
     }
 }
 
-fn box_cmp(a: Box, b: Box): Int {
+fn box_cmp(a: Box, b: Box) -> Int {
     Cmp.cmp(a, b)
 }
 
-fn cup_cmp(a: Cup, b: Cup): Int {
+fn cup_cmp(a: Cup, b: Cup) -> Int {
     Cmp.cmp(a, b)
 }
 

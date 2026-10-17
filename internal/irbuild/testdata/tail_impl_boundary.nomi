@@ -21,14 +21,14 @@ struct Pong {
 }
 
 interface Bounce {
-    fn hop(value: self, n: Int, acc: Int): Int
+    fn hop(value: self, n: Int, acc: Int) -> Int
 }
 
 // One member of the cycle is an impl function reached through its interface's
 // name with a CONCRETE receiver, which is the spelling implCall resolves
 // statically; the other is an ordinary free function.
 impl Bounce for Ping {
-    fn hop(value: Ping, n: Int, acc: Int): Int {
+    fn hop(value: Ping, n: Int, acc: Int) -> Int {
         if n == 0 {
             acc
         } else {
@@ -37,7 +37,7 @@ impl Bounce for Ping {
     }
 }
 
-fn pong(value: Pong, n: Int, acc: Int): Int {
+fn pong(value: Pong, n: Int, acc: Int) -> Int {
     if n == 0 {
         acc
     } else {
@@ -57,7 +57,7 @@ struct Dn {
 }
 
 impl Up {
-    fn go(value: Up, n: Int): Int {
+    fn go(value: Up, n: Int) -> Int {
         if n == 0 {
             value.step
         } else {
@@ -67,7 +67,7 @@ impl Up {
 }
 
 impl Dn {
-    fn go(value: Dn, n: Int): Int {
+    fn go(value: Dn, n: Int) -> Int {
         if n == 0 {
             value.step
         } else {
@@ -84,17 +84,17 @@ impl Dn {
 struct Flip {}
 
 interface Swap {
-    fn flip(value: self, a: Int, b: Int, n: Int): Int
+    fn flip(value: self, a: Int, b: Int, n: Int) -> Int
 }
 
 impl Swap for Flip {
-    fn flip(value: Flip, a: Int, b: Int, n: Int): Int {
+    fn flip(value: Flip, a: Int, b: Int, n: Int) -> Int {
         _ = value
         if n == 0 { a - b } else { swapper(b, a, n - 1) }
     }
 }
 
-fn swapper(a: Int, b: Int, n: Int): Int {
+fn swapper(a: Int, b: Int, n: Int) -> Int {
     if n == 0 {
         a - b
     } else {
@@ -108,7 +108,7 @@ fn swapper(a: Int, b: Int, n: Int): Int {
 // NOT in tail position — `1 +` makes it an operand — because a tail-position
 // existential dispatch into a cycle is refused for an unrelated reason: the
 // receiver is erased, so there is no member to select.
-fn through_table(b: Bounce, n: Int): Int {
+fn through_table(b: Bounce, n: Int) -> Int {
     1 + Bounce.hop(b, n, 0)
 }
 

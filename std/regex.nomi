@@ -7,9 +7,11 @@
 //# A `Regex` is a `Matcher`, so String's search functions take one in place of
 //# a plain string. Test for a match with ``String.contains?(text, Regex`\d+`)``,
 //# collect every match with `String.find_all(text, re)`, and split around
-//# matches with ``String.split(text, Regex`,\s*`)``. `Regex.find` returns the
-//# first match, and `Regex.replace_all` replaces matches with `$1`-style
-//# capture expansion, which `String.replace` does not do.
+//# matches with ``String.split(text, Regex`,\s*`)``. Find the first match with
+//# `String.find(text, re)`, and read its capture groups with
+//# `String.captures(text, re)` (every match's with `String.captures_all`).
+//# `Regex.replace_all` replaces matches with `$1`-style capture expansion,
+//# which `String.replace` does not do.
 
 import {
     bool.Bool.False
@@ -31,11 +33,12 @@ import {
 /// Prefer raw typed literals for patterns so regex escapes stay readable and
 /// the pattern is checked at compile time: `` Regex`\d+` ``.
 ///
-/// A `Regex` is a `Matcher`: test, collect and split with the String
+/// A `Regex` is a `Matcher`: test, find, collect and split with the String
 /// functions.
 //! assert String.contains?("order 66", Regex`\d+`)
 //! assert String.contains?("room", Regex`\d+`) == False
 //! assert String.find_all("order 66, aisle 7", Regex`\d+`) == ["66", "7"]
+//! assert String.find("order 66, aisle 7", Regex`\d+`) == Maybe.Some("66")
 //! assert String.split("a, b,c", Regex`,\s*`) == ["a", "b", "c"]
 //
 pub host type Regex
@@ -45,18 +48,12 @@ impl Regex {
     //! assert Regex.pattern(try Regex.compile("a+")) == "a+"
     //! assert Err(_msg) = Regex.compile("(")
     //
-    pub host fn compile(pattern: String): Result<Regex, String>
+    pub host fn compile(pattern: String) -> Result<Regex, String>
 
     /// Return the source pattern for a compiled regex.
     //! assert Regex.pattern(Regex`\d+`) == "\\d+"
     //
-    pub host fn pattern(re: Regex): String
-
-    /// Return the first matching substring.
-    //! assert Regex.find(Regex`\d+`, "order 66, aisle 7") == Maybe.Some("66")
-    //! assert Regex.find(Regex`\d+`, "none") == Maybe.None
-    //
-    pub host fn find(re: Regex, value: String): Maybe<String>
+    pub host fn pattern(re: Regex) -> String
 
     /// Replace every non-overlapping match with `replacement`.
     ///
@@ -65,33 +62,36 @@ impl Regex {
     //! assert Regex.replace_all(Regex`\d+`, "order 66", "#") == "order #"
     //! assert Regex.replace_all(Regex`(\w+)@(\w+)`, "ann@home", "$2:$1") == "home:ann"
     //
-    pub host fn replace_all(re: Regex, value: String, replacement: String): String
+    pub host fn replace_all(re: Regex, value: String, replacement: String) -> String
 }
 
 impl Matcher for Regex {
     /// True if the regex matches anywhere in `text`.
-    host fn contained_in?(re: Regex, text: String): Bool
+    host fn contained_in?(re: Regex, text: String) -> Bool
 
     /// True if a match starts at the beginning of `text`.
-    host fn prefix_of?(re: Regex, text: String): Bool
+    host fn prefix_of?(re: Regex, text: String) -> Bool
 
     /// True if a match ends at the end of `text`.
-    host fn suffix_of?(re: Regex, text: String): Bool
+    host fn suffix_of?(re: Regex, text: String) -> Bool
 
     /// Splits around every non-overlapping match.
-    host fn split_in(re: Regex, text: String): List<String>
+    host fn split_in(re: Regex, text: String) -> List<String>
 
     /// Replaces every non-overlapping match with `replacement`, taken
     /// literally: `$1` is not expanded.
-    host fn replace_in(re: Regex, text: String, replacement: String): String
+    host fn replace_in(re: Regex, text: String, replacement: String) -> String
 
     /// Every non-overlapping match, left to right.
-    host fn find_all_in(re: Regex, text: String): List<String>
+    host fn find_all_in(re: Regex, text: String) -> List<String>
+
+    /// The leftmost match, which may be empty.
+    host fn find_in(re: Regex, text: String) -> Maybe<String>
 }
 
 impl Literal for Regex {
-    fn from_fragments(fragments: List<Fragment<String>>): Result<Regex, String> {
-        body = Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Regex, String> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -104,7 +104,7 @@ impl Literal for Regex {
 
 impl Display for Regex {
     /// The source pattern.
-    fn to_string(re: Regex): String {
+    fn to_string(re: Regex) -> String {
         Regex.pattern(re)
     }
 }
@@ -114,7 +114,7 @@ impl Debug for Regex {
     /// a backtick, which a raw literal cannot.
     //! assert Debug.inspect(Regex`\d+`) == "Regex`\\d+`"
     //! assert Debug.inspect(try Regex.compile("a`b")) == "Regex\"a`b\""
-    fn inspect(re: Regex): String {
+    fn inspect(re: Regex) -> String {
         pattern = Regex.pattern(re)
 
         if String.contains?(pattern, "`") {

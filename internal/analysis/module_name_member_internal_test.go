@@ -10,8 +10,8 @@ import (
 // it, and a type qualifier with a repeated segment names nothing either.
 func TestModuleNameIsNotAUserFileMember(t *testing.T) {
 	modules := map[string]string{
-		"other":  "pub fn thing(): Int { 0 }\n",
-		"shapes": "import other\n\npub enum Shape {\n  Dot(Int)\n  Empty\n}\n\npub fn f(): Int { other.thing() }\n",
+		"other":  "pub fn thing() -> Int { 0 }\n",
+		"shapes": "import other\n\npub enum Shape {\n  Dot(Int)\n  Empty\n}\n\npub fn f() -> Int { other.thing() }\n",
 	}
 	cases := []struct {
 		name string
@@ -41,7 +41,7 @@ func TestModuleNameIsNotAUserFileMember(t *testing.T) {
 		})
 	}
 	t.Run("members still resolve", func(t *testing.T) {
-		src := "import shapes\n\nfn make(): shapes.Shape {\n  x = shapes.f()\n  shapes.Shape.Dot(x)\n}\n"
+		src := "import shapes\n\nfn make() -> shapes.Shape {\n  x = shapes.f()\n  shapes.Shape.Dot(x)\n}\n"
 		if _, errs := checkSourceWithModules(t, src, modules); len(errs) != 0 {
 			t.Fatalf("errors: %v", errs)
 		}

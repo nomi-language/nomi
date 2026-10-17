@@ -18,7 +18,7 @@ pub struct Point {
 }
 
 impl Display for Point {
-    fn to_string(p: Point): String {
+    fn to_string(p: Point) -> String {
         "(${p.x}, ${p.y})"
     }
 }
@@ -31,8 +31,8 @@ fn main() {
     tag = ident(Tag{name: "kit"})
     io.print("tag ${tag.name}")
     io.print("pair ${zeta.pair(7)}")
-    io.print("apply ${zeta.apply(20, |n| n + 1)}")
-    io.print(run("x", |s| "${s}!"))
+    io.print("apply ${zeta.apply(20, fn n -> n + 1)}")
+    io.print(run("x", fn s -> "${s}!"))
     io.print(zeta.show(5))
     io.print(zeta.show(Point{x: 3, y: 4}))
     io.print("boxed ${zeta.boxed("b")}")

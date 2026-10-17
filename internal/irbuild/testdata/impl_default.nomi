@@ -18,13 +18,13 @@ import std/io
 // is bound into the dispatch table under the receiver's identity exactly as a
 // written function would be, so an erased value inherits too.
 interface Logger {
-    fn log(value: self, level: String, message: String): Unit
+    fn log(value: self, level: String, message: String) -> Unit
 
-    open fn info(value: self, message: String): Unit {
+    open fn info(value: self, message: String) -> Unit {
         Logger.log(value, "INFO", message)
     }
 
-    fn warn(value: self, message: String): Unit {
+    fn warn(value: self, message: String) -> Unit {
         Logger.log(value, "WARN", message)
     }
 }
@@ -36,23 +36,23 @@ pub struct TaggedLogger {
 }
 
 impl Logger for ProdLogger {
-    fn log(value: ProdLogger, level: String, message: String): Unit {
+    fn log(value: ProdLogger, level: String, message: String) -> Unit {
         _ = value
         io.print("[${level}] ${message}")
     }
 }
 
 impl Logger for TaggedLogger {
-    fn log(value: TaggedLogger, level: String, message: String): Unit {
+    fn log(value: TaggedLogger, level: String, message: String) -> Unit {
         io.print("[${value.tag}|${level}] ${message}")
     }
 
-    fn info(value: TaggedLogger, message: String): Unit {
+    fn info(value: TaggedLogger, message: String) -> Unit {
         io.print("[${value.tag}] ${message}")
     }
 }
 
-fn shout(l: Logger): Unit {
+fn shout(l: Logger) -> Unit {
     Logger.warn(l, "erased")
 }
 

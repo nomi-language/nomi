@@ -29,16 +29,18 @@ var iterCallbackSlots = map[string]map[int]bool{
 
 	// Terminals: Iter owner functions that consume an iterator to a value.
 	// The callback-bearing ones are listed here.
-	"Iter.reduce": {1: true},
-	"Iter.each":   {1: true},
-	"Iter.find":   {1: true},
-	"Iter.any?":   {1: true},
-	"Iter.all?":   {1: true},
+	"Iter.reduce":     {1: true},
+	"Iter.map_reduce": {1: true},
+	"Iter.each":       {1: true},
+	"Iter.find":       {1: true},
+	"Iter.any?":       {1: true},
+	"Iter.all?":       {1: true},
 
 	// Lazy adapters: Iter owner functions, separate from concrete
 	// collection-specific methods.
 	"Iter.iterate":    {1: true},
 	"Iter.map":        {1: true},
+	"Iter.scan":       {1: true},
 	"Iter.filter":     {1: true},
 	"Iter.take_while": {1: true},
 	"Iter.drop_while": {1: true},
@@ -504,8 +506,6 @@ func (s *iterSensitivity) walkBody(owner *Symbol, n ast.Node, caughtHere bool) {
 		s.walkBody(owner, node.Value, caughtHere)
 	case *ast.StructDestructure:
 		s.walkBody(owner, node.Value, caughtHere)
-	case *ast.MapDestructure:
-		s.walkBody(owner, node.Value, caughtHere)
 	case *ast.DistinctDestructure:
 		s.walkBody(owner, node.Value, caughtHere)
 	case *ast.PatternBinding:
@@ -517,6 +517,7 @@ func (s *iterSensitivity) walkBody(owner *Symbol, n ast.Node, caughtHere bool) {
 		s.walkBody(owner, node.Value, caughtHere)
 	case *ast.Subtests:
 		s.walkBody(owner, node.Rows, caughtHere)
+		s.walkBody(owner, node.Name, caughtHere)
 		s.walkBody(owner, node.Body, caughtHere)
 	case *ast.FieldAccess:
 		s.walkBody(owner, node.Object, caughtHere)
@@ -726,13 +727,18 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 	// pipeLHS != nil, iter-callback slot indices shift by +1 against call.Args.
 	walkCall := func(call *ast.Call, pipeLHS ast.Node, inIter bool) {
 		s.checkReduceSeed(call, pipeLHS)
+		s.checkLoopSeed(call, pipeLHS)
 		if callee := s.resolveCalleeSym(call.Func); callee != nil {
 			result[callee] = append(result[callee], callSite{
 				call:           call,
 				inIterCallback: inIter,
 			})
 		}
-		walk(call.Func, inIter)
+		if _, named := call.Func.(*ast.Ident); !named {
+			// A bare callee is the call site recorded above, not a use of
+			// the function as a value.
+			walk(call.Func, inIter)
+		}
 		slots := s.slotsForCall(call)
 		slotOffset := 0
 		if pipeLHS != nil {
@@ -758,6 +764,7 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 						call:           call,
 						inIterCallback: true,
 					})
+					continue
 				}
 			}
 			walk(arg, argInIter)
@@ -799,6 +806,21 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 		case *ast.Call:
 			walkCall(node, nil, inIter)
 
+		case *ast.Ident:
+			// An iter-sensitive function named anywhere but as a callee or
+			// directly as an iteration function's callback is a value whose
+			// calls no call site records, so its break or continue could run
+			// with no iteration to control (spec §19).
+			if sym := s.resolveCalleeSym(node); sym != nil && s.sensitive[sym] {
+				s.errors = append(s.errors, TypeError{
+					Line: node.Line, Col: node.Col,
+					Message: fmt.Sprintf(
+						"'%s' uses break/continue (directly or transitively), so it can only be called from an iter-callback position or passed directly as an iteration function's callback, not used as a value here",
+						node.Name,
+					),
+				})
+			}
+
 		case *ast.Block:
 			for _, stmt := range node.Stmts {
 				walk(stmt, inIter)
@@ -828,8 +850,6 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 			walk(node.Value, inIter)
 		case *ast.StructDestructure:
 			walk(node.Value, inIter)
-		case *ast.MapDestructure:
-			walk(node.Value, inIter)
 		case *ast.DistinctDestructure:
 			walk(node.Value, inIter)
 		case *ast.PatternBinding:
@@ -841,6 +861,7 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 			walk(node.Value, inIter)
 		case *ast.Subtests:
 			walk(node.Rows, inIter)
+			walk(node.Name, inIter)
 			walk(node.Body, inIter)
 		case *ast.FieldAccess:
 			walk(node.Object, inIter)
@@ -1034,8 +1055,6 @@ func (s *iterSensitivity) findFirstDirectBC(n ast.Node) (int, int, bool) {
 			walk(node.Value, caught)
 		case *ast.StructDestructure:
 			walk(node.Value, caught)
-		case *ast.MapDestructure:
-			walk(node.Value, caught)
 		case *ast.DistinctDestructure:
 			walk(node.Value, caught)
 		case *ast.PatternBinding:
@@ -1047,6 +1066,7 @@ func (s *iterSensitivity) findFirstDirectBC(n ast.Node) (int, int, bool) {
 			walk(node.Value, caught)
 		case *ast.Subtests:
 			walk(node.Rows, caught)
+			walk(node.Name, caught)
 			walk(node.Body, caught)
 		case *ast.FieldAccess:
 			walk(node.Object, caught)
@@ -1239,8 +1259,6 @@ func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
 			walk(node.Value, enclosing, immediateIter)
 		case *ast.StructDestructure:
 			walk(node.Value, enclosing, immediateIter)
-		case *ast.MapDestructure:
-			walk(node.Value, enclosing, immediateIter)
 		case *ast.DistinctDestructure:
 			walk(node.Value, enclosing, immediateIter)
 		case *ast.PatternBinding:
@@ -1252,6 +1270,7 @@ func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
 			walk(node.Value, enclosing, immediateIter)
 		case *ast.Subtests:
 			walk(node.Rows, enclosing, immediateIter)
+			walk(node.Name, enclosing, immediateIter)
 			walk(node.Body, enclosing, immediateIter)
 		case *ast.FieldAccess:
 			walk(node.Object, enclosing, immediateIter)
@@ -1330,15 +1349,23 @@ func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
 	}
 }
 
-// checkReduceSeed reports an `Iter.reduce` whose callback carries no starting
-// value. The only starting value is the callback lambda's first-parameter
-// default (`|acc = 0, x| acc + x`), so a function value (`Int.add`), a lambda
-// without a default, a partial application and a callback slot left open
-// (`Iter.reduce(xs, _)`) are all rejected: there is no first-element
-// fallback, and an empty source would have no answer. It runs in this pass
-// because the pass already visits every call.
+// checkReduceSeed reports an `Iter.reduce`, `Iter.scan` or `Iter.map_reduce`
+// whose callback carries no starting value. The only starting value is the
+// callback lambda's first-parameter default (`fn acc = 0, x -> acc + x`), so a
+// function value (`Int.add`), a lambda without a default, a partial
+// application and a callback slot left open (`Iter.reduce(xs, _)`) are all
+// rejected: there is no first-element fallback, and an empty source would
+// have no answer. It runs in this pass because the pass already visits every
+// call.
 func (s *iterSensitivity) checkReduceSeed(call *ast.Call, pipeLHS ast.Node) {
-	if !s.isIterReduceCall(call) {
+	name := ""
+	for _, seeded := range seededIterFuncs {
+		if s.isIterOwnerCall(call, seeded) {
+			name = seeded
+			break
+		}
+	}
+	if name == "" {
 		return
 	}
 	n := len(call.Args)
@@ -1350,28 +1377,75 @@ func (s *iterSensitivity) checkReduceSeed(call *ast.Call, pipeLHS ast.Node) {
 		return
 	}
 	if _, open := cb.(*ast.Placeholder); open {
-		s.errors = append(s.errors, reduceSeedError(cb, "pass the callback here, as a lambda whose accumulator has a starting value: `Iter.reduce(xs, |acc = <start>, x| ...)`"))
+		s.errors = append(s.errors, reduceSeedError(name, cb, fmt.Sprintf("pass the callback here, as a lambda whose accumulator has a starting value: `Iter.%s(xs, fn acc = <start>, x -> ...)`", name)))
 		return
 	}
-	s.errors = append(s.errors, reduceSeedError(cb, reduceSeedHints(cb)...))
+	s.errors = append(s.errors, reduceSeedError(name, cb, reduceSeedHints(name, cb)...))
 }
 
-// isIterReduceCall reports whether call calls std's `Iter.reduce`, however
-// it is spelled: owner-qualified, through an owner alias, or bare inside
-// std's own `impl Iter`. A program cannot declare its own `Iter`.
-func (s *iterSensitivity) isIterReduceCall(call *ast.Call) bool {
-	if callSiteKey(call) == "Iter.reduce" || s.canonicalQualifiedOwnerKey(call) == "Iter.reduce" {
+// checkLoopSeed reports an `Iter.loop` whose callback carries no starting
+// state. The state starts from the callback lambda's parameter default
+// (`fn n = 0 -> ...`), and a stateless loop is a lambda with no parameter
+// (`fn -> ...`), so a lambda whose parameter has no default and a function
+// value (`Iter.loop(step)`) are rejected: the loop would have no first
+// state to call the callback with.
+func (s *iterSensitivity) checkLoopSeed(call *ast.Call, pipeLHS ast.Node) {
+	if !s.isIterOwnerCall(call, "loop") {
+		return
+	}
+	var cb ast.Node
+	switch {
+	case len(call.Args) == 1 && pipeLHS == nil:
+		cb = call.Args[0]
+	case len(call.Args) == 0 && pipeLHS != nil:
+		cb = pipeLHS
+	default:
+		return
+	}
+	if lam, ok := cb.(*ast.Lambda); ok && (len(lam.Params) == 0 || lam.Params[0].Default != nil) {
+		return
+	}
+	if _, open := cb.(*ast.Placeholder); open {
+		return
+	}
+	e := errAt(cb, loopSeedMessage)
+	switch n := cb.(type) {
+	case *ast.Lambda:
+		name := "state"
+		if n.Params[0].Destructure == nil {
+			name = n.Params[0].Name
+		}
+		e.Hints = []string{fmt.Sprintf("give the state a starting value: `fn %s = <start> -> ...`, or take no parameter for a loop with no state: `fn -> ...`", name)}
+	case *ast.Ident, *ast.FieldAccess:
+		e.Hints = []string{fmt.Sprintf("call it from a lambda whose state has a starting value: `fn state = <start> -> %s(state)`", calleeText(n))}
+	default:
+		e.Hints = []string{"pass a lambda whose state has a starting value: `fn state = <start> -> ...`"}
+	}
+	s.errors = append(s.errors, e)
+}
+
+// loopSeedMessage is the error every unseeded `Iter.loop` reports.
+const loopSeedMessage = "`Iter.loop` needs a starting state"
+
+// isIterOwnerCall reports whether call calls std's `Iter.<name>`, however it
+// is spelled: owner-qualified, through an owner alias, or bare inside std's
+// own `impl Iter`. A program cannot declare its own `Iter`.
+func (s *iterSensitivity) isIterOwnerCall(call *ast.Call, name string) bool {
+	if callSiteKey(call) == "Iter."+name || s.canonicalQualifiedOwnerKey(call) == "Iter."+name {
 		return true
 	}
 	sym := s.resolveIterCallbackSymbol(call.Func)
-	return sym != nil && sym.OwningType == "Iter" && sym.Name == "reduce"
+	return sym != nil && sym.OwningType == "Iter" && sym.Name == name
 }
 
-// reduceSeedMessage is the error every unseeded `Iter.reduce` reports.
-const reduceSeedMessage = "`Iter.reduce` needs a starting value"
+// seededIterFuncs are the `Iter` owner functions whose callback carries the
+// starting value as its first parameter's default.
+var seededIterFuncs = []string{"reduce", "scan", "map_reduce"}
 
-func reduceSeedError(at ast.Node, hints ...string) TypeError {
-	e := errAt(at, reduceSeedMessage)
+// reduceSeedError is the error an unseeded call to the seeded `Iter`
+// function name reports: "`Iter.reduce` needs a starting value".
+func reduceSeedError(name string, at ast.Node, hints ...string) TypeError {
+	e := errAt(at, fmt.Sprintf("`Iter.%s` needs a starting value", name))
 	e.Hints = hints
 	return e
 }
@@ -1379,21 +1453,24 @@ func reduceSeedError(at ast.Node, hints ...string) TypeError {
 // reduceSeedHints shows the seeded form of cb: its own lambda with a default
 // on the accumulator, or a lambda that calls the named function. A function
 // named `min` or `max` also points at `Iter.min` / `Iter.max`.
-func reduceSeedHints(cb ast.Node) []string {
+func reduceSeedHints(fn string, cb ast.Node) []string {
 	switch n := cb.(type) {
 	case *ast.Lambda:
 		acc, item := "acc", "x"
 		if len(n.Params) == 2 && n.Params[0].Destructure == nil && n.Params[1].Destructure == nil {
 			acc, item = n.Params[0].Name, n.Params[1].Name
 		}
-		return []string{fmt.Sprintf("give the accumulator a starting value: `|%s = <start>, %s| ...`", acc, item)}
+		return []string{fmt.Sprintf("give the accumulator a starting value: `fn %s = <start>, %s -> ...`", acc, item)}
 	case *ast.Ident, *ast.FieldAccess:
-		name := calleeText(n)
-		if name == "?" || strings.HasPrefix(name, "?.") {
+		callee := calleeText(n)
+		if callee == "?" || strings.HasPrefix(callee, "?.") {
 			break
 		}
-		hints := []string{fmt.Sprintf("call it from a lambda whose accumulator has a starting value: `|acc = <start>, x| %s(acc, x)`", name)}
-		switch name[strings.LastIndexByte(name, '.')+1:] {
+		hints := []string{fmt.Sprintf("call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> %s(acc, x)`", callee)}
+		if fn != "reduce" {
+			return hints
+		}
+		switch callee[strings.LastIndexByte(callee, '.')+1:] {
 		case "min":
 			hints = append(hints, "for the least element, `Iter.min(xs)` answers a `Maybe`, with `None` for an empty source")
 		case "max":
@@ -1401,5 +1478,5 @@ func reduceSeedHints(cb ast.Node) []string {
 		}
 		return hints
 	}
-	return []string{"pass a lambda whose accumulator has a starting value: `|acc = <start>, x| ...`"}
+	return []string{"pass a lambda whose accumulator has a starting value: `fn acc = <start>, x -> ...`"}
 }

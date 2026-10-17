@@ -123,3 +123,18 @@ func (s *ShortCircuit) Finish(end *Block, valPos Pos, val Temp) *Block {
 	end.SetTerm(NewJump(valPos, s.join.ID()))
 	return s.join
 }
+
+// Branched closes the shape for a right operand the caller lowers into Rhs
+// as an arm of its own, because it may leave the body
+// (`ready? or { return Err(e) }`): each path through it either writes dst
+// and jumps to the join, or leaves and never reaches it. Where it leaves,
+// the join is reached only from the entry, with dst holding the left
+// operand's value. It returns the join, and the caller terminates every
+// block it opens in Rhs.
+func (s *ShortCircuit) Branched() *Block {
+	if s.done {
+		panic("ir: ShortCircuit.Branched after the shape was closed")
+	}
+	s.done = true
+	return s.join
+}

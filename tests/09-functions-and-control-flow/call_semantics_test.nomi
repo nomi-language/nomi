@@ -1,59 +1,59 @@
 import std/compiler
 
-fn add(x: Int, y: Int): Int {
+fn add(x: Int, y: Int) -> Int {
     x + y
 }
 
-fn double(x: Int): Int {
+fn double(x: Int) -> Int {
     x * 2
 }
 
-fn greet(name: String, greeting: String = "Hello", punctuation: String = "!"): String {
+fn greet(name: String, greeting: String = "Hello", punctuation: String = "!") -> String {
     greeting + ", " + name + punctuation
 }
 
-fn abs(x: Int): Int {
+fn abs(x: Int) -> Int {
     if x < 0 { return -x }
     x
 }
 
-fn fib(n: Int): Int {
+fn fib(n: Int) -> Int {
     if n < 2 { n } else { fib(n - 1) + fib(n - 2) }
 }
 
-fn trailing(host: String, port: Int = 8080, timeout: Int = 30): String {
+fn trailing(host: String, port: Int = 8080, timeout: Int = 30) -> String {
     "${host}:${port}:${timeout}"
 }
 
-fn middle_default(a: Int, b: Int = 10, c: Int): Int {
+fn middle_default(a: Int, b: Int = 10, c: Int) -> Int {
     a * 100 + b * 10 + c
 }
 
-fn many_defaults(a: Int = 1, b: Int = 2, c: Int = 3, d: Int = 4): Int {
+fn many_defaults(a: Int = 1, b: Int = 2, c: Int = 3, d: Int = 4) -> Int {
     a * 1000 + b * 100 + c * 10 + d
 }
 
-fn transform(x: Int, factor: Int = 1, f: (Int) -> Int): Int {
+fn transform(x: Int, factor: Int = 1, f: (Int) -> Int) -> Int {
     f(x * factor)
 }
 
-fn divide(a: Int, b: Int): Int {
+fn divide(a: Int, b: Int) -> Int {
     a / b
 }
 
-fn add3(a: Int, b: Int, c: Int): Int {
+fn add3(a: Int, b: Int, c: Int) -> Int {
     a + b + c
 }
 
-fn one_skip(_opt: String = "x", cb: (Int) -> Int): Int {
+fn one_skip(_opt: String = "x", cb: (Int) -> Int) -> Int {
     cb(1)
 }
 
-fn two_skip(req: Int, _opt_a: String = "a", opt_b: Int = 2, cb: (Int) -> Int): Int {
+fn two_skip(req: Int, _opt_a: String = "a", opt_b: Int = 2, cb: (Int) -> Int) -> Int {
     cb(req + opt_b)
 }
 
-fn no_skip(req: Int, cb: (Int) -> Int): Int {
+fn no_skip(req: Int, cb: (Int) -> Int) -> Int {
     cb(req)
 }
 
@@ -97,7 +97,7 @@ test "named arguments reorder skip and pipe into calls" {
     assert trailing(host: "localhost", port: 3000, timeout: 5) == "localhost:3000:5"
 
     assert greet("Bob", punctuation: "?") == "Hello, Bob?"
-    assert transform(5, factor: 3, f: |x| x + 1) == 16
+    assert transform(5, factor: 3, f: fn x -> x + 1) == 16
     assert result == "localhost:8080:10"
     assert divide(b: 5, a: 100) == 20
 }
@@ -129,15 +129,15 @@ test "partial application preserves open argument names and defaults" {
 }
 
 test "lambdas as callees support defaults names partials and trailing callbacks" {
-    f1 = |x: Int| x + 1
-    f2 = |x = 100, y: Int| x + y
-    f3 = |x: Int, y = 10| x + y
-    g = |a = 1, b = 2| a + b
-    h = |x: Int, y: Int| x * 10 + y
+    f1 = fn x: Int -> x + 1
+    f2 = fn x = 100, y: Int -> x + y
+    f3 = fn x: Int, y = 10 -> x + y
+    g = fn a = 1, b = 2 -> a + b
+    h = fn x: Int, y: Int -> x * 10 + y
     half = h(_, 5)
     fix_x = h(x: _, y: 9)
     port_only = g(_, b: 100)
-    caller = |a: Int, _label = "z", cb: (Int) -> Int| cb(a)
+    caller = fn a: Int, _label = "z", cb: (Int) -> Int -> cb(a)
 
     assert f1(10) == 11
     assert f2(7, 8) == 15
@@ -155,8 +155,8 @@ test "lambdas as callees support defaults names partials and trailing callbacks"
     assert fix_x(3) == 39
     assert port_only(7) == 107
     assert port_only() == 101
-    assert caller(7, |x| x * 2) == 14
-    assert caller(7, _label: "tag", |x| x + 100) == 107
+    assert caller(7, fn x -> x * 2) == 14
+    assert caller(7, _label: "tag", fn x -> x + 100) == 107
 }
 
 // A trailing *function* routes like a trailing lambda. The rule is about
@@ -186,7 +186,7 @@ test "a positional before a named argument does not skip its slot" {
     result =
         """
             import std/io
-            fn sum(a: Int, b: Int): Int { a + b }
+            fn sum(a: Int, b: Int) -> Int { a + b }
 
             fn main() {
               io.print(Display.to_string(sum(1, a: 2)))
@@ -201,28 +201,28 @@ test "a positional before a named argument does not skip its slot" {
 test "trailing lambdas route across defaulted parameters and pipes" {
     no_skip_result =
         9
-        |> no_skip(|x| x * 2)
+        |> no_skip(fn x -> x * 2)
 
     two_skip_result =
         5
-        |> two_skip(|x| x * 10)
+        |> two_skip(fn x -> x * 10)
 
     with_opt_b =
         5
-        |> two_skip(opt_b: 100, |x| x)
+        |> two_skip(opt_b: 100, fn x -> x)
 
     with_opt_a =
         5
-        |> two_skip(_opt_a: "z", |x| x)
+        |> two_skip(_opt_a: "z", fn x -> x)
 
-    assert one_skip(|x| x + 100) == 101
-    assert two_skip(5, |x| x * 10) == 70
-    assert no_skip(9, |x| x * 2) == 18
-    assert two_skip(5, opt_b: 100, |x| x) == 105
-    assert two_skip(5, _opt_a: "z", |x| x) == 7
-    assert two_skip(5, opt_b: 100, cb: |x| x) == 105
-    assert two_skip(req: 3, cb: |x| x + 1) == 6
-    assert two_skip(req: 5, |x| x) == 7
+    assert one_skip(fn x -> x + 100) == 101
+    assert two_skip(5, fn x -> x * 10) == 70
+    assert no_skip(9, fn x -> x * 2) == 18
+    assert two_skip(5, opt_b: 100, fn x -> x) == 105
+    assert two_skip(5, _opt_a: "z", fn x -> x) == 7
+    assert two_skip(5, opt_b: 100, cb: fn x -> x) == 105
+    assert two_skip(req: 3, cb: fn x -> x + 1) == 6
+    assert two_skip(req: 5, fn x -> x) == 7
     assert no_skip_result == 18
     assert two_skip_result == 70
     assert with_opt_b == 105

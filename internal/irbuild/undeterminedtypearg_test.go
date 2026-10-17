@@ -12,15 +12,15 @@ func TestIRUndeterminedTypeArgument_Runs(t *testing.T) {
 	}
 	const src = `import std/io
 
-fn ident<T>(x: T): T {
+fn ident<T>(x: T) -> T {
     x
 }
 
-fn count_all<T>(xs: List<T>): Int {
+fn count_all<T>(xs: List<T>) -> Int {
     Iter.count(xs)
 }
 
-fn first<T>(xs: List<T>): Maybe<T> {
+fn first<T>(xs: List<T>) -> Maybe<T> {
     List.head(xs)
 }
 
@@ -30,8 +30,8 @@ fn main() {
     io.inspect(ident(Err("e")) |> Result.ok?())
     io.inspect(count_all([]))
     io.inspect(Maybe.some?(first([])))
-    f: (Int) -> Int = |x| x + 1
-    held = (1, Ok(f)).1
+    f: (Int) -> Int = fn x -> x + 1
+    held = #(1, Ok(f)).1
     io.inspect(held)
 }
 `
@@ -67,7 +67,7 @@ fn main() {
     io.inspect(Map.empty() |> Map.size())
     io.inspect(Map.keys(Map.empty()) |> Iter.to_list())
     io.inspect([Map.empty()])
-    io.inspect((Map.empty(), 1))
+    io.inspect(#(Map.empty(), 1))
     io.inspect(Map.empty() == Map.empty())
     io.print("${Map.empty()}")
     io.inspect(Set.size(#{}))
@@ -79,26 +79,26 @@ fn main() {
     io.inspect(Iter.concat(#{}, []) |> Iter.to_list())
     io.inspect(Iter.to_list(Vector.empty()))
     io.inspect(Iter.count(Map.empty()))
-    fn apply<T, U>(x: T, f: (T) -> U): U {
+    fn apply<T, U>(x: T, f: (T) -> U) -> U {
         f(x)
     }
-    io.inspect(apply(1, |x| Ok(x + 1)))
+    io.inspect(apply(1, fn x -> Ok(x + 1)))
 }
 `
 	const want = "Some([])\n" +
 		"Some(#{})\n" +
 		"Ok([])\n" +
 		"Some(Some([]))\n" +
-		"Some({=>})\n" +
+		"Some(%{})\n" +
 		"Some(#[])\n" +
-		"{=>}\n" +
+		"%{}\n" +
 		"0\n" +
 		"0\n" +
 		"[]\n" +
-		"[{=>}]\n" +
-		"({=>}, 1)\n" +
+		"[%{}]\n" +
+		"#(%{}, 1)\n" +
 		"True\n" +
-		"{=>}\n" +
+		"%{}\n" +
 		"0\n" +
 		"#{}\n" +
 		"0\n" +
@@ -127,7 +127,7 @@ func TestIRUndeterminedTypeArgument_DbgOfAnOpenEmpty(t *testing.T) {
 		t.Fatalf("the front end rejects this, so nothing below is tested: %v", err)
 	}
 	got := vmReference(writeTemp(t, src))
-	want := "dbg line 2: Map.empty() = {=>}\ndbg line 3: #{} = #{}\ndbg line 4: Vector.empty() = #[]\n"
+	want := "dbg line 2: Map.empty() = %{}\ndbg line 3: #{} = #{}\ndbg line 4: Vector.empty() = #[]\n"
 	if got.stdout+got.stderr != want || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s", got.exit, got.stdout, got.stderr, want)
 	}
@@ -148,7 +148,7 @@ struct Countdown {
 }
 
 impl Iter for Countdown {
-    fn each_while(c: Countdown, yield: (Int) -> Bool): Bool {
+    fn each_while(c: Countdown, yield: (Int) -> Bool) -> Bool {
         if c.from == 0 {
             True
         } else if yield(c.from) {
@@ -164,10 +164,10 @@ fn main() {
     io.inspect(Map.get(Map.empty(), "k") == None)
     io.inspect(Iter.zip([], Map.empty()) |> Iter.to_list())
     io.inspect(Iter.zip([1], Map.empty()) |> Iter.count())
-    io.inspect(Iter.zip([1], {1 => 2}) |> Iter.to_list())
+    io.inspect(Iter.zip([1], %{1 => 2}) |> Iter.to_list())
     io.inspect(Iter.zip([1, 2], 5..9) |> Iter.to_list())
     io.inspect(Iter.zip(["a", "b"], Countdown{from: 3}) |> Iter.to_list())
-    io.inspect(Iter.concat([(1, 2)], {3 => 4}) |> Iter.to_list())
+    io.inspect(Iter.concat([#(1, 2)], %{3 => 4}) |> Iter.to_list())
     io.inspect(Iter.concat([9], Countdown{from: 2}) |> Iter.to_list())
 }
 `
@@ -175,10 +175,10 @@ fn main() {
 		"True\n" +
 		"[]\n" +
 		"0\n" +
-		"[(1, (1, 2))]\n" +
-		"[(1, 5), (2, 6)]\n" +
-		"[(\"a\", 3), (\"b\", 2)]\n" +
-		"[(1, 2), (3, 4)]\n" +
+		"[#(1, #(1, 2))]\n" +
+		"[#(1, 5), #(2, 6)]\n" +
+		"[#(\"a\", 3), #(\"b\", 2)]\n" +
+		"[#(1, 2), #(3, 4)]\n" +
 		"[9, 2, 1]\n"
 	irRunSource(t, src, want)
 }

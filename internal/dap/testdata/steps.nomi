@@ -1,6 +1,6 @@
 import std/io
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     m = n * 2
     m
 }
@@ -11,7 +11,7 @@ fn main() {
 
     ys =
         [1, 2, 3]
-        |> Iter.map(|v| {
+        |> Iter.map(fn v -> {
             w = v + y
             w
         })

@@ -15,7 +15,7 @@ import (
 // checks, and only these warnings remain.
 func TestBuildPublishedDiagnosticsReportsTodoWarnings(t *testing.T) {
 	content := strings.Join([]string{
-		"fn parse(text: String): Int {",
+		"fn parse(text: String) -> Int {",
 		"    todo \"parse the header\"",
 		"}",
 		"",
@@ -63,7 +63,7 @@ func TestBuildPublishedDiagnosticsReportsTodoWarnings(t *testing.T) {
 func TestTodoDocumentHasNoErrors(t *testing.T) {
 	s := NewServer()
 	uri := "file:///todo/main.nomi"
-	s.docs.Open(uri, "struct Point {\n    x: Int\n    y: Int\n}\n\nfn make(n: Int): Point {\n    Point{x: 1, y: todo}\n}\n")
+	s.docs.Open(uri, "struct Point {\n    x: Int\n    y: Int\n}\n\nfn make(n: Int) -> Point {\n    Point{x: 1, y: todo}\n}\n")
 	snap := s.docs.Snapshot(uri)
 	if len(snap.Errors) > 0 || len(snap.Analysis.TypeErrors) > 0 {
 		t.Fatalf("errors: %v %v", snap.Errors, snap.Analysis.TypeErrors)

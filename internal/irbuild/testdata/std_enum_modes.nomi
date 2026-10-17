@@ -11,7 +11,7 @@ import {
 // The widest row on purpose: RoundingMode has eight variants and this file names
 // all eight, because the tags are derived from declaration ORDER and a fixture
 // that named two would pass against a permuted table.
-fn round_name(m: RoundingMode): String {
+fn round_name(m: RoundingMode) -> String {
     case m {
         Up -> "up"
         Down -> "down"
@@ -21,7 +21,7 @@ fn round_name(m: RoundingMode): String {
     }
 }
 
-fn form_rank(f: NormalForm): Int {
+fn form_rank(f: NormalForm) -> Int {
     case f {
         NFC -> 1
         NFD -> 2
@@ -70,7 +70,7 @@ test "derived Display and Debug render the variant name" {
 // operands spelled the same way are suppressed by the report's redundancy rule,
 // so `refute HalfEven == HalfEven` fails with no `values:` block at all and
 // compares nothing about the representation.
-fn chosen(): RoundingMode {
+fn chosen() -> RoundingMode {
     HalfEven
 }
 

@@ -23,7 +23,7 @@ import (
 // # A tuple is an anonymous Go struct, so rt cannot name it
 //
 // Three functions here produce a tuple — `Map`'s pairs, `with_index`'s
-// `(Int, T)`, `partition`'s `(List<T>, List<T>)` — and a Nomi tuple lowers to a
+// `#(Int, T)`, `partition`'s `#(List<T>, List<T>)` — and a Nomi tuple lowers to a
 // per-package anonymous struct that rt has no way to spell. So each rt entry
 // point takes a CONSTRUCTOR closure and the call site emits it, which is the
 // shape maps.go already uses in the other direction for `rt.MapFromList`'s two

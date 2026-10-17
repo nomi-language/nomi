@@ -40,7 +40,7 @@ func TestFunctionTypeParams_LowercaseInImplIsRejected(t *testing.T) {
 }
 
 impl Span<T> {
-    fn longer?<t>(span: Span<T>, other: Span<T>): Bool where T: Comparable {
+    fn longer?<t>(span: Span<T>, other: Span<T>) -> Bool where T: Comparable {
         span.stop > other.stop
     }
 }
@@ -52,7 +52,7 @@ impl Span<T> {
 }
 
 func TestFunctionTypeParams_LowercaseOnHostFnIsRejected(t *testing.T) {
-	src := `host fn pick<e>(x: Int): Int
+	src := `host fn pick<e>(x: Int) -> Int
 `
 	_, errs := checkSourceWithStdlib(src)
 	wantOneTypeParamError(t, errs, 1, 14,
@@ -61,7 +61,7 @@ func TestFunctionTypeParams_LowercaseOnHostFnIsRejected(t *testing.T) {
 }
 
 func TestFunctionTypeParams_UnusedInFileFunctionIsRejected(t *testing.T) {
-	src := `fn unused<U>(x: Int): Int {
+	src := `fn unused<U>(x: Int) -> Int {
     x
 }
 `
@@ -78,7 +78,7 @@ func TestFunctionTypeParams_UnusedInImplFunctionIsRejected(t *testing.T) {
 }
 
 impl Box<T> {
-    fn odd<U>(b: Box<T>): T {
+    fn odd<U>(b: Box<T>) -> T {
         b.v
     }
 }
@@ -91,7 +91,7 @@ impl Box<T> {
 
 // A `where` bound alone does not determine a type parameter.
 func TestFunctionTypeParams_OnlyBoundedIsRejected(t *testing.T) {
-	src := `fn shown<T>(x: Int): Int where T: Display {
+	src := `fn shown<T>(x: Int) -> Int where T: Display {
     x
 }
 `
@@ -103,9 +103,9 @@ func TestFunctionTypeParams_OnlyBoundedIsRejected(t *testing.T) {
 
 func TestFunctionTypeParams_UnusedInInterfaceFunctionIsRejected(t *testing.T) {
 	src := `interface Sized {
-    fn size(value: self): Int
+    fn size(value: self) -> Int
 
-    fn twice<K>(value: self): Int {
+    fn twice<K>(value: self) -> Int {
         size(value) * 2
     }
 }
@@ -117,8 +117,8 @@ func TestFunctionTypeParams_UnusedInInterfaceFunctionIsRejected(t *testing.T) {
 }
 
 func TestFunctionTypeParams_UnusedInNestedFunctionIsRejected(t *testing.T) {
-	src := `fn outer(x: Int): Int {
-    fn inner<Q>(y: Int): Int {
+	src := `fn outer(x: Int) -> Int {
+    fn inner<Q>(y: Int) -> Int {
         y
     }
     inner(x)
@@ -140,24 +140,24 @@ func TestFunctionTypeParams_DeterminedParametersAreAccepted(t *testing.T) {
 }
 
 impl Span<T> {
-    fn first<T>(span: Span<T>): T {
+    fn first<T>(span: Span<T>) -> T {
         span.start
     }
 
-    fn pair<U>(span: Span<T>, u: U): (T, U) {
-        (span.start, u)
+    fn pair<U>(span: Span<T>, u: U) -> #(T, U) {
+        #(span.start, u)
     }
 
-    fn longer?(span: Span<T>, other: Span<T>): Bool where T: Comparable {
+    fn longer?(span: Span<T>, other: Span<T>) -> Bool where T: Comparable {
         span.stop > other.stop
     }
 }
 
-fn any_items?<I, T>(items: I): Bool where I: Iter<T> {
+fn any_items?<I, T>(items: I) -> Bool where I: Iter<T> {
     Iter.count(items) > 0
 }
 
-fn none<T>(): Maybe<T> {
+fn none<T>() -> Maybe<T> {
     None
 }
 `

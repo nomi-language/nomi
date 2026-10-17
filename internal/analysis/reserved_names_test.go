@@ -159,7 +159,7 @@ func TestCheckReservedTypeName_PreludeInterfaceNames(t *testing.T) {
 	for _, name := range preludeInterfaceNames {
 		name := name
 		t.Run(name, func(t *testing.T) {
-			src := "pub interface " + name + " {\n  fn probe(value: self): String\n}\n"
+			src := "pub interface " + name + " {\n  fn probe(value: self) -> String\n}\n"
 			if errs := buildAndCollectErrs(t, src); !containsErrAbout(errs, name) {
 				t.Errorf("expected reserved-name diagnostic for `interface %s`, got: %v", name, errs)
 			}
@@ -173,7 +173,7 @@ func TestCheckReservedTypeName_PreludeInterfaceNames(t *testing.T) {
 var preludeInterfaceNames = []string{
 	"Add", "Comparable", "Debug", "Discrete", "Display", "Distinct", "Divide",
 	"Equatable", "Hashable", "Iter", "Multiply", "Steppable", "Struct",
-	"Subtract",
+	"Subtract", "Summable", "Variants",
 }
 
 // TestCheckReservedTypeName_PreludeInterfaceSetIsExactlyWhatPreludeInjects
@@ -212,7 +212,7 @@ func TestCheckReservedTypeName_NonPreludeInterfacesAllowed(t *testing.T) {
 	for _, name := range []string{"App", "Assertable", "DateParts", "TimeParts", "Anchored", "ToJson", "FromJson", "Literal"} {
 		name := name
 		t.Run(name, func(t *testing.T) {
-			src := "pub interface " + name + " {\n  fn probe(value: self): String\n}\n"
+			src := "pub interface " + name + " {\n  fn probe(value: self) -> String\n}\n"
 			for _, e := range buildAndCollectErrs(t, src) {
 				if strings.Contains(e, "reserved") && strings.Contains(e, name) {
 					t.Errorf("unexpected reserved-name diagnostic for `interface %s` (stdlib but not prelude-injected): %s", name, e)
@@ -227,7 +227,7 @@ func TestCheckReservedTypeName_NonPreludeInterfacesAllowed(t *testing.T) {
 // `type MyDisplay Display` does not wrap a contract. A diagnostic whose only
 // suggestion is impossible is worse than a terse one.
 func TestCheckReservedTypeName_InterfaceRemedyIsFollowable(t *testing.T) {
-	errs := buildAndCollectErrs(t, "pub interface Display {\n  fn probe(value: self): String\n}\n")
+	errs := buildAndCollectErrs(t, "pub interface Display {\n  fn probe(value: self) -> String\n}\n")
 	var msg string
 	for _, e := range errs {
 		if strings.Contains(e, "reserved") && strings.Contains(e, "'Display'") {
@@ -267,7 +267,7 @@ func TestCheckReservedTypeName_InterfaceRemedyIsFollowable(t *testing.T) {
 // reservation is load-bearing rather than cosmetic.
 func TestReservedInterfaceName_ClosesAStaticToRuntimeSoundnessGap(t *testing.T) {
 	witness := `pub interface Display {
-  fn render(value: self): String
+  fn render(value: self) -> String
 }
 
 struct Point {
@@ -275,12 +275,12 @@ struct Point {
 }
 
 impl Display for Point {
-  fn render(_p: Point): String {
+  fn render(_p: Point) -> String {
     "pt"
   }
 }
 
-fn show<T>(x: T): String where T: Display {
+fn show<T>(x: T) -> String where T: Display {
   Display.to_string(x)
 }
 `
@@ -299,7 +299,7 @@ fn show<T>(x: T): String where T: Display {
   x: Int
 }
 
-fn show<T>(x: T): String where T: Display {
+fn show<T>(x: T) -> String where T: Display {
   Display.to_string(x)
 }
 

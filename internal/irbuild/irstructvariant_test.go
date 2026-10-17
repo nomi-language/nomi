@@ -34,7 +34,7 @@ func TestIRStructVariant_TourDotArea(t *testing.T) {
   Rectangle {width: Float, height: Float}
 }
 
-fn area(s: Shape): Float {
+fn area(s: Shape) -> Float {
   case s {
     .Circle(r) -> r * r * 3.14159
     .Rectangle{width, height} -> width * height
@@ -54,7 +54,7 @@ fn main() {
 // may omit fields, and an unmatched variant falls through to a wildcard.
 func TestIRStructVariant_OrderDefaultsAndBindings(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn mark(label: String, n: Int): Int {
+fn mark(label: String, n: Int) -> Int {
   io.print(label)
   n
 }
@@ -63,14 +63,14 @@ enum Event {
   Move {dx: Int, dy: Int = mark("dy", 7), tag: String = "m"}
   Say {text: String}
 }
-fn describe(e: Event): String {
+fn describe(e: Event) -> String {
   case e {
     Event.Move{tag, dx: horizontal} -> "${tag}:${horizontal}"
     .Say{text} -> text
     _ -> "idle"
   }
 }
-fn total(e: Event): Int {
+fn total(e: Event) -> Int {
   case e {
     .Move{dy, dx} -> dx + dy
     _ -> 0

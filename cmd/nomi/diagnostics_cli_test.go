@@ -20,7 +20,7 @@ func TestDiagnostics_NameTheirFile(t *testing.T) {
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "main.nomi"),
 		"import std/io\nimport other\n\nfn main() {\n  x: Int = \"s\"\n  io.print(other.f())\n}\n")
-	mustWrite(t, filepath.Join(dir, "other.nomi"), "pub fn f(): String {\n  1\n}\n")
+	mustWrite(t, filepath.Join(dir, "other.nomi"), "pub fn f() -> String {\n  1\n}\n")
 
 	want := `error: binding 'x' is never read
  --> main.nomi:5:3
@@ -40,7 +40,7 @@ error: return type mismatch: expected String, got Int
   |
 2 |   1
   |   ^
-  = note: the return type is declared here: other.nomi:1:13
+  = note: the return type is declared here: other.nomi:1:15
 `
 	for _, cmd := range []string{"run", "check", "build"} {
 		o := runProcess(t, env, dir, "", nomiBin, cmd, "main.nomi")
@@ -53,7 +53,7 @@ error: return type mismatch: expected String, got Int
 		"main.nomi:5:3: help: prefix it with '_' if the value is intentionally ignored\n" +
 		"main.nomi:5:12: type mismatch: expected Int, got String\n" +
 		"other.nomi:2:3: return type mismatch: expected String, got Int\n" +
-		"other.nomi:1:13: note: the return type is declared here\n"
+		"other.nomi:1:15: note: the return type is declared here\n"
 	for _, args := range [][]string{{"check", "--format", "short", "main.nomi"}, {"check", "--format=short", "main.nomi"}} {
 		o := runProcess(t, env, dir, "", nomiBin, args...)
 		if o.exit != 1 || o.stderr != wantShort {
@@ -86,7 +86,7 @@ error: return type mismatch: expected String, got Int
   |
 2 |   1
   |   ^
-  = note: the return type is declared here: other.nomi:1:13
+  = note: the return type is declared here: other.nomi:1:15
 ` + "test result: FAILED. 0 passed, 1 failed\n"
 	if o.exit != 1 || o.stdout != wantTest {
 		t.Errorf("nomi test: exit %d\nstdout:\n%s\nwant:\n%s\nstderr:\n%s", o.exit, o.stdout, wantTest, o.stderr)
@@ -110,14 +110,14 @@ func TestDiagnostics_ImportedFileBuildErrors(t *testing.T) {
 		{
 			name: "unused import",
 			files: map[string]string{
-				"helper.nomi": "import std/regex\n\npub fn greet(): String {\n  \"hi\"\n}\n",
+				"helper.nomi": "import std/regex\n\npub fn greet() -> String {\n  \"hi\"\n}\n",
 			},
 			want: "helper.nomi:1:12: imported module 'regex' is unused — remove the import\n",
 		},
 		{
 			name: "struct and enum of one name",
 			files: map[string]string{
-				"helper.nomi": "struct A {\n  x: Int\n}\n\nenum A {\n  One\n}\n\npub fn greet(): String {\n  \"hi\"\n}\n",
+				"helper.nomi": "struct A {\n  x: Int\n}\n\nenum A {\n  One\n}\n\npub fn greet() -> String {\n  \"hi\"\n}\n",
 			},
 			want: "helper.nomi:5:6: 'A' is already defined in this scope as a type\n" +
 				"helper.nomi:5:6: help: pick a different name\n" +
@@ -126,10 +126,10 @@ func TestDiagnostics_ImportedFileBuildErrors(t *testing.T) {
 		{
 			name: "a file two files import",
 			files: map[string]string{
-				"helper.nomi": "import left\nimport right\n\npub fn greet(): String {\n  \"${left.f()}${right.f()}\"\n}\n",
-				"left.nomi":   "import shared\n\npub fn f(): String {\n  shared.s()\n}\n",
-				"right.nomi":  "import shared\n\npub fn f(): String {\n  shared.s()\n}\n",
-				"shared.nomi": "import std/regex\n\npub fn s(): String {\n  \"h\"\n}\n",
+				"helper.nomi": "import left\nimport right\n\npub fn greet() -> String {\n  \"${left.f()}${right.f()}\"\n}\n",
+				"left.nomi":   "import shared\n\npub fn f() -> String {\n  shared.s()\n}\n",
+				"right.nomi":  "import shared\n\npub fn f() -> String {\n  shared.s()\n}\n",
+				"shared.nomi": "import std/regex\n\npub fn s() -> String {\n  \"h\"\n}\n",
 			},
 			want: "shared.nomi:1:12: imported module 'regex' is unused — remove the import\n",
 		},
@@ -186,8 +186,8 @@ func TestDiagnostics_MissingImportIsAnErrorAtTheImport(t *testing.T) {
 			files: map[string]string{
 				"nomi.toml":         "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 				"main.nomi":         "import std/io\nimport tools/helper\n\nfn main() {\n  io.print(helper.greet())\n}\n",
-				"tools/helper.nomi": "import app/utlis\n\npub fn greet(): String {\n  utlis.name()\n}\n",
-				"utils.nomi":        "pub fn name(): String {\n  \"hi\"\n}\n",
+				"tools/helper.nomi": "import app/utlis\n\npub fn greet() -> String {\n  utlis.name()\n}\n",
+				"utils.nomi":        "pub fn name() -> String {\n  \"hi\"\n}\n",
 			},
 			want: `error: no module ` + "`app/utlis`" + `: no file utlis.nomi in ../
  --> tools/helper.nomi:1:8
@@ -317,7 +317,7 @@ func TestDiagnostics_ASyntaxErrorInAnImportedFileNamesIt(t *testing.T) {
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "main.nomi"),
 		"import std/io\nimport other\n\nfn main() {\n  io.print(other.f())\n}\n")
-	mustWrite(t, filepath.Join(dir, "other.nomi"), "pub fn f(): String -> {\n  \"x\"\n}\n")
+	mustWrite(t, filepath.Join(dir, "other.nomi"), "pub fn f() -> String -> {\n  \"x\"\n}\n")
 
 	want := "other.nomi:1:5: expected '{' for function body\n"
 	for _, cmd := range []string{"run", "check"} {

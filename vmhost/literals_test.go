@@ -104,7 +104,7 @@ func TestBacktickLiteral_EffectfulHandlerIsACompileError(t *testing.T) {
 	const decls = "import {\n    std/io\n    std/literals.{Fragment, Literal}\n}\n\n" +
 		"struct Loud {\n    n: Int\n}\n\n" +
 		"impl Literal for Loud {\n" +
-		"    fn from_fragments(fragments: List<Fragment<String>>): Result<Loud, String> {\n" +
+		"    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Loud, String> {\n" +
 		"        io.print(\"building\")\n" +
 		"        Ok(Loud{n: Iter.count(fragments)})\n" +
 		"    }\n" +
@@ -127,7 +127,7 @@ func TestBacktickLiteral_EffectfulHandlerIsACompileError(t *testing.T) {
 // `try` on a backtick literal is the checker's "try requires a Result or
 // Maybe" error, with the hint.
 func TestBacktickLiteral_TryIsRejected(t *testing.T) {
-	ds := literalDiagnostics(t, "import std/regex.Regex\n\nfn main(): Result<Unit, String> {\n    _ = try Regex`\\d+`\n    Ok(Unit)\n}\n")
+	ds := literalDiagnostics(t, "import std/regex.Regex\n\nfn main() -> Result<Unit, String> {\n    _ = try Regex`\\d+`\n    Ok(Unit)\n}\n")
 	if len(ds) != 1 || ds[0].Message != "try requires a Result or Maybe, got Regex" {
 		t.Fatalf("diagnostics = %v", ds)
 	}
@@ -146,16 +146,16 @@ func TestBacktickLiteral_InALoopIsBuiltOnce(t *testing.T) {
 	const src = "import std/literals.{Fragment, Literal}\n\n" +
 		"struct Slow {\n    n: Int\n}\n\n" +
 		"impl Literal for Slow {\n" +
-		"    fn from_fragments(fragments: List<Fragment<String>>): Result<Slow, String> {\n" +
-		"        n = Iter.reduce(1..=1000, |acc = 0, i| acc + i)\n" +
+		"    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Slow, String> {\n" +
+		"        n = Iter.reduce(1..=1000, fn acc = 0, i -> acc + i)\n" +
 		"        Ok(Slow{n: n + Iter.count(fragments)})\n" +
 		"    }\n" +
 		"}\n\n" +
-		"fn raw(): Int {\n" +
-		"    Iter.reduce(1..=100, |acc = 0, _i| acc + Slow`x`.n)\n" +
+		"fn raw() -> Int {\n" +
+		"    Iter.reduce(1..=100, fn acc = 0, _i -> acc + Slow`x`.n)\n" +
 		"}\n\n" +
-		"fn quoted(): Int {\n" +
-		"    Iter.reduce(1..=100, |acc = 0, _i| acc + Result.with_default(Result.map(Slow\"x\", |s| s.n), 0))\n" +
+		"fn quoted() -> Int {\n" +
+		"    Iter.reduce(1..=100, fn acc = 0, _i -> acc + Result.with_default(Result.map(Slow\"x\", fn s -> s.n), 0))\n" +
 		"}\n\n" +
 		"fn main() {\n    _ = raw() + quoted()\n}\n"
 	p, err := LoadSource("main", src)

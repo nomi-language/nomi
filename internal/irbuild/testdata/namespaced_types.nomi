@@ -64,7 +64,7 @@ pub type Probe.Absent
 // it would refuse for a reason that is not this file's subject. The signature
 // still has to resolve, and TestNamespacedTypeNamesReachEverySignaturePosition
 // is what asserts it does.
-pub fn severity(r: Probe.Reading): Int {
+pub fn severity(r: Probe.Reading) -> Int {
     case r {
         .Steady -> 0
         .Spike(n) -> n
@@ -74,39 +74,39 @@ pub fn severity(r: Probe.Reading): Int {
 
 // RETURN position on the dotted enum. A dotted name was refused identically in
 // both, and the two were separate reject sites, so both need a witness.
-pub fn worst(a: Probe.Reading, b: Probe.Reading): Probe.Reading {
+pub fn worst(a: Probe.Reading, b: Probe.Reading) -> Probe.Reading {
     if severity(a) >= severity(b) { a } else { b }
 }
 
 // A dotted name INSIDE a container, so the descent through `List<...>` reaches
 // it rather than stopping at the container.
-pub fn total(rs: List<Probe.Reading>): Int {
-    Iter.reduce(rs, |acc = 0, r| acc + severity(r))
+pub fn total(rs: List<Probe.Reading>) -> Int {
+    Iter.reduce(rs, fn acc = 0, r -> acc + severity(r))
 }
 
 // The marker in a signature. It stores nothing, which is exactly the case a
 // lookup keyed on "has a payload" would get wrong.
-pub fn absent_is(_m: Probe.Absent): String {
+pub fn absent_is(_m: Probe.Absent) -> String {
     "absent"
 }
 
 // The dotted STRUCT in parameter and return position, constructed, with field
 // access — the observable half.
-pub fn tune(c: Probe.Config, by: Int): Probe.Config {
+pub fn tune(c: Probe.Config, by: Int) -> Probe.Config {
     Probe.Config{retries: c.retries * by}
 }
 
-pub fn retries_of(c: Probe.Config): Int {
+pub fn retries_of(c: Probe.Config) -> Int {
     c.retries
 }
 
 // A dotted struct inside a container, and in a tuple, so the composite descent
 // is exercised on the reachable half too.
-pub fn total_retries(cs: List<Probe.Config>): Int {
-    Iter.reduce(cs, |acc = 0, c| acc + retries_of(c))
+pub fn total_retries(cs: List<Probe.Config>) -> Int {
+    Iter.reduce(cs, fn acc = 0, c -> acc + retries_of(c))
 }
 
-pub fn widen(_pair: (Probe.Config, Int)): Probe.Config {
+pub fn widen(_pair: #(Probe.Config, Int)) -> Probe.Config {
     Probe.Config{retries: 0}
 }
 
@@ -117,5 +117,5 @@ fn main() {
     io.print("tuned = ${retries_of(tune(base, 3))}")
     io.print("chained = ${retries_of(tune(tune(base, 3), 5))}")
     io.print("total = ${total_retries([base, tune(base, 4), Probe.Config{retries: 9}])}")
-    io.print("widened = ${retries_of(widen((base, 1)))}")
+    io.print("widened = ${retries_of(widen(#(base, 1)))}")
 }

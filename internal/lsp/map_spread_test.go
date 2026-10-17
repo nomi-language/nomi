@@ -5,12 +5,12 @@ import (
 	"testing"
 )
 
-// Hover and completion inside a map update, `{..base, key => value}`. The
+// Hover and completion inside a map update, `%{..base, key => value}`. The
 // base is an ordinary expression, so it hovers because analysis/builder.go
 // walks `MapLit.Spread`.
 func TestHover_MapSpread(t *testing.T) {
-	const prog = `fn shift(): Map<String, Int> {
-  scores = {"a" => 1}
+	const prog = `fn shift() -> Map<String, Int> {
+  scores = %{"a" => 1}
   bonus = 5
   MARK
 }
@@ -20,8 +20,8 @@ func TestHover_MapSpread(t *testing.T) {
 		line string
 		want string
 	}{
-		{"spread head", `  {..▮scores, "b" => bonus}`, "scores: Map<String, Int>"},
-		{"entry value", `  {..scores, "b" => ▮bonus}`, "bonus: Int"},
+		{"spread head", `  %{..▮scores, "b" => bonus}`, "scores: Map<String, Int>"},
+		{"entry value", `  %{..scores, "b" => ▮bonus}`, "bonus: Int"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -51,9 +51,9 @@ func TestCompletion_MapSpread(t *testing.T) {
 		name string
 		line string // the body's third line, the caret at ‸
 	}{
-		{"spread head", `  {..sc‸, "b" => 2}`},
-		{"entry value", `  {..scores, "b" => bo‸}`},
-		{"second entry value", `  {..scores, "b" => 1, "c" => bo‸}`},
+		{"spread head", `  %{..sc‸, "b" => 2}`},
+		{"entry value", `  %{..scores, "b" => bo‸}`},
+		{"second entry value", `  %{..scores, "b" => 1, "c" => bo‸}`},
 		// The slot after the spread holds a key, not a field label: it
 		// parses as the struct form, and the map base makes it an
 		// expression.
@@ -61,7 +61,7 @@ func TestCompletion_MapSpread(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "fn shift(): Map<String, Int> {\n  scores = {\"a\" => 1}\n  bonus = 5\n" + tc.line + "\n}\n"
+			src := "fn shift() -> Map<String, Int> {\n  scores = %{\"a\" => 1}\n  bonus = 5\n" + tc.line + "\n}\n"
 			char := strings.Index(tc.line, cursorMark)
 			src = strings.Replace(src, cursorMark, "", 1)
 			uri := "file:///map_spread_completion.nomi"

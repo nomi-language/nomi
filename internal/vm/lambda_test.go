@@ -10,7 +10,7 @@ import (
 )
 
 func TestVMLambda_TourRecordedAnswer(t *testing.T) {
-	ids := []string{tourBlock(t, "functions-and-lambdas.md", `inc = |x: Int| x + 1`)}
+	ids := []string{tourBlock(t, "functions-and-lambdas.md", `inc = fn x: Int -> x + 1`)}
 	recorded, err := expectation.Load("tour")
 	if err != nil {
 		t.Fatal(err)

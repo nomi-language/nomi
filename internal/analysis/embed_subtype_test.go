@@ -8,7 +8,7 @@ import "testing"
 func TestEmbed_SubtypeCoercion_DistinctType_Assignment(t *testing.T) {
 	src := `type UserId String
 enum Identifier { embeds UserId; Anonymous }
-fn demo(): Identifier {
+fn demo() -> Identifier {
   uid: UserId = UserId("alice")
   uid
 }`
@@ -19,8 +19,8 @@ fn demo(): Identifier {
 func TestEmbed_SubtypeCoercion_DistinctType_FunctionArg(t *testing.T) {
 	src := `type UserId String
 enum Identifier { embeds UserId; Anonymous }
-fn render(_id: Identifier): String { "x" }
-fn demo(): String {
+fn render(_id: Identifier) -> String { "x" }
+fn demo() -> String {
   uid: UserId = UserId("alice")
   render(uid)
 }`
@@ -31,7 +31,7 @@ fn demo(): String {
 func TestEmbed_SubtypeCoercion_DistinctType_ListElement(t *testing.T) {
 	src := `type UserId String
 enum Identifier { embeds UserId; Anonymous }
-fn demo(): List<Identifier> {
+fn demo() -> List<Identifier> {
   uid: UserId = UserId("alice")
   [uid, UserId("bob"), Identifier.Anonymous]
 }`
@@ -42,7 +42,7 @@ fn demo(): List<Identifier> {
 func TestEmbed_SubtypeCoercion_StructEmbed_Assignment(t *testing.T) {
 	src := `struct Circle { radius: Float }
 enum Shape { embeds Circle; Point }
-fn demo(): Shape {
+fn demo() -> Shape {
   c: Circle = Circle{radius: 5.0}
   c
 }`
@@ -54,7 +54,7 @@ func TestEmbed_SubtypeCoercion_StructEmbed_ListElement(t *testing.T) {
 	src := `struct Circle { radius: Float }
 struct Rectangle { width: Float; height: Float }
 enum Shape { embeds Circle; embeds Rectangle; Point }
-fn demo(): List<Shape> {
+fn demo() -> List<Shape> {
   c: Circle = Circle{radius: 5.0}
   [c, Rectangle{width: 3.0, height: 4.0}, Shape.Point]
 }`
@@ -70,7 +70,7 @@ fn demo(): List<Shape> {
 func TestEmbed_WrappingDistinct_PatternBindsInner(t *testing.T) {
 	src := `type UserId String
 enum Identifier { embeds UserId; Anonymous }
-fn label(id: Identifier): String {
+fn label(id: Identifier) -> String {
   case id {
     Identifier.UserId(name) -> name
     Identifier.Anonymous -> "anonymous"
@@ -87,7 +87,7 @@ fn label(id: Identifier): String {
 func TestEmbed_WrappingDistinct_QualifiedConstructionTakesInner(t *testing.T) {
 	src := `type UserId String
 enum Identifier { embeds UserId; Anonymous }
-fn make(): Identifier {
+fn make() -> Identifier {
   Identifier.UserId("alice")
 }`
 	_, errs := checkSource(src)
@@ -101,7 +101,7 @@ fn make(): Identifier {
 func TestEmbed_WrappingDistinct_SubtypeCoercionStillWorks(t *testing.T) {
 	src := `type UserId String
 enum Identifier { embeds UserId; Anonymous }
-fn make(): Identifier {
+fn make() -> Identifier {
   uid: UserId = UserId("alice")
   uid
 }`
@@ -117,7 +117,7 @@ fn make(): Identifier {
 // single-payload variant form, which is the right shape for an
 // interface-typed payload.
 func TestEmbed_InterfaceTypeRejected(t *testing.T) {
-	src := `interface Renderable { fn render(value: self): String }
+	src := `interface Renderable { fn render(value: self) -> String }
 enum Wrapper { embeds Renderable; Empty }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "embeds requires a struct or distinct type, got interface Renderable")

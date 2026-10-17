@@ -50,3 +50,48 @@ test "codepoint ranges skip surrogate values" {
     assert inclusive_values == [55_295, 57_344]
     assert stepped_values == [55_295, 57_344]
 }
+
+test "letter? is Unicode general category L" {
+    // ASCII, Latin-1, Cyrillic, CJK and title-case letters.
+    assert String.to_codepoints("Azéжд中ǅ") |> Iter.all?(Codepoint.letter?)
+    // A digit, a space and an emoji.
+    assert !(String.to_codepoints("7 🙂") |> Iter.any?(Codepoint.letter?))
+
+    assert Some(combining_acute) = Codepoint.from_int(0x0301)
+
+    assert !Codepoint.letter?(combining_acute)
+}
+
+test "digit? and to_digit read ASCII digits only" {
+    assert String.to_codepoints("0459") |> Iter.all?(Codepoint.digit?)
+
+    assert String.to_codepoints("0459") |> Iter.map(Codepoint.to_digit) |> Iter.to_list() == [
+        Some(0),
+        Some(4),
+        Some(5),
+        Some(9),
+    ]
+
+    // Full-width ０ and １, Arabic-Indic ٣, a letter and a space.
+    assert !(String.to_codepoints("０１٣a ") |> Iter.any?(Codepoint.digit?))
+    assert String.to_codepoints("０１٣a ") |> Iter.map(Codepoint.to_digit) |> Iter.all?(Maybe.none?)
+}
+
+test "whitespace? is Unicode White_Space" {
+    // Space, tab, newline, carriage return, no-break space U+00A0 and the
+    // ideographic space U+3000.
+    assert String.to_codepoints(" \t\n\u{d}\u{a0}\u{3000}") |> Iter.all?(Codepoint.whitespace?)
+    // A letter, a digit, an emoji and the zero-width space U+200B.
+    assert !(String.to_codepoints("a7🙂\u{200b}") |> Iter.any?(Codepoint.whitespace?))
+}
+
+test "upper? and lower? are general categories Lu and Ll" {
+    assert String.to_codepoints("AÉЖ") |> Iter.all?(Codepoint.upper?)
+    assert !(String.to_codepoints("AÉЖ") |> Iter.any?(Codepoint.lower?))
+    assert String.to_codepoints("aéжß") |> Iter.all?(Codepoint.lower?)
+    assert !(String.to_codepoints("aéжß") |> Iter.any?(Codepoint.upper?))
+    // CJK has no case, nor do digits and emoji, and title-case ǅ (category
+    // Lt) is neither upper nor lower.
+    assert !(String.to_codepoints("中7🙂ǅ") |> Iter.any?(Codepoint.upper?))
+    assert !(String.to_codepoints("中7🙂ǅ") |> Iter.any?(Codepoint.lower?))
+}

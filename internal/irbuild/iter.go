@@ -19,7 +19,7 @@ import (
 //     speculatively and files them under one shared reason. That boundary is
 //     correct and is not relaxed here (see stdlib.go for why it is a
 //     consequence of cross-package type identity).
-//  2. The stdlib index holds all 39 `Iter.` keys
+//  2. The stdlib index holds every `Iter.` key
 //     (`TestIterRoute_TheStdlibIndexIsASecondRoute`), so there IS a second
 //     route from an `Iter.`-qualified call to a lowering, and the only thing
 //     keeping this file's anchor authoritative is ORDER: `iterCall` sits above
@@ -62,7 +62,7 @@ import (
 // `reduce`'s seed. In every one of them the seed is exactly the answer for a
 // source that ran to EXHAUSTION, and `break v` is exactly "stop, with this
 // answer"; `each_while` already returns the first, and `false` from a yield
-// already means the second. `any?` is `!each_while(src, |x| !f(x))`: a source
+// already means the second. `any?` is `!each_while(src, fn x -> !f(x))`: a source
 // that completed is a source in which nothing matched. rt/seqterm.go carries
 // the whole derivation, one line per function.
 //
@@ -271,7 +271,7 @@ func iterProtocolMatches(decl *ast.InterfaceDef) bool {
 	if each == nil || known == nil {
 		return false
 	}
-	// `each_while(collection: self, yield: (T) -> Bool): Bool`, and nothing
+	// `each_while(collection: self, yield: (T) -> Bool) -> Bool`, and nothing
 	// else: a third parameter or a different result is a different protocol.
 	if len(each.Params) != 2 || !isSelfType(each.Params[0].TypeAnnotation) ||
 		simpleTypeName(each.ReturnTypeExpr) != "Bool" {
@@ -282,7 +282,7 @@ func iterProtocolMatches(decl *ast.InterfaceDef) bool {
 		simpleTypeName(fn.Params[0]) != iterElemParam || simpleTypeName(fn.Return) != "Bool" {
 		return false
 	}
-	// `known_count(collection: self): Maybe<Int>`, still `open` — a source that
+	// `known_count(collection: self) -> Maybe<Int>`, still `open` — a source that
 	// stores its own count overrides it, which is the whole basis of the O(1)
 	// answer countCall emits.
 	if !known.Open || len(known.Params) != 1 || !isSelfType(known.Params[0].TypeAnnotation) {
@@ -323,8 +323,8 @@ func seqElem(k kind) kind { return k.comp.parts[0] }
 // sits above iterCall in the chain:
 //
 //	struct Box { v: Int }
-//	impl Iter for Box { fn each_while(b: Box, yield: (Int) -> Bool): Bool { yield(b.v) } }
-//	countdown = Iter.loop(|n = 5| if n == 0 { break n } else { n - 1 })
+//	impl Iter for Box { fn each_while(b: Box, yield: (Int) -> Bool) -> Bool { yield(b.v) } }
+//	countdown = Iter.loop(fn n = 5 -> if n == 0 { break n } else { n - 1 })
 //
 // foreignIfaceCall speculatively lowers the arguments to learn the receiver's
 // kind; the callback's `break` finds no boundary because iterLoop never ran;
@@ -357,7 +357,7 @@ func (g *gen) iterOwns(owner string) bool {
 
 // --- the seed ----------------------------------------------------------------
 //
-// `Iter.reduce(xs, |acc = 100, x| acc + x)` folds from 100. The 100 is written
+// `Iter.reduce(xs, fn acc = 100, x -> acc + x)` folds from 100. The 100 is written
 // as the callback's first-parameter DEFAULT and it is not an ordinary default:
 // nothing is applied on an arity mismatch. The CALLEE reads it, evaluated off
 // the lambda's own closure, so it is a value flowing from the caller's syntax
@@ -371,7 +371,7 @@ func (g *gen) iterOwns(owner string) bool {
 // Three properties of the seed, each pinned by a fixture:
 //
 //  1. The seed is evaluated in the lambda's CLOSURE, not in its parameter
-//     scope. `x = 5; Iter.reduce([1,2,3], |acc = x, x| acc + x)` is 11, so the
+//     scope. `x = 5; Iter.reduce([1,2,3], fn acc = x, x -> acc + x)` is 11, so the
 //     `x` in the seed is the OUTER one. Emitting the seed in the enclosing Go
 //     scope — which is what lowering it before the func literal's call does —
 //     is that rule, and emitting it inside the literal would silently answer 6.
@@ -388,7 +388,7 @@ func (g *gen) iterOwns(owner string) bool {
 //     { note(…) } else { 0 }, x| …)` evaluates the source ahead of the seed on
 //     its own.
 //  3. A DESTRUCTURING first parameter carries a seed too:
-//     `|(a, b) = (0, 0), x| …` runs, so the claim is on the parameter's
+//     `fn #(a, b) = #(0, 0), x -> …` runs, so the claim is on the parameter's
 //     default and not on it having a plain name.
 
 // --- the std-source guard ----------------------------------------------------

@@ -9,22 +9,22 @@ import "testing"
 // unchanged.
 func TestFormat_LambdaBlockBrokenAfterBraceStays(t *testing.T) {
 	cases := map[string]string{
-		"one expression": "fn f(xs: List<Int>): List<Int> {\n" +
+		"one expression": "fn f(xs: List<Int>) -> List<Int> {\n" +
 			"    xs\n" +
-			"    |> Iter.map(|x| {\n" +
+			"    |> Iter.map(fn x -> {\n" +
 			"        x + 1\n" +
 			"    })\n" +
 			"    |> Iter.to_list()\n" +
 			"}\n",
-		"an if": "fn f(n: Int): String {\n" +
-			"    [(3, \"Fizz\")]\n" +
-			"    |> Iter.reduce(|acc = \"\", (divisor, word)| {\n" +
+		"an if": "fn f(n: Int) -> String {\n" +
+			"    [#(3, \"Fizz\")]\n" +
+			"    |> Iter.reduce(fn acc = \"\", #(divisor, word) -> {\n" +
 			"        if n % divisor == 0 { acc + word } else { acc }\n" +
 			"    })\n" +
 			"}\n",
-		"a case": "fn f(xs: List<Int>): List<Int> {\n" +
+		"a case": "fn f(xs: List<Int>) -> List<Int> {\n" +
 			"    xs\n" +
-			"    |> Iter.filter(|x| {\n" +
+			"    |> Iter.filter(fn x -> {\n" +
 			"        case x {\n" +
 			"            0 -> false\n" +
 			"            _ -> true\n" +
@@ -32,39 +32,39 @@ func TestFormat_LambdaBlockBrokenAfterBraceStays(t *testing.T) {
 			"    })\n" +
 			"    |> Iter.to_list()\n" +
 			"}\n",
-		"nested lambdas": "fn f(xs: List<List<Int>>): List<Int> {\n" +
+		"nested lambdas": "fn f(xs: List<List<Int>>) -> List<Int> {\n" +
 			"    xs\n" +
-			"    |> Iter.map(|ys| {\n" +
+			"    |> Iter.map(fn ys -> {\n" +
 			"        ys\n" +
-			"        |> Iter.map(|y| {\n" +
+			"        |> Iter.map(fn y -> {\n" +
 			"            y + 1\n" +
 			"        })\n" +
 			"        |> Iter.count()\n" +
 			"    })\n" +
 			"    |> Iter.to_list()\n" +
 			"}\n",
-		"a named argument": "fn f(): Int {\n" +
+		"a named argument": "fn f() -> Int {\n" +
 			"    run(\n" +
 			"        2,\n" +
-			"        step: |x| {\n" +
+			"        step: fn x -> {\n" +
 			"            x + 1\n" +
 			"        },\n" +
 			"    )\n" +
 			"}\n",
-		"a pipe stage": "fn f(n: Int): Int {\n" +
+		"a pipe stage": "fn f(n: Int) -> Int {\n" +
 			"    n\n" +
-			"    |> then |x| {\n" +
+			"    |> then fn x -> {\n" +
 			"        x * 2\n" +
 			"    }\n" +
 			"}\n",
 		"bound to a name": "fn f() {\n" +
-			"    g = |x: Int| {\n" +
+			"    g = fn x: Int -> {\n" +
 			"        x + 1\n" +
 			"    }\n" +
 			"}\n",
-		"a trailing comment inside": "fn f(xs: List<Int>): List<Int> {\n" +
+		"a trailing comment inside": "fn f(xs: List<Int>) -> List<Int> {\n" +
 			"    xs\n" +
-			"    |> Iter.map(|x| {\n" +
+			"    |> Iter.map(fn x -> {\n" +
 			"        x * 2 // double\n" +
 			"    })\n" +
 			"    |> Iter.to_list()\n" +
@@ -86,16 +86,16 @@ func TestFormat_LambdaBlockBrokenAfterBraceStays(t *testing.T) {
 func TestFormat_LambdaBlockOnBraceLineCollapses(t *testing.T) {
 	cases := map[string]struct{ src, want string }{
 		"braced on one line": {
-			src:  "fn f(xs: List<Int>): List<Int> {\n    xs |> Iter.map(|x| { x + 1 }) |> Iter.to_list()\n}\n",
-			want: "fn f(xs: List<Int>): List<Int> {\n    xs |> Iter.map(|x| x + 1) |> Iter.to_list()\n}\n",
+			src:  "fn f(xs: List<Int>) -> List<Int> {\n    xs |> Iter.map(fn x -> { x + 1 }) |> Iter.to_list()\n}\n",
+			want: "fn f(xs: List<Int>) -> List<Int> {\n    xs |> Iter.map(fn x -> x + 1) |> Iter.to_list()\n}\n",
 		},
 		"braced, closing brace below": {
-			src:  "fn f(xs: List<Int>): List<Int> {\n    xs |> Iter.map(|x| { x + 1\n    }) |> Iter.to_list()\n}\n",
-			want: "fn f(xs: List<Int>): List<Int> {\n    xs |> Iter.map(|x| x + 1) |> Iter.to_list()\n}\n",
+			src:  "fn f(xs: List<Int>) -> List<Int> {\n    xs |> Iter.map(fn x -> { x + 1\n    }) |> Iter.to_list()\n}\n",
+			want: "fn f(xs: List<Int>) -> List<Int> {\n    xs |> Iter.map(fn x -> x + 1) |> Iter.to_list()\n}\n",
 		},
 		"bare body on the next line": {
-			src:  "fn f(xs: List<Int>): List<Int> {\n    xs |> Iter.map(|x|\n        x + 1) |> Iter.to_list()\n}\n",
-			want: "fn f(xs: List<Int>): List<Int> {\n    xs |> Iter.map(|x| x + 1) |> Iter.to_list()\n}\n",
+			src:  "fn f(xs: List<Int>) -> List<Int> {\n    xs |> Iter.map(fn x ->\n        x + 1) |> Iter.to_list()\n}\n",
+			want: "fn f(xs: List<Int>) -> List<Int> {\n    xs |> Iter.map(fn x -> x + 1) |> Iter.to_list()\n}\n",
 		},
 	}
 	for name, c := range cases {
@@ -111,19 +111,19 @@ func TestFormat_LambdaBlockOnBraceLineCollapses(t *testing.T) {
 	}
 }
 
-// Dropping the braces of `|x| { e }` and keeping them on a broken block
+// Dropping the braces of `fn x -> { e }` and keeping them on a broken block
 // are both the same program: the parser builds the same tree for either
 // spelling, so SameMeaning holds between the two layouts in both
 // directions.
 func TestFormat_LambdaBlockBracesKeepMeaning(t *testing.T) {
-	broken := "fn f(xs: List<Int>): List<Int> {\n" +
+	broken := "fn f(xs: List<Int>) -> List<Int> {\n" +
 		"    xs\n" +
-		"    |> Iter.map(|x| {\n" +
+		"    |> Iter.map(fn x -> {\n" +
 		"        x + 1\n" +
 		"    })\n" +
 		"    |> Iter.to_list()\n" +
 		"}\n"
-	flat := "fn f(xs: List<Int>): List<Int> {\n    xs |> Iter.map(|x| x + 1) |> Iter.to_list()\n}\n"
+	flat := "fn f(xs: List<Int>) -> List<Int> {\n    xs |> Iter.map(fn x -> x + 1) |> Iter.to_list()\n}\n"
 	if err := SameMeaning(broken, flat); err != nil {
 		t.Fatalf("braced block and bare body differ: %v", err)
 	}

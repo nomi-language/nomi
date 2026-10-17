@@ -42,24 +42,24 @@ func checkedLoweredFile(src string) *analysis.FileAnalysis {
 }
 
 func TestHover_FuncWithParamsAndReturn(t *testing.T) {
-	sym := buildSymbol("/// Doubles a number.\nfn double(n: Int): Int { n + n }", "double")
+	sym := buildSymbol("/// Doubles a number.\nfn double(n: Int) -> Int { n + n }", "double")
 	if sym == nil {
 		t.Fatal("symbol not found")
 	}
 	result := renderHover(sym)
-	expected := "```nomi\nfn double(n: Int): Int\n```\n\nDoubles a number."
+	expected := "```nomi\nfn double(n: Int) -> Int\n```\n\nDoubles a number."
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
 }
 
 func TestHover_ExportFnShowsItsKeyword(t *testing.T) {
-	sym := buildSymbol("export fn double(n: Int): Int { n + n }", "double")
+	sym := buildSymbol("export fn double(n: Int) -> Int { n + n }", "double")
 	if sym == nil {
 		t.Fatal("symbol not found")
 	}
 	result := renderHover(sym)
-	expected := "```nomi\nexport fn double(n: Int): Int\n```"
+	expected := "```nomi\nexport fn double(n: Int) -> Int\n```"
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -78,12 +78,12 @@ func TestHover_FuncNoReturnNoDoc(t *testing.T) {
 }
 
 func TestHover_FuncWithTypeParams(t *testing.T) {
-	sym := buildSymbol("fn map<T, U>(list: List<T>, f: (T) -> U): List<U> { _ = f; list }", "map")
+	sym := buildSymbol("fn map<T, U>(list: List<T>, f: (T) -> U) -> List<U> { _ = f; list }", "map")
 	if sym == nil {
 		t.Fatal("symbol not found")
 	}
 	result := renderHover(sym)
-	expected := "```nomi\nfn map<T, U>(list: List<T>, f: (T) -> U): List<U>\n```"
+	expected := "```nomi\nfn map<T, U>(list: List<T>, f: (T) -> U) -> List<U>\n```"
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -103,7 +103,7 @@ func TestHover_FuncNoParams(t *testing.T) {
 
 func TestHover_AttachedAssertCodeUsesNormalReferences(t *testing.T) {
 	input, pos := hoverMarkerPosition(t, `//! assert ▮ready_label() == "[ready]"
-fn ready_label(): String {
+fn ready_label() -> String {
   "[ready]"
 }
 `)
@@ -121,7 +121,7 @@ fn ready_label(): String {
 		t.Fatal("expected symbol at attached assert call site")
 	}
 	got := renderHover(sym)
-	expected := "```nomi\nfn ready_label(): String\n```"
+	expected := "```nomi\nfn ready_label() -> String\n```"
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
@@ -134,7 +134,7 @@ func TestHover_AttachedAssertTypeQualifiedImplFunction(t *testing.T) {
 
 impl Display for Box {
   //! assert Box.▮to_string(Box{n: 3}) == "box:3"
-  fn to_string(b: Box): String {
+  fn to_string(b: Box) -> String {
     "box:" + Int.to_string(b.n)
   }
 }
@@ -153,7 +153,7 @@ impl Display for Box {
 		t.Fatal("expected symbol at attached impl assert call site")
 	}
 	got := renderHover(sym)
-	if !strings.Contains(got, "fn to_string(b: Box): String") {
+	if !strings.Contains(got, "fn to_string(b: Box) -> String") {
 		t.Errorf("expected hover to render concrete impl signature, got:\n%s", got)
 	}
 }
@@ -162,7 +162,7 @@ func TestHover_AttachedAssertBoundaryUsesDeclaration(t *testing.T) {
 	input, pos := hoverMarkerPosition(t, `host type AssertionFailure
 
 //! ▮assert ready_label() == "[ready]"
-fn ready_label(): String {
+fn ready_label() -> String {
   "[ready]"
 }
 `)
@@ -200,30 +200,30 @@ func TestHover_FuncNoReturnAnnotationUsesInferredType(t *testing.T) {
 		t.Fatal("symbol not found")
 	}
 	result := renderHover(sym)
-	expected := "```nomi\nfn shadow_demo(): Unit\n```"
+	expected := "```nomi\nfn shadow_demo() -> Unit\n```"
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
 }
 
 // A function with irrefutable destructuring params must render the source
-// patterns (`Dur(x)`, `Point{x, y}`, `(a, b)`) in hover — not the internal
+// patterns (`Dur(x)`, `Point{x, y}`, `#(a, b)`) in hover — not the internal
 // `__destr_<line>_<col>` placeholder used as a binding slot.
 func TestHover_FuncDestructureParams(t *testing.T) {
 	src := "type Dur Int\n" +
 		"struct Point {\n\tx: Int\n\ty: Int\n}\n" +
 		"enum Wrapper {\n\tOnly Int\n}\n" +
-		"fn subtract(Dur(x), Dur(y)): Dur { Dur(x - y) }\n" +
-		"fn sum_point(Point{x, y}): Int { x + y }\n" +
-		"fn scale_point({x, y}: Point): Int { x * y }\n" +
-		"fn add_pair((a, b): (Int, Int)): Int { a + b }\n" +
-		"fn unwrap(Wrapper.Only(n)): Int { n }"
+		"fn subtract(Dur(x), Dur(y)) -> Dur { Dur(x - y) }\n" +
+		"fn sum_point(Point{x, y}) -> Int { x + y }\n" +
+		"fn scale_point({x, y}: Point) -> Int { x * y }\n" +
+		"fn add_pair(#(a, b): #(Int, Int)) -> Int { a + b }\n" +
+		"fn unwrap(Wrapper.Only(n)) -> Int { n }"
 	wants := map[string]string{
-		"subtract":    "```nomi\nfn subtract(Dur(x), Dur(y)): Dur\n```",
-		"sum_point":   "```nomi\nfn sum_point(Point{x, y}): Int\n```",
-		"scale_point": "```nomi\nfn scale_point({x, y}: Point): Int\n```",
-		"add_pair":    "```nomi\nfn add_pair((a, b): (Int, Int)): Int\n```",
-		"unwrap":      "```nomi\nfn unwrap(Wrapper.Only(n)): Int\n```",
+		"subtract":    "```nomi\nfn subtract(Dur(x), Dur(y)) -> Dur\n```",
+		"sum_point":   "```nomi\nfn sum_point(Point{x, y}) -> Int\n```",
+		"scale_point": "```nomi\nfn scale_point({x, y}: Point) -> Int\n```",
+		"add_pair":    "```nomi\nfn add_pair(#(a, b): #(Int, Int)) -> Int\n```",
+		"unwrap":      "```nomi\nfn unwrap(Wrapper.Only(n)) -> Int\n```",
 	}
 	for name, want := range wants {
 		sym := buildSymbol(src, name)
@@ -245,8 +245,8 @@ func TestHover_FuncDestructureParams(t *testing.T) {
 // showed a bare `ns`. buildFuncType (top-level fns) never had this gap.
 func TestHover_DestructureParamBindingInFunction(t *testing.T) {
 	cases := map[string]string{
-		"opaque distinct": "pub opaque type Dur Int\n\npub fn as_nanos(Dur(ns)): Int {\n  ns\n}",
-		"plain distinct":  "type Dur Int\n\npub fn as_nanos(Dur(ns)): Int {\n  ns\n}",
+		"opaque distinct": "pub opaque type Dur Int\n\npub fn as_nanos(Dur(ns)) -> Int {\n  ns\n}",
+		"plain distinct":  "type Dur Int\n\npub fn as_nanos(Dur(ns)) -> Int {\n  ns\n}",
 	}
 	for label, src := range cases {
 		tokens := lexer.Lex(src)
@@ -327,7 +327,7 @@ func TestHover_StructWithTypeParams(t *testing.T) {
 
 func TestHover_TypeShowsImplementedInterfaces(t *testing.T) {
 	input := `interface Tagged {
-  fn tag(value: self): String
+  fn tag(value: self) -> String
 }
 
 struct User {
@@ -335,7 +335,7 @@ struct User {
 }
 
 impl Tagged for User {
-  fn tag(_value: User): String {
+  fn tag(_value: User) -> String {
     "user"
   }
 }
@@ -366,7 +366,7 @@ func TestHover_TypeShowsExplicitDebugImplementation(t *testing.T) {
 }
 
 impl Debug for User {
-  fn inspect(_value: User): String {
+  fn inspect(_value: User) -> String {
     "User"
   }
 }
@@ -428,7 +428,7 @@ func TestHover_EnumWithData(t *testing.T) {
 
 func TestHover_InterfaceMethod(t *testing.T) {
 	src := `interface Greeting {
-	fn greet(value: self): String
+	fn greet(value: self) -> String
 }
 fn main() {
 	Greeting.greet("hello")
@@ -449,7 +449,7 @@ fn main() {
 		t.Fatal("expected reference to interface method 'greet'")
 	}
 	result := renderHover(methodSym)
-	expected := "```nomi\nfn greet(value: self): String\n```\n\n*interface* `Greeting`"
+	expected := "```nomi\nfn greet(value: self) -> String\n```\n\n*interface* `Greeting`"
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -457,7 +457,7 @@ fn main() {
 
 func TestHover_InterfaceMethodGenericWhereSignature(t *testing.T) {
 	src := `interface Ranked<T> {
-	fn prefer<K>(value: self, lhs: K, rhs: K): Bool where K: Comparable
+	fn prefer<K>(value: self, lhs: K, rhs: K) -> Bool where K: Comparable
 }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
@@ -475,7 +475,7 @@ func TestHover_InterfaceMethodGenericWhereSignature(t *testing.T) {
 	}
 
 	result := renderHover(methodSym)
-	expected := "```nomi\nfn prefer<K>(value: self, lhs: K, rhs: K): Bool where K: Comparable\n```\n\n*interface* `Ranked`"
+	expected := "```nomi\nfn prefer<K>(value: self, lhs: K, rhs: K) -> Bool where K: Comparable\n```\n\n*interface* `Ranked`"
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -483,7 +483,7 @@ func TestHover_InterfaceMethodGenericWhereSignature(t *testing.T) {
 
 func TestHover_InterfaceMethodSymbolAt(t *testing.T) {
 	src := `interface Greeting {
-	fn greet(value: self): String
+	fn greet(value: self) -> String
 }
 fn main() {
 	Greeting.greet("hello")
@@ -524,7 +524,7 @@ fn main() {
 func TestHover_ImplHeaderInterfaceSymbolAt(t *testing.T) {
 	src := `/// Things that can speak.
 interface Speech {
-  fn speak(s: self): String
+  fn speak(s: self) -> String
 }
 
 struct Dog {
@@ -532,7 +532,7 @@ struct Dog {
 }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name
   }
 }
@@ -571,12 +571,12 @@ impl Speech for Dog {
 }
 
 func TestHover_Interface(t *testing.T) {
-	sym := buildSymbol("/// Can be displayed as text.\ninterface Display {\n\tfn display(value: self): String\n}", "Display")
+	sym := buildSymbol("/// Can be displayed as text.\ninterface Display {\n\tfn display(value: self) -> String\n}", "Display")
 	if sym == nil {
 		t.Fatal("symbol not found")
 	}
 	result := renderHover(sym)
-	expected := "```nomi\ninterface Display {\n    fn display(value: self): String\n}\n```\n\nCan be displayed as text."
+	expected := "```nomi\ninterface Display {\n    fn display(value: self) -> String\n}\n```\n\nCan be displayed as text."
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -585,14 +585,14 @@ func TestHover_Interface(t *testing.T) {
 func TestHover_InterfaceRequirements(t *testing.T) {
 	sym := buildSymbol(`/// Event-shaped values.
 interface EventLike {
-  fn source(value: self): String
-  fn label(value: self): String
+  fn source(value: self) -> String
+  fn label(value: self) -> String
 }`, "EventLike")
 	if sym == nil {
 		t.Fatal("symbol not found")
 	}
 	result := renderHover(sym)
-	expected := "```nomi\ninterface EventLike {\n    fn source(value: self): String\n    fn label(value: self): String\n}\n```\n\nEvent-shaped values."
+	expected := "```nomi\ninterface EventLike {\n    fn source(value: self) -> String\n    fn label(value: self) -> String\n}\n```\n\nEvent-shaped values."
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -680,7 +680,7 @@ func TestHover_Once(t *testing.T) {
 }
 
 func TestHover_Param(t *testing.T) {
-	src := "fn add(x: Int, y: Int): Int { x + y }"
+	src := "fn add(x: Int, y: Int) -> Int { x + y }"
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := buildFile(nodes)
@@ -839,8 +839,8 @@ group "config" {
 // render the pattern, not the `__destr_*` slot (the renderFuncSigFromType
 // path, distinct from the definition-hover RenderFuncSig path).
 func TestHover_DestructureParamCallSiteInstantiated(t *testing.T) {
-	src := "fn fst<T>((a, b): (T, T)): T { a }\n" +
-		"fn main() { fst((1, 2)) }"
+	src := "fn fst<T>(#(a, b): #(T, T)) -> T { a }\n" +
+		"fn main() { fst(#(1, 2)) }"
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := buildFile(nodes)
@@ -858,14 +858,14 @@ func TestHover_DestructureParamCallSiteInstantiated(t *testing.T) {
 		t.Fatal("expected reference to fst on line 2")
 	}
 	result := renderHover(callSym)
-	expected := "```nomi\nfn fst((a, b): (Int, Int)): Int\n```"
+	expected := "```nomi\nfn fst(#(a, b): #(Int, Int)) -> Int\n```"
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
 }
 
 func TestHover_GenericCallSiteShowsInstantiatedType(t *testing.T) {
-	src := `fn identity<T>(x: T): T { x }
+	src := `fn identity<T>(x: T) -> T { x }
 fn main() { identity(42) }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
@@ -886,7 +886,7 @@ fn main() { identity(42) }`
 	}
 
 	result := renderHover(callSym)
-	expected := "```nomi\nfn identity(x: Int): Int\n```"
+	expected := "```nomi\nfn identity(x: Int) -> Int\n```"
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -897,17 +897,17 @@ func TestHover_GenericCallSiteInstantiatesWhereClause(t *testing.T) {
 type Days Int
 
 impl Add<Days, Day> for Day {
-  fn add(lhs: Day, rhs: Days): Day {
+  fn add(lhs: Day, rhs: Days) -> Day {
     _ = rhs
     lhs
   }
 }
 
-fn plus<L, R, Out>(lhs: L, rhs: R): Out where L: Add<R, Out> {
+fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out> {
   lhs + rhs
 }
 
-fn demo(): Day {
+fn demo() -> Day {
   plus(Day(10), Days(4))
 }`
 	tokens := lexer.Lex(src)
@@ -932,7 +932,7 @@ fn demo(): Day {
 	}
 
 	result := renderHover(callSym)
-	expected := "```nomi\nfn plus(lhs: Day, rhs: Days): Day where Day: Add<Days, Day>\n```"
+	expected := "```nomi\nfn plus(lhs: Day, rhs: Days) -> Day where Day: Add<Days, Day>\n```"
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -942,11 +942,11 @@ func TestHover_GenericCallSiteInstantiatesWhereClauseThroughList(t *testing.T) {
 	src := `interface Mark {}
 impl Mark for Int {}
 
-fn keep<T>(xs: List<T>): List<T> where T: Mark {
+fn keep<T>(xs: List<T>) -> List<T> where T: Mark {
   xs
 }
 
-fn demo(): List<Int> {
+fn demo() -> List<Int> {
   keep([1, 2])
 }`
 	tokens := lexer.Lex(src)
@@ -970,7 +970,7 @@ fn demo(): List<Int> {
 	}
 
 	result := renderHover(callSym)
-	expected := "```nomi\nfn keep(xs: List<Int>): List<Int> where Int: Mark\n```"
+	expected := "```nomi\nfn keep(xs: List<Int>) -> List<Int> where Int: Mark\n```"
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -983,14 +983,14 @@ fn demo(): List<Int> {
 // Hovering on a generic function declaration with an interface bound should show
 // the bound in the signature's `where` clause.
 func TestHover_FuncWithInterfaceBound(t *testing.T) {
-	src := `interface Showable { fn show(value: self): String }
-fn identity<T>(x: T): T where T: Showable { x }`
+	src := `interface Showable { fn show(value: self) -> String }
+fn identity<T>(x: T) -> T where T: Showable { x }`
 	sym := buildSymbol(src, "identity")
 	if sym == nil {
 		t.Fatal("symbol not found")
 	}
 	got := renderHover(sym)
-	if !strings.Contains(got, "fn identity<T>(x: T): T where T: Showable") {
+	if !strings.Contains(got, "fn identity<T>(x: T) -> T where T: Showable") {
 		t.Errorf("expected hover to show `where T: Showable`, got:\n%s", got)
 	}
 }
@@ -998,8 +998,8 @@ fn identity<T>(x: T): T where T: Showable { x }`
 // Hovering on the bound interface `Showable` in `where T: Showable` should
 // resolve to the interface symbol (not be a hover-blank).
 func TestHover_BoundInterfaceReference(t *testing.T) {
-	src := `interface Showable { fn show(value: self): String }
-fn identity<T>(x: T): T where T: Showable { x }`
+	src := `interface Showable { fn show(value: self) -> String }
+fn identity<T>(x: T) -> T where T: Showable { x }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -1026,8 +1026,8 @@ fn identity<T>(x: T): T where T: Showable { x }`
 // body or `where` clause) should show its bound, not just the
 // bare name.
 func TestHover_TypeParamWithBound(t *testing.T) {
-	src := `interface Showable { fn show(value: self): String }
-fn identity<T>(x: T): T where T: Showable { x }`
+	src := `interface Showable { fn show(value: self) -> String }
+fn identity<T>(x: T) -> T where T: Showable { x }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -1056,12 +1056,12 @@ fn identity<T>(x: T): T where T: Showable { x }`
 // generic param `T`, no specific impl is statically picked at this call
 // site, so reaching for one is misleading.
 func TestHover_InterfaceMethodInGenericCode(t *testing.T) {
-	src := `interface Showable { fn show(value: self): String }
+	src := `interface Showable { fn show(value: self) -> String }
 struct User { name: String }
 impl Showable for User {
-  fn show(value: User): String { value.name }
+  fn show(value: User) -> String { value.name }
 }
-fn render<T>(value: T): String where T: Showable {
+fn render<T>(value: T) -> String where T: Showable {
   Showable.show(value)
 }`
 	tokens := lexer.Lex(src)
@@ -1096,16 +1096,16 @@ fn render<T>(value: T): String where T: Showable {
 // last — last-write-wins on a map keyed only by interface+method is
 // arbitrary and misleading.
 func TestHover_InterfaceMethodMultipleImpls(t *testing.T) {
-	src := `interface Showable { fn show(value: self): String }
+	src := `interface Showable { fn show(value: self) -> String }
 struct A {}
 struct B {}
 impl Showable for A {
-  fn show(_value: A): String { "a" }
+  fn show(_value: A) -> String { "a" }
 }
 impl Showable for B {
-  fn show(_value: B): String { "b" }
+  fn show(_value: B) -> String { "b" }
 }
-fn dump<T>(value: T): String where T: Showable {
+fn dump<T>(value: T) -> String where T: Showable {
   Showable.show(value)
 }`
 	tokens := lexer.Lex(src)
@@ -1233,7 +1233,7 @@ fn main() {
 		t.Fatal("no symbol at the to_non_zero call-site position")
 	}
 	got := renderHover(sym)
-	if !strings.Contains(got, "fn to_non_zero(p: PositiveInt): NonZeroInt") {
+	if !strings.Contains(got, "fn to_non_zero(p: PositiveInt) -> NonZeroInt") {
 		t.Errorf("expected hover to render concrete PositiveInt parameter type, got:\n%s", got)
 	}
 	if strings.Contains(got, "Maybe<self>") {
@@ -1304,7 +1304,7 @@ func TestHover_DerivedTypeQualifiedImplMethods(t *testing.T) {
 
 func TestHover_ImplMethodParamUsageRendersConcreteType(t *testing.T) {
 	inputWithMarker := `interface Equal {
-  fn equal?(a: self, b: self): Bool
+  fn equal?(a: self, b: self) -> Bool
 }
 
 enum Maybe<T> {
@@ -1313,7 +1313,7 @@ enum Maybe<T> {
 }
 
 impl Equal for Maybe<T> {
-  fn equal?(a: Maybe<T>, b: Maybe<T>): Bool {
+  fn equal?(a: Maybe<T>, b: Maybe<T>) -> Bool {
     a == ▮b
   }
 }
@@ -1345,7 +1345,7 @@ func TestHover_BareImportedFunctionBeatsSynthesizedDebugMethod(t *testing.T) {
 	inputWithMarker := `import std/io.inspect
 
 interface Greeting {
-  fn greet(value: self): String
+  fn greet(value: self) -> String
 }
 
 struct Guest {
@@ -1353,7 +1353,7 @@ struct Guest {
 }
 
 impl Greeting for Guest {
-  fn greet(guest: Guest): String {
+  fn greet(guest: Guest) -> String {
     "Welcome, " + guest.name + "!"
   }
 }
@@ -1385,7 +1385,7 @@ fn main() {
 		t.Fatal("no symbol at the inspect call-site position")
 	}
 	got := renderHover(sym)
-	if !strings.Contains(got, "fn inspect(value: Int): Unit") {
+	if !strings.Contains(got, "fn inspect(value: Int) -> Unit") {
 		t.Errorf("expected hover to render imported io.inspect, got:\n%s", got)
 	}
 	if strings.Contains(got, "value: Guest") {
@@ -1423,7 +1423,7 @@ func TestHover_ImplBlockFunctionShowsImplementationRole(t *testing.T) {
 		{
 			name: "interface implementation function",
 			input: `interface Display {
-  fn to_string(value: self): String
+  fn to_string(value: self) -> String
 }
 
 struct Money {
@@ -1431,24 +1431,24 @@ struct Money {
 }
 
 impl Display for Money {
-  fn ▮to_string(m: Money): String {
+  fn ▮to_string(m: Money) -> String {
     "money"
   }
 }
 `,
 			wantParts: []string{
-				"fn to_string(m: Money): String",
+				"fn to_string(m: Money) -> String",
 				"*impl* `Display.to_string`",
 			},
 		},
 		{
 			name: "first duplicate method name keeps its block interface",
 			input: `interface greeter {
-  fn greet(value: self): String
+  fn greet(value: self) -> String
 }
 
 interface Farewell {
-  fn greet(value: self): String
+  fn greet(value: self) -> String
 }
 
 struct Person {
@@ -1456,30 +1456,30 @@ struct Person {
 }
 
 impl greeter for Person {
-  fn ▮greet(p: Person): String {
+  fn ▮greet(p: Person) -> String {
     "Hello, " + p.name
   }
 }
 
 impl Farewell for Person {
-  fn greet(p: Person): String {
+  fn greet(p: Person) -> String {
     "Goodbye, " + p.name
   }
 }
 `,
 			wantParts: []string{
-				"fn greet(p: Person): String",
+				"fn greet(p: Person) -> String",
 				"*impl* `greeter.greet`",
 			},
 		},
 		{
 			name: "second duplicate method name keeps its block interface",
 			input: `interface greeter {
-  fn greet(value: self): String
+  fn greet(value: self) -> String
 }
 
 interface Farewell {
-  fn greet(value: self): String
+  fn greet(value: self) -> String
 }
 
 struct Person {
@@ -1487,19 +1487,19 @@ struct Person {
 }
 
 impl greeter for Person {
-  fn greet(p: Person): String {
+  fn greet(p: Person) -> String {
     "Hello, " + p.name
   }
 }
 
 impl Farewell for Person {
-  fn ▮greet(p: Person): String {
+  fn ▮greet(p: Person) -> String {
     "Goodbye, " + p.name
   }
 }
 `,
 			wantParts: []string{
-				"fn greet(p: Person): String",
+				"fn greet(p: Person) -> String",
 				"*impl* `Farewell.greet`",
 			},
 		},
@@ -1535,9 +1535,9 @@ impl Farewell for Person {
 }
 
 func TestHover_DiscardBindersRenderTypeAtBindingSite(t *testing.T) {
-	input := `fn ignore(_param: Int): Int {
+	input := `fn ignore(_param: Int) -> Int {
   _count = 5
-  (_left, _right) = (1, "a")
+  #(_left, _right) = #(1, "a")
   0
 }
 `
@@ -1554,8 +1554,8 @@ func TestHover_DiscardBindersRenderTypeAtBindingSite(t *testing.T) {
 	}{
 		{"discard param", analysis.Pos{Line: 1, Col: 11}, "_param: Int"},
 		{"discard binding", analysis.Pos{Line: 2, Col: 3}, "_count: Int"},
-		{"discard tuple left", analysis.Pos{Line: 3, Col: 4}, "_left: Int"},
-		{"discard tuple right", analysis.Pos{Line: 3, Col: 11}, "_right: String"},
+		{"discard tuple left", analysis.Pos{Line: 3, Col: 5}, "_left: Int"},
+		{"discard tuple right", analysis.Pos{Line: 3, Col: 12}, "_right: String"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1574,8 +1574,8 @@ func TestHover_DiscardBindersRenderTypeAtBindingSite(t *testing.T) {
 // An interface-bound alias (`typealias Foo A and B`) should hover with the
 // full declaration showing the conjunction RHS.
 func TestHover_BoundAliasDeclaration(t *testing.T) {
-	src := `interface Showable { fn show(value: self): String }
-interface Tagged { fn tag(value: self): String }
+	src := `interface Showable { fn show(value: self) -> String }
+interface Tagged { fn tag(value: self) -> String }
 typealias ShowAndTag Showable and Tagged`
 	sym := buildSymbol(src, "ShowAndTag")
 	if sym == nil {
@@ -1592,8 +1592,8 @@ typealias ShowAndTag Showable and Tagged`
 // on `Showable` or `Tagged` in `typealias Foo Showable and Tagged`
 // gets nothing.
 func TestHover_BoundAlias_RHS_InterfaceReferences(t *testing.T) {
-	src := `interface Showable { fn show(value: self): String }
-interface Tagged { fn tag(value: self): String }
+	src := `interface Showable { fn show(value: self) -> String }
+interface Tagged { fn tag(value: self) -> String }
 typealias ShowAndTag Showable and Tagged`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
@@ -1629,10 +1629,10 @@ typealias ShowAndTag Showable and Tagged`
 // with the function-signature and bound-clause hovers, which already
 // show the alias name).
 func TestHover_TypeParamWithBoundAlias_RendersAliasName(t *testing.T) {
-	src := `interface Showable { fn show(value: self): String }
-interface Tagged { fn tag(value: self): String }
+	src := `interface Showable { fn show(value: self) -> String }
+interface Tagged { fn tag(value: self) -> String }
 typealias ShowAndTag Showable and Tagged
-fn describe<T>(_value: T): String where T: ShowAndTag { "" }`
+fn describe<T>(_value: T) -> String where T: ShowAndTag { "" }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -1661,10 +1661,10 @@ fn describe<T>(_value: T): String where T: ShowAndTag { "" }`
 // At a use site (`where T: ShowAndTag`), hover on the alias name should
 // resolve to the alias declaration the same way.
 func TestHover_BoundAliasReference(t *testing.T) {
-	src := `interface Showable { fn show(value: self): String }
-interface Tagged { fn tag(value: self): String }
+	src := `interface Showable { fn show(value: self) -> String }
+interface Tagged { fn tag(value: self) -> String }
 typealias ShowAndTag Showable and Tagged
-fn announce<T>(_value: T): String where T: ShowAndTag { "" }`
+fn announce<T>(_value: T) -> String where T: ShowAndTag { "" }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -1690,9 +1690,9 @@ fn announce<T>(_value: T): String where T: ShowAndTag { "" }`
 // Multi-bound `where T: A and B` hover should render both bounds joined by
 // `and` on the function signature.
 func TestHover_FuncWithMultipleInterfaceBounds(t *testing.T) {
-	src := `interface Showable { fn show(value: self): String }
-interface Tagged { fn tag(value: self): String }
-fn identity<T>(x: T): T where T: Showable and Tagged { x }`
+	src := `interface Showable { fn show(value: self) -> String }
+interface Tagged { fn tag(value: self) -> String }
+fn identity<T>(x: T) -> T where T: Showable and Tagged { x }`
 	sym := buildSymbol(src, "identity")
 	if sym == nil {
 		t.Fatal("symbol not found")
@@ -1706,9 +1706,9 @@ fn identity<T>(x: T): T where T: Showable and Tagged { x }`
 // Hovering on the type-param itself with multiple bounds should list
 // every bound interface, joined by `and`.
 func TestHover_TypeParamWithMultipleBounds(t *testing.T) {
-	src := `interface Showable { fn show(value: self): String }
-interface Tagged { fn tag(value: self): String }
-fn identity<T>(x: T): T where T: Showable and Tagged { x }`
+	src := `interface Showable { fn show(value: self) -> String }
+interface Tagged { fn tag(value: self) -> String }
+fn identity<T>(x: T) -> T where T: Showable and Tagged { x }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -1734,7 +1734,7 @@ fn identity<T>(x: T): T where T: Showable and Tagged { x }`
 func TestHover_TypeParamExplainsBounds(t *testing.T) {
 	input, pos := hoverMarkerPosition(t, `interface Comparable {}
 	interface Steppable<S> {}
-fn step_by<▮T, S>(value: T, step: S): T where T: Comparable and Steppable<S> { value }`)
+fn step_by<▮T, S>(value: T, step: S) -> T where T: Comparable and Steppable<S> { value }`)
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -1765,7 +1765,7 @@ fn step_by<▮T, S>(value: T, step: S): T where T: Comparable and Steppable<S> {
 func TestHover_TypeParamExplainsUseInPeerBound(t *testing.T) {
 	input, pos := hoverMarkerPosition(t, `interface Comparable {}
 interface Steppable<S> {}
-fn step_by<T, ▮S>(value: T, step: S): T where T: Comparable and Steppable<S> { value }`)
+fn step_by<T, ▮S>(value: T, step: S) -> T where T: Comparable and Steppable<S> { value }`)
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -1793,7 +1793,7 @@ fn step_by<T, ▮S>(value: T, step: S): T where T: Comparable and Steppable<S> {
 func TestHover_TypeParamInsidePeerBound(t *testing.T) {
 	input, pos := hoverMarkerPosition(t, `interface Comparable {}
 interface Steppable<S> {}
-fn step_by<T, S>(value: T, step: S): T where T: Comparable and Steppable<▮S> { value }`)
+fn step_by<T, S>(value: T, step: S) -> T where T: Comparable and Steppable<▮S> { value }`)
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -1818,7 +1818,7 @@ fn step_by<T, S>(value: T, step: S): T where T: Comparable and Steppable<▮S> {
 
 func TestHover_TypeParamWhereBound(t *testing.T) {
 	input, pos := hoverMarkerPosition(t, `interface Steppable<S> {}
-fn step_by<T, S>(value: T, step: S): T where ▮T: Steppable<S> { value }`)
+fn step_by<T, S>(value: T, step: S) -> T where ▮T: Steppable<S> { value }`)
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -1842,7 +1842,7 @@ fn step_by<T, S>(value: T, step: S): T where ▮T: Steppable<S> { value }`)
 
 func TestHover_TypeParamUsedInsideWhereBound(t *testing.T) {
 	input, pos := hoverMarkerPosition(t, `interface Steppable<S> {}
-fn step_by<T, ▮S>(value: T, step: S): T where T: Steppable<S> { value }`)
+fn step_by<T, ▮S>(value: T, step: S) -> T where T: Steppable<S> { value }`)
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -1866,7 +1866,7 @@ fn step_by<T, ▮S>(value: T, step: S): T where T: Steppable<S> { value }`)
 
 func TestHover_TypeParamInsideWhereBound(t *testing.T) {
 	input, pos := hoverMarkerPosition(t, `interface Steppable<S> {}
-fn step_by<T, S>(value: T, step: S): T where T: Steppable<▮S> { value }`)
+fn step_by<T, S>(value: T, step: S) -> T where T: Steppable<▮S> { value }`)
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -1889,7 +1889,7 @@ fn step_by<T, S>(value: T, step: S): T where T: Steppable<▮S> { value }`)
 }
 
 func TestHover_UnboundedTypeParamExplainsAbsenceOfBounds(t *testing.T) {
-	input, pos := hoverMarkerPosition(t, `fn identity<▮T>(value: T): T { value }`)
+	input, pos := hoverMarkerPosition(t, `fn identity<▮T>(value: T) -> T { value }`)
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -1917,7 +1917,7 @@ func TestHover_VariantPatternShowsInstantiatedType(t *testing.T) {
 	// as for the real stdlib types.
 	src := `enum Maybe<T> { Some T; None }
 enum Result<T, E> { Ok T; Err E }
-fn unwrap_or(m: Maybe<Result<Int, String>>): Int {
+fn unwrap_or(m: Maybe<Result<Int, String>>) -> Int {
   case m {
     Some(Ok(n)) -> n
     Some(Err(_)) -> -1
@@ -1949,8 +1949,8 @@ fn unwrap_or(m: Maybe<Result<Int, String>>): Int {
 		t.Fatalf("could not find Ok reference at line 5 col 10. References:\n%s", strings.Join(lines, "\n"))
 	}
 	got := renderHover(okSym)
-	if !strings.Contains(got, "variant Ok(Int): Result<Int, String>") {
-		t.Errorf("expected hover to show `variant Ok(Int): Result<Int, String>`, got:\n%s", got)
+	if !strings.Contains(got, "variant Ok(Int) -> Result<Int, String>") {
+		t.Errorf("expected hover to show `variant Ok(Int) -> Result<Int, String>`, got:\n%s", got)
 	}
 }
 
@@ -1977,7 +1977,7 @@ func TestHover_VariantConstructorAtCallSite(t *testing.T) {
 		CallType: ft,
 	}
 	got := renderHover(sym)
-	want := "```nomi\nvariant Some(Result<Int, String>): Maybe<Result<Int, String>>\n```"
+	want := "```nomi\nvariant Some(Result<Int, String>) -> Maybe<Result<Int, String>>\n```"
 	if got != want {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, want)
 	}
@@ -1987,13 +1987,13 @@ func TestHover_AppFieldReference(t *testing.T) {
 	src := `
 
 interface Logger {
-  fn log(value: self, msg: String): Unit
+  fn log(value: self, msg: String) -> Unit
 }
 
 type Stdout
 
 impl Logger for Stdout {
-  fn log(_value: Stdout, msg: String): Unit { _ = msg }
+  fn log(_value: Stdout, msg: String) -> Unit { _ = msg }
 }
 
 struct AppEnv {
@@ -2002,7 +2002,7 @@ struct AppEnv {
   logger: Logger
 }
 
-fn boot(): AppEnv {
+fn boot() -> AppEnv {
   AppEnv{context: Context.root(), logger: Stdout}
 }
 
@@ -2047,7 +2047,7 @@ pub struct RunResult {
   output: String
 }
 
-pub fn run(): Result<RunResult, String> {
+pub fn run() -> Result<RunResult, String> {
   Ok(RunResult{output: "hi"})
 }
 `
@@ -2135,7 +2135,7 @@ func TestHover_SelfMarkerDrillThrough(t *testing.T) {
 // symbol at the `try` token's position; renderHover dispatches on it.
 func TestHover_TryOp_Result(t *testing.T) {
 	src := "enum Result<T, E> { Ok T; Err E }\n" +
-		"fn calc(r: Result<Int, String>): Int {\n" +
+		"fn calc(r: Result<Int, String>) -> Int {\n" +
 		"  v = try r\n" +
 		"  v + 1\n" +
 		"}"
@@ -2162,7 +2162,7 @@ func TestHover_TryOp_Result(t *testing.T) {
 // instead of `On Err: <type>`.
 func TestHover_TryOp_Maybe(t *testing.T) {
 	src := "enum Maybe<T> { Some T; None }\n" +
-		"fn lookup(m: Maybe<Int>): Int {\n" +
+		"fn lookup(m: Maybe<Int>) -> Int {\n" +
 		"  v = try m\n" +
 		"  v + 1\n" +
 		"}"
@@ -2189,8 +2189,8 @@ func TestHover_TryOp_Maybe(t *testing.T) {
 // the `try` in that form must still resolve.
 func TestHover_TryOp_InPipe(t *testing.T) {
 	src := "enum Result<T, E> { Ok T; Err E }\n" +
-		"fn parse(_s: String): Result<Int, String> { Result.Ok(0) }\n" +
-		"fn run(s: String): Result<Int, String> {\n" +
+		"fn parse(_s: String) -> Result<Int, String> { Result.Ok(0) }\n" +
+		"fn run(s: String) -> Result<Int, String> {\n" +
 		"  n = s |> parse() |> try\n" +
 		"  Result.Ok(n + 1)\n" +
 		"}"
@@ -2218,8 +2218,8 @@ func TestHover_TryOp_InPipe(t *testing.T) {
 // (Nomi has no non-local returns). Hover should reflect that.
 func TestHover_TryOp_InLambda(t *testing.T) {
 	src := "enum Result<T, E> { Ok T; Err E }\n" +
-		"fn outer(): (Result<Int, String>) -> Int {\n" +
-		"  |r| {\n" +
+		"fn outer() -> (Result<Int, String>) -> Int {\n" +
+		"  fn r -> {\n" +
 		"    v = try r\n" +
 		"    v + 1\n" +
 		"  }\n" +
@@ -2245,14 +2245,14 @@ func TestHover_TryOp_InLambda(t *testing.T) {
 
 func TestHover_ImplKeyword_LocalBlock(t *testing.T) {
 	input, pos := hoverMarkerPosition(t, `interface Speakable {
-  fn speak(value: self): String
+  fn speak(value: self) -> String
 }
 
 struct Dog {
 }
 
 ▮impl Speakable for Dog {
-  fn speak(dog: Dog): String {
+  fn speak(dog: Dog) -> String {
     "woof"
   }
 }`)
@@ -2270,14 +2270,14 @@ struct Dog {
 
 func TestHover_ImplKeyword_BlockWithFunction(t *testing.T) {
 	input, pos := hoverMarkerPosition(t, `interface Speakable {
-  fn speak(value: self): String
+  fn speak(value: self) -> String
 }
 
 struct Dog {
 }
 
 ▮impl Speakable for Dog {
-  fn speak(dog: Dog): String {
+  fn speak(dog: Dog) -> String {
     "woof"
   }
 }`)
@@ -2295,24 +2295,24 @@ struct Dog {
 
 func TestHover_ImplKeyword_DuplicateMethodNameBlock(t *testing.T) {
 	input, pos := hoverMarkerPosition(t, `interface greeter {
-  fn greet(value: self): String
+  fn greet(value: self) -> String
 }
 
 interface Farewell {
-  fn greet(value: self): String
+  fn greet(value: self) -> String
 }
 
 struct Person {
 }
 
 ▮impl greeter for Person {
-  fn greet(person: Person): String {
+  fn greet(person: Person) -> String {
     "hello"
   }
 }
 
 impl Farewell for Person {
-  fn greet(person: Person): String {
+  fn greet(person: Person) -> String {
     "goodbye"
   }
 }`)
@@ -2330,13 +2330,13 @@ impl Farewell for Person {
 
 func TestHover_ImplKeyword_ExternFunctionBlock(t *testing.T) {
 	input, pos := hoverMarkerPosition(t, `interface Inspectable {
-  fn inspect(value: self): String
+  fn inspect(value: self) -> String
 }
 
 host type Handle
 
 ▮impl Inspectable for Handle {
-  host fn inspect(handle: Handle): String
+  host fn inspect(handle: Handle) -> String
 }`)
 	file := checkedLoweredFile(input)
 	sym := file.SymbolAt(pos)
@@ -2354,11 +2354,11 @@ func TestHover_ImplKeyword_TopLevelBlock(t *testing.T) {
 	input, pos := hoverMarkerPosition(t, `host type Foreign
 
 interface Html {
-  fn html(value: self): String
+  fn html(value: self) -> String
 }
 
 ▮impl Html for Foreign {
-  fn html(value: Foreign): String {
+  fn html(value: Foreign) -> String {
     "html"
   }
 }`)
@@ -2376,21 +2376,21 @@ interface Html {
 
 func TestHover_ImplKeyword_ConstrainedBlock(t *testing.T) {
 	input, pos := hoverMarkerPosition(t, `interface Comparable {
-  fn compare(a: self, b: self): Int
+  fn compare(a: self, b: self) -> Int
 }
 
 interface Discrete {
-  fn step(value: self): self
+  fn step(value: self) -> self
 }
 
 interface Iter {
-  fn count(value: self): Int
+  fn count(value: self) -> Int
 }
 
 struct Range<T> where T: Comparable {}
 
 ▮impl Iter for Range<T> where T: Discrete {
-  fn count(r: Range<T>): Int {
+  fn count(r: Range<T>) -> Int {
     0
   }
 }`)
@@ -2409,7 +2409,7 @@ struct Range<T> where T: Comparable {}
 func TestHover_Assertion_Bool(t *testing.T) {
 	src := "enum Result<T, E> { Ok T; Err E }\n" +
 		"host type AssertionFailure\n" +
-		"fn validate(): Result<Bool, AssertionFailure> {\n" +
+		"fn validate() -> Result<Bool, AssertionFailure> {\n" +
 		"  v = assert 1 == 1\n" +
 		"  Result.Ok(v)\n" +
 		"}"
@@ -2430,7 +2430,7 @@ func TestHover_Assertion_Bool(t *testing.T) {
 func TestHover_Refute_Result(t *testing.T) {
 	src := "enum Result<T, E> { Ok T; Err E }\n" +
 		"host type AssertionFailure\n" +
-		"fn validate(r: Result<Int, String>): Result<Result<Int, String>, AssertionFailure> {\n" +
+		"fn validate(r: Result<Int, String>) -> Result<Result<Int, String>, AssertionFailure> {\n" +
 		"  e = refute r\n" +
 		"  Result.Ok(e)\n" +
 		"}"
@@ -2452,7 +2452,7 @@ func TestHover_Check_Maybe(t *testing.T) {
 	src := "enum Result<T, E> { Ok T; Err E }\n" +
 		"enum Maybe<T> { Some T; None }\n" +
 		"host type AssertionFailure\n" +
-		"host fn check<T>(subject: T): Result<T, AssertionFailure>\n" +
+		"host fn check<T>(subject: T) -> Result<T, AssertionFailure>\n" +
 		"fn validate(m: Maybe<Int>) {\n" +
 		"  checked = check(m)\n" +
 		"}"
@@ -2464,7 +2464,7 @@ func TestHover_Check_Maybe(t *testing.T) {
 		t.Fatal("expected a symbol at the `check` position")
 	}
 	got := renderHover(sym)
-	expected := "```nomi\nfn check(subject: Maybe<Int>): Result<Maybe<Int>, AssertionFailure>\n```"
+	expected := "```nomi\nfn check(subject: Maybe<Int>) -> Result<Maybe<Int>, AssertionFailure>\n```"
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
@@ -2494,7 +2494,7 @@ func TestHover_Assertion_TestBoundary(t *testing.T) {
 // type; an assertion in its body unwinds to the row.
 func TestHover_Subtests(t *testing.T) {
 	src := "test \"rows\" {\n" +
-		"  subtests [(1, \"a\")], (n, s) {\n" +
+		"  subtests [#(1, \"a\")], #(n, s) {\n" +
 		"    assert n > 0\n" +
 		"  }\n" +
 		"}"
@@ -2504,7 +2504,7 @@ func TestHover_Subtests(t *testing.T) {
 		t.Fatal("expected a symbol at the `subtests` keyword")
 	}
 	got := renderHover(sym)
-	want := "```nomi\nsubtests: List<(Int, String)> -> Unit\n```\n\nRuns the body once for each row, a `(Int, String)`, in order. A failed assertion ends its row and the next row runs. After the last row, if any row failed, returns `AssertionFailure` listing each failing row and unwinds to `test \"rows\"`."
+	want := "```nomi\nsubtests: List<#(Int, String)> -> Unit\n```\n\nRuns the body once for each row, a `#(Int, String)`, in order. A failed assertion ends its row and the next row runs. After the last row, if any row failed, returns `AssertionFailure` listing each failing row and unwinds to `test \"rows\"`."
 	if got != want {
 		t.Errorf("got:\n%s\n\nwant:\n%s", got, want)
 	}
@@ -2573,7 +2573,7 @@ test "pattern assert" {
 }
 
 func TestHover_IfKeyword(t *testing.T) {
-	input, pos := hoverMarkerPosition(t, `fn label(flag: Bool): String {
+	input, pos := hoverMarkerPosition(t, `fn label(flag: Bool) -> String {
   ▮if flag { "yes" } else { "no" }
 }
 `)
@@ -2596,7 +2596,7 @@ func TestHover_IfPatternKeyword(t *testing.T) {
   None
 }
 
-fn label(maybe_name: Box<String>): String {
+fn label(maybe_name: Box<String>) -> String {
   ▮if Box.Some(name) = maybe_name { name } else { "unknown" }
 }
 `)
@@ -2619,7 +2619,7 @@ func TestHover_CaseKeyword(t *testing.T) {
   None
 }
 
-fn value(m: Maybe<Int>): Int {
+fn value(m: Maybe<Int>) -> Int {
   ▮case m {
     Some(n) -> n
     None -> 0
@@ -2767,7 +2767,7 @@ func TestHover_MultilineTestContextDoesNotLeakIntoTestTitle(t *testing.T) {
 // lower FIRST, then hand the SAME slice to build + check.
 func TestHover_NestedImplCasePayloadBindings(t *testing.T) {
 	src := `pub interface Measure {
-  fn area(s: self): Float
+  fn area(s: self) -> Float
 }
 
 pub enum Shape {
@@ -2776,7 +2776,7 @@ pub enum Shape {
 }
 
 impl Measure for Shape {
-  fn area(s: Shape): Float {
+  fn area(s: Shape) -> Float {
     case s {
       .Circle(r) -> 3.14 * r * r
       .Rectangle{width, height} -> width * height
@@ -2837,10 +2837,10 @@ func interfaceSelfSymbolAt(t *testing.T, src string) *analysis.Symbol {
 }
 
 func TestHover_InterfaceSelfPlaceholder(t *testing.T) {
-	src := "/// Values that can speak.\ninterface Speaker {\n  fn speak(value: self): String\n}"
+	src := "/// Values that can speak.\ninterface Speaker {\n  fn speak(value: self) -> String\n}"
 	sym := interfaceSelfSymbolAt(t, src)
 	result := renderHover(sym)
-	expected := "```nomi\ninterface Speaker {\n    fn speak(value: self): String\n}\n```\n\nValues that can speak."
+	expected := "```nomi\ninterface Speaker {\n    fn speak(value: self) -> String\n}\n```\n\nValues that can speak."
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -3189,7 +3189,7 @@ func variantLitBindingCursor(t *testing.T, src string) protocol.Position {
 }
 
 func TestHover_ThenKeyword(t *testing.T) {
-	got := hoverText(t, "then", "fn label(n: Int): String {\n  n\n  |> ▮then |v| Int.to_string(v + 1)\n}\n")
+	got := hoverText(t, "then", "fn label(n: Int) -> String {\n  n\n  |> ▮then fn v -> Int.to_string(v + 1)\n}\n")
 	expected := "```nomi\nthen: Int -> String\n```\n\nApplies the lambda to the piped value. Its body ends at the next `|>`; braces keep a pipe inside it."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
@@ -3198,7 +3198,7 @@ func TestHover_ThenKeyword(t *testing.T) {
 
 // A `tap` stage's hover shows the piped type going in and coming out.
 func TestHover_TapKeyword(t *testing.T) {
-	got := hoverText(t, "tap", "import std/io\n\nfn label(n: Int): Int {\n  n\n  |> ▮tap |v| io.print(Int.to_string(v))\n}\n")
+	got := hoverText(t, "tap", "import std/io\n\nfn label(n: Int) -> Int {\n  n\n  |> ▮tap fn v -> io.print(Int.to_string(v))\n}\n")
 	expected := "```nomi\ntap: Int -> Int\n```\n\nRuns the lambda on the piped value for its effect, then passes the value on unchanged. The lambda returns `Unit`. Its body ends at the next `|>`; braces keep a pipe inside it."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)

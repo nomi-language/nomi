@@ -52,7 +52,7 @@ import {
     std/io
 }
 
-fn run(): Result<Unit, Error> {
+fn run() -> Result<Unit, Error> {
     // --- CONSTRUCTION, and the three ways in ---------------------------------
     //
     // The typed literal goes through `impl Literal for OffsetDateTime`, whose
@@ -255,7 +255,7 @@ fn run(): Result<Unit, Error> {
 // describe renders either arm of a `Result<OffsetDateTime, Error>` as text, so a
 // rejection is an OBSERVABLE line rather than an early return. `Error`'s own
 // `Display` impl is a Nomi body over five variants, which this reaches.
-fn describe(r: Result<OffsetDateTime, Error>): String {
+fn describe(r: Result<OffsetDateTime, Error>) -> String {
     case r {
         Ok(odt) -> OffsetDateTime.to_string(odt)
         Err(e) -> Display.to_string(e)

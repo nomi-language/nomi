@@ -32,7 +32,7 @@ func lambdaBody(t *testing.T, lam *ast.Lambda) ast.Node {
 
 // A `then` lambda's bare body ends at the next `|>` of its pipeline.
 func TestThen_BodyEndsAtTheNextPipe(t *testing.T) {
-	_, stages := pipeStages(t, parseExpr(t, "xs |> then |v| v == 1 |> dbg"))
+	_, stages := pipeStages(t, parseExpr(t, "xs |> then fn v -> v == 1 |> dbg"))
 	if len(stages) != 2 {
 		t.Fatalf("got %d stages, want 2", len(stages))
 	}
@@ -54,8 +54,8 @@ func TestThen_BodyEndsAtTheNextPipe(t *testing.T) {
 // Inside a `then` body, a nested lambda and `dbg expr` end at the pipe too.
 func TestThen_NestedPrefixesEndAtThePipe(t *testing.T) {
 	for _, src := range []string{
-		"x |> then |a| |b| a + b |> f()",
-		"x |> then |a| dbg a |> f()",
+		"x |> then fn a -> fn b -> a + b |> f()",
+		"x |> then fn a -> dbg a |> f()",
 	} {
 		_, stages := pipeStages(t, parseExpr(t, src))
 		if len(stages) != 2 {
@@ -66,7 +66,7 @@ func TestThen_NestedPrefixesEndAtThePipe(t *testing.T) {
 
 // Braces keep a pipe inside a `then` lambda.
 func TestThen_BracedBodyHoldsAPipe(t *testing.T) {
-	_, stages := pipeStages(t, parseExpr(t, "xs |> then |v| { v |> Iter.count() } |> dbg"))
+	_, stages := pipeStages(t, parseExpr(t, "xs |> then fn v -> { v |> Iter.count() } |> dbg"))
 	if len(stages) != 2 {
 		t.Fatalf("got %d stages, want 2", len(stages))
 	}
@@ -79,18 +79,18 @@ func TestThen_BracedBodyHoldsAPipe(t *testing.T) {
 // Everywhere else a lambda's body runs to the end of its expression: in a
 // call's parentheses, and at the head of a pipeline.
 func TestLambda_BodyRunsPastAPipe(t *testing.T) {
-	call := parseExpr(t, "Iter.map(xs, |s| String.to_int(s) |> Maybe.with_default(0))").(*ast.Call)
+	call := parseExpr(t, "Iter.map(xs, fn s -> String.to_int(s) |> Maybe.with_default(0))").(*ast.Call)
 	lam := call.Args[1].(*ast.Lambda)
 	if b, ok := lambdaBody(t, lam).(*ast.Binary); !ok || b.Op != "|>" {
 		t.Errorf("argument lambda body is %#v, want a pipe", lambdaBody(t, lam))
 	}
-	head := parseExpr(t, "|n| n * 2 |> dbg").(*ast.Lambda)
+	head := parseExpr(t, "fn n -> n * 2 |> dbg").(*ast.Lambda)
 	if b, ok := lambdaBody(t, head).(*ast.Binary); !ok || b.Op != "|>" {
 		t.Errorf("head lambda body is %#v, want a pipe", lambdaBody(t, head))
 	}
 	// A bare lambda stage is parsed, and its body takes the rest of the
 	// pipeline; the checker rejects the stage and names the `then`.
-	_, stages := pipeStages(t, parseExpr(t, "x |> |n| n * 2 |> dbg"))
+	_, stages := pipeStages(t, parseExpr(t, "x |> fn n -> n * 2 |> dbg"))
 	if len(stages) != 1 {
 		t.Fatalf("got %d stages, want 1", len(stages))
 	}
@@ -101,11 +101,11 @@ func TestLambda_BodyRunsPastAPipe(t *testing.T) {
 
 func TestThen_Errors(t *testing.T) {
 	for src, want := range map[string]string{
-		"x = then |v| v":            "`then` is a pipe stage: write `value |> then |v| ...`",
-		"x = 5 |> then f":           "`then` takes a lambda: write `then |v| ...`",
-		"x = 5 |> then":             "`then` takes a lambda: write `then |v| ...`",
-		"x = 5 |> try then |v| v":   "`try` does not prefix a `then` stage: write `|> then |v| ...` and `|> try` as two stages",
-		"x = 5 |> if then |v| v {}": "`then` is a pipe stage",
+		"x = then fn v -> v":            "`then` is a pipe stage: write `value |> then fn v -> ...`",
+		"x = 5 |> then f":               "`then` takes a lambda: write `then fn v -> ...`",
+		"x = 5 |> then":                 "`then` takes a lambda: write `then fn v -> ...`",
+		"x = 5 |> try then fn v -> v":   "`try` does not prefix a `then` stage: write `|> then fn v -> ...` and `|> try` as two stages",
+		"x = 5 |> if then fn v -> v {}": "`then` is a pipe stage",
 	} {
 		if err := parseError(t, src); !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: error %q, want it to contain %q", src, err, want)

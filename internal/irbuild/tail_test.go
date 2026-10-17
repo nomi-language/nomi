@@ -56,6 +56,7 @@ fn main() {
 	g := newGen(p.Entry(), "nomimod0", nil, nil, -1, nil)
 	g.declareTypes()
 	g.declareFuncs()
+	g.settleImpls()
 	synth := 0
 	for i, u := range g.tailUnits {
 		if u.impl == nil || !u.impl.synth {

@@ -62,12 +62,15 @@ type irScalarBuilder struct {
 	stalledStmt ast.Node
 	// defaultScope excludes caller locals while lowering callee defaults.
 	defaultScope bool
-	// deferOK admits `defer` and scoped block statements: only a named
-	// function's own body retains them. deferScope is the scope the next
+	// deferOK admits `defer` and scoped block statements: a named function's
+	// body, a lambda's and a test case's retain them. deferScope is the scope the next
 	// `leading` run registers deferred calls in, and defers counts the ids
 	// handed out. See irdefer.go.
 	deferOK    bool
 	deferScope *irDeferScope
+	// openDefers is the innermost defer scope opened and not yet closed,
+	// chained through irDeferScope.outer.
+	openDefers *irDeferScope
 	defers     int
 	// withScope is the scope the next `leading` run lowers its `with`
 	// statements in, consumed as deferScope is; testWithScope is a test
@@ -91,6 +94,9 @@ type irScalarBuilder struct {
 	literalCell *ast.TaggedString
 	captures    []ir.Temp
 	captured    map[string]irLambdaCapture
+	// capturedPlans are the plans of captured lambdas, by the capture's
+	// temporary (capturedPlan).
+	capturedPlans map[ir.Temp]*irLambdaPlan
 	// rebuildBody marks the body of a widening adapter (irembedsrebuild.go),
 	// and rebuildCaps the enclosing enum adapters it reaches as captures.
 	rebuildBody bool
@@ -107,6 +113,10 @@ type irScalarBuilder struct {
 	// def-use chain crosses the statement boundary.
 	bound  map[string]ir.Temp
 	boundK map[string]kind
+	// orJoin is set while an alternative of an `or` pattern is tested: the
+	// names it binds are written to the pattern's join temporaries rather
+	// than declared (irorpattern.go).
+	orJoin *irOrJoin
 	// inTest marks a body this builder is retaining for a `test` declaration.
 	// It gates four widenings; irtestbody.go's header names each and the
 	// reason it is safe only here.
@@ -140,7 +150,10 @@ type irScalarBuilder struct {
 	// than lowering them a second time.
 	stdInstPreCall *ast.Call
 	stdInstPreArgs irQualArgs
-	// Reduce seeds belong to these exact callback nodes, not ordinary defaults.
+	// Seeds of `Iter.reduce`, `Iter.scan` and `Iter.map_reduce` belong to
+	// these exact callback nodes, not ordinary defaults. The value says
+	// whether the callback answers its accumulator, as a reduce's and a
+	// scan's do; a map_reduce's answers a pair.
 	reduceSeeds map[*ast.Lambda]bool
 	// current is what each bare `..` of the update literals being lowered
 	// stands for (ircurrentvalue.go).
@@ -188,17 +201,17 @@ type irScalarBuilder struct {
 	// pipedCase is the spliced `case` a `x |> case { ... }` stage lowered
 	// to, whose scrutinee records no row. See irpipe.go.
 	pipedCase *ast.Case
-	// witnessRow is set when a `values:` row would show a `Type<T>` witness,
-	// which renders by the spelling it was written with; the
-	// assertion declines rather than print another spelling.
-	witnessRow bool
-	// testDefs is each ordinary binding a test body introduced, by name: the
-	// initializer a later bare-name subject's "defined as:" block renders.
-	testDefs map[string]*ast.Binding
+	// testDefs is each ordinary binding a body introduced, by the Bind's
+	// destination: the initializer a later bare-name subject's "defined as:"
+	// block renders. Keyed by the binding rather than its name, a name's
+	// entry is the one bl.bound holds in the scope that reads it, whatever
+	// a nested block or a rebind bound under the same spelling.
+	testDefs map[ir.Temp]*ast.Binding
 	// testStages is the `pipeline values:` block of a pipe-valued test
-	// binding a later assertion names bare, by name; testAfter is the test
-	// body's statements after the one being lowered, which decides that.
-	testStages map[string][]ir.AssertStage
+	// binding a later assertion names bare, by the Bind's destination;
+	// testAfter is the test body's statements after the one being lowered,
+	// which decides that.
+	testStages map[ir.Temp][]ir.AssertStage
 	testAfter  []ast.Node
 	// boot marks the program boot's own body. It admits the Context kind
 	// for a parameter read and a struct field, and is never read back.
@@ -323,7 +336,8 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 	case *ast.If, *ast.Case:
 		return bl.inferredRegionValue(n, false)
 	case *ast.Block:
-		return bl.blockValue(t)
+		// kindInvalid: sentinel — no expected type; the tail's own kind.
+		return bl.blockValue(t, kindInvalid)
 	case *ast.With:
 		irDeclineNote("a `with` statement in an operand position")
 		return ir.NoTemp, kindInvalid, false, false
@@ -943,6 +957,11 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	if bl.testingCheckCall(t) {
 		return bl.testingCheck(t)
 	}
+	if fa, qualified := t.Func.(*ast.FieldAccess); qualified && bl.namedIntrinsic(t, fa) {
+		// `Task.await(task: t)`: planned as its positional form
+		// (irintrinsicnamed.go).
+		return bl.namedIntrinsicCall(t, fa)
+	}
 	if fa, qualified := t.Func.(*ast.FieldAccess); qualified && fa.Field != nil {
 		if owner := bl.stdIntrinsicOwner(fa); owner == "Channel" || owner == "Sender" || owner == "Receiver" {
 			// Channel calls take the checker's solved signature, including a
@@ -960,22 +979,11 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	if v, k, mobile, ok, handled := bl.returnSelfDispatch(t); handled {
 		return v, k, mobile, ok
 	}
-	if len(t.TypeArgs) != 0 {
-		if _, qualified := t.Func.(*ast.FieldAccess); qualified {
-			return bl.turbofishDispatch(t)
-		}
-		id, direct := t.Func.(*ast.Ident)
-		if !direct || bl.g.irMonoTemplate(bl.g.funcs[id.Name]) == nil {
-			return no()
-		}
-		if _, bound := bl.g.lookup(id.Name); bound {
-			return no()
-		}
-		for scope := bl; scope != nil; scope = scope.parent {
-			if _, bound := scope.boundK[id.Name]; bound {
-				return no()
-			}
-		}
+	if len(t.TypeArgs) != 0 && bl.turbofishOnInterface(t) {
+		// `FromJson.from_json<Int>(j)`: the type argument selects the impl.
+		// Any other call's type arguments are already in the signature
+		// the checker instantiated it at, which every route below reads.
+		return bl.turbofishDispatch(t)
 	}
 	// TAIL POSITION IS A FACT AND NOT A SHAPE, which is `ir/call.go`'s own
 	// division: `analysis/tail_position.go` computes it, `ast.Call.IsTailCall`
@@ -1021,9 +1029,11 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 				return v, k, mobile, ok
 			}
 		}
-		if site, ok := bl.siblingQualSite(fa); ok && (hasNamed || site.fn.defaults) {
+		if site, ok := bl.siblingQualSite(fa); ok {
 			// `lib.add(1)` or `lib.add(1, b: 5)`: placed and filled as a
-			// bare call to the same function is (siblingdefault.go).
+			// bare call to the same function is (siblingdefault.go), with
+			// each argument lowered at its parameter's kind, so a list
+			// enters an `Iter<Int>` parameter as it does in a local call.
 			return bl.siblingCall(t, site)
 		}
 		if hasNamed {
@@ -1040,7 +1050,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// `import std/iter.Iter.{loop}` then `loop(...)`: Iter.loop.
 		return bl.iterLoop(t)
 	}
-	if id, ok := t.Func.(*ast.Ident); ok && !hasNamed && len(t.TypeArgs) == 0 {
+	if id, ok := t.Func.(*ast.Ident); ok {
 		if v, k, mobile, lowered, handled := bl.genericNestedCall(t, id); handled {
 			return v, k, mobile, lowered
 		}
@@ -1108,34 +1118,11 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 	}
 	// `import std/calendar.Date.parse` puts a stdlib type's method in this
-	// file's scope; the bare call reaches the same impl plan the qualified
+	// file's scope; the bare call reaches the same route the qualified
 	// spelling reaches.
-	if _, local := bl.g.funcs[callee.Name]; !local && !hasNamed && bl.g.std != nil {
-		if sym := resolvedBareSymbolAt(bl.g.srcFA(), callee); sym != nil && sym.OwningType != "" && sym.Name != "" &&
-			len(bl.g.std.byType[sym.OwningType+"."+sym.Name]) != 0 {
-			_, localType := bl.g.types[sym.OwningType]
-			_, localIface := bl.g.ifaces[sym.OwningType]
-			if localType || localIface {
-				return no()
-			}
-			lower := func() (ir.Temp, kind, bool, bool) {
-				// A generic member (`import std/strings.String.{split}`) is
-				// instantiated per program, as its qualified spelling is.
-				if v, k, mobile, ok, handled := bl.stdGenericQualCall(t, sym.OwningType, sym.Name); handled {
-					return v, k, mobile, ok
-				}
-				args := bl.irQualLowerArgs(t)
-				if p := bl.qualImplPlan(t, args, sym.OwningType, sym.Name); p != nil {
-					return bl.qualEmit(t, args, p)
-				}
-				return no()
-			}
-			if bl.recording > 0 {
-				// Inside a VM-only assertion subject the call's rows are
-				// recorded after it, as a qualified call's are.
-				return bl.recordedQualCall(t, lower)
-			}
-			return lower()
+	if _, local := bl.g.funcs[callee.Name]; !local && !hasNamed {
+		if v, k, mobile, ok, handled := bl.bareStdMethodCall(t, callee); handled {
+			return v, k, mobile, ok
 		}
 	}
 	sig := bl.g.funcs[callee.Name]
@@ -1664,7 +1651,7 @@ func (g *gen) exitingRegion(n ast.Node) bool {
 // blockLeaves reports whether block's tail, as irScalarBlock finds it,
 // leaves: a `return`, `break` or `continue`, or an exiting region
 // (exitingRegion), nested to any depth, as in `{ io.print("a")  case n { 0 ->
-// return 1  _ -> return 2 } }` or `{ io.print("start")  Iter.loop(|| …) }`.
+// return 1  _ -> return 2 } }` or `{ io.print("start")  Iter.loop(fn -> …) }`.
 // Nothing reaches the end of such a block, so a block holding it ends at it,
 // and it is lowered where its tail would be (leavingBlocks).
 func (g *gen) blockLeaves(block *ast.Block) bool {
@@ -1681,7 +1668,7 @@ func (g *gen) blockLeaves(block *ast.Block) bool {
 
 // neverFinishes reports whether n is an `Iter.loop` with no `break`
 // (analysis.LoopNeverBreaks), or a block whose tail, as irScalarBlock finds
-// it, never finishes: `{ io.print("start")  Iter.loop(|| …) }`, nested to any
+// it, never finishes: `{ io.print("start")  Iter.loop(fn -> …) }`, nested to any
 // depth.
 func (g *gen) neverFinishes(n ast.Node) bool {
 	if g.fa.LoopNeverBreaks(n) {
@@ -1760,10 +1747,10 @@ func (bl *irScalarBuilder) leavingBlocks(n ast.Node) (tail ast.Node, restore fun
 		lead, inner := bl.g.irScalarBlock(block, "")
 		bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
 		bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
-		deferScope, withScope := bl.deferScope, bl.withScope
+		deferScope, withScope, openDefers := bl.deferScope, bl.withScope, bl.openDefers
 		undo = append(undo, func() {
 			bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms
-			bl.deferScope, bl.withScope = deferScope, withScope
+			bl.deferScope, bl.withScope, bl.openDefers = deferScope, withScope, openDefers
 		})
 		bl.openDeferScope(block)
 		bl.openWithScope(false)
@@ -1831,6 +1818,8 @@ func (g *gen) exitingOperand(n ast.Node) (prefix []ast.Node, region ast.Node, ok
 		return in(v.Left, v.Right)
 	case *ast.Unary:
 		return in(v.Right)
+	case *ast.GroupedExpr:
+		return in(v.Expr)
 	case *ast.TryOp:
 		return in(v.Expr)
 	case *ast.FieldAccess:
@@ -1884,12 +1873,12 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 	lead := make([]ast.Node, 0, last)
 	for _, s := range block.Stmts[:last] {
 		switch st := s.(type) {
-		case *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.TypeAlias:
-			// A block-local type declaration runs nothing: its values' layout
+		case *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.TypeAlias, *ast.InterfaceDef:
+			// A block-local type or interface declaration runs nothing: its values' layout
 			// and identity come from the typeDef blocklocaltype.go resolved,
 			// visible while the block's type scope is pushed.
 			continue
-		case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.MapDestructure, *ast.Defer, *ast.With, *ast.Block, *ast.FuncDef, *ast.ImportStmt,
+		case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.Defer, *ast.With, *ast.Block, *ast.FuncDef, *ast.ImportStmt,
 			// An assertion in an ordinary `fn`, whose failure is the
 			// function's `Err(AssertionFailure)`; `leading` checks the
 			// checker's boundary.
@@ -1958,8 +1947,8 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 		return append(lead, b), &ast.TypeIdent{Name: "Unit", Line: b.Line, Col: b.Col}
 	}
 	switch st := n.(type) {
-	case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.MapDestructure, *ast.PatternBinding:
-		// A destructuring binding ending a block, `(_, _) = pair`: the value
+	case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.PatternBinding:
+		// A destructuring binding ending a block, `#(_, _) = pair`: the value
 		// is evaluated and matched, and the block answers Unit, as it does
 		// after any binding statement.
 		line, col := nodePos(st)
@@ -2066,6 +2055,9 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 		}
 		bl.bound[b.Sym().Name()], bl.boundK[b.Sym().Name()] = b.Dst(), k
 		bl.declareBind(b, k)
+	}
+	if !bl.orParamTests() {
+		return nil, false
 	}
 	scope := bl.openDeferScope(fd.Body)
 	bl.openWithScope(true)
@@ -2293,7 +2285,7 @@ var kindDiverged = kind{tag: tagNamed, def: &typeDef{nomi: "<diverged>"}}
 func (bl *irScalarBuilder) laterArmSig(sig irFuncSig, prior kind) irFuncSig {
 	// kindInvalid: sentinel — an earlier arm that settled no kind gives no expected type.
 	unsettled := prior == kindInvalid
-	if !sig.inferResult || bl.ctl != irCtlNone || prior == kindDiverged || prior == kindEmptyList ||
+	if !sig.inferResult || bl.ctl != irCtlNone || prior == kindDiverged || prior == kindEmptyList || prior == kindNever ||
 		unsettled || !irCallableValueKind(prior) {
 		return sig
 	}
@@ -2304,9 +2296,15 @@ func (bl *irScalarBuilder) laterArmSig(sig irFuncSig, prior kind) irFuncSig {
 // irJoinArms is the kind of a region with arms of kinds a and b, where an
 // arm that diverged takes the other's. When every arm diverged the region's
 // exit is unreachable and it answers the declared result, or kindDiverged
-// when the result is inferred.
+// when the result is inferred. In an inferred region an Infallible arm (a
+// `todo`) takes the other's kind too: it writes a value no run produces,
+// which every slot accepts, as the checker lets `todo` fit any arm type.
 func irJoinArms(a, b kind, sig irFuncSig) (kind, bool) {
 	switch {
+	case sig.inferResult && a == kindNever:
+		return b, true
+	case sig.inferResult && b == kindNever:
+		return a, true
 	case a == kindDiverged && b == kindDiverged:
 		if sig.inferResult {
 			return kindDiverged, true
@@ -2344,6 +2342,7 @@ func (bl *irScalarBuilder) testElse(els, exit *ir.Block, t *ast.If, then kind, s
 // armInto lowers an arm into the result slot and jumps to exit. Ordinary
 // function and lambda arms carry leading statements in isolated lexical scopes.
 func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFuncSig) (kind, bool) {
+	defer bl.keepOpenDefers()()
 	if isNilNode(body) {
 		irDeclineNote("an arm body that is not one expression")
 		return kindInvalid, false
@@ -2386,6 +2385,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 		defer bl.g.enterBlockTypes(block)()
 		lead, tail := bl.g.irScalarBlock(block, "")
 		if tail == nil {
+			irDeclineNote(irDeclineBodyWhy)
 			return kindInvalid, false
 		}
 		scope = bl.openDeferScope(block)
@@ -2412,7 +2412,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 	}
 	bl.markStmt(body, ir.StmtStatement)
 	if endless, ok := bl.endlessLoop(body); endless {
-		// `0 -> Iter.loop(|| …)` with no `break`: the arm never reaches the
+		// `0 -> Iter.loop(fn -> …)` with no `break`: the arm never reaches the
 		// region's exit and writes nothing, as a `return` arm does.
 		if !ok {
 			return kindInvalid, false
@@ -2559,11 +2559,25 @@ func (bl *irScalarBuilder) tailCase(t *ast.Case, sig irFuncSig) (kind, bool) {
 
 // caseRegion leaves its join open for the caller's continuation.
 func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
-	if len(t.Branches) < 1 {
-		irDeclineNote("a tail `case` with no branches")
-		return kindInvalid, false
-	}
 	adHoc := isNilNode(t.Value)
+	if len(t.Branches) < 1 {
+		// `case e {}` over a type with no values (`Infallible`): the checker
+		// admits it only where no value reaches it, so it diverges as a
+		// failed match does and no arm writes the region.
+		if adHoc {
+			irDeclineNote("an ad hoc `case` with no branches")
+			return kindInvalid, false
+		}
+		if _, _, _, ok := bl.lower(t.Value); !ok {
+			return kindInvalid, false
+		}
+		pos := bl.g.irNodePos(t)
+		exit := bl.f.NewBlock(pos, "exit")
+		bl.b.Append(ir.NewNoMatch(pos))
+		bl.b.SetTerm(ir.NewJump(pos, exit.ID()))
+		bl.b = exit
+		return irJoinArms(kindDiverged, kindDiverged, sig)
+	}
 	if !adHoc && bl.isNeverOperand(t.Value) {
 		return bl.neverCaseRegion(t, sig)
 	}
@@ -2573,7 +2587,7 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 		var ok bool
 		subj, sk, _, ok = bl.lower(t.Value)
 		if !ok || (sk != kindInt && sk != kindString && sk != kindBool && !irLiteralCaseKind(sk, bl) &&
-			(!irRetainedTupleKind(sk) && !irRetainedListKind(sk) && !irListTransportKind(sk) && !(sk.tag == tagNamed && irRetainedEnumKind(sk.def)) && !(sk.tag == tagMap && irRetainedMapKind(sk)) && !irNominalCaseKind(sk))) {
+			(!irRetainedTupleKind(sk) && !irCaseListKind(sk) && !(sk.tag == tagNamed && irRetainedEnumKind(sk.def)) && !(sk.tag == tagMap && irRetainedMapKind(sk)) && !irNominalCaseKind(sk))) {
 			if ok {
 				irDeclineNote("a tail `case` scrutinee outside retained literal-pattern kinds: " + sk.nomi())
 			}
@@ -2635,9 +2649,13 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 					result = k
 				}
 			}
-			if have && k != result {
-				irDeclineNote("two `case` arms disagree: " + k.nomi() + " vs " + result.nomi())
-				return kindInvalid, false
+			if have {
+				joined, agree := irJoinArms(result, k, sig)
+				if !agree {
+					irDeclineNote("two `case` arms disagree: " + k.nomi() + " vs " + result.nomi())
+					return kindInvalid, false
+				}
+				k = joined
 			}
 			result, have = k, true
 		}
@@ -2785,12 +2803,6 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 			}
 			continue
 		}
-		if destructure, ok := s.(*ast.MapDestructure); ok {
-			if !bl.mapBinding(destructure) {
-				return false
-			}
-			continue
-		}
 		if fd, ok := s.(*ast.FuncDef); ok {
 			if !bl.nestedFunc(fd) {
 				return false
@@ -2860,8 +2872,8 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 		// the previous one. A closure made before it captured the previous
 		// value, which it keeps (spec §23), so nothing here depends on
 		// whether one did.
-		if (shadows || bound) && bl.inTest {
-			irDeclineNote("a test-body rebind: " + b.Name)
+		if shadows && !bound && bl.inTest {
+			irDeclineNote("a test-body binding that shadows a module-level name: " + b.Name)
 			return false
 		}
 		src, k, ok := bl.bindingValue(b)
@@ -2880,9 +2892,9 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 		// An assertion in this body that names the binding bare prints its
 		// "defined as:" block.
 		if bl.testDefs == nil {
-			bl.testDefs = map[string]*ast.Binding{}
+			bl.testDefs = map[ir.Temp]*ast.Binding{}
 		}
-		bl.testDefs[b.Name] = b
+		bl.testDefs[bind.Dst()] = b
 	}
 	return true
 }
@@ -2980,14 +2992,18 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 		return v, k, ok
 	}
 	if existential {
-		// The VM's existential is the concrete value, so the binding keeps
-		// the concrete implementer's kind; every later use erases it where
-		// the interface is expected, as the value itself would be.
+		// The VM's existential is the concrete value, so the binding holds
+		// it unchanged at the interface's kind, the checker's type for the
+		// name: a record or tuple built from it (`{d: d}`) then has the
+		// kind the checker gives it.
 		v, k, _, ok := bl.lowerTypedOperand(b.Value, want)
+		if ok && k != want && !bl.g.irErases(want, k) {
+			irDeclineNote("a value of kind " + k.nomi() + " held as the existential " + want.nomi())
+		}
 		if !ok || (k != want && !bl.g.irErases(want, k)) {
 			return ir.NoTemp, kindInvalid, false
 		}
-		return v, k, true
+		return v, want, true
 	}
 	v, k, _, ok := bl.lowerWant(b.Value, want)
 	return v, k, ok
@@ -3001,6 +3017,18 @@ func isContinueNode(n ast.Node) bool {
 // irLiteralCaseKind is a `case` scrutinee whose only patterns are literals
 // the VM tests with rt.Equal beside the Int, String and Bool ones: Float and
 // Decimal, whose equality is EqFloat's and EqDecimal's.
+// irCaseListKind is a list a list pattern takes apart: a retained or
+// transported list, or a list of any value the callable domain holds, an
+// Iter, a Range or a Map among them (`case [it] { [p] -> p ... }`). The
+// pattern tests the list's length and binds its elements; an element
+// pattern that compares is lowered, or declined, by the element's own kind.
+func irCaseListKind(k kind) bool {
+	if irRetainedListKind(k) || irListTransportKind(k) {
+		return true
+	}
+	return k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && irCallableValueKind(k.comp.parts[0])
+}
+
 func irLiteralCaseKind(k kind, bl *irScalarBuilder) bool {
 	return (k == kindFloat || isDecimalKind(k))
 }

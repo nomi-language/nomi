@@ -9,7 +9,7 @@ import (
 // shows it over the return type, with the help line, as it is typed.
 func TestDiagnostics_MainReturningAValue(t *testing.T) {
 	const uri = "file:///tmp/main_return/main.nomi"
-	src := "fn main(): Result<String, String> {\n    Ok(\"hello\")\n}\n"
+	src := "fn main() -> Result<String, String> {\n    Ok(\"hello\")\n}\n"
 	s := NewServer()
 	s.docs.Open(uri, src)
 	snap := s.docs.Snapshot(uri)
@@ -24,8 +24,8 @@ func TestDiagnostics_MainReturningAValue(t *testing.T) {
 		if !strings.Contains(d.Message, "help: to show a value, print it with `io.print` and return `Ok(Unit)`") {
 			t.Fatalf("the diagnostic has no help line: %q", d.Message)
 		}
-		// `Result<String, String>` on line 0, columns 11 to 33.
-		if d.Range.Start.Line != 0 || d.Range.Start.Character != 11 || d.Range.End.Line != 0 || d.Range.End.Character != 33 {
+		// `Result<String, String>` on line 0, columns 13 to 35.
+		if d.Range.Start.Line != 0 || d.Range.Start.Character != 13 || d.Range.End.Line != 0 || d.Range.End.Character != 35 {
 			t.Fatalf("the diagnostic spans %+v, want the return type", d.Range)
 		}
 		return

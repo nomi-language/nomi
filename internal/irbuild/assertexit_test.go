@@ -23,7 +23,7 @@ import (
 // must be one isTestBoundary admits, and both shapes must actually be present —
 // otherwise the assertion is vacuous.
 func TestAssertExit_TheCheckerHasTwoSpellingsForOneTestBoundary(t *testing.T) {
-	src := "//! assert doubled(3) == 6\n//\nfn doubled(n: Int): Int {\n  n * 2\n}\n\n" +
+	src := "//! assert doubled(3) == 6\n//\nfn doubled(n: Int) -> Int {\n  n * 2\n}\n\n" +
 		"test \"a declaration\" {\n  assert doubled(4) == 8\n}\n"
 	p, err := AnalyzeSource("main", src)
 	if err != nil {

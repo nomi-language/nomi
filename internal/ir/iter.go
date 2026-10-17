@@ -223,7 +223,7 @@ const (
 	IterNotEmpty
 	IterFirst
 	IterLast
-	IterAt
+	IterGet
 	IterEach
 	IterAny
 	IterAll
@@ -244,6 +244,13 @@ const (
 	IterSortWith
 	// IterSortBy stably sorts by a projected key.
 	IterSortBy
+	// IterScan is the lazy running fold: the source, the seed and the
+	// callback, emitting each state after the seed.
+	IterScan
+	// IterMapReduce is the eager fold that keeps an output per element:
+	// the source, the seed and the callback, answering the outputs and the
+	// final state.
+	IterMapReduce
 )
 
 // iterOpSpec is one operation's Nomi-level facts: how it is spelled, what it
@@ -315,7 +322,7 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	IterNotEmpty: {name: "not_empty?", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
 	IterFirst:    {name: "first", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
 	IterLast:     {name: "last", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
-	IterAt:       {name: "at", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
+	IterGet:      {name: "get", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
 	IterEach:     {name: "each", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
 	IterAny:      {name: "any?", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
 	IterAll:      {name: "all?", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
@@ -342,6 +349,11 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	// ordering, then an optional `Direction`: Descending projects and
 	// compares (b, a), as std's `Iter.sort_by` does.
 	IterSortBy: {name: "sort_by", form: IterFormTerminal, min: 3, max: 4, over: overSeq},
+	// `scan` and `map_reduce` take the source, the seed and the callback,
+	// the seed lifted from the callback's first-parameter default as
+	// `reduce`'s is.
+	IterScan:      {name: "scan", form: IterFormStage, min: 3, max: 3, over: overSeq, signal: true},
+	IterMapReduce: {name: "map_reduce", form: IterFormTerminal, min: 3, max: 3, over: overSeq, signal: true},
 }
 
 // Name is the operation's Nomi spelling. `IterView` has none, because no
@@ -393,7 +405,8 @@ type Iter struct {
 // source, plus a Range's comparator and successor functions, or a user
 // source's own `each_while`. A Range view may carry one more operand, the
 // element's `Discrete.steps_between`, when the view enters a declared
-// `Iter<T>` position and must answer the Range's `known_count`.
+// `Iter<T>` position and must answer the Range's `known_count`, and a user
+// source's view one more, the `known_count` its impl writes.
 func IterViewOperands(d IterDomain) int {
 	switch d {
 	case IterOverRange:
@@ -443,7 +456,7 @@ func newIter(pos Pos, dst Temp, op IterOp, over IterDomain, sig bool, args []Tem
 	if !op.Admits(over) {
 		panic("ir.NewIter: " + op.Name() + " does not run over a " + over.String())
 	}
-	if op == IterView && len(args) != IterViewOperands(over) && !(over == IterOverRange && len(args) == IterViewOperands(over)+1) {
+	if op == IterView && len(args) != IterViewOperands(over) && !((over == IterOverRange || over == IterOverUserImpl) && len(args) == IterViewOperands(over)+1) {
 		panic("ir.NewIter: a " + over.String() + " view takes " +
 			strconv.Itoa(IterViewOperands(over)) + " operand(s), got " + strconv.Itoa(len(args)))
 	}

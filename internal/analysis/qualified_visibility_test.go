@@ -15,7 +15,7 @@ struct Hidden {
 }
 
 impl Hidden {
-  pub fn make(): Hidden {
+  pub fn make() -> Hidden {
     Hidden{v: 3}
   }
 }
@@ -26,16 +26,16 @@ enum Color {
 }
 
 interface Shape {
-  fn area(s: self): Int
+  fn area(s: self) -> Int
 }
 
 typealias Meters Int
 
-fn helper(): Int {
+fn helper() -> Int {
   1
 }
 
-pub fn ident<T>(x: T): T {
+pub fn ident<T>(x: T) -> T {
   x
 }
 
@@ -63,67 +63,67 @@ func TestQualifiedPrivateTypeIsRejected(t *testing.T) {
 	}{
 		{
 			name: "type annotation",
-			body: "fn f(x: other.Hidden): Int {\n  x.v\n}\n",
+			body: "fn f(x: other.Hidden) -> Int {\n  x.v\n}\n",
 			want: "file 'other' has no member 'Hidden'",
 		},
 		{
 			name: "struct literal",
-			body: "fn f(): Int {\n  h = other.Hidden{v: 1}\n  h.v\n}\n",
+			body: "fn f() -> Int {\n  h = other.Hidden{v: 1}\n  h.v\n}\n",
 			want: "file 'other' has no member 'Hidden'",
 		},
 		{
 			name: "binding annotation",
-			body: "fn f(): Int {\n  h: other.Hidden = other.Hidden.make()\n  h.v\n}\n",
+			body: "fn f() -> Int {\n  h: other.Hidden = other.Hidden.make()\n  h.v\n}\n",
 			want: "file 'other' has no member 'Hidden'",
 		},
 		{
 			name: "type argument",
-			body: "fn f(xs: List<other.Hidden>): Int {\n  Iter.count(xs)\n}\n",
+			body: "fn f(xs: List<other.Hidden>) -> Int {\n  Iter.count(xs)\n}\n",
 			want: "file 'other' has no member 'Hidden'",
 		},
 		{
 			name: "explicit type argument of a call",
-			body: "fn f(): Int {\n  other.ident<other.Meters>(3)\n}\n",
+			body: "fn f() -> Int {\n  other.ident<other.Meters>(3)\n}\n",
 			want: "file 'other' has no member 'Meters'",
 		},
 		{
 			name: "inherent function of a private type",
-			body: "fn f(): Int {\n  h = other.Hidden.make()\n  h.v\n}\n",
+			body: "fn f() -> Int {\n  h = other.Hidden.make()\n  h.v\n}\n",
 			want: "file 'other' has no member 'Hidden'",
 		},
 		{
 			name: "enum variant value",
-			body: "fn f(): Int {\n  c = other.Color.Red\n  case c {\n    _ -> 1\n  }\n}\n",
+			body: "fn f() -> Int {\n  c = other.Color.Red\n  case c {\n    _ -> 1\n  }\n}\n",
 			want: "file 'other' has no member 'Color'",
 		},
 		{
 			name: "enum constructor",
-			body: "fn f(): Int {\n  c = other.Color.Boxed(2)\n  case c {\n    _ -> 1\n  }\n}\n",
+			body: "fn f() -> Int {\n  c = other.Color.Boxed(2)\n  case c {\n    _ -> 1\n  }\n}\n",
 			want: "file 'other' has no member 'Color'",
 		},
 		{
 			name: "enum variant pattern",
-			body: "fn f(c: Int): Int {\n  case c {\n    _ -> 1\n  }\n}\n\nfn g(c: other.Color): Int {\n  case c {\n    other.Color.Red -> 1\n    other.Color.Boxed(n) -> n\n  }\n}\n",
+			body: "fn f(c: Int) -> Int {\n  case c {\n    _ -> 1\n  }\n}\n\nfn g(c: other.Color) -> Int {\n  case c {\n    other.Color.Red -> 1\n    other.Color.Boxed(n) -> n\n  }\n}\n",
 			want: "file 'other' has no member 'Color'",
 		},
 		{
 			name: "interface bound",
-			body: "fn f<T>(x: T): Int where T: other.Shape {\n  T.area(x)\n}\n",
+			body: "fn f<T>(x: T) -> Int where T: other.Shape {\n  T.area(x)\n}\n",
 			want: "file 'other' has no member 'Shape'",
 		},
 		{
 			name: "impl header",
-			body: "struct Sq {\n  n: Int\n}\n\nimpl other.Shape for Sq {\n  fn area(s: Sq): Int {\n    s.n\n  }\n}\n",
+			body: "struct Sq {\n  n: Int\n}\n\nimpl other.Shape for Sq {\n  fn area(s: Sq) -> Int {\n    s.n\n  }\n}\n",
 			want: "file 'other' has no member 'Shape'",
 		},
 		{
 			name: "type alias",
-			body: "fn f(m: other.Meters): Int {\n  m\n}\n",
+			body: "fn f(m: other.Meters) -> Int {\n  m\n}\n",
 			want: "file 'other' has no member 'Meters'",
 		},
 		{
 			name: "private function",
-			body: "fn f(): Int {\n  other.helper()\n}\n",
+			body: "fn f() -> Int {\n  other.helper()\n}\n",
 			want: "file 'other' has no member 'helper'",
 		},
 	}
@@ -189,23 +189,23 @@ struct Sq {
 }
 
 impl other.Shape for Sq {
-  fn area(s: Sq): Int {
+  fn area(s: Sq) -> Int {
     s.n
   }
 }
 
-fn area_of<T>(x: T): Int where T: Shape {
+fn area_of<T>(x: T) -> Int where T: Shape {
   T.area(x)
 }
 
-fn color(c: other.Color): Int {
+fn color(c: other.Color) -> Int {
   case c {
     other.Color.Red -> 1
     other.Color.Boxed(n) -> n
   }
 }
 
-fn demo(): Int {
+fn demo() -> Int {
   p = other.ident(Point{x: 1})
   span = other.Span{start: Point{x: 1}, stop: Point{x: 2}}
   slot: other.Slot<Point> = other.Slot.Full(Point{x: 3})

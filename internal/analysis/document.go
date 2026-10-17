@@ -49,19 +49,18 @@ type Document struct {
 	// still covers the text, but its diagnostics judge another std against
 	// this one, and nothing else reads the text.
 	StdDiffers bool
-	// Program is the program the document is the entry of, when the
-	// analysis is of exactly that program; see EntryProgram.
+	// Program is the program `nomi check` builds with the document as its
+	// entry, when the analysis holds exactly that program; see
+	// EntryProgram.
 	Program *EntryProgram
 }
 
 // EntryProgram is an analyzed document seen as the entry of the program the
-// compiler would build from it: the document is analyzed as its own entry
-// (not through an entry that imports it, and not as a stdlib file), and no
-// synthetic host declarations were injected into it. Nodes are the entry's
-// nodes as the front end prepares them before analysis
-// (frontend.Checker.Prepare): derive impls and universal Debug impls
-// synthesized, every check run over them. The document's Analysis checked
-// them.
+// compiler would build from it: not a stdlib file, and no synthetic host
+// declarations were injected into it. Nodes are the entry's nodes as the
+// front end prepares them before analysis (frontend.Checker.Prepare):
+// derive impls and universal Debug impls synthesized, every check run over
+// them. The document's Analysis checked them.
 //
 // When the document imports other project files, the build ran over them
 // what the front end runs (frontend.Checker.Analyze: each file
@@ -69,9 +68,15 @@ type Document struct {
 // demands), and the program is offered only when none of that, and no
 // file's syntax, reported an error. Files are those files.
 //
+// A document analyzed through an entry that reaches it is offered the
+// program of the files it reaches, from that analysis, when nothing else
+// in the entry's program changes what the front end decides about them
+// (memberProgramOf).
+//
 // A consumer that lowers the document (the language server's lowering
 // check) reads it instead of analyzing the text again. Like the rest of an
-// installed analysis it is never mutated after installation.
+// installed analysis it is read under the view lock (DocumentManager.View):
+// a recheck of the program it belongs to may rewrite it.
 type EntryProgram struct {
 	Nodes []ast.Node
 	// Root is the project root the analysis resolved imports against.
@@ -85,6 +90,9 @@ type EntryProgram struct {
 	// Manifest is root's nomi.toml as the build saw it, "" when there was
 	// none.
 	Manifest string
+	// member reports that the build checked the document through an entry
+	// that reaches it (memberProgramOf).
+	member bool
 }
 
 // EntryProgramFile is one project file of an EntryProgram other than its
@@ -110,20 +118,31 @@ type EntryProgramFile struct {
 //     cache, and every field of every *Document. It is held only for short
 //     critical sections: a map access, a content change, or installing a
 //     finished analysis.
-//   - dm.analyzeMu (Mutex) serializes builds. BuildProject mutates state
-//     shared across documents (notably the primitives scope's Children
-//     slice: every NewScope call appends to it), so two builds, even of
-//     different documents, would race. A build reads its input text under
-//     dm.mu, builds into locals with dm.mu released, and installs the
-//     result under dm.mu. Readers therefore never wait for a build: a
-//     Snapshot taken while one runs returns the previous analysis.
+//   - dm.analyzeMu (Mutex) serializes builds and guards the kept programs
+//     (programs). A build reads its input text under dm.mu, builds with
+//     dm.mu released, and installs the result under dm.mu. Readers
+//     therefore never wait for a build: a Snapshot taken while one runs
+//     returns the previous analysis.
+//   - dm.viewMu (RWMutex) is the view lock. An open document's analysis is
+//     part of a program the manager keeps (document_programs.go), and a
+//     recheck that rebuilds one file's bodies rewrites that program's
+//     analyses, nodes and symbols in place, installed ones included. It
+//     takes the view lock exclusively from before it rewrites anything
+//     until it has installed the rewritten analysis, and a reader of an
+//     installed analysis (Snapshot's Analysis, Nodes or Program) holds it
+//     for reading (View) from before it takes the snapshot until it is done
+//     with it. A recheck waits for the readers only briefly, and checks the
+//     program afresh instead when they keep it.
 //
-// Lock ordering: analyzeMu first (the outer lock), dm.mu second (inner).
-// Nothing that holds dm.mu acquires analyzeMu.
+// Lock ordering: viewMu (for writing) before analyzeMu, analyzeMu before
+// dm.mu. A build that wants the view lock lets go of analyzeMu while it
+// waits for it. A reader may take analyzeMu while it holds the view lock
+// for reading (a request that analyzes a closed file). Nothing that holds
+// dm.mu acquires analyzeMu or viewMu.
 //
-// An installed *FileAnalysis and its Nodes are never mutated after
-// installation, so a snapshot's pointers stay readable after the next
-// analysis replaces them.
+// An installed analysis from a program checked afresh, or a closed file's,
+// is never mutated, and a program checked afresh replaces the kept one, so
+// what was installed from the old one is not mutated again either.
 type DocumentManager struct {
 	mu            sync.RWMutex
 	analyzeMu     sync.Mutex
@@ -153,12 +172,27 @@ type DocumentManager struct {
 	// stdRoot and stdSource are set by SetStdlibSource; see there.
 	stdRoot   string
 	stdSource func(module string) ([]byte, bool)
+	// programs holds the program last checked for each entry under each
+	// project root, which the next analysis of an open document it reaches
+	// rechecks (document_programs.go). Guarded by analyzeMu.
+	programs map[programKey]*rootProgram
+	// viewMu keeps readers of installed analyses away from a recheck that
+	// rewrites them (View).
+	viewMu sync.RWMutex
+	// viewWaiting counts the rechecks waiting for viewMu, which new readers
+	// wait out.
+	viewWaiting   atomic.Int32
+	programCounts programCounts
+	// disk holds the project files programs were checked from, as read
+	// (readProjectFile).
+	disk diskTexts
 }
 
 // DocSnapshot is a frozen view of a Document, taken under the manager's
-// lock. Pointer fields (Analysis, Nodes) reference the same objects the
-// live Document holds; they are not deep-copied, and they are never
-// mutated after installation.
+// lock. Pointer fields (Analysis, Nodes, Program) reference the same
+// objects the live Document holds; they are not deep-copied, and a recheck
+// may rewrite them once a newer analysis replaces them, so a reader takes
+// the snapshot and reads them under the view lock (DocumentManager.View).
 //
 // Content is the text Nodes and Analysis were built from, so every
 // position in them agrees with Content. Text is the latest text, which is
@@ -646,9 +680,10 @@ func (dm *DocumentManager) ReverseDeps(uri string) []string {
 
 // UpdateImportEdges replaces the open document's import edges with those of
 // its installed nodes, and drops the cached closed-file analyses its new
-// text makes stale. Installed nodes are never mutated, so the walk runs
-// without a lock.
+// text makes stale. It reads the nodes under the view lock.
 func (dm *DocumentManager) UpdateImportEdges(uri string) {
+	release := dm.View()
+	defer release()
 	dm.mu.RLock()
 	doc, ok := dm.docs[uri]
 	var nodes []ast.Node
@@ -701,6 +736,7 @@ func (dm *DocumentManager) PropagateChange(uri string) (open []*Document, closed
 // ReanalyzeOpen re-analyzes every open document except excludeURI and
 // returns them. A new file can resolve an import any of them names.
 func (dm *DocumentManager) ReanalyzeOpen(excludeURI string) []*Document {
+	dm.forgetPrograms()
 	dm.mu.RLock()
 	var docs []*Document
 	for uri, doc := range dm.docs {
@@ -723,6 +759,7 @@ func (dm *DocumentManager) ReanalyzeOpen(excludeURI string) []*Document {
 // declarations. This invalidates broadly: a changed Go file can belong to a
 // replace-target binding whose declarations a different project consumes.
 func (dm *DocumentManager) InvalidateFFIExterns() (open []*Document, closed []string) {
+	dm.forgetPrograms()
 	dm.mu.Lock()
 	dm.ffiExternsByRoot = make(map[string][]syntheticextern.Decl)
 	dm.closed.clear()
@@ -790,7 +827,10 @@ func (dm *DocumentManager) analyzeLocked(doc *Document) int {
 	uri, content, version := doc.URI, doc.Content, doc.Version
 	dm.mu.RUnlock()
 
-	b := dm.build(uri, content)
+	b, release := dm.buildOpen(uri, content)
+	// Released once the build is installed: a recheck that rewrote the
+	// analyses installed before keeps their readers away until then.
+	defer release()
 
 	dm.mu.Lock()
 	if version >= doc.AnalyzedVersion {
@@ -899,6 +939,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 		// and hover shows a bare name instead of `ns: Int`.
 		typeErrs := BuildTypes(fa, nodes)
 		checkErrs := CheckTypes(fa, nodes)
+		checkErrs = append(checkErrs, CheckAppRoots(fa, nodes)...)
 		iterErrs := AnalyzeIterSensitivity(fa, nodes)
 		MarkTailCalls(nodes)
 		fa.TypeErrors = append(fa.TypeErrors, typeErrs...)
@@ -931,11 +972,15 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 			mainTokens := lexer.Lex(string(mainContent))
 			mainNodes, _ := parser.ParseWithRecovery(mainTokens)
 			loader := dm.makeLoaderWithOverride(uri, nodes)
-			entryFA, cache, siblingNodes := BuildProjectFromEntry(mainPath, mainNodes, dm.primitives, dm.modules, dm.stdlibFAs, root, loader)
+			// The entry is built under its module key, as the document is when
+			// it is its own entry, so each file's analysis is the same
+			// whichever file the build starts from.
+			entryFA, cache, siblingNodes := BuildProjectFromEntryWithManifest(mainPath, mainNodes, dm.primitives, dm.modules, dm.stdlibFAs, root, loader, nil, relModuleKey(root, mainPath), false)
 			docKey := relModuleKey(root, docPath)
 			if cached, ok := cache[docKey]; ok && cached != nil {
 				fa = cached
 				checkErrs := CheckTypes(fa, nodes)
+				checkErrs = append(checkErrs, CheckAppRoots(fa, nodes)...)
 				iterErrs := AnalyzeIterSensitivity(fa, nodes)
 				// MarkTailCalls mutates the AST in place, setting
 				// Call.IsTailCall on every call in tail position, which the
@@ -950,12 +995,11 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 				fa.TypeErrors = append(fa.TypeErrors, CheckTaskLifetime(fa, nodes)...)
 				// Post-CheckTypes coherence: missing-impl diagnostic et
 				// al. Must come AFTER CheckTypes — the LSP runs
-				// CheckTypes only on the focused doc here (no
-				// per-sibling fold), so the manifest carries the
-				// focused doc's recordings. Diagnostics for missing
-				// impls demanded only by sibling files won't surface
-				// until those siblings are opened.
-				fa.TypeErrors = append(fa.TypeErrors, FinalizeCoherence(fa)...)
+				// CheckTypes only on the focused doc here, so it checks
+				// the focused doc's demands against the program's impls.
+				// Diagnostics for missing impls demanded only by other
+				// files won't surface until those files are opened.
+				fa.TypeErrors = append(fa.TypeErrors, MissingImpls(fa.Program(), []*FileAnalysis{fa})...)
 				fa.TypeErrors = append(fa.TypeErrors, checkDocImplImports(fa, nodes, entryFA, mainNodes, cache, siblingNodes)...)
 				return
 			}
@@ -992,7 +1036,12 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	rec := &loadRecord{}
 	docEntryFA, docSiblings, docSiblingNodes := BuildProjectFromEntryWithManifest(fallbackDocPath, prog, dm.primitives, dm.modules, dm.stdlibFAs, root, dm.makeRecordingLoaderWithOverride(uri, nodes, rec), nil, entryModRel, true)
 	fa = docEntryFA
+	// The program's own errors (duplicate and orphan impls) are shown with
+	// the document that is its entry, after its build-phase errors, as the
+	// front end reports them.
+	fa.TypeErrors = append(fa.TypeErrors, fa.Program().Errors...)
 	checkErrs := CheckTypes(fa, prog)
+	checkErrs = append(checkErrs, CheckAppRoots(fa, prog)...)
 	iterErrs := AnalyzeIterSensitivity(fa, prog)
 	// MarkTailCalls mutates the AST in place, setting Call.IsTailCall on
 	// every call in tail position, which the IR carries as ir.Call.Tail.
@@ -1032,9 +1081,8 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 // runs (frontend.Checker.Analyze), in its order: each file's
 // CheckTypes, then whole-file imports settled over every file, then
 // coherence over every file's demands. It answers the entry's whole-file
-// import errors and whether nothing else reported an error. The entry's own
-// analysis is left as it is but for its whole-file imports: coherence runs
-// over a copy holding the merged demands.
+// import errors and whether nothing else reported an error. Coherence reads
+// every file's own demands, so no analysis is changed but by its own check.
 func checkProgramFiles(fa *FileAnalysis, nodes []ast.Node, files map[string]*FileAnalysis, fileNodes map[string][]ast.Node) (entryImplErrs []TypeError, clean bool) {
 	clean = true
 	keys := make([]string, 0, len(files))
@@ -1053,9 +1101,8 @@ func checkProgramFiles(fa *FileAnalysis, nodes []ast.Node, files map[string]*Fil
 			settles = true
 		}
 	}
-	merged := &FileAnalysis{program: fa.program, Impls: fa.Impls}
-	mergeImplManifest(merged, fa)
 	program := []ProgramFile{{FA: fa, Nodes: nodes}}
+	var checked []ProgramFile
 	for _, key := range keys {
 		sibFA := files[key]
 		if sibFA == nil {
@@ -1070,11 +1117,19 @@ func checkProgramFiles(fa *FileAnalysis, nodes []ast.Node, files map[string]*Fil
 		// analysis every document reads.
 		_, built := fileNodes[key]
 		check := !IsStdlibKey(key) || (settles && built)
-		if check && len(CheckTypes(sibFA, fileNodes[key])) > 0 {
+		if check {
+			if len(CheckTypes(sibFA, fileNodes[key])) > 0 {
+				clean = false
+			}
+			checked = append(checked, ProgramFile{FA: sibFA, Nodes: fileNodes[key]})
+		}
+		program = append(program, ProgramFile{FA: sibFA, Nodes: fileNodes[key]})
+	}
+	// Their application-field roots, once every file is checked.
+	for _, f := range checked {
+		if len(CheckAppRoots(f.FA, f.Nodes)) > 0 {
 			clean = false
 		}
-		mergeImplManifest(merged, sibFA)
-		program = append(program, ProgramFile{FA: sibFA, Nodes: fileNodes[key]})
 	}
 	for f, errs := range CheckImplImports(program) {
 		if f == fa {
@@ -1083,7 +1138,7 @@ func checkProgramFiles(fa *FileAnalysis, nodes []ast.Node, files map[string]*Fil
 			clean = false
 		}
 	}
-	if len(FinalizeCoherence(merged)) > 0 {
+	if len(FinalizeCoherence(fa)) > 0 {
 		clean = false
 	}
 	return entryImplErrs, clean

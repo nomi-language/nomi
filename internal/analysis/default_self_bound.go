@@ -157,7 +157,7 @@ func defaultSignatureWithSelfBound(iface *InterfaceType, method, add string) str
 	}
 	ret := ""
 	if sig.Return != nil && !isUnitLike(sig.Return) {
-		ret = ": " + typeString(sig.Return)
+		ret = " -> " + typeString(sig.Return)
 	}
 	bounds := make([]string, 0, len(sig.SelfBounds)+1)
 	for _, b := range sig.SelfBounds {

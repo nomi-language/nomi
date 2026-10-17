@@ -9,23 +9,23 @@ import {
 /// out of the callback as a `break` value, and returned through the loop's
 /// answer slot, which is typed at the type parameter. So this pins
 /// that the box survives a control-flow boundary, which a plain `fn first<T>(x:
-/// T): T { x }` does not exercise. The state, seeded with `x` and never read,
+/// T) -> T { x }` does not exercise. The state, seeded with `x` and never read,
 /// gives the loop the type T its `break` answers.
-fn first<T>(x: T): T {
-    loop(|_seed = x| { break x })
+fn first<T>(x: T) -> T {
+    loop(fn _seed = x -> { break x })
 }
 
 /// The same shape with the type parameter threaded as the loop's own STATE, so
 /// the state type, the break type and the result type are one type three times
-/// over. std's `loop` is `fn loop<S>(f: (S) -> S): S`, and iterLoop depends on
+/// over. std's `loop` is `fn loop<S>(f: (S) -> S) -> S`, and iterLoop depends on
 /// exactly that: the loop's answer and its state are one local.
-fn echo_state<T>(x: T): T {
-    loop(|state = x| { break state })
+fn echo_state<T>(x: T) -> T {
+    loop(fn state = x -> { break state })
 }
 
 fn main() {
     io.print("${first(7)}")
     io.print("${first("value")}")
-    io.print("${first((1, 2))}")
+    io.print("${first(#(1, 2))}")
     io.print("${echo_state(42)}")
 }

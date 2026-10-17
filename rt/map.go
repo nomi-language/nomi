@@ -16,11 +16,11 @@ import (
 // keyable, and they compare structurally with no user hook and no
 // `K: Hashable` bound in the signature of `Map.get`. The
 // corpus relies on it — 08-pattern-matching/map_patterns_test.nomi has
-// `{(1, 2) => "a"}` and `{[1, 2] => "x"}`.
+// `%{#(1, 2) => "a"}` and `%{[1, 2] => "x"}`.
 //
 // Go requires a map key to be `comparable`, and for the types where that is
 // satisfiable at all it is the wrong comparison: a `*List[T]` key is comparable
-// in Go and compares by address, so `{[1, 2] => "x"}` would be a map you cannot
+// in Go and compares by address, so `%{[1, 2] => "x"}` would be a map you cannot
 // read a value out of unless you kept the original cons cells alive. That is
 // the trap collections.go names for `==` on a tuple, in its worst form — the
 // key silently vanishes rather than the answer being visibly false.
@@ -174,7 +174,7 @@ func mapAt(bm, bit uint32) int { return bits.OnesCount32(bm & (bit - 1)) }
 
 // MapOf builds a map from entries in order: last-write-wins on a duplicate key,
 // with the first occurrence keeping its position. That is the rule both a
-// literal whose keys are equal at run time (`{k => 1, j => 9}` with `k == j`)
+// literal whose keys are equal at run time (`%{k => 1, j => 9}` with `k == j`)
 // and `Iter.to_map` depend on.
 //
 // A map literal lowers to this. It is a fold of persistent puts, so an n-entry
@@ -295,7 +295,7 @@ func mapCollect[K, V any](n *mapNode[K, V], out []mapEntry[K, V]) []mapEntry[K, 
 
 // MapKeys is `Map.keys`: the keys as a List, in insertion order.
 //
-// std/maps.nomi writes it as `Iter.map(m, |(k, _)| k) |> Iter.to_list()`, and
+// std/maps.nomi writes it as `Iter.map(m, fn #(k, _) -> k) |> Iter.to_list()`, and
 // this is not a second rule — it is the same rule with the intermediate
 // sequence removed. Both spellings bottom out in MapEntries, the single ordered
 // accessor this file's rendering and equality already go through, so there is
@@ -403,8 +403,8 @@ func MapPut[K, V any](m Map[K, V], hash func(K) uint64, eq func(K, K) bool, key 
 //
 // `seq` is deliberately not rolled back, which is what makes a removed key
 // re-inserted later land at the end of the iteration order rather than back in
-// its old position. `Map.put(Map.remove({"a" => 1, "b" => 2}, "a"), "a", 7)` printing
-// `{b => 2, a => 7}` is the observable consequence.
+// its old position. `Map.put(Map.remove(%{"a" => 1, "b" => 2}, "a"), "a", 7)` printing
+// `%{b => 2, a => 7}` is the observable consequence.
 func MapRemove[K, V any](m Map[K, V], hash func(K) uint64, eq func(K, K) bool, key K) Map[K, V] {
 	root, removed := mapDelete(m.root, 0, hash(key), key, eq)
 	if !removed {
@@ -417,8 +417,8 @@ func MapRemove[K, V any](m Map[K, V], hash func(K) uint64, eq func(K, K) bool, k
 // it already had, and b's new keys append in b's order.
 //
 // A fold of puts over b's ordered entries, which is what makes that ordering
-// fall out instead of being arranged: `Map.merge({"a" => 1}, {"b" => 2,
-// "a" => 9})` is `{a => 9, b => 2}`, and a fold reproduces
+// fall out instead of being arranged: `Map.merge(%{"a" => 1}, %{"b" => 2,
+// "a" => 9})` is `%{a => 9, b => 2}`, and a fold reproduces
 // it because put-over-existing inherits the position.
 func MapMerge[K, V any](a, b Map[K, V], hash func(K) uint64, eq func(K, K) bool) Map[K, V] {
 	out := a
@@ -611,7 +611,7 @@ func mapEvery[K, V any](n *mapNode[K, V], visit func(mapEntry[K, V]) bool) bool 
 
 // MapEqual is Nomi's `==` on a Map: structural and order-insensitive.
 //
-// `{"a" => 1, "b" => 2} == {"b" => 2, "a" => 1}` is True — map equality
+// `%{"a" => 1, "b" => 2} == %{"b" => 2, "a" => 1}` is True — map equality
 // compares contents, not iteration order — so this compares
 // sizes and then looks each of a's keys up in b. O(n log32 n).
 //
@@ -630,7 +630,7 @@ func MapEqual[K, V any](a, b Map[K, V], hash func(K) uint64, eq func(K, K) bool,
 }
 
 // MapHash is the structural hash of a Map — needed because a Map is itself a
-// keyable value, so `{{"a" => 1} => 2}` is legal
+// keyable value, so `%{%{"a" => 1} => 2}` is legal
 // Nomi and a Map-keyed Map has to bucket.
 //
 // Order-insensitive, by a commutative fold, because MapEqual is: two maps with
@@ -650,24 +650,24 @@ func MapHash[K, V any](m Map[K, V], hashKey func(K) uint64, hashVal func(V) uint
 	return acc
 }
 
-// FormatMap renders a Map as `{k => v, w => x}` in insertion order, and `{=>}`
+// FormatMap renders a Map as `%{k => v, w => x}` in insertion order, and `%{}`
 // when empty. Like FormatListCells, the braces and the `=>` are all it decides;
 // which of Nomi's two renderings you get is decided by the two render arguments.
 //
 // `impl Display for Map<K, V>` (std/maps.nomi:137) renders key and value with
-// Display.to_string, so `${{"a" => 1}}` is `{a => 1}`. An assertion's
-// `values:` row renders them with Inspect, so the same map is `{"a" => 1}`
+// Display.to_string, so `${%{"a" => 1}}` is `%{a => 1}`. An assertion's
+// `values:` row renders them with Inspect, so the same map is `%{"a" => 1}`
 // there. Both are this function:
 // pass the identity for the first and InspectString for the second. There is
 // deliberately no InspectMap, for the reason there is no InspectList.
 func FormatMap[K, V any](m Map[K, V], renderKey func(K) string, renderVal func(V) string) string {
 	if m.n == 0 {
-		return "{=>}"
+		return "%{}"
 	}
 	ents := MapEntries(m)
 	parts := make([]string, len(ents))
 	for i, e := range ents {
 		parts[i] = renderKey(e.Key) + " => " + renderVal(e.Val)
 	}
-	return "{" + strings.Join(parts, ", ") + "}"
+	return "%{" + strings.Join(parts, ", ") + "}"
 }

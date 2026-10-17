@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,25 +16,20 @@ import (
 )
 
 // loweringProbe is appended to a corpus file to give its lowering a
-// blocker: `lowering_probe_skip` uses `continue` outside a loop, which the
-// front end accepts and the IR builder declines when it is called from a
-// lambda (loweringBlocked). The test reaches it, and makes the file a test
-// file.
+// blocker under plantDecline: a call to `planted_decline` from a lambda
+// (loweringBlocked). The test reaches it, and makes the file a test file.
 const loweringProbe = `
 
-fn lowering_probe_skip(n: Int): Int {
-  if n % 2 == 1 {
-    continue
-  }
+fn planted_decline(n: Int) -> Int {
   n
 }
 
-fn lowering_probe(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| lowering_probe_skip(x)) |> Iter.to_list()
+fn lowering_probe(xs: List<Int>) -> List<Int> {
+  Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
 }
 
 test "lowering probe" {
-  assert lowering_probe([1, 2]) == [2]
+  assert lowering_probe([1, 2]) == [1, 2]
 }
 `
 
@@ -46,7 +42,7 @@ const loweringCaptureProbe = `
 test "lowering capture probe" {
   import std/io
   import std/regex.Regex
-  run = io.capture("", || io.print("x"))
+  run = io.capture("", fn -> io.print("x"))
   assert run.output == "x\n"
   _ = Regex` + "`[`" + `
 }
@@ -78,6 +74,7 @@ var loweringVariantNames = []string{"as written", "with a blocker", "with a capt
 // NOMI_LOWERING_EQUIVALENCE=full checks every file in every variant,
 // about 45 seconds.
 func TestLoweringFromAnalysisMatchesTheSource(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the corpus; -short")
 	}
@@ -124,7 +121,7 @@ func TestLoweringFromAnalysisMatchesTheSource(t *testing.T) {
 			if a == nil {
 				continue
 			}
-			if _, ok, _ := analyzedlowering.Check(path, text, a); !ok {
+			if _, ok, _ := analyzedlowering.Check(context.Background(), path, text, a); !ok {
 				continue
 			}
 			analyzed[name]++
@@ -180,11 +177,11 @@ func recordLoweringInput(t *testing.T) func(text string) (*analyzedlowering.Anal
 	var mu sync.Mutex
 	got := map[string]*analyzedlowering.Analyzed{}
 	saved := checkLoweringFn
-	checkLoweringFn = func(path, src string, a *analyzedlowering.Analyzed) (error, error) {
+	checkLoweringFn = func(ctx context.Context, path, src string, a *analyzedlowering.Analyzed, memo *analyzedlowering.Memo) (error, error) {
 		mu.Lock()
 		got[src] = a
 		mu.Unlock()
-		return saved(path, src, a)
+		return saved(ctx, path, src, a, memo)
 	}
 	t.Cleanup(func() { checkLoweringFn = saved })
 	return func(text string) (*analyzedlowering.Analyzed, bool) {
@@ -198,6 +195,7 @@ func recordLoweringInput(t *testing.T) func(text string) (*analyzedlowering.Anal
 // The run an open starts waits for the document's analysis and lowers it,
 // rather than the text: the program is main.nomi alone.
 func TestLoweringRun_LowersTheDocumentsAnalysis(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
@@ -226,7 +224,7 @@ func TestLoweringRun_ProgramOfSeveralFilesLowersTheAnalysis(t *testing.T) {
 	src := "import std/io\nimport shapes\n\nfn main() {\n    io.inspect(shapes.area(2))\n}\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi":   src,
-		"shapes.nomi": "pub fn area(r: Int): Int {\n    r * 3\n}\n",
+		"shapes.nomi": "pub fn area(r: Int) -> Int {\n    r * 3\n}\n",
 		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	s := NewServer()
@@ -243,7 +241,7 @@ func TestLoweringRun_ProgramOfSeveralFilesLowersTheAnalysis(t *testing.T) {
 	if a == nil || !latest || a.FA != snap.Analysis || len(a.Files) != 1 {
 		t.Fatalf("loweringAnalysis = %+v, %v; want the document's program", a, latest)
 	}
-	if _, ok, err := analyzedlowering.Check(filepath.Join(dir, "main.nomi"), src, a); !ok || err != nil {
+	if _, ok, err := analyzedlowering.Check(context.Background(), filepath.Join(dir, "main.nomi"), src, a); !ok || err != nil {
 		t.Fatalf("lowered from the analysis: %v, %v", ok, err)
 	}
 }

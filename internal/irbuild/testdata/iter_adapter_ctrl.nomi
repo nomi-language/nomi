@@ -12,7 +12,7 @@ fn main() {
     // value prints [10, 20]; emitting it and carrying on prints [10, 20, 999, 40, 50].
     taken_with_value =
         [1, 2, 3, 4, 5]
-        |> Iter.map(|x| {
+        |> Iter.map(fn x -> {
             if x == 3 { break 999 }
             x * 10
         })
@@ -24,7 +24,7 @@ fn main() {
     // element. Pairs with the line above — one value apart in the source.
     taken =
         [1, 2, 3, 4, 5]
-        |> Iter.map(|x| {
+        |> Iter.map(fn x -> {
             if x == 3 { break }
             x * 10
         })
@@ -36,7 +36,7 @@ fn main() {
     // that stopped instead prints [].
     evens_doubled =
         [1, 2, 3, 4, 5]
-        |> Iter.map(|x| {
+        |> Iter.map(fn x -> {
             if x % 2 != 0 { continue }
             x * 2
         })
@@ -49,7 +49,7 @@ fn main() {
     // that copied map's rule would try to emit `True` into an Int stream.
     include_until =
         [1, 2, 3, 4, 5]
-        |> Iter.filter(|x| {
+        |> Iter.filter(fn x -> {
             if x == 3 { break True }
             x % 2 == 0
         })
@@ -61,7 +61,7 @@ fn main() {
     // dropped. Pairs with the line above.
     exclude_last =
         [1, 2, 3, 4, 5]
-        |> Iter.filter(|x| {
+        |> Iter.filter(fn x -> {
             if x == 3 { break False }
             x % 2 != 0
         })
@@ -75,14 +75,14 @@ fn main() {
     // if that one line is right.
     taken_while =
         [1, 2, 3, 4, 5]
-        |> Iter.take_while(|x| x % 2 != 0)
+        |> Iter.take_while(fn x -> x % 2 != 0)
         |> Iter.to_list()
 
     io.print("take_while ends on the first False: ${taken_while}")
 
     filtered =
         [1, 2, 3, 4, 5]
-        |> Iter.filter(|x| x % 2 != 0)
+        |> Iter.filter(fn x -> x % 2 != 0)
         |> Iter.to_list()
 
     io.print("filter skips and carries on: ${filtered}")
@@ -90,7 +90,7 @@ fn main() {
     // take_while: `continue` skips WITHOUT ending, which is the one signal that
     // distinguishes it from a False answer. [1, 3] and not [1].
     skipped =
-        Iter.take_while([1, 2, 3, 4, 5], |x| {
+        Iter.take_while([1, 2, 3, 4, 5], fn x -> {
             if x == 2 {
                 continue
             } else {
@@ -105,7 +105,7 @@ fn main() {
     // and the `x < 4` arm must reconcile to Bool, which is what pre-settling a
     // predicate callback's result kind buys.
     kept_then_stopped =
-        Iter.take_while([1, 2, 3, 4, 5], |x| {
+        Iter.take_while([1, 2, 3, 4, 5], fn x -> {
             if x == 2 {
                 break True
             } else {
@@ -120,11 +120,11 @@ fn main() {
     // downstream stage still sees every element the broken stage emitted.
     chained =
         [1, 2, 3, 4, 5, 6]
-        |> Iter.filter(|x| {
+        |> Iter.filter(fn x -> {
             if x > 4 { break }
             x % 2 == 0
         })
-        |> Iter.map(|x| x * 100)
+        |> Iter.map(fn x -> x * 100)
         |> Iter.to_list()
 
     io.print("break stops the source through a chain: ${chained}")
@@ -133,7 +133,7 @@ fn main() {
     // does not terminate.
     bounded =
         Iter.from(1)
-        |> Iter.map(|x| {
+        |> Iter.map(fn x -> {
             if x > 3 { break }
             x
         })
@@ -147,7 +147,7 @@ fn main() {
     // which elements were visited and in what order.
     _stop =
         ["hello", "world", "STOP", "ignored"]
-        |> Iter.each(|s| {
+        |> Iter.each(fn s -> {
             if s == "STOP" { break }
             io.print("each visited: ${s}")
         })
@@ -156,7 +156,7 @@ fn main() {
     // that read `continue` as a stop would print `1` alone.
     _skip =
         [1, 2, 3, 4, 5]
-        |> Iter.each(|x| {
+        |> Iter.each(fn x -> {
             if x % 2 == 0 { continue }
             io.print("each odd: ${x}")
         })
@@ -167,7 +167,7 @@ fn main() {
     // the brief warns about rather than a build error.
     _ret =
         [1, 2, 3]
-        |> Iter.each(|x| {
+        |> Iter.each(fn x -> {
             if x == 2 { return }
             io.print("each reached: ${x}")
         })
@@ -177,7 +177,7 @@ fn main() {
     // on. A non-local `return` would end `main` here and print nothing more.
     special_mapped =
         [1, 2, 3, 4, 5]
-        |> Iter.map(|x| {
+        |> Iter.map(fn x -> {
             if x == 3 { return 300 }
             x * 10
         })
@@ -188,7 +188,7 @@ fn main() {
     // A nested `fn` whose own `return`s are ordinary, called from a reduce
     // callback. This is the shape that distinguishes "return is lambda-scoped"
     // from "return is refused inside anything test-shaped".
-    fn classify(n: Int): Int {
+    fn classify(n: Int) -> Int {
         if n < 0 { return 0 }
         if n > 100 { return 100 }
         n
@@ -196,7 +196,7 @@ fn main() {
 
     sum_classified =
         [5, -10, 50, 200, 30]
-        |> Iter.reduce(|acc = 0, x| acc + classify(x))
+        |> Iter.reduce(fn acc = 0, x -> acc + classify(x))
 
     io.print("nested fn early returns: ${sum_classified}")
 

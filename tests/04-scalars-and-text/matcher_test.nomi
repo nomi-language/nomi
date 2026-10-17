@@ -56,12 +56,51 @@ test "find_all lists every match" {
     assert "banana" |> String.find_all(Regex`x`) == []
 }
 
+test "find returns the first match, from a string or a regex" {
+    assert String.find("order 66, aisle 7", Regex`\d+`) == Some("66")
+    assert "order 66" |> String.find(Regex`\d+`) == Some("66")
+    assert String.find("order", Regex`\d+`) == None
+    assert String.find("banana", "an") == Some("an")
+    assert "banana" |> String.find("x") == None
+}
+
+test "find with an empty needle or an empty regex match finds the empty string" {
+    assert String.find("abc", "") == Some("")
+    assert String.find("", "") == Some("")
+    assert String.find("baaa", Regex`a*`) == Some("")
+    assert String.find("", Regex`x*`) == Some("")
+    assert String.find("abc", Regex`^`) == Some("")
+}
+
+test "find works over Unicode text" {
+    assert String.find("café crème", Regex`\p{L}*é`) == Some("café")
+    assert String.find("na🙂ve 🙂", "🙂") == Some("🙂")
+    assert String.find("ééé", Regex`é+`) == Some("ééé")
+    assert String.find("héllo", "e") == None
+}
+
+test "find is the first element find_all returns" {
+    texts = ["", "abc", "banana", "order 66, aisle 7", "café crème", "a1b22c"]
+
+    assert Iter.all?(texts, fn t -> first_agrees(t, "an"))
+    assert Iter.all?(texts, fn t -> first_agrees(t, ""))
+    assert Iter.all?(texts, fn t -> first_agrees(t, "z"))
+    assert Iter.all?(texts, fn t -> first_agrees(t, Regex`\d+`))
+    assert Iter.all?(texts, fn t -> first_agrees(t, Regex`a*`))
+    assert Iter.all?(texts, fn t -> first_agrees(t, Regex`a|an`))
+    assert Iter.all?(texts, fn t -> first_agrees(t, Regex`\p{L}+`))
+}
+
+fn first_agrees<M>(text: String, m: M) -> Bool where M: Matcher {
+    String.find(text, m) == (String.find_all(text, m) |> List.head())
+}
+
 test "a function of your own takes any matcher" {
     assert count("a,b,c", ",") == 2
     assert count("a1b22", Regex`\d`) == 3
 }
 
-fn count<M>(text: String, m: M): Int where M: Matcher {
+fn count<M>(text: String, m: M) -> Int where M: Matcher {
     String.find_all(text, m) |> Iter.count()
 }
 
@@ -73,7 +112,7 @@ test "a matcher prints what each call finds" {
             std/regex.Regex
         }
 
-        fn main(): Result<Unit, String> {
+        fn main() -> Result<Unit, String> {
             text = "a1b22c"
             digits = Regex`[0-9]+`
 

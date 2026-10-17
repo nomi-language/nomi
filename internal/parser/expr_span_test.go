@@ -66,10 +66,10 @@ func exprSpanText(lines []string, sp ast.Span) string {
 }
 
 func TestExprSpans_CoverTheExpression(t *testing.T) {
-	src := `fn f(xs: List<Int>, p: Point): Maybe<(Int) -> Int> {
+	src := `fn f(xs: List<Int>, p: Point) -> Maybe<(Int) -> Int> {
   total = p.x + g(1, 2) * 3
   s = Point{x: 1, y: 2}
-  h = |n| n + 1
+  h = fn n -> n + 1
   m = "a\tb"
   g = "hi ${p.x}!"
   r = xs |> List.length()
@@ -97,7 +97,7 @@ func TestExprSpans_CoverTheExpression(t *testing.T) {
 		"Call g(1, 2)",
 		"IntLit 3",
 		"StructLit Point{x: 1, y: 2}",
-		"Lambda |n| n + 1",
+		"Lambda fn n -> n + 1",
 		`StringLit "a\tb"`,
 		`StringInterp "hi ${p.x}!"`,
 		"Binary n + 1",

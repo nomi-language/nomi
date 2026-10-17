@@ -14,15 +14,15 @@ func TestIRConcurrency_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"concurrency.md:L31", `import std/tasks.Task
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
   n * 2
 }
 
 fn main() {
   total = concurrent {
-    a = Task.spawn(|| double(10))
-    b = Task.spawn(|| double(20))
-    c = Task.spawn(|| double(30))
+    a = Task.spawn(fn -> double(10))
+    b = Task.spawn(fn -> double(20))
+    c = Task.spawn(fn -> double(30))
     Task.await(a) + Task.await(b) + Task.await(c)
   }
   dbg total
@@ -34,15 +34,15 @@ fn main() {
   std/tasks.Task
 }
 
-fn produce(out: Sender<Int>, n: Int): Unit {
+fn produce(out: Sender<Int>, n: Int) -> Unit {
   case Sender.send(out, n) {
     Ok(_) -> Unit
     Err(_) -> io.print("send failed")
   }
 }
 
-fn consume(inbox: Receiver<Int>): Int {
-  Iter.loop(|sum = 0|
+fn consume(inbox: Receiver<Int>) -> Int {
+  Iter.loop(fn sum = 0 ->
     case Receiver.receive(inbox) {
       Some(v) -> sum + v
       None -> break sum
@@ -54,10 +54,10 @@ fn main() {
   ch = Channel.buffered<Int>(4)
 
   total = concurrent {
-    p1 = Task.spawn(|| produce(ch.sender, 10))
-    p2 = Task.spawn(|| produce(ch.sender, 20))
-    p3 = Task.spawn(|| produce(ch.sender, 30))
-    cons = Task.spawn(|| consume(ch.receiver))
+    p1 = Task.spawn(fn -> produce(ch.sender, 10))
+    p2 = Task.spawn(fn -> produce(ch.sender, 20))
+    p3 = Task.spawn(fn -> produce(ch.sender, 30))
+    cons = Task.spawn(fn -> consume(ch.receiver))
 
     // Drain the producers, close so the consumer's loop ends on None.
     Task.await(p1)
@@ -76,20 +76,20 @@ fn main() {
   std/timer
 }
 
-fn short_fail(): Result<Int, String> {
+fn short_fail() -> Result<Int, String> {
   timer.sleep(Duration.milliseconds(10))
   Err("boom")
 }
 
-fn long_sleep(): Result<Int, String> {
+fn long_sleep() -> Result<Int, String> {
   timer.sleep(Duration.seconds(5))
   Ok(0)
 }
 
 fn main() {
   outcome = concurrent {
-    short = Task.spawn(|| short_fail())
-    long = Task.spawn(|| long_sleep())
+    short = Task.spawn(fn -> short_fail())
+    long = Task.spawn(fn -> long_sleep())
     n = try Task.await(short)
     _ = try Task.await(long)
     Ok(n)
@@ -102,11 +102,11 @@ fn main() {
   std/tasks.Task
 }
 
-fn active?(id: Int): Bool {
+fn active?(id: Int) -> Bool {
   id != 2
 }
 
-fn fetch_user(id: Int): String {
+fn fetch_user(id: Int) -> String {
   "user-${Display.to_string(id)}"
 }
 
@@ -126,7 +126,7 @@ fn main() {
   std/timer
 }
 
-fn serve_conn(): Int {
+fn serve_conn() -> Int {
   // Would take half a minute if left alone.
   timer.sleep(Duration.seconds(30))
   1
@@ -134,7 +134,7 @@ fn serve_conn(): Int {
 
 fn main() {
   outcome = concurrent {
-    conn = Task.spawn(|| serve_conn())
+    conn = Task.spawn(fn -> serve_conn())
     Task.cancel(conn)
     // ` + "`outcome`, not `await`" + ` — inheriting a cancellation you asked for
     // makes no sense.
@@ -155,7 +155,7 @@ func TestIRConcurrency_Mechanisms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"captures, String tasks and a conditional tail", `import std/tasks.Task
 
-fn greet(name: String, n: Int): String {
+fn greet(name: String, n: Int) -> String {
   "${name}-${Display.to_string(n)}"
 }
 
@@ -163,8 +163,8 @@ fn main() {
   base = 40
   who = "ada"
   label = concurrent {
-    a = Task.spawn(|| greet(who, base + 1))
-    b = Task.spawn(|| base * 2)
+    a = Task.spawn(fn -> greet(who, base + 1))
+    b = Task.spawn(fn -> base * 2)
     total = Task.await(b)
     if total > 50 { Task.await(a) } else { "small" }
   }
@@ -177,21 +177,21 @@ fn main() {
   std/tasks.Task
 }
 
-fn inner(n: Int): Int {
+fn inner(n: Int) -> Int {
   concurrent {
-    t = Task.spawn(|| n + 1)
+    t = Task.spawn(fn -> n + 1)
     Task.await(t)
   }
 }
 
 fn main() {
   outer = concurrent {
-    a = Task.spawn(|| inner(1))
-    b = Task.spawn(|| inner(2))
+    a = Task.spawn(fn -> inner(1))
+    b = Task.spawn(fn -> inner(2))
     Task.await(a) * Task.await(b)
   }
   _ = concurrent {
-    t = Task.spawn(|| io.print("from a task"))
+    t = Task.spawn(fn -> io.print("from a task"))
     Task.await(t)
   }
   dbg outer
@@ -200,19 +200,19 @@ fn main() {
 `, "from a task\ndbg line 23: outer = 6\n"},
 		{"a completed outcome and a Maybe try", `import std/tasks.Task
 
-fn half(n: Int): Maybe<Int> {
+fn half(n: Int) -> Maybe<Int> {
   if n % 2 == 0 { Some(n / 2) } else { None }
 }
 
 fn main() {
   outcome = concurrent {
-    t = Task.spawn(|| 21 * 2)
+    t = Task.spawn(fn -> 21 * 2)
     Task.outcome(t)
   }
   dbg outcome
   found = concurrent {
-    a = Task.spawn(|| half(10))
-    b = Task.spawn(|| half(7))
+    a = Task.spawn(fn -> half(10))
+    b = Task.spawn(fn -> half(7))
     x = try Task.await(a)
     y = try Task.await(b)
     Some(x + y)
@@ -227,8 +227,8 @@ fn main() {
   offset = 100
   results = concurrent {
     [1, 2, 3, 4]
-    |> Iter.map(|n| n * 10)
-    |> Task.spawn_all(|n| n + offset, max_running: 2)
+    |> Iter.map(fn n -> n * 10)
+    |> Task.spawn_all(fn n -> n + offset, max_running: 2)
     |> Task.await_all()
   }
   dbg results
@@ -241,7 +241,7 @@ fn main() {
   std/tasks.Task
 }
 
-fn report(r: Result<Unit, ChannelClosed>): String {
+fn report(r: Result<Unit, ChannelClosed>) -> String {
   case r {
     Ok(_) -> "sent"
     Err(_) -> "closed"
@@ -251,7 +251,7 @@ fn report(r: Result<Unit, ChannelClosed>): String {
 fn main() {
   ch = Channel.unbuffered<String>()
   got = concurrent {
-    t = Task.spawn(|| Receiver.receive(ch.receiver))
+    t = Task.spawn(fn -> Receiver.receive(ch.receiver))
     first = report(Sender.send(ch.sender, "hi"))
     Sender.close(ch.sender)
     io.print(first)
@@ -263,8 +263,8 @@ fn main() {
   Unit
 }
 `, "sent\ndbg line 23: got = Some(\"hi\")\nclosed\ndbg line 25: Receiver.receive(ch.receiver) = None\n"},
-		{"loop case tails with guards and a wildcard break", `fn pick(limit: Int): Int {
-  Iter.loop(|n = 0| {
+		{"loop case tails with guards and a wildcard break", `fn pick(limit: Int) -> Int {
+  Iter.loop(fn n = 0 -> {
     if n > limit { break n * 10 }
     case n {
       0 -> n + 1
@@ -273,8 +273,8 @@ fn main() {
   })
 }
 
-fn find(): Int {
-  Iter.loop(|n = 1|
+fn find() -> Int {
+  Iter.loop(fn n = 1 ->
     case n {
       1 -> 2
       2 -> 5
@@ -283,8 +283,8 @@ fn find(): Int {
   )
 }
 
-fn classify(_xs: Int): String {
-  Iter.loop(|s = ""| {
+fn classify(_xs: Int) -> String {
+  Iter.loop(fn s = "" -> {
     if String.length(s) > 8 { break "long" }
     case String.length(s) {
       3 -> break s
@@ -302,7 +302,7 @@ fn main() {
 `, "dbg line 32: pick(5) = 70\ndbg line 33: classify(0) = \"long\"\ndbg line 34: find() = 5\n"},
 		{"scalar Display calls", `import std/io
 
-fn show(n: Int, x: Float, b: Bool, s: String): String {
+fn show(n: Int, x: Float, b: Bool, s: String) -> String {
   Display.to_string(n) + " " + Display.to_string(x) + " " + Display.to_string(b) + " " + Display.to_string(s)
 }
 
@@ -321,18 +321,19 @@ fn main() {
 func TestIRConcurrency_TryAndLoopInsideTheBlockRun(t *testing.T) {
 	// A try inside a task body leaves the task's lambda, whose boundary it
 	// is.
-	verifyLambdaProgram(t, "import {\n std/io\n std/tasks.Task\n}\nfn run(): Int {\nr = concurrent {\n t = Task.spawn(|| {\n x = try Some(2)\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\n"+
-		"fn missing(): Maybe<Int> { None }\nfn none(): Int {\nr = concurrent {\n t = Task.spawn(|| {\n x = try missing()\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\nfn main() {\n io.print(run())\n io.print(none())\n}\n", "2\n0\n")
+	verifyLambdaProgram(t, "import {\n std/io\n std/tasks.Task\n}\nfn run() -> Int {\nr = concurrent {\n t = Task.spawn(fn -> {\n x = try Some(2)\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\n"+
+		"fn missing() -> Maybe<Int> { None }\nfn none() -> Int {\nr = concurrent {\n t = Task.spawn(fn -> {\n x = try missing()\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\nfn main() {\n io.print(run())\n io.print(none())\n}\n", "2\n0\n")
 	// An Iter.loop inside the block runs, as one inside any lambda does.
-	verifyLambdaProgram(t, "import {\n std/io\n std/tasks.Task\n}\nfn run(): Int {\nconcurrent {\n t = Task.spawn(|| 1)\n n0 = Task.await(t)\n Iter.loop(|n = n0| {\n if n > 3 { break n * 10 }\n n + 1\n })\n }\n}\nfn main() {\n io.print(run())\n}\n", "40\n")
+	verifyLambdaProgram(t, "import {\n std/io\n std/tasks.Task\n}\nfn run() -> Int {\nconcurrent {\n t = Task.spawn(fn -> 1)\n n0 = Task.await(t)\n Iter.loop(fn n = n0 -> {\n if n > 3 { break n * 10 }\n n + 1\n })\n }\n}\nfn main() {\n io.print(run())\n}\n", "40\n")
 }
 
 // A task whose body reaches a function the producer did not retain fails the
 // VM's run rather than settling as a Failed outcome the program can observe:
-// `slow_bounded` calls `Context.with_value` over a generic Maybe, whose
-// type has no single-name identity to key the store, so the body is not
-// retained, and `main` inspects the task's outcome.
+// `slow_bounded` calls `planted_decline`, which the builder declines under
+// plantDecline, so the body is not retained, and `main` inspects the task's
+// outcome.
 func TestIRConcurrency_AMachineLimitInATaskFailsTheRun(t *testing.T) {
+	plantDecline(t)
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	src := `import {
   std/tasks.Task
@@ -340,15 +341,19 @@ func TestIRConcurrency_AMachineLimitInATaskFailsTheRun(t *testing.T) {
   std/timer
 }
 
-fn slow_bounded(): Int {
-  _ = Context.with_value(Run.context, Some(1))
+fn planted_decline(n: Int) -> Int {
+  n
+}
+
+fn slow_bounded() -> Int {
+  _ = planted_decline(1)
   timer.sleep(Duration.minutes(5))
   1
 }
 
 fn main() {
   outcome = concurrent {
-    t = Task.spawn(|| slow_bounded())
+    t = Task.spawn(fn -> slow_bounded())
     Task.outcome(t)
   }
   _ = case outcome {
@@ -361,7 +366,7 @@ struct Run {
   context: Context
 }
 
-fn boot(): Run {
+fn boot() -> Run {
   Run{context: Context.root()}
 }
 `
@@ -408,7 +413,7 @@ func TestIRConcurrency_ACancelledTaskRunsItsDeferredCalls(t *testing.T) {
   std/timer
 }
 
-fn work(started: Sender<Int>): Int {
+fn work(started: Sender<Int>) -> Int {
   defer io.print("cleanup")
   _ = Sender.send(started, 1)
   timer.sleep(Duration.seconds(30))
@@ -418,7 +423,7 @@ fn work(started: Sender<Int>): Int {
 fn main() {
   ch = Channel.buffered<Int>(1)
   outcome = concurrent {
-    t = Task.spawn(|| work(ch.sender))
+    t = Task.spawn(fn -> work(ch.sender))
     _ = Receiver.receive(ch.receiver)
     Task.cancel(t)
     Task.outcome(t)

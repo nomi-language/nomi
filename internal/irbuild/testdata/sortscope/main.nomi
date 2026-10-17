@@ -14,7 +14,7 @@ import {
 // not only the file being lowered. Three consumers read that lookup:
 //
 //	Iter.sort(ws)                Iter.sort over an unorderable element | Widget
-//	Iter.sort_by(ws, |w| w)      Iter.sort_by over an unorderable key   | Widget
+//	Iter.sort_by(ws, fn w -> w)      Iter.sort_by over an unorderable key   | Widget
 //	a < b                        comparison outside Int and Float       | Widget
 //
 // The right column is the refusal each would report if the lookup missed the
@@ -62,15 +62,15 @@ import {
 // Each imported type crosses a SIGNATURE boundary as well as appearing at a
 // construction site, because a representation that is only correct where a value
 // is built fails here — `sets.nomi`'s rule for the same reason.
-fn weights(ws: List<Widget>): List<Int> {
-    Iter.sort(ws) |> Iter.map(|w| w.weight) |> Iter.to_list()
+fn weights(ws: List<Widget>) -> List<Int> {
+    Iter.sort(ws) |> Iter.map(fn w -> w.weight) |> Iter.to_list()
 }
 
-fn backwards_ns(bs: List<Backwards>): List<Int> {
-    Iter.sort(bs) |> Iter.map(|b| b.n) |> Iter.to_list()
+fn backwards_ns(bs: List<Backwards>) -> List<Int> {
+    Iter.sort(bs) |> Iter.map(fn b -> b.n) |> Iter.to_list()
 }
 
-fn tag_of(u: Unordered): String {
+fn tag_of(u: Unordered) -> String {
     u.tag
 }
 
@@ -83,20 +83,20 @@ fn main() {
     io.print("sort widget ${sorted_widgets}")
     io.print("sort backwards ${sorted_backwards}")
 
-    by_widget = Iter.sort_by(ws, |w| w) |> Iter.map(|w| w.weight) |> Iter.to_list()
+    by_widget = Iter.sort_by(ws, fn w -> w) |> Iter.map(fn w -> w.weight) |> Iter.to_list()
 
     io.print("sort_by widget ${by_widget}")
 
     desc_widgets =
         Iter.sort(ws, Direction.Descending)
-        |> Iter.map(|w| w.weight)
+        |> Iter.map(fn w -> w.weight)
         |> Iter.to_list()
 
     io.print("sort widget desc ${desc_widgets}")
 
     desc_by_widget =
-        Iter.sort_by(ws, Direction.Descending, |w| w)
-        |> Iter.map(|w| w.weight)
+        Iter.sort_by(ws, Direction.Descending, fn w -> w)
+        |> Iter.map(fn w -> w.weight)
         |> Iter.to_list()
 
     io.print("sort_by widget desc ${desc_by_widget}")
@@ -106,8 +106,8 @@ fn main() {
     stable = [widget.make(1), widget.make(1), widget.make(2)]
 
     io.print(
-        "stable ${Iter.sort_by(stable, |w| w)
-        |> Iter.map(|w| w.weight)
+        "stable ${Iter.sort_by(stable, fn w -> w)
+        |> Iter.map(fn w -> w.weight)
         |> Iter.to_list()}"
     )
 

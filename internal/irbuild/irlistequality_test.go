@@ -6,9 +6,9 @@ import (
 
 func TestIRListEquality_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn left(): List<Int> { io.print("left"); [1, 2] }
-fn right(): List<Int> { io.print("right"); [1, 2] }
-fn empty(): List<Int> { [] }
+fn left() -> List<Int> { io.print("left"); [1, 2] }
+fn right() -> List<Int> { io.print("right"); [1, 2] }
+fn empty() -> List<Int> { [] }
 fn main() {
  io.print(left() == right())
  io.print([1, 2] != [1, 3])
@@ -22,9 +22,9 @@ fn main() {
 
 func TestIRListEquality_FindLinksThroughProcess(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn find(list: List<Int>, target: Int): Maybe<Int> {
+fn find(list: List<Int>, target: Int) -> Maybe<Int> {
  if list == [] { None } else {
-  Iter.reduce(list, |acc = None, x|
+  Iter.reduce(list, fn acc = None, x ->
    case acc {
     Some(v) -> Some(v)
     None -> if x == target { Some(x) } else { None }
@@ -32,7 +32,7 @@ fn find(list: List<Int>, target: Int): Maybe<Int> {
   )
  }
 }
-fn process(list: List<Int>): Maybe<Int> { val = try find(list, 3); Some(val * 10) }
+fn process(list: List<Int>) -> Maybe<Int> { val = try find(list, 3); Some(val * 10) }
 fn main() {
  io.inspect(process([1, 2, 3, 4]))
  io.inspect(process([1, 2, 4, 5]))
@@ -50,9 +50,9 @@ fn main() {
  io.print(#[1, 2] == #[1, 2])
  io.print(#[1, 2] != #[2, 1])
  io.print(Vector.equal?(#[0.0 / 0.0], #[0.0 / 0.0]))
- io.print({"a" => 1, "b" => 2} == {"b" => 2, "a" => 1})
- io.print({"a" => 1} != {"a" => 2})
- io.print(Map.equal?({1 => "x"}, {1 => "x"}))
+ io.print(%{"a" => 1, "b" => 2} == %{"b" => 2, "a" => 1})
+ io.print(%{"a" => 1} != %{"a" => 2})
+ io.print(Map.equal?(%{1 => "x"}, %{1 => "x"}))
 }
 `, "True\nTrue\nTrue\nTrue\nTrue\nTrue\n")
 }

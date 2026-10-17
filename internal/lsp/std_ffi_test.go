@@ -18,9 +18,9 @@ const stdFFIText = `import std/io
 gopkg "strings" as strings
 gopkg "math" as math
 
-fn upper(s: String): String go strings.ToUpper
+fn upper(s: String) -> String go strings.ToUpper
 
-fn sqrt(x: Float): Float go math.Sqrt
+fn sqrt(x: Float) -> Float go math.Sqrt
 
 fn main() {
   io.print(upper("hello"))
@@ -50,7 +50,7 @@ func TestRPC_StdLibraryGoBindings(t *testing.T) {
 	if p := c.waitDiagnostics(uri); p.n != 0 {
 		t.Fatalf("analysis reports %v; want none", p.msgs)
 	}
-	if d := safeLoweringDiagnostics(uri, stdFFIText, nil); len(d) != 0 {
+	if d := s.safeLoweringDiagnostics(context.Background(), uri, stdFFIText, nil); len(d) != 0 {
 		t.Fatalf("lowering reports %+v; want none", d)
 	}
 
@@ -61,7 +61,7 @@ func TestRPC_StdLibraryGoBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, _ := json.Marshal(hover.Contents)
-	if !strings.Contains(string(b), "fn upper(s: String): String") {
+	if !strings.Contains(strings.ReplaceAll(string(b), `\u003e`, ">"), "fn upper(s: String) -> String") {
 		t.Errorf("hover = %s, want the binding's signature", b)
 	}
 

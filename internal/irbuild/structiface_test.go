@@ -10,7 +10,7 @@ import (
 //
 // The claim it defends is the one the whole file rests on: the def carries ZERO
 // methods because std declares exactly ONE and that one is not dispatchable
-// (`host fn update(original: self, updates: Partial<self>): self` — self in the
+// (`host fn update(original: self, updates: Partial<self>) -> self` — self in the
 // return plus a compiler-known type operator). A std edit that added a
 // DISPATCHABLE method would leave the empty def silently wrong, and no
 // differential fixture could see it: `Struct.foo(erased)` would refuse for want
@@ -26,7 +26,7 @@ struct Point {
   x: Int
 }
 
-fn one(_s: Struct): Int {
+fn one(_s: Struct) -> Int {
   1
 }
 

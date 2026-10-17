@@ -16,7 +16,7 @@ program runs.
 ## Binding patterns and guards
 
 ```nomi-run
-fn classify(n: Int): String {
+fn classify(n: Int) -> String {
     case n {
         0 -> "zero"
         n when n < 0 -> "negative"
@@ -54,7 +54,7 @@ enum Shape {
     Rectangle {width: Float, height: Float}
 }
 
-fn area(s: Shape): Float {
+fn area(s: Shape) -> Float {
     case s {
         .Circle(r) -> r * r * 3.14159
         .Rectangle{width, height} -> width * height
@@ -88,14 +88,14 @@ enum Shape {
     Rectangle {width: Float, height: Float}
 }
 
-fn area(s: Shape): Float {
+fn area(s: Shape) -> Float {
     case s {
         .Circle(r) -> r * r * 3.0
         .Rectangle{width, height} -> width * height
     }
 }
 
-fn describe(s: Shape): String {
+fn describe(s: Shape) -> String {
     case s {
         .Rectangle{width, height} as square when width == height -> "a square of area ${area(square)}"
         other -> "a shape of area ${area(other)}"
@@ -122,6 +122,58 @@ the value it names, so `square` is a `Shape`.
 `as` works anywhere a pattern does, including `if`, bindings, parameters and
 inside other patterns.
 
+### Matching alternatives with `or`
+
+`A or B` matches a value that either pattern matches, so one arm can handle
+several shapes:
+
+```nomi-run
+enum Shape {
+    Circle Float
+    Square Float
+    Rectangle {width: Float, height: Float}
+}
+
+fn size(s: Shape) -> String {
+    case s {
+        .Circle(r) or .Square(r) when r > 10.0 -> "big, ${r} across"
+        .Circle(r) or .Square(r) -> "${r} across"
+        .Rectangle{width, height} -> "${width} by ${height}"
+    }
+}
+
+fn closes(c: Codepoint) -> Bool {
+    case c {
+        ')' or ']' or '}' -> True
+        _ -> False
+    }
+}
+
+fn main() {
+    dbg size(.Square(12.0))
+    dbg size(.Circle(2.0))
+    dbg closes(']')
+    dbg closes('x')
+}
+```
+<!-- expect
+dbg line 23: size(.Square(12.0)) = "big, 12.0 across"
+dbg line 24: size(.Circle(2.0)) = "2.0 across"
+dbg line 25: closes(']') = True
+dbg line 26: closes('x') = False
+-->
+
+Every alternative must bind the same names, with the same types. Here both
+bind `r` as a `Float`, and `r` holds the value from whichever one matched.
+The `when` guard applies to the whole arm: if it is false, matching goes on to
+the next arm.
+
+`or` works inside other patterns too, as in `Some(.Circle(_) or .Square(_))`
+or `[')' or ']' as closer, ..rest]`. A trailing `as` names the whole value
+whichever alternative matched. Together, the alternatives count toward
+covering every value, so `.Red or .Green` and `.Blue` cover a three-color enum
+without `_`.
+
 ## `Maybe<T>` and `Result<T, E>`
 
 Nomi uses two enums for operations that might not have an answer:
@@ -134,7 +186,7 @@ Nomi uses two enums for operations that might not have an answer:
 Both types and their variants are always available. You do not import them.
 
 ```nomi-run
-fn lookup(id: Int): Maybe<String> {
+fn lookup(id: Int) -> Maybe<String> {
     case id {
         1 -> Some("Alice")
         2 -> Some("Bob")
@@ -142,7 +194,7 @@ fn lookup(id: Int): Maybe<String> {
     }
 }
 
-fn name_for(id: Int): String {
+fn name_for(id: Int) -> String {
     case lookup(id) {
         Some(name) -> name
         None -> "unknown"
@@ -163,14 +215,14 @@ For a quick check of a single pattern, `if` can match it directly. The names
 the pattern binds exist only in the first branch:
 
 ```nomi-run
-fn lookup(id: Int): Maybe<String> {
+fn lookup(id: Int) -> Maybe<String> {
     case id {
         1 -> Some("Alice")
         _ -> None
     }
 }
 
-fn label_for(id: Int): String {
+fn label_for(id: Int) -> String {
     if Some(name) = lookup(id) {
         name
     } else {
@@ -191,7 +243,7 @@ dbg line 18: label_for(9) = "unknown"
 ## The `try` keyword
 
 ```nomi-run
-fn safe_div(a: Int, b: Int): Result<Int, String> {
+fn safe_div(a: Int, b: Int) -> Result<Int, String> {
     if b == 0 {
         Err("div by zero")
     } else {
@@ -199,7 +251,7 @@ fn safe_div(a: Int, b: Int): Result<Int, String> {
     }
 }
 
-fn calculate(x: Int, y: Int): Result<Int, String> {
+fn calculate(x: Int, y: Int) -> Result<Int, String> {
     half = try safe_div(x, 2)
     ratio = try safe_div(half, y)
     Ok(ratio + 1)
@@ -226,7 +278,7 @@ In `calculate(100, 0)`, the second `safe_div` fails, so `calculate` returns
 `main` can return `Result<Unit, E>`, and then you can use `try` in it:
 
 ```nomi
-fn main(): Result<Unit, String> {
+fn main() -> Result<Unit, String> {
     ratio = try calculate(100, 0)
     dbg ratio
     Ok(Unit)
@@ -249,20 +301,20 @@ To parse a list of inputs, map each one to a `Result` and end the pipe with
 `try Result.collect()`:
 
 ```nomi-run
-fn parse(text: String): Result<Int, String> {
+fn parse(text: String) -> Result<Int, String> {
     Maybe.to_result(String.to_int(text), "not a number: " + text)
 }
 
-fn total(inputs: List<String>): Result<Int, String> {
-    numbers = inputs |> Iter.map(|s| parse(s)) |> try Result.collect()
+fn total(inputs: List<String>) -> Result<Int, String> {
+    numbers = inputs |> Iter.map(fn s -> parse(s)) |> try Result.collect()
 
-    Ok(Iter.reduce(numbers, |acc = 0, n| acc + n))
+    Ok(Iter.sum(numbers))
 }
 
 fn main() {
     dbg total(["1", "2", "3"])
     dbg total(["1", "x", "y"])
-    (numbers, errors) = ["1", "x", "y"] |> Iter.map(|s| parse(s)) |> Result.partition()
+    #(numbers, errors) = ["1", "x", "y"] |> Iter.map(fn s -> parse(s)) |> Result.partition()
 
     dbg numbers
     dbg errors
@@ -294,7 +346,7 @@ enum PortError {
     Invalid String
 }
 
-fn parse_port(text: Maybe<String>): Result<Int, PortError> {
+fn parse_port(text: Maybe<String>) -> Result<Int, PortError> {
     Some(raw) = text else { return Err(.Missing) }
 
     Some(n) = String.to_int(raw) else {
@@ -304,7 +356,7 @@ fn parse_port(text: Maybe<String>): Result<Int, PortError> {
     Ok(n)
 }
 
-fn port(text: Maybe<String>): Result<Int, String> {
+fn port(text: Maybe<String>) -> Result<Int, String> {
     Ok(n) = parse_port(text) else {
         Err(.Missing) -> 8080
         Err(.Invalid(raw)) -> return Err("bad port: ${raw}")

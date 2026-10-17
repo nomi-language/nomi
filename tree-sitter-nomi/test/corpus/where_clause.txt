@@ -3,7 +3,7 @@ Where clause with single constraint
 ================================================================================
 
 interface Sortable<T> {
-  fn sort<K>(source: self, key: (T) -> K): List<T> where T: Comparable, K: Hashable {
+  fn sort<K>(source: self, key: (T) -> K) -> List<T> where T: Comparable, K: Hashable {
     source
   }
 }
@@ -32,7 +32,7 @@ interface Sortable<T> {
           (function_type
             (type_identifier)
             (type_identifier))))
-      (generic_type
+      return_type: (generic_type
         (type_identifier)
         (type_identifier))
       (where_clause
@@ -52,7 +52,7 @@ Where clause on impl block
 ================================================================================
 
 impl Iter for Range<T> where T: Discrete {
-  fn next(r: Range<T>): Maybe<(T, Range<T>)> {
+  fn next(r: Range<T>) -> Maybe<#(T, Range<T>)> {
     None
   }
 }
@@ -78,7 +78,7 @@ impl Iter for Range<T> where T: Discrete {
           (generic_type
             (type_identifier)
             (type_identifier))))
-      (generic_type
+      return_type: (generic_type
         (type_identifier)
         (tuple_type
           (type_identifier)
@@ -92,7 +92,7 @@ impl Iter for Range<T> where T: Discrete {
 Where clause on ordinary function
 ================================================================================
 
-fn step_by<T, S>(r: Range<T>, by: S): Iter<T> where T: Comparable and Steppable<S> {
+fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S> {
   r
 }
 
@@ -117,7 +117,7 @@ fn step_by<T, S>(r: Range<T>, by: S): Iter<T> where T: Comparable and Steppable<
       (parameter
         name: (identifier)
         (type_identifier)))
-    (generic_type
+    return_type: (generic_type
       (type_identifier)
       (type_identifier))
     (where_clause
@@ -145,7 +145,7 @@ enum MaybeBox<T> where T: Display {
 }
 
 interface Renderable<T> where T: Display {
-  fn render(value: self): String
+  fn render(value: self) -> String
 }
 
 host type Handle<T> where T: Display
@@ -205,7 +205,7 @@ host type Handle<T> where T: Display
         (parameter
           name: (identifier)
           (self_type)))
-      (type_identifier)))
+      return_type: (type_identifier)))
   (extern_type_definition
     (host_keyword)
     name: (qualified_type_identifier
@@ -225,7 +225,7 @@ Where clause on required interface method
 ================================================================================
 
 interface Sortable<T> {
-  fn sort<K>(source: self, key: (T) -> K): List<T> where T: Comparable, K: Hashable
+  fn sort<K>(source: self, key: (T) -> K) -> List<T> where T: Comparable, K: Hashable
 }
 
 --------------------------------------------------------------------------------
@@ -252,7 +252,7 @@ interface Sortable<T> {
           (function_type
             (type_identifier)
             (type_identifier))))
-      (generic_type
+      return_type: (generic_type
         (type_identifier)
         (type_identifier))
       (where_clause
@@ -290,7 +290,7 @@ Where clause with multiple constraints and and-joined bounds
 ================================================================================
 
 interface Keyed<T> {
-  fn group<K>(source: self, key: (T) -> K): List<T> where T: Comparable, K: Hashable and Equatable {
+  fn group<K>(source: self, key: (T) -> K) -> List<T> where T: Comparable, K: Hashable and Equatable {
     source
   }
 }
@@ -319,7 +319,7 @@ interface Keyed<T> {
           (function_type
             (type_identifier)
             (type_identifier))))
-      (generic_type
+      return_type: (generic_type
         (type_identifier)
         (type_identifier))
       (where_clause
@@ -340,7 +340,7 @@ Where self on an interface default
 ================================================================================
 
 interface Scale<T> {
-  fn format(scale: self): String where self: Display and Hashable, T: Display {
+  fn format(scale: self) -> String where self: Display and Hashable, T: Display {
     scale
   }
 }
@@ -360,7 +360,7 @@ interface Scale<T> {
         (parameter
           name: (identifier)
           (self_type)))
-      (type_identifier)
+      return_type: (type_identifier)
       (where_clause
         (where_constraint
           name: (self_type)

@@ -1,6 +1,8 @@
 package analysis
 
 import (
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -36,7 +38,7 @@ import (
 // CheckTypes is NOT run here — callers (DocumentManager.analyze,
 // internal/frontend's Checker.Analyze) layer it on top.
 func BuildProject(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, loader FileLoader) *FileAnalysis {
-	entryFA, _, _ := buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, "", "", false, loader, nil)
+	entryFA, _, _ := buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, "", "", false, loader, nil, nil)
 	return entryFA
 }
 
@@ -68,7 +70,7 @@ func BuildProject(entryNodes []ast.Node, primitives *Scope, modules map[string]*
 // want them use the first return value (entry FA) and the nodes they
 // passed in.
 func BuildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, loader FileLoader) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
-	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, "", "", false, loader, nil)
+	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, "", "", false, loader, nil, nil)
 }
 
 // BuildProjectFromEntry is BuildProjectWithCache plus the entry
@@ -79,7 +81,7 @@ func BuildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 // path (LSP per-document analysis, tests) keep using
 // BuildProjectWithCache and accept the empty FilePath for the entry.
 func BuildProjectFromEntry(entryAbsPath string, entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, loader FileLoader) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
-	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, entryAbsPath, "", false, loader, nil)
+	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, entryAbsPath, "", false, loader, nil, nil)
 }
 
 // BuildProjectFromEntryWithManifest is BuildProjectFromEntry plus a
@@ -97,17 +99,33 @@ func BuildProjectFromEntry(entryAbsPath string, entryNodes []ast.Node, primitive
 // since it is not an entry point. When mfst is nil this behaves
 // identically to BuildProjectFromEntry.
 func BuildProjectFromEntryWithManifest(entryAbsPath string, entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, loader FileLoader, mfst *Manifest, entryModRel string, placeEntry bool) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
-	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, entryAbsPath, entryModRel, placeEntry, loader, mfst)
+	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, entryAbsPath, entryModRel, placeEntry, loader, mfst, nil)
 }
 
-func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, entryAbsPath string, entryModRel string, placeEntry bool, loader FileLoader, mfst *Manifest) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
+// reusedFile is a project file whose analysis an earlier build of the
+// program made and a new build takes as it is, with the nodes it was built
+// from: the file and every file it imports are unchanged, so its
+// declarations and its checked bodies hold. A build handed reused files
+// (buildProjectWithCache) neither parses, declares, walks nor types them;
+// it folds their declarations into the new program like any of its files'
+// and hands them the new Program. The caller checks the other files and
+// runs the program's reductions.
+type reusedFile struct {
+	fa    *FileAnalysis
+	nodes []ast.Node
+	// funcs are the functions nodes declare, nested ones included, as the
+	// earlier build's Program.ScopedFunctionFiles has them.
+	funcs []*ast.FuncDef
+}
+
+func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, entryAbsPath string, entryModRel string, placeEntry bool, loader FileLoader, mfst *Manifest, reused map[string]reusedFile) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
 	var analyzed func(key string) bool
 	if len(stdlibFAs) > 0 {
 		analyzed = func(key string) bool {
 			return IsStdlibKey(key) && stdlibFAs[strings.TrimPrefix(key, "std/")] != nil
 		}
 	}
-	proj, discoverErr := discoverProject(entryNodes, projectRoot, loader, mfst, analyzed)
+	proj, discoverErr := discoverProject(entryNodes, projectRoot, loader, mfst, analyzed, reused)
 	if entryAbsPath != "" {
 		proj.EntryPath = entryAbsPath
 		if proj.FilePaths == nil {
@@ -128,6 +146,10 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		nodes   []ast.Node
 		fa      *FileAnalysis
 		builder *builder
+		// reused is set for a file the build was handed (reusedFile),
+		// which has no builder: the sweeps that declare, walk and type a
+		// file skip it.
+		reused bool
 	}
 	all := make([]*fileBuilder, 0, len(proj.Files)+1)
 
@@ -145,14 +167,12 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			fileParent = nil
 		}
 		moduleScope := NewScope(fileParent)
-		// FilePath uses the same ResolveModulePath the import-side
-		// propagation uses to populate sym.SourceFile, so an opaque
-		// type's OwningSourceFile (copied from sym.SourceFile during
-		// type build) compares cleanly against c.fa.FilePath inside the
-		// type's owning module. Empty for the project entry; the entry
-		// has no key and its symbols are never written to by import
-		// propagation, leaving OwningSourceFile blank for any opaque
-		// types it declares — which matches its empty FilePath here.
+		// FilePath uses the same ResolveModulePath an import resolves the
+		// file by. The file's symbols carry it as their SourceFile
+		// (builder.define), so an opaque type's OwningSourceFile (copied
+		// from sym.SourceFile during type build) compares cleanly against
+		// c.fa.FilePath inside the type's owning module. Empty for an entry
+		// whose caller gave no path, whose symbols then carry none either.
 		filePath := proj.FilePaths[key]
 		fa := &FileAnalysis{
 			ModuleScope: moduleScope,
@@ -255,6 +275,10 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// None, Some}`) is what lets the variant names land in user scope
 	// without tripping the "cannot import variant 'X' directly" check.
 	preludeStmts, preludeErr := preludeImports(proj.ModuleIndex["std"], loader)
+	var preludePaths [][]string
+	for _, stmt := range preludeStmts {
+		preludePaths = append(preludePaths, importStmtPath(stmt))
+	}
 	if len(preludeStmts) > 0 {
 		for key, nodes := range proj.Files {
 			if IsStdlibKey(key) {
@@ -279,6 +303,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// straight to BuildProject (e.g. the LSP) we still want the same
 	// synthesis behaviour.
 	deriveErrsByKey := make(map[string][]TypeError, len(proj.Files)+1)
+	// loweredLen is each file's node count once lowered, before synthesis
+	// appends to it (FileAnalysis.ownNodes).
+	loweredLen := make(map[string]int, len(proj.Files))
 	for key, nodes := range proj.Files {
 		// Derive lowering FIRST: derive declarations become top-level impl
 		// blocks, which the derive + universal-Debug passes
@@ -287,6 +314,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		// Errors are internal parser-regression guards; surface them
 		// alongside the derive errors.
 		lowered, lowerErrs := LowerDerives(nodes)
+		loweredLen[key] = len(lowered)
 		extended, errs := SynthesizeDerives(lowered)
 		errs = append(lowerErrs, errs...)
 		// Universal default Debug: after derive synthesis, eagerly synthesize
@@ -367,22 +395,54 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// adds a stdlib module without updating stdlibBuildOrder above).
 	// Sorted, so every build of a program builds its files in one order and
 	// a defect that depends on that order shows on every run or none.
-	userKeys := make([]string, 0, len(proj.Files))
+	userKeys := make([]string, 0, len(proj.Files)+len(proj.reused))
 	for key := range proj.Files {
 		if IsStdlibKey(key) && seenStdlib[key] {
 			continue
 		}
 		userKeys = append(userKeys, key)
 	}
+	for key := range proj.reused {
+		userKeys = append(userKeys, key)
+	}
 	sort.Strings(userKeys)
 	for _, key := range userKeys {
-		all = append(all, makeBuilder(proj.Files[key], key))
+		if proj.reused[key] {
+			// In the cache where its builder would have put it, so that the
+			// files after it see it as they would in a build of every file.
+			r := reused[key]
+			cache[key] = r.fa
+			all = append(all, &fileBuilder{key: key, nodes: r.nodes, fa: r.fa, reused: true})
+			continue
+		}
+		fb := makeBuilder(proj.Files[key], key)
+		if paths, ok := proj.imports[key]; ok && !IsStdlibKey(key) {
+			// What importsOf finds in the nodes the file is built from: the
+			// prelude's imports put before the loaded ones, and none in
+			// what derive lowering and synthesis make.
+			fb.fa.keepImports(append(slices.Clip(preludePaths), paths...))
+		}
+		all = append(all, fb)
 	}
 	entryFB := makeBuilder(entryNodes, "")
 	if entryModRel != "" {
+		// The entry is a file of the module like any other: its key names
+		// it in the import graph and is the Origin of what it declares, so
+		// its analysis is the one it gets when another file is the entry.
 		cache[entryModRel] = entryFB.fa
+		entryFB.fa.Origin = originForKey(entryModRel)
 	}
 	all = append(all, entryFB)
+	loweredLen[""] = len(loweredEntry)
+	for _, fb := range all {
+		if fb.reused {
+			continue
+		}
+		fb.fa.ownNodes = loweredLen[fb.key]
+		if !IsStdlibKey(fb.key) {
+			fb.fa.ownNodes -= len(preludeStmts)
+		}
+	}
 	// Surface manifest-load failures (e.g. malformed nomi.toml) as a
 	// TypeError on the entry FA. Missing nomi.toml is not an error —
 	// DiscoverProject swallows ErrManifestMissing and leaves
@@ -423,9 +483,16 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	if placeEntry {
 		placedEntry = entryModRel
 	}
+	placementFiles := proj.Files
+	if len(proj.reused) > 0 {
+		placementFiles = maps.Clone(proj.Files)
+		for key := range proj.reused {
+			placementFiles[key] = reused[key].nodes
+		}
+	}
 	entryFB.fa.TypeErrors = append(
 		entryFB.fa.TypeErrors,
-		CheckEntryPlacement(proj.Manifest, entryNodes, placedEntry, proj.Files)...,
+		CheckEntryPlacement(proj.Manifest, entryNodes, placedEntry, placementFiles)...,
 	)
 	exportFiles := make([]ExportFile, 0, len(all))
 	for _, fb := range all {
@@ -472,12 +539,23 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			stdlibScopes[name] = scope
 		}
 	}
-	for _, fb := range all {
+	// built are the files the build declares, walks and types: every file
+	// but those it was handed (reusedFile).
+	built := all
+	if len(proj.reused) > 0 {
+		built = make([]*fileBuilder, 0, len(all))
+		for _, fb := range all {
+			if !fb.reused {
+				built = append(built, fb)
+			}
+		}
+	}
+	for _, fb := range built {
 		fb.builder.stdlibScopes = stdlibScopes
 	}
 
 	// Sweep A: register top-level symbols.
-	for _, fb := range all {
+	for _, fb := range built {
 		fb.builder.fileScope = fb.fa.ModuleScope
 		for _, node := range fb.nodes {
 			fb.builder.defineSymbolStub(node, fb.fa.ModuleScope)
@@ -487,12 +565,10 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	}
 
 	// Sweep B-ann: walk type annotations across every file. This
-	// populates each file's local Impls table via
-	// defineImplBlockAnnotations. Cross-file `mergeImpls` calls that
-	// happen during defineImport→resolveImport may see partial Impls
-	// for siblings whose annotations haven't run yet — Sweep B-impls
-	// below corrects that.
-	for _, fb := range all {
+	// populates each file's own Impls table via
+	// defineImplBlockAnnotations. A file holds only its own impls; the
+	// program's impl index (below) is where every file's are looked up.
+	for _, fb := range built {
 		for _, node := range fb.nodes {
 			fb.builder.defineSymbolAnnotations(node, fb.fa.ModuleScope)
 		}
@@ -503,51 +579,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		fb.builder.registerImplDefaults(fb.fa.ModuleScope)
 	}
 
-	// Sweep B-impls: propagate impls across import edges. Every file's
-	// local Impls is now fully populated, so re-merging each file's
-	// imports' Impls produces the full transitive conformance graph
-	// regardless of the order Sweep B-ann processed files. Stdlib
-	// imports are looked up the same way as any other import — when a
-	// stdlib file is present in `cache` (either because the user wrote
-	// `import std/X` and discovery loaded it, or because Sweep A/B
-	// pulled it in on-demand), its impls fold in here too. Stdlib
-	// impls that don't reach the cache via this transitive merge are
-	// still picked up downstream — the project-level ProjectImpls
-	// index folds every reachable stdlib FA via the eager fold
-	// below, so the checker's Program().ImplIndex branch covers the gap.
-	//
-	// Cache-key normalization mirrors resolveImport: a self-name
-	// import (head == currentModuleName) caches under the stripped
-	// rest-of-path; cross-module and intra-module bare imports cache
-	// under the raw import path. Walking imports through the same
-	// classifier keeps this loop's lookup in lockstep with what
-	// resolveImport actually wrote to cache.
 	currentModuleName := ""
 	if proj != nil && proj.Manifest != nil {
 		currentModuleName = proj.Manifest.Name
-	}
-	for _, fb := range all {
-		for _, node := range fb.nodes {
-			for _, modPath := range importPathsOf(node) {
-				if len(modPath) == 0 {
-					continue
-				}
-				// A stdlib file's bare sibling import is the same
-				// module; resolveImport keyed it `std/<name>`.
-				modPath = QualifyIntraStdlibImport(fb.key, modPath)
-				key := strings.Join(modPath, "/")
-				if rest, self := SelfNameImport(modPath, currentModuleName); self {
-					key = strings.Join(rest, "/")
-				}
-				if key == "" {
-					continue
-				}
-				if cached, ok := cache[key]; ok {
-					mergeImpls(fb.fa, cached)
-					mergeImplManifest(fb.fa, cached)
-				}
-			}
-		}
 	}
 
 	// Project-wide IfaceMethodImpls index. Walks every file's `impl Iface for
@@ -599,7 +633,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		// nil primitives: this pass runs before BuildTypes, so it yields bare
 		// names for everything regardless, and PopulateQualifiedReceivers
 		// overwrites every entry below once types exist.
-		qualifiedImplBlockReceivers[fn] = qualifyReceiver(faByKey[ifaceImplFiles[fn]], recv, nil)
+		qualifiedImplBlockReceivers[fn] = qualifyReceiver(faByKey[ifaceImplFiles[fn]], recv, nil, entryOriginOf(faByKey))
 	}
 	// The build's own impl-method tables, which its Program holds. A
 	// file's own maps (fa.ImplBlockReceiver) are not guaranteed to contain
@@ -669,10 +703,20 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// stdlib FA the prelude chain didn't touch).
 	//
 	// Order matters: this runs BEFORE Sweep B-bounds below, which is
-	// given it. Inputs (fa.Impls, fa.ImplManifest, the impl tables) are all
-	// populated by Sweep B-impls (just above) plus std.Load() for
-	// stdlib FAs.
-	implIndex := buildProjectImplIndex(filesByKey, own, owned)
+	// given it. Inputs (each file's own fa.Impls and fa.ImplManifest, the
+	// impl tables) are all populated by Sweep B-ann (above) plus std.Load()
+	// for stdlib FAs.
+	//
+	// Over the stdlib's base the build folds only its own files and lays them
+	// over the base's index (StdBase); share is that build's own part, and
+	// nil when the build folds every file itself.
+	share := newProgramShare(stdlibFAs, filesByKey, entryOriginOf(filesByKey))
+	var implIndex *ProjectImplIndex
+	if share != nil {
+		implIndex = share.fold(own, owned)
+	} else {
+		implIndex = buildProjectImplIndex(filesByKey, own, owned)
+	}
 	// A module this build loaded on demand (resolveImport) has a Program of
 	// its own with no index; it gets one holding this index when the build
 	// is complete. A stdlib analysis this build was handed is shared by
@@ -694,7 +738,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 
 	// Sweep B-bounds: the derive field/payload bound check (spec §38.1,
 	// *Field-type requirements*). Runs
-	// after Sweep B-impls so every file's local Impls is fully
+	// after Sweep B-ann so every file's own Impls is fully
 	// populated, and AFTER the project impl index has been built
 	// so CheckDeriveBounds can consult it
 	// for cross-file / stdlib impl knowledge. The (T, Iface) entries
@@ -702,14 +746,24 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// by defineImplBlockStub on the synthesizer's emitted
 	// impl block during Sweep A/B-ann), letting recursive types
 	// pass their own self-reference check naturally.
-	for _, fb := range all {
+	for _, fb := range built {
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckDeriveBounds(fb.fa, fb.nodes, implIndex)...)
+	}
+
+	// The declarations are done. Each of the build's own files keeps what
+	// they left in the fields its bodies add to, so its bodies can be thrown
+	// away and walked and checked again (rebuildBodies). The stdlib's files
+	// are checked once and never rebuilt.
+	for _, fb := range built {
+		if !IsStdlibKey(fb.key) {
+			fb.fa.keepDecls(fb.builder)
+		}
 	}
 
 	// Sweep B-bodies: walk function bodies. By now every file's
 	// symbols and impls are visible, so cross-file references in
 	// expressions resolve cleanly.
-	for _, fb := range all {
+	for _, fb := range built {
 		fb.builder.buildModuleBodies(fb.nodes, fb.fa.ModuleScope)
 	}
 
@@ -721,12 +775,8 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// Single-file callers get the same checks at the tail of buildModule;
 	// on-demand resolveImport loads go through buildModule too, so files
 	// in `cache` but not `all` are already covered.
-	for _, fb := range all {
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckUnusedImports(fb.fa, fb.nodes)...)
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckRedundantPreludeImports(fb.fa, fb.nodes)...)
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckUnusedBindings(fb.fa)...)
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckUselessReturns(fb.nodes)...)
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckRepeatedFields(fb.nodes)...)
+	for _, fb := range built {
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, checkUnused(fb.fa, fb.nodes)...)
 	}
 
 	// Sweep C-shells: pre-populate every type symbol's `.Type` with a
@@ -739,7 +789,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// Pass 1 hadn't run yet). The pre-pass eliminates that order
 	// dependency: every file's shells are in place before any file's
 	// Pass 2 (resolveTypeExpr) consults them.
-	for _, fb := range all {
+	for _, fb := range built {
 		BuildTypeShells(fb.fa, fb.nodes)
 	}
 	// Before BuildTypes, which reads TypeBool and TypeOrdering. See
@@ -750,93 +800,67 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// slice (it does not append to fa.TypeErrors itself), so capture
 	// them here. Callers that layer CheckTypes / AnalyzeIterSensitivity
 	// on top should append to fa.TypeErrors rather than overwrite it.
+	for _, fb := range built {
+		from := len(fb.fa.TypeErrors)
+		declErrs, bodyErrs := buildTypeHalves(fb.fa, fb.nodes, stdlibScopes)
+		if k := fb.fa.kept; k != nil {
+			k.typeErrors = append(slices.Clone(fb.fa.TypeErrors[from:]), declErrs...)
+		}
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, declErrs...)
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, bodyErrs...)
+	}
+
+	// The build's files now have their types, and with them the primitives
+	// they declare. One declared under a name the stdlib's identity passes
+	// resolve would change the stdlib's answers, so such a build folds every
+	// file itself after all. The index fold answered holds the same impls,
+	// which is all CheckDeriveBounds read from it.
+	if share != nil && !share.identitiesFit() {
+		*implIndex = *buildProjectImplIndex(filesByKey, own, owned)
+		share = nil
+	}
+	// The interface type-argument templates, which BuildTypes (Sweep C-types,
+	// just above) recorded, folded into the index in this order: the
+	// precompiled stdlib FAs first, then cache, then `all`, so a
+	// freshly-built template wins over a (possibly stale/empty) precompiled
+	// one on a name collision. buildProjectImplIndex ran before BuildTypes,
+	// so its fold of them saw none of the program's own. The checker's
+	// CheckTypes uses ImplTypeArgs to bind a generic interface's type params
+	// when unifying an interface-typed parameter against a concrete argument
+	// (e.g. an `Iter<T>`-typed param against a custom `impl Iter` argument —
+	// Set, the std/iter.nomi lazy wrappers). Without this, inline-lambda
+	// inference through those HOFs fails ("binary * type mismatch: T vs
+	// Int"). Over a base the stdlib's are in it already.
+	var typeArgFiles []*FileAnalysis
+	if share == nil {
+		names := make([]string, 0, len(stdlibFAs))
+		for name := range stdlibFAs {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			typeArgFiles = append(typeArgFiles, stdlibFAs[name])
+		}
+	}
+	for _, key := range stdlibFirstKeys(cache) {
+		if share == nil || !IsStdlibKey(key) {
+			typeArgFiles = append(typeArgFiles, cache[key])
+		}
+	}
 	for _, fb := range all {
-		typeErrs := buildTypes(fb.fa, fb.nodes, stdlibScopes)
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, typeErrs...)
+		typeArgFiles = append(typeArgFiles, fb.fa)
 	}
-
-	// Receiver identities, now that types exist to read Origin from.
-	PopulateQualifiedReceivers(implIndex, filesByKey)
-	// Interface identities, same precondition and the same reason: two
-	// same-named interfaces are two interfaces. See interface_identity.go.
-	PopulateImplIfaceOrigins(implIndex, filesByKey)
-	// Inherent (type-owned) receiver identities, same precondition again:
-	// without them `detectInherentImplCollisions` groups a local `Date.new`
-	// with `std/calendar`'s. See inherent_identity.go.
-	PopulateInherentReceiverOrigins(inherentImpls, filesByKey)
-	// Conformance identities, same precondition once more: without them
-	// `DetectMissingImpls` judges an `Equatable` demand on a user's own
-	// `Error` satisfied by std/calendar's `derive Equatable for Error`, and
-	// accepts a program with no impl of its own. See missing_impl_identity.go.
-	PopulateImplsByIdentity(implIndex, filesByKey)
-	for fn, qualified := range implIndex.QualifiedReceiver {
-		qualifiedImplBlockReceivers[fn] = qualified
-	}
-
-	// Re-aggregate the general ImplTypeArgs interface type-argument templates
-	// into the shared project index now that Sweep C-types (BuildTypes, just
-	// above) has recorded them. buildProjectImplIndex ran much earlier (before
-	// this sweep), so its ImplTypeArgs union captured an empty snapshot — every
-	// `impl Iface for T { ... }` template (`recordImplTypeArgsFromBlock`,
-	// type_builder.go Pass 3) is populated only here in Sweep C-types. The
-	// index's OTHER unions (Impls, ImplManifest, IfaceMethodImpls) are fine:
-	// they're recorded in the earlier Sweep B-impls. The files get the index
-	// only with their Program, below, so every consumer sees the merged maps —
-	// notably the checker's CheckTypes pass, which runs after this function
-	// returns and uses ImplTypeArgs to bind a generic
-	// interface's type params when unifying an interface-typed parameter against
-	// a concrete argument (e.g. an `Iter<T>`-typed param against a custom
-	// `impl Iter` argument — Set, the std/iter.nomi lazy wrappers). Without this,
-	// inline-lambda inference through those HOFs fails ("binary * type mismatch:
-	// T vs Int"). Order: precompiled stdlib FAs first, then cache, then `all` —
-	// so a freshly-built template wins over a (possibly stale/empty) precompiled
-	// one on a name collision.
-	if implIndex != nil {
-		mergeImplTypeArgs := func(src map[string]map[string]*ImplTypeArgs) {
-			for typeName, byIface := range src {
-				if implIndex.ImplTypeArgs[typeName] == nil {
-					implIndex.ImplTypeArgs[typeName] = make(map[string]*ImplTypeArgs)
-				}
-				for ifaceName, ita := range byIface {
-					implIndex.ImplTypeArgs[typeName][ifaceName] = ita
-				}
-			}
+	if share != nil {
+		populateInherentReceiverOrigins(inherentImpls, filesByKey, share.primitives)
+		share.populate(implIndex, filesByKey, typeArgFiles)
+		for fn, qualified := range share.index.QualifiedReceiver {
+			qualifiedImplBlockReceivers[fn] = qualified
 		}
-		mergeImplTypeArgSets := func(src map[string]map[string][]*ImplTypeArgs) {
-			for typeName, byIface := range src {
-				if implIndex.ImplTypeArgSets[typeName] == nil {
-					implIndex.ImplTypeArgSets[typeName] = make(map[string][]*ImplTypeArgs)
-				}
-				for ifaceName, set := range byIface {
-					implIndex.ImplTypeArgSets[typeName][ifaceName] = append(implIndex.ImplTypeArgSets[typeName][ifaceName], set...)
-				}
-			}
+	} else {
+		populateProgramIndex(implIndex, filesByKey, inherentImpls, typeArgFiles)
+		for fn, qualified := range implIndex.QualifiedReceiver {
+			qualifiedImplBlockReceivers[fn] = qualified
 		}
-		for _, fa := range stdlibFAs {
-			mergeImplTypeArgs(fa.ImplTypeArgs)
-			mergeImplTypeArgSets(fa.ImplTypeArgSets)
-		}
-		for _, fa := range cache {
-			mergeImplTypeArgs(fa.ImplTypeArgs)
-			mergeImplTypeArgSets(fa.ImplTypeArgSets)
-		}
-		for _, fb := range all {
-			mergeImplTypeArgs(fb.fa.ImplTypeArgs)
-			mergeImplTypeArgSets(fb.fa.ImplTypeArgSets)
-		}
-		// Now that BuildTypes (Sweep C-types, just above) has populated
-		// sym.Type on every impl's owning Symbol, fill the impl-FuncType
-		// index. Read by the checker's module-qualified dispatch path
-		// to recover the actually-resolved impl's return type when a
-		// module exports collapse multi-impl methods to one signature.
-		PopulateProjectImplFuncTypes(implIndex, filesByKey)
-		PopulateProjectTypeMethodSymbols(implIndex, filesByKey)
-		// Same precondition, and it must run AFTER the refresh above so it
-		// re-keys the post-BuildTypes symbols: `Type.method` resolution needs
-		// the receiver's declaring module, or three same-named receivers share
-		// one slot and map iteration order picks the winner.
-		PopulateTypeMethodIdentities(implIndex, filesByKey)
-		PopulateEnumDecls(implIndex, filesByKey)
 	}
 
 	// ContextType comes from the cache now that std/context.nomi's
@@ -867,6 +891,10 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	}
 	var entryBoots []entryBoot
 	for _, fb := range all {
+		if fb.reused {
+			// Worked out again below, from its declarations as they are.
+			fb.fa.BootErrors = nil
+		}
 		if fn := findBootFunc(fb.nodes); fn != nil {
 			if hasTopLevelMain(fb.nodes) {
 				bootFunctions[fn] = true
@@ -877,6 +905,12 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 					Message: "`boot` belongs in an entry file, one that defines `fn main`; a `group` names an entry's boot with `boot entry.boot(startup)`",
 				})
 			}
+		}
+		if fb.reused {
+			for _, fn := range reused[fb.key].funcs {
+				scopedFunctions[fn] = fb.fa
+			}
+			continue
 		}
 		for _, node := range fb.nodes {
 			WalkNodes(node, func(n ast.Node) {
@@ -909,69 +943,101 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// implIndex.QualifiedReceiver (above), and the interface-key map is
 	// merged the same way, so every member of the union groups on the same
 	// key shape.
-	collisionIndex, collisionFiles := CollisionImplIndex(ifaceImpls, ifaceImplFiles, implIndex)
-	collisionIfaceKeys := make(map[*ast.FuncDef]string, len(implBlockInterfaceKeys)+len(implIndex.ImplBlockInterfaceKey))
-	for fn, key := range implIndex.ImplBlockInterfaceKey {
-		collisionIfaceKeys[fn] = key
-	}
-	for fn, key := range implBlockInterfaceKeys {
-		collisionIfaceKeys[fn] = key
-	}
-	entryFB.fa.TypeErrors = append(
-		entryFB.fa.TypeErrors, detectImplCollisions(collisionIndex, collisionFiles, qualifiedImplBlockReceivers, collisionIfaceKeys, implIndex.ImplIfaceOrigin)...,
-	)
-	// Inherent type-function name collisions (two type-body `fn m` items
-	// for one type after lowering).
-	entryFB.fa.TypeErrors = append(
-		entryFB.fa.TypeErrors, detectInherentImplCollisions(inherentImpls)...,
-	)
-	// Synthesized inherent-block collisions with the same receiver/signature
-	// in one file.
-	entryFB.fa.TypeErrors = append(
-		entryFB.fa.TypeErrors, detectInherentImplBlockCollisions(inherentBlocks)...,
-	)
-
-	// Orphan rule check fires later in this function (declaringModuleIndex
-	// + detectOrphanImpls below) — see the cross-module-segments setup
-	// and the detectOrphanImpls call site for the orphan-check body.
 	//
-	// Orphan rule: every impl must declare either its interface or its
-	// receiver type in the implementing module. Without that anchor two
-	// independent libraries could ship the same (Iface, Type) pair and
-	// detectImplCollisions would have nothing to compare them against
-	// at any single user's build. Post-stdlib-as-package cutover, stdlib
-	// files are in `filesByKey` just like any other module, so
-	// declaringModuleIndex picks up stdlib-declared names from the
-	// regular files walk — the helper's stdlibInterfaces/stdlibTypes
-	// parameters are passed nil (legacy signature, kept for
-	// backwards-compat with hand-rolled callers in tests).
-	crossModuleSegments := map[string]bool{}
-	if proj != nil {
-		for shortName := range proj.ModuleIndex {
-			crossModuleSegments[shortName] = true
+	// These checks and the orphan rule below are about the program, not
+	// about the file that happens to be its entry: their errors are the
+	// Program's (Program.Errors), and a caller reports them where it likes.
+	//
+	// They read the declarations' nodes for the positions they report, so
+	// a recheck that moves a file's declarations (rebuildEditedBodies) asks
+	// for them again (Program.programErrors); the inherent blocks, which
+	// hold positions of their own, are collected again then.
+	recollect := false
+	programErrors := func() []TypeError {
+		inherentBlocks := inherentBlocks
+		if recollect {
+			inherentBlocks = nil
+			for _, fb := range all {
+				collectInherentImplBlocks(fb.nodes, fb.key, &inherentBlocks)
+			}
 		}
+		recollect = true
+		var programErrs []TypeError
+		if share != nil {
+			programErrs = append(programErrs, share.implCollisions(implIndex, own, qualifiedImplBlockReceivers)...)
+		} else {
+			collisionIndex, collisionFiles := CollisionImplIndex(ifaceImpls, ifaceImplFiles, implIndex)
+			collisionIfaceKeys := make(map[*ast.FuncDef]string, len(implBlockInterfaceKeys)+len(implIndex.ImplBlockInterfaceKey))
+			for fn, key := range implIndex.ImplBlockInterfaceKey {
+				collisionIfaceKeys[fn] = key
+			}
+			for fn, key := range implBlockInterfaceKeys {
+				collisionIfaceKeys[fn] = key
+			}
+			programErrs = append(
+				programErrs, detectImplCollisions(collisionIndex, collisionFiles, qualifiedImplBlockReceivers, collisionIfaceKeys, implIndex.ImplIfaceOrigin)...,
+			)
+		}
+		// Inherent type-function name collisions (two type-body `fn m` items
+		// for one type after lowering).
+		programErrs = append(
+			programErrs, detectInherentImplCollisions(inherentImpls)...,
+		)
+		// Synthesized inherent-block collisions with the same receiver/signature
+		// in one file.
+		programErrs = append(
+			programErrs, detectInherentImplBlockCollisions(inherentBlocks)...,
+		)
+
+		// Orphan rule check fires later in this function (declaringModuleIndex
+		// + detectOrphanImpls below) — see the cross-module-segments setup
+		// and the detectOrphanImpls call site for the orphan-check body.
+		//
+		// Orphan rule: every impl must declare either its interface or its
+		// receiver type in the implementing module. Without that anchor two
+		// independent libraries could ship the same (Iface, Type) pair and
+		// detectImplCollisions would have nothing to compare them against
+		// at any single user's build. Post-stdlib-as-package cutover, stdlib
+		// files are in `filesByKey` just like any other module, so
+		// declaringModuleIndex picks up stdlib-declared names from the
+		// regular files walk — the helper's stdlibInterfaces/stdlibTypes
+		// parameters are passed nil (legacy signature, kept for
+		// backwards-compat with hand-rolled callers in tests).
+		crossModuleSegments := map[string]bool{}
+		if proj != nil {
+			for shortName := range proj.ModuleIndex {
+				crossModuleSegments[shortName] = true
+			}
+		}
+		var declModule map[string][]string
+		if share != nil {
+			declModule = share.declaringModules(orphanRuleNames(ifaceImpls, implBlockReceivers), currentModuleName, crossModuleSegments)
+		} else {
+			declModule = declaringModuleIndex(
+				filesByKey, currentModuleName,
+				nil, nil, crossModuleSegments,
+			)
+		}
+		implModuleOf := func(fn *ast.FuncDef) string {
+			return moduleNameFromKey(ifaceImplFiles[fn], currentModuleName, crossModuleSegments)
+		}
+		programErrs = append(
+			programErrs,
+			detectOrphanImpls(ifaceImpls, declModule, implModuleOf, implBlockReceivers)...,
+		)
+		// Inherent-block orphan rule: the receiver type must be declared in the
+		// same file as the inherent impl. Type-qualified functions are the type's
+		// own API, not extension methods.
+		inherentDeclaredLocally := func(module, name string) bool {
+			return declaredTypesByFile[module][name]
+		}
+		programErrs = append(
+			programErrs,
+			detectInherentImplBlockOrphans(inherentBlocks, inherentDeclaredLocally)...,
+		)
+		return programErrs
 	}
-	declModule := declaringModuleIndex(
-		filesByKey, currentModuleName,
-		nil, nil, crossModuleSegments,
-	)
-	implModuleOf := func(fn *ast.FuncDef) string {
-		return moduleNameFromKey(ifaceImplFiles[fn], currentModuleName, crossModuleSegments)
-	}
-	entryFB.fa.TypeErrors = append(
-		entryFB.fa.TypeErrors,
-		detectOrphanImpls(ifaceImpls, declModule, implModuleOf, implBlockReceivers)...,
-	)
-	// Inherent-block orphan rule: the receiver type must be declared in the
-	// same file as the inherent impl. Type-qualified functions are the type's
-	// own API, not extension methods.
-	inherentDeclaredLocally := func(module, name string) bool {
-		return declaredTypesByFile[module][name]
-	}
-	entryFB.fa.TypeErrors = append(
-		entryFB.fa.TypeErrors,
-		detectInherentImplBlockOrphans(inherentBlocks, inherentDeclaredLocally)...,
-	)
+	programErrs := programErrors()
 
 	// Missing-impl diagnostic does NOT run here — BuildProjectWithCache
 	// finishes before CheckTypes, and the recording sites that matter
@@ -984,42 +1050,11 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// placed here because they only depend on impl declarations (Sweep
 	// B output), not on CheckTypes recordings.
 	//
-	// Instead, callers that layer CheckTypes + MergeImplManifest on top
-	// of BuildProjectWithCache (internal/frontend's Checker.Analyze,
-	// stdcompiler, analysis/document.go's LSP path) call
-	// analysis.FinalizeCoherence(entryFA) at the end of their pipeline,
-	// once the entry FA's ImplManifest holds every recording.
-
-	// Re-merge Impls + ImplManifest across files so the entry FA sees every
-	// file's impl registrations (each file's own impls are recorded during
-	// buildModule; this catch-up pass folds siblings into the entry FA).
-	for _, fb := range all {
-		if fb == entryFB {
-			continue
-		}
-		mergeImpls(entryFB.fa, fb.fa)
-		mergeImplManifest(entryFB.fa, fb.fa)
-	}
-	// Fold every stdlib FA's ImplManifest into the entry FA. The per-FA
-	// mergeImplManifest chain in Sweep B-impls (above) only folds
-	// manifests from FAs the entry transitively imports; the auto-
-	// prepended prelude chain reaches a handful of stdlib modules
-	// but stops short of others whose `impl` block bodies record
-	// conformance pairs the program ultimately needs at runtime (e.g.
-	// std/strings's Debug impl calling `Iter.each_while(s, …)` records
-	// (Iter, String) on std/strings's FA, but a program that only
-	// uses prelude-promoted names never imports std/strings and so
-	// never merges that recording in). Without this fold the entry's
-	// manifest is missing those pairs.
-	// stdlibFAs (lib.Files) already carries every analyzed stdlib FA
-	// with its manifest populated by std.Load(); this loop unconditionally
-	// folds them all into the entry manifest.
-	if entryFB.fa.ImplManifest == nil {
-		entryFB.fa.ImplManifest = make(map[string]map[string][]Recording)
-	}
-	for _, fa := range stdlibFAs {
-		mergeImplManifest(entryFB.fa, fa)
-	}
+	// Instead, callers that layer CheckTypes on top of BuildProjectWithCache
+	// (internal/frontend's Checker.Analyze, stdcompiler, analysis/document.go's
+	// LSP path) call analysis.FinalizeCoherence at the end of their pipeline,
+	// once every file it reads has been checked. It folds each file's own
+	// ImplManifest; nothing copies one file's demands into another's.
 
 	// Build the per-sibling nodes map for callers that need to layer
 	// CheckTypes onto each sibling. proj.Files is already keyed by the
@@ -1029,6 +1064,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	siblingNodes := make(map[string][]ast.Node, len(proj.Files))
 	for key, nodes := range proj.Files {
 		siblingNodes[key] = nodes
+	}
+	for key := range proj.reused {
+		siblingNodes[key] = reused[key].nodes
 	}
 	siblingFAs := cache
 	if entryModRel != "" {
@@ -1042,7 +1080,15 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	}
 
 	// The Program is complete: hand it to every file of the build. Nothing
-	// writes it from here on.
+	// writes it from here on. Its files are those the impl index folded and
+	// any module a function body's import loaded since.
+	var unindexed []*FileAnalysis
+	for key, fa := range cache {
+		if _, present := filesByKey[key]; !present {
+			filesByKey[key] = fa
+			unindexed = append(unindexed, fa)
+		}
+	}
 	program := &Program{
 		ImplIndex:           implIndex,
 		implTables:          *own,
@@ -1052,7 +1098,15 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		AppTypes:            appTypes,
 		ContextType:         contextType,
 		StdlibModuleScopes:  stdlibScopes,
+		unindexedImpls:      unionImpls(unindexed),
+		Errors:              programErrs,
+		programErrors:       programErrors,
+		results:             newProgramResults(),
 	}
+	if share != nil {
+		program.stdBase = share.base
+	}
+	program.setFiles(filesByKey)
 	for _, fb := range all {
 		fb.fa.program = program
 	}
@@ -1063,6 +1117,44 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	}
 
 	return entryFB.fa, siblingFAs, siblingNodes
+}
+
+// populateProgramIndex runs the passes that fill a program's impl index from
+// its files' typed declarations, once BuildTypes has run: the receiver,
+// interface, inherent-receiver and conformance identities, typeArgFiles'
+// interface type-argument templates in order, the impl function types, the
+// typed type-method symbols and their identities, and the enum declarations.
+func populateProgramIndex(idx *ProjectImplIndex, filesByKey map[string]*FileAnalysis, inherents []InherentMethodRecord, typeArgFiles []*FileAnalysis) {
+	primitives := primitiveOriginIndex(filesByKey)
+	// Receiver identities, now that types exist to read Origin from.
+	populateQualifiedReceivers(idx, filesByKey, primitives)
+	// Interface identities, same precondition and the same reason: two
+	// same-named interfaces are two interfaces. See interface_identity.go.
+	PopulateImplIfaceOrigins(idx, filesByKey)
+	// Inherent (type-owned) receiver identities, same precondition again:
+	// without them `detectInherentImplCollisions` groups a local `Date.new`
+	// with `std/calendar`'s. See inherent_identity.go.
+	populateInherentReceiverOrigins(inherents, filesByKey, primitives)
+	// Conformance identities, same precondition once more: without them
+	// `DetectMissingImpls` judges an `Equatable` demand on a user's own
+	// `Error` satisfied by std/calendar's `derive Equatable for Error`, and
+	// accepts a program with no impl of its own. See missing_impl_identity.go.
+	covered, blocked := recordImplsByIdentity(idx, filesByKey, primitives)
+	idx.implNamesWithIdentity = coveredNotBlocked(covered, blocked)
+	addImplTypeArgs(idx, typeArgFiles)
+	// Now that BuildTypes has populated sym.Type on every impl's owning
+	// Symbol, fill the impl-FuncType index. Read by the checker's
+	// module-qualified dispatch path to recover the actually-resolved impl's
+	// return type when a module exports collapse multi-impl methods to one
+	// signature.
+	PopulateProjectImplFuncTypes(idx, filesByKey)
+	PopulateProjectTypeMethodSymbols(idx, filesByKey)
+	// Same precondition, and it must run AFTER the refresh above so it
+	// re-keys the post-BuildTypes symbols: `Type.method` resolution needs
+	// the receiver's declaring module, or three same-named receivers share
+	// one slot and map iteration order picks the winner.
+	populateTypeMethodIdentities(idx, filesByKey, primitives)
+	PopulateEnumDecls(idx, filesByKey)
 }
 
 // inferAppStruct resolves the declared struct result of a boot function.
@@ -1096,7 +1188,7 @@ func inferAppStruct(bootFn *ast.FuncDef, fas []*FileAnalysis) (Type, *Symbol) {
 
 // bootSignatureMsg rejects an entry boot that takes anything but no parameter
 // or one Startup.
-const bootSignatureMsg = "boot must be `fn boot(): App` or `fn boot(startup: Startup): App`, taking no parameter or one Startup and returning the application struct"
+const bootSignatureMsg = "boot must be `fn boot() -> App` or `fn boot(startup: Startup) -> App`, taking no parameter or one Startup and returning the application struct"
 
 // validateScopedBootSignature checks an entry boot's signature: it takes no
 // parameter or one `Startup`, which may have a default, and returns a struct

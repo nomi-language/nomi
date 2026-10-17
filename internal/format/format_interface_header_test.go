@@ -23,14 +23,14 @@ func TestFormat_StructBodyConformanceAndMethods(t *testing.T) {
     cents: Int
 }
 
-fn doubled(m: Money): Money {
+fn doubled(m: Money) -> Money {
     Money{cents: m.cents * 2}
 }
 
 derive Equatable for Money
 
 impl Display for Money {
-    fn to_string(_m: Money): String {
+    fn to_string(_m: Money) -> String {
         "money"
     }
 }
@@ -67,14 +67,14 @@ func TestFormat_OrdersConformancesAndNestedImplBlocks(t *testing.T) {
     name: String
 }
 
-fn rename(d: Dog): Dog {
+fn rename(d: Dog) -> Dog {
     d
 }
 
 derive Equatable for Dog
 
 impl Speech for Dog {
-    fn speak(_d: Dog): String {
+    fn speak(_d: Dog) -> String {
         "woof"
     }
 }
@@ -84,14 +84,14 @@ impl Speech for Dog {
     name: String
 }
 
-fn rename(d: Dog): Dog {
+fn rename(d: Dog) -> Dog {
     d
 }
 
 derive Equatable for Dog
 
 impl Speech for Dog {
-    fn speak(_d: Dog): String {
+    fn speak(_d: Dog) -> String {
         "woof"
     }
 }
@@ -134,14 +134,14 @@ func TestFormat_HoistIdempotentWhenOrdered(t *testing.T) {
     name: String
 }
 
-fn rename(d: Dog): Dog {
+fn rename(d: Dog) -> Dog {
     d
 }
 
 derive Equatable for Dog
 
 impl Speech for Dog {
-    fn speak(_d: Dog): String {
+    fn speak(_d: Dog) -> String {
         "woof"
     }
 }
@@ -174,7 +174,7 @@ derive Hashable for Point
 impl Debug for Point
 
 impl Display for Point {
-    fn to_string(_p: self): String {
+    fn to_string(_p: self) -> String {
         "pt"
     }
 }
@@ -266,13 +266,13 @@ impl DateParts for Stamp
 // `impl ... for` blocks, blank-line separated.
 func TestFormat_MultipleImplementsForBlocks(t *testing.T) {
 	src := `impl Display for Money {
-    fn to_string(_m: self): String {
+    fn to_string(_m: self) -> String {
         "money"
     }
 }
 
 impl Debug for Money {
-    fn inspect(_m: Money): String {
+    fn inspect(_m: Money) -> String {
         "money"
     }
 }
@@ -285,7 +285,7 @@ func TestFormat_ExternTypeBodyImplMethod(t *testing.T) {
 	src := `host type Widget
 
 impl Display for Widget {
-    host fn to_string(w: self): String
+    host fn to_string(w: self) -> String
 }
 
 `
@@ -295,7 +295,7 @@ impl Display for Widget {
 // A top-level `impl Iface for Type { ... }` block round-trips.
 func TestFormat_InterfaceHeaderImplBlock(t *testing.T) {
 	src := `impl Display for Point {
-    fn to_string(_p: self): String {
+    fn to_string(_p: self) -> String {
         "point"
     }
 }
@@ -306,7 +306,7 @@ func TestFormat_InterfaceHeaderImplBlock(t *testing.T) {
 // A generic receiver `impl Iface for Box<T> { ... }` block round-trips.
 func TestFormat_GenericImplBlock(t *testing.T) {
 	src := `impl iter for Box<T> {
-    fn next(_b: self): Maybe<(T, Box<T>)> {
+    fn next(_b: self) -> Maybe<#(T, Box<T>)> {
         .None
     }
 }
@@ -316,7 +316,7 @@ func TestFormat_GenericImplBlock(t *testing.T) {
 
 func TestFormat_ImplBlockWhereClause(t *testing.T) {
 	src := `impl iter for Box<T> where T: Display and Debug {
-    fn next(_b: self): Maybe<(T, Box<T>)> {
+    fn next(_b: self) -> Maybe<#(T, Box<T>)> {
         .None
     }
 }
@@ -362,7 +362,7 @@ enum MaybeBox<T> where T: Display {
 }
 
 interface Renderable<T> where T: Display {
-    fn render(value: self): String
+    fn render(value: self) -> String
 }
 
 host type Handle<T> where T: Display
@@ -378,7 +378,7 @@ func TestFormat_ConstrainedTypeBodyImpl(t *testing.T) {
 impl Display for Range<T>
 
 impl Iter for Range<T> where T: Discrete {
-    fn next(_r: Range<T>): Maybe<(T, Range<T>)> {
+    fn next(_r: Range<T>) -> Maybe<#(T, Range<T>)> {
         none
     }
 }
@@ -391,7 +391,7 @@ impl Iter for Range<T> where T: Discrete {
 // (`impl json.Encode for Money`) round-trips.
 func TestFormat_QualifiedInterfaceImplBlock(t *testing.T) {
 	src := `impl json.Encode for Money {
-    fn encode(_m: self): String {
+    fn encode(_m: self) -> String {
         "json"
     }
 }
@@ -411,20 +411,20 @@ func TestFormat_EmptyImplBlock(t *testing.T) {
 // blank-separated form and lands on a fixed point.
 func TestFormat_ImplBlockBlankLineMigration(t *testing.T) {
 	src := `impl Display for Point {
-    fn to_string(_p: self): String {
+    fn to_string(_p: self) -> String {
         "point"
     }
-    fn other(_p: self): String {
+    fn other(_p: self) -> String {
         "x"
     }
 }
 `
 	want := `impl Display for Point {
-    fn to_string(_p: self): String {
+    fn to_string(_p: self) -> String {
         "point"
     }
 
-    fn other(_p: self): String {
+    fn other(_p: self) -> String {
         "x"
     }
 }
@@ -442,7 +442,7 @@ func TestFormat_TightConformanceLinesStable(t *testing.T) {
 derive Equatable for Money
 
 impl Display for Money {
-    fn to_string(_m: self): String {
+    fn to_string(_m: self) -> String {
         "money"
     }
 }
@@ -475,7 +475,7 @@ func TestFormat_QualifiedImplMethodRoundTrips(t *testing.T) {
 }
 
 impl Display for Money {
-    fn to_string(_m: self): String {
+    fn to_string(_m: self) -> String {
         "money"
     }
 }

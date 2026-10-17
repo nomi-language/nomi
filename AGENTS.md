@@ -69,9 +69,15 @@ cases as `nomi test` does, and reports each body the run would refuse as an
 error at its source (`vmhost.Program.Unsupported`); the LSP does the same in
 the background when a file is opened or saved and 400 ms after the last edit
 of a burst (`internal/lsp/lowering.go`), lowering its own analysis of the
-file's program when it analyzed the file as its own entry, the whole
-program checked cleanly, and every other file it read still holds that
-text on disk (`internal/analyzedlowering`). Every load, `nomi check`'s included,
+file's program when the program it keeps for the file checked cleanly and
+every other file it read still holds that text on disk
+(`internal/analyzedlowering`). A file an entry reaches is lowered as `nomi
+check <file>` lowers it, from the kept analyses of the files it reaches
+(`analysis.memberProgramOf`), unless a file outside those could change
+what the front end decides about them. A run of the same texts as the
+document's last answers from `analyzedlowering.Memo`, and an edit stops
+the document's run in progress (`irbuild.Program.Stop`, through
+`vmhost.CheckLowering`'s context). Every load, `nomi check`'s included,
 executes one thing on the VM before the program runs: the handler of each
 backtick typed literal whose handler returns a `Result`, refused when
 `vm.Machine.Effects` finds something it can reach acts outside the machine
@@ -85,6 +91,32 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   `BuildTypes` registers types, `CheckTypes` walks bodies. Names resolve
   whole-program, so the import graph may be cyclic and import order never
   matters.
+- **Language server analysis.** An open document is analyzed as part of a
+  whole program the `DocumentManager` keeps per project root and entry
+  (`internal/analysis/document_programs.go`): the program of the first entry
+  candidate that reaches it, else its own. Edits to one file or several
+  (`DocumentManager.Recheck`, `RecheckEdits`) that leave each file's
+  interface fingerprint as it was rebuild only those files' bodies, in place
+  (`internal/analysis/recheck.go`); a `once`'s value is a body, and an
+  unannotated one is inferred again and must keep its type (early cutoff,
+  `OnceTable.reinfer`). Any other edit checks the edited files and the files
+  that import them, directly or through others, afresh and keeps every other
+  file's analysis (`recheck_dependents.go`, `checkProgramFrom`), unless the
+  edit changes the impls a file brings (`implsFingerprint`), a kept file
+  holds something of a rechecked one, or that is every file; then the
+  program is checked afresh. The reductions over every file's bodies keep
+  each file's part with the analysis and body part it came from
+  (`FileBodies.generation`, which `walkBodiesAgain` renews): coherence
+  (`programDemands`), whole-file imports (`keptImplUses`) and a rootless
+  file's application-field roots, so a body edit reads only the edited
+  files again. Since a recheck rewrites installed analyses, a
+  reader of one holds `DocumentManager.View`, and a recheck takes that lock
+  exclusively until it has installed its answer.
+  `TestIncrementalMatchesFull` and `FuzzIncrementalMatchesFull` hold a
+  recheck to a full check, dump for dump and with no kept analysis holding
+  one a recheck replaced (`StaleForTest`), and
+  `TestOpenDocumentEditsMatchFreshBuilds` holds each document's diagnostics
+  to an analysis of the file on its own.
 - **IR builder.** `internal/irbuild` lowers every body a program runs (module
   functions, impl functions, `once` initializers, test bodies, lambdas, stdlib
   bodies) into an `ir.Func`. Generic functions, types and impls are
@@ -139,9 +171,13 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   standard library, `uniseg` and itself (`TestRuntimeImportsOnlyItsAllowlist`).
   Its internal organization may change freely to serve the VM.
 - **Stdlib.** `std/` is one Nomi module embedded into the binaries. Each
-  process analyzes it once (`std.Shared`) and lowers it once. Stdlib files
-  import each other with bare paths (`import iter.Iter`); code outside writes
-  `std/iter`.
+  process analyzes it once (`std.Shared`) and lowers it once. The analysis
+  also works out the stdlib's share of a program's impl index and coherence
+  facts once (`analysis.StdBase`, `std.StdLib.Base`); a build given those
+  analyses folds only its own files and lays them over the base, which no
+  build writes (`TestStdBase_*` in `internal/analysis` and `vmhost` hold it
+  to a build that folds every file). Stdlib files import each other with
+  bare paths (`import iter.Iter`); code outside writes `std/iter`.
 - **Host functions.** A stdlib `host fn` is answered either by a VM intrinsic
   (tasks, channels, collection kernels, `io.print`) or by a generated adapter.
   `internal/stdlibbindings` is the one hand-maintained table: `Funcs()` for the
@@ -301,6 +337,26 @@ plain `go test`, `TestFrontEndAcceptsSoItLowers` checks the generated programs
 and `TestKnownLoweringGaps` pins each known decline in `knownLoweringGaps`
 (`vmhost/lowering_gaps_test.go`) by a reproducer; the generator avoids those
 shapes, so remove a gap and its avoidance together when it is fixed.
+A test about how a blocked program is reported (`nomi run`, `nomi test`,
+`nomi check`, the REPL, exports, the language server) blocks on a planted
+decline, a call to `planted_decline` that `irbuild.PlantDeclineForTest`
+makes the builder decline, never on a real gap, which a fix would close.
+
+`testdata/lowering-declines.txt` lists every place the builder can decline a
+body, one line per site with its class (reached by a suite, dead because the
+checker rejects what would reach it, a gap found and pinned, or undecided)
+and a reproducer or reason. `internal/declinesites` finds the sites by reading
+`internal/irbuild`'s source (its package comment gives the rule), and
+`TestDeclineSitesAreListed` fails when a site is added or removed without the
+file. `NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/declinesites -run
+TestDeclineSitesAreListed -count=1` rewrites the list and keeps each site's
+class and note; classify a new site by hand. `NOMI_DECLINE_COVERAGE=1` instead
+runs the suites that hold programs to lowering, with coverage of
+`internal/irbuild`, and records which execute each site (about ten minutes,
+including the whole irbuild package; add `-timeout 0`, and
+`NOMI_DECLINE_PROFILES=<dir>` to keep the profiles there or, alone, to reread
+them). An unreached site is a place to look for a gap: write the program that
+reaches it, and pin it in `knownLoweringGaps` if the front end accepts it.
 
 A program that lowers must run without crashing the VM. `go test ./vmhost
 -run '^$' -fuzz '^FuzzLoweredProgramsRun$' -fuzztime 5m -parallel 4`
@@ -317,6 +373,24 @@ skipped, and so is one whose effects reach outside the machine (files,
 programs and every seed with a `fn main` (about 13 seconds), and
 `TestKnownRunGaps` pins each known crash in `knownRunGaps`
 (`vmhost/run_gaps_test.go`) by a reproducer.
+
+The generator and the fuzzers find a gap by chance; the feature × context
+matrix (`vmhost/feature_matrix_test.go`) looks for one on purpose. A feature
+is a small construct with a known value (a literal, a declared type, a
+function value, an existential, an `Iter` chain, a pattern, a call with
+named arguments, a derived impl); a context is a place the value stands (a
+binding, an argument, a `case` arm, a list element, a lambda, a `once`, a
+task body, a test, a `defer`, a `with` write, another file).
+`TestFeatureContextMatrix` (about 10 seconds) builds every feature in every
+context and a fixed twelfth of the triples (a fragile feature in two
+contexts); each program must be rejected with the text the matrix expects
+for it, or lower and print the feature's value. `NOMI_MATRIX=full` checks
+every triple (about a minute), `NOMI_MATRIX_ONLY=<text>` the cells whose
+name holds text, and `TestFeatureContextMatrixRotating` 60 more triples a
+day. A new feature or context is one entry in `mxFeatures`, `mxWraps`,
+`mxShells` or `mxPlacements`; a pair the type system makes invalid gets a
+tag or an `mxCheckerRules` entry that says why. Its findings are pinned in
+`vmhost/lowering_gaps_matrix_test.go`.
 
 A debug machine must run every program as a plain one does.
 `TestExpectation_ADebugMachineRunsEveryProgramAsAPlainOneDoes`
@@ -357,14 +431,34 @@ one of source and output and rejects the other. `go test ./vmhost -run '^$' -fuz
 `TestKnownFormatGaps` pins each known break in `knownFormatGaps`
 (`vmhost/format_gaps_test.go`) by a reproducer that fails once it is fixed.
 
-**Rotating sets.** Those fixed inputs are the regression baseline; four
+An incremental check must answer what a full check answers. The seam is
+`analysis.DocumentManager.Recheck` (`internal/analysis/document_program.go`):
+it takes a `CheckedProgram` and an edit to one file and answers the program
+after the edit, and today it checks the edited texts from scratch
+(`CheckProgram`). `analysis.DumpProgramForTest` renders a checked program as
+text: each file's syntax errors, diagnostics in front-end order, analysis and
+syntax tree, the program's own errors, every `once` with its type, and the
+diagnostics `nomi check` prints (`TestCheckProgramPrintsWhatTheFrontEndPrints`
+holds that list to the front end). `TestIncrementalMatchesFull`
+(`internal/analysis/incremental_test.go`, about 13 seconds) applies fixed edit
+sequences to `orderProject`, the multi-file corpus directories and, when it is
+there, the dungeon game, and after each edit compares the recheck's dump with
+a fresh full check's byte for byte. `TestIncrementalHarnessCatchesAStaleResult`
+proves a stale recheck fails it. `go test ./internal/analysis -run '^$' -fuzz
+'^FuzzIncrementalMatchesFull$' -fuzztime 5m -fuzzminimizetime 5s -parallel 4`
+mutates a project file and edits it the same way, and
+`TestIncrementalMatchesFullSample` (about 2 seconds) runs a fixed sample of
+those edits under plain `go test`.
+
+**Rotating sets.** Those fixed inputs are the regression baseline; five
 tests check a rotating set beside them, from a start seed that changes
 every UTC day (`internal/rotation`), so each day checks inputs no earlier
 run did. `TestFrontEndAcceptsSoItLowersRotating` checks 150 more generated
 programs, `TestLoweredProgramsRunRotating` runs 150 more,
 `TestFormatKeepsMeaningRotating` two more layout variants of every
-format input, and `TestLSPSurvivesTypingRotating` types five more documents
-of at most 400 lines. Each adds 2 to 4 seconds. The log names the start
+format input, `TestLSPSurvivesTypingRotating` types five more documents
+of at most 400 lines, and `TestIncrementalMatchesFullRotating` runs six more
+edit sequences. Each adds 2 to 4 seconds, the last under one. The log names the start
 seed. `NOMI_GEN_SEED=<n>` pins it and makes the run repeatable, and
 `NOMI_GEN_COUNT=<n>` changes how many seeds the set holds. A failure there
 says it came from the rotating set and prints its seed and a command that
@@ -372,6 +466,39 @@ checks exactly that program, variant (with `NOMI_GEN_INPUT=<name>`) or
 document. Such a failure may be a bug that was already there and that day's
 inputs found, not one the change under test made: check it on `next`
 before blaming the change, then fix it or pin it as a known gap.
+
+**Scale.** `internal/projectgen` generates a multi-file project from a seed
+and a line count: hub files most files import, unit files of 50 to 300
+lines in clusters with chains and import cycles, an entry and test files.
+Every project checks with no diagnostic, runs, and passes its tests
+(`TestGeneratedProjectsAreClean`, at about 1k and 10k lines). To open one
+in an editor:
+
+```
+NOMI_GENPROJECT_DIR=/tmp/gen NOMI_GENPROJECT_LINES=50000 go test ./internal/projectgen -run TestWriteGeneratedProject -count=1 -v
+```
+
+`TestEditWorkStaysFlatAsAProjectGrows` (`internal/analysis`, under a
+second) counts the files whose bodies each kind of edit re-checks
+(`BodyChecksForTest`) at about 1k and 10k lines: a body-only edit
+re-checks the edited file alone, and a signature edit the edited file and
+the files that import it. It also counts the program-wide passes' visits
+to project files (`CountProgramWorkForTest`): a body-only edit's
+reductions visit the edited file once, at every size, and the recordings
+a dependents recheck looks up to drop duplicates grow no faster than the
+project. It pins, with a comment, the work that still grows with the
+project: the full check after an impl is added. The table of time and allocations per operation (check cold and
+warm, `nomi check`, the language server's edits and lowering, `nomi run`,
+the heap a kept program holds) at 1k, 10k and 50k lines and on the stdlib
+takes about two minutes:
+
+```
+NOMI_SCALE_TABLE=1 go test ./internal/scalebench -run TestScaleTable -count=1 -v -timeout 0
+```
+
+`NOMI_SCALE_SIZES=1000,10000` picks the sizes. The same operations are Go
+benchmarks for profiling one: `go test ./internal/scalebench -run '^$'
+-bench 'Scale/50000/signature_edit_hub' -cpuprofile cpu.out`.
 
 CI (`.github/workflows/test.yml`, on pushes to `main` and on pull requests)
 runs `go vet ./...` and `go test ./...` with `internal/irbuild` as its own
@@ -393,7 +520,7 @@ five minutes, so neither is a per-change check:
   front end accepts; say in your report which wider checks you skipped.
 - **Before squashing a batch to `main`:** the full check, once: `go test ./...`
   (the whole irbuild package run on its own, never several in parallel) and
-  the three fuzz targets above. A failure there is attributed to the batch's
+  the four fuzz targets above. A failure there is attributed to the batch's
   changes by rerunning narrow tests on each.
 - When running several suites, capture each exit status separately; a chain
   reports only the last one.
@@ -501,7 +628,7 @@ The spec is canonical; these are the rules most often gotten wrong.
 - **Type bodies are newline-separated items.** Struct fields are bare
   `name: Type` lines with no commas and no `field` keyword. An interface
   declares functions only; a value every implementor must supply is a
-  function requirement (`fn name(value: self): String`, called
+  function requirement (`fn name(value: self) -> String`, called
   `HasName.name(x)` or `T.name(x)`). Enum variants are bare, one per line,
   no `|`.
   Behavior lives in `impl Type { ... }` and `impl Iface for Type { ... }`
@@ -532,7 +659,7 @@ The spec is canonical; these are the rules most often gotten wrong.
 - **Naming.** Types PascalCase; functions, bindings and parameters snake_case.
 - **Values are immutable; closures capture values at creation.** `return` and
   `try` inside a lambda exit the lambda.
-- **Scoped application fields.** `fn boot(startup: Startup): App`, in an
+- **Scoped application fields.** `fn boot(startup: Startup) -> App`, in an
   entry file, returns the app struct, which has at most one `Context` field
   (boot builds it with `Context.root()`). Its fields are read as `App.field`.
   The statement `with App.field = value` replaces one field from that line to
@@ -559,6 +686,12 @@ The spec is canonical; these are the rules most often gotten wrong.
   position.
 - Syntax gets an AST node. Do not synthesize data in the analysis builder for
   something the parser should emit.
+- `ast.Children` and `ast.Inspect` run a type switch generated from the
+  node types (`internal/ast/children_gen.go`, by `internal/ast/walkgen`)
+  that follows the reflective `ast.ReflectChildren`'s rules. After adding,
+  removing or reordering a node type or field, run
+  `go generate ./internal/ast`; `TestGeneratedChildrenAreCurrent` fails
+  until you do.
 - No fake symbols: a new concept gets its own representation at every layer.
 - No workarounds for type information the checker should provide; fix the
   checker.
@@ -602,7 +735,9 @@ After changing `tree-sitter-nomi/grammar.js`:
    `lineBreakInputs`, and fails on each one with an ERROR or MISSING node,
    or with a statement list (top level, block, `//!` prompt, case or else
    arms) whose statement count differs from the Go parser's, unless
-   `treeSitterParityGaps` pins it with a reason. It runs the CLI through
+   `treeSitterParityGaps` pins it with a reason. It also parses each
+   malformed source in `rejectedInputs`, which the Go parser must reject,
+   and fails on one tree-sitter reads with no ERROR or MISSING node. It runs the CLI through
    `scripts/tree-sitter.sh` and skips when `npx` or a cached copy of the
    pinned CLI is missing.
 2. Update `tree-sitter-nomi/queries/highlights.scm` (first match wins:

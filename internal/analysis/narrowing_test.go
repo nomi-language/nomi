@@ -24,20 +24,20 @@ func TestNarrowing_RecordsTheEmbeddedTypeInTheArm(t *testing.T) {
 	src := `struct Circle { radius: Float }
 type Tag String
 enum Shape { embeds Circle; embeds Tag; Point }
-fn take(_c: Circle): Int { 1 }
-fn tag(_t: Tag): Int { 2 }
-fn whole(_s: Shape): Int { 3 }
-fn f(value: Shape): Int {
+fn take(_c: Circle) -> Int { 1 }
+fn tag(_t: Tag) -> Int { 2 }
+fn whole(_s: Shape) -> Int { 3 }
+fn f(value: Shape) -> Int {
   case value {
     .Circle{radius: _} -> take(value)
     .Tag(_) -> tag(value)
     .Point -> whole(value)
   }
 }
-fn g(value: Shape): Int {
+fn g(value: Shape) -> Int {
   if .Circle{radius: _} = value { take(value) } else { whole(value) }
 }
-fn h(value: Shape): Int {
+fn h(value: Shape) -> Int {
   case value {
     .Circle{radius: _} as s -> whole(s)
     _ -> 0

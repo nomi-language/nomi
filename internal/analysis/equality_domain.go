@@ -17,6 +17,12 @@ import (
 //
 // A declared struct or enum with its own `impl Equatable` is exempt: its
 // equality is whatever that impl answers. Its type arguments are not.
+//
+// A handle to running state has no equality either: std's `Task<T>`,
+// `Sender<T>`, `Receiver<T>`, `Context` and `Supervisor`. Each is a reference
+// to something the runtime runs, with no value to compare, and the runtime
+// answers no equality for one (rt.Opaque). So `==` over one, or over a value
+// holding one, is rejected as it is for a function.
 
 // noEqualityMessage is the diagnostic for `op` over operand type t, or "" when
 // every part of t has equality.
@@ -25,10 +31,9 @@ func (c *checker) noEqualityMessage(t Type, op string) string {
 	if !ok {
 		return ""
 	}
-	what := "a function value"
+	what := noEqualityWhat(part)
 	fix := ""
 	if isStdIterType(part) {
-		what = "an Iter"
 		fix = "; materialize it with `Iter.to_list` to compare its elements"
 	}
 	if part == resolveTypeVar(t) {
@@ -44,6 +49,9 @@ func (c *checker) noEqualityPart(t Type, seen map[Type]bool) (Type, bool) {
 		return nil, false
 	}
 	seen[t] = true
+	if isStdHandleType(t) {
+		return t, true
+	}
 	switch ty := t.(type) {
 	case *FuncType:
 		return ty, true
@@ -124,10 +132,38 @@ func (c *checker) hasEquatableImpl(t Type) bool {
 	if name == "" {
 		return false
 	}
-	if c.fa.Impls[name]["Equatable"] {
-		return true
+	return c.fa.HasImpl(name, "Equatable")
+}
+
+// noEqualityWhat names the kind of value part is, for a diagnostic.
+func noEqualityWhat(part Type) string {
+	switch {
+	case isStdIterType(part):
+		return "an Iter"
+	case isStdHandleType(part):
+		return "a handle to running state"
 	}
-	return c.fa.Program().ImplIndex != nil && c.fa.Program().ImplIndex.Impls[name]["Equatable"]
+	return "a function value"
+}
+
+// stdHandleTypes are std's handles to running state, by declaring module.
+var stdHandleTypes = map[[2]string]bool{
+	{"std/tasks", "Task"}:             true,
+	{"std/channels", "Sender"}:        true,
+	{"std/channels", "Receiver"}:      true,
+	{"std/context", "Context"}:        true,
+	{"std/supervisors", "Supervisor"}: true,
+}
+
+// isStdHandleType reports whether t is one of stdHandleTypes.
+func isStdHandleType(t Type) bool {
+	switch ty := t.(type) {
+	case *PrimitiveType:
+		return stdHandleTypes[[2]string{ty.Origin, ty.Name_}]
+	case *DistinctType:
+		return stdHandleTypes[[2]string{ty.Origin, ty.Name}]
+	}
+	return false
 }
 
 // isStdIterType reports whether t is std's `Iter<T>` interface. A program
@@ -178,10 +214,9 @@ func (c *checker) rejectKeyWithoutEquality(node ast.Node, ty Type) Type {
 	if isStdSetType(coll) {
 		role = "a Set element"
 	}
-	what := "a function value"
+	what := noEqualityWhat(part)
 	fix := ""
 	if isStdIterType(part) {
-		what = "an Iter"
 		fix = "; materialize it with `Iter.to_list` first"
 	}
 	msg := fmt.Sprintf("`%s` cannot be %s: %s has no equality or hashing%s", key, role, what, fix)

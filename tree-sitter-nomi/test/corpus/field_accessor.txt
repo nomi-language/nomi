@@ -76,7 +76,7 @@ once names = users |> Iter.map(.name) |> Iter.to_list()
 Field accessor as a function's tail
 ==========
 
-fn name_of(): (User) -> String {
+fn name_of() -> (User) -> String {
     .name
 }
 

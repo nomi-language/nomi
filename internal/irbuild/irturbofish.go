@@ -6,29 +6,44 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
+// turbofishOnInterface reports whether t is `Iface.method<T>(args)`: a
+// turbofish on a function the interface declares, whose type argument is
+// the implementor. An owner function in an `impl Iface { ... }` block
+// (`Iter.sum<Int>(xs)`) is generic in its own type parameters, which the
+// turbofish gives as any generic function's does.
+func (bl *irScalarBuilder) turbofishOnInterface(t *ast.Call) bool {
+	fa, qualified := t.Func.(*ast.FieldAccess)
+	if !qualified || fa.Field == nil || bl.g.fa == nil {
+		return false
+	}
+	ti, isType := fa.Object.(*ast.TypeIdent)
+	if !isType {
+		return false
+	}
+	sym := bl.g.srcFA().References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
+	if sym == nil || sym.Kind != analysis.SymbolInterface {
+		return false
+	}
+	ref := bl.g.srcFA().References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
+	if ref == nil {
+		return true
+	}
+	_, declared := ref.Node.(*ast.InterfaceMethod)
+	return declared
+}
+
 // turbofishDispatch lowers `Iface.method<T>(args)` whose type argument names
 // a concrete, non-generic type as the type-qualified `T.method(args)`: the
 // type argument is what selects the impl (`FromJson.from_json<Int>(json)`
 // declares Self only in its result), and naming T as the owner selects the
 // same one. A generic type argument (`List<Int>`) needs an instance of a
-// generic impl and declines.
+// generic impl and declines. The caller has asked turbofishOnInterface.
 func (bl *irScalarBuilder) turbofishDispatch(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if len(t.TypeArgs) != 1 {
 		return no()
 	}
-	fa, qualified := t.Func.(*ast.FieldAccess)
-	if !qualified || fa.Field == nil {
-		return no()
-	}
-	ti, isType := fa.Object.(*ast.TypeIdent)
-	if !isType || bl.g.fa == nil {
-		return no()
-	}
-	sym, found := bl.g.srcFA().References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
-	if !found || sym.Kind != analysis.SymbolInterface {
-		return no()
-	}
+	fa := t.Func.(*ast.FieldAccess)
 	// kindInvalid: lookup — an argument with no kind falls through to the spelled-owner route below.
 	if k := bl.g.typeOf(t.TypeArgs[0]); k != kindInvalid {
 		// The type argument's own impl: a scalar or a local type spelled as

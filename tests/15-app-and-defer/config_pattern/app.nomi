@@ -17,7 +17,7 @@ pub struct ConfigApp {
     max_connections: Int = 5
 }
 
-pub fn load(deployment: String): ConfigApp {
+pub fn load(deployment: String) -> ConfigApp {
     base = ConfigApp{}
 
     case deployment {

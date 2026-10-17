@@ -37,7 +37,7 @@ derive Equatable for Bool
 derive Hashable for Bool
 
 impl Debug for Bool {
-    fn inspect(b: Bool): String {
+    fn inspect(b: Bool) -> String {
         Bool.to_string(b)
     }
 }

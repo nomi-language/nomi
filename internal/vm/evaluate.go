@@ -175,7 +175,7 @@ var pureCrossings = map[string]bool{
 	"Set.size": true, "Set.contains?": true, "Set.insert": true, "Set.remove": true,
 	"Set.union": true, "Set.intersection": true, "Set.difference": true,
 	"Set.subset?":   true,
-	"Vector.length": true, "Vector.at": true, "Vector.push": true, "Vector.concat": true,
+	"Vector.length": true, "Vector.get": true, "Vector.at": true, "Vector.push": true, "Vector.concat": true,
 	"Vector.set": true, "Vector.next_item": true,
 	"Map.get": true, "Map.put": true, "Map.size": true,
 	"Map.remove": true, "Map.contains_key?": true, "Map.merge": true, "Map.keys": true,
@@ -206,10 +206,11 @@ var pureCrossings = map[string]bool{
 	"calendar.zoned_add_years": true, "calendar.zoned_from_instant_in_raw": true,
 	"calendar.zoned_in_zone_raw": true, "calendar.zoned_offset_nanos": true,
 	"calendar.zoned_parse_raw": true, "calendar.zoned_with_zone_raw": true,
-	"Regex.compile": true, "Regex.find": true,
+	"Regex.compile": true, "Regex.find_in": true,
 	"Regex.pattern": true, "Regex.replace_all": true,
 	"Regex.contained_in?": true, "Regex.prefix_of?": true, "Regex.suffix_of?": true,
 	"Regex.split_in": true, "Regex.replace_in": true, "Regex.find_all_in": true,
+	"String.captures": true, "String.captures_all": true,
 
 	"strings.String.contained_in?": true, "strings.String.prefix_of?": true,
 	"strings.String.suffix_of?": true, "strings.String.find_all_in": true,
@@ -219,9 +220,11 @@ var pureCrossings = map[string]bool{
 	"strings.String.split_in": true, "strings.String.length": true,
 	"strings.String.slice": true, "strings.String.reverse": true, "strings.String.to_bytes": true,
 	"strings.String.to_codepoints": true, "strings.String.normalize": true,
+	"strings.String.words": true, "strings.String.lines": true,
+	"assertions.AssertionFailure.format": true,
 	// strings.String.repeat is not here: its cost is its Int operand.
 	"bytes.Byte.from_int": true, "bytes.Byte.to_int": true, "bytes.Bytes.length": true,
-	"bytes.Bytes.at": true, "bytes.Bytes.slice": true, "bytes.Bytes.concat": true,
+	"bytes.Bytes.get": true, "bytes.Bytes.at": true, "bytes.Bytes.slice": true, "bytes.Bytes.concat": true,
 	"bytes.Bytes.to_string": true, "bytes.Bytes.hash": true,
 	"bytes.Bytes.to_list": true, "bytes.Bytes.from_list": true,
 	"int.Int.to_string": true, "int.Int.to_float": true, "int.Int.wrapping_add": true,
@@ -240,6 +243,8 @@ var pureCrossings = map[string]bool{
 	// decimal.Decimal.divide and round are not here: their cost is their
 	// scale operand.
 	"duration.Duration.to_string": true, "codepoints.Codepoint.to_string": true,
+	"codepoints.Codepoint.letter?": true, "codepoints.Codepoint.whitespace?": true,
+	"codepoints.Codepoint.upper?": true, "codepoints.Codepoint.lower?": true,
 	"json.Json.decode": true, "json.Json.encode": true, "json.Json.to_dynamic": true,
 	"dynamic.Dynamic.field": true, "dynamic.Dynamic.index": true, "dynamic.Dynamic.path": true,
 	"dynamic.Dynamic.as_string": true, "dynamic.Dynamic.as_int": true,

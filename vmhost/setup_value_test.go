@@ -17,7 +17,7 @@ func TestRun_SetupValuesTestsBind(t *testing.T) {
 	const name = "main_test.nomi"
 	p, err := vmhost.LoadSource(name, `import std/io
 
-fn flag(): Bool {
+fn flag() -> Bool {
   False
 }
 

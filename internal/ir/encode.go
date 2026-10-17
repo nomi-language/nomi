@@ -47,7 +47,7 @@ import (
 
 // FormatVersion is the version the encoder writes and the only one the
 // decoder reads. Bump it with any change to what is written.
-const FormatVersion = 20
+const FormatVersion = 24
 
 // formatMagic opens every encoded image.
 const formatMagic = "NOMIIR\x00"
@@ -100,7 +100,7 @@ type ExportParam struct {
 }
 
 // Signature is e as Nomi declares it, without `export fn`:
-// `guess(game: Game, letter: String): Game`.
+// `guess(game: Game, letter: String) -> Game`.
 func (e *Export) Signature() string {
 	var b strings.Builder
 	b.WriteString(e.Name)
@@ -113,7 +113,7 @@ func (e *Export) Signature() string {
 	}
 	b.WriteByte(')')
 	if e.Result != "" {
-		b.WriteString(": " + e.Result)
+		b.WriteString(" -> " + e.Result)
 	}
 	return b.String()
 }
@@ -468,6 +468,9 @@ func (e *encoder) pos(w *wbuf, p Pos) {
 	}
 	if p.synth {
 		flags |= 2
+	}
+	if p.stdlib {
+		flags |= 4
 	}
 	w.byte1(flags)
 	if flags&1 == 0 {
@@ -855,7 +858,6 @@ func (e *encoder) instr(w *wbuf, in Instr) {
 	case *NoMatch:
 		w.byte1(tagNoMatch)
 		e.pos(w, n.pos)
-		w.temp(n.key)
 	case *Todo:
 		w.byte1(tagTodo)
 		e.pos(w, n.pos)
@@ -867,6 +869,9 @@ func (e *encoder) instr(w *wbuf, in Instr) {
 		w.temp(n.rows)
 		w.temp(n.row)
 		w.uv(e.str(n.text))
+		w.temp(n.name)
+		w.uv(uint64(n.nameLine))
+		w.uv(e.str(n.nameText))
 	case *Not:
 		w.byte1(tagNot)
 		e.pos(w, n.pos)

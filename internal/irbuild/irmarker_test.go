@@ -17,13 +17,13 @@ func TestIRMarker_CustomDebugAndClosure(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 type Ready
 impl Debug for Ready {
- fn inspect(value: Ready): String { _ = value; io.print("inspect"); "ready!" }
+ fn inspect(value: Ready) -> String { _ = value; io.print("inspect"); "ready!" }
 }
-fn echo(value: Ready): Ready { value }
-fn make(): Ready { io.print("make"); Ready }
+fn echo(value: Ready) -> Ready { value }
+fn make() -> Ready { io.print("make"); Ready }
 fn main() {
  ready = make()
- get = || echo(ready)
+ get = fn -> echo(ready)
  dbg get()
 }
 `, "make\ninspect\ndbg line 11: get() = ready!\n")
@@ -31,7 +31,7 @@ fn main() {
 
 func TestIRMarker_ImportedDeclaration(t *testing.T) {
 	verifyLambdaProgram(t, `import tokens.Ready
-fn identity(value: Ready): Ready { value }
+fn identity(value: Ready) -> Ready { value }
 fn main() { _ = identity(Ready) }
 `, "", map[string]string{"tokens.nomi": "pub type Ready\n"})
 }
@@ -55,16 +55,16 @@ fn main() {
   io.print(Debug.inspect(fakes.Quiet))
 }
 `, "(a)\n(b)\nTrue\nQuiet\n", map[string]string{
-		"greeter.nomi": "pub interface Greeter {\n  fn greet(g: self, name: String): String\n}\n",
+		"greeter.nomi": "pub interface Greeter {\n  fn greet(g: self, name: String) -> String\n}\n",
 		"fakes.nomi": "import greeter.Greeter\n\npub type Quiet\n\n" +
-			"impl Greeter for Quiet {\n  fn greet(_g: Quiet, name: String): String { \"(${name})\" }\n}\n",
+			"impl Greeter for Quiet {\n  fn greet(_g: Quiet, name: String) -> String { \"(${name})\" }\n}\n",
 	})
 }
 
 func TestIRMarker_StructFields(t *testing.T) {
 	verifyLambdaProgram(t, `type Ready
 struct Box { ready: Ready }
-fn read(box: Box): Ready { box.ready }
+fn read(box: Box) -> Ready { box.ready }
 fn main() {
  dbg read(Box{ready: Ready})
 }

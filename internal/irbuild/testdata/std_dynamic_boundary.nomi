@@ -22,14 +22,14 @@ import {
     std/json.Json
 }
 
-fn describe(label: String, r: Result<String, DecodeError>): String {
+fn describe(label: String, r: Result<String, DecodeError>) -> String {
     case r {
         Ok(s) -> label + " = " + s
         Err(e) -> label + " ! " + Display.to_string(e)
     }
 }
 
-fn sample(): Dynamic {
+fn sample() -> Dynamic {
     assert_ok = Json.decode(
         """
         {
@@ -50,7 +50,7 @@ fn sample(): Dynamic {
     }
 }
 
-fn main(): Unit {
+fn main() -> Unit {
     root = sample()
 
     // --- Debug.inspect, the rendering ---------------------------------------
@@ -248,7 +248,7 @@ fn main(): Unit {
                     io.print(
                         "as_list ok: ${Iter.count(
                             items
-                        )} " + Iter.reduce(items, |acc = "", it: Dynamic| {
+                        )} " + Iter.reduce(items, fn acc = "", it: Dynamic -> {
                             acc + "<" + Debug.inspect(it) + ">"
                         })
                     )

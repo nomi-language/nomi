@@ -14,22 +14,22 @@ import (
 func TestRun_BoolVariantPatternIfRuns(t *testing.T) {
 	out, err := runVM(t, `import std/io
 
-fn f(y: Bool): String {
+fn f(y: Bool) -> String {
   if False = y { "f" } else { "t" }
 }
 
-fn g(y: Bool): Int {
+fn g(y: Bool) -> Int {
   if True = y {
     io.print("yes")
   }
   1
 }
 
-fn h(y: Bool): String {
+fn h(y: Bool) -> String {
   if .True = y { "T" } else { "F" }
 }
 
-fn k(y: Bool): String {
+fn k(y: Bool) -> String {
   if Bool.False = y { "F" } else { "T" }
 }
 

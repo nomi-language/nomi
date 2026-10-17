@@ -26,14 +26,14 @@ enum Wrapper<T> {
     Empty
 }
 
-fn unwrap_int(w: Wrapper<Int>): Int {
+fn unwrap_int(w: Wrapper<Int>) -> Int {
     case w {
         .Wrapped(v) -> v
         .Empty -> 0
     }
 }
 
-fn unwrap_text(w: Wrapper<String>): String {
+fn unwrap_text(w: Wrapper<String>) -> String {
     case w {
         .Wrapped(v) -> v
         .Empty -> "none"
@@ -45,7 +45,7 @@ fn unwrap_text(w: Wrapper<String>): String {
 // pushes a second substitution frame over the first while the inner def is
 // built — which is `pushGenericSubst`'s stated stack discipline, and which a
 // flat two-instance program does not reach.
-fn depth(w: Wrapper<Wrapper<Int>>): Int {
+fn depth(w: Wrapper<Wrapper<Int>>) -> Int {
     case w {
         .Wrapped(inner) -> unwrap_int(inner)
         .Empty -> -1

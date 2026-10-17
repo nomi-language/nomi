@@ -102,36 +102,27 @@ func TestImplManifestRecordingIdempotent(t *testing.T) {
 	}
 }
 
-// TestImplManifestMergePreservesRecordings asserts that merging two FAs
+// TestImplManifestUnionPreservesRecordings asserts that folding two FAs
 // with distinct Recordings for the same (Iface, Type) pair unions both
-// recordings into the destination slice — not collapsing them to one.
-// The missing-impl diagnostic needs every demand site to render the full list,
-// so the merge must preserve provenance even for duplicate pairs.
-func TestImplManifestMergePreservesRecordings(t *testing.T) {
-	dst := &analysis.FileAnalysis{}
-	srcA := &analysis.FileAnalysis{}
-	srcB := &analysis.FileAnalysis{}
+// recordings — not collapsing them to one — in position order, whichever
+// file comes first. The missing-impl diagnostic needs every demand site to
+// render the full list, so the fold must preserve provenance even for
+// duplicate pairs.
+func TestImplManifestUnionPreservesRecordings(t *testing.T) {
+	srcA := &analysis.FileAnalysis{FilePath: "a.nomi"}
+	srcB := &analysis.FileAnalysis{FilePath: "b.nomi"}
 	recA := analysis.Recording{Pos: analysis.Pos{File: "a.nomi", Line: 7, Col: 12}, Kind: analysis.RecordingKindCallSite}
 	recB := analysis.Recording{Pos: analysis.Pos{File: "b.nomi", Line: 3, Col: 5}, Kind: analysis.RecordingKindTypedLiteralSlot}
 	srcA.RecordManifest("Int", "Display", recA)
 	srcB.RecordManifest("Int", "Display", recB)
-	analysis.MergeImplManifestForTest(dst, srcA)
-	analysis.MergeImplManifestForTest(dst, srcB)
-	recs := dst.ImplManifest["Display"]["Int"]
-	if len(recs) != 2 {
-		t.Fatalf("expected 2 recordings (union), got %d: %+v", len(recs), recs)
-	}
-	gotA, gotB := false, false
-	for _, r := range recs {
-		if r == recA {
-			gotA = true
-		}
-		if r == recB {
-			gotB = true
+	for _, files := range [][]*analysis.FileAnalysis{{srcA, srcB}, {srcB, srcA}} {
+		recs := analysis.UnionDemandsForTest(files)["Display"]["Int"]
+		if len(recs) != 2 || recs[0] != recA || recs[1] != recB {
+			t.Fatalf("want [recA recB], got %+v", recs)
 		}
 	}
-	if !gotA || !gotB {
-		t.Errorf("missing recordings after merge: gotA=%v gotB=%v, recs=%+v", gotA, gotB, recs)
+	if len(srcA.ImplManifest["Display"]["Int"]) != 1 || len(srcB.ImplManifest["Display"]["Int"]) != 1 {
+		t.Errorf("the fold wrote a file's own manifest: a=%v b=%v", srcA.ImplManifest, srcB.ImplManifest)
 	}
 }
 
@@ -165,12 +156,11 @@ func buildProjectManifest(t *testing.T, entrySrc string, siblings map[string]str
 	// Mirror internal/frontend's Checker.Analyze: run
 	// CheckTypes over each sibling FA + nodes pair so conformance recordings
 	// inside sibling function bodies (e.g. `${name}` interpolation) reach
-	// the entry's ImplManifest. Sibling diagnostics are discarded — the
+	// their own ImplManifests. Sibling diagnostics are discarded — the
 	// entry's CheckTypes is the authoritative diagnostics path here.
 	for key, sibFA := range cache {
 		nodes := siblingNodes[key]
 		_ = analysis.CheckTypes(sibFA, nodes)
-		analysis.MergeImplManifestForTest(entryFA, sibFA)
 	}
 	checkErrs := analysis.CheckTypes(entryFA, entryNodes)
 	all := append([]analysis.TypeError{}, entryFA.TypeErrors...)
@@ -182,7 +172,8 @@ func buildProjectManifest(t *testing.T, entrySrc string, siblings map[string]str
 		}
 		t.Fatalf("expected clean check, got %d errors:\n  %s", len(all), strings.Join(msgs, "\n  "))
 	}
-	return entryFA
+	// The assertions read the program's demands: every file's own, folded.
+	return &analysis.FileAnalysis{ImplManifest: analysis.ProgramDemandsForTest(entryFA)}
 }
 
 // A Dynamic slot in a typed literal triggers an interface-conformance check
@@ -201,8 +192,8 @@ func TestManifestRecordedAtTypedLiteralSlot(t *testing.T) {
 pub type Joiner
 
 impl Literal for Joiner {
-  fn from_fragments(fragments: List<Fragment<Display>>): String {
-    Iter.reduce(fragments, |acc = "", frag|
+  fn from_fragments(fragments: List<Fragment<Display>>) -> String {
+    Iter.reduce(fragments, fn acc = "", frag ->
       case frag {
         Static(s) -> acc + s
         Dynamic(v) -> acc + Display.to_string(v)
@@ -225,23 +216,22 @@ fn main() {
 	}
 }
 
-func TestImplManifestMerges(t *testing.T) {
-	dst := &analysis.FileAnalysis{}
+func TestImplManifestUnion(t *testing.T) {
 	src := &analysis.FileAnalysis{}
 	src.RecordManifest("Int", "Display", analysis.Recording{})
 	src.RecordManifest("String", "Display", analysis.Recording{})
 	src.RecordManifest("Int", "Hashable", analysis.Recording{})
 
-	analysis.MergeImplManifestForTest(dst, src)
+	dst := analysis.UnionDemandsForTest([]*analysis.FileAnalysis{src})
 
-	if len(dst.ImplManifest["Display"]["Int"]) == 0 {
-		t.Errorf("expected (Int, Display) merged into dst")
+	if len(dst["Display"]["Int"]) == 0 {
+		t.Errorf("expected (Int, Display) in the union")
 	}
-	if len(dst.ImplManifest["Display"]["String"]) == 0 {
-		t.Errorf("expected (String, Display) merged into dst")
+	if len(dst["Display"]["String"]) == 0 {
+		t.Errorf("expected (String, Display) in the union")
 	}
-	if len(dst.ImplManifest["Hashable"]["Int"]) == 0 {
-		t.Errorf("expected (Int, Hashable) merged into dst")
+	if len(dst["Hashable"]["Int"]) == 0 {
+		t.Errorf("expected (Int, Hashable) in the union")
 	}
 }
 
@@ -251,7 +241,7 @@ func TestImplManifestMerges(t *testing.T) {
 func TestManifestRecordedAtGenericInstantiation(t *testing.T) {
 	src := `import std/io
 
-pub fn show<T>(x: T): String where T: Display {
+pub fn show<T>(x: T) -> String where T: Display {
   Display.to_string(x)
 }
 
@@ -273,16 +263,16 @@ fn main() {
 // Pusher just because it appears as the T arg.
 func TestManifestSelfBindingOnly(t *testing.T) {
 	src := `pub interface Pusher<T> {
-  fn push(c: self, v: T): self
+  fn push(c: self, v: T) -> self
 }
 
 pub struct Bag { count: Int }
 
 impl Pusher for Bag {
-  fn push(c: Bag, v: Int): Bag { Bag{count: c.count + v} }
+  fn push(c: Bag, v: Int) -> Bag { Bag{count: c.count + v} }
 }
 
-fn demo(): Pusher<Int> {
+fn demo() -> Pusher<Int> {
   b = Bag{count: 0}
   Pusher.push(b, 42)
 }`
@@ -305,16 +295,16 @@ fn demo(): Pusher<Int> {
 // String do NOT implement Foo just because they appear as A and B args.
 func TestManifestSelfBindingOnly_MultipleNonSelfTypeParams(t *testing.T) {
 	src := `pub interface Foo<A, B> {
-  fn baz(x: self, a: A, b: B): self
+  fn baz(x: self, a: A, b: B) -> self
 }
 
 pub struct Bag { count: Int }
 
 impl Foo for Bag {
-  fn baz(x: Bag, a: Int, b: String): Bag { _ = b; Bag{count: x.count + a} }
+  fn baz(x: Bag, a: Int, b: String) -> Bag { _ = b; Bag{count: x.count + a} }
 }
 
-fn demo(): Foo<Int, String> {
+fn demo() -> Foo<Int, String> {
   b = Bag{count: 0}
   Foo.baz(b, 42, "hello")
 }`
@@ -341,7 +331,7 @@ func TestManifestRecursesIntoGenericContainerTypeArgs(t *testing.T) {
 	src := `import { std/io }
 
 fn main() {
-  ages = {"alice" => 30, "bob" => 25}
+  ages = %{"alice" => 30, "bob" => 25}
   io.print(ages)
 }`
 	fa, errs := checkSourceWithStdlib(src)
@@ -365,7 +355,7 @@ func TestManifestRecordsInterfaceBoundsThroughPipe(t *testing.T) {
 	src := `import { std/io }
 
 fn main() {
-  ages = {"alice" => 30, "bob" => 25}
+  ages = %{"alice" => 30, "bob" => 25}
   ages |> io.print()
 }`
 	fa, errs := checkSourceWithStdlib(src)
@@ -427,7 +417,7 @@ pub enum Maybe2<T> {
 }
 derive Debug for Maybe2
 
-fn demo(): Maybe2<Int> {
+fn demo() -> Maybe2<Int> {
   m = Maybe2.Some2(42)
   io.inspect(m)
   m
@@ -442,13 +432,13 @@ fn demo(): Maybe2<Int> {
 
 // A `${...}` interpolation inside a sibling module's function body
 // triggers a Display recording on that sibling's FileAnalysis. The
-// recording must reach the entry's ImplManifest so a program whose
+// recording must reach the program's demands so a program whose
 // entry imports the sibling and calls into it doesn't need to also
 // import std/strings explicitly. Without per-sibling CheckTypes, the
-// recording stays trapped on the sibling's FA and never propagates.
+// sibling's FA never records it.
 func TestManifestRecordsSiblingModuleBodyConformance(t *testing.T) {
 	siblings := map[string]string{
-		"greeter": `pub fn greet(name: String): String {
+		"greeter": `pub fn greet(name: String) -> String {
   "hello, ${name}"
 }`,
 	}
@@ -477,12 +467,12 @@ fn main() {
 func TestBareNameImplCall_Rejected(t *testing.T) {
 	src := `import std/io
 
-pub interface Speech { fn speak(s: self): String }
+pub interface Speech { fn speak(s: self) -> String }
 
 pub struct Dog { name: String }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name + " says woof"
   }
 }
@@ -501,18 +491,18 @@ fn main() {
 func TestBareNameImplCall_ShadowedByLocalFn_NotRecorded(t *testing.T) {
 	src := `import std/io
 
-pub interface Speech { fn speak(s: self): String }
+pub interface Speech { fn speak(s: self) -> String }
 
 pub struct Dog { name: String }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name + " says woof"
   }
 }
 
 fn main() {
-  speak = |n: Int| "shadowed: ${n}"
+  speak = fn n: Int -> "shadowed: ${n}"
   io.print(speak(42))
 }`
 	tokens := lexer.Lex(src)
@@ -540,8 +530,8 @@ func TestBareNameDefaultMethodCall_Rejected(t *testing.T) {
 	src := `import std/io
 
 pub interface Identity {
-  fn name(value: self): String
-  fn describe(value: self): String {
+  fn name(value: self) -> String
+  fn describe(value: self) -> String {
     "I am " + Identity.name(value)
   }
 }
@@ -549,7 +539,7 @@ pub interface Identity {
 pub struct Robot { model: String }
 
 impl Identity for Robot {
-  fn name(robot: Robot): String {
+  fn name(robot: Robot) -> String {
     robot.model
   }
 }
@@ -569,19 +559,19 @@ fn main() {
 func TestAmbiguousBareNameImplCall_Rejected(t *testing.T) {
 	src := `import std/io
 
-pub interface Greeter { fn greet(g: self): String }
-pub interface Farewell { fn greet(f: self): String }
+pub interface Greeter { fn greet(g: self) -> String }
+pub interface Farewell { fn greet(f: self) -> String }
 
 pub struct Person { name: String }
 
 impl Greeter for Person {
-  fn greet(p: Person): String {
+  fn greet(p: Person) -> String {
     "hello " + p.name
   }
 }
 
 impl Farewell for Person {
-  fn greet(p: Person): String {
+  fn greet(p: Person) -> String {
     "bye " + p.name
   }
 }
@@ -601,20 +591,20 @@ fn main() {
 func TestMultiReceiverSameInterfaceImplCall_NotAmbiguous(t *testing.T) {
 	src := `import std/io
 
-pub interface Speech { fn speak(s: self): String }
+pub interface Speech { fn speak(s: self) -> String }
 
 pub struct Dog { name: String }
 
 pub struct Cat { name: String }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name + " says woof"
   }
 }
 
 impl Speech for Cat {
-  fn speak(c: Cat): String {
+  fn speak(c: Cat) -> String {
     c.name + " says meow"
   }
 }
@@ -628,9 +618,8 @@ fn main() {
 }
 
 // Simplest possible program (single file, no siblings, no tag module) that
-// exercises the BuildProject pipeline. It checks mergeImplManifest's
-// wiring: the entry FileAnalysis returned by BuildProject must carry the
-// program-wide manifest.
+// exercises the BuildProject pipeline. It checks that the
+// program's demands, every file's own folded, carry the entry's.
 func TestImplManifestVisibleViaBuildProject(t *testing.T) {
 	src := `import std/io
 
@@ -710,7 +699,7 @@ func TestGenericInstantiationAttribution(t *testing.T) {
 pub struct C { x: Int }
 
 impl Display for C {
-  fn to_string(c: C): String { "C(" + Display.to_string(c.x) + ")" }
+  fn to_string(c: C) -> String { "C(" + Display.to_string(c.x) + ")" }
 }
 
 pub struct Wrapper<T> {
@@ -768,7 +757,7 @@ fn main() {
 func TestManifestRecordedForDestructuredImport(t *testing.T) {
 	src := `import std/dynamic.{Dynamic}
 
-pub fn show(d: Dynamic): String {
+pub fn show(d: Dynamic) -> String {
   Debug.inspect(d)
 }
 

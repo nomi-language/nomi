@@ -1,10 +1,10 @@
 import std/testing
 
-fn find_name(id: Int): Maybe<String> {
+fn find_name(id: Int) -> Maybe<String> {
     if id == 1 { Some("Ada") } else { None }
 }
 
-fn parse_id(s: String): Result<Int, String> {
+fn parse_id(s: String) -> Result<Int, String> {
     case String.to_int(s) {
         Some(id) -> Ok(id)
         None -> Err("expected a numeric id")

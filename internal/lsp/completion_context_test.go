@@ -35,13 +35,13 @@ func TestClassifyCompletion(t *testing.T) {
 		{"pipe stage", "fn f() {\n  xs |> ‸\n}\n", ctxPipe},
 		{"pipe stage, typed", "fn f() {\n  xs |> ma‸\n}\n", ctxPipe},
 		{"pipe owner member", "fn f() {\n  xs |> Iter.‸\n}\n", ctxMember},
-		{"dot variant alone", "fn f(): Color {\n  .‸\n}\n", ctxDotVariant},
+		{"dot variant alone", "fn f() -> Color {\n  .‸\n}\n", ctxDotVariant},
 		{"dot variant argument", "fn f() {\n  paint(.‸)\n}\n", ctxDotVariant},
 		{"dot variant after ==", "fn f() {\n  if c == .‸\n}\n", ctxDotVariant},
 		{"dot variant typed", "fn f() {\n  x: Color = .Re‸\n}\n", ctxDotVariant},
 		{"type annotation", "fn f(x: ‸) {}\n", ctxType},
 		{"type annotation typed", "fn f(x: Str‸) {}\n", ctxType},
-		{"return type", "fn f(): ‸ {}\n", ctxType},
+		{"return type", "fn f() -> ‸ {}\n", ctxType},
 		{"struct literal field", "fn f() {\n  p = Point{x: 1, ‸}\n}\n", ctxStructField},
 		{"struct literal field, unclosed", "fn f() {\n  p = Point{x: 1, ‸\n}\n", ctxStructField},
 		{"struct update field", "fn f() {\n  p = {..base, ‸}\n}\n", ctxStructField},
@@ -60,7 +60,7 @@ func TestClassifyCompletion(t *testing.T) {
 		{"parameter name without a type", "fn f(na‸) {}\n", ctxParamName},
 		{"parameter name, unclosed", "fn f(a: Int, na‸\n", ctxParamName},
 		{"parameter type, unclosed", "fn f(a: ‸\n", ctxType},
-		{"lambda parameter name", "fn f() {\n  g = |na‸| 1\n}\n", ctxNone},
+		{"lambda parameter name", "fn f() {\n  g = fn na‸ -> 1\n}\n", ctxNone},
 		{"predicate name", "fn f() {\n  empty?‸\n}\n", ctxStatement},
 	}
 	for _, tt := range tests {
@@ -105,17 +105,17 @@ func TestCompletion_KeywordsByPosition(t *testing.T) {
 	labelsInclude(t, top, "fn", "struct", "enum", "impl", "import", "group", "pub")
 	labelsExclude(t, top, "return", "defer", "if")
 
-	stmt := complete(t, "fn f(n: Int): Int {\n  total = n * 2\n  ‸\n}\n")
+	stmt := complete(t, "fn f(n: Int) -> Int {\n  total = n * 2\n  ‸\n}\n")
 	labelsInclude(t, stmt, "return", "defer", "with", "assert", "if", "case", "try", "n", "total")
 	labelsExclude(t, stmt, "struct", "impl", "group")
 
-	operand := complete(t, "fn f(n: Int): Int {\n  total = ‸\n}\n")
+	operand := complete(t, "fn f(n: Int) -> Int {\n  total = ‸\n}\n")
 	labelsInclude(t, operand, "if", "case", "try", "n")
 	labelsExclude(t, operand, "return", "defer", "struct")
 }
 
 func TestCompletion_TypePositionOffersTypes(t *testing.T) {
-	src := "struct Point {\n  x: Int\n}\n\nfn helper(): Int { 1 }\n\nfn f(p: ‸) {}\n"
+	src := "struct Point {\n  x: Int\n}\n\nfn helper() -> Int { 1 }\n\nfn f(p: ‸) {}\n"
 	items := complete(t, src)
 	labelsInclude(t, items, "Int", "String", "Point", "Maybe", "List")
 	labelsExclude(t, items, "helper", "if", "Some")
@@ -149,12 +149,12 @@ func TestCompletion_TestGroupLinesNotYetWritten(t *testing.T) {
 }
 
 func TestCompletion_PatternPositionOffersVariants(t *testing.T) {
-	items := complete(t, "fn f(m: Maybe<Int>): Int {\n  case m {\n    So‸\n  }\n}\n")
+	items := complete(t, "fn f(m: Maybe<Int>) -> Int {\n  case m {\n    So‸\n  }\n}\n")
 	labelsInclude(t, items, "Some")
 	labelsExclude(t, items, "f", "if")
 }
 
 func TestCompletion_PredicateNamePrefix(t *testing.T) {
-	src := "fn empty?(s: String): Bool { s == \"\" }\n\nfn f() {\n  empty?‸\n}\n"
+	src := "fn empty?(s: String) -> Bool { s == \"\" }\n\nfn f() {\n  empty?‸\n}\n"
 	labelsInclude(t, complete(t, src), "empty?")
 }

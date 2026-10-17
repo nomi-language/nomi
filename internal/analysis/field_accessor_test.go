@@ -33,20 +33,20 @@ enum Color {
   Blue
 }
 
-fn apply<A, B>(x: A, f: (A) -> B): B {
+fn apply<A, B>(x: A, f: (A) -> B) -> B {
   f(x)
 }
 
-fn apply_first<A, B>(f: (A) -> B, x: A): B {
+fn apply_first<A, B>(f: (A) -> B, x: A) -> B {
   f(x)
 }
 
-fn pick<T, K>(x: T, flip: Int = 0, key: (T) -> K): K {
+fn pick<T, K>(x: T, flip: Int = 0, key: (T) -> K) -> K {
   key(x)
 }
 
-fn user(): User {
-  User{name: "Ann", age: 3, address: Address{city: "Bath"}, greet: |s| s}
+fn user() -> User {
+  User{name: "Ann", age: 3, address: Address{city: "Bath"}, greet: fn s -> s}
 }
 `
 
@@ -55,39 +55,39 @@ func TestFieldAccessor_Accepted(t *testing.T) {
 		name string
 		body string
 	}{
-		{"argument whose parameter an earlier argument pinned", `fn f(): String {
+		{"argument whose parameter an earlier argument pinned", `fn f() -> String {
   apply(user(), .name)
 }`},
-		{"pipe stage argument, pinned by the piped value", `fn f(): Int {
+		{"pipe stage argument, pinned by the piped value", `fn f() -> Int {
   user() |> apply(.age)
 }`},
-		{"trailing argument routed past a defaulted parameter", `fn f(): Int {
+		{"trailing argument routed past a defaulted parameter", `fn f() -> Int {
   pick(user(), .age)
 }`},
-		{"annotated binding", `fn f(): Int {
+		{"annotated binding", `fn f() -> Int {
   get: (User) -> Int = .age
   get(user())
 }`},
-		{"return position", `fn f(): (User) -> String {
+		{"return position", `fn f() -> (User) -> String {
   .name
 }`},
-		{"generic struct through the expected type", `fn f(b: Box<Address>): Address {
+		{"generic struct through the expected type", `fn f(b: Box<Address>) -> Address {
   apply(b, .value)
 }`},
-		{"chain", `fn f(): String {
+		{"chain", `fn f() -> String {
   apply(user(), .address.city)
 }`},
-		{"chain through a generic struct", `fn f(b: Box<Address>): String {
+		{"chain through a generic struct", `fn f(b: Box<Address>) -> String {
   apply(b, .value.city)
 }`},
-		{"field holding a function is returned, not called", `fn f(): String {
+		{"field holding a function is returned, not called", `fn f() -> String {
   g = apply(user(), .greet)
   g("hi")
 }`},
-		{"tuple index", `fn f(p: (Int, String)): String {
+		{"tuple index", `fn f(p: #(Int, String)) -> String {
   apply(p, .1)
 }`},
-		{"anonymous struct", `fn f(p: {x: Int, y: Int}): Int {
+		{"anonymous struct", `fn f(p: {x: Int, y: Int}) -> Int {
   apply(p, .y)
 }`},
 	}
@@ -102,7 +102,7 @@ func TestFieldAccessor_Accepted(t *testing.T) {
 // The accessor's type is (S) -> F, recorded with the type it reads from for
 // the IR builder.
 func TestFieldAccessor_TypeAndRecordedParam(t *testing.T) {
-	fa, errs := checkSource(fieldAccessorDecls + `fn f(): String {
+	fa, errs := checkSource(fieldAccessorDecls + `fn f() -> String {
   apply(user(), .address.city)
 }`)
 	expectNoErrors(t, errs)
@@ -131,25 +131,25 @@ func TestFieldAccessor_Rejected(t *testing.T) {
   a = .name
   a
 }`, "`.name` reads a field only where a function is expected; write `x.name` to read it from a value"},
-		{"a non-function expected type", `fn f(): String {
+		{"a non-function expected type", `fn f() -> String {
   .name
 }`, "`.name` reads a field only where a function is expected, and String is expected here; write `x.name` to read it from a value"},
-		{"pipe stage", `fn f(): String {
+		{"pipe stage", `fn f() -> String {
   user() |> .name
 }`, "`.name` is not a pipe stage; read the field from the value instead, as in `x.name`"},
-		{"parameter type not known yet", `fn f(): String {
+		{"parameter type not known yet", `fn f() -> String {
   apply_first(.name, user())
 }`, "`.name` needs the record type it reads from; annotate the binding, e.g. `f: (User) -> String = .name`"},
-		{"unknown field, with a suggestion", `fn f(): String {
+		{"unknown field, with a suggestion", `fn f() -> String {
   apply(user(), .nmae)
 }`, "struct 'User' has no field 'nmae'\nhelp: did you mean 'name'?"},
-		{"unknown field in a chain", `fn f(): String {
+		{"unknown field in a chain", `fn f() -> String {
   apply(user(), .address.town)
 }`, "struct 'Address' has no field 'town'"},
-		{"not a struct", `fn f(): Int {
+		{"not a struct", `fn f() -> Int {
   apply(3, .name)
 }`, "`.name` reads a field of a struct, a record or a tuple, and Int is none of those"},
-		{"an enum", `fn f(): Int {
+		{"an enum", `fn f() -> Int {
   apply(Color.Red, .name)
 }`, "`.name` reads a field of a struct, a record or a tuple, and Color is none of those"},
 		{"a function of two arguments", `fn f() {

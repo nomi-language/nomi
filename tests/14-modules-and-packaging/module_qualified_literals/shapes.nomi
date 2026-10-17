@@ -21,14 +21,14 @@ pub enum Holder<T> {
     Of {value: T}
 }
 
-pub fn ring_radius(s: Shape): Int {
+pub fn ring_radius(s: Shape) -> Int {
     case s {
         .Ring{r} -> r
         .Square(n) -> n
     }
 }
 
-pub fn holder_int(h: Holder<Int>): Int {
+pub fn holder_int(h: Holder<Int>) -> Int {
     case h {
         .Of{value} -> value
     }

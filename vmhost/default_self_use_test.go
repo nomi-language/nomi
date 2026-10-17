@@ -13,38 +13,38 @@ import "testing"
 func TestDefaultSelf_IntoAGenericFunctionRuns(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
 
-fn insp<T>(x: T): String {
+fn insp<T>(x: T) -> String {
     Debug.inspect(x)
 }
 
-fn same<T>(x: T): T {
+fn same<T>(x: T) -> T {
     x
 }
 
-fn shown<T>(x: T): String where T: Display {
+fn shown<T>(x: T) -> String where T: Display {
     Display.to_string(x)
 }
 
 interface Scale {
-    fn label(scale: self): String
+    fn label(scale: self) -> String
 
-    fn direct(scale: self): String {
+    fn direct(scale: self) -> String {
         "${label(scale)} ${insp(scale)}"
     }
 
-    fn piped(scale: self): String {
+    fn piped(scale: self) -> String {
         scale |> insp()
     }
 
-    fn round(scale: self): String {
+    fn round(scale: self) -> String {
         label(same(scale))
     }
 
-    fn lam(scale: self): String {
-        [1, 2] |> Iter.map(|n| "${n}${insp(scale)}") |> String.join(",")
+    fn lam(scale: self) -> String {
+        [1, 2] |> Iter.map(fn n -> "${n}${insp(scale)}") |> String.join(",")
     }
 
-    fn bounded(scale: self): String where self: Display {
+    fn bounded(scale: self) -> String where self: Display {
         shown(scale)
     }
 }
@@ -52,13 +52,13 @@ interface Scale {
 type Grams Int
 
 impl Display for Grams {
-    fn to_string(Grams(n)): String {
+    fn to_string(Grams(n)) -> String {
         "${n} g"
     }
 }
 
 impl Scale for Grams {
-    fn label(_g: Grams): String {
+    fn label(_g: Grams) -> String {
         "grams"
     }
 }
@@ -66,11 +66,11 @@ impl Scale for Grams {
 type Cups Int
 
 impl Scale for Cups {
-    fn label(_c: Cups): String {
+    fn label(_c: Cups) -> String {
         "cups"
     }
 
-    fn bounded(_c: Cups): String {
+    fn bounded(_c: Cups) -> String {
         "no display"
     }
 }
@@ -95,23 +95,23 @@ fn main() {
 func TestDefaultSelf_IntoAnInterfaceTypeRuns(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
 
-fn shown(x: Display): String {
+fn shown(x: Display) -> String {
     Display.to_string(x)
 }
 
 interface Scale {
-    fn label(scale: self): String
+    fn label(scale: self) -> String
 
-    fn format(scale: self): String where self: Display {
+    fn format(scale: self) -> String where self: Display {
         "${label(scale)}=${shown(scale)}"
     }
 
-    fn many(scale: self): String where self: Display {
+    fn many(scale: self) -> String where self: Display {
         items: List<Display> = [scale, 1]
-        items |> Iter.map(|d| Display.to_string(d)) |> String.join(",")
+        items |> Iter.map(fn d -> Display.to_string(d)) |> String.join(",")
     }
 
-    fn doubled(scale: self): String where self: Add<self, self> and Display {
+    fn doubled(scale: self) -> String where self: Add<self, self> and Display {
         "${scale + scale}"
     }
 }
@@ -119,19 +119,19 @@ interface Scale {
 type Grams Int
 
 impl Display for Grams {
-    fn to_string(Grams(n)): String {
+    fn to_string(Grams(n)) -> String {
         "${n} g"
     }
 }
 
 impl Add<Grams, Grams> for Grams {
-    fn add(Grams(a), Grams(b)): Grams {
+    fn add(Grams(a), Grams(b)) -> Grams {
         Grams(a + b)
     }
 }
 
 impl Scale for Grams {
-    fn label(_g: Grams): String {
+    fn label(_g: Grams) -> String {
         "grams"
     }
 }
@@ -150,9 +150,9 @@ fn main() {
 // Only `self`, and only under the bound, conforms: a `self` with no bound,
 // and another value of the interface's own type, stay errors.
 func TestDefaultSelf_OnlyABoundedSelfEntersAnInterfaceType(t *testing.T) {
-	const shown = "fn shown(x: Display): String {\n    Display.to_string(x)\n}\n\n"
+	const shown = "fn shown(x: Display) -> String {\n    Display.to_string(x)\n}\n\n"
 	rejects(t, shown+`interface Scale {
-    fn format(scale: self): String {
+    fn format(scale: self) -> String {
         shown(scale)
     }
 }
@@ -162,7 +162,7 @@ fn main() {
 }
 `, "main.nomi:7:15: argument 1: expected Display, got Scale")
 	rejects(t, shown+`interface Scale {
-    fn format(scale: self, other: Scale): String where self: Display {
+    fn format(scale: self, other: Scale) -> String where self: Display {
         shown(other)
     }
 }
@@ -172,7 +172,7 @@ fn main() {
 }
 `, "main.nomi:7:15: argument 1: expected Display, got Scale")
 	rejects(t, `interface Scale {
-    fn doubled(scale: self): String where self: Display {
+    fn doubled(scale: self) -> String where self: Display {
         "${scale + scale}"
     }
 }
@@ -195,7 +195,7 @@ func TestDefaultSelf_CrossFileDefaultRuns(t *testing.T) {
     scale.Scale
 }
 
-fn show<T>(x: T): String where T: Scale {
+fn show<T>(x: T) -> String where T: Scale {
     T.format(x)
 }
 
@@ -204,7 +204,7 @@ fn main() {
     io.print(Grams.format(Grams(2)))
     io.print(show(Grams(3)))
     all: List<Scale> = [Grams(4)]
-    all |> Iter.each(|s| io.print(Scale.format(s)))
+    all |> Iter.each(fn s -> io.print(Scale.format(s)))
 }
 `
 	for _, tc := range []struct {
@@ -213,9 +213,9 @@ fn main() {
 		{
 			name: "plain default",
 			scale: `pub interface Scale {
-    fn label(scale: self): String
+    fn label(scale: self) -> String
 
-    fn format(scale: self): String {
+    fn format(scale: self) -> String {
         "[${label(scale)}]"
     }
 }
@@ -225,7 +225,7 @@ fn main() {
 pub type Grams Int
 
 impl Scale for Grams {
-    fn label(Grams(n)): String {
+    fn label(Grams(n)) -> String {
         "${n} g"
     }
 }
@@ -235,9 +235,9 @@ impl Scale for Grams {
 		{
 			name: "where self",
 			scale: `pub interface Scale {
-    fn label(scale: self): String
+    fn label(scale: self) -> String
 
-    fn format(scale: self): String where self: Display {
+    fn format(scale: self) -> String where self: Display {
         "${label(scale)}=${scale}"
     }
 }
@@ -247,13 +247,13 @@ impl Scale for Grams {
 pub type Grams Int
 
 impl Display for Grams {
-    fn to_string(Grams(n)): String {
+    fn to_string(Grams(n)) -> String {
         "${n} g"
     }
 }
 
 impl Scale for Grams {
-    fn label(_g: Grams): String {
+    fn label(_g: Grams) -> String {
         "grams"
     }
 }

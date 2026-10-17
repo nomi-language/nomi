@@ -31,11 +31,11 @@ struct Point {
 }
 
 interface Speaker {
-  fn speak(s: self): String
+  fn speak(s: self) -> String
 }
 
 impl Speaker for Point {
-  fn speak(s: Point): String { _ = s;
+  fn speak(s: Point) -> String { _ = s;
     "point"
   }
 }
@@ -60,7 +60,7 @@ fn every(
   _f: List<Int>,
   _g: List<Point>,
   _h: Map<String, Int>,
-  _i: (Int, String),
+  _i: #(Int, String),
   _j: (Int) -> String,
   _k: Maybe<Int>,
   _l: Result<Int, String>,
@@ -73,7 +73,7 @@ fn every(
   _t: List<Ordering>,
   _u: Literal<Int, Int>,
   _v: Iter<Int>
-): Int {
+) -> Int {
   0
 }
 

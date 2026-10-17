@@ -25,7 +25,7 @@ pub struct Hand {
 }
 
 impl Comparable for Hand {
-    fn compare(x: Hand, y: Hand): Ordering {
+    fn compare(x: Hand, y: Hand) -> Ordering {
         Int.compare(x.size, y.size)
     }
 }
@@ -56,12 +56,12 @@ struct Card {
 }
 
 impl Comparable for Card {
-    fn compare(a: Card, b: Card): Ordering {
+    fn compare(a: Card, b: Card) -> Ordering {
         Int.compare(a.rank, b.rank)
     }
 }
 
-fn lesser<T>(a: T, b: T): T where T: Comparable {
+fn lesser<T>(a: T, b: T) -> T where T: Comparable {
     if a <= b { a } else { b }
 }
 
@@ -70,8 +70,8 @@ fn main() {
     io.inspect(Iter.max([Level.Mid, Level.Low, Level.High]))
     io.inspect(Iter.min([Card{rank: 2, label: "a"}, Card{rank: 1, label: "b"}, Card{rank: 1, label: "c"}]))
     io.inspect(Iter.max([Card{rank: 2, label: "a"}, Card{rank: 1, label: "b"}, Card{rank: 2, label: "c"}]))
-    io.inspect(Iter.min_by([Card{rank: 1, label: "x"}, Card{rank: 0, label: "y"}], |c| if c.rank == 0 { Level.High } else { Level.Low }))
-    io.inspect(Iter.max_by(["b", "a"], |s| if s == "a" { Level.High } else { Level.Low }))
+    io.inspect(Iter.min_by([Card{rank: 1, label: "x"}, Card{rank: 0, label: "y"}], fn c -> if c.rank == 0 { Level.High } else { Level.Low }))
+    io.inspect(Iter.max_by(["b", "a"], fn s -> if s == "a" { Level.High } else { Level.Low }))
     io.inspect(Iter.min([Suit.Spades, Suit.Clubs]))
     io.inspect(Iter.max([Hand{size: 3}, Hand{size: 5}]))
     io.inspect(Iter.min([Pair{a: 2, b: 1}, Pair{a: 1, b: 9}]))

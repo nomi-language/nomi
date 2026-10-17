@@ -16,7 +16,7 @@ import (
 // type-parameter positions are `any`, the concrete type argument bound at the
 // call and the boxed answer asserted back there. That is complete for a
 // declaration whose every type-parameter mention is a BARE `T`, and it is
-// refused the moment one is not — `List<T>`, `Maybe<T>`, `Half<T>`, `(T, Int)`,
+// refused the moment one is not — `List<T>`, `Maybe<T>`, `Half<T>`, `#(T, Int)`,
 // `(A) -> B`. generic.go's header states the reason: the box would be at the
 // wrong DEPTH, because the body builds a `*rt.List[any]` while the caller wants
 // a `*rt.List[int64]`, so an assertion would fail at run time rather than refuse
@@ -36,7 +36,7 @@ import (
 //
 // # The instantiation guard
 //
-//	fn deep_grow<T>(x: T, depth: Int): Int {
+//	fn deep_grow<T>(x: T, depth: Int) -> Int {
 //	  if depth <= 0 { 0 } else { deep_grow(Box{inner: x}, depth - 1) + 1 }
 //	}
 //
@@ -199,13 +199,16 @@ func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 		tpl.params = append(tpl.params, tp.Name)
 		tpl.paramSet[tp.Name] = true
 	}
-	// Every parameter must be an annotated slot: a destructuring or an
-	// unannotated parameter reports at funcDecl's own clause, so claiming the
-	// declaration here would lower past a refusal. A default is evaluated at
-	// the call against the instance's signature, as for any `fn`.
+	// Every parameter must be annotated: an unannotated one reports at
+	// funcDecl's own clause, so claiming the declaration here would lower
+	// past a refusal. An annotated destructuring parameter (`#(a, b): #(A, B)`)
+	// is a slot of its annotation's type whose names the instance's prologue
+	// binds, as funcDecl binds a non-generic function's. A default is
+	// evaluated at the call against the instance's signature, as for any
+	// `fn`.
 	mentioned := make(map[string]bool, len(tpl.params))
 	for _, p := range fd.Params {
-		if p.Destructure != nil || p.TypeAnnotation == nil {
+		if p.TypeAnnotation == nil {
 			return nil
 		}
 		markMentionedParams(p.TypeAnnotation, tpl.paramSet, mentioned)
@@ -217,7 +220,7 @@ func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 	// parameter, because it has no other source to bind `T` from.
 	// Monomorphization has a third source: the analyzer's own solved return
 	// type at the call (see monoTypeArgs). A return-position parameter such as
-	// `fn decode<T>(json: Json): Result<T, ShapeError> where T: FromJson`
+	// `fn decode<T>(json: Json) -> Result<T, ShapeError> where T: FromJson`
 	// produces a value of `T` by dispatching on it, and `fn plus<L, R,
 	// Out>(lhs: L, rhs: R): Out where L: Add<R, Out>`
 	// (`12-derives-and-standard-interfaces/add_test.nomi`) names `Out` only in
@@ -242,7 +245,7 @@ func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 // depth.
 //
 // namesTypeParam answers the same question with a BOOLEAN, which is not enough
-// here: `fn pair<A, B>(a: A): B` has a parameter that names A, so a boolean over
+// here: `fn pair<A, B>(a: A) -> B` has a parameter that names A, so a boolean over
 // the whole list would admit it and leave B unsolvable. The per-name answer is
 // what makes the check per-PARAMETER rather than per-signature.
 func markMentionedParams(te ast.TypeExpr, params, out map[string]bool) {
@@ -369,7 +372,7 @@ func (g *gen) checkedMonoCallKinds(t *ast.Call, arity int) ([]kind, kind, bool) 
 				k = g.defaultSelfArg(t.Args[i], k)
 			}
 		}
-		if !irCallableValueKind(k) {
+		if k != kindUnit && !irCallableValueKind(k) {
 			return nil, kindInvalid, false
 		}
 		params[i] = k
@@ -403,7 +406,7 @@ func (g *gen) monoSolve(tpl *monoTemplate, params []kind, result kind) ([]kind, 
 	args := make([]kind, len(tpl.params))
 	for i, name := range tpl.params {
 		k, found := solved[name]
-		if !found || !irCallableValueKind(k) {
+		if !found || (k != kindUnit && !irCallableValueKind(k)) {
 			return nil, false
 		}
 		args[i] = k
@@ -414,31 +417,71 @@ func (g *gen) monoSolve(tpl *monoTemplate, params []kind, result kind) ([]kind, 
 // checkedMonoTypeArgsFilled is checkedMonoTypeArgs for a call whose checked
 // signature holds an inference variable nothing solved: a type argument the
 // checker admits undetermined because no value of it is made (spec,
-// "Determined type arguments"), as in `ident(Ok(1))`, whose error type is
-// open. The hole is read as Unit, as stdInstCallAt reads a std call's; when
-// every hole is the element of an empty list literal (`count_all([])`), as
-// Int, the representation `List.head([])` gets, since a type parameter
-// solved to Unit itself has no instance. It reports false for a signature
+// "Determined type arguments"), as in `is_some(None)` or `ident(Ok(1))`,
+// whose error type is open. No value of the hole's type exists, so any
+// representable type serves; each hole is filled by its position
+// (irFillHolesByPosition), as a std call's and a generic literal's are, so
+// the instance agrees with the values passed to it. A type parameter with a
+// bound cannot be Unit, which implements no interface, so when Unit lands on
+// one every hole is read as Int, which implements the std interfaces a bound
+// names (`shown(None)` with `T: Display`). It reports false for a signature
 // with no hole.
 func (g *gen) checkedMonoTypeArgsFilled(t *ast.Call, tpl *monoTemplate) ([]kind, bool) {
+	return g.solveFilled(t, tpl, g.monoSolve)
+}
+
+// solveFilled is checkedMonoTypeArgsFilled with the solving step given:
+// solve binds tpl's parameters from the call's parameter and result kinds,
+// which are this gen's (a sibling file's template solves in its own gen).
+func (g *gen) solveFilled(t *ast.Call, tpl *monoTemplate, solve func(*monoTemplate, []kind, kind) ([]kind, bool)) ([]kind, bool) {
 	ft := g.checkedCallSignature(t)
 	if ft == nil || len(ft.Params) != len(tpl.decl.Params) || !irUnsolvedType(ft) {
 		return nil, false
 	}
-	fills := []analysis.Type{analysis.TypeUnit}
-	if irOnlyEmptyListsUnsolved(t, ft) {
-		fills = append(fills, analysis.TypeInt)
+	fills := []func(analysis.Type) analysis.Type{
+		func(ty analysis.Type) analysis.Type { return irFillHolesByPosition(ty, false) },
+		func(ty analysis.Type) analysis.Type { return irFillHoles(ty, analysis.TypeInt) },
 	}
+	var fallback []kind
 	for _, fill := range fills {
 		params := make([]kind, len(ft.Params))
 		for i, p := range ft.Params {
-			params[i] = g.project(irFillHoles(p, fill))
+			params[i] = g.project(fill(p))
 		}
-		if args, ok := g.monoSolve(tpl, params, g.project(irFillHoles(ft.Return, fill))); ok {
+		args, ok := solve(tpl, params, g.project(fill(ft.Return)))
+		if !ok {
+			continue
+		}
+		if !monoBoundedAtUnit(tpl, args) {
 			return args, true
 		}
+		if fallback == nil {
+			fallback = args
+		}
 	}
-	return nil, false
+	return fallback, fallback != nil
+}
+
+// monoBoundedAtUnit reports whether a type parameter of tpl that carries a
+// bound is solved to Unit in args.
+func monoBoundedAtUnit(tpl *monoTemplate, args []kind) bool {
+	bounded := map[string]bool{}
+	for _, tp := range tpl.decl.TypeParams {
+		if len(tp.Bounds) > 0 {
+			bounded[tp.Name] = true
+		}
+	}
+	for _, wc := range tpl.decl.WhereClauses {
+		if len(wc.Bounds) > 0 {
+			bounded[wc.Name] = true
+		}
+	}
+	for i, name := range tpl.params {
+		if args[i] == kindUnit && bounded[name] {
+			return true
+		}
+	}
+	return false
 }
 
 // monoArgKind is the kind an argument expression the checker left open
@@ -465,7 +508,7 @@ func (g *gen) monoArgKind(n ast.Node) kind {
 }
 
 // monoSolveFromBounds solves a type parameter named only inside a `where`
-// bound (`fn first<T, I>(it: I): Maybe<T> where I: Iter<T>`) from the bound
+// bound (`fn first<T, I>(it: I) -> Maybe<T> where I: Iter<T>`) from the bound
 // subject's solved kind: the interface arguments the subject implements the
 // bound at, read back rather than inferred. A parameter something else
 // already solved keeps its answer, and a bound this cannot read back
@@ -783,7 +826,7 @@ func irUnsolvedType(t analysis.Type) bool {
 }
 
 // irStdIterElem is the element a std collection implements `Iter` at: a
-// List's, Vector's or Set's element, a Map's `(key, value)` pair, and a
+// List's, Vector's or Set's element, a Map's `#(key, value)` pair, and a
 // Range's element.
 func irStdIterElem(g *gen, k kind) (kind, bool) {
 	switch {

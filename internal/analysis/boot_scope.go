@@ -16,10 +16,10 @@ import (
 // type owning its own group may start itself:
 //
 //	pub struct Counter {
-//	  fn start(): Counter {
+//	  fn start() -> Counter {
 //	    inbox = Channel.buffered<Request>(16)
 //	    _ = Supervisor.new(drain: …, restart: Restart.Permanent)
-//	      |> Supervisor.spawn(|| Counter.serve(inbox))
+//	      |> Supervisor.spawn(fn -> Counter.serve(inbox))
 //	    Counter{inbox}
 //	  }
 //	}

@@ -6,7 +6,7 @@ import "testing"
 // panic the formatter ("unimplemented: IdentPattern"), on the spec's own
 // example.
 func TestFormat_StringPrefixPattern(t *testing.T) {
-	src := "fn route(path: String): String {\n" +
+	src := "fn route(path: String) -> String {\n" +
 		"    case path {\n" +
 		"        \"/users/\" + id -> id\n" +
 		"        _ -> \"\"\n" +

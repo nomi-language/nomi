@@ -155,7 +155,7 @@ func TestDeriveScope_PreludelessHandWrittenImplStillRequiresImport(t *testing.T)
 }
 
 impl Display for P {
-  fn to_string(_value: P): String { "p" }
+  fn to_string(_value: P) -> String { "p" }
 }
 `
 	_, errs := checkPreludeless(t, src)

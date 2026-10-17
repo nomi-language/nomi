@@ -4,7 +4,7 @@ import std/io
 // owner-qualified call, a generic function and a stdlib owner function. Each
 // is a function of its open slots.
 interface Console {
-    fn write_line(c: self, line: String): Unit
+    fn write_line(c: self, line: String) -> Unit
 }
 
 struct Stdout {
@@ -12,7 +12,7 @@ struct Stdout {
 }
 
 impl Console for Stdout {
-    fn write_line(c: Stdout, line: String): Unit {
+    fn write_line(c: Stdout, line: String) -> Unit {
         io.print("${c.prefix}${line}")
     }
 }
@@ -22,12 +22,12 @@ struct App {
     context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
     App{console: Stdout{prefix: "app> "}, context: Context.root()}
 }
 
-fn pair<T>(a: T, b: T): (T, T) {
-    (a, b)
+fn pair<T>(a: T, b: T) -> #(T, T) {
+    #(a, b)
 }
 
 fn main() {
@@ -37,7 +37,7 @@ fn main() {
     write("c")
     Iter.each(["d"], Stdout.write_line(c, _))
     Iter.each(["e", "f"], Console.write_line(App.console, _))
-    with_one: (Int) -> (Int, Int) = pair(1, _)
+    with_one: (Int) -> #(Int, Int) = pair(1, _)
     io.print(Debug.inspect(with_one(2)))
 
     io.print(

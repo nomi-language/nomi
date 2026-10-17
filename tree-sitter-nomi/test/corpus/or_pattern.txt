@@ -1,0 +1,205 @@
+================================================================================
+An or pattern matches either alternative in every pattern position
+================================================================================
+
+fn describe(m: Maybe<Tri>, cs: List<Codepoint>) -> Int {
+    a = case m {
+        Some(.Equilateral or .Isosceles) -> 1
+        None or Some(_) -> 0
+    }
+    b = case cs {
+        [')' or ']' as closer, ..rest] -> 1
+        _ -> 0
+    }
+    c = case m {
+        Some(.A(n)) or
+            Some(.B(n)) as whole when n > 0 or n < -1 -> n
+        (Some(.C(n)) as x) or (Some(.D(n)) as x) -> n
+        _ -> 0
+    }
+    a + b + c
+}
+
+fn pick(.L(n) or .R(n): Two) -> Int {
+    .L(m) or .R(m) = Two.L(n)
+    Ok(v) = parse() else {
+        Err(.Empty) or Err(.Blank) -> return 0
+        Err(_) -> return 1
+    }
+    if 1 or 2 = v { m } else { v }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)))
+      (parameter
+        name: (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier))))
+    return_type: (type_identifier)
+    (body
+      (binding
+        (identifier)
+        (case_expression
+          (identifier)
+          (case_branch
+            (enum_pattern
+              (type_identifier)
+              (or_pattern
+                alternative: (dot_variant
+                  (type_identifier))
+                alternative: (dot_variant
+                  (type_identifier))))
+            (integer))
+          (case_branch
+            (or_pattern
+              alternative: (type_identifier)
+              alternative: (enum_pattern
+                (type_identifier)))
+            (integer))))
+      (binding
+        (identifier)
+        (case_expression
+          (identifier)
+          (case_branch
+            (list_pattern
+              (as_pattern
+                pattern: (or_pattern
+                  alternative: (codepoint
+                    (codepoint_content))
+                  alternative: (codepoint
+                    (codepoint_content)))
+                name: (identifier))
+              (identifier))
+            (integer))
+          (case_branch
+            (integer))))
+      (binding
+        (identifier)
+        (case_expression
+          (identifier)
+          (case_branch
+            (as_pattern
+              pattern: (or_pattern
+                alternative: (enum_pattern
+                  (type_identifier)
+                  (enum_pattern
+                    (dot_variant
+                      (type_identifier))
+                    (identifier)))
+                alternative: (enum_pattern
+                  (type_identifier)
+                  (enum_pattern
+                    (dot_variant
+                      (type_identifier))
+                    (identifier))))
+              name: (identifier))
+            (binary_expression
+              (binary_expression
+                (identifier)
+                (integer))
+              (binary_expression
+                (identifier)
+                (unary_expression
+                  (integer))))
+            (identifier))
+          (case_branch
+            (or_pattern
+              alternative: (as_pattern
+                pattern: (enum_pattern
+                  (type_identifier)
+                  (enum_pattern
+                    (dot_variant
+                      (type_identifier))
+                    (identifier)))
+                name: (identifier))
+              alternative: (as_pattern
+                pattern: (enum_pattern
+                  (type_identifier)
+                  (enum_pattern
+                    (dot_variant
+                      (type_identifier))
+                    (identifier)))
+                name: (identifier)))
+            (identifier))
+          (case_branch
+            (integer))))
+      (binary_expression
+        (binary_expression
+          (identifier)
+          (identifier))
+        (identifier))))
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (or_pattern
+          alternative: (enum_pattern
+            (dot_variant
+              (type_identifier))
+            (identifier))
+          alternative: (enum_pattern
+            (dot_variant
+              (type_identifier))
+            (identifier)))
+        (type_identifier)))
+    return_type: (type_identifier)
+    (body
+      (pattern_binding
+        pattern: (binary_expression
+          (call_expression
+            function: (dot_variant
+              (type_identifier))
+            (identifier))
+          (call_expression
+            function: (dot_variant
+              (type_identifier))
+            (identifier)))
+        value: (call_expression
+          function: (type_field_access
+            (type_identifier)
+            (type_identifier))
+          (identifier)))
+      (else_binding
+        pattern: (call_expression
+          function: (type_identifier)
+          (identifier))
+        value: (call_expression
+          function: (identifier))
+        else: (else_arms
+          (else_arm
+            (or_pattern
+              alternative: (enum_pattern
+                (type_identifier)
+                (dot_variant
+                  (type_identifier)))
+              alternative: (enum_pattern
+                (type_identifier)
+                (dot_variant
+                  (type_identifier))))
+            (return_statement
+              (integer)))
+          (else_arm
+            (enum_pattern
+              (type_identifier))
+            (return_statement
+              (integer)))))
+      (if_expression
+        (if_match_condition
+          pattern: (or_pattern
+            alternative: (integer)
+            alternative: (integer))
+          value: (identifier))
+        (body
+          (identifier))
+        (body
+          (identifier))))))

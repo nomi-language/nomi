@@ -10,7 +10,7 @@ package irbuild
 // reads the pair back as an immediately invoked func literal whose scope exit
 // is `defer rt.ScopeExit(fr)`.
 //
-// `Task.spawn(|| body)` takes a zero-parameter lambda literal;
+// `Task.spawn(body)` takes a zero-parameter function value;
 // `Task.spawn_all` takes a sequence, a one-parameter function and its bound;
 // `Task.await`, `Task.outcome` and `Task.cancel` take one task handle and
 // `Task.await_all` a list of them. Each is a host crossing named
@@ -25,7 +25,7 @@ import (
 // concurrent lowers `concurrent { body }` in expression position.
 func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if bl.recording > 0 || t.Body == nil {
+	if t.Body == nil {
 		return no()
 	}
 	defer bl.g.enterBlockTypes(t.Body)()
@@ -124,14 +124,13 @@ func (bl *irScalarBuilder) taskCall(t *ast.Call, method string) (ir.Temp, kind, 
 		return no()
 	}
 	if method == "spawn" {
-		lam, isLambda := t.Args[0].(*ast.Lambda)
-		if !isLambda || len(lam.Params) != 0 {
+		// A lambda literal or any other zero-parameter function value.
+		args := bl.irQualLowerArgs(t)
+		fk := args.kinds[0]
+		if !args.ok || fk.tag != tagFunc || fk.comp == nil || len(funcParams(fk)) != 0 {
 			return no()
 		}
-		fn, fk, _, ok := bl.lower(lam)
-		if !ok {
-			return no()
-		}
+		fn := args.temps[0]
 		payload := funcResult(fk)
 		handle, built := bl.g.taskHandleKind(payload)
 		if !built {
@@ -202,9 +201,9 @@ func (bl *irScalarBuilder) taskSpawnAll(t *ast.Call) (ir.Temp, kind, bool, bool)
 		temps[plan.slots[i]], kinds[plan.slots[i]] = v, k
 	}
 	src, fn := kinds[0], kinds[1]
-	if src.tag == tagList {
-		// A List source is viewed as the sequence rt takes, as Iter's
-		// adapters view one.
+	if src.tag != tagSeq {
+		// A List, Vector, Set, Map, Range or user source is viewed as the
+		// sequence rt takes, as Iter's adapters view one.
 		view, elem, ok := bl.iterPlainView(argExpr(t.Args[0]), temps[0], src)
 		if !ok {
 			return no()
@@ -215,7 +214,12 @@ func (bl *irScalarBuilder) taskSpawnAll(t *ast.Call) (ir.Temp, kind, bool, bool)
 		return no()
 	}
 	elem := seqElem(src)
-	if fn.tag != tagFunc || fn.comp == nil || len(funcParams(fn)) != 1 || funcParams(fn)[0] != elem {
+	if fn.tag != tagFunc || fn.comp == nil || len(funcParams(fn)) != 1 {
+		return no()
+	}
+	// `Task.spawn_all([1, 2], show)` for `fn show(x: Display)`: an
+	// element entering the parameter's existential is the value itself.
+	if p := funcParams(fn)[0]; p != elem && !(irExistentialKind(p) && bl.g.irErases(p, elem)) {
 		return no()
 	}
 	payload := funcResult(fn)

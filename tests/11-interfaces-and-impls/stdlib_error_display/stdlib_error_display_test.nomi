@@ -7,7 +7,7 @@
 // between them: `Display.to_string: no implementation for type 'Error'`.
 //
 // Every construction shape must stamp the same identity. A struct-shaped
-// variant literal (`Error.InvalidIntRange{from, to}`) that stamped the enum
+// variant literal (`Error.InvalidWeight{weight}`) that stamped the enum
 // as spelled at the construction site, while bare and positional variants
 // read the declared enum's qualified name, would give one enum two
 // identities depending on which variant you built, and only one could
@@ -18,14 +18,14 @@ import {
 }
 
 test "a struct-shaped stdlib error variant renders" {
-    case Generator.int(6, 1) {
+    case Generator.weighted(#(-1.0, "bad"), []) {
         Ok(_) -> assert False
-        Err(e) -> assert Display.to_string(e) == "invalid integer range: 6..=1"
+        Err(e) -> assert Display.to_string(e) == "invalid random weight: -1.0"
     }
 }
 
 test "a bare stdlib error variant renders" {
-    case Generator.weighted((0.0, "never"), []) {
+    case Generator.weighted(#(0.0, "never"), []) {
         Ok(_) ->
             assert False
 
@@ -39,14 +39,14 @@ test "a bare stdlib error variant renders" {
 // The shape a caller writes first. Interpolation goes through Display, so it
 // trapped for exactly the same reason.
 test "interpolation renders a stdlib error" {
-    case Generator.int(6, 1) {
+    case Generator.weighted(#(-1.0, "bad"), []) {
         Ok(_) -> assert False
-        Err(e) -> assert "${e}" == "invalid integer range: 6..=1"
+        Err(e) -> assert "${e}" == "invalid random weight: -1.0"
     }
 }
 
 test "Debug.inspect renders a stdlib error" {
-    case Generator.int(6, 1) {
+    case Generator.weighted(#(-1.0, "bad"), []) {
         Ok(_) -> assert False
         Err(e) -> assert Debug.inspect(e) != ""
     }
@@ -61,7 +61,7 @@ test "two modules' same-named errors each get their own impl" {
             assert False
 
         Err(calendar_error) ->
-            case Generator.int(6, 1) {
+            case Generator.weighted(#(-1.0, "bad"), []) {
                 Ok(_) ->
                     assert False
 
@@ -70,7 +70,7 @@ test "two modules' same-named errors each get their own impl" {
                         calendar_error
                     ) == "invalid format: expected YYYY-MM-DD, got \"05/04/2026\""
 
-                    assert Display.to_string(random_error) == "invalid integer range: 6..=1"
+                    assert Display.to_string(random_error) == "invalid random weight: -1.0"
                     refute Display.to_string(calendar_error) == Display.to_string(random_error)
                 }
             }

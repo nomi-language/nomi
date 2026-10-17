@@ -56,7 +56,7 @@ func TestFindUnusedImports_BraceItemSole(t *testing.T) {
 }
 
 func TestFindUnusedImports_BraceItemOneOfSeveral(t *testing.T) {
-	src := "import std/comparable.{Comparable, Ordering}\n\nfn f<T>(x: T): T where T: Comparable { x }\n"
+	src := "import std/comparable.{Comparable, Ordering}\n\nfn f<T>(x: T) -> T where T: Comparable { x }\n"
 	items, _, _ := findUnusedWithStdlib(t, src)
 	u := findOnlyUnused(t, items)
 	if u.ItemKind != analysis.UnusedBraceItem {
@@ -71,7 +71,7 @@ func TestFindUnusedImports_BraceItemOneOfSeveral(t *testing.T) {
 }
 
 func TestFindUnusedImports_SelfMarker(t *testing.T) {
-	src := "import std/results.Result.{self, Ok}\n\nfn f(): Maybe<Int> { o = Ok(1)\n  None }\n"
+	src := "import std/results.Result.{self, Ok}\n\nfn f() -> Maybe<Int> { o = Ok(1)\n  None }\n"
 	items, _, _ := findUnusedWithStdlib(t, src)
 	u := findOnlyUnused(t, items)
 	if u.ItemKind != analysis.UnusedSelfMarker {
@@ -150,7 +150,7 @@ func expectUnusedContaining(t *testing.T, errs []analysis.TypeError, substr stri
 func TestUnusedImport_DeadBraceItem(t *testing.T) {
 	src := `import std/comparable.{Comparable, Ordering}
 
-fn f<T>(x: T): T where T: Comparable { x }
+fn f<T>(x: T) -> T where T: Comparable { x }
 `
 	errs := buildErrsWithStdlib(t, src)
 	e := expectUnusedContaining(t, errs, "imported name 'Ordering' is unused — remove it from the import")
@@ -186,7 +186,7 @@ fn main() { io.print("hi") }
 `))
 	expectNoUnused(t, buildErrsWithStdlib(t, `import std/instant.Instant
 
-fn f(t: Instant): Instant { t }
+fn f(t: Instant) -> Instant { t }
 `))
 }
 
@@ -203,7 +203,7 @@ fn main() {
 func TestUnusedImport_SelectiveAlias(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `import std/maybe.Maybe.{Some as Just, None as Nothing}
 
-fn f(): Maybe<Int> { Just(42) }
+fn f() -> Maybe<Int> { Just(42) }
 `)
 	expectUnusedContaining(t, errs, "imported name 'None' (bound as 'Nothing') is unused")
 	for _, ue := range unusedErrors(errs) {
@@ -218,14 +218,14 @@ fn f(): Maybe<Int> { Just(42) }
 func TestUnusedImport_SelfItem(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `import std/results.Result.{self, Ok}
 
-fn f(): Maybe<Int> { o = Ok(1)
+fn f() -> Maybe<Int> { o = Ok(1)
   None }
 `)
 	expectUnusedContaining(t, errs, "imported name 'self' (binding 'Result') is unused")
 
 	expectNoUnused(t, buildErrsWithStdlib(t, `import std/results.Result.{self, Ok}
 
-fn f(): Result<Int, String> { Ok(1) }
+fn f() -> Result<Int, String> { Ok(1) }
 `))
 }
 
@@ -257,7 +257,7 @@ derive Equatable for P
 func TestUnusedImport_PatternIsUse(t *testing.T) {
 	expectNoUnused(t, buildErrsWithStdlib(t, `import std/maybe.Maybe.{Some, None}
 
-fn f(m: Maybe<Int>): Int {
+fn f(m: Maybe<Int>) -> Int {
   case m {
     Some(v) -> v
     None -> 0
@@ -283,7 +283,7 @@ fn main() {
 func TestUnusedImport_DrillThroughPerItem(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `import std/maybe.Maybe.{Some, None}
 
-fn f(): Maybe<Int> { Some(1) }
+fn f() -> Maybe<Int> { Some(1) }
 `)
 	expectUnusedContaining(t, errs, "imported name 'None' is unused")
 	for _, ue := range unusedErrors(errs) {

@@ -25,11 +25,11 @@
 //   - a BOUND shape subject — the `defined as:` row sits ABOVE the `actual:` row.
 //     Two report sections from one failure, so a builder that wrote them in the
 //     other order diverges even though both are present.
-fn find(id: Int): Maybe<String> {
+fn find(id: Int) -> Maybe<String> {
     if id == 1 { Some("Ada") } else { None }
 }
 
-fn parse(s: String): Result<Int, String> {
+fn parse(s: String) -> Result<Int, String> {
     if s == "42" {
         Ok(42)
     } else {

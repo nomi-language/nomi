@@ -63,6 +63,10 @@ type irFuncShell struct {
 	// some projections were never built — so the retained shape declines
 	// rather than retaining a graph with a hole in it.
 	patternOK bool
+	// orParams are the `or` patterns inside destructuring parameters, which
+	// the straight-line prologue holds the value of and the body's builder
+	// tests first (irorpattern.go).
+	orParams []irOrParam
 	// sides is what the PROLOGUE recorded per temporary: each `ir.Proj`'s
 	// kind. `irScalarBuilder` starts its own list from this one, so the
 	// body's facts and the prologue's are one list with one indexing.

@@ -5,7 +5,7 @@ import "testing"
 func TestIREarlyReturn_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"empty result coercion", `import std/io
-fn choose(flag: Bool): List<Int> {
+fn choose(flag: Bool) -> List<Int> {
  if flag { return [] }
  [1]
 }
@@ -14,9 +14,9 @@ fn main() {
  io.inspect(choose(False))
 }`, "[]\n[1]\n"},
 		{"short-circuit condition and multiline return", `import std/io
-fn check(n: Int): Bool { io.print("check") n > 0 }
-fn mark(n: Int): Int { io.print("return") n }
-fn choose(n: Int): Int {
+fn check(n: Int) -> Bool { io.print("check") n > 0 }
+fn mark(n: Int) -> Int { io.print("return") n }
+fn choose(n: Int) -> Int {
  if n > 0 and check(n) {
   return mark(
    n,
@@ -29,7 +29,7 @@ fn main() {
  io.print(choose(4))
 }`, "0\ncheck\nreturn\n4\n"},
 		{"absolute value", `import std/io
-fn abs(x: Int): Int {
+fn abs(x: Int) -> Int {
  if x < 0 { return -x }
  x
 }
@@ -39,8 +39,8 @@ fn main() {
  io.print(abs(7))
 }`, "9\n0\n7\n"},
 		{"sequential guards and scoped effects", `import std/io
-fn mark(n: Int): Int { io.print(n) n }
-fn choose(n: Int): Int {
+fn mark(n: Int) -> Int { io.print(n) n }
+fn choose(n: Int) -> Int {
  if n < 0 {
   amount = -n
   io.print("negative")

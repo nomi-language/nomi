@@ -28,7 +28,7 @@ import {
 // Every number below is checked against a whole-second Int, so an off-by-a-
 // factor-of-1e9 lowering of either module's constructor fails rather than
 // agreeing.
-fn seconds_between(a: Instant, b: Instant): Int {
+fn seconds_between(a: Instant, b: Instant) -> Int {
     Duration.as_seconds(Instant.between(a, b))
 }
 

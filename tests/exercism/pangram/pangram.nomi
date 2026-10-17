@@ -1,0 +1,11 @@
+/// Whether `sentence` uses every letter of the English alphabet at least
+/// once, ignoring case.
+pub fn pangram?(sentence: String) -> Bool {
+    letters =
+        sentence
+        |> String.to_lower()
+        |> String.to_codepoints()
+        |> Iter.to_set()
+
+    Iter.all?('a'..='z', fn letter -> Set.contains?(letters, letter))
+}

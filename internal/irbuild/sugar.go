@@ -164,7 +164,7 @@ type argPlan struct {
 // any named argument and a named argument written FIRST is evaluated LAST.
 // With an effectful argument:
 //
-//	fn p(tag: String): String { io.print("eval " + tag)  tag }
+//	fn p(tag: String) -> String { io.print("eval " + tag)  tag }
 //	io.print(f(b: p("B"), p("A")))      =>  eval A / eval B / A/B
 //
 // Written order is B-then-A; evaluation order is A-then-B. A caller that
@@ -191,13 +191,13 @@ type argPlan struct {
 //     argument MOVES to the last slot and the slot it vacates falls back to its
 //     default. SUPPRESSED when a named argument targets the last parameter
 //     (`namedTargetsLast` below), so
-//     `Task.spawn_all(items, |x| f(x), max_running: 8)` does not move the lambda
+//     `Task.spawn_all(items, fn x -> f(x), max_running: 8)` does not move the lambda
 //     onto `max_running`.
 //  3. Named arguments fill their own slots last.
 //
 // Rule 2 has to be decided BEFORE the arguments are lowered, because it is the
 // SLOT and not the position whose declared type each argument is checked
-// against. Reading it off the position instead type-checks `|n| n + 1` as an Int
+// against. Reading it off the position instead type-checks `fn n -> n + 1` as an Int
 // and reports a mismatch for a call the checker accepted — and in the shape
 // where the two slots agree, `fn pick(a: Int = 1, b: Int = 2)` called
 // `pick({ 5 })`, it silently fills the wrong one and answers 52 where the

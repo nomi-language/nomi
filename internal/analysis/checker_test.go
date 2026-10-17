@@ -79,18 +79,18 @@ fn main() {
 // either: the assertion passes whatever it says.
 //
 // This was found by writing one. A table-driven test looped its cases with
-// `Iter.each(cases, |c| { ... assert ... })` and passed while asserting
+// `Iter.each(cases, fn c -> { ... assert ... })` and passed while asserting
 // something false.
 //
 // Sources here are self-contained because checkSource omits the prelude.
 func TestAssertionsInsideLambdaAreRejected(t *testing.T) {
 	_, errs := checkSource(`
-fn each(_items: List<Int>, f: (Int) -> Int): Int {
+fn each(_items: List<Int>, f: (Int) -> Int) -> Int {
   f(1)
 }
 
 test "t" {
-  _ = each([1, 2], |n| {
+  _ = each([1, 2], fn n -> {
     assert n == 999
   })
 }
@@ -117,17 +117,17 @@ test "t" {
 func TestAssertionsAroundLambdasStillAllowed(t *testing.T) {
 	for name, src := range map[string]string{
 		"lambda inside the asserted expression": `
-fn apply(f: (Int) -> Int): Int {
+fn apply(f: (Int) -> Int) -> Int {
   f(2)
 }
 
 test "t" {
-  assert apply(|n| n * 2) == 4
+  assert apply(fn n -> n * 2) == 4
 }
 `,
 		"assert on a lambda's result": `
 test "t" {
-  double = |n: Int| n * 2
+  double = fn n: Int -> n * 2
   assert double(3) == 6
 }
 `,
@@ -147,7 +147,7 @@ enum Result<T, E> {
 
 host type AssertionFailure
 
-fn demo(): Result<Unit, AssertionFailure> {
+fn demo() -> Result<Unit, AssertionFailure> {
   assert 1 == 1
   refute 1 == 2
   Result.Ok({})
@@ -167,7 +167,7 @@ enum Result<T, E> {
 
 host type AssertionFailure
 
-fn demo(): Result<Bool, AssertionFailure> {
+fn demo() -> Result<Bool, AssertionFailure> {
   (1 == 1) |> assert
 }
 `)
@@ -183,13 +183,13 @@ enum Result<T, E> {
 
 host type AssertionFailure
 
-host fn check<T>(subject: T): Result<T, AssertionFailure>
+host fn check<T>(subject: T) -> Result<T, AssertionFailure>
 
-fn demo(): Result<Bool, AssertionFailure> {
+fn demo() -> Result<Bool, AssertionFailure> {
   check(1 == 2)
 }
 
-fn validate(): Result<Bool, AssertionFailure> {
+fn validate() -> Result<Bool, AssertionFailure> {
   check(1 == 2)
 }
 `)
@@ -200,7 +200,7 @@ fn validate(): Result<Bool, AssertionFailure> {
 
 func TestDbgExpressionTypeChecksAsInnerExpression(t *testing.T) {
 	_, errs := checkSource(`
-fn f(): Int {
+fn f() -> Int {
   dbg 41 + 1
 }
 `)
@@ -217,11 +217,11 @@ enum Bool {
   embeds True
 }
 
-fn implicit(): Bool {
+fn implicit() -> Bool {
   True
 }
 
-fn explicit(): Bool {
+fn explicit() -> Bool {
   return False
 }
 `)
@@ -246,12 +246,12 @@ fn main() {}
 
 func TestReturnInsideLambdaUsesLambdaReturnType(t *testing.T) {
 	_, errs := checkSource(`
-fn apply(f: (Int) -> Int): Int {
+fn apply(f: (Int) -> Int) -> Int {
   f(3)
 }
 
 fn main() {
-  _ = apply(|x| {
+  _ = apply(fn x -> {
     if x == 3 { return 300 }
     x
   })
@@ -263,7 +263,7 @@ fn main() {
 
 func TestBareDbgRequiresPipeStage(t *testing.T) {
 	_, errs := checkSource(`
-fn f(): Int {
+fn f() -> Int {
   dbg
 }
 `)
@@ -361,27 +361,27 @@ fn main() {
 
 // 1. Valid function — no errors
 func TestCheckValidAdd(t *testing.T) {
-	_, errs := checkSource(`fn add(x: Int, y: Int): Int { x + y }`)
+	_, errs := checkSource(`fn add(x: Int, y: Int) -> Int { x + y }`)
 	expectNoErrors(t, errs)
 }
 
 // 2. Return type mismatch
 func TestCheckReturnTypeMismatch(t *testing.T) {
-	_, errs := checkSource(`fn foo(): Int { "hello" }`)
+	_, errs := checkSource(`fn foo() -> Int { "hello" }`)
 	expectError(t, errs, "expected Int")
 }
 
 // 3. Argument type mismatch
 func TestCheckArgTypeMismatch(t *testing.T) {
-	src := `fn d(n: Int): Int { n }
-fn m(): Int { d("x") }`
+	src := `fn d(n: Int) -> Int { n }
+fn m() -> Int { d("x") }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "expected Int")
 }
 
 // 4. Valid binding
 func TestCheckValidBinding(t *testing.T) {
-	_, errs := checkSource(`fn m(): Int { x = 42
+	_, errs := checkSource(`fn m() -> Int { x = 42
 x + 1 }`)
 	expectNoErrors(t, errs)
 }
@@ -389,7 +389,7 @@ x + 1 }`)
 // Inline annotation that matches the RHS type — no errors, and the binding
 // symbol carries the declared type.
 func TestCheckBinding_AnnotationConcreteMatch(t *testing.T) {
-	src := `fn m(): Int { x: Int = 5
+	src := `fn m() -> Int { x: Int = 5
 x + 1 }`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -422,8 +422,8 @@ func TestCheckBinding_AnnotationMismatchErrors(t *testing.T) {
 // fire spuriously.
 func TestCheckBinding_LambdaAnnotationSuppressesUnannotatedParamError(t *testing.T) {
 	src := `
-fn demo(): Int {
-    f: (Int) -> Int = |x| x + 1
+fn demo() -> Int {
+    f: (Int) -> Int = fn x -> x + 1
     f(2)
 }
 `
@@ -435,7 +435,7 @@ fn demo(): Int {
 // but with the unify-driven type-mismatch diagnostic, not a spurious
 // "cannot infer type for parameter" one.
 func TestCheckBinding_LambdaWithNonFunctionAnnotationErrors(t *testing.T) {
-	src := `fn main() { f: Int = |x| x + 1 }`
+	src := `fn main() { f: Int = fn x -> x + 1 }`
 	_, errs := checkSource(src)
 	hasMismatch := false
 	for _, e := range errs {
@@ -483,7 +483,7 @@ fn main() {
 
 // No annotation: the inferred type still attaches to the symbol.
 func TestCheckBinding_NoAnnotationBackwardsCompat(t *testing.T) {
-	src := `fn m(): Int { x = 5
+	src := `fn m() -> Int { x = 5
 x + 1 }`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -505,21 +505,21 @@ x + 1 }`
 
 // 5. Operator type mismatch
 func TestCheckOperatorTypeMismatch(t *testing.T) {
-	_, errs := checkSource(`fn f(): Int { 1 + "two" }`)
+	_, errs := checkSource(`fn f() -> Int { 1 + "two" }`)
 	expectError(t, errs, "type mismatch")
 }
 
 // 6. Valid field access
 func TestCheckValidFieldAccess(t *testing.T) {
 	src := `struct Point { x: Int; y: Int }
-fn get_x(p: Point): Int { p.x }`
+fn get_x(p: Point) -> Int { p.x }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 // 7. If branch type mismatch
 func TestCheckIfBranchMismatch(t *testing.T) {
-	src := `fn f(b: Bool): Int {
+	src := `fn f(b: Bool) -> Int {
   if b { 1 } else { "no" }
 }`
 	_, errs := checkSource(src)
@@ -528,7 +528,7 @@ func TestCheckIfBranchMismatch(t *testing.T) {
 
 // 8. If condition not Bool
 func TestCheckIfConditionNotBool(t *testing.T) {
-	src := `fn f(): Int {
+	src := `fn f() -> Int {
   if 42 { 1 } else { 2 }
 }`
 	_, errs := checkSource(src)
@@ -537,38 +537,38 @@ func TestCheckIfConditionNotBool(t *testing.T) {
 
 // Map literal type consistency
 func TestCheckMapLitHomogeneous(t *testing.T) {
-	_, errs := checkSource(`fn f(): Map<String, Int> { {"a" => 1, "b" => 2} }`)
+	_, errs := checkSource(`fn f() -> Map<String, Int> { %{"a" => 1, "b" => 2} }`)
 	expectNoErrors(t, errs)
 }
 
 func TestCheckMapLitMixedValues(t *testing.T) {
-	_, errs := checkSource(`fn f() { {"a" => 1, "b" => "two"} }`)
+	_, errs := checkSource(`fn f() { %{"a" => 1, "b" => "two"} }`)
 	expectError(t, errs, "map value type mismatch")
 }
 
 func TestCheckMapLitMixedKeys(t *testing.T) {
-	_, errs := checkSource(`fn f() { {1 => "a", "two" => "b"} }`)
+	_, errs := checkSource(`fn f() { %{1 => "a", "two" => "b"} }`)
 	expectError(t, errs, "map key type mismatch")
 }
 
 // 9. String concat valid and invalid
 func TestCheckStringConcatValid(t *testing.T) {
-	_, errs := checkSource(`fn f(): String { "a" + "b" }`)
+	_, errs := checkSource(`fn f() -> String { "a" + "b" }`)
 	expectNoErrors(t, errs)
 }
 
 func TestCheckStringConcatInvalid(t *testing.T) {
-	_, errs := checkSource(`fn f(): String { 1 + "b" }`)
+	_, errs := checkSource(`fn f() -> String { 1 + "b" }`)
 	expectError(t, errs, "type mismatch")
 }
 
 func TestCheckListConcatValid(t *testing.T) {
-	_, errs := checkSource(`fn f(): List<Int> { [1, 2] + [3] }`)
+	_, errs := checkSource(`fn f() -> List<Int> { [1, 2] + [3] }`)
 	expectNoErrors(t, errs)
 }
 
 func TestCheckListConcatInvalid(t *testing.T) {
-	_, errs := checkSource(`fn f(): List<Int> { [1] + ["x"] }`)
+	_, errs := checkSource(`fn f() -> List<Int> { [1] + ["x"] }`)
 	expectError(t, errs, "type mismatch")
 }
 
@@ -580,7 +580,7 @@ func TestCheckVectorConcatValid(t *testing.T) {
 }
 
 func TestCheckStringPrefixPatternBindsRestAsString(t *testing.T) {
-	fa, errs := checkSource(`fn route(path: String): String {
+	fa, errs := checkSource(`fn route(path: String) -> String {
   case path {
     "/users/" + id -> id
     _ -> ""
@@ -603,31 +603,31 @@ func TestCheckStringPrefixPatternBindsRestAsString(t *testing.T) {
 
 // 10. Multiple functions calling each other
 func TestCheckMultipleFuncsCalling(t *testing.T) {
-	src := `fn double(n: Int): Int { n + n }
-fn quad(n: Int): Int { double(double(n)) }`
+	src := `fn double(n: Int) -> Int { n + n }
+fn quad(n: Int) -> Int { double(double(n)) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 // Additional: unary operators
 func TestCheckUnaryNegate(t *testing.T) {
-	_, errs := checkSource(`fn f(x: Int): Int { -x }`)
+	_, errs := checkSource(`fn f(x: Int) -> Int { -x }`)
 	expectNoErrors(t, errs)
 }
 
 func TestCheckUnaryNotBool(t *testing.T) {
-	_, errs := checkSource(`fn f(b: Bool): Bool { !b }`)
+	_, errs := checkSource(`fn f(b: Bool) -> Bool { !b }`)
 	expectNoErrors(t, errs)
 }
 
 func TestCheckUnaryNotNonBool(t *testing.T) {
-	_, errs := checkSource(`fn f(): Bool { !42 }`)
+	_, errs := checkSource(`fn f() -> Bool { !42 }`)
 	expectError(t, errs, "must be Bool")
 }
 
 // Comparison operators
 func TestCheckComparisonValid(t *testing.T) {
-	_, errs := checkSource(`fn f(x: Int, y: Int): Bool { x < y }`)
+	_, errs := checkSource(`fn f(x: Int, y: Int) -> Bool { x < y }`)
 	expectNoErrors(t, errs)
 }
 
@@ -637,7 +637,7 @@ func TestCheckComparisonValid(t *testing.T) {
 // TypeParam_). A Comparable-bounded param stays clean…
 func TestCheckComparisonOnBoundedTypeParam(t *testing.T) {
 	_, errs := checkSource(`interface Comparable {}
-fn smaller<T>(a: T, b: T): T where T: Comparable {
+fn smaller<T>(a: T, b: T) -> T where T: Comparable {
   if a < b { a } else { b }
 }`)
 	expectNoErrors(t, errs)
@@ -647,32 +647,32 @@ fn smaller<T>(a: T, b: T): T where T: Comparable {
 // type with no Comparable, which the body could not run for
 // (type_param_bound.go).
 func TestCheckComparisonOnUnboundedTypeParam(t *testing.T) {
-	_, errs := checkSource(`fn smaller<T>(a: T, b: T): Bool { a < b }`)
+	_, errs := checkSource(`fn smaller<T>(a: T, b: T) -> Bool { a < b }`)
 	expectError(t, errs, "`a` is a `T`, and `smaller` does not require Comparable of `T`")
 }
 
 // Boolean operators
 func TestCheckAndOrValid(t *testing.T) {
-	_, errs := checkSource(`fn f(a: Bool, b: Bool): Bool { a and b }`)
+	_, errs := checkSource(`fn f(a: Bool, b: Bool) -> Bool { a and b }`)
 	expectNoErrors(t, errs)
 }
 
 func TestCheckAndOrInvalid(t *testing.T) {
-	_, errs := checkSource(`fn f(): Bool { 1 and 2 }`)
+	_, errs := checkSource(`fn f() -> Bool { 1 and 2 }`)
 	expectError(t, errs, "must be Bool")
 }
 
 // Pipe operator
 func TestCheckPipeValid(t *testing.T) {
-	src := `fn double(n: Int): Int { n + n }
-fn f(): Int { 5 |> double() }`
+	src := `fn double(n: Int) -> Int { n + n }
+fn f() -> Int { 5 |> double() }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestCheckPipeDbgStage(t *testing.T) {
-	src := `fn double(n: Int): Int { n + n }
-fn f(): Int {
+	src := `fn double(n: Int) -> Int { n + n }
+fn f() -> Int {
   5
   |> dbg
   |> double()
@@ -682,7 +682,7 @@ fn f(): Int {
 }
 
 func TestCheckPipeDbgFinalStage(t *testing.T) {
-	src := `fn f(): Int {
+	src := `fn f() -> Int {
   [1, 2, 3]
   |> dbg
 
@@ -693,8 +693,8 @@ func TestCheckPipeDbgFinalStage(t *testing.T) {
 }
 
 func TestCheckPipeDbgExpressionStage(t *testing.T) {
-	src := `fn double(n: Int): Int { n + n }
-fn f(): Int {
+	src := `fn double(n: Int) -> Int { n + n }
+fn f() -> Int {
   5 |> dbg double()
 }`
 	_, errs := checkSource(src)
@@ -702,8 +702,8 @@ fn f(): Int {
 }
 
 func TestCheckPartialApplication(t *testing.T) {
-	src := `fn add(x: Int, y: Int): Int { x + y }
-fn f(): Int {
+	src := `fn add(x: Int, y: Int) -> Int { x + y }
+fn f() -> Int {
   add1 = add(1, _)
   add1(9)
 }`
@@ -712,9 +712,9 @@ fn f(): Int {
 }
 
 func TestCheckPipeCallSyntax(t *testing.T) {
-	src := `fn double(n: Int): Int { n + n }
-fn add(x: Int, y: Int): Int { x + y }
-fn f(): Int {
+	src := `fn double(n: Int) -> Int { n + n }
+fn add(x: Int, y: Int) -> Int { x + y }
+fn f() -> Int {
   result = 5 |> double() |> add(1)
   result
 }`
@@ -723,8 +723,8 @@ fn f(): Int {
 }
 
 func TestCheckPipeBindsTighterThanEquality(t *testing.T) {
-	src := `fn double(n: Int): Int { n + n }
-fn f(): Bool {
+	src := `fn double(n: Int) -> Int { n + n }
+fn f() -> Bool {
   5 |> double() == 10
 }`
 	_, errs := checkSource(src)
@@ -737,12 +737,12 @@ fn f(): Bool {
 // mismatches, so this test asserts the no-error path rather than a positive
 // type error.
 func TestCheckPipeTrailingLambdaMiddleDefault(t *testing.T) {
-	src := `fn pick(x: {name: String}, _mode: Int = 0, f: ({name: String}) -> String): String {
+	src := `fn pick(x: {name: String}, _mode: Int = 0, f: ({name: String}) -> String) -> String {
   f(x)
 }
-fn use_it(): String {
+fn use_it() -> String {
   user = {name: "alice"}
-  user |> pick(|u| u.name)
+  user |> pick(fn u -> u.name)
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -750,14 +750,14 @@ fn use_it(): String {
 
 // String interpolation
 func TestCheckStringInterp(t *testing.T) {
-	_, errs := checkSource("fn f(): String { \"hello ${1 + 2}\" }")
+	_, errs := checkSource("fn f() -> String { \"hello ${1 + 2}\" }")
 	expectNoErrors(t, errs)
 }
 
 // Lambda
 func TestCheckLambdaValid(t *testing.T) {
-	_, errs := checkSource(`fn f(): Int {
-  f = |x: Int| x + 1
+	_, errs := checkSource(`fn f() -> Int {
+  f = fn x: Int -> x + 1
   f(5)
 }`)
 	expectNoErrors(t, errs)
@@ -769,7 +769,7 @@ func TestCheckLambdaValid(t *testing.T) {
 // (which leaks through as Unit at call sites).
 func TestCheckUnannotatedLocalLambda(t *testing.T) {
 	_, errs := checkSource(`fn main() {
-  identity = |x| x
+  identity = fn x -> x
   a = identity(5)
 }`)
 	expectError(t, errs, "cannot infer type for parameter")
@@ -779,7 +779,7 @@ func TestCheckUnannotatedLocalLambda(t *testing.T) {
 // "cannot infer" error must not fire on default-bearing params.
 func TestCheckLocalLambdaWithDefaultParam(t *testing.T) {
 	_, errs := checkSource(`fn main() {
-  f = |x = 5| x + 1
+  f = fn x = 5 -> x + 1
 }`)
 	for _, e := range errs {
 		if strings.Contains(e.Message, "cannot infer type for parameter") {
@@ -789,10 +789,10 @@ func TestCheckLocalLambdaWithDefaultParam(t *testing.T) {
 }
 
 // Type inferred from the default value is attached to the param symbol and
-// propagates into the body — `|n = 5| n + 1` type-checks because `n` is Int.
+// propagates into the body — `fn n = 5 -> n + 1` type-checks because `n` is Int.
 func TestCheckLambdaDefaultTypePropagatesIntoBody(t *testing.T) {
 	_, errs := checkSource(`fn main() {
-  f = |n = 5| n + 1
+  f = fn n = 5 -> n + 1
 }`)
 	expectNoErrors(t, errs)
 }
@@ -801,33 +801,33 @@ func TestCheckLambdaDefaultTypePropagatesIntoBody(t *testing.T) {
 // so `n + "!"` is a String-concat mismatch.
 func TestCheckLambdaDefaultTypeRejectsMismatch(t *testing.T) {
 	_, errs := checkSource(`fn main() {
-  f = |n = 5| n + "!"
+  f = fn n = 5 -> n + "!"
 }`)
 	expectError(t, errs, "type mismatch")
 }
 
 // Equality operators accept any types
 func TestCheckEqualityAnyTypes(t *testing.T) {
-	_, errs := checkSource(`fn f(): Bool { 1 == 1 }`)
+	_, errs := checkSource(`fn f() -> Bool { 1 == 1 }`)
 	expectNoErrors(t, errs)
 }
 
 // Return statement
 func TestCheckReturnValid(t *testing.T) {
-	_, errs := checkSource(`fn f(x: Int): Int { return x }`)
+	_, errs := checkSource(`fn f(x: Int) -> Int { return x }`)
 	expectNoErrors(t, errs)
 }
 
 func TestCheckReturnMismatch(t *testing.T) {
-	_, errs := checkSource(`fn f(): Int { return "oops" }`)
+	_, errs := checkSource(`fn f() -> Int { return "oops" }`)
 	expectError(t, errs, "expected Int")
 }
 
 // Bidirectional type checking: lambda with explicit annotation
 func TestCheck_LambdaWithAnnotation(t *testing.T) {
 	_, errs := checkSource(`
-fn apply(f: (Int) -> Int, x: Int): Int { f(x) }
-fn demo(): Int { apply(|n: Int| n + 1, 5) }
+fn apply(f: (Int) -> Int, x: Int) -> Int { f(x) }
+fn demo() -> Int { apply(fn n: Int -> n + 1, 5) }
 `)
 	expectNoErrors(t, errs)
 }
@@ -835,8 +835,8 @@ fn demo(): Int { apply(|n: Int| n + 1, 5) }
 // Bidirectional type checking: lambda parameter inferred from context
 func TestCheck_LambdaInferredFromContext(t *testing.T) {
 	_, errs := checkSource(`
-fn apply(f: (Int) -> Int, x: Int): Int { f(x) }
-fn demo(): Int { apply(|n| n + 1, 5) }
+fn apply(f: (Int) -> Int, x: Int) -> Int { f(x) }
+fn demo() -> Int { apply(fn n -> n + 1, 5) }
 `)
 	expectNoErrors(t, errs)
 }
@@ -844,8 +844,8 @@ fn demo(): Int { apply(|n| n + 1, 5) }
 // Bidirectional type checking: lambda returns wrong type
 func TestCheck_LambdaInferredWrongReturnType(t *testing.T) {
 	_, errs := checkSource(`
-fn apply(f: (Int) -> Int, x: Int): Int { f(x) }
-fn demo(): Int { apply(|_n| "hello", 5) }
+fn apply(f: (Int) -> Int, x: Int) -> Int { f(x) }
+fn demo() -> Int { apply(fn _n -> "hello", 5) }
 `)
 	// This should ideally produce a type error (lambda returns String, expected Int)
 	// but may not in this first pass — don't fail if no error yet
@@ -857,7 +857,7 @@ fn demo(): Int { apply(|_n| "hello", 5) }
 func TestCheckReturnDoesNotCauseBranchMismatch(t *testing.T) {
 	// return in one if-branch should not cause type mismatch with the other branch
 	_, errs := checkSource(`
-fn f(): Int {
+fn f() -> Int {
     x = 5
     if x == 0 { return 0 } else { x - 1 }
 }
@@ -867,7 +867,7 @@ fn f(): Int {
 
 func TestCheckReturnInBothBranches(t *testing.T) {
 	_, errs := checkSource(`
-fn f(): Int {
+fn f() -> Int {
     x = 5
     if x == 0 { return 0 } else { return x }
 }
@@ -879,8 +879,8 @@ fn f(): Int {
 
 func TestCheck_GenericIdentity(t *testing.T) {
 	_, errs := checkSource(`
-fn identity<T>(x: T): T { x }
-fn demo(): Int { identity(42) }
+fn identity<T>(x: T) -> T { x }
+fn demo() -> Int { identity(42) }
 `)
 	expectNoErrors(t, errs)
 }
@@ -889,8 +889,8 @@ func TestCheck_GenericReturnTypeInferred(t *testing.T) {
 	// The return type of identity(42) should be Int, not T.
 	// So assigning it and adding should work.
 	_, errs := checkSource(`
-fn identity<T>(x: T): T { x }
-fn demo(): Int {
+fn identity<T>(x: T) -> T { x }
+fn demo() -> Int {
   x = identity(42)
   x + 1
 }
@@ -900,8 +900,8 @@ fn demo(): Int {
 
 func TestCheck_GenericReturnTypeMismatch(t *testing.T) {
 	_, errs := checkSource(`
-fn identity<T>(x: T): T { x }
-fn demo(): String { identity(42) }
+fn identity<T>(x: T) -> T { x }
+fn demo() -> String { identity(42) }
 `)
 	expectError(t, errs, "expected String")
 }
@@ -910,16 +910,16 @@ func TestCheck_GenericListFunction(t *testing.T) {
 	// Tests that List<Int> unifies with List<T> to solve T=Int,
 	// and the return type T becomes Int.
 	_, errs := checkSource(`
-fn wrap<T>(x: T): List<T> { [x] }
-fn demo(): List<Int> { wrap(42) }
+fn wrap<T>(x: T) -> List<T> { [x] }
+fn demo() -> List<Int> { wrap(42) }
 `)
 	expectNoErrors(t, errs)
 }
 
 func TestCheck_GenericTwoParams(t *testing.T) {
 	_, errs := checkSource(`
-fn pair<A, B>(a: A, b: B): (A, B) { (a, b) }
-fn demo(): (Int, String) { pair(1, "hello") }
+fn pair<A, B>(a: A, b: B) -> #(A, B) { #(a, b) }
+fn demo() -> #(Int, String) { pair(1, "hello") }
 `)
 	expectNoErrors(t, errs)
 }
@@ -927,8 +927,8 @@ fn demo(): (Int, String) { pair(1, "hello") }
 func TestCheck_GenericWithLambda(t *testing.T) {
 	// T solved from first arg, lambda param inferred from T
 	_, errs := checkSource(`
-fn apply<T>(x: T, f: (T) -> T): T { f(x) }
-fn demo(): Int { apply(5, |n| n + 1) }
+fn apply<T>(x: T, f: (T) -> T) -> T { f(x) }
+fn demo() -> Int { apply(5, fn n -> n + 1) }
 `)
 	expectNoErrors(t, errs)
 }
@@ -939,21 +939,21 @@ fn demo(): Int { apply(5, |n| n + 1) }
 // non-generic path (computePositionalSlots) and the pipe path
 // (computePipeArgSlots) already did this; checkGenericCall mapped arg i →
 // param i and mis-checked the lambda against the defaulted middle param
-// (real-world repro: `Iter.sort_by(users, |u| u.name)` — sort_by's
+// (real-world repro: `Iter.sort_by(users, fn u -> u.name)` — sort_by's
 // signature is `(list, direction: Direction = Ascending, key)`).
 func TestGenericCallSite_TrailingLambdaRoutesPastDefaultedMiddleParam(t *testing.T) {
 	_, errs := checkSource(`
-fn pick<K>(_xs: List<Int>, _limit: Int = 10, key: (Int) -> K): K {
+fn pick<K>(_xs: List<Int>, _limit: Int = 10, key: (Int) -> K) -> K {
   key(0)
 }
-fn demo(): Int { pick([2, 1], |x| x * 2) }
+fn demo() -> Int { pick([2, 1], fn x -> x * 2) }
 `)
 	expectNoErrors(t, errs)
 }
 
 func TestGenericCallSite_InstantiatedType(t *testing.T) {
-	src := `fn identity<T>(x: T): T { x }
-fn demo(): Int { identity(42) }`
+	src := `fn identity<T>(x: T) -> T { x }
+fn demo() -> Int { identity(42) }`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
 
@@ -983,8 +983,8 @@ fn demo(): Int { identity(42) }`
 }
 
 func TestGenericCallSite_MultiParam(t *testing.T) {
-	src := `fn pair<A, B>(a: A, b: B): (A, B) { (a, b) }
-fn demo(): (Int, String) { pair(1, "hello") }`
+	src := `fn pair<A, B>(a: A, b: B) -> #(A, B) { #(a, b) }
+fn demo() -> #(Int, String) { pair(1, "hello") }`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
 
@@ -1017,8 +1017,8 @@ fn demo(): (Int, String) { pair(1, "hello") }`
 }
 
 func TestGenericCallSite_NonGenericHasNoCallType(t *testing.T) {
-	src := `fn add(x: Int, y: Int): Int { x + y }
-fn demo(): Int { add(1, 2) }`
+	src := `fn add(x: Int, y: Int) -> Int { x + y }
+fn demo() -> Int { add(1, 2) }`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
 
@@ -1038,8 +1038,8 @@ fn demo(): Int { add(1, 2) }`
 }
 
 func TestGenericCallSite_PipeChain(t *testing.T) {
-	src := `fn identity<T>(x: T): T { x }
-fn demo(): Int {
+	src := `fn identity<T>(x: T) -> T { x }
+fn demo() -> Int {
 	42 |> identity()
 }`
 	fa, errs := checkSource(src)
@@ -1071,16 +1071,16 @@ fn demo(): Int {
 }
 
 func TestPipeThenStageReceivesPipedValue(t *testing.T) {
-	src := `fn demo(): Int {
-	21 |> then |n| n * 2
+	src := `fn demo() -> Int {
+	21 |> then fn n -> n * 2
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestPipeThenStageRejectsWrongArity(t *testing.T) {
-	for _, stage := range []string{"then || 42", "then |a, b| a + b"} {
-		src := "fn demo(): Int {\n\t21 |> " + stage + "\n}"
+	for _, stage := range []string{"then fn -> 42", "then fn a, b -> a + b"} {
+		src := "fn demo() -> Int {\n\t21 |> " + stage + "\n}"
 		_, errs := checkSource(src)
 		if len(errs) == 0 {
 			t.Fatalf("%s: expected a then arity diagnostic", stage)
@@ -1092,9 +1092,9 @@ func TestPipeThenStageRejectsWrongArity(t *testing.T) {
 }
 
 func TestGenericCallSite_PipeWithCallback(t *testing.T) {
-	src := `fn filter<T>(list: List<T>, _f: (T) -> Bool): List<T> { list }
-fn demo(): List<Int> {
-	[1, 2, 3] |> filter(|x| x > 1)
+	src := `fn filter<T>(list: List<T>, _f: (T) -> Bool) -> List<T> { list }
+fn demo() -> List<Int> {
+	[1, 2, 3] |> filter(fn x -> x > 1)
 }`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -1332,7 +1332,7 @@ func TestCheckPatternTupleNilExpectedTy(t *testing.T) {
 
 func TestCheckTupleDestructureValid(t *testing.T) {
 	src := `fn main() {
-  (x, y) = (1, "hello")
+  #(x, y) = #(1, "hello")
 }`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -1369,16 +1369,16 @@ func TestCheckTupleDestructureValid(t *testing.T) {
 }
 
 func TestCheckTupleDestructureNotTuple(t *testing.T) {
-	src := `fn main(): () {
-  (x, y) = 42
+	src := `fn main() {
+  #(x, y) = 42
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "tuple destructure requires a tuple type")
 }
 
 func TestCheckTupleDestructureArityMismatch(t *testing.T) {
-	src := `fn main(): () {
-  (x, y, z) = (1, "hello")
+	src := `fn main() {
+  #(x, y, z) = #(1, "hello")
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "3 bindings but tuple has 2 elements")
@@ -1564,7 +1564,7 @@ func TestCheckPatternEnumNilExpectedTy(t *testing.T) {
 
 func TestCheckPatternDistinctType(t *testing.T) {
 	src := `type Id Int
-fn demo(): Int {
+fn demo() -> Int {
   id = Id(42)
   case id {
     Id(x) -> x + 1
@@ -1589,7 +1589,7 @@ fn demo(): Int {
 
 func TestCheckPatternDistinctZeroSized(t *testing.T) {
 	src := `type Expired
-fn demo(): String {
+fn demo() -> String {
   e = Expired
   case e {
     Expired -> "expired"
@@ -1803,7 +1803,7 @@ func TestCheckPatternStructNilExpectedTy(t *testing.T) {
 }
 
 func TestCheckPatternStructAnonymous(t *testing.T) {
-	src := `fn demo(): String {
+	src := `fn demo() -> String {
   s = { name: "Alice", age: 30 }
   case s {
     {name, age} -> name
@@ -2117,7 +2117,7 @@ fn main() {
 }
 
 func TestCheckStructDestructureNotStruct(t *testing.T) {
-	src := `fn main(): () {
+	src := `fn main() {
   {x} = 42
 }`
 	_, errs := checkSource(src)
@@ -2126,7 +2126,7 @@ func TestCheckStructDestructureNotStruct(t *testing.T) {
 
 func TestCheckStructDestructureUnknownField(t *testing.T) {
 	src := `struct Point { x: Int; y: Int }
-fn main(): () {
+fn main() {
   p = Point { x: 1, y: 2 }
   {z} = p
 }`
@@ -2166,13 +2166,13 @@ func TestCheckStructDestructureAnonymous(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// checkMapDestructure
+// map pattern bindings
 // ---------------------------------------------------------------------------
 
 func TestCheckMapDestructureValid(t *testing.T) {
 	src := `fn main() {
-  m = {"name" => "Alice", "age" => "30"}
-  {"name" => name} = m
+  m = %{"name" => "Alice", "age" => "30"}
+  %{"name" => name} = m else { return }
 }`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -2192,11 +2192,50 @@ func TestCheckMapDestructureValid(t *testing.T) {
 }
 
 func TestCheckMapDestructureNotMap(t *testing.T) {
-	src := `fn main(): () {
-  {"key" => v} = 42
+	src := `fn main() {
+  %{"key" => v} = 42 else { return }
 }`
 	_, errs := checkSource(src)
-	expectError(t, errs, "map destructure requires a map type")
+	expectError(t, errs, "map pattern requires a map type, got Int")
+}
+
+// A map pattern bound with no `else` is refutable: a key may be absent, so
+// the binding is the refutable-pattern error with the help for maps. The
+// test fails if the binding starts being admitted.
+func TestCheckMapBindingWithoutElseIsRefutable(t *testing.T) {
+	src := `fn main() {
+  config = %{"host" => "localhost"}
+  %{"host" => host} = config
+  _ = host
+}`
+	_, errs := checkSource(src)
+	var found *TypeError
+	for i := range errs {
+		if errs[i].Line == 3 {
+			found = &errs[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("the front end admits a map pattern bound with no else; errors: %v", errs)
+	}
+	const want = "this pattern can fail to match a value of type Map<String, String>; " +
+		"add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr`"
+	if found.Message != want {
+		t.Errorf("message = %q, want %q", found.Message, want)
+	}
+	if len(found.Hints) != 1 || found.Hints[0] != mapBindingHint {
+		t.Errorf("hints = %q, want the map binding hint", found.Hints)
+	}
+}
+
+// The same binding with an `else` that leaves is accepted.
+func TestCheckMapBindingWithElseIsAccepted(t *testing.T) {
+	src := `fn host(config: Map<String, String>) -> String {
+  %{"host" => host} = config else { return "none" }
+  host
+}`
+	_, errs := checkSource(src)
+	expectNoErrors(t, errs)
 }
 
 // ---------------------------------------------------------------------------
@@ -2229,7 +2268,7 @@ fn main() {
 func TestCheckDistinctDestructureWrongType(t *testing.T) {
 	src := `type Id Int
 type Tag String
-fn main(): () {
+fn main() {
   id = Id(42)
   Tag(x) = id
 }`
@@ -2238,7 +2277,7 @@ fn main(): () {
 }
 
 func TestCheckDistinctDestructureNotDistinct(t *testing.T) {
-	src := `fn main(): () {
+	src := `fn main() {
   Id(x) = 42
 }`
 	_, errs := checkSource(src)
@@ -2250,7 +2289,7 @@ func TestCheckDistinctDestructureNotDistinct(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCheck_TupleDistinct_LiteralAttach_OK(t *testing.T) {
-	src := `type Pair (Int, String)
+	src := `type Pair #(Int, String)
 fn main() {
   p = Pair(1, "x")
 }`
@@ -2259,16 +2298,16 @@ fn main() {
 }
 
 func TestCheck_TupleDistinct_CallForm_StillOK(t *testing.T) {
-	src := `type Pair (Int, String)
+	src := `type Pair #(Int, String)
 fn main() {
-  p = Pair((1, "x"))
+  p = Pair(#(1, "x"))
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestCheck_TupleDistinct_LiteralAttach_TypeMismatch(t *testing.T) {
-	src := `type Pair (Int, String)
+	src := `type Pair #(Int, String)
 fn main() {
   p = Pair("x", 1)
 }`
@@ -2277,7 +2316,7 @@ fn main() {
 }
 
 func TestCheck_TupleDistinct_LiteralAttach_TooFewArgs(t *testing.T) {
-	src := `type Pair (Int, String)
+	src := `type Pair #(Int, String)
 fn main() {
   p = Pair(1)
 }`
@@ -2286,7 +2325,7 @@ fn main() {
 }
 
 func TestCheck_TupleDistinct_LiteralAttach_TooManyArgs(t *testing.T) {
-	src := `type Pair (Int, String)
+	src := `type Pair #(Int, String)
 fn main() {
   p = Pair(1, "x", 99)
 }`
@@ -2294,14 +2333,14 @@ fn main() {
 	expectError(t, errs, "Pair takes 2 arguments, got 3")
 }
 
-// Pair((1, 2)) — the user passed exactly one tuple argument (call-form),
+// Pair(#(1, 2)) — the user passed exactly one tuple argument (call-form),
 // but the inner element types don't match. The error must point at the
 // element-type mismatch, NOT at arity ("takes 2 arguments, got 1" would be
 // misleading because the user did pass a single argument).
 func TestCheck_TupleDistinct_CallForm_WrongInnerType(t *testing.T) {
-	src := `type Pair (Int, String)
+	src := `type Pair #(Int, String)
 fn main() {
-  p = Pair((1, 2))
+  p = Pair(#(1, 2))
 }`
 	_, errs := checkSource(src)
 	if len(errs) == 0 {
@@ -2322,8 +2361,8 @@ fn main() {
 // ---------------------------------------------------------------------------
 
 func TestCheck_TupleDistinct_FlatDestructure_OK(t *testing.T) {
-	src := `type Pair (Int, String)
-fn demo(): Int {
+	src := `type Pair #(Int, String)
+fn demo() -> Int {
   p = Pair(1, "x")
   case p {
     Pair(a, b) -> a
@@ -2339,7 +2378,7 @@ fn demo(): Int {
 // Note: 1-pattern `Pair(a)` is NOT an arity error — it binds the entire
 // inner tuple to `a` (the payload-binding fast path).
 func TestCheck_TupleDistinct_FlatDestructure_WrongArity(t *testing.T) {
-	src := `type Pair (Int, String)
+	src := `type Pair #(Int, String)
 fn main() {
   p = Pair(1, "x")
   case p {
@@ -2356,11 +2395,11 @@ fn main() {
 }
 
 func TestCheck_TupleDistinct_NestedDestructure_StillOK(t *testing.T) {
-	src := `type Pair (Int, String)
-fn demo(): Int {
+	src := `type Pair #(Int, String)
+fn demo() -> Int {
   p = Pair(1, "x")
   case p {
-    Pair((a, b)) -> a
+    Pair(#(a, b)) -> a
   }
 }`
 	_, errs := checkSource(src)
@@ -2368,13 +2407,13 @@ fn demo(): Int {
 }
 
 // ---------------------------------------------------------------------------
-// Map-distinct literal-attach construction: Kvs{"a" => 1}
+// Map-distinct literal-attach construction: Kvs%{"a" => 1}
 // ---------------------------------------------------------------------------
 
 func TestCheck_MapDistinct_LiteralAttach_OK(t *testing.T) {
 	src := `type Kvs Map<String, Int>
 fn main() {
-  kv = Kvs{"a" => 1, "b" => 2}
+  kv = Kvs%{"a" => 1, "b" => 2}
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -2383,7 +2422,7 @@ fn main() {
 func TestCheck_MapDistinct_LiteralAttach_WrongKeyType(t *testing.T) {
 	src := `type Kvs Map<String, Int>
 fn main() {
-  kv = Kvs{1 => 2}
+  kv = Kvs%{1 => 2}
 }`
 	_, errs := checkSource(src)
 	if len(errs) == 0 {
@@ -2396,7 +2435,7 @@ fn main() {
 func TestCheck_MapDistinct_LiteralAttach_WrongValueType(t *testing.T) {
 	src := `type Kvs Map<String, Int>
 fn main() {
-  kv = Kvs{"a" => "not-int"}
+  kv = Kvs%{"a" => "not-int"}
 }`
 	_, errs := checkSource(src)
 	if len(errs) == 0 {
@@ -2410,7 +2449,7 @@ fn main() {
 func TestCheck_MapDistinct_CallForm_StillOK(t *testing.T) {
 	src := `type Kvs Map<String, Int>
 fn main() {
-  kv = Kvs({"a" => 1})
+  kv = Kvs(%{"a" => 1})
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -2421,7 +2460,7 @@ fn main() {
 func TestCheck_MapDistinct_TypePrefixOnNonMap_Errors(t *testing.T) {
 	src := `type Id Int
 fn main() {
-  x = Id{"a" => 1}
+  x = Id%{"a" => 1}
 }`
 	_, errs := checkSource(src)
 	if len(errs) == 0 {
@@ -2433,10 +2472,10 @@ fn main() {
 
 func TestCheck_MapDistinct_PatternOK(t *testing.T) {
 	src := `type Kvs Map<String, Int>
-fn demo(): Int {
-  kv = Kvs{"a" => 1}
+fn demo() -> Int {
+  kv = Kvs%{"a" => 1}
   case kv {
-    Kvs{"a" => v} -> v
+    Kvs%{"a" => v} -> v
     _ -> 0
   }
 }`
@@ -2444,15 +2483,15 @@ fn demo(): Int {
 	expectNoErrors(t, errs)
 }
 
-// Call-form pattern: `Kvs({"a" => v})` parallels `Pair((a, b))` for
+// Call-form pattern: `Kvs(%{"a" => v})` parallels `Pair(#(a, b))` for
 // tuple-distinct. The EnumPattern unwraps the DistinctVal and the inner
 // MapPattern matches the underlying map without complaint.
 func TestCheck_MapDistinct_NestedPattern_OK(t *testing.T) {
 	src := `type Kvs Map<String, Int>
-fn demo(): Int {
-  kv = Kvs{"a" => 1}
+fn demo() -> Int {
+  kv = Kvs%{"a" => 1}
   case kv {
-    Kvs({"a" => v}) -> v
+    Kvs(%{"a" => v}) -> v
     _ -> 0
   }
 }`
@@ -2465,10 +2504,10 @@ fn demo(): Int {
 // form uses.
 func TestCheck_MapDistinct_NestedPattern_TypeMismatch(t *testing.T) {
 	src := `type Kvs Map<String, Int>
-fn demo(): Int {
-  kv = Kvs{"a" => 1}
+fn demo() -> Int {
+  kv = Kvs%{"a" => 1}
   case kv {
-    Kvs({"a" => v}) -> v + "x"
+    Kvs(%{"a" => v}) -> v + "x"
   }
 }`
 	_, errs := checkSource(src)
@@ -2479,7 +2518,7 @@ fn demo(): Int {
 
 // ---------------------------------------------------------------------------
 // Nominal struct call-form: Foo({a: 1, b: "x"}) coerces an anon-struct
-// argument into the nominal struct. Parallels Pair((1, "x")) for tuple-distinct
+// argument into the nominal struct. Parallels Pair(#(1, "x")) for tuple-distinct
 // and Kvs(some_map) for map-distinct. Scope is constructor-only — broader
 // anon-struct -> nominal-struct coercion is intentionally out of scope.
 // ---------------------------------------------------------------------------
@@ -2653,10 +2692,10 @@ fn main() {
 // ---------------------------------------------------------------------------
 
 func TestCheckCaseTuplePatternInference(t *testing.T) {
-	src := `fn demo(): Int {
-  val = (1, "hello")
+	src := `fn demo() -> Int {
+  val = #(1, "hello")
   case val {
-    (x, y) -> x
+    #(x, y) -> x
   }
 }`
 	fa, errs := checkSource(src)
@@ -2690,7 +2729,7 @@ func TestCheckCaseEnumPattern(t *testing.T) {
 	// (`case c { .Red -> ... }`) — bare variant prefixes are rejected
 	// for non-prelude variants.
 	src := `enum Color { Red; Green; Blue }
-fn demo(): Int {
+fn demo() -> Int {
   c = Color.Red
   case c {
     .Red -> 1
@@ -2709,7 +2748,7 @@ fn demo(): Int {
 // embeds variant.
 func TestCheckEnumPatternBindingOnDataLessVariantRejected(t *testing.T) {
 	src := `enum Switch { Plain; Other }
-fn demo(): Int {
+fn demo() -> Int {
   s = Switch.Plain
   case s {
     Switch.Plain(x) -> 1
@@ -2726,8 +2765,8 @@ fn demo(): Int {
 func TestCheckEnumPatternBindingOnZeroSizedEmbedAccepted(t *testing.T) {
 	src := `type Off
 enum Switch { embeds Off; Plain }
-fn use_off(_o: Off): Int { 1 }
-fn demo(): Int {
+fn use_off(_o: Off) -> Int { 1 }
+fn demo() -> Int {
   s: Switch = Switch.Off
   case s {
     Switch.Off(x) -> use_off(x)
@@ -2748,14 +2787,14 @@ fn demo(): Int {
 func TestCheckEnumQualifiedDisambiguatesSharedVariantName(t *testing.T) {
 	src := `enum Status { Open; Closed; Done }
 enum Command { Help | Done {id: Int} | Quit }
-fn take_status(s: Status): Status { s }
-fn use_it(): Status { take_status(Status.Done) }`
+fn take_status(s: Status) -> Status { s }
+fn use_it() -> Status { take_status(Status.Done) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestCheckCaseGuardExpression(t *testing.T) {
-	src := `fn demo(): String {
+	src := `fn demo() -> String {
   x = 5
   case x {
     n when n > 0 -> "positive"
@@ -2777,12 +2816,12 @@ func TestCheckCaseConditionsAndGuardsAreBool(t *testing.T) {
 		{"else arm guard not Bool", "Some(n) = Some(x) else {\n    _ when x -> return \"b\"\n    _ -> return \"c\"\n  }\n  \"a\"", "`when` guard must be Bool, got Int"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "fn demo(): String {\n  x = 5\n  " + tc.body + "\n}"
+			src := "fn demo() -> String {\n  x = 5\n  " + tc.body + "\n}"
 			_, errs := checkSource(src)
 			expectError(t, errs, tc.want)
 		})
 	}
-	src := `fn demo(): String {
+	src := `fn demo() -> String {
   x = 5
   case {
     x > 10 and x < 20 -> "teens"
@@ -2796,7 +2835,7 @@ func TestCheckCaseConditionsAndGuardsAreBool(t *testing.T) {
 
 func TestCheckCaseGenericEnumPattern(t *testing.T) {
 	src := `enum Option<T> { Some T; None }
-fn demo(): Int {
+fn demo() -> Int {
   opt = Option.Some(42)
   case opt {
     Some(v) -> v
@@ -2829,7 +2868,7 @@ fn demo(): Int {
 // for `try` to propagate into.
 func TestCheckTryOpResult(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
-fn demo(r: Result<Int, String>): Result<Int, String> {
+fn demo(r: Result<Int, String>) -> Result<Int, String> {
   v = try r
   Result.Ok(v + 1)
 }`
@@ -2839,7 +2878,7 @@ fn demo(r: Result<Int, String>): Result<Int, String> {
 
 func TestCheckTryOpMaybe(t *testing.T) {
 	src := `enum Maybe<T> { Some T; None }
-fn demo(m: Maybe<Int>): Maybe<Int> {
+fn demo(m: Maybe<Int>) -> Maybe<Int> {
   v = try m
   Maybe.Some(v + 1)
 }`
@@ -2849,10 +2888,10 @@ fn demo(m: Maybe<Int>): Maybe<Int> {
 
 func TestCheckTryOpResultFromConstructor(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
-fn safe_div(a: Int, b: Int): Result<Int, String> {
+fn safe_div(a: Int, b: Int) -> Result<Int, String> {
   if b == 0 { Result.Err("div by zero") } else { Result.Ok(a / b) }
 }
-fn calc(a: Int, b: Int): Result<Int, String> {
+fn calc(a: Int, b: Int) -> Result<Int, String> {
   result = try safe_div(a, b)
   Result.Ok(result + 1)
 }`
@@ -2863,13 +2902,13 @@ fn calc(a: Int, b: Int): Result<Int, String> {
 func TestCheckTryOpBarePipeStage(t *testing.T) {
 	src := `enum Maybe<T> { Some T; None }
 enum Result<T, E> { Ok T; Err E }
-fn to_result(m: Maybe<Int>): Result<Int, String> {
+fn to_result(m: Maybe<Int>) -> Result<Int, String> {
   case m {
     Some(n) -> Result.Ok(n)
     None -> Result.Err("missing")
   }
 }
-fn demo(m: Maybe<Int>): Result<Int, String> {
+fn demo(m: Maybe<Int>) -> Result<Int, String> {
   n =
     m
     |> to_result()
@@ -2883,13 +2922,13 @@ fn demo(m: Maybe<Int>): Result<Int, String> {
 func TestCheckTryOpPipeStageAcceptsOperand(t *testing.T) {
 	src := `enum Maybe<T> { Some T; None }
 enum Result<T, E> { Ok T; Err E }
-fn to_result(m: Maybe<Int>): Result<Int, String> {
+fn to_result(m: Maybe<Int>) -> Result<Int, String> {
   case m {
     Some(n) -> Result.Ok(n)
     None -> Result.Err("missing")
   }
 }
-fn demo(m: Maybe<Int>): Result<Int, String> {
+fn demo(m: Maybe<Int>) -> Result<Int, String> {
   n = m |> try to_result()
   Result.Ok(n)
 }`
@@ -2899,7 +2938,7 @@ fn demo(m: Maybe<Int>): Result<Int, String> {
 
 func TestCheckNullaryVariantInference(t *testing.T) {
 	src := `enum Maybe<T> { Some T; None }
-fn find(x: Int): Maybe<Int> {
+fn find(x: Int) -> Maybe<Int> {
   if x > 0 { Maybe.Some(x) } else { Maybe.None }
 }`
 	_, errs := checkSource(src)
@@ -2916,7 +2955,7 @@ fn find(x: Int): Maybe<Int> {
 // returned `sym.Type` raw.
 func TestCheckQualifiedVariantInGenericBody(t *testing.T) {
 	src := `enum Maybe<T> { Some T; None }
-fn map<T, U>(m: Maybe<T>, f: (T) -> U): Maybe<U> {
+fn map<T, U>(m: Maybe<T>, f: (T) -> U) -> Maybe<U> {
   case m {
     Some(v) -> Maybe.Some(f(v))
     None -> Maybe.None
@@ -2927,7 +2966,7 @@ fn map<T, U>(m: Maybe<T>, f: (T) -> U): Maybe<U> {
 }
 
 func TestCheckTryOpNonResultMaybe(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   v = try 42
   v
 }`
@@ -2937,7 +2976,7 @@ func TestCheckTryOpNonResultMaybe(t *testing.T) {
 
 func TestCheckTryOpWrongEnum(t *testing.T) {
 	src := `enum Color { Red; Green; Blue }
-fn demo(): Color {
+fn demo() -> Color {
   c = try Color.Red
   c
 }`
@@ -2948,8 +2987,8 @@ fn demo(): Color {
 // --- Argument count mismatch tests ---
 
 func TestCheckTooFewArguments(t *testing.T) {
-	src := `fn add(x: Int, y: Int): Int { x + y }
-fn demo(): Int { add(1) }`
+	src := `fn add(x: Int, y: Int) -> Int { x + y }
+fn demo() -> Int { add(1) }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "expected 2 arguments, got 1")
 }
@@ -2959,15 +2998,15 @@ fn demo(): Int { add(1) }`
 func TestCheckTooManyArgumentsThroughAPipe(t *testing.T) {
 	cases := map[string]struct{ src, want string }{
 		"prepended": {
-			src:  "fn add(x: Int, y: Int): Int { x + y }\nfn demo(): Int { 1 |> add(2, 3) }",
+			src:  "fn add(x: Int, y: Int) -> Int { x + y }\nfn demo() -> Int { 1 |> add(2, 3) }",
 			want: "expected 2 arguments, got 3 (counting the piped value)",
 		},
 		"placeholder": {
-			src:  "fn add(x: Int, y: Int): Int { x + y }\nfn demo(): Int { 1 |> add(2, _, 3) }",
+			src:  "fn add(x: Int, y: Int) -> Int { x + y }\nfn demo() -> Int { 1 |> add(2, _, 3) }",
 			want: "expected 2 arguments, got 3 (counting the piped value)",
 		},
 		"defaults": {
-			src:  "fn add(x: Int, y: Int = 0): Int { x + y }\nfn demo(): Int { 1 |> add(2, 3) }",
+			src:  "fn add(x: Int, y: Int = 0) -> Int { x + y }\nfn demo() -> Int { 1 |> add(2, 3) }",
 			want: "expected 1 to 2 arguments, got 3 (counting the piped value)",
 		},
 	}
@@ -2978,9 +3017,9 @@ func TestCheckTooManyArgumentsThroughAPipe(t *testing.T) {
 		})
 	}
 	for _, ok := range []string{
-		"fn add(x: Int, y: Int): Int { x + y }\nfn demo(): Int { 1 |> add(2) }",
-		"fn add(x: Int, y: Int): Int { x + y }\nfn demo(): Int { 2 |> add(1, _) }",
-		"fn add(x: Int, y: Int = 0): Int { x + y }\nfn demo(): Int { 1 |> add() }",
+		"fn add(x: Int, y: Int) -> Int { x + y }\nfn demo() -> Int { 1 |> add(2) }",
+		"fn add(x: Int, y: Int) -> Int { x + y }\nfn demo() -> Int { 2 |> add(1, _) }",
+		"fn add(x: Int, y: Int = 0) -> Int { x + y }\nfn demo() -> Int { 1 |> add() }",
 	} {
 		if _, errs := checkSource(ok); len(errs) != 0 {
 			t.Errorf("checker rejected a pipe with the right argument count: %v\n%s", errs, ok)
@@ -2989,63 +3028,63 @@ func TestCheckTooManyArgumentsThroughAPipe(t *testing.T) {
 }
 
 func TestCheckTooManyArguments(t *testing.T) {
-	src := `fn add(x: Int, y: Int): Int { x + y }
-fn demo(): Int { add(1, 2, 3) }`
+	src := `fn add(x: Int, y: Int) -> Int { x + y }
+fn demo() -> Int { add(1, 2, 3) }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "expected 2 arguments, got 3")
 }
 
 func TestCheckCorrectArgCount(t *testing.T) {
-	src := `fn add(x: Int, y: Int): Int { x + y }
-fn demo(): Int { add(1, 2) }`
+	src := `fn add(x: Int, y: Int) -> Int { x + y }
+fn demo() -> Int { add(1, 2) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestCheckPartialApplicationNoCountError(t *testing.T) {
-	src := `fn add(x: Int, y: Int): Int { x + y }
-fn demo(): (Int) -> Int { add(1, _) }`
+	src := `fn add(x: Int, y: Int) -> Int { x + y }
+fn demo() -> (Int) -> Int { add(1, _) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestCheckDefaultParamOmitted(t *testing.T) {
-	src := `fn greet(_name: String, greeting: String = "Hello"): String { greeting }
-fn demo(): String { greet(_name: "World") }`
+	src := `fn greet(_name: String, greeting: String = "Hello") -> String { greeting }
+fn demo() -> String { greet(_name: "World") }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestCheckDefaultParamProvided(t *testing.T) {
-	src := `fn greet(_name: String, greeting: String = "Hello"): String { greeting }
-fn demo(): String { greet(_name: "World", greeting: "Hi") }`
+	src := `fn greet(_name: String, greeting: String = "Hello") -> String { greeting }
+fn demo() -> String { greet(_name: "World", greeting: "Hi") }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestCheckDefaultParamTooFew(t *testing.T) {
-	src := `fn greet(_name: String, greeting: String = "Hello"): String { greeting }
+	src := `fn greet(_name: String, greeting: String = "Hello") -> String { greeting }
 fn main() { greet() }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "expected 1 to 2 arguments, got 0")
 }
 
 func TestCheckUndefinedVariable(t *testing.T) {
-	src := `fn demo(): Int { unknown_var }`
+	src := `fn demo() -> Int { unknown_var }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "undefined variable 'unknown_var'")
 }
 
 func TestCheckUndefinedVariableInLambdaBody(t *testing.T) {
-	src := `fn apply(f: (Int) -> Int, x: Int): Int { f(x) }
-fn demo(): Int { apply(|n| { n + missing }, 1) }`
+	src := `fn apply(f: (Int) -> Int, x: Int) -> Int { f(x) }
+fn demo() -> Int { apply(fn n -> { n + missing }, 1) }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "undefined variable 'missing'")
 }
 
 func TestCheckNestedFuncIsResolvable(t *testing.T) {
-	src := `fn demo(): Int {
-  fn helper(x: Int): Int { x + 1 }
+	src := `fn demo() -> Int {
+  fn helper(x: Int) -> Int { x + 1 }
   helper(41)
 }`
 	_, errs := checkSource(src)
@@ -3053,9 +3092,9 @@ func TestCheckNestedFuncIsResolvable(t *testing.T) {
 }
 
 func TestCheckNestedStructUsedInNestedFnSignature(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   struct Point { x: Int; y: Int }
-  fn make(): Point { Point { x: 1, y: 2 } }
+  fn make() -> Point { Point { x: 1, y: 2 } }
   p = make()
   p.x + p.y
 }`
@@ -3064,9 +3103,9 @@ func TestCheckNestedStructUsedInNestedFnSignature(t *testing.T) {
 }
 
 func TestCheckNestedTypeAliasUsedInNestedFnSignature(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   typealias Count Int
-  fn make(n: Int): Count { n }
+  fn make(n: Int) -> Count { n }
   make(42)
 }`
 	_, errs := checkSource(src)
@@ -3076,9 +3115,9 @@ func TestCheckNestedTypeAliasUsedInNestedFnSignature(t *testing.T) {
 func TestCheckNestedEnumUsedInNestedFnSignature(t *testing.T) {
 	// Same-file enums require module/enum-qualified variant names; nested
 	// enums work the same way.
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   enum Color { Red; Green; Blue }
-  fn pick(): Color { Color.Red }
+  fn pick() -> Color { Color.Red }
   case pick() {
     Color.Red -> 1
     Color.Green -> 2
@@ -3090,8 +3129,8 @@ func TestCheckNestedEnumUsedInNestedFnSignature(t *testing.T) {
 }
 
 func TestCheckNestedFuncCallTyped(t *testing.T) {
-	src := `fn demo(): Int {
-  fn classify(n: Int): Int {
+	src := `fn demo() -> Int {
+  fn classify(n: Int) -> Int {
     if n < 0 { return 0 }
     n
   }
@@ -3102,8 +3141,8 @@ func TestCheckNestedFuncCallTyped(t *testing.T) {
 }
 
 func TestCheckRejectsNestedExternFn(t *testing.T) {
-	src := `fn demo(): Int {
-  host fn host_thing(): Int
+	src := `fn demo() -> Int {
+  host fn host_thing() -> Int
   host_thing()
 }`
 	_, errs := checkSource(src)
@@ -3114,9 +3153,9 @@ func TestCheckRejectsNestedExternFn(t *testing.T) {
 // like regular `fn` declarations. The bound is enforced at call sites: passing
 // a value whose type doesn't implement the named interface is a checker
 // error. Without explicit type params, the implicit-name-scanner path is
-// preserved (`host fn id(x: T): T` still works without a `<T>` clause).
+// preserved (`host fn id(x: T) -> T` still works without a `<T>` clause).
 func TestCheckExternFnInterfaceBoundEnforced(t *testing.T) {
-	src := `interface Printable { fn show(value: self): String }
+	src := `interface Printable { fn show(value: self) -> String }
 host fn dump<T>(value: T) where T: Printable
 struct NoImpl { x: Int }
 fn main() {
@@ -3127,15 +3166,15 @@ fn main() {
 }
 
 func TestCheckFnWhereBoundEnforced(t *testing.T) {
-	src := `interface Printable { fn show(value: self): String }
+	src := `interface Printable { fn show(value: self) -> String }
 struct Label { text: String }
 impl Printable for Label {
-  fn show(value: Label): String { value.text }
+  fn show(value: Label) -> String { value.text }
 }
-fn echo<T>(value: T): T where T: Printable {
+fn echo<T>(value: T) -> T where T: Printable {
   value
 }
-fn demo(): Label {
+fn demo() -> Label {
   echo(Label{text: "ok"})
 }`
 	_, errs := checkSource(src)
@@ -3143,12 +3182,12 @@ fn demo(): Label {
 }
 
 func TestCheckFnWhereBoundRejectsMissingImpl(t *testing.T) {
-	src := `interface Printable { fn show(value: self): String }
+	src := `interface Printable { fn show(value: self) -> String }
 struct NoImpl { x: Int }
-fn echo<T>(value: T): T where T: Printable {
+fn echo<T>(value: T) -> T where T: Printable {
   value
 }
-fn demo(): NoImpl {
+fn demo() -> NoImpl {
  echo(NoImpl{x: 1})
 }`
 	_, errs := checkSource(src)
@@ -3156,7 +3195,7 @@ fn demo(): NoImpl {
 }
 
 func TestCheckExternFnWhereBoundEnforced(t *testing.T) {
-	src := `interface Printable { fn show(value: self): String }
+	src := `interface Printable { fn show(value: self) -> String }
 host fn dump<T>(value: T) where T: Printable
 struct NoImpl { x: Int }
 fn main() {
@@ -3167,7 +3206,7 @@ fn main() {
 }
 
 func TestCheckRejectsNestedExternType(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   host type Foo
   0
 }`
@@ -3178,7 +3217,7 @@ func TestCheckRejectsNestedExternType(t *testing.T) {
 func TestCheckBindingTypeFromNestedStructLit(t *testing.T) {
 	// A binding whose value is a struct literal of a nested struct must
 	// pick up the struct's type so hover/inlay-hints work.
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   struct Defaulted { v: Int = 99 }
   d = Defaulted{}
   d.v
@@ -3204,19 +3243,19 @@ func TestCheckBindingTypeFromNestedStructLit(t *testing.T) {
 }
 
 func TestCheckUndefinedTypeIdentInExprPosition(t *testing.T) {
-	src := `fn demo(): Int { Ghost }`
+	src := `fn demo() -> Int { Ghost }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "Ghost")
 }
 
 func TestCheckUndefinedTypeIdentAsFieldAccessObject(t *testing.T) {
-	src := `fn demo(): Int { Ghost.Red }`
+	src := `fn demo() -> Int { Ghost.Red }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "Ghost")
 }
 
 func TestCheckUndefinedVariablePosition(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   ghost
 }`
 	_, errs := checkSource(src)
@@ -3234,21 +3273,21 @@ func TestCheckUndefinedVariablePosition(t *testing.T) {
 // ---------------------------------------------------------------------------
 // impl-block signature validation.
 //
-// `impl Iface for X { fn m(receiver: X, ...): R }` must declare a method
+// `impl Iface for X { fn m(receiver: X, ...) -> R }` must declare a method
 // whose name, parameter shape, and return type matches the interface contract.
 // self in the interface signature substitutes to the implementing type.
 // Missing methods are flagged once across the full file's impl blocks.
 // ---------------------------------------------------------------------------
 
 const implTestSetup = `interface Greeter {
-  fn greet(value: self, style: String): String
+  fn greet(value: self, style: String) -> String
 }
 struct User { name: String }
 `
 
 func TestCheckImplValidSignature(t *testing.T) {
 	src := implTestSetup + `impl Greeter for User {
-  fn greet(value: User, style: String): String { value.name + " (" + style + ")" }
+  fn greet(value: User, style: String) -> String { value.name + " (" + style + ")" }
 }
 `
 	_, errs := checkSource(src)
@@ -3257,7 +3296,7 @@ func TestCheckImplValidSignature(t *testing.T) {
 
 func TestCheckImplWrongReturnType(t *testing.T) {
 	src := implTestSetup + `impl Greeter for User {
-  fn greet(_value: User, _style: String): Int { 0 }
+  fn greet(_value: User, _style: String) -> Int { 0 }
 }
 `
 	_, errs := checkSource(src)
@@ -3266,7 +3305,7 @@ func TestCheckImplWrongReturnType(t *testing.T) {
 
 func TestCheckImplWrongParamType(t *testing.T) {
 	src := implTestSetup + `impl Greeter for User {
-  fn greet(_value: User, _style: Int): String { "x" }
+  fn greet(_value: User, _style: Int) -> String { "x" }
 }
 `
 	_, errs := checkSource(src)
@@ -3275,7 +3314,7 @@ func TestCheckImplWrongParamType(t *testing.T) {
 
 func TestCheckImplWrongParamName(t *testing.T) {
 	src := implTestSetup + `impl Greeter for User {
-  fn greet(_value: User, s: String): String { s }
+  fn greet(_value: User, s: String) -> String { s }
 }
 `
 	_, errs := checkSource(src)
@@ -3286,7 +3325,7 @@ func TestCheckImplSelfPositionFreeName(t *testing.T) {
 	// self-position parameter (interface declared `value: self`) — the
 	// impl can rename it to whatever describes the concrete type.
 	src := implTestSetup + `impl Greeter for User {
-  fn greet(user: User, style: String): String { user.name + style }
+  fn greet(user: User, style: String) -> String { user.name + style }
 }
 `
 	_, errs := checkSource(src)
@@ -3295,7 +3334,7 @@ func TestCheckImplSelfPositionFreeName(t *testing.T) {
 
 func TestCheckImplWrongParamCount(t *testing.T) {
 	src := implTestSetup + `impl Greeter for User {
-  fn greet(_value: User): String { "x" }
+  fn greet(_value: User) -> String { "x" }
 }
 `
 	_, errs := checkSource(src)
@@ -3304,9 +3343,9 @@ func TestCheckImplWrongParamCount(t *testing.T) {
 
 func TestCheckImplExtraMethod(t *testing.T) {
 	src := implTestSetup + `impl Greeter for User {
-  fn greet(_value: self, _style: String): String { "x" }
+  fn greet(_value: self, _style: String) -> String { "x" }
 
-  fn shout(_value: self): String { "AAA" }
+  fn shout(_value: self) -> String { "AAA" }
 }
 `
 	_, errs := checkSource(src)
@@ -3320,12 +3359,12 @@ func TestCheckImplExtraMethod(t *testing.T) {
 // default may be omitted.
 func TestCheckImplMissingMethod(t *testing.T) {
 	src := `interface TwoOps {
-  fn op_a(value: self): String
-  fn op_b(value: self): String
+  fn op_a(value: self) -> String
+  fn op_b(value: self) -> String
 }
 struct Box {}
 impl TwoOps for Box {
-  fn op_a(_b: Box): String { "a" }
+  fn op_a(_b: Box) -> String { "a" }
 }
 `
 	_, errs := checkSource(src)
@@ -3342,12 +3381,12 @@ func TestCheckImplDefaultMethodOmitted(t *testing.T) {
 	// Interface provides a default body for op_b, so the impl can omit it
 	// without error.
 	src := `interface TwoOps {
-  fn op_a(value: self): String
-  fn op_b(_value: self): String { "default-b" }
+  fn op_a(value: self) -> String
+  fn op_b(_value: self) -> String { "default-b" }
 }
 struct Box {}
 impl TwoOps for Box {
-  fn op_a(_b: Box): String { "a" }
+  fn op_a(_b: Box) -> String { "a" }
 }
 `
 	_, errs := checkSource(src)
@@ -3365,14 +3404,14 @@ impl TwoOps for Box {
 
 func TestVisibility_PublicFnReturnsPrivateType(t *testing.T) {
 	src := `struct Secret { value: String }
-pub fn leak(): Secret { Secret{value: "x"} }`
+pub fn leak() -> Secret { Secret{value: "x"} }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "private type")
 }
 
 func TestVisibility_PublicFnTakesPrivateParam(t *testing.T) {
 	src := `struct Secret { value: String }
-pub fn use_secret(_s: Secret): Int { 0 }`
+pub fn use_secret(_s: Secret) -> Int { 0 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "private type")
 }
@@ -3417,7 +3456,7 @@ pub enum Wrapper {
 func TestVisibility_PublicInterfaceMethodPrivateReturn(t *testing.T) {
 	src := `struct Secret { value: String }
 pub interface Reader {
-  fn read(value: self): Secret
+  fn read(value: self) -> Secret
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "private type")
@@ -3426,7 +3465,7 @@ pub interface Reader {
 func TestVisibility_PublicInterfaceMethodPrivateParam(t *testing.T) {
 	src := `struct Secret { value: String }
 pub interface Sink {
-  fn write(value: self, s: Secret): Int
+  fn write(value: self, s: Secret) -> Int
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "private type")
@@ -3441,7 +3480,7 @@ pub typealias S Secret`
 
 func TestVisibility_AllPublicIsOK(t *testing.T) {
 	src := `pub struct Public { value: String }
-pub fn make(): Public { Public{value: "x"} }`
+pub fn make() -> Public { Public{value: "x"} }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3449,14 +3488,14 @@ pub fn make(): Public { Public{value: "x"} }`
 func TestVisibility_PrivateExposingPrivateIsOK(t *testing.T) {
 	// A private function can freely use private types — no leak risk.
 	src := `struct Secret { value: String }
-fn make(): Secret { Secret{value: "x"} }`
+fn make() -> Secret { Secret{value: "x"} }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestVisibility_PrimitivesAreAlwaysPublic(t *testing.T) {
 	// Int/String/Bool are primitive — using them in public sigs is fine.
-	src := `fn add(x: Int, y: Int): Int { x + y }`
+	src := `fn add(x: Int, y: Int) -> Int { x + y }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3469,14 +3508,14 @@ func TestVisibility_PrimitivesAreAlwaysPublic(t *testing.T) {
 
 func TestVisibility_InlinePubFnReturnsPrivateType(t *testing.T) {
 	src := `struct Secret { value: String }
-pub fn leak(): Secret { Secret{value: "x"} }`
+pub fn leak() -> Secret { Secret{value: "x"} }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "private type")
 }
 
 func TestVisibility_InlinePubFnTakesPrivateParam(t *testing.T) {
 	src := `struct Secret { value: String }
-pub fn use_secret(_s: Secret): Int { 0 }`
+pub fn use_secret(_s: Secret) -> Int { 0 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "private type")
 }
@@ -3491,7 +3530,7 @@ pub struct Container { data: Secret }`
 func TestVisibility_InlinePubInterfaceMethodPrivateReturn(t *testing.T) {
 	src := `struct Secret { value: String }
 pub interface Reader {
-  fn read(value: self): Secret
+  fn read(value: self) -> Secret
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "private type")
@@ -3505,13 +3544,13 @@ pub typealias S Secret`
 }
 
 func TestVisibility_PubMain_Allowed(t *testing.T) {
-	src := `pub fn demo(): Int { 0 }`
+	src := `pub fn demo() -> Int { 0 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestVisibility_PrivateMain_Allowed(t *testing.T) {
-	src := `fn demo(): Int { 0 }`
+	src := `fn demo() -> Int { 0 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3543,34 +3582,34 @@ pub once x: Public = Public{value: "x"}`
 // ---------------------------------------------------------------------------
 // Interface bounds on generic functions
 //
-// `fn foo<T>(x: T): T where T: Iface { x }` parses, and calls verify the inferred
+// `fn foo<T>(x: T) -> T where T: Iface { x }` parses, and calls verify the inferred
 // concrete type impl the bound interface.
 // ---------------------------------------------------------------------------
 
 const interfaceBoundSetup = `interface Showable {
-  fn show(value: self): String
+  fn show(value: self) -> String
 }
 interface Tagged {
-  fn tag(value: self): String
+  fn tag(value: self) -> String
 }
 struct User {
   name: String
 }
 impl Showable for User {
-  fn show(value: User): String { value.name }
+  fn show(value: User) -> String { value.name }
 }
 impl Tagged for User {
-  fn tag(_value: User): String { "user" }
+  fn tag(_value: User) -> String { "user" }
 }
 struct Anon {}
 struct ShowOnly { name: String }
 impl Showable for ShowOnly {
-  fn show(value: ShowOnly): String { value.name }
+  fn show(value: ShowOnly) -> String { value.name }
 }
 `
 
 func TestInterfaceBound_ParseSyntax(t *testing.T) {
-	src := interfaceBoundSetup + `fn identity<T>(x: T): T where T: Showable { x }`
+	src := interfaceBoundSetup + `fn identity<T>(x: T) -> T where T: Showable { x }`
 	tokens := lexer.Lex(src)
 	_, err := parser.Parse(tokens)
 	if err != nil {
@@ -3579,38 +3618,38 @@ func TestInterfaceBound_ParseSyntax(t *testing.T) {
 }
 
 func TestInterfaceBound_CallSiteSatisfied(t *testing.T) {
-	src := interfaceBoundSetup + `fn identity<T>(x: T): T where T: Showable { x }
-fn demo(): User { identity(User{name: "Alice"}) }`
+	src := interfaceBoundSetup + `fn identity<T>(x: T) -> T where T: Showable { x }
+fn demo() -> User { identity(User{name: "Alice"}) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestInterfaceBound_CallSiteNotImpl(t *testing.T) {
 	// Anon doesn't impl Showable — should reject.
-	src := interfaceBoundSetup + `fn identity<T>(x: T): T where T: Showable { x }
-fn demo(): Anon { identity(Anon{}) }`
+	src := interfaceBoundSetup + `fn identity<T>(x: T) -> T where T: Showable { x }
+fn demo() -> Anon { identity(Anon{}) }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "does not implement")
 }
 
 func TestInterfaceBound_CallSitePrimitiveNotImpl(t *testing.T) {
 	// Int doesn't impl Showable — should reject.
-	src := interfaceBoundSetup + `fn identity<T>(x: T): T where T: Showable { x }
-fn demo(): Int { identity(42) }`
+	src := interfaceBoundSetup + `fn identity<T>(x: T) -> T where T: Showable { x }
+fn demo() -> Int { identity(42) }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "does not implement")
 }
 
 func TestInterfaceBound_UnboundedStillWorks(t *testing.T) {
 	// Generic without a bound shouldn't trigger any check.
-	src := `fn identity<T>(x: T): T { x }
-fn demo(): Int { identity(42) }`
+	src := `fn identity<T>(x: T) -> T { x }
+fn demo() -> Int { identity(42) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestInterfaceBound_MultiBound_ParseSyntax(t *testing.T) {
-	src := interfaceBoundSetup + `fn identity<T>(x: T): T where T: Showable and Tagged { x }`
+	src := interfaceBoundSetup + `fn identity<T>(x: T) -> T where T: Showable and Tagged { x }`
 	tokens := lexer.Lex(src)
 	_, err := parser.Parse(tokens)
 	if err != nil {
@@ -3620,8 +3659,8 @@ func TestInterfaceBound_MultiBound_ParseSyntax(t *testing.T) {
 
 func TestInterfaceBound_MultiBound_AllSatisfied(t *testing.T) {
 	// User impl both Showable and Tagged — call should typecheck.
-	src := interfaceBoundSetup + `fn identity<T>(x: T): T where T: Showable and Tagged { x }
-fn demo(): User { identity(User{name: "Alice"}) }`
+	src := interfaceBoundSetup + `fn identity<T>(x: T) -> T where T: Showable and Tagged { x }
+fn demo() -> User { identity(User{name: "Alice"}) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3629,16 +3668,16 @@ fn demo(): User { identity(User{name: "Alice"}) }`
 func TestInterfaceBound_MultiBound_OneMissing(t *testing.T) {
 	// ShowOnly impl Showable but not Tagged — should reject and the
 	// error should point at the missing interface.
-	src := interfaceBoundSetup + `fn identity<T>(x: T): T where T: Showable and Tagged { x }
-fn demo(): ShowOnly { identity(ShowOnly{name: "x"}) }`
+	src := interfaceBoundSetup + `fn identity<T>(x: T) -> T where T: Showable and Tagged { x }
+fn demo() -> ShowOnly { identity(ShowOnly{name: "x"}) }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "Tagged")
 }
 
 func TestInterfaceBound_MultiBound_NoneSatisfied(t *testing.T) {
 	// Anon impl neither — should reject.
-	src := interfaceBoundSetup + `fn identity<T>(x: T): T where T: Showable and Tagged { x }
-fn demo(): Anon { identity(Anon{}) }`
+	src := interfaceBoundSetup + `fn identity<T>(x: T) -> T where T: Showable and Tagged { x }
+fn demo() -> Anon { identity(Anon{}) }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "does not implement")
 }
@@ -3648,8 +3687,8 @@ fn demo(): Anon { identity(Anon{}) }`
 // at use sites must match what writing the expansion directly would do.
 func TestInterfaceBound_Alias_AllSatisfied(t *testing.T) {
 	src := interfaceBoundSetup + `typealias ShowAndTag Showable and Tagged
-fn identity<T>(x: T): T where T: ShowAndTag { x }
-fn demo(): User { identity(User{name: "Alice"}) }`
+fn identity<T>(x: T) -> T where T: ShowAndTag { x }
+fn demo() -> User { identity(User{name: "Alice"}) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3658,8 +3697,8 @@ func TestInterfaceBound_Alias_OneMissing(t *testing.T) {
 	// ShowOnly satisfies Showable but not Tagged — alias bound must still
 	// fail with the missing interface named (not the alias name).
 	src := interfaceBoundSetup + `typealias ShowAndTag Showable and Tagged
-fn identity<T>(x: T): T where T: ShowAndTag { x }
-fn demo(): ShowOnly { identity(ShowOnly{name: "x"}) }`
+fn identity<T>(x: T) -> T where T: ShowAndTag { x }
+fn demo() -> ShowOnly { identity(ShowOnly{name: "x"}) }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "Tagged")
 }
@@ -3668,8 +3707,8 @@ fn demo(): ShowOnly { identity(ShowOnly{name: "x"}) }`
 func TestInterfaceBound_Alias_OfAlias(t *testing.T) {
 	src := interfaceBoundSetup + `typealias S Showable
 typealias ST S and Tagged
-fn identity<T>(x: T): T where T: ST { x }
-fn demo(): User { identity(User{name: "Alice"}) }`
+fn identity<T>(x: T) -> T where T: ST { x }
+fn demo() -> User { identity(User{name: "Alice"}) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3679,8 +3718,8 @@ fn demo(): User { identity(User{name: "Alice"}) }`
 func TestInterfaceBound_Alias_NestedBoundAlias(t *testing.T) {
 	src := interfaceBoundSetup + `typealias ShowAndTag Showable and Tagged
 typealias Outer ShowAndTag
-fn identity<T>(x: T): T where T: Outer { x }
-fn demo(): User { identity(User{name: "Alice"}) }`
+fn identity<T>(x: T) -> T where T: Outer { x }
+fn demo() -> User { identity(User{name: "Alice"}) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3690,8 +3729,8 @@ fn demo(): User { identity(User{name: "Alice"}) }`
 func TestInterfaceBound_Alias_NestedBoundAlias_Missing(t *testing.T) {
 	src := interfaceBoundSetup + `typealias ShowAndTag Showable and Tagged
 typealias Outer ShowAndTag
-fn identity<T>(x: T): T where T: Outer { x }
-fn demo(): ShowOnly { identity(ShowOnly{name: "x"}) }`
+fn identity<T>(x: T) -> T where T: Outer { x }
+fn demo() -> ShowOnly { identity(ShowOnly{name: "x"}) }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "Tagged")
 }
@@ -3701,14 +3740,14 @@ fn demo(): ShowOnly { identity(ShowOnly{name: "x"}) }`
 // must error with a clear message pointing at the `where T: Name` form.
 func TestInterfaceBound_Alias_RejectedAsParamType(t *testing.T) {
 	src := interfaceBoundSetup + `typealias ShowAndTag Showable and Tagged
-fn announce(_x: ShowAndTag): String { "ok" }`
+fn announce(_x: ShowAndTag) -> String { "ok" }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "interface-bound alias")
 }
 
 func TestInterfaceBound_Alias_RejectedAsReturnType(t *testing.T) {
 	src := interfaceBoundSetup + `typealias ShowAndTag Showable and Tagged
-fn make(x: User): ShowAndTag { x }`
+fn make(x: User) -> ShowAndTag { x }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "interface-bound alias")
 }
@@ -3732,7 +3771,7 @@ struct Box { field: ShowAndTag }`
 
 func TestVariantPattern_BareVariant_DataCarrying_Rejected(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
-fn f(r: Result<Int, String>): Int {
+fn f(r: Result<Int, String>) -> Int {
   case r {
     Ok(n) -> n
     Err -> -1
@@ -3748,7 +3787,7 @@ func TestVariantPattern_NestedBareDataCarrying_Rejected(t *testing.T) {
 	// inner Err and outer Some need their payloads spelled out.
 	src := `enum Maybe<T> { Some T; None }
 enum Result<T, E> { Ok T; Err E }
-fn unwrap_or(m: Maybe<Result<Int, String>>): Int {
+fn unwrap_or(m: Maybe<Result<Int, String>>) -> Int {
   case m {
     Some(Ok(n)) -> n
     Some(Err) -> -1
@@ -3762,7 +3801,7 @@ fn unwrap_or(m: Maybe<Result<Int, String>>): Int {
 func TestVariantPattern_BareVariant_NoData_OK(t *testing.T) {
 	// None carries no data — bare `None` is the correct pattern.
 	src := `enum Maybe<T> { Some T; None }
-fn f(m: Maybe<Int>): Int {
+fn f(m: Maybe<Int>) -> Int {
   case m {
     Some(n) -> n
     None -> 0
@@ -3774,7 +3813,7 @@ fn f(m: Maybe<Int>): Int {
 
 func TestVariantPattern_DataCarrying_WithWildcard_OK(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
-fn f(r: Result<Int, String>): Int {
+fn f(r: Result<Int, String>) -> Int {
   case r {
     Ok(n) -> n
     Err(_) -> -1
@@ -3786,7 +3825,7 @@ fn f(r: Result<Int, String>): Int {
 
 func TestVariantPattern_DataCarrying_WithBinding_OK(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
-fn f(r: Result<Int, String>): Int {
+fn f(r: Result<Int, String>) -> Int {
   case r {
     Ok(n) -> n
     Err(msg) -> 0
@@ -3798,7 +3837,7 @@ fn f(r: Result<Int, String>): Int {
 
 func TestVariantPattern_BoolBareVariants_OK(t *testing.T) {
 	// True and False have no data — bare patterns are valid.
-	src := `fn f(b: Bool): Int {
+	src := `fn f(b: Bool) -> Int {
   case b {
     True -> 1
     False -> 0
@@ -3835,7 +3874,7 @@ func TestNaming_EnumVariantPascalCase_OK(t *testing.T) {
 }
 
 func TestNaming_FunctionSnakeCase_OK(t *testing.T) {
-	src := `fn parse_input(_s: String): Int { 0 }`
+	src := `fn parse_input(_s: String) -> Int { 0 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3856,7 +3895,7 @@ func TestNaming_FunctionSnakeCase_OK(t *testing.T) {
 // two Nomi names arriving at one spelling there.
 
 func TestNaming_AnonStructLiteralField_Rejected(t *testing.T) {
-	src := `fn f(): Int {
+	src := `fn f() -> Int {
   a = {userName: 1}
   a.userName
 }`
@@ -3865,7 +3904,7 @@ func TestNaming_AnonStructLiteralField_Rejected(t *testing.T) {
 }
 
 func TestNaming_AnonStructTypeField_Rejected(t *testing.T) {
-	src := `fn width(box: {userName: Int}): Int {
+	src := `fn width(box: {userName: Int}) -> Int {
   box.userName
 }`
 	_, errs := checkSource(src)
@@ -3875,7 +3914,7 @@ func TestNaming_AnonStructTypeField_Rejected(t *testing.T) {
 func TestNaming_AnonStructPredicateSuffix_OK(t *testing.T) {
 	// A trailing `?` IS snake_case (spec §4, the predicate convention), so the
 	// rule must not reject it — only the `_PRED` spelling that collides with it.
-	src := `fn f(): Int {
+	src := `fn f() -> Int {
   a = {ok?: 1, count: 2}
   a.count
 }`
@@ -3884,7 +3923,7 @@ func TestNaming_AnonStructPredicateSuffix_OK(t *testing.T) {
 }
 
 func TestNaming_AnonStructPredCollisionField_Rejected(t *testing.T) {
-	src := `fn f(): Int {
+	src := `fn f() -> Int {
   a = {ok?: 1, ok_PRED: 2}
   a.ok_PRED
 }`
@@ -3899,7 +3938,7 @@ func TestNaming_StructFieldSnakeCase_OK(t *testing.T) {
 }
 
 func TestNaming_FunctionParamSnakeCase_OK(t *testing.T) {
-	src := `fn f(user_id: Int, max_retries: Int): Int { user_id + max_retries }`
+	src := `fn f(user_id: Int, max_retries: Int) -> Int { user_id + max_retries }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3907,7 +3946,7 @@ func TestNaming_FunctionParamSnakeCase_OK(t *testing.T) {
 func TestNaming_PredicateFunctionName_OK(t *testing.T) {
 	// A single trailing `?` (predicate convention) is a valid snake_case
 	// identifier — `fn empty?()` must NOT trip the snake_case check.
-	src := `fn empty?(): Int { 0 }`
+	src := `fn empty?() -> Int { 0 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3915,7 +3954,7 @@ func TestNaming_PredicateFunctionName_OK(t *testing.T) {
 func TestNaming_PredicateBinding_OK(t *testing.T) {
 	// A `?`-suffixed binding name is accepted too (the suffix attaches to any
 	// identifier, not just fn names).
-	src := `fn f(): Int { ready? = 0; ready? }`
+	src := `fn f() -> Int { ready? = 0; ready? }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3923,7 +3962,7 @@ func TestNaming_PredicateBinding_OK(t *testing.T) {
 func TestNaming_PredicateParam_OK(t *testing.T) {
 	// A `?`-suffixed parameter name is accepted too — the suffix attaches to
 	// any identifier, including function parameters.
-	src := `fn check(ready?: Bool): Bool { ready? }`
+	src := `fn check(ready?: Bool) -> Bool { ready? }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3936,7 +3975,7 @@ func TestNaming_TypeParamSingleUppercase_OK(t *testing.T) {
 
 func TestNaming_LeadingUnderscoreParam_OK(t *testing.T) {
 	// Conventionally-unused params get a leading underscore.
-	src := `fn f(_unused: Int): Int { 0 }`
+	src := `fn f(_unused: Int) -> Int { 0 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3970,7 +4009,7 @@ func TestNaming_DistinctTypeWithUnderscore_Rejected(t *testing.T) {
 }
 
 func TestNaming_InterfaceWithUnderscore_Rejected(t *testing.T) {
-	src := `interface Format_Pretty { fn fmt(value: self): String }`
+	src := `interface Format_Pretty { fn fmt(value: self) -> String }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "PascalCase")
 }
@@ -3978,13 +4017,13 @@ func TestNaming_InterfaceWithUnderscore_Rejected(t *testing.T) {
 func TestNaming_FunctionPascalCase_Rejected(t *testing.T) {
 	// Function names accept both IDENT and TYPE_IDENT, so a TYPE_IDENT
 	// like `ParseInput` parses — but functions must be snake_case.
-	src := `fn ParseInput(_s: String): Int { 0 }`
+	src := `fn ParseInput(_s: String) -> Int { 0 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "snake_case")
 }
 
 func TestNaming_FunctionScreamingSnake_Rejected(t *testing.T) {
-	src := `fn DO_THING(): Int { 0 }`
+	src := `fn DO_THING() -> Int { 0 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "snake_case")
 }
@@ -3998,7 +4037,7 @@ func TestNaming_StructFieldMixedCase_Rejected(t *testing.T) {
 }
 
 func TestNaming_FunctionParamMixedCase_Rejected(t *testing.T) {
-	src := `fn f(_userId: Int): Int { 0 }`
+	src := `fn f(_userId: Int) -> Int { 0 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "snake_case")
 }
@@ -4010,14 +4049,14 @@ func TestNaming_FunctionParamMixedCase_Rejected(t *testing.T) {
 // the checker must reject.
 
 func TestNaming_BindingMixedCase_Rejected(t *testing.T) {
-	src := `fn f(): Int { someVar = 5
+	src := `fn f() -> Int { someVar = 5
 someVar }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "snake_case")
 }
 
 func TestNaming_BindingInteriorUppercase_Rejected(t *testing.T) {
-	src := `fn f(): Int { my_Var = 5
+	src := `fn f() -> Int { my_Var = 5
 my_Var }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "snake_case")
@@ -4040,7 +4079,7 @@ func TestNaming_TopLevelOnceScreamingSnake_Rejected(t *testing.T) {
 // --- Destructure bindings ---
 
 func TestNaming_TupleDestructureMixedCase_Rejected(t *testing.T) {
-	src := `fn f(): Int { (myVar, y) = (1, 2)
+	src := `fn f() -> Int { #(myVar, y) = #(1, 2)
 myVar + y }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "snake_case")
@@ -4048,7 +4087,7 @@ myVar + y }`
 
 func TestNaming_StructDestructureMixedCase_Rejected(t *testing.T) {
 	src := `struct Person { name: String; age: Int }
-fn f(p: Person): Int { {name: nameAlias, age} = p
+fn f(p: Person) -> Int { {name: nameAlias, age} = p
 age }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "snake_case")
@@ -4056,7 +4095,7 @@ age }`
 
 func TestNaming_DistinctDestructureMixedCase_Rejected(t *testing.T) {
 	src := `type UserId Int
-fn f(u: UserId): Int { UserId(myId) = u
+fn f(u: UserId) -> Int { UserId(myId) = u
 myId }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "snake_case")
@@ -4065,13 +4104,13 @@ myId }`
 // --- Type parameters ---
 
 func TestNaming_TypeParamLowercase_Rejected(t *testing.T) {
-	src := `fn f<a>(x: a): a { x }`
+	src := `fn f<a>(x: a) -> a { x }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "PascalCase")
 }
 
 func TestNaming_TypeParamSnakeCase_Rejected(t *testing.T) {
-	src := `fn f<acc_t>(x: acc_t): acc_t { x }`
+	src := `fn f<acc_t>(x: acc_t) -> acc_t { x }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "PascalCase")
 }
@@ -4089,7 +4128,7 @@ func TestNaming_TypeParamOnEnum_Rejected(t *testing.T) {
 }
 
 func TestNaming_TypeParamOnInterface_Rejected(t *testing.T) {
-	src := `interface Foo<a> { fn fmt(value: self): a }`
+	src := `interface Foo<a> { fn fmt(value: self) -> a }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "PascalCase")
 }
@@ -4137,7 +4176,7 @@ func TestNaming_ImportBlockFunctionAliasPascalCase_Rejected(t *testing.T) {
   parsers/date.parse as Parse
 }`
 	_, errs := checkSourceWithModules(t, src, map[string]string{
-		"parsers/date": `pub fn parse(_text: String): Int { 0 }`,
+		"parsers/date": `pub fn parse(_text: String) -> Int { 0 }`,
 	})
 	expectError(t, errs, `import alias "Parse" must be snake_case`)
 }
@@ -4145,7 +4184,7 @@ func TestNaming_ImportBlockFunctionAliasPascalCase_Rejected(t *testing.T) {
 func TestNaming_TypeImportAliasPascalCase_OK(t *testing.T) {
 	src := `import maybe.Maybe as Opt
 
-fn f(value: Opt<Int>): Opt<Int> { value }`
+fn f(value: Opt<Int>) -> Opt<Int> { value }`
 	_, errs := checkSourceWithModules(t, src, map[string]string{
 		"maybe": `pub enum Maybe<T> { Some T; None }`,
 	})
@@ -4155,9 +4194,9 @@ fn f(value: Opt<Int>): Opt<Int> { value }`
 func TestNaming_VariantImportAliasPascalCase_OK(t *testing.T) {
 	src := `import maybe.Maybe.{self, Some as Just, None as Nothing}
 
-fn f(): Maybe<Int> { Just(1) }`
+fn f() -> Maybe<Int> { Just(1) }`
 	src += `
-fn g(): Maybe<Int> { Nothing }`
+fn g() -> Maybe<Int> { Nothing }`
 	_, errs := checkSourceWithModules(t, src, map[string]string{
 		"maybe": `pub enum Maybe<T> { Some T; None }`,
 	})
@@ -4173,10 +4212,10 @@ func TestNaming_VariantImportAliasSnakeCase_Rejected(t *testing.T) {
 }
 
 func TestVisibility_NestedPrivateInGenericArg(t *testing.T) {
-	// `fn lookup(): List<Secret>` — secret is buried inside a List
+	// `fn lookup() -> List<Secret>` — secret is buried inside a List
 	// type-argument but the leak is just as real.
 	src := `struct Secret { value: String }
-pub fn lookup(): List<Secret> { [] }`
+pub fn lookup() -> List<Secret> { [] }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "private type")
 }
@@ -4188,7 +4227,7 @@ pub fn lookup(): List<Secret> { [] }`
 func TestCheckPattern_EmbedVariantStructDestructure(t *testing.T) {
 	src := `struct Rectangle { width: Float; height: Float }
 enum Shape { embeds Rectangle; Point }
-fn area(s: Shape): Float {
+fn area(s: Shape) -> Float {
   case s {
     Shape.Rectangle{width, height} -> width * height
     Shape.Point -> 0.0
@@ -4205,7 +4244,7 @@ fn area(s: Shape): Float {
 // A variant with several positional types, `Rect(Float, Float)`, is a
 // tuple-payload variant, not a "multi-positional" error.
 func TestMultiPositionalVariant_DeclarationParsesAsTuple(t *testing.T) {
-	src := `enum Shape { Rect(Float, Float); Empty }`
+	src := `enum Shape { Rect#(Float, Float); Empty }`
 	tokens := lexer.Lex(src)
 	nodes, parseErrs := parser.ParseWithRecovery(tokens)
 	if len(parseErrs) > 0 {
@@ -4224,11 +4263,11 @@ func TestMultiPositionalVariant_DeclarationParsesAsTuple(t *testing.T) {
 // Variant tuple-payload literal-attach construction: `Shape.Rect(3.0, 5.0)`
 // is now accepted as a flat-form constructor for the tuple payload, parallel
 // to the tuple-distinct literal-attach `Pair(1, "x")`. The call-form
-// `Shape.Rect((3.0, 5.0))` continues to work (see
+// `Shape.Rect(#(3.0, 5.0))` continues to work (see
 // TestTuplePayloadVariant_ExplicitFormWorks).
 func TestVariantTuplePayload_FlatConstruction_OK(t *testing.T) {
-	src := `enum Shape { Rect (Float, Float); Empty }
-fn make(): Shape { Shape.Rect(3.0, 5.0) }`
+	src := `enum Shape { Rect #(Float, Float); Empty }
+fn make() -> Shape { Shape.Rect(3.0, 5.0) }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := BuildFile(nodes)
@@ -4245,10 +4284,10 @@ fn make(): Shape { Shape.Rect(3.0, 5.0) }`
 // Variant tuple-payload literal-attach pattern: `Shape.Rect(w, h)` is now
 // accepted as a flat-form destructure for the tuple payload, parallel to
 // `Pair(a, b)` for tuple-distinct types. The explicit form
-// `Shape.Rect((w, h))` continues to work.
+// `Shape.Rect(#(w, h))` continues to work.
 func TestVariantTuplePayload_FlatPattern_OK(t *testing.T) {
-	src := `enum Shape { Rect (Float, Float); Empty }
-fn area(s: Shape): Float {
+	src := `enum Shape { Rect #(Float, Float); Empty }
+fn area(s: Shape) -> Float {
   case s {
     Shape.Rect(w, h) -> w * h
     Shape.Empty -> 0.0
@@ -4277,14 +4316,14 @@ fn area(s: Shape): Float {
 
 // The explicit form still works.
 func TestTuplePayloadVariant_ExplicitFormWorks(t *testing.T) {
-	src := `enum Shape { Rect (Float, Float); Empty }
-fn area(s: Shape): Float {
+	src := `enum Shape { Rect #(Float, Float); Empty }
+fn area(s: Shape) -> Float {
   case s {
-    Shape.Rect((w, h)) -> w * h
+    Shape.Rect(#(w, h)) -> w * h
     Shape.Empty -> 0.0
   }
 }
-fn make(): Shape { Shape.Rect((3.0, 5.0)) }`
+fn make() -> Shape { Shape.Rect(#(3.0, 5.0)) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -4293,10 +4332,10 @@ fn make(): Shape { Shape.Rect((3.0, 5.0)) }`
 // against a tuple-2 payload) reports a single arity error. After variant
 // literal-attach landed, the old "multi-binding is not supported" diagnostic
 // retired and the inner tuple-pattern check is the sole arity gate — both
-// for the legacy `((a, b))` form and for the flat `(a, b)` shorthand.
+// for the legacy `(#(a, b))` form and for the flat `#(a, b)` shorthand.
 func TestCheck_VariantTuplePayload_FlatPattern_WrongArity(t *testing.T) {
-	src := `enum Shape { Rect (Float, Float); Empty }
-fn area(s: Shape): Float {
+	src := `enum Shape { Rect #(Float, Float); Empty }
+fn area(s: Shape) -> Float {
   case s {
     Shape.Rect(w, h, extra) -> w * h
     Shape.Empty -> 0.0
@@ -4337,7 +4376,7 @@ fn area(s: Shape): Float {
 func TestVariant_BareValuePos_FlatMap_Error(t *testing.T) {
 	src := `enum E { Obj Map<String, Int> }
 fn main() {
-  bad = Obj{"k" => 1}
+  bad = Obj%{"k" => 1}
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "variant 'Obj' must be qualified through its enum")
@@ -4359,7 +4398,7 @@ func TestVariant_BareValuePos_Call_Error(t *testing.T) {
 	// rule; this test pins that the diagnostic shape matches the new
 	// flat-form rule's wording, so the rule reads uniformly across
 	// shapes.
-	src := `enum E { Pos (Int, Int) }
+	src := `enum E { Pos #(Int, Int) }
 fn main() {
   bad = Pos(10, 20)
 }`
@@ -4371,7 +4410,7 @@ fn main() {
 func TestVariant_QualifiedValuePos_FlatMap_OK(t *testing.T) {
 	src := `enum E { Obj Map<String, Int> }
 fn main() {
-  good = E.Obj{"k" => 1}
+  good = E.Obj%{"k" => 1}
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -4392,7 +4431,7 @@ func TestVariant_DotPattern_WithScrutinee_OK(t *testing.T) {
 	// table. Bare prefixes were rejected in the dot-leading migration
 	// (with the prelude carve-out for Ok/Err/Some/None/True/False).
 	src := `enum E { Obj Map<String, Int>; Arr List<Int>; Empty }
-fn describe(e: E): Int {
+fn describe(e: E) -> Int {
   case e {
     .Obj(m) -> 1
     .Arr(xs) -> 2
@@ -4440,10 +4479,10 @@ fn main() {
 }
 
 func TestDotVariant_MapLitInAnnotatedBinding_OK(t *testing.T) {
-	// v: V = .Obj{"k" => 1}
+	// v: V = .Obj%{"k" => 1}
 	src := `enum V { Obj Map<String, Int>; Nil }
 fn main() {
-  v: V = .Obj{"k" => 1}
+  v: V = .Obj%{"k" => 1}
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -4462,8 +4501,8 @@ fn main() {
 func TestDotVariant_FunctionArg_OK(t *testing.T) {
 	// paint(.Red) where paint takes Color
 	src := `enum Color { Red; Green; Blue }
-fn paint(_c: Color): Int { 0 }
-fn demo(): Int {
+fn paint(_c: Color) -> Int { 0 }
+fn demo() -> Int {
   paint(.Red)
 }`
 	_, errs := checkSource(src)
@@ -4472,7 +4511,7 @@ fn demo(): Int {
 
 func TestDotVariant_AnnotatedReturn_OK(t *testing.T) {
 	src := `enum Color { Red; Green; Blue }
-fn default_color(): Color { .Red }`
+fn default_color() -> Color { .Red }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -4488,10 +4527,10 @@ fn main() {
 }
 
 func TestDotVariant_MapValueFromAnnotation_OK(t *testing.T) {
-	// themes: Map<String, Color> = {"a" => .Red}
+	// themes: Map<String, Color> = %{"a" => .Red}
 	src := `enum Color { Red; Green; Blue }
 fn main() {
-  themes: Map<String, Color> = {"a" => .Red}
+  themes: Map<String, Color> = %{"a" => .Red}
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -4533,7 +4572,7 @@ fn main() {
 // Pattern-position dot-leading variants — resolve via scrutinee type.
 func TestDotVariant_BareInPattern_OK(t *testing.T) {
 	src := `enum Color { Red; Green; Blue }
-fn name(c: Color): Int {
+fn name(c: Color) -> Int {
   case c {
     .Red -> 1
     .Green -> 2
@@ -4546,7 +4585,7 @@ fn name(c: Color): Int {
 
 func TestDotVariant_PayloadInPattern_OK(t *testing.T) {
 	src := `enum Shape { Circle Float; Square Float; Origin }
-fn area(s: Shape): Float {
+fn area(s: Shape) -> Float {
   case s {
     .Circle(r) -> 3.14 * r * r
     .Square(side) -> side * side
@@ -4559,7 +4598,7 @@ fn area(s: Shape): Float {
 
 func TestDotVariant_StructPatternInPattern_OK(t *testing.T) {
 	src := `enum Shape { Rect{w: Float, h: Float}; Origin }
-fn area(s: Shape): Float {
+fn area(s: Shape) -> Float {
   case s {
     .Rect{w, h} -> w * h
     .Origin -> 0.0
@@ -4573,10 +4612,10 @@ fn area(s: Shape): Float {
 // body's tail takes its declared return: with an expression body and a block body.
 func TestDotVariant_LambdaResult_OK(t *testing.T) {
 	src := `enum Color { Red; Green; Blue }
-fn apply(f: (Int) -> Color): Color { f(1) }
+fn apply(f: (Int) -> Color) -> Color { f(1) }
 fn main() {
-  _ = apply(|n| if n > 0 { .Red } else { .Blue })
-  _ = apply(|_n| {
+  _ = apply(fn n -> if n > 0 { .Red } else { .Blue })
+  _ = apply(fn _n -> {
     .Green
   })
 }`
@@ -4588,9 +4627,9 @@ fn main() {
 // what solves it, so `.Red` there still needs another way to name its enum.
 func TestDotVariant_LambdaGenericResult_Error(t *testing.T) {
 	src := `enum Color { Red; Green; Blue }
-fn map1<T, U>(x: T, f: (T) -> U): U { f(x) }
+fn map1<T, U>(x: T, f: (T) -> U) -> U { f(x) }
 fn main() {
-  _ = map1(1, |_n| .Red)
+  _ = map1(1, fn _n -> .Red)
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "requires a determinable enum type")
@@ -4610,7 +4649,7 @@ fn main() {
 func TestDotVariant_ExpectedNotEnum_Error(t *testing.T) {
 	// f(.Red) where f takes Int — expected type isn't an enum.
 	src := `enum Color { Red; Green; Blue }
-fn f(x: Int): Int { x }
+fn f(x: Int) -> Int { x }
 fn main() {
   f(.Red)
 }`
@@ -4634,11 +4673,11 @@ fn main() {
 // FieldDef, and the call site's anon struct literal `{name: "World"}`
 // unifies with that param type via TypesEqual (already structural).
 func TestChecker_AnonStructType_FunctionParam(t *testing.T) {
-	src := `fn greet(p: {name: String}): String {
+	src := `fn greet(p: {name: String}) -> String {
   p.name
 }
 
-fn demo(): String {
+fn demo() -> String {
   greet({name: "World"})
 }
 `
@@ -4676,7 +4715,7 @@ fn demo(): String {
 // while hover on `name` in `{name: "Bob"}` shows `name: String` — an
 // LSP-visible asymmetry.
 func TestChecker_AnonStructType_FieldNameRegistered(t *testing.T) {
-	src := `fn greet(p: {name: String, age: Int}): String {
+	src := `fn greet(p: {name: String, age: Int}) -> String {
   p.name
 }
 `
@@ -4720,7 +4759,7 @@ func TestChecker_AnonStructType_FieldNameRegistered(t *testing.T) {
 // Without this, the type checker's name-keyed equality relation would
 // silently pick whichever entry the map iteration landed on last.
 func TestChecker_AnonStructType_DuplicateFieldNameRejected(t *testing.T) {
-	src := `fn f(_p: {a: Int, a: String}): Int { 0 }
+	src := `fn f(_p: {a: Int, a: String}) -> Int { 0 }
 `
 	_, errs := checkSource(src)
 	expectError(t, errs, "duplicate field 'a'")
@@ -4731,7 +4770,7 @@ func TestChecker_AnonStructType_DuplicateFieldNameRejected(t *testing.T) {
 // with two fields of the same name are also rejected, so the new
 // name-keyed equality relation never sees a duplicate either side.
 func TestChecker_AnonStructLit_DuplicateFieldNameRejected(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   s = {a: 1, a: 2}
   s.a
 }
@@ -4744,11 +4783,11 @@ func TestChecker_AnonStructLit_DuplicateFieldNameRejected(t *testing.T) {
 // argument with fields in a different order than the parameter type still
 // type-checks. Equality is over the field set, not the field list.
 func TestChecker_AnonStructParam_AcceptsReorderedArg(t *testing.T) {
-	src := `fn f(p: {a: Int, b: String}): String {
+	src := `fn f(p: {a: Int, b: String}) -> String {
   p.b
 }
 
-fn demo(): String {
+fn demo() -> String {
   f({b: "x", a: 1})
 }
 `
@@ -4759,14 +4798,14 @@ fn demo(): String {
 // TestChecker_AnonStructInTuple_FieldOrderIgnored pins that nested anon
 // struct shapes inside a tuple type compare order-insensitively too.
 func TestChecker_AnonStructInTuple_FieldOrderIgnored(t *testing.T) {
-	src := `fn f(p: (Int, {x: Int, y: Int})): Int {
+	src := `fn f(p: #(Int, {x: Int, y: Int})) -> Int {
   case p {
-    (n, _) -> n
+    #(n, _) -> n
   }
 }
 
-fn demo(): Int {
-  f((42, {y: 2, x: 1}))
+fn demo() -> Int {
+  f(#(42, {y: 2, x: 1}))
 }
 `
 	_, errs := checkSource(src)
@@ -4778,11 +4817,11 @@ fn demo(): Int {
 // Without ContainsTypeParam / Substitute / unifyFull traversal, T stays
 // unbound and the call site silently fails to enforce the constraint.
 func TestChecker_GenericFn_AnonStructParam_InfersTypeArg(t *testing.T) {
-	src := `fn first<T>(p: {head: T, tail: List<T>}): T {
+	src := `fn first<T>(p: {head: T, tail: List<T>}) -> T {
   p.head
 }
 
-fn demo(): Int {
+fn demo() -> Int {
   first({head: 1, tail: [2, 3]})
 }
 `
@@ -4794,11 +4833,11 @@ fn demo(): Int {
 // negative side: when the anon-struct argument forces T to two different
 // types, inference must fail.
 func TestChecker_GenericFn_AnonStructParam_RejectsTypeMismatch(t *testing.T) {
-	src := `fn first<T>(p: {head: T, tail: List<T>}): T {
+	src := `fn first<T>(p: {head: T, tail: List<T>}) -> T {
   p.head
 }
 
-fn demo(): Int {
+fn demo() -> Int {
   first({head: 1, tail: ["a", "b"]})
 }
 `
@@ -4814,9 +4853,9 @@ fn demo(): Int {
 func TestChecker_AnonStructParam_GenericPayloadInfersTypeArg(t *testing.T) {
 	src := `enum Maybe<T> { Some(T); None }
 
-fn f(_p: {head: Maybe<Int>}): Int { 0 }
+fn f(_p: {head: Maybe<Int>}) -> Int { 0 }
 
-fn demo(): Int {
+fn demo() -> Int {
   f({head: Maybe.None})
 }
 `
@@ -5065,17 +5104,23 @@ fn take(_x: Maybe2<Int>) {}`
 // A host fn's parameter default is checked against the parameter's type, as
 // a fn's is.
 func TestCheckHostFnParamDefault(t *testing.T) {
-	_, errs := checkSource("host fn pad(s: String, width: Int = \"wide\"): String\n")
+	_, errs := checkSource("host fn pad(s: String, width: Int = \"wide\") -> String\n")
 	expectError(t, errs, "default value for parameter 'width' is String, expected Int")
-	_, errs = checkSource("host fn pad(s: String, width: Int = 8, fill: String = \" \"): String\n\nfn main() {\n  _ = pad(\"a\")\n}\n")
+	_, errs = checkSource("host fn pad(s: String, width: Int = 8, fill: String = \" \") -> String\n\nfn main() {\n  _ = pad(\"a\")\n}\n")
 	expectNoErrors(t, errs)
+	// A default may name the file's functions and an earlier parameter, as
+	// a fn's default may.
+	_, errs = checkSource("fn twice(n: Int) -> Int {\n  n * 2\n}\n\nhost fn pad(s: String, n: Int, width: Int = twice(n)) -> String\n\nfn main() {\n  _ = pad(\"a\", 3)\n}\n")
+	expectNoErrors(t, errs)
+	_, errs = checkSource("host fn pad(s: String, width: Int = nowhere) -> String\n")
+	expectError(t, errs, "undefined variable 'nowhere'")
 }
 
 // A file qualifier is not a value: alone as a statement, bound, or in a
 // list, it is an error at the name. As a qualifier it still reaches the
 // file's members.
 func TestCheckFileQualifierIsNotAValue(t *testing.T) {
-	helper := map[string]string{"helper": "pub fn four(): Int {\n  4\n}\n"}
+	helper := map[string]string{"helper": "pub fn four() -> Int {\n  4\n}\n"}
 	for _, body := range []string{
 		"  x = dbg 41 + 1\n  _ = x\n  helper",
 		"  y = helper\n  _ = y",
@@ -5094,7 +5139,7 @@ func TestCheckFileQualifierIsNotAValue(t *testing.T) {
 // empty file's import bound no scope, `ffi.0` checked clean with no type, and
 // the IR builder declined `ffi`.
 func TestCheckFileIsNotAValueEvenWhenEmpty(t *testing.T) {
-	for _, file := range []string{"", "pub fn four(): Int {\n  4\n}\n"} {
+	for _, file := range []string{"", "pub fn four() -> Int {\n  4\n}\n"} {
 		modules := map[string]string{"ffi": file}
 		for _, tc := range []struct{ body, want string }{
 			{"  _ = ffi.0", "`ffi` is a file, not a value, so `ffi.0` has no element to read"},
@@ -5103,9 +5148,9 @@ func TestCheckFileIsNotAValueEvenWhenEmpty(t *testing.T) {
 			{"  _ = ffi.zz", "file 'ffi' has no member 'zz'"},
 			{"  _ = ffi", "`ffi` is a file, not a value"},
 			{"  _ = f(ffi)", "`ffi` is a file, not a value"},
-			{"  _ = (ffi, 1)", "`ffi` is a file, not a value"},
+			{"  _ = #(ffi, 1)", "`ffi` is a file, not a value"},
 		} {
-			src := "import ffi\n\nfn f(x: Int): Bool {\n  x > 0\n}\n\nfn main() {\n" + tc.body + "\n}\n"
+			src := "import ffi\n\nfn f(x: Int) -> Bool {\n  x > 0\n}\n\nfn main() {\n" + tc.body + "\n}\n"
 			_, errs := checkSourceWithModules(t, src, modules)
 			expectError(t, errs, tc.want)
 		}
@@ -5117,11 +5162,11 @@ func TestCheckFileIsNotAValueEvenWhenEmpty(t *testing.T) {
 // not fit the annotation is the binding's mismatch.
 func TestCheckGenericStructLitFieldTakesAnnotation(t *testing.T) {
 	const decl = "struct Box<T> {\n  v: T\n}\n\n"
-	_, errs := checkSource(decl + "fn main() {\n  f: Box<(Int) -> Int> = Box{v: |x| x + 1}\n  g: Box<(Int) -> Int> = Box({v: |x| x * 2})\n  _ = f\n  _ = g\n}\n")
+	_, errs := checkSource(decl + "fn main() {\n  f: Box<(Int) -> Int> = Box{v: fn x -> x + 1}\n  g: Box<(Int) -> Int> = Box({v: fn x -> x * 2})\n  _ = f\n  _ = g\n}\n")
 	expectNoErrors(t, errs)
 	for _, tc := range []struct{ value, want string }{
 		{`Box{v: "s"}`, "type mismatch: expected Box<(Int) -> Int>, got Box<String>"},
-		{`Box{v: |_x: String| 1}`, "type mismatch: expected Box<(Int) -> Int>, got Box<(String) -> Int>"},
+		{`Box{v: fn _x: String -> 1}`, "type mismatch: expected Box<(Int) -> Int>, got Box<(String) -> Int>"},
 	} {
 		_, errs := checkSource(decl + "fn main() {\n  f: Box<(Int) -> Int> = " + tc.value + "\n  _ = f\n}\n")
 		expectError(t, errs, tc.want)
@@ -5133,19 +5178,19 @@ func TestCheckGenericStructLitFieldTakesAnnotation(t *testing.T) {
 // may be inferred.
 func TestCheckDeclaredParamNeedsType(t *testing.T) {
 	for _, tc := range []struct{ name, src, param string }{
-		{"fn", "fn plain(_a): Int {\n  1\n}\n", "_a"},
-		{"nested fn", "fn outer(): Int {\n  fn inner(b): Int {\n    b\n  }\n  inner(1)\n}\n", "b"},
-		{"impl fn", "interface Tagged {\n  fn tag(v: self): String\n}\n\nstruct User {\n  name: String\n}\n\nimpl Tagged for User {\n  fn tag(_v): String {\n    \"user\"\n  }\n}\n", "_v"},
-		{"inherent fn", "struct User {\n  name: String\n}\n\nimpl User {\n  fn hi(u): String {\n    u.name\n  }\n}\n", "u"},
-		{"interface fn", "interface Tagged {\n  fn tag(v): String\n}\n", "v"},
-		{"host fn", "host fn pad(s): String\n", "s"},
+		{"fn", "fn plain(_a) -> Int {\n  1\n}\n", "_a"},
+		{"nested fn", "fn outer() -> Int {\n  fn inner(b) -> Int {\n    b\n  }\n  inner(1)\n}\n", "b"},
+		{"impl fn", "interface Tagged {\n  fn tag(v: self) -> String\n}\n\nstruct User {\n  name: String\n}\n\nimpl Tagged for User {\n  fn tag(_v) -> String {\n    \"user\"\n  }\n}\n", "_v"},
+		{"inherent fn", "struct User {\n  name: String\n}\n\nimpl User {\n  fn hi(u) -> String {\n    u.name\n  }\n}\n", "u"},
+		{"interface fn", "interface Tagged {\n  fn tag(v) -> String\n}\n", "v"},
+		{"host fn", "host fn pad(s) -> String\n", "s"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, errs := checkSource(tc.src)
 			expectError(t, errs, "parameter '"+tc.param+"' needs a type annotation")
 		})
 	}
-	_, errs := checkSource("fn apply(f: (Int) -> Int): Int {\n  f(1)\n}\n\nfn main() {\n  _ = apply(|x| x + 1)\n}\n")
+	_, errs := checkSource("fn apply(f: (Int) -> Int) -> Int {\n  f(1)\n}\n\nfn main() {\n  _ = apply(fn x -> x + 1)\n}\n")
 	expectNoErrors(t, errs)
 }
 
@@ -5162,14 +5207,14 @@ func TestCheckDeclaredParamNeedsName(t *testing.T) {
 		name, src, typ string
 		line, col      int
 	}{
-		{"go fn", "gopkg \"example.com/app/ffi\" as ffi\n\npub fn echo_upper(   String): String go ffi.EchoUpper\n", "String", 3, 22},
-		{"fn", "fn plain(Int): Int {\n  1\n}\n", "Int", 1, 10},
-		{"nested fn", "fn outer(): Int {\n  fn inner(Int): Int {\n    1\n  }\n  inner(1)\n}\n", "Int", 2, 12},
-		{"inherent fn", "struct User {\n  name: String\n}\n\nimpl User {\n  fn hi(User): String {\n    \"hi\"\n  }\n}\n", "User", 6, 9},
-		{"interface fn", "interface Tagged {\n  fn tag(String): String\n}\n", "String", 2, 10},
-		{"lambda", "fn main() {\n  f = |String| 1\n  _ = f\n}\n", "String", 2, 8},
-		{"lambda with an expected type", "fn apply(f: (String) -> Int): Int {\n  f(\"a\")\n}\n\nfn main() {\n  _ = apply(|String| 1)\n}\n", "String", 6, 14},
-		{"lambda whose expected type differs", "fn apply(f: (Int) -> Int): Int {\n  f(1)\n}\n\nfn main() {\n  _ = apply(|String| 1)\n}\n", "String", 6, 14},
+		{"go fn", "gopkg \"example.com/app/ffi\" as ffi\n\npub fn echo_upper(   String) -> String go ffi.EchoUpper\n", "String", 3, 22},
+		{"fn", "fn plain(Int) -> Int {\n  1\n}\n", "Int", 1, 10},
+		{"nested fn", "fn outer() -> Int {\n  fn inner(Int) -> Int {\n    1\n  }\n  inner(1)\n}\n", "Int", 2, 12},
+		{"inherent fn", "struct User {\n  name: String\n}\n\nimpl User {\n  fn hi(User) -> String {\n    \"hi\"\n  }\n}\n", "User", 6, 9},
+		{"interface fn", "interface Tagged {\n  fn tag(String) -> String\n}\n", "String", 2, 10},
+		{"lambda", "fn main() {\n  f = fn String -> 1\n  _ = f\n}\n", "String", 2, 10},
+		{"lambda with an expected type", "fn apply(f: (String) -> Int) -> Int {\n  f(\"a\")\n}\n\nfn main() {\n  _ = apply(fn String -> 1)\n}\n", "String", 6, 16},
+		{"lambda whose expected type differs", "fn apply(f: (Int) -> Int) -> Int {\n  f(1)\n}\n\nfn main() {\n  _ = apply(fn String -> 1)\n}\n", "String", 6, 16},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, errs := checkSource(tc.src)
@@ -5187,13 +5232,13 @@ func TestCheckDeclaredParamNeedsName(t *testing.T) {
 	}
 	// A named parameter is fine, and so is a lambda's named or destructuring
 	// one against an expected type.
-	_, errs := checkSource("gopkg \"example.com/app/ffi\" as ffi\n\npub fn echo_upper(s: String): String go ffi.EchoUpper\n")
+	_, errs := checkSource("gopkg \"example.com/app/ffi\" as ffi\n\npub fn echo_upper(s: String) -> String go ffi.EchoUpper\n")
 	expectNoErrors(t, errs)
-	_, errs = checkSource("fn apply(f: ((Int, Int)) -> Int): Int {\n  f((1, 2))\n}\n\nfn main() {\n  _ = apply(|(a, b)| a + b)\n  _ = apply(|_pair| 0)\n}\n")
+	_, errs = checkSource("fn apply(f: (#(Int, Int)) -> Int) -> Int {\n  f(#(1, 2))\n}\n\nfn main() {\n  _ = apply(fn #(a, b) -> a + b)\n  _ = apply(fn _pair -> 0)\n}\n")
 	expectNoErrors(t, errs)
 }
 
-// A bare parameter that names a variant of an enum in scope, `|One| 1`, reads
+// A bare parameter that names a variant of an enum in scope, `fn One -> 1`, reads
 // as an attempt to match the variant, so it gets the pattern check's "bare
 // variant" error rather than "needs a name" with a hint that calls `One` a
 // type. When a type of that name exists too, the parameter is still read as
@@ -5207,29 +5252,29 @@ func TestCheckBareVariantParam(t *testing.T) {
 		line, col      int
 	}{
 		{"lambda, single-variant enum expected",
-			single + "fn apply(f: (Single) -> Int): Int {\n  f(.One)\n}\n\nfn main() {\n  _ = apply(|One| 1)\n}\n",
+			single + "fn apply(f: (Single) -> Int) -> Int {\n  f(.One)\n}\n\nfn main() {\n  _ = apply(fn One -> 1)\n}\n",
 			"bare variant 'One' in pattern position; use '.One' (or 'Single.One')",
-			[]string{"to bind the value, write `name: Single`"}, 10, 14},
+			[]string{"to bind the value, write `name: Single`"}, 10, 16},
 		{"lambda, no expected type",
-			single + "fn main() {\n  f = |One| 1\n  _ = f\n}\n",
+			single + "fn main() {\n  f = fn One -> 1\n  _ = f\n}\n",
 			"bare variant 'One' in pattern position; use '.One' (or 'Single.One')",
-			[]string{"to bind the value, write `name: Single`"}, 6, 8},
+			[]string{"to bind the value, write `name: Single`"}, 6, 10},
 		{"lambda, multi-variant enum expected",
-			pair + "fn apply(f: (Pair) -> Int): Int {\n  f(.One)\n}\n\nfn main() {\n  _ = apply(|One| 1)\n}\n",
+			pair + "fn apply(f: (Pair) -> Int) -> Int {\n  f(.One)\n}\n\nfn main() {\n  _ = apply(fn One -> 1)\n}\n",
 			"bare variant 'One' in pattern position; use '.One' (or 'Pair.One')",
-			[]string{"to bind the value, write `name: Pair`"}, 11, 14},
+			[]string{"to bind the value, write `name: Pair`"}, 11, 16},
 		{"fn",
-			single + "fn f(One): Int {\n  1\n}\n",
+			single + "fn f(One) -> Int {\n  1\n}\n",
 			"bare variant 'One' in pattern position; use '.One' (or 'Single.One')",
 			[]string{"to bind the value, write `name: Single`"}, 5, 6},
 		{"fn, a type of the same name exists",
-			"struct One {\n  x: Int\n}\n\n" + single + "fn f(One): Int {\n  1\n}\n",
+			"struct One {\n  x: Int\n}\n\n" + single + "fn f(One) -> Int {\n  1\n}\n",
 			"parameter 'One' needs a name",
 			[]string{"`One` is read as the parameter's type; write `name: One`", "write `.One` (or `Single.One`) to match the variant"}, 9, 6},
 		{"lambda, a type",
-			"fn main() {\n  f = |String| 1\n  _ = f\n}\n",
+			"fn main() {\n  f = fn String -> 1\n  _ = f\n}\n",
 			"parameter 'String' needs a name",
-			[]string{"`String` is read as the parameter's type; write `name: String`"}, 2, 8},
+			[]string{"`String` is read as the parameter's type; write `name: String`"}, 2, 10},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, errs := checkSource(tc.src)

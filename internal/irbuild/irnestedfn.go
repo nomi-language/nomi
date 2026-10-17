@@ -22,7 +22,7 @@ import (
 // A generic one is lowered once per type-argument tuple its calls reach
 // (genericNestedFunc).
 //
-// DECLINED: a parameter without an annotation, a name that is already bound
+// DECLINED: a plain parameter without an annotation, a name that is already bound
 // here, and a lambda whose result is not the declared return type.
 func (bl *irScalarBuilder) nestedFunc(fd *ast.FuncDef) bool {
 	no := func(why string) bool {
@@ -36,8 +36,11 @@ func (bl *irScalarBuilder) nestedFunc(fd *ast.FuncDef) bool {
 		return no("with decorators or attached tests")
 	}
 	for _, p := range fd.Params {
-		if p.TypeAnnotation == nil || p.Destructure != nil {
-			return no("a parameter without an annotation, or a destructuring one")
+		// A destructuring parameter builds as a lambda's does
+		// (irlambdapattern.go), which reads its kind off its head when it
+		// has no annotation.
+		if p.TypeAnnotation == nil && p.Destructure == nil {
+			return no("a parameter without an annotation")
 		}
 	}
 	if _, shadows := bl.g.lookup(fd.Name); shadows || bl.bound[fd.Name] != ir.NoTemp {
@@ -67,6 +70,17 @@ func (bl *irScalarBuilder) nestedInstance(fd *ast.FuncDef, name string) bool {
 		savedUnit := bl.g.unitFnLambda
 		bl.g.unitFnLambda = lam
 		defer func() { bl.g.unitFnLambda = savedUnit }()
+	}
+	if fd.ReturnTypeExpr != nil {
+		if want := bl.g.typeOf(fd.ReturnTypeExpr); want != kindUnit && irCallableValueKind(want) {
+			// `fn f() -> Shape { Spot{n: 3} }`, `fn f() -> Display { 5 }`,
+			// `fn f() -> Set<Int> { #{} }`: the body and each `return`
+			// answer the declared type, widened to it as a module
+			// function's result is (lambdaFunction's declaredFnLambda).
+			prevFor, prev, prevDecl := bl.g.lambdaWantFor, bl.g.lambdaWant, bl.g.declaredFnLambda
+			bl.g.lambdaWantFor, bl.g.lambdaWant, bl.g.declaredFnLambda = lam, want, lam
+			defer func() { bl.g.lambdaWantFor, bl.g.lambdaWant, bl.g.declaredFnLambda = prevFor, prev, prevDecl }()
+		}
 	}
 	if astNamesIdent(fd.Body, fd.Name) {
 		return bl.recursiveNestedFunc(fd, lam, name)
@@ -207,7 +221,7 @@ func (g *gen) nestedInstanceArgs(fd *ast.FuncDef, params map[string]bool, ft *an
 		return nil, false
 	}
 	if irUnsolvedType(ft) {
-		// `apply(1, |x| Ok(x + 1))` leaves the error type open and makes no
+		// `apply(1, fn x -> Ok(x + 1))` leaves the error type open and makes no
 		// value of it (spec, "Determined type arguments"): the holes are
 		// filled as a module-level generic call's are, so the instance the
 		// declaration builds and the one this call names agree.
@@ -414,7 +428,7 @@ type irRecursiveFn struct {
 func (bl *irScalarBuilder) recursiveNestedFunc(fd *ast.FuncDef, lam *ast.Lambda, name string) bool {
 	params := make([]kind, len(fd.Params))
 	for i, p := range fd.Params {
-		params[i] = bl.g.typeOf(p.TypeAnnotation)
+		params[i] = bl.g.irParamPatternKind(p)
 	}
 	result := kindUnit
 	if fd.ReturnTypeExpr != nil {

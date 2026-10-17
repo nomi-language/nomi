@@ -25,16 +25,23 @@ func irRetainedTupleKind(k kind) bool {
 // composite holding one never reaches the builder: the checker rejects it
 // (functions have no equality), so structuralEqual never meets a function.
 func irCompositePartKind(k kind) bool {
-	return irRetainedValueKind(k) || (k.tag == tagFunc && irCallableValueKind(k))
+	return irRetainedValueKind(k) || (k.tag == tagFunc && irCallableValueKind(k)) || irExistentialKind(k) || k == kindUnit
 }
 
 func (bl *irScalarBuilder) tupleMake(t *ast.TupleLit) (ir.Temp, kind, bool, bool) {
+	// `#(1, #{})` whose set a later use fixes (`Hold{v: #(1, #{}).1}` with
+	// `v: Set<Int>`): the checker's type of the tuple types each component,
+	// as a list literal's checked element does (literalParts).
+	if k := bl.g.project(bl.g.checkedExprType(t)); k.tag == tagTuple && k.comp != nil && len(k.comp.parts) == len(t.Items) &&
+		irNestedCollection(k) && irFullyTyped(k) {
+		return bl.tupleMakeWant(t, k)
+	}
 	// kindInvalid: sentinel — no expected tuple type.
 	return bl.tupleMakeWant(t, kindInvalid)
 }
 
 // tupleMakeWant is tupleMake with the position's expected tuple type, which
-// types each component: `(0, [])` against `(Int, List<Int>)` builds its empty
+// types each component: `#(0, [])` against `#(Int, List<Int>)` builds its empty
 // list at `List<Int>`.
 func (bl *irScalarBuilder) tupleMakeWant(t *ast.TupleLit, want kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
@@ -91,28 +98,19 @@ func (bl *irScalarBuilder) tupleProjection(at ast.Node, subj ir.Temp, index int,
 
 // destructureBind binds one name a destructuring statement introduces to the
 // value read produces, under the plain binding's rebind rule: a fresh
-// identity, declined where a callable is rebound.
+// identity of any kind, a function value included. A test body may rebind
+// only a name it bound itself, under the test-body binding's rule
+// (testBinding).
 // The subject is read before any component binds.
 // The name is written at (line, col).
 func (bl *irScalarBuilder) destructureBind(t ast.Node, name string, line, col int, part kind, read func() ir.Temp) bool {
 	sym := bl.sh.localSym(name)
-	previous, shadows := bl.g.lookup(name)
+	_, shadows := bl.g.lookup(name)
 	_, bound := bl.bound[name]
 	if shadows || bound {
-		oldKind := previous.k
-		if bound {
-			oldKind = bl.boundK[name]
-		}
-		// A VM-only test body may rebind a name it bound itself, under
-		// the test-body binding's rule (testBinding).
-		testRebind := bl.inTest && bound && !shadows
-		if (bl.inTest && !testRebind) || oldKind.tag == tagFunc || part.tag == tagFunc {
+		if bl.inTest && (shadows || !bound) {
 			irDeclineNote("a rebind: " + name)
 			return false
-		}
-		if bl.inTest {
-			delete(bl.testStages, name)
-			delete(bl.testDefs, name)
 		}
 		sym = ir.NewSymbol(name)
 		bl.sh.syms[name] = sym

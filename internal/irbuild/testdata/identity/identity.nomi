@@ -14,7 +14,7 @@ struct Point {
     weight: Int
 }
 
-fn heavier(p: Point): Int {
+fn heavier(p: Point) -> Int {
     p.weight + 1
 }
 

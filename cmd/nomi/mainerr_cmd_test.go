@@ -17,7 +17,7 @@ var mainErrPrograms = []struct {
 }{
 	{"string error prints without quotes", `import std/io
 
-fn main(): Result<Unit, String> {
+fn main() -> Result<Unit, String> {
   io.print("before")
   Err("config file not found")
 }
@@ -28,12 +28,12 @@ fn main(): Result<Unit, String> {
 }
 
 impl Display for Missing {
-  fn to_string(m: Missing): String {
+  fn to_string(m: Missing) -> String {
     "${m.path} is missing (line ${m.line})"
   }
 }
 
-fn main(): Result<Unit, Missing> {
+fn main() -> Result<Unit, Missing> {
   Err(Missing{path: "app.toml", line: 3})
 }
 `, "", "error: app.toml is missing (line 3)\n", 1},
@@ -42,11 +42,11 @@ fn main(): Result<Unit, Missing> {
   line: Int
 }
 
-fn main(): Result<Unit, Missing> {
+fn main() -> Result<Unit, Missing> {
   Err(Missing{path: "app.toml", line: 3})
 }
 `, "", "error: Missing{path: \"app.toml\", line: 3}\n", 1},
-	{"a try in main leaves with the error", `fn port(text: String): Result<Int, String> {
+	{"a try in main leaves with the error", `fn port(text: String) -> Result<Int, String> {
   if text == "" {
     Err("no port given")
   } else {
@@ -54,14 +54,14 @@ fn main(): Result<Unit, Missing> {
   }
 }
 
-fn main(): Result<Unit, String> {
+fn main() -> Result<Unit, String> {
   _ = try port("")
   Ok(Unit)
 }
 `, "", "error: no port given\n", 1},
 	{"Ok exits 0", `import std/io
 
-fn main(): Result<Unit, String> {
+fn main() -> Result<Unit, String> {
   io.print("fine")
   Ok(Unit)
 }
@@ -78,7 +78,7 @@ func TestRunCommand_MainReturningAValueIsACheckError(t *testing.T) {
 	env := buildEnv(t.TempDir())
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, "fn main(): Result<String, String> {\n    Ok(\"hello\")\n}\n")
+	mustWrite(t, entry, "fn main() -> Result<String, String> {\n    Ok(\"hello\")\n}\n")
 	for _, command := range []string{"check", "run"} {
 		got := runProcess(t, env, dir, "", nomiBin, command, entry)
 		if got.exit != 1 || got.stdout != "" {
@@ -86,7 +86,7 @@ func TestRunCommand_MainReturningAValueIsACheckError(t *testing.T) {
 		}
 		for _, want := range []string{
 			"error: `main` must return `Unit` or `Result<Unit, E>`",
-			"main.nomi:1:12",
+			"main.nomi:1:14",
 			"help: to show a value, print it with `io.print` and return `Ok(Unit)`",
 		} {
 			if !strings.Contains(got.stderr, want) {

@@ -145,10 +145,10 @@ func TestRender_AnIterIsAPlaceholderAndIsNotRun(t *testing.T) {
 		t.Errorf("list debug %s %v", got, err)
 	}
 	tuple := TupleDesc(SlotRef, SlotInt).Make(seq, int64(1))
-	if got := RowText(tuple); got != "(<iter>, 1)" {
+	if got := RowText(tuple); got != "#(<iter>, 1)" {
 		t.Errorf("tuple row %s", got)
 	}
-	if got, err := DebugText(tuple, nil); err != nil || got != "(<iter>, 1)" {
+	if got, err := DebugText(tuple, nil); err != nil || got != "#(<iter>, 1)" {
 		t.Errorf("tuple debug %s %v", got, err)
 	}
 	if ran != 0 {
@@ -212,13 +212,13 @@ func TestRender_PreludeEnumsCollectionsAndSets(t *testing.T) {
 		t.Errorf("set in list row %s", got)
 	}
 	tuple := TupleDesc(SlotInt, SlotString, SlotRef).Make(int64(1), `\`, Unit{})
-	if RowText(tuple) != `(1, "\", Unit)` {
+	if RowText(tuple) != `#(1, "\", Unit)` {
 		t.Errorf("tuple row %s", RowText(tuple))
 	}
-	if got, _ := DebugText(tuple, nil); got != `(1, "\\", Unit)` {
+	if got, _ := DebugText(tuple, nil); got != `#(1, "\\", Unit)` {
 		t.Errorf("tuple debug %s", got)
 	}
-	if got := RowText(Map[any, any]{}); got != "{=>}" {
+	if got := RowText(Map[any, any]{}); got != "%{}" {
 		t.Errorf("empty map %s", got)
 	}
 }

@@ -217,10 +217,17 @@ func calendarCases() map[string][]argSet {
 
 func randomCases() map[string][]argSet {
 	return map[string][]argSet{
-		"random.below_state": sets(a(i(1), i(10)), a(i(123456789), i(1)), a(i(-5), i(1000)),
-			a(i(math.MaxInt64), i(math.MaxInt64)), a(i(7), i(0))),
+		"random.between_state": sets(a(i(1), i(0), i(9)), a(i(123456789), i(0), i(0)), a(i(-5), i(0), i(999)),
+			a(i(math.MaxInt64), i(0), i(math.MaxInt64-1)), a(i(7), i(1), i(0)),
+			a(i(1), i(math.MinInt64), i(math.MaxInt64)), a(i(1), i(-5), i(math.MaxInt64)),
+			a(i(42), i(math.MinInt64), i(0)), a(i(42), i(math.MaxInt64), i(math.MaxInt64))),
 		"random.unit_float_state": sets(a(i(1)), a(i(42)), a(i(-1)), a(i(math.MinInt64))),
 		"random.os_state":         {{args: a(), shapeOnly: true}},
+		"random.require_int_range": sets(a(i(1), i(6)), a(i(4), i(4)), a(i(6), i(1)),
+			a(i(math.MinInt64), i(math.MaxInt64)), a(i(math.MaxInt64), i(math.MinInt64))),
+		"random.require_float_range": sets(a(hFloat(1.5), hFloat(2.5)), a(hFloat(2.5), hFloat(1.5)),
+			a(hFloat(1.0), hFloat(1.0)), a(hFloat(math.NaN()), hFloat(1.0)), a(hFloat(math.Inf(-1)), hFloat(math.Inf(1))),
+			a(hFloat(math.Inf(-1)), hFloat(1.0)), a(hFloat(-math.MaxFloat64), hFloat(math.MaxFloat64))),
 	}
 }
 
@@ -369,7 +376,7 @@ func (p *parity) regex() {
 		re := res.(*rt.Record).Field(0)
 		for _, input := range []string{"xaab ab", "12-34 and 5-6", "", "ééé"} {
 			p.check("Regex.pattern", argSet{args: a(re)})
-			p.check("Regex.find", argSet{args: a(re, s(input))})
+			p.check("Regex.find_in", argSet{args: a(re, s(input))})
 			p.check("Regex.replace_all", argSet{args: a(re, s(input), s("<$1>"))})
 			p.check("Regex.contained_in?", argSet{args: a(re, s(input))})
 			p.check("Regex.prefix_of?", argSet{args: a(re, s(input))})
@@ -377,6 +384,20 @@ func (p *parity) regex() {
 			p.check("Regex.split_in", argSet{args: a(re, s(input))})
 			p.check("Regex.find_all_in", argSet{args: a(re, s(input))})
 			p.check("Regex.replace_in", argSet{args: a(re, s(input), s("<$1>"))})
+		}
+	}
+	// std/strings' captures take the text first and a handle second. The
+	// patterns add a group that may not take part (`(a)|(b)`) and one that
+	// may match empty (`(x*)`).
+	for _, pattern := range []string{`(\d+)-(\d+)`, "(a)|(b)", "(x*)(y)", "é+"} {
+		res, err := p.table["Regex.compile"](nil, a(s(pattern)))
+		if err != nil {
+			p.t.Fatal(err)
+		}
+		re := res.(*rt.Record).Field(0)
+		for _, input := range []string{"12-34 and 5-6", "ab b", "y xy", "", "ééé"} {
+			p.check("String.captures", argSet{args: a(s(input), re)})
+			p.check("String.captures_all", argSet{args: a(s(input), re)})
 		}
 	}
 	p.check("Regex.compile", argSet{args: a(s("(")), shapeOnly: false})

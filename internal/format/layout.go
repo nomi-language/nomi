@@ -3,7 +3,23 @@ package format
 import (
 	"bytes"
 	"strings"
+
+	"github.com/rivo/uniseg"
 )
+
+// textWidth is the number of columns s takes on a line, as a terminal or
+// editor shows it: one per grapheme cluster, two for an East Asian wide
+// or emoji one (uniseg.StringWidth). Every width the formatter measures
+// goes through it, so a line of non-ASCII text breaks where it reaches
+// the width, not where its bytes do. ASCII text is its byte length.
+func textWidth(s string) int {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return uniseg.StringWidth(s)
+		}
+	}
+	return len(s)
+}
 
 // Render produces the final string for a Doc, given a max line width.
 // The algorithm: for each Group, try rendering it flat (Line -> alt,
@@ -35,7 +51,7 @@ type renderOut struct {
 	kept int
 	// suffix holds the LineSuffix comments waiting for the end of the
 	// line, and lineComment says the line already ends in a comment.
-	suffix      []string
+	suffix      []pendingComment
 	lineComment bool
 	// ownLine holds the comments that could not end their line, waiting
 	// for the next line with content, and ownLineIndent the indent of the
@@ -87,27 +103,58 @@ func (o *renderOut) lineBreak(indent int) {
 // line that ends in an opening bracket, whose comment reads back as the
 // first item's leading comment: it waits for the next line with content
 // and goes on a line of its own above it (placeOwnLine). Nor can it end a
-// line that ends in a case arm's `->` (insertAboveLine).
+// line that ends in a case arm's `->` (insertAboveLine). A line that ends
+// in a binding's `=` takes no comment on it or on a line of its own below,
+// so the comments wait for the end of the next line, the value's first.
+//
+// A comment that waits for a line of its own keeps the indent of the line
+// it could not end, or the indent its document was written at, whichever is
+// shallower. A comment written after a broken pipeline or call, outside the
+// nest of its continuation lines, belongs to the statement: below the
+// statement's last line it reads back at the statement's indent, so it is
+// written there.
 func (o *renderOut) flushSuffix() {
+	if len(o.suffix) == 0 {
+		return
+	}
+	o.trim()
+	if o.endsInEquals() {
+		return
+	}
 	for _, c := range o.suffix {
 		o.trim()
 		if bytes.HasSuffix(o.buf.Bytes(), []byte("->")) {
-			o.insertAboveLine(c)
+			o.insertAboveLine(c.text)
 			continue
 		}
 		if o.lineComment || o.endsInOpener() {
 			if len(o.ownLine) == 0 {
-				o.ownLineIndent = o.lineIndent()
+				o.ownLineIndent = min(o.lineIndent(), c.indent)
 				o.ownLineOpener = !o.lineComment
 			}
-			o.ownLine = append(o.ownLine, c)
+			o.ownLine = append(o.ownLine, c.text)
 			continue
 		}
 		o.buf.WriteByte(' ')
-		o.buf.WriteString(c)
+		o.buf.WriteString(c.text)
 		o.lineComment = true
 	}
 	o.suffix = nil
+}
+
+// pendingComment is a LineSuffix comment waiting for the end of its line,
+// with the nest indent its document was rendered at.
+type pendingComment struct {
+	text   string
+	indent int
+}
+
+// endsInEquals reports whether the line being written ends in a lone `=`,
+// not in an operator such as `==` or `<=`.
+func (o *renderOut) endsInEquals() bool {
+	b := o.buf.Bytes()
+	n := len(b)
+	return n > 0 && b[n-1] == '=' && (n == 1 || !strings.ContainsRune("=!<>", rune(b[n-2])))
 }
 
 // insertAboveLine writes comment on a line of its own above the line being
@@ -180,18 +227,16 @@ func (o *renderOut) atLineStart() bool {
 	return true
 }
 
-// endsInOpener reports whether the text written so far ends in `{`, `(`, `[`,
-// `<` or `|`.
+// endsInOpener reports whether the text written so far ends in `{`, `(`, `[`
+// or `<`.
 func (o *renderOut) endsInOpener() bool {
 	b := o.buf.Bytes()
 	if len(b) == 0 {
 		return false
 	}
 	switch b[len(b)-1] {
-	case '{', '(', '[', '<', '|':
-		// `<` ends a line only where it opens a type's arguments, and `|`
-		// where it opens a lambda's parameters or closes them, before a
-		// body on the next line, where no comment can go either.
+	case '{', '(', '[', '<':
+		// `<` ends a line only where it opens a type's arguments.
 		return true
 	}
 	return false
@@ -267,14 +312,14 @@ func render(sb *renderOut, d Doc, col, indent, localBase int, tail Doc, width in
 		} else {
 			sb.text(v.s)
 		}
-		return col + len(v.s)
+		return col + textWidth(v.s)
 	case docLine:
 		if broken {
 			sb.lineBreak(indent)
 			return indent
 		}
 		sb.WriteString(v.alt)
-		return col + len(v.alt)
+		return col + textWidth(v.alt)
 	case docHard:
 		sb.lineBreak(indent)
 		return indent
@@ -284,7 +329,7 @@ func render(sb *renderOut, d Doc, col, indent, localBase int, tail Doc, width in
 			sb.lineBreak(col)
 			return col
 		}
-		sb.suffix = append(sb.suffix, v.s)
+		sb.suffix = append(sb.suffix, pendingComment{text: v.s, indent: indent})
 		return col
 	case docInString:
 		sb.inString++
@@ -414,13 +459,13 @@ func fitsWalk(d Doc, rem *int, inTail bool) bool {
 	case docNil:
 		return true
 	case docText:
-		*rem -= len(v.s)
+		*rem -= textWidth(v.s)
 		return *rem >= 0
 	case docLine:
 		if inTail {
 			return true
 		}
-		*rem -= len(v.alt)
+		*rem -= textWidth(v.alt)
 		return *rem >= 0
 	case docHard:
 		return inTail
@@ -438,6 +483,17 @@ func fitsWalk(d Doc, rem *int, inTail bool) bool {
 		return fitsWalk(v.d, rem, inTail)
 	case docGroup:
 		// Nested Group: assume flat. fitsWalk recurses into its content.
+		// In a tail, a Group whose flat content does not fit the rest of
+		// the line will render broken, so its line is what its broken
+		// form writes before its first line break: a lambda that moves
+		// its body below the parameters ends the line with ` {`, which
+		// its flat form does not write.
+		if inTail {
+			flat := *rem
+			if !fitsWalk(v.d, &flat, false) {
+				return fitsWalk(brokenView(v.d), rem, true)
+			}
+		}
 		return fitsWalk(v.d, rem, inTail)
 	case docIfBroken:
 		// When probing flat fit, the enclosing group is (tentatively) flat,
@@ -447,7 +503,14 @@ func fitsWalk(d Doc, rem *int, inTail bool) bool {
 		// Hide from ancestor fits: claim to fit, contribute 0 width. Local
 		// breaking is the whole point — ancestors should not be forced
 		// broken on our behalf. A LocalBrokenBlock counts its first line.
-		if v.firstLine {
+		//
+		// In a tail, a LocalBroken counts its first line too, and a HardLine
+		// in it ends the line (endsAtLineBreak): it always renders broken,
+		// so what follows its HardLine is on a later line. Walking past it
+		// as zero width would charge `} != rest` to the line it opens on,
+		// and a Group before a preserved multi-line literal would break
+		// where it did not when that literal broke for width.
+		if v.firstLine || inTail {
 			ok, _ := fitsFirstLine(v.d, rem)
 			return ok
 		}
@@ -521,8 +584,8 @@ const unboundedWidth = 1 << 30
 // endsAtLineBreak reports whether d's flat traversal ends at (i.e.
 // contains) a HardLine or docLine. Used by tail-walk to short-circuit
 // Concat traversal once a line break has been seen — anything after it
-// is on a future line. LocalBroken contributes no line break to the
-// flat view (per its hide-from-ancestor semantics).
+// is on a future line. A LocalBroken ends at its first HardLine, since it
+// always renders broken.
 func endsAtLineBreak(d Doc) bool {
 	if d == nil {
 		return false
@@ -541,7 +604,9 @@ func endsAtLineBreak(d Doc) bool {
 	case docIfBroken:
 		return endsAtLineBreak(v.flat)
 	case docLocalBroken:
-		return false
+		w := unboundedWidth
+		_, hit := fitsFirstLine(v.d, &w)
+		return hit
 	case docHidden, docLineSuffix:
 		return false
 	case docInString:

@@ -6,7 +6,7 @@ func TestIRTailReturn_UnannotatedLambda(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
   base = 8
-  read = |early: Bool| {
+  read = fn early: Bool -> {
     if early { return base }
     value = base + 1
     return value
@@ -19,8 +19,8 @@ fn main() {
 func TestIRTailReturn_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"named valued return", `import std/io
-fn mark(n: Int): Int { io.print("returning") n }
-fn next(n: Int): Int {
+fn mark(n: Int) -> Int { io.print("returning") n }
+fn next(n: Int) -> Int {
   value = n + 1
   return mark(
     value
@@ -35,7 +35,7 @@ fn main() {
 }
 fn main() { done() }`, "dbg line 2: \"done\" = \"done\"\n"},
 		{"lambda bare return after dbg", `fn main() {
-  done = || { dbg "done" return }
+  done = fn -> { dbg "done" return }
   done()
 }`, "dbg line 2: \"done\" = \"done\"\n"},
 		{"lambda valued return and guard", `import std/io
@@ -45,7 +45,7 @@ fn use(read: (Bool) -> Int) {
 }
 fn main() {
   base = 8
-  use(|early: Bool| {
+  use(fn early: Bool -> {
     if early { return base }
     value = base + 1
     return value

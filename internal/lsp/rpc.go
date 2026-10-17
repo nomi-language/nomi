@@ -180,6 +180,9 @@ func (h *rpcHandler) run(ctx context.Context, gctx *glsp.Context, req *jsonrpc2.
 	}
 	h.s.setRequestContext(gctx, ctx)
 	defer h.s.setRequestContext(gctx, nil)
+	// A handler reads installed analyses, so it holds the view lock: a
+	// recheck that would rewrite them waits for it, or checks afresh.
+	defer h.s.docs.View()()
 	return h.call(gctx)
 }
 

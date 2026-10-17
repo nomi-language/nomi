@@ -6,7 +6,7 @@ pub struct Point {
   x: Int
   y: Int = 0
 
-  pub fn origin(): Point {
+  pub fn origin() -> Point {
     Point{x: 0, y: 0}
   }
 }
@@ -32,7 +32,7 @@ derive Debug for Point
         (pub)
         name: (identifier)
         (parameters)
-        (type_identifier)
+        return_type: (type_identifier)
         (body
           (struct_construction
             (type_identifier)
@@ -144,9 +144,9 @@ host type with derive declaration and inherent impl functions
 ================================================================================
 
 pub host type Int {
-  pub host fn to_float(x: Int): Float
+  pub host fn to_float(x: Int) -> Float
 
-  pub fn double(n: Int): Int {
+  pub fn double(n: Int) -> Int {
     n * 2
   }
 }
@@ -170,7 +170,7 @@ derive Equatable for Int
           (parameter
             name: (identifier)
             (type_identifier)))
-        (type_identifier))
+        return_type: (type_identifier))
       (function_definition
         (pub)
         name: (identifier)
@@ -178,7 +178,7 @@ derive Equatable for Int
           (parameter
             name: (identifier)
             (type_identifier)))
-        (type_identifier)
+        return_type: (type_identifier)
         (body
           (binary_expression
             (identifier)
@@ -242,11 +242,11 @@ struct with inherent type functions
 ================================================================================
 
 struct Person {
-  fn greet(p: Person): String {
+  fn greet(p: Person) -> String {
     "hello"
   }
 
-  host fn farewell(p: Person): String
+  host fn farewell(p: Person) -> String
 }
 
 --------------------------------------------------------------------------------
@@ -262,7 +262,7 @@ struct Person {
           (parameter
             name: (identifier)
             (type_identifier)))
-        (type_identifier)
+        return_type: (type_identifier)
         (body
           (string
             (string_content))))
@@ -273,7 +273,7 @@ struct Person {
           (parameter
             name: (identifier)
             (type_identifier)))
-        (type_identifier)))))
+        return_type: (type_identifier)))))
 
 ================================================================================
 struct with derive declaration
@@ -325,7 +325,7 @@ zero-sized type with typed-literal helper
 ================================================================================
 
 pub type Sql {
-  fn escape(s: String): String {
+  fn escape(s: String) -> String {
     s
   }
 }
@@ -353,7 +353,7 @@ distinct type with inner type and inherent impl
 ================================================================================
 
 pub opaque type Duration Int {
-  pub fn seconds(n: Int): Duration {
+  pub fn seconds(n: Int) -> Duration {
     Duration(n)
   }
 }
@@ -387,7 +387,7 @@ type body with attached test on inherent function
 pub opaque type Duration Int {
   //! assert Duration.seconds(5) == Duration(5)
   //
-  pub fn seconds(n: Int): Duration {
+  pub fn seconds(n: Int) -> Duration {
     Duration(n)
   }
 }
@@ -421,7 +421,7 @@ pub opaque type Duration Int {
           (parameter
             name: (identifier)
             (type_identifier)))
-        (type_identifier)
+        return_type: (type_identifier)
         (body
           (call_expression
             function: (type_identifier)
@@ -434,7 +434,7 @@ generic struct with inherent impl function using type params
 struct Box<T> {
   value: T
 
-  fn value(b: Box<T>): T {
+  fn value(b: Box<T>) -> T {
     b.value
   }
 }

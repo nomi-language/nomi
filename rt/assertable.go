@@ -6,7 +6,7 @@ package rt
 // std/assertions declares the interface as
 //
 //	pub interface Assertable {
-//	  fn failure(value: self): Maybe<AssertionDetails>
+//	  fn failure(value: self) -> Maybe<AssertionDetails>
 //	}
 //
 // so a subject answers its own verdict, and the answer's polarity is the

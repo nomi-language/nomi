@@ -39,7 +39,7 @@ func TestCaseTopLevelNegativeDecimal(t *testing.T) {
 }
 
 func TestCaseTupleNegative(t *testing.T) {
-	expr := parseExpr(t, "case t {\n (-2, 3) -> \"found\"\n _ -> \"other\"\n}")
+	expr := parseExpr(t, "case t {\n #(-2, 3) -> \"found\"\n _ -> \"other\"\n}")
 	c := expr.(*ast.Case)
 	tp, ok := c.Branches[0].Pattern.(*ast.TuplePattern)
 	if !ok {
@@ -65,7 +65,7 @@ func TestCaseListNegative(t *testing.T) {
 }
 
 func TestCaseMapValueNegative(t *testing.T) {
-	expr := parseExpr(t, "case m {\n {\"k\" => -2} -> \"found\"\n _ -> \"other\"\n}")
+	expr := parseExpr(t, "case m {\n %{\"k\" => -2} -> \"found\"\n _ -> \"other\"\n}")
 	c := expr.(*ast.Case)
 	mp, ok := c.Branches[0].Pattern.(*ast.MapPattern)
 	if !ok {

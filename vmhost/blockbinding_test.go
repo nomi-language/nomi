@@ -61,21 +61,21 @@ func TestBlockBindingBranches_RunInTests(t *testing.T) {
 }
 
 // A block-valued binding that cannot lower is reported at the innermost
-// construct inside it that declined, the inner block, not at the enclosing
-// function. A block whose
-// value has a type declared inside it is a known gap
-// (gapBlockLocalTypeEscapesItsBlock); if it starts lowering, this test needs
-// another construct the builder declines at a statement.
+// construct inside it that declined, the call in the inner block, not at
+// the enclosing function. The call is to `planted_decline` (plantDecline).
 func TestBlockBindingDecline_IsReportedAtTheStatement(t *testing.T) {
+	plantDecline(t)
 	src := `import std/io
+
+fn planted_decline(a: Int) -> Int {
+    a
+}
 
 fn main() {
     v = {
         w = {
-            struct Loc {
-                n: Int
-            }
-            Loc{n: 1}
+            u = planted_decline(1)
+            u
         }
         io.inspect(w)
         if True { 1 } else { 2 }
@@ -93,7 +93,7 @@ fn main() {
 	if len(o.declines) != 1 {
 		t.Fatalf("want one decline, got %q", o.declines)
 	}
-	want := "main.nomi:5:13: this block is not supported yet, so `fn main` cannot run"
+	want := "main.nomi:10:17: this call to `planted_decline` is not supported yet, so `fn main` cannot run"
 	if !strings.Contains(o.declines[0], want) {
 		t.Fatalf("decline:\n%s\nwant it to contain %q", o.declines[0], want)
 	}
@@ -152,7 +152,7 @@ fn main() {
         _z = 3
     }
     helper(1)
-    f = || {
+    f = fn -> {
         _q = 4
     }
     f()

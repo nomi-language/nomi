@@ -173,7 +173,7 @@ func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams
 	// does the `}` an auto-pair plugin adds to it (`Point{‸}`);
 	// and on `"` and a backtick, which open a typed literal's documented
 	// examples only after a type's name (`Date"`); and on `:`, which opens
-	// the types after an annotated name (`game:`, `fn f(): `); and on `,`,
+	// the types after an annotated name (`game:`, `fn f() -> `); and on `,`,
 	// which opens a struct literal's or pattern's next field. The handler
 	// answers any other `>`, `{`, quote, `:` or `,` with nothing. Items
 	// carry no documentation until the client resolves them.
@@ -426,15 +426,11 @@ func (s *Server) propagateAsync(uri string) {
 				return
 			default:
 			}
-			// Read errors/analysis through Snapshot — analyze() may
-			// be running on this same doc in a later propagateAsync
-			// goroutine that's queued behind us, and direct reads of
-			// doc.Errors / doc.Analysis would race with its writes.
-			snap := s.docs.Snapshot(doc.URI)
-			if snap == nil || snap.Analysis == nil {
-				continue
-			}
-			s.publishSnapshot(s.notify, snap)
+			// Read errors/analysis through a Snapshot under the view
+			// lock — analyze() may be running on this same doc in a later
+			// propagateAsync goroutine that's queued behind us, and direct
+			// reads of doc.Errors / doc.Analysis would race with its writes.
+			s.publish(s.notify, doc.URI)
 		}
 	}()
 }
@@ -494,11 +490,7 @@ func (s *Server) publishFFIInvalidation(ctx *glsp.Context) {
 	open, closed := s.docs.InvalidateFFIExterns()
 	s.queueClosedDiagnostics(closed...)
 	for _, doc := range open {
-		snap := s.docs.Snapshot(doc.URI)
-		if snap == nil || snap.Analysis == nil {
-			continue
-		}
-		s.publishSnapshot(ctx.Notify, snap)
+		s.publish(ctx.Notify, doc.URI)
 	}
 }
 
@@ -513,11 +505,7 @@ func (s *Server) propagateNewFile(newURI string) {
 		s.queueClosedDiagnostics(s.docs.Importers(newURI)...)
 		affected := s.docs.ReanalyzeOpen(newURI)
 		for _, doc := range affected {
-			snap := s.docs.Snapshot(doc.URI)
-			if snap == nil || snap.Analysis == nil {
-				continue
-			}
-			s.publishSnapshot(s.notify, snap)
+			s.publish(s.notify, doc.URI)
 		}
 	}()
 }

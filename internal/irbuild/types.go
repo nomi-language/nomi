@@ -76,6 +76,10 @@ import (
 type typeDef struct {
 	// nomi is the Nomi spelling, for refusal text.
 	nomi string
+	// layoutGroup is the type group whose layout phases will box and slot
+	// this def: a mirror made while its owner's fields were unresolved, or a
+	// generic instance built then (deferInstLayout). Nil once it is laid out.
+	layoutGroup *typeGroup
 	// decl is the declaration node, for refusal positions.
 	decl ast.Node
 	line int
@@ -444,7 +448,27 @@ func (d *typeDef) reachesOn(target *typeDef, path typePath) bool {
 // may precede `struct B`, and two types may refer to each other. So every
 // declaration gets its shell first and the components are resolved afterwards
 // against a complete table.
+//
+// The phases are separate functions because a group of files whose types
+// refer to each other runs each phase over every file before the next one
+// (typecycle.go). One file on its own runs them in a row.
 func (g *gen) buildTypes(nodes []ast.Node) {
+	grp := g.building
+	if grp == nil {
+		// A stdlib module, built outside the registry.
+		grp = &typeGroup{}
+		g.building = grp
+	}
+	grp.state = groupShells
+	g.declareTypeShells(nodes)
+	grp.state = groupResolving
+	g.resolveTypeShells(nodes)
+	grp.layOut([]*gen{g})
+}
+
+// declareTypeShells registers a shell for every struct, enum and distinct type
+// the module declares, and its generic templates, without resolving any field.
+func (g *gen) declareTypeShells(nodes []ast.Node) {
 	order := make([]*typeDef, 0, len(nodes))
 	for _, n := range nodes {
 		var name string
@@ -525,7 +549,14 @@ func (g *gen) buildTypes(nodes []ast.Node) {
 	// inside a generic declaration is a type PARAMETER and genericInstance
 	// declines one. See generictype.go.
 	g.collectGenericTemplates(nodes)
-	for _, d := range order {
+	g.typeOrder = order
+}
+
+// resolveTypeShells resolves the fields, payloads and inner types of every
+// shell declareTypeShells registered, then the declarations written inside
+// bodies.
+func (g *gen) resolveTypeShells(nodes []ast.Node) {
+	for _, d := range g.typeOrder {
 		switch t := d.decl.(type) {
 		case *ast.StructDef:
 			g.resolveStruct(d, t)
@@ -544,39 +575,62 @@ func (g *gen) buildTypes(nodes []ast.Node) {
 	// blocklocaltype.go.
 	g.blockLocalOrder = g.collectBlockTypeDecls(nodes)
 	g.resolveBlockTypeDecls()
-	all := append(order[:len(order):len(order)], g.blockLocalOrder...)
-	// Boxing before slot assignment: a boxed payload is a pointer, which is
-	// never zero-sized, and zero-sizedness decides whether a payload gets a
-	// slot at all.
-	for _, d := range all {
-		for i := range d.fields {
-			for _, c := range appendInlineDefs(nil, d.fields[i].k) {
-				if c == d || c.reaches(d) {
-					d.fields[i].boxed = true
-					break
-				}
+}
+
+// declaredTypes is every type the module declares, its own and those written
+// inside bodies, in the order the layout passes walk them.
+func (g *gen) declaredTypes() []*typeDef {
+	return append(g.typeOrder[:len(g.typeOrder):len(g.typeOrder)], g.blockLocalOrder...)
+}
+
+// boxTypeFields boxes every field that can reach its own container.
+//
+// Boxing before slot assignment: a boxed payload is a pointer, which is never
+// zero-sized, and zero-sizedness decides whether a payload gets a slot at all.
+func (g *gen) boxTypeFields() {
+	for _, d := range g.declaredTypes() {
+		d.boxFields()
+	}
+}
+
+// boxFields boxes each of d's fields that can reach d.
+func (d *typeDef) boxFields() {
+	for i := range d.fields {
+		for _, c := range appendInlineDefs(nil, d.fields[i].k) {
+			if c == d || c.reaches(d) {
+				d.fields[i].boxed = true
+				break
 			}
 		}
 	}
-	for _, d := range all {
+}
+
+// assignTypeSlots lays out every declared enum's payload storage.
+func (g *gen) assignTypeSlots() {
+	for _, d := range g.declaredTypes() {
 		d.assignSlots()
 	}
-	// Prelude instances created while resolving these declarations join the
-	// relaxation: `struct A { m: Maybe<B> }` must be refused when B is, or the
-	// emitted `rt.Maybe[NomiT_B]` would name a type nobody declared. They
-	// carry no refusals of their own, so they can only ever be retracted
-	// through a payload. See prelude.go.
-	//
-	// The per-gen GENERIC STD instances join for the identical reason and it is
-	// the same sentence one family over: `struct Counter { inbox: Channel<Bad> }`
-	// would emit `rt.Channel[NomiT_Bad]`. A shared instance is never in either
-	// order slice, because every argument admitted to the shared table is
-	// lowerable by construction. See stdgenstruct.go and stdgenhost.go.
-	settle := append(all[:len(all):len(all)], g.preludeOrder...)
+}
+
+// typeSettleOrder is the defs settleLowerable relaxes after the module's types
+// are laid out.
+//
+// Prelude instances created while resolving these declarations join the
+// relaxation: `struct A { m: Maybe<B> }` must be refused when B is, or the
+// emitted `rt.Maybe[NomiT_B]` would name a type nobody declared. They
+// carry no refusals of their own, so they can only ever be retracted
+// through a payload. See prelude.go.
+//
+// The per-gen GENERIC STD instances join for the identical reason and it is
+// the same sentence one family over: `struct Counter { inbox: Channel<Bad> }`
+// would emit `rt.Channel[NomiT_Bad]`. A shared instance is never in either
+// order slice, because every argument admitted to the shared table is
+// lowerable by construction. See stdgenstruct.go and stdgenhost.go.
+func (g *gen) typeSettleOrder() []*typeDef {
+	settle := g.declaredTypes()
+	settle = append(settle, g.preludeOrder...)
 	settle = append(settle, g.genStructOrder...)
-	settle = append(settle, g.genHostOrder...)
-	g.settleLowerable(settle)
-	g.typeOrder = order
+	return append(settle, g.genHostOrder...)
 }
 
 func (g *gen) resolveStruct(d *typeDef, t *ast.StructDef) {
@@ -897,7 +951,7 @@ func (g *gen) declModifiers(d *typeDef, decs []ast.Decorator, tps []ast.TypePara
 	}
 	// `opaque` is deliberately NOT refused. The name-only auto-Debug
 	// rendering for an opaque type is produced in the ANALYZER, as an ordinary Nomi
-	// `impl Debug for T { fn inspect(value: T): String { "<opaque T>" } }` node
+	// `impl Debug for T { fn inspect(value: T) -> String { "<opaque T>" } }` node
 	// appended before the builder is handed the tree
 	// (analysis.synthesizeOpaqueNameOnlyDebug), so the builder lowers it
 	// through the impl path it already has and there is nothing to reproduce.
@@ -1015,7 +1069,9 @@ func (d *typeDef) assignSlots() {
 // contain cycles.
 func (g *gen) settleLowerable(order []*typeDef) {
 	for _, d := range order {
-		d.lowerable = len(d.refusals) == 0
+		// A generic instance whose impls could not be registered carries why
+		// (typeGroup.registerInsts) and stays refused.
+		d.lowerable = len(d.refusals) == 0 && d.why == ""
 	}
 	for changed := true; changed; {
 		changed = false
@@ -1040,7 +1096,7 @@ func (g *gen) settleLowerable(order []*typeDef) {
 // Four forms name a lowerable type. *ast.SimpleType names a scalar, a declared
 // struct/enum/distinct, or an interface existential. *ast.FuncType names a
 // function type; the SAME node with a nil Return names a TUPLE type, because
-// `(Int, String)` and `(Int) -> String` differ only in the arrow.
+// `#(Int, String)` and `(Int) -> String` differ only in the arrow.
 // *ast.GenericType names `List<T>`. All three of the latter are STRUCTURAL —
 // their identity is interned (see composite.go), not declared.
 //
@@ -1198,6 +1254,13 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 		}
 		return kindInvalid
 	}
+	if d, isImported := g.blockImportedNamed(st.Name); isImported {
+		// A type an enclosing block's import binds. See bindBlockImports.
+		if d.lowerable {
+			return named(d)
+		}
+		return kindInvalid
+	}
 	if d, found := g.types[st.Name]; found {
 		if d.lowerable {
 			return named(d)
@@ -1221,7 +1284,7 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 	}
 	if d, isStdEnum := g.stdEnumNamed(st.Name); isStdEnum {
 		// A monomorphic stdlib enum this module MENTIONS without declaring:
-		// `fn compare(a: Priority, b: Priority): Ordering`. Its Go type is
+		// `fn compare(a: Priority, b: Priority) -> Ordering`. Its Go type is
 		// declared in rt, so it needs no mirror and no import. Asked beside
 		// the opaque lookup because it is the same question about a different
 		// declaration kind. See stdenum.go.

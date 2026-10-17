@@ -26,7 +26,7 @@ once r = case s {
 Map destructuring binding
 ==========
 
-fn m() { {"a" => x} = cfg }
+fn m() { %{"a" => x} = cfg }
 
 ---
 

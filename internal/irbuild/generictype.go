@@ -329,6 +329,10 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind) (kind, bool) {
 	}
 	g.popGenericSubst()
 
+	if g.deferInstLayout(d) {
+		return named(d), true
+	}
+
 	// Boxing, slot assignment and the lowerability relaxation, which buildTypes
 	// does in three passes over the whole module and which are done here per
 	// instance. Sound in this order because an instance is built BOTTOM-UP: every
@@ -346,14 +350,7 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind) (kind, bool) {
 	// So the loop below does nothing for an enum — `d.fields` is EMPTY for one,
 	// exactly as it is in buildTypes, where the identical loop runs over every
 	// def. Two passes over one list, each doing the half that is its own.
-	for i := range d.fields {
-		for _, c := range appendInlineDefs(nil, d.fields[i].k) {
-			if c == d || c.reaches(d) {
-				d.fields[i].boxed = true
-				break
-			}
-		}
-	}
+	d.boxFields()
 	// AFTER the field boxing, which is buildTypes' order and is load-bearing
 	// there for a reason that applies here unchanged: a boxed field is a
 	// pointer, a pointer is never zero-sized, and zero-sizedness decides whether
@@ -378,6 +375,59 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind) (kind, bool) {
 		return kindInvalid, false
 	}
 	return named(d), true
+}
+
+// deferInstLayout queues an instance whose layout cannot be decided yet, and
+// reports whether it did.
+//
+// An instance built while a type group resolves its fields may store a
+// declaration whose fields are not resolved yet: in `struct Parent { t:
+// Tree<Int> }` before `struct Child { n: Int }`, `Tree<Int>`'s `Node Child`
+// payload is built while Child has no fields, so laying the instance out now
+// would call Child zero-sized and give it no slot. The same holds for an
+// instance built in a finished file over a mirror of such a declaration
+// (`Pair<Int, Child>` with Pair in another file). A queued instance is boxed,
+// slotted and settled with the group's own declarations (typeGroup.layOut)
+// and its impls registered after that, so declaration order changes nothing.
+//
+// An instance already refused by its own fields, or by a component settled
+// unlowerable, is not queued: the caller refuses it at once.
+func (g *gen) deferInstLayout(d *typeDef) bool {
+	grp := g.instLayoutGroup(d)
+	if grp == nil || len(d.refusals) > 0 {
+		return false
+	}
+	for _, c := range d.mentions {
+		if !c.lowerable {
+			return false
+		}
+	}
+	d.layoutGroup = grp
+	grp.insts = append(grp.insts, deferredInst{g: g, d: d})
+	return true
+}
+
+// instLayoutGroup is the group whose layout an instance must wait for: this
+// file's own while it resolves its fields, or the group of a component that
+// is not laid out yet. Nil when the instance can be laid out now.
+func (g *gen) instLayoutGroup(d *typeDef) *typeGroup {
+	if grp := g.building; grp != nil && grp.state == groupResolving {
+		return grp
+	}
+	for _, c := range d.mentions {
+		if grp := c.layoutGroup; grp != nil && grp.state == groupResolving {
+			return grp
+		}
+	}
+	return nil
+}
+
+// registerDeferredInstImpls is registerInstanceImpls for an instance
+// deferInstLayout queued, inside its template's scope as genericInstance
+// registers one built whole.
+func (g *gen) registerDeferredInstImpls(d *typeDef) (string, string) {
+	defer g.enterTypeScope(d.genericOf.scope)()
+	return g.registerInstanceImpls(d.genericOf, d, d.genericArgs)
 }
 
 // genericInstKey is the intern key: the template pointer plus every argument's
@@ -435,6 +485,15 @@ func (g *gen) genericSubstKind(name string) (kind, bool) {
 		}
 	}
 	return kindInvalid, false
+}
+
+// isBoundTypeParam reports whether name is a type parameter of the instance
+// being built (`Struct` in `fn bump<Struct>(p: Struct)`), which a qualified
+// call spells as that instance's argument, never as the std name it
+// shadows (`Struct.update`).
+func (g *gen) isBoundTypeParam(name string) bool {
+	_, bound := g.genericSubstKind(name)
+	return bound
 }
 
 // --- reading an annotation, an inferred type and a literal -------------------
@@ -498,7 +557,7 @@ func kindParts(k kind) []kind {
 // projectGenericInstance is userGenericTypeOf for a type the CHECKER solved
 // rather than the program wrote — an unannotated lambda parameter, a binding.
 //
-// An annotated `b: Box<Inner>` lowering while an inferred `|b|` over the same
+// An annotated `b: Box<Inner>` lowering while an inferred `fn b ->` over the same
 // value refuses would not be a smaller subset, it would be two answers to one
 // question. inferred.go's Map, Distinct and AnonStruct arms exist for the same
 // reason.
@@ -506,8 +565,11 @@ func kindParts(k kind) []kind {
 // Identity is the analyzer's own `(Origin, Name)` rule and not a name match, so
 // a sibling module's same-named `Box` answers only for its own origin: this
 // file's templates for this file's origin, and the declaring file's for
-// another's (foreignTemplateAt).
-func (g *gen) projectGenericInstance(origin, name string, typeArgs []analysis.Type) (kind, bool) {
+// another's (foreignTemplateAt). A block-local template is found first by
+// params, the declaration's own type parameters, which every instance of it
+// shares, so an instance that escapes the block declaring it is still
+// found where its name does not resolve (blockLocalTemplateOf).
+func (g *gen) projectGenericInstance(params []*analysis.TypeParam_, origin, name string, typeArgs []analysis.Type) (kind, bool) {
 	// An empty Origin is the checker's on a type argument inside a variant
 	// constructor's instantiated result (`Wrapper<Wrapper<Int>>`); the name
 	// resolves among this module's own templates.
@@ -524,7 +586,10 @@ func (g *gen) projectGenericInstance(origin, name string, typeArgs []analysis.Ty
 		}
 		instantiate = func(args []kind) (kind, bool) { return g.instantiateForeign(ref, args) }
 	} else {
-		tpl := g.blockLocalTemplate(name)
+		tpl := g.blockLocalTemplateOf(params)
+		if tpl == nil {
+			tpl = g.blockLocalTemplate(name)
+		}
 		if tpl == nil {
 			tpl = g.genericTemplates[name]
 		}
@@ -566,7 +631,9 @@ func (g *gen) templateInstanceOf(instantiate func([]kind) (kind, bool), t analys
 	}
 	args := make([]kind, len(typeArgs))
 	for i, a := range typeArgs {
-		args[i] = g.project(a)
+		// An argument nothing determines (`E.X(1)`'s other parameter) is
+		// filled as a user template's argument is (irFillHolesByPosition).
+		args[i] = g.project(irFillHolesByPosition(a, true))
 	}
 	k, ok := instantiate(args)
 	if !ok {
@@ -625,12 +692,20 @@ func (g *gen) checkedFieldTypeArgs(t *ast.StructLit, tpl *genericTemplate, decla
 		if sym == nil || sym.Kind != analysis.SymbolField {
 			return nil, false
 		}
-		k := g.project(sym.Type)
+		ty := sym.Type
+		if irUnsolvedType(ty) {
+			// `Gbox{v: []}` where nothing fixes the list's element: an
+			// unsolved type argument no value has is filled as a generic
+			// call's is (spec, "Determined type arguments").
+			ty = irFillHolesByPosition(ty, false)
+		}
+		k := g.project(ty)
 		if k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k) {
 			return nil, false
 		}
 		g.unifyTypeParams(ann, k, params, solved)
 	}
+	g.solveFromLiteralType(t, tpl, solved)
 	args, ok := templateArgs(tpl, solved)
 	if !ok {
 		return nil, false
@@ -710,6 +785,32 @@ func (g *gen) unifyTypeParams(ann ast.TypeExpr, actual kind, params map[string]b
 		}
 		if a.Return != nil {
 			g.unifyTypeParams(a.Return, parts[len(parts)-1], params, solved)
+		}
+	}
+}
+
+// solveFromLiteralType solves each of tpl's parameters no field fixed from
+// the type the checker gave the literal t. A parameter nothing determines
+// (`Either.L{a: 1}`'s B: spec, "Determined type arguments") has no value
+// in the literal, and its hole is filled by its position
+// (irFillHolesByPosition), as a generic call's is.
+func (g *gen) solveFromLiteralType(t *ast.StructLit, tpl *genericTemplate, solved map[string]kind) {
+	if len(solved) == len(tpl.params) {
+		return
+	}
+	var typeArgs []analysis.Type
+	switch ty := irFillHolesByPosition(analysis.ResolveTypeVar(g.checkedExprType(t)), false).(type) {
+	case *analysis.EnumType:
+		typeArgs = ty.TypeArgs
+	case *analysis.StructType:
+		typeArgs = ty.TypeArgs
+	}
+	if len(typeArgs) != len(tpl.params) {
+		return
+	}
+	for i, p := range tpl.params {
+		if _, found := solved[p]; !found {
+			solved[p] = g.project(typeArgs[i])
 		}
 	}
 }

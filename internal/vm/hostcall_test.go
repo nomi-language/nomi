@@ -107,7 +107,9 @@ func TestHostCall_TwoTablesMayNotAnswerOneName(t *testing.T) {
 }
 
 // TestHostCall_AnRtTrapIsAFault: a Go host function that traps reports a
-// Nomi fault with rt's text, as a trap anywhere else in an activation does.
+// Nomi fault with rt's text, as a trap anywhere else in an activation does,
+// at the line of the program's call (stdlibfault.go): the host's text names
+// none.
 func TestHostCall_AnRtTrapIsAFault(t *testing.T) {
 	table := func(*hostadapt.Env) (map[string]hostadapt.Func, error) {
 		return map[string]hostadapt.Func{"demo.trap": func(*rt.Frame, []rt.Value) (rt.Value, error) {
@@ -117,7 +119,7 @@ func TestHostCall_AnRtTrapIsAFault(t *testing.T) {
 	}
 	_, err := New(hostModule("demo.trap", ir.ValInt), io.Discard).WithHosts(table).run("f", []any{int64(1)})
 	var fault *Fault
-	if !errors.As(err, &fault) || fault.Error() != "the host trapped" {
+	if !errors.As(err, &fault) || fault.Error() != "line 1: the host trapped" {
 		t.Fatalf("a trapping host: %v", err)
 	}
 }

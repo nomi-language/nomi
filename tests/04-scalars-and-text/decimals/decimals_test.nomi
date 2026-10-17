@@ -100,7 +100,7 @@ test "decimal set and map keys are scale insensitive" {
         |> Set.size()
         |> Int.equal?(2)
 
-    by_price: Map<Decimal, String> = {1.50d => "a", short => "b"}
+    by_price: Map<Decimal, String> = %{1.50d => "a", short => "b"}
     stored = by_price |> Map.get(1.500d)
 
     assert Map.size(by_price) == 1
@@ -108,7 +108,7 @@ test "decimal set and map keys are scale insensitive" {
 }
 
 test "decimal arithmetic supports money-shaped totals" {
-    subtotal = Iter.reduce([19.99d, 5.00d, 2.50d, 0.99d], |acc = 0d, item| acc + item)
+    subtotal = Iter.sum([19.99d, 5.00d, 2.50d, 0.99d])
     tax_base = subtotal * 875d
     tax = Decimal.divide(tax_base, 10000d, 4, HalfEven)
     total = Decimal.round(subtotal + tax, 2, HalfEven)

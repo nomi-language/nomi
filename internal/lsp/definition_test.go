@@ -19,7 +19,7 @@ import (
 // a sibling package no Nomi source names.
 
 func TestFindDefinition_ReferenceResolvesToSymbol(t *testing.T) {
-	input := `fn double(x: Int): Int { x + x }`
+	input := `fn double(x: Int) -> Int { x + x }`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := buildFile(nodes)
@@ -45,7 +45,7 @@ func TestFindDefinition_ReferenceResolvesToSymbol(t *testing.T) {
 
 func TestFindDefinition_AttachedAssertCodeUsesNormalReferences(t *testing.T) {
 	input := `//! assert ready_label() == "[ready]"
-fn ready_label(): String {
+fn ready_label() -> String {
   "[ready]"
 }
 `
@@ -80,7 +80,7 @@ func TestFindDefinition_AttachedAssertTypeQualifiedImplFunctionResolves(t *testi
 
 impl Display for Box {
   //! assert Box.▮to_string(Box{n: 3}) == "box:3"
-  fn to_string(b: Box): String {
+  fn to_string(b: Box) -> String {
     "box:" + Int.to_string(b.n)
   }
 }
@@ -111,13 +111,13 @@ impl Display for Box {
 
 func TestFindDefinition_AttachedAssertBareOperatorImplResolvesByArgs(t *testing.T) {
 	input, pos := definitionMarkerPosition(t, `pub interface Divide<Rhs, Out> {
-  fn divide(lhs: self, rhs: Rhs): Out
+  fn divide(lhs: self, rhs: Rhs) -> Out
 }
 
 pub opaque type NonZeroInt Int
 
 impl Divide<Int, Int> for Int {
-  fn divide(lhs: Int, rhs: Int): Int {
+  fn divide(lhs: Int, rhs: Int) -> Int {
     0
   }
 }
@@ -126,7 +126,7 @@ impl Divide<NonZeroInt, Int> for Int {
   //! nz = NonZeroInt(3)
   //! assert ▮divide(10, nz) == 10
   //
-  fn divide(lhs: Int, rhs: NonZeroInt): Int {
+  fn divide(lhs: Int, rhs: NonZeroInt) -> Int {
     10
   }
 }
@@ -149,7 +149,7 @@ func TestFindDefinition_GoBindingAliasResolvesToGopkg(t *testing.T) {
 
 gopkg "example.com/binding/ffi" as ffi
 
-fn echo_upper(s: String): String go ▮ffi.EchoUpper
+fn echo_upper(s: String) -> String go ▮ffi.EchoUpper
 
 fn main() {
   io.print(echo_upper("fixture"))
@@ -182,7 +182,7 @@ func TestFindDefinition_GoPackagePathResolvesToGoPackage(t *testing.T) {
 
 gopkg "example.com/▮binding/ffi" as ffi
 
-fn echo_upper(s: String): String go ffi.EchoUpper
+fn echo_upper(s: String) -> String go ffi.EchoUpper
 
 fn main() {
   io.print(echo_upper("fixture"))
@@ -216,7 +216,7 @@ func TestFindDefinition_GoBindingNameResolvesToGoFunction(t *testing.T) {
 
 gopkg "example.com/binding/ffi" as ffi
 
-fn echo_upper(s: String): String go ffi.▮EchoUpper
+fn echo_upper(s: String) -> String go ffi.▮EchoUpper
 
 fn main() {
   io.print(echo_upper("fixture"))
@@ -249,7 +249,7 @@ gopkg "example.com/binding/ffi" as ffi
 
 opaque type RawBox go ffi.▮Box
 
-fn echo_upper(s: String): String go ffi.EchoUpper
+fn echo_upper(s: String) -> String go ffi.EchoUpper
 
 fn main() {
   io.print(echo_upper("fixture"))
@@ -280,7 +280,7 @@ func TestFindDefinition_ForeignBindingLocalCallResolvesToNomiBinding(t *testing.
 
 gopkg "example.com/binding/ffi" as ffi
 
-fn echo_upper(s: String): String go ffi.EchoUpper
+fn echo_upper(s: String) -> String go ffi.EchoUpper
 
 fn main() {
   io.print(▮echo_upper("fixture"))
@@ -389,7 +389,7 @@ func definitionMarkerPosition(t *testing.T, input string) (string, protocol.Posi
 }
 
 func TestFindDefinition_DefinitionResolvesToItself(t *testing.T) {
-	input := `fn add(x: Int, y: Int): Int { x + y }`
+	input := `fn add(x: Int, y: Int) -> Int { x + y }`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := buildFile(nodes)
@@ -584,7 +584,7 @@ func TestFindDefinition_OnTypeQualifiedMethodResolvesToImpl(t *testing.T) {
 	input := `import std/io
 
 pub interface Speech {
-  fn speak(animal: self): String
+  fn speak(animal: self) -> String
 }
 
 pub struct Dog {
@@ -592,7 +592,7 @@ pub struct Dog {
 }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name + " says woof"
   }
 }
@@ -645,11 +645,11 @@ func TestFindDefinition_OnBareSameOwnerMethodResolvesToSibling(t *testing.T) {
 pub struct Point {
   x: Int
 
-  pub fn get(p: Point): Int {
+  pub fn get(p: Point) -> Int {
     p.x
   }
 
-  pub fn get_twice(p: Point): Int {
+  pub fn get_twice(p: Point) -> Int {
     get(p) + get(p)
   }
 }
@@ -741,7 +741,7 @@ derive Equatable for Point
 // should jump to the interface declaration.
 func TestFindDefinition_OnImplHeaderInterfaceResolvesToInterface(t *testing.T) {
 	input := `interface Speech {
-  fn speak(s: self): String
+  fn speak(s: self) -> String
 }
 
 struct Dog {
@@ -749,7 +749,7 @@ struct Dog {
 }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name
   }
 }
@@ -802,7 +802,7 @@ pub struct AppEnv {
 }
 
 impl Display for AppEnv {
-  fn to_string(_env: AppEnv): String {
+  fn to_string(_env: AppEnv) -> String {
     "env"
   }
 }
@@ -1014,7 +1014,7 @@ func TestFindDefinition_InterfaceQualifiedCallResolvesToUserImpl(t *testing.T) {
 		"pub struct Greeter { name: String }\n" +
 		"\n" +
 		"impl Display for Greeter {\n" +
-		"  fn to_string(g: self): String { \"hi ${g.name}\" }\n" +
+		"  fn to_string(g: self) -> String { \"hi ${g.name}\" }\n" +
 		"}\n" +
 		"\n" +
 		"fn main() {\n" +
@@ -1058,12 +1058,12 @@ func TestFindDefinition_InterfaceQualifiedCallResolvesToUserImpl(t *testing.T) {
 // interface method declaration rather than guessing an impl. Locks the
 // decision that we only redirect to an impl for concrete receivers.
 func TestFindDefinition_InterfaceQualifiedCallGenericFallsBackToInterface(t *testing.T) {
-	input := "interface Showable { fn show(value: self): String }\n" +
+	input := "interface Showable { fn show(value: self) -> String }\n" +
 		"struct User { name: String }\n" +
 		"impl Showable for User {\n" +
-		"  fn show(value: self): String { value.name }\n" +
+		"  fn show(value: self) -> String { value.name }\n" +
 		"}\n" +
-		"fn render<T>(value: T): String where T: Showable {\n" +
+		"fn render<T>(value: T) -> String where T: Showable {\n" +
 		"  Showable.show(value)\n" +
 		"}\n"
 	uri := "file:///test.nomi"
@@ -1144,7 +1144,7 @@ fn main() {
 
 func TestFindDefinition_OnImplMethodResolvesToInterfaceMethod(t *testing.T) {
 	input := `interface Speech {
-  fn speak(value: self): String
+  fn speak(value: self) -> String
 }
 
 struct Dog {
@@ -1152,7 +1152,7 @@ struct Dog {
 }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name
   }
 }

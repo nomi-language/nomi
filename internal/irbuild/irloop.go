@@ -30,7 +30,7 @@ package irbuild
 // way, in that body's own function. Empty seeds the checker did not solve
 // are declined.
 //
-// A destructuring state (`|(n, acc): (Int, Int) = (5, 1)|`) binds the
+// A destructuring state (`fn #(n, acc): #(Int, Int) = #(5, 1) ->`) binds the
 // pattern's names at the head from the state, each iteration, as a pattern
 // binding with no `else` does. The checker admits only an irrefutable
 // pattern there, so the mismatch path is unreachable; it traps as that
@@ -43,7 +43,7 @@ package irbuild
 // irScalarBlock makes it the tail of its block, dropping the statements after
 // it, and endlessLoop lowers it there, ending the exit in a jump to itself.
 //
-// A stateless loop (`Iter.loop(|| …)`) has state Unit: it lowers the same
+// A stateless loop (`Iter.loop(fn -> …)`) has state Unit: it lowers the same
 // way with a Unit seed and binds no name in the body. Its tail may be a
 // statement, an `if` with no `else` included, whose Unit value leaves the
 // state as it was.
@@ -65,6 +65,10 @@ type irLoopBuild struct {
 	// holds a `with`, or ir.NoTemp: every jump back to the head or out to the
 	// exit restores it, so an override ends with the iteration that made it.
 	scope ir.Temp
+	// defers is the callback body's own defer scope: every jump back to the
+	// head or out to the exit runs what the iteration registered, in it and
+	// in the blocks it opened, so a `defer` runs when its iteration ends.
+	defers *irDeferScope
 }
 
 // irBodyWrites reports whether a callback body holds a `with` statement in
@@ -114,13 +118,29 @@ func (bl *irScalarBuilder) loopWithScope(lp *irLoopBuild) {
 // loopJump ends block b with a jump to target, restoring the scope read at
 // the loop's head first when the body holds a `with`.
 func (bl *irScalarBuilder) loopJump(b *ir.Block, at ast.Node, lp *irLoopBuild, target *ir.Block) {
+	// The iteration ends here: the deferred calls it registered on this
+	// path run, innermost block first and most recent first in each. The
+	// path has registered exactly the `defer`s lowered before this jump,
+	// since a scope admits them only among its own straight statements.
+	var open []*irDeferScope
+	for s := bl.openDefers; s != nil && lp.defers != nil; s = s.outer {
+		open = append(open, s)
+		if s == lp.defers {
+			for _, s := range open {
+				for i := len(s.ids) - 1; i >= 0; i-- {
+					b.Append(ir.NewRunDefer(bl.g.irNodePos(at), s.ids[i]))
+				}
+			}
+			break
+		}
+	}
 	if lp.scope != ir.NoTemp {
 		b.Append(ir.NewStoreScope(bl.g.irNodePos(at), bl.g.irTypes().Symbol(irScopeHandle{}, "$scope"), lp.scope))
 	}
 	b.SetTerm(ir.NewJump(bl.g.irNodePos(at), target.ID()))
 }
 
-// iterLoop lowers `Iter.loop(|p = seed| body)` and answers its answer slot.
+// iterLoop lowers `Iter.loop(fn p = seed -> body)` and answers its answer slot.
 func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func(why string) (ir.Temp, kind, bool, bool) {
 		irDeclineNote(why)
@@ -128,17 +148,12 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	}
 	// The loop's blocks go into the builder's own function, whatever body
 	// that function is: a named function, a test, a `once` initializer, a
-	// boot, a default accessor, or a lambda nested in any of them. Inside an
-	// assertion subject only a test body records the loop as one row.
-	root := bl
-	for root.parent != nil {
-		root = root.parent
-	}
-	if (bl.recording > 0 && !root.inTest) || !bl.g.iterOwns("Iter") {
-		return no("an Iter.loop inside a recorded assertion subject outside a test")
+	// boot, a default accessor, or a lambda nested in any of them.
+	if !bl.g.iterOwns("Iter") {
+		return no("an Iter.loop with std/iter not loaded")
 	}
 	if bl.recording > 0 {
-		// Inside a VM-only assertion subject the loop is one row, the
+		// Inside an assertion subject the loop is one row, the
 		// answer the enclosing operand records; the callback's seed and body
 		// record nothing, as nothing is recorded inside a lambda.
 		saved := bl.recording
@@ -149,14 +164,21 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		return no("an Iter.loop call without one callback")
 	}
 	lam, isLambda := t.Args[0].(*ast.Lambda)
-	if !isLambda || len(lam.Params) > 1 {
-		return no("an Iter.loop callback that is not a lambda literal of at most one parameter")
+	if !isLambda {
+		return no("an Iter.loop callback that is not a lambda literal")
+	}
+	for _, extra := range lam.Params[min(1, len(lam.Params)):] {
+		// `fn a = 0, b = 1 ->`: the loop calls the callback with the state
+		// alone, so each later parameter takes its default every iteration.
+		if extra.Default == nil {
+			return no("an Iter.loop callback parameter after the state without a default")
+		}
 	}
 	stateless := len(lam.Params) == 0
 	seed, sk, stateName := ir.NoTemp, kindUnit, "$state"
 	var p *ast.Param
 	if stateless {
-		// A stateless loop (`Iter.loop(|| …)`) has state Unit: its seed is
+		// A stateless loop (`Iter.loop(fn -> …)`) has state Unit: its seed is
 		// Unit and its callback binds no name.
 		u := ir.NewUnit(bl.g.irNodePos(lam), bl.f.NewTemp())
 		bl.b.Append(u)
@@ -194,8 +216,8 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			return no("an Iter.loop seed outside the retained empty-container coercions")
 		}
 	}
-	// A Unit state (`|u: Unit = Unit|`) is a loop run for its effects.
-	if (!irRetainedValueKind(sk) && sk != kindUnit) || (p != nil && p.TypeAnnotation != nil && bl.g.typeOf(p.TypeAnnotation) != sk) {
+	// A Unit state (`fn u: Unit = Unit ->`) is a loop run for its effects.
+	if (!irCallableValueKind(sk) && sk != kindUnit) || (p != nil && p.TypeAnnotation != nil && bl.g.typeOf(p.TypeAnnotation) != sk) {
 		return no("an Iter.loop state outside the retained value domain: " + sk.nomi())
 	}
 	ty := bl.g.irTypeOf(sk)
@@ -226,7 +248,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		bl.b.Append(ir.NewRefScope(bl.g.irNodePos(lam), lp.scope, bl.g.irTypes().Symbol(irScopeHandle{}, "$scope")))
 	}
 	if p != nil && p.Destructure != nil {
-		// `|(n, acc) = (5, 1)|`: the pattern's names, read off this
+		// `fn #(n, acc) = #(5, 1) ->`: the pattern's names, read off this
 		// iteration's state.
 		at := bl.g.irNodePos(p.Destructure)
 		held := ir.NewBind(at, bl.f.NewTemp(), state.Dst(), ir.NewSymbol("$state"))
@@ -241,7 +263,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 		bl.b = cont
 	} else if p != nil && !ast.IsDiscardName(p.Name) {
-		// A discard name (`|_u: Unit = Unit|`) binds nothing in the body.
+		// A discard name (`fn _u: Unit = Unit ->`) binds nothing in the body.
 		sym := ir.NewSymbol(p.Name)
 		bl.sh.syms[p.Name] = sym
 		param := ir.NewBind(bl.g.irNodePos(lam), bl.f.NewTemp(), state.Dst(), sym)
@@ -249,6 +271,36 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		bl.side(param.Dst(), irScalarSide{k: sk})
 		bl.bound[p.Name], bl.boundK[p.Name] = param.Dst(), sk
 		bl.declareBindAt(param, sk, p.Line, p.Col)
+	}
+	for _, extra := range lam.Params[min(1, len(lam.Params)):] {
+		v, k, _, ok := bl.lower(extra.Default)
+		if !ok {
+			return ir.NoTemp, kindInvalid, false, false
+		}
+		if extra.Destructure != nil {
+			// `#(b, c) = #(1, 2)`: the pattern's names, read off the
+			// default, as the state's pattern is read off the state.
+			at := bl.g.irNodePos(extra.Destructure)
+			cont := bl.f.NewBlock(at, "loop parameter bound")
+			nomatch := bl.f.NewBlock(at, "loop parameter mismatch")
+			nomatch.Append(ir.NewNoMatch(at))
+			nomatch.SetTerm(ir.NewJump(at, cont.ID()))
+			if !bl.patternValueTest(extra.Destructure, v, k, cont, nomatch) {
+				return no("an Iter.loop parameter pattern outside the retained pattern tests: " + k.nomi())
+			}
+			bl.b = cont
+			continue
+		}
+		if ast.IsDiscardName(extra.Name) {
+			continue
+		}
+		sym := ir.NewSymbol(extra.Name)
+		bl.sh.syms[extra.Name] = sym
+		param := ir.NewBind(bl.g.irNodePos(extra.Default), bl.f.NewTemp(), v, sym)
+		bl.b.Append(param)
+		bl.side(param.Dst(), irScalarSide{k: k})
+		bl.bound[extra.Name], bl.boundK[extra.Name] = param.Dst(), k
+		bl.declareBindAt(param, k, extra.Line, extra.Col)
 	}
 	tail := bl.f.NewTemp()
 	bl.b.Append(ir.NewSlot(bl.g.irNodePos(lam), tail, ty))
@@ -259,10 +311,12 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	if final == nil {
 		return no("an Iter.loop body outside the statement shape: " + irDeclineBodyWhy)
 	}
-	outerLoop := bl.loop
+	outerLoop, outerDefers := bl.loop, bl.openDefers
 	bl.loop = lp
+	lp.defers = &irDeferScope{block: lam.Body, outer: outerDefers}
+	bl.openDefers = lp.defers
 	lowered := bl.loopBody(lead, final, lp, tail)
-	bl.loop = outerLoop
+	bl.loop, bl.openDefers = outerLoop, outerDefers
 	if !lowered {
 		return ir.NoTemp, kindInvalid, false, false
 	}
@@ -299,8 +353,11 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 		}
 		// A region in the statement (`x = case c { 0 -> continue  _ -> 1
 		// }`) may branch: an arm ending in `break v`, `return v` or
-		// `continue` leaves the iteration, and the others join.
+		// `continue` leaves the iteration, and the others join. A
+		// `defer` among the body's own statements registers in the
+		// iteration's scope.
 		bl.loopWithScope(lp)
+		bl.deferScope = lp.defers
 		if !bl.leading([]ast.Node{s}) {
 			return false
 		}
@@ -350,7 +407,7 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 			// stateless loop's may: a statement, then the Unit tail.
 			return bl.loopBody([]ast.Node{f}, &ast.TypeIdent{Name: "Unit", Line: f.Line, Col: f.Col}, lp, tail)
 		}
-		if f.Else == nil || f.CondPattern != nil || f.Then == nil {
+		if f.Else == nil || f.Then == nil {
 			break
 		}
 		if _, exit := bl.g.irScalarBlock(f.Then, ""); exit == nil {
@@ -511,10 +568,16 @@ func (bl *irScalarBuilder) loopGuard(t *ast.If, lp *irLoopBuild) bool {
 		bl.b.SetTerm(br)
 	}
 	bl.b = arm
+	// The arm is a block of its own: a `defer` in it runs when the arm
+	// leaves the iteration, before the iteration's own (loopJump).
+	armDefers := &irDeferScope{block: t.Then, outer: bl.openDefers}
+	bl.openDefers = armDefers
+	defer func() { bl.openDefers = armDefers.outer }()
 	for _, s := range lead {
 		// A statement in the arm may branch and join; the arm goes on from
 		// its join.
 		bl.loopWithScope(lp)
+		bl.deferScope = armDefers
 		if !bl.leading([]ast.Node{s}) {
 			return false
 		}

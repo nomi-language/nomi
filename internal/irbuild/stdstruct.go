@@ -911,7 +911,7 @@ func stdStructKindOfGoType(t reflect.Type) kind {
 // surface for a type a program writes down: `d: DateTime` needs `DateTime`
 // imported. It is NOT the whole surface for a type the CHECKER solved. A file
 // whose only mention of std/compiler is `compiler.check(src)` never names
-// `Diagnostic` at all, and the `|diagnostic|` in `Iter.any?` over the result
+// `Diagnostic` at all, and the `fn diagnostic ->` in `Iter.any?` over the result
 // still has that type (as in
 // tests/15-app-and-defer/os_env_boot_only_test.nomi).
 //
@@ -1052,7 +1052,7 @@ func stdStructIndex(d *typeDef) (int, bool) {
 // A free function rather than a gen method for opaqueAnchors' reason: the STDLIB
 // SIGNATURE pass (collectStdCandidates, via stdTypeKind) runs before any gen
 // exists and has to know whether the `DateTime` in
-// `DateTime.with_zone(d: DateTime, zone: String): Result<DateTime, Error>` is a
+// `DateTime.with_zone(d: DateTime, zone: String) -> Result<DateTime, Error>` is a
 // representable type. Two implementations of "is this the std type" is the drift
 // the identity rules exist to prevent, so there is one.
 //

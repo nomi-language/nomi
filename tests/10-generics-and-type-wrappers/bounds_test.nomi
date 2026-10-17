@@ -1,9 +1,9 @@
 interface Showable {
-    fn show(value: self): String
+    fn show(value: self) -> String
 }
 
 interface Tagged {
-    fn tag(value: self): String
+    fn tag(value: self) -> String
 }
 
 typealias ShowAndTag Showable and Tagged
@@ -13,13 +13,13 @@ struct User {
 }
 
 impl Showable for User {
-    fn show(value: User): String {
+    fn show(value: User) -> String {
         "user:" + value.name
     }
 }
 
 impl Tagged for User {
-    fn tag(_value: User): String {
+    fn tag(_value: User) -> String {
         "[user]"
     }
 }
@@ -29,20 +29,20 @@ struct Tag {
 }
 
 impl Showable for Tag {
-    fn show(value: Tag): String {
+    fn show(value: Tag) -> String {
         "tag:" + value.label
     }
 }
 
-fn announce<T>(value: T): String where T: Showable {
+fn announce<T>(value: T) -> String where T: Showable {
     "announce(" + Showable.show(value) + ")"
 }
 
-fn describe<T>(value: T): String where T: Showable and Tagged {
+fn describe<T>(value: T) -> String where T: Showable and Tagged {
     Tagged.tag(value) + " " + Showable.show(value)
 }
 
-fn describe_alias<T>(value: T): String where T: ShowAndTag {
+fn describe_alias<T>(value: T) -> String where T: ShowAndTag {
     Tagged.tag(value) + " " + Showable.show(value)
 }
 

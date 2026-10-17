@@ -1,6 +1,6 @@
 import std/testing
 
-fn find_name(id: Int): Maybe<String> {
+fn find_name(id: Int) -> Maybe<String> {
     case id {
         1 -> Some("Ada")
         _ -> None

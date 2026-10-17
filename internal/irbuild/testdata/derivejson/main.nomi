@@ -51,14 +51,14 @@ derive Equatable for Local
 derive ToJson for Local
 derive FromJson for Local
 
-fn render(r: Result<Local, Json.ShapeError>): String {
+fn render(r: Result<Local, Json.ShapeError>) -> String {
     case r {
         Ok(v) -> "ok:" + v.label
         Err(_) -> "err"
     }
 }
 
-fn render_away(r: Result<Away, Json.ShapeError>): String {
+fn render_away(r: Result<Away, Json.ShapeError>) -> String {
     case r {
         Ok(v) -> "ok:" + models.name_of(v)
         Err(_) -> "err"
@@ -77,10 +77,10 @@ fn main() {
     io.print("local eq ${Bool.to_string(local == local_copy)}")
 
     // Gap one, entry-file route and sibling route.
-    io.print(render(Local.from_json(Json.Obj{"label" => Json.String("x")})))
-    io.print(render(Local.from_json(Json.Obj{"nope" => Json.Int(1)})))
-    io.print(render_away(Away.from_json(Json.Obj{"name" => Json.String("y")})))
-    io.print(render_away(Away.from_json(Json.Obj{"nope" => Json.Int(2)})))
+    io.print(render(Local.from_json(Json.Obj%{"label" => Json.String("x")})))
+    io.print(render(Local.from_json(Json.Obj%{"nope" => Json.Int(1)})))
+    io.print(render_away(Away.from_json(Json.Obj%{"name" => Json.String("y")})))
+    io.print(render_away(Away.from_json(Json.Obj%{"nope" => Json.Int(2)})))
 
     // Gap two.
     io.print("away eq ${Bool.to_string(away == away_copy)}")

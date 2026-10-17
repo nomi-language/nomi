@@ -78,9 +78,9 @@ func TestDiscovery_SourceBindings(t *testing.T) {
 
 opaque type RawBox go binding.Box
 
-fn echo_upper(s: String): String go binding.EchoUpper
+fn echo_upper(s: String) -> String go binding.EchoUpper
 
-fn add_one(n: Int): Int go binding.AddOne
+fn add_one(n: Int) -> Int go binding.AddOne
 `)
 
 	got, err := Discover(root)
@@ -105,8 +105,8 @@ fn add_one(n: Int): Int go binding.AddOne
 		name string
 		decl string
 	}{
-		{key: "add_one", name: "AddOne", decl: "host fn add_one(n: Int): Int"},
-		{key: "echo_upper", name: "EchoUpper", decl: "host fn echo_upper(s: String): String"},
+		{key: "add_one", name: "AddOne", decl: "host fn add_one(n: Int) -> Int"},
+		{key: "echo_upper", name: "EchoUpper", decl: "host fn echo_upper(s: String) -> String"},
 	}
 	if len(got[0].Exports) != len(wantExports) {
 		t.Fatalf("exports: got %+v", got[0].Exports)
@@ -125,7 +125,7 @@ func TestDiscovery_SourceBindingsFromGoPackageEntry(t *testing.T) {
 
 opaque type RawBox go binding.Box
 
-fn echo_upper(s: String): String go binding.EchoUpper
+fn echo_upper(s: String) -> String go binding.EchoUpper
 `)
 
 	got, err := Discover(root)
@@ -150,7 +150,7 @@ func TestDiscovery_GoSelectorMapSignature(t *testing.T) {
 	root := stageSourceBindingProject(t)
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
-fn add_counts(items: Map<String, Int>): Map<String, Int> go binding.AddCounts
+fn add_counts(items: Map<String, Int>) -> Map<String, Int> go binding.AddCounts
 `)
 
 	got, err := Discover(root)
@@ -183,7 +183,7 @@ struct User {
   address: Address
 }
 
-fn birthday(user: User): User go binding.Birthday
+fn birthday(user: User) -> User go binding.Birthday
 `)
 
 	got, err := Discover(root)
@@ -235,7 +235,7 @@ entry_points = ["main"]
 `)
 	mustWriteHelper(t, filepath.Join(fixtureDir, "ffi.nomi"), `gopkg "taggedffiapp" as ffi
 
-pub fn echo_upper(s: String): String go ffi.EchoUpper
+pub fn echo_upper(s: String) -> String go ffi.EchoUpper
 `)
 
 	res, err := Prepare(filepath.Join(parentDir, "json_test.nomi"))
@@ -251,7 +251,7 @@ func TestDiscovery_DuplicateSourceBindingsAreDeduped(t *testing.T) {
 	root := stageSourceBindingProject(t)
 	decl := `gopkg "example.com/binding/source" as binding
 
-fn echo_upper(s: String): String go binding.EchoUpper
+fn echo_upper(s: String) -> String go binding.EchoUpper
 `
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), decl)
 	mustWriteHelper(t, filepath.Join(root, "main_test.nomi"), decl)
@@ -276,7 +276,7 @@ func TestDiscovery_LocalReplacePackageBindings(t *testing.T) {
 	}
 	mustWriteHelper(t, filepath.Join(nomiRoot, "binding.nomi"), `gopkg "example.com/dep" as dep
 
-pub fn ping(): String go dep.Ping
+pub fn ping() -> String go dep.Ping
 `)
 	mustWriteHelper(t, filepath.Join(nomiRoot, "nomi.toml"), `[module]
 name = "dep"
@@ -316,7 +316,7 @@ go 1.26.3
 `)
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/missing/pkg" as missing
 
-fn ping(): String go missing.Ping
+fn ping() -> String go missing.Ping
 `)
 
 	_, err := Prepare(filepath.Join(root, "main.nomi"))
@@ -354,7 +354,7 @@ func TestPrepareAllowsMissingGoSelectorCheckedByGoCompiler(t *testing.T) {
 
 opaque type RawBox go binding.Box
 
-fn missing_func(): String go binding.MissingFunc
+fn missing_func() -> String go binding.MissingFunc
 `)
 
 	res, err := Prepare(filepath.Join(root, "main.nomi"))
@@ -370,9 +370,9 @@ func TestPrepareRejectsGoSelectorSignatureMismatch(t *testing.T) {
 	root := stageSourceBindingProject(t)
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
-fn echo_upper(s: Int): String go binding.EchoUpper
+fn echo_upper(s: Int) -> String go binding.EchoUpper
 
-fn add_one(n: Int): String go binding.AddOne
+fn add_one(n: Int) -> String go binding.AddOne
 `)
 
 	res, err := Prepare(filepath.Join(root, "main.nomi"))
@@ -395,7 +395,7 @@ func UseNamed(v interface{ Name() string }) string {
 `)
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
-fn use_named(value: Dynamic): String go binding.UseNamed
+fn use_named(value: Dynamic) -> String go binding.UseNamed
 `)
 
 	res, err := Prepare(filepath.Join(root, "main.nomi"))
@@ -424,7 +424,7 @@ func UseNamedValue(v Named) string {
 `)
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
-fn use_named(value: Dynamic): String go binding.UseNamedValue
+fn use_named(value: Dynamic) -> String go binding.UseNamedValue
 `)
 
 	res, err := Prepare(filepath.Join(root, "main.nomi"))
@@ -450,7 +450,7 @@ func UseTransform(f Transform) string {
 `)
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
-fn use_transform(f: (String) -> String): String go binding.UseTransform
+fn use_transform(f: (String) -> String) -> String go binding.UseTransform
 `)
 
 	res, err := Prepare(filepath.Join(root, "main.nomi"))
@@ -476,7 +476,7 @@ func UseUpdates(ch Updates) string {
 `)
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
-fn use_updates(value: Dynamic): String go binding.UseUpdates
+fn use_updates(value: Dynamic) -> String go binding.UseUpdates
 `)
 
 	res, err := Prepare(filepath.Join(root, "main.nomi"))
@@ -509,7 +509,7 @@ func EchoAlias(v Alias) Alias {
 `)
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
-fn echo_alias(value: String): String go binding.EchoAlias
+fn echo_alias(value: String) -> String go binding.EchoAlias
 `)
 
 	if _, err := Prepare(filepath.Join(root, "main.nomi")); err != nil {
@@ -528,7 +528,7 @@ func BadCallback(f func(string) (string, string)) string {
 `)
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
-fn bad_callback(f: (String) -> Result<String, String>): String go binding.BadCallback
+fn bad_callback(f: (String) -> Result<String, String>) -> String go binding.BadCallback
 `)
 
 	res, err := Prepare(filepath.Join(root, "main.nomi"))
@@ -552,7 +552,7 @@ struct User {
   email: String
 }
 
-fn birthday(user: User): User go binding.Birthday
+fn birthday(user: User) -> User go binding.Birthday
 `)
 
 	res, err := Prepare(filepath.Join(root, "main.nomi"))
@@ -598,7 +598,7 @@ struct Event {
   created: Instant
 }
 
-fn touch_event(event: Event): Event go binding.TouchEvent
+fn touch_event(event: Event) -> Event go binding.TouchEvent
 `)
 
 	if _, err := Prepare(filepath.Join(root, "main.nomi")); err != nil {
@@ -615,7 +615,7 @@ func TestDiscovery_SameBaseNameInTwoDirectoriesKeysEach(t *testing.T) {
 	root := stageSourceBindingProject(t)
 	decl := `gopkg "example.com/binding/source" as binding
 
-fn upper(s: String): String go binding.EchoUpper
+fn upper(s: String) -> String go binding.EchoUpper
 `
 	top := filepath.Join(root, "hi.nomi")
 	nested := filepath.Join(root, "bin", "hi.nomi")

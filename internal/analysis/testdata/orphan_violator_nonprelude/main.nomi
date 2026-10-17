@@ -5,7 +5,7 @@
 import std/calendar.Date
 
 impl Display for Date {
-    fn to_string(_d: Date): String {
+    fn to_string(_d: Date) -> String {
         "fake"
     }
 }

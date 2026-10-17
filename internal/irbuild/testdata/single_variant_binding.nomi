@@ -1,0 +1,42 @@
+import std/io
+
+// A single-variant enum's pattern always matches, so `E.V(x) = value`
+// binds the payload as the parameter `fn open(E.V(x))` does.
+enum Only {
+    One Int
+}
+
+enum Rec {
+    Fields {a: Int, b: String}
+}
+
+enum Wrap<T> {
+    Hold T
+}
+
+struct Circle {
+    r: Int
+}
+
+enum Shape {
+    embeds Circle
+}
+
+type UserId String
+
+enum Who {
+    embeds UserId
+}
+
+fn main() {
+    Only.One(p) = Only.One(3)
+    io.inspect(p)
+    Rec.Fields(fields) = Rec.Fields{a: 1, b: "x"}
+    io.inspect(fields)
+    Wrap.Hold(s) = Wrap.Hold("held")
+    io.print(s)
+    Shape.Circle(c) = Shape.Circle{r: 2}
+    io.inspect(c)
+    Who.UserId(name) = Who.UserId("ada")
+    io.print(name)
+}

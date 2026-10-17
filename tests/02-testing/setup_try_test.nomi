@@ -1,11 +1,11 @@
-fn parse(s: String): Result<Int, String> {
+fn parse(s: String) -> Result<Int, String> {
     case s {
         "" -> Err("empty")
         _ -> Ok(String.length(s))
     }
 }
 
-fn find(s: String): Maybe<Int> {
+fn find(s: String) -> Maybe<Int> {
     case s {
         "" -> None
         _ -> Some(String.length(s))

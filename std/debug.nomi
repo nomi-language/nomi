@@ -52,5 +52,5 @@ import strings.String
 /// to render). Value kinds with no declaration render deterministic
 /// placeholders: `<function>`, `<Task>`, `<Channel>`, `<file M>`, `<context>`.
 pub interface Debug {
-    fn inspect(value: self): String
+    fn inspect(value: self) -> String
 }

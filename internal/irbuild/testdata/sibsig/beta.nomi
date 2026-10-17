@@ -17,12 +17,12 @@ pub struct Point {
     lon: Float
 }
 
-pub fn at(lat: Float, lon: Float): Point {
+pub fn at(lat: Float, lon: Float) -> Point {
     Point{lat, lon}
 }
 
 /// A sibling type inside a TUPLE, which is the third structural shape the
 /// boundary re-interns.
-pub fn pair(p: Point): (Point, Float) {
-    (p, p.lat)
+pub fn pair(p: Point) -> #(Point, Float) {
+    #(p, p.lat)
 }

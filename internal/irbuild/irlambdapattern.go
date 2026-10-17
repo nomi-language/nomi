@@ -6,9 +6,9 @@ import (
 )
 
 // A lambda's destructuring parameter beyond the two shapes irlambda.go
-// projects itself (a flat tuple of names, a wrapping distinct's `|Dur(n)|`):
-// `|Point{x, y}|`, `|Box.Extent{wide, tall}|`, `|Wrapper.Only(n)|`,
-// `|Segment{from: Point{x, y: _}, to: _}|` and `|(a, (b, c))|`.
+// projects itself (a flat tuple of names, a wrapping distinct's `fn Dur(n) ->`):
+// `fn Point{x, y} ->`, `fn Box.Extent{wide, tall} ->`, `fn Wrapper.Only(n) ->`,
+// `fn Segment{from: Point{x, y: _}, to: _} ->` and `fn #(a, #(b, c)) ->`.
 //
 // These build exactly as a named function's destructuring parameter does:
 // `g.destructure` resolves the irrefutable pattern against the parameter's
@@ -111,12 +111,12 @@ func (bl *irScalarBuilder) patternParams(params []irPatternParam) bool {
 		k := sh.frame.kindOf(b.Dst())
 		if !irCallOperandKind(k) {
 			// Unit included, as for a function's destructured name
-			// (`|Done(u)| ...` for `type Done Unit`).
+			// (`fn Done(u) -> ...` for `type Done Unit`).
 			irDeclineNote("a destructured lambda name's kind outside the domain: " + k.nomi())
 			return false
 		}
 		bl.bound[b.Sym().Name()], bl.boundK[b.Sym().Name()] = b.Dst(), k
 		bl.declareBind(b, k)
 	}
-	return true
+	return bl.orParamTests()
 }

@@ -43,11 +43,11 @@ import std/io
 // builder resolves it to the impl block's own member.
 enum Tree {
     Leaf
-    Node (Tree, Int, Tree)
+    Node #(Tree, Int, Tree)
 }
 
 impl Iter for Tree {
-    fn each_while(t: Tree, yield: (Int) -> Bool): Bool {
+    fn each_while(t: Tree, yield: (Int) -> Bool) -> Bool {
         case t {
             .Leaf ->
                 True
@@ -66,13 +66,13 @@ impl Iter for Tree {
     }
 }
 
-fn leaf(value: Int): Tree {
+fn leaf(value: Int) -> Tree {
     Tree.Node(Tree.Leaf, value, Tree.Leaf)
 }
 
 // Visiting is announced, so a walk that did not stop is visible as extra
 // output rather than as an unchanged answer.
-fn note(n: Int): Int {
+fn note(n: Int) -> Int {
     io.print("visit ${n}")
     n
 }
@@ -83,17 +83,17 @@ fn main() {
 
     // ORDER.
     io.print("${Iter.to_list(tree)}")
-    io.print("${tree |> Iter.map(|x| x * 10) |> Iter.to_list()}")
+    io.print("${tree |> Iter.map(fn x -> x * 10) |> Iter.to_list()}")
     io.print("${Iter.count(tree)}")
 
     // STOP. `find` stops at 4, so 5 must never be visited; `take(2)` stops after
     // 2, so 3, 4 and 5 must never be visited. The absent `visit` lines are the
     // assertion.
-    io.print("${Iter.find(tree, |x| note(x) > 3) == Some(4)}")
-    io.print("${tree |> Iter.map(|x| note(x)) |> Iter.take(2) |> Iter.to_list()}")
+    io.print("${Iter.find(tree, fn x -> note(x) > 3) == Some(4)}")
+    io.print("${tree |> Iter.map(fn x -> note(x)) |> Iter.take(2) |> Iter.to_list()}")
 
     // REPLAY. The same value consumed twice must answer twice.
-    kept = tree |> Iter.filter(|x| x > 2)
+    kept = tree |> Iter.filter(fn x -> x > 2)
 
     io.print("${Iter.to_list(kept)}")
     io.print("${Iter.to_list(kept)}")
@@ -104,7 +104,7 @@ fn main() {
     io.print("${Maybe.with_default(Iter.first(Tree.Leaf), -1)}")
 
     // PROTOCOL. True is "the source ran out", False is "the consumer stopped it".
-    io.print("${Iter.each_while(tree, |_x| True)}")
-    io.print("${Iter.each_while(tree, |x| x < 3)}")
-    io.print("${Iter.each_while(Tree.Leaf, |_x| False)}")
+    io.print("${Iter.each_while(tree, fn _x -> True)}")
+    io.print("${Iter.each_while(tree, fn x -> x < 3)}")
+    io.print("${Iter.each_while(Tree.Leaf, fn _x -> False)}")
 }

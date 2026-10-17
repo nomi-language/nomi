@@ -69,7 +69,7 @@ func TestPipeHints_Binding(t *testing.T) {
     active?: Bool
 }
 
-fn names(users: List<User>): List<String> {
+fn names(users: List<User>) -> List<String> {
     active = users
     |> Iter.filter(.active?)    // the live ones
     |> Iter.map(.name)
@@ -88,65 +88,65 @@ fn names(users: List<User>): List<String> {
 // the declared return type. One that ends the body some other way, or a
 // function without a written return type, keeps it.
 func TestPipeHints_FunctionTail(t *testing.T) {
-	src := `fn total(xs: List<Int>): Int {
+	src := `fn total(xs: List<Int>) -> Int {
     xs
-    |> Iter.map(|x| x * 2)
-    |> Iter.reduce(0, |a, b| a + b)
+    |> Iter.map(fn x -> x * 2)
+    |> Iter.reduce(0, fn a, b -> a + b)
 }
 
-fn count(xs: List<Int>): String {
+fn count(xs: List<Int>) -> String {
     n = xs
-    |> Iter.map(|x| x * 2)
+    |> Iter.map(fn x -> x * 2)
     |> Iter.count()
     Int.to_string(n)
 }
 
 fn main() {
     [1, 2]
-    |> Iter.map(|x| x * 2)
+    |> Iter.map(fn x -> x * 2)
     |> Iter.count()
 }
 `
 	wantPipeHints(t, src,
-		"3:27 Iter<Int>",
-		"9:27 Iter<Int>",
+		"3:31 Iter<Int>",
+		"9:31 Iter<Int>",
 		"10:20 Int",
-		"16:27 Iter<Int>",
+		"16:31 Iter<Int>",
 		"17:20 Int",
 	)
 }
 
 // A call head ending on its own line gets its type; a name head does not.
 func TestPipeHints_Head(t *testing.T) {
-	src := `fn upto(n: Int): List<Int> {
+	src := `fn upto(n: Int) -> List<Int> {
     [n, n + 1]
 }
 
-fn evens(n: Int): List<Int> {
+fn evens(n: Int) -> List<Int> {
     upto(n)
-    |> Iter.filter(|x| x % 2 == 0)
+    |> Iter.filter(fn x -> x % 2 == 0)
     |> Iter.to_list()
 }
 
-fn odds(ns: List<Int>): List<Int> {
+fn odds(ns: List<Int>) -> List<Int> {
     ns
-    |> Iter.filter(|x| x % 2 == 1)
+    |> Iter.filter(fn x -> x % 2 == 1)
     |> Iter.to_list()
 }
 `
 	wantPipeHints(t, src,
 		"6:12 List<Int>",
-		"7:35 Iter<Int>",
-		"13:35 Iter<Int>",
+		"7:39 Iter<Int>",
+		"13:39 Iter<Int>",
 	)
 }
 
 // A pipeline inside a lambda stage's block gets its own hints, and the
 // outer stage's hint goes at the end of the line that closes the lambda.
 func TestPipeHints_Nested(t *testing.T) {
-	src := `fn lengths(groups: List<List<String>>): List<Int> {
+	src := `fn lengths(groups: List<List<String>>) -> List<Int> {
     groups
-    |> Iter.map(|g| {
+    |> Iter.map(fn g -> {
         g
         |> Iter.map(String.length)
         |> Iter.count()
@@ -163,32 +163,32 @@ func TestPipeHints_Nested(t *testing.T) {
 
 // A generic stage shows its solved type arguments.
 func TestPipeHints_Generic(t *testing.T) {
-	src := `fn pair<A, B>(a: A, b: B): (A, B) {
-    (a, b)
+	src := `fn pair<A, B>(a: A, b: B) -> #(A, B) {
+    #(a, b)
 }
 
-fn tagged(xs: List<Int>): List<(Int, String)> {
+fn tagged(xs: List<Int>) -> List<#(Int, String)> {
     xs
-    |> Iter.map(|x| pair(x, Int.to_string(x)))
+    |> Iter.map(fn x -> pair(x, Int.to_string(x)))
     |> Iter.to_list()
 }
 `
 	wantPipeHints(t, src,
-		"7:47 Iter<(Int, String)>",
+		"7:51 Iter<#(Int, String)>",
 	)
 }
 
 // `|> try` shows the unwrapped value; `try` before a stage's call is one
 // stage line and shows the same.
 func TestPipeHints_Try(t *testing.T) {
-	src := `fn parse(s: String): Result<Int, String> {
+	src := `fn parse(s: String) -> Result<Int, String> {
     case String.to_int(s) {
         Some(n) -> Ok(n)
         None -> Err("bad")
     }
 }
 
-fn doubled(s: String): Result<Int, String> {
+fn doubled(s: String) -> Result<Int, String> {
     n = s
     |> parse()
     |> try
@@ -207,21 +207,21 @@ fn doubled(s: String): Result<Int, String> {
 // A stage the checker could not type gets no hint; the stages it could
 // keep theirs.
 func TestPipeHints_UnknownType(t *testing.T) {
-	src := `fn f(xs: List<Int>): Int {
+	src := `fn f(xs: List<Int>) -> Int {
     xs
-    |> Iter.map(|x| x * 2)
+    |> Iter.map(fn x -> x * 2)
     |> no_such_function()
 }
 `
-	wantPipeHints(t, src, "3:27 Iter<Int>")
+	wantPipeHints(t, src, "3:31 Iter<Int>")
 }
 
 // A pipe on one line, or one whose only line break is inside a stage,
 // gets none.
 func TestPipeHints_OneLine(t *testing.T) {
-	src := `fn f(xs: List<Int>): List<Int> {
-    ys = xs |> Iter.map(|x| x + 1) |> Iter.to_list()
-    xs |> Iter.map(|x| {
+	src := `fn f(xs: List<Int>) -> List<Int> {
+    ys = xs |> Iter.map(fn x -> x + 1) |> Iter.to_list()
+    xs |> Iter.map(fn x -> {
         x + 1
     }) |> Iter.to_list()
 }
@@ -231,9 +231,9 @@ func TestPipeHints_OneLine(t *testing.T) {
 
 // A long type is cut, and the whole one is the tooltip.
 func TestPipeHints_LongTypeIsShortened(t *testing.T) {
-	src := `fn f(xs: List<Int>): List<((Int, Int), (Int, Int), (Int, Int))> {
+	src := `fn f(xs: List<Int>) -> List<#(#(Int, Int), #(Int, Int), #(Int, Int))> {
     ys = xs
-    |> Iter.map(|x| ((x, x), (x, x), (x, x)))
+    |> Iter.map(fn x -> #(#(x, x), #(x, x), #(x, x)))
     |> Iter.to_list()
     ys
 }
@@ -243,7 +243,7 @@ func TestPipeHints_LongTypeIsShortened(t *testing.T) {
 		t.Fatalf("want 2 hints, got %+v", hints)
 	}
 	h := hints[1]
-	full := "List<((Int, Int), (Int, Int), (Int, Int))>"
+	full := "List<#(#(Int, Int), #(Int, Int), #(Int, Int))>"
 	if h.Tooltip != full {
 		t.Errorf("tooltip %q, want %q", h.Tooltip, full)
 	}
@@ -256,12 +256,12 @@ func TestPipeHints_LongTypeIsShortened(t *testing.T) {
 func TestInlayHintSettings_EachKind(t *testing.T) {
 	// Parameter hints: `x:` and `y:` on add's arguments, `f:` on the lambda.
 	// Binding hints: n, m and the lambda's v.
-	src := `fn add(x: Int, y: Int): Int { x + y }
+	src := `fn add(x: Int, y: Int) -> Int { x + y }
 
 fn main() {
     n = add(1, 2)
     m = [n]
-    |> Iter.map(|v| v + 1)
+    |> Iter.map(fn v -> v + 1)
     |> Iter.to_list()
 }
 `
@@ -339,7 +339,7 @@ func TestInlayHintSettings_FromClient(t *testing.T) {
 func TestPipeHints_RangedRequestOnLargeFile(t *testing.T) {
 	var src strings.Builder
 	for i := range 400 {
-		fmt.Fprintf(&src, "fn f%d(xs: List<Int>): List<Int> {\n    xs\n    |> Iter.map(|x| x + %d)\n    |> Iter.to_list()\n}\n\n", i, i)
+		fmt.Fprintf(&src, "fn f%d(xs: List<Int>) -> List<Int> {\n    xs\n    |> Iter.map(fn x -> x + %d)\n    |> Iter.to_list()\n}\n\n", i, i)
 	}
 	dir := writeProject(t, map[string]string{"main.nomi": src.String()})
 	s := NewServer()
@@ -403,29 +403,29 @@ func TestPipeHints_ImplOnceAndTest(t *testing.T) {
 }
 
 impl Bag {
-    fn doubled(b: Bag): List<Int> {
+    fn doubled(b: Bag) -> List<Int> {
         b.items
-        |> Iter.map(|x| x * 2)
+        |> Iter.map(fn x -> x * 2)
         |> Iter.to_list()
     }
 }
 
 once evens = [1, 2, 3]
-|> Iter.filter(|x| x % 2 == 0)
+|> Iter.filter(fn x -> x % 2 == 0)
 |> Iter.to_list()
 
 test "sum" {
     total = [1, 2]
-    |> Iter.map(|x| x + 1)
+    |> Iter.map(fn x -> x + 1)
     |> Iter.count()
     assert total == 2
 }
 `
 	wantPipeHints(t, src,
-		"8:31 Iter<Int>",
-		"14:31 Iter<Int>",
+		"8:35 Iter<Int>",
+		"14:35 Iter<Int>",
 		"15:18 List<Int>",
-		"19:27 Iter<Int>",
+		"19:31 Iter<Int>",
 		"20:20 Int",
 	)
 }
@@ -434,20 +434,20 @@ test "sum" {
 // List<Int> head). Inside a generic function a stage's type may name the
 // function's own parameter, and is shown as written.
 func TestPipeHints_TypeParameters(t *testing.T) {
-	src := `fn evens(n: Int): List<Int> {
+	src := `fn evens(n: Int) -> List<Int> {
     [0, n]
-    |> Iter.filter(|x| x % 2 == 0)
+    |> Iter.filter(fn x -> x % 2 == 0)
     |> Iter.to_list()
 }
 
-fn firsts<T>(xs: List<T>): List<T> {
+fn firsts<T>(xs: List<T>) -> List<T> {
     xs
     |> Iter.take(1)
     |> Iter.to_list()
 }
 `
 	wantPipeHints(t, src,
-		"3:35 Iter<Int>",
+		"3:39 Iter<Int>",
 		"9:20 Iter<T>",
 	)
 }
@@ -456,13 +456,13 @@ fn firsts<T>(xs: List<T>): List<T> {
 // The first stage compares with the head's type even when the head's hint
 // is not shown (a name or a literal head).
 func TestPipeHints_OnlyNewTypes(t *testing.T) {
-	src := `fn double(n: Int): Int { n * 2 }
+	src := `fn double(n: Int) -> Int { n * 2 }
 
-fn add(n: Int, m: Int): Int { n + m }
+fn add(n: Int, m: Int) -> Int { n + m }
 
-fn keep(xs: List<Int>): List<Int> { xs }
+fn keep(xs: List<Int>) -> List<Int> { xs }
 
-fn upto(n: Int): List<Int> { [n, n + 1] }
+fn upto(n: Int) -> List<Int> { [n, n + 1] }
 
 fn main() {
     a = 5
@@ -470,23 +470,23 @@ fn main() {
     |> add(1)
     b = [1, 2]
     |> keep()
-    |> Iter.map(|x| x + 1)
-    |> Iter.filter(|x| x > 2)
+    |> Iter.map(fn x -> x + 1)
+    |> Iter.filter(fn x -> x > 2)
     |> Iter.to_list()
     c = upto(1)
     |> keep()
     d = [1]
-    |> Iter.map(|x| x + 1)
+    |> Iter.map(fn x -> x + 1)
     |> dbg
     |> Iter.to_list()
     io.print("${a} ${b} ${c} ${d}")
 }
 `
 	wantPipeHints(t, src,
-		"15:27 Iter<Int>",
+		"15:31 Iter<Int>",
 		"17:22 List<Int>",
 		"18:16 List<Int>",
-		"21:27 Iter<Int>",
+		"21:31 Iter<Int>",
 		"23:22 List<Int>",
 	)
 }
@@ -494,9 +494,9 @@ fn main() {
 // The motivating case: an annotated binding over stages that keep the
 // head's type shows nothing.
 func TestPipeHints_SameTypeThroughout(t *testing.T) {
-	src := `fn double(n: Int): Int { n * 2 }
+	src := `fn double(n: Int) -> Int { n * 2 }
 
-fn add(n: Int, m: Int): Int { n + m }
+fn add(n: Int, m: Int) -> Int { n + m }
 
 fn main() {
     result: Int = 5
@@ -520,10 +520,10 @@ func TestPipeHints_BindingShowsLastType(t *testing.T) {
 }
 
 once evens: List<Int> = [1, 2, 3]
-|> Iter.filter(|x| x % 2 == 0)
+|> Iter.filter(fn x -> x % 2 == 0)
 |> Iter.to_list()
 
-fn names(users: List<User>): List<String> {
+fn names(users: List<User>) -> List<String> {
     written: List<String> = users
     |> Iter.filter(.active?)
     |> Iter.map(.name)
@@ -536,7 +536,7 @@ fn names(users: List<User>): List<String> {
 }
 `
 	wantPipeHints(t, src,
-		"7:31 Iter<Int>",
+		"7:35 Iter<Int>",
 		"12:29 Iter<User>",
 		"13:23 Iter<String>",
 		"16:29 Iter<User>",
@@ -544,7 +544,7 @@ fn names(users: List<User>): List<String> {
 		"18:22 List<String>",
 	)
 	wantPipeHintsWith(t, src, inlayHintSettings{PipeTypes: true, BindingTypes: true},
-		"7:31 Iter<Int>",
+		"7:35 Iter<Int>",
 		"12:29 Iter<User>",
 		"13:23 Iter<String>",
 		"16:29 Iter<User>",

@@ -16,7 +16,7 @@ func typeViolations(t *testing.T, f *Func, rule LintRule) []Violation {
 	return violationsFor(t, f, rule)
 }
 
-// typedAdd is `fn inc(n: Int): Int { n + 1 }` with every temporary typed.
+// typedAdd is `fn inc(n: Int) -> Int { n + 1 }` with every temporary typed.
 func typedAdd() (*Func, *Block, Temp) {
 	p := typePos()
 	f := NewFunc(p, "inc")
@@ -256,21 +256,26 @@ func TestTypeLint_AnyAgreesWithAnyType(t *testing.T) {
 	}
 }
 
-// TestTypeLint_ADeclaredTypeWidensToAnExistential: a struct or enum stored
-// where an interface is stated is the same value in the same register, as a
-// function returning `Speech` from a `Dog{...}` tail does. A scalar or a
-// scalar distinct is not: it lives in another register bank, and an erased
-// scalar distinct would lose its identity.
-func TestTypeLint_ADeclaredTypeWidensToAnExistential(t *testing.T) {
+// TestTypeLint_AConcreteTypeWidensToAnExistential: a concrete value stored
+// where an interface is stated is the existential, as a function returning
+// `Speech` from a `Dog{...}` or an `Int` tail does. A struct stays in its
+// register; a scalar or a scalar distinct moves across banks, which boxes it
+// as its own type, so the existential keeps its identity. Another
+// interface's existential is not a concrete value and is refused, and so is
+// the narrowing the other way.
+func TestTypeLint_AConcreteTypeWidensToAnExistential(t *testing.T) {
 	speech := NewIfaceType(NewSymbol("Speech"))
 	if !speech.Accepts(NewStructType(NewSymbol("Dog"))) {
 		t.Fatal("dyn Speech refused a struct")
 	}
-	if speech.Accepts(IntType) {
-		t.Fatal("dyn Speech accepted an Int")
+	if !speech.Accepts(IntType) {
+		t.Fatal("dyn Speech refused an Int")
 	}
-	if speech.Accepts(NewDistinctType(NewSymbol("Meters"), IntType)) {
-		t.Fatal("dyn Speech accepted a distinct over Int")
+	if !speech.Accepts(NewDistinctType(NewSymbol("Meters"), IntType)) {
+		t.Fatal("dyn Speech refused a distinct over Int")
+	}
+	if speech.Accepts(NewIfaceType(NewSymbol("Greeting"))) {
+		t.Fatal("dyn Speech accepted another interface's existential")
 	}
 	if NewStructType(NewSymbol("Dog")).Accepts(speech) {
 		t.Fatal("a struct accepted an existential")
@@ -318,7 +323,7 @@ func TestValType_ClassesAndSpelling(t *testing.T) {
 		{NewDistinctType(NewSymbol("Expired"), nil), ClassNone, "Expired"},
 		{NewStructType(point), ClassRef, "shapes.Point"},
 		{NewEnumType(NewSymbol("maybe.Maybe"), IntType), ClassRef, "maybe.Maybe<Int>"},
-		{NewTupleType(IntType, StringType), ClassRef, "(Int, String)"},
+		{NewTupleType(IntType, StringType), ClassRef, "#(Int, String)"},
 		{NewRecordType([]string{"x", "y"}, []*ValType{IntType, IntType}), ClassRef, "{x: Int, y: Int}"},
 		{NewMapType(StringType, NewListType(IntType)), ClassRef, "Map<String, List<Int>>"},
 		{NewFuncType([]*ValType{IntType}, BoolType), ClassRef, "(Int) -> Bool"},

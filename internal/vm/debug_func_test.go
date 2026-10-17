@@ -15,12 +15,12 @@ struct Card {
 }
 
 impl Display for Card {
-  fn to_string(c: Card): String {
+  fn to_string(c: Card) -> String {
     "card ${c.n}"
   }
 }
 
-fn countdown(n: Int): Int {
+fn countdown(n: Int) -> Int {
   if n == 0 {
     0
   } else {
@@ -31,7 +31,7 @@ fn countdown(n: Int): Int {
 fn main() {
   io.print(Display.to_string(Card{n: 1}))
   io.print("${countdown(2)}")
-  io.print("${Maybe.map(Some(1), |x| x + 1)}")
+  io.print("${Maybe.map(Some(1), fn x -> x + 1)}")
 }
 `
 

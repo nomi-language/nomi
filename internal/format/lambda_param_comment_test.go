@@ -11,40 +11,40 @@ import "testing"
 func TestFormat_LambdaParameterCommentStaysAfterItsComma(t *testing.T) {
 	cases := map[string]struct{ src, want string }{
 		"after a default, body on the next line": {
-			"fn main() {\n    body = Iter.reduce(xs, |acc = \"\", // c1\n frag|\n        case frag {\n            _ -> acc\n        }\n    )\n}\n",
-			"fn main() {\n    body = Iter.reduce(xs, |acc = \"\", // c1\n        frag| {\n        case frag {\n            _ -> acc\n        }\n    })\n}\n",
+			"fn main() {\n    body = Iter.reduce(xs, fn acc = \"\", // c1\n frag ->\n        case frag {\n            _ -> acc\n        }\n    )\n}\n",
+			"fn main() {\n    body = Iter.reduce(xs, fn acc = \"\", // c1\n        frag -> {\n        case frag {\n            _ -> acc\n        }\n    })\n}\n",
 		},
 		"after a bare name, body on the next line": {
-			"fn main() {\n    body = Iter.reduce(xs, |acc, // c1\n frag|\n        case frag {\n            _ -> acc\n        }\n    )\n}\n",
-			"fn main() {\n    body = Iter.reduce(xs, |acc, // c1\n        frag| {\n        case frag {\n            _ -> acc\n        }\n    })\n}\n",
+			"fn main() {\n    body = Iter.reduce(xs, fn acc, // c1\n frag ->\n        case frag {\n            _ -> acc\n        }\n    )\n}\n",
+			"fn main() {\n    body = Iter.reduce(xs, fn acc, // c1\n        frag -> {\n        case frag {\n            _ -> acc\n        }\n    })\n}\n",
 		},
 		"after a destructured parameter": {
-			"fn main() {\n    body = Iter.reduce(xs, |(p, q), // c1\n frag|\n        case frag {\n            _ -> p\n        }\n    )\n}\n",
-			"fn main() {\n    body = Iter.reduce(xs, |(p, q), // c1\n        frag| {\n        case frag {\n            _ -> p\n        }\n    })\n}\n",
+			"fn main() {\n    body = Iter.reduce(xs, fn #(p, q), // c1\n frag ->\n        case frag {\n            _ -> p\n        }\n    )\n}\n",
+			"fn main() {\n    body = Iter.reduce(xs, fn #(p, q), // c1\n        frag -> {\n        case frag {\n            _ -> p\n        }\n    })\n}\n",
 		},
 		"after a bare name, one-line body": {
-			"fn main() {\n    c = Iter.reduce(xs, |acc, // c1\n frag| acc)\n}\n",
-			"fn main() {\n    c = Iter.reduce(xs, |acc, // c1\n        frag| {\n        acc\n    })\n}\n",
+			"fn main() {\n    c = Iter.reduce(xs, fn acc, // c1\n frag -> acc)\n}\n",
+			"fn main() {\n    c = Iter.reduce(xs, fn acc, // c1\n        frag -> {\n        acc\n    })\n}\n",
 		},
 		"after a bare name, before an annotated parameter": {
-			"fn main() {\n    c = Iter.reduce(xs, |acc, // c1\n frag: Int| acc)\n}\n",
-			"fn main() {\n    c = Iter.reduce(xs, |acc, // c1\n        frag: Int| {\n        acc\n    })\n}\n",
+			"fn main() {\n    c = Iter.reduce(xs, fn acc, // c1\n frag: Int -> acc)\n}\n",
+			"fn main() {\n    c = Iter.reduce(xs, fn acc, // c1\n        frag: Int -> {\n        acc\n    })\n}\n",
 		},
 		"after the first and the second of three": {
-			"fn main() {\n    h = run(|a, // c1\n b, // c2\n c| a)\n}\n",
-			"fn main() {\n    h = run(|a, // c1\n        b, // c2\n        c| {\n        a\n    })\n}\n",
+			"fn main() {\n    h = run(fn a, // c1\n b, // c2\n c -> a)\n}\n",
+			"fn main() {\n    h = run(fn a, // c1\n        b, // c2\n        c -> {\n        a\n    })\n}\n",
 		},
 		"then stage, braced body": {
-			"fn main() {\n    e = xs |> then |a, // c1\n b| { a + b }\n}\n",
-			"fn main() {\n    e =\n        xs\n        |> then |a, // c1\n            b| {\n            a + b\n        }\n}\n",
+			"fn main() {\n    e = xs |> then fn a, // c1\n b -> { a + b }\n}\n",
+			"fn main() {\n    e =\n        xs\n        |> then fn a, // c1\n            b -> {\n            a + b\n        }\n}\n",
 		},
 		"tap stage after a default": {
-			"fn main() {\n    f = xs |> tap |a = 1, // c1\n b| { a + b }\n}\n",
-			"fn main() {\n    f =\n        xs\n        |> tap |a = 1, // c1\n            b| {\n            a + b\n        }\n}\n",
+			"fn main() {\n    f = xs |> tap fn a = 1, // c1\n b -> { a + b }\n}\n",
+			"fn main() {\n    f =\n        xs\n        |> tap fn a = 1, // c1\n            b -> {\n            a + b\n        }\n}\n",
 		},
 		"then stage, body on the next line": {
-			"fn main() {\n    g = xs |> then |a = 1, // c1\n b|\n        case a {\n            _ -> b\n        }\n}\n",
-			"fn main() {\n    g =\n        xs\n        |> then |a = 1, // c1\n            b| {\n            case a {\n                _ -> b\n            }\n        }\n}\n",
+			"fn main() {\n    g = xs |> then fn a = 1, // c1\n b ->\n        case a {\n            _ -> b\n        }\n}\n",
+			"fn main() {\n    g =\n        xs\n        |> then fn a = 1, // c1\n            b -> {\n            case a {\n                _ -> b\n            }\n        }\n}\n",
 		},
 	}
 	for name, tc := range cases {

@@ -46,7 +46,7 @@ func (bl *irScalarBuilder) guardReturn(t *ast.If) bool {
 	// Every path through the arm leaves the activation, which restores
 	// what a `with` in it replaced.
 	bl.openWithScope(true)
-	if !bl.leading(lead) || bl.b != arm {
+	if !bl.leading(lead) {
 		return false
 	}
 	bl.markStmt(tail, ir.StmtStatement)
@@ -94,7 +94,7 @@ func (bl *irScalarBuilder) explicitReturn(ret *ast.Return) (kind, bool) {
 
 // irCtlForm is the signalling convention a callback is lowered under, which
 // its enclosing Iter call decides: the reduce form `(acc, bool)` or the
-// adapter form `(value, rt.Ctl)`.
+// adapter form `#(value, rt.Ctl)`.
 type irCtlForm uint8
 
 const (

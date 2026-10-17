@@ -14,12 +14,12 @@ import (
 // and the non-generic pipe did not check its explicit arguments at all.
 
 const namedArgDecls = `
-fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False): List<T> {
+fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False) -> List<T> {
   base = [x, ..xs]
   if twice { [x, ..base] } else { base }
 }
 
-fn g(x: Int, y: Int = 0): Int {
+fn g(x: Int, y: Int = 0) -> Int {
   x + y
 }
 `
@@ -33,7 +33,7 @@ fn main() {
   d: List<Int> = spread(x: 4, xs: [5])
   e: Int = g(1, y: 2)
   f: Int = 1 |> g(y: 2)
-  _ = (a, b, c, d, e, f)
+  _ = #(a, b, c, d, e, f)
 }
 `)
 	expectNoStdlibErrors(t, errs)

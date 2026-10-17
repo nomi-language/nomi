@@ -228,9 +228,14 @@ func (bl *irScalarBuilder) lower(n ast.Node) (ir.Temp, kind, bool, bool) {
 // lowerExact is lower without retyping a value of Infallible: the operand of
 // a construct that never runs because of it (irnever.go's neverOperand).
 func (bl *irScalarBuilder) lowerExact(n ast.Node) (ir.Temp, kind, bool, bool) {
-	t, k, m, ok, handled := bl.neverOperand(n)
-	if !handled {
-		t, k, m, ok = bl.lowerNode(n)
+	planted := plantedDeclineAt(n)
+	t, k := ir.NoTemp, kindInvalid
+	var m, ok, handled bool
+	if planted == "" {
+		t, k, m, ok, handled = bl.neverOperand(n)
+		if !handled {
+			t, k, m, ok = bl.lowerNode(n)
+		}
 	}
 	if ok {
 		bl.g.irTypeTemp(bl.f, t, k)
@@ -241,7 +246,11 @@ func (bl *irScalarBuilder) lowerExact(n ast.Node) (ir.Temp, kind, bool, bool) {
 		if line, col := nodePos(n); emittableLine(line) {
 			irDeclineLine, irDeclineCol = line, col
 		}
-		irDeclineNote(bl.declineReason(n))
+		reason := planted
+		if reason == "" {
+			reason = bl.declineReason(n)
+		}
+		irDeclineNote(reason)
 	}
 	if !ok && irDeclineCur != nil && irDeclineCur.Line == 0 {
 		// The innermost failing expression: where the decline was noted, or
@@ -360,9 +369,6 @@ func (bl *irScalarBuilder) declineReason(n ast.Node) string {
 
 // declineCallReason splits the call arm, which is the widest one.
 func (bl *irScalarBuilder) declineCallReason(t *ast.Call) string {
-	if len(t.TypeArgs) != 0 {
-		return "a turbofish on a call"
-	}
 	for _, a := range t.Args {
 		if _, named := a.(*ast.NamedArg); named {
 			return "a named argument"

@@ -10,7 +10,7 @@ import (
 // # The two operations
 //
 //	10 |> divide(100, _)     is  divide(100, 10)          a SPLICE
-//	add(1, _)                is  |y| add(1, y)            a CLOSURE
+//	add(1, _)                is  fn y -> add(1, y)        a CLOSURE
 //
 // They refused under one key (`placeholder`) at two sites — pipe.go's pipeCall
 // and sugar.go's slotRoutedArg, reached from directCall — and nothing about

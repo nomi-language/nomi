@@ -13,12 +13,19 @@ func (bl *irScalarBuilder) listCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 		return false
 	}
 	spread := !isNilNode(pat.TailSpread)
-	if spread && len(pat.Heads) == 0 {
-		return false
+	if k.tag == tagEmptyList && (spread || len(pat.Heads) != 0) {
+		// The untyped literal `[]` as the subject, whose element type
+		// nothing determines and no value has (spec, "Determined type
+		// arguments"): it enters a list at the kind an unsolved element is
+		// filled with (irFillHolesByPosition), and no head or suffix
+		// pattern matches it, so no projection at that kind runs.
+		v, vk, ok := bl.coerceEmpty(pattern, subj, k, listKindIn(bl.g, kindInt))
+		if !ok {
+			return false
+		}
+		subj, k = v, vk
 	}
 	if k.comp == nil && (spread || len(pat.Heads) != 0) {
-		// An empty-list subject such as a literal `[]` has no element kind
-		// for a head or suffix to project at.
 		return false
 	}
 	simple := func(n ast.Node) bool {
@@ -29,7 +36,7 @@ func (bl *irScalarBuilder) listCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 		return false
 	}
 	// A head may also be a flat tuple of names and wildcards over a tuple
-	// element (`[(w, _), ..tail]`); its components are projected from the
+	// element (`[#(w, _), ..tail]`); its components are projected from the
 	// element in the success arm.
 	flatTuple := func(n ast.Node) bool {
 		tp, isTuple := n.(*ast.TuplePattern)
@@ -58,6 +65,22 @@ func (bl *irScalarBuilder) listCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 	}
 	if spread && !simple(pat.TailSpread) {
 		return false
+	}
+	if spread && len(pat.Heads) == 0 {
+		// `[..rest]` matches every list, so there is no length test: the
+		// arm runs, with rest the whole subject. The branch is on a
+		// constant so the arms after it, which the checker admits, keep
+		// the edge they are lowered under.
+		pos := bl.g.irNodePos(pat)
+		always := ir.NewBool(pos, bl.f.NewTemp(), true)
+		bl.b.Append(always)
+		bl.side(always.Dst(), irScalarSide{k: kindBool})
+		bl.b.SetTerm(ir.NewBranch(pos, always.Dst(), arm.ID(), next.ID()))
+		bl.b = arm
+		if id, ok := pat.TailSpread.(*ast.IdentPattern); ok {
+			bl.patternBinding(id, id.Name, subj, k)
+		}
+		return true
 	}
 	var match *ir.Match
 	if spread {

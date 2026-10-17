@@ -22,7 +22,7 @@ struct P {
 enum Shape {
   Dot
   Circle(Int)
-  Pair(Int, Int)
+  Pair#(Int, Int)
   Box{w: Int, h: Int}
 }
 

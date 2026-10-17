@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -15,19 +16,17 @@ import (
 const multiManifest = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
 
 // multiMain imports shapes and calls `shapes.evens`, which the IR builder
-// declines (loweringBlocked's shape), and declines a body of its own.
+// declines under plantDecline (loweringBlocked's shape), and declines a body
+// of its own.
 const multiMain = `import std/io
 import shapes
 
-fn skip_odd(n: Int): Int {
-  if n % 2 == 1 {
-    continue
-  }
+fn planted_decline(n: Int) -> Int {
   n
 }
 
-fn halves(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| skip_odd(x)) |> Iter.to_list()
+fn halves(xs: List<Int>) -> List<Int> {
+  Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
 }
 
 fn main() {
@@ -37,19 +36,16 @@ fn main() {
 }
 `
 
-const multiShapes = `pub fn area(r: Int): Int {
+const multiShapes = `pub fn area(r: Int) -> Int {
   r * 3
 }
 
-fn skip_odd(n: Int): Int {
-  if n % 2 == 1 {
-    continue
-  }
+fn planted_decline(n: Int) -> Int {
   n
 }
 
-pub fn evens(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| skip_odd(x)) |> Iter.to_list()
+pub fn evens(xs: List<Int>) -> List<Int> {
+  Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
 }
 `
 
@@ -57,7 +53,7 @@ pub fn evens(xs: List<Int>): List<Int> {
 const multiRingMain = `import std/io
 import ring
 
-pub fn base(n: Int): Int {
+pub fn base(n: Int) -> Int {
   n + 1
 }
 
@@ -68,7 +64,7 @@ fn main() {
 
 const multiRing = `import main
 
-pub fn twice(n: Int): Int {
+pub fn twice(n: Int) -> Int {
   main.base(n) * 2
 }
 `
@@ -146,9 +142,9 @@ var multiFileCases = []multiFileCase{
 		name: "the imported file",
 		disk: map[string]string{"main.nomi": multiMain, "shapes.nomi": multiShapes},
 		doc:  "shapes.nomi",
-		// The server analyzes shapes.nomi through main.nomi, which is not
-		// the program `nomi check shapes.nomi` builds.
-		analyzed: false, parsed: 1, blocked: 0,
+		// The server analyzes shapes.nomi through main.nomi, and offers
+		// the program `nomi check shapes.nomi` builds from that analysis.
+		analyzed: true, parsed: 1, blocked: 0,
 	},
 	{
 		name: "an error in another file",
@@ -200,6 +196,7 @@ func write(t *testing.T, path, text string) {
 // another file has an error, the run lowers the text instead. Lowering
 // from the analysis writes nothing any of its files' analyses reach.
 func TestLoweringFromAnalysis_ProgramsOfSeveralFiles(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
@@ -241,7 +238,7 @@ func TestLoweringFromAnalysis_ProgramsOfSeveralFiles(t *testing.T) {
 			}
 			ok := false
 			if a != nil {
-				_, ok, _ = analyzedlowering.Check(path, text, a)
+				_, ok, _ = analyzedlowering.Check(context.Background(), path, text, a)
 			}
 			if ok != c.analyzed {
 				t.Fatalf("lowered from the analysis: %v, want %v (analysis offered: %v)", ok, c.analyzed, a != nil)
@@ -275,5 +272,52 @@ func TestLoweringFromAnalysis_ProgramsOfSeveralFiles(t *testing.T) {
 			}
 			t.Logf("from the text: %d files parsed, %v; the run: %d files parsed, %v", parsedFromText, fromText, parsedFromRun, fromRun)
 		})
+	}
+}
+
+// An edit that changes the entry's interface checks the entry afresh and
+// keeps the analysis of the file it imports (a dependents recheck), so the
+// program the run lowers holds analyses of two checks. It lowers as the
+// source does, and lowering it writes nothing the analyses reach.
+func TestLoweringFromAnalysis_AfterADependentsRecheck(t *testing.T) {
+	plantDecline(t)
+	if testing.Short() {
+		t.Skip("lowers the stdlib; -short")
+	}
+	dir := writeProject(t, map[string]string{"nomi.toml": multiManifest, "main.nomi": multiMain, "shapes.nomi": multiShapes})
+	s := NewServer()
+	path := filepath.Join(dir, "main.nomi")
+	uri := pathToURI(path)
+	s.docs.Open(pathToURI(filepath.Join(dir, "shapes.nomi")), multiShapes)
+	s.docs.Open(uri, multiMain)
+	text := strings.Replace(multiMain, "fn halves(xs: List<Int>) -> List<Int> {", "fn halves(xs: List<Int>, _n: Int = 0) -> List<Int> {", 1)
+	if text == multiMain {
+		t.Fatal("the edit does not apply")
+	}
+	_, dependents, _, _ := s.docs.ProgramChecks()
+	s.docs.Update(uri, text)
+	if _, after, _, _ := s.docs.ProgramChecks(); after != dependents+1 {
+		t.Fatalf("the edit checked %d programs by their dependents, want 1; whole programs because: %v", after-dependents, s.docs.FullCheckReasons())
+	}
+	a, latest := s.loweringAnalysis(uri, text)
+	if a == nil || !latest || len(a.Files) != 1 {
+		t.Fatalf("loweringAnalysis = %+v, %v; want main.nomi's program with shapes.nomi", a, latest)
+	}
+	// From the source first, which marks the shared stdlib's tail calls as any
+	// first lowering in a process does.
+	want := loweringDiagnostics(path, text, nil)
+	prints := fingerprint(a)
+	if _, ok, err := analyzedlowering.Check(context.Background(), path, text, a); !ok || err != nil {
+		t.Fatalf("lowered from the analysis: %v, %v", ok, err)
+	}
+	got := loweringDiagnostics(path, text, a)
+	if changed := prints.diff(fingerprint(a)); len(changed) > 0 {
+		t.Errorf("lowering changed objects the analysis reaches, of types:\n  %s", strings.Join(changed, "\n  "))
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("from the analysis\n%s\nfrom the source\n%s", renderDiagnostics(got), renderDiagnostics(want))
+	}
+	if n := len(notSupported(want)); n != 2 {
+		t.Errorf("%d lowering diagnostics, want 2:\n%s", n, renderDiagnostics(want))
 	}
 }

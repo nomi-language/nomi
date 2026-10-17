@@ -13,9 +13,9 @@ func TestInheritedDefault_ReadsTheDeclaringFilesOnce(t *testing.T) {
 once mark = "!"
 
 pub interface Powered {
-    fn label(w: self): String
+    fn label(w: self) -> String
 
-    fn tagged(w: self, suffix: String = tag): String {
+    fn tagged(w: self, suffix: String = tag) -> String {
         Powered.label(w) + ":" + suffix + mark
     }
 }
@@ -32,7 +32,7 @@ struct Widget {
 }
 
 impl Powered for Widget {
-    fn label(w: Widget): String {
+    fn label(w: Widget) -> String {
         w.name
     }
 }
@@ -41,7 +41,7 @@ fn main() {
     io.print(Powered.tagged(Widget{name: "w"}))
     io.print(Powered.tagged(Widget{name: "v"}, "given"))
     ps: List<Powered> = [Widget{name: "a"}]
-    io.inspect(Iter.map(ps, |p| Powered.tagged(p)) |> Iter.to_list())
+    io.inspect(Iter.map(ps, fn p -> Powered.tagged(p)) |> Iter.to_list())
     io.print(tag)
 }
 `, "w:sibling!\nv:given!\n[\"a:sibling!\"]\nentry\n", map[string]string{"lib.nomi": lib})

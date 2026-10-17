@@ -96,6 +96,7 @@ func declaringModuleIndex(
 			if IsStdlibKey(key) != stdlib {
 				continue
 			}
+			noteStdlibWork(key)
 			mod := moduleNameFromKey(key, entryModuleName, crossModuleSegments)
 			writeDeclsFromScope(fa.ModuleScope, mod, idx, seen)
 		}

@@ -29,24 +29,24 @@ pub opaque enum Status {
 
 impl Status {
     /// Smart constructor for the `Active` variant.
-    pub fn active(): Status {
+    pub fn active() -> Status {
         Status.Active
     }
 
     /// Smart constructor for the `Inactive` variant — captures the reason
     /// the entity went inactive.
-    pub fn inactive(reason: String): Status {
+    pub fn inactive(reason: String) -> Status {
         Status.Inactive(reason)
     }
 
     /// Smart constructor for the `Suspended` variant — captures the
     /// timestamp the suspension lifts at and the reason for the suspension.
-    pub fn suspend(until: Int, reason: String): Status {
+    pub fn suspend(until: Int, reason: String) -> Status {
         Status.Suspended{until, reason}
     }
 
     /// True iff `s` is the `Active` variant.
-    pub fn is_active(s: Status): Bool {
+    pub fn is_active(s: Status) -> Bool {
         case s {
             .Active -> True
             _ -> False
@@ -54,7 +54,7 @@ impl Status {
     }
 
     /// True iff `s` is the `Suspended` variant.
-    pub fn is_suspended(s: Status): Bool {
+    pub fn is_suspended(s: Status) -> Bool {
         case s {
             .Suspended{} -> True
             _ -> False
@@ -62,7 +62,7 @@ impl Status {
     }
 
     /// Returns `Some(reason)` if `s` is `Inactive`, otherwise `None`.
-    pub fn inactive_reason(s: Status): Maybe<String> {
+    pub fn inactive_reason(s: Status) -> Maybe<String> {
         case s {
             .Inactive(r) -> Some(r)
             _ -> None
@@ -70,7 +70,7 @@ impl Status {
     }
 
     /// Returns `Some(reason)` if `s` is `Suspended`, otherwise `None`.
-    pub fn suspended_reason(s: Status): Maybe<String> {
+    pub fn suspended_reason(s: Status) -> Maybe<String> {
         case s {
             .Suspended{reason} -> Some(reason)
             _ -> None
@@ -78,7 +78,7 @@ impl Status {
     }
 
     /// Returns `Some(until)` if `s` is `Suspended`, otherwise `None`.
-    pub fn suspended_until(s: Status): Maybe<Int> {
+    pub fn suspended_until(s: Status) -> Maybe<Int> {
         case s {
             .Suspended{until} -> Some(until)
             _ -> None

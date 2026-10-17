@@ -12,7 +12,7 @@ import (
 func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
 	cases := map[string]struct{ src, want string }{
 		"a binding then a multi-line if": {
-			src: `fn pad(generation: Int): String {
+			src: `fn pad(generation: Int) -> String {
     text = "${generation}"
     width = String.length(text)
     if width >= 3 {
@@ -22,7 +22,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
     }
 }
 `,
-			want: `fn pad(generation: Int): String {
+			want: `fn pad(generation: Int) -> String {
     text = "${generation}"
     width = String.length(text)
 
@@ -35,7 +35,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
 `,
 		},
 		"a multi-line statement in the middle": {
-			src: `fn f(xs: List<Int>): Int {
+			src: `fn f(xs: List<Int>) -> Int {
     first = 1
     total = case xs {
         [] -> 0
@@ -44,7 +44,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
     total + first
 }
 `,
-			want: `fn f(xs: List<Int>): Int {
+			want: `fn f(xs: List<Int>) -> Int {
     first = 1
 
     total = case xs {
@@ -57,7 +57,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
 `,
 		},
 		"multi-line first and last statements get no blank line at the block's edges": {
-			src: `fn f(x: Int): Int {
+			src: `fn f(x: Int) -> Int {
 
     y = case x {
         0 -> 1
@@ -71,7 +71,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
 
 }
 `,
-			want: `fn f(x: Int): Int {
+			want: `fn f(x: Int) -> Int {
     y = case x {
         0 -> 1
         _ -> x
@@ -87,14 +87,14 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
 `,
 		},
 		"one-line statements stay together": {
-			src: `fn f(): Int {
+			src: `fn f() -> Int {
     a = 1
     b = 2
     c = a + b
     c
 }
 `,
-			want: `fn f(): Int {
+			want: `fn f() -> Int {
     a = 1
     b = 2
     c = a + b
@@ -103,7 +103,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
 `,
 		},
 		"a blank line written between one-line statements is kept": {
-			src: `fn f(): Int {
+			src: `fn f() -> Int {
     a = 1
 
 
@@ -111,7 +111,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
     a + b
 }
 `,
-			want: `fn f(): Int {
+			want: `fn f() -> Int {
     a = 1
 
     b = 2
@@ -120,7 +120,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
 `,
 		},
 		"two multi-line statements share one blank line": {
-			src: `fn f(x: Int): Int {
+			src: `fn f(x: Int) -> Int {
     a = case x {
         0 -> 1
         _ -> 2
@@ -132,7 +132,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
     a + b
 }
 `,
-			want: `fn f(x: Int): Int {
+			want: `fn f(x: Int) -> Int {
     a = case x {
         0 -> 1
         _ -> 2
@@ -148,7 +148,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
 `,
 		},
 		"the blank line goes above a comment on the multi-line statement": {
-			src: `fn f(x: Int): Int {
+			src: `fn f(x: Int) -> Int {
     a = 1
     // pick one
     b = case x {
@@ -158,7 +158,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
     b
 }
 `,
-			want: `fn f(x: Int): Int {
+			want: `fn f(x: Int) -> Int {
     a = 1
 
     // pick one
@@ -172,7 +172,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
 `,
 		},
 		"nested blocks follow the rule at their own indent": {
-			src: `fn f(x: Int): Int {
+			src: `fn f(x: Int) -> Int {
     if x > 0 {
         y = x + 1
         z = case y {
@@ -185,7 +185,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
     }
 }
 `,
-			want: `fn f(x: Int): Int {
+			want: `fn f(x: Int) -> Int {
     if x > 0 {
         y = x + 1
 
@@ -202,8 +202,8 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
 `,
 		},
 		"a lambda block body follows the rule": {
-			src: `fn f(xs: List<Int>): Int {
-    Iter.reduce(xs, |acc = 0, x| {
+			src: `fn f(xs: List<Int>) -> Int {
+    Iter.reduce(xs, fn acc = 0, x -> {
         y = x * 2
         z = case y {
             4 -> y
@@ -213,8 +213,8 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
     })
 }
 `,
-			want: `fn f(xs: List<Int>): Int {
-    Iter.reduce(xs, |acc = 0, x| {
+			want: `fn f(xs: List<Int>) -> Int {
+    Iter.reduce(xs, fn acc = 0, x -> {
         y = x * 2
 
         z = case y {
@@ -282,7 +282,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
 //!     _ -> "many"
 //! }
 //! assert label == "one"
-fn f(): Int {
+fn f() -> Int {
     1
 }
 `,
@@ -292,37 +292,37 @@ fn f(): Int {
 //! }
 //!
 //! assert label == "one"
-fn f(): Int {
+fn f() -> Int {
     1
 }
 `,
 		},
 		"a short if that stays on one line is a one-line statement": {
-			src: `fn f(n: Int): Int {
+			src: `fn f(n: Int) -> Int {
     if n > 1 { return 0 }
     n
 }
 `,
-			want: `fn f(n: Int): Int {
+			want: `fn f(n: Int) -> Int {
     if n > 1 { return 0 }
     n
 }
 `,
 		},
 		"an over-long line with nowhere to break is a one-line statement": {
-			src: `fn f(): String {
+			src: `fn f() -> String {
     a = "a string literal long enough that this binding runs past the line width of one hundred"
     a
 }
 `,
-			want: `fn f(): String {
+			want: `fn f() -> String {
     a = "a string literal long enough that this binding runs past the line width of one hundred"
     a
 }
 `,
 		},
 		"a statement written across lines that fits is laid out on one line": {
-			src: `fn f(): Int {
+			src: `fn f() -> Int {
     a = 1
     b = Int.max(
         a,
@@ -331,7 +331,7 @@ fn f(): Int {
     b
 }
 `,
-			want: `fn f(): Int {
+			want: `fn f() -> Int {
     a = 1
     b = Int.max(a, 2)
     b
@@ -355,10 +355,10 @@ func TestFormat_StatementSpacingMeasuresFromTheBlockIndent(t *testing.T) {
 	if len(call) != 91 {
 		t.Fatalf("the call is %d columns, want 91", len(call))
 	}
-	shallow := "fn f(): Int {\n    a = 1\n    " + call + "\n    total\n}\n"
+	shallow := "fn f() -> Int {\n    a = 1\n    " + call + "\n    total\n}\n"
 	formatsTo(t, shallow, shallow)
 
-	deep := "fn f(x: Int): Int {\n    if x > 0 {\n        if x > 1 {\n            a = 1\n            " + call + "\n            total\n        } else {\n            0\n        }\n    } else {\n        0\n    }\n}\n"
+	deep := "fn f(x: Int) -> Int {\n    if x > 0 {\n        if x > 1 {\n            a = 1\n            " + call + "\n            total\n        } else {\n            0\n        }\n    } else {\n        0\n    }\n}\n"
 	broken := strings.Join([]string{
 		"            total = Int.max(",
 		"                first_value_with_a_long_name,",
@@ -366,14 +366,14 @@ func TestFormat_StatementSpacingMeasuresFromTheBlockIndent(t *testing.T) {
 		"                third_value_n,",
 		"            )",
 	}, "\n")
-	want := "fn f(x: Int): Int {\n    if x > 0 {\n        if x > 1 {\n            a = 1\n\n" + broken + "\n\n            total\n        } else {\n            0\n        }\n    } else {\n        0\n    }\n}\n"
+	want := "fn f(x: Int) -> Int {\n    if x > 0 {\n        if x > 1 {\n            a = 1\n\n" + broken + "\n\n            total\n        } else {\n            0\n        }\n    } else {\n        0\n    }\n}\n"
 	formatsTo(t, deep, want)
 }
 
 // The import rule still holds: a blank line follows a block's imports. A
 // pipe statement follows the multi-line rule like any other statement.
 func TestFormat_StatementSpacingKeepsTheImportRule(t *testing.T) {
-	src := `fn f(xs: List<Int>): Int {
+	src := `fn f(xs: List<Int>) -> Int {
     import std/io
     n = xs |> Iter.count()
     m = n + 1
@@ -381,7 +381,7 @@ func TestFormat_StatementSpacingKeepsTheImportRule(t *testing.T) {
     m
 }
 `
-	want := `fn f(xs: List<Int>): Int {
+	want := `fn f(xs: List<Int>) -> Int {
     import std/io
 
     n = xs |> Iter.count()
@@ -400,7 +400,7 @@ func TestFormat_StatementSpacingKeepsTheImportRule(t *testing.T) {
 func TestFormat_StatementSpacingTreatsAPipeAsAnyStatement(t *testing.T) {
 	cases := map[string]struct{ src, want string }{
 		"an inline pipe sits with its neighbours": {
-			src: `fn f(c: Int): String {
+			src: `fn f(c: Int) -> String {
     a = c |> Int.to_string() |> String.pad_start(5)
     b = String.length(a)
     c |> dbg
@@ -408,7 +408,7 @@ func TestFormat_StatementSpacingTreatsAPipeAsAnyStatement(t *testing.T) {
     a
 }
 `,
-			want: `fn f(c: Int): String {
+			want: `fn f(c: Int) -> String {
     a = c |> Int.to_string() |> String.pad_start(5)
     b = String.length(a)
     c |> dbg
@@ -418,14 +418,14 @@ func TestFormat_StatementSpacingTreatsAPipeAsAnyStatement(t *testing.T) {
 `,
 		},
 		"an inline pipe keeps the blank line the source wrote": {
-			src: `fn f(c: Int): String {
+			src: `fn f(c: Int) -> String {
     a = c |> Int.to_string() |> String.pad_start(5)
 
     b = String.length(a)
     a
 }
 `,
-			want: `fn f(c: Int): String {
+			want: `fn f(c: Int) -> String {
     a = c |> Int.to_string() |> String.pad_start(5)
 
     b = String.length(a)
@@ -434,13 +434,13 @@ func TestFormat_StatementSpacingTreatsAPipeAsAnyStatement(t *testing.T) {
 `,
 		},
 		"an inline pipe first and last in its block": {
-			src: `fn f(c: Int): String {
+			src: `fn f(c: Int) -> String {
     a = c |> Int.to_string()
     b = a
     b |> String.pad_start(5)
 }
 `,
-			want: `fn f(c: Int): String {
+			want: `fn f(c: Int) -> String {
     a = c |> Int.to_string()
     b = a
     b |> String.pad_start(5)
@@ -448,21 +448,21 @@ func TestFormat_StatementSpacingTreatsAPipeAsAnyStatement(t *testing.T) {
 `,
 		},
 		"a stacked pipe is set apart": {
-			src: `fn f(xs: List<Int>): Int {
+			src: `fn f(xs: List<Int>) -> Int {
     first = 1
     total =
         xs
-        |> Iter.map(|x| x * 2)
+        |> Iter.map(fn x -> x * 2)
         |> Iter.count()
     total + first
 }
 `,
-			want: `fn f(xs: List<Int>): Int {
+			want: `fn f(xs: List<Int>) -> Int {
     first = 1
 
     total =
         xs
-        |> Iter.map(|x| x * 2)
+        |> Iter.map(fn x -> x * 2)
         |> Iter.count()
 
     total + first
@@ -470,19 +470,19 @@ func TestFormat_StatementSpacingTreatsAPipeAsAnyStatement(t *testing.T) {
 `,
 		},
 		"a pipe that breaks to fit the width is set apart": {
-			src: `fn f(xs: List<Int>): Int {
+			src: `fn f(xs: List<Int>) -> Int {
     first = 1
-    total = xs |> Iter.map(|x| x * 2 + first_value_with_a_long_name) |> Iter.filter(|x| x > second_value_long) |> Iter.count()
+    total = xs |> Iter.map(fn x -> x * 2 + first_value_with_a_long_name) |> Iter.filter(fn x -> x > second_value_long) |> Iter.count()
     total + first
 }
 `,
-			want: `fn f(xs: List<Int>): Int {
+			want: `fn f(xs: List<Int>) -> Int {
     first = 1
 
     total =
         xs
-        |> Iter.map(|x| x * 2 + first_value_with_a_long_name)
-        |> Iter.filter(|x| x > second_value_long)
+        |> Iter.map(fn x -> x * 2 + first_value_with_a_long_name)
+        |> Iter.filter(fn x -> x > second_value_long)
         |> Iter.count()
 
     total + first
@@ -490,8 +490,8 @@ func TestFormat_StatementSpacingTreatsAPipeAsAnyStatement(t *testing.T) {
 `,
 		},
 		"an inline pipe in a lambda body and a case arm": {
-			src: `fn f(n: Int): Int {
-    g = |x| {
+			src: `fn f(n: Int) -> Int {
+    g = fn x -> {
         y = x |> Int.abs()
         y + 1
     }
@@ -506,8 +506,8 @@ func TestFormat_StatementSpacingTreatsAPipeAsAnyStatement(t *testing.T) {
     }
 }
 `,
-			want: `fn f(n: Int): Int {
-    g = |x| {
+			want: `fn f(n: Int) -> Int {
+    g = fn x -> {
         y = x |> Int.abs()
         y + 1
     }

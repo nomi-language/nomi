@@ -7,7 +7,7 @@ import (
 
 func TestUnusedExprStmt_NonFinalValueIsRejected(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn hello(): String {
+fn hello() -> String {
   4
   "hello"
 }
@@ -17,7 +17,7 @@ fn hello(): String {
 
 func TestUnusedExprStmt_ExplicitDiscardIsAccepted(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn hello(): String {
+fn hello() -> String {
   _ = 4
   "hello"
 }
@@ -32,11 +32,11 @@ fn hello(): String {
 
 func TestUnusedExprStmt_UnitStatementIsAccepted(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn side(): Unit {
+fn side() -> Unit {
   Unit
 }
 
-fn hello(): String {
+fn hello() -> String {
   side()
   "hello"
 }
@@ -50,11 +50,11 @@ fn hello(): String {
 
 func TestUnusedExprStmt_NonUnitCallIsRejected(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn compute(): Int {
+fn compute() -> Int {
   42
 }
 
-fn hello(): String {
+fn hello() -> String {
   compute()
   "hello"
 }
@@ -66,7 +66,7 @@ func TestUnusedExprStmt_IOPrintIsAccepted(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 import std/io
 
-fn hello(): String {
+fn hello() -> String {
   io.print("side effect")
   "hello"
 }
@@ -82,7 +82,7 @@ func TestUnusedExprStmt_DebugInspectRequiresDiscard(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 import std/debug: Debug
 
-fn hello(): String {
+fn hello() -> String {
   Debug.inspect("value")
   "hello"
 }
@@ -92,7 +92,7 @@ fn hello(): String {
 
 func TestUnusedExprStmt_DbgStatementIsAccepted(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn hello(): String {
+fn hello() -> String {
   dbg 4
   "hello"
 }
@@ -106,15 +106,15 @@ fn hello(): String {
 
 func TestUnusedExprStmt_ValueCarryingAssertRefuteStatementsAreAccepted(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn ok_value(): Result<Int, String> {
+fn ok_value() -> Result<Int, String> {
   Ok(42)
 }
 
-fn err_value(): Result<Int, String> {
+fn err_value() -> Result<Int, String> {
   Err("nope")
 }
 
-fn hello(): Result<String, AssertionFailure> {
+fn hello() -> Result<String, AssertionFailure> {
   assert ok_value()
   refute err_value()
   Ok("hello")
@@ -130,7 +130,7 @@ fn hello(): Result<String, AssertionFailure> {
 
 func TestUnusedExprStmt_PipeDbgStatementIsAccepted(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn hello(): String {
+fn hello() -> String {
   [1, 2, 3]
   |> dbg
 
@@ -146,7 +146,7 @@ fn hello(): String {
 
 func TestUnusedExprStmt_ReturnStatementIsAccepted(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn hello(flag: Bool): String {
+fn hello(flag: Bool) -> String {
   if flag {
     return "early"
   }

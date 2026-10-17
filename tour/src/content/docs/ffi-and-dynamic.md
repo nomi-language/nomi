@@ -38,13 +38,13 @@ pub struct ParsedURL {
     query: Map<String, List<String>>
 }
 
-pub fn escape_query(value: String): String go urltools.EscapeQuery
+pub fn escape_query(value: String) -> String go urltools.EscapeQuery
 
-pub fn unescape_query(value: String): Result<String, String> go urltools.UnescapeQuery
+pub fn unescape_query(value: String) -> Result<String, String> go urltools.UnescapeQuery
 
-pub fn parse_query(raw: String): Result<Map<String, List<String>>, String> go urltools.ParseQuery
+pub fn parse_query(raw: String) -> Result<Map<String, List<String>>, String> go urltools.ParseQuery
 
-pub fn parse(raw: String): Result<ParsedURL, String> go urltools.Parse
+pub fn parse(raw: String) -> Result<ParsedURL, String> go urltools.Parse
 ```
 
 The Go file is regular Go:
@@ -107,8 +107,8 @@ pass it as `Dynamic` and decode it on the Nomi side.
 | `[]T`, `map[K]V` | `List<T>`, `Map<K, V>` | The element, key and value types must be in this table too. |
 | `time.Duration`, `time.Time` | `Duration`, `Instant` | |
 | `*T` | `Maybe<T>` | A pointer to a Go type you bound with `opaque type` crosses as that opaque type instead. |
-| two or more return values | a Nomi tuple | `func(string, string) (string, string)` binds to `(String, String)`. |
-| a trailing `error` | `Result<_, String>` | `(T, error)` becomes `Result<T, String>`, and a lone `error` becomes `Result<Unit, String>`. The `Err` holds the Go error's message. |
+| two or more return values | a Nomi tuple | `func(string, string) (string, string)` binds to `#(String, String)`. |
+| a trailing `error` | `Result<_, String>` | `#(T, error)` becomes `Result<T, String>`, and a lone `error` becomes `Result<Unit, String>`. The `Err` holds the Go error's message. |
 | exported Go structs | Nomi `struct` | Exported Go fields match Nomi fields by name: `RawQuery` matches `raw_query`. |
 | a `func(A) R` parameter | a Nomi function `(A) -> R` | Pass a lambda or a named function, and Go calls it. The Go function may return nothing (`(A) -> Unit`), one value, or a value and an `error` (`(A) -> Result<R, String>`). |
 | a Go value Nomi only holds | `opaque type` | Nomi stores it and passes it back, but can't look inside. |
@@ -127,9 +127,9 @@ gopkg "strings"
 
 gopkg "strconv"
 
-fn upper(s: String): String go strings.ToUpper
+fn upper(s: String) -> String go strings.ToUpper
 
-fn parse_int(s: String): Result<Int, String> go strconv.Atoi
+fn parse_int(s: String) -> Result<Int, String> go strconv.Atoi
 
 fn main() {
     io.print(upper("hi"))

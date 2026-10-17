@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
-records 31
-declared-cases 299
+records 34
+declared-cases 333
 failing 0
 C assertions
 E 0
@@ -26,11 +26,12 @@ H c38eff71742a56683ebc1beaadb1f546559e2f2ee154e3040c583e73d9c11969
 T ok enum Bool
 C bytes
 E 0
-N 14
-H c79e4bfce3324249c175196875b19d6355676a7615bdc3d02526d1dad8a1fbf6
+N 16
+H 3824b2e545a9688ab5a5353607a56cba799e6251bcbdf1ffa731251b63de9c81
 T ok Byte.from_int
 T ok Byte.to_int
 T ok Bytes.length
+T ok Bytes.get
 T ok Bytes.at
 T ok Bytes.slice
 T ok Bytes.concat
@@ -39,13 +40,14 @@ T ok Bytes.from_list
 T ok Bytes.to_string
 T ok Bytes.each_while (impl Iter for Bytes)
 T ok Bytes.add (impl Add<Bytes, Bytes> for Bytes)
+T ok Bytes.empty_sum (impl Summable for Bytes)
 T ok Bytes.to_string Display (impl Display for Bytes)
 T ok Bytes.inspect (impl Debug for Bytes)
 T ok Bytes.hash (impl Hashable for Bytes)
 C calendar
 E 0
 N 27
-H 78d532e3b3dddbd4558bde840e4c8a41be1b1c99733ccd0f36c0feec46a638f9
+H e1eb54a450bdc2b95c75c97950a673b0237fb973cd903f98a6f41556d5f93764
 T ok Date.new
 T ok Date.parse
 T ok Date.days_between
@@ -55,7 +57,7 @@ T ok Time.parse
 T ok Time.between
 T ok Time.add (impl Add<Duration, Time> for Time)
 T ok Time.subtract (impl Subtract<Duration, Time> for Time)
-T ok NaiveDateTime.at
+T ok NaiveDateTime.of
 T ok NaiveDateTime.at_midnight
 T ok NaiveDateTime.to_date
 T ok NaiveDateTime.to_time
@@ -84,10 +86,16 @@ T ok Sender.close
 T ok Receiver.receive
 C codepoints
 E 0
-N 7
-H 0af1e2d744aa36fcea0a24d76639f4f8bb0f2b5439d27e460425a382d534cf50
+N 13
+H 5953dd980aa7374eb62f211ef783b9eca59b6ff4d5c847b6fe5e8e04279f1e0a
 T ok Codepoint.from_int
 T ok Codepoint.to_int
+T ok Codepoint.letter?
+T ok Codepoint.digit?
+T ok Codepoint.to_digit
+T ok Codepoint.whitespace?
+T ok Codepoint.upper?
+T ok Codepoint.lower?
 T ok Codepoint.to_string (impl Display for Codepoint)
 T ok Codepoint.inspect (impl Debug for Codepoint)
 T ok Codepoint.next (impl Discrete for Codepoint)
@@ -114,8 +122,8 @@ T ok Context.with_value
 T ok Context.value
 C decimal
 E 0
-N 17
-H 7d28421fef9890b46fd27b4ac29569b6cea963730643f502a2a67b352d871ff1
+N 18
+H 59eb2962f7a69e0cc9e7a57be178a7052762cbef8d399dc3435ae5736780d14c
 T ok Decimal.from_int
 T ok Decimal.from_string
 T ok Decimal.to_int
@@ -132,11 +140,12 @@ T ok Decimal.zero?
 T ok Decimal.min
 T ok Decimal.max
 T ok Decimal.to_string (impl Display for Decimal)
+T ok Decimal.empty_sum (impl Summable for Decimal)
 T ok Decimal.step_by (impl Steppable for Decimal)
 C duration
 E 0
-N 18
-H d46d8099cf81579304bfbb70bd86ac2b15598d451943b623a35e17dea716ea56
+N 19
+H cd79badf06ef85ed411dc4c43c81a0eba9c6009798b83af7693db82708819dd0
 T ok Duration.nanoseconds
 T ok Duration.microseconds
 T ok Duration.milliseconds
@@ -150,6 +159,7 @@ T ok Duration.as_seconds
 T ok Duration.as_minutes
 T ok Duration.as_hours
 T ok Duration.add (impl Add<Duration, Duration> for Duration)
+T ok Duration.empty_sum (impl Summable for Duration)
 T ok Duration.subtract (impl Subtract<Duration, Duration> for Duration)
 T ok Duration.multiply (impl Multiply<Int, Duration> for Duration)
 T ok Duration.divide (impl Divide<Int, Duration> for Duration)
@@ -157,8 +167,8 @@ T ok Duration.to_string (impl Display for Duration)
 T ok Duration.inspect (impl Debug for Duration)
 C float
 E 0
-N 12
-H d3e61f780696f53e22f850f68660f0eb604db36e3f99ba6545723c2253b76775
+N 17
+H 8e1e412687f3e3661b8900962643b4d919690296dd54ebd61babfcfb5084bf6e
 T ok Float.nan
 T ok Float.positive_infinity
 T ok Float.negative_infinity
@@ -170,7 +180,12 @@ T ok Float.round
 T ok Float.floor
 T ok Float.ceil
 T ok Float.trunc
+T ok Float.abs
+T ok Float.sign
+T ok Float.min
+T ok Float.max
 T ok Float.to_string (impl Display for Float)
+T ok Float.empty_sum (impl Summable for Float)
 C instant
 E 0
 N 9
@@ -186,8 +201,8 @@ T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Insta
 T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
 C int
 E 0
-N 18
-H ed5d8eaeb3e92eb8f8ee0bc34db962257a36a74813d62fb00f3e55a50abba33c
+N 23
+H d3eaa850fc70e798a85049cafd1b951f498606be2f47f36c01d74a94466f9c5f
 T ok Int.max_value
 T ok Int.min_value
 T ok Int.to_non_zero
@@ -203,7 +218,12 @@ T ok Int.bitwise_not
 T ok Int.shift_left
 T ok Int.shift_right
 T ok Int.modulo
+T ok Int.abs
+T ok Int.sign
+T ok Int.min
+T ok Int.max
 T ok Int.to_string (impl Display for Int)
+T ok Int.empty_sum (impl Summable for Int)
 T ok Int.divide Divide<NonZeroInt, Int> (impl Divide<NonZeroInt, Int> for Int)
 T ok PositiveInt.to_non_zero
 C io
@@ -214,10 +234,12 @@ T ok io.capture
 T ok io.replay
 C iter
 E 0
-N 44
-H 571fb85d827ec9c0f8785b21ce68a4738309c866f2902e0941ebef82bf92464a
+N 47
+H 69ecfad0c0ba169c00e4652ac931e17ccff1567a0e178ac416741b728e142fff
 T ok Iter.loop
 T ok Iter.reduce
+T ok Iter.scan
+T ok Iter.map_reduce
 T ok Iter.find
 T ok Iter.sort_with
 T ok Iter.sort
@@ -229,7 +251,7 @@ T ok Iter.empty?
 T ok Iter.not_empty?
 T ok Iter.first
 T ok Iter.last
-T ok Iter.at
+T ok Iter.get
 T ok Iter.partition
 T ok Iter.group_by
 T ok Iter.frequencies
@@ -260,6 +282,7 @@ T ok Iter.min
 T ok Iter.max
 T ok Iter.min_by
 T ok Iter.max_by
+T ok Iter.sum
 C json
 E 0
 N 3
@@ -269,16 +292,17 @@ T ok Json.encode
 T ok Json.to_dynamic
 C lists
 E 0
-N 4
-H 4d9e3c286644e6dcaf9e6176068bb913a9e864283409605dd8f57fdd054edfed
+N 5
+H c366a91933888cb49743ccbea396e5a06f4e4f635ce827b91c08d2a0952f7278
 T ok List.next_item
 T ok List.concat
 T ok List.head
 T ok List.tail
+T ok List.empty_sum (impl Summable for List<T>)
 C maps
 E 0
-N 13
-H 6310456cf414347edd4310f5f72586249a5da54f6d8769a6a57d4122beace38b
+N 14
+H 72a6ea2ecee33458bf53fa2c5fb286450c9f7629a9657e0141eddb3abaa49f87
 T ok Map.get
 T ok Map.put
 T ok Map.empty
@@ -292,6 +316,7 @@ T ok Map.contains_key?
 T ok Map.map_values
 T ok Map.map_keys
 T ok Map.add (impl Add<Map<K, V>, Map<K, V>> for Map<K, V>)
+T ok Map.empty_sum (impl Summable for Map<K, V>)
 C matcher
 E 0
 N 1
@@ -336,12 +361,11 @@ T ok Range.contains?
 T ok Range.bounded?
 C regex
 E 0
-N 6
-H 7b2471e0347e2f7c031e699da6f59d7d2dc1aa9ca8f0100f73e31a62b792cce5
+N 5
+H be19ab721f66f997cc0d0f68ff981f833127a576d9dbcb89f9933b0ff5158aa2
 T ok type Regex
 T ok Regex.compile
 T ok Regex.pattern
-T ok Regex.find
 T ok Regex.replace_all
 T ok Regex.inspect (impl Debug for Regex)
 C results
@@ -360,8 +384,8 @@ T ok Result.collect
 T ok Result.partition
 C sets
 E 0
-N 11
-H 26fc6840d356245e0595ceec0735cb90cc3ee2b7f8ba095af9b6ab031e8bd480
+N 12
+H abcb58b91ac8fa5a8018673d7b035f986ba28b8967ca6d513ffa89d846bebd1b
 T ok Set.new
 T ok Set.insert
 T ok Set.remove
@@ -372,11 +396,12 @@ T ok Set.intersection
 T ok Set.difference
 T ok Set.subset?
 T ok Set.add (impl Add<Set<T>, Set<T>> for Set<T>)
+T ok Set.empty_sum (impl Summable for Set<T>)
 T ok Set.subtract (impl Subtract<Set<T>, Set<T>> for Set<T>)
 C strings
 E 0
-N 24
-H a0e9f9873d1e167e10a030a14cc8fdd44cbb6cf202cd5b622785270029824ad3
+N 28
+H 7bbc6c3a82287e5410e4fb44224407cb99ef1f6708905bdb23280a7c8cb67cd0
 T ok String.contains?
 T ok String.starts_with?
 T ok String.ends_with?
@@ -392,6 +417,9 @@ T ok String.pad_end
 T ok String.join
 T ok String.split
 T ok String.find_all
+T ok String.find
+T ok String.captures
+T ok String.captures_all
 T ok String.words
 T ok String.lines
 T ok String.trim
@@ -401,6 +429,12 @@ T ok String.to_codepoints
 T ok String.strip_prefix
 T ok String.strip_suffix
 T ok String.length
+T ok String.empty_sum (impl Summable for String)
+C summable
+E 0
+N 1
+H 57e0560ff1b64382f11ec0b75f1ffccd8a59ff54c9c93390556f7c5a784c51ac
+T ok interface Summable
 C tasks
 E 0
 N 5
@@ -425,15 +459,27 @@ E 0
 N 1
 H 7222a78180e1863eed1aa4b0587ae514f49025b40853ad43e7640be69b1b4eb4
 T ok Toml.text
+C unit
+E 0
+N 1
+H d844d8776c7fd46ddf735722ffe49dd805be4b36bcd8cc2ffdf6f6fb8ed07ef4
+T ok type Unit
+C variants
+E 0
+N 1
+H f01ff405457379af3a290ce9aab350978e30af5a10358920b9a8ea7d31e0eafb
+T ok interface Variants
 C vectors
 E 0
-N 8
-H 979654d1fd2e7b0426031f00c6c671ddb8925901c0957a5140d766be8baf1829
+N 10
+H b31a77d2036a86b950a6494e355c97b3f934ba824e710b751c1a170c7596b57a
 T ok Vector.empty
 T ok Vector.length
+T ok Vector.get
 T ok Vector.at
 T ok Vector.push
 T ok Vector.set
 T ok Vector.concat
 T ok Vector.next_item
 T ok Vector.add (impl Add<Vector<T>, Vector<T>> for Vector<T>)
+T ok Vector.empty_sum (impl Summable for Vector<T>)

@@ -11,7 +11,7 @@ package ir
 
 import "testing"
 
-// localControl is `fn add(a: Int, b: Int): Int { a + b }`: two parameters,
+// localControl is `fn add(a: Int, b: Int) -> Int { a + b }`: two parameters,
 // two `RefLocal` reads, both resolving.
 func localControl() *Func {
 	f := NewFunc(v3At(1), "add")

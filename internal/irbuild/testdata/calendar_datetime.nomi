@@ -28,7 +28,7 @@ import {
 // a Unit-returning body cannot propagate), so the fallible half lives in a
 // Result-returning function and main discharges it with a `case`. That is a
 // property of `main`, not of these types.
-fn run(): Result<Unit, Error> {
+fn run() -> Result<Unit, Error> {
     ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
     tokyo = try DateTime.with_zone(ny, "Asia/Tokyo")
 

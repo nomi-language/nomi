@@ -16,7 +16,7 @@ import {
     tracker/severity.{self, Severity}
 }
 
-fn rank(n: Int): String {
+fn rank(n: Int) -> String {
     case severity.of(n) {
         Severity.Low -> "low"
         severity.Severity.High(x) when x > 5 -> "very high ${x}"
@@ -27,12 +27,12 @@ fn rank(n: Int): String {
 
 fn main() {
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    |> Iter.each(|n| {
+    |> Iter.each(fn n -> {
         long = by_import.describe(n)
         short = by_module.short(ticket.make(n))
         io.print("${long} | ${short} | ${dotted.flags(n)}")
     })
 
     [0, 1, 2, 3]
-    |> Iter.each(|n| io.print(rank(n)))
+    |> Iter.each(fn n -> io.print(rank(n)))
 }

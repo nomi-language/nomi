@@ -162,7 +162,7 @@ func (tl *taskLifetime) collectTaskBindings(block *ast.Block) []taskBinding {
 // applies Rules 2 and 3 to its own bindings; this descent only widens
 // what counts as a *reference* for the OUTER block's Rule 2 sweep.
 //
-// Lambda bodies ARE descended: an `Iter.map(tasks, |t| Task.await(t))`
+// Lambda bodies ARE descended: an `Iter.map(tasks, fn t -> Task.await(t))`
 // counts the `t` parameter's uses inside the lambda as references, even
 // though the parameter shadows the outer name. The consumer (Rule 2)
 // matches on names only, so the conservative direction (accept any name
@@ -239,9 +239,9 @@ func (tl *taskLifetime) isSpawnCall(n ast.Node) bool {
 //     this local check).
 //   - A FieldAccess on a struct whose field type is Task.
 //   - A `|>` pipe expression whose post-pipe value is a Task — e.g.
-//     `concurrent { Task.spawn(|| 42) |> some_transform }`. The pipe is a
+//     `concurrent { Task.spawn(fn -> 42) |> some_transform }`. The pipe is a
 //     Binary node at the AST level; structurally it desugars to
-//     `some_transform(Task.spawn(|| 42))`, but reasoning about whether
+//     `some_transform(Task.spawn(fn -> 42))`, but reasoning about whether
 //     `some_transform`'s result is a Task requires the function's
 //     declared return type. Same principled gap as the Call case
 //     above.

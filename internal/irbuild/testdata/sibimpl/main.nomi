@@ -31,7 +31,7 @@ import {
     shapes.{self, Status, Tag}
 }
 
-fn describe(s: Status): String {
+fn describe(s: Status) -> String {
     case Status.reason(s) {
         Some(r) -> "reason: " + r
         None -> "no reason"

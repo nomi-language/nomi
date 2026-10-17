@@ -70,11 +70,11 @@ func irBootStructKind(d *typeDef) bool {
 }
 
 // irAppFieldKind is the kind an application field may hold: a retained
-// value, an interface's existential, or a function value whose inputs and
-// output the callable domain holds (`steps: (Int) -> Int`). A function
+// value, Unit, an interface's existential, or a function value whose inputs
+// and output the callable domain holds (`steps: (Int) -> Int`). A function
 // field is read, written and called as a struct's function field is.
 func irAppFieldKind(k kind) bool {
-	return irRetainedValueKind(k) || irExistentialKind(k) || (k.tag == tagFunc && irCallableValueKind(k))
+	return k == kindUnit || irRetainedValueKind(k) || irExistentialKind(k) || (k.tag == tagFunc && irCallableValueKind(k))
 }
 
 // irBootRecordKind is an anonymous record a boot may answer: every field a
@@ -108,6 +108,13 @@ func (g *gen) irErases(want, have kind) bool {
 		// retained impl (vm.displayErased).
 		return true
 	}
+	if irStdDisplayExistential(want) && g.irDisplayErasedContainer(want, have) {
+		// A list, vector or map (`a: Display = [1, 2]`): its Display text is
+		// its shape around each element's Display text, which the erased
+		// rendering answers structurally, each element of a declared type
+		// through its own retained impl (vm.displayStructural).
+		return true
+	}
 	if irStdStructExistential(want) {
 		// std's universal Struct: every declared struct and anonymous
 		// record implements it structurally, and the VM holds the value.
@@ -119,8 +126,47 @@ func (g *gen) irErases(want, have kind) bool {
 		// VM dispatches on the scalar's own type name (vm.runtimeTypeName).
 		return irExistentialKind(want) && g.implements(want.iface, have)
 	}
-	return irExistentialKind(want) && have.tag == tagNamed && have.def != nil && !have.def.isEnum &&
+	erases := irExistentialKind(want) && have.tag == tagNamed && have.def != nil && !have.def.isEnum &&
 		irRetainedValueKind(have) && g.implements(want.iface, have)
+	if erases && have.def.genericOf != nil {
+		// An instance of a generic struct (`Box<Int>`) is held erased: its
+		// impls are recorded under its instance key (irInstanceImpls), so
+		// a dispatch or an erased Display rendering finds this instance's
+		// body and not another's.
+		if g.erasedInstances == nil {
+			g.erasedInstances = map[kind]bool{}
+		}
+		g.erasedInstances[have] = true
+	}
+	return erases
+}
+
+// irDisplayErasedContainer reports whether have is a list, vector or map
+// whose every element (and key) is empty or enters Display's existential
+// want itself (irErases), so the erased rendering can answer it
+// structurally.
+func (g *gen) irDisplayErasedContainer(want, have kind) bool {
+	var parts []kind
+	switch {
+	case have == kindEmptyList || have == kindEmptyMap:
+		return true
+	case have.tag == tagList && have.comp != nil && len(have.comp.parts) == 1:
+		parts = have.comp.parts
+	case have.tag == tagMap && have.comp != nil && len(have.comp.parts) == 2:
+		parts = have.comp.parts
+	default:
+		elem, vector := vectorElem(have)
+		if !vector || have == kindEmptyVector {
+			return false
+		}
+		parts = []kind{elem}
+	}
+	for _, p := range parts {
+		if p != kindEmptyList && p != kindEmptyMap && !g.irErases(want, p) {
+			return false
+		}
+	}
+	return true
 }
 
 // irErasesFields reports whether an anonymous record of kind have enters a
@@ -289,12 +335,12 @@ func (g *gen) irRecordImpls() {
 	g.irRecordDisplayImpls()
 	g.irRecordRowDebugImpls()
 	g.irRecordKeyImpls()
-	for _, d := range g.implOrder {
+	for _, d := range append(g.implOrder, g.irInstanceImpls()...) {
 		var typ *ir.Symbol
 		if name, scalar := irDispatchScalarName(d.recv); scalar {
 			typ = g.irTypes().Symbol(irScalarTypeToken{name}, name)
 		} else if d.recv.tag == tagNamed && d.recv.def != nil && !d.recv.def.isEnum {
-			typ = g.irTypeSym(d.recv.def)
+			typ = g.irImplTypeSym(d.recv)
 		}
 		if d.iface == nil || typ == nil {
 			continue
@@ -320,13 +366,63 @@ func (g *gen) irRecordImpls() {
 // irScalarTypeToken identifies a builtin scalar's type symbol in the table.
 type irScalarTypeToken struct{ name string }
 
+// irInstanceTypeToken identifies the symbol an impl of one generic
+// instance is recorded under, named by its instance key.
+type irInstanceTypeToken struct{ key string }
+
+// irImplTypeSym is the symbol an impl for the declared type k is recorded
+// under: the declaration's own, or for an instance of a generic type its
+// instance key (`main.Box<Int>`), which the VM's values carry beside the
+// type name (rt.TypeDesc.Inst), so two instances' bodies stay apart.
+func (g *gen) irImplTypeSym(k kind) *ir.Symbol {
+	if k.def.genericOf != nil {
+		if v := g.irValType(k); v != nil && v.InstanceKey() != "" {
+			return g.irTypes().Symbol(irInstanceTypeToken{v.InstanceKey()}, v.InstanceKey())
+		}
+	}
+	return g.irTypeSym(k.def)
+}
+
+// irInstanceImpls are the impl blocks registered per instance of a generic
+// struct (registerInstanceImpls), which implOrder does not hold, for each
+// instance this unit holds erased (erasedInstances), ordered by interface
+// and instance key so the module's entries do not follow map order. An
+// instance never erased is never dispatched on, and recording its impls
+// would make each one reachable from every erased rendering.
+func (g *gen) irInstanceImpls() []*implDef {
+	type entry struct {
+		key string
+		d   *implDef
+	}
+	var entries []entry
+	for iface, byRecv := range g.implsByIface {
+		for recv, d := range byRecv {
+			if d == nil || !g.erasedInstances[recv] || recv.def.preludeOf != nil {
+				continue
+			}
+			v := g.irValType(recv)
+			if v == nil || v.InstanceKey() == "" {
+				continue
+			}
+			entries = append(entries, entry{iface + "|" + v.InstanceKey(), d})
+		}
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].key < entries[j].key })
+	out := make([]*implDef, len(entries))
+	for i, e := range entries {
+		out[i] = e.d
+	}
+	return out
+}
+
 // irRecordDisplayImpls records every retained `impl Display` body of a
-// declared, non-generic type, which an erased Display rendering selects by
-// the value's runtime type name (ir.Module.ImplementDisplay).
+// declared type, and of each generic struct instance held erased
+// (irInstanceImpls), which an erased Display rendering selects by the
+// value's runtime type name or instance key (ir.Module.ImplementDisplay).
 func (g *gen) irRecordDisplayImpls() {
-	for _, d := range g.implOrder {
+	for _, d := range append(g.implOrder, g.irInstanceImpls()...) {
 		if d.ifaceName != "Display" || !d.lowerable || d.recv.tag != tagNamed || d.recv.def == nil ||
-			d.recv.def.genericOf != nil || d.recv.def.preludeOf != nil {
+			d.recv.def.preludeOf != nil {
 			continue
 		}
 		it := d.items["to_string"]
@@ -337,7 +433,7 @@ func (g *gen) irRecordDisplayImpls() {
 		if g.irMod.FuncFor(fn) == nil {
 			continue
 		}
-		g.irMod.ImplementDisplay(g.irTypeSym(d.recv.def), fn)
+		g.irMod.ImplementDisplay(g.irImplTypeSym(d.recv), fn)
 	}
 }
 
@@ -474,9 +570,19 @@ func (bl *irScalarBuilder) appFieldStore(w *ast.With) bool {
 		irDeclineNote("an app-field write of an unretained field")
 		return false
 	}
-	val, vk, _, ok := bl.lower(w.Value)
-	if !ok || (vk != k && !bl.g.irErases(k, vk)) {
+	val, vk, _, ok := bl.lowerTypedOperand(w.Value, k)
+	if !ok {
 		return false
+	}
+	if vk != k {
+		// `with App.cache = Map.empty()`: an empty collection takes the
+		// field's type, an embedded value widens and a concrete value
+		// enters its interface, as an argument enters its parameter.
+		have := vk
+		if val, vk, ok = bl.coerceEmpty(w.Value, val, vk, k); !ok || vk != k {
+			irDeclineNote("an app-field write of kind " + have.nomi() + " where " + k.nomi() + " is the field's")
+			return false
+		}
 	}
 	name := read.Field.Name
 	sym := bl.g.irTypes().Symbol(scopedFieldToken{name, k}, "$"+name)

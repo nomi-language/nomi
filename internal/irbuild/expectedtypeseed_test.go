@@ -5,10 +5,10 @@ import "testing"
 // A generic call seeded from its expected type runs on the VM
 // (testdata/expected_type_seed.nomi), and its output matches the golden record.
 //
-// `Iter.to_map([(.North, .Cave)])` in a `Map<Direction, Place>` position
+// `Iter.to_map([#(.North, .Cave)])` in a `Map<Direction, Place>` position
 // resolves its dot variants only because the checker solves K and V from the
 // expected type and checks the list's items against the parameter's
-// `Iter<(Direction, Place)>`. `Iter.to_map([])` type-checks without the seed,
+// `Iter<#(Direction, Place)>`. `Iter.to_map([])` type-checks without the seed,
 // but its K and V would stay inference variables at the call, so no
 // instantiation would be recorded and the program would be BLOCKED.
 func TestExpectedTypeSeed_RunsOnTheVM(t *testing.T) {
@@ -16,12 +16,12 @@ func TestExpectedTypeSeed_RunsOnTheVM(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	path := fixture("expected_type_seed.nomi")
-	const want = "Room{exits: {North => Cave, East => Hall}}\n" +
-		"Index{words: {=>}}\n" +
-		"{=>}\n" +
-		"{North => Cave}\n" +
-		"{North => Cave}\n" +
-		"{=>}\n"
+	const want = "Room{exits: %{North => Cave, East => Hall}}\n" +
+		"Index{words: %{}}\n" +
+		"%{}\n" +
+		"%{North => Cave}\n" +
+		"%{North => Cave}\n" +
+		"%{}\n"
 	got := vmReference(path)
 	if got.stdout != want || got.stderr != "" || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",

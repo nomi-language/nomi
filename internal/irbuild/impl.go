@@ -45,7 +45,7 @@ import (
 //
 // # A default is monomorphized, not shared
 //
-// `interface Identity { fn name(v: self): String; fn describe(v: self): String
+// `interface Identity { fn name(v: self) -> String; fn describe(v: self) -> String
 // { "I am " + Identity.name(v) } }` gives every implementor a `describe`. The
 // body
 // is lowered ONCE PER IMPLEMENTING TYPE, with `self` bound to that concrete
@@ -194,7 +194,7 @@ type ifaceMethod struct {
 	// when the method's SIGNATURE cannot be represented in one.
 	//
 	// Note what this is NOT: a table may exist for a method that cannot be
-	// dispatched on an erased receiver. `Zero.zero(): self` has no receiver,
+	// dispatched on an erased receiver. `Zero.zero() -> self` has no receiver,
 	// so `why` names that gap and every erased-receiver site refuses — but the
 	// table is still the right home for `T.zero()`, which is keyed by the
 	// concrete type argument instead. See methodSignatureGap.
@@ -467,7 +467,7 @@ func (g *gen) resolveIface(d *ifaceDef) {
 				m.params = append(m.params, kindInvalid)
 				continue
 			}
-			// paramKind, so a destructuring parameter (`(a, b): (Int, Int)`,
+			// paramKind, so a destructuring parameter (`#(a, b): #(Int, Int)`,
 			// `Point{x, y}`) has the kind its annotation or pattern head names;
 			// a default body's prologue reads its names off that value.
 			m.params = append(m.params, g.paramKind(im.Params[j]))
@@ -576,8 +576,8 @@ func erasedReceiverGap(m *ifaceMethod) string {
 // gapNestedSelfResult is the row that says why a self inside a CONTAINER is
 // not the same question as a self return.
 //
-// `FromJson.from_json(json: Json): Result<self, Json.ShapeError>`,
-// `Discrete.next(v: self): Maybe<self>`, `Steppable.step_by(…): Maybe<self>` —
+// `FromJson.from_json(json: Json) -> Result<self, Json.ShapeError>`,
+// `Discrete.next(v: self) -> Maybe<self>`, `Steppable.step_by(…) -> Maybe<self>` —
 // the three in std. A BARE
 // `self` return erases to `any` in the table and a dictionary-driven call
 // re-boxes it under the TypeID that selected the implementation, which recovers
@@ -586,7 +586,7 @@ func erasedReceiverGap(m *ifaceMethod) string {
 // apart and rebuild, and `Result<self, E>`'s `E` is not self.
 //
 // It is a SIGNATURE row and it is `hard`, which keeps the diagnostic accurate.
-// Without it `Parse.parse(text: String): Maybe<self>` would refuse as
+// Without it `Parse.parse(text: String) -> Maybe<self>` would refuse as
 // `interface function without a self-typed parameter` — true of the erased
 // route and irrelevant to the dictionary route, which exists precisely to serve
 // a method with no receiver. Naming the receiver at a call whose problem is the
@@ -647,15 +647,14 @@ func (g *gen) methodSignatureGap(im *ast.InterfaceMethod, m *ifaceMethod) (strin
 	return "", false
 }
 
-// buildImpls registers every impl block, then lowers the SYNTHESIZED ones.
+// buildImpls registers every impl block. The SYNTHESIZED ones are lowered
+// later, by settleImpls.
 //
 // Registration is complete before any body is emitted because an impl body may
-// call any other impl in the module — a derived `Debug.inspect` on a struct
-// with a struct field calls the field type's own inspect — and because a
-// synthesized block's lowerability has to be settled before an ordinary
-// function body that dispatches to it is emitted. Package-level Go
-// declarations have no order requirement, so emitting these first costs
-// nothing.
+// call any other impl in the program — a derived `Debug.inspect` on a struct
+// with a struct field calls the field type's own inspect, and that type may be
+// another file's — and because a synthesized block's lowerability has to be
+// settled before an ordinary function body that dispatches to it is emitted.
 func (g *gen) buildImpls(nodes []ast.Node) {
 	for _, n := range nodes {
 		ib, ok := n.(*ast.ImplBlock)
@@ -665,7 +664,6 @@ func (g *gen) buildImpls(nodes []ast.Node) {
 		g.registerImpl(ib)
 	}
 	g.registerBlockLocalDebug(g.blockTypeOrder)
-	g.emitSynthImpls(g.implOrder)
 }
 
 // emitSynthImpls lowers the synthesized blocks among impls.
@@ -928,11 +926,18 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 // orphan rule as long as the interface is local, and it is precisely the case a
 // Go method could not express.
 func (g *gen) receiverKind(te ast.TypeExpr) (kind, bool) {
-	st, ok := te.(*ast.SimpleType)
-	if !ok {
+	switch q := te.(type) {
+	case *ast.SimpleType:
+	case *ast.QualifiedType:
+		// `impl Display for lib.Dog`: another file's type, which this file
+		// may give an impl of an interface it declares or std declares.
+		if _, simple := q.Member.(*ast.SimpleType); !simple {
+			return kindInvalid, false
+		}
+	default:
 		return kindInvalid, false
 	}
-	k := g.typeOf(st)
+	k := g.typeOf(te)
 	// kindInvalid: reports — returns false; registerImpl rejects `impl for an unlowered type`.
 	if k == kindInvalid || k.tag == tagIface {
 		return kindInvalid, false
@@ -1141,7 +1146,7 @@ var monomorphizedDefaultAnswers = map[string]bool{
 
 // inheritedDefaultSig is default m's parameter and result kinds for
 // implementor d, with every `self` in its signature, bare or inside a
-// composite (`(self, self)`, `List<self>`), read as d's receiver. ok is false
+// composite (`#(self, self)`, `List<self>`), read as d's receiver. ok is false
 // when a kind is still outside the subset.
 func (g *gen) inheritedDefaultSig(d *implDef, m *ifaceMethod) ([]kind, kind, bool) {
 	prev := g.defaultSelf
@@ -1303,7 +1308,7 @@ func (g *gen) implDecl(ib *ast.ImplBlock) {
 		return
 	}
 	if d.synth {
-		// Already lowered (or already discarded) in buildImpls. Never refused
+		// Already lowered (or already discarded) in settleImpls. Never refused
 		// by name: nobody wrote it, and its position is fabricated.
 		return
 	}
@@ -1594,6 +1599,13 @@ func (g *gen) qualifierKind(owner string) kind {
 	}
 	if d, isBlockLocal := g.blockLocalNamed(owner); isBlockLocal {
 		// A type declared in an enclosing block wins its name there.
+		if d.lowerable {
+			return named(d)
+		}
+		return kindInvalid
+	}
+	if d, isImported := g.blockImportedNamed(owner); isImported {
+		// So does a type an enclosing block's import binds.
 		if d.lowerable {
 			return named(d)
 		}

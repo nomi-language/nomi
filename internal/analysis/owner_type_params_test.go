@@ -18,29 +18,29 @@ struct Box<T> {
 }
 
 impl Box<T> {
-  fn ann(): Int {
+  fn ann() -> Int {
     xs: List<T> = []
     Iter.count(xs)
   }
-  fn lam(): Int {
-    f = |x: T| x
+  fn lam() -> Int {
+    f = fn x: T -> x
     Iter.count([f])
   }
-  fn turbo(): Int {
+  fn turbo() -> Int {
     Iter.repeat<T>(todo) |> Iter.take(0) |> Iter.count()
   }
-  fn qual(): String {
+  fn qual() -> String {
     T.to_string(todo)
   }
 }
 
 pub interface Src<T> {
-  fn get(s: self): T
+  fn get(s: self) -> T
 }
 
 impl Src<T> {
-  pub fn seven(): Int {
-    _f = |x: T| x
+  pub fn seven() -> Int {
+    _f = fn x: T -> x
     7
   }
 }
@@ -58,10 +58,10 @@ impl Src<T> {
 	}
 	want := []string{
 		"8:14 `T` is `Box`'s type parameter, and `ann`'s signature does not determine it | " + help("ann"),
-		"12:13 `T` is `Box`'s type parameter, and `lam`'s signature does not determine it | " + help("lam"),
+		"12:15 `T` is `Box`'s type parameter, and `lam`'s signature does not determine it | " + help("lam"),
 		"16:17 `T` is `Box`'s type parameter, and `turbo`'s signature does not determine it | " + help("turbo"),
 		"19:5 `T` is `Box`'s type parameter, and `qual`'s signature does not determine it | " + help("qual"),
-		"29:14 `T` is `Src`'s type parameter, and `seven`'s signature does not determine it | " + help("seven"),
+		"29:16 `T` is `Src`'s type parameter, and `seven`'s signature does not determine it | " + help("seven"),
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("errors:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -75,22 +75,22 @@ impl Src<T> {
 func TestOwnerTypeParam_IterShapes_Accepted(t *testing.T) {
 	errs := checkWithStdlib(`
 pub interface Seq<T> {
-  fn each_while(collection: self, yield: (T) -> Bool): Bool
+  fn each_while(collection: self, yield: (T) -> Bool) -> Bool
 }
 
 impl Seq<T> {
-  pub fn find<T>(source: List<T>, f: (T) -> Bool): Maybe<T> {
+  pub fn find<T>(source: List<T>, f: (T) -> Bool) -> Maybe<T> {
     out: List<T> = Iter.filter(source, f) |> Iter.to_list()
     List.head(out)
   }
-  pub fn from(start: Int): List<Int> {
+  pub fn from(start: Int) -> List<Int> {
     [start, start + 1]
   }
-  pub fn to_map<K, V>(pairs: List<(K, V)>): Map<K, V> {
+  pub fn to_map<K, V>(pairs: List<#(K, V)>) -> Map<K, V> {
     Iter.to_map(pairs)
   }
-  pub fn flatten<U>(source: List<List<U>>): List<U> {
-    Iter.flat_map(source, |inner: List<U>| inner) |> Iter.to_list()
+  pub fn flatten<U>(source: List<List<U>>) -> List<U> {
+    Iter.flat_map(source, fn inner: List<U> -> inner) |> Iter.to_list()
   }
 }
 
@@ -99,17 +99,17 @@ struct Box<T> {
 }
 
 impl Box<T> {
-  fn get(b: Box<T>): T {
+  fn get(b: Box<T>) -> T {
     v: T = b.v
     v
   }
-  fn seven(): Int { 7 }
+  fn seven() -> Int { 7 }
 }
 
 fn main() {
-  _ = Seq.find([1, 2], |x| x > 1)
+  _ = Seq.find([1, 2], fn x -> x > 1)
   _ = Seq.from(3)
-  _ = Seq.to_map([("a", 1)])
+  _ = Seq.to_map([#("a", 1)])
   _ = Seq.flatten([[1], [2]])
   _ = Box.get(Box{v: 1})
   _ = Box.seven()
@@ -141,11 +141,11 @@ struct Pair<A, B> {
 }
 
 impl Box {
-  fn f(x: Int): Int { x }
+  fn f(x: Int) -> Int { x }
 }
 
 impl Display for Pair {
-  fn to_string(_p: Pair<Int, Int>): String { "pair" }
+  fn to_string(_p: Pair<Int, Int>) -> String { "pair" }
 }
 `)
 	var got []string

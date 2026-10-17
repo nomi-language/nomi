@@ -172,7 +172,7 @@ func TestTypeMethodIdentity_TwoModulesEachResolveTheirOwnMethod(t *testing.T) {
   beta
 }
 
-fn demo(): String {
+fn demo() -> String {
   a = alpha.Error.Bad("a")
   b = beta.Error.Worse("b")
   alpha.Error.to_string(a) + beta.Error.to_string(b)
@@ -183,7 +183,7 @@ fn demo(): String {
 }
 
 impl Display for Error {
-  fn to_string(e: Error): String {
+  fn to_string(e: Error) -> String {
     case e {
       Error.Bad(s) -> "alpha: " + s
     }
@@ -195,7 +195,7 @@ impl Display for Error {
 }
 
 impl Display for Error {
-  fn to_string(e: Error): String {
+  fn to_string(e: Error) -> String {
     case e {
       Error.Worse(s) -> "beta: " + s
     }
@@ -234,7 +234,7 @@ func TestTypeMethodIdentity_MismatchNamesBothDeclaringModules(t *testing.T) {
   beta
 }
 
-fn demo(): String {
+fn demo() -> String {
   a = alpha.Error.Bad("a")
   beta.Error.to_string(a)
 }
@@ -244,7 +244,7 @@ fn demo(): String {
 }
 
 impl Display for Error {
-  fn to_string(e: Error): String {
+  fn to_string(e: Error) -> String {
     case e {
       Error.Bad(s) -> "alpha: " + s
     }
@@ -256,7 +256,7 @@ impl Display for Error {
 }
 
 impl Display for Error {
-  fn to_string(e: Error): String {
+  fn to_string(e: Error) -> String {
     case e {
       Error.Worse(s) -> "beta: " + s
     }
@@ -296,7 +296,7 @@ func stdlibProjectIndex(t *testing.T) *analysis.ProjectImplIndex {
   std/random
 }
 
-fn main(): Unit { Unit }
+fn main() -> Unit { Unit }
 `
 	if err := os.WriteFile(entry, []byte(src), 0644); err != nil {
 		t.Fatalf("write entry: %v", err)

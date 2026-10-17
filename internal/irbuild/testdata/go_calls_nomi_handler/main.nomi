@@ -7,12 +7,12 @@ fn main() {
     paths = ["/", "/echo", "/missing", "/fail", "/echo", "/", "/fail", "/missing"]
 
     case handler.serve_concurrently(paths, handle) {
-        Ok(lines) -> Iter.each(lines, |line| io.print(line))
+        Ok(lines) -> Iter.each(lines, fn line -> io.print(line))
         Err(e) -> io.print("error: ${e}")
     }
 }
 
-fn handle(req: Request): Result<Response, String> {
+fn handle(req: Request) -> Result<Response, String> {
     n =
         req.query
         |> Map.get("n")
@@ -25,7 +25,7 @@ fn handle(req: Request): Result<Response, String> {
         "/echo" ->
             Ok(Response{
                 status: 200,
-                headers: {"content-type" => "application/octet-stream"},
+                headers: %{"content-type" => "application/octet-stream"},
                 body: req.body,
             })
 
@@ -43,10 +43,10 @@ fn handle(req: Request): Result<Response, String> {
     }
 }
 
-fn text(status: Int, body: String): Response {
+fn text(status: Int, body: String) -> Response {
     Response{
         status,
-        headers: {"content-type" => "text/plain"},
+        headers: %{"content-type" => "text/plain"},
         body: String.to_bytes(body),
     }
 }

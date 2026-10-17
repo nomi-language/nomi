@@ -187,10 +187,10 @@ func TestFormatListAndMapServeBothRenderings(t *testing.T) {
 
 	var empty Map[string, int64]
 	m := MapPut(empty, HashString, Eq[string], "a", int64(1))
-	if got := FormatMap(m, FormatString, FormatInt); got != "{a => 1}" {
+	if got := FormatMap(m, FormatString, FormatInt); got != "%{a => 1}" {
 		t.Fatalf("Display rendering = %q", got)
 	}
-	if got := FormatMap(m, InspectString, InspectInt); got != `{"a" => 1}` {
+	if got := FormatMap(m, InspectString, InspectInt); got != `%{"a" => 1}` {
 		t.Fatalf("Inspect rendering = %q", got)
 	}
 }

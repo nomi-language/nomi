@@ -45,7 +45,7 @@ struct Foo {
 }
 
 impl Display for Foo {
-    fn to_string(foo: Foo): String {
+    fn to_string(foo: Foo) -> String {
         a = Display.to_string(foo)
         b = Foo.to_string(foo)
         io.print(foo)
@@ -79,7 +79,7 @@ struct Foo {
 }
 
 impl Debug for Foo {
-    fn inspect(foo: Foo): String {
+    fn inspect(foo: Foo) -> String {
         io.inspect(foo)
         _ = dbg foo
         _ = Foo.inspect(foo)
@@ -112,7 +112,7 @@ enum Tree {
 }
 
 impl Display for Tree {
-    fn to_string(tree: Tree): String {
+    fn to_string(tree: Tree) -> String {
         case tree {
             .Leaf -> "."
             .Node{left, value, right} -> "(${left} ${value} ${right})"
@@ -125,13 +125,13 @@ struct Foo {
 }
 
 impl Display for Foo {
-    fn to_string(foo: Foo): String {
+    fn to_string(foo: Foo) -> String {
         "Foo ${foo.name} ${Debug.inspect(foo)}"
     }
 }
 
 impl Debug for Foo {
-    fn inspect(foo: Foo): String {
+    fn inspect(foo: Foo) -> String {
         "<${foo}>"
     }
 }
@@ -147,28 +147,28 @@ fn main() {
 func TestUnconditionalRecursion_EveryPathRecurses(t *testing.T) {
 	src := `import std/io
 
-fn spin(x: Int): Int {
+fn spin(x: Int) -> Int {
     spin(x)
 }
 
-fn grow(x: Int): Int {
+fn grow(x: Int) -> Int {
     y = grow(x)
     y + 1
 }
 
-fn arms(x: Int): Int {
+fn arms(x: Int) -> Int {
     case x {
         0 -> arms(x)
         _ -> arms(x)
     }
 }
 
-fn branches(x: Int, s: String): Int {
+fn branches(x: Int, s: String) -> Int {
     io.print(s)
     if x > 0 { 1 + branches(x, s) } else { branches(s: s, x: x) - 1 }
 }
 
-fn piped(x: Int): Int {
+fn piped(x: Int) -> Int {
     x |> piped()
 }
 
@@ -177,13 +177,13 @@ struct Foo {
 }
 
 impl Foo {
-    fn again(foo: Foo): Int {
+    fn again(foo: Foo) -> Int {
         Foo.again(foo)
     }
 }
 
-fn outer(x: Int): Int {
-    fn inner(y: Int): Int {
+fn outer(x: Int) -> Int {
+    fn inner(y: Int) -> Int {
         inner(y)
     }
     inner(x)
@@ -211,53 +211,53 @@ fn main() {
 func TestUnconditionalRecursion_TerminatingOrDeliberateIsAccepted(t *testing.T) {
 	src := `import std/io
 
-fn base(x: Int): Int {
+fn base(x: Int) -> Int {
     if x == 0 { 0 } else { base(x) }
 }
 
-fn countdown(x: Int): Int {
+fn countdown(x: Int) -> Int {
     if x == 0 { 0 } else { countdown(x - 1) }
 }
 
-fn unbounded(x: Int): Int {
+fn unbounded(x: Int) -> Int {
     unbounded(x - 1)
 }
 
-fn early(x: Int): Int {
+fn early(x: Int) -> Int {
     if x > 0 {
         return 0
     }
     early(x)
 }
 
-fn tried(x: Int): Result<Int, String> {
+fn tried(x: Int) -> Result<Int, String> {
     _ = try check(x)
     tried(x)
 }
 
-fn check(x: Int): Result<Int, String> {
+fn check(x: Int) -> Result<Int, String> {
     if x > 0 { Ok(x) } else { Err("no") }
 }
 
-fn serve(x: Int): Int {
+fn serve(x: Int) -> Int {
     io.print(x)
     serve(x)
 }
 
-fn ping(x: Int): Int {
+fn ping(x: Int) -> Int {
     pong(x)
 }
 
-fn pong(x: Int): Int {
+fn pong(x: Int) -> Int {
     ping(x)
 }
 
-fn later(x: Int): (Int) -> Int {
-    |n| later(x)(n)
+fn later(x: Int) -> (Int) -> Int {
+    fn n -> later(x)(n)
 }
 
-fn sum(xs: List<Int>): Int {
-    Iter.reduce(xs, |acc = 0, _| acc + sum(xs))
+fn sum(xs: List<Int>) -> Int {
+    Iter.reduce(xs, fn acc = 0, _ -> acc + sum(xs))
 }
 
 fn main() {
@@ -270,7 +270,7 @@ fn main() {
 }
 
 func TestUnconditionalRecursion_Code(t *testing.T) {
-	errs := diagnosticsFor(t, `fn spin(x: Int): Int {
+	errs := diagnosticsFor(t, `fn spin(x: Int) -> Int {
     spin(x)
 }
 
@@ -284,5 +284,127 @@ fn main() {
 	}
 	if len(codes) != 1 || codes[0] != analysis.UnconditionalRecursionCode {
 		t.Fatalf("codes = %v, want [%s]", codes, analysis.UnconditionalRecursionCode)
+	}
+}
+
+// An `equal?`, `compare` or `hash` that compares or hashes its own arguments
+// through the operator or call that dispatches back to it calls itself
+// forever. `a == b` inside P's `equal?` passed the checker and was declined
+// by the builder.
+func TestRecursiveProtocol_OwnArgumentsAreRejected(t *testing.T) {
+	src := `import std/io
+
+struct P {
+    x: Int
+}
+
+impl Equatable for P {
+    fn equal?(a: P, b: P) -> Bool {
+        same = b
+        a.x == b.x or a == b or b != a or Equatable.equal?(a, same) or P.equal?(b, a)
+    }
+}
+
+impl Comparable for P {
+    fn compare(a: P, b: P) -> Ordering {
+        if a < b or b >= a { Ordering.Less } else { a |> Comparable.compare(b) }
+    }
+}
+
+impl Hashable for P {
+    fn hash(p: P) -> Int {
+        Hashable.hash(p) + P.hash(p)
+    }
+}
+
+fn main() {
+    io.print(P{x: 1} == P{x: 2})
+}
+`
+	const eq = " calls P's `equal?`, the function being defined, with its own arguments, so it calls itself forever\nhelp: compare the fields instead (`a.field == b.field`), or write `derive Equatable for P`"
+	const cmp = " calls P's `compare`, the function being defined, with its own arguments, so it calls itself forever\nhelp: compare the fields instead (`Comparable.compare(a.field, b.field)`), or write `derive Comparable for P`"
+	const hash = " calls P's `hash`, the function being defined, with its own arguments, so it calls itself forever\nhelp: hash the fields instead (`Hashable.hash(p.field)`), or write `derive Hashable for P`"
+	checkDiagnostics(t, src, []wantDiag{
+		{10, 23, "`a == b`" + eq},
+		{10, 33, "`b != a`" + eq},
+		{10, 43, "`Equatable.equal?(a, same)`" + eq},
+		{10, 72, "`P.equal?(b, a)`" + eq},
+		{16, 12, "`a < b`" + cmp},
+		{16, 21, "`b >= a`" + cmp},
+		{16, 53, "`Comparable.compare(a, b)`" + cmp},
+		{22, 9, "`Hashable.hash(p)`" + hash},
+		{22, 28, "`P.hash(p)`" + hash},
+	})
+}
+
+// Comparing or hashing fields, including fields of the impl's own type, ends
+// with the data and stays legal, as do comparisons of other types.
+func TestRecursiveProtocol_FieldsAndOtherValuesAreAccepted(t *testing.T) {
+	src := `import std/io
+
+enum Tree {
+    Leaf
+    Node#(Tree, Int)
+}
+
+impl Equatable for Tree {
+    fn equal?(a: Tree, b: Tree) -> Bool {
+        case #(a, b) {
+            #(.Leaf, .Leaf) -> True
+            #(.Node(l, x), .Node(r, y)) -> x == y and l == r
+            _ -> False
+        }
+    }
+}
+
+impl Comparable for Tree {
+    fn compare(a: Tree, b: Tree) -> Ordering {
+        case #(a, b) {
+            #(.Node(l, _), .Node(r, _)) -> if l < r { Ordering.Less } else { Comparable.compare(l, r) }
+            _ -> Ordering.Equal
+        }
+    }
+}
+
+impl Hashable for Tree {
+    fn hash(t: Tree) -> Int {
+        case t {
+            .Node(l, n) -> Hashable.hash(l) * 31 + Hashable.hash(n)
+            .Leaf -> 0
+        }
+    }
+}
+
+fn main() {
+    t = Tree.Node(Tree.Leaf, 1)
+    io.print(t == t)
+    io.print(t < t)
+    io.print(Hashable.hash(t))
+}
+`
+	checkDiagnostics(t, src, nil)
+}
+
+func TestRecursiveProtocol_Code(t *testing.T) {
+	errs := diagnosticsFor(t, `struct P {
+    x: Int
+}
+
+impl Equatable for P {
+    fn equal?(a: P, b: P) -> Bool {
+        a == b
+    }
+}
+
+fn main() {
+    _ = P{x: 1} == P{x: 1}
+}
+`)
+	var codes []string
+	for _, e := range errs {
+		codes = append(codes, e.Code)
+	}
+	if len(codes) != 1 || codes[0] != analysis.RecursiveProtocolCode {
+		t.Fatalf("codes = %v, want [%s]", codes, analysis.RecursiveProtocolCode)
 	}
 }

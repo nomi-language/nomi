@@ -60,7 +60,7 @@ Because `dbg` returns its value, it can be a stage in a pipeline:
 ```nomi-run
 import std/io
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 
@@ -89,7 +89,7 @@ pipelines in detail.
 ## Tiny functions
 
 ```nomi-run
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 
@@ -102,7 +102,7 @@ fn main() {
 dbg line 6: double(4) = 8
 -->
 
-A function is written `fn name(params): ReturnType { body }`. The last
+A function is written `fn name(params) -> ReturnType { body }`. The last
 expression in the body is the value the function returns.
 
 That is enough for the examples in this chapter.
@@ -117,7 +117,7 @@ Nomi keeps comments, documentation and tests next to the code they describe.
 //# Geometry helpers.
 
 /// Returns the area of a rectangle.
-fn area(width: Int, height: Int): Int {
+fn area(width: Int, height: Int) -> Int {
     // Rectangles multiply their sides.
     width * height
 }
@@ -141,7 +141,7 @@ There are three kinds of comment:
 A test can live in the same file as the code it checks:
 
 ```nomi-run
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 
@@ -160,7 +160,7 @@ For a small example, write it directly above the declaration with `//!`:
 ```nomi-run
 //! assert double(4) == 8
 //! refute double(4) == 9
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 
@@ -227,7 +227,7 @@ does. If it returns a value, use the value, look at it with `dbg`, or
 discard it with `_ =`:
 
 ```nomi-run
-fn compute(): Int {
+fn compute() -> Int {
     42
 }
 
@@ -246,7 +246,7 @@ This version is an error, because nothing uses the `Int` that `compute()`
 returns:
 
 ```nomi-run ignore
-fn compute(): Int {
+fn compute() -> Int {
     42
 }
 
@@ -434,13 +434,13 @@ the detail now.
 
 Inside a function body, Nomi works out types from how values are used:
 
-- In `Iter.map(xs, |x| x + 1)`, the type of `xs`'s elements and the type of
+- In `Iter.map(xs, fn x -> x + 1)`, the type of `xs`'s elements and the type of
   the lambda's `x` are worked out together.
 - `Ok(42)` is a `Result<Int, ?>`. The error type `?` stays open until
   something nearby fixes it: a binding's annotation, the function's return
   type, or another `case` arm.
-- In `f: (Int) -> Int = |x| x + 1`, the lambda's `x` gets its type from the
-  annotation, so you don't write `|x: Int|`.
+- In `f: (Int) -> Int = fn x -> x + 1`, the lambda's `x` gets its type from the
+  annotation, so you don't write `fn x: Int ->`.
 - In `m: Map<String, Int> = Map.empty()`, the annotation tells `empty()`
   which map to make.
 

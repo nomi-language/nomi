@@ -49,12 +49,12 @@ impl Json {
     /// fractional part / exponent; otherwise as `Float`. See the
     /// `Json` doc-comment for the rationale.
     //! assert Json.decode("{\"ok\":true,\"n\":42}") == Result.Ok(
-    //!     Json.Obj{"ok" => Json.Bool(True), "n" => Json.Int(42)}
+    //!     Json.Obj%{"ok" => Json.Bool(True), "n" => Json.Int(42)}
     //! )
     //!
     //! assert Result.err?(Json.decode("{"))
     //
-    pub host fn decode(source: String): Result<Json, Json.DecodeError>
+    pub host fn decode(source: String) -> Result<Json, Json.DecodeError>
 
     /// Serialize a `Json` tree as compact JSON text (no whitespace
     /// between tokens).
@@ -63,20 +63,20 @@ impl Json {
     /// The `Int`/`Float` distinction captured by `decode` therefore does
     /// not necessarily survive a text round-trip.
     //! assert Json.encode(
-    //!     Json.Obj{"ok" => Json.Bool(True), "n" => Json.Int(42)}
+    //!     Json.Obj%{"ok" => Json.Bool(True), "n" => Json.Int(42)}
     //! ) == "{\"ok\":true,\"n\":42}"
     //
-    pub host fn encode(jv: Json): String
+    pub host fn encode(jv: Json) -> String
 
     /// Converts a `Json` tree to `Dynamic`, preserving the same shape: strings,
     /// numbers, booleans, arrays, objects, and null.
     //! dyn = Json.to_dynamic(Json.String("hello"))
     //! assert Dynamic.as_string(dyn) == Result.Ok("hello")
     //
-    pub host fn to_dynamic(jv: Json): Dynamic
+    pub host fn to_dynamic(jv: Json) -> Dynamic
 
     /// Human-readable shape name used in `Json.ShapeError` messages.
-    pub fn kind(jv: Json): String {
+    pub fn kind(jv: Json) -> String {
         case jv {
             Json.String(_) -> "string"
             Json.Int(_) -> "int"
@@ -98,7 +98,7 @@ fn decode_list<T>(
     index: Int,
     acc: List<T>,
     decode_item: (Json) -> Result<T, Json.ShapeError>,
-): Result<List<T>, Json.ShapeError> {
+) -> Result<List<T>, Json.ShapeError> {
     case items {
         [] ->
             Ok(acc)
@@ -112,13 +112,13 @@ fn decode_list<T>(
 }
 
 impl Display for Json {
-    fn to_string(jv: Json): String {
+    fn to_string(jv: Json) -> String {
         Json.encode(jv)
     }
 }
 
 impl Debug for Json {
-    fn inspect(jv: Json): String {
+    fn inspect(jv: Json) -> String {
         to_string(jv)
     }
 }
@@ -154,7 +154,7 @@ pub struct Json.DecodeError {
 }
 
 impl Display for Json.DecodeError {
-    fn to_string(e: Json.DecodeError): String {
+    fn to_string(e: Json.DecodeError) -> String {
         "json decode error at line ${e.line}, col ${e.col}: ${e.message}"
     }
 }
@@ -194,7 +194,7 @@ pub struct Json.ShapeError {
     got: String
 }
 
-pub fn shape_error_root(expected: String, got: Json): Json.ShapeError {
+pub fn shape_error_root(expected: String, got: Json) -> Json.ShapeError {
     Json.ShapeError{
         path: [],
         expected,
@@ -202,7 +202,7 @@ pub fn shape_error_root(expected: String, got: Json): Json.ShapeError {
     }
 }
 
-pub fn shape_error_prepend(e: Json.ShapeError, segment: String): Json.ShapeError {
+pub fn shape_error_prepend(e: Json.ShapeError, segment: String) -> Json.ShapeError {
     Json.ShapeError{
         path: [segment] + e.path,
         expected: e.expected,
@@ -211,7 +211,7 @@ pub fn shape_error_prepend(e: Json.ShapeError, segment: String): Json.ShapeError
 }
 
 impl Display for Json.ShapeError {
-    fn to_string(e: Json.ShapeError): String {
+    fn to_string(e: Json.ShapeError) -> String {
         message = "expected ${e.expected}, got ${e.got}"
 
         if e.path == [] {
@@ -224,21 +224,21 @@ impl Display for Json.ShapeError {
 }
 
 pub interface ToJson {
-    fn to_json(value: self): Json
+    fn to_json(value: self) -> Json
 }
 
 pub interface FromJson {
-    fn from_json(json: Json): Result<self, Json.ShapeError>
+    fn from_json(json: Json) -> Result<self, Json.ShapeError>
 }
 
 impl ToJson for Int {
-    fn to_json(value: Int): Json {
+    fn to_json(value: Int) -> Json {
         Json.Int(value)
     }
 }
 
 impl FromJson for Int {
-    fn from_json(json: Json): Result<Int, Json.ShapeError> {
+    fn from_json(json: Json) -> Result<Int, Json.ShapeError> {
         case json {
             Json.Int(value) -> Ok(value)
             _ -> Err(shape_error_root("int", json))
@@ -247,7 +247,7 @@ impl FromJson for Int {
 }
 
 impl ToJson for Float {
-    fn to_json(value: Float): Json {
+    fn to_json(value: Float) -> Json {
         Json.Float(value)
     }
 }
@@ -258,7 +258,7 @@ impl FromJson for Float {
     //! assert Float.from_json(Json.Float(2.5)) == Ok(2.5)
     //! assert Float.from_json(Json.Int(2)) == Ok(2.0)
     //
-    fn from_json(json: Json): Result<Float, Json.ShapeError> {
+    fn from_json(json: Json) -> Result<Float, Json.ShapeError> {
         case json {
             Json.Float(value) -> Ok(value)
             Json.Int(value) -> Ok(Int.to_float(value))
@@ -268,13 +268,13 @@ impl FromJson for Float {
 }
 
 impl ToJson for String {
-    fn to_json(value: String): Json {
+    fn to_json(value: String) -> Json {
         Json.String(value)
     }
 }
 
 impl FromJson for String {
-    fn from_json(json: Json): Result<String, Json.ShapeError> {
+    fn from_json(json: Json) -> Result<String, Json.ShapeError> {
         case json {
             Json.String(value) -> Ok(value)
             _ -> Err(shape_error_root("string", json))
@@ -283,13 +283,13 @@ impl FromJson for String {
 }
 
 impl ToJson for Bool {
-    fn to_json(value: Bool): Json {
+    fn to_json(value: Bool) -> Json {
         Json.Bool(value)
     }
 }
 
 impl FromJson for Bool {
-    fn from_json(json: Json): Result<Bool, Json.ShapeError> {
+    fn from_json(json: Json) -> Result<Bool, Json.ShapeError> {
         case json {
             Json.Bool(value) -> Ok(value)
             _ -> Err(shape_error_root("bool", json))
@@ -298,27 +298,27 @@ impl FromJson for Bool {
 }
 
 impl ToJson for List<T> where T: ToJson {
-    fn to_json(value: List<T>): Json {
+    fn to_json(value: List<T>) -> Json {
         Json.Arr(
-            Iter.map(value, |item| ToJson.to_json(item))
+            Iter.map(value, fn item -> ToJson.to_json(item))
             |> Iter.to_list()
         )
     }
 }
 
 impl FromJson for List<T> where T: FromJson {
-    fn from_json(json: Json): Result<List<T>, Json.ShapeError> {
+    fn from_json(json: Json) -> Result<List<T>, Json.ShapeError> {
         case json {
-            Json.Arr(items) -> decode_list(items, 0, [], |item| T.from_json(item))
+            Json.Arr(items) -> decode_list(items, 0, [], fn item -> T.from_json(item))
             _ -> Err(shape_error_root("array", json))
         }
     }
 }
 
 impl ToJson for Vector<T> where T: ToJson {
-    fn to_json(value: Vector<T>): Json {
+    fn to_json(value: Vector<T>) -> Json {
         Json.Arr(
-            Iter.map(value, |item| ToJson.to_json(item))
+            Iter.map(value, fn item -> ToJson.to_json(item))
             |> Iter.to_list()
         )
     }
@@ -326,10 +326,10 @@ impl ToJson for Vector<T> where T: ToJson {
 
 impl FromJson for Vector<T> where T: FromJson {
     /// A vector crosses as a JSON array, as a list does.
-    fn from_json(json: Json): Result<Vector<T>, Json.ShapeError> {
+    fn from_json(json: Json) -> Result<Vector<T>, Json.ShapeError> {
         case json {
             Json.Arr(items) ->
-                case decode_list(items, 0, [], |item| T.from_json(item)) {
+                case decode_list(items, 0, [], fn item -> T.from_json(item)) {
                     Ok(list) -> Ok(Iter.to_vector(list))
                     Err(e) -> Err(e)
                 }
@@ -341,9 +341,9 @@ impl FromJson for Vector<T> where T: FromJson {
 }
 
 impl ToJson for Set<T> where T: ToJson {
-    fn to_json(value: Set<T>): Json {
+    fn to_json(value: Set<T>) -> Json {
         Json.Arr(
-            Iter.map(value, |item| ToJson.to_json(item))
+            Iter.map(value, fn item -> ToJson.to_json(item))
             |> Iter.to_list()
         )
     }
@@ -351,10 +351,10 @@ impl ToJson for Set<T> where T: ToJson {
 
 impl FromJson for Set<T> where T: FromJson {
     /// A set crosses as a JSON array of its elements.
-    fn from_json(json: Json): Result<Set<T>, Json.ShapeError> {
+    fn from_json(json: Json) -> Result<Set<T>, Json.ShapeError> {
         case json {
             Json.Arr(items) ->
-                case decode_list(items, 0, [], |item| T.from_json(item)) {
+                case decode_list(items, 0, [], fn item -> T.from_json(item)) {
                     Ok(list) -> Ok(Iter.to_set(list))
                     Err(e) -> Err(e)
                 }
@@ -366,7 +366,7 @@ impl FromJson for Set<T> where T: FromJson {
 }
 
 impl ToJson for Maybe<T> where T: ToJson {
-    fn to_json(value: Maybe<T>): Json {
+    fn to_json(value: Maybe<T>) -> Json {
         case value {
             Some(inner) -> ToJson.to_json(inner)
             None -> Json.Null
@@ -375,7 +375,7 @@ impl ToJson for Maybe<T> where T: ToJson {
 }
 
 impl FromJson for Maybe<T> where T: FromJson {
-    fn from_json(json: Json): Result<Maybe<T>, Json.ShapeError> {
+    fn from_json(json: Json) -> Result<Maybe<T>, Json.ShapeError> {
         case json {
             Json.Null ->
                 Ok(None)
@@ -390,16 +390,16 @@ impl FromJson for Maybe<T> where T: FromJson {
 }
 
 impl ToJson for Map<String, V> where V: ToJson {
-    fn to_json(value: Map<String, V>): Json {
-        Json.Obj(Map.map_values(value, |item| ToJson.to_json(item)))
+    fn to_json(value: Map<String, V>) -> Json {
+        Json.Obj(Map.map_values(value, fn item -> ToJson.to_json(item)))
     }
 }
 
 impl FromJson for Map<String, V> where V: FromJson {
-    fn from_json(json: Json): Result<Map<String, V>, Json.ShapeError> {
+    fn from_json(json: Json) -> Result<Map<String, V>, Json.ShapeError> {
         case json {
             Json.Obj(items) ->
-                Iter.reduce(items, |state = Ok(Map.empty()), (key, value)| {
+                Iter.reduce(items, fn state = Ok(Map.empty()), #(key, value) -> {
                     case state {
                         Err(e) ->
                             break Err(e)
@@ -423,7 +423,7 @@ impl FromJson for Map<String, V> where V: FromJson {
 // encodes the result with export_result. The IR builder instantiates both
 // for each exported signature (internal/irbuild/exports.go); no Nomi code
 // calls them.
-fn export_argument<T>(text: String): Result<T, String> where T: FromJson {
+fn export_argument<T>(text: String) -> Result<T, String> where T: FromJson {
     case Json.decode(text) {
         Ok(json) ->
             case T.from_json(json) {
@@ -436,6 +436,6 @@ fn export_argument<T>(text: String): Result<T, String> where T: FromJson {
     }
 }
 
-fn export_result<T>(value: T): String where T: ToJson {
+fn export_result<T>(value: T) -> String where T: ToJson {
     Json.encode(ToJson.to_json(value))
 }

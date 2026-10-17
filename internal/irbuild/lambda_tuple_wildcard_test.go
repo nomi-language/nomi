@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 // TestPinned_LambdaTupleWildcard runs lambdas whose tuple parameter pattern
-// holds a `_`: `|(_, v)|`, `|(k, _)|`, `|(_, _)|` and `|(_, (a, _))|`, over a
+// holds a `_`: `fn #(_, v) ->`, `fn #(k, _) ->`, `fn #(_, _) ->` and `fn #(_, #(a, _)) ->`, over a
 // Map and a List of tuples, in Iter.map, Iter.filter, Iter.reduce and
 // Iter.each, and in a generic function. A wildcard binds no name, so the
 // parameter's type comes from the checker's record of the whole pattern
@@ -19,8 +19,8 @@ func TestPinned_LambdaTupleWildcard(t *testing.T) {
 		"[10, 20]\n" +
 		"[\"x\", \"y\"]\n" +
 		"[2, 5]\n" +
-		"[(\"b\", 2)]\n" +
-		"[(\"y\", 20)]\n" +
+		"[#(\"b\", 2)]\n" +
+		"[#(\"y\", 20)]\n" +
 		"3\n" +
 		"30\n" +
 		"1\n" +

@@ -10,7 +10,7 @@ import (
 // Iter element type for the built-in sources — the cases the deleted
 // `next`-shape extractor used to hard-code in unify.go. Under the push
 // protocol the element type is solved from `each_while`'s `yield: (T) -> Bool`
-// parameter rather than a `Maybe<(T, self)>` return, and `Seq` (the lone
+// parameter rather than a `Maybe<#(T, self)>` return, and `Seq` (the lone
 // carrier behind every lazy adapter) has to solve through the nested function
 // type in its `run` field. The behavioral iter.* tests in
 // checker_stdlib_test.go drive these through the unifier; this localizes
@@ -28,7 +28,7 @@ func TestStdlibIterTypeArgsSolve(t *testing.T) {
 		"Vector":      "T",
 		"Seq":         "T",
 		"Set":         "T",
-		"Map":         "(K, V)",
+		"Map":         "#(K, V)",
 		"Range":       "T",
 		"StepByRange": "T",
 		"String":      "String",
@@ -114,9 +114,9 @@ func TestGeneralInterfaceBareTypeArgSolves(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`import std/io
 
 interface Chooser<T> {
-  fn first(p: self): T
+  fn first(p: self) -> T
 
-  fn pick(p: self): T {
+  fn pick(p: self) -> T {
     Chooser.first(p)
   }
 }
@@ -127,7 +127,7 @@ struct Pair<E> {
 }
 
 impl Chooser for Pair<E> {
-  fn first(p: Pair<E>): E {
+  fn first(p: Pair<E>) -> E {
     p.a
   }
 }

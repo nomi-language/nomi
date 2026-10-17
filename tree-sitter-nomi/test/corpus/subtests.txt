@@ -3,7 +3,7 @@ Subtests over a list with a tuple pattern
 ================================================================================
 
 test "palindromes" {
-  subtests cases, (line, known) {
+  subtests cases, #(line, known) {
     assert palindrome?(line) == known
   }
 }
@@ -103,3 +103,97 @@ fn f() {
         (identifier)
         (integer))
       (identifier))))
+
+================================================================================
+Subtests with a name for each row
+================================================================================
+
+test "leap" {
+  subtests cases, #(description, year), description {
+    assert year > 0
+  }
+  subtests cases, #(a, b), "${a} + ${b}" {
+    assert a < b
+  }
+  subtests rows, Ok(n) or Err(n), label(n) {
+    assert n > 0
+  }
+  subtests cases, #(
+    _description,
+    year
+  ), if year > 0 { "after" } else { "before" } {
+    assert year != 0
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (test_declaration
+    (string
+      (string_content))
+    (body
+      (subtests_statement
+        (identifier)
+        (tuple_pattern
+          (identifier)
+          (identifier))
+        (identifier)
+        (body
+          (assertion
+            (binary_expression
+              (identifier)
+              (integer)))))
+      (subtests_statement
+        (identifier)
+        (tuple_pattern
+          (identifier)
+          (identifier))
+        (string
+          (string_interpolation
+            (identifier))
+          (string_content)
+          (string_interpolation
+            (identifier)))
+        (body
+          (assertion
+            (binary_expression
+              (identifier)
+              (identifier)))))
+      (subtests_statement
+        (identifier)
+        (or_pattern
+          (enum_pattern
+            (type_identifier)
+            (identifier))
+          (enum_pattern
+            (type_identifier)
+            (identifier)))
+        (call_expression
+          (identifier)
+          (identifier))
+        (body
+          (assertion
+            (binary_expression
+              (identifier)
+              (integer)))))
+      (subtests_statement
+        (identifier)
+        (tuple_pattern
+          (identifier)
+          (identifier))
+        (if_expression
+          (binary_expression
+            (identifier)
+            (integer))
+          (body
+            (string
+              (string_content)))
+          (body
+            (string
+              (string_content))))
+        (body
+          (assertion
+            (binary_expression
+              (identifier)
+              (integer))))))))

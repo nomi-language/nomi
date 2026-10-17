@@ -59,7 +59,7 @@ func TestGoImport_ASourceWithNoFileChecksThePathOnly(t *testing.T) {
 func goImportProject(path string) map[string]string {
 	return map[string]string{
 		"go.mod":    "module app\n\ngo 1.26.3\n\nrequire example.com/dep v1.0.0\n",
-		"ffi.nomi":  "gopkg \"" + path + "\" as go_ffi\n\npub fn one(): Int {\n  1\n}\n",
+		"ffi.nomi":  "gopkg \"" + path + "\" as go_ffi\n\npub fn one() -> Int {\n  1\n}\n",
 		"main.nomi": "import ffi\n\nfn main() {\n  _ = ffi.one()\n}\n",
 	}
 }
@@ -70,15 +70,15 @@ func goImportProject(path string) map[string]string {
 // run` reported as a gap in Nomi.
 func TestGoImport_AnUndeclaredAliasIsRejected(t *testing.T) {
 	const src = "gopkg \"strings\" as ffi\n\n" +
-		"pub fn up(s: String): String go ffs.ToUpper\n\n" +
+		"pub fn up(s: String) -> String go ffs.ToUpper\n\n" +
 		"fn main() {\n  _ = up(\"a\")\n}\n"
 	_, errs := checkSourceWithStdlib(src)
 	const want = "`go ffs.ToUpper`: no `gopkg` in this file declares the alias ffs\n" +
 		"help: declare the package with `gopkg \"<import path>\" as ffs`"
 	for _, e := range errs {
 		if strings.Contains(diagText(e), want) {
-			if e.Line != 3 || e.Col != 33 {
-				t.Errorf("the error is at %d:%d, want the alias at 3:33", e.Line, e.Col)
+			if e.Line != 3 || e.Col != 35 {
+				t.Errorf("the error is at %d:%d, want the alias at 3:35", e.Line, e.Col)
 			}
 			return
 		}
@@ -89,7 +89,7 @@ func TestGoImport_AnUndeclaredAliasIsRejected(t *testing.T) {
 // The mirror: the alias the file's `gopkg` declares is accepted.
 func TestGoImport_ADeclaredAliasIsAccepted(t *testing.T) {
 	const src = "gopkg \"strings\" as ffi\n\n" +
-		"pub fn up(s: String): String go ffi.ToUpper\n\n" +
+		"pub fn up(s: String) -> String go ffi.ToUpper\n\n" +
 		"fn main() {\n  _ = up(\"a\")\n}\n"
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)

@@ -76,6 +76,20 @@ func (bl *irScalarBuilder) stdBareFuncRef(t *ast.Ident) (ir.Temp, kind, bool, bo
 func (bl *irScalarBuilder) stdFileFuncRef(ref ast.Node, module, name string) (ir.Temp, kind, bool, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool, bool) { return ir.NoTemp, kindInvalid, false, false, true }
 	g := bl.g
+	if module == "testing" && name == "check" {
+		// `testing.check` is an intrinsic with no body to name, so its
+		// value is a function whose body is the check of its parameter
+		// (testingCheck), as an output primitive's is (outputRef).
+		params, result, ok := g.checkedRefValueKinds(ref)
+		if !ok || len(params) != 1 {
+			return no()
+		}
+		v, k, mobile, ok := bl.wrapperRef(ref, "testing.check", params, result, func(child *irScalarBuilder, call *ast.Call) (ir.Temp, kind, bool) {
+			dst, k, _, ok := child.testingCheck(call)
+			return dst, k, ok
+		})
+		return v, k, mobile, ok, true
+	}
 	var generic *stdFunc
 	if g.stdInsts != nil {
 		generic = stdModuleGenericTemplate(g.stdInsts.std.views[module], "", name)
@@ -203,7 +217,7 @@ func (bl *irScalarBuilder) siblingFuncRef(ref ast.Node, to int, f *fileFunc, hos
 			return no()
 		}
 	} else {
-		if !f.lowerable() || f.defaults {
+		if !f.lowerable() {
 			return no()
 		}
 		var ok bool

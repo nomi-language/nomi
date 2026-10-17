@@ -33,12 +33,12 @@ import std/io
 // tail outright (`expected (Int) -> Int, got (Int) -> Unit`), and a loop that
 // takes `continue` cannot terminate at all, because `continue` retries with the
 // same state and nothing an immutable language can observe has changed.
-fn outer(): Int {
+fn outer() -> Int {
     7
 }
 
 fn main() {
-    first = Iter.loop(|n = 0| {
+    first = Iter.loop(fn n = 0 -> {
         if n >= 3 {
             break n
         } else {
@@ -48,22 +48,22 @@ fn main() {
 
     io.print("break value: ${first}")
 
-    via_return = Iter.loop(|n = 1| {
+    via_return = Iter.loop(fn n = 1 -> {
         if n % 3 != 0 { return n + 1 }
         break n
     })
 
     io.print("return advances: ${via_return}")
 
-    _bare = Iter.loop(|| { break })
+    _bare = Iter.loop(fn -> { break })
     io.print("bare break terminated")
 
-    Iter.loop(|| {
+    Iter.loop(fn -> {
         io.print("stateless loop ran")
         break
     })
 
-    seeded = Iter.loop(|n = outer()| {
+    seeded = Iter.loop(fn n = outer() -> {
         if n >= 9 {
             break n
         } else {
@@ -73,16 +73,16 @@ fn main() {
 
     io.print("seed from closure scope: ${seeded}")
 
-    pair = Iter.loop(|state = (0, 1)| {
-        (a, b) = state
-        if b > 50 { break (a, b) }
-        (b, a + b)
+    pair = Iter.loop(fn state = #(0, 1) -> {
+        #(a, b) = state
+        if b > 50 { break #(a, b) }
+        #(b, a + b)
     })
 
     io.print("fib pair: ${pair}")
 
-    captured = Iter.loop(|n = 0| {
-        peek = || n * 10
+    captured = Iter.loop(fn n = 0 -> {
+        peek = fn -> n * 10
         if n == 4 { break peek() }
         n + 1
     })
@@ -91,7 +91,7 @@ fn main() {
 
     count = 0
 
-    shadowed = Iter.loop(|n = 0| {
+    shadowed = Iter.loop(fn n = 0 -> {
         count = count + 1
         io.print("count ${count}")
         if n == 2 { break count }

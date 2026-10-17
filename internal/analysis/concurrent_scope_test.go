@@ -61,9 +61,9 @@ func expectNoConcurrentError(t *testing.T, errs []analysis.TypeError, substr str
 }
 
 func TestConcurrentScope_BareSpawnIsNotPrelude_Errors(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   concurrent {
-    t = spawn(|| 42)
+    t = spawn(fn -> 42)
     t
   }
 }`
@@ -72,11 +72,11 @@ func TestConcurrentScope_BareSpawnIsNotPrelude_Errors(t *testing.T) {
 }
 
 func TestConcurrentScope_LocalSpawnFunctionIsNotTaskSpawn_OK(t *testing.T) {
-	src := `fn spawn(n: Int): Int {
+	src := `fn spawn(n: Int) -> Int {
   n
 }
 
-fn demo(): Int {
+fn demo() -> Int {
   spawn(42)
 }`
 	errs := analyzeConcurrentRaw(src)
@@ -85,9 +85,9 @@ fn demo(): Int {
 
 // Rule 1 (positive case): `spawn` directly inside a `concurrent` block.
 func TestConcurrentScope_SpawnInsideConcurrentBlock_OK(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   concurrent {
-    t = Task.spawn(|| 42)
+    t = Task.spawn(fn -> 42)
     Task.await(t)
   }
 }`
@@ -98,8 +98,8 @@ func TestConcurrentScope_SpawnInsideConcurrentBlock_OK(t *testing.T) {
 // Rule 1 (negative case): bare `spawn` at fn-body top level — no
 // enclosing concurrent block, no concurrent-reachable call chain.
 func TestConcurrentScope_SpawnOutsideConcurrent_Errors(t *testing.T) {
-	src := `fn demo(): Int {
-  t = Task.spawn(|| 42)
+	src := `fn demo() -> Int {
+  t = Task.spawn(fn -> 42)
   Task.await(t)
 }`
 	errs := analyzeConcurrent(src)
@@ -110,10 +110,10 @@ func TestConcurrentScope_SpawnOutsideConcurrent_Errors(t *testing.T) {
 // only called from inside a `concurrent` block. The chain bottoms out
 // inside a `concurrent` ancestor, so the call is legal.
 func TestConcurrentScope_SpawnInHelperReachableFromConcurrent_OK(t *testing.T) {
-	src := `fn helper(): Task<Int> {
-  Task.spawn(|| 99)
+	src := `fn helper() -> Task<Int> {
+  Task.spawn(fn -> 99)
 }
-fn demo(): Int {
+fn demo() -> Int {
   concurrent {
     t = helper()
     Task.await(t)
@@ -127,11 +127,11 @@ fn demo(): Int {
 // from a non-concurrent site. Concurrency-reachability never bottoms
 // out in a `concurrent` block, so the call must be rejected.
 func TestConcurrentScope_SpawnInHelperWithBadCallSite_Errors(t *testing.T) {
-	src := `fn helper(): Int {
-  t = Task.spawn(|| 99)
+	src := `fn helper() -> Int {
+  t = Task.spawn(fn -> 99)
   Task.await(t)
 }
-fn demo(): Int {
+fn demo() -> Int {
   helper()
 }`
 	errs := analyzeConcurrent(src)

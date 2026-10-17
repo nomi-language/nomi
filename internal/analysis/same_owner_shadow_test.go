@@ -4,13 +4,13 @@ import "testing"
 
 func TestSameOwner_LocalCallableHasItsOwnSignature(t *testing.T) {
 	for _, body := range []string{
-		`read = |_n: Int| "local"; read(3)`,
-		`read = |_n: Int| "local"; 3 |> read()`,
+		`read = fn _n: Int -> "local"; read(3)`,
+		`read = fn _n: Int -> "local"; 3 |> read()`,
 	} {
 		_, errs := checkSource(`struct Box { value: Int }
 impl Box {
- fn read(b: Box): Int { b.value }
- fn use(_b: Box): String { ` + body + ` }
+ fn read(b: Box) -> Int { b.value }
+ fn use(_b: Box) -> String { ` + body + ` }
 }`)
 		if len(errs) != 0 {
 			t.Fatalf("%s: %v", body, errs)
@@ -21,8 +21,8 @@ impl Box {
 func TestSameOwner_LocalValueKeepsItsBinding(t *testing.T) {
 	fa, _ := checkSource(`struct Box { value: Int }
 impl Box {
- fn read(b: Box): Int { b.value }
- fn use(b: Box): Int { read = 7; read(b) }
+ fn read(b: Box) -> Int { b.value }
+ fn use(b: Box) -> Int { read = 7; read(b) }
 }`)
 	found := false
 	for pos, sym := range fa.References {

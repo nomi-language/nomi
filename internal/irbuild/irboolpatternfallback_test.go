@@ -12,7 +12,7 @@ import (
 func TestIRBoolPattern_SingletonPayloadBindsAMarker(t *testing.T) {
 	src := `import std/io
 
-fn choose(b: Bool): String {
+fn choose(b: Bool) -> String {
   case b {
     Bool.True(x) -> Debug.inspect(x)
     Bool.False(_) -> "no"

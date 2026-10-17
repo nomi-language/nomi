@@ -38,23 +38,23 @@ func admits(t *testing.T, src string) {
 }
 
 func TestUnreachableCodeIsACheckError(t *testing.T) {
-	rejects(t, "import std/io\n\nfn early(n: Int): Int {\n  return n\n  io.print(\"never\")\n  n + 1\n}\n\n"+
+	rejects(t, "import std/io\n\nfn early(n: Int) -> Int {\n  return n\n  io.print(\"never\")\n  n + 1\n}\n\n"+
 		"fn main() {\n  io.print(\"${early(1)}\")\n}\n",
 		"main.nomi:5:3: unreachable code after return")
 }
 
 func TestSkippedNonTrailingDefaultIsACheckError(t *testing.T) {
-	rejects(t, "import std/io\n\nfn middle(a: Int, b: Int = 10, c: Int): Int {\n  a + b + c\n}\n\n"+
+	rejects(t, "import std/io\n\nfn middle(a: Int, b: Int = 10, c: Int) -> Int {\n  a + b + c\n}\n\n"+
 		"fn main() {\n  io.print(\"${middle(1, 2)}\")\n}\n",
 		"main.nomi:8:15: missing argument for parameter 'c'; positional arguments fill parameters in order "+
 			"and cannot skip the defaulted 'b', so pass this one by name (c: ...)")
-	admits(t, "import std/io\n\nfn middle(a: Int, b: Int = 10, c: Int): Int {\n  a + b + c\n}\n\n"+
+	admits(t, "import std/io\n\nfn middle(a: Int, b: Int = 10, c: Int) -> Int {\n  a + b + c\n}\n\n"+
 		"fn main() {\n  io.print(\"${middle(1, c: 3)}\")\n}\n")
 }
 
 func TestCaseWithoutCatchAllIsACheckError(t *testing.T) {
-	rejects(t, "import std/io\n\nfn sign(x: Int): String {\n  case {\n    x > 0 -> \"positive\"\n    x == 0 -> \"zero\"\n  }\n}\n\n"+
-		"fn word(s: String): Int {\n  case s {\n    \"a\" -> 1\n    \"b\" -> 2\n  }\n}\n\n"+
+	rejects(t, "import std/io\n\nfn sign(x: Int) -> String {\n  case {\n    x > 0 -> \"positive\"\n    x == 0 -> \"zero\"\n  }\n}\n\n"+
+		"fn word(s: String) -> Int {\n  case s {\n    \"a\" -> 1\n    \"b\" -> 2\n  }\n}\n\n"+
 		"fn main() {\n  io.print(sign(-1))\n  io.print(\"${word(\"c\")}\")\n}\n",
 		"main.nomi:4:3: non-exhaustive case: add a `_` arm",
 		"main.nomi:11:3: non-exhaustive case: add a `_` arm")
@@ -63,7 +63,7 @@ func TestCaseWithoutCatchAllIsACheckError(t *testing.T) {
 func TestDecoratorIsAParseError(t *testing.T) {
 	rejects(t, "@uses io\nfn main() {\n  Unit\n}\n",
 		"main.nomi:1:1: `@uses` is not supported: Nomi has no decorators")
-	admits(t, "fn uses(uses: Int): Int {\n  uses\n}\n\nfn main() {\n  _ = uses(1)\n}\n")
+	admits(t, "fn uses(uses: Int) -> Int {\n  uses\n}\n\nfn main() {\n  _ = uses(1)\n}\n")
 }
 
 func TestRedundantPreludeImportIsACheckError(t *testing.T) {
@@ -83,7 +83,7 @@ func TestLoadBearingStdImportsStayAdmitted(t *testing.T) {
 // A lowering fuzz find: calling a value of type parameter `T` was admitted
 // and the IR builder declined the body.
 func TestCallingATypeParameterValueIsACheckError(t *testing.T) {
-	rejects(t, "fn evens<T>(xs: List<T>): List<T> {\n  case xs {\n    [] -> []\n    [x, ..rest] -> [x(rest)]\n  }\n}\n\n"+
+	rejects(t, "fn evens<T>(xs: List<T>) -> List<T> {\n  case xs {\n    [] -> []\n    [x, ..rest] -> [x(rest)]\n  }\n}\n\n"+
 		"fn main() {\n  _ = evens([1])\n}\n",
 		"main.nomi:4:21: `T` is not a function")
 }

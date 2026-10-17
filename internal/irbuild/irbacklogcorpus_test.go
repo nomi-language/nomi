@@ -13,15 +13,15 @@ import "testing"
 func TestIRBacklogCorpus_MixedShapesRunOnTheVM(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
-type Coord (Int, Int)
+type Coord #(Int, Int)
 
 type Kvs Map<String, Int>
 
 type Callback (String) -> String
 
 interface Named {
-  fn name(value: self): String
-  fn greet(value: self, loud: Bool = False): String {
+  fn name(value: self) -> String
+  fn greet(value: self, loud: Bool = False) -> String {
     if loud { "HI " + name(value) } else { "hi " + name(value) }
   }
 }
@@ -31,14 +31,14 @@ struct Dog {
 }
 
 impl Named for Dog {
-  fn name(dog: Dog): String { dog.name }
+  fn name(dog: Dog) -> String { dog.name }
 }
 
-fn say(n: Named): String {
+fn say(n: Named) -> String {
   Named.greet(n) + "/" + Named.name(n)
 }
 
-fn pick(a: Bool, b: Bool): String {
+fn pick(a: Bool, b: Bool) -> String {
   case {
     a and b -> "both"
     a or b -> "one"
@@ -46,12 +46,12 @@ fn pick(a: Bool, b: Bool): String {
   }
 }
 
-fn noisy(label: String, v: Bool): Bool {
+fn noisy(label: String, v: Bool) -> Bool {
   io.print(label)
   v
 }
 
-fn classify(f: Float): String {
+fn classify(f: Float) -> String {
   case f {
     -2.5 -> "neg"
     0.0 -> "zero"
@@ -69,10 +69,10 @@ fn main() {
   c = Coord(3, 4)
   io.inspect(c)
   io.inspect(c == Coord(3, 4))
-  io.inspect(c == Coord((3, 5)))
-  k = Kvs{"a" => 1}
+  io.inspect(c == Coord(#(3, 5)))
+  k = Kvs%{"a" => 1}
   io.inspect(k)
-  cb = Callback(|s| s + "!")
+  cb = Callback(fn s -> s + "!")
   io.print(run(cb, "go"))
   io.print(say(Dog{name: "Rex"}))
   io.print(Named.greet(Dog{name: "Rex"}, True))
@@ -81,8 +81,8 @@ fn main() {
   io.inspect(Set.size(Iter.to_set([1.50d, 1.5d, 2.0d])))
 }
 
-fn run(cb: Callback, s: String): String {
+fn run(cb: Callback, s: String) -> String {
   cb(s)
 }
-`, "\"both\"\n\"one\"\n\"none\"\na\n0\n[-0.0, 0.0, 1.0, 2.0, 3.0]\n[True, False, True, True, True, True]\nCoord(3, 4)\nTrue\nFalse\nKvs({\"a\" => 1})\ngo!\nhi Rex/Rex\nHI Rex\n\"neg\"\n\"zero\"\n2\n")
+`, "\"both\"\n\"one\"\n\"none\"\na\n0\n[-0.0, 0.0, 1.0, 2.0, 3.0]\n[True, False, True, True, True, True]\nCoord(3, 4)\nTrue\nFalse\nKvs(%{\"a\" => 1})\ngo!\nhi Rex/Rex\nHI Rex\n\"neg\"\n\"zero\"\n2\n")
 }

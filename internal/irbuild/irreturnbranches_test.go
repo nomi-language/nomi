@@ -5,7 +5,7 @@ import "testing"
 func TestIRReturnBranches_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"named scoped values", `import std/io
-fn choose(flag: Bool, n: Int): Int {
+fn choose(flag: Bool, n: Int) -> Int {
   if flag {
     value = n + 1
     io.print("left")
@@ -33,13 +33,13 @@ fn use(choose: (Bool) -> Int) {
 }
 fn main() {
   base = 8
-  use(|flag: Bool| {
+  use(fn flag: Bool -> {
     if flag { return base } else { return base + 1 }
   })
 }`, "8\n9\n"},
 		{"guard then short-circuit returning arms", `import std/io
-fn check(): Bool { io.print("check") True }
-fn choose(early: Bool, left: Bool): Int {
+fn check() -> Bool { io.print("check") True }
+fn choose(early: Bool, left: Bool) -> Int {
   if early { return 0 }
   if left and check() { return 1 } else { return 2 }
 }

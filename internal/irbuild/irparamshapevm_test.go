@@ -286,10 +286,13 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 				qual = irModuleQualifier(mod.Name())
 			}
 			if args, ok := vmArgsForKindsIn(kinds[fn], qual); ok && len(kinds[fn]) == len(fn.Params()) {
-				if err := run(e, args); vmRan(err) {
-					okAny = true
-				} else {
-					lastErr = err
+				for _, vector := range [][]any{args, vmAscending(args)} {
+					if err := run(e, vector); vmRan(err) {
+						okAny = true
+						break
+					} else {
+						lastErr = err
+					}
 				}
 			}
 		}

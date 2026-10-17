@@ -214,15 +214,26 @@ func triggerCharacter(params *protocol.CompletionParams) string {
 }
 
 // triggerMayOpen decides, from the text alone, whether a trigger character
-// can lead anywhere, so the common `>` of `->` or a comparison and the `{`
-// of a block cost nothing: `>` only completes the `|>` of a pipe, and `{`
+// can lead anywhere, so the common `>` of a case arm's `->` or a comparison
+// and the `{` of a block cost nothing: `>` only completes the `|>` of a pipe
+// or the return type after a signature's `)` (`fn f() ->`), and `{`
 // only a struct literal's fields, whose `{` follows the type's name
 // (`Point{`) or stands where a value goes (braceMayOpenLiteral), a quote or backtick only a typed literal's body (`Date"`),
 // and `:` only an annotation, whose `:` follows the annotated name.
 func triggerMayOpen(trigger, content string, off int) bool {
 	switch trigger {
 	case ">":
-		return off >= 2 && content[off-2:off] == "|>"
+		if off < 2 {
+			return false
+		}
+		if content[off-2:off] == "|>" {
+			return true
+		}
+		i := off - 2
+		for i > 0 && content[i-1] == ' ' {
+			i--
+		}
+		return content[off-2:off] == "->" && i > 0 && content[i-1] == ')' && !endsLambdaHeader(content, off-2)
 	case "{":
 		return off >= 2 && content[off-1] == '{' && braceMayOpenLiteral(content, off-1)
 	case ",":
@@ -238,9 +249,8 @@ func triggerMayOpen(trigger, content string, off int) bool {
 		// A typed literal's opener follows its type's name (`Date"`).
 		return off >= 2 && content[off-1] == trigger[0] && isWordByte(content[off-2])
 	case ":":
-		// An annotation's `:` follows the annotated name (`game:`) or a
-		// signature's `)` (`fn f():`).
-		return off >= 2 && content[off-1] == ':' && (isWordByte(content[off-2]) || content[off-2] == ')')
+		// An annotation's `:` follows the annotated name (`game:`).
+		return off >= 2 && content[off-1] == ':' && isWordByte(content[off-2])
 	}
 	return true
 }
@@ -248,7 +258,7 @@ func triggerMayOpen(trigger, content string, off int) bool {
 // braceMayOpenLiteral reports, from the text alone, whether the `{` at brace
 // can open a struct literal: right after the type's name (`Point{`), or where
 // a value goes and a bare brace may build the struct the position expects,
-// after `:`, `=`, `(`, `,`, `[`, a case arm's `->`, `return`, or at the start
+// after `:`, `=`, `(`, `,`, `[`, a case arm's `->` (not a lambda's), `return`, or at the start
 // of a line (a block's tail). A function's, an if's or a case's `{` follows
 // a `)`, a type or a condition and a space, so it costs nothing;
 // classification decides the rest.
@@ -267,9 +277,41 @@ func braceMayOpenLiteral(content string, brace int) bool {
 	case ':', '=', '(', ',', '[', '\n':
 		return true
 	case '>':
-		return i >= 2 && content[i-2] == '-'
+		return i >= 2 && content[i-2] == '-' && !endsLambdaHeader(content, i-2)
 	}
 	return strings.HasSuffix(content[:i], "return") && (i == len("return") || !isWordByte(content[i-len("return")-1]))
+}
+
+// endsLambdaHeader reports whether the `->` at arrow ends a lambda's
+// parameters (`fn x -> {`) rather than a case arm's pattern or a
+// declaration's return type: walking back along its line, a `fn` word comes
+// before any other `->`, and it is not a declaration's `fn`, which a name
+// and `(` or `<` follow (`fn f() ->`). A brace after a lambda's arrow opens
+// its block body.
+func endsLambdaHeader(content string, arrow int) bool {
+	for j := arrow - 1; j >= 1 && content[j] != '\n'; j-- {
+		if content[j-1] == '-' && content[j] == '>' {
+			return false
+		}
+		if content[j-1] == 'f' && content[j] == 'n' && (j+1 >= len(content) || !isWordByte(content[j+1])) && (j < 2 || !isWordByte(content[j-2])) {
+			return !declaresFunction(content[j+1 : arrow])
+		}
+	}
+	return false
+}
+
+// declaresFunction reports whether rest, the text after a `fn` keyword,
+// starts as a declaration does: a lowercase name and then `(` or `<`.
+func declaresFunction(rest string) bool {
+	rest = strings.TrimLeft(rest, " \t")
+	if rest == "" || !(rest[0] >= 'a' && rest[0] <= 'z' || rest[0] == '_') {
+		return false
+	}
+	i := 0
+	for i < len(rest) && (isWordByte(rest[i]) || rest[i] == '?') {
+		i++
+	}
+	return i < len(rest) && (rest[i] == '(' || rest[i] == '<')
 }
 
 // candidates dispatches on the position.

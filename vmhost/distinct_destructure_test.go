@@ -17,13 +17,13 @@ func TestDistinctDestructuring_EveryFormRuns(t *testing.T) {
 type Balance Int
 type Ratio Float
 type Name String
-type Pair (Int, String)
+type Pair #(Int, String)
 
-fn cents(Balance(n)): Int {
+fn cents(Balance(n)) -> Int {
     n
 }
 
-fn first(maybe: Maybe<Balance>): Int {
+fn first(maybe: Maybe<Balance>) -> Int {
     Some(Balance(n)) = maybe else {
         return -1
     }
@@ -41,13 +41,13 @@ fn main() {
     io.inspect(first(Some(Balance(7))))
     io.inspect(first(None))
     io.inspect(cents(Balance(3)))
-    double = |Balance(m)| Balance(m * 2)
+    double = fn Balance(m) -> Balance(m * 2)
     io.inspect(double(balance))
     Pair(a, b) = Pair(1, "x")
-    io.inspect((a, b))
+    io.inspect(#(a, b))
 }
 `)
-	want := "42\n1.5\n\"ada\"\n7\n-1\n3\nBalance(84)\n(1, \"x\")\n"
+	want := "42\n1.5\n\"ada\"\n7\n-1\n3\nBalance(84)\n#(1, \"x\")\n"
 	if got != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 	}

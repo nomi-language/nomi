@@ -30,7 +30,7 @@ var nestedForms = []struct {
 		return "fn main() {\n  _x = " + strings.Repeat("[", d) + "1" + strings.Repeat("]", d) + "\n}\n"
 	}},
 	{"unclosed lists", func(d int) string { return "fn main() {\n  _x = " + strings.Repeat("[", d) + "\n  todo\n" }},
-	{"lambdas", func(d int) string { return "fn main() {\n  _x = " + strings.Repeat("|| ", d) + "1\n}\n" }},
+	{"lambdas", func(d int) string { return "fn main() {\n  _x = " + strings.Repeat("fn -> ", d) + "1\n}\n" }},
 	{"ifs", func(d int) string {
 		return "fn main() {\n  _x = " + strings.Repeat("if True { ", d) + "1" + strings.Repeat(" } else { 2 }", d) + "\n}\n"
 	}},
@@ -42,16 +42,16 @@ var nestedForms = []struct {
 		return "fn main() {\n  _x = " + strings.Repeat("{a: ", d) + "1" + strings.Repeat("}", d) + "\n}\n"
 	}},
 	{"maps", func(d int) string {
-		return "fn main() {\n  _x = " + strings.Repeat("{1 => ", d) + "1" + strings.Repeat("}", d) + "\n}\n"
+		return "fn main() {\n  _x = " + strings.Repeat("%{1 => ", d) + "1" + strings.Repeat("}", d) + "\n}\n"
 	}},
 	{"map keys", func(d int) string {
-		return "fn main() {\n  _x = " + strings.Repeat("{", d) + "1" + strings.Repeat(" => 1}", d) + "\n}\n"
+		return "fn main() {\n  _x = " + strings.Repeat("%{", d) + "1" + strings.Repeat(" => 1}", d) + "\n}\n"
 	}},
 	{"map patterns", func(d int) string {
-		return "fn main() {\n  " + strings.Repeat("{1 => ", d) + "x" + strings.Repeat("}", d) + " = todo\n}\n"
+		return "fn main() {\n  " + strings.Repeat("%{1 => ", d) + "x" + strings.Repeat("}", d) + " = todo\n}\n"
 	}},
 	{"tuple patterns", func(d int) string {
-		return "fn main() {\n  " + strings.Repeat("(", d) + "a, b" + strings.Repeat(", c)", d) + " = todo\n}\n"
+		return "fn main() {\n  " + strings.Repeat("#(", d) + "a, b" + strings.Repeat(", c)", d) + " = todo\n}\n"
 	}},
 	{"types", func(d int) string {
 		return "fn f(_x: " + strings.Repeat("List<", d) + "Int" + strings.Repeat(">", d) + ") {\n}\n"
@@ -89,9 +89,9 @@ func TestNesting_PastTheLimitIsAnError(t *testing.T) {
 
 // Below the limit, each form parses without that error, and the parser's
 // work grows linearly with the depth. Counted as expression parses started,
-// speculative ones included: a `{` probes for a map entry by parsing the
-// expression after it, and that probe once made each level of nested
-// braces double the work, so 20 levels took a minute.
+// speculative ones included: a speculative parse that is redone at each
+// level of nesting makes each level double the work, as the map probe a `{`
+// once ran did, so 20 levels took a minute.
 func TestNesting_WorkIsLinearInTheDepth(t *testing.T) {
 	limit := fmt.Sprintf("nesting deeper than %d levels", MaxNesting)
 	for _, form := range nestedForms {

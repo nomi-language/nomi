@@ -1,7 +1,7 @@
 import shapes.Box
 
 impl Debug for Box {
-    fn inspect(b: Box): String {
+    fn inspect(b: Box) -> String {
         "Box(" + Int.to_string(b.w) + ")"
     }
 }

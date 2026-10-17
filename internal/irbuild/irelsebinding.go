@@ -13,7 +13,7 @@ package irbuild
 // signalling callback's `break` or `continue` (the checker requires it).
 //
 // FALLBACK. The pattern is one variant with a payload whose own pattern always
-// matches (`Some(email)`, `Ok((w, h))`, `.Valid{addr, score}`), so an else path
+// matches (`Some(email)`, `Ok(#(w, h))`, `.Valid{addr, score}`), so an else path
 // may produce a value instead of leaving. A slot of the payload's kind is
 // declared; the variant is tested; the success edge writes the projected
 // payload into the slot and the else's value paths write their fallback into
@@ -178,6 +178,10 @@ func (g *gen) irPatternAlwaysMatches(p ast.Node, k kind) bool {
 		return true
 	case *ast.AsPattern:
 		return g.irPatternAlwaysMatches(v.Pattern, k)
+	case *ast.OrPattern:
+		// `.L(n) or .R(n)` over a two-variant enum: the checker records an
+		// `or` whose alternatives together cover their position.
+		return g.srcFA().OrPatternCovers(v)
 	case *ast.TuplePattern:
 		if !irRetainedTupleKind(k) || len(v.Patterns) != len(k.comp.parts) {
 			return false
@@ -392,14 +396,23 @@ func (bl *irScalarBuilder) loopElsePath(arm, exit *ir.Block, body ast.Node, sig 
 		defer func() { bl.withScope = outer }()
 		ws = bl.openWithScope(false)
 	}
+	var pathDefers *irDeferScope
+	if leaves {
+		// A leaving path is a block of its own, as a loop guard's arm is: a
+		// `defer` in it runs as it leaves the iteration (loopJump).
+		pathDefers = &irDeferScope{outer: bl.openDefers}
+		bl.openDefers = pathDefers
+		defer func() { bl.openDefers = pathDefers.outer }()
+	}
 	for _, s := range lead {
 		if leaves {
 			bl.loopWithScope(lp)
+			bl.deferScope = pathDefers
 		} else {
 			bl.withScope = ws
 		}
-		if !bl.leading([]ast.Node{s}) || bl.b != arm {
-			irDeclineNote("an Iter.loop binding else whose statements branch")
+		// A statement may branch and join; the path goes on from its join.
+		if !bl.leading([]ast.Node{s}) {
 			return false
 		}
 	}
@@ -417,13 +430,42 @@ func (bl *irScalarBuilder) loopElsePath(arm, exit *ir.Block, body ast.Node, sig 
 		target = lp.head
 	case *ast.Continue:
 		target = lp.head
+	case *ast.If, *ast.Case:
+		// A region tail: each of its arms leaves as a loop arm does
+		// (armInto) or writes the fallback into the payload slot.
+		if sig.testArms {
+			irDeclineNote("an Iter.loop binding else in a test body whose tail is a region")
+			return false
+		}
+		var k kind
+		var ok bool
+		if t, isIf := s.(*ast.If); isIf {
+			k, ok = bl.ifRegion(t, sig)
+		} else {
+			k, ok = bl.caseRegion(s.(*ast.Case), sig)
+		}
+		if !ok {
+			return false
+		}
+		if k == kindDiverged || !ir.Reachable(bl.f)[bl.b.ID()] {
+			// Every arm left the iteration, so the region's exit is
+			// unreachable and the path writes nothing.
+			bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(tail), bl.b.ID()))
+			return true
+		}
+		if sig.result == kindUnit {
+			irDeclineNote("an Iter.loop binding else path that neither leaves nor falls back")
+			return false
+		}
+		bl.closeWithScope(ws, tail)
+		target = exit
 	default:
 		if sig.result == kindUnit || sig.testArms {
 			irDeclineNote("an Iter.loop binding else path that neither leaves nor falls back")
 			return false
 		}
 		val, k, _, ok := bl.lowerWant(tail, sig.result)
-		if !ok || k != sig.result || bl.b != arm {
+		if !ok || k != sig.result {
 			irDeclineNote("an Iter.loop binding else fallback outside a straight value of the payload kind")
 			return false
 		}
@@ -432,7 +474,8 @@ func (bl *irScalarBuilder) loopElsePath(arm, exit *ir.Block, body ast.Node, sig 
 		target = exit
 	}
 	if target == exit {
-		arm.SetTerm(ir.NewJump(bl.g.irNodePos(tail), target.ID()))
+		// The value may branch (`a and b`); the jump leaves from its join.
+		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(tail), target.ID()))
 		return true
 	}
 	// A `break` or `return` value may branch (`a and b`); the jump leaves

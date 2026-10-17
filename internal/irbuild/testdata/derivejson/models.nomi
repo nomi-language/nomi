@@ -6,11 +6,11 @@ pub struct Away {
     name: String
 }
 
-pub fn away(name: String): Away {
+pub fn away(name: String) -> Away {
     Away{name}
 }
 
-pub fn name_of(a: Away): String {
+pub fn name_of(a: Away) -> String {
     a.name
 }
 
@@ -21,7 +21,7 @@ pub fn name_of(a: Away): String {
 // under the tree to publish no diagnostics, and an imported-but-unused name is
 // one. Dropping the import satisfies the LSP and makes the derive refuse; this
 // function satisfies both.
-pub fn is_null?(j: Json): Bool {
+pub fn is_null?(j: Json) -> Bool {
     case j {
         Json.Null -> True
         _ -> False

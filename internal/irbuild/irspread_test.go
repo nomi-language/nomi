@@ -35,11 +35,11 @@ struct P {
   y: Int
   label: String
 }
-fn mark(label: String, n: Int): Int {
+fn mark(label: String, n: Int) -> Int {
   io.print(label)
   n
 }
-fn base(): P {
+fn base() -> P {
   io.print("base")
   P{x: 1, y: 2, label: "p"}
 }

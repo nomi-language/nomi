@@ -45,7 +45,7 @@ type Export struct {
 	// whose call answers `null`.
 	Result string
 	// Signature is the declaration without `export fn`:
-	// `guess(game: Game, letter: String): Game`.
+	// `guess(game: Game, letter: String) -> Game`.
 	Signature string
 }
 
@@ -254,11 +254,21 @@ func (in *Instance) CallResult(name string, argsJSON []byte) []byte {
 
 // ErrorResult is the `{"error": "<text>"}` answer for err.
 func ErrorResult(err error) []byte {
-	text, _ := json.Marshal(err.Error())
+	text := plainJSON(err.Error())
 	out := make([]byte, 0, len(text)+11)
 	out = append(out, `{"error":`...)
 	out = append(out, text...)
 	return append(out, '}')
+}
+
+// plainJSON is v as JSON with `<`, `>` and `&` left as written, so a
+// signature's `->` reads as `->` rather than `->`.
+func plainJSON(v any) []byte {
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(false)
+	_ = enc.Encode(v)
+	return bytes.TrimSuffix(b.Bytes(), []byte("\n"))
 }
 
 // Close stops the program as the end of a run does.

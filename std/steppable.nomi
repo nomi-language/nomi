@@ -13,5 +13,5 @@ pub interface Steppable<S> {
     /// Steppable.step_by(1, 2)      // → Some(3)
     /// Steppable.step_by(1.0d, 0.1d) // → Some(1.1d)
     /// ```
-    fn step_by(value: self, by: S): Maybe<self>
+    fn step_by(value: self, by: S) -> Maybe<self>
 }

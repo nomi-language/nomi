@@ -80,7 +80,7 @@ In a real project, the three files would sit side by side in one directory.
 
 ```nomi-run
 // FILE: math.nomi
-pub fn double(n: Int): Int {
+pub fn double(n: Int) -> Int {
     n * 2
 }
 
@@ -119,12 +119,12 @@ use it:
 
 ```nomi-run
 // FILE: math.nomi
-pub fn double(n: Int): Int {
+pub fn double(n: Int) -> Int {
     n * 2
 }
 
 // Private: only math.nomi can call this directly.
-fn helper(n: Int): Int {
+fn helper(n: Int) -> Int {
     n + 1
 }
 
@@ -162,7 +162,7 @@ A part of an API that stands on its own can go in a file of its own:
 
 ```nomi-run
 // FILE: header.nomi
-pub fn canonical_name(name: String): String {
+pub fn canonical_name(name: String) -> String {
     name
 }
 
@@ -213,7 +213,7 @@ as that a number is positive. Or you may want to change the contents later.
 pub opaque type UserId Int
 
 impl UserId {
-    pub fn new(n: Int): Result<UserId, String> {
+    pub fn new(n: Int) -> Result<UserId, String> {
         if n > 0 {
             Ok(UserId(n))
         } else {
@@ -221,7 +221,7 @@ impl UserId {
         }
     }
 
-    pub fn value(id: UserId): Int {
+    pub fn value(id: UserId) -> Int {
         UserId(n) = id // only ids.nomi can destructure UserId
         n
     }

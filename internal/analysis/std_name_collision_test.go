@@ -34,16 +34,16 @@ func TestConcurrentScope_UserTaskTypeSpawnIsNotTaskSpawn_OK(t *testing.T) {
 }
 
 impl Task {
-  fn spawn(n: Int): Task {
+  fn spawn(n: Int) -> Task {
     Task{n: n}
   }
 
-  fn spawn_all(t: Task): Int {
+  fn spawn_all(t: Task) -> Int {
     t.n
   }
 }
 
-fn demo(): Int {
+fn demo() -> Int {
   Task.spawn(4) |> Task.spawn_all()
 }`
 	errs := analyzeConcurrentRaw(src)
@@ -53,8 +53,8 @@ fn demo(): Int {
 }
 
 func TestConcurrentScope_StdTaskSpawnBesideNoUserTask_Errors(t *testing.T) {
-	src := `fn demo(): Int {
-  t = Task.spawn(|| 42)
+	src := `fn demo() -> Int {
+  t = Task.spawn(fn -> 42)
   Task.await(t)
 }`
 	expectConcurrentError(t, analyzeConcurrent(src), "spawn outside concurrent block")
@@ -66,16 +66,16 @@ func TestBootScope_UserSupervisorNewIsNotSupervisorNew_OK(t *testing.T) {
 }
 
 impl Supervisor {
-  fn new(name: String): Supervisor {
+  fn new(name: String) -> Supervisor {
     Supervisor{name: name}
   }
 }
 
-fn make(): Supervisor {
+fn make() -> Supervisor {
   Supervisor.new("root")
 }
 
-fn demo(): String {
+fn demo() -> String {
   make().name
 }`
 	if errs := analyzeBootScope(src); len(errs) != 0 {
@@ -89,7 +89,7 @@ func TestBootScope_StdSupervisorNewOutsideBoot_Errors(t *testing.T) {
   std/supervisors.Supervisor
 }
 
-fn make_group(): Supervisor {
+fn make_group() -> Supervisor {
   Supervisor.new(shutdown_timeout: Duration.seconds(5), max_running: 4)
 }
 

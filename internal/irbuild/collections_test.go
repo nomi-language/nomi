@@ -13,7 +13,7 @@ import (
 // two spellings of one tuple shape are ONE kind, compared with plain `==`.
 //
 // The pointer is the identity (see composite.go), so this is a pointer-equality
-// assertion in disguise — which is the point. If two `(Int, String)` kinds were
+// assertion in disguise — which is the point. If two `#(Int, String)` kinds were
 // two pointers, every type agreement check in the builder would refuse valid
 // programs, and the enum slot layout would allocate two fields for one type.
 func TestTupleIsOneGoTypePerShape(t *testing.T) {
@@ -25,9 +25,9 @@ func TestTupleIsOneGoTypePerShape(t *testing.T) {
 		t.Fatalf("two (Int, String) kinds are not equal: %v vs %v", a.nomi(), b.nomi())
 	}
 	if a == c {
-		t.Fatalf("(Int, String) and (String, Int) share one kind: %v", a.nomi())
+		t.Fatalf("#(Int, String) and #(String, Int) share one kind: %v", a.nomi())
 	}
-	if a.nomi() != "(Int, String)" {
+	if a.nomi() != "#(Int, String)" {
 		t.Fatalf("tuple spelling is %q", a.nomi())
 	}
 	// Arity below two is a caller bug, not a one-field struct: Nomi has no

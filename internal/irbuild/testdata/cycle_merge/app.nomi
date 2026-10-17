@@ -31,7 +31,7 @@ import {
 }
 
 pub interface Show {
-    fn show(value: self): String
+    fn show(value: self) -> String
 }
 
 pub struct Config {
@@ -41,14 +41,14 @@ pub struct Config {
 
 pub once tag: String = "app"
 
-pub fn stamp(c: Config): String {
+pub fn stamp(c: Config) -> String {
     "${c.name}/${c.level}"
 }
 
 // Calls both `build`s, the two declarations that share one name,
 // from inside the package they share. A collapsed resolution prints prod's
 // Config where test's belongs.
-pub fn load(which: String): Config {
+pub fn load(which: String) -> Config {
     if which == "prod" {
         prod.build()
     } else {
@@ -68,17 +68,17 @@ pub fn load(which: String): Config {
 // call onto a CO-TENANT's type is still `call to an unlowered impl`, which is a
 // sibling-function plumbing gap this change does not touch and which would make
 // the fixture refuse for somebody else's reason.
-pub fn badges(): String {
+pub fn badges() -> String {
     "${prod.badge()}|${t.badge()}"
 }
 
 // This file's own `once` and then BOTH siblings' — three getters that all
 // wanted the identifier `NomiOnce_tag`, resolved from inside the one package
 // that holds all three.
-pub fn origin(): String {
+pub fn origin() -> String {
     "${tag}+${prod.tag}+${t.tag}"
 }
 
-pub fn label(): String {
+pub fn label() -> String {
     "app-label"
 }

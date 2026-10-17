@@ -32,7 +32,7 @@
 import std/io
 
 interface Speech {
-    fn speak(animal: self): String
+    fn speak(animal: self) -> String
 }
 
 struct Dog {
@@ -40,7 +40,7 @@ struct Dog {
 }
 
 impl Speech for Dog {
-    fn speak(dog: Dog): String {
+    fn speak(dog: Dog) -> String {
         dog.name + " says woof"
     }
 }
@@ -50,7 +50,7 @@ struct Cat {
 }
 
 impl Speech for Cat {
-    fn speak(cat: Cat): String {
+    fn speak(cat: Cat) -> String {
         _ = cat
         "meow"
     }
@@ -60,15 +60,15 @@ struct Kennel {
     pet: Speech
 }
 
-fn announce(s: Speech): String {
+fn announce(s: Speech) -> String {
     Speech.speak(s)
 }
 
-fn no_speech(_s: Speech): Bool {
+fn no_speech(_s: Speech) -> Bool {
     False
 }
 
-fn no_kennel(_k: Kennel): Bool {
+fn no_kennel(_k: Kennel) -> Bool {
     False
 }
 

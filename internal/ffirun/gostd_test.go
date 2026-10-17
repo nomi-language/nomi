@@ -78,10 +78,10 @@ const stdBindingsSource = `gopkg "strings" as strings
 gopkg "strconv" as strconv
 gopkg "math" as math
 
-fn upper(s: String): String go strings.ToUpper
-fn itoa(n: Int): String go strconv.Itoa
-fn atoi(s: String): Result<Int, String> go strconv.Atoi
-fn sqrt(x: Float): Float go math.Sqrt
+fn upper(s: String) -> String go strings.ToUpper
+fn itoa(n: Int) -> String go strconv.Itoa
+fn atoi(s: String) -> Result<Int, String> go strconv.Atoi
+fn sqrt(x: Float) -> Float go math.Sqrt
 `
 
 // TestStdBindings_DiscoveredValidatedAndAdapted: bindings to standard library
@@ -118,17 +118,17 @@ func TestStdBindings_ValidationNamesTheProblem(t *testing.T) {
 gopkg "slices" as slices
 gopkg "example.com/elsewhere" as elsewhere
 
-fn shout(s: String): String go strings.Shout
-fn biggest(xs: List<Int>): Int go slices.Max
-fn upper(n: Int): String go strings.ToUpper
-fn f(): Int go elsewhere.F
+fn shout(s: String) -> String go strings.Shout
+fn biggest(xs: List<Int>) -> Int go slices.Max
+fn upper(n: Int) -> String go strings.ToUpper
+fn f() -> Int go elsewhere.F
 `)
 	err := validateDiscoveredGoBindings(root, got)
 	if err == nil {
 		t.Fatal("validation passed")
 	}
 	for _, want := range []string{
-		`main.nomi:5:40: Go package "strings" has no top-level function "Shout" for Nomi binding "shout"`,
+		`main.nomi:5:42: Go package "strings" has no top-level function "Shout" for Nomi binding "shout"`,
 		`Go function "Max" in package "slices" is generic`,
 		`signature mismatch for Go function "ToUpper" in package "strings": parameter 1 "n" projects to String, but Nomi declares Int`,
 		`Go package "example.com/elsewhere" is not in the Go standard library, and no go.mod above the declaring file provides it`,

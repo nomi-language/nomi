@@ -241,13 +241,13 @@ func TestFormat_Block_MultilineAssertionsAreBlankSeparated(t *testing.T) {
 }
 
 func TestFormat_Block_NestedImportsSeparatedFromBody(t *testing.T) {
-	src := `fn first(): Maybe<Int> {
+	src := `fn first() -> Maybe<Int> {
     import std/maybe: Maybe as Local
     import std/results: Result as Outcome
     Outcome.Ok(Local.Some(1))
 }
 `
-	want := `fn first(): Maybe<Int> {
+	want := `fn first() -> Maybe<Int> {
     import {
         std/maybe.Maybe as Local
         std/results.Result as Outcome
@@ -263,13 +263,13 @@ func TestFormat_Block_NestedImportsSeparatedFromBody(t *testing.T) {
 }
 
 func TestFormat_Block_NestedImportsMoveToTop(t *testing.T) {
-	src := `fn first(): Maybe<Int> {
+	src := `fn first() -> Maybe<Int> {
     x = 1
     import std/maybe: Maybe as Local
     Local.Some(x)
 }
 `
-	want := `fn first(): Maybe<Int> {
+	want := `fn first() -> Maybe<Int> {
     import std/maybe.Maybe as Local
 
     x = 1
@@ -414,20 +414,20 @@ func TestFormat_Pipe_AuthoredMultiline_StaysStacked(t *testing.T) {
 }
 
 func TestFormat_PipeDbgPrefixCanonicalizesToStage(t *testing.T) {
-	src := `fn double(n: Int): Int {
+	src := `fn double(n: Int) -> Int {
     n * 2
 }
 
-fn main(): Int {
+fn main() -> Int {
     5
     |> dbg double()
 }
 `
-	want := `fn double(n: Int): Int {
+	want := `fn double(n: Int) -> Int {
     n * 2
 }
 
-fn main(): Int {
+fn main() -> Int {
     5
     |> double()
     |> dbg
@@ -440,7 +440,7 @@ fn main(): Int {
 }
 
 func TestFormat_PipeTryPrefixStaysPrefix(t *testing.T) {
-	src := `fn main(m: Maybe<Int>): Result<Int, String> {
+	src := `fn main(m: Maybe<Int>) -> Result<Int, String> {
     m
     |> try to_result()
     |> Ok()
@@ -453,9 +453,9 @@ func TestFormat_PipeTryPrefixStaysPrefix(t *testing.T) {
 }
 
 func TestFormat_DbgSubexpressionsStayInsideStage(t *testing.T) {
-	src := `fn main(): Int {
+	src := `fn main() -> Int {
     5
-    |> then |n| add(dbg f(n), dbg g(n))
+    |> then fn n -> add(dbg f(n), dbg g(n))
 }
 `
 	got, _ := Format(src)
@@ -578,14 +578,14 @@ func TestFormat_Pipe_BindingRHS_SinglePipeStaysInline(t *testing.T) {
 
 func TestFormat_Pipe_CallArgPipeStacks(t *testing.T) {
 	src := `test "render" {
-    assert Token.Bag([("a", 1)] |> Iter.to_map())
+    assert Token.Bag([#("a", 1)] |> Iter.to_map())
         |> Debug.inspect()
         |> String.equal?("Bag")
 }
 `
 	want := `test "render" {
     assert Token.Bag(
-        [("a", 1)]
+        [#("a", 1)]
         |> Iter.to_map()
     )
         |> Debug.inspect()
@@ -671,10 +671,10 @@ func TestFormat_Lambda_TypedParamWithDefault(t *testing.T) {
 }
 
 func TestFormat_Lambda_DestructureWithDefault(t *testing.T) {
-	// `(a, b) = (0, 1)` — destructure pattern carrying a default value.
+	// `#(a, b) = #(0, 1)` — destructure pattern carrying a default value.
 	// The default must round-trip; previously emitLambdaParam returned
 	// early on the destructure branch and dropped it.
-	src := "f = |(a, b) = (0, 1)| a + b\n"
+	src := "f = fn #(a, b) = #(0, 1) -> a + b\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q\nwant %q", got, src)
@@ -755,7 +755,7 @@ func TestFormat_Call_SingleBrokenArg_NoTrailingComma(t *testing.T) {
 
 func TestFormat_LambdaAsSoleArg(t *testing.T) {
 	// Lambdas are always inside parens — no trailing sugar.
-	src := "Iter.filter(|x| x > 2)\n"
+	src := "Iter.filter(fn x -> x > 2)\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q\nwant %q", got, src)
@@ -763,7 +763,7 @@ func TestFormat_LambdaAsSoleArg(t *testing.T) {
 }
 
 func TestFormat_LambdaAsLastOfMany(t *testing.T) {
-	src := "Iterator.reduce(list, 0, |acc, x| acc + x)\n"
+	src := "Iterator.reduce(list, 0, fn acc, x -> acc + x)\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q\nwant %q", got, src)
@@ -772,9 +772,9 @@ func TestFormat_LambdaAsLastOfMany(t *testing.T) {
 
 func TestFormat_LambdaTail_BlockBody_SoleArg(t *testing.T) {
 	// When the only call arg is a lambda whose body is a multi-stmt block,
-	// the `|params| {` should hug the call's `(` and the `})` should close
+	// the `fn params -> {` should hug the call's `(` and the `})` should close
 	// flush — no extra indent level, no trailing comma.
-	src := `lists.map(|x| {
+	src := `lists.map(fn x -> {
     if x == 3 { return 300 }
     x * 10
 })
@@ -788,7 +788,7 @@ func TestFormat_LambdaTail_BlockBody_SoleArg(t *testing.T) {
 func TestFormat_LambdaTail_BlockBody_MultiArg(t *testing.T) {
 	// Same with leading args: they stay inline, the block-bodied lambda
 	// hugs the tail.
-	src := `Iterator.reduce(list, 0, |acc, x| {
+	src := `Iterator.reduce(list, 0, fn acc, x -> {
     doubled = x * 2
     acc + doubled
 })
@@ -803,8 +803,8 @@ func TestFormat_LambdaTail_ExprBody_BreaksIntoBlock(t *testing.T) {
 	// A single-expression tail lambda whose body does not fit on the
 	// parameters' line: the body moves below them in braces and the call
 	// closes `})`. The if-expr body stays inline on its own indented line.
-	src := "Iterator.reduce(list_of_every_item_seen_so_far, |acc = [], item| if f(item) { [item, ..acc] } else { acc })\n"
-	want := "Iterator.reduce(list_of_every_item_seen_so_far, |acc = [], item| {\n    if f(item) { [item, ..acc] } else { acc }\n})\n"
+	src := "Iterator.reduce(list_of_every_item_seen_so_far, fn acc = [], item -> if f(item) { [item, ..acc] } else { acc })\n"
+	want := "Iterator.reduce(list_of_every_item_seen_so_far, fn acc = [], item -> {\n    if f(item) { [item, ..acc] } else { acc }\n})\n"
 	got := formatTwice(t, src)
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
@@ -813,8 +813,8 @@ func TestFormat_LambdaTail_ExprBody_BreaksIntoBlock(t *testing.T) {
 
 func TestFormat_LambdaTail_ExprBody_SoleArg_BreaksIntoBlock(t *testing.T) {
 	// Same with no leading args — the lambda is the sole argument.
-	src := "some_long_receiver_name.filter_every_item_of_the_receiver(|item| if predicate(item) { keep_it } else { drop_it })\n"
-	want := "some_long_receiver_name.filter_every_item_of_the_receiver(|item| {\n    if predicate(item) { keep_it } else { drop_it }\n})\n"
+	src := "some_long_receiver_name.filter_every_item_of_the_receiver(fn item -> if predicate(item) { keep_it } else { drop_it })\n"
+	want := "some_long_receiver_name.filter_every_item_of_the_receiver(fn item -> {\n    if predicate(item) { keep_it } else { drop_it }\n})\n"
 	got := formatTwice(t, src)
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
@@ -823,7 +823,7 @@ func TestFormat_LambdaTail_ExprBody_SoleArg_BreaksIntoBlock(t *testing.T) {
 
 func TestFormat_LambdaTail_ExprBody_FitsInline(t *testing.T) {
 	// Short single-expr tail lambda stays inline — ) hugs, no dangle.
-	src := "lists.map(|n| if n > 0 { n } else { 0 })\n"
+	src := "lists.map(fn n -> if n > 0 { n } else { 0 })\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -833,8 +833,8 @@ func TestFormat_LambdaTail_ExprBody_FitsInline(t *testing.T) {
 func TestFormat_LambdaTail_CaseBody_BreaksIntoBlock(t *testing.T) {
 	// A case body is inherently multi-line, so it goes below the
 	// parameters in braces and the call closes `})`.
-	src := "Iter.reduce(frags, |acc = 0, frag| case frag {\n0 -> acc\n1 -> acc + 1\n})\n"
-	want := "Iter.reduce(frags, |acc = 0, frag| {\n    case frag {\n        0 -> acc\n        1 -> acc + 1\n    }\n})\n"
+	src := "Iter.reduce(frags, fn acc = 0, frag -> case frag {\n0 -> acc\n1 -> acc + 1\n})\n"
+	want := "Iter.reduce(frags, fn acc = 0, frag -> {\n    case frag {\n        0 -> acc\n        1 -> acc + 1\n    }\n})\n"
 	got := formatTwice(t, src)
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
@@ -893,11 +893,11 @@ func TestFormat_Case_NestedPattern(t *testing.T) {
 
 func TestFormat_Case_VariantWithTuplePattern(t *testing.T) {
 	// Tuple-payload variants destructure their tuple explicitly:
-	// `Some((n, s))` is one variant pattern wrapping a tuple pattern.
+	// `Some(#(n, s))` is one variant pattern wrapping a tuple pattern.
 	// The old multi-arg sugar (`Some(n, s)` for a tuple-payload Some)
 	// has been removed — the explicit form is the only one accepted.
 	src := `x = case pair_opt {
-    Some((n, s)) -> s
+    Some(#(n, s)) -> s
     None -> ""
 }
 `
@@ -1060,7 +1060,7 @@ func TestFormat_AnonStructType_PreservesUserMultiLine(t *testing.T) {
 	src := `fn greet(p: {
     name: String,
     age: Int,
-}): String {
+}) -> String {
     p.name
 }
 `
@@ -1170,7 +1170,7 @@ func TestFormat_ListSpread_NoHeads(t *testing.T) {
 }
 
 func TestFormat_Map_Flat(t *testing.T) {
-	src := `x = {"a" => 1, "b" => 2}` + "\n"
+	src := `x = %{"a" => 1, "b" => 2}` + "\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -1178,7 +1178,7 @@ func TestFormat_Map_Flat(t *testing.T) {
 }
 
 func TestFormat_Map_LongBreaks(t *testing.T) {
-	long := `x = {"aaaaa" => 1111, "bbbbb" => 2222, "ccccc" => 3333, "ddddd" => 4444, "eeeee" => 5555, "fffff" => 6666}` + "\n"
+	long := `x = %{"aaaaa" => 1111, "bbbbb" => 2222, "ccccc" => 3333, "ddddd" => 4444, "eeeee" => 5555, "fffff" => 6666}` + "\n"
 	got, _ := Format(long)
 	if !strings.Contains(got, "{\n  ") {
 		t.Errorf("expected broken map, got:\n%s", got)
@@ -1186,15 +1186,15 @@ func TestFormat_Map_LongBreaks(t *testing.T) {
 }
 
 func TestFormat_Tuple(t *testing.T) {
-	got, _ := Format("x = (1, 2)\n")
-	if got != "x = (1, 2)\n" {
+	got, _ := Format("x = #(1, 2)\n")
+	if got != "x = #(1, 2)\n" {
 		t.Errorf("got %q", got)
 	}
 }
 
 func TestFormat_Tuple_Three(t *testing.T) {
-	got, _ := Format(`x = (1, "a", True)` + "\n")
-	if got != `x = (1, "a", True)`+"\n" {
+	got, _ := Format(`x = #(1, "a", True)` + "\n")
+	if got != `x = #(1, "a", True)`+"\n" {
 		t.Errorf("got %q", got)
 	}
 }
@@ -1202,7 +1202,7 @@ func TestFormat_Tuple_Three(t *testing.T) {
 func TestFormat_FnDef_SingleLine(t *testing.T) {
 	// Short fn body still always breaks; round-trip lands on the multi-line
 	// canonical form.
-	src := "fn add(x: Int, y: Int): Int {\n    x + y\n}\n"
+	src := "fn add(x: Int, y: Int) -> Int {\n    x + y\n}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -1210,7 +1210,7 @@ func TestFormat_FnDef_SingleLine(t *testing.T) {
 }
 
 func TestFormat_FnDef_Pub(t *testing.T) {
-	src := "fn add(x: Int, y: Int): Int {\n    x + y\n}\n"
+	src := "fn add(x: Int, y: Int) -> Int {\n    x + y\n}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -1218,7 +1218,7 @@ func TestFormat_FnDef_Pub(t *testing.T) {
 }
 
 func TestFormat_FnDef_NoParams(t *testing.T) {
-	src := "fn greet(): String {\n    \"hello\"\n}\n"
+	src := "fn greet() -> String {\n    \"hello\"\n}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -1227,18 +1227,18 @@ func TestFormat_FnDef_NoParams(t *testing.T) {
 
 func TestFormat_FnDef_LongSig_BreaksParams(t *testing.T) {
 	// Signature too long to fit in 100 cols — params break to one-per-line.
-	src := "pub fn process_all_the_users(users: List<User>, _config: SomeConfig, _logger: Logger, _retry_count: Int, _more_options: ExtraOpts): Result<List<Report>, Error> { users }\n"
+	src := "pub fn process_all_the_users(users: List<User>, _config: SomeConfig, _logger: Logger, _retry_count: Int, _more_options: ExtraOpts) -> Result<List<Report>, Error> { users }\n"
 	got, _ := Format(src)
 	if !strings.Contains(got, "fn process_all_the_users(\n    users: List<User>,") {
 		t.Errorf("expected params broken, got:\n%s", got)
 	}
-	if !strings.Contains(got, ",\n): ") {
+	if !strings.Contains(got, ",\n) -> ") {
 		t.Errorf("expected closing paren on own line before return type, got:\n%s", got)
 	}
 }
 
 func TestFormat_FnDef_MultiLineBody(t *testing.T) {
-	src := `fn f(): Int {
+	src := `fn f() -> Int {
     x = 1
     x
 }
@@ -1251,7 +1251,7 @@ func TestFormat_FnDef_MultiLineBody(t *testing.T) {
 
 func TestFormat_FnDef_DocComment(t *testing.T) {
 	// /// doc comment should be preserved above the function.
-	src := "/// Adds two numbers.\nfn add(x: Int, y: Int): Int {\n    x + y\n}\n"
+	src := "/// Adds two numbers.\nfn add(x: Int, y: Int) -> Int {\n    x + y\n}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q\nwant %q", got, src)
@@ -1260,7 +1260,7 @@ func TestFormat_FnDef_DocComment(t *testing.T) {
 
 func TestFormat_FnDef_DocComment_MultiLine(t *testing.T) {
 	// Multi-line /// doc comment: each line preserved with its /// prefix.
-	src := "/// Adds two numbers.\n/// Returns the sum.\nfn add(x: Int, y: Int): Int {\n    x + y\n}\n"
+	src := "/// Adds two numbers.\n/// Returns the sum.\nfn add(x: Int, y: Int) -> Int {\n    x + y\n}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q\nwant %q", got, src)
@@ -1269,7 +1269,7 @@ func TestFormat_FnDef_DocComment_MultiLine(t *testing.T) {
 
 func TestFormat_FnDef_DefaultParam(t *testing.T) {
 	// Default values on params.
-	src := "fn greet(_name: String = \"World\"): String {\n    \"hello\"\n}\n"
+	src := "fn greet(_name: String = \"World\") -> String {\n    \"hello\"\n}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -1292,8 +1292,8 @@ func TestFormat_FnDef_NoReturnType(t *testing.T) {
 // the in-progress-edit churn where saving an in-progress fn collapses the
 // open layout the user just made room in.
 func TestFormat_FnDef_AlwaysMultiLine(t *testing.T) {
-	src := "fn add(x: Int, y: Int): Int { x + y }\n"
-	want := "fn add(x: Int, y: Int): Int {\n    x + y\n}\n"
+	src := "fn add(x: Int, y: Int) -> Int { x + y }\n"
+	want := "fn add(x: Int, y: Int) -> Int {\n    x + y\n}\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -1317,7 +1317,7 @@ func TestFormat_FnDef_EmptyBodyStaysFlat(t *testing.T) {
 // receiver, and the indented method body are all preserved.
 func TestFormat_ImplBlock(t *testing.T) {
 	src := `impl Display for Int {
-    fn to_string(n: self): String {
+    fn to_string(n: self) -> String {
         int_to_string(n)
     }
 }
@@ -1330,50 +1330,50 @@ func TestFormat_ImplBlock(t *testing.T) {
 
 func TestFormat_AttachedTest(t *testing.T) {
 	src := `//! assert answer() == 42
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 
 //! refute answer() == 41
-fn answer_not(): Int { 42 }
+fn answer_not() -> Int { 42 }
 
 //! assert answer() == 42
-fn answer_again(): Int { 42 }
+fn answer_again() -> Int { 42 }
 
-//! assert Result.map_err(Result.Err("bad"), |e: String| "error: " + e + ", retried: none") == Result.Err(
+//! assert Result.map_err(Result.Err("bad"), fn e: String -> "error: " + e + ", retried: none") == Result.Err(
 //!   "error: bad, retried: none"
 //! )
-fn answer_lambda(): Int { 42 }
+fn answer_lambda() -> Int { 42 }
 
 //! value = answer()
 //! assert value == 42
 //! refute value == 41
-fn answer_block(): Int { 42 }
+fn answer_block() -> Int { 42 }
 `
 	want := `//! assert answer() == 42
-fn answer(): Int {
+fn answer() -> Int {
     42
 }
 
 //! refute answer() == 41
-fn answer_not(): Int {
+fn answer_not() -> Int {
     42
 }
 
 //! assert answer() == 42
-fn answer_again(): Int {
+fn answer_again() -> Int {
     42
 }
 
-//! assert Result.map_err(Result.Err("bad"), |e: String| {
+//! assert Result.map_err(Result.Err("bad"), fn e: String -> {
 //!     "error: " + e + ", retried: none"
 //! }) == Result.Err("error: bad, retried: none")
-fn answer_lambda(): Int {
+fn answer_lambda() -> Int {
     42
 }
 
 //! value = answer()
 //! assert value == 42
 //! refute value == 41
-fn answer_block(): Int {
+fn answer_block() -> Int {
     42
 }
 `
@@ -1391,13 +1391,13 @@ func TestFormat_AttachedTestPreservesFollowingDocComment(t *testing.T) {
 //! assert answer() == 42
 // Ordinary note.
 /// Used by the examples.
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `
 	want := `/// Computes the answer.
 //! assert answer() == 42
 // Ordinary note.
 /// Used by the examples.
-fn answer(): Int {
+fn answer() -> Int {
     42
 }
 `
@@ -1415,12 +1415,12 @@ func TestFormat_AttachedTestStripsBlankBeforeDeclaration(t *testing.T) {
 //! assert first([1, 2, 3]) == Some(1)
 //! assert first([]) == None
 
-pub fn first<T>(_source: Iter<T>): Maybe<T> { None }
+pub fn first<T>(_source: Iter<T>) -> Maybe<T> { None }
 `
 	want := `/// Returns the first element.
 //! assert first([1, 2, 3]) == Some(1)
 //! assert first([]) == None
-pub fn first<T>(_source: Iter<T>): Maybe<T> {
+pub fn first<T>(_source: Iter<T>) -> Maybe<T> {
     None
 }
 `
@@ -1438,13 +1438,13 @@ func TestFormat_AttachedTestUsesCommentSeparatorBeforeDeclaration(t *testing.T) 
 //! assert first([1, 2, 3]) == Some(1)
 //! assert first([]) == None
 //!
-pub fn first<T>(_source: Iter<T>): Maybe<T> { None }
+pub fn first<T>(_source: Iter<T>) -> Maybe<T> { None }
 `
 	want := `/// Returns the first element.
 //! assert first([1, 2, 3]) == Some(1)
 //! assert first([]) == None
 //
-pub fn first<T>(_source: Iter<T>): Maybe<T> {
+pub fn first<T>(_source: Iter<T>) -> Maybe<T> {
     None
 }
 `
@@ -1460,11 +1460,11 @@ pub fn first<T>(_source: Iter<T>): Maybe<T> {
 func TestFormat_AttachedTestUsesCommentSeparatorBeforeLeadingPromptBody(t *testing.T) {
 	src := `//!
 //! assert answer() == 42
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `
 	want := `//
 //! assert answer() == 42
-fn answer(): Int {
+fn answer() -> Int {
     42
 }
 `
@@ -1480,11 +1480,11 @@ fn answer(): Int {
 func TestFormat_DocCommentUsesCommentSeparatorBeforeDeclaration(t *testing.T) {
 	src := `/// Returns the answer.
 ///
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `
 	want := `/// Returns the answer.
 //
-fn answer(): Int {
+fn answer() -> Int {
     42
 }
 `
@@ -1502,13 +1502,13 @@ func TestFormat_AttachedTestUsesCommentSeparatorAfterDocComment(t *testing.T) {
 ///
 //! assert first([1, 2, 3]) == Some(1)
 //! assert first([]) == None
-pub fn first<T>(_source: Iter<T>): Maybe<T> { None }
+pub fn first<T>(_source: Iter<T>) -> Maybe<T> { None }
 `
 	want := `/// Returns the first element, or None if the iterator is empty.
 //
 //! assert first([1, 2, 3]) == Some(1)
 //! assert first([]) == None
-pub fn first<T>(_source: Iter<T>): Maybe<T> {
+pub fn first<T>(_source: Iter<T>) -> Maybe<T> {
     None
 }
 `
@@ -1525,12 +1525,12 @@ func TestFormat_AttachedTestPreservesCommentSeparatorAfterDocComment(t *testing.
 	src := `/// Returns the first element, or None if the iterator is empty.
 //
 //! assert first([1, 2, 3]) == Some(1)
-pub fn first<T>(_source: Iter<T>): Maybe<T> { None }
+pub fn first<T>(_source: Iter<T>) -> Maybe<T> { None }
 `
 	want := `/// Returns the first element, or None if the iterator is empty.
 //
 //! assert first([1, 2, 3]) == Some(1)
-pub fn first<T>(_source: Iter<T>): Maybe<T> {
+pub fn first<T>(_source: Iter<T>) -> Maybe<T> {
     None
 }
 `
@@ -1547,11 +1547,11 @@ func TestFormat_AttachedTestStripsBlankBetweenBlocks(t *testing.T) {
 	src := `//! assert answer() == 42
 
 //! refute answer() == 41
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `
 	want := `//! assert answer() == 42
 //! refute answer() == 41
-fn answer(): Int {
+fn answer() -> Int {
     42
 }
 `
@@ -1568,12 +1568,12 @@ func TestFormat_AttachedTestCanonicalizesBlankDocBetweenBlocks(t *testing.T) {
 	src := `//! assert answer() == 42
 ///
 //! refute answer() == 41
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `
 	want := `//! assert answer() == 42
 //
 //! refute answer() == 41
-fn answer(): Int {
+fn answer() -> Int {
     42
 }
 `
@@ -1593,7 +1593,7 @@ func TestFormat_AttachedTestUsesCommentSeparatorForTrailingBlankDocLine(t *testi
 /// Some docs
 /// Other docs
 ///
-pub fn from_int(_n: Int): Maybe<Codepoint> { None }
+pub fn from_int(_n: Int) -> Maybe<Codepoint> { None }
 `
 	want := `/// Validates n and wraps it.
 //! assert from_int(65) == Some(Codepoint(65))
@@ -1601,7 +1601,7 @@ pub fn from_int(_n: Int): Maybe<Codepoint> { None }
 /// Some docs
 /// Other docs
 //
-pub fn from_int(_n: Int): Maybe<Codepoint> {
+pub fn from_int(_n: Int) -> Maybe<Codepoint> {
     None
 }
 `
@@ -1620,14 +1620,14 @@ func TestFormat_AttachedTestPreservesInteriorPromptBlank(t *testing.T) {
 //! assert value == Some(42)
 //!
 //! refute value == None
-fn parse_test(): Unit { Unit }
+fn parse_test() -> Unit { Unit }
 `
 	want := `//! value = parse("42")
 //!
 //! assert value == Some(42)
 //!
 //! refute value == None
-fn parse_test(): Unit {
+fn parse_test() -> Unit {
     Unit
 }
 `
@@ -1641,17 +1641,17 @@ fn parse_test(): Unit {
 }
 
 func TestFormat_AttachedAssertionBreaksControlFlowLambdaBody(t *testing.T) {
-	src := `//! assert loop(|n = 0| if n >= 3 { break n } else { n + 1 }) == 3
-pub host fn loop(f: (S) -> S): S
+	src := `//! assert loop(fn n = 0 -> if n >= 3 { break n } else { n + 1 }) == 3
+pub host fn loop(f: (S) -> S) -> S
 `
-	want := `//! assert loop(|n = 0| {
+	want := `//! assert loop(fn n = 0 -> {
 //!     if n >= 3 {
 //!         break n
 //!     } else {
 //!         n + 1
 //!     }
 //! }) == 3
-pub host fn loop(f: (S) -> S): S
+pub host fn loop(f: (S) -> S) -> S
 `
 	got, err := Format(src)
 	if err != nil {
@@ -1664,10 +1664,10 @@ pub host fn loop(f: (S) -> S): S
 
 func TestFormat_AttachedAssertionBreaksWhenPromptedExpressionWraps(t *testing.T) {
 	src := `//! assert Codepoint.step_by(try codepoints.from_int(65), 2) == Some(Codepoint(67))
-fn step_by(): Unit { Unit }
+fn step_by() -> Unit { Unit }
 `
 	want := `//! assert Codepoint.step_by(try codepoints.from_int(65), 2) == Some(Codepoint(67))
-fn step_by(): Unit {
+fn step_by() -> Unit {
     Unit
 }
 `
@@ -1684,10 +1684,10 @@ func TestFormat_AttachedAssertionPipelineComparisonNeedsNoParens(t *testing.T) {
 	src := `//! assert {
 //! [1, 2, 3, 4, 5] |> chunks(2) |> to_list() == [[1, 2], [3, 4], [5]]
 //! }
-fn chunks(): Unit { Unit }
+fn chunks() -> Unit { Unit }
 `
 	want := `//! assert { [1, 2, 3, 4, 5] |> chunks(2) |> to_list() == [[1, 2], [3, 4], [5]] }
-fn chunks(): Unit {
+fn chunks() -> Unit {
     Unit
 }
 `
@@ -1982,17 +1982,17 @@ func TestFormat_TestSetupStructLiteralExpression(t *testing.T) {
 // A test binds its group's setup value with any irrefutable pattern.
 func TestFormat_TestTuplePattern(t *testing.T) {
 	src := `group "fixture" {
-    setup (1,   "ready")
+    setup #(1,   "ready")
 
-    test "reads setup", (n,  child) {
+    test "reads setup", #(n,  child) {
         assert child == "ready"
     }
 }
 `
 	want := `group "fixture" {
-    setup (1, "ready")
+    setup #(1, "ready")
 
-    test "reads setup", (n, child) {
+    test "reads setup", #(n, child) {
         assert child == "ready"
     }
 }
@@ -2004,16 +2004,16 @@ func TestFormat_TestTuplePattern(t *testing.T) {
 // overridable default method round-trips.
 func TestFormat_InterfaceOpenDefault(t *testing.T) {
 	src := `interface MyIface {
-    fn required(value: self): Int
-    open fn extension_point(_value: self): String {
+    fn required(value: self) -> Int
+    open fn extension_point(_value: self) -> String {
         "default"
     }
 }
 `
 	want := `interface MyIface {
-    fn required(value: self): Int
+    fn required(value: self) -> Int
 
-    open fn extension_point(_value: self): String {
+    open fn extension_point(_value: self) -> String {
         "default"
     }
 }
@@ -2045,11 +2045,11 @@ impl AppLike for AppEnv
 // the always-multi-line rule.
 func TestFormat_InterfaceDefaultMethod_AlwaysMultiLine(t *testing.T) {
 	src := `interface Greeter {
-    fn greet(_g: self): String { "hi" }
+    fn greet(_g: self) -> String { "hi" }
 }
 `
 	want := `interface Greeter {
-    fn greet(_g: self): String {
+    fn greet(_g: self) -> String {
         "hi"
     }
 }
@@ -2476,8 +2476,8 @@ func TestFormat_Variant_NoParens(t *testing.T) {
 // TestFormat_Variant_TuplePayload verifies a tuple payload is emitted
 // with one set of parens (not the legacy double-paren form).
 func TestFormat_Variant_TuplePayload(t *testing.T) {
-	src := "enum T { Position((Int, Int)) }"
-	want := "enum T {\n    Position (Int, Int)\n}\n"
+	src := "enum T { Position(#(Int, Int)) }"
+	want := "enum T {\n    Position #(Int, Int)\n}\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -2558,7 +2558,7 @@ func TestFormat_Interface(t *testing.T) {
 
 func TestFormat_Interface_Generic(t *testing.T) {
 	src := `interface Iter<T> {
-  next(collection: self): Maybe<(T, self)>
+  next(collection: self): Maybe<#(T, self)>
 }
 `
 	got, _ := Format(src)
@@ -2569,13 +2569,13 @@ func TestFormat_Interface_Generic(t *testing.T) {
 
 func TestFormat_Interface_MultipleMethods(t *testing.T) {
 	src := `interface Shape {
-    fn area(s: self): Float
-    fn perimeter(s: self): Float
+    fn area(s: self) -> Float
+    fn perimeter(s: self) -> Float
 }
 `
 	want := `interface Shape {
-    fn area(s: self): Float
-    fn perimeter(s: self): Float
+    fn area(s: self) -> Float
+    fn perimeter(s: self) -> Float
 }
 `
 	got, _ := Format(src)
@@ -2586,14 +2586,14 @@ func TestFormat_Interface_MultipleMethods(t *testing.T) {
 
 func TestFormat_Interface_DefaultMethod(t *testing.T) {
 	src := `interface Identity {
-    fn name(value: self): String
-    fn describe(_value: self): String { "hi" }
+    fn name(value: self) -> String
+    fn describe(_value: self) -> String { "hi" }
 }
 `
 	want := `interface Identity {
-    fn name(value: self): String
+    fn name(value: self) -> String
 
-    fn describe(_value: self): String {
+    fn describe(_value: self) -> String {
         "hi"
     }
 }
@@ -2662,7 +2662,7 @@ func TestFormat_DistinctType_Pub(t *testing.T) {
 
 func TestFormat_ConsecutiveBodylessTypesCanStayTight(t *testing.T) {
 	src := `pub type Email String
-pub type Coord (Int, Int)
+pub type Coord #(Int, Int)
 pub type Handler (String, String) -> Result<String, String>
 pub type Expired
 pub opaque type Counter Int
@@ -2675,7 +2675,7 @@ pub opaque type Counter Int
 
 func TestFormat_ConsecutiveBodylessTypesPreserveGroupingBlank(t *testing.T) {
 	src := `pub type Email String
-pub type Coord (Int, Int)
+pub type Coord #(Int, Int)
 
 pub type Expired
 `
@@ -2754,7 +2754,7 @@ func TestFormat_ConsecutiveOnceDeclarationsStayTight(t *testing.T) {
 }
 
 func TestFormat_ExternFn(t *testing.T) {
-	src := "host fn sqrt(x: Float): Float\n"
+	src := "host fn sqrt(x: Float) -> Float\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -2912,14 +2912,14 @@ func TestFormat_Trivia_StandaloneCommentBetweenPipeStages(t *testing.T) {
     assert 5
     |> Int.to_float()
     // a comment
-    |> then |value| value == 5.0
+    |> then fn value -> value == 5.0
 }
 `
 	want := `test "comment between pipe stages" {
     assert 5
         |> Int.to_float()
         // a comment
-        |> then |value| value == 5.0
+        |> then fn value -> value == 5.0
 }
 `
 	got, _ := Format(src)
@@ -3390,7 +3390,7 @@ func TestFormat_TripleStringSingleArgWrapperInStructField(t *testing.T) {
 
 func TestFormat_Try(t *testing.T) {
 	// `try x` prefix — round-trip through a function body.
-	src := "fn f(): Result<Int, Error> { y = try x \n y }\n"
+	src := "fn f() -> Result<Int, Error> { y = try x \n y }\n"
 	got, _ := Format(src)
 	if !strings.Contains(got, "try x") {
 		t.Errorf("expected try x in output, got %q", got)
@@ -3406,7 +3406,7 @@ func TestFormat_Try_Binding(t *testing.T) {
 }
 
 func TestFormat_Return(t *testing.T) {
-	src := "fn f(x: Int): Int {\n    if x > 0 { return 42 }\n    x\n}\n"
+	src := "fn f(x: Int) -> Int {\n    if x > 0 { return 42 }\n    x\n}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -3620,11 +3620,11 @@ import std/maps: Map
 
 func TestFormat_TupleDestructure(t *testing.T) {
 	src := `fn main() {
-  (name, age) = get_user()
+  #(name, age) = get_user()
 }
 `
 	got, _ := Format(src)
-	if !strings.Contains(got, "(name, age) = get_user()") {
+	if !strings.Contains(got, "#(name, age) = get_user()") {
 		t.Errorf("tuple destructure not emitted correctly, got:\n%s", got)
 	}
 }
@@ -3632,11 +3632,11 @@ func TestFormat_TupleDestructure(t *testing.T) {
 func TestFormat_TupleDestructure_Wildcard(t *testing.T) {
 	// Wildcard bindings in a tuple destructure round-trip as "_".
 	src := `fn main() {
-  (_, v) = pair
+  #(_, v) = pair
 }
 `
 	got, _ := Format(src)
-	if !strings.Contains(got, "(_, v) = pair") {
+	if !strings.Contains(got, "#(_, v) = pair") {
 		t.Errorf("wildcard tuple destructure not emitted correctly, got:\n%s", got)
 	}
 }
@@ -3690,31 +3690,31 @@ func TestFormat_DistinctDestructure_Wildcard(t *testing.T) {
 }
 
 func TestFormat_MapDestructure(t *testing.T) {
-	// Map destructure: {"key" => binding, ...} = expr.
+	// Map destructure: %{"key" => binding, ...} = expr.
 	src := `fn main() {
-  {"host" => host, "port" => port} = config
+  %{"host" => host, "port" => port} = config
 }
 `
 	got, _ := Format(src)
-	if !strings.Contains(got, `{"host" => host, "port" => port} = config`) {
+	if !strings.Contains(got, `%{"host" => host, "port" => port} = config`) {
 		t.Errorf("map destructure not emitted correctly, got:\n%s", got)
 	}
 }
 
-// Map-distinct call-form pattern round-trips as `Kvs({"a" => v})`,
+// Map-distinct call-form pattern round-trips as `Kvs(%{"a" => v})`,
 // preserving the inner parens that distinguish it from the flat
-// `Kvs{"a" => v}` literal-attach form.
+// `Kvs%{"a" => v}` literal-attach form.
 func TestFormat_MapPattern_CallForm_RoundTrip(t *testing.T) {
 	src := `type Kvs Map<String, Int>
 fn main() {
-  kv = Kvs{"a" => 1}
+  kv = Kvs%{"a" => 1}
   case kv {
-    Kvs({"a" => v}) -> v
+    Kvs(%{"a" => v}) -> v
   }
 }
 `
 	got, _ := Format(src)
-	if !strings.Contains(got, `Kvs({"a" => v}) -> v`) {
+	if !strings.Contains(got, `Kvs(%{"a" => v}) -> v`) {
 		t.Errorf("call-form map pattern not preserved, got:\n%s", got)
 	}
 	// Idempotent: applying Format twice should match.
@@ -3800,7 +3800,7 @@ func TestFormat_Trivia_LeadingCommentOnCaseArm(t *testing.T) {
 
 func TestFormat_Trivia_DocCommentStillWorks(t *testing.T) {
 	// The doc-comment path uses the FunctionDef.Doc field, separate from trivia.
-	src := "/// adds one\nfn addone(x: Int): Int {\n    x + 1\n}\n"
+	src := "/// adds one\nfn addone(x: Int) -> Int {\n    x + 1\n}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -3845,7 +3845,7 @@ func TestFormat_Lambda_TwoStmtsAlwaysBroken(t *testing.T) {
 
 func TestFormat_Lambda_SingleStmtBlockWithCommentStaysBlock(t *testing.T) {
 	src := `fn main() {
-    fake_side_effect = || {
+    fake_side_effect = fn -> {
         // Imagine an io.print side effect here
         Unit
     }
@@ -3918,7 +3918,7 @@ func TestFormat_Trivia_EndOfCaseBlockComment(t *testing.T) {
 
 func TestFormat_TraitBound_Single(t *testing.T) {
 	src := `interface Showable { show(value: self): String }
-fn identity<T>(x: T): T where T: Showable { x }
+fn identity<T>(x: T) -> T where T: Showable { x }
 `
 	got, _ := Format(src)
 	if !strings.Contains(got, "where T: Showable") {
@@ -3929,7 +3929,7 @@ fn identity<T>(x: T): T where T: Showable { x }
 func TestFormat_TraitBound_Multi(t *testing.T) {
 	src := `interface Showable { show(value: self): String }
 interface Tagged { tag(value: self): String }
-fn identity<T>(x: T): T where T: Showable and Tagged { x }
+fn identity<T>(x: T) -> T where T: Showable and Tagged { x }
 `
 	got, _ := Format(src)
 	if !strings.Contains(got, "where T: Showable and Tagged") {
@@ -4356,7 +4356,7 @@ func TestFormat_PubImportSectionSplitsFromImports(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFormat_PubFn(t *testing.T) {
-	src := "pub fn foo(x: Int): Int { x + 1 }\n"
+	src := "pub fn foo(x: Int) -> Int { x + 1 }\n"
 	got, _ := Format(src)
 	if !strings.Contains(got, "pub fn foo") {
 		t.Errorf("expected `pub fn foo` in output, got:\n%s", got)
@@ -4388,7 +4388,7 @@ func TestFormat_PubTypeDistinct(t *testing.T) {
 }
 
 func TestFormat_PubInterface(t *testing.T) {
-	src := "pub interface Display { fn to_string(value: self): String }\n"
+	src := "pub interface Display { fn to_string(value: self) -> String }\n"
 	got, _ := Format(src)
 	if !strings.Contains(got, "pub interface Display") {
 		t.Errorf("expected `pub interface Display` in output, got:\n%s", got)
@@ -4481,7 +4481,7 @@ func TestFormat_OpaqueOnStructPrivatePreserved(t *testing.T) {
 // distinct-tuple type. The formatter delegates to TypeString(), so this
 // pins the canonical shape `{name: String, age: Int}`.
 func TestFormat_AnonStructType_TupleDistinct(t *testing.T) {
-	src := "type Tagged (String, {name: String, age: Int})\n"
+	src := "type Tagged #(String, {name: String, age: Int})\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q\nwant %q", got, src)
@@ -4490,7 +4490,7 @@ func TestFormat_AnonStructType_TupleDistinct(t *testing.T) {
 
 // Round-trip an anonymous struct type as a function parameter annotation.
 func TestFormat_AnonStructType_FunctionParam(t *testing.T) {
-	src := "fn greet(p: {name: String}): String {\n    p.name\n}\n"
+	src := "fn greet(p: {name: String}) -> String {\n    p.name\n}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q\nwant %q", got, src)
@@ -4504,7 +4504,7 @@ func TestFormat_AnonStructType_FunctionParam(t *testing.T) {
 // list around the anon struct — never inside it. Now the anon struct
 // participates in the width budget like other braced bodies.
 func TestFormat_AnonStructType_LongFnParam_Breaks(t *testing.T) {
-	src := "fn process(_opts: {retries: Int, timeout: Int, on_error: (Error) -> Unit, max_concurrency: Int, backoff_ms: Int}): Result<Int, Error> {\n    Ok(0)\n}\n"
+	src := "fn process(_opts: {retries: Int, timeout: Int, on_error: (Error) -> Unit, max_concurrency: Int, backoff_ms: Int}) -> Result<Int, Error> {\n    Ok(0)\n}\n"
 	got, _ := Format(src)
 	if !strings.Contains(got, "opts: {\n") {
 		t.Errorf("expected anon struct to break, got:\n%s", got)
@@ -4521,7 +4521,7 @@ func TestFormat_AnonStructType_LongFnParam_Breaks(t *testing.T) {
 // fn params still fit flat; the new rule is width-based, not always-broken.
 // Acts as a regression guard against an over-aggressive break rule.
 func TestFormat_AnonStructType_ShortFnParam_StaysFlat(t *testing.T) {
-	src := "fn greet(p: {name: String, age: Int}): String {\n    p.name\n}\n"
+	src := "fn greet(p: {name: String, age: Int}) -> String {\n    p.name\n}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got:\n%s\nwant:\n%s", got, src)
@@ -4535,8 +4535,8 @@ func TestFormat_AnonStructType_ShortFnParam_StaysFlat(t *testing.T) {
 // Mirrors Prettier's `Promise<{...}>` behaviour — outer container stays
 // inline, inner anon struct flows multi-line inside it.
 func TestFormat_AnonStructType_NestedInTuple_Breaks(t *testing.T) {
-	src := "pub type MyTuple (String, {status: Int, message: String, retryable: Bool, a_long_field: String, another_field: Int})\n"
-	want := `pub type MyTuple (String, {
+	src := "pub type MyTuple #(String, {status: Int, message: String, retryable: Bool, a_long_field: String, another_field: Int})\n"
+	want := `pub type MyTuple #(String, {
     status: Int,
     message: String,
     retryable: Bool,
@@ -4600,10 +4600,10 @@ func TestFormat_AnonStructType_NestedInFuncType_Breaks(t *testing.T) {
 // canonical flat output.
 func TestFormat_TypeExpr_SimpleRoundTrip(t *testing.T) {
 	cases := []string{
-		"type Pair (Int, String)\n",
+		"type Pair #(Int, String)\n",
 		"typealias Handler (String, String) -> Result<String, String>\n",
-		"fn f(_xs: List<Int>): Int {\n    0\n}\n",
-		"fn f(_m: Map<String, Int>): Int {\n    0\n}\n",
+		"fn f(_xs: List<Int>) -> Int {\n    0\n}\n",
+		"fn f(_m: Map<String, Int>) -> Int {\n    0\n}\n",
 	}
 	for _, src := range cases {
 		t.Run(src, func(t *testing.T) {
@@ -4627,7 +4627,7 @@ func TestFormat_TypeExpr_SimpleRoundTrip(t *testing.T) {
 func TestFormat_CompoundDepth_Depth1_StaysFlat(t *testing.T) {
 	src := `fn main() {
     case x {
-        Obj{"name" => String(n)} -> n
+        Obj%{"name" => String(n)} -> n
         _ -> "miss"
     }
 }
@@ -4642,7 +4642,7 @@ func TestFormat_CompoundDepth_Depth1_StaysFlat(t *testing.T) {
 func TestFormat_CompoundDepth_Depth2_FitsStaysFlat(t *testing.T) {
 	src := `fn main() {
     case x {
-        Obj{"data" => Obj{"k" => v}} -> v
+        Obj%{"data" => Obj%{"k" => v}} -> v
         _ -> "miss"
     }
 }
@@ -4653,64 +4653,46 @@ func TestFormat_CompoundDepth_Depth2_FitsStaysFlat(t *testing.T) {
 	}
 }
 
-// Depth 3 — fits in width but the depth threshold fires anyway. Chain-
-// aware: once the outermost Obj decides to break, every inner compound
-// in the chain ALSO breaks regardless of its own depth-from-itself.
-// Wrapper variants (Ok, String) propagate the break-decision to their
-// payload without breaking themselves.
+// Depth 3 — fits in width but the depth threshold fires anyway. Only the
+// pattern three levels deep breaks; the depth-2 pattern inside it fits and
+// stays on one line. Wrapper variants (Ok, String) add no level.
 func TestFormat_CompoundDepth_Depth3_BreaksEvenWhenFits(t *testing.T) {
-	src := `fn extract(x: Maybe<JV>): Maybe<String> {
+	src := `fn extract(x: Maybe<JV>) -> Maybe<String> {
     case x {
-        Ok(Obj{"a" => Obj{"b" => Obj{"c" => String(v)}}}) -> Some(v)
+        Ok(Obj%{"a" => Obj%{"b" => Obj%{"c" => String(v)}}}) -> Some(v)
         _ -> None
     }
 }
 `
-	want := `fn extract(x: Maybe<JV>): Maybe<String> {
+	want := `fn extract(x: Maybe<JV>) -> Maybe<String> {
     case x {
-        Ok(Obj{
-            "a" => Obj{
-                "b" => Obj{
-                    "c" => String(v),
-                },
-            },
+        Ok(Obj%{
+            "a" => Obj%{"b" => Obj%{"c" => String(v)}},
         }) -> Some(v)
         _ -> None
     }
 }
 `
-	got, _ := Format(src)
-	if got != want {
-		t.Errorf("depth-3 chain did not cascade.\n--- want ---\n%s\n--- got ---\n%s", want, got)
-	}
+	migrates(t, src, want)
 }
 
-// Chain-aware cascade: a parent's break-decision propagates through
-// every compound in the chain regardless of the inner's own
-// depth-from-itself. Pinned explicitly because it's easy for a later
-// refactor to silently drop the propagation and have only the outer
-// compound break.
-func TestFormat_CompoundDepth_ChainAware_PropagatesToChildren(t *testing.T) {
-	// Five-deep Obj chain. Per-node, only the outermost (depth 5) would
-	// fire; inner compounds (depths 4, 3, 2, 1) would each independently
-	// stay flat. Chain-aware: all five break.
+// Each level decides for itself: in a five-deep chain the levels three or
+// more deep (5, 4 and 3) break, and the depth-2 pattern inside them stays
+// on one line.
+func TestFormat_CompoundDepth_EachLevelDecidesOnItsOwn(t *testing.T) {
 	src := `fn main() {
     case x {
-        Obj{"a" => Obj{"b" => Obj{"c" => Obj{"d" => Obj{"e" => v}}}}} -> v
+        Obj%{"a" => Obj%{"b" => Obj%{"c" => Obj%{"d" => Obj%{"e" => v}}}}} -> v
         _ -> 0
     }
 }
 `
 	want := `fn main() {
     case x {
-        Obj{
-            "a" => Obj{
-                "b" => Obj{
-                    "c" => Obj{
-                        "d" => Obj{
-                            "e" => v,
-                        },
-                    },
+        Obj%{
+            "a" => Obj%{
+                "b" => Obj%{
+                    "c" => Obj%{"d" => Obj%{"e" => v}},
                 },
             },
         } -> v
@@ -4718,16 +4700,7 @@ func TestFormat_CompoundDepth_ChainAware_PropagatesToChildren(t *testing.T) {
     }
 }
 `
-	got, _ := Format(src)
-	if got != want {
-		t.Errorf("chain-aware cascade did not propagate to all compounds.\n--- want ---\n%s\n--- got ---\n%s", want, got)
-	}
-	// Sanity: every Obj level must have its own break.
-	wantObjBreaks := 5
-	gotObjBreaks := strings.Count(got, "Obj{\n")
-	if gotObjBreaks != wantObjBreaks {
-		t.Errorf("expected %d Obj-open-then-newline pairs, got %d.\noutput:\n%s", wantObjBreaks, gotObjBreaks, got)
-	}
+	migrates(t, src, want)
 }
 
 // Width-driven break: a depth-2 compound whose single-line form exceeds
@@ -4738,13 +4711,13 @@ func TestFormat_CompoundDepth_Depth2_WidthBreaks(t *testing.T) {
 	// depth rule alone wouldn't fire — width does the breaking here.
 	src := `fn main() {
     case x {
-        Obj{"some_long_field_name" => Obj{"other_field_with_a_longer_name" => String(some_long_binding_name)}} -> 1
+        Obj%{"some_long_field_name" => Obj%{"other_field_with_a_longer_name" => String(some_long_binding_name)}} -> 1
         _ -> 0
     }
 }
 `
 	got, _ := Format(src)
-	if !strings.Contains(got, "Obj{\n            \"some_long_field_name\"") {
+	if !strings.Contains(got, "Obj%{\n            \"some_long_field_name\"") {
 		t.Errorf("depth-2 over-width pattern did not break.\ngot:\n%s", got)
 	}
 }
@@ -4754,7 +4727,7 @@ func TestFormat_CompoundDepth_Depth2_WidthBreaks(t *testing.T) {
 func TestFormat_CompoundDepth_Wrapped_DoesntBumpDepth(t *testing.T) {
 	src := `fn main() {
     case x {
-        Some(Obj{"k" => v}) -> v
+        Some(Obj%{"k" => v}) -> v
         _ -> 0
     }
 }
@@ -4769,41 +4742,28 @@ func TestFormat_CompoundDepth_Wrapped_DoesntBumpDepth(t *testing.T) {
 // the single-line form would fit.
 func TestFormat_CompoundDepth_MapLit_Depth3_Breaks(t *testing.T) {
 	src := `fn main() {
-    m = {"a" => {"b" => {"c" => 1}}}
+    m = %{"a" => %{"b" => %{"c" => 1}}}
 }
 `
 	got, _ := Format(src)
-	if !strings.Contains(got, "m = {\n        \"a\" => ") {
+	if !strings.Contains(got, "m = %{\n        \"a\" => ") {
 		t.Errorf("depth-3 nested map literal did not break.\ngot:\n%s", got)
 	}
 }
 
 // Construction-site analogue — List literal with depth 3 (List of List
-// of List) breaks even when single-line would fit. Chain-aware: every
-// compound level breaks once the outer fires.
+// of List) breaks even when single-line would fit. Its depth-2 elements
+// fit and stay on one line each.
 func TestFormat_CompoundDepth_ListLit_Depth3_Breaks(t *testing.T) {
 	src := "fn main() {\n    xs = [[[1, 2]], [[3, 4]]]\n}\n"
 	want := `fn main() {
     xs = [
-        [
-            [
-                1,
-                2,
-            ],
-        ],
-        [
-            [
-                3,
-                4,
-            ],
-        ],
+        [[1, 2]],
+        [[3, 4]],
     ]
 }
 `
-	got, _ := Format(src)
-	if got != want {
-		t.Errorf("depth-3 nested list literal cascade mismatch.\n--- want ---\n%s\n--- got ---\n%s", want, got)
-	}
+	migrates(t, src, want)
 }
 
 // Idempotency — formatting twice produces the same output across the
@@ -4812,27 +4772,27 @@ func TestFormat_CompoundDepth_Idempotent(t *testing.T) {
 	srcs := []string{
 		`fn main() {
   case x {
-    Obj{"name" => String(n)} -> n
+    Obj%{"name" => String(n)} -> n
     _ -> "miss"
   }
 }
 `,
 		`fn main() {
   case x {
-    Obj{"data" => Obj{"k" => v}} -> v
+    Obj%{"data" => Obj%{"k" => v}} -> v
     _ -> "miss"
   }
 }
 `,
-		`fn extract(x: Maybe<JV>): Maybe<String> {
+		`fn extract(x: Maybe<JV>) -> Maybe<String> {
   case x {
-    Ok(Obj{"a" => Obj{"b" => Obj{"c" => String(v)}}}) -> Some(v)
+    Ok(Obj%{"a" => Obj%{"b" => Obj%{"c" => String(v)}}}) -> Some(v)
     _ -> None
   }
 }
 `,
 		`fn main() {
-  m = {"a" => {"b" => {"c" => 1}}}
+  m = %{"a" => %{"b" => %{"c" => 1}}}
 }
 `,
 		"fn main() {\n  xs = [[[1, 2]], [[3, 4]]]\n}\n",
@@ -5053,7 +5013,7 @@ func TestFormat_StructShapedVariant_TrailingComment_Preserved(t *testing.T) {
 // bodies. Pre-fix: parser silently swallowed the comment via
 // skipNewlines — `nomi fmt -w` dropped the user's note (data loss).
 func TestFormat_InterfaceBody_TrailingComment_Preserved(t *testing.T) {
-	src := "pub interface Speech {\n    fn speak(s: Int): Int\n    // trailing comment\n}\n"
+	src := "pub interface Speech {\n    fn speak(s: Int) -> Int\n    // trailing comment\n}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("format failed: %v", err)
@@ -5074,7 +5034,7 @@ func TestFormat_InterfaceBody_TrailingComment_Preserved(t *testing.T) {
 // struct types in parameter position. Pre-fix: separator loop silently
 // consumed COMMENT/BLANK_LINE — `nomi fmt -w` dropped the comment.
 func TestFormat_AnonStructType_TrailingComment_Preserved(t *testing.T) {
-	src := "fn greet(p: {\n    name: String,\n    age: Int,\n    // trailing comment\n}): String {\n    p.name\n}\n"
+	src := "fn greet(p: {\n    name: String,\n    age: Int,\n    // trailing comment\n}) -> String {\n    p.name\n}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("format failed: %v", err)
@@ -5138,7 +5098,7 @@ func TestFormat_AnonStructLit_TrailingComment_Preserved(t *testing.T) {
 // close map literal" — users couldn't write a map literal with a
 // trailing in-body comment at all.
 func TestFormat_MapLit_TrailingComment_Preserved(t *testing.T) {
-	src := "fn main() {\n    m = {\n        \"a\" => 1,\n        \"b\" => 2,\n        // trailing comment\n    }\n\n    m\n}\n"
+	src := "fn main() {\n    m = %{\n        \"a\" => 1,\n        \"b\" => 2,\n        // trailing comment\n    }\n\n    m\n}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("format failed: %v", err)
@@ -5181,7 +5141,7 @@ func TestFormat_ListLit_TrailingComment_Preserved(t *testing.T) {
 // inside a case branch. Pre-fix: same parse error as MapLit (shared
 // parseMapPatternEntries code path).
 func TestFormat_MapPattern_TrailingComment_Preserved(t *testing.T) {
-	src := "fn main() {\n    m = {\"a\" => 1}\n\n    case m {\n        {\n            \"a\" => x,\n            // trailing comment\n        } -> x\n        _ -> 0\n    }\n}\n"
+	src := "fn main() {\n    m = %{\"a\" => 1}\n\n    case m {\n        %{\n            \"a\" => x,\n            // trailing comment\n        } -> x\n        _ -> 0\n    }\n}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("format failed: %v", err)
@@ -5265,7 +5225,7 @@ func TestFormat_EnumBody_InterVariantComment_Preserved(t *testing.T) {
 // silent data-loss via skipNewlines. Uses InterfaceMethod's existing
 // TriviaCarrier.Leading slot.
 func TestFormat_InterfaceBody_InterMethodComment_Preserved(t *testing.T) {
-	src := "pub interface Speech {\n    fn speak(s: Int): Int\n    // a comment between two methods\n    fn shout(s: Int): Int\n}\n"
+	src := "pub interface Speech {\n    fn speak(s: Int) -> Int\n    // a comment between two methods\n    fn shout(s: Int) -> Int\n}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("format failed: %v", err)
@@ -5285,7 +5245,7 @@ func TestFormat_InterfaceBody_InterMethodComment_Preserved(t *testing.T) {
 // Inter-field comment round-trips through anon-struct types in param
 // position. New StructField.LeadingComments slot.
 func TestFormat_AnonStructType_InterFieldComment_Preserved(t *testing.T) {
-	src := "fn greet(p: {\n    name: String,\n    // a comment between two anon-type fields\n    age: Int,\n}): String {\n    p.name\n}\n"
+	src := "fn greet(p: {\n    name: String,\n    // a comment between two anon-type fields\n    age: Int,\n}) -> String {\n    p.name\n}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("format failed: %v", err)

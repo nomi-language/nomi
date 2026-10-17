@@ -38,63 +38,63 @@ enum Shape {
     embeds Expired
 }
 
-fn no_int(_v: Int): Bool {
+fn no_int(_v: Int) -> Bool {
     False
 }
 
-fn no_str(_v: String): Bool {
+fn no_str(_v: String) -> Bool {
     False
 }
 
-fn no_list(_v: List<Int>): Bool {
+fn no_list(_v: List<Int>) -> Bool {
     False
 }
 
-fn no_strings(_v: List<String>): Bool {
+fn no_strings(_v: List<String>) -> Bool {
     False
 }
 
-fn no_nested(_v: List<List<Int>>): Bool {
+fn no_nested(_v: List<List<Int>>) -> Bool {
     False
 }
 
-fn no_pair(_v: (Int, String)): Bool {
+fn no_pair(_v: #(Int, String)) -> Bool {
     False
 }
 
-fn no_map(_v: Map<String, Int>): Bool {
+fn no_map(_v: Map<String, Int>) -> Bool {
     False
 }
 
-fn no_point(_v: Point): Bool {
+fn no_point(_v: Point) -> Bool {
     False
 }
 
-fn no_outer(_v: Outer): Bool {
+fn no_outer(_v: Outer) -> Bool {
     False
 }
 
-fn no_nothing(_v: Nothing): Bool {
+fn no_nothing(_v: Nothing) -> Bool {
     False
 }
 
-fn no_user(_v: UserId): Bool {
+fn no_user(_v: UserId) -> Bool {
     False
 }
 
-fn no_shape(_v: Shape): Bool {
+fn no_shape(_v: Shape) -> Bool {
     False
 }
 
-fn no_maybe(_v: Maybe<Int>): Bool {
+fn no_maybe(_v: Maybe<Int>) -> Bool {
     False
 }
 
-fn no_result(_v: Result<Int, String>): Bool {
+fn no_result(_v: Result<Int, String>) -> Bool {
     False
 }
 
-fn no_maybe_point(_v: Maybe<Point>): Bool {
+fn no_maybe_point(_v: Maybe<Point>) -> Bool {
     False
 }
 
@@ -119,12 +119,12 @@ test "a nested list" {
 }
 
 test "a tuple" {
-    p = (1, "two")
+    p = #(1, "two")
     assert no_pair(p)
 }
 
 test "a map" {
-    m = {"a" => 1, "b" => 2}
+    m = %{"a" => 1, "b" => 2}
     assert no_map(m)
 }
 

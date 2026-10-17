@@ -62,8 +62,6 @@ func (c *checker) rejectValueAssertions(nodes []ast.Node) {
 				allowStmt(v.Value)
 			case *ast.StructDestructure:
 				allowStmt(v.Value)
-			case *ast.MapDestructure:
-				allowStmt(v.Value)
 			case *ast.DistinctDestructure:
 				allowStmt(v.Value)
 			case *ast.PatternDestructure:
@@ -83,6 +81,9 @@ func (c *checker) rejectValueAssertions(nodes []ast.Node) {
 					allow(v.Left)
 				}
 				allow(v.Right)
+			case *ast.Subtests:
+				// A row's name: rejectExitlessExit reports an assertion there.
+				allow(v.Name)
 			case *ast.FuncDef, *ast.Lambda, *ast.OnceBinding, *ast.StructDef, *ast.EnumDef:
 				// A parameter, field or variant default and a `once`
 				// initializer: rejectExitlessExit reports an assertion there.

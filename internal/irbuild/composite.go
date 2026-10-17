@@ -5,7 +5,7 @@ package irbuild
 // A named type's identity is the pointer to the declaration that produced it
 // (see types.go's package comment); spelling identity as a string gives silent
 // wrong answers when two declarations share a name. A STRUCTURAL type —
-// `(Int) -> Int`, `List<Int>`, `(Int, String)` — has no declaration to point
+// `(Int) -> Int`, `List<Int>`, `#(Int, String)` — has no declaration to point
 // at, and one `kind` tag covers unboundedly many distinct Go types. Comparing
 // such kinds by tag alone would make `(Int) -> Int` equal to `(String) -> Bool`.
 //

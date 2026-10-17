@@ -1,4 +1,4 @@
-fn double(x: Int): Int {
+fn double(x: Int) -> Int {
     x * 2
 }
 

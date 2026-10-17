@@ -13,8 +13,8 @@ import (
 // would come back invalid and `probe` would report the bare node type. A named
 // argument to a USER function lowers through native.go's directCall:
 //
-//	fn f(a: Int, b: Int): Int          f(b: 1, 2)
-//	fn f(a: Int, b: Int = 5): Int      f(1, b: 9)
+//	fn f(a: Int, b: Int) -> Int          f(b: 1, 2)
+//	fn f(a: Int, b: Int = 5) -> Int      f(1, b: 9)
 //	calendar Time.new(hour, minute, second: Int = 0, nanosecond: Int = 0)
 //	                                   Time.new(10, 30, 15)
 //	                                   Time.new(10, 30, second: 15)

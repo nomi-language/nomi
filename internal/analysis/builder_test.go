@@ -10,7 +10,7 @@ import (
 )
 
 func TestBuildScopes_Function(t *testing.T) {
-	input := `pub fn add(x: Int, y: Int): Int { x + y }`
+	input := `pub fn add(x: Int, y: Int) -> Int { x + y }`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -28,7 +28,7 @@ func TestBuildScopes_Function(t *testing.T) {
 }
 
 func TestBuildScopes_FunctionParams(t *testing.T) {
-	input := `fn add(x: Int, y: Int): Int { x + y }`
+	input := `fn add(x: Int, y: Int) -> Int { x + y }`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -40,7 +40,7 @@ func TestBuildScopes_FunctionParams(t *testing.T) {
 }
 
 func TestBuildScopes_Binding(t *testing.T) {
-	input := `fn main(): Unit {
+	input := `fn main() -> Unit {
     x = 42
     y = x + 1
     y
@@ -113,7 +113,7 @@ func TestBuildScopes_TypeDef(t *testing.T) {
 }
 
 func TestBuildScopes_Interface(t *testing.T) {
-	input := `interface Display { fn to_string(value: self): String }`
+	input := `interface Display { fn to_string(value: self) -> String }`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -130,7 +130,7 @@ func TestBuildScopes_Interface(t *testing.T) {
 func TestBuildScopes_InterfaceMethodMembers(t *testing.T) {
 	input := "interface Display {\n" +
 		"  /// Renders the value for a human.\n" +
-		"  fn to_string(value: self): String\n" +
+		"  fn to_string(value: self) -> String\n" +
 		"}"
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
@@ -166,7 +166,7 @@ func TestBuildScopes_InterfaceMethodMembers(t *testing.T) {
 
 func TestBuildScopes_InterfaceQualifiedReference(t *testing.T) {
 	input := `interface Greeting {
-	fn greet(value: self): String
+	fn greet(value: self) -> String
 }
 fn main() {
 	Greeting.greet("hello")
@@ -192,7 +192,7 @@ func TestBuildScopes_InterfaceQualifiedReference_CrossModule(t *testing.T) {
 	// Simulate cross-module: Greeting is an imported symbol with Resolved pointing
 	// to the real interface symbol that has Members.
 	realIfaceSrc := `interface Greeting {
-	fn greet(value: self): String
+	fn greet(value: self) -> String
 }`
 	realTokens := lexer.Lex(realIfaceSrc)
 	realNodes, _ := parser.ParseWithRecovery(realTokens)
@@ -232,7 +232,7 @@ func TestBuildScopes_InterfaceQualifiedReference_CrossModule(t *testing.T) {
 }
 
 func TestBuildScopes_References(t *testing.T) {
-	input := `fn double(x: Int): Int { x + x }`
+	input := `fn double(x: Int) -> Int { x + x }`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -252,8 +252,8 @@ func TestBuildScopes_References(t *testing.T) {
 
 func TestBuildScopes_ForwardReference(t *testing.T) {
 	// helper is defined after use — should still resolve
-	input := `fn run(): Int { helper() }
-fn helper(): Int { 42 }`
+	input := `fn run() -> Int { helper() }
+fn helper() -> Int { 42 }`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -358,9 +358,9 @@ func TestModuleQualifiedResolution(t *testing.T) {
 
 func TestImplicitSelfModuleAliasResolvesFileMembers(t *testing.T) {
 	input := `
-pub fn answer(): Int { 42 }
+pub fn answer() -> Int { 42 }
 
-fn demo(): Int {
+fn demo() -> Int {
   sample.answer()
 }`
 	tokens := lexer.Lex(input)
@@ -391,7 +391,7 @@ fn demo(): Int {
 }
 
 func TestImplicitSelfModuleAliasYieldsToTopLevelDeclaration(t *testing.T) {
-	input := `fn main(): Unit { Unit }`
+	input := `fn main() -> Unit { Unit }`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFileWithStdlibAtPath(nodes, nil, nil, "", nil, "/tmp/main.nomi")
@@ -457,7 +457,7 @@ func TestTypeExprResolution_GenericType(t *testing.T) {
 	primitives.Define(&Symbol{Name: "List", Kind: SymbolType, Pos: Pos{Line: 1, Col: 1}})
 	primitives.Define(&Symbol{Name: "Int", Kind: SymbolType, Pos: Pos{Line: 2, Col: 1}})
 
-	input := "fn foo(x: List<Int>): Int { x }"
+	input := "fn foo(x: List<Int>) -> Int { x }"
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFileWithStdlib(nodes, primitives, nil, "", nil)
@@ -485,7 +485,7 @@ func TestTypeExprResolution_FuncType(t *testing.T) {
 	primitives.Define(&Symbol{Name: "Int", Kind: SymbolType, Pos: Pos{Line: 1, Col: 1}})
 	primitives.Define(&Symbol{Name: "String", Kind: SymbolType, Pos: Pos{Line: 2, Col: 1}})
 
-	input := "fn apply(f: (Int) -> String): String { f(1) }"
+	input := "fn apply(f: (Int) -> String) -> String { f(1) }"
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFileWithStdlib(nodes, primitives, nil, "", nil)
@@ -582,7 +582,7 @@ func TestBuildScopes_ImportSelective(t *testing.T) {
 
 func TestCrossFile_NamespaceImportResolvesQualifiedAccess(t *testing.T) {
 	mathSrc := `/// Doubles a number.
-pub fn double(n: Int): Int { n + n }`
+pub fn double(n: Int) -> Int { n + n }`
 	mathTokens := lexer.Lex(mathSrc)
 	mathNodes, _ := parser.ParseWithRecovery(mathTokens)
 
@@ -617,7 +617,7 @@ pub fn double(n: Int): Int { n + n }`
 }
 
 func TestCrossFile_SelectiveImportResolvesKindAndDoc(t *testing.T) {
-	mathSrc := "/// Doubles a number.\nfn double(n: Int): Int { n + n }"
+	mathSrc := "/// Doubles a number.\nfn double(n: Int) -> Int { n + n }"
 	mathTokens := lexer.Lex(mathSrc)
 	mathNodes, _ := parser.ParseWithRecovery(mathTokens)
 
@@ -655,9 +655,9 @@ func TestCrossFile_CycleDetection(t *testing.T) {
 		var src string
 		switch name {
 		case "a":
-			src = "import b\npub fn from_a(): Int { 1 }"
+			src = "import b\npub fn from_a() -> Int { 1 }"
 		case "b":
-			src = "import a\npub fn from_b(): Int { 2 }"
+			src = "import a\npub fn from_b() -> Int { 2 }"
 		default:
 			return nil, fmt.Errorf("not found: %s", name)
 		}
@@ -688,11 +688,11 @@ func TestCrossFile_NilLoaderFallsBack(t *testing.T) {
 }
 
 func TestCrossFile_TransitiveImport(t *testing.T) {
-	helpersSrc := "pub fn square(n: Int): Int { n * n }"
+	helpersSrc := "pub fn square(n: Int) -> Int { n * n }"
 	helpersTokens := lexer.Lex(helpersSrc)
 	helpersNodes, _ := parser.ParseWithRecovery(helpersTokens)
 
-	mathSrc := "import helpers\npub fn double(n: Int): Int { n + n }"
+	mathSrc := "import helpers\npub fn double(n: Int) -> Int { n + n }"
 	mathTokens := lexer.Lex(mathSrc)
 	mathNodes, _ := parser.ParseWithRecovery(mathTokens)
 
@@ -728,7 +728,7 @@ func TestCrossFile_TransitiveImport(t *testing.T) {
 
 func TestCrossFile_CacheHit(t *testing.T) {
 	callCount := 0
-	mathSrc := "fn double(n: Int): Int { n + n }"
+	mathSrc := "fn double(n: Int) -> Int { n + n }"
 	mathTokens := lexer.Lex(mathSrc)
 	mathNodes, _ := parser.ParseWithRecovery(mathTokens)
 
@@ -763,7 +763,7 @@ func TestSameFile_BareStructVariantConstructionRejected(t *testing.T) {
   Timeout
 }
 
-fn make(): Error { HttpError{status: 404, message: "x"} }`
+fn make() -> Error { HttpError{status: 404, message: "x"} }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -796,7 +796,7 @@ func TestSameFile_BareVariantConstructionRejected(t *testing.T) {
 	src := `enum Shape { Circle Float
   Empty }
 
-fn make(): Shape { Circle(5.0) }`
+fn make() -> Shape { Circle(5.0) }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -919,7 +919,7 @@ func TestImport_SelectsModuleFunction(t *testing.T) {
   n: Int
 }
 
-pub fn make(n: Int): Widget { Widget{n} }
+pub fn make(n: Int) -> Widget { Widget{n} }
 `
 	widgetTokens := lexer.Lex(widgetSrc)
 	widgetNodes, _ := parser.ParseWithRecovery(widgetTokens)
@@ -1073,7 +1073,7 @@ func TestCrossFile_QualifiedEnumVariantResolves(t *testing.T) {
 	}
 
 	src := `import ast.{Expr}
-fn make(): Expr { Expr.Let{name: "x", value: Expr.Lit(1), body: Expr.Lit(2)} }`
+fn make() -> Expr { Expr.Let{name: "x", value: Expr.Lit(1), body: Expr.Lit(2)} }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFileWithStdlib(nodes, nil, nil, "/project", loader)
@@ -1105,7 +1105,7 @@ fn make(): Expr { Expr.Let{name: "x", value: Expr.Lit(1), body: Expr.Lit(2)} }`
 func TestEmbeds_VariantDoesNotShadowUnderlyingStruct(t *testing.T) {
 	src := `struct Circle { radius: Float }
 enum Shape { embeds Circle; Point }
-fn make_circle(r: Float): Circle { Circle{radius: r} }`
+fn make_circle(r: Float) -> Circle { Circle{radius: r} }`
 	_, errs := checkSource(src)
 	for _, e := range errs {
 		if strings.Contains(e.Message, "return type mismatch") ||
@@ -1121,7 +1121,7 @@ fn make_circle(r: Float): Circle { Circle{radius: r} }`
 func TestEmbeds_VariantDoesNotShadowDistinctType(t *testing.T) {
 	src := `type UserId String
 enum Identifier { embeds UserId; Anonymous }
-fn make(id: String): UserId { UserId(id) }`
+fn make(id: String) -> UserId { UserId(id) }`
 	_, errs := checkSource(src)
 	for _, e := range errs {
 		if strings.Contains(e.Message, "must be qualified through its enum") ||
@@ -1155,7 +1155,7 @@ func TestBuilderInlinePubOnce(t *testing.T) {
 // already reads n.Public; this is a regression guard alongside
 // TestBuilderInlinePubOnce.
 func TestBuilderInlinePubFn(t *testing.T) {
-	input := `pub fn foo(): Int { 0 }`
+	input := `pub fn foo() -> Int { 0 }`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -1199,7 +1199,7 @@ func reExportLoader(t *testing.T, modSources map[string]string) func(string, []s
 // Consumers look up `thing` in main's ModuleScope and see Public=true.
 func TestBuilder_ReExport_UnderImportedName(t *testing.T) {
 	loader := reExportLoader(t, map[string]string{
-		"other": `pub fn thing(): Int { 0 }`,
+		"other": `pub fn thing() -> Int { 0 }`,
 	})
 
 	src := `pub import other.{thing}`
@@ -1226,7 +1226,7 @@ func TestBuilder_ReExport_UnderImportedName(t *testing.T) {
 // bound at all.
 func TestBuilder_ReExport_AliasIsThePublicName(t *testing.T) {
 	loader := reExportLoader(t, map[string]string{
-		"other": `pub fn thing(): Int { 0 }`,
+		"other": `pub fn thing() -> Int { 0 }`,
 	})
 
 	src := `pub import other.{thing as t}`
@@ -1255,8 +1255,8 @@ func TestBuilder_ReExport_AliasIsThePublicName(t *testing.T) {
 // imported name.
 func TestBuilder_ReExport_EveryItem(t *testing.T) {
 	loader := reExportLoader(t, map[string]string{
-		"other": `pub fn a(): Int { 1 }
-pub fn b(): Int { 2 }`,
+		"other": `pub fn a() -> Int { 1 }
+pub fn b() -> Int { 2 }`,
 	})
 
 	src := `pub import other.{a, b}`
@@ -1281,7 +1281,7 @@ pub fn b(): Int { 2 }`,
 // module.
 func TestBuilder_ReExport_NotExportedByDefault(t *testing.T) {
 	loader := reExportLoader(t, map[string]string{
-		"other": `pub fn thing(): Int { 0 }`,
+		"other": `pub fn thing() -> Int { 0 }`,
 	})
 
 	src := `import other.{thing}`
@@ -1313,7 +1313,7 @@ func TestBuilder_ReExport_NotExportedByDefault(t *testing.T) {
 // chain walk it correctly fires.
 func TestBuilder_ReExport_MultiHopChain(t *testing.T) {
 	loader := reExportLoader(t, map[string]string{
-		"leaf":   `pub fn deep(): Int { 42 }`,
+		"leaf":   `pub fn deep() -> Int { 42 }`,
 		"middle": `pub import leaf.{deep}`,
 		"top":    `pub import middle.{deep}`,
 	})
@@ -1324,7 +1324,7 @@ func TestBuilder_ReExport_MultiHopChain(t *testing.T) {
 	// older code already handled.
 	srcOK := `import top.{deep}
 
-fn use_it(): Int { deep() }`
+fn use_it() -> Int { deep() }`
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(srcOK))
 	file := BuildFileWithStdlib(nodes, nil, nil, "/project", loader)
 	typeErrs := BuildTypes(file, nodes)
@@ -1362,7 +1362,7 @@ fn use_it(): Int { deep() }`
 	// leaf's `() -> Int` and the arity error fires.
 	srcBad := `import top.{deep}
 
-fn use_it(): Int { deep(1) }`
+fn use_it() -> Int { deep(1) }`
 	badNodes, _ := parser.ParseWithRecovery(lexer.Lex(srcBad))
 	badFile := BuildFileWithStdlib(badNodes, nil, nil, "/project", loader)
 	BuildTypes(badFile, badNodes)
@@ -1388,15 +1388,15 @@ fn use_it(): Int { deep(1) }`
 // without the visibility-consistency check rejecting it.
 func TestBuilder_ReExport_DownstreamConsumerCanImportReExport(t *testing.T) {
 	loader := reExportLoader(t, map[string]string{
-		"other": `pub fn thing(): Int { 0 }`,
+		"other": `pub fn thing() -> Int { 0 }`,
 		"main": `pub import other.{thing}
 
-pub fn use_it(): Int { thing() }`,
+pub fn use_it() -> Int { thing() }`,
 	})
 
 	src := `import main.{thing}
 
-pub fn use_it(): Int { thing() }`
+pub fn use_it() -> Int { thing() }`
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
 	file := BuildFileWithStdlib(nodes, nil, nil, "/project", loader)
 

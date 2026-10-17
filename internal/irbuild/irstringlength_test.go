@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRStringLength_GraphemesAndEffects(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn mark(s: String): String { io.print("evaluated") s }
+fn mark(s: String) -> String { io.print("evaluated") s }
 fn main() {
   io.print(String.length(""))
   io.print(String.length("hello"))

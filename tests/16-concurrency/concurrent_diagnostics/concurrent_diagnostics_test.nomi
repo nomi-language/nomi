@@ -9,7 +9,7 @@ test "spawn is only allowed inside concurrent blocks" {
         import std/tasks.Task
 
         fn main() {
-          t = Task.spawn(|| 42)
+          t = Task.spawn(fn -> 42)
           _ = Task.await(t)
         }
         """
@@ -23,9 +23,9 @@ test "task values cannot escape their concurrent block" {
         """
         import std/tasks.Task
 
-        fn spawn_one(): Task<Int> {
+        fn spawn_one() -> Task<Int> {
           concurrent {
-            Task.spawn(|| 42)
+            Task.spawn(fn -> 42)
           }
         }
 
@@ -48,7 +48,7 @@ test "task bindings must be awaited" {
 
         fn main() {
           _ = concurrent {
-            t = Task.spawn(|| 42)
+            t = Task.spawn(fn -> 42)
             0
           }
         }

@@ -11,7 +11,7 @@ import (
 
 // Application fields.
 //
-// An entry's boot, `fn boot(): App` or `fn boot(startup: Startup): App` in a
+// An entry's boot, `fn boot() -> App` or `fn boot(startup: Startup) -> App` in a
 // file that defines `fn main`, returns the application value: a struct with
 // at most one field of std/context's Context type. Code reads one of its
 // fields by naming the type,
@@ -216,15 +216,37 @@ func (s appReadSite) where() string {
 	return fmt.Sprintf("%s:%d", filepath.Base(s.file.FilePath), s.line)
 }
 
-// checkAppRoots checks that each execution root in this file boots the
+// CheckAppRoots checks that each execution root in this file boots the
 // application type every read reachable from it names, and that an entry
-// point's boot is called only on a `group`'s `boot` line.
+// point's boot is called only on a `group`'s `boot` line, and answers those
+// errors followed by the file's boot errors (FileAnalysis.BootErrors).
 //
 // Roots are an entry's `main` (under its file's boot), each test (under its
 // group's boot, or none), each group's setup, and each boot body and group
 // `boot` line's argument, which run before any field is published.
-func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
-	var errors []TypeError
+//
+// The walk follows calls into the program's other files and reads what their
+// checks recorded (the impl a dispatch resolved to, a type-qualified call),
+// so a caller runs it once every file it checks has been checked, never
+// between two files' CheckTypes. Then what it reports does not depend on the
+// order the files were checked in.
+func CheckAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
+	errs, _ := checkAppRootsOf(fa, nodes)
+	return errs
+}
+
+// checkAppRootsOf is CheckAppRoots, and reports whether the file has a root
+// whose reads it followed. A file with none reads nothing of another file's
+// bodies: its errors are the calls of an entry boot its own references make
+// and its boot errors, so they change only when its own bodies do.
+func checkAppRootsOf(fa *FileAnalysis, nodes []ast.Node) ([]TypeError, bool) {
+	errs, rooted := checkAppRoots(fa, nodes)
+	// A boot's signature and placement are checked once per project build,
+	// and reported with the file that declares the boot.
+	return append(errs, fa.BootErrors...), rooted
+}
+
+func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) (errors []TypeError, rooted bool) {
 	// The one place an entry boot may be called: a group's `boot` line.
 	bootLines := map[Pos]bool{}
 	for _, n := range nodes {
@@ -243,6 +265,11 @@ func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 		if fn, ok := sym.Node.(*ast.FuncDef); ok && sym.Kind == SymbolFunction && fa.Program().BootFunctions[fn] && !bootLines[pos] {
 			errors = append(errors, TypeError{Line: pos.Line, Col: pos.Col, Message: "entry-point boot cannot be called or captured as an ordinary function; a `group` calls it on its `boot` line"})
 		}
+	}
+	// Every other error names an application-field read, and a program with
+	// no application type has none to find.
+	if len(fa.Program().AppTypes) == 0 || fa.Program().ContextType == nil {
+		return errors, false
 	}
 	w := newAppReadWalker(fa)
 	reported := map[string]bool{}
@@ -279,6 +306,7 @@ func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	// program"); anchorLine/anchorCol is where an error goes when there is no
 	// boot to blame.
 	check := func(sites []appReadSite, frame bootFrame, subject string, anchorLine, anchorCol int) {
+		rooted = true
 		if len(sites) == 0 {
 			return
 		}
@@ -305,6 +333,7 @@ func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	// beforeBoot checks code that runs before any application field is
 	// published: a boot body, or a group `boot` line's argument.
 	beforeBoot := func(body ast.Node, line, col int) {
+		rooted = true
 		sites := w.reachable(fa, body)
 		if len(sites) == 0 {
 			return
@@ -373,7 +402,7 @@ func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 		}
 	}
 	roots(nodes)
-	return errors
+	return errors, rooted
 }
 
 // typeLabel names a boot's result type in a diagnostic.
@@ -396,6 +425,32 @@ type appReadWalker struct {
 	fa      *FileAnalysis
 	summary map[*ast.FuncDef]*appWalk
 	impls   map[string][]appCallee
+	// declaring caches declaringFile's answers.
+	declaring map[ast.Node]*FileAnalysis
+}
+
+// declaringFile answers the analysis of the file that declares n, a function
+// or interface function whose name is at pos, or nil when no file of the
+// program does. A body is walked against its own file's references: the
+// positions in it mean nothing in any other file.
+func (w *appReadWalker) declaringFile(n ast.Node, pos Pos) *FileAnalysis {
+	if fn, ok := n.(*ast.FuncDef); ok {
+		if file := w.fa.Program().ScopedFunctionFiles[fn]; file != nil {
+			return file
+		}
+	}
+	if file, ok := w.declaring[n]; ok {
+		return file
+	}
+	var found *FileAnalysis
+	for _, file := range w.fa.Program().files {
+		if sym := file.Definitions[pos]; sym != nil && sym.Node == n {
+			found = file
+			break
+		}
+	}
+	w.declaring[n] = found
+	return found
 }
 
 // appCallee is a function a walk calls, and the file declaring it.
@@ -414,7 +469,7 @@ type appWalk struct {
 	called map[*ast.FuncDef]bool
 	// inspected holds every body this walk has inspected. Inspecting one
 	// again adds no read and no call, and a lambda whose body calls the
-	// function that holds it (`fn f(x) { |n| f(x)(n) }`) reaches its own
+	// function that holds it (`fn f(x) { fn n -> f(x)(n) }`) reaches its own
 	// body again through that function's returned lambdas, without end.
 	inspected map[ast.Node]bool
 }
@@ -440,7 +495,7 @@ func (aw *appWalk) call(owner *FileAnalysis, fn *ast.FuncDef) {
 }
 
 func newAppReadWalker(fa *FileAnalysis) *appReadWalker {
-	return &appReadWalker{fa: fa, summary: map[*ast.FuncDef]*appWalk{}, impls: map[string][]appCallee{}}
+	return &appReadWalker{fa: fa, summary: map[*ast.FuncDef]*appWalk{}, impls: map[string][]appCallee{}, declaring: map[ast.Node]*FileAnalysis{}}
 }
 
 // reachable answers the reads reachable from body, which owner holds.
@@ -481,13 +536,11 @@ func (w *appReadWalker) function(c appCallee) *appWalk {
 	if walk, ok := w.summary[c.fn]; ok {
 		return walk
 	}
-	owner := c.owner
-	if actual := w.fa.Program().ScopedFunctionFiles[c.fn]; actual != nil {
-		owner = actual
-	}
 	walk := newAppWalk()
 	w.summary[c.fn] = walk
-	w.inspect(walk, owner, c.fn.Body)
+	if owner := w.declaringFile(c.fn, Pos{Line: c.fn.Line, Col: c.fn.Col}); owner != nil {
+		w.inspect(walk, owner, c.fn.Body)
+	}
 	return walk
 }
 
@@ -560,10 +613,9 @@ func (w *appReadWalker) invoke(aw *appWalk, owner *FileAnalysis, expr ast.Node, 
 			}
 			if fn, ok := factory.Node.(*ast.FuncDef); ok && factory.Kind == SymbolFunction && !aliases[factory] && !w.fa.Program().BootFunctions[fn] {
 				aliases[factory] = true
-				if source := w.fa.Program().ScopedFunctionFiles[fn]; source != nil {
-					owner = source
+				if source := w.declaringFile(fn, factory.Pos); source != nil {
+					w.contained(aw, source, fn.Body, aliases)
 				}
-				w.contained(aw, owner, fn.Body, aliases)
 			}
 		}
 		return
@@ -603,7 +655,9 @@ func (w *appReadWalker) invoke(aw *appWalk, owner *FileAnalysis, expr ast.Node, 
 	}
 	if sym.Kind == SymbolInterfaceMethod {
 		if method, ok := sym.Node.(*ast.InterfaceMethod); ok && method.Body != nil {
-			w.inspect(aw, owner, method.Body)
+			if declaring := w.declaringFile(method, sym.Pos); declaring != nil {
+				w.inspect(aw, declaring, method.Body)
+			}
 		}
 		// Dynamic dispatch may choose any implementation of this method.
 		for _, impl := range w.implementations(sym.Name, sym.OwningInterface) {

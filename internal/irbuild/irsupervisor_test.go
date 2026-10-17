@@ -29,14 +29,14 @@ struct Config {
   written: Channel<Int>
 }
 
-fn boot(): Config {
+fn boot() -> Config {
   Config{context: Context.root(),
     audit: Supervisor.new(max_running: 4),
     written: Channel.buffered<Int>(8),
   }
 }
 
-fn record_audit(id: Int): Unit {
+fn record_audit(id: Int) -> Unit {
   // Stands in for the slow part — a write, an API call.
   timer.sleep(Duration.milliseconds(50))
   case Sender.send(Config.written.sender, id) {
@@ -45,15 +45,15 @@ fn record_audit(id: Int): Unit {
   }
 }
 
-fn handle_order(id: Int): String {
-  _ = Supervisor.spawn(Config.audit, || record_audit(id))
+fn handle_order(id: Int) -> String {
+  _ = Supervisor.spawn(Config.audit, fn -> record_audit(id))
   "order ${Display.to_string(id)} accepted"
 }
 
 // Both ids are on the channel by the time this runs, but in whichever
 // order the two tasks got there — so it sums them rather than reading
 // them one at a time and claiming an order.
-fn audited_total(): Int {
+fn audited_total() -> Int {
   first = Maybe.with_default(Receiver.receive(Config.written.receiver), 0)
   second = Maybe.with_default(Receiver.receive(Config.written.receiver), 0)
   first + second
@@ -83,11 +83,11 @@ struct App {
 }
 
 // A constructor boot calls, so the short call reads back to native's Go.
-fn retrying(): Supervisor {
+fn retrying() -> Supervisor {
   Supervisor.new(max_running: 3, shutdown_timeout: Duration.seconds(2), restart: Restart.Transient)
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{context: Context.root(),
     work: Supervisor.new(2, Duration.seconds(1)),
     retry: retrying(),
@@ -95,15 +95,15 @@ fn boot(): App {
   }
 }
 
-fn nap(): Unit {
+fn nap() -> Unit {
   timer.sleep(Duration.milliseconds(5))
 }
 
 fn main() {
-  t = Supervisor.spawn(App.work, || nap())
+  t = Supervisor.spawn(App.work, fn -> nap())
   Task.await(t)
   dbg "awaited"
-  _ = Supervisor.spawn(App.retry, || nap())
+  _ = Supervisor.spawn(App.retry, fn -> nap())
   flushed = Supervisor.flush(App.retry, Wait.UpTo(Duration.seconds(5)))
   dbg flushed
   dbg App.label
@@ -121,23 +121,23 @@ struct App {
   jobs: Supervisor
 }
 
-fn jobs(): Supervisor {
+fn jobs() -> Supervisor {
   Supervisor.new(max_running: 1)
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{context: Context.root(), jobs: jobs()}
 }
 
 fn main() {
-  _ = Supervisor.spawn(App.jobs, || timer.sleep(Duration.milliseconds(1)))
+  _ = Supervisor.spawn(App.jobs, fn -> timer.sleep(Duration.milliseconds(1)))
   dbg Supervisor.flush(App.jobs)
   Unit
 }
 `, "dbg line 22: Supervisor.flush(App.jobs) = Flushed\n"},
 		{"short calls to calendar's defaulted Time.new", `import std/calendar.{Error, Time}
 
-fn noon(): Result<Time, Error> {
+fn noon() -> Result<Time, Error> {
   Time.new(12, 0)
 }
 
@@ -147,11 +147,11 @@ fn main() {
   Unit
 }
 `, "dbg line 8: noon() = Ok(12:00:00)\ndbg line 9: Time.new(9, 30, 15) = Ok(09:30:15)\n"},
-		{"the prelude with_default pair", `fn half(n: Int): Maybe<Int> {
+		{"the prelude with_default pair", `fn half(n: Int) -> Maybe<Int> {
   if n % 2 == 0 { Some(n / 2) } else { None }
 }
 
-fn parse(n: Int): Result<Int, String> {
+fn parse(n: Int) -> Result<Int, String> {
   if n > 0 { Ok(n) } else { Err("negative") }
 }
 
@@ -173,7 +173,7 @@ struct App {
   settings: Settings
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{context: Context.root(), settings: Settings{label: "x", n: 2}}
 }
 
@@ -200,7 +200,7 @@ fn main() {
 }
 `, "dbg line 38: total(2) = 3\n"},
 		{"a supervised task's outcome", strings.Replace(irSupervisorBatchHeader, "TASKS", "  std/tasks.{Outcome, Task}\n", 1) + `
-fn describe(o: Outcome<Unit>): String {
+fn describe(o: Outcome<Unit>) -> String {
   case o {
     Outcome.Completed(_) -> "completed"
     Outcome.Cancelled -> "cancelled"
@@ -209,9 +209,9 @@ fn describe(o: Outcome<Unit>): String {
 }
 
 fn main() {
-  t = Supervisor.spawn(App.audit, || nap())
+  t = Supervisor.spawn(App.audit, fn -> nap())
   dbg describe(Task.outcome(t))
-  u = Supervisor.spawn(App.audit, || nap())
+  u = Supervisor.spawn(App.audit, fn -> nap())
   Task.cancel(u)
   dbg describe(Task.outcome(u))
   cancelled: Outcome<Unit> = .Cancelled
@@ -236,35 +236,35 @@ struct App {
 }
 
 // Skips shutdown_timeout: native fills it with std's _DEFAULT1 accessor.
-fn permanent(): Supervisor {
+fn permanent() -> Supervisor {
   Supervisor.new(max_running: 1, restart: Restart.Permanent)
 }
 
-fn reordered(): Supervisor {
+fn reordered() -> Supervisor {
   Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 4)
 }
 
 // Skips backoff and writes the last parameter, so it calls the full body.
-fn exits(): Supervisor {
+fn exits() -> Supervisor {
   Supervisor.new(3, Duration.seconds(2), Restart.Transient, on_give_up: GiveUp.Exit)
 }
 
 // Three holes. Each earlier hole's value is forced into a temporary and
 // passed to every later accessor's prefix.
-fn gives_up(): Supervisor {
+fn gives_up() -> Supervisor {
   Supervisor.new(max_running: 4, on_give_up: GiveUp.Exit)
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{context: Context.root(), a: permanent(), b: reordered(), c: exits(), d: gives_up()}
 }
 
-fn nap(): Unit {
+fn nap() -> Unit {
   timer.sleep(Duration.milliseconds(5))
 }
 
 fn main() {
-  _ = Supervisor.spawn(App.b, || nap())
+  _ = Supervisor.spawn(App.b, fn -> nap())
   dbg Supervisor.flush(App.b)
   dbg Supervisor.flush(App.c)
   dbg Supervisor.flush(App.a)
@@ -292,71 +292,26 @@ struct App {
   seen: Channel<Int>
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{context: Context.root(), audit: Supervisor.new(max_running: 2), seen: Channel.buffered<Int>(8)}
 }
 
-fn record(id: Int): Unit {
+fn record(id: Int) -> Unit {
   case Sender.send(App.seen.sender, id) {
     Ok(_) -> Unit
     Err(_) -> Unit
   }
 }
 
-fn nap(): Unit {
+fn nap() -> Unit {
   timer.sleep(Duration.milliseconds(5))
 }
 
 // The ids arrive in whichever order the tasks got there, so this sums them.
-fn total(n: Int): Int {
+fn total(n: Int) -> Int {
   if n == 0 { 0 } else { Maybe.with_default(Receiver.receive(App.seen.receiver), 0) + total(n - 1) }
 }
 `
-
-// Supervisor shapes the builder does not lower are declined: the enclosing function
-// is not retained.
-func TestIRSupervisor_UnsupportedShapesPreserveEmission(t *testing.T) {
-	for _, tc := range []struct{ fn, src string }{
-		// A supervisor operand that is neither a read nor a call: a
-		// conditional's value, which native computes into a slot before the
-		// task body's func literal. A call operand retains; see
-		// TestIRNestedPattern_SpawnOverACalledAppSupervisor.
-		{"spawn_into", `import std/supervisors.{Supervisor}
-struct App {
-  context: Context
-  s: Supervisor
-}
-fn boot(): App {
-  App{context: Context.root(), s: Supervisor.new(max_running: 1)}
-}
-fn spawn_into(): Unit {
-  _ = Supervisor.spawn(if 1 > 0 { App.s } else { App.s }, || Unit)
-  Unit
-}
-fn main() {
-  spawn_into()
-  _ = Supervisor.flush(App.s)
-  Unit
-}
-`},
-	} {
-		p, err := AnalyzeSource("main.nomi", tc.src)
-		if err != nil {
-			t.Fatalf("the front end now rejects this, so the preservation below is untested: %v", err)
-		}
-		got, _, err := GenerateIR(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, mod := range got.IR {
-			for _, f := range mod.Funcs() {
-				if f.Name() == tc.fn {
-					t.Fatalf("unsupported supervisor shape was retained: %s", tc.fn)
-				}
-			}
-		}
-	}
-}
 
 // Every omitted default runs once per call. A named call that skips several
 // defaulted parameters of a user function prints each default once, in slot
@@ -369,12 +324,12 @@ func TestIRDefaults_EachHoleRunsOnce(t *testing.T) {
 	t.Run("user function", func(t *testing.T) {
 		verifyLambdaProgram(t, `import std/io
 
-fn noisy(label: String, n: Int): Int {
+fn noisy(label: String, n: Int) -> Int {
   io.print(label)
   n
 }
 
-fn spread(a: Int, b: Int = noisy("b", a + 1), c: Int = noisy("c", b + 1), d: Int = noisy("d", c + 1), e: Int): Int {
+fn spread(a: Int, b: Int = noisy("b", a + 1), c: Int = noisy("c", b + 1), d: Int = noisy("d", c + 1), e: Int) -> Int {
   a + b + c + d + e
 }
 
@@ -392,11 +347,11 @@ struct App {
   s: Supervisor
 }
 
-fn gives_up(): Supervisor {
+fn gives_up() -> Supervisor {
   Supervisor.new(max_running: 4, on_give_up: GiveUp.Exit)
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{context: Context.root(), s: gives_up()}
 }
 
@@ -437,12 +392,12 @@ struct App {
   context: Context
   s: Supervisor
 }
-fn boot(): App {
+fn boot() -> App {
   App{context: Context.root(), s: Supervisor.new(max_running: 1)}
 }
-fn ok(): Result<Unit, String> { Ok(Unit) }
-fn show(): Unit {
-  t = Supervisor.spawn(App.s, || Unit)
+fn ok() -> Result<Unit, String> { Ok(Unit) }
+fn show() -> Unit {
+  t = Supervisor.spawn(App.s, fn -> Unit)
   dbg Task.outcome(t)
   dbg ok()
   dbg Unit

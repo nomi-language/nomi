@@ -1,0 +1,156 @@
+================================================================================
+type body items separated by line breaks, semicolons and trailing comments
+================================================================================
+
+struct Point {
+  x: Int; y: Int;
+  z: Int // trailing
+  w: Int
+}
+
+enum Shape {
+  Dot; Circle Float
+  Rect {w: Float, h: Float}
+}
+
+interface Named {
+  fn name(value: self) -> String; fn tag(value: self) -> String { "" }
+  fn other(value: self) -> String
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (struct_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (struct_body
+      (field_definition
+        name: (identifier)
+        type: (type_identifier))
+      (field_definition
+        name: (identifier)
+        type: (type_identifier))
+      (field_definition
+        name: (identifier)
+        type: (type_identifier))
+      (line_comment)
+      (field_definition
+        name: (identifier)
+        type: (type_identifier))))
+  (enum_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (enum_body
+      (enum_variant
+        name: (type_identifier))
+      (enum_variant
+        name: (type_identifier)
+        (type_identifier))
+      (enum_variant
+        name: (type_identifier)
+        (field_definition
+          (identifier)
+          (type_identifier))
+        (field_definition
+          (identifier)
+          (type_identifier)))))
+  (interface_definition
+    name: (type_identifier)
+    (interface_method
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type)))
+      return_type: (type_identifier))
+    (interface_method
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type)))
+      return_type: (type_identifier)
+      (body
+        (string)))
+    (interface_method
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type)))
+      return_type: (type_identifier))))
+
+================================================================================
+two struct fields on one line are an error
+================================================================================
+
+struct Point {
+  x: Int y: Int
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (struct_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (struct_body
+      (field_definition
+        name: (identifier)
+        type: (type_identifier))
+      (MISSING "}")))
+  (ERROR
+    (identifier)
+    (type_identifier)))
+
+================================================================================
+two interface functions on one line are an error
+================================================================================
+
+interface Named {
+  fn name(value: self) -> String fn other(value: self) -> String
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (interface_definition
+    name: (type_identifier)
+    (interface_method
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type)))
+      return_type: (type_identifier))
+    (MISSING "}"))
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (self_type)))
+    return_type: (type_identifier))
+  (ERROR))
+
+================================================================================
+two enum variants on one line are an error
+================================================================================
+
+enum Shape {
+  Circle Float Dot
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (enum_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (enum_body
+      (enum_variant
+        name: (type_identifier)
+        (type_identifier))
+      (ERROR
+        (type_identifier)))))

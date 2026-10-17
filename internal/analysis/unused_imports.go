@@ -140,7 +140,7 @@ func FindUnusedImports(fa *FileAnalysis, nodes []ast.Node) []UnusedImport {
 	}
 	keep := make(map[*ast.ImportStmt]bool, len(fa.ImplImports))
 	for _, ii := range fa.ImplImports {
-		if !ii.Unused {
+		if !fa.Program().ImplImportUnused(ii) {
 			keep[ii.Stmt] = true
 		}
 	}

@@ -25,13 +25,13 @@ struct Weight {
   kg: Float
 }
 interface Speaker {
-  fn say(s: self): String
+  fn say(s: self) -> String
 }
 struct Loud {
   n: Int
 }
 impl Speaker for Loud {
-  fn say(_s: Loud): String {
+  fn say(_s: Loud) -> String {
     "loud"
   }
 }
@@ -39,7 +39,7 @@ struct Quiet {
   n: Int
 }
 impl Speaker for Quiet {
-  fn say(_s: Quiet): String {
+  fn say(_s: Quiet) -> String {
     "quiet"
   }
 }
@@ -136,11 +136,11 @@ func TestCheck_StructSpread_Accepts(t *testing.T) {
 // RULE 2: the result takes the HEAD's type. Read through a position that only
 // accepts the nominal type, so an anonymous result would be caught.
 func TestCheck_StructSpread_ResultTakesTheHeadsType(t *testing.T) {
-	const src = structSpreadDecls + `fn takes_point(p: Point): Int {
+	const src = structSpreadDecls + `fn takes_point(p: Point) -> Int {
   p.x
 }
 
-fn takes_record(r: {x: Int, y: Int}): Int {
+fn takes_record(r: {x: Int, y: Int}) -> Int {
   r.x
 }
 
@@ -160,7 +160,7 @@ fn main() {
 // direction of rule 2 and the one a "just return the declared struct" bug
 // would pass.
 func TestCheck_StructSpread_AnonymousHeadStaysAnonymous(t *testing.T) {
-	const src = structSpreadDecls + `fn takes_point(p: Point): Int {
+	const src = structSpreadDecls + `fn takes_point(p: Point) -> Int {
   p.x
 }
 

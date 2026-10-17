@@ -144,7 +144,7 @@ func paramPatternType(p ast.Param, reg *TypeRegistry, typeParams map[string]*Typ
 }
 
 // unnamedParam reports a parameter written as a type with no name,
-// `fn echo(String): String`. The parser reads a bare `String` in parameter
+// `fn echo(String) -> String`. The parser reads a bare `String` in parameter
 // position as a variant pattern with no payload, which binds nothing, so the
 // parameter would have a type and no name. A `go`-bound fn has no body whose
 // pattern check would reject it, so this runs for every declared function.
@@ -211,22 +211,32 @@ func patternColOf(n ast.Node) int {
 		return p.Col
 	case *ast.AsPattern:
 		return p.Col
+	case *ast.OrPattern:
+		return p.Col
 	}
 	return 0
 }
 
 // checkParamPatternRefutable reports an error for each refutable sub-pattern in
 // a parameter position. It is type-driven, recursing into tuple/struct element
-// types so a nested refutable pattern (`(.Some(x), n)`) is caught. addError is
+// types so a nested refutable pattern (`#(.Some(x), n)`) is caught. addError is
 // the checker's error sink (line, col, msg).
-func checkParamPatternRefutable(pattern ast.Node, ty Type, reg *TypeRegistry, addError func(line, col int, msg string)) {
+func (c *checker) checkParamPatternRefutable(pattern ast.Node, ty Type, addError func(line, col int, msg string)) {
 	switch p := pattern.(type) {
 	case *ast.WildcardPattern, *ast.IdentPattern:
 		return
 
 	case *ast.AsPattern:
 		// The name matches anything; the pattern decides.
-		checkParamPatternRefutable(p.Pattern, ty, reg, addError)
+		c.checkParamPatternRefutable(p.Pattern, ty, addError)
+
+	case *ast.OrPattern:
+		// Alternatives that together match every value are irrefutable,
+		// whatever each one matches alone: by the coverage rules a `case`
+		// applies to its arms. An unknown type is checkPattern's to report.
+		if ty != nil && !c.patternsExhaustiveOver(ty, p.Alternatives) {
+			addError(p.Line, p.Col, refutableParamMsg)
+		}
 
 	case *ast.MapPattern:
 		addError(p.Line, p.Col, refutableParamMsg)
@@ -239,7 +249,7 @@ func checkParamPatternRefutable(pattern ast.Node, ty Type, reg *TypeRegistry, ad
 			// `self(p)` takes apart a distinct type, which is irrefutable;
 			// its payload is matched against what self wraps.
 			if p.Payload != nil {
-				checkParamPatternRefutable(p.Payload, nil, reg, addError)
+				c.checkParamPatternRefutable(p.Payload, nil, addError)
 			}
 			return
 		}
@@ -249,7 +259,7 @@ func checkParamPatternRefutable(pattern ast.Node, ty Type, reg *TypeRegistry, ad
 			// `Dur(x)` — irrefutable. Recurse into the payload against the
 			// distinct's inner type so a refutable nested payload is caught.
 			if p.Payload != nil {
-				checkParamPatternRefutable(p.Payload, ty.Inner, reg, addError)
+				c.checkParamPatternRefutable(p.Payload, ty.Inner, addError)
 			}
 		case *EnumType:
 			if len(ty.Variants) != 1 {
@@ -266,7 +276,7 @@ func checkParamPatternRefutable(pattern ast.Node, ty Type, reg *TypeRegistry, ad
 			// lives only in matchPattern's case path, which params don't use.)
 			// Recurse into the payload against the variant's data type.
 			if p.Payload != nil {
-				checkParamPatternRefutable(p.Payload, ty.Variants[0].DataType, reg, addError)
+				c.checkParamPatternRefutable(p.Payload, ty.Variants[0].DataType, addError)
 			}
 		default:
 			// Unknown / unresolved type — let checkPattern report the
@@ -276,7 +286,7 @@ func checkParamPatternRefutable(pattern ast.Node, ty Type, reg *TypeRegistry, ad
 	case *ast.TuplePattern:
 		if tt, ok := ty.(*TupleType); ok && len(tt.Elems) == len(p.Patterns) {
 			for i, sub := range p.Patterns {
-				checkParamPatternRefutable(sub, tt.Elems[i], reg, addError)
+				c.checkParamPatternRefutable(sub, tt.Elems[i], addError)
 			}
 		}
 
@@ -293,7 +303,7 @@ func checkParamPatternRefutable(pattern ast.Node, ty Type, reg *TypeRegistry, ad
 					break
 				}
 			}
-			checkParamPatternRefutable(f.Pattern, ft, reg, addError)
+			c.checkParamPatternRefutable(f.Pattern, ft, addError)
 		}
 
 	default:

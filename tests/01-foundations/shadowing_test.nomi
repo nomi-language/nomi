@@ -7,7 +7,7 @@ test "bindings can shadow earlier bindings in the same scope" {
 }
 
 test "bindings can shadow parameters and locals" {
-    fn double_then_inc(x: Int): Int {
+    fn double_then_inc(x: Int) -> Int {
         x = x + x
         x = x + 1
         x

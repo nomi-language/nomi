@@ -14,82 +14,82 @@ import (
 
 // defaultSelfLambdaIface leaves a "%s" where defaultSelfLambdaPrinted goes.
 const defaultSelfLambdaIface = `interface Temperature {
-    fn unit(t: self): String
+    fn unit(t: self) -> String
 %s
-    fn units(t: self): String {
-        [t, t] |> Iter.map(|c| Temperature.unit(c)) |> String.join(",")
+    fn units(t: self) -> String {
+        [t, t] |> Iter.map(fn c -> Temperature.unit(c)) |> String.join(",")
     }
 
-    fn kept(t: self): Int {
-        [t, t, t] |> Iter.filter(|c| Temperature.unit(c) != "K") |> Iter.count()
+    fn kept(t: self) -> Int {
+        [t, t, t] |> Iter.filter(fn c -> Temperature.unit(c) != "K") |> Iter.count()
     }
 
-    fn joined(t: self): String {
-        [t, t, t] |> Iter.reduce(|acc = "", c| "${acc}${Temperature.unit(c)}")
+    fn joined(t: self) -> String {
+        [t, t, t] |> Iter.reduce(fn acc = "", c -> "${acc}${Temperature.unit(c)}")
     }
 
-    fn looped(t: self): String {
-        (c, n) = Iter.loop(|state = (t, 0)| {
-            (c, n) = state
+    fn looped(t: self) -> String {
+        #(c, n) = Iter.loop(fn state = #(t, 0) -> {
+            #(c, n) = state
             if n == 2 {
                 break state
             }
-            (c, n + 1)
+            #(c, n + 1)
         })
         "${Temperature.unit(c)}${n}"
     }
 
-    fn named(t: self): String {
-        f = |c = t| "<${Temperature.unit(c)}>"
-        g = || [t] |> Iter.map(f) |> String.join("")
+    fn named(t: self) -> String {
+        f = fn c = t -> "<${Temperature.unit(c)}>"
+        g = fn -> [t] |> Iter.map(f) |> String.join("")
         "${f(t)}${g()}"
     }
 
-    fn nested(t: self): String {
+    fn nested(t: self) -> String {
         [t, t]
-            |> Iter.map(|a| [a, a] |> Iter.map(|b| Temperature.unit(b)) |> String.join("+"))
+            |> Iter.map(fn a -> [a, a] |> Iter.map(fn b -> Temperature.unit(b)) |> String.join("+"))
             |> String.join(",")
     }
 
-    fn total(_t: self, ts: List<self>): Decimal where self: Distinct<Decimal> {
+    fn total(_t: self, ts: List<self>) -> Decimal where self: Distinct<Decimal> {
         ts
-            |> Iter.map(|c| {
+            |> Iter.map(fn c -> {
                 self(n) = c
                 n
             })
-            |> Iter.reduce(|acc = 0d, n| acc + n)
+            |> Iter.reduce(fn acc = 0d, n -> acc + n)
     }
 
-    fn sum(_t: self, ts: List<self>): Decimal where self: Distinct<Decimal> {
-        ts |> Iter.map(|self(n)| n) |> Iter.reduce(|acc = 0d, n| acc + n)
+    fn sum(_t: self, ts: List<self>) -> Decimal where self: Distinct<Decimal> {
+        ts |> Iter.map(fn self(n) -> n) |> Iter.reduce(fn acc = 0d, n -> acc + n)
     }
 
-    fn doubled(_t: self, ts: List<self>): List<self> where self: Distinct<Decimal> {
+    fn doubled(_t: self, ts: List<self>) -> List<self> where self: Distinct<Decimal> {
         ts
-            |> Iter.map(|c| case c {
+            |> Iter.map(fn c -> case c {
                 self(n) -> self(n * 2d)
             })
             |> Iter.to_list()
     }
 
-    fn first(t: self): String {
+    fn first(t: self) -> String {
         cs = [t, t]
-        head = cs |> Iter.map(|c| c) |> Iter.to_list() |> List.head()
+        head = cs |> Iter.map(fn c -> c) |> Iter.to_list() |> List.head()
         case head {
             Some(c) -> "first ${Temperature.unit(c)}"
             None -> "none"
         }
     }
 
-    fn pick(t: self, m: Maybe<self>): String {
+    fn pick(t: self, m: Maybe<self>) -> String {
         case m {
-            Some(c) -> [c, t] |> Iter.map(|x| Temperature.unit(x)) |> String.join("")
+            Some(c) -> [c, t] |> Iter.map(fn x -> Temperature.unit(x)) |> String.join("")
             None -> "-"
         }
     }
 
-    fn chained(t: self): String {
-        [t] |> Iter.map(|c| Temperature.units(c)) |> String.join(";")
+    fn chained(t: self) -> String {
+        [t] |> Iter.map(fn c -> Temperature.units(c)) |> String.join(";")
     }
 }
 `
@@ -98,7 +98,7 @@ const defaultSelfLambdaIface = `interface Temperature {
 // sibling file's impl (portableDefault), so only the one-file program has it.
 const defaultSelfLambdaPrinted = `
     fn printed(t: self) {
-        [t, t] |> Iter.each(|c| io.print("each ${Temperature.unit(c)}"))
+        [t, t] |> Iter.each(fn c -> io.print("each ${Temperature.unit(c)}"))
     }
 `
 
@@ -106,13 +106,13 @@ const defaultSelfLambdaImpls = `type Celsius Decimal
 type Fahrenheit Decimal
 
 impl Temperature for Celsius {
-    fn unit(_t: Celsius): String {
+    fn unit(_t: Celsius) -> String {
         "C"
     }
 }
 
 impl Temperature for Fahrenheit {
-    fn unit(_t: Fahrenheit): String {
+    fn unit(_t: Fahrenheit) -> String {
         "F"
     }
 }
@@ -183,11 +183,11 @@ func TestDefaultSelfLambda_InterfaceValueStaysExistential(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
 
 interface Temperature {
-    fn unit(t: self): String
+    fn unit(t: self) -> String
 
-    fn against(t: self, other: Temperature): String {
-        mine = [t] |> Iter.map(|c| Temperature.unit(c)) |> String.join("")
-        theirs = [other, other] |> Iter.map(|o| Temperature.unit(o)) |> String.join("")
+    fn against(t: self, other: Temperature) -> String {
+        mine = [t] |> Iter.map(fn c -> Temperature.unit(c)) |> String.join("")
+        theirs = [other, other] |> Iter.map(fn o -> Temperature.unit(o)) |> String.join("")
         "${mine} vs ${theirs} vs ${Temperature.unit(other)}"
     }
 }
@@ -201,13 +201,13 @@ struct Kelvin {
 }
 
 impl Temperature for Celsius {
-    fn unit(_t: Celsius): String {
+    fn unit(_t: Celsius) -> String {
         "C"
     }
 }
 
 impl Temperature for Kelvin {
-    fn unit(_t: Kelvin): String {
+    fn unit(_t: Kelvin) -> String {
         "K"
     }
 }

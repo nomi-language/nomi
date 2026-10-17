@@ -344,6 +344,7 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"Set.difference":       setHost("Set.difference"),
 		"Set.subset?":          setHost("Set.subset?"),
 		"Vector.length":        vectorHost("Vector.length"),
+		"Vector.get":           vectorHost("Vector.get"),
 		"Vector.at":            vectorHost("Vector.at"),
 		"Vector.push":          vectorHost("Vector.push"),
 		"Vector.concat":        vectorHost("Vector.concat"),
@@ -696,7 +697,7 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 	case *ir.Proj:
 		// A destructuring parameter's names are projections off the one
 		// parameter holding the whole value, so a function like
-		// `fn sum_point(Point{x, y}): Int { x + y }` reaches here twice.
+		// `fn sum_point(Point{x, y}) -> Int { x + y }` reaches here twice.
 		//
 		// Declared and anonymous fields, tuple components, variant payloads
 		// and distinct inners share the projection consumer.
@@ -725,15 +726,6 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 		//
 		// THE LINE IS THE INSTRUCTION'S: `n.Pos().Line()`, since this
 		// consumer has no AST node to read it off.
-		if n.Key() != ir.NoTemp {
-			// A map destructuring's absent key, in rt's text with the key
-			// rendered by Display.
-			key, err := fr.read(n.Key())
-			if err != nil {
-				return err
-			}
-			return rt.MapKeyMissingError(n.Pos().Line(), rt.DisplayText(key))
-		}
 		return rt.NoCaseMatchError(n.Pos().Line())
 
 	case *ir.Todo:
@@ -1060,11 +1052,10 @@ func (m *Machine) arith(fr *frame, n *ir.Arith) error {
 			// keeping it: a backstop costs one function.
 			//
 			// THE TEXT IS READ, NOT SPELLED. `rt.FloatModuloText` is the one
-			// home; this machine boxes it as an error, which is
-			// the ONLY part of the fault this consumer owns. Spelling the
+			// home, and `rt.FloatModuloError` boxes it as the fault. Spelling the
 			// string here instead would be a second copy, and
 			// `TestTrapText_OneHomePerText` fails if one appears.
-			return errors.New(rt.FloatModuloText(line))
+			return rt.FloatModuloError(line)
 		}
 		return nil
 	}

@@ -164,7 +164,7 @@ func ContextWithValue(c Context, tid *TypeID, v any) Context {
 	return Context{node: &contextNode{parent: c.node, tid: tid, val: v}}
 }
 
-// ContextValue is `Context.value(c, value_type): Maybe<T>`: the nearest binding
+// ContextValue is `Context.value(c, value_type) -> Maybe<T>`: the nearest binding
 // for the witnessed type, walking to the root.
 //
 // The contract: "child values override parent values without mutating either
@@ -289,7 +289,7 @@ func contextEffectiveDeadline(c Context) (int64, bool) {
 	return earliest, found
 }
 
-// ContextDeadline is `Context.deadline(c): Maybe<Instant>`.
+// ContextDeadline is `Context.deadline(c) -> Maybe<Instant>`.
 func ContextDeadline(c Context) Maybe[Instant] {
 	ns, ok := contextEffectiveDeadline(c)
 	if !ok {
@@ -298,7 +298,7 @@ func ContextDeadline(c Context) Maybe[Instant] {
 	return Some(Instant(ns))
 }
 
-// ContextDeadlineRemaining is `Context.deadline_remaining(c): Maybe<Duration>`.
+// ContextDeadlineRemaining is `Context.deadline_remaining(c) -> Maybe<Duration>`.
 //
 // Clamped at zero, because std/context documents `Some(0)` as "the deadline has
 // passed" and a negative Duration would render as `-5s` through

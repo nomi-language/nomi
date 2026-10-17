@@ -9,7 +9,7 @@ import "testing"
 // program then could not run.
 func TestExistentialDemand_AnotherInterfaceIsAnError(t *testing.T) {
 	const scale = `interface Scale {
-    fn factor(s: self): Int
+    fn factor(s: self) -> Int
 }
 
 `
@@ -18,57 +18,57 @@ func TestExistentialDemand_AnotherInterfaceIsAnError(t *testing.T) {
 	}{
 		{
 			name: "interface call",
-			bad:  "fn f(other: Scale): String {\n    Display.to_string(other)\n}\n",
-			good: "fn f<T>(other: T): String where T: Scale and Display {\n    Display.to_string(other)\n}\n",
+			bad:  "fn f(other: Scale) -> String {\n    Display.to_string(other)\n}\n",
+			good: "fn f<T>(other: T) -> String where T: Scale and Display {\n    Display.to_string(other)\n}\n",
 			want: "main.nomi:8:23: `other` is a `Scale`, and Scale does not require Display of its implementors",
-			help: "take a type parameter bounded by both: `fn f<T>(other: T): String where T: Scale and Display`",
+			help: "take a type parameter bounded by both: `fn f<T>(other: T) -> String where T: Scale and Display`",
 		},
 		{
 			name: "pipe",
-			bad:  "fn f(other: Scale): String {\n    other |> Display.to_string()\n}\n",
-			good: "fn f<T>(other: T): String where T: Scale and Display {\n    other |> Display.to_string()\n}\n",
+			bad:  "fn f(other: Scale) -> String {\n    other |> Display.to_string()\n}\n",
+			good: "fn f<T>(other: T) -> String where T: Scale and Display {\n    other |> Display.to_string()\n}\n",
 			want: "main.nomi:8:5: `other` is a `Scale`, and Scale does not require Display of its implementors",
-			help: "`fn f<T>(other: T): String where T: Scale and Display`",
+			help: "`fn f<T>(other: T) -> String where T: Scale and Display`",
 		},
 		{
 			name: "interpolation",
-			bad:  "fn f(other: Scale): String {\n    \"<${other}>\"\n}\n",
-			good: "fn f<T>(other: T): String where T: Scale and Display {\n    \"<${other}>\"\n}\n",
+			bad:  "fn f(other: Scale) -> String {\n    \"<${other}>\"\n}\n",
+			good: "fn f<T>(other: T) -> String where T: Scale and Display {\n    \"<${other}>\"\n}\n",
 			want: "main.nomi:8:9: `other` is a `Scale`, and Scale does not require Display of its implementors",
-			help: "`fn f<T>(other: T): String where T: Scale and Display`",
+			help: "`fn f<T>(other: T) -> String where T: Scale and Display`",
 		},
 		{
 			name: "interpolated list",
-			bad:  "fn f(xs: List<Scale>): String {\n    \"${xs}\"\n}\n",
-			good: "fn f<T>(xs: List<T>): String where T: Scale and Display {\n    \"${xs}\"\n}\n",
+			bad:  "fn f(xs: List<Scale>) -> String {\n    \"${xs}\"\n}\n",
+			good: "fn f<T>(xs: List<T>) -> String where T: Scale and Display {\n    \"${xs}\"\n}\n",
 			want: "main.nomi:8:8: `xs` holds values of `Scale`, and Scale does not require Display of its implementors",
 			help: "take a type parameter bounded by both instead of `Scale`: `where T: Scale and Display`",
 		},
 		{
 			name: "ordering",
-			bad:  "fn f(a: Scale, b: Scale): Bool {\n    a < b\n}\n",
-			good: "fn f<T>(a: T, b: T): Bool where T: Scale and Comparable {\n    a < b\n}\n",
+			bad:  "fn f(a: Scale, b: Scale) -> Bool {\n    a < b\n}\n",
+			good: "fn f<T>(a: T, b: T) -> Bool where T: Scale and Comparable {\n    a < b\n}\n",
 			want: "main.nomi:8:5: `a` is a `Scale`, and Scale does not require Comparable of its implementors",
-			help: "`fn f<T>(a: T, b: T): Bool where T: Scale and Comparable`",
+			help: "`fn f<T>(a: T, b: T) -> Bool where T: Scale and Comparable`",
 		},
 		{
 			name: "generic call",
-			bad:  "fn shown<U>(u: U): String where U: Display {\n    Display.to_string(u)\n}\n\nfn f(other: Scale): String {\n    shown(other)\n}\n",
-			good: "fn shown<U>(u: U): String where U: Display {\n    Display.to_string(u)\n}\n\nfn f<T>(other: T): String where T: Scale and Display {\n    shown(other)\n}\n",
+			bad:  "fn shown<U>(u: U) -> String where U: Display {\n    Display.to_string(u)\n}\n\nfn f(other: Scale) -> String {\n    shown(other)\n}\n",
+			good: "fn shown<U>(u: U) -> String where U: Display {\n    Display.to_string(u)\n}\n\nfn f<T>(other: T) -> String where T: Scale and Display {\n    shown(other)\n}\n",
 			want: "main.nomi:12:11: `other` is a `Scale`, and Scale does not require Display of its implementors",
-			help: "`fn f<T>(other: T): String where T: Scale and Display`",
+			help: "`fn f<T>(other: T) -> String where T: Scale and Display`",
 		},
 		{
 			name: "piped generic call",
-			bad:  "fn shown<U>(u: U): String where U: Display {\n    Display.to_string(u)\n}\n\nfn f(other: Scale): String {\n    other |> shown()\n}\n",
-			good: "fn shown<U>(u: U): String where U: Display {\n    Display.to_string(u)\n}\n\nfn f<T>(other: T): String where T: Scale and Display {\n    other |> shown()\n}\n",
+			bad:  "fn shown<U>(u: U) -> String where U: Display {\n    Display.to_string(u)\n}\n\nfn f(other: Scale) -> String {\n    other |> shown()\n}\n",
+			good: "fn shown<U>(u: U) -> String where U: Display {\n    Display.to_string(u)\n}\n\nfn f<T>(other: T) -> String where T: Scale and Display {\n    other |> shown()\n}\n",
 			want: "main.nomi:12:5: `other` is a `Scale`, and Scale does not require Display of its implementors",
-			help: "`fn f<T>(other: T): String where T: Scale and Display`",
+			help: "`fn f<T>(other: T) -> String where T: Scale and Display`",
 		},
 		{
 			name: "list elements",
-			bad:  "fn f(xs: List<Scale>): List<Scale> {\n    Iter.sort(xs)\n}\n",
-			good: "fn f<T>(xs: List<T>): List<T> where T: Scale and Comparable {\n    Iter.sort(xs)\n}\n",
+			bad:  "fn f(xs: List<Scale>) -> List<Scale> {\n    Iter.sort(xs)\n}\n",
+			good: "fn f<T>(xs: List<T>) -> List<T> where T: Scale and Comparable {\n    Iter.sort(xs)\n}\n",
 			want: "main.nomi:8:15: `xs` holds values of `Scale`, and Scale does not require Comparable of its implementors",
 			help: "`where T: Scale and Comparable`",
 		},
@@ -90,7 +90,7 @@ func TestExistentialDemand_AllowedUsesRun(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
 
 interface Scale {
-    fn factor(s: self): Int
+    fn factor(s: self) -> Int
 }
 
 struct Two {
@@ -98,22 +98,22 @@ struct Two {
 }
 
 impl Scale for Two {
-    fn factor(t: Two): Int {
+    fn factor(t: Two) -> Int {
         t.n * 2
     }
 }
 
 impl Display for Two {
-    fn to_string(t: Two): String {
+    fn to_string(t: Two) -> String {
         "two ${t.n}"
     }
 }
 
-fn look(a: Scale, b: Scale): String {
+fn look(a: Scale, b: Scale) -> String {
     "${Debug.inspect(a)} ${Scale.factor(a)} ${b |> Scale.factor()}"
 }
 
-fn told<T>(other: T): String where T: Scale and Display {
+fn told<T>(other: T) -> String where T: Scale and Display {
     "${other} x${Scale.factor(other)}"
 }
 

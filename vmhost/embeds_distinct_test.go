@@ -40,7 +40,7 @@ const embedsCompositeEnum = `enum Shape {
 }
 `
 
-const embedsCompositeUse = `fn describe(s: Shape): String {
+const embedsCompositeUse = `fn describe(s: Shape) -> String {
     case s {
         Shape.Wrapped(c) -> "circle ${c.r}"
         Shape.Tagged(c) -> case c {
@@ -52,14 +52,14 @@ const embedsCompositeUse = `fn describe(s: Shape): String {
     }
 }
 
-fn radius(s: Shape): Int {
+fn radius(s: Shape) -> Int {
     Shape.Wrapped(c) = s else {
         return 0
     }
     c.r
 }
 
-fn circle(r: Int): Circle {
+fn circle(r: Int) -> Circle {
     io.print("circle ${r}")
     Circle{r: r}
 }
@@ -134,7 +134,7 @@ enum Shape<T> {
     Rect {w: Int}
 }
 
-fn first(s: Shape<Int>): Int {
+fn first(s: Shape<Int>) -> Int {
     case s {
         Shape.UserId(n) -> n
         Shape.Circle{r} -> r

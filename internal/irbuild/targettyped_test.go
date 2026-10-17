@@ -23,11 +23,11 @@ struct Person {
 
 once office: Address = {street: "2 Once", city: "Leeds"}
 
-fn home(): Address { {street: "3 Ret", city: "York"} }
+fn home() -> Address { {street: "3 Ret", city: "York"} }
 
-fn city(a: Address): String { a.city }
+fn city(a: Address) -> String { a.city }
 
-fn pick(n: Int): Address {
+fn pick(n: Int) -> Address {
   case n {
     0 -> {street: "a", city: "Zero"}
     _ -> {street: "b", city: "Many"}
@@ -47,7 +47,7 @@ fn main() {
   io.print(city({street: "5 Arg", city: "Ely"}))
   io.inspect(pick(0))
   io.inspect(pick(1))
-  by_name: Map<String, Address> = {"x" => {street: "6 Map", city: "Wells"}}
+  by_name: Map<String, Address> = %{"x" => {street: "6 Map", city: "Wells"}}
   io.inspect(by_name)
   some: Maybe<Address> = Some({street: "7 Some", city: "Ripon"})
   io.inspect(some)
@@ -61,7 +61,7 @@ Address{street: "2 Once", city: "Leeds", zip: "00000"}
 Ely
 Address{street: "a", city: "Zero", zip: "00000"}
 Address{street: "b", city: "Many", zip: "00000"}
-{"x" => Address{street: "6 Map", city: "Wells", zip: "00000"}}
+%{"x" => Address{street: "6 Map", city: "Wells", zip: "00000"}}
 Some(Address{street: "7 Some", city: "Ripon", zip: "00000"})
 `)
 }
@@ -100,7 +100,7 @@ struct Pair {
   b: Int
 }
 
-fn unbox<T>(b: Box<T>): T { b.item }
+fn unbox<T>(b: Box<T>) -> T { b.item }
 
 fn main() {
   n: Box<Int> = {item: 3}

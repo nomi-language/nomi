@@ -116,18 +116,18 @@ struct App {
     name: String
 }
 
-fn remaining_of(a: App): String {
+fn remaining_of(a: App) -> String {
     span(Context.deadline_remaining(a.context))
 }
 
-fn fresh(): Context {
+fn fresh() -> Context {
     Context.with_timeout(Context.root(), Duration.seconds(-1))
 }
 
 // present renders only whether a deadline EXISTS. An absolute Instant is a
 // wall-clock value, so printing one would make this fixture disagree with itself
 // between two runs.
-fn present(m: Maybe<Instant>): String {
+fn present(m: Maybe<Instant>) -> String {
     case m {
         Some(_) -> "Some"
         None -> "None"
@@ -137,7 +137,7 @@ fn present(m: Maybe<Instant>): String {
 // span renders a remaining Duration, and every call site above is arranged so
 // the value is CLAMPED to zero — the one span two independently-timed runs
 // agree on exactly.
-fn span(m: Maybe<Duration>): String {
+fn span(m: Maybe<Duration>) -> String {
     case m {
         Some(d) -> "Some(${Duration.to_string(d)})"
         None -> "None"
@@ -147,7 +147,7 @@ fn span(m: Maybe<Duration>): String {
 // further compares two remaining spans measured on ONE path, so no wall clock
 // crosses the comparison and the answer is a fact about the chain rather than
 // about scheduling.
-fn further(a: Context, b: Context): Bool {
+fn further(a: Context, b: Context) -> Bool {
     case Context.deadline_remaining(a) {
         Some(da) ->
             case Context.deadline_remaining(b) {

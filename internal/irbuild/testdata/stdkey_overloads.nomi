@@ -30,7 +30,7 @@ import {
     std/io
 }
 
-fn run(): Result<Unit, Error> {
+fn run() -> Result<Unit, Error> {
     // --- `NaiveDateTime.add`: eleven declarations, one spelling ---------------
     //
     // The 31st of January is the discriminating start. `+ Duration.hours(24)`

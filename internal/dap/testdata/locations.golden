@@ -15,19 +15,19 @@
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
 -> variables {"variablesReference":1}
-<- response variables {"variables":[{"declarationLocationReference":1,"name":"pair","namedVariables":2,"type":"(Int, Int)","value":"(1, 2)","variablesReference":2},{"declarationLocationReference":2,"name":"limit","type":"Int","value":"2","variablesReference":0},{"declarationLocationReference":3,"name":"a","type":"Int","value":"1","variablesReference":0},{"declarationLocationReference":4,"name":"b","type":"Int","value":"2","variablesReference":0},{"declarationLocationReference":5,"name":"sum","type":"Int","value":"6","variablesReference":0},{"declarationLocationReference":6,"name":"i","type":"Int","value":"0","variablesReference":0}]}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"pair","namedVariables":2,"type":"#(Int, Int)","value":"#(1, 2)","variablesReference":2},{"declarationLocationReference":2,"name":"limit","type":"Int","value":"2","variablesReference":0},{"declarationLocationReference":3,"name":"a","type":"Int","value":"1","variablesReference":0},{"declarationLocationReference":4,"name":"b","type":"Int","value":"2","variablesReference":0},{"declarationLocationReference":5,"name":"sum","type":"Int","value":"6","variablesReference":0},{"declarationLocationReference":6,"name":"i","type":"Int","value":"0","variablesReference":0}]}
 -> locations {"locationReference":1}
 <- response locations {"column":10,"endColumn":14,"endLine":3,"line":3,"source":{"name":"bindings.nomi","path":"$TESTDATA/bindings.nomi"}}
 -> locations {"locationReference":2}
-<- response locations {"column":28,"endColumn":33,"endLine":3,"line":3,"source":{"name":"bindings.nomi","path":"$TESTDATA/bindings.nomi"}}
+<- response locations {"column":29,"endColumn":34,"endLine":3,"line":3,"source":{"name":"bindings.nomi","path":"$TESTDATA/bindings.nomi"}}
 -> locations {"locationReference":3}
-<- response locations {"column":6,"endColumn":7,"endLine":4,"line":4,"source":{"name":"bindings.nomi","path":"$TESTDATA/bindings.nomi"}}
+<- response locations {"column":7,"endColumn":8,"endLine":4,"line":4,"source":{"name":"bindings.nomi","path":"$TESTDATA/bindings.nomi"}}
 -> locations {"locationReference":4}
-<- response locations {"column":9,"endColumn":10,"endLine":4,"line":4,"source":{"name":"bindings.nomi","path":"$TESTDATA/bindings.nomi"}}
+<- response locations {"column":10,"endColumn":11,"endLine":4,"line":4,"source":{"name":"bindings.nomi","path":"$TESTDATA/bindings.nomi"}}
 -> locations {"locationReference":5}
 <- response locations {"column":5,"endColumn":8,"endLine":6,"line":6,"source":{"name":"bindings.nomi","path":"$TESTDATA/bindings.nomi"}}
 -> locations {"locationReference":6}
-<- response locations {"column":16,"endColumn":17,"endLine":8,"line":8,"source":{"name":"bindings.nomi","path":"$TESTDATA/bindings.nomi"}}
+<- response locations {"column":18,"endColumn":19,"endLine":8,"line":8,"source":{"name":"bindings.nomi","path":"$TESTDATA/bindings.nomi"}}
 -> locations {"locationReference":999}
 <- response locations failed "no location 999"
 -> setBreakpoints {"breakpoints":[],"source":{"path":"$TESTDATA/bindings.nomi"}}

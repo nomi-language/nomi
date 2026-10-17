@@ -22,24 +22,24 @@ struct Account {
     balance: Int
 }
 
-fn feed(items: List<String>): Receiver<String> {
+fn feed(items: List<String>) -> Receiver<String> {
     ch = Channel.buffered<String>(10)
-    Iter.each(items, |s| {
+    Iter.each(items, fn s -> {
         _ = Sender.send(ch.sender, s)
     })
     Sender.close(ch.sender)
     ch.receiver
 }
 
-fn parse(s: String): Result<Int, String> {
+fn parse(s: String) -> Result<Int, String> {
     case String.to_int(s) {
         Some(n) -> Ok(n)
         None -> Err("not a number: ${s}")
     }
 }
 
-fn break_or_continue(input: Receiver<String>): Int {
-    Iter.loop(|n = 0| {
+fn break_or_continue(input: Receiver<String>) -> Int {
+    Iter.loop(fn n = 0 -> {
         case Receiver.receive(input) {
             None -> break n
             _ -> continue
@@ -47,8 +47,8 @@ fn break_or_continue(input: Receiver<String>): Int {
     })
 }
 
-fn break_or_next(): Int {
-    Iter.loop(|n = 0| {
+fn break_or_next() -> Int {
+    Iter.loop(fn n = 0 -> {
         case n > 2 {
             True -> break n
             False -> return n + 1
@@ -56,8 +56,8 @@ fn break_or_next(): Int {
     })
 }
 
-fn bare_arms(input: Receiver<String>): Int {
-    Iter.loop(|n = 0| {
+fn bare_arms(input: Receiver<String>) -> Int {
+    Iter.loop(fn n = 0 -> {
         case Receiver.receive(input) {
             Some("skip") -> continue
             Some(t) -> return n + String.length(t)
@@ -66,8 +66,8 @@ fn bare_arms(input: Receiver<String>): Int {
     })
 }
 
-fn block_arms(input: Receiver<String>): Int {
-    Iter.loop(|n = 0| {
+fn block_arms(input: Receiver<String>) -> Int {
+    Iter.loop(fn n = 0 -> {
         case Receiver.receive(input) {
             Some("skip") -> {
                 io.print("skip")
@@ -85,8 +85,8 @@ fn block_arms(input: Receiver<String>): Int {
     })
 }
 
-fn deposit(account: Account, input: Receiver<String>): Account {
-    Iter.loop(|acc = account| {
+fn deposit(account: Account, input: Receiver<String>) -> Account {
+    Iter.loop(fn acc = account -> {
         text = case Receiver.receive(input) {
             Some(t) -> t
             None -> break acc
@@ -105,7 +105,7 @@ fn deposit(account: Account, input: Receiver<String>): Account {
 }
 
 fn bare_break(input: Receiver<String>) {
-    _ = Iter.loop(|n = 0| {
+    _ = Iter.loop(fn n = 0 -> {
         case Receiver.receive(input) {
             Some("stop") -> break
             _ -> return n + 1
@@ -114,8 +114,8 @@ fn bare_break(input: Receiver<String>) {
     io.print("stopped")
 }
 
-fn if_else(input: Receiver<String>): Int {
-    Iter.loop(|n = 0| {
+fn if_else(input: Receiver<String>) -> Int {
+    Iter.loop(fn n = 0 -> {
         t = case Receiver.receive(input) {
             Some(t) -> t
             None -> break n
@@ -129,14 +129,14 @@ fn if_else(input: Receiver<String>): Int {
     })
 }
 
-fn if_else_bare(input: Receiver<String>): Int {
-    Iter.loop(|n = 0| {
+fn if_else_bare(input: Receiver<String>) -> Int {
+    Iter.loop(fn n = 0 -> {
         if Receiver.receive(input) == None { break n } else { continue }
     })
 }
 
-fn nested(input: Receiver<String>): Int {
-    Iter.loop(|n = 0| {
+fn nested(input: Receiver<String>) -> Int {
+    Iter.loop(fn n = 0 -> {
         case Receiver.receive(input) {
             Some(t) -> {
                 case t == "skip" {
@@ -149,8 +149,8 @@ fn nested(input: Receiver<String>): Int {
     })
 }
 
-fn nested_in_if(input: Receiver<String>): Int {
-    Iter.loop(|n = 0| {
+fn nested_in_if(input: Receiver<String>) -> Int {
+    Iter.loop(fn n = 0 -> {
         t = Receiver.receive(input)
         if t == None {
             break n
@@ -163,8 +163,8 @@ fn nested_in_if(input: Receiver<String>): Int {
     })
 }
 
-fn binding(input: Receiver<String>): Int {
-    Iter.loop(|n = 0| {
+fn binding(input: Receiver<String>) -> Int {
+    Iter.loop(fn n = 0 -> {
         y = case Receiver.receive(input) {
             Some("skip") -> continue
             Some(t) -> return n + String.length(t)
@@ -175,8 +175,8 @@ fn binding(input: Receiver<String>): Int {
     })
 }
 
-fn binding_if(input: Receiver<String>): Int {
-    Iter.loop(|n = 0| {
+fn binding_if(input: Receiver<String>) -> Int {
+    Iter.loop(fn n = 0 -> {
         t = Receiver.receive(input)
         y = if t == None { break n } else { return n + 1 }
         io.print("never")
@@ -216,14 +216,14 @@ func TestIRDivergedArms_Callbacks(t *testing.T) {
 
 fn main() {
     xs = [1, 2, 3, 4, 5]
-    a = Iter.map(xs, |x| {
+    a = Iter.map(xs, fn x -> {
         case x {
             1 -> continue
             _ -> break 99
         }
     }) |> Iter.to_list()
     io.inspect(a)
-    b = Iter.map(xs, |x| {
+    b = Iter.map(xs, fn x -> {
         case x {
             1 -> return 50
             2 -> {
@@ -239,9 +239,9 @@ fn main() {
         }
     }) |> Iter.to_list()
     io.inspect(b)
-    c = Iter.map(xs, |x| if x < 4 { continue } else { break x }) |> Iter.to_list()
+    c = Iter.map(xs, fn x -> if x < 4 { continue } else { break x }) |> Iter.to_list()
     io.inspect(c)
-    d = Iter.map(xs, |x| {
+    d = Iter.map(xs, fn x -> {
         if x < 2 {
             io.print("small ${x}")
             continue
@@ -251,7 +251,7 @@ fn main() {
         }
     }) |> Iter.to_list()
     io.inspect(d)
-    e = Iter.map(xs, |x| {
+    e = Iter.map(xs, fn x -> {
         y = case x {
             1 -> continue
             _ -> break 7
@@ -260,7 +260,7 @@ fn main() {
         x
     }) |> Iter.to_list()
     io.inspect(e)
-    f = Iter.filter(xs, |x| {
+    f = Iter.filter(xs, fn x -> {
         case x {
             1 -> {
                 io.print("one")
@@ -273,12 +273,12 @@ fn main() {
         }
     }) |> Iter.to_list()
     io.inspect(f)
-    g = Iter.filter(xs, |x| {
+    g = Iter.filter(xs, fn x -> {
         y = if x == 1 { continue } else { break True }
         y
     }) |> Iter.to_list()
     io.inspect(g)
-    Iter.each(xs, |x| {
+    Iter.each(xs, fn x -> {
         case x {
             1 -> {
                 io.print("each ${x}")
@@ -287,17 +287,17 @@ fn main() {
             _ -> break
         }
     })
-    Iter.each(xs, |x| {
+    Iter.each(xs, fn x -> {
         if x < 3 { continue } else { break }
     })
-    h = Iter.reduce(xs, |acc = 0, x| {
+    h = Iter.reduce(xs, fn acc = 0, x -> {
         case x {
             1 -> continue
             _ -> break acc + 100
         }
     })
     io.inspect(h)
-    i = Iter.reduce(xs, |acc = 0, x| if x < 3 { return acc + x } else { break acc })
+    i = Iter.reduce(xs, fn acc = 0, x -> if x < 3 { return acc + x } else { break acc })
     io.inspect(i)
 }
 `, "[99]\nskip 2\n[50, 400]\n[4]\nsmall 1\nbig 2\n[0]\n[7]\none\nstop\n[]\n[2]\neach 1\n100\n3\n")
@@ -309,9 +309,9 @@ func TestIRDivergedArms_Lambdas(t *testing.T) {
 	verifyLambdaProgram(t, `import std/channels.{Channel, Receiver, Sender}
 import std/io
 
-fn feed(items: List<String>): Receiver<String> {
+fn feed(items: List<String>) -> Receiver<String> {
     ch = Channel.buffered<String>(10)
-    Iter.each(items, |s| {
+    Iter.each(items, fn s -> {
         _ = Sender.send(ch.sender, s)
     })
     Sender.close(ch.sender)
@@ -319,8 +319,8 @@ fn feed(items: List<String>): Receiver<String> {
 }
 
 fn main() {
-    f = |start: Int| {
-        r = Iter.loop(|n = start| {
+    f = fn start: Int -> {
+        r = Iter.loop(fn n = start -> {
             case n > 2 {
                 True -> break n
                 False -> return n + 1
@@ -329,15 +329,15 @@ fn main() {
         r * 2
     }
     io.inspect(f(0))
-    g = Iter.map([1, 2], |x| {
-        Iter.loop(|n = x| {
+    g = Iter.map([1, 2], fn x -> {
+        Iter.loop(fn n = x -> {
             if n > 3 { break n } else { return n + 1 }
         })
     }) |> Iter.to_list()
     io.inspect(g)
-    totals = Iter.map([["a", "1", "b"], ["c"]], |items| {
+    totals = Iter.map([["a", "1", "b"], ["c"]], fn items -> {
         input = feed(items)
-        Iter.loop(|n = 0| {
+        Iter.loop(fn n = 0 -> {
             case Receiver.receive(input) {
                 Some(t) -> {
                     case String.to_int(t) {
@@ -350,7 +350,7 @@ fn main() {
         })
     }) |> Iter.to_list()
     io.inspect(totals)
-    h = |x: Int| {
+    h = fn x: Int -> {
         y = case x {
             0 -> return 1
             _ -> return 2
@@ -369,7 +369,7 @@ fn main() {
 func TestIRDivergedArms_NamedFunctionBinding(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
-fn f(x: Int): Int {
+fn f(x: Int) -> Int {
     y = case x {
         0 -> return 1
         _ -> return 2
@@ -378,7 +378,7 @@ fn f(x: Int): Int {
     y
 }
 
-fn g(x: Int): Int {
+fn g(x: Int) -> Int {
     y = if x > 0 { return 1 } else { return 2 }
     io.inspect(y)
     3
@@ -407,56 +407,56 @@ struct Point {
     y: Int
 }
 
-fn calls(n: Int): Int {
+fn calls(n: Int) -> Int {
     n + 1
 }
 
-fn noisy(n: Int): Int {
+fn noisy(n: Int) -> Int {
     io.print("noisy ${n}")
     n
 }
 
-fn pair(a: Int, b: Int): Int {
+fn pair(a: Int, b: Int) -> Int {
     a + b
 }
 
-fn arg(x: Int): Int {
+fn arg(x: Int) -> Int {
     calls(case x {
         0 -> return 10
         _ -> return 20
     })
 }
 
-fn second_arg(x: Int): Int {
+fn second_arg(x: Int) -> Int {
     pair(noisy(1), if x == 0 { return 11 } else { return 21 })
 }
 
-fn plus(x: Int): Int {
+fn plus(x: Int) -> Int {
     noisy(2) + if x == 0 { return 30 } else { return 40 }
 }
 
-fn field(x: Int): Point {
+fn field(x: Int) -> Point {
     Point{x: noisy(3), y: case x {
         0 -> return Point{x: 0, y: 0}
         _ -> return Point{x: 1, y: 1}
     }}
 }
 
-fn item(x: Int): List<Int> {
+fn item(x: Int) -> List<Int> {
     [noisy(4), case x {
         0 -> return [0]
         _ -> return [1]
     }]
 }
 
-fn piped(x: Int): Int {
+fn piped(x: Int) -> Int {
     case x {
         0 -> return 50
         _ -> return 60
     } |> calls()
 }
 
-fn bound(x: Int): Int {
+fn bound(x: Int) -> Int {
     y = calls(case x {
         0 -> return 70
         _ -> return 80
@@ -465,7 +465,7 @@ fn bound(x: Int): Int {
     y
 }
 
-fn statement(x: Int): Int {
+fn statement(x: Int) -> Int {
     io.inspect(noisy(5) + case x {
         0 -> return 90
         _ -> return 91
@@ -485,14 +485,14 @@ fn discarded(x: Int) {
     io.print("never")
 }
 
-fn parse(s: String): Result<Int, String> {
+fn parse(s: String) -> Result<Int, String> {
     case String.to_int(s) {
         Some(n) -> Ok(n)
         None -> Err("bad ${s}")
     }
 }
 
-fn tried(x: Int): Result<Int, String> {
+fn tried(x: Int) -> Result<Int, String> {
     n = try parse(case x {
         0 -> return Ok(100)
         _ -> return Err("no")
@@ -500,7 +500,7 @@ fn tried(x: Int): Result<Int, String> {
     Ok(n)
 }
 
-fn tried_arm(s: String): Result<Int, String> {
+fn tried_arm(s: String) -> Result<Int, String> {
     n = try parse(case s {
         "" -> return Err("empty")
         _ -> {
@@ -511,7 +511,7 @@ fn tried_arm(s: String): Result<Int, String> {
     Ok(n)
 }
 
-fn in_arm(x: Int, y: Int): Int {
+fn in_arm(x: Int, y: Int) -> Int {
     case x {
         0 -> calls(case y {
             0 -> return 110
@@ -521,8 +521,8 @@ fn in_arm(x: Int, y: Int): Int {
     }
 }
 
-fn loop_state(limit: Int): Int {
-    Iter.loop(|n = 0| {
+fn loop_state(limit: Int) -> Int {
+    Iter.loop(fn n = 0 -> {
         calls(case n >= limit {
             True -> break n
             False -> return n + 1
@@ -530,19 +530,19 @@ fn loop_state(limit: Int): Int {
     })
 }
 
-fn condition(x: Int): Int {
+fn condition(x: Int) -> Int {
     if case x { 0 -> return 130  _ -> return 140 } { 1 } else { 2 }
 }
 
-fn subject(x: Int): Int {
+fn subject(x: Int) -> Int {
     case calls(if x > 0 { return 150 } else { return 160 }) {
         0 -> 1
         _ -> 2
     }
 }
 
-fn lambda_return(x: Int): Int {
-    f = |v: Int| calls(if v > 0 { return v * 2 } else { return 0 })
+fn lambda_return(x: Int) -> Int {
+    f = fn v: Int -> calls(if v > 0 { return v * 2 } else { return 0 })
     f(x)
 }
 
@@ -567,7 +567,7 @@ fn main() {
     io.inspect(condition(1))
     io.inspect(subject(0))
     io.inspect(lambda_return(4))
-    mapped = Iter.map([0, 1, 5, 6], |x| calls(case x {
+    mapped = Iter.map([0, 1, 5, 6], fn x -> calls(case x {
         0 -> continue
         1 -> continue
         _ -> break x

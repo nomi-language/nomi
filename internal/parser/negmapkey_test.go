@@ -6,7 +6,7 @@ import (
 )
 
 // Negative numeric literals must be accepted as KEYS in map patterns, not just
-// as values. Regression coverage for the parser/grammar gap where `{-2 => v}`
+// as values. Regression coverage for the parser/grammar gap where `%{-2 => v}`
 // was not recognized as a map pattern (it fell into struct-pattern parsing and
 // errored with "expected field name in struct pattern").
 //
@@ -42,12 +42,12 @@ func assertNegIntKey(t *testing.T, key ast.Node, mag int64) {
 }
 
 func TestCaseMapPatternNegativeIntKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n {-2 => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{-2 => v} -> v\n _ -> \"no\"\n}")
 	assertNegIntKey(t, mp.Entries[0].Key, 2)
 }
 
 func TestCaseMapPatternNegativeFloatKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n {-2.5 => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{-2.5 => v} -> v\n _ -> \"no\"\n}")
 	u, ok := mp.Entries[0].Key.(*ast.Unary)
 	if !ok || u.Op != "-" {
 		t.Fatalf("entry[0] key: expected Unary{-, ...}, got %T %v", mp.Entries[0].Key, mp.Entries[0].Key)
@@ -59,7 +59,7 @@ func TestCaseMapPatternNegativeFloatKey(t *testing.T) {
 }
 
 func TestCaseMapPatternNegativeDecimalKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n {-2.5d => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{-2.5d => v} -> v\n _ -> \"no\"\n}")
 	u, ok := mp.Entries[0].Key.(*ast.Unary)
 	if !ok || u.Op != "-" {
 		t.Fatalf("entry[0] key: expected Unary{-, ...}, got %T %v", mp.Entries[0].Key, mp.Entries[0].Key)
@@ -72,7 +72,7 @@ func TestCaseMapPatternNegativeDecimalKey(t *testing.T) {
 
 // Mixed: a positive and a negative key in the same map pattern.
 func TestCaseMapPatternMixedSignKeys(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n {-1 => a, 2 => b} -> a\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{-1 => a, 2 => b} -> a\n _ -> \"no\"\n}")
 	if len(mp.Entries) != 2 {
 		t.Fatalf("expected 2 entries, got %d", len(mp.Entries))
 	}
@@ -86,7 +86,7 @@ func TestCaseMapPatternMixedSignKeys(t *testing.T) {
 // Exercises the type-prefixed path — parseTypePrefixedBracePattern +
 // parseMapPatternEntries — via a distinct map type prefix.
 func TestCaseTypePrefixedMapPatternNegativeKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n Kvs{-2 => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n Kvs%{-2 => v} -> v\n _ -> \"no\"\n}")
 	assertNegIntKey(t, mp.Entries[0].Key, 2)
 }
 
@@ -94,7 +94,7 @@ func TestCaseTypePrefixedMapPatternNegativeKey(t *testing.T) {
 // parseMapPatternEntries (distinct from parseCaseBranch's inline map parser
 // above) — via an enum payload.
 func TestEnumPayloadMapPatternNegativeKey(t *testing.T) {
-	expr := parseExpr(t, "case x {\n Some({-2 => v}) -> v\n _ -> \"no\"\n}")
+	expr := parseExpr(t, "case x {\n Some(%{-2 => v}) -> v\n _ -> \"no\"\n}")
 	c := expr.(*ast.Case)
 	ep, ok := c.Branches[0].Pattern.(*ast.EnumPattern)
 	if !ok {
@@ -114,7 +114,7 @@ func TestEnumPayloadMapPatternNegativeKey(t *testing.T) {
 // TYPE_IDENT in a pattern-free expression context it yields an Ident/Type;
 // confirm whatever node it produces is *not* the restricted-key error).
 func TestCaseMapPatternVariantKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n {True => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{True => v} -> v\n _ -> \"no\"\n}")
 	if len(mp.Entries) != 1 {
 		t.Fatalf("expected 1 entry, got %d", len(mp.Entries))
 	}
@@ -126,7 +126,7 @@ func TestCaseMapPatternVariantKey(t *testing.T) {
 
 // Dotted-variant key (`Color.Red`).
 func TestCaseMapPatternDottedVariantKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n {Color.Red => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{Color.Red => v} -> v\n _ -> \"no\"\n}")
 	if mp.Entries[0].Key == nil {
 		t.Fatalf("entry[0] key is nil")
 	}
@@ -144,7 +144,7 @@ func TestEmptyBraceNotMapPattern(t *testing.T) {
 
 // Payload-variant key (`Some(2)`).
 func TestCaseMapPatternPayloadVariantKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n {Some(2) => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{Some(2) => v} -> v\n _ -> \"no\"\n}")
 	if mp.Entries[0].Key == nil {
 		t.Fatalf("entry[0] key is nil")
 	}
@@ -153,9 +153,9 @@ func TestCaseMapPatternPayloadVariantKey(t *testing.T) {
 	}
 }
 
-// Tuple key (`(1, 2)`).
+// Tuple key (`#(1, 2)`).
 func TestCaseMapPatternTupleKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n {(1, 2) => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{#(1, 2) => v} -> v\n _ -> \"no\"\n}")
 	if _, ok := mp.Entries[0].Key.(*ast.TupleLit); !ok {
 		t.Fatalf("entry[0] key: expected TupleLit, got %T", mp.Entries[0].Key)
 	}
@@ -163,7 +163,7 @@ func TestCaseMapPatternTupleKey(t *testing.T) {
 
 // List key (`[1, 2]`).
 func TestCaseMapPatternListKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n {[1, 2] => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{[1, 2] => v} -> v\n _ -> \"no\"\n}")
 	if _, ok := mp.Entries[0].Key.(*ast.ListLit); !ok {
 		t.Fatalf("entry[0] key: expected ListLit, got %T", mp.Entries[0].Key)
 	}
@@ -171,7 +171,7 @@ func TestCaseMapPatternListKey(t *testing.T) {
 
 // Named-struct key (`Point{x: 1}`).
 func TestCaseMapPatternNamedStructKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n {Point{x: 1} => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{Point{x: 1} => v} -> v\n _ -> \"no\"\n}")
 	if mp.Entries[0].Key == nil {
 		t.Fatalf("entry[0] key is nil")
 	}
@@ -182,7 +182,7 @@ func TestCaseMapPatternNamedStructKey(t *testing.T) {
 
 // Distinct constructor key (`Id(5)`) parses as a call expression.
 func TestCaseMapPatternDistinctKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n {Id(5) => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{Id(5) => v} -> v\n _ -> \"no\"\n}")
 	if _, ok := mp.Entries[0].Key.(*ast.Call); !ok {
 		t.Fatalf("entry[0] key: expected CallExpr for Id(5), got %T", mp.Entries[0].Key)
 	}
@@ -190,7 +190,7 @@ func TestCaseMapPatternDistinctKey(t *testing.T) {
 
 // Computed key — a bare identifier (`x`).
 func TestCaseMapPatternComputedIdentKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n {x => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{x => v} -> v\n _ -> \"no\"\n}")
 	id, ok := mp.Entries[0].Key.(*ast.Ident)
 	if !ok || id.Name != "x" {
 		t.Fatalf("entry[0] key: expected Identifier{x}, got %T %v", mp.Entries[0].Key, mp.Entries[0].Key)
@@ -199,7 +199,7 @@ func TestCaseMapPatternComputedIdentKey(t *testing.T) {
 
 // Computed key — a function call (`f(a)`).
 func TestCaseMapPatternComputedCallKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n {f(a) => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{f(a) => v} -> v\n _ -> \"no\"\n}")
 	if _, ok := mp.Entries[0].Key.(*ast.Call); !ok {
 		t.Fatalf("entry[0] key: expected CallExpr for f(a), got %T", mp.Entries[0].Key)
 	}
@@ -207,7 +207,7 @@ func TestCaseMapPatternComputedCallKey(t *testing.T) {
 
 // Computed key — an arithmetic expression (`base + 1`).
 func TestCaseMapPatternComputedArithKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n {base + 1 => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{base + 1 => v} -> v\n _ -> \"no\"\n}")
 	if _, ok := mp.Entries[0].Key.(*ast.Binary); !ok {
 		t.Fatalf("entry[0] key: expected BinaryExpr for base + 1, got %T", mp.Entries[0].Key)
 	}
@@ -215,7 +215,7 @@ func TestCaseMapPatternComputedArithKey(t *testing.T) {
 
 // Bool key as a computed key (`True`) in the type-prefixed map path.
 func TestTypePrefixedMapPatternVariantKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n Kvs{Some(2) => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n Kvs%{Some(2) => v} -> v\n _ -> \"no\"\n}")
 	if _, ok := mp.Entries[0].Key.(*ast.Call); !ok {
 		t.Fatalf("entry[0] key: expected CallExpr for Some(2), got %T", mp.Entries[0].Key)
 	}
@@ -223,7 +223,7 @@ func TestTypePrefixedMapPatternVariantKey(t *testing.T) {
 
 // Nested path (enum payload): a tuple key inside `Some({...})`.
 func TestEnumPayloadMapPatternTupleKey(t *testing.T) {
-	expr := parseExpr(t, "case x {\n Some({(1, 2) => v}) -> v\n _ -> \"no\"\n}")
+	expr := parseExpr(t, "case x {\n Some(%{#(1, 2) => v}) -> v\n _ -> \"no\"\n}")
 	c := expr.(*ast.Case)
 	ep := c.Branches[0].Pattern.(*ast.EnumPattern)
 	mp, ok := ep.Payload.(*ast.MapPattern)
@@ -276,12 +276,16 @@ func TestCaseBraceMultiFieldStaysStruct(t *testing.T) {
 }
 
 // Disambiguation in the destructure-binding form: `{x} = expr` stays a struct
-// destructure, while `{k => v} = expr` is a map destructure.
+// destructure, while `%{k => v} = expr` is a binding of a map pattern.
 func TestMapDestructureExpressionKey(t *testing.T) {
-	nodes := parse(t, "{(1, 2) => v} = m")
-	md, ok := nodes[0].(*ast.MapDestructure)
+	nodes := parse(t, "%{#(1, 2) => v} = m")
+	pb, ok := nodes[0].(*ast.PatternBinding)
 	if !ok {
-		t.Fatalf("expected MapDestructure, got %T", nodes[0])
+		t.Fatalf("expected PatternBinding, got %T", nodes[0])
+	}
+	md, ok := pb.Pattern.(*ast.MapPattern)
+	if !ok {
+		t.Fatalf("expected a MapPattern, got %T", pb.Pattern)
 	}
 	if _, ok := md.Entries[0].Key.(*ast.TupleLit); !ok {
 		t.Fatalf("entry[0] key: expected TupleLit, got %T", md.Entries[0].Key)
@@ -297,15 +301,11 @@ func TestStructDestructureStaysStruct(t *testing.T) {
 
 // --- Lambda map-destructure param (the 5th map-pattern key site) ---
 //
-// A lambda's brace param disambiguates struct-vs-map the same way every other
-// map-pattern site does: a `<keyExpr> => ...` first entry is a map pattern,
-// anything else is a struct pattern. Before the 5th-site conversion, the param
-// path used a curated 4-scalar-literal key switch, so `|{1 => v}| v` parsed but
-// an expression key like `|{Color.Red => v}| v` failed with "unexpected token
-// FAT_ARROW". (Note: lambda map-destructure params hit a separate, pre-existing
-// checker limitation downstream — `cannot infer type for parameter __destr_N` —
-// so this construct doesn't run end-to-end regardless of key type. These tests
-// assert PARSER uniformity only.)
+// A lambda's `%{` parameter is a map pattern whose keys are any expression, as
+// at every other map-pattern site, and its `{` parameter is a struct pattern.
+// (Lambda map-destructure params hit a separate checker limitation
+// downstream — `cannot infer type for parameter __destr_N` — so this construct
+// does not run end to end. These tests assert parser uniformity only.)
 
 func lambdaParam0(t *testing.T, src string) ast.Param {
 	t.Helper()
@@ -322,7 +322,7 @@ func lambdaParam0(t *testing.T, src string) ast.Param {
 
 // Expression key (dotted variant) in a lambda map-destructure param parses.
 func TestLambdaMapParamDottedVariantKey(t *testing.T) {
-	p := lambdaParam0(t, "|{Color.Red => v}| v")
+	p := lambdaParam0(t, "fn %{Color.Red => v} -> v")
 	mp, ok := p.Destructure.(*ast.MapPattern)
 	if !ok {
 		t.Fatalf("param destructure: expected *ast.MapPattern, got %T", p.Destructure)
@@ -343,7 +343,7 @@ func TestLambdaMapParamDottedVariantKey(t *testing.T) {
 // Scalar literal key still parses as a map param (regression for the converted
 // path — the original curated switch handled this case).
 func TestLambdaMapParamScalarKey(t *testing.T) {
-	p := lambdaParam0(t, "|{1 => v}| v")
+	p := lambdaParam0(t, "fn %{1 => v} -> v")
 	mp, ok := p.Destructure.(*ast.MapPattern)
 	if !ok {
 		t.Fatalf("param destructure: expected *ast.MapPattern, got %T", p.Destructure)
@@ -354,9 +354,9 @@ func TestLambdaMapParamScalarKey(t *testing.T) {
 	}
 }
 
-// Disambiguation: a multi-field struct param `|{x, y}|` stays a struct pattern.
+// Disambiguation: a multi-field struct param `fn {x, y} ->` stays a struct pattern.
 func TestLambdaStructParamStaysStruct(t *testing.T) {
-	p := lambdaParam0(t, "|{x, y}| x")
+	p := lambdaParam0(t, "fn {x, y} -> x")
 	sp, ok := p.Destructure.(*ast.StructPattern)
 	if !ok {
 		t.Fatalf("param destructure: expected *ast.StructPattern, got %T", p.Destructure)
@@ -366,9 +366,9 @@ func TestLambdaStructParamStaysStruct(t *testing.T) {
 	}
 }
 
-// Disambiguation: a renamed struct field param `|{x: a}|` stays a struct pattern.
+// Disambiguation: a renamed struct field param `fn {x: a} ->` stays a struct pattern.
 func TestLambdaStructParamRenameStaysStruct(t *testing.T) {
-	p := lambdaParam0(t, "|{x: a}| a")
+	p := lambdaParam0(t, "fn {x: a} -> a")
 	sp, ok := p.Destructure.(*ast.StructPattern)
 	if !ok {
 		t.Fatalf("param destructure: expected *ast.StructPattern, got %T", p.Destructure)

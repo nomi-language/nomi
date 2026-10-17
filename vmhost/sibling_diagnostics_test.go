@@ -10,12 +10,12 @@ import (
 // A non-entry file's checker diagnostics are part of the program.
 //
 // The front end runs `CheckTypes` on every sibling module because the
-// recordings it produces feed the entry's ImplManifest, and a sibling's
+// recordings it produces feed the missing-impl check, and a sibling's
 // diagnostics fail the program: a sibling file is compiled and run, and
 // nothing else ever checks it. If the result were discarded, all three of
 // these would pass `nomi check` and run:
 //
-//	pub fn report(): String { 42 }            in a sibling
+//	pub fn report() -> String { 42 }            in a sibling
 //	Svc.missing                                in a sibling, naming no app field
 //	Nonexistent.context                       in a sibling, naming nothing at all
 //
@@ -32,17 +32,17 @@ func TestAnalyze_SiblingFileTypeErrorFailsTheProgram(t *testing.T) {
 	}{
 		{
 			name:    "an ordinary return-type mismatch",
-			sibling: "pub fn report(): String {\n  42\n}\n",
+			sibling: "pub fn report() -> String {\n  42\n}\n",
 			want:    "return type mismatch",
 		},
 		{
 			name:    "an app read naming no app field",
-			sibling: "import svc.Svc\n\npub fn report(): String {\n  Svc.missing\n}\n",
+			sibling: "import svc.Svc\n\npub fn report() -> String {\n  Svc.missing\n}\n",
 			want:    "type 'Svc' has no member 'missing'",
 		},
 		{
 			name:    "a qualifier that names nothing at all",
-			sibling: "\npub fn report(): String {\n  case Context.deadline_remaining(Nowhere.context) {\n    Some(_) -> \"bounded\"\n    None -> \"unbounded\"\n  }\n}\n",
+			sibling: "\npub fn report() -> String {\n  case Context.deadline_remaining(Nowhere.context) {\n    Some(_) -> \"bounded\"\n    None -> \"unbounded\"\n  }\n}\n",
 			want:    "undefined type or variant 'Nowhere'",
 		},
 	} {
@@ -65,7 +65,7 @@ func TestAnalyze_SiblingFileTypeErrorFailsTheProgram(t *testing.T) {
 // The positive for the case above: a sibling reading the app's context
 // through the imported type.
 func TestAnalyze_SiblingAppFieldReadLoads(t *testing.T) {
-	if err := loadAppProjectWithLeaf(t, "import svc.Svc\n\npub fn report(): String {\n  case Context.deadline_remaining(Svc.context) {\n    Some(_) -> \"bounded\"\n    None -> \"unbounded\"\n  }\n}\n"); err != nil {
+	if err := loadAppProjectWithLeaf(t, "import svc.Svc\n\npub fn report() -> String {\n  case Context.deadline_remaining(Svc.context) {\n    Some(_) -> \"bounded\"\n    None -> \"unbounded\"\n  }\n}\n"); err != nil {
 		t.Fatalf("a correct sibling app-field read was rejected: %v", err)
 	}
 }
@@ -94,7 +94,7 @@ func loadAppProjectWithLeaf(t *testing.T, leaf string) error {
 		"  leaf",
 		"}",
 		"",
-		"fn boot(): Svc {",
+		"fn boot() -> Svc {",
 		"  Svc{context: Context.root(), }",
 		"}",
 		"",

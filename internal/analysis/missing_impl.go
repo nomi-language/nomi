@@ -2,94 +2,186 @@ package analysis
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// FinalizeCoherence runs the post-CheckTypes coherence checks that need
-// to see the manifest after every recording site has fired. Today this
-// is just DetectMissingImpls; future post-Check coherence checks (e.g.
-// a tighter missing-impl variant once typeDecls is populated) join here.
+// FinalizeCoherence runs the post-CheckTypes coherence checks over the
+// whole of fa's program: MissingImpls with every file of the program as a
+// demander. Callers run it once at the end of their analyze pipeline, after
+// every file whose demands it reads has been checked: the checker records a
+// file's demands (RecordingKindCallSite / GenericBoundCheck /
+// TypedLiteralSlot / InterfaceTypedParam) in that file's own ImplManifest
+// while it checks the file. The errors are the program's, whichever file
+// the caller reports them with.
 //
-// Callers run this once at the end of their analyze pipeline, after every
-// FA has been CheckTypes'd and their manifests merged into the entry FA.
-// Returns errors to be appended to the entry FA's TypeErrors.
+// The program keeps what each file contributes (programDemands), so a call
+// after a recheck rebuilt some files' bodies reads only those files again.
+func FinalizeCoherence(fa *FileAnalysis) []TypeError {
+	return fa.Program().finalizeCoherence()
+}
+
+// MissingImpls reports each (interface, type) pair the demanders' own
+// ImplManifests demand and no impl of program p supplies (DetectMissingImpls).
+// It reads only facts each file holds about itself, folded here: the impl
+// index's supply, every file's own Impls, and each demander's own demands.
+// Nil when p has no impl index.
 //
-// Why the entry FA, not the ProjectImplIndex pointer directly: the index
-// is a snapshot taken at BuildProjectWithCache time. Two pieces of it
-// drift after that snapshot:
-//
-//   - ImplManifest grows during CheckTypes (the checker writes
-//     RecordingKindCallSite / GenericBoundCheck / TypedLiteralSlot /
-//     InterfaceTypedParam entries into per-FA fa.ImplManifest, then
-//     internal/frontend / stdcompiler / the LSP call
-//     MergeImplManifest(entry, sib) to fold sibling recordings into the
-//     entry FA — but neither writes back into Program().ImplIndex.ImplManifest).
-//   - Impls picks up struct-level impl registrations from a
-//     late pass at the bottom of BuildProjectWithCache (after the
-//     buildProjectImplIndex snapshot is taken). Those updates land in
-//     per-FA fa.Impls and the entry's fa.Impls via cross-file mergeImpls,
-//     but again don't write back into Program().ImplIndex.Impls.
-//
-// We synthesize a fresh snapshot here that unions the project-level
-// Impls (covers stdlib + sibling impls) with entryFA.Impls (covers
-// late-pass struct-level impls and post-merge user-side impls), and
-// reads ImplManifest from entryFA directly (the post-CheckTypes union).
-// DetectMissingImpls then sees the full picture.
-func FinalizeCoherence(entryFA *FileAnalysis) []TypeError {
-	if entryFA == nil || entryFA.Program().ImplIndex == nil {
+// The supply is the index's, plus any file's own impls the index does not
+// hold (a module a function body's import loaded after the index was built).
+// Those pairs have no identity entry — PopulateImplsByIdentity ran over the
+// index — so they fall back to the bare-name answer; leaving them covered
+// would read a real impl as another module's.
+func MissingImpls(p *Program, demanders []*FileAnalysis) []TypeError {
+	if p == nil || p.ImplIndex == nil {
 		return nil
 	}
-	// Union project-level Impls with entry-level Impls. Project-level
-	// holds stdlib and discovery-walked siblings as of the snapshot;
-	// entry-level holds the late struct-level impl pass and any
-	// cross-file mergeImpls that happened after the snapshot.
-	impls := make(map[string]map[string]bool, len(entryFA.Program().ImplIndex.Impls))
-	for t, ifaces := range entryFA.Program().ImplIndex.Impls {
-		copyIfaces := make(map[string]bool, len(ifaces))
-		for i := range ifaces {
-			copyIfaces[i] = true
+	idx := p.ImplIndex
+	demands := unionDemandsOver(demanders, p.stdBase)
+	// DetectMissingImpls reads the supply of the demanded types only, so
+	// only theirs is copied. The covered set is COPIED, not shared.
+	// Uncovering below is per-call state, and the index it comes from is
+	// held by every file of the program.
+	impls := map[string]map[string]bool{}
+	covered := map[string]map[string]bool{}
+	for _, byType := range demands {
+		for t := range byType {
+			if _, done := impls[t]; !done {
+				impls[t] = maps.Clone(idx.Impls[t])
+				covered[t] = maps.Clone(idx.implNamesWithIdentity[t])
+			}
 		}
-		impls[t] = copyIfaces
-	}
-	// The covered set is COPIED, not shared. Uncovering below is per-call
-	// state about this entry's extra supply, and the index it comes from is
-	// held by pointer in every FileAnalysis of the build.
-	covered := make(map[string]map[string]bool, len(entryFA.Program().ImplIndex.implNamesWithIdentity))
-	for t, ifaces := range entryFA.Program().ImplIndex.implNamesWithIdentity {
-		copyIfaces := make(map[string]bool, len(ifaces))
-		for i := range ifaces {
-			copyIfaces[i] = true
-		}
-		covered[t] = copyIfaces
 	}
 	// The identity index travels with the snapshot, or DetectMissingImpls'
 	// supply check has nothing to consult and every bare-name hit stands.
 	snapshot := &ProjectImplIndex{
 		Impls:                 impls,
-		ImplManifest:          entryFA.ImplManifest,
-		ImplsByIdentity:       entryFA.Program().ImplIndex.ImplsByIdentity,
+		ImplManifest:          demands,
+		ImplsByIdentity:       idx.ImplsByIdentity,
 		implNamesWithIdentity: covered,
 	}
-	// Supply the entry FA adds beyond the project-level snapshot has no
-	// identity entry — PopulateImplsByIdentity ran over the project index,
-	// before the late struct-level pass and the post-snapshot cross-file
-	// merges. Those pairs fall back to the bare-name answer; leaving them
-	// covered would read a real entry-declared impl as another module's.
-	for t, ifaces := range entryFA.Impls {
-		if impls[t] == nil {
-			impls[t] = make(map[string]bool, len(ifaces))
+	for _, file := range p.Files() {
+		// An index laid over the stdlib's base holds every impl of the
+		// base's files.
+		if p.stdBase.Owns(file) {
+			continue
 		}
-		for i := range ifaces {
-			if !entryFA.Program().ImplIndex.Impls[t][i] {
-				snapshot.UncoverImplIdentity(t, i)
+		noteStdlibWork(file.Origin)
+		for t, ifaces := range file.Impls {
+			if _, demanded := impls[t]; !demanded {
+				continue
 			}
-			impls[t][i] = true
+			if impls[t] == nil {
+				impls[t] = make(map[string]bool, len(ifaces))
+			}
+			for i := range ifaces {
+				if !idx.Impls[t][i] {
+					snapshot.UncoverImplIdentity(t, i)
+				}
+				impls[t][i] = true
+			}
 		}
 	}
 	return DetectMissingImpls(snapshot, nil)
+}
+
+// unionDemands answers the union of files' own ImplManifests, keeping only
+// the (interface, type) buckets some recording outside the stdlib demands:
+// DetectMissingImpls reports nothing for a bucket every recording of which
+// is the stdlib's, so the stdlib's demands matter only beside a program's.
+// Each bucket's recordings are deduplicated and sorted by position, so the
+// order does not depend on the order the files were checked or given in.
+func unionDemands(files []*FileAnalysis) map[string]map[string][]Recording {
+	return unionDemandsOver(files, nil)
+}
+
+// unionDemandsOver is unionDemands that takes the demands of base's files
+// from base when files holds every one of them.
+func unionDemandsOver(files []*FileAnalysis, base *StdBase) map[string]map[string][]Recording {
+	if !base.ownsAll(files) {
+		base = nil
+	}
+	type bucket = implPair
+	var wanted []bucket
+	seen := map[bucket]bool{}
+	if base != nil {
+		for _, b := range base.wanted {
+			seen[b] = true
+			wanted = append(wanted, b)
+		}
+	}
+	for _, file := range files {
+		if base.Owns(file) {
+			continue
+		}
+		noteStdlibWork(file.Origin)
+		if isStdlibRecording(Recording{Pos: Pos{File: file.FilePath}}) {
+			// A file's checker records at the file's own path.
+			continue
+		}
+		for iface, byType := range file.ImplManifest {
+			for typeName, recs := range byType {
+				b := bucket{typeName: typeName, iface: iface}
+				if seen[b] {
+					continue
+				}
+				for _, rec := range recs {
+					if !isStdlibRecording(rec) {
+						seen[b] = true
+						wanted = append(wanted, b)
+						break
+					}
+				}
+			}
+		}
+	}
+	out := make(map[string]map[string][]Recording)
+	for _, b := range wanted {
+		var recs []Recording
+		dup := map[Recording]bool{}
+		add := func(from []Recording) {
+			for _, rec := range from {
+				if !dup[rec] {
+					dup[rec] = true
+					recs = append(recs, rec)
+				}
+			}
+		}
+		for _, file := range files {
+			if !base.Owns(file) {
+				add(file.ImplManifest[b.iface][b.typeName])
+			}
+		}
+		if base != nil {
+			add(base.demands[b.iface][b.typeName])
+		}
+		sortRecordings(recs)
+		if out[b.iface] == nil {
+			out[b.iface] = make(map[string][]Recording)
+		}
+		out[b.iface][b.typeName] = recs
+	}
+	return out
+}
+
+// sortRecordings orders recordings by source location, (Pos.File, Pos.Line,
+// Pos.Col), with Kind as the final tiebreaker for two at one position.
+func sortRecordings(recs []Recording) {
+	sort.SliceStable(recs, func(i, j int) bool {
+		if recs[i].Pos.File != recs[j].Pos.File {
+			return recs[i].Pos.File < recs[j].Pos.File
+		}
+		if recs[i].Pos.Line != recs[j].Pos.Line {
+			return recs[i].Pos.Line < recs[j].Pos.Line
+		}
+		if recs[i].Pos.Col != recs[j].Pos.Col {
+			return recs[i].Pos.Col < recs[j].Pos.Col
+		}
+		return recs[i].Kind < recs[j].Kind
+	})
 }
 
 // DetectMissingImpls reports a TypeError for every (Iface, T) pair the
@@ -139,28 +231,7 @@ func DetectMissingImpls(idx *ProjectImplIndex, typeDecls map[string]Pos) []TypeE
 	sort.Strings(ifaceNames)
 
 	for _, iface := range ifaceNames {
-		// Universal default Debug: Debug is satisfied by every type (the
-		// eager auto-synthesis pass materializes a structural / name-only
-		// Debug impl for every declared type), so a (Debug, T) pair is
-		// never genuinely missing. Skip the whole interface — belt-and-
-		// suspenders against any Debug demand the synth pass doesn't cover
-		// (e.g. a non-nominal kind that has no declaration to synthesize
-		// from but is rendered by a Go intrinsic). Every other interface
-		// stays subject to the missing-impl diagnostic.
-		if iface == "Debug" {
-			continue
-		}
-		// Universal struct interface `Struct`: satisfied structurally by every
-		// struct (named or anonymous), with no registered impl — conformance is
-		// a predicate (isStructShaped), so a (Struct, T) pair is never genuinely
-		// missing. Skip it like Debug; struct-only-ness is enforced at the call
-		// site by the structural conformance check, not here.
-		if iface == "Struct" {
-			continue
-		}
-		// `Distinct<T>` is decided the same way, by what a distinct type
-		// wraps (distinct_self.go).
-		if iface == "Distinct" {
+		if !missingImplsChecked(iface) {
 			continue
 		}
 		byType := idx.ImplManifest[iface]
@@ -171,68 +242,106 @@ func DetectMissingImpls(idx *ProjectImplIndex, typeDecls map[string]Pos) []TypeE
 		sort.Strings(typeNames)
 
 		for _, typeName := range typeNames {
-			recs := byType[typeName]
-			if len(recs) == 0 {
-				continue
+			if e, ok := idx.missingImpl(iface, typeName, byType[typeName], typeDecls); ok {
+				errs = append(errs, e)
 			}
-			// Supply side: is there an impl for this (T, Iface)?
-			//
-			// `Impls` is keyed by BARE type name, and so is this bucket, so a
-			// bare-name hit may be another module's conformance on a
-			// same-named type — and the bucket itself may hold demands for
-			// several of them. `unsuppliedRecordings` keeps only the demands
-			// whose OWN declaration has no impl; it returns nothing whenever
-			// the identity index cannot answer, which is what every path that
-			// does not populate the index relies on. See
-			// missing_impl_identity.go.
-			if idx.Impls != nil {
-				if ifaces, ok := idx.Impls[typeName]; ok && ifaces[iface] {
-					recs = idx.unsuppliedRecordings(recs, typeName, iface)
-					if len(recs) == 0 {
-						continue
-					}
-				}
-			}
-			// Stdlib hands-off: every Recording is stdlib-internal.
-			allStdlib := true
-			for _, rec := range recs {
-				if !isStdlibRecording(rec) {
-					allStdlib = false
-					break
-				}
-			}
-			if allStdlib {
-				continue
-			}
-			// Equality-operator demands are weak — see
-			// RecordingKindEqualityOperator. `==` / `!=` on a concrete
-			// type *prefer* a custom `impl Equatable` block when one
-			// exists, but they fall back to structural `rt.Equal` at
-			// runtime if no impl is supplied. So a
-			// group whose recordings are ALL equality-operator-kind
-			// shouldn't surface a missing-impl diagnostic — `pub type
-			// Id Int` keeps working with `==` even though it has no
-			// `impl Equatable`. A mix of equality-operator + "real"
-			// demands still surfaces (the real demand needs the impl).
-			// Ordering-operator demands (RecordingKindOrderingOperator)
-			// are NOT skipped: ordering has no structural fallback, so
-			// `<` on a type with no `impl Comparable` is an ordinary
-			// missing-impl error.
-			allEqualityOperator := true
-			for _, rec := range recs {
-				if rec.Kind != RecordingKindEqualityOperator {
-					allEqualityOperator = false
-					break
-				}
-			}
-			if allEqualityOperator {
-				continue
-			}
-
-			errs = append(errs, missingImplError(iface, typeName, recs, typeDecls))
 		}
 	}
 	return errs
+}
+
+// missingImplsChecked reports whether DetectMissingImpls reports a missing
+// impl of iface at all.
+func missingImplsChecked(iface string) bool {
+	// Universal default Debug: Debug is satisfied by every type (the
+	// eager auto-synthesis pass materializes a structural / name-only
+	// Debug impl for every declared type), so a (Debug, T) pair is
+	// never genuinely missing. Skip the whole interface — belt-and-
+	// suspenders against any Debug demand the synth pass doesn't cover
+	// (e.g. a non-nominal kind that has no declaration to synthesize
+	// from but is rendered by a Go intrinsic). Every other interface
+	// stays subject to the missing-impl diagnostic.
+	if iface == "Debug" {
+		return false
+	}
+	// Universal struct interface `Struct`: satisfied structurally by every
+	// struct (named or anonymous), with no registered impl — conformance is
+	// a predicate (isStructShaped), so a (Struct, T) pair is never genuinely
+	// missing. Skip it like Debug; struct-only-ness is enforced at the call
+	// site by the structural conformance check, not here.
+	if iface == "Struct" {
+		return false
+	}
+	// `Distinct<T>` is decided the same way, by what a distinct type
+	// wraps (distinct_self.go).
+	if iface == "Distinct" {
+		return false
+	}
+	return true
+}
+
+// missingImpl answers DetectMissingImpls' diagnostic for the bucket of
+// recordings recs that demand typeName's impl of iface, and false when the
+// bucket draws none.
+func (idx *ProjectImplIndex) missingImpl(iface, typeName string, recs []Recording, typeDecls map[string]Pos) (TypeError, bool) {
+	if len(recs) == 0 {
+		return TypeError{}, false
+	}
+	// Supply side: is there an impl for this (T, Iface)?
+	//
+	// `Impls` is keyed by BARE type name, and so is this bucket, so a
+	// bare-name hit may be another module's conformance on a
+	// same-named type — and the bucket itself may hold demands for
+	// several of them. `unsuppliedRecordings` keeps only the demands
+	// whose OWN declaration has no impl; it returns nothing whenever
+	// the identity index cannot answer, which is what every path that
+	// does not populate the index relies on. See
+	// missing_impl_identity.go.
+	if idx.Impls != nil {
+		if ifaces, ok := idx.Impls[typeName]; ok && ifaces[iface] {
+			recs = idx.unsuppliedRecordings(recs, typeName, iface)
+			if len(recs) == 0 {
+				return TypeError{}, false
+			}
+		}
+	}
+	// Stdlib hands-off: every Recording is stdlib-internal.
+	allStdlib := true
+	for _, rec := range recs {
+		if !isStdlibRecording(rec) {
+			allStdlib = false
+			break
+		}
+	}
+	if allStdlib {
+		return TypeError{}, false
+	}
+	// Equality-operator demands are weak — see
+	// RecordingKindEqualityOperator. `==` / `!=` on a concrete
+	// type *prefer* a custom `impl Equatable` block when one
+	// exists, but they fall back to structural `rt.Equal` at
+	// runtime if no impl is supplied. So a
+	// group whose recordings are ALL equality-operator-kind
+	// shouldn't surface a missing-impl diagnostic — `pub type
+	// Id Int` keeps working with `==` even though it has no
+	// `impl Equatable`. A mix of equality-operator + "real"
+	// demands still surfaces (the real demand needs the impl).
+	// Ordering-operator demands (RecordingKindOrderingOperator)
+	// are NOT skipped: ordering has no structural fallback, so
+	// `<` on a type with no `impl Comparable` is an ordinary
+	// missing-impl error.
+	allEqualityOperator := true
+	for _, rec := range recs {
+		if rec.Kind != RecordingKindEqualityOperator {
+			allEqualityOperator = false
+			break
+		}
+	}
+	if allEqualityOperator {
+		return TypeError{}, false
+	}
+
+	return missingImplError(iface, typeName, recs, typeDecls), true
 }
 
 // isStdlibRecording reports whether the Recording's Pos.File names a
@@ -272,6 +381,7 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 		Line:    primary.Pos.Line,
 		Col:     primary.Pos.Col,
 		Message: b.String(),
+		File:    primary.Pos.File,
 	}
 
 	// Every other Recording is a related location.
@@ -298,7 +408,7 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 // the call-site bound check's, which knows the interface's functions.
 func missingImplHelp(iface, typeName string) string {
 	if opIface, ok := operatorInterfaceByName(iface); ok {
-		return fmt.Sprintf("write an `impl %s<Rhs, Out> for %s { fn %s(lhs: %s, rhs: Rhs): Out { ... } }` block",
+		return fmt.Sprintf("write an `impl %s<Rhs, Out> for %s { fn %s(lhs: %s, rhs: Rhs) -> Out { ... } }` block",
 			opIface.Interface, typeName, opIface.Method, typeName)
 	}
 	if deriveSupported[iface] {
@@ -335,12 +445,12 @@ func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
 			}
 		}
 	}
-	if _, ok := operatorInterfaceByName(bound.Name); ok {
-		return missingImplHelp(bound.Name, name)
-	}
 	ownsType := programDeclares(concrete)
 	if !ownsType && IsStdlibKey(bound.Origin) {
 		return stdOnlyHelp(name, bound.Name, c.implementersOf(bound.Name))
+	}
+	if _, ok := operatorInterfaceByName(bound.Name); ok {
+		return missingImplHelp(bound.Name, name)
 	}
 	impl := fmt.Sprintf("write an `impl %s for %s` block", bound, name)
 	if sigs := c.requiredSignatures(bound, concrete); len(sigs) > 0 {
@@ -417,7 +527,7 @@ func implementerList(types []string) string {
 }
 
 // requiredSignatures is each function an impl of bound for concrete must
-// write, as `fn name(param: Type): Result` with `self` read as concrete.
+// write, as `fn name(param: Type) -> Result` with `self` read as concrete.
 // A function with a default is left out.
 func (c *checker) requiredSignatures(bound *InterfaceType, concrete Type) []string {
 	it := bound
@@ -450,7 +560,7 @@ func (c *checker) requiredSignatures(bound *InterfaceType, concrete Type) []stri
 		}
 		sig := "fn " + m.Name + "(" + strings.Join(params, ", ") + ")"
 		if m.Return != nil && m.Return != TypeUnit {
-			sig += ": " + fmt.Sprint(Substitute(m.Return, subs))
+			sig += " -> " + fmt.Sprint(Substitute(m.Return, subs))
 		}
 		out = append(out, sig)
 	}
@@ -509,7 +619,27 @@ func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType,
 	}
 	c.report(TypeError{Line: line, Col: col, EndLine: end.EndLine, EndCol: end.EndCol, Message: fmt.Sprintf(
 		"%s does not implement %s (required by `where %s: %s`)",
-		concrete, bound.Name, param, bound.Name)}.WithHint(c.boundHelp(concrete, bound)))
+		concrete, boundAt(bound, param, concrete), param, bound)}.WithHint(c.boundHelp(concrete, bound)))
+}
+
+// boundAt is bound with the bounded parameter param read as concrete, as
+// the call needs it implemented: `where T: Add<T, T>` at Bool is
+// `Add<Bool, Bool>`. Another parameter the bound names stays as written.
+func boundAt(bound *InterfaceType, param string, concrete Type) *InterfaceType {
+	subs := map[*TypeParam_]Type{}
+	for _, a := range bound.TypeArgs {
+		if tp, ok := a.(*TypeParam_); ok && tp.Name_ == param {
+			subs[tp] = concrete
+		}
+	}
+	if len(subs) == 0 {
+		return bound
+	}
+	args := make([]Type, len(bound.TypeArgs))
+	for i, a := range bound.TypeArgs {
+		args[i] = Substitute(a, subs)
+	}
+	return &InterfaceType{Name: bound.Name, TypeArgs: args}
 }
 
 // formatRecordingLoc renders "file:line:col" with an "<unknown>"

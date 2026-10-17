@@ -79,6 +79,16 @@ func (s *Server) textDocumentDefinition(ctx *glsp.Context, params *protocol.Defi
 		return s.toUTF16Result(loc), err
 	}
 
+	// A name an `or` pattern binds is defined once in each alternative:
+	// every site is its definition.
+	if sites := doc.Analysis.DefinitionSites(defSym); len(sites) > 1 {
+		locs := make([]protocol.Location, len(sites))
+		for i, p := range sites {
+			locs[i] = makeLocation(uri, p, defSym.Name)
+		}
+		return s.toUTF16Locations(locs), nil
+	}
+
 	return s.toUTF16Location(s.definitionLocationForSymbol(uri, defSym, sym)), nil
 }
 

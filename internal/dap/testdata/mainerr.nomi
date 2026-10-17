@@ -1,4 +1,4 @@
-fn main(): Result<Unit, String> {
+fn main() -> Result<Unit, String> {
     reason = "boom"
     Err(reason)
 }

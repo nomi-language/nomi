@@ -217,7 +217,7 @@ func goResultNomiType(results *goast.FieldList, boundTypes goTypeBindings, impor
 	case 1:
 		projected = values[0]
 	default:
-		projected = "(" + strings.Join(values, ", ") + ")"
+		projected = "#(" + strings.Join(values, ", ") + ")"
 	}
 	if hasErr {
 		return fmt.Sprintf("Result<%s, String>", projected), unsupported

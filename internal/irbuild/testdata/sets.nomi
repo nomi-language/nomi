@@ -40,11 +40,11 @@ import std/io
 //     `mapOps` over a tuple key reached through a new position.
 //   - the untyped `#{}`, which has no element type at the literal and gets one
 //     from the annotation — the third untyped literal's rule applied to a fourth.
-fn size_of(s: Set<Int>): Int {
+fn size_of(s: Set<Int>) -> Int {
     Set.size(s)
 }
 
-fn singleton(n: Int): Set<Int> {
+fn singleton(n: Int) -> Set<Int> {
     Set.insert(Set.new(), n)
 }
 
@@ -87,12 +87,12 @@ fn main() {
     io.print("not_subset = ${Set.subset?(#{1, 4}, #{1, 2, 3})}")
     io.print("list_to_set = ${Iter.to_list(Iter.to_set([5, 5, 6]))}")
 
-    pair = (1, 2)
-    tuples = #{pair, (3, 4), pair}
+    pair = #(1, 2)
+    tuples = #{pair, #(3, 4), pair}
     io.print("tuple_size = ${Set.size(tuples)}")
     io.print("tuple_order = ${Iter.to_list(tuples)}")
 
-    io.print("mapped = ${Iter.to_list(Iter.map(s, |x| x * 10))}")
-    io.print("to_set = ${Iter.to_list(Iter.to_set(Iter.map(s, |x| x % 2)))}")
-    io.print("reduced = ${Iter.reduce(s, |acc = 0, x| acc + x)}")
+    io.print("mapped = ${Iter.to_list(Iter.map(s, fn x -> x * 10))}")
+    io.print("to_set = ${Iter.to_list(Iter.to_set(Iter.map(s, fn x -> x % 2)))}")
+    io.print("reduced = ${Iter.reduce(s, fn acc = 0, x -> acc + x)}")
 }
