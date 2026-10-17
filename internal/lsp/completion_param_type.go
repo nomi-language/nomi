@@ -120,7 +120,7 @@ func inSignatureParamList(tokens []token.Token, i int) bool {
 					continue
 				}
 				i = j
-			case token.BAR:
+			case token.FN:
 				if depth == 0 {
 					// A lambda's parameter list.
 					return false

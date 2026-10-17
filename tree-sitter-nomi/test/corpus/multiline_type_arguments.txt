@@ -122,7 +122,7 @@ Parameter and return types with multi-line type argument lists
 fn size(m: Map<
     String, // k
     Int
->): Result<
+>) -> Result<
     // ok
     Int,
     String
@@ -164,11 +164,11 @@ Multi-line type parameters and tuple return type
 fn pair<
     A, // a
     B
->(a: A, b: B): (
+>(a: A, b: B) -> #(
     A, // first
     B
 ) where A: Display {
-    (a, b)
+    #(a, b)
 }
 
 --------------------------------------------------------------------------------
@@ -212,7 +212,7 @@ Multi-line function type parameter
 fn apply(f: (
     Int, // x
     Int
-) -> Int): Int {
+) -> Int) -> Int {
     f(1, 2)
 }
 
@@ -283,7 +283,7 @@ type Distinct Map<
     Int
 >
 
-type Pair (
+type Pair #(
     Int, // left
     String
 )
@@ -324,7 +324,7 @@ impl<
 > Named for Holder<
     T // t
 > {
-    fn name(h: self): String {
+    fn name(h: self) -> String {
         "h"
     }
 }
@@ -387,7 +387,7 @@ Module-qualified generic type
 
 fn twice(t: tasks.Task<
     Int // n
->, s: span.Span<String>): Int {
+>, s: span.Span<String>) -> Int {
     1
 }
 
@@ -421,7 +421,7 @@ Typed binding in lambda and case-arm blocks
 ================================================================================
 
 fn main() {
-    f = |k| {
+    f = fn k -> {
         t: Map<
             String, // k
             Int
@@ -435,7 +435,7 @@ fn main() {
         }
         None -> Map.empty()
     }
-    g = |p| {x: p, y: p}
+    g = fn p -> {x: p, y: p}
 }
 
 --------------------------------------------------------------------------------

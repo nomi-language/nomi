@@ -2,7 +2,7 @@
 An as pattern names the whole value in every pattern position
 ================================================================================
 
-fn describe(r: Result<Tx, String>): Int {
+fn describe(r: Result<Tx, String>) -> Int {
     case r {
         Ok(Tx{kind: .Deposit} as t) -> t.end
         Ok(_) as whole -> 0
@@ -10,8 +10,8 @@ fn describe(r: Result<Tx, String>): Int {
     }
 }
 
-fn pair_sum((a, b) as pair: (Int, Int)): Int {
-    (x, y) as both = pair
+fn pair_sum(#(a, b) as pair: #(Int, Int)) -> Int {
+    #(x, y) as both = pair
     Some(n) as m = find() else { return 0 }
     Ok(v) = load() else {
         Err(.NotFound) as e -> return 0
@@ -36,7 +36,7 @@ test "pattern assert" {
           (type_identifier)
           (type_identifier)
           (type_identifier))))
-    (type_identifier)
+    return_type: (type_identifier)
     (body
       (case_expression
         (identifier)
@@ -76,7 +76,7 @@ test "pattern assert" {
         (tuple_type
           (type_identifier)
           (type_identifier))))
-    (type_identifier)
+    return_type: (type_identifier)
     (body
       (as_binding
         pattern: (as_pattern
@@ -182,44 +182,44 @@ fn main() {
 An as pattern on the left side of a binding and nested in a pattern spelled as an expression
 ================================================================================
 
-fn bindings(q: P, pair: ((Int, Int), Int), xs: List<Int>, m: Map<String, Int>): Int {
+fn bindings(q: P, pair: #(#(Int, Int), Int), xs: List<Int>, m: Map<String, Int>) -> Int {
     {x: _c, y} as p = q
     {y, x: _c} as p = q
-    {x: (a, b) as inner, y} as p = q
-    ((a, b) as inner, c) as t = pair
+    {x: #(a, b) as inner, y} as p = q
+    #(#(a, b) as inner, c) as t = pair
     [x, ..rest] as all = xs else { return 0 }
-    Some((a, b) as inner) as n = opt else { return 0 }
-    {"a" => (a, b) as v} as all = m else { return 0 }
+    Some(#(a, b) as inner) as n = opt else { return 0 }
+    %{"a" => #(a, b) as v} as all = m else { return 0 }
     0
 }
 
-fn nested_destructures(q: P, pair: ((Int, Int), Int)): Int {
-    ((a, b), c) = pair
-    ((a, b) as inner, c) = pair
-    {x: (a, b), y} = q
+fn nested_destructures(q: P, pair: #(#(Int, Int), Int)) -> Int {
+    #(#(a, b), c) = pair
+    #(#(a, b) as inner, c) = pair
+    {x: #(a, b), y} = q
     {x: Some(a), y} = q else { return 0 }
-    {"a" => (a, b)} = m else { return 0 }
+    %{"a" => #(a, b)} = m else { return 0 }
     0
 }
 
-fn arms(q: P, v: Option<(Int, Int)>): Int {
+fn arms(q: P, v: Option<#(Int, Int)>) -> Int {
     case q {
-        {x: (a, b) as xs, y} as p -> y
+        {x: #(a, b) as xs, y} as p -> y
     }
 
     v |> case {
-            Some((a, b) as p) -> a
+            Some(#(a, b) as p) -> a
             _ -> 0
         }
 }
 
-fn lambdas(xs: List<P>): Iter<Int> {
-    xs |> Iter.map(|{x: (a, b) as t, y}| y)
+fn lambdas(xs: List<P>) -> Iter<Int> {
+    xs |> Iter.map(fn {x: #(a, b) as t, y} -> y)
 }
 
 test "pattern assert" {
     assert {x: _c, y} as p = q
-    assert Some((a, b) as p) = v
+    assert Some(#(a, b) as p) = v
 }
 
 --------------------------------------------------------------------------------
@@ -249,7 +249,7 @@ test "pattern assert" {
           (type_identifier)
           (type_identifier)
           (type_identifier))))
-    (type_identifier)
+    return_type: (type_identifier)
     (body
       (as_binding
         pattern: (as_pattern
@@ -347,7 +347,7 @@ test "pattern assert" {
             (type_identifier)
             (type_identifier))
           (type_identifier))))
-    (type_identifier)
+    return_type: (type_identifier)
     (body
       (destructuring_binding
         pattern: (tuple_expression
@@ -406,7 +406,7 @@ test "pattern assert" {
           (tuple_type
             (type_identifier)
             (type_identifier)))))
-    (type_identifier)
+    return_type: (type_identifier)
     (body
       (case_expression
         (identifier)
@@ -447,7 +447,7 @@ test "pattern assert" {
         (generic_type
           (type_identifier)
           (type_identifier))))
-    (generic_type
+    return_type: (generic_type
       (type_identifier)
       (type_identifier))
     (body

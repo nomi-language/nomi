@@ -14,8 +14,8 @@ enum Shape {
 }
 
 interface Named {
-  fn name(value: self): String; fn tag(value: self): String { "" }
-  fn other(value: self): String
+  fn name(value: self) -> String; fn tag(value: self) -> String { "" }
+  fn other(value: self) -> String
 }
 
 --------------------------------------------------------------------------------
@@ -63,14 +63,14 @@ interface Named {
         (parameter
           name: (identifier)
           (self_type)))
-      (type_identifier))
+      return_type: (type_identifier))
     (interface_method
       name: (identifier)
       (parameters
         (parameter
           name: (identifier)
           (self_type)))
-      (type_identifier)
+      return_type: (type_identifier)
       (body
         (string)))
     (interface_method
@@ -79,7 +79,7 @@ interface Named {
         (parameter
           name: (identifier)
           (self_type)))
-      (type_identifier))))
+      return_type: (type_identifier))))
 
 ================================================================================
 two struct fields on one line are an error
@@ -109,7 +109,7 @@ two interface functions on one line are an error
 ================================================================================
 
 interface Named {
-  fn name(value: self): String fn other(value: self): String
+  fn name(value: self) -> String fn other(value: self) -> String
 }
 
 --------------------------------------------------------------------------------
@@ -123,7 +123,7 @@ interface Named {
         (parameter
           name: (identifier)
           (self_type)))
-      (type_identifier))
+      return_type: (type_identifier))
     (MISSING "}"))
   (function_definition
     name: (identifier)
@@ -131,7 +131,7 @@ interface Named {
       (parameter
         name: (identifier)
         (self_type)))
-    (type_identifier))
+    return_type: (type_identifier))
   (ERROR))
 
 ================================================================================

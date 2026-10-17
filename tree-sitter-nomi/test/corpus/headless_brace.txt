@@ -22,7 +22,7 @@ once z = {a: Map.put(x)}
 Map literal as a case scrutinee
 ==========
 
-once r = case {1 => 2} {
+once r = case %{1 => 2} {
   _ -> 0
 }
 
@@ -43,7 +43,7 @@ once r = case {1 => 2} {
 Block whose comment holds => is not classified as a map
 ==========
 
-fn f(): Int {
+fn f() -> Int {
   // x => y
   foo()
 }

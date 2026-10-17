@@ -73,7 +73,7 @@ test("a code lens's debug configuration names its file, mode and test line", () 
 test("F5 with no launch.json debugs the active file: its main, or its tests", () => {
   const program = { file: "/p/app.nomi", source: "import std/io\n\nfn main() {\n    io.print(\"hi\")\n}\n" };
   assert.equal(resolveConfiguration({}, program, "/p")?.mode, "run");
-  const tests = { file: "/p/math.nomi", source: "fn add(a: Int, b: Int): Int { a + b }\n\ntest \"adds\" {\n}\n" };
+  const tests = { file: "/p/math.nomi", source: "fn add(a: Int, b: Int) -> Int { a + b }\n\ntest \"adds\" {\n}\n" };
   assert.equal(resolveConfiguration({}, tests, "/p")?.mode, "test");
   const testFile = { file: "/p/app_test.nomi", source: "fn main() {\n}\n" };
   assert.equal(resolveConfiguration({}, testFile, "/p")?.mode, "test");
@@ -93,7 +93,7 @@ test("a configuration with no program debugs the active file", () => {
 
 test("declaresMain finds a top-level fn main only", () => {
   assert.ok(declaresMain("fn main() {\n}\n"));
-  assert.ok(declaresMain("pub fn main(): Unit {\n}\n"));
+  assert.ok(declaresMain("pub fn main() -> Unit {\n}\n"));
   assert.ok(!declaresMain("fn mainly() {\n}\n"));
   assert.ok(!declaresMain("    fn main() {\n    }\n"));
 });

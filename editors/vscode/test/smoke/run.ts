@@ -27,7 +27,7 @@ async function main(): Promise<void> {
   fs.writeFileSync(
     path.join(workspace, "sample_test.nomi"),
     [
-      "fn double(n: Int): Int { n * 2 }",
+      "fn double(n: Int) -> Int { n * 2 }",
       "",
       'test "passes" {',
       "    assert double(2) == 4",
@@ -45,10 +45,10 @@ async function main(): Promise<void> {
     [
       "//! assert double(2) == 4",
       "//! assert double(0) == 0",
-      "fn double(n: Int): Int { n * 2 }",
+      "fn double(n: Int) -> Int { n * 2 }",
       "",
       "//! assert triple(1) == 3",
-      "fn triple(n: Int): Int { n * 3 }",
+      "fn triple(n: Int) -> Int { n * 3 }",
       "",
     ].join("\n"),
   );

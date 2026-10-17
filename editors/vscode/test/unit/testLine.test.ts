@@ -14,7 +14,7 @@ const source = [
   /*  1 */ "/// Doubles n.",
   /*  2 */ "//! assert double(2) == 4",
   /*  3 */ "//! assert double(0) == 0",
-  /*  4 */ "fn double(n: Int): Int { n * 2 }",
+  /*  4 */ "fn double(n: Int) -> Int { n * 2 }",
   /*  5 */ "",
   /*  6 */ 'test "braces in literals do not count" {',
   /*  7 */ '    s = "}"',

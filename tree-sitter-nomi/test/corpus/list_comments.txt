@@ -6,7 +6,7 @@ fn add(
   // first
   a: Int,
   b: Int, // second
-): Int {
+) -> Int {
   add(
     // first
     1,
@@ -44,19 +44,19 @@ Comments in lambda parameters and collection literals
 ==========
 
 fn f() {
-  g = |
+  g = fn
     // first
     a,
     b // second
-  | a
+  -> a
   v = #{
     1, // one
     2,
   }
-  s = {
+  s = %{
     "a" => 1, // one
   }
-  r = (
+  r = #(
     1, // one
     2,
   )
@@ -118,9 +118,9 @@ fn f(
     String,
     Int // value
   >,
-): Int {
+) -> Int {
   case p {
-    (
+    #(
       a, // first
       b
     ) -> a

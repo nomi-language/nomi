@@ -3,7 +3,7 @@ top-level impl-for foreign block with a plain method
 ================================================================================
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     "woof"
   }
 }
@@ -30,7 +30,7 @@ generic impl-for block with bound
 ================================================================================
 
 impl<T> Iter for List<T> where T: Bound {
-  fn next(xs: List<T>): T {
+  fn next(xs: List<T>) -> T {
     xs
   }
 }
@@ -69,9 +69,9 @@ impl-for block with host fn and fn items
 ================================================================================
 
 impl Clock for Date {
-  host fn new(year: Int): Result<Date, Error>
+  host fn new(year: Int) -> Result<Date, Error>
 
-  fn today(): Date {
+  fn today() -> Date {
     Date.new(2026)
   }
 }
@@ -109,7 +109,7 @@ impl-for block with type-qualified call in function
 ================================================================================
 
 impl Shifter for Point {
-  fn twice(p: Point): Point {
+  fn twice(p: Point) -> Point {
     Point.shift(p)
   }
 }
@@ -141,9 +141,9 @@ inherent impl block with host fn, fn, and once items
 impl Request {
   pub once Empty = Request{}
 
-  pub host fn new(url: String): Request
+  pub host fn new(url: String) -> Request
 
-  pub fn path(request: Request): String {
+  pub fn path(request: Request) -> String {
     "/"
   }
 }

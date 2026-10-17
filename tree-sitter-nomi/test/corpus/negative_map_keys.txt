@@ -3,7 +3,7 @@ Negative integer key in map pattern
 ==========
 
 once r = case m {
-  {-2 => v} -> v
+  %{-2 => v} -> v
   _ -> "no"
 }
 

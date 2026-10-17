@@ -3,8 +3,8 @@ open default method on interface
 ================================================================================
 
 pub interface Logger {
-  fn log(value: self, message: String): Unit
-  open fn info(value: self, message: String): Unit {
+  fn log(value: self, message: String) -> Unit
+  open fn info(value: self, message: String) -> Unit {
     Logger.log(value, message)
   }
 }
@@ -24,7 +24,7 @@ pub interface Logger {
         (parameter
           name: (identifier)
           (type_identifier)))
-      (type_identifier))
+      return_type: (type_identifier))
     (interface_method
       name: (identifier)
       (parameters
@@ -34,7 +34,7 @@ pub interface Logger {
         (parameter
           name: (identifier)
           (type_identifier)))
-      (type_identifier)
+      return_type: (type_identifier)
       (body
         (call_expression
           function: (field_access
@@ -47,7 +47,7 @@ pub interface Logger {
 field and open are identifiers outside interface bodies
 ================================================================================
 
-fn make_thing(): String {
+fn make_thing() -> String {
   field = "ok"
   open = 42
   field
@@ -59,7 +59,7 @@ fn make_thing(): String {
   (function_definition
     name: (identifier)
     (parameters)
-    (type_identifier)
+    return_type: (type_identifier)
     (body
       (binding
         (identifier)

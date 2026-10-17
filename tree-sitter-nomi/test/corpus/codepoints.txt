@@ -72,7 +72,7 @@ once letters = 'a'..='z'
 Codepoint literal patterns
 ==========
 
-fn kind(cp: Codepoint): Int {
+fn kind(cp: Codepoint) -> Int {
     case cp {
         '(' -> 1
         '\n' -> 2
@@ -108,7 +108,7 @@ fn kind(cp: Codepoint): Int {
 Codepoint literal nested patterns
 ==========
 
-fn kind(m: Maybe<Codepoint>): Int {
+fn kind(m: Maybe<Codepoint>) -> Int {
     case m {
         Some('x') -> 1
         _ -> 2

@@ -7,7 +7,7 @@
 //   const vm = await loadRuntime("./nomi-vm-reactor.wasm");
 //
 //   const game = await vm.load("./game.nomic");
-//   game.exports;                     // ["new_game(word: String): Game", ...]
+//   game.exports;                     // ["new_game(word: String) -> Game", ...]
 //   let state = await game.call("new_game", "pipeline");
 //   state = await game.call("guess", state, "e");
 //   game.close();

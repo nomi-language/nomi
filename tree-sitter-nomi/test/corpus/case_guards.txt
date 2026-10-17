@@ -61,7 +61,7 @@ Arm body ending in a call does not swallow the next .Variant arm
 
 once r = case d {
   .A ->
-    sort(xs, |a, b| cmp(a, b))
+    sort(xs, fn a, b -> cmp(a, b))
   .B ->
     other
 }

@@ -32,7 +32,7 @@
 //                                `${` is literal, `\${` keeps its `\`.
 //   STATEMENT_END              — zero-width end of a statement or a `case`
 //                                arm at a line break.
-//   ANON_STRUCT_OPEN, MAP_OPEN — a classified headless `{`.
+//   ANON_STRUCT_OPEN           — a classified headless `{`.
 //   ATTACHED_COMMENT_TEST_PROMPT — the line-leading `//!` attached-test opener.
 //   ATTACHED_COMMENT_TEST_LINE_PROMPT — the line-leading `//!` attached-test
 //                                body prompt, skipped as an extra.
@@ -54,16 +54,14 @@ enum TokenType {
     // Zero-width, at the start of a line, where the line break before it ends
     // a statement or a `case` arm (see line_continues).
     STATEMENT_END,
-    // Opening brace of a *headless* anonymous struct literal (`{a: 1}`) or map
-    // literal (`{k => v}`) in value/scrutinee position. The scanner classifies
-    // a whitespace-preceded `{` by peeking its content and emits one of these
-    // (or nothing → a plain `{`, leaving block / case-block / construction
-    // alone). Distinct opening tokens give `anon_struct` / `map_literal` their
-    // own un-merged LR state, so a field value extends (`{a: Map.put(x)}`) and
-    // a map literal can be a `case` scrutinee. A head-hugging construction
-    // brace (`Set{…}`, no leading whitespace) is left to `token.immediate`.
+    // Opening brace of a *headless* anonymous struct literal (`{a: 1}`) in
+    // value/scrutinee position. The scanner classifies a whitespace-preceded
+    // `{` by peeking its content and emits this (or nothing → a plain `{`,
+    // leaving block / case-block / construction alone). A distinct opening
+    // token gives `anon_struct` its own un-merged LR state, so a field value
+    // extends (`{a: Map.put(x)}`). A head-hugging construction brace
+    // (`Set{…}`, no leading whitespace) is left to `token.immediate`.
     ANON_STRUCT_OPEN,
-    MAP_OPEN,
     ATTACHED_COMMENT_TEST_PROMPT,
     ATTACHED_COMMENT_TEST_LINE_PROMPT,
     ATTACHED_TEST_PROMPT_GROUP_END,
@@ -159,7 +157,7 @@ static void skip_ws_comments(TSLexer *lexer) {
 
 // Classify the content immediately after a headless `{` (lookahead positioned
 // just past the brace). Pure look-ahead — advances beyond mark_end, never into
-// the emitted token. Returns: 0 = block, 1 = anon struct, 2 = map literal.
+// the emitted token. Returns: 0 = block, 1 = anon struct.
 //
 // Heuristics, matching the Go parser's intent:
 //   - A leading `IDENT :` (not `::`) with no top-level binding `=` → anon struct
@@ -172,13 +170,10 @@ static void skip_ws_comments(TSLexer *lexer) {
 //     `struct_update_spread` follows. No Nomi block can begin with `..` — the
 //     open-ended range forms (`..5`, `..`) were removed precisely so a prefix
 //     `..` inside a literal is unambiguously a spread — so this steals nothing.
-//   - A top-level `=>` (before any decisive binding `=`) → map (`{k => v}`,
-//     `{(1,2) => "a"}`). Checked by the scan loop below, so it still wins over a
-//     leading `..`: `{..m, "b" => 2}` classifies as a map, the grammar's
-//     `map_update`.
 //   - Anything else (bare statements, `foo()`, guard `n < 0 -> …`) → block.
-// Depth-tracked across `()[]{}`; strings skipped; comparison `=` (`==`/`!=`/
-// `<=`/`>=`/`=>`) never mistaken for a binding.
+// A map literal opens with `%{`, so no brace is classified as one. Depth-tracked
+// across `()[]{}`; strings skipped; comparison `=` (`==`/`!=`/`<=`/`>=`) and
+// `=>` never mistaken for a binding.
 static int classify_brace(TSLexer *lexer) {
     skip_ws_comments(lexer);
     if (lexer->lookahead == '}' || lexer->lookahead == 0) return 0; // empty → block
@@ -236,8 +231,7 @@ static int classify_brace(TSLexer *lexer) {
             int32_t before = prev;
             advance(lexer);
             int32_t next = lexer->lookahead;
-            if (next == '>') return 2; // `=>` → map
-            if (next == '=' || before == '=' || before == '!' ||
+            if (next == '>' || next == '=' || before == '=' || before == '!' ||
                 before == '<' || before == '>') {
                 prev = '='; // `==` / comparison half — keep scanning
                 continue;
@@ -250,7 +244,7 @@ static int classify_brace(TSLexer *lexer) {
     return leading_ident_colon ? 1 : 0;
 }
 
-// Classify and emit the opening brace of a headless anon-struct / map literal.
+// Classify and emit the opening brace of a headless anon-struct literal.
 // scan_layout calls it only after whitespace, so a head-hugging construction
 // brace (`Set{…}`), which has none and is owned by `token.immediate('{')`, is
 // never stolen.
@@ -261,10 +255,6 @@ static bool scan_headless_brace(TSLexer *lexer, const bool *valid_symbols) {
     int kind = classify_brace(lexer); // look-ahead beyond mark_end
     if (kind == 1 && valid_symbols[ANON_STRUCT_OPEN]) {
         lexer->result_symbol = ANON_STRUCT_OPEN;
-        return true;
-    }
-    if (kind == 2 && valid_symbols[MAP_OPEN]) {
-        lexer->result_symbol = MAP_OPEN;
         return true;
     }
     return false; // block (or the wanted kind isn't valid) → rewind, plain `{`
@@ -723,7 +713,7 @@ static bool scan_layout(Scanner *scanner, TSLexer *lexer, const bool *valid_symb
         return true;
     }
 
-    if ((valid_symbols[ANON_STRUCT_OPEN] || valid_symbols[MAP_OPEN]) && spaced) {
+    if (valid_symbols[ANON_STRUCT_OPEN] && spaced) {
         return scan_headless_brace(lexer, valid_symbols);
     }
     return false;

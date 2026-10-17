@@ -3,7 +3,7 @@ Subtests over a list with a tuple pattern
 ================================================================================
 
 test "palindromes" {
-  subtests cases, (line, known) {
+  subtests cases, #(line, known) {
     assert palindrome?(line) == known
   }
 }
@@ -109,16 +109,16 @@ Subtests with a name for each row
 ================================================================================
 
 test "leap" {
-  subtests cases, (description, year), description {
+  subtests cases, #(description, year), description {
     assert year > 0
   }
-  subtests cases, (a, b), "${a} + ${b}" {
+  subtests cases, #(a, b), "${a} + ${b}" {
     assert a < b
   }
   subtests rows, Ok(n) or Err(n), label(n) {
     assert n > 0
   }
-  subtests cases, (
+  subtests cases, #(
     _description,
     year
   ), if year > 0 { "after" } else { "before" } {

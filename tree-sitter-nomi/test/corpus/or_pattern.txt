@@ -2,7 +2,7 @@
 An or pattern matches either alternative in every pattern position
 ================================================================================
 
-fn describe(m: Maybe<Tri>, cs: List<Codepoint>): Int {
+fn describe(m: Maybe<Tri>, cs: List<Codepoint>) -> Int {
     a = case m {
         Some(.Equilateral or .Isosceles) -> 1
         None or Some(_) -> 0
@@ -20,7 +20,7 @@ fn describe(m: Maybe<Tri>, cs: List<Codepoint>): Int {
     a + b + c
 }
 
-fn pick(.L(n) or .R(n): Two): Int {
+fn pick(.L(n) or .R(n): Two) -> Int {
     .L(m) or .R(m) = Two.L(n)
     Ok(v) = parse() else {
         Err(.Empty) or Err(.Blank) -> return 0
@@ -45,7 +45,7 @@ fn pick(.L(n) or .R(n): Two): Int {
         (generic_type
           (type_identifier)
           (type_identifier))))
-    (type_identifier)
+    return_type: (type_identifier)
     (body
       (binding
         (identifier)
@@ -152,7 +152,7 @@ fn pick(.L(n) or .R(n): Two): Int {
               (type_identifier))
             (identifier)))
         (type_identifier)))
-    (type_identifier)
+    return_type: (type_identifier)
     (body
       (pattern_binding
         pattern: (binary_expression

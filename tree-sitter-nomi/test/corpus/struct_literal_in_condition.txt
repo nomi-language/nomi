@@ -2,7 +2,7 @@
 Type at the end of an if-condition is not grabbed as a struct literal
 ==========
 
-fn m(): Int {
+fn m() -> Int {
   if x != Status.Done {
     1
   } else {

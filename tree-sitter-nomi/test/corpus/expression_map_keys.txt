@@ -3,7 +3,7 @@ Variant expression key in map pattern
 ==========
 
 once r = case m {
-  {Color.Red => v} -> v
+  %{Color.Red => v} -> v
   _ -> "no"
 }
 
@@ -30,7 +30,7 @@ Tuple expression key in map pattern
 ==========
 
 once r = case m {
-  {(1, 2) => v} -> v
+  %{#(1, 2) => v} -> v
   _ -> "no"
 }
 
@@ -57,7 +57,7 @@ Computed (identifier) key in map pattern
 ==========
 
 once r = case m {
-  {k => v} -> v
+  %{k => v} -> v
   _ -> "no"
 }
 

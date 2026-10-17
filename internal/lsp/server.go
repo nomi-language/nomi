@@ -173,7 +173,7 @@ func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams
 	// does the `}` an auto-pair plugin adds to it (`Point{‸}`);
 	// and on `"` and a backtick, which open a typed literal's documented
 	// examples only after a type's name (`Date"`); and on `:`, which opens
-	// the types after an annotated name (`game:`, `fn f(): `); and on `,`,
+	// the types after an annotated name (`game:`, `fn f() -> `); and on `,`,
 	// which opens a struct literal's or pattern's next field. The handler
 	// answers any other `>`, `{`, quote, `:` or `,` with nothing. Items
 	// carry no documentation until the client resolves them.

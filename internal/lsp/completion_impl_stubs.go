@@ -469,7 +469,7 @@ func (g *stubGen) signature(m *ast.InterfaceMethod, snippet bool) string {
 	}
 	b.WriteString(")")
 	if m.ReturnTypeExpr != nil {
-		b.WriteString(": " + typ(m.ReturnTypeExpr))
+		b.WriteString(" -> " + typ(m.ReturnTypeExpr))
 	}
 	return b.String()
 }
@@ -534,6 +534,9 @@ func (g *stubGen) renderType(te ast.TypeExpr, local map[string]bool, snippet boo
 			parts[i] = g.renderType(p, local, snippet)
 		}
 		out := "(" + strings.Join(parts, ", ") + ")"
+		if t.Return == nil {
+			out = "#" + out
+		}
 		if t.Return != nil {
 			out += " -> " + g.renderType(t.Return, local, snippet)
 		}

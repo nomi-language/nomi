@@ -7,10 +7,10 @@ fn main() {
     return Err("none")
   }
   Some(e) = m else { "none" }
-  Ok((w, h)) = parse(text) else { (80, 24) }
+  Ok(#(w, h)) = parse(text) else { #(80, 24) }
   [first, ..rest] = xs else { return 0 }
   .Valid(r) = c else { {addr: "none", score: 0} }
-  {"a" => a} = m else { return 0 }
+  %{"a" => a} = m else { return 0 }
 }
 
 ---
@@ -158,9 +158,9 @@ fn main() {
 Map, struct, list and or patterns in a binding with else
 ================================================================================
 
-fn f(m: Map<String, Int>, p: Point, xs: List<Int>): Int {
-    {"port" => port} = m else {
-        {"fallback" => fallback} -> return fallback
+fn f(m: Map<String, Int>, p: Point, xs: List<Int>) -> Int {
+    %{"port" => port} = m else {
+        %{"fallback" => fallback} -> return fallback
         _ -> return 80
     }
     {x: 0, y} = p else {
@@ -172,7 +172,7 @@ fn f(m: Map<String, Int>, p: Point, xs: List<Int>): Int {
     [first, ..rest] = xs else {
         return 0
     }
-    {"a" => v} or {"b" => v} = m else {
+    %{"a" => v} or %{"b" => v} = m else {
         return 0
     }
     port + y + n + first + v
@@ -278,11 +278,11 @@ struct Server {
     host: String
 }
 
-host fn now(): Int
+host fn now() -> Int
 
-fn address(host: String): Server {
+fn address(host: String) -> Server {
     host = String.trim(host)
-    {"host" => h} = config() else {
+    %{"host" => h} = config() else {
         return Server{host}
     }
     host

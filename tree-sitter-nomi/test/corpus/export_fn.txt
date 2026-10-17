@@ -2,7 +2,7 @@
 Exported function
 ================================================================================
 
-export fn guess(n: Int): Int {
+export fn guess(n: Int) -> Int {
     n
 }
 
@@ -16,6 +16,6 @@ export fn guess(n: Int): Int {
       (parameter
         name: (identifier)
         (type_identifier)))
-    (type_identifier)
+    return_type: (type_identifier)
     (body
       (identifier))))

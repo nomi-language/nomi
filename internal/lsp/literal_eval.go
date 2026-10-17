@@ -33,7 +33,7 @@ import (
 // It runs on the engine, not beside it. The open buffer is loaded as its file
 // (vmhost.LoadFileSource) with one probe function per literal appended:
 //
-//	fn nomi_literal_probe_0(): Result<String, String> {
+//	fn nomi_literal_probe_0() -> Result<String, String> {
 //	    case Date"2026-13-04" {
 //	        Ok(v) -> Ok(Debug.inspect(v))
 //	        Err(e) -> Err(Debug.inspect(e))
@@ -304,7 +304,7 @@ func literalProbes(content string, lits []staticLiteral) (string, []string) {
 		seen[lit.key] = true
 		name := fmt.Sprintf("nomi_literal_probe_%d", len(keys))
 		keys = append(keys, lit.key)
-		fmt.Fprintf(&b, "\nfn %s(): Result<String, String> {\n", name)
+		fmt.Fprintf(&b, "\nfn %s() -> Result<String, String> {\n", name)
 		if lit.result {
 			fmt.Fprintf(&b, "    case %s {\n        Ok(v) -> Ok(Debug.inspect(v))\n        Err(e) -> Err(Debug.inspect(e))\n    }\n", lit.text)
 		} else {

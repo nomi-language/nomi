@@ -25,7 +25,7 @@ once u = {..user, address: {.., city: "NYC"}}
 Bare spread in a nested map update
 ================================================================================
 
-once t = {..team, "address" => {.., "city" => "Atlanta"}}
+once t = %{..team, "address" => %{.., "city" => "Atlanta"}}
 
 --------------------------------------------------------------------------------
 

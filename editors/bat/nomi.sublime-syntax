@@ -128,7 +128,7 @@ contexts:
       captures:
         1: keyword.declaration.nomi
     # `subtests` is a keyword only where a statement starts with it and its
-    # rows follow (`subtests cases, (a, b) { ... }`); `subtests = 3` and
+    # rows follow (`subtests cases, #(a, b) { ... }`); `subtests = 3` and
     # `subtests(2)` stay names.
     - match: '^\s*(subtests)\b(?=[ \t]+[^\s=.,:|)\]}-])'
       captures:
@@ -156,9 +156,13 @@ contexts:
       scope: constant.language.nomi
 
   operators:
+    # A map literal's `%{` opens a collection, as `#{` does; only a `%`
+    # standing alone is the remainder operator.
+    - match: '%(?=\{)'
+      scope: punctuation.section.nomi
     - match: '\|>|->|=>|==|!=|<=|>=|\.\.=|\.\.'
       scope: keyword.operator.nomi
-    - match: '[+\-*/%<>!=|]'
+    - match: '[+\-*/%<>!=]'
       scope: keyword.operator.nomi
 
   identifiers:
@@ -182,7 +186,7 @@ contexts:
       scope: variable.other.nomi
 
   punctuation:
-    - match: '#(?=[\[\{])'
+    - match: '#(?=[\[\{(])'
       scope: punctuation.section.nomi
     - match: '[,.:;]'
       scope: punctuation.separator.nomi

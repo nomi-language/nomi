@@ -25,7 +25,7 @@ import (
 //
 //   - Only a pipeline with a `|>` that starts a line gets hints. A pipe
 //     written on one line, or whose only line break is inside a stage
-//     (`xs |> Iter.map(|x| {` ... `})`), gets none.
+//     (`xs |> Iter.map(fn x -> {` ... `})`), gets none.
 //   - Each stage's hint goes at the end of the stage's last line, before a
 //     trailing comment. When two stages end on one line, the later one's
 //     type is shown.

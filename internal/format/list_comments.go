@@ -202,9 +202,9 @@ func groupedHasComments(g *ast.GroupedExpr) bool {
 // the line after its `(` (brokenAfterOpen).
 func emitTupleItems(elems []Doc, v *ast.TupleLit) Doc {
 	if cs, ok := nodesComments(v.Items); ok || itemsBrokenAfterOpen(v.Line, v.Items) {
-		return emitCommentedList("(", ")", elems, cs, nil)
+		return emitCommentedList("#(", ")", elems, cs, nil)
 	}
-	return emitBracedList("(", ")", elems)
+	return emitBracedList("#(", ")", elems)
 }
 
 // mapKeys is each entry's key, which holds the entry's comments as a list

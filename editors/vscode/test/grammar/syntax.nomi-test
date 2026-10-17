@@ -12,13 +12,14 @@
 // <~~~~~~~~~~~------ meta.embedded.line.nomi entity.name.function.nomi
 // <~~~~~~~~~~~~~~~~~~~~~-- meta.embedded.line.nomi keyword.operator.comparison.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~- meta.embedded.line.nomi constant.numeric.integer.nomi
-pub fn double?(n: Int): Int { todo }
+pub fn double?(n: Int) -> Int { todo }
 // <--- keyword.declaration.nomi
 // <~~~~-- keyword.declaration.nomi
 // <~~~~~~~------- entity.name.function.nomi
 // <~~~~~~~~~~~~~~~- variable.other.nomi
 // <~~~~~~~~~~~~~~~~~~--- entity.name.type.nomi
-// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~---- keyword.control.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.arrow.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~---- keyword.control.nomi
 x = 1 // trailing comment
 // <~~~~~~-- comment.line.double-slash.nomi punctuation.definition.comment.nomi
 // <~~~~~~~~~-------- comment.line.double-slash.nomi
@@ -80,15 +81,22 @@ names = people |> Iter.map(.name) |> Iter.to_list()
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~- punctuation.accessor.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~---- variable.other.property.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~------- entity.name.function.nomi
-total = paid |> then |n| n * 2
+total = paid |> then fn n -> n * 2
 // <~~~~~~~~~~~~~-- keyword.operator.pipe.nomi
 // <~~~~~~~~~~~~~~~~---- keyword.control.nomi
-seen = paid |> tap |n| io.print(n)
+// <~~~~~~~~~~~~~~~~~~~~~-- keyword.declaration.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.arrow.nomi
+seen = paid |> tap fn n -> io.print(n)
 // <~~~~~~~~~~~~~~~--- keyword.control.nomi
-adults = Iter.filter(people, |p| p.age >= 18)
-// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~- keyword.operator.nomi
-// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--- variable.other.property.nomi
-// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.comparison.nomi
+adults = Iter.filter(people, fn p -> p.age >= 18)
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-- keyword.declaration.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.arrow.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--- variable.other.property.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.comparison.nomi
+pair = #(1, 2)
+// <~~~~~~~- punctuation.section.nomi
+ages = %{"ada" => 36}
+// <~~~~~~~- punctuation.section.nomi
 shape = .Circle(1.0)
 // <~~~~~~~~- punctuation.accessor.nomi
 // <~~~~~~~~~------ variable.other.enummember.nomi
@@ -107,7 +115,7 @@ import std/test.Thing
 // <------ keyword.declaration.nomi
 // <~~~~~~~~~~~---- variable.other.nomi
 // <~~~~~~~~~~~~~~~~----- entity.name.type.nomi
-host fn now(): Int
+host fn now() -> Int
 // <---- keyword.declaration.nomi
 // <~~~~~~~~--- entity.name.function.nomi
 group "group" {

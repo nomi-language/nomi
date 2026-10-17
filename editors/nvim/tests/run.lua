@@ -88,7 +88,7 @@ local source = {
   'import std/io', --  1
   '', --  2
   '//! assert double(2) == 4', --  3
-  'fn double(x: Int): Int {', --  4
+  'fn double(x: Int) -> Int {', --  4
   '    x * 2', --  5
   '}', --  6
   '', --  7

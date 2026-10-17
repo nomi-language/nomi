@@ -145,7 +145,7 @@ func (r *refactorRequest) standsFree(n ast.Node) bool {
 
 // inBareThenBody reports whether n stands at the top of a `then` or `tap`
 // lambda's one-expression body, outside any bracket, where a `|>` would end
-// the lambda: `then |x| f(g(x))` piped is `then |x| (x |> g() |> f())`. Any
+// the lambda: `then fn x -> f(g(x))` piped is `then fn x -> (x |> g() |> f())`. Any
 // other lambda's body runs to the end of its expression, so a pipe there
 // needs no parentheses.
 func (r *refactorRequest) inBareThenBody(n ast.Node) bool {

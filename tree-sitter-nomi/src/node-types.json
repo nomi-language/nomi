@@ -1878,10 +1878,6 @@
           "named": true
         },
         {
-          "type": "map_entry",
-          "named": true
-        },
-        {
           "type": "map_literal",
           "named": true
         },
@@ -3507,10 +3503,6 @@
         },
         {
           "type": "map_construction",
-          "named": true
-        },
-        {
-          "type": "map_entry",
           "named": true
         },
         {
@@ -5640,24 +5632,50 @@
             "named": true
           }
         ]
+      },
+      "return_type": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": ".",
+            "named": false
+          },
+          {
+            "type": "anon_struct_type",
+            "named": true
+          },
+          {
+            "type": "function_type",
+            "named": true
+          },
+          {
+            "type": "generic_type",
+            "named": true
+          },
+          {
+            "type": "qualified_type",
+            "named": true
+          },
+          {
+            "type": "self_type",
+            "named": true
+          },
+          {
+            "type": "tuple_type",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
+            "named": true
+          }
+        ]
       }
     },
     "children": {
       "multiple": true,
       "required": true,
       "types": [
-        {
-          "type": "anon_struct_type",
-          "named": true
-        },
-        {
-          "type": "function_type",
-          "named": true
-        },
-        {
-          "type": "generic_type",
-          "named": true
-        },
         {
           "type": "host_keyword",
           "named": true
@@ -5668,22 +5686,6 @@
         },
         {
           "type": "pub",
-          "named": true
-        },
-        {
-          "type": "qualified_type",
-          "named": true
-        },
-        {
-          "type": "self_type",
-          "named": true
-        },
-        {
-          "type": "tuple_type",
-          "named": true
-        },
-        {
-          "type": "type_identifier",
           "named": true
         },
         {
@@ -6264,6 +6266,44 @@
             "named": true
           }
         ]
+      },
+      "return_type": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": ".",
+            "named": false
+          },
+          {
+            "type": "anon_struct_type",
+            "named": true
+          },
+          {
+            "type": "function_type",
+            "named": true
+          },
+          {
+            "type": "generic_type",
+            "named": true
+          },
+          {
+            "type": "qualified_type",
+            "named": true
+          },
+          {
+            "type": "self_type",
+            "named": true
+          },
+          {
+            "type": "tuple_type",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
+            "named": true
+          }
+        ]
       }
     },
     "children": {
@@ -6271,23 +6311,11 @@
       "required": true,
       "types": [
         {
-          "type": "anon_struct_type",
-          "named": true
-        },
-        {
           "type": "body",
           "named": true
         },
         {
           "type": "export",
-          "named": true
-        },
-        {
-          "type": "function_type",
-          "named": true
-        },
-        {
-          "type": "generic_type",
           "named": true
         },
         {
@@ -6300,22 +6328,6 @@
         },
         {
           "type": "pub",
-          "named": true
-        },
-        {
-          "type": "qualified_type",
-          "named": true
-        },
-        {
-          "type": "self_type",
-          "named": true
-        },
-        {
-          "type": "tuple_type",
-          "named": true
-        },
-        {
-          "type": "type_identifier",
           "named": true
         },
         {
@@ -7612,6 +7624,44 @@
             "named": true
           }
         ]
+      },
+      "return_type": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": ".",
+            "named": false
+          },
+          {
+            "type": "anon_struct_type",
+            "named": true
+          },
+          {
+            "type": "function_type",
+            "named": true
+          },
+          {
+            "type": "generic_type",
+            "named": true
+          },
+          {
+            "type": "qualified_type",
+            "named": true
+          },
+          {
+            "type": "self_type",
+            "named": true
+          },
+          {
+            "type": "tuple_type",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
+            "named": true
+          }
+        ]
       }
     },
     "children": {
@@ -7619,19 +7669,7 @@
       "required": true,
       "types": [
         {
-          "type": "anon_struct_type",
-          "named": true
-        },
-        {
           "type": "body",
-          "named": true
-        },
-        {
-          "type": "function_type",
-          "named": true
-        },
-        {
-          "type": "generic_type",
           "named": true
         },
         {
@@ -7640,22 +7678,6 @@
         },
         {
           "type": "parameters",
-          "named": true
-        },
-        {
-          "type": "qualified_type",
-          "named": true
-        },
-        {
-          "type": "self_type",
-          "named": true
-        },
-        {
-          "type": "tuple_type",
-          "named": true
-        },
-        {
-          "type": "type_identifier",
           "named": true
         },
         {
@@ -9212,7 +9234,7 @@
     "fields": {},
     "children": {
       "multiple": true,
-      "required": true,
+      "required": false,
       "types": [
         {
           "type": "map_entry",
@@ -16052,6 +16074,10 @@
     "named": false
   },
   {
+    "type": "#(",
+    "named": false
+  },
+  {
     "type": "#[",
     "named": false
   },
@@ -16065,6 +16091,10 @@
   },
   {
     "type": "%",
+    "named": false
+  },
+  {
+    "type": "%{",
     "named": false
   },
   {
@@ -16437,10 +16467,6 @@
   },
   {
     "type": "{",
-    "named": false
-  },
-  {
-    "type": "|",
     "named": false
   },
   {

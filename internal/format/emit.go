@@ -343,8 +343,8 @@ func endsInOpenLambda(n ast.Node) bool {
 //
 // A stage that ends in a lambda's bare body is parenthesized when another
 // stage follows, since the body would take that stage in: the parser builds
-// `x |> dbg || y` as the stages `|| y` and `dbg`, and `x |> || y |> dbg`
-// reads as one lambda whose body is `y |> dbg`.
+// `x |> dbg fn -> y` as the stages `fn -> y` and `dbg`, and
+// `x |> fn -> y |> dbg` reads as one lambda whose body is `y |> dbg`.
 func emitStage(n ast.Node, more bool) Doc {
 	g, ok := n.(*ast.GroupedExpr)
 	if !ok || g.Expr == nil {
@@ -847,9 +847,9 @@ func emitNode(n ast.Node) Doc {
 		parts = append(parts, Text(".."), emit(v.TailSpread), Text("]"))
 		return Concat(parts...)
 	case *ast.MapLit:
-		open := "{"
+		open := "%{"
 		if v.TypeName != nil {
-			open = v.TypeName.TypeString() + "{"
+			open = v.TypeName.TypeString() + "%{"
 		}
 		hasEndTrivia := trailingHasComment(v.EndTrivia)
 		elems := make([]Doc, 0, len(v.Entries)+1)
@@ -951,9 +951,9 @@ func emitNode(n ast.Node) Doc {
 	case *ast.OnceBinding:
 		return emitOnceBinding(v)
 	case *ast.TupleDestructure:
-		// (a, b, _) = expr — bindings are *Ident or nil (wildcard).
+		// #(a, b, _) = expr — bindings are *Ident or nil (wildcard).
 		parts := make([]Doc, 0, len(v.Bindings)*2+3)
-		parts = append(parts, Text("("))
+		parts = append(parts, Text("#("))
 		for i, b := range v.Bindings {
 			if i > 0 {
 				parts = append(parts, Text(", "))
@@ -974,7 +974,7 @@ func emitNode(n ast.Node) Doc {
 					docs[i] = Text(b.Name)
 				}
 			}
-			return emitBindingValue(emitCommentedListNoLastComma("(", ")", docs, cs), v.Value)
+			return emitBindingValue(emitCommentedListNoLastComma("#(", ")", docs, cs), v.Value)
 		}
 		return emitBindingValue(Concat(parts...), v.Value)
 	case *ast.StructDestructure:
@@ -1490,7 +1490,7 @@ func emitSubtestsPattern(n ast.Node) Doc {
 	if hasComments {
 		return emitPattern(n)
 	}
-	return withDangling(n, bracedList("(", ")", elems, false))
+	return withDangling(n, bracedList("#(", ")", elems, false))
 }
 
 // emitDefer renders `defer call(...)`.
@@ -1620,7 +1620,7 @@ func emitTestSetup(expr ast.Node) Doc {
 }
 
 // isBlockExpr reports whether n is a block expression. A body whose one
-// statement is a block (`setup { {} }`, `|| { {} }`) keeps its own braces
+// statement is a block (`setup { {} }`, `fn -> { {} }`) keeps its own braces
 // around it: written bare after the header, the inner block's braces would
 // read back as the body's, one level gone. flattenBodyBlocks has already
 // merged every inner block that may take the body's place, so the ones left
@@ -2179,12 +2179,12 @@ func tooDeep(n ast.Node, count int) bool {
 // The depth grows by 1 for the receiving compound node, plus the max
 // depth of any directly-nested compound payload. So:
 //
-//	Obj{"k" => v}                          -> 1
-//	Obj{"k" => Obj{"k" => v}}              -> 2
-//	Obj{"k" => Obj{"k" => Obj{"k" => v}}}  -> 3
-//	Ok(Obj{"k" => Obj{"k" => Obj{"k" => v}}})  ->  inner Ok(...) is a Call,
+//	Obj%{"k" => v}                          -> 1
+//	Obj%{"k" => Obj%{"k" => v}}              -> 2
+//	Obj%{"k" => Obj%{"k" => Obj%{"k" => v}}}  -> 3
+//	Ok(Obj%{"k" => Obj%{"k" => Obj%{"k" => v}}})  ->  inner Ok(...) is a Call,
 //	  so the outer depth is whatever its payload's depth is: 3.
-//	Some(Obj{"k" => v})                    ->  Some is a Call (depth 0),
+//	Some(Obj%{"k" => v})                    ->  Some is a Call (depth 0),
 //	  payload depth is 1, so the OUTER expression has no compound (returns 0).
 //	  The inner Obj's own compoundDepth is 1 — measured independently
 //	  at the recursive call site inside emitMap.
@@ -2633,20 +2633,20 @@ func emitCaseArmTrivia(b *ast.CaseBranch, arm Doc) Doc {
 
 // emitCall renders a function call with a paren-delimited arg list.
 //
-// Special case — last arg is a lambda: emit `func(leading_args, |params| <body>)`
+// Special case — last arg is a lambda: emit `func(leading_args, fn params -> <body>)`
 // so the lambda's opener hugs the call's `(` and its `}` hugs the `)`. Prevents
 // the ugly double-indent of a multi-stmt lambda inside a generic argList Group:
 //
 //	// without special case:              // with special case:
-//	lists.map(                             lists.map(|x| {
-//	  |x| {                                 if x == 3 { return 300 }
+//	lists.map(                             lists.map(fn x -> {
+//	  fn x -> {                             if x == 3 { return 300 }
 //	    if x == 3 { return 300 }            x * 10
 //	    x * 10                            })
 //	  },
 //	)
 //
 // For trivial single-expression lambdas the output is identical either way
-// (`lists.map(|x| x * 2)` fits inline); the special-case only differs when the
+// (`lists.map(fn x -> x * 2)` fits inline); the special-case only differs when the
 // lambda body breaks.
 func emitCall(v *ast.Call) Doc {
 	callee := emit(v.Func)
@@ -2736,7 +2736,7 @@ func callArgDocs(args []ast.Node) []Doc {
 }
 
 // lambdaSingleExpr returns the body expression and true when lam's body is a
-// single ExprStmt — the bare-expression lambda shape (`|x| x + 1`, `|x| if … {…}`)
+// single ExprStmt — the bare-expression lambda shape (`fn x -> x + 1`, `fn x -> if … {…}`)
 // that emitLambda renders without block braces. Block-bodied lambdas (multi-
 // statement, a single break/return/continue the parser wrapped in `{}`, or a
 // pipe written in braces, which keep them) return false; those keep the
@@ -2767,7 +2767,7 @@ func authoredLambdaBlock(lam *ast.Lambda) bool {
 // block with its statements on their own lines, however short: the line
 // break after the `{` is the author's, as a break after an object
 // literal's `{` is in Prettier. A braced body that starts on the `{` line
-// (`|x| { x + 1 }`) is laid out as a bare body would be.
+// (`fn x -> { x + 1 }`) is laid out as a bare body would be.
 func lambdaKeepsBlock(lam *ast.Lambda) bool {
 	return authoredLambdaBlock(lam) && len(lam.Body.Stmts) > 0 &&
 		nodeStartLine(lam.Body.Stmts[0]) > lam.Body.Line
@@ -2911,19 +2911,19 @@ func emitCallArg(n ast.Node) Doc {
 	return emit(n)
 }
 
-// emitLambda renders a lambda as "|params| body".
+// emitLambda renders a lambda as "fn params -> body".
 //
 // Shapes:
-//   - Zero params: "|| body".
-//   - One or more params: "|p1, p2, ...| body".
+//   - Zero params: "fn -> body".
+//   - One or more params: "fn p1, p2, ... -> body".
 //
 // Body layout:
-//   - Empty body: "|params| {}".
+//   - Empty body: "fn params -> {}".
 //   - A braced body whose first statement the source starts on a line
 //     below the `{` (lambdaKeepsBlock): a block, however short.
-//   - Exactly one ExprStmt: emit the expression inline ("|params| expr"),
+//   - Exactly one ExprStmt: emit the expression inline ("fn params -> expr"),
 //     flat-or-break via Group.
-//   - Otherwise: emit a block ("|params| {\n  stmt1\n  stmt2\n}").
+//   - Otherwise: emit a block ("fn params -> {\n  stmt1\n  stmt2\n}").
 func emitLambda(v *ast.Lambda) Doc {
 	return emitLambdaKeepingBraces(v, false)
 }
@@ -2965,9 +2965,9 @@ func emitLambdaKeepingBraces(v *ast.Lambda, keepBraces bool) Doc {
 	}
 
 	// Single-statement body:
-	//   * ExprStmt — emit bare expression `|params| expr`, flat-or-break.
+	//   * ExprStmt — emit bare expression `fn params -> expr`, flat-or-break.
 	//   * Other stmt (break/return/continue) — the parser required a block
-	//     wrapper, so emit as `|params| { stmt }` flat-or-break.
+	//     wrapper, so emit as `fn params -> { stmt }` flat-or-break.
 	if es, ok := soleExprStmt(body); ok && !statementOrBlockHasComment(body, es) && lambdaExprBodyShouldBreak(es.Expr) {
 		// An if that breaks or continues always goes below the
 		// parameters, broken, in braces; whether the author wrote the
@@ -3033,7 +3033,7 @@ func emitLambdaKeepingBraces(v *ast.Lambda, keepBraces bool) Doc {
 		))
 	}
 
-	// Multi-statement body: always break into `|params| {\n stmts \n}`.
+	// Multi-statement body: always break into `fn params -> {\n stmts \n}`.
 	return emitLambdaBlock(header, body)
 }
 
@@ -3158,18 +3158,19 @@ func nodeHasComment(n ast.Node) bool {
 	return false
 }
 
-// emitLambdaHeader renders the "|p1, p2, ...|" prefix. Zero-params emit "||".
+// emitLambdaHeader renders the "fn p1, p2, ... ->" prefix. Zero params emit
+// "fn ->".
 //
 // A header holding a comment is written as a list one parameter per line
 // (lambdaParamsNeedList), except one whose only comments each end the line
-// of a parameter other than the last, after its comma (`|acc = 0, // why`
+// of a parameter other than the last, after its comma (`fn acc = 0, // why`
 // then the next parameter on the next line), which keeps the first
-// parameter on the `|` line. A comment on the body's DanglingBefore
+// parameter on the `fn` line. A comment on the body's DanglingBefore
 // (gatherLambdaHeaderComments) goes back below the parameter it followed.
 func emitLambdaHeader(lam *ast.Lambda) Doc {
 	params := lam.Params
 	if len(params) == 0 {
-		return Text("||")
+		return Text("fn ->")
 	}
 	after := make([][]ast.Trivia, len(params))
 	var unplaced []ast.Trivia
@@ -3200,13 +3201,13 @@ func emitLambdaHeader(lam *ast.Lambda) Doc {
 		for _, t := range unplaced {
 			parts = append(parts, CommentBefore(t.Text))
 		}
-		return Concat(append(parts, emitCommentedListNoLastComma("|", "|", docs, cs))...)
+		return Concat(append(parts, emitCommentedListNoLastComma("fn", "->", docs, cs))...)
 	}
 	parts := make([]Doc, 0, len(params)*3+1)
 	for _, t := range unplaced {
 		parts = append(parts, CommentBefore(t.Text))
 	}
-	parts = append(parts, Text("|"))
+	parts = append(parts, Text("fn "))
 	for i, p := range params {
 		parts = append(parts, emitLambdaParam(p))
 		if i == len(params)-1 {
@@ -3222,14 +3223,14 @@ func emitLambdaHeader(lam *ast.Lambda) Doc {
 			parts = append(parts, Text(" "))
 		}
 	}
-	parts = append(parts, Text("|"))
+	parts = append(parts, Text(" ->"))
 	return Concat(parts...)
 }
 
 // emitLambdaParam renders a single lambda param. Supports bare name, name
 // with default (`acc = 0`), name with type annotation (`x: Int`),
 // destructuring patterns (tuple/struct/map), and destructuring patterns
-// with defaults (`(a, b) = (0, 1)`). Type annotations must round-trip
+// with defaults (`#(a, b) = #(0, 1)`). Type annotations must round-trip
 // because the checker rejects unannotated local-lambda bindings; a redundant
 // self-typing one is already gone (stripSelfTypingAnnotations).
 func emitLambdaParam(p ast.Param) Doc {
@@ -3336,10 +3337,10 @@ func emitPatternNode(n ast.Node) Doc {
 	case *ast.TuplePattern:
 		elems, cs, ok := patternItems(v.Patterns)
 		if ok {
-			return emitCommentedListNoLastComma("(", ")", elems, cs)
+			return emitCommentedListNoLastComma("#(", ")", elems, cs)
 		}
 		parts := make([]Doc, 0, len(v.Patterns)*2+1)
-		parts = append(parts, Text("("))
+		parts = append(parts, Text("#("))
 		for i, e := range elems {
 			if i > 0 {
 				parts = append(parts, Text(", "))
@@ -3407,7 +3408,7 @@ func emitPatternNode(n ast.Node) Doc {
 			}
 			// General: Variant(<nested pattern>) — the payload is a single
 			// pattern. Tuple-payload variants spell their tuple destructuring
-			// explicitly (`Some((n, s))`), preserving the 1-arg-constructor
+			// explicitly (`Some(#(n, s))`), preserving the 1-arg-constructor
 			// invariant. The flat shorthand above only applies to tuple-
 			// distinct constructors.
 			elems, cs, ok := patternItems([]ast.Node{v.Payload})
@@ -3460,9 +3461,9 @@ func emitPatternNode(n ast.Node) Doc {
 		}
 		return emitBracedList(open, "]", elems)
 	case *ast.MapPattern:
-		open := "{"
+		open := "%{"
 		if v.TypeName != nil {
-			open = v.TypeName.TypeString() + "{"
+			open = v.TypeName.TypeString() + "%{"
 		}
 		hasEndTrivia := trailingHasComment(v.EndTrivia)
 		elems := make([]Doc, 0, len(v.Entries))
@@ -3797,7 +3798,7 @@ func emitFuncDefHeader(v *ast.FuncDef) Doc {
 	parts = append(parts, emitParamList(v.Line, paramDocs, v.Params, v.ParamsEndTrivia))
 
 	if v.ReturnTypeExpr != nil {
-		parts = append(parts, Text(": "), emitTypeExpr(v.ReturnTypeExpr))
+		parts = append(parts, Text(" -> "), emitTypeExpr(v.ReturnTypeExpr))
 	}
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
 
@@ -3832,7 +3833,7 @@ func emitFuncDefParam(p ast.Param) Doc {
 
 // emitTypeExpr renders a TypeExpr as a Doc. Each type-expression node has
 // its own case so nested anon structs participate in the width budget no
-// matter how deeply they sit (`List<{...}>`, `(String, {...})`,
+// matter how deeply they sit (`List<{...}>`, `#(String, {...})`,
 // `(Int, {...}) -> R`, `mod.Foo<{...}>`).
 //
 // Containers (GenericType, FuncType, QualifiedType) are intentionally
@@ -3840,7 +3841,7 @@ func emitFuncDefParam(p ast.Param) Doc {
 // recursive emitTypeExpr calls. This keeps the "outer container stays
 // inline, inner anon struct flows multi-line" shape — same approach
 // Prettier takes for `Promise<{...}>` in TypeScript. Long containers of
-// only-simple types (`(VeryLongTypeA, VeryLongTypeB, ...)`) therefore
+// only-simple types (`#(VeryLongTypeA, VeryLongTypeB, ...)`) therefore
 // don't auto-break at the container; they spill, same as before this
 // change. The escape hatch when that bites is a `typealias` for the
 // inner names.
@@ -3878,7 +3879,7 @@ func emitTypeExprNode(t ast.TypeExpr) Doc {
 		return Concat(Text(n.Module), Text("."), emitTypeExpr(n.Member))
 	case *ast.DotVariantType:
 		// Dot-leading variant shorthand used in TypeName slots of
-		// literal-attach forms (`.Obj{"k" => v}`, `.Arr[...]`, `.Rect{w, h}`)
+		// literal-attach forms (`.Obj%{"k" => v}`, `.Arr[...]`, `.Rect{w, h}`)
 		// and patterns. Same round-trip-as-written semantics as DotVariant.
 		return Concat(Text("."), Text(n.Name))
 	case *ast.GenericType:
@@ -3913,14 +3914,14 @@ func emitTypeExprNode(t ast.TypeExpr) Doc {
 			paramDocs = append(paramDocs, emitTypeItem(p))
 		}
 		if cs, ok := typesComments(n.Params); ok {
-			list := emitCommentedListNoLastComma("(", ")", paramDocs, cs)
 			if n.Return == nil {
-				return list
+				return emitCommentedListNoLastComma("#(", ")", paramDocs, cs)
 			}
+			list := emitCommentedListNoLastComma("(", ")", paramDocs, cs)
 			return Concat(list, Text(" -> "), emitTypeExpr(n.Return))
 		}
 		if n.Return == nil {
-			parts := []Doc{Text("(")}
+			parts := []Doc{Text("#(")}
 			for i, p := range paramDocs {
 				if i > 0 {
 					parts = append(parts, Text(", "))
@@ -3986,7 +3987,7 @@ func emitAnonStructType(t *ast.AnonStructType) Doc {
 // Trailing comma appears in any broken form (matches named struct
 // declarations). Empty body renders as `{}` for resilience.
 //
-// Used by both anonymous struct type expressions (`fn f(p: {a: Int}): R`)
+// Used by both anonymous struct type expressions (`fn f(p: {a: Int}) -> R`)
 // and struct-shaped enum variant payloads (`HttpError {status: Int, ...}`)
 // so the brace-bounded-fields layout stays identical wherever it appears.
 //
@@ -4812,7 +4813,7 @@ func isMethodImplBlock(n ast.Node) bool {
 //	  one: Type
 //	  two: Type = default
 //
-//	  fn method(s: Name): T { ... }
+//	  fn method(s: Name) -> T { ... }
 //	}
 //
 // The body is always multi-line when non-empty. A single space
@@ -4923,7 +4924,7 @@ func emitEnumDef(v *ast.EnumDef) Doc {
 
 // emitInterfaceMethodSig renders an interface method signature (no body):
 //
-//	fn name(p1: T1, p2: T2): Ret
+//	fn name(p1: T1, p2: T2) -> Ret
 //
 // Default methods (Body != nil) tagged with the `open` modifier render
 // as `open fn name(...)`. The contextual `open` keyword only makes
@@ -4947,7 +4948,7 @@ func emitInterfaceMethodSig(m ast.InterfaceMethod) Doc {
 	}
 	parts = append(parts, Text("fn "), Text(m.Name), emitTypeParams(m.TypeParams), emitParamList(m.GetSpan().StartLine, paramDocs, m.Params, m.ParamsEndTrivia))
 	if m.ReturnTypeExpr != nil {
-		parts = append(parts, Text(": "), emitTypeExpr(m.ReturnTypeExpr))
+		parts = append(parts, Text(" -> "), emitTypeExpr(m.ReturnTypeExpr))
 	}
 	parts = append(parts, emitWhereClause(m.WhereClauses)...)
 	return Concat(parts...)
@@ -5254,7 +5255,7 @@ func emitExternFunc(v *ast.ExternFunc) Doc {
 	parts = append(parts, emitParamList(v.Line, paramDocs, v.Params, v.ParamsEndTrivia))
 
 	if v.ReturnTypeExpr != nil {
-		parts = append(parts, Text(": "), emitTypeExpr(v.ReturnTypeExpr))
+		parts = append(parts, Text(" -> "), emitTypeExpr(v.ReturnTypeExpr))
 	}
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
 	if v.ForeignAlias != "" {
@@ -5614,7 +5615,7 @@ func collectPipeChain(n *ast.Binary) (ast.Node, []ast.Node) {
 // pipeChainStacked reports whether a pipeline puts each stage on its own
 // line: when the author wrote it across lines, or when it has a `then` or
 // `tap` stage. Such a lambda's bare body ends at the next `|>`, which one line
-// hides (`5 |> then |n| n + 1 |> then |n| n * 2` reads as one lambda); a
+// hides (`5 |> then fn n -> n + 1 |> then fn n -> n * 2` reads as one lambda); a
 // line per stage shows where each body ends.
 func pipeChainStacked(source ast.Node, steps []ast.Node) bool {
 	return pipeChainAuthoredMultiline(source, steps) || pipeChainHasThenStage(steps)
@@ -5782,7 +5783,7 @@ func isKeywordStage(stage ast.Node) bool {
 func emitDecoratedPipeStage(stage ast.Node, keyword ast.Node, more bool) (Doc, bool) {
 	switch stage.(type) {
 	case *ast.Then, *ast.Tap:
-		// A keyword does not prefix a `then` or `tap` stage: `|> then |v|
+		// A keyword does not prefix a `then` or `tap` stage: `|> then fn v ->
 		// f(v)` and `|> try` stay two stages.
 		return nil, false
 	}

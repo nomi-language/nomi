@@ -227,18 +227,16 @@ func (o *renderOut) atLineStart() bool {
 	return true
 }
 
-// endsInOpener reports whether the text written so far ends in `{`, `(`, `[`,
-// `<` or `|`.
+// endsInOpener reports whether the text written so far ends in `{`, `(`, `[`
+// or `<`.
 func (o *renderOut) endsInOpener() bool {
 	b := o.buf.Bytes()
 	if len(b) == 0 {
 		return false
 	}
 	switch b[len(b)-1] {
-	case '{', '(', '[', '<', '|':
-		// `<` ends a line only where it opens a type's arguments, and `|`
-		// where it opens a lambda's parameters or closes them, before a
-		// body on the next line, where no comment can go either.
+	case '{', '(', '[', '<':
+		// `<` ends a line only where it opens a type's arguments.
 		return true
 	}
 	return false
