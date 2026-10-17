@@ -1,14 +1,14 @@
 import priority.{self, Priority}
 
 interface Chooser<T> {
-    fn left(p: self): T
-    fn right(p: self): T
+    fn left(p: self) -> T
+    fn right(p: self) -> T
 
-    fn pick(p: self): T {
+    fn pick(p: self) -> T {
         Chooser.left(p)
     }
 
-    fn top(p: self): T where T: Comparable {
+    fn top(p: self) -> T where T: Comparable {
         a = Chooser.left(p)
         b = Chooser.right(p)
 
@@ -25,27 +25,27 @@ struct Pair<E> {
 }
 
 impl Chooser for Pair<E> {
-    fn left(p: Pair<E>): E {
+    fn left(p: Pair<E>) -> E {
         p.a
     }
 
-    fn right(p: Pair<E>): E {
+    fn right(p: Pair<E>) -> E {
         p.b
     }
 }
 
-fn first<T, I>(it: I): Maybe<T> where I: Iter<T> {
-    Iter.reduce(it, |_acc: Maybe<T> = None, x| { break Some(x) })
+fn first<T, I>(it: I) -> Maybe<T> where I: Iter<T> {
+    Iter.reduce(it, fn _acc: Maybe<T> = None, x -> { break Some(x) })
 }
 
 // Calls the `Iter` protocol function itself through the same bound:
 // `each_while` answers False when a consumer stopped the source, so refusing
 // every element makes "did this source have anything" a one-liner.
-fn saw_any?<T, I>(it: I): Bool where I: Iter<T> {
-    Iter.each_while(it, |_x| False) == False
+fn saw_any?<T, I>(it: I) -> Bool where I: Iter<T> {
+    Iter.each_while(it, fn _x -> False) == False
 }
 
-fn label<T>(prefix: String, m: Maybe<T>): String where T: Display {
+fn label<T>(prefix: String, m: Maybe<T>) -> String where T: Display {
     case m {
         Some(v) -> prefix + Display.to_string(v)
         None -> prefix + "none"

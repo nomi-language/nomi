@@ -30,7 +30,7 @@ impl Duration {
     /// Construct a `Duration` from whole nanoseconds.
     //! assert Duration.as_nanos(Duration.nanoseconds(42)) == 42
     //
-    pub fn nanoseconds(n: Int): Duration {
+    pub fn nanoseconds(n: Int) -> Duration {
         Duration(n)
     }
 
@@ -38,14 +38,14 @@ impl Duration {
     //! assert Duration.to_string(Duration.microseconds(1)) == "1µs"
     //! assert Duration.as_nanos(Duration.microseconds(2)) == 2000
     //
-    pub fn microseconds(n: Int): Duration {
+    pub fn microseconds(n: Int) -> Duration {
         Duration(n * 1_000)
     }
 
     /// Construct a `Duration` from whole milliseconds.
     //! assert Duration.as_millis(Duration.milliseconds(1500)) == 1500
     //
-    pub fn milliseconds(n: Int): Duration {
+    pub fn milliseconds(n: Int) -> Duration {
         Duration(n * 1_000_000)
     }
 
@@ -53,63 +53,63 @@ impl Duration {
     //! assert Duration.as_seconds(Duration.seconds(5)) == 5
     //! assert Duration.seconds(5) == Duration.milliseconds(5000)
     //
-    pub fn seconds(n: Int): Duration {
+    pub fn seconds(n: Int) -> Duration {
         Duration(n * 1_000_000_000)
     }
 
     /// Construct a `Duration` from whole minutes.
     //! assert Duration.as_seconds(Duration.minutes(3)) == 180
     //
-    pub fn minutes(n: Int): Duration {
+    pub fn minutes(n: Int) -> Duration {
         Duration(n * 60_000_000_000)
     }
 
     /// Construct a `Duration` from whole hours.
     //! assert Duration.to_string(Duration.hours(1)) == "1h"
     //
-    pub fn hours(n: Int): Duration {
+    pub fn hours(n: Int) -> Duration {
         Duration(n * 3_600_000_000_000)
     }
 
     /// Total whole nanoseconds in the Duration (the exact magnitude).
     //! assert Duration.as_nanos(Duration.microseconds(2)) == 2000
     //
-    pub fn as_nanos(Duration(ns)): Int {
+    pub fn as_nanos(Duration(ns)) -> Int {
         ns
     }
 
     /// Total whole microseconds, truncating any sub-microsecond remainder.
     //! assert Duration.as_micros(Duration.milliseconds(2)) == 2000
     //
-    pub fn as_micros(Duration(ns)): Int {
+    pub fn as_micros(Duration(ns)) -> Int {
         ns / 1_000
     }
 
     /// Total whole milliseconds, truncating any sub-millisecond remainder.
     //! assert Duration.as_millis(Duration.seconds(2)) == 2000
     //
-    pub fn as_millis(Duration(ns)): Int {
+    pub fn as_millis(Duration(ns)) -> Int {
         ns / 1_000_000
     }
 
     /// Total whole seconds, truncating any sub-second remainder.
     //! assert Duration.as_seconds(Duration.minutes(3)) == 180
     //
-    pub fn as_seconds(Duration(ns)): Int {
+    pub fn as_seconds(Duration(ns)) -> Int {
         ns / 1_000_000_000
     }
 
     /// Total whole minutes, truncating any sub-minute remainder.
     //! assert Duration.as_minutes(Duration.hours(2)) == 120
     //
-    pub fn as_minutes(Duration(ns)): Int {
+    pub fn as_minutes(Duration(ns)) -> Int {
         ns / 60_000_000_000
     }
 
     /// Total whole hours, truncating any sub-hour remainder.
     //! assert Duration.as_hours(Duration.minutes(150)) == 2
     //
-    pub fn as_hours(Duration(ns)): Int {
+    pub fn as_hours(Duration(ns)) -> Int {
         ns / 3_600_000_000_000
     }
 }
@@ -123,7 +123,7 @@ impl Add<Duration, Duration> for Duration {
     //! assert Duration.add(Duration.seconds(1), Duration.milliseconds(500)) == Duration.milliseconds(1500)
     //! assert Duration.seconds(1) + Duration.milliseconds(500) == Duration.milliseconds(1500)
     //
-    fn add(Duration(a), Duration(b)): Duration {
+    fn add(Duration(a), Duration(b)) -> Duration {
         Duration(a + b)
     }
 }
@@ -133,7 +133,7 @@ impl Summable for Duration {
     //! assert Duration.empty_sum() == Duration.seconds(0)
     //! assert Duration.seconds(3) + Duration.empty_sum() == Duration.seconds(3)
     //
-    fn empty_sum(): Duration {
+    fn empty_sum() -> Duration {
         Duration(0)
     }
 }
@@ -144,7 +144,7 @@ impl Subtract<Duration, Duration> for Duration {
     //! assert Duration.subtract(Duration.seconds(1), Duration.seconds(3)) == Duration.seconds(-2)
     //! assert Duration.seconds(1) - Duration.seconds(3) == Duration.seconds(-2)
     //
-    fn subtract(Duration(a), Duration(b)): Duration {
+    fn subtract(Duration(a), Duration(b)) -> Duration {
         Duration(a - b)
     }
 }
@@ -154,7 +154,7 @@ impl Multiply<Int, Duration> for Duration {
     //! assert Duration.multiply(Duration.seconds(2), 3) == Duration.seconds(6)
     //! assert Duration.seconds(2) * 3 == Duration.seconds(6)
     //
-    fn multiply(Duration(ns), rhs: Int): Duration {
+    fn multiply(Duration(ns), rhs: Int) -> Duration {
         Duration(ns * rhs)
     }
 }
@@ -163,7 +163,7 @@ impl Divide<Int, Duration> for Duration {
     /// Divide a Duration by an integer divisor.
     //! assert Duration.seconds(6) / 3 == Duration.seconds(2)
     //
-    fn divide(Duration(ns), rhs: Int): Duration {
+    fn divide(Duration(ns), rhs: Int) -> Duration {
         Duration(ns / rhs)
     }
 }
@@ -176,7 +176,7 @@ impl Display for Duration {
     //! assert Duration.to_string(Duration.minutes(90)) == "1h30m"
     //! assert Duration.to_string(Duration.nanoseconds(0)) == "0s"
     //
-    host fn to_string(d: Duration): String
+    host fn to_string(d: Duration) -> String
 }
 
 impl Debug for Duration {
@@ -184,7 +184,7 @@ impl Debug for Duration {
     // already round-trip-friendly.
     //! assert Duration.inspect(Duration.seconds(5)) == "5s"
     //
-    fn inspect(d: Duration): String {
+    fn inspect(d: Duration) -> String {
         to_string(d)
     }
 }

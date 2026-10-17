@@ -18,7 +18,7 @@ enum Shape {
   Dot
 }
 
-fn dot(): Shape {
+fn dot() -> Shape {
   .Circle(0)
 }
 
@@ -59,7 +59,7 @@ enum Shape {
   Dot
 }
 
-fn area(s: Shape): Int {
+fn area(s: Shape) -> Int {
   case s {
     .Circle(_) -> 1
     .Dot -> 0

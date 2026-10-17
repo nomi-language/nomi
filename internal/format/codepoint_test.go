@@ -5,7 +5,7 @@ import "testing"
 // Codepoint literals keep their spelling, escapes included, in expression and
 // pattern position, and the output is a fixed point.
 func TestFormat_CodepointLiteralsKeepTheirSpelling(t *testing.T) {
-	src := "fn f(cp: Codepoint): Int {\n" +
+	src := "fn f(cp: Codepoint) -> Int {\n" +
 		"  r = 'a'..='z'\n" +
 		"  q = ['\\'', '\\\\', '\\n', '\\t', '\\u{7F}', '\\u{d}', '\"', ' ']\n" +
 		"  case cp {\n" +
@@ -14,7 +14,7 @@ func TestFormat_CodepointLiteralsKeepTheirSpelling(t *testing.T) {
 		"    _ -> 3\n" +
 		"  }\n" +
 		"}\n"
-	want := "fn f(cp: Codepoint): Int {\n" +
+	want := "fn f(cp: Codepoint) -> Int {\n" +
 		"    r = 'a'..='z'\n" +
 		"    q = ['\\'', '\\\\', '\\n', '\\t', '\\u{7F}', '\\u{d}', '\"', ' ']\n" +
 		"\n" +

@@ -16,7 +16,7 @@ func checkSource(t *testing.T, src string) error {
 // An iter-sensitive function whose only callback use is in a test block is
 // accepted: test bodies and assertion operands are call sites.
 func TestIterCallback_ATestBodyIsACallSite(t *testing.T) {
-	const src = `fn skip_odd(n: Int): Int {
+	const src = `fn skip_odd(n: Int) -> Int {
   if n % 2 == 1 {
     continue
   }
@@ -54,12 +54,12 @@ func TestIterCallback_AStrayBreakInATestBodyIsReported(t *testing.T) {
 // `Iter.reduce` named as a value. A seeded lambda, and one forwarding to a
 // named function, are accepted.
 func TestIterCallback_ReduceNeedsAStartingValue(t *testing.T) {
-	const prelude = `fn add(a: Int, b: Int): Int {
+	const prelude = `fn add(a: Int, b: Int) -> Int {
   a + b
 }
 
-fn apply(g: (List<Int>, (Int, Int) -> Int) -> Int): Int {
-  g([1], |a = 0, b| a + b)
+fn apply(g: (List<Int>, (Int, Int) -> Int) -> Int) -> Int {
+  g([1], fn a = 0, b -> a + b)
 }
 
 fn main() {
@@ -69,16 +69,16 @@ fn main() {
 	for _, c := range []struct {
 		src, at, help string
 	}{
-		{`_ = Iter.reduce(xs, Int.add)`, "11:23", "call it from a lambda whose accumulator has a starting value: `|acc = <start>, x| Int.add(acc, x)`"},
-		{`_ = Iter.reduce(xs, |a, b| a + b)`, "11:23", "give the accumulator a starting value: `|a = <start>, b| ...`"},
-		{`_ = Iter.reduce(xs, add(_, _))`, "11:23", "pass a lambda whose accumulator has a starting value: `|acc = <start>, x| ...`"},
-		{`_ = xs |> Iter.reduce(Int.add)`, "11:25", "call it from a lambda whose accumulator has a starting value: `|acc = <start>, x| Int.add(acc, x)`"},
-		{`_ = Iter.reduce(xs, add)`, "11:23", "call it from a lambda whose accumulator has a starting value: `|acc = <start>, x| add(acc, x)`"},
+		{`_ = Iter.reduce(xs, Int.add)`, "11:23", "call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> Int.add(acc, x)`"},
+		{`_ = Iter.reduce(xs, fn a, b -> a + b)`, "11:23", "give the accumulator a starting value: `fn a = <start>, b -> ...`"},
+		{`_ = Iter.reduce(xs, add(_, _))`, "11:23", "pass a lambda whose accumulator has a starting value: `fn acc = <start>, x -> ...`"},
+		{`_ = xs |> Iter.reduce(Int.add)`, "11:25", "call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> Int.add(acc, x)`"},
+		{`_ = Iter.reduce(xs, add)`, "11:23", "call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> add(acc, x)`"},
 		{`g = Iter.reduce(_, add)
-  _ = g(xs)`, "11:22", "call it from a lambda whose accumulator has a starting value: `|acc = <start>, x| add(acc, x)`"},
+  _ = g(xs)`, "11:22", "call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> add(acc, x)`"},
 		{`g = Iter.reduce(xs, _)
-  _ = g(add)`, "11:23", "pass the callback here, as a lambda whose accumulator has a starting value: `Iter.reduce(xs, |acc = <start>, x| ...)`"},
-		{"_ = apply(Iter.reduce)\n  _ = xs", "11:13", "call it from a lambda with a seeded callback instead: `|xs, f| Iter.reduce(xs, |acc = <start>, x| f(acc, x))`"},
+  _ = g(add)`, "11:23", "pass the callback here, as a lambda whose accumulator has a starting value: `Iter.reduce(xs, fn acc = <start>, x -> ...)`"},
+		{"_ = apply(Iter.reduce)\n  _ = xs", "11:13", "call it from a lambda with a seeded callback instead: `fn xs, f -> Iter.reduce(xs, fn acc = <start>, x -> f(acc, x))`"},
 	} {
 		err := checkSource(t, prelude+c.src+"\n}\n")
 		if err == nil {
@@ -91,9 +91,9 @@ fn main() {
 		}
 	}
 	for _, good := range []string{
-		`_ = Iter.reduce(xs, |acc = 0, x| acc + x)`,
-		`_ = xs |> Iter.reduce(|acc = 0, x| add(acc, x))`,
-		`_ = Iter.reduce(xs, |acc = "", n| acc + Int.to_string(n))`,
+		`_ = Iter.reduce(xs, fn acc = 0, x -> acc + x)`,
+		`_ = xs |> Iter.reduce(fn acc = 0, x -> add(acc, x))`,
+		`_ = Iter.reduce(xs, fn acc = "", n -> acc + Int.to_string(n))`,
 	} {
 		if err := checkSource(t, prelude+good+"\n}\n"); err != nil {
 			t.Errorf("%s: rejected: %v", good, err)
@@ -106,12 +106,12 @@ fn main() {
 // lambda with no default, and the function named as a value. A seeded
 // lambda is accepted, and the min/max help stays `reduce`'s.
 func TestIterCallback_ScanAndMapReduceNeedAStartingValue(t *testing.T) {
-	const prelude = `fn max(a: Int, b: Int): Int {
+	const prelude = `fn max(a: Int, b: Int) -> Int {
   if a > b { a } else { b }
 }
 
-fn apply(g: (List<Int>, (Int, Int) -> Int) -> Iter<Int>): Int {
-  Iter.count(g([1], |a = 0, b| a + b))
+fn apply(g: (List<Int>, (Int, Int) -> Int) -> Iter<Int>) -> Int {
+  Iter.count(g([1], fn a = 0, b -> a + b))
 }
 
 fn main() {
@@ -121,13 +121,13 @@ fn main() {
 		src, msg, at, help string
 	}{
 		{`_ = Iter.scan(xs, max) |> Iter.to_list()`, "`Iter.scan` needs a starting value", "11:21",
-			"call it from a lambda whose accumulator has a starting value: `|acc = <start>, x| max(acc, x)`"},
-		{`_ = xs |> Iter.scan(|a, b| a + b) |> Iter.to_list()`, "`Iter.scan` needs a starting value", "11:23",
-			"give the accumulator a starting value: `|a = <start>, b| ...`"},
+			"call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> max(acc, x)`"},
+		{`_ = xs |> Iter.scan(fn a, b -> a + b) |> Iter.to_list()`, "`Iter.scan` needs a starting value", "11:23",
+			"give the accumulator a starting value: `fn a = <start>, b -> ...`"},
 		{"_ = apply(Iter.scan)\n  _ = xs", "`Iter.scan` needs a starting value", "11:13",
-			"call it from a lambda with a seeded callback instead: `|xs, f| Iter.scan(xs, |acc = <start>, x| f(acc, x))`"},
-		{`_ = Iter.map_reduce(xs, |n, x| (x, n + 1))`, "`Iter.map_reduce` needs a starting value", "11:27",
-			"give the accumulator a starting value: `|n = <start>, x| ...`"},
+			"call it from a lambda with a seeded callback instead: `fn xs, f -> Iter.scan(xs, fn acc = <start>, x -> f(acc, x))`"},
+		{`_ = Iter.map_reduce(xs, fn n, x -> #(x, n + 1))`, "`Iter.map_reduce` needs a starting value", "11:27",
+			"give the accumulator a starting value: `fn n = <start>, x -> ...`"},
 	} {
 		err := checkSource(t, prelude+c.src+"\n}\n")
 		if err == nil {
@@ -143,8 +143,8 @@ fn main() {
 		}
 	}
 	for _, good := range []string{
-		`_ = Iter.scan(xs, |acc = 0, x| max(acc, x)) |> Iter.to_list()`,
-		`_ = xs |> Iter.map_reduce(|n = 0, x| (x * n, n + 1))`,
+		`_ = Iter.scan(xs, fn acc = 0, x -> max(acc, x)) |> Iter.to_list()`,
+		`_ = xs |> Iter.map_reduce(fn n = 0, x -> #(x * n, n + 1))`,
 	} {
 		if err := checkSource(t, prelude+good+"\n}\n"); err != nil {
 			t.Errorf("%s: rejected: %v", good, err)
@@ -158,7 +158,7 @@ fn main() {
 // call or a pipe; a seeded lambda, a stateless one and a seeded lambda
 // forwarding to a named function are accepted.
 func TestIterCallback_LoopNeedsAStartingState(t *testing.T) {
-	const prelude = `fn step(n: Int): Int {
+	const prelude = `fn step(n: Int) -> Int {
   if n > 3 { break n }
   n + 1
 }
@@ -169,9 +169,9 @@ fn main() {
 	for _, c := range []struct {
 		src, at, help string
 	}{
-		{`_ = Iter.loop(step)`, "7:17", "call it from a lambda whose state has a starting value: `|state = <start>| step(state)`"},
-		{`_ = step |> Iter.loop()`, "7:7", "call it from a lambda whose state has a starting value: `|state = <start>| step(state)`"},
-		{"_ = Iter.loop(|n: Int| {\n    if n > 3 { break n }\n    n + 1\n  })", "7:17", "give the state a starting value: `|n = <start>| ...`, or take no parameter for a loop with no state: `|| ...`"},
+		{`_ = Iter.loop(step)`, "7:17", "call it from a lambda whose state has a starting value: `fn state = <start> -> step(state)`"},
+		{`_ = step |> Iter.loop()`, "7:7", "call it from a lambda whose state has a starting value: `fn state = <start> -> step(state)`"},
+		{"_ = Iter.loop(fn n: Int -> {\n    if n > 3 { break n }\n    n + 1\n  })", "7:17", "give the state a starting value: `fn n = <start> -> ...`, or take no parameter for a loop with no state: `fn -> ...`"},
 	} {
 		err := checkSource(t, prelude+c.src+"\n}\n")
 		if err == nil {
@@ -184,9 +184,9 @@ fn main() {
 		}
 	}
 	for _, good := range []string{
-		`_ = Iter.loop(|n = 0| step(n))`,
-		"_ = Iter.loop(|n = 0| {\n    if n > 3 { break n }\n    n + 1\n  })\n  _ = Iter.loop(|m = 0| step(m))",
-		"Iter.loop(|| { break })\n  _ = Iter.loop(|m = 0| step(m))",
+		`_ = Iter.loop(fn n = 0 -> step(n))`,
+		"_ = Iter.loop(fn n = 0 -> {\n    if n > 3 { break n }\n    n + 1\n  })\n  _ = Iter.loop(fn m = 0 -> step(m))",
+		"Iter.loop(fn -> { break })\n  _ = Iter.loop(fn m = 0 -> step(m))",
 	} {
 		if err := checkSource(t, prelude+good+"\n}\n"); err != nil {
 			t.Errorf("%s: rejected: %v", good, err)
@@ -197,7 +197,7 @@ fn main() {
 // A function named `min` or `max` passed to `Iter.reduce` also points at
 // `Iter.min` / `Iter.max`.
 func TestIterCallback_ReduceWithMaxPointsAtIterMax(t *testing.T) {
-	const src = `fn max(a: Int, b: Int): Int {
+	const src = `fn max(a: Int, b: Int) -> Int {
   if a > b { a } else { b }
 }
 

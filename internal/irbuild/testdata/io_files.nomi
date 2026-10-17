@@ -12,7 +12,7 @@ import std/io.{self, IOError}
 
 once path: String = "/tmp/nomi-io-files-fixture.txt"
 
-fn describe(e: IOError): String {
+fn describe(e: IOError) -> String {
     case e {
         IOError.NotFound{path} -> "missing:${path}"
         IOError.Other{reason: _} -> "other"

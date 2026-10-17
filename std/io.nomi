@@ -22,7 +22,7 @@ pub enum IOError {
 derive Equatable for IOError
 
 impl Display for IOError {
-    fn to_string(e: IOError): String {
+    fn to_string(e: IOError) -> String {
         case e {
             IOError.NotFound{path} -> "file not found: ${path}"
             IOError.Other{reason} -> reason
@@ -41,7 +41,7 @@ impl Display for IOError {
 /// io.print("hello")   // prints: hello
 /// io.print(42)        // prints: 42
 /// ```
-pub host fn print<T>(value: T): Unit where T: Display
+pub host fn print<T>(value: T) -> Unit where T: Display
 
 /// Writes a value's user-facing representation to stdout with no trailing
 /// newline. It renders exactly as `io.print` does, through
@@ -52,7 +52,7 @@ pub host fn print<T>(value: T): Unit where T: Display
 /// io.write("> ")      // prints: > (and no newline)
 /// io.read_line()      // the user types on the same line
 /// ```
-pub host fn write<T>(value: T): Unit where T: Display
+pub host fn write<T>(value: T) -> Unit where T: Display
 
 /// Prints a value's runtime representation to stdout via `Debug.inspect`.
 /// `Debug` is universal — every value is inspectable with no
@@ -65,7 +65,7 @@ pub host fn write<T>(value: T): Unit where T: Display
 /// ```nomi
 /// io.inspect([1, 2, 3])   // prints: [1, 2, 3]
 /// ```
-pub host fn inspect<T>(value: T): Unit
+pub host fn inspect<T>(value: T) -> Unit
 
 /// Reads a line from stdin. Returns Ok(line) with the newline stripped, or
 /// Err("eof") when stdin is closed. Inside `io.capture` it reads the
@@ -77,7 +77,7 @@ pub host fn inspect<T>(value: T): Unit
 ///     Err(_) -> io.print("done")
 /// }
 /// ```
-pub host fn read_line(): Result<String, String>
+pub host fn read_line() -> Result<String, String>
 
 /// What `io.capture` answers: the value `run` returned, everything it
 /// printed, and the two together as a transcript.
@@ -115,7 +115,7 @@ pub struct Captured<T> {
 /// program that asks and answers in turn, `io.replay` reads better. A
 /// program that reads nothing is checked through `output`, which holds the
 /// output as it was written.
-//! run = capture("", || {
+//! run = capture("", fn -> {
 //!     print("hi")
 //!     write(1)
 //!     42
@@ -124,11 +124,11 @@ pub struct Captured<T> {
 //! assert run.value == 42
 //! assert run.output == "hi\n1"
 //!
-//! echo = capture("one\ntwo", || [read_line(), read_line(), read_line()])
+//! echo = capture("one\ntwo", fn -> [read_line(), read_line(), read_line()])
 //! assert echo.value == [Result.Ok("one"), Result.Ok("two"), Result.Err("eof")]
 //! assert echo.output == ""
 //!
-//! asked = capture("Ada", || {
+//! asked = capture("Ada", fn -> {
 //!     write("name: ")
 //!
 //!     case read_line() {
@@ -140,8 +140,8 @@ pub struct Captured<T> {
 //! assert asked.output == "name: hello, Ada\n"
 //! assert asked.transcript == "name: \n    > Ada\nhello, Ada\n"
 //
-pub fn capture<T>(input: String, run: () -> T): Captured<T> {
-    run_captured(input, run, |value, output, transcript| Captured{
+pub fn capture<T>(input: String, run: () -> T) -> Captured<T> {
+    run_captured(input, run, fn value, output, transcript -> Captured{
         value,
         output,
         transcript,
@@ -154,7 +154,7 @@ host fn run_captured<T>(
     input: String,
     run: () -> T,
     finish: (T, String, String) -> Captured<T>,
-): Captured<T>
+) -> Captured<T>
 
 /// What `io.replay` answers. `assert` holds on it when the transcript
 /// matches the script, and its failure shows a line diff of the two. It
@@ -172,7 +172,7 @@ pub struct Replayed {
 }
 
 impl Assertable for Replayed {
-    fn failure(replayed: Replayed): Maybe<AssertionDetails> {
+    fn failure(replayed: Replayed) -> Maybe<AssertionDetails> {
         if replayed.transcript == replayed.expected and replayed.unread == 0 {
             None
         } else {
@@ -185,7 +185,7 @@ impl Assertable for Replayed {
     }
 }
 
-fn replay_reason(replayed: Replayed): String {
+fn replay_reason(replayed: Replayed) -> String {
     case replayed.unread {
         0 -> "the transcript differs from the script"
         1 -> "1 input line of the script was never read"
@@ -220,7 +220,7 @@ fn replay_reason(replayed: Replayed): String {
 /// line the program never read fails the replay. A failure shows a line
 /// diff: `-` lines are only in the script, `+` lines only in what the
 /// program did.
-//! greet = || {
+//! greet = fn -> {
 //!     write("name: ")
 //!
 //!     case read_line() {
@@ -245,7 +245,7 @@ fn replay_reason(replayed: Replayed): String {
 //!     greet,
 //! )
 //!
-//! table = || {
+//! table = fn -> {
 //!     print("-10.0 C |   14.0 F")
 //!     print(" -5.0 C |   23.0 F")
 //! }
@@ -268,7 +268,7 @@ fn replay_reason(replayed: Replayed): String {
 //!     greet,
 //! )
 //!
-//! repl = || {
+//! repl = fn -> {
 //!     write("> ")
 //!
 //!     case read_line() {
@@ -286,7 +286,7 @@ fn replay_reason(replayed: Replayed): String {
 //!     repl,
 //! )
 //!
-//! quoted = || print("    > not input")
+//! quoted = fn -> print("    > not input")
 //!
 //! assert replay(
 //!     """
@@ -295,8 +295,8 @@ fn replay_reason(replayed: Replayed): String {
 //!     quoted,
 //! )
 //
-pub fn replay<T>(script: String, run: () -> T): Replayed {
-    run_replayed(script, run, |_, output, transcript, expected, unread| Replayed{
+pub fn replay<T>(script: String, run: () -> T) -> Replayed {
+    run_replayed(script, run, fn _, output, transcript, expected, unread -> Replayed{
         output,
         transcript,
         expected,
@@ -312,14 +312,14 @@ host fn run_replayed<T>(
     script: String,
     run: () -> T,
     finish: (T, String, String, String, Int) -> Replayed,
-): Replayed
+) -> Replayed
 
 /// Reads the entire contents of `path` into a String.
 ///
 /// ```nomi
 /// io.read_file("notes.txt")   // Ok("...") or Err(io.IOError.NotFound{...})
 /// ```
-pub host fn read_file(path: String): Result<String, IOError>
+pub host fn read_file(path: String) -> Result<String, IOError>
 
 /// Writes `content` to `path`, replacing any existing file. The parent
 /// directory must exist; missing parents do not get auto-created.
@@ -327,4 +327,4 @@ pub host fn read_file(path: String): Result<String, IOError>
 /// ```nomi
 /// io.write_file("notes.txt", "hello")
 /// ```
-pub host fn write_file(path: String, content: String): Result<Unit, IOError>
+pub host fn write_file(path: String, content: String) -> Result<Unit, IOError>

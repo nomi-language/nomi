@@ -14,7 +14,7 @@ struct Outer {
   hooks: Map<String, (Int) -> Int> = Map.empty()
 }
 fn main() { s = String.trim(" x ") io.inspect(Outer{p: [Point{x: s}]}) }
-`, "Outer{p: [Point{x: \"x\"}], hooks: {=>}}\n")
+`, "Outer{p: [Point{x: \"x\"}], hooks: %{}}\n")
 }
 
 func TestIRStringHost_PipelineConstructors(t *testing.T) {
@@ -24,8 +24,8 @@ enum Signal {
   Ready Int
   Waiting
 }
-fn number(Meter(n)): Int { n }
-fn signal(s: Signal): Int { case s { Signal.Ready(n) -> n Signal.Waiting -> 0 } }
+fn number(Meter(n)) -> Int { n }
+fn signal(s: Signal) -> Int { case s { Signal.Ready(n) -> n Signal.Waiting -> 0 } }
 fn main() {
   io.inspect(1 |> Some())
   io.print(2 |> Meter() |> number())
@@ -36,7 +36,7 @@ fn main() {
 
 func TestIRStringHost_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn parse(s: String): Maybe<Int> {
+fn parse(s: String) -> Maybe<Int> {
   s |> String.trim() |> try String.to_int() |> Some()
 }
 fn main() {
@@ -54,7 +54,7 @@ fn main() {
 
 func TestIRStringHost_EffectsAndSiblingCaller(t *testing.T) {
 	verifyLambdaProgram(t, `import { std/io lib }
-fn mark(s: String): String { io.print(s) return s }
+fn mark(s: String) -> String { io.print(s) return s }
 fn main() {
   io.inspect(String.contains?(
     mark("Ada"),
@@ -63,7 +63,7 @@ fn main() {
   io.inspect(lib.parse("7"))
 }
 `, "Ada\nA\nda\nTrue\nSome(7)\n", map[string]string{
-		"lib.nomi": "pub fn parse(s: String): Maybe<Int> { String.to_int(s) }",
+		"lib.nomi": "pub fn parse(s: String) -> Maybe<Int> { String.to_int(s) }",
 	})
 }
 
@@ -71,7 +71,7 @@ func TestIRStringHost_CustomDistinctEquality(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 type Slug String
 impl Equatable for Slug {
-  fn equal?(a: Slug, b: Slug): Bool {
+  fn equal?(a: Slug, b: Slug) -> Bool {
     Slug(x) = a
     Slug(y) = b
     String.to_lower(x) == String.to_lower(y)

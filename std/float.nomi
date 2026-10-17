@@ -31,31 +31,31 @@ impl Float {
     /// comparisons; use `Float.nan?` to test for it.
     //! assert Float.nan?(Float.nan())
     //
-    pub host fn nan(): Float
+    pub host fn nan() -> Float
 
     /// Returns IEEE 754 positive infinity. Produced by overflow and by dividing
     /// a positive Float by 0.0. Use `Float.infinite?` to test for it.
     //! assert Float.infinite?(Float.positive_infinity())
     //
-    pub host fn positive_infinity(): Float
+    pub host fn positive_infinity() -> Float
 
     /// Returns IEEE 754 negative infinity. Produced by overflow and by dividing
     /// a negative Float by 0.0. Use `Float.infinite?` to test for it.
     //! assert Float.infinite?(Float.negative_infinity())
     //
-    pub host fn negative_infinity(): Float
+    pub host fn negative_infinity() -> Float
 
     /// True if x is NaN.
     //! assert Float.nan?(Float.nan())
     //! refute Float.nan?(1.0)
     //
-    pub host fn nan?(x: Float): Bool
+    pub host fn nan?(x: Float) -> Bool
 
     /// True if x is +Infinity or -Infinity.
     //! assert Float.infinite?(Float.positive_infinity())
     //! refute Float.infinite?(42.0)
     //
-    pub fn infinite?(x: Float): Bool {
+    pub fn infinite?(x: Float) -> Bool {
         x == Float.positive_infinity() or x == Float.negative_infinity()
     }
 
@@ -64,7 +64,7 @@ impl Float {
     //! refute Float.finite?(Float.nan())
     //! refute Float.finite?(Float.negative_infinity())
     //
-    pub fn finite?(x: Float): Bool {
+    pub fn finite?(x: Float) -> Bool {
         !Float.nan?(x) and !Float.infinite?(x)
     }
 
@@ -75,7 +75,7 @@ impl Float {
     //! assert Float.to_int(-3.7) == Maybe.Some(-3)
     //! assert Float.to_int(42.0) == Maybe.Some(42)
     //
-    pub host fn to_int(x: Float): Maybe<Int>
+    pub host fn to_int(x: Float) -> Maybe<Int>
 
     /// Rounds a Float to the nearest integer-valued Float using banker's
     /// rounding (half-to-even). NaN and ±Infinity pass through unchanged.
@@ -83,25 +83,25 @@ impl Float {
     //! assert Float.round(2.5) == 2.0
     //! assert Float.round(3.7) == 4.0
     //
-    pub host fn round(x: Float): Float
+    pub host fn round(x: Float) -> Float
 
     /// Rounds a Float toward -∞. NaN and ±Infinity pass through unchanged.
     //! assert Float.floor(3.7) == 3.0
     //! assert Float.floor(-3.2) == -4.0
     //
-    pub host fn floor(x: Float): Float
+    pub host fn floor(x: Float) -> Float
 
     /// Rounds a Float toward +∞. NaN and ±Infinity pass through unchanged.
     //! assert Float.ceil(3.2) == 4.0
     //! assert Float.ceil(-3.7) == -3.0
     //
-    pub host fn ceil(x: Float): Float
+    pub host fn ceil(x: Float) -> Float
 
     /// Rounds a Float toward zero. NaN and ±Infinity pass through unchanged.
     //! assert Float.trunc(3.7) == 3.0
     //! assert Float.trunc(-3.7) == -3.0
     //
-    pub host fn trunc(x: Float): Float
+    pub host fn trunc(x: Float) -> Float
 
     /// Returns |x|, with the sign bit cleared: `-0.0` gives `0.0`, either
     /// infinity gives +Infinity, and NaN gives NaN.
@@ -110,7 +110,7 @@ impl Float {
     //! assert Float.abs(Float.negative_infinity()) == Float.positive_infinity()
     //! assert Float.nan?(Float.abs(Float.nan()))
     //
-    pub fn abs(x: Float): Float {
+    pub fn abs(x: Float) -> Float {
         if float_bits(x) < 0 { -x } else { x }
     }
 
@@ -122,7 +122,7 @@ impl Float {
     //! assert Float.sign(Float.positive_infinity()) == 1
     //! assert Float.sign(Float.nan()) == 0
     //
-    pub fn sign(x: Float): Int {
+    pub fn sign(x: Float) -> Int {
         case {
             x < 0.0 -> -1
             x > 0.0 -> 1
@@ -137,7 +137,7 @@ impl Float {
     //! assert Float.to_string(Float.min(0.0, -0.0)) == "-0.0"
     //! assert Float.nan?(Float.min(Float.nan(), 1.0))
     //
-    pub fn min(a: Float, b: Float): Float {
+    pub fn min(a: Float, b: Float) -> Float {
         case {
             Float.nan?(a) -> a
             Float.nan?(b) -> b
@@ -156,7 +156,7 @@ impl Float {
     //! assert Float.to_string(Float.max(-0.0, 0.0)) == "0.0"
     //! assert Float.nan?(Float.max(1.0, Float.nan()))
     //
-    pub fn max(a: Float, b: Float): Float {
+    pub fn max(a: Float, b: Float) -> Float {
         case {
             Float.nan?(a) -> a
             Float.nan?(b) -> b
@@ -173,7 +173,7 @@ impl Float {
 /// Go's `math.Float64bits`). Backs the `Hashable` impl. Two Float values
 /// that are `==` and not NaN agree on `float_bits`. NaN values can have
 /// multiple bit patterns; this returns the actual bits.
-host fn float_bits(x: Float): Int
+host fn float_bits(x: Float) -> Int
 
 impl Display for Float {
     /// Returns the canonical string form of `x`, matching the runtime
@@ -182,11 +182,11 @@ impl Display for Float {
     //! assert Float.to_string(3.14) == "3.14"
     //! assert Float.to_string(1e20) == "100000000000000000000.0"
     //
-    host fn to_string(x: Float): String
+    host fn to_string(x: Float) -> String
 }
 
 impl Add<Float, Float> for Float {
-    host fn add(lhs: Float, rhs: Float): Float
+    host fn add(lhs: Float, rhs: Float) -> Float
 }
 
 impl Summable for Float {
@@ -195,31 +195,31 @@ impl Summable for Float {
     //! assert Float.empty_sum() == 0.0
     //! assert 2.5 + Float.empty_sum() == 2.5
     //
-    fn empty_sum(): Float {
+    fn empty_sum() -> Float {
         0.0
     }
 }
 
 impl Subtract<Float, Float> for Float {
-    host fn subtract(lhs: Float, rhs: Float): Float
+    host fn subtract(lhs: Float, rhs: Float) -> Float
 }
 
 impl Multiply<Float, Float> for Float {
-    host fn multiply(lhs: Float, rhs: Float): Float
+    host fn multiply(lhs: Float, rhs: Float) -> Float
 }
 
 impl Divide<Float, Float> for Float {
-    host fn divide(lhs: Float, rhs: Float): Float
+    host fn divide(lhs: Float, rhs: Float) -> Float
 }
 
 impl Debug for Float {
-    fn inspect(x: Float): String {
+    fn inspect(x: Float) -> String {
         to_string(x)
     }
 }
 
 impl Equatable for Float {
-    fn equal?(a: Float, b: Float): Bool {
+    fn equal?(a: Float, b: Float) -> Bool {
         a == b
     }
 }
@@ -229,7 +229,7 @@ impl Hashable for Float {
     // normalizing before taking the raw bits, because `==` treats them as equal
     // but their bit patterns differ: signed zero (`-0.0 == 0.0`) and NaN (which
     // is reflexively equal under Nomi's structural `==`, yet has many encodings).
-    fn hash(x: Float): Int {
+    fn hash(x: Float) -> Int {
         if Float.nan?(x) {
             float_bits(Float.nan())
         } else if x == 0.0 {
@@ -265,7 +265,7 @@ impl Comparable for Float {
     // often than it helps. Java splits the same three behaviours across three
     // spellings (`==`, `.equals()`, `Double.compare`) for the same reason and
     // with the same hashing motivation; Nomi's `==` is Java's `.equals()`.
-    fn compare(a: Float, b: Float): Ordering {
+    fn compare(a: Float, b: Float) -> Ordering {
         case {
             Float.nan?(a) and Float.nan?(b) -> Equal
             Float.nan?(a) -> Greater

@@ -27,11 +27,11 @@ struct Box<T> {
 		want []string
 		not  string
 	}{
-		{"brace at an annotated binding", "fn f(): Address {\n  a: Address = ▮{street: \"s\", city: \"c\"}\n  a\n}\n", []string{"struct Address"}, ""},
-		{"brace at a return", "fn f(): Address {\n  ▮{street: \"s\", city: \"c\"}\n}\n", []string{"struct Address"}, ""},
-		{"field label", "fn f(): Address {\n  {▮street: \"s\", city: \"c\"}\n}\n", []string{"street: String"}, ""},
-		{"generic brace", "fn f(): Box<Int> {\n  ▮{item: 3}\n}\n", []string{"Box<Int>", "struct Box"}, ""},
-		{"anonymous brace has no struct hover", "fn f(): Int {\n  r = ▮{street: \"s\", city: \"c\"}\n  String.length(r.street)\n}\n", nil, "struct Address"},
+		{"brace at an annotated binding", "fn f() -> Address {\n  a: Address = ▮{street: \"s\", city: \"c\"}\n  a\n}\n", []string{"struct Address"}, ""},
+		{"brace at a return", "fn f() -> Address {\n  ▮{street: \"s\", city: \"c\"}\n}\n", []string{"struct Address"}, ""},
+		{"field label", "fn f() -> Address {\n  {▮street: \"s\", city: \"c\"}\n}\n", []string{"street: String"}, ""},
+		{"generic brace", "fn f() -> Box<Int> {\n  ▮{item: 3}\n}\n", []string{"Box<Int>", "struct Box"}, ""},
+		{"anonymous brace has no struct hover", "fn f() -> Int {\n  r = ▮{street: \"s\", city: \"c\"}\n  String.length(r.street)\n}\n", nil, "struct Address"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

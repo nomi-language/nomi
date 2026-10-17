@@ -3,7 +3,7 @@ import std/io
 // A generic call's expected type gives a function named as its argument
 // its instance, and each item of a list argument its element type, as it
 // gives a lambda its parameter types.
-fn ident<T>(x: T): T {
+fn ident<T>(x: T) -> T {
     x
 }
 
@@ -21,7 +21,7 @@ fn main() {
         Some(xs) ->
             io.print(
                 xs
-                |> Iter.map(|x| Display.to_string(x))
+                |> Iter.map(fn x -> Display.to_string(x))
                 |> String.join(",")
             )
 

@@ -29,7 +29,7 @@ func TestDocumentManager_BuildLeavesOtherDocumentsNodesAlone(t *testing.T) {
 		}
 		files[name] = string(src)
 	}
-	files["hop.nomi"] += "\nfn order(): Ordering {\n    .Less\n}\n"
+	files["hop.nomi"] += "\nfn order() -> Ordering {\n    .Less\n}\n"
 	for name, src := range files {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o644); err != nil {
 			t.Fatal(err)

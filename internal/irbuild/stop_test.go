@@ -11,10 +11,10 @@ import (
 // ErrStopped at whichever question Stop first reports true, asks nothing
 // after it, and lowers as usual when Stop never does.
 func TestGenerateIR_StopsWhenAsked(t *testing.T) {
-	const src = "import other\n\nfn double(n: Int): Int {\n    n * 2\n}\n\nfn main() {\n    _ = double(other.three())\n}\n"
+	const src = "import other\n\nfn double(n: Int) -> Int {\n    n * 2\n}\n\nfn main() {\n    _ = double(other.three())\n}\n"
 	program := func() *Program {
 		t.Helper()
-		p, err := AnalyzeVirtual("main", src, frontend.Config{VirtualFiles: map[string]string{"other": "pub fn three(): Int {\n    3\n}\n"}})
+		p, err := AnalyzeVirtual("main", src, frontend.Config{VirtualFiles: map[string]string{"other": "pub fn three() -> Int {\n    3\n}\n"}})
 		if err != nil {
 			t.Fatalf("the front end rejects this: %v", err)
 		}

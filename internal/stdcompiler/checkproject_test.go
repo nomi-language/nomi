@@ -26,9 +26,9 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		entry: "main",
 		files: map[string]string{
 			"main": "import api.{make, secret}\n\nfn main() {\n  w = make(\"Ada\")\n  _ = secret(w)\n}\n",
-			"api": "pub struct Widget {\n  name: String\n}\n\npub fn label(w: Widget): String {\n  w.name\n}\n\n" +
-				"fn secret(w: Widget): String {\n  \"secret \" + w.name\n}\n\n" +
-				"pub fn make(name: String): Widget {\n  Widget{name}\n}\n",
+			"api": "pub struct Widget {\n  name: String\n}\n\npub fn label(w: Widget) -> String {\n  w.name\n}\n\n" +
+				"fn secret(w: Widget) -> String {\n  \"secret \" + w.name\n}\n\n" +
+				"pub fn make(name: String) -> Widget {\n  Widget{name}\n}\n",
 		},
 		want: []string{"1:1 'secret' is private and cannot be imported"},
 	}, {
@@ -37,7 +37,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		manifest: "[module]\nname = \"demo\"\nentry_points = [\"other\"]\n",
 		files: map[string]string{
 			"main":  "import other\n\nfn main() {\n  other.helper()\n  Unit\n}\n",
-			"other": "pub fn helper(): Unit {\n  Unit\n}\n",
+			"other": "pub fn helper() -> Unit {\n  Unit\n}\n",
 		},
 		want: []string{
 			"3:4 entry callback in main but file is not declared in nomi.toml entry_points — " +
@@ -50,7 +50,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		entry: "main",
 		files: map[string]string{
 			"main":  "import other\n\nfn main() {\n  other.helper()\n  Unit\n}\n",
-			"other": "pub fn helper(): Unit {\n  Unit\n}\n",
+			"other": "pub fn helper() -> Unit {\n  Unit\n}\n",
 		},
 		want: nil,
 	}, {
@@ -58,7 +58,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		entry: "main",
 		files: map[string]string{
 			"main": "import api\n\nfn main() {\n  Unit\n}\n",
-			"api":  "pub fn broken(): Int {\n  undefined_name\n}\n",
+			"api":  "pub fn broken() -> Int {\n  undefined_name\n}\n",
 		},
 		want: []string{
 			"1:8 imported module 'api' is unused — remove the import",
@@ -69,17 +69,17 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		entry: "main",
 		files: map[string]string{
 			"main": "import api\n\nfn main() {\n  Unit\n}\n",
-			"api":  "pub fn broken(): Int {\n",
+			"api":  "pub fn broken() -> Int {\n",
 		},
-		want: []string{"1:22 expected '}' to close block"},
+		want: []string{"1:24 expected '}' to close block"},
 	}, {
 		name:  "file names may carry .nomi and are normalized",
 		entry: "main.nomi",
 		files: map[string]string{
 			"main.nomi": "import api.{make, secret}\n\nfn main() {\n  w = make(\"Ada\")\n  _ = secret(w)\n}\n",
 			"api.nomi": "pub struct Widget {\n  name: String\n}\n\n" +
-				"fn secret(w: Widget): String {\n  \"secret \" + w.name\n}\n\n" +
-				"pub fn make(name: String): Widget {\n  Widget{name}\n}\n",
+				"fn secret(w: Widget) -> String {\n  \"secret \" + w.name\n}\n\n" +
+				"pub fn make(name: String) -> Widget {\n  Widget{name}\n}\n",
 		},
 		want: []string{"1:1 'secret' is private and cannot be imported"},
 	}, {

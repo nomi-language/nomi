@@ -1,4 +1,4 @@
-fn safe_div(a: Int, b: Int): Result<Int, String> {
+fn safe_div(a: Int, b: Int) -> Result<Int, String> {
     if b == 0 {
         Err("div by zero")
     } else {
@@ -6,37 +6,37 @@ fn safe_div(a: Int, b: Int): Result<Int, String> {
     }
 }
 
-fn calc(a: Int, b: Int): Result<Int, String> {
+fn calc(a: Int, b: Int) -> Result<Int, String> {
     result = try safe_div(a, b)
     Ok(result + 1)
 }
 
-fn int_result(): Result<Int, String> {
+fn int_result() -> Result<Int, String> {
     Ok(41)
 }
 
-fn bool_result(): Result<Bool, String> {
+fn bool_result() -> Result<Bool, String> {
     Ok(True)
 }
 
-fn try_arithmetic(): Result<Int, String> {
+fn try_arithmetic() -> Result<Int, String> {
     Ok(try int_result() + 1)
 }
 
-fn try_multiple_operands(): Result<Int, String> {
+fn try_multiple_operands() -> Result<Int, String> {
     Ok(try int_result() + try int_result() + 2)
 }
 
-fn try_boolean_expression(): Result<Bool, String> {
+fn try_boolean_expression() -> Result<Bool, String> {
     value = try bool_result() and 1 == 1 and (2 > 1 or 4 == 5)
     Ok(value)
 }
 
-fn find(list: List<Int>, target: Int): Maybe<Int> {
+fn find(list: List<Int>, target: Int) -> Maybe<Int> {
     if list == [] {
         None
     } else {
-        Iter.reduce(list, |acc = None, x| {
+        Iter.reduce(list, fn acc = None, x -> {
             case acc {
                 Some(v) -> Some(v)
                 None -> if x == target { Some(x) } else { None }
@@ -45,12 +45,12 @@ fn find(list: List<Int>, target: Int): Maybe<Int> {
     }
 }
 
-fn process(list: List<Int>): Maybe<Int> {
+fn process(list: List<Int>) -> Maybe<Int> {
     val = try find(list, 3)
     Some(val * 10)
 }
 
-fn pipe_unwrap(m: Maybe<Int>): Result<Int, String> {
+fn pipe_unwrap(m: Maybe<Int>) -> Result<Int, String> {
     n =
         m
         |> try Maybe.to_result("missing")
@@ -58,11 +58,11 @@ fn pipe_unwrap(m: Maybe<Int>): Result<Int, String> {
     Ok(n * 10)
 }
 
-fn double(x: Int): Int {
+fn double(x: Int) -> Int {
     x * 2
 }
 
-fn pipe_chain(m: Maybe<Int>): Result<Int, String> {
+fn pipe_chain(m: Maybe<Int>) -> Result<Int, String> {
     doubled =
         m
         |> try Maybe.to_result("missing")

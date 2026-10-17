@@ -8,7 +8,7 @@ import {
 }
 
 /// One line of the list: the id, right-aligned, then the item.
-pub fn row(item: Item): String {
+pub fn row(item: Item) -> String {
     id =
         item
         |> Item.id()

@@ -42,7 +42,7 @@ func TestOrPattern_TopOfAnArm(t *testing.T) {
 	if _, ok := or.Alternatives[1].(*ast.StringLit); !ok {
 		t.Fatalf("string alternative: got %T", or.Alternatives[1])
 	}
-	orPatternOf(t, caseArmPattern(t, "(0, x) or (x, 0)"), 2)
+	orPatternOf(t, caseArmPattern(t, "#(0, x) or #(x, 0)"), 2)
 	orPatternOf(t, caseArmPattern(t, "[] or [_]"), 2)
 	orPatternOf(t, caseArmPattern(t, "None or Some(0)"), 2)
 }
@@ -83,7 +83,7 @@ func TestOrPattern_Nested(t *testing.T) {
 	}
 	orPatternOf(t, asPatternOf(t, lp.Heads[0], "closer").Pattern, 3)
 
-	tp, ok := caseArmPattern(t, "(1 or 2, x)").(*ast.TuplePattern)
+	tp, ok := caseArmPattern(t, "#(1 or 2, x)").(*ast.TuplePattern)
 	if !ok || len(tp.Patterns) != 2 {
 		t.Fatal("want a tuple pattern")
 	}
@@ -101,7 +101,7 @@ func TestOrPattern_Nested(t *testing.T) {
 	}
 	orPatternOf(t, sp.Fields[0].Pattern, 2)
 
-	mp, ok := caseArmPattern(t, `{"k" => 1 or 2}`).(*ast.MapPattern)
+	mp, ok := caseArmPattern(t, `%{"k" => 1 or 2}`).(*ast.MapPattern)
 	if !ok {
 		t.Fatal("want a map pattern")
 	}
@@ -156,7 +156,7 @@ func TestOrPattern_StatementAndParameterPositions(t *testing.T) {
 		t.Fatal("want a pattern if")
 	}
 
-	f, ok := parse(t, "fn f(.A(n) or .B(n): E): Int { n }")[0].(*ast.FuncDef)
+	f, ok := parse(t, "fn f(.A(n) or .B(n): E) -> Int { n }")[0].(*ast.FuncDef)
 	if !ok || len(f.Params) != 1 {
 		t.Fatal("want a function with one parameter")
 	}

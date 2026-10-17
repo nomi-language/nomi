@@ -30,39 +30,39 @@ func operGen(t *testing.T, src string) (*gen, []Unsupported) {
 // different right-hand types, which is the shape `implsByIface`'s key collapses.
 const operThreeAdds = `type Day Int
 
-fn day_value(day: Day): Int {
+fn day_value(day: Day) -> Int {
   Day(n) = day
   n
 }
 
 type Days Int
 
-fn days_value(days: Days): Int {
+fn days_value(days: Days) -> Int {
   Days(n) = days
   n
 }
 
 type Weeks Int
 
-fn weeks_value(weeks: Weeks): Int {
+fn weeks_value(weeks: Weeks) -> Int {
   Weeks(n) = weeks
   n
 }
 
 impl Add<Days, Day> for Day {
-  fn add(lhs: Day, rhs: Days): Day {
+  fn add(lhs: Day, rhs: Days) -> Day {
     Day(day_value(lhs) + days_value(rhs))
   }
 }
 
 impl Add<Weeks, Day> for Day {
-  fn add(lhs: Day, rhs: Weeks): Day {
+  fn add(lhs: Day, rhs: Weeks) -> Day {
     Day(day_value(lhs) + weeks_value(rhs) * 7)
   }
 }
 
 impl Subtract<Days, Day> for Day {
-  fn subtract(lhs: Day, rhs: Days): Day {
+  fn subtract(lhs: Day, rhs: Days) -> Day {
     Day(day_value(lhs) - days_value(rhs))
   }
 }
@@ -147,13 +147,13 @@ func TestOperImpl_ThreeAddsForOneReceiverAllSurvive(t *testing.T) {
 func TestOperImpl_TheFourInterfacesAnchor(t *testing.T) {
 	const src = `type Score Int
 
-fn score_value(s: Score): Int {
+fn score_value(s: Score) -> Int {
   Score(n) = s
   n
 }
 
 impl Add<Score, Score> for Score {
-  fn add(lhs: Score, rhs: Score): Score {
+  fn add(lhs: Score, rhs: Score) -> Score {
     Score(score_value(lhs) + score_value(rhs))
   }
 }
@@ -228,27 +228,27 @@ func TestOperImpl_TheFourFrontEndFencesStillHold(t *testing.T) {
 	const decls = `type Score Int
 type Other Int
 
-fn score_value(s: Score): Int {
+fn score_value(s: Score) -> Int {
   Score(n) = s
   n
 }
 `
 	for _, row := range []struct{ name, impl string }{{
 		"the rhs disagrees with the header",
-		"impl Add<Score, Score> for Score {\n  fn add(lhs: Score, rhs: Other): Score { _ = rhs;\n" +
+		"impl Add<Score, Score> for Score {\n  fn add(lhs: Score, rhs: Other) -> Score { _ = rhs;\n" +
 			"    Score(score_value(lhs))\n  }\n}\n",
 	}, {
 		"the result disagrees with the header",
-		"impl Add<Score, Score> for Score {\n  fn add(lhs: Score, rhs: Score): Other { _ = rhs;\n" +
+		"impl Add<Score, Score> for Score {\n  fn add(lhs: Score, rhs: Score) -> Other { _ = rhs;\n" +
 			"    Other(score_value(lhs))\n  }\n}\n",
 	}, {
 		"a second function in the block",
 		"impl Add<Score, Score> for Score {\n" +
-			"  fn add(lhs: Score, rhs: Score): Score { _ = rhs;\n    Score(score_value(lhs))\n  }\n" +
-			"  fn extra(lhs: Score): Score {\n    lhs\n  }\n}\n",
+			"  fn add(lhs: Score, rhs: Score) -> Score { _ = rhs;\n    Score(score_value(lhs))\n  }\n" +
+			"  fn extra(lhs: Score) -> Score {\n    lhs\n  }\n}\n",
 	}, {
 		"the wrong method name",
-		"impl Add<Score, Score> for Score {\n  fn plus(lhs: Score, rhs: Score): Score { _ = rhs;\n" +
+		"impl Add<Score, Score> for Score {\n  fn plus(lhs: Score, rhs: Score) -> Score { _ = rhs;\n" +
 			"    Score(score_value(lhs))\n  }\n}\n",
 	}} {
 		t.Run(row.name, func(t *testing.T) {
@@ -283,24 +283,24 @@ func TestOperImpl_TwoImplsAtOneRhsAreAFrontEndError(t *testing.T) {
 	const src = `type Day Int
 type Days Int
 
-fn day_value(d: Day): Int {
+fn day_value(d: Day) -> Int {
   Day(n) = d
   n
 }
 
-fn days_value(d: Days): Int {
+fn days_value(d: Days) -> Int {
   Days(n) = d
   n
 }
 
 impl Add<Days, Day> for Day {
-  fn add(lhs: Day, rhs: Days): Day {
+  fn add(lhs: Day, rhs: Days) -> Day {
     Day(day_value(lhs) + days_value(rhs))
   }
 }
 
 impl Add<Days, Days> for Day {
-  fn add(lhs: Day, rhs: Days): Days {
+  fn add(lhs: Day, rhs: Days) -> Days {
     Days(day_value(lhs) + days_value(rhs))
   }
 }
@@ -328,13 +328,13 @@ impl Add<Days, Days> for Day {
 // interface must reach `g.operImpls` never, whatever else happens to it.
 func TestOperImpl_TheOperatorRouteClaimsOnlyTheFour(t *testing.T) {
 	const src = `interface Pair<A, B> {
-  fn combine(v: self, other: A): B
+  fn combine(v: self, other: A) -> B
 }
 
 type Score Int
 
 impl Pair<Score, Score> for Score {
-  fn combine(v: Score, other: Score): Score { _ = other;
+  fn combine(v: Score, other: Score) -> Score { _ = other;
     v
   }
 }

@@ -84,7 +84,7 @@ entry_points = ["main"]
 
 gopkg "echobinding" as ffi
 
-fn echo_upper(s: String): String go ffi.EchoUpper
+fn echo_upper(s: String) -> String go ffi.EchoUpper
 
 fn main() {
   io.print(echo_upper("hello"))
@@ -200,9 +200,9 @@ gopkg "taggedbinding" as box
 
 opaque type RawBox go box.Box
 
-fn make_box(label: String): RawBox go box.MakeBox
+fn make_box(label: String) -> RawBox go box.MakeBox
 
-fn box_label(raw: RawBox): String go box.BoxLabel
+fn box_label(raw: RawBox) -> String go box.BoxLabel
 
 fn main() {
   io.print(box_label(make_box("hello")))
@@ -240,7 +240,7 @@ fn main() {
 
 // TestFFIRun_TupleReturnRoundTrip proves the FFI-routed path honours the
 // multi-return projection: N >= 2 non-error Go returns arrive as a Nomi
-// tuple, and a trailing error wraps that tuple in Result<(A, B), String>.
+// tuple, and a trailing error wraps that tuple in Result<#(A, B), String>.
 // The reshaping lives in the generated adapter, so this test is the check
 // that nothing in discovery/validate/codegen rejects the shape before it
 // gets there.
@@ -306,12 +306,12 @@ entry_points = ["main"]
 
 gopkg "taggedbinding" as tup
 
-fn divmod(a: Int, b: Int): (Int, Int) go tup.DivMod
+fn divmod(a: Int, b: Int) -> #(Int, Int) go tup.DivMod
 
-fn split_once(s: String, sep: String): Result<(String, String), String> go tup.SplitOnce
+fn split_once(s: String, sep: String) -> Result<#(String, String), String> go tup.SplitOnce
 
 fn main() {
-  (q, r) = divmod(17, 5)
+  #(q, r) = divmod(17, 5)
   io.print("${q},${r}")
   case split_once("a=b", "=") {
     Ok(pair) -> io.print("${pair.0}|${pair.1}")
@@ -385,7 +385,7 @@ func EchoUpper(s string) string {
 
 gopkg "localbindingtest" as ffi
 
-fn echo_upper(s: String): String go ffi.EchoUpper
+fn echo_upper(s: String) -> String go ffi.EchoUpper
 
 fn main() {
   io.print(echo_upper("hello"))
@@ -533,10 +533,10 @@ entry_points = ["main"]
 
 gopkg "callbackbinding" as callback
 
-fn apply_twice(s: String, f: (String) -> Result<String, String>): Result<String, String> go callback.ApplyTwice
+fn apply_twice(s: String, f: (String) -> Result<String, String>) -> Result<String, String> go callback.ApplyTwice
 
 fn main() {
-  case apply_twice("ha", |s| Ok("${s}!")) {
+  case apply_twice("ha", fn s -> Ok("${s}!")) {
     Err(e) -> io.print("error: ${e}")
     Ok(v) -> io.print(v)
   }
@@ -625,9 +625,9 @@ entry_points = ["main"]
 
 gopkg "durationbinding" as duration
 
-fn timeout(): Duration go duration.Timeout
+fn timeout() -> Duration go duration.Timeout
 
-fn double(d: Duration): Duration go duration.Double
+fn double(d: Duration) -> Duration go duration.Double
 
 fn main() {
   timeout()
@@ -716,9 +716,9 @@ entry_points = ["main"]
 
 gopkg "timebinding" as go_time
 
-fn created_at(): Instant go go_time.CreatedAt
+fn created_at() -> Instant go go_time.CreatedAt
 
-fn plus_second(t: Instant): Instant go go_time.PlusSecond
+fn plus_second(t: Instant) -> Instant go go_time.PlusSecond
 
 fn main() {
   created_at()
@@ -901,7 +901,7 @@ entry_points = ["main"]
 
 gopkg "cwdbinding" as cwd
 
-fn get_cwd(): String go cwd.GetCWD
+fn get_cwd() -> String go cwd.GetCWD
 
 fn main() {
   io.print(get_cwd())

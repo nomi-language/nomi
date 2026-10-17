@@ -19,7 +19,7 @@ func TestPreludeInstanceSlotsAreNeverBoxed(t *testing.T) {
 	// A struct reached through a prelude enum, and reached from that struct
 	// again, which is the shape that boxes anything at all.
 	const src = "struct Node {\n  next: Maybe<Node>\n}\n\n" +
-		"fn head(): Maybe<Node> {\n  None\n}\n\nfn main() {\n  _ = head()\n}\n"
+		"fn head() -> Maybe<Node> {\n  None\n}\n\nfn main() {\n  _ = head()\n}\n"
 	p, err := AnalyzeSource("main", src)
 	if err != nil {
 		t.Fatalf("analyze: %v", err)
@@ -74,25 +74,25 @@ func TestTry_TheBoundaryMismatchesAreFrontEndERRORSNow(t *testing.T) {
 		// then faulted with "no matching case branch".
 		{"maybe into a result fn",
 			"`try` on a Maybe cannot propagate out of a function returning Result<Int, String>",
-			"fn find(): Maybe<Int> {\n  None\n}\n\n" +
-				"fn f(): Result<Int, String> {\n  v = try find()\n\n  Ok(v)\n}\n"},
+			"fn find() -> Maybe<Int> {\n  None\n}\n\n" +
+				"fn f() -> Result<Int, String> {\n  v = try find()\n\n  Ok(v)\n}\n"},
 		// Same prelude enum, different error type: `Result<Int, Int>`
 		// propagated into `Result<Int, String>`.
 		{"error type laundered",
 			"try error type mismatch: expected String, got Int",
-			"fn r(): Result<Int, Int> {\n  Err(7)\n}\n\n" +
-				"fn f(): Result<Int, String> {\n  v = try r()\n\n  Ok(v)\n}\n"},
+			"fn r() -> Result<Int, Int> {\n  Err(7)\n}\n\n" +
+				"fn f() -> Result<Int, String> {\n  v = try r()\n\n  Ok(v)\n}\n"},
 		// A boundary that is not a prelude enum at all.
 		{"boundary is not a result or maybe",
 			"`try` cannot propagate a Result out of a function returning Int",
-			"fn r(): Result<Int, Int> {\n  Err(7)\n}\n\n" +
-				"fn f(): Int {\n  v = try r()\n\n  v\n}\n"},
+			"fn r() -> Result<Int, Int> {\n  Err(7)\n}\n\n" +
+				"fn f() -> Int {\n  v = try r()\n\n  v\n}\n"},
 		// The PIPE spelling. The parser desugars every keyword-prefixed stage,
 		// so this is the prefix
 		// shape with the piped value as its operand.
 		{"pipe spelling",
 			"`try` on a Maybe cannot propagate out of a function returning Result<Int, String>",
-			"fn f(): Result<Int, String> {\n  n = Some(1) |> try\n\n  Ok(n)\n}\n"},
+			"fn f() -> Result<Int, String> {\n  n = Some(1) |> try\n\n  Ok(n)\n}\n"},
 		// A LAMBDA whose inferred result cannot hold the propagated value. This
 		// one is the INFERRING boundary and it has its own checker path: a
 		// lambda declares no result, so the rule is applied to the result the
@@ -100,19 +100,19 @@ func TestTry_TheBoundaryMismatchesAreFrontEndERRORSNow(t *testing.T) {
 		// rule.
 		{"lambda result cannot hold it",
 			"`try` cannot propagate a Result out of a lambda whose result is Int",
-			"fn parse(n: Int): Result<Int, String> {\n  Ok(n)\n}\n\n" +
-				"fn main() {\n  _ = |x: Int| {\n    v = try parse(x)\n\n    v\n  }\n}\n"},
+			"fn parse(n: Int) -> Result<Int, String> {\n  Ok(n)\n}\n\n" +
+				"fn main() {\n  _ = fn x: Int -> {\n    v = try parse(x)\n\n    v\n  }\n}\n"},
 		// Two shapes inside a test FILE. Neither is a test-body `try`: a test
 		// body declares no result, so it has no boundary to mismatch.
 		{"maybe into a result fn, in a test file",
 			"`try` on a Maybe cannot propagate out of a function returning Result<Int, String>",
-			"fn find(): Maybe<Int> {\n  None\n}\n\n" +
-				"fn f(): Result<Int, String> {\n  v = try find()\n\n  Ok(v)\n}\n\n" +
+			"fn find() -> Maybe<Int> {\n  None\n}\n\n" +
+				"fn f() -> Result<Int, String> {\n  v = try find()\n\n  Ok(v)\n}\n\n" +
 				"test \"calls it\" {\n  assert f() == Ok(1)\n}\n"},
 		{"lambda result cannot hold it, in a test body",
 			"`try` cannot propagate a Result out of a lambda whose result is Int",
-			"fn parse(n: Int): Result<Int, String> {\n  Ok(n)\n}\n\n" +
-				"test \"lambda result cannot hold it\" {\n  f = |x: Int| {\n    v = try parse(x)\n\n    v\n  }\n\n  assert f(1) == 1\n}\n"},
+			"fn parse(n: Int) -> Result<Int, String> {\n  Ok(n)\n}\n\n" +
+				"test \"lambda result cannot hold it\" {\n  f = fn x: Int -> {\n    v = try parse(x)\n\n    v\n  }\n\n  assert f(1) == 1\n}\n"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

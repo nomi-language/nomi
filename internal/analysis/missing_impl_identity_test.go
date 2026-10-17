@@ -85,7 +85,7 @@ pub enum %[1]s {
   Bad String
 }
 
-fn mk(s: String): Result<Int, %[1]s> { Err(%[1]s.Bad(s)) }
+fn mk(s: String) -> Result<Int, %[1]s> { Err(%[1]s.Bad(s)) }
 
 fn main() {
   io.print("equal?: ${Equatable.equal?(mk("a"), mk("b"))}")
@@ -113,7 +113,7 @@ pub enum Error {
 }
 
 impl Equatable for Error {
-  fn equal?(_a: Error, _b: Error): Bool { True }
+  fn equal?(_a: Error, _b: Error) -> Bool { True }
 }
 
 fn main() {
@@ -146,7 +146,7 @@ pub enum Error {
   Bad String
 }
 
-fn mk(s: String): Result<Int, Error> { Err(Error.Bad(s)) }
+fn mk(s: String) -> Result<Int, Error> { Err(Error.Bad(s)) }
 
 fn main() {
   d = DateTime"2026-01-01T12:00:00[America/New_York]"

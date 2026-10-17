@@ -188,7 +188,7 @@ func effectClass(effects []string) (outside string, nondeterministic bool) {
 // towards "may loop").
 var loopMarkers = regexp.MustCompile(`Iter\.(loop|repeat|from|iterate|cycle|unfold)\b|\.\.|concurrent|Task\.|spawn`)
 
-var fnDecl = regexp.MustCompile(`\bfn\s+([a-z_][A-Za-z0-9_]*\??)`)
+var fnDecl = regexp.MustCompile(`\bfn\s+([a-z_][A-Za-z0-9_]*\??)[(<]`)
 
 // mayLoop reports whether src may repeat work without a bound its text
 // shows: it holds a loop marker, or a function reaches itself through the
@@ -630,13 +630,13 @@ func TestRunInputClassifies(t *testing.T) {
 		skip      string
 	}{
 		{"ok", "import std/io\n\nfn main() {\n    io.print(1 + 2)\n}\n", runOK, ""},
-		{"a trap", "import std/io\n\nfn half(n: Int): Int {\n    10 / n\n}\n\nfn main() {\n    io.print(half(0))\n}\n", runTrap, ""},
+		{"a trap", "import std/io\n\nfn half(n: Int) -> Int {\n    10 / n\n}\n\nfn main() {\n    io.print(half(0))\n}\n", runTrap, ""},
 		{"a failed test case", "test \"t\" {\n    assert 1 == 2\n}\n", runTrap, ""},
-		{"recursion past the budget", "import std/io\n\nfn spin(n: Int): Int {\n    spin(n + 1)\n}\n\nfn main() {\n    io.print(spin(0))\n}\n", runTooLong, "it may loop"},
+		{"recursion past the budget", "import std/io\n\nfn spin(n: Int) -> Int {\n    spin(n + 1)\n}\n\nfn main() {\n    io.print(spin(0))\n}\n", runTooLong, "it may loop"},
 		{"pure std functions", "import std/io\n\nfn main() {\n    io.print(String.pad_start(\"7\", 3, \"0\"))\n    io.inspect(String.words(\"a b\"))\n    io.inspect(String.lines(\"a\\nb\"))\n}\n", runOK, ""},
 		{"a file read", "import std/io\n\nfn main() {\n    io.inspect(io.read_file(\"x\"))\n}\n", runSkipped, "it reaches outside the machine"},
 		{"a rejection", "fn main() {\n    x = \n}\n", runSkipped, "the front end rejects it"},
-		{"a planted compile panic", "import std/io\n\nfn " + plantedTarget + "(): Int {\n    1\n}\n\nfn main() {\n    io.print(" + plantedTarget + "())\n}\n", runCrash, ""},
+		{"a planted compile panic", "import std/io\n\nfn " + plantedTarget + "() -> Int {\n    1\n}\n\nfn main() {\n    io.print(" + plantedTarget + "())\n}\n", runCrash, ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -653,7 +653,7 @@ func TestRunInputClassifies(t *testing.T) {
 		})
 	}
 	// The generator writes no loop but divergingBlock's
-	// `Iter.loop(|di = ...|`, which counts to a limit of at most 3, the
+	// `Iter.loop(fn di = ... ->`, which counts to a limit of at most 3, the
 	// blocks it fences as bounded (boundedBlock), and no recursion but
 	// recursiveCall's helpers, which walk one of the program's short lists
 	// or a range of at most two numbers. A generated program with neither
@@ -663,7 +663,7 @@ func TestRunInputClassifies(t *testing.T) {
 		if recursiveHelperCalled(g.src) {
 			continue
 		}
-		if mayLoop(strings.ReplaceAll(withoutBoundedBlocks(g.src), "Iter.loop(|di = ", "bounded(|di = ")) {
+		if mayLoop(strings.ReplaceAll(withoutBoundedBlocks(g.src), "Iter.loop(fn di = ", "bounded(fn di = ")) {
 			t.Fatalf("%s: mayLoop says it may loop; the generator writes neither recursion nor loops other than divergingBlock's:\n%s", g.name, g.src)
 		}
 	}

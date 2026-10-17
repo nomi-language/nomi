@@ -71,35 +71,35 @@ enum Cell {
 }
 
 // The TUPLE-shaped sibling. Lowers already; here so the pair is visible.
-fn stretch(Distance.Meters(m)): Int {
+fn stretch(Distance.Meters(m)) -> Int {
     m * 3
 }
 
 // Punned brace-shaped `embeds`, read back non-commutatively.
-fn extent_code(Box.Extent{wide, tall}): Int {
+fn extent_code(Box.Extent{wide, tall}) -> Int {
     wide * 100 + tall
 }
 
 // Renamed AND permuted against the declaration order.
-fn ratio(Box.Extent{tall: a, wide: b}): String {
+fn ratio(Box.Extent{tall: a, wide: b}) -> String {
     "${a}/${b}"
 }
 
 // Nested one level below the embedded struct, with a wildcard beside it.
-fn originx(Window.Frame{at: Origin{x, y: _}, scale: _}): Int {
+fn originx(Window.Frame{at: Origin{x, y: _}, scale: _}) -> Int {
     x
 }
 
 // A written struct-shaped variant: the fields are the enum's own slots. Written
 // `{hi, lo}` against a `{lo, hi}` declaration so a by-position slot lookup
 // answers -7 here instead of 7.
-fn span(Cell.Span{hi, lo}): Int {
+fn span(Cell.Span{hi, lo}) -> Int {
     hi - lo
 }
 
 // Non-leading position, so the anonymous parameter has to land in the right
 // slot.
-fn scaled(k: Int, Box.Extent{wide, tall}, bias: Int): Int {
+fn scaled(k: Int, Box.Extent{wide, tall}, bias: Int) -> Int {
     k * (wide + tall) + bias
 }
 
@@ -119,7 +119,7 @@ fn main() {
 
     sums =
         boxes
-        |> Iter.map(|Box.Extent{wide, tall}| wide * 100 + tall)
+        |> Iter.map(fn Box.Extent{wide, tall} -> wide * 100 + tall)
         |> Iter.to_list()
 
     io.print("sums = ${sums}")

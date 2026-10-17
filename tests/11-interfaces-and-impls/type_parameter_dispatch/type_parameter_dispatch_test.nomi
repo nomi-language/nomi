@@ -4,7 +4,7 @@ import {
 }
 
 interface Greet {
-    fn hello(value: self): String
+    fn hello(value: self) -> String
 }
 
 struct Dog {
@@ -16,36 +16,36 @@ struct Wrapper<T> where T: Greet {
 }
 
 impl Display for Dog {
-    fn to_string(value: Dog): String {
+    fn to_string(value: Dog) -> String {
         "Dog(" + value.name + ")"
     }
 }
 
 impl Greet for Dog {
-    fn hello(value: Dog): String {
+    fn hello(value: Dog) -> String {
         "woof, I am " + value.name
     }
 }
 
 impl Greet for Wrapper<T> {
-    fn hello(value: Wrapper<T>): String {
+    fn hello(value: Wrapper<T>) -> String {
         "wrapped " + T.hello(value.value)
     }
 }
 
-fn shout<T>(x: T): String where T: Display {
+fn shout<T>(x: T) -> String where T: Display {
     T.to_string(x) + "!"
 }
 
-fn greet<T>(x: T): String where T: Greet {
+fn greet<T>(x: T) -> String where T: Greet {
     T.hello(x)
 }
 
-fn full<T>(x: T): String where T: Display and Greet {
+fn full<T>(x: T) -> String where T: Display and Greet {
     T.hello(x) + " - " + T.to_string(x)
 }
 
-fn full_where<T>(x: T): String where T: Display and Greet {
+fn full_where<T>(x: T) -> String where T: Display and Greet {
     T.hello(x) + " - " + T.to_string(x)
 }
 
@@ -62,7 +62,7 @@ test "impl block where clauses constrain generic receiver impls" {
     diagnostics = compiler.check(
         """
           interface Render {
-            fn render(value: self): String
+            fn render(value: self) -> String
           }
 
           struct Wrapped<T> where T: Display {
@@ -72,7 +72,7 @@ test "impl block where clauses constrain generic receiver impls" {
           struct Plain {}
 
           impl Render for Wrapped<T> {
-            fn render(value: Wrapped<T>): String {
+            fn render(value: Wrapped<T>) -> String {
               T.to_string(value.value)
             }
           }
@@ -91,14 +91,14 @@ test "type-parameter-qualified dispatch is ambiguous across duplicate function n
     diagnostics = compiler.check(
         """
           interface A {
-            fn tag(value: self): String
+            fn tag(value: self) -> String
           }
 
           interface B {
-            fn tag(value: self): String
+            fn tag(value: self) -> String
           }
 
-          fn f<T>(x: T): String where T: A and B {
+          fn f<T>(x: T) -> String where T: A and B {
             T.tag(x)
           }
         """
@@ -111,7 +111,7 @@ test "type-parameter-qualified dispatch is ambiguous across duplicate function n
 test "type-parameter-qualified dispatch requires the function on the bound" {
     diagnostics = compiler.check(
         """
-          fn f<T>(x: T): String where T: Display {
+          fn f<T>(x: T) -> String where T: Display {
             T.nope(x)
           }
         """
@@ -124,7 +124,7 @@ test "type-parameter-qualified dispatch requires the function on the bound" {
 test "type-parameter-qualified dispatch requires an interface bound" {
     diagnostics = compiler.check(
         """
-          fn f<T>(x: T): String {
+          fn f<T>(x: T) -> String {
             T.to_string(x)
           }
         """
@@ -138,11 +138,11 @@ test "type-qualified dispatch is ambiguous when multiple interfaces declare the 
     diagnostics = compiler.check(
         """
         interface Greeter {
-          fn greet(value: self): String
+          fn greet(value: self) -> String
         }
 
         interface Farewell {
-          fn greet(value: self): String
+          fn greet(value: self) -> String
         }
 
         struct Person {
@@ -151,14 +151,14 @@ test "type-qualified dispatch is ambiguous when multiple interfaces declare the 
 
         impl Greeter for Person {
 
-          fn greet(p: Person): String {
+          fn greet(p: Person) -> String {
             "Hello, " + p.name
           }
         }
 
         impl Farewell for Person {
 
-          fn greet(p: Person): String {
+          fn greet(p: Person) -> String {
             "Goodbye, " + p.name
           }
         }

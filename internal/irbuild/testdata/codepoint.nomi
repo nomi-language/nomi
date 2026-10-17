@@ -25,32 +25,32 @@
 import std/io
 
 // --- the surface, one helper per declaration -------------------------------
-fn to_int_of(n: Int): Maybe<Int> {
+fn to_int_of(n: Int) -> Maybe<Int> {
     Some(Codepoint.to_int(try Codepoint.from_int(n)))
 }
 
-fn to_string_of(n: Int): Maybe<String> {
+fn to_string_of(n: Int) -> Maybe<String> {
     Some(Codepoint.to_string(try Codepoint.from_int(n)))
 }
 
-fn inspect_of(n: Int): Maybe<String> {
+fn inspect_of(n: Int) -> Maybe<String> {
     Some(Codepoint.inspect(try Codepoint.from_int(n)))
 }
 
-fn next_of(n: Int): Maybe<Codepoint> {
+fn next_of(n: Int) -> Maybe<Codepoint> {
     Codepoint.next(try Codepoint.from_int(n))
 }
 
-fn steps_of(a: Int, b: Int): Maybe<Int> {
+fn steps_of(a: Int, b: Int) -> Maybe<Int> {
     Codepoint.steps_between(try Codepoint.from_int(a), try Codepoint.from_int(b))
 }
 
-fn step_by_of(n: Int, by: Int): Maybe<Codepoint> {
+fn step_by_of(n: Int, by: Int) -> Maybe<Codepoint> {
     Codepoint.step_by(try Codepoint.from_int(n), by)
 }
 
 /// Two Codepoints from SEPARATE `from_int` calls, so nothing shares a value.
-fn equal_of(a: Int, b: Int): Maybe<Bool> {
+fn equal_of(a: Int, b: Int) -> Maybe<Bool> {
     Some(Codepoint.equal?(try Codepoint.from_int(a), try Codepoint.from_int(b)))
 }
 
@@ -68,7 +68,7 @@ fn equal_of(a: Int, b: Int): Maybe<Bool> {
 /// `non-scalar type argument` — a user-side prelude-over-structural annotation,
 /// unrelated to this slice's key, and worth staying clear of rather than
 /// dragging into the fixture.
-fn literal_abc(a: Codepoint, b: Codepoint, c: Codepoint): List<Codepoint> {
+fn literal_abc(a: Codepoint, b: Codepoint, c: Codepoint) -> List<Codepoint> {
     [a, b, c]
 }
 
@@ -84,7 +84,7 @@ fn literal_abc(a: Codepoint, b: Codepoint, c: Codepoint): List<Codepoint> {
 /// whoever owns that key. Rendering both chains compares them structurally
 /// with no pointer anywhere in the path, which is what this fixture needs;
 /// both chains are built from the same input string.
-fn same_as_literal(s: String): Maybe<Bool> {
+fn same_as_literal(s: String) -> Maybe<Bool> {
     a = try Codepoint.from_int(97)
     b = try Codepoint.from_int(98)
     c = try Codepoint.from_int(99)
@@ -92,28 +92,28 @@ fn same_as_literal(s: String): Maybe<Bool> {
 }
 
 // --- rendering, with a visible sentinel for None ---------------------------
-fn show_cp(m: Maybe<Codepoint>): String {
+fn show_cp(m: Maybe<Codepoint>) -> String {
     case m {
         Some(cp) -> "Some(${Codepoint.to_int(cp)})"
         None -> "None"
     }
 }
 
-fn show_int(m: Maybe<Int>): String {
+fn show_int(m: Maybe<Int>) -> String {
     case m {
         Some(n) -> "Some(${n})"
         None -> "None"
     }
 }
 
-fn show_str(m: Maybe<String>): String {
+fn show_str(m: Maybe<String>) -> String {
     case m {
         Some(s) -> s
         None -> "None"
     }
 }
 
-fn show_bool(m: Maybe<Bool>): String {
+fn show_bool(m: Maybe<Bool>) -> String {
     case m {
         Some(b) -> "${b}"
         None -> "None"
@@ -127,7 +127,7 @@ fn show_bool(m: Maybe<Bool>): String {
 /// pipeline, which is refused for its own reasons and would take the whole
 /// fixture with it. `List.tail` answers `Maybe<List<T>>`, so an empty tail and
 /// an empty list are the same base case.
-fn join_points(cps: List<Codepoint>): String {
+fn join_points(cps: List<Codepoint>) -> String {
     case List.head(cps) {
         None ->
             "."

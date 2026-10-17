@@ -20,13 +20,13 @@ fn main() {
     dbg b
     dbg [n]
     dbg [d]
-    dbg (n, w)
-    dbg (b, n)
+    dbg #(n, w)
+    dbg #(b, n)
     dbg Some(m)
-    dbg {"k" => w}
+    dbg %{"k" => w}
     n |> dbg
 
     same = dbg n
     io.print(Debug.inspect(same))
-    io.print(Debug.inspect((n, w)))
+    io.print(Debug.inspect(#(n, w)))
 }

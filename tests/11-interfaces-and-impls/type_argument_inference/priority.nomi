@@ -6,7 +6,7 @@ pub struct Priority {
     rank: Int
 }
 
-pub fn rank(p: Priority): Int {
+pub fn rank(p: Priority) -> Int {
     p.rank
 }
 

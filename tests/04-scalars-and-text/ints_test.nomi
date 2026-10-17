@@ -44,7 +44,7 @@ test "modulo of the minimum by minus one is zero" {
     assert Int.modulo(Int.max_value, Int.min_value) == -1
 }
 
-fn floor_divide(x: Int, y: Int): Int {
+fn floor_divide(x: Int, y: Int) -> Int {
     q = x / y
 
     if x % y != 0 and (x < 0) != (y < 0) {
@@ -60,10 +60,10 @@ test "modulo is the dividend less the divisor times the floored quotient" {
 
     mismatches =
         values
-        |> Iter.flat_map(|x| {
+        |> Iter.flat_map(fn x -> {
             divisors
-            |> Iter.filter(|y| Int.modulo(x, y) != x - y * floor_divide(x, y))
-            |> Iter.map(|y| (x, y))
+            |> Iter.filter(fn y -> Int.modulo(x, y) != x - y * floor_divide(x, y))
+            |> Iter.map(fn y -> #(x, y))
         })
         |> Iter.to_list()
 
@@ -76,7 +76,7 @@ test "positive refinement is stricter than non-zero" {
     assert Int.to_positive(-3) == None
 }
 
-fn divide_by_positive(x: Int, divisor: Int): Int {
+fn divide_by_positive(x: Int, divisor: Int) -> Int {
     case Int.to_positive(divisor) {
         .Some(p) -> Int.divide(x, PositiveInt.to_non_zero(p))
         .None -> 0

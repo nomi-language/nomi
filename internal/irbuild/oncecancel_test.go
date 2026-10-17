@@ -37,7 +37,7 @@ once slow: Int = {
 
 fn main() {
   outcome = concurrent {
-    t = Task.spawn(|| slow)
+    t = Task.spawn(fn -> slow)
     timer.sleep(Duration.milliseconds(20))
     Task.cancel(t)
     Task.outcome(t)
@@ -67,7 +67,7 @@ struct Run {
   context: Context
 }
 
-fn boot(): Run {
+fn boot() -> Run {
   Run{context: Context.root()}
 }
 `, "entered\n", deadline, 1},
@@ -90,7 +90,7 @@ once slow: Int = {
 
 fn main() {
   outcome = concurrent {
-    t = Task.spawn(|| slow)
+    t = Task.spawn(fn -> slow)
     _ = Receiver.receive(started.receiver)
     Task.cancel(t)
     Task.outcome(t)

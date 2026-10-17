@@ -43,7 +43,7 @@ struct P {
     n: Int
 }
 
-fn tri(m: Maybe<Tri>): String {
+fn tri(m: Maybe<Tri>) -> String {
     case m {
         Some(.Equilateral or .Isosceles) -> "two equal"
         Some(.Scalene) -> "none equal"
@@ -51,7 +51,7 @@ fn tri(m: Maybe<Tri>): String {
     }
 }
 
-fn ev(e: Ev): String {
+fn ev(e: Ev) -> String {
     case e {
         .A(n) or .B(n) when n > 0 -> "positive ${n}"
         .A(n) -> "A ${n}"
@@ -60,7 +60,7 @@ fn ev(e: Ev): String {
     }
 }
 
-fn shape(s: Shape): String {
+fn shape(s: Shape) -> String {
     case s {
         .Circle{r} or .Square{r} -> "round-ish ${r}"
         .Rect({w: 0.0, h: x} or {w: x, h: 0.0}) -> "flat ${x}"
@@ -68,7 +68,7 @@ fn shape(s: Shape): String {
     }
 }
 
-fn num(n: Int): String {
+fn num(n: Int) -> String {
     case n {
         1 or 2 or 3 -> "small"
         -1 or -2 -> "negative"
@@ -76,7 +76,7 @@ fn num(n: Int): String {
     }
 }
 
-fn word(s: String): String {
+fn word(s: String) -> String {
     case s {
         "yes" or "y" -> "affirmative"
         "no" or "n" -> "negative"
@@ -84,7 +84,7 @@ fn word(s: String): String {
     }
 }
 
-fn closer(cs: List<Codepoint>): String {
+fn closer(cs: List<Codepoint>) -> String {
     case cs {
         [')' or ']' or '}' as c, ..rest] -> "closer ${c} then ${Iter.count(rest)}"
         [] or [_] -> "short"
@@ -92,14 +92,14 @@ fn closer(cs: List<Codepoint>): String {
     }
 }
 
-fn pair(t: (Int, Int)): Int {
+fn pair(t: #(Int, Int)) -> Int {
     case t {
-        (0, x) or (x, 0) -> x
-        (a, b) -> a * b
+        #(0, x) or #(x, 0) -> x
+        #(a, b) -> a * b
     }
 }
 
-fn field(p: P): String {
+fn field(p: P) -> String {
     case p {
         P{kind: .Equilateral or .Isosceles, n} -> "eq ${n}"
         P{n: 1 or 2} -> "small"
@@ -107,33 +107,33 @@ fn field(p: P): String {
     }
 }
 
-fn entry(m: Map<String, Int>): String {
+fn entry(m: Map<String, Int>) -> String {
     case m {
-        {"k" => 1 or 2 as v} -> "low ${v}"
+        %{"k" => 1 or 2 as v} -> "low ${v}"
         _ -> "other"
     }
 }
 
-fn nested(m: Maybe<Ev>): String {
+fn nested(m: Maybe<Ev>) -> String {
     case m {
         Some(.A(n) or (.B(n) or .A(n))) or Some(.B(n)) -> "${n}"
         Some(.C(_)) or None -> "none"
     }
 }
 
-fn whole(e: Ev): String {
+fn whole(e: Ev) -> String {
     case e {
         .A(_) or .B(_) as v -> "numeric " + ev(v)
         .C(_) -> "string"
     }
 }
 
-fn first_num(e: Ev): Int {
+fn first_num(e: Ev) -> Int {
     .A(n) or .B(n) = e else { return -1 }
     n
 }
 
-fn iff(e: Ev): String {
+fn iff(e: Ev) -> String {
     if .A(n) or .B(n) = e {
         "got ${n}"
     } else {
@@ -141,25 +141,25 @@ fn iff(e: Ev): String {
     }
 }
 
-fn plain(t: Two): Int {
+fn plain(t: Two) -> Int {
     .L(n) or .R(n) = t
     n
 }
 
-fn param(.L(n) or .R(n): Two): Int {
+fn param(.L(n) or .R(n): Two) -> Int {
     n + 1
 }
 
-fn tup((x, 0) or (_, x): (Int, Int)): Int {
+fn tup(#(x, 0) or #(_, x): #(Int, Int)) -> Int {
     x
 }
 
-fn fallback(r: Result<Two, String>): Int {
+fn fallback(r: Result<Two, String>) -> Int {
     Ok(.L(n) or .R(n)) = r else { Two.L(0) }
     n
 }
 
-fn fallback_name(r: Result<Int, String>): Int {
+fn fallback_name(r: Result<Int, String>) -> Int {
     Ok(n or n) = r else { 5 }
     n
 }
@@ -185,14 +185,14 @@ fn main() {
     io.print(closer([']', 'a']))
     io.print(closer(['a']))
     io.print(closer(['a', 'b']))
-    io.print(pair((0, 7)))
-    io.print(pair((8, 0)))
-    io.print(pair((2, 3)))
+    io.print(pair(#(0, 7)))
+    io.print(pair(#(8, 0)))
+    io.print(pair(#(2, 3)))
     io.print(field(P{kind: Tri.Isosceles, n: 5}))
     io.print(field(P{kind: Tri.Scalene, n: 2}))
     io.print(field(P{kind: Tri.Scalene, n: 9}))
-    io.print(entry({"k" => 2}))
-    io.print(entry({"k" => 3}))
+    io.print(entry(%{"k" => 2}))
+    io.print(entry(%{"k" => 3}))
     io.print(nested(Some(Ev.B(6))))
     io.print(nested(None))
     io.print(whole(Ev.B(1)))
@@ -202,11 +202,11 @@ fn main() {
     io.print(iff(Ev.C("q")))
     io.print(plain(Two.R(4)))
     io.print(param(Two.L(1)))
-    io.print(tup((5, 0)))
-    io.print(tup((5, 6)))
-    f = |.L(n) or .R(n): Two| n * 2
+    io.print(tup(#(5, 0)))
+    io.print(tup(#(5, 6)))
+    f = fn .L(n) or .R(n): Two -> n * 2
     io.print(f(Two.R(21)))
-    io.print("${[Two.L(1), Two.R(2)] |> Iter.map(|.L(n) or .R(n)| n) |> Iter.to_list()}")
+    io.print("${[Two.L(1), Two.R(2)] |> Iter.map(fn .L(n) or .R(n) -> n) |> Iter.to_list()}")
     io.print(fallback(Ok(Two.R(3))))
     io.print(fallback(Err("x")))
     io.print(fallback_name(Ok(1)))

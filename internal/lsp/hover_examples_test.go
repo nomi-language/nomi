@@ -46,7 +46,7 @@ const manyExamplesSource = `/// Adds one.
 //
 //! assert inc(6) == 7
 //
-fn inc(n: Int): Int {
+fn inc(n: Int) -> Int {
   n + 1
 }
 
@@ -58,7 +58,7 @@ fn main() {
 // A user function's `//!` blocks are separate examples; the hover shows the
 // first five, each in its own block, and counts the rest.
 func TestHover_UserFunctionShowsFiveExamplesAndCountsTheRest(t *testing.T) {
-	want := "```nomi\nfn inc(n: Int): Int\n```\n\nAdds one.\n\n**Examples**\n\n" +
+	want := "```nomi\nfn inc(n: Int) -> Int\n```\n\nAdds one.\n\n**Examples**\n\n" +
 		"```nomi\nassert inc(0) == 1\n```\n\n" +
 		"```nomi\nassert inc(1) == 2\n```\n\n" +
 		"```nomi\nx = inc(2)\n\nassert x == 3\n```\n\n" +
@@ -125,7 +125,7 @@ impl Point {
   /// The origin.
   //! assert Point.origin().x == 0
   //
-  fn origin(): Point {
+  fn origin() -> Point {
     Point{x: 0}
   }
 }
@@ -133,7 +133,7 @@ impl Point {
 impl Display for Point {
   //! assert Display.to_string(Point{x: 2}) == "P2"
   //
-  fn to_string(p: Point): String {
+  fn to_string(p: Point) -> String {
     "P${p.x}"
   }
 }

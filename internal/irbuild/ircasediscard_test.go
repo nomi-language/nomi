@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRCaseDiscard_EffectsWithoutResultStorage(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn source(): Int { io.print("subject") 2 }
+fn source() -> Int { io.print("subject") 2 }
 fn main() {
   case source() {
     1 -> io.print("one")
@@ -41,7 +41,7 @@ fn main() {
 
 func TestIRCaseDiscard_OperandKeepsResultBeforeSubject(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn source(): Int { io.print("subject") 2 }
+fn source() -> Int { io.print("subject") 2 }
 fn main() {
   _ = case source() {
     1 -> "one"
@@ -60,7 +60,7 @@ fn main() {
     Some(xs) -> io.inspect(List.tail(xs))
     None -> io.print("missing")
   }
-  read = || List.head(nested)
+  read = fn -> List.head(nested)
   io.inspect(read())
 }
 `, "Some([2])\nSome([1, 2])\n")

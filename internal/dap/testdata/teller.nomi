@@ -13,8 +13,8 @@ fn teller() {
     io.print("Deposited ${amount}")
 }
 
-fn receipt(): String {
-    io.capture("", || {
+fn receipt() -> String {
+    io.capture("", fn -> {
         io.print("receipt for one deposit")
         "printed"
     }).output

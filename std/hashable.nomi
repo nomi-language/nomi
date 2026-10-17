@@ -20,7 +20,7 @@ import int.Int
 /// }
 ///
 /// impl Hashable for Point {
-///     fn hash(p: Point): Int { Hashable.hash(p.x) + Hashable.hash(p.y) * 31 }
+///     fn hash(p: Point) -> Int { Hashable.hash(p.x) + Hashable.hash(p.y) * 31 }
 /// }
 /// ```
 ///
@@ -28,5 +28,5 @@ import int.Int
 /// field hashes), enums (mixing the variant tag and payload), and distinct
 /// types (delegating to the inner value).
 pub interface Hashable {
-    fn hash(value: self): Int
+    fn hash(value: self) -> Int
 }

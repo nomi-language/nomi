@@ -86,7 +86,7 @@ test "an assertion's value is its subject" {
 }
 
 test "tuple destructuring in a test body" {
-  (a, b) = (3, 4)
+  #(a, b) = #(3, 4)
   assert a * b == 12
 }
 
@@ -144,8 +144,8 @@ ok <path> :: a single-branch case
 func TestIRTestBody_RebindingBesideALambdaRuns(t *testing.T) {
 	const src = `test "a rebinding after a lambda" {
   x = 1
-  seen = || x
-  f = |y: Int| y + 1
+  seen = fn -> x
+  f = fn y: Int -> y + 1
   x = f(x)
   assert x == 2
   assert seen() == 1
@@ -179,8 +179,8 @@ test "std elements sort by std's comparator" {
 // for the statements after it; its own body may rebind its parameters, and a
 // `return` leaves the nested function only.
 func TestIRNestedFn_IsAClosureBoundByName(t *testing.T) {
-	const src = `fn outer(n: Int): Int {
-  fn clamp(x: Int): Int {
+	const src = `fn outer(n: Int) -> Int {
+  fn clamp(x: Int) -> Int {
     if x > n { return n }
     x
   }
@@ -189,7 +189,7 @@ func TestIRNestedFn_IsAClosureBoundByName(t *testing.T) {
 }
 
 test "a nested fn rebinds its parameter" {
-  fn double_then_inc(x: Int): Int {
+  fn double_then_inc(x: Int) -> Int {
     x = x + x
     x = x + 1
     x
@@ -200,7 +200,7 @@ test "a nested fn rebinds its parameter" {
 
 test "a nested fn captures and returns early" {
   limit = 5
-  fn clamp(x: Int): Int {
+  fn clamp(x: Int) -> Int {
     if x > limit { return limit }
     x
   }
@@ -227,15 +227,15 @@ ok <path> :: a nested fn captures and returns early
 func TestIRNestedFn_RecursionRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
-  fn fact(n: Int): Int {
+  fn fact(n: Int) -> Int {
     if n <= 1 { return 1 }
     n * fact(n - 1)
   }
 
   step = 2
-  fn down(n: Int): Int {
+  fn down(n: Int) -> Int {
     if n <= 0 { return 0 }
-    again = |m: Int| down(m)
+    again = fn m: Int -> down(m)
     1 + again(n - step)
   }
 
@@ -251,7 +251,7 @@ fn main() {
 // filled with the closure itself; its body builds no second closure over
 // itself.
 func TestIRNestedFn_RecursionIsASelfCapture(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", "import std/io\nfn main() {\n  fn fact(n: Int): Int {\n    if n <= 1 { return 1 }\n    n * fact(n - 1)\n  }\n\n  io.print(fact(5))\n}\n")
+	p, err := AnalyzeSource("main.nomi", "import std/io\nfn main() {\n  fn fact(n: Int) -> Int {\n    if n <= 1 { return 1 }\n    n * fact(n - 1)\n  }\n\n  io.print(fact(5))\n}\n")
 	if err != nil {
 		t.Fatalf("the front end now rejects this, so nothing below is tested: %v", err)
 	}

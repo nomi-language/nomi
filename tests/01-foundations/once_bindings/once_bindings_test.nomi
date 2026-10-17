@@ -124,10 +124,10 @@ test "compiler hover can assert once signatures with a marker" {
     assert signature == "once default_port: Int = 8080"
 }
 
-fn retry_message(attempt: Int): String {
+fn retry_message(attempt: Int) -> String {
     "Attempt ${attempt} of ${max_retries}"
 }
 
-fn uses_later_value(): Int {
+fn uses_later_value() -> Int {
     later_value + 1
 }

@@ -10,7 +10,7 @@ import (
 // is a payload like any other: `Signal.Ping(Unit)` constructs the variant,
 // `Signal.Ping` is its constructor as a function value, and a pattern spells
 // the payload. Before, the variant was typed as a value, so the call had no
-// type and a tuple holding it was a `(Unit, String)`. An `embeds` of a
+// type and a tuple holding it was a `#(Unit, String)`. An `embeds` of a
 // zero-sized type is still the variant's one value.
 func TestZeroSizedPositionalPayload_IsAPayload(t *testing.T) {
 	errs := checkWithStdlib(`
@@ -26,7 +26,7 @@ enum Signal {
 }
 
 fn main() {
-  pairs: List<(Signal, String)> = [(Signal.Ping(Unit), "a"), (Signal.Stop, "b")]
+  pairs: List<#(Signal, String)> = [#(Signal.Ping(Unit), "a"), #(Signal.Stop, "b")]
   _ = pairs
   _ = Signal.Marked(Mark)
   _ = Signal.Expired

@@ -22,7 +22,7 @@ import {
     std/timer
 }
 
-fn boom(n: Int): Int {
+fn boom(n: Int) -> Int {
     timer.sleep(Duration.minutes(10))
     100 / n
 }

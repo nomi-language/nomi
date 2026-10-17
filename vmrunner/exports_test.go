@@ -52,25 +52,25 @@ derive FromJson for Outcome
 
 once alphabet = load_alphabet()
 
-fn load_alphabet(): String {
+fn load_alphabet() -> String {
     io.print("loading the alphabet")
     "abcdefghijklmnopqrstuvwxyz"
 }
 
-export fn new_game(word: String): Game {
+export fn new_game(word: String) -> Game {
     Game{word, guesses: []}
 }
 
-export fn guess(game: Game, letter: String): Game {
+export fn guess(game: Game, letter: String) -> Game {
     {..game, guesses: [letter, ..game.guesses]}
 }
 
-export fn outcome(game: Game): Outcome {
+export fn outcome(game: Game) -> Outcome {
     left = 6 - Iter.count(game.guesses)
     if left <= 0 { Outcome.Lost } else { Outcome.Playing{left} }
 }
 
-export fn describe(o: Outcome): String {
+export fn describe(o: Outcome) -> String {
     case o {
         Outcome.Won -> "won"
         Outcome.Lost -> "lost"
@@ -78,11 +78,11 @@ export fn describe(o: Outcome): String {
     }
 }
 
-export fn divide(a: Int, b: Int): Int {
+export fn divide(a: Int, b: Int) -> Int {
     a / b
 }
 
-export fn huge(): Int {
+export fn huge() -> Int {
     9007199254740993
 }
 
@@ -90,15 +90,15 @@ export fn shout(text: String) {
     io.print(String.to_upper(text))
 }
 
-export fn letters(): Int {
+export fn letters() -> Int {
     String.length(alphabet)
 }
 
-export fn mean(xs: List<Float>): Float {
-    Iter.reduce(xs, |sum = 0.0, x| sum + x) / Int.to_float(Iter.count(xs))
+export fn mean(xs: List<Float>) -> Float {
+    Iter.reduce(xs, fn sum = 0.0, x -> sum + x) / Int.to_float(Iter.count(xs))
 }
 
-export fn unique(xs: Vector<String>): Set<String> {
+export fn unique(xs: Vector<String>) -> Set<String> {
     Iter.to_set(xs)
 }
 `
@@ -171,11 +171,11 @@ func TestInstance_EachFailureIsAnErrorAndTheNextCallRuns(t *testing.T) {
 		t.Fatalf("divide after a trap answered %s", got)
 	}
 	callFails(t, in, "nope", `[]`, "no exported function `nope`; the exported functions are describe, divide, guess, huge, letters, mean, new_game, outcome, shout, unique")
-	callFails(t, in, "divide", `[1]`, "`divide(a: Int, b: Int): Int` takes 2 arguments, and was called with 1")
-	callFails(t, in, "divide", `{"a": 1}`, "the arguments to `divide(a: Int, b: Int): Int` must be a JSON array")
-	callFails(t, in, "divide", `[1, "2"]`, "argument `b` of `divide(a: Int, b: Int): Int`: expected int, got string")
-	callFails(t, in, "guess", `[{"word": "x"}, "e"]`, "argument `game` of `guess(game: Game, letter: String): Game`: guesses: expected List<String>, got missing")
-	callFails(t, in, "describe", `["Drawn"]`, `argument `+"`o`"+` of `+"`describe(o: Outcome): String`"+`: expected Outcome, got "Drawn"`)
+	callFails(t, in, "divide", `[1]`, "`divide(a: Int, b: Int) -> Int` takes 2 arguments, and was called with 1")
+	callFails(t, in, "divide", `{"a": 1}`, "the arguments to `divide(a: Int, b: Int) -> Int` must be a JSON array")
+	callFails(t, in, "divide", `[1, "2"]`, "argument `b` of `divide(a: Int, b: Int) -> Int`: expected int, got string")
+	callFails(t, in, "guess", `[{"word": "x"}, "e"]`, "argument `game` of `guess(game: Game, letter: String) -> Game`: guesses: expected List<String>, got missing")
+	callFails(t, in, "describe", `["Drawn"]`, `argument `+"`o`"+` of `+"`describe(o: Outcome) -> String`"+`: expected Outcome, got "Drawn"`)
 	callFails(t, in, "huge", `[]`, "the result of `huge` holds the Int 9007199254740993, outside ±2^53: a JSON number cannot hold it exactly")
 	if got := call(t, in, "new_game", `["ok"]`); got != `{"word":"ok","guesses":[]}` {
 		t.Fatalf("new_game after the failures answered %s", got)
@@ -198,8 +198,8 @@ func TestInstance_PrintsAndSharesOnceValuesAcrossCalls(t *testing.T) {
 }
 
 func TestInstance_RunsMainFirst(t *testing.T) {
-	src := "import std/io\n\nonce count = counted()\n\nfn counted(): Int {\n    io.print(\"counted\")\n    3\n}\n\n" +
-		"fn main() {\n    io.print(\"main ${count}\")\n}\n\nexport fn twice(): Int {\n    count * 2\n}\n"
+	src := "import std/io\n\nonce count = counted()\n\nfn counted() -> Int {\n    io.print(\"counted\")\n    3\n}\n\n" +
+		"fn main() {\n    io.print(\"main ${count}\")\n}\n\nexport fn twice() -> Int {\n    count * 2\n}\n"
 	in, out := start(t, src)
 	if got := call(t, in, "twice", `[]`); got != "6" {
 		t.Fatalf("twice answered %s", got)
@@ -207,13 +207,13 @@ func TestInstance_RunsMainFirst(t *testing.T) {
 	if out.String() != "counted\nmain 3\n" {
 		t.Fatalf("output %q", out.String())
 	}
-	if ex := in.Exports(); len(ex) != 1 || ex[0].Signature != "twice(): Int" {
+	if ex := in.Exports(); len(ex) != 1 || ex[0].Signature != "twice() -> Int" {
 		t.Fatalf("exports %+v", ex)
 	}
 }
 
 func TestInstance_AFailingMainIsTheStartError(t *testing.T) {
-	src := "fn main(): Result<Unit, String> {\n    Err(\"no setup\")\n}\n\nexport fn one(): Int {\n    1\n}\n"
+	src := "fn main() -> Result<Unit, String> {\n    Err(\"no setup\")\n}\n\nexport fn one() -> Int {\n    1\n}\n"
 	var out, errOut bytes.Buffer
 	_, err := vmrunner.Start(webImage(t, src), &out, &errOut, nil)
 	if err == nil || err.Error() != "error: no setup" {
@@ -227,8 +227,8 @@ func TestInstance_ExportsListsSignatures(t *testing.T) {
 	for _, e := range in.Exports() {
 		got = append(got, e.Signature)
 	}
-	want := "new_game(word: String): Game; guess(game: Game, letter: String): Game; outcome(game: Game): Outcome; " +
-		"describe(o: Outcome): String; divide(a: Int, b: Int): Int; huge(): Int; shout(text: String); letters(): Int; mean(xs: List<Float>): Float; unique(xs: Vector<String>): Set<String>"
+	want := "new_game(word: String) -> Game; guess(game: Game, letter: String) -> Game; outcome(game: Game) -> Outcome; " +
+		"describe(o: Outcome) -> String; divide(a: Int, b: Int) -> Int; huge() -> Int; shout(text: String); letters() -> Int; mean(xs: List<Float>) -> Float; unique(xs: Vector<String>) -> Set<String>"
 	if strings.Join(got, "; ") != want {
 		t.Fatalf("exports\n%s\nwant\n%s", strings.Join(got, "; "), want)
 	}
@@ -238,7 +238,7 @@ func TestInstance_ExportsListsSignatures(t *testing.T) {
 // often as it is asked, on the booted program.
 func TestInstance_BootLeavesMainToTheHost(t *testing.T) {
 	src := "import std/io\n\nfn main() {\n    case io.read_line() {\n        Ok(line) -> io.print(\"main read ${line}\")\n        Err(_) -> io.print(\"main read nothing\")\n    }\n}\n\n" +
-		"export fn one(): Int {\n    1\n}\n"
+		"export fn one() -> Int {\n    1\n}\n"
 	var out, errOut bytes.Buffer
 	in, err := vmrunner.Boot(webImage(t, src), &out, &errOut, strings.NewReader("a line\n"), nil)
 	if err != nil {

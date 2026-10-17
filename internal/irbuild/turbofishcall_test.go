@@ -12,19 +12,19 @@ func TestTurbofishCall_RunsAtTheCheckedSignature(t *testing.T) {
 
 type TraceId String
 
-fn ident<T>(x: T): T {
+fn ident<T>(x: T) -> T {
     x
 }
 
 fn main() {
-    fn twice<T>(x: T): List<T> {
+    fn twice<T>(x: T) -> List<T> {
         [x, x]
     }
-    c = io.capture<Int>("", || 1)
+    c = io.capture<Int>("", fn -> 1)
     io.inspect(c.value)
     io.inspect(Maybe.collect<Int>([None, None]))
     io.inspect(Maybe.collect<Int>([Some(1)]))
-    io.inspect(Maybe.map<Int, String>(Some(1), |x| "${x}"))
+    io.inspect(Maybe.map<Int, String>(Some(1), fn x -> "${x}"))
     ctx = Context.with_value(Context.root(), TraceId("t"))
     io.inspect(Context.value<TraceId>(ctx, TraceId))
     io.inspect(ident<Int>(3))
@@ -45,7 +45,7 @@ fn main() {
     io.print(Iter.sum<List<Int>>([[1], [2]]))
     io.print(Iter.count<Int>([]))
     io.print(Iter.max<Int>([]) == None)
-    io.print(Iter.map<Int, Int>([1], |x| x + 1) |> Iter.to_list())
+    io.print(Iter.map<Int, Int>([1], fn x -> x + 1) |> Iter.to_list())
 }
 `, "0\n[1, 2]\n0\nTrue\n[2]\n")
 }

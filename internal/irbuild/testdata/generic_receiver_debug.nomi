@@ -66,33 +66,33 @@ derive Debug for Pt
 // shape with the seed replaced by an Int. Present at two instantiations for the
 // collapse pin.
 struct Gen<T> {
-    run: (Int) -> (T, Int)
+    run: (Int) -> #(T, Int)
 }
 
 // The MONOMORPHIC twin. A call through a function-valued field is the same
 // operation with genericity removed, so a fixture carrying only the generic
 // form would leave the general half unpinned.
 struct Mono {
-    run: (Int) -> (Int, Int)
+    run: (Int) -> #(Int, Int)
 }
 
-fn int_gen(): Gen<Int> {
-    Gen{run: |s| (s + 1, s)}
+fn int_gen() -> Gen<Int> {
+    Gen{run: fn s -> #(s + 1, s)}
 }
 
-fn text_gen(): Gen<String> {
-    Gen{run: |s| ("v${s}", s)}
+fn text_gen() -> Gen<String> {
+    Gen{run: fn s -> #("v${s}", s)}
 }
 
-fn mono(): Mono {
-    Mono{run: |s| (s * 2, s)}
+fn mono() -> Mono {
+    Mono{run: fn s -> #(s * 2, s)}
 }
 
-fn cancelled_int(): Outcome<Int> {
+fn cancelled_int() -> Outcome<Int> {
     Outcome.Cancelled
 }
 
-fn cancelled_text(): Outcome<String> {
+fn cancelled_text() -> Outcome<String> {
     Outcome.Cancelled
 }
 
@@ -138,15 +138,15 @@ fn main() {
 
     // --- a function-valued field, called ---------------------------------
     ig = int_gen()
-    (n, seed) = ig.run(1)
-    io.print(Debug.inspect((n, seed)))
+    #(n, seed) = ig.run(1)
+    io.print(Debug.inspect(#(n, seed)))
 
     tg = text_gen()
-    (s, _) = tg.run(4)
+    #(s, _) = tg.run(4)
     io.print(Debug.inspect(s))
 
     m = mono()
-    (d, _) = m.run(21)
+    #(d, _) = m.run(21)
     io.print(Debug.inspect(d))
 
     // --- the TWO SPELLINGS of one operation ------------------------------

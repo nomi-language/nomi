@@ -4,12 +4,12 @@ pub struct Widget {
     weight: Int
 }
 
-pub fn make(weight: Int): Widget {
+pub fn make(weight: Int) -> Widget {
     Widget{weight}
 }
 
 impl Comparable for Widget {
-    fn compare(a: Widget, b: Widget): Ordering {
+    fn compare(a: Widget, b: Widget) -> Ordering {
         Int.compare(a.weight, b.weight)
     }
 }
@@ -42,11 +42,11 @@ impl Comparable for Widget {
 // And an interface-qualified call CAN name which one it wants, so `Ranked.compare`
 // is resolvable where `Widget.compare` is not.
 pub interface Ranked {
-    fn compare(a: self, b: self): Ordering
+    fn compare(a: self, b: self) -> Ordering
 }
 
 impl Ranked for Widget {
-    fn compare(a: Widget, b: Widget): Ordering {
+    fn compare(a: Widget, b: Widget) -> Ordering {
         Int.compare(b.weight, a.weight)
     }
 }
@@ -59,12 +59,12 @@ pub struct Backwards {
     n: Int
 }
 
-pub fn back(n: Int): Backwards {
+pub fn back(n: Int) -> Backwards {
     Backwards{n}
 }
 
 impl Comparable for Backwards {
-    fn compare(a: Backwards, b: Backwards): Ordering {
+    fn compare(a: Backwards, b: Backwards) -> Ordering {
         Int.compare(b.n, a.n)
     }
 }
@@ -77,12 +77,12 @@ pub struct Unordered {
     tag: String
 }
 
-pub fn plain(tag: String): Unordered {
+pub fn plain(tag: String) -> Unordered {
     Unordered{tag}
 }
 
 impl Equatable for Unordered {
-    fn equal?(a: Unordered, b: Unordered): Bool {
+    fn equal?(a: Unordered, b: Unordered) -> Bool {
         a.tag == b.tag
     }
 }

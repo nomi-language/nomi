@@ -21,52 +21,52 @@ enum Shape {
 }
 
 impl Display for Circle {
-  fn to_string(_c: Circle): String {
+  fn to_string(_c: Circle) -> String {
     "circle-display"
   }
 }
 
 impl Display for Shape {
-  fn to_string(_s: Shape): String {
+  fn to_string(_s: Shape) -> String {
     "shape-display"
   }
 }
 
 impl Debug for Circle {
-  fn inspect(_c: Circle): String {
+  fn inspect(_c: Circle) -> String {
     "circle-debug"
   }
 }
 
 impl Debug for Shape {
-  fn inspect(_s: Shape): String {
+  fn inspect(_s: Shape) -> String {
     "shape-debug"
   }
 }
 
 impl Equatable for Circle {
-  fn equal?(_a: Circle, _b: Circle): Bool {
+  fn equal?(_a: Circle, _b: Circle) -> Bool {
     io.print("circle-eq")
     True
   }
 }
 
 impl Equatable for Shape {
-  fn equal?(_a: Shape, _b: Shape): Bool {
+  fn equal?(_a: Shape, _b: Shape) -> Bool {
     io.print("shape-eq")
     True
   }
 }
 
 impl Comparable for Circle {
-  fn compare(_a: Circle, _b: Circle): Ordering {
+  fn compare(_a: Circle, _b: Circle) -> Ordering {
     io.print("circle-cmp")
     Ordering.Equal
   }
 }
 
 impl Comparable for Shape {
-  fn compare(_a: Shape, _b: Shape): Ordering {
+  fn compare(_a: Shape, _b: Shape) -> Ordering {
     io.print("shape-cmp")
     Ordering.Less
   }
@@ -78,11 +78,11 @@ impl Comparable for Shape {
 // a binding, a declared result and a parameter, each dispatching through the
 // enum.
 func TestIREmbedsDispatch_StaticTypeDecides(t *testing.T) {
-	verifyLambdaProgram(t, embedsDispatchDecls+`fn make(): Shape {
+	verifyLambdaProgram(t, embedsDispatchDecls+`fn make() -> Shape {
   Circle{radius: 2.0}
 }
 
-fn same(a: Shape, b: Shape): Bool {
+fn same(a: Shape, b: Shape) -> Bool {
   Equatable.equal?(a, b)
 }
 

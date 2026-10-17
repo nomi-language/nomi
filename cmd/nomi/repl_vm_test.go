@@ -33,18 +33,18 @@ func replExpect(t *testing.T, script, wantOut string, wantErrs ...string) {
 }
 
 func TestReplVM_BindingsCarryBetweenInputs(t *testing.T) {
-	replExpect(t, "x = 5\nx + 1\n(a, b) = (x, \"two\")\nb\na * 2\n[1, 2, 3]\n",
+	replExpect(t, "x = 5\nx + 1\n#(a, b) = #(x, \"two\")\nb\na * 2\n[1, 2, 3]\n",
 		"6\n\"two\"\n10\n[1, 2, 3]\n")
 }
 
 func TestReplVM_AFunctionDefinedEarlierIsCalledLater(t *testing.T) {
-	replExpect(t, "fn double(n: Int): Int {\n  n * 2\n}\ndouble(21)\nx = double(2)\nx\n",
+	replExpect(t, "fn double(n: Int) -> Int {\n  n * 2\n}\ndouble(21)\nx = double(2)\nx\n",
 		"42\n4\n")
 }
 
 func TestReplVM_ATypeDefinedEarlierIsUsedLater(t *testing.T) {
 	replExpect(t, "struct Point {\n  x: Int\n  y: Int\n}\n"+
-		"impl Point {\n  pub fn sum(p: Point): Int {\n    p.x + p.y\n  }\n}\n"+
+		"impl Point {\n  pub fn sum(p: Point) -> Int {\n    p.x + p.y\n  }\n}\n"+
 		"p = Point{x: 1, y: 2}\nPoint.sum(p)\np.y\n",
 		"3\n2\n")
 }
@@ -53,7 +53,7 @@ func TestReplVM_ATypeDefinedEarlierIsUsedLater(t *testing.T) {
 // stored value: the effect in its initializer does not repeat.
 func TestReplVM_AnEffectHappensOnce(t *testing.T) {
 	replExpect(t, "import std/io\n"+
-		"fn noisy(): Int {\n  io.print(\"computed\")\n  7\n}\n"+
+		"fn noisy() -> Int {\n  io.print(\"computed\")\n  7\n}\n"+
 		"v = noisy()\nv + 1\nv + 2\nonce o = noisy() * 10\no\no + 1\n",
 		"computed\n8\n9\ncomputed\n70\n71\n")
 }
@@ -66,7 +66,7 @@ func TestReplVM_ABindingShadowsForLaterInputs(t *testing.T) {
 // A closure keeps the value it captured when it was built; rebinding the
 // name later does not reach it.
 func TestReplVM_AClosureKeepsItsCapturedValue(t *testing.T) {
-	replExpect(t, "k = 10\nadd = |n: Int| n + k\nk = 100\nadd(1)\ng = add\ng(0)\nk\n",
+	replExpect(t, "k = 10\nadd = fn n: Int -> n + k\nk = 100\nadd(1)\ng = add\ng(0)\nk\n",
 		"11\n10\n100\n")
 }
 
@@ -81,16 +81,16 @@ func TestReplVM_AnErrorDoesNotPoisonTheSession(t *testing.T) {
 // A redefinition applies to later inputs only: an earlier function that
 // calls the old definition keeps calling it, whatever the new one's type.
 func TestReplVM_RedefinitionsApplyToLaterInputs(t *testing.T) {
-	replExpect(t, "fn f(): Int {\n  1\n}\nfn g(): Int {\n  f() + 1\n}\n"+
-		"fn f(): String {\n  \"s\"\n}\ng()\nf()\nfn f(): Int {\n  10\n}\ng()\n"+
-		"fn h(): Int {\n  f() + 1\n}\nh()\n",
+	replExpect(t, "fn f() -> Int {\n  1\n}\nfn g() -> Int {\n  f() + 1\n}\n"+
+		"fn f() -> String {\n  \"s\"\n}\ng()\nf()\nfn f() -> Int {\n  10\n}\ng()\n"+
+		"fn h() -> Int {\n  f() + 1\n}\nh()\n",
 		"2\n\"s\"\n2\n11\n")
 }
 
 // A redefinition the front end rejects is reported and the earlier
 // definition stays.
 func TestReplVM_ARejectedRedefinitionChangesNothing(t *testing.T) {
-	replExpect(t, "fn f(): Int {\n  1\n}\nfn f(): Int {\n  \"s\"\n}\nf()\n",
+	replExpect(t, "fn f() -> Int {\n  1\n}\nfn f() -> Int {\n  \"s\"\n}\nf()\n",
 		"1\n",
 		"line 2, col 3: return type mismatch: expected Int, got String")
 }
@@ -98,17 +98,17 @@ func TestReplVM_ARejectedRedefinitionChangesNothing(t *testing.T) {
 // A function reads the value a name had when the function was entered, as
 // in a file: rebinding the name later reaches later inputs only.
 func TestReplVM_AFunctionKeepsTheBindingItWasWrittenAgainst(t *testing.T) {
-	replExpect(t, "x = 5\nfn add(a: Int): Int {\n  a + x\n}\nadd(1)\nx = 100\nadd(1)\nx\n"+
-		"fn add2(a: Int): Int {\n  a + x\n}\nadd2(1)\nadd(1)\n",
+	replExpect(t, "x = 5\nfn add(a: Int) -> Int {\n  a + x\n}\nadd(1)\nx = 100\nadd(1)\nx\n"+
+		"fn add2(a: Int) -> Int {\n  a + x\n}\nadd2(1)\nadd(1)\n",
 		"6\n6\n100\n101\n6\n")
 }
 
 // A recursive function redefined keeps its old version's recursion for an
 // earlier caller.
 func TestReplVM_ARecursiveFunctionIsVersionedWhole(t *testing.T) {
-	replExpect(t, "fn count(n: Int): Int {\n  if n == 0 {\n    0\n  } else {\n    1 + count(n - 1)\n  }\n}\n"+
-		"fn use_count(): Int {\n  count(3)\n}\n"+
-		"fn count(n: Int): Int {\n  if n == 0 {\n    0\n  } else {\n    10 + count(n - 1)\n  }\n}\n"+
+	replExpect(t, "fn count(n: Int) -> Int {\n  if n == 0 {\n    0\n  } else {\n    1 + count(n - 1)\n  }\n}\n"+
+		"fn use_count() -> Int {\n  count(3)\n}\n"+
+		"fn count(n: Int) -> Int {\n  if n == 0 {\n    0\n  } else {\n    10 + count(n - 1)\n  }\n}\n"+
 		"use_count()\ncount(3)\n",
 		"3\n30\n")
 }
@@ -116,8 +116,8 @@ func TestReplVM_ARecursiveFunctionIsVersionedWhole(t *testing.T) {
 // A function value held in a session value is callable from a later
 // function, and rebinding the name does not reach that function.
 func TestReplVM_AFunctionValuedBindingIsUsedByALaterFunction(t *testing.T) {
-	replExpect(t, "inc = |n: Int| n + 1\nfn twice(n: Int): Int {\n  inc(inc(n))\n}\ntwice(1)\n"+
-		"inc = |n: Int| n + 100\ntwice(1)\ninc(1)\nop = twice\nop(0)\n",
+	replExpect(t, "inc = fn n: Int -> n + 1\nfn twice(n: Int) -> Int {\n  inc(inc(n))\n}\ntwice(1)\n"+
+		"inc = fn n: Int -> n + 100\ntwice(1)\ninc(1)\nop = twice\nop(0)\n",
 		"3\n3\n101\n2\n")
 }
 
@@ -125,8 +125,8 @@ func TestReplVM_AFunctionValuedBindingIsUsedByALaterFunction(t *testing.T) {
 // never again.
 func TestReplVM_AOnceIsForcedOnFirstUse(t *testing.T) {
 	replExpect(t, "import std/io\n"+
-		"fn noisy(): Int {\n  io.print(\"computed\")\n  7\n}\n"+
-		"once o = noisy()\n1\nfn plus(n: Int): Int {\n  n + o\n}\nplus(1)\no\nonce o = 100\no\nplus(1)\n"+
+		"fn noisy() -> Int {\n  io.print(\"computed\")\n  7\n}\n"+
+		"once o = noisy()\n1\nfn plus(n: Int) -> Int {\n  n + o\n}\nplus(1)\no\nonce o = 100\no\nplus(1)\n"+
 		"once f: (Int) -> Int = plus\nf(2)\n",
 		"1\ncomputed\n8\n7\n100\n8\n9\n")
 }
@@ -134,8 +134,8 @@ func TestReplVM_AOnceIsForcedOnFirstUse(t *testing.T) {
 // Redeclaring a type drops the functions that name it, and the definitions
 // that use those; an identical redeclaration drops nothing.
 func TestReplVM_RedeclaringATypeDropsItsFunctions(t *testing.T) {
-	replExpect(t, "struct P {\n  x: Int\n}\nfn px(p: P): Int {\n  p.x\n}\nfn one(): Int {\n  px(P{x: 1})\n}\n"+
-		"fn other(): Int {\n  2\n}\n"+
+	replExpect(t, "struct P {\n  x: Int\n}\nfn px(p: P) -> Int {\n  p.x\n}\nfn one() -> Int {\n  px(P{x: 1})\n}\n"+
+		"fn other() -> Int {\n  2\n}\n"+
 		"struct P {\n  x: Int\n}\none()\nstruct P {\n  y: Int\n}\nother()\none()\n",
 		"1\n2\n",
 		"note: one is no longer in scope", "note: px is no longer in scope", "undefined")
@@ -150,10 +150,10 @@ func TestReplVM_RedeclaringATypeDropsItsValues(t *testing.T) {
 
 // replBlockedDecls declares `count`, which the builder declines under
 // plantDecline at its call to `planted_decline`.
-const replBlockedDecls = `fn planted_decline(n: Int): Int {
+const replBlockedDecls = `fn planted_decline(n: Int) -> Int {
   n
 }
-fn count(n: Int, acc: Int): Int {
+fn count(n: Int, acc: Int) -> Int {
   if n == 0 {
     acc
   } else {
@@ -185,7 +185,7 @@ func TestReplVM_AnImportIsUsedByLaterInputs(t *testing.T) {
 
 // replPlantedDecl declares `planted_decline`, every call to which the builder
 // declines under plantDecline.
-const replPlantedDecl = "fn planted_decline(n: Int): Int {\n  n\n}\n"
+const replPlantedDecl = "fn planted_decline(n: Int) -> Int {\n  n\n}\n"
 
 // An input whose `main` the builder declines, and which therefore lowers no
 // entry module at all, is reported BLOCKED and commits nothing. It crashed
@@ -259,7 +259,7 @@ func TestReplVM_AValueThatCannotBeKeptIsReported(t *testing.T) {
 // A lazy Iter is a value like any other: it is kept, and each later input
 // runs it from its start.
 func TestReplVM_ALazyIterIsKept(t *testing.T) {
-	replExpect(t, "it = [1, 2] |> Iter.map(|v| v + 1)\nIter.to_list(it)\nIter.to_list(it)\n",
+	replExpect(t, "it = [1, 2] |> Iter.map(fn v -> v + 1)\nIter.to_list(it)\nIter.to_list(it)\n",
 		"[2, 3]\n[2, 3]\n")
 }
 
@@ -276,7 +276,7 @@ func TestReplVM_ErrorsNameOlderDefinitionsByTheUsersName(t *testing.T) {
 
 // An error names the input's own line, not the generated program's.
 func TestReplVM_ErrorsNameTheInputsLine(t *testing.T) {
-	_, errOut := replRun(t, "x = 1\nfn f(): Int {\n  1\n  missing_name\n}\n")
+	_, errOut := replRun(t, "x = 1\nfn f() -> Int {\n  1\n  missing_name\n}\n")
 	if !strings.Contains(errOut, "line 3, col 3: undefined variable 'missing_name'") {
 		t.Errorf("stderr:\n%s", errOut)
 	}
@@ -285,7 +285,7 @@ func TestReplVM_ErrorsNameTheInputsLine(t *testing.T) {
 // A `todo` reached in an input is reported at the input's line, one in an
 // earlier input's function as a fault is, and the session goes on.
 func TestReplVM_ATodoIsReportedAndTheSessionGoesOn(t *testing.T) {
-	replExpect(t, "n: Int = todo \"now\"\nfn f(n: Int): Int {\n  todo \"later\"\n}\nf(1)\n2 + 2\n",
+	replExpect(t, "n: Int = todo \"now\"\nfn f(n: Int) -> Int {\n  todo \"later\"\n}\nf(1)\n2 + 2\n",
 		"4\n",
 		"todo reached at repl.nomi:1: now",
 		"todo reached at repl.nomi:3 (an earlier input's declaration): later")

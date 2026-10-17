@@ -42,12 +42,12 @@
 //     about how `assert 1 == 1` reads.
 import std/assertions.AssertionFailure
 
-fn checked_equal(a: Int, b: Int): Result<Unit, AssertionFailure> {
+fn checked_equal(a: Int, b: Int) -> Result<Unit, AssertionFailure> {
     assert a == b
     Ok(Unit)
 }
 
-fn first_pair(xs: List<Int>): Result<Unit, AssertionFailure> {
+fn first_pair(xs: List<Int>) -> Result<Unit, AssertionFailure> {
     assert [_, _] = xs
     Ok(Unit)
 }

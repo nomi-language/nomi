@@ -14,12 +14,12 @@
 // the other rows are the cases that require it:
 //
 //	double, a module fn ref        hidden: <func: double> repeats the name
-//	|x| x + 1                     dropped: rt.RecordOperand suppresses a
+//	fn x -> x + 1                 dropped: rt.RecordOperand suppresses a
 //	                              lambda
 //	g = double, read through g     <func: double>       NOT <func: g>
 //	String.trim, a std method ref  <builtin: strings.String.trim>
 //	Token.Computation(double)      Computation(<func: double>)
-//	Token.Computation(|x| x + 1)   Computation(<func: <lambda>>)
+//	Token.Computation(fn x -> x + 1)   Computation(<func: <lambda>>)
 //
 // Row three is the one that rules out reading the ident's own text: the answer is
 // the name of the value `g` HOLDS. Row four is a THIRD format under a different
@@ -35,15 +35,15 @@
 // correct precisely because a lambda's pointer is not any registered function's.
 // A build that registered lambdas, or that failed to register the std
 // thunk, shows up as a wrong string HERE.
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 
-fn apply(f: (Int) -> Int, x: Int): Int {
+fn apply(f: (Int) -> Int, x: Int) -> Int {
     f(x)
 }
 
-fn takes_s(f: (String) -> String, x: String): String {
+fn takes_s(f: (String) -> String, x: String) -> String {
     f(x)
 }
 
@@ -60,7 +60,7 @@ enum Token {
     Word String
 }
 
-fn run(t: Token): Int {
+fn run(t: Token) -> Int {
     case t {
         Token.Computation(f) -> f(5)
         _ -> 0
@@ -74,7 +74,7 @@ test "a module function reference has no row, since it would only name itself" {
 test "a lambda literal argument is not recorded at all" {
     // rt.RecordOperand drops it; the row that survives is the CALL's, not the
     // lambda's.
-    assert apply(|x| x + 1, 7) == 99
+    assert apply(fn x -> x + 1, 7) == 99
 }
 
 test "a binding holding a function names the VALUE, not the binding" {
@@ -92,7 +92,7 @@ test "a function inside a runtime enum payload carries its name" {
 }
 
 test "a lambda inside a runtime enum payload is the registry MISS" {
-    t = Token.Computation(|x| x + 1)
+    t = Token.Computation(fn x -> x + 1)
     assert run(t) == 99
 }
 

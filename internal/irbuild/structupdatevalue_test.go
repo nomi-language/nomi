@@ -18,12 +18,12 @@ struct User {
     tags: List<String>
 }
 
-fn older(): {age: Int} {
+fn older() -> {age: Int} {
     io.print("patch")
     {age: 40}
 }
 
-fn base(): User {
+fn base() -> User {
     io.print("base")
     User{name: "z", age: 0, tags: ["t"]}
 }
@@ -36,7 +36,7 @@ fn main() {
     io.inspect(Struct.update(updates: older(), original: base()))
     both = {age: 2, name: "c"}
     io.inspect(Struct.update(original: u, updates: both))
-    p = (1, {tags: ["x", "y"]})
+    p = #(1, {tags: ["x", "y"]})
     io.inspect(Struct.update(u, p.1))
     cleared: {tags: List<String>} = {tags: []}
     io.inspect(Struct.update(u, cleared))

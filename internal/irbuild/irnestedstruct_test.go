@@ -48,15 +48,15 @@ struct Person {
   address: Address
 }
 
-fn relocate(p: Person, city: String): Person {
+fn relocate(p: Person, city: String) -> Person {
   {..p, address: {..p.address, city: city}, age: p.age + 1}
 }
 
-fn city_of(p: Person): String {
+fn city_of(p: Person) -> String {
   p.address.city
 }
 
-fn shout(s: String): String {
+fn shout(s: String) -> String {
   io.print("shout " + s)
   s + "!"
 }

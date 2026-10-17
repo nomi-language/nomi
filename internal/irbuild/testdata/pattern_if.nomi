@@ -16,7 +16,7 @@ enum Shape {
 
 /// The two-armed form. Nothing subtle; it is the control the rest are read
 /// against.
-fn label(m: Maybe<String>): String {
+fn label(m: Maybe<String>) -> String {
     if Some(name) = m { name } else { "unknown" }
 }
 
@@ -26,7 +26,7 @@ fn label(m: Maybe<String>): String {
 /// else whose then-arm is not Unit is a front-end error (if_else_test.nomi's
 /// "if without else returns Unit"), so Unit is the only answer it can have and
 /// the assertion is that the MISS produces one too.
-fn side_effect(m: Maybe<Int>): Bool {
+fn side_effect(m: Maybe<Int>) -> Bool {
     result = if Some(n) = m { io.print("hit ${n}") }
 
     io.print("after")
@@ -37,7 +37,7 @@ fn side_effect(m: Maybe<Int>): Bool {
 /// pattern, then a literal test at the bottom that MISSES on the second call.
 /// An `else` attached to the outermost block instead of a labeled break would
 /// run the then-arm's tail after a deep miss.
-fn deep(s: Maybe<Shape>): String {
+fn deep(s: Maybe<Shape>) -> String {
     if Some(Shape.Circle{radius: 5}) = s {
         "unit circle"
     } else {
@@ -48,14 +48,14 @@ fn deep(s: Maybe<Shape>): String {
 /// The subject is evaluated ONCE and unconditionally, even when the pattern
 /// misses. The print is the assertion: exactly one line per call, and it appears
 /// for the miss too.
-fn noisy(n: Int): Maybe<Int> {
+fn noisy(n: Int) -> Maybe<Int> {
     io.print("subject ${n}")
     if n > 0 { return Some(n) }
 
     None
 }
 
-fn once_only(n: Int): String {
+fn once_only(n: Int) -> String {
     if Some(v) = noisy(n) {
         "got ${v}"
     } else {
@@ -66,7 +66,7 @@ fn once_only(n: Int): String {
 /// A pattern-if whose else arm is another pattern-if, then a Bool `else if`,
 /// then a plain else. Four arms, one destination, and the bindings of each arm
 /// must not be visible in the next.
-fn chain(a: Maybe<Int>, b: Maybe<String>, n: Int): String {
+fn chain(a: Maybe<Int>, b: Maybe<String>, n: Int) -> String {
     if Some(x) = a {
         "a=${x}"
     } else if Some(y) = b {
@@ -82,15 +82,15 @@ fn chain(a: Maybe<Int>, b: Maybe<String>, n: Int): String {
 /// has its own control flow, so a `break` that targeted it would be swallowed
 /// and the loop would spin forever. This pins that the `break` leaves the
 /// loop.
-fn first_hit(start: Int): Int {
-    loop(|state = start| {
+fn first_hit(start: Int) -> Int {
+    loop(fn state = start -> {
         if Some(v) = halve(state) { break v }
 
         state - 1
     })
 }
 
-fn halve(n: Int): Maybe<Int> {
+fn halve(n: Int) -> Maybe<Int> {
     if n == 4 { return Some(n / 2) }
 
     None
@@ -100,8 +100,8 @@ fn halve(n: Int): Maybe<Int> {
 /// `return` is lambda-scoped, so this must leave the
 /// LAMBDA and not the enclosing function — the caller's own answer is appended
 /// after it, which is what proves it.
-fn in_lambda(m: Maybe<Int>): String {
-    f = |v: Maybe<Int>| {
+fn in_lambda(m: Maybe<Int>) -> String {
+    f = fn v: Maybe<Int> -> {
         if Some(n) = v { return "lambda:${n}" }
 
         "lambda:none"

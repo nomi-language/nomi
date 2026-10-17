@@ -15,28 +15,28 @@ struct Point {
 }
 
 impl Display for Point {
-    fn to_string(p: Point): String {
+    fn to_string(p: Point) -> String {
         "(${p.x}, ${p.y})"
     }
 }
 
-fn ident<T>(x: T): T {
+fn ident<T>(x: T) -> T {
     x
 }
 
-fn show<T>(x: T): String where T: Display {
+fn show<T>(x: T) -> String where T: Display {
     "<${Display.to_string(x)}>"
 }
 
-fn pair<A, B>(a: A, b: B): (A, B) {
-    (a, b)
+fn pair<A, B>(a: A, b: B) -> #(A, B) {
+    #(a, b)
 }
 
-fn apply(f: (Int) -> Int, x: Int): Int {
+fn apply(f: (Int) -> Int, x: Int) -> Int {
     f(x)
 }
 
-fn all_shown<T>(xs: List<T>): List<String> where T: Display {
+fn all_shown<T>(xs: List<T>) -> List<String> where T: Display {
     xs |> Iter.map(show) |> Iter.to_list()
 }
 
@@ -62,7 +62,7 @@ fn main() {
     f: (Int) -> Int = ident
     io.print(f(6))
     io.print(apply(ident, 7))
-    g: (String, Int) -> (String, Int) = pair
+    g: (String, Int) -> #(String, Int) = pair
     io.print(g("k", 8))
     io.print(all_shown([9, 10]))
 }

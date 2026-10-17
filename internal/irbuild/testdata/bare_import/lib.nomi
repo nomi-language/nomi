@@ -5,18 +5,18 @@ pub struct Widget {
     name: String
 }
 
-pub fn make(name: String): Widget {
+pub fn make(name: String) -> Widget {
     Widget{name}
 }
 
-pub fn label(w: Widget): String {
+pub fn label(w: Widget) -> String {
     w.name
 }
 
-pub fn twice(x: Int): Int {
+pub fn twice(x: Int) -> Int {
     x + x
 }
 
-fn hidden(x: Int): Int {
+fn hidden(x: Int) -> Int {
     x * 100
 }

@@ -1,19 +1,19 @@
 import std/iter.Iter.loop
 
 test "loop advances state through callback return values" {
-    result = loop(|n = 1| {
+    result = loop(fn n = 1 -> {
         if n % 3 != 0 { return n + 1 }
         break n
     })
 
-    (_, steps) = loop(|state = (27, 0)| {
-        (n, count) = state
+    #(_, steps) = loop(fn state = #(27, 0) -> {
+        #(n, count) = state
         if n == 1 { break state }
 
         if n % 2 == 0 {
-            (n / 2, count + 1)
+            #(n / 2, count + 1)
         } else {
-            (n * 3 + 1, count + 1)
+            #(n * 3 + 1, count + 1)
         }
     })
 
@@ -22,27 +22,27 @@ test "loop advances state through callback return values" {
 }
 
 test "bare loop break returns Unit" {
-    assert loop(|| { break }) == Unit
+    assert loop(fn -> { break }) == Unit
 }
 
 test "loop break value returns the break value" {
-    countdown = loop(|n = 5| {
+    countdown = loop(fn n = 5 -> {
         if n == 0 { break n }
         n - 1
     })
 
-    fib = loop(|state = (0, 1)| {
-        (a, b) = state
-        if b > 100 { break (a, b) }
-        (b, a + b)
+    fib = loop(fn state = #(0, 1) -> {
+        #(a, b) = state
+        if b > 100 { break #(a, b) }
+        #(b, a + b)
     })
 
     assert countdown == 0
-    assert fib == (89, 144)
+    assert fib == #(89, 144)
 }
 
 test "a loop answers a break value computed from its state" {
-    answer = loop(|n = 40| { break n + 2 })
+    answer = loop(fn n = 40 -> { break n + 2 })
 
     assert answer == 42
 }
@@ -52,6 +52,6 @@ test "a generic seed pins the loop state type" {
     assert first("value") == "value"
 }
 
-fn first<T>(x: T): T {
-    loop(|v = x| { break v })
+fn first<T>(x: T) -> T {
+    loop(fn v = x -> { break v })
 }

@@ -20,7 +20,7 @@ import std/io
 // quiet.
 //
 // The discard parameter is deliberate and is the case that nearly got missed:
-// `|_| …` has a type the caller supplied, and `attachParamType` matches on the
+// `fn _ -> …` has a type the caller supplied, and `attachParamType` matches on the
 // parameter's NAME, so whether a discard is recorded at all is a fact about the
 // analyzer rather than a guess. It is (kind=param, name="_"), so it lowers —
 // and if that ever changes, this line stops compiling instead of silently
@@ -37,43 +37,43 @@ enum Shape {
 
 type Meters Int
 
-fn apply_int(f: (Int) -> Int, x: Int): Int {
+fn apply_int(f: (Int) -> Int, x: Int) -> Int {
     f(x)
 }
 
-fn apply_float(f: (Float) -> Float, x: Float): Float {
+fn apply_float(f: (Float) -> Float, x: Float) -> Float {
     f(x)
 }
 
-fn apply_string(f: (String) -> String, s: String): String {
+fn apply_string(f: (String) -> String, s: String) -> String {
     f(s)
 }
 
-fn apply_bool(f: (Bool) -> Bool, b: Bool): Bool {
+fn apply_bool(f: (Bool) -> Bool, b: Bool) -> Bool {
     f(b)
 }
 
-fn apply_unit(f: (Unit) -> String, u: Unit): String {
+fn apply_unit(f: (Unit) -> String, u: Unit) -> String {
     f(u)
 }
 
-fn apply_point(f: (Point) -> Int, p: Point): Int {
+fn apply_point(f: (Point) -> Int, p: Point) -> Int {
     f(p)
 }
 
-fn apply_shape(f: (Shape) -> Int, s: Shape): Int {
+fn apply_shape(f: (Shape) -> Int, s: Shape) -> Int {
     f(s)
 }
 
-fn apply_meters(f: (Meters) -> Int, m: Meters): Int {
+fn apply_meters(f: (Meters) -> Int, m: Meters) -> Int {
     f(m)
 }
 
-fn apply_list(f: (List<Int>) -> String, xs: List<Int>): String {
+fn apply_list(f: (List<Int>) -> String, xs: List<Int>) -> String {
     f(xs)
 }
 
-fn apply_pair(f: ((Int, String)) -> String, p: (Int, String)): String {
+fn apply_pair(f: (#(Int, String)) -> String, p: #(Int, String)) -> String {
     f(p)
 }
 
@@ -81,36 +81,36 @@ fn apply_pair(f: ((Int, String)) -> String, p: (Int, String)): String {
 // is a function, so the lambda passed to it has an inferred parameter of
 // FUNCTION type. A projection that flattened a func type into "some callable"
 // would compile here and lose the frame.
-fn callf(f: ((Int) -> Int) -> Int): Int {
-    f(|n| n + 1)
+fn callf(f: ((Int) -> Int) -> Int) -> Int {
+    f(fn n -> n + 1)
 }
 
 // A Unit VALUE, spelled as an `if` with no `else` because that is the one
 // spelling this builder lowers: a bare `Unit` is a type reference and is
 // refused, so writing it here would refuse the fixture for a reason that has
 // nothing to do with lambda parameters.
-fn unit_value(): Unit {
+fn unit_value() -> Unit {
     if False {}
 }
 
 fn main() {
-    io.print("int = ${apply_int(|n| n * 2, 21)}")
-    io.print("discard = ${apply_int(|_| 7, 21)}")
-    io.print("float = ${apply_float(|x| x * 2.0, 1.5)}")
+    io.print("int = ${apply_int(fn n -> n * 2, 21)}")
+    io.print("discard = ${apply_int(fn _ -> 7, 21)}")
+    io.print("float = ${apply_float(fn x -> x * 2.0, 1.5)}")
 
-    shout = apply_string(|s| s + "!", "hi")
+    shout = apply_string(fn s -> s + "!", "hi")
     io.print("string = ${shout}")
 
-    io.print("bool = ${apply_bool(|b| !b, True)}")
+    io.print("bool = ${apply_bool(fn b -> !b, True)}")
 
-    told = apply_unit(|_u| "got unit", unit_value())
+    told = apply_unit(fn _u -> "got unit", unit_value())
     io.print("unit = ${told}")
 
-    io.print("point = ${apply_point(|p| p.x * p.x + p.y * p.y, Point{x: 3, y: 4})}")
+    io.print("point = ${apply_point(fn p -> p.x * p.x + p.y * p.y, Point{x: 3, y: 4})}")
 
     io.print(
         "dot = ${apply_shape(
-            |s| {
+            fn s -> {
                 case s {
                     Shape.Dot -> 0
                     Shape.Square(n) -> n
@@ -122,7 +122,7 @@ fn main() {
 
     io.print(
         "square = ${apply_shape(
-            |s| {
+            fn s -> {
                 case s {
                     Shape.Dot -> 0
                     Shape.Square(n) -> n
@@ -134,7 +134,7 @@ fn main() {
 
     io.print(
         "meters = ${apply_meters(
-            |m| {
+            fn m -> {
                 case m {
                     Meters(v) -> v
                 }
@@ -143,17 +143,17 @@ fn main() {
         )}"
     )
 
-    rendered = apply_list(|xs| "${xs}", [1, 2, 3])
+    rendered = apply_list(fn xs -> "${xs}", [1, 2, 3])
     io.print("list = ${rendered}")
 
-    joined = apply_pair(|p| "${p.0}-${p.1}", (7, "seven"))
+    joined = apply_pair(fn p -> "${p.0}-${p.1}", #(7, "seven"))
     io.print("pair = ${joined}")
 
-    io.print("hof = ${callf(|g| g(10))}")
+    io.print("hof = ${callf(fn g -> g(10))}")
 
     // A lambda whose inferred parameter is CAPTURED by a nested lambda. The
     // inner lambda's parameter is inferred too, from the outer one's expected
     // type — so both signatures come from the analyzer and the capture has to
     // name the outer local rather than a copy.
-    io.print("nested = ${callf(|g| apply_int(|k| g(k) + 100, 1))}")
+    io.print("nested = ${callf(fn g -> apply_int(fn k -> g(k) + 100, 1))}")
 }

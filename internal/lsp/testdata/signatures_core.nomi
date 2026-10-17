@@ -1,5 +1,5 @@
 interface Named {
-    fn name(value: self): String
+    fn name(value: self) -> String
 }
 
 struct User {
@@ -8,7 +8,7 @@ struct User {
 }
 
 impl Named for User {
-    fn name(user: User): String {
+    fn name(user: User) -> String {
         user.name
     }
 }
@@ -26,19 +26,19 @@ struct Box {
 
 once default_name = "Ada" // :: once default_name: String = "Ada"
 
-fn greet(user: User, greeting: String = "Hello"): String {
+fn greet(user: User, greeting: String = "Hello") -> String {
     greeting + ", " + user.name
 }
 
-fn identity<T>(value: T): T {
+fn identity<T>(value: T) -> T {
     value
 }
 
-fn make_user(id: Int, name: String): User {
+fn make_user(id: Int, name: String) -> User {
     User{id, name}
 }
 
-fn demo(): String {
+fn demo() -> String {
     sample = make_user(1, default_name)
 
     message = greet(sample)

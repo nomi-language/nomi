@@ -159,14 +159,14 @@ func TestRunWatch_RunsAgainOnEveryChange(t *testing.T) {
 
 	// A file the program comes to import is watched from the run that
 	// imports it.
-	writeSource(t, lib, "pub fn greet(): String {\n  \"hello\"\n}\n")
+	writeSource(t, lib, "pub fn greet() -> String {\n  \"hello\"\n}\n")
 	writeSource(t, app, "import lib\nimport std/io\n\nfn main() {\n  io.print(lib.greet())\n}\n")
 	at = out.await(t, ctx, at, "running again\nhello\n")
-	writeSource(t, lib, "pub fn greet(): String {\n  \"hello again\"\n}\n")
+	writeSource(t, lib, "pub fn greet() -> String {\n  \"hello again\"\n}\n")
 	at = out.await(t, ctx, at, "lib.nomi changed; running again\nhello again\n")
 
 	// A run still computing is stopped.
-	writeSource(t, app, "import std/io\n\nfn spin(n: Int): Int {\n  spin(n + 1)\n}\n\nfn main() {\n  io.print(\"spinning\")\n  io.print(spin(0))\n}\n")
+	writeSource(t, app, "import std/io\n\nfn spin(n: Int) -> Int {\n  spin(n + 1)\n}\n\nfn main() {\n  io.print(\"spinning\")\n  io.print(spin(0))\n}\n")
 	at = out.await(t, ctx, at, "running again\nspinning\n")
 	writeSource(t, app, "import std/io\n\nfn main() {\n  io.print(\"stopped the spin\")\n}\n")
 	at = out.await(t, ctx, at, "app.nomi changed; running again\nstopped the spin\n")
@@ -206,7 +206,7 @@ func TestTestWatch_RunsTheTestsAgainOnEveryChange(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 	dir := t.TempDir()
 	lib := filepath.Join(dir, "lib.nomi")
-	writeSource(t, lib, "pub fn double(n: Int): Int {\n  n + 1\n}\n")
+	writeSource(t, lib, "pub fn double(n: Int) -> Int {\n  n + 1\n}\n")
 	writeSource(t, filepath.Join(dir, "lib_test.nomi"), "import lib\n\ntest \"double\" {\n  assert lib.double(2) == 4\n}\n")
 	var out watchOutput
 	ctx := startWatch(t, func(ctx context.Context) error {
@@ -214,7 +214,7 @@ func TestTestWatch_RunsTheTestsAgainOnEveryChange(t *testing.T) {
 	})
 	at := out.await(t, ctx, 0, "1 failed")
 	// lib.nomi has no tests; it is watched because the tests import it.
-	writeSource(t, lib, "pub fn double(n: Int): Int {\n  n * 2\n}\n")
+	writeSource(t, lib, "pub fn double(n: Int) -> Int {\n  n * 2\n}\n")
 	at = out.await(t, ctx, at, "lib.nomi changed; running again\n")
 	at = out.await(t, ctx, at, "1 passed")
 	// A new test file under the path is watched too.
@@ -226,7 +226,7 @@ func TestTestWatch_RunsTheTestsAgainOnEveryChange(t *testing.T) {
 func TestRunWatch_CtrlCExitsWithTheSignalsStatus(t *testing.T) {
 	dir := t.TempDir()
 	app := filepath.Join(dir, "app.nomi")
-	writeSource(t, app, "import std/io\n\nfn spin(n: Int): Int {\n  spin(n + 1)\n}\n\nfn main() {\n  io.print(\"spinning\")\n  io.print(spin(0))\n}\n")
+	writeSource(t, app, "import std/io\n\nfn spin(n: Int) -> Int {\n  spin(n + 1)\n}\n\nfn main() {\n  io.print(\"spinning\")\n  io.print(spin(0))\n}\n")
 	cmd := exec.Command(nomiBin, "run", "--watch", app)
 	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir())
 	var out watchOutput

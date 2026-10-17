@@ -1,6 +1,6 @@
 // A BOUNDED type parameter at DEPTH in a parameter annotation.
 //
-// `fn hear<T>(r: Half<T>): String where T: Shout` — `T` is bounded and never
+// `fn hear<T>(r: Half<T>) -> String where T: Shout` — `T` is bounded and never
 // appears as a bare `x: T`. The dictionary route cannot serve this: part (a)
 // makes a bounded type parameter an existential over its bound, so the signature
 // demands `Half<Shout>` and no caller can construct one. An explicit turbofish
@@ -18,7 +18,7 @@
 // one's own implementation; sharing an instance would answer `Cat`'s call with
 // `Dog`'s method or refuse outright.
 interface Shout {
-    fn shout(v: self): String
+    fn shout(v: self) -> String
 }
 
 struct Dog {
@@ -26,7 +26,7 @@ struct Dog {
 }
 
 impl Shout for Dog {
-    fn shout(d: Dog): String {
+    fn shout(d: Dog) -> String {
         "woof from " + d.name
     }
 }
@@ -36,7 +36,7 @@ struct Cat {
 }
 
 impl Shout for Cat {
-    fn shout(c: Cat): String {
+    fn shout(c: Cat) -> String {
         "meow from " + c.name
     }
 }
@@ -45,7 +45,7 @@ struct Half<T> {
     slot: T
 }
 
-fn hear<T>(r: Half<T>): String where T: Shout {
+fn hear<T>(r: Half<T>) -> String where T: Shout {
     Shout.shout(r.slot)
 }
 

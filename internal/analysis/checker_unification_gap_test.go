@@ -20,11 +20,11 @@ func TestUnificationGap_UnsolvedParamIntoConcreteParam(t *testing.T) {
   std/channels.{Channel, Sender}
   std/io
 }
-fn produce(ch: Channel<Int>, n: Int): Unit {
+fn produce(ch: Channel<Int>, n: Int) -> Unit {
   r = Sender.send(ch.sender, n)
   io.print("sent")
 }
-fn main(): Unit {
+fn main() -> Unit {
   produce(Channel.buffered(4), 10)
 }`
 	expectClean(t, checkWithStdlib(src))
@@ -36,16 +36,16 @@ fn main(): Unit {
 // argument; a later argument that conflicts with that binding must be rejected.
 
 func TestUnificationGap_SharedTypeVarConflict_Direct(t *testing.T) {
-	src := `fn g<T>(a: T, _b: T): T { a }
-fn main(): Unit {
+	src := `fn g<T>(a: T, _b: T) -> T { a }
+fn main() -> Unit {
   x = g(1, "two")
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "expected Int, got String")
 }
 
 func TestUnificationGap_SharedTypeVarConflict_Pipe(t *testing.T) {
-	src := `fn g<T>(a: T, _b: T): T { a }
-fn main(): Unit {
+	src := `fn g<T>(a: T, _b: T) -> T { a }
+fn main() -> Unit {
   x = 1 |> g("two")
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "expected Int, got String")
@@ -53,8 +53,8 @@ fn main(): Unit {
 
 func TestUnificationGap_MapGetWrongKey_Direct(t *testing.T) {
 	src := `import std/maps: Map
-fn main(): Unit {
-  m = {1 => "one"}
+fn main() -> Unit {
+  m = %{1 => "one"}
   v = Map.get(m, "wrong")
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "expected Int, got String")
@@ -62,8 +62,8 @@ fn main(): Unit {
 
 func TestUnificationGap_MapGetWrongKey_Pipe(t *testing.T) {
 	src := `import std/maps: Map
-fn main(): Unit {
-  m = {1 => "one"}
+fn main() -> Unit {
+  m = %{1 => "one"}
   v = m |> Map.get("wrong")
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "expected Int, got String")
@@ -72,8 +72,8 @@ fn main(): Unit {
 // Same-type arguments to a shared type var must still type-check cleanly —
 // enforcement must not over-report.
 func TestUnificationGap_SharedTypeVarSameType_Clean(t *testing.T) {
-	src := `fn g<T>(a: T, _b: T): T { a }
-fn main(): Unit {
+	src := `fn g<T>(a: T, _b: T) -> T { a }
+fn main() -> Unit {
   x = g(1, 2)
 }`
 	expectClean(t, checkWithStdlib(src))
@@ -83,7 +83,7 @@ fn main(): Unit {
 
 func TestStructsUpdate_ValidPartialPatch_Clean(t *testing.T) {
 	src := `struct User { name: String; age: Int }
-fn main(): Unit {
+fn main() -> Unit {
   u = User{name: "Alice", age: 30}
   updated = Struct.update(u, {name: "Bob"})
 }`
@@ -92,7 +92,7 @@ fn main(): Unit {
 
 func TestStructsUpdate_BogusPatchField_Rejected(t *testing.T) {
 	src := `struct User { name: String; age: Int }
-fn main(): Unit {
+fn main() -> Unit {
   u = User{name: "Alice", age: 30}
   updated = Struct.update(u, {bogus: 5})
 }`
@@ -118,9 +118,9 @@ func TestUserControlEnum_OrdinaryUnification(t *testing.T) {
   ReturnWith R
 }
 
-fn apply<T>(f: (T) -> T, x: T): T { f(x) }
-fn main(): Unit {
-  r = apply(|_n| Control.BreakWith(42), 5)
+fn apply<T>(f: (T) -> T, x: T) -> T { f(x) }
+fn main() -> Unit {
+  r = apply(fn _n -> Control.BreakWith(42), 5)
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "expected Control<Int>, got Int")
 }
@@ -128,12 +128,12 @@ fn main(): Unit {
 // --- loop inference under the (S) -> S signature ---
 
 // A stateful loop using the keyword sugar must type-check cleanly, with S
-// resolved from the state parameter's default (`|sum: Int = 0|` pins S = Int;
+// resolved from the state parameter's default (`fn sum: Int = 0 ->` pins S = Int;
 // `break sum` exits with it). Pins S-from-default inference under loop's
 // `(S) -> S` signature.
 func TestLoopStatefulKeywordSugar_Clean(t *testing.T) {
-	src := `fn main(): Unit {
-  total = Iter.loop(|sum: Int = 0|
+	src := `fn main() -> Unit {
+  total = Iter.loop(fn sum: Int = 0 ->
     if sum > 10 { break sum } else { sum + 1 }
   )
 }`
@@ -149,7 +149,7 @@ func TestLoopStatefulKeywordSugar_Clean(t *testing.T) {
 // does not also call the placeholder private.
 func TestControlNotImportable(t *testing.T) {
 	src := withStdlibTestImports(`import std/iter.{Control}
-fn main(): Unit {
+fn main() -> Unit {
   io_check = 1
 }`)
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
@@ -172,8 +172,8 @@ fn main(): Unit {
 // A side-effect callback declared `(T) -> ()` discards its return, so a lambda
 // returning a value is accepted (the parameter types must still match).
 func TestUnitDiscardCallback_ValueReturningLambda_Clean(t *testing.T) {
-	src := `fn main(): Unit {
-  Iter.each([1, 2, 3], |x| x + 1)
+	src := `fn main() -> Unit {
+  Iter.each([1, 2, 3], fn x -> x + 1)
 }`
 	expectClean(t, checkWithStdlib(src))
 }
@@ -181,8 +181,8 @@ func TestUnitDiscardCallback_ValueReturningLambda_Clean(t *testing.T) {
 // The Unit-discard relation ignores only the return — a wrong parameter type is
 // still rejected.
 func TestUnitDiscardCallback_WrongParamType_Rejected(t *testing.T) {
-	src := `fn main(): Unit {
-  Iter.each([1, 2, 3], |s: String| s)
+	src := `fn main() -> Unit {
+  Iter.each([1, 2, 3], fn s: String -> s)
 }`
 	errs := checkWithStdlib(src)
 	if len(errs) == 0 {
@@ -194,8 +194,8 @@ func TestUnitDiscardCallback_WrongParamType_Rejected(t *testing.T) {
 
 func TestPartial_UserFunctionAcceptsDeepPartial(t *testing.T) {
 	src := `struct User { name: String; age: Int }
-fn patch(u: User, _p: Partial<User>): User { u }
-fn main(): Unit {
+fn patch(u: User, _p: Partial<User>) -> User { u }
+fn main() -> Unit {
   base = User{name: "A", age: 1}
   result = patch(base, {name: "B"})
 }`
@@ -204,8 +204,8 @@ fn main(): Unit {
 
 func TestPartial_UserFunctionRejectsBogusPatch(t *testing.T) {
 	src := `struct User { name: String; age: Int }
-fn patch(u: User, _p: Partial<User>): User { u }
-fn main(): Unit {
+fn patch(u: User, _p: Partial<User>) -> User { u }
+fn main() -> Unit {
   base = User{name: "A", age: 1}
   result = patch(base, {bogus: 5})
 }`

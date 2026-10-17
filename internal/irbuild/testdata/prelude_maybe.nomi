@@ -11,18 +11,18 @@ struct Box {
     slot: Maybe<Int>
 }
 
-fn pick(flag: Bool): Maybe<Int> {
+fn pick(flag: Bool) -> Maybe<Int> {
     if flag { Some(7) } else { None }
 }
 
 // The qualified spelling of both constructors, which is a different AST shape
 // from the bare one: `Maybe.Some(x)` is a call through a field access.
-fn pick_qualified(flag: Bool): Maybe<String> {
+fn pick_qualified(flag: Bool) -> Maybe<String> {
     if flag { Maybe.Some("yes") } else { Maybe.None }
 }
 
 // A Maybe as a PARAMETER type, matched with the bare pattern head.
-fn or_zero(m: Maybe<Int>): Int {
+fn or_zero(m: Maybe<Int>) -> Int {
     case m {
         Some(v) -> v
         None -> 0
@@ -30,7 +30,7 @@ fn or_zero(m: Maybe<Int>): Int {
 }
 
 // The qualified pattern head, and the dotted one, against the same type.
-fn describe(m: Maybe<String>): String {
+fn describe(m: Maybe<String>) -> String {
     case m {
         Maybe.Some(s) -> "some ${s}"
         .None -> "none"
@@ -40,7 +40,7 @@ fn describe(m: Maybe<String>): String {
 // Nesting: `Maybe<Maybe<Int>>` is two instantiations, and the inner one is a
 // payload of the outer. A representation that flattened them would answer the
 // same for `Some(None)` and `None`.
-fn depth(m: Maybe<Maybe<Int>>): String {
+fn depth(m: Maybe<Maybe<Int>>) -> String {
     case m {
         Some(inner) ->
             case inner {
@@ -55,7 +55,7 @@ fn depth(m: Maybe<Maybe<Int>>): String {
 
 // A literal INSIDE the payload pattern, so the arm can fail on the payload
 // after the tag matched and fall through to a later arm.
-fn is_one(m: Maybe<Int>): String {
+fn is_one(m: Maybe<Int>) -> String {
     case m {
         Some(1) -> "one"
         Some(other) -> "other ${other}"
@@ -63,7 +63,7 @@ fn is_one(m: Maybe<Int>): String {
     }
 }
 
-fn main(): Unit {
+fn main() -> Unit {
     io.print("${or_zero(pick(True))}")
     io.print("${or_zero(pick(False))}")
     io.print(describe(pick_qualified(True)))

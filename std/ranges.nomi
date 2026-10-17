@@ -33,7 +33,7 @@ impl Range<T> {
     //! assert Range.contains?(Range.from(1), 100)
     //! refute Range.bounded?(Range.from(1))
     //
-    pub fn from(n: Int): Range<Int> {
+    pub fn from(n: Int) -> Range<Int> {
         Range{start: n, end: None, inclusive: False}
     }
 
@@ -42,7 +42,7 @@ impl Range<T> {
     //! assert Range.contains?(Range.naturals(), 0)
     //! refute Range.contains?(Range.naturals(), -1)
     //
-    pub fn naturals(): Range<Int> {
+    pub fn naturals() -> Range<Int> {
         Range{start: 0, end: None, inclusive: False}
     }
 
@@ -58,7 +58,7 @@ impl Range<T> {
     //!     |> Iter.to_list()
     //!     |> List.equal?([1.0d, 1.1d, 1.2d, 1.3d])
     //
-    pub fn step_by<T, S>(r: Range<T>, by: S): Iter<T> where T: Comparable and Steppable<S> {
+    pub fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S> {
         StepByRange{range: r, by}
     }
 
@@ -69,7 +69,7 @@ impl Range<T> {
     //! assert Range.contains?(1..=5, 5)
     //! assert Range.contains?(1.25d..=2.50d, 1.50d)
     //
-    pub fn contains?<T>(r: Range<T>, n: T): Bool where T: Comparable {
+    pub fn contains?<T>(r: Range<T>, n: T) -> Bool where T: Comparable {
         case r.end {
             Some(e) -> {
                 if r.inclusive {
@@ -89,7 +89,7 @@ impl Range<T> {
     //! assert Range.bounded?(1..5)
     //! refute Range.bounded?(Range.from(1))
     //
-    pub fn bounded?<T>(r: Range<T>): Bool {
+    pub fn bounded?<T>(r: Range<T>) -> Bool {
         case r.end {
             Some(_) -> True
             None -> False
@@ -100,7 +100,7 @@ impl Range<T> {
 impl Display for Range<T> {
     // Use Debug for endpoints so every comparable value can be rendered, even
     // if it has no user-facing Display impl.
-    fn to_string(r: Range<T>): String {
+    fn to_string(r: Range<T>) -> String {
         start_str = Debug.inspect(r.start)
 
         case r.end {
@@ -116,7 +116,7 @@ impl Display for Range<T> {
 }
 
 impl Debug for Range<T> {
-    fn inspect(r: Range<T>): String {
+    fn inspect(r: Range<T>) -> String {
         to_string(r)
     }
 }
@@ -127,7 +127,7 @@ opaque struct StepByRange<T, S> where T: Comparable {
 }
 
 impl Iter for StepByRange<T, S> where T: Comparable and Steppable<S> {
-    fn each_while(s: StepByRange<T, S>, yield: (T) -> Bool): Bool {
+    fn each_while(s: StepByRange<T, S>, yield: (T) -> Bool) -> Bool {
         r = s.range
 
         in_bounds = case r.end {
@@ -179,7 +179,7 @@ impl Iter for StepByRange<T, S> where T: Comparable and Steppable<S> {
 }
 
 impl Iter for Range<T> where T: Discrete {
-    fn known_count(r: Range<T>): Maybe<Int> {
+    fn known_count(r: Range<T>) -> Maybe<Int> {
         case r.end {
             Some(e) -> {
                 if r.start > e {
@@ -197,7 +197,7 @@ impl Iter for Range<T> where T: Discrete {
         }
     }
 
-    fn each_while(r: Range<T>, yield: (T) -> Bool): Bool {
+    fn each_while(r: Range<T>, yield: (T) -> Bool) -> Bool {
         done = case r.end {
             Some(e) ->
                 if r.inclusive {

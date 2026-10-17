@@ -9,8 +9,8 @@ enum Suit {
 
 derive Variants for Suit
 
-fn others<T>(value: T): List<T> where T: Variants {
-    T.variants() |> Iter.filter(|other| other != value) |> Iter.to_list()
+fn others<T>(value: T) -> List<T> where T: Variants {
+    T.variants() |> Iter.filter(fn other -> other != value) |> Iter.to_list()
 }
 
 test "variants lists every variant in declaration order" {
@@ -29,7 +29,7 @@ test "variants agrees with the order derive Comparable ranks them in" {
 test "variants feeds a pipe" {
     assert Coin.variants() |> Iter.map(coins.cents) |> Iter.to_list() == [1, 5, 10, 25]
 
-    names = Suit.variants() |> Iter.map(|suit| Debug.inspect(suit)) |> String.join(", ")
+    names = Suit.variants() |> Iter.map(fn suit -> Debug.inspect(suit)) |> String.join(", ")
     assert names == "Clubs, Diamonds, Hearts, Spades"
 }
 

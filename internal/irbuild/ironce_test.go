@@ -39,16 +39,16 @@ func TestIROnce_FixtureSemantics(t *testing.T) {
 
 func TestIROnce_LambdaReadIsLazyAndLocalsShadow(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn initialize(n: Int): Int { io.print("initialize ${n}") n }
+fn initialize(n: Int) -> Int { io.print("initialize ${n}") n }
 once answer = initialize(21)
 once unused = initialize(99)
 fn main() {
-  read = || answer
+  read = fn -> answer
   io.print("created")
   io.print(read())
   io.print(read())
   answer = 7
-  local_read = || answer
+  local_read = fn -> answer
   io.print(local_read())
 }
 `, "created\ninitialize 21\n21\n21\n7\n")
@@ -68,9 +68,9 @@ fn main() {
 
 func TestIROnce_ConditionalInitializerAndDefault(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn mark(n: Int): Int { io.print(n) n }
+fn mark(n: Int) -> Int { io.print(n) n }
 once answer: Int = if True { mark(41) + 1 } else { mark(99) }
-fn choose(n: Int = answer): Int { n }
+fn choose(n: Int = answer) -> Int { n }
 fn main() {
   io.print(choose(7))
   io.print(choose())
@@ -86,10 +86,10 @@ fn main() {
 // stays.
 func TestIROnce_ReadOfAnUnretainedCellDeclines(t *testing.T) {
 	p, err := AnalyzeSource("main.nomi", `import std/io
-fn early(): Int { late + 1 }
+fn early() -> Int { late + 1 }
 once late: Int = case Context.with_value(Context.root(), 1) { _ -> 2 }
 once chained: Int = late
-fn fine(): Int { ok + 1 }
+fn fine() -> Int { ok + 1 }
 fn main() {
   io.print(early())
   io.print(chained)

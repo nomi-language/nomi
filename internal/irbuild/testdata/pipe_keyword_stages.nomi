@@ -47,37 +47,37 @@ import std/io
 //     (`propagate`, `lambda_try`). Those four are the interaction this shape
 //     makes reachable for the first time, and getting one wrong is a wrong
 //     ANSWER rather than a refusal.
-fn parse_id(s: String): Result<Int, String> {
+fn parse_id(s: String) -> Result<Int, String> {
     case String.to_int(s) {
         Some(id) -> Ok(id)
         None -> Err("not a number: ${s}")
     }
 }
 
-fn loud_int(tag: String, n: Int): Int {
+fn loud_int(tag: String, n: Int) -> Int {
     io.print("eval ${tag}")
     n
 }
 
-fn loud_maybe(tag: String, n: Int): Maybe<Int> {
+fn loud_maybe(tag: String, n: Int) -> Maybe<Int> {
     io.print("eval ${tag}")
     Some(n)
 }
 
-fn loud_bool(tag: String, b: Bool): Bool {
+fn loud_bool(tag: String, b: Bool) -> Bool {
     io.print("eval ${tag}")
     b
 }
 
 // The keyword-prefixed `if`: the condition is itself a pipe stage, so this is a
 // two-node chain.
-fn label(n: Int): String {
+fn label(n: Int) -> String {
     n
     |> if Int.equal?(42) { "answer" } else { "other" }
 }
 
 // The BARE `if`: one node, and the piped value is already the Bool.
-fn yes_no(b: Bool): String {
+fn yes_no(b: Bool) -> String {
     b
     |> if { "yes" } else { "no" }
 }
@@ -85,7 +85,7 @@ fn yes_no(b: Bool): String {
 // Multiline branches, and an `else if` — parsePipeIfStage routes the `else if`
 // through parseIf, which requires a condition, so the tail of the chain is an
 // ORDINARY `if` and only its head is a pipe stage.
-fn size(n: Int): String {
+fn size(n: Int) -> String {
     n
     |> if Int.equal?(0) {
         "zero"
@@ -97,7 +97,7 @@ fn size(n: Int): String {
 }
 
 // The keyword-prefixed `case`, with an arm that USES the scrutinee.
-fn matched(s: String): Int {
+fn matched(s: String) -> Int {
     s
     |> case parse_id() {
         Ok(id) -> id
@@ -106,7 +106,7 @@ fn matched(s: String): Int {
 }
 
 // The BARE `case`, with an arm that IGNORES the scrutinee.
-fn ignored(m: Maybe<Int>): String {
+fn ignored(m: Maybe<Int>) -> String {
     m
     |> case {
         Some(_) -> "something"
@@ -115,7 +115,7 @@ fn ignored(m: Maybe<Int>): String {
 }
 
 // A `_` arm BETWEEN two tag arms: arm order is observable.
-fn overlap(n: Int): String {
+fn overlap(n: Int) -> String {
     n
     |> case {
         0 -> "zero"
@@ -131,11 +131,11 @@ fn overlap(n: Int): String {
 // of its own, so `x |> if n > 10 { … }` becomes `x |> (n > 10)` and evalPipe
 // rejects it at run time with "right side of |> must be a function call or
 // function reference". Measured on this fixture.
-fn big?(n: Int): Bool {
+fn big?(n: Int) -> Bool {
     n > 10
 }
 
-fn mixed(n: Int): String {
+fn mixed(n: Int) -> String {
     n
     |> if big?() { Some("large") } else { None }
     |> case {
@@ -145,7 +145,7 @@ fn mixed(n: Int): String {
 }
 
 // A `return` inside a pipe stage body leaves the FUNCTION.
-fn early(n: Int): String {
+fn early(n: Int) -> String {
     tag =
         n
         |> if Int.equal?(7) {
@@ -158,7 +158,7 @@ fn early(n: Int): String {
 }
 
 // `try` inside a pipe stage body unwinds to the FUNCTION's boundary.
-fn propagate(s: String): Result<Int, String> {
+fn propagate(s: String) -> Result<Int, String> {
     doubled =
         s
         |> case {
@@ -173,7 +173,7 @@ fn propagate(s: String): Result<Int, String> {
 // not a renderable value in this builder (`rendering a non-scalar value`), and
 // that is somebody else's gap — a fixture that tripped over it would fail for a
 // reason it is not about.
-fn show(r: Result<Int, String>): String {
+fn show(r: Result<Int, String>) -> String {
     case r {
         Ok(n) -> "Ok(${n})"
         Err(e) -> "Err(${e})"
@@ -208,7 +208,7 @@ fn main() {
     // LAMBDA-scoped, so `Iter.map` receives its value and the loop continues.
     words =
         [1, 7, 9]
-        |> Iter.map(|n: Int| {
+        |> Iter.map(fn n: Int -> {
             n
             |> if Int.equal?(7) {
                 return "seven"

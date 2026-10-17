@@ -68,7 +68,7 @@ func TestParseGoSelectorBindings(t *testing.T) {
 
 opaque type RawBox go ffi.Box
 
-fn echo_upper(s: String): String go ffi.EchoUpper
+fn echo_upper(s: String) -> String go ffi.EchoUpper
 `)
 	if len(nodes) != 3 {
 		t.Fatalf("expected 3 nodes, got %d", len(nodes))
@@ -191,7 +191,7 @@ func TestQualifiedTypeDeclarationAndDestructure(t *testing.T) {
 	nodes := parse(t, `type Day Int
 type Day.Hours Int
 
-fn value(hours: Day.Hours): Int {
+fn value(hours: Day.Hours) -> Int {
   Day.Hours(n) = hours
   n
 }
@@ -570,11 +570,11 @@ func TestUnmatchedParen(t *testing.T) {
 }
 
 // Spec §7 *Tuples* and §15 *Built-in Types*: "No single-element tuples —
-// `(x)` is just grouping." The trailing-comma form `(x,)` was silently
+// `(x)` is just grouping." The trailing-comma form `#(x,)` was silently
 // constructing a 1-tuple value at runtime even though the type form
-// `(T,)` doesn't parse — value-side acceptance was a bug.
+// `#(T,)` doesn't parse — value-side acceptance was a bug.
 func TestParseRejectsSingleElementTuple(t *testing.T) {
-	tokens := lexer.Lex("(42,)")
+	tokens := lexer.Lex("#(42,)")
 	_, err := Parse(tokens)
 	if err == nil {
 		t.Fatal("expected parse error for single-element tuple '(42,)'")
@@ -1073,7 +1073,7 @@ func TestParseFuncDef(t *testing.T) {
 }
 
 func TestParseFuncDefTyped(t *testing.T) {
-	nodes := parse(t, "fn add(x: Int, y: Int): Int { x + y }")
+	nodes := parse(t, "fn add(x: Int, y: Int) -> Int { x + y }")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1137,7 +1137,7 @@ func TestParseFuncDefPublic(t *testing.T) {
 }
 
 func TestParsePubFn(t *testing.T) {
-	nodes := parse(t, "pub fn foo(x: Int): Int { x + 1 }")
+	nodes := parse(t, "pub fn foo(x: Int) -> Int { x + 1 }")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1154,7 +1154,7 @@ func TestParsePubFn(t *testing.T) {
 }
 
 func TestParseFnNotPubByDefault(t *testing.T) {
-	nodes := parse(t, "fn foo(x: Int): Int { x + 1 }")
+	nodes := parse(t, "fn foo(x: Int) -> Int { x + 1 }")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1235,7 +1235,7 @@ func TestParsePubTypeDistinct(t *testing.T) {
 }
 
 func TestParsePubInterface(t *testing.T) {
-	nodes := parse(t, "pub interface Display { fn to_string(value: self): String }")
+	nodes := parse(t, "pub interface Display { fn to_string(value: self) -> String }")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1286,7 +1286,7 @@ func TestParsePubOnce(t *testing.T) {
 }
 
 func TestParsePubExternFn(t *testing.T) {
-	nodes := parse(t, "pub host fn println(value: String): Unit")
+	nodes := parse(t, "pub host fn println(value: String) -> Unit")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1406,8 +1406,8 @@ func TestParseRejectsGoBlocks(t *testing.T) {
 		msg       string
 	}{
 		{"go {\n  var x = 1\n}", 1, 1, "Nomi has no `go { ... }` blocks; declare a Go package with `gopkg \"import/path\" as alias` and bind its functions and types with `go alias.Symbol`"},
-		{"fn f(): Int go {\n  return 1\n}", 1, 13, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
-		{"pub fn f(x: Int): Int\n  go { return x }", 2, 3, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
+		{"fn f() -> Int go {\n  return 1\n}", 1, 15, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
+		{"pub fn f(x: Int) -> Int\n  go { return x }", 2, 3, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
 		{"type Conn go {\n  db *sql.DB\n}", 1, 11, "a type has no `go { ... }` body; bind a Go type with `opaque type Name go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
 		{"pub opaque type Conn go { db *sql.DB }", 1, 22, "a type has no `go { ... }` body; bind a Go type with `opaque type Name go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
 	}
@@ -1512,8 +1512,8 @@ func TestParseReturnBare(t *testing.T) {
 // --- Lambda Tests ---
 
 func TestLambdaSingleParam(t *testing.T) {
-	// |x| x + 1
-	expr := parseExpr(t, "|x| x + 1")
+	// fn x -> x + 1
+	expr := parseExpr(t, "fn x -> x + 1")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1544,8 +1544,8 @@ func TestLambdaSingleParam(t *testing.T) {
 }
 
 func TestLambdaMultiParam(t *testing.T) {
-	// |a, b| a + b
-	expr := parseExpr(t, "|a, b| a + b")
+	// fn a, b -> a + b
+	expr := parseExpr(t, "fn a, b -> a + b")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1565,8 +1565,8 @@ func TestLambdaMultiParam(t *testing.T) {
 }
 
 func TestLambdaWithTypeAnnotation(t *testing.T) {
-	// |x: Int| x * 2
-	expr := parseExpr(t, "|x: Int| x * 2")
+	// fn x: Int -> x * 2
+	expr := parseExpr(t, "fn x: Int -> x * 2")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1583,8 +1583,8 @@ func TestLambdaWithTypeAnnotation(t *testing.T) {
 }
 
 func TestLambdaWithDefault(t *testing.T) {
-	// |x = 0| x + 1
-	expr := parseExpr(t, "|x = 0| x + 1")
+	// fn x = 0 -> x + 1
+	expr := parseExpr(t, "fn x = 0 -> x + 1")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1605,8 +1605,8 @@ func TestLambdaWithDefault(t *testing.T) {
 }
 
 func TestLambdaTupleDestructureWithDefault(t *testing.T) {
-	// |(a, b) = (0, 1)| a + b — destructure pattern with default value.
-	expr := parseExpr(t, "|(a, b) = (0, 1)| a + b")
+	// fn #(a, b) = #(0, 1) -> a + b — destructure pattern with default value.
+	expr := parseExpr(t, "fn #(a, b) = #(0, 1) -> a + b")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1630,8 +1630,8 @@ func TestLambdaTupleDestructureWithDefault(t *testing.T) {
 }
 
 func TestLambdaMultiStatement(t *testing.T) {
-	// |x| { y = x * 2; y + 1 } — block expr for multi-stmt body
-	expr := parseExpr(t, "|x| { y = x * 2; y + 1 }")
+	// fn x -> { y = x * 2; y + 1 } — block expr for multi-stmt body
+	expr := parseExpr(t, "fn x -> { y = x * 2; y + 1 }")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1657,8 +1657,8 @@ func TestLambdaMultiStatement(t *testing.T) {
 }
 
 func TestLambdaWildcardParam(t *testing.T) {
-	// |_| 42
-	expr := parseExpr(t, "|_| 42")
+	// fn _ -> 42
+	expr := parseExpr(t, "fn _ -> 42")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1683,8 +1683,8 @@ func TestLambdaWildcardParam(t *testing.T) {
 }
 
 func TestLambdaTupleDestructureParam(t *testing.T) {
-	// |(a, b)| a + b
-	expr := parseExpr(t, "|(a, b)| a + b")
+	// fn #(a, b) -> a + b
+	expr := parseExpr(t, "fn #(a, b) -> a + b")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1712,8 +1712,8 @@ func TestLambdaTupleDestructureParam(t *testing.T) {
 }
 
 func TestLambdaTupleDestructureWithWildcard(t *testing.T) {
-	// |(_, v)| v
-	expr := parseExpr(t, "|(_, v)| v")
+	// fn #(_, v) -> v
+	expr := parseExpr(t, "fn #(_, v) -> v")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1741,8 +1741,8 @@ func TestLambdaTupleDestructureWithWildcard(t *testing.T) {
 }
 
 func TestLambdaTupleDestructureMultiParams(t *testing.T) {
-	// |(a, b), c| a + b + c
-	expr := parseExpr(t, "|(a, b), c| a + b + c")
+	// fn #(a, b), c -> a + b + c
+	expr := parseExpr(t, "fn #(a, b), c -> a + b + c")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1762,7 +1762,7 @@ func TestLambdaTupleDestructureMultiParams(t *testing.T) {
 }
 
 func TestLambdaStructDestructureParam(t *testing.T) {
-	expr := parseExpr(t, "|{x, y}| x + y")
+	expr := parseExpr(t, "fn {x, y} -> x + y")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1790,7 +1790,7 @@ func TestLambdaStructDestructureParam(t *testing.T) {
 }
 
 func TestLambdaStructDestructureRenameParam(t *testing.T) {
-	expr := parseExpr(t, "|{name: n, age: a}| n")
+	expr := parseExpr(t, "fn {name: n, age: a} -> n")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1808,7 +1808,7 @@ func TestLambdaStructDestructureRenameParam(t *testing.T) {
 }
 
 func TestLambdaMapDestructureParam(t *testing.T) {
-	expr := parseExpr(t, `|{"name" => n}| n`)
+	expr := parseExpr(t, `fn %{"name" => n} -> n`)
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -2385,8 +2385,8 @@ func TestCaseStringMatch(t *testing.T) {
 }
 
 func TestParseLambdaAsLastArg(t *testing.T) {
-	// f(1, |x| x + 1) — lambdas are passed explicitly in parens, no trailing sugar.
-	expr := parseExpr(t, "f(1, |x| x + 1)")
+	// f(1, fn x -> x + 1) — lambdas are passed explicitly in parens, no trailing sugar.
+	expr := parseExpr(t, "f(1, fn x -> x + 1)")
 	call, ok := expr.(*ast.Call)
 	if !ok {
 		t.Fatalf("expected *ast.Call, got %T", expr)
@@ -2448,7 +2448,7 @@ func TestParseTupleFieldAccess(t *testing.T) {
 }
 
 func TestParseTupleLiteral(t *testing.T) {
-	tokens := lexer.Lex(`(1, "hello")`)
+	tokens := lexer.Lex(`#(1, "hello")`)
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
@@ -2482,7 +2482,7 @@ func TestParseGroupingNotTuple(t *testing.T) {
 }
 
 func TestParseTupleThreeElements(t *testing.T) {
-	tokens := lexer.Lex(`(1, 2, 3)`)
+	tokens := lexer.Lex(`#(1, 2, 3)`)
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
@@ -2517,7 +2517,7 @@ func TestParseBraceIsAlwaysBlock(t *testing.T) {
 
 func TestParseZeroArgLambda(t *testing.T) {
 	// || body — zero-arg lambda.
-	expr := parseExpr(t, `|| 42`)
+	expr := parseExpr(t, `fn -> 42`)
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected Lambda, got %T", expr)
@@ -3176,13 +3176,13 @@ func TestCaseNamedStructPatternNegativeInt(t *testing.T) {
 	}
 }
 
-// Map-distinct call-form pattern: `Kvs({"a" => v})` parses as an
+// Map-distinct call-form pattern: `Kvs(%{"a" => v})` parses as an
 // EnumPattern wrapping an anonymous MapPattern (TypeName=nil). Mirrors
-// `Pair((a, b))` for tuple-distinct patterns. The literal-attach form
-// `Kvs{"a" => v}` (a MapPattern with TypeName=Kvs) is unaffected.
+// `Pair(#(a, b))` for tuple-distinct patterns. The literal-attach form
+// `Kvs%{"a" => v}` (a MapPattern with TypeName=Kvs) is unaffected.
 func TestParser_MapPattern_CallForm(t *testing.T) {
 	expr := parseExpr(t, `case kv {
-	Kvs({"a" => v}) -> v
+	Kvs(%{"a" => v}) -> v
 }`)
 	ce, ok := expr.(*ast.Case)
 	if !ok {
@@ -3222,7 +3222,7 @@ func TestParser_MapPattern_CallForm(t *testing.T) {
 }
 
 func TestMapLiteral(t *testing.T) {
-	expr := parseExpr(t, `{"alice" => 30, "bob" => 25}`)
+	expr := parseExpr(t, `%{"alice" => 30, "bob" => 25}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected MapLit, got %T", expr)
@@ -3240,7 +3240,7 @@ func TestMapLiteral(t *testing.T) {
 }
 
 func TestMapLiteralSingleEntry(t *testing.T) {
-	expr := parseExpr(t, `{1 => "one"}`)
+	expr := parseExpr(t, `%{1 => "one"}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected MapLit, got %T", expr)
@@ -3251,7 +3251,7 @@ func TestMapLiteralSingleEntry(t *testing.T) {
 }
 
 func TestMapLiteralWithVariableKeys(t *testing.T) {
-	expr := parseExpr(t, `{x => 1, y => 2}`)
+	expr := parseExpr(t, `%{x => 1, y => 2}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected MapLit, got %T", expr)
@@ -3261,12 +3261,12 @@ func TestMapLiteralWithVariableKeys(t *testing.T) {
 	}
 }
 
-// TypeName{"k" => v, ...} parses as a MapLit with a TypeName attached, NOT
+// TypeName%{"k" => v, ...} parses as a MapLit with a TypeName attached, NOT
 // as a struct literal. The presence of `=>` (instead of `:`) after the first
 // key disambiguates: brace literals with `=>` separators are map literals,
 // brace literals with `:` are struct literals.
 func TestParser_MapLit_TypePrefixed(t *testing.T) {
-	expr := parseExpr(t, `Kvs{"a" => 1, "b" => 2}`)
+	expr := parseExpr(t, `Kvs%{"a" => 1, "b" => 2}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected MapLit, got %T", expr)
@@ -3434,7 +3434,7 @@ func TestParser_LiteralAttach_ModuleQualifiedHeadLeavesMemberAccessAlone(t *test
 
 func TestInterfaceDef(t *testing.T) {
 	nodes := parse(t, `interface Display {
-	fn ToString(value: self): String
+	fn ToString(value: self) -> String
 }`)
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
@@ -3466,8 +3466,8 @@ func TestInterfaceDef(t *testing.T) {
 
 func TestInterfaceDefWithDefault(t *testing.T) {
 	nodes := parse(t, `interface Formatted {
-	fn format(value: self, style: String): String
-	fn format_pretty(value: self): String {
+	fn format(value: self, style: String) -> String
+	fn format_pretty(value: self) -> String {
 		format(value, "pretty")
 	}
 }`)
@@ -3491,7 +3491,7 @@ func TestInterfaceDefWithDefault(t *testing.T) {
 // constrained interface functions (e.g. `sort ... where T: Comparable`).
 func TestInterfaceMethodWhereClause(t *testing.T) {
 	nodes := parse(t, `interface Sortable<T> {
-	fn sort<K>(source: self, _key: (T) -> K): List<T> where T: Comparable, K: Hashable {
+	fn sort<K>(source: self, _key: (T) -> K) -> List<T> where T: Comparable, K: Hashable {
 		source
 	}
 }`)
@@ -3531,7 +3531,7 @@ func TestInterfaceMethodWhereClause(t *testing.T) {
 // as the constraint's subject, beside a type-variable constraint.
 func TestInterfaceMethodWhereSelf(t *testing.T) {
 	nodes := parse(t, `interface Scale<T> {
-	fn format(scale: self): String where self: Display and Hashable, T: Display {
+	fn format(scale: self) -> String where self: Display and Hashable, T: Display {
 		"${scale}"
 	}
 }`)
@@ -3543,8 +3543,8 @@ func TestInterfaceMethodWhereSelf(t *testing.T) {
 		t.Fatalf("expected 2 where constraints, got %d", len(m.WhereClauses))
 	}
 	wc := m.WhereClauses[0]
-	if wc.Name != "self" || wc.Line != 2 || wc.Col != 39 {
-		t.Errorf("expected `self` at 2:39, got %q at %d:%d", wc.Name, wc.Line, wc.Col)
+	if wc.Name != "self" || wc.Line != 2 || wc.Col != 41 {
+		t.Errorf("expected `self` at 2:41, got %q at %d:%d", wc.Name, wc.Line, wc.Col)
 	}
 	if len(wc.Bounds) != 2 || wc.Bounds[0].TypeString() != "Display" || wc.Bounds[1].TypeString() != "Hashable" {
 		t.Errorf("expected Display and Hashable, got %#v", wc.Bounds)
@@ -3560,7 +3560,7 @@ func TestInterfaceMethodWhereSelf(t *testing.T) {
 // or named as a value.
 func TestSelfPatternsAndConstruction(t *testing.T) {
 	nodes := parse(t, `interface S {
-	fn f(self(n) as t, xs: List<Int>): self where self: Distinct<Int> {
+	fn f(self(n) as t, xs: List<Int>) -> self where self: Distinct<Int> {
 		self(m) = t
 		_ = xs |> Iter.map(self)
 		case t {
@@ -3605,7 +3605,7 @@ func TestSelfPatternsAndConstruction(t *testing.T) {
 	} else if _, isSelf := call.Func.(*ast.SelfExpr); !isSelf {
 		t.Fatalf("arm body callee: got %T", call.Func)
 	}
-	if _, err := Parse(lexer.Lex("fn f(x: Int): Int {\n  case x {\n    self -> 1\n  }\n}\n")); err == nil ||
+	if _, err := Parse(lexer.Lex("fn f(x: Int) -> Int {\n  case x {\n    self -> 1\n  }\n}\n")); err == nil ||
 		!strings.Contains(err.Error(), "`self` in a pattern takes the wrapped value apart: write `self(x)`") {
 		t.Fatalf("bare self pattern: got %v", err)
 	}
@@ -3615,7 +3615,7 @@ func TestSelfPatternsAndConstruction(t *testing.T) {
 // constraints and an `and`-joined bound list parses fully.
 func TestInterfaceMethodWhereClauseMultiple(t *testing.T) {
 	nodes := parse(t, `interface Keyed<T> {
-	fn group<K>(source: self, _key: (T) -> K): List<T> where T: Comparable, K: Hashable and Equatable {
+	fn group<K>(source: self, _key: (T) -> K) -> List<T> where T: Comparable, K: Hashable and Equatable {
 		source
 	}
 }`)
@@ -3636,7 +3636,7 @@ func TestInterfaceMethodWhereClauseMultiple(t *testing.T) {
 
 func TestInterfaceMethodWhereClauseOnRequiredMethod(t *testing.T) {
 	nodes := parse(t, `interface Sortable<T> {
-	fn sort(source: self): List<T> where T: Comparable
+	fn sort(source: self) -> List<T> where T: Comparable
 }`)
 	m := nodes[0].(*ast.InterfaceDef).Methods[0]
 	if m.Body != nil {
@@ -3651,7 +3651,7 @@ func TestFuncDefWhereClause(t *testing.T) {
 	nodes := parse(t, `fn step_by<T, S>(
 	r: Range<T>,
 	_by: S,
-): Iter<T>
+) -> Iter<T>
 where T: Comparable and Steppable<S> {
 	r
 }`)
@@ -3672,7 +3672,7 @@ where T: Comparable and Steppable<S> {
 }
 
 func TestExternFuncWhereClause(t *testing.T) {
-	nodes := parse(t, `host fn sorted<T>(items: List<T>): List<T> where T: Comparable`)
+	nodes := parse(t, `host fn sorted<T>(items: List<T>) -> List<T> where T: Comparable`)
 	ef := nodes[0].(*ast.ExternFunc)
 	if len(ef.WhereClauses) != 1 {
 		t.Fatalf("expected 1 where constraint, got %d", len(ef.WhereClauses))
@@ -3983,7 +3983,7 @@ func TestParser_EnumSingleVariant(t *testing.T) {
 
 func TestInterfaceDefPublic(t *testing.T) {
 	nodes := parse(t, `pub interface Display {
-	fn to_string(value: self): String
+	fn to_string(value: self) -> String
 }`)
 	var id *ast.InterfaceDef
 	for _, n := range nodes {
@@ -4413,7 +4413,7 @@ func TestAllNamedArgs(t *testing.T) {
 func TestTrailingPositionalAfterNamed(t *testing.T) {
 	ok := []string{
 		`connect(port: 3000, "localhost")`,
-		`each_with([1, 2], max: 8, |n| n * 3)`,
+		`each_with([1, 2], max: 8, fn n -> n * 3)`,
 		`each_with([1, 2], max: 8, double)`,
 	}
 	for _, src := range ok {
@@ -4437,7 +4437,7 @@ func TestTrailingPositionalAfterNamed(t *testing.T) {
 
 func TestGenericTypeAnnotation(t *testing.T) {
 	// Simple generic: x: List<Int> = [1]
-	nodes := parse(t, `fn foo(x: List<Int>): Map<String, Int> { x }`)
+	nodes := parse(t, `fn foo(x: List<Int>) -> Map<String, Int> { x }`)
 	fd, ok := nodes[0].(*ast.FuncDef)
 	if !ok {
 		t.Fatalf("expected FuncDef, got %T", nodes[0])
@@ -4451,7 +4451,7 @@ func TestGenericTypeAnnotation(t *testing.T) {
 }
 
 func TestNestedGenericTypeAnnotation(t *testing.T) {
-	nodes := parse(t, `fn foo(x: Map<String, List<Int>>): Result<List<String>, Error> { x }`)
+	nodes := parse(t, `fn foo(x: Map<String, List<Int>>) -> Result<List<String>, Error> { x }`)
 	fd := nodes[0].(*ast.FuncDef)
 	if fd.Params[0].TypeAnnotation == nil || fd.Params[0].TypeAnnotation.TypeString() != "Map<String, List<Int>>" {
 		t.Errorf("param type = %v, want %q", fd.Params[0].TypeAnnotation, "Map<String, List<Int>>")
@@ -4462,7 +4462,7 @@ func TestNestedGenericTypeAnnotation(t *testing.T) {
 }
 
 func TestFuncTypeParams(t *testing.T) {
-	nodes := parse(t, `fn first<A>(list: List<A>): A { list }`)
+	nodes := parse(t, `fn first<A>(list: List<A>) -> A { list }`)
 	fd := nodes[0].(*ast.FuncDef)
 	if len(fd.TypeParams) != 1 || fd.TypeParams[0].Name != "A" {
 		t.Errorf("TypeParams = %v, want ['A]", fd.TypeParams)
@@ -4473,7 +4473,7 @@ func TestFuncTypeParams(t *testing.T) {
 }
 
 func TestInlineGenericBoundsRejected(t *testing.T) {
-	tokens := lexer.Lex(`fn first<T: Display>(value: T): T { value }`)
+	tokens := lexer.Lex(`fn first<T: Display>(value: T) -> T { value }`)
 	_, err := Parse(tokens)
 	if err == nil {
 		t.Fatal("expected inline generic bound to be rejected")
@@ -4503,7 +4503,7 @@ func TestEnumTypeParams(t *testing.T) {
 }
 
 func TestInterfaceTypeParams(t *testing.T) {
-	nodes := parse(t, "interface Container<T> {\n  fn get(key: String): T\n}")
+	nodes := parse(t, "interface Container<T> {\n  fn get(key: String) -> T\n}")
 	id := nodes[0].(*ast.InterfaceDef)
 	if len(id.TypeParams) != 1 || id.TypeParams[0].Name != "T" {
 		t.Errorf("TypeParams = %v, want ['T]", id.TypeParams)
@@ -4650,7 +4650,7 @@ func TestParser_Variant_PayloadTypeExpr_Primitive(t *testing.T) {
 // TestParser_Variant_PayloadTypeExpr_Tuple verifies the new syntax
 // for tuple payloads: `| Position (Int, Int)`.
 func TestParser_Variant_PayloadTypeExpr_Tuple(t *testing.T) {
-	src := "enum Token { Position (Int, Int) }"
+	src := "enum Token { Position #(Int, Int) }"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	if len(ed.Variants) != 1 {
@@ -4756,11 +4756,11 @@ func TestParser_Variant_OldParenForm_StillParses(t *testing.T) {
 }
 
 // TestParser_Variant_OldDoubleParens_StillParses documents that the
-// legacy double-paren tuple-payload form `| Position((Int, Int))` still
+// legacy double-paren tuple-payload form `| Position(#(Int, Int))` still
 // parses — under the unified type-expression rule, the outer parens
 // collapse (no 1-tuples) and the AST matches the new `| Position (Int, Int)`.
 func TestParser_Variant_OldDoubleParens_StillParses(t *testing.T) {
-	src := "enum Token { Position((Int, Int)) }"
+	src := "enum Token { Position(#(Int, Int)) }"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	v := ed.Variants[0]
@@ -4772,10 +4772,10 @@ func TestParser_Variant_OldDoubleParens_StillParses(t *testing.T) {
 
 // TestParser_Variant_OldMultiArgParens_NowParses verifies what was
 // previously rejected as "multi-positional" now parses as a tuple-typed
-// payload (the unified type-expression rule reads `(Int, Int)` as a
+// payload (the unified type-expression rule reads `#(Int, Int)` as a
 // tuple type).
 func TestParser_Variant_OldMultiArgParens_NowParses(t *testing.T) {
-	src := "enum Token { Position(Int, Int) }"
+	src := "enum Token { Position#(Int, Int) }"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	v := ed.Variants[0]
@@ -4822,7 +4822,7 @@ func TestTypeIdentColumnTracking(t *testing.T) {
 }
 
 func TestFuncDefColumnTracking(t *testing.T) {
-	tokens := lexer.Lex("fn Add(x: Int): Int { x }")
+	tokens := lexer.Lex("fn Add(x: Int) -> Int { x }")
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatal(err)
@@ -4834,11 +4834,11 @@ func TestFuncDefColumnTracking(t *testing.T) {
 }
 
 func TestParseWithRecovery_MultipleFunctions(t *testing.T) {
-	input := `fn Add(x: Int, y: Int): Int {
+	input := `fn Add(x: Int, y: Int) -> Int {
     x +
 }
 
-fn Sub(x: Int, y: Int): Int {
+fn Sub(x: Int, y: Int) -> Int {
     x - y
 }`
 	tokens := lexer.Lex(input)
@@ -4859,7 +4859,7 @@ fn Sub(x: Int, y: Int): Int {
 }
 
 func TestParseWithRecovery_NoErrors(t *testing.T) {
-	input := `fn Add(x: Int, y: Int): Int { x + y }`
+	input := `fn Add(x: Int, y: Int) -> Int { x + y }`
 	tokens := lexer.Lex(input)
 	nodes, errs := ParseWithRecovery(tokens)
 	if len(errs) != 0 {
@@ -4897,7 +4897,7 @@ enum Color {
 }
 
 func TestExternFunc(t *testing.T) {
-	nodes := parse(t, "pub host fn print(value: String): Unit")
+	nodes := parse(t, "pub host fn print(value: String) -> Unit")
 	var ef *ast.ExternFunc
 	for _, n := range nodes {
 		if v, ok := n.(*ast.ExternFunc); ok {
@@ -4949,7 +4949,7 @@ func TestExternType(t *testing.T) {
 }
 
 func TestExternFuncWithDocComment(t *testing.T) {
-	source := "/// Prints a value.\n/// Returns Unit.\nhost fn Print(value: String): Unit"
+	source := "/// Prints a value.\n/// Returns Unit.\nhost fn Print(value: String) -> Unit"
 	nodes := parse(t, source)
 	ef, ok := nodes[0].(*ast.ExternFunc)
 	if !ok {
@@ -4961,7 +4961,7 @@ func TestExternFuncWithDocComment(t *testing.T) {
 }
 
 func TestFuncDefWithDocComment(t *testing.T) {
-	source := "/// Adds two numbers.\nfn Add(x: Int, y: Int): Int { x + y }"
+	source := "/// Adds two numbers.\nfn Add(x: Int, y: Int) -> Int { x + y }"
 	nodes := parse(t, source)
 	fd, ok := nodes[0].(*ast.FuncDef)
 	if !ok {
@@ -4982,7 +4982,7 @@ func TestFuncDefDocCommentPreservesIndent(t *testing.T) {
 		"///   Some(v) -> v\n" +
 		"///   None -> 0\n" +
 		"/// }\n" +
-		"fn Probe(): Int { 0 }"
+		"fn Probe() -> Int { 0 }"
 	nodes := parse(t, source)
 	fd, ok := nodes[0].(*ast.FuncDef)
 	if !ok {
@@ -5001,7 +5001,7 @@ func TestFuncDefDocCommentBlankAndTrailingSpace(t *testing.T) {
 	source := "/// First paragraph.\n" +
 		"///   \n" + // trailing whitespace on a logically-blank line
 		"/// Second paragraph.\n" +
-		"fn Probe(): Int { 0 }"
+		"fn Probe() -> Int { 0 }"
 	nodes := parse(t, source)
 	fd, ok := nodes[0].(*ast.FuncDef)
 	if !ok {
@@ -5014,7 +5014,7 @@ func TestFuncDefDocCommentBlankAndTrailingSpace(t *testing.T) {
 }
 
 func TestExternFuncNoParams(t *testing.T) {
-	nodes := parse(t, "host fn ReadLine(): String")
+	nodes := parse(t, "host fn ReadLine() -> String")
 	ef := nodes[0].(*ast.ExternFunc)
 	if len(ef.Params) != 0 {
 		t.Errorf("expected 0 params, got %d", len(ef.Params))
@@ -5048,7 +5048,7 @@ enum Maybe<T> {
 }
 
 func TestParseTypeExpr_Simple(t *testing.T) {
-	tokens := lexer.Lex("fn foo(x: Int): Int { x }")
+	tokens := lexer.Lex("fn foo(x: Int) -> Int { x }")
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatal(err)
@@ -5074,7 +5074,7 @@ func TestParseTypeExpr_Simple(t *testing.T) {
 }
 
 func TestParseTypeExpr_Generic(t *testing.T) {
-	tokens := lexer.Lex("fn foo(x: List<Int>): String { x }")
+	tokens := lexer.Lex("fn foo(x: List<Int>) -> String { x }")
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatal(err)
@@ -5097,7 +5097,7 @@ func TestParseTypeExpr_Generic(t *testing.T) {
 }
 
 func TestParseTypeExpr_FuncType(t *testing.T) {
-	tokens := lexer.Lex("fn apply(f: (Int) -> String): String { f(1) }")
+	tokens := lexer.Lex("fn apply(f: (Int) -> String) -> String { f(1) }")
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatal(err)
@@ -5160,7 +5160,7 @@ func TestParseOnce_WithAnnotation(t *testing.T) {
 }
 
 func TestQualifiedTypeAnnotation(t *testing.T) {
-	nodes := parse(t, `fn foo(r: io.Reader): io.Writer { r }`)
+	nodes := parse(t, `fn foo(r: io.Reader) -> io.Writer { r }`)
 	fd := nodes[0].(*ast.FuncDef)
 	paramType := fd.Params[0].TypeAnnotation
 	qt, ok := paramType.(*ast.QualifiedType)
@@ -5272,7 +5272,7 @@ interface Speaker {
 func TestInterface_AcceptsFnKeyword(t *testing.T) {
 	src := `
 interface Speaker {
-    fn speak(value: self): String
+    fn speak(value: self) -> String
 }
 `
 	nodes := parse(t, src)
@@ -5577,7 +5577,7 @@ func TestParseRawTaggedTriple(t *testing.T) {
 // tuple-form FuncType (Return == nil) whose second element is an
 // AnonStructType with two StructField entries, no defaults.
 func TestParser_AnonStructTypeInTuple(t *testing.T) {
-	nodes := parse(t, "type Tagged (String, {name: String, age: Int})\n")
+	nodes := parse(t, "type Tagged #(String, {name: String, age: Int})\n")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -5619,7 +5619,7 @@ func TestParser_AnonStructTypeInTuple(t *testing.T) {
 // TestParser_AnonStructTypeInFunctionParam verifies an anon struct type as
 // a function parameter annotation.
 func TestParser_AnonStructTypeInFunctionParam(t *testing.T) {
-	nodes := parse(t, "fn greet(p: {name: String, age: Int}): String { p.name }\n")
+	nodes := parse(t, "fn greet(p: {name: String, age: Int}) -> String { p.name }\n")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -5649,7 +5649,7 @@ func TestParser_AnonStructTypeInFunctionParam(t *testing.T) {
 // generic type argument: `List<{x: Int, y: Int}>`. The function param's
 // TypeAnnotation is a GenericType whose Params[0] is the AnonStructType.
 func TestParser_AnonStructTypeInGenericArg(t *testing.T) {
-	nodes := parse(t, "fn first(_xs: List<{x: Int, y: Int}>): Int { 0 }\n")
+	nodes := parse(t, "fn first(_xs: List<{x: Int, y: Int}>) -> Int { 0 }\n")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -5708,7 +5708,7 @@ func TestParser_AnonStructType_RejectedAtTopLevelType(t *testing.T) {
 // from a field type that happens to start with another identifier, and
 // reading them is unpleasant.
 func TestParser_AnonStructType_RequiresSeparatorBetweenFields(t *testing.T) {
-	tokens := lexer.Lex("fn f(p: {a: Int b: Int}): Int { p.a }\n")
+	tokens := lexer.Lex("fn f(p: {a: Int b: Int}) -> Int { p.a }\n")
 	_, err := Parse(tokens)
 	if err == nil {
 		t.Fatal("expected parse error, got nil")
@@ -5734,7 +5734,7 @@ func findFuncDef(t *testing.T, nodes []ast.Node, name string) *ast.FuncDef {
 
 func TestParseAttachedTestOnFunction(t *testing.T) {
 	nodes := parse(t, `//! assert answer() == 42
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if len(fn.AttachedTests) != 1 {
@@ -5755,7 +5755,7 @@ func TestParseAttachedTestMergesSurroundingDocComments(t *testing.T) {
 	nodes := parse(t, `/// Computes the answer.
 //! assert answer() == 42
 /// Used by the examples.
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if fn.Doc != "Computes the answer.\nUsed by the examples." {
@@ -5773,7 +5773,7 @@ func TestParseAttachedBlockTestOnFunction(t *testing.T) {
 	nodes := parse(t, `//! value = answer()
 //! assert value == 42
 //! refute value == 41
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if len(fn.AttachedTests) != 1 {
@@ -5803,7 +5803,7 @@ func TestParseAttachedCommentBlockTestOnFunction(t *testing.T) {
 //! assert value == 42
 //! refute value == 41
 /// Used by the examples.
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if fn.Doc != "Computes the answer.\nUsed by the examples." {
@@ -5830,7 +5830,7 @@ fn answer(): Int { 42 }
 func TestParseStripsBlankLineBetweenAttachedTestAndDeclaration(t *testing.T) {
 	nodes := parse(t, `//! assert answer() == 42
 
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if len(fn.AttachedTests) != 1 {
@@ -5844,7 +5844,7 @@ fn answer(): Int { 42 }
 func TestParseAttachedTestPreservesTrailingPromptBlank(t *testing.T) {
 	nodes := parse(t, `//! assert answer() == 42
 //!
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if len(fn.AttachedTests) != 1 {
@@ -5860,7 +5860,7 @@ func TestParseStripsBlankLineBetweenAttachedTestBlocks(t *testing.T) {
 
 //! refute answer() == 41
 //!
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if len(fn.AttachedTests) != 2 {
@@ -5880,7 +5880,7 @@ func TestParseCommentSeparatedAttachedTestBlocksOnFunction(t *testing.T) {
 			nodes := parse(t, `//! assert answer() == 42
 `+separator+`
 //! refute answer() == 41
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `)
 			fn := findFuncDef(t, nodes, "answer")
 			if len(fn.AttachedTests) != 2 {
@@ -5901,7 +5901,7 @@ func TestParseAttachedTestPreservesBlankDocAfter(t *testing.T) {
 //! assert answer() == 42
 /// Used by examples.
 ///
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if fn.Doc != "Computes the answer.\nUsed by examples.\n" {
@@ -5997,7 +5997,7 @@ func TestParseGroupRejects(t *testing.T) {
 			"write a sibling group instead",
 		},
 		"fn boot": {
-			"group \"g\" {\n  fn boot(startup: Startup): App { App{} }\n  test \"t\" { assert true }\n}\n",
+			"group \"g\" {\n  fn boot(startup: Startup) -> App { App{} }\n  test \"t\" { assert true }\n}\n",
 			"a `group` does not define `fn boot`",
 		},
 		"duplicate clock": {
@@ -6100,7 +6100,7 @@ func TestParseTestsSetupExpression(t *testing.T) {
 
 func TestParseRejectsAttachedTestWithoutAssertion(t *testing.T) {
 	_, err := Parse(lexer.Lex(`//! value = answer()
-fn answer(): Int { 42 }
+fn answer() -> Int { 42 }
 `))
 	if err == nil {
 		t.Fatal("expected attached test without assertion to be rejected")
@@ -6118,7 +6118,7 @@ impl Display for Int {
   //! assert Int.to_string(42) == "42"
   /// Matches interpolation.
   // Host implementation lives in Go.
-  host fn to_string(n: self): String
+  host fn to_string(n: self) -> String
 }
 
 `)
@@ -6164,7 +6164,7 @@ impl Display for Int {
 func TestParseAttachedTestAllowsAnnotatedBindingInBlock(t *testing.T) {
 	nodes := parse(t, `//! value: Maybe<Int> = None
 //! assert value == None
-fn ready(): Bool { True }
+fn ready() -> Bool { True }
 `)
 	fn := findFuncDef(t, nodes, "ready")
 	if len(fn.AttachedTests) != 1 {
@@ -6296,7 +6296,7 @@ func TestParseDotVariant_StructLit(t *testing.T) {
 }
 
 func TestParseDotVariant_MapLit(t *testing.T) {
-	expr := parseExpr(t, `.Obj{"k" => 1}`)
+	expr := parseExpr(t, `.Obj%{"k" => 1}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected *ast.MapLit, got %T", expr)
@@ -6398,8 +6398,8 @@ func TestParseDotVariant_StructPatternInPattern(t *testing.T) {
 }
 
 func TestParseDotVariant_MapPatternInPattern(t *testing.T) {
-	// case x { .Obj{"k" => v} -> v }
-	src := `case x { .Obj{"k" => v} -> v }`
+	// case x { .Obj%{"k" => v} -> v }
+	src := `case x { .Obj%{"k" => v} -> v }`
 	expr := parseExpr(t, src)
 	cs, ok := expr.(*ast.Case)
 	if !ok {
@@ -6464,7 +6464,7 @@ func TestParseListPattern_TrailingComma(t *testing.T) {
 func TestParseTopLevelInherentImplAccepted(t *testing.T) {
 	src := `impl List<T> {
   pub once Empty = []
-  pub fn first(_xs: self): T { panic("x") }
+  pub fn first(_xs: self) -> T { panic("x") }
 }`
 	nodes := parse(t, src)
 	if len(nodes) != 1 {
@@ -6528,7 +6528,7 @@ derive Equatable for Point
 
 
 impl Display for Point {
-  fn to_string(_p: self): String {
+  fn to_string(_p: self) -> String {
     "pt"
   }
 }
@@ -6563,7 +6563,7 @@ func TestParseImplHeader_HostFn(t *testing.T) {
 	src := `pub host type List<T>
 
 impl iter for List<T> {
-  host fn known_count(list: self): Maybe<Int>
+  host fn known_count(list: self) -> Maybe<Int>
 }
 
 `
@@ -6589,7 +6589,7 @@ impl iter for List<T> {
 // an *ast.ImplBlock with Interface + Receiver + plain-method Items.
 func TestParseImplBlock_Simple(t *testing.T) {
 	src := `impl Display for Money {
-  fn to_string(_m: self): String { "$" }
+  fn to_string(_m: self) -> String { "$" }
 }`
 	nodes := parse(t, src)
 	blk, ok := nodes[0].(*ast.ImplBlock)
@@ -6632,11 +6632,11 @@ func TestParseImplBlock_Simple(t *testing.T) {
 // blocks.
 func TestParseImplBlock_TwoBlocks(t *testing.T) {
 	src := `impl Display for Money {
-  fn to_string(_m: self): String { "$" }
+  fn to_string(_m: self) -> String { "$" }
 }
 
 impl Comparable for Money {
-  fn compare(_a: Money, _b: Money): Ordering { Ordering.Eq }
+  fn compare(_a: Money, _b: Money) -> Ordering { Ordering.Eq }
 }`
 	nodes := parse(t, src)
 	if len(nodes) != 2 {
@@ -6659,7 +6659,7 @@ impl Comparable for Money {
 // `impl Iter for Box<T> { ... }` — receiver generics are named by the receiver.
 func TestParseImplBlock_Generic(t *testing.T) {
 	src := `impl Iter for Box<T> {
-  fn next(_b: self): Maybe<(T, self)> { None }
+  fn next(_b: self) -> Maybe<#(T, self)> { None }
 }`
 	nodes := parse(t, src)
 	blk, ok := nodes[0].(*ast.ImplBlock)
@@ -6679,7 +6679,7 @@ func TestParseImplBlock_Generic(t *testing.T) {
 
 func TestParseImplBlock_WhereClause(t *testing.T) {
 	src := `impl iter for Box<T> where T: Display and Debug {
-  fn next(_b: self): Maybe<(T, self)> { None }
+  fn next(_b: self) -> Maybe<#(T, self)> { None }
 }`
 	nodes := parse(t, src)
 	blk, ok := nodes[0].(*ast.ImplBlock)
@@ -6711,7 +6711,7 @@ enum MaybeBox<T> where T: Display {
 }
 
 interface Renderable<T> where T: Display {
-  fn render(value: self): String
+  fn render(value: self) -> String
 }
 
 host type Handle<T> where T: Display
@@ -6790,7 +6790,7 @@ func TestParseDeriveOptionsBeforeWhereClause(t *testing.T) {
 // `host fn` methods are admitted inside an `impl ... for` block.
 func TestParseImplBlock_ExternFn(t *testing.T) {
 	src := `impl iter for List<T> {
-  host fn known_count(list: self): Maybe<Int>
+  host fn known_count(list: self) -> Maybe<Int>
 }`
 	nodes := parse(t, src)
 	blk, ok := nodes[0].(*ast.ImplBlock)
@@ -6815,10 +6815,10 @@ func TestParseImplBlock_ExternFn(t *testing.T) {
 func TestParseImplBlock_PubMethodRejected(t *testing.T) {
 	cases := []string{
 		`impl Display for Money {
-  pub fn to_string(m: self): String { "$" }
+  pub fn to_string(m: self) -> String { "$" }
 }`,
 		`impl iter for List<T> {
-  pub host fn known_count(list: self): Maybe<Int>
+  pub host fn known_count(list: self) -> Maybe<Int>
 }`,
 	}
 	for _, src := range cases {
@@ -6835,7 +6835,7 @@ func TestParseImplBlock_PubMethodRejected(t *testing.T) {
 
 func TestParseImplBlock_InterfaceTypeArgsAccepted(t *testing.T) {
 	src := `impl iter<T> for Box<T> {
-  fn next(_b: self): Maybe<Int> { None }
+  fn next(_b: self) -> Maybe<Int> { None }
 }`
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
@@ -6854,7 +6854,7 @@ func TestParseImplBlock_InterfaceTypeArgsAccepted(t *testing.T) {
 func TestParseImplBlock_AtImplRejected(t *testing.T) {
 	src := `impl Display for Money {
   @impl Display
-  fn to_string(m: self): String { "$" }
+  fn to_string(m: self) -> String { "$" }
 }`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
@@ -6883,7 +6883,7 @@ func TestParseImplBlock_NestedConformanceRejected(t *testing.T) {
 // `impl Display Money` has neither a `for` clause nor an opening body.
 func TestParseImplBlock_InvalidHeaderRejected(t *testing.T) {
 	src := `impl Display Money {
-  fn to_string(m: self): String { "$" }
+  fn to_string(m: self) -> String { "$" }
 }`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
@@ -6902,7 +6902,7 @@ func TestParseImplHeader_InlineImplementsBodyRejected(t *testing.T) {
   x: Int
 
   implements Display {
-    fn to_string(p: self): String { "pt" }
+    fn to_string(p: self) -> String { "pt" }
   }
 }`
 	_, err := Parse(lexer.Lex(src))
@@ -6918,7 +6918,7 @@ func TestParseImplHeader_InlineImplementsBodyRejected(t *testing.T) {
 // form — use `impl Iface for Type { ... }`.
 func TestParseImplHeader_TopLevelImplementsForRejected(t *testing.T) {
 	src := `implements Display for Money {
-  fn to_string(m: self): String { "$" }
+  fn to_string(m: self) -> String { "$" }
 }`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
@@ -6960,7 +6960,7 @@ func TestParseImplHeader_ConformanceTypeArgsRejected(t *testing.T) {
 func TestParseImplHeader_AtImplRejected(t *testing.T) {
 	src := `pub struct Foo {
   @impl
-  fn to_string(f: self): String { "x" }
+  fn to_string(f: self) -> String { "x" }
 }`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
@@ -6989,7 +6989,7 @@ func TestParseImplHeader_QualifiedImplBlock(t *testing.T) {
 	src := `pub struct Point {}
 
 impl render.Display for Point {
-  fn to_string(_p: self): String {
+  fn to_string(_p: self) -> String {
     "pt"
   }
 }
@@ -7010,7 +7010,7 @@ func TestParseImplHeader_PlainImplMethodNames(t *testing.T) {
 
 impl render.Display for Point {
 
-  fn to_string(_p: self): String {
+  fn to_string(_p: self) -> String {
     "pt"
   }
 }
@@ -7038,7 +7038,7 @@ func TestParseImplHeader_QualifiedPlainFunctionRejected(t *testing.T) {
 	src := `pub struct Point {
   impl Display
 
-  fn Display.to_string(p: self): String {
+  fn Display.to_string(p: self) -> String {
     "pt"
   }
 }`
@@ -7103,7 +7103,7 @@ func TestParseImplHeader_TagBeforeConformanceRejected(t *testing.T) {
 func TestParseImplHeader_DeriveConformanceBodyRejected(t *testing.T) {
 	src := `pub struct Foo {
   derive Equatable {
-    fn equals(a: Foo, b: Foo): Bool { True }
+    fn equals(a: Foo, b: Foo) -> Bool { True }
   }
 }`
 	_, err := Parse(lexer.Lex(src))
@@ -7120,7 +7120,7 @@ func TestParseImplHeader_DeriveConformanceBodyRejected(t *testing.T) {
 func TestParseImplHeader_TypeBodyImplRejected(t *testing.T) {
 	src := `pub struct Foo {
   impl Display for Bar {
-    fn to_string(f: Bar): String { "x" }
+    fn to_string(f: Bar) -> String { "x" }
   }
 }`
 	_, err := Parse(lexer.Lex(src))

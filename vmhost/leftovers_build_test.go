@@ -28,7 +28,7 @@ func buildRefusal(t *testing.T, src string) (string, string) {
 // `nomi build` refuses a program with any `todo` in its files, reached or
 // not, and lists each one in source order.
 func TestTodo_BuildImageRefusesAProgramWithTodos(t *testing.T) {
-	got, path := buildRefusal(t, `fn parse(text: String): Int {
+	got, path := buildRefusal(t, `fn parse(text: String) -> Int {
     todo "parse the header"
 }
 
@@ -65,12 +65,12 @@ fn main() {
 // each one's operand on one line: a statement, a pipe stage, one in a
 // function nothing calls, and a long multi-line operand, compacted and cut.
 func TestDbg_BuildImageRefusesAProgramWithDbgs(t *testing.T) {
-	got, path := buildRefusal(t, `fn unused(n: Int): Int {
+	got, path := buildRefusal(t, `fn unused(n: Int) -> Int {
     dbg n + 1
 }
 
 fn main() {
-    total = [1, 2, 3] |> Iter.reduce(|sum = 0, n| sum + n) |> dbg
+    total = [1, 2, 3] |> Iter.reduce(fn sum = 0, n -> sum + n) |> dbg
     _ = dbg total
     _ = dbg [
         "a fairly long first element",
@@ -81,7 +81,7 @@ fn main() {
 	want := strings.Join([]string{
 		"4 dbgs remain:",
 		"  " + path + ":2:5 dbg n + 1",
-		"  " + path + ":6:63 |> dbg",
+		"  " + path + ":6:67 |> dbg",
 		"  " + path + ":7:9 dbg total",
 		"  " + path + ":8:9 dbg [\"a fairly long first element\", \"and a s...",
 	}, "\n")
@@ -98,7 +98,7 @@ fn main() {
 // A program with both is refused once, with one header counting each kind
 // and one list in source order.
 func TestLeftovers_BuildImageListsTodosAndDbgsTogether(t *testing.T) {
-	got, path := buildRefusal(t, `fn later(): Int {
+	got, path := buildRefusal(t, `fn later() -> Int {
     todo "later"
 }
 

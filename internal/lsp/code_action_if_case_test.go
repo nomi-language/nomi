@@ -181,14 +181,14 @@ io.print(label)`), toIfElse, "Convert to case on 'n'"},
 }`), "Convert to case on 'p.name'", toIfElse},
 		"in a lambda": {fnMain(`xs = [1, 2, 3]
 
-Iter.each(xs, |x| {
+Iter.each(xs, fn x -> {
     y = x + 1
 
     ‸if y > 1 { io.print(x) } else { io.print(0) }
 })`), toCase, toIfElse},
 		"control flow arms": {fnMain(`xs = [1, 2, 3]
 
-Iter.each(xs, |x| {
+Iter.each(xs, fn x -> {
     y = x + 1
 
     ‸if y == 2 { continue } else { io.print(x) }
@@ -378,7 +378,7 @@ label = ‸case r {
 }
 
 io.print(label)`),
-		"effectful subject": fnMainAfter("fn next(): Int {\n    3\n}\n\n", `label = ‸case next() {
+		"effectful subject": fnMainAfter("fn next() -> Int {\n    3\n}\n\n", `label = ‸case next() {
     1 -> "one"
     _ -> "many"
 }

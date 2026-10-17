@@ -9,9 +9,9 @@ import {
 }
 
 pub interface Store {
-    fn load(store: self): Result<Map<Int, Task>, String>
-    fn save(store: self, task: Task): Result<Unit, String>
-    fn delete(store: self, id: Int): Result<Unit, String>
+    fn load(store: self) -> Result<Map<Int, Task>, String>
+    fn save(store: self, task: Task) -> Result<Unit, String>
+    fn delete(store: self, id: Int) -> Result<Unit, String>
 }
 
 /// Tasks in the SQLite database at `path`. Each operation opens the database
@@ -21,20 +21,20 @@ pub struct SqliteStore {
 }
 
 impl Store for SqliteStore {
-    fn load(store: SqliteStore): Result<Map<Int, Task>, String> {
+    fn load(store: SqliteStore) -> Result<Map<Int, Task>, String> {
         conn = try connect(store.path)
         defer sqlite.close(conn)
 
         rows = try query_all(conn, Sql"SELECT id, title, created, status FROM tasks")
 
-        Iter.reduce(rows, |tasks = Ok(Map.empty()), row| {
+        Iter.reduce(rows, fn tasks = Ok(Map.empty()), row -> {
             tasks = try tasks
             task = try parse_row(row)
             Ok(Map.put(tasks, task.id, task))
         })
     }
 
-    fn save(store: SqliteStore, task: Task): Result<Unit, String> {
+    fn save(store: SqliteStore, task: Task) -> Result<Unit, String> {
         conn = try connect(store.path)
         defer sqlite.close(conn)
 
@@ -53,7 +53,7 @@ impl Store for SqliteStore {
         Ok(Unit)
     }
 
-    fn delete(store: SqliteStore, id: Int): Result<Unit, String> {
+    fn delete(store: SqliteStore, id: Int) -> Result<Unit, String> {
         conn = try connect(store.path)
         defer sqlite.close(conn)
 
@@ -62,7 +62,7 @@ impl Store for SqliteStore {
     }
 }
 
-fn connect(path: String): Result<sqlite.Conn, String> {
+fn connect(path: String) -> Result<sqlite.Conn, String> {
     conn = try sqlite.open(path)
 
     created = exec(
@@ -88,7 +88,7 @@ fn connect(path: String): Result<sqlite.Conn, String> {
     }
 }
 
-fn parse_row(row: List<String>): Result<Task, String> {
+fn parse_row(row: List<String>) -> Result<Task, String> {
     malformed = "malformed task row: ${row}"
 
     case row {
@@ -105,10 +105,10 @@ fn parse_row(row: List<String>): Result<Task, String> {
     }
 }
 
-fn exec(conn: sqlite.Conn, query: Query): Result<Unit, String> {
+fn exec(conn: sqlite.Conn, query: Query) -> Result<Unit, String> {
     sqlite.exec(conn, query.sql, query.args)
 }
 
-fn query_all(conn: sqlite.Conn, query: Query): Result<List<List<String>>, String> {
+fn query_all(conn: sqlite.Conn, query: Query) -> Result<List<List<String>>, String> {
     sqlite.query_all(conn, query.sql, query.args)
 }

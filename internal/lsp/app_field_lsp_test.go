@@ -16,7 +16,7 @@ func TestAppFieldHoverAndDefinition(t *testing.T) {
 struct Services {
   context: Context
  port: Int }
-fn boot(): Services { Services{context: Context.root(), port: 3} }
+fn boot() -> Services { Services{context: Context.root(), port: 3} }
 fn main() {
  with Services.port = 4
  _ = Services.context
@@ -80,7 +80,7 @@ struct App {
   context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{port: 8080, context: Context.root()}
 }
 
@@ -101,7 +101,7 @@ fn main() {
 	wantDefinitionAt(t, "`port` of `App.port`", appFieldDefinition(t, server, uri, name), uri, 5, 2, "port")
 
 	// The type name hovers exactly as the `App` in boot's return type does.
-	typeName := protocol.Position{Line: 9, Character: uint32(strings.Index(strings.Split(src, "\n")[9], "): App") + 3)}
+	typeName := protocol.Position{Line: 9, Character: uint32(strings.Index(strings.Split(src, "\n")[9], ") -> App") + 5)}
 	wantApp := appFieldHover(t, server, uri, typeName)
 	if !strings.HasPrefix(wantApp, "```nomi\nstruct App {") || !strings.HasSuffix(wantApp, "The running application.") {
 		t.Fatalf("CONTROL: hover on the type name `App` = %q, want the struct and its doc", wantApp)
@@ -134,7 +134,7 @@ struct App {
   context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{logger: Logger{prefix: "a"}, context: Context.root()}
 }
 
@@ -199,7 +199,7 @@ func TestAppFieldRename_FieldAndType(t *testing.T) {
   context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{port: 8080, context: Context.root()}
 }
 

@@ -92,7 +92,7 @@ func TestRenameAndWorkspaceSymbol_ConvertThroughALineIndex(t *testing.T) {
 // together), and the tokens lexed once into the server's cache, which a
 // second publish and an inlay hint request reuse.
 func TestPublish_OneWalkAndTheCachedTokens(t *testing.T) {
-	src := privateUserFile() + "\nfn later(): Int {\n    dbg(todo)\n}\n"
+	src := privateUserFile() + "\nfn later() -> Int {\n    dbg(todo)\n}\n"
 	s, uri := openProject(t, map[string]string{"main.nomi": src}, "main.nomi")
 	snap := s.docs.Snapshot(uri)
 	var diags []protocol.Diagnostic
@@ -168,13 +168,13 @@ func BenchmarkManyRanges(b *testing.B) {
 // nthLine calls.
 func TestCallHierarchy_ConvertsThroughALineIndex(t *testing.T) {
 	var b strings.Builder
-	b.WriteString("fn callee(n: Int): Int {\n    n\n}\n")
+	b.WriteString("fn callee(n: Int) -> Int {\n    n\n}\n")
 	var calls []string
 	for i := range 300 {
-		fmt.Fprintf(&b, "\nfn c%d(): Int {\n    callee(%d)\n}\n", i, i)
+		fmt.Fprintf(&b, "\nfn c%d() -> Int {\n    callee(%d)\n}\n", i, i)
 		calls = append(calls, fmt.Sprintf("c%d()", i))
 	}
-	fmt.Fprintf(&b, "\nfn all(): Int {\n    %s\n}\n", strings.Join(calls, " + "))
+	fmt.Fprintf(&b, "\nfn all() -> Int {\n    %s\n}\n", strings.Join(calls, " + "))
 	src := b.String()
 	s, uri := openProject(t, map[string]string{"main.nomi": src}, "main.nomi")
 	noScans(t, "incoming calls", func() {

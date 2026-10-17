@@ -38,20 +38,20 @@ struct Board {
     rows: Maybe<Vector<Vector<Int>>>
 }
 
-fn put(grid: Vector<Vector<Int>>, row: Int, column: Int, value: Int): Maybe<Vector<Vector<Int>>> {
+fn put(grid: Vector<Vector<Int>>, row: Int, column: Int, value: Int) -> Maybe<Vector<Vector<Int>>> {
     cells = try Vector.get(grid, row)
     Some(Vector.set(grid, row, Vector.set(cells, column, value)))
 }
 
-fn sets(): Result<Vector<Set<Int>>, String> {
+fn sets() -> Result<Vector<Set<Int>>, String> {
     Ok(#[#{1, 2}])
 }
 
-fn lists(): Result<Int, Vector<List<Int>>> {
+fn lists() -> Result<Int, Vector<List<Int>>> {
     Err(#[[1], [2, 3]])
 }
 
-fn width(maps: Maybe<Vector<Map<String, Int>>>): Int {
+fn width(maps: Maybe<Vector<Map<String, Int>>>) -> Int {
     case maps {
         Some(found) -> Vector.length(found)
         None -> 0
@@ -64,12 +64,12 @@ fn main() {
     io.inspect(put(grid, 2, 0, 7))
     written = Vector.set(grid, 0, #[5])
     io.inspect(written)
-    io.inspect(Maybe.map(Vector.get(grid, 0), |cells| Vector.set(grid, 1, cells)))
+    io.inspect(Maybe.map(Vector.get(grid, 0), fn cells -> Vector.set(grid, 1, cells)))
     io.inspect(Board{rows: put(grid, 0, 1, 3)})
     io.inspect(sets())
     io.inspect(lists())
-    io.inspect(width(Some(#[{"a" => 1}, {"b" => 2}])))
-    io.inspect(Map.get({"k" => grid}, "k"))
+    io.inspect(width(Some(#[%{"a" => 1}, %{"b" => 2}])))
+    io.inspect(Map.get(%{"k" => grid}, "k"))
     io.inspect(Some([#[#[1]]]) == Some([#[#[1]]]))
 }
 `

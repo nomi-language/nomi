@@ -23,26 +23,26 @@ struct Tag<T> {
 }
 
 impl Display for Tag<T> {
-    fn to_string(t: Tag<T>): String {
+    fn to_string(t: Tag<T>) -> String {
         "tag " + Debug.inspect(t.v)
     }
 }
 
 interface Named {
-    fn name(x: self): String
+    fn name(x: self) -> String
 }
 
 impl Named for Box<T> {
-    fn name(b: Box<T>): String {
+    fn name(b: Box<T>) -> String {
         "box of " + Debug.inspect(b.v)
     }
 }
 
-fn show(d: Display): String {
+fn show(d: Display) -> String {
     Display.to_string(d)
 }
 
-fn named(n: Named): String {
+fn named(n: Named) -> String {
     Named.name(n)
 }
 

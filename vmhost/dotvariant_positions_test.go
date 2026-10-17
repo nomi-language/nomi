@@ -25,7 +25,7 @@ enum Shape {
     Dot
 }
 
-fn parse(s: String): Result<Int, String> {
+fn parse(s: String) -> Result<Int, String> {
     case s {
         "" -> Err("empty")
         _ -> Ok(String.length(s))
@@ -33,11 +33,11 @@ fn parse(s: String): Result<Int, String> {
 }
 
 fn main() {
-    fn none(): Maybe<Int> {
+    fn none() -> Maybe<Int> {
         .None
     }
 
-    fn total(xs: List<String>): Result<Int, String> {
+    fn total(xs: List<String>) -> Result<Int, String> {
         case xs {
             [] -> . Ok(0)
             [x, ..rest] -> {
@@ -48,29 +48,29 @@ fn main() {
         }
     }
 
-    fn first(xs: List<Int>): Maybe<Int> {
+    fn first(xs: List<Int>) -> Maybe<Int> {
         Some(x) = List.head(xs) else { return .None }
         .Some(x * 10)
     }
 
-    fn checked(s: String): Result<Int, String> {
+    fn checked(s: String) -> Result<Int, String> {
         Ok(n) = parse(s) else { return .Err("bad") }
         .Ok(n)
     }
 
-    fn pick<T>(x: T, keep: Bool): Maybe<T> {
+    fn pick<T>(x: T, keep: Bool) -> Maybe<T> {
         if keep { .Some(x) } else { .None }
     }
 
-    fn shape(n: Int): Shape {
+    fn shape(n: Int) -> Shape {
         case n {
             0 -> .Dot
             _ -> .Circle(2.0)
         }
     }
 
-    positive: (Int) -> Maybe<Int> = |n| if n > 0 { .Some(n) } else { .None }
-    length: (String) -> Result<Int, String> = |s| case s {
+    positive: (Int) -> Maybe<Int> = fn n -> if n > 0 { .Some(n) } else { .None }
+    length: (String) -> Result<Int, String> = fn s -> case s {
         "" -> .Err("empty")
         _ -> .Ok(String.length(s))
     }
@@ -117,7 +117,7 @@ Ok(2)
 func TestDotVariant_PreludeVariantInANestedFnOfATestBody(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 	const name = "dot_test.nomi"
-	p, err := vmhost.LoadSource(name, `fn parse(s: String): Result<Int, String> {
+	p, err := vmhost.LoadSource(name, `fn parse(s: String) -> Result<Int, String> {
     case s {
         "" -> Err("empty")
         _ -> Ok(String.length(s))
@@ -125,7 +125,7 @@ func TestDotVariant_PreludeVariantInANestedFnOfATestBody(t *testing.T) {
 }
 
 test "a recursive nested fn with try" {
-    fn total(xs: List<String>): Result<Int, String> {
+    fn total(xs: List<String>) -> Result<Int, String> {
         case xs {
             [] ->
                 .Ok(0)

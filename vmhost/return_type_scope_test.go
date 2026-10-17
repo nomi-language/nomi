@@ -10,9 +10,9 @@ import "testing"
 func TestReturnTypeScope_BoundArmsRun(t *testing.T) {
 	got := runSourceOutput(t, `import std/io
 
-fn f(): Result<Int, String> { Ok(1) }
+fn f() -> Result<Int, String> { Ok(1) }
 
-fn g(s: String): Result<Unit, String> {
+fn g(s: String) -> Result<Unit, String> {
     r = case s {
         "a" -> f()
         _ -> Err("bad")
@@ -21,13 +21,13 @@ fn g(s: String): Result<Unit, String> {
     Ok(Unit)
 }
 
-fn k(s: String): Result<Int, Int> {
+fn k(s: String) -> Result<Int, Int> {
     r = if s == "a" { f() } else { Ok(2) }
     io.print(Debug.inspect(r))
     Ok(1)
 }
 
-fn c(): Result<Unit, String> {
+fn c() -> Result<Unit, String> {
     e = Err("late")
     r: Result<Int, String> = e
     io.print(Debug.inspect(r))

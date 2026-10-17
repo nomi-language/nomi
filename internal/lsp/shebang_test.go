@@ -15,7 +15,7 @@ func TestShebangFile_PositionsAreUnshifted(t *testing.T) {
 	src := "#!/usr/bin/env nomi\n" +
 		"import std/io\n" +
 		"\n" +
-		"fn double(n: Int): Int {\n" +
+		"fn double(n: Int) -> Int {\n" +
 		"    n + n\n" +
 		"}\n" +
 		"\n" +
@@ -60,7 +60,7 @@ func TestShebangFile_PositionsAreUnshifted(t *testing.T) {
 	if err != nil || hover == nil {
 		t.Fatalf("no hover on `double` at 3:4: %v", err)
 	}
-	if mc, ok := hover.Contents.(protocol.MarkupContent); !ok || !strings.Contains(mc.Value, "fn double(n: Int): Int") {
+	if mc, ok := hover.Contents.(protocol.MarkupContent); !ok || !strings.Contains(mc.Value, "fn double(n: Int) -> Int") {
 		t.Errorf("hover on `double` = %+v", hover.Contents)
 	}
 

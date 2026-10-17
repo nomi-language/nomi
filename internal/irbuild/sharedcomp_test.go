@@ -72,7 +72,7 @@ func TestStructuralInterningDoesNotCollapseNominallyDistinctTypes(t *testing.T) 
 	// The same claim one level in, because the collapse is worst where nothing
 	// reads the element back: a tuple's part and a map's value.
 	if a, b := g1.tupleKind([]kind{kindInt, named(d1)}), g2.tupleKind([]kind{kindInt, named(d2)}); a == b {
-		t.Errorf("(Int, Point) over two different Points is one kind (%s)", a.nomi())
+		t.Errorf("#(Int, Point) over two different Points is one kind (%s)", a.nomi())
 	}
 	if a, b := g1.mapKind(kindString, named(d1)), g2.mapKind(kindString, named(d2)); a == b {
 		t.Errorf("Map<String, Point> over two different Points is one kind (%s)", a.nomi())

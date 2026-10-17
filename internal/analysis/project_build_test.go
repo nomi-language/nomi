@@ -110,13 +110,13 @@ fn main() {
 }
 `)
 	mustWrite("log.nomi", `pub interface Iface {
-  fn op(value: self): Unit
+  fn op(value: self) -> Unit
 }
 
 pub type ProdImpl
 
 impl Iface for ProdImpl {
-  fn op(_value: ProdImpl): Unit { Unit }
+  fn op(_value: ProdImpl) -> Unit { Unit }
 }
 `)
 	mustWrite("effects.nomi", `import log.{Iface, ProdImpl}
@@ -125,7 +125,7 @@ pub struct Holder {
   handler: Iface
 }
 
-pub fn make(): Holder {
+pub fn make() -> Holder {
   Holder{handler: ProdImpl{}}
 }
 
@@ -238,7 +238,7 @@ func TestBuildProject_PrivateModuleMemberHiddenAcrossFiles(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, `
 import api.{self, Widget}
 
-fn demo(): String {
+fn demo() -> String {
   w: Widget = api.make("Ada")
   api.secret(w)
 }
@@ -248,11 +248,11 @@ pub struct Widget {
   name: String
 }
 
-pub fn make(name: String): Widget {
+pub fn make(name: String) -> Widget {
   Widget{name}
 }
 
-fn secret(w: Widget): String {
+fn secret(w: Widget) -> String {
   w.name
 }
 `,
@@ -285,8 +285,8 @@ func hasTypeErrorContaining(errs []analysis.TypeError, substrs ...string) bool {
 // needed to put the same receiver type in both modules.)
 func TestImplCollision_CrossModuleRejected(t *testing.T) {
 	siblings := map[string]string{
-		"widgets": "impl Display for Int {\n  fn to_string(_n: self): String { \"widgets\" }\n}\n",
-		"legacy":  "impl Display for Int {\n  fn to_string(_n: self): String { \"legacy\" }\n}\n",
+		"widgets": "impl Display for Int {\n  fn to_string(_n: self) -> String { \"widgets\" }\n}\n",
+		"legacy":  "impl Display for Int {\n  fn to_string(_n: self) -> String { \"legacy\" }\n}\n",
 	}
 	entry := "import {\n  std/io\n  widgets\n  legacy\n}\n\nfn main() { io.print(\"x\") }\n"
 	errs := buildProjectExpectingErrors(t, entry, siblings)
@@ -304,10 +304,10 @@ func TestImplCollision_CrossModuleRejected(t *testing.T) {
 // real BuildProject pipeline — the path that does assemble the index.
 func TestImplCollision_SameFileRejected(t *testing.T) {
 	entry := "impl Display for Int {\n" +
-		"  fn to_string(_n: self): String { \"first\" }\n" +
+		"  fn to_string(_n: self) -> String { \"first\" }\n" +
 		"}\n\n" +
 		"impl Display for Int {\n" +
-		"  fn to_string(_n: self): String { \"second\" }\n" +
+		"  fn to_string(_n: self) -> String { \"second\" }\n" +
 		"}\n\n" +
 		"fn main() {}\n"
 	errs := buildProjectExpectingErrors(t, entry, nil)
@@ -422,7 +422,7 @@ replace stringkit => ../stringkit
 // resolution worked, no "module not found" or "undefined name" type
 // errors should fire on the entry file.
 func TestBuildProject_CrossModuleImportResolves(t *testing.T) {
-	stringkitPad := `pub fn pad_left(s: String, _width: Int, _pad: String): String {
+	stringkitPad := `pub fn pad_left(s: String, _width: Int, _pad: String) -> String {
   s
 }
 `
@@ -486,7 +486,7 @@ fn main() {
 func TestBuildProject_CrossModuleInternalRejected(t *testing.T) {
 	// stringkit exposes an internal helper; todo tries to reach across
 	// the module boundary into it.
-	stringkitPad := `pub fn pad_left(s: String, _width: Int, _pad: String): String {
+	stringkitPad := `pub fn pad_left(s: String, _width: Int, _pad: String) -> String {
   s
 }
 `
@@ -508,7 +508,7 @@ fn main() {
 	if err := os.MkdirAll(filepath.Dir(internalPath), 0755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(internalPath, []byte("module secret\n\npub fn s(): Int { 0 }\n"), 0644); err != nil {
+	if err := os.WriteFile(internalPath, []byte("module secret\n\npub fn s() -> Int { 0 }\n"), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 
@@ -556,7 +556,7 @@ fn main() {
 // <root>/todo/helper.nomi (which doesn't exist) and silently drop the
 // import.
 func TestBuildProject_SelfNameReferenceResolves(t *testing.T) {
-	stringkitPad := `pub fn pad_left(s: String, _width: Int, _pad: String): String {
+	stringkitPad := `pub fn pad_left(s: String, _width: Int, _pad: String) -> String {
   s
 }
 `
@@ -570,7 +570,7 @@ fn main() {
 }
 `
 	extra := map[string]string{
-		"helper.nomi": "pub fn greet(): String { \"hi\" }\n",
+		"helper.nomi": "pub fn greet() -> String { \"hi\" }\n",
 	}
 	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, stringkitPad, extra)
 
@@ -637,7 +637,7 @@ func TestOrphanImpl_CrossModuleRejected(t *testing.T) {
 }
 
 impl Display for Pad {
-  fn to_string(_p: Pad): String { "pad" }
+  fn to_string(_p: Pad) -> String { "pad" }
 }
 
 fn main() {
@@ -690,7 +690,7 @@ func TestBuildProject_AllowsImplBlockForCurrentPackageType(t *testing.T) {
 }
 `
 	todoMain := `pub interface Label {
-  fn label(value: self): String
+  fn label(value: self) -> String
 }
 
 pub struct Thing {
@@ -698,7 +698,7 @@ pub struct Thing {
 }
 
 impl Label for Thing {
-  fn label(value: Thing): String { value.name }
+  fn label(value: Thing) -> String { value.name }
 }
 
 fn main() {
@@ -729,7 +729,7 @@ func TestBuildProject_AllowsConstrainedGenericImplBlockForCurrentPackageType(t *
 }
 `
 	todoMain := `pub interface StepLabel {
-  fn label(value: self): String
+  fn label(value: self) -> String
 }
 
 pub struct Box<T> {
@@ -737,7 +737,7 @@ pub struct Box<T> {
 }
 
 impl StepLabel for Box<T> where T: Display {
-  fn label(value: Box<T>): String { Display.to_string(value.value) }
+  fn label(value: Box<T>) -> String { Display.to_string(value.value) }
 }
 
 fn main() {
@@ -766,9 +766,9 @@ func TestBuildProject_RejectsDuplicateModuleFunctions(t *testing.T) {
 	  name: String
 	}
 
-	pub fn name(value: Thing): String { value.name }
+	pub fn name(value: Thing) -> String { value.name }
 
-	pub fn name(_value: Thing, fallback: String): String { fallback }
+	pub fn name(_value: Thing, fallback: String) -> String { fallback }
 
 
 
@@ -801,11 +801,11 @@ func TestBuildProject_AllowsForeignImplBlockForExternalReceiverType(t *testing.T
 	todoMain := `import stringkit/pad: Pad
 
 pub interface Label {
-  fn label(value: self): String
+  fn label(value: self) -> String
 }
 
 impl Label for Pad {
-  fn label(_value: Pad): String { "pad" }
+  fn label(_value: Pad) -> String { "pad" }
 }
 
 fn main() {
@@ -942,7 +942,7 @@ func TestBuildProject_AllowsLocalAppFileAlongsideStdApp(t *testing.T) {
   app: EffectsApp
 }
 
-fn boot(): EffectsApp {
+fn boot() -> EffectsApp {
   EffectsApp{context: Context.root(), }
 }
 `)
@@ -1031,7 +1031,7 @@ func TestOrphanRule_CacheFoldBranch_PreludeImplicitUse(t *testing.T) {
 }
 
 impl Display for Pad {
-  fn to_string(_p: Pad): String { "pad" }
+  fn to_string(_p: Pad) -> String { "pad" }
 }
 
 fn main() {

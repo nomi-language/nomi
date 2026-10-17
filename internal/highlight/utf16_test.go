@@ -13,7 +13,7 @@ import (
 // bytes, `unit` after `°` was painted one column right.
 func TestSemanticTokens_ColumnsAreUTF16(t *testing.T) {
 	line := "  \"${n} °${unit} 👍🏽${n} 日本${unit}\""
-	src := "fn label(n: Int, unit: String): String {\n" + line + "\n}\n"
+	src := "fn label(n: Int, unit: String) -> String {\n" + line + "\n}\n"
 	toks := SemanticTokens(src, std.Load())
 	type at struct{ col, length int }
 	got := map[at]bool{}

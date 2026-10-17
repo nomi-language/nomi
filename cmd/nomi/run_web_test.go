@@ -222,7 +222,7 @@ func TestRunWeb(t *testing.T) {
 		return "import {\n  std/io\n  words\n}\n\nfn main() {\n  io.print(\"" + text + "\")\n  io.print(words.word())\n}\n"
 	}
 	helper := filepath.Join(src, "words.nomi")
-	word := func(text string) string { return "pub fn word(): String {\n  \"" + text + "\"\n}\n" }
+	word := func(text string) string { return "pub fn word() -> String {\n  \"" + text + "\"\n}\n" }
 	mustWrite(t, helper, word("a"))
 	mustWrite(t, entry, program("one"))
 
@@ -354,7 +354,7 @@ func TestRunWeb_Refusals(t *testing.T) {
 		}
 	}
 	// Without --web, a flag after the file is still the program's.
-	mustWrite(t, filepath.Join(dir, "args.nomi"), "import std/io\n\nstruct App {\n  context: Context\n}\n\nfn boot(startup: Startup): App {\n  io.print(startup.args)\n  App{context: Context.root()}\n}\n\nfn main() {\n}\n")
+	mustWrite(t, filepath.Join(dir, "args.nomi"), "import std/io\n\nstruct App {\n  context: Context\n}\n\nfn boot(startup: Startup) -> App {\n  io.print(startup.args)\n  App{context: Context.root()}\n}\n\nfn main() {\n}\n")
 	if got := runProcess(t, env, dir, "", nomiBin, "run", "args.nomi", "--web"); got.exit != 0 || got.stdout != "[--web]\n" {
 		t.Fatalf("nomi run args.nomi --web: exit %d\n%s", got.exit, got.transcript())
 	}

@@ -7,11 +7,11 @@ import {
     notes
 }
 
-fn round<T>(x: T): Result<T, Json.ShapeError> where T: FromJson and ToJson {
+fn round<T>(x: T) -> Result<T, Json.ShapeError> where T: FromJson and ToJson {
     T.from_json(ToJson.to_json(x))
 }
 
-fn show<T>(r: Result<T, Json.ShapeError>): String where T: ToJson {
+fn show<T>(r: Result<T, Json.ShapeError>) -> String where T: ToJson {
     case r {
         Ok(v) -> Json.encode(ToJson.to_json(v))
         Err(e) -> "expected ${e.expected}, got ${e.got}"
@@ -19,7 +19,7 @@ fn show<T>(r: Result<T, Json.ShapeError>): String where T: ToJson {
 }
 
 fn main() {
-    j = Json.Obj{"title" => Json.String("x")}
+    j = Json.Obj%{"title" => Json.String("x")}
     one: Result<notes.Note, Json.ShapeError> = FromJson.from_json(j)
     io.print(show(one))
     many: Result<List<notes.Note>, Json.ShapeError> = FromJson.from_json(Json.Arr([j, j]))

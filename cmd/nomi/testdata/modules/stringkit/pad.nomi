@@ -6,7 +6,7 @@
 //! assert pad.pad_left("1234", 3, "0") == "1234"
 //! assert pad.pad_left("7", 3, "") == "7"
 //
-pub fn pad_left(s: String, width: Int, fill: String): String {
+pub fn pad_left(s: String, width: Int, fill: String) -> String {
     if String.length(s) >= width or fill == "" {
         s
     } else {

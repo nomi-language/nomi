@@ -9,12 +9,12 @@ import "testing"
 func TestFormat_CommentAfterReceiverKeepsItsLine(t *testing.T) {
 	for _, c := range []struct{ src, want string }{
 		{
-			"fn read(b: Box): Int {\n  self // c1\n   .get(b)\n}\n",
-			"fn read(b: Box): Int {\n    self // c1\n        .get(b)\n}\n",
+			"fn read(b: Box) -> Int {\n  self // c1\n   .get(b)\n}\n",
+			"fn read(b: Box) -> Int {\n    self // c1\n        .get(b)\n}\n",
 		},
 		{
-			"fn read(b: Box): Int {\n    g(self // c3\n        .get(b))\n}\n",
-			"fn read(b: Box): Int {\n    g(\n        self // c3\n            .get(b)\n    )\n}\n",
+			"fn read(b: Box) -> Int {\n    g(self // c3\n        .get(b))\n}\n",
+			"fn read(b: Box) -> Int {\n    g(\n        self // c3\n            .get(b)\n    )\n}\n",
 		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

@@ -18,7 +18,7 @@ pub type Safe
 /// HTML-escape a single piece of untrusted text. Static fragments
 /// (literal source text) bypass this — only Dynamic slots flow
 /// through.
-fn escape(s: String): String {
+fn escape(s: String) -> String {
     String.replace(s, "&", "&amp;")
     |> String.replace("<", "&lt;")
     |> String.replace(">", "&gt;")
@@ -26,8 +26,8 @@ fn escape(s: String): String {
 }
 
 impl Literal for Safe {
-    fn from_fragments(fragments: List<Fragment<String>>): String {
-        Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> String {
+        Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + escape(v)
@@ -42,8 +42,8 @@ impl Literal for Safe {
 pub type Raw
 
 impl Literal for Raw {
-    fn from_fragments(fragments: List<Fragment<String>>): String {
-        Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> String {
+        Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v

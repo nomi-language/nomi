@@ -2,11 +2,11 @@ pub struct Widget {
     name: String
 }
 
-pub fn label(w: Widget): String {
+pub fn label(w: Widget) -> String {
     w.name
 }
 
-pub fn make(name: String): Widget {
+pub fn make(name: String) -> Widget {
     Widget{name}
 }
 
@@ -14,10 +14,10 @@ pub opaque struct Token {
     value: String
 }
 
-pub fn reveal(t: Token): String {
+pub fn reveal(t: Token) -> String {
     t.value
 }
 
-pub fn make_token(value: String): Token {
+pub fn make_token(value: String) -> Token {
     Token{value}
 }

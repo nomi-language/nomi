@@ -29,7 +29,7 @@ fn main() {
 }
 `,
 	"shapes.nomi": `pub interface Shape {
-    fn area(value: self): Int
+    fn area(value: self) -> Int
 }
 
 pub struct Circle {
@@ -41,18 +41,18 @@ pub struct Square {
 }
 
 impl Shape for Circle {
-    fn area(value: Circle): Int {
+    fn area(value: Circle) -> Int {
         value.radius * value.radius * 3
     }
 }
 
 impl Shape for Square {
-    fn area(value: Square): Int {
+    fn area(value: Square) -> Int {
         value.side * value.side
     }
 }
 
-pub fn describe(shape: Shape): String {
+pub fn describe(shape: Shape) -> String {
     size = Shape.area(shape)
     "a shape of area ${size}"
 }

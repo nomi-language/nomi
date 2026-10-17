@@ -18,8 +18,8 @@ import (
 // overflow in a corpus sweep.
 func TestTypeAlias_ACyclicAliasIsTheFrontEndsJob(t *testing.T) {
 	for _, tc := range []struct{ name, src string }{
-		{"self", "typealias A (A) -> Int\n\nfn run(_f: A): Int {\n  0\n}\n"},
-		{"mutual", "typealias A B\ntypealias B A\n\nfn run(_f: A): Int {\n  0\n}\n"},
+		{"self", "typealias A (A) -> Int\n\nfn run(_f: A) -> Int {\n  0\n}\n"},
+		{"mutual", "typealias A B\ntypealias B A\n\nfn run(_f: A) -> Int {\n  0\n}\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := Analyze(writeTemp(t, tc.src))

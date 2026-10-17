@@ -60,7 +60,7 @@ func scaledDungeon(tb testing.TB, k int) map[string]string {
 			head = dungeonImport.ReplaceAllString(head, fmt.Sprintf("${1}%d.", i))
 			text = head + body
 			if key == "game" {
-				text += "\npub fn demo(): Game {\n    Game.start()\n}\n"
+				text += "\npub fn demo() -> Game {\n    Game.start()\n}\n"
 			}
 			out[fmt.Sprintf("%s%d", key, i)] = text
 		}
@@ -108,7 +108,7 @@ func BenchmarkLoweringEdit(b *testing.B) {
 	dungeonEdits := []edit{
 		{"game body", "game", "{ 3 } else { 1 }", "{ 4 } else { 1 }"},
 		{"entry body", "main", "You wake up in the dark.", "You wake up."},
-		{"game signature", "game", "fn strength(game: Game): Int {", "fn strength(game: Game, _bonus: Int = 0): Int {"},
+		{"game signature", "game", "fn strength(game: Game) -> Int {", "fn strength(game: Game, _bonus: Int = 0) -> Int {"},
 		{"world body", "world", `.North -> "north"`, `.North -> "the north"`},
 	}
 	type project struct {

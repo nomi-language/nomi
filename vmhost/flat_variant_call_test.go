@@ -10,19 +10,19 @@ import "testing"
 func TestFlatVariantCall_Runs(t *testing.T) {
 	out := runSiblingProgram(t, map[string]string{
 		"two.nomi": `pub enum Two<A, B> {
-    Both (A, B)
+    Both #(A, B)
 }
 
 pub enum Three<A, B, C> {
-    All (A, B, C)
+    All #(A, B, C)
 }
 
 pub enum Tagged<T> {
-    Tag (T, String)
+    Tag #(T, String)
 }
 
 pub enum Seg {
-    Pair (Int, String)
+    Pair #(Int, String)
 }
 `,
 		"main.nomi": `import std/io
@@ -33,14 +33,14 @@ import two.Three
 import two.Tagged
 import two.Seg
 
-fn pick(): Two<Int, Int> {
+fn pick() -> Two<Int, Int> {
     .Both(3, 4)
 }
 
 fn main() {
     a: Two<Int, Int> = Two.Both(1, 2)
     io.inspect(a)
-    io.inspect(a == Two.Both((1, 2)))
+    io.inspect(a == Two.Both(#(1, 2)))
     io.inspect(Two.Both(1, "x"))
     c: Two<Int, Int> = .Both(5, 6)
     io.inspect(c)

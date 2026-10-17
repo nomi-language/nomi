@@ -21,24 +21,24 @@ func TestBuildProject_OperatorImplsDifferingOnlyInOutputAreRejected(t *testing.T
 type Day Int
 type Days Int
 
-fn day_value(d: Day): Int {
+fn day_value(d: Day) -> Int {
   Day(n) = d
   n
 }
 
-fn days_value(d: Days): Int {
+fn days_value(d: Days) -> Int {
   Days(n) = d
   n
 }
 
 impl Add<Days, Day> for Day {
-  fn add(lhs: Day, rhs: Days): Day {
+  fn add(lhs: Day, rhs: Days) -> Day {
     Day(day_value(lhs) + days_value(rhs))
   }
 }
 
 impl Add<Days, Days> for Day {
-  fn add(lhs: Day, rhs: Days): Days {
+  fn add(lhs: Day, rhs: Days) -> Days {
     Days(day_value(lhs) + days_value(rhs))
   }
 }
@@ -58,20 +58,20 @@ fn main() {
 func TestBuildProject_TwoInstantiationsOfANonOperatorInterfaceAreRejected(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, `
 pub interface Holds<T> {
-  fn hold(h: self): T
+  fn hold(h: self) -> T
 }
 
 type Box Int
 
 impl Holds<Int> for Box {
-  fn hold(h: Box): Int {
+  fn hold(h: Box) -> Int {
     Box(n) = h
     n
   }
 }
 
 impl Holds<String> for Box {
-  fn hold(_h: Box): String {
+  fn hold(_h: Box) -> String {
     "box"
   }
 }
@@ -95,26 +95,26 @@ type Meters Int
 type Feet Int
 type Yards Int
 
-fn meters_value(m: Meters): Int {
+fn meters_value(m: Meters) -> Int {
   Meters(n) = m
   n
 }
 
 impl Add<Meters, Meters> for Meters {
-  fn add(lhs: Meters, rhs: Meters): Meters {
+  fn add(lhs: Meters, rhs: Meters) -> Meters {
     Meters(meters_value(lhs) + meters_value(rhs))
   }
 }
 
 impl Add<Feet, Meters> for Meters {
-  fn add(lhs: Meters, rhs: Feet): Meters {
+  fn add(lhs: Meters, rhs: Feet) -> Meters {
     Feet(f) = rhs
     Meters(meters_value(lhs) + f)
   }
 }
 
 impl Add<Yards, Meters> for Meters {
-  fn add(lhs: Meters, rhs: Yards): Meters {
+  fn add(lhs: Meters, rhs: Yards) -> Meters {
     Yards(y) = rhs
     Meters(meters_value(lhs) + y)
   }
@@ -158,7 +158,7 @@ fn main() {
 // for byte:
 //
 //	score_value(plus(Score(2), Bonus(3)))   argument 1: expected Score, got Int
-//	fn demo(): Int { total: Score = plus(Day(20), Days(2)) … }
+//	fn demo() -> Int { total: Score = plus(Day(20), Days(2)) … }
 //	                                        type mismatch: expected Day, got Int
 //
 // The measured discriminator is not the annotation and not the operand types: the
@@ -174,23 +174,23 @@ func TestBuildProject_OutInBoundPositionStillSolves(t *testing.T) {
 type Day Int
 type Days Int
 
-fn day_value(d: Day): Int {
+fn day_value(d: Day) -> Int {
   Day(n) = d
   n
 }
 
-fn days_value(d: Days): Int {
+fn days_value(d: Days) -> Int {
   Days(n) = d
   n
 }
 
 impl Add<Days, Day> for Day {
-  fn add(lhs: Day, rhs: Days): Day {
+  fn add(lhs: Day, rhs: Days) -> Day {
     Day(day_value(lhs) + days_value(rhs))
   }
 }
 
-fn plus<L, R, Out>(lhs: L, rhs: R): Out where L: Add<R, Out> {
+fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out> {
   lhs + rhs
 }
 

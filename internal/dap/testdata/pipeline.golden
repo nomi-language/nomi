@@ -24,7 +24,7 @@
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1},{"expensive":false,"name":"Pipeline","namedVariables":4,"variablesReference":2}]}
 -> variables {"variablesReference":2}
-<- response variables {"variables":[{"declarationLocationReference":4,"indexedVariables":4,"name":"xs","value":"[1, 2, 3, 4]","variablesReference":3},{"declarationLocationReference":5,"name":"|> Iter.map(|x| x * 10)","type":"Iter","value":"lazy; not run yet","variablesReference":0},{"declarationLocationReference":6,"name":"|> Iter.filter(|x| x > 15)","type":"Iter","value":"lazy; not run yet","variablesReference":0},{"declarationLocationReference":7,"name":"|> Iter.to_list()","value":"not run yet","variablesReference":0}]}
+<- response variables {"variables":[{"declarationLocationReference":4,"indexedVariables":4,"name":"xs","value":"[1, 2, 3, 4]","variablesReference":3},{"declarationLocationReference":5,"name":"|> Iter.map(fn x -> x * 10)","type":"Iter","value":"lazy; not run yet","variablesReference":0},{"declarationLocationReference":6,"name":"|> Iter.filter(fn x -> x > 15)","type":"Iter","value":"lazy; not run yet","variablesReference":0},{"declarationLocationReference":7,"name":"|> Iter.to_list()","value":"not run yet","variablesReference":0}]}
 -> continue {"threadId":1}
 <- response continue {"allThreadsContinued":true}
 <- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[3],"reason":"breakpoint","threadId":1}
@@ -33,7 +33,7 @@
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1},{"expensive":false,"name":"Pipeline","namedVariables":4,"variablesReference":2}]}
 -> variables {"variablesReference":2}
-<- response variables {"variables":[{"declarationLocationReference":4,"indexedVariables":4,"name":"xs","value":"[1, 2, 3, 4]","variablesReference":3},{"declarationLocationReference":5,"indexedVariables":4,"name":"|> Iter.map(|x| x * 10)","type":"Iter","value":"[10, 20, 30, 40]","variablesReference":4},{"declarationLocationReference":6,"indexedVariables":3,"name":"|> Iter.filter(|x| x > 15)","type":"Iter","value":"[20, 30, 40]","variablesReference":5},{"declarationLocationReference":7,"indexedVariables":3,"name":"|> Iter.to_list()","value":"[20, 30, 40]","variablesReference":6}]}
+<- response variables {"variables":[{"declarationLocationReference":4,"indexedVariables":4,"name":"xs","value":"[1, 2, 3, 4]","variablesReference":3},{"declarationLocationReference":5,"indexedVariables":4,"name":"|> Iter.map(fn x -> x * 10)","type":"Iter","value":"[10, 20, 30, 40]","variablesReference":4},{"declarationLocationReference":6,"indexedVariables":3,"name":"|> Iter.filter(fn x -> x > 15)","type":"Iter","value":"[20, 30, 40]","variablesReference":5},{"declarationLocationReference":7,"indexedVariables":3,"name":"|> Iter.to_list()","value":"[20, 30, 40]","variablesReference":6}]}
 -> variables {"variablesReference":5}
 <- response variables {"variables":[{"name":"[0]","type":"Int","value":"20","variablesReference":0},{"name":"[1]","type":"Int","value":"30","variablesReference":0},{"name":"[2]","type":"Int","value":"40","variablesReference":0}]}
 -> continue {"threadId":1}

@@ -16,9 +16,9 @@ func TestFuncValueShape_MismatchIsRejected(t *testing.T) {
 		stmt string
 		want string
 	}{
-		{"f = |s: String| String.to_int(s)\n  x = Maybe.with_default(f, 0)",
+		{"f = fn s: String -> String.to_int(s)\n  x = Maybe.with_default(f, 0)",
 			"argument 1: expected Maybe<T>, got (String) -> Maybe<Int>"},
-		{"x: Int = Maybe.with_default(|s: String| String.to_int(s), 0)",
+		{"x: Int = Maybe.with_default(fn s: String -> String.to_int(s), 0)",
 			"argument 1: expected Maybe<T>, got (String) -> Maybe<Int>"},
 		{"x = Maybe.map(Some(1), 5)",
 			"argument 2: expected (Int) -> U, got Int"},
@@ -43,11 +43,11 @@ func TestFuncValueShape_MismatchIsRejected(t *testing.T) {
 // or not.
 func TestFuncValueShape_MatchingShapesAreAccepted(t *testing.T) {
 	for _, stmt := range []string{
-		"x: List<Int> = [\"1\"] |> Iter.map(|s| String.to_int(s) |> Maybe.with_default(0)) |> Iter.to_list()",
-		"x: List<Int> = [\"1\"] |> Iter.map(|s| { String.to_int(s) |> Maybe.with_default(0) }) |> Iter.to_list()",
-		"x = Maybe.map(Some(1), |n| n + 1)",
-		"f = |n: Int| n + 1\n  x = Maybe.map(Some(1), f)",
-		"x = Maybe.with_default(Some(|n: Int| n), |n: Int| n + 1)",
+		"x: List<Int> = [\"1\"] |> Iter.map(fn s -> String.to_int(s) |> Maybe.with_default(0)) |> Iter.to_list()",
+		"x: List<Int> = [\"1\"] |> Iter.map(fn s -> { String.to_int(s) |> Maybe.with_default(0) }) |> Iter.to_list()",
+		"x = Maybe.map(Some(1), fn n -> n + 1)",
+		"f = fn n: Int -> n + 1\n  x = Maybe.map(Some(1), f)",
+		"x = Maybe.with_default(Some(fn n: Int -> n), fn n: Int -> n + 1)",
 	} {
 		src := "fn main() {\n  " + stmt + "\n  _ = x\n}\n"
 		_, errs := checkSourceWithStdlib(src)

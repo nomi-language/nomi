@@ -13,7 +13,7 @@ struct App {
     store: Store
 }
 
-fn boot(): App {
+fn boot() -> App {
     App{
         console: Terminal,
         clock: SystemClock,
@@ -21,11 +21,11 @@ fn boot(): App {
     }
 }
 
-fn main(): Result<Unit, String> {
+fn main() -> Result<Unit, String> {
     tasks = try Store.load(App.store)
     Console.write_line(App.console, "tasks. type 'help' for commands.")
 
-    _ = Iter.loop(|tasks = tasks| {
+    _ = Iter.loop(fn tasks = tasks -> {
         // The end of the input quits too.
         command =
             Console.read_line(App.console)
@@ -53,10 +53,10 @@ fn main(): Result<Unit, String> {
 
 /// Runs one command and shows its output. After an error the tasks stay as
 /// they were.
-fn step(command: Command, tasks: Map<Int, Task>): Map<Int, Task> {
+fn step(command: Command, tasks: Map<Int, Task>) -> Map<Int, Task> {
     case commands.run(command, tasks, App.store, App.clock) {
-        Ok((tasks, lines)) -> {
-            Iter.each(lines, |line| Console.write_line(App.console, line))
+        Ok(#(tasks, lines)) -> {
+            Iter.each(lines, fn line -> Console.write_line(App.console, line))
             tasks
         }
 

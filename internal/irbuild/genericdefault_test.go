@@ -7,18 +7,18 @@ import "testing"
 func TestGenericDefault_LowersAtTheInstance(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
-fn apply<T>(x: T, f: (T) -> T = |y| y): T {
+fn apply<T>(x: T, f: (T) -> T = fn y -> y) -> T {
     f(x)
 }
 
-fn wrap<T>(x: T, empty: List<T> = []): List<T> {
+fn wrap<T>(x: T, empty: List<T> = []) -> List<T> {
     [x, ..empty]
 }
 
 fn main() {
     io.print(apply(3))
     io.print(apply("s"))
-    io.print(apply(3, |y| y + 1))
+    io.print(apply(3, fn y -> y + 1))
     io.inspect(wrap(1))
 }
 `, "3\ns\n4\n[1]\n")

@@ -37,21 +37,21 @@ fn main() {
     io.print("${areas([Shape.Point])}")
 }
 
-fn count(xs: List<Shape>): Int {
+fn count(xs: List<Shape>) -> Int {
     case xs {
         [] -> 0
         [_, ..t] -> 1 + count(t)
     }
 }
 
-fn areas(xs: List<Shape>): String {
+fn areas(xs: List<Shape>) -> String {
     case xs {
         [] -> "."
         [h, ..t] -> "${area(h)} ${areas(t)}"
     }
 }
 
-fn area(s: Shape): Int {
+fn area(s: Shape) -> Int {
     case s {
         Shape.Circle{radius} -> 3 * radius * radius
         Shape.Rect{width, height} -> width * height

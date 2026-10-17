@@ -15,8 +15,8 @@ import (
 // It reads the DEFS, which say which instance and which slot.
 func TestGenericEnumInstancesAreDistinctDefs(t *testing.T) {
 	src := "enum Wrapper<T> {\n  Wrapped T\n  Empty\n}\n\n" +
-		"fn a(_w: Wrapper<Int>): Int {\n  0\n}\n\n" +
-		"fn b(_w: Wrapper<String>): Int {\n  0\n}\n"
+		"fn a(_w: Wrapper<Int>) -> Int {\n  0\n}\n\n" +
+		"fn b(_w: Wrapper<String>) -> Int {\n  0\n}\n"
 	g := lowerableGen(t, src)
 	var enums []*typeDef
 	for _, d := range g.genericInstOrder {
@@ -65,7 +65,7 @@ func TestGenericEnumInstancesAreDistinctDefs(t *testing.T) {
 // itself. This asserts the def, which says which slot.
 func TestGenericEnum_RecursivePayloadIsBoxed(t *testing.T) {
 	src := "enum Chain<T> {\n  Link Chain<T>\n  Tip T\n}\n\n" +
-		"fn depth(_c: Chain<Int>): Int {\n  0\n}\n"
+		"fn depth(_c: Chain<Int>) -> Int {\n  0\n}\n"
 	g := lowerableGen(t, src)
 	var inst *typeDef
 	for _, d := range g.genericInstOrder {
@@ -101,7 +101,7 @@ func TestGenericEnum_RecursivePayloadIsBoxed(t *testing.T) {
 // guards that early return.
 func TestGenericEnumTemplateDeclarationFabricatesNoRefusal(t *testing.T) {
 	src := "enum Wrapper<T> {\n  Wrapped T\n  Empty\n}\n\n" +
-		"fn seen(_w: Wrapper<Int>): Int {\n  0\n}\n"
+		"fn seen(_w: Wrapper<Int>) -> Int {\n  0\n}\n"
 	g := lowerableGen(t, src)
 	d := g.types["Wrapper"]
 	if d == nil {

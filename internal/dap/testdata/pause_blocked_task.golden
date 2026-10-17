@@ -16,7 +16,7 @@
 -> stackTrace {"threadId":1}
 <- response stackTrace {"stackFrames":[{"column":19,"id":1,"line":11,"name":"Task.await","presentationHint":"subtle","source":{"name":"blocked_task.nomi","path":"$TESTDATA/blocked_task.nomi"}},{"column":19,"id":2,"line":11,"name":"<concurrent>","source":{"name":"blocked_task.nomi","path":"$TESTDATA/blocked_task.nomi"}},{"column":12,"id":3,"line":9,"name":"concurrent","presentationHint":"subtle","source":{"name":"blocked_task.nomi","path":"$TESTDATA/blocked_task.nomi"}},{"column":12,"id":4,"line":9,"name":"main","source":{"name":"blocked_task.nomi","path":"$TESTDATA/blocked_task.nomi"}}],"totalFrames":4}
 -> stackTrace {"threadId":2}
-<- response stackTrace {"stackFrames":[{"column":39,"id":5,"line":10,"name":"io.read_line","presentationHint":"subtle","source":{"name":"blocked_task.nomi","path":"$TESTDATA/blocked_task.nomi"}},{"column":39,"id":6,"line":10,"name":"<lambda>","source":{"name":"blocked_task.nomi","path":"$TESTDATA/blocked_task.nomi"}}],"totalFrames":2}
+<- response stackTrace {"stackFrames":[{"column":42,"id":5,"line":10,"name":"io.read_line","presentationHint":"subtle","source":{"name":"blocked_task.nomi","path":"$TESTDATA/blocked_task.nomi"}},{"column":42,"id":6,"line":10,"name":"<lambda>","source":{"name":"blocked_task.nomi","path":"$TESTDATA/blocked_task.nomi"}}],"totalFrames":2}
 -> continue {"threadId":1}
 <- response continue {"allThreadsContinued":true}
 <- event exited {"exitCode":0}

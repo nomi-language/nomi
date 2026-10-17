@@ -84,7 +84,7 @@ func TestLiteralDiagnostics_ValidDateHasNoneAndHoversItsValue(t *testing.T) {
 // it. The literal is evaluated and hovers its value.
 func TestLiteralDiagnostics_FileWithReturningElseIfChainIsEvaluated(t *testing.T) {
 	src := "import {\n    std/calendar.Date\n    std/io\n}\n\n" +
-		"fn sign(x: Int): Int {\n    if x < 0 {\n        return -1\n    } else if x == 0 {\n        return 0\n    } else {\n        return 1\n    }\n}\n\n" +
+		"fn sign(x: Int) -> Int {\n    if x < 0 {\n        return -1\n    } else if x == 0 {\n        return 0\n    } else {\n        return 1\n    }\n}\n\n" +
 		"fn main() {\n    _ = Date\"2026-05-04\"\n    io.print(sign(2))\n}\n"
 	s, snap := openLiteralDoc(t, src)
 	if diags := s.literalDiagnostics(snap, true); len(diags) != 0 {
@@ -142,8 +142,8 @@ func TestLiteralDiagnostics_InterpolatedLiteralIsNotEvaluated(t *testing.T) {
 func userLiteral(body string) string {
 	return "import {\n    std/io\n    std/literals.{Fragment, Literal}\n}\n\n" +
 		"type Probe\n\n" +
-		"fn spin(n: Int): Result<Probe, String> {\n    if n < 0 {\n        Err(\"negative\")\n    } else {\n        spin(n + 1)\n    }\n}\n\n" +
-		"impl Literal for Probe {\n    fn from_fragments(fragments: List<Fragment<String>>): Result<Probe, String> {\n" +
+		"fn spin(n: Int) -> Result<Probe, String> {\n    if n < 0 {\n        Err(\"negative\")\n    } else {\n        spin(n + 1)\n    }\n}\n\n" +
+		"impl Literal for Probe {\n    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Probe, String> {\n" +
 		body +
 		"    }\n}\n\n" +
 		"fn main() {\n    _ = Probe\"x\"\n    io.print(\"\")\n}\n"

@@ -6,7 +6,7 @@ import {
 test "private functions cannot be imported" {
     diagnostics = compiler.check_project(Project{
         entry_point: "main",
-        files: {
+        files: %{
             "main" => """
                 import api.ping
 
@@ -15,7 +15,7 @@ test "private functions cannot be imported" {
                 }
                 """,
             "api" => """
-                fn ping(): String {
+                fn ping() -> String {
                   "pong"
                 }
                 """,
@@ -29,7 +29,7 @@ test "private functions cannot be imported" {
 test "private types cannot be imported through public modules" {
     diagnostics = compiler.check_project(Project{
         entry_point: "main",
-        files: {
+        files: %{
             "main" => """
                 import api.Hidden
 
@@ -52,7 +52,7 @@ test "private types cannot be imported through public modules" {
 test "private helpers are hidden from imported modules" {
     diagnostics = compiler.check_project(Project{
         entry_point: "main",
-        files: {
+        files: %{
             "main" => """
                 import api.{self, Widget}
 
@@ -66,15 +66,15 @@ test "private helpers are hidden from imported modules" {
                   name: String
                 }
 
-                pub fn label(w: Widget): String {
+                pub fn label(w: Widget) -> String {
                   w.name
                 }
 
-                fn secret(w: Widget): String {
+                fn secret(w: Widget) -> String {
                   "secret " + w.name
                 }
 
-                pub fn make(name: String): Widget {
+                pub fn make(name: String) -> Widget {
                   Widget{name}
                 }
                 """,

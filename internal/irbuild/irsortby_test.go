@@ -10,7 +10,7 @@ func TestIRSortBy_TourUsersByName(t *testing.T) {
 
 fn main() {
   users = [User{name: "Cara", age: 35}, User{name: "Ann", age: 41}]
-  sorted = users |> Iter.sort_by(|u| u.name)
+  sorted = users |> Iter.sort_by(fn u -> u.name)
 
   dbg sorted
 }
@@ -31,11 +31,11 @@ struct Item {
 }
 fn main() {
   items = [Item{label: "b", weight: 2}, Item{label: "a", weight: 1}, Item{label: "c", weight: 2}]
-  by_weight = items |> Iter.sort_by(|i| i.weight)
-  io.inspect(by_weight |> Iter.map(|i| i.label) |> Iter.to_list())
+  by_weight = items |> Iter.sort_by(fn i -> i.weight)
+  io.inspect(by_weight |> Iter.map(fn i -> i.label) |> Iter.to_list())
   ranks = [Rank{n: 3}, Rank{n: 1}, Rank{n: 2}]
-  io.inspect(Iter.sort_by(ranks, |r| r))
-  io.inspect([3, 1, 2] |> Iter.sort_by(|n| 0 - n))
+  io.inspect(Iter.sort_by(ranks, fn r -> r))
+  io.inspect([3, 1, 2] |> Iter.sort_by(fn n -> 0 - n))
 }
 `, "[\"a\", \"b\", \"c\"]\n[Rank{n: 1}, Rank{n: 2}, Rank{n: 3}]\n[3, 2, 1]\n")
 }

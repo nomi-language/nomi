@@ -30,32 +30,32 @@ struct Point {
 }
 
 impl Display for Point {
-    fn to_string(p: Point): String {
+    fn to_string(p: Point) -> String {
         "${p.tag}(${p.weight})"
     }
 }
 
 impl Comparable for Point {
-    fn compare(a: Point, b: Point): Ordering {
+    fn compare(a: Point, b: Point) -> Ordering {
         Int.compare(a.weight, b.weight)
     }
 }
 
-fn mine(): Display {
+fn mine() -> Display {
     Point{tag: "mine", weight: 41}
 }
 
-fn mine_ordered(): Comparable {
+fn mine_ordered() -> Comparable {
     Point{tag: "mine", weight: 41}
 }
 
-fn render(d: Display): String {
+fn render(d: Display) -> String {
     Display.to_string(d)
 }
 
 // A `Comparable` box crossing a file boundary and being counted rather than
 // compared: the TYPE lowers, the erased-receiver dispatch does not.
-fn boxed(_a: Comparable, _b: Comparable): Int {
+fn boxed(_a: Comparable, _b: Comparable) -> Int {
     2
 }
 
@@ -63,7 +63,7 @@ fn boxed(_a: Comparable, _b: Comparable): Int {
 // directly with no table in the path. Pinned here because it lowered BEFORE
 // this slice and a fallback that shadowed the working route would take it
 // away — measured by a peer as a real regression, and invisible to the corpus.
-fn order_here(): String {
+fn order_here() -> String {
     case Comparable.compare(Point{tag: "a", weight: 1}, Point{tag: "b", weight: 2}) {
         Ordering.Less -> "less"
         Ordering.Equal -> "equal"

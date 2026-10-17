@@ -10,7 +10,7 @@ struct Node {
     wrap: {inner: Node, depth: Int}
 }
 
-fn depth_of(x: Node): Int {
+fn depth_of(x: Node) -> Int {
     x.wrap.depth
 }
 

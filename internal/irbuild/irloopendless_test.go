@@ -76,11 +76,11 @@ fn work(n: Int) {
 
 fn main() {
     jobs: Channel<Int> = Channel.buffered(4)
-    Iter.each([0, 1, 2, 3], |n| {
+    Iter.each([0, 1, 2, 3], fn n -> {
         _ = Sender.send(jobs.sender, n)
     })
     io.print("start")
-    Iter.loop(|| {
+    Iter.loop(fn -> {
         case Receiver.receive(jobs.receiver) {
             Some(n) -> work(n)
             None -> Unit
@@ -96,7 +96,7 @@ func TestIRLoopEndless_ReturnAndContinueGoRound(t *testing.T) {
 	verifyEndlessTrap(t, `import std/io
 
 fn main() {
-    _ = Iter.loop(|n = 0| {
+    _ = Iter.loop(fn n = 0 -> {
         io.print("n ${n}")
         if n < 2 { return n + 1 }
         if n == 2 {
@@ -136,16 +136,16 @@ func TestIRLoopEndless_ValuePositions(t *testing.T) {
 func endlessPositions(body string) string {
 	return `import std/io
 
-fn count(limit: Int): Int {
-    Iter.loop(|n = 0| {
+fn count(limit: Int) -> Int {
+    Iter.loop(fn n = 0 -> {
         io.print("count ${n}")
         io.print(10 / (limit - n))
         n + 1
     })
 }
 
-fn bound(): Int {
-    x = Iter.loop(|n = 1| {
+fn bound() -> Int {
+    x = Iter.loop(fn n = 1 -> {
         io.print("bound ${n}")
         io.print(10 / (2 - n))
         n + 1
@@ -154,21 +154,21 @@ fn bound(): Int {
     x + 1
 }
 
-fn noisy(label: String): Int {
+fn noisy(label: String) -> Int {
     io.print(label)
     1
 }
 
-fn operand(): Int {
-    noisy("first") + Iter.loop(|n = 0| {
+fn operand() -> Int {
+    noisy("first") + Iter.loop(fn n = 0 -> {
         io.print(10 / n)
         n
     })
 }
 
-fn arm(x: Int): Int {
+fn arm(x: Int) -> Int {
     case x {
-        0 -> Iter.loop(|n = 0| {
+        0 -> Iter.loop(fn n = 0 -> {
             io.print(10 / n)
             n
         })
@@ -176,11 +176,11 @@ fn arm(x: Int): Int {
     }
 }
 
-fn branch(flag: Bool): Int {
+fn branch(flag: Bool) -> Int {
     if flag {
         return 7
     } else {
-        Iter.loop(|n = 0| {
+        Iter.loop(fn n = 0 -> {
             io.print(10 / n)
             n
         })
@@ -188,10 +188,10 @@ fn branch(flag: Bool): Int {
 }
 
 fn nested() {
-    _ = Iter.loop(|i = 0| {
+    _ = Iter.loop(fn i = 0 -> {
         io.print("outer ${i}")
         if i < 1 { return i + 1 }
-        Iter.loop(|j = i| {
+        Iter.loop(fn j = i -> {
             io.print("inner ${j}")
             io.print(10 / (3 - j))
             j + 1
@@ -199,10 +199,10 @@ fn nested() {
     })
 }
 
-fn conc(): Int {
+fn conc() -> Int {
     concurrent {
         io.print("conc")
-        Iter.loop(|n = 2| {
+        Iter.loop(fn n = 2 -> {
             io.print(10 / n)
             n - 1
         })
@@ -221,21 +221,21 @@ func TestIRLoopEndless_InALambda(t *testing.T) {
 	verifyEndlessTrap(t, `import std/io
 
 fn main() {
-    spin = |limit: Int| Iter.loop(|n = 0| {
+    spin = fn limit: Int -> Iter.loop(fn n = 0 -> {
         io.print("spin ${n}")
         if n == limit { io.print(1 / 0) }
         n + 1
     })
-    drop = |label: String| {
+    drop = fn label: String -> {
         io.print(label)
-        _ = Iter.loop(|n = 0| {
+        _ = Iter.loop(fn n = 0 -> {
             io.print(10 / (1 - n))
             n + 1
         })
     }
-    early = |x: Int| {
+    early = fn x: Int -> {
         if x > 0 { return x * 2 }
-        Iter.loop(|n = 0| { io.print(1 / n)  n })
+        Iter.loop(fn n = 0 -> { io.print(1 / n)  n })
     }
     io.print(early(4))
     f: (String) -> Unit = drop
@@ -254,7 +254,7 @@ func TestIRLoopEndless_TestBodies(t *testing.T) {
 
 test "a worker loop" {
     assert 1 == 1
-    Iter.loop(|n = 0| {
+    Iter.loop(fn n = 0 -> {
         io.print("worker ${n}")
         if n < 2 { return n + 1 }
         io.print(10 / (2 - n))
@@ -264,7 +264,7 @@ test "a worker loop" {
 
 test "a bound loop" {
     assert 2 == 2
-    x = Iter.loop(|| {
+    x = Iter.loop(fn -> {
         io.print("bound")
         io.print(1 / 0)
     })
@@ -275,7 +275,7 @@ test "a bound loop" {
 test "a loop in an arm" {
     assert 3 == 3
     case 1 {
-        1 -> Iter.loop(|| {
+        1 -> Iter.loop(fn -> {
             io.print("arm")
             io.print(1 / 0)
         })

@@ -59,10 +59,10 @@ func soleInterfaceMethod(t *testing.T, src string) *ast.InterfaceMethod {
 // and this is the measurement that says it cannot.
 func TestSelfShape_SelfIsAlwaysItsOwnNode(t *testing.T) {
 	for _, src := range []string{
-		"interface I { fn m(x: self): Int }",
-		"interface I { fn m(x: Maybe<self>): Int }",
-		"interface I { fn m(x: Int): self }",
-		"interface I { fn m(x: (self) -> Bool): Int }",
+		"interface I { fn m(x: self) -> Int }",
+		"interface I { fn m(x: Maybe<self>) -> Int }",
+		"interface I { fn m(x: Int) -> self }",
+		"interface I { fn m(x: (self) -> Bool) -> Int }",
 	} {
 		im := soleInterfaceMethod(t, src)
 		found := false

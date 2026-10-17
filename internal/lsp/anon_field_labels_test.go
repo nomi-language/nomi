@@ -16,11 +16,11 @@ import (
 // a parameter type and a binding annotation.
 const anonLabelsSrc = `import std/io
 
-fn make(context: Context): {logger: String, context: Context} {
+fn make(context: Context) -> {logger: String, context: Context} {
   {logger: "x", context}
 }
 
-fn show(p: {name: String, age: Int}): String {
+fn show(p: {name: String, age: Int}) -> String {
   p.name
 }
 

@@ -11,11 +11,11 @@ struct SetupHandle {
     label: String
 }
 
-fn close(_value: SetupHandle): Unit {
+fn close(_value: SetupHandle) -> Unit {
     Unit
 }
 
-pub fn boot(startup: Startup): EffectsApp {
+pub fn boot(startup: Startup) -> EffectsApp {
     deployment = case Map.get(startup.env, "NOMI_ENV") {
         Some(value) -> value
         None -> "dev"

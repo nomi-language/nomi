@@ -23,23 +23,31 @@ struct Grove {
     trees: List<Tree>
 }
 
-fn width(s: Shape): Int {
+fn width(s: Shape) -> Int {
     case s {
-        Shape.Poly(ps) -> ps |> Iter.map(|p: Point| p.x) |> Iter.reduce(|acc = 0, x| acc + x)
-        Shape.Path{points, name} -> Iter.count(points) + String.length(name)
-        Shape.Empty -> 0
+        Shape.Poly(ps) ->
+            ps |> Iter.map(fn p: Point -> p.x) |> Iter.reduce(fn acc = 0, x -> acc + x)
+
+        Shape.Path{points, name} ->
+            Iter.count(points) + String.length(name)
+
+        Shape.Empty ->
+            0
     }
 }
 
-fn total(t: Tree): Int {
+fn total(t: Tree) -> Int {
     case t {
-        Tree.Leaf(n) -> n
-        Tree.Branch(groves) -> groves |> Iter.map(grove_total) |> Iter.reduce(|acc = 0, x| acc + x)
+        Tree.Leaf(n) ->
+            n
+
+        Tree.Branch(groves) ->
+            groves |> Iter.map(grove_total) |> Iter.reduce(fn acc = 0, x -> acc + x)
     }
 }
 
-fn grove_total(g: Grove): Int {
-    g.trees |> Iter.map(total) |> Iter.reduce(|acc = 0, x| acc + x)
+fn grove_total(g: Grove) -> Int {
+    g.trees |> Iter.map(total) |> Iter.reduce(fn acc = 0, x -> acc + x)
 }
 
 fn main() {

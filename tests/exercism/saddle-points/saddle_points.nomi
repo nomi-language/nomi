@@ -6,37 +6,37 @@ pub struct Position {
 
 /// The trees that are the tallest in their row and the shortest in their
 /// column, row by row and left to right.
-pub fn saddle_points(matrix: Vector<Vector<Int>>): List<Position> {
+pub fn saddle_points(matrix: Vector<Vector<Int>>) -> List<Position> {
     minima = column_minima(matrix)
 
     matrix
     |> Iter.with_index()
-    |> Iter.flat_map(|(row, heights)| {
+    |> Iter.flat_map(fn #(row, heights) -> {
         tallest = Iter.max(heights)
 
         heights
         |> Iter.with_index()
-        |> Iter.filter(|(column, height)| {
+        |> Iter.filter(fn #(column, height) -> {
             Some(height) == tallest and Vector.at(minima, column) == height
         })
-        |> Iter.map(|(column, _height)| Position{row: row + 1, column: column + 1})
+        |> Iter.map(fn #(column, _height) -> Position{row: row + 1, column: column + 1})
     })
     |> Iter.to_list()
 }
 
 /// The shortest height in each column.
-fn column_minima(matrix: Vector<Vector<Int>>): Vector<Int> {
+fn column_minima(matrix: Vector<Vector<Int>>) -> Vector<Int> {
     width = matrix |> Iter.first() |> Maybe.map(Vector.length) |> Maybe.with_default(0)
 
     0..width
-    |> Iter.map(|column| column_minimum(matrix, column))
+    |> Iter.map(fn column -> column_minimum(matrix, column))
     |> Maybe.collect()
     |> Maybe.with_default([])
     |> Iter.to_vector()
 }
 
-fn column_minimum(matrix: Vector<Vector<Int>>, column: Int): Maybe<Int> {
+fn column_minimum(matrix: Vector<Vector<Int>>, column: Int) -> Maybe<Int> {
     matrix
-    |> Iter.map(|cells| Vector.at(cells, column))
+    |> Iter.map(fn cells -> Vector.at(cells, column))
     |> Iter.min()
 }

@@ -110,7 +110,7 @@ func TestParseStructSpreadLeavesOtherBracesAlone(t *testing.T) {
 	cases := map[string]string{
 		"anon struct": "x = {a: 1}",
 		"pun":         "x = {a, b}",
-		"map":         "x = {\"a\" => 1}",
+		"map":         "x = %{\"a\" => 1}",
 		"block":       "x = {\n  y = 1\n  y\n}",
 	}
 	for name, src := range cases {

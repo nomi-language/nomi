@@ -10,14 +10,14 @@ test "startup environment can be passed to ordinary helpers" {
           name: String
         }
 
-        fn load(startup: Startup, context: Context): Config {
+        fn load(startup: Startup, context: Context) -> Config {
           Config{
             context,
             name: Map.get(startup.env, "NOMI_ENV") |> Maybe.with_default("dev"),
           }
         }
 
-        fn boot(startup: Startup): Config {
+        fn boot(startup: Startup) -> Config {
           load(startup, Context.root())
         }
 

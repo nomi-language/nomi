@@ -67,7 +67,7 @@ func TestBlockBindingDecline_IsReportedAtTheStatement(t *testing.T) {
 	plantDecline(t)
 	src := `import std/io
 
-fn planted_decline(a: Int): Int {
+fn planted_decline(a: Int) -> Int {
     a
 }
 
@@ -152,7 +152,7 @@ fn main() {
         _z = 3
     }
     helper(1)
-    f = || {
+    f = fn -> {
         _q = 4
     }
     f()

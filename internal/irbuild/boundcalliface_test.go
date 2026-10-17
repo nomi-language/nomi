@@ -14,32 +14,32 @@ func TestBoundCallIface_TupleAndAnImplBesideTheCaller(t *testing.T) {
 }
 
 impl Display for lib.Dog {
-    fn to_string(d: lib.Dog): String {
+    fn to_string(d: lib.Dog) -> String {
         "dog " + d.name
     }
 }
 
-fn show<T>(x: T): String where T: Display {
+fn show<T>(x: T) -> String where T: Display {
     T.to_string(x)
 }
 
 fn main() {
-    fn txt<T>(x: T): String where T: Display {
+    fn txt<T>(x: T) -> String where T: Display {
         T.to_string(x)
     }
     d = lib.Dog{name: "d"}
-    io.print(show((1, "a")))
-    io.print(txt((2, "b")))
+    io.print(show(#(1, "a")))
+    io.print(txt(#(2, "b")))
     io.print(show(d))
     io.print(Display.to_string(d))
     io.print("${d}")
     io.print(lib.render(d))
 }
-`, "(1, a)\n(2, b)\ndog d\ndog d\ndog d\n<dog d>\n", map[string]string{"lib.nomi": `pub struct Dog {
+`, "#(1, a)\n#(2, b)\ndog d\ndog d\ndog d\n<dog d>\n", map[string]string{"lib.nomi": `pub struct Dog {
     name: String
 }
 
-pub fn render<T>(x: T): String where T: Display {
+pub fn render<T>(x: T) -> String where T: Display {
     "<${x}>"
 }
 `})

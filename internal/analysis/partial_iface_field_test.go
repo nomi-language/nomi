@@ -14,7 +14,7 @@ import (
 // `argument 2: expected Partial<Cfg>, got {clock: FakeClock}` — two admission
 // paths disagreeing about one rule.
 const ifaceFieldSrc = `pub interface Clock {
-  fn at(c: self): Int
+  fn at(c: self) -> Int
 }
 
 pub struct FakeClock {
@@ -22,7 +22,7 @@ pub struct FakeClock {
 }
 
 impl Clock for FakeClock {
-  fn at(c: FakeClock): Int { c.t }
+  fn at(c: FakeClock) -> Int { c.t }
 }
 
 pub struct Cfg {
@@ -30,7 +30,7 @@ pub struct Cfg {
   port: Int
 }
 
-fn patch(): Cfg {
+fn patch() -> Cfg {
   base = Cfg{clock: FakeClock{t: 1}, port: 80}
   Struct.update(base, {clock: FakeClock{t: 4242}})
 }
@@ -77,7 +77,7 @@ func TestPartialIfaceField_UpdateRejectsNonImplementer(t *testing.T) {
 // patch reaching an interface-typed field one level down is the same rule.
 func TestPartialIfaceField_UpdateAdmitsImplementerAtDepth(t *testing.T) {
 	src := `pub interface Clock {
-  fn at(c: self): Int
+  fn at(c: self) -> Int
 }
 
 pub struct FakeClock {
@@ -85,7 +85,7 @@ pub struct FakeClock {
 }
 
 impl Clock for FakeClock {
-  fn at(c: FakeClock): Int { c.t }
+  fn at(c: FakeClock) -> Int { c.t }
 }
 
 pub struct Inner {
@@ -98,7 +98,7 @@ pub struct Outer {
   port: Int
 }
 
-fn patch(): Outer {
+fn patch() -> Outer {
   base = Outer{inner: Inner{clock: FakeClock{t: 1}, tag: "a"}, port: 80}
   Struct.update(base, {inner: {.., clock: FakeClock{t: 4242}}})
 }
@@ -114,7 +114,7 @@ fn patch(): Outer {
 // not passing because the recursion stopped checking.
 func TestPartialIfaceField_UpdateRejectsNonImplementerAtDepth(t *testing.T) {
 	src := `pub interface Clock {
-  fn at(c: self): Int
+  fn at(c: self) -> Int
 }
 
 pub struct FakeClock {
@@ -122,7 +122,7 @@ pub struct FakeClock {
 }
 
 impl Clock for FakeClock {
-  fn at(c: FakeClock): Int { c.t }
+  fn at(c: FakeClock) -> Int { c.t }
 }
 
 pub struct NoClock {
@@ -139,7 +139,7 @@ pub struct Outer {
   port: Int
 }
 
-fn patch(): Outer {
+fn patch() -> Outer {
   base = Outer{inner: Inner{clock: FakeClock{t: 1}, tag: "a"}, port: 80}
   Struct.update(base, {inner: {.., clock: NoClock{t: 4242}}})
 }
@@ -164,7 +164,7 @@ fn patch(): Outer {
 // that forgets the recording type checks clean and then fails to dispatch.
 func TestPartialIfaceField_UpdateRecordsConformance(t *testing.T) {
 	const src = `pub interface Clock {
-  fn at(c: self): Int
+  fn at(c: self) -> Int
 }
 
 pub struct FakeClock {
@@ -172,7 +172,7 @@ pub struct FakeClock {
 }
 
 impl Clock for FakeClock {
-  fn at(c: FakeClock): Int { c.t }
+  fn at(c: FakeClock) -> Int { c.t }
 }
 
 pub struct RealClock {
@@ -180,7 +180,7 @@ pub struct RealClock {
 }
 
 impl Clock for RealClock {
-  fn at(c: RealClock): Int { c.base }
+  fn at(c: RealClock) -> Int { c.base }
 }
 
 pub struct Cfg {
@@ -188,7 +188,7 @@ pub struct Cfg {
   port: Int
 }
 
-fn patch(): Cfg {
+fn patch() -> Cfg {
   base = Cfg{clock: FakeClock{t: 1}, port: 80}
   Struct.update(base, {clock: RealClock{base: 42}})
 }

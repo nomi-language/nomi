@@ -16,8 +16,8 @@ fn main() {
 
 func TestIRUnicode_ClustersAndScalars(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn points(s: String): List<Codepoint> { String.to_codepoints(s) }
-fn numbers(s: String): List<Int> {
+fn points(s: String) -> List<Codepoint> { String.to_codepoints(s) }
+fn numbers(s: String) -> List<Int> {
  points(s) |> Iter.map(Codepoint.to_int) |> Iter.to_list()
 }
 fn main() {
@@ -26,7 +26,7 @@ fn main() {
  io.inspect(numbers("é👩‍💻"))
  io.inspect(numbers(""))
  io.inspect(Iter.to_list(""))
- xs = Iter.map("é👩‍💻x", |s| { io.print(s); s }) |> Iter.take(2)
+ xs = Iter.map("é👩‍💻x", fn s -> { io.print(s); s }) |> Iter.take(2)
  io.print("created")
  io.inspect(Iter.to_list(xs))
  io.inspect(Iter.to_list(xs))

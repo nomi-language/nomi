@@ -9,7 +9,7 @@ enum Message {
   Empty
   Text String
 }
-fn label(m: Message): String {
+fn label(m: Message) -> String {
   case m {
     Message.Text("hello") -> "greeting"
     Message.Text(_) -> "text"
@@ -26,7 +26,7 @@ enum Signal {
   Idle
   Value Int
 }
-fn number(s: Signal): Int {
+fn number(s: Signal) -> Int {
   case s {
     Signal.Value(n) -> n + 1
     _ -> 0
@@ -41,7 +41,7 @@ enum Signal {
   Idle
   Value Int
 }
-fn label(s: Signal): String {
+fn label(s: Signal) -> String {
   case s {
     Signal.Value(0) -> "zero"
     Signal.Value(n) -> if n > 0 { "positive" } else { "negative" }
@@ -59,7 +59,7 @@ enum Signal {
   Idle
   Value Int
 }
-fn subject(): Signal { io.print("subject") Signal.Value(3) }
+fn subject() -> Signal { io.print("subject") Signal.Value(3) }
 fn main() {
   n = case subject() {
     Signal.Idle -> 0
@@ -76,10 +76,10 @@ enum Signal {
 }
 fn main() {
   n = 100
-  choose = |s: Signal| {
+  choose = fn s: Signal -> {
     case s {
-      Signal.Value(n) -> |x: Int| n + x
-      _ -> |x: Int| n - x
+      Signal.Value(n) -> fn x: Int -> n + x
+      _ -> fn x: Int -> n - x
     }
   }
   first = choose(Signal.Value(3))

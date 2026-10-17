@@ -16,11 +16,11 @@ import std/io
 /// happily, so a fixture that compared one list against itself would pass with
 /// the element walk entirely broken. Built through a function so the front end
 /// cannot fold the two calls into one value.
-fn ints(a: Int, b: Int, c: Int): List<Int> {
+fn ints(a: Int, b: Int, c: Int) -> List<Int> {
     [a, b, c]
 }
 
-fn label(o: Bool): String {
+fn label(o: Bool) -> String {
     if o { "T" } else { "F" }
 }
 

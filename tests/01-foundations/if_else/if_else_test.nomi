@@ -31,7 +31,7 @@ test "if without else rejects non-Unit branch results" {
 }
 
 test "if without else allows Unit side effects" {
-    fake_side_effect = || {
+    fake_side_effect = fn -> {
         // Imagine an io.print side effect here
         Unit
     }
@@ -112,7 +112,7 @@ test "else if chains select the first matching branch" {
     assert bucket == "medium"
 }
 
-fn parse_id(input: String): Result<Int, String> {
+fn parse_id(input: String) -> Result<Int, String> {
     if String.length(input) == 0 {
         return Err("empty")
     }

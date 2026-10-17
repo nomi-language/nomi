@@ -4,6 +4,6 @@ pub struct Point {
     lon: Int
 }
 
-pub fn at(lat: Int, lon: Int): Point {
+pub fn at(lat: Int, lon: Int) -> Point {
     Point{lat, lon}
 }

@@ -11,7 +11,7 @@ import (
 // per-call solving of a generic function's type arguments relies on
 // (`unifyTypeParams`, used by stdinst.go and genericmono.go).
 //
-// `decode_list(items, 0, [], |item| T.from_json(item))` has two parameters whose
+// `decode_list(items, 0, [], fn item -> T.from_json(item))` has two parameters whose
 // annotations mention `T`, and `unifyTypeParams` is first-wins:
 //
 //	acc:         List<T>                        <- `[]`, an untyped empty list

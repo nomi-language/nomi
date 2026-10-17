@@ -33,7 +33,7 @@ test "two same-named module types keep separate Context slots" {
 
 /// A `Type<T>` PARAMETER is a value already, and must pass through
 /// untouched rather than being re-resolved from the parameter's own name.
-fn stored_token(c: Context, token_type: Type<Token>): Maybe<Token> {
+fn stored_token(c: Context, token_type: Type<Token>) -> Maybe<Token> {
     Context.value(c, token_type)
 }
 
@@ -42,7 +42,7 @@ test "a Type witness passed as a parameter still resolves" {
     assert stored_token(c, Token) == Some(Token(7))
 }
 
-fn stored_qualified(c: Context, token_type: Type<domain.Token>): Maybe<domain.Token> {
+fn stored_qualified(c: Context, token_type: Type<domain.Token>) -> Maybe<domain.Token> {
     Context.value(c, token_type)
 }
 

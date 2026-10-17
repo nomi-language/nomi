@@ -10,12 +10,12 @@ pub struct Money {
     note: String
 }
 
-pub fn at(cents: Int, note: String): Money {
+pub fn at(cents: Int, note: String) -> Money {
     Money{cents, note}
 }
 
 impl Equatable for Money {
-    fn equal?(a: Money, b: Money): Bool {
+    fn equal?(a: Money, b: Money) -> Bool {
         a.cents == b.cents
     }
 }

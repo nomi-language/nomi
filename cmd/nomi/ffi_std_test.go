@@ -16,10 +16,10 @@ gopkg "strings" as strings
 gopkg "strconv" as strconv
 gopkg "math" as math
 
-fn upper(s: String): String go strings.ToUpper
-fn itoa(n: Int): String go strconv.Itoa
-fn atoi(s: String): Result<Int, String> go strconv.Atoi
-fn sqrt(x: Float): Float go math.Sqrt
+fn upper(s: String) -> String go strings.ToUpper
+fn itoa(n: Int) -> String go strconv.Itoa
+fn atoi(s: String) -> Result<Int, String> go strconv.Atoi
+fn sqrt(x: Float) -> Float go math.Sqrt
 
 fn main() {
     io.print(upper("hi"))
@@ -92,11 +92,11 @@ func TestFFI_DefaultedParameters(t *testing.T) {
 	}
 	mustWrite(t, filepath.Join(dir, "lib.nomi"), `gopkg "strings" as strs
 
-fn twice(s: String): Int {
+fn twice(s: String) -> Int {
     String.length(s) * 2
 }
 
-pub fn rep(s: String, n: Int = twice(s)): String go strs.Repeat
+pub fn rep(s: String, n: Int = twice(s)) -> String go strs.Repeat
 `)
 	entry := filepath.Join(dir, "main.nomi")
 	mustWrite(t, entry, `import {
@@ -107,7 +107,7 @@ pub fn rep(s: String, n: Int = twice(s)): String go strs.Repeat
 
 gopkg "strings" as strs
 
-fn upper(s: String = "abc"): String go strs.ToUpper
+fn upper(s: String = "abc") -> String go strs.ToUpper
 
 fn main() {
     io.print(upper())
@@ -143,13 +143,13 @@ func TestFFI_StdLibraryBindingErrors(t *testing.T) {
 
 gopkg "strings" as strings
 
-fn shout(s: String): String go strings.Shout
+fn shout(s: String) -> String go strings.Shout
 
 fn main() {
     io.print(shout("hi"))
 }
 `)
-	want := `main.nomi:5:40: Go package "strings" has no top-level function "Shout" for Nomi binding "shout"`
+	want := `main.nomi:5:42: Go package "strings" has no top-level function "Shout" for Nomi binding "shout"`
 	for _, cmd := range []string{"check", "run"} {
 		r := runProcess(t, env, t.TempDir(), "", nomiBin, cmd, missing)
 		if r.exit == 0 || !strings.Contains(r.stderr, want) {

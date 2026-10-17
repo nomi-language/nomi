@@ -8,15 +8,15 @@ func TestIRInherited_Defaults(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
 interface Formatted {
-  fn label(value: self): String
+  fn label(value: self) -> String
 
   // Final default — overriding it is a compile error.
-  fn shout(value: self): String {
+  fn shout(value: self) -> String {
     "${label(value)}!"
   }
 
   // Open default — implementors MAY override.
-  open fn brief(value: self): String {
+  open fn brief(value: self) -> String {
     label(value)
   }
 }
@@ -26,12 +26,12 @@ struct User {
 }
 
 impl Formatted for User {
-  fn label(u: User): String {
+  fn label(u: User) -> String {
     u.name
   }
 
   // The open brief default permits this override.
-  fn brief(u: User): String {
+  fn brief(u: User) -> String {
     "user:${u.name}"
   }
 }
@@ -50,10 +50,10 @@ func TestIRInherited_DefaultReadsARequiredFunction(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
 interface HasName {
-  fn name(value: self): String
+  fn name(value: self) -> String
 
   // Default — reads the name through the required function.
-  fn greet(value: self): String {
+  fn greet(value: self) -> String {
     "Hello, ${name(value)}"
   }
 }
@@ -64,7 +64,7 @@ struct User {
 }
 
 impl HasName for User {
-  fn name(user: User): String { user.name }
+  fn name(user: User) -> String { user.name }
 }
 
 struct Pet {
@@ -73,7 +73,7 @@ struct Pet {
 }
 
 impl HasName for Pet {
-  fn name(pet: Pet): String { pet.name }
+  fn name(pet: Pet) -> String { pet.name }
 }
 
 fn main() {
@@ -89,21 +89,21 @@ fn main() {
 func TestIRInherited_SpecializedDefaultsAndEffects(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 interface Label {
- fn label(value: self): String
- fn format(prefix: String, value: self): String { prefix + label(value) }
- open fn suffix(value: self): String { label(value) + "!" }
+ fn label(value: self) -> String
+ fn format(prefix: String, value: self) -> String { prefix + label(value) }
+ open fn suffix(value: self) -> String { label(value) + "!" }
 }
 struct Box<T> { value: T }
 impl Label for Box<T> {
- fn label(value: Box<T>): String { _ = value; "box" }
+ fn label(value: Box<T>) -> String { _ = value; "box" }
 }
 struct Named { name: String }
 impl Label for Named {
- fn label(value: Named): String { value.name }
- fn suffix(value: Named): String { "override " + value.name }
+ fn label(value: Named) -> String { value.name }
+ fn suffix(value: Named) -> String { "override " + value.name }
 }
-fn prefix(): String { io.print("prefix"); "hello " }
-fn named(): Named { io.print("named"); Named{name: "Nomi"} }
+fn prefix() -> String { io.print("prefix"); "hello " }
+fn named() -> Named { io.print("named"); Named{name: "Nomi"} }
 fn main() {
  io.print(Label.format(prefix(), named()))
  io.print(Label.suffix(Box{value: 1}))
@@ -117,9 +117,9 @@ func TestIRInherited_SameOwnerAndLocalClosure(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 struct Number { value: Int }
 impl Number {
- fn read(n: Number): Int { n.value }
- fn double(n: Number): Int { read(n) + read(n) }
- fn local(n: Number): Int { plus = |v: Number| v.value + 10; plus(n) }
+ fn read(n: Number) -> Int { n.value }
+ fn double(n: Number) -> Int { read(n) + read(n) }
+ fn local(n: Number) -> Int { plus = fn v: Number -> v.value + 10; plus(n) }
 }
 fn main() {
  io.print(Number.double(Number{value: 3}))

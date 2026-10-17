@@ -11,7 +11,7 @@ import std/io
 //	{x, y}: Point       destructureStruct's p.TypeName == nil arm, which asked
 //	                    for tagAnonStruct and refused a NAMED struct under
 //	                    `anonymous struct type`
-//	(a, b): (Int, Int)  destructure's default arm, `destructuring parameter`
+//	#(a, b): #(Int, Int) destructure's default arm, `destructuring parameter`
 //
 // The self-typing rule is why the annotation is mandatory on both: a pattern
 // whose head NAMES a type is its own annotation, and neither of these has a
@@ -52,7 +52,7 @@ struct Frame {
 }
 
 struct Boxed {
-    pair: (Int, Int)
+    pair: #(Int, Int)
     tag: String
 }
 
@@ -60,76 +60,76 @@ type Dur Int
 
 // The typed-struct spelling. Lowers already; here so the pair is visible and so
 // a "fix" that moved it onto a different answer is caught.
-fn typed(Point{x, y}): Int {
+fn typed(Point{x, y}) -> Int {
     x * 100 + y
 }
 
 // The anonymous-struct spelling over the SAME named struct, PERMUTED.
-fn anon({y, x}: Point): Int {
+fn anon({y, x}: Point) -> Int {
     x * 100 + y
 }
 
 // A SUBSET of the declared fields.
-fn only_x({x}: Point): Int {
+fn only_x({x}: Point) -> Int {
     x
 }
 
 // Renamed as well as permuted.
-fn renamed({y: b, x: a}: Point): String {
+fn renamed({y: b, x: a}: Point) -> String {
     "${a}/${b}"
 }
 
 // A wildcard beside a binding.
-fn dropped({x, y: _}: Point): Int {
+fn dropped({x, y: _}: Point) -> Int {
     x
 }
 
 // The RECORD path: the same node, annotated with an anonymous struct TYPE
 // rather than a named one, so src.k.tag is tagAnonStruct.
-fn record({y, x}: {x: Int, y: Int}): Int {
+fn record({y, x}: {x: Int, y: Int}) -> Int {
     x * 100 + y
 }
 
 // A tuple pattern, read back non-commutatively.
-fn pair((a, b): (Int, Int)): Int {
+fn pair(#(a, b): #(Int, Int)) -> Int {
     a - b
 }
 
 // A three-element tuple with a wildcard in the middle.
-fn triple((a, _, c): (Int, String, Int)): Int {
+fn triple(#(a, _, c): #(Int, String, Int)) -> Int {
     a * 10 + c
 }
 
 // An anon struct pattern nested inside an anon struct pattern, over a named
 // struct at BOTH levels.
-fn nested_struct({scale, at: {y, x}}: Frame): Int {
+fn nested_struct({scale, at: {y, x}}: Frame) -> Int {
     (x * 100 + y) * scale
 }
 
 // A tuple pattern nested inside an anon struct pattern.
-fn nested_tuple({tag, pair: (a, b)}: Boxed): String {
+fn nested_tuple({tag, pair: #(a, b)}: Boxed) -> String {
     "${tag}:${a - b}"
 }
 
 // An anon struct pattern nested inside a tuple pattern.
-fn tuple_of_struct(({y, x}, n): (Point, Int)): Int {
+fn tuple_of_struct(#({y, x}, n): #(Point, Int)) -> Int {
     (x * 100 + y) + n
 }
 
 // A tuple nested inside a tuple.
-fn tuple_of_tuple(((a, b), c): ((Int, Int), Int)): Int {
+fn tuple_of_tuple(#(#(a, b), c): #(#(Int, Int), Int)) -> Int {
     (a - b) * c
 }
 
 // A distinct type nested inside a tuple — one new shape crossed with one that
 // already lowered.
-fn tuple_of_dur((Dur(d), n): (Dur, Int)): Int {
+fn tuple_of_dur(#(Dur(d), n): #(Dur, Int)) -> Int {
     d - n
 }
 
 // Non-leading position, so the anonymous parameter has to land in the right
 // slot with an ordinary parameter on each side.
-fn between(k: Int, {y, x}: Point, (a, b): (Int, Int)): Int {
+fn between(k: Int, {y, x}: Point, #(a, b): #(Int, Int)) -> Int {
     k * 1000 + (x * 100 + y) + (a - b)
 }
 
@@ -140,30 +140,30 @@ fn main() {
     io.print("renamed = ${renamed(Point{x: 3, y: 8})}")
     io.print("dropped = ${dropped(Point{x: 6, y: 1})}")
     io.print("record = ${record({x: 5, y: 2})}")
-    io.print("pair = ${pair((20, 3))}")
-    io.print("triple = ${triple((4, "mid", 9))}")
+    io.print("pair = ${pair(#(20, 3))}")
+    io.print("triple = ${triple(#(4, "mid", 9))}")
     io.print("nested_struct = ${nested_struct(Frame{at: Point{x: 1, y: 2}, scale: 3})}")
-    io.print("nested_tuple = ${nested_tuple(Boxed{pair: (30, 4), tag: "t"})}")
-    io.print("tuple_of_struct = ${tuple_of_struct((Point{x: 2, y: 5}, 11))}")
-    io.print("tuple_of_tuple = ${tuple_of_tuple(((30, 4), 2))}")
-    io.print("tuple_of_dur = ${tuple_of_dur((Dur(40), 6))}")
-    io.print("between = ${between(2, Point{x: 3, y: 4}, (10, 1))}")
+    io.print("nested_tuple = ${nested_tuple(Boxed{pair: #(30, 4), tag: "t"})}")
+    io.print("tuple_of_struct = ${tuple_of_struct(#(Point{x: 2, y: 5}, 11))}")
+    io.print("tuple_of_tuple = ${tuple_of_tuple(#(#(30, 4), 2))}")
+    io.print("tuple_of_dur = ${tuple_of_dur(#(Dur(40), 6))}")
+    io.print("between = ${between(2, Point{x: 3, y: 4}, #(10, 1))}")
 
     // The LAMBDA entry point into the same destructure(), for both new shapes.
     points = [Point{x: 1, y: 2}, Point{x: 3, y: 4}]
 
     codes =
         points
-        |> Iter.map(|{y, x}: Point| x * 100 + y)
+        |> Iter.map(fn {y, x}: Point -> x * 100 + y)
         |> Iter.to_list()
 
     io.print("lambda_anon = ${codes}")
 
-    pairs = [(10, 1), (20, 3)]
+    pairs = [#(10, 1), #(20, 3)]
 
     diffs =
         pairs
-        |> Iter.map(|(a, b): (Int, Int)| a - b)
+        |> Iter.map(fn #(a, b): #(Int, Int) -> a - b)
         |> Iter.to_list()
 
     io.print("lambda_tuple = ${diffs}")
@@ -172,9 +172,9 @@ fn main() {
     // default as its seed (AGENTS.md documents that as the way to give a fold
     // its initial state), and a destructuring first parameter is a seed too.
     //
-    // This row compares the answer. `(a + x, b)` is non-commutative in its
+    // This row compares the answer. `#(a + x, b)` is non-commutative in its
     // slots, so a seed read into
-    // the wrong element answers `(0, 3)` instead of `(3, 0)`.
-    seeded = Iter.reduce([1, 2], |(a, b): (Int, Int) = (0, 0), x| (a + x, b))
+    // the wrong element answers `#(0, 3)` instead of `#(3, 0)`.
+    seeded = Iter.reduce([1, 2], fn #(a, b): #(Int, Int) = #(0, 0), x -> #(a + x, b))
     io.print("seeded = ${seeded}")
 }

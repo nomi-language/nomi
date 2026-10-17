@@ -8,7 +8,7 @@ test "a task group created in a plain function is rejected" {
           std/supervisors.Supervisor
         }
 
-        fn make_group(): Supervisor {
+        fn make_group() -> Supervisor {
           Supervisor.new(shutdown_timeout: Duration.seconds(5), max_running: 4)
         }
 
@@ -19,7 +19,7 @@ test "a task group created in a plain function is rejected" {
     )
 
     assert diagnostics
-        |> Iter.any?(|diagnostic| {
+        |> Iter.any?(fn diagnostic -> {
             String.contains?(
                 diagnostic.message,
                 "the bound would be per call rather than per downstream",
@@ -41,7 +41,7 @@ test "boot can create task groups" {
           audit: Supervisor
         }
 
-        fn boot(): BootApp {
+        fn boot() -> BootApp {
           BootApp{
             context: Context.root(),
             audit: Supervisor.new(
@@ -80,7 +80,7 @@ test "a struct field default may create a task group" {
           )
         }
 
-        fn boot(): BootApp {
+        fn boot() -> BootApp {
           BootApp{context: Context.root()}
         }
 
@@ -110,7 +110,7 @@ test "a group-owned body must return Unit" {
           notify: Supervisor
         }
 
-        fn boot(): BootApp {
+        fn boot() -> BootApp {
           BootApp{
             context: Context.root(),
             notify: Supervisor.new(
@@ -120,18 +120,18 @@ test "a group-owned body must return Unit" {
           }
         }
 
-        fn send(to: String): Result<Unit, String> {
+        fn send(to: String) -> Result<Unit, String> {
           Err("no route to " + to)
         }
 
         fn main() {
-          _ = Supervisor.spawn(BootApp.notify, || send("ada@example.com"))
+          _ = Supervisor.spawn(BootApp.notify, fn -> send("ada@example.com"))
         }
         """
     )
 
     assert diagnostics
-        |> Iter.any?(|diagnostic| {
+        |> Iter.any?(fn diagnostic -> {
             String.contains?(
                 diagnostic.message,
                 "expected () -> Unit, got () -> Result<Unit, String>",
@@ -156,7 +156,7 @@ test "a constructor boot calls may create its own group" {
           inbox: Channel<Int>
         }
 
-        fn start(): Counter {
+        fn start() -> Counter {
           inbox = Channel.buffered<Int>(4)
           _ = Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 1)
           Counter{inbox}
@@ -168,7 +168,7 @@ test "a constructor boot calls may create its own group" {
           counter: Counter
         }
 
-        fn boot(): BootApp {
+        fn boot() -> BootApp {
           BootApp{context: Context.root(), counter: start()}
         }
 
@@ -197,7 +197,7 @@ test "calling that constructor outside boot is rejected" {
           inbox: Channel<Int>
         }
 
-        fn start(): Counter {
+        fn start() -> Counter {
           inbox = Channel.buffered<Int>(4)
           _ = Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 1)
           Counter{inbox}
@@ -209,11 +209,11 @@ test "calling that constructor outside boot is rejected" {
           counter: Counter
         }
 
-        fn boot(): BootApp {
+        fn boot() -> BootApp {
           BootApp{context: Context.root(), counter: start()}
         }
 
-        fn handler(): Counter {
+        fn handler() -> Counter {
           start()
         }
 
@@ -224,7 +224,7 @@ test "calling that constructor outside boot is rejected" {
     )
 
     assert diagnostics
-        |> Iter.any?(|diagnostic| {
+        |> Iter.any?(fn diagnostic -> {
             String.contains?(
                 diagnostic.message,
                 "the bound would be per call rather than per downstream",

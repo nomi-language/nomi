@@ -30,21 +30,21 @@ struct Member {
     teams: List<Team>
 }
 
-fn size(node: Node): Int {
+fn size(node: Node) -> Int {
     node.children
-    |> Iter.map(|child| size(child))
-    |> Iter.reduce(|total = 1, n| total + n)
+    |> Iter.map(fn child -> size(child))
+    |> Iter.reduce(fn total = 1, n -> total + n)
 }
 
-fn length(link: Link): Int {
+fn length(link: Link) -> Int {
     case link.next {
         Some(rest) -> 1 + length(rest)
         None -> 1
     }
 }
 
-fn leaf(head: Int): Stream {
-    Stream{head, rest: Iter.repeat(head) |> Iter.take(0) |> Iter.map(|n| leaf(n))}
+fn leaf(head: Int) -> Stream {
+    Stream{head, rest: Iter.repeat(head) |> Iter.take(0) |> Iter.map(fn n -> leaf(n))}
 }
 
 test "a struct holds itself through a List" {
@@ -78,12 +78,12 @@ test "a struct holds itself through a Maybe" {
 test "a struct holds itself through a Map" {
     root = Dir{
         name: "/",
-        entries: {"usr" => Dir{name: "usr", entries: Map.empty()}},
+        entries: %{"usr" => Dir{name: "usr", entries: Map.empty()}},
     }
 
     assert Map.size(root.entries) == 1
     text = Debug.inspect(root)
-    assert text == "Dir{name: \"/\", entries: {\"usr\" => Dir{name: \"usr\", entries: {=>}}}}"
+    assert text == "Dir{name: \"/\", entries: %{\"usr\" => Dir{name: \"usr\", entries: %{}}}}"
 }
 
 test "a struct holds itself through an Iter" {

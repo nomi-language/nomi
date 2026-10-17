@@ -24,11 +24,11 @@ enum Shape {
   Dot Float
 }
 
-fn record(): {height: Float} {
+fn record() -> {height: Float} {
   {height: 7.0}
 }
 
-fn round(): {radius: Float} {
+fn round() -> {radius: Float} {
   {radius: 4.0}
 }
 
@@ -58,7 +58,7 @@ func TestVariantCtor_AcceptedForms(t *testing.T) {
 		`Shape.Expired`,
 		`Shape.Dot(1.0)`,
 	} {
-		src := variantCtorDecls + "fn demo(): Shape {\n  " + expr + "\n}\n"
+		src := variantCtorDecls + "fn demo() -> Shape {\n  " + expr + "\n}\n"
 		_, errs := checkSource(src)
 		if len(errs) != 0 {
 			t.Errorf("%s: want no errors, got %v", expr, errs)
@@ -100,7 +100,7 @@ func TestVariantCtor_RejectedFormsNameTheWorkingOnes(t *testing.T) {
 		{`{height: "x"} |> Shape.Rectangle()`,
 			"field 'height' of Shape.Rectangle: expected Float, got String"},
 	} {
-		src := variantCtorDecls + "fn demo(): Shape {\n  " + tc.expr + "\n}\n"
+		src := variantCtorDecls + "fn demo() -> Shape {\n  " + tc.expr + "\n}\n"
 		_, errs := checkSource(src)
 		found := false
 		var got []string
@@ -136,7 +136,7 @@ enum Shape<T> {
   Rect {w: Int}
 }
 
-fn first(s: Shape<Int>): Shape<Int> {
+fn first(s: Shape<Int>) -> Shape<Int> {
   s
 }
 
@@ -150,7 +150,7 @@ fn first(s: Shape<Int>): Shape<Int> {
 		`{w: 1} |> Shape.Rect()`,
 		`Shape.Val(1)`,
 	} {
-		src := decls + "fn demo(): Shape<Int> {\n  first(" + expr + ")\n}\n"
+		src := decls + "fn demo() -> Shape<Int> {\n  first(" + expr + ")\n}\n"
 		_, errs := checkSource(src)
 		if len(errs) != 0 {
 			t.Errorf("%s: want no errors, got %v", expr, errs)
@@ -158,7 +158,7 @@ fn first(s: Shape<Int>): Shape<Int> {
 	}
 	// The open parameter is solved once: a construction that fits a
 	// Shape<Int> does not also fit a Shape<String>.
-	src := decls + "fn demo(): Shape<String> {\n  s = Shape.UserId(3)\n  _ = first(s)\n  s\n}\n"
+	src := decls + "fn demo() -> Shape<String> {\n  s = Shape.UserId(3)\n  _ = first(s)\n  s\n}\n"
 	_, errs := checkSource(src)
 	var got []string
 	for _, e := range errs {

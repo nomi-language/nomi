@@ -92,19 +92,19 @@ func checkFill(t *testing.T, s *Server, uri, src, title string, allowed ...strin
 
 const fillURI = "file:///fill/main.nomi"
 
-const fillShapeDecls = "interface Shape {\n    fn area(shape: self): Float\n    fn name(shape: self): String\n\n    fn label(shape: self): String {\n        Shape.name(shape)\n    }\n}\n\nstruct Square {\n    side: Float\n}\n\n"
+const fillShapeDecls = "interface Shape {\n    fn area(shape: self) -> Float\n    fn name(shape: self) -> String\n\n    fn label(shape: self) -> String {\n        Shape.name(shape)\n    }\n}\n\nstruct Square {\n    side: Float\n}\n\n"
 
 func TestFillFunctions_OneMissing(t *testing.T) {
-	src := fillShapeDecls + "impl Shape for Square {\n    fn area(square: Square): Float {\n        square.side * square.side\n    }\n}\n"
+	src := fillShapeDecls + "impl Shape for Square {\n    fn area(square: Square) -> Float {\n        square.side * square.side\n    }\n}\n"
 	got := checkFill(t, NewServer(), fillURI, src, "Implement missing function 'name'")
-	want := fillShapeDecls + "impl Shape for Square {\n    fn area(square: Square): Float {\n        square.side * square.side\n    }\n\n    fn name(square: Square): String {\n        todo\n    }\n}\n"
+	want := fillShapeDecls + "impl Shape for Square {\n    fn area(square: Square) -> Float {\n        square.side * square.side\n    }\n\n    fn name(square: Square) -> String {\n        todo\n    }\n}\n"
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
 
 func TestFillFunctions_AllMissing(t *testing.T) {
-	want := fillShapeDecls + "impl Shape for Square {\n    fn area(square: Square): Float {\n        todo\n    }\n\n    fn name(square: Square): String {\n        todo\n    }\n}\n"
+	want := fillShapeDecls + "impl Shape for Square {\n    fn area(square: Square) -> Float {\n        todo\n    }\n\n    fn name(square: Square) -> String {\n        todo\n    }\n}\n"
 	for name, block := range map[string]string{
 		"open block":   "impl Shape for Square {\n}\n",
 		"empty braces": "impl Shape for Square {}\n",
@@ -123,17 +123,17 @@ func TestFillFunctions_AllMissing(t *testing.T) {
 func TestFillFunctions_GenericImpl(t *testing.T) {
 	decls := "struct Box<T> {\n    value: T\n}\n\n"
 	got := checkFill(t, NewServer(), fillURI, decls+"impl Iter for Box<T> {\n}\n", "Implement missing function 'each_while'")
-	want := decls + "impl Iter for Box<T> {\n    fn each_while(box: Box<T>, yield: (T) -> Bool): Bool {\n        todo\n    }\n}\n"
+	want := decls + "impl Iter for Box<T> {\n    fn each_while(box: Box<T>, yield: (T) -> Bool) -> Bool {\n        todo\n    }\n}\n"
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 
-	store := "interface Store<K, V> {\n    fn get(store: self, key: K): Maybe<V>\n    fn put(store: self, key: K, value: V): self\n}\n\nstruct Cache<T> {\n    items: List<T>\n}\n\n"
+	store := "interface Store<K, V> {\n    fn get(store: self, key: K) -> Maybe<V>\n    fn put(store: self, key: K, value: V) -> self\n}\n\nstruct Cache<T> {\n    items: List<T>\n}\n\n"
 	// The interface's type arguments are pinned by the function the block
 	// already defines.
-	get := "    fn get(cache: Cache<T>, key: Int): Maybe<T> {\n        if key > 0 {\n            List.head(cache.items)\n        } else {\n            None\n        }\n    }\n"
+	get := "    fn get(cache: Cache<T>, key: Int) -> Maybe<T> {\n        if key > 0 {\n            List.head(cache.items)\n        } else {\n            None\n        }\n    }\n"
 	got = checkFill(t, NewServer(), fillURI, store+"impl Store for Cache<T> {\n"+get+"}\n", "Implement missing function 'put'")
-	if want := store + "impl Store for Cache<T> {\n" + get + "\n    fn put(cache: Cache<T>, key: Int, value: T): Cache<T> {\n        todo\n    }\n}\n"; got != want {
+	if want := store + "impl Store for Cache<T> {\n" + get + "\n    fn put(cache: Cache<T>, key: Int, value: T) -> Cache<T> {\n        todo\n    }\n}\n"; got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
@@ -142,12 +142,12 @@ func TestFillFunctions_GenericImpl(t *testing.T) {
 // block's own type parameter, reports the missing functions and fills them
 // with those arguments.
 func TestFillFunctions_HeaderTypeArguments(t *testing.T) {
-	store := "interface Store<K, V> {\n    fn get(store: self, key: K): Maybe<V>\n    fn put(store: self, key: K, value: V): self\n}\n\nstruct Cache<T> {\n    items: List<T>\n}\n\n"
+	store := "interface Store<K, V> {\n    fn get(store: self, key: K) -> Maybe<V>\n    fn put(store: self, key: K, value: V) -> self\n}\n\nstruct Cache<T> {\n    items: List<T>\n}\n\n"
 	got := checkFill(t, NewServer(), fillURI, store+"impl Store<String, T> for Cache<T> {}\n", "Implement missing functions",
 		"parameter 'cache' is never read",
 		"parameter 'key' is never read",
 		"parameter 'value' is never read")
-	want := store + "impl Store<String, T> for Cache<T> {\n    fn get(cache: Cache<T>, key: String): Maybe<T> {\n        todo\n    }\n\n    fn put(cache: Cache<T>, key: String, value: T): Cache<T> {\n        todo\n    }\n}\n"
+	want := store + "impl Store<String, T> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Maybe<T> {\n        todo\n    }\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T> {\n        todo\n    }\n}\n"
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
@@ -155,22 +155,22 @@ func TestFillFunctions_HeaderTypeArguments(t *testing.T) {
 
 func TestFillFunctions_ImportedInterface(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"engine.nomi": "pub interface Powered {\n    fn label(e: self): String\n\n    open fn describe(e: self, _loud: Bool = False): String {\n        Powered.label(e)\n    }\n}\n",
+		"engine.nomi": "pub interface Powered {\n    fn label(e: self) -> String\n\n    open fn describe(e: self, _loud: Bool = False) -> String {\n        Powered.label(e)\n    }\n}\n",
 	})
 	uri := "file://" + filepath.Join(dir, "main.nomi")
 	decls := "struct Motor {\n    name: String\n}\n\n"
 	got := checkFill(t, NewServer(), uri, "import engine.Powered\n\n"+decls+"impl Powered for Motor {\n}\n", "Implement missing function 'label'")
-	if !strings.Contains(got, "impl Powered for Motor {\n    fn label(motor: Motor): String {\n        todo\n    }\n}\n") {
+	if !strings.Contains(got, "impl Powered for Motor {\n    fn label(motor: Motor) -> String {\n        todo\n    }\n}\n") {
 		t.Fatalf("got\n%s", got)
 	}
 	got = checkFill(t, NewServer(), uri, "import engine\n\n"+decls+"impl engine.Powered for Motor {\n}\n", "Implement missing function 'label'")
-	if !strings.Contains(got, "fn label(motor: Motor): String {\n        todo\n    }") {
+	if !strings.Contains(got, "fn label(motor: Motor) -> String {\n        todo\n    }") {
 		t.Fatalf("got\n%s", got)
 	}
 }
 
 func TestFillFunctions_NotOfferedWhenComplete(t *testing.T) {
-	src := fillShapeDecls + "impl Shape for Square {\n    fn area(square: Square): Float {\n        square.side * square.side\n    }\n\n    fn name(_square: Square): String {\n        \"square\"\n    }\n}\n"
+	src := fillShapeDecls + "impl Shape for Square {\n    fn area(square: Square) -> Float {\n        square.side * square.side\n    }\n\n    fn name(_square: Square) -> String {\n        \"square\"\n    }\n}\n"
 	if got := fillActions(t, NewServer(), fillURI, src); len(got) != 0 {
 		t.Fatalf("offered %d fixes for a complete impl", len(got))
 	}
@@ -217,9 +217,9 @@ func TestFillFields_WideLiteralBreaksAsFmtDoes(t *testing.T) {
 
 func TestFillFields_VariantLiteral(t *testing.T) {
 	decls := "enum Shape {\n    Rect {width: Int, height: Int}\n    Dot\n}\n\n"
-	src := decls + "fn make(): Shape {\n    .Rect{width: 1}\n}\n"
+	src := decls + "fn make() -> Shape {\n    .Rect{width: 1}\n}\n"
 	got := checkFill(t, NewServer(), fillURI, src, "Add missing field 'height'")
-	if want := decls + "fn make(): Shape {\n    .Rect{width: 1, height: todo}\n}\n"; got != want {
+	if want := decls + "fn make() -> Shape {\n    .Rect{width: 1, height: todo}\n}\n"; got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
@@ -235,7 +235,7 @@ const fillColorDecls = "enum Color {\n    Red\n    Green\n    Rgb Int\n    Named
 
 func TestFillArms_Missing(t *testing.T) {
 	body := func(arms string) string {
-		return fillColorDecls + "fn f(c: Color): Int {\n    case c {\n" + arms + "    }\n}\n"
+		return fillColorDecls + "fn f(c: Color) -> Int {\n    case c {\n" + arms + "    }\n}\n"
 	}
 	got := checkFill(t, NewServer(), fillURI, body("        .Red -> 1\n        .Green -> 2\n        .Rgb(n) -> n\n"), "Add missing arm .Named{name,")
 	if want := body("        .Red -> 1\n        .Green -> 2\n        .Rgb(n) -> n\n        .Named{name, code} -> todo\n"); got != want {
@@ -248,9 +248,9 @@ func TestFillArms_Missing(t *testing.T) {
 }
 
 func TestFillArms_Nested(t *testing.T) {
-	src := fillColorDecls + "fn f(a: Color, b: Maybe<Color>): Int {\n    case a {\n        .Red ->\n            case b {\n                Some(.Red) -> 1\n                None -> 0\n            }\n\n        _ ->\n            2\n    }\n}\n"
+	src := fillColorDecls + "fn f(a: Color, b: Maybe<Color>) -> Int {\n    case a {\n        .Red ->\n            case b {\n                Some(.Red) -> 1\n                None -> 0\n            }\n\n        _ ->\n            2\n    }\n}\n"
 	got := checkFill(t, NewServer(), fillURI, src, "Add missing arm .Some(value)")
-	want := fillColorDecls + "fn f(a: Color, b: Maybe<Color>): Int {\n    case a {\n        .Red ->\n            case b {\n                Some(.Red) -> 1\n                None -> 0\n                .Some(value) -> todo\n            }\n\n        _ ->\n            2\n    }\n}\n"
+	want := fillColorDecls + "fn f(a: Color, b: Maybe<Color>) -> Int {\n    case a {\n        .Red ->\n            case b {\n                Some(.Red) -> 1\n                None -> 0\n                .Some(value) -> todo\n            }\n\n        _ ->\n            2\n    }\n}\n"
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
@@ -262,7 +262,7 @@ func TestFillArms_NotOfferedWhenExhaustive(t *testing.T) {
 		"catch-all":     "        .Red -> 1\n        _ -> 0\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			src := fillColorDecls + "fn f(c: Color): Int {\n    case c {\n" + arms + "    }\n}\n"
+			src := fillColorDecls + "fn f(c: Color) -> Int {\n    case c {\n" + arms + "    }\n}\n"
 			if got := fillActions(t, NewServer(), fillURI, src); len(got) != 0 {
 				t.Fatalf("offered %d fixes for an exhaustive case", len(got))
 			}
@@ -278,8 +278,8 @@ func TestFill_UnformattedDocumentKeepsItsLayout(t *testing.T) {
 	cases := []struct{ name, src, want string }{
 		{
 			"impl",
-			decls + fillShapeDecls + "impl Shape for Square {\n    fn area(square: Square): Float {\n        square.side\n    }\n}\n",
-			decls + fillShapeDecls + "impl Shape for Square {\n    fn area(square: Square): Float {\n        square.side\n    }\n\n    fn name(square: Square): String {\n        todo\n    }\n}\n",
+			decls + fillShapeDecls + "impl Shape for Square {\n    fn area(square: Square) -> Float {\n        square.side\n    }\n}\n",
+			decls + fillShapeDecls + "impl Shape for Square {\n    fn area(square: Square) -> Float {\n        square.side\n    }\n\n    fn name(square: Square) -> String {\n        todo\n    }\n}\n",
 		},
 		{
 			"multi-line literal without a trailing comma",
@@ -288,8 +288,8 @@ func TestFill_UnformattedDocumentKeepsItsLayout(t *testing.T) {
 		},
 		{
 			"case",
-			decls + "fn f(c: Color): Int {\n    case c {\n        .Red -> 1\n    }\n}\n",
-			decls + "fn f(c: Color): Int {\n    case c {\n        .Red -> 1\n        .Rgb(value) -> todo\n    }\n}\n",
+			decls + "fn f(c: Color) -> Int {\n    case c {\n        .Red -> 1\n    }\n}\n",
+			decls + "fn f(c: Color) -> Int {\n    case c {\n        .Red -> 1\n        .Rgb(value) -> todo\n    }\n}\n",
 		},
 	}
 	for _, c := range cases {

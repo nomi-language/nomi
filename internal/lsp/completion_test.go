@@ -60,7 +60,7 @@ func TestMatchQuality(t *testing.T) {
 }
 
 func TestGetPrefix(t *testing.T) {
-	content := "fn add(x: Int): Int { x + y }"
+	content := "fn add(x: Int) -> Int { x + y }"
 	// cursor after "add" at position (0, 6)
 	prefix := getPrefix(content, 0, 6)
 	if prefix != "add" {
@@ -74,7 +74,7 @@ func TestGetPrefix(t *testing.T) {
 	}
 
 	// cursor after "x" in body
-	prefix = getPrefix(content, 0, 23)
+	prefix = getPrefix(content, 0, 25)
 	if prefix != "x" {
 		t.Errorf("expected 'x', got '%s'", prefix)
 	}
@@ -83,7 +83,7 @@ func TestGetPrefix(t *testing.T) {
 func TestGetPrefix_PredicateSuffix(t *testing.T) {
 	// A `?`-suffixed partial identifier: the trailing predicate marker must
 	// be part of the extracted prefix so completion filtering still works.
-	content := "fn main(): Unit {\n    empty?"
+	content := "fn main() -> Unit {\n    empty?"
 	prefix := getPrefix(content, 1, 10)
 	if prefix != "empty?" {
 		t.Errorf("expected 'empty?', got '%s'", prefix)

@@ -28,7 +28,7 @@ import shapes.Holder.{Of as O, Wrap as W, Empty}
 import shapes.Pair.{Both}
 import shapes.Shape.{Sq}
 
-fn show(h: shapes.Holder<Int>): String {
+fn show(h: shapes.Holder<Int>) -> String {
     case h {
         O{value} -> "of ${value}"
         W(v) -> "wrap ${v}"
@@ -52,7 +52,7 @@ fn main() {
 `,
 		"same.nomi": `import shapes.Holder.{Of}
 
-pub fn make(): Int {
+pub fn make() -> Int {
     h = Of{value: 8}
     case h {
         Of{value} -> value

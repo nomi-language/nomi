@@ -1,12 +1,12 @@
-once sounds = [(3, "Pling"), (5, "Plang"), (7, "Plong")]
+once sounds = [#(3, "Pling"), #(5, "Plang"), #(7, "Plong")]
 
 /// The raindrop sounds for `number`'s factors 3, 5 and 7, or the number
 /// itself when it has none of them.
-pub fn convert(number: Int): String {
+pub fn convert(number: Int) -> String {
     drops =
         sounds
-        |> Iter.filter(|(factor, _sound)| number % factor == 0)
-        |> Iter.map(|(_factor, sound)| sound)
+        |> Iter.filter(fn #(factor, _sound) -> number % factor == 0)
+        |> Iter.map(fn #(_factor, sound) -> sound)
         |> String.join()
 
     if drops == "" { "${number}" } else { drops }

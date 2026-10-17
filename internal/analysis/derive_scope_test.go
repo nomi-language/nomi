@@ -104,11 +104,11 @@ derive Debug for Point
 // every support name resolves through the compiler-known route.
 func TestDeriveArgScope_EnumBodySupportNamesCompilerKnown(t *testing.T) {
 	fa, errs := checkSourceSynth(`interface Equatable {
-  fn equal?(a: self, b: self): Bool
+  fn equal?(a: self, b: self) -> Bool
 }
 
 interface Hashable {
-  fn hash(value: self): Int
+  fn hash(value: self) -> Int
 }
 
 enum Color {
@@ -139,7 +139,7 @@ func TestHandWrittenNestedImplHeaderStillRequiresScope(t *testing.T) {
 }
 
 impl Display for P {
-  fn to_string(_value: self): String {
+  fn to_string(_value: self) -> String {
     "p"
   }
 }

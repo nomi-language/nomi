@@ -14,9 +14,9 @@ fn main() {
 
     total =
         xs
-        |> Iter.map(|x| x * 3)
-        |> Iter.filter(|x| x % 2 == 0)
-        |> Iter.reduce(|acc = 0, x| acc + x)
+        |> Iter.map(fn x -> x * 3)
+        |> Iter.filter(fn x -> x % 2 == 0)
+        |> Iter.reduce(fn acc = 0, x -> acc + x)
 
     io.print(total)
 }

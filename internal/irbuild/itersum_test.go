@@ -31,13 +31,13 @@ func TestIterSum_AtProgramTypes(t *testing.T) {
 type Cents Int
 
 impl Add<Cents, Cents> for Cents {
-    fn add(Cents(a), Cents(b)): Cents {
+    fn add(Cents(a), Cents(b)) -> Cents {
         Cents(a + b)
     }
 }
 
 impl Summable for Cents {
-    fn empty_sum(): Cents {
+    fn empty_sum() -> Cents {
         Cents(0)
     }
 }
@@ -54,13 +54,13 @@ fn main() {
 `, "5\n9\n3\n0\n", map[string]string{"money.nomi": `pub type Coins Int
 
 impl Add<Coins, Coins> for Coins {
-    fn add(Coins(a), Coins(b)): Coins {
+    fn add(Coins(a), Coins(b)) -> Coins {
         Coins(a + b)
     }
 }
 
 impl Summable for Coins {
-    fn empty_sum(): Coins {
+    fn empty_sum() -> Coins {
         Coins(0)
     }
 }
@@ -70,13 +70,13 @@ pub struct Point {
 }
 
 impl Add<Point, Point> for Point {
-    fn add(lhs: Point, rhs: Point): Point {
+    fn add(lhs: Point, rhs: Point) -> Point {
         Point{x: lhs.x + rhs.x}
     }
 }
 
 impl Summable for Point {
-    fn empty_sum(): Point {
+    fn empty_sum() -> Point {
         Point{x: 0}
     }
 }

@@ -32,11 +32,11 @@ pub enum Command {
 //! assert parse("done 2") == Ok(Command.Mark{id: 2, status: Status.Done})
 //! assert parse("done two") == Err("expected a task id, got 'two'")
 //
-pub fn parse(line: String): Result<Command, String> {
+pub fn parse(line: String) -> Result<Command, String> {
     words =
         line
         |> String.split(" ")
-        |> Iter.filter(|word| word != "")
+        |> Iter.filter(fn word -> word != "")
         |> Iter.to_list()
 
     case words {
@@ -58,17 +58,17 @@ pub fn parse(line: String): Result<Command, String> {
         ["list", status] ->
             status
             |> Status.parse()
-            |> Maybe.map(|status| Command.List{status: Some(status)})
+            |> Maybe.map(fn status -> Command.List{status: Some(status)})
             |> Maybe.to_result("unknown status '${status}'")
 
         ["start", id] ->
-            parse_id(id) |> Result.map(|id| Command.Mark{id, status: Status.Started})
+            parse_id(id) |> Result.map(fn id -> Command.Mark{id, status: Status.Started})
 
         ["done", id] ->
-            parse_id(id) |> Result.map(|id| Command.Mark{id, status: Status.Done})
+            parse_id(id) |> Result.map(fn id -> Command.Mark{id, status: Status.Done})
 
         ["delete", id] ->
-            parse_id(id) |> Result.map(|id| Command.Delete{id})
+            parse_id(id) |> Result.map(fn id -> Command.Delete{id})
 
         _ ->
             Err("unknown command '${line}', try 'help'")
@@ -83,72 +83,72 @@ pub fn run(
     tasks: Map<Int, Task>,
     store: Store,
     clock: Clock,
-): Result<(Map<Int, Task>, List<String>), String> {
+) -> Result<#(Map<Int, Task>, List<String>), String> {
     case command {
         Command.Help ->
-            Ok((tasks, help))
+            Ok(#(tasks, help))
 
         Command.Add{title} -> {
             task = Task{id: next_id(tasks), title, created: Clock.now(clock)}
             try Store.save(store, task)
-            Ok((Map.put(tasks, task.id, task), ["added ${Task.render(task)}"]))
+            Ok(#(Map.put(tasks, task.id, task), ["added ${Task.render(task)}"]))
         }
 
         Command.List{status} ->
-            Ok((tasks, list(tasks, status)))
+            Ok(#(tasks, list(tasks, status)))
 
         Command.Mark{id, status} -> {
             task = {..try find(tasks, id), status}
             try Store.save(store, task)
-            Ok((Map.put(tasks, id, task), [Task.render(task)]))
+            Ok(#(Map.put(tasks, id, task), [Task.render(task)]))
         }
 
         Command.Delete{id} -> {
             task = try find(tasks, id)
             try Store.delete(store, id)
-            Ok((Map.remove(tasks, id), ["deleted ${Task.render(task)}"]))
+            Ok(#(Map.remove(tasks, id), ["deleted ${Task.render(task)}"]))
         }
 
         Command.Quit ->
-            Ok((tasks, []))
+            Ok(#(tasks, []))
 
         Command.Blank ->
-            Ok((tasks, []))
+            Ok(#(tasks, []))
     }
 }
 
-fn list(tasks: Map<Int, Task>, status: Maybe<Status>): List<String> {
+fn list(tasks: Map<Int, Task>, status: Maybe<Status>) -> List<String> {
     lines =
         tasks
         |> Map.values()
         |> Iter.filter(shown?(_, status))
         |> Iter.sort_by(.id)
-        |> Iter.map(|task| Task.render(task))
+        |> Iter.map(fn task -> Task.render(task))
         |> Iter.to_list()
 
     if lines == [] { ["no tasks"] } else { lines }
 }
 
-fn shown?(task: Task, status: Maybe<Status>): Bool {
+fn shown?(task: Task, status: Maybe<Status>) -> Bool {
     case status {
         None -> True
         Some(status) -> task.status == status
     }
 }
 
-fn find(tasks: Map<Int, Task>, id: Int): Result<Task, String> {
+fn find(tasks: Map<Int, Task>, id: Int) -> Result<Task, String> {
     Map.get(tasks, id) |> Maybe.to_result("no task with id ${id}")
 }
 
-fn next_id(tasks: Map<Int, Task>): Int {
+fn next_id(tasks: Map<Int, Task>) -> Int {
     highest =
         tasks
         |> Map.keys()
-        |> Iter.reduce(|highest = 0, id| if id > highest { id } else { highest })
+        |> Iter.reduce(fn highest = 0, id -> if id > highest { id } else { highest })
 
     highest + 1
 }
 
-fn parse_id(text: String): Result<Int, String> {
+fn parse_id(text: String) -> Result<Int, String> {
     String.to_int(text) |> Maybe.to_result("expected a task id, got '${text}'")
 }

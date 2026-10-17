@@ -14,7 +14,7 @@ import (
 func TestNamedArgs_StdOwnerAndHostCalls(t *testing.T) {
 	out, err := runVM(t, `import { std/io std/calendar.Time }
 
-fn mark(label: String, s: String): String {
+fn mark(label: String, s: String) -> String {
     io.print(label)
     s
 }
@@ -24,9 +24,9 @@ fn main() {
     dbg String.length(s: s)
     dbg String.trim(s: "  a ")
     dbg List.head(list: [1, 2])
-    config = {"host" => "localhost"}
+    config = %{"host" => "localhost"}
     dbg Map.get(m: config, key: "host")
-    dbg Map.get(key: mark("key first", "host"), m: {mark("map second", "host") => "x"})
+    dbg Map.get(key: mark("key first", "host"), m: %{mark("map second", "host") => "x"})
     xs = ["a", "b"]
     dbg String.join(parts: xs)
     dbg String.join(separator: "-", parts: xs)
@@ -49,7 +49,7 @@ dbg line 12: List.head(list: [1, 2]) = Some(1)
 dbg line 14: Map.get(m: config, key: "host") = Some("localhost")
 key first
 map second
-dbg line 15: Map.get(key: mark("key first", "host"), m: {mark("map second", "host") => "x"}) = Some("x")
+dbg line 15: Map.get(key: mark("key first", "host"), m: %{mark("map second", "host") => "x"}) = Some("x")
 dbg line 17: String.join(parts: xs) = "ab"
 dbg line 18: String.join(separator: "-", parts: xs) = "a-b"
 dbg line 19: String.join(xs, separator: "+") = "a+b"
@@ -70,14 +70,14 @@ func TestNamedArgs_StdOwnerCallInAnAssertion(t *testing.T) {
 	const name = "named_test.nomi"
 	p, err := vmhost.LoadSource(name, `test "named owner calls pass" {
     s = "abc"
-    config = {"host" => "localhost"}
+    config = %{"host" => "localhost"}
     assert String.length(s: s) == 3
     assert Map.get(key: "host", m: config) == Some("localhost")
     assert String.join(separator: "-", parts: ["a", "b"]) == "a-b"
 }
 
 test "a named owner call's rows" {
-    config = {"host" => "localhost"}
+    config = %{"host" => "localhost"}
     assert Map.get(key: "port", m: config) == Some("80")
 }
 
@@ -99,7 +99,7 @@ FAIL named_test.nomi :: a named owner call's rows
     assert Map.get(key: "port", m: config) == Some("80")
     values:
       config
-        = {"host" => "localhost"}
+        = %{"host" => "localhost"}
       Map.get(key: "port", m: config)
         = None
 FAIL named_test.nomi :: a named host call with a default's rows

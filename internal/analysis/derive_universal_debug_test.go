@@ -168,7 +168,7 @@ pub host type Task<T>
 pub host type Dynamic
 
 impl Debug for Dynamic {
-  fn inspect(_value: Dynamic): String { "custom" }
+  fn inspect(_value: Dynamic) -> String { "custom" }
 }
 `
 	nodes := parseNodes(t, src)
@@ -225,7 +225,7 @@ opaque type Baz Int
 struct Qux { q: Int }
 
 impl Debug for Qux {
-  fn inspect(_value: Qux): String { "custom" }
+  fn inspect(_value: Qux) -> String { "custom" }
 }
 `
 	nodes := parseNodes(t, src)
@@ -308,7 +308,7 @@ func TestSynthesizeUniversalDebug_ExplicitImplSuppressesAuto(t *testing.T) {
 struct Custom { a: Int }
 
 impl Debug for Custom {
-  fn inspect(_value: Custom): String { "hand-written" }
+  fn inspect(_value: Custom) -> String { "hand-written" }
 }
 `
 	nodes := parseNodes(t, src)
@@ -360,7 +360,7 @@ opaque type Token Int`
 	_, errs = checkSource(`struct P { x: Int }
 
 impl Display for P {
-  fn to_string(_value: P): String { "p" }
+  fn to_string(_value: P) -> String { "p" }
 }`)
 	expectError(t, errs, "undefined interface 'Display'")
 }

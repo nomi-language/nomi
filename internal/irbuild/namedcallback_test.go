@@ -14,11 +14,11 @@ import (
 // reduction calls the named function from a seeded lambda.
 func TestNamedCallback_FunctionValuesRun(t *testing.T) {
 	irBacklogProgramVM(t, map[string]string{
-		"util.nomi": `pub fn plus(a: Int, b: Int): Int {
+		"util.nomi": `pub fn plus(a: Int, b: Int) -> Int {
   a + b
 }
 
-pub fn small?(n: Int): Bool {
+pub fn small?(n: Int) -> Bool {
   n < 3
 }
 `,
@@ -30,31 +30,31 @@ struct Money {
 }
 
 impl Money {
-  fn sum(a: Money, b: Money): Money {
+  fn sum(a: Money, b: Money) -> Money {
     Money{cents: a.cents + b.cents}
   }
 
-  fn double(n: Int): Int {
+  fn double(n: Int) -> Int {
     n * 2
   }
 }
 
-fn add(a: Int, b: Int): Int {
+fn add(a: Int, b: Int) -> Int {
   a + b
 }
 
-fn longer(a: String, b: String): String {
+fn longer(a: String, b: String) -> String {
   if String.length(b) > String.length(a) { b } else { a }
 }
 
-fn is_even(n: Int): Bool {
+fn is_even(n: Int) -> Bool {
   n % 2 == 0
 }
 
 test "a top-level fn as a reduction" {
-  assert Iter.reduce([1, 2, 3], |acc = 0, n| add(acc, n)) == 6
-  assert [1, 2, 3, 4] |> Iter.reduce(|acc = 0, n| add(acc, n)) == 10
-  assert Iter.reduce(["a", "ccc", "bb"], |acc = "", s| longer(acc, s)) == "ccc"
+  assert Iter.reduce([1, 2, 3], fn acc = 0, n -> add(acc, n)) == 6
+  assert [1, 2, 3, 4] |> Iter.reduce(fn acc = 0, n -> add(acc, n)) == 10
+  assert Iter.reduce(["a", "ccc", "bb"], fn acc = "", s -> longer(acc, s)) == "ccc"
 }
 
 test "a top-level fn as an adapter" {
@@ -62,13 +62,13 @@ test "a top-level fn as an adapter" {
 }
 
 test "an imported fn" {
-  assert Iter.reduce([1, 2, 3], |acc = 0, n| plus(acc, n)) == 6
-  assert Iter.reduce([1, 2, 3], |acc = 0, n| util.plus(acc, n)) == 6
+  assert Iter.reduce([1, 2, 3], fn acc = 0, n -> plus(acc, n)) == 6
+  assert Iter.reduce([1, 2, 3], fn acc = 0, n -> util.plus(acc, n)) == 6
   assert Iter.filter([1, 2, 3, 4], util.small?) |> Iter.to_list() == [1, 2]
 }
 
 test "an owner-qualified impl fn" {
-  assert Iter.reduce([Money{cents: 1}, Money{cents: 2}], |acc = Money{cents: 0}, m| Money.sum(acc, m)).cents == 3
+  assert Iter.reduce([Money{cents: 1}, Money{cents: 2}], fn acc = Money{cents: 0}, m -> Money.sum(acc, m)).cents == 3
   assert Iter.map([1, 2], Money.double) |> Iter.to_list() == [2, 4]
 }
 `,
@@ -84,28 +84,28 @@ test "an owner-qualified impl fn" {
 func TestNamedCallback_IterSensitiveFunctionsRun(t *testing.T) {
 	const src = `import std/io
 
-fn skip_odd(n: Int): Int {
+fn skip_odd(n: Int) -> Int {
   if n % 2 == 1 {
     continue
   }
   n * 10
 }
 
-fn keep_until_big(n: Int): Bool {
+fn keep_until_big(n: Int) -> Bool {
   if n > 3 {
     break
   }
   n % 2 == 0
 }
 
-fn below_five(n: Int): Bool {
+fn below_five(n: Int) -> Bool {
   if n >= 5 {
     break False
   }
   True
 }
 
-fn sum_small(total: Int, n: Int): Int {
+fn sum_small(total: Int, n: Int) -> Int {
   if n < 0 {
     continue
   }
@@ -115,21 +115,21 @@ fn sum_small(total: Int, n: Int): Int {
   total + n
 }
 
-fn stop_at_zero(total: Int, n: Int): Int {
+fn stop_at_zero(total: Int, n: Int) -> Int {
   if n == 0 {
     break
   }
   total + n
 }
 
-fn show_until_three(n: Int): Unit {
+fn show_until_three(n: Int) -> Unit {
   if n == 3 {
     break
   }
   io.print("each ${n}")
 }
 
-fn double_until(n: Int): Int {
+fn double_until(n: Int) -> Int {
   if n > 20 {
     break
   }
@@ -150,8 +150,8 @@ test "take_while stops with break False" {
 }
 
 test "reduce continues and breaks with the accumulator" {
-  assert Iter.reduce([1, -5, 2, 3, 20, 4], |total = 0, n| sum_small(total, n)) == 26
-  assert Iter.reduce([1, 2, 0, 4], |total = 0, n| stop_at_zero(total, n)) == 3
+  assert Iter.reduce([1, -5, 2, 3, 20, 4], fn total = 0, n -> sum_small(total, n)) == 26
+  assert Iter.reduce([1, 2, 0, 4], fn total = 0, n -> stop_at_zero(total, n)) == 3
 }
 
 test "each stops" {
@@ -175,15 +175,15 @@ test "iterate stops" {
 func TestNamedCallback_IterSensitiveDirectCallDeclines(t *testing.T) {
 	const src = `import std/io
 
-fn skip_odd(n: Int): Int {
+fn skip_odd(n: Int) -> Int {
   if n % 2 == 1 {
     continue
   }
   n
 }
 
-fn evens(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| skip_odd(x)) |> Iter.to_list()
+fn evens(xs: List<Int>) -> List<Int> {
+  Iter.map(xs, fn x -> skip_odd(x)) |> Iter.to_list()
 }
 
 fn main() {
@@ -204,10 +204,10 @@ import std/random.{Generator, Seed}
 
 test "the module-qualified spelling" {
   seed = random.Seed.from_int(7)
-  (a, _) = random.Generator.step(random.Generator.bool(), seed)
-  (b, _) = Generator.step(Generator.bool(), Seed.from_int(7))
+  #(a, _) = random.Generator.step(random.Generator.bool(), seed)
+  #(b, _) = Generator.step(Generator.bool(), Seed.from_int(7))
   assert a == b
-  (n, _) = random.Generator.step(random.Generator.constant(3), seed)
+  #(n, _) = random.Generator.step(random.Generator.constant(3), seed)
   assert n == 3
 }
 `
@@ -221,7 +221,7 @@ import std/strings.String as Str
 
 test "aliased owners" {
   assert It.count([1, 2]) == 2
-  assert It.map([1, 2], |x| x + 1) |> It.to_list() == [2, 3]
+  assert It.map([1, 2], fn x -> x + 1) |> It.to_list() == [2, 3]
   assert Str.length("abc") == 3
 }
 `
@@ -241,9 +241,9 @@ struct User {
 
 derive FromJson for User
 
-fn decode(src: String): Result<User, String> {
+fn decode(src: String) -> Result<User, String> {
   case Json.decode(src) {
-    Ok(j) -> Result.map_err(User.from_json(j), |e| Json.ShapeError.to_string(e))
+    Ok(j) -> Result.map_err(User.from_json(j), fn e -> Json.ShapeError.to_string(e))
     Err(_) -> Err("bad json")
   }
 }
@@ -271,11 +271,11 @@ func TestNamedCallback_LocalOwnerSharingAStdNameWithDefaults(t *testing.T) {
 }
 
 impl Date {
-  fn new(year: Int, month: Int = 1, day: Int = 1): Date {
+  fn new(year: Int, month: Int = 1, day: Int = 1) -> Date {
     Date{year, month, day}
   }
 
-  fn same?(a: Date, b: Date, strict: Bool = True): Bool {
+  fn same?(a: Date, b: Date, strict: Bool = True) -> Bool {
     a.year == b.year and (!strict or a.day == b.day)
   }
 }
@@ -305,7 +305,7 @@ test "a failing named call reports the written arguments" {
 // the body is retained. This isolates the std-side gate with a structural
 // value, which needs no impl lookup in the one-module std this harness builds.
 func TestNamedCallback_StdBodyInterpolatesAStructuralValue(t *testing.T) {
-	const body = "pub fn label(pair: (Int, String)): String {\n  \"pair ${pair}\"\n}\n"
+	const body = "pub fn label(pair: #(Int, String)) -> String {\n  \"pair ${pair}\"\n}\n"
 	var c irFuncRetentionCount
 	defer c.observe(t, irFromStd)()
 	lowerStdSourceOnly(t, body)

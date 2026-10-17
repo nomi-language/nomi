@@ -97,7 +97,7 @@ func TestPubImportMarksEveryEntry(t *testing.T) {
 // `pub` before `import` parses as a re-export, not a misplaced visibility
 // keyword.
 func TestPubBeforeImportParses(t *testing.T) {
-	if _, err := Parse(lexer.Lex("pub import std/comparable.Ordering\nfn f(): Int { 1 }")); err != nil {
+	if _, err := Parse(lexer.Lex("pub import std/comparable.Ordering\nfn f() -> Int { 1 }")); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -2,11 +2,11 @@ import spiral_matrix.spiral_matrix
 
 test "spiral_matrix" {
     cases = [
-        ("empty spiral", 0, #[]),
-        ("trivial spiral", 1, #[#[1]]),
-        ("spiral of size 2", 2, #[#[1, 2], #[4, 3]]),
-        ("spiral of size 3", 3, #[#[1, 2, 3], #[8, 9, 4], #[7, 6, 5]]),
-        (
+        #("empty spiral", 0, #[]),
+        #("trivial spiral", 1, #[#[1]]),
+        #("spiral of size 2", 2, #[#[1, 2], #[4, 3]]),
+        #("spiral of size 3", 3, #[#[1, 2, 3], #[8, 9, 4], #[7, 6, 5]]),
+        #(
             "spiral of size 4",
             4,
             #[
@@ -16,7 +16,7 @@ test "spiral_matrix" {
                 #[10, 9, 8, 7],
             ],
         ),
-        (
+        #(
             "spiral of size 5",
             5,
             #[
@@ -29,7 +29,7 @@ test "spiral_matrix" {
         ),
     ]
 
-    subtests cases, (description, size, expected), description {
+    subtests cases, #(description, size, expected), description {
         assert spiral_matrix(size) == expected
     }
 }

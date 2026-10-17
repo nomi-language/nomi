@@ -21,12 +21,12 @@ import (
 // itself, which is no call, and lowers.
 const loweringBlocked = `import std/io
 
-fn planted_decline(n: Int): Int {
+fn planted_decline(n: Int) -> Int {
   n
 }
 
-fn evens(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| planted_decline(x)) |> Iter.to_list()
+fn evens(xs: List<Int>) -> List<Int> {
+  Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
 }
 
 fn main() {
@@ -34,7 +34,7 @@ fn main() {
 }
 `
 
-var loweringFixed = strings.Replace(loweringBlocked, "|x| planted_decline(x)", "planted_decline", 1)
+var loweringFixed = strings.Replace(loweringBlocked, "fn x -> planted_decline(x)", "planted_decline", 1)
 
 // plantDecline makes the builder decline every call to `planted_decline`
 // until t ends (irbuild.PlantDeclineForTest), so a test of how the server
@@ -118,8 +118,8 @@ func TestLoweringDiagnostics_ReportedOnOpenAndClearedBySave(t *testing.T) {
 		t.Fatalf("lowering diagnostics %+v; want one %q with its hint", got, want)
 	}
 	r := got[0].Range
-	if r.Start.Line != 7 || r.Start.Character != 19 {
-		t.Fatalf("the diagnostic is at %d:%d; want 7:19 (the callee of line 8's call)", r.Start.Line, r.Start.Character)
+	if r.Start.Line != 7 || r.Start.Character != 23 {
+		t.Fatalf("the diagnostic is at %d:%d; want 7:23 (the callee of line 8's call)", r.Start.Line, r.Start.Character)
 	}
 	if strings.Contains(got[0].Message, "not retained") || strings.Contains(got[0].Message, "direct call") {
 		t.Fatalf("the diagnostic names compiler internals: %q", got[0].Message)
@@ -166,7 +166,7 @@ func TestLoweringDiagnostics_BlockImportedProjectFile(t *testing.T) {
 	src := "import std/io\n\nfn main() {\n    import shapes\n    io.inspect(shapes.area(2))\n}\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi":   src,
-		"shapes.nomi": "pub fn area(r: Int): Int {\n    r * 3\n}\n",
+		"shapes.nomi": "pub fn area(r: Int) -> Int {\n    r * 3\n}\n",
 		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	if d := loweringDiagnostics(filepath.Join(dir, "main.nomi"), src, nil); len(d) != 0 {

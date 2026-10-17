@@ -14,16 +14,16 @@ const loadable = `import std/io
 
 once greeting = make_greeting()
 
-fn make_greeting(): String {
+fn make_greeting() -> String {
     io.print("booted")
     "Hello"
 }
 
-export fn greet(name: String): String {
+export fn greet(name: String) -> String {
     "${greeting}, ${name}!"
 }
 
-export fn add(a: Int, b: Int): Int {
+export fn add(a: Int, b: Int) -> Int {
     a + b
 }
 `
@@ -44,7 +44,7 @@ func TestLoadProgram_BootsAWholeImageFileForCalls(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer in.Close()
-	if got, want := string(in.ExportsResult()), `{"ok":["greet(name: String): String","add(a: Int, b: Int): Int"]}`; got != want {
+	if got, want := string(in.ExportsResult()), `{"ok":["greet(name: String) -> String","add(a: Int, b: Int) -> Int"]}`; got != want {
 		t.Fatalf("ExportsResult is %s, want %s", got, want)
 	}
 	for _, name := range []string{"Ada", "Bo"} {

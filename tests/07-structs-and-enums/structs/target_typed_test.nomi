@@ -21,11 +21,11 @@ struct Box<T> {
     item: T
 }
 
-fn city_of(address: Address): String {
+fn city_of(address: Address) -> String {
     address.city
 }
 
-fn home(): Address {
+fn home() -> Address {
     {street: "3 Ret", city: "York"}
 }
 

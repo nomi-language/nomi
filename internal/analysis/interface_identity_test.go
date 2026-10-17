@@ -88,26 +88,26 @@ fn main() {
 `, map[string]string{
 		"shapes": identityShapes,
 		"svg": `pub interface Renderer {
-  fn render(value: self): String
+  fn render(value: self) -> String
 }
 
-pub fn draw<T>(x: T): String where T: Renderer {
+pub fn draw<T>(x: T) -> String where T: Renderer {
   Renderer.render(x)
 }
 `,
 		"ascii": `import shapes.{Point}
 
 pub interface Renderer {
-  fn render(value: self): String
+  fn render(value: self) -> String
 }
 
 impl Renderer for Point {
-  fn render(p: Point): String {
+  fn render(p: Point) -> String {
     "ascii(${p.x},${p.y})"
   }
 }
 
-pub fn tag(): String {
+pub fn tag() -> String {
   "ascii"
 }
 `,
@@ -127,16 +127,16 @@ func sameNamedRenderer(tag string) string {
 	return `import shapes.{Point}
 
 pub interface Renderer {
-  fn render(value: self): String
+  fn render(value: self) -> String
 }
 
 impl Renderer for Point {
-  fn render(p: Point): String {
+  fn render(p: Point) -> String {
     "` + tag + `(${p.x},${p.y})"
   }
 }
 
-pub fn show(p: Point): String {
+pub fn show(p: Point) -> String {
   Renderer.render(p)
 }
 `
@@ -191,7 +191,7 @@ fn main() {
 import svg.{Renderer}
 
 impl Renderer for Point {
-  fn render(p: Point): String {
+  fn render(p: Point) -> String {
     "ascii(${p.x},${p.y})"
   }
 }
@@ -230,16 +230,16 @@ fn main() {
 		"svg": `import shapes.{Point}
 
 pub interface Renderer {
-  fn render(value: self): String
+  fn render(value: self) -> String
 }
 
 impl Renderer for Point {
-  fn render(p: Point): String {
+  fn render(p: Point) -> String {
     "svg(${p.x},${p.y})"
   }
 }
 
-pub fn draw<T>(x: T): String where T: Renderer {
+pub fn draw<T>(x: T) -> String where T: Renderer {
   Renderer.render(x)
 }
 `,
@@ -260,7 +260,7 @@ pub fn draw<T>(x: T): String where T: Renderer {
 func TestInterfaceIdentity_StdlibBoundsStillHold(t *testing.T) {
 	errs := buildSiblingProject(t, `import std/io
 
-fn describe<T>(x: T): String where T: Display {
+fn describe<T>(x: T) -> String where T: Display {
   Display.to_string(x)
 }
 

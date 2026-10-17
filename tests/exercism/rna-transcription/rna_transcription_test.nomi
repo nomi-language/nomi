@@ -2,15 +2,15 @@ import rna_transcription.to_rna
 
 test "transcribes DNA to RNA" {
     cases = [
-        ("Empty RNA sequence", "", ""),
-        ("RNA complement of cytosine is guanine", "C", "G"),
-        ("RNA complement of guanine is cytosine", "G", "C"),
-        ("RNA complement of thymine is adenine", "T", "A"),
-        ("RNA complement of adenine is uracil", "A", "U"),
-        ("RNA complement", "ACGTGGTCTTAA", "UGCACCAGAAUU"),
+        #("Empty RNA sequence", "", ""),
+        #("RNA complement of cytosine is guanine", "C", "G"),
+        #("RNA complement of guanine is cytosine", "G", "C"),
+        #("RNA complement of thymine is adenine", "T", "A"),
+        #("RNA complement of adenine is uracil", "A", "U"),
+        #("RNA complement", "ACGTGGTCTTAA", "UGCACCAGAAUU"),
     ]
 
-    subtests cases, (description, dna, expected), description {
+    subtests cases, #(description, dna, expected), description {
         assert to_rna(dna) == Ok(expected)
     }
 }

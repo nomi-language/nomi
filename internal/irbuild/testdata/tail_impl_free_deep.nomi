@@ -6,18 +6,18 @@
 import std/io
 
 interface Stepper {
-    fn step(value: self, n: Int): Int
+    fn step(value: self, n: Int) -> Int
 }
 
 struct Down {}
 
 impl Stepper for Down {
-    fn step(value: Down, n: Int): Int {
+    fn step(value: Down, n: Int) -> Int {
         if n == 0 { 0 } else { bounce(value, n - 1) }
     }
 }
 
-fn bounce(value: Down, n: Int): Int {
+fn bounce(value: Down, n: Int) -> Int {
     Stepper.step(value, n)
 }
 

@@ -13,13 +13,13 @@ import (
 // `impl Iface for T` block's method items drive method validation.
 func TestImplStructOnMethodsOnlyInterfaceRedundantButOk(t *testing.T) {
 	src := `pub interface Greeter {
-  fn greet(value: self): String
+  fn greet(value: self) -> String
 }
 
 struct User { name: String }
 
 impl Greeter for User {
-  fn greet(user: User): String { user.name }
+  fn greet(user: User) -> String { user.name }
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -45,16 +45,16 @@ impl other for AppEnv`
 // may be overridden by an impl block. No error expected.
 func TestImplOverridesOpenDefaultOk(t *testing.T) {
 	src := `pub interface MyIface {
-  fn required_method(value: self): Int
-  open fn extension_point(_value: self): String { "hi" }
+  fn required_method(value: self) -> Int
+  open fn extension_point(_value: self) -> String { "hi" }
 }
 
 pub struct User { name: String }
 
 impl MyIface for User {
-  fn required_method(_u: User): Int { 1 }
+  fn required_method(_u: User) -> Int { 1 }
 
-  fn extension_point(u: User): String { u.name }
+  fn extension_point(u: User) -> String { u.name }
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -64,16 +64,16 @@ impl MyIface for User {
 // overridden — the analyzer reports an error.
 func TestImplOverridesFinalDefaultErrors(t *testing.T) {
 	src := `pub interface MyIface {
-  fn required_method(value: self): Int
-  fn final_default(_value: self): String { "fixed" }
+  fn required_method(value: self) -> Int
+  fn final_default(_value: self) -> String { "fixed" }
 }
 
 pub struct User { name: String }
 
 impl MyIface for User {
-  fn required_method(_u: User): Int { 1 }
+  fn required_method(_u: User) -> Int { 1 }
 
-  fn final_default(_u: User): String { "custom" }
+  fn final_default(_u: User) -> String { "custom" }
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "final default")
@@ -84,13 +84,13 @@ impl MyIface for User {
 // as before — an impl is required, no `open` involved.
 func TestImplOnRequiredMethodUnchanged(t *testing.T) {
 	src := `pub interface MyIface {
-  fn required_method(value: self): Int
+  fn required_method(value: self) -> Int
 }
 
 pub struct User { name: String }
 
 impl MyIface for User {
-  fn required_method(_u: User): Int { 1 }
+  fn required_method(_u: User) -> Int { 1 }
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -100,14 +100,14 @@ impl MyIface for User {
 // happy path — the impl observes the interface's default unchanged.
 func TestImplFinalDefaultOmittedOk(t *testing.T) {
 	src := `pub interface MyIface {
-  fn required_method(value: self): Int
-  fn final_default(_value: self): String { "fixed" }
+  fn required_method(value: self) -> Int
+  fn final_default(_value: self) -> String { "fixed" }
 }
 
 pub struct User { name: String }
 
 impl MyIface for User {
-  fn required_method(_u: User): Int { 1 }
+  fn required_method(_u: User) -> Int { 1 }
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -118,13 +118,13 @@ impl MyIface for User {
 // on the assertion that failed.
 func TestOpenErrorPointsAtDecorator(t *testing.T) {
 	src := `pub interface MyIface {
-  fn final_default(_value: self): String { "fixed" }
+  fn final_default(_value: self) -> String { "fixed" }
 }
 
 pub struct User { name: String }
 
 impl MyIface for User {
-  fn final_default(_u: User): String { "custom" }
+  fn final_default(_u: User) -> String { "custom" }
 }`
 	_, errs := checkSource(src)
 	found := false

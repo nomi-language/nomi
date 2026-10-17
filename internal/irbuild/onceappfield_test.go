@@ -26,7 +26,7 @@ struct App {
 }
 
 `
-	const plainBoot = `fn boot(): App {
+	const plainBoot = `fn boot() -> App {
   App{label: "booted", context: Context.root()}
 }
 
@@ -50,7 +50,7 @@ fn main() {
 `, "rebound\nsaw booted\n"},
 		{"a helper's rebind stays hidden", "", plainBoot, `once seen: String = App.label
 
-fn force(): String {
+fn force() -> String {
   with App.label = "helper"
   seen
 }
@@ -64,7 +64,7 @@ fn main() {
 
 fn main() {
   got = concurrent {
-    t = Task.spawn(|| {
+    t = Task.spawn(fn -> {
       with App.label = "task"
       seen
     })
@@ -73,7 +73,7 @@ fn main() {
   io.print(got)
 }
 `, "booted\n"},
-		{"the initializer reads boot's context", "", `fn boot(): App {
+		{"the initializer reads boot's context", "", `fn boot() -> App {
   App{label: "booted", context: Context.with_value(Context.root(), Trace("boot-trace"))}
 }
 

@@ -33,11 +33,11 @@ func TestStdlibPrompt_LambdaOmitsADefaultedArgument(t *testing.T) {
 	probe := strings.TrimRight(string(src), "\n") + `
 
 /// Probe.
-//! assert ["7", "42"] |> Iter.map(|s| String.pad_start(s, 3)) |> Iter.to_list() == ["  7", " 42"]
-//! rows = [["a", "bc"]] |> Iter.map(|row| row |> Iter.map(|c| String.pad_end(c, 2)) |> String.join("|"))
+//! assert ["7", "42"] |> Iter.map(fn s -> String.pad_start(s, 3)) |> Iter.to_list() == ["  7", " 42"]
+//! rows = [["a", "bc"]] |> Iter.map(fn row -> row |> Iter.map(fn c -> String.pad_end(c, 2)) |> String.join("|"))
 //! assert Iter.to_list(rows) == ["a |bc"]
 //
-pub fn lambda_default_probe(): Int {
+pub fn lambda_default_probe() -> Int {
     0
 }
 `

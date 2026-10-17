@@ -50,11 +50,11 @@ enum Event {
   embeds FocusLost
 }
 
-fn click_at(x: Int): Event {
+fn click_at(x: Int) -> Event {
   Click{x: x, y: x + 1}
 }
 
-fn describe(e: Event): String {
+fn describe(e: Event) -> String {
   case e {
     Event.Click{x, y} -> "click ${x},${y}"
     Event.KeyDown(k) -> "key ${k.key}"

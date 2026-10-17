@@ -45,7 +45,7 @@ func writeTemp(t *testing.T, src string) string {
 // a backstop and this test says so at that moment rather than passing quietly.
 func TestDistinctTuple_ArityIsTheFrontEndsJobForADistinctToo(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "entry_test.nomi")
-	src := "type Coord (Int, Int)\n\ntest \"t\" {\n  assert Debug.inspect(Coord(1, 2, 3)) == \"x\"\n}\n"
+	src := "type Coord #(Int, Int)\n\ntest \"t\" {\n  assert Debug.inspect(Coord(1, 2, 3)) == \"x\"\n}\n"
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}

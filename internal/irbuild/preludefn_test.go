@@ -21,7 +21,7 @@ import (
 // why prelude.go's shadow test for it is live rather than decorative. Asserted
 // in both directions so this cannot rot into a one-sided claim.
 func TestPreludeFn_TheOwnerNamesAreReserved(t *testing.T) {
-	const decl = "enum %s {\n  A Int\n  B\n}\n\nfn f(): Int {\n  1\n}\n"
+	const decl = "enum %s {\n  A Int\n  B\n}\n\nfn f() -> Int {\n  1\n}\n"
 	for _, name := range []string{"Maybe", "Result", "List", "Map"} {
 		_, err := AnalyzeSource("main", fmt.Sprintf(decl, name))
 		if err == nil || !strings.Contains(err.Error(), "reserved") {

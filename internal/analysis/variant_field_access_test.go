@@ -57,14 +57,14 @@ func TestEnumFieldRead_VariantsMustAgreeOnItsType(t *testing.T) {
 }
 
 `
-	errs := checkWithStdlib(decl + `fn f(s: Shape): String {
+	errs := checkWithStdlib(decl + `fn f(s: Shape) -> String {
     s.label
 }
 `)
 	if len(errs) != 0 {
 		t.Fatalf("the front end rejects a field every variant types alike: %v", errs)
 	}
-	errs = checkWithStdlib(decl + `fn f(s: Shape): Int {
+	errs = checkWithStdlib(decl + `fn f(s: Shape) -> Int {
     s.w
 }
 `)

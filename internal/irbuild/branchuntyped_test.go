@@ -11,19 +11,19 @@ func TestUnsupported_BranchTypesStillDisagree(t *testing.T) {
 	cases := []struct{ construct, name, src, frontEnd string }{{
 		"case branches with different types",
 		"Int against String",
-		"fn f(n: Int): Int {\n  case n {\n    0 -> 1\n    _ -> \"two\"\n  }\n}\n\n" +
+		"fn f(n: Int) -> Int {\n  case n {\n    0 -> 1\n    _ -> \"two\"\n  }\n}\n\n" +
 			"fn main() {\n  _ = f(0)\n}\n",
 		"case branch type mismatch",
 	}, {
 		"case branches with different types",
 		"two DIFFERENT typed lists, neither untyped",
-		"fn f(n: Int): List<Int> {\n  case n {\n    0 -> [\"a\"]\n    _ -> [1]\n  }\n}\n\n" +
+		"fn f(n: Int) -> List<Int> {\n  case n {\n    0 -> [\"a\"]\n    _ -> [1]\n  }\n}\n\n" +
 			"fn main() {\n  _ = f(0)\n}\n",
 		"list element type mismatch",
 	}, {
 		"if branches with different types",
 		"Int against String",
-		"fn f(b: Bool): Int {\n  if b {\n    1\n  } else {\n    \"two\"\n  }\n}\n\n" +
+		"fn f(b: Bool) -> Int {\n  if b {\n    1\n  } else {\n    \"two\"\n  }\n}\n\n" +
 			"fn main() {\n  _ = f(True)\n}\n",
 		"if/else branch type mismatch",
 	}}

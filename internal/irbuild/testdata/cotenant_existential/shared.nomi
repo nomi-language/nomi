@@ -19,6 +19,6 @@ pub struct Stamp {
     s: String
 }
 
-pub fn stamp(s: String): Stamp {
+pub fn stamp(s: String) -> Stamp {
     Stamp{s}
 }

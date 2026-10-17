@@ -17,12 +17,12 @@ func TestLiteralFuncResult_Runs(t *testing.T) {
 type Adder
 
 impl Literal for Adder {
-    fn from_fragments(fragments: List<Fragment<Int>>): (Int) -> Int {
-        n = fragments |> Iter.map(|f| case f {
+    fn from_fragments(fragments: List<Fragment<Int>>) -> (Int) -> Int {
+        n = fragments |> Iter.map(fn f -> case f {
             Fragment.Static(s) -> String.length(s)
             Fragment.Dynamic(d) -> d
-        }) |> Iter.reduce(|acc = 0, x| acc + x)
-        |x| x + n
+        }) |> Iter.reduce(fn acc = 0, x -> acc + x)
+        fn x -> x + n
     }
 }
 

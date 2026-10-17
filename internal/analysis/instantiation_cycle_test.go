@@ -12,17 +12,17 @@ import (
 func TestInstantiationCycle(t *testing.T) {
 	const header = "struct Box<T> {\n  inner: T\n}\n\n"
 	rejected := map[string]string{
-		"direct, through a struct": `fn grow<T>(x: T, n: Int): Int {
+		"direct, through a struct": `fn grow<T>(x: T, n: Int) -> Int {
   if n == 0 { 0 } else { grow(Box{inner: x}, n - 1) }
 }`,
-		"direct, through a tuple": `fn pair<T>(x: T, n: Int): Int {
-  if n == 0 { 0 } else { pair((x, x), n - 1) }
+		"direct, through a tuple": `fn pair<T>(x: T, n: Int) -> Int {
+  if n == 0 { 0 } else { pair(#(x, x), n - 1) }
 }`,
-		"mutual, through a list": `fn ping<T>(x: T, n: Int): Int {
+		"mutual, through a list": `fn ping<T>(x: T, n: Int) -> Int {
   if n == 0 { 0 } else { pong([x], n - 1) }
 }
 
-fn pong<U>(y: U, n: Int): Int {
+fn pong<U>(y: U, n: Int) -> Int {
   ping(y, n)
 }`,
 	}
@@ -39,20 +39,20 @@ fn pong<U>(y: U, n: Int): Int {
 		}
 	}
 	accepted := map[string]string{
-		"same parameter": `fn count<T>(x: T, n: Int): Int {
+		"same parameter": `fn count<T>(x: T, n: Int) -> Int {
   if n == 0 { 0 } else { count(x, n - 1) }
 }`,
-		"concrete argument": `fn once<T>(x: T, n: Int): Int {
+		"concrete argument": `fn once<T>(x: T, n: Int) -> Int {
   if n == 0 { 0 } else { once(1, n - 1) }
 }`,
-		"swapped parameters": `fn swap<T, U>(a: T, b: U, n: Int): Int {
+		"swapped parameters": `fn swap<T, U>(a: T, b: U, n: Int) -> Int {
   if n == 0 { 0 } else { swap(b, a, n - 1) }
 }`,
-		"growing but not recursive": `fn wrap<T>(x: T): Box<T> {
+		"growing but not recursive": `fn wrap<T>(x: T) -> Box<T> {
   Box{inner: x}
 }
 
-fn twice<T>(x: T): Box<Box<T>> {
+fn twice<T>(x: T) -> Box<Box<T>> {
   wrap(wrap(x))
 }`,
 	}

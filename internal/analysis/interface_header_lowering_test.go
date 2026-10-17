@@ -77,7 +77,7 @@ func TestHeaderLower_ConformanceAndTagsRouteToBlocks(t *testing.T) {
 
 
 impl Display for Point {
-  fn to_string(_p: Point): String {
+  fn to_string(_p: Point) -> String {
     "p"
   }
 }
@@ -163,7 +163,7 @@ func TestHeaderLower_DeriveAndManualImplConflict(t *testing.T) {
 derive Equatable for Point
 
 impl Equatable for Point {
-  fn equal?(_a: self, _b: self): Bool {
+  fn equal?(_a: self, _b: self) -> Bool {
     True
   }
 }
@@ -179,7 +179,7 @@ impl Equatable for Point {
 
 func TestHeaderLower_ImplBlockRoutesMethods(t *testing.T) {
 	src := `impl Display for Money {
-  fn to_string(_m: self): String { "money" }
+  fn to_string(_m: self) -> String { "money" }
 }`
 	out, errs := lowerNewform(t, src)
 	expectLowerClean(t, errs)
@@ -204,11 +204,11 @@ func TestHeaderLower_ImplBlockMultiInterface(t *testing.T) {
 	// A foreign type implementing two interfaces is two separate
 	// `impl Iface for Type` blocks, each carrying the receiver's generics.
 	src := `impl iter for Box<T> {
-  fn next(_b: self): Maybe<(T, self)> { None }
+  fn next(_b: self) -> Maybe<#(T, self)> { None }
 }
 
 impl Display for Box<T> {
-  fn to_string(_b: Box<T>): String { "box" }
+  fn to_string(_b: Box<T>) -> String { "box" }
 }`
 	out, errs := lowerNewform(t, src)
 	expectLowerClean(t, errs)
@@ -230,7 +230,7 @@ func TestHeaderLower_NestedImplWithoutBodylessConformanceIsValid(t *testing.T) {
 }
 
 impl Display for Point {
-  fn to_string(_p: self): String {
+  fn to_string(_p: self) -> String {
     "p"
   }
 }
@@ -282,14 +282,14 @@ pub struct Point {
   y: Int
 }
 
-pub fn manhattan(p: Point): Int {
+pub fn manhattan(p: Point) -> Int {
   p.x + p.y
 }
 
 derive Equatable for Point
 
 impl Display for Point {
-  fn to_string(_p: Point): String {
+  fn to_string(_p: Point) -> String {
     "(point)"
   }
 }
@@ -299,7 +299,7 @@ pub struct Money {
 }
 
 impl Display for Money {
-  fn to_string(_m: Money): String {
+  fn to_string(_m: Money) -> String {
     "money"
   }
 }
@@ -313,11 +313,11 @@ func TestHeaderProject_DupNameTwoInterfacesClean(t *testing.T) {
 	// distinct impl blocks — each block scopes its own implementation, so
 	// the redeclaration and collision checks see no duplicate.
 	src := `interface Greeter {
-  fn hello(g: self): String
+  fn hello(g: self) -> String
 }
 
 interface Farewell {
-  fn hello(f: self): String
+  fn hello(f: self) -> String
 }
 
 struct Person {
@@ -325,13 +325,13 @@ struct Person {
 }
 
 impl Greeter for Person {
-  fn hello(p: Person): String {
+  fn hello(p: Person) -> String {
     p.name
   }
 }
 
 impl Farewell for Person {
-  fn hello(p: Person): String {
+  fn hello(p: Person) -> String {
     p.name
   }
 }
@@ -344,19 +344,19 @@ func TestHeaderProject_DupNameModuleFunctionAndInterfaceClean(t *testing.T) {
 	// A module `fn foo` coexists with an impl method of the same name; the impl
 	// method belongs to interface dispatch rather than the module scope.
 	src := `interface A {
-  fn foo(x: self): Int
+  fn foo(x: self) -> Int
 }
 
 pub struct T {
   n: Int
 }
 
-pub fn foo(x: T): Int {
+pub fn foo(x: T) -> Int {
   x.n
 }
 
 impl A for T {
-  fn foo(x: T): Int {
+  fn foo(x: T) -> Int {
     x.n
   }
 }
@@ -369,7 +369,7 @@ func TestHeaderProject_SameInterfaceSameMethodCollides(t *testing.T) {
 	// Two functions for the same interface implementation collide on the
 	// (Iface, method, receiver) dispatch slot.
 	src := `interface A {
-  fn foo(x: self): Int
+  fn foo(x: self) -> Int
 }
 
 struct T {
@@ -377,11 +377,11 @@ struct T {
 }
 
 impl A for T {
-  fn foo(_x: T): Int {
+  fn foo(_x: T) -> Int {
     1
   }
 
-  fn foo(_x: T): Int {
+  fn foo(_x: T) -> Int {
     2
   }
 }
@@ -395,9 +395,9 @@ func TestHeaderProject_TwoModuleFunctionsCollide(t *testing.T) {
   n: Int
 }
 
-pub fn foo(_x: T): Int { 1 }
+pub fn foo(_x: T) -> Int { 1 }
 
-pub fn foo(_x: T): Int { 2 }
+pub fn foo(_x: T) -> Int { 2 }
 `
 	expectErrContaining(t, checkUniversalDebugProject(t, src), "'foo' is already defined")
 }

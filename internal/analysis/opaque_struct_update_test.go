@@ -31,18 +31,18 @@ const counterModule = `pub opaque struct Counter {
   increments: Int
 }
 
-pub fn new(): Counter {
+pub fn new() -> Counter {
   Counter{value: 0, increments: 0}
 }
 
-pub fn bump(c: Counter): Counter {
+pub fn bump(c: Counter) -> Counter {
   Counter{value: c.value + 1, increments: c.increments + 1}
 }
 
-pub fn value(c: Counter): Int { c.value }
-pub fn increments(c: Counter): Int { c.increments }
+pub fn value(c: Counter) -> Int { c.value }
+pub fn increments(c: Counter) -> Int { c.increments }
 
-pub fn set_value_inside(c: Counter, v: Int): Counter {
+pub fn set_value_inside(c: Counter, v: Int) -> Counter {
   Struct.update(c, {value: v})
 }
 `
@@ -54,7 +54,7 @@ const openModule = `pub struct Open {
   b: Int
 }
 
-pub fn mk(): Open { Open{a: 1, b: 2} }
+pub fn mk() -> Open { Open{a: 1, b: 2} }
 `
 
 func opaquePatchFiles(main string) map[string]string {
@@ -91,7 +91,7 @@ func expectOpaquePatchRefused(t *testing.T, errs []analysis.TypeError, field str
 func TestOpaqueUpdate_DirectPatchFromOutsideIsRefused(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}
 
-fn wreck(c: Counter): Counter {
+fn wreck(c: Counter) -> Counter {
   Struct.update(c, {value: -999})
 }
 `))
@@ -104,7 +104,7 @@ fn wreck(c: Counter): Counter {
 func TestOpaqueUpdate_PipedPatchFromOutsideIsRefused(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}
 
-fn wreck(c: Counter): Counter {
+fn wreck(c: Counter) -> Counter {
   c |> Struct.update({value: -999})
 }
 `))
@@ -123,7 +123,7 @@ struct Box {
   label: String
 }
 
-fn wreck(b: Box): Box {
+fn wreck(b: Box) -> Box {
   Struct.update(b, {inner: {.., value: -999}})
 }
 `))
@@ -138,11 +138,11 @@ func TestOpaqueUpdate_ThroughAUserPartialParameterIsRefused(t *testing.T) {
 	files := opaquePatchFiles(`import counter.{self, Counter}
 import patcher
 
-fn wreck(c: Counter): Counter {
+fn wreck(c: Counter) -> Counter {
   patcher.apply(c, {value: -999})
 }
 `)
-	files["patcher.nomi"] = `pub fn apply<T>(x: T, p: Partial<T>): T where T: Struct {
+	files["patcher.nomi"] = `pub fn apply<T>(x: T, p: Partial<T>) -> T where T: Struct {
   Struct.update(x, p)
 }
 `
@@ -161,7 +161,7 @@ fn wreck(c: Counter): Counter {
 func TestOpaqueUpdate_BareStructLiteralUnderAModuleImportIsRefused(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter
 
-fn wreck(): Int {
+fn wreck() -> Int {
   counter.value(Counter{value: -999, increments: 1})
 }
 `))
@@ -190,7 +190,7 @@ fn wreck(): Int {
 func TestOpaqueUpdate_NonOpaqueStructFromAnotherFileStillWorks(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import open.{Open}
 
-fn ok(o: Open): Open {
+fn ok(o: Open) -> Open {
   Struct.update(o, {a: 42})
 }
 `))
@@ -203,7 +203,7 @@ fn ok(o: Open): Open {
 func TestOpaqueUpdate_OpaqueStructFromInsideItsOwnFileStillWorks(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}
 
-fn ok(c: Counter): Counter {
+fn ok(c: Counter) -> Counter {
   counter.set_value_inside(c, 7)
 }
 `))
@@ -216,7 +216,7 @@ fn ok(c: Counter): Counter {
 func TestOpaqueUpdate_WholeValueReplacementOnAnOpaqueReceiverStillWorks(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}
 
-fn ok(c: Counter): Counter {
+fn ok(c: Counter) -> Counter {
   Struct.update(c, counter.new())
 }
 `))
@@ -235,7 +235,7 @@ struct Box {
   label: String
 }
 
-fn ok(b: Box): Box {
+fn ok(b: Box) -> Box {
   Struct.update(b, {inner: counter.new()})
 }
 `))
@@ -253,7 +253,7 @@ struct Box {
   label: String
 }
 
-fn ok(b: Box): Box {
+fn ok(b: Box) -> Box {
   Struct.update(b, {label: "y"})
 }
 `))
@@ -268,11 +268,11 @@ fn ok(b: Box): Box {
 func TestOpaqueUpdate_OpaqueStructStillSatisfiesStructAtABoundAndAnExistential(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}
 
-fn dump(_s: Struct): Int { 1 }
+fn dump(_s: Struct) -> Int { 1 }
 
-fn widen<T>(x: T): T where T: Struct { x }
+fn widen<T>(x: T) -> T where T: Struct { x }
 
-fn ok(c: Counter): Int {
+fn ok(c: Counter) -> Int {
   dump(c) + counter.value(widen(c))
 }
 `))

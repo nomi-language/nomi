@@ -50,5 +50,5 @@ derive Display for Direction
 /// (field-by-field in declaration order), enums (variant-tag-then-payload),
 /// and distinct types (delegating to the inner value).
 pub interface Comparable {
-    fn compare(a: self, b: self): Ordering
+    fn compare(a: self, b: self) -> Ordering
 }

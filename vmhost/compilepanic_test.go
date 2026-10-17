@@ -53,21 +53,21 @@ func wantInternalError(t *testing.T, how string, err error) {
 const plantedProgram = `import std/io
 import std/tasks.Task
 
-fn planted_compile_panic_target(n: Int): Int {
+fn planted_compile_panic_target(n: Int) -> Int {
     n + 1
 }
 
-fn direct(): Int {
+fn direct() -> Int {
     planted_compile_panic_target(1)
 }
 
-fn through_callback(): List<Int> {
+fn through_callback() -> List<Int> {
     [1, 2] |> Iter.map(planted_compile_panic_target) |> Iter.to_list()
 }
 
-fn through_task(): String {
+fn through_task() -> String {
     outcome = concurrent {
-        t = Task.spawn(|| planted_compile_panic_target(1))
+        t = Task.spawn(fn -> planted_compile_panic_target(1))
         Task.outcome(t)
     }
     case outcome {
@@ -77,7 +77,7 @@ fn through_task(): String {
     }
 }
 
-fn fault(n: Int): Int {
+fn fault(n: Int) -> Int {
     10 / n
 }
 
@@ -161,7 +161,7 @@ func TestCompilePanic_IsAnInternalErrorOnEveryPath(t *testing.T) {
 
 	t.Run("REPL", func(t *testing.T) {
 		s := NewSession(io.Discard, io.Discard)
-		p, err := s.Load("fn planted_compile_panic_target(): Int {\n    1\n}\n\nfn main() {\n    _ = planted_compile_panic_target()\n}\n")
+		p, err := s.Load("fn planted_compile_panic_target() -> Int {\n    1\n}\n\nfn main() {\n    _ = planted_compile_panic_target()\n}\n")
 		if err != nil {
 			t.Fatalf("the input does not load: %v", err)
 		}

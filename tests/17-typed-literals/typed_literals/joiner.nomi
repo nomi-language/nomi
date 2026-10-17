@@ -6,8 +6,8 @@ import std/literals.{Fragment, Literal}
 pub type Joiner
 
 impl Literal for Joiner {
-    fn from_fragments(fragments: List<Fragment<Display>>): String {
-        Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<Display>>) -> String {
+        Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + Display.to_string(v)

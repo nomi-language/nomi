@@ -9,7 +9,7 @@ import "testing"
 func TestFieldDefault_NestedFnIsChecked(t *testing.T) {
 	src := `struct D {
     v: (Int) -> Int = {
-        fn inner(n: Int): Int {
+        fn inner(n: Int) -> Int {
             n * 2
         }
         inner
@@ -18,7 +18,7 @@ func TestFieldDefault_NestedFnIsChecked(t *testing.T) {
 
 enum Job {
     Run {label: Int = {
-        fn pick(): Int {
+        fn pick() -> Int {
             case 1 {
                 1 -> 2
                 _ -> 3
@@ -29,7 +29,7 @@ enum Job {
     Idle
 }
 
-fn make(): D {
+fn make() -> D {
     D{}
 }
 `
@@ -45,7 +45,7 @@ fn make(): D {
 func TestFieldDefault_NestedFnBodyErrorIsReported(t *testing.T) {
 	src := `struct D {
     v: Int = {
-        fn inner(): Int {
+        fn inner() -> Int {
             "nope"
         }
         inner()

@@ -42,23 +42,23 @@ func TestFormat_EnumPayloadComment(t *testing.T) {
 		},
 		{
 			"between two payload types",
-			"enum E {\n  Pair(\n    Int, // a\n    String)\n}\n",
-			"enum E {\n    Pair (\n        Int, // a\n        String\n    )\n}\n",
+			"enum E {\n  Pair#(\n    Int, // a\n    String)\n}\n",
+			"enum E {\n    Pair #(\n        Int, // a\n        String\n    )\n}\n",
 		},
 		{
 			"before a tuple payload's second type",
-			"enum E {\n  Pair(Int,\n    // b\n    String)\n}\n",
-			"enum E {\n    Pair (\n        Int,\n        // b\n        String\n    )\n}\n",
+			"enum E {\n  Pair#(Int,\n    // b\n    String)\n}\n",
+			"enum E {\n    Pair #(\n        Int,\n        // b\n        String\n    )\n}\n",
 		},
 		{
 			"a parenthesized tuple payload",
-			"enum E {\n  Pair((\n    // a\n    Int, String))\n}\n",
-			"enum E {\n    Pair (\n        // a\n        Int,\n        String\n    )\n}\n",
+			"enum E {\n  Pair(#(\n    // a\n    Int, String))\n}\n",
+			"enum E {\n    Pair #(\n        // a\n        Int,\n        String\n    )\n}\n",
 		},
 		{
 			"a comment around a parenthesized tuple payload",
-			"enum E {\n  Pair(\n    // a\n    (Int, String))\n}\n",
-			"enum E {\n    Pair (\n        // a\n        (Int, String)\n    )\n}\n",
+			"enum E {\n  Pair(\n    // a\n    #(Int, String))\n}\n",
+			"enum E {\n    Pair (\n        // a\n        #(Int, String)\n    )\n}\n",
 		},
 		{
 			"a struct-shaped variant",

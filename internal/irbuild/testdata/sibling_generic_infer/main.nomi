@@ -13,7 +13,7 @@ pub struct Point {
     x: Int
 }
 
-fn label(t: Tree<String>): String {
+fn label(t: Tree<String>) -> String {
     case t {
         Tree.Node(s) -> s
         Tree.Leaf -> "-"
@@ -23,18 +23,18 @@ fn label(t: Tree<String>): String {
 fn main() {
     names =
         [Tree.Node("a"), Tree.Leaf, Tree.Node("b")]
-        |> Iter.map(|t| label(t))
+        |> Iter.map(fn t -> label(t))
         |> Iter.to_list()
 
     io.print("names ${names}")
     spans = [tree.Span{start: 1, stop: 2}, tree.Span{start: 5, stop: 9}]
-    io.print("widths ${spans |> Iter.map(|s| s.stop - s.start) |> Iter.to_list()}")
+    io.print("widths ${spans |> Iter.map(fn s -> s.stop - s.start) |> Iter.to_list()}")
     io.print("first ${tree.first(tree.Span{start: 5, stop: 6})}")
     io.print(Debug.inspect(Maybe.Some(tree.Span{start: 5, stop: 6})))
 
     xs =
         [Tree.Node(Point{x: 1}), Tree.Leaf, Tree.Node(Point{x: 4})]
-        |> Iter.map(|t| {
+        |> Iter.map(fn t -> {
             case t {
                 Tree.Node(p) -> p.x
                 Tree.Leaf -> 0

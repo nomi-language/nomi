@@ -11,9 +11,9 @@ func TestIRStructEquality_TourPoints(t *testing.T) {
 fn main() {
   dbg Point{x: 1, y: 2} == Point{x: 1, y: 2}
   dbg Point{x: 1, y: 2} == Point{x: 1, y: 3}
-  dbg {Point{x: 1, y: 2} => "home"}
+  dbg %{Point{x: 1, y: 2} => "home"}
 }
-`, "dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True\ndbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False\ndbg line 9: {Point{x: 1, y: 2} => \"home\"} = {Point{x: 1, y: 2} => \"home\"}\n")
+`, "dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True\ndbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False\ndbg line 9: %{Point{x: 1, y: 2} => \"home\"} = %{Point{x: 1, y: 2} => \"home\"}\n")
 }
 
 func TestIRStructEquality_FloatFieldsAndInequality(t *testing.T) {
@@ -22,16 +22,16 @@ struct Reading {
   label: String
   value: Float
 }
-fn same(a: Reading, b: Reading): Bool { a == b }
+fn same(a: Reading, b: Reading) -> Bool { a == b }
 fn main() {
   nan = 0.0 / 0.0
   io.print(same(Reading{label: "a", value: nan}, Reading{label: "a", value: nan}))
   io.print(Reading{label: "a", value: 0.0} != Reading{label: "a", value: -0.0})
   io.print(Reading{label: "a", value: 1.0} != Reading{label: "b", value: 1.0})
-  m = {Reading{label: "a", value: 1.0} => 1, Reading{label: "b", value: 2.0} => 2, Reading{label: "a", value: 1.0} => 3}
+  m = %{Reading{label: "a", value: 1.0} => 1, Reading{label: "b", value: 2.0} => 2, Reading{label: "a", value: 1.0} => 3}
   _ = dbg m
 }
-`, "True\nFalse\nTrue\ndbg line 13: m = {Reading{label: \"a\", value: 1.0} => 3, Reading{label: \"b\", value: 2.0} => 2}\n")
+`, "True\nFalse\nTrue\ndbg line 13: m = %{Reading{label: \"a\", value: 1.0} => 3, Reading{label: \"b\", value: 2.0} => 2}\n")
 }
 
 // `==` on a struct with a hand-written Equatable calls the impl rather than
@@ -43,9 +43,9 @@ struct Loose {
   note: String
 }
 impl Equatable for Loose {
-  fn equal?(a: Loose, b: Loose): Bool { a.id == b.id }
+  fn equal?(a: Loose, b: Loose) -> Bool { a.id == b.id }
 }
-fn same(a: Loose, b: Loose): Bool { a == b }
+fn same(a: Loose, b: Loose) -> Bool { a == b }
 fn main() {
   io.print(same(Loose{id: 1, note: "x"}, Loose{id: 1, note: "y"}))
   io.print(Loose{id: 1, note: "x"} != Loose{id: 2, note: "x"})
@@ -60,29 +60,29 @@ func TestIRStructEquality_ImplRecursesIntoItsOwnTypeFields(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 enum Tree {
   Leaf
-  Node(Tree, Int)
+  Node#(Tree, Int)
 }
 impl Equatable for Tree {
-  fn equal?(a: Tree, b: Tree): Bool {
-    case (a, b) {
-      (.Leaf, .Leaf) -> True
-      (.Node(l, x), .Node(r, y)) -> x == y and l == r
+  fn equal?(a: Tree, b: Tree) -> Bool {
+    case #(a, b) {
+      #(.Leaf, .Leaf) -> True
+      #(.Node(l, x), .Node(r, y)) -> x == y and l == r
       _ -> False
     }
   }
 }
 impl Comparable for Tree {
-  fn compare(a: Tree, b: Tree): Ordering {
-    case (a, b) {
-      (.Leaf, .Leaf) -> Ordering.Equal
-      (.Leaf, _) -> Ordering.Less
-      (_, .Leaf) -> Ordering.Greater
-      (.Node(l, _), .Node(r, _)) -> if l < r { Ordering.Less } else if l > r { Ordering.Greater } else { Ordering.Equal }
+  fn compare(a: Tree, b: Tree) -> Ordering {
+    case #(a, b) {
+      #(.Leaf, .Leaf) -> Ordering.Equal
+      #(.Leaf, _) -> Ordering.Less
+      #(_, .Leaf) -> Ordering.Greater
+      #(.Node(l, _), .Node(r, _)) -> if l < r { Ordering.Less } else if l > r { Ordering.Greater } else { Ordering.Equal }
     }
   }
 }
 impl Hashable for Tree {
-  fn hash(t: Tree): Int {
+  fn hash(t: Tree) -> Int {
     case t {
       .Node(l, n) -> Hashable.hash(l) * 31 + n
       .Leaf -> 1

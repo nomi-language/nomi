@@ -9,14 +9,14 @@ enum Box {
 // ran and in what order. A tree that evaluated guards before their pattern
 // bound, or evaluated a later arm's guard eagerly, would print a different
 // transcript with the same answer.
-fn loud(label: String, ok: Bool): Bool {
+fn loud(label: String, ok: Bool) -> Bool {
     io.print("guard ${label}")
     ok
 }
 
 // A failing guard must fall through to a LATER arm whose pattern also matches.
 // Arm 1 and arm 3 have identical patterns and only the guard separates them.
-fn describe(b: Box): String {
+fn describe(b: Box) -> String {
     case b {
         Box.Num(n) when loud("big", n > 100) -> "big ${n}"
         Box.Num(n) when loud("neg", n < 0) -> "negative ${n}"
@@ -27,7 +27,7 @@ fn describe(b: Box): String {
 }
 
 // The guard sees the pattern's bindings, so it cannot be hoisted above them.
-fn tier(n: Int): String {
+fn tier(n: Int) -> String {
     case n {
         x when x > 10 -> "high ${x}"
         x when x > 5 -> "mid ${x}"

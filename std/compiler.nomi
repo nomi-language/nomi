@@ -66,7 +66,7 @@ pub struct RunFile {
 //! assert [diagnostic] = diagnostics
 //! assert String.contains?(diagnostic.message, "undefined variable 'missing'")
 //
-pub host fn check(source: String): List<Diagnostic>
+pub host fn check(source: String) -> List<Diagnostic>
 
 /// Runs `source` as a standalone Nomi entry file and captures stdout.
 ///
@@ -90,11 +90,11 @@ pub host fn check(source: String): List<Diagnostic>
 //!     Err(e) -> assert String.contains?(e, "unreachable: the program above runs")
 //! }
 //
-pub host fn run(source: String): Result<String, String>
+pub host fn run(source: String) -> Result<String, String>
 
 /// Runs a `.nomi` file under the current test project root and captures
 /// stdout.
-pub host fn run_file(run: RunFile): Result<String, String>
+pub host fn run_file(run: RunFile) -> Result<String, String>
 
 /// Returns hover content for the single `ˇ` marker in `source`.
 ///
@@ -114,7 +114,7 @@ pub host fn run_file(run: RunFile): Result<String, String>
 //!
 //! assert hover.signature == "answer: Int"
 //
-pub host fn hover(source: String): Result<Hover, String>
+pub host fn hover(source: String) -> Result<Hover, String>
 
 /// Checks an in-memory project and returns every diagnostic as data.
 //! import std/compiler
@@ -129,7 +129,7 @@ pub host fn hover(source: String): Result<Hover, String>
 //!         entry_points = ["main"]
 //!         """
 //!     ),
-//!     files: {
+//!     files: %{
 //!         "main" => """
 //!             import api.{Widget, make}
 //!
@@ -143,11 +143,11 @@ pub host fn hover(source: String): Result<Hover, String>
 //!               name: String
 //!             }
 //!
-//!             fn secret(w: Widget): String {
+//!             fn secret(w: Widget) -> String {
 //!               "secret " + w.name
 //!             }
 //!
-//!             pub fn make(name: String): Widget {
+//!             pub fn make(name: String) -> Widget {
 //!               Widget{name}
 //!             }
 //!             """,
@@ -157,4 +157,4 @@ pub host fn hover(source: String): Result<Hover, String>
 //! assert [diagnostic] = diagnostics
 //! assert String.contains?(diagnostic.message, "no member 'secret'")
 //
-pub host fn check_project(project: Project): List<Diagnostic>
+pub host fn check_project(project: Project) -> List<Diagnostic>

@@ -11,7 +11,7 @@ struct Local {
     x: Int
 }
 
-fn inferred(): Shape {
+fn inferred() -> Shape {
     .Tagged{name: "inferred"}
 }
 

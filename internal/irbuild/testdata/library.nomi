@@ -6,6 +6,6 @@ pub struct Pair {
     right: Int
 }
 
-pub fn sum(p: Pair): Int {
+pub fn sum(p: Pair) -> Int {
     p.left + p.right
 }

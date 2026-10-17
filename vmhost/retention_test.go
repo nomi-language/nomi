@@ -15,14 +15,14 @@ import (
 func TestTest_TryInSetupEndsTheCase(t *testing.T) {
 	p, err := vmhost.Load(writeProgram(t, `import std/io
 
-fn parse(s: String): Result<Int, String> {
+fn parse(s: String) -> Result<Int, String> {
   case s {
     "" -> Err("empty")
     _ -> Ok(String.length(s))
   }
 }
 
-fn find(s: String): Maybe<Int> {
+fn find(s: String) -> Maybe<Int> {
   case s {
     "" -> None
     _ -> Some(String.length(s))
@@ -140,7 +140,7 @@ group "lines after the tests" {
 func TestRun_TryInANestedFnLeavesTheNestedFn(t *testing.T) {
 	p, err := vmhost.Load(writeProgram(t, `import std/io
 
-fn parse(s: String): Result<Int, String> {
+fn parse(s: String) -> Result<Int, String> {
   case s {
     "" -> Err("empty")
     _ -> Ok(String.length(s))
@@ -148,7 +148,7 @@ fn parse(s: String): Result<Int, String> {
 }
 
 fn main() {
-  fn doubled(s: String): Result<Int, String> {
+  fn doubled(s: String) -> Result<Int, String> {
     n = try parse(s)
     Ok(n * 2)
   }
@@ -176,10 +176,10 @@ func TestRun_SortByTakesEveryOrderedKey(t *testing.T) {
 import std/duration.Duration
 
 fn main() {
-  Iter.sort_by([3, 1, 2], |n| [n]) |> io.inspect()
-  Iter.sort_by([3, 1, 2], |n| Int.to_float(0 - n)) |> io.inspect()
-  Iter.sort_by([1, 2, 3], |n| n != 2) |> io.inspect()
-  Iter.sort_by([2, 1], |n| Duration.seconds(n)) |> io.inspect()
+  Iter.sort_by([3, 1, 2], fn n -> [n]) |> io.inspect()
+  Iter.sort_by([3, 1, 2], fn n -> Int.to_float(0 - n)) |> io.inspect()
+  Iter.sort_by([1, 2, 3], fn n -> n != 2) |> io.inspect()
+  Iter.sort_by([2, 1], fn n -> Duration.seconds(n)) |> io.inspect()
   Iter.sort([Duration.seconds(2), Duration.seconds(1)]) |> io.inspect()
 }
 `))

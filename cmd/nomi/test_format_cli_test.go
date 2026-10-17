@@ -18,7 +18,7 @@ const formatFixture = `import std/io
 
 /// Doubles.
 //! assert double(2) == 4
-fn double(x: Int): Int {
+fn double(x: Int) -> Int {
   x * 2
 }
 
@@ -498,7 +498,7 @@ func TestTestCommand_JSONFormatFFI(t *testing.T) {
 
 gopkg "echobinding" as ffi
 
-fn echo_upper(s: String): String go ffi.EchoUpper
+fn echo_upper(s: String) -> String go ffi.EchoUpper
 
 test "ffi passes" {
   io.print("printed by an ffi test")

@@ -15,7 +15,7 @@ import (
 
 func TestTypeParamQualifiedDispatch_Valid(t *testing.T) {
 	src := `import std/io
-fn show<T>(x: T): String where T: Display {
+fn show<T>(x: T) -> String where T: Display {
   T.to_string(x)
 }
 fn main() {
@@ -33,7 +33,7 @@ fn main() {
 // reference, recorded separately.)
 func TestTypeParamQualifiedDispatch_MethodReference(t *testing.T) {
 	src := `import std/io
-fn show<T>(x: T): String where T: Display {
+fn show<T>(x: T) -> String where T: Display {
   T.to_string(x)
 }
 fn main() {
@@ -55,10 +55,10 @@ fn main() {
 
 func TestTypeParamQualifiedDispatch_SelfReturnStaysConcreteTypeParam(t *testing.T) {
 	src := `interface Stepper<S> {
-  fn step(value: self, by: S): Maybe<self>
+  fn step(value: self, by: S) -> Maybe<self>
 }
 
-fn advance<T>(value: T): Maybe<T> where T: Stepper<Int> {
+fn advance<T>(value: T) -> Maybe<T> where T: Stepper<Int> {
   T.step(value, 1)
 }
 
@@ -77,21 +77,21 @@ func TestTypeParamQualifiedDispatch_Errors(t *testing.T) {
 	}{
 		{
 			name: "unbounded type parameter",
-			src: `fn f<T>(x: T): String { T.to_string(x) }
+			src: `fn f<T>(x: T) -> String { T.to_string(x) }
 fn main() { Unit }`,
 			want: "has no interface bound",
 		},
 		{
 			name: "function not on bound",
-			src: `fn f<T>(x: T): String where T: Display { T.nope(x) }
+			src: `fn f<T>(x: T) -> String where T: Display { T.nope(x) }
 fn main() { Unit }`,
 			want: "declares function 'nope'",
 		},
 		{
 			name: "ambiguous across two bounds",
-			src: `interface A { fn tag(value: self): String }
-interface B { fn tag(value: self): String }
-fn f<T>(x: T): String where T: A and B { T.tag(x) }
+			src: `interface A { fn tag(value: self) -> String }
+interface B { fn tag(value: self) -> String }
+fn f<T>(x: T) -> String where T: A and B { T.tag(x) }
 fn main() { Unit }`,
 			want: "is ambiguous",
 		},
@@ -100,7 +100,7 @@ fn main() { Unit }`,
 			// declared return that disagrees with it is caught at compile time
 			// instead of trapping at runtime.
 			name: "return type checked through the bound",
-			src: `fn show<T>(x: T): Int where T: Display { T.to_string(x) }
+			src: `fn show<T>(x: T) -> Int where T: Display { T.to_string(x) }
 fn main() { Unit }`,
 			want: "return type mismatch",
 		},
@@ -126,7 +126,7 @@ fn main() { Unit }`,
 // nil for ANY member name, `nomi check` said ok, and the program died on
 // `unknown builtin 'T.<member>'`. With the real binary:
 //
-//	fn start<T>(): T where T: Machine { T.Nonexistent }
+//	fn start<T>() -> T where T: Machine { T.Nonexistent }
 //	  nomi check -> ok
 //	  nomi run   -> line 21: unknown builtin 'T.Nonexistent'
 //
@@ -136,11 +136,11 @@ fn main() { Unit }`,
 // call path emitting too would double-report.
 func TestTypeParamQualifiedMember_ValuePosition(t *testing.T) {
 	const decls = `interface Machine {
-  fn label(value: self): String
+  fn label(value: self) -> String
 }
 
 interface Other {
-  fn tag(value: self): String
+  fn tag(value: self) -> String
 }
 
 struct Robot {
@@ -148,11 +148,11 @@ struct Robot {
 }
 
 impl Machine for Robot {
-  fn label(value: Robot): String { value.name }
+  fn label(value: Robot) -> String { value.name }
 }
 
 impl Other for Robot {
-  fn tag(value: Robot): String { value.name }
+  fn tag(value: Robot) -> String { value.name }
 }
 `
 	cases := []struct {
@@ -164,34 +164,34 @@ impl Other for Robot {
 	}{
 		{
 			name: "bare member no bound declares",
-			src: decls + `fn start<T>(_x: T): String where T: Machine { T.Nonexistent }
+			src: decls + `fn start<T>(_x: T) -> String where T: Machine { T.Nonexistent }
 fn main() { Unit }`,
 			want: "no interface bound of type parameter 'T' (Machine) declares function 'Nonexistent'",
 		},
 		{
 			name: "bare member on an unbounded parameter",
-			src: `fn start<T>(_x: T): String { T.Nonexistent }
+			src: `fn start<T>(_x: T) -> String { T.Nonexistent }
 fn main() { Unit }`,
 			want: "type parameter 'T' has no interface bound, so 'T.Nonexistent' has nothing to dispatch through; add a `where T: SomeInterface` bound whose interface declares 'Nonexistent'",
 		},
 		{
 			name: "bare member with two bounds, neither declaring it",
-			src: decls + `fn start<T>(_x: T): String where T: Machine and Other { T.Nonexistent }
+			src: decls + `fn start<T>(_x: T) -> String where T: Machine and Other { T.Nonexistent }
 fn main() { Unit }`,
 			want: "no interface bound of type parameter 'T' (Machine, Other) declares function 'Nonexistent'",
 		},
 		{
 			name: "bare member ambiguous across two bounds",
-			src: `interface A { fn tag(value: self): String }
-interface B { fn tag(value: self): String }
-fn f<T>(x: T): String where T: A and B { g = T.tag
+			src: `interface A { fn tag(value: self) -> String }
+interface B { fn tag(value: self) -> String }
+fn f<T>(x: T) -> String where T: A and B { g = T.tag
   g(x) }
 fn main() { Unit }`,
 			want: "'T.tag' is ambiguous",
 		},
 		{
 			name: "callee position still reports exactly once",
-			src: decls + `fn start<T>(x: T): String where T: Machine { T.Nonexistent(x) }
+			src: decls + `fn start<T>(x: T) -> String where T: Machine { T.Nonexistent(x) }
 fn main() { Unit }`,
 			want: "no interface bound of type parameter 'T' (Machine) declares function 'Nonexistent'",
 		},
@@ -205,14 +205,14 @@ fn main() { Unit }`,
 			// Such a `T` is now also an error at its declaration, since
 			// no call can determine it; the member is still reported.
 			name: "where-clause-only parameter, callee position",
-			src: decls + `fn start<T>(): String where T: Machine { T.nope() }
+			src: decls + `fn start<T>() -> String where T: Machine { T.nope() }
 fn main() { Unit }`,
 			want: "no interface bound of type parameter 'T' (Machine) declares function 'nope'",
 			also: "type parameter `T` is not used in the signature of `start`, so no call can determine it",
 		},
 		{
 			name: "where-clause-only parameter, value position",
-			src: decls + `fn start<T>(): String where T: Machine { T.nope }
+			src: decls + `fn start<T>() -> String where T: Machine { T.nope }
 fn main() { Unit }`,
 			want: "no interface bound of type parameter 'T' (Machine) declares function 'nope'",
 			also: "type parameter `T` is not used in the signature of `start`, so no call can determine it",
@@ -258,7 +258,7 @@ func TestTypeParamQualifiedMember_ProvidedMemberStillTypes(t *testing.T) {
 	src := `import std/io
 
 interface Greet {
-  fn hello(value: self): String
+  fn hello(value: self) -> String
 }
 
 struct Dog {
@@ -266,22 +266,22 @@ struct Dog {
 }
 
 impl Display for Dog {
-  fn to_string(value: Dog): String { "Dog(" + value.name + ")" }
+  fn to_string(value: Dog) -> String { "Dog(" + value.name + ")" }
 }
 
 impl Greet for Dog {
-  fn hello(value: Dog): String { "woof, I am " + value.name }
+  fn hello(value: Dog) -> String { "woof, I am " + value.name }
 }
 
-fn called<T>(x: T): String where T: Display and Greet {
+fn called<T>(x: T) -> String where T: Display and Greet {
   T.hello(x) + " - " + T.to_string(x)
 }
 
-fn piped<T>(x: T): String where T: Greet {
+fn piped<T>(x: T) -> String where T: Greet {
   x |> T.hello()
 }
 
-fn bound<T>(x: T): String where T: Greet {
+fn bound<T>(x: T) -> String where T: Greet {
   f = T.hello
   f(x)
 }

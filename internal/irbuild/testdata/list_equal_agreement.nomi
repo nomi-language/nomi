@@ -44,11 +44,11 @@ fn main() {
     agree_n("nested-diff", [[1], [2, 3]], [[1], [2, 4]])
     agree_n("nested-built", [[1], [2, 3]], List.concat([[1]], [[2, 3]]))
 
-    agree_t("tuples", [(1, "a")], [(1, "a")])
-    agree_t("tuples-diff", [(1, "a")], [(1, "b")])
+    agree_t("tuples", [#(1, "a")], [#(1, "a")])
+    agree_t("tuples-diff", [#(1, "a")], [#(1, "b")])
 
-    agree_ft("tup-nan", [(1, nan)], [(1, 0.0 / 0.0)])
-    agree_ft("tup-nan-no", [(1, nan)], [(1, 1.0)])
+    agree_ft("tup-nan", [#(1, nan)], [#(1, 0.0 / 0.0)])
+    agree_ft("tup-nan-no", [#(1, nan)], [#(1, 1.0)])
 
     io.print("all rows agree")
 }
@@ -65,11 +65,11 @@ fn agree_n(label: String, a: List<List<Int>>, b: List<List<Int>>) {
     report(label, a == b, List.equal?(a, b))
 }
 
-fn agree_t(label: String, a: List<(Int, String)>, b: List<(Int, String)>) {
+fn agree_t(label: String, a: List<#(Int, String)>, b: List<#(Int, String)>) {
     report(label, a == b, List.equal?(a, b))
 }
 
-fn agree_ft(label: String, a: List<(Int, Float)>, b: List<(Int, Float)>) {
+fn agree_ft(label: String, a: List<#(Int, Float)>, b: List<#(Int, Float)>) {
     report(label, a == b, List.equal?(a, b))
 }
 

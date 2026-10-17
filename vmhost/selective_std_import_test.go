@@ -21,9 +21,9 @@ import std/json.{shape_error_root, Json}
 import std/testing.{check, check as verify}
 
 fn main() {
-    lines = capture("one\ntwo", || [read_line(), next_line(), read_line()])
+    lines = capture("one\ntwo", fn -> [read_line(), next_line(), read_line()])
     inspect(lines.value)
-    printed = run_with("", || {
+    printed = run_with("", fn -> {
         print("p")
         write("w")
         inspect([1])
@@ -68,7 +68,7 @@ fn main() {
     Iter.each([3], inspect)
     Iter.each(["a", "b"], write)
     Iter.each(["!"], say)
-    read = io.capture("x\ny", || {
+    read = io.capture("x\ny", fn -> {
         f = next_line
         [f(), f()]
     })
@@ -80,7 +80,7 @@ fn main() {
     root = shape_error_root
     inspect(root("Int", Json.Null).expected)
     run: (String, () -> Int) -> io.Captured<Int> = capture
-    inspect(run("", || 4).value)
+    inspect(run("", fn -> 4).value)
 }
 `, "")
 	if err != nil {

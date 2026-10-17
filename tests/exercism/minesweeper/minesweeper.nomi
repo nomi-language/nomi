@@ -1,38 +1,38 @@
-once neighbours = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+once neighbours = [#(-1, -1), #(-1, 0), #(-1, 1), #(0, -1), #(0, 1), #(1, -1), #(1, 0), #(1, 1)]
 
 /// Writes the count of adjacent mines into each empty square of a board of
 /// `*` mines and ` ` spaces. A square next to no mine stays a space.
-pub fn annotate(minefield: List<String>): List<String> {
+pub fn annotate(minefield: List<String>) -> List<String> {
     mines =
         minefield
         |> Iter.with_index()
-        |> Iter.flat_map(|(row, line)| mines_in_row(row, line))
+        |> Iter.flat_map(fn #(row, line) -> mines_in_row(row, line))
         |> Iter.to_set()
 
     minefield
     |> Iter.with_index()
-    |> Iter.map(|(row, line)| {
+    |> Iter.map(fn #(row, line) -> {
         line
         |> Iter.with_index()
-        |> Iter.map(|(column, square)| annotate_square(mines, (row, column), square))
+        |> Iter.map(fn #(column, square) -> annotate_square(mines, #(row, column), square))
         |> String.join()
     })
     |> Iter.to_list()
 }
 
-fn mines_in_row(row: Int, line: String): Iter<(Int, Int)> {
+fn mines_in_row(row: Int, line: String) -> Iter<#(Int, Int)> {
     line
     |> Iter.with_index()
-    |> Iter.filter(|(_column, square)| square == "*")
-    |> Iter.map(|(column, _square)| (row, column))
+    |> Iter.filter(fn #(_column, square) -> square == "*")
+    |> Iter.map(fn #(column, _square) -> #(row, column))
 }
 
-fn annotate_square(mines: Set<(Int, Int)>, (row, column): (Int, Int), square: String): String {
+fn annotate_square(mines: Set<#(Int, Int)>, #(row, column): #(Int, Int), square: String) -> String {
     if square == "*" { return square }
 
     count =
         neighbours
-        |> Iter.filter(|(dr, dc)| Set.contains?(mines, (row + dr, column + dc)))
+        |> Iter.filter(fn #(dr, dc) -> Set.contains?(mines, #(row + dr, column + dc)))
         |> Iter.count()
 
     if count == 0 {

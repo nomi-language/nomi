@@ -3,7 +3,7 @@ import std/io
 fn main() {
     io.print("type lines; end with ctrl-d")
 
-    count = Iter.loop(|seen = 0| {
+    count = Iter.loop(fn seen = 0 -> {
         case io.read_line() {
             Ok(line) -> {
                 io.print("got ${line}")

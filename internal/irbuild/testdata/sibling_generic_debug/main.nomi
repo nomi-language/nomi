@@ -16,7 +16,7 @@ fn main() {
     io.print(Debug.inspect(span.Tagged{tag: 1}))
     io.print(Display.to_string(span.Tagged{tag: 7}))
     io.print("${span.Tagged{tag: "x"}}")
-    io.print(Debug.inspect((span.Span{start: 1, stop: 2}, 9)))
+    io.print(Debug.inspect(#(span.Span{start: 1, stop: 2}, 9)))
     io.print(Debug.inspect({s: span.Tagged{tag: 1}}))
     io.print(Debug.inspect([span.Span{start: 1, stop: 2}]))
     io.print(Debug.inspect([span.Span{start: "p", stop: "q"}]))

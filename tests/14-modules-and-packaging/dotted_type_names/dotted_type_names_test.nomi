@@ -21,7 +21,7 @@ pub enum Probe.Local {
     Off
 }
 
-fn local_on?(l: Probe.Local): Bool {
+fn local_on?(l: Probe.Local) -> Bool {
     case l {
         .On -> True
         .Off -> False

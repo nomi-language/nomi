@@ -1,38 +1,38 @@
 /// A board of cells, row by row: `1` is a live cell and `0` a dead one.
 pub typealias Board Vector<Vector<Int>>
 
-once neighbours = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+once neighbours = [#(-1, -1), #(-1, 0), #(-1, 1), #(0, -1), #(0, 1), #(1, -1), #(1, 0), #(1, 1)]
 
 /// The next generation of `board`: a live cell with two or three live
 /// neighbours lives on, a dead cell with three comes alive, and every other
 /// cell is dead.
-pub fn tick(board: Board): Board {
+pub fn tick(board: Board) -> Board {
     board
     |> Iter.with_index()
-    |> Iter.map(|(row, cells)| {
+    |> Iter.map(fn #(row, cells) -> {
         cells
         |> Iter.with_index()
-        |> Iter.map(|(column, cell)| next_state(cell, live_neighbours(board, row, column)))
+        |> Iter.map(fn #(column, cell) -> next_state(cell, live_neighbours(board, row, column)))
         |> Iter.to_vector()
     })
     |> Iter.to_vector()
 }
 
-fn live_neighbours(board: Board, row: Int, column: Int): Int {
+fn live_neighbours(board: Board, row: Int, column: Int) -> Int {
     neighbours
-    |> Iter.map(|(dr, dc)| cell_at(board, row + dr, column + dc) |> Maybe.with_default(0))
+    |> Iter.map(fn #(dr, dc) -> cell_at(board, row + dr, column + dc) |> Maybe.with_default(0))
     |> Iter.sum()
 }
 
 /// The cell at `row` and `column`, or None off the board.
-fn cell_at(board: Board, row: Int, column: Int): Maybe<Int> {
+fn cell_at(board: Board, row: Int, column: Int) -> Maybe<Int> {
     cells = try Vector.get(board, row)
     Vector.get(cells, column)
 }
 
-fn next_state(cell: Int, live_neighbours: Int): Int {
-    case (cell, live_neighbours) {
-        (1, 2) or (_, 3) -> 1
+fn next_state(cell: Int, live_neighbours: Int) -> Int {
+    case #(cell, live_neighbours) {
+        #(1, 2) or #(_, 3) -> 1
         _ -> 0
     }
 }

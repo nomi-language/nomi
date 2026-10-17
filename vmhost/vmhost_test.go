@@ -16,7 +16,7 @@ import (
 // the builder declines `count` at its call to `planted_decline`.
 const blockedProgram = `import std/io
 
-fn count(n: Int, acc: Int): Int {
+fn count(n: Int, acc: Int) -> Int {
   if n == 0 {
     acc
   } else {
@@ -41,7 +41,7 @@ test "fails" {
   assert 1 + 2 == 4
 }
 
-fn planted_decline(n: Int): Int {
+fn planted_decline(n: Int) -> Int {
   n
 }
 `
@@ -58,7 +58,7 @@ func writeProgram(t *testing.T, src string) string {
 func TestRun_ARetainedProgramRunsOnTheVM(t *testing.T) {
 	path := writeProgram(t, `import std/io
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
   n * 2
 }
 

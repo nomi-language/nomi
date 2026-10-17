@@ -21,8 +21,8 @@ struct Upper {
 }
 
 impl Literal for Upper {
-  fn from_fragments(fragments: List<Fragment<String>>): Upper {
-    text = Iter.reduce(fragments, |acc = "", frag|
+  fn from_fragments(fragments: List<Fragment<String>>) -> Upper {
+    text = Iter.reduce(fragments, fn acc = "", frag ->
       case frag {
         .Static(s) -> acc + String.to_upper(s)
         .Dynamic(v) -> acc + v
@@ -33,13 +33,13 @@ impl Literal for Upper {
 }
 
 test "a tuple" {
-  pair = (1, "one")
+  pair = #(1, "one")
   assert pair.0 == 1
   assert pair.1 == "uno"
 }
 
 test "a map" {
-  m = {"a" => 1, "b" => 2}
+  m = %{"a" => 1, "b" => 2}
   assert Map.size(Map.put(m, "c", 3)) == 3
   assert Map.size(m) == 3
 }
@@ -70,7 +70,7 @@ test "a tagged literal" {
 }
 `
 	out := irTestBodyVM(t, src, 6)
-	for _, want := range []string{`= {"a" => 1, "b" => 2}`, "= #[1, 2, 3]", `= "ABC"`} {
+	for _, want := range []string{`= %{"a" => 1, "b" => 2}`, "= #[1, 2, 3]", `= "ABC"`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the report lacks %q:\n%s", want, out)
 		}
@@ -80,7 +80,7 @@ test "a tagged literal" {
 // An equality with a bare `None` on either side takes the other operand's
 // type, and the failure rows match the recorded ones.
 func TestIRTestBody_BareNoneTakesTheOtherOperandsType(t *testing.T) {
-	const src = `fn find(n: Int): Maybe<Int> {
+	const src = `fn find(n: Int) -> Maybe<Int> {
   if n > 0 {
     Some(n)
   } else {

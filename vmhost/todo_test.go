@@ -37,7 +37,7 @@ struct Header {
     size: Int
 }
 
-fn parse(text: String): Header {
+fn parse(text: String) -> Header {
     todo "parse the header"
 }
 
@@ -81,21 +81,21 @@ enum Shape {
     Square(Int)
 }
 
-fn area(s: Shape): Int {
+fn area(s: Shape) -> Int {
     case s {
         .Square(_) -> todo
         .Circle(r) -> r * r * 3
     }
 }
 
-fn first<T>(xs: List<T>, d: T): T {
+fn first<T>(xs: List<T>, d: T) -> T {
     case List.head(xs) {
         Some(x) -> x
         None -> todo "empty"
     }
 }
 
-fn header(ready: Bool): Header {
+fn header(ready: Bool) -> Header {
     if ready {
         Header{name: "h", size: 1}
     } else {
@@ -103,11 +103,11 @@ fn header(ready: Bool): Header {
     }
 }
 
-fn twice(n: Int): Int {
+fn twice(n: Int) -> Int {
     n * 2
 }
 
-fn pick(flag: Bool): Int {
+fn pick(flag: Bool) -> Int {
     if flag {
         twice(todo)
     } else {
@@ -115,7 +115,7 @@ fn pick(flag: Bool): Int {
     }
 }
 
-fn piped(flag: Bool): Int {
+fn piped(flag: Bool) -> Int {
     if flag {
         5 |> todo
     } else {
@@ -130,9 +130,9 @@ fn main() {
     io.print(Int.to_string(header(True).size))
     io.print(Int.to_string(pick(False)))
     io.print(Int.to_string(piped(False)))
-    f = |x: Int| if x > 10 { todo } else { x + 1 }
+    f = fn x: Int -> if x > 10 { todo } else { x + 1 }
     io.print(Int.to_string(f(1)))
-    ys = [1, 2] |> Iter.map(|x| if x > 5 { todo } else { x * 10 }) |> Iter.to_list()
+    ys = [1, 2] |> Iter.map(fn x -> if x > 5 { todo } else { x * 10 }) |> Iter.to_list()
     io.print(Int.to_string(Iter.count(ys)))
     n: Int = if False { todo } else { 6 }
     io.print(Int.to_string(n))
@@ -152,7 +152,7 @@ fn main() {
 // A `todo` in a generic body traps in the instance that reaches it, and one
 // as a pipe stage traps after the piped value is computed.
 func TestTodo_GenericAndPipeStageTodosTrap(t *testing.T) {
-	path, _, err := runTodo(t, `fn first<T>(xs: List<T>): T {
+	path, _, err := runTodo(t, `fn first<T>(xs: List<T>) -> T {
     _ = xs
     todo "first"
 }
@@ -166,7 +166,7 @@ fn main() {
 	}
 	path, out, err := runTodo(t, `import std/io
 
-fn loud(n: Int): Int {
+fn loud(n: Int) -> Int {
     io.print("piped")
     n
 }
@@ -214,11 +214,11 @@ func TestTodo_AnOperandTodoTrapsAtTheTodo(t *testing.T) {
 		t.Run(form, func(t *testing.T) {
 			path, out, err := runTodo(t, `import std/io
 
-fn g(b: Bool): Bool {
+fn g(b: Bool) -> Bool {
     b
 }
 
-fn loud(n: Int): Int {
+fn loud(n: Int) -> Int {
     io.print("loud")
     n
 }

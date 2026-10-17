@@ -1,12 +1,12 @@
 type Id Int
 type Expired
 type Kvs Map<String, Int>
-type Pair (Int, String)
-type Triple (Int, Int, Int)
+type Pair #(Int, String)
+type Triple #(Int, Int, Int)
 
 typealias Handler (String, String) -> Result<String, String>
 
-fn run(handler: Handler): Result<String, String> {
+fn run(handler: Handler) -> Result<String, String> {
     handler("request", "/home")
 }
 
@@ -30,37 +30,37 @@ test "distinct types construct unwrap destructure and compare" {
 }
 
 test "type aliases can name function shapes" {
-    result = run(|method, path| Ok(method + " " + path))
+    result = run(fn method, path -> Ok(method + " " + path))
 
     assert result == Ok("request /home")
 }
 
 test "map distinct wrappers support literal attach and destructuring" {
-    kv = Kvs{"a" => 1, "b" => 2}
+    kv = Kvs%{"a" => 1, "b" => 2}
 
     kv2 =
-        {"c" => 3}
+        %{"c" => 3}
         |> Kvs()
 
     flat = case kv {
-        Kvs{"a" => v} -> "got a=${v}"
+        Kvs%{"a" => v} -> "got a=${v}"
         _ -> "no a"
     }
 
     nested = case kv {
-        Kvs({"b" => v}) -> "got b=${v}"
+        Kvs(%{"b" => v}) -> "got b=${v}"
         _ -> "no b"
     }
 
-    assert Debug.inspect(kv) == "Kvs({\"a\" => 1, \"b\" => 2})"
-    assert Debug.inspect(kv2) == "Kvs({\"c\" => 3})"
+    assert Debug.inspect(kv) == "Kvs(%{\"a\" => 1, \"b\" => 2})"
+    assert Debug.inspect(kv2) == "Kvs(%{\"c\" => 3})"
     assert flat == "got a=1"
     assert nested == "got b=2"
 }
 
 test "tuple distinct wrappers support literal attach and destructuring" {
     p1 = Pair(1, "hello")
-    p2 = Pair((2, "world"))
+    p2 = Pair(#(2, "world"))
     t = Triple(1, 2, 3)
 
     flat = case p1 {
@@ -68,7 +68,7 @@ test "tuple distinct wrappers support literal attach and destructuring" {
     }
 
     nested = case p1 {
-        Pair((c, d)) -> "nested: ${c}, ${d}"
+        Pair(#(c, d)) -> "nested: ${c}, ${d}"
     }
 
     triple = case t {
@@ -93,7 +93,7 @@ typealias S Shape
 
 typealias Count Maybe<Int>
 
-fn shape_size(s: Shape): Int {
+fn shape_size(s: Shape) -> Int {
     case s {
         S.Num(n) -> n
         S.Rect{w, h} -> w * h

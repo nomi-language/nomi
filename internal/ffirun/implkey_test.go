@@ -136,11 +136,11 @@ pub struct Bonus {
 }
 
 impl Add<Score, Score> for Score {
-  fn add(lhs: Score, rhs: Score): Score go go_add.AddScore
+  fn add(lhs: Score, rhs: Score) -> Score go go_add.AddScore
 }
 
 impl Add<Bonus, Score> for Score {
-  fn add(lhs: Score, rhs: Bonus): Score go go_add.AddBonus
+  fn add(lhs: Score, rhs: Bonus) -> Score go go_add.AddBonus
 }
 
 fn main() {
@@ -187,7 +187,7 @@ pub opaque struct Box<T> {
 }
 
 impl Box<T> {
-  pub fn origin(): Int go go_box.Origin
+  pub fn origin() -> Int go go_box.Origin
 }
 
 fn main() {
@@ -251,23 +251,23 @@ pub opaque struct Box<T> {
 }
 
 impl Add<Score, Score> for Score {
-  fn add(lhs: Score, rhs: Score): Score go go_add.AddScore
+  fn add(lhs: Score, rhs: Score) -> Score go go_add.AddScore
 }
 
 impl Add<Bonus, Score> for Score {
-  fn add(lhs: Score, rhs: Bonus): Score go go_add.AddBonus
+  fn add(lhs: Score, rhs: Bonus) -> Score go go_add.AddBonus
 }
 
 impl Score {
-  pub fn describe(s: Score): String go go_add.Describe
+  pub fn describe(s: Score) -> String go go_add.Describe
 }
 
 impl Display for Score {
-  fn to_string(s: Score): String go go_add.Render
+  fn to_string(s: Score) -> String go go_add.Render
 }
 
 impl Box<T> {
-  pub fn label(n: Int): String go go_add.Label
+  pub fn label(n: Int) -> String go go_add.Label
 }
 
 fn main() {

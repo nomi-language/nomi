@@ -1,19 +1,19 @@
-fn parse(s: String): Result<Int, String> {
+fn parse(s: String) -> Result<Int, String> {
     case s {
         "" -> Err("empty")
         _ -> Ok(String.length(s))
     }
 }
 
-fn find(s: String): Maybe<Int> {
+fn find(s: String) -> Maybe<Int> {
     case s {
         "" -> None
         _ -> Some(String.length(s))
     }
 }
 
-fn doubled_sum(a: String, b: String): Result<Int, String> {
-    fn doubled(s: String): Result<Int, String> {
+fn doubled_sum(a: String, b: String) -> Result<Int, String> {
+    fn doubled(s: String) -> Result<Int, String> {
         n = try parse(s)
         Ok(n * 2)
     }
@@ -24,7 +24,7 @@ fn doubled_sum(a: String, b: String): Result<Int, String> {
 }
 
 test "try in a nested fn leaves the nested fn" {
-    fn doubled(s: String): Result<Int, String> {
+    fn doubled(s: String) -> Result<Int, String> {
         n = try parse(s)
         Ok(n * 2)
     }
@@ -34,7 +34,7 @@ test "try in a nested fn leaves the nested fn" {
 }
 
 test "try on a Maybe in a nested fn" {
-    fn plus_one(s: String): Maybe<Int> {
+    fn plus_one(s: String) -> Maybe<Int> {
         n = try find(s)
         Some(n + 1)
     }
@@ -49,7 +49,7 @@ test "a nested fn's try inside a named fn" {
 }
 
 test "a recursive nested fn with try" {
-    fn total(xs: List<String>): Result<Int, String> {
+    fn total(xs: List<String>) -> Result<Int, String> {
         case xs {
             [] ->
                 Ok(0)

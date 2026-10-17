@@ -37,7 +37,7 @@ import {
 //                  attachLit, which is a second reject site for one key.
 //   - `Just(7)`    a carrying variant of a PRELUDE enum — a different resolver
 //                  (prelude.go) reached from the same call-ladder rung.
-fn describe(j: Json): String {
+fn describe(j: Json) -> String {
     case j {
         .Obj(_) -> "obj"
         .Arr(_) -> "arr"
@@ -49,21 +49,21 @@ fn describe(j: Json): String {
     }
 }
 
-fn maybe_label(m: Maybe<Int>): String {
+fn maybe_label(m: Maybe<Int>) -> String {
     case m {
         .Some(v) -> "some:${v}"
         .None -> "none"
     }
 }
 
-fn result_label(r: Result<Int, String>): String {
+fn result_label(r: Result<Int, String>) -> String {
     case r {
         .Ok(v) -> "ok:${v}"
         .Err(e) -> "err:" + e
     }
 }
 
-fn order_label(o: Ordering): String {
+fn order_label(o: Ordering) -> String {
     case o {
         .Less -> "lt"
         .Equal -> "eq"
@@ -71,7 +71,7 @@ fn order_label(o: Ordering): String {
     }
 }
 
-fn nested_label(m: Maybe<Json>): String {
+fn nested_label(m: Maybe<Json>) -> String {
     case m {
         .Some(j) -> describe(j)
         .None -> "none"
@@ -88,7 +88,7 @@ fn main() {
     io.print(describe(JNull))
     // The literal-attach form with a bare aliased head, and a nested aliased
     // construction inside its body.
-    io.print(describe(JObj{"k" => JStr("nested")}))
+    io.print(describe(JObj%{"k" => JStr("nested")}))
 
     // The prelude enums are a second resolver reached from the same rung.
     io.print(maybe_label(Just(7)))

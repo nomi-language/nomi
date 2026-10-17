@@ -42,11 +42,11 @@ group "concatenate a list of lists" {
 
 group "filter list returning only values that satisfy the filter function" {
     test "empty list" {
-        assert list_ops.filter([], |x| x % 2 == 1) == []
+        assert list_ops.filter([], fn x -> x % 2 == 1) == []
     }
 
     test "non-empty list" {
-        assert list_ops.filter([1, 2, 3, 5], |x| x % 2 == 1) == [1, 3, 5]
+        assert list_ops.filter([1, 2, 3, 5], fn x -> x % 2 == 1) == [1, 3, 5]
     }
 }
 
@@ -62,39 +62,39 @@ group "returns the length of a list" {
 
 group "return a list of elements whose values equal the list value transformed by the mapping function" {
     test "empty list" {
-        assert list_ops.map([], |x| x + 1) == []
+        assert list_ops.map([], fn x -> x + 1) == []
     }
 
     test "non-empty list" {
-        assert list_ops.map([1, 3, 5, 7], |x| x + 1) == [2, 4, 6, 8]
+        assert list_ops.map([1, 3, 5, 7], fn x -> x + 1) == [2, 4, 6, 8]
     }
 }
 
 group "folds (reduces) the given list from the left with a function" {
     test "empty list" {
-        assert list_ops.foldl([], 2, |acc, el| el * acc) == 2
+        assert list_ops.foldl([], 2, fn acc, el -> el * acc) == 2
     }
 
     test "direction independent function applied to non-empty list" {
-        assert list_ops.foldl([1, 2, 3, 4], 5, |acc, el| el + acc) == 15
+        assert list_ops.foldl([1, 2, 3, 4], 5, fn acc, el -> el + acc) == 15
     }
 
     test "direction dependent function applied to non-empty list" {
-        assert list_ops.foldl([1.0, 2.0, 3.0, 4.0], 24.0, |acc, el| el / acc) == 64.0
+        assert list_ops.foldl([1.0, 2.0, 3.0, 4.0], 24.0, fn acc, el -> el / acc) == 64.0
     }
 }
 
 group "folds (reduces) the given list from the right with a function" {
     test "empty list" {
-        assert list_ops.foldr([], 2, |acc, el| el * acc) == 2
+        assert list_ops.foldr([], 2, fn acc, el -> el * acc) == 2
     }
 
     test "direction independent function applied to non-empty list" {
-        assert list_ops.foldr([1, 2, 3, 4], 5, |acc, el| el + acc) == 15
+        assert list_ops.foldr([1, 2, 3, 4], 5, fn acc, el -> el + acc) == 15
     }
 
     test "direction dependent function applied to non-empty list" {
-        assert list_ops.foldr([1.0, 2.0, 3.0, 4.0], 24.0, |acc, el| el / acc) == 9.0
+        assert list_ops.foldr([1.0, 2.0, 3.0, 4.0], 24.0, fn acc, el -> el / acc) == 9.0
     }
 }
 

@@ -22,24 +22,24 @@ enum Shape {
     Dot
 }
 
-fn show(s: Shape): Unit {
+fn show(s: Shape) -> Unit {
     io.inspect(s)
 }
 
-fn label(n: Int): String {
+fn label(n: Int) -> String {
     io.print("label ${n}")
     "n=${n}"
 }
 
-fn get(n: Int): Result<Int, String> {
+fn get(n: Int) -> Result<Int, String> {
     if n > 0 { Ok(n) } else { Err("neg ${n}") }
 }
 
-fn note(s: String, suffix: String = "!"): Unit {
+fn note(s: String, suffix: String = "!") -> Unit {
     io.print(s + suffix)
 }
 
-fn run(n: Int): Result<Int, String> {
+fn run(n: Int) -> Result<Int, String> {
     defer note("first")
     defer note(Int.to_string(try get(n)))
     Ok(n * 10)
@@ -61,7 +61,7 @@ fn main() {
     io.print("body ${x}")
     io.inspect(run(2))
     io.inspect(run(-1))
-    f = |n: Int| {
+    f = fn n: Int -> {
         defer note(Int.to_string(n + 1), suffix: "?")
         n
     }

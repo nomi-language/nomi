@@ -13,9 +13,9 @@ func TestFormat_RefusesAPromptAfterCode(t *testing.T) {
 	for _, src := range []string{
 		"A{a//!000000\n}",
 		"A{a: 1 //! x\n}\n",
-		"fn f(): A {\n    A{a: 1, //! x\n        b: 2}\n}\n",
-		"fn f(): List<Int> {\n    [\n        1,\n        2, //! x\n    ]\n}\n",
-		"fn f(): Int { //! x\n    1\n}\n",
+		"fn f() -> A {\n    A{a: 1, //! x\n        b: 2}\n}\n",
+		"fn f() -> List<Int> {\n    [\n        1,\n        2, //! x\n    ]\n}\n",
+		"fn f() -> Int { //! x\n    1\n}\n",
 	} {
 		out, err := Format(src)
 		if err == nil {

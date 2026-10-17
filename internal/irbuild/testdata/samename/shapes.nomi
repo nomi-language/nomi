@@ -9,11 +9,11 @@ pub struct Point {
     y: Int
 }
 
-pub fn at(x: Int, y: Int): Point {
+pub fn at(x: Int, y: Int) -> Point {
     Point{x, y}
 }
 
 /// `==` on shapes.Point, resolved against SHAPES' declaration.
-pub fn same(a: Point, b: Point): Bool {
+pub fn same(a: Point, b: Point) -> Bool {
     a == b
 }

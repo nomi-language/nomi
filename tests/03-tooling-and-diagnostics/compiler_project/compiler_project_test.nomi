@@ -7,7 +7,7 @@ import {
 test "compiler can check diagnostics across an in-memory project" {
     diagnostics = compiler.check_project(Project{
         entry_point: "main",
-        files: {
+        files: %{
             "main" => """
                 import api.{make, secret}
 
@@ -21,15 +21,15 @@ test "compiler can check diagnostics across an in-memory project" {
                   name: String
                 }
 
-                pub fn label(w: Widget): String {
+                pub fn label(w: Widget) -> String {
                   w.name
                 }
 
-                fn secret(w: Widget): String {
+                fn secret(w: Widget) -> String {
                   "secret " + w.name
                 }
 
-                pub fn make(name: String): Widget {
+                pub fn make(name: String) -> Widget {
                   Widget{name}
                 }
                 """,
@@ -50,7 +50,7 @@ test "compiler project checks manifest entry points" {
             entry_points = ["other"]
             """
         ),
-        files: {
+        files: %{
             "main" => """
                 import other
 
@@ -60,7 +60,7 @@ test "compiler project checks manifest entry points" {
                 }
                 """,
             "other" => """
-                pub fn helper(): Unit {
+                pub fn helper() -> Unit {
                   Unit
                 }
                 """,

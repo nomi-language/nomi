@@ -7,7 +7,7 @@ import {
 
 // A std enum's struct-shaped variant imported by name and built from a bare
 // brace literal, beside the qualified spelling of the same value.
-fn restarts(b: Backoff): Int {
+fn restarts(b: Backoff) -> Int {
     case b {
         Backoff.Exponential{max_restarts, max_elapsed: _} -> max_restarts
     }

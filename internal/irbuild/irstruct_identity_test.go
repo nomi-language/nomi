@@ -225,7 +225,7 @@ func TestIRStruct_ABareIdentityOnAGraphIsReported(t *testing.T) {
 // not share a prefix.
 func TestIRStruct_TheVMKeysFieldsByTheDeclaredName(t *testing.T) {
 	const src = "struct Point {\n  x: Int\n  y: String\n}\n\n" +
-		"fn f(a: Int, b: String): Point {\n  Point{x: a, y: b}\n}\n"
+		"fn f(a: Int, b: String) -> Point {\n  Point{x: a, y: b}\n}\n"
 	var fns []*ir.Func
 	prev := irFuncObserved
 	irFuncObserved = func(_ irFuncOrigin, name string, fn *ir.Func, _ bool) {
@@ -411,34 +411,34 @@ func TestIRStruct_WhichShapesAreRetained(t *testing.T) {
 		body     string
 		retained bool
 	}{
-		{"construct", point, "fn f(n: Int): Point {\n  Point{x: n, y: 2}\n}\n", true},
-		{"shorthand", point, "fn f(x: Int, y: Int): Point {\n  Point{x, y}\n}\n", true},
+		{"construct", point, "fn f(n: Int) -> Point {\n  Point{x: n, y: 2}\n}\n", true},
+		{"shorthand", point, "fn f(x: Int, y: Int) -> Point {\n  Point{x, y}\n}\n", true},
 		{"read a struct local", point,
-			"fn f(p: Point): Point {\n  p\n}\n", true},
+			"fn f(p: Point) -> Point {\n  p\n}\n", true},
 		{"a distinct field", "type Meters Int\n\nstruct Leg {\n  len: Meters\n}",
-			"fn f(m: Meters): Leg {\n  Leg{len: m}\n}\n", true},
+			"fn f(m: Meters) -> Leg {\n  Leg{len: m}\n}\n", true},
 		{"a field value that is an operator", point,
-			"fn f(n: Int): Point {\n  Point{x: n + 1, y: 2}\n}\n", true},
+			"fn f(n: Int) -> Point {\n  Point{x: n + 1, y: 2}\n}\n", true},
 		{"a field the literal omits", "struct D {\n  x: Int\n  y: Int = 9\n}",
 			// The declared default fills the omitted field, as fillFieldDefaults does.
-			"fn f(n: Int): D {\n  D{x: n}\n}\n", true},
+			"fn f(n: Int) -> D {\n  D{x: n}\n}\n", true},
 		{"nested", point + "\n\nstruct Outer {\n  p: Point\n}",
-			"fn f(p: Point): Outer {\n  Outer{p: p}\n}\n", true},
+			"fn f(p: Point) -> Outer {\n  Outer{p: p}\n}\n", true},
 		{"a List field", point + "\n\nstruct Outer {\n  ps: List<Point>\n}",
-			"fn f(p: Point): Outer {\n  Outer{ps: [p]}\n}\n", true},
+			"fn f(p: Point) -> Outer {\n  Outer{ps: [p]}\n}\n", true},
 		{"a field that reaches the struct itself", point + "\n\nstruct Outer {\n  p: Point\n  back: Maybe<Outer> = None\n}",
-			"fn f(p: Point): Outer {\n  Outer{p: p}\n}\n", true},
+			"fn f(p: Point) -> Outer {\n  Outer{p: p}\n}\n", true},
 		{"a Map of function values", point + "\n\nstruct Outer {\n  p: Point\n  hooks: Map<String, (Int) -> Int> = Map.empty()\n}",
-			"fn f(p: Point): Outer {\n  Outer{p: p}\n}\n", true},
+			"fn f(p: Point) -> Outer {\n  Outer{p: p}\n}\n", true},
 		{"a Map of Iters", point + "\n\nstruct Outer {\n  p: Point\n  runs: Map<String, Iter<Int>> = Map.empty()\n}",
-			"fn f(p: Point): Outer {\n  Outer{p: p}\n}\n", true},
+			"fn f(p: Point) -> Outer {\n  Outer{p: p}\n}\n", true},
 		{"a Map of records holding an Iter", point + "\n\nstruct Outer {\n  p: Point\n  runs: Map<String, {a: Iter<Int>}> = Map.empty()\n}",
-			"fn f(p: Point): Outer {\n  Outer{p: p}\n}\n", false},
+			"fn f(p: Point) -> Outer {\n  Outer{p: p}\n}\n", false},
 		{"an anonymous struct", "",
-			"fn f(n: Int): {x: Int} {\n  {x: n}\n}\n", true},
+			"fn f(n: Int) -> {x: Int} {\n  {x: n}\n}\n", true},
 		{"a struct as a call argument", point +
-			"\n\nfn g(_p: Point): Int {\n  1\n}",
-			"fn f(n: Int): Int {\n  g(Point{x: n, y: 2})\n}\n", true},
+			"\n\nfn g(_p: Point) -> Int {\n  1\n}",
+			"fn f(n: Int) -> Int {\n  g(Point{x: n, y: 2})\n}\n", true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			var seen []string

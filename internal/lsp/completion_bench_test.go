@@ -22,7 +22,7 @@ func BenchmarkCompletion(b *testing.B) {
 		var src strings.Builder
 		fmt.Fprintf(&src, "pub struct Thing%d {\n    n: Int\n}\n\n", i)
 		for j := range 10 {
-			fmt.Fprintf(&src, "pub fn fn_%d_%d(t: Thing%d): Int {\n    t.n\n}\n\n", i, j, i)
+			fmt.Fprintf(&src, "pub fn fn_%d_%d(t: Thing%d) -> Int {\n    t.n\n}\n\n", i, j, i)
 		}
 		files[fmt.Sprintf("pkg/file%d.nomi", i)] = src.String()
 	}
@@ -40,10 +40,10 @@ func BenchmarkCompletion(b *testing.B) {
 	cases := map[string]string{
 		"prefixed expression": "fn main() {\n" + body.String() + "    fn_4" + cursorMark + "\n}\n",
 		"owner member":        "fn main() {\n" + body.String() + "    String." + cursorMark + "\n}\n",
-		"dot variant":         "fn f(): Ordering {\n" + body.String() + "    ." + cursorMark + "\n}\n",
+		"dot variant":         "fn f() -> Ordering {\n" + body.String() + "    ." + cursorMark + "\n}\n",
 		"parameter type":      "fn main() {\n" + body.String() + "}\n\nfn sum(list" + cursorMark,
 		"expected type":       "import std/calendar.Date\n\nfn main() {\n" + body.String() + "    d: Date = " + cursorMark + "\n}\n",
-		"generic call member": "struct P {\n    n: Int\n}\n\nfn f(ps: List<P>, p: P): Int {\n" + body.String() + "    Maybe.with_default(List.head(ps), p)." + cursorMark + "\n}\n",
+		"generic call member": "struct P {\n    n: Int\n}\n\nfn f(ps: List<P>, p: P) -> Int {\n" + body.String() + "    Maybe.with_default(List.head(ps), p)." + cursorMark + "\n}\n",
 	}
 	for name, src := range cases {
 		content, pos := splitCursor(b, src)

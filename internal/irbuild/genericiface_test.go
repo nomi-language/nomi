@@ -8,8 +8,8 @@ import (
 // of the first for the second, the shape the corpus's
 // `11-interfaces-and-impls/type_argument_inference` runs.
 const genericIfaceHead = `interface Chooser<T> {
-  fn left(p: self): T
-  fn right(p: self): T
+  fn left(p: self) -> T
+  fn right(p: self) -> T
 }
 
 struct Pair<E> {
@@ -18,11 +18,11 @@ struct Pair<E> {
 }
 
 impl Chooser for Pair<E> {
-  fn left(p: Pair<E>): E {
+  fn left(p: Pair<E>) -> E {
     p.a
   }
 
-  fn right(p: Pair<E>): E {
+  fn right(p: Pair<E>) -> E {
     p.b
   }
 }

@@ -23,19 +23,19 @@ struct Index {
     words: Map<String, List<Int>>
 }
 
-fn piped(): Map<Direction, Place> {
-    [(.North, .Cave)] |> Iter.to_map()
+fn piped() -> Map<Direction, Place> {
+    [#(.North, .Cave)] |> Iter.to_map()
 }
 
-fn arm(d: Direction): Map<Direction, Place> {
+fn arm(d: Direction) -> Map<Direction, Place> {
     case d {
-        .North -> Iter.to_map([(.North, .Cave)])
+        .North -> Iter.to_map([#(.North, .Cave)])
         .East -> Iter.to_map([])
     }
 }
 
 fn main() {
-    io.inspect(Room{exits: Iter.to_map([(.North, .Cave), (.East, .Hall)])})
+    io.inspect(Room{exits: Iter.to_map([#(.North, .Cave), #(.East, .Hall)])})
     io.inspect(Index{words: Iter.to_map([])})
     empty: Map<String, List<Int>> = Iter.to_map([])
     io.inspect(empty)

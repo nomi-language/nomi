@@ -15,7 +15,7 @@ import {
     money.{self, Money}
 }
 
-fn same(a: Money, b: Money): Bool {
+fn same(a: Money, b: Money) -> Bool {
     a == b
 }
 

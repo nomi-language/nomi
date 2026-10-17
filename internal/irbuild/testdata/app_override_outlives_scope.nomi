@@ -26,7 +26,7 @@ struct Cfg {
     tag: String
 }
 
-fn boot(): Cfg {
+fn boot() -> Cfg {
     Cfg{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4),
@@ -37,26 +37,26 @@ fn boot(): Cfg {
 
 // PRODUCER 1: `Supervisor.spawn`. The supervisor owns the task, not the call
 // that spawned it, so the task runs after `handler` has returned.
-fn supervised_body(): Unit {
+fn supervised_body() -> Unit {
     timer.sleep(Duration.milliseconds(60))
     _ = Sender.send(Cfg.done.sender, Cfg.tag)
     Unit
 }
 
-fn supervisor_spawn(): Unit {
+fn supervisor_spawn() -> Unit {
     with Cfg.tag = "handler-override"
-    _ = Supervisor.spawn(Cfg.audit, || supervised_body())
+    _ = Supervisor.spawn(Cfg.audit, fn -> supervised_body())
     Unit
 }
 
 // PRODUCER 2: `Supervisor.spawn_all`, which is the same enrolment per item.
-fn supervised_each(_n: Int): Unit {
+fn supervised_each(_n: Int) -> Unit {
     timer.sleep(Duration.milliseconds(60))
     _ = Sender.send(Cfg.done.sender, Cfg.tag)
     Unit
 }
 
-fn supervisor_spawn_all(): Unit {
+fn supervisor_spawn_all() -> Unit {
     with Cfg.tag = "handler-override"
     _ = Supervisor.spawn_all(Cfg.audit, [1], supervised_each)
     Unit
@@ -67,17 +67,17 @@ fn supervisor_spawn_all(): Unit {
 // lexically encloses the join. Here the handle leaves the overriding function,
 // so the scope exits before the body runs and the shape diverges exactly as the
 // supervised ones do.
-fn task_body(): String {
+fn task_body() -> String {
     timer.sleep(Duration.milliseconds(60))
     Cfg.tag
 }
 
-fn spawn_and_return(): Task<String> {
+fn spawn_and_return() -> Task<String> {
     with Cfg.tag = "handler-override"
-    Task.spawn(|| task_body())
+    Task.spawn(fn -> task_body())
 }
 
-fn task_outlives_scope(): String {
+fn task_outlives_scope() -> String {
     concurrent {
         t = spawn_and_return()
         Task.await(t)
@@ -85,17 +85,17 @@ fn task_outlives_scope(): String {
 }
 
 // PRODUCER 4: `Task.spawn_all`, handles leaving the same way.
-fn task_each(_n: Int): String {
+fn task_each(_n: Int) -> String {
     timer.sleep(Duration.milliseconds(60))
     Cfg.tag
 }
 
-fn spawn_all_and_return(): List<Task<String>> {
+fn spawn_all_and_return() -> List<Task<String>> {
     with Cfg.tag = "handler-override"
     Task.spawn_all([1], task_each, max_running: 2)
 }
 
-fn task_all_outlives_scope(): String {
+fn task_all_outlives_scope() -> String {
     results = concurrent {
         ts = spawn_all_and_return()
         Task.await_all(ts)
@@ -112,7 +112,7 @@ fn task_all_outlives_scope(): String {
 // spawner's DEADLINE is not, because the supervisor owns the task and the
 // ceiling that call was under is not its ceiling
 // ceiling that call was under is not its ceiling.
-fn context_body(): Unit {
+fn context_body() -> Unit {
     timer.sleep(Duration.milliseconds(60))
 
     carried = case Context.value(Cfg.context, TraceId) {
@@ -129,24 +129,24 @@ fn context_body(): Unit {
     Unit
 }
 
-fn context_spawn(): Unit {
+fn context_spawn() -> Unit {
     with Cfg.context = Context.with_timeout(
         Context.with_value(Cfg.context, TraceId("req-7")),
         Duration.seconds(30),
     )
 
-    _ = Supervisor.spawn(Cfg.audit, || context_body())
+    _ = Supervisor.spawn(Cfg.audit, fn -> context_body())
     Unit
 }
 
 // CONTROL: a task joined INSIDE the `with` scope. It must see the override in
 // the VM, which is what tells a correct producer apart from a lowering
 // that lost the override everywhere.
-fn joined_inside_scope(): String {
+fn joined_inside_scope() -> String {
     with Cfg.tag = "handler-override"
 
     concurrent {
-        t = Task.spawn(|| Cfg.tag)
+        t = Task.spawn(fn -> Cfg.tag)
         Task.await(t)
     }
 }
@@ -154,18 +154,18 @@ fn joined_inside_scope(): String {
 // CONTROL: the scope is over, so the base value is the right answer. Without
 // this a lowering that ignored `with` entirely would pass the two controls
 // above and fail nothing.
-fn after_the_scope(): String {
+fn after_the_scope() -> String {
     Cfg.tag
 }
 
-fn drain(label: String): Unit {
+fn drain(label: String) -> Unit {
     case Receiver.receive(Cfg.done.receiver) {
         Some(seen) -> io.print("${label} = ${seen}")
         None -> io.print("${label} = <nothing>")
     }
 }
 
-fn main(): Unit {
+fn main() -> Unit {
     supervisor_spawn()
     _ = Supervisor.flush(Cfg.audit)
     drain("Supervisor.spawn")

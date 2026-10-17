@@ -15,7 +15,7 @@ import strings.String
 /// One piece of a typed-literal body — either a `Static` text segment
 /// from the source between interpolation slots, or a `Dynamic` value
 /// from inside a `${...}` slot. A literal's type impl
-/// `Literal`'s `from_fragments(fragments: List<Fragment<I>>): R`
+/// `Literal`'s `from_fragments(fragments: List<Fragment<I>>) -> R`
 /// to consume a typed literal; the `I` parameter pins the interface
 /// every dynamic slot must satisfy.
 ///
@@ -46,9 +46,9 @@ pub enum Fragment<T> {
 /// }
 ///
 /// impl Literal for Date {
-///     fn from_fragments(fragments: List<Fragment<String>>): Result<Date, Error> { ... }
+///     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Date, Error> { ... }
 /// }
 /// ```
 pub interface Literal<I, R> {
-    fn from_fragments(fragments: List<Fragment<I>>): R
+    fn from_fragments(fragments: List<Fragment<I>>) -> R
 }

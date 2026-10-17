@@ -12,7 +12,7 @@ struct Tree.Node<T> {
     v: T
 }
 
-fn val<T>(n: Tree.Node<T>): T {
+fn val<T>(n: Tree.Node<T>) -> T {
     n.v
 }
 

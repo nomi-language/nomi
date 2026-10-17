@@ -11,7 +11,7 @@ import (
 // was missing from the module's registry, the call was checked as an
 // ordinary call, and `Cell({c: 1}).c` passed as any type.
 func TestStructCallForm_BlockLocalStructIsTheCallForm(t *testing.T) {
-	const decls = "fn f(): Int {\n  struct Cell<T> {\n    c: T\n  }\n  struct P {\n    c: Int\n  }\n"
+	const decls = "fn f() -> Int {\n  struct Cell<T> {\n    c: T\n  }\n  struct P {\n    c: Int\n  }\n"
 	rows := []struct {
 		name, body, want string
 	}{

@@ -28,11 +28,11 @@ struct P {
     b: Int
 }
 
-fn calls(x: Int): Int {
+fn calls(x: Int) -> Int {
     x
 }
 
-fn bind(n: Int): Int {
+fn bind(n: Int) -> Int {
     x = {
         io.print("bind")
         case n {
@@ -44,7 +44,7 @@ fn bind(n: Int): Int {
     x
 }
 
-fn bare_return(n: Int): Int {
+fn bare_return(n: Int) -> Int {
     x = {
         io.print("bare return")
         return n + 1
@@ -53,21 +53,21 @@ fn bare_return(n: Int): Int {
     x
 }
 
-fn operand(n: Int): Int {
+fn operand(n: Int) -> Int {
     1 + {
         io.print("operand")
         if n > 0 { return 3 } else { return 4 }
     }
 }
 
-fn argument(n: Int): Int {
+fn argument(n: Int) -> Int {
     calls({
         io.print("argument")
         if n > 0 { return 5 } else { return 6 }
     })
 }
 
-fn field(n: Int): Int {
+fn field(n: Int) -> Int {
     p = P{a: 1, b: {
         io.print("field")
         case n {
@@ -78,7 +78,7 @@ fn field(n: Int): Int {
     p.a
 }
 
-fn item(n: Int): Int {
+fn item(n: Int) -> Int {
     xs = [calls(1), {
         io.print("item")
         case n {
@@ -90,7 +90,7 @@ fn item(n: Int): Int {
     0
 }
 
-fn nested(n: Int): Int {
+fn nested(n: Int) -> Int {
     x = {
         io.print("outer")
         y = {
@@ -106,7 +106,7 @@ fn nested(n: Int): Int {
     x
 }
 
-fn tail_block(n: Int): Int {
+fn tail_block(n: Int) -> Int {
     {
         io.print("tail block")
         case n {
@@ -116,7 +116,7 @@ fn tail_block(n: Int): Int {
     }
 }
 
-fn arms(n: Int): Int {
+fn arms(n: Int) -> Int {
     y = case n {
         0 -> {
             io.print("arm")
@@ -165,7 +165,7 @@ fn main() {
 func TestIRLeavingBlock_Defer(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
-fn deferred(n: Int): Int {
+fn deferred(n: Int) -> Int {
     defer io.print("outer defer")
     x = {
         defer io.print("inner defer 1")
@@ -198,8 +198,8 @@ fn main() {
 func TestIRLeavingBlock_LambdasAndLoops(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
-fn lambda(n: Int): Int {
-    f = |m: Int| {
+fn lambda(n: Int) -> Int {
+    f = fn m: Int -> {
         x = {
             io.print("lambda")
             case m {
@@ -213,8 +213,8 @@ fn lambda(n: Int): Int {
     f(n)
 }
 
-fn mapped(xs: List<Int>): List<Int> {
-    Iter.map(xs, |x| {
+fn mapped(xs: List<Int>) -> List<Int> {
+    Iter.map(xs, fn x -> {
         y = {
             io.print("map ${x}")
             case x {
@@ -228,8 +228,8 @@ fn mapped(xs: List<Int>): List<Int> {
     |> Iter.to_list()
 }
 
-fn filtered(xs: List<Int>): List<Int> {
-    Iter.filter(xs, |x| {
+fn filtered(xs: List<Int>) -> List<Int> {
+    Iter.filter(xs, fn x -> {
         {
             io.print("filter ${x}")
             if x == 2 { continue } else { if x > 3 { break True } else { return True } }
@@ -238,8 +238,8 @@ fn filtered(xs: List<Int>): List<Int> {
     |> Iter.to_list()
 }
 
-fn looped(): Int {
-    Iter.loop(|i = 0| {
+fn looped() -> Int {
+    Iter.loop(fn i = 0 -> {
         x = {
             io.print("iteration ${i}")
             case i {

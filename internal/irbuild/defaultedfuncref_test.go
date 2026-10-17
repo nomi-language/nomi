@@ -15,11 +15,11 @@ func TestDefaultedFuncRef_IsTheFullFunction(t *testing.T) {
     lib
 }
 
-fn greet(name: String, punct: String = "!"): String {
+fn greet(name: String, punct: String = "!") -> String {
     name + punct
 }
 
-fn apply2(f: (String, String) -> String): String {
+fn apply2(f: (String, String) -> String) -> String {
     f("x", "y")
 }
 
@@ -32,7 +32,7 @@ fn main() {
     io.print(apply2(lib.greet))
     io.print(greet("c"))
 }
-`, "a?\nxy\nb.\nxy\nc!\n", map[string]string{"lib.nomi": `pub fn greet(name: String, punct: String = "!"): String {
+`, "a?\nxy\nb.\nxy\nc!\n", map[string]string{"lib.nomi": `pub fn greet(name: String, punct: String = "!") -> String {
     name + punct
 }
 `})

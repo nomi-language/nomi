@@ -8,25 +8,25 @@ pub struct Slot {
 }
 
 impl Show for Slot {
-    fn show(value: Slot): String {
+    fn show(value: Slot) -> String {
         "prod-slot-${value.id}"
     }
 }
 
 pub once tag: String = "prod"
 
-pub fn slot(): Slot {
+pub fn slot() -> Slot {
     Slot{id: 8080}
 }
 
-pub fn badge(): String {
+pub fn badge() -> String {
     Show.show(slot())
 }
 
-pub fn build(): Config {
+pub fn build() -> Config {
     Config{name: tag, level: 20}
 }
 
-pub fn label(): String {
+pub fn label() -> String {
     "prod-label"
 }

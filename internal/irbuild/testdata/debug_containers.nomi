@@ -45,7 +45,7 @@ struct Tag {
 }
 
 impl Debug for Tag {
-    fn inspect(t: Tag): String {
+    fn inspect(t: Tag) -> String {
         "TAG#${t.n}"
     }
 }
@@ -55,7 +55,7 @@ impl Debug for Tag {
 // variant reaches a container through a function's declared return type
 // instead. The point is to render a bare variant NESTED, and this is the
 // spelling that gets there.
-fn no_int(): Maybe<Int> {
+fn no_int() -> Maybe<Int> {
     None
 }
 
@@ -79,9 +79,9 @@ fn main() {
         ]))
 
     // A tuple, and a tuple inside a list.
-    io.print(Debug.inspect((1, "x")))
-    io.print(Debug.inspect((Pt{zz: 9, a: 8}, 5.5)))
-    io.print(Debug.inspect([(1, "x"), (2, "y")]))
+    io.print(Debug.inspect(#(1, "x")))
+    io.print(Debug.inspect(#(Pt{zz: 9, a: 8}, 5.5)))
+    io.print(Debug.inspect([#(1, "x"), #(2, "y")]))
 
     // An empty list, whose rendering comes from its type alone.
     io.print(Debug.inspect([]))

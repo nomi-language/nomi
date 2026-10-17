@@ -20,21 +20,21 @@ struct Pair {
 }
 
 impl Iter for Pair {
-    fn each_while(p: Pair, yield: (Int) -> Bool): Bool {
+    fn each_while(p: Pair, yield: (Int) -> Bool) -> Bool {
         if yield(p.a) { yield(p.b) } else { False }
     }
 
-    fn known_count(_p: Pair): Maybe<Int> {
+    fn known_count(_p: Pair) -> Maybe<Int> {
         io.print("counted")
         Some(7)
     }
 }
 
-fn total(xs: Iter<Int>): Int {
+fn total(xs: Iter<Int>) -> Int {
     Iter.count(xs)
 }
 
-fn known(xs: Iter<Int>): Maybe<Int> {
+fn known(xs: Iter<Int>) -> Maybe<Int> {
     Iter.known_count(xs)
 }
 
@@ -43,8 +43,8 @@ fn main() {
     io.inspect(total(p))
     io.inspect(known(p))
     io.inspect(Iter.known_count(p))
-    io.inspect(p |> Iter.map(|x| x + 1) |> Iter.to_list())
-    io.inspect(p |> Iter.map(|x| x + 1) |> Iter.known_count())
+    io.inspect(p |> Iter.map(fn x -> x + 1) |> Iter.to_list())
+    io.inspect(p |> Iter.map(fn x -> x + 1) |> Iter.known_count())
     io.inspect(Iter.zip([5, 6], p) |> Iter.to_list())
 }
 `
@@ -53,6 +53,6 @@ fn main() {
 		"counted\nSome(7)\n" +
 		"[2, 3]\n" +
 		"None\n" +
-		"[(5, 1), (6, 2)]\n"
+		"[#(5, 1), #(6, 2)]\n"
 	irRunSource(t, src, want)
 }

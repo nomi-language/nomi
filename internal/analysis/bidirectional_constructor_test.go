@@ -11,7 +11,7 @@ import "testing"
 func TestDotVariant_GenericConstructorArg_ReturnPosition_OK(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
 enum Input { Quit; Guess Int }
-fn read(): Result<Input, String> {
+fn read() -> Result<Input, String> {
   Result.Ok(.Quit)
 }`
 	_, errs := checkSource(src)
@@ -21,7 +21,7 @@ fn read(): Result<Input, String> {
 func TestDotVariant_GenericConstructorArgPayload_ReturnPosition_OK(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
 enum Input { Quit; Guess Int }
-fn read(n: Int): Result<Input, String> {
+fn read(n: Int) -> Result<Input, String> {
   Result.Ok(.Guess(n))
 }`
 	_, errs := checkSource(src)
@@ -33,7 +33,7 @@ fn read(n: Int): Result<Input, String> {
 // the pipe path.
 func TestPipeOkInfersErrorTypeFromReturn_OK(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
-fn wrap(n: Int): Result<Int, String> {
+fn wrap(n: Int) -> Result<Int, String> {
   n |> Result.Ok()
 }`
 	_, errs := checkSource(src)
@@ -44,7 +44,7 @@ fn wrap(n: Int): Result<Int, String> {
 func TestDotVariant_GenericConstructorArg_ReturnStatement_OK(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
 enum Input { Quit; Guess Int }
-fn read(early: Bool): Result<Input, String> {
+fn read(early: Bool) -> Result<Input, String> {
   if early { return Result.Ok(.Quit) }
   Result.Err("nope")
 }`
@@ -67,8 +67,8 @@ fn main() {
 func TestDotVariant_GenericConstructorArg_ArgumentPosition_OK(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
 enum Input { Quit; Guess Int }
-fn take(_r: Result<Input, String>): Int { 0 }
-fn demo(): Int {
+fn take(_r: Result<Input, String>) -> Int { 0 }
+fn demo() -> Int {
   take(Result.Ok(.Quit))
 }`
 	_, errs := checkSource(src)
@@ -80,7 +80,7 @@ fn demo(): Int {
 func TestDotVariant_GenericConstructorArg_CaseArm_OK(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
 enum Input { Quit; Guess Int }
-fn read(s: String): Result<Input, String> {
+fn read(s: String) -> Result<Input, String> {
   case s {
     "q" -> Result.Ok(.Quit)
     other -> {
@@ -97,7 +97,7 @@ fn read(s: String): Result<Input, String> {
 func TestDotVariant_GenericConstructorArg_IfArm_OK(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
 enum Input { Quit; Guess Int }
-fn read(early: Bool): Result<Input, String> {
+fn read(early: Bool) -> Result<Input, String> {
   if early { Result.Ok(.Quit) } else { Result.Ok(.Guess(5)) }
 }`
 	_, errs := checkSource(src)
@@ -110,7 +110,7 @@ func TestDotVariant_GenericConstructorArg_WrongEnum_Errors(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
 enum Input { Quit; Guess Int }
 enum Other { A; B }
-fn read(): Result<Other, String> {
+fn read() -> Result<Other, String> {
   Result.Ok(.Quit)
 }`
 	_, errs := checkSource(src)

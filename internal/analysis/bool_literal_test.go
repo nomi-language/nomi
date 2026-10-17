@@ -15,7 +15,7 @@ func TestBoolLiteral_LowercaseIsUnbound(t *testing.T) {
 		{"true", "undefined variable 'true'\nhelp: the Bool literal is 'True'"},
 		{"false", "undefined variable 'false'\nhelp: the Bool literal is 'False'"},
 	} {
-		_, errs := checkSourceWithStdlib("fn f(): Bool {\n  x: Bool = " + tc.name + "\n  x\n}\n")
+		_, errs := checkSourceWithStdlib("fn f() -> Bool {\n  x: Bool = " + tc.name + "\n  x\n}\n")
 		found := false
 		for _, e := range errs {
 			if strings.Contains(diagText(e), tc.want) {
@@ -33,6 +33,6 @@ func TestBoolLiteral_LowercaseIsUnbound(t *testing.T) {
 
 // TestBoolLiteral_CapitalizedIsAccepted is the acceptance mirror.
 func TestBoolLiteral_CapitalizedIsAccepted(t *testing.T) {
-	_, errs := checkSourceWithStdlib("fn f(): Bool {\n  x: Bool = True\n  y: Bool = False\n  x && !y\n}\n")
+	_, errs := checkSourceWithStdlib("fn f() -> Bool {\n  x: Bool = True\n  y: Bool = False\n  x && !y\n}\n")
 	expectNoStdlibErrors(t, errs)
 }

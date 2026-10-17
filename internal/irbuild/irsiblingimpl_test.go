@@ -29,7 +29,7 @@ fn main() {
 		"ids.nomi": `pub opaque type UserId Int
 
 impl UserId {
-  pub fn new(n: Int): Result<UserId, String> {
+  pub fn new(n: Int) -> Result<UserId, String> {
     if n > 0 {
       Ok(UserId(n))
     } else {
@@ -37,7 +37,7 @@ impl UserId {
     }
   }
 
-  pub fn value(id: UserId): Int {
+  pub fn value(id: UserId) -> Int {
     UserId(n) = id // only ids.nomi can destructure UserId
     n
   }

@@ -4,10 +4,10 @@
 // it walks first.
 import b
 
-pub fn start(x: Int): Int {
+pub fn start(x: Int) -> Int {
     b.ping(x)
 }
 
-pub fn pong(x: Int): Int {
+pub fn pong(x: Int) -> Int {
     x + 1
 }

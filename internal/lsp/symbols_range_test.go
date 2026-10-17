@@ -79,7 +79,7 @@ func TestDocumentSymbols_RangesContainSelectionAndChildren(t *testing.T) {
 // through its closing brace; its selection is the name.
 func TestDocumentSymbols_RangeIsDeclarationExtent(t *testing.T) {
 	input := `/// Adds.
-pub fn add(x: Int, y: Int): Int {
+pub fn add(x: Int, y: Int) -> Int {
   x + y
 }
 
@@ -95,12 +95,12 @@ enum Shape {
 }
 
 interface Named {
-  fn name(value: self): String
-  fn label(value: self): String
+  fn name(value: self) -> String
+  fn label(value: self) -> String
 }
 
 impl Named for User {
-  fn label(value: User): String {
+  fn label(value: User) -> String {
     value.name
   }
 }
@@ -136,8 +136,8 @@ group "math" {
 		"Shape.Circle":              "12:2-12:15 12:2-12:8",
 		"Shape.Point":               "13:2-13:7 13:2-13:7",
 		"Named":                     "16:0-19:1 16:10-16:15",
-		"Named.name":                "17:2-17:30 17:5-17:9",
-		"Named.label":               "18:2-18:31 18:5-18:10",
+		"Named.name":                "17:2-17:32 17:5-17:9",
+		"Named.label":               "18:2-18:33 18:5-18:10",
 		"impl Named for User":       "21:0-25:1 21:0-21:4",
 		"impl Named for User.label": "22:2-24:3 22:5-22:10",
 		"limit":                     "27:0-27:15 27:5-27:10",

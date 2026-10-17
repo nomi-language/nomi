@@ -5,19 +5,19 @@ pub struct Gadget {
 }
 
 impl Comparable for Gadget {
-    fn compare(a: Gadget, b: Gadget): Ordering {
+    fn compare(a: Gadget, b: Gadget) -> Ordering {
         Int.compare(a.n, b.n)
     }
 }
 
 impl Equatable for Gadget {
-    fn equal?(a: Gadget, b: Gadget): Bool {
+    fn equal?(a: Gadget, b: Gadget) -> Bool {
         a.n == b.n
     }
 }
 
 impl Steppable<Int> for Gadget {
-    fn step_by(value: Gadget, by: Int): Maybe<Gadget> {
+    fn step_by(value: Gadget, by: Int) -> Maybe<Gadget> {
         Some(Gadget{n: value.n + by})
     }
 }
@@ -38,7 +38,7 @@ pub struct Meters {
 derive Comparable for Meters
 
 impl Steppable<Int> for Meters {
-    fn step_by(value: Meters, by: Int): Maybe<Meters> {
+    fn step_by(value: Meters, by: Int) -> Maybe<Meters> {
         Some(Meters{n: value.n + by})
     }
 }

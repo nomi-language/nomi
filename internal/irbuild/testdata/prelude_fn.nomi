@@ -35,19 +35,19 @@
 // untyped_equality.nomi covers `x == None`. `Maybe.map` / `flat_map` /
 // `Result.map` / `map_err` are prelude_hof.nomi's subject, and `Maybe.hash` is
 // prelude_hash.nomi's.
-fn none_string(): Maybe<String> {
+fn none_string() -> Maybe<String> {
     None
 }
 
-fn none_int(): Maybe<Int> {
+fn none_int() -> Maybe<Int> {
     None
 }
 
-fn none_float(): Maybe<Float> {
+fn none_float() -> Maybe<Float> {
     None
 }
 
-fn none_list(): Maybe<List<Int>> {
+fn none_list() -> Maybe<List<Int>> {
     None
 }
 

@@ -12,7 +12,7 @@ import (
 // argument check let these through and the program could not run.
 func TestGenericArgHead_ADifferentConstructorIsAMismatch(t *testing.T) {
 	errs := checkWithStdlib(`
-fn first_or<T>(xs: List<T>, d: T): T {
+fn first_or<T>(xs: List<T>, d: T) -> T {
   Maybe.with_default(List.head(xs), d)
 }
 

@@ -64,10 +64,10 @@ func TestTupleSigKind_AStdSignatureCanNameATuple(t *testing.T) {
 	}
 	k, shared := sharedTupleKind([]kind{kindInt, seed})
 	if !shared || k == kindInvalid {
-		t.Fatal("(Int, Seed) has no shared tuple kind")
+		t.Fatal("#(Int, Seed) has no shared tuple kind")
 	}
-	if k.nomi() != "(Int, Seed)" {
-		t.Errorf("(Int, Seed) is spelled %q", k.nomi())
+	if k.nomi() != "#(Int, Seed)" {
+		t.Errorf("#(Int, Seed) is spelled %q", k.nomi())
 	}
 	// A tuple whose component this boundary may NOT admit must refuse, or the
 	// arm would smuggle a package-relative kind into a stdlib signature.
@@ -82,7 +82,7 @@ func TestTupleSigKind_AStdSignatureCanNameATuple(t *testing.T) {
 // TestTupleSigKind_AnArrowIsNotATuple pins the one-line distinction the arm
 // rests on, because the parser spells both shapes with the SAME node.
 //
-// `(Int, String)` and `(Int) -> String` are both `*ast.FuncType`; the arrow is
+// `#(Int, String)` and `(Int) -> String` are both `*ast.FuncType`; the arrow is
 // the only difference (a nil `Return` vs a set one). An arm that ignored that
 // would admit a FUNCTION type into any stdlib signature position, which has no
 // customer today and would be a projection with no reachable site.

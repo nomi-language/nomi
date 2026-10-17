@@ -33,11 +33,11 @@ var orderProject = map[string]string{
     settings.Settings
 }
 
-pub fn greeting(): String {
+pub fn greeting() -> String {
     "hello"
 }
 
-pub fn boot(): Settings {
+pub fn boot() -> Settings {
     Settings{context: Context.root(), tag: "root"}
 }
 
@@ -52,7 +52,7 @@ fn main() {
 }
 
 pub interface Shape {
-    fn area(value: self): Int
+    fn area(value: self) -> Int
 }
 
 pub struct Circle {
@@ -60,7 +60,7 @@ pub struct Circle {
 }
 
 impl Shape for Circle {
-    fn area(value: Circle): Int {
+    fn area(value: Circle) -> Int {
         value.radius + Iter.count(Settings.tag)
     }
 }
@@ -82,16 +82,16 @@ pub struct Labelled {
 derive Display for Labelled
 
 impl Shape for Circle {
-    fn area(value: Circle): Int {
+    fn area(value: Circle) -> Int {
         value.radius
     }
 }
 
-pub fn describe(shape: Shape): String {
+pub fn describe(shape: Shape) -> String {
     "area ${Shape.area(shape)}"
 }
 
-pub fn title(): String {
+pub fn title() -> String {
     Settings.tag
 }
 
@@ -107,7 +107,7 @@ pub struct Settings {
     tag: String
 }
 
-pub fn default_tag(): String {
+pub fn default_tag() -> String {
     main.greeting()
 }
 `,

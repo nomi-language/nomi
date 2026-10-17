@@ -28,7 +28,7 @@ import (
 //	failed (declared at main.nomi:22:51):
 //	RegisterExternFunc("Score.add"): name already registered
 //
-//	$ nomi run  # `impl Box<T> { pub fn origin(): Int go go_box.Origin }`
+//	$ nomi run  # `impl Box<T> { pub fn origin() -> Int go go_box.Origin }`
 //	line 17: unknown builtin 'Box.origin'
 //
 // The second is the interesting one to have on record. Its symptom depends on
@@ -85,11 +85,11 @@ pub struct Bonus {
 }
 
 impl Add<Score, Score> for Score {
-  fn add(a: Score, b: Score): Score go ffi.AddScores
+  fn add(a: Score, b: Score) -> Score go ffi.AddScores
 }
 
 impl Add<Bonus, Score> for Score {
-  fn add(a: Score, b: Bonus): Score go ffi.AddBonus
+  fn add(a: Score, b: Bonus) -> Score go ffi.AddBonus
 }
 `
 	fromFfirun := implKeysFor(t, "scoring.nomi", source)
@@ -155,7 +155,7 @@ pub struct Box<T> {
 }
 
 impl Box<T> {
-  fn peek(b: Box<T>): Int go ffi.Peek
+  fn peek(b: Box<T>) -> Int go ffi.Peek
 }
 `
 	fromFfirun := implKeysFor(t, "boxes.nomi", source)

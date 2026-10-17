@@ -6,11 +6,11 @@ import (
 
 func TestIRPatternIf_ResultValueAndNestedBranches(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn render(r: Result<Int, String>): String {
+fn render(r: Result<Int, String>) -> String {
   label = if Ok(n) = r { "value ${n}" } else { "error" }
   "result " + label
 }
-fn classify(m: Maybe<Int>): String {
+fn classify(m: Maybe<Int>) -> String {
   if Some(n) = m {
     if n < 0 { "negative" } else { "positive" }
   } else { "empty" }
@@ -28,7 +28,7 @@ fn main() {
 func TestIRPatternIf_LambdaBody(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
-  choose = |m: Maybe<Int>| if Some(n) = m { n } else { 0 }
+  choose = fn m: Maybe<Int> -> if Some(n) = m { n } else { 0 }
   io.print(choose(Some(7)))
   io.print(choose(None))
 }
@@ -53,7 +53,7 @@ fn main() {
 // A list pattern inside a pattern `if` retains through the nested list test.
 func TestIRPatternIf_ListPayloadRetains(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn choose(m: Maybe<List<Int>>): Int { if Some([x]) = m { x } else { 0 } }
+fn choose(m: Maybe<List<Int>>) -> Int { if Some([x]) = m { x } else { 0 } }
 fn main() {
   io.print(choose(Some([7])))
   io.print(choose(Some([7, 8])))

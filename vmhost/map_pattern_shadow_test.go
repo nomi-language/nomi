@@ -10,13 +10,13 @@ import (
 
 // A map binding whose pattern binds a name already in scope runs, and a
 // map pattern's key sees the names in scope before the pattern, never one the
-// pattern binds, as the checker resolves it. In `{"mode" => a, a => b}` the
+// pattern binds, as the checker resolves it. In `%{"mode" => a, a => b}` the
 // second key is the `a` bound before the pattern ("host"), so b is the host's
 // value, in a binding with `else`, a `case` arm and a pattern `if`. A key that names the shadowed parameter is evaluated once.
 func TestRun_MapPatternKeySeesTheScopeBeforeThePattern(t *testing.T) {
 	out, err := runVM(t, `import std/io
 
-fn note(s: String): String {
+fn note(s: String) -> String {
   io.print("key ${s}")
   s
 }
@@ -24,61 +24,61 @@ fn note(s: String): String {
 fn constant_key(cfg: Map<String, String>) {
   a = "outer"
   io.print(a)
-  {"host" => a} = cfg else { return }
+  %{"host" => a} = cfg else { return }
   io.print("constant: ${a}")
 }
 
 fn computed_key(cfg: Map<String, String>) {
   a = "outer"
   io.print(a)
-  {note("host") => a} = cfg else { return }
+  %{note("host") => a} = cfg else { return }
   io.print("computed: ${a}")
 }
 
 fn self_key(m: Map<String, String>) {
   a = "host"
-  {a => a} = m else { return }
+  %{a => a} = m else { return }
   io.print("self key: ${a}")
 }
 
 fn later_key(m: Map<String, String>) {
   a = "host"
-  {"mode" => a, a => b} = m else { return }
+  %{"mode" => a, a => b} = m else { return }
   io.print("later key: ${a} ${b}")
 }
 
 fn param(a: String, m: Map<String, String>) {
-  {note(a) => a, a => b} = m else { return }
+  %{note(a) => a, a => b} = m else { return }
   io.print("param: ${a} ${b}")
 }
 
-fn in_case(m: Map<String, String>): String {
+fn in_case(m: Map<String, String>) -> String {
   a = "host"
   case m {
-    {"mode" => a, a => b} -> "case: ${a} ${b}"
+    %{"mode" => a, a => b} -> "case: ${a} ${b}"
     _ -> "case: no match"
   }
 }
 
-fn in_if(m: Map<String, String>): String {
+fn in_if(m: Map<String, String>) -> String {
   a = "host"
-  if Some({"mode" => a, a => b}) = Some(m) {
+  if Some(%{"mode" => a, a => b}) = Some(m) {
     "if: ${a} ${b}"
   } else {
     "if: no match"
   }
 }
 
-fn in_else(m: Map<String, String>): String {
+fn in_else(m: Map<String, String>) -> String {
   a = "host"
-  {"mode" => a, a => b} = m else {
+  %{"mode" => a, a => b} = m else {
     return "else: no match"
   }
   "else: ${a} ${b}"
 }
 
 fn main() {
-  cfg = {"host" => "h1", "mode" => "debug", "debug" => "D"}
+  cfg = %{"host" => "h1", "mode" => "debug", "debug" => "D"}
   constant_key(cfg)
   computed_key(cfg)
   self_key(cfg)
@@ -102,16 +102,16 @@ fn main() {
 func TestRun_MapDestructureRebindMissingKeyRunsElse(t *testing.T) {
 	out, err := runVM(t, `import std/io
 
-fn note(s: String): String {
+fn note(s: String) -> String {
   io.print("key ${s}")
   s
 }
 
 fn main() {
-  cfg = {"host" => "h1"}
+  cfg = %{"host" => "h1"}
   a = "outer"
   io.print(a)
-  {note("host") => a, note("port") => b} = cfg else {
+  %{note("host") => a, note("port") => b} = cfg else {
     io.print("missing: ${a}")
     return
   }
@@ -130,10 +130,10 @@ func TestRun_MapDestructureRebindInATestBody(t *testing.T) {
 	p, err := vmhost.LoadSource(name, `import std/io
 
 test "map rebind" {
-  m = {"host" => "h1", "mode" => "debug", "debug" => "D"}
+  m = %{"host" => "h1", "mode" => "debug", "debug" => "D"}
   a = "host"
   io.print(a)
-  assert {"mode" => a, a => b} = m
+  assert %{"mode" => a, a => b} = m
   io.print("${a} ${b}")
   assert b == "h1"
 }

@@ -24,13 +24,13 @@ import {
 pub host type Unit
 
 impl Equatable for Unit {
-    fn equal?(_a: Unit, _b: Unit): Bool {
+    fn equal?(_a: Unit, _b: Unit) -> Bool {
         True
     }
 }
 
 impl Hashable for Unit {
-    fn hash(_value: Unit): Int {
+    fn hash(_value: Unit) -> Int {
         0
     }
 }

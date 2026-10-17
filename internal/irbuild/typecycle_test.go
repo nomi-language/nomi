@@ -63,7 +63,7 @@ derive ToJson for Head
 derive Equatable for Child
 derive ToJson for Child
 `
-	typeCycleMain = `fn describe(s: Shape): String {
+	typeCycleMain = `fn describe(s: Shape) -> String {
     case s {
         Shape.Empty -> "empty"
         Shape.One(c) -> "one ${c.n}"
@@ -83,7 +83,7 @@ fn main() {
     io.print(Iter.count(p.kids))
     io.print(p == p)
     io.print(c == two)
-    io.print(Maybe.map(two.head, |h| h.lead.n) |> Maybe.with_default(0))
+    io.print(Maybe.map(two.head, fn h -> h.lead.n) |> Maybe.with_default(0))
     io.print("${ToJson.to_json(leaf)}")
 }
 `
@@ -147,10 +147,10 @@ func TestTypeCycle_ThreeFiles(t *testing.T) {
     c.{C, Step}
 }
 
-fn walk(s: Step): Int {
+fn walk(s: Step) -> Int {
     case s {
         Step.Stop -> 0
-        Step.Next(a) -> 1 + (Maybe.map(a.b, |b| Iter.count(b.cs)) |> Maybe.with_default(0))
+        Step.Next(a) -> 1 + (Maybe.map(a.b, fn b -> Iter.count(b.cs)) |> Maybe.with_default(0))
     }
 }
 
@@ -187,9 +187,9 @@ func TestTypeCycle_InterfaceField(t *testing.T) {
 		"main.nomi": "import {\n    std/io\n    a.A\n    b.{B, Scorer}\n}\n\n" +
 			"fn main() {\n    b = B{owner: None, bonus: 10}\n    x = A{n: 5, s: b, b: Some(b)}\n    io.print(Scorer.score(x.s, x))\n}\n",
 		"a.nomi": "import b.{B, Scorer}\n\npub struct A {\n    n: Int\n    s: Scorer\n    b: Maybe<B>\n}\n",
-		"b.nomi": "import a.A\n\npub interface Scorer {\n    fn score(value: self, a: A): Int\n}\n\n" +
+		"b.nomi": "import a.A\n\npub interface Scorer {\n    fn score(value: self, a: A) -> Int\n}\n\n" +
 			"pub struct B {\n    owner: Maybe<A>\n    bonus: Int\n}\n\n" +
-			"impl Scorer for B {\n    fn score(value: B, a: A): Int {\n        value.bonus + a.n\n    }\n}\n",
+			"impl Scorer for B {\n    fn score(value: B, a: A) -> Int {\n        value.bonus + a.n\n    }\n}\n",
 	}, "15\n")
 }
 

@@ -19,7 +19,7 @@ import (
 // that direction and this covers the def.
 func TestGenericInstanceNomiNameIsTheBareName(t *testing.T) {
 	src := "pub struct Box<T> {\n  item: T\n}\n\n" +
-		"fn peek(b: Box<Int>): Int {\n  b.item\n}\n"
+		"fn peek(b: Box<Int>) -> Int {\n  b.item\n}\n"
 	g := lowerableGen(t, src)
 	inst := onlyGenericInstance(t, g)
 	if inst.nomi != "Box" {
@@ -38,7 +38,7 @@ func TestGenericInstanceNomiNameIsTheBareName(t *testing.T) {
 // inspected.
 func TestGenericInstanceTypeIDIsModuleQualified(t *testing.T) {
 	src := "pub struct Box<T> {\n  item: T\n}\n\n" +
-		"fn peek(b: Box<Int>): Int {\n  b.item\n}\n"
+		"fn peek(b: Box<Int>) -> Int {\n  b.item\n}\n"
 	g := lowerableGen(t, src)
 	inst := onlyGenericInstance(t, g)
 	got := g.qualifiedNomiName(inst.nomi)
@@ -64,7 +64,7 @@ func TestGenericInstanceTypeIDIsModuleQualified(t *testing.T) {
 // defends.
 func TestGenericInstanceAtATypeParameterIsRefused(t *testing.T) {
 	src := "pub struct Box<T> {\n  item: T\n}\n\n" +
-		"fn peek(b: Box<Int>): Int {\n  b.item\n}\n"
+		"fn peek(b: Box<Int>) -> Int {\n  b.item\n}\n"
 	g := lowerableGen(t, src)
 	tpl := g.genericTemplates["Box"]
 	if tpl == nil {
@@ -120,10 +120,10 @@ func TestGenericInstanceNeverSilentlyDropsAField(t *testing.T) {
 		"pub struct Box<T> {\n  item: T\n}\n\n" +
 		"pub enum Holder<T> {\n  Held T\n  Nothing\n}\n\n" +
 		"pub enum Sack<T> {\n  Stuff Literal<T, T>\n  Empty\n}\n\n" +
-		"fn size(_b: Bag<Point>): Int {\n  0\n}\n\n" +
-		"fn peek(b: Box<Int>): Int {\n  b.item\n}\n\n" +
-		"fn hold(_h: Holder<Int>): Int {\n  0\n}\n\n" +
-		"fn sack(_s: Sack<Point>): Int {\n  0\n}\n"
+		"fn size(_b: Bag<Point>) -> Int {\n  0\n}\n\n" +
+		"fn peek(b: Box<Int>) -> Int {\n  b.item\n}\n\n" +
+		"fn hold(_h: Holder<Int>) -> Int {\n  0\n}\n\n" +
+		"fn sack(_s: Sack<Point>) -> Int {\n  0\n}\n"
 	p, err := AnalyzeSource("main", src)
 	if err != nil {
 		t.Fatal(err)
@@ -182,9 +182,9 @@ func TestGenericInstanceNeverSilentlyDropsAField(t *testing.T) {
 // the failure mode sharedGenStructDefs' comment describes.
 func TestGenericInstanceIsInternedPerInstantiation(t *testing.T) {
 	src := "pub struct Box<T> {\n  item: T\n}\n\n" +
-		"fn a(b: Box<Int>): Int {\n  b.item\n}\n\n" +
-		"fn b(c: Box<Int>): Int {\n  c.item\n}\n\n" +
-		"fn c(d: Box<String>): String {\n  d.item\n}\n"
+		"fn a(b: Box<Int>) -> Int {\n  b.item\n}\n\n" +
+		"fn b(c: Box<Int>) -> Int {\n  c.item\n}\n\n" +
+		"fn c(d: Box<String>) -> String {\n  d.item\n}\n"
 	g := lowerableGen(t, src)
 	if n := len(g.genericInstOrder); n != 2 {
 		var got []string

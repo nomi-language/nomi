@@ -17,7 +17,7 @@ import (
 // `main` and from one test case.
 const vmBlockedProgram = `import std/io
 
-fn count(n: Int, acc: Int): Int {
+fn count(n: Int, acc: Int) -> Int {
   if n == 0 {
     acc
   } else {
@@ -38,7 +38,7 @@ test "adds" {
   assert 1 + 2 == 3
 }
 
-fn planted_decline(n: Int): Int {
+fn planted_decline(n: Int) -> Int {
   n
 }
 `
@@ -257,18 +257,18 @@ func TestRunCommand_EachWhileRunsDirectly(t *testing.T) {
 
 fn main() {
   b = String.to_bytes("abc")
-  stopped = Bytes.each_while(b, |x| {
+  stopped = Bytes.each_while(b, fn x -> {
     io.print(Byte.to_int(x))
     Byte.to_int(x) < 98
   })
   io.print(stopped)
-  io.print(Bytes.each_while(b, |_x| True))
-  graphemes = String.each_while("héllo", |g| {
+  io.print(Bytes.each_while(b, fn _x -> True))
+  graphemes = String.each_while("héllo", fn g -> {
     io.print(g)
     g != "l"
   })
   io.print(graphemes)
-  io.print(String.each_while("ab", |_g| True))
+  io.print(String.each_while("ab", fn _g -> True))
 }
 `)
 	out, err := runNomi(t, t.TempDir(), "run", entry)
@@ -298,7 +298,7 @@ func TestRunCommand_EmptyBodiesAnswerUnit(t *testing.T) {
 fn nothing() {}
 
 fn main() {
-  f = || {}
+  f = fn -> {}
   f()
   if 1 == 1 {
   } else {

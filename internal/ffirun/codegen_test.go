@@ -33,7 +33,7 @@ func TestCodegen_RendersOneFFIDep(t *testing.T) {
 				{Key: "sqlite.RawConn", TypeName: "Conn", Declaration: "host type RawConn", SourceFile: "/abs/project/sqlite.nomi", SourceLine: 3, SourceCol: 13},
 			},
 			Exports: []DiscoveredExport{
-				{Key: "sqlite.open_raw", FuncName: "OpenRaw", Declaration: "host fn open_raw(path: String): Result<RawConn, String>", SourceFile: "/abs/project/sqlite.nomi", SourceLine: 5, SourceCol: 14},
+				{Key: "sqlite.open_raw", FuncName: "OpenRaw", Declaration: "host fn open_raw(path: String) -> Result<RawConn, String>", SourceFile: "/abs/project/sqlite.nomi", SourceLine: 5, SourceCol: 14},
 			},
 		},
 	}
@@ -98,7 +98,7 @@ func TestCodegen_TheProjectRunnerLinksNoFrontEnd(t *testing.T) {
 		ImportPath: "github.com/foo/sqlite",
 		Alias:      "sqlite",
 		Exports: []DiscoveredExport{
-			{Key: "sqlite.open_raw", FuncName: "OpenRaw", Declaration: "host fn open_raw(path: String): Result<Int, String>",
+			{Key: "sqlite.open_raw", FuncName: "OpenRaw", Declaration: "host fn open_raw(path: String) -> Result<Int, String>",
 				SourceFile: "/abs/project/sqlite.nomi", SourceLine: 5, SourceCol: 14, EntryKey: "open_raw"},
 		},
 	}}
@@ -191,7 +191,7 @@ func TestCodegen_RendersTaggedExports(t *testing.T) {
 				{Key: "FFI.RawBox", TypeName: "Box", Declaration: "host type RawBox"},
 			},
 			Exports: []DiscoveredExport{
-				{Key: "FFI.echo_upper", FuncName: "EchoUpper", Declaration: "host fn echo_upper(s: String): String"},
+				{Key: "FFI.echo_upper", FuncName: "EchoUpper", Declaration: "host fn echo_upper(s: String) -> String"},
 			},
 		},
 	}

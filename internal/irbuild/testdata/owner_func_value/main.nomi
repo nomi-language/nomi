@@ -14,14 +14,14 @@ struct Todo {
 }
 
 impl Todo {
-    fn render(t: Todo): String {
+    fn render(t: Todo) -> String {
         mark = if t.done { "x" } else { " " }
         "[${mark}] ${t.title}"
     }
 }
 
 impl Display for Todo {
-    fn to_string(t: Todo): String {
+    fn to_string(t: Todo) -> String {
         t.title
     }
 }

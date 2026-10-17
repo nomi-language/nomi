@@ -45,25 +45,25 @@ func TestCompletion_AutoImportStdlib(t *testing.T) {
 	}{
 		{
 			"type into a file with no imports",
-			"fn f(): Int {\n    w: Wee" + cursorMark + " = Weeks(1)\n    1\n}\n",
+			"fn f() -> Int {\n    w: Wee" + cursorMark + " = Weeks(1)\n    1\n}\n",
 			"Weeks",
 			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 0, 0, 0, 0, "import std/calendar.Weeks\n\n") },
 		},
 		{
 			"type merged into the same file's import",
-			"import std/calendar.Months\n\nfn f(m: Months): Int {\n    w: Wee" + cursorMark + "\n    1\n}\n",
+			"import std/calendar.Months\n\nfn f(m: Months) -> Int {\n    w: Wee" + cursorMark + "\n    1\n}\n",
 			"Weeks",
 			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 0, 7, 0, 26, "std/calendar.{Months, Weeks}") },
 		},
 		{
 			"file object after the last import",
-			"import std/io\n\nfn f(): Int {\n    jso" + cursorMark + "\n}\n",
+			"import std/io\n\nfn f() -> Int {\n    jso" + cursorMark + "\n}\n",
 			"json",
 			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 1, 0, 1, 0, "import std/json\n") },
 		},
 		{
 			"file object into an import block",
-			"import {\n    std/io\n    std/strings\n}\n\nfn f(): Int {\n    jso" + cursorMark + "\n}\n",
+			"import {\n    std/io\n    std/strings\n}\n\nfn f() -> Int {\n    jso" + cursorMark + "\n}\n",
 			"json",
 			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 3, 0, 3, 0, "    std/json\n") },
 		},
@@ -110,7 +110,7 @@ func TestCompletion_AutoImportFunctionInsertsQualifiedCall(t *testing.T) {
 }
 
 func TestCompletion_AutoImportNeverReimportsThePrelude(t *testing.T) {
-	items := complete(t, "fn f(): Int {\n    x: Mayb"+cursorMark+"\n    1\n}\n")
+	items := complete(t, "fn f() -> Int {\n    x: Mayb"+cursorMark+"\n    1\n}\n")
 	maybe := itemsWithLabel(items, "Maybe")
 	if len(maybe) != 1 {
 		t.Fatalf("Maybe offered %d times, want once", len(maybe))
@@ -126,7 +126,7 @@ func TestCompletion_AutoImportNeverReimportsThePrelude(t *testing.T) {
 }
 
 func TestCompletion_AutoImportNothingWithoutAPrefix(t *testing.T) {
-	list := completeIn(t, NewServer(), "file:///noprefix.nomi", "fn f(): Int {\n    x = "+cursorMark+"\n    1\n}\n")
+	list := completeIn(t, NewServer(), "file:///noprefix.nomi", "fn f() -> Int {\n    x = "+cursorMark+"\n    1\n}\n")
 	for _, it := range list.Items {
 		if len(it.AdditionalTextEdits) > 0 {
 			t.Fatalf("an empty prefix offers import candidate %q", it.Label)
@@ -139,7 +139,7 @@ func TestCompletion_AutoImportNothingWithoutAPrefix(t *testing.T) {
 
 func TestCompletion_AutoImportProjectFiles(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"server.nomi": "pub struct Config {\n    port: Int\n}\n\npub fn start_server(c: Config): Int {\n    c.port\n}\n\nfn hidden_helper(): Int {\n    1\n}\n",
+		"server.nomi": "pub struct Config {\n    port: Int\n}\n\npub fn start_server(c: Config) -> Int {\n    c.port\n}\n\nfn hidden_helper() -> Int {\n    1\n}\n",
 		"main.nomi":   "fn main() {\n}\n",
 	})
 	s := NewServer()

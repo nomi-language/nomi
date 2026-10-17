@@ -13,7 +13,7 @@ struct Outer {
   hooks: Map<String, (Int) -> Int> = Map.empty()
 }
 fn main() { r = 1..5 io.inspect(Outer{p: [Point{x: if Range.contains?(r, 3) { 1 } else { 0 }}]}) }
-`, "Outer{p: [Point{x: 1}], hooks: {=>}}\n")
+`, "Outer{p: [Point{x: 1}], hooks: %{}}\n")
 }
 
 func TestIRRange_NaNOrdering(t *testing.T) {
@@ -31,8 +31,8 @@ fn main() {
 
 func TestIRRange_EvaluationOrder(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn mark(n: Int): Int { io.print(n) n }
-fn mark_range(r: Range<Int>): Range<Int> { io.print("range") r }
+fn mark(n: Int) -> Int { io.print(n) n }
+fn mark_range(r: Range<Int>) -> Range<Int> { io.print("range") r }
 fn main() {
   io.print(Range.contains?(mark_range(mark(1)..=mark(5)), mark(3)))
   r = mark(2)..mark(8)
@@ -43,7 +43,7 @@ fn main() {
 
 func TestIRRange_Containment(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn interval(): Range<Int> { 1..=5 }
+fn interval() -> Range<Int> { 1..=5 }
 fn main() {
   io.print(Range.contains?("a".."m", "h"))
   io.print(Range.contains?(0.0..=1.0, 1.0))
@@ -52,7 +52,7 @@ fn main() {
   io.print(Range.contains?(5..1, 3))
   io.print(Range.bounded?(interval()))
   r = interval()
-  inside = |n: Int| Range.contains?(r, n)
+  inside = fn n: Int -> Range.contains?(r, n)
   io.print(inside(0))
   io.print(inside(3))
 }
@@ -64,8 +64,8 @@ func TestIRRange_OrderingDependencies(t *testing.T) {
   std/io
   std/comparable.Ordering.{Less as Low}
 }
-fn lower(): Ordering { Low }
-fn rank(o: Ordering): Int {
+fn lower() -> Ordering { Low }
+fn rank(o: Ordering) -> Int {
   case o {
     Ordering.Less -> -1
     Ordering.Equal -> 0

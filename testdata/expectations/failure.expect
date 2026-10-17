@@ -193,7 +193,7 @@ T
 C dbg_surfaces.nomi
 E 1
 N 9
-H 379c697fa766da2735a48a7d3ec41746fda031b80f1e686503d98b1b5f7a0eed
+H f1b256f71534cc3d8d3d90cf69c1d3f487578a72c91e29ed6c4530ffa4b48c27
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg renders a struct in declaration order
 T   dbg line 76: Rev{zeta: 1, alpha: 2} = Rev{zeta: 1, alpha: 2}
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: the values row for the same struct sorts it
@@ -220,7 +220,7 @@ T       m
 T         = Meters(7)
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg over containers and prelude instances
 T   dbg line 106: [Rev{zeta: 1, alpha: 2}] = [Rev{zeta: 1, alpha: 2}]
-T   dbg line 107: (1, "two") = (1, "two")
+T   dbg line 107: #(1, "two") = #(1, "two")
 T   dbg line 108: Some(42) = Some(42)
 T   dbg line 109: None = None
 T   dbg line 110: {a: 1, a0: 2} = {a: 1, a0: 2}
@@ -479,7 +479,7 @@ T
 C func_operand_row.nomi
 E 1
 N 6
-H e143974c25bcc137bbe105abb54335d4d8c0c0015f211503af78995923c25f3d
+H 58cce9ffcda38d39a938ed70f74162225b07b50877c13a4b24b0e0755e1bb9fa
 T FAIL <root>/internal/irbuild/testdata/func_operand_row.nomi :: a module function reference has no row, since it would only name itself
 T   line 71: assertion failed
 T     assert apply(double, 7) == 99
@@ -488,9 +488,9 @@ T       apply(double, 7)
 T         = 14
 T FAIL <root>/internal/irbuild/testdata/func_operand_row.nomi :: a lambda literal argument is not recorded at all
 T   line 77: assertion failed
-T     assert apply(|x| x + 1, 7) == 99
+T     assert apply(fn x -> x + 1, 7) == 99
 T     values:
-T       apply(|x| x + 1, 7)
+T       apply(fn x -> x + 1, 7)
 T         = 8
 T FAIL <root>/internal/irbuild/testdata/func_operand_row.nomi :: a binding holding a function names the VALUE, not the binding
 T   line 82: assertion failed
@@ -1038,9 +1038,9 @@ T
 C subtests_report.nomi
 E 1
 N 5
-H 0bf09b42fb629dbf6ae8e1633a5d952ef0c8e74aae0196069745d94a9323caba
+H 1fc97af4cc86b18abe7ae2fbe46a3ccd1966198b076f0cd7571572a2a87da9d0
 T FAIL <root>/internal/irbuild/testdata/subtests_report.nomi :: two of four rows fail
-T   subtest ("abc", True): line 18: assertion failed
+T   subtest #("abc", True): line 18: assertion failed
 T     assert palindrome?(line) == known_palindrome
 T     values:
 T       line
@@ -1049,7 +1049,7 @@ T       palindrome?(line)
 T         = False
 T       known_palindrome
 T         = True
-T   subtest ("ab", True): line 18: assertion failed
+T   subtest #("ab", True): line 18: assertion failed
 T     assert palindrome?(line) == known_palindrome
 T     values:
 T       line
@@ -1219,18 +1219,18 @@ T
 C tests_lambda_boundary.nomi
 E 1
 N 5
-H 46a1409db650364479f2e0486c40ea3e74bb05e599f850a268fce66d7cd7651d
+H 93337c3a302243377064f1b9f66f73eedca86fc1473d1cd58e3a42b9765728d7
 T FAIL <root>/internal/irbuild/testdata/tests_lambda_boundary.nomi :: a lambda body's comparison stays out of the report
 T   line 22: assertion failed
-T     assert applies?(2, |x| x * 5 > 90)
+T     assert applies?(2, fn x -> x * 5 > 90)
 T     values:
 T       2
 T         = 2
 T FAIL <root>/internal/irbuild/testdata/tests_lambda_boundary.nomi :: the enclosing comparison is still recorded
 T   line 26: assertion failed
-T     assert count_if(7, |x| x * 5 > 90) == 1
+T     assert count_if(7, fn x -> x * 5 > 90) == 1
 T     values:
-T       count_if(7, |x| x * 5 > 90)
+T       count_if(7, fn x -> x * 5 > 90)
 T         = 0
 T FAIL <root>/internal/irbuild/testdata/tests_lambda_boundary.nomi :: a lambda that ran contributes nothing
 T   line 31: assertion failed
@@ -1240,7 +1240,7 @@ T       2 > 3
 T         = False
 T FAIL <root>/internal/irbuild/testdata/tests_lambda_boundary.nomi :: a case scrutinee inside a lambda body stays out too
 T   line 39: assertion failed
-T     assert applies?(2, |v| {
+T     assert applies?(2, fn v -> {
 T         case v {
 T             1 -> True
 T             _ -> v > 90
@@ -1272,7 +1272,7 @@ T
 C tests_operands.nomi
 E 1
 N 21
-H c09269e3b9c0043af5f1a0a08737c9a99d41a003783ad05b090f088eac6527c3
+H 6a2e3216f98289dc48d8ccb451e0e50bea9b64aa6a30de54ea3a59a352d9ccef
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a list of Int
 T   line 103: assertion failed
 T     assert no_list(xs)
@@ -1302,19 +1302,19 @@ T   line 123: assertion failed
 T     assert no_pair(p)
 T     values:
 T       p
-T         = (1, "two")
+T         = #(1, "two")
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a map
 T   line 128: assertion failed
 T     assert no_map(m)
 T     values:
 T       m
-T         = {"a" => 1, "b" => 2}
+T         = %{"a" => 1, "b" => 2}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: an empty map
 T   line 133: assertion failed
 T     assert no_map(m)
 T     values:
 T       m
-T         = {=>}
+T         = %{}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a struct renders every field
 T   line 148: assertion failed
 T     assert no_point(p)

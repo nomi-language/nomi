@@ -10,7 +10,7 @@ import (
 // A `tap` stage is its own node, and its lambda's bare body ends at the next
 // `|>` of its pipeline, as a `then` lambda's does.
 func TestTap_BodyEndsAtTheNextPipe(t *testing.T) {
-	_, stages := pipeStages(t, parseExpr(t, "xs |> tap |v| io.print(v) |> f()"))
+	_, stages := pipeStages(t, parseExpr(t, "xs |> tap fn v -> io.print(v) |> f()"))
 	if len(stages) != 2 {
 		t.Fatalf("got %d stages, want 2", len(stages))
 	}
@@ -31,7 +31,7 @@ func TestTap_BodyEndsAtTheNextPipe(t *testing.T) {
 
 // Braces keep a pipe inside a `tap` lambda.
 func TestTap_BracedBodyHoldsAPipe(t *testing.T) {
-	_, stages := pipeStages(t, parseExpr(t, "xs |> tap |v| { v |> io.print() } |> dbg"))
+	_, stages := pipeStages(t, parseExpr(t, "xs |> tap fn v -> { v |> io.print() } |> dbg"))
 	if len(stages) != 2 {
 		t.Fatalf("got %d stages, want 2", len(stages))
 	}
@@ -43,13 +43,13 @@ func TestTap_BracedBodyHoldsAPipe(t *testing.T) {
 
 func TestTap_Errors(t *testing.T) {
 	for src, want := range map[string]string{
-		"x = tap |v| v":            "`tap` is a pipe stage: write `value |> tap |v| ...`",
-		"tap = 1":                  "`tap` is a pipe stage",
-		"x = 5 |> tap f":           "`tap` takes a lambda: write `tap |v| ...`",
-		"x = 5 |> tap":             "`tap` takes a lambda: write `tap |v| ...`",
-		"x = 5 |> try tap |v| v":   "`try` does not prefix a `tap` stage: write `|> tap |v| ...` and `|> try` as two stages",
-		"x = 5 |> dbg tap |v| v":   "`dbg` does not prefix a `tap` stage: write `|> tap |v| ...` and `|> dbg` as two stages",
-		"x = 5 |> if tap |v| v {}": "`tap` is a pipe stage",
+		"x = tap fn v -> v":            "`tap` is a pipe stage: write `value |> tap fn v -> ...`",
+		"tap = 1":                      "`tap` is a pipe stage",
+		"x = 5 |> tap f":               "`tap` takes a lambda: write `tap fn v -> ...`",
+		"x = 5 |> tap":                 "`tap` takes a lambda: write `tap fn v -> ...`",
+		"x = 5 |> try tap fn v -> v":   "`try` does not prefix a `tap` stage: write `|> tap fn v -> ...` and `|> try` as two stages",
+		"x = 5 |> dbg tap fn v -> v":   "`dbg` does not prefix a `tap` stage: write `|> tap fn v -> ...` and `|> dbg` as two stages",
+		"x = 5 |> if tap fn v -> v {}": "`tap` is a pipe stage",
 	} {
 		if err := parseError(t, src); !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: error %q, want it to contain %q", src, err, want)

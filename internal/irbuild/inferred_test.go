@@ -98,11 +98,11 @@ enum Shape {
   Square Int
 }
 
-fn scalars(a: Int, _b: Float, _c: String, _d: Bool, _e: Unit): Int {
+fn scalars(a: Int, _b: Float, _c: String, _d: Bool, _e: Unit) -> Int {
   a
 }
 
-fn composites(_xs: List<Int>, _p: (Int, String), _f: (Int) -> String, _pt: Point, _m: Meters, _s: Shape): Int {
+fn composites(_xs: List<Int>, _p: #(Int, String), _f: (Int) -> String, _pt: Point, _m: Meters, _s: Shape) -> Int {
   0
 }
 `
@@ -275,6 +275,6 @@ func TestProjectionRefusesWhatTheEmitterCannotRepresent(t *testing.T) {
 	}
 	tuple := g.project(&analysis.TupleType{Elems: []analysis.Type{analysis.TypeInt, analysis.TypeInfallible}})
 	if tuple.tag != tagTuple || tuple.comp == nil || len(tuple.comp.parts) != 2 || tuple.comp.parts[1] != kindNever {
-		t.Fatalf("(Int, Infallible) projected to %s", tuple.nomi())
+		t.Fatalf("#(Int, Infallible) projected to %s", tuple.nomi())
 	}
 }

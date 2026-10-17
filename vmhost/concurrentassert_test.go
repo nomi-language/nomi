@@ -21,7 +21,7 @@ import std/io
 import std/tasks.{Task}
 import std/timer
 
-fn slow(): Int {
+fn slow() -> Int {
   timer.sleep(Duration.seconds(5))
   io.print("slow finished")
   7
@@ -29,8 +29,8 @@ fn slow(): Int {
 
 test "the block's value is the failure" {
   r: Result<Int, AssertionFailure> = concurrent {
-    s = Task.spawn(|| slow())
-    t = Task.spawn(|| 1)
+    s = Task.spawn(fn -> slow())
+    t = Task.spawn(fn -> 1)
     x = Task.await(t)
     assert x == 2
     Ok(x + Task.await(s))
@@ -40,7 +40,7 @@ test "the block's value is the failure" {
 
 test "a block that is the body's value fails the case" {
   concurrent {
-    t = Task.spawn(|| 1)
+    t = Task.spawn(fn -> 1)
     x = Task.await(t)
     assert x == 2
     Ok(x)
@@ -49,7 +49,7 @@ test "a block that is the body's value fails the case" {
 
 test "a passing assertion continues the block" {
   v = concurrent {
-    t = Task.spawn(|| 2)
+    t = Task.spawn(fn -> 2)
     x = Task.await(t)
     assert x == 2
     Ok(x)

@@ -21,7 +21,7 @@ struct Money {
 // Hand-written and deliberately NOT structural: `note` is ignored. A struct is
 // the one shape the operator dispatches for, so this MUST be honoured.
 impl Equatable for Money {
-    fn equal?(a: Money, b: Money): Bool {
+    fn equal?(a: Money, b: Money) -> Bool {
         a.cents == b.cents
     }
 }
@@ -41,7 +41,7 @@ type Id Int
 
 type Expired
 
-fn main(): Unit {
+fn main() -> Unit {
     zero = 0.0
     nan = zero / zero
 

@@ -84,7 +84,7 @@ func (s *travelSession) topLocals(thread int) string {
 const travelSrc = `import std/io
 import std/instant.Instant
 
-fn twice(n: Int): Int {
+fn twice(n: Int) -> Int {
     m = n * 2
     m
 }
@@ -171,7 +171,7 @@ func TestTravel_StepBackReplaysWithRecordedEffects(t *testing.T) {
 
 const addSrc = `import std/io
 
-fn add(acc: Int, n: Int): Int {
+fn add(acc: Int, n: Int) -> Int {
     s = acc + n
     s
 }
@@ -315,14 +315,14 @@ func TestTravel_ATaskTurnsStepBackOff(t *testing.T) {
     std/tasks.Task
 }
 
-fn work(n: Int): Int {
+fn work(n: Int) -> Int {
     r = n * 2
     r
 }
 
 fn main() {
     v = concurrent {
-        t = Task.spawn(|| work(21))
+        t = Task.spawn(fn -> work(21))
         Task.await(t)
     }
 

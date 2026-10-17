@@ -25,15 +25,15 @@ pub enum Reading {
 // A distinct type crosses as itself.
 pub type Meters Int
 
-pub fn origin(): Point {
+pub fn origin() -> Point {
     Point{x: 0, y: 0, tag: "origin"}
 }
 
-pub fn shift(p: Point, by: Int): Point {
+pub fn shift(p: Point, by: Int) -> Point {
     Point{x: p.x + by, y: p.y + by, tag: p.tag}
 }
 
-pub fn describe(r: Reading): String {
+pub fn describe(r: Reading) -> String {
     case r {
         Reading.Empty -> "empty"
         Reading.Whole(n) -> "whole ${n}"
@@ -43,7 +43,7 @@ pub fn describe(r: Reading): String {
 
 // A distinct type crosses as itself. It is only passed here; the fixture
 // unwraps it in the entry.
-pub fn bounce(m: Meters): Meters {
+pub fn bounce(m: Meters) -> Meters {
     m
 }
 
@@ -54,7 +54,7 @@ pub struct Defaulted {
     n: Int = seed()
 }
 
-fn seed(): Int {
+fn seed() -> Int {
     7
 }
 
@@ -66,6 +66,6 @@ struct Hidden {
     n: Int
 }
 
-pub fn hidden_count(): Int {
+pub fn hidden_count() -> Int {
     Hidden{n: 3}.n
 }

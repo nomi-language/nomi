@@ -16,11 +16,11 @@ import (
 // same program (a `Map.size` before the `Map.get`) had loaded them.
 var preludeOrderPrograms = []struct{ name, src, want string }{
 	{"Map.get", `fn main() {
-    config = {"host" => "localhost"}
+    config = %{"host" => "localhost"}
     dbg Map.get(config, "host")
 }
 `, "dbg line 3: Map.get(config, \"host\") = Some(\"localhost\")\n"},
-	{"Map.get of a list", `fn main() { m = {"a" => [1, 2]} dbg Map.get(m, "a") return }
+	{"Map.get of a list", `fn main() { m = %{"a" => [1, 2]} dbg Map.get(m, "a") return }
 `, "dbg line 1: Map.get(m, \"a\") = Some([1, 2])\n"},
 	{"Vector.get", `fn main() {
     v = #[1, 2, 3]
@@ -32,7 +32,7 @@ var preludeOrderPrograms = []struct{ name, src, want string }{
 // preludeOrderWarmup is loaded and run first in the warm process, so its
 // std instances, caches and prelude uses exist before the programs above.
 const preludeOrderWarmup = `fn main() {
-    m = {"a" => 1}
+    m = %{"a" => 1}
     dbg Map.size(m)
     dbg Map.get(m, "a")
     dbg List.head([Some(1)])

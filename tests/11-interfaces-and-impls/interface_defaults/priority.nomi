@@ -5,12 +5,12 @@ pub struct Priority {
 }
 
 /// Constructs a Priority value for the constrained-default example.
-pub fn make(level: Int): Priority {
+pub fn make(level: Int) -> Priority {
     Priority{level}
 }
 
 impl Comparable for Priority {
-    fn compare(a: Priority, b: Priority): Ordering {
+    fn compare(a: Priority, b: Priority) -> Ordering {
         Int.compare(a.level, b.level)
     }
 }

@@ -39,7 +39,7 @@ pub struct Cfg {
   name: String = "dev"
 }
 
-fn boot(): Cfg {
+fn boot() -> Cfg {
   Cfg{context: Context.root(), }
 }
 `

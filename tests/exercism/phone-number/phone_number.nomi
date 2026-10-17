@@ -13,14 +13,14 @@ pub enum Error {
 
 /// Cleans a NANP phone number down to its ten digits, dropping punctuation
 /// and a leading country code of 1.
-pub fn clean(phrase: String): Result<String, Error> {
+pub fn clean(phrase: String) -> Result<String, Error> {
     codepoints = String.to_codepoints(phrase)
 
     if Iter.any?(codepoints, Codepoint.letter?) {
         return Err(.Letters)
     }
 
-    if !Iter.all?(codepoints, |cp| Codepoint.digit?(cp) or separator?(cp)) {
+    if !Iter.all?(codepoints, fn cp -> Codepoint.digit?(cp) or separator?(cp)) {
         return Err(.Punctuation)
     }
 
@@ -38,7 +38,7 @@ pub fn clean(phrase: String): Result<String, Error> {
 }
 
 /// Strips the country code from eleven digits, so ten remain.
-fn national(digits: List<Int>): Result<List<Int>, Error> {
+fn national(digits: List<Int>) -> Result<List<Int>, Error> {
     count = Iter.count(digits)
 
     case digits {
@@ -50,7 +50,7 @@ fn national(digits: List<Int>): Result<List<Int>, Error> {
     }
 }
 
-fn separator?(cp: Codepoint): Bool {
+fn separator?(cp: Codepoint) -> Bool {
     case cp {
         ' ' or '(' or ')' or '-' or '.' or '+' -> True
         _ -> False

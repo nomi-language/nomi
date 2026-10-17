@@ -18,7 +18,7 @@ enum Wrapped {
 // LITERAL test is the interesting part: when it fails the whole arm must fail
 // and the next arm must be tried, which is what a decision tree that shares
 // the outer tag test between arms gets wrong.
-fn describe(w: Wrapped): String {
+fn describe(w: Wrapped) -> String {
     case w {
         Wrapped.Pair(Outer{inner: Inner{v: 1}, tag}) -> "one/${tag}"
         Wrapped.Pair(Outer{inner: Inner{v}, tag: 9}) -> "v${v}/nine"
@@ -29,7 +29,7 @@ fn describe(w: Wrapped): String {
 
 // The same nesting reached through field patterns only, with punning at two
 // depths.
-fn total(o: Outer): Int {
+fn total(o: Outer) -> Int {
     case o {
         Outer{inner: Inner{v}, tag} -> v + tag
     }

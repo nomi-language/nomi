@@ -5,7 +5,7 @@ import "testing"
 func TestIRMapList_TourIndex(t *testing.T) {
 	verifyLambdaProgram(t, `typealias Index Map<String, List<Int>>
 
-fn record(index: Index, bucket: String, n: Int): Index {
+fn record(index: Index, bucket: String, n: Int) -> Index {
   existing: List<Int> = case Map.get(index, bucket) {
     Some(xs) -> xs
     None -> []
@@ -23,15 +23,15 @@ fn main() {
 
   dbg result
 }
-`, "dbg line 19: result = {\"evens\" => [4, 2], \"odds\" => [1]}\n")
+`, "dbg line 19: result = %{\"evens\" => [4, 2], \"odds\" => [1]}\n")
 }
 
 func TestIRMapList_DebugAndPersistence(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
-  counts = {"a\"q" => 1, "b" => 2}
+  counts = %{"a\"q" => 1, "b" => 2}
   dbg counts
-  lists = {"x" => [1, 2], "y" => [3]}
+  lists = %{"x" => [1, 2], "y" => [3]}
   more = Map.put(lists, "x", [9])
   dbg lists
   dbg more
@@ -40,8 +40,8 @@ fn main() {
   dbg empty
   io.print("done")
 }
-`, "dbg line 4: counts = {\"a\\\"q\" => 1, \"b\" => 2}\n"+
-		"dbg line 7: lists = {\"x\" => [1, 2], \"y\" => [3]}\n"+
-		"dbg line 8: more = {\"x\" => [9], \"y\" => [3]}\n2\n"+
-		"dbg line 11: empty = {=>}\ndone\n")
+`, "dbg line 4: counts = %{\"a\\\"q\" => 1, \"b\" => 2}\n"+
+		"dbg line 7: lists = %{\"x\" => [1, 2], \"y\" => [3]}\n"+
+		"dbg line 8: more = %{\"x\" => [9], \"y\" => [3]}\n2\n"+
+		"dbg line 11: empty = %{}\ndone\n")
 }

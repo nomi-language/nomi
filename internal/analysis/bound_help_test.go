@@ -19,22 +19,22 @@ struct Point {
 }
 
 interface Shape {
-    fn area(s: self): Float
-    fn scale(s: self, by: Float): self
-    fn name(s: self): String {
+    fn area(s: self) -> Float
+    fn scale(s: self, by: Float) -> self
+    fn name(s: self) -> String {
         "shape"
     }
 }
 
-fn has<M>(text: String, m: M): Bool where M: Matcher {
+fn has<M>(text: String, m: M) -> Bool where M: Matcher {
     Matcher.contained_in?(m, text)
 }
 
-fn total<S>(s: S): Float where S: Shape {
+fn total<S>(s: S) -> Float where S: Shape {
     Shape.area(s)
 }
 
-fn key<H>(h: H): Int where H: Hashable {
+fn key<H>(h: H) -> Int where H: Hashable {
     Hashable.hash(h)
 }
 
@@ -58,19 +58,19 @@ fn key<H>(h: H): Int where H: Hashable {
 			"own interface",
 			`total(Point{x: 1})`,
 			"Point does not implement Shape (required by `where S: Shape`)",
-			"write an `impl Shape for Point` block with `fn area(s: Point): Float` and `fn scale(s: Point, by: Float): Point`",
+			"write an `impl Shape for Point` block with `fn area(s: Point) -> Float` and `fn scale(s: Point, by: Float) -> Point`",
 		},
 		{
 			"own interface, std type",
 			`total(4)`,
 			"Int does not implement Shape (required by `where S: Shape`)",
-			"write an `impl Shape for Int` block with `fn area(s: Int): Float` and `fn scale(s: Int, by: Float): Int`",
+			"write an `impl Shape for Int` block with `fn area(s: Int) -> Float` and `fn scale(s: Int, by: Float) -> Int`",
 		},
 		{
 			"derivable interface, own type",
 			`key(Point{x: 1})`,
 			"Point does not implement Hashable (required by `where H: Hashable`)",
-			"add `derive Hashable` to `Point` or write an `impl Hashable for Point` block with `fn hash(value: Point): Int`",
+			"add `derive Hashable` to `Point` or write an `impl Hashable for Point` block with `fn hash(value: Point) -> Int`",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

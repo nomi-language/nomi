@@ -46,13 +46,13 @@ enum Holder {
     Many List<(Int) -> Int>
 }
 
-fn first_or<T>(xs: List<T>, d: T): T {
+fn first_or<T>(xs: List<T>, d: T) -> T {
     Maybe.with_default(List.head(xs), d)
 }
 
 fn main() {
-    inc: (Int) -> Int = |x| x + 1
-    dbl: (Int) -> Int = |x| x * 2
+    inc: (Int) -> Int = fn x -> x + 1
+    dbl: (Int) -> Int = fn x -> x * 2
     b = Box{v: inc}.v
     io.inspect(b(1))
     case Opt.Has(dbl) {
@@ -63,28 +63,28 @@ fn main() {
     io.inspect(g(3))
     h = Result.with_default(Ok<(Int) -> Int, String>(dbl), inc)
     io.inspect(h(4))
-    io.inspect(Maybe.map(Some(inc), |f| f(5)))
-    io.inspect(Result.map(Ok<(Int) -> Int, String>(dbl), |f| f(6)))
+    io.inspect(Maybe.map(Some(inc), fn f -> f(5)))
+    io.inspect(Result.map(Ok<(Int) -> Int, String>(dbl), fn f -> f(6)))
     fs = [inc, dbl]
     io.inspect(Iter.count(fs))
     io.inspect(fs)
-    io.inspect(Iter.map(fs, |f| f(10)) |> Iter.to_list())
-    io.inspect(Iter.filter(fs, |f| f(1) > 1) |> Iter.count())
-    io.inspect(Iter.reduce(fs, |acc = 3, f| f(acc)))
-    composed = Iter.reduce(fs, |acc = inc, f| |x: Int| f(acc(x)))
+    io.inspect(Iter.map(fs, fn f -> f(10)) |> Iter.to_list())
+    io.inspect(Iter.filter(fs, fn f -> f(1) > 1) |> Iter.count())
+    io.inspect(Iter.reduce(fs, fn acc = 3, f -> f(acc)))
+    composed = Iter.reduce(fs, fn acc = inc, f -> fn x: Int -> f(acc(x)))
     io.inspect(composed(1))
-    adders = Iter.map([1, 2], |n| |x: Int| x + n) |> Iter.to_list()
-    io.inspect(Iter.map(adders, |f| f(1)) |> Iter.to_list())
-    io.inspect(Iter.any?(fs, |f| f(0) == 1))
-    Iter.each(fs, |f| io.inspect(f(100)))
+    adders = Iter.map([1, 2], fn n -> fn x: Int -> x + n) |> Iter.to_list()
+    io.inspect(Iter.map(adders, fn f -> f(1)) |> Iter.to_list())
+    io.inspect(Iter.any?(fs, fn f -> f(0) == 1))
+    Iter.each(fs, fn f -> io.inspect(f(100)))
     io.inspect(first_or([], inc)(7))
     io.inspect(first_or(fs, inc)(7))
-    io.inspect(Iter.map(Ops{fs: fs}.fs, |f| f(5)) |> Iter.to_list())
+    io.inspect(Iter.map(Ops{fs: fs}.fs, fn f -> f(5)) |> Iter.to_list())
     case Holder.Many(fs) {
-        .Many(gs) -> io.inspect(Iter.map(gs, |f| f(7)) |> Iter.to_list())
+        .Many(gs) -> io.inspect(Iter.map(gs, fn f -> f(7)) |> Iter.to_list())
     }
-    held = Result.with_default(Err("no"), [|x: Int| x - 1])
-    io.inspect(Iter.map(held, |f| f(1)) |> Iter.to_list())
+    held = Result.with_default(Err("no"), [fn x: Int -> x - 1])
+    io.inspect(Iter.map(held, fn f -> f(1)) |> Iter.to_list())
 }
 `
 	const want = "2\n" +

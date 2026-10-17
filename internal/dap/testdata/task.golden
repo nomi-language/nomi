@@ -13,7 +13,7 @@
 -> threads
 <- response threads {"threads":[{"id":1,"name":"main"},{"id":2,"name":"task at task.nomi:13"}]}
 -> stackTrace {"threadId":2}
-<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":7,"name":"work","source":{"name":"task.nomi","path":"$TESTDATA/task.nomi"}},{"column":31,"id":2,"line":13,"name":"<lambda>","source":{"name":"task.nomi","path":"$TESTDATA/task.nomi"}}],"totalFrames":2}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":7,"name":"work","source":{"name":"task.nomi","path":"$TESTDATA/task.nomi"}},{"column":34,"id":2,"line":13,"name":"<lambda>","source":{"name":"task.nomi","path":"$TESTDATA/task.nomi"}}],"totalFrames":2}
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
 -> variables {"variablesReference":1}

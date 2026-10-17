@@ -265,7 +265,7 @@ func TestDeriveMultiArgChecksEachInterface(t *testing.T) {
 	src := `struct HalfImpl { x: Int }
 
 impl Equatable for HalfImpl {
-  fn equal?(a: HalfImpl, b: HalfImpl): Bool {
+  fn equal?(a: HalfImpl, b: HalfImpl) -> Bool {
     Equatable.equal?(a.x, b.x)
   }
 }
@@ -302,7 +302,7 @@ derive Comparable for Wrap`
 // error (which would be true but unactionable).
 func TestDeriveDebugOnInterfaceTypedPayloadIsClean(t *testing.T) {
 	src := `pub interface Speech {
-  fn say(value: self): String
+  fn say(value: self) -> String
 }
 
 struct Holder {

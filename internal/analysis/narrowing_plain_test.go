@@ -25,29 +25,29 @@ enum Named {
   Circle
   Int
 }
-fn b(_x: Bool): Int { 1 }
-fn m(_x: Maybe<Int>): Int { 2 }
-fn r(_x: Result<Int, String>): Int { 3 }
-fn s(_x: Shape): Int { 4 }
-fn f(bx: Bool): Int {
+fn b(_x: Bool) -> Int { 1 }
+fn m(_x: Maybe<Int>) -> Int { 2 }
+fn r(_x: Result<Int, String>) -> Int { 3 }
+fn s(_x: Shape) -> Int { 4 }
+fn f(bx: Bool) -> Int {
   case bx {
     True -> b(bx)
     False -> b(bx)
   }
 }
-fn g(mx: Maybe<Int>): Int {
+fn g(mx: Maybe<Int>) -> Int {
   case mx {
     Some(_) -> m(mx)
     None -> m(mx)
   }
 }
-fn h(rx: Result<Int, String>): Int {
+fn h(rx: Result<Int, String>) -> Int {
   case rx {
     Ok(_) -> r(rx)
     Err(_) -> r(rx)
   }
 }
-fn k(sx: Shape): Int {
+fn k(sx: Shape) -> Int {
   case sx {
     .Dot -> s(sx)
     .Round(_) -> s(sx)
@@ -55,19 +55,19 @@ fn k(sx: Shape): Int {
     .Wrapped(_) -> s(sx)
   }
 }
-fn i(mi: Maybe<Int>, bi: Bool): Int {
+fn i(mi: Maybe<Int>, bi: Bool) -> Int {
   one = if Some(_) = mi { m(mi) } else { 0 }
   two = if True = bi { b(bi) } else { 0 }
   one + two
 }
-fn n(_x: Named): Int { 5 }
-fn l(nx: Named): Int {
+fn n(_x: Named) -> Int { 5 }
+fn l(nx: Named) -> Int {
   case nx {
     .Circle -> n(nx)
     .Int -> n(nx)
   }
 }
-fn j(bj: Bool): Bool {
+fn j(bj: Bool) -> Bool {
   case bj {
     True -> bj
     False -> bj

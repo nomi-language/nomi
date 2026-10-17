@@ -9,11 +9,11 @@
 //     the call runs — `cleanup first`, not the shadowed value.
 import std/io
 
-fn note(s: String): Unit {
+fn note(s: String) -> Unit {
     io.print("cleanup ${s}")
 }
 
-fn inner(): Unit {
+fn inner() -> Unit {
     io.print("block-enter")
 
     {
@@ -26,7 +26,7 @@ fn inner(): Unit {
     io.print("block-left")
 }
 
-fn captured(): Unit {
+fn captured() -> Unit {
     x = "first"
     defer note(x)
     y = "${x}-shadowed"

@@ -1,12 +1,12 @@
 /// The number of positions at which two DNA strands differ. Strands of
 /// different lengths have no Hamming distance.
-pub fn distance(strand1: String, strand2: String): Result<Int, String> {
+pub fn distance(strand1: String, strand2: String) -> Result<Int, String> {
     if String.length(strand1) != String.length(strand2) {
         return Err("strands must be of equal length")
     }
 
     Iter.zip(strand1, strand2)
-    |> Iter.filter(|(a, b)| a != b)
+    |> Iter.filter(fn #(a, b) -> a != b)
     |> Iter.count()
     |> Ok()
 }

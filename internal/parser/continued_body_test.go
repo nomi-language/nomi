@@ -24,7 +24,7 @@ func TestContinuedBody_IsAnError(t *testing.T) {
 	}{
 		{
 			name: "case arm, body on the next line",
-			src: `fn f(r: Result<Int, String>): Int {
+			src: `fn f(r: Result<Int, String>) -> Int {
     case r {
         Ok(n) ->
             io.print("got ${n}")
@@ -38,7 +38,7 @@ func TestContinuedBody_IsAnError(t *testing.T) {
 		},
 		{
 			name: "case arm, body on the arrow's line",
-			src: `fn f(r: Result<Int, String>): Int {
+			src: `fn f(r: Result<Int, String>) -> Int {
     case r {
         Ok(n) -> io.print("got ${n}")
             n
@@ -51,7 +51,7 @@ func TestContinuedBody_IsAnError(t *testing.T) {
 		},
 		{
 			name: "guarded arm",
-			src: `fn f(x: Int): Int {
+			src: `fn f(x: Int) -> Int {
     case x {
         n when n > 0 ->
             io.print("pos")
@@ -65,7 +65,7 @@ func TestContinuedBody_IsAnError(t *testing.T) {
 		},
 		{
 			name: "string pattern",
-			src: `fn f(s: String): Int {
+			src: `fn f(s: String) -> Int {
     case s {
         "go" ->
             io.print(s)
@@ -79,7 +79,7 @@ func TestContinuedBody_IsAnError(t *testing.T) {
 		},
 		{
 			name: "conditions case",
-			src: `fn f(x: Int): Int {
+			src: `fn f(x: Int) -> Int {
     case {
         x > 0 ->
             io.print("pos")
@@ -93,7 +93,7 @@ func TestContinuedBody_IsAnError(t *testing.T) {
 		},
 		{
 			name: "binding else arm",
-			src: `fn f(r: Result<Int, String>): Int {
+			src: `fn f(r: Result<Int, String>) -> Int {
     Ok(n) = r else {
         Err(msg) ->
             io.print(msg)
@@ -107,26 +107,26 @@ func TestContinuedBody_IsAnError(t *testing.T) {
 		},
 		{
 			name: "lambda argument",
-			src: `fn f(xs: List<Int>): Int {
-    xs |> Iter.reduce(0, |acc, x|
+			src: `fn f(xs: List<Int>) -> Int {
+    xs |> Iter.reduce(0, fn acc, x ->
         io.print("x")
         acc + x)
 }
 `,
-			message: continuedLambda, hint: "put the lambda's body in braces:\n|acc, x| {\n    ...\n}",
-			line: 4, col: 9, after: Pos{2, 34}, end: Pos{4, 16},
+			message: continuedLambda, hint: "put the lambda's body in braces:\nfn acc, x -> {\n    ...\n}",
+			line: 4, col: 9, after: Pos{2, 38}, end: Pos{4, 16},
 		},
 		{
 			name: "lambda argument closed on its own line",
 			src: `fn f(xs: List<Int>) {
-    xs |> Iter.each(|x|
+    xs |> Iter.each(fn x ->
         io.print("x")
         io.print("y")
     )
 }
 `,
-			message: continuedLambda, hint: "put the lambda's body in braces:\n|x| {\n    ...\n}",
-			line: 4, col: 9, after: Pos{2, 24}, end: Pos{4, 22},
+			message: continuedLambda, hint: "put the lambda's body in braces:\nfn x -> {\n    ...\n}",
+			line: 4, col: 9, after: Pos{2, 28}, end: Pos{4, 22},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -162,7 +162,7 @@ func TestContinuedBody_IsAnError(t *testing.T) {
 // however indented, are what they were.
 func TestContinuedBody_ValidShapesUnaffected(t *testing.T) {
 	for _, src := range []string{
-		`fn f(r: Result<Int, String>): Int {
+		`fn f(r: Result<Int, String>) -> Int {
     case r {
         Ok(n) -> {
             io.print("got ${n}")
@@ -172,7 +172,7 @@ func TestContinuedBody_ValidShapesUnaffected(t *testing.T) {
     }
 }
 `,
-		`fn f(r: Result<Int, String>): Int {
+		`fn f(r: Result<Int, String>) -> Int {
     case r {
         Ok(n) ->
             n
@@ -180,7 +180,7 @@ func TestContinuedBody_ValidShapesUnaffected(t *testing.T) {
     }
 }
 `,
-		`fn f(x: Int): Int {
+		`fn f(x: Int) -> Int {
     case x {
         0 -> 1
             1 -> 2
@@ -189,7 +189,7 @@ func TestContinuedBody_ValidShapesUnaffected(t *testing.T) {
     }
 }
 `,
-		`fn f(r: Result<Int, String>): Int {
+		`fn f(r: Result<Int, String>) -> Int {
     case r {
         Ok(n) -> n
             |> Int.abs()
@@ -197,13 +197,13 @@ func TestContinuedBody_ValidShapesUnaffected(t *testing.T) {
     }
 }
 `,
-		`fn f(xs: List<Int>): Int {
-    xs |> Iter.reduce(0, |acc, x|
+		`fn f(xs: List<Int>) -> Int {
+    xs |> Iter.reduce(0, fn acc, x ->
         acc + x)
 }
 `,
-		`fn f(xs: List<Int>): Int {
-    xs |> Iter.reduce(0, |acc, x| {
+		`fn f(xs: List<Int>) -> Int {
+    xs |> Iter.reduce(0, fn acc, x -> {
         io.print("x")
         acc + x
     })
@@ -220,7 +220,7 @@ func TestContinuedBody_ValidShapesUnaffected(t *testing.T) {
 // unrelated error later in the same function and one in the next function
 // are each reported once.
 func TestContinuedBody_Recovers(t *testing.T) {
-	src := `fn f(r: Result<Int, String>): Int {
+	src := `fn f(r: Result<Int, String>) -> Int {
     x = case r {
         Ok(n) ->
             io.print("got ${n}")
@@ -230,7 +230,7 @@ func TestContinuedBody_Recovers(t *testing.T) {
     y = (x +
 }
 
-fn g(): Int {
+fn g() -> Int {
     1 +
 }
 `
@@ -276,22 +276,22 @@ func TestStrayBodyMarker_IsAnError(t *testing.T) {
 	}{
 		{
 			"doc comment run",
-			"fn f(text: String): Int {\n    /// if text == \"\" { 0 }\n    /// else\n    1\n}\n",
+			"fn f(text: String) -> Int {\n    /// if text == \"\" { 0 }\n    /// else\n    1\n}\n",
 			strayBodyDoc, []Pos{{2, 5}, {3, 5}},
 		},
 		{
 			"doc comment before an arm",
-			"fn f(x: Int): Int {\n    case x {\n        /// one\n        1 -> 2\n        _ -> x\n    }\n}\n",
+			"fn f(x: Int) -> Int {\n    case x {\n        /// one\n        1 -> 2\n        _ -> x\n    }\n}\n",
 			strayBodyDoc, []Pos{{3, 9}},
 		},
 		{
 			"prompt before a statement",
-			"fn f(x: Int): Int {\n    //! assert f(1) == 1\n    x\n}\n",
+			"fn f(x: Int) -> Int {\n    //! assert f(1) == 1\n    x\n}\n",
 			strayBodyPrompt, []Pos{{2, 5}},
 		},
 		{
 			"prompt at the end of a body",
-			"fn f(x: Int): Int {\n    x\n    //! assert f(1) == 1\n    //! assert f(2) == 2\n}\n",
+			"fn f(x: Int) -> Int {\n    x\n    //! assert f(1) == 1\n    //! assert f(2) == 2\n}\n",
 			strayBodyPrompt, []Pos{{3, 5}, {4, 5}},
 		},
 	} {
@@ -326,8 +326,8 @@ func TestStrayBodyMarker_IsAnError(t *testing.T) {
 // were, a nested declaration's attached test included.
 func TestStrayBodyMarker_DeclarationsUnaffected(t *testing.T) {
 	for _, src := range []string{
-		"/// Doubles n.\n//! assert double(2) == 4\nfn double(n: Int): Int {\n    n * 2\n}\n",
-		"fn f(x: Int): Int {\n    //! assert g(1) == 2\n    fn g(y: Int): Int {\n        y * 2\n    }\n    g(x)\n}\n",
+		"/// Doubles n.\n//! assert double(2) == 4\nfn double(n: Int) -> Int {\n    n * 2\n}\n",
+		"fn f(x: Int) -> Int {\n    //! assert g(1) == 2\n    fn g(y: Int) -> Int {\n        y * 2\n    }\n    g(x)\n}\n",
 	} {
 		if _, err := Parse(lexer.Lex(src)); err != nil {
 			t.Errorf("Parse rejected\n%s: %v", src, err)

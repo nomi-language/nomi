@@ -33,11 +33,11 @@ struct Point {
     alpha: Int
 }
 
-fn same_alpha?(left: Point, right: Point): Bool {
+fn same_alpha?(left: Point, right: Point) -> Bool {
     left.alpha == right.alpha
 }
 
-fn fails_pattern_binding(): Result<Unit, AssertionFailure> {
+fn fails_pattern_binding() -> Result<Unit, AssertionFailure> {
     assert [_, _] = [1]
     Ok(Unit)
 }
@@ -45,7 +45,7 @@ fn fails_pattern_binding(): Result<Unit, AssertionFailure> {
 // A failure whose keyword is `refute`, which no `check` can produce: `refute`
 // says so in its own words rather than reusing "assertion failed", and the
 // renderer prints whichever keyword the failure carries.
-fn fails_refutation(): Result<Unit, AssertionFailure> {
+fn fails_refutation() -> Result<Unit, AssertionFailure> {
     refute True
     Ok(Unit)
 }

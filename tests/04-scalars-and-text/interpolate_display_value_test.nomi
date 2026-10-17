@@ -13,21 +13,21 @@ struct Point {
 }
 
 impl Display for Point {
-    fn to_string(p: Point): String {
+    fn to_string(p: Point) -> String {
         "(${p.x}, ${p.y})"
     }
 }
 
-fn show(x: Display): String {
+fn show(x: Display) -> String {
     "<${x}>"
 }
 
-fn show_bounded<T>(x: T): String where T: Display {
+fn show_bounded<T>(x: T) -> String where T: Display {
     "[${x}]"
 }
 
-fn show_all(xs: List<Display>): String {
-    xs |> Iter.map(|x| "${x}") |> String.join(",")
+fn show_all(xs: List<Display>) -> String {
+    xs |> Iter.map(fn x -> "${x}") |> String.join(",")
 }
 
 test "a Display parameter interpolates through the value's own impl" {

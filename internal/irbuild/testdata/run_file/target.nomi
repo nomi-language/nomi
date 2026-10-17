@@ -7,7 +7,7 @@ struct Probe {
     value: String
 }
 
-fn boot(startup: Startup): Probe {
+fn boot(startup: Startup) -> Probe {
     found = case Map.get(startup.env, "NOMI_RUN_FILE_FIXTURE_PROBE") {
         Some(v) -> v
         None -> "absent"

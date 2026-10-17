@@ -7,7 +7,7 @@ fn main() {
 
     quotients =
         [5, 0, 1]
-        |> Iter.map(|x| {
+        |> Iter.map(fn x -> {
             divisor = x
             10 / divisor
         })

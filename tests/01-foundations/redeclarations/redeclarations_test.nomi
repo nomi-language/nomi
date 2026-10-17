@@ -6,11 +6,11 @@ import {
 test "duplicate same-scope top-level declarations are rejected" {
     diagnostics = compiler.check(
         """
-          fn helper(): Int {
+          fn helper() -> Int {
             1
           }
 
-          fn helper(): Int {
+          fn helper() -> Int {
             2
           }
 

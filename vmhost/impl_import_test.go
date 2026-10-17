@@ -14,8 +14,8 @@ import (
 // implImportTypes declares a type and an interface; implImportImpls holds the
 // one impl block for them, and names nothing a file importing it could use.
 const (
-	implImportTypes = "pub struct Thing {\n    n: Int\n}\n\npub interface Alpha {\n    fn go(x: self): Int\n}\n\npub fn thing(n: Int): Thing {\n    Thing{n}\n}\n"
-	implImportImpls = "import types.{Alpha, Thing}\n\nimpl Alpha for Thing {\n    fn go(x: Thing): Int {\n        x.n\n    }\n}\n\nimpl Display for Thing {\n    fn to_string(x: Thing): String {\n        \"thing ${Int.to_string(x.n)}\"\n    }\n}\n"
+	implImportTypes = "pub struct Thing {\n    n: Int\n}\n\npub interface Alpha {\n    fn go(x: self) -> Int\n}\n\npub fn thing(n: Int) -> Thing {\n    Thing{n}\n}\n"
+	implImportImpls = "import types.{Alpha, Thing}\n\nimpl Alpha for Thing {\n    fn go(x: Thing) -> Int {\n        x.n\n    }\n}\n\nimpl Display for Thing {\n    fn to_string(x: Thing) -> String {\n        \"thing ${Int.to_string(x.n)}\"\n    }\n}\n"
 )
 
 func writeImplImportProgram(t *testing.T, main string) string {
@@ -50,7 +50,7 @@ func TestImplImport_UsedForAnImplIsNotReported(t *testing.T) {
 		{
 			name: "bound",
 			main: "import {\n    std/io\n    impls\n    types.{self, Alpha}\n}\n\n" +
-				"fn run<T>(x: T): Int where T: Alpha {\n    T.go(x)\n}\n\n" +
+				"fn run<T>(x: T) -> Int where T: Alpha {\n    T.go(x)\n}\n\n" +
 				"fn main() {\n    io.print(Int.to_string(run(types.thing(4))))\n}\n",
 			want: "4\n",
 		},

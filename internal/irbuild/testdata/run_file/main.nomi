@@ -49,7 +49,7 @@ import {
     std/io
 }
 
-fn out(r: RunFile): String {
+fn out(r: RunFile) -> String {
     case compiler.run_file(r) {
         Ok(text) -> "[" + text + "]"
         Err(message) -> "ERR " + message
@@ -65,7 +65,7 @@ fn out(r: RunFile): String {
 /// mentions the missing module, which still shows the run resolved the
 /// project root, so what is dropped here is only the
 /// absolute pin, and only for this row.
-fn err_mentions(r: RunFile, needle: String): String {
+fn err_mentions(r: RunFile, needle: String) -> String {
     case compiler.run_file(r) {
         Ok(_) -> "unexpectedly ok"
         Err(message) -> "${String.contains?(message, needle)}"
@@ -91,7 +91,7 @@ fn main() {
     // this one.
     io.print("with_env = " + out(RunFile{
             entry_point: "target",
-            env: {"NOMI_RUN_FILE_FIXTURE_PROBE" => "arrived"},
+            env: %{"NOMI_RUN_FILE_FIXTURE_PROBE" => "arrived"},
         }))
 
     // --- 4. A SECOND KEY, so the map is a MAP and not one slot -------------
@@ -99,7 +99,7 @@ fn main() {
     // entry only, or that overwrote, answers row 3's text here too.
     io.print("two_keys = " + out(RunFile{
             entry_point: "target",
-            env: {
+            env: %{
                 "NOMI_RUN_FILE_FIXTURE_OTHER" => "ignored",
                 "NOMI_RUN_FILE_FIXTURE_PROBE" => "second",
             },

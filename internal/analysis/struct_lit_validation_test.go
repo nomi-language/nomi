@@ -115,7 +115,7 @@ func TestCheck_StructLit_StaysLenientWhereTheLanguageIs(t *testing.T) {
 		},
 		{
 			name: "a lambda at a function-typed field, params inferred from the field",
-			src:  "struct Cfg {\n  f: (Int) -> Int\n}\nfn main() {\n  _a = Cfg{f: |x| x + 1}\n}\n",
+			src:  "struct Cfg {\n  f: (Int) -> Int\n}\nfn main() {\n  _a = Cfg{f: fn x -> x + 1}\n}\n",
 		},
 		{
 			name: "an anonymous-struct field",
@@ -132,13 +132,13 @@ func TestCheck_StructLit_StaysLenientWhereTheLanguageIs(t *testing.T) {
 		{
 			name: "a concrete implementer at an interface-typed field",
 			src: `interface Clock {
-  fn at(c: self): Int
+  fn at(c: self) -> Int
 }
 struct RealClock {
   t: Int
 }
 impl Clock for RealClock {
-  fn at(c: RealClock): Int { c.t }
+  fn at(c: RealClock) -> Int { c.t }
 }
 struct Cfg {
   c: Clock
@@ -165,7 +165,7 @@ fn main() {
 //	field 'c' of Cfg: expected Clock, got NoClock
 func TestCheck_StructLit_InterfaceFieldRefusalUsesTheSharedWording(t *testing.T) {
 	src := `interface Clock {
-  fn at(c: self): Int
+  fn at(c: self) -> Int
 }
 struct NoClock {
   t: Int
@@ -285,7 +285,7 @@ func TestCheck_StructLit_NonStructHeadIsUnchanged(t *testing.T) {
 	}{
 		{
 			name: "an interface name",
-			src:  "interface I {\n  fn f(x: self): Int\n}\nfn main() {\n  _a = I{v: 1}\n}\n",
+			src:  "interface I {\n  fn f(x: self) -> Int\n}\nfn main() {\n  _a = I{v: 1}\n}\n",
 		},
 		{
 			name: "an enum name",

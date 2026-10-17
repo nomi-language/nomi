@@ -16,21 +16,21 @@
 // by the reduce arm.
 import std/io
 
-fn walk(n: Int, acc: Int): Int {
+fn walk(n: Int, acc: Int) -> Int {
     if n == 0 {
         acc
     } else if n == 1 {
-        Iter.reduce([1, 2], |a = acc, x| walk(0, a + x))
+        Iter.reduce([1, 2], fn a = acc, x -> walk(0, a + x))
     } else {
         walk(n - 1, acc + 1)
     }
 }
 
-fn spin(n: Int, acc: Int): Int {
+fn spin(n: Int, acc: Int) -> Int {
     if n == 0 {
         acc
     } else if n == 1 {
-        Iter.loop(|s = 0| { break spin(0, acc + s + 1) })
+        Iter.loop(fn s = 0 -> { break spin(0, acc + s + 1) })
     } else {
         spin(n - 1, acc + 1)
     }

@@ -1,4 +1,4 @@
-fn half(n: Int): Int {
+fn half(n: Int) -> Int {
     n / 2
 }
 

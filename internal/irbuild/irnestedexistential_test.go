@@ -12,27 +12,27 @@ func TestIRNestedFnExistentialResult_Runs(t *testing.T) {
 	}
 	const src = `import std/io
 
-fn apply(f: (Int) -> Display, n: Int): String {
+fn apply(f: (Int) -> Display, n: Int) -> String {
     Display.to_string(f(n))
 }
 
 fn main() {
-    fn plain(): Display {
+    fn plain() -> Display {
         5
     }
 
-    fn arms(c: Bool): Display {
+    fn arms(c: Bool) -> Display {
         if c { "yes" } else { "no" }
     }
 
-    fn cased(n: Int): Display {
+    fn cased(n: Int) -> Display {
         case n {
             0 -> 1.5
             _ -> 2.5
         }
     }
 
-    fn early(n: Int): Display {
+    fn early(n: Int) -> Display {
         if n > 0 {
             return n
         }
@@ -46,10 +46,10 @@ fn main() {
     io.print(Display.to_string(cased(1)))
     io.print(Display.to_string(early(4)))
     io.print(Display.to_string(early(-4)))
-    f: (Bool) -> Display = |c| if c { 1 } else { 2 }
+    f: (Bool) -> Display = fn c -> if c { 1 } else { 2 }
     io.print(Display.to_string(f(False)))
-    io.print(apply(|n| n * 3, 5))
-    io.print(apply(|n| if n > 0 { "pos" } else { "neg" }, 1))
+    io.print(apply(fn n -> n * 3, 5))
+    io.print(apply(fn n -> if n > 0 { "pos" } else { "neg" }, 1))
 }
 `
 	const want = "5\n" +

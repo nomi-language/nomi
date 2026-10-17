@@ -1,4 +1,4 @@
-fn token_kind(cp: Codepoint): String {
+fn token_kind(cp: Codepoint) -> String {
     case cp {
         '(' -> "open"
         ')' -> "close"
@@ -75,9 +75,9 @@ test "codepoint literals match inside variant and tuple patterns" {
         None -> "empty"
     }
 
-    signed = case ('-', 3) {
-        ('-', n) -> -n
-        (_, n) -> n
+    signed = case #('-', 3) {
+        #('-', n) -> -n
+        #(_, n) -> n
     }
 
     assert found == "x first"
@@ -87,7 +87,7 @@ test "codepoint literals match inside variant and tuple patterns" {
 test "a scanner splits on a codepoint" {
     fields =
         String.to_codepoints("a,bc,,d")
-        |> Iter.filter(|cp| cp != ',')
+        |> Iter.filter(fn cp -> cp != ',')
         |> Iter.map(Codepoint.to_string)
         |> String.join()
 

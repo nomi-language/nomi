@@ -32,10 +32,10 @@ var declKindCases = []struct {
 	kind string
 	decl string
 }{
-	{"interface", "pub interface ToJson {\n  fn probe(v: self): String\n}\n"},
+	{"interface", "pub interface ToJson {\n  fn probe(v: self) -> String\n}\n"},
 	{"struct", "pub struct ToJson {\n  n: Int\n}\n"},
 	{"enum", "pub enum ToJson {\n  A\n}\n"},
-	{"function", "pub fn ToJson(): Int { 1 }\n"},
+	{"function", "pub fn ToJson() -> Int { 1 }\n"},
 }
 
 // TestModuleScope_LocalDeclarationOutranksASelectiveImport is the oracle
@@ -80,7 +80,7 @@ func TestModuleScope_ImportOnADeclaredNameIsReported(t *testing.T) {
 // an artifact of pass ordering, so the fix must not be one: the declaration
 // wins whether it is written above or below the import.
 func TestModuleScope_DeclarationOrderDoesNotDecideTheWinner(t *testing.T) {
-	decl := "pub interface ToJson {\n  fn probe(v: self): String\n}\n"
+	decl := "pub interface ToJson {\n  fn probe(v: self) -> String\n}\n"
 	for _, c := range []struct {
 		name string
 		src  string
@@ -113,8 +113,8 @@ func TestModuleScope_DeclarationOrderDoesNotDecideTheWinner(t *testing.T) {
 // broke exactly these: four analysis tests, on `Maybe` and on `Display`.
 func TestModuleScope_ExplicitPreludeReimportStaysLegal(t *testing.T) {
 	for _, c := range []struct{ name, src string }{
-		{"Maybe", "import std/maybe.{Maybe}\n\npub fn f(_m: Maybe<Int>): Int { 0 }\n"},
-		{"Display", "import std/display.{Display}\n\npub fn g(_d: Display): Int { 0 }\n"},
+		{"Maybe", "import std/maybe.{Maybe}\n\npub fn f(_m: Maybe<Int>) -> Int { 0 }\n"},
+		{"Display", "import std/display.{Display}\n\npub fn g(_d: Display) -> Int { 0 }\n"},
 	} {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestModuleScope_ExplicitPreludeReimportStaysLegal(t *testing.T) {
 // a pinned observation rather than an aspiration: if someone gives it a rule,
 // this test fires and points at the decision.
 func TestModuleScope_TwoSelectiveImportsStillLastWins(t *testing.T) {
-	src := "import std/json.{ToJson}\nimport std/json.{ToJson}\n\npub fn f(_x: ToJson): Int { 0 }\n"
+	src := "import std/json.{ToJson}\nimport std/json.{ToJson}\n\npub fn f(_x: ToJson) -> Int { 0 }\n"
 	fa, _ := reservedNamesFA(t, src)
 	sym := fa.ModuleScope.LookupLocal("ToJson")
 	if sym == nil {

@@ -51,7 +51,7 @@ import {
 }
 
 // seg renders a segment through a `case`, so both payload positions are read.
-fn seg(s: PathSegment): String {
+fn seg(s: PathSegment) -> String {
     case s {
         PathSegment.Field(name) -> "field:" + name
         PathSegment.Index(i) -> "index:" + Int.to_string(i)

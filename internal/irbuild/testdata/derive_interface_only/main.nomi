@@ -25,13 +25,13 @@ fn main() {
     )
 
     p: Result<Point, Json.ShapeError> = FromJson.from_json(
-        Json.Obj{"x" => Json.Int(7), "y" => Json.Int(8)}
+        Json.Obj%{"x" => Json.Int(7), "y" => Json.Int(8)}
     )
 
     io.print(Debug.inspect(p))
-    t: Result<Tagged, Json.ShapeError> = FromJson.from_json(Json.Obj{"name" => Json.String("n")})
+    t: Result<Tagged, Json.ShapeError> = FromJson.from_json(Json.Obj%{"name" => Json.String("n")})
     io.print(Debug.inspect(t))
-    missing: Result<Tagged, Json.ShapeError> = FromJson.from_json(Json.Obj{"count" => Json.Int(1)})
+    missing: Result<Tagged, Json.ShapeError> = FromJson.from_json(Json.Obj%{"count" => Json.Int(1)})
     io.print(Debug.inspect(missing))
     wrong: Result<Point, Json.ShapeError> = FromJson.from_json(Json.Int(1))
     io.print(Debug.inspect(wrong))

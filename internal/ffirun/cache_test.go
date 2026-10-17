@@ -80,7 +80,7 @@ func TestCache_NomiSourceEditNoRegen(t *testing.T) {
 	// Touch a .nomi file in the project — irrelevant to hash inputs.
 	if err := os.WriteFile(
 		filepath.Join(projectRoot, "scratch.nomi"),
-		[]byte("// scratch\nfn x(): Int { 1 }\n"),
+		[]byte("// scratch\nfn x() -> Int { 1 }\n"),
 		0o644,
 	); err != nil {
 		t.Fatalf("write scratch.nomi: %v", err)
@@ -363,7 +363,7 @@ func TestCache_WarmWrapperBinaryReused(t *testing.T) {
 	mustWriteHelper(t, filepath.Join(root, "go.mod"), "module testproject\n\ngo 1.26.3\n\nrequire example.com/binding/source v0.0.0\n\nrequire github.com/nomi-language/nomi v0.0.0\n\nreplace example.com/binding/source => ./binding\n\nreplace github.com/nomi-language/nomi => "+repoRoot(t)+"\n")
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
-fn echo_upper(s: String): String go binding.EchoUpper
+fn echo_upper(s: String) -> String go binding.EchoUpper
 `)
 
 	res, err := Prepare(filepath.Join(root, "main.nomi"))
@@ -404,7 +404,7 @@ func TestCache_ConcurrentWrapperBinaryBuildsDoNotShareTempPath(t *testing.T) {
 	mustWriteHelper(t, filepath.Join(root, "go.mod"), "module testproject\n\ngo 1.26.3\n\nrequire example.com/binding/source v0.0.0\n\nrequire github.com/nomi-language/nomi v0.0.0\n\nreplace example.com/binding/source => ./binding\n\nreplace github.com/nomi-language/nomi => "+repoRoot(t)+"\n")
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
-fn echo_upper(s: String): String go binding.EchoUpper
+fn echo_upper(s: String) -> String go binding.EchoUpper
 `)
 
 	res, err := Prepare(filepath.Join(root, "main.nomi"))
@@ -463,7 +463,7 @@ func TestCache_DiscoveredHashCoversWhatTheWrapperCompilesIn(t *testing.T) {
 			}},
 			Exports: []DiscoveredExport{{
 				Key: "hi.upper", EntryKey: "upper", FuncName: "Upper",
-				Declaration: "host fn upper(s: String): String",
+				Declaration: "host fn upper(s: String) -> String",
 				SourceFile:  "/p/hi", SourceLine: 5,
 			}},
 		}}
@@ -482,7 +482,7 @@ func TestCache_DiscoveredHashCoversWhatTheWrapperCompilesIn(t *testing.T) {
 		"export source file":   func(d []DiscoveredPackage) { d[0].Exports[0].SourceFile = "/p/bin/hi" },
 		"export entry key":     func(d []DiscoveredPackage) { d[0].Exports[0].EntryKey = "" },
 		"export also declared": func(d []DiscoveredPackage) { d[0].Exports[0].AlsoDeclaredIn = []string{"/p/bin/hi"} },
-		"export declaration":   func(d []DiscoveredPackage) { d[0].Exports[0].Declaration = "host fn upper(s: String): Int" },
+		"export declaration":   func(d []DiscoveredPackage) { d[0].Exports[0].Declaration = "host fn upper(s: String) -> Int" },
 		"type source file":     func(d []DiscoveredPackage) { d[0].Types[0].SourceFile = "/p/bin/hi" },
 		"type entry key":       func(d []DiscoveredPackage) { d[0].Types[0].EntryKey = "" },
 		"type Go expression":   func(d []DiscoveredPackage) { d[0].Types[0].GoTypeExpr = "*binding.Box" },
@@ -532,9 +532,9 @@ pub struct Unrelated {
     x: Int
 }
 
-pub fn make(): Outer go binding.Make
+pub fn make() -> Outer go binding.Make
 
-pub fn twice(n: Int): Int {
+pub fn twice(n: Int) -> Int {
     n * 2
 }
 `

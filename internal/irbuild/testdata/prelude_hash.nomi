@@ -15,7 +15,7 @@ struct Written {
 }
 
 impl Hashable for Written {
-    fn hash(w: Written): Int {
+    fn hash(w: Written) -> Int {
         _ = w
         999
     }

@@ -10,11 +10,11 @@ import (
 
 const evaluateSource = `import std/io
 
-fn answer(): Int {
-    Iter.reduce(1..=4, |acc = 0, n| acc + n)
+fn answer() -> Int {
+    Iter.reduce(1..=4, fn acc = 0, n -> acc + n)
 }
 
-fn spin(n: Int): Int {
+fn spin(n: Int) -> Int {
     if n < 0 {
         n
     } else {
@@ -22,15 +22,15 @@ fn spin(n: Int): Int {
     }
 }
 
-fn forever(): Int {
+fn forever() -> Int {
     spin(0)
 }
 
-fn endless(): Int {
+fn endless() -> Int {
     Iter.count(Iter.repeat(1))
 }
 
-fn loud(): Int {
+fn loud() -> Int {
     io.print("evaluated")
     1
 }

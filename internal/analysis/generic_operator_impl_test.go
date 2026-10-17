@@ -17,7 +17,7 @@ const genericOperatorBox = `struct Box<T> {
 }
 
 impl Add<T, Box<T>> for Box<T> {
-    fn add(b: Box<T>, rhs: T): Box<T> {
+    fn add(b: Box<T>, rhs: T) -> Box<T> {
         Box{items: b.items + [rhs]}
     }
 }
@@ -43,7 +43,7 @@ func TestGenericOperatorImpl_Accepted(t *testing.T) {
     _ = s
 }
 `},
-		{"bounded generic", `fn f<T>(a: Set<T>, b: Set<T>): Set<T> where T: Hashable {
+		{"bounded generic", `fn f<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hashable {
     a + b
 }
 
@@ -52,16 +52,16 @@ fn main() {
 }
 `},
 		{"map merge", `fn main() {
-    m: Map<String, Int> = {"a" => 1} + {"b" => 2}
+    m: Map<String, Int> = %{"a" => 1} + %{"b" => 2}
     _ = m
 }
 `},
-		{"map in generic code", `fn f<K, V>(a: Map<K, V>, b: Map<K, V>): Map<K, V> {
+		{"map in generic code", `fn f<K, V>(a: Map<K, V>, b: Map<K, V>) -> Map<K, V> {
     a + b
 }
 
 fn main() {
-    _ = f({1 => "x"}, {2 => "y"})
+    _ = f(%{1 => "x"}, %{2 => "y"})
 }
 `},
 		{"user generic type", genericOperatorBox + `
@@ -71,7 +71,7 @@ fn main() {
 }
 `},
 		{"user generic type in generic code", genericOperatorBox + `
-fn grow<T>(b: Box<T>, x: T): Box<T> {
+fn grow<T>(b: Box<T>, x: T) -> Box<T> {
     b + x
 }
 
@@ -108,11 +108,11 @@ func TestGenericOperatorImpl_RightOperandMismatch(t *testing.T) {
 }
 `, "binary + right operand mismatch: Add expects Set<Int>, got Set<String>"},
 		{"map plus key", `fn main() {
-    _ = {"a" => 1} + "b"
+    _ = %{"a" => 1} + "b"
 }
 `, "binary + right operand mismatch: Add expects Map<String, Int>, got String"},
 		{"map plus other value type", `fn main() {
-    _ = {"a" => 1} + {"a" => "x"}
+    _ = %{"a" => 1} + %{"a" => "x"}
 }
 `, "binary + right operand mismatch: Add expects Map<String, Int>, got Map<String, String>"},
 		{"interface-qualified", `fn main() {
@@ -149,13 +149,13 @@ type Days Int
 type Weeks Int
 
 impl Add<Days, Day> for Day {
-    fn add(Day(d), Days(n)): Day {
+    fn add(Day(d), Days(n)) -> Day {
         Day(d + n)
     }
 }
 
 impl Add<Weeks, Day> for Day {
-    fn add(Day(d), Weeks(n)): Day {
+    fn add(Day(d), Weeks(n)) -> Day {
         Day(d + 7 * n)
     }
 }
@@ -178,7 +178,7 @@ fn main() {
 // (by key, or by entry), so `-` on two maps is the missing-impl error.
 func TestGenericOperatorImpl_NoMapSubtract(t *testing.T) {
 	src := `fn main() {
-    _ = {"a" => 1} - {"a" => 1}
+    _ = %{"a" => 1} - %{"a" => 1}
 }
 `
 	errs := diagnosticsFor(t, src)
@@ -206,7 +206,7 @@ fn main() {
     d: Duration = a - Instant.from_seconds(10)
     i: Instant = a - Duration.seconds(5)
     q: Duration = Subtract.subtract(a, Instant.from_seconds(10))
-    _ = (d, i, q)
+    _ = #(d, i, q)
 }
 `
 	for _, e := range diagnosticsFor(t, src) {

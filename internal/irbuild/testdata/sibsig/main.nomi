@@ -23,11 +23,11 @@ import {
 
 /// `==` on a MIRROR, in this file's own function rather than in the declaring
 /// file's: the comparator is emitted HERE, against this package's alias.
-fn same_point(a: Point, b: Point): Bool {
+fn same_point(a: Point, b: Point) -> Bool {
     a == b
 }
 
-fn same_coord(a: Coord, b: Coord): Bool {
+fn same_coord(a: Coord, b: Coord) -> Bool {
     a == b
 }
 

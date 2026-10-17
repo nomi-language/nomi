@@ -68,21 +68,21 @@ import std/io
 //     fail to compose with an adapter.
 // The three `Maybe`-returning rows are read through these rather than
 // interpolated, for the reason stated at their call sites.
-fn at_or(v: Vector<Int>, i: Int): Int {
+fn at_or(v: Vector<Int>, i: Int) -> Int {
     case Vector.get(v, i) {
         Some(n) -> n
         None -> -1
     }
 }
 
-fn head_or(v: Vector<Int>): Int {
+fn head_or(v: Vector<Int>) -> Int {
     case Vector.next_item(v) {
-        Some((n, _)) -> n
+        Some(#(n, _)) -> n
         None -> -1
     }
 }
 
-fn set_or(v: Vector<Int>, i: Int, n: Int): Vector<Int> {
+fn set_or(v: Vector<Int>, i: Int, n: Int) -> Vector<Int> {
     if i >= 0 and i < Vector.length(v) {
         Vector.set(v, i, n)
     } else {
@@ -90,11 +90,11 @@ fn set_or(v: Vector<Int>, i: Int, n: Int): Vector<Int> {
     }
 }
 
-fn total(v: Vector<Int>): Int {
-    Iter.reduce(v, |acc = 0, n| acc + n)
+fn total(v: Vector<Int>) -> Int {
+    Iter.reduce(v, fn acc = 0, n -> acc + n)
 }
 
-fn pair_of(a: String, b: String): Vector<String> {
+fn pair_of(a: String, b: String) -> Vector<String> {
     Vector.push(Vector.push(Vector.empty(), a), b)
 }
 
@@ -121,7 +121,7 @@ fn main() {
     io.print("next empty ${head_or(none_v)}")
 
     tail = case Vector.next_item(v) {
-        Some((_, rest)) -> rest
+        Some(#(_, rest)) -> rest
         None -> #[]
     }
 
@@ -176,7 +176,7 @@ fn main() {
     // WRAPPING. Forty large Ints, so std's `Int.wrapping_mul(acc, 31)` overflows
     // many times over. A checked `*` would TRAP here.
     big = Iter.to_vector(
-        Iter.map(1..41, |n| n * 1000000000000000)
+        Iter.map(1..41, fn n -> n * 1000000000000000)
         |> Iter.to_list()
     )
 
@@ -220,7 +220,7 @@ fn main() {
     // equality still answers True against `#[2, 3]` — the lookup MISSES and every
     // row above passes. `key window` is the mirror: a vector built by `concat` has
     // `Start == 0` and must land in the same bucket as the literal.
-    keys = {#[1, 2] => "a", #[3] => "b"}
+    keys = %{#[1, 2] => "a", #[3] => "b"}
     grid = #[Vector.set(pushed, 1, 20)]
     io.print("maybe eq none ${Vector.get(grid, 9) == None}")
     io.print("maybe eq some ${Vector.get(grid, 0) == Some(#[1, 20, 3])}")
@@ -229,20 +229,20 @@ fn main() {
     io.print("key hit ${Map.get(keys, #[1, 2]) == Some("a")}")
     io.print("key miss ${Map.get(keys, #[9]) == None}")
     io.print("key window ${Map.get(keys, Vector.concat(#[1], #[2])) == Some("a")}")
-    io.print("key tail ${Map.get({tail => "t"}, #[2, 3]) == Some("t")}")
-    io.print("key nested ${Map.get({#[#[1]] => 5}, #[#[1]]) == Some(5)}")
+    io.print("key tail ${Map.get(%{tail => "t"}, #[2, 3]) == Some("t")}")
+    io.print("key nested ${Map.get(%{#[#[1]] => 5}, #[#[1]]) == Some(5)}")
 
     // --- signature boundary, both directions --------------------------------
     io.print("total ${total(v)}")
     io.print("pair ${pair_of("x", "y")}")
 
     // --- Iter over a Vector at two and three stages -------------------------
-    io.print("iter2 ${#[1, 2, 3] |> Iter.map(|n| n * 2) |> Iter.to_list()}")
+    io.print("iter2 ${#[1, 2, 3] |> Iter.map(fn n -> n * 2) |> Iter.to_list()}")
 
     io.print(
         "iter3 ${#[1, 2, 3, 4]
-        |> Iter.map(|n| n * 2)
-        |> Iter.filter(|n| n > 4)
+        |> Iter.map(fn n -> n * 2)
+        |> Iter.filter(fn n -> n > 4)
         |> Iter.to_list()}"
     )
 
@@ -252,7 +252,7 @@ fn main() {
     // predicate over the same Vector source through the same adapter chain.
     io.print(
         "iter filter ${#["ada", "grace"]
-        |> Iter.filter(|s| String.contains?(s, "ace"))
+        |> Iter.filter(fn s -> String.contains?(s, "ace"))
         |> Iter.count()}"
     )
 

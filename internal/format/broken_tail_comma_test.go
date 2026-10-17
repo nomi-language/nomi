@@ -35,14 +35,14 @@ func TestFormat_LastItemFitsWithItsComma(t *testing.T) {
 				"}\n",
 		},
 		{
-			"fn failure(assertion: EqualsAssertion): Maybe<AssertionDetails> {\n" +
+			"fn failure(assertion: EqualsAssertion) -> Maybe<AssertionDetails> {\n" +
 				"    Some(AssertionDetails{\n" +
 				"        reason: \"values were not equal\",\n" +
 				"        details_rather_long: [AssertionDetail{ label: \"expected\", value_rather_long_rather_long_rather_long_rather_: Debug.inspect(assertion.expected),\n" +
 				"        }],\n" +
 				"    })\n" +
 				"}\n",
-			"fn failure(assertion: EqualsAssertion): Maybe<AssertionDetails> {\n" +
+			"fn failure(assertion: EqualsAssertion) -> Maybe<AssertionDetails> {\n" +
 				"    Some(AssertionDetails{\n" +
 				"        reason: \"values were not equal\",\n" +
 				"        details_rather_long: [\n" +

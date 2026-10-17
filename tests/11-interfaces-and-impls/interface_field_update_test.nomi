@@ -10,7 +10,7 @@
 // implementer for an interface-typed app field as well, so every path that
 // replaces such a field has to agree with the literal.
 interface Clock {
-    fn at(c: self): Int
+    fn at(c: self) -> Int
 }
 
 struct FakeClock {
@@ -18,7 +18,7 @@ struct FakeClock {
 }
 
 impl Clock for FakeClock {
-    fn at(c: FakeClock): Int {
+    fn at(c: FakeClock) -> Int {
         c.t
     }
 }
@@ -29,7 +29,7 @@ struct RealClock {
 }
 
 impl Clock for RealClock {
-    fn at(c: RealClock): Int {
+    fn at(c: RealClock) -> Int {
         c.base + c.offset
     }
 }
@@ -49,7 +49,7 @@ struct Outer {
     port: Int
 }
 
-fn base_cfg(): Cfg {
+fn base_cfg() -> Cfg {
     Cfg{clock: FakeClock{t: 1}, port: 80}
 }
 

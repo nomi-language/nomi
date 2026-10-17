@@ -20,7 +20,7 @@ enum Status {
 derive Equatable for Status
 
 impl Display for Status {
-    fn to_string(value: Status): String {
+    fn to_string(value: Status) -> String {
         case value {
             Status.Open -> "open"
             Status.InProgress -> "in-progress"
@@ -38,7 +38,7 @@ enum Priority {
 derive Equatable for Priority
 
 impl Display for Priority {
-    fn to_string(value: Priority): String {
+    fn to_string(value: Priority) -> String {
         case value {
             Priority.Low -> "low"
             Priority.Medium -> "medium"
@@ -55,7 +55,7 @@ struct TodoTask {
     priority: Priority = Priority.Medium
 }
 
-fn parse_status(s: String): Maybe<Status> {
+fn parse_status(s: String) -> Maybe<Status> {
     case s {
         "open" -> Some(Status.Open)
         "in-progress" -> Some(Status.InProgress)
@@ -64,7 +64,7 @@ fn parse_status(s: String): Maybe<Status> {
     }
 }
 
-fn parse_priority(s: String): Maybe<Priority> {
+fn parse_priority(s: String) -> Maybe<Priority> {
     case s {
         "high" -> Some(Priority.High)
         "medium" -> Some(Priority.Medium)
@@ -75,9 +75,9 @@ fn parse_priority(s: String): Maybe<Priority> {
 
 // --- Store interface + FileStore impl ----------------------------
 interface Store {
-    fn save(value: self, task: TodoTask): Result<TodoTask, String>
-    fn delete(value: self, id: Int): Result<Unit, String>
-    fn load(value: self): Result<Map<Int, TodoTask>, String>
+    fn save(value: self, task: TodoTask) -> Result<TodoTask, String>
+    fn delete(value: self, id: Int) -> Result<Unit, String>
+    fn load(value: self) -> Result<Map<Int, TodoTask>, String>
 }
 
 struct FileStore {
@@ -85,11 +85,11 @@ struct FileStore {
 }
 
 impl Store for FileStore {
-    fn load(value: FileStore): Result<Map<Int, TodoTask>, String> {
+    fn load(value: FileStore) -> Result<Map<Int, TodoTask>, String> {
         load_map(value.path)
     }
 
-    fn save(value: FileStore, task: TodoTask): Result<TodoTask, String> {
+    fn save(value: FileStore, task: TodoTask) -> Result<TodoTask, String> {
         case load_map(value.path) {
             Err(e) ->
                 Err(e)
@@ -102,7 +102,7 @@ impl Store for FileStore {
         }
     }
 
-    fn delete(value: FileStore, id: Int): Result<Unit, String> {
+    fn delete(value: FileStore, id: Int) -> Result<Unit, String> {
         case load_map(value.path) {
             Err(e) -> Err(e)
             Ok(tasks) -> write_all(value.path, Map.remove(tasks, id))
@@ -110,7 +110,7 @@ impl Store for FileStore {
     }
 }
 
-fn load_map(path: String): Result<Map<Int, TodoTask>, String> {
+fn load_map(path: String) -> Result<Map<Int, TodoTask>, String> {
     case io.read_file(path) {
         Ok(content) ->
             deserialize(content)
@@ -123,14 +123,14 @@ fn load_map(path: String): Result<Map<Int, TodoTask>, String> {
     }
 }
 
-fn write_all(path: String, tasks: Map<Int, TodoTask>): Result<Unit, String> {
+fn write_all(path: String, tasks: Map<Int, TodoTask>) -> Result<Unit, String> {
     case io.write_file(path, serialize(tasks)) {
         Ok(_) -> Ok(Unit)
         Err(e) -> Err(Display.to_string(e))
     }
 }
 
-fn serialize(tasks: Map<Int, TodoTask>): String {
+fn serialize(tasks: Map<Int, TodoTask>) -> String {
     Map.values(tasks)
     |> Iter.sort_by(.id)
     |> Iter.map(serialize_one)
@@ -138,7 +138,7 @@ fn serialize(tasks: Map<Int, TodoTask>): String {
     |> String.join("\n")
 }
 
-fn serialize_one(t: TodoTask): String {
+fn serialize_one(t: TodoTask) -> String {
     [
         Display.to_string(t.id),
         t.title,
@@ -149,14 +149,14 @@ fn serialize_one(t: TodoTask): String {
     |> String.join("\t")
 }
 
-fn deserialize(content: String): Result<Map<Int, TodoTask>, String> {
+fn deserialize(content: String) -> Result<Map<Int, TodoTask>, String> {
     trimmed = String.trim(content)
 
     if String.length(trimmed) == 0 {
         Ok(Map.empty())
     } else {
         String.split(trimmed, "\n")
-        |> Iter.reduce(|acc = Ok(Map.empty()), line| {
+        |> Iter.reduce(fn acc = Ok(Map.empty()), line -> {
             case acc {
                 Err(e) ->
                     Err(e)
@@ -171,16 +171,16 @@ fn deserialize(content: String): Result<Map<Int, TodoTask>, String> {
     }
 }
 
-fn deserialize_one(line: String): Result<TodoTask, String> {
+fn deserialize_one(line: String) -> Result<TodoTask, String> {
     case String.split(line, "\t") {
         [id_str, title, secs_str, status_str, pri_str] ->
-            case (
+            case #(
                 String.to_int(id_str),
                 String.to_int(secs_str),
                 parse_status(status_str),
                 parse_priority(pri_str),
             ) {
-                (Some(id), Some(secs), Some(status), Some(priority)) -> Ok(TodoTask{
+                #(Some(id), Some(secs), Some(status), Some(priority)) -> Ok(TodoTask{
                     id,
                     title,
                     created: Instant.from_seconds(secs),

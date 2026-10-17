@@ -15,43 +15,43 @@ func TestCompletion_InsideInterpolation(t *testing.T) {
 	}{
 		{
 			"a parameter by prefix",
-			interpUser + "fn f(user: User): String {\n    \"hi ${us" + cursorMark + "}\"\n}\n",
+			interpUser + "fn f(user: User) -> String {\n    \"hi ${us" + cursorMark + "}\"\n}\n",
 			[]string{"user", "User"},
 			nil,
 		},
 		{
 			"an empty interpolation offers the scope",
-			interpUser + "fn f(user: User): String {\n    count = 1\n    \"hi ${" + cursorMark + "}\"\n}\n",
+			interpUser + "fn f(user: User) -> String {\n    count = 1\n    \"hi ${" + cursorMark + "}\"\n}\n",
 			[]string{"user", "count", "f", "if", "case"},
 			nil,
 		},
 		{
 			"an unclosed interpolation",
-			interpUser + "fn f(user: User): String {\n    \"hi ${us" + cursorMark + "\"\n}\n",
+			interpUser + "fn f(user: User) -> String {\n    \"hi ${us" + cursorMark + "\"\n}\n",
 			[]string{"user"},
 			nil,
 		},
 		{
 			"a multi-line string",
-			interpUser + "fn f(user: User): String {\n    \"\"\"\n    hi ${us" + cursorMark + "}\n    \"\"\"\n}\n",
+			interpUser + "fn f(user: User) -> String {\n    \"\"\"\n    hi ${us" + cursorMark + "}\n    \"\"\"\n}\n",
 			[]string{"user"},
 			nil,
 		},
 		{
 			"a typed literal",
-			"import std/calendar.{Date}\n\nfn f(m: String): Date {\n    try Date\"2026-${" + cursorMark + "}-04\"\n}\n",
+			"import std/calendar.{Date}\n\nfn f(m: String) -> Date {\n    try Date\"2026-${" + cursorMark + "}-04\"\n}\n",
 			[]string{"m"},
 			nil,
 		},
 		{
 			"an unimported name brings its import",
-			interpUser + "fn f(user: User): String {\n    \"hi ${jso" + cursorMark + "}\"\n}\n",
+			interpUser + "fn f(user: User) -> String {\n    \"hi ${jso" + cursorMark + "}\"\n}\n",
 			[]string{"json"},
 			nil,
 		},
 		{
 			"a member after the dot",
-			interpUser + "fn f(user: User): String {\n    \"hi ${user." + cursorMark + "}\"\n}\n",
+			interpUser + "fn f(user: User) -> String {\n    \"hi ${user." + cursorMark + "}\"\n}\n",
 			[]string{"name", "age"},
 			[]string{"user"},
 		},
@@ -69,9 +69,9 @@ func TestCompletion_InsideInterpolation(t *testing.T) {
 // interpolate, offer nothing.
 func TestCompletion_StringTextOffersNothing(t *testing.T) {
 	for _, src := range []string{
-		interpUser + "fn f(user: User): String {\n    \"hi us" + cursorMark + " ${user.name}\"\n}\n",
-		interpUser + "fn f(user: User): String {\n    \"${user.name} us" + cursorMark + "\"\n}\n",
-		interpUser + "fn f(user: User): String {\n    `hi ${us" + cursorMark + "}`\n}\n",
+		interpUser + "fn f(user: User) -> String {\n    \"hi us" + cursorMark + " ${user.name}\"\n}\n",
+		interpUser + "fn f(user: User) -> String {\n    \"${user.name} us" + cursorMark + "\"\n}\n",
+		interpUser + "fn f(user: User) -> String {\n    `hi ${us" + cursorMark + "}`\n}\n",
 	} {
 		if items := complete(t, src); len(items) != 0 {
 			t.Errorf("completion in string text offers %v\n%s", itemLabels(items), src)

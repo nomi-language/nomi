@@ -14,7 +14,7 @@ import (
 )
 
 func TestSemanticTokens_BasicFunction(t *testing.T) {
-	src := "fn double(n: Int): Int { n + n }"
+	src := "fn double(n: Int) -> Int { n + n }"
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -84,13 +84,13 @@ func TestSemanticTokens_AttachedTestTokensCarryTheModifier(t *testing.T) {
 //
 //! label = ready_label()
 //! assert label == "[ready]"
-fn ready_label(): String {
+fn ready_label() -> String {
   "[ready]"
 }
 
 impl Label {
   //! assert Label.wrap("x").text == "[x]"
-  fn wrap(text: String): Label {
+  fn wrap(text: String) -> Label {
     Label{text: "[${text}]"}
   }
 }
@@ -167,7 +167,7 @@ func TestSemanticTokens_SourceGoBindingDoesNotPaintImportLine(t *testing.T) {
 
 gopkg "example.com/binding/ffi" as ffi
 
-fn echo_upper(s: String): String go ffi.EchoUpper
+fn echo_upper(s: String) -> String go ffi.EchoUpper
 
 fn main() {
   io.print(echo_upper("fixture"))
@@ -193,7 +193,7 @@ fn main() {
 func TestSemanticTokens_AllKinds(t *testing.T) {
 	src := `struct Point { x: Int; y: Int }
 enum Color { Red; Green; Blue }
-fn move(p: Point): Point { p }`
+fn move(p: Point) -> Point { p }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)

@@ -22,8 +22,8 @@ fn main() {
     io.inspect(Gbox{v: [[]]})
     io.inspect([#{}])
     io.inspect([#[]])
-    io.inspect(Map.get({"k" => []}, "k"))
+    io.inspect(Map.get(%{"k" => []}, "k"))
 }
 `
-	irRunSource(t, src, "Gbox{v: []}\nGbox{v: #{}}\nGbox{v: {=>}}\nGbox{v: [[]]}\n[#{}]\n[#[]]\nSome([])\n")
+	irRunSource(t, src, "Gbox{v: []}\nGbox{v: #{}}\nGbox{v: %{}}\nGbox{v: [[]]}\n[#{}]\n[#[]]\nSome([])\n")
 }

@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRBoolPattern_CaseBranches(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn label(b: Bool): String {
+fn label(b: Bool) -> String {
   case b {
     True -> "yes"
     False -> "no"
@@ -19,8 +19,8 @@ fn main() {
 
 func TestIRBoolPattern_QualifiedFallbackAndClosure(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn source(b: Bool): Bool { io.print("subject") b }
-fn label(b: Bool): String {
+fn source(b: Bool) -> Bool { io.print("subject") b }
+fn label(b: Bool) -> String {
   case source(b) {
     Bool.False -> "false"
     _ -> "otherwise"
@@ -30,7 +30,7 @@ fn main() {
   io.print(label(False))
   io.print(label(True))
   b = False
-  read = || case b {
+  read = fn -> case b {
     Bool.True -> "yes"
     Bool.False -> "no"
   }

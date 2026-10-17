@@ -18,7 +18,7 @@
 //! assert doubled(3) == 6
 //! assert doubled(0) == 0
 //
-fn doubled(n: Int): Int {
+fn doubled(n: Int) -> Int {
     n * 2
 }
 
@@ -30,12 +30,12 @@ test "a file-scope case is collected in declaration order with the prompts" {
 //! assert label == "[x]"
 //! refute label == "x"
 //
-fn tagged(s: String): String {
+fn tagged(s: String) -> String {
     "[" + s + "]"
 }
 
 //! assert failing() == 1
 //
-fn failing(): Int {
+fn failing() -> Int {
     2
 }

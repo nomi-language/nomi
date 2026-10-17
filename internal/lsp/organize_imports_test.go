@@ -29,13 +29,13 @@ func runOrganize(t *testing.T, src string) (string, bool) {
 func TestOrganize_RemovesUnused(t *testing.T) {
 	src := "import std/timer\n" +
 		"import std/calendar.{Date, Time}\n\n" +
-		"fn f(d: Date): Date { d }\n"
+		"fn f(d: Date) -> Date { d }\n"
 	got, ok := runOrganize(t, src)
 	if !ok {
 		t.Fatal("expected an organize action")
 	}
 	want := "import std/calendar.Date\n\n" +
-		"fn f(d: Date): Date { d }\n"
+		"fn f(d: Date) -> Date { d }\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -45,14 +45,14 @@ func TestOrganize_RemovesUnused(t *testing.T) {
 func TestOrganize_SortsUsed(t *testing.T) {
 	src := "import std/io\n" +
 		"import std/duration.Duration\n\n" +
-		"fn f(_d: Duration): Unit { io.print(\"x\") }\n"
+		"fn f(_d: Duration) -> Unit { io.print(\"x\") }\n"
 	got, ok := runOrganize(t, src)
 	if !ok {
 		t.Fatal("expected an organize action")
 	}
 	want := "import std/duration.Duration\n" +
 		"import std/io\n\n" +
-		"fn f(_d: Duration): Unit { io.print(\"x\") }\n"
+		"fn f(_d: Duration) -> Unit { io.print(\"x\") }\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -64,13 +64,13 @@ func TestOrganize_BlockPrunesAndCollapses(t *testing.T) {
 		"  std/calendar.{Date, Time}\n" +
 		"  std/io\n" +
 		"}\n\n" +
-		"fn f(d: Date): Date { d }\n"
+		"fn f(d: Date) -> Date { d }\n"
 	got, ok := runOrganize(t, src)
 	if !ok {
 		t.Fatal("expected an organize action")
 	}
 	want := "import std/calendar.Date\n\n" +
-		"fn f(d: Date): Date { d }\n"
+		"fn f(d: Date) -> Date { d }\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -102,7 +102,7 @@ func TestOrganize_DrilledFunctionImportUsedInPipe(t *testing.T) {
 func TestOrganize_IdempotentOnOutput(t *testing.T) {
 	src := "import std/lists\n" +
 		"import std/comparable.{Comparable, Ordering}\n\n" +
-		"fn f<T>(x: T): T where T: Comparable { x }\n"
+		"fn f<T>(x: T) -> T where T: Comparable { x }\n"
 	once, ok := runOrganize(t, src)
 	if !ok {
 		t.Fatal("expected a first organize action")
@@ -117,7 +117,7 @@ func TestOrganize_IdempotentOnOutput(t *testing.T) {
 // whole-program, so an import after another declaration is legal.
 func TestOrganize_BailsOnInterleavedCode(t *testing.T) {
 	src := "import std/io\n\n" +
-		"fn helper(): Int { 1 }\n\n" +
+		"fn helper() -> Int { 1 }\n\n" +
 		"import std/lists\n\n" +
 		"fn main() { io.print(\"x\") l = lists.length([1]) }\n"
 	if _, ok := runOrganize(t, src); ok {

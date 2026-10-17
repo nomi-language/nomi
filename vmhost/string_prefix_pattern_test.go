@@ -23,7 +23,7 @@ struct Req {
   n: Int
 }
 
-fn route(path: String): String {
+fn route(path: String) -> String {
   case path {
     "/users/" + id -> "user [${id}]"
     "/health" -> "health"
@@ -32,7 +32,7 @@ fn route(path: String): String {
   }
 }
 
-fn pattern_if(path: String): String {
+fn pattern_if(path: String) -> String {
   if "/users/" + id = path {
     "if user ${id}"
   } else {
@@ -47,12 +47,12 @@ fn pattern_if_statement(path: String) {
   io.print("after")
 }
 
-fn else_binding(path: String): String {
+fn else_binding(path: String) -> String {
   "é" + rest = path else { return "else miss" }
   "else [${rest}]"
 }
 
-fn payload(m: Maybe<String>): String {
+fn payload(m: Maybe<String>) -> String {
   case m {
     Some("héllo " + who) -> "greet ${who}"
     Some(s) -> "some ${s}"
@@ -60,42 +60,42 @@ fn payload(m: Maybe<String>): String {
   }
 }
 
-fn tuple(t: (String, Int)): String {
+fn tuple(t: #(String, Int)) -> String {
   case t {
-    ("k:" + key, n) -> "${key}=${n}"
+    #("k:" + key, n) -> "${key}=${n}"
     _ -> "tuple miss"
   }
 }
 
-fn map_value(m: Map<String, String>): String {
+fn map_value(m: Map<String, String>) -> String {
   case m {
-    {"auth" => "Bearer " + token} -> "token ${token}"
+    %{"auth" => "Bearer " + token} -> "token ${token}"
     _ -> "map miss"
   }
 }
 
-fn field(r: Req): String {
+fn field(r: Req) -> String {
   case r {
     Req{path: "/v1/" + rest, n} -> "v1 ${rest} ${n}"
     _ -> "field miss"
   }
 }
 
-fn list_head(xs: List<String>): String {
+fn list_head(xs: List<String>) -> String {
   case xs {
     ["-" + flag, ..rest] -> "flag ${flag} +${Iter.count(rest)}"
     _ -> "list miss"
   }
 }
 
-fn as_whole(path: String): String {
+fn as_whole(path: String) -> String {
   case path {
     "x" + rest as whole -> "${rest}|${whole}"
     _ -> "as miss"
   }
 }
 
-fn escapes(s: String): String {
+fn escapes(s: String) -> String {
   case s {
     "a\tb" + r -> "tab ${r}"
     `+"`c\\d`"+` + r -> "raw ${r}"
@@ -118,10 +118,10 @@ fn main() {
   io.print(payload(Some("héllo wörld")))
   io.print(payload(Some("hello")))
   io.print(payload(None))
-  io.print(tuple(("k:id", 3)))
-  io.print(tuple(("id", 3)))
-  io.print(map_value({"auth" => "Bearer abc"}))
-  io.print(map_value({"auth" => "Basic abc"}))
+  io.print(tuple(#("k:id", 3)))
+  io.print(tuple(#("id", 3)))
+  io.print(map_value(%{"auth" => "Bearer abc"}))
+  io.print(map_value(%{"auth" => "Basic abc"}))
   io.print(field(Req{path: "/v1/items", n: 2}))
   io.print(field(Req{path: "/v2/items", n: 2}))
   io.print(list_head(["-v", "a", "b"]))
@@ -131,7 +131,7 @@ fn main() {
   io.print(escapes("a\tbZ"))
   io.print(escapes("c\\dQ"))
   io.print(escapes("ab"))
-  strip = |s: String| if "e" + r = s { "[${r}]" } else { "none" }
+  strip = fn s: String -> if "e" + r = s { "[${r}]" } else { "none" }
   io.print(strip("e\u{301}"))
   io.print(strip("f"))
 }

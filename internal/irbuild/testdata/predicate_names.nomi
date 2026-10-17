@@ -17,28 +17,28 @@
 import std/io
 
 // A free predicate: goFuncName, which strips the `?` to `_PRED`.
-fn positive?(n: Int): Bool {
+fn positive?(n: Int) -> Bool {
     n > 0
 }
 
 // A self-recursive predicate: the loop rewrite, no driver, no wrapper.
-fn zero_after?(n: Int): Bool {
+fn zero_after?(n: Int) -> Bool {
     if n == 0 { True } else { zero_after?(n - 1) }
 }
 
 // A mutual pair: one shared driver named from a member, plus two wrappers.
-fn even?(n: Int): Bool {
+fn even?(n: Int) -> Bool {
     if n == 0 { True } else { odd?(n - 1) }
 }
 
-fn odd?(n: Int): Bool {
+fn odd?(n: Int) -> Bool {
     if n == 0 { False } else { even?(n - 1) }
 }
 
 // An interface method and an impl item: the rt.Method table variable and the
 // impl function's own name.
 interface Gate {
-    fn open?(value: self): Bool
+    fn open?(value: self) -> Bool
 }
 
 struct Door {
@@ -46,22 +46,22 @@ struct Door {
 }
 
 impl Gate for Door {
-    fn open?(value: Door): Bool {
+    fn open?(value: Door) -> Bool {
         if value.latched { False } else { True }
     }
 }
 
 // An inherent impl item, whose name has no interface component.
 impl Door {
-    fn shut?(value: Door): Bool {
+    fn shut?(value: Door) -> Bool {
         if Gate.open?(value) { False } else { True }
     }
 }
 
 // A local binding and a lambda parameter carrying `?`: goLocal.
-fn describe(d: Door): String {
+fn describe(d: Door) -> String {
     ready? = Gate.open?(d)
-    check = |flag?: Bool| if flag? { "open" } else { "shut" }
+    check = fn flag?: Bool -> if flag? { "open" } else { "shut" }
 
     check(ready?)
 }
@@ -74,16 +74,16 @@ once ready?: Bool = True
 struct Tick {}
 
 interface Beat {
-    fn tick?(value: self, n: Int): Bool
+    fn tick?(value: self, n: Int) -> Bool
 }
 
 impl Beat for Tick {
-    fn tick?(value: Tick, n: Int): Bool {
+    fn tick?(value: Tick, n: Int) -> Bool {
         if n == 0 { True } else { tock?(value, n - 1) }
     }
 }
 
-fn tock?(value: Tick, n: Int): Bool {
+fn tock?(value: Tick, n: Int) -> Bool {
     Beat.tick?(value, n)
 }
 

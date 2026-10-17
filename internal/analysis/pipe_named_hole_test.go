@@ -4,19 +4,19 @@ import (
 	"testing"
 )
 
-const pipeNamedHoleDecls = `fn tag(a: Int, w: String): String {
+const pipeNamedHoleDecls = `fn tag(a: Int, w: String) -> String {
   "${a}:${w}"
 }
 
-fn spaced(a: Int = 1, b: Int = 2, w: String): String {
+fn spaced(a: Int = 1, b: Int = 2, w: String) -> String {
   "${a}/${b}/${w}"
 }
 
-fn copies<T>(n: Int, item: T): List<T> {
+fn copies<T>(n: Int, item: T) -> List<T> {
   if n > 1 { [item, item] } else { [item] }
 }
 
-fn halve(by: Int, n: Int): Result<Int, String> {
+fn halve(by: Int, n: Int) -> Result<Int, String> {
   if n % by == 0 { Ok(n / by) } else { Err("odd") }
 }
 
@@ -26,7 +26,7 @@ fn halve(by: Int, n: Int): Result<Int, String> {
 // one, and the stage's type is its callee's result. The annotations hold
 // each stage to that type.
 func TestPipeNamedHole_FillsTheNamedArgument(t *testing.T) {
-	src := pipeNamedHoleDecls + `fn run(): Result<Int, String> {
+	src := pipeNamedHoleDecls + `fn run() -> Result<Int, String> {
   n = 8 |> try halve(by: 2, n: _)
   Ok(n)
 }
@@ -40,7 +40,7 @@ fn main() {
   f: List<String> = "s" |> copies(n: 2, item: _)
   g: String = 7 |> Display.to_string(value: _)
   h: Int = 8 |> halve(by: 2, n: _) |> Result.with_default(0)
-  _ = (a, b, c, d, e, f, g, h, run())
+  _ = #(a, b, c, d, e, f, g, h, run())
 }
 `
 	_, errs := checkSourceWithStdlib(src)
@@ -54,14 +54,14 @@ fn main() {
 // value, so a slot that does not take it is the error at its `_`, naming
 // it. Each case is still rejected.
 func TestPipeNamedHole_EveryHoleTakesThePipedValue(t *testing.T) {
-	ok := pipeNamedHoleDecls + `fn add(a: Int, b: Int): Int {
+	ok := pipeNamedHoleDecls + `fn add(a: Int, b: Int) -> Int {
   a + b
 }
 
 fn main() {
   a: Int = 1 |> add(_, b: _)
   b: Int = 1 |> add(a: _, b: _)
-  _ = (a, b)
+  _ = #(a, b)
 }
 `
 	_, errs := checkSourceWithStdlib(ok)

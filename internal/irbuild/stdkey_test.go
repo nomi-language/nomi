@@ -61,7 +61,7 @@ func TestStdOverloadSetRefusesAnIndistinguishablePair(t *testing.T) {
 	}
 	// And a signature no member takes selects nothing rather than the nearest.
 	if got := stdPick(set, []kind{kindString, kindString}); got != nil {
-		t.Errorf("(String, String) selected %s; no member takes it", got.key)
+		t.Errorf("#(String, String) selected %s; no member takes it", got.key)
 	}
 }
 

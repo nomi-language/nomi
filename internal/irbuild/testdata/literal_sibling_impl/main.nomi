@@ -28,8 +28,8 @@ import {
 pub type Local
 
 impl Literal for Local {
-    fn from_fragments(fragments: List<Fragment<String>>): String {
-        Iter.reduce(fragments, |acc = "<", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> String {
+        Iter.reduce(fragments, fn acc = "<", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + "[" + v + "]"
@@ -38,7 +38,7 @@ impl Literal for Local {
     }
 }
 
-fn shout(s: String): String {
+fn shout(s: String) -> String {
     io.print("slot/" + s)
     s
 }

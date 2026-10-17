@@ -12,6 +12,6 @@ import right.seed
 
 pub once ours: Int = 3
 
-pub fn from_left(): Int {
+pub fn from_left() -> Int {
     seed + ours
 }

@@ -19,13 +19,13 @@ func TestStrayPrompt_AfterCodeIsAnError(t *testing.T) {
 		line, col int
 	}{
 		"after a punned field":     {"A{a//!000000\n}\n", 1, 4},
-		"after a field and comma":  {"fn f(): A {\n  A{a: 1, //! note\n    b: 2}\n}\n", 2, 11},
-		"after a statement":        {"fn f(): Int {\n  x = 1 //! note\n  x\n}\n", 2, 9},
-		"after a block's brace":    {"fn f(): Int { //! note\n  1\n}\n", 1, 15},
-		"after a declaration":      {"fn f(): Int {\n  1\n} //! assert f() == 1\n", 3, 3},
-		"with nothing after it":    {"fn f(): Int {\n  1 //!\n}\n", 2, 5},
-		"inside a prompt's line":   {"//! assert f() == 1 //! more\nfn f(): Int {\n  1\n}\n", 1, 21},
-		"after a list's last item": {"fn f(): List<Int> {\n  [\n    1, //! note\n  ]\n}\n", 3, 8},
+		"after a field and comma":  {"fn f() -> A {\n  A{a: 1, //! note\n    b: 2}\n}\n", 2, 11},
+		"after a statement":        {"fn f() -> Int {\n  x = 1 //! note\n  x\n}\n", 2, 9},
+		"after a block's brace":    {"fn f() -> Int { //! note\n  1\n}\n", 1, 17},
+		"after a declaration":      {"fn f() -> Int {\n  1\n} //! assert f() == 1\n", 3, 3},
+		"with nothing after it":    {"fn f() -> Int {\n  1 //!\n}\n", 2, 5},
+		"inside a prompt's line":   {"//! assert f() == 1 //! more\nfn f() -> Int {\n  1\n}\n", 1, 21},
+		"after a list's last item": {"fn f() -> List<Int> {\n  [\n    1, //! note\n  ]\n}\n", 3, 8},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -47,7 +47,7 @@ func TestStrayPrompt_AfterCodeIsAnError(t *testing.T) {
 
 // The resilient parse the LSP uses reports it and keeps the declaration.
 func TestStrayPrompt_ResilientParseReportsIt(t *testing.T) {
-	nodes, errs, _ := ParseResilient(lexer.Lex("fn f(): Int {\n  1 //! note\n}\n"))
+	nodes, errs, _ := ParseResilient(lexer.Lex("fn f() -> Int {\n  1 //! note\n}\n"))
 	if len(errs) != 1 || !strings.Contains(errs[0].Message, strayPromptMessage) {
 		t.Fatalf("ParseResilient errors = %v, want one stray-prompt error", errs)
 	}
@@ -60,11 +60,11 @@ func TestStrayPrompt_ResilientParseReportsIt(t *testing.T) {
 // and a comment that only contains `//!` after other text is a comment.
 func TestStrayPrompt_PromptsAndOtherCommentsStillParse(t *testing.T) {
 	for _, src := range []string{
-		"//! assert f() == 1\nfn f(): Int {\n  1\n}\n",
-		"impl A {\n  //! assert A.f() == 1\n  fn f(): Int {\n    1\n  }\n}\nstruct A {\n  x: Int\n}\n",
-		"fn f(): Int {\n  1 ////! note\n}\n",
-		"fn f(): Int {\n  1 // see //! note\n}\n",
-		"fn f(): Int {\n  1 //# note\n}\n",
+		"//! assert f() == 1\nfn f() -> Int {\n  1\n}\n",
+		"impl A {\n  //! assert A.f() == 1\n  fn f() -> Int {\n    1\n  }\n}\nstruct A {\n  x: Int\n}\n",
+		"fn f() -> Int {\n  1 ////! note\n}\n",
+		"fn f() -> Int {\n  1 // see //! note\n}\n",
+		"fn f() -> Int {\n  1 //# note\n}\n",
 	} {
 		if _, err := Parse(lexer.Lex(src)); err != nil {
 			t.Errorf("Parse rejected:\n%s\nerror: %v", src, err)

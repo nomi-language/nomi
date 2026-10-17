@@ -35,10 +35,10 @@ func TestMapKeyOpsAgreeOnTheirDomain(t *testing.T) {
 		{"List<_>", kindEmptyList},
 		{"List<Int>", g.listKind(kindInt)},
 		{"List<List<String>>", g.listKind(g.listKind(kindString))},
-		{"(Int, String)", g.tupleKind([]kind{kindInt, kindString})},
-		{"(Int, List<Bool>)", g.tupleKind([]kind{kindInt, g.listKind(kindBool)})},
+		{"#(Int, String)", g.tupleKind([]kind{kindInt, kindString})},
+		{"#(Int, List<Bool>)", g.tupleKind([]kind{kindInt, g.listKind(kindBool)})},
 		{"Map<String, Int>", g.mapKind(kindString, kindInt)},
-		{"Map<List<Int>, (Int, Int)>", g.mapKind(g.listKind(kindInt),
+		{"Map<List<Int>, #(Int, Int)>", g.mapKind(g.listKind(kindInt),
 			g.tupleKind([]kind{kindInt, kindInt}))},
 		{"a struct", named(&typeDef{nomi: "Point", lowerable: true, fields: []fieldDef{
 			{nomi: "x", k: kindInt},

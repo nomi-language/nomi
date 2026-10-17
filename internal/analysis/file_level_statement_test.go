@@ -16,7 +16,7 @@ func TestFileLevelStatement_IsAnErrorAtTheStatement(t *testing.T) {
 
 x = 3
 _ = 4
-(a, b) = (1, 2)
+#(a, b) = #(1, 2)
 io.print("hi")
 undefined_name
 assert 1 == 1

@@ -11,32 +11,32 @@ const crossFileShapes = `pub struct Box {
   size: Int = 1
 }
 
-pub fn make(x: Int): Box {
+pub fn make(x: Int) -> Box {
   Box{at: {x, y: x * 2}}
 }
 
-pub fn width(b: Box): Int {
+pub fn width(b: Box) -> Int {
   b.at.x + b.size
 }
 
-pub fn corner(b: Box): {x: Int, y: Int} {
+pub fn corner(b: Box) -> {x: Int, y: Int} {
   b.at
 }
 
-pub fn px(p: {x: Int, y: Int}): Int {
+pub fn px(p: {x: Int, y: Int}) -> Int {
   p.x * 10 + p.y
 }
 
-pub fn ok_only(n: Int): Result<Int, Infallible> {
+pub fn ok_only(n: Int) -> Result<Int, Infallible> {
   Ok(n)
 }
 
-pub fn evens(n: Int): Iter<Int> {
-  0..n |> Iter.map(|x| x * 2)
+pub fn evens(n: Int) -> Iter<Int> {
+  0..n |> Iter.map(fn x -> x * 2)
 }
 
-pub fn sum_of(xs: Iter<Int>): Int {
-  Iter.reduce(xs, |acc = 0, x| acc + x)
+pub fn sum_of(xs: Iter<Int>) -> Int {
+  Iter.reduce(xs, fn acc = 0, x -> acc + x)
 }
 `
 

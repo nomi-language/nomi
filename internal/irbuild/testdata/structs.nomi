@@ -36,20 +36,20 @@ struct Ordered {
     d: Int
 }
 
-fn fallback(): Int {
+fn fallback() -> Int {
     3
 }
 
-fn noisy(n: Int): Int {
+fn noisy(n: Int) -> Int {
     io.print("eval ${n}")
     n
 }
 
-fn dx(s: Segment): Int {
+fn dx(s: Segment) -> Int {
     s.to.x - s.from.x
 }
 
-fn origin(): Point {
+fn origin() -> Point {
     Point{x: 0, y: 0}
 }
 

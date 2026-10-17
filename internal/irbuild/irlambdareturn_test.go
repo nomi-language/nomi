@@ -6,7 +6,7 @@ func TestIRLambdaReturn_CompletePrograms(t *testing.T) {
 	const src = `import std/io
 fn main() {
  base = 10
- choose = |n: Int| {
+ choose = fn n: Int -> {
   if n < 0 {
    amount = base - n
    io.print("early")
@@ -26,7 +26,7 @@ fn main() {
 func TestIRLambdaReturn_ListCoercionAndTailBranches(t *testing.T) {
 	const src = `import std/io
 fn main() {
- choose = |n: Int| {
+ choose = fn n: Int -> {
   if n < 0 { return [n] }
   if n == 0 { return [] }
   if n == 1 { [10] } else { [20] }
@@ -41,10 +41,10 @@ fn main() {
 
 func TestIRLambdaReturn_ActivationAndShortCircuit(t *testing.T) {
 	const src = `import std/io
-fn check(n: Int): Bool { io.print("check") n > 0 }
+fn check(n: Int) -> Bool { io.print("check") n > 0 }
 fn main() {
- outer = |n: Int| {
-  inner = |x: Int| {
+ outer = fn n: Int -> {
+  inner = fn x: Int -> {
    if x > 0 and check(x) { return x + n }
    0
   }

@@ -25,21 +25,21 @@ group "named task groups" {
     test "work outlives the call that started it" {
         // Nothing is awaited here — the group owns the task, so this
         // returns immediately.
-        _ = Supervisor.spawn(Config.audit, || record_audit(7))
+        _ = Supervisor.spawn(Config.audit, fn -> record_audit(7))
 
         // The flush is what makes background work testable. Without it the
         // alternative is sleeping and hoping.
         _ = Supervisor.flush(Config.audit)
 
-        assert Iter.any?(drain_alerts(), |m| m == "audited 7")
+        assert Iter.any?(drain_alerts(), fn m -> m == "audited 7")
     }
 
     test "a failure nobody awaits still goes somewhere" {
-        _ = Supervisor.spawn(Config.notify, || send_welcome(""))
+        _ = Supervisor.spawn(Config.notify, fn -> send_welcome(""))
         _ = Supervisor.flush(Config.notify)
 
         assert drain_alerts()
-            |> Iter.any?(|m| String.contains?(m, "no address"))
+            |> Iter.any?(fn m -> String.contains?(m, "no address"))
     }
 
     test "a batch is bounded by the group's own limit" {
@@ -63,8 +63,8 @@ group "named task groups" {
     }
 
     test "cancelling one grouped task leaves the rest alone" {
-        doomed = Supervisor.spawn(Config.notify, || slow_work())
-        _ = Supervisor.spawn(Config.notify, || send_welcome("keeper@example.com"))
+        doomed = Supervisor.spawn(Config.notify, fn -> slow_work())
+        _ = Supervisor.spawn(Config.notify, fn -> send_welcome("keeper@example.com"))
 
         Task.cancel(doomed)
         _ = Supervisor.flush(Config.notify)
@@ -75,7 +75,7 @@ group "named task groups" {
     }
 
     test "a cancelled task reports Cancelled rather than Completed" {
-        doomed = Supervisor.spawn(Config.notify, || slow_work())
+        doomed = Supervisor.spawn(Config.notify, fn -> slow_work())
         Task.cancel(doomed)
 
         // `Task.outcome`, not `Task.await`: awaiting a task you cancelled

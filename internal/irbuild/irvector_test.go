@@ -6,7 +6,7 @@ import (
 
 func TestIRVector_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn append(v: Vector<String>, s: String): Vector<String> { Vector.push(v, s) }
+fn append(v: Vector<String>, s: String) -> Vector<String> { Vector.push(v, s) }
 fn main() {
   names = #["Ada", "Grace"]
   more = append(names, "Katherine")
@@ -17,7 +17,7 @@ fn main() {
   io.inspect(Vector.get(more, -1))
   io.inspect(Vector.get(more, 3))
   io.inspect(Vector.get(more, 4294967296))
-  get = |i: Int| Vector.get(more, i)
+  get = fn i: Int -> Vector.get(more, i)
   io.inspect(get(2))
 }
 `, "#[\"Ada\", \"Grace\"]\n#[\"Ada\", \"Grace\", \"Katherine\"]\n3\nSome(\"Grace\")\nNone\nNone\nNone\nSome(\"Katherine\")\n")
@@ -25,7 +25,7 @@ fn main() {
 
 func TestIRVector_EmptyAndConcat(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn empty(): Vector<Int> { #[] }
+fn empty() -> Vector<Int> { #[] }
 fn main() {
   v: Vector<Int> = #[]
   io.inspect(v)
@@ -56,7 +56,7 @@ fn main() { v = #[Meter(1)] io.print(Vector.length(v)) }
 func TestIRVector_OfFunctionValuesRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
-  v = #[|x: Int| x + 1, |x: Int| x * 2]
+  v = #[fn x: Int -> x + 1, fn x: Int -> x * 2]
   io.print(Vector.length(v))
   case Vector.get(v, 1) {
     Some(f) -> io.print(f(5))
@@ -68,8 +68,8 @@ fn main() {
 
 func TestIRVector_EvaluationOrder(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn mark(n: Int): Int { io.print(n) n }
-fn vector(v: Vector<Int>): Vector<Int> { io.print("vector") v }
+fn mark(n: Int) -> Int { io.print(n) n }
+fn vector(v: Vector<Int>) -> Vector<Int> { io.print("vector") v }
 fn main() {
   a = #[mark(1), mark(2)]
   b = Vector.push(vector(a), mark(3))
@@ -84,8 +84,8 @@ fn main() {
 // first), and an empty `#[]` spread takes the elements' kind.
 func TestIRVector_NamedSpread(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn mark(n: Int): Int { io.print(n) n }
-fn vector(v: Vector<Int>): Vector<Int> { io.print("vector") v }
+fn mark(n: Int) -> Int { io.print(n) n }
+fn vector(v: Vector<Int>) -> Vector<Int> { io.print("vector") v }
 struct Team { names: Vector<String> }
 fn main() {
   names = #["Ada", "Bo"]

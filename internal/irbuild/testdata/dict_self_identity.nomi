@@ -23,8 +23,8 @@
 import std/io
 
 interface Cmp {
-    fn cmp(a: self, b: self): Int
-    fn shout(v: self): String
+    fn cmp(a: self, b: self) -> Int
+    fn shout(v: self) -> String
 }
 
 struct Dog {
@@ -36,34 +36,34 @@ struct Cat {
 }
 
 impl Cmp for Dog {
-    fn cmp(x: Dog, y: Dog): Int {
+    fn cmp(x: Dog, y: Dog) -> Int {
         x.weight - y.weight
     }
 
-    fn shout(d: Dog): String {
+    fn shout(d: Dog) -> String {
         "woof at ${d.weight}"
     }
 }
 
 impl Cmp for Cat {
-    fn cmp(x: Cat, y: Cat): Int {
+    fn cmp(x: Cat, y: Cat) -> Int {
         x.weight + y.weight
     }
 
-    fn shout(c: Cat): String {
+    fn shout(c: Cat) -> String {
         "meow at ${c.weight}"
     }
 }
 
-fn announce<T>(x: T): String where T: Cmp {
+fn announce<T>(x: T) -> String where T: Cmp {
     T.shout(x)
 }
 
-fn rank<T>(a: T, b: T): Int where T: Cmp {
+fn rank<T>(a: T, b: T) -> Int where T: Cmp {
     T.cmp(a, b)
 }
 
-fn relay<U>(a: U, b: U): Int where U: Cmp {
+fn relay<U>(a: U, b: U) -> Int where U: Cmp {
     rank(a, b) + rank(b, a)
 }
 

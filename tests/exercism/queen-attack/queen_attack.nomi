@@ -6,7 +6,7 @@ pub opaque struct Queen {
 
 impl Queen {
     /// Places a queen, or says which coordinate is off the board.
-    pub fn new(row: Int, column: Int): Result<Queen, Error> {
+    pub fn new(row: Int, column: Int) -> Result<Queen, Error> {
         case {
             row < 0 -> Err(.RowNotPositive)
             row > 7 -> Err(.RowNotOnBoard)
@@ -17,7 +17,7 @@ impl Queen {
     }
 
     /// Reports whether two queens share a row, a column or a diagonal.
-    pub fn can_attack?(white: Queen, black: Queen): Bool {
+    pub fn can_attack?(white: Queen, black: Queen) -> Bool {
         rows = Int.abs(white.row - black.row)
         columns = Int.abs(white.column - black.column)
         rows == 0 or columns == 0 or rows == columns

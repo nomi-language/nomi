@@ -19,10 +19,10 @@ import (
 // naming neither the `try` nor the boundary.
 
 func TestTryBoundary_ErrorTypeMustMatch(t *testing.T) {
-	src := `fn r(): Result<Int, Int> {
+	src := `fn r() -> Result<Int, Int> {
   Err(7)
 }
-fn f(): Result<Int, String> {
+fn f() -> Result<Int, String> {
   v = try r()
   Ok(v)
 }`
@@ -45,10 +45,10 @@ fn f(): Result<Int, String> {
 }
 
 func TestTryBoundary_MatchingErrorTypeIsClean(t *testing.T) {
-	src := `fn r(): Result<Int, String> {
+	src := `fn r() -> Result<Int, String> {
   Err("boom")
 }
-fn f(): Result<Int, String> {
+fn f() -> Result<Int, String> {
   v = try r()
   Ok(v)
 }`
@@ -58,21 +58,21 @@ fn f(): Result<Int, String> {
 // The language's answer to a mismatch is conversion AT THE SITE with
 // `Result.map_err` (spec §9), not an implicit widening at the boundary.
 func TestTryBoundary_MapErrAtTheSiteIsClean(t *testing.T) {
-	src := `fn r(): Result<Int, Int> {
+	src := `fn r() -> Result<Int, Int> {
   Err(7)
 }
-fn f(): Result<Int, String> {
-  v = try Result.map_err(r(), |code: Int| Int.to_string(code))
+fn f() -> Result<Int, String> {
+  v = try Result.map_err(r(), fn code: Int -> Int.to_string(code))
   Ok(v)
 }`
 	expectNoConcurrentError(t, analyzeConcurrentRaw(src), "try error type mismatch")
 }
 
 func TestTryBoundary_MaybeCannotPropagateIntoAResult(t *testing.T) {
-	src := `fn find(): Maybe<Int> {
+	src := `fn find() -> Maybe<Int> {
   None
 }
-fn f(): Result<Int, String> {
+fn f() -> Result<Int, String> {
   v = try find()
   Ok(v)
 }`
@@ -81,10 +81,10 @@ fn f(): Result<Int, String> {
 }
 
 func TestTryBoundary_ResultCannotPropagateIntoAMaybe(t *testing.T) {
-	src := `fn r(): Result<Int, String> {
+	src := `fn r() -> Result<Int, String> {
   Err("boom")
 }
-fn f(): Maybe<Int> {
+fn f() -> Maybe<Int> {
   v = try r()
   Some(v)
 }`
@@ -93,10 +93,10 @@ fn f(): Maybe<Int> {
 }
 
 func TestTryBoundary_MaybeIntoMaybeIsClean(t *testing.T) {
-	src := `fn find(): Maybe<Int> {
+	src := `fn find() -> Maybe<Int> {
   None
 }
-fn f(): Maybe<Int> {
+fn f() -> Maybe<Int> {
   v = try find()
   Some(v)
 }`
@@ -106,10 +106,10 @@ fn f(): Maybe<Int> {
 }
 
 func TestTryBoundary_NonResultBoundaryIsRejected(t *testing.T) {
-	src := `fn r(): Result<Int, String> {
+	src := `fn r() -> Result<Int, String> {
   Err("boom")
 }
-fn f(): Int {
+fn f() -> Int {
   v = try r()
   v
 }`
@@ -120,7 +120,7 @@ fn f(): Int {
 // A function with no declared return type has a Unit result, so there is
 // nothing for the propagated value to inhabit. This is the `fn main()` shape.
 func TestTryBoundary_UndeclaredReturnTypeIsRejected(t *testing.T) {
-	src := `fn r(): Result<Int, String> {
+	src := `fn r() -> Result<Int, String> {
   Err("boom")
 }
 fn f() {
@@ -134,7 +134,7 @@ fn f() {
 // with `test returned early` rather than returning a value anywhere — so the
 // boundary rule has nothing to say about it and must stay silent.
 func TestTryBoundary_TestBodyIsExempt(t *testing.T) {
-	src := `fn r(): Result<Int, Int> {
+	src := `fn r() -> Result<Int, Int> {
   Err(7)
 }
 test "propagates" {
@@ -155,14 +155,14 @@ func TestTryBoundary_InterfaceTypedErrorSideAcceptsAnImplementer(t *testing.T) {
   why: String
 }
 impl Display for Boom {
-  fn to_string(value: Boom): String {
+  fn to_string(value: Boom) -> String {
     value.why
   }
 }
-fn r(): Result<Int, Boom> {
+fn r() -> Result<Int, Boom> {
   Err(Boom{why: "boom"})
 }
-fn f(): Result<Int, Display> {
+fn f() -> Result<Int, Display> {
   v = try r()
   Ok(v)
 }`
@@ -172,10 +172,10 @@ fn f(): Result<Int, Display> {
 // A generic boundary is not silently satisfied by a concrete error type: the
 // function's own type parameter is PROTECTED, so unify does not bind it away.
 func TestTryBoundary_GenericBoundaryIsNotSatisfiedByAConcreteError(t *testing.T) {
-	src := `fn r(): Result<Int, String> {
+	src := `fn r() -> Result<Int, String> {
   Err("boom")
 }
-fn f<E>(): Result<Int, E> {
+fn f<E>() -> Result<Int, E> {
   v = try r()
   Ok(v)
 }`
@@ -184,7 +184,7 @@ fn f<E>(): Result<Int, E> {
 
 // A generic boundary propagating its OWN error type is clean.
 func TestTryBoundary_GenericBoundaryMatchingItsOwnErrorTypeIsClean(t *testing.T) {
-	src := `fn f<E>(r: Result<Int, E>): Result<Int, E> {
+	src := `fn f<E>(r: Result<Int, E>) -> Result<Int, E> {
   v = try r
   Ok(v)
 }`
@@ -195,7 +195,7 @@ func TestTryBoundary_GenericBoundaryMatchingItsOwnErrorTypeIsClean(t *testing.T)
 // into a bare `try` stage over the piped value — so it must be checked too,
 // otherwise the rule has a hole the moment anyone writes a pipeline.
 func TestTryBoundary_PipeStageIsChecked(t *testing.T) {
-	src := `fn f(): Result<Int, String> {
+	src := `fn f() -> Result<Int, String> {
   n =
     Some(1)
     |> try
@@ -210,12 +210,12 @@ func TestTryBoundary_PipeStageIsChecked(t *testing.T) {
 // checkTryBoundary must not also report against the enclosing fn's
 // declaration. Regression guard for the gate.
 func TestTryBoundary_ConcurrentBlockKeepsItsOwnRegime(t *testing.T) {
-	src := `fn short_fail(): Result<Int, Int> {
+	src := `fn short_fail() -> Result<Int, Int> {
   Err(7)
 }
-fn demo(): String {
+fn demo() -> String {
   outcome = concurrent {
-    x = Task.spawn(|| short_fail())
+    x = Task.spawn(fn -> short_fail())
     Ok(try Task.await(x))
   }
   case outcome {
@@ -235,11 +235,11 @@ fn demo(): String {
 //
 // Closing the fn half alone would leave the hole reachable through a lambda.
 func TestTryBoundary_LambdaResultCannotHoldAPropagatedResult(t *testing.T) {
-	src := `fn parse(n: Int): Result<Int, String> {
+	src := `fn parse(n: Int) -> Result<Int, String> {
   Ok(n)
 }
 fn main() {
-  _ = |x: Int| {
+  _ = fn x: Int -> {
     v = try parse(x)
     v
   }
@@ -252,11 +252,11 @@ fn main() {
 // only an error type: a `try` on a `Maybe` contributes no error type, so an
 // error-type-only accumulator is empty here and cannot see the violation.
 func TestTryBoundary_LambdaResultCannotHoldAPropagatedMaybe(t *testing.T) {
-	src := `fn find(n: Int): Maybe<Int> {
+	src := `fn find(n: Int) -> Maybe<Int> {
   Some(n)
 }
 fn main() {
-  _ = |x: Int| {
+  _ = fn x: Int -> {
     v = try find(x)
     v
   }
@@ -266,11 +266,11 @@ fn main() {
 }
 
 func TestTryBoundary_LambdaWithAResultTailIsClean(t *testing.T) {
-	src := `fn parse(n: Int): Result<Int, String> {
+	src := `fn parse(n: Int) -> Result<Int, String> {
   Ok(n)
 }
 fn main() {
-  _ = |x: Int| {
+  _ = fn x: Int -> {
     v = try parse(x)
     Ok(v)
   }
@@ -281,14 +281,14 @@ fn main() {
 // A lambda mixing flavours: the `Maybe` site cannot propagate out of a
 // `Result`-tailed lambda.
 func TestTryBoundary_LambdaFlavourDisagreement(t *testing.T) {
-	src := `fn parse(n: Int): Result<Int, String> {
+	src := `fn parse(n: Int) -> Result<Int, String> {
   Ok(n)
 }
-fn find(n: Int): Maybe<Int> {
+fn find(n: Int) -> Maybe<Int> {
   Some(n)
 }
 fn main() {
-  _ = |x: Int| {
+  _ = fn x: Int -> {
     a = try parse(x)
     b = try find(x)
     Ok(a + b)
@@ -301,12 +301,12 @@ fn main() {
 // A `concurrent` block whose tail is not a Result/Maybe is the same violation
 // through the other inferring boundary, and the diagnostic says so.
 func TestTryBoundary_ConcurrentBlockResultCannotHoldIt(t *testing.T) {
-	src := `fn short_fail(): Result<Int, String> {
+	src := `fn short_fail() -> Result<Int, String> {
   Err("boom")
 }
-fn demo(): Int {
+fn demo() -> Int {
   outcome = concurrent {
-    x = Task.spawn(|| short_fail())
+    x = Task.spawn(fn -> short_fail())
     try Task.await(x)
   }
   outcome
@@ -320,11 +320,11 @@ fn demo(): Int {
 // `Iter.loop` callback's result Int, and a `try` there has no Result or
 // Maybe to propagate into (spec §9, clause 1).
 func TestTryBoundary_BreakOnlyLambdaBodyHasTheBreakValuesResult(t *testing.T) {
-	src := `fn parse(n: Int): Result<Int, String> {
+	src := `fn parse(n: Int) -> Result<Int, String> {
   Ok(n)
 }
-fn demo(): Int {
-  Iter.loop(|acc = 0| {
+fn demo() -> Int {
+  Iter.loop(fn acc = 0 -> {
     v = try parse(acc)
     break v
   })
@@ -336,11 +336,11 @@ fn demo(): Int {
 // The same loop over a Result state holds the `try`: the break value is the
 // Result the propagated Err inhabits.
 func TestTryBoundary_BreakOnlyLambdaBodyWithAResultHoldsTheTry(t *testing.T) {
-	src := `fn parse(n: Int): Result<Int, String> {
+	src := `fn parse(n: Int) -> Result<Int, String> {
   Ok(n)
 }
-fn demo(): Result<Int, String> {
-  Iter.loop(|acc: Result<Int, String> = Ok(0)| {
+fn demo() -> Result<Int, String> {
+  Iter.loop(fn acc: Result<Int, String> = Ok(0) -> {
     v = try parse(Result.with_default(acc, 0))
     break Ok(v)
   })
@@ -354,11 +354,11 @@ fn demo(): Result<Int, String> {
 // is still the one its callee declares: Unit for `Iter.each`, which a `try`
 // cannot propagate into (spec §9, clause 1).
 func TestTryBoundary_ContinueOnlyLambdaBodyHasTheCallbacksResult(t *testing.T) {
-	src := `fn parse(n: Int): Result<Int, String> {
+	src := `fn parse(n: Int) -> Result<Int, String> {
   Ok(n)
 }
-fn demo(): Unit {
-  Iter.each([1, 2], |x| {
+fn demo() -> Unit {
+  Iter.each([1, 2], fn x -> {
     _ = try parse(x)
     continue
   })
@@ -370,11 +370,11 @@ fn demo(): Unit {
 // The same body in a callback whose declared result is a Result holds the
 // `try`.
 func TestTryBoundary_ContinueOnlyLambdaBodyWithAResultHoldsTheTry(t *testing.T) {
-	src := `fn parse(n: Int): Result<Int, String> {
+	src := `fn parse(n: Int) -> Result<Int, String> {
   Ok(n)
 }
-fn demo(): Result<Int, String> {
-  Iter.loop(|acc: Result<Int, String> = Ok(0)| {
+fn demo() -> Result<Int, String> {
+  Iter.loop(fn acc: Result<Int, String> = Ok(0) -> {
     _ = try parse(Result.with_default(acc, 0))
     continue
   })
@@ -387,7 +387,7 @@ fn demo(): Result<Int, String> {
 // Result has nowhere to send the failure and is an error at the assertion.
 // The diagnostic names the assertion, not a `try` the user did not write.
 func TestTryBoundary_AssertionInAConcurrentBlockNeedsAResult(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   v = concurrent {
     assert 1 == 1
     2
@@ -405,7 +405,7 @@ func TestTryBoundary_AssertionInAConcurrentBlockNeedsAResult(t *testing.T) {
 func TestTryBoundary_AssertionInAResultConcurrentBlock(t *testing.T) {
 	ok := `import std/assertions.{AssertionFailure}
 
-fn demo(): Result<Int, AssertionFailure> {
+fn demo() -> Result<Int, AssertionFailure> {
   concurrent {
     assert 1 == 1
     Ok(2)
@@ -414,7 +414,7 @@ fn demo(): Result<Int, AssertionFailure> {
 	errs := analyzeConcurrentRaw(ok)
 	expectNoConcurrentError(t, errs, "assertion")
 	expectNoConcurrentError(t, errs, "inconsistent")
-	bad := `fn demo(): Result<Int, String> {
+	bad := `fn demo() -> Result<Int, String> {
   concurrent {
     assert 1 == 1
     Ok(2)

@@ -75,7 +75,7 @@ test "the tag decides which provider answers, not the declaration order" {
 // invisible to every other test in this file, because a local is pure and every
 // other subject above is one. Without this test, a lowering that drops the
 // single-evaluation binding passes every other test in the package.
-fn announce(): Shape {
+fn announce() -> Shape {
     io.print("picked")
     Shape.Rect{radius: 1.5, height: 3}
 }

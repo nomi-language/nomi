@@ -211,7 +211,7 @@ func TestLoad_CrossModuleReturnTypesResolved(t *testing.T) {
 		// Maybe.to_result(m: Maybe<T>, e: E): Result<T, E> — the
 		// mirror: maybe uses Result in its return type.
 		{"maybe", "to_result", true},
-		// Iter.to_map(src: Iter<(K, V)>): Map<K, V> — a free function
+		// Iter.to_map(src: Iter<#(K, V)>) -> Map<K, V> — a free function
 		// (constructor/materializer) with a cross-module Map return.
 		{"iter", "to_map", true},
 		// Map.values(m: self): List<V> — type-promoted method, cross-module

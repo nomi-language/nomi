@@ -18,7 +18,7 @@ pub struct Money {
 }
 
 impl Equatable for Money {
-    fn equal?(a: Money, b: Money): Bool {
+    fn equal?(a: Money, b: Money) -> Bool {
         a.cents == b.cents
     }
 }

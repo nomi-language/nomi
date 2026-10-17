@@ -916,14 +916,14 @@ T
 C 07-structs-and-enums/nested_update/nested_update_test.nomi
 E 0
 N 23
-H 5e0f4f47783d715be0eb2488f269b50c43857b6f94698cb96f297ac1c7654faa
+H e8454e680cb007a4fef00aff38098156068ebf55daf0aa8ea4c2347d7478bdd7
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a `..` literal at a struct field changes only the fields it writes
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a brace without `..` replaces the field whole
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: updates nest three deep
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a list field takes `[x, ..]`, the new element then the old list
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a set field takes `#{.., x}`, the old set then the new element
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a vector field takes `..` at either end
-T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a map field takes `{.., k => v}`, merged over the old map
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a map field takes `%{.., k => v}`, merged over the old map
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a `..` literal at a present key updates the value there
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a missing key starts from an empty collection
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a missing key builds a struct from the fields written and the defaults

@@ -1,30 +1,30 @@
-fn address(config: Map<String, String>): String {
-    {"host" => host, "port" => port} = config else {
+fn address(config: Map<String, String>) -> String {
+    %{"host" => host, "port" => port} = config else {
         return "no address"
     }
 
     "${host}:${port}"
 }
 
-fn port_or_default(config: Map<String, Int>): Int {
-    {"port" => port} = config else {
-        {"fallback" => fallback} -> return fallback
+fn port_or_default(config: Map<String, Int>) -> Int {
+    %{"port" => port} = config else {
+        %{"fallback" => fallback} -> return fallback
         _ -> return 80
     }
 
     port
 }
 
-fn mode(config: Map<String, String>): String {
+fn mode(config: Map<String, String>) -> String {
     case config {
-        {"mode" => "debug"} -> "debugging"
-        {"mode" => other} -> other
+        %{"mode" => "debug"} -> "debugging"
+        %{"mode" => other} -> other
         _ -> "no mode"
     }
 }
 
-fn host_or(config: Map<String, String>, fallback: String): String {
-    if {"host" => host} = config {
+fn host_or(config: Map<String, String>, fallback: String) -> String {
+    if %{"host" => host} = config {
         host
     } else {
         fallback
@@ -32,35 +32,35 @@ fn host_or(config: Map<String, String>, fallback: String): String {
 }
 
 test "a map binding with else binds every key it names" {
-    assert address({"host" => "localhost", "port" => "8080"}) == "localhost:8080"
+    assert address(%{"host" => "localhost", "port" => "8080"}) == "localhost:8080"
 }
 
 test "a map binding runs its else when a key is missing" {
-    assert address({"host" => "localhost"}) == "no address"
-    assert address({"port" => "8080"}) == "no address"
+    assert address(%{"host" => "localhost"}) == "no address"
+    assert address(%{"port" => "8080"}) == "no address"
 }
 
 test "a map binding's else arms match the map that missed" {
-    assert port_or_default({"port" => 8080}) == 8080
-    assert port_or_default({"fallback" => 9090}) == 9090
-    assert port_or_default({"other" => 1}) == 80
+    assert port_or_default(%{"port" => 8080}) == 8080
+    assert port_or_default(%{"fallback" => 9090}) == 9090
+    assert port_or_default(%{"other" => 1}) == 80
 }
 
 test "a map pattern in a case arm falls through to the next arm" {
-    assert mode({"mode" => "debug"}) == "debugging"
-    assert mode({"mode" => "release"}) == "release"
-    assert mode({"host" => "localhost"}) == "no mode"
+    assert mode(%{"mode" => "debug"}) == "debugging"
+    assert mode(%{"mode" => "release"}) == "release"
+    assert mode(%{"host" => "localhost"}) == "no mode"
 }
 
 test "a map pattern in an if binds when every key is present" {
-    assert host_or({"host" => "example.org"}, "localhost") == "example.org"
-    assert host_or({"port" => "8080"}, "localhost") == "localhost"
+    assert host_or(%{"host" => "example.org"}, "localhost") == "example.org"
+    assert host_or(%{"port" => "8080"}, "localhost") == "localhost"
 }
 
 test "a map pattern in an if inside a test body" {
-    config = {"mode" => "debug", "level" => "2"}
+    config = %{"mode" => "debug", "level" => "2"}
 
-    found = if {"mode" => mode, "level" => level} = config {
+    found = if %{"mode" => mode, "level" => level} = config {
         "${mode}/${level}"
     } else {
         "none"
@@ -68,7 +68,7 @@ test "a map pattern in an if inside a test body" {
 
     assert found == "debug/2"
 
-    missing = if {"missing" => value} = config {
+    missing = if %{"missing" => value} = config {
         value
     } else {
         "none"

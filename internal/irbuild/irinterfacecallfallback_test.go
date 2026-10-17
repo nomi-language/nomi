@@ -16,10 +16,10 @@ struct Outer {
   p: List<Point>
   hooks: Map<String, (Int) -> Int> = Map.empty()
 }
-interface Named { fn name(value: self): String }
-impl Named for Token { fn name(value: Token): String { _ = value; "token" } }
+interface Named { fn name(value: self) -> String }
+impl Named for Token { fn name(value: Token) -> String { _ = value; "token" } }
 fn main() { io.print(Named.name(Token)); io.inspect(Outer{p: [Point{x: 1}]}) }
-`, "token\nOuter{p: [Point{x: 1}], hooks: {=>}}\n")
+`, "token\nOuter{p: [Point{x: 1}], hooks: %{}}\n")
 }
 
 // An interface-typed parameter is an existential: the call through it is a
@@ -29,10 +29,10 @@ func TestIRInterfaceCall_ErasedReceiverDispatches(t *testing.T) {
 	src := `import std/io
 type Token
 struct Box { n: Int }
-interface Named { fn name(value: self): String }
-impl Named for Token { fn name(value: Token): String { _ = value; "token" } }
-impl Named for Box { fn name(value: Box): String { "box " + Int.to_string(value.n) } }
-fn describe(value: Named): String { Named.name(value) }
+interface Named { fn name(value: self) -> String }
+impl Named for Token { fn name(value: Token) -> String { _ = value; "token" } }
+impl Named for Box { fn name(value: Box) -> String { "box " + Int.to_string(value.n) } }
+fn describe(value: Named) -> String { Named.name(value) }
 fn main() {
  io.print(describe(Token))
  io.print(describe(Box{n: 2}))

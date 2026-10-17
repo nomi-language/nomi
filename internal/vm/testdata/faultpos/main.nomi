@@ -2,7 +2,7 @@
 // run. Line numbers matter here: `Add.add` is on line 7.
 import std/io
 
-fn overflow_via_impl(): Int {
+fn overflow_via_impl() -> Int {
     big = 9223372036854775807
     Add.add(big, 1)
 }

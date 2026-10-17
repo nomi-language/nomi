@@ -27,11 +27,11 @@ var memberOrderProject = map[string]string{
     settings.Settings
 }
 
-pub fn greeting(): String {
+pub fn greeting() -> String {
     "hello"
 }
 
-pub fn boot(): Settings {
+pub fn boot() -> Settings {
     Settings{context: Context.root(), tag: "root"}
 }
 
@@ -46,7 +46,7 @@ fn main() {
 }
 
 pub interface Shape {
-    fn area(value: self): Int
+    fn area(value: self) -> Int
 }
 
 pub struct Circle {
@@ -54,7 +54,7 @@ pub struct Circle {
 }
 
 impl Shape for Circle {
-    fn area(value: Circle): Int {
+    fn area(value: Circle) -> Int {
         value.radius + Iter.count(Settings.tag)
     }
 }
@@ -76,16 +76,16 @@ pub struct Labelled {
 derive Display for Labelled
 
 impl Shape for Circle {
-    fn area(value: Circle): Int {
+    fn area(value: Circle) -> Int {
         value.radius
     }
 }
 
-pub fn describe(shape: Shape): String {
+pub fn describe(shape: Shape) -> String {
     "area ${Shape.area(shape)}"
 }
 
-pub fn title(): String {
+pub fn title() -> String {
     Settings.tag
 }
 
@@ -101,7 +101,7 @@ pub struct Settings {
     tag: String
 }
 
-pub fn default_tag(): String {
+pub fn default_tag() -> String {
     main.greeting()
 }
 `,
@@ -123,7 +123,7 @@ struct Local {
 }
 
 impl Display for Local {
-    fn to_string(value: Local): String {
+    fn to_string(value: Local) -> String {
         "local ${value.n}"
     }
 }
@@ -135,11 +135,11 @@ fn main() {
 `,
 	"lib.nomi": `import dep
 
-pub fn evens(xs: List<Int>): List<Int> {
+pub fn evens(xs: List<Int>) -> List<Int> {
     dep.halves(xs)
 }
 
-export fn count(xs: List<Int>): Int {
+export fn count(xs: List<Int>) -> Int {
     Iter.count(dep.halves(xs))
 }
 
@@ -147,12 +147,12 @@ test "evens" {
     assert evens([2]) == [2]
 }
 `,
-	"dep.nomi": `fn planted_decline(n: Int): Int {
+	"dep.nomi": `fn planted_decline(n: Int) -> Int {
   n
 }
 
-pub fn halves(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| planted_decline(x)) |> Iter.to_list()
+pub fn halves(xs: List<Int>) -> List<Int> {
+  Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
 }
 `,
 }
@@ -168,7 +168,7 @@ var memberForeignImpl = map[string]string{
 }
 
 impl Shape for Circle {
-    fn area(value: Circle): Int {
+    fn area(value: Circle) -> Int {
         value.radius * 3
     }
 }
@@ -178,15 +178,15 @@ fn main() {
 }
 `,
 	"shapes.nomi": `pub interface Shape {
-    fn area(value: self): Int
+    fn area(value: self) -> Int
 }
 
 pub struct Circle {
     radius: Int
 }
 
-pub fn total(circles: List<Circle>): Int {
-    Iter.map(circles, |c| Shape.area(c)) |> Iter.sum()
+pub fn total(circles: List<Circle>) -> Int {
+    Iter.map(circles, fn c -> Shape.area(c)) |> Iter.sum()
 }
 
 test "total" {
@@ -298,7 +298,7 @@ func withoutDuplicateImpl(files map[string]string) map[string]string {
 		out[k] = v
 	}
 	out["report.nomi"] = strings.Replace(out["report.nomi"], `impl Shape for Circle {
-    fn area(value: Circle): Int {
+    fn area(value: Circle) -> Int {
         value.radius
     }
 }

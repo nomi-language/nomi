@@ -13,32 +13,32 @@ func TestCapturedLambdaPlan_Run(t *testing.T) {
 	}
 	irRunSource(t, `import std/io
 
-fn noisy(n: Int): Int {
+fn noisy(n: Int) -> Int {
     io.print("default ${n}")
     n
 }
 
 fn main() {
     base = 10
-    f = |x: Int, y: Int = noisy(base) + x| x + y
-    g = || f(1)
+    f = fn x: Int, y: Int = noisy(base) + x -> x + y
+    g = fn -> f(1)
     io.print(g())
     io.print(g())
-    h = || f(y: 1, x: 5)
+    h = fn -> f(y: 1, x: 5)
     io.print(h())
-    m = |x: Int, y: Int = 100| x - y
-    p = || m(2, _)
+    m = fn x: Int, y: Int = 100 -> x - y
+    p = fn -> m(2, _)
     q = p()
     io.print(q(3))
-    deep = || {
-        inner = || f(4)
+    deep = fn -> {
+        inner = fn -> f(4)
         inner()
     }
     io.print(deep())
-    k = |a: Int, b: Int = 7| a * b
-    named = |n: Int| k(b: n, a: 2)
+    k = fn a: Int, b: Int = 7 -> a * b
+    named = fn n: Int -> k(b: n, a: 2)
     io.inspect([1, 2] |> Iter.map(named) |> Iter.to_list())
-    io.inspect([1, 2] |> Iter.map(|n: Int| k(n)) |> Iter.to_list())
+    io.inspect([1, 2] |> Iter.map(fn n: Int -> k(n)) |> Iter.to_list())
 }
 `, "default 10\n12\ndefault 10\n12\n6\n-1\ndefault 10\n18\n[2, 4]\n[7, 14]\n")
 }

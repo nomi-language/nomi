@@ -42,10 +42,10 @@ fn main() {
 
 func TestIRHostRef_ReturnedAndCaptured(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn parser(): (String) -> Maybe<Int> { String.to_int }
+fn parser() -> (String) -> Maybe<Int> { String.to_int }
 fn main() {
  parse = parser()
- wrapped = |s: String| parse(s)
+ wrapped = fn s: String -> parse(s)
  io.inspect(wrapped("42"))
  io.inspect(wrapped("no"))
  io.inspect(wrapped("9223372036854775808"))

@@ -109,7 +109,7 @@ func TestBlockImport_ValidMembersAccepted(t *testing.T) {
 // A block import binds only inside its block: another function of the file
 // does not see the type.
 func TestBlockImport_TypeStaysInsideItsBlock(t *testing.T) {
-	src := `fn f(): Unit {
+	src := `fn f() -> Unit {
   import std/json.Json
   dbg Json.Null
   Unit

@@ -10,7 +10,7 @@ import (
 
 func TestVMCrossModuleDistinctArguments(t *testing.T) {
 	p, err := AnalyzeSource("forward.nomi", `import std/instant.Instant
-fn seconds(t: Instant): Int { Instant.to_seconds(t) }
+fn seconds(t: Instant) -> Int { Instant.to_seconds(t) }
 fn main() { _ = seconds(Instant.from_seconds(1)) }
 `)
 	if err != nil {
@@ -46,13 +46,13 @@ func TestVMTagOnlyEnumArgumentsAndForwarding(t *testing.T) {
   Idle
   Ready
 }
-fn number(s: Signal): Int {
+fn number(s: Signal) -> Int {
   case s {
     .Idle -> 42
     .Ready -> 43
   }
 }
-fn relay(s: Signal): Int { number(s) }
+fn relay(s: Signal) -> Int { number(s) }
 fn main() { _ = relay(Signal.Idle) }
 `)
 	if err != nil {

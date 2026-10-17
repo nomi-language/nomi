@@ -33,7 +33,7 @@ func funcNames(t *testing.T, img []byte) (map[string]bool, []string) {
 const prunedProgram = `import std/io
 
 interface Shape {
-  fn area(s: self): Int
+  fn area(s: self) -> Int
 }
 
 struct Square {
@@ -45,29 +45,29 @@ struct Circle {
 }
 
 impl Shape for Square {
-  fn area(s: Square): Int {
+  fn area(s: Square) -> Int {
     s.side * s.side
   }
 }
 
 impl Shape for Circle {
-  fn area(c: Circle): Int {
+  fn area(c: Circle) -> Int {
     3 * c.r * c.r
   }
 }
 
 once table = build_table()
 
-fn build_table(): Int {
+fn build_table() -> Int {
   42
 }
 
-fn never_called(): Int {
+fn never_called() -> Int {
   7
 }
 
-fn total<T>(xs: List<T>): Int where T: Shape {
-  xs |> Iter.map(|x| T.area(x)) |> Iter.reduce(|a = 0, b| a + b)
+fn total<T>(xs: List<T>) -> Int where T: Shape {
+  xs |> Iter.map(fn x -> T.area(x)) |> Iter.reduce(fn a = 0, b -> a + b)
 }
 
 fn main() {

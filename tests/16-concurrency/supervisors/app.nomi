@@ -23,7 +23,7 @@ pub struct Config {
     alerts: Channel<String>
 }
 
-fn send_email(to: String): Result<Unit, String> {
+fn send_email(to: String) -> Result<Unit, String> {
     case to == "" {
         True -> Err("no address")
         False -> Ok(Unit)
@@ -33,7 +33,7 @@ fn send_email(to: String): Result<Unit, String> {
 // The group-owned body must return Unit, so the `Result` has to be
 // handled *here* — which is the point of the rule. This wrapper is where
 // the "what does failure mean?" decision belongs.
-pub fn send_welcome(to: String): Unit {
+pub fn send_welcome(to: String) -> Unit {
     case send_email(to) {
         Ok(_) -> Unit
         Err(e) -> report("welcome to '" + to + "' failed: " + e)
@@ -41,19 +41,19 @@ pub fn send_welcome(to: String): Unit {
 }
 
 // A full alerts queue at shutdown is not worth crashing over.
-fn report(message: String): Unit {
+fn report(message: String) -> Unit {
     case Sender.send(Config.alerts.sender, message) {
         Ok(_) -> Unit
         Err(_) -> Unit
     }
 }
 
-pub fn record_audit(id: Int): Unit {
+pub fn record_audit(id: Int) -> Unit {
     timer.sleep(Duration.milliseconds(10))
     report("audited " + Display.to_string(id))
 }
 
-pub fn slow_work(): Unit {
+pub fn slow_work() -> Unit {
     timer.sleep(Duration.seconds(30))
     report("SHOULD NOT ARRIVE")
 }
@@ -64,10 +64,10 @@ pub fn slow_work(): Unit {
 // a channel is open and empty, and returns `None` only once the channel
 // is closed and drained. Each test gets a fresh app value from `boot`,
 // so closing here does not affect the others.
-pub fn drain_alerts(): List<String> {
+pub fn drain_alerts() -> List<String> {
     Sender.close(Config.alerts.sender)
 
-    Iter.loop(|seen = []| {
+    Iter.loop(fn seen = [] -> {
         case Receiver.receive(Config.alerts.receiver) {
             Some(message) -> [message, ..seen]
             None -> break seen
@@ -75,7 +75,7 @@ pub fn drain_alerts(): List<String> {
     })
 }
 
-pub fn boot(): Config {
+pub fn boot() -> Config {
     Config{
         context: Context.root(),
         notify: Supervisor.new(shutdown_timeout: Duration.milliseconds(200), max_running: 4),
@@ -85,7 +85,7 @@ pub fn boot(): Config {
 }
 
 fn main() {
-    _ = Supervisor.spawn(Config.audit, || record_audit(7))
+    _ = Supervisor.spawn(Config.audit, fn -> record_audit(7))
     _ = Supervisor.flush(Config.audit)
-    drain_alerts() |> Iter.each(|m| io.print(m))
+    drain_alerts() |> Iter.each(fn m -> io.print(m))
 }

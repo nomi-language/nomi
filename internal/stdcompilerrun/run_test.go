@@ -66,7 +66,7 @@ func TestRunIsTheVMsPipeline(t *testing.T) {
 			"  io.print(Debug.inspect(P{x: 1}))\n}\n", "P{x: 1}\n")
 	})
 	t.Run("no main runs the top level and stops", func(t *testing.T) {
-		ok(t, "fn unused(): Int {\n  1\n}\n", "")
+		ok(t, "fn unused() -> Int {\n  1\n}\n", "")
 	})
 
 	t.Run("a parse error is an error", func(t *testing.T) {
@@ -99,7 +99,7 @@ func TestRunIsTheVMsPipeline(t *testing.T) {
 		// fault text, and the printed line is discarded.
 		src := "import {\n  std/duration.Duration\n  std/io\n  std/timer\n}\n\n" +
 			"struct Run {\n  context: Context\n}\n\n" +
-			"fn boot(): Run {\n  Run{context: Context.root()}\n}\n\n" +
+			"fn boot() -> Run {\n  Run{context: Context.root()}\n}\n\n" +
 			"fn main() {\n  with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(20))\n" +
 			"  io.print(\"entered\")\n  timer.sleep(Duration.seconds(5))\n  io.print(\"outlasted\")\n}\n"
 		got, err := run(src)
@@ -109,7 +109,7 @@ func TestRunIsTheVMsPipeline(t *testing.T) {
 	})
 	t.Run("a failed assertion in main is an error", func(t *testing.T) {
 		src := "import std/assertions.AssertionFailure\n\n" +
-			"fn main(): Result<Unit, AssertionFailure> {\n  assert 1 == 2\n  Ok(Unit)\n}\n"
+			"fn main() -> Result<Unit, AssertionFailure> {\n  assert 1 == 2\n  Ok(Unit)\n}\n"
 		got, err := run(src)
 		if err == nil || !strings.HasPrefix(err.Error(), "line 4: assertion failed") {
 			t.Fatalf("the VM answers %q, %v; want the error \"line 4: assertion failed ...\"", got, err)
@@ -133,7 +133,7 @@ func TestRunIsTheVMsPipeline(t *testing.T) {
 func TestProjectRootIsThreaded(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "helper.nomi"),
-		[]byte("pub fn greet(): String {\n  \"hi\"\n}\n"), 0o644); err != nil {
+		[]byte("pub fn greet() -> String {\n  \"hi\"\n}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	src := "import helper\nimport std/io\n\nfn main() {\n  io.print(helper.greet())\n}\n"

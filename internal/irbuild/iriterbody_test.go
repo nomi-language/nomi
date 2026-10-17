@@ -15,7 +15,7 @@ func TestIRIterBody_TourMap(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
  [1, 2, 3]
- |> Iter.map(|n| n * n)
+ |> Iter.map(fn n -> n * n)
  |> Iter.to_list()
  |> io.inspect()
 }
@@ -25,7 +25,7 @@ fn main() {
 func TestIRIterBody_CallbackFaultKeepsItsPosition(t *testing.T) {
 	verifyIterFault(t, `import std/io
 fn main() {
- xs = Iter.map([1, 0, 2], |n| {
+ xs = Iter.map([1, 0, 2], fn n -> {
   io.print(n)
   10 / n
  })
@@ -71,10 +71,10 @@ func verifyIterFault(t *testing.T, src, fault, output string) {
 }
 func TestIRIterBody_LazyRepeatableAndCaptured(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn source(): List<Int> { io.print("source"); [1, 2] }
+fn source() -> List<Int> { io.print("source"); [1, 2] }
 fn main() {
  offset = 10
- xs = Iter.map(source(), |n| { io.print(n); n + offset })
+ xs = Iter.map(source(), fn n -> { io.print(n); n + offset })
  io.print("created")
  io.inspect(Iter.to_list(xs))
  io.inspect(Iter.to_list(xs))
@@ -84,14 +84,14 @@ fn main() {
 
 func TestIRIterBody_ListIdentityAndEmptyMap(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn empty(): List<Int> { [] }
-fn size(_xs: List<Int>, n: Int): Int { n }
-fn after(): Int { io.print("after"); 9 }
+fn empty() -> List<Int> { [] }
+fn size(_xs: List<Int>, n: Int) -> Int { n }
+fn after() -> Int { io.print("after"); 9 }
 fn main() {
  xs = [1, 2]
  io.print(size(Iter.to_list(xs), after()))
- io.inspect(Iter.to_list(Iter.map(empty(), |n| { io.print(n); n + 1 })))
- io.inspect(Iter.to_list(Iter.map(Iter.map(xs, |n| n + 1), |n| "item ${n}")))
+ io.inspect(Iter.to_list(Iter.map(empty(), fn n -> { io.print(n); n + 1 })))
+ io.inspect(Iter.to_list(Iter.map(Iter.map(xs, fn n -> n + 1), fn n -> "item ${n}")))
 }
 `, "after\n9\n[]\n[\"item 2\", \"item 3\"]\n")
 }
@@ -99,7 +99,7 @@ fn main() {
 // A Map whose values are Maps is an iteration source like any other map.
 func TestIRIterBody_NestedMapSourceRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn main() { io.inspect(Iter.to_list(Iter.map({1 => {2 => 3}}, |p| p.0 + 1))) }
+fn main() { io.inspect(Iter.to_list(Iter.map(%{1 => %{2 => 3}}, fn p -> p.0 + 1))) }
 `, "[2]\n")
 }
 
@@ -107,7 +107,7 @@ func TestIRIterBody_CallbackReturnKeepsMapping(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
  mapped = [1, 2, 3, 4, 5]
- |> Iter.map(|x| {
+ |> Iter.map(fn x -> {
   if x == 3 { return 300 }
   x * 10
  })

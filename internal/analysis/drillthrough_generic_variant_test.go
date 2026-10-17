@@ -21,7 +21,7 @@ pub enum Pair<A, B> {
     Both {left: A, right: B}
 }
 
-pub fn holder_int(h: Holder<Int>): Int {
+pub fn holder_int(h: Holder<Int>) -> Int {
     case h {
         .Of{value} -> value
         .Wrap(v) -> v

@@ -8,18 +8,18 @@ import (
 )
 
 // A half-typed function body (see internal/parser/resilient_test.go),
-// driven through the LSP's own request path. `  f = |x| n + ` is line 3 (1-based) — LSP line
+// driven through the LSP's own request path. `  f = fn x -> n + ` is line 3 (1-based) — LSP line
 // 2 — and the caret sits after the trailing space at character 14, which
 // is where you are when you have typed the operator and want the operand
 // completed.
-const halfTypedDoc = "fn compute(n: Int): Int {\n" +
+const halfTypedDoc = "fn compute(n: Int) -> Int {\n" +
 	"  total = n * 2\n" +
-	"  f = |x| n + \n" +
+	"  f = fn x -> n + \n" +
 	"}\n"
 
-const completedDoc = "fn compute(n: Int): Int {\n" +
+const completedDoc = "fn compute(n: Int) -> Int {\n" +
 	"  total = n * 2\n" +
-	"  f = |x| n + x\n" +
+	"  f = fn x -> n + x\n" +
 	"  total\n" +
 	"}\n"
 
@@ -119,7 +119,7 @@ func TestDiagnostics_HalfTypedBodyReportsOnlyTheSyntaxError(t *testing.T) {
 	// `fn bad` is syntactically fine and genuinely ill-typed. Its
 	// diagnostic must survive — the suppression is scoped to the
 	// declaration that was repaired, not applied to the file.
-	src := halfTypedDoc + "\nfn bad(): Int {\n  \"a string, not an Int\"\n}\n"
+	src := halfTypedDoc + "\nfn bad() -> Int {\n  \"a string, not an Int\"\n}\n"
 	uri := "file:///resilient_diagnostics.nomi"
 	s := NewServer()
 	s.docs.Open(uri, src)

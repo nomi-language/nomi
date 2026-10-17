@@ -4,9 +4,9 @@ import "testing"
 
 func TestIRCaseGuard_EffectsStopAtTheSelectedArm(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn subject(n: Int): Int { io.print("subject") n }
-fn check(label: String, matched: Bool): Bool { io.print(label) matched }
-fn classify(n: Int): String {
+fn subject(n: Int) -> Int { io.print("subject") n }
+fn check(label: String, matched: Bool) -> Bool { io.print(label) matched }
+fn classify(n: Int) -> String {
   case subject(n) {
     value when check("negative", value < 0) -> "negative"
     _ when check("large", n > 10) -> "large"
@@ -23,7 +23,7 @@ fn main() {
 
 func TestIRCaseGuard_StringBindingsAndShadowing(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn classify(s: String): String {
+fn classify(s: String) -> String {
   result = case s {
     s when String.length(s) == 0 -> "empty"
     s when String.contains?(s, "!") -> "excited"

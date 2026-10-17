@@ -7,7 +7,7 @@ import "testing"
 // comma after it, as a list's `..tail` and a vector's last bare `..` do, and
 // comments keep their place.
 func TestFormat_VectorNamedSpreadLayout(t *testing.T) {
-	const head = "fn f(names: Vector<String>): Vector<String> {\n"
+	const head = "fn f(names: Vector<String>) -> Vector<String> {\n"
 	const tail = "}\n"
 	for _, c := range []struct{ name, src, want string }{
 		{

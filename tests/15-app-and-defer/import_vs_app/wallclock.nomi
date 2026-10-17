@@ -3,7 +3,7 @@
 import std/instant.Instant
 
 pub interface Clock {
-    fn now(value: self): Instant
+    fn now(value: self) -> Instant
 }
 
 pub struct FakeClock {
@@ -11,7 +11,7 @@ pub struct FakeClock {
 }
 
 impl Clock for FakeClock {
-    fn now(value: FakeClock): Instant {
+    fn now(value: FakeClock) -> Instant {
         value.at
     }
 }

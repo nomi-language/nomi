@@ -28,7 +28,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-const irSiblingLinkLib = `pub fn double(n: Int): Int {
+const irSiblingLinkLib = `pub fn double(n: Int) -> Int {
   n * 2
 }
 `

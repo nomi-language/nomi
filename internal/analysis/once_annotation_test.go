@@ -4,7 +4,7 @@ import "testing"
 
 func TestOnceAnnotationIsAvailableBeforeBodyChecking(t *testing.T) {
 	fa, errs := buildTypesFromSource(`pub once label: String = initialize()
-fn initialize(): String { "service" }`)
+fn initialize() -> String { "service" }`)
 	if len(errs) != 0 {
 		t.Fatal(errs)
 	}

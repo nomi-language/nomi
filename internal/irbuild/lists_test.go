@@ -71,10 +71,10 @@ func TestListMethods_PinnedText(t *testing.T) {
 // TestIterToMap_PinnedText pins the two rules a to_map over a List of pairs can
 // get individually wrong.
 //
-// `dup {x => 9}` is last-write-wins on the VALUE. `dup3 {x => 9, y => 2}` is the
+// `dup %{x => 9}` is last-write-wins on the VALUE. `dup3 %{x => 9, y => 2}` is the
 // separable half: the winning entry inherits the earlier one's POSITION, so x
 // stays first. An implementation that rebuilt the map by folding the list in
-// reverse would produce `{x => 1}` for the first and `{y => 2, x => 9}` for the
+// reverse would produce `%{x => 1}` for the first and `%{y => 2, x => 9}` for the
 // second — one wrong answer and one wrong order, and only the second row sees
 // it.
 //
@@ -86,16 +86,16 @@ func TestIterToMap_PinnedText(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	want := strings.Join([]string{
-		"pairs   {a => 1, b => 2}",
-		"dup     {x => 9}",
-		"dup3    {x => 9, y => 2}",
-		"order   {z => 1, a => 2, m => 3}",
-		"one     {1 => 10}",
-		"intkeys {3 => c, 1 => a, 2 => b}",
-		"boolkey {True => 1, False => 0}",
-		"tupkey  {(1, 2) => a, (3, 4) => b}",
+		"pairs   %{a => 1, b => 2}",
+		"dup     %{x => 9}",
+		"dup3    %{x => 9, y => 2}",
+		"order   %{z => 1, a => 2, m => 3}",
+		"one     %{1 => 10}",
+		"intkeys %{3 => c, 1 => a, 2 => b}",
+		"boolkey %{True => 1, False => 0}",
+		"tupkey  %{#(1, 2) => a, #(3, 4) => b}",
 		"listkey True",
-		"floatk  {1.5 => a}",
+		"floatk  %{1.5 => a}",
 		"nankey  True",
 		"size    2",
 		"get     True",

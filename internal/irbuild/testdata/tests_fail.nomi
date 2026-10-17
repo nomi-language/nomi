@@ -1,7 +1,7 @@
 // A failing assertion, whose report is pinned byte for byte by the golden,
 // including `line 8`, which is the line of the `assert` below and not any
 // position in the lowered code.
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 

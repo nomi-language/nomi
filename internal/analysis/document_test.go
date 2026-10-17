@@ -14,7 +14,7 @@ import (
 
 func TestDocumentManager_OpenAndGet(t *testing.T) {
 	dm := NewDocumentManager()
-	dm.Open("file:///test.nomi", "fn add(x: Int, y: Int): Int { x + y }")
+	dm.Open("file:///test.nomi", "fn add(x: Int, y: Int) -> Int { x + y }")
 
 	doc := dm.Get("file:///test.nomi")
 	if doc == nil {
@@ -58,8 +58,8 @@ func TestDocumentManager_StdlibFileBypassesPrelude(t *testing.T) {
 
 func TestDocumentManager_Update(t *testing.T) {
 	dm := NewDocumentManager()
-	dm.Open("file:///test.nomi", "fn add(x: Int, y: Int): Int { x + y }")
-	dm.Update("file:///test.nomi", "fn sub(x: Int, y: Int): Int { x - y }")
+	dm.Open("file:///test.nomi", "fn add(x: Int, y: Int) -> Int { x + y }")
+	dm.Update("file:///test.nomi", "fn sub(x: Int, y: Int) -> Int { x - y }")
 
 	doc := dm.Get("file:///test.nomi")
 	if doc.Analysis.ModuleScope.Lookup("sub") == nil {
@@ -73,13 +73,13 @@ func TestDocumentManager_Update(t *testing.T) {
 func TestDocumentManager_CloseIndexesTheDiskText(t *testing.T) {
 	dir := t.TempDir()
 	filePath := filepath.Join(dir, "test.nomi")
-	os.WriteFile(filePath, []byte("fn disk_version(): Int { 1 }"), 0644)
+	os.WriteFile(filePath, []byte("fn disk_version() -> Int { 1 }"), 0644)
 
 	dm := NewDocumentManager()
 	dm.SetWorkspaceRoot(dir)
 	uri := "file://" + filePath
 
-	doc := dm.Open(uri, "fn editor_version(): Int { 2 }")
+	doc := dm.Open(uri, "fn editor_version() -> Int { 2 }")
 	if doc.Analysis.ModuleScope.Lookup("editor_version") == nil {
 		t.Fatal("expected editor_version while open")
 	}
@@ -103,7 +103,7 @@ func TestDocumentManager_CloseIndexesTheDiskText(t *testing.T) {
 
 func TestDocumentManager_CloseRemovesNonexistentFile(t *testing.T) {
 	dm := NewDocumentManager()
-	dm.Open("file:///nonexistent/test.nomi", "fn add(x: Int, y: Int): Int { x + y }")
+	dm.Open("file:///nonexistent/test.nomi", "fn add(x: Int, y: Int) -> Int { x + y }")
 	dm.Close("file:///nonexistent/test.nomi")
 	// File doesn't exist on disk, so it should be removed entirely
 	if dm.Get("file:///nonexistent/test.nomi") != nil {
@@ -113,7 +113,7 @@ func TestDocumentManager_CloseRemovesNonexistentFile(t *testing.T) {
 
 func TestDocumentManager_StoresNodes(t *testing.T) {
 	dm := NewDocumentManager()
-	doc := dm.Open("file:///test.nomi", "fn add(x: Int, y: Int): Int { x + y }")
+	doc := dm.Open("file:///test.nomi", "fn add(x: Int, y: Int) -> Int { x + y }")
 	if len(doc.Nodes) != 1 {
 		t.Errorf("expected 1 node, got %d", len(doc.Nodes))
 	}
@@ -130,7 +130,7 @@ func TestDocumentManager_TracksErrors(t *testing.T) {
 func TestDocumentManager_AnalyzedClosedFile(t *testing.T) {
 	dir := t.TempDir()
 	mathFile := filepath.Join(dir, "math.nomi")
-	os.WriteFile(mathFile, []byte("/// Doubles a number.\nfn double(n: Int): Int { n + n }"), 0644)
+	os.WriteFile(mathFile, []byte("/// Doubles a number.\nfn double(n: Int) -> Int { n + n }"), 0644)
 
 	dm := NewDocumentManager()
 	snap := dm.Analyzed("file://" + mathFile)
@@ -149,7 +149,7 @@ func TestDocumentManager_AnalyzedClosedFile(t *testing.T) {
 	}
 
 	// A change on disk is a new text: the cache entry no longer answers.
-	os.WriteFile(mathFile, []byte("fn triple(n: Int): Int { n + n + n }"), 0644)
+	os.WriteFile(mathFile, []byte("fn triple(n: Int) -> Int { n + n + n }"), 0644)
 	dm.IndexFile("file://" + mathFile)
 	snap = dm.Analyzed("file://" + mathFile)
 	if snap.Analysis.ModuleScope.LookupLocal("triple") == nil {
@@ -160,10 +160,10 @@ func TestDocumentManager_AnalyzedClosedFile(t *testing.T) {
 func TestDocumentManager_AnalyzedUsesOpenDoc(t *testing.T) {
 	dir := t.TempDir()
 	mathFile := filepath.Join(dir, "math.nomi")
-	os.WriteFile(mathFile, []byte("fn disk(): Int { 1 }"), 0644)
+	os.WriteFile(mathFile, []byte("fn disk() -> Int { 1 }"), 0644)
 
 	dm := NewDocumentManager()
-	dm.Open("file://"+mathFile, "fn in_memory(): Int { 2 }")
+	dm.Open("file://"+mathFile, "fn in_memory() -> Int { 2 }")
 
 	snap := dm.Analyzed("file://" + mathFile)
 	if snap == nil || !snap.Open {
@@ -182,7 +182,7 @@ func TestDocumentManager_ClosedCacheIsBounded(t *testing.T) {
 	var uris []string
 	for i := range closedCacheSize + 5 {
 		path := filepath.Join(dir, fmt.Sprintf("f%d.nomi", i))
-		os.WriteFile(path, []byte(fmt.Sprintf("fn f%d(): Int { %d }", i, i)), 0644)
+		os.WriteFile(path, []byte(fmt.Sprintf("fn f%d() -> Int { %d }", i, i)), 0644)
 		uris = append(uris, "file://"+path)
 	}
 	for _, uri := range uris {
@@ -207,12 +207,12 @@ func TestDocumentManager_IndexWorkspace(t *testing.T) {
 		os.MkdirAll(filepath.Dir(path), 0755)
 		os.WriteFile(path, []byte(src), 0644)
 	}
-	write("math.nomi", "/// Doubles.\npub fn double(x: Int): Int { x * 2 }\nstruct Hidden {\n  n: Int\n}")
+	write("math.nomi", "/// Doubles.\npub fn double(x: Int) -> Int { x * 2 }\nstruct Hidden {\n  n: Int\n}")
 	write("main.nomi", "import math\nfn main() { math.double(21) }")
 	for _, skipped := range []string{".hidden/ignore.nomi", "_scratch/a.nomi", "testdata/fixture.nomi", "node_modules/pkg/b.nomi", "lib/testdata/c.nomi"} {
 		write(skipped, "fn skipped() {}")
 	}
-	write("lib/text.nomi", "pub fn shout(s: String): String { s }")
+	write("lib/text.nomi", "pub fn shout(s: String) -> String { s }")
 
 	dm := NewDocumentManager()
 	dm.SetWorkspaceRoot(dir)
@@ -254,7 +254,7 @@ func TestDocumentManager_IndexWorkspace(t *testing.T) {
 
 func TestDocumentManager_PropagateChange(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("pub fn double(x: Int): Int { x * 2 }"), 0644)
+	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("pub fn double(x: Int) -> Int { x * 2 }"), 0644)
 	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("import math\nfn main() { math.double(21) }"), 0644)
 	os.WriteFile(filepath.Join(dir, "app.nomi"), []byte("import main\nfn run() { 1 }"), 0644)
 
@@ -270,7 +270,7 @@ func TestDocumentManager_PropagateChange(t *testing.T) {
 	// and names app.nomi, which imports main.nomi and is closed.
 	dm.Open(mainURI, "import math\nfn main() { math.double(21) }")
 	dm.UpdateImportEdges(mainURI)
-	dm.Update(mathURI, "pub fn double(x: String): String { x + x }")
+	dm.Update(mathURI, "pub fn double(x: String) -> String { x + x }")
 	open, closed := dm.PropagateChange(mathURI)
 	if len(open) != 1 || open[0].URI != mainURI {
 		t.Errorf("expected main.nomi re-analyzed, got %v", open)
@@ -282,8 +282,8 @@ func TestDocumentManager_PropagateChange(t *testing.T) {
 
 func TestDocumentManager_UpdateRebuildsImportEdges(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("pub fn double(x: Int): Int { x * 2 }"), 0644)
-	os.WriteFile(filepath.Join(dir, "utils.nomi"), []byte("pub fn helper(): Int { 1 }"), 0644)
+	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("pub fn double(x: Int) -> Int { x * 2 }"), 0644)
+	os.WriteFile(filepath.Join(dir, "utils.nomi"), []byte("pub fn helper() -> Int { 1 }"), 0644)
 	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("import math\nfn main() { math.double(21) }"), 0644)
 
 	dm := NewDocumentManager()
@@ -322,7 +322,7 @@ func TestDocumentManager_CrossFileHover(t *testing.T) {
 	mathFile := filepath.Join(dir, "math.nomi")
 	mainFile := filepath.Join(dir, "main.nomi")
 
-	os.WriteFile(mathFile, []byte("/// Doubles a number.\npub fn double(n: Int): Int { n + n }"), 0644)
+	os.WriteFile(mathFile, []byte("/// Doubles a number.\npub fn double(n: Int) -> Int { n + n }"), 0644)
 	os.WriteFile(mainFile, []byte("import math\nfn main() { math.double(21) }"), 0644)
 
 	dm := NewDocumentManager()
@@ -346,7 +346,7 @@ func TestDocumentManager_CrossFileHover(t *testing.T) {
 
 func TestDocumentManager_CrossFileDiagnostics(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("pub fn double(x: Int): Int { x * 2 }"), 0644)
+	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("pub fn double(x: Int) -> Int { x * 2 }"), 0644)
 	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("import math\nfn main() { math.double(21) }"), 0644)
 
 	lib := NewScope(nil)
@@ -359,7 +359,7 @@ func TestDocumentManager_CrossFileDiagnostics(t *testing.T) {
 	mainURI := "file://" + filepath.Join(dir, "main.nomi")
 
 	// Change math.nomi to have a parse error
-	dm.Update(mathURI, "pub fn double(x: Int): Int { x * ")
+	dm.Update(mathURI, "pub fn double(x: Int) -> Int { x * ")
 
 	// main.nomi is closed: propagation names it for a diagnostics pass
 	// instead of analyzing and keeping it.
@@ -493,13 +493,13 @@ func TestDocumentManager_CrossModuleImplConformance(t *testing.T) {
 	//                              constructs ProdLogger and assigns
 	mustWrite("main.nomi", "import effects: effects\n\nfn main() { effects.prod() }\n")
 	mustWrite("log.nomi", `pub interface Logger {
-  fn log(value: self, msg: String): Unit
+  fn log(value: self, msg: String) -> Unit
 }
 
 pub type ProdLogger
 
 impl Logger for ProdLogger {
-  fn log(_logger: ProdLogger, _msg: String): Unit { Unit }
+  fn log(_logger: ProdLogger, _msg: String) -> Unit { Unit }
 }
 `)
 	effectsPath := mustWrite("effects.nomi", `import log.{Logger, ProdLogger}
@@ -508,7 +508,7 @@ pub struct Effects {
   logger: Logger
 }
 
-pub fn prod(): Effects { Effects{logger: ProdLogger{}} }
+pub fn prod() -> Effects { Effects{logger: ProdLogger{}} }
 `)
 
 	dm := NewDocumentManager()
@@ -542,7 +542,7 @@ func TestDocumentManager_TestProgramSupportFileUsesProgramRoot(t *testing.T) {
 
 	mustWrite("effects/app/dev.nomi", `import app.DemoApp
 
-pub fn build(): DemoApp {
+pub fn build() -> DemoApp {
   DemoApp{label: "dev"}
 }
 `)
@@ -552,7 +552,7 @@ pub struct DemoApp {
   label: String
 }
 
-pub fn load(_name: String): DemoApp {
+pub fn load(_name: String) -> DemoApp {
   dev.build()
 }
 
@@ -615,7 +615,7 @@ func TestFindProjectRoot_TestProgramAppMarkerBeatsCategoryRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	helper := filepath.Join(program, "helper.nomi")
-	if err := os.WriteFile(helper, []byte("pub fn ok(): Bool { True }\n"), 0644); err != nil {
+	if err := os.WriteFile(helper, []byte("pub fn ok() -> Bool { True }\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -670,13 +670,13 @@ func TestDocumentManager_SubdirectoryImportResolvesAgainstProjectRoot(t *testing
 	//
 	// Type chosen as `Settings` (not `Config`) — Config is the project's
 	// flat root struct per spec §26/§27; declaring one without a
-	// matching `fn boot(): Config` is a separate analyzer error.
+	// matching `fn boot() -> Config` is a separate analyzer error.
 	mustWrite("main.nomi", "import types\n\nfn main() { io.inspect(types.Settings{port: 80}.port) }\n")
 	mustWrite("types.nomi", "pub struct Settings { port: Int }\n")
-	subFoo := mustWrite("sub/uses_types.nomi", "import types.{Settings}\n\npub fn handle(c: Settings): Int { c.port }\n")
+	subFoo := mustWrite("sub/uses_types.nomi", "import types.{Settings}\n\npub fn handle(c: Settings) -> Int { c.port }\n")
 
 	dm := NewDocumentManager()
-	dm.Open("file://"+subFoo, "import types.{Settings}\n\npub fn handle(c: Settings): Int { c.port }\n")
+	dm.Open("file://"+subFoo, "import types.{Settings}\n\npub fn handle(c: Settings) -> Int { c.port }\n")
 
 	doc := dm.Get("file://" + subFoo)
 	if doc == nil || doc.Analysis == nil {
@@ -724,13 +724,13 @@ func TestFindProjectRoot_StopsAtWorkspaceRoot(t *testing.T) {
 func TestIndexFile_LeavesOpenDocAlone(t *testing.T) {
 	dir := t.TempDir()
 	filePath := filepath.Join(dir, "foo.nomi")
-	if err := os.WriteFile(filePath, []byte("fn disk(): Int { 1 }"), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte("fn disk() -> Int { 1 }"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	uri := "file://" + filePath
 
 	dm := NewDocumentManager()
-	editorContent := "fn editor(): Int { 2 }"
+	editorContent := "fn editor() -> Int { 2 }"
 	openDoc := dm.Open(uri, editorContent)
 	if dm.IndexFile(uri) {
 		t.Error("IndexFile indexed an open document")
@@ -750,19 +750,19 @@ func TestDocumentManager_SourceImplBlocksStayOnDocumentNodes(t *testing.T) {
   name: String
 }
 
-pub fn loud(d: Dog): String {
+pub fn loud(d: Dog) -> String {
   d.name
 }
 
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name
   }
 }
 
 pub interface Speech {
-  fn speak(animal: self): String
+  fn speak(animal: self) -> String
 }
 
 `

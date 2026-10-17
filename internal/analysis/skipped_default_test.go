@@ -6,20 +6,20 @@ import (
 )
 
 const skippedDefaultDecls = `
-fn middle(a: Int, b: Int = 10, c: Int): Int {
+fn middle(a: Int, b: Int = 10, c: Int) -> Int {
   a + b + c
 }
 
-fn pick<T>(a: T, b: Int = 10, c: T): T {
+fn pick<T>(a: T, b: Int = 10, c: T) -> T {
   _ = b
   if a == c { a } else { c }
 }
 
-fn with_cb(req: Int, opt: Int = 2, cb: (Int) -> Int): Int {
+fn with_cb(req: Int, opt: Int = 2, cb: (Int) -> Int) -> Int {
   cb(req + opt)
 }
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
   n * 2
 }
 `
@@ -34,7 +34,7 @@ func TestSkippedDefault_PositionalCannotSkipANonTrailingDefault(t *testing.T) {
 		{"piped", "1 |> middle(2)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib(skippedDefaultDecls + "\nfn demo(): Int {\n  " + tc.call + "\n}\n")
+			_, errs := checkSourceWithStdlib(skippedDefaultDecls + "\nfn demo() -> Int {\n  " + tc.call + "\n}\n")
 			want := "missing argument for parameter 'c'; positional arguments fill parameters in order " +
 				"and cannot skip the defaulted 'b', so pass this one by name (c: ...)"
 			for _, e := range errs {
@@ -56,10 +56,10 @@ func TestSkippedDefault_NamedAndTrailingCallbackCallsStayClean(t *testing.T) {
 		"1 |> middle(c: 3)",
 		"pick(1, c: 2)",
 		"with_cb(1, double)",
-		"with_cb(1, |x| x)",
+		"with_cb(1, fn x -> x)",
 		"1 |> with_cb(double)",
 	} {
-		_, errs := checkSourceWithStdlib(skippedDefaultDecls + "\nfn demo(): Int {\n  " + call + "\n}\n")
+		_, errs := checkSourceWithStdlib(skippedDefaultDecls + "\nfn demo() -> Int {\n  " + call + "\n}\n")
 		for _, e := range errs {
 			if strings.Contains(e.Message, "missing argument") {
 				t.Errorf("%s: %s", call, e.Message)

@@ -36,7 +36,7 @@ import (
 //	           the body ` { elided }`. Reference sections list signatures
 //	           without bodies; this is the shape of the stdlib tables in §9, §16 and §19.
 //	types      every non-blank, non-comment line parses as a type expression
-//	           (each line is wrapped as `fn _p(): <line> { elided }`).
+//	           (each line is wrapped as `fn _p() -> <line> { elided }`).
 //	variants   the whole block parses as an enum body (wrapped as
 //	           `enum _E { <block> }`). Enum variant lines are shown bare.
 //	divergent  pinned below in specDivergences, with a written reason. These
@@ -142,7 +142,7 @@ func parsesAsTypeLines(code string) bool {
 			continue
 		}
 		any = true
-		if !parses("fn _p(): " + src + " { elided }") {
+		if !parses("fn _p() -> " + src + " { elided }") {
 			return false
 		}
 	}

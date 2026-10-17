@@ -8,7 +8,7 @@ import (
 // takes the same cell operations as a list of scalars.
 func TestIRListOps_NominalElementsRetain(t *testing.T) {
 	p, err := AnalyzeSource("main.nomi", `struct Box { value: Int }
-fn choose(xs: List<Box>): Maybe<Box> { List.head(xs) }
+fn choose(xs: List<Box>) -> Maybe<Box> { List.head(xs) }
 fn main() { _ = choose([Box{value: 7}]) }
 `)
 	if err != nil {

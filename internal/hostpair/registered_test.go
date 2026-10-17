@@ -247,11 +247,11 @@ func TestTheRegistrationCheckCanFail(t *testing.T) {
 	const source = `pub host type Regex
 
 impl Regex {
-  pub host fn compile(pattern: String): Result<Regex, String>
-  pub host fn pattern(re: Regex): String
+  pub host fn compile(pattern: String) -> Result<Regex, String>
+  pub host fn pattern(re: Regex) -> String
 }
 
-pub host fn escape(value: String): String
+pub host fn escape(value: String) -> String
 `
 	nodes, err := parser.Parse(lexer.Lex(source))
 	if err != nil {

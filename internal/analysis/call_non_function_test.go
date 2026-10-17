@@ -19,14 +19,14 @@ type Handler (Int) -> Int
 fn main() {
   _ = 1()
   _ = ""()
-  pair = (1, 2)
+  pair = #(1, 2)
   _ = pair(3)
   _ = [1](0)
   p = P{a: 1}
   _ = p()
-  f = |x: Int| x + 1
+  f = fn x: Int -> x + 1
   _ = f(1)
-  h = Handler(|x| x)
+  h = Handler(fn x -> x)
   _ = h(2)
   _ = Wrap.One(#[1])
 }
@@ -43,7 +43,7 @@ enum Wrap {
 	want := []string{
 		"9:7 `Int` is not a function",
 		"10:7 `String` is not a function",
-		"12:7 `(Int, Int)` is not a function",
+		"12:7 `#(Int, Int)` is not a function",
 		"13:7 `List<Int>` is not a function",
 		"15:7 `P` is not a function",
 	}
@@ -63,39 +63,39 @@ struct Box<T> {
   v: T
 }
 
-fn evens<T>(xs: List<T>): List<T> {
+fn evens<T>(xs: List<T>) -> List<T> {
   case xs {
     [] -> []
     [x, ..rest] -> [x(rest)]
   }
 }
 
-fn bounded<T>(x: T): String where T: Display {
+fn bounded<T>(x: T) -> String where T: Display {
   x(1)
 }
 
-fn field<T>(b: Box<T>): Int {
+fn field<T>(b: Box<T>) -> Int {
   b.v(1)
 }
 
-fn piped<T>(x: Int, y: T): Int {
+fn piped<T>(x: Int, y: T) -> Int {
   x |> y()
 }
 
-fn partial<T>(x: T): Int {
+fn partial<T>(x: T) -> Int {
   h = x(_)
   h(1)
 }
 
-fn iface(x: Display): String {
+fn iface(x: Display) -> String {
   x(1)
 }
 
-fn piped_int(x: Int, y: Int): Int {
+fn piped_int(x: Int, y: Int) -> Int {
   x |> y()
 }
 
-fn applies<T>(f: (T) -> T, x: T): T {
+fn applies<T>(f: (T) -> T, x: T) -> T {
   f(x)
 }
 
@@ -107,7 +107,7 @@ fn main() {
   _ = partial(1)
   _ = iface(1)
   _ = piped_int(1, 2)
-  _ = applies(|n| n, 1)
+  _ = applies(fn n -> n, 1)
 }
 `)
 	var got []string

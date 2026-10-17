@@ -42,7 +42,7 @@ pub enum Error {
 derive Equatable for Error
 
 impl Display for Error {
-    fn to_string(e: Error): String {
+    fn to_string(e: Error) -> String {
         case e {
             Error.InvalidFormat(s) -> "invalid format: " + s
             Error.InvalidValue(s) -> "invalid value: " + s
@@ -139,27 +139,27 @@ derive Display for Nanoseconds
 /// Date-bearing values expose their `year`/`month`/`day` components.
 /// Impls: `Date`, `NaiveDateTime`, `OffsetDateTime`, `DateTime`.
 pub interface DateParts {
-    fn year(value: self): Int
-    fn month(value: self): Int
-    fn day(value: self): Int
+    fn year(value: self) -> Int
+    fn month(value: self) -> Int
+    fn day(value: self) -> Int
 }
 
 /// Time-of-day values expose their `hour`/`minute`/`second`/
 /// `nanosecond` components. Impls: `Time`, `NaiveDateTime`,
 /// `OffsetDateTime`, `DateTime`.
 pub interface TimeParts {
-    fn hour(value: self): Int
-    fn minute(value: self): Int
-    fn second(value: self): Int
-    fn nanosecond(value: self): Int
+    fn hour(value: self) -> Int
+    fn minute(value: self) -> Int
+    fn second(value: self) -> Int
+    fn nanosecond(value: self) -> Int
 }
 
 /// Anchored-to-a-moment values expose their underlying `Instant`
 /// plus the effective UTC offset at that instant. Impls:
 /// `OffsetDateTime`, `DateTime`.
 pub interface Anchored {
-    fn to_instant(value: self): Instant
-    fn offset(value: self): Duration
+    fn to_instant(value: self) -> Instant
+    fn offset(value: self) -> Duration
 }
 
 /// A calendar date — year/month/day, no time-of-day, no zone. Construct
@@ -179,7 +179,7 @@ impl Date {
     //! assert try Date.new(2026, 5, 4) == try Date"2026-05-04"
     //! assert Err(Error.InvalidValue(_msg)) = Date.new(2026, 2, 30)
     //
-    pub fn new(year: Int, month: Int, day: Int): Result<Date, Error> {
+    pub fn new(year: Int, month: Int, day: Int) -> Result<Date, Error> {
         attempt = date_new_raw(year, month, day)
 
         if attempt.kind == 0 {
@@ -195,7 +195,7 @@ impl Date {
     //! assert try Date.parse("2026-05-04") == try Date"2026-05-04"
     //! assert Err(Error.InvalidFormat(_msg)) = Date.parse("05/04/2026")
     //
-    pub fn parse(s: String): Result<Date, Error> {
+    pub fn parse(s: String) -> Result<Date, Error> {
         attempt = date_parse_raw(s)
 
         if attempt.kind == 0 {
@@ -211,7 +211,7 @@ impl Date {
     //! assert Date.days_between(try Date"2026-05-04", try Date"2026-05-07") == 3
     //! assert Date.days_between(try Date"2026-05-07", try Date"2026-05-04") == -3
     //
-    pub host fn days_between(earlier: Date, later: Date): Int
+    pub host fn days_between(earlier: Date, later: Date) -> Int
 }
 
 derive Equatable for Date
@@ -219,8 +219,8 @@ derive Hashable for Date
 derive Comparable for Date
 
 impl Literal for Date {
-    fn from_fragments(fragments: List<Fragment<String>>): Result<Date, Error> {
-        body = Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Date, Error> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -233,32 +233,32 @@ impl Literal for Date {
 
 impl Display for Date {
     /// ISO-8601 date string (`YYYY-MM-DD`).
-    host fn to_string(d: Date): String
+    host fn to_string(d: Date) -> String
 }
 
 impl Debug for Date {
-    fn inspect(d: Date): String {
+    fn inspect(d: Date) -> String {
         "${d}"
     }
 }
 
 impl DateParts for Date {
-    fn year(value: Date): Int {
+    fn year(value: Date) -> Int {
         value.year
     }
 
-    fn month(value: Date): Int {
+    fn month(value: Date) -> Int {
         value.month
     }
 
-    fn day(value: Date): Int {
+    fn day(value: Date) -> Int {
         value.day
     }
 }
 
 impl Add<Years, Date> for Date {
     /// Add whole calendar years, clamping leap days when needed.
-    fn add(lhs: Date, Years(n)): Date {
+    fn add(lhs: Date, Years(n)) -> Date {
         date_add_years(lhs, n)
     }
 }
@@ -268,49 +268,49 @@ impl Add<Months, Date> for Date {
     //! assert try Date"2011-01-31" + Months(1) == try Date"2011-02-28"
     //! assert try Date"2012-01-31" + Months(1) == try Date"2012-02-29"
     //
-    fn add(lhs: Date, Months(n)): Date {
+    fn add(lhs: Date, Months(n)) -> Date {
         date_add_months(lhs, n)
     }
 }
 
 impl Add<Weeks, Date> for Date {
     /// Add whole calendar weeks.
-    fn add(lhs: Date, Weeks(n)): Date {
+    fn add(lhs: Date, Weeks(n)) -> Date {
         lhs + Days(n * 7)
     }
 }
 
 impl Add<Days, Date> for Date {
     /// Add whole calendar days.
-    fn add(lhs: Date, Days(n)): Date {
+    fn add(lhs: Date, Days(n)) -> Date {
         date_add_days(lhs, n)
     }
 }
 
 impl Subtract<Years, Date> for Date {
     /// Subtract whole calendar years, clamping leap days when needed.
-    fn subtract(lhs: Date, Years(n)): Date {
+    fn subtract(lhs: Date, Years(n)) -> Date {
         lhs + Years(-n)
     }
 }
 
 impl Subtract<Months, Date> for Date {
     /// Subtract whole calendar months, clamping end-of-month.
-    fn subtract(lhs: Date, Months(n)): Date {
+    fn subtract(lhs: Date, Months(n)) -> Date {
         lhs + Months(-n)
     }
 }
 
 impl Subtract<Weeks, Date> for Date {
     /// Subtract whole calendar weeks.
-    fn subtract(lhs: Date, Weeks(n)): Date {
+    fn subtract(lhs: Date, Weeks(n)) -> Date {
         lhs + Weeks(-n)
     }
 }
 
 impl Subtract<Days, Date> for Date {
     /// Subtract whole calendar days.
-    fn subtract(lhs: Date, Days(n)): Date {
+    fn subtract(lhs: Date, Days(n)) -> Date {
         lhs + Days(-n)
     }
 }
@@ -336,7 +336,12 @@ impl Time {
     //! assert try Time.new(8, 30, 15, 250_000_000) == try Time"08:30:15.25"
     //! assert Err(Error.InvalidValue(_msg)) = Time.new(24, 0)
     //
-    pub fn new(hour: Int, minute: Int, second: Int = 0, nanosecond: Int = 0): Result<Time, Error> {
+    pub fn new(
+        hour: Int,
+        minute: Int,
+        second: Int = 0,
+        nanosecond: Int = 0,
+    ) -> Result<Time, Error> {
         if hour < 0 or hour > 23 {
             Err(Error.InvalidValue("hour out of range: " + Int.to_string(hour)))
         } else if minute < 0 or minute > 59 {
@@ -354,7 +359,7 @@ impl Time {
     //! assert try Time.parse("08:30:00") == try Time"08:30:00"
     //! assert Err(Error.InvalidFormat(_msg)) = Time.parse("nope")
     //
-    pub fn parse(s: String): Result<Time, Error> {
+    pub fn parse(s: String) -> Result<Time, Error> {
         attempt = time_parse_raw(s)
 
         if attempt.kind == 0 {
@@ -367,7 +372,7 @@ impl Time {
     /// Exact duration from `earlier` to `later`, measured within one civil day.
     //! assert Time.between(try Time"08:30:00", try Time"08:33:00") == Duration.minutes(3)
     //
-    pub fn between(earlier: Time, later: Time): Duration {
+    pub fn between(earlier: Time, later: Time) -> Duration {
         Duration.nanoseconds(day_nanos(later) - day_nanos(earlier))
     }
 }
@@ -375,7 +380,7 @@ impl Time {
 /// Total nanoseconds since midnight. Module-private — backs `Time.between`.
 //! assert try Time"08:33:00" |> day_nanos() == 30780000000000
 //
-fn day_nanos(t: Time): Int {
+fn day_nanos(t: Time) -> Int {
     t.hour * 3_600_000_000_000 + t.minute * 60_000_000_000 + t.second * 1_000_000_000 + t.nanosecond
 }
 
@@ -384,8 +389,8 @@ derive Hashable for Time
 derive Comparable for Time
 
 impl Literal for Time {
-    fn from_fragments(fragments: List<Fragment<String>>): Result<Time, Error> {
-        body = Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Time, Error> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -399,29 +404,29 @@ impl Literal for Time {
 impl Display for Time {
     /// ISO time string. Sub-second precision renders as a trailing `.fff…`
     /// only when nonzero (so `09:30:00`, not `09:30:00.000`).
-    host fn to_string(t: Time): String
+    host fn to_string(t: Time) -> String
 }
 
 impl Debug for Time {
-    fn inspect(t: Time): String {
+    fn inspect(t: Time) -> String {
         "${t}"
     }
 }
 
 impl TimeParts for Time {
-    fn hour(value: Time): Int {
+    fn hour(value: Time) -> Int {
         value.hour
     }
 
-    fn minute(value: Time): Int {
+    fn minute(value: Time) -> Int {
         value.minute
     }
 
-    fn second(value: Time): Int {
+    fn second(value: Time) -> Int {
         value.second
     }
 
-    fn nanosecond(value: Time): Int {
+    fn nanosecond(value: Time) -> Int {
         value.nanosecond
     }
 }
@@ -430,7 +435,7 @@ impl Add<Duration, Time> for Time {
     /// Add an exact `Duration`, wrapping around midnight.
     //! assert try Time"08:33:00" + Duration.minutes(3) == try Time"08:36:00"
     //
-    fn add(lhs: Time, rhs: Duration): Time {
+    fn add(lhs: Time, rhs: Duration) -> Time {
         time_add_nanos(lhs, Duration.as_nanos(rhs))
     }
 }
@@ -439,7 +444,7 @@ impl Subtract<Duration, Time> for Time {
     /// Subtract an exact `Duration`, wrapping around midnight.
     //! assert try Time"08:36:00" - Duration.minutes(3) == try Time"08:33:00"
     //
-    fn subtract(lhs: Time, rhs: Duration): Time {
+    fn subtract(lhs: Time, rhs: Duration) -> Time {
         lhs + rhs * -1
     }
 }
@@ -472,7 +477,7 @@ impl NaiveDateTime {
     //!     try Time"14:30:00",
     //! ) == try NaiveDateTime"2026-05-04T14:30:00"
     //
-    pub fn of(d: Date, t: Time): NaiveDateTime {
+    pub fn of(d: Date, t: Time) -> NaiveDateTime {
         NaiveDateTime{
             year: Date.year(d),
             month: Date.month(d),
@@ -487,7 +492,7 @@ impl NaiveDateTime {
     /// A `NaiveDateTime` at midnight (00:00:00) on the given date.
     //! assert NaiveDateTime.at_midnight(try Date"2026-05-04") == try NaiveDateTime"2026-05-04T00:00:00"
     //
-    pub fn at_midnight(d: Date): NaiveDateTime {
+    pub fn at_midnight(d: Date) -> NaiveDateTime {
         NaiveDateTime{
             year: Date.year(d),
             month: Date.month(d),
@@ -502,12 +507,12 @@ impl NaiveDateTime {
     /// The date component.
     //! assert NaiveDateTime.to_date(try NaiveDateTime"2026-05-04T14:30:00") == try Date"2026-05-04"
     //
-    pub host fn to_date(dt: NaiveDateTime): Date
+    pub host fn to_date(dt: NaiveDateTime) -> Date
 
     /// The time-of-day component.
     //! assert NaiveDateTime.to_time(try NaiveDateTime"2026-05-04T14:30:00") == try Time"14:30:00"
     //
-    pub host fn to_time(dt: NaiveDateTime): Time
+    pub host fn to_time(dt: NaiveDateTime) -> Time
 
     /// Construct from seven integers, validating each component AND the
     /// year/month/day combination.
@@ -522,7 +527,7 @@ impl NaiveDateTime {
         minute: Int,
         second: Int = 0,
         nanosecond: Int = 0,
-    ): Result<NaiveDateTime, Error> {
+    ) -> Result<NaiveDateTime, Error> {
         NaiveDateTime.new_exact(year, month, day, hour, minute, second, nanosecond)
     }
 
@@ -542,7 +547,7 @@ impl NaiveDateTime {
         minute: Int,
         second: Int,
         nanosecond: Int,
-    ): Result<NaiveDateTime, Error> {
+    ) -> Result<NaiveDateTime, Error> {
         attempt = naive_new_exact_raw(year, month, day, hour, minute, second, nanosecond)
 
         if attempt.kind == 0 {
@@ -561,7 +566,7 @@ impl NaiveDateTime {
     //!
     //! assert try NaiveDateTime.parse("2026-05-04 14:30:00") == try NaiveDateTime"2026-05-04T14:30:00"
     //
-    pub fn parse(s: String): Result<NaiveDateTime, Error> {
+    pub fn parse(s: String) -> Result<NaiveDateTime, Error> {
         attempt = naive_parse_raw(s)
 
         if attempt.kind == 0 {
@@ -577,7 +582,7 @@ impl NaiveDateTime {
     //!     try NaiveDateTime"2026-05-04T11:30:00",
     //! ) == Duration.minutes(150)
     //
-    pub fn between(earlier: NaiveDateTime, later: NaiveDateTime): Duration {
+    pub fn between(earlier: NaiveDateTime, later: NaiveDateTime) -> Duration {
         Duration.nanoseconds(naive_between_nanos(earlier, later))
     }
 }
@@ -587,8 +592,8 @@ derive Hashable for NaiveDateTime
 derive Comparable for NaiveDateTime
 
 impl Literal for NaiveDateTime {
-    fn from_fragments(fragments: List<Fragment<String>>): Result<NaiveDateTime, Error> {
-        body = Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<NaiveDateTime, Error> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -601,197 +606,197 @@ impl Literal for NaiveDateTime {
 
 impl Display for NaiveDateTime {
     /// ISO datetime string (`YYYY-MM-DDTHH:MM:SS[.fff…]`).
-    host fn to_string(dt: NaiveDateTime): String
+    host fn to_string(dt: NaiveDateTime) -> String
 }
 
 impl Debug for NaiveDateTime {
-    fn inspect(dt: NaiveDateTime): String {
+    fn inspect(dt: NaiveDateTime) -> String {
         "${dt}"
     }
 }
 
 impl DateParts for NaiveDateTime {
-    fn year(value: NaiveDateTime): Int {
+    fn year(value: NaiveDateTime) -> Int {
         value.year
     }
 
-    fn month(value: NaiveDateTime): Int {
+    fn month(value: NaiveDateTime) -> Int {
         value.month
     }
 
-    fn day(value: NaiveDateTime): Int {
+    fn day(value: NaiveDateTime) -> Int {
         value.day
     }
 }
 
 impl TimeParts for NaiveDateTime {
-    fn hour(value: NaiveDateTime): Int {
+    fn hour(value: NaiveDateTime) -> Int {
         value.hour
     }
 
-    fn minute(value: NaiveDateTime): Int {
+    fn minute(value: NaiveDateTime) -> Int {
         value.minute
     }
 
-    fn second(value: NaiveDateTime): Int {
+    fn second(value: NaiveDateTime) -> Int {
         value.second
     }
 
-    fn nanosecond(value: NaiveDateTime): Int {
+    fn nanosecond(value: NaiveDateTime) -> Int {
         value.nanosecond
     }
 }
 
 impl Add<Years, NaiveDateTime> for NaiveDateTime {
     /// Add whole calendar years, clamping leap days when needed.
-    fn add(lhs: NaiveDateTime, Years(n)): NaiveDateTime {
+    fn add(lhs: NaiveDateTime, Years(n)) -> NaiveDateTime {
         naive_add_years(lhs, n)
     }
 }
 
 impl Add<Months, NaiveDateTime> for NaiveDateTime {
     /// Add whole calendar months, clamping end-of-month.
-    fn add(lhs: NaiveDateTime, Months(n)): NaiveDateTime {
+    fn add(lhs: NaiveDateTime, Months(n)) -> NaiveDateTime {
         naive_add_months(lhs, n)
     }
 }
 
 impl Add<Weeks, NaiveDateTime> for NaiveDateTime {
     /// Add whole calendar weeks.
-    fn add(lhs: NaiveDateTime, Weeks(n)): NaiveDateTime {
+    fn add(lhs: NaiveDateTime, Weeks(n)) -> NaiveDateTime {
         lhs + Days(n * 7)
     }
 }
 
 impl Add<Days, NaiveDateTime> for NaiveDateTime {
     /// Add whole calendar days.
-    fn add(lhs: NaiveDateTime, Days(n)): NaiveDateTime {
+    fn add(lhs: NaiveDateTime, Days(n)) -> NaiveDateTime {
         naive_add_days(lhs, n)
     }
 }
 
 impl Add<Hours, NaiveDateTime> for NaiveDateTime {
     /// Add whole civil hours.
-    fn add(lhs: NaiveDateTime, Hours(n)): NaiveDateTime {
+    fn add(lhs: NaiveDateTime, Hours(n)) -> NaiveDateTime {
         lhs + Duration.hours(n)
     }
 }
 
 impl Add<Minutes, NaiveDateTime> for NaiveDateTime {
     /// Add whole civil minutes.
-    fn add(lhs: NaiveDateTime, Minutes(n)): NaiveDateTime {
+    fn add(lhs: NaiveDateTime, Minutes(n)) -> NaiveDateTime {
         lhs + Duration.minutes(n)
     }
 }
 
 impl Add<Seconds, NaiveDateTime> for NaiveDateTime {
     /// Add whole civil seconds.
-    fn add(lhs: NaiveDateTime, Seconds(n)): NaiveDateTime {
+    fn add(lhs: NaiveDateTime, Seconds(n)) -> NaiveDateTime {
         lhs + Duration.seconds(n)
     }
 }
 
 impl Add<Milliseconds, NaiveDateTime> for NaiveDateTime {
     /// Add whole civil milliseconds.
-    fn add(lhs: NaiveDateTime, Milliseconds(n)): NaiveDateTime {
+    fn add(lhs: NaiveDateTime, Milliseconds(n)) -> NaiveDateTime {
         lhs + Duration.milliseconds(n)
     }
 }
 
 impl Add<Microseconds, NaiveDateTime> for NaiveDateTime {
     /// Add whole civil microseconds.
-    fn add(lhs: NaiveDateTime, Microseconds(n)): NaiveDateTime {
+    fn add(lhs: NaiveDateTime, Microseconds(n)) -> NaiveDateTime {
         lhs + Duration.microseconds(n)
     }
 }
 
 impl Add<Nanoseconds, NaiveDateTime> for NaiveDateTime {
     /// Add whole civil nanoseconds.
-    fn add(lhs: NaiveDateTime, Nanoseconds(n)): NaiveDateTime {
+    fn add(lhs: NaiveDateTime, Nanoseconds(n)) -> NaiveDateTime {
         lhs + Duration.nanoseconds(n)
     }
 }
 
 impl Add<Duration, NaiveDateTime> for NaiveDateTime {
     /// Add an exact `Duration`.
-    fn add(lhs: NaiveDateTime, rhs: Duration): NaiveDateTime {
+    fn add(lhs: NaiveDateTime, rhs: Duration) -> NaiveDateTime {
         naive_add_nanos(lhs, Duration.as_nanos(rhs))
     }
 }
 
 impl Subtract<Years, NaiveDateTime> for NaiveDateTime {
     /// Subtract whole calendar years, clamping leap days when needed.
-    fn subtract(lhs: NaiveDateTime, Years(n)): NaiveDateTime {
+    fn subtract(lhs: NaiveDateTime, Years(n)) -> NaiveDateTime {
         lhs + Years(-n)
     }
 }
 
 impl Subtract<Months, NaiveDateTime> for NaiveDateTime {
     /// Subtract whole calendar months, clamping end-of-month.
-    fn subtract(lhs: NaiveDateTime, Months(n)): NaiveDateTime {
+    fn subtract(lhs: NaiveDateTime, Months(n)) -> NaiveDateTime {
         lhs + Months(-n)
     }
 }
 
 impl Subtract<Weeks, NaiveDateTime> for NaiveDateTime {
     /// Subtract whole calendar weeks.
-    fn subtract(lhs: NaiveDateTime, Weeks(n)): NaiveDateTime {
+    fn subtract(lhs: NaiveDateTime, Weeks(n)) -> NaiveDateTime {
         lhs + Weeks(-n)
     }
 }
 
 impl Subtract<Days, NaiveDateTime> for NaiveDateTime {
     /// Subtract whole calendar days.
-    fn subtract(lhs: NaiveDateTime, Days(n)): NaiveDateTime {
+    fn subtract(lhs: NaiveDateTime, Days(n)) -> NaiveDateTime {
         lhs + Days(-n)
     }
 }
 
 impl Subtract<Hours, NaiveDateTime> for NaiveDateTime {
     /// Subtract whole civil hours.
-    fn subtract(lhs: NaiveDateTime, Hours(n)): NaiveDateTime {
+    fn subtract(lhs: NaiveDateTime, Hours(n)) -> NaiveDateTime {
         lhs + Hours(-n)
     }
 }
 
 impl Subtract<Minutes, NaiveDateTime> for NaiveDateTime {
     /// Subtract whole civil minutes.
-    fn subtract(lhs: NaiveDateTime, Minutes(n)): NaiveDateTime {
+    fn subtract(lhs: NaiveDateTime, Minutes(n)) -> NaiveDateTime {
         lhs + Minutes(-n)
     }
 }
 
 impl Subtract<Seconds, NaiveDateTime> for NaiveDateTime {
     /// Subtract whole civil seconds.
-    fn subtract(lhs: NaiveDateTime, Seconds(n)): NaiveDateTime {
+    fn subtract(lhs: NaiveDateTime, Seconds(n)) -> NaiveDateTime {
         lhs + Seconds(-n)
     }
 }
 
 impl Subtract<Milliseconds, NaiveDateTime> for NaiveDateTime {
     /// Subtract whole civil milliseconds.
-    fn subtract(lhs: NaiveDateTime, Milliseconds(n)): NaiveDateTime {
+    fn subtract(lhs: NaiveDateTime, Milliseconds(n)) -> NaiveDateTime {
         lhs + Milliseconds(-n)
     }
 }
 
 impl Subtract<Microseconds, NaiveDateTime> for NaiveDateTime {
     /// Subtract whole civil microseconds.
-    fn subtract(lhs: NaiveDateTime, Microseconds(n)): NaiveDateTime {
+    fn subtract(lhs: NaiveDateTime, Microseconds(n)) -> NaiveDateTime {
         lhs + Microseconds(-n)
     }
 }
 
 impl Subtract<Nanoseconds, NaiveDateTime> for NaiveDateTime {
     /// Subtract whole civil nanoseconds.
-    fn subtract(lhs: NaiveDateTime, Nanoseconds(n)): NaiveDateTime {
+    fn subtract(lhs: NaiveDateTime, Nanoseconds(n)) -> NaiveDateTime {
         lhs + Nanoseconds(-n)
     }
 }
 
 impl Subtract<Duration, NaiveDateTime> for NaiveDateTime {
     /// Subtract an exact `Duration`.
-    fn subtract(lhs: NaiveDateTime, rhs: Duration): NaiveDateTime {
+    fn subtract(lhs: NaiveDateTime, rhs: Duration) -> NaiveDateTime {
         lhs + rhs * -1
     }
 }
@@ -827,7 +832,7 @@ impl OffsetDateTime {
     //!     Duration.hours(-5),
     //! ) == try OffsetDateTime"2026-05-04T09:00:00-05:00"
     //
-    pub fn with_offset(dt: NaiveDateTime, offset: Duration): Result<OffsetDateTime, Error> {
+    pub fn with_offset(dt: NaiveDateTime, offset: Duration) -> Result<OffsetDateTime, Error> {
         attempt = offset_with_offset_raw(dt, Duration.as_nanos(offset))
 
         if attempt.kind == 0 {
@@ -844,7 +849,7 @@ impl OffsetDateTime {
     //!     Duration.hours(0),
     //! ) == try OffsetDateTime"1970-01-01T00:00:00Z"
     //
-    pub fn from_instant(i: Instant, offset: Duration): OffsetDateTime {
+    pub fn from_instant(i: Instant, offset: Duration) -> OffsetDateTime {
         offset_from_instant_nanos(Instant.as_nanos(i), Duration.as_nanos(offset))
     }
 
@@ -856,7 +861,7 @@ impl OffsetDateTime {
     //!
     //! assert Err(Error.InvalidFormat(_msg)) = OffsetDateTime.parse("2026-05-04T14:30:00")
     //
-    pub fn parse(s: String): Result<OffsetDateTime, Error> {
+    pub fn parse(s: String) -> Result<OffsetDateTime, Error> {
         attempt = offset_parse_raw(s)
 
         if attempt.kind == 0 {
@@ -873,14 +878,14 @@ impl OffsetDateTime {
     //!     try OffsetDateTime"2026-05-04T20:30:00+00:00",
     //! ) == Duration.hours(1)
     //
-    pub fn between(earlier: OffsetDateTime, later: OffsetDateTime): Duration {
+    pub fn between(earlier: OffsetDateTime, later: OffsetDateTime) -> Duration {
         Duration.nanoseconds(later.instant_nanos - earlier.instant_nanos)
     }
 }
 
 impl Literal for OffsetDateTime {
-    fn from_fragments(fragments: List<Fragment<String>>): Result<OffsetDateTime, Error> {
-        body = Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<OffsetDateTime, Error> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -893,11 +898,11 @@ impl Literal for OffsetDateTime {
 
 impl Display for OffsetDateTime {
     /// ISO-8601 datetime + offset string (`YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM`).
-    host fn to_string(odt: OffsetDateTime): String
+    host fn to_string(odt: OffsetDateTime) -> String
 }
 
 impl Debug for OffsetDateTime {
-    fn inspect(odt: OffsetDateTime): String {
+    fn inspect(odt: OffsetDateTime) -> String {
         "${odt}"
     }
 }
@@ -906,16 +911,16 @@ impl DateParts for OffsetDateTime {
     // `DateParts`/`TimeParts` accessors are Go projections through
     // `time.Unix(0, instant_nanos).In(time.FixedZone("", offset_seconds))` — the
     // extern IS the interface function (no wrapper).
-    host fn year(value: OffsetDateTime): Int
-    host fn month(value: OffsetDateTime): Int
-    host fn day(value: OffsetDateTime): Int
+    host fn year(value: OffsetDateTime) -> Int
+    host fn month(value: OffsetDateTime) -> Int
+    host fn day(value: OffsetDateTime) -> Int
 }
 
 impl TimeParts for OffsetDateTime {
-    host fn hour(value: OffsetDateTime): Int
-    host fn minute(value: OffsetDateTime): Int
-    host fn second(value: OffsetDateTime): Int
-    host fn nanosecond(value: OffsetDateTime): Int
+    host fn hour(value: OffsetDateTime) -> Int
+    host fn minute(value: OffsetDateTime) -> Int
+    host fn second(value: OffsetDateTime) -> Int
+    host fn nanosecond(value: OffsetDateTime) -> Int
 }
 
 impl Anchored for OffsetDateTime {
@@ -924,7 +929,7 @@ impl Anchored for OffsetDateTime {
     /// A field read rather than a Go call: the instant IS the stored
     /// representation, and the offset is display metadata that a projection
     /// onto a moment drops.
-    fn to_instant(odt: OffsetDateTime): Instant {
+    fn to_instant(odt: OffsetDateTime) -> Instant {
         Instant.from_nanos(odt.instant_nanos)
     }
 
@@ -933,14 +938,14 @@ impl Anchored for OffsetDateTime {
     /// Read rather than computed, which is the difference from `DateTime`: a
     /// zoned value has to ask the tzdb what its offset is at that instant, and a
     /// fixed-offset value carries the answer.
-    fn offset(odt: OffsetDateTime): Duration {
+    fn offset(odt: OffsetDateTime) -> Duration {
         Duration.seconds(odt.offset_seconds)
     }
 }
 
 impl Add<Duration, OffsetDateTime> for OffsetDateTime {
     /// Add an exact `Duration`.
-    fn add(lhs: OffsetDateTime, rhs: Duration): OffsetDateTime {
+    fn add(lhs: OffsetDateTime, rhs: Duration) -> OffsetDateTime {
         OffsetDateTime{
             instant_nanos: lhs.instant_nanos + Duration.as_nanos(rhs),
             offset_seconds: lhs.offset_seconds,
@@ -950,165 +955,165 @@ impl Add<Duration, OffsetDateTime> for OffsetDateTime {
 
 impl Add<Years, OffsetDateTime> for OffsetDateTime {
     /// Add whole calendar years, clamping leap days when needed.
-    fn add(lhs: OffsetDateTime, Years(n)): OffsetDateTime {
+    fn add(lhs: OffsetDateTime, Years(n)) -> OffsetDateTime {
         offset_add_years(lhs, n)
     }
 }
 
 impl Add<Months, OffsetDateTime> for OffsetDateTime {
     /// Add whole calendar months, clamping end-of-month.
-    fn add(lhs: OffsetDateTime, Months(n)): OffsetDateTime {
+    fn add(lhs: OffsetDateTime, Months(n)) -> OffsetDateTime {
         offset_add_months(lhs, n)
     }
 }
 
 impl Add<Weeks, OffsetDateTime> for OffsetDateTime {
     /// Add whole calendar weeks.
-    fn add(lhs: OffsetDateTime, Weeks(n)): OffsetDateTime {
+    fn add(lhs: OffsetDateTime, Weeks(n)) -> OffsetDateTime {
         lhs + Duration.hours(n * 24 * 7)
     }
 }
 
 impl Add<Days, OffsetDateTime> for OffsetDateTime {
     /// Add whole calendar days.
-    fn add(lhs: OffsetDateTime, Days(n)): OffsetDateTime {
+    fn add(lhs: OffsetDateTime, Days(n)) -> OffsetDateTime {
         lhs + Duration.hours(n * 24)
     }
 }
 
 impl Add<Hours, OffsetDateTime> for OffsetDateTime {
     /// Add whole civil hours.
-    fn add(lhs: OffsetDateTime, Hours(n)): OffsetDateTime {
+    fn add(lhs: OffsetDateTime, Hours(n)) -> OffsetDateTime {
         lhs + Duration.hours(n)
     }
 }
 
 impl Add<Minutes, OffsetDateTime> for OffsetDateTime {
     /// Add whole civil minutes.
-    fn add(lhs: OffsetDateTime, Minutes(n)): OffsetDateTime {
+    fn add(lhs: OffsetDateTime, Minutes(n)) -> OffsetDateTime {
         lhs + Duration.minutes(n)
     }
 }
 
 impl Add<Seconds, OffsetDateTime> for OffsetDateTime {
     /// Add whole civil seconds.
-    fn add(lhs: OffsetDateTime, Seconds(n)): OffsetDateTime {
+    fn add(lhs: OffsetDateTime, Seconds(n)) -> OffsetDateTime {
         lhs + Duration.seconds(n)
     }
 }
 
 impl Add<Milliseconds, OffsetDateTime> for OffsetDateTime {
     /// Add whole civil milliseconds.
-    fn add(lhs: OffsetDateTime, Milliseconds(n)): OffsetDateTime {
+    fn add(lhs: OffsetDateTime, Milliseconds(n)) -> OffsetDateTime {
         lhs + Duration.milliseconds(n)
     }
 }
 
 impl Add<Microseconds, OffsetDateTime> for OffsetDateTime {
     /// Add whole civil microseconds.
-    fn add(lhs: OffsetDateTime, Microseconds(n)): OffsetDateTime {
+    fn add(lhs: OffsetDateTime, Microseconds(n)) -> OffsetDateTime {
         lhs + Duration.microseconds(n)
     }
 }
 
 impl Add<Nanoseconds, OffsetDateTime> for OffsetDateTime {
     /// Add whole civil nanoseconds.
-    fn add(lhs: OffsetDateTime, Nanoseconds(n)): OffsetDateTime {
+    fn add(lhs: OffsetDateTime, Nanoseconds(n)) -> OffsetDateTime {
         lhs + Duration.nanoseconds(n)
     }
 }
 
 impl Subtract<Duration, OffsetDateTime> for OffsetDateTime {
     /// Subtract an exact `Duration`.
-    fn subtract(lhs: OffsetDateTime, rhs: Duration): OffsetDateTime {
+    fn subtract(lhs: OffsetDateTime, rhs: Duration) -> OffsetDateTime {
         lhs + rhs * -1
     }
 }
 
 impl Subtract<Years, OffsetDateTime> for OffsetDateTime {
     /// Subtract whole calendar years, clamping leap days when needed.
-    fn subtract(lhs: OffsetDateTime, Years(n)): OffsetDateTime {
+    fn subtract(lhs: OffsetDateTime, Years(n)) -> OffsetDateTime {
         lhs + Years(-n)
     }
 }
 
 impl Subtract<Months, OffsetDateTime> for OffsetDateTime {
     /// Subtract whole calendar months, clamping end-of-month.
-    fn subtract(lhs: OffsetDateTime, Months(n)): OffsetDateTime {
+    fn subtract(lhs: OffsetDateTime, Months(n)) -> OffsetDateTime {
         lhs + Months(-n)
     }
 }
 
 impl Subtract<Weeks, OffsetDateTime> for OffsetDateTime {
     /// Subtract whole calendar weeks.
-    fn subtract(lhs: OffsetDateTime, Weeks(n)): OffsetDateTime {
+    fn subtract(lhs: OffsetDateTime, Weeks(n)) -> OffsetDateTime {
         lhs + Weeks(-n)
     }
 }
 
 impl Subtract<Days, OffsetDateTime> for OffsetDateTime {
     /// Subtract whole calendar days.
-    fn subtract(lhs: OffsetDateTime, Days(n)): OffsetDateTime {
+    fn subtract(lhs: OffsetDateTime, Days(n)) -> OffsetDateTime {
         lhs + Days(-n)
     }
 }
 
 impl Subtract<Hours, OffsetDateTime> for OffsetDateTime {
     /// Subtract whole civil hours.
-    fn subtract(lhs: OffsetDateTime, Hours(n)): OffsetDateTime {
+    fn subtract(lhs: OffsetDateTime, Hours(n)) -> OffsetDateTime {
         lhs + Hours(-n)
     }
 }
 
 impl Subtract<Minutes, OffsetDateTime> for OffsetDateTime {
     /// Subtract whole civil minutes.
-    fn subtract(lhs: OffsetDateTime, Minutes(n)): OffsetDateTime {
+    fn subtract(lhs: OffsetDateTime, Minutes(n)) -> OffsetDateTime {
         lhs + Minutes(-n)
     }
 }
 
 impl Subtract<Seconds, OffsetDateTime> for OffsetDateTime {
     /// Subtract whole civil seconds.
-    fn subtract(lhs: OffsetDateTime, Seconds(n)): OffsetDateTime {
+    fn subtract(lhs: OffsetDateTime, Seconds(n)) -> OffsetDateTime {
         lhs + Seconds(-n)
     }
 }
 
 impl Subtract<Milliseconds, OffsetDateTime> for OffsetDateTime {
     /// Subtract whole civil milliseconds.
-    fn subtract(lhs: OffsetDateTime, Milliseconds(n)): OffsetDateTime {
+    fn subtract(lhs: OffsetDateTime, Milliseconds(n)) -> OffsetDateTime {
         lhs + Milliseconds(-n)
     }
 }
 
 impl Subtract<Microseconds, OffsetDateTime> for OffsetDateTime {
     /// Subtract whole civil microseconds.
-    fn subtract(lhs: OffsetDateTime, Microseconds(n)): OffsetDateTime {
+    fn subtract(lhs: OffsetDateTime, Microseconds(n)) -> OffsetDateTime {
         lhs + Microseconds(-n)
     }
 }
 
 impl Subtract<Nanoseconds, OffsetDateTime> for OffsetDateTime {
     /// Subtract whole civil nanoseconds.
-    fn subtract(lhs: OffsetDateTime, Nanoseconds(n)): OffsetDateTime {
+    fn subtract(lhs: OffsetDateTime, Nanoseconds(n)) -> OffsetDateTime {
         lhs + Nanoseconds(-n)
     }
 }
 
 impl Equatable for OffsetDateTime {
-    fn equal?(a: OffsetDateTime, b: OffsetDateTime): Bool {
+    fn equal?(a: OffsetDateTime, b: OffsetDateTime) -> Bool {
         a.instant_nanos == b.instant_nanos
     }
 }
 
 impl Hashable for OffsetDateTime {
-    fn hash(value: OffsetDateTime): Int {
+    fn hash(value: OffsetDateTime) -> Int {
         value.instant_nanos
     }
 }
 
 impl Comparable for OffsetDateTime {
-    fn compare(a: OffsetDateTime, b: OffsetDateTime): Ordering {
+    fn compare(a: OffsetDateTime, b: OffsetDateTime) -> Ordering {
         Int.compare(a.instant_nanos, b.instant_nanos)
     }
 }
@@ -1206,7 +1211,7 @@ impl DateTime {
         dt: NaiveDateTime,
         zone: String,
         mode: Disambiguation = Disambiguation.Compatible,
-    ): Result<DateTime, Error> {
+    ) -> Result<DateTime, Error> {
         DateTime.in_zone_resolve(dt, zone, mode)
     }
 
@@ -1214,7 +1219,7 @@ impl DateTime {
         dt: NaiveDateTime,
         zone: String,
         mode: Disambiguation,
-    ): Result<DateTime, Error> {
+    ) -> Result<DateTime, Error> {
         mode_tag = case mode {
             Disambiguation.Compatible -> 1
             Disambiguation.Earlier -> 2
@@ -1238,7 +1243,7 @@ impl DateTime {
     //!     "UTC",
     //! ) == try DateTime"1970-01-01T00:00:00Z[UTC]"
     //
-    pub fn from_instant_in(i: Instant, zone: String): Result<DateTime, Error> {
+    pub fn from_instant_in(i: Instant, zone: String) -> Result<DateTime, Error> {
         attempt = zoned_from_instant_in_raw(Instant.as_nanos(i), zone)
 
         if attempt.kind == 0 {
@@ -1252,7 +1257,7 @@ impl DateTime {
     /// `DateTime.from_instant_in(Instant.now(), zone)`.
     //! assert Err(Error.UnknownZone(_zone)) = DateTime.now_in("Mars/Base")
     //
-    pub fn now_in(zone: String): Result<DateTime, Error> {
+    pub fn now_in(zone: String) -> Result<DateTime, Error> {
         DateTime.from_instant_in(Instant.now(), zone)
     }
 
@@ -1263,7 +1268,7 @@ impl DateTime {
     //!     try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
     //! ) == try OffsetDateTime"2026-06-15T12:00:00-04:00"
     //
-    pub host fn to_offset(d: DateTime): OffsetDateTime
+    pub host fn to_offset(d: DateTime) -> OffsetDateTime
 
     /// Same instant, different IANA zone — re-project the wall reading
     /// through a new zone. Fails only on `UnknownZone`.
@@ -1272,7 +1277,7 @@ impl DateTime {
     //!     "Europe/Paris",
     //! ) == try DateTime"2026-06-15T18:00:00+02:00[Europe/Paris]"
     //
-    pub fn with_zone(d: DateTime, zone: String): Result<DateTime, Error> {
+    pub fn with_zone(d: DateTime, zone: String) -> Result<DateTime, Error> {
         attempt = zoned_with_zone_raw(d, zone)
 
         if attempt.kind == 0 {
@@ -1293,7 +1298,7 @@ impl DateTime {
     //!
     //! assert Err(Error.InvalidFormat(_msg)) = DateTime.parse("2026-06-15T12:00:00-04:00")
     //
-    pub fn parse(s: String): Result<DateTime, Error> {
+    pub fn parse(s: String) -> Result<DateTime, Error> {
         attempt = zoned_parse_raw(s)
 
         if attempt.kind == 0 {
@@ -1310,14 +1315,14 @@ impl DateTime {
     //!     try DateTime"2026-06-15T18:30:00+02:00[Europe/Paris]",
     //! ) == Duration.minutes(30)
     //
-    pub fn between(earlier: DateTime, later: DateTime): Duration {
+    pub fn between(earlier: DateTime, later: DateTime) -> Duration {
         Duration.nanoseconds(later.instant_nanos - earlier.instant_nanos)
     }
 }
 
 impl Literal for DateTime {
-    fn from_fragments(fragments: List<Fragment<String>>): Result<DateTime, Error> {
-        body = Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<DateTime, Error> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -1330,11 +1335,11 @@ impl Literal for DateTime {
 
 impl Display for DateTime {
     /// RFC 9557 datetime+zone string.
-    host fn to_string(d: DateTime): String
+    host fn to_string(d: DateTime) -> String
 }
 
 impl Debug for DateTime {
-    fn inspect(d: DateTime): String {
+    fn inspect(d: DateTime) -> String {
         "${d}"
     }
 }
@@ -1343,16 +1348,16 @@ impl DateParts for DateTime {
     // `DateParts`/`TimeParts` accessors project through
     // `time.Unix(0, instant_nanos).In(loc)` (the IANA-loaded location) — the
     // extern IS the interface function.
-    host fn year(value: DateTime): Int
-    host fn month(value: DateTime): Int
-    host fn day(value: DateTime): Int
+    host fn year(value: DateTime) -> Int
+    host fn month(value: DateTime) -> Int
+    host fn day(value: DateTime) -> Int
 }
 
 impl TimeParts for DateTime {
-    host fn hour(value: DateTime): Int
-    host fn minute(value: DateTime): Int
-    host fn second(value: DateTime): Int
-    host fn nanosecond(value: DateTime): Int
+    host fn hour(value: DateTime) -> Int
+    host fn minute(value: DateTime) -> Int
+    host fn second(value: DateTime) -> Int
+    host fn nanosecond(value: DateTime) -> Int
 }
 
 impl Anchored for DateTime {
@@ -1360,7 +1365,7 @@ impl Anchored for DateTime {
     ///
     /// A field read rather than a Go call: the instant IS the stored
     /// representation and the zone is display metadata.
-    fn to_instant(d: DateTime): Instant {
+    fn to_instant(d: DateTime) -> Instant {
         Instant.from_nanos(d.instant_nanos)
     }
 
@@ -1368,14 +1373,14 @@ impl Anchored for DateTime {
     ///
     /// COMPUTED, unlike `OffsetDateTime.offset`: the answer depends on where
     /// this moment falls among the zone's transitions, so it is a tzdb read.
-    fn offset(d: DateTime): Duration {
+    fn offset(d: DateTime) -> Duration {
         Duration.nanoseconds(zoned_offset_nanos(d))
     }
 }
 
 impl Add<Duration, DateTime> for DateTime {
     /// Add an exact `Duration`.
-    fn add(lhs: DateTime, rhs: Duration): DateTime {
+    fn add(lhs: DateTime, rhs: Duration) -> DateTime {
         DateTime{
             instant_nanos: lhs.instant_nanos + Duration.as_nanos(rhs),
             zone: lhs.zone,
@@ -1385,165 +1390,165 @@ impl Add<Duration, DateTime> for DateTime {
 
 impl Add<Years, DateTime> for DateTime {
     /// Add whole calendar years, clamping leap days when needed.
-    fn add(lhs: DateTime, Years(n)): DateTime {
+    fn add(lhs: DateTime, Years(n)) -> DateTime {
         zoned_add_years(lhs, n)
     }
 }
 
 impl Add<Months, DateTime> for DateTime {
     /// Add whole calendar months, clamping end-of-month.
-    fn add(lhs: DateTime, Months(n)): DateTime {
+    fn add(lhs: DateTime, Months(n)) -> DateTime {
         zoned_add_months(lhs, n)
     }
 }
 
 impl Add<Weeks, DateTime> for DateTime {
     /// Add whole calendar weeks.
-    fn add(lhs: DateTime, Weeks(n)): DateTime {
+    fn add(lhs: DateTime, Weeks(n)) -> DateTime {
         lhs + Days(n * 7)
     }
 }
 
 impl Add<Days, DateTime> for DateTime {
     /// Add whole calendar days.
-    fn add(lhs: DateTime, Days(n)): DateTime {
+    fn add(lhs: DateTime, Days(n)) -> DateTime {
         zoned_add_days(lhs, n)
     }
 }
 
 impl Add<Hours, DateTime> for DateTime {
     /// Add whole civil hours.
-    fn add(lhs: DateTime, Hours(n)): DateTime {
+    fn add(lhs: DateTime, Hours(n)) -> DateTime {
         zoned_add_hours(lhs, n)
     }
 }
 
 impl Add<Minutes, DateTime> for DateTime {
     /// Add whole civil minutes.
-    fn add(lhs: DateTime, Minutes(n)): DateTime {
+    fn add(lhs: DateTime, Minutes(n)) -> DateTime {
         zoned_add_minutes(lhs, n)
     }
 }
 
 impl Add<Seconds, DateTime> for DateTime {
     /// Add whole civil seconds.
-    fn add(lhs: DateTime, Seconds(n)): DateTime {
+    fn add(lhs: DateTime, Seconds(n)) -> DateTime {
         zoned_add_seconds(lhs, n)
     }
 }
 
 impl Add<Milliseconds, DateTime> for DateTime {
     /// Add whole civil milliseconds.
-    fn add(lhs: DateTime, Milliseconds(n)): DateTime {
+    fn add(lhs: DateTime, Milliseconds(n)) -> DateTime {
         zoned_add_milliseconds(lhs, n)
     }
 }
 
 impl Add<Microseconds, DateTime> for DateTime {
     /// Add whole civil microseconds.
-    fn add(lhs: DateTime, Microseconds(n)): DateTime {
+    fn add(lhs: DateTime, Microseconds(n)) -> DateTime {
         zoned_add_microseconds(lhs, n)
     }
 }
 
 impl Add<Nanoseconds, DateTime> for DateTime {
     /// Add whole civil nanoseconds.
-    fn add(lhs: DateTime, Nanoseconds(n)): DateTime {
+    fn add(lhs: DateTime, Nanoseconds(n)) -> DateTime {
         zoned_add_nanoseconds(lhs, n)
     }
 }
 
 impl Subtract<Duration, DateTime> for DateTime {
     /// Subtract an exact `Duration`.
-    fn subtract(lhs: DateTime, rhs: Duration): DateTime {
+    fn subtract(lhs: DateTime, rhs: Duration) -> DateTime {
         lhs + rhs * -1
     }
 }
 
 impl Subtract<Years, DateTime> for DateTime {
     /// Subtract whole calendar years, clamping leap days when needed.
-    fn subtract(lhs: DateTime, Years(n)): DateTime {
+    fn subtract(lhs: DateTime, Years(n)) -> DateTime {
         lhs + Years(-n)
     }
 }
 
 impl Subtract<Months, DateTime> for DateTime {
     /// Subtract whole calendar months, clamping end-of-month.
-    fn subtract(lhs: DateTime, Months(n)): DateTime {
+    fn subtract(lhs: DateTime, Months(n)) -> DateTime {
         lhs + Months(-n)
     }
 }
 
 impl Subtract<Weeks, DateTime> for DateTime {
     /// Subtract whole calendar weeks.
-    fn subtract(lhs: DateTime, Weeks(n)): DateTime {
+    fn subtract(lhs: DateTime, Weeks(n)) -> DateTime {
         lhs + Weeks(-n)
     }
 }
 
 impl Subtract<Days, DateTime> for DateTime {
     /// Subtract whole calendar days.
-    fn subtract(lhs: DateTime, Days(n)): DateTime {
+    fn subtract(lhs: DateTime, Days(n)) -> DateTime {
         lhs + Days(-n)
     }
 }
 
 impl Subtract<Hours, DateTime> for DateTime {
     /// Subtract whole civil hours.
-    fn subtract(lhs: DateTime, Hours(n)): DateTime {
+    fn subtract(lhs: DateTime, Hours(n)) -> DateTime {
         lhs + Hours(-n)
     }
 }
 
 impl Subtract<Minutes, DateTime> for DateTime {
     /// Subtract whole civil minutes.
-    fn subtract(lhs: DateTime, Minutes(n)): DateTime {
+    fn subtract(lhs: DateTime, Minutes(n)) -> DateTime {
         lhs + Minutes(-n)
     }
 }
 
 impl Subtract<Seconds, DateTime> for DateTime {
     /// Subtract whole civil seconds.
-    fn subtract(lhs: DateTime, Seconds(n)): DateTime {
+    fn subtract(lhs: DateTime, Seconds(n)) -> DateTime {
         lhs + Seconds(-n)
     }
 }
 
 impl Subtract<Milliseconds, DateTime> for DateTime {
     /// Subtract whole civil milliseconds.
-    fn subtract(lhs: DateTime, Milliseconds(n)): DateTime {
+    fn subtract(lhs: DateTime, Milliseconds(n)) -> DateTime {
         lhs + Milliseconds(-n)
     }
 }
 
 impl Subtract<Microseconds, DateTime> for DateTime {
     /// Subtract whole civil microseconds.
-    fn subtract(lhs: DateTime, Microseconds(n)): DateTime {
+    fn subtract(lhs: DateTime, Microseconds(n)) -> DateTime {
         lhs + Microseconds(-n)
     }
 }
 
 impl Subtract<Nanoseconds, DateTime> for DateTime {
     /// Subtract whole civil nanoseconds.
-    fn subtract(lhs: DateTime, Nanoseconds(n)): DateTime {
+    fn subtract(lhs: DateTime, Nanoseconds(n)) -> DateTime {
         lhs + Nanoseconds(-n)
     }
 }
 
 impl Equatable for DateTime {
-    fn equal?(a: DateTime, b: DateTime): Bool {
+    fn equal?(a: DateTime, b: DateTime) -> Bool {
         a.instant_nanos == b.instant_nanos
     }
 }
 
 impl Hashable for DateTime {
-    fn hash(value: DateTime): Int {
+    fn hash(value: DateTime) -> Int {
         value.instant_nanos
     }
 }
 
 impl Comparable for DateTime {
-    fn compare(a: DateTime, b: DateTime): Ordering {
+    fn compare(a: DateTime, b: DateTime) -> Ordering {
         Int.compare(a.instant_nanos, b.instant_nanos)
     }
 }
@@ -1624,7 +1629,7 @@ impl Error {
     /// tags, and 0 is handled by the lifts below before they reach here. The
     /// final arm is `Ambiguous` because the chain needs a total answer, not
     /// because 5 is a fallback.
-    fn of(kind: Int, reason: String): Error {
+    fn of(kind: Int, reason: String) -> Error {
         if kind == 1 {
             Error.InvalidFormat(reason)
         } else if kind == 2 {
@@ -1640,20 +1645,20 @@ impl Error {
 }
 
 // --- Date -------------------------------------------------------------------
-host fn date_new_raw(year: Int, month: Int, day: Int): DateAttempt
+host fn date_new_raw(year: Int, month: Int, day: Int) -> DateAttempt
 
-host fn date_parse_raw(s: String): DateAttempt
+host fn date_parse_raw(s: String) -> DateAttempt
 
-host fn date_add_years(d: Date, n: Int): Date
+host fn date_add_years(d: Date, n: Int) -> Date
 
-host fn date_add_months(d: Date, n: Int): Date
+host fn date_add_months(d: Date, n: Int) -> Date
 
-host fn date_add_days(d: Date, n: Int): Date
+host fn date_add_days(d: Date, n: Int) -> Date
 
 // --- Time -------------------------------------------------------------------
-host fn time_parse_raw(s: String): TimeAttempt
+host fn time_parse_raw(s: String) -> TimeAttempt
 
-host fn time_add_nanos(t: Time, nanos: Int): Time
+host fn time_add_nanos(t: Time, nanos: Int) -> Time
 
 // --- NaiveDateTime ----------------------------------------------------------
 host fn naive_new_exact_raw(
@@ -1664,56 +1669,56 @@ host fn naive_new_exact_raw(
     minute: Int,
     second: Int,
     nanosecond: Int,
-): NaiveAttempt
+) -> NaiveAttempt
 
-host fn naive_parse_raw(s: String): NaiveAttempt
+host fn naive_parse_raw(s: String) -> NaiveAttempt
 
-host fn naive_between_nanos(earlier: NaiveDateTime, later: NaiveDateTime): Int
+host fn naive_between_nanos(earlier: NaiveDateTime, later: NaiveDateTime) -> Int
 
-host fn naive_add_years(dt: NaiveDateTime, n: Int): NaiveDateTime
+host fn naive_add_years(dt: NaiveDateTime, n: Int) -> NaiveDateTime
 
-host fn naive_add_months(dt: NaiveDateTime, n: Int): NaiveDateTime
+host fn naive_add_months(dt: NaiveDateTime, n: Int) -> NaiveDateTime
 
-host fn naive_add_days(dt: NaiveDateTime, n: Int): NaiveDateTime
+host fn naive_add_days(dt: NaiveDateTime, n: Int) -> NaiveDateTime
 
-host fn naive_add_nanos(dt: NaiveDateTime, nanos: Int): NaiveDateTime
+host fn naive_add_nanos(dt: NaiveDateTime, nanos: Int) -> NaiveDateTime
 
 // --- OffsetDateTime ---------------------------------------------------------
-host fn offset_with_offset_raw(dt: NaiveDateTime, offset_nanos: Int): OffsetAttempt
+host fn offset_with_offset_raw(dt: NaiveDateTime, offset_nanos: Int) -> OffsetAttempt
 
-host fn offset_from_instant_nanos(instant_nanos: Int, offset_nanos: Int): OffsetDateTime
+host fn offset_from_instant_nanos(instant_nanos: Int, offset_nanos: Int) -> OffsetDateTime
 
-host fn offset_parse_raw(s: String): OffsetAttempt
+host fn offset_parse_raw(s: String) -> OffsetAttempt
 
-host fn offset_add_years(odt: OffsetDateTime, n: Int): OffsetDateTime
+host fn offset_add_years(odt: OffsetDateTime, n: Int) -> OffsetDateTime
 
-host fn offset_add_months(odt: OffsetDateTime, n: Int): OffsetDateTime
+host fn offset_add_months(odt: OffsetDateTime, n: Int) -> OffsetDateTime
 
 // --- DateTime ---------------------------------------------------------------
-host fn zoned_in_zone_raw(dt: NaiveDateTime, zone: String, mode: Int): ZonedAttempt
+host fn zoned_in_zone_raw(dt: NaiveDateTime, zone: String, mode: Int) -> ZonedAttempt
 
-host fn zoned_from_instant_in_raw(instant_nanos: Int, zone: String): ZonedAttempt
+host fn zoned_from_instant_in_raw(instant_nanos: Int, zone: String) -> ZonedAttempt
 
-host fn zoned_with_zone_raw(d: DateTime, zone: String): ZonedAttempt
+host fn zoned_with_zone_raw(d: DateTime, zone: String) -> ZonedAttempt
 
-host fn zoned_parse_raw(s: String): ZonedAttempt
+host fn zoned_parse_raw(s: String) -> ZonedAttempt
 
-host fn zoned_offset_nanos(d: DateTime): Int
+host fn zoned_offset_nanos(d: DateTime) -> Int
 
-host fn zoned_add_years(d: DateTime, n: Int): DateTime
+host fn zoned_add_years(d: DateTime, n: Int) -> DateTime
 
-host fn zoned_add_months(d: DateTime, n: Int): DateTime
+host fn zoned_add_months(d: DateTime, n: Int) -> DateTime
 
-host fn zoned_add_days(d: DateTime, n: Int): DateTime
+host fn zoned_add_days(d: DateTime, n: Int) -> DateTime
 
-host fn zoned_add_hours(d: DateTime, n: Int): DateTime
+host fn zoned_add_hours(d: DateTime, n: Int) -> DateTime
 
-host fn zoned_add_minutes(d: DateTime, n: Int): DateTime
+host fn zoned_add_minutes(d: DateTime, n: Int) -> DateTime
 
-host fn zoned_add_seconds(d: DateTime, n: Int): DateTime
+host fn zoned_add_seconds(d: DateTime, n: Int) -> DateTime
 
-host fn zoned_add_milliseconds(d: DateTime, n: Int): DateTime
+host fn zoned_add_milliseconds(d: DateTime, n: Int) -> DateTime
 
-host fn zoned_add_microseconds(d: DateTime, n: Int): DateTime
+host fn zoned_add_microseconds(d: DateTime, n: Int) -> DateTime
 
-host fn zoned_add_nanoseconds(d: DateTime, n: Int): DateTime
+host fn zoned_add_nanoseconds(d: DateTime, n: Int) -> DateTime

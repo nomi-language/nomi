@@ -32,7 +32,7 @@ func TestUniversalDebug_BlockImplSuppressesSynth(t *testing.T) {
 	src := `struct E { x: Int }
 
 impl Debug for E {
-  fn inspect(_e: E): String {
+  fn inspect(_e: E) -> String {
     "E"
   }
 }`

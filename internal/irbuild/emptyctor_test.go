@@ -22,11 +22,11 @@ struct P {
   x: Int
 }
 
-fn vec<T>(): Vector<T> {
+fn vec<T>() -> Vector<T> {
   Vector.empty<T>()
 }
 
-fn set<T>(): Set<T> {
+fn set<T>() -> Set<T> {
   Set.new<T>()
 }
 

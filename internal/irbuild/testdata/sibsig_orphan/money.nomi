@@ -5,6 +5,6 @@ pub struct Money {
     note: String
 }
 
-pub fn at(cents: Int, note: String): Money {
+pub fn at(cents: Int, note: String) -> Money {
     Money{cents, note}
 }

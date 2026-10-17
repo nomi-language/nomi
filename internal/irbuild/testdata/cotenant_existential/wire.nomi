@@ -19,7 +19,7 @@ import {
 // Declared HERE and used as a FIELD TYPE in core, which is what makes core's
 // `App` mirror point back into this file. See core.nomi's struct comment.
 pub interface Tagger {
-    fn tag(value: self): String
+    fn tag(value: self) -> String
 }
 
 pub struct Prod {
@@ -31,13 +31,13 @@ pub struct Mark {
 }
 
 impl Logger for Prod {
-    fn log(p: Prod, message: String): String {
+    fn log(p: Prod, message: String) -> String {
         "${p.prefix}>${message}"
     }
 }
 
 impl Tagger for Mark {
-    fn tag(m: Mark): String {
+    fn tag(m: Mark) -> String {
         "m${m.n}"
     }
 }
@@ -46,18 +46,18 @@ pub once tag: String = "wire"
 
 // A mirror of a type declared OUTSIDE this component. extra.nomi mirrors the
 // SAME type, and the two share one package in the builder — see shared.nomi.
-pub fn mark(): Stamp {
+pub fn mark() -> Stamp {
     shared.stamp("w")
 }
 
-pub fn mark_text(s: Stamp): String {
+pub fn mark_text(s: Stamp) -> String {
     s.s
 }
 
-pub fn loud(): App {
+pub fn loud() -> App {
     App{name: "loud", logger: Prod{prefix: "P"}, tag: Mark{n: 1}}
 }
 
-pub fn hushed(): App {
+pub fn hushed() -> App {
     App{name: "hushed", logger: Quiet{level: 3}, tag: extra.plain()}
 }

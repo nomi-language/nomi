@@ -1,6 +1,6 @@
 /// Reports whether `number` passes the Luhn checksum. Spaces are ignored;
 /// any other non-digit, or fewer than two digits, makes it invalid.
-pub fn valid?(number: String): Bool {
+pub fn valid?(number: String) -> Bool {
     digits =
         number
         |> String.replace(" ", "")
@@ -13,15 +13,15 @@ pub fn valid?(number: String): Bool {
     }
 }
 
-fn checksum(digits: List<Int>): Int {
+fn checksum(digits: List<Int>) -> Int {
     digits
     |> Iter.reverse()
     |> Iter.with_index()
-    |> Iter.map(|(i, d)| if i % 2 == 1 { double(d) } else { d })
+    |> Iter.map(fn #(i, d) -> if i % 2 == 1 { double(d) } else { d })
     |> Iter.sum()
 }
 
-fn double(digit: Int): Int {
+fn double(digit: Int) -> Int {
     doubled = digit * 2
     if doubled > 9 { doubled - 9 } else { doubled }
 }

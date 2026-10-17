@@ -15,15 +15,15 @@ import (
 func TestIROnce_AFunctionValuedCellIsReadAndCalled(t *testing.T) {
 	const src = `import std/io
 
-fn add(a: Int): Int {
+fn add(a: Int) -> Int {
   a + 1
 }
 
 once add_op: (Int) -> Int = add
 
-once triple = |n: Int| n * 3
+once triple = fn n: Int -> n * 3
 
-fn use_it(n: Int): Int {
+fn use_it(n: Int) -> Int {
   add_op(n) * 2
 }
 
@@ -33,7 +33,7 @@ fn main() {
   io.inspect(use_it(3))
   io.inspect(add_op(10))
   io.inspect(triple(4))
-  io.inspect([1, 2] |> Iter.map(|v| triple(v) + add_op(v)) |> Iter.to_list())
+  io.inspect([1, 2] |> Iter.map(fn v -> triple(v) + add_op(v)) |> Iter.to_list())
   io.inspect([5] |> Iter.map(add_op) |> Iter.to_list())
 }
 `

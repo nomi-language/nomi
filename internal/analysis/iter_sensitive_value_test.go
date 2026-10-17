@@ -8,14 +8,14 @@ import (
 const iterSensitiveValueError = "'stop' uses break/continue (directly or transitively), so it can only be " +
 	"called from an iter-callback position or passed directly as an iteration function's callback, not used as a value here"
 
-const iterSensitiveStop = `fn stop(x: Int): Int {
+const iterSensitiveStop = `fn stop(x: Int) -> Int {
     if x > 2 {
         break
     }
     x
 }
 
-fn apply(f: (Int) -> Int, x: Int): Int {
+fn apply(f: (Int) -> Int, x: Int) -> Int {
     f(x)
 }
 `
@@ -51,8 +51,8 @@ func TestIterSensitiveValue_AdmitsADirectCallback(t *testing.T) {
 fn main() {
     _ = [1, 2, 3] |> Iter.map(stop) |> Iter.to_list()
     _ = Iter.map([1], stop) |> Iter.to_list()
-    _ = [1] |> Iter.map(|x| stop(x)) |> Iter.to_list()
-    _ = apply(|x| x, 1)
+    _ = [1] |> Iter.map(fn x -> stop(x)) |> Iter.to_list()
+    _ = apply(fn x -> x, 1)
 }
 `
 	_, errs := checkSourceWithStdlib(src)

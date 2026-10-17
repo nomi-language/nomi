@@ -25,8 +25,8 @@ func TestFormat_AnonStructLiteralKeepsItsOpeningComment(t *testing.T) {
 				"}\n",
 		},
 		"before a map spread": {
-			src: "moved = { // moved\n    ..m, \"x\" => 3.0}\n",
-			want: "moved = {\n" +
+			src: "moved = %{ // moved\n    ..m, \"x\" => 3.0}\n",
+			want: "moved = %{\n" +
 				"    // moved\n" +
 				"    ..m,\n" +
 				"    \"x\" => 3.0,\n" +

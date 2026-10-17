@@ -11,16 +11,16 @@ import {
 
 type TraceId String
 
-fn id(n: Int): Int {
+fn id(n: Int) -> Int {
     n
 }
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 
 // A guard whose body branches before its `return`.
-fn guarded(x: Int): Int {
+fn guarded(x: Int) -> Int {
     if x > 0 {
         if x > 5 { io.print("big") }
 
@@ -37,7 +37,7 @@ fn guarded(x: Int): Int {
 }
 
 // Both arms return after statements that branch.
-fn returning_arms(x: Int): Int {
+fn returning_arms(x: Int) -> Int {
     if x > 0 {
         case x {
             1 -> io.print("one")
@@ -51,17 +51,17 @@ fn returning_arms(x: Int): Int {
     }
 }
 
-fn find(n: Int): Maybe<Int> {
+fn find(n: Int) -> Maybe<Int> {
     if n > 3 { None } else { Some(n) }
 }
 
-fn find_nested(n: Int): Maybe<Maybe<Int>> {
+fn find_nested(n: Int) -> Maybe<Maybe<Int>> {
     if n > 3 { None } else { Some(Some(n)) }
 }
 
 // An Iter.loop binding else whose statements branch before it leaves.
-fn loop_else_branches(): Int {
-    loop(|n = 0| {
+fn loop_else_branches() -> Int {
+    loop(fn n = 0 -> {
         Some(v) = find(n) else {
             if n > 10 { io.print("big") }
             break n
@@ -72,8 +72,8 @@ fn loop_else_branches(): Int {
 }
 
 // An Iter.loop binding else whose fallback is an `if`.
-fn loop_else_fallback(): Int {
-    loop(|n = 0| {
+fn loop_else_fallback() -> Int {
+    loop(fn n = 0 -> {
         Some(v) = find(n) else {
             if n > 5 { 10 } else { 20 }
         }
@@ -84,8 +84,8 @@ fn loop_else_fallback(): Int {
 }
 
 // An Iter.loop binding else that ends in an `if` whose arms both break.
-fn loop_else_both_break(): Int {
-    loop(|n = 0| {
+fn loop_else_both_break() -> Int {
+    loop(fn n = 0 -> {
         Some(Some(v)) = find_nested(n) else {
             if n > 10 { break 1 } else { break 2 }
         }
@@ -94,7 +94,7 @@ fn loop_else_both_break(): Int {
     })
 }
 
-fn unwrap(r: Result<Int, Infallible>): Int {
+fn unwrap(r: Result<Int, Infallible>) -> Int {
     case r {
         Ok(v) ->
             v
@@ -105,14 +105,14 @@ fn unwrap(r: Result<Int, Infallible>): Int {
     }
 }
 
-fn with_local_interface(x: Int): Int {
+fn with_local_interface(x: Int) -> Int {
     interface Sized {
-        fn size(v: self): Int
+        fn size(v: self) -> Int
     }
 
     y = {
         interface Named {
-            fn name(v: self): String
+            fn name(v: self) -> String
         }
 
         x + 1
@@ -120,7 +120,7 @@ fn with_local_interface(x: Int): Int {
 
     if y > 0 {
         interface Ranked {
-            fn rank(v: self): Int
+            fn rank(v: self) -> Int
         }
 
         y * 2
@@ -129,7 +129,7 @@ fn with_local_interface(x: Int): Int {
     }
 }
 
-fn case_subject(x: Int): Result<Bool, AssertionFailure> {
+fn case_subject(x: Int) -> Result<Bool, AssertionFailure> {
     assert case x {
         1 -> False
         _ -> x > 0
@@ -138,8 +138,8 @@ fn case_subject(x: Int): Result<Bool, AssertionFailure> {
     Ok(True)
 }
 
-fn loop_subject(limit: Int): Result<Unit, AssertionFailure> {
-    assert loop(|n = 0| {
+fn loop_subject(limit: Int) -> Result<Unit, AssertionFailure> {
+    assert loop(fn n = 0 -> {
         if n > limit { break n }
         n + 1
     }) == 4
@@ -147,11 +147,11 @@ fn loop_subject(limit: Int): Result<Unit, AssertionFailure> {
     Ok(Unit)
 }
 
-fn has(c: Context, t: Type<TraceId>): Bool {
+fn has(c: Context, t: Type<TraceId>) -> Bool {
     Context.value(c, t) != None
 }
 
-fn witness(): Type<TraceId> {
+fn witness() -> Type<TraceId> {
     TraceId
 }
 
@@ -193,7 +193,7 @@ test "regions and blocks inside an assertion subject" {
     }
 
     assert concurrent {
-        t = Task.spawn(|| 1)
+        t = Task.spawn(fn -> 1)
         Task.await(t)
     } == 1
 
@@ -263,24 +263,24 @@ test "an assertion binding and a pattern may rebind a name" {
 }
 
 test "a pipe binding whose stage holds a pipe records its spine" {
-    ok = [1, 2] |> Iter.any?(|x: Int| x |> double() > 10)
+    ok = [1, 2] |> Iter.any?(fn x: Int -> x |> double() > 10)
     assert Err(failure) = testing.check(ok)
 
     assert AssertionFailure.format(failure) == """
         line 267: check failed
           check ok
           defined as:
-            [1, 2] |> Iter.any?(|x: Int| x |> double() > 10)
+            [1, 2] |> Iter.any?(fn x: Int -> x |> double() > 10)
           pipeline values:
             [1, 2]
               = [1, 2]
-            [1, 2] |> Iter.any?(|x: Int| x |> double() > 10)
+            [1, 2] |> Iter.any?(fn x: Int -> x |> double() > 10)
               = False
         """
 }
 
 test "an annotated pipe binding" {
-    xs: List<Int> = [1, 2] |> Iter.map(|x| x + 1) |> Iter.to_list()
+    xs: List<Int> = [1, 2] |> Iter.map(fn x -> x + 1) |> Iter.to_list()
     assert [2, _] = xs
 }
 

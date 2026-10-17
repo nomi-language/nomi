@@ -10,7 +10,7 @@ import "testing"
 
 const partialGenericDecls = `
 interface Console {
-  fn write_line(c: self, line: String): Unit
+  fn write_line(c: self, line: String) -> Unit
 }
 
 struct Stdout {
@@ -18,18 +18,18 @@ struct Stdout {
 }
 
 impl Console for Stdout {
-  fn write_line(c: Stdout, line: String): Unit {
+  fn write_line(c: Stdout, line: String) -> Unit {
     _ = c
     _ = line
     Unit
   }
 }
 
-fn pair<T>(a: T, b: T): (T, T) {
-  (a, b)
+fn pair<T>(a: T, b: T) -> #(T, T) {
+  #(a, b)
 }
 
-fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False): List<T> {
+fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False) -> List<T> {
   _ = twice
   [x, ..xs]
 }
@@ -42,9 +42,9 @@ fn main() {
   Iter.each(["a", "b"], Console.write_line(c, _))
   w: (String) -> Unit = Console.write_line(c, _)
   w("c")
-  p: (Int) -> (Int, Int) = pair(1, _)
-  q: (Int) -> (Int, Int) = pair(_, 2)
-  _ = (p(2), q(1))
+  p: (Int) -> #(Int, Int) = pair(1, _)
+  q: (Int) -> #(Int, Int) = pair(_, 2)
+  _ = #(p(2), q(1))
   s: (List<Int>) -> List<Int> = spread(1, xs: _)
   _ = s([2])
 }
@@ -58,7 +58,7 @@ func TestPartialGeneric_RejectsAMismatchedPartial(t *testing.T) {
 		// expected is the mismatch, named with the function type.
 		{`  x: Unit = Console.write_line(Stdout{prefix: ""}, _)`, "expected Unit, got (String) -> Unit"},
 		// The open slot's type is the one the written arguments solved.
-		{`  p: (String) -> (Int, Int) = pair(1, _)`, "expected (String) -> (Int, Int), got (Int) -> (Int, Int)"},
+		{`  p: (String) -> #(Int, Int) = pair(1, _)`, "expected (String) -> #(Int, Int), got (Int) -> #(Int, Int)"},
 	} {
 		t.Run(tc.want, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(partialGenericDecls + "\nfn main() {\n" + tc.src + "\n  _ = 0\n}\n")

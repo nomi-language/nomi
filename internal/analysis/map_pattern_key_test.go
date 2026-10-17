@@ -44,9 +44,9 @@ func j6KeyErrors(src string) string {
 // key has always been an error, so the check exists and this position was
 // simply not wired to it.
 func TestMapPatternKeyIsTypeChecked(t *testing.T) {
-	got := j6KeyErrors(`fn f(m: Map<Int, String>): String {
+	got := j6KeyErrors(`fn f(m: Map<Int, String>) -> String {
   case m {
-    {Int.to_string(1, 2, 3) => v} -> v
+    %{Int.to_string(1, 2, 3) => v} -> v
     _ -> "?"
   }
 }
@@ -64,8 +64,8 @@ func TestMapPatternKeyIsTypeChecked(t *testing.T) {
 // TestMapDestructureKeyIsTypeChecked is the same firing at a map pattern bound
 // with `else`.
 func TestMapDestructureKeyIsTypeChecked(t *testing.T) {
-	got := j6KeyErrors(`fn f(m: Map<Int, String>): String {
-  {Int.to_string(1, 2, 3) => v} = m else { return "" }
+	got := j6KeyErrors(`fn f(m: Map<Int, String>) -> String {
+  %{Int.to_string(1, 2, 3) => v} = m else { return "" }
   v
 }
 `)
@@ -87,8 +87,8 @@ func TestMapDestructureKeyIsTypeChecked(t *testing.T) {
 // while the two above pass, the divergence has been re-introduced from the
 // other side.
 func TestMapLiteralKeyIsTypeChecked(t *testing.T) {
-	got := j6KeyErrors(`fn f(): Map<Int, String> {
-  {Int.to_string(1, 2, 3) => "x"}
+	got := j6KeyErrors(`fn f() -> Map<Int, String> {
+  %{Int.to_string(1, 2, 3) => "x"}
 }
 `)
 	if !strings.Contains(got, "arguments") {
@@ -105,7 +105,7 @@ func TestMapLiteralKeyIsTypeChecked(t *testing.T) {
 // map_patterns_test.nomi` writes, and asserts the answer of:
 //
 //	fallthrough = case flags {        // flags: Map<Bool, String>
-//	  {Color.Blue => v} -> v
+//	  %{Color.Blue => v} -> v
 //	  _ -> "fallthrough"
 //	}
 //	assert fallthrough == "fallthrough"
@@ -126,9 +126,9 @@ func TestMapPatternKeyOfAnUnrelatedTypeStaysLegal(t *testing.T) {
   Blue
 }
 
-fn f(m: Map<Bool, String>): String {
+fn f(m: Map<Bool, String>) -> String {
   case m {
-    {Color.Blue => v} -> v
+    %{Color.Blue => v} -> v
     _ -> "fallthrough"
   }
 }
@@ -150,8 +150,8 @@ func TestMapDestructureKeyOfAnUnrelatedTypeStaysLegal(t *testing.T) {
   Blue
 }
 
-fn f(m: Map<Bool, String>): String {
-  {Color.Blue => v} = m else { return "" }
+fn f(m: Map<Bool, String>) -> String {
+  %{Color.Blue => v} = m else { return "" }
   v
 }
 `)
@@ -173,9 +173,9 @@ fn f(m: Map<Bool, String>): String {
 // records references from it. A witness that reads the same before and after
 // measures nothing.
 func TestMapPatternKeyPreludeConstructorIsAccepted(t *testing.T) {
-	got := j6KeyErrors(`fn f(m: Map<Maybe<Int>, String>): String {
+	got := j6KeyErrors(`fn f(m: Map<Maybe<Int>, String>) -> String {
   case m {
-    {Some(2) => v} -> v
+    %{Some(2) => v} -> v
     _ -> "?"
   }
 }

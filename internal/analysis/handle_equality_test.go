@@ -18,11 +18,11 @@ func TestHandleEquality_IsRejected(t *testing.T) {
 			"`!=` cannot compare `Receiver<Int>`: a handle to running state has no equality"},
 		{"context", "c = Context.root()\n    _ = c == c",
 			"`==` cannot compare `Context`: a handle to running state has no equality"},
-		{"task", "_ = concurrent {\n        t = Task.spawn(|| 1)\n        t == t\n    }",
+		{"task", "_ = concurrent {\n        t = Task.spawn(fn -> 1)\n        t == t\n    }",
 			"`==` cannot compare `Task<Int>`: a handle to running state has no equality"},
 		{"held in a Maybe", "c = Some(Context.root())\n    _ = c == c",
 			"`==` cannot compare `Maybe<Context>`: it holds `Context`, and a handle to running state has no equality"},
-		{"map key", "m = {Context.root() => 1}\n    _ = m",
+		{"map key", "m = %{Context.root() => 1}\n    _ = m",
 			"`Context` cannot be a Map key: a handle to running state has no equality or hashing"},
 	}
 	for _, tc := range cases {
@@ -51,7 +51,7 @@ func TestHandleEquality_AdmitsATypeWithItsOwnImpl(t *testing.T) {
 }
 
 impl Equatable for Job {
-    fn equal?(a: Job, b: Job): Bool {
+    fn equal?(a: Job, b: Job) -> Bool {
         a.id == b.id
     }
 }

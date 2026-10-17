@@ -9,7 +9,7 @@ import {
     test_helpers
 }
 
-fn render_fragment(f: Fragment<Int>): String {
+fn render_fragment(f: Fragment<Int>) -> String {
     case f {
         .Static(s) -> "static: ${s}"
         .Dynamic(n) -> "dynamic: ${n}"
@@ -21,14 +21,14 @@ struct Box {
 }
 
 impl Display for Box {
-    fn to_string(b: Box): String {
+    fn to_string(b: Box) -> String {
         "Box(" + b.contents + ")"
     }
 }
 
 impl Literal for Box {
-    fn from_fragments(fragments: List<Fragment<String>>): Box {
-        body = Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Box {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -39,9 +39,9 @@ impl Literal for Box {
     }
 }
 
-fn param_strings(q: Query): List<String> {
+fn param_strings(q: Query) -> List<String> {
     q.params
-    |> Iter.map(|p| Display.to_string(p))
+    |> Iter.map(fn p -> Display.to_string(p))
     |> Iter.to_list()
 }
 

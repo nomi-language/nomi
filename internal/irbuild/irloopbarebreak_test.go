@@ -16,12 +16,12 @@ struct Tally {
     count: Int
 }
 
-fn first_even(xs: List<Int>): Maybe<Int> {
-    Iter.find(xs, |x| x % 2 == 0)
+fn first_even(xs: List<Int>) -> Maybe<Int> {
+    Iter.find(xs, fn x -> x % 2 == 0)
 }
 
-fn settle(start: Int): Int {
-    Iter.loop(|n = start| {
+fn settle(start: Int) -> Int {
+    Iter.loop(fn n = start -> {
         if n % 5 == 0 { break }
         n + 1
     })
@@ -29,26 +29,26 @@ fn settle(start: Int): Int {
 
 fn main() {
     // A guard.
-    a = Iter.loop(|n = 0| {
+    a = Iter.loop(fn n = 0 -> {
         if n * n > 20 { break }
         n + 1
     })
     io.inspect(a)
     // An else binding: the pattern fails once five elements are dropped.
-    b = Iter.loop(|t = Tally{label: "t", count: 0}| {
+    b = Iter.loop(fn t = Tally{label: "t", count: 0} -> {
         Some(_) = first_even(Iter.drop([1, 3, 2, 5, 4], t.count) |> Iter.to_list()) else { break }
         {..t, count: t.count + 1}
     })
     io.inspect(b)
     // A case arm, bare and in a block.
-    c = Iter.loop(|n = 10| {
+    c = Iter.loop(fn n = 10 -> {
         case n % 7 {
             0 -> break
             _ -> n + 1
         }
     })
     io.inspect(c)
-    d = Iter.loop(|n = 1| {
+    d = Iter.loop(fn n = 1 -> {
         case n {
             8 -> {
                 io.print("stop at ${n}")
@@ -59,7 +59,7 @@ fn main() {
     })
     io.inspect(d)
     // A guard nested in an arm's block, and a value 'if' tail.
-    e = Iter.loop(|t = Tally{label: "e", count: 0}| {
+    e = Iter.loop(fn t = Tally{label: "e", count: 0} -> {
         case t.count % 2 {
             0 -> {
                 if t.count >= 4 { break }
@@ -69,17 +69,17 @@ fn main() {
         }
     })
     io.inspect(e)
-    f = Iter.loop(|n = 3| if n > 40 { break } else { n * 3 })
+    f = Iter.loop(fn n = 3 -> if n > 40 { break } else { n * 3 })
     io.inspect(f)
     // The state, not a binding that shadows the parameter.
-    g = Iter.loop(|n = 0| {
+    g = Iter.loop(fn n = 0 -> {
         n = n + 100
         if n > 102 { break }
         n - 99
     })
     io.inspect(g)
     // A loop inside a lambda, and one that is a named function's result.
-    climb = |start: Int| Iter.loop(|n = start| {
+    climb = fn start: Int -> Iter.loop(fn n = start -> {
         if n >= 10 { break }
         n + 3
     })
@@ -87,17 +87,17 @@ fn main() {
     io.inspect(climb(20))
     io.inspect(settle(7))
     // A discarded loop.
-    _ = Iter.loop(|n = 0| {
+    _ = Iter.loop(fn n = 0 -> {
         io.print("discarded ${n}")
         if n == 2 { break }
         n + 1
     })
     // A stateless loop's state is Unit, as a statement and as a value.
-    Iter.loop(|| {
+    Iter.loop(fn -> {
         io.print("statement round")
         break
     })
-    u = Iter.loop(|| {
+    u = Iter.loop(fn -> {
         io.print("value round")
         break
     })
@@ -133,22 +133,22 @@ struct Account {
     balance: Int = 0
 }
 
-fn parse_amount(s: String): Result<Int, String> {
+fn parse_amount(s: String) -> Result<Int, String> {
     case String.to_int(s) {
         Some(n) -> Ok(n)
         None -> Err("not a number: ${s}")
     }
 }
 
-fn open(inputs: List<String>): Account {
-    (_, account) = Iter.loop(|state = (inputs, Account{})| {
-        (rest, account) = state
+fn open(inputs: List<String>) -> Account {
+    #(_, account) = Iter.loop(fn state = #(inputs, Account{}) -> {
+        #(rest, account) = state
         Some(input) = List.head(rest) else { break }
         case parse_amount(input) {
-            Ok(amount) -> break (rest, {..account, balance: amount})
+            Ok(amount) -> break #(rest, {..account, balance: amount})
             Err(msg) -> {
                 io.print(msg)
-                (Iter.drop(rest, 1) |> Iter.to_list(), {..account, name: "${account.name}!"})
+                #(Iter.drop(rest, 1) |> Iter.to_list(), {..account, name: "${account.name}!"})
             }
         }
     })

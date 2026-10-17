@@ -17,7 +17,7 @@ func TestIRSignalArm_AdapterAndReduceCallbacks(t *testing.T) {
 fn main() {
     xs = [1, 2, 3, 4, 5, 6]
     // map: a block arm and a bare arm that continue.
-    a = Iter.map(xs, |x| {
+    a = Iter.map(xs, fn x -> {
         case x % 3 {
             0 -> {
                 io.print("skip ${x}")
@@ -29,10 +29,10 @@ fn main() {
     }) |> Iter.to_list()
     io.inspect(a)
     // map: a value 'if' whose branches continue and break.
-    b = Iter.map(xs, |x| if x == 2 { continue } else if x == 5 { break } else { x }) |> Iter.to_list()
+    b = Iter.map(xs, fn x -> if x == 2 { continue } else if x == 5 { break } else { x }) |> Iter.to_list()
     io.inspect(b)
     // map: a case nested in an if branch, with 'break v'.
-    c = Iter.map(xs, |x| {
+    c = Iter.map(xs, fn x -> {
         if x > 2 {
             case x {
                 4 -> break 40
@@ -44,7 +44,7 @@ fn main() {
     }) |> Iter.to_list()
     io.inspect(c)
     // map: the signal in a binding.
-    d = Iter.map(xs, |x| {
+    d = Iter.map(xs, fn x -> {
         y = case x % 2 {
             0 -> continue
             _ -> x + 100
@@ -52,13 +52,13 @@ fn main() {
         y * 2
     }) |> Iter.to_list()
     io.inspect(d)
-    e = Iter.map(xs, |x| {
+    e = Iter.map(xs, fn x -> {
         y = if x > 3 { break x * 1000 } else { x }
         y + 1
     }) |> Iter.to_list()
     io.inspect(e)
     // filter.
-    f = Iter.filter(xs, |x| {
+    f = Iter.filter(xs, fn x -> {
         case x {
             2 -> continue
             5 -> break
@@ -66,10 +66,10 @@ fn main() {
         }
     }) |> Iter.to_list()
     io.inspect(f)
-    g = Iter.filter(xs, |x| if x == 4 { break True } else { x % 2 == 1 }) |> Iter.to_list()
+    g = Iter.filter(xs, fn x -> if x == 4 { break True } else { x % 2 == 1 }) |> Iter.to_list()
     io.inspect(g)
     // take_while.
-    h = Iter.take_while(xs, |x| {
+    h = Iter.take_while(xs, fn x -> {
         case x {
             2 -> continue
             _ -> x < 4
@@ -77,7 +77,7 @@ fn main() {
     }) |> Iter.to_list()
     io.inspect(h)
     // each.
-    Iter.each(xs, |x| {
+    Iter.each(xs, fn x -> {
         case x % 2 {
             0 -> continue
             _ -> {
@@ -86,24 +86,24 @@ fn main() {
             }
         }
     })
-    Iter.each(xs, |x| {
+    Iter.each(xs, fn x -> {
         case x {
             3 -> break
             _ -> io.print("each2 ${x}")
         }
     })
     // iterate.
-    i = Iter.iterate(1, |n| {
+    i = Iter.iterate(1, fn n -> {
         case n > 20 {
             True -> break
             False -> n * 3
         }
     }) |> Iter.to_list()
     io.inspect(i)
-    j = Iter.iterate(1, |n| if n > 5 { break n * 100 } else { n + 2 }) |> Iter.to_list()
+    j = Iter.iterate(1, fn n -> if n > 5 { break n * 100 } else { n + 2 }) |> Iter.to_list()
     io.inspect(j)
     // reduce.
-    k = Iter.reduce(xs, |acc = 0, x| {
+    k = Iter.reduce(xs, fn acc = 0, x -> {
         case x % 2 {
             0 -> {
                 io.print("odd only ${x}")
@@ -113,7 +113,7 @@ fn main() {
         }
     })
     io.inspect(k)
-    l = Iter.reduce(xs, |acc = 0, x| {
+    l = Iter.reduce(xs, fn acc = 0, x -> {
         step = case x {
             3 -> continue
             6 -> break
@@ -133,7 +133,7 @@ fn main() {
 func TestIRSignalArm_NamedCallbacks(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
-fn tens(n: Int): Int {
+fn tens(n: Int) -> Int {
     case n % 3 {
         0 -> {
             io.print("skip ${n}")
@@ -143,7 +143,7 @@ fn tens(n: Int): Int {
     }
 }
 
-fn evens_until_five(n: Int): Bool {
+fn evens_until_five(n: Int) -> Bool {
     keep = case n {
         5 -> break
         _ -> n % 2 == 0
@@ -151,11 +151,11 @@ fn evens_until_five(n: Int): Bool {
     keep
 }
 
-fn small(n: Int): Bool {
+fn small(n: Int) -> Bool {
     if n == 2 { continue } else { n < 4 }
 }
 
-fn show(n: Int): Unit {
+fn show(n: Int) -> Unit {
     case n {
         2 -> continue
         4 -> break
@@ -163,14 +163,14 @@ fn show(n: Int): Unit {
     }
 }
 
-fn triple(n: Int): Int {
+fn triple(n: Int) -> Int {
     case n > 20 {
         True -> break
         False -> n * 3
     }
 }
 
-fn add_odd(acc: Int, n: Int): Int {
+fn add_odd(acc: Int, n: Int) -> Int {
     case n % 2 {
         0 -> continue
         _ -> if n == 5 { break acc * 100 } else { acc + n }
@@ -184,7 +184,7 @@ fn main() {
     io.inspect(Iter.take_while(xs, small) |> Iter.to_list())
     Iter.each(xs, show)
     io.inspect(Iter.iterate(1, triple) |> Iter.to_list())
-    io.inspect(Iter.reduce(xs, |acc = 0, n| add_odd(acc, n)))
+    io.inspect(Iter.reduce(xs, fn acc = 0, n -> add_odd(acc, n)))
 }
 `, "skip 3\n[10, 20, 40, 500]\n[2, 4]\n[1, 3]\nshow 1\nshow 3\n[1, 3, 9]\n400\n")
 }
@@ -203,17 +203,17 @@ struct Account {
     balance: Int
 }
 
-fn feed(items: List<String>): Receiver<String> {
+fn feed(items: List<String>) -> Receiver<String> {
     ch = Channel.buffered<String>(10)
-    Iter.each(items, |s| {
+    Iter.each(items, fn s -> {
         _ = Sender.send(ch.sender, s)
     })
     Sender.close(ch.sender)
     ch.receiver
 }
 
-fn deposit(account: Account, input: Receiver<String>): Account {
-    Iter.loop(|acc = account| {
+fn deposit(account: Account, input: Receiver<String>) -> Account {
+    Iter.loop(fn acc = account -> {
         if acc.balance > 100 { break acc }
         text = case Receiver.receive(input) {
             Some(t) -> t
@@ -229,8 +229,8 @@ fn deposit(account: Account, input: Receiver<String>): Account {
     })
 }
 
-fn bare_arm(input: Receiver<String>): Int {
-    Iter.loop(|total = 0| {
+fn bare_arm(input: Receiver<String>) -> Int {
+    Iter.loop(fn total = 0 -> {
         case Receiver.receive(input) {
             None -> break total
             Some("skip") -> continue
@@ -240,8 +240,8 @@ fn bare_arm(input: Receiver<String>): Int {
     })
 }
 
-fn if_branch(input: Receiver<String>): Int {
-    Iter.loop(|n = 0| {
+fn if_branch(input: Receiver<String>) -> Int {
+    Iter.loop(fn n = 0 -> {
         t = case Receiver.receive(input) {
             Some(t) -> t
             None -> break n
@@ -250,8 +250,8 @@ fn if_branch(input: Receiver<String>): Int {
     })
 }
 
-fn nested(input: Receiver<String>): Int {
-    Iter.loop(|n = 0| {
+fn nested(input: Receiver<String>) -> Int {
+    Iter.loop(fn n = 0 -> {
         t = Receiver.receive(input)
         if n < 100 {
             case t {
@@ -265,8 +265,8 @@ fn nested(input: Receiver<String>): Int {
     })
 }
 
-fn bound(input: Receiver<String>): Int {
-    Iter.loop(|n = 0| {
+fn bound(input: Receiver<String>) -> Int {
+    Iter.loop(fn n = 0 -> {
         step = case Receiver.receive(input) {
             Some("x") -> continue
             Some("next") -> return n + 100
@@ -277,8 +277,8 @@ fn bound(input: Receiver<String>): Int {
     })
 }
 
-fn arm_guard(input: Receiver<String>): Int {
-    Iter.loop(|n = 0| {
+fn arm_guard(input: Receiver<String>) -> Int {
+    Iter.loop(fn n = 0 -> {
         case Receiver.receive(input) {
             Some(t) -> {
                 if t == "x" { continue }
@@ -290,8 +290,8 @@ fn arm_guard(input: Receiver<String>): Int {
     })
 }
 
-fn early_state(): Int {
-    n = Iter.loop(|i = 0| {
+fn early_state() -> Int {
+    n = Iter.loop(fn i = 0 -> {
         case i {
             0 -> return 5
             5 -> break i * 100
@@ -324,16 +324,16 @@ fn main() {
 func TestIRSignalArm_IterLoopBranchingStatements(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
-fn stmt_if(): Int {
-    Iter.loop(|n = 0| {
+fn stmt_if() -> Int {
+    Iter.loop(fn n = 0 -> {
         if n % 2 == 0 { io.print("even ${n}") } else { io.print("odd ${n}") }
         if n > 2 { break n }
         n + 1
     })
 }
 
-fn deep(): Int {
-    Iter.loop(|n = 0| {
+fn deep() -> Int {
+    Iter.loop(fn n = 0 -> {
         case n {
             0 -> {
                 y = case n + 1 {
@@ -351,12 +351,12 @@ fn deep(): Int {
     })
 }
 
-fn calls(n: Int): Int {
+fn calls(n: Int) -> Int {
     n + 1
 }
 
-fn operand(): Int {
-    Iter.loop(|n = 0| {
+fn operand() -> Int {
+    Iter.loop(fn n = 0 -> {
         if n > 3 { break n }
         calls(case n {
             1 -> return 3
@@ -373,8 +373,8 @@ fn main() {
 `, "even 0\nodd 1\neven 2\nodd 3\n3\n21\n4\n")
 	verifyLambdaProgram(t, `import std/io
 
-fn f(): Int {
-    Iter.loop(|n = 0| {
+fn f() -> Int {
+    Iter.loop(fn n = 0 -> {
         {
             if n == 1 { return n + 5 }
             io.print("at ${n}")

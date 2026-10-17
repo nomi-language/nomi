@@ -67,8 +67,8 @@ test "ordering operators reject tuple and anonymous structural values" {
     tuple_diagnostics = compiler.check(
         """
           fn main() {
-            a = (1, 2)
-            b = (3, 4)
+            a = #(1, 2)
+            b = #(3, 4)
             _ = a < b
           }
         """

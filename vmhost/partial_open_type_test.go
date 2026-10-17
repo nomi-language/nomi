@@ -16,17 +16,17 @@ func TestPartialApplication_TypeSolvedByALaterUse(t *testing.T) {
 		{
 			name: "inherent function with a default",
 			body: "    f = Box.pad(_, noted(7))\n    io.inspect(f(\"a\"))\n    io.inspect(f(\"b\"))\n" +
-				"    g: (Int) -> (Int, Int) = Box.pad(_)\n    io.inspect(g(3))\n",
-			want: "made 7\n(\"a\", 7)\n(\"b\", 7)\n(3, 2)\n",
+				"    g: (Int) -> #(Int, Int) = Box.pad(_)\n    io.inspect(g(3))\n",
+			want: "made 7\n#(\"a\", 7)\n#(\"b\", 7)\n#(3, 2)\n",
 		},
 		{
 			name: "same-file generic function with a default",
 			body: "    k = pad(_, noted(4))\n    io.inspect(k(True))\n    io.inspect(k(False))\n",
-			want: "made 4\n(True, 4)\n(False, 4)\n",
+			want: "made 4\n#(True, 4)\n#(False, 4)\n",
 		},
 		{
 			name: "Map.get",
-			body: "    g = Map.get(_, noted(1))\n    io.inspect(g({1 => \"a\"}))\n    io.inspect(g({2 => \"b\"}))\n",
+			body: "    g = Map.get(_, noted(1))\n    io.inspect(g(%{1 => \"a\"}))\n    io.inspect(g(%{2 => \"b\"}))\n",
 			want: "made 1\nSome(\"a\")\nNone\n",
 		},
 		{
@@ -41,7 +41,7 @@ func TestPartialApplication_TypeSolvedByALaterUse(t *testing.T) {
 		},
 		{
 			name: "Iter.map with the function open",
-			body: "    m = Iter.map([noted(4), 5], _)\n    io.inspect(m(|n| n * 2) |> Iter.to_list())\n    io.inspect(m(|n| n + 1) |> Iter.to_list())\n",
+			body: "    m = Iter.map([noted(4), 5], _)\n    io.inspect(m(fn n -> n * 2) |> Iter.to_list())\n    io.inspect(m(fn n -> n + 1) |> Iter.to_list())\n",
 			want: "made 4\n[8, 10]\n[5, 6]\n",
 		},
 	} {
@@ -53,22 +53,22 @@ struct Box {
 }
 
 impl Box {
-    fn pad<T>(x: T, n: Int = 2): (T, Int) {
-        (x, n)
+    fn pad<T>(x: T, n: Int = 2) -> #(T, Int) {
+        #(x, n)
     }
 }
 
-fn pad<T>(x: T, n: Int = 2): (T, Int) {
-    (x, n)
+fn pad<T>(x: T, n: Int = 2) -> #(T, Int) {
+    #(x, n)
 }
 
-fn noted(n: Int): Int {
+fn noted(n: Int) -> Int {
     io.print("made ${n}")
     n
 }
 
-fn adder(n: Int): (Int) -> Int {
-    |x| x + n
+fn adder(n: Int) -> (Int) -> Int {
+    fn x -> x + n
 }
 
 fn main() {

@@ -13,8 +13,8 @@ import (
 // would be registered, so we require at least two references.
 func TestFindDefinition_TurbofishTypeArgResolves(t *testing.T) {
 	input := `struct Item { id: Int }
-fn id<T>(x: T): T { x }
-fn main(): Unit {
+fn id<T>(x: T) -> T { x }
+fn main() -> Unit {
   it = Item{id: 1}
   y = id<Item>(it)
 }`

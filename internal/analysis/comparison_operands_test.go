@@ -26,7 +26,7 @@ struct Txn {
     kind: Kind
 }
 
-fn pick(k: Kind): Int {
+fn pick(k: Kind) -> Int {
 `
 	for _, tc := range []struct{ name, body string }{
 		{"unannotated binding", "    a = k == .Deposit\n    if a { 1 } else { 0 }\n"},
@@ -58,7 +58,7 @@ func TestComparisonOperand_BothDotLeading_Error(t *testing.T) {
     Withdrawal
 }
 
-fn same(): Int {
+fn same() -> Int {
     if .Deposit == .Withdrawal { 1 } else { 0 }
 }
 `
@@ -77,7 +77,7 @@ func TestComparisonOperand_UnknownVariant_NamesTheOperandsEnum(t *testing.T) {
     Withdrawal
 }
 
-fn refund?(k: Kind): Bool {
+fn refund?(k: Kind) -> Bool {
     b: Bool = k == .Refund
     b
 }

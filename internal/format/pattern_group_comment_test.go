@@ -8,8 +8,8 @@ import "testing"
 // below the arm, and after the last arm the next format read it as the
 // case's end comment, so a lambda whose body is the case gained braces.
 func TestFormat_PatternGroupCommentStaysInItsBrackets(t *testing.T) {
-	src := "fn f(fragments: List<Fragment<String>>): String {\n" +
-		"    Iter.reduce(fragments, |acc = \"\", frag|\n" +
+	src := "fn f(fragments: List<Fragment<String>>) -> String {\n" +
+		"    Iter.reduce(fragments, fn acc = \"\", frag ->\n" +
 		"        case frag {\n" +
 		"            .Static(s) -> acc + s\n" +
 		"            .Dynamic((\n" +
@@ -19,8 +19,8 @@ func TestFormat_PatternGroupCommentStaysInItsBrackets(t *testing.T) {
 		"        }\n" +
 		"    )\n" +
 		"}\n"
-	want := "fn f(fragments: List<Fragment<String>>): String {\n" +
-		"    Iter.reduce(fragments, |acc = \"\", frag| {\n" +
+	want := "fn f(fragments: List<Fragment<String>>) -> String {\n" +
+		"    Iter.reduce(fragments, fn acc = \"\", frag -> {\n" +
 		"        case frag {\n" +
 		"            .Static(s) -> acc + s\n" +
 		"            .Dynamic(\n" +
@@ -37,11 +37,11 @@ func TestFormat_PatternGroupCommentStaysInItsBrackets(t *testing.T) {
 // pattern that is not an item: an arm's, an `as` pattern's inner pattern
 // and a field's, which keep the grouping parentheses around the comment.
 func TestFormat_PatternGroupCommentsStayInParentheses(t *testing.T) {
-	src := "fn f(p: (Int, Int), xs: List<Int>, frag: Fragment<String>): Int {\n" +
+	src := "fn f(p: #(Int, Int), xs: List<Int>, frag: Fragment<String>) -> Int {\n" +
 		"    a = case p {\n" +
-		"        (x, (y // c1\n" +
+		"        #(x, (y // c1\n" +
 		"        )) -> x // t1\n" +
-		"        (x, y) -> x + y\n" +
+		"        #(x, y) -> x + y\n" +
 		"    }\n" +
 		"    b = case xs {\n" +
 		"        [(\n" +
@@ -66,14 +66,14 @@ func TestFormat_PatternGroupCommentsStayInParentheses(t *testing.T) {
 		"    }\n" +
 		"    0\n" +
 		"}\n"
-	want := "fn f(p: (Int, Int), xs: List<Int>, frag: Fragment<String>): Int {\n" +
+	want := "fn f(p: #(Int, Int), xs: List<Int>, frag: Fragment<String>) -> Int {\n" +
 		"    a = case p {\n" +
-		"        (\n" +
+		"        #(\n" +
 		"            x,\n" +
 		"            y\n" +
 		"            // c1\n" +
 		"        ) -> x // t1\n" +
-		"        (x, y) -> x + y\n" +
+		"        #(x, y) -> x + y\n" +
 		"    }\n" +
 		"\n" +
 		"    b = case xs {\n" +

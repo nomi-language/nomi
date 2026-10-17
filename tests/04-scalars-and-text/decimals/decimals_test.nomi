@@ -100,7 +100,7 @@ test "decimal set and map keys are scale insensitive" {
         |> Set.size()
         |> Int.equal?(2)
 
-    by_price: Map<Decimal, String> = {1.50d => "a", short => "b"}
+    by_price: Map<Decimal, String> = %{1.50d => "a", short => "b"}
     stored = by_price |> Map.get(1.500d)
 
     assert Map.size(by_price) == 1

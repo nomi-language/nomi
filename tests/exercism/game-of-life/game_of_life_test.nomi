@@ -2,38 +2,38 @@ import game_of_life.tick
 
 test "tick" {
     cases = [
-        ("empty matrix", #[], #[]),
-        (
+        #("empty matrix", #[], #[]),
+        #(
             "live cells with zero live neighbors die",
             #[#[0, 0, 0], #[0, 1, 0], #[0, 0, 0]],
             #[#[0, 0, 0], #[0, 0, 0], #[0, 0, 0]],
         ),
-        (
+        #(
             "live cells with only one live neighbor die",
             #[#[0, 0, 0], #[0, 1, 0], #[0, 1, 0]],
             #[#[0, 0, 0], #[0, 0, 0], #[0, 0, 0]],
         ),
-        (
+        #(
             "live cells with two live neighbors stay alive",
             #[#[1, 0, 1], #[1, 0, 1], #[1, 0, 1]],
             #[#[0, 0, 0], #[1, 0, 1], #[0, 0, 0]],
         ),
-        (
+        #(
             "live cells with three live neighbors stay alive",
             #[#[0, 1, 0], #[1, 0, 0], #[1, 1, 0]],
             #[#[0, 0, 0], #[1, 0, 0], #[1, 1, 0]],
         ),
-        (
+        #(
             "dead cells with three live neighbors become alive",
             #[#[1, 1, 0], #[0, 0, 0], #[1, 0, 0]],
             #[#[0, 0, 0], #[1, 1, 0], #[0, 0, 0]],
         ),
-        (
+        #(
             "live cells with four or more neighbors die",
             #[#[1, 1, 1], #[1, 1, 1], #[1, 1, 1]],
             #[#[1, 0, 1], #[0, 0, 0], #[1, 0, 1]],
         ),
-        (
+        #(
             "bigger matrix",
             #[
                 #[1, 1, 0, 1, 1, 0, 0, 0],
@@ -58,7 +58,7 @@ test "tick" {
         ),
     ]
 
-    subtests cases, (description, board, expected), description {
+    subtests cases, #(description, board, expected), description {
         assert tick(board) == expected
     }
 }

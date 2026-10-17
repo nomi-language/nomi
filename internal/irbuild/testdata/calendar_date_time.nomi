@@ -37,7 +37,7 @@ import {
     std/io
 }
 
-fn run(): Result<Unit, Error> {
+fn run() -> Result<Unit, Error> {
     // --- THE TYPED LITERAL AND ITS ACCESSORS ---------------------------------
     //
     // `Date"…"` desugars to `Literal.from_fragments` over a `List<Fragment<String>>`
@@ -87,7 +87,7 @@ fn run(): Result<Unit, Error> {
 
     // --- CIVIL ARITHMETIC ON A DATE ------------------------------------------
     //
-    // `Add<Years|Months|Days>` are `host fn`s bound to rt; `Add<Weeks>` and all
+    // `Add<Yearsfn Months -> Days>` are `host fn`s bound to rt; `Add<Weeks>` and all
     // four `Subtract` rungs are Nomi bodies over them, which is where the real
     // disagreement can live. The 2011/2012 January-31 pair is the discriminator
     // for the clamp: a clamp to a constant 28 prints the same date for both.
@@ -194,14 +194,14 @@ fn run(): Result<Unit, Error> {
 // fault_text renders the error side of a `Result<Date, Error>` so the parse
 // messages are OBSERVABLE. Without this they would be compared but never
 // printed, and a fixture that cannot print a value cannot pin it.
-fn fault_text(r: Result<Date, Error>): String {
+fn fault_text(r: Result<Date, Error>) -> String {
     case r {
         Ok(d) -> "unexpectedly parsed: " + Date.to_string(d)
         Err(e) -> Display.to_string(e)
     }
 }
 
-fn time_fault_text(r: Result<Time, Error>): String {
+fn time_fault_text(r: Result<Time, Error>) -> String {
     case r {
         Ok(t) -> "unexpectedly parsed: " + Time.to_string(t)
         Err(e) -> Display.to_string(e)

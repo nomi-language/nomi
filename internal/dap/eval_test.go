@@ -37,8 +37,8 @@ func TestSession_EvaluatesInTheStoppedFrame(t *testing.T) {
 	h.eval(top, "watch", "norm(p) + Iter.count(xs)")
 	body = h.eval(top, "repl", "Point{x: p.y, y: p.x}")
 	h.children(body)
-	h.eval(top, "repl", "xs |> Iter.map(|x| x * label.length) |> Iter.to_list()")
-	h.eval(top, "repl", "xs |> Iter.map(|x| x * 10) |> Iter.to_list()")
+	h.eval(top, "repl", "xs |> Iter.map(fn x -> x * label.length) |> Iter.to_list()")
+	h.eval(top, "repl", "xs |> Iter.map(fn x -> x * 10) |> Iter.to_list()")
 	h.eval(top, "repl", `io.print("from the console")`)
 	h.eval(top, "repl", `io.print("from the console") // allow effects`)
 	h.eval(top, "hover", `io.print("from a hover") // allow effects`)
@@ -114,7 +114,7 @@ func TestSession_ThePipelineScope(t *testing.T) {
 			s := s.(map[string]any)
 			if s["name"] == "Pipeline" {
 				refs := h.variables(map[string]any{"variablesReference": int(s["variablesReference"].(float64))})
-				if ref := refs["|> Iter.filter(|x| x > 15)"]; ref > 0 {
+				if ref := refs["|> Iter.filter(fn x -> x > 15)"]; ref > 0 {
 					h.variables(map[string]any{"variablesReference": ref})
 				}
 			}

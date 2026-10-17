@@ -47,7 +47,7 @@ func orErrorsOf(t *testing.T, src string) []string {
 // Every accepted form checks with no error: each position, nested `or`,
 // `as` and `when`, and the alternatives covering an enum without `_`.
 func TestOrPattern_Accepts(t *testing.T) {
-	src := `fn arms(s: Shape, c: Color, t: Two, cs: List<Codepoint>, m: Maybe<Color>, word: String, n: Int): Float {
+	src := `fn arms(s: Shape, c: Color, t: Two, cs: List<Codepoint>, m: Maybe<Color>, word: String, n: Int) -> Float {
     a = case s {
         .Circle{r} or .Square{r} when r > 10.0 -> r
         .Circle{r} or .Square{r} -> r * 2.0
@@ -72,33 +72,33 @@ func TestOrPattern_Accepts(t *testing.T) {
         "yes" or "y" -> 1
         _ -> 0
     }
-    h = case (n, n) {
-        (0, x) or (x, 0) -> x
-        (x, _) -> x
+    h = case #(n, n) {
+        #(0, x) or #(x, 0) -> x
+        #(x, _) -> x
     }
     a + Int.to_float(b + d + e + f + g + h)
 }
 
-fn else_binding(t: Three): Int {
+fn else_binding(t: Three) -> Int {
     .A(k) or .B(k) as _whole = t else { return 0 }
     k
 }
 
-fn if_binding(t: Three): Int {
+fn if_binding(t: Three) -> Int {
     if .A(k) or .B(k) = t { k } else { 0 }
 }
 
-fn plain(t: Two): Int {
+fn plain(t: Two) -> Int {
     .A(k) or .B(k) = t
     k
 }
 
-fn param(.A(k) or .B(k): Two): Int {
+fn param(.A(k) or .B(k): Two) -> Int {
     k
 }
 
-fn lambda(ts: List<Two>): List<Int> {
-    ts |> Iter.map(|.A(k) or .B(k)| k) |> Iter.to_list()
+fn lambda(ts: List<Two>) -> List<Int> {
+    ts |> Iter.map(fn .A(k) or .B(k) -> k) |> Iter.to_list()
 }
 `
 	if errs := orErrorsOf(t, src); len(errs) != 0 {
@@ -108,7 +108,7 @@ fn lambda(ts: List<Two>): List<Int> {
 
 // The name an `or` binds has the type it has in each alternative.
 func TestOrPattern_NameHasItsType(t *testing.T) {
-	fa, errs := checkSourceWithStdlib(orDecls + `fn f(s: Shape): Float {
+	fa, errs := checkSourceWithStdlib(orDecls + `fn f(s: Shape) -> Float {
     case s {
         .Circle{r} or .Square{r} -> r
         .Point -> 0.0
@@ -139,52 +139,52 @@ func TestOrPattern_NameHasItsType(t *testing.T) {
 
 func TestOrPattern_Errors(t *testing.T) {
 	for name, tc := range map[string]struct{ body, want string }{
-		"a name one alternative lacks": {`fn f(s: Shape): Float {
+		"a name one alternative lacks": {`fn f(s: Shape) -> Float {
     case s {
         .Circle{r} or .Point -> r
         .Square{r} -> r
     }
 }`, "30:23: `r` is bound by `.Circle{r}` but not by `.Point`; every alternative of an `or` pattern must bind the same names"},
-		"a name only a later alternative binds": {`fn f(s: Shape): Float {
+		"a name only a later alternative binds": {`fn f(s: Shape) -> Float {
     case s {
         .Point or .Circle{r} -> r
         .Square{r} -> r
     }
 }`, "30:27: `r` is bound by `.Circle{r}` but not by `.Point`; every alternative of an `or` pattern must bind the same names"},
-		"a name at two types": {`fn f(m: Mixed): Int {
+		"a name at two types": {`fn f(m: Mixed) -> Int {
     case m {
         .N(v) or .S(v) -> case v { _ -> 0 }
     }
 }`, "30:21: `v` is an Int in `.N(v)` but a String in `.S(v)`; a name an `or` pattern binds has one type in every alternative"},
-		"a name twice in a later alternative": {`fn f(p: (Int, Int)): Int {
+		"a name twice in a later alternative": {`fn f(p: #(Int, Int)) -> Int {
     case p {
-        (0, a) or (a, a) -> a
+        #(0, a) or #(a, a) -> a
         _ -> 0
     }
-}`, "30:23: `a` is bound twice in one pattern; give each binding its own name"},
-		"alternatives that miss a variant": {`fn f(c: Color): Int {
+}`, "30:25: `a` is bound twice in one pattern; give each binding its own name"},
+		"alternatives that miss a variant": {`fn f(c: Color) -> Int {
     case c {
         .Red or .Green -> 1
     }
 }`, "29:5: non-exhaustive case on Color: missing Blue"},
-		"nested alternatives that miss a variant": {`fn f(m: Maybe<Color>): Int {
+		"nested alternatives that miss a variant": {`fn f(m: Maybe<Color>) -> Int {
     case m {
         Some(.Red or .Green) -> 1
         None -> 2
     }
 }`, "29:5: non-exhaustive case on Maybe: missing Some"},
-		"a refutable or in a parameter": {`fn f(.Red or .Green: Color): Int {
+		"a refutable or in a parameter": {`fn f(.Red or .Green: Color) -> Int {
     1
 }`, "28:6: refutable pattern in parameter; bind the parameter and use a `case` in the body"},
-		"a refutable or in a binding": {`fn f(c: Color): Int {
+		"a refutable or in a binding": {`fn f(c: Color) -> Int {
     .Red or .Green = c
     1
 }`, "29:5: this pattern can fail to match a value of type Color; add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr`"},
-		"an irrefutable or with else": {`fn f(t: Two): Int {
+		"an irrefutable or with else": {`fn f(t: Two) -> Int {
     .A(k) or .B(k) = t else { return 0 }
     k
 }`, "29:24: this pattern always matches; remove the else"},
-		"a guard that is not Bool": {`fn f(t: Two): Int {
+		"a guard that is not Bool": {`fn f(t: Two) -> Int {
     case t {
         .A(k) or .B(k) when k -> k
         _ -> 0
@@ -200,7 +200,7 @@ func TestOrPattern_Errors(t *testing.T) {
 
 // A name an `or` pattern binds and never reads is reported once.
 func TestOrPattern_UnusedNameReportedOnce(t *testing.T) {
-	errs := orErrorsOf(t, `fn f(t: Two): Int {
+	errs := orErrorsOf(t, `fn f(t: Two) -> Int {
     case t {
         .A(k) or .B(k) -> 0
     }

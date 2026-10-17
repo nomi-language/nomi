@@ -10,8 +10,8 @@ import (
 // and keeps an early one.
 func TestFormatting_StripsTailReturn(t *testing.T) {
 	uri := "file:///tail_return.nomi"
-	src := "fn f(x: Int): Int {\n    if x > 0 {\n        return 1\n    }\n    return x\n}\n"
-	want := "fn f(x: Int): Int {\n    if x > 0 { return 1 }\n    x\n}\n"
+	src := "fn f(x: Int) -> Int {\n    if x > 0 {\n        return 1\n    }\n    return x\n}\n"
+	want := "fn f(x: Int) -> Int {\n    if x > 0 { return 1 }\n    x\n}\n"
 
 	s := NewServer()
 	s.docs.Open(uri, src)

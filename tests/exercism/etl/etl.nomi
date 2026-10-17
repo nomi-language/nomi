@@ -1,9 +1,9 @@
 /// Turns the legacy table, a score for each list of upper-case letters, into
 /// a score for each lower-case letter.
-pub fn transform(legacy: Map<Int, List<String>>): Map<String, Int> {
+pub fn transform(legacy: Map<Int, List<String>>) -> Map<String, Int> {
     legacy
-    |> Iter.flat_map(|(score, letters)| {
-        Iter.map(letters, |letter| (String.to_lower(letter), score))
+    |> Iter.flat_map(fn #(score, letters) -> {
+        Iter.map(letters, fn letter -> #(String.to_lower(letter), score))
     })
     |> Iter.to_map()
 }

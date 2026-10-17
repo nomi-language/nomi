@@ -160,7 +160,7 @@ func TestMapNonComparableKey(t *testing.T) {
 }
 
 // TestMapTupleKey covers the other shape the corpus already uses —
-// 08-pattern-matching/map_patterns_test.nomi's `{(1, 2) => "a"}`. A tuple lowers
+// 08-pattern-matching/map_patterns_test.nomi's `%{#(1, 2) => "a"}`. A tuple lowers
 // to an anonymous Go struct, so this key IS Go-comparable and correct under Go's
 // `==`; the point of the test is that the structural path agrees.
 func TestMapTupleKey(t *testing.T) {
@@ -186,9 +186,9 @@ func TestMapTupleKey(t *testing.T) {
 // TestMapInsertionOrder pins the ordering rules against output read off
 // `nomi run` rather than guessed:
 //
-//	{"a" => 1, "b" => 2}                              -> {a => 1, b => 2}
-//	Map.put(m, "a", 9)                                -> {a => 9, b => 2}
-//	Map.put(Map.remove(m, "a"), "a", 7)               -> {b => 2, a => 7}
+//	%{"a" => 1, "b" => 2}                              -> %{a => 1, b => 2}
+//	Map.put(m, "a", 9)                                -> %{a => 9, b => 2}
+//	Map.put(Map.remove(m, "a"), "a", 7)               -> %{b => 2, a => 7}
 func TestMapInsertionOrder(t *testing.T) {
 	h, eq := stringKeys()
 	base := MapOf(h, eq, []MapEntry[string, int64]{{"a", 1}, {"b", 2}})
@@ -206,11 +206,11 @@ func TestMapInsertionOrder(t *testing.T) {
 	if got := keyList(moved); got != "b,a" {
 		t.Errorf("order after remove+put of a = %q, want %q", got, "b,a")
 	}
-	if got := FormatMap(moved, FormatString, FormatInt); got != "{b => 2, a => 7}" {
-		t.Errorf("render after remove+put = %q, want %q", got, "{b => 2, a => 7}")
+	if got := FormatMap(moved, FormatString, FormatInt); got != "%{b => 2, a => 7}" {
+		t.Errorf("render after remove+put = %q, want %q", got, "%{b => 2, a => 7}")
 	}
 	// And the base is unchanged by either.
-	if got := FormatMap(base, FormatString, FormatInt); got != "{a => 1, b => 2}" {
+	if got := FormatMap(base, FormatString, FormatInt); got != "%{a => 1, b => 2}" {
 		t.Errorf("base was mutated: %q", got)
 	}
 }
@@ -301,8 +301,8 @@ func TestMapCollisionBucket(t *testing.T) {
 	if got := MapSize(m); got != 0 {
 		t.Fatalf("size after draining the bucket = %d, want 0", got)
 	}
-	if got := FormatMap(m, FormatString, FormatInt); got != "{=>}" {
-		t.Fatalf("drained map renders %q, want %q", got, "{=>}")
+	if got := FormatMap(m, FormatString, FormatInt); got != "%{}" {
+		t.Fatalf("drained map renders %q, want %q", got, "%{}")
 	}
 }
 
@@ -363,30 +363,30 @@ func TestMapRemove(t *testing.T) {
 }
 
 // TestMapMerge pins `Map.merge` against `nomi run`'s output:
-// `Map.merge({"a" => 1}, {"b" => 2, "a" => 9})` prints `{a => 9, b => 2}`.
+// `Map.merge(%{"a" => 1}, %{"b" => 2, "a" => 9})` prints `%{a => 9, b => 2}`.
 func TestMapMerge(t *testing.T) {
 	h, eq := stringKeys()
 	a := MapOf(h, eq, []MapEntry[string, int64]{{"a", 1}})
 	b := MapOf(h, eq, []MapEntry[string, int64]{{"b", 2}, {"a", 9}})
-	if got := FormatMap(MapMerge(a, b, h, eq), FormatString, FormatInt); got != "{a => 9, b => 2}" {
-		t.Errorf("merge = %q, want %q", got, "{a => 9, b => 2}")
+	if got := FormatMap(MapMerge(a, b, h, eq), FormatString, FormatInt); got != "%{a => 9, b => 2}" {
+		t.Errorf("merge = %q, want %q", got, "%{a => 9, b => 2}")
 	}
-	if got := FormatMap(a, FormatString, FormatInt); got != "{a => 1}" {
+	if got := FormatMap(a, FormatString, FormatInt); got != "%{a => 1}" {
 		t.Errorf("merge mutated a: %q", got)
 	}
-	if got := FormatMap(b, FormatString, FormatInt); got != "{b => 2, a => 9}" {
+	if got := FormatMap(b, FormatString, FormatInt); got != "%{b => 2, a => 9}" {
 		t.Errorf("merge mutated b: %q", got)
 	}
 }
 
 // TestMapOfLastWriteWinsKeepingPosition pins the rule
-// `{k => 1, j => 9}` with `k == j` and `Iter.to_map([("a", 1), ("b", 2), ("a", 9)])`
-// both depend on. `nomi run` prints `{a => 9, b => 2}` for the latter.
+// `%{k => 1, j => 9}` with `k == j` and `Iter.to_map([#("a", 1), #("b", 2), #("a", 9)])`
+// both depend on. `nomi run` prints `%{a => 9, b => 2}` for the latter.
 func TestMapOfLastWriteWinsKeepingPosition(t *testing.T) {
 	h, eq := stringKeys()
 	m := MapOf(h, eq, []MapEntry[string, int64]{{"a", 1}, {"b", 2}, {"a", 9}})
-	if got := FormatMap(m, FormatString, FormatInt); got != "{a => 9, b => 2}" {
-		t.Errorf("MapOf with a duplicate key = %q, want %q", got, "{a => 9, b => 2}")
+	if got := FormatMap(m, FormatString, FormatInt); got != "%{a => 9, b => 2}" {
+		t.Errorf("MapOf with a duplicate key = %q, want %q", got, "%{a => 9, b => 2}")
 	}
 	if got := MapSize(m); got != 2 {
 		t.Errorf("size = %d, want 2", got)
@@ -394,7 +394,7 @@ func TestMapOfLastWriteWinsKeepingPosition(t *testing.T) {
 }
 
 // TestMapEqualIgnoresOrder pins Nomi's answer:
-// `{"a" => 1, "b" => 2} == {"b" => 2, "a" => 1}` is True.
+// `%{"a" => 1, "b" => 2} == %{"b" => 2, "a" => 1}` is True.
 func TestMapEqualIgnoresOrder(t *testing.T) {
 	h, eq := stringKeys()
 	ab := MapOf(h, eq, []MapEntry[string, int64]{{"a", 1}, {"b", 2}})
@@ -433,7 +433,7 @@ func TestMapEqualComparesValuesStructurally(t *testing.T) {
 }
 
 // TestFormatMapMatchesTheDisplayImpl pins the rendering against output read
-// off `nomi run`: `${{"a" => 1, "b" => 2}}` prints `{a => 1, b => 2}` — unquoted, because
+// off `nomi run`: `${%{"a" => 1, "b" => 2}}` prints `%{a => 1, b => 2}` — unquoted, because
 // `impl Display for Map<K, V>` renders with Display.to_string, not Inspect.
 func TestFormatMapMatchesTheDisplayImpl(t *testing.T) {
 	h, eq := stringKeys()
@@ -441,9 +441,9 @@ func TestFormatMapMatchesTheDisplayImpl(t *testing.T) {
 		m    Map[string, int64]
 		want string
 	}{
-		{Map[string, int64]{}, "{=>}"},
-		{MapOf(h, eq, []MapEntry[string, int64]{{"a", 1}}), "{a => 1}"},
-		{MapOf(h, eq, []MapEntry[string, int64]{{"a", 1}, {"b", 2}}), "{a => 1, b => 2}"},
+		{Map[string, int64]{}, "%{}"},
+		{MapOf(h, eq, []MapEntry[string, int64]{{"a", 1}}), "%{a => 1}"},
+		{MapOf(h, eq, []MapEntry[string, int64]{{"a", 1}, {"b", 2}}), "%{a => 1, b => 2}"},
 	}
 	for _, tc := range cases {
 		if got := FormatMap(tc.m, FormatString, FormatInt); got != tc.want {
@@ -451,10 +451,10 @@ func TestFormatMapMatchesTheDisplayImpl(t *testing.T) {
 		}
 	}
 	// A List key renders per `impl Display for List<T>`, which is also
-	// unquoted: `nomi run` prints `{[1, 2] => x, [3] => y}`.
+	// unquoted: `nomi run` prints `%{[1, 2] => x, [3] => y}`.
 	lh, leq := listKeys()
 	lm := MapOf(lh, leq, []MapEntry[*List[int64], string]{{list(1, 2), "x"}, {list(3), "y"}})
-	want := "{[1, 2] => x, [3] => y}"
+	want := "%{[1, 2] => x, [3] => y}"
 	got := FormatMap(lm, func(xs *List[int64]) string { return FormatList(xs, FormatInt) }, FormatString)
 	if got != want {
 		t.Errorf("FormatMap over List keys = %q, want %q", got, want)
@@ -465,9 +465,9 @@ func TestFormatMapMatchesTheDisplayImpl(t *testing.T) {
 // easiest to break, and both are keys a program can lose.
 //
 // `nan == nan` is True in Nomi (EqFloat), so a NaN key must be retrievable:
-// `Map.get({0.0 / 0.0 => 1}, 0.0 / 0.0)` is `Some(1)` under `nomi run`. And
+// `Map.get(%{0.0 / 0.0 => 1}, 0.0 / 0.0)` is `Some(1)` under `nomi run`. And
 // `-0.0 == 0.0`, so they must be one key:
-// `Map.get({0.0 => 1}, -0.0)` is `Some(1)`.
+// `Map.get(%{0.0 => 1}, -0.0)` is `Some(1)`.
 func TestMapNaNAndSignedZeroKeys(t *testing.T) {
 	h, eq := HashFloat, EqFloat
 	var m Map[float64, int64]
@@ -844,7 +844,7 @@ func TestMapProjectionsAreInInsertionOrder(t *testing.T) {
 	// A result type that is not the value type, which is the reason
 	// map_values carries a third type parameter.
 	named := MapMapValues(fr, m, h, eq, func(fr *Frame, v int64) string { return "n" + FormatInt(v) })
-	if got := FormatMap(named, FormatString, FormatString); got != "{a => n1, b => n2, c => n3}" {
+	if got := FormatMap(named, FormatString, FormatString); got != "%{a => n1, b => n2, c => n3}" {
 		t.Errorf("MapMapValues retyping = %s", got)
 	}
 }

@@ -17,23 +17,23 @@ import (
 
 const embedProgram = `import std/io
 
-host fn shout(s: String): String
+host fn shout(s: String) -> String
 
 pub struct Order {
   weight: Float
   distance: Int
 }
 
-pub fn cost(o: Order, rate: Float): Float {
+pub fn cost(o: Order, rate: Float) -> Float {
   o.weight * rate + Int.to_float(o.distance)
 }
 
-pub fn greet(name: String): String {
+pub fn greet(name: String) -> String {
   io.print("greeting " + name)
   shout(name)
 }
 
-pub fn check(n: Int): Result<Int, String> {
+pub fn check(n: Int) -> Result<Int, String> {
   if n > 0 { Ok(n) } else { Err("not positive") }
 }
 `
@@ -142,7 +142,7 @@ func TestCheck_RunsTheFrontEndOnly(t *testing.T) {
 		t.Errorf("Check(clean) = %v", err)
 	}
 	bad := filepath.Join(dir, "bad.nomi")
-	if err := os.WriteFile(bad, []byte("fn demo(): Int {\n  \"no\"\n}\n"), 0o644); err != nil {
+	if err := os.WriteFile(bad, []byte("fn demo() -> Int {\n  \"no\"\n}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	var ds vmhost.Diagnostics

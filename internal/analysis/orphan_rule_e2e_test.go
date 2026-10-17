@@ -173,7 +173,7 @@ func TestOrphanRule_ProjectTypeShadowingStdlibInherentReceiver_NoFalsePositive(t
 
 pub opaque type PositiveInt Int
 
-pub fn from_int(n: Int): Maybe<PositiveInt> {
+pub fn from_int(n: Int) -> Maybe<PositiveInt> {
   if n > 0 { Some(PositiveInt(n)) } else { None }
 }
 `,

@@ -42,7 +42,7 @@ func TestStructPatternName_TheValuesStructIsAccepted(t *testing.T) {
 		"  Box{v} = Box{v: 4}\n" +
 		"  {name: n2} = {name: \"Ada\"}\n" +
 		"  r = case p {\n    Human{name: n3} -> n3\n  }\n" +
-		"  _ = (name, age, v, n2, r)\n" +
+		"  _ = #(name, age, v, n2, r)\n" +
 		"}\n"
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)

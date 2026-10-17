@@ -53,35 +53,35 @@ T
 C calendar
 E 0
 N 28
-H 9df2b1224fc86107f25b47fa03bca84fb5c39588779c7cef155390b7f67879e4
+H b4a7c321cf7351cd489f4c354f509cb720ee76c4c2746714b62cb77a9e18a852
 T ok <root>/std/calendar.nomi :: impl / new //! test lines 179-180
 T ok <root>/std/calendar.nomi :: impl / parse //! test lines 195-196
 T ok <root>/std/calendar.nomi :: impl / days_between //! test lines 211-212
 T ok <root>/std/calendar.nomi :: impl / add //! test lines 268-269
 T ok <root>/std/calendar.nomi :: impl / new //! test lines 335-337
-T ok <root>/std/calendar.nomi :: impl / parse //! test lines 354-355
-T ok <root>/std/calendar.nomi :: impl / between //! test line 368
-T ok <root>/std/calendar.nomi :: day_nanos //! test line 376
-T ok <root>/std/calendar.nomi :: impl / add //! test line 431
-T ok <root>/std/calendar.nomi :: impl / subtract //! test line 440
-T ok <root>/std/calendar.nomi :: impl / of //! test lines 470-473
-T ok <root>/std/calendar.nomi :: impl / at_midnight //! test line 488
-T ok <root>/std/calendar.nomi :: impl / to_date //! test line 503
-T ok <root>/std/calendar.nomi :: impl / to_time //! test line 508
-T ok <root>/std/calendar.nomi :: impl / new //! test lines 514-515
-T ok <root>/std/calendar.nomi :: impl / parse //! test lines 557-562
-T ok <root>/std/calendar.nomi :: impl / between //! test lines 575-578
-T ok <root>/std/calendar.nomi :: impl / with_offset //! test lines 825-828
-T ok <root>/std/calendar.nomi :: impl / from_instant //! test lines 842-845
-T ok <root>/std/calendar.nomi :: impl / parse //! test lines 853-857
-T ok <root>/std/calendar.nomi :: impl / between //! test lines 871-874
-T ok <root>/std/calendar.nomi :: impl / in_zone //! test lines 1195-1203
-T ok <root>/std/calendar.nomi :: impl / from_instant_in //! test lines 1236-1239
-T ok <root>/std/calendar.nomi :: impl / now_in //! test line 1253
-T ok <root>/std/calendar.nomi :: impl / to_offset //! test lines 1262-1264
-T ok <root>/std/calendar.nomi :: impl / with_zone //! test lines 1270-1273
-T ok <root>/std/calendar.nomi :: impl / parse //! test lines 1289-1294
-T ok <root>/std/calendar.nomi :: impl / between //! test lines 1308-1311
+T ok <root>/std/calendar.nomi :: impl / parse //! test lines 359-360
+T ok <root>/std/calendar.nomi :: impl / between //! test line 373
+T ok <root>/std/calendar.nomi :: day_nanos //! test line 381
+T ok <root>/std/calendar.nomi :: impl / add //! test line 436
+T ok <root>/std/calendar.nomi :: impl / subtract //! test line 445
+T ok <root>/std/calendar.nomi :: impl / of //! test lines 475-478
+T ok <root>/std/calendar.nomi :: impl / at_midnight //! test line 493
+T ok <root>/std/calendar.nomi :: impl / to_date //! test line 508
+T ok <root>/std/calendar.nomi :: impl / to_time //! test line 513
+T ok <root>/std/calendar.nomi :: impl / new //! test lines 519-520
+T ok <root>/std/calendar.nomi :: impl / parse //! test lines 562-567
+T ok <root>/std/calendar.nomi :: impl / between //! test lines 580-583
+T ok <root>/std/calendar.nomi :: impl / with_offset //! test lines 830-833
+T ok <root>/std/calendar.nomi :: impl / from_instant //! test lines 847-850
+T ok <root>/std/calendar.nomi :: impl / parse //! test lines 858-862
+T ok <root>/std/calendar.nomi :: impl / between //! test lines 876-879
+T ok <root>/std/calendar.nomi :: impl / in_zone //! test lines 1200-1208
+T ok <root>/std/calendar.nomi :: impl / from_instant_in //! test lines 1241-1244
+T ok <root>/std/calendar.nomi :: impl / now_in //! test line 1258
+T ok <root>/std/calendar.nomi :: impl / to_offset //! test lines 1267-1269
+T ok <root>/std/calendar.nomi :: impl / with_zone //! test lines 1275-1278
+T ok <root>/std/calendar.nomi :: impl / parse //! test lines 1294-1299
+T ok <root>/std/calendar.nomi :: impl / between //! test lines 1313-1316
 T test result: ok. 28 passed, 0 failed
 T
 C channels

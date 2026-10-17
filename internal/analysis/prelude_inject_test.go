@@ -61,9 +61,9 @@ func TestPreludeAutoprepend_SuppressedInStdlibFiles(t *testing.T) {
 	mustWrite("probe.nomi", "pub type OrphanProbe\n")
 	// Stdlib's consumer.nomi: bare reference to OrphanProbe. The whole
 	// point of the test — would resolve via auto-prepend if stdlib
-	// files weren't suppressed. The `pub fn use_probe(): OrphanProbe`
+	// files weren't suppressed. The `pub fn use_probe() -> OrphanProbe`
 	// signature carries the bare reference (no `import std/probe`).
-	mustWrite("consumer.nomi", "pub fn use_probe(): OrphanProbe { OrphanProbe }\n")
+	mustWrite("consumer.nomi", "pub fn use_probe() -> OrphanProbe { OrphanProbe }\n")
 	t.Setenv("NOMI_STD_PATH", stdRoot)
 
 	// Project setup. main.nomi imports std/consumer.{use_probe} so

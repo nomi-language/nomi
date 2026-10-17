@@ -1,105 +1,105 @@
 type Score Int
 
-fn score_value(score: Score): Int {
+fn score_value(score: Score) -> Int {
     Score(n) = score
     n
 }
 
 type Day Int
 
-fn day_value(day: Day): Int {
+fn day_value(day: Day) -> Int {
     Day(n) = day
     n
 }
 
 type Day.Hours Int
 
-fn hours_value(hours: Day.Hours): Int {
+fn hours_value(hours: Day.Hours) -> Int {
     Day.Hours(n) = hours
     n
 }
 
 type Days Int
 
-fn days_value(days: Days): Int {
+fn days_value(days: Days) -> Int {
     Days(n) = days
     n
 }
 
 type Weeks Int
 
-fn weeks_value(weeks: Weeks): Int {
+fn weeks_value(weeks: Weeks) -> Int {
     Weeks(n) = weeks
     n
 }
 
 impl Add<Score, Score> for Score {
-    fn add(lhs: Score, rhs: Score): Score {
+    fn add(lhs: Score, rhs: Score) -> Score {
         Score(score_value(lhs) + score_value(rhs))
     }
 }
 
 impl Subtract<Score, Score> for Score {
-    fn subtract(lhs: Score, rhs: Score): Score {
+    fn subtract(lhs: Score, rhs: Score) -> Score {
         Score(score_value(lhs) - score_value(rhs))
     }
 }
 
 impl Multiply<Score, Score> for Score {
-    fn multiply(lhs: Score, rhs: Score): Score {
+    fn multiply(lhs: Score, rhs: Score) -> Score {
         Score(score_value(lhs) * score_value(rhs))
     }
 }
 
 impl Divide<Score, Score> for Score {
-    fn divide(lhs: Score, rhs: Score): Score {
+    fn divide(lhs: Score, rhs: Score) -> Score {
         Score(score_value(lhs) / score_value(rhs))
     }
 }
 
 impl Add<Days, Day> for Day {
-    fn add(lhs: Day, rhs: Days): Day {
+    fn add(lhs: Day, rhs: Days) -> Day {
         Day(day_value(lhs) + days_value(rhs))
     }
 }
 
 impl Subtract<Days, Day> for Day {
-    fn subtract(lhs: Day, rhs: Days): Day {
+    fn subtract(lhs: Day, rhs: Days) -> Day {
         Day(day_value(lhs) - days_value(rhs))
     }
 }
 
 impl Add<Weeks, Day> for Day {
-    fn add(lhs: Day, rhs: Weeks): Day {
+    fn add(lhs: Day, rhs: Weeks) -> Day {
         Day(day_value(lhs) + weeks_value(rhs) * 7)
     }
 }
 
 impl Subtract<Weeks, Day> for Day {
-    fn subtract(lhs: Day, rhs: Weeks): Day {
+    fn subtract(lhs: Day, rhs: Weeks) -> Day {
         Day(day_value(lhs) - weeks_value(rhs) * 7)
     }
 }
 
 impl Add<Day.Hours, Day> for Day {
-    fn add(lhs: Day, rhs: Day.Hours): Day {
+    fn add(lhs: Day, rhs: Day.Hours) -> Day {
         Day(day_value(lhs) + hours_value(rhs) / 24)
     }
 }
 
-fn plus<L, R, Out>(lhs: L, rhs: R): Out where L: Add<R, Out> {
+fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out> {
     lhs + rhs
 }
 
-fn minus<L, R, Out>(lhs: L, rhs: R): Out where L: Subtract<R, Out> {
+fn minus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Subtract<R, Out> {
     lhs - rhs
 }
 
-fn times<L, R, Out>(lhs: L, rhs: R): Out where L: Multiply<R, Out> {
+fn times<L, R, Out>(lhs: L, rhs: R) -> Out where L: Multiply<R, Out> {
     lhs * rhs
 }
 
-fn divided_by<L, R, Out>(lhs: L, rhs: R): Out where L: Divide<R, Out> {
+fn divided_by<L, R, Out>(lhs: L, rhs: R) -> Out where L: Divide<R, Out> {
     lhs / rhs
 }
 

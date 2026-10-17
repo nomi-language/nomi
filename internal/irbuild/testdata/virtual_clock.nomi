@@ -32,7 +32,7 @@ import {
 }
 
 /// Sleep for `d` and report how much time the clock says passed.
-fn elapsed_ms(d: Duration): Int {
+fn elapsed_ms(d: Duration) -> Int {
     before = Instant.now()
     timer.sleep(d)
     after = Instant.now()

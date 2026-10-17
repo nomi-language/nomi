@@ -18,14 +18,14 @@ import {
 }
 
 test "a struct-shaped stdlib error variant renders" {
-    case Generator.weighted((-1.0, "bad"), []) {
+    case Generator.weighted(#(-1.0, "bad"), []) {
         Ok(_) -> assert False
         Err(e) -> assert Display.to_string(e) == "invalid random weight: -1.0"
     }
 }
 
 test "a bare stdlib error variant renders" {
-    case Generator.weighted((0.0, "never"), []) {
+    case Generator.weighted(#(0.0, "never"), []) {
         Ok(_) ->
             assert False
 
@@ -39,14 +39,14 @@ test "a bare stdlib error variant renders" {
 // The shape a caller writes first. Interpolation goes through Display, so it
 // trapped for exactly the same reason.
 test "interpolation renders a stdlib error" {
-    case Generator.weighted((-1.0, "bad"), []) {
+    case Generator.weighted(#(-1.0, "bad"), []) {
         Ok(_) -> assert False
         Err(e) -> assert "${e}" == "invalid random weight: -1.0"
     }
 }
 
 test "Debug.inspect renders a stdlib error" {
-    case Generator.weighted((-1.0, "bad"), []) {
+    case Generator.weighted(#(-1.0, "bad"), []) {
         Ok(_) -> assert False
         Err(e) -> assert Debug.inspect(e) != ""
     }
@@ -61,7 +61,7 @@ test "two modules' same-named errors each get their own impl" {
             assert False
 
         Err(calendar_error) ->
-            case Generator.weighted((-1.0, "bad"), []) {
+            case Generator.weighted(#(-1.0, "bad"), []) {
                 Ok(_) ->
                     assert False
 

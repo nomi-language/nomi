@@ -20,7 +20,7 @@ var blockForms = []struct {
 	{"bare block", "{\nBODY\n}"},
 	{"nested block", "{\n{\nBODY\n}\n}"},
 	{"concurrent", "concurrent {\nBODY\n}"},
-	{"lambda body", "f = || {\nBODY\n}\nf()"},
+	{"lambda body", "f = fn -> {\nBODY\n}\nf()"},
 	{"block value", "v = {\nBODY\n}\n_ = v"},
 }
 
@@ -138,7 +138,7 @@ test "t" {
 	})
 	t.Run("refutable binding else", func(t *testing.T) {
 		expectNeverReadAt(t, buildProjectForDefaultConfig(`
-fn pick(m: Maybe<Int>): Int {
+fn pick(m: Maybe<Int>) -> Int {
   total = 1
   Some(n) = m else {
     total = total + 1
@@ -154,7 +154,7 @@ fn main() {
 	t.Run("with", func(t *testing.T) {
 		expectNeverReadAt(t, buildProjectForDefaultConfig(`
 struct App { port: Int }
-fn boot(): App { App{port: 3} }
+fn boot() -> App { App{port: 3} }
 fn main() {
   total = App.port
   if True {

@@ -13,7 +13,7 @@ import (
 // An unknown name's diagnostic carries the hint "did you mean" when exactly
 // one name in scope is close to it, and no hint when none is.
 func TestUnknownNames_SuggestTheClosestName(t *testing.T) {
-	helper := "pub fn greet(): String {\n  \"hi\"\n}\n"
+	helper := "pub fn greet() -> String {\n  \"hi\"\n}\n"
 	for _, tc := range []struct {
 		kind, body, want string
 	}{
@@ -44,7 +44,7 @@ func TestUnknownNames_SuggestTheClosestName(t *testing.T) {
 				imports += "import helper.{greett}\n"
 			}
 			src := imports + "\nstruct Point {\n  x: Int\n  y: Int\n}\n\nenum Color {\n  Red\n  Green\n}\n\n" +
-				"fn count_items(n: Int): Int {\n  n\n}\n\nfn main() {\n" + tc.body + "\n}\n"
+				"fn count_items(n: Int) -> Int {\n  n\n}\n\nfn main() {\n" + tc.body + "\n}\n"
 			for name, text := range map[string]string{"main.nomi": src, "helper.nomi": helper} {
 				if err := os.WriteFile(filepath.Join(dir, name), []byte(text), 0o644); err != nil {
 					t.Fatal(err)

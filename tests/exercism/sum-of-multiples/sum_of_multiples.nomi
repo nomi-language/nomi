@@ -1,9 +1,9 @@
 /// The sum of every number below `limit` that is a multiple of at least one
 /// of `factors`. Each multiple counts once, and a factor of 0 has none.
-pub fn sum(factors: List<Int>, limit: Int): Int {
+pub fn sum(factors: List<Int>, limit: Int) -> Int {
     factors
-    |> Iter.filter(|factor| factor > 0)
-    |> Iter.flat_map(|factor| Range.step_by(factor..limit, factor))
+    |> Iter.filter(fn factor -> factor > 0)
+    |> Iter.flat_map(fn factor -> Range.step_by(factor..limit, factor))
     |> Iter.to_set()
     |> Iter.sum()
 }

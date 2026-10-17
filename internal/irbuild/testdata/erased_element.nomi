@@ -18,11 +18,11 @@
 import std/io
 
 pub interface Alpha {
-    fn a(value: self): String
+    fn a(value: self) -> String
 }
 
 pub interface Beta {
-    fn b(value: self): String
+    fn b(value: self) -> String
 }
 
 struct P {
@@ -30,13 +30,13 @@ struct P {
 }
 
 impl Alpha for P {
-    fn a(value: P): String {
+    fn a(value: P) -> String {
         "A/P" + Int.to_string(value.n)
     }
 }
 
 impl Beta for P {
-    fn b(value: P): String {
+    fn b(value: P) -> String {
         "B/P" + Int.to_string(value.n)
     }
 }
@@ -46,13 +46,13 @@ struct Q {
 }
 
 impl Alpha for Q {
-    fn a(value: Q): String {
+    fn a(value: Q) -> String {
         "A/Q" + value.s
     }
 }
 
 impl Beta for Q {
-    fn b(value: Q): String {
+    fn b(value: Q) -> String {
         "B/Q" + value.s
     }
 }
@@ -65,11 +65,11 @@ impl Beta for Q {
 // user interface is refused in its own right (`unrepresentable inferred
 // type`) and this fixture is not about that gap. The LIST TYPE is what has to
 // reach the intern table, and a parameter annotation is what puts it there.
-fn join_alphas(xs: List<Alpha>, extra: Alpha): String {
+fn join_alphas(xs: List<Alpha>, extra: Alpha) -> String {
     Int.to_string(Iter.count(xs)) + "/" + Alpha.a(extra)
 }
 
-fn join_betas(xs: List<Beta>, extra: Beta): String {
+fn join_betas(xs: List<Beta>, extra: Beta) -> String {
     Int.to_string(Iter.count(xs)) + "/" + Beta.b(extra)
 }
 
@@ -84,14 +84,14 @@ fn join_betas(xs: List<Beta>, extra: Beta): String {
 // transcript therefore proves the None side and the lowering proves the Some
 // side; the unit test beside this reads the two instances' type arguments
 // back directly.
-fn show_alpha(m: Maybe<Alpha>): String {
+fn show_alpha(m: Maybe<Alpha>) -> String {
     case m {
         Some(v) -> Alpha.a(v)
         None -> "A/none"
     }
 }
 
-fn show_beta(m: Maybe<Beta>): String {
+fn show_beta(m: Maybe<Beta>) -> String {
     case m {
         Some(v) -> Beta.b(v)
         None -> "B/none"

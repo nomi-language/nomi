@@ -1,10 +1,10 @@
 /// The prime factors of `value`, smallest first, each repeated as often as it
 /// divides `value`.
-pub fn factors(value: Int): List<Int> {
+pub fn factors(value: Int) -> List<Int> {
     factors_from(value, 2)
 }
 
-fn factors_from(n: Int, divisor: Int): List<Int> {
+fn factors_from(n: Int, divisor: Int) -> List<Int> {
     if n == 1 {
         []
     } else if divisor * divisor > n {

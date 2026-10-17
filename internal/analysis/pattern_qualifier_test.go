@@ -152,7 +152,7 @@ enum Holder<T> {
   Of {value: T}
 }
 
-fn helper(n: Int): Int {
+fn helper(n: Int) -> Int {
   n
 }
 

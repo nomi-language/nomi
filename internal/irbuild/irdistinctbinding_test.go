@@ -6,8 +6,8 @@ func TestIRDistinctBinding_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"named unwrap and operand effects", `import std/io
 type Id Int
-fn mark(n: Int): Id { io.print("make") Id(n) }
-fn read(id: Id): Int {
+fn mark(n: Int) -> Id { io.print("make") Id(n) }
+fn read(id: Id) -> Int {
   Id(value) = id
   value + 1
 }
@@ -22,7 +22,7 @@ fn main() {
 type Label String
 fn main() {
   label = Label("hello")
-  read = |early: Bool| {
+  read = fn early: Bool -> {
     if early {
       Label(text) = label
       return text

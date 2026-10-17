@@ -18,7 +18,7 @@ const orPatternSource = `enum Shape {
   Point
 }
 
-fn radius(s: Shape): Float {
+fn radius(s: Shape) -> Float {
   case s {
     .Circle{r} or .Square{r} -> r
     .Point -> 0.0

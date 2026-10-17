@@ -1,13 +1,13 @@
 /// The RNA complement of a DNA strand: G to C, C to G, T to A and A to U.
 /// A strand holding anything but those four nucleotides is an error.
-pub fn to_rna(dna: String): Result<String, String> {
+pub fn to_rna(dna: String) -> Result<String, String> {
     dna
     |> Iter.map(complement)
     |> Result.collect()
-    |> Result.map(|parts| String.join(parts))
+    |> Result.map(fn parts -> String.join(parts))
 }
 
-fn complement(nucleotide: String): Result<String, String> {
+fn complement(nucleotide: String) -> Result<String, String> {
     case nucleotide {
         "G" -> Ok("C")
         "C" -> Ok("G")

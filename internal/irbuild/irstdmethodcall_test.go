@@ -6,7 +6,7 @@ import (
 
 func TestIRStdMethodCall_EffectsAndSiblingCaller(t *testing.T) {
 	verifyLambdaProgram(t, `import { std/io std/instant.Instant lib }
-fn mark(n: Int): Int { io.print(n) return n }
+fn mark(n: Int) -> Int { io.print(n) return n }
 fn main() {
   io.inspect(Instant.before?(
     Instant.from_seconds(mark(1)),
@@ -15,14 +15,14 @@ fn main() {
   io.print(lib.convert(7))
 }
 `, "1\n2\nTrue\n7\n", map[string]string{
-		"lib.nomi": "import std/duration.Duration\npub fn convert(n: Int): Int { Duration.as_hours(Duration.hours(n)) }",
+		"lib.nomi": "import std/duration.Duration\npub fn convert(n: Int) -> Int { Duration.as_hours(Duration.hours(n)) }",
 	})
 }
 
 func TestIRStdMethodCall_LocalReceiverKeepsPrecedence(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 struct Duration { n: Int }
-impl Duration { fn as_hours(d: Duration): Int { d.n } }
+impl Duration { fn as_hours(d: Duration) -> Int { d.n } }
 fn main() { io.print(Duration.as_hours(Duration{n: 9})) }
 `, "9\n")
 }
@@ -31,11 +31,11 @@ fn main() { io.print(Duration.as_hours(Duration{n: 9})) }
 // function values.
 func TestIRStdMethodCall_BesideAFunctionMapFieldRuns(t *testing.T) {
 	verifyLambdaProgram(t, "import { std/io std/duration.Duration }\nstruct Point { x: Int }\nstruct Outer { p: List<Point>\n hooks: Map<String, (Int) -> Int> = Map.empty() }\nfn main() { n = Duration.as_hours(Duration.hours(2)) io.inspect(Outer{p: [Point{x: n}]}) }\n",
-		"Outer{p: [Point{x: 2}], hooks: {=>}}\n")
+		"Outer{p: [Point{x: 2}], hooks: %{}}\n")
 }
 
 func TestIRStdMethodCall_HostBodiesStayOutsideRetainedCalls(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", "import std/io\nfn upper(c: Context): Context { Context.with_value(c, Some(1)) }\nfn main() { _ = upper(Context.root()) io.print(\"x\") }")
+	p, err := AnalyzeSource("main.nomi", "import std/io\nfn upper(c: Context) -> Context { Context.with_value(c, Some(1)) }\nfn main() { _ = upper(Context.root()) io.print(\"x\") }")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestIRStdMethodCall_HostBodiesStayOutsideRetainedCalls(t *testing.T) {
 
 func TestIRStdMethodCall_RefinementsAndConversions(t *testing.T) {
 	verifyLambdaProgram(t, `import { std/io std/int.PositiveInt std/duration.Duration std/instant.Instant }
-fn present(v: Maybe<PositiveInt>): Bool { case v { Some(_) -> True None -> False } }
+fn present(v: Maybe<PositiveInt>) -> Bool { case v { Some(_) -> True None -> False } }
 fn main() {
   io.inspect(present(Int.to_positive(5)))
   io.inspect(present(Int.to_positive(0)))

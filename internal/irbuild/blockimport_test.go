@@ -12,7 +12,7 @@ import (
 func TestBlockImport_TypesThroughTheQualifier(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
-fn encoded(): String {
+fn encoded() -> String {
     import std/json
     v: json.Json = json.Json.Int(3)
     Debug.inspect(v)
@@ -45,12 +45,12 @@ fn main() {
     io.inspect(shapes.area(2))
 }
 `,
-		"shapes.nomi": `pub fn area(r: Int): Int {
+		"shapes.nomi": `pub fn area(r: Int) -> Int {
     import units
     units.scale(r * 3)
 }
 `,
-		"units.nomi": `pub fn scale(n: Int): Int {
+		"units.nomi": `pub fn scale(n: Int) -> Int {
     n * 10
 }
 `,

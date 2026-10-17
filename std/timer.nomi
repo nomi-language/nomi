@@ -14,4 +14,4 @@ import {
 /// context ends the sleep early without producing a user-visible error.
 //! assert timer.sleep(Duration.nanoseconds(0)) == Unit
 //
-pub host fn sleep(d: Duration): Unit
+pub host fn sleep(d: Duration) -> Unit

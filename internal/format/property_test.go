@@ -126,7 +126,7 @@ func TestProperty_SemanticallyEquivalentShapes(t *testing.T) {
   label: String
 }
 
-fn probe(box: Box, n: Int, label: String): Box {
+fn probe(box: Box, n: Int, label: String) -> Box {
 `
 	for _, tc := range []struct {
 		name string

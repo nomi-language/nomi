@@ -14,7 +14,7 @@ struct Card {
 }
 
 impl Comparable for Card {
-    fn compare(a: Card, b: Card): Ordering {
+    fn compare(a: Card, b: Card) -> Ordering {
         Int.compare(a.rank, b.rank)
     }
 }
@@ -55,23 +55,29 @@ test "of equal elements, the first wins" {
         Card{rank: 1, label: "d"},
     ]
 
-    assert Iter.min(cards) |> Maybe.map(|c| c.label) == Some("b")
-    assert Iter.max(cards) |> Maybe.map(|c| c.label) == Some("a")
+    assert Iter.min(cards) |> Maybe.map(fn c -> c.label) == Some("b")
+    assert Iter.max(cards) |> Maybe.map(fn c -> c.label) == Some("a")
 }
 
 test "Iter.min and Iter.max take any Iter" {
-    assert 1..=5 |> Iter.map(|n| n * n % 7) |> Iter.max() == Some(4)
+    assert 1..=5 |> Iter.map(fn n -> n * n % 7) |> Iter.max() == Some(4)
 
     assert [3, 1, 2] |> Iter.to_set() |> Iter.min() == Some(1)
 }
 
 test "Iter.min_by and Iter.max_by compare a key, first on ties" {
-    tasks = [("write", Level.Mid), ("ship", Level.High), ("rest", Level.Low), ("plan", Level.High)]
-    none: List<(String, Level)> = []
+    tasks = [
+        #("write", Level.Mid),
+        #("ship", Level.High),
+        #("rest", Level.Low),
+        #("plan", Level.High),
+    ]
 
-    assert Iter.min_by(tasks, |(_, level)| level) == Some(("rest", Level.Low))
-    assert Iter.max_by(tasks, |(_, level)| level) == Some(("ship", Level.High))
-    assert Iter.max_by(none, |(_, level)| level) == None
+    none: List<#(String, Level)> = []
+
+    assert Iter.min_by(tasks, fn #(_, level) -> level) == Some(#("rest", Level.Low))
+    assert Iter.max_by(tasks, fn #(_, level) -> level) == Some(#("ship", Level.High))
+    assert Iter.max_by(none, fn #(_, level) -> level) == None
 }
 
 // No element is read from an empty source, so `[]` needs no element type

@@ -3,7 +3,7 @@ import {
     std/io
 }
 
-fn main(): Unit {
+fn main() -> Unit {
     epoch = Instant.from_seconds(0)
     a = Instant.from_seconds(10)
     b = Instant.from_seconds(15)

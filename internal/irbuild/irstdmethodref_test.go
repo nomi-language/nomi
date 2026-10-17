@@ -11,7 +11,7 @@ fn main() {
   io.print(unwrap(make(42)))
 }`, "42\n"},
 		{"higher order", `import { std/io std/duration.Duration }
-fn apply(f: (Int) -> Duration, n: Int): Duration { f(n) }
+fn apply(f: (Int) -> Duration, n: Int) -> Duration { f(n) }
 fn main() {
   unwrap = Duration.as_nanos
   io.print(unwrap(apply(Duration.microseconds, 3)))
@@ -20,11 +20,11 @@ fn main() {
 fn main() {
   make = Duration.nanoseconds
   unwrap = Duration.as_nanos
-  twice = |n: Int| make(n) + make(n)
+  twice = fn n: Int -> make(n) + make(n)
   io.print(unwrap(twice(21)))
 }`, "42\n"},
 		{"branch selected method and operand effects", `import { std/io std/duration.Duration }
-fn input(): Int { io.print("input") 2 }
+fn input() -> Int { io.print("input") 2 }
 fn main() {
   make = if True { Duration.microseconds } else { Duration.nanoseconds }
   unwrap = Duration.as_nanos

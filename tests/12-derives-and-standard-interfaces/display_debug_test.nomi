@@ -12,7 +12,7 @@ struct Greeter {
 }
 
 impl Display for Greeter {
-    fn to_string(g: Greeter): String {
+    fn to_string(g: Greeter) -> String {
         "hi ${g.name}"
     }
 }

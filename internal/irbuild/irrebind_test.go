@@ -20,8 +20,8 @@ fn main() {
 
 func TestIRRebind_ParameterAndNestedScope(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn mark(n: Int): Int { io.print(n) return n }
-fn work(n: Int): Int {
+fn mark(n: Int) -> Int { io.print(n) return n }
+fn work(n: Int) -> Int {
   n = mark(n + 1)
   other = {
     n = mark(n + 1)
@@ -42,14 +42,14 @@ fn main() { io.print(work(1)) }
 // rebound after a read is a fresh binding too.
 func TestIRRebind_CapturesKeepTheValueAtCreation(t *testing.T) {
 	for _, tc := range []struct{ body, want string }{
-		{"x = 1 f = || x x = 2 _ = x io.print(f())", "1\n"},
-		{"x = 1 f = || x x = 2 io.print(f() * 10 + x)", "12\n"},
-		{"x = 1 x = x + 1 f = || x io.print(f())", "2\n"},
-		{"x = 1 f = if True { || x } else { || 0 } x = 2 _ = x io.print(f())", "1\n"},
+		{"x = 1 f = fn -> x x = 2 _ = x io.print(f())", "1\n"},
+		{"x = 1 f = fn -> x x = 2 io.print(f() * 10 + x)", "12\n"},
+		{"x = 1 x = x + 1 f = fn -> x io.print(f())", "2\n"},
+		{"x = 1 f = if True { fn -> x } else { fn -> 0 } x = 2 _ = x io.print(f())", "1\n"},
 		{"f = one _ = f f = two io.print(f())", "2\n"},
 	} {
 		t.Run(tc.body, func(t *testing.T) {
-			verifyLambdaProgram(t, "import std/io\nfn one(): Int { 1 }\nfn two(): Int { 2 }\nfn main() { "+tc.body+" }", tc.want)
+			verifyLambdaProgram(t, "import std/io\nfn one() -> Int { 1 }\nfn two() -> Int { 2 }\nfn main() { "+tc.body+" }", tc.want)
 		})
 	}
 }
@@ -57,7 +57,7 @@ func TestIRRebind_CapturesKeepTheValueAtCreation(t *testing.T) {
 // TestIRRebind_ACapturedParameterRebindRuns: a closure over a parameter keeps
 // the argument after the body rebinds the parameter.
 func TestIRRebind_ACapturedParameterRebindRuns(t *testing.T) {
-	verifyLambdaProgram(t, "import std/io\nfn p(n: Int): Int {\n k = || n\n n = 5\n k() * 10 + n\n}\nfn main() { io.print(p(1)) }", "15\n")
+	verifyLambdaProgram(t, "import std/io\nfn p(n: Int) -> Int {\n k = fn -> n\n n = 5\n k() * 10 + n\n}\nfn main() { io.print(p(1)) }", "15\n")
 }
 
 // TestIRRebind_ASpawnedTaskReadsTheValueAtItsCreation: a task's body is a
@@ -75,7 +75,7 @@ fn main() {
   r = concurrent {
     ch: Channel<Int> = Channel.unbuffered()
     x = 1
-    t = Task.spawn(|| {
+    t = Task.spawn(fn -> {
       _ = Receiver.receive(ch.receiver)
       x
     })

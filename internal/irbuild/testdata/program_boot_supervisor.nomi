@@ -32,14 +32,14 @@ pub struct BootApp {
 
 // build is called BY boot and creates the supervisor, so the window this
 // exercises is the temporal one rather than the lexical one.
-fn build(context: Context): BootApp {
+fn build(context: Context) -> BootApp {
     BootApp{
         context,
         audit: Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 2),
     }
 }
 
-fn boot(): BootApp {
+fn boot() -> BootApp {
     build(Context.root())
 }
 

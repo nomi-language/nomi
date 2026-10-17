@@ -23,7 +23,7 @@ struct Reading {
     n: Int
 }
 
-fn size(s: Shape): String {
+fn size(s: Shape) -> String {
     case s {
         .Circle{r} or .Square{r} when r > 10.0 -> "big"
         .Circle{r} or .Square{r} -> "radius ${r}"
@@ -32,7 +32,7 @@ fn size(s: Shape): String {
     }
 }
 
-fn side(s: Side): String {
+fn side(s: Side) -> String {
     case s {
         .L(n) or .R(n) when n > 0 -> "positive ${n}"
         .L(n) -> "left ${n}"
@@ -40,14 +40,14 @@ fn side(s: Side): String {
     }
 }
 
-fn small?(n: Int): Bool {
+fn small?(n: Int) -> Bool {
     case n {
         1 or 2 or 3 -> True
         _ -> False
     }
 }
 
-fn answer(s: String): Maybe<Bool> {
+fn answer(s: String) -> Maybe<Bool> {
     case s {
         "yes" or "y" -> Some(True)
         "no" or "n" -> Some(False)
@@ -55,28 +55,28 @@ fn answer(s: String): Maybe<Bool> {
     }
 }
 
-fn opener?(c: Codepoint): Bool {
+fn opener?(c: Codepoint) -> Bool {
     case c {
         '(' or '[' or '{' -> True
         _ -> False
     }
 }
 
-fn two_equal?(m: Maybe<Tri>): Bool {
+fn two_equal?(m: Maybe<Tri>) -> Bool {
     case m {
         Some(.Equilateral or .Isosceles) -> True
         Some(.Scalene) or None -> False
     }
 }
 
-fn off_axis(p: (Int, Int)): Int {
+fn off_axis(p: #(Int, Int)) -> Int {
     case p {
-        (0, x) or (x, 0) -> x
-        (x, y) -> x * y
+        #(0, x) or #(x, 0) -> x
+        #(x, y) -> x * y
     }
 }
 
-fn reading(r: Reading): String {
+fn reading(r: Reading) -> String {
     case r {
         Reading{kind: .Equilateral or .Isosceles, n} -> "equal sides ${n}"
         Reading{n: 1 or 2} -> "small"
@@ -84,7 +84,7 @@ fn reading(r: Reading): String {
     }
 }
 
-fn closer(cs: List<Codepoint>): String {
+fn closer(cs: List<Codepoint>) -> String {
     case cs {
         [')' or ']' or '}' as c, ..rest] -> "${c} then ${Iter.count(rest)}"
         [] or [_] -> "short"
@@ -92,7 +92,7 @@ fn closer(cs: List<Codepoint>): String {
     }
 }
 
-fn value(.L(n) or .R(n): Side): Int {
+fn value(.L(n) or .R(n): Side) -> Int {
     n
 }
 
@@ -125,9 +125,9 @@ test "alternatives nested in a payload, a tuple, a field and a list" {
     assert two_equal?(Some(Tri.Isosceles))
     refute two_equal?(Some(Tri.Scalene))
     refute two_equal?(None)
-    assert off_axis((0, 5)) == 5
-    assert off_axis((6, 0)) == 6
-    assert off_axis((2, 3)) == 6
+    assert off_axis(#(0, 5)) == 5
+    assert off_axis(#(6, 0)) == 6
+    assert off_axis(#(2, 3)) == 6
     assert reading(Reading{kind: Tri.Equilateral, n: 9}) == "equal sides 9"
     assert reading(Reading{kind: Tri.Scalene, n: 2}) == "small"
     assert reading(Reading{kind: Tri.Scalene, n: 7}) == "other"
@@ -158,7 +158,7 @@ test "alternatives in each binding position" {
     assert k == 7
 
     assert value(Side.R(8)) == 8
-    assert [Side.L(1), Side.R(2)] |> Iter.map(|.L(m) or .R(m)| m) |> Iter.to_list() == [1, 2]
+    assert [Side.L(1), Side.R(2)] |> Iter.map(fn .L(m) or .R(m) -> m) |> Iter.to_list() == [1, 2]
 }
 
 test "a binding's fallback stands in for a payload whose alternatives always match" {

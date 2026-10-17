@@ -3,16 +3,16 @@ import std/calendar.{self, Days}
 type Name String
 
 test "a destructure can rebind a parameter or a function value" {
-    fn shout_length(s: String): Int {
+    fn shout_length(s: String) -> Int {
         Name(s) = Name(s + "!")
         String.length(s)
     }
 
     assert shout_length("ab") == 3
 
-    f = |x: Int| x
+    f = fn x: Int -> x
     g = f
-    (f, n) = (|x: Int| x + 1, 1)
+    #(f, n) = #(fn x: Int -> x + 1, 1)
     assert f(n) == 2
     assert g(n) == 1
 }

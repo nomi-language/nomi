@@ -38,15 +38,15 @@ func TestIRGenericStruct_MissingFieldMetadataKeepsNativeFallback(t *testing.T) {
 // Map of function values.
 func TestIRGenericStruct_BesideAFunctionMapFieldRuns(t *testing.T) {
 	verifyLambdaProgram(t, "import std/io\nstruct Box<T> { value: T }\nstruct Point { x: Int }\nstruct Outer { p: List<Point>\n f: Map<String, (Int) -> Int> }\nfn main() { box = Box{value: 42} io.print(box.value) io.inspect(Outer{p: [Point{x: 2}], f: Map.empty()}) }\n",
-		"42\nOuter{p: [Point{x: 2}], f: {=>}}\n")
+		"42\nOuter{p: [Point{x: 2}], f: %{}}\n")
 }
 
 func TestIRGenericStruct_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"generic factory and typed parameter", `import std/io
 struct Box<T> { value: T }
-fn wrap<T>(x: T): Box<T> { Box{value: x} }
-fn read(box: Box<Int>): Int { box.value }
+fn wrap<T>(x: T) -> Box<T> { Box{value: x} }
+fn read(box: Box<Int>) -> Int { box.value }
 fn main() {
   a = wrap(42)
   b = wrap("x")
@@ -73,7 +73,7 @@ struct Pair<T, U> {
   first: T
   second: U
 }
-fn mark(n: Int): Int { io.print(n) return n }
+fn mark(n: Int) -> Int { io.print(n) return n }
 fn main() {
   pair = Pair{second: mark(2), first: mark(1)}
   io.print(pair.first)

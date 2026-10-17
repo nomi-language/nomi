@@ -20,12 +20,12 @@ import (
 // (loweringBlocked). The test reaches it, and makes the file a test file.
 const loweringProbe = `
 
-fn planted_decline(n: Int): Int {
+fn planted_decline(n: Int) -> Int {
   n
 }
 
-fn lowering_probe(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| planted_decline(x)) |> Iter.to_list()
+fn lowering_probe(xs: List<Int>) -> List<Int> {
+  Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
 }
 
 test "lowering probe" {
@@ -42,7 +42,7 @@ const loweringCaptureProbe = `
 test "lowering capture probe" {
   import std/io
   import std/regex.Regex
-  run = io.capture("", || io.print("x"))
+  run = io.capture("", fn -> io.print("x"))
   assert run.output == "x\n"
   _ = Regex` + "`[`" + `
 }
@@ -224,7 +224,7 @@ func TestLoweringRun_ProgramOfSeveralFilesLowersTheAnalysis(t *testing.T) {
 	src := "import std/io\nimport shapes\n\nfn main() {\n    io.inspect(shapes.area(2))\n}\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi":   src,
-		"shapes.nomi": "pub fn area(r: Int): Int {\n    r * 3\n}\n",
+		"shapes.nomi": "pub fn area(r: Int) -> Int {\n    r * 3\n}\n",
 		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	s := NewServer()

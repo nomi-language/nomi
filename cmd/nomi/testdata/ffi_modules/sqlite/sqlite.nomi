@@ -14,17 +14,17 @@ gopkg "sqlite"
 
 opaque type RawConn go sqlite.Conn
 
-fn open_raw(path: String): Result<RawConn, String> go sqlite.Open
+fn open_raw(path: String) -> Result<RawConn, String> go sqlite.Open
 
-fn exec_raw(c: RawConn, sql: String, args: List<String>): Result<Unit, String> go sqlite.Exec
+fn exec_raw(c: RawConn, sql: String, args: List<String>) -> Result<Unit, String> go sqlite.Exec
 
 fn query_all_raw(
     c: RawConn,
     sql: String,
     args: List<String>,
-): Result<List<List<String>>, String> go sqlite.QueryAll
+) -> Result<List<List<String>>, String> go sqlite.QueryAll
 
-fn close_raw(c: RawConn): Result<Unit, String> go sqlite.Close
+fn close_raw(c: RawConn) -> Result<Unit, String> go sqlite.Close
 
 /// An open database.
 pub opaque struct Conn {
@@ -34,13 +34,13 @@ pub opaque struct Conn {
 /// Opens the database file at `path`, creating it if it does not exist.
 /// `":memory:"` opens a private in-memory database. Close it with
 /// `defer sqlite.close(conn)` right after opening.
-pub fn open(path: String): Result<Conn, String> {
-    open_raw(path) |> Result.map(|raw| Conn{raw})
+pub fn open(path: String) -> Result<Conn, String> {
+    open_raw(path) |> Result.map(fn raw -> Conn{raw})
 }
 
 /// Runs a statement that returns no rows, such as `CREATE`, `INSERT`,
 /// `UPDATE` or `DELETE`. Each `?` in `sql` takes the next value from `args`.
-pub fn exec(conn: Conn, sql: String, args: List<String>): Result<Unit, String> {
+pub fn exec(conn: Conn, sql: String, args: List<String>) -> Result<Unit, String> {
     exec_raw(conn.raw, sql, args)
 }
 
@@ -55,7 +55,11 @@ pub fn exec(conn: Conn, sql: String, args: List<String>): Result<Unit, String> {
 //! assert early == Ok([["Ada"]])
 //! assert query_all(conn, "SELECT count(*) FROM people", []) == Ok([["2"]])
 //
-pub fn query_all(conn: Conn, sql: String, args: List<String>): Result<List<List<String>>, String> {
+pub fn query_all(
+    conn: Conn,
+    sql: String,
+    args: List<String>,
+) -> Result<List<List<String>>, String> {
     query_all_raw(conn.raw, sql, args)
 }
 

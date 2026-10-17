@@ -14,17 +14,17 @@ func TestPartialApplication_ParameterNamedLikeTheQualifier(t *testing.T) {
     std/lists
 }
 
-fn noted(n: Int): Int {
+fn noted(n: Int) -> Int {
     io.print("made ${n}")
     n
 }
 
-fn tag(_label: String, n: Int): Int {
+fn tag(_label: String, n: Int) -> Int {
     n
 }
 
 fn main() {
-    m = maybe.Maybe.map(_, |n: Int| n + noted(1))
+    m = maybe.Maybe.map(_, fn n: Int -> n + noted(1))
     io.inspect(m(Some(4)))
     io.inspect(m(maybe: Some(1)))
     w = maybe.Maybe.with_default(_, noted(0))

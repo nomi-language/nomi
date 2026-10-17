@@ -20,11 +20,11 @@ enum Pay {
     Gone
 }
 
-fn has(): Pay {
+fn has() -> Pay {
     Pay.Has({a: 1, b: "x"})
 }
 
-fn circle(): Pay {
+fn circle() -> Pay {
     Pay.Circle({radius: 1.0})
 }
 `

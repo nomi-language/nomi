@@ -15,11 +15,11 @@ enum SessionState {
 // value of the marker type and not a placeholder: the payload has no storage
 // (nothing to read a slot from), so `SessionState.Expired(e)` has to
 // RECONSTRUCT `e` from its type alone.
-fn marker_label(_e: Expired): String {
+fn marker_label(_e: Expired) -> String {
     "expired"
 }
 
-fn describe(s: SessionState): String {
+fn describe(s: SessionState) -> String {
     case s {
         SessionState.Expired(e) -> marker_label(e)
         .Active -> "active"
@@ -28,7 +28,7 @@ fn describe(s: SessionState): String {
 
 // The same variant matched with no binding at all, which must not depend on
 // the materialization path.
-fn expired?(s: SessionState): Bool {
+fn expired?(s: SessionState) -> Bool {
     case s {
         .Expired -> True
         _ -> False

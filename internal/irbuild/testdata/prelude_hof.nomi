@@ -45,48 +45,48 @@
 //
 // Every absent comparison is written against a typed `None`-valued helper
 // rather than against a bare `None`. A callback answering an UNTYPED
-// literal (`|x| []`, `|x| None`) is
+// literal (`fn x -> []`, `fn x -> None`) is
 // refused by name as `prelude function over an unsolved instance` and is
 // asserted in preludehof_test.go rather than here, because a refused construct
 // cannot appear in a run fixture at all.
-fn none_int(): Maybe<Int> {
+fn none_int() -> Maybe<Int> {
     None
 }
 
-fn none_string(): Maybe<String> {
+fn none_string() -> Maybe<String> {
     None
 }
 
-fn double(x: Int): Int {
+fn double(x: Int) -> Int {
     x * 2
 }
 
-fn err_int(): Result<Int, String> {
+fn err_int() -> Result<Int, String> {
     Err("oops")
 }
 
-fn positive_half(x: Int): Maybe<Int> {
+fn positive_half(x: Int) -> Maybe<Int> {
     if x > 0 { Some(x / 2) } else { none_int() }
 }
 
-fn checked_double(x: Int): Result<Int, String> {
+fn checked_double(x: Int) -> Result<Int, String> {
     if x > 0 { Ok(x * 2) } else { err_int() }
 }
 
 test "Maybe.map transforms a Some and leaves a None alone" {
     some: Maybe<Int> = Some(5)
 
-    assert Maybe.map(some, |x| x * 2) == Some(10)
-    assert Maybe.map(none_int(), |x| x * 2) == none_int()
-    assert Maybe.none?(Maybe.map(none_int(), |x| x * 2))
-    assert Maybe.some?(Maybe.map(some, |x| x * 2))
+    assert Maybe.map(some, fn x -> x * 2) == Some(10)
+    assert Maybe.map(none_int(), fn x -> x * 2) == none_int()
+    assert Maybe.none?(Maybe.map(none_int(), fn x -> x * 2))
+    assert Maybe.some?(Maybe.map(some, fn x -> x * 2))
 }
 
 test "Maybe.map may change the payload TYPE" {
     some: Maybe<Int> = Some(7)
 
-    assert Maybe.map(some, |x| Int.to_string(x)) == Some("7")
-    assert Maybe.map(none_int(), |x| Int.to_string(x)) == none_string()
+    assert Maybe.map(some, fn x -> Int.to_string(x)) == Some("7")
+    assert Maybe.map(none_int(), fn x -> Int.to_string(x)) == none_string()
 }
 
 // The FUNCTION-REFERENCE spelling, in a BINDING rather than as an assertion
@@ -121,41 +121,41 @@ test "Maybe.map takes a function reference, which is the corpus spelling" {
 test "a bare None receiver takes its type from the callback's parameter" {
     n =
         None
-        |> Maybe.map(|x| x * 2)
+        |> Maybe.map(fn x -> x * 2)
         |> Maybe.with_default(0)
 
     assert n == 0
-    assert Maybe.none?(Maybe.map(None, |x: Int| x * 2))
+    assert Maybe.none?(Maybe.map(None, fn x: Int -> x * 2))
 }
 
 test "Maybe.flat_map flattens rather than nesting" {
     some: Maybe<Int> = Some(10)
 
-    assert Maybe.flat_map(some, |x| positive_half(x)) == Some(5)
-    assert Maybe.flat_map(none_int(), |x| positive_half(x)) == none_int()
+    assert Maybe.flat_map(some, fn x -> positive_half(x)) == Some(5)
+    assert Maybe.flat_map(none_int(), fn x -> positive_half(x)) == none_int()
 }
 
 test "Maybe.flat_map can turn a present value into an absent one" {
     negative: Maybe<Int> = Some(-4)
 
-    assert Maybe.flat_map(negative, |x| positive_half(x)) == none_int()
-    assert Maybe.none?(Maybe.flat_map(negative, |x| positive_half(x)))
+    assert Maybe.flat_map(negative, fn x -> positive_half(x)) == none_int()
+    assert Maybe.none?(Maybe.flat_map(negative, fn x -> positive_half(x)))
 }
 
 test "Result.map transforms an Ok and carries the Err VALUE across" {
     good: Result<Int, String> = Ok(7)
 
-    assert Result.map(good, |x| x * 2) == Ok(14)
-    assert Result.map(err_int(), |x| x * 2) == Err("oops")
-    assert Result.err?(Result.map(err_int(), |x| x * 2))
-    assert Result.with_default(Result.map(err_int(), |x| x * 2), 0) == 0
+    assert Result.map(good, fn x -> x * 2) == Ok(14)
+    assert Result.map(err_int(), fn x -> x * 2) == Err("oops")
+    assert Result.err?(Result.map(err_int(), fn x -> x * 2))
+    assert Result.with_default(Result.map(err_int(), fn x -> x * 2), 0) == 0
 }
 
 test "Result.map may change the Ok TYPE and still carry the Err value" {
     good: Result<Int, String> = Ok(7)
-    mapped: Result<String, String> = Result.map(err_int(), |x| Int.to_string(x))
+    mapped: Result<String, String> = Result.map(err_int(), fn x -> Int.to_string(x))
 
-    assert Result.map(good, |x| Int.to_string(x)) == Ok("7")
+    assert Result.map(good, fn x -> Int.to_string(x)) == Ok("7")
     assert mapped == Err("oops")
 }
 
@@ -182,25 +182,25 @@ test "Result.flat_map flattens and can turn an Ok into an Err" {
     good: Result<Int, String> = Ok(7)
     negative: Result<Int, String> = Ok(-1)
 
-    assert Result.flat_map(good, |x| checked_double(x)) == Ok(14)
-    assert Result.flat_map(negative, |x| checked_double(x)) == Err("oops")
-    assert Result.flat_map(err_int(), |x| checked_double(x)) == Err("oops")
+    assert Result.flat_map(good, fn x -> checked_double(x)) == Ok(14)
+    assert Result.flat_map(negative, fn x -> checked_double(x)) == Err("oops")
+    assert Result.flat_map(err_int(), fn x -> checked_double(x)) == Err("oops")
 }
 
 test "Result.map_err transforms the error and carries the Ok PAYLOAD across" {
     good: Result<Int, String> = Ok(3)
 
-    assert Result.map_err(good, |e: String| e + "!") == Ok(3)
-    assert Result.map_err(err_int(), |e: String| e + "!") == Err("oops!")
-    assert Result.ok?(Result.map_err(good, |e: String| e + "!"))
+    assert Result.map_err(good, fn e: String -> e + "!") == Ok(3)
+    assert Result.map_err(err_int(), fn e: String -> e + "!") == Err("oops!")
+    assert Result.ok?(Result.map_err(good, fn e: String -> e + "!"))
 }
 
 test "Result.map_err may change the error TYPE" {
     good: Result<Int, String> = Ok(3)
-    flagged: Result<Int, Bool> = Result.map_err(err_int(), |e: String| e == "oops")
+    flagged: Result<Int, Bool> = Result.map_err(err_int(), fn e: String -> e == "oops")
 
     assert flagged == Err(True)
-    assert Result.map_err(good, |e: String| e == "oops") == Ok(3)
+    assert Result.map_err(good, fn e: String -> e == "oops") == Ok(3)
 }
 
 test "the higher-order half composes with the rest of the surface" {
@@ -209,7 +209,7 @@ test "the higher-order half composes with the rest of the surface" {
     chained =
         some
         |> Maybe.map(double)
-        |> Maybe.flat_map(|x| positive_half(x))
+        |> Maybe.flat_map(fn x -> positive_half(x))
         |> Maybe.with_default(0)
 
     lifted = Maybe.to_result(Maybe.map(some, double), "missing")

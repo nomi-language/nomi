@@ -18,46 +18,46 @@ func TestIRErasedScalar_EveryPositionRuns(t *testing.T) {
 type Meters Int
 
 impl Display for Meters {
-    fn to_string(Meters(n)): String {
+    fn to_string(Meters(n)) -> String {
         "${Int.to_string(n)} m"
     }
 }
 
-fn show(n: Int): Display {
+fn show(n: Int) -> Display {
     n
 }
 
-fn text(s: String): Display {
+fn text(s: String) -> Display {
     s
 }
 
-fn meters(n: Int): Display {
+fn meters(n: Int) -> Display {
     Meters(n)
 }
 
-fn pick(c: Bool): Display {
+fn pick(c: Bool) -> Display {
     if c { 1.5 } else { 2.5 }
 }
 
-fn arm(n: Int): Display {
+fn arm(n: Int) -> Display {
     case n {
         0 -> True
         _ -> False
     }
 }
 
-fn early(n: Int): Display {
+fn early(n: Int) -> Display {
     if n > 0 {
         return n
     }
     "negative"
 }
 
-fn both(d: Display, n: Int): String {
+fn both(d: Display, n: Int) -> String {
     "${Display.to_string(d)}/${Int.to_string(n)}"
 }
 
-fn flag(): Bool {
+fn flag() -> Bool {
     True
 }
 
@@ -82,7 +82,7 @@ fn main() {
     io.print(f(3))
     g = both(Meters(7), _)
     io.print(g(4))
-    h: (Int) -> Display = |n| n + 1
+    h: (Int) -> Display = fn n -> n + 1
     io.print(Display.to_string(h(9)))
 }
 `

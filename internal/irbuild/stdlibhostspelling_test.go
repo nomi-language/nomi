@@ -11,11 +11,11 @@ import (
 // TestStdlibSpellingFollowsWhereTheImplementationLives guards the rule
 // docs/spec.md §24 states: every stdlib declaration whose
 // implementation is Go is spelled `host fn` / `host type`, whatever Go package
-// holds that implementation, and `fn f(x: T): U go pkg.Sym` is what a user
+// holds that implementation, and `fn f(x: T) -> U go pkg.Sym` is what a user
 // writes to bind their own code.
 //
 // A `go` selector in a std module is dead text. `gopkg
-// "github.com/nomi-language/nomi/rt" as go_rt` plus `fn length(data: Bytes): Int
+// "github.com/nomi-language/nomi/rt" as go_rt` plus `fn length(data: Bytes) -> Int
 // go go_rt.BytesLength` in std/bytes.nomi builds, runs and prints the right
 // answer, and so does the same line pointed at `go_rt.NoSuchSymbolAtAll`:
 // nothing generates a binding from the selector, and the existing

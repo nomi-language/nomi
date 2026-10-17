@@ -95,7 +95,7 @@ import shared: Shared
 
 func TestReverseDeps(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("fn double(x: Int): Int { x * 2 }"), 0644)
+	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("fn double(x: Int) -> Int { x * 2 }"), 0644)
 	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("import math: math\nfn main() { math.double(21) }"), 0644)
 
 	dm := NewDocumentManager()
@@ -126,7 +126,7 @@ func TestReverseDeps(t *testing.T) {
 // dependents and the LSP to skip publishing fresh diagnostics on rename.
 func TestReverseDeps_BlockFormImport(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("pub fn double(x: Int): Int { x * 2 }"), 0644)
+	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("pub fn double(x: Int) -> Int { x * 2 }"), 0644)
 	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("import {\n  math.{double}\n}\n\nfn main() { double(21) }\n"), 0644)
 
 	dm := NewDocumentManager()

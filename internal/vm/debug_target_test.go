@@ -11,8 +11,8 @@ import (
 const targetSrc = `import std/io
 
 fn main() {
-  f = |k: Int| k + 1
-  y = f(2) + Maybe.with_default(Maybe.map(Some(1), |x| x + 1), 0)
+  f = fn k: Int -> k + 1
+  y = f(2) + Maybe.with_default(Maybe.map(Some(1), fn x -> x + 1), 0)
   io.print("${y}")
 }
 `
@@ -39,9 +39,9 @@ func TestDebug_StepInTargetsOfAStatement(t *testing.T) {
 		for _, tg := range targets {
 			labels = append(labels, tg.Label)
 		}
-		want := "f, Maybe.map(|x| ...) callback"
+		want := "f, Maybe.map(fn x -> ...) callback"
 		if !justMyCode {
-			want = "f, Maybe.map(|x| ...) callback, maybe.Maybe.map<Int, Int>"
+			want = "f, Maybe.map(fn x -> ...) callback, maybe.Maybe.map<Int, Int>"
 		}
 		if got := strings.Join(labels, ", "); got != want {
 			t.Fatalf("justMyCode %v: targets %s, want %s", justMyCode, got, want)

@@ -4,7 +4,7 @@ import {
     settings.Settings
 }
 
-fn boot(): Settings {
+fn boot() -> Settings {
     Settings{context: Context.root(), tag: "booted"}
 }
 

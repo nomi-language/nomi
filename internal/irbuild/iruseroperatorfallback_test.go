@@ -8,15 +8,15 @@ func TestIRUserOperator_CoercedOperandPreservesFallback(t *testing.T) {
 	p, err := AnalyzeSource("main.nomi", `type Score Int
 type Points Int
 interface Numeric {
- fn number(value: self): Int
+ fn number(value: self) -> Int
 }
 impl Numeric for Points {
- fn number(value: Points): Int { Points(n) = value; n }
+ fn number(value: Points) -> Int { Points(n) = value; n }
 }
 impl Add<Numeric, Score> for Score {
- fn add(lhs: Score, rhs: Numeric): Score { _ = lhs; Score(Numeric.number(rhs)) }
+ fn add(lhs: Score, rhs: Numeric) -> Score { _ = lhs; Score(Numeric.number(rhs)) }
 }
-fn calculate(): Score { Score(2) + Points(3) }
+fn calculate() -> Score { Score(2) + Points(3) }
 fn main() { _ = calculate() }
 `)
 	if err != nil {

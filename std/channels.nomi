@@ -59,7 +59,7 @@ impl Channel<T> {
     //! assert Ok(_) = Sender.send(ch.sender, 7)
     //! assert Receiver.receive(ch.receiver) == Maybe.Some(7)
     //
-    pub host fn buffered<T>(capacity: Int): Channel<T>
+    pub host fn buffered<T>(capacity: Int) -> Channel<T>
 
     /// Construct a `Channel<T>` with no buffer, where every `send` waits for a
     /// paired `receive` and vice versa.
@@ -73,7 +73,7 @@ impl Channel<T> {
     //! ch = Channel.unbuffered<Int>()
     //!
     //! sent = concurrent {
-    //!     w = Task.spawn(|| Sender.send(ch.sender, 7))
+    //!     w = Task.spawn(fn -> Sender.send(ch.sender, 7))
     //!     got = Receiver.receive(ch.receiver)
     //!     _ = Task.await(w)
     //!     got
@@ -81,7 +81,7 @@ impl Channel<T> {
     //!
     //! assert sent == Maybe.Some(7)
     //
-    pub host fn unbuffered<T>(): Channel<T>
+    pub host fn unbuffered<T>() -> Channel<T>
 }
 
 impl Sender<T> {
@@ -95,7 +95,7 @@ impl Sender<T> {
     //! ch = Channel.buffered<Int>(1)
     //! assert Ok(_) = Sender.send(ch.sender, 7)
     //
-    pub host fn send<T>(sender: Sender<T>, value: T): Result<Unit, ChannelClosed>
+    pub host fn send<T>(sender: Sender<T>, value: T) -> Result<Unit, ChannelClosed>
 
     /// Close the channel. Subsequent `send` calls return `Err(ChannelClosed)`;
     /// pending blocked sends panic at runtime (the program is responsible for
@@ -106,7 +106,7 @@ impl Sender<T> {
     //! assert Receiver.receive(ch.receiver) == Maybe.None
     //! assert Sender.send(ch.sender, 7) == Result.Err(ChannelClosed)
     //
-    pub host fn close<T>(sender: Sender<T>): Unit
+    pub host fn close<T>(sender: Sender<T>) -> Unit
 }
 
 impl Receiver<T> {
@@ -119,7 +119,7 @@ impl Receiver<T> {
     //! assert Ok(_) = Sender.send(ch.sender, 7)
     //! assert Receiver.receive(ch.receiver) == Maybe.Some(7)
     //
-    pub host fn receive<T>(receiver: Receiver<T>): Maybe<T>
+    pub host fn receive<T>(receiver: Receiver<T>) -> Maybe<T>
 }
 
 /// Returned by `Sender.send` when the channel was closed at the time

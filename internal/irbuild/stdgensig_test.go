@@ -194,7 +194,7 @@ func TestGenStructSigKindRefusesWhatItCannotShare(t *testing.T) {
 }
 
 // TestStdRangeConstructorsLower pins the capability the signature arm buys:
-// `Range.from(n: Int): Range<Int>` and `Range.naturals(): Range<Int>` lower.
+// `Range.from(n: Int) -> Range<Int>` and `Range.naturals() -> Range<Int>` lower.
 //
 // Their signatures are admitted by the `Range` row in the spec table, and their
 // bodies build `Range{start: n, end: None, inclusive: False}`. That literal

@@ -33,8 +33,8 @@
 // result. `bump` returns Int and `even_sum?` returns Bool, so the `3` is
 // dropped in one report and printed in the other, a few lines apart.
 interface Bumper {
-    fn bump(c: self, by: Int): Int
-    fn even_sum?(c: self, by: Int): Bool
+    fn bump(c: self, by: Int) -> Int
+    fn even_sum?(c: self, by: Int) -> Bool
 }
 
 struct Counter {
@@ -42,17 +42,17 @@ struct Counter {
 }
 
 impl Bumper for Counter {
-    fn bump(c: Counter, by: Int): Int {
+    fn bump(c: Counter, by: Int) -> Int {
         c.n + by
     }
 
-    fn even_sum?(c: Counter, by: Int): Bool {
+    fn even_sum?(c: Counter, by: Int) -> Bool {
         (c.n + by) % 2 == 0
     }
 }
 
 interface Wrapper {
-    fn wrap(b: self, by: Int): Int
+    fn wrap(b: self, by: Int) -> Int
 }
 
 struct Boxer<T> {
@@ -61,7 +61,7 @@ struct Boxer<T> {
 }
 
 impl Wrapper for Boxer<T> {
-    fn wrap(b: Boxer<T>, by: Int): Int {
+    fn wrap(b: Boxer<T>, by: Int) -> Int {
         b.seed * by
     }
 }
@@ -70,7 +70,7 @@ impl Wrapper for Boxer<T> {
 // callee too — where the literal rule would have dropped a literal. Without
 // this the Int rows could only ever show the receiver, and a fix that recorded
 // the receiver alone would look complete.
-fn step(): Int {
+fn step() -> Int {
     2
 }
 
@@ -115,18 +115,18 @@ type Day Int
 
 type Days Int
 
-fn day_value(day: Day): Int {
+fn day_value(day: Day) -> Int {
     Day(n) = day
     n
 }
 
-fn days_value(days: Days): Int {
+fn days_value(days: Days) -> Int {
     Days(n) = days
     n
 }
 
 impl Add<Days, Day> for Day {
-    fn add(lhs: Day, rhs: Days): Day {
+    fn add(lhs: Day, rhs: Days) -> Day {
         Day(day_value(lhs) + days_value(rhs))
     }
 }

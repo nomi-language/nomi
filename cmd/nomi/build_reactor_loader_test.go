@@ -29,19 +29,19 @@ derive FromJson for Game
 derive ToJson for State
 derive FromJson for State
 
-export fn new_game(word: String): Game {
+export fn new_game(word: String) -> Game {
     Game{word, guesses: [], state: State.Playing}
 }
 
-export fn guess(game: Game, letter: String): Game {
+export fn guess(game: Game, letter: String) -> Game {
     {..game, guesses: [letter, ..game.guesses]}
 }
 
-export fn win(game: Game): Game {
+export fn win(game: Game) -> Game {
     {..game, state: State.Won}
 }
 
-export fn divide(a: Int, b: Int): Int {
+export fn divide(a: Int, b: Int) -> Int {
     a / b
 }
 `
@@ -72,11 +72,11 @@ import std/duration.Duration
 
 fn main() {
     total = concurrent {
-        a = Task.spawn(|| {
+        a = Task.spawn(fn -> {
             timer.sleep(Duration.milliseconds(50))
             1
         })
-        b = Task.spawn(|| {
+        b = Task.spawn(fn -> {
             timer.sleep(Duration.milliseconds(20))
             2
         })
@@ -137,7 +137,7 @@ func TestBuildCommand_ReactorWritesTheWasiLoader(t *testing.T) {
 		t.Fatalf("driving nomi-wasi.js: exit %d\n%s", got.exit, got.transcript())
 	}
 	want := []string{
-		`game exports: ["new_game(word: String): Game","guess(game: Game, letter: String): Game","win(game: Game): Game","divide(a: Int, b: Int): Int"]`,
+		`game exports: ["new_game(word: String) -> Game","guess(game: Game, letter: String) -> Game","win(game: Game) -> Game","divide(a: Int, b: Int) -> Int"]`,
 		`new_game: {"word":"pipeline","guesses":[],"state":"Playing"}`,
 		`guess: {"word":"pipeline","guesses":["i","e"],"state":"Playing"}`,
 		`win: {"word":"pipeline","guesses":["i","e"],"state":"Won"}`,
@@ -150,7 +150,7 @@ func TestBuildCommand_ReactorWritesTheWasiLoader(t *testing.T) {
 		`counter a again: "Hello, Cy!"`,
 		`counter a output: "counter booted\n"`,
 		`counter b output: "counter booted\n"`,
-		`words: ["shout(text: String): String"] "HI"`,
+		`words: ["shout(text: String) -> String"] "HI"`,
 		`words has no add: no exported function ` + "`add`" + `; the exported functions are shout`,
 		`greet: {"status":0,"output":"Hello, Ada!\n","stdout":"Hello, Ada!\n","stderr":""}`,
 		`greet streamed: 0 ["Hello, Bo!\n"]`,
@@ -160,8 +160,8 @@ func TestBuildCommand_ReactorWritesTheWasiLoader(t *testing.T) {
 		`sleep: {"status":0,"output":"total 3\n","stdout":"total 3\n","stderr":""} waited: true`,
 		`not a program: the loaded program: not a compiled Nomi program (.nomic)`,
 		`another format: true`,
-		`streamed runtime: ["shout(text: String): String"]`,
-		`untyped runtime: ["shout(text: String): String"]`,
+		`streamed runtime: ["shout(text: String) -> String"]`,
+		`untyped runtime: ["shout(text: String) -> String"]`,
 		`a page, not a module: nomi-wasi: the response is not a WebAssembly module (served as text/html; serve .wasm files as application/wasm)`,
 	}
 	lines := strings.Split(strings.TrimSuffix(got.stdout, "\n"), "\n")
@@ -294,11 +294,11 @@ func TestBuildCommand_AWasiExportBuildCarriesItsLoader(t *testing.T) {
 		t.Fatalf("driving nomi-wasi.js: exit %d\n%s", got.exit, got.transcript())
 	}
 	want := []string{
-		`game exports: ["new_game(word: String): Game","guess(game: Game, letter: String): Game","win(game: Game): Game","divide(a: Int, b: Int): Int"]`,
+		`game exports: ["new_game(word: String) -> Game","guess(game: Game, letter: String) -> Game","win(game: Game) -> Game","divide(a: Int, b: Int) -> Int"]`,
 		`guess: {"word":"pipeline","guesses":["e"],"state":"Playing"}`,
 		`divide by zero rejects: line 32: division by zero`,
 		`game main: 1 "this program has no ` + "`fn main`" + `; it is called through its exported functions\n"`,
-		`words exports: ["shout(text: String): String"]`,
+		`words exports: ["shout(text: String) -> String"]`,
 		`words shout: "HI"`,
 		`words main: {"status":0,"output":"words main ran\n","stdout":"words main ran\n","stderr":""}`,
 		`a .nomic into a built-in program: this reactor carries the program ` + "`nomi build`" + ` embedded in it, so it loads no other. Load programs into a reactor ` + "`nomi build-vm --reactor`" + ` writes, which carries none`,

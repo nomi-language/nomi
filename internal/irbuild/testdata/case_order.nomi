@@ -15,7 +15,7 @@ enum Level {
 // an independent reason (its `nested` takes a `Maybe<Result<Int, String>>`).
 // The guard arms sit BETWEEN literal arms deliberately: a tree that hoisted
 // unguarded tests above guarded ones would answer the later arm.
-fn classify(n: Int): String {
+fn classify(n: Int) -> String {
     case n {
         0 -> "zero"
         1 -> "one"
@@ -29,7 +29,7 @@ fn classify(n: Int): String {
 // A wildcard placed FIRST shadows everything after it. A tree that reordered
 // arms for efficiency — putting the cheap literal test first, say — would print
 // the later answer.
-fn wildcard_first(n: Int): String {
+fn wildcard_first(n: Int) -> String {
     case n {
         _ -> "wildcard"
         0 -> "zero"
@@ -39,7 +39,7 @@ fn wildcard_first(n: Int): String {
 // Same shape over an enum, where the natural lowering is an integer switch on
 // the tag: `_` sits BETWEEN two tag arms, so a switch that hoisted every tag
 // case above the default would answer "unreachable" here instead of "not low".
-fn level(l: Level): String {
+fn level(l: Level) -> String {
     case l {
         .Low -> "low"
         _ -> "not low"

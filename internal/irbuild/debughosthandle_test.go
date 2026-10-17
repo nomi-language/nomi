@@ -19,7 +19,7 @@ func TestDebugHostHandle_RendersThroughTheTypesImpl(t *testing.T) {
 		"dbg line 17: (Holder{name: \"digits\", re}) = Holder{name: \"digits\", re: Regex`\\d+`}\n" +
 		"Some(Regex`\\d+`)\n" +
 		"[Regex`\\d+`]\n" +
-		"(Regex`\\d+`, 1)\n" +
+		"#(Regex`\\d+`, 1)\n" +
 		"Ok(Regex\"a`b\")\n"
 	got := vmReference(fixture("debug_host_handle.nomi"))
 	if got.stdout != want || got.exit != 0 {

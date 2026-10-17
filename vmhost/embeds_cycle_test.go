@@ -55,13 +55,13 @@ enum Shape {
 }
 
 fn main() {
-  s: Shape = Circle{r: 2, kids: {"a" => Shape.Dot}}
+  s: Shape = Circle{r: 2, kids: %{"a" => Shape.Dot}}
   io.inspect(s)
 }
 `,
 	"tuple": `struct Circle {
   r: Int
-  pair: (Int, Maybe<Shape>)
+  pair: #(Int, Maybe<Shape>)
 }
 
 enum Shape {
@@ -70,7 +70,7 @@ enum Shape {
 }
 
 fn main() {
-  s: Shape = Circle{r: 2, pair: (1, Some(Shape.Dot))}
+  s: Shape = Circle{r: 2, pair: #(1, Some(Shape.Dot))}
   io.inspect(s)
 }
 `,
@@ -137,7 +137,7 @@ fn main() {
 `,
 	"tuple without embeds": `struct Node {
   r: Int
-  pair: (Int, Maybe<Tree>)
+  pair: #(Int, Maybe<Tree>)
 }
 
 enum Tree {
@@ -146,7 +146,7 @@ enum Tree {
 }
 
 fn main() {
-  io.inspect(Tree.N(Node{r: 2, pair: (1, Some(Tree.Leaf))}))
+  io.inspect(Tree.N(Node{r: 2, pair: #(1, Some(Tree.Leaf))}))
 }
 `,
 }
@@ -157,12 +157,12 @@ func TestCheck_EmbeddedStructReachingItsEnumBackLowers(t *testing.T) {
 	want := map[string]string{
 		"direct":               "Circle{r: 2, inner: Some(Circle{r: 1, inner: Some(Dot)})}\n",
 		"list":                 "Circle{r: 2, kids: [Dot, Circle{r: 1, kids: []}]}\n",
-		"map value":            "Circle{r: 2, kids: {\"a\" => Dot}}\n",
-		"tuple":                "Circle{r: 2, pair: (1, Some(Dot))}\n",
+		"map value":            "Circle{r: 2, kids: %{\"a\" => Dot}}\n",
+		"tuple":                "Circle{r: 2, pair: #(1, Some(Dot))}\n",
 		"two steps":            "Circle{r: 2, b: Box{inner: Some(Dot)}}\n",
 		"distinct":             "Wrapped(Circle{r: 2, inner: Some(Dot)})\n",
 		"mutual":               "Circle{r: 2, other: Some(Apple{w: 3, other: Some(Dot)})}\n",
-		"tuple without embeds": "N(Node{r: 2, pair: (1, Some(Leaf))})\n",
+		"tuple without embeds": "N(Node{r: 2, pair: #(1, Some(Leaf))})\n",
 	}
 	for name, body := range embedCycleShapes {
 		t.Run(name, func(t *testing.T) {
@@ -203,7 +203,7 @@ derive Equatable for Shape
 derive Hashable for Shape
 derive Display for Shape
 
-fn depth(s: Shape): Int {
+fn depth(s: Shape) -> Int {
   case s {
     Shape.Circle({r: _, inner: Some(next)}) -> 1 + depth(next)
     Shape.Circle({r: _, inner: None}) -> 1
@@ -211,7 +211,7 @@ fn depth(s: Shape): Int {
   }
 }
 
-fn nested_two(s: Shape): String {
+fn nested_two(s: Shape) -> String {
   case s {
     Shape.Circle({r, inner: Some(Shape.Circle({r: r2, inner: _}))}) -> "two ${r} ${r2}"
     Shape.Circle({r, inner: Some(Shape.Dot)}) -> "dot under ${r}"
@@ -220,7 +220,7 @@ fn nested_two(s: Shape): String {
   }
 }
 
-fn build(n: Int, acc: Shape): Shape {
+fn build(n: Int, acc: Shape) -> Shape {
   if n == 0 {
     acc
   } else {
@@ -240,7 +240,7 @@ fn main() {
   io.print(nested_two(Shape.Dot))
   io.print("${a == b} ${a == c}")
   io.print("set ${Set.size(#{a, b, c, Shape.Dot})}")
-  m = {a => "a", c => "c"}
+  m = %{a => "a", c => "c"}
   io.inspect(Map.get(m, b))
   deep = build(1000, Shape.Dot)
   io.print("depth ${depth(deep)}")
@@ -285,9 +285,9 @@ enum Shape {
   Dot
 }
 
-fn total(s: Shape): Int {
+fn total(s: Shape) -> Int {
   case s {
-    Shape.Wrapped({r, kids}) -> kids |> Iter.map(|k| total(k)) |> Iter.reduce(|acc = r, n| acc + n)
+    Shape.Wrapped({r, kids}) -> kids |> Iter.map(fn k -> total(k)) |> Iter.reduce(fn acc = r, n -> acc + n)
     Shape.Dot -> 0
   }
 }
@@ -312,7 +312,7 @@ enum Fruit {
   Pip
 }
 
-fn weigh(s: Loop): Int {
+fn weigh(s: Loop) -> Int {
   case s {
     Loop.Ring({r, other: Some(Fruit.Apple({w, other: Some(inner)}))}) -> r + w + weigh(inner)
     Loop.Ring({r, other: Some(Fruit.Apple({w, other: None}))}) -> r + w
@@ -360,7 +360,7 @@ enum Tree {
 fn main() {
   t = #{Tree.N([Tree.Leaf]), Tree.Leaf, Tree.N([Tree.Leaf])}
   io.print("${Set.size(t)}")
-  m = {Tree.N([Tree.Leaf, Tree.Leaf]) => 2}
+  m = %{Tree.N([Tree.Leaf, Tree.Leaf]) => 2}
   io.inspect(Map.get(m, Tree.N([Tree.Leaf, Tree.Leaf])))
   io.inspect(Map.get(m, Tree.N([Tree.Leaf])))
 }

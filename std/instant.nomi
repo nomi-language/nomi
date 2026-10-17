@@ -19,12 +19,12 @@ impl Instant {
     /// "current time" function — there is no `Int`-returning variant.
     /// Use `Instant.to_seconds(Instant.now())` if you need a
     /// seconds-grained representation.
-    pub host fn now(): Instant
+    pub host fn now() -> Instant
 
     /// Construct an Instant from whole seconds since the Unix epoch.
     //! assert Instant.to_seconds(Instant.from_seconds(42)) == 42
     //
-    pub fn from_seconds(n: Int): Instant {
+    pub fn from_seconds(n: Int) -> Instant {
         Instant(n * 1_000_000_000)
     }
 
@@ -32,7 +32,7 @@ impl Instant {
     /// of `Instant.from_seconds`; sub-second precision is truncated.
     //! assert Instant.to_seconds(Instant.from_seconds(42)) == 42
     //
-    pub fn to_seconds(Instant(nanos)): Int {
+    pub fn to_seconds(Instant(nanos)) -> Int {
         nanos / 1_000_000_000
     }
 
@@ -45,7 +45,7 @@ impl Instant {
     /// values a program actually holds.
     //! assert Instant.as_nanos(Instant.from_nanos(1_500_000_042)) == 1_500_000_042
     //
-    pub fn from_nanos(n: Int): Instant {
+    pub fn from_nanos(n: Int) -> Instant {
         Instant(n)
     }
 
@@ -53,14 +53,14 @@ impl Instant {
     /// unlike `Instant.to_seconds`.
     //! assert Instant.as_nanos(Instant.from_seconds(42)) == 42_000_000_000
     //
-    pub fn as_nanos(Instant(nanos)): Int {
+    pub fn as_nanos(Instant(nanos)) -> Int {
         nanos
     }
 
     /// The Duration between two Instants (later minus earlier).
     //! assert Instant.between(Instant.from_seconds(10), Instant.from_seconds(15)) == Duration.seconds(5)
     //
-    pub fn between(Instant(earlier), Instant(later)): Duration {
+    pub fn between(Instant(earlier), Instant(later)) -> Duration {
         Duration.nanoseconds(later - earlier)
     }
 
@@ -68,7 +68,7 @@ impl Instant {
     //! assert Instant.before?(Instant.from_seconds(10), Instant.from_seconds(15))
     //! refute Instant.before?(Instant.from_seconds(15), Instant.from_seconds(10))
     //
-    pub fn before?(Instant(a), Instant(b)): Bool {
+    pub fn before?(Instant(a), Instant(b)) -> Bool {
         a < b
     }
 }
@@ -77,7 +77,7 @@ impl Add<Duration, Instant> for Instant {
     /// Add a Duration to an Instant, returning a new Instant.
     //! assert Instant.from_seconds(10) + Duration.seconds(5) == Instant.from_seconds(15)
     //
-    fn add(Instant(nanos), rhs: Duration): Instant {
+    fn add(Instant(nanos), rhs: Duration) -> Instant {
         Instant(nanos + Duration.as_nanos(rhs))
     }
 }
@@ -86,7 +86,7 @@ impl Subtract<Duration, Instant> for Instant {
     /// Move an Instant back by a Duration, returning a new Instant.
     //! assert Instant.from_seconds(15) - Duration.seconds(5) == Instant.from_seconds(10)
     //
-    fn subtract(Instant(nanos), rhs: Duration): Instant {
+    fn subtract(Instant(nanos), rhs: Duration) -> Instant {
         Instant(nanos - Duration.as_nanos(rhs))
     }
 }
@@ -97,7 +97,7 @@ impl Subtract<Instant, Duration> for Instant {
     //! assert Instant.from_seconds(15) - Instant.from_seconds(10) == Duration.seconds(5)
     //! assert Instant.from_seconds(10) - Instant.from_seconds(15) == Duration.seconds(-5)
     //
-    fn subtract(lhs: Instant, rhs: Instant): Duration {
+    fn subtract(lhs: Instant, rhs: Instant) -> Duration {
         Instant.between(rhs, lhs)
     }
 }

@@ -14,19 +14,19 @@ struct Point {
     y: Int
 }
 
-fn nominal_sum(p: Point): Int {
+fn nominal_sum(p: Point) -> Int {
     p.x + p.y
 }
 
-fn record_sum(p: {x: Int, y: Int}): Int {
+fn record_sum(p: {x: Int, y: Int}) -> Int {
     p.x + p.y
 }
 
-fn no_nominal(_p: Point): Bool {
+fn no_nominal(_p: Point) -> Bool {
     False
 }
 
-fn no_record(_p: {x: Int, y: Int}): Bool {
+fn no_record(_p: {x: Int, y: Int}) -> Bool {
     False
 }
 

@@ -14,13 +14,13 @@ func TestIRLoopShapes_Run(t *testing.T) {
 
 fn main() {
     m: Maybe<Int> = Some(3)
-    n = Iter.loop(|n = 0| {
+    n = Iter.loop(fn n = 0 -> {
         if n > 3 { break n }
         if Some(v) = m { n + v } else { n + 1 }
     })
     io.inspect(n)
     xs = [5, 6, 7]
-    found = Iter.loop(|i = 0| {
+    found = Iter.loop(fn i = 0 -> {
         if Some(x) = Iter.get(xs, i) {
             if x == 6 { break i }
             i + 1
@@ -29,26 +29,26 @@ fn main() {
         }
     })
     io.inspect(found)
-    k = Iter.loop(|i = 0| {
+    k = Iter.loop(fn i = 0 -> {
         if Some(x) = Iter.get(xs, i) { break x * 10 } else { i + 1 }
     })
     io.inspect(k)
-    f = Iter.loop(|g = |x: Int| x| {
+    f = Iter.loop(fn g = fn x: Int -> x -> {
         if g(0) > 3 { break g }
-        |x: Int| g(x) + 1
+        fn x: Int -> g(x) + 1
     })
     io.inspect(f(1))
-    fs = Iter.loop(|fs: List<(Int) -> Int> = [|x: Int| x]| {
+    fs = Iter.loop(fn fs: List<(Int) -> Int> = [fn x: Int -> x] -> {
         if Iter.count(fs) >= 3 { break fs }
-        [|x: Int| x * 2, ..fs]
+        [fn x: Int -> x * 2, ..fs]
     })
-    io.inspect(fs |> Iter.map(|h| h(5)) |> Iter.to_list())
-    s = Iter.loop(|a = 0, b = 1| {
+    io.inspect(fs |> Iter.map(fn h -> h(5)) |> Iter.to_list())
+    s = Iter.loop(fn a = 0, b = 1 -> {
         if a > 3 { break a }
         a + b
     })
     io.inspect(s)
-    d = Iter.loop(|a = 0, (b, c) = (1, 2)| {
+    d = Iter.loop(fn a = 0, #(b, c) = #(1, 2) -> {
         if a > 3 { break a }
         a + b + c
     })

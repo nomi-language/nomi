@@ -4,7 +4,7 @@ import {
 }
 
 interface HasName {
-    fn name(value: self): String
+    fn name(value: self) -> String
 }
 
 struct Person {
@@ -12,7 +12,7 @@ struct Person {
 }
 
 impl HasName for Person {
-    fn name(person: Person): String {
+    fn name(person: Person) -> String {
         person.name
     }
 }
@@ -36,15 +36,15 @@ enum Event {
     embeds Click
 }
 
-fn greet(h: HasName): String {
+fn greet(h: HasName) -> String {
     "Hi " + HasName.name(h)
 }
 
-fn echo_struct<T>(x: T): T where T: Struct {
+fn echo_struct<T>(x: T) -> T where T: Struct {
     x
 }
 
-fn count_shapes(shapes: List<Struct>): Int {
+fn count_shapes(shapes: List<Struct>) -> Int {
     Iter.count(shapes)
 }
 
@@ -56,10 +56,10 @@ test "an interface value exposes no fields" {
     diagnostics = compiler.check(
         """
           interface HasName {
-            fn name(value: self): String
+            fn name(value: self) -> String
           }
 
-          fn greet(h: HasName): String {
+          fn greet(h: HasName) -> String {
             h.label
           }
         """
@@ -82,7 +82,7 @@ test "an interface declares no fields" {
 
     assert test_helpers.has_diagnostic?(
         diagnostics,
-        "replace `field name: String` with a function requirement such as `fn name(value: self): String`",
+        "replace `field name: String` with a function requirement such as `fn name(value: self) -> String`",
     )
 }
 
@@ -110,7 +110,7 @@ test "Struct is a universal interface for named and anonymous structs" {
 test "Struct existentials do not expose undeclared fields" {
     diagnostics = compiler.check(
         """
-          fn get_x(s: Struct): Int {
+          fn get_x(s: Struct) -> Int {
             s.x
           }
         """
@@ -123,7 +123,7 @@ test "Struct existentials do not expose undeclared fields" {
 test "Struct bounds reject non-struct values" {
     diagnostics = compiler.check(
         """
-          fn echo_struct<T>(x: T): T where T: Struct {
+          fn echo_struct<T>(x: T) -> T where T: Struct {
             x
           }
 

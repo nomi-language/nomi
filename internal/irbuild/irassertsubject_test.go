@@ -107,19 +107,19 @@ import {
   std/testing
 }
 
-fn find(n: Int): Maybe<String> {
+fn find(n: Int) -> Maybe<String> {
   if n == 1 { Some("Ada") } else { None }
 }
 
-fn ensure_small(n: Int): Result<Int, AssertionFailure> {
+fn ensure_small(n: Int) -> Result<Int, AssertionFailure> {
   limit = 10
   assert n < limit
   assert find(1)
   Ok(n)
 }
 
-fn checked(xs: List<Int>): Result<Bool, AssertionFailure> {
-  held = try testing.check(xs |> Iter.any?(|x| x > 2))
+fn checked(xs: List<Int>) -> Result<Bool, AssertionFailure> {
+  held = try testing.check(xs |> Iter.any?(fn x -> x > 2))
   Ok(held)
 }
 
@@ -143,7 +143,7 @@ test "a check over a pipe inside an ordinary fn" {
 test "a failing piped check reports its pipeline" {
   result = testing.check(
     [1, 2]
-    |> Iter.any?(|x| x > 2)
+    |> Iter.any?(fn x -> x > 2)
   )
   assert result == Ok(True)
 }

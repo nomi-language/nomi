@@ -54,7 +54,7 @@ func TestAsPattern_BindsLooserThanEveryOtherConstruct(t *testing.T) {
 }
 
 func TestAsPattern_EveryNestedPosition(t *testing.T) {
-	tp, ok := caseArmPattern(t, "(Some(_) as a, [x, ..rest] as xs)").(*ast.TuplePattern)
+	tp, ok := caseArmPattern(t, "#(Some(_) as a, [x, ..rest] as xs)").(*ast.TuplePattern)
 	if !ok || len(tp.Patterns) != 2 {
 		t.Fatal("want a two-element tuple pattern")
 	}
@@ -66,7 +66,7 @@ func TestAsPattern_EveryNestedPosition(t *testing.T) {
 		t.Fatal("want a list pattern")
 	}
 	asPatternOf(t, lp.Heads[0], "first")
-	mp, ok := caseArmPattern(t, `{"k" => Ok(v) as found}`).(*ast.MapPattern)
+	mp, ok := caseArmPattern(t, `%{"k" => Ok(v) as found}`).(*ast.MapPattern)
 	if !ok {
 		t.Fatal("want a map pattern")
 	}
@@ -84,7 +84,7 @@ func TestAsPattern_ChainsParse(t *testing.T) {
 }
 
 func TestAsPattern_StatementAndParameterPositions(t *testing.T) {
-	pb := parsePatternBinding(t, "(a, b) as pair = make()")
+	pb := parsePatternBinding(t, "#(a, b) as pair = make()")
 	asPatternOf(t, pb.Pattern, "pair")
 
 	pb = parsePatternBinding(t, "Some(n) as m = find() else { return 0 }")
@@ -93,7 +93,7 @@ func TestAsPattern_StatementAndParameterPositions(t *testing.T) {
 		t.Fatal("want the else")
 	}
 
-	f, ok := parse(t, "fn f(Point{x, y} as p: Point): Int { x }")[0].(*ast.FuncDef)
+	f, ok := parse(t, "fn f(Point{x, y} as p: Point) -> Int { x }")[0].(*ast.FuncDef)
 	if !ok || len(f.Params) != 1 {
 		t.Fatal("want a function with one parameter")
 	}

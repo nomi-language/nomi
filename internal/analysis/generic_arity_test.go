@@ -31,7 +31,7 @@ const plantedUnderApplication = `struct Box<T> {
   inner: T
 }
 
-fn take(b: Box): Int {
+fn take(b: Box) -> Int {
   b.inner
 }
 `
@@ -222,7 +222,7 @@ func TestGenericArity_RejectsAtTheDeclaration(t *testing.T) {
 }
 
 interface Shown<T> {
-  fn show(b: T): String
+  fn show(b: T) -> String
 }
 
 `
@@ -236,18 +236,18 @@ interface Shown<T> {
 	}{
 		{
 			name: "return type",
-			src:  "fn make(): Box {\n  Box{inner: 1}\n}\n",
+			src:  "fn make() -> Box {\n  Box{inner: 1}\n}\n",
 			want: "`Box` expects 1 type argument, got 0",
-			line: 9, col: 12,
+			line: 9, col: 14,
 			// No `nothing` here: an unresolvable RETURN type falls back to
 			// Unit and the body then reports `expected Unit`. That cascade is
-			// pre-existing and not this rule's — `fn f(): Nope { 1 }` reports
+			// pre-existing and not this rule's — `fn f() -> Nope { 1 }` reports
 			// `unknown type "Nope"` followed by
 			// `return type mismatch: expected Unit, got Int`.
 		},
 		{
 			name: "parameter type",
-			src:  "fn take(b: Box): Int {\n  b.inner\n}\n",
+			src:  "fn take(b: Box) -> Int {\n  b.inner\n}\n",
 			want: "`Box` expects 1 type argument, got 0",
 			line: 9, col: 12,
 			nothing: []string{"return type mismatch"},
@@ -260,13 +260,13 @@ interface Shown<T> {
 		},
 		{
 			name: "nested type argument",
-			src:  "fn each(_xs: List<Box>): Int {\n  0\n}\n",
+			src:  "fn each(_xs: List<Box>) -> Int {\n  0\n}\n",
 			want: "`Box` expects 1 type argument, got 0",
 			line: 9, col: 19,
 		},
 		{
 			name: "binding annotation",
-			src:  "fn go(): Int {\n  held: Box = Box{inner: 1}\n  1\n}\n",
+			src:  "fn go() -> Int {\n  held: Box = Box{inner: 1}\n  1\n}\n",
 			want: "`Box` expects 1 type argument, got 0",
 			line: 10, col: 9,
 		},
@@ -296,19 +296,19 @@ interface Shown<T> {
 		},
 		{
 			name: "interface method signature",
-			src:  "interface Handles {\n  fn handle(b: Box): Int\n}\n",
+			src:  "interface Handles {\n  fn handle(b: Box) -> Int\n}\n",
 			want: "`Box` expects 1 type argument, got 0",
 			line: 10, col: 16,
 		},
 		{
 			name: "where-clause bound",
-			src:  "fn shown<T>(_x: T): Int where T: Shown {\n  0\n}\n",
+			src:  "fn shown<T>(_x: T) -> Int where T: Shown {\n  0\n}\n",
 			want: "`Shown` expects 1 type argument, got 0",
-			line: 9, col: 34,
+			line: 9, col: 36,
 		},
 		{
 			name: "too many type arguments",
-			src:  "fn take(_b: Box<Int, Int>): Int {\n  0\n}\n",
+			src:  "fn take(_b: Box<Int, Int>) -> Int {\n  0\n}\n",
 			want: "`Box` expects 1 type argument, got 2",
 			line: 9, col: 13,
 		},
@@ -319,7 +319,7 @@ interface Shown<T> {
 			// diagnostic lands on the leading segment, which is where the
 			// unknown-type error for the same node already lands.
 			name: "dotted type name",
-			src:  "pub struct Probe.Held<T> {\n  inner: T\n}\n\nfn take(_h: Probe.Held): Int {\n  0\n}\n",
+			src:  "pub struct Probe.Held<T> {\n  inner: T\n}\n\nfn take(_h: Probe.Held) -> Int {\n  0\n}\n",
 			want: "`Probe.Held` expects 1 type argument, got 0",
 			line: 13, col: 13,
 		},
@@ -373,7 +373,7 @@ enum Pick<T> {
   Named { held: T }
 }
 
-fn unwrap<T>(b: Box<T>): T {
+fn unwrap<T>(b: Box<T>) -> T {
   b.inner
 }
 `,
@@ -387,7 +387,7 @@ fn unwrap<T>(b: Box<T>): T {
 			// std/toml and std/calendar all depend on this spelling.
 			name: "impl interface header with no type arguments",
 			src: `interface Shown<T> {
-  fn show(x: T): String
+  fn show(x: T) -> String
 }
 
 struct Tag {
@@ -395,7 +395,7 @@ struct Tag {
 }
 
 impl Shown for Tag {
-  fn show(_x: Int): String {
+  fn show(_x: Int) -> String {
     "tagged"
   }
 }
@@ -411,7 +411,7 @@ impl Shown for Tag {
   inner: T
 }
 
-fn go(): Int {
+fn go() -> Int {
   b = Box{inner: 1}
   b.inner
 }
@@ -423,7 +423,7 @@ fn go(): Int {
   inner: T
 }
 
-fn take(b: Box<Int>): Int {
+fn take(b: Box<Int>) -> Int {
   b.inner
 }
 
@@ -438,10 +438,10 @@ struct Holder {
 			// `where T: Comparable and Steppable<S>`.
 			name: "where bound on a generic interface with its argument",
 			src: `interface Shown<T> {
-  fn show(x: T): String
+  fn show(x: T) -> String
 }
 
-fn render<T, U>(_x: T): String where T: Shown<U> {
+fn render<T, U>(_x: T) -> String where T: Shown<U> {
   "ok"
 }
 `,

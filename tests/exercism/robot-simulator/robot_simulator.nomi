@@ -8,7 +8,7 @@ pub enum Direction {
 
 impl Direction {
     /// The direction a quarter turn clockwise.
-    pub fn right(direction: Direction): Direction {
+    pub fn right(direction: Direction) -> Direction {
         case direction {
             .North -> .East
             .East -> .South
@@ -18,7 +18,7 @@ impl Direction {
     }
 
     /// The direction a quarter turn counter-clockwise.
-    pub fn left(direction: Direction): Direction {
+    pub fn left(direction: Direction) -> Direction {
         case direction {
             .North -> .West
             .West -> .South
@@ -44,8 +44,8 @@ impl Robot {
     /// Runs a string of instructions, one letter each: `R` turns right, `L`
     /// turns left and `A` advances one step. Stops at the first letter it
     /// does not know.
-    pub fn move(robot: Robot, instructions: String): Result<Robot, Error> {
-        Iter.reduce(instructions, |result = Ok(robot), letter| {
+    pub fn move(robot: Robot, instructions: String) -> Result<Robot, Error> {
+        Iter.reduce(instructions, fn result = Ok(robot), letter -> {
             robot = try result
             step(robot, letter)
         })
@@ -57,7 +57,7 @@ pub enum Error {
     UnknownInstruction String
 }
 
-fn step(robot: Robot, letter: String): Result<Robot, Error> {
+fn step(robot: Robot, letter: String) -> Result<Robot, Error> {
     case letter {
         "R" -> Ok({..robot, direction: Direction.right(robot.direction)})
         "L" -> Ok({..robot, direction: Direction.left(robot.direction)})
@@ -66,7 +66,7 @@ fn step(robot: Robot, letter: String): Result<Robot, Error> {
     }
 }
 
-fn advance(Position{x, y}, direction: Direction): Position {
+fn advance(Position{x, y}, direction: Direction) -> Position {
     case direction {
         .North -> {x, y: y + 1}
         .East -> {x: x + 1, y}

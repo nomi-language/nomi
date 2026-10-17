@@ -74,7 +74,7 @@ pub struct AssertionDetails {
 /// `failure(value)` returns `None` when the value passes, or `Some(details)`
 /// when it fails. The runtime wraps those details in an `AssertionFailure`.
 pub interface Assertable {
-    fn failure(value: self): Maybe<AssertionDetails>
+    fn failure(value: self) -> Maybe<AssertionDetails>
 }
 
 /// Structured failure produced by `assert`, `refute`, `testing.check` and
@@ -123,5 +123,5 @@ impl AssertionFailure {
     //!
     //! assert String.contains?(AssertionFailure.format(failure), "assert False")
     //
-    pub host fn format(failure: AssertionFailure): String
+    pub host fn format(failure: AssertionFailure) -> String
 }

@@ -110,7 +110,7 @@ func TestRun_WriteBySelectiveImport(t *testing.T) {
 }
 
 func TestRun_AFaultExitsOneWithItsText(t *testing.T) {
-	img := image(t, "import std/io\n\nfn d(a: Int, b: Int): Int {\n  a / b\n}\n\nfn main() {\n  io.print(d(1, 0))\n}\n")
+	img := image(t, "import std/io\n\nfn d(a: Int, b: Int) -> Int {\n  a / b\n}\n\nfn main() {\n  io.print(d(1, 0))\n}\n")
 	var out, errOut bytes.Buffer
 	if code := vmrunner.Run(img, &out, &errOut, nil, nil, false); code != 1 || !strings.Contains(errOut.String(), "division by zero") {
 		t.Fatalf("exit %d, stderr %q", code, errOut.String())
@@ -163,7 +163,7 @@ func TestReadImage_ADamagedTrailerIsAnError(t *testing.T) {
 // reported by a built executable as an internal compiler error with a request
 // to report it, not as a Go crash or a BLOCKED machine limit.
 func TestRun_ACompilePanicIsAnInternalCompilerError(t *testing.T) {
-	img := image(t, "import std/io\n\nfn planted_compile_panic_target(): Int {\n  1\n}\n\n"+
+	img := image(t, "import std/io\n\nfn planted_compile_panic_target() -> Int {\n  1\n}\n\n"+
 		"fn main() {\n  io.print(\"before\")\n  io.print(planted_compile_panic_target())\n}\n")
 	vm.CompileHook = func(f *ir.Func) {
 		if f.Name() == "planted_compile_panic_target" {

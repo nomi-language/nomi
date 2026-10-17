@@ -11,7 +11,7 @@ func TestReturnOnlyParam_TheExpectedTypeMustMeetTheBound(t *testing.T) {
     n: Int
 }
 
-fn first<T>(): Maybe<T> where T: Variants {
+fn first<T>() -> Maybe<T> where T: Variants {
     T.variants() |> List.head()
 }
 

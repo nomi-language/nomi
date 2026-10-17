@@ -71,7 +71,7 @@ func expectOneLoopError(t *testing.T, errs []analysis.TypeError, msg string, lin
 	if e.Message != msg || e.Line != line || e.Col != col {
 		t.Fatalf("got %q at %d:%d, want %q at %d:%d", e.Message, e.Line, e.Col, msg, line, col)
 	}
-	const help = "to end with a value, give the loop a state, as in `Iter.loop(|n = 0| …)` with `break n`; or write `break` alone"
+	const help = "to end with a value, give the loop a state, as in `Iter.loop(fn n = 0 -> …)` with `break n`; or write `break` alone"
 	if len(e.Hints) != 1 || e.Hints[0] != help {
 		t.Fatalf("hints: got %q, want [%q]", e.Hints, help)
 	}
@@ -81,12 +81,12 @@ func expectOneLoopError(t *testing.T, errs []analysis.TypeError, msg string, lin
 // is an error at the value.
 func TestLoopState_StatelessBreakValueRejected(t *testing.T) {
 	expectOneLoopError(t, checkLoopSource(t, `fn main() {
-  Iter.loop(|| { break 42 })
-}`), "a stateless `Iter.loop` answers Unit, so `break` cannot give it Int", 2, 24)
+  Iter.loop(fn -> { break 42 })
+}`), "a stateless `Iter.loop` answers Unit, so `break` cannot give it Int", 2, 27)
 	expectOneLoopError(t, checkLoopSource(t, `import std/io
 
 fn main() {
-  Iter.loop(|| {
+  Iter.loop(fn -> {
     Ok(line) = io.read_line() else { break }
     case String.to_int(line) {
       Some(v) -> break v
@@ -99,10 +99,10 @@ fn main() {
 // A stateless loop's callback result is its next state, Unit, so a body
 // ending in a value of another type is an error at that value.
 func TestLoopState_StatelessTailValueRejected(t *testing.T) {
-	expectOneLoopError(t, checkLoopSource(t, `fn pick(): Bool { True }
+	expectOneLoopError(t, checkLoopSource(t, `fn pick() -> Bool { True }
 
 fn main() {
-  Iter.loop(|| {
+  Iter.loop(fn -> {
     if pick() { break }
     1 + 2
   })
@@ -114,10 +114,10 @@ fn main() {
 func TestLoopState_StatelessLoopIsUnit(t *testing.T) {
 	expectClean(t, checkLoopSource(t, `import std/io
 
-fn pick(): Bool { True }
+fn pick() -> Bool { True }
 
 fn main() {
-  u: Unit = Iter.loop(|| {
+  u: Unit = Iter.loop(fn -> {
     if pick() { break Unit }
     if pick() { continue }
     if pick() { break }
@@ -127,7 +127,7 @@ fn main() {
 }`))
 	// The loop is Unit, not Int, so it does not stand where an Int is wanted.
 	errs := checkLoopSource(t, `fn main() {
-  n: Int = Iter.loop(|| { break })
+  n: Int = Iter.loop(fn -> { break })
   _ = n
 }`)
 	if len(errs) == 0 {
@@ -139,20 +139,20 @@ fn main() {
 // A loop that breaks with a value of a type parameter takes that type from a
 // state seeded with it.
 func TestLoopState_GenericBreakValueFromASeededState(t *testing.T) {
-	src := `fn id_loop<T>(x: T): T {
-  Iter.loop(|_seed = x| { break x })
+	src := `fn id_loop<T>(x: T) -> T {
+  Iter.loop(fn _seed = x -> { break x })
 }
-fn main(): Unit {}`
+fn main() -> Unit {}`
 	expectClean(t, checkWithStdlib(src))
 }
 
 // Two breaks with incompatible types in one loop are rejected.
 func TestLoopState_ConflictingBreakTypesRejected(t *testing.T) {
-	src := `fn pick(): Bool {
+	src := `fn pick() -> Bool {
   True
 }
-fn use_loop(): Int {
-  Iter.loop(|n = 0| {
+fn use_loop() -> Int {
+  Iter.loop(fn n = 0 -> {
     if pick() { break n }
     break "two"
   })
@@ -160,18 +160,18 @@ fn use_loop(): Int {
 	expectErrorContaining(t, checkWithStdlib(src), "break value type mismatch")
 }
 
-// A stateless `Iter.loop(|| break)` (bare break, no value) still infers Unit.
+// A stateless `Iter.loop(fn -> break)` (bare break, no value) still infers Unit.
 func TestLoopState_BareBreakStillUnit(t *testing.T) {
-	src := `fn main(): Unit {
-  Iter.loop(|| { break })
+	src := `fn main() -> Unit {
+  Iter.loop(fn -> { break })
 }`
 	expectClean(t, checkWithStdlib(src))
 }
 
 // A stated loop is unchanged — S comes from the default, break matches it.
 func TestLoopState_StatedLoopUnchanged(t *testing.T) {
-	src := `fn use_loop(): Int {
-  Iter.loop(|n = 0|
+	src := `fn use_loop() -> Int {
+  Iter.loop(fn n = 0 ->
     if n >= 3 { break n } else { n + 1 })
 }`
 	expectClean(t, checkWithStdlib(src))
@@ -180,8 +180,8 @@ func TestLoopState_StatedLoopUnchanged(t *testing.T) {
 // `loop` is not prelude-exported — a bare `loop(...)` call with no import
 // is an unknown name, like any other un-imported stdlib function.
 func TestLoop_BareNameWithoutImportRejected(t *testing.T) {
-	src := `fn main(): Unit {
-  loop(|| { break })
+	src := `fn main() -> Unit {
+  loop(fn -> { break })
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "undefined variable 'loop'")
 }
@@ -191,8 +191,8 @@ func TestLoop_BareNameWithoutImportRejected(t *testing.T) {
 // iter-callback position, so `break` inside the callback stays legal.
 func TestLoop_SelectiveImportBareSpellingWithBreak(t *testing.T) {
 	src := `import std/iter.Iter.{loop}
-fn main(): Unit {
-  n = loop(|n = 0| if n > 2 { break n } else { n + 1 })
+fn main() -> Unit {
+  n = loop(fn n = 0 -> if n > 2 { break n } else { n + 1 })
 }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
@@ -212,9 +212,9 @@ fn main(): Unit {
 // legality rests on discovering the imported owner scope through the alias.
 func TestIterCallback_ImportAliasWithBreak(t *testing.T) {
 	src := `import std/iter.Iter as It
-fn main(): Unit {
+fn main() -> Unit {
   xs = [1, 2, 3]
-  ys = It.map(xs, |x| if x == 2 { break } else { x })
+  ys = It.map(xs, fn x -> if x == 2 { break } else { x })
 }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
@@ -232,8 +232,8 @@ fn main(): Unit {
 // error: the break value's type must match the state's type (spec §12,
 // *`loop`*).
 func TestLoopState_StatedLoopBreakMismatchStillErrors(t *testing.T) {
-	src := `fn use_loop(): Int {
-  Iter.loop(|n = 0|
+	src := `fn use_loop() -> Int {
+  Iter.loop(fn n = 0 ->
     if n >= 3 { break "done" } else { n + 1 })
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "break value type mismatch")
@@ -253,12 +253,12 @@ func TestIterCallback_MapOwnerCallback(t *testing.T) {
 		errs = append(errs, analysis.CheckTypes(fa, nodes)...)
 		return append(errs, analysis.AnalyzeIterSensitivity(fa, nodes)...)
 	}
-	expectClean(t, check(`fn f(m: Map<String, Int>): Map<String, Int> {
-  Map.map_values(m, |v| if v > 9 { break } else { v + 1 })
+	expectClean(t, check(`fn f(m: Map<String, Int>) -> Map<String, Int> {
+  Map.map_values(m, fn v -> if v > 9 { break } else { v + 1 })
 }`))
-	expectErrorContaining(t, check(`fn apply(f: (Int) -> Int): Int { f(1) }
-fn f(): Int {
-  apply(|v| if v > 9 { break } else { v + 1 })
+	expectErrorContaining(t, check(`fn apply(f: (Int) -> Int) -> Int { f(1) }
+fn f() -> Int {
+  apply(fn v -> if v > 9 { break } else { v + 1 })
 }`), "break")
 }
 
@@ -270,16 +270,16 @@ func TestLoopState_BareBreakInAStatedLoopHasTheStateType(t *testing.T) {
   balance: Int = 0
 }
 
-fn open(inputs: List<Int>): Account {
-  Iter.loop(|account = Account{}| {
+fn open(inputs: List<Int>) -> Account {
+  Iter.loop(fn account = Account{} -> {
     if Iter.empty?(inputs) { break }
     if account.balance > 3 { break {..account, balance: 0} }
     {..account, balance: account.balance + 1}
   })
 }
 
-fn count(): Int {
-  Iter.loop(|n = 0| if n > 3 { break } else { n + 1 })
+fn count() -> Int {
+  Iter.loop(fn n = 0 -> if n > 3 { break } else { n + 1 })
 }`
 	expectClean(t, checkWithStdlib(src))
 }

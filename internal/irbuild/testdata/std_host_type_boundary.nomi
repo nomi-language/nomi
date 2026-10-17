@@ -47,11 +47,11 @@ import std/io
 /// That is the cross-gen match made explicit: this parameter's kind is built in
 /// the entry module's own gen and the argument's kind came out of the stdlib
 /// index's, and the two must be the same kind for the call to lower at all.
-fn dump(data: Bytes): String {
+fn dump(data: Bytes) -> String {
     dump_from(data, 0)
 }
 
-fn dump_from(data: Bytes, i: Int): String {
+fn dump_from(data: Bytes, i: Int) -> String {
     if i >= Bytes.length(data) {
         ""
     } else {
@@ -67,18 +67,18 @@ fn dump_from(data: Bytes, i: Int): String {
 /// A USER function whose RESULT is the stdlib primitive — the other direction,
 /// and not redundant: a projection can be right in one position and wrong in
 /// the other, which is why hostFnFor checks parameters and results separately.
-fn head_two(data: Bytes): Bytes {
+fn head_two(data: Bytes) -> Bytes {
     Bytes.slice(data, 0, 2)
 }
 
-fn byte_of(n: Int): String {
+fn byte_of(n: Int) -> String {
     case Byte.from_int(n) {
         Some(b) -> "${Byte.to_int(b)}"
         None -> "out of range"
     }
 }
 
-fn at_or(data: Bytes, i: Int): String {
+fn at_or(data: Bytes, i: Int) -> String {
     case Bytes.get(data, i) {
         Some(b) -> "${Byte.to_int(b)}"
         None -> "none"

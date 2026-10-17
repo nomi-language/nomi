@@ -28,12 +28,12 @@ import std/compiler.{self, Diagnostic}
 // `03-tooling-and-diagnostics` cases spell it: those share the helper across
 // several files, this one does not, and a sibling file is its own corpus
 // record.
-fn has_diagnostic?(diagnostics: List<Diagnostic>, text: String): Bool {
-    Iter.any?(diagnostics, |diagnostic| String.contains?(diagnostic.message, text))
+fn has_diagnostic?(diagnostics: List<Diagnostic>, text: String) -> Bool {
+    Iter.any?(diagnostics, fn diagnostic -> String.contains?(diagnostic.message, text))
 }
 
 interface Clock {
-    fn at(c: self): Int
+    fn at(c: self) -> Int
 }
 
 struct FakeClock {
@@ -41,7 +41,7 @@ struct FakeClock {
 }
 
 impl Clock for FakeClock {
-    fn at(c: FakeClock): Int {
+    fn at(c: FakeClock) -> Int {
         c.t
     }
 }
@@ -87,7 +87,7 @@ test "an interface-typed default that does not implement is refused at the decla
     diagnostics = compiler.check(
         """
           interface Ticker {
-            fn tick(t: self): Int
+            fn tick(t: self) -> Int
           }
 
           struct NoTicker {

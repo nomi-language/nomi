@@ -58,7 +58,7 @@ struct Bag {
 }
 
 interface Shown {
-    fn to_string(v: self): String
+    fn to_string(v: self) -> String
 }
 
 struct Amount {
@@ -66,13 +66,13 @@ struct Amount {
 }
 
 impl Shown for Amount {
-    fn to_string(a: Amount): String {
+    fn to_string(a: Amount) -> String {
         "${a.cents}c"
     }
 }
 
 // The failing order: the untyped literal FIRST.
-fn first_empty(t: Tag, n: Int): List<Int> {
+fn first_empty(t: Tag, n: Int) -> List<Int> {
     case t {
         Tag.Drop -> []
         Tag.Keep -> [n]
@@ -80,7 +80,7 @@ fn first_empty(t: Tag, n: Int): List<Int> {
 }
 
 // The order that already lowered, so a regression in it is visible.
-fn last_empty(t: Tag, n: Int): List<Int> {
+fn last_empty(t: Tag, n: Int) -> List<Int> {
     case t {
         Tag.Keep -> [n]
         Tag.Drop -> []
@@ -88,7 +88,7 @@ fn last_empty(t: Tag, n: Int): List<Int> {
 }
 
 // The untyped arm BETWEEN two typed ones.
-fn middle_empty(n: Int): List<Int> {
+fn middle_empty(n: Int) -> List<Int> {
     case n {
         0 -> [0]
         1 -> []
@@ -97,13 +97,13 @@ fn middle_empty(n: Int): List<Int> {
 }
 
 // `if` rather than `case`, untyped arm first.
-fn if_empty(keep: Bool, n: Int): List<Int> {
+fn if_empty(keep: Bool, n: Int) -> List<Int> {
     if keep { [] } else { [n] }
 }
 
 // An `else if` chain, so the untyped arm is reconciled through ifInto's
 // recursive else route rather than through its block route.
-fn if_chain(n: Int): List<Int> {
+fn if_chain(n: Int) -> List<Int> {
     if Int.equal?(n, 0) {
         []
     } else if Int.equal?(n, 1) {
@@ -114,7 +114,7 @@ fn if_chain(n: Int): List<Int> {
 }
 
 // A bare `None` first.
-fn first_none(t: Tag, n: Int): Maybe<Int> {
+fn first_none(t: Tag, n: Int) -> Maybe<Int> {
     case t {
         Tag.Drop -> None
         Tag.Keep -> Some(n)
@@ -122,10 +122,10 @@ fn first_none(t: Tag, n: Int): Maybe<Int> {
 }
 
 // An empty MAP first.
-fn first_empty_map(t: Tag, n: Int): Map<String, Int> {
+fn first_empty_map(t: Tag, n: Int) -> Map<String, Int> {
     case t {
         Tag.Drop -> Map.empty()
-        Tag.Keep -> {"n" => n}
+        Tag.Keep -> %{"n" => n}
     }
 }
 
@@ -139,14 +139,14 @@ fn first_empty_map(t: Tag, n: Int): Map<String, Int> {
 // their `want` is the declared return kind and the kindInvalid branch is never
 // taken. A real coverage gap, not a redundancy — and the two are told apart by
 // asking which `want` each arrival carries, not by how the mutant presented.
-fn bound(keep: Bool, n: Int): String {
+fn bound(keep: Bool, n: Int) -> String {
     ys = if keep { [] } else { [n] }
 
     "${ys}"
 }
 
 // An empty SET first.
-fn first_empty_set(t: Tag, n: Int): Set<Int> {
+fn first_empty_set(t: Tag, n: Int) -> Set<Int> {
     case t {
         Tag.Drop -> #{}
         Tag.Keep -> #{n}
@@ -162,7 +162,7 @@ fn first_empty_set(t: Tag, n: Int): Set<Int> {
 // fixture must not trip over. The corpus witness has the same shape: in
 // 17-typed-literals/typed_literals/sql.nomi the arm is `[v]` where `v` is
 // already the interface-typed payload of `.Dynamic(v)`.
-fn describe(t: Tag, s: Shown): List<Shown> {
+fn describe(t: Tag, s: Shown) -> List<Shown> {
     case t {
         Tag.Drop -> []
         Tag.Keep -> [s]
@@ -170,7 +170,7 @@ fn describe(t: Tag, s: Shown): List<Shown> {
 }
 
 // The CASCADE shape: the case is a struct literal's FIELD VALUE.
-fn bag(t: Tag, n: Int): Bag {
+fn bag(t: Tag, n: Int) -> Bag {
     Bag{
         items: case t {
             Tag.Drop -> []
@@ -183,7 +183,7 @@ fn bag(t: Tag, n: Int): Bag {
 // A `Maybe` is not a renderable value in this builder (`rendering a non-scalar
 // value`), so it is shown through a `case` rather than interpolated — the same
 // reason `Result` is in testdata/pipe_keyword_stages.nomi.
-fn show_maybe(m: Maybe<Int>): String {
+fn show_maybe(m: Maybe<Int>) -> String {
     case m {
         Some(n) -> "Some(${n})"
         None -> "None"
@@ -207,7 +207,7 @@ fn main() {
 
     shown =
         describe(Tag.Keep, Amount{cents: 99})
-        |> Iter.map(|d: Shown| Shown.to_string(d))
+        |> Iter.map(fn d: Shown -> Shown.to_string(d))
         |> Iter.to_list()
 
     io.print("describe = ${shown} ${Iter.count(describe(Tag.Drop, Amount{cents: 1}))}")

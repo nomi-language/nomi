@@ -18,7 +18,7 @@ func TestPreludeLifecycleProject(t *testing.T) {
 	src := `import std/calendar.Date
  struct App { context: Context
  count: Int }
- fn boot(startup: Startup): App {
+ fn boot(startup: Startup) -> App {
   App{context: Context.root(), count: Map.size(startup.env)}
  }
  fn main() {

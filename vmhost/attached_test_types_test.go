@@ -20,7 +20,7 @@ impl User {
     //! Tag(s) = t
     //! io.print(s)
     //! assert t == Tag("hi a")
-    pub fn greet(u: User): String {
+    pub fn greet(u: User) -> String {
         "hi ${u.name}"
     }
 }
@@ -29,7 +29,7 @@ impl User {
 //! traced = Some(TraceId("trace-123"))
 //! io.inspect(traced)
 //! assert traced == Some(TraceId("trace-123"))
-fn answer(): Int {
+fn answer() -> Int {
     42
 }
 `

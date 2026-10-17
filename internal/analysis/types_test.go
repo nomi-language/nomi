@@ -63,7 +63,7 @@ func TestFuncTypeStringNilReturn(t *testing.T) {
 
 func TestTupleString(t *testing.T) {
 	tu := &TupleType{Elems: []Type{TypeInt, TypeString}}
-	want := "(Int, String)"
+	want := "#(Int, String)"
 	if got := tu.String(); got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}

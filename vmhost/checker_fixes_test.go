@@ -14,15 +14,15 @@ var checkerFixPrograms = []struct {
 }{
 	{
 		// A generic opaque type's parameter (Vector<T>) is one of the
-		// function's type parameters: `|v: T|` names the T of the signature,
+		// function's type parameters: `fn v: T ->` names the T of the signature,
 		// and the elements next_item yields are that T.
 		name: "type parameter only inside an opaque type",
 		src: `import std/io
 
-fn heads<T>(a: Vector<T>, b: Vector<T>): Int {
-    case (Vector.next_item(a), Vector.next_item(b)) {
-        (Some((x, _)), Some((y, _))) -> {
-            keep = |v: T| v
+fn heads<T>(a: Vector<T>, b: Vector<T>) -> Int {
+    case #(Vector.next_item(a), Vector.next_item(b)) {
+        #(Some(#(x, _)), Some(#(y, _))) -> {
+            keep = fn v: T -> v
             _ = keep(x)
             _ = keep(y)
             2
@@ -60,18 +60,18 @@ enum Slot<T> {
 }
 
 fn main() {
-    f: Box<(Int) -> Int> = Box{v: |x| x + 1}
+    f: Box<(Int) -> Int> = Box{v: fn x -> x + 1}
     io.inspect(f.v(2))
-    c: Box<(Int) -> Int> = Box({v: |x| x * 10})
+    c: Box<(Int) -> Int> = Box({v: fn x -> x * 10})
     io.inspect(c.v(2))
-    h: Pair<Int, (Int) -> String> = Pair{a: 1, b: |n| "n=${n}"}
+    h: Pair<Int, (Int) -> String> = Pair{a: 1, b: fn n -> "n=${n}"}
     io.print(h.b(h.a))
-    g: Maybe<(Int) -> Int> = Some(|x| x * 3)
+    g: Maybe<(Int) -> Int> = Some(fn x -> x * 3)
     case g {
         Some(k) -> io.inspect(k(2))
         None -> io.print("none")
     }
-    s: Slot<(Int) -> Int> = Slot.Full(|x| x - 1)
+    s: Slot<(Int) -> Int> = Slot.Full(fn x -> x - 1)
     case s {
         Slot.Full(k) -> io.inspect(k(2))
         Slot.Empty -> io.print("empty")
@@ -88,7 +88,7 @@ fn main() {
 		src: `import std/io
 
 once g = {
-    fn h(x: Int): Int {
+    fn h(x: Int) -> Int {
         x + 1
     }
     h(4)
@@ -100,7 +100,7 @@ struct Box {
 
 impl Box {
     once start = {
-        fn double(x: Int): Int {
+        fn double(x: Int) -> Int {
             x * 2
         }
         double(21)

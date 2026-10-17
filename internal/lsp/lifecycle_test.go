@@ -423,10 +423,10 @@ func TestCompletion_StaleAnalysisMapsPositions(t *testing.T) {
 	s := NewServer()
 	s.snippetSupport = true
 	uri := "file:///stale.nomi"
-	old := "fn f(count: Int): Int {\n    total = count + 1\n    total\n}\n"
+	old := "fn f(count: Int) -> Int {\n    total = count + 1\n    total\n}\n"
 	s.docs.Open(uri, old)
 
-	src := "// a comment\n// and another\n\nfn f(count: Int): Int {\n    total = count + 1\n    tot" + cursorMark + "\n    total\n}\n"
+	src := "// a comment\n// and another\n\nfn f(count: Int) -> Int {\n    total = count + 1\n    tot" + cursorMark + "\n    total\n}\n"
 	text, pos := splitCursor(t, src)
 	s.docs.SetText(uri, text)
 	if snap := s.docs.Snapshot(uri); snap.Current() {
@@ -435,7 +435,7 @@ func TestCompletion_StaleAnalysisMapsPositions(t *testing.T) {
 	items := completeAt(t, s, uri, pos)
 	labelsInclude(t, items, "total")
 
-	src = "\n\nfn f(count: Int): Int {\n    total = count + 1\n    jso" + cursorMark + "\n    total\n}\n"
+	src = "\n\nfn f(count: Int) -> Int {\n    total = count + 1\n    jso" + cursorMark + "\n    total\n}\n"
 	text, pos = splitCursor(t, src)
 	s.docs.SetText(uri, text)
 	items = completeAt(t, s, uri, pos)

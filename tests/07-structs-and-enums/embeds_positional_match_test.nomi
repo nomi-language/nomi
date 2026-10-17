@@ -27,14 +27,14 @@ enum Shape {
     Line
 }
 
-fn positional(s: Shape): Int {
+fn positional(s: Shape) -> Int {
     case s {
         Shape.Circle(c) -> c.r
         Shape.Line -> 0
     }
 }
 
-fn struct_form(s: Shape): Int {
+fn struct_form(s: Shape) -> Int {
     case s {
         Shape.Circle{r} -> r
         Shape.Line -> 0

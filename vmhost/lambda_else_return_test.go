@@ -17,7 +17,7 @@ func TestLambdaElseReturn_RunsInEveryCallback(t *testing.T) {
 	got := runSourceOutput(t, `import std/io
 
 fn a() {
-    Iter.each([1.5, -2.0], |f| {
+    Iter.each([1.5, -2.0], fn f -> {
         Some(d) = Decimal.from_float(f, 1, .HalfUp) else { return Unit }
         io.print("a ${d}")
     })
@@ -25,7 +25,7 @@ fn a() {
 
 fn b() {
     xs = [Some(1), None, Some(3)]
-        |> Iter.map(|m| {
+        |> Iter.map(fn m -> {
             Some(v) = m else { return 0 }
             v * 10
         })
@@ -34,7 +34,7 @@ fn b() {
 }
 
 fn c() {
-    Iter.each([1, 2, 3], |n| {
+    Iter.each([1, 2, 3], fn n -> {
         if n == 2 {
             io.print("c skip")
             return
@@ -44,8 +44,8 @@ fn c() {
 }
 
 fn d() {
-    Iter.each([[Some(1), None], [Some(2)]], |row| {
-        Iter.each(row, |m| {
+    Iter.each([[Some(1), None], [Some(2)]], fn row -> {
+        Iter.each(row, fn m -> {
             Some(v) = m else { return }
             io.print("d ${v}")
         })
@@ -53,7 +53,7 @@ fn d() {
 }
 
 fn e() {
-    show = |m: Maybe<Int>| {
+    show = fn m: Maybe<Int> -> {
         Some(v) = m else { return }
         io.print("e ${v}")
     }
@@ -63,7 +63,7 @@ fn e() {
 
 fn f() {
     ys = [Some(1), None, Some(4)]
-        |> Iter.filter(|m| {
+        |> Iter.filter(fn m -> {
             Some(v) = m else { return False }
             v > 2
         })
@@ -72,7 +72,7 @@ fn f() {
 }
 
 fn g() {
-    z = Maybe.map(Some(Some(5)), |m| {
+    z = Maybe.map(Some(Some(5)), fn m -> {
         Some(v) = m else { return 0 }
         v + 1
     })
@@ -80,7 +80,7 @@ fn g() {
 }
 
 fn h() {
-    r = Iter.loop(|i = 0| {
+    r = Iter.loop(fn i = 0 -> {
         if i >= 4 {
             break i
         }
@@ -92,7 +92,7 @@ fn h() {
 }
 
 fn i() {
-    Iter.each([Some(1), None], |m| {
+    Iter.each([Some(1), None], fn m -> {
         case m {
             Some(v) -> io.print("i ${v}")
             None -> return
@@ -102,7 +102,7 @@ fn i() {
 }
 
 fn j() {
-    Iter.each([Some(1), None], |m| {
+    Iter.each([Some(1), None], fn m -> {
         Some(v) = m else {
             io.print("j none")
             return
@@ -112,7 +112,7 @@ fn j() {
 }
 
 fn k() {
-    Iter.each([Ok(1), Err("x")], |r| {
+    Iter.each([Ok(1), Err("x")], fn r -> {
         Ok(v) = r else {
             Err(e) -> {
                 io.print("k ${e}")
@@ -161,7 +161,7 @@ func TestLambdaElseReturn_DecimalFromFloat(t *testing.T) {
 	got := runSourceOutput(t, `import std/io
 
 fn main() {
-    Iter.each([212.0, 33.8, 2.675, -0.05], |f| {
+    Iter.each([212.0, 33.8, 2.675, -0.05], fn f -> {
         Some(d) = Decimal.from_float(f, 1, .HalfUp) else { return }
         io.print("${f} -> ${d}")
     })

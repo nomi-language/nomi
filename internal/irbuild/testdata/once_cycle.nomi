@@ -12,7 +12,7 @@
 // lock.
 import std/io
 
-fn read_seed(): Int {
+fn read_seed() -> Int {
     seed
 }
 

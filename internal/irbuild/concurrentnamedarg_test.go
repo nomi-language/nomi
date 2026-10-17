@@ -27,11 +27,11 @@ struct App {
     work: Supervisor
 }
 
-fn boot(): App {
+fn boot() -> App {
     App{context: Context.root(), work: Supervisor.new(1)}
 }
 
-fn noisy<T>(label: String, v: T): T {
+fn noisy<T>(label: String, v: T) -> T {
     io.print(label)
     v
 }
@@ -44,13 +44,13 @@ fn main() {
     c = Context.with_value(value: TraceId("t"), c: Context.root())
     io.inspect(Context.value(value_type: TraceId, c: c))
     n = concurrent {
-        t = Task.spawn(body: || 3)
+        t = Task.spawn(body: fn -> 3)
         Task.await(task: t)
     }
     io.inspect(n)
-    one = Supervisor.spawn(body: || io.print("job"), supervisor: App.work)
+    one = Supervisor.spawn(body: fn -> io.print("job"), supervisor: App.work)
     _ = Task.await_all(tasks: [one])
-    hs = Supervisor.spawn_all(f: |x: Int| io.inspect(x), source: [1], supervisor: App.work)
+    hs = Supervisor.spawn_all(f: fn x: Int -> io.inspect(x), source: [1], supervisor: App.work)
     _ = Task.await_all(hs)
 }
 `, "value\nsender\nTrue\nSome(1)\nSome(TraceId(\"t\"))\n3\njob\n1\n")

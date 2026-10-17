@@ -253,7 +253,7 @@ fn main() { _ = Cfg{}.port }
 			// Reproduction 2. Ran and trapped at the first dispatch.
 			name: "interface-typed field defaulted to a non-implementer",
 			src: `interface Clock {
-  fn at(c: self): Int
+  fn at(c: self) -> Int
 }
 struct NoClock {
   t: Int
@@ -269,7 +269,7 @@ fn main() { _ = Cfg{} }
 			// Not only interfaces: a scalar in an interface-typed field.
 			name: "interface-typed field defaulted to a scalar",
 			src: `interface Clock {
-  fn at(c: self): Int
+  fn at(c: self) -> Int
 }
 struct Cfg {
   clock: Clock = 5
@@ -296,7 +296,7 @@ fn main() { _ = Status.Gone }
 			// bypass for the entire rule: CheckTypes's walk sees only
 			// top-level nodes.
 			name: "block-local struct declaration",
-			src: `fn f(): Int {
+			src: `fn f() -> Int {
   struct Local {
     v: Int = "bad"
   }
@@ -413,13 +413,13 @@ fn main() { _ = MyApp{config: 42}.config }
 			// makes this the control for that rejection.
 			name: "interface-typed field defaulted to an implementer",
 			src: `interface Clock {
-  fn at(c: self): Int
+  fn at(c: self) -> Int
 }
 struct FakeClock {
   t: Int
 }
 impl Clock for FakeClock {
-  fn at(c: FakeClock): Int { c.t }
+  fn at(c: FakeClock) -> Int { c.t }
 }
 struct Cfg {
   clock: Clock = FakeClock{t: 1}
@@ -483,7 +483,7 @@ fn main() { _ = Box{inner: 7}.items }
 			// disagree with.
 			name: "type-parameter-typed default for a type-parameter field",
 			src: `interface Zeroed {
-  fn zero(): self
+  fn zero() -> self
 }
 struct Box<T> where T: Zeroed {
   v: T = T.zero()
@@ -528,7 +528,7 @@ fn main() { }
 // assertion hold no matter what the path under test did.
 func TestFieldDefault_RecordsConformance(t *testing.T) {
 	const src = `pub interface Clock {
-  fn at(c: self): Int
+  fn at(c: self) -> Int
 }
 
 pub struct FakeClock {
@@ -536,7 +536,7 @@ pub struct FakeClock {
 }
 
 impl Clock for FakeClock {
-  fn at(c: FakeClock): Int { c.t }
+  fn at(c: FakeClock) -> Int { c.t }
 }
 
 pub struct RealClock {
@@ -544,7 +544,7 @@ pub struct RealClock {
 }
 
 impl Clock for RealClock {
-  fn at(c: RealClock): Int { c.base }
+  fn at(c: RealClock) -> Int { c.base }
 }
 
 pub struct Cfg {
@@ -810,7 +810,7 @@ pub struct Cfg {
   port: Int = 3000
 }
 
-pub fn make(): Cfg {
+pub fn make() -> Cfg {
   Cfg{}
 }
 `
@@ -820,7 +820,7 @@ pub struct Cfg {
   port: Int = 3000
 }
 
-pub fn make(): Cfg {
+pub fn make() -> Cfg {
   Cfg{}
 }
 `

@@ -15,11 +15,11 @@ struct App {
     n: Int
 }
 
-fn boot(): App {
+fn boot() -> App {
     App{v: Unit, n: 1}
 }
 
-fn show(): String {
+fn show() -> String {
     "${Debug.inspect(App.v)} ${App.n}"
 }
 
@@ -31,7 +31,7 @@ fn main() {
         io.print(show())
     }
     io.print(show())
-    f = || App.v
+    f = fn -> App.v
     io.inspect(f())
 }
 `, "Unit 1\nUnit 2\nUnit 1\nUnit\n")

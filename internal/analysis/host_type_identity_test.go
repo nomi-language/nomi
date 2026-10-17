@@ -74,7 +74,7 @@ func TestHostTypeIdentity_StdHostTypeAcrossTwoLoads(t *testing.T) {
 	}
 }
 
-const handlesSrc = "pub host type Handle\n\npub host fn open(): Handle\n"
+const handlesSrc = "pub host type Handle\n\npub host fn open() -> Handle\n"
 
 // buildHostProject runs BuildProject over main.nomi plus siblings and answers
 // the per-file analyses and the entry's errors.
@@ -106,7 +106,7 @@ func buildHostProject(t *testing.T, entry string, siblings map[string]string) (m
 }
 
 func TestHostTypeIdentity_UserHostTypeAcrossTwoFilesAndTwoBuilds(t *testing.T) {
-	entry := "import handles.{Handle, open}\n\nfn keep(h: Handle): Handle {\n  h\n}\n\nfn main() {\n  h = keep(open())\n}\n"
+	entry := "import handles.{Handle, open}\n\nfn keep(h: Handle) -> Handle {\n  h\n}\n\nfn main() {\n  h = keep(open())\n}\n"
 	siblings := map[string]string{"handles": handlesSrc}
 	builds := make([]*analysis.PrimitiveType, 2)
 	for i := range builds {
@@ -130,7 +130,7 @@ func TestHostTypeIdentity_UserHostTypeAcrossTwoFilesAndTwoBuilds(t *testing.T) {
 // The mirror: two files each declaring `host type Handle` are two types.
 func TestHostTypeIdentity_SameNameInTwoFilesIsTwoTypes(t *testing.T) {
 	_, errs := buildHostProject(t,
-		"import alpha\nimport beta\n\nfn take(_h: alpha.Handle): Unit {\n  Unit\n}\n\nfn main() {\n  take(beta.open())\n}\n",
+		"import alpha\nimport beta\n\nfn take(_h: alpha.Handle) -> Unit {\n  Unit\n}\n\nfn main() {\n  take(beta.open())\n}\n",
 		map[string]string{"alpha": handlesSrc, "beta": handlesSrc})
 	assertErrorContains(t, errs, "argument 1: expected alpha.Handle, got beta.Handle")
 }

@@ -7,7 +7,7 @@ import "testing"
 // parameters meet the callee's the other way round (contravariant), and the
 // caller's own `E` there is not a parameter the call solves: `call` is
 // instantiated at `T = E, U = List<E>` (and `Maybe<E>`), and `apply`'s `T`
-// is solved to `E` from the annotated `|_x: E|` before any argument solves
+// is solved to `E` from the annotated `fn _x: E ->` before any argument solves
 // it.
 func TestIRGenericCallbackOverCallerTypeParam_Runs(t *testing.T) {
 	if testing.Short() {
@@ -15,28 +15,28 @@ func TestIRGenericCallbackOverCallerTypeParam_Runs(t *testing.T) {
 	}
 	const src = `import std/io
 
-fn call<T, U>(item: T, initial: U, f: (U, T) -> U): U {
+fn call<T, U>(item: T, initial: U, f: (U, T) -> U) -> U {
     f(initial, item)
 }
 
-fn apply<T>(f: (T) -> Int, x: T): Int {
+fn apply<T>(f: (T) -> Int, x: T) -> Int {
     f(x)
 }
 
-fn b<E>(item: E, list: List<E>): List<E> {
-    call(item, list, |rest, _item| rest)
+fn b<E>(item: E, list: List<E>) -> List<E> {
+    call(item, list, fn rest, _item -> rest)
 }
 
-fn e<E>(item: E, n: Int): Int {
-    call(item, n, |rest, _item| rest)
+fn e<E>(item: E, n: Int) -> Int {
+    call(item, n, fn rest, _item -> rest)
 }
 
-fn m<E>(item: E, opt: Maybe<E>): Maybe<E> {
-    call(item, opt, |_rest, item| Some(item))
+fn m<E>(item: E, opt: Maybe<E>) -> Maybe<E> {
+    call(item, opt, fn _rest, item -> Some(item))
 }
 
-fn k<E>(item: E): Int {
-    apply(|_x: E| 7, item)
+fn k<E>(item: E) -> Int {
+    apply(fn _x: E -> 7, item)
 }
 
 fn main() {

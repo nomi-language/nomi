@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRListPattern_RecursiveSum(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn sum(xs: List<Int>): Int {
+fn sum(xs: List<Int>) -> Int {
   case xs {
     [] -> 0
     [head, ..tail] -> head + sum(tail)
@@ -19,8 +19,8 @@ fn main() {
 
 func TestIRListPattern_ExactLengthsScopesAndEffects(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn source(): List<Int> { io.print("subject") [1, 2, 3] }
-fn describe(xs: List<Int>): String {
+fn source() -> List<Int> { io.print("subject") [1, 2, 3] }
+fn describe(xs: List<Int>) -> String {
   case xs {
     [] -> "empty"
     [_] -> "single"
@@ -48,7 +48,7 @@ func TestIRListPattern_NestedListsAndClosure(t *testing.T) {
 fn main() {
   xs = [[1, 2], [3]]
   empty: List<Int> = []
-  read = || case xs {
+  read = fn -> case xs {
     [head, .._] -> head
     [] -> empty
   }

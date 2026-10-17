@@ -15,8 +15,8 @@ func TestHover_CodepointLiteralShowsCodepoint(t *testing.T) {
 		want  string
 		end   uint32
 	}{
-		{"binding", "fn f(): Bool {\n  x = ▮'\\''\n  x == 'a'\n}\n", "```nomi\n'\\'': Codepoint\n```", 10},
-		{"pattern", "fn f(cp: Codepoint): Int {\n  case cp {\n    ▮'a' -> 1\n    _ -> 2\n  }\n}\n", "```nomi\n'a': Codepoint\n```", 7},
+		{"binding", "fn f() -> Bool {\n  x = ▮'\\''\n  x == 'a'\n}\n", "```nomi\n'\\'': Codepoint\n```", 10},
+		{"pattern", "fn f(cp: Codepoint) -> Int {\n  case cp {\n    ▮'a' -> 1\n    _ -> 2\n  }\n}\n", "```nomi\n'a': Codepoint\n```", 7},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

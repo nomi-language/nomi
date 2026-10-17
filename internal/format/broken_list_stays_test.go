@@ -50,13 +50,13 @@ func TestFormat_WidthBrokenListStaysBroken(t *testing.T) {
 			// line below its `->`; the next format found the literal
 			// already broken, the arm fit, and the bodies joined their
 			// arrows again.
-			"fn decode(r: Result<Int, String>): Result<Int, Shape> {\n" +
+			"fn decode(r: Result<Int, String>) -> Result<Int, Shape> {\n" +
 				"    case r {\n" +
 				"        Ok(parsed) -> Ok(parsed)\n" +
 				"        Err(_) -> Err(Shape{path: [], expected: \"json\", got_rather_long_rather_long_rather_long_rather_long: \"invalid\"})\n" +
 				"    }\n" +
 				"}\n",
-			"fn decode(r: Result<Int, String>): Result<Int, Shape> {\n" +
+			"fn decode(r: Result<Int, String>) -> Result<Int, Shape> {\n" +
 				"    case r {\n" +
 				"        Ok(parsed) ->\n" +
 				"            Ok(parsed)\n" +
@@ -96,15 +96,15 @@ func TestFormat_WidthBrokenListStaysBroken(t *testing.T) {
 // The same holds for a struct literal's fields, a function's parameters,
 // the short form of an `if` and a case arm's body below its `->`.
 func TestFormat_WidthBrokenLayoutsStayBroken(t *testing.T) {
-	src := "fn record_sum((p_rather_long_rather_long_rather_long): {x_rather_long: Int, y_rather_long_rather_long_rather_long_rather_long: Int}): Int {\n" +
+	src := "fn record_sum((p_rather_long_rather_long_rather_long): {x_rather_long: Int, y_rather_long_rather_long_rather_long_rather_long: Int}) -> Int {\n" +
 		"    p_rather_long_rather_long_rather_long.x\n" +
 		"}\n" +
 		"\n" +
-		"fn label(n: Int): Check {\n" +
+		"fn label(n: Int) -> Check {\n" +
 		"    if n > 0 { Check.Valid{addr_rather_long_rather_long_rather_long_rather_long: \"a\", score_rather_long_rather_long_rather_long: 1} } else { Check.Invalid(\"x\") }\n" +
 		"}\n" +
 		"\n" +
-		"fn label2(check: Check): String {\n" +
+		"fn label2(check: Check) -> String {\n" +
 		"    .Valid{addr} = check else {\n" +
 		"        .Invalid(_) -> {addr_rather_long_rather_long_rather_long_rather_long: \"unknown\", score_rather_long_rather_long_rather_long: 0}\n" +
 		"    }\n" +
@@ -119,11 +119,11 @@ func TestFormat_WidthBrokenLayoutsStayBroken(t *testing.T) {
 		"        x_rather_long: Int,\n" +
 		"        y_rather_long_rather_long_rather_long_rather_long: Int,\n" +
 		"    },\n" +
-		"): Int {\n" +
+		") -> Int {\n" +
 		"    p_rather_long_rather_long_rather_long.x\n" +
 		"}\n" +
 		"\n" +
-		"fn label(n: Int): Check {\n" +
+		"fn label(n: Int) -> Check {\n" +
 		"    if n > 0 {\n" +
 		"        Check.Valid{\n" +
 		"            addr_rather_long_rather_long_rather_long_rather_long: \"a\",\n" +
@@ -134,7 +134,7 @@ func TestFormat_WidthBrokenLayoutsStayBroken(t *testing.T) {
 		"    }\n" +
 		"}\n" +
 		"\n" +
-		"fn label2(check: Check): String {\n" +
+		"fn label2(check: Check) -> String {\n" +
 		"    .Valid{addr} = check else {\n" +
 		"        .Invalid(_) ->\n" +
 		"            {\n" +
@@ -159,11 +159,11 @@ func TestFormat_WidthBrokenLayoutsStayBroken(t *testing.T) {
 
 // And for the short form of a pattern binding's `else` block.
 func TestFormat_WidthBrokenElseBlockStaysBroken(t *testing.T) {
-	src := "fn whole(c: Check): Int {\n" +
+	src := "fn whole(c: Check) -> Int {\n" +
 		"    .Valid(r_rather_long) = c else { {addr_rather_long_rather_long_rather_long_rather_long: \"none\", score_rather_long_rather_long: -1} }\n" +
 		"    r_rather_long.score\n" +
 		"}\n"
-	want := "fn whole(c: Check): Int {\n" +
+	want := "fn whole(c: Check) -> Int {\n" +
 		"    .Valid(r_rather_long) = c else {\n" +
 		"        {\n" +
 		"            addr_rather_long_rather_long_rather_long_rather_long: \"none\",\n" +
@@ -196,13 +196,13 @@ func TestFormat_BrokenBlockStaysBroken(t *testing.T) {
 func TestFormat_WidthBrokenMapPatternStaysBroken(t *testing.T) {
 	src := "fn main() {\n" +
 		"    by_struct = case struct_keyed {\n" +
-		"        {Point{x_rather_long_rather_long_rather_long_rather_long_rather_long: 1, y_rather_long_rather_long_rather_long: 2} => v} -> v\n" +
+		"        %{Point{x_rather_long_rather_long_rather_long_rather_long_rather_long: 1, y_rather_long_rather_long_rather_long: 2} => v} -> v\n" +
 		"        _ -> \"?\"\n" +
 		"    }\n" +
 		"}\n"
 	want := "fn main() {\n" +
 		"    by_struct = case struct_keyed {\n" +
-		"        {\n" +
+		"        %{\n" +
 		"            Point{\n" +
 		"                x_rather_long_rather_long_rather_long_rather_long_rather_long: 1,\n" +
 		"                y_rather_long_rather_long_rather_long: 2,\n" +

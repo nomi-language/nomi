@@ -24,40 +24,43 @@ struct Stmt {
     body: Expr
 }
 
-fn sum(tree: Tree): Int {
+fn sum(tree: Tree) -> Int {
     case tree {
-        Tree.Leaf(n) -> n
-        Tree.Node(kids) -> kids |> Iter.map(|kid| sum(kid)) |> Iter.reduce(|total = 0, n| total + n)
+        Tree.Leaf(n) ->
+            n
+
+        Tree.Node(kids) ->
+            kids |> Iter.map(fn kid -> sum(kid)) |> Iter.reduce(fn total = 0, n -> total + n)
     }
 }
 
-fn depth(tree: Tree): Int {
+fn depth(tree: Tree) -> Int {
     case tree {
         Tree.Leaf(_) ->
             1
 
         Tree.Node(kids) ->
             1 + (kids
-            |> Iter.map(|kid| depth(kid))
-            |> Iter.reduce(|deepest = 0, d| Int.max(deepest, d)))
+            |> Iter.map(fn kid -> depth(kid))
+            |> Iter.reduce(fn deepest = 0, d -> Int.max(deepest, d)))
     }
 }
 
-fn total(dir: Dir): Int {
-    dir.kids |> Iter.map(|kid| total(kid)) |> Iter.reduce(|sum = dir.size, n| sum + n)
+fn total(dir: Dir) -> Int {
+    dir.kids |> Iter.map(fn kid -> total(kid)) |> Iter.reduce(fn sum = dir.size, n -> sum + n)
 }
 
-fn eval(expr: Expr): Int {
+fn eval(expr: Expr) -> Int {
     case expr {
         Expr.Num(n) ->
             n
 
         Expr.Block(stmts) ->
-            stmts |> Iter.map(|stmt| eval(stmt.body)) |> Iter.reduce(|sum = 0, n| sum + n)
+            stmts |> Iter.map(fn stmt -> eval(stmt.body)) |> Iter.reduce(fn sum = 0, n -> sum + n)
     }
 }
 
-fn sample(): Tree {
+fn sample() -> Tree {
     Tree.Node(#[Tree.Leaf(1), Tree.Node(#[Tree.Leaf(2), Tree.Leaf(3)]), Tree.Node(#[])])
 }
 
@@ -102,7 +105,7 @@ test "a struct holds itself through a Vector" {
     }
 
     assert total(root) == 8
-    assert root.kids |> Iter.map(|kid| kid.name) |> Iter.to_list() == ["a", "b"]
+    assert root.kids |> Iter.map(fn kid -> kid.name) |> Iter.to_list() == ["a", "b"]
     assert root == root
     assert root != leaf
 }

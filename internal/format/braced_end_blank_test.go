@@ -19,12 +19,12 @@ func TestFormat_BracedEndTrivia_DropsBlankLines(t *testing.T) {
 			"fn main() {\n    x = P{\n        a: 0,\n        // c\n        // d\n    }\n}\n",
 		},
 		"map literal": {
-			"fn main() {\n    m = {1 => 2\n\n    // c\n    }\n}\n",
-			"fn main() {\n    m = {\n        1 => 2,\n        // c\n    }\n}\n",
+			"fn main() {\n    m = %{1 => 2\n\n    // c\n    }\n}\n",
+			"fn main() {\n    m = %{\n        1 => 2,\n        // c\n    }\n}\n",
 		},
 		"anon struct type": {
-			"fn f(p: {x: Int\n\n// c\n}): Int {\n    1\n}\n",
-			"fn f(p: {\n    x: Int,\n    // c\n}): Int {\n    1\n}\n",
+			"fn f(p: {x: Int\n\n// c\n}) -> Int {\n    1\n}\n",
+			"fn f(p: {\n    x: Int,\n    // c\n}) -> Int {\n    1\n}\n",
 		},
 		"struct variant": {
 			"enum Shape {\n    Rect {w: Int\n\n    // c\n    }\n}\n",

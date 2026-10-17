@@ -52,7 +52,7 @@ test "a range trap inside a lambda names the lambda's line" {
 
             fn main() {
               gen = Generator.int(1, 3)
-                |> Generator.flat_map(|n|
+                |> Generator.flat_map(fn n ->
                   Generator.int(n, 0)
                 )
               _ = Generator.step(gen, Seed.from_int(1))
@@ -72,7 +72,7 @@ test "equal integer bounds make a constant draw" {
             import std/random.{Generator, Seed}
 
             fn main() {
-              (n, _) = Generator.step(Generator.int(4, 4), Seed.from_int(9))
+              #(n, _) = Generator.step(Generator.int(4, 4), Seed.from_int(9))
               io.print(n)
             }
             """

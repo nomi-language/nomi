@@ -13,7 +13,7 @@ func TestIRBlockLocalGenericType_Runs(t *testing.T) {
 	}
 	const src = `import std/io
 
-fn other(): String {
+fn other() -> String {
     struct Box<T> {
         label: String
         v: T
@@ -43,7 +43,7 @@ fn main() {
         .Nothing -> io.inspect(0)
     }
     io.inspect(Tagged{m: Meters(1), o: Opt.Has(True)})
-    io.inspect(Iter.map([1, 2], |x| Box{v: x}) |> Iter.to_list())
+    io.inspect(Iter.map([1, 2], fn x -> Box{v: x}) |> Iter.to_list())
     io.inspect([Opt.Has(1), Opt.Nothing])
     io.print(other())
 }

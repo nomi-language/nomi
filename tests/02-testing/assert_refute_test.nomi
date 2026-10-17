@@ -15,12 +15,12 @@ test "assert and refute accept expected booleans" {
     assert falsity == False
 }
 
-fn fails_assertion(): Result<Unit, AssertionFailure> {
+fn fails_assertion() -> Result<Unit, AssertionFailure> {
     assert 1 == 2
     Ok(Unit)
 }
 
-fn fails_check(): Result<Bool, AssertionFailure> {
+fn fails_check() -> Result<Bool, AssertionFailure> {
     checked = try testing.check(1 == 2)
     Ok(checked)
 }

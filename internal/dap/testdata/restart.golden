@@ -32,7 +32,7 @@
 <- event output {"category":"stdout","output":"adding 1 and 10\n"}
 <- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
 -> stackTrace {"threadId":1}
-<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":6,"name":"add","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}},{"column":0,"id":1048577,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":58,"id":2,"line":12,"name":"Iter.map","presentationHint":"subtle","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}},{"column":58,"id":3,"line":12,"name":"main","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}}],"totalFrames":4}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":6,"name":"add","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}},{"column":0,"id":1048577,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":62,"id":2,"line":12,"name":"Iter.map","presentationHint":"subtle","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}},{"column":62,"id":3,"line":12,"name":"main","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}}],"totalFrames":4}
 -> restartFrame {"frameId":3}
 <- response restartFrame failed "Cannot restart this frame: a call from Go (Iter.map) is between this frame and the top of the stack, and Go's stack cannot be unwound."
 -> restartFrame {"frameId":1}

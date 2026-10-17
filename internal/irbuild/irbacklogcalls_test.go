@@ -23,14 +23,14 @@ pub enum Probe.Reading {
   Spike Int
 }
 
-fn severity(r: Probe.Reading): Int {
+fn severity(r: Probe.Reading) -> Int {
   case r {
     Probe.Reading.Steady -> 0
     Probe.Reading.Spike(n) -> n
   }
 }
 
-fn decode_error(src: String): String {
+fn decode_error(src: String) -> String {
   case Json.decode(src) {
     Ok(_) -> "parsed"
     Err(e) -> Json.DecodeError.to_string(e)
@@ -63,15 +63,15 @@ test "a stdlib module's type-owned function" {
 // position's slot, then named ones, and a slot the callee defaulted records
 // nothing (recordCallSlots).
 func TestIRBacklogCalls_DefaultsAndNamedArgumentsInATestBody(t *testing.T) {
-	const src = `fn greet(name: String, greeting: String = "Hello", mark: String = "!"): String {
+	const src = `fn greet(name: String, greeting: String = "Hello", mark: String = "!") -> String {
   greeting + ", " + name + mark
 }
 
-fn skip(req: Int, opt: String = "a", scale: Int = 2, cb: (Int) -> Int): Int {
+fn skip(req: Int, opt: String = "a", scale: Int = 2, cb: (Int) -> Int) -> Int {
   cb(req) * scale + String.length(opt)
 }
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
   n * 2
 }
 
@@ -84,7 +84,7 @@ test "named arguments and a trailing function" {
   assert greet("Ada", mark: "?") == "Hello, Ada?"
   assert skip(5, double) == 21
   assert skip(5, scale: 3, double) == 31
-  assert skip(req: 5, |n| n + 1) == 13
+  assert skip(req: 5, fn n -> n + 1) == 13
 }
 
 test "a failing short call reports its written arguments" {
@@ -150,11 +150,11 @@ func irBacklogProgramVM(t *testing.T, files map[string]string, entry string, wan
 // the declaring file's body; a bare `loop` imported from std/iter is Iter.loop.
 func TestIRBacklogCalls_BareImportedCallees(t *testing.T) {
 	irBacklogProgramVM(t, map[string]string{
-		"api.nomi": `pub fn make(name: String): String {
+		"api.nomi": `pub fn make(name: String) -> String {
   "widget:" + name
 }
 
-pub fn twice(n: Int): Int {
+pub fn twice(n: Int) -> Int {
   n * 2
 }
 `,
@@ -163,8 +163,8 @@ pub fn twice(n: Int): Int {
   std/iter.Iter.loop
 }
 
-fn countdown(from: Int): Int {
-  loop(|n = from| {
+fn countdown(from: Int) -> Int {
+  loop(fn n = from -> {
     if n == 0 { break n }
     n - 1
   })
@@ -192,7 +192,7 @@ test "a failing bare sibling call reports its argument" {
 // test body; a failing assertion records the call's argument row.
 func TestIRBacklogCalls_ErasedGenericCallees(t *testing.T) {
 	const src = `interface Showable {
-  fn show(value: self): String
+  fn show(value: self) -> String
 }
 
 struct User {
@@ -200,20 +200,20 @@ struct User {
 }
 
 impl Showable for User {
-  fn show(u: User): String {
+  fn show(u: User) -> String {
     "user:" + u.name
   }
 }
 
-fn announce<T>(value: T): String where T: Showable {
+fn announce<T>(value: T) -> String where T: Showable {
   "announce(" + Showable.show(value) + ")"
 }
 
-fn same<T>(value: T): T {
+fn same<T>(value: T) -> T {
   value
 }
 
-fn via(): String {
+fn via() -> String {
   announce(User{name: "Alice"})
 }
 

@@ -9,7 +9,7 @@ import "testing"
 func TestReturnOnlySelf_SolvedFromTheExpectedType(t *testing.T) {
 	src := `import std/json.{FromJson, Json}
 
-fn count(parsed: Json): Result<Int, Json.ShapeError> {
+fn count(parsed: Json) -> Result<Int, Json.ShapeError> {
   ids: List<Int> = try FromJson.from_json(parsed)
   Ok(Iter.count(ids))
 }`

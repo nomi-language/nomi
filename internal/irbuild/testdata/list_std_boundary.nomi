@@ -15,7 +15,7 @@ import std/io
 /// stdlib index's, and they must be the same kind for this call to lower at all.
 /// It also forces the type into a function SIGNATURE, which a plain binding
 /// does not.
-fn dashed(parts: List<String>): String {
+fn dashed(parts: List<String>) -> String {
     String.join(parts, "-")
 }
 
@@ -25,7 +25,7 @@ fn dashed(parts: List<String>): String {
 /// mutation is the only thing that shows the key carries the type ARGUMENTS.
 /// The body ignores the list on purpose: what is under test is the TYPE, and a
 /// fold would drag in `Iter` and measure that instead.
-fn tally(ns: List<Int>): String {
+fn tally(ns: List<Int>) -> String {
     _ = ns
     "ints"
 }

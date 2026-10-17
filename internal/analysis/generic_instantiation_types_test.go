@@ -104,10 +104,10 @@ func wantRecorded(t *testing.T, fa *analysis.FileAnalysis, kind string, line int
 // solve, not left as `Iter<T>` with Iter.filter's own T, whose rigid T then
 // made `x % 2` a second and third error.
 func TestExprTypes_PipeAfterUntypedHead(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   n = 5
   evens = List.range(0, n)
-    |> Iter.filter(|x| x % 2 == 0)
+    |> Iter.filter(fn x -> x % 2 == 0)
     |> Iter.to_list()
   Iter.count(evens)
 }`
@@ -122,10 +122,10 @@ func TestExprTypes_PipeAfterUntypedHead(t *testing.T) {
 
 // The same pipeline over a range: every stage has its instantiation.
 func TestExprTypes_PipeAfterRange(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   n = 5
   evens = 0..n
-    |> Iter.filter(|x| x % 2 == 0)
+    |> Iter.filter(fn x -> x % 2 == 0)
     |> Iter.to_list()
   Iter.count(evens)
 }`
@@ -141,14 +141,14 @@ func TestExprTypes_PipeAfterRange(t *testing.T) {
 // reduce's rigid U, `a + b` was "type parameter U cannot use `+`", and the
 // stages came out `U` and `Iter<U>`.
 func TestExprTypes_NestedGenericsSharingAParameterName(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   sums = [[1, 2], [3]]
-    |> Iter.map(|xs| {
+    |> Iter.map(fn xs -> {
       xs
-      |> Iter.reduce(|a = 0, b| a + b)
+      |> Iter.reduce(fn a = 0, b -> a + b)
     })
     |> Iter.to_list()
-  total = Iter.reduce([1, 2, 3], |a = 0, b| a + b)
+  total = Iter.reduce([1, 2, 3], fn a = 0, b -> a + b)
   Iter.count(sums) + total
 }`
 	fa, errs := checkSourceWithStdlib(src)
@@ -164,14 +164,14 @@ func TestExprTypes_NestedGenericsSharingAParameterName(t *testing.T) {
 // Two user generic functions that both name their parameter T (and two that
 // both name it U), nested in one another: each call has its own.
 func TestExprTypes_UserGenericsSharingAParameterName(t *testing.T) {
-	src := `fn first<T>(x: T): T { x }
-fn wrap<T>(x: T): List<T> { [x] }
-fn apply<T, U>(x: T, f: (T) -> U): U { f(x) }
-fn twice<U>(x: U): List<U> { [x, x] }
-fn demo(): Int {
+	src := `fn first<T>(x: T) -> T { x }
+fn wrap<T>(x: T) -> List<T> { [x] }
+fn apply<T, U>(x: T, f: (T) -> U) -> U { f(x) }
+fn twice<U>(x: U) -> List<U> { [x, x] }
+fn demo() -> Int {
   a = wrap(first("s"))
-  b = apply(1, |x| twice(x))
-  c = apply(first(2), |x| wrap(first(x)))
+  b = apply(1, fn x -> twice(x))
+  c = apply(first(2), fn x -> wrap(first(x)))
   Iter.count(a) + Iter.count(b) + Iter.count(c)
 }`
 	fa, errs := checkSourceWithStdlib(src)
@@ -186,12 +186,12 @@ fn demo(): Int {
 // application: the open slot and the result share the parameter nothing
 // solved, and the call that fills the slot solves both.
 func TestExprTypes_GenericOwnerCallsAndPartialApplication(t *testing.T) {
-	src := `fn demo(): Int {
+	src := `fn demo() -> Int {
   xs = List.concat([1], [2])
   m = Map.put(Map.empty(), "k", 1)
   ys = [3] |> List.concat(xs)
   f = Iter.map(xs, _)
-  zs = f(|x| Int.to_string(x)) |> Iter.to_list()
+  zs = f(fn x -> Int.to_string(x)) |> Iter.to_list()
   Iter.count(ys) + Iter.count(zs) + Map.size(m)
 }`
 	fa, errs := checkSourceWithStdlib(src)
@@ -208,13 +208,13 @@ func TestExprTypes_GenericOwnerCallsAndPartialApplication(t *testing.T) {
 // callee's same-named parameter does not. `I: Iter<T>` projects T into
 // Iter.reduce's own T, so the callback's element is the caller's T.
 func TestExprTypes_GenericCallsInsideGenericFunctions(t *testing.T) {
-	src := `fn keep<T>(xs: List<T>): List<T> {
-  xs |> Iter.filter(|_x| True) |> Iter.to_list()
+	src := `fn keep<T>(xs: List<T>) -> List<T> {
+  xs |> Iter.filter(fn _x -> True) |> Iter.to_list()
 }
-fn first<T, I>(it: I): Maybe<T> where I: Iter<T> {
-  Iter.reduce(it, |_acc: Maybe<T> = None, x| { break Some(x) })
+fn first<T, I>(it: I) -> Maybe<T> where I: Iter<T> {
+  Iter.reduce(it, fn _acc: Maybe<T> = None, x -> { break Some(x) })
 }
-fn demo(): Int {
+fn demo() -> Int {
   Iter.count(keep([1])) + Maybe.with_default(first([2]), 0)
 }`
 	fa, errs := checkSourceWithStdlib(src)

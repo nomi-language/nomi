@@ -55,13 +55,13 @@ struct L1 {
   n: Int
 }
 interface Speaker {
-  fn say(s: self): String
+  fn say(s: self) -> String
 }
 struct Loud {
   n: Int
 }
 impl Speaker for Loud {
-  fn say(_s: Loud): String {
+  fn say(_s: Loud) -> String {
     "loud"
   }
 }
@@ -391,7 +391,7 @@ struct Box {
   label: String
 }
 
-fn wreck(b: Box): Box {
+fn wreck(b: Box) -> Box {
   {..b, inner: {.., value: -999}}
 }
 `))
@@ -413,7 +413,7 @@ struct Crate {
   n: Int
 }
 
-fn wreck(c: Crate): Crate {
+fn wreck(c: Crate) -> Crate {
   {..c, box: {.., inner: {.., value: -999}}}
 }
 `))
@@ -445,7 +445,7 @@ struct Box {
   label: String
 }
 
-fn ok(b: Box): Box {
+fn ok(b: Box) -> Box {
 `+body+`
 }
 `))
@@ -463,7 +463,7 @@ fn ok(b: Box): Box {
 // spreadDeepPatches; this is the other side of it, and it is what says the
 // depth follows the substitution rather than guessing.
 func TestSpreadDeep_UnsolvedTypeParameterFieldTakesAValue(t *testing.T) {
-	const src = spreadDeepDecls + `fn patch_it<T>(b: Box<T>): Box<T> {
+	const src = spreadDeepDecls + `fn patch_it<T>(b: Box<T>) -> Box<T> {
   {..b, item: {.., a: 9}}
 }
 
@@ -481,7 +481,7 @@ fn main() {
 // must still work. Without this the test above would pass for a build that
 // had broken `Box<T>` entirely.
 func TestSpreadDeep_UnsolvedTypeParameterFieldStillTakesItsValue(t *testing.T) {
-	const src = spreadDeepDecls + `fn patch_it<T>(b: Box<T>, v: T): Box<T> {
+	const src = spreadDeepDecls + `fn patch_it<T>(b: Box<T>, v: T) -> Box<T> {
   {..b, item: v}
 }
 

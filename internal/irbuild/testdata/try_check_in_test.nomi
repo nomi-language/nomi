@@ -40,7 +40,7 @@ import {
     std/testing
 }
 
-fn parse(n: Int): Result<Int, String> {
+fn parse(n: Int) -> Result<Int, String> {
     if n < 0 {
         Err("negative ${n}")
     } else {
@@ -48,7 +48,7 @@ fn parse(n: Int): Result<Int, String> {
     }
 }
 
-fn shape(n: Int): Result<Int, String> {
+fn shape(n: Int) -> Result<Int, String> {
     if n < 0 { Err("bad ${n}") } else { Ok(n) }
 }
 

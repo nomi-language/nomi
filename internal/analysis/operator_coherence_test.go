@@ -114,7 +114,7 @@ func TestDetectImplCollisions_OperatorLadderAtDistinctRhsIsFine(t *testing.T) {
 // TestDetectImplCollisions_NonOperatorGenericInstantiationsCollide is the SECOND
 // route to the same collision:
 //
-//	pub interface Holds<T> { fn hold(h: self): T }
+//	pub interface Holds<T> { fn hold(h: self) -> T }
 //	impl Holds<Int> for Box { ... }
 //	impl Holds<String> for Box { ... }
 //

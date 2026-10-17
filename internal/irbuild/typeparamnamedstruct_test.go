@@ -9,7 +9,7 @@ func TestTypeParamNamedStruct_CallsTheInstancesImpl(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
 interface Up {
-    fn update(a: self, b: {x: Int}): self
+    fn update(a: self, b: {x: Int}) -> self
 }
 
 struct P {
@@ -17,12 +17,12 @@ struct P {
 }
 
 impl Up for P {
-    fn update(_a: P, b: {x: Int}): P {
+    fn update(_a: P, b: {x: Int}) -> P {
         P{x: b.x + 10}
     }
 }
 
-fn bump<Struct>(p: Struct): Struct where Struct: Up {
+fn bump<Struct>(p: Struct) -> Struct where Struct: Up {
     Struct.update(p, {x: 2})
 }
 

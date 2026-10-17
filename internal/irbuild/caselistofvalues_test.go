@@ -12,14 +12,14 @@ func TestCaseOverListOfValues_Runs(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
 fn main() {
-    it = [1, 2] |> Iter.map(|n| n * 2)
+    it = [1, 2] |> Iter.map(fn n -> n * 2)
     got = case [it] {
         [p] -> p
         _ -> it
     }
     io.inspect(Iter.to_list(got))
     out = [1, 2]
-        |> Iter.map(|n| {
+        |> Iter.map(fn n -> {
             r = 0..n
             held = case [r] {
                 [p] -> p
@@ -30,8 +30,8 @@ fn main() {
         |> String.join(",")
     io.print(out)
     counts = [1, 2]
-        |> Iter.map(|n| {
-            each = [n, n] |> Iter.map(|x| x + 1)
+        |> Iter.map(fn n -> {
+            each = [n, n] |> Iter.map(fn x -> x + 1)
             case [each, each] {
                 [a, ..rest] -> Iter.count(a) + Iter.count(rest)
                 _ -> 0
@@ -39,7 +39,7 @@ fn main() {
         })
         |> Iter.to_list()
     io.inspect(counts)
-    ms = [{"a" => 1}]
+    ms = [%{"a" => 1}]
     io.inspect(case ms {
         [m] -> Map.get(m, "a")
         _ -> None

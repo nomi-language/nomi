@@ -9,5 +9,5 @@ pub struct Point {
 }
 
 pub interface Greeting {
-    fn greet(value: self): String
+    fn greet(value: self) -> String
 }

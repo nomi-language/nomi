@@ -19,12 +19,12 @@ pub struct Box {
 }
 
 impl Box {
-    pub fn twice(b: Box): Int { b.value * 2 }
-    pub fn add(b: Box, n: Int): Int { b.value + n }
+    pub fn twice(b: Box) -> Int { b.value * 2 }
+    pub fn add(b: Box, n: Int) -> Int { b.value + n }
 }
 
 impl Display for Box {
-    fn to_string(b: Box): String { "box ${b.value}" }
+    fn to_string(b: Box) -> String { "box ${b.value}" }
 }
 
 pub enum Shape {

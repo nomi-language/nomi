@@ -12,7 +12,7 @@ import (
 func TestLambdaSingleExprEndPos(t *testing.T) {
 	// Single-expression body: the synthesized Block has EndLine == 0, so the
 	// Lambda must carry its own end (one past the last body token, `1`).
-	src := "|x| x + 1"
+	src := "fn x -> x + 1"
 	expr := parseExpr(t, src)
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
@@ -28,7 +28,7 @@ func TestLambdaSingleExprEndPos(t *testing.T) {
 }
 
 func TestLambdaBlockBodyEndPos(t *testing.T) {
-	src := "|x| { x }"
+	src := "fn x -> { x }"
 	expr := parseExpr(t, src)
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
@@ -65,7 +65,7 @@ func TestCaseBranchEndPos(t *testing.T) {
 func TestImplBlockEndPos(t *testing.T) {
 	// End is the closing-brace column itself (exclusive), mirroring ast.Block's
 	// EndCol convention. The final `}` is the last char.
-	src := "impl Speech for Bar { fn speak(_b: self): String { \"x\" } }"
+	src := "impl Speech for Bar { fn speak(_b: self) -> String { \"x\" } }"
 	nodes := parse(t, src)
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
@@ -83,7 +83,7 @@ func TestImplBlockEndPos(t *testing.T) {
 }
 
 func TestInterfaceDefEndPos(t *testing.T) {
-	src := "interface Foo { fn bar(): Int }"
+	src := "interface Foo { fn bar() -> Int }"
 	nodes := parse(t, src)
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))

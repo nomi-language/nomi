@@ -239,7 +239,7 @@ fn main() {
 }
 `,
 		"shapes.nomi": `pub interface Shape {
-    fn area(value: self): Int
+    fn area(value: self) -> Int
 }
 
 pub struct Circle {
@@ -249,7 +249,7 @@ pub struct Circle {
 derive Equatable for Circle
 
 impl Shape for Circle {
-    fn area(value: Circle): Int {
+    fn area(value: Circle) -> Int {
         value.radius * value.radius
     }
 }

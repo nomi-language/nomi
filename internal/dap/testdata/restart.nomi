@@ -1,6 +1,6 @@
 import std/io
 
-fn add(a: Int, b: Int): Int {
+fn add(a: Int, b: Int) -> Int {
     io.print("adding ${a} and ${b}")
     total = a + b
     total
@@ -9,7 +9,7 @@ fn add(a: Int, b: Int): Int {
 fn main() {
     xs = [1]
     sum = add(3, 4)
-    each = xs |> Iter.map(|x| add(x, 10)) |> Iter.to_list()
+    each = xs |> Iter.map(fn x -> add(x, 10)) |> Iter.to_list()
 
     io.print("${sum} ${each}")
 }

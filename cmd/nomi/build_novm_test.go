@@ -24,7 +24,7 @@ struct App {
   context: Context
 }
 
-fn boot(startup: Startup): App {
+fn boot(startup: Startup) -> App {
   io.print("args: ${startup.args}")
   App{context: Context.root()}
 }

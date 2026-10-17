@@ -19,7 +19,7 @@ type Meters Int
 derive Equatable for Point
 
 impl Display for Color {
-    fn to_string(c: Color): String {
+    fn to_string(c: Color) -> String {
         "color"
     }
 }

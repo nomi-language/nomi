@@ -4,6 +4,6 @@
 // to seedlib's getter, which conses this cell onto it before calling the RHS.
 pub once seed: Int = grow()
 
-pub fn grow(): Int {
+pub fn grow() -> Int {
     seed + 1
 }

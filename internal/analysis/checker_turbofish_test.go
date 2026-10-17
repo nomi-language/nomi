@@ -12,7 +12,7 @@ import (
 // type there.
 func TestTurbofishChecker_UnknownTypeArgument_Rejected(t *testing.T) {
 	errs := checkWithStdlib(`
-fn ident<T>(x: T): T {
+fn ident<T>(x: T) -> T {
   x
 }
 
@@ -44,7 +44,7 @@ func TestTurbofishChecker_PinsReturnParam_ConflictRejected(t *testing.T) {
 	src := `import {
   std/channels.{Channel, Sender}
 }
-fn main(): Unit {
+fn main() -> Unit {
   ch: Channel<String> = Channel.buffered<Int>(4)
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "type mismatch")
@@ -55,7 +55,7 @@ func TestTurbofishChecker_ConsistentUsage_Clean(t *testing.T) {
 	src := `import {
   std/channels.{Channel, Sender}
 }
-fn main(): Unit {
+fn main() -> Unit {
   ch: Channel<Int> = Channel.buffered<Int>(4)
 }`
 	expectClean(t, checkWithStdlib(src))
@@ -66,7 +66,7 @@ func TestTurbofishChecker_ArityMismatch_Rejected(t *testing.T) {
 	src := `import {
   std/channels.{Channel, Sender}
 }
-fn main(): Unit {
+fn main() -> Unit {
   ch = Channel.buffered<Int, String>(4)
   r = Sender.send(ch.sender, 5)
 }`

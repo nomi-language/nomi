@@ -55,7 +55,7 @@ func TestCodepointLiteralPatterns(t *testing.T) {
 	}
 
 	// Nested positions go through parsePattern.
-	c, ok = parseExpr(t, "case x {\n    Some('a') -> 1\n    ('b', _) -> 2\n    _ -> 3\n}").(*ast.Case)
+	c, ok = parseExpr(t, "case x {\n    Some('a') -> 1\n    #('b', _) -> 2\n    _ -> 3\n}").(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case")
 	}

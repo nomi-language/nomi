@@ -9,7 +9,7 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-const paramTypeDecls = "struct Game {\n    turn: Int\n}\n\nenum Command {\n    Look\n    Quit\n}\n\nstruct UserId {\n    n: Int\n}\n\nstruct Box<T> {\n    v: T\n}\n\ninterface Describe {\n    fn describe(self): String\n}\n\n"
+const paramTypeDecls = "struct Game {\n    turn: Int\n}\n\nenum Command {\n    Look\n    Quit\n}\n\nstruct UserId {\n    n: Int\n}\n\nstruct Box<T> {\n    v: T\n}\n\ninterface Describe {\n    fn describe(self) -> String\n}\n\n"
 
 // wantParamItem asserts the completion at src offers exactly one item,
 // labeled label, whose edit inserts text.
@@ -36,8 +36,8 @@ func TestCompletion_ParamTypeFromName(t *testing.T) {
 		{"multiword name", "fn find(user_id" + cursorMark + ") {}\n", "user_id: UserId", "user_id: UserId"},
 		{"generic function", "fn run<T>(game" + cursorMark + "\n", "game: Game", "game: Game"},
 		{"inherent impl", "impl Game {\n    fn next(game" + cursorMark + "\n}\n", "game: Game", "game: Game"},
-		{"interface impl", "impl Describe for Command {\n    fn describe(command" + cursorMark + "): String {\n        \"\"\n    }\n}\n", "command: Command", "command: Command"},
-		{"interface declaration", "interface Play {\n    fn play(self, game" + cursorMark + "): Int\n}\n", "game: Game", "game: Game"},
+		{"interface impl", "impl Describe for Command {\n    fn describe(command" + cursorMark + ") -> String {\n        \"\"\n    }\n}\n", "command: Command", "command: Command"},
+		{"interface declaration", "interface Play {\n    fn play(self, game" + cursorMark + ") -> Int\n}\n", "game: Game", "game: Game"},
 		{"interface declaration, unclosed", "interface Play {\n    fn play(game" + cursorMark + "\n}\n", "game: Game", "game: Game"},
 		{"prelude type", "fn total(string" + cursorMark + ") {}\n", "string: String", "string: String"},
 		{"parameter on its own line", "fn slay(\n    game: Game,\n    command" + cursorMark + "\n", "command: Command", "command: Command"},
@@ -159,7 +159,7 @@ func TestCompletion_ParamTypeAfterColon(t *testing.T) {
 		{"colon alone", "fn slay(game:" + cursorMark + ") {}\n", " Game"},
 		{"colon alone, unclosed", "fn slay(game:" + cursorMark, " Game"},
 		{"typed prefix", "fn slay(game: G" + cursorMark + ") {}\n", "Game"},
-		{"interface declaration", "interface Play {\n    fn play(user_id: " + cursorMark + "): Int\n}\n", "UserId"},
+		{"interface declaration", "interface Play {\n    fn play(user_id: " + cursorMark + ") -> Int\n}\n", "UserId"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -193,9 +193,9 @@ func TestCompletion_ParamTypeNothing(t *testing.T) {
 		{"type already written", "fn slay(game" + cursorMark + ": Game) {}\n", true},
 		{"cursor inside the name", "fn slay(ga" + cursorMark + "me) {}\n", true},
 		{"no name yet", "fn slay(" + cursorMark + ") {}\n", true},
-		{"lambda", "fn f(): Int {\n    g = |game" + cursorMark + "| 1\n    1\n}\n", false},
-		{"lambda, unclosed", "fn f(): Int {\n    g = |game" + cursorMark + "\n}\n", false},
-		{"lambda argument", "fn f(xs: List<Game>): Int {\n    xs |> Iter.map(|game" + cursorMark + "| 1)\n    1\n}\n", false},
+		{"lambda", "fn f() -> Int {\n    g = fn game" + cursorMark + " -> 1\n    1\n}\n", false},
+		{"lambda, unclosed", "fn f() -> Int {\n    g = |game" + cursorMark + "\n}\n", false},
+		{"lambda argument", "fn f(xs: List<Game>) -> Int {\n    xs |> Iter.map(|game" + cursorMark + "| 1)\n    1\n}\n", false},
 		{"destructuring parameter", "fn f((game" + cursorMark + ", b)) {}\n", false},
 		{"function type", "fn f(g: fn(game" + cursorMark + "\n", false},
 	}
@@ -217,13 +217,13 @@ func TestCompletion_ParamTypeNothing(t *testing.T) {
 // A pattern and a struct field keep their own completion: the name's type is
 // not offered there.
 func TestCompletion_ParamTypeNotInPatternsOrFields(t *testing.T) {
-	items := complete(t, paramTypeDecls+"fn f(c: Command): Int {\n    case c {\n        command"+cursorMark+" -> 1\n    }\n}\n")
+	items := complete(t, paramTypeDecls+"fn f(c: Command) -> Int {\n    case c {\n        command"+cursorMark+" -> 1\n    }\n}\n")
 	labelsExclude(t, items, "command: Command")
 	items = complete(t, paramTypeDecls+"struct Turn {\n    game: "+cursorMark+"\n}\n")
 	if len(items) > 0 && items[0].Label == "Game" {
 		t.Fatalf("a struct field's type ranks the name's type first: %v", itemLabels(items))
 	}
-	items = complete(t, paramTypeDecls+"fn f(): Int {\n    g = |game: "+cursorMark+"| 1\n    1\n}\n")
+	items = complete(t, paramTypeDecls+"fn f() -> Int {\n    g = fn game: "+cursorMark+" -> 1\n    1\n}\n")
 	if len(items) > 0 && items[0].Label == "Game" {
 		t.Fatalf("a lambda parameter's type ranks the name's type first: %v", itemLabels(items))
 	}

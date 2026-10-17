@@ -108,7 +108,7 @@ func TestOpaque_BlocksConstructorOutsideOwningModule(t *testing.T) {
 
 pub opaque type PositiveInt Int
 
-pub fn from_int(n: Int): Maybe<PositiveInt> {
+pub fn from_int(n: Int) -> Maybe<PositiveInt> {
   if n > 0 { Some(PositiveInt(n)) } else { None }
 }
 `,
@@ -131,7 +131,7 @@ func TestOpaque_AllowsConstructorInsideOwningModule(t *testing.T) {
 
 pub opaque type PositiveInt Int
 
-pub fn from_int(n: Int): Maybe<PositiveInt> {
+pub fn from_int(n: Int) -> Maybe<PositiveInt> {
   if n > 0 { Some(PositiveInt(n)) } else { None }
 }
 `,
@@ -172,7 +172,7 @@ func TestOpaque_IntCallOutsideOwningModuleNamesTheAccessors(t *testing.T) {
 
 pub opaque type PositiveInt Int
 
-pub fn from_int(n: Int): Maybe<PositiveInt> {
+pub fn from_int(n: Int) -> Maybe<PositiveInt> {
   if n > 0 { Some(PositiveInt(n)) } else { None }
 }
 `,
@@ -198,11 +198,11 @@ func TestOpaque_AllowsParameterDestructuringInsideOwningModule(t *testing.T) {
 
 pub opaque type PositiveInt Int
 
-pub fn from_int(n: Int): Maybe<PositiveInt> {
+pub fn from_int(n: Int) -> Maybe<PositiveInt> {
   if n > 0 { Some(PositiveInt(n)) } else { None }
 }
 
-pub fn to_int(PositiveInt(n)): Int {
+pub fn to_int(PositiveInt(n)) -> Int {
   n
 }
 `,
@@ -225,7 +225,7 @@ func TestOpaque_AllowsDestructuringOnNonOpaqueOutside(t *testing.T) {
 `,
 		"main.nomi": `import open_int.{OpenInt}
 
-fn demo(): Int {
+fn demo() -> Int {
   v = OpenInt(5)
   OpenInt(n) = v
   n
@@ -246,13 +246,13 @@ func TestOpaque_BlocksDestructuringOutsideOwningModule(t *testing.T) {
 
 pub opaque type PositiveInt Int
 
-pub fn from_int(n: Int): Maybe<PositiveInt> {
+pub fn from_int(n: Int) -> Maybe<PositiveInt> {
   if n > 0 { Some(PositiveInt(n)) } else { None }
 }
 `,
 		"main.nomi": `import positive_int.{PositiveInt}
 
-fn unwrap(p: PositiveInt): Int {
+fn unwrap(p: PositiveInt) -> Int {
   case p {
     PositiveInt(n) -> n
   }
@@ -270,11 +270,11 @@ func TestOpaque_AllowsDestructuringInsideOwningModule(t *testing.T) {
 
 pub opaque type PositiveInt Int
 
-pub fn from_int(n: Int): Maybe<PositiveInt> {
+pub fn from_int(n: Int) -> Maybe<PositiveInt> {
   if n > 0 { Some(PositiveInt(n)) } else { None }
 }
 
-pub fn to_int(p: PositiveInt): Int {
+pub fn to_int(p: PositiveInt) -> Int {
   case p {
     PositiveInt(n) -> n
   }
@@ -304,7 +304,7 @@ func TestOpaque_StructBody_BlocksConstructorOutsideOwningModule(t *testing.T) {
   day: Int
 }
 
-pub fn make(year: Int, month: Int, day: Int): Date {
+pub fn make(year: Int, month: Int, day: Int) -> Date {
   Date{year: year, month: month, day: day}
 }
 
@@ -329,18 +329,18 @@ func TestOpaque_StructBody_BlocksFieldAccessOutsideOwningModule(t *testing.T) {
   day: Int
 }
 
-pub fn make(year: Int, month: Int, day: Int): Date {
+pub fn make(year: Int, month: Int, day: Int) -> Date {
   Date{year: year, month: month, day: day}
 }
 
-pub fn year(d: Date): Int { d.year }
-pub fn month(d: Date): Int { d.month }
-pub fn day(d: Date): Int { d.day }
+pub fn year(d: Date) -> Int { d.year }
+pub fn month(d: Date) -> Int { d.month }
+pub fn day(d: Date) -> Int { d.day }
 
 `,
 		"main.nomi": `import date.{Date}
 
-fn report(d: Date): Int {
+fn report(d: Date) -> Int {
   d.year
 }
 `,
@@ -362,13 +362,13 @@ func TestOpaque_StructBody_AllowsAccessorsInsideOwningModule(t *testing.T) {
   day: Int
 }
 
-pub fn make(year: Int, month: Int, day: Int): Date {
+pub fn make(year: Int, month: Int, day: Int) -> Date {
   Date{year: year, month: month, day: day}
 }
 
-pub fn year(d: Date): Int { d.year }
-pub fn month(d: Date): Int { d.month }
-pub fn day(d: Date): Int { d.day }
+pub fn year(d: Date) -> Int { d.year }
+pub fn month(d: Date) -> Int { d.month }
+pub fn day(d: Date) -> Int { d.day }
 
 `,
 		"main.nomi": `import cal
@@ -392,14 +392,14 @@ func TestOpaque_StructBody_BlocksDestructuringOutsideOwningModule(t *testing.T) 
   day: Int
 }
 
-pub fn make(year: Int, month: Int, day: Int): Date {
+pub fn make(year: Int, month: Int, day: Int) -> Date {
   Date{year: year, month: month, day: day}
 }
 
 `,
 		"main.nomi": `import date.{Date}
 
-fn report(d: Date): Int {
+fn report(d: Date) -> Int {
   case d {
     Date{year: y, month: m, day: dd} -> y
   }
@@ -420,8 +420,8 @@ func TestOpaque_EnumBody_BlocksVariantConstructorOutsideOwningModule(t *testing.
   Inactive String
 }
 
-pub fn active(): Status { Status.Active }
-pub fn inactive(reason: String): Status { Status.Inactive(reason) }
+pub fn active() -> Status { Status.Active }
+pub fn inactive(reason: String) -> Status { Status.Inactive(reason) }
 `,
 		"main.nomi": `import status.{Status}
 
@@ -440,8 +440,8 @@ func TestOpaque_EnumBody_BlocksDataVariantConstructorOutsideOwningModule(t *test
   Inactive String
 }
 
-pub fn active(): Status { Status.Active }
-pub fn inactive(reason: String): Status { Status.Inactive(reason) }
+pub fn active() -> Status { Status.Active }
+pub fn inactive(reason: String) -> Status { Status.Inactive(reason) }
 `,
 		"main.nomi": `import status.{Status}
 
@@ -460,12 +460,12 @@ func TestOpaque_EnumBody_BlocksDestructuringOutsideOwningModule(t *testing.T) {
   Inactive String
 }
 
-pub fn active(): Status { Status.Active }
-pub fn inactive(reason: String): Status { Status.Inactive(reason) }
+pub fn active() -> Status { Status.Active }
+pub fn inactive(reason: String) -> Status { Status.Inactive(reason) }
 `,
 		"main.nomi": `import status.{Status}
 
-fn describe(s: Status): String {
+fn describe(s: Status) -> String {
   case s {
     Active -> "active"
     Inactive(r) -> r
@@ -483,8 +483,8 @@ func TestOpaque_EnumBody_AllowsConstructorsInsideOwningModule(t *testing.T) {
   Inactive String
 }
 
-pub fn active(): Status { Status.Active }
-pub fn inactive(reason: String): Status { Status.Inactive(reason) }
+pub fn active() -> Status { Status.Active }
+pub fn inactive(reason: String) -> Status { Status.Inactive(reason) }
 
 `,
 		"main.nomi": `import status

@@ -73,7 +73,7 @@ enum Drawable { embeds Figure; Line }`
 func TestEmbed_EnumAsVariantPayloadChecks(t *testing.T) {
 	src := `enum Shape { Square Int; Dot }
 enum Drawable { Shape Shape; Line }
-fn side(d: Drawable): Int {
+fn side(d: Drawable) -> Int {
   case d {
     Drawable.Shape(Shape.Square(n)) -> n
     _ -> 0
@@ -96,7 +96,7 @@ enum Drawable {
     embeds Boxed
     Line
 }
-fn radius(d: Drawable): Float {
+fn radius(d: Drawable) -> Float {
   case d {
     Drawable.Circle{radius} -> radius
     Drawable.Wrapped({radius}) -> radius

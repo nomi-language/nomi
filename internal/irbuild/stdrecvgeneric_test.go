@@ -165,15 +165,15 @@ func TestReceiverGenericityIsPerSignatureNotPerBlock(t *testing.T) {
 		why  string
 	}{
 		{"maps.Map.hash", "stdlib generic function",
-			"`hash(m: Map<K, V>): Int` names both of `impl Hashable for Map<K, V>`'s " +
+			"`hash(m: Map<K, V>) -> Int` names both of `impl Hashable for Map<K, V>`'s " +
 				"receiver-contributed parameters, so the rule must fire. The corpus reaches " +
 				"it from 12-derives-and-standard-interfaces/collections_test.nomi."},
 		{"lists.List.equal?", "stdlib generic function",
-			"`equal?(a: List<T>, b: List<T>): Bool` — a CONTAINER over the parameter " +
+			"`equal?(a: List<T>, b: List<T>) -> Bool` — a CONTAINER over the parameter " +
 				"rather than the bare parameter, which is what the population is dominated " +
 				"by and what a head-only mention test would miss."},
 		{"iter.Seq.each_while", "stdlib generic function",
-			"`each_while(s: Seq<T>, yield: (T) -> Bool): Bool` — the parameter reached " +
+			"`each_while(s: Seq<T>, yield: (T) -> Bool) -> Bool` — the parameter reached " +
 				"through a FUNCTION type, the third shape typeNamesAny has to walk."},
 	} {
 		f := idx.byKey[c.key]
@@ -307,7 +307,7 @@ func TestTypeNamesAnyWalksEveryCompositeForm(t *testing.T) {
 		{"(T) -> Bool", true},
 		{"(Int) -> Bool", false},
 		{"(Int) -> T", true},
-		{"((K, Int)) -> Bool", true},
+		{"(#(K, Int)) -> Bool", true},
 		{"{name: T}", true},
 		{"{name: String}", false},
 	} {
@@ -356,7 +356,7 @@ func parseStdTypeExprImporting(t *testing.T, item, src string) ast.TypeExpr {
 	if item != "" {
 		prog = "import {\n  " + item + "\n}\n\n"
 	}
-	prog += "fn f<T, K>(_x: " + src + ", _t: T, _k: K): Unit {\n}\n"
+	prog += "fn f<T, K>(_x: " + src + ", _t: T, _k: K) -> Unit {\n}\n"
 	p, err := AnalyzeSource("main", prog)
 	if err != nil {
 		t.Fatalf("front end refused `x: %s` (import %q): %v", src, item, err)
@@ -392,7 +392,7 @@ func parseStdTypeExprImporting(t *testing.T, item, src string) ast.TypeExpr {
 // arm switches on those shapes.
 func parseStdTypeExprUnchecked(t *testing.T, src string) ast.TypeExpr {
 	t.Helper()
-	nodes, err := parser.Parse(lexer.Lex("fn f<T, K>(_x: " + src + "): Unit {\n}\n"))
+	nodes, err := parser.Parse(lexer.Lex("fn f<T, K>(_x: " + src + ") -> Unit {\n}\n"))
 	if err != nil {
 		t.Fatalf("`x: %s` does not PARSE, so there is no node to test the arm with: %v", src, err)
 	}

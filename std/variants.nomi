@@ -14,5 +14,5 @@ import {
 //! assert Ordering.variants() == [Ordering.Less, Ordering.Equal, Ordering.Greater]
 //
 pub interface Variants {
-    fn variants(): List<self>
+    fn variants() -> List<self>
 }

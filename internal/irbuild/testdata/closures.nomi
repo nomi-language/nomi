@@ -6,8 +6,8 @@ import std/io
 // §23). A later rebinding of the name, in the same scope or a nested one, is a
 // new binding (spec §2) that the closure never sees.
 // The closure outlives the scope that built it.
-fn adder(n: Int): (Int) -> Int {
-    |x: Int| x + n
+fn adder(n: Int) -> (Int) -> Int {
+    fn x: Int -> x + n
 }
 
 fn main() {
@@ -19,7 +19,7 @@ fn main() {
     // Same-scope rebinding: a new binding, so a lambda made before it keeps
     // the value it captured.
     x = 1
-    seen = |_ignored: Int| x
+    seen = fn _ignored: Int -> x
     io.print("before rebind: ${seen(0)}")
     x = 2
     io.print("direct x = ${x}")
@@ -28,7 +28,7 @@ fn main() {
     // Nested-scope shadowing: also a new binding, and the lambda still sees the
     // value it captured.
     y = 10
-    outer = |k: Int| y + k
+    outer = fn k: Int -> y + k
 
     if True {
         y = 900

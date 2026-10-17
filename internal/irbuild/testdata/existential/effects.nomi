@@ -6,7 +6,7 @@
 // interface in one file, each implementor in its own, and a struct in a fourth
 // holding whichever one was wired in.
 pub interface Logger {
-    fn log(value: self, message: String): String
+    fn log(value: self, message: String) -> String
 
     // A DEFAULT, and the reason it is here: a default is monomorphized into the
     // implementing package rather than called across the boundary, so its body's
@@ -15,11 +15,11 @@ pub interface Logger {
     // declaration — which is what makes copying it faithful rather than merely
     // convenient. A body that mentioned a name the two files disagreed about
     // would be refused as `sibling file interface default`.
-    open fn twice(value: self, message: String): String {
+    open fn twice(value: self, message: String) -> String {
         "${Logger.log(value, message)}/${Logger.log(value, message)}"
     }
 }
 
 pub interface Clock {
-    fn now(value: self): Int
+    fn now(value: self) -> Int
 }

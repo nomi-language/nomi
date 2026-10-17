@@ -21,7 +21,7 @@ func TestFormat_LineWidthCountsDisplayColumns(t *testing.T) {
 		{"combining marks", combining, false},
 		{"wide letters", wide, true},
 	} {
-		line := "    pair = (\"" + c.text + "\", \"" + c.text + "\")"
+		line := "    pair = #(\"" + c.text + "\", \"" + c.text + "\")"
 		src := "fn main() {\n" + line + "\n    dbg pair\n}\n"
 		got, err := Format(src)
 		if err != nil {

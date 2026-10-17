@@ -31,19 +31,19 @@ import {
 //
 pub interface Matcher {
     /// True if the matcher matches anywhere in `text`.
-    fn contained_in?(m: self, text: String): Bool
+    fn contained_in?(m: self, text: String) -> Bool
     /// True if a match starts at the beginning of `text`.
-    fn prefix_of?(m: self, text: String): Bool
+    fn prefix_of?(m: self, text: String) -> Bool
     /// True if a match ends at the end of `text`.
-    fn suffix_of?(m: self, text: String): Bool
+    fn suffix_of?(m: self, text: String) -> Bool
     /// The pieces of `text` between non-overlapping matches.
-    fn split_in(m: self, text: String): List<String>
+    fn split_in(m: self, text: String) -> List<String>
     /// `text` with every non-overlapping match replaced by `replacement`,
     /// taken literally.
-    fn replace_in(m: self, text: String, replacement: String): String
+    fn replace_in(m: self, text: String, replacement: String) -> String
     /// Every non-overlapping match in `text`, left to right.
-    fn find_all_in(m: self, text: String): List<String>
+    fn find_all_in(m: self, text: String) -> List<String>
     /// The first match in `text`, the leftmost: the first element `find_all_in`
     /// returns, or `None` when there is no match.
-    fn find_in(m: self, text: String): Maybe<String>
+    fn find_in(m: self, text: String) -> Maybe<String>
 }

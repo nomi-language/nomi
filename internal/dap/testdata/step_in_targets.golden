@@ -31,12 +31,12 @@
 -> stackTrace {"threadId":1}
 <- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":14,"name":"main","source":{"name":"targets.nomi","path":"$TESTDATA/targets.nomi"}}],"totalFrames":1}
 -> stepInTargets {"frameId":1}
-<- response stepInTargets {"targets":[{"column":21,"endColumn":30,"endLine":16,"id":1,"label":"Iter.map(|n| ...) callback","line":16},{"column":24,"endColumn":34,"endLine":17,"id":2,"label":"Iter.filter(|n| ...) callback","line":17}]}
+<- response stepInTargets {"targets":[{"column":21,"endColumn":34,"endLine":16,"id":1,"label":"Iter.map(fn n -> ...) callback","line":16},{"column":24,"endColumn":38,"endLine":17,"id":2,"label":"Iter.filter(fn n -> ...) callback","line":17}]}
 -> stepIn {"targetId":2,"threadId":1}
 <- response stepIn
 <- event stopped {"allThreadsStopped":true,"reason":"step","threadId":1}
 -> stackTrace {"threadId":1}
-<- response stackTrace {"stackFrames":[{"column":28,"id":1,"line":17,"name":"<lambda>","source":{"name":"targets.nomi","path":"$TESTDATA/targets.nomi"}},{"column":24,"id":2,"line":18,"name":"Iter.filter","presentationHint":"subtle","source":{"name":"targets.nomi","path":"$TESTDATA/targets.nomi"}},{"column":24,"id":3,"line":18,"name":"main","source":{"name":"targets.nomi","path":"$TESTDATA/targets.nomi"}}],"totalFrames":3}
+<- response stackTrace {"stackFrames":[{"column":32,"id":1,"line":17,"name":"<lambda>","source":{"name":"targets.nomi","path":"$TESTDATA/targets.nomi"}},{"column":24,"id":2,"line":18,"name":"Iter.filter","presentationHint":"subtle","source":{"name":"targets.nomi","path":"$TESTDATA/targets.nomi"}},{"column":24,"id":3,"line":18,"name":"main","source":{"name":"targets.nomi","path":"$TESTDATA/targets.nomi"}}],"totalFrames":3}
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
 -> variables {"variablesReference":1}
@@ -47,10 +47,10 @@
 -> stackTrace {"threadId":1}
 <- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":21,"name":"main","source":{"name":"targets.nomi","path":"$TESTDATA/targets.nomi"}}],"totalFrames":1}
 -> stepInTargets {"frameId":1}
-<- response stepInTargets {"targets":[{"column":28,"endColumn":41,"endLine":21,"id":1,"label":"Iter.map(|n| ...) callback","line":21}]}
+<- response stepInTargets {"targets":[{"column":28,"endColumn":45,"endLine":21,"id":1,"label":"Iter.map(fn n -> ...) callback","line":21}]}
 -> stepIn {"targetId":1,"threadId":1}
 <- response stepIn
-<- event output {"category":"console","output":"Step into Iter.map(|n| ...) callback: the statement finished without entering it, so the step stopped at the next statement.\n"}
+<- event output {"category":"console","output":"Step into Iter.map(fn n -> ...) callback: the statement finished without entering it, so the step stopped at the next statement.\n"}
 <- event stopped {"allThreadsStopped":true,"reason":"step","threadId":1}
 -> stackTrace {"threadId":1}
 <- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":23,"name":"main","source":{"name":"targets.nomi","path":"$TESTDATA/targets.nomi"}}],"totalFrames":1}

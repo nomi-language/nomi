@@ -15,7 +15,7 @@ fn main() {
     d: Display = 1
     rs = [{x: 1, d: d}, {x: 2, d: d}]
     io.inspect(rs |> Iter.map(.x) |> Iter.to_list())
-    io.print(rs |> Iter.map(|r| Display.to_string(r.d)) |> String.join(","))
+    io.print(rs |> Iter.map(fn r -> Display.to_string(r.d)) |> String.join(","))
 }
 `
 	irRunSource(t, src, "[1, 2]\n1,1\n")
@@ -36,11 +36,11 @@ struct Holder {
     ds: List<Display>
 }
 
-fn all(ds: List<Display>): String {
+fn all(ds: List<Display>) -> String {
     Iter.map(ds, Display.to_string) |> String.join(",")
 }
 
-fn show(x: Display): String {
+fn show(x: Display) -> String {
     "<" + Display.to_string(x) + ">"
 }
 

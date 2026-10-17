@@ -23,8 +23,8 @@ func TestVM_PartialQualified(t *testing.T) {
 		"> d",
 		"app> e",
 		"app> f",
-		"(1, 2)",
-		"[(0, 3), (0, 4)]",
+		"#(1, 2)",
+		"[#(0, 3), #(0, 4)]",
 		`["xxx"]`,
 		"",
 	}, "\n")
@@ -45,7 +45,7 @@ func TestVM_PartialInABlockCheckedTwice(t *testing.T) {
 	}
 	const src = `import std/io
 
-fn pick<T>(c: Bool, a: T, b: T): T {
+fn pick<T>(c: Bool, a: T, b: T) -> T {
     if c { a } else { b }
 }
 

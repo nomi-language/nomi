@@ -4,7 +4,7 @@ import {
 }
 
 interface HasName {
-    fn name(value: self): String
+    fn name(value: self) -> String
 }
 
 struct Tag {
@@ -12,12 +12,12 @@ struct Tag {
 }
 
 impl HasName for Tag {
-    fn name(tag: Tag): String {
+    fn name(tag: Tag) -> String {
         tag.name
     }
 }
 
-fn name_of<T>(x: T): String where T: HasName {
+fn name_of<T>(x: T) -> String where T: HasName {
     T.name(x)
 }
 
@@ -29,10 +29,10 @@ test "a bounded type parameter exposes no fields" {
     diagnostics = compiler.check(
         """
           interface HasName {
-            fn name(value: self): String
+            fn name(value: self) -> String
           }
 
-          fn name_of<T>(x: T): String where T: HasName {
+          fn name_of<T>(x: T) -> String where T: HasName {
             x.name
           }
         """
@@ -45,7 +45,7 @@ test "a bounded type parameter exposes no fields" {
 test "unbounded type parameters do not expose arbitrary fields" {
     diagnostics = compiler.check(
         """
-          fn first_field<T>(x: T): Int {
+          fn first_field<T>(x: T) -> Int {
             x.name
           }
 

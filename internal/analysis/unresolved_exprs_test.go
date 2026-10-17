@@ -35,24 +35,24 @@ struct Foo {
 }
 
 interface Counter {
-    fn count(c: self, n: Int): Int
+    fn count(c: self, n: Int) -> Int
 }
 
 impl Counter for Point {
-    fn count(p: Point, n: Int): Int {
+    fn count(p: Point, n: Int) -> Int {
         if n <= 0 { p.x } else { count(p, n - 1) }
     }
 }
 
-fn twice(f: (Int) -> Int, n: Int): Int {
+fn twice(f: (Int) -> Int, n: Int) -> Int {
     f(f(n))
 }
 
-fn main_like(p: Point): Int {
+fn main_like(p: Point) -> Int {
     q = {..p, y: 2}
     Point{x, y} = q
     foo = Foo({a: x})
-    shifted = twice(|n| n + y, foo.a)
+    shifted = twice(fn n -> n + y, foo.a)
     case shifted {
         0 -> 1
         n -> n * 2
@@ -120,7 +120,7 @@ func TestUnresolvedExprs_APipedStructCallFormIsTyped(t *testing.T) {
     a: Int
 }
 
-fn f(): Int {
+fn f() -> Int {
     foo = {a: 1} |> Foo()
     foo.a
 }

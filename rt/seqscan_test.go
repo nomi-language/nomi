@@ -76,7 +76,7 @@ func TestSeqScanCtl(t *testing.T) {
 }
 
 // TestSeqMapReduceCells pins the outputs in order with the final state, the
-// empty source's `([], seed)`, and the signals.
+// empty source's `#([], seed)`, and the signals.
 func TestSeqMapReduceCells(t *testing.T) {
 	fr := NewFrame(nil)
 	type result struct {

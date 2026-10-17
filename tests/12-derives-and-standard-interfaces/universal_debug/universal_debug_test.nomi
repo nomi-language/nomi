@@ -13,12 +13,12 @@ enum UniversalShape {
 
 type UniversalId Int
 
-fn debug_show<T>(value: T): String {
+fn debug_show<T>(value: T) -> String {
     Debug.inspect(value)
 }
 
 interface Named {
-    fn name_of(value: self): String
+    fn name_of(value: self) -> String
 }
 
 struct UniversalDog {
@@ -26,12 +26,12 @@ struct UniversalDog {
 }
 
 impl Named for UniversalDog {
-    fn name_of(d: UniversalDog): String {
+    fn name_of(d: UniversalDog) -> String {
         d.name
     }
 }
 
-fn describe_named(value: Named): String {
+fn describe_named(value: Named) -> String {
     Debug.inspect(value)
 }
 

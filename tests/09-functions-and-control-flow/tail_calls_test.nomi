@@ -1,8 +1,8 @@
-fn count(n: Int): Int {
+fn count(n: Int) -> Int {
     if n == 0 { 0 } else { count(n - 1) }
 }
 
-fn fact(n: Int, acc: Int): Int {
+fn fact(n: Int, acc: Int) -> Int {
     if n <= 1 {
         acc
     } else {
@@ -10,26 +10,26 @@ fn fact(n: Int, acc: Int): Int {
     }
 }
 
-fn is_even(n: Int): Bool {
+fn is_even(n: Int) -> Bool {
     if n == 0 { True } else { is_odd(n - 1) }
 }
 
-fn is_odd(n: Int): Bool {
+fn is_odd(n: Int) -> Bool {
     if n == 0 { False } else { is_even(n - 1) }
 }
 
-fn sum_up_to(n: Int): Int {
+fn sum_up_to(n: Int) -> Int {
     if n == 0 { 0 } else { 1 + sum_up_to(n - 1) }
 }
 
 interface Stepper {
-    fn step(value: self, n: Int): Int
+    fn step(value: self, n: Int) -> Int
 }
 
 struct Down {}
 
 impl Stepper for Down {
-    fn step(value: Down, n: Int): Int {
+    fn step(value: Down, n: Int) -> Int {
         if n == 0 {
             0
         } else {

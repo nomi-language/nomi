@@ -24,7 +24,7 @@ enum Shape {
   Dot Float
 }
 
-fn area(s: Shape): Float {
+fn area(s: Shape) -> Float {
   case s {
     Shape.Circle{radius} -> radius
     Shape.Dot(d) -> d
@@ -52,7 +52,7 @@ enum Shape {
   Dot Float
 }
 
-fn area(s: Shape): Float {
+fn area(s: Shape) -> Float {
   case s {
     Shape.Rectangle{width, height} -> width * height
     Shape.Dot(d) -> d
@@ -86,7 +86,7 @@ enum Session {
   embeds Expired
 }
 
-fn label(s: Session): String {
+fn label(s: Session) -> String {
   case s {
     Session.Live{since} -> "live since ${since}"
     Session.Expired -> "expired"

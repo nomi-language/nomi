@@ -17,7 +17,7 @@ func TestRunFile_ASubdirectoryFileResolvesFromMainNomi(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
 		"main.nomi":     "fn main() {\n}\n",
-		"greeting.nomi": "pub fn text(): String {\n  \"hello from the project root\"\n}\n",
+		"greeting.nomi": "pub fn text() -> String {\n  \"hello from the project root\"\n}\n",
 		"tools/say.nomi": "import {\n  std/io\n  greeting\n}\n\n" +
 			"fn main() {\n  io.print(greeting.text())\n}\n",
 	}

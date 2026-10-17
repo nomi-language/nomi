@@ -8,24 +8,24 @@ func TestIRLoop_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"iteration-and-loops.md:L41", `fn main() {
   // Countdown — break when n reaches 0.
-  countdown = Iter.loop(|n = 5| {
+  countdown = Iter.loop(fn n = 5 -> {
     if n == 0 { break n }
     n - 1
   })
   dbg countdown
 
   // Tuple state — first Fibonacci pair where the second is > 100.
-  (a, b) = Iter.loop(|state = (0, 1)| {
-    (x, y) = state
-    if y > 100 { break (x, y) }
-    (y, x + y)
+  #(a, b) = Iter.loop(fn state = #(0, 1) -> {
+    #(x, y) = state
+    if y > 100 { break #(x, y) }
+    #(y, x + y)
   })
   dbg a
   dbg b
 }`, "dbg line 7: countdown = 0\ndbg line 15: a = 89\ndbg line 16: b = 144\n"},
 		{"guards, return advance and repeated calls", `import std/io
-fn count_to(limit: Int): Int {
-  Iter.loop(|n = 0| {
+fn count_to(limit: Int) -> Int {
+  Iter.loop(fn n = 0 -> {
     step = n + 1
     if n < 0 { continue }
     if n >= limit {
@@ -40,53 +40,53 @@ fn count_to(limit: Int): Int {
 fn main() {
   a = count_to(3)
   b = count_to(5)
-  total = a + Iter.loop(|k = 1| {
+  total = a + Iter.loop(fn k = 1 -> {
     if k > 50 { break k - 1 }
     k * 2
   })
   dbg a
   dbg b
   dbg total
-  label = Iter.loop(|s = "a"| {
+  label = Iter.loop(fn s = "a" -> {
     if String.length(s) >= 3 { break "${s}!" }
     "${s}b"
   })
   io.print(label)
 }`, "stop at 4\nstop at 5\ndbg line 22: a = 40\ndbg line 23: b = 50\ndbg line 24: total = 103\nabb!\n"},
 		{"operand positions", `import std/io
-fn f(): Int {
+fn f() -> Int {
   io.print("f")
   3
 }
-fn g(x: Int, y: Int): Int { x - y }
+fn g(x: Int, y: Int) -> Int { x - y }
 fn main() {
-  total = f() + Iter.loop(|k = 1| {
+  total = f() + Iter.loop(fn k = 1 -> {
     io.print("k")
     if k > 5 { break k }
     k + 2
   })
   dbg total
-  dbg Iter.loop(|k = f()| {
+  dbg Iter.loop(fn k = f() -> {
     if k > 5 { break k }
     k + 2
   })
-  h = g(Iter.loop(|k = 1| {
+  h = g(Iter.loop(fn k = 1 -> {
     if k > 5 { break k }
     k + 2
   }), f())
-  io.print("${h} ${Iter.loop(|s = "x"| {
+  io.print("${h} ${Iter.loop(fn s = "x" -> {
     if s == "xxx" { break s }
     "${s}x"
   })}")
-}`, "f\nk\nk\nk\nk\ndbg line 13: total = 10\nf\ndbg line 14:\n  Iter.loop(|k = f()| {\n      if k > 5 { break k }\n      k + 2\n  })\n  = 7\nf\n4 xxx\n"},
+}`, "f\nk\nk\nk\nk\ndbg line 13: total = 10\nf\ndbg line 14:\n  Iter.loop(fn k = f() -> {\n      if k > 5 { break k }\n      k + 2\n  })\n  = 7\nf\n4 xxx\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}
 }
 
 func TestIRLoop_RetainsLoopFunctions(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", `fn count_to(limit: Int): Int {
-  Iter.loop(|n = 0| {
+	p, err := AnalyzeSource("main.nomi", `fn count_to(limit: Int) -> Int {
+  Iter.loop(fn n = 0 -> {
     if n >= limit { break n }
     n + 1
   })
@@ -113,15 +113,15 @@ fn main() { _ = count_to(3) + count_to(4) }`)
 func TestIRLoop_BranchingTailAndFirstBreak(t *testing.T) {
 	// A branching tail writes the tail slot from two arms, and a final `break
 	// v` leaves on the first iteration.
-	verifyLambdaProgram(t, "import std/io\nfn run(): Int {\nIter.loop(|n = 0| {\n if n > 3 { break n }\n if n > 1 { n + 2 } else { n + 1 }\n })\n}\n"+
-		"fn first_break(): Int {\nIter.loop(|n = 7| { break n })\n}\nfn main() {\n io.print(run())\n io.print(first_break())\n}\n", "4\n7\n")
+	verifyLambdaProgram(t, "import std/io\nfn run() -> Int {\nIter.loop(fn n = 0 -> {\n if n > 3 { break n }\n if n > 1 { n + 2 } else { n + 1 }\n })\n}\n"+
+		"fn first_break() -> Int {\nIter.loop(fn n = 7 -> { break n })\n}\nfn main() {\n io.print(run())\n io.print(first_break())\n}\n", "4\n7\n")
 }
 
 // A final `return v` is the next state, as a tail value is (vm-maps-iters).
 func TestIRLoop_FinalReturnIsTheNextState(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn run(): Int {
-  Iter.loop(|n = 0| {
+fn run() -> Int {
+  Iter.loop(fn n = 0 -> {
     if n > 3 { break n }
     return n + 1
   })
@@ -137,7 +137,7 @@ fn main() {
 func TestIRLoop_LongLoopRunsToItsBreak(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
-  n = Iter.loop(|i = 0| {
+  n = Iter.loop(fn i = 0 -> {
     if i == 600000 { break i }
     i + 1
   })
@@ -154,9 +154,9 @@ func TestIRLoop_UnitState(t *testing.T) {
 	verifyLambdaProgram(t, `import std/channels.{Channel, Receiver, Sender}
 import std/io
 
-fn feed(items: List<String>): Receiver<String> {
+fn feed(items: List<String>) -> Receiver<String> {
     ch = Channel.buffered<String>(10)
-    Iter.each(items, |s| {
+    Iter.each(items, fn s -> {
         _ = Sender.send(ch.sender, s)
     })
     Sender.close(ch.sender)
@@ -164,7 +164,7 @@ fn feed(items: List<String>): Receiver<String> {
 }
 
 fn break_state(input: Receiver<String>) {
-    Iter.loop(|u: Unit = Unit| {
+    Iter.loop(fn u: Unit = Unit -> {
         case Receiver.receive(input) {
             Some("skip") -> continue
             Some(t) -> io.print(t)
@@ -174,7 +174,7 @@ fn break_state(input: Receiver<String>) {
 }
 
 fn bare_break(input: Receiver<String>) {
-    Iter.loop(|_u: Unit = Unit| {
+    Iter.loop(fn _u: Unit = Unit -> {
         case Receiver.receive(input) {
             Some(t) -> io.print("bare ${t}")
             None -> break
@@ -182,8 +182,8 @@ fn bare_break(input: Receiver<String>) {
     })
 }
 
-fn guards(input: Receiver<String>): Unit {
-    Iter.loop(|u = Unit| {
+fn guards(input: Receiver<String>) -> Unit {
+    Iter.loop(fn u = Unit -> {
         t = Receiver.receive(input)
         if t == None { break u }
         if t == Some("skip") { continue }
@@ -197,9 +197,9 @@ fn main() {
     bare_break(feed(["c"]))
     r = guards(feed(["d", "skip", "e"]))
     io.inspect(r)
-    run = |items: List<String>| {
+    run = fn items: List<String> -> {
         input = feed(items)
-        Iter.loop(|_: Unit = Unit| {
+        Iter.loop(fn _: Unit = Unit -> {
             case Receiver.receive(input) {
                 Some(t) -> io.print("lambda ${t}")
                 None -> break
@@ -221,9 +221,9 @@ func TestIRLoop_StatelessLoopEndings(t *testing.T) {
     std/io
 }
 
-fn fill(xs: List<Int>): Receiver<Int> {
+fn fill(xs: List<Int>) -> Receiver<Int> {
     ch: Channel<Int> = Channel.buffered(10)
-    Iter.each(xs, |x| {
+    Iter.each(xs, fn x -> {
         _ = Sender.send(ch.sender, x)
     })
     Sender.close(ch.sender)
@@ -232,13 +232,13 @@ fn fill(xs: List<Int>): Receiver<Int> {
 
 fn main() {
     // Ends in break: runs once.
-    Iter.loop(|| {
+    Iter.loop(fn -> {
         io.print("once")
         break
     })
     // Ends in continue.
     inbox = fill([1, 2, 3])
-    Iter.loop(|| {
+    Iter.loop(fn -> {
         Some(n) = Receiver.receive(inbox) else { break }
         if n == 3 { break Unit }
         io.print("continue ${n}")
@@ -246,7 +246,7 @@ fn main() {
     })
     // A case whose arms all leave.
     inbox2 = fill([4, 5, 0, 6])
-    Iter.loop(|| {
+    Iter.loop(fn -> {
         case Receiver.receive(inbox2) {
             Some(0) -> break
             Some(n) -> {
@@ -258,14 +258,14 @@ fn main() {
     })
     // A Unit tail, and an if with no else ending the body.
     inbox3 = fill([7, 8])
-    u = Iter.loop(|| {
+    u = Iter.loop(fn -> {
         Some(n) = Receiver.receive(inbox3) else { break }
         io.print("tail ${n}")
         if n == 7 { io.print("seven") }
     })
     io.inspect(u)
     // In a lambda.
-    drain = |label: String, inbox: Receiver<Int>| Iter.loop(|| {
+    drain = fn label: String, inbox: Receiver<Int> -> Iter.loop(fn -> {
         Some(n) = Receiver.receive(inbox) else { break }
         io.print("${label} ${n}")
     })

@@ -8,7 +8,7 @@ import "testing"
 // the concrete receiver.
 func TestInterfaceSelfTypeRecordsReference(t *testing.T) {
 	src := `interface Greet {
-  fn hello(value: self): String
+  fn hello(value: self) -> String
 }
 fn main() {
   Unit

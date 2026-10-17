@@ -20,7 +20,7 @@ enum Shape {
     Dot
 }
 
-fn f(a: Int, b: Int): Int {
+fn f(a: Int, b: Int) -> Int {
     a + b
 }
 
@@ -60,7 +60,7 @@ func TestRepeatedFields_RejectedAtTheSecondName(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			src := repeatedFieldsDecls + "fn run(): Int {\n" + tc.body + "\n}\n"
+			src := repeatedFieldsDecls + "fn run() -> Int {\n" + tc.body + "\n}\n"
 			_, errs := checkSourceWithStdlib(src)
 			line := repeatedFieldsBodyLine + tc.line
 			var all []string
@@ -78,7 +78,7 @@ func TestRepeatedFields_RejectedAtTheSecondName(t *testing.T) {
 // TestRepeatedFields_SpreadMayRepeatItsBase pins the one repetition that is
 // the point of the syntax: a field after a spread replaces the base's.
 func TestRepeatedFields_SpreadMayRepeatItsBase(t *testing.T) {
-	src := repeatedFieldsDecls + `fn run(): Int {
+	src := repeatedFieldsDecls + `fn run() -> Int {
     p = Point{x: 1, y: 1}
     q = {..p, y: 5}
     r = Struct.update(q, {y: 6})
@@ -131,27 +131,27 @@ func TestRepeatedDeclaredNames_RejectedAtTheSecondName(t *testing.T) {
 		line, col int
 		msg       string
 	}{
-		{"struct field", "struct Point {\n    x: Int\n    x: Int\n    y: Int\n}\n\nfn run(): Point {\n    Point{x: 3, y: 4}\n}\n",
+		{"struct field", "struct Point {\n    x: Int\n    x: Int\n    y: Int\n}\n\nfn run() -> Point {\n    Point{x: 3, y: 4}\n}\n",
 			3, 5, "field 'x' is declared twice in struct `Point`; the first is at line 2"},
 		{"block-local struct field", "test \"local\" {\n    struct Point {\n        x: Int\n        x: Int\n        y: Int\n    }\n\n    p = Point{x: 3, y: 4}\n    assert p.x + p.y == 7\n}\n",
 			4, 9, "field 'x' is declared twice in struct `Point`; the first is at line 3"},
-		{"enum variant field", "enum Shape {\n    Rect {\n        w: Int\n        w: Int\n    }\n    Dot\n}\n\nfn run(): Shape {\n    Shape.Dot\n}\n",
+		{"enum variant field", "enum Shape {\n    Rect {\n        w: Int\n        w: Int\n    }\n    Dot\n}\n\nfn run() -> Shape {\n    Shape.Dot\n}\n",
 			4, 9, "field 'w' is declared twice in variant `Shape.Rect`; the first is at line 3"},
-		{"enum variant field on one line", "enum Shape {\n    Rect { w: Int, w: Int }\n    Dot\n}\n\nfn run(): Shape {\n    Shape.Dot\n}\n",
+		{"enum variant field on one line", "enum Shape {\n    Rect { w: Int, w: Int }\n    Dot\n}\n\nfn run() -> Shape {\n    Shape.Dot\n}\n",
 			2, 20, "field 'w' is declared twice in variant `Shape.Rect`; the first is at line 2"},
-		{"enum variant", "enum Color {\n    Red\n    Red\n}\n\nfn run(): Color {\n    Color.Red\n}\n",
+		{"enum variant", "enum Color {\n    Red\n    Red\n}\n\nfn run() -> Color {\n    Color.Red\n}\n",
 			3, 5, "variant 'Red' is declared twice in enum `Color`; the first is at line 2"},
-		{"block-local enum variant", "fn run(): Int {\n    enum Color {\n        Red\n        Red\n    }\n\n    _ = Color.Red\n    1\n}\n",
+		{"block-local enum variant", "fn run() -> Int {\n    enum Color {\n        Red\n        Red\n    }\n\n    _ = Color.Red\n    1\n}\n",
 			4, 9, "variant 'Red' is declared twice in enum `Color`; the first is at line 3"},
-		{"interface function", "interface Named {\n    fn name(value: self): String\n    fn name(value: self): String\n}\n",
+		{"interface function", "interface Named {\n    fn name(value: self) -> String\n    fn name(value: self) -> String\n}\n",
 			3, 8, "function 'name' is declared twice in interface `Named`; the first is at line 2"},
-		{"function parameter", "fn f(a: Int, a: Int): Int {\n    a\n}\n",
+		{"function parameter", "fn f(a: Int, a: Int) -> Int {\n    a\n}\n",
 			1, 14, "parameter 'a' is declared twice in `fn f`; the first is at line 1"},
-		{"interface function parameter", "interface Named {\n    fn name(value: self, value: Int): String\n}\n",
+		{"interface function parameter", "interface Named {\n    fn name(value: self, value: Int) -> String\n}\n",
 			2, 26, "parameter 'value' is declared twice in `fn name`; the first is at line 2"},
-		{"lambda parameter", "fn run(): Int {\n    f = |a: Int, a: Int| a\n    f(1, 2)\n}\n",
-			2, 18, "parameter 'a' is declared twice in this lambda; the first is at line 2"},
-		{"anonymous record type", "fn f(_r: {a: Int, a: String}): Int {\n    1\n}\n",
+		{"lambda parameter", "fn run() -> Int {\n    f = fn a: Int, a: Int -> a\n    f(1, 2)\n}\n",
+			2, 20, "parameter 'a' is declared twice in this lambda; the first is at line 2"},
+		{"anonymous record type", "fn f(_r: {a: Int, a: String}) -> Int {\n    1\n}\n",
 			1, 19, "duplicate field 'a' in anon struct type"},
 	}
 	for _, tc := range cases {
@@ -191,7 +191,7 @@ struct Point {
 derive Equatable, Hashable, Comparable, Display for Shape
 derive Equatable, Hashable, Comparable, Display for Point
 
-fn run(): Shape {
+fn run() -> Shape {
     _ = Point{x: 1}
     Shape.Dot
 }

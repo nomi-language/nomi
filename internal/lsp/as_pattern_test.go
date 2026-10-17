@@ -19,7 +19,7 @@ enum Outcome {
   Failed
 }
 
-fn start_of(r: Outcome): Int {
+fn start_of(r: Outcome) -> Int {
   case r {
     .Done(Tx{start: _} as t) -> t.start
     .Failed -> 0

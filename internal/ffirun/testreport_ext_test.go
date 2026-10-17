@@ -85,11 +85,11 @@ func TestWrapperTestReportIsTheCommandsOwnReport(t *testing.T) {
 	// toolchain. See hostkeyword_toolchain_test.go.
 	write(t, filepath.Join(root, "ffi.go"), "package testproject\n\nfunc Echo(s string) string { return s }\n")
 	write(t, filepath.Join(root, "adapter.nomi"),
-		"gopkg \"testproject\" as ffi\n\npub fn echo(s: String): String go ffi.Echo\n")
+		"gopkg \"testproject\" as ffi\n\npub fn echo(s: String) -> String go ffi.Echo\n")
 	// Three failing shapes, each contributing a different part of the report:
 	// a bound operand, a call argument, and a `defined as:` binding.
 	entry := filepath.Join(root, "report_test.nomi")
-	write(t, entry, `fn no(_v: Int): Bool {
+	write(t, entry, `fn no(_v: Int) -> Bool {
   False
 }
 

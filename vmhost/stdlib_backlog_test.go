@@ -150,7 +150,7 @@ test "a bare variant typed by the call" {
 }
 
 test "an unconstrained type argument" {
-  assert Result.map(Result.Ok(3), |x| x * 2) == Result.Ok(6)
+  assert Result.map(Result.Ok(3), fn x -> x * 2) == Result.Ok(6)
   assert Result.to_maybe(Result.Ok(3)) == Some(3)
 }
 
@@ -177,7 +177,7 @@ test "a std marker value" {
 test "Task.spawn_all over a List" {
   results = concurrent {
     [1, 2, 3]
-    |> Task.spawn_all(|n: Int| n * 2, max_running: 2)
+    |> Task.spawn_all(fn n: Int -> n * 2, max_running: 2)
     |> Task.await_all()
   }
   assert results == [2, 4, 6]

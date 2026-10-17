@@ -3,17 +3,17 @@ pub typealias Grid Vector<Vector<Int>>
 
 /// The `size` by `size` grid holding 1 to `size * size`, starting at the top
 /// left corner and spiralling clockwise inwards.
-pub fn spiral_matrix(size: Int): Grid {
+pub fn spiral_matrix(size: Int) -> Grid {
     empty_row = Iter.repeat(0) |> Iter.take(size) |> Iter.to_vector()
     grid = Iter.repeat(empty_row) |> Iter.take(size) |> Iter.to_vector()
 
-    fill(grid, (0, 0), (0, 1), 1, size * size)
+    fill(grid, #(0, 0), #(0, 1), 1, size * size)
 }
 
 /// Writes `value` at `position`, then moves on along `heading`, turning
 /// clockwise when the next square is off the grid or already written, until
 /// `last` is written.
-fn fill(grid: Grid, position: (Int, Int), heading: (Int, Int), value: Int, last: Int): Grid {
+fn fill(grid: Grid, position: #(Int, Int), heading: #(Int, Int), value: Int, last: Int) -> Grid {
     if value > last { return grid }
 
     grid = set_cell(grid, position, value)
@@ -27,27 +27,27 @@ fn fill(grid: Grid, position: (Int, Int), heading: (Int, Int), value: Int, last:
     fill(grid, step(position, heading), heading, value + 1, last)
 }
 
-fn step((row, column): (Int, Int), (dr, dc): (Int, Int)): (Int, Int) {
-    (row + dr, column + dc)
+fn step(#(row, column): #(Int, Int), #(dr, dc): #(Int, Int)) -> #(Int, Int) {
+    #(row + dr, column + dc)
 }
 
-fn turn((dr, dc): (Int, Int)): (Int, Int) {
-    (dc, -dr)
+fn turn(#(dr, dc): #(Int, Int)) -> #(Int, Int) {
+    #(dc, -dr)
 }
 
 /// Whether `position` is on the grid and not written yet.
-fn empty?(grid: Grid, position: (Int, Int)): Bool {
+fn empty?(grid: Grid, position: #(Int, Int)) -> Bool {
     cell_at(grid, position) == Some(0)
 }
 
-fn cell_at(grid: Grid, (row, column): (Int, Int)): Maybe<Int> {
+fn cell_at(grid: Grid, #(row, column): #(Int, Int)) -> Maybe<Int> {
     cells = try Vector.get(grid, row)
     Vector.get(cells, column)
 }
 
 /// `grid` with `value` at `position`, which is on the grid: `fill` only
 /// steps onto a square `empty?` accepted.
-fn set_cell(grid: Grid, (row, column): (Int, Int), value: Int): Grid {
+fn set_cell(grid: Grid, #(row, column): #(Int, Int), value: Int) -> Grid {
     cells = Vector.at(grid, row) |> Vector.set(column, value)
     Vector.set(grid, row, cells)
 }

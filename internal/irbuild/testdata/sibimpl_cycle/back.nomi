@@ -7,7 +7,7 @@
 import decls.{self, Beta, Other, Thing}
 
 impl Beta for Other {
-    fn beta(x: Other): Int {
+    fn beta(x: Other) -> Int {
         Thing.go(decls.thing(x.n))
     }
 }

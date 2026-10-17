@@ -68,11 +68,11 @@ func TestSites_TheDenominatorPopulationIsTheRunnersOwn(t *testing.T) {
 		return p
 	}
 	// Clause 1: the suffix, with no test in the file at all.
-	bySuffix := write("empty_test.nomi", "fn helper(): Int {\n  1\n}\n")
+	bySuffix := write("empty_test.nomi", "fn helper() -> Int {\n  1\n}\n")
 	// Clause 2: no suffix, but the file declares a test.
 	byContent := write("declares.nomi", "test \"t\" {\n  assert True\n}\n")
 	// Neither: an ordinary module.
-	neither := write("helper.nomi", "fn helper(): Int {\n  1\n}\n")
+	neither := write("helper.nomi", "fn helper() -> Int {\n  1\n}\n")
 
 	if !runnerWouldDiscover(bySuffix) {
 		t.Errorf("`nomi test` discovers every *_test.nomi regardless of content; this says otherwise")

@@ -61,12 +61,12 @@ test "strings parse signed integers or return none" {
 
 test "grapheme transforms materialize back to strings" {
     assert "abc"
-        |> Iter.map(|g| g + g)
+        |> Iter.map(fn g -> g + g)
         |> String.join()
         |> String.equal?("aabbcc")
 
     assert "a1b2c3"
-        |> Iter.filter(|g| g == "1" or g == "2" or g == "3")
+        |> Iter.filter(fn g -> g == "1" or g == "2" or g == "3")
         |> String.join()
         |> String.equal?("123")
 }
@@ -80,7 +80,7 @@ test "normalization is explicit before byte-based equality" {
     assert String.normalize(nfc, NFD) == nfd
 }
 
-fn slash_joined(parts: Iter<String>): String {
+fn slash_joined(parts: Iter<String>) -> String {
     String.join(parts, "/")
 }
 
@@ -93,13 +93,16 @@ test "join reads any iterator of strings and defaults to no separator" {
     assert 1..=3 |> Iter.map(Int.to_string) |> String.join("-") == "1-2-3"
 
     assert Iter.from(1)
-        |> Iter.filter(|n| n % 2 == 0)
+        |> Iter.filter(fn n -> n % 2 == 0)
         |> Iter.map(Int.to_string)
         |> Iter.take(3)
         |> String.join(" ")
         |> String.equal?("2 4 6")
 
-    assert {"k" => 1} |> Iter.map(|(k, v)| k + "=" + Int.to_string(v)) |> String.join("&") == "k=1"
+    assert %{"k" => 1}
+    |> Iter.map(fn #(k, v) -> k + "=" + Int.to_string(v))
+    |> String.join("&") == "k=1"
+
     assert slash_joined(["p", "q"]) == "p/q"
     assert slash_joined(#{"r"}) == "r"
 }

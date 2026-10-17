@@ -13,12 +13,12 @@ import (
 // the call to `planted_decline` in its callback.
 const declinedSource = `import std/io
 
-fn planted_decline(n: Int): Int {
+fn planted_decline(n: Int) -> Int {
   n
 }
 
-fn evens(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| planted_decline(x)) |> Iter.to_list()
+fn evens(xs: List<Int>) -> List<Int> {
+  Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
 }
 
 fn main() {
@@ -68,7 +68,7 @@ func TestLoadSource_ADeclineReadsAsOnDisk(t *testing.T) {
 	if strings.ReplaceAll(diskReport, path, "main.nomi") != memReport {
 		t.Errorf("in-memory report:\n%s\nwant the on-disk one:\n%s", memReport, diskReport)
 	}
-	if !strings.Contains(memReport, " --> main.nomi:8:20\n") || !strings.Contains(memReport, "8 |   Iter.map(xs, |x| planted_decline(x))") {
+	if !strings.Contains(memReport, " --> main.nomi:8:24\n") || !strings.Contains(memReport, "8 |   Iter.map(xs, fn x -> planted_decline(x))") {
 		t.Errorf("the report does not locate and quote the call:\n%s", memReport)
 	}
 	if strings.ReplaceAll(diskErr, path, "main.nomi") != memErr {
@@ -97,12 +97,12 @@ fn main() {
   io.print(lib.evens([1, 2]))
 }
 `
-	lib := `fn planted_decline(n: Int): Int {
+	lib := `fn planted_decline(n: Int) -> Int {
   n
 }
 
-pub fn evens(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| planted_decline(x)) |> Iter.to_list()
+pub fn evens(xs: List<Int>) -> List<Int> {
+  Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
 }
 `
 	p, err := vmhost.LoadSource("main", entry, vmhost.WithVirtualFiles(map[string]string{"lib": lib}))
@@ -111,7 +111,7 @@ pub fn evens(xs: List<Int>): List<Int> {
 	}
 	report, _ := blockedReport(t, p)
 	want := "error: this call to `planted_decline` is not supported yet, so `fn evens` cannot run\n" +
-		" --> lib.nomi:6:20\n  |\n6 |   Iter.map(xs, |x| planted_decline(x)) |> Iter.to_list()\n  |                    ^^^^^^^^^^^^^^^\n"
+		" --> lib.nomi:6:24\n  |\n6 |   Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()\n  |                        ^^^^^^^^^^^^^^^\n"
 	if !strings.HasPrefix(report, want) {
 		t.Errorf("report:\n%s\nwant it to start:\n%s", report, want)
 	}

@@ -1,6 +1,6 @@
 /// Whether no letter appears in `phrase` more than once, ignoring case.
 /// Spaces, hyphens and other non-letters may repeat.
-pub fn isogram?(phrase: String): Bool {
+pub fn isogram?(phrase: String) -> Bool {
     letters =
         phrase
         |> String.to_lower()

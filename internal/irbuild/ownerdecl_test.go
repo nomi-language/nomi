@@ -17,15 +17,15 @@ struct Duration {
 }
 
 impl Duration {
-    fn seconds(n: Int): Duration {
+    fn seconds(n: Int) -> Duration {
         Duration{ms: n * 7}
     }
 }
 
-fn std_total(): Int {
+fn std_total() -> Int {
     import std/duration.Duration
     d: Duration = Duration.seconds(2) + Duration.milliseconds(500)
-    twice = |x: Duration| x + x
+    twice = fn x: Duration -> x + x
     Duration.as_millis(twice(d))
 }
 
@@ -40,7 +40,7 @@ fn main() {
 }
 
 impl Duration {
-    fn seconds(n: Int): Duration {
+    fn seconds(n: Int) -> Duration {
         Duration{ms: n * 7}
     }
 }
@@ -102,9 +102,9 @@ fn main() {
     io.inspect(with_default(None, 2))
     io.inspect(to_result(Some(3), "missing"))
     io.inspect(some?(Some(4)))
-    io.inspect(map(Some(5), |x| x * 2))
+    io.inspect(map(Some(5), fn x -> x * 2))
     r: Result<Int, Int> = Err(6)
-    io.inspect(map_err(r, |e| "error ${e}"))
+    io.inspect(map_err(r, fn e -> "error ${e}"))
 }
 `, "1\n2\nOk(3)\nTrue\nSome(10)\nErr(\"error 6\")\n")
 	out := irTestBodyVM(t, `import std/maybe.Maybe.{with_default}

@@ -12,11 +12,11 @@ func TestIRDefaultedFunctionType_Runs(t *testing.T) {
 	}
 	const src = `import std/io
 
-fn connect(host: String, port: Int = 8080): String {
+fn connect(host: String, port: Int = 8080) -> String {
     "${host}:${port}"
 }
 
-fn id<T>(x: T): T {
+fn id<T>(x: T) -> T {
     x
 }
 
@@ -25,14 +25,14 @@ fn main() {
     io.print(c("a"))
     r = id(c)
     io.print(r("b", 1))
-    p = || connect(_, port: _)
+    p = fn -> connect(_, port: _)
     io.print(p()("c", 2))
     case Some(c) {
         Some(k) -> io.print(k("d", 3))
         None -> io.print("none")
     }
     fs = [c, connect(_, _)]
-    io.print(fs |> Iter.map(|f| f("e", 4)) |> String.join(" "))
+    io.print(fs |> Iter.map(fn f -> f("e", 4)) |> String.join(" "))
 }
 `
 	irRunSource(t, src, "a:8080\nb:1\nc:2\nd:3\ne:4 e:4\n")
@@ -47,21 +47,21 @@ func TestIRDefaultedFunctionType_NamelessCalleesRun(t *testing.T) {
 	}
 	const src = `import std/io
 
-fn connect(host: String, port: Int = 8080): String {
+fn connect(host: String, port: Int = 8080) -> String {
     "${host}:${port}"
 }
 
-fn other(host: String, port: Int = 1): String {
+fn other(host: String, port: Int = 1) -> String {
     "${host}/${port}"
 }
 
-fn id<T>(x: T): T {
+fn id<T>(x: T) -> T {
     x
 }
 
 once oc = connect(_, port: _)
 
-once ol = |s: String, n: Int = 5| "${s}${n}"
+once ol = fn s: String, n: Int = 5 -> "${s}${n}"
 
 fn main() {
     c = connect(_, port: _)

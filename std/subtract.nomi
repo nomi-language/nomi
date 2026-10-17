@@ -11,9 +11,9 @@
 /// pub type Days Int
 ///
 /// impl Subtract<Days, DateDay> for DateDay {
-///     fn subtract(lhs: DateDay, rhs: Days): DateDay { ... }
+///     fn subtract(lhs: DateDay, rhs: Days) -> DateDay { ... }
 /// }
 /// ```
 pub interface Subtract<Rhs, Out> {
-    fn subtract(lhs: self, rhs: Rhs): Out
+    fn subtract(lhs: self, rhs: Rhs) -> Out
 }

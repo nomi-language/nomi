@@ -4,16 +4,16 @@ import "testing"
 
 func TestBoundaryReturn_InferredValues(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"lambda value", `fn main() { f = || { return 7 } result = f() _ = result }`, "Int"},
-		{"lambda unit", `fn main() { f = || { dbg 1 return } result = f() _ = result }`, "Unit"},
+		{"lambda value", `fn main() { f = fn -> { return 7 } result = f() _ = result }`, "Int"},
+		{"lambda unit", `fn main() { f = fn -> { dbg 1 return } result = f() _ = result }`, "Unit"},
 		{"both branches", `fn main() {
-  f = |b: Bool| { if b { return 1 } else { return 2 } }
+  f = fn b: Bool -> { if b { return 1 } else { return 2 } }
   result = f(True)
   _ = result
 }`, "Int"},
 		{"nested lambda", `fn main() {
-  f = || {
-    inner = || { return "inner" }
+  f = fn -> {
+    inner = fn -> { return "inner" }
     _ = inner()
     return 9
   }
@@ -21,8 +21,8 @@ func TestBoundaryReturn_InferredValues(t *testing.T) {
   _ = result
 }`, "Int"},
 		{"nested named function", `fn main() {
-  f = || {
-    fn inner(): String { return "inner" }
+  f = fn -> {
+    fn inner() -> String { return "inner" }
     _ = inner()
     return 9
   }
@@ -31,18 +31,18 @@ func TestBoundaryReturn_InferredValues(t *testing.T) {
 }`, "Int"},
 		{"concurrent value", `fn main() { result = concurrent { return 7 } _ = result }`, "Int"},
 		{"nested concurrent", `fn main() {
-  f = || { _ = concurrent { return "inner" } return 9 }
+  f = fn -> { _ = concurrent { return "inner" } return 9 }
   result = f()
   _ = result
 }`, "Int"},
-		{"generic returned value", `fn identity<T>(value: T): T {
-  f = || { return value }
+		{"generic returned value", `fn identity<T>(value: T) -> T {
+  f = fn -> { return value }
   f()
 }
 fn main() { result = identity(7) _ = result }`, "Int"},
-		{"try before explicit result", `fn fallible(): Result<Int, String> { Ok(3) }
+		{"try before explicit result", `fn fallible() -> Result<Int, String> { Ok(3) }
 fn main() {
-  f = || { value = try fallible() return Ok(value) }
+  f = fn -> { value = try fallible() return Ok(value) }
   result = f()
   _ = result
 }`, "Result<Int, String>"},
@@ -64,8 +64,8 @@ fn main() {
 }
 
 func TestBoundaryReturn_TryCannotEscapeScalarReturn(t *testing.T) {
-	_, errs := checkSourceWithStdlib(`fn fallible(): Result<Int, String> { Ok(3) }
-fn main() { f = || { value = try fallible() return value } _ = f() }`)
+	_, errs := checkSourceWithStdlib(`fn fallible() -> Result<Int, String> { Ok(3) }
+fn main() { f = fn -> { value = try fallible() return value } _ = f() }`)
 	expectErrorContaining(t, errs, "`try` cannot propagate a Result out of a lambda whose result is Int")
 }
 
@@ -76,20 +76,20 @@ struct Left {}
 struct Right {}
 impl Value for Left {}
 impl Value for Right {}
-fn use(f: (Bool) -> Value): Value { f(True) }
-fn main() { _ = use(|b| { if b { return Left{} } ` + tail + ` }) }`)
+fn use(f: (Bool) -> Value) -> Value { f(True) }
+fn main() { _ = use(fn b -> { if b { return Left{} } ` + tail + ` }) }`)
 		expectClean(t, errs)
 	}
 }
 
 func TestBoundaryReturn_RejectsDisagreement(t *testing.T) {
 	for _, src := range []string{
-		`fn main() { f = |b: Bool| { if b { return "bad" } 7 } _ = f(False) }`,
-		`fn main() { f = |b: Bool| { if b { return 7 } return "bad" } _ = f(False) }`,
-		`fn main() { f = |b: Bool| { if b { return } return 7 } _ = f(False) }`,
+		`fn main() { f = fn b: Bool -> { if b { return "bad" } 7 } _ = f(False) }`,
+		`fn main() { f = fn b: Bool -> { if b { return 7 } return "bad" } _ = f(False) }`,
+		`fn main() { f = fn b: Bool -> { if b { return } return 7 } _ = f(False) }`,
 		`fn main() { _ = concurrent { if True { return "bad" } 7 } }`,
-		`fn use(f: (Bool) -> Int): Int { f(True) }
-fn main() { _ = use(|b| { if b { return 7 } "bad" }) }`,
+		`fn use(f: (Bool) -> Int) -> Int { f(True) }
+fn main() { _ = use(fn b -> { if b { return 7 } "bad" }) }`,
 	} {
 		_, errs := checkSourceWithStdlib(src)
 		expectErrorContaining(t, errs, "return type mismatch")

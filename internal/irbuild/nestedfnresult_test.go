@@ -23,37 +23,37 @@ enum Shape {
 }
 
 fn main() {
-    fn spot(): Shape {
+    fn spot() -> Shape {
         Spot{n: 3}
     }
 
-    fn pick(n: Int): Shape {
+    fn pick(n: Int) -> Shape {
         if n > 0 {
             return Spot{n: n}
         }
         Shape.Dot
     }
 
-    fn count(n: Int): Shape {
+    fn count(n: Int) -> Shape {
         case n {
             0 -> Spot{n: 0}
             _ -> count(n - 1)
         }
     }
 
-    fn none(): Set<Int> {
+    fn none() -> Set<Int> {
         #{}
     }
 
-    fn empty_vector(): Vector<Int> {
+    fn empty_vector() -> Vector<Int> {
         #[]
     }
 
-    fn empty_map(): Map<String, Int> {
+    fn empty_map() -> Map<String, Int> {
         Map.empty()
     }
 
-    fn shown(): List<Display> {
+    fn shown() -> List<Display> {
         [1, "a"]
     }
 
@@ -64,8 +64,8 @@ fn main() {
     io.inspect(none())
     io.inspect(empty_vector())
     io.inspect(empty_map())
-    io.print(shown() |> Iter.map(|d| Display.to_string(d)) |> String.join(","))
+    io.print(shown() |> Iter.map(fn d -> Display.to_string(d)) |> String.join(","))
 }
 `
-	irRunSource(t, src, "Spot{n: 3}\nSpot{n: 2}\nDot\nSpot{n: 0}\n#{}\n#[]\n{=>}\n1,a\n")
+	irRunSource(t, src, "Spot{n: 3}\nSpot{n: 2}\nDot\nSpot{n: 0}\n#{}\n#[]\n%{}\n1,a\n")
 }

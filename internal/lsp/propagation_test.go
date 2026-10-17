@@ -62,7 +62,7 @@ pub struct AppEnv {
   port: Int = 3000
 }
 
-pub fn load(): AppEnv {
+pub fn load() -> AppEnv {
   dev_build()
 }
 `)
@@ -70,19 +70,19 @@ pub fn load(): AppEnv {
   configuration: AppEnv
 }
 
-pub fn build(): AppEnv { AppEnv{port: 8080} }
+pub fn build() -> AppEnv { AppEnv{port: 8080} }
 `)
 	prodPath := mustWrite("configuration/prod.nomi", `import {
   configuration: AppEnv
 }
 
-pub fn build(): AppEnv { AppEnv{port: 8081} }
+pub fn build() -> AppEnv { AppEnv{port: 8081} }
 `)
 	testPath := mustWrite("configuration/test.nomi", `import {
   configuration: AppEnv
 }
 
-pub fn build(): AppEnv { AppEnv{port: 8082} }
+pub fn build() -> AppEnv { AppEnv{port: 8082} }
 `)
 
 	s := NewServer()
@@ -209,7 +209,7 @@ func TestPropagateAsync_RapidEditsStillPublishLatest(t *testing.T) {
 
 fn main() { greeter.hello() }
 `)
-	greetPath := mustWrite("greeter.nomi", `pub fn hello(): String { "hi" }
+	greetPath := mustWrite("greeter.nomi", `pub fn hello() -> String { "hi" }
 `)
 
 	s := NewServer()
@@ -232,7 +232,7 @@ fn main() { greeter.hello() }
 		mu.Unlock()
 	}
 
-	s.docs.Open(greetURI, `pub fn hello(): String { "hi" }`)
+	s.docs.Open(greetURI, `pub fn hello() -> String { "hi" }`)
 	s.docs.UpdateImportEdges(greetURI)
 
 	// Fire many rapid edits to maximize overlap between propagate
@@ -245,7 +245,7 @@ fn main() { greeter.hello() }
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			content := fmt.Sprintf(`pub fn hello(): String { "hi%d" }`, i)
+			content := fmt.Sprintf(`pub fn hello() -> String { "hi%d" }`, i)
 			s.docs.Update(greetURI, content)
 			s.docs.UpdateImportEdges(greetURI)
 			s.propagateAsync(greetURI)

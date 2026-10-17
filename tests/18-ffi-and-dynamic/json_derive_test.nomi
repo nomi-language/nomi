@@ -41,13 +41,13 @@ test "JSON derives encode and decode structs with options" {
 
     assert Json.encode(encoded) == "{\"firstName\":\"Ada\",\"age\":36}"
 
-    decoded = User.from_json(Json.Obj{"firstName" => Json.String("Ada"), "age" => Json.Int(36)})
+    decoded = User.from_json(Json.Obj%{"firstName" => Json.String("Ada"), "age" => Json.Int(36)})
 
     assert decoded == Result.Ok(user)
 }
 
 test "JSON derive reports missing required fields" {
-    decoded = User.from_json(Json.Obj{"firstName" => Json.String("Ada")})
+    decoded = User.from_json(Json.Obj%{"firstName" => Json.String("Ada")})
 
     assert Result.err?(decoded)
 }

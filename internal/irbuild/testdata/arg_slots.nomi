@@ -15,15 +15,15 @@ import std/io
 // just a different number. Every other shape here is caught by the type checker
 // if the routing is wrong, so without this line the guard would look tested and
 // would not be.
-fn pick(a: Int = 1, b: Int = 2): Int {
+fn pick(a: Int = 1, b: Int = 2) -> Int {
     a * 10 + b
 }
 
-fn transform(x: Int, factor: Int = 3, f: (Int) -> Int): Int {
+fn transform(x: Int, factor: Int = 3, f: (Int) -> Int) -> Int {
     f(x * factor)
 }
 
-fn labelled(tag: String = "t", n: Int = 0, f: (Int) -> Int): String {
+fn labelled(tag: String = "t", n: Int = 0, f: (Int) -> Int) -> String {
     "${tag}:${f(n)}"
 }
 
@@ -37,10 +37,10 @@ fn main() {
     io.print("pick full = ${pick(5, 6)}")
 
     // A trailing lambda routed past a defaulted Int.
-    io.print("transform = ${transform(5, |n: Int| n + 100)}")
+    io.print("transform = ${transform(5, fn n: Int -> n + 100)}")
 
     // The same with two defaulted slots skipped at once.
-    io.print("labelled = ${labelled(|n: Int| n + 7)}")
+    io.print("labelled = ${labelled(fn n: Int -> n + 7)}")
 
     // The bare-function-NAME form of the same rule — `transform(5, double)`,
     // which answers 30 under the same rule, is deliberately absent: a bare

@@ -17,9 +17,9 @@ func TestIRDistinctDebug_UserOverride(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 type Id Int
 impl Debug for Id {
- fn inspect(value: Id): String { _ = value; io.print("inspect"); "custom" }
+ fn inspect(value: Id) -> String { _ = value; io.print("inspect"); "custom" }
 }
-fn make(): Id { io.print("make"); Id(7) }
+fn make() -> Id { io.print("make"); Id(7) }
 fn main() {
  dbg make()
 }
@@ -43,7 +43,7 @@ fn main() {
 func TestIRDistinctDebug_OpaqueOverride(t *testing.T) {
 	verifyLambdaProgram(t, `opaque type Secret Int
 impl Debug for Secret {
- fn inspect(value: Secret): String { _ = value; "redacted" }
+ fn inspect(value: Secret) -> String { _ = value; "redacted" }
 }
 fn main() { dbg Secret(7) }
 `, "dbg line 5: Secret(7) = redacted\n")

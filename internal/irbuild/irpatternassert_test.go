@@ -61,19 +61,19 @@ func irPatternAssertVM(t *testing.T, src string, wantCases int) string {
 	return out.String()
 }
 
-const irPatternAssertUngroupedSource = `fn compute(): Int {
+const irPatternAssertUngroupedSource = `fn compute() -> Int {
   7
 }
 
-fn label(): String {
+fn label() -> String {
   "ok"
 }
 
-fn parse(s: String): Result<Int, String> {
+fn parse(s: String) -> Result<Int, String> {
   Err("not a number: " + s)
 }
 
-fn found(n: Int): Maybe<Int> {
+fn found(n: Int) -> Maybe<Int> {
   Some(n)
 }
 
@@ -83,7 +83,7 @@ enum Shape {
   Dot
 }
 
-fn square(n: Int): Shape {
+fn square(n: Int) -> Shape {
   Shape.Square(n)
 }
 
@@ -163,16 +163,16 @@ const irPatternAssertGroupedSource = `import {
   std/timer
 }
 
-fn long_sleep(): Unit {
+fn long_sleep() -> Unit {
   timer.sleep(Duration.seconds(5))
 }
 
-fn short_fail(): Result<Int, String> {
+fn short_fail() -> Result<Int, String> {
   Err("boom")
 }
 
-fn pair_of(): (Int, String) {
-  (1, "one")
+fn pair_of() -> #(Int, String) {
+  #(1, "one")
 }
 
 group "sibling cancellation under a virtual clock" {
@@ -182,8 +182,8 @@ group "sibling cancellation under a virtual clock" {
     before = Instant.now()
 
     outcome = concurrent {
-      short = Task.spawn(|| short_fail())
-      long = Task.spawn(|| long_sleep())
+      short = Task.spawn(fn -> short_fail())
+      long = Task.spawn(fn -> long_sleep())
       _l = long
       Ok(try Task.await(short))
     }
@@ -197,7 +197,7 @@ group "sibling cancellation under a virtual clock" {
 
   test "a failing pattern over a concurrent block shows its definition" {
     outcome = concurrent {
-      short = Task.spawn(|| short_fail())
+      short = Task.spawn(fn -> short_fail())
       Ok(try Task.await(short))
     }
 
@@ -207,7 +207,7 @@ group "sibling cancellation under a virtual clock" {
 
   test "a tuple pattern binds both parts" {
     pair = pair_of()
-    assert (n, word) = pair
+    assert #(n, word) = pair
     assert n == 1
     assert word == "one"
   }
@@ -234,11 +234,11 @@ func TestIRPatternAssert_GroupedCasesAgree(t *testing.T) {
 // records one stage per prefix, so that case is retained for the VM too, and
 // retaining it moves no Source.
 func TestIRPatternAssert_APipeBindingCarriesItsStages(t *testing.T) {
-	const src = `fn parse(s: String): Result<Int, String> {
+	const src = `fn parse(s: String) -> Result<Int, String> {
   Err("not a number: " + s)
 }
 
-fn one(): Result<Int, String> {
+fn one() -> Result<Int, String> {
   Ok(1)
 }
 

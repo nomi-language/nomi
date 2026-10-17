@@ -472,7 +472,7 @@ func TestTourWasmReportsAFailedMain(t *testing.T) {
 		Name   string `json:"name"`
 		Source string `json:"source"`
 	}
-	src := "import std/io\n\nfn main(): Result<Unit, String> {\n    io.print(\"before\")\n    Err(\"boom\")\n}\n"
+	src := "import std/io\n\nfn main() -> Result<Unit, String> {\n    io.print(\"before\")\n    Err(\"boom\")\n}\n"
 	answers := runUnderNode(t, node, []probe{{Name: "failed main", Source: src}})
 	if len(answers) != 1 {
 		t.Fatalf("staged wasm answered %d of 1 blocks", len(answers))

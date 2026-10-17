@@ -14,7 +14,7 @@ func TestIRHeldFunctionValues_Run(t *testing.T) {
 	}
 	const src = `import std/io
 
-fn size(xs: List<(Int) -> Int>): Int {
+fn size(xs: List<(Int) -> Int>) -> Int {
     case xs {
         [] -> 0
         [_, ..rest] -> 1 + size(rest)
@@ -22,14 +22,14 @@ fn size(xs: List<(Int) -> Int>): Int {
 }
 
 fn main() {
-    fs = [|x: Int| x + 1, |x: Int| x * 2]
+    fs = [fn x: Int -> x + 1, fn x: Int -> x * 2]
     io.inspect(fs)
-    io.inspect(size([|x: Int| x, ..fs]))
-    io.inspect(Iter.concat(fs, fs) |> Iter.map(|f| f(1)) |> Iter.to_list())
-    io.inspect(Iter.zip([1, 2], fs) |> Iter.map(|(n, f)| f(n)) |> Iter.to_list())
-    io.inspect(Iter.chunks(fs, 1) |> Iter.map(|c| Iter.count(c)) |> Iter.to_list())
-    io.inspect(Iter.flatten([fs, fs]) |> Iter.map(|f| f(3)) |> Iter.to_list())
-    io.inspect([1, 2] |> Iter.flat_map(|n| [|y: Int| y + n]) |> Iter.map(|f| f(10)) |> Iter.to_list())
+    io.inspect(size([fn x: Int -> x, ..fs]))
+    io.inspect(Iter.concat(fs, fs) |> Iter.map(fn f -> f(1)) |> Iter.to_list())
+    io.inspect(Iter.zip([1, 2], fs) |> Iter.map(fn #(n, f) -> f(n)) |> Iter.to_list())
+    io.inspect(Iter.chunks(fs, 1) |> Iter.map(fn c -> Iter.count(c)) |> Iter.to_list())
+    io.inspect(Iter.flatten([fs, fs]) |> Iter.map(fn f -> f(3)) |> Iter.to_list())
+    io.inspect([1, 2] |> Iter.flat_map(fn n -> [fn y: Int -> y + n]) |> Iter.map(fn f -> f(10)) |> Iter.to_list())
     v = Iter.to_vector(fs)
     io.inspect(v)
     io.inspect(Vector.length(v))
@@ -37,23 +37,23 @@ fn main() {
         Some(f) -> io.inspect(f(7))
         None -> io.inspect(0)
     }
-    m = Iter.to_map([(1, |x: Int| x), (2, |x: Int| x * 3)])
+    m = Iter.to_map([#(1, fn x: Int -> x), #(2, fn x: Int -> x * 3)])
     io.inspect(m)
     case Map.get(m, 2) {
         Some(f) -> io.inspect(f(7))
         None -> io.inspect(0)
     }
-    ops = {"inc" => |x: Int| x + 1}
+    ops = %{"inc" => fn x: Int -> x + 1}
     case Map.get(ops, "inc") {
         Some(f) -> io.inspect(f(1))
         None -> io.inspect(0)
     }
-    g = Iter.group_by(fs, |f| f(2))
+    g = Iter.group_by(fs, fn f -> f(2))
     io.inspect(Map.keys(g))
-    io.inspect(Iter.repeat(|x: Int| x + 1) |> Iter.take(3) |> Iter.map(|f| f(1)) |> Iter.to_list())
-    io.inspect(Iter.iterate(|x: Int| x, |f| |x: Int| f(x) + 1) |> Iter.take(3) |> Iter.map(|f| f(0)) |> Iter.to_list())
-    vv = #[|x: Int| x + 1, |x: Int| x * 2]
-    io.inspect(vv |> Iter.map(|f| f(4)) |> Iter.to_list())
+    io.inspect(Iter.repeat(fn x: Int -> x + 1) |> Iter.take(3) |> Iter.map(fn f -> f(1)) |> Iter.to_list())
+    io.inspect(Iter.iterate(fn x: Int -> x, fn f -> fn x: Int -> f(x) + 1) |> Iter.take(3) |> Iter.map(fn f -> f(0)) |> Iter.to_list())
+    vv = #[fn x: Int -> x + 1, fn x: Int -> x * 2]
+    io.inspect(vv |> Iter.map(fn f -> f(4)) |> Iter.to_list())
 }
 `
 	const want = "[<function>, <function>]\n" +
@@ -66,7 +66,7 @@ fn main() {
 		"#[<function>, <function>]\n" +
 		"2\n" +
 		"14\n" +
-		"{1 => <function>, 2 => <function>}\n" +
+		"%{1 => <function>, 2 => <function>}\n" +
 		"21\n" +
 		"2\n" +
 		"[3, 4]\n" +

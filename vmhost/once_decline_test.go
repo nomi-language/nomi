@@ -34,7 +34,7 @@ func TestUnsupported_NamesTheOnceItsReaderDeclinedFor(t *testing.T) {
 			name: "initializer declines",
 			src: `import std/io
 
-fn planted_decline(a: Int): Int {
+fn planted_decline(a: Int) -> Int {
     a
 }
 
@@ -74,14 +74,14 @@ fn main() {
 // `fn` declared inside a body is a nested one.
 func TestUnsupported_OnlyANestedFnIsCalledNested(t *testing.T) {
 	src := `fn main() {
-    fn helper(): Int {
+    fn helper() -> Int {
         1
     }
     helper()
 }
 
 impl Int {
-    fn twice(n: Int): Int {
+    fn twice(n: Int) -> Int {
         n * 2
     }
 }

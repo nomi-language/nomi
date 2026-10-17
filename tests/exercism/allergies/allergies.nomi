@@ -14,19 +14,19 @@ pub enum Allergen {
 derive Variants for Allergen
 
 /// Reports whether `score` includes `allergen`.
-pub fn allergic_to?(score: Int, allergen: Allergen): Bool {
+pub fn allergic_to?(score: Int, allergen: Allergen) -> Bool {
     Int.bitwise_and(score, value(allergen)) != 0
 }
 
 /// Lists every allergen `score` includes, in score order. Parts of the score
 /// above the last allergen are ignored.
-pub fn list(score: Int): List<Allergen> {
+pub fn list(score: Int) -> List<Allergen> {
     Allergen.variants()
-    |> Iter.filter(|allergen| allergic_to?(score, allergen))
+    |> Iter.filter(fn allergen -> allergic_to?(score, allergen))
     |> Iter.to_list()
 }
 
-fn value(allergen: Allergen): Int {
+fn value(allergen: Allergen) -> Int {
     case allergen {
         .Eggs -> 1
         .Peanuts -> 2

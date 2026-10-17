@@ -22,13 +22,13 @@ derive Display for Box<T>
 type Meters Int
 
 impl Display for Meters {
-    fn to_string(Meters(n)): String {
+    fn to_string(Meters(n)) -> String {
         "${Int.to_string(n)} m"
     }
 }
 
 interface Shape {
-    fn area(s: self): Int
+    fn area(s: self) -> Int
 }
 
 struct Circle {
@@ -36,12 +36,12 @@ struct Circle {
 }
 
 impl Shape for Circle {
-    fn area(c: Circle): Int {
+    fn area(c: Circle) -> Int {
         c.r * 3
     }
 }
 
-fn show(d: Display): String {
+fn show(d: Display) -> String {
     Display.to_string(d)
 }
 
@@ -49,7 +49,7 @@ fn main() {
     a: Display = [1, 2]
     io.print(Display.to_string(a))
     io.print(show(["s", "t"]))
-    io.print(show({"k" => [True]}))
+    io.print(show(%{"k" => [True]}))
     io.print(show(#[1.5]))
     io.print(show([Meters(2)]))
     io.print(show([Box{v: 3}]))
@@ -64,7 +64,7 @@ fn main() {
 `
 	const want = "[1, 2]\n" +
 		"[s, t]\n" +
-		"{k => [True]}\n" +
+		"%{k => [True]}\n" +
 		"#[1.5]\n" +
 		"[2 m]\n" +
 		"[Box{v: 3}]\n" +

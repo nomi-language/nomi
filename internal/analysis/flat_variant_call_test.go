@@ -8,26 +8,26 @@ import (
 // A variant over a tuple has one payload, and `Two.Both(1, 2)` is a call
 // form of that one tuple (spec §8). The flat form of a generic variant
 // infers its type arguments from the elements, as the tupled
-// `Two.Both((1, 2))` does. It was checked against the declaration's own
+// `Two.Both(#(1, 2))` does. It was checked against the declaration's own
 // `A` and `B`, and then a second time as a one-argument call, so
 // `t: Two<Int, Int> = Two.Both(1, 2)` gave three errors, two at column 1.
 const flatVariantShapes = `pub enum Two<A, B> {
-    Both (A, B)
+    Both #(A, B)
 }
 
 pub enum Three<A, B, C> {
-    All (A, B, C)
+    All #(A, B, C)
 }
 
 pub enum Tagged<T> {
-    Tag (T, String)
+    Tag #(T, String)
 }
 
 pub enum Seg {
-    Pair (Int, String)
+    Pair #(Int, String)
 }
 
-pub fn first(t: Two<Int, String>): Int {
+pub fn first(t: Two<Int, String>) -> Int {
     case t {
         .Both(n, _) -> n
     }

@@ -35,7 +35,7 @@ pub enum Wrap<T> {
     Miss
 }
 
-pub fn tag_of(w: Wrap<Int>): Tag<Int> {
+pub fn tag_of(w: Wrap<Int>) -> Tag<Int> {
     case w {
         .Hit(n) -> Tag.Big(n)
         .Miss -> Tag.Small
@@ -49,7 +49,7 @@ pub enum Tag<T> {
     Small
 }
 
-pub fn wrap_of(t: Tag<Int>): Wrap<Int> {
+pub fn wrap_of(t: Tag<Int>) -> Wrap<Int> {
     case t {
         .Big(n) -> Wrap.Hit(n)
         .Small -> Wrap.Miss
@@ -125,7 +125,7 @@ func TestImportCycle_TestFileInTheCycleRuns(t *testing.T) {
 		"main.nomi": `import std/io
 import ring
 
-pub fn base(n: Int): Int {
+pub fn base(n: Int) -> Int {
     n + 1
 }
 
@@ -143,7 +143,7 @@ test "twice" {
 `,
 		"ring.nomi": `import main
 
-pub fn twice(n: Int): Int {
+pub fn twice(n: Int) -> Int {
     main.base(n) * 2
 }
 `,

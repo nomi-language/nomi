@@ -3,14 +3,14 @@ import {
     std/tasks.Task
 }
 
-fn work(n: Int): Int {
+fn work(n: Int) -> Int {
     r = n * 2
     r
 }
 
 fn main() {
     v = concurrent {
-        t = Task.spawn(|| work(21))
+        t = Task.spawn(fn -> work(21))
         Task.await(t)
     }
 

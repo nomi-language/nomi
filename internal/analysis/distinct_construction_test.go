@@ -15,7 +15,7 @@ const distinctCtorDecls = `type Id Int
 
 type Expired
 
-type Pair (Int, String)
+type Pair #(Int, String)
 
 type Callback (String) -> String
 
@@ -35,9 +35,9 @@ func TestDistinctCtor_AcceptedForms(t *testing.T) {
 		`a: Id = 5 |> Id()`,
 		`a: Expired = Expired`,
 		`a: Pair = Pair(1, "x")`,
-		`a: Pair = Pair((1, "x"))`,
-		`a: Pair = (1, "x") |> Pair()`,
-		`a: Callback = Callback(|s| s)`,
+		`a: Pair = Pair(#(1, "x"))`,
+		`a: Pair = #(1, "x") |> Pair()`,
+		`a: Callback = Callback(fn s -> s)`,
 		`a: Tags = Tags(["a"])`,
 		`a: Shape = Shape.Id(5)`,
 		`a: Shape = 5 |> Shape.Id()`,
@@ -64,8 +64,8 @@ func TestDistinctCtor_RejectionsNameTheMistakeAndTheForm(t *testing.T) {
 		{`5 |> Expired()`, "Expired is a zero-sized type and takes no arguments; write Expired"},
 		{`Shape.Expired()`, "Shape.Expired is a zero-sized variant and takes no arguments; write Shape.Expired"},
 		{`Tags(5)`, "Tags wraps List<String>, so Tags(...) takes a List<String>; got Int"},
-		{`("x", 1) |> Pair()`, "Pair wraps (Int, String), so Pair(...) takes a (Int, String); got (String, Int)"},
-		{`1 |> Pair()`, "Pair wraps (Int, String), so Pair(...) takes a (Int, String); got Int"},
+		{`#("x", 1) |> Pair()`, "Pair wraps #(Int, String), so Pair(...) takes a #(Int, String); got #(String, Int)"},
+		{`1 |> Pair()`, "Pair wraps #(Int, String), so Pair(...) takes a #(Int, String); got Int"},
 		{`1 |> Pair("x")`, "Pair takes the piped value as its only argument, got 1 more"},
 	} {
 		src := distinctCtorDecls + "fn main() {\n  _ = " + tc.expr + "\n}\n"
@@ -102,15 +102,15 @@ enum Shape {
   Dot Float
 }
 
-fn apply(f: (Float) -> Shape): Shape {
+fn apply(f: (Float) -> Shape) -> Shape {
   f(1.0)
 }
 
-fn apply_id(f: (Int) -> Shape): Shape {
+fn apply_id(f: (Int) -> Shape) -> Shape {
   f(1)
 }
 
-fn build(f: ({w: Float, h: Float}) -> Shape): Shape {
+fn build(f: ({w: Float, h: Float}) -> Shape) -> Shape {
   f({w: 1.0, h: 2.0})
 }
 

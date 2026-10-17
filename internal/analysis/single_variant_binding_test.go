@@ -19,7 +19,7 @@ enum Wrap<T> {
     Hold T
 }
 
-fn f(o: Only, r: Rec, w: Wrap<String>): Int {
+fn f(o: Only, r: Rec, w: Wrap<String>) -> Int {
     Only.One(p) = o
     Rec.Fields(fields) = r
     Wrap.Hold(s) = w
@@ -51,7 +51,7 @@ func TestSingleVariantBinding_Rejections(t *testing.T) {
     One Int
 }
 
-fn f(o: Only): Int {
+fn f(o: Only) -> Int {
     Only.Two(p) = o
     p
 }
@@ -60,7 +60,7 @@ fn f(o: Only): Int {
     One
 }
 
-fn f(o: Only): Int {
+fn f(o: Only) -> Int {
     Only.One(p) = o
     1
 }
@@ -70,12 +70,12 @@ fn f(o: Only): Int {
     B Int
 }
 
-fn f(t: Two): Int {
+fn f(t: Two) -> Int {
     Two.A(p) = t
     p
 }
 `, "this pattern can fail to match a value of type Two"},
-		"a non-enum value": {`fn f(): Int {
+		"a non-enum value": {`fn f() -> Int {
     Id(x) = 42
     x
 }

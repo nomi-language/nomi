@@ -32,7 +32,7 @@ fn main() {
             [1, "a"]
         },
     }
-    io.print(s.v |> Iter.map(|d| Display.to_string(d)) |> String.join(","))
+    io.print(s.v |> Iter.map(fn d -> Display.to_string(d)) |> String.join(","))
 }
 `
 	irRunSource(t, src, "in the block\nHold{v: #{}}\nin the other block\n1,a\n")

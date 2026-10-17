@@ -97,7 +97,7 @@ func TestNamedArg_SlotPlanMirrorsResolveArgs(t *testing.T) {
 	})
 
 	t.Run("rule 2: a name on the last parameter SUPPRESSES the trailing-lambda move", func(t *testing.T) {
-		// Task.spawn_all(items, |x| f(x), max_running: 8) — the lambda is the
+		// Task.spawn_all(items, fn x -> f(x), max_running: 8) — the lambda is the
 		// last positional, but the last slot is spoken for by name, so moving
 		// it there would collide.
 		args := []ast.Node{atomNode(), &ast.Lambda{}, named("max_running")}
@@ -142,9 +142,9 @@ func TestNamedArg_InterfaceCallFillsAnEarlierDefault(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
 interface Sum {
-    fn base(value: self): Int
+    fn base(value: self) -> Int
 
-    open fn f(value: self, a: Int, b: Int = 2, c: Int = 3): Int {
+    open fn f(value: self, a: Int, b: Int = 2, c: Int = 3) -> Int {
         Sum.base(value) * 1000 + a * 100 + b * 10 + c
     }
 }
@@ -154,7 +154,7 @@ struct Box {
 }
 
 impl Sum for Box {
-    fn base(value: Box): Int {
+    fn base(value: Box) -> Int {
         value.n
     }
 }
@@ -164,20 +164,20 @@ struct Own {
 }
 
 impl Sum for Own {
-    fn base(value: Own): Int {
+    fn base(value: Own) -> Int {
         value.n
     }
 
-    fn f(value: Own, a: Int, b: Int = 5, c: Int = 3): Int {
+    fn f(value: Own, a: Int, b: Int = 5, c: Int = 3) -> Int {
         -(value.n * 1000 + a * 100 + b * 10 + c)
     }
 }
 
-fn bounded<T>(x: T): Int where T: Sum {
+fn bounded<T>(x: T) -> Int where T: Sum {
     T.f(x, 1, c: 9)
 }
 
-fn erased(s: Sum): Int {
+fn erased(s: Sum) -> Int {
     Sum.f(s, 1, c: 9)
 }
 

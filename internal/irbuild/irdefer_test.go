@@ -49,7 +49,7 @@ struct Conn {
   name: String
 }
 
-fn close(conn: Conn): Unit {
+fn close(conn: Conn) -> Unit {
   io.print("close ${conn.name}")
 }
 
@@ -72,18 +72,18 @@ fn main() {
 func TestIRDefer_FunctionBodiesBlockValuesAndEarlyReturns(t *testing.T) {
 	verifyDeferProgram(t, `import std/io
 
-fn note(label: String): Unit {
+fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
 }
 
-fn work(n: Int): Int {
+fn work(n: Int) -> Int {
   defer note("a")
   defer note("b")
   io.print("work")
   n + 1
 }
 
-fn scoped(): Int {
+fn scoped() -> Int {
   x = {
     defer note("inner")
     io.print("in block")
@@ -99,7 +99,7 @@ fn scoped(): Int {
   x + 1
 }
 
-fn guard(n: Int): Int {
+fn guard(n: Int) -> Int {
   defer note("guard")
   if n > 0 {
     return n
@@ -144,15 +144,15 @@ fn main() {
 func TestIRDefer_TryPropagationRunsDeferredCalls(t *testing.T) {
 	verifyDeferProgram(t, `import std/io
 
-fn note(label: String): Unit {
+fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
 }
 
-fn check(ok: Bool): Result<Int, String> {
+fn check(ok: Bool) -> Result<Int, String> {
   if ok { Ok(1) } else { Err("no") }
 }
 
-fn attempt(ok: Bool): Result<Int, String> {
+fn attempt(ok: Bool) -> Result<Int, String> {
   defer note("attempt")
   v = try check(ok)
   io.print("checked")
@@ -172,11 +172,11 @@ fn main() {
 func TestIRDefer_AFaultRunsEveryPendingDeferredCall(t *testing.T) {
 	src := `import std/io
 
-fn note(label: String): Unit {
+fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
 }
 
-fn divide(a: Int, b: Int): Int {
+fn divide(a: Int, b: Int) -> Int {
   defer note("divide")
   {
     defer note("inner")
@@ -232,29 +232,29 @@ fn main() {
 func TestIRDefer_ALambdaRunsItsDeferredCallsWhenEachInvocationEnds(t *testing.T) {
 	verifyDeferProgram(t, `import std/io
 
-fn note(label: String): Unit {
+fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
 }
 
-fn check(n: Int): Result<Int, String> {
+fn check(n: Int) -> Result<Int, String> {
   if n > 0 { Ok(n) } else { Err("no") }
 }
 
 fn main() {
-  greet = |name: String| {
+  greet = fn name: String -> {
     defer note("first")
     defer note(name)
     io.print("hello ${name}")
   }
   greet("a")
   greet("b")
-  early = |n: Int| {
+  early = fn n: Int -> {
     defer note("early")
     if n > 1 { return n * 10 }
     n
   }
   io.print(early(1) + early(2))
-  attempt = |n: Int| {
+  attempt = fn n: Int -> {
     defer note("attempt")
     v = try check(n)
     io.print("checked")
@@ -263,7 +263,7 @@ fn main() {
   io.inspect(attempt(1))
   io.inspect(attempt(0))
   kept = [1, 2, 3, 4]
-    |> Iter.filter(|x| {
+    |> Iter.filter(fn x -> {
       defer note("filter")
       if x == 2 { continue }
       if x == 4 { break }
@@ -282,17 +282,17 @@ fn main() {
 func TestIRDefer_AnIterLoopIterationRunsItsDeferredCalls(t *testing.T) {
 	verifyDeferProgram(t, `import std/io
 
-fn note(label: String): Unit {
+fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
 }
 
-fn leave(n: Int): Unit {
+fn leave(n: Int) -> Unit {
   io.print("leave ${n}")
 }
 
 fn main() {
   defer note("main")
-  total = Iter.loop(|n = 0| {
+  total = Iter.loop(fn n = 0 -> {
     defer leave(n)
     defer note("second")
     if n == 1 {
@@ -303,7 +303,7 @@ fn main() {
     n + 1
   })
   io.print("total ${total}")
-  _ = Iter.loop(|n = 0| {
+  _ = Iter.loop(fn n = 0 -> {
     defer leave(n)
     {
       defer note("block")
@@ -312,7 +312,7 @@ fn main() {
     }
     n + 1
   })
-  _ = Iter.loop(|| {
+  _ = Iter.loop(fn -> {
     defer note("stateless")
     break
   })
@@ -328,12 +328,12 @@ fn main() {
 func TestIRDefer_AnArmLeavingAnIterationRunsItsDeferredCalls(t *testing.T) {
 	verifyDeferProgram(t, `import std/io
 
-fn note(label: String): Unit {
+fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
 }
 
 fn main() {
-  a = Iter.loop(|n = 0| {
+  a = Iter.loop(fn n = 0 -> {
     defer note("iteration")
     if n == 3 {
       defer note("guard")
@@ -352,7 +352,7 @@ fn main() {
   })
   io.print(a)
   m: Maybe<Int> = None
-  b = Iter.loop(|n = 0| {
+  b = Iter.loop(fn n = 0 -> {
     defer note("iteration b")
     Some(x) = m else {
       defer note("else")
@@ -370,18 +370,18 @@ fn main() {
 func TestIRDefer_ATrapInALambdaOrIterationRunsItsDeferredCalls(t *testing.T) {
 	src := `import std/io
 
-fn note(label: String): Unit {
+fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
 }
 
 fn main() {
   defer note("main")
-  divide = |d: Int| {
+  divide = fn d: Int -> {
     defer note("divide")
     10 / d
   }
   io.print(divide(2))
-  _ = Iter.loop(|n = 1| {
+  _ = Iter.loop(fn n = 1 -> {
     defer note("iteration")
     io.print(divide(n))
     n - 1
@@ -437,7 +437,7 @@ test "nested case arms" {
 }
 
 test "a loop callback's arm" {
-  n = Iter.loop(|n = 0| {
+  n = Iter.loop(fn n = 0 -> {
     case n {
       2 -> {
         defer io.print("break arm ends")

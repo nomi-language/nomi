@@ -192,7 +192,7 @@ func TestOpenDocumentAfterSeveralFilesChange(t *testing.T) {
 			"palette": strings.Replace(p.texts["palette"], `"red"`, `"blue"`, 1),
 		}, "bodies"},
 		{"a signature and a body", map[string]string{
-			"view": strings.Replace(p.texts["view"], "pub fn show(item: Item): String {", "pub fn show(item: Item, prefix: String = \"\"): String {", 1),
+			"view": strings.Replace(p.texts["view"], "pub fn show(item: Item) -> String {", "pub fn show(item: Item, prefix: String = \"\") -> String {", 1),
 		}, "dependents"},
 		{"back", map[string]string{"view": p.texts["view"], "palette": p.texts["palette"]}, "dependents"},
 	} {
@@ -227,9 +227,9 @@ func BenchmarkOpenDocumentEdit(b *testing.B) {
 		name, key, old, new string
 	}{
 		{"body", "game", "{ 3 } else { 1 }", "{ 4 } else { 1 }"},
-		{"signature", "game", "fn strength(game: Game): Int {", "fn strength(game: Game, _bonus: Int = 0): Int {"},
-		{"leaf signature", "world", "pub fn room(place: Place): Room {", "pub fn room(place: Place, _lit: Bool = True): Room {"},
-		{"entry signature", "main", "fn turn(state: Game, line: String): Game {", "fn turn(state: Game, line: String, _echo: Bool = False): Game {"},
+		{"signature", "game", "fn strength(game: Game) -> Int {", "fn strength(game: Game, _bonus: Int = 0) -> Int {"},
+		{"leaf signature", "world", "pub fn room(place: Place) -> Room {", "pub fn room(place: Place, _lit: Bool = True) -> Room {"},
+		{"entry signature", "main", "fn turn(state: Game, line: String) -> Game {", "fn turn(state: Game, line: String, _echo: Bool = False) -> Game {"},
 		{"entry body", "main", "You wake up in the dark.", "You wake up."},
 	} {
 		edited := strings.Replace(p.texts[bench.key], bench.old, bench.new, 1)

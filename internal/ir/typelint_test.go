@@ -16,7 +16,7 @@ func typeViolations(t *testing.T, f *Func, rule LintRule) []Violation {
 	return violationsFor(t, f, rule)
 }
 
-// typedAdd is `fn inc(n: Int): Int { n + 1 }` with every temporary typed.
+// typedAdd is `fn inc(n: Int) -> Int { n + 1 }` with every temporary typed.
 func typedAdd() (*Func, *Block, Temp) {
 	p := typePos()
 	f := NewFunc(p, "inc")
@@ -323,7 +323,7 @@ func TestValType_ClassesAndSpelling(t *testing.T) {
 		{NewDistinctType(NewSymbol("Expired"), nil), ClassNone, "Expired"},
 		{NewStructType(point), ClassRef, "shapes.Point"},
 		{NewEnumType(NewSymbol("maybe.Maybe"), IntType), ClassRef, "maybe.Maybe<Int>"},
-		{NewTupleType(IntType, StringType), ClassRef, "(Int, String)"},
+		{NewTupleType(IntType, StringType), ClassRef, "#(Int, String)"},
 		{NewRecordType([]string{"x", "y"}, []*ValType{IntType, IntType}), ClassRef, "{x: Int, y: Int}"},
 		{NewMapType(StringType, NewListType(IntType)), ClassRef, "Map<String, List<Int>>"},
 		{NewFuncType([]*ValType{IntType}, BoolType), ClassRef, "(Int) -> Bool"},

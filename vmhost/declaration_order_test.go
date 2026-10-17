@@ -55,7 +55,7 @@ enum Shape<T> {
     Nothing
 }
 
-fn get(a: A): Int {
+fn get(a: A) -> Int {
     case a.e {
         .Dot(x) -> x + a.b.v
         .Nothing -> a.b.v
@@ -81,7 +81,7 @@ enum Tree<T> {
     Node(Tree<T>)
 }
 
-fn depth(t: Tree<Int>): Int {
+fn depth(t: Tree<Int>) -> Int {
     case t {
         .Leaf(x) -> x
         .Node(inner) -> case inner {
@@ -106,13 +106,13 @@ fn main() {
 func TestDeclarationOrder_BoundNamesAnInterfaceDeclaredBelow(t *testing.T) {
 	got := runSourceOutput(t, `import std/io
 
-fn sum<B>(b: B): Int where B: Bag<Int> {
+fn sum<B>(b: B) -> Int where B: Bag<Int> {
     B.size(b) + B.first(b)
 }
 
 interface Bag<T> {
-    fn size(b: self): Int
-    fn first(b: self): T
+    fn size(b: self) -> Int
+    fn first(b: self) -> T
 }
 
 struct Three {
@@ -120,11 +120,11 @@ struct Three {
 }
 
 impl Bag<Int> for Three {
-    fn size(_b: Three): Int {
+    fn size(_b: Three) -> Int {
         3
     }
 
-    fn first(b: Three): Int {
+    fn first(b: Three) -> Int {
         b.n
     }
 }

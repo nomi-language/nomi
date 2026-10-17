@@ -31,26 +31,26 @@ func TestCompletion_StructPatternOffersUnwrittenFields(t *testing.T) {
 		src  string
 		want []string // exactly, in order
 	}{
-		{"case arm", "fn f(p: Point): Int {\n    case p {\n        Point{‸} -> 1\n    }\n}\n", []string{"x", "y", "z"}},
-		{"case arm after a punned field", "fn f(p: Point): Int {\n    case p {\n        Point{x, ‸} -> 1\n    }\n}\n", []string{"y", "z"}},
-		{"case arm after a matched field", "fn f(p: Point): Int {\n    case p {\n        Point{x: 0, ‸} -> 1\n        _ -> 0\n    }\n}\n", []string{"y", "z"}},
-		{"case arm, unclosed", "fn f(p: Point): Int {\n    case p {\n        Point{y, ‸\n    }\n}\n", []string{"x", "z"}},
-		{"nested, unclosed", "fn f(m: Maybe<Point>): Int {\n    case m {\n        .Some(Point{x, ‸\n    }\n}\n", []string{"y", "z"}},
-		{"anonymous pattern in a case arm", "fn f(p: Point): Int {\n    case p {\n        {x, ‸} -> 1\n    }\n}\n", []string{"y", "z"}},
-		{"dot struct variant", "fn f(s: Shape): Int {\n    case s {\n        .Rect{‸} -> 1\n        _ -> 0\n    }\n}\n", []string{"w", "h"}},
-		{"qualified struct variant", "fn f(s: Shape): Int {\n    case s {\n        Shape.Rect{w, ‸} -> 1\n        _ -> 0\n    }\n}\n", []string{"h"}},
-		{"embedded struct variant", "fn f(s: Shape): Int {\n    case s {\n        .Circle{‸} -> 1\n        _ -> 0\n    }\n}\n", []string{"radius"}},
-		{"nested in a variant payload", "fn f(m: Maybe<Point>): Int {\n    case m {\n        .Some(Point{x, ‸}) -> 1\n        _ -> 0\n    }\n}\n", []string{"y", "z"}},
-		{"anonymous, nested in a generic payload", "fn f(m: Maybe<Point>): Int {\n    case m {\n        .Some({‸}) -> 1\n        _ -> 0\n    }\n}\n", []string{"x", "y", "z"}},
-		{"in a tuple", "fn f(t: (Point, Int)): Int {\n    case t {\n        ({y, ‸}, _) -> 1\n    }\n}\n", []string{"x", "z"}},
-		{"destructuring binding", "fn f(p: Point): Int {\n    Point{x, ‸} = p\n    x\n}\n", []string{"y", "z"}},
-		{"anonymous destructuring binding", "fn f(p: Point): Int {\n    {‸} = p\n    1\n}\n", []string{"x", "y", "z"}},
-		{"binding with else", "fn f(s: Shape): Float {\n    .Rect{‸} = s else {\n        return 0.0\n    }\n    1.0\n}\n", []string{"w", "h"}},
-		{"assert pattern", "fn f(p: Point): Result<Int, AssertionFailure> {\n    assert Point{z, ‸} = p\n    Ok(1)\n}\n", []string{"x", "y"}},
-		{"function parameter", "fn f(Point{x, ‸}): Int {\n    x\n}\n", []string{"y", "z"}},
-		{"lambda parameter", "fn f(ps: List<Point>): Int {\n    g = |Point{‸}| 1\n    0\n}\n", []string{"x", "y", "z"}},
-		{"anonymous, an `or` alternative", "fn f(m: Maybe<Point>): Int {\n    case m {\n        Some({x: 0, y}) or Some({‸}) -> 1\n        _ -> 0\n    }\n}\n", []string{"x", "y", "z"}},
-		{"typed prefix", "fn f(p: Point): Int {\n    case p {\n        Point{x, y‸} -> 1\n    }\n}\n", []string{"y"}},
+		{"case arm", "fn f(p: Point) -> Int {\n    case p {\n        Point{‸} -> 1\n    }\n}\n", []string{"x", "y", "z"}},
+		{"case arm after a punned field", "fn f(p: Point) -> Int {\n    case p {\n        Point{x, ‸} -> 1\n    }\n}\n", []string{"y", "z"}},
+		{"case arm after a matched field", "fn f(p: Point) -> Int {\n    case p {\n        Point{x: 0, ‸} -> 1\n        _ -> 0\n    }\n}\n", []string{"y", "z"}},
+		{"case arm, unclosed", "fn f(p: Point) -> Int {\n    case p {\n        Point{y, ‸\n    }\n}\n", []string{"x", "z"}},
+		{"nested, unclosed", "fn f(m: Maybe<Point>) -> Int {\n    case m {\n        .Some(Point{x, ‸\n    }\n}\n", []string{"y", "z"}},
+		{"anonymous pattern in a case arm", "fn f(p: Point) -> Int {\n    case p {\n        {x, ‸} -> 1\n    }\n}\n", []string{"y", "z"}},
+		{"dot struct variant", "fn f(s: Shape) -> Int {\n    case s {\n        .Rect{‸} -> 1\n        _ -> 0\n    }\n}\n", []string{"w", "h"}},
+		{"qualified struct variant", "fn f(s: Shape) -> Int {\n    case s {\n        Shape.Rect{w, ‸} -> 1\n        _ -> 0\n    }\n}\n", []string{"h"}},
+		{"embedded struct variant", "fn f(s: Shape) -> Int {\n    case s {\n        .Circle{‸} -> 1\n        _ -> 0\n    }\n}\n", []string{"radius"}},
+		{"nested in a variant payload", "fn f(m: Maybe<Point>) -> Int {\n    case m {\n        .Some(Point{x, ‸}) -> 1\n        _ -> 0\n    }\n}\n", []string{"y", "z"}},
+		{"anonymous, nested in a generic payload", "fn f(m: Maybe<Point>) -> Int {\n    case m {\n        .Some({‸}) -> 1\n        _ -> 0\n    }\n}\n", []string{"x", "y", "z"}},
+		{"in a tuple", "fn f(t: #(Point, Int)) -> Int {\n    case t {\n        #({y, ‸}, _) -> 1\n    }\n}\n", []string{"x", "z"}},
+		{"destructuring binding", "fn f(p: Point) -> Int {\n    Point{x, ‸} = p\n    x\n}\n", []string{"y", "z"}},
+		{"anonymous destructuring binding", "fn f(p: Point) -> Int {\n    {‸} = p\n    1\n}\n", []string{"x", "y", "z"}},
+		{"binding with else", "fn f(s: Shape) -> Float {\n    .Rect{‸} = s else {\n        return 0.0\n    }\n    1.0\n}\n", []string{"w", "h"}},
+		{"assert pattern", "fn f(p: Point) -> Result<Int, AssertionFailure> {\n    assert Point{z, ‸} = p\n    Ok(1)\n}\n", []string{"x", "y"}},
+		{"function parameter", "fn f(Point{x, ‸}) -> Int {\n    x\n}\n", []string{"y", "z"}},
+		{"lambda parameter", "fn f(ps: List<Point>) -> Int {\n    g = fn Point{‸} -> 1\n    0\n}\n", []string{"x", "y", "z"}},
+		{"anonymous, an `or` alternative", "fn f(m: Maybe<Point>) -> Int {\n    case m {\n        Some({x: 0, y}) or Some({‸}) -> 1\n        _ -> 0\n    }\n}\n", []string{"x", "y", "z"}},
+		{"typed prefix", "fn f(p: Point) -> Int {\n    case p {\n        Point{x, y‸} -> 1\n    }\n}\n", []string{"y"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -74,7 +74,7 @@ func TestCompletion_StructPatternOffersUnwrittenFields(t *testing.T) {
 // The `{` after a pattern's type name opens the list, as it does for a
 // struct literal.
 func TestCompletion_StructPatternOpensOnBrace(t *testing.T) {
-	src := patternDecls + "\nfn f(p: Point): Int {\n    case p {\n        Point{‸} -> 1\n    }\n}\n"
+	src := patternDecls + "\nfn f(p: Point) -> Int {\n    case p {\n        Point{‸} -> 1\n    }\n}\n"
 	content, pos := splitCursor(t, src)
 	s := NewServer()
 	uri := "file:///pattern_brace.nomi"

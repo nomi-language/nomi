@@ -9,7 +9,7 @@ import "testing"
 func TestFormat_CurrentValueInline(t *testing.T) {
 	roundTrip(t, `fn main() {
     a = {..user, address: {.., city: "NYC"}}
-    b = {..team, "home" => {.., "city" => "Atlanta"}}
+    b = %{..team, "home" => %{.., "city" => "Atlanta"}}
     c = {..account, log: [t, ..], seen: #{.., 3}}
     d = {..account, recent: #[.., 9], first: #[0, ..]}
     e = Struct.update(user, {address: {.., zip: "1"}})

@@ -22,7 +22,7 @@ func buildTypesFromSource(src string) (*FileAnalysis, []TypeError) {
 }
 
 func TestTypeBuildFuncWithParams(t *testing.T) {
-	fa, errs := buildTypesFromSource(`fn add(x: Int, _y: Int): Int { x }`)
+	fa, errs := buildTypesFromSource(`fn add(x: Int, _y: Int) -> Int { x }`)
 	if len(errs) > 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
@@ -145,7 +145,7 @@ func TestTypeBuildEnumVariants(t *testing.T) {
 }
 
 func TestTypeBuildParamSymbolsGetTypes(t *testing.T) {
-	fa, errs := buildTypesFromSource(`fn greet(name: String, age: Int): String { _ = age; name }`)
+	fa, errs := buildTypesFromSource(`fn greet(name: String, age: Int) -> String { _ = age; name }`)
 	if len(errs) > 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
@@ -174,7 +174,7 @@ func TestTypeBuildParamSymbolsGetTypes(t *testing.T) {
 }
 
 func TestTypeBuildUnknownTypeError(t *testing.T) {
-	_, errs := buildTypesFromSource(`fn bad(_x: Bogus): Int { 0 }`)
+	_, errs := buildTypesFromSource(`fn bad(_x: Bogus) -> Int { 0 }`)
 	if len(errs) == 0 {
 		t.Fatal("expected an error for unknown type Bogus")
 	}
@@ -209,7 +209,7 @@ func TestTypeBuildFuncNoReturnIsNil(t *testing.T) {
 }
 
 func TestBuildTypesExternFunc(t *testing.T) {
-	src := `host fn print(value: String): Unit`
+	src := `host fn print(value: String) -> Unit`
 	fa, errs := buildTypesFromSource(src)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
@@ -238,7 +238,7 @@ func TestBuildTypesExternFuncGeneric(t *testing.T) {
 	// so the test doesn't depend on stdlib being loaded. The shape exercises
 	// the same generic-extern path: a List<T> param and a generic-enum return.
 	src := `enum Box<T> { Wrapped T; Empty }
-host fn head<T>(list: List<T>): Box<T>`
+host fn head<T>(list: List<T>) -> Box<T>`
 	fa, errs := buildTypesFromSource(src)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)

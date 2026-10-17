@@ -8,7 +8,7 @@
 //
 // This is the corpus shape from
 // tests/11-interfaces-and-impls/type_parameter_dispatch:
-// `fn full<T>(x: T): String where T: Display and Greet`.
+// `fn full<T>(x: T) -> String where T: Display and Greet`.
 //
 // TWO implementors of BOTH interfaces, of different shapes, for the reason
 // dict_bounded_param.nomi has two: with one, a table and a hard-coded direct
@@ -35,7 +35,7 @@
 import std/io
 
 interface Greet {
-    fn hello(value: self): String
+    fn hello(value: self) -> String
 }
 
 struct Meters {
@@ -48,51 +48,51 @@ struct Label {
 }
 
 impl Display for Meters {
-    fn to_string(m: Meters): String {
+    fn to_string(m: Meters) -> String {
         Int.to_string(m.amount) + "m"
     }
 }
 
 impl Greet for Meters {
-    fn hello(m: Meters): String {
+    fn hello(m: Meters) -> String {
         _ = m
         "hi meters"
     }
 }
 
 impl Display for Label {
-    fn to_string(l: Label): String {
+    fn to_string(l: Label) -> String {
         l.head + "-" + l.tail
     }
 }
 
 impl Greet for Label {
-    fn hello(l: Label): String {
+    fn hello(l: Label) -> String {
         "hi " + l.head
     }
 }
 
-fn both<T>(x: T): String where T: Display and Greet {
+fn both<T>(x: T) -> String where T: Display and Greet {
     T.hello(x) + " - " + T.to_string(x)
 }
 
-fn reversed<T>(x: T): String where T: Greet and Display {
+fn reversed<T>(x: T) -> String where T: Greet and Display {
     T.hello(x) + " - " + T.to_string(x)
 }
 
-fn only_second<T>(x: T): String where T: Display and Greet {
+fn only_second<T>(x: T) -> String where T: Display and Greet {
     T.hello(x)
 }
 
-fn relay<U>(y: U): String where U: Display and Greet {
+fn relay<U>(y: U) -> String where U: Display and Greet {
     both(y) + " / " + reversed(y)
 }
 
-fn one_bound<T>(x: T): String where T: Display {
+fn one_bound<T>(x: T) -> String where T: Display {
     T.to_string(x)
 }
 
-fn mixed<T>(x: T): String where T: Display and Greet {
+fn mixed<T>(x: T) -> String where T: Display and Greet {
     one_bound(x) + " | " + T.hello(x)
 }
 

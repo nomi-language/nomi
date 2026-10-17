@@ -20,7 +20,7 @@ func formatsKeepingMeaning(t *testing.T, src, want string) {
 
 // A parenthesized name in a destructuring's slot is that name: the parser
 // builds the same destructure with or without the parentheses, so the
-// formatter dropping them keeps the meaning. `{"host" => (host)} = config`
+// formatter dropping them keeps the meaning. `%{"host" => (host)} = config`
 // used to be a pattern binding with a map pattern (rejected without `else`)
 // and became a map destructure once formatted.
 func TestFormat_ParenthesizedDestructureNameIsTheName(t *testing.T) {
@@ -29,13 +29,13 @@ func TestFormat_ParenthesizedDestructureNameIsTheName(t *testing.T) {
 		node      ast.Node
 	}{
 		{
-			"fn main() {\n    {\"host\" => (host)} = config\n}\n",
-			"fn main() {\n    {\"host\" => host} = config\n}\n",
+			"fn main() {\n    %{\"host\" => (host)} = config\n}\n",
+			"fn main() {\n    %{\"host\" => host} = config\n}\n",
 			&ast.PatternBinding{},
 		},
 		{
-			"fn main() {\n    {\"host\" => ((_))} = config\n}\n",
-			"fn main() {\n    {\"host\" => _} = config\n}\n",
+			"fn main() {\n    %{\"host\" => ((_))} = config\n}\n",
+			"fn main() {\n    %{\"host\" => _} = config\n}\n",
 			&ast.PatternBinding{},
 		},
 		{
@@ -44,8 +44,8 @@ func TestFormat_ParenthesizedDestructureNameIsTheName(t *testing.T) {
 			&ast.StructDestructure{},
 		},
 		{
-			"fn main() {\n    ((a), _) = t\n}\n",
-			"fn main() {\n    (a, _) = t\n}\n",
+			"fn main() {\n    #((a), _) = t\n}\n",
+			"fn main() {\n    #(a, _) = t\n}\n",
 			&ast.TupleDestructure{},
 		},
 		{

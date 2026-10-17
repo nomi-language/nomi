@@ -12,7 +12,7 @@ func TestNullaryGenericCall_InAnOperatorOperandRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
 interface Blank {
-    fn blank(): self
+    fn blank() -> self
 }
 
 struct Box<T> {
@@ -20,18 +20,18 @@ struct Box<T> {
 }
 
 impl Blank for Box<T> {
-    fn blank(): Box<T> {
+    fn blank() -> Box<T> {
         Box{items: []}
     }
 }
 
 impl Add<Box<T>, Box<T>> for Box<T> {
-    fn add(lhs: Box<T>, rhs: Box<T>): Box<T> {
+    fn add(lhs: Box<T>, rhs: Box<T>) -> Box<T> {
         Box{items: lhs.items + rhs.items}
     }
 }
 
-fn none<T>(): List<T> {
+fn none<T>() -> List<T> {
     []
 }
 

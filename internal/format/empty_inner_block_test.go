@@ -24,20 +24,20 @@ func TestFormat_BodyThatIsOneBlockKeepsItsBraces(t *testing.T) {
 			"group \"0\" {\n    setup {\n        {\n            defer f()\n            1\n        }\n    }\n\n    test \"\" {\n        assert\n    }\n}\n",
 		},
 		"lambda, empty block": {
-			"fn f() { x = || {{}} }\n",
-			"fn f() {\n    x = || { {} }\n}\n",
+			"fn f() { x = fn -> {{}} }\n",
+			"fn f() {\n    x = fn -> { {} }\n}\n",
 		},
 		"lambda with a parameter, empty block": {
-			"fn f() { x = |a| {{}} }\n",
-			"fn f() {\n    x = |a| { {} }\n}\n",
+			"fn f() { x = fn a -> {{}} }\n",
+			"fn f() {\n    x = fn a -> { {} }\n}\n",
 		},
 		"tail lambda, empty block": {
-			"fn f() { g(1, || {{}}) }\n",
-			"fn f() {\n    g(1, || { {} })\n}\n",
+			"fn f() { g(1, fn -> {{}}) }\n",
+			"fn f() {\n    g(1, fn -> { {} })\n}\n",
 		},
 		"lambda, block holding a defer": {
-			"fn f() { x = || { { defer g()\n 1 } } }\n",
-			"fn f() {\n    x = || {\n        {\n            defer g()\n            1\n        }\n    }\n}\n",
+			"fn f() { x = fn -> { { defer g()\n 1 } } }\n",
+			"fn f() {\n    x = fn -> {\n        {\n            defer g()\n            1\n        }\n    }\n}\n",
 		},
 		"clock": {
 			"group \"g\" { clock {{}} test \"\" { assert } }\n",

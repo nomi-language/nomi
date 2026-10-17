@@ -16,9 +16,9 @@ import (
 // same `return []` is: the empty literal's element type is solved by the
 // callback's other results.
 func TestBreakValue_EmptyListTakesTheCallbacksResult(t *testing.T) {
-	src := `fn main(): Unit {
+	src := `fn main() -> Unit {
   ys = [1, 2, 3]
-    |> Iter.map(|x| {
+    |> Iter.map(fn x -> {
       if x > 2 { break [] }
       if x > 1 { break [x] }
       [x, x]
@@ -49,9 +49,9 @@ func TestBreakValue_EmptyListTakesTheCallbacksResult(t *testing.T) {
 
 // A `break []` whose callback ends in a String is reported at the break.
 func TestBreakValue_EmptyListAgainstAnotherResultRejected(t *testing.T) {
-	src := `fn main(): Unit {
+	src := `fn main() -> Unit {
   ys = [1, 2, 3]
-    |> Iter.map(|x| {
+    |> Iter.map(fn x -> {
       if x > 2 { break [] }
       "s"
     })
@@ -64,9 +64,9 @@ func TestBreakValue_EmptyListAgainstAnotherResultRejected(t *testing.T) {
 // `break "s"` in an `Iter.map` callback whose tail is an Int is the same
 // mismatch a `return "s"` there would be, reported at the break.
 func TestBreakValue_ClosedTypeAgainstTheTailRejected(t *testing.T) {
-	src := `fn main(): Unit {
+	src := `fn main() -> Unit {
   _ = [1, 2, 3]
-    |> Iter.map(|x| {
+    |> Iter.map(fn x -> {
       if x > 2 { break "s" }
       x
     })
@@ -78,9 +78,9 @@ func TestBreakValue_ClosedTypeAgainstTheTailRejected(t *testing.T) {
 // Two `break` values of different closed types disagree with each other
 // and with the tail.
 func TestBreakValue_ClosedTypesDisagreeRejected(t *testing.T) {
-	src := `fn main(): Unit {
+	src := `fn main() -> Unit {
   _ = [1, 2, 3]
-    |> Iter.map(|x| {
+    |> Iter.map(fn x -> {
       if x > 2 { break "s" }
       if x > 1 { break True }
       "t"
@@ -92,9 +92,9 @@ func TestBreakValue_ClosedTypesDisagreeRejected(t *testing.T) {
 
 // A `break` value that agrees with the tail stays clean.
 func TestBreakValue_ClosedTypeAgreeingWithTheTail(t *testing.T) {
-	src := `fn main(): Unit {
+	src := `fn main() -> Unit {
   _ = [1, 2, 3]
-    |> Iter.map(|x| {
+    |> Iter.map(fn x -> {
       if x > 2 { break 0 }
       x
     })

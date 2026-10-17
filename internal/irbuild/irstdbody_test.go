@@ -24,7 +24,7 @@ const irStdWantRetained = 374
 // module (see irStdSiblingSym). TestIRStdSibling_BareCallsLinkToEarlierBodies checks the
 // symbol, the VM run and the Go read-back.
 func TestIRStdFunc_ASiblingCallIsRetainedOnBothSides(t *testing.T) {
-	const body = "fn helper(n: Int): Int {\n  n + 1\n}\n\npub fn use_it(n: Int): Int {\n  helper(n)\n}\n"
+	const body = "fn helper(n: Int) -> Int {\n  n + 1\n}\n\npub fn use_it(n: Int) -> Int {\n  helper(n)\n}\n"
 
 	t.Run("a user module builds an ir.Call", func(t *testing.T) {
 		var c irFuncRetentionCount

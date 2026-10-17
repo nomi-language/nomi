@@ -71,7 +71,7 @@ struct T {
 }
 
 impl Comparable for T {
-  fn compare(_a: T, _b: T): Ordering {
+  fn compare(_a: T, _b: T) -> Ordering {
     Ordering.Equal
   }
 }
@@ -95,7 +95,7 @@ func TestReservedName_TypeAndExpressionPositionsResolveToOneDeclaration(t *testi
   Greater
 }
 
-fn f(): Ordering {
+fn f() -> Ordering {
   Ordering.Equal
 }
 `
@@ -174,11 +174,11 @@ func TestReservedName_PreludeTypesResolveOneWay(t *testing.T) {
   None
 }
 
-fn some(): Maybe<Int> {
+fn some() -> Maybe<Int> {
   Maybe.Some(1)
 }
 
-fn none(): Maybe<Int> {
+fn none() -> Maybe<Int> {
   Maybe.None
 }
 `},
@@ -187,7 +187,7 @@ fn none(): Maybe<Int> {
   Err E
 }
 
-fn ok(): Result<Int, String> {
+fn ok() -> Result<Int, String> {
   Result.Ok(1)
 }
 `},
@@ -195,7 +195,7 @@ fn ok(): Result<Int, String> {
   x: Int
 }
 
-fn f(xs: List<Int>): List<Int> {
+fn f(xs: List<Int>) -> List<Int> {
   xs
 }
 `},
@@ -203,7 +203,7 @@ fn f(xs: List<Int>): List<Int> {
   x: Int
 }
 
-fn f(): Ordering {
+fn f() -> Ordering {
   Ordering.Less
 }
 `},
@@ -238,7 +238,7 @@ func TestReservedName_OrdinaryShadowingOfAnImportedFileStillWorks(t *testing.T) 
   High
 }
 
-pub fn low(): Level {
+pub fn low() -> Level {
   Level.Low
 }
 `
@@ -250,11 +250,11 @@ enum Level {
   High
 }
 
-fn mine(): Level {
+fn mine() -> Level {
   Level.Mid
 }
 
-fn theirs(): shapes.Level {
+fn theirs() -> shapes.Level {
   shapes.low()
 }
 `
@@ -283,7 +283,7 @@ enum Level {
   Mid
 }
 
-fn mine(): Level {
+fn mine() -> Level {
   Level.Mid
 }
 `

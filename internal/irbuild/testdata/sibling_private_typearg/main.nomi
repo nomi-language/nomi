@@ -11,12 +11,12 @@ struct Point {
 }
 
 impl Display for Point {
-    fn to_string(p: Point): String {
+    fn to_string(p: Point) -> String {
         "p${p.x}"
     }
 }
 
-fn describe(slot: span.Slot<Point>): String {
+fn describe(slot: span.Slot<Point>) -> String {
     case slot {
         span.Slot.Full(q) -> "full ${q.x}"
         span.Slot.Empty -> "empty"

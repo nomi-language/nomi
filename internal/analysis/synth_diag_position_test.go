@@ -152,7 +152,7 @@ func TestSynthDiagnostics_AHandWrittenImplKeepsItsOwnPosition(t *testing.T) {
 struct P { a: Int }
 
 impl Display for P {
-  fn to_string(_value: P): Nope { "x" }
+  fn to_string(_value: P) -> Nope { "x" }
 }
 
 fn main() { io.print("x") }

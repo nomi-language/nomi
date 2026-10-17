@@ -13,7 +13,7 @@ pub struct ImportApp {
     clock: Clock
 }
 
-pub fn boot(): ImportApp {
+pub fn boot() -> ImportApp {
     ImportApp{context: Context.root(), clock: FakeClock{at: Instant.from_seconds(1234)}}
 }
 

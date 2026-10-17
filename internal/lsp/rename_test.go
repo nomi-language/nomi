@@ -11,7 +11,7 @@ import (
 )
 
 func TestRename_SameFile(t *testing.T) {
-	src := "fn double(n: Int): Int { n + n }\nfn main() { double(1) }"
+	src := "fn double(n: Int) -> Int { n + n }\nfn main() { double(1) }"
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -48,7 +48,7 @@ func TestRename_CrossFile(t *testing.T) {
 	mathFile := filepath.Join(dir, "math.nomi")
 	mainFile := filepath.Join(dir, "main.nomi")
 
-	mathSrc := "pub fn double(n: Int): Int { n + n }"
+	mathSrc := "pub fn double(n: Int) -> Int { n + n }"
 	mainSrc := "import math\nfn main() { math.double(21) }"
 	os.WriteFile(mathFile, []byte(mathSrc), 0644)
 	os.WriteFile(mainFile, []byte(mainSrc), 0644)
@@ -121,7 +121,7 @@ func TestRename_SelectiveImport(t *testing.T) {
 }
 
 func TestRename_NoSymbolAtPosition(t *testing.T) {
-	src := "fn double(n: Int): Int { n + n }"
+	src := "fn double(n: Int) -> Int { n + n }"
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)

@@ -1509,7 +1509,7 @@ func TestLexTypealiasKeyword(t *testing.T) {
 }
 
 func TestIsCompleteMultilineAccumulated(t *testing.T) {
-	if !IsComplete("[1, 2, 3] |>\n  Iter.map(|x| x * 2)") {
+	if !IsComplete("[1, 2, 3] |>\n  Iter.map(fn x -> x * 2)") {
 		t.Error("expected complete for accumulated multiline pipe")
 	}
 }

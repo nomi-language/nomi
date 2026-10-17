@@ -82,16 +82,16 @@ test "find works over Unicode text" {
 test "find is the first element find_all returns" {
     texts = ["", "abc", "banana", "order 66, aisle 7", "café crème", "a1b22c"]
 
-    assert Iter.all?(texts, |t| first_agrees(t, "an"))
-    assert Iter.all?(texts, |t| first_agrees(t, ""))
-    assert Iter.all?(texts, |t| first_agrees(t, "z"))
-    assert Iter.all?(texts, |t| first_agrees(t, Regex`\d+`))
-    assert Iter.all?(texts, |t| first_agrees(t, Regex`a*`))
-    assert Iter.all?(texts, |t| first_agrees(t, Regex`a|an`))
-    assert Iter.all?(texts, |t| first_agrees(t, Regex`\p{L}+`))
+    assert Iter.all?(texts, fn t -> first_agrees(t, "an"))
+    assert Iter.all?(texts, fn t -> first_agrees(t, ""))
+    assert Iter.all?(texts, fn t -> first_agrees(t, "z"))
+    assert Iter.all?(texts, fn t -> first_agrees(t, Regex`\d+`))
+    assert Iter.all?(texts, fn t -> first_agrees(t, Regex`a*`))
+    assert Iter.all?(texts, fn t -> first_agrees(t, Regex`a|an`))
+    assert Iter.all?(texts, fn t -> first_agrees(t, Regex`\p{L}+`))
 }
 
-fn first_agrees<M>(text: String, m: M): Bool where M: Matcher {
+fn first_agrees<M>(text: String, m: M) -> Bool where M: Matcher {
     String.find(text, m) == (String.find_all(text, m) |> List.head())
 }
 
@@ -100,7 +100,7 @@ test "a function of your own takes any matcher" {
     assert count("a1b22", Regex`\d`) == 3
 }
 
-fn count<M>(text: String, m: M): Int where M: Matcher {
+fn count<M>(text: String, m: M) -> Int where M: Matcher {
     String.find_all(text, m) |> Iter.count()
 }
 
@@ -112,7 +112,7 @@ test "a matcher prints what each call finds" {
             std/regex.Regex
         }
 
-        fn main(): Result<Unit, String> {
+        fn main() -> Result<Unit, String> {
             text = "a1b22c"
             digits = Regex`[0-9]+`
 

@@ -49,7 +49,7 @@ enum Box<T> {
     Empty
 }
 
-fn describe(s: State): String {
+fn describe(s: State) -> String {
     case s {
         State.Present(r) -> "present ${Debug.inspect(r)}"
         State.Missing -> "missing"
@@ -59,11 +59,11 @@ fn describe(s: State): String {
 fn main() {
     s = State.Present(Ready)
     io.inspect(s)
-    [s, State.Missing] |> Iter.each(|x| io.print(describe(x)))
+    [s, State.Missing] |> Iter.each(fn x -> io.print(describe(x)))
     b: Box<Ready> = Box.Full(Ready)
     u: Box<Unit> = Box.Full(Unit)
-    io.inspect((b, u))
+    io.inspect(#(b, u))
 }
 `
-	irRunSource(t, src, "Present(Ready)\npresent Ready\nmissing\n(Full(Ready), Full(Unit))\n")
+	irRunSource(t, src, "Present(Ready)\npresent Ready\nmissing\n#(Full(Ready), Full(Unit))\n")
 }

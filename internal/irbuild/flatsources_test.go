@@ -18,20 +18,20 @@ struct Pair {
 }
 
 impl Iter for Pair {
-    fn each_while(p: Pair, yield: (Int) -> Bool): Bool {
+    fn each_while(p: Pair, yield: (Int) -> Bool) -> Bool {
         if yield(p.a) { yield(p.b) } else { False }
     }
 }
 
 fn main() {
-    io.inspect(["ab", "cd"] |> Iter.flat_map(|s| s) |> Iter.to_list())
-    io.inspect([1, 3] |> Iter.flat_map(|n| n..n + 2) |> Iter.to_list())
-    io.inspect([1, 3] |> Iter.flat_map(|n| #{n}) |> Iter.to_list())
-    io.inspect([1, 3] |> Iter.flat_map(|n| #[n, n]) |> Iter.to_list())
-    io.inspect([1, 3] |> Iter.flat_map(|n| {n => n * 2}) |> Iter.to_list())
-    io.inspect([1, 3] |> Iter.flat_map(|n| Pair{a: n, b: n}) |> Iter.count())
-    io.inspect([1, 2, 3] |> Iter.flat_map(|n| if n == 2 { continue } else { #[n, n] }) |> Iter.to_list())
-    io.inspect([1, 2, 3] |> Iter.flat_map(|n| if n == 2 { break "zz" } else { "x" }) |> Iter.to_list())
+    io.inspect(["ab", "cd"] |> Iter.flat_map(fn s -> s) |> Iter.to_list())
+    io.inspect([1, 3] |> Iter.flat_map(fn n -> n..n + 2) |> Iter.to_list())
+    io.inspect([1, 3] |> Iter.flat_map(fn n -> #{n}) |> Iter.to_list())
+    io.inspect([1, 3] |> Iter.flat_map(fn n -> #[n, n]) |> Iter.to_list())
+    io.inspect([1, 3] |> Iter.flat_map(fn n -> %{n => n * 2}) |> Iter.to_list())
+    io.inspect([1, 3] |> Iter.flat_map(fn n -> Pair{a: n, b: n}) |> Iter.count())
+    io.inspect([1, 2, 3] |> Iter.flat_map(fn n -> if n == 2 { continue } else { #[n, n] }) |> Iter.to_list())
+    io.inspect([1, 2, 3] |> Iter.flat_map(fn n -> if n == 2 { break "zz" } else { "x" }) |> Iter.to_list())
     io.inspect(Iter.flatten(["ab", "cd"]))
     io.inspect(Iter.flatten([1..3, 5..=6]))
     io.inspect(Iter.flatten([#{1}, #{2}]))
@@ -45,7 +45,7 @@ fn main() {
 		"[1, 2, 3, 4]\n" +
 		"[1, 3]\n" +
 		"[1, 1, 3, 3]\n" +
-		"[(1, 2), (3, 6)]\n" +
+		"[#(1, 2), #(3, 6)]\n" +
 		"4\n" +
 		"[1, 1, 3, 3]\n" +
 		"[\"x\", \"z\", \"z\"]\n" +

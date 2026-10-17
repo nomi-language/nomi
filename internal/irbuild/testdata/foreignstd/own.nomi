@@ -5,6 +5,6 @@ pub struct Diagnostic {
     label: String
 }
 
-pub fn label_of(diagnostic: Diagnostic): String {
+pub fn label_of(diagnostic: Diagnostic) -> String {
     diagnostic.label
 }

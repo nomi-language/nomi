@@ -8,41 +8,41 @@ struct Box {
     items: List<String>
 }
 
-fn pair(n: Int): (Int, List<String>) {
-    (n, help)
+fn pair(n: Int) -> #(Int, List<String>) {
+    #(n, help)
 }
 
-fn listed(): List<List<String>> {
+fn listed() -> List<List<String>> {
     [help]
 }
 
-fn boxed(): Box {
+fn boxed() -> Box {
     Box{items: help}
 }
 
-fn count(xs: List<String>): Int {
+fn count(xs: List<String>) -> Int {
     Iter.count(xs)
 }
 
-fn arm(b: Bool): (Int, List<String>) {
+fn arm(b: Bool) -> #(Int, List<String>) {
     case b {
-        True -> (1, help)
-        False -> (0, lib.help)
+        True -> #(1, help)
+        False -> #(0, lib.help)
     }
 }
 
-fn keyed(): Map<String, List<String>> {
-    [("k", help)] |> Iter.to_map()
+fn keyed() -> Map<String, List<String>> {
+    [#("k", help)] |> Iter.to_map()
 }
 
-fn name(d: Direction): String {
+fn name(d: Direction) -> String {
     case d {
         Direction.North -> "n"
         Direction.South -> "s"
     }
 }
 
-fn names(): List<String> {
+fn names() -> List<String> {
     directions |> Iter.map(name) |> Iter.to_list()
 }
 
@@ -54,7 +54,7 @@ fn main() {
     io.inspect(arm(False))
     io.inspect(keyed())
     io.inspect(names())
-    io.inspect((doubled, Map.get(table, "a"), Limits.next, local))
+    io.inspect(#(doubled, Map.get(table, "a"), Limits.next, local))
 }
 
-once local = (help, Limits.top)
+once local = #(help, Limits.top)

@@ -105,10 +105,10 @@ func TestStdHostDefsAreDistinctAndPackageNeutral(t *testing.T) {
 //
 // A type reaches this builder three ways and each has its own lookup: an
 // ANNOTATION (`fn f(b: Byte)`) through stdHostNamed, an INFERRED type
-// (`|b| ...`) through stdHostKindOfPrimitive, and an rt SIGNATURE through
+// (`fn b -> ...`) through stdHostKindOfPrimitive, and an rt SIGNATURE through
 // stdHostKindOfGoType. Lookups that must agree is the shape a fourth
 // silently-different answer hides in — `lambda_test.go` records exactly that
-// hazard for Decimal ("`d: Decimal` and `|d|` over one must not be two rows").
+// hazard for Decimal ("`d: Decimal` and `fn d ->` over one must not be two rows").
 // Pointer equality, because that is what stdSignatureMatches compares.
 //
 // AN ORIGIN ROW HAS TWO CHANNELS, NOT THREE, and this asserts the absence in
@@ -202,7 +202,7 @@ func TestStdHostIdentityIsGuardedByTheFrontEndFirst(t *testing.T) {
 
 func TestStdHostInferredProjectionRequiresDeclaredIdentity(t *testing.T) {
 	p, err := AnalyzeSource("main", `import std/dynamic.Dynamic
-fn identity(value:Dynamic):Dynamic{value}`)
+fn identity(value:Dynamic) ->Dynamic{value}`)
 	if err != nil {
 		t.Fatal(err)
 	}

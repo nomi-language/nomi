@@ -16,7 +16,7 @@ derive Comparable for Point
 
 enum Shape {
     Circle Float
-    Pair (Int, Int)
+    Pair #(Int, Int)
     Rect {w: Float, h: Float}
     None
 }
@@ -33,7 +33,7 @@ derive Equatable for Id
 derive Hashable for Id
 derive Comparable for Id
 
-type Coord (Int, Int)
+type Coord #(Int, Int)
 
 derive Debug for Coord
 derive Equatable for Coord
@@ -47,7 +47,7 @@ derive Equatable for Expired
 derive Hashable for Expired
 derive Comparable for Expired
 
-fn show_order(o: Ordering): String {
+fn show_order(o: Ordering) -> String {
     case o {
         .Less -> "L"
         .Equal -> "E"
@@ -60,7 +60,7 @@ test "derive Debug renders structs enums and distinct types structurally" {
     assert Debug.inspect(Point{x: 1, y: 2}) == "Point{x: 1, y: 2}"
     assert Debug.inspect(Shape.None) == "None"
     assert Debug.inspect(Shape.Circle(1.5)) == "Circle(1.5)"
-    assert Debug.inspect(Shape.Pair((1, 2))) == "Pair(1, 2)"
+    assert Debug.inspect(Shape.Pair(#(1, 2))) == "Pair(1, 2)"
     assert Debug.inspect(Shape.Rect{w: 1.0, h: 2.0}) == "Rect{w: 1.0, h: 2.0}"
     assert Debug.inspect(Id(7)) == "Id(7)"
     assert Debug.inspect(Coord(3, 4)) == "Coord(3, 4)"
@@ -74,8 +74,8 @@ test "derive Equatable compares structs enums and distinct types structurally" {
     assert Equatable.equal?(Shape.None, Shape.None)
     assert Equatable.equal?(Shape.Circle(1.0), Shape.Circle(1.0))
     refute Equatable.equal?(Shape.Circle(1.0), Shape.Circle(2.0))
-    assert Equatable.equal?(Shape.Pair((1, 2)), Shape.Pair((1, 2)))
-    refute Equatable.equal?(Shape.Pair((1, 2)), Shape.Pair((1, 3)))
+    assert Equatable.equal?(Shape.Pair(#(1, 2)), Shape.Pair(#(1, 2)))
+    refute Equatable.equal?(Shape.Pair(#(1, 2)), Shape.Pair(#(1, 3)))
     assert Equatable.equal?(Shape.Rect{w: 1.0, h: 2.0}, Shape.Rect{w: 1.0, h: 2.0})
 
     refute Equatable.equal?(Shape.Rect{w: 1.0, h: 2.0}, Shape.Circle(1.0))
@@ -112,16 +112,16 @@ test "derive Comparable orders structs enums and distinct types lexicographicall
 
     assert show_order(Comparable.compare(Point{x: 1, y: 1}, Point{x: 1, y: 1})) == "E"
 
-    assert show_order(Comparable.compare(Shape.Circle(99.0), Shape.Pair((1, 2)))) == "L"
+    assert show_order(Comparable.compare(Shape.Circle(99.0), Shape.Pair(#(1, 2)))) == "L"
 
-    assert show_order(Comparable.compare(Shape.Pair((1, 2)), Shape.Circle(99.0))) == "G"
+    assert show_order(Comparable.compare(Shape.Pair(#(1, 2)), Shape.Circle(99.0))) == "G"
 
     assert show_order(Comparable.compare(Shape.Rect{w: 1.0, h: 1.0}, Shape.None)) == "L"
 
     assert show_order(Comparable.compare(Shape.None, Shape.None)) == "E"
     assert show_order(Comparable.compare(Shape.Circle(1.0), Shape.Circle(2.0))) == "L"
 
-    assert show_order(Comparable.compare(Shape.Pair((1, 2)), Shape.Pair((1, 3)))) == "L"
+    assert show_order(Comparable.compare(Shape.Pair(#(1, 2)), Shape.Pair(#(1, 3)))) == "L"
 
     assert show_order(Comparable.compare(Id(1), Id(2))) == "L"
     assert show_order(Comparable.compare(Id(2), Id(1))) == "G"
@@ -175,7 +175,7 @@ derive Comparable for Node
 derive Equatable for Node
 derive Hashable for Node
 
-fn use_off(_o: Off): String {
+fn use_off(_o: Off) -> String {
     "bound an Off"
 }
 

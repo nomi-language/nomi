@@ -8,10 +8,10 @@ import "testing"
 // diagnostic overflowed the stack. Unification now refuses the binding, and
 // the program is rejected with ordinary errors.
 func TestTypeVarIsNotBoundToATypeContainingIt(t *testing.T) {
-	_, errs := checkSourceWithStdlib(`fn f(input: Int): Int {
-  (_, acc) = Iter.loop(|n, acc: (Int, Int) = input, 1| {
-    if n <= 1 { break (n, acc) }
-    (n - 1, n * acc)
+	_, errs := checkSourceWithStdlib(`fn f(input: Int) -> Int {
+  #(_, acc) = Iter.loop(fn n, acc: #(Int, Int) = input, 1 -> {
+    if n <= 1 { break #(n, acc) }
+    #(n - 1, n * acc)
   })
   acc
 }

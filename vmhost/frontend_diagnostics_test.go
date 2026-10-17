@@ -148,9 +148,9 @@ var diagLoc = regexp.MustCompile(`\.nomi:(\d+):(\d+): `)
 // still refuse a file with a syntax error, with the strict parser's
 // diagnostic, and neither may see a partially-read tree.
 func TestSyntaxErrorStillRefusedByRunAndCheck(t *testing.T) {
-	const halfTyped = "fn compute(n: Int): Int {\n" +
+	const halfTyped = "fn compute(n: Int) -> Int {\n" +
 		"  total = n * 2\n" +
-		"  f = |x| n + \n" +
+		"  f = fn x -> n + \n" +
 		"}\n" +
 		"\n" +
 		"fn main() {\n" +
@@ -181,8 +181,8 @@ func TestSyntaxErrorStillRefusedByRunAndCheck(t *testing.T) {
 	// Positive control: the same shape with the operand supplied loads.
 	const control = "import std/io\n" +
 		"\n" +
-		"fn compute(n: Int): Int {\n" +
-		"  f = |x: Int| n + x\n" +
+		"fn compute(n: Int) -> Int {\n" +
+		"  f = fn x: Int -> n + x\n" +
 		"  f(2)\n" +
 		"}\n" +
 		"\n" +
@@ -238,7 +238,7 @@ func TestUserImplForAPrimitiveIsADuplicateOfStdlibs(t *testing.T) {
 				params = "a: " + c.recv
 			}
 			src := "impl " + c.iface + " for " + c.recv + " {\n" +
-				"  fn " + c.method + "(" + params + "): " + c.ret + " { " + c.body + " }\n" +
+				"  fn " + c.method + "(" + params + ") -> " + c.ret + " { " + c.body + " }\n" +
 				"}\n\nfn main() {\n  Unit\n}\n"
 			err := checkEntry(t, src)
 			if err == nil {
@@ -290,13 +290,13 @@ func TestExternStdImplsAreInvisibleToTheDuplicateRule(t *testing.T) {
 		{
 			name: "Hashable for String, whose std impl is a host fn",
 			src: "impl Hashable for String {\n" +
-				"  fn hash(_s: String): Int { 0 }\n" +
+				"  fn hash(_s: String) -> Int { 0 }\n" +
 				"}\n\nfn main() {\n  Unit\n}\n",
 		},
 		{
 			name: "Display for Int, same shape and a silent override",
 			src: "impl Display for Int {\n" +
-				"  fn to_string(_n: Int): String { \"SHADOWED\" }\n" +
+				"  fn to_string(_n: Int) -> String { \"SHADOWED\" }\n" +
 				"}\n\nfn main() {\n  Unit\n}\n",
 		},
 	} {
@@ -320,7 +320,7 @@ func TestImplCollisionAnchorsAtAPositionTheUserCanOpen(t *testing.T) {
 		t.Run(recv, func(t *testing.T) {
 			src := "import {\n  std/io\n}\n\n" +
 				"impl Equatable for " + recv + " {\n" +
-				"  fn equal?(a: " + recv + ", b: " + recv + "): Bool { False }\n" +
+				"  fn equal?(a: " + recv + ", b: " + recv + ") -> Bool { False }\n" +
 				"}\n" +
 				"fn main() {\n  io.print(\"x\")\n}\n"
 			err := checkEntry(t, src)

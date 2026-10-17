@@ -21,7 +21,7 @@ import (
 // position".
 func TestDistinctOverLeaf_RunsEveryShape(t *testing.T) {
 	const byteHelper = `
-fn byte(n: Int): Byte {
+fn byte(n: Int) -> Byte {
     case Byte.from_int(n) {
         Some(b) -> b
         None -> byte(0)
@@ -192,7 +192,7 @@ struct S {
     w: W
 }
 
-fn unwrap(W(x)): ` + c.inner + ` {
+fn unwrap(W(x)) -> ` + c.inner + ` {
     x
 }
 
@@ -209,7 +209,7 @@ fn main() {
     )
     io.inspect(a)
     io.inspect([` + c.v1 + `, ` + c.v2 + `] |> Iter.map(W) |> Iter.to_list())
-    io.inspect([a, b] |> Iter.map(|W(z)| z) |> Iter.to_list())
+    io.inspect([a, b] |> Iter.map(fn W(z) -> z) |> Iter.to_list())
     io.inspect(Holder.W(` + c.v1 + `))
     io.inspect(
         case Holder.W(` + c.v2 + `) {
@@ -231,7 +231,7 @@ fn main() {
 				src.WriteString("    io.print(\"${a == b} ${a == W(" + c.v1 + ")}\")\n")
 			}
 			if has("Hashable") {
-				src.WriteString("    io.inspect(Map.get({a => 1, b => 2}, b))\n")
+				src.WriteString("    io.inspect(Map.get(%{a => 1, b => 2}, b))\n")
 				src.WriteString("    io.print(\"${Set.contains?(#{a}, a)} ${Set.contains?(#{a}, b)}\")\n")
 			}
 			if has("Comparable") {
@@ -257,12 +257,12 @@ func TestDistinctOverFunction_DestructuresAndCalls(t *testing.T) {
 
 type Rate (Decimal) -> Decimal
 
-fn apply(Rate(f), x: Decimal): Decimal {
+fn apply(Rate(f), x: Decimal) -> Decimal {
     f(x)
 }
 
 fn main() {
-    r = Rate(|d: Decimal| d * 2.0d)
+    r = Rate(fn d: Decimal -> d * 2.0d)
     io.inspect(apply(r, 1.25d))
     Rate(g) = r
     io.inspect(g(3.0d))
@@ -271,9 +271,9 @@ fn main() {
             Rate(h) -> h(0.5d)
         }
     )
-    io.inspect([r] |> Iter.map(|Rate(k)| k(1.0d)) |> Iter.to_list())
-    fs: List<(Decimal) -> Decimal> = [|d: Decimal| d + 1.0d]
-    io.inspect(fs |> Iter.map(Rate) |> Iter.map(|rr| apply(rr, 1.0d)) |> Iter.to_list())
+    io.inspect([r] |> Iter.map(fn Rate(k) -> k(1.0d)) |> Iter.to_list())
+    fs: List<(Decimal) -> Decimal> = [fn d: Decimal -> d + 1.0d]
+    io.inspect(fs |> Iter.map(Rate) |> Iter.map(fn rr -> apply(rr, 1.0d)) |> Iter.to_list())
 }
 `
 	want := "2.500d\n6.00d\n1.00d\n[2.00d]\n[2.0d]\n"

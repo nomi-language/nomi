@@ -2,10 +2,10 @@ import std/regex.Regex
 
 /// The acronym of `phrase`: the first letter of each word, upper-cased.
 /// Hyphens and other punctuation separate words; an apostrophe does not.
-pub fn abbreviate(phrase: String): String {
+pub fn abbreviate(phrase: String) -> String {
     phrase
     |> String.find_all(Regex`[A-Za-z][A-Za-z']*`)
-    |> Iter.map(|word| String.slice(word, 0, 1))
+    |> Iter.map(fn word -> String.slice(word, 0, 1))
     |> String.join()
     |> String.to_upper()
 }

@@ -34,7 +34,7 @@ func redundantNames(items []analysis.UnusedImport) []string {
 // unused-import check stays silent because `Iter.loop` references the binding,
 // yet the import establishes a binding the file already had.
 func TestRedundantPreludeImport_UsedNameStillReported(t *testing.T) {
-	src := "import std/iter.Iter\n\nfn demo(): Int {\n  Iter.loop(|n = 0| { break n })\n}\n"
+	src := "import std/iter.Iter\n\nfn demo() -> Int {\n  Iter.loop(fn n = 0 -> { break n })\n}\n"
 	got, _, _ := findRedundantWithStdlib(t, src)
 	if len(got) != 1 {
 		t.Fatalf("expected 1 redundant import, got %v", redundantNames(got))
@@ -56,11 +56,11 @@ func TestRedundantPreludeImport_LifecycleTypes(t *testing.T) {
 		{"std/context.Context", "Context"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, _, _ := findRedundantWithStdlib(t, "import "+tc.path+"\nfn pass(x: "+tc.name+"): "+tc.name+" { x }")
+			got, _, _ := findRedundantWithStdlib(t, "import "+tc.path+"\nfn pass(x: "+tc.name+") -> "+tc.name+" { x }")
 			if len(got) != 1 || got[0].Name != tc.name {
 				t.Fatalf("redundant imports: %v", redundantNames(got))
 			}
-			aliased, _, _ := findRedundantWithStdlib(t, "import "+tc.path+" as Input\nfn pass(x: Input): Input { x }")
+			aliased, _, _ := findRedundantWithStdlib(t, "import "+tc.path+" as Input\nfn pass(x: Input) -> Input { x }")
 			if len(aliased) != 0 {
 				t.Fatalf("alias must remain an explicit import: %v", redundantNames(aliased))
 			}
@@ -72,7 +72,7 @@ func TestRedundantPreludeImport_LifecycleTypes(t *testing.T) {
 // so `{Comparable, Ordering}` yields two independently-removable entries.
 func TestRedundantPreludeImport_BraceItemsReportedIndividually(t *testing.T) {
 	src := "import std/comparable.{Comparable, Ordering}\n\n" +
-		"fn cmp(a: Int, b: Int): Ordering {\n  Comparable.compare(a, b)\n}\n"
+		"fn cmp(a: Int, b: Int) -> Ordering {\n  Comparable.compare(a, b)\n}\n"
 	got, _, _ := findRedundantWithStdlib(t, src)
 	if len(got) != 2 {
 		t.Fatalf("expected 2 redundant items, got %v", redundantNames(got))
@@ -90,7 +90,7 @@ func TestRedundantPreludeImport_BraceItemsReportedIndividually(t *testing.T) {
 // A `self` item under a prelude type binds that type, so it is as redundant as
 // the plain item, and it carries the self-marker kind the surgical fix removes.
 func TestRedundantPreludeImport_SelfItemUnderPreludeType(t *testing.T) {
-	src := "import std/maybe.Maybe.{self, None}\n\nfn f(): Maybe<Int> {\n  None\n}\n"
+	src := "import std/maybe.Maybe.{self, None}\n\nfn f() -> Maybe<Int> {\n  None\n}\n"
 	got, _, _ := findRedundantWithStdlib(t, src)
 	var self *analysis.UnusedImport
 	for i := range got {
@@ -116,28 +116,28 @@ func TestRedundantPreludeImport_LoadBearingImportsExempt(t *testing.T) {
 	}{{
 		// The prelude exports no file API objects.
 		name: "whole-file module",
-		src:  "import std/strings\n\nfn f(s: String): String {\n  String.normalize(s, strings.NormalForm.NFC)\n}\n",
+		src:  "import std/strings\n\nfn f(s: String) -> String {\n  String.normalize(s, strings.NormalForm.NFC)\n}\n",
 	}, {
 		// An alias is a new name, not a duplicate binding.
 		name: "aliased item",
-		src:  "import std/iter.Iter as It\n\nfn demo(): Int {\n  It.loop(|n = 0| { break n })\n}\n",
+		src:  "import std/iter.Iter as It\n\nfn demo() -> Int {\n  It.loop(fn n = 0 -> { break n })\n}\n",
 	}, {
 		// The prelude exports `Iter`, never bare `loop`.
 		name: "drill-through past the prelude's stopping point",
-		src:  "import std/iter.Iter.{loop}\n\nfn demo(): Int {\n  loop(|n = 0| { break n })\n}\n",
+		src:  "import std/iter.Iter.{loop}\n\nfn demo() -> Int {\n  loop(fn n = 0 -> { break n })\n}\n",
 	}, {
 		// Ordering's variants are deliberately not preluded.
 		name: "variant drill-through",
 		src: "import std/comparable.Ordering.{Less}\n\n" +
-			"fn f(o: Ordering): Bool {\n  case o {\n    Less -> True\n    _ -> False\n  }\n}\n",
+			"fn f(o: Ordering) -> Bool {\n  case o {\n    Less -> True\n    _ -> False\n  }\n}\n",
 	}, {
 		// Literal/Fragment are deliberately excluded from the prelude.
 		name: "deliberately non-preluded types",
 		src: "import std/literals.{Fragment, Literal}\n\n" +
 			"struct Tag {\n  body: String\n}\n\n" +
 			"impl Literal for Tag {\n" +
-			"  fn from_fragments(fragments: List<Fragment<String>>): Tag {\n" +
-			"    Tag{body: Iter.reduce(fragments, |acc = \"\", f|\n" +
+			"  fn from_fragments(fragments: List<Fragment<String>>) -> Tag {\n" +
+			"    Tag{body: Iter.reduce(fragments, fn acc = \"\", f ->\n" +
 			"      case f {\n        .Static(s) -> acc + s\n        .Dynamic(v) -> acc + v\n      }\n    )}\n" +
 			"  }\n}\n",
 	}}
@@ -154,7 +154,7 @@ func TestRedundantPreludeImport_LoadBearingImportsExempt(t *testing.T) {
 // Identity is compared through the resolved declaration, not the spelling. A
 // module of the user's own exporting `Result` shadows the prelude deliberately.
 func TestRedundantPreludeImport_SameNameDifferentModuleExempt(t *testing.T) {
-	src := "import mine.Result\n\nfn f(_r: Result): Int {\n  0\n}\n"
+	src := "import mine.Result\n\nfn f(_r: Result) -> Int {\n  0\n}\n"
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
 	lib := std.Load()
 	loader := func(_ string, modulePath []string) ([]ast.Node, error) {
@@ -175,7 +175,7 @@ func TestRedundantPreludeImport_SameNameDifferentModuleExempt(t *testing.T) {
 // parent-scope guard this rule would demand deleting imports that stdlib files
 // genuinely need.
 func TestRedundantPreludeImport_StdlibExempt(t *testing.T) {
-	src := "import std/iter.Iter\n\nfn f(xs: List<Int>): Int {\n  Iter.count(xs)\n}\n"
+	src := "import std/iter.Iter\n\nfn f(xs: List<Int>) -> Int {\n  Iter.count(xs)\n}\n"
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
 	lib := std.Load()
 	fa := analysis.BuildFileWithStdlib(nodes, nil, lib.Modules, "", nil)
@@ -187,7 +187,7 @@ func TestRedundantPreludeImport_StdlibExempt(t *testing.T) {
 // The diagnostic carries the code the LSP filters on, and fires through the
 // ordinary builder pipeline rather than needing a separate call.
 func TestRedundantPreludeImport_DiagnosticCarriesCode(t *testing.T) {
-	src := "import std/strings.String\n\nfn f(s: String): Int {\n  String.length(s)\n}\n"
+	src := "import std/strings.String\n\nfn f(s: String) -> Int {\n  String.length(s)\n}\n"
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
 	lib := std.Load()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)

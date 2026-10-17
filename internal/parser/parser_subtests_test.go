@@ -11,7 +11,7 @@ import (
 // `subtests rows, pattern { body }` is a statement of its own, with the rows,
 // the pattern and the body as its parts.
 func TestParseSubtestsStatement(t *testing.T) {
-	nodes := parse(t, "test \"t\" {\n  subtests cases, (line, known) {\n    assert line == known\n  }\n}")
+	nodes := parse(t, "test \"t\" {\n  subtests cases, #(line, known) {\n    assert line == known\n  }\n}")
 	body := nodes[0].(*ast.TestDecl).Body
 	st, ok := body.Stmts[0].(*ast.Subtests)
 	if !ok {
@@ -61,7 +61,7 @@ func TestParseSubtestsRowsAndPatterns(t *testing.T) {
 // expression and a comma follow. Everywhere else it is an identifier, so a
 // binding, a call, a read and a function named `subtests` keep working.
 func TestParseSubtestsIsAContextualKeyword(t *testing.T) {
-	src := "fn subtests(n: Int): Int {\n  n\n}\n\nfn f() {\n  subtests = 3\n  subtests(2)\n  g(subtests, 1)\n  subtests\n  x = subtests + 1\n  subtests.field\n}"
+	src := "fn subtests(n: Int) -> Int {\n  n\n}\n\nfn f() {\n  subtests = 3\n  subtests(2)\n  g(subtests, 1)\n  subtests\n  x = subtests + 1\n  subtests.field\n}"
 	nodes := parse(t, src)
 	if fn := nodes[0].(*ast.FuncDef); fn.Name != "subtests" {
 		t.Errorf("function name %q", fn.Name)
@@ -88,7 +88,7 @@ func TestParseSubtestsIsAContextualKeyword(t *testing.T) {
 // ordinary statement.
 func TestParseSubtestsErrors(t *testing.T) {
 	cases := []struct{ src, want string }{
-		{"test \"t\" {\n  subtests cases,\n  assert True\n}", "line 2, col 3: expected a pattern after the rows in `subtests`, such as `subtests cases, (input, expected) { ... }`"},
+		{"test \"t\" {\n  subtests cases,\n  assert True\n}", "line 2, col 3: expected a pattern after the rows in `subtests`, such as `subtests cases, #(input, expected) { ... }`"},
 		{"test \"t\" {\n  subtests cases, row\n  assert True\n}", "line 2, col 3: expected '{' for the `subtests` body after its pattern"},
 	}
 	for _, tc := range cases {
@@ -121,13 +121,13 @@ func TestParseSubtestsCountsAsATestsAssertion(t *testing.T) {
 // break across lines, as the formatter breaks a long header.
 func TestParseSubtestsName(t *testing.T) {
 	src := "test \"t\" {\n" +
-		"  subtests cases, (description, year, expected), description {\n    assert year > 0\n  }\n" +
-		"  subtests cases, (a, b, sum), \"${a} + ${b}\" {\n    assert a + b == sum\n  }\n" +
+		"  subtests cases, #(description, year, expected), description {\n    assert year > 0\n  }\n" +
+		"  subtests cases, #(a, b, sum), \"${a} + ${b}\" {\n    assert a + b == sum\n  }\n" +
 		"  subtests cases, Ok(n) or Err(n), label(n) |> String.trim {\n    assert n > 0\n  }\n" +
 		"  subtests cases, n, (Label{text: \"x\"}).text {\n    assert n > 0\n  }\n" +
-		"  subtests cases, (_, year), if year > 0 { \"after\" } else { \"before\" } {\n    assert year != 0\n  }\n" +
-		"  subtests cases, (\n    _description,\n    year\n  ), year {\n    assert year != 0\n  }\n" +
-		"  subtests cases, (_description, year) {\n    assert year != 0\n  }\n" +
+		"  subtests cases, #(_, year), if year > 0 { \"after\" } else { \"before\" } {\n    assert year != 0\n  }\n" +
+		"  subtests cases, #(\n    _description,\n    year\n  ), year {\n    assert year != 0\n  }\n" +
+		"  subtests cases, #(_description, year) {\n    assert year != 0\n  }\n" +
 		"}"
 	stmts := parse(t, src)[0].(*ast.TestDecl).Body.Stmts
 	if len(stmts) != 7 {

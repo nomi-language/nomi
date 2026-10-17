@@ -15,11 +15,11 @@ import {
 /// like `Int` and `Codepoint` while remaining an interval value for dense or
 /// successor-less domains like `Float` and `String`.
 pub interface Discrete {
-    fn next(value: self): Maybe<self>
+    fn next(value: self) -> Maybe<self>
 
     /// Some(n) when the implementation can report the number of `next` steps
     /// from `start` to `end` without walking them; None otherwise.
-    open fn steps_between(_start: self, _end: self): Maybe<Int> {
+    open fn steps_between(_start: self, _end: self) -> Maybe<Int> {
         None
     }
 }

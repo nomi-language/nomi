@@ -7,11 +7,11 @@ pub enum Error {
 
 /// Answers a word problem such as `What is 3 plus 2 multiplied by 3?`,
 /// working left to right with no operator precedence.
-pub fn answer(question: String): Result<Int, Error> {
+pub fn answer(question: String) -> Result<Int, Error> {
     Some(problem) =
         question
         |> String.strip_prefix("What is")
-        |> Maybe.flat_map(|rest| String.strip_suffix(rest, "?"))
+        |> Maybe.flat_map(fn rest -> String.strip_suffix(rest, "?"))
     else {
         return Err(.UnknownOperation)
     }
@@ -35,7 +35,7 @@ enum Operation {
 }
 
 /// Applies each operation in `words` to the running total in turn.
-fn evaluate(total: Int, words: List<String>): Result<Int, Error> {
+fn evaluate(total: Int, words: List<String>) -> Result<Int, Error> {
     case words {
         [] -> Ok(total)
         ["plus", ..rest] -> operand(total, .Plus, rest)
@@ -48,7 +48,7 @@ fn evaluate(total: Int, words: List<String>): Result<Int, Error> {
 }
 
 /// Reads the number after an operation, applies it and carries on.
-fn operand(total: Int, operation: Operation, words: List<String>): Result<Int, Error> {
+fn operand(total: Int, operation: Operation, words: List<String>) -> Result<Int, Error> {
     [word, ..rest] = words else {
         return Err(.SyntaxError)
     }
@@ -61,7 +61,7 @@ fn operand(total: Int, operation: Operation, words: List<String>): Result<Int, E
     evaluate(total, rest)
 }
 
-fn apply(operation: Operation, a: Int, b: Int): Result<Int, Error> {
+fn apply(operation: Operation, a: Int, b: Int) -> Result<Int, Error> {
     case operation {
         .Plus ->
             Ok(a + b)

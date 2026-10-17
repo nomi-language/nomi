@@ -1,4 +1,4 @@
-fn parent_fixture(): {inherited: String, value: String} {
+fn parent_fixture() -> {inherited: String, value: String} {
     {inherited: "parent", value: "parent"}
 }
 

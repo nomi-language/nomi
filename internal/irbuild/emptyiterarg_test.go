@@ -10,11 +10,11 @@ func TestIREmptyCollectionAsIterArgument_Runs(t *testing.T) {
 	}
 	const src = `import std/io
 
-fn total(xs: Iter<Int>): Int {
+fn total(xs: Iter<Int>) -> Int {
     Iter.count(xs)
 }
 
-fn names(xs: Iter<String>): String {
+fn names(xs: Iter<String>) -> String {
     String.join(xs, ",")
 }
 

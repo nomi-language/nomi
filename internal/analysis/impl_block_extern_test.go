@@ -11,13 +11,13 @@ import (
 // and dispatch is recorded.
 func TestImplBlock_InterfaceExtern_RegistersConformance(t *testing.T) {
 	src := `pub interface Formatted {
-    fn format(value: self): String
+    fn format(value: self) -> String
 }
 
 pub struct User { name: String }
 
 impl Formatted for User {
-    host fn format(user: User): String
+    host fn format(user: User) -> String
 }`
 
 	fa, errs := buildTypesFromSource(src)
@@ -38,7 +38,7 @@ func TestImplBlock_TopLevelExternFunctionRegisters(t *testing.T) {
   n: Int
 }
 
-pub host fn make(n: Int): Widget
+pub host fn make(n: Int) -> Widget
 `
 
 	fa, errs := buildTypesFromSource(src)

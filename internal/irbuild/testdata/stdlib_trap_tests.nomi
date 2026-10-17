@@ -3,7 +3,7 @@
 // into the stdlib replaced it (the function's line), through a lambda the
 // stdlib runs (the lambda's line), and in a host function (the call's
 // line, which the host's text does not name).
-fn magnitude(n: Int): Int {
+fn magnitude(n: Int) -> Int {
     Int.abs(n)
 }
 
@@ -16,7 +16,7 @@ test "a stdlib trap through a program function" {
 }
 
 test "a lambda the stdlib runs" {
-    quotients = [5, 0] |> Iter.map(|x| 10 / x) |> Iter.to_list()
+    quotients = [5, 0] |> Iter.map(fn x -> 10 / x) |> Iter.to_list()
     assert quotients == []
 }
 

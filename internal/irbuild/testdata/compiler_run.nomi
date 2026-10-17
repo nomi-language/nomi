@@ -18,7 +18,7 @@ import {
 //
 // This fixture pins no line number about itself, so lines may be added at the
 // end freely.
-fn out(source: String): String {
+fn out(source: String) -> String {
     case compiler.run(source) {
         Ok(text) -> "[" + text + "]"
         Err(message) -> "ERR " + message
@@ -37,7 +37,7 @@ fn main() {
 
     // A program with no `main` runs its top level and stops, rather than
     // failing. Distinguishes "no main is an error" from "no main is empty".
-    io.print("no_main = " + out("fn unused(): Int {\n  1\n}\n"))
+    io.print("no_main = " + out("fn unused() -> Int {\n  1\n}\n"))
 
     // ARITHMETIC EVALUATED, not merely type-checked. A checker answers nothing
     // about 6 * 7.
@@ -72,7 +72,7 @@ fn main() {
     // error path.
     io.print(
         "assert_fail = " + out(
-            "import std/assertions.AssertionFailure\n\nfn main(): Result<Unit, AssertionFailure> {\n  assert 1 == 2\n  Ok(Unit)\n}\n"
+            "import std/assertions.AssertionFailure\n\nfn main() -> Result<Unit, AssertionFailure> {\n  assert 1 == 2\n  Ok(Unit)\n}\n"
         )
     )
 

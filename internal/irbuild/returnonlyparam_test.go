@@ -17,22 +17,22 @@ enum Coin {
 derive Variants for Coin
 derive Display for Coin
 
-fn first<T>(): Maybe<T> where T: Variants {
+fn first<T>() -> Maybe<T> where T: Variants {
     T.variants() |> List.head()
 }
 
-fn all<T>(): List<T> where T: Variants {
+fn all<T>() -> List<T> where T: Variants {
     T.variants()
 }
 
-fn show(m: Maybe<Coin>): String {
+fn show(m: Maybe<Coin>) -> String {
     case m {
         Some(c) -> "${c}"
         None -> "none"
     }
 }
 
-fn pick(): Maybe<Coin> {
+fn pick() -> Maybe<Coin> {
     first()
 }
 

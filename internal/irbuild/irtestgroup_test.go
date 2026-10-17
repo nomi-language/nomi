@@ -101,14 +101,14 @@ pub struct App {
   label: String
 }
 
-pub fn boot(startup: Startup): App {
+pub fn boot(startup: Startup) -> App {
   io.print("boot ${startup.args}")
   App{context: Context.root(), label: "booted"}
 }
 
 fn main() {}
 
-fn show(suffix: String): String {
+fn show(suffix: String) -> String {
   App.label + suffix
 }
 
@@ -160,7 +160,7 @@ const irTestGroupFailingSource = `pub struct App {
   label: String
 }
 
-pub fn boot(): App {
+pub fn boot() -> App {
   App{context: Context.root(), label: "booted"}
 }
 
@@ -202,13 +202,13 @@ pub struct App {
   work: Supervisor
 }
 
-pub fn boot(): App {
+pub fn boot() -> App {
   App{context: Context.root(), work: Supervisor.new(max_running: 2)}
 }
 
 fn main() {}
 
-fn slow(): Unit {
+fn slow() -> Unit {
   timer.sleep(Duration.minutes(10))
   io.print("slow work done")
 }
@@ -224,7 +224,7 @@ group "virtual" {
   }
 
   test "a group's work is flushed in virtual time" {
-    _ = Supervisor.spawn(App.work, || slow())
+    _ = Supervisor.spawn(App.work, fn -> slow())
     _ = Supervisor.flush(App.work)
     assert 2 == 2
   }
@@ -256,11 +256,11 @@ const irTestGroupBootFaultSource = `pub struct App {
   n: Int
 }
 
-fn zero(): Int {
+fn zero() -> Int {
   0
 }
 
-pub fn boot(): App {
+pub fn boot() -> App {
   App{context: Context.root(), n: 10 / zero()}
 }
 
@@ -292,13 +292,13 @@ func TestIRTestGroup_ASetupWithReachesTheBody(t *testing.T) {
   label: String
 }
 
-pub fn boot(): App {
+pub fn boot() -> App {
   App{context: Context.root(), label: "booted"}
 }
 
 fn main() {}
 
-fn label(): String {
+fn label() -> String {
   App.label
 }
 
@@ -413,12 +413,12 @@ group "falls past an early return" {
   setup {
     flag = False
     if flag {
-      return (1, "one")
+      return #(1, "one")
     }
-    (2, "two")
+    #(2, "two")
   }
 
-  test "binds the tail value", (n, s) {
+  test "binds the tail value", #(n, s) {
     assert n == 2
     assert s == "two"
   }

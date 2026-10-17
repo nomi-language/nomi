@@ -32,13 +32,13 @@ pub enum Shape {
 
 // Interface body comments attach to the next function or the end of the body.
 pub interface Speech {
-    fn speak(s: Int): Int
+    fn speak(s: Int) -> Int
     // Inter-function comment.
-    fn shout(s: Int): Int
+    fn shout(s: Int) -> Int
     // Trailing comment inside interface body.
 }
 
-fn add(a: Int, b: Int): Int {
+fn add(a: Int, b: Int) -> Int {
     // Leading comment inside a block body.
     sum = a + b
     // Mid-body standalone comment between two statements.
@@ -51,7 +51,7 @@ fn greet(p: {
     // Inter-field comment in an anonymous struct type.
     age: Int,
     // Trailing comment inside anon struct type body.
-}): String {
+}) -> String {
     p.name
 }
 
@@ -73,7 +73,7 @@ test "comments are accepted around declarations and expressions" {
     }
 
     // Map literal trailing comments attach to the map literal.
-    m = {
+    m = %{
         "first" => 1,
         "second" => 2,
         // Trailing comment inside map literal body.
@@ -89,7 +89,7 @@ test "comments are accepted around declarations and expressions" {
 
     // Map and list patterns exercise the same comment paths on destructuring.
     first = case m {
-        {
+        %{
             "first" => v,
             // Trailing comment inside map pattern body.
         } -> v

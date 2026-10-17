@@ -1,21 +1,21 @@
 /// Bob's reply to `remark`. He answers a question, a shout, a shouted
 /// question and silence each in his own way, and anything else with
 /// "Whatever."
-pub fn response(remark: String): String {
+pub fn response(remark: String) -> String {
     remark = String.trim(remark)
     if remark == "" { return "Fine. Be that way!" }
 
-    case (String.ends_with?(remark, "?"), shouting?(remark)) {
-        (True, True) -> "Calm down, I know what I'm doing!"
-        (True, False) -> "Sure."
-        (False, True) -> "Whoa, chill out!"
-        (False, False) -> "Whatever."
+    case #(String.ends_with?(remark, "?"), shouting?(remark)) {
+        #(True, True) -> "Calm down, I know what I'm doing!"
+        #(True, False) -> "Sure."
+        #(False, True) -> "Whoa, chill out!"
+        #(False, False) -> "Whatever."
     }
 }
 
 /// A remark is shouted when it has an upper-case letter and no lower-case
 /// one.
-fn shouting?(remark: String): Bool {
+fn shouting?(remark: String) -> Bool {
     codepoints = String.to_codepoints(remark)
     Iter.any?(codepoints, Codepoint.upper?) and !Iter.any?(codepoints, Codepoint.lower?)
 }

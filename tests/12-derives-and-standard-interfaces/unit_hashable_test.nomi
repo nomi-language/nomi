@@ -6,11 +6,11 @@ struct Tagged {
 derive Equatable for Tagged
 derive Hashable for Tagged
 
-fn same<T>(a: T, b: T): Bool where T: Equatable {
+fn same<T>(a: T, b: T) -> Bool where T: Equatable {
     Equatable.equal?(a, b)
 }
 
-fn digest<T>(value: T): Int where T: Hashable {
+fn digest<T>(value: T) -> Int where T: Hashable {
     Hashable.hash(value)
 }
 
@@ -24,11 +24,11 @@ test "unit is equatable and always hashes the same" {
 }
 
 test "tuples holding unit hash through unit's impl" {
-    assert Hashable.hash(('a', Unit)) == 3007
-    assert Hashable.hash((1, Unit, "x")) == Hashable.hash((1, Unit, "x"))
-    assert digest(('a', Unit)) == Hashable.hash(('a', Unit))
-    assert ('a', Unit) == ('a', Unit)
-    assert ('a', Unit) != ('b', Unit)
+    assert Hashable.hash(#('a', Unit)) == 3007
+    assert Hashable.hash(#(1, Unit, "x")) == Hashable.hash(#(1, Unit, "x"))
+    assert digest(#('a', Unit)) == Hashable.hash(#('a', Unit))
+    assert #('a', Unit) == #('a', Unit)
+    assert #('a', Unit) != #('b', Unit)
 }
 
 test "a derived hash over a struct with a unit field" {
@@ -44,11 +44,11 @@ test "unit and values holding it key sets and maps" {
     assert Set.size(units) == 1
     assert Set.contains?(units, Unit)
 
-    m = [(Unit, 1), (Unit, 2)] |> Iter.to_map()
+    m = [#(Unit, 1), #(Unit, 2)] |> Iter.to_map()
     assert Map.size(m) == 1
     assert Map.get(m, Unit) == Some(2)
 
-    pairs = [('a', Unit), ('b', Unit), ('a', Unit)] |> Iter.to_set()
+    pairs = [#('a', Unit), #('b', Unit), #('a', Unit)] |> Iter.to_set()
     assert Set.size(pairs) == 2
 
     tagged =

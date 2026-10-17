@@ -35,7 +35,7 @@ func TestBindingElse_RunsOnTheVM(t *testing.T) {
 		"3", "0",
 		"Ok(2)", "Ok(10)", "Err(b)",
 		"[10, 0, 30]",
-		"(200, 100)", "(200, 100)",
+		"#(200, 100)", "#(200, 100)",
 		"6",
 	}, "\n") + "\n"
 	got := vmReference(path)
@@ -56,17 +56,17 @@ func TestBindingElse_EveryFunctionIsRetained(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	src := `fn shown(email: Maybe<String>): String {
+	src := `fn shown(email: Maybe<String>) -> String {
     Some(e) = email else { "none" }
     e
 }
 
-fn first_or(xs: List<Int>): Int {
+fn first_or(xs: List<Int>) -> Int {
     [first, .._rest] = xs else { return -1 }
     first
 }
 
-fn port(r: Result<Int, String>): Result<Int, String> {
+fn port(r: Result<Int, String>) -> Result<Int, String> {
     Ok(p) = r else {
         Err("") -> 8080
         Err(e) -> return Err(e)
@@ -97,14 +97,14 @@ func TestBindingElse_BareReturnLeavesALambda(t *testing.T) {
 	src := `import std/io
 
 fn block(xs: List<Maybe<Int>>) {
-    Iter.each(xs, |m| {
+    Iter.each(xs, fn m -> {
         Some(v) = m else { return }
         io.inspect(v)
     })
 }
 
 fn statements(xs: List<Maybe<Int>>) {
-    Iter.each(xs, |m| {
+    Iter.each(xs, fn m -> {
         Some(v) = m else {
             io.print("none")
             return
@@ -114,7 +114,7 @@ fn statements(xs: List<Maybe<Int>>) {
 }
 
 fn arms(xs: List<Result<Int, String>>) {
-    Iter.each(xs, |r| {
+    Iter.each(xs, fn r -> {
         Ok(v) = r else {
             Err(e) -> {
                 io.print(e)
@@ -126,7 +126,7 @@ fn arms(xs: List<Result<Int, String>>) {
 }
 
 fn named() {
-    show = |m: Maybe<String>| {
+    show = fn m: Maybe<String> -> {
         Some(s) = m else { return }
         io.print(s)
     }
@@ -134,8 +134,8 @@ fn named() {
 }
 
 fn nested(rows: List<List<Maybe<Int>>>) {
-    Iter.each(rows, |row| {
-        Iter.each(row, |m| {
+    Iter.each(rows, fn row -> {
+        Iter.each(row, fn m -> {
             Some(v) = m else { return }
             io.inspect(v)
         })

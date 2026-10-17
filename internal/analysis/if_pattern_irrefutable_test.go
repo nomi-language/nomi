@@ -32,44 +32,44 @@ func TestIfPattern_IrrefutableIsRejected(t *testing.T) {
 	for name, tc := range map[string]struct {
 		body, pos, ty, hint string
 	}{
-		"a name over a parameter of the value's type": {`fn f(x: Int): Int {
+		"a name over a parameter of the value's type": {`fn f(x: Int) -> Int {
     if x = 0 { return -x }
     x
 }`, "13:8", "Int", compareHint},
-		"a name over a binding of the value's type": {`fn f(): Int {
+		"a name over a binding of the value's type": {`fn f() -> Int {
     x = 3
     if x = 0 { return 1 }
     x
 }`, "14:8", "Int", compareHint},
-		"a fresh name": {`fn f(n: Int): Int {
+		"a fresh name": {`fn f(n: Int) -> Int {
     if y = n { return y }
     0
 }`, "13:8", "Int", ""},
-		"a name over a value of another type": {`fn f(x: String): Int {
+		"a name over a value of another type": {`fn f(x: String) -> Int {
     if x = 0 { return x }
     0
 }`, "13:8", "Int", ""},
-		"a wildcard": {`fn f(n: Int): Int {
+		"a wildcard": {`fn f(n: Int) -> Int {
     if _ = n { return 1 }
     0
 }`, "13:8", "Int", ""},
-		"a tuple of names": {`fn f(p: (Int, Int)): Int {
-    if (a, b) = p { return a + b }
+		"a tuple of names": {`fn f(p: #(Int, Int)) -> Int {
+    if #(a, b) = p { return a + b }
     0
-}`, "13:8", "(Int, Int)", ""},
-		"a distinct type": {`fn f(w: Meters): Int {
+}`, "13:8", "#(Int, Int)", ""},
+		"a distinct type": {`fn f(w: Meters) -> Int {
     if Meters(m) = w { return m }
     0
 }`, "13:8", "Meters", ""},
-		"a struct": {`fn f(p: Pair): Int {
+		"a struct": {`fn f(p: Pair) -> Int {
     if Pair{a, b} = p { return a + b }
     0
 }`, "13:8", "Pair", ""},
-		"a single-variant enum": {`fn f(o: Only): Int {
+		"a single-variant enum": {`fn f(o: Only) -> Int {
     if Only.V(n) = o { return n }
     0
 }`, "13:8", "Only", ""},
-		"with an else, used for its value": {`fn f(n: Int): Int {
+		"with an else, used for its value": {`fn f(n: Int) -> Int {
     if a = n { a + 1 } else { 0 }
 }`, "13:8", "Int", ""},
 	} {
@@ -99,15 +99,15 @@ func TestIfPattern_IrrefutableIsRejected(t *testing.T) {
 // refutable part.
 func TestIfPattern_RefutableIsAccepted(t *testing.T) {
 	for name, body := range map[string]string{
-		"a variant": `fn f(m: Maybe<Int>): Int {
+		"a variant": `fn f(m: Maybe<Int>) -> Int {
     if Some(v) = m { return v }
     0
 }`,
-		"a tuple with a variant": `fn f(p: (Int, Maybe<Int>)): Int {
-    if (a, Some(b)) = p { return a + b }
+		"a tuple with a variant": `fn f(p: #(Int, Maybe<Int>)) -> Int {
+    if #(a, Some(b)) = p { return a + b }
     0
 }`,
-		"a literal": `fn f(n: Int): Int {
+		"a literal": `fn f(n: Int) -> Int {
     if 0 = n { return 1 }
     n
 }`,

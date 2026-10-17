@@ -30,7 +30,7 @@ fn main() {
     Bad String
 }
 
-pub fn mk(s: String): Result<Int, Error> {
+pub fn mk(s: String) -> Result<Int, Error> {
     Err(Error.Bad(s))
 }
 `,

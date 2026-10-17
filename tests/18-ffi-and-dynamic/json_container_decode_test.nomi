@@ -5,7 +5,7 @@ import std/json.{FromJson, Json}
 // argument is the whole answer, and for a generic impl it also binds that
 // impl's own type parameters — without which `impl FromJson for List<T>`,
 // `Maybe<T>`, and `Map<String, V>` are unreachable.
-fn decode<T>(source: String): Result<T, Json.ShapeError> where T: FromJson {
+fn decode<T>(source: String) -> Result<T, Json.ShapeError> where T: FromJson {
     case Json.decode(source) {
         Ok(parsed) -> FromJson.from_json<T>(parsed)
         Err(_) -> Err(Json.ShapeError{path: [], expected: "json", got: "invalid"})

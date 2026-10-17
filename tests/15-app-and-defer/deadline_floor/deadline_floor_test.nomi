@@ -20,7 +20,7 @@ import {
 // the fault's text names the context in force when `main` blocked, so a
 // passing assertion means the work really reached the sleep and was cut
 // short there, not that the program failed early for some unrelated reason.
-fn escape_program(attempt: String): String {
+fn escape_program(attempt: String) -> String {
     """
           import {
             std/duration.Duration
@@ -34,7 +34,7 @@ fn escape_program(attempt: String): String {
             spare: {context: Context}
           }
 
-          fn boot(): Config {
+          fn boot() -> Config {
             Config{context: Context.root(), spare: {context: Context.root()}}
           }
 
@@ -79,7 +79,7 @@ test "a nested deadline still tightens" {
           context: Context
         }
 
-        fn boot(): Empty {
+        fn boot() -> Empty {
           Empty{context: Context.root()}
         }
 

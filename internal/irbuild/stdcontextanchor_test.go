@@ -13,8 +13,8 @@ func TestStdHostContextShadowDoesNotAnchor(t *testing.T) {
 		name string
 		src  string
 	}{
-		{"a struct", "pub struct Context {\n  n: Int\n}\n\nfn main(): Unit {\n  _ = Context{n: 1}\n}\n"},
-		{"a distinct newtype", "pub type Context Int\n\nfn main(): Unit {\n  _ = Context(1)\n}\n"},
+		{"a struct", "pub struct Context {\n  n: Int\n}\n\nfn main() -> Unit {\n  _ = Context{n: 1}\n}\n"},
+		{"a distinct newtype", "pub type Context Int\n\nfn main() -> Unit {\n  _ = Context(1)\n}\n"},
 	} {
 		t.Run(shadow.name, func(t *testing.T) {
 			_, err := AnalyzeSource("m", shadow.src)
@@ -31,13 +31,13 @@ func TestStdHostContextShadowDoesNotAnchor(t *testing.T) {
 //
 // Both doors, because they are separate conjuncts in stdHostOriginAnchored and a
 // single-door test cannot tell which one is carrying: `fa.Origin` for
-// std/context's own signature pass (`Context.root(): Context` has to be
+// std/context's own signature pass (`Context.root() -> Context` has to be
 // representable in the module that DECLARES it, or nothing lowers) and
 // stdImportModuleOf for every module that imports the name.
 func TestStdHostContextAnchorsInStdAndInAnImporter(t *testing.T) {
 	// The IMPORTER door, through an ordinary user program.
 	p, err := AnalyzeSource("m", "\n\n"+
-		"fn main(): Unit {\n  _ = Context.root()\n}\n")
+		"fn main() -> Unit {\n  _ = Context.root()\n}\n")
 	if err != nil {
 		t.Fatalf("front end rejected the fixture: %v", err)
 	}

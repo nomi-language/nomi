@@ -10,21 +10,21 @@ import "testing"
 // was BLOCKED at run time.
 
 const funcValueDefaultsDecls = `
-fn parse(s: String, strict: Bool = False): Maybe<Int> {
+fn parse(s: String, strict: Bool = False) -> Maybe<Int> {
   if strict { None } else { String.to_int(s) }
 }
 
-fn apply(f: (String) -> Maybe<Int>, s: String): Maybe<Int> {
+fn apply(f: (String) -> Maybe<Int>, s: String) -> Maybe<Int> {
   f(s)
 }
 
-fn two(a: String, b: Int): Int {
+fn two(a: String, b: Int) -> Int {
   String.length(a) + b
 }
 `
 
 func TestFuncValueDefaults_RejectedWhereFewerParametersAreExpected(t *testing.T) {
-	const hint = "\nhelp: defaults do not apply to a function value, so pass a lambda that calls it: |a| parse(a)"
+	const hint = "\nhelp: defaults do not apply to a function value, so pass a lambda that calls it: fn a -> parse(a)"
 	for _, tc := range []struct{ stmt, want string }{
 		{`_ = Maybe.map(Some("1"), parse)`, "argument 2: expected (String) -> U, got (String, Bool) -> Maybe<Int>" + hint},
 		{`_ = Iter.map(["1"], parse)`, "argument 2: expected (String) -> U, got (String, Bool) -> Maybe<Int>" + hint},
@@ -45,12 +45,12 @@ func TestFuncValueDefaults_RejectedWhereFewerParametersAreExpected(t *testing.T)
 func TestFuncValueDefaults_AcceptedThroughALambdaOrAPartial(t *testing.T) {
 	_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + `
 fn main() {
-  a: Maybe<Maybe<Int>> = Maybe.map(Some("1"), |s| parse(s))
+  a: Maybe<Maybe<Int>> = Maybe.map(Some("1"), fn s -> parse(s))
   b: List<Maybe<Int>> = Iter.map(["1"], parse(_)) |> Iter.to_list()
   c: List<Maybe<Int>> = Iter.map(["1"], parse(_, strict: True)) |> Iter.to_list()
-  f: (String) -> Maybe<Int> = |s| parse(s)
+  f: (String) -> Maybe<Int> = fn s -> parse(s)
   g: (String, Bool) -> Maybe<Int> = parse
-  _ = (a, b, c, f("1"), g("1", True), apply(parse(_), "2"), parse("3"))
+  _ = #(a, b, c, f("1"), g("1", True), apply(parse(_), "2"), parse("3"))
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -63,7 +63,7 @@ fn main() {
 // `g = parse` was admitted and the IR builder then declined the call.
 func TestFuncValueDefaults_ACallThroughTheValuePassesEveryArgument(t *testing.T) {
 	const held = "expected 2 arguments, got 1: `g` holds the function `parse` as a value, and defaults apply only to a call of `parse` by name" +
-		"\nhelp: call `parse` directly, or bind a lambda that leaves the rest to its defaults: `g = |s| parse(s)`"
+		"\nhelp: call `parse` directly, or bind a lambda that leaves the rest to its defaults: `g = fn s -> parse(s)`"
 	for _, tc := range []struct{ body, want string }{
 		{"g = parse\n  _ = g(\"1\")", held},
 		{"g: (String, Bool) -> Maybe<Int> = parse\n  _ = g(\"1\")", held},
@@ -79,7 +79,7 @@ func TestFuncValueDefaults_ACallThroughTheValuePassesEveryArgument(t *testing.T)
 	} {
 		t.Run(tc.body, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + `
-fn pass<T>(x: T): T {
+fn pass<T>(x: T) -> T {
   x
 }
 
@@ -87,7 +87,7 @@ struct Holder {
   f: (String, Bool) -> Maybe<Int>
 }
 
-fn through(f: (String, Bool) -> Maybe<Int>): Maybe<Int> {
+fn through(f: (String, Bool) -> Maybe<Int>) -> Maybe<Int> {
   "1" |> f()
 }
 
@@ -107,10 +107,10 @@ func TestFuncValueDefaults_ADirectCallALambdaAndAPartialKeepTheirDefaults(t *tes
 fn main() {
   a = parse("1")
   b = "1" |> parse()
-  h = |x = 1| x
+  h = fn x = 1 -> x
   k = parse(_)
   g = parse
-  _ = (a, b, h(), h(2), k("1"), k(s: "1"), g("1", True), "1" |> g(True))
+  _ = #(a, b, h(), h(2), k("1"), k(s: "1"), g("1", True), "1" |> g(True))
 }
 `)
 	expectNoStdlibErrors(t, errs)

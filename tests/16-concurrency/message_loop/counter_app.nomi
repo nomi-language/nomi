@@ -55,7 +55,7 @@ pub struct Counter {
 /// `Restart.Permanent`. A shared group cannot: permanence says
 /// returning is a failure, which is right for this worker and wrong for
 /// the one-shot work that would sit beside it.
-fn start(): Counter {
+fn start() -> Counter {
     inbox = Channel.buffered<Request>(16)
 
     // The group handle is not kept. Every group is registered with the
@@ -73,7 +73,7 @@ fn start(): Counter {
                 max_elapsed: Duration.minutes(5),
             },
         )
-        |> Supervisor.spawn(|| serve(inbox))
+        |> Supervisor.spawn(fn -> serve(inbox))
 
     Counter{inbox}
 }
@@ -87,8 +87,8 @@ fn start(): Counter {
 /// What serializes the work is that exactly one of these runs per
 /// inbox — not the group's `max_running`, which is about how much of
 /// the group's whole workload runs at once.
-fn serve(inbox: Channel<Request>): Unit {
-    _final = Iter.loop(|count = 0| {
+fn serve(inbox: Channel<Request>) -> Unit {
+    _final = Iter.loop(fn count = 0 -> {
         case Receiver.receive(inbox.receiver) {
             Some(Request.Increment(n)) ->
                 count + n
@@ -113,7 +113,7 @@ fn serve(inbox: Channel<Request>): Unit {
 }
 
 /// Fire-and-forget: returns as soon as the message is queued.
-pub fn increment(counter: Counter, n: Int): Unit {
+pub fn increment(counter: Counter, n: Int) -> Unit {
     case Sender.send(counter.inbox.sender, Request.Increment(n)) {
         Ok(_) -> Unit
         Err(_) -> Unit
@@ -125,7 +125,7 @@ pub fn increment(counter: Counter, n: Int): Unit {
 ///
 /// Capacity 1 so the worker never blocks handing the reply back, even
 /// if this caller has already given up and stopped listening.
-pub fn get(counter: Counter): Int {
+pub fn get(counter: Counter) -> Int {
     reply = Channel.buffered<Int>(1)
     _ = Sender.send(counter.inbox.sender, Request.Get{reply})
 
@@ -135,7 +135,7 @@ pub fn get(counter: Counter): Int {
     }
 }
 
-pub fn explode(counter: Counter): Unit {
+pub fn explode(counter: Counter) -> Unit {
     case Sender.send(counter.inbox.sender, Request.Explode) {
         Ok(_) -> Unit
         Err(_) -> Unit
@@ -161,7 +161,7 @@ pub struct Config {
     counter: Counter
 }
 
-pub fn boot(): Config {
+pub fn boot() -> Config {
     Config{context: Context.root(), counter: start()}
 }
 

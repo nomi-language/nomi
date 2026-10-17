@@ -11,11 +11,11 @@ import (
 // to a name keeps its callee's defaults, and so does a copy of it.
 func TestDefaultsThroughANamelessValue_AreAnError(t *testing.T) {
 	errs := checkWithStdlib(`
-fn connect(host: String, port: Int = 8080): String {
+fn connect(host: String, port: Int = 8080) -> String {
   host
 }
 
-fn id<T>(x: T): T {
+fn id<T>(x: T) -> T {
   x
 }
 
@@ -27,7 +27,7 @@ fn main() {
   _ = r("b", 1)
   h = c
   _ = h("d")
-  p = || connect(_, port: _)
+  p = fn -> connect(_, port: _)
   _ = p()("e")
   _ = case Some(c) {
     Some(k) -> k("f")
@@ -58,17 +58,17 @@ fn main() {
 // defaults.
 func TestDefaultsThroughOtherNamelessCallees_AreAnError(t *testing.T) {
 	errs := checkWithStdlib(`
-fn connect(host: String, port: Int = 8080): String {
+fn connect(host: String, port: Int = 8080) -> String {
   host
 }
 
-fn id<T>(x: T): T {
+fn id<T>(x: T) -> T {
   x
 }
 
 once oc = connect(_, port: _)
 
-once ol = |s: String, n: Int = 5| s
+once ol = fn s: String, n: Int = 5 -> s
 
 fn main() {
   c = connect(_, port: _)
@@ -91,7 +91,7 @@ fn main() {
   _ = oc("f", 1)
   _ = ol("g", 2)
   _ = "a" |> c()
-  _ = (|x: Int, y: Int = 2| x + y)(1)
+  _ = (fn x: Int, y: Int = 2 -> x + y)(1)
 }
 `)
 	var got []string

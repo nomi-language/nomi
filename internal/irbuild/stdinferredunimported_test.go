@@ -7,9 +7,9 @@ import "testing"
 // (testdata/std_inferred_unimported).
 //
 // projectStdEnum and projectStdOpaque identified the type through this file's
-// anchors, which exist only for names the file's scope binds, so `|e|` over
-// std/random's `Error` and `|d|` over a `Duration` refused as `an unsupported
-// type` while the annotated `|e: Error|` lowered. They now identify it by the
+// anchors, which exist only for names the file's scope binds, so `fn e ->` over
+// std/random's `Error` and `fn d ->` over a `Duration` refused as `an unsupported
+// type` while the annotated `fn e: Error ->` lowered. They now identify it by the
 // solved (Origin, Name), as stdStructOfType does for std records.
 func TestProjectStd_InferredWithoutTheNameInScope(t *testing.T) {
 	if testing.Short() {

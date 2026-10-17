@@ -12,14 +12,14 @@ import (
 const taskTrapSrc = `import std/io
 import std/tasks.Task
 
-fn work(n: Int): Int {
+fn work(n: Int) -> Int {
   r = 10 / n
   r
 }
 
 fn main() {
   v = concurrent {
-    t = Task.spawn(|| work(0))
+    t = Task.spawn(fn -> work(0))
     Task.await(t)
   }
   io.print("${v}")
@@ -80,15 +80,15 @@ func TestDebug_AnAwaitedTaskFailureIsNotATrapStop(t *testing.T) {
 const twoTasksSrc = `import std/io
 import std/tasks.Task
 
-fn work(n: Int): Int {
+fn work(n: Int) -> Int {
   r = n * 2
   r
 }
 
 fn main() {
   v = concurrent {
-    a = Task.spawn(|| work(1))
-    b = Task.spawn(|| work(2))
+    a = Task.spawn(fn -> work(1))
+    b = Task.spawn(fn -> work(2))
     Task.await(a) + Task.await(b)
   }
   io.print("${v}")
@@ -127,7 +127,7 @@ const stdStepSrc = `import std/io
 
 fn main() {
   m = Some(2)
-  r = Maybe.map(m, |v| {
+  r = Maybe.map(m, fn v -> {
     w = v * 3
     w
   })
@@ -176,7 +176,7 @@ func TestDebug_StepInEntersTheStandardLibraryWhenNothingIsSkipped(t *testing.T) 
 
 const oneLineSrc = `import std/io
 
-fn count(n: Int, acc: Int): Int {
+fn count(n: Int, acc: Int) -> Int {
   if n == 0 { acc } else { count(n - 1, acc + n) }
 }
 

@@ -13,24 +13,24 @@ const prepareRenameMain = `import models/users
 import models/users.User
 import std/io
 
-fn double(n: Int): Int { n * 2 }
+fn double(n: Int) -> Int { n * 2 }
 
 interface Named {
-    fn label(value: self): String
+    fn label(value: self) -> String
 }
 
 impl Named for User {
-    fn label(value: User): String { value.name }
+    fn label(value: User) -> String { value.name }
 }
 
 impl Display for User {
-    fn to_string(u: User): String { u.name }
+    fn to_string(u: User) -> String { u.name }
 }
 
 fn main() {
     total = double(21)
     p = User{name: String.trim(" a ")}
-    n = Iter.map([1, 2], |x| x + total) |> Iter.count()
+    n = Iter.map([1, 2], fn x -> x + total) |> Iter.count()
     io.print(Int.to_string(users.make() + total + n) + p.name)
 }
 `
@@ -48,7 +48,7 @@ func prepareRenameServer(t *testing.T) (*Server, string) {
 		}
 	}
 	write("nomi.toml", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	write("models/users.nomi", "pub fn make(): Int { 1 }\n\npub struct User {\n    name: String\n}\n")
+	write("models/users.nomi", "pub fn make() -> Int { 1 }\n\npub struct User {\n    name: String\n}\n")
 	write("main.nomi", prepareRenameMain)
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)
@@ -91,7 +91,7 @@ func TestPrepareRename(t *testing.T) {
 		{"cursor just past a name", occ(src, "double", 1, 6), "double", occ(src, "double", 1, 0)},
 		{"parameter", occ(src, "n:", 0, 0), "n", occ(src, "n:", 0, 0)},
 		{"local binding", occ(src, "total", 2, 1), "total", occ(src, "total", 2, 0)},
-		{"lambda parameter", occ(src, "|x|", 0, 1), "x", occ(src, "|x|", 0, 1)},
+		{"lambda parameter", occ(src, "fn x ->", 0, 3), "x", occ(src, "fn x ->", 0, 3)},
 		{"project function in another file", occ(src, "make", 0, 1), "make", occ(src, "make", 0, 0)},
 		{"selectively imported type", occ(src, "User{", 0, 0), "User", occ(src, "User{", 0, 0)},
 		{"project struct field", occ(src, "p.name", 0, 3), "name", occ(src, "p.name", 0, 2)},

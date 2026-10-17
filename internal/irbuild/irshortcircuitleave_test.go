@@ -14,69 +14,69 @@ func TestIRShortCircuitLeavingOperand_Runs(t *testing.T) {
 	}
 	const src = `import std/io
 
-fn check(ready?: Bool): Result<Int, String> {
+fn check(ready?: Bool) -> Result<Int, String> {
     ok = ready? or {
         return Err("x")
     }
     Ok(if ok { 1 } else { 0 })
 }
 
-fn early(x: Bool): Int {
+fn early(x: Bool) -> Int {
     y = x and {
         return 1
     }
     if y { 3 } else { 2 }
 }
 
-fn both(x: Int): Bool {
+fn both(x: Int) -> Bool {
     x > 0 and case x {
         1 -> return True
         _ -> return False
     }
 }
 
-fn id(b: Bool): Bool {
+fn id(b: Bool) -> Bool {
     b
 }
 
-fn wrapped(x: Int): Bool {
+fn wrapped(x: Int) -> Bool {
     x > 0 and id(case x {
         1 -> return True
         _ -> return False
     })
 }
 
-fn grouped(x: Int): Bool {
+fn grouped(x: Int) -> Bool {
     x > 0 and (case x {
         1 -> return True
         _ -> return False
     })
 }
 
-fn negated(x: Int): Bool {
+fn negated(x: Int) -> Bool {
     x > 0 and !case x {
         1 -> return True
         _ -> return False
     }
 }
 
-fn either(x: Int): Int {
+fn either(x: Int) -> Int {
     b = x > 0 or (if x == 0 { return 7 } else { return 8 })
     if b { 1 } else { 2 }
 }
 
-fn chain(a: Bool, b: Bool): String {
+fn chain(a: Bool, b: Bool) -> String {
     some = a or b or {
         return "neither"
     }
     "some ${some}"
 }
 
-fn half(n: Int): Result<Int, String> {
+fn half(n: Int) -> Result<Int, String> {
     if n % 2 == 0 { Ok(n / 2) } else { Err("odd ${n}") }
 }
 
-fn halves(n: Int): Result<Bool, String> {
+fn halves(n: Int) -> Result<Bool, String> {
     ok = n > 0 and try half(n) > 0
     Ok(ok)
 }
@@ -100,7 +100,7 @@ fn main() {
     io.inspect(chain(False, False))
     io.inspect(halves(0))
     io.inspect(halves(3))
-    kept = Iter.map([1, 2, 3, 4, 5], |n| {
+    kept = Iter.map([1, 2, 3, 4, 5], fn n -> {
         _ = n != 2 or {
             continue
         }

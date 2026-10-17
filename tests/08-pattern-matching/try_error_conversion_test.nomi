@@ -11,14 +11,14 @@ enum ParseError {
     OutOfRange Int
 }
 
-fn error_text(err: ParseError): String {
+fn error_text(err: ParseError) -> String {
     case err {
         ParseError.NotANumber(s) -> "not a number: " + s
         ParseError.OutOfRange(n) -> "out of range: " + Int.to_string(n)
     }
 }
 
-fn parse_small(s: String): Result<Int, ParseError> {
+fn parse_small(s: String) -> Result<Int, ParseError> {
     case s {
         "7" -> Ok(7)
         "999" -> Err(ParseError.OutOfRange(999))
@@ -28,14 +28,14 @@ fn parse_small(s: String): Result<Int, ParseError> {
 
 // The operand fails with a `ParseError`; this function declares `String`. The
 // conversion is written at the `try`.
-fn describe(s: String): Result<String, String> {
-    n = try Result.map_err(parse_small(s), |err| error_text(err))
+fn describe(s: String) -> Result<String, String> {
+    n = try Result.map_err(parse_small(s), fn err -> error_text(err))
 
     Ok("parsed " + Int.to_string(n))
 }
 
 // The matching case needs no conversion: both sides are `Result<_, String>`.
-fn describe_twice(s: String): Result<String, String> {
+fn describe_twice(s: String) -> Result<String, String> {
     first = try describe(s)
 
     Ok(first + " / " + first)

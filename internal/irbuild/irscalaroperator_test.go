@@ -6,8 +6,8 @@ import (
 
 func TestIRScalarOperator_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn left(): Int { io.print("left"); 9 }
-fn right(): Int { io.print("right"); 4 }
+fn left() -> Int { io.print("left"); 9 }
+fn right() -> Int { io.print("right"); 4 }
 fn main() {
  io.print(Add.add(left(), right()))
  io.print(Int.subtract(9, 4))
@@ -24,7 +24,7 @@ fn main() {
 
 func TestIRScalarOperator_OverflowBlamesCall(t *testing.T) {
 	verifyIterFault(t, `import std/io
-fn overflow(): Int {
+fn overflow() -> Int {
  big = 9223372036854775807
  Add.add(big, 1)
 }

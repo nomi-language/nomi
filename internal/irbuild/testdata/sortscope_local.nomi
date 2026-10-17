@@ -21,12 +21,12 @@ pub struct Widget {
     weight: Int
 }
 
-pub fn make(weight: Int): Widget {
+pub fn make(weight: Int) -> Widget {
     Widget{weight}
 }
 
 impl Comparable for Widget {
-    fn compare(a: Widget, b: Widget): Ordering {
+    fn compare(a: Widget, b: Widget) -> Ordering {
         Int.compare(a.weight, b.weight)
     }
 }
@@ -35,12 +35,12 @@ pub struct Backwards {
     n: Int
 }
 
-pub fn back(n: Int): Backwards {
+pub fn back(n: Int) -> Backwards {
     Backwards{n}
 }
 
 impl Comparable for Backwards {
-    fn compare(a: Backwards, b: Backwards): Ordering {
+    fn compare(a: Backwards, b: Backwards) -> Ordering {
         Int.compare(b.n, a.n)
     }
 }
@@ -49,18 +49,18 @@ fn main() {
     ws = [make(3), make(1), make(2)]
     bs = [back(3), back(1), back(2)]
 
-    io.print("sort widget ${Iter.sort(ws) |> Iter.map(|w| w.weight) |> Iter.to_list()}")
-    io.print("sort backwards ${Iter.sort(bs) |> Iter.map(|b| b.n) |> Iter.to_list()}")
+    io.print("sort widget ${Iter.sort(ws) |> Iter.map(fn w -> w.weight) |> Iter.to_list()}")
+    io.print("sort backwards ${Iter.sort(bs) |> Iter.map(fn b -> b.n) |> Iter.to_list()}")
 
     io.print(
-        "sort_by widget ${Iter.sort_by(ws, |w| w)
-        |> Iter.map(|w| w.weight)
+        "sort_by widget ${Iter.sort_by(ws, fn w -> w)
+        |> Iter.map(fn w -> w.weight)
         |> Iter.to_list()}"
     )
 
     io.print(
         "sort widget desc ${Iter.sort(ws, Direction.Descending)
-        |> Iter.map(|w| w.weight)
+        |> Iter.map(fn w -> w.weight)
         |> Iter.to_list()}"
     )
 

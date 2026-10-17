@@ -22,12 +22,12 @@ import {
 // The builder hoists each argument's statements as it walks, so walking slot
 // order would print these in a different sequence from the rule above. Nothing
 // about the returned Time would change.
-fn tick(n: Int, tag: String): Int {
+fn tick(n: Int, tag: String) -> Int {
     io.print("eval ${tag}")
     n
 }
 
-fn render(label: String, r: Result<Time, Error>): Unit {
+fn render(label: String, r: Result<Time, Error>) -> Unit {
     case r {
         Ok(t) -> io.print("${label}=${Time.hour(t)}:${Time.minute(t)}:${Time.second(t)}")
         Err(_) -> io.print("${label}=err")

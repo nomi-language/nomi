@@ -10,14 +10,14 @@ import (
 )
 
 // Tuple-state default with first-line destructure should type-check WITHOUT
-// an explicit annotation. `(0, [])` should be typed as `(Int, List<TypeVar>)`
+// an explicit annotation. `#(0, [])` should be typed as `#(Int, List<TypeVar>)`
 // — concrete enough to destructure, with the empty-list element type a fresh
 // inference variable that body unifications can solve.
 func TestCheckTupleStateDestructureNoAnnotation(t *testing.T) {
-	src := `fn f(xs: List<Int>): (Int, List<Int>) {
-  Iter.reduce(xs, |state = (0, []), item| {
-    (count, acc) = state
-    if count >= 2 { break (count, acc) } else { (count + 1, [item, ..acc]) }
+	src := `fn f(xs: List<Int>) -> #(Int, List<Int>) {
+  Iter.reduce(xs, fn state = #(0, []), item -> {
+    #(count, acc) = state
+    if count >= 2 { break #(count, acc) } else { #(count + 1, [item, ..acc]) }
   })
 }`
 	_, errs := checkSourceWithStdlib(src)
@@ -93,7 +93,7 @@ func TestCheckBinding_AnnotationDrivesInference(t *testing.T) {
 	// no-op.
 	mismatch := `import std/maps: Map
 fn main() {
-  m: Map<String, Int> = Iter.to_map([("a", "b")])
+  m: Map<String, Int> = Iter.to_map([#("a", "b")])
 }`
 	_, mismatchErrs := checkSourceWithStdlib(mismatch)
 	if len(mismatchErrs) == 0 {
@@ -197,19 +197,19 @@ func findBindingSymbol(t *testing.T, fa *analysis.FileAnalysis, name string) *an
 // an annotation. The body's `Map.put(...)` references constrain K and V
 // once unification has a real placeholder to bind.
 func TestCheckMapAccumulatorNoAnnotation(t *testing.T) {
-	src := `fn f(pairs: List<(String, Int)>): Map<String, Int> {
-  Iter.reduce(pairs, |acc = Map.empty(), (k, v)| Map.put(acc, k, v))
+	src := `fn f(pairs: List<#(String, Int)>) -> Map<String, Int> {
+  Iter.reduce(pairs, fn acc = Map.empty(), #(k, v) -> Map.put(acc, k, v))
 }`
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 }
 
 // `break value` inside an iter-callback must match the callback's declared
-// return type. For `Iter.loop(|n = 5| …)` the state type is inferred as `Int`
+// return type. For `Iter.loop(fn n = 5 -> …)` the state type is inferred as `Int`
 // from the default; `break "hello"` should therefore be a type error.
 func TestCheckBreakValueMustMatchCallbackReturn(t *testing.T) {
 	src := `fn main() {
-  Iter.loop(|n = 5| {
+  Iter.loop(fn n = 5 -> {
     if n == 0 { break "hello" }
     n - 1
   })
@@ -236,12 +236,12 @@ func TestCheckBreakValueMustMatchCallbackReturn(t *testing.T) {
 
 // A zero-arg lambda `||` passed where `(S) -> S` is expected is coerced to
 // silently accept-and-ignore the arg. It is a stateless loop, whose `S` is
-// `Unit`, so `Iter.loop(|| break)` resolves to a call returning `Unit`
-// without asking the caller to write `|_ = 0| break`.
+// `Unit`, so `Iter.loop(fn -> break)` resolves to a call returning `Unit`
+// without asking the caller to write `fn _ = 0 -> break`.
 func TestCheckIterLoopWithZeroArgLambda(t *testing.T) {
 	src := `
 fn main() {
-  x = Iter.loop(|| {
+  x = Iter.loop(fn -> {
     break
   })
 }`
@@ -267,13 +267,13 @@ fn main() {
 }
 
 // `loop` should return the state type S inferred from the callback's
-// default value — `countdown = Iter.loop(|n = 5| ...)` should give
+// default value — `countdown = Iter.loop(fn n = 5 -> ...)` should give
 // `countdown: Int`. Without a declared signature on loop, `countdown`
 // would have a nil type and hover would show just the name.
 func TestCheckIterLoopReturnTypeFromDefault(t *testing.T) {
 	src := `
 fn main() {
-  countdown = Iter.loop(|n = 5| {
+  countdown = Iter.loop(fn n = 5 -> {
     if n == 0 { break n }
     n - 1
   })
@@ -436,8 +436,8 @@ func expectStdlibError(t *testing.T, errs []analysis.TypeError, substr string) {
 
 func TestCheckIterLoopInference(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): Int {
-    Iter.loop(|n = 5| {
+fn f() -> Int {
+    Iter.loop(fn n = 5 -> {
         if n == 0 { break n }
         n - 1
     })
@@ -449,8 +449,8 @@ fn f(): Int {
 // Generic inference on Iter.map plus an explicit materialize step.
 func TestCheckIterMapInference(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): List<Int> {
-    Iter.map([1, 2, 3], |x| x * 2) |> Iter.to_list()
+fn f() -> List<Int> {
+    Iter.map([1, 2, 3], fn x -> x * 2) |> Iter.to_list()
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -459,8 +459,8 @@ fn f(): List<Int> {
 // Break-in-lambda behavior on Iter.map (a callback-slot function).
 func TestCheckIterMapWithBreak(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): List<Int> {
-    Iter.map([1, 2, 3, 4, 5], |x| {
+fn f() -> List<Int> {
+    Iter.map([1, 2, 3, 4, 5], fn x -> {
         if x == 4 { break }
         x * 10
     })
@@ -472,8 +472,8 @@ fn f(): List<Int> {
 
 func TestCheckIterReduceWithDefault(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): Int {
-    Iter.reduce([1, 2, 3], |total = 0, item| {
+fn f() -> Int {
+    Iter.reduce([1, 2, 3], fn total = 0, item -> {
         total + item
     })
 }
@@ -484,8 +484,8 @@ fn f(): Int {
 // Generic inference on Iter.filter plus an explicit materialize step.
 func TestCheckIterFilterInference(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): List<Int> {
-    Iter.filter([1, 2, 3], |x| x > 1) |> Iter.to_list()
+fn f() -> List<Int> {
+    Iter.filter([1, 2, 3], fn x -> x > 1) |> Iter.to_list()
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -494,8 +494,8 @@ fn f(): List<Int> {
 // Migrated from Iter.each — tests same continue-in-lambda behavior on lists.each.
 func TestCheckIterEachWithContinue(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): Unit {
-    Iter.each([1, 2, 3], |x| {
+fn f() -> Unit {
+    Iter.each([1, 2, 3], fn x -> {
         if x == 2 { continue }
     })
 }
@@ -505,8 +505,8 @@ fn f(): Unit {
 
 func TestCheckIterLoopBindingType(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): Int {
-    countdown = Iter.loop(|n = 5| {
+fn f() -> Int {
+    countdown = Iter.loop(fn n = 5 -> {
         if n == 0 { break n }
         n - 1
     })
@@ -520,11 +520,11 @@ fn f(): Int {
 // feeding the Iter.reduce terminal.
 func TestGenericCallSite_PipeChainStdlib(t *testing.T) {
 	fa, errs := checkSourceWithStdlib(`
-fn f(): Int {
+fn f() -> Int {
     result = [1, 2, 3]
-        |> Iter.filter(|x| x > 1)
-        |> Iter.map(|x| x * 10)
-        |> Iter.reduce(|acc = 0, x| acc + x)
+        |> Iter.filter(fn x -> x > 1)
+        |> Iter.map(fn x -> x * 10)
+        |> Iter.reduce(fn acc = 0, x -> acc + x)
     result
 }
 `)
@@ -560,12 +560,12 @@ fn f(): Int {
 }
 
 // Nested enum patterns with tuple destructure should type-check cleanly:
-// `Some((n, s))` must bind `n: Int` and `s: String` against `Maybe<(Int, String)>`.
+// `Some(#(n, s))` must bind `n: Int` and `s: String` against `Maybe<#(Int, String)>`.
 func TestCheckerAcceptsNestedEnumPatternTupleDestructure(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(x: Maybe<(Int, String)>): String {
+fn f(x: Maybe<#(Int, String)>) -> String {
     case x {
-        Some((n, s)) -> s
+        Some(#(n, s)) -> s
         None -> ""
     }
 }
@@ -576,7 +576,7 @@ fn f(x: Maybe<(Int, String)>): String {
 // Variant-inside-variant patterns: `Some(Ok(n))` against `Maybe<Result<Int, String>>`.
 func TestCheckerAcceptsNestedEnumPatternVariantInsideVariant(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(x: Maybe<Result<Int, String>>): Int {
+fn f(x: Maybe<Result<Int, String>>) -> Int {
     case x {
         Some(Ok(n)) -> n
         Some(Err(_)) -> -1
@@ -591,7 +591,7 @@ fn f(x: Maybe<Result<Int, String>>): Int {
 // inner Int payload — must type-check without error.
 func TestCheckerAcceptsNestedEnumPatternLiteral(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(x: Maybe<Int>): String {
+fn f(x: Maybe<Int>) -> String {
     case x {
         Some(42) -> "match"
         Some(_) -> "other"
@@ -604,7 +604,7 @@ fn f(x: Maybe<Int>): String {
 
 // Removed: TestMapOnHashmapDoesNotCorruptCallType
 //
-// This test asserted that Iter.map coerced Map<K, V> to List<(K, V)> when
+// This test asserted that Iter.map coerced Map<K, V> to List<#(K, V)> when
 // inferring its generic param, and that a failing second call site didn't
 // corrupt the first call's resolved CallType. With pure-Nomi iter.* retired
 // in Phase C, lists.map takes List<T> strictly — there is no map-to-list
@@ -622,7 +622,7 @@ struct ProbeIter {
     source: Iter<Int>
 }
 
-fn broken(): ProbeIter {
+fn broken() -> ProbeIter {
     ProbeIter{source: 42}
 }
 `)
@@ -652,7 +652,7 @@ struct ProbeIter {
     source: Iter<Int>
 }
 
-fn good(): ProbeIter {
+fn good() -> ProbeIter {
     ProbeIter{source: [1, 2, 3]}
 }
 `)
@@ -666,8 +666,8 @@ struct ProbeIter {
     source: Iter<Int>
 }
 
-fn nested(): ProbeIter {
-    inner = Iter.map([1, 2, 3], |x| x * 2)
+fn nested() -> ProbeIter {
+    inner = Iter.map([1, 2, 3], fn x -> x * 2)
     ProbeIter{source: inner}
 }
 `)
@@ -676,11 +676,11 @@ fn nested(): ProbeIter {
 
 func TestCheckerRejectsInterfaceReturnTypeArgMismatch(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn broken<T, U>(source: Iter<T>): Iter<U> {
+fn broken<T, U>(source: Iter<T>) -> Iter<U> {
     source
 }
 
-fn explicit_broken<T, U>(source: Iter<T>): Iter<U> {
+fn explicit_broken<T, U>(source: Iter<T>) -> Iter<U> {
     return source
 }
 `)
@@ -710,7 +710,7 @@ fn explicit_broken<T, U>(source: Iter<T>): Iter<U> {
 
 func TestCheckerRejectsIterToMapOnNonPairElements(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): Map<Int, Int> {
+fn f() -> Map<Int, Int> {
     Iter.to_map([1, 2, 3])
 }
 `)
@@ -721,7 +721,7 @@ fn f(): Map<Int, Int> {
 
 func TestCheckerRejectsStringJoinOnNonStringElements(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): String {
+fn f() -> String {
     String.join([1, 2, 3], ", ")
 }
 `)
@@ -734,7 +734,7 @@ fn f(): String {
 		t.Fatalf("String.join over List<Int>: got %q, want the element type error", errs[0].Message)
 	}
 	_, errs = checkSourceWithStdlib(`
-fn f(xs: List<Int>): String {
+fn f(xs: List<Int>) -> String {
     String.join(xs, ", ")
 }
 `)
@@ -747,11 +747,11 @@ fn f(xs: List<Int>): String {
 // so it was removed for String.join. The removed member must stay an error.
 func TestCheckerRejectsTheRemovedIterToString(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): String {
+fn f() -> String {
     Iter.to_string(["a", "b"])
 }
 
-fn g(): String {
+fn g() -> String {
     ["a"] |> Iter.to_string()
 }
 `)
@@ -772,12 +772,12 @@ func TestCheckerRejectsOwnerCollectionConversions(t *testing.T) {
 	cases := []struct {
 		name, src, want string
 	}{
-		{"Vector.to_list", "fn f(): List<Int> {\n    Vector.to_list(#[1])\n}\n", "type 'Vector' has no member 'to_list'"},
-		{"Vector.from_list", "fn f(): Vector<Int> {\n    Vector.from_list([1])\n}\n", "type 'Vector' has no member 'from_list'"},
-		{"Set.from_list", "fn f(): Set<Int> {\n    Set.from_list([1])\n}\n", "type 'Set' has no member 'from_list'"},
-		{"Map.from_list", "fn f(): Map<String, Int> {\n    Map.from_list([(\"a\", 1)])\n}\n", "type 'Map' has no member 'from_list'"},
-		{"String.graphemes", "fn f(): List<String> {\n    String.graphemes(\"ab\")\n}\n", "type 'String' has no member 'graphemes'"},
-		{"piped Set.from_list", "fn f(): Set<Int> {\n    [1] |> Set.from_list()\n}\n", "type 'Set' has no member 'from_list'"},
+		{"Vector.to_list", "fn f() -> List<Int> {\n    Vector.to_list(#[1])\n}\n", "type 'Vector' has no member 'to_list'"},
+		{"Vector.from_list", "fn f() -> Vector<Int> {\n    Vector.from_list([1])\n}\n", "type 'Vector' has no member 'from_list'"},
+		{"Set.from_list", "fn f() -> Set<Int> {\n    Set.from_list([1])\n}\n", "type 'Set' has no member 'from_list'"},
+		{"Map.from_list", "fn f() -> Map<String, Int> {\n    Map.from_list([#(\"a\", 1)])\n}\n", "type 'Map' has no member 'from_list'"},
+		{"String.graphemes", "fn f() -> List<String> {\n    String.graphemes(\"ab\")\n}\n", "type 'String' has no member 'graphemes'"},
+		{"piped Set.from_list", "fn f() -> Set<Int> {\n    [1] |> Set.from_list()\n}\n", "type 'Set' has no member 'from_list'"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -797,8 +797,8 @@ func TestCheckerRejectsOwnerCollectionConversions(t *testing.T) {
 
 func TestCheckerAcceptsIterToMapOnValidPairs(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): Map<String, Int> {
-    Iter.to_map([("a", 1), ("b", 2)])
+fn f() -> Map<String, Int> {
+    Iter.to_map([#("a", 1), #("b", 2)])
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -806,7 +806,7 @@ fn f(): Map<String, Int> {
 
 func TestCheckerAcceptsStringJoinOverAnyIterOfStrings(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): List<String> {
+fn f() -> List<String> {
     [
         String.join(["a", "b", "c"], ", "),
         String.join(["a", "b"]),
@@ -829,11 +829,11 @@ func TestCheckerResolvesSelectiveImportAlias(t *testing.T) {
 import std/maybe.{Maybe as Opt}
 import std/maybe.Maybe.{Some as Just, None as Nothing}
 
-fn f(): Opt<Int> {
+fn f() -> Opt<Int> {
     Just(42)
 }
 
-fn g(): Opt<Int> {
+fn g() -> Opt<Int> {
     Nothing
 }
 `)
@@ -847,7 +847,7 @@ func TestCheckerMixedPartialAliases(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 import std/maybe.Maybe.{Some as Just}
 
-fn f(): Maybe<Int> {
+fn f() -> Maybe<Int> {
     case Just(1) {
         Just(n) -> Some(n)
         None -> None
@@ -861,7 +861,7 @@ func TestCheckerAcceptsImportedVariantPattern(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 import std/comparable: Ordering.{Equal, Greater, Less}
 
-fn f(ordering: Ordering): Int {
+fn f(ordering: Ordering) -> Int {
     case ordering {
         Less -> -1
         Equal -> 0
@@ -883,7 +883,7 @@ import std/maps
 
 struct Callbacks { empty: Int }
 
-fn f(): Int {
+fn f() -> Int {
     maps = Callbacks { empty: 99 }
     maps.empty
 }
@@ -931,25 +931,25 @@ func TestStdlibFilesTypeCheck(t *testing.T) {
 // bug report (Iter.to_list body returning List<T> instead of List<Int>).
 func TestRangeToListReturnsListInt(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): List<Int> { Iter.to_list(0..5) }
+fn f() -> List<Int> { Iter.to_list(0..5) }
 `)
 	expectNoStdlibErrors(t, errs)
 }
 
 func TestGenericRangeLiterals(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn ints(): Range<Int> { 0..5 }
-fn strings(): Range<String> { "a".."z" }
-fn floats(): Range<Float> { 0.0..=1.0 }
-fn contains_string(): Bool { Range.contains?("a".."m", "h") }
-fn from_bindings(a: Int, b: Int): Range<Int> { a..b }
+fn ints() -> Range<Int> { 0..5 }
+fn strings() -> Range<String> { "a".."z" }
+fn floats() -> Range<Float> { 0.0..=1.0 }
+fn contains_string() -> Bool { Range.contains?("a".."m", "h") }
+fn from_bindings(a: Int, b: Int) -> Range<Int> { a..b }
 `)
 	expectNoStdlibErrors(t, errs)
 }
 
 func TestNonIntRangeDoesNotMaterializeToList(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): List<String> { Iter.to_list("a".."z") }
+fn f() -> List<String> { Iter.to_list("a".."z") }
 `)
 	if len(errs) == 0 {
 		t.Fatalf("expected Range<String> to fail Iter materialization")
@@ -961,7 +961,7 @@ fn f(): List<String> { Iter.to_list("a".."z") }
 
 func TestCodepointRangeMaterializesToList(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(start: Codepoint, end: Codepoint): List<Codepoint> {
+fn f(start: Codepoint, end: Codepoint) -> List<Codepoint> {
   Iter.to_list(start..=end)
 }
 `)
@@ -972,7 +972,7 @@ fn f(start: Codepoint, end: Codepoint): List<Codepoint> {
 // String iterates by grapheme cluster, so its list is List<String>.
 func TestStringToListReturnsListString(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): List<String> { Iter.to_list("abc") }
+fn f() -> List<String> { Iter.to_list("abc") }
 `)
 	expectNoStdlibErrors(t, errs)
 }
@@ -981,9 +981,9 @@ fn f(): List<String> { Iter.to_list("abc") }
 // materialized list with correctly inferred element types.
 func TestMapKeysValuesToListInfer(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn ks(m: Map<String, Int>): List<String> { Map.keys(m) }
-fn vs(m: Map<String, Int>): List<Int> { Map.values(m) }
-fn es(m: Map<String, Int>): List<(String, Int)> { Iter.to_list(m) }
+fn ks(m: Map<String, Int>) -> List<String> { Map.keys(m) }
+fn vs(m: Map<String, Int>) -> List<Int> { Map.values(m) }
+fn es(m: Map<String, Int>) -> List<#(String, Int)> { Iter.to_list(m) }
 `)
 	expectNoStdlibErrors(t, errs)
 }
@@ -992,9 +992,9 @@ fn es(m: Map<String, Int>): List<(String, Int)> { Iter.to_list(m) }
 // typed lists once materialized with Iter.to_list().
 func TestListMapFilterZipInfer(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn m(): List<Int> { Iter.map([1, 2, 3], |x| x * 2) |> Iter.to_list() }
-fn f(): List<Int> { Iter.filter([1, 2, 3], |x| x > 1) |> Iter.to_list() }
-fn z(): List<(Int, String)> { Iter.zip([1, 2], ["a", "b"]) |> Iter.to_list() }
+fn m() -> List<Int> { Iter.map([1, 2, 3], fn x -> x * 2) |> Iter.to_list() }
+fn f() -> List<Int> { Iter.filter([1, 2, 3], fn x -> x > 1) |> Iter.to_list() }
+fn z() -> List<#(Int, String)> { Iter.zip([1, 2], ["a", "b"]) |> Iter.to_list() }
 `)
 	expectNoStdlibErrors(t, errs)
 }
@@ -1005,26 +1005,26 @@ fn z(): List<(Int, String)> { Iter.zip([1, 2], ["a", "b"]) |> Iter.to_list() }
 // expected type context (T from Maybe<T>) to resolve the empty literal.
 func TestListGroupByTypeInfers(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): Map<Int, List<Int>> { Iter.group_by([1, 2, 3], |it| it % 2) }
+fn f() -> Map<Int, List<Int>> { Iter.group_by([1, 2, 3], fn it -> it % 2) }
 `)
 	expectNoStdlibErrors(t, errs)
 }
 
 // TestListZipTypeInfers — Iter.zip |> Iter.to_list() infers its element type.
-// The public return type is Iter<(T, U)>, so the element type should flow
+// The public return type is Iter<#(T, U)>, so the element type should flow
 // through without exposing the private ZipIter wrapper.
 func TestListZipTypeInfers(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): List<(Int, String)> { Iter.zip([1, 2, 3], ["a", "b"]) |> Iter.to_list() }
+fn f() -> List<#(Int, String)> { Iter.zip([1, 2, 3], ["a", "b"]) |> Iter.to_list() }
 `)
 	expectNoStdlibErrors(t, errs)
 }
 
 // TestIterToListOnZipIter — Iter.to_list on Iter.zip's Iter return must
-// type-check to List<(Int, Int)>.
+// type-check to List<#(Int, Int)>.
 func TestIterToListOnZipIter(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): List<(Int, Int)> {
+fn f() -> List<#(Int, Int)> {
     Iter.to_list(Iter.zip(Iter.from(0), Iter.from(10)))
 }
 `)
@@ -1035,8 +1035,8 @@ fn f(): List<(Int, Int)> {
 // type-check to List<U> (the output type of the map function).
 func TestIterToListOnMapIter(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): List<Int> {
-    Iter.to_list(Iter.map([1, 2, 3], |it| it * 2))
+fn f() -> List<Int> {
+    Iter.to_list(Iter.map([1, 2, 3], fn it -> it * 2))
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -1046,8 +1046,8 @@ fn f(): List<Int> {
 // type-check to List<T>.
 func TestIterToListOnFilterIter(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): List<Int> {
-    Iter.to_list(Iter.filter([1, 2, 3], |it| it > 1))
+fn f() -> List<Int> {
+    Iter.to_list(Iter.filter([1, 2, 3], fn it -> it > 1))
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -1062,7 +1062,7 @@ func TestCheckerUserDefinedIterElementType(t *testing.T) {
 struct Counter { n: Int }
 
 impl Iter for Counter {
-    fn each_while(c: Counter, yield: (Int) -> Bool): Bool {
+    fn each_while(c: Counter, yield: (Int) -> Bool) -> Bool {
         if c.n <= 0 {
             True
         } else {
@@ -1075,7 +1075,7 @@ impl Iter for Counter {
     }
 }
 
-fn f(): List<Int> {
+fn f() -> List<Int> {
     Iter.to_list(Counter{n: 5})
 }
 `)
@@ -1090,7 +1090,7 @@ func TestCheckerUserDefinedGenericIterElementType(t *testing.T) {
 struct Boxed<T> { val: T; rest: Int }
 
 impl Iter for Boxed<T> {
-    fn each_while(b: Boxed<T>, yield: (T) -> Bool): Bool {
+    fn each_while(b: Boxed<T>, yield: (T) -> Bool) -> Bool {
         if b.rest <= 0 {
             True
         } else {
@@ -1103,7 +1103,7 @@ impl Iter for Boxed<T> {
     }
 }
 
-fn f(): List<String> {
+fn f() -> List<String> {
     Iter.to_list(Boxed{val: "x", rest: 3})
 }
 `)
@@ -1119,7 +1119,7 @@ func TestCheckerUserDefinedIterElementTypeMismatch(t *testing.T) {
 struct Counter { n: Int }
 
 impl Iter for Counter {
-    fn each_while(c: Counter, yield: (Int) -> Bool): Bool {
+    fn each_while(c: Counter, yield: (Int) -> Bool) -> Bool {
         if c.n <= 0 {
             True
         } else {
@@ -1132,7 +1132,7 @@ impl Iter for Counter {
     }
 }
 
-fn f(): List<String> {
+fn f() -> List<String> {
     Iter.to_list(Counter{n: 5})
 }
 `)
@@ -1147,12 +1147,12 @@ func TestCheckerExpandsTypeAliasForLambdaInference(t *testing.T) {
 
 typealias Handler (String, String) -> Result<String, String>
 
-fn run(handler: Handler): Result<String, String> {
+fn run(handler: Handler) -> Result<String, String> {
     handler("request", "/home")
 }
 
 fn main() {
-    result = run(|method, path| Ok(method + " " + path))
+    result = run(fn method, path -> Ok(method + " " + path))
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -1165,15 +1165,15 @@ func TestCheckerExpandsTypeAliasInCall(t *testing.T) {
 
 typealias Validator (String) -> Result<Int, String>
 
-fn validate_length(_s: String): Result<Int, String> {
+fn validate_length(_s: String) -> Result<Int, String> {
     Ok(0)
 }
 
-fn run_validator(v: Validator): Result<Int, String> {
+fn run_validator(v: Validator) -> Result<Int, String> {
     v("hello")
 }
 
-fn demo(): Result<Int, String> {
+fn demo() -> Result<Int, String> {
     run_validator(validate_length)
 }
 `)
@@ -1187,7 +1187,7 @@ func TestCheckerNestedEnumDistinctTypeParams(t *testing.T) {
 
 
 
-fn f(): Maybe<Result<Int, String>> {
+fn f() -> Maybe<Result<Int, String>> {
     Some(Err("boom"))
 }
 `)
@@ -1199,7 +1199,7 @@ func TestCheckerCaseOnNestedEnumBranchIsInt(t *testing.T) {
 
 
 
-fn f(): Int {
+fn f() -> Int {
     case Some(Err("boom")) {
         Some(Ok(n)) -> n
         Some(Err(_)) -> -1
@@ -1212,7 +1212,7 @@ fn f(): Int {
 
 func TestPipeTakeStringJoin(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): String {
+fn f() -> String {
     Iter.repeat("ab") |> Iter.take(3) |> String.join()
 }
 `)
@@ -1221,7 +1221,7 @@ fn f(): String {
 
 func TestDirectTakeStringJoin(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): String {
+fn f() -> String {
     x = Iter.take(Iter.repeat("ab"), 3)
     String.join(x)
 }
@@ -1231,7 +1231,7 @@ fn f(): String {
 
 func TestPipeTakeIterToList(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): List<String> {
+fn f() -> List<String> {
     Iter.repeat("ab") |> Iter.take(3) |> Iter.to_list()
 }
 `)
@@ -1245,8 +1245,8 @@ fn f(): List<String> {
 // Direct break in a lambda passed to Iter.map — VALID.
 func TestCheckerBreakInMapLambda(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(): List<Int> {
-    Iter.map([1, 2, 3], |x| if x > 10 { break x } else { x * 2 }) |> Iter.to_list()
+fn f() -> List<Int> {
+    Iter.map([1, 2, 3], fn x -> if x > 10 { break x } else { x * 2 }) |> Iter.to_list()
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -1255,10 +1255,10 @@ fn f(): List<Int> {
 // Break in a helper called from Iter.map — VALID (transitive).
 func TestCheckerBreakInHelperCalledFromMap(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn helper(x: Int): Int {
+fn helper(x: Int) -> Int {
     if x > 10 { break x } else { x * 2 }
 }
-fn f(): List<Int> {
+fn f() -> List<Int> {
     Iter.map([1, 2, 3], helper) |> Iter.to_list()
 }
 `)
@@ -1268,10 +1268,10 @@ fn f(): List<Int> {
 // Break in a helper called from non-iter context — INVALID.
 func TestCheckerBreakInHelperCalledFromNonIter(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn helper(x: Int): Int {
+fn helper(x: Int) -> Int {
     if x > 10 { break x } else { x * 2 }
 }
-fn f(): Int {
+fn f() -> Int {
     helper(100)
 }
 `)
@@ -1285,8 +1285,8 @@ func TestCheckerBreakInSortComparator(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 import std/comparable.{Ordering}
 import std/comparable.Ordering.{Equal, Greater, Less}
-fn f(): List<Int> {
-    Iter.sort_with([3, 1, 2], |a, _b| if a > 100 { break Equal } else { Less })
+fn f() -> List<Int> {
+    Iter.sort_with([3, 1, 2], fn a, _b -> if a > 100 { break Equal } else { Less })
 }
 `)
 	if len(errs) == 0 {
@@ -1309,13 +1309,13 @@ fn main() {
 // Transitive: helper A calls helper B, B has break, A is called from iter — VALID.
 func TestCheckerBreakInTransitiveHelper(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn inner(x: Int): Int {
+fn inner(x: Int) -> Int {
     if x > 10 { break x } else { x + 1 }
 }
-fn outer(x: Int): Int {
+fn outer(x: Int) -> Int {
     inner(x)
 }
-fn f(): List<Int> {
+fn f() -> List<Int> {
     Iter.map([1, 2, 3], outer) |> Iter.to_list()
 }
 `)
@@ -1325,13 +1325,13 @@ fn f(): List<Int> {
 // Transitive error: B has break, A calls B, A is called from non-iter — INVALID.
 func TestCheckerBreakInTransitiveHelperCalledFromNonIter(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn inner(x: Int): Int {
+fn inner(x: Int) -> Int {
     if x > 10 { break x } else { x + 1 }
 }
-fn outer(x: Int): Int {
+fn outer(x: Int) -> Int {
     inner(x)
 }
-fn f(): Int {
+fn f() -> Int {
     outer(5)
 }
 `)
@@ -1342,11 +1342,11 @@ fn f(): Int {
 
 func TestCheckNestedImportIsAllowed(t *testing.T) {
 	src := `
-fn use_list(): Int {
+fn use_list() -> Int {
     Iter.count([1, 2, 3])
 }
 
-fn demo(): Int { use_list() }
+fn demo() -> Int { use_list() }
 `
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
@@ -1360,7 +1360,7 @@ func TestChecker_BareContextWithoutAppFieldErrors_WithStdlib(t *testing.T) {
 	src := `
 struct Config { context: Context }
 
-fn demo(): Context {
+fn demo() -> Context {
   context
 }
 `
@@ -1378,7 +1378,7 @@ struct App {
   context: Context
 }
 
-fn read(): Context {
+fn read() -> Context {
   App.context
 }
 `
@@ -1417,7 +1417,7 @@ fn main() {
 	src2 := `import std/io.{print}
 
 interface Speak {
-  fn print(s: self): String
+  fn print(s: self) -> String
 }
 
 struct Dog {
@@ -1425,7 +1425,7 @@ struct Dog {
 }
 
 impl Speak for Dog {
-  fn print(s: Dog): String {
+  fn print(s: Dog) -> String {
     s.name
   }
 }
@@ -1442,7 +1442,7 @@ func TestCheckBareImportedFunctionDoesNotBecomeDispatch(t *testing.T) {
 	src := `import std/io.inspect
 
 interface Greeting {
-  fn greet(value: self): String
+  fn greet(value: self) -> String
 }
 
 struct Guest {
@@ -1450,7 +1450,7 @@ struct Guest {
 }
 
 impl Greeting for Guest {
-  fn greet(guest: Guest): String {
+  fn greet(guest: Guest) -> String {
     "Welcome, " + guest.name + "!"
   }
 }

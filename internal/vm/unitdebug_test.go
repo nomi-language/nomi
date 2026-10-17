@@ -17,7 +17,7 @@ func TestVMDbg_UnitRendersAsTheLiteral(t *testing.T) {
 		{okValue(rt.Unit{}), "Ok(Unit)"},
 		{some(rt.Unit{}), "Some(Unit)"},
 		{outcomeDesc.MakeVariant(0, rt.Unit{}), "Completed(Unit)"},
-		{rtTuple(rt.Unit{}, int64(1)), "(Unit, 1)"},
+		{rtTuple(rt.Unit{}, int64(1)), "#(Unit, 1)"},
 	} {
 		got, err := debugText(tc.v)
 		if err != nil {

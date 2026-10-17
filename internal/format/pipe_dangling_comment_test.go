@@ -31,8 +31,8 @@ func TestFormat_PipelineKeepsItsDanglingComments(t *testing.T) {
 			"{\n    A(a) =\n        0\n        |> 0 //\n    //0\n}\n",
 		},
 		{
-			"fn main() {\n    g(|x| {\n        A(// c\n        a) = x\n            |> f // d\n    })\n}\n",
-			"fn main() {\n    g(|x| {\n        A(a) =\n            x\n            |> f // d\n        // c\n    })\n}\n",
+			"fn main() {\n    g(fn x -> {\n        A(// c\n        a) = x\n            |> f // d\n    })\n}\n",
+			"fn main() {\n    g(fn x -> {\n        A(a) =\n            x\n            |> f // d\n        // c\n    })\n}\n",
 		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

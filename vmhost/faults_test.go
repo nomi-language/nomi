@@ -25,7 +25,7 @@ func runVM(t *testing.T, src string) (string, error) {
 func TestRun_ACyclicOnceIsTheProgramsFault(t *testing.T) {
 	out, err := runVM(t, `import std/io
 
-fn read_seed(): Int {
+fn read_seed() -> Int {
   seed
 }
 
@@ -71,7 +71,7 @@ fn main() {
 func TestRun_ElselessPatternIfRuns(t *testing.T) {
 	out, err := runVM(t, `import std/io
 
-fn side_effect(m: Maybe<Int>): Bool {
+fn side_effect(m: Maybe<Int>) -> Bool {
   result = if Some(n) = m {
     io.print("hit ${n}")
   }
@@ -93,12 +93,12 @@ fn main() {
 // value is retained: the field enters by erasure.
 func TestRun_ABootRecordWithAnErasedFieldRuns(t *testing.T) {
 	out, err := runVM(t, `import {std/io}
-interface Logger {fn log(logger:self,msg:String):Unit}
+interface Logger {fn log(logger:self,msg:String) ->Unit}
 struct Console {}
-impl Logger for Console {fn log(logger:Console,msg:String):Unit{ _ = logger;io.print("console ${msg}")}}
+impl Logger for Console {fn log(logger:Console,msg:String) ->Unit{ _ = logger;io.print("console ${msg}")}}
 struct App {life:Context
 logger:Logger}
-fn boot():App{App{life:Context.root(),logger:Console{}}}
+fn boot() ->App{App{life:Context.root(),logger:Console{}}}
 fn main(){Logger.log(App.logger,"hi")}
 `)
 	if err != nil || out != "console hi\n" {
@@ -116,7 +116,7 @@ struct Bad {
 }
 
 impl Hashable for Bad {
-  fn hash(b: Bad): Int {
+  fn hash(b: Bad) -> Int {
     b.n * 4611686018427387904
   }
 }

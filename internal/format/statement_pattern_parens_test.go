@@ -10,8 +10,8 @@ import (
 
 // A pattern binding without `else` whose pattern, written bare, starts a
 // destructuring statement keeps one pair of parentheses: `(A(a)) = 0` is a
-// pattern binding and `A(a) = 0` a distinct destructure, `((a, b)) = t` a
-// pattern binding and `(a, b) = t` a tuple destructure, and the same for a
+// pattern binding and `A(a) = 0` a distinct destructure, `(#(a, b)) = t` a
+// pattern binding and `#(a, b) = t` a tuple destructure, and the same for a
 // struct pattern. The formatter dropped them, which changed the
 // statement the parser reads.
 func TestFormat_StatementPatternKeepsTheParenthesesItsParseNeeds(t *testing.T) {
@@ -21,15 +21,15 @@ func TestFormat_StatementPatternKeepsTheParenthesesItsParseNeeds(t *testing.T) {
 		{"fn main() {\n    (A(_)) = 0\n}\n", "fn main() {\n    (A(_)) = 0\n}\n"},
 		{"fn main() {\n    (m.A(a)) = 0\n}\n", "fn main() {\n    (m.A(a)) = 0\n}\n"},
 		{"fn main() {\n    (A.B(a)) = 0\n}\n", "fn main() {\n    (A.B(a)) = 0\n}\n"},
-		{"fn main() {\n    ((a, b)) = t\n}\n", "fn main() {\n    ((a, b)) = t\n}\n"},
-		{"fn main() {\n    ((a, (b), _)) = t\n}\n", "fn main() {\n    ((a, b, _)) = t\n}\n"},
+		{"fn main() {\n    (#(a, b)) = t\n}\n", "fn main() {\n    (#(a, b)) = t\n}\n"},
+		{"fn main() {\n    (#(a, (b), _)) = t\n}\n", "fn main() {\n    (#(a, b, _)) = t\n}\n"},
 		{"fn main() {\n    ({x}) = p\n}\n", "fn main() {\n    ({x}) = p\n}\n"},
 		{"fn main() {\n    ({x: (n), y}) = p\n}\n", "fn main() {\n    ({x: n, y}) = p\n}\n"},
 		// Inside a block that is a value.
-		{"{((a,a))=\"\"}", "{ ((a, a)) = \"\" }\n"},
+		{"{(#(a,a))=\"\"}", "{ (#(a, a)) = \"\" }\n"},
 		// A comment inside the pattern breaks it inside the parentheses.
-		{"{((//\na,a))=\"\"}", "{ ((\n    //\n    a,\n    a\n)) = \"\" }\n"},
-		{"{((a, // c\na))=\"\"}", "{ ((\n    a, // c\n    a\n)) = \"\" }\n"},
+		{"{(#(//\na,a))=\"\"}", "{ (#(\n    //\n    a,\n    a\n)) = \"\" }\n"},
+		{"{(#(a, // c\na))=\"\"}", "{ (#(\n    a, // c\n    a\n)) = \"\" }\n"},
 		{"{(A(// c\na))=\"\"}", "{ (A(\n    // c\n    a\n)) = \"\" }\n"},
 		{"{(({// c\nx})) = p}", "{ ({\n    // c\n    x,\n}) = p }\n"},
 	}
@@ -48,17 +48,17 @@ func TestFormat_StatementPatternKeepsTheParenthesesItsParseNeeds(t *testing.T) {
 // alone, which is the plain binding.
 func TestFormat_StatementPatternDropsParenthesesItsParseDoesNotNeed(t *testing.T) {
 	cases := []struct{ src, want string }{
-		{"fn main() {\n    ((a, A(b))) = t\n}\n", "fn main() {\n    (a, A(b)) = t\n}\n"},
+		{"fn main() {\n    (#(a, A(b))) = t\n}\n", "fn main() {\n    #(a, A(b)) = t\n}\n"},
 		{"fn main() {\n    (A(a, b)) = t\n}\n", "fn main() {\n    A(a, b) = t\n}\n"},
 		{"fn main() {\n    (.Some(a)) = t\n}\n", "fn main() {\n    .Some(a) = t\n}\n"},
 		{"fn main() {\n    (P{x}) = t\n}\n", "fn main() {\n    P{x} = t\n}\n"},
 		{"fn main() {\n    ({x: _}) = t\n}\n", "fn main() {\n    {x: _} = t\n}\n"},
-		{"fn main() {\n    ({\"k\" => A(a)}) = t\n}\n", "fn main() {\n    {\"k\" => A(a)} = t\n}\n"},
-		{"fn main() {\n    ({\"k\" => v}) = m\n}\n", "fn main() {\n    {\"k\" => v} = m\n}\n"},
-		{"fn main() {\n    ({\"k\" => _}) = m\n}\n", "fn main() {\n    {\"k\" => _} = m\n}\n"},
+		{"fn main() {\n    (%{\"k\" => A(a)}) = t\n}\n", "fn main() {\n    %{\"k\" => A(a)} = t\n}\n"},
+		{"fn main() {\n    (%{\"k\" => v}) = m\n}\n", "fn main() {\n    %{\"k\" => v} = m\n}\n"},
+		{"fn main() {\n    (%{\"k\" => _}) = m\n}\n", "fn main() {\n    %{\"k\" => _} = m\n}\n"},
 		{"fn main() {\n    (A(a) as b) = t\n}\n", "fn main() {\n    A(a) as b = t\n}\n"},
 		{"fn main() {\n    (A(a)) = t else { return }\n}\n", "fn main() {\n    A(a) = t else { return }\n}\n"},
-		{"fn main() {\n    ((a, b)) = t else { return }\n}\n", "fn main() {\n    (a, b) = t else { return }\n}\n"},
+		{"fn main() {\n    (#(a, b)) = t else { return }\n}\n", "fn main() {\n    #(a, b) = t else { return }\n}\n"},
 		{"fn main() {\n    ((a)) = t\n}\n", "fn main() {\n    a = t\n}\n"},
 		{"fn main() {\n    (_) = t\n}\n", "fn main() {\n    _ = t\n}\n"},
 	}

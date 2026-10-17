@@ -113,7 +113,7 @@ struct User {
 
 derive FromJson for User
 
-fn f(j: Json): Result<Int, String> {
+fn f(j: Json) -> Result<Int, String> {
   _ = j
   Ok(1)
 }

@@ -20,21 +20,21 @@ import {
     std/literals.Fragment
 }
 
-fn describe_string(f: Fragment<String>): String {
+fn describe_string(f: Fragment<String>) -> String {
     case f {
         .Static(s) -> "static/" + s
         .Dynamic(v) -> "dynamic/" + v
     }
 }
 
-fn describe_int(f: Fragment<Int>): String {
+fn describe_int(f: Fragment<Int>) -> String {
     case f {
         .Static(s) -> "static/" + s
         .Dynamic(n) -> "dynamic/" + Int.to_string(n)
     }
 }
 
-fn describe_bool(f: Fragment<Bool>): String {
+fn describe_bool(f: Fragment<Bool>) -> String {
     case f {
         .Static(s) -> "static/" + s
         .Dynamic(b) -> if b { "dynamic/yes" } else { "dynamic/no" }
@@ -43,7 +43,7 @@ fn describe_bool(f: Fragment<Bool>): String {
 
 // A nested instantiation, so the intern key is exercised at a type argument
 // that is itself an instance rather than a scalar.
-fn describe_nested(f: Fragment<Maybe<Int>>): String {
+fn describe_nested(f: Fragment<Maybe<Int>>) -> String {
     case f {
         .Static(s) ->
             "static/" + s
@@ -85,7 +85,7 @@ fn main() {
     ]
 
     io.print(
-        Iter.reduce(parts, |acc = "", frag| {
+        Iter.reduce(parts, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + "[" + v + "]"

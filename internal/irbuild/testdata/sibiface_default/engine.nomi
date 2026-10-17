@@ -12,15 +12,15 @@ pub struct Engine {
 }
 
 impl Powered for Engine {
-    fn label(e: Engine): String {
+    fn label(e: Engine) -> String {
         e.name
     }
 }
 
 pub interface Powered {
-    fn label(e: self): String
+    fn label(e: self) -> String
 
-    fn describe(e: self, mode: Mode = .Fast): String {
+    fn describe(e: self, mode: Mode = .Fast) -> String {
         case mode {
             .Fast -> Powered.label(e) + " (fast)"
             .Slow -> Powered.label(e) + " (slow)"

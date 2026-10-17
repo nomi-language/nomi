@@ -31,7 +31,7 @@ enum Tag {
   Count Int
 }
 impl Debug for Tag {
-  fn inspect(t: Tag): String {
+  fn inspect(t: Tag) -> String {
     case t {
       Tag.Plain -> "plain"
       Tag.Count(n) -> "count=${n}"
@@ -42,10 +42,10 @@ fn main() {
   ps = [P{x: 1}, P{x: 2}]
   io.inspect(ps)
   io.inspect([Tag.Plain, Tag.Count(4)])
-  io.inspect((P{x: 3}, Tag.Count(5)))
+  io.inspect(#(P{x: 3}, Tag.Count(5)))
   dbg {p: P{x: 4}, n: 1}
   io.print("done")
 }
-`, "[P{x: 1}, P{x: 2}]\n[plain, count=4]\n(P{x: 3}, count=5)\n"+
+`, "[P{x: 1}, P{x: 2}]\n[plain, count=4]\n#(P{x: 3}, count=5)\n"+
 		"dbg line 22: {p: P{x: 4}, n: 1} = {n: 1, p: P{x: 4}}\ndone\n")
 }

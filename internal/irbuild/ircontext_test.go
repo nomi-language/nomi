@@ -24,13 +24,13 @@ func TestIRContext_CompletePrograms(t *testing.T) {
   std/timer
 }
 
-fn slow(): Int {
+fn slow() -> Int {
   timer.sleep(Duration.minutes(5))
   1
 }
 
 // The deadline covers ` + "`slow`" + ` and nothing else.
-fn slow_bounded(): Int {
+fn slow_bounded() -> Int {
   with Run.context = Context.with_timeout(
     Run.context,
     Duration.milliseconds(50),
@@ -41,7 +41,7 @@ fn slow_bounded(): Int {
 
 fn main() {
   outcome = concurrent {
-    t = Task.spawn(|| slow_bounded())
+    t = Task.spawn(fn -> slow_bounded())
     Task.outcome(t)
   }
 
@@ -58,7 +58,7 @@ struct Run {
   context: Context
 }
 
-fn boot(): Run {
+fn boot() -> Run {
   Run{context: Context.root()}
 }
 `, "dbg line 34: result = \"timed out, falling back\"\n"},
@@ -68,20 +68,20 @@ fn boot(): Run {
   std/timer
 }
 
-fn inner(): Int {
+fn inner() -> Int {
   with Run.context = Context.with_timeout(Run.context, Duration.minutes(10))
   timer.sleep(Duration.minutes(5))
   1
 }
 
-fn outer(): Int {
+fn outer() -> Int {
   with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(40))
   inner()
 }
 
 fn main() {
   outcome = concurrent {
-    t = Task.spawn(|| outer())
+    t = Task.spawn(fn -> outer())
     Task.outcome(t)
   }
   dbg outcome
@@ -91,7 +91,7 @@ struct Run {
   context: Context
 }
 
-fn boot(): Run {
+fn boot() -> Run {
   Run{context: Context.root()}
 }
 `, "dbg line 23: outcome = Cancelled\n"},
@@ -100,7 +100,7 @@ fn boot(): Run {
   std/timer
 }
 
-fn bounded(n: Int): Int {
+fn bounded(n: Int) -> Int {
   with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(20))
   n + 1
 }
@@ -115,7 +115,7 @@ struct Run {
   context: Context
 }
 
-fn boot(): Run {
+fn boot() -> Run {
   Run{context: Context.root()}
 }
 `, "dbg line 14: a = 2\n"},
@@ -130,21 +130,21 @@ struct App {
   label: String
 }
 
-fn boot(): App {
+fn boot() -> App {
   App{ctx: Context.root(), label: "app"}
 }
 
-fn quick(): Int {
+fn quick() -> Int {
   timer.sleep(Duration.milliseconds(5))
   7
 }
 
-fn roomy(): Int {
+fn roomy() -> Int {
   with App.ctx = Context.with_timeout(App.ctx, Duration.minutes(5))
   quick()
 }
 
-fn tight(): Int {
+fn tight() -> Int {
   with App.ctx = Context.with_timeout(App.ctx, Duration.milliseconds(30))
   timer.sleep(Duration.minutes(5))
   1
@@ -152,15 +152,15 @@ fn tight(): Int {
 
 fn main() {
   outcomes = concurrent {
-    a = Task.spawn(|| roomy())
-    b = Task.spawn(|| tight())
-    (Task.outcome(a), Task.outcome(b))
+    a = Task.spawn(fn -> roomy())
+    b = Task.spawn(fn -> tight())
+    #(Task.outcome(a), Task.outcome(b))
   }
   dbg outcomes
   dbg App.label
   Unit
 }
-`, "dbg line 38: outcomes = (Completed(7), Cancelled)\ndbg line 39: App.label = \"app\"\n"},
+`, "dbg line 38: outcomes = #(Completed(7), Cancelled)\ndbg line 39: App.label = \"app\"\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}
@@ -173,8 +173,8 @@ func TestIRContext_UnsupportedShapesPreserveEmission(t *testing.T) {
 		// A Context value whose type (a generic Maybe) has no single-name identity.
 		"_ = Context.with_value(Context.with_timeout(Run.context, Duration.seconds(1)), Some(1))\n 1",
 	} {
-		p, err := AnalyzeSource("main.nomi", "import std/duration.Duration\nfn run(): Int {\n"+body+"\n}\nfn main() { _ = run() }\n"+
-			"struct Run {\n context: Context\n}\nfn boot(): Run { Run{context: Context.root()} }")
+		p, err := AnalyzeSource("main.nomi", "import std/duration.Duration\nfn run() -> Int {\n"+body+"\n}\nfn main() { _ = run() }\n"+
+			"struct Run {\n context: Context\n}\nfn boot() -> Run { Run{context: Context.root()} }")
 		if err != nil {
 			t.Fatalf("the front end now rejects this, so the preservation below is untested: %v", err)
 		}
@@ -217,7 +217,7 @@ struct Config {
   context: Context
 }
 
-fn boot(): Config {
+fn boot() -> Config {
   Config{context: Context.root()}
 }
 
@@ -228,8 +228,8 @@ fn main() {
     with Config.context = Context.with_timeout(Config.context, Duration.milliseconds(50))
     io.print("entered")
     concurrent {
-      r1 = Task.spawn(|| Receiver.receive(ch.receiver))
-      r2 = Task.spawn(|| Receiver.receive(ch.receiver))
+      r1 = Task.spawn(fn -> Receiver.receive(ch.receiver))
+      r2 = Task.spawn(fn -> Receiver.receive(ch.receiver))
       _v1 = Task.await(r1)
       _v2 = Task.await(r2)
     }
@@ -245,16 +245,16 @@ fn main() {
   std/timer
 }
 
-fn slow(): Int {
+fn slow() -> Int {
   timer.sleep(Duration.minutes(5))
   1
 }
 
-fn bounded(): Int {
+fn bounded() -> Int {
   with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(50))
   io.print("entered")
   n = concurrent {
-    t = Task.spawn(|| slow())
+    t = Task.spawn(fn -> slow())
     Task.await(t)
   }
   io.print("unreachable")
@@ -269,7 +269,7 @@ struct Run {
   context: Context
 }
 
-fn boot(): Run {
+fn boot() -> Run {
   Run{context: Context.root()}
 }
 `, true},

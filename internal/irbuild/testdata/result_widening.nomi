@@ -3,7 +3,7 @@ import std/io
 // A function's declared result widens its tail as an annotation widens a
 // binding's value: the Pt in the tuple becomes a Named.
 interface Named {
-    fn name(value: self): String
+    fn name(value: self) -> String
 }
 
 struct Pt {
@@ -11,31 +11,31 @@ struct Pt {
 }
 
 impl Named for Pt {
-    fn name(p: Pt): String {
+    fn name(p: Pt) -> String {
         "pt${p.x}"
     }
 }
 
-fn pair(): (Int, Named) {
-    (1, Pt{x: 5})
+fn pair() -> #(Int, Named) {
+    #(1, Pt{x: 5})
 }
 
-fn gen<A>(a: A): (A, Named) {
-    (a, Pt{x: 6})
+fn gen<A>(a: A) -> #(A, Named) {
+    #(a, Pt{x: 6})
 }
 
-fn named_list(): List<Named> {
+fn named_list() -> List<Named> {
     [Pt{x: 7}]
 }
 
 fn main() {
-    (n, named) = pair()
+    #(n, named) = pair()
     io.print("${n} ${Named.name(named)}")
     io.print(Named.name(gen("a").1))
 
     io.print(
         named_list()
-        |> Iter.map(|p| Named.name(p))
+        |> Iter.map(fn p -> Named.name(p))
         |> String.join(",")
     )
 }

@@ -27,24 +27,24 @@ struct Holder {
     sup: Supervisor
 }
 
-fn boot(): App {
+fn boot() -> App {
     App{context: Context.root(), work: Supervisor.new(1)}
 }
 
-fn seven(): Int {
+fn seven() -> Int {
     7
 }
 
-fn job(): Unit {
+fn job() -> Unit {
     io.print("job")
 }
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 
 fn main() {
-    f = || 8
+    f = fn -> 8
     n = concurrent {
         a = Task.spawn(seven)
         b = Task.spawn(f)
@@ -58,13 +58,13 @@ fn main() {
         from_vector = Task.spawn_all(#[1, 2], double, max_running: 2)
         from_set = Task.spawn_all(#{3}, double, max_running: 1)
         from_range = Task.spawn_all(1..=2, double, max_running: 1)
-        from_iter = Task.spawn_all([4] |> Iter.map(|x: Int| x + 1), double, max_running: 1)
+        from_iter = Task.spawn_all([4] |> Iter.map(fn x: Int -> x + 1), double, max_running: 1)
         [from_vector, from_set, from_range, from_iter] |> Iter.map(Task.await_all) |> Iter.to_list()
     }
     io.inspect(xs)
-    _ = Task.await_all(Supervisor.spawn_all(App.work, #[1], |x: Int| io.inspect(x)))
-    _ = Task.await_all(Supervisor.spawn_all(App.work, [2] |> Iter.map(|x: Int| x + 1), |x: Int| io.inspect(x)))
-    _ = Task.await_all(Supervisor.spawn_all(App.work, 5..=5, |x: Int| io.inspect(x)))
+    _ = Task.await_all(Supervisor.spawn_all(App.work, #[1], fn x: Int -> io.inspect(x)))
+    _ = Task.await_all(Supervisor.spawn_all(App.work, [2] |> Iter.map(fn x: Int -> x + 1), fn x: Int -> io.inspect(x)))
+    _ = Task.await_all(Supervisor.spawn_all(App.work, 5..=5, fn x: Int -> io.inspect(x)))
 }
 `, "15\njob\njob\n[[2, 4], [6], [2, 4], [10]]\n1\n3\n5\n")
 }

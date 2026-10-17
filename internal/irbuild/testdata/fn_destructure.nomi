@@ -30,34 +30,34 @@ enum Wrapper {
 }
 
 // Punning: self-typed by the head, so no annotation is needed.
-fn norm(Point{x, y}): Int {
+fn norm(Point{x, y}) -> Int {
     x * x + y * y
 }
 
 // Renaming: the binding differs from the field name, which is the case that
 // catches a builder reading the wrong one of the two.
-fn flip(Point{x: a, y: b}): String {
+fn flip(Point{x: a, y: b}) -> String {
     "(${b}, ${a})"
 }
 
 // Nested, with a wildcard beside it. Nothing may be bound for `to`.
-fn startx(Segment{from: Point{x, y: _}, to: _}): Int {
+fn startx(Segment{from: Point{x, y: _}, to: _}) -> Int {
     x
 }
 
 // A wrapping distinct unwraps to its inner value.
-fn plus(Meters(m)): Int {
+fn plus(Meters(m)) -> Int {
     m + 1
 }
 
 // A single-variant enum unwraps to its payload.
-fn twice(Wrapper.Only(n)): Int {
+fn twice(Wrapper.Only(n)) -> Int {
     n * 2
 }
 
 // A destructuring parameter beside ordinary ones, in a non-leading position:
 // the anonymous parameter has to land in the right slot.
-fn weighted(scale: Int, Point{x, y}, bias: Int): Int {
+fn weighted(scale: Int, Point{x, y}, bias: Int) -> Int {
     scale * (x + y) + bias
 }
 

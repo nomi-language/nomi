@@ -78,7 +78,7 @@ test "float special values propagate through arithmetic and rounding" {
 
 // True for -0.0 alone: `==` cannot tell the zeros apart, but dividing by them
 // gives infinities of opposite signs.
-fn negative_zero?(x: Float): Bool {
+fn negative_zero?(x: Float) -> Bool {
     x == 0.0 and 1.0 / x < 0.0
 }
 

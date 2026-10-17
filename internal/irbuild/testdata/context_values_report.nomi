@@ -38,14 +38,14 @@ type Subject String
 
 type Marker
 
-fn trace_of(c: Context): String {
+fn trace_of(c: Context) -> String {
     case Context.value(c, TraceId) {
         Some(TraceId(id)) -> id
         None -> "none"
     }
 }
 
-fn subject_of(c: Context): String {
+fn subject_of(c: Context) -> String {
     case Context.value(c, Subject) {
         Some(Subject(s)) -> s
         None -> "none"
@@ -55,7 +55,7 @@ fn subject_of(c: Context): String {
 // The witness arrives as a PARAMETER here, so `marker_type` is an ordinary value
 // of type `Type<Marker>` and must NOT be read as a type name. That is the
 // builder's local-binding guard for a type witness, and it must hold here.
-fn marker_of(c: Context, marker_type: Type<Marker>): Maybe<Marker> {
+fn marker_of(c: Context, marker_type: Type<Marker>) -> Maybe<Marker> {
     Context.value(c, marker_type)
 }
 

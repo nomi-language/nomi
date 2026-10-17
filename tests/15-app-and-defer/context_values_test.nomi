@@ -30,11 +30,11 @@ test "context values are keyed by their Nomi type" {
     assert Context.value(root, TraceId) == None
 }
 
-fn accepts_marker(marker: Marker): Bool {
+fn accepts_marker(marker: Marker) -> Bool {
     marker == Marker
 }
 
-fn lookup_marker(c: Context, marker_type: Type<Marker>): Maybe<Marker> {
+fn lookup_marker(c: Context, marker_type: Type<Marker>) -> Maybe<Marker> {
     Context.value(c, marker_type)
 }
 

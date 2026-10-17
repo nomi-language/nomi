@@ -1,7 +1,7 @@
 // The sibling half of testdata/sibeq. `Loose` declares `equal?` and is
 // deliberately NOT `Equatable`, so the operator must not select it.
 pub interface Loose {
-    fn equal?(a: self, b: self): Bool
+    fn equal?(a: self, b: self) -> Bool
 }
 
 pub struct Point {
@@ -9,12 +9,12 @@ pub struct Point {
     y: Int
 }
 
-pub fn point(x: Int, y: Int): Point {
+pub fn point(x: Int, y: Int) -> Point {
     Point{x, y}
 }
 
 impl Loose for Point {
-    fn equal?(a: Point, b: Point): Bool {
+    fn equal?(a: Point, b: Point) -> Bool {
         a.x == b.x
     }
 }

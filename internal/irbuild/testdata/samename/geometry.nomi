@@ -9,11 +9,11 @@ pub struct Point {
     lon: Float
 }
 
-pub fn at(lat: Float, lon: Float): Point {
+pub fn at(lat: Float, lon: Float) -> Point {
     Point{lat, lon}
 }
 
 /// `==` on geometry.Point, resolved against GEOMETRY's declaration.
-pub fn same(a: Point, b: Point): Bool {
+pub fn same(a: Point, b: Point) -> Bool {
     a == b
 }

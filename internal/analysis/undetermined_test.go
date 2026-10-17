@@ -41,12 +41,12 @@ func TestUndeterminedTypeArgs_Rejected(t *testing.T) {
 		{"values over an empty list", "dbg Maybe.values([])",
 			"the element type of `[]` is not determined: annotate it, as in `xs: List<Maybe<T>> = []` with T filled in", 20},
 		{"to_map over an empty list", "dbg Iter.to_map([])",
-			"the element type of `[]` is not determined: annotate it, as in `xs: List<(K, V)> = []` with K and V filled in", 19},
+			"the element type of `[]` is not determined: annotate it, as in `xs: List<#(K, V)> = []` with K and V filled in", 19},
 		{"flatten over an empty list", "dbg Iter.flatten([])",
 			"the element type of `[]` is not determined", 20},
 		{"an empty vector literal", "dbg Maybe.values(#[])",
 			"the element type of `#[]` is not determined: annotate it, as in `xs: Vector<Maybe<T>> = #[]`", 20},
-		{"a lambda over an empty list's element", "dbg Iter.map([], |x| x)",
+		{"a lambda over an empty list's element", "dbg Iter.map([], fn x -> x)",
 			"the element type of `[]` is not determined: annotate it, as in `xs: List<T> = []` with T filled in", 16},
 		{"None where T is free", "dbg Maybe.values([None])",
 			"the type argument T of `Maybe.values` is not determined: annotate the value passed in, or give the call its type arguments, as in `Maybe.values<T>(…)`", 20},
@@ -92,7 +92,7 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 	bodies := []string{
 		"dbg []",
 		"dbg [[]]",
-		"dbg ([], 1)",
+		"dbg #([], 1)",
 		"dbg #{}",
 		"dbg None",
 		"dbg Ok(1)",
@@ -113,11 +113,11 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 		"dbg Vector.empty()",
 		"dbg Vector.length(Vector.empty())",
 		"dbg List.concat([], [1])",
-		"dbg Result.map(Ok(3), |x| x + 1)",
+		"dbg Result.map(Ok(3), fn x -> x + 1)",
 		"dbg Result.collect([Ok(1)])",
 		"dbg Result.collect([Ok(1), Err(\"e\")])",
 		"dbg Maybe.values([Some(1)])",
-		"dbg Iter.map([], |x| x + 1)",
+		"dbg Iter.map([], fn x -> x + 1)",
 		"dbg Iter.flatten([[1], []])",
 		"dbg Maybe.values<Int>([])",
 		// Comparable's functions take the elements, so an empty input calls none.
@@ -146,8 +146,8 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 // once every body is checked.
 func TestUndeterminedTypeArgs_FixedByALaterUse(t *testing.T) {
 	src := `fn main() {
-  r = (Maybe.values([None]), 1)
-  s: (List<Int>, Int) = r
+  r = #(Maybe.values([None]), 1)
+  s: #(List<Int>, Int) = r
   dbg s
   Unit
 }

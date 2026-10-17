@@ -4,7 +4,7 @@ import std/io
 // push protocol where a Nomi `break` really has to become a value, because the
 // callback is driven by the source's own `each_while` and there is no enclosing
 // loop for a `break` to target. The encoding is a second return value,
-// `(acc, keepGoing)`; see rt/seqctl.go.
+// `#(acc, keepGoing)`; see rt/seqctl.go.
 //
 // The four shapes are lifted from tests/13-iterators-and-pipes/
 // control_flow_test.nomi, which is where the corpus exercises them, and each
@@ -31,7 +31,7 @@ import std/io
 fn main() {
     partial_sum =
         [10, 20, 30, 40, 50]
-        |> Iter.reduce(|total = 0, x| {
+        |> Iter.reduce(fn total = 0, x -> {
             if total + x > 60 { break }
             total + x
         })
@@ -40,7 +40,7 @@ fn main() {
 
     with_break_value =
         [10, 20, 30, 40, 50]
-        |> Iter.reduce(|total = 0, x| {
+        |> Iter.reduce(fn total = 0, x -> {
             new_total = total + x
             if new_total > 60 { break new_total }
             new_total
@@ -50,7 +50,7 @@ fn main() {
 
     sum_positives =
         [1, -2, 3, -4, 5]
-        |> Iter.reduce(|total = 0, x| {
+        |> Iter.reduce(fn total = 0, x -> {
             if x < 0 { continue }
             total + x
         })
@@ -59,7 +59,7 @@ fn main() {
 
     processed =
         [5, -1, 3, -2, 0, 7, 8]
-        |> Iter.reduce(|total = 0, x| {
+        |> Iter.reduce(fn total = 0, x -> {
             if x < 0 { continue }
             if x == 0 { break }
             total + x
@@ -69,7 +69,7 @@ fn main() {
 
     via_return =
         [1, 2, 3, 4]
-        |> Iter.reduce(|total = 0, x| {
+        |> Iter.reduce(fn total = 0, x -> {
             if x != 3 { return total + x }
             break total
         })
@@ -78,7 +78,7 @@ fn main() {
 
     seeded =
         [4, 5, 6, 7]
-        |> Iter.reduce(|acc: Int = 0, x: Int| {
+        |> Iter.reduce(fn acc: Int = 0, x: Int -> {
             if x == 6 { break acc }
             acc + x
         })

@@ -6,7 +6,7 @@ import {
     settings.Settings
 }
 
-pub fn boot(): Settings {
+pub fn boot() -> Settings {
     Settings{context: Context.root(), tag: "the-real-root"}
 }
 

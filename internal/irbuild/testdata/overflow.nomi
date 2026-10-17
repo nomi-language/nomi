@@ -1,6 +1,6 @@
 import std/io
 
-fn add(a: Int, b: Int): Int {
+fn add(a: Int, b: Int) -> Int {
     a + b
 }
 

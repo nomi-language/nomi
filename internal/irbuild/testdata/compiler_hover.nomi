@@ -37,7 +37,7 @@ import {
 
 // signature_of is the corpus helper's shape, kept so this fixture exercises the
 // same `case` over `Result<Hover, String>` that thirty-five files do.
-fn signature_of(source: String): String {
+fn signature_of(source: String) -> String {
     case compiler.hover(source) {
         Ok(hover) -> hover.signature
         Err(message) -> message
@@ -64,7 +64,7 @@ fn main() {
     io.print(
         "declaration = " + signature_of(
             """
-            fn douˇble(n: Int): Int {
+            fn douˇble(n: Int) -> Int {
               n * 2
             }
 

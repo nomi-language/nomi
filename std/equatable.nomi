@@ -25,7 +25,7 @@ import bool.Bool
 /// }
 ///
 /// impl Equatable for Point {
-///     fn equal?(a: Point, b: Point): Bool { a.x == b.x and a.y == b.y }
+///     fn equal?(a: Point, b: Point) -> Bool { a.x == b.x and a.y == b.y }
 /// }
 /// ```
 ///
@@ -33,5 +33,5 @@ import bool.Bool
 /// variant-then-payload comparison for enums, and inner-value delegation for
 /// distinct types.
 pub interface Equatable {
-    fn equal?(a: self, b: self): Bool
+    fn equal?(a: self, b: self) -> Bool
 }

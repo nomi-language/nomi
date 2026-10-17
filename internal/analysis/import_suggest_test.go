@@ -47,7 +47,7 @@ func TestFindMissingImports_AlreadyImported(t *testing.T) {
 func TestFindMissingImports_ResolvesToLocalDefNoSuggestion(t *testing.T) {
 	// A local `fn io` makes `io` resolve, so no import is suggested (and no
 	// alias machinery is needed — a collision means the name already binds).
-	got := buildMissing(t, "fn io(): Int {\n  5\n}\n\nfn main() {\n  io.inspect(42)\n}\n")
+	got := buildMissing(t, "fn io() -> Int {\n  5\n}\n\nfn main() {\n  io.inspect(42)\n}\n")
 	if len(got) != 0 {
 		t.Errorf("want no suggestions when qualifier resolves locally, got %+v", got)
 	}
@@ -86,7 +86,7 @@ func TestFindMissingImports_InsideStructLiteral(t *testing.T) {
 }
 
 func TestFindMissingImports_InsideMapLiteral(t *testing.T) {
-	got := buildMissing(t, "fn main() {\n  m = {1 => io.inspect(42)}\n  m\n}\n")
+	got := buildMissing(t, "fn main() {\n  m = %{1 => io.inspect(42)}\n  m\n}\n")
 	if len(got) != 1 || got[0].ModulePath != "std/io" {
 		t.Fatalf("want std/io suggestion inside map literal, got %+v", got)
 	}
@@ -109,7 +109,7 @@ func TestFindMissingImports_SuggestsStdlibModule(t *testing.T) {
 
 // An unresolved type in an annotation position is detected too.
 func TestFindMissingImports_TypeInAnnotation(t *testing.T) {
-	got := buildMissing(t, "fn f(_d: Duration): Bool {\n  True\n}\n")
+	got := buildMissing(t, "fn f(_d: Duration) -> Bool {\n  True\n}\n")
 	if len(got) != 1 || got[0].ModulePath != "std/duration" || got[0].Member != "Duration" {
 		t.Fatalf("want std/duration.Duration for the annotation, got %+v", got)
 	}
@@ -125,7 +125,7 @@ func TestFindMissingImports_ModuleAlreadyImported(t *testing.T) {
 // A prelude type resolves, so it is never suggested even though a stdlib module
 // exports it.
 func TestFindMissingImports_PreludeTypeNoSuggestion(t *testing.T) {
-	got := buildMissing(t, "fn f(): Result<Int, String> {\n  Ok(1)\n}\n")
+	got := buildMissing(t, "fn f() -> Result<Int, String> {\n  Ok(1)\n}\n")
 	if len(got) != 0 {
 		t.Errorf("want none for prelude Result, got %+v", got)
 	}
@@ -143,7 +143,7 @@ func TestFindMissingImports_LocalTypeDefinitionNoSuggestion(t *testing.T) {
 func TestFindMissingImports_SelfMergeCandidate(t *testing.T) {
 	// Importing one calendar member does not bind every sibling declaration, so
 	// a suggestion is still produced for the missing type in the same file.
-	got := buildMissing(t, "import std/calendar.Date\n\nfn f(_t: Time, _d: Date): Bool {\n  True\n}\n")
+	got := buildMissing(t, "import std/calendar.Date\n\nfn f(_t: Time, _d: Date) -> Bool {\n  True\n}\n")
 	if len(got) != 1 || got[0].ModulePath != "std/calendar" || got[0].Member != "Time" {
 		t.Fatalf("want std/calendar.Time suggestion, got %+v", got)
 	}

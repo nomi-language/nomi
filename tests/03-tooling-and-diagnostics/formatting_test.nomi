@@ -21,7 +21,7 @@ pub struct Point {
 }
 
 impl Drawable2 for Point {
-    fn draw(_p: Point): String {
+    fn draw(_p: Point) -> String {
         "point"
     }
 }
@@ -95,7 +95,7 @@ enum ParseError {
 // Type declarations and aliases
 // ---------------------------------------------------------------------------
 pub type Email String
-pub type Coord (Int, Int)
+pub type Coord #(Int, Int)
 pub type Handler (String, String) -> Result<String, String>
 pub type Expired
 pub opaque type Counter Int
@@ -107,14 +107,14 @@ pub typealias UserMap Map<String, User>
 // Interfaces and impls
 // ---------------------------------------------------------------------------
 pub interface Drawable2 {
-    fn draw(s: self): String
+    fn draw(s: self) -> String
 }
 
 pub interface Container<T> {
-    fn empty(): self
-    fn add(c: self, item: T): self
+    fn empty() -> self
+    fn add(c: self, item: T) -> self
 
-    fn size(_c: self): Int {
+    fn size(_c: self) -> Int {
         0
     }
 }
@@ -128,25 +128,25 @@ pub interface Container<T> {
 // Doc comments preserved above the declaration.
 fn noop() {}
 
-fn add(x: Int, y: Int): Int {
+fn add(x: Int, y: Int) -> Int {
     x + y
 }
 
 /// Doc comment attaches to the next declaration.
 /// Multiple lines preserved.
-pub fn greet(name: String, greeting: String = "Hello"): String {
+pub fn greet(name: String, greeting: String = "Hello") -> String {
     greeting + ", " + name
 }
 
-fn map_pair<A, B, C>(p: Pair<A, B>, f: (A) -> C): Pair<C, B> {
+fn map_pair<A, B, C>(p: Pair<A, B>, f: (A) -> C) -> Pair<C, B> {
     Pair{first: f(p.first), second: p.second}
 }
 
-fn bounded<T>(_items: List<T>): String where T: Drawable2 {
+fn bounded<T>(_items: List<T>) -> String where T: Drawable2 {
     "drawn"
 }
 
-fn process(_opts: List<{retries: Int, timeout: Int, on_error: (String) -> Int}>): Int {
+fn process(_opts: List<{retries: Int, timeout: Int, on_error: (String) -> Int}>) -> Int {
     0
 }
 
@@ -156,7 +156,7 @@ pub fn process_all_the_users(
     _config: Pair<String, Int>,
     _retry_count: Int,
     _more_options: List<String>,
-): Result<List<User>, String> {
+) -> Result<List<User>, String> {
     Ok(users)
 }
 
@@ -169,7 +169,7 @@ fn binding_forms() {
     _y: Int = 2
 
     // Tuple destructure
-    (_, _) = (10, 20)
+    #(_, _) = #(10, 20)
 
     // Distinct destructure
     Email(_) = Email("a@b.com")
@@ -198,7 +198,7 @@ fn binding_forms() {
 // ---------------------------------------------------------------------------
 // Control flow — if/else, case, with
 // ---------------------------------------------------------------------------
-fn control_flow(n: Int): String {
+fn control_flow(n: Int) -> String {
     // Inline if/else with atomic bodies stays flat.
     _sign = if n > 0 { 1 } else { 0 }
 
@@ -230,21 +230,21 @@ fn control_flow(n: Int): String {
 fn lambda_forms() {
     // Short lambda — flat. Type annotation on the binding so type
     // inference picks up the param shape.
-    _inc: (Int) -> Int = |x| x + 1
+    _inc: (Int) -> Int = fn x -> x + 1
 
     // Lambda with parameter annotations.
-    _typed = |x: Int, y: Int| x + y
+    _typed = fn x: Int, y: Int -> x + y
 
     // Lambda with default param.
-    _add_with_default: (Int, Int) -> Int = |x = 1, y| x + y
+    _add_with_default: (Int, Int) -> Int = fn x = 1, y -> x + y
 }
 
 // ---------------------------------------------------------------------------
 // Pipes — one |> stays inline; two or more break one stage per line
 // ---------------------------------------------------------------------------
-fn pipe_chain(xs: List<Int>): List<Int> {
-    Iter.map(xs, |x| x + 1)
-    |> Iter.filter(|x| x > 0)
+fn pipe_chain(xs: List<Int>) -> List<Int> {
+    Iter.map(xs, fn x -> x + 1)
+    |> Iter.filter(fn x -> x > 0)
     |> Iter.take(10)
     |> Iter.to_list()
 }
@@ -256,9 +256,9 @@ fn pipe_chain(xs: List<Int>): List<Int> {
 // Anon struct types break at their column when long; outer container
 // (tuple, generic) stays inline. Function-type-with-Return wraps its
 // param list in a Group so a too-long signature breaks at the param list.
-pub type Tagged (String, {tag: String, payload: Int})
+pub type Tagged #(String, {tag: String, payload: Int})
 
-pub type LongTuple (String, {
+pub type LongTuple #(String, {
     status: Int,
     message: String,
     retryable: Bool,
@@ -284,8 +284,8 @@ pub typealias Endpoint ({
 //
 // Trailing comments do not force structural breaks. The formatter prefers
 // to let a comment spill past 100 cols rather than uglify the code.
-fn trivia_examples(): Int {
-    config = {"host" => "localhost", "port" => "8080", "mode" => "debug"} // explanatory
+fn trivia_examples() -> Int {
+    config = %{"host" => "localhost", "port" => "8080", "mode" => "debug"} // explanatory
     short_struct = Point{x: 1, y: 2} // a 2D point
     Map.size(config) + short_struct.x
 }
@@ -297,7 +297,7 @@ fn trivia_examples(): Int {
 // Each Group's flat-vs-broken decision considers what follows on the line.
 // A Group whose own content fits but whose trailing siblings overflow
 // still breaks (no silent overflow).
-fn tail_aware(): Int {
+fn tail_aware() -> Int {
     _long_call = process_all_the_users([], Pair{first: "a", second: 1}, 3, [])
     0
 }

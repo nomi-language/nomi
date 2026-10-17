@@ -14,7 +14,7 @@ func TestIRLambdaTailRegionWritesTheDeclaredResult_Runs(t *testing.T) {
 	const src = `import std/io
 
 interface Named {
-    fn name(value: self): String
+    fn name(value: self) -> String
 }
 
 struct Pt {
@@ -22,20 +22,20 @@ struct Pt {
 }
 
 impl Named for Pt {
-    fn name(p: Pt): String {
+    fn name(p: Pt) -> String {
         "pt${p.x}"
     }
 }
 
 fn main() {
-    fn named(): Named {
+    fn named() -> Named {
         case [Pt{x: 5}] {
             [p] -> p
             _ -> todo
         }
     }
 
-    later: () -> Named = || case 1 {
+    later: () -> Named = fn -> case 1 {
         1 -> Pt{x: 7}
         _ -> todo
     }

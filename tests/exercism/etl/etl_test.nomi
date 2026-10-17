@@ -1,23 +1,23 @@
 import etl
 
 test "single letter" {
-    assert etl.transform({1 => ["A"]}) == {"a" => 1}
+    assert etl.transform(%{1 => ["A"]}) == %{"a" => 1}
 }
 
 test "single score with multiple letters" {
-    legacy = {1 => ["A", "E", "I", "O", "U"]}
+    legacy = %{1 => ["A", "E", "I", "O", "U"]}
 
-    assert etl.transform(legacy) == {"a" => 1, "e" => 1, "i" => 1, "o" => 1, "u" => 1}
+    assert etl.transform(legacy) == %{"a" => 1, "e" => 1, "i" => 1, "o" => 1, "u" => 1}
 }
 
 test "multiple scores with multiple letters" {
-    legacy = {1 => ["A", "E"], 2 => ["D", "G"]}
+    legacy = %{1 => ["A", "E"], 2 => ["D", "G"]}
 
-    assert etl.transform(legacy) == {"a" => 1, "d" => 2, "e" => 1, "g" => 2}
+    assert etl.transform(legacy) == %{"a" => 1, "d" => 2, "e" => 1, "g" => 2}
 }
 
 test "multiple scores with differing numbers of letters" {
-    legacy = {
+    legacy = %{
         1 => ["A", "E", "I", "O", "U", "L", "N", "R", "S", "T"],
         2 => ["D", "G"],
         3 => ["B", "C", "M", "P"],
@@ -27,7 +27,7 @@ test "multiple scores with differing numbers of letters" {
         10 => ["Q", "Z"],
     }
 
-    assert etl.transform(legacy) == {
+    assert etl.transform(legacy) == %{
         "a" => 1,
         "b" => 3,
         "c" => 3,

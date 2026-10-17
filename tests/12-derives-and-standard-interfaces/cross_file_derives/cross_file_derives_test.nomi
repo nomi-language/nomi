@@ -35,7 +35,7 @@ derive FromJson for Spare
 
 enum Purse {
     Empty
-    Holding (Money, Coin)
+    Holding #(Money, Coin)
     Counted {total: Cents, tally: Tally}
 }
 
@@ -47,7 +47,7 @@ derive Display for Purse
 derive ToJson for Purse
 derive FromJson for Purse
 
-fn wallet(cents: Int): Wallet {
+fn wallet(cents: Int) -> Wallet {
     Wallet{
         money: Money{cents},
         coin: Coin.Dime,
@@ -57,7 +57,7 @@ fn wallet(cents: Int): Wallet {
     }
 }
 
-fn counted(): Purse {
+fn counted() -> Purse {
     Purse.Counted{total: Cents(1), tally: Tally{n: 2}}
 }
 

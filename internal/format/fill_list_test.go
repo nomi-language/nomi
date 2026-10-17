@@ -182,9 +182,9 @@ func TestFormat_ListFillNeedsNumberLiteralsAndNoComments(t *testing.T) {
 		{"call", "[" + sevens + ", f(1)]", "[\n" + onePerLine + "        f(1),\n    ]"},
 		{"interpolated string", "[" + sevens + ", \"a${x}\"]", "[\n" + onePerLine + "        \"a${x}\",\n    ]"},
 		{"nested list", "[" + sevens + ", [1]]", "[\n" + onePerLine + "        [1],\n    ]"},
-		{"tuple", "[" + sevens + ", (1, 2)]", "[\n" + onePerLine + "        (1, 2),\n    ]"},
+		{"tuple", "[" + sevens + ", #(1, 2)]", "[\n" + onePerLine + "        #(1, 2),\n    ]"},
 		{"struct", "[" + sevens + ", P{x: 1}]", "[\n" + onePerLine + "        P{x: 1},\n    ]"},
-		{"lambda", "[" + sevens + ", |x| x]", "[\n" + onePerLine + "        |x| x,\n    ]"},
+		{"lambda", "[" + sevens + ", fn x -> x]", "[\n" + onePerLine + "        fn x -> x,\n    ]"},
 		{"negated name", "[" + sevens + ", -x]", "[\n" + onePerLine + "        -x,\n    ]"},
 		{
 			"multi-line string",
@@ -208,8 +208,8 @@ func TestFormat_ListFillNeedsNumberLiteralsAndNoComments(t *testing.T) {
 		broken = append(broken, "        "+strconv.Itoa(i)+" => "+strconv.Itoa(i)+",\n")
 	}
 	formatsKeepingMeaning(t,
-		"fn main() {\n    m = {"+strings.Join(entries, ", ")+"}\n}\n",
-		"fn main() {\n    m = {\n"+strings.Join(broken, "")+"    }\n}\n")
+		"fn main() {\n    m = %{"+strings.Join(entries, ", ")+"}\n}\n",
+		"fn main() {\n    m = %{\n"+strings.Join(broken, "")+"    }\n}\n")
 }
 
 // A list of only strings (wide ones too), codepoints or booleans keeps one

@@ -9,8 +9,8 @@ import "testing"
 func TestFormat_InterfaceRequirementPatternParam(t *testing.T) {
 	for _, c := range []struct{ src, want string }{
 		{"interface A {fn a(0)}\n", "interface A {\n    fn a(0)\n}\n"},
-		{"interface A {\n    fn a((x, y): (Int, Int)): Int\n}\n", "interface A {\n    fn a((x, y): (Int, Int)): Int\n}\n"},
-		{"interface A {\n    fn a(x: Int, y: Int = 1): Int\n}\n", "interface A {\n    fn a(x: Int, y: Int = 1): Int\n}\n"},
+		{"interface A {\n    fn a(#(x, y): #(Int, Int)) -> Int\n}\n", "interface A {\n    fn a(#(x, y): #(Int, Int)) -> Int\n}\n"},
+		{"interface A {\n    fn a(x: Int, y: Int = 1) -> Int\n}\n", "interface A {\n    fn a(x: Int, y: Int = 1) -> Int\n}\n"},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)
 	}

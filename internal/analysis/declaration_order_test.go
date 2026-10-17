@@ -18,7 +18,7 @@ pub enum Wrap<T> {
     Miss
 }
 
-pub fn tag_of(w: Wrap<Int>): Tag<Int> {
+pub fn tag_of(w: Wrap<Int>) -> Tag<Int> {
     case w {
         .Hit(n) -> Tag.Big(n)
         .Miss -> Tag.Small
@@ -32,7 +32,7 @@ pub enum Tag<T> {
     Small
 }
 
-pub fn wrap_of(t: Tag<Int>): Wrap<Int> {
+pub fn wrap_of(t: Tag<Int>) -> Wrap<Int> {
     case t {
         .Big(n) -> Wrap.Hit(n)
         .Small -> Wrap.Miss
@@ -123,7 +123,7 @@ func TestDeclarationOrder_EmbedsADistinctTypeAcrossAnImportCycle(t *testing.T) {
 		files := map[string]string{
 			"shape.nomi": "import " + ids + ".UserId\n\npub enum Shape {\n    embeds UserId\n    Dot\n}\n",
 			ids + ".nomi": "import shape.Shape\n\npub type UserId Int\n\n" +
-				"pub fn bump(s: Shape): Int {\n    case s {\n        Shape.UserId(k) -> k + 1\n        Shape.Dot -> 0\n    }\n}\n",
+				"pub fn bump(s: Shape) -> Int {\n    case s {\n        Shape.UserId(k) -> k + 1\n        Shape.Dot -> 0\n    }\n}\n",
 			"main.nomi": "import {\n    shape.Shape\n    " + ids + ".{UserId, bump}\n}\n\n" +
 				"fn main() {\n    dbg bump(UserId(5))\n    dbg Shape.UserId(8)\n}\n",
 		}

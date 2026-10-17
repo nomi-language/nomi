@@ -12,7 +12,7 @@ func TestSiblingIfaceGapDefaults_Run(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	const shapes = `pub interface Shape {
-    open fn area(_s: self, scale: Int = 1, extra: Int = 0): Int {
+    open fn area(_s: self, scale: Int = 1, extra: Int = 0) -> Int {
         scale + extra
     }
 }
@@ -22,7 +22,7 @@ pub struct Sq {
 }
 
 impl Shape for Sq {
-    fn area(s: Sq, scale: Int = 2, extra: Int = 0): Int {
+    fn area(s: Sq, scale: Int = 2, extra: Int = 0) -> Int {
         s.side * scale + extra
     }
 }
@@ -42,7 +42,7 @@ fn main() {
 import sq.Sq
 
 pub interface Shape {
-    open fn area(_s: self, scale: Int = 1, extra: Int = 0): Int {
+    open fn area(_s: self, scale: Int = 1, extra: Int = 0) -> Int {
         scale + extra
     }
 }
@@ -57,7 +57,7 @@ pub struct Sq {
 }
 
 impl Shape for Sq {
-    fn area(s: Sq, scale: Int = 2, extra: Int = 0): Int {
+    fn area(s: Sq, scale: Int = 2, extra: Int = 0) -> Int {
         s.side * scale + extra
     }
 }

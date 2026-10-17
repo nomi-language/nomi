@@ -99,8 +99,8 @@ func TestEnumSlotsDedupByGoTypeNotLayout(t *testing.T) {
 		// truncation. See impl.go.
 		{
 			name: "two interface types get two slots",
-			src: "interface Speech {\n  fn speak(v: self): String\n}\n\n" +
-				"interface Greeter {\n  fn greet(v: self): String\n}\n\n" +
+			src: "interface Speech {\n  fn speak(v: self) -> String\n}\n\n" +
+				"interface Greeter {\n  fn greet(v: self) -> String\n}\n\n" +
 				"enum Either {\n  Talks {s: Speech}\n  Greets {g: Greeter}\n}\n",
 			enum:  "Either",
 			slots: []string{"Speech", "Greeter"},
@@ -108,7 +108,7 @@ func TestEnumSlotsDedupByGoTypeNotLayout(t *testing.T) {
 		},
 		{
 			name: "the same interface shares one slot",
-			src: "interface Speech {\n  fn speak(v: self): String\n}\n\n" +
+			src: "interface Speech {\n  fn speak(v: self) -> String\n}\n\n" +
 				"enum Pair {\n  First {s: Speech}\n  Second {t: Speech}\n}\n",
 			enum:  "Pair",
 			slots: []string{"Speech"},
@@ -144,16 +144,16 @@ func TestEnumSlotsDedupByGoTypeNotLayout(t *testing.T) {
 		},
 		{
 			name:  "two tuple shapes get two slots",
-			src:   "enum Shapes {\n  Named {p: (Int, String)}\n  Point {q: (Int, Int)}\n}\n",
+			src:   "enum Shapes {\n  Named {p: #(Int, String)}\n  Point {q: #(Int, Int)}\n}\n",
 			enum:  "Shapes",
-			slots: []string{"(Int, String)", "(Int, Int)"},
+			slots: []string{"#(Int, String)", "#(Int, Int)"},
 			why:   "a structural type with no declaration still needs one identity per Go type",
 		},
 		{
 			name:  "the same tuple shape shares one slot",
-			src:   "enum Points {\n  Start {p: (Int, Int)}\n  End {q: (Int, Int)}\n}\n",
+			src:   "enum Points {\n  Start {p: #(Int, Int)}\n  End {q: #(Int, Int)}\n}\n",
 			enum:  "Points",
-			slots: []string{"(Int, Int)"},
+			slots: []string{"#(Int, Int)"},
 			why:   "Go's struct identity is structural, so one shape is one type",
 		},
 	}

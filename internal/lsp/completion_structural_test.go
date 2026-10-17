@@ -27,16 +27,16 @@ func TestCompletion_StructLiteralOffersUnwrittenFields(t *testing.T) {
 		src  string
 		want []string // in order
 	}{
-		{"named literal", "fn f(): Config {\n    Config{name: \"a\", " + cursorMark + "}\n}\n", []string{"host", "port"}},
-		{"unclosed literal", "fn f(): Config {\n    Config{name: \"a\", " + cursorMark + "\n}\n", []string{"host", "port"}},
-		{"empty literal: required fields first", "fn f(): Config {\n    Config{" + cursorMark + "}\n}\n", []string{"name", "host", "port"}},
-		{"struct update", "fn f(base: Config): Config {\n    {..base, host: \"h\", " + cursorMark + "}\n}\n", []string{"name", "port"}},
-		{"struct variant shorthand", "fn f(): Shape {\n    .Rect{" + cursorMark + "}\n}\n", []string{"w", "h"}},
-		{"anonymous literal against an expected type", "fn take(c: Config): Int {\n    c.port\n}\n\nfn f(): Int {\n    take({name: \"a\", " + cursorMark + "})\n}\n", []string{"host", "port"}},
-		{"target-typed literal at an annotated binding", "fn f(): Int {\n    c: Config = {name: \"a\", " + cursorMark + "}\n    c.port\n}\n", []string{"host", "port"}},
-		{"target-typed literal at a struct field", "struct Server {\n    config: Config\n}\n\nfn f(): Server {\n    Server{config: {name: \"a\", " + cursorMark + "}}\n}\n", []string{"host", "port"}},
-		{"target-typed literal at a return", "fn f(): Config {\n    {host: \"h\", " + cursorMark + "}\n}\n", []string{"name", "port"}},
-		{"target-typed literal in a typed list", "fn f(): List<Config> {\n    [{name: \"a\", " + cursorMark + "}]\n}\n", []string{"host", "port"}},
+		{"named literal", "fn f() -> Config {\n    Config{name: \"a\", " + cursorMark + "}\n}\n", []string{"host", "port"}},
+		{"unclosed literal", "fn f() -> Config {\n    Config{name: \"a\", " + cursorMark + "\n}\n", []string{"host", "port"}},
+		{"empty literal: required fields first", "fn f() -> Config {\n    Config{" + cursorMark + "}\n}\n", []string{"name", "host", "port"}},
+		{"struct update", "fn f(base: Config) -> Config {\n    {..base, host: \"h\", " + cursorMark + "}\n}\n", []string{"name", "port"}},
+		{"struct variant shorthand", "fn f() -> Shape {\n    .Rect{" + cursorMark + "}\n}\n", []string{"w", "h"}},
+		{"anonymous literal against an expected type", "fn take(c: Config) -> Int {\n    c.port\n}\n\nfn f() -> Int {\n    take({name: \"a\", " + cursorMark + "})\n}\n", []string{"host", "port"}},
+		{"target-typed literal at an annotated binding", "fn f() -> Int {\n    c: Config = {name: \"a\", " + cursorMark + "}\n    c.port\n}\n", []string{"host", "port"}},
+		{"target-typed literal at a struct field", "struct Server {\n    config: Config\n}\n\nfn f() -> Server {\n    Server{config: {name: \"a\", " + cursorMark + "}}\n}\n", []string{"host", "port"}},
+		{"target-typed literal at a return", "fn f() -> Config {\n    {host: \"h\", " + cursorMark + "}\n}\n", []string{"name", "port"}},
+		{"target-typed literal in a typed list", "fn f() -> List<Config> {\n    [{name: \"a\", " + cursorMark + "}]\n}\n", []string{"host", "port"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -46,7 +46,7 @@ func TestCompletion_StructLiteralOffersUnwrittenFields(t *testing.T) {
 			}
 		})
 	}
-	it := mustItem(t, complete(t, shapeDecls+"fn f(): Config {\n    Config{name: \"a\", "+cursorMark+"}\n}\n"), "port")
+	it := mustItem(t, complete(t, shapeDecls+"fn f() -> Config {\n    Config{name: \"a\", "+cursorMark+"}\n}\n"), "port")
 	if it.Detail == nil || *it.Detail != "port: Int" {
 		t.Fatalf("detail = %v, want port: Int", it.Detail)
 	}
@@ -56,7 +56,7 @@ func TestCompletion_StructLiteralOffersUnwrittenFields(t *testing.T) {
 }
 
 func TestCompletion_CaseFillsMissingArms(t *testing.T) {
-	src := shapeDecls + "fn area(s: Shape): Float {\n    case s {\n        .Dot -> 0.0\n        " + cursorMark + "\n    }\n}\n"
+	src := shapeDecls + "fn area(s: Shape) -> Float {\n    case s {\n        .Dot -> 0.0\n        " + cursorMark + "\n    }\n}\n"
 
 	items := completeWith(t, true, src)
 	fill := mustItem(t, items, "all missing arms")
@@ -81,14 +81,14 @@ func TestCompletion_CaseFillsMissingArms(t *testing.T) {
 
 // An `or` arm covers each of its alternatives' variants.
 func TestCompletion_CaseOrArmCoversEachAlternative(t *testing.T) {
-	src := shapeDecls + "fn area(s: Shape): Float {\n    case s {\n        .Dot or .Circle(_) -> 0.0\n        " + cursorMark + "\n    }\n}\n"
+	src := shapeDecls + "fn area(s: Shape) -> Float {\n    case s {\n        .Dot or .Circle(_) -> 0.0\n        " + cursorMark + "\n    }\n}\n"
 	items := complete(t, src)
 	labelsInclude(t, items, ".Rect")
 	labelsExclude(t, items, ".Dot", ".Circle", "all missing arms")
 }
 
 func TestCompletion_CaseWithCatchAllHasNothingMissing(t *testing.T) {
-	src := shapeDecls + "fn area(s: Shape): Float {\n    case s {\n        .Dot -> 0.0\n        _ -> 1.0\n        " + cursorMark + "\n    }\n}\n"
+	src := shapeDecls + "fn area(s: Shape) -> Float {\n    case s {\n        .Dot -> 0.0\n        _ -> 1.0\n        " + cursorMark + "\n    }\n}\n"
 	if items := complete(t, src); len(items) != 0 {
 		t.Fatalf("a case with a catch-all arm offers %v", itemLabels(items))
 	}
@@ -96,8 +96,8 @@ func TestCompletion_CaseWithCatchAllHasNothingMissing(t *testing.T) {
 
 func TestCompletion_TestGroupBootOffersEntryBoots(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"server.nomi": "struct App {\n    port: Int\n}\n\nfn boot(_startup: Startup): App {\n    App{port: 1}\n}\n\nfn main() {\n}\n",
-		"helper.nomi": "pub fn startup(): Startup {\n    Startup{env: Map.empty(), args: []}\n}\n",
+		"server.nomi": "struct App {\n    port: Int\n}\n\nfn boot(_startup: Startup) -> App {\n    App{port: 1}\n}\n\nfn main() {\n}\n",
+		"helper.nomi": "pub fn startup() -> Startup {\n    Startup{env: Map.empty(), args: []}\n}\n",
 	})
 	s := NewServer()
 	s.snippetSupport = true

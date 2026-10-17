@@ -37,7 +37,7 @@ struct Holder<T> {
   value: T
 }
 
-fn describe(s: Shape): String {
+fn describe(s: Shape) -> String {
   case s {
     Shape.Circle{r} -> "circle ${r}"
     Shape.Wrapped({r}) -> "wrapped ${r}"
@@ -45,7 +45,7 @@ fn describe(s: Shape): String {
   }
 }
 
-fn take(b: Box<Shape>): String {
+fn take(b: Box<Shape>) -> String {
   case b {
     Box.Full(s) -> "full ${describe(s)}"
     Box.Named{value} -> "named ${describe(value)}"
@@ -53,11 +53,11 @@ fn take(b: Box<Shape>): String {
   }
 }
 
-fn give(c: Circle): Box<Shape> {
+fn give(c: Circle) -> Box<Shape> {
   Box.Full(c)
 }
 
-fn single<T>(x: T): List<T> {
+fn single<T>(x: T) -> List<T> {
   [x]
 }
 
@@ -146,8 +146,8 @@ fn main() {
   io.inspect(Err(c) == Err(s))
   io.inspect([c] == [s])
   io.inspect([c] != [s])
-  io.inspect((1, c) == (1, s))
-  io.inspect((2, c) == (1, s))
+  io.inspect(#(1, c) == #(1, s))
+  io.inspect(#(2, c) == #(1, s))
   io.inspect(Box.Full(c) == Box.Full(s))
   io.inspect(Box.Full(c) != Box.Full(Plain.Spot))
   io.inspect(Box.Named{value: c} == Box.Named{value: s})

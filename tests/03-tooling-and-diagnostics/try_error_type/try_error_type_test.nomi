@@ -19,11 +19,11 @@ import {
 test "try may not launder the error type" {
     diagnostics = compiler.check(
         """
-          fn parse(s: String): Result<Int, Int> {
+          fn parse(s: String) -> Result<Int, Int> {
             Err(String.length(s))
           }
 
-          fn describe(s: String): Result<Int, String> {
+          fn describe(s: String) -> Result<Int, String> {
             n = try parse(s)
 
             Ok(n)
@@ -47,11 +47,11 @@ test "try may not launder the error type" {
 test "a matching try error type is clean" {
     diagnostics = compiler.check(
         """
-          fn parse(s: String): Result<Int, String> {
+          fn parse(s: String) -> Result<Int, String> {
             Err(s)
           }
 
-          fn describe(s: String): Result<Int, String> {
+          fn describe(s: String) -> Result<Int, String> {
             n = try parse(s)
 
             Ok(n)
@@ -69,12 +69,12 @@ test "a matching try error type is clean" {
 test "converting the error at the try site is clean" {
     diagnostics = compiler.check(
         """
-          fn parse(s: String): Result<Int, Int> {
+          fn parse(s: String) -> Result<Int, Int> {
             Err(String.length(s))
           }
 
-          fn describe(s: String): Result<Int, String> {
-            n = try Result.map_err(parse(s), |code| Int.to_string(code))
+          fn describe(s: String) -> Result<Int, String> {
+            n = try Result.map_err(parse(s), fn code -> Int.to_string(code))
 
             Ok(n)
           }
@@ -91,11 +91,11 @@ test "converting the error at the try site is clean" {
 test "try on a Maybe may not propagate out of a Result boundary" {
     diagnostics = compiler.check(
         """
-          fn find(_s: String): Maybe<Int> {
+          fn find(_s: String) -> Maybe<Int> {
             None
           }
 
-          fn describe(s: String): Result<Int, String> {
+          fn describe(s: String) -> Result<Int, String> {
             n = try find(s)
 
             Ok(n)
@@ -116,11 +116,11 @@ test "try on a Maybe may not propagate out of a Result boundary" {
 test "try needs a Result or Maybe boundary to propagate into" {
     diagnostics = compiler.check(
         """
-          fn parse(s: String): Result<Int, String> {
+          fn parse(s: String) -> Result<Int, String> {
             Err(s)
           }
 
-          fn describe(s: String): Int {
+          fn describe(s: String) -> Int {
             n = try parse(s)
 
             n

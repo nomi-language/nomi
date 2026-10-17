@@ -15,7 +15,7 @@ func TestVMTupleDebug_TourMatchesRecordedAnswer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ids := []string{tourBlock(t, "structs-enums-distinct.md", `pair = ("Ada", 37)`)}
+	ids := []string{tourBlock(t, "structs-enums-distinct.md", `pair = #("Ada", 37)`)}
 	got, refused := vmSubsetOf(t, "tour", ids, vmPathResolver(t, "tour"))
 	if len(got.Cases) != 1 || len(refused) != 0 {
 		t.Fatalf("tuple Tour program incomplete: %v", refused)
@@ -40,9 +40,9 @@ func TestVMTupleDebug_ComposesDebugAndRejectsUnsupportedChildren(t *testing.T) {
 		items []any
 		want  string
 	}{
-		{"empty", nil, "()"},
-		{"singleton", []any{int64(1)}, "(1)"},
-		{"nested and escaping", []any{rtTuple("a\nb", "a\"b"), int64(42)}, "((\"a\nb\", \"a\\\"b\"), 42)"},
+		{"empty", nil, "#()"},
+		{"singleton", []any{int64(1)}, "#(1)"},
+		{"nested and escaping", []any{rtTuple("a\nb", "a\"b"), int64(42)}, "#(#(\"a\nb\", \"a\\\"b\"), 42)"},
 		{"unsupported child", []any{int64(1), rtStruct("Point")}, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

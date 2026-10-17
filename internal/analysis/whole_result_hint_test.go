@@ -15,19 +15,19 @@ func TestWholeResultHint(t *testing.T) {
     amount: Int
 }
 
-fn parse_amount(input: String): Result<Int, String> {
+fn parse_amount(input: String) -> Result<Int, String> {
     Err(input)
 }
 
-fn parse_flag(input: String): Result<Int, Int> {
+fn parse_flag(input: String) -> Result<Int, Int> {
     Err(0)
 }
 
-fn lookup(input: String): Maybe<Int> {
+fn lookup(input: String) -> Maybe<Int> {
     None
 }
 
-fn take(r: Result<Tx, String>): Int {
+fn take(r: Result<Tx, String>) -> Int {
     0
 }
 
@@ -39,7 +39,7 @@ fn take(r: Result<Tx, String>): Int {
 	}{
 		{
 			"catch-all arm",
-			`fn withdrawal(input: String): Result<Tx, String> {
+			`fn withdrawal(input: String) -> Result<Tx, String> {
     case parse_amount(input) {
         Ok(amount) -> Ok(Tx{amount: amount})
         err -> err
@@ -51,7 +51,7 @@ fn take(r: Result<Tx, String>): Int {
 		},
 		{
 			"as name over Err",
-			`fn withdrawal(input: String): Result<Tx, String> {
+			`fn withdrawal(input: String) -> Result<Tx, String> {
     case parse_amount(input) {
         Ok(amount) -> Ok(Tx{amount: amount})
         Err(_) as err -> err
@@ -63,7 +63,7 @@ fn take(r: Result<Tx, String>): Int {
 		},
 		{
 			"return",
-			`fn withdrawal(input: String): Result<Tx, String> {
+			`fn withdrawal(input: String) -> Result<Tx, String> {
     case parse_amount(input) {
         Ok(amount) -> Ok(Tx{amount: amount})
         err -> {
@@ -77,7 +77,7 @@ fn take(r: Result<Tx, String>): Int {
 		},
 		{
 			"argument",
-			`fn withdrawal(input: String): Int {
+			`fn withdrawal(input: String) -> Int {
     err = parse_amount(input)
     take(err)
 }
@@ -87,7 +87,7 @@ fn take(r: Result<Tx, String>): Int {
 		},
 		{
 			"maybe catch-all arm",
-			`fn find(input: String): Maybe<Tx> {
+			`fn find(input: String) -> Maybe<Tx> {
     case lookup(input) {
         Some(amount) -> Some(Tx{amount: amount})
         none -> none
@@ -100,7 +100,7 @@ fn take(r: Result<Tx, String>): Int {
 		},
 		{
 			"error types differ",
-			`fn withdrawal(input: String): Result<Tx, String> {
+			`fn withdrawal(input: String) -> Result<Tx, String> {
     case parse_flag(input) {
         Ok(amount) -> Ok(Tx{amount: amount})
         err -> err
@@ -112,7 +112,7 @@ fn take(r: Result<Tx, String>): Int {
 		},
 		{
 			"not a name",
-			`fn withdrawal(input: String): Result<Tx, String> {
+			`fn withdrawal(input: String) -> Result<Tx, String> {
     case parse_amount(input) {
         Ok(amount) -> Ok(Tx{amount: amount})
         Err(_) -> parse_amount(input)

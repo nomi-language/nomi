@@ -6,23 +6,23 @@ import "testing"
 // `name = ...` pipe binding does: after `=`, with the source and each `|>`
 // one level in, and a blank line after the statement.
 func TestFormat_DestructurePipeBindingBreaksLikeAPlainBinding(t *testing.T) {
-	pipe := "words |> Iter.filter(|word| word != \"\") |> Iter.to_list() |> split_first_word_of_every_line_in_the_input()"
-	broken := "        words\n        |> Iter.filter(|word| word != \"\")\n        |> Iter.to_list()\n        |> split_first_word_of_every_line_in_the_input()\n"
+	pipe := "words |> Iter.filter(fn word -> word != \"\") |> Iter.to_list() |> split_first_word_of_every_line_in_the_input()"
+	broken := "        words\n        |> Iter.filter(fn word -> word != \"\")\n        |> Iter.to_list()\n        |> split_first_word_of_every_line_in_the_input()\n"
 	cases := []struct {
 		name   string
 		target string
 	}{
 		{"plain", "pair"},
-		{"tuple", "(first, rest)"},
-		{"tuple with a wildcard", "(first, _)"},
+		{"tuple", "#(first, rest)"},
+		{"tuple with a wildcard", "#(first, _)"},
 		{"struct", "{first, rest}"},
-		{"map", `{"first" => first}`},
+		{"map", `%{"first" => first}`},
 		{"distinct", "Pair(pair)"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			in := "fn f(words: List<String>): Int {\n    " + c.target + " = " + pipe + "\n    1\n}\n"
-			want := "fn f(words: List<String>): Int {\n    " + c.target + " =\n" + broken + "\n    1\n}\n"
+			in := "fn f(words: List<String>) -> Int {\n    " + c.target + " = " + pipe + "\n    1\n}\n"
+			want := "fn f(words: List<String>) -> Int {\n    " + c.target + " =\n" + broken + "\n    1\n}\n"
 			got, err := Format(in)
 			if err != nil {
 				t.Fatal(err)
@@ -49,13 +49,13 @@ func TestFormat_DestructurePipeBindingThatFits(t *testing.T) {
 	}{
 		{
 			name: "fits on one line",
-			in:   "fn f(words: List<String>): Int {\n    (first, rest) = words |> Iter.to_list() |> split_first()\n    1\n}\n",
-			want: "fn f(words: List<String>): Int {\n    (first, rest) = words |> Iter.to_list() |> split_first()\n    1\n}\n",
+			in:   "fn f(words: List<String>) -> Int {\n    #(first, rest) = words |> Iter.to_list() |> split_first()\n    1\n}\n",
+			want: "fn f(words: List<String>) -> Int {\n    #(first, rest) = words |> Iter.to_list() |> split_first()\n    1\n}\n",
 		},
 		{
 			name: "fits after the =",
-			in:   "fn f(words: List<String>): Int {\n    (first_word_of_the_line, every_remaining_word) = words |> Iter.to_list() |> split_first_word_of_each_line()\n    1\n}\n",
-			want: "fn f(words: List<String>): Int {\n    (first_word_of_the_line, every_remaining_word) =\n        words |> Iter.to_list() |> split_first_word_of_each_line()\n\n    1\n}\n",
+			in:   "fn f(words: List<String>) -> Int {\n    #(first_word_of_the_line, every_remaining_word) = words |> Iter.to_list() |> split_first_word_of_each_line()\n    1\n}\n",
+			want: "fn f(words: List<String>) -> Int {\n    #(first_word_of_the_line, every_remaining_word) =\n        words |> Iter.to_list() |> split_first_word_of_each_line()\n\n    1\n}\n",
 		},
 	}
 	for _, c := range cases {

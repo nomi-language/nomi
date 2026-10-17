@@ -10,7 +10,7 @@ import std/io
 
 fn main() {
     type Token String
-    type Coord (Int, Int)
+    type Coord #(Int, Int)
     type Items List<Int>
 
     struct Pt {
@@ -41,7 +41,7 @@ fn main() {
 
 // A second `Pt` in another body, with another field set: each renders
 // through its own declaration's impl.
-fn second(): String {
+fn second() -> String {
     struct Pt {
         name: String
     }

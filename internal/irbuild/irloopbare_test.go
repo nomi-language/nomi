@@ -12,15 +12,15 @@ func TestIRLoopEndless_BareAndAliasedLoop(t *testing.T) {
     std/iter.Iter.{loop, loop as forever}
 }
 
-fn spin(): Int {
-    forever(|n = 0| {
+fn spin() -> Int {
+    forever(fn n = 0 -> {
         io.print("spin ${n}")
         n + 1
     })
 }
 
 fn main() {
-    x = loop(|n = 0| {
+    x = loop(fn n = 0 -> {
         if n == 2 { return 10 }
         if n == 11 { io.print(1 / (n - 11)) }
         io.print("bound ${n}")
@@ -37,7 +37,7 @@ fn main() {
 
 fn main() {
     io.print("start")
-    forever(|| {
+    forever(fn -> {
         io.print("again")
         io.print(1 / 0)
     })
@@ -56,7 +56,7 @@ fn loop(f: () -> Unit) {
 }
 
 fn main() {
-    loop(|| {
+    loop(fn -> {
         io.print("called")
     })
     io.print("after")

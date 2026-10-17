@@ -20,10 +20,10 @@ func TestExtractVariable_Selection(t *testing.T) {
 }
 
 func TestExtractVariable_CursorTakesInnermostCall(t *testing.T) {
-	src := fnMain("xs = [1, 2, 3]\nio.inspect(Iter.to_list(Iter.map(xs, |x| x * 2)) == [2, 4, 6])\n")
-	src = fnMain("xs = [1, 2, 3]\nio.inspect(Iter.to_li‸st(Iter.map(xs, |x| x * 2)) == [2, 4, 6])\n")
+	src := fnMain("xs = [1, 2, 3]\nio.inspect(Iter.to_list(Iter.map(xs, fn x -> x * 2)) == [2, 4, 6])\n")
+	src = fnMain("xs = [1, 2, 3]\nio.inspect(Iter.to_li‸st(Iter.map(xs, fn x -> x * 2)) == [2, 4, 6])\n")
 	got := checkRefactor(t, src, "Extract variable 'list'", extract)
-	if want := fnMain("xs = [1, 2, 3]\nlist = Iter.to_list(Iter.map(xs, |x| x * 2))\nio.inspect(list == [2, 4, 6])\n"); got != want {
+	if want := fnMain("xs = [1, 2, 3]\nlist = Iter.to_list(Iter.map(xs, fn x -> x * 2))\nio.inspect(list == [2, 4, 6])\n"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
@@ -38,9 +38,9 @@ func TestExtractVariable_FieldNameAndCollision(t *testing.T) {
 }
 
 func TestExtractVariable_InsideLambdaBlock(t *testing.T) {
-	src := fnMain("n =\n    [1, 2]\n    |> Iter.map(|x| {\n        io.print(\"${x}\")\n        Int.to_str‸ing(x)\n    })\n    |> Iter.to_list()\n\nio.inspect(n)\n")
+	src := fnMain("n =\n    [1, 2]\n    |> Iter.map(fn x -> {\n        io.print(\"${x}\")\n        Int.to_str‸ing(x)\n    })\n    |> Iter.to_list()\n\nio.inspect(n)\n")
 	got := checkRefactor(t, src, "Extract variable 'string'", extract)
-	want := fnMain("n =\n    [1, 2]\n    |> Iter.map(|x| {\n        io.print(\"${x}\")\n        string = Int.to_string(x)\n        string\n    })\n    |> Iter.to_list()\n\nio.inspect(n)\n")
+	want := fnMain("n =\n    [1, 2]\n    |> Iter.map(fn x -> {\n        io.print(\"${x}\")\n        string = Int.to_string(x)\n        string\n    })\n    |> Iter.to_list()\n\nio.inspect(n)\n")
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
@@ -58,7 +58,7 @@ func TestExtractVariable_NoEarlierEffect(t *testing.T) {
 func TestExtractVariable_Refused(t *testing.T) {
 	for name, body := range map[string]string{
 		// Out of a lambda's body.
-		"lambda body": "n = Iter.map([1], |x| Int.to_str‸ing(x))\nio.inspect(Iter.to_list(n))\n",
+		"lambda body": "n = Iter.map([1], fn x -> Int.to_str‸ing(x))\nio.inspect(Iter.to_list(n))\n",
 		// A case arm runs only when its pattern matches.
 		"case arm": "m = String.to_int(\"1\")\nn = case m {\n    Some(v) -> Int.to_str‸ing(v)\n    None -> \"\"\n}\n\nio.inspect(n)\n",
 		// The right side of `and` runs only when the left is true.
@@ -91,9 +91,9 @@ func TestInlineVariable(t *testing.T) {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 	// A pure value goes anywhere its names mean the same, a lambda body too.
-	src = fnMain("k‸ = 2\nn = Iter.map([1], |x| x * k)\nio.inspect(Iter.to_list(n))\n")
+	src = fnMain("k‸ = 2\nn = Iter.map([1], fn x -> x * k)\nio.inspect(Iter.to_list(n))\n")
 	got = checkRefactor(t, src, "Inline variable 'k'", inline)
-	if want := fnMain("n = Iter.map([1], |x| x * 2)\nio.inspect(Iter.to_list(n))\n"); got != want {
+	if want := fnMain("n = Iter.map([1], fn x -> x * 2)\nio.inspect(Iter.to_list(n))\n"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
@@ -104,7 +104,7 @@ func TestInlineVariable_Refused(t *testing.T) {
 		// A call moved past another statement would run after it.
 		"not next": "n‸ = Iter.count([1])\nio.print(\"a\")\nio.inspect(n)\n",
 		// A call moved into a lambda would run once per element.
-		"into lambda": "k‸ = Iter.count([1])\nm = Iter.map([1], |x| x * k)\nio.inspect(Iter.to_list(m))\n",
+		"into lambda": "k‸ = Iter.count([1])\nm = Iter.map([1], fn x -> x * k)\nio.inspect(Iter.to_list(m))\n",
 		// The name the value reads is rebound before the read.
 		"shadowed": "a = 1\nb‸ = a + 1\na = 5\nio.inspect(a + b)\n",
 		// An annotation gives the value its type.

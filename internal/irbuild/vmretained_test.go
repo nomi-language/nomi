@@ -428,7 +428,7 @@ func (s *vmShaper) index(f *ir.Func) {
 	}
 	// A slot several paths copy into (a binding's `else` joins the payload
 	// it read with the fallback it built) demands of each source what is
-	// read off the slot, so `Some((Pair(x, _), y)) = m else { ... }`
+	// read off the slot, so `Some(#(Pair(x, _), y)) = m else { ... }`
 	// demands a tuple of m's payload. Repeated while a copy into a copied
 	// slot still carries a demand on.
 	for carried := true; carried; {

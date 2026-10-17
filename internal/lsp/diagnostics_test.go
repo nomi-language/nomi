@@ -105,7 +105,7 @@ func TestParseErrorsToDiagnostics_Empty(t *testing.T) {
 func TestAttachedTestDiagnosticsAllowOrdinaryAssert(t *testing.T) {
 	content := strings.Join([]string{
 		"//! assert 1 == 1",
-		"fn ready(): Bool { True }",
+		"fn ready() -> Bool { True }",
 	}, "\n")
 	nodes, parseErrs := parser.ParseWithRecovery(lexer.Lex(content))
 	if len(parseErrs) != 0 {
@@ -123,7 +123,7 @@ func TestAttachedTestDiagnosticsAllowBlankSeparatedBlocks(t *testing.T) {
 		"",
 		"//! refute answer() == 41",
 		"//!",
-		"fn answer(): Int { 42 }",
+		"fn answer() -> Int { 42 }",
 	}, "\n")
 	nodes, parseErrs := parser.ParseWithRecovery(lexer.Lex(content))
 	if len(parseErrs) != 0 {
@@ -142,7 +142,7 @@ func TestAttachedTestDiagnosticsAllowCommentSeparatedBlocks(t *testing.T) {
 				"//! assert answer() == 42",
 				separator,
 				"//! refute answer() == 41",
-				"fn answer(): Int { 42 }",
+				"fn answer() -> Int { 42 }",
 			}, "\n")
 			nodes, parseErrs := parser.ParseWithRecovery(lexer.Lex(content))
 			if len(parseErrs) != 0 {
@@ -391,7 +391,7 @@ func TestOperatorDiagnosticsStartAtTheOperator(t *testing.T) {
 func TestTypeErrorsViaDocumentManager(t *testing.T) {
 	dm := analysis.NewDocumentManager()
 	// This function has a return type mismatch: declared Int, returns String
-	doc := dm.Open("file:///test.nomi", `fn bad(): Int { "hello" }`)
+	doc := dm.Open("file:///test.nomi", `fn bad() -> Int { "hello" }`)
 	if doc.Analysis == nil {
 		t.Fatal("expected analysis to be non-nil")
 	}
@@ -438,7 +438,7 @@ func TestImportedFileBuildErrorsPublishOnThatFile(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"main.nomi":   "import std/io\nimport helper\n\nfn main() {\n  io.print(helper.greet())\n}\n",
-		"helper.nomi": "import std/regex\n\nstruct A {\n  x: Int\n}\n\nenum A {\n  One\n}\n\npub fn greet(): String {\n  \"hi\"\n}\n",
+		"helper.nomi": "import std/regex\n\nstruct A {\n  x: Int\n}\n\nenum A {\n  One\n}\n\npub fn greet() -> String {\n  \"hi\"\n}\n",
 	})
 	lib := std.Load()
 	dm := analysis.NewDocumentManager()
@@ -478,8 +478,8 @@ func TestMissingImportPublishesOnTheImportLine(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"main.nomi":   "import std/io\nimport helper\nimport lib\n\nfn main() {\n  io.print(helper.greet())\n  lib.go()\n}\n",
-		"helper.nomi": "import utlis\n\npub fn greet(): String {\n  utlis.name()\n}\n",
-		"utils.nomi":  "pub fn name(): String {\n  \"hi\"\n}\n",
+		"helper.nomi": "import utlis\n\npub fn greet() -> String {\n  utlis.name()\n}\n",
+		"utils.nomi":  "pub fn name() -> String {\n  \"hi\"\n}\n",
 	})
 	lib := std.Load()
 	dm := analysis.NewDocumentManager()
@@ -574,8 +574,8 @@ func TestImplOnlyImportPublishesWhatTheProgramUses(t *testing.T) {
 	}
 	// extra.nomi imports hop, whose one impl the program uses, and spare,
 	// whose one impl it does not.
-	files["spare.nomi"] = "import decls.{Alpha, Other}\n\nimpl Alpha for Other {\n    fn go(x: Other): Int {\n        x.n\n    }\n}\n"
-	files["extra.nomi"] = "import {\n    hop\n    spare\n}\n\npub fn one(): Int {\n    1\n}\n"
+	files["spare.nomi"] = "import decls.{Alpha, Other}\n\nimpl Alpha for Other {\n    fn go(x: Other) -> Int {\n        x.n\n    }\n}\n"
+	files["extra.nomi"] = "import {\n    hop\n    spare\n}\n\npub fn one() -> Int {\n    1\n}\n"
 	files["main.nomi"] = strings.Replace(files["main.nomi"], "    std/io\n", "    std/io\n    extra\n", 1)
 	// The derive is there because opening another file type-checks main.nomi
 	// as that file's entry, from a tree the editor parsed but did not lower.

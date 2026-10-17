@@ -1,7 +1,7 @@
 // A type with a UNIQUE name, implementing an interface. The entry imports it
 // under an ALIAS, which is the only variable in this fixture.
 pub interface Shout {
-    fn shout(v: self): String
+    fn shout(v: self) -> String
 }
 
 pub struct Gadget {
@@ -9,7 +9,7 @@ pub struct Gadget {
 }
 
 impl Shout for Gadget {
-    fn shout(g: Gadget): String {
+    fn shout(g: Gadget) -> String {
         "gadget ${g.n}"
     }
 }

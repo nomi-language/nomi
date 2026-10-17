@@ -13,7 +13,7 @@ struct Box<T> {
 }
 
 impl Box<T> {
-    fn pick<T>(_b: Box<T>, other: Maybe<T> = None, n: Int = 0): Int {
+    fn pick<T>(_b: Box<T>, other: Maybe<T> = None, n: Int = 0) -> Int {
         case other {
             Some(_) -> n + 1
             None -> n

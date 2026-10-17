@@ -13,7 +13,7 @@ func TestIRVariantExhaustive_InvalidVariantReachesNoMatch(t *testing.T) {
   Idle
   Value Int
 }
-fn number(s: Signal): Int {
+fn number(s: Signal) -> Int {
   case s {
     .Idle -> 0
     .Value(n) -> n
@@ -52,7 +52,7 @@ enum Color {
   Green
   Blue
 }
-fn number(c: Color): Int {
+fn number(c: Color) -> Int {
   case c {
     .Red -> 1
     .Green -> 2
@@ -69,7 +69,7 @@ enum Signal {
   Idle
   Value Int
 }
-fn number(s: Signal): Int {
+fn number(s: Signal) -> Int {
   case s {
     .Value(0) -> 10
     .Idle -> 20
@@ -88,10 +88,10 @@ enum Signal {
 }
 fn main() {
   n = 100
-  choose = |s: Signal| {
+  choose = fn s: Signal -> {
     case s {
-      .Idle -> |x: Int| n - x
-      .Value(n) -> |x: Int| {
+      .Idle -> fn x: Int -> n - x
+      .Value(n) -> fn x: Int -> {
         case x {
           0 -> n
           _ -> n + x

@@ -12,7 +12,7 @@ pub enum Probe.Reading {
 }
 
 /// A helper for readings.
-pub fn severity(r: Probe.Reading): Int {
+pub fn severity(r: Probe.Reading) -> Int {
     case r {
         .Steady -> 0
         .Spike(n) -> n

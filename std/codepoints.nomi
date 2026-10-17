@@ -26,7 +26,7 @@ impl Codepoint {
     //! assert Codepoint.from_int(65) == Some('A')
     //! assert Codepoint.from_int(55_296) == None
     //
-    pub fn from_int(n: Int): Maybe<Codepoint> {
+    pub fn from_int(n: Int) -> Maybe<Codepoint> {
         if n < 0 or n > 1_114_111 {
             None
         } else if n >= 55_296 and n <= 57_343 {
@@ -39,7 +39,7 @@ impl Codepoint {
     /// Returns the numeric Unicode scalar value.
     //! assert Codepoint.to_int('A') == 65
     //
-    pub fn to_int(Codepoint(n)): Int {
+    pub fn to_int(Codepoint(n)) -> Int {
         n
     }
 
@@ -52,7 +52,7 @@ impl Codepoint {
     //! assert Codepoint.letter?(zhe)
     //! assert !Codepoint.letter?('7')
     //
-    pub host fn letter?(cp: Codepoint): Bool
+    pub host fn letter?(cp: Codepoint) -> Bool
 
     /// Reports whether `cp` is an ASCII digit, `'0'` through `'9'`. This is
     /// ASCII-only on purpose: a phone number, a checksum or a number to parse
@@ -64,7 +64,7 @@ impl Codepoint {
     //! assert !Codepoint.digit?(three)
     //! assert !Codepoint.digit?('x')
     //
-    pub fn digit?(Codepoint(n)): Bool {
+    pub fn digit?(Codepoint(n)) -> Bool {
         n >= 48 and n <= 57
     }
 
@@ -77,7 +77,7 @@ impl Codepoint {
     //! assert Codepoint.to_digit(one) == None
     //! assert Codepoint.to_digit('x') == None
     //
-    pub fn to_digit(Codepoint(n)): Maybe<Int> {
+    pub fn to_digit(Codepoint(n)) -> Maybe<Int> {
         if n >= 48 and n <= 57 {
             Some(n - 48)
         } else {
@@ -95,7 +95,7 @@ impl Codepoint {
     //! assert Codepoint.whitespace?(nbsp)
     //! assert !Codepoint.whitespace?('a')
     //
-    pub host fn whitespace?(cp: Codepoint): Bool
+    pub host fn whitespace?(cp: Codepoint) -> Bool
 
     /// Reports whether `cp` is an uppercase letter: general category Lu, as
     /// Go's `unicode.IsUpper` answers it. Title-case letters (category Lt,
@@ -106,7 +106,7 @@ impl Codepoint {
     //! assert Codepoint.upper?(zhe)
     //! assert !Codepoint.upper?('a')
     //
-    pub host fn upper?(cp: Codepoint): Bool
+    pub host fn upper?(cp: Codepoint) -> Bool
 
     /// Reports whether `cp` is a lowercase letter: general category Ll, as
     /// Go's `unicode.IsLower` answers it. Title-case letters (category Lt,
@@ -117,7 +117,7 @@ impl Codepoint {
     //! assert Codepoint.lower?(e_acute)
     //! assert !Codepoint.lower?('A')
     //
-    pub host fn lower?(cp: Codepoint): Bool
+    pub host fn lower?(cp: Codepoint) -> Bool
 }
 
 derive Equatable for Codepoint
@@ -128,14 +128,14 @@ impl Display for Codepoint {
     /// Returns a one-codepoint string containing `cp`.
     //! assert Codepoint.to_string('A') == "A"
     //
-    host fn to_string(cp: Codepoint): String
+    host fn to_string(cp: Codepoint) -> String
 }
 
 impl Debug for Codepoint {
     /// Returns the developer-facing representation, e.g. `Codepoint(65)`.
     //! assert Codepoint.inspect('A') == "Codepoint(65)"
     //
-    fn inspect(cp: Codepoint): String {
+    fn inspect(cp: Codepoint) -> String {
         "Codepoint(${Codepoint.to_int(cp)})"
     }
 }
@@ -146,7 +146,7 @@ impl Discrete for Codepoint {
     //! assert Codepoint.next('A') == Some('B')
     //! assert Codepoint.next(try Codepoint.from_int(0x10FFFF)) == None
     //
-    fn next(cp: Codepoint): Maybe<Codepoint> {
+    fn next(cp: Codepoint) -> Maybe<Codepoint> {
         n = Codepoint.to_int(cp)
 
         if n == 1_114_111 {
@@ -162,7 +162,7 @@ impl Discrete for Codepoint {
     /// second, skipping invalid surrogate values without walking the range.
     //! assert Codepoint.steps_between('a', 'd') == Some(3)
     //
-    fn steps_between(Codepoint(a), Codepoint(b)): Maybe<Int> {
+    fn steps_between(Codepoint(a), Codepoint(b)) -> Maybe<Int> {
         if a > b {
             Some(0)
         } else {
@@ -183,7 +183,7 @@ impl Steppable for Codepoint {
     /// Codepoint domain.
     //! assert Codepoint.step_by('A', 2) == Some('C')
     //
-    fn step_by(cp: Codepoint, by: Int): Maybe<Codepoint> {
+    fn step_by(cp: Codepoint, by: Int) -> Maybe<Codepoint> {
         n = Codepoint.to_int(cp)
 
         if by > 1_114_111 or by < -1_114_111 {

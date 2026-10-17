@@ -12,7 +12,7 @@ func TestCompletion_KeywordShapes(t *testing.T) {
 	tests := []struct {
 		name, src, label, text string
 	}{
-		{"fn at the top level", cursorMark + "\n", "fn", "fn ${1:name}(${2}): ${3:Unit} {\n    $0\n}"},
+		{"fn at the top level", cursorMark + "\n", "fn", "fn ${1:name}(${2}) -> ${3:Unit} {\n    $0\n}"},
 		{"struct", "str" + cursorMark + "\n", "struct", "struct ${1:Name} {\n    $0\n}"},
 		{"enum", "en" + cursorMark + "\n", "enum", "enum ${1:Name} {\n    $0\n}"},
 		{"impl", "im" + cursorMark + "\n", "impl", "impl ${1:Type} {\n    $0\n}"},
@@ -20,9 +20,9 @@ func TestCompletion_KeywordShapes(t *testing.T) {
 		{"group", "gr" + cursorMark + "\n", "group", "group \"${1:name}\" {\n    $0\n}"},
 		{"if at a statement", "fn f(n: Int) {\n    i" + cursorMark + "\n}\n", "if", "if ${1:condition} {\n    $0\n}"},
 		{"if else at a statement", "fn f(n: Int) {\n    i" + cursorMark + "\n}\n", "if else", "if ${1:condition} {\n    ${2}\n} else {\n    $0\n}"},
-		{"case in an operand", "fn f(n: Int): Int {\n    x = ca" + cursorMark + "\n    x\n}\n", "case", "case ${1:value} {\n    $0\n}"},
-		{"if in an operand", "fn f(n: Int): Int {\n    x = i" + cursorMark + "\n    x\n}\n", "if else", "if ${1:condition} {\n    ${2}\n} else {\n    $0\n}"},
-		{"a nested fn", "fn f() {\n    f" + cursorMark + "\n}\n", "fn", "fn ${1:name}(${2}): ${3:Unit} {\n    $0\n}"},
+		{"case in an operand", "fn f(n: Int) -> Int {\n    x = ca" + cursorMark + "\n    x\n}\n", "case", "case ${1:value} {\n    $0\n}"},
+		{"if in an operand", "fn f(n: Int) -> Int {\n    x = i" + cursorMark + "\n    x\n}\n", "if else", "if ${1:condition} {\n    ${2}\n} else {\n    $0\n}"},
+		{"a nested fn", "fn f() {\n    f" + cursorMark + "\n}\n", "fn", "fn ${1:name}(${2}) -> ${3:Unit} {\n    $0\n}"},
 		{"a deeper line", "fn f(n: Int) {\n    if n > 0 {\n        ca" + cursorMark + "\n    }\n}\n", "case", "case ${1:value} {\n    $0\n}"},
 	}
 	for _, tt := range tests {
@@ -76,9 +76,9 @@ func TestCompletion_KeywordShapesFallBackToTheKeyword(t *testing.T) {
 // the piped value).
 func TestCompletion_KeywordShapesOnlyWhereTheyFit(t *testing.T) {
 	for _, src := range []string{
-		"//! x = i" + cursorMark + "\n//! assert x\npub fn double(n: Int): Int {\n    n * 2\n}\n",
-		"fn f(n: Int): String {\n    \"${i" + cursorMark + "}\"\n}\n",
-		"fn f(n: Int): Int {\n    n |> i" + cursorMark + "\n}\n",
+		"//! x = i" + cursorMark + "\n//! assert x\npub fn double(n: Int) -> Int {\n    n * 2\n}\n",
+		"fn f(n: Int) -> String {\n    \"${i" + cursorMark + "}\"\n}\n",
+		"fn f(n: Int) -> Int {\n    n |> i" + cursorMark + "\n}\n",
 	} {
 		items := completeWith(t, true, src)
 		if te := textEditOf(t, mustItem(t, items, "if")); te.NewText != "if" {

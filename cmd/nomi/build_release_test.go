@@ -567,7 +567,7 @@ func TestBuildFromRelease_WasmTargetsDownloadTheirRunners(t *testing.T) {
 	}
 	t.Run("wasip1 reactor", func(t *testing.T) {
 		lib := filepath.Join(dir, "lib.nomi")
-		mustWrite(t, lib, "export fn twice(n: Int): Int {\n    n * 2\n}\n")
+		mustWrite(t, lib, "export fn twice(n: Int) -> Int {\n    n * 2\n}\n")
 		out := filepath.Join(t.TempDir(), "lib.wasm")
 		got := runProcess(t, env, dir, "", nomi, "build", "--target", "wasip1/wasm", lib, "-o", out)
 		if got.exit != 0 || !strings.Contains(got.stderr, "downloading nomi-vm-reactor for wasip1/wasm") {

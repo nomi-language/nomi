@@ -11,6 +11,6 @@ pub struct Span<T> {
     stop: T
 }
 
-pub fn first<T>(s: Span<T>): T {
+pub fn first<T>(s: Span<T>) -> T {
     s.start
 }

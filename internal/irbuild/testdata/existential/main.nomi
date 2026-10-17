@@ -27,13 +27,13 @@ struct App {
     clock: Clock
 }
 
-fn banner(a: App): String {
+fn banner(a: App) -> String {
     "${a.name}/${Clock.now(a.clock)}: ${Logger.log(a.logger, "ready")}"
 }
 
 // The field read back out and passed on WITHOUT being re-boxed: the identity
 // travels with the value.
-fn relay(l: Logger, message: String): String {
+fn relay(l: Logger, message: String) -> String {
     Logger.log(l, message)
 }
 

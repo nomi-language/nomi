@@ -28,47 +28,47 @@ struct Count {
 }
 
 impl Display for Tag {
-    fn to_string(t: Tag): String {
+    fn to_string(t: Tag) -> String {
         "tag(${t.name})"
     }
 }
 
 impl Display for Count {
-    fn to_string(c: Count): String {
+    fn to_string(c: Count) -> String {
         "count(${c.n})"
     }
 }
 
 impl Comparable for Tag {
-    fn compare(a: Tag, b: Tag): Ordering {
+    fn compare(a: Tag, b: Tag) -> Ordering {
         String.compare(a.name, b.name)
     }
 }
 
 impl Comparable for Count {
-    fn compare(a: Count, b: Count): Ordering {
+    fn compare(a: Count, b: Count) -> Ordering {
         Int.compare(a.n, b.n)
     }
 }
 
 // PARAMETER, and the DISPATCH: `d`'s concrete type is gone by the time this
 // runs, so the answer is decided by the identity the box carries.
-fn render(d: Display): String {
+fn render(d: Display) -> String {
     Display.to_string(d)
 }
 
 // RETURN. The value is boxed at the `return` position — where the checker
 // accepted the widening — and unboxed by nobody: it stays erased across the
 // call boundary and is dispatched at the caller.
-fn a_tag(name: String): Display {
+fn a_tag(name: String) -> Display {
     Tag{name}
 }
 
-fn a_count(n: Int): Display {
+fn a_count(n: Int) -> Display {
     Count{n}
 }
 
-fn pick(flag: Bool): Display {
+fn pick(flag: Bool) -> Display {
     case flag {
         True -> a_tag("yes")
         False -> a_count(0)
@@ -76,7 +76,7 @@ fn pick(flag: Bool): Display {
 }
 
 // TYPE ARGUMENT: a prelude enum instantiated at an existential.
-fn render_maybe(m: Maybe<Display>): String {
+fn render_maybe(m: Maybe<Display>) -> String {
     case m {
         Some(d) -> render(d)
         None -> "none"
@@ -91,7 +91,7 @@ struct Slot {
     held: Display
 }
 
-fn describe(s: Slot): String {
+fn describe(s: Slot) -> String {
     "${s.label}=${render(s.held)}"
 }
 
@@ -107,7 +107,7 @@ fn describe(s: Slot): String {
 // function with more than one self-typed parameter`, while the type
 // position, the boxing, and the CONCRETE-qualifier call below all
 // lower.
-fn boxed_count(_c: Comparable): Int {
+fn boxed_count(_c: Comparable) -> Int {
     1
 }
 
@@ -117,7 +117,7 @@ fn boxed_count(_c: Comparable): Int {
 // both must keep the route they had — a peer measured a mutation in which
 // giving stdlib interfaces an owner turned `Display.to_string(Cat{...})` from
 // a lowering into a refusal, and no corpus file could see it.
-fn direct(): String {
+fn direct() -> String {
     same = case Comparable.compare(Count{n: 1}, Count{n: 1}) {
         Ordering.Less -> "less"
         Ordering.Equal -> "equal"

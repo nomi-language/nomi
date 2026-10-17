@@ -18,10 +18,10 @@ fn main() {
     io.print(a != b)
     io.print(Comparable.compare(a, b))
     io.print(Doodad.compare(b, a))
-    sorted = [b, a, Doodad{n: 0}] |> Iter.sort() |> Iter.map(|d| d.n) |> Iter.to_list()
+    sorted = [b, a, Doodad{n: 0}] |> Iter.sort() |> Iter.map(fn d -> d.n) |> Iter.to_list()
 
     io.print(sorted)
-    by = [b, a] |> Iter.sort_by(|d| d) |> Iter.map(|d| d.n) |> Iter.to_list()
+    by = [b, a] |> Iter.sort_by(fn d -> d) |> Iter.map(fn d -> d.n) |> Iter.to_list()
 
     io.print(by)
 
@@ -34,14 +34,14 @@ fn main() {
 
     io.print(Set.size(s))
     io.print(Set.contains?(s, Tier{level: 1, name: "z"}))
-    m = [(t1, "one"), (t2, "two")] |> Iter.to_map()
+    m = [#(t1, "one"), #(t2, "two")] |> Iter.to_map()
 
     io.print(Map.contains_key?(m, Tier{level: 1, name: "z"}))
 
     io.print(
         [t1, t2]
         |> Iter.sort()
-        |> Iter.map(|t| t.name)
+        |> Iter.map(fn t -> t.name)
         |> Iter.to_list()
     )
 
@@ -52,7 +52,7 @@ fn main() {
     io.print(
         r
         |> Range.step_by(3)
-        |> Iter.map(|d| d.n)
+        |> Iter.map(fn d -> d.n)
         |> Iter.to_list()
     )
 
@@ -62,7 +62,7 @@ fn main() {
     io.print(
         span
         |> Range.step_by(2)
-        |> Iter.map(|x| x.n)
+        |> Iter.map(fn x -> x.n)
         |> Iter.to_list()
     )
 }

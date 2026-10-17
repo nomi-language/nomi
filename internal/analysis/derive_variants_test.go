@@ -41,7 +41,7 @@ func TestDeriveVariants_AcceptsAnEnumWhoseVariantsCarryNoData(t *testing.T) {
 
 derive Variants for Coin
 
-fn all(): List<Coin> {
+fn all() -> List<Coin> {
     Coin.variants()
 }
 `

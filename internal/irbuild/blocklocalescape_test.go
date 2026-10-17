@@ -44,14 +44,14 @@ fn main() {
         Meters(4)
     }
     io.inspect(d)
-    make = || {
+    make = fn -> {
         struct P {
             x: Int
         }
         P{x: 9}
     }
     io.inspect(make().x)
-    xs = Iter.map([1, 2], |i| {
+    xs = Iter.map([1, 2], fn i -> {
         struct Q {
             i: Int
         }

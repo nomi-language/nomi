@@ -110,7 +110,7 @@ const (
 	// and a plain binding rejects it.
 	tagUntyped mxTags = 1 << iota
 	// tagExpects: the expression is checked against the type its position
-	// expects, and has none without one (`.Circle(1.0)`, `|n| n + 1`,
+	// expects, and has none without one (`.Circle(1.0)`, `fn n -> n + 1`,
 	// `Display.to_string`, a list of two implementors of an interface).
 	// Unification after the fact does not help it.
 	tagExpects
@@ -153,9 +153,9 @@ const mxFragile = tagUntyped | tagExpects | tagWidens | tagFn | tagUnit | tagExi
 const (
 	mxPoint = "struct Point {\n    x: Int\n    y: Int = 2\n}"
 	mxShape = "struct Spot {\n    n: Int\n}\n\ntype Tag String\n\nenum Shape {\n    embeds Spot\n    embeds Tag\n    Circle Float\n    Rect {w: Int, h: Int}\n    Dot\n}"
-	mxNamed = "interface Named {\n    fn name(value: self): String\n    fn shout(value: self): String {\n        name(value) + \"!\"\n    }\n}\n\nstruct Pt {\n    x: Int\n}\n\nimpl Named for Pt {\n    fn name(p: Pt): String {\n        \"pt${p.x}\"\n    }\n}"
-	mxAdd3  = "fn add3(a: Int, b: Int, c: Int = 100): Int {\n    a + b + c\n}"
-	mxGreet = "fn greet(name: String, punct: String = \"!\", times: Int = 1): String {\n    \"${name}${punct}${times}\"\n}"
+	mxNamed = "interface Named {\n    fn name(value: self) -> String\n    fn shout(value: self) -> String {\n        name(value) + \"!\"\n    }\n}\n\nstruct Pt {\n    x: Int\n}\n\nimpl Named for Pt {\n    fn name(p: Pt) -> String {\n        \"pt${p.x}\"\n    }\n}"
+	mxAdd3  = "fn add3(a: Int, b: Int, c: Int = 100) -> Int {\n    a + b + c\n}"
+	mxGreet = "fn greet(name: String, punct: String = \"!\", times: Int = 1) -> String {\n    \"${name}${punct}${times}\"\n}"
 	mxBox   = "struct Box<T> {\n    v: T\n}"
 	mxTree  = "enum Tree<T> {\n    Leaf T\n    Nil\n}"
 	mxCoin  = "enum Coin {\n    Penny\n    Dime\n}"
@@ -178,10 +178,10 @@ var mxFeatures = []mxFeature{
 	{name: "vector", typ: "Vector<Int>", expr: "#[1, 2]", want: "#[1, 2]"},
 	{name: "empty set", typ: "Set<Int>", expr: "#{}", want: "#{}", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
 	{name: "set", typ: "Set<Int>", expr: "#{3, 4}", want: "#{3, 4}"},
-	{name: "map", typ: "Map<String, Int>", expr: `{"a" => 1}`, want: `{"a" => 1}`},
-	{name: "map spread", typ: "Map<String, Int>", expr: `{..{"a" => 1}, "b" => 2}`, want: `{"a" => 1, "b" => 2}`},
-	{name: "empty map", typ: "Map<String, Int>", expr: "Map.empty()", want: "{=>}", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
-	{name: "tuple", typ: "(Int, String)", expr: `(1, "a")`, want: `(1, "a")`},
+	{name: "map", typ: "Map<String, Int>", expr: `%{"a" => 1}`, want: `%{"a" => 1}`},
+	{name: "map spread", typ: "Map<String, Int>", expr: `%{..%{"a" => 1}, "b" => 2}`, want: `%{"a" => 1, "b" => 2}`},
+	{name: "empty map", typ: "Map<String, Int>", expr: "Map.empty()", want: "%{}", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
+	{name: "tuple", typ: "#(Int, String)", expr: `#(1, "a")`, want: `#(1, "a")`},
 	{name: "record", typ: "{a: Int, b: String}", expr: `{a: 1, b: "x"}`, want: `{a: 1, b: "x"}`},
 	{name: "range", typ: "Range<Int>", expr: "1..4", want: "1..4"},
 
@@ -205,12 +205,12 @@ var mxFeatures = []mxFeature{
 		want: `VDir{name: "r", kids: #[VDir{name: "a", kids: #[]}]}`},
 
 	// Function values.
-	{name: "named function", decls: "fn twice(n: Int): Int {\n    n * 2\n}", typ: "(Int) -> Int", expr: "twice",
+	{name: "named function", decls: "fn twice(n: Int) -> Int {\n    n * 2\n}", typ: "(Int) -> Int", expr: "twice",
 		obs: "Debug.inspect($v(2))", want: "4", tags: tagFn},
-	{name: "lambda", typ: "(Int) -> Int", expr: "|n: Int| n + 1", obs: "Debug.inspect($v(2))", want: "3", tags: tagFn},
-	{name: "unannotated lambda", typ: "(Int) -> Int", expr: "|n| n + 1", obs: "Debug.inspect($v(2))", want: "3",
+	{name: "lambda", typ: "(Int) -> Int", expr: "fn n: Int -> n + 1", obs: "Debug.inspect($v(2))", want: "3", tags: tagFn},
+	{name: "unannotated lambda", typ: "(Int) -> Int", expr: "fn n -> n + 1", obs: "Debug.inspect($v(2))", want: "3",
 		tags: tagFn | tagExpects, reject: "cannot infer type for parameter"},
-	{name: "captured lambda", typ: "(Int) -> Int", expr: "{\n    k = 5\n    |n: Int| n + k\n}",
+	{name: "captured lambda", typ: "(Int) -> Int", expr: "{\n    k = 5\n    fn n: Int -> n + k\n}",
 		obs: "Debug.inspect($v(2))", want: "7", tags: tagFn | tagNested},
 	{name: "partial", decls: mxAdd3, typ: "(Int) -> Int", expr: "add3(_, 10)", obs: "Debug.inspect($v(2))", want: "112",
 		tags: tagFn | tagCall},
@@ -229,12 +229,12 @@ var mxFeatures = []mxFeature{
 		obs: `Debug.inspect($v("7"))`, want: `"007"`, tags: tagFn | tagCall},
 
 	// Interface values.
-	{name: "existential", decls: mxNamed + "\n\nfn named_of(n: Int): Named {\n    Pt{x: n}\n}", typ: "Named",
+	{name: "existential", decls: mxNamed + "\n\nfn named_of(n: Int) -> Named {\n    Pt{x: n}\n}", typ: "Named",
 		expr: "named_of(4)", obs: "Named.shout($v)", want: "pt4!", tags: tagExistential},
 	{name: "existential widening", decls: mxNamed, typ: "Named", expr: "Pt{x: 5}", obs: "Named.shout($v)",
 		want: "pt5!", tags: tagExistential | tagWidens},
 	{name: "existential list", typ: "List<Display>", expr: `[1, "a"]`,
-		obs: `$v |> Iter.map(|d| Display.to_string(d)) |> String.join(",")`, want: "1,a",
+		obs: `$v |> Iter.map(fn d -> Display.to_string(d)) |> String.join(",")`, want: "1,a",
 		tags: tagExistential | tagExpects, reject: "list element type mismatch"},
 
 	// Maybe and Result.
@@ -242,21 +242,21 @@ var mxFeatures = []mxFeature{
 	{name: "none", typ: "Maybe<Int>", expr: "None", want: "None", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
 	{name: "ok", typ: "Result<Int, String>", expr: "Ok(1)", want: "Ok(1)", tags: tagPartial, reject: mxRows},
 	{name: "err", typ: "Result<Int, String>", expr: `Err("bad")`, want: `Err("bad")`, tags: tagPartial, reject: mxRows},
-	{name: "maybe map", typ: "Maybe<Int>", expr: "Maybe.map(Some(2), |n| n * 3)", want: "Some(6)"},
+	{name: "maybe map", typ: "Maybe<Int>", expr: "Maybe.map(Some(2), fn n -> n * 3)", want: "Some(6)"},
 	{name: "maybe grid", typ: "Maybe<Vector<Vector<Int>>>", expr: "Vector.get(#[#[#[1]], #[#[3]]], 1)",
 		want: "Some(#[#[3]])"},
 	{name: "vector at", typ: "String", expr: `Vector.at(#["a", "b"], 1)`, want: `"b"`, tags: tagCall},
 
 	// Iter chains.
-	{name: "iter chain", typ: "Iter<Int>", expr: "[1, 2, 3] |> Iter.map(|n| n * 2) |> Iter.filter(|n| n > 2)",
+	{name: "iter chain", typ: "Iter<Int>", expr: "[1, 2, 3] |> Iter.map(fn n -> n * 2) |> Iter.filter(fn n -> n > 2)",
 		obs: "Debug.inspect(Iter.to_list($v))", want: "[4, 6]", tags: tagIter},
-	{name: "range iter", typ: "Iter<Int>", expr: "1..=3 |> Iter.map(|n| n * n)",
+	{name: "range iter", typ: "Iter<Int>", expr: "1..=3 |> Iter.map(fn n -> n * n)",
 		obs: "Debug.inspect(Iter.to_list($v))", want: "[1, 4, 9]", tags: tagIter},
-	{name: "iter reduce", typ: "Int", expr: "[1, 2, 3] |> Iter.reduce(|acc = 0, n| acc + n)", want: "6"},
-	{name: "iter scan", typ: "Iter<Int>", expr: "[3, 1, 4] |> Iter.scan(|total = 0, n| total + n)",
+	{name: "iter reduce", typ: "Int", expr: "[1, 2, 3] |> Iter.reduce(fn acc = 0, n -> acc + n)", want: "6"},
+	{name: "iter scan", typ: "Iter<Int>", expr: "[3, 1, 4] |> Iter.scan(fn total = 0, n -> total + n)",
 		obs: "Debug.inspect(Iter.to_list($v))", want: "[3, 4, 8]", tags: tagIter},
-	{name: "iter map_reduce", typ: "(List<String>, Int)", expr: `["a", "bb"] |> Iter.map_reduce(|at = 0, s| ("${at}${s}", at + 1))`,
-		want: `(["0a", "1bb"], 2)`},
+	{name: "iter map_reduce", typ: "#(List<String>, Int)", expr: `["a", "bb"] |> Iter.map_reduce(fn at = 0, s -> #("${at}${s}", at + 1))`,
+		want: `#(["0a", "1bb"], 2)`},
 	// `Summable.empty_sum()` makes a T with no element, so T must be
 	// determined: by the position over `[]`, or by the inner lists' List.
 	{name: "sum of an empty list", typ: "Int", expr: "Iter.sum([])", want: "0", tags: tagUntyped, reject: mxUnsolved},
@@ -267,31 +267,31 @@ var mxFeatures = []mxFeature{
 	{name: "case", typ: "String", expr: "case 2 {\n    1 -> \"one\"\n    _ -> \"many\"\n}", want: `"many"`, tags: tagNested},
 	{name: "if", typ: "String", expr: `if 2 > 1 { "yes" } else { "no" }`, want: `"yes"`},
 	{name: "block", typ: "Int", expr: "{\n    a = 2\n    a * 3\n}", want: "6", tags: tagNested},
-	{name: "try", decls: "fn half(n: Int): Result<Int, String> {\n    Ok(n / 2)\n}", typ: "Result<Int, String>",
-		expr: "{\n    f = || {\n        h = try half(8)\n        Ok(h + 1)\n    }\n    f()\n}", want: "Ok(5)", tags: tagNested},
+	{name: "try", decls: "fn half(n: Int) -> Result<Int, String> {\n    Ok(n / 2)\n}", typ: "Result<Int, String>",
+		expr: "{\n    f = fn -> {\n        h = try half(8)\n        Ok(h + 1)\n    }\n    f()\n}", want: "Ok(5)", tags: tagNested},
 	{name: "try maybe", typ: "Maybe<Int>",
-		expr: "{\n    f = || {\n        h = try Some(8)\n        Some(h + 1)\n    }\n    f()\n}", want: "Some(9)", tags: tagNested},
+		expr: "{\n    f = fn -> {\n        h = try Some(8)\n        Some(h + 1)\n    }\n    f()\n}", want: "Some(9)", tags: tagNested},
 	{name: "dbg", typ: "Int", expr: "dbg 7", want: "7", tags: tagDbg},
 	{name: "and or", typ: "Bool", expr: "1 > 2 or (3 > 2 and True)", want: "True"},
 	{name: "pipe", typ: "Int", expr: `"abc" |> String.length()`, want: "3"},
-	{name: "then stage", typ: "Int", expr: "4 |> then |n| n * n", want: "16"},
+	{name: "then stage", typ: "Int", expr: "4 |> then fn n -> n * n", want: "16"},
 	{name: "field access", decls: mxPoint, typ: "Int", expr: "Point{x: 5}.x", want: "5"},
 	{name: "struct update", decls: mxPoint, typ: "Point", expr: "Struct.update(Point{x: 1}, {y: 9})",
 		want: "Point{x: 1, y: 9}"},
-	{name: "struct spread", decls: mxPoint + "\n\nfn origin(): Point {\n    Point{x: 0, y: 0}\n}", typ: "Point",
+	{name: "struct spread", decls: mxPoint + "\n\nfn origin() -> Point {\n    Point{x: 0, y: 0}\n}", typ: "Point",
 		expr: "{..origin(), x: 7}", want: "Point{x: 7, y: 0}"},
-	{name: "nested spread", decls: mxPoint + "\n\nstruct Line {\n    a: Point\n    b: Point\n}\n\nfn line0(): Line {\n    Line{a: Point{x: 0}, b: Point{x: 1}}\n}",
+	{name: "nested spread", decls: mxPoint + "\n\nstruct Line {\n    a: Point\n    b: Point\n}\n\nfn line0() -> Line {\n    Line{a: Point{x: 0}, b: Point{x: 1}}\n}",
 		typ: "Line", expr: "{..line0(), a: {.., x: 5}}", want: "Line{a: Point{x: 5, y: 2}, b: Point{x: 1, y: 2}}"},
 
 	// Patterns.
-	{name: "tuple pattern", typ: "String", expr: "case (1, \"a\") {\n    (n, s) -> \"${n}${s}\"\n}", want: `"1a"`, tags: tagNested},
+	{name: "tuple pattern", typ: "String", expr: "case #(1, \"a\") {\n    #(n, s) -> \"${n}${s}\"\n}", want: `"1a"`, tags: tagNested},
 	{name: "list pattern", typ: "Int", expr: "case [1, 2, 3] {\n    [h, ..t] -> h + Iter.count(t)\n    [] -> 0\n}", want: "3",
 		tags: tagNested},
 	{name: "struct pattern", decls: mxPoint, typ: "Int", expr: "case Point{x: 1, y: 5} {\n    Point{x, y} -> x + y\n}",
 		want: "6", tags: tagNested},
 	{name: "variant guard pattern", decls: mxShape, typ: "String",
 		expr: "case Shape.Circle(3.0) {\n    .Circle(r) when r > 2.0 -> \"big\"\n    _ -> \"other\"\n}", want: `"big"`, tags: tagNested},
-	{name: "map pattern", typ: "Int", expr: "case {\"k\" => 4} {\n    {\"k\" => w} -> w\n    _ -> 0\n}", want: "4",
+	{name: "map pattern", typ: "Int", expr: "case %{\"k\" => 4} {\n    %{\"k\" => w} -> w\n    _ -> 0\n}", want: "4",
 		tags: tagNested},
 	{name: "prefix pattern", typ: "String", expr: "case \"/u/7\" {\n    \"/u/\" + id -> id\n    _ -> \"\"\n}", want: `"7"`,
 		tags: tagNested},
@@ -301,7 +301,7 @@ var mxFeatures = []mxFeature{
 	{name: "or pattern", decls: mxShape, typ: "String",
 		expr: "case Shape.Rect{w: 2, h: 3} {\n    .Circle(_) or .Dot -> \"round\"\n    .Rect{w: n} or .Rect{h: n} when n > 5 -> \"wide\"\n    .Rect{w: 1 or 2 as n} -> \"${n}\"\n    _ -> \"other\"\n}",
 		want: `"2"`, tags: tagNested},
-	{name: "or parameter pattern", typ: "Int", expr: "{\n    f = |(0, n) or (n, _): (Int, Int)| n * 2\n    f((0, 4)) + f((3, 1))\n}",
+	{name: "or parameter pattern", typ: "Int", expr: "{\n    f = fn #(0, n) or #(n, _): #(Int, Int) -> n * 2\n    f(#(0, 4)) + f(#(3, 1))\n}",
 		want: "14", tags: tagNested},
 	{name: "distinct pattern", decls: "type Meters Int", typ: "Int", expr: "case Meters(4) {\n    Meters(n) -> n\n}",
 		want: "4", tags: tagNested},
@@ -309,14 +309,14 @@ var mxFeatures = []mxFeature{
 		tags: tagNested},
 	{name: "binding else", typ: "Int", expr: "{\n    Some(n) = Some(9) else { 0 }\n    n\n}", want: "9", tags: tagNested},
 	{name: "pattern if", typ: "Int", expr: "if Some(n) = Some(4) { n } else { 0 }", want: "4"},
-	{name: "parameter pattern", typ: "Int", expr: "{\n    f = |(a, b): (Int, Int)| a * b\n    f((3, 4))\n}", want: "12",
+	{name: "parameter pattern", typ: "Int", expr: "{\n    f = fn #(a, b): #(Int, Int) -> a * b\n    f(#(3, 4))\n}", want: "12",
 		tags: tagNested},
 
 	// Calls.
 	{name: "named arguments", decls: mxGreet, typ: "String", expr: `greet("a", times: 2)`, want: `"a!2"`, tags: tagCall},
 	{name: "reordered named arguments", decls: mxGreet, typ: "String", expr: `greet(times: 3, name: "b")`, want: `"b!3"`,
 		tags: tagCall},
-	{name: "default reads a parameter", decls: "fn span(a: Int, b: Int = a * 2): Int {\n    a + b\n}", typ: "Int",
+	{name: "default reads a parameter", decls: "fn span(a: Int, b: Int = a * 2) -> Int {\n    a + b\n}", typ: "Int",
 		expr: "span(3)", want: "9", tags: tagCall},
 	{name: "intrinsic named arguments", typ: "String", expr: `String.pad_start("7", fill: "0", width: 3)`,
 		want: `"007"`, tags: tagCall},
@@ -325,7 +325,7 @@ var mxFeatures = []mxFeature{
 	{name: "owner qualified call", typ: "Int", expr: "Maybe.with_default(Some(5), 0)", want: "5", tags: tagCall},
 	{name: "interface qualified call", typ: "String", expr: "Display.to_string(12)", want: `"12"`, tags: tagCall},
 	{name: "type parameter qualified call",
-		decls: "fn shown<T>(x: T): String where T: Display {\n    T.to_string(x)\n}", typ: "String", expr: "shown(5)",
+		decls: "fn shown<T>(x: T) -> String where T: Display {\n    T.to_string(x)\n}", typ: "String", expr: "shown(5)",
 		want: `"5"`, tags: tagCall},
 
 	// Derived impls.
@@ -438,27 +438,27 @@ var mxWraps = []*mxContext{
 		b.expr = mxBlock(k+" = 1", "_ = "+k, b.expr)
 	}),
 	wrapCtx("function argument", false, mxGives, func(b *mxBuild, n int) {
-		b.decls = append(b.decls, fmt.Sprintf("fn take%d(a: %s): %s {\n    a\n}", n, b.typ, b.typ))
+		b.decls = append(b.decls, fmt.Sprintf("fn take%d(a: %s) -> %s {\n    a\n}", n, b.typ, b.typ))
 		b.expr = fmt.Sprintf("take%d(%s)", n, b.expr)
 	}),
 	wrapCtx("named argument", false, mxGives, func(b *mxBuild, n int) {
-		b.decls = append(b.decls, fmt.Sprintf("fn named%d(k: Int, a: %s): %s {\n    _ = k\n    a\n}", n, b.typ, b.typ))
+		b.decls = append(b.decls, fmt.Sprintf("fn named%d(k: Int, a: %s) -> %s {\n    _ = k\n    a\n}", n, b.typ, b.typ))
 		b.expr = fmt.Sprintf("named%d(a: %s, k: 0)", n, b.expr)
 	}),
 	wrapCtx("function result", false, mxGives, func(b *mxBuild, n int) {
-		b.decls = append(b.decls, fmt.Sprintf("fn make%d(): %s {\n%s\n}", n, b.typ, mxIndent(b.expr)))
+		b.decls = append(b.decls, fmt.Sprintf("fn make%d() -> %s {\n%s\n}", n, b.typ, mxIndent(b.expr)))
 		b.expr = fmt.Sprintf("make%d()", n)
 	}),
 	wrapCtx("parameter default", false, mxGives, func(b *mxBuild, n int) {
-		b.decls = append(b.decls, fmt.Sprintf("fn dflt%d(a: %s = %s): %s {\n    a\n}", n, b.typ, b.expr, b.typ))
+		b.decls = append(b.decls, fmt.Sprintf("fn dflt%d(a: %s = %s) -> %s {\n    a\n}", n, b.typ, b.expr, b.typ))
 		b.expr = fmt.Sprintf("dflt%d()", n)
 	}),
 	wrapCtx("pipe stage", false, mxUnifies, func(b *mxBuild, n int) {
-		b.decls = append(b.decls, fmt.Sprintf("fn pass%d(a: %s): %s {\n    a\n}", n, b.typ, b.typ))
+		b.decls = append(b.decls, fmt.Sprintf("fn pass%d(a: %s) -> %s {\n    a\n}", n, b.typ, b.typ))
 		b.expr = fmt.Sprintf("(%s |> pass%d())", mxParen(b.expr), n)
 	}),
 	wrapCtx("then stage", false, mxFlows, func(b *mxBuild, n int) {
-		b.expr = fmt.Sprintf("(%s |> then |t%d| t%d)", mxParen(b.expr), n, n)
+		b.expr = fmt.Sprintf("(%s |> then fn t%d -> t%d)", mxParen(b.expr), n, n)
 	}),
 	wrapCtx("case arm", false, mxPasses, func(b *mxBuild, n int) {
 		b.expr = fmt.Sprintf("case %d {\n    1 -> %s\n    _ -> %s\n}", n, mxIndentTail(b.expr), mxIndentTail(b.expr))
@@ -472,23 +472,23 @@ var mxWraps = []*mxContext{
 		if strings.Contains(body, "\n") {
 			body = mxBlock(body)
 		}
-		b.expr = mxBlock(f+" = || "+body, f+"()")
+		b.expr = mxBlock(f+" = fn -> "+body, f+"()")
 	}),
 	wrapCtx("nested function", false, mxGives, func(b *mxBuild, n int) {
-		b.expr = mxBlock(fmt.Sprintf("fn inner%d(): %s {\n%s\n}", n, b.typ, mxIndent(b.expr)), fmt.Sprintf("inner%d()", n))
+		b.expr = mxBlock(fmt.Sprintf("fn inner%d() -> %s {\n%s\n}", n, b.typ, mxIndent(b.expr)), fmt.Sprintf("inner%d()", n))
 	}),
 	wrapCtx("generic type argument", true, mxFlows, func(b *mxBuild, n int) {
-		b.decls = append(b.decls, fmt.Sprintf("fn ident%d<A>(a: A): A {\n    a\n}", n))
+		b.decls = append(b.decls, fmt.Sprintf("fn ident%d<A>(a: A) -> A {\n    a\n}", n))
 		b.expr = fmt.Sprintf("ident%d(%s)", n, b.expr)
 	}),
 	wrapCtx("generic function body", true, mxGives, func(b *mxBuild, n int) {
-		b.decls = append(b.decls, fmt.Sprintf("fn gen%d<A>(a: A): (A, %s) {\n    (a, %s)\n}", n, b.typ, mxIndentTail(b.expr)))
+		b.decls = append(b.decls, fmt.Sprintf("fn gen%d<A>(a: A) -> #(A, %s) {\n    #(a, %s)\n}", n, b.typ, mxIndentTail(b.expr)))
 		b.expr = fmt.Sprintf("gen%d(0).1", n)
 	}),
 	wrapCtx("interface default", false, mxGives, func(b *mxBuild, n int) {
-		b.decls = append(b.decls, fmt.Sprintf("interface Make%d {\n    fn tag%d(x: self): Int\n\n    fn make%d(_x: self): %s {\n%s\n    }\n}", n, n, n, b.typ, mxIndent(mxIndent(b.expr))),
+		b.decls = append(b.decls, fmt.Sprintf("interface Make%d {\n    fn tag%d(x: self) -> Int\n\n    fn make%d(_x: self) -> %s {\n%s\n    }\n}", n, n, n, b.typ, mxIndent(mxIndent(b.expr))),
 			fmt.Sprintf("type Maker%d Int", n),
-			fmt.Sprintf("impl Make%d for Maker%d {\n    fn tag%d(_x: Maker%d): Int {\n        0\n    }\n}", n, n, n, n))
+			fmt.Sprintf("impl Make%d for Maker%d {\n    fn tag%d(_x: Maker%d) -> Int {\n        0\n    }\n}", n, n, n, n))
 		b.expr = fmt.Sprintf("Make%d.make%d(Maker%d(0))", n, n, n)
 	}),
 	wrapCtx("once", true, mxGives, func(b *mxBuild, n int) {
@@ -515,7 +515,7 @@ var mxWraps = []*mxContext{
 	}),
 	wrapCtx("variant parameter pattern", false, mxGives, func(b *mxBuild, n int) {
 		b.decls = append(b.decls, fmt.Sprintf("enum Only%d {\n    One %s\n}", n, mxPayload(b.typ)),
-			fmt.Sprintf("fn open%d(Only%d.One(p)): %s {\n    p\n}", n, n, b.typ))
+			fmt.Sprintf("fn open%d(Only%d.One(p)) -> %s {\n    p\n}", n, n, b.typ))
 		b.expr = fmt.Sprintf("open%d(Only%d.One(%s))", n, n, b.expr)
 	}),
 	wrapCtx("variant binding pattern", false, mxGives, func(b *mxBuild, n int) {
@@ -536,11 +536,11 @@ var mxWraps = []*mxContext{
 		b.expr = fmt.Sprintf("case [%s] {\n    [p%d] -> p%d\n    _ -> todo\n}", b.expr, n, n)
 	}),
 	wrapCtx("map value", true, mxFlows, func(b *mxBuild, n int) {
-		b.expr = fmt.Sprintf("case Map.get({\"k\" => %s}, \"k\") {\n    Some(p%d) -> p%d\n    None -> todo\n}",
+		b.expr = fmt.Sprintf("case Map.get(%%{\"k\" => %s}, \"k\") {\n    Some(p%d) -> p%d\n    None -> todo\n}",
 			b.expr, n, n)
 	}),
 	wrapCtx("tuple element", true, mxFlows, func(b *mxBuild, n int) {
-		b.expr = fmt.Sprintf("(%d, %s).1", n, b.expr)
+		b.expr = fmt.Sprintf("#(%d, %s).1", n, b.expr)
 	}),
 	wrapCtx("maybe payload", true, mxFlows, func(b *mxBuild, n int) {
 		b.expr = fmt.Sprintf("case Some(%s) {\n    Some(p%d) -> p%d\n    None -> todo\n}", b.expr, n, n)
@@ -550,22 +550,22 @@ var mxWraps = []*mxContext{
 	}),
 	wrapCtx("Iter.map callback", false, mxFlows, func(b *mxBuild, n int) {
 		xs := fmt.Sprintf("xs%d", n)
-		b.expr = mxBlock(fmt.Sprintf("%s = [0] |> Iter.map(|_z%d| %s) |> Iter.to_list()", xs, n, mxBraced(b.expr)),
+		b.expr = mxBlock(fmt.Sprintf("%s = [0] |> Iter.map(fn _z%d -> %s) |> Iter.to_list()", xs, n, mxBraced(b.expr)),
 			fmt.Sprintf("case %s {\n    [p%d] -> p%d\n    _ -> todo\n}", xs, n, n))
 	}),
 	wrapCtx("Iter.loop callback", false, mxGives, func(b *mxBuild, n int) {
 		m, s := fmt.Sprintf("m%d", n), fmt.Sprintf("s%d", n)
 		b.expr = mxBlock(
-			fmt.Sprintf("%s = Iter.loop(|%s: Maybe<%s> = None| {\n    case %s {\n        Some(_) -> break %s\n        None -> Some(%s)\n    }\n})",
+			fmt.Sprintf("%s = Iter.loop(fn %s: Maybe<%s> = None -> {\n    case %s {\n        Some(_) -> break %s\n        None -> Some(%s)\n    }\n})",
 				m, s, b.typ, s, s, mxIndentTail(mxIndentTail(b.expr))),
 			fmt.Sprintf("case %s {\n    Some(p%d) -> p%d\n    None -> todo\n}", m, n, n))
 	}),
 	wrapCtx("concurrent task", false, mxFlows, func(b *mxBuild, n int) {
 		t := fmt.Sprintf("task%d", n)
-		b.expr = fmt.Sprintf("concurrent {\n    %s = Task.spawn(|| %s)\n    Task.await(%s)\n}", t, mxIndentTail(mxBraced(b.expr)), t)
+		b.expr = fmt.Sprintf("concurrent {\n    %s = Task.spawn(fn -> %s)\n    Task.await(%s)\n}", t, mxIndentTail(mxBraced(b.expr)), t)
 	}),
 	wrapCtx("generic function of another file", true, mxFlows, func(b *mxBuild, n int) {
-		b.lib = append(b.lib, fmt.Sprintf("fn carry%d<A>(a: A): A {\n    a\n}", n))
+		b.lib = append(b.lib, fmt.Sprintf("fn carry%d<A>(a: A) -> A {\n    a\n}", n))
 		b.expr = fmt.Sprintf("carry%d(%s)", n, b.expr)
 	}),
 }
@@ -644,7 +644,7 @@ var mxShells = []*mxContext{
 			"body\n" + want + "\n" + want + "\n\n--- ok: <nil>"
 	}},
 	{name: "with", shell: func(b *mxBuild, e, obs, want string) (string, []string, string) {
-		decls := []string{"struct App {\n    v: " + b.typ + "\n}", "fn boot(): App {\n    App{v: " + mxIndentTail(mxIndentTail(e)) + "}\n}"}
+		decls := []string{"struct App {\n    v: " + b.typ + "\n}", "fn boot() -> App {\n    App{v: " + mxIndentTail(mxIndentTail(e)) + "}\n}"}
 		return "fn main() {\n    with App.v = " + mxIndentTail(e) + "\n    got = App.v\n    io.print(" + mxObs(obs, "got") + ")\n}",
 			decls, want + "\n\n--- ok: <nil>"
 	}},
@@ -660,7 +660,7 @@ var mxPlacements = []*mxContext{
 	}},
 	{name: "value from another file", fragile: true, place: func(b *mxBuild, featureDecls []string) {
 		b.lib = append(b.lib, b.decls...)
-		b.lib = append(b.lib, "fn produce(): "+b.typ+" {\n"+mxIndent(b.expr)+"\n}")
+		b.lib = append(b.lib, "fn produce() -> "+b.typ+" {\n"+mxIndent(b.expr)+"\n}")
 		b.decls = nil
 		b.expr = "produce()"
 	}},

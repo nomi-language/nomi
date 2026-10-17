@@ -1,13 +1,13 @@
 import std/compiler
 
-fn reports?(source: String, text: String): Bool {
-    compiler.check(source) |> Iter.any?(|d| String.contains?(d.message, text))
+fn reports?(source: String, text: String) -> Bool {
+    compiler.check(source) |> Iter.any?(fn d -> String.contains?(d.message, text))
 }
 
 test "an Iter has no equality" {
     source = """
         fn main() {
-          xs = [1] |> Iter.map(|x| x)
+          xs = [1] |> Iter.map(fn x -> x)
           _same = xs == xs
         }
         """
@@ -23,20 +23,20 @@ test "a value holding an Iter has no equality" {
 
         fn main() {
           feed = Feed{items: [1]}
-          _same = (1, feed) != (1, feed)
+          _same = #(1, feed) != #(1, feed)
         }
         """
 
     assert reports?(
         source,
-        "`!=` cannot compare `(Int, Feed)`: it holds `Iter<Int>`, and an Iter has no equality",
+        "`!=` cannot compare `#(Int, Feed)`: it holds `Iter<Int>`, and an Iter has no equality",
     )
 }
 
 test "a function value has no equality" {
     source = """
         fn main() {
-          f = |x: Int| x
+          f = fn x: Int -> x
           _same = [f] == [f]
         }
         """
@@ -55,7 +55,7 @@ test "a type with its own Equatable impl compares through it" {
         }
 
         impl Equatable for Feed {
-          fn equal?(a: Feed, b: Feed): Bool {
+          fn equal?(a: Feed, b: Feed) -> Bool {
             a.name == b.name
           }
         }

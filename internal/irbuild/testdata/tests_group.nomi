@@ -34,16 +34,16 @@ group "config" {
 group "scaled" {
     setup {
         limit = 12 * 2
-        (limit, "root/scaled", True)
+        #(limit, "root/scaled", True)
     }
 
-    test "a tuple pattern binds each part", (limit, label, extra) {
+    test "a tuple pattern binds each part", #(limit, label, extra) {
         assert limit == 24
         assert label == "root/scaled"
         assert extra
     }
 
-    test "a nested tuple of parts", (limit, _, _) {
+    test "a nested tuple of parts", #(limit, _, _) {
         assert limit + 1 == 25
     }
 }

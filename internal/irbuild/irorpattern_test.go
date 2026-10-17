@@ -21,7 +21,7 @@ enum Ev {
   C Int
 }
 
-fn describe(e: Ev): Int {
+fn describe(e: Ev) -> Int {
   case e {
     .A(n) or .B(n) or .C(n) when n > 0 -> n * 2
     _ -> 0

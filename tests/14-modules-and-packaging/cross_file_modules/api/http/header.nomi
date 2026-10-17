@@ -1,4 +1,4 @@
-pub fn canonical_name(name: String): String {
+pub fn canonical_name(name: String) -> String {
     name
 }
 

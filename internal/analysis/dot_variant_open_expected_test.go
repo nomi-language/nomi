@@ -13,7 +13,7 @@ import (
 // program's type.
 func TestDotVariant_OpenExpectedTypeAsksForTheQualifiedVariant(t *testing.T) {
 	const decls = "enum Error {\n  SyntaxError\n  UnknownOperation\n}\n\n"
-	src := decls + "fn parse(first: String): Result<Int, Error> {\n" +
+	src := decls + "fn parse(first: String) -> Result<Int, Error> {\n" +
 		"  total = String.to_int(first) |> Maybe.to_result(.SyntaxError) |> try\n" +
 		"  Ok(total)\n}\n"
 	_, errs := checkSourceWithStdlib(src)
@@ -45,7 +45,7 @@ func TestDotVariant_OpenExpectedTypeAsksForTheQualifiedVariant(t *testing.T) {
 // The enclosing function's own type parameter is a type the program wrote,
 // so the message still names it.
 func TestDotVariant_OwnTypeParameterIsNamed(t *testing.T) {
-	src := "enum Color {\n  Red\n}\n\nfn pick<T>(x: T): T {\n  _ = x\n  .Red\n}\n"
+	src := "enum Color {\n  Red\n}\n\nfn pick<T>(x: T) -> T {\n  _ = x\n  .Red\n}\n"
 	_, errs := checkSourceWithStdlib(src)
 	expectStdlibError(t, errs, ".Red resolves only to enum variants, but the expected type at this position is T")
 }

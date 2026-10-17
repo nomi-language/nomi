@@ -16,7 +16,7 @@ pub struct Chan<T> {
     receiver: Half<T>
 }
 
-fn recv<T>(r: Half<T>): Maybe<T> {
+fn recv<T>(r: Half<T>) -> Maybe<T> {
     Maybe.Some(r.slot)
 }
 
@@ -27,7 +27,7 @@ pub enum Request {
     Stop
 }
 
-fn inbox_of(): Chan<Request> {
+fn inbox_of() -> Chan<Request> {
     reply = Chan{sender: Half{slot: 7}, receiver: Half{slot: 7}}
     msg = Request.Get{reply}
     Chan{sender: Half{slot: msg}, receiver: Half{slot: msg}}

@@ -51,23 +51,23 @@ func TestFormat_AuthorBreakAfterBracketKeepsALiteralBroken(t *testing.T) {
 		},
 		{
 			"map",
-			"fn main() {\n    m = {\n        \"a\" => 1, \"b\" => 2}\n}\n",
-			"fn main() {\n    m = {\n        \"a\" => 1,\n        \"b\" => 2,\n    }\n}\n",
+			"fn main() {\n    m = %{\n        \"a\" => 1, \"b\" => 2}\n}\n",
+			"fn main() {\n    m = %{\n        \"a\" => 1,\n        \"b\" => 2,\n    }\n}\n",
 		},
 		{
 			"map without the break",
-			"fn main() {\n    m = {\"a\" => 1,\n        \"b\" => 2}\n}\n",
-			"fn main() {\n    m = {\"a\" => 1, \"b\" => 2}\n}\n",
+			"fn main() {\n    m = %{\"a\" => 1,\n        \"b\" => 2}\n}\n",
+			"fn main() {\n    m = %{\"a\" => 1, \"b\" => 2}\n}\n",
 		},
 		{
 			"tuple",
-			"fn main() {\n    t = (\n        1, \"a\")\n}\n",
-			"fn main() {\n    t = (\n        1,\n        \"a\",\n    )\n}\n",
+			"fn main() {\n    t = #(\n        1, \"a\")\n}\n",
+			"fn main() {\n    t = #(\n        1,\n        \"a\",\n    )\n}\n",
 		},
 		{
 			"tuple without the break",
-			"fn main() {\n    t = (1,\n        \"a\")\n}\n",
-			"fn main() {\n    t = (1, \"a\")\n}\n",
+			"fn main() {\n    t = #(1,\n        \"a\")\n}\n",
+			"fn main() {\n    t = #(1, \"a\")\n}\n",
 		},
 		{
 			"struct",
@@ -88,28 +88,28 @@ func TestFormat_AuthorBreakAfterBracketKeepsALiteralBroken(t *testing.T) {
 		},
 		{
 			"list pattern",
-			"fn f(xs: List<Int>): Int {\n    case xs {\n        [\n            a, b] -> a + b\n        _ -> 0\n    }\n}\n",
-			"fn f(xs: List<Int>): Int {\n    case xs {\n        [\n            a,\n            b,\n        ] -> a + b\n        _ -> 0\n    }\n}\n",
+			"fn f(xs: List<Int>) -> Int {\n    case xs {\n        [\n            a, b] -> a + b\n        _ -> 0\n    }\n}\n",
+			"fn f(xs: List<Int>) -> Int {\n    case xs {\n        [\n            a,\n            b,\n        ] -> a + b\n        _ -> 0\n    }\n}\n",
 		},
 		{
 			"list pattern without the break",
-			"fn f(xs: List<Int>): Int {\n    case xs {\n        [a,\n            b] -> a + b\n        _ -> 0\n    }\n}\n",
-			"fn f(xs: List<Int>): Int {\n    case xs {\n        [a, b] -> a + b\n        _ -> 0\n    }\n}\n",
+			"fn f(xs: List<Int>) -> Int {\n    case xs {\n        [a,\n            b] -> a + b\n        _ -> 0\n    }\n}\n",
+			"fn f(xs: List<Int>) -> Int {\n    case xs {\n        [a, b] -> a + b\n        _ -> 0\n    }\n}\n",
 		},
 		{
 			"map pattern",
-			"fn f(m: Map<String, Int>): Int {\n    case m {\n        {\n            \"a\" => a} -> a\n        _ -> 0\n    }\n}\n",
-			"fn f(m: Map<String, Int>): Int {\n    case m {\n        {\n            \"a\" => a,\n        } -> a\n        _ -> 0\n    }\n}\n",
+			"fn f(m: Map<String, Int>) -> Int {\n    case m {\n        %{\n            \"a\" => a} -> a\n        _ -> 0\n    }\n}\n",
+			"fn f(m: Map<String, Int>) -> Int {\n    case m {\n        %{\n            \"a\" => a,\n        } -> a\n        _ -> 0\n    }\n}\n",
 		},
 		{
 			"struct pattern",
-			"fn f(p: Point): Int {\n    case p {\n        Point{\n            x, y} -> x + y\n    }\n}\n",
-			"fn f(p: Point): Int {\n    case p {\n        Point{\n            x,\n            y,\n        } -> x + y\n    }\n}\n",
+			"fn f(p: Point) -> Int {\n    case p {\n        Point{\n            x, y} -> x + y\n    }\n}\n",
+			"fn f(p: Point) -> Int {\n    case p {\n        Point{\n            x,\n            y,\n        } -> x + y\n    }\n}\n",
 		},
 		{
 			"struct pattern without the break",
-			"fn f(p: Point): Int {\n    case p {\n        Point{x,\n            y} -> x + y\n    }\n}\n",
-			"fn f(p: Point): Int {\n    case p {\n        Point{x, y} -> x + y\n    }\n}\n",
+			"fn f(p: Point) -> Int {\n    case p {\n        Point{x,\n            y} -> x + y\n    }\n}\n",
+			"fn f(p: Point) -> Int {\n    case p {\n        Point{x, y} -> x + y\n    }\n}\n",
 		},
 		{
 			// A kept-broken literal is local: the call around it hugs it,
@@ -179,8 +179,8 @@ func TestFormat_AuthorBreakInArgumentsIsIgnored(t *testing.T) {
 		},
 		{
 			"parameters",
-			"fn f(\n    a: Int, b: Int): Int {\n    a + b\n}\n",
-			"fn f(a: Int, b: Int): Int {\n    a + b\n}\n",
+			"fn f(\n    a: Int, b: Int) -> Int {\n    a + b\n}\n",
+			"fn f(a: Int, b: Int) -> Int {\n    a + b\n}\n",
 		},
 		{
 			"type arguments",
@@ -199,7 +199,7 @@ func TestFormat_AuthorBreakInArgumentsIsIgnored(t *testing.T) {
 // pattern broken after its `{` and keeps it so, and the alternatives stay
 // one per line rather than hugging it.
 func TestFormat_OrPatternAroundAKeptBrokenPatternStaysBroken(t *testing.T) {
-	src := "fn describe(shape: Shape): String {\n" +
+	src := "fn describe(shape: Shape) -> String {\n" +
 		"    case shape {\n" +
 		"        .Circle{r_rather_long} or .Square{side_rather_long_rather_long_rather_long_rather_long_rather_long: r_rather_long} when r_rather_long > 10.0 -> \"big\"\n" +
 		"        _ -> \"small\"\n" +

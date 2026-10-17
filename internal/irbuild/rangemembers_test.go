@@ -12,7 +12,7 @@ func TestIRRangeAsKeyAndOverBool_Run(t *testing.T) {
 
 fn main() {
     io.inspect(Iter.to_set([1..2, 3..4, 1..2]))
-    io.inspect(Iter.to_map([(1..2, "a"), (3..=4, "b")]) |> Map.get(3..=4))
+    io.inspect(Iter.to_map([#(1..2, "a"), #(3..=4, "b")]) |> Map.get(3..=4))
     io.inspect(Range.contains?(False..True, True))
     io.inspect(Range.contains?(False..=True, True))
     io.inspect(False..=True)
@@ -41,7 +41,7 @@ fn main() {
     io.print(Range.to_string(1.5..2.5))
     io.inspect(Range.known_count(1..4))
     io.inspect(Range.known_count(Range.from(1)))
-    io.inspect(Range.each_while(1..=4, |n| n < 3))
+    io.inspect(Range.each_while(1..=4, fn n -> n < 3))
 }
 `
 	const want = "1..4\n" +

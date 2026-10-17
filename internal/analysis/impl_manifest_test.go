@@ -192,8 +192,8 @@ func TestManifestRecordedAtTypedLiteralSlot(t *testing.T) {
 pub type Joiner
 
 impl Literal for Joiner {
-  fn from_fragments(fragments: List<Fragment<Display>>): String {
-    Iter.reduce(fragments, |acc = "", frag|
+  fn from_fragments(fragments: List<Fragment<Display>>) -> String {
+    Iter.reduce(fragments, fn acc = "", frag ->
       case frag {
         Static(s) -> acc + s
         Dynamic(v) -> acc + Display.to_string(v)
@@ -241,7 +241,7 @@ func TestImplManifestUnion(t *testing.T) {
 func TestManifestRecordedAtGenericInstantiation(t *testing.T) {
 	src := `import std/io
 
-pub fn show<T>(x: T): String where T: Display {
+pub fn show<T>(x: T) -> String where T: Display {
   Display.to_string(x)
 }
 
@@ -263,16 +263,16 @@ fn main() {
 // Pusher just because it appears as the T arg.
 func TestManifestSelfBindingOnly(t *testing.T) {
 	src := `pub interface Pusher<T> {
-  fn push(c: self, v: T): self
+  fn push(c: self, v: T) -> self
 }
 
 pub struct Bag { count: Int }
 
 impl Pusher for Bag {
-  fn push(c: Bag, v: Int): Bag { Bag{count: c.count + v} }
+  fn push(c: Bag, v: Int) -> Bag { Bag{count: c.count + v} }
 }
 
-fn demo(): Pusher<Int> {
+fn demo() -> Pusher<Int> {
   b = Bag{count: 0}
   Pusher.push(b, 42)
 }`
@@ -295,16 +295,16 @@ fn demo(): Pusher<Int> {
 // String do NOT implement Foo just because they appear as A and B args.
 func TestManifestSelfBindingOnly_MultipleNonSelfTypeParams(t *testing.T) {
 	src := `pub interface Foo<A, B> {
-  fn baz(x: self, a: A, b: B): self
+  fn baz(x: self, a: A, b: B) -> self
 }
 
 pub struct Bag { count: Int }
 
 impl Foo for Bag {
-  fn baz(x: Bag, a: Int, b: String): Bag { _ = b; Bag{count: x.count + a} }
+  fn baz(x: Bag, a: Int, b: String) -> Bag { _ = b; Bag{count: x.count + a} }
 }
 
-fn demo(): Foo<Int, String> {
+fn demo() -> Foo<Int, String> {
   b = Bag{count: 0}
   Foo.baz(b, 42, "hello")
 }`
@@ -331,7 +331,7 @@ func TestManifestRecursesIntoGenericContainerTypeArgs(t *testing.T) {
 	src := `import { std/io }
 
 fn main() {
-  ages = {"alice" => 30, "bob" => 25}
+  ages = %{"alice" => 30, "bob" => 25}
   io.print(ages)
 }`
 	fa, errs := checkSourceWithStdlib(src)
@@ -355,7 +355,7 @@ func TestManifestRecordsInterfaceBoundsThroughPipe(t *testing.T) {
 	src := `import { std/io }
 
 fn main() {
-  ages = {"alice" => 30, "bob" => 25}
+  ages = %{"alice" => 30, "bob" => 25}
   ages |> io.print()
 }`
 	fa, errs := checkSourceWithStdlib(src)
@@ -417,7 +417,7 @@ pub enum Maybe2<T> {
 }
 derive Debug for Maybe2
 
-fn demo(): Maybe2<Int> {
+fn demo() -> Maybe2<Int> {
   m = Maybe2.Some2(42)
   io.inspect(m)
   m
@@ -438,7 +438,7 @@ fn demo(): Maybe2<Int> {
 // sibling's FA never records it.
 func TestManifestRecordsSiblingModuleBodyConformance(t *testing.T) {
 	siblings := map[string]string{
-		"greeter": `pub fn greet(name: String): String {
+		"greeter": `pub fn greet(name: String) -> String {
   "hello, ${name}"
 }`,
 	}
@@ -467,12 +467,12 @@ fn main() {
 func TestBareNameImplCall_Rejected(t *testing.T) {
 	src := `import std/io
 
-pub interface Speech { fn speak(s: self): String }
+pub interface Speech { fn speak(s: self) -> String }
 
 pub struct Dog { name: String }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name + " says woof"
   }
 }
@@ -491,18 +491,18 @@ fn main() {
 func TestBareNameImplCall_ShadowedByLocalFn_NotRecorded(t *testing.T) {
 	src := `import std/io
 
-pub interface Speech { fn speak(s: self): String }
+pub interface Speech { fn speak(s: self) -> String }
 
 pub struct Dog { name: String }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name + " says woof"
   }
 }
 
 fn main() {
-  speak = |n: Int| "shadowed: ${n}"
+  speak = fn n: Int -> "shadowed: ${n}"
   io.print(speak(42))
 }`
 	tokens := lexer.Lex(src)
@@ -530,8 +530,8 @@ func TestBareNameDefaultMethodCall_Rejected(t *testing.T) {
 	src := `import std/io
 
 pub interface Identity {
-  fn name(value: self): String
-  fn describe(value: self): String {
+  fn name(value: self) -> String
+  fn describe(value: self) -> String {
     "I am " + Identity.name(value)
   }
 }
@@ -539,7 +539,7 @@ pub interface Identity {
 pub struct Robot { model: String }
 
 impl Identity for Robot {
-  fn name(robot: Robot): String {
+  fn name(robot: Robot) -> String {
     robot.model
   }
 }
@@ -559,19 +559,19 @@ fn main() {
 func TestAmbiguousBareNameImplCall_Rejected(t *testing.T) {
 	src := `import std/io
 
-pub interface Greeter { fn greet(g: self): String }
-pub interface Farewell { fn greet(f: self): String }
+pub interface Greeter { fn greet(g: self) -> String }
+pub interface Farewell { fn greet(f: self) -> String }
 
 pub struct Person { name: String }
 
 impl Greeter for Person {
-  fn greet(p: Person): String {
+  fn greet(p: Person) -> String {
     "hello " + p.name
   }
 }
 
 impl Farewell for Person {
-  fn greet(p: Person): String {
+  fn greet(p: Person) -> String {
     "bye " + p.name
   }
 }
@@ -591,20 +591,20 @@ fn main() {
 func TestMultiReceiverSameInterfaceImplCall_NotAmbiguous(t *testing.T) {
 	src := `import std/io
 
-pub interface Speech { fn speak(s: self): String }
+pub interface Speech { fn speak(s: self) -> String }
 
 pub struct Dog { name: String }
 
 pub struct Cat { name: String }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name + " says woof"
   }
 }
 
 impl Speech for Cat {
-  fn speak(c: Cat): String {
+  fn speak(c: Cat) -> String {
     c.name + " says meow"
   }
 }
@@ -699,7 +699,7 @@ func TestGenericInstantiationAttribution(t *testing.T) {
 pub struct C { x: Int }
 
 impl Display for C {
-  fn to_string(c: C): String { "C(" + Display.to_string(c.x) + ")" }
+  fn to_string(c: C) -> String { "C(" + Display.to_string(c.x) + ")" }
 }
 
 pub struct Wrapper<T> {
@@ -757,7 +757,7 @@ fn main() {
 func TestManifestRecordedForDestructuredImport(t *testing.T) {
 	src := `import std/dynamic.{Dynamic}
 
-pub fn show(d: Dynamic): String {
+pub fn show(d: Dynamic) -> String {
   Debug.inspect(d)
 }
 

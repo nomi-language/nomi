@@ -88,7 +88,7 @@ func TestImports_FunctionBody_TopAllowed(t *testing.T) {
 // would leave nested late-imports unchecked.
 func TestImports_NestedFunctionBody_RejectsImportAfterStatement(t *testing.T) {
 	src := `fn main() {
-  fn helper(): Int {
+  fn helper() -> Int {
     x = 1
     import std/lists: List
     x
@@ -120,7 +120,7 @@ func TestImports_NestedFunctionBody_RejectsImportAfterStatement(t *testing.T) {
 // Counterpart: nested fn with imports at top is allowed.
 func TestImports_NestedFunctionBody_TopAllowed(t *testing.T) {
 	src := `fn main() {
-  fn helper(): Int {
+  fn helper() -> Int {
     import std/lists: List
     3
   }

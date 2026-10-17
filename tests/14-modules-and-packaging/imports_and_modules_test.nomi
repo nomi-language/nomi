@@ -15,16 +15,16 @@ struct Person {
 }
 
 impl Greeter for Person {
-    fn greet(p: Person): String {
+    fn greet(p: Person) -> String {
         default_greeting + ", " + p.name
     }
 }
 
 interface Greeter {
-    fn greet(value: self): String
+    fn greet(value: self) -> String
 }
 
-fn build_person(name: String): Person {
+fn build_person(name: String) -> Person {
     Person{name}
 }
 
@@ -38,15 +38,15 @@ enum Axis {
     Y
 }
 
-fn origin(): GeometryPoint {
+fn origin() -> GeometryPoint {
     GeometryPoint{x: 0, y: 0}
 }
 
-fn vertical_axis(): Axis {
+fn vertical_axis() -> Axis {
     Axis.Y
 }
 
-fn axis_name(axis: Axis): String {
+fn axis_name(axis: Axis) -> String {
     case axis {
         Axis.X -> "x"
         Axis.Y -> "y"
@@ -55,7 +55,7 @@ fn axis_name(axis: Axis): String {
 
 once default_point: GeometryPoint = origin()
 
-fn canonical_header_name(name: String): String {
+fn canonical_header_name(name: String) -> String {
     name
 }
 

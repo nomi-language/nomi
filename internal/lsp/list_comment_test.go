@@ -9,11 +9,11 @@ import (
 
 // listCommentSource is a call whose argument list holds comments, before
 // the first argument, after one's comma and after the last.
-const listCommentSource = `fn add(a: Int, b: Int): Int {
+const listCommentSource = `fn add(a: Int, b: Int) -> Int {
     a + b
 }
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 
@@ -46,7 +46,7 @@ func TestListComment_HoverTokensAndCompletionInACommentedArgumentList(t *testing
 	if err != nil || hover == nil {
 		t.Fatalf("no hover on `double` in the argument list: %v", err)
 	}
-	if mc, ok := hover.Contents.(protocol.MarkupContent); !ok || !strings.Contains(mc.Value, "fn double(n: Int): Int") {
+	if mc, ok := hover.Contents.(protocol.MarkupContent); !ok || !strings.Contains(mc.Value, "fn double(n: Int) -> Int") {
 		t.Errorf("hover on `double` = %+v", hover.Contents)
 	}
 

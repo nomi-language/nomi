@@ -14,17 +14,17 @@ import std/io
 // refusal, and one that only appears when an argument has a side effect. Every
 // other line here is caught by the type checker or by an answer if placement is
 // wrong; this one is caught only by the ORDER of two prints.
-fn order(a: String, b: String): String {
+fn order(a: String, b: String) -> String {
     a + "/" + b
 }
 
-fn p(tag: String): String {
+fn p(tag: String) -> String {
     io.print("eval " + tag)
     tag
 }
 
 // A defaulted middle slot, so a named argument has to skip past one.
-fn opts(x: Int, factor: Int = 10, label: String = "L"): String {
+fn opts(x: Int, factor: Int = 10, label: String = "L") -> String {
     label + Display.to_string(x * factor)
 }
 

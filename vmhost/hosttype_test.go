@@ -17,25 +17,25 @@ import (
 // and never looks inside.
 const hostTypeProgram = `host type Counter
 
-host fn counter_new(start: Int): Counter
+host fn counter_new(start: Int) -> Counter
 
-host fn counter_value(c: Counter): Int
+host fn counter_value(c: Counter) -> Int
 
-host fn counter_bump(c: Counter): Counter
+host fn counter_bump(c: Counter) -> Counter
 
 struct Held {
   counter: Counter
 }
 
-fn bump_twice(c: Counter): Counter {
+fn bump_twice(c: Counter) -> Counter {
   counter_bump(counter_bump(c))
 }
 
-pub fn run(start: Int): Int {
+pub fn run(start: Int) -> Int {
   c = counter_new(start)
   held = Held{counter: bump_twice(c)}
   all = [c, held.counter]
-  Iter.reduce(all, |acc = 0, x| acc * 100 + counter_value(x))
+  Iter.reduce(all, fn acc = 0, x -> acc * 100 + counter_value(x))
 }
 `
 

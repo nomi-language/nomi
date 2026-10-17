@@ -41,43 +41,43 @@ pub struct Tally {
 }
 
 impl Equatable for Tally {
-    fn equal?(a: Tally, b: Tally): Bool {
+    fn equal?(a: Tally, b: Tally) -> Bool {
         a.n == b.n
     }
 }
 
 impl Hashable for Tally {
-    fn hash(t: Tally): Int {
+    fn hash(t: Tally) -> Int {
         t.n
     }
 }
 
 impl Comparable for Tally {
-    fn compare(a: Tally, b: Tally): Ordering {
+    fn compare(a: Tally, b: Tally) -> Ordering {
         Int.compare(a.n, b.n)
     }
 }
 
 impl Debug for Tally {
-    fn inspect(t: Tally): String {
+    fn inspect(t: Tally) -> String {
         "Tally#${t.n}"
     }
 }
 
 impl Display for Tally {
-    fn to_string(t: Tally): String {
+    fn to_string(t: Tally) -> String {
         "tally ${t.n}"
     }
 }
 
 impl ToJson for Tally {
-    fn to_json(t: Tally): Json {
+    fn to_json(t: Tally) -> Json {
         Json.Int(t.n)
     }
 }
 
 impl FromJson for Tally {
-    fn from_json(json: Json): Result<Tally, Json.ShapeError> {
+    fn from_json(json: Json) -> Result<Tally, Json.ShapeError> {
         case json {
             Json.Int(n) -> Ok(Tally{n})
             _ -> Err(Json.ShapeError{path: [], expected: "int", got: "other"})

@@ -15,7 +15,7 @@ import "testing"
 func TestCaseExhaustiveMaybeAllVariants(t *testing.T) {
 	src := `
 
-fn m(x: Maybe<Int>): Int {
+fn m(x: Maybe<Int>) -> Int {
   case x {
     Some(n) -> n
     None -> 0
@@ -28,7 +28,7 @@ fn m(x: Maybe<Int>): Int {
 func TestCaseExhaustiveWildcard(t *testing.T) {
 	src := `
 
-fn m(x: Maybe<Int>): Int {
+fn m(x: Maybe<Int>) -> Int {
   case x {
     Some(n) -> n
     _ -> 0
@@ -41,7 +41,7 @@ fn m(x: Maybe<Int>): Int {
 func TestCaseExhaustiveBareBinding(t *testing.T) {
 	src := `
 
-fn m(x: Maybe<Int>): Int {
+fn m(x: Maybe<Int>) -> Int {
   case x {
     Some(n) -> n
     other -> 0
@@ -54,7 +54,7 @@ fn m(x: Maybe<Int>): Int {
 func TestCaseNonExhaustiveMaybeMissingNone(t *testing.T) {
 	src := `
 
-fn m(x: Maybe<Int>): Int {
+fn m(x: Maybe<Int>) -> Int {
   case x {
     Some(n) -> n
   }
@@ -66,7 +66,7 @@ fn m(x: Maybe<Int>): Int {
 func TestCaseNonExhaustiveMaybeMissingSome(t *testing.T) {
 	src := `
 
-fn m(x: Maybe<Int>): Int {
+fn m(x: Maybe<Int>) -> Int {
   case x {
     None -> 0
   }
@@ -78,7 +78,7 @@ fn m(x: Maybe<Int>): Int {
 func TestCaseNonExhaustiveResult(t *testing.T) {
 	src := `
 
-fn m(x: Result<Int, String>): Int {
+fn m(x: Result<Int, String>) -> Int {
   case x {
     Ok(n) -> n
   }
@@ -90,7 +90,7 @@ fn m(x: Result<Int, String>): Int {
 func TestCaseExhaustiveResult(t *testing.T) {
 	src := `
 
-fn m(x: Result<Int, String>): Int {
+fn m(x: Result<Int, String>) -> Int {
   case x {
     Ok(n) -> n
     Err(_) -> 0
@@ -101,7 +101,7 @@ fn m(x: Result<Int, String>): Int {
 }
 
 func TestCaseNonExhaustiveBoolMissingFalse(t *testing.T) {
-	src := `fn m(x: Bool): Int {
+	src := `fn m(x: Bool) -> Int {
   case x {
     True -> 1
   }
@@ -111,7 +111,7 @@ func TestCaseNonExhaustiveBoolMissingFalse(t *testing.T) {
 }
 
 func TestCaseExhaustiveBool(t *testing.T) {
-	src := `fn m(x: Bool): Int {
+	src := `fn m(x: Bool) -> Int {
   case x {
     True -> 1
     False -> 0
@@ -125,7 +125,7 @@ func TestCaseNonExhaustiveUserEnum(t *testing.T) {
 	src := `enum Shape { Circle
   Square
   Triangle }
-fn m(x: Shape): Int {
+fn m(x: Shape) -> Int {
   case x {
     Circle -> 1
     Square -> 2
@@ -141,7 +141,7 @@ func TestCaseLiteralPayloadNotExhaustive(t *testing.T) {
 	// always requires a `_` fallback."
 	src := `
 
-fn m(x: Maybe<Int>): Int {
+fn m(x: Maybe<Int>) -> Int {
   case x {
     Some(42) -> 1
     None -> 0
@@ -155,7 +155,7 @@ func TestCaseGuardNotExhaustive(t *testing.T) {
 	// Guard on the only `Some` branch — doesn't cover `Some` cleanly.
 	src := `
 
-fn m(x: Maybe<Int>): Int {
+fn m(x: Maybe<Int>) -> Int {
   case x {
     Some(n) when n > 0 -> 1
     None -> 0
@@ -167,7 +167,7 @@ fn m(x: Maybe<Int>): Int {
 
 func TestCaseExhaustivenessSkipsAdHoc(t *testing.T) {
 	// Ad-hoc case (no scrutinee) — exhaustiveness doesn't apply.
-	src := `fn m(x: Int): Int {
+	src := `fn m(x: Int) -> Int {
   case {
     x > 0 -> 1
     _ -> 0
@@ -180,7 +180,7 @@ func TestCaseExhaustivenessSkipsAdHoc(t *testing.T) {
 func TestCaseExhaustivenessSkipsNonEnum(t *testing.T) {
 	// Scrutinee is an Int (not an enum) — exhaustiveness for primitives
 	// is not in scope; the `case` body is allowed to be incomplete.
-	src := `fn m(x: Int): Int {
+	src := `fn m(x: Int) -> Int {
   case x {
     0 -> 1
     _ -> 0
@@ -197,7 +197,7 @@ func TestCaseExhaustiveNestedVariantInsideVariant(t *testing.T) {
 	src := `
 
 
-fn m(x: Maybe<Result<Int, String>>): Int {
+fn m(x: Maybe<Result<Int, String>>) -> Int {
   case x {
     Some(Ok(n)) -> n
     Some(Err(_)) -> -1

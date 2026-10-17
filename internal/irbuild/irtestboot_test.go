@@ -23,13 +23,13 @@ pub struct App {
   label: String
 }
 
-pub fn boot(): App {
+pub fn boot() -> App {
   App{context: Context.root(), label: "booted"}
 }
 
 fn main() {}
 
-fn show(suffix: String): String {
+fn show(suffix: String) -> String {
   App.label + suffix
 }
 

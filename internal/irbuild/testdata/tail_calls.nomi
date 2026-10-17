@@ -14,11 +14,11 @@
 // tail_self_deep.nomi, tail_mutual_deep.nomi and tail_impl_deep.nomi.
 import std/io
 
-fn count(n: Int): Int {
+fn count(n: Int) -> Int {
     if n == 0 { 0 } else { count(n - 1) }
 }
 
-fn fact(n: Int, acc: Int): Int {
+fn fact(n: Int, acc: Int) -> Int {
     if n <= 1 {
         acc
     } else {
@@ -26,22 +26,22 @@ fn fact(n: Int, acc: Int): Int {
     }
 }
 
-fn is_even(n: Int): Bool {
+fn is_even(n: Int) -> Bool {
     if n == 0 { True } else { is_odd(n - 1) }
 }
 
-fn is_odd(n: Int): Bool {
+fn is_odd(n: Int) -> Bool {
     if n == 0 { False } else { is_even(n - 1) }
 }
 
-fn sum_up_to(n: Int): Int {
+fn sum_up_to(n: Int) -> Int {
     if n == 0 { 0 } else { 1 + sum_up_to(n - 1) }
 }
 
 // Every argument reads a parameter the hop is about to overwrite, in both
 // directions, so a rebind that skipped the temporaries would corrupt one of
 // them. `swap(3, 8, 4)` must answer 3-8 unchanged after an even number of hops.
-fn swap(a: Int, b: Int, n: Int): Int {
+fn swap(a: Int, b: Int, n: Int) -> Int {
     if n == 0 { a - b } else { swap(b, a, n - 1) }
 }
 

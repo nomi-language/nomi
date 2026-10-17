@@ -18,7 +18,7 @@ func generatedFile(n int) string {
 	for i := range n {
 		fmt.Fprintf(&b, "\n/// Function %d.\n", i)
 		fmt.Fprintf(&b, "//! assert f%d([User{name: \"a\", age: %d, active?: True}]) == [\"a\"]\n", i, i)
-		fmt.Fprintf(&b, "pub fn f%d(users: List<User>): List<String> {\n", i)
+		fmt.Fprintf(&b, "pub fn f%d(users: List<User>) -> List<String> {\n", i)
 		b.WriteString("    users\n    |> Iter.filter(.active?)\n    |> Iter.map(.name)\n    |> Iter.to_list()\n}\n")
 	}
 	return b.String()
@@ -26,7 +26,7 @@ func generatedFile(n int) string {
 
 // lspProbe is appended to each benchmarked file: completion runs after
 // `it`, and one documentHighlight on the local `items`.
-const lspProbe = "\nfn lsp_probe(items: List<Int>): Int {\n    n = List.length(items)\n    it" + cursorMark + "\n}\n"
+const lspProbe = "\nfn lsp_probe(items: List<Int>) -> Int {\n    n = List.length(items)\n    it" + cursorMark + "\n}\n"
 
 // requestBenchFile is one file the request benchmarks open, with the
 // cursor of the position requests.

@@ -9,13 +9,13 @@ struct Up {}
 struct Dn {}
 
 impl Up {
-    fn go(_value: Up, n: Int): Int {
+    fn go(_value: Up, n: Int) -> Int {
         if n == 0 { 0 } else { Dn.go(Dn{}, n - 1) }
     }
 }
 
 impl Dn {
-    fn go(_value: Dn, n: Int): Int {
+    fn go(_value: Dn, n: Int) -> Int {
         if n == 0 { 0 } else { Up.go(Up{}, n - 1) }
     }
 }

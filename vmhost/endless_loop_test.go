@@ -18,7 +18,7 @@ func TestEndlessLoopUsesTheStepBudget(t *testing.T) {
 
 fn main() {
     io.print("start")
-    _ = Iter.loop(|n = 0| {
+    _ = Iter.loop(fn n = 0 -> {
         if n < 3 { io.print(n) }
         n + 1
     })
@@ -29,7 +29,7 @@ fn main() {
 test "spins" {
     assert 1 == 1
     io.print("case")
-    Iter.loop(|| {
+    Iter.loop(fn -> {
         _ = 1
     })
 }
@@ -77,7 +77,7 @@ struct Config {
     outbox: Channel<String>
 }
 
-fn boot(): Config {
+fn boot() -> Config {
     Config{context: Context.root(), outbox: Channel.buffered<String>(8)}
 }
 

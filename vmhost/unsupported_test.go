@@ -17,29 +17,29 @@ import (
 func TestCheck_ReportsWhatTheCompilerCannotLower(t *testing.T) {
 	path := writeProgram(t, `import std/io
 
-fn skip_odd(n: Int): Int {
+fn skip_odd(n: Int) -> Int {
   if n % 2 == 1 {
     continue
   }
   n
 }
 
-fn is_big(n: Int): Bool {
+fn is_big(n: Int) -> Bool {
   if n > 100 {
     break True
   }
   n > 2
 }
 
-fn evens(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| skip_odd(x)) |> Iter.to_list()
+fn evens(xs: List<Int>) -> List<Int> {
+  Iter.map(xs, fn x -> skip_odd(x)) |> Iter.to_list()
 }
 
-fn first_big(xs: List<Int>): Maybe<Int> {
+fn first_big(xs: List<Int>) -> Maybe<Int> {
   Iter.find(xs, f: is_big)
 }
 
-fn unused(xs: List<Int>): Maybe<Int> {
+fn unused(xs: List<Int>) -> Maybe<Int> {
   Iter.find(xs, is_big)
 }
 
@@ -59,7 +59,7 @@ fn main() {
 		hint      string
 	}
 	wants := []want{
-		{18, 20, "this call to `skip_odd` is not supported yet, so `fn evens` cannot run",
+		{18, 24, "this call to `skip_odd` is not supported yet, so `fn evens` cannot run",
 			"`skip_odd` uses break or continue, so pass it as the callback itself"},
 		{22, 20, "using `is_big` here is not supported yet, so `fn first_big` cannot run",
 			"runs as a callback only when the iteration function is named with its owner, as in `Iter.find(xs, is_big)`"},
@@ -88,12 +88,12 @@ fn main() {
 func TestCheck_ALoweredProgramChecksClean(t *testing.T) {
 	path := writeProgram(t, `import std/io
 
-fn add(a: Int, b: Int): Int {
+fn add(a: Int, b: Int) -> Int {
   a + b
 }
 
 fn main() {
-  io.print(Iter.reduce([1, 2, 3], |acc = 0, n| add(acc, n)))
+  io.print(Iter.reduce([1, 2, 3], fn acc = 0, n -> add(acc, n)))
 }
 `)
 	if err := vmhost.Check(path); err != nil {
@@ -107,7 +107,7 @@ func TestCheck_ReportsADeclinedMainAtTheExpression(t *testing.T) {
 	plantDecline(t)
 	path := writeProgram(t, `import std/io
 
-fn planted_decline(a: Int): Int {
+fn planted_decline(a: Int) -> Int {
     a
 }
 

@@ -32,7 +32,7 @@
 // before rt.InspectSeq existed a `List<Iter<Int>>` was refused for the Iter and
 // not for the list. With it, the list inspector composes over the element.
 test "an Iter operand renders" {
-    x = [1, 2, 3, 4, 5] |> Iter.filter(|n| n > 2)
+    x = [1, 2, 3, 4, 5] |> Iter.filter(fn n -> n > 2)
 
     assert Iter.to_list(x) == [3, 4, 5, 9]
 }
@@ -44,7 +44,7 @@ test "an unbounded Iter operand renders without being consumed" {
 }
 
 test "an Iter nested in a List renders" {
-    x = [1, 2] |> Iter.map(|n| n * 2)
+    x = [1, 2] |> Iter.map(fn n -> n * 2)
 
     pair = [x, x]
 

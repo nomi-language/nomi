@@ -41,7 +41,7 @@ func TestLowerDerives_ImplBlockPassesThrough(t *testing.T) {
 
 /// Speech behavior.
 impl Speech for Dog {
-  fn speak(_d: self): String {
+  fn speak(_d: self) -> String {
     "woof"
   }
 }
@@ -126,7 +126,7 @@ func TestLowerDerives_ConstrainedImplBlockKeepsBounds(t *testing.T) {
 
 impl Iter for Range<T> where T: Discrete {
 
-  fn next(_r: Range<T>): Maybe<(T, Range<T>)> {
+  fn next(_r: Range<T>) -> Maybe<#(T, Range<T>)> {
     none
   }
 }
@@ -173,7 +173,7 @@ func TestLowerDerives_StructFnItemsAreParseErrors(t *testing.T) {
 	_, err := parser.Parse(lexer.Lex(`struct Dog {
   name: String
 
-  fn rename(d: Dog, n: String): Dog { Dog{name: n} }
+  fn rename(d: Dog, n: String) -> Dog { Dog{name: n} }
 }
 `))
 	if err == nil {
@@ -189,7 +189,7 @@ func TestLowerDerives_EnumFnItemsAreParseErrors(t *testing.T) {
   Active
   Pending Int
 
-  pub fn label(s: Status): String {
+  pub fn label(s: Status) -> String {
     "x"
   }
 }
@@ -210,13 +210,13 @@ func TestLowerDerives_ImplBlocksKeepStableOrder(t *testing.T) {
 
 
 impl Display for Status {
-  fn to_string(_s: Status): String {
+  fn to_string(_s: Status) -> String {
     "status"
   }
 }
 
 impl Speech for Status {
-  fn speak(_s: Status): String {
+  fn speak(_s: Status) -> String {
     "hello"
   }
 }
@@ -256,7 +256,7 @@ func TestLowerDerives_LoweredBlocksFollowTheirDecl(t *testing.T) {
 }
 
 impl Speech for Dog {
-  fn speak(_d: self): String {
+  fn speak(_d: self) -> String {
     "woof"
   }
 }
@@ -266,7 +266,7 @@ struct Cat {
 }
 
 impl Speech for Cat {
-  fn speak(_c: Cat): String {
+  fn speak(_c: Cat) -> String {
     "meow"
   }
 }
@@ -292,7 +292,7 @@ impl Speech for Cat {
 
 func TestLowerDerives_ExternTypeBodyIsParseError(t *testing.T) {
 	_, err := parser.Parse(lexer.Lex(`pub host type List<T> {
-  pub fn first(xs: List<T>): T {
+  pub fn first(xs: List<T>) -> T {
     panic("x")
   }
 }
@@ -309,7 +309,7 @@ func TestLowerDerives_DistinctAndZeroSizedTypeBodies(t *testing.T) {
 	src := `pub opaque type NonZeroInt Int
 
 impl Display for NonZeroInt {
-  fn to_string(_n: self): String {
+  fn to_string(_n: self) -> String {
     "n"
   }
 }
@@ -317,7 +317,7 @@ impl Display for NonZeroInt {
 type Sql
 
 impl Literal for Sql {
-  fn from_fragments(_fragments: List<Fragment<String>>): String {
+  fn from_fragments(_fragments: List<Fragment<String>>) -> String {
     "q"
   }
 }
@@ -344,7 +344,7 @@ impl Literal for Sql {
 func TestLowerDerives_ImplReceiverPositionsAreReal(t *testing.T) {
 	t.Run("interface impl", func(t *testing.T) {
 		src := `interface Speech {
-  fn speak(s: self): String
+  fn speak(s: self) -> String
 }
 
 struct Dog {
@@ -352,7 +352,7 @@ struct Dog {
 }
 
 impl Speech for Dog {
-  fn speak(d: Dog): String {
+  fn speak(d: Dog) -> String {
     d.name
   }
 }
@@ -380,7 +380,7 @@ impl Speech for Dog {
 
 	t.Run("generic impl", func(t *testing.T) {
 		src := `interface Container {
-  fn unwrap(c: self): Int
+  fn unwrap(c: self) -> Int
 }
 
 struct Box<T> {
@@ -388,7 +388,7 @@ struct Box<T> {
 }
 
 impl Container for Box<T> {
-  fn unwrap(_b: Box<T>): Int {
+  fn unwrap(_b: Box<T>) -> Int {
     1
   }
 }
@@ -455,7 +455,7 @@ func TestLowerDerives_NestedImplPreservesGenericBounds(t *testing.T) {
 }
 
 impl Iter for StepByRange<T, S> {
-  fn next(_s: StepByRange<T, S>): Maybe<(T, StepByRange<T, S>)> {
+  fn next(_s: StepByRange<T, S>) -> Maybe<#(T, StepByRange<T, S>)> {
     None
   }
 }
@@ -498,7 +498,7 @@ func TestLowerDerives_Idempotent(t *testing.T) {
 
 
 impl Speech for Dog {
-  fn speak(_d: Dog): String {
+  fn speak(_d: Dog) -> String {
     "woof"
   }
 }

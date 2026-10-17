@@ -13,7 +13,7 @@ enum Identifier {
 // is the wrapped type. The corpus shape lives in
 // tests/12-derives-and-standard-interfaces/derives_test.nomi, which
 // stays refused for an independent reason (derive).
-fn label(id: Identifier): String {
+fn label(id: Identifier) -> String {
     case id {
         Identifier.UserId(name) -> "user:${name}"
         Identifier.Anonymous -> "anonymous"
@@ -22,7 +22,7 @@ fn label(id: Identifier): String {
 
 // The plain top-level form: the pattern head names the distinct type itself,
 // and the payload destructures the wrapped value.
-fn points(s: Score): Int {
+fn points(s: Score) -> Int {
     case s {
         Score(n) -> n * 2
     }

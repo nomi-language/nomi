@@ -66,7 +66,7 @@ import {
 // shown renders a Maybe<String> without depending on Debug's layout, so the
 // `actual` rows stay readable when they are wrong. A tagless zero Maybe matches
 // neither arm, which is the failure this spelling exposes.
-fn shown(m: Maybe<String>): String {
+fn shown(m: Maybe<String>) -> String {
     case m {
         Some(s) -> "Some(" + s + ")"
         None -> "None"
@@ -76,7 +76,7 @@ fn shown(m: Maybe<String>): String {
 // labels reads the detail list by SHAPE. An empty list and a nil list share a
 // count, so a count cannot separate them; matching `[]` can, because a nil list
 // that failed to match would fall through to the next arm.
-fn labels(ds: List<AssertionDetail>): String {
+fn labels(ds: List<AssertionDetail>) -> String {
     case ds {
         [] -> "[]"
         [one] -> one.label

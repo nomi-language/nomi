@@ -19,7 +19,7 @@ pub struct Quiet {
 pub type Blank
 
 impl Logger for Quiet {
-    fn log(q: Quiet, message: String): String {
+    fn log(q: Quiet, message: String) -> String {
         "q${q.level}:${message}"
     }
 }
@@ -28,7 +28,7 @@ impl Logger for Quiet {
 // answers are evidence of dispatch rather than of a fixed call: with one
 // implementor a table probe and a hard-coded call are indistinguishable.
 impl Tagger for Blank {
-    fn tag(b: Blank): String {
+    fn tag(b: Blank) -> String {
         _ = b
         "blank"
     }
@@ -36,16 +36,16 @@ impl Tagger for Blank {
 
 pub once tag: String = "extra"
 
-pub fn plain(): Blank {
+pub fn plain() -> Blank {
     Blank
 }
 
 // The SECOND mirror of shared.Stamp, in a CO-TENANT of wire's package. One of
 // the two aliases is the one a per-file dedup would declare twice.
-pub fn other(): Stamp {
+pub fn other() -> Stamp {
     shared.stamp("x")
 }
 
-pub fn other_text(s: Stamp): String {
+pub fn other_text(s: Stamp) -> String {
     s.s
 }

@@ -12,22 +12,22 @@ import "testing"
 func TestRun_NoneInALambdaPassedToAGeneric(t *testing.T) {
 	out := runOutput(t, `import std/io
 
-fn apply<T, U>(x: T, f: (T) -> U): U {
+fn apply<T, U>(x: T, f: (T) -> U) -> U {
   f(x)
 }
 
-fn pick<T>(c: Bool, a: T, b: T): T {
+fn pick<T>(c: Bool, a: T, b: T) -> T {
   if c { a } else { b }
 }
 
 fn main() {
-  io.inspect(apply(1, |x| if x > 5 { Some(2.5) } else { None }))
-  io.inspect(apply(9, |x| if x > 5 { Some(2.5) } else { None }))
-  io.inspect(Maybe.map(Some(94), |x| pick(False, None, Some(x))))
-  io.inspect(Maybe.map(Some(94), |x| pick(True, None, Some(x))))
-  io.inspect(apply("a", |s| pick(False, Err("bad"), Ok(s))))
-  io.inspect(Maybe.map(Some(1), |x| if x > 5 { None } else { Some(2.5) }))
-  io.inspect(Maybe.map(Some(9), |x| if x > 5 { None } else { Some(2.5) }))
+  io.inspect(apply(1, fn x -> if x > 5 { Some(2.5) } else { None }))
+  io.inspect(apply(9, fn x -> if x > 5 { Some(2.5) } else { None }))
+  io.inspect(Maybe.map(Some(94), fn x -> pick(False, None, Some(x))))
+  io.inspect(Maybe.map(Some(94), fn x -> pick(True, None, Some(x))))
+  io.inspect(apply("a", fn s -> pick(False, Err("bad"), Ok(s))))
+  io.inspect(Maybe.map(Some(1), fn x -> if x > 5 { None } else { Some(2.5) }))
+  io.inspect(Maybe.map(Some(9), fn x -> if x > 5 { None } else { Some(2.5) }))
 }
 `)
 	want := "None\nSome(2.5)\nSome(Some(94))\nSome(None)\nOk(\"a\")\nSome(Some(2.5))\nSome(None)\n"
@@ -37,19 +37,19 @@ fn main() {
 }
 
 // A lambda argument to a generic whose parameter types only the call's
-// expected type fixes takes them from it: `ident(|x| x + 1)` against
+// expected type fixes takes them from it: `ident(fn x -> x + 1)` against
 // `(Int) -> Int`. It was rejected as `expected (Int) -> Int, got (?) -> Unit`.
 func TestRun_LambdaTypedByTheCallsExpectedType(t *testing.T) {
 	out := runOutput(t, `import std/io
 
-fn ident<T>(x: T): T {
+fn ident<T>(x: T) -> T {
   x
 }
 
 fn main() {
-  f: (Int) -> Int = ident(|x| x + 1)
+  f: (Int) -> Int = ident(fn x -> x + 1)
   io.inspect(f(1))
-  g: (String) -> Int = ident(|s| String.length(s))
+  g: (String) -> Int = ident(fn s -> String.length(s))
   io.inspect(g("abc"))
 }
 `)
@@ -66,11 +66,11 @@ fn main() {
 func TestRun_PartialApplicationAgainstAFunctionType(t *testing.T) {
 	out := runOutput(t, `import std/io
 
-fn pick<T>(c: Bool, a: T, b: T): T {
+fn pick<T>(c: Bool, a: T, b: T) -> T {
   if c { a } else { b }
 }
 
-fn apply<T, U>(x: T, f: (T) -> U): U {
+fn apply<T, U>(x: T, f: (T) -> U) -> U {
   f(x)
 }
 
@@ -95,7 +95,7 @@ fn main() {
 func TestRun_BlockLocalTypeInAnnotations(t *testing.T) {
 	out := runOutput(t, `import std/io
 
-fn ident<T>(x: T): T {
+fn ident<T>(x: T) -> T {
   x
 }
 
@@ -105,8 +105,8 @@ fn main() {
     x: Int
   }
   m: Meters = Meters(3)
-  f = |x: Int, d: Meters = Meters(1)| case d { Meters(n) -> x + n }
-  g: (Meters) -> Int = |Meters(n)| n
+  f = fn x: Int, d: Meters = Meters(1) -> case d { Meters(n) -> x + n }
+  g: (Meters) -> Int = fn Meters(n) -> n
   p: Pt = Pt{x: 4}
   io.inspect(m)
   io.inspect(f(1))

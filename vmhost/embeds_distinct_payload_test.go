@@ -27,7 +27,7 @@ type Wrapped Circle
 
 type UserId String
 
-type Pair (Int, Int)
+type Pair #(Int, Int)
 
 type Ids List<Int>
 
@@ -55,7 +55,7 @@ enum Holder {
   Empty
 }
 
-fn tail_case(s: Shape): String {
+fn tail_case(s: Shape) -> String {
   case s {
     Shape.Wrapped({r: 1}) -> "case one"
     Shape.Wrapped({r}) -> "case ${r}"
@@ -63,7 +63,7 @@ fn tail_case(s: Shape): String {
   }
 }
 
-fn tail_if(s: Shape): String {
+fn tail_if(s: Shape) -> String {
   if Shape.Wrapped({r}) = s {
     "if ${r}"
   } else {
@@ -71,28 +71,28 @@ fn tail_if(s: Shape): String {
   }
 }
 
-fn else_leaves(s: Shape): String {
+fn else_leaves(s: Shape) -> String {
   Shape.Wrapped({r}) = s else {
     return "else miss"
   }
   "else ${r}"
 }
 
-fn else_fallback(s: Shape): String {
+fn else_fallback(s: Shape) -> String {
   Shape.Wrapped({r}) = s else {
     Circle{r: 0}
   }
   "fallback ${r}"
 }
 
-fn nested(h: Holder): String {
+fn nested(h: Holder) -> String {
   case h {
     .Hold(Shape.Wrapped({r})) -> "nested ${r}"
     _ -> "nested miss"
   }
 }
 
-fn mid_case(s: Shape): String {
+fn mid_case(s: Shape) -> String {
   n = case s {
     Shape.Wrapped({r}) -> r
     _ -> -1
@@ -100,56 +100,56 @@ fn mid_case(s: Shape): String {
   "mid ${n}"
 }
 
-fn literal(s: Shape): String {
+fn literal(s: Shape) -> String {
   case s {
     Shape.UserId("ann") -> "user ann"
     _ -> "user miss"
   }
 }
 
-fn tuple(s: Shape): String {
+fn tuple(s: Shape) -> String {
   case s {
-    Shape.Pair((1, b)) -> "pair ${b}"
+    Shape.Pair(#(1, b)) -> "pair ${b}"
     _ -> "pair miss"
   }
 }
 
-fn list(s: Shape): String {
+fn list(s: Shape) -> String {
   case s {
     Shape.Ids([x, .._]) -> "ids ${x}"
     _ -> "ids miss"
   }
 }
 
-fn map(s: Shape): String {
+fn map(s: Shape) -> String {
   case s {
-    Shape.Kvs({"k" => v}) -> "kvs ${v}"
+    Shape.Kvs(%{"k" => v}) -> "kvs ${v}"
     _ -> "kvs miss"
   }
 }
 
-fn distinct(s: Shape): String {
+fn distinct(s: Shape) -> String {
   case s {
     Shape.Twice(Meters(m)) -> "twice ${m}"
     _ -> "twice miss"
   }
 }
 
-fn again(s: Shape): String {
+fn again(s: Shape) -> String {
   case s {
     Shape.Again(Wrapped({r})) -> "again ${r}"
     _ -> "again miss"
   }
 }
 
-fn pair_fallback(s: Shape): String {
-  Shape.Pair((a, b)) = s else {
-    (0, 0)
+fn pair_fallback(s: Shape) -> String {
+  Shape.Pair(#(a, b)) = s else {
+    #(0, 0)
   }
   "pair fallback ${a} ${b}"
 }
 
-fn again_fallback(s: Shape): String {
+fn again_fallback(s: Shape) -> String {
   Shape.Again(Wrapped({r})) = s else {
     Wrapped(Circle{r: 0})
   }
@@ -174,17 +174,17 @@ fn main() {
   io.print(mid_case(Shape.Dot))
   io.print(literal(Shape.UserId("ann")))
   io.print(literal(Shape.UserId("bob")))
-  io.print(tuple(Shape.Pair((1, 9))))
-  io.print(tuple(Shape.Pair((2, 9))))
+  io.print(tuple(Shape.Pair(#(1, 9))))
+  io.print(tuple(Shape.Pair(#(2, 9))))
   io.print(list(Shape.Ids([4, 5])))
   io.print(list(Shape.Ids([])))
-  io.print(map(Shape.Kvs({"k" => 3})))
-  io.print(map(Shape.Kvs({"j" => 3})))
+  io.print(map(Shape.Kvs(%{"k" => 3})))
+  io.print(map(Shape.Kvs(%{"j" => 3})))
   io.print(distinct(Shape.Twice(Meters(8))))
   io.print(distinct(Shape.Dot))
   io.print(again(Shape.Again(Wrapped(Circle{r: 6}))))
   io.print(again(Shape.Dot))
-  io.print(pair_fallback(Shape.Pair((3, 4))))
+  io.print(pair_fallback(Shape.Pair(#(3, 4))))
   io.print(pair_fallback(Shape.Dot))
   io.print(again_fallback(Shape.Again(Wrapped(Circle{r: 7}))))
   io.print(again_fallback(Shape.Dot))
@@ -321,7 +321,7 @@ struct Holder {
   shape: Maybe<Shape>
 }
 
-fn maybe(m: Maybe<Shape>): String {
+fn maybe(m: Maybe<Shape>) -> String {
   case m {
     Some(Shape.Wrapped({r})) -> "some ${r}"
     Some(_) -> "some dot"
@@ -329,7 +329,7 @@ fn maybe(m: Maybe<Shape>): String {
   }
 }
 
-fn result(m: Result<Shape, String>): String {
+fn result(m: Result<Shape, String>) -> String {
   case m {
     Ok(Shape.Wrapped(c)) -> "ok ${c.r}"
     Ok(_) -> "ok dot"
@@ -337,7 +337,7 @@ fn result(m: Result<Shape, String>): String {
   }
 }
 
-fn plain(m: Maybe<Plain>): String {
+fn plain(m: Maybe<Plain>) -> String {
   case m {
     Some(Plain.Circle{r}) -> "plain ${r}"
     Some(_) -> "plain spot"
@@ -345,17 +345,17 @@ fn plain(m: Maybe<Plain>): String {
   }
 }
 
-fn list(xs: List<Shape>): String {
+fn list(xs: List<Shape>) -> String {
   case xs {
     [Shape.Wrapped({r}), .._] -> "list ${r}"
     _ -> "list miss"
   }
 }
 
-fn tuple(t: (Shape, Int)): String {
+fn tuple(t: #(Shape, Int)) -> String {
   case t {
-    (Shape.Wrapped({r}), n) -> "tuple ${r + n}"
-    (_, n) -> "tuple ${n}"
+    #(Shape.Wrapped({r}), n) -> "tuple ${r + n}"
+    #(_, n) -> "tuple ${n}"
   }
 }
 
@@ -372,13 +372,13 @@ fn main() {
   io.print(plain(Some(Circle{r: 4})))
   io.print(list([Shape.Dot]))
   io.print(list([Wrapped(Circle{r: 5}), Shape.Dot]))
-  io.print(tuple((Shape.Dot, 1)))
-  io.print(tuple((Wrapped(Circle{r: 6}), 1)))
+  io.print(tuple(#(Shape.Dot, 1)))
+  io.print(tuple(#(Wrapped(Circle{r: 6}), 1)))
   h = Holder{shape: Some(Shape.Dot)}
   io.print(maybe(h.shape))
   shapes: List<Shape> = [Wrapped(Circle{r: 8}), Shape.Dot]
   io.print(maybe(List.head(shapes)))
-  m: Map<String, Shape> = {"a" => Shape.Dot}
+  m: Map<String, Shape> = %{"a" => Shape.Dot}
   io.print(maybe(Map.get(m, "a")))
   io.print(maybe(Map.get(m, "b")))
   nested: Maybe<Maybe<Shape>> = Some(Some(Shape.Dot))

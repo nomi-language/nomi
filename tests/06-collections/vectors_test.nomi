@@ -49,12 +49,12 @@ test "empty vectors need type context" {
 test "vectors iterate with generic Iter operations" {
     doubled =
         #[1, 2, 3]
-        |> Iter.map(|n| n * 2)
+        |> Iter.map(fn n -> n * 2)
         |> Iter.to_list()
 
     found =
         #["ada", "grace", "katherine"]
-        |> Iter.find(|name| String.contains?(name, "ace"))
+        |> Iter.find(fn name -> String.contains?(name, "ace"))
 
     assert doubled == [2, 4, 6]
     assert found == Some("grace")
@@ -87,7 +87,7 @@ struct Countdown {
 }
 
 impl Iter for Countdown {
-    fn each_while(c: Countdown, yield: (Int) -> Bool): Bool {
+    fn each_while(c: Countdown, yield: (Int) -> Bool) -> Bool {
         if c.from <= 0 {
             True
         } else {
@@ -100,7 +100,7 @@ impl Iter for Countdown {
     }
 }
 
-fn collect<T>(source: Iter<T>): Vector<T> {
+fn collect<T>(source: Iter<T>) -> Vector<T> {
     Iter.to_vector(source)
 }
 
@@ -109,7 +109,7 @@ test "Iter.to_vector materializes any iterator into a vector" {
     assert #["a", "b"] |> Iter.to_vector() == #["a", "b"]
     three = 3
     assert #{3, 1, three} |> Iter.to_vector() == #[3, 1]
-    assert {"a" => 1, "b" => 2} |> Iter.to_vector() == #[("a", 1), ("b", 2)]
+    assert %{"a" => 1, "b" => 2} |> Iter.to_vector() == #[#("a", 1), #("b", 2)]
     assert "héllo" |> Iter.to_vector() == #["h", "é", "l", "l", "o"]
     assert 1..=4 |> Iter.to_vector() == #[1, 2, 3, 4]
     assert String.to_bytes("ab") |> Iter.to_vector() |> Vector.length() == 2
@@ -117,8 +117,8 @@ test "Iter.to_vector materializes any iterator into a vector" {
 
     tens =
         Iter.from(1)
-        |> Iter.filter(|x| x % 2 == 0)
-        |> Iter.map(|x| x * 10)
+        |> Iter.filter(fn x -> x % 2 == 0)
+        |> Iter.map(fn x -> x * 10)
         |> Iter.take(3)
         |> Iter.to_vector()
 

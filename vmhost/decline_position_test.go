@@ -15,7 +15,7 @@ import (
 // turns up.
 func TestDeclinePosition_IsTheInnermostNode(t *testing.T) {
 	plantDecline(t)
-	const planted = `fn planted_decline(a: Int): Int {
+	const planted = `fn planted_decline(a: Int) -> Int {
     a
 }
 `
@@ -29,7 +29,7 @@ func TestDeclinePosition_IsTheInnermostNode(t *testing.T) {
 			src: `import std/io
 
 ` + planted + `
-fn first(x: Int): Int {
+fn first(x: Int) -> Int {
     if x == 1 {
         w = planted_decline(1)
         w

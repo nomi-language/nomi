@@ -27,8 +27,8 @@ func TestIRStdOperator_LinkedFunctionRunsOnTheVM(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := fmt.Sprintf(`import { std/io std/duration.Duration }
-fn left(a: Duration): Duration { io.print("operand") a }
-fn exercise(a: Duration, b: %s): Duration {
+fn left(a: Duration) -> Duration { io.print("operand") a }
+fn exercise(a: Duration, b: %s) -> Duration {
   left(
     a
   ) %s b

@@ -8,15 +8,15 @@ import {
     std/timer
 }
 
-fn produce(ch: Channel<Int>, n: Int): Unit {
+fn produce(ch: Channel<Int>, n: Int) -> Unit {
     case Sender.send(ch.sender, n) {
         Ok(u) -> u
         Err(_) -> Unit
     }
 }
 
-fn consume(ch: Channel<Int>): Int {
-    Iter.loop(|sum = 0| {
+fn consume(ch: Channel<Int>) -> Int {
+    Iter.loop(fn sum = 0 -> {
         case Receiver.receive(ch.receiver) {
             Some(v) -> sum + v
             None -> break sum
@@ -24,20 +24,20 @@ fn consume(ch: Channel<Int>): Int {
     })
 }
 
-fn long_sleep(): Result<Int, String> {
+fn long_sleep() -> Result<Int, String> {
     timer.sleep(Duration.seconds(5))
     Ok(0)
 }
 
-fn short_fail(): Result<Int, String> {
+fn short_fail() -> Result<Int, String> {
     timer.sleep(Duration.milliseconds(10))
     Err("boom")
 }
 
-fn nested_outer_body(): Result<Int, String> {
+fn nested_outer_body() -> Result<Int, String> {
     concurrent {
-        inner_a = Task.spawn(|| timer.sleep(Duration.seconds(5)))
-        inner_b = Task.spawn(|| timer.sleep(Duration.seconds(5)))
+        inner_a = Task.spawn(fn -> timer.sleep(Duration.seconds(5)))
+        inner_b = Task.spawn(fn -> timer.sleep(Duration.seconds(5)))
         _ia = inner_a
         _ib = inner_b
         Ok(42)
@@ -75,7 +75,7 @@ test "unbuffered send and receive meet across two tasks" {
     ch: Channel<Int> = Channel.unbuffered()
 
     got = concurrent {
-        w = Task.spawn(|| Sender.send(ch.sender, 7))
+        w = Task.spawn(fn -> Sender.send(ch.sender, 7))
         v = Receiver.receive(ch.receiver)
         _ = Task.await(w)
         v
@@ -88,10 +88,10 @@ test "producer consumer pipeline drains after channel close" {
     ch = Channel.buffered<Int>(4)
 
     total = concurrent {
-        p1 = Task.spawn(|| produce(ch, 10))
-        p2 = Task.spawn(|| produce(ch, 20))
-        p3 = Task.spawn(|| produce(ch, 30))
-        cons = Task.spawn(|| consume(ch))
+        p1 = Task.spawn(fn -> produce(ch, 10))
+        p2 = Task.spawn(fn -> produce(ch, 20))
+        p3 = Task.spawn(fn -> produce(ch, 30))
+        cons = Task.spawn(fn -> consume(ch))
 
         Task.await(p1)
         Task.await(p2)
@@ -105,9 +105,9 @@ test "producer consumer pipeline drains after channel close" {
 
 test "parallel sleepers complete inside concurrent block" {
     concurrent {
-        a = Task.spawn(|| timer.sleep(Duration.milliseconds(100)))
-        b = Task.spawn(|| timer.sleep(Duration.milliseconds(100)))
-        c = Task.spawn(|| timer.sleep(Duration.milliseconds(100)))
+        a = Task.spawn(fn -> timer.sleep(Duration.milliseconds(100)))
+        b = Task.spawn(fn -> timer.sleep(Duration.milliseconds(100)))
+        c = Task.spawn(fn -> timer.sleep(Duration.milliseconds(100)))
         Task.await(a)
         Task.await(b)
         Task.await(c)
@@ -118,9 +118,9 @@ test "parallel sleepers complete inside concurrent block" {
 
 test "failed task cancels long sibling tasks" {
     outcome = concurrent {
-        short = Task.spawn(|| short_fail())
-        long1 = Task.spawn(|| long_sleep())
-        long2 = Task.spawn(|| long_sleep())
+        short = Task.spawn(fn -> short_fail())
+        long1 = Task.spawn(fn -> long_sleep())
+        long2 = Task.spawn(fn -> long_sleep())
         result = try Task.await(short)
         _ = try Task.await(long1)
         _ = try Task.await(long2)
@@ -133,8 +133,8 @@ test "failed task cancels long sibling tasks" {
 
 test "nested concurrent blocks observe parent cancellation" {
     outcome = concurrent {
-        short = Task.spawn(|| short_fail())
-        outer = Task.spawn(|| nested_outer_body())
+        short = Task.spawn(fn -> short_fail())
+        outer = Task.spawn(fn -> nested_outer_body())
         _o = outer
         Ok(try Task.await(short))
     }
@@ -162,11 +162,11 @@ test "env context timeout cancels blocked channel receives" {
           context: Context
         }
 
-        fn load(context: Context): Config {
+        fn load(context: Context) -> Config {
           Config{context}
         }
 
-        fn boot(): Config {
+        fn boot() -> Config {
           load(Context.root())
         }
 
@@ -176,8 +176,8 @@ test "env context timeout cancels blocked channel receives" {
           with Config.context = Context.with_timeout(Config.context, Duration.milliseconds(50))
           io.print("entered")
           concurrent {
-            r1 = Task.spawn(|| Receiver.receive(ch.receiver))
-            r2 = Task.spawn(|| Receiver.receive(ch.receiver))
+            r1 = Task.spawn(fn -> Receiver.receive(ch.receiver))
+            r2 = Task.spawn(fn -> Receiver.receive(ch.receiver))
             _v1 = Task.await(r1)
             _v2 = Task.await(r2)
           }
@@ -211,9 +211,9 @@ group "sibling cancellation is observable under a virtual clock" {
         before = Instant.now()
 
         outcome = concurrent {
-            short = Task.spawn(|| short_fail())
-            long1 = Task.spawn(|| long_sleep())
-            long2 = Task.spawn(|| long_sleep())
+            short = Task.spawn(fn -> short_fail())
+            long1 = Task.spawn(fn -> long_sleep())
+            long2 = Task.spawn(fn -> long_sleep())
             _l1 = long1
             _l2 = long2
             Ok(try Task.await(short))
@@ -231,8 +231,8 @@ group "sibling cancellation is observable under a virtual clock" {
         before = Instant.now()
 
         outcome = concurrent {
-            short = Task.spawn(|| short_fail())
-            outer = Task.spawn(|| nested_outer_body())
+            short = Task.spawn(fn -> short_fail())
+            outer = Task.spawn(fn -> nested_outer_body())
             _o = outer
             Ok(try Task.await(short))
         }

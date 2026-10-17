@@ -14,7 +14,7 @@ const pipeStageDecls = `enum Dir {
   North
 }
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
   n * 2
 }
 
@@ -23,7 +23,7 @@ struct Box {
 }
 
 impl Box {
-  fn make(n: Int): Box {
+  fn make(n: Int) -> Box {
     Box{n: n}
   }
 }
@@ -74,16 +74,16 @@ func TestPipeStage_CallsLambdasAndKeywordsAreAccepted(t *testing.T) {
 		"x = 3 |> double() |> Int.to_string()",
 		"x: Result<Int, String> = 3 |> Ok()",
 		"x = 3 |> Box.make()",
-		"x = 3 |> then |n| n + 1",
-		"x = 3 |> then |n| { n |> double() }",
-		"x = (3, 4) |> then |(a, b)| a + b",
+		"x = 3 |> then fn n -> n + 1",
+		"x = 3 |> then fn n -> { n |> double() }",
+		"x = #(3, 4) |> then fn #(a, b) -> a + b",
 		"x = 3 |> dbg",
 		"x = True |> if { 1 } else { 0 }",
 		"x = 3 |> case {\n    3 -> True\n    _ -> False\n  }",
 		"x = Some(3) |> try",
 		"x = [1, 2] |> Iter.map(double) |> Iter.to_list()",
 	} {
-		src := pipeStageDecls + "fn demo(): Maybe<Unit> {\n  " + stmt + "\n  _ = x\n  Some(Unit)\n}\n"
+		src := pipeStageDecls + "fn demo() -> Maybe<Unit> {\n  " + stmt + "\n  _ = x\n  Some(Unit)\n}\n"
 		_, errs := checkSourceWithStdlib(src)
 		expectNoStdlibErrors(t, errs)
 	}
@@ -98,10 +98,10 @@ func TestPipeStage_LambdaIsRejected(t *testing.T) {
 		stmt string
 		want string
 	}{
-		{"x = 3 |> |n| n + 1", "a lambda is not a pipe stage: write `then |n| ...`"},
-		{"x = 3 |> (|n| n + 1)", "a lambda is not a pipe stage: write `then |n| ...`"},
-		{"x = (3, 4) |> |(a, b)| a + b", "a lambda is not a pipe stage: write `then |v| ...`"},
-		{"x = 3 |> |n| n + 1 |> double()", "a lambda is not a pipe stage: write `then |n| ...`"},
+		{"x = 3 |> fn n -> n + 1", "a lambda is not a pipe stage: write `then fn n -> ...`"},
+		{"x = 3 |> (fn n -> n + 1)", "a lambda is not a pipe stage: write `then fn n -> ...`"},
+		{"x = #(3, 4) |> fn #(a, b) -> a + b", "a lambda is not a pipe stage: write `then fn v -> ...`"},
+		{"x = 3 |> fn n -> n + 1 |> double()", "a lambda is not a pipe stage: write `then fn n -> ...`"},
 	} {
 		src := pipeStageDecls + "fn main() {\n  " + tc.stmt + "\n  _ = x\n}\n"
 		_, errs := checkSourceWithStdlib(src)

@@ -6,15 +6,15 @@ func TestIRDotVariant_BareAndPositionalValues(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 enum Direction { North; South }
 enum Signal { Value Int; Idle }
-fn direction(): Direction { .North }
-fn payload(): Int { io.print("payload") 7 }
-fn describe(d: Direction): String {
+fn direction() -> Direction { .North }
+fn payload() -> Int { io.print("payload") 7 }
+fn describe(d: Direction) -> String {
   case d {
     .North -> "up"
     .South -> "down"
   }
 }
-fn value(s: Signal): Int {
+fn value(s: Signal) -> Int {
   case s {
     .Value(n) -> n
     .Idle -> 0
@@ -32,8 +32,8 @@ fn main() {
 
 func TestIRDotVariant_ImportedDeclarationIdentity(t *testing.T) {
 	verifyLambdaProgram(t, `import { std/io shapes }
-fn choose(): shapes.Direction { .North }
-fn describe(d: shapes.Direction): String {
+fn choose() -> shapes.Direction { .North }
+fn describe(d: shapes.Direction) -> String {
   case d {
     .North -> "up"
     .South -> "down"
@@ -61,13 +61,13 @@ func TestIRDotVariant_StdEnumFromTheCallee(t *testing.T) {
 }
 enum Direction { Ascending; Descending }
 derive Display for Direction
-fn mine(d: Direction): Direction { d }
+fn mine(d: Direction) -> Direction { d }
 fn main() {
   xs = [3, 1, 2]
   xs |> Iter.sort(.Descending) |> io.print()
   Iter.sort(xs, .Ascending) |> io.print()
-  Iter.sort_by(xs, .Descending, |n| n) |> io.print()
-  xs |> Iter.sort_with(|a, b| if a < b { .Greater } else if a > b { .Less } else { .Equal }) |> io.print()
+  Iter.sort_by(xs, .Descending, fn n -> n) |> io.print()
+  xs |> Iter.sort_with(fn a, b -> if a < b { .Greater } else if a > b { .Less } else { .Equal }) |> io.print()
   Decimal.round(Decimal.from_int(5), 1, .HalfEven) |> io.print()
   String.normalize("e\u{301}", .NFC) |> String.length() |> io.print()
   Json.encode(.Arr([.Int(1), .Null])) |> io.print()
@@ -87,7 +87,7 @@ struct App {
   context: Context
   workers: Supervisor
 }
-fn boot(): App {
+fn boot() -> App {
   App{
     context: Context.root(),
     workers: Supervisor.new(

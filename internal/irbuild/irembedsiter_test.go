@@ -22,20 +22,20 @@ enum Shape {
     Dot
 }
 
-type P (Iter<Shape>, Int)
+type P #(Iter<Shape>, Int)
 
 struct H {
     it: Iter<Shape> = [Circle{r: 1}]
     n: Int = 0
 }
 
-fn total(it: Iter<Shape>): Int {
+fn total(it: Iter<Shape>) -> Int {
     it
-        |> Iter.map(|s| case s {
+        |> Iter.map(fn s -> case s {
             Shape.Circle{r} -> r
             Shape.Dot -> 100
         })
-        |> Iter.reduce(|acc = 0, n| acc + n)
+        |> Iter.reduce(fn acc = 0, n -> acc + n)
 }
 
 fn main() {

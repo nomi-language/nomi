@@ -30,12 +30,12 @@ func TestUnadaptableBindingsFailGenerationByName(t *testing.T) {
   z: Int
 }
 
-pub host fn with_map(m: Map<String, Int>): Int
-pub host fn drift(p: Point): Int
-pub host fn wrong_scalar(x: Float): Int
-pub host fn hidden_error(x: Int): Int
-pub host fn short(x: Int, y: Int): Int
-pub host fn user_enum(x: Int): Maybe<Maybe<Int>>
+pub host fn with_map(m: Map<String, Int>) -> Int
+pub host fn drift(p: Point) -> Int
+pub host fn wrong_scalar(x: Float) -> Int
+pub host fn hidden_error(x: Int) -> Int
+pub host fn short(x: Int, y: Int) -> Int
+pub host fn user_enum(x: Int) -> Maybe<Maybe<Int>>
 `
 	// A closure has no name a generated file can call.
 	closure := func(int64, int64) int64 { return 0 }
@@ -98,9 +98,9 @@ pub host fn user_enum(x: Int): Maybe<Maybe<Int>>
 // refusal; without the rollback its wrapper failed to compile
 // (`b.out6 undefined`).
 func TestARefusedBindingLeavesNoHalfWrittenConversion(t *testing.T) {
-	const source = `pub host fn first(x: Int): Maybe<Maybe<Int>>
-pub host fn second(x: Int): Maybe<Maybe<Int>>
-pub host fn fine(x: Int, y: Int): Int
+	const source = `pub host fn first(x: Int) -> Maybe<Maybe<Int>>
+pub host fn second(x: Int) -> Maybe<Maybe<Int>>
+pub host fn fine(x: Int, y: Int) -> Int
 `
 	ms, err := LoadModules(func(m string) ([]byte, bool) {
 		if m == "t" {

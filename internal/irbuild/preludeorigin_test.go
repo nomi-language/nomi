@@ -77,7 +77,7 @@ func TestPreludeOrigin_IdentityIsTheTypesOwnOriginAndNeverItsName(t *testing.T) 
 		{"std/literals", "NotAThing"},
 	} {
 		if _, ok := preludeOriginAnchor(tc.origin, tc.name); ok {
-			t.Errorf("(%q, %q) anchored to a prelude spec", tc.origin, tc.name)
+			t.Errorf("#(%q, %q) anchored to a prelude spec", tc.origin, tc.name)
 		}
 	}
 }

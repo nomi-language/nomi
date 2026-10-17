@@ -21,28 +21,28 @@ pub enum Probe.Reading {
     Spike Int
 }
 
-fn day_value(d: Day): Int {
+fn day_value(d: Day) -> Int {
     Day(n) = d
     n
 }
 
-fn hours_value(h: Day.Hours): Int {
+fn hours_value(h: Day.Hours) -> Int {
     Day.Hours(n) = h
     n
 }
 
-fn minutes_value(m: Day.Minutes): Int {
+fn minutes_value(m: Day.Minutes) -> Int {
     Day.Minutes(n) = m
     n
 }
 
 impl Day {
-    fn shift(d: Day, by: Day.Hours): Day {
+    fn shift(d: Day, by: Day.Hours) -> Day {
         Day(day_value(d) + hours_value(by) / 24)
     }
 }
 
-fn reading_text(r: Probe.Reading): String {
+fn reading_text(r: Probe.Reading) -> String {
     case r {
         Probe.Reading.Steady -> "steady"
         Probe.Reading.Spike(n) -> "spike ${n}"

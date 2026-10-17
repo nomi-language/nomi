@@ -13,8 +13,8 @@ import (
 
 func TestIRDecimal_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn sum(a: Decimal, b: Decimal): Decimal { a + b }
-fn divide(a: Decimal, b: Decimal): Decimal { a / b }
+fn sum(a: Decimal, b: Decimal) -> Decimal { a + b }
+fn divide(a: Decimal, b: Decimal) -> Decimal { a / b }
 fn main() {
   io.print(sum(0.1d, 0.2d) == 0.3d)
   io.print(1.50d == 1.5d)
@@ -31,13 +31,13 @@ fn main() {
 
 func TestIRDecimal_EffectsAndBranchValues(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn mark(label: String, d: Decimal): Decimal { io.print(label) d }
-fn choose(b: Bool): Decimal { if b { 1.50d } else { 2.25d } }
+fn mark(label: String, d: Decimal) -> Decimal { io.print(label) d }
+fn choose(b: Bool) -> Decimal { if b { 1.50d } else { 2.25d } }
 fn main() {
   answer = mark("left", choose(True)) + mark("right", choose(False))
   io.print(answer)
   io.print(mark("a", 1.5d) == mark("b", 1.50d))
-  f = |d: Decimal| -d
+  f = fn d: Decimal -> -d
   io.inspect(f(answer))
 }
 `, "left\nright\n3.75\na\nb\nTrue\n-3.75d\n")
@@ -50,7 +50,7 @@ func TestIRDecimal_DivisionFaults(t *testing.T) {
 	} {
 		t.Run(tc.divisor, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "main.nomi")
-			src := "fn divide(): Decimal {\n  n = 1d\n  n / " + tc.divisor + "\n}\nfn main() { _ = divide() }\n"
+			src := "fn divide() -> Decimal {\n  n = 1d\n  n / " + tc.divisor + "\n}\nfn main() { _ = divide() }\n"
 			if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 				t.Fatal(err)
 			}

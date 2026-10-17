@@ -10,7 +10,7 @@ import (
 
 // The ERROR side of `assert` / `refute` / `testing.check` is std/assertions'
 // `AssertionFailure`, and it is decided by std/testing's own declaration —
-// `pub host fn check<T>(subject: T): Result<T, AssertionFailure>`, whose name
+// `pub host fn check<T>(subject: T) -> Result<T, AssertionFailure>`, whose name
 // resolves in std/testing's scope. The CALLING file's scope has no say in it.
 //
 // Resolving the name in the caller's scope goes wrong in two directions:
@@ -68,7 +68,7 @@ struct AssertionFailure {
   bogus: Int
 }
 
-fn main(): Unit {
+fn main() -> Unit {
   case testing.check(1 == 2) {
     Err(f) -> io.print("${f.bogus}")
     Ok(_) -> io.print("ok")
@@ -105,7 +105,7 @@ func TestAssertionFailureType_ResolvesWithoutAnImport(t *testing.T) {
   std/testing
 }
 
-fn main(): Unit {
+fn main() -> Unit {
   case testing.check(1 == 2) {
     Err(f) -> io.print(f.reason)
     Ok(_) -> io.print("ok")

@@ -11,7 +11,7 @@ pub struct Money {
 }
 
 impl Display for Money {
-    fn to_string(m: Money): String {
+    fn to_string(m: Money) -> String {
         "$${m.cents / 100}.${m.cents % 100}"
     }
 }
@@ -23,14 +23,14 @@ pub enum Color {
 
 derive Display for Color
 
-pub fn origin(): Point {
+pub fn origin() -> Point {
     Point{x: 0, y: 0}
 }
 
-pub fn price(): Money {
+pub fn price() -> Money {
     Money{cents: 1250}
 }
 
-pub fn red(): Color {
+pub fn red() -> Color {
     Color.Red
 }

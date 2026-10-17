@@ -18,17 +18,17 @@ import std/io
 /// min_value both overflow, and overflow is a Nomi FAULT whose text lives in rt
 /// in one place (rt/arith.go). Reached through a runtime value so
 /// no constant folding can answer it.
-fn over(n: Int): Int {
+fn over(n: Int) -> Int {
     n + 1
 }
 
-fn under(n: Int): Int {
+fn under(n: Int) -> Int {
     n - 1
 }
 
 /// Wrapping arithmetic at the boundary, which does NOT fault: it is the pair of
 /// identities std/int documents (int.nomi:71, :76).
-fn wrap_round_trip(): Bool {
+fn wrap_round_trip() -> Bool {
     Int.wrapping_add(Int.max_value, 1) == Int.min_value and Int.wrapping_sub(
         Int.min_value,
         1,
@@ -37,18 +37,18 @@ fn wrap_round_trip(): Bool {
 
 /// The distance between the two limits, computed WITHOUT overflowing: if either
 /// constant were off by one this changes.
-fn span(): Int {
+fn span() -> Int {
     Int.wrapping_sub(Int.max_value, Int.min_value)
 }
 
 /// `Discrete.next` and `Steppable.step_by` read `Int.max_value` in their own
 /// bodies, so both were refused until these bindings lowered. Their boundary
 /// answers are the cascade's observable half.
-fn next_of(n: Int): String {
+fn next_of(n: Int) -> String {
     show(Int.next(n))
 }
 
-fn step_of(n: Int, by: Int): String {
+fn step_of(n: Int, by: Int) -> String {
     show(Int.step_by(n, by))
 }
 
@@ -56,7 +56,7 @@ fn step_of(n: Int, by: Int): String {
 /// for a `Maybe<Int>` yet — a blocker of somebody else's, and borrowing it here
 /// would make this fixture refuse for a reason that has nothing to do with what
 /// it pins.
-fn show(m: Maybe<Int>): String {
+fn show(m: Maybe<Int>) -> String {
     case m {
         Some(v) -> "Some(${v})"
         None -> "None"
