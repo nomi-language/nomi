@@ -186,7 +186,7 @@ func (b *bound) out4(v int64) (rt.Value, error) {
 	return int64(v), nil
 }
 
-// fn1 adapts ffx.apply: apply(f: (Int) -> Int, x: Int): Int
+// fn1 adapts ffx.apply: apply(f: (Int) -> Int, x: Int) -> Int
 func (b *bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.apply", &err)
 	if len(args) != 2 {
@@ -255,7 +255,7 @@ func (b *bound) in7(fr *rt.Frame, v rt.Value) (out string, err error) {
 	return string(x), nil
 }
 
-// fn5 adapts ffx.attempt: attempt(f: (String) -> Result<Int, String>, s: String): Result<Int, String>
+// fn5 adapts ffx.attempt: attempt(f: (String) -> Result<Int, String>, s: String) -> Result<Int, String>
 func (b *bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.attempt", &err)
 	if len(args) != 2 {
@@ -293,7 +293,7 @@ func (b *bound) out9(v uint64) (rt.Value, error) {
 	return x, nil
 }
 
-// fn8 adapts ffx.biggest: biggest(): Int
+// fn8 adapts ffx.biggest: biggest() -> Int
 func (b *bound) fn8(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.biggest", &err)
 	if len(args) != 0 {
@@ -320,7 +320,7 @@ func (b *bound) in11(fr *rt.Frame, v rt.Value) (out *fixture.Box, err error) {
 	return p, nil
 }
 
-// fn10 adapts ffx.box_value: box_value(b: Box): Int
+// fn10 adapts ffx.box_value: box_value(b: Box) -> Int
 func (b *bound) fn10(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.box_value", &err)
 	if len(args) != 1 {
@@ -405,7 +405,7 @@ func (b *bound) out17(v bool) (rt.Value, error) {
 	return bool(v), nil
 }
 
-// fn12 adapts ffx.check: check(f: (Point) -> Bool, p: Point): Bool
+// fn12 adapts ffx.check: check(f: (Point) -> Bool, p: Point) -> Bool
 func (b *bound) fn12(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.check", &err)
 	if len(args) != 2 {
@@ -692,7 +692,7 @@ func (b *bound) out24(v fixture.Tagged) (rt.Value, error) {
 	return r, nil
 }
 
-// fn18 adapts ffx.echo: echo(t: Tagged): Tagged
+// fn18 adapts ffx.echo: echo(t: Tagged) -> Tagged
 func (b *bound) fn18(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.echo", &err)
 	if len(args) != 1 {
@@ -724,7 +724,7 @@ func (b *bound) out38(v uint8) (rt.Value, error) {
 	return rt.Byte(v), nil
 }
 
-// fn36 adapts ffx.flip: flip(b: Byte): Byte
+// fn36 adapts ffx.flip: flip(b: Byte) -> Byte
 func (b *bound) fn36(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.flip", &err)
 	if len(args) != 1 {
@@ -756,7 +756,7 @@ func (b *bound) out41(v float32) (rt.Value, error) {
 	return float64(v), nil
 }
 
-// fn39 adapts ffx.halve: halve(f: Float): Float
+// fn39 adapts ffx.halve: halve(f: Float) -> Float
 func (b *bound) fn39(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.halve", &err)
 	if len(args) != 1 {
@@ -774,7 +774,7 @@ func (b *bound) fn39(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn42 adapts ffx.later: later(t: Instant, by: Duration): Instant
+// fn42 adapts ffx.later: later(t: Instant, by: Duration) -> Instant
 func (b *bound) fn42(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.later", &err)
 	if len(args) != 2 {
@@ -796,7 +796,7 @@ func (b *bound) fn42(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn43 adapts ffx.mirror: mirror(p: Maybe<Point>): Maybe<Point>
+// fn43 adapts ffx.mirror: mirror(p: Maybe<Point>) -> Maybe<Point>
 func (b *bound) fn43(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.mirror", &err)
 	if len(args) != 1 {
@@ -886,7 +886,7 @@ func (b *bound) in52(fr *rt.Frame, v rt.Value) (out uint64, err error) {
 	return hostadapt.ToUnsigned[uint64](x, "uint64")
 }
 
-// fn44 adapts ffx.narrow: narrow(a: Int, b: Int, c: Int, d: Int, e: Int, f: Int, g: Int, h: Int): Int
+// fn44 adapts ffx.narrow: narrow(a: Int, b: Int, c: Int, d: Int, e: Int, f: Int, g: Int, h: Int) -> Int
 func (b *bound) fn44(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.narrow", &err)
 	if len(args) != 8 {
@@ -932,7 +932,7 @@ func (b *bound) fn44(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn53 adapts ffx.negate: negate(b: Bool): Bool
+// fn53 adapts ffx.negate: negate(b: Bool) -> Bool
 func (b *bound) fn53(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.negate", &err)
 	if len(args) != 1 {
@@ -955,7 +955,7 @@ func (b *bound) out55(v *fixture.Box) (rt.Value, error) {
 	return rt.HostHandle{TypeName: "ffx.Box", Value: v}, nil
 }
 
-// fn54 adapts ffx.new_box: new_box(n: Int): Box
+// fn54 adapts ffx.new_box: new_box(n: Int) -> Box
 func (b *bound) fn54(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.new_box", &err)
 	if len(args) != 1 {
@@ -973,7 +973,7 @@ func (b *bound) fn54(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn56 adapts ffx.nothing: nothing(): Unit
+// fn56 adapts ffx.nothing: nothing() -> Unit
 func (b *bound) fn56(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.nothing", &err)
 	if len(args) != 0 {
@@ -983,7 +983,7 @@ func (b *bound) fn56(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return rt.Unit{}, nil
 }
 
-// fn57 adapts ffx.nothing_or_fail: nothing_or_fail(fail: Bool): Result<Unit, String>
+// fn57 adapts ffx.nothing_or_fail: nothing_or_fail(fail: Bool) -> Result<Unit, String>
 func (b *bound) fn57(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.nothing_or_fail", &err)
 	if len(args) != 1 {
@@ -1030,7 +1030,7 @@ func (b *bound) out60(v []fixture.MyByte) (rt.Value, error) {
 	}(), nil
 }
 
-// fn58 adapts ffx.octets: octets(b: Bytes): Bytes
+// fn58 adapts ffx.octets: octets(b: Bytes) -> Bytes
 func (b *bound) fn58(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.octets", &err)
 	if len(args) != 1 {
@@ -1061,7 +1061,7 @@ func (b *bound) out62(v []fixture.Point) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn61 adapts ffx.points: points(n: Int): List<Point>
+// fn61 adapts ffx.points: points(n: Int) -> List<Point>
 func (b *bound) fn61(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.points", &err)
 	if len(args) != 1 {
@@ -1108,7 +1108,7 @@ func (b *bound) out64(v fixture.Query) (rt.Value, error) {
 	return r, nil
 }
 
-// fn63 adapts ffx.query: query(path: String, words: List<String>): Query
+// fn63 adapts ffx.query: query(path: String, words: List<String>) -> Query
 func (b *bound) fn63(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.query", &err)
 	if len(args) != 2 {
@@ -1158,7 +1158,7 @@ func (b *bound) in68(fr *rt.Frame, v rt.Value) (out func() error, err error) {
 	}, nil
 }
 
-// fn67 adapts ffx.run: run(f: () -> Result<Unit, String>): Result<Unit, String>
+// fn67 adapts ffx.run: run(f: () -> Result<Unit, String>) -> Result<Unit, String>
 func (b *bound) fn67(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.run", &err)
 	if len(args) != 1 {
@@ -1193,7 +1193,7 @@ func (b *bound) out71(v fixture.Label) (rt.Value, error) {
 	return string(v), nil
 }
 
-// fn69 adapts ffx.shout: shout(s: String): String
+// fn69 adapts ffx.shout: shout(s: String) -> String
 func (b *bound) fn69(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.shout", &err)
 	if len(args) != 1 {
@@ -1250,7 +1250,7 @@ func (b *bound) out74(v map[string]int64) (rt.Value, error) {
 	return rt.MapOf(rt.Hash, rt.Equal, conv), nil
 }
 
-// fn72 adapts ffx.sizes: sizes(m: Map<String, List<String>>): Map<String, Int>
+// fn72 adapts ffx.sizes: sizes(m: Map<String, List<String>>) -> Map<String, Int>
 func (b *bound) fn72(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.sizes", &err)
 	if len(args) != 1 {
@@ -1268,7 +1268,7 @@ func (b *bound) fn72(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn75 adapts ffx.triple: triple(n: Int): (Int, String, Bool)
+// fn75 adapts ffx.triple: triple(n: Int) -> #(Int, String, Bool)
 func (b *bound) fn75(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.triple", &err)
 	if len(args) != 1 {
@@ -1286,7 +1286,7 @@ func (b *bound) fn75(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return tup, nil
 }
 
-// fn76 adapts ffx.triple_or_fail: triple_or_fail(n: Int): Result<(Int, String), String>
+// fn76 adapts ffx.triple_or_fail: triple_or_fail(n: Int) -> Result<#(Int, String), String>
 func (b *bound) fn76(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.triple_or_fail", &err)
 	if len(args) != 1 {
@@ -1324,7 +1324,7 @@ func (b *bound) in78(fr *rt.Frame, v rt.Value) (out func(int64), err error) {
 	}, nil
 }
 
-// fn77 adapts ffx.visit: visit(f: (Int) -> Unit, n: Int): Unit
+// fn77 adapts ffx.visit: visit(f: (Int) -> Unit, n: Int) -> Unit
 func (b *bound) fn77(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.visit", &err)
 	if len(args) != 2 {
@@ -1342,7 +1342,7 @@ func (b *bound) fn77(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return rt.Unit{}, nil
 }
 
-// fn79 adapts ffx.zero_time: zero_time(): Instant
+// fn79 adapts ffx.zero_time: zero_time() -> Instant
 func (b *bound) fn79(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.zero_time", &err)
 	if len(args) != 0 {

@@ -60,7 +60,7 @@ func EachGraphemeCluster(s string, yield func(cluster string) bool) bool {
 }
 
 // StringEachWhile is `impl Iter for String`'s
-// `host fn each_while(s: String, yield: (String) -> Bool): Bool`.
+// `host fn each_while(s: String, yield: (String) -> Bool) -> Bool`.
 func StringEachWhile(fr *Frame, s string, yield func(fr *Frame, item string) bool) bool {
 	return EachGraphemeCluster(s, func(cluster string) bool { return yield(fr, cluster) })
 }
@@ -75,7 +75,7 @@ func StringSeq(s string) Seq[string] {
 // --- Bytes ------------------------------------------------------------------
 
 // BytesEachWhile is `impl Iter for Bytes`'s
-// `host fn each_while(data: Bytes, yield: (Byte) -> Bool): Bool`.
+// `host fn each_while(data: Bytes, yield: (Byte) -> Bool) -> Bool`.
 //
 // Octets, not grapheme clusters and not runes, and the distinction from
 // StringSeq above is the
@@ -84,7 +84,7 @@ func StringSeq(s string) Seq[string] {
 //
 // `for i := range len(data)` and not `for i := range data`, which is the one
 // mistake this function exists in order not to make: `range` over a Go string
-// yields `(byteIndex, rune)` at rune boundaries, so it would silently skip the
+// yields `#(byteIndex, rune)` at rune boundaries, so it would silently skip the
 // continuation bytes of every multi-byte sequence. `String.to_bytes("café")` is
 // five octets and four runes, and the corpus checks exactly that case —
 // 04-scalars-and-text/strings_test.nomi expects `[99, 97, 102, 195, 169]`,
@@ -109,9 +109,9 @@ func BytesSeq(data Bytes) Seq[Byte] {
 // --- Map --------------------------------------------------------------------
 
 // MapEachWhile is `impl Iter for Map<K, V>`'s
-// `host fn each_while(m: Map<K, V>, yield: ((K, V)) -> Bool): Bool`.
+// `host fn each_while(m: Map<K, V>, yield: (#(K, V)) -> Bool) -> Bool`.
 //
-// `pair` builds the caller's `(K, V)` tuple, because a Nomi tuple lowers to an
+// `pair` builds the caller's `#(K, V)` tuple, because a Nomi tuple lowers to an
 // anonymous Go struct generated per package and rt cannot name it. The closure
 // is allocated once when the pipeline is built, not per element.
 //
@@ -128,7 +128,7 @@ func MapEachWhile[K, V, P any](fr *Frame, m Map[K, V], pair func(K, V) P, yield 
 	return true
 }
 
-// MapSeq views a Map as a push sequence of its `(K, V)` pairs.
+// MapSeq views a Map as a push sequence of its `#(K, V)` pairs.
 //
 // `MapEntries` is called inside `Run` rather than once here, so the sequence is
 // replayable and holds no materialized slice between consumptions.
@@ -205,8 +205,8 @@ func SeqEachWhile[T any](fr *Frame, src Seq[T], yield func(fr *Frame, item T) bo
 
 // --- positional terminals -----------------------------------------------------
 
-// SeqLast is `pub fn last<T>(source: Iter<T>): Maybe<T>`, whose std body is
-// `reduce(source, |_acc = None, item| Some(item))`.
+// SeqLast is `pub fn last<T>(source: Iter<T>) -> Maybe<T>`, whose std body is
+// `reduce(source, fn _acc = None, item -> Some(item))`.
 //
 // It consumes the whole source — there is no way to know an element is the last
 // until the next one fails to arrive — so it does not terminate on an infinite
@@ -221,7 +221,7 @@ func SeqLast[T any](fr *Frame, src Seq[T]) Maybe[T] {
 	return out
 }
 
-// SeqGet is `pub fn get<T>(source: Iter<T>, index: Int): Maybe<T>`.
+// SeqGet is `pub fn get<T>(source: Iter<T>, index: Int) -> Maybe<T>`.
 //
 // A negative index is None without touching the source, which is std's own
 // `if index < 0 { None }` guard and is observable: the source may have effects.
@@ -246,7 +246,7 @@ func SeqGet[T any](fr *Frame, src Seq[T], index int64) Maybe[T] {
 
 // --- lazy adapters with per-run state ----------------------------------------
 
-// DropEach is `host fn drop_each<T>(source: Iter<T>, n: Int, yield): Bool`.
+// DropEach is `host fn drop_each<T>(source: Iter<T>, n: Int, yield) -> Bool`.
 //
 // `skip` counts elements the source produced, not elements the consumer
 // accepted, and it is decremented before the consumer is ever consulted — so a
@@ -263,16 +263,16 @@ func DropEach[T any](fr *Frame, src Seq[T], n int64, yield func(fr *Frame, item 
 	})
 }
 
-// SeqDrop is `pub fn drop<T>(source: Iter<T>, n: Int): Iter<T>`.
+// SeqDrop is `pub fn drop<T>(source: Iter<T>, n: Int) -> Iter<T>`.
 func SeqDrop[T any](src Seq[T], n int64) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return DropEach(fr, src, n, yield)
 	}}
 }
 
-// WithIndexEach is `host fn with_index_each<T>(source: Iter<T>, yield): Bool`.
+// WithIndexEach is `host fn with_index_each<T>(source: Iter<T>, yield) -> Bool`.
 //
-// `pair` builds the `(Int, T)` tuple for the same reason MapEachWhile takes
+// `pair` builds the `#(Int, T)` tuple for the same reason MapEachWhile takes
 // one: the tuple is an anonymous Go struct rt cannot name.
 //
 // The index is incremented for every element the source produced, whether or
@@ -288,14 +288,14 @@ func WithIndexEach[T, P any](fr *Frame, src Seq[T], pair func(int64, T) P, yield
 	})
 }
 
-// SeqWithIndex is `pub fn with_index<T>(source: Iter<T>): Iter<(Int, T)>`.
+// SeqWithIndex is `pub fn with_index<T>(source: Iter<T>) -> Iter<#(Int, T)>`.
 func SeqWithIndex[T, P any](src Seq[T], pair func(int64, T) P) Seq[P] {
 	return Seq[P]{Run: func(fr *Frame, yield func(fr *Frame, item P) bool) bool {
 		return WithIndexEach(fr, src, pair, yield)
 	}}
 }
 
-// SeqConcat is `pub fn concat<T>(a: Iter<T>, b: Iter<T>): Iter<T>`.
+// SeqConcat is `pub fn concat<T>(a: Iter<T>, b: Iter<T>) -> Iter<T>`.
 //
 // The one adapter std writes with no host help, because "drive a, then drive b,
 // unless the consumer already said stop" is exactly what the protocol's Bool
@@ -309,7 +309,7 @@ func SeqConcat[T any](a, b Seq[T]) Seq[T] {
 	}}
 }
 
-// CycleEach is `host fn cycle_each<T>(source: Iter<T>, yield): Bool`.
+// CycleEach is `host fn cycle_each<T>(source: Iter<T>, yield) -> Bool`.
 //
 // The empty-source guard is the load-bearing line: a source that yields nothing
 // must answer True immediately rather than spinning forever asking it again.
@@ -330,14 +330,14 @@ func CycleEach[T any](fr *Frame, src Seq[T], yield func(fr *Frame, item T) bool)
 	}
 }
 
-// SeqCycle is `pub fn cycle<T>(source: Iter<T>): Iter<T>`.
+// SeqCycle is `pub fn cycle<T>(source: Iter<T>) -> Iter<T>`.
 func SeqCycle[T any](src Seq[T]) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return CycleEach(fr, src, yield)
 	}}
 }
 
-// RepeatEach is `host fn repeat_each<T>(x: T, yield): Bool`.
+// RepeatEach is `host fn repeat_each<T>(x: T, yield) -> Bool`.
 //
 // Unbounded, and it can only end by the consumer refusing an element — so it
 // returns False or it does not return. There is no True branch and that is
@@ -350,17 +350,17 @@ func RepeatEach[T any](fr *Frame, x T, yield func(fr *Frame, item T) bool) bool 
 	}
 }
 
-// SeqRepeat is `pub fn repeat<T>(x: T): Iter<T>`.
+// SeqRepeat is `pub fn repeat<T>(x: T) -> Iter<T>`.
 func SeqRepeat[T any](x T) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return RepeatEach(fr, x, yield)
 	}}
 }
 
-// IterateEach is `host fn iterate_each<T>(seed: T, step: (T) -> T, yield): Bool`.
+// IterateEach is `host fn iterate_each<T>(seed: T, step: (T) -> T, yield) -> Bool`.
 //
 // The element yielded is the current state and the callback's answer is the
-// next one, so `iterate(1, |x| x * 2)` yields 1 before it yields 2. Getting
+// next one, so `iterate(1, fn x -> x * 2)` yields 1 before it yields 2. Getting
 // that backwards produces a sequence that is right in every element but the
 // first, which is the kind of off-by-one a `take(4)` fixture catches and a
 // `first()` one does not.
@@ -412,14 +412,14 @@ func SeqIterateCtl[T any](seed T, step func(fr *Frame, state T) (T, Ctl)) Seq[T]
 	}}
 }
 
-// SeqIterate is `pub fn iterate<T>(seed: T, step: (T) -> T): Iter<T>`.
+// SeqIterate is `pub fn iterate<T>(seed: T, step: (T) -> T) -> Iter<T>`.
 func SeqIterate[T any](seed T, step func(fr *Frame, state T) T) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return IterateEach(fr, seed, step, yield)
 	}}
 }
 
-// FlatMapEach is `host fn flat_map_each<T, U>(source, f: (T) -> Iter<U>, yield): Bool`.
+// FlatMapEach is `host fn flat_map_each<T, U>(source, f: (T) -> Iter<U>, yield) -> Bool`.
 //
 // The inner source's "consumer stopped" answer is the outer one: a downstream
 // `take` that fills up inside an inner sequence must shut the outer source down
@@ -430,7 +430,7 @@ func FlatMapEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) Seq[
 	})
 }
 
-// SeqFlatMap is `pub fn flat_map<T, U>(source: Iter<T>, f: (T) -> Iter<U>): Iter<U>`.
+// SeqFlatMap is `pub fn flat_map<T, U>(source: Iter<T>, f: (T) -> Iter<U>) -> Iter<U>`.
 func SeqFlatMap[T, U any](src Seq[T], f func(fr *Frame, item T) Seq[U]) Seq[U] {
 	return Seq[U]{Run: func(fr *Frame, yield func(fr *Frame, item U) bool) bool {
 		return FlatMapEach(fr, src, f, yield)
@@ -439,7 +439,7 @@ func SeqFlatMap[T, U any](src Seq[T], f func(fr *Frame, item T) Seq[U]) Seq[U] {
 
 // FlatMapListEach is FlatMapEach for a callback that answers a List.
 //
-// `Iter.flat_map(xs, |x| [x, x * 10])` is the common spelling and its callback's
+// `Iter.flat_map(xs, fn x -> [x, x * 10])` is the common spelling and its callback's
 // declared result is `Iter<U>`, which a `List<U>` satisfies. Wrapping each
 // returned list in a `Seq` would allocate a closure per element of the outer
 // source; walking the cons chain here allocates nothing. Two entry points
@@ -457,7 +457,7 @@ func SeqFlatMapList[T, U any](src Seq[T], f func(fr *Frame, item T) *List[U]) Se
 	}}
 }
 
-// ChunksEach is `host fn chunks_each<T>(source: Iter<T>, size: Int, yield): Bool`.
+// ChunksEach is `host fn chunks_each<T>(source: Iter<T>, size: Int, yield) -> Bool`.
 //
 // Three details are observable:
 //
@@ -492,7 +492,7 @@ func ChunksEach[T any](fr *Frame, src Seq[T], size int64, yield func(fr *Frame, 
 	return true
 }
 
-// SeqChunks is `pub fn chunks<T>(source: Iter<T>, size: Int): Iter<List<T>>`.
+// SeqChunks is `pub fn chunks<T>(source: Iter<T>, size: Int) -> Iter<List<T>>`.
 func SeqChunks[T any](src Seq[T], size int64) Seq[*List[T]] {
 	return Seq[*List[T]]{Run: func(fr *Frame, yield func(fr *Frame, item *List[T]) bool) bool {
 		return ChunksEach(fr, src, size, yield)
@@ -527,7 +527,7 @@ func seqPull[U any](fr *Frame, src Seq[U]) (next func() (U, bool), stop func()) 
 	})
 }
 
-// SeqZip is `pub fn zip<T, U>(a: Iter<T>, b: Iter<U>): Iter<(T, U)>`.
+// SeqZip is `pub fn zip<T, U>(a: Iter<T>, b: Iter<U>) -> Iter<#(T, U)>`.
 //
 // The left source drives and the right becomes a pull cursor, because two push
 // sources cannot both be in charge of the loop. That asymmetry is the reason zip
@@ -623,7 +623,7 @@ func SeqSortWithCells[T any, N ListCellShape[T, N]](fr *Frame, src Seq[T], compa
 	return SortSliceToListCells[T, N](items, func(a, b T) bool { return compare(fr, a, b).Tag == TagLess })
 }
 
-// ChunkByEach is `host fn chunk_by_each<T, K>(source, key_fn, yield): Bool`.
+// ChunkByEach is `host fn chunk_by_each<T, K>(source, key_fn, yield) -> Bool`.
 //
 // Adjacent runs only: unlike `group_by` it never reorders or merges
 // non-adjacent elements, so one key and one buffer is the whole state. The
@@ -659,7 +659,7 @@ func ChunkByEach[T, K any](fr *Frame, src Seq[T], key func(fr *Frame, item T) K,
 	return true
 }
 
-// SeqChunkBy is `pub fn chunk_by<T, K>(source, key_fn): Iter<List<T>>`.
+// SeqChunkBy is `pub fn chunk_by<T, K>(source, key_fn) -> Iter<List<T>>`.
 func SeqChunkBy[T, K any](src Seq[T], key func(fr *Frame, item T) K, eq func(K, K) bool) Seq[*List[T]] {
 	return Seq[*List[T]]{Run: func(fr *Frame, yield func(fr *Frame, item *List[T]) bool) bool {
 		return ChunkByEach(fr, src, key, eq, yield)

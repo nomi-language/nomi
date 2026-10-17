@@ -35,7 +35,7 @@ import (
 //
 // # The encoding: Go's own break, because `loop` has no closure
 //
-// `pub host fn loop<S>(f: (S) -> S): S` (std/iter.nomi:120) never mentions
+// `pub host fn loop<S>(f: (S) -> S) -> S` (std/iter.nomi:120) never mentions
 // `Iter`. It has no source, no `Seq` and no `each_while` — it is a
 // state-threading loop whose `break` is its terminator. So the call is lowered
 // as an INLINE Go `for`, the callback's body is emitted directly into it, and

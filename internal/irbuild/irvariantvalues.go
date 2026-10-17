@@ -515,7 +515,7 @@ func irRetainedPreludePayload(k kind) bool {
 		return true
 	}
 	if irRetainedTupleKind(k) {
-		// A tuple of retained values (`List.next_item`'s `(T, List<T>)`).
+		// A tuple of retained values (`List.next_item`'s `#(T, List<T>)`).
 		return true
 	}
 	if k.tag == tagNamed && irCompositeDistinct(k.def) {
@@ -742,7 +742,7 @@ func (bl *irScalarBuilder) genericVariant(field *ast.FieldAccess, call *ast.Call
 	} else if k == kindInvalid {
 		// No expected type: the instance the checker solved for this
 		// payload-free variant. A type argument nothing constrained
-		// (`(Box.Empty, 1)`) projects to no kind and declines.
+		// (`#(Box.Empty, 1)`) projects to no kind and declines.
 		if bl.g.fa == nil {
 			return nil, nil, false
 		}

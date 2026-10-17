@@ -11,7 +11,7 @@ import (
 
 // Application fields.
 //
-// An entry's boot, `fn boot(): App` or `fn boot(startup: Startup): App` in a
+// An entry's boot, `fn boot() -> App` or `fn boot(startup: Startup) -> App` in a
 // file that defines `fn main`, returns the application value: a struct with
 // at most one field of std/context's Context type. Code reads one of its
 // fields by naming the type,
@@ -469,7 +469,7 @@ type appWalk struct {
 	called map[*ast.FuncDef]bool
 	// inspected holds every body this walk has inspected. Inspecting one
 	// again adds no read and no call, and a lambda whose body calls the
-	// function that holds it (`fn f(x) { |n| f(x)(n) }`) reaches its own
+	// function that holds it (`fn f(x) { fn n -> f(x)(n) }`) reaches its own
 	// body again through that function's returned lambdas, without end.
 	inspected map[ast.Node]bool
 }

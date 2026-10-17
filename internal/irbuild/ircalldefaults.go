@@ -32,7 +32,7 @@ func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int
 	}()
 	if inst := sig.instance; inst != nil {
 		// A generic callee's default is lowered at the instance's type
-		// arguments: `f: (T) -> T = |y| y` takes its parameter type from T.
+		// arguments: `f: (T) -> T = fn y -> y` takes its parameter type from T.
 		bl.g.pushMonoSubst(inst.tpl, inst.args)
 		defer bl.g.popMonoSubst()
 	}
@@ -65,7 +65,7 @@ func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int
 // bindParamPattern binds the names destructuring parameter pattern pat
 // introduces from its argument arg, as the callee's prologue binds them for
 // its body, so a later parameter's default may read them
-// (`fn area((w, h): (Int, Int), scale: Int = w)`). The pattern is
+// (`fn area(#(w, h): #(Int, Int), scale: Int = w)`). The pattern is
 // irrefutable, so its mismatch edge is a NoMatch no value reaches.
 func (bl *irScalarBuilder) bindParamPattern(pat ast.Node, arg ir.Temp, k kind) bool {
 	if !irHeldValue(bl.f, arg, bl.sides) {

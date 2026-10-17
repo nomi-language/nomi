@@ -16,7 +16,7 @@ import (
 // type-parameter positions are `any`, the concrete type argument bound at the
 // call and the boxed answer asserted back there. That is complete for a
 // declaration whose every type-parameter mention is a BARE `T`, and it is
-// refused the moment one is not — `List<T>`, `Maybe<T>`, `Half<T>`, `(T, Int)`,
+// refused the moment one is not — `List<T>`, `Maybe<T>`, `Half<T>`, `#(T, Int)`,
 // `(A) -> B`. generic.go's header states the reason: the box would be at the
 // wrong DEPTH, because the body builds a `*rt.List[any]` while the caller wants
 // a `*rt.List[int64]`, so an assertion would fail at run time rather than refuse
@@ -36,7 +36,7 @@ import (
 //
 // # The instantiation guard
 //
-//	fn deep_grow<T>(x: T, depth: Int): Int {
+//	fn deep_grow<T>(x: T, depth: Int) -> Int {
 //	  if depth <= 0 { 0 } else { deep_grow(Box{inner: x}, depth - 1) + 1 }
 //	}
 //
@@ -201,7 +201,7 @@ func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 	}
 	// Every parameter must be annotated: an unannotated one reports at
 	// funcDecl's own clause, so claiming the declaration here would lower
-	// past a refusal. An annotated destructuring parameter (`(a, b): (A, B)`)
+	// past a refusal. An annotated destructuring parameter (`#(a, b): #(A, B)`)
 	// is a slot of its annotation's type whose names the instance's prologue
 	// binds, as funcDecl binds a non-generic function's. A default is
 	// evaluated at the call against the instance's signature, as for any
@@ -220,7 +220,7 @@ func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 	// parameter, because it has no other source to bind `T` from.
 	// Monomorphization has a third source: the analyzer's own solved return
 	// type at the call (see monoTypeArgs). A return-position parameter such as
-	// `fn decode<T>(json: Json): Result<T, ShapeError> where T: FromJson`
+	// `fn decode<T>(json: Json) -> Result<T, ShapeError> where T: FromJson`
 	// produces a value of `T` by dispatching on it, and `fn plus<L, R,
 	// Out>(lhs: L, rhs: R): Out where L: Add<R, Out>`
 	// (`12-derives-and-standard-interfaces/add_test.nomi`) names `Out` only in
@@ -245,7 +245,7 @@ func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 // depth.
 //
 // namesTypeParam answers the same question with a BOOLEAN, which is not enough
-// here: `fn pair<A, B>(a: A): B` has a parameter that names A, so a boolean over
+// here: `fn pair<A, B>(a: A) -> B` has a parameter that names A, so a boolean over
 // the whole list would admit it and leave B unsolvable. The per-name answer is
 // what makes the check per-PARAMETER rather than per-signature.
 func markMentionedParams(te ast.TypeExpr, params, out map[string]bool) {
@@ -508,7 +508,7 @@ func (g *gen) monoArgKind(n ast.Node) kind {
 }
 
 // monoSolveFromBounds solves a type parameter named only inside a `where`
-// bound (`fn first<T, I>(it: I): Maybe<T> where I: Iter<T>`) from the bound
+// bound (`fn first<T, I>(it: I) -> Maybe<T> where I: Iter<T>`) from the bound
 // subject's solved kind: the interface arguments the subject implements the
 // bound at, read back rather than inferred. A parameter something else
 // already solved keeps its answer, and a bound this cannot read back
@@ -826,7 +826,7 @@ func irUnsolvedType(t analysis.Type) bool {
 }
 
 // irStdIterElem is the element a std collection implements `Iter` at: a
-// List's, Vector's or Set's element, a Map's `(key, value)` pair, and a
+// List's, Vector's or Set's element, a Map's `#(key, value)` pair, and a
 // Range's element.
 func irStdIterElem(g *gen, k kind) (kind, bool) {
 	switch {

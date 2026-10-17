@@ -304,7 +304,7 @@ const (
 	RecordingKindTypedLiteralSlot
 	// RecordingKindGenericBoundCheck marks a recording produced when a
 	// generic call's solved type-param binding is checked against the
-	// param's interface bound (`fn show<T>(x: T): String where T: Display`
+	// param's interface bound (`fn show<T>(x: T) -> String where T: Display`
 	// called with `T := Int` records (Int, Display) here). Pos is the call
 	// expression.
 	RecordingKindGenericBoundCheck
@@ -610,7 +610,7 @@ func findContextType(modules map[string]*Scope) Type {
 //
 // Reserving interface names (defineInterfaceStub) closes a soundness gap;
 // it is not a language design decision. Without it,
-// `pub interface Display { fn render(value: self): String }` plus
+// `pub interface Display { fn render(value: self) -> String }` plus
 // `impl Display for Point { fn render }` makes `where T: Display`
 // STATICALLY PASS, and the program then dies at runtime with
 // `Display.to_string: no implementation for type 'Point'` — where the
@@ -1994,7 +1994,7 @@ func (b *builder) defineInterface(n *ast.InterfaceDef, scope *Scope) *Scope {
 	}
 	inner := b.defineTypeParams(n.TypeParams, scope)
 	// Define `self` in the method-signature scope so `self` in type position
-	// (`fn hello(value: self): String`) records a hover / go-to-def reference
+	// (`fn hello(value: self) -> String`) records a hover / go-to-def reference
 	// via walkTypeExpr's SelfType case. It resolves to the interface itself —
 	// `self` here stands for "any implementor of this interface." Mirrors the
 	// impl-block `self` symbol, which resolves to the concrete receiver.
@@ -4729,7 +4729,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		}
 
 	case *ast.MapLit:
-		// Type-prefixed map literals (`Kvs{"a" => 1}`) attach a TypeName for
+		// Type-prefixed map literals (`Kvs%{"a" => 1}`) attach a TypeName for
 		// the map-distinct's name; resolve it like StructLit does so hover
 		// and goto-definition work on the type name.
 		if n.TypeName != nil {
@@ -5245,7 +5245,7 @@ func (b *builder) definePattern(node ast.Node, scope *Scope) {
 }
 
 // definePatternRoot binds a whole pattern's names (definePatternOwned) and
-// reports a name it binds twice: `(a, a)` and `Some(n) as n` would leave the
+// reports a name it binds twice: `#(a, a)` and `Some(n) as n` would leave the
 // first binding unreachable.
 func (b *builder) definePatternRoot(node ast.Node, scope *Scope, owner ast.Node) {
 	b.definePatternOwned(node, scope, owner)
@@ -5392,7 +5392,7 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 		}
 
 	case *ast.MapPattern:
-		// Type-prefixed map patterns (`Kvs{"a" => v}`) resolve the type
+		// Type-prefixed map patterns (`Kvs%{"a" => v}`) resolve the type
 		// name like StructPattern does — supports hover/goto on the prefix.
 		if n.TypeName != nil {
 			b.walkTypeExpr(n.TypeName, scope)

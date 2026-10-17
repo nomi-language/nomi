@@ -39,7 +39,7 @@ func CheckUnusedBindings(fa *FileAnalysis) []TypeError {
 		owner := sym.Node
 		switch {
 		case sym.Kind == SymbolBinding && sym.ParamOf != nil:
-			// A name a destructured parameter binds (`|(word, count)| count`)
+			// A name a destructured parameter binds (`fn #(word, count) -> count`)
 			// is a parameter of the function the pattern belongs to.
 			owner = sym.ParamOf
 			if !isUnusedParameterCandidate(owner) {

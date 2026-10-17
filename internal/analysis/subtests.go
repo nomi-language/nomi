@@ -52,7 +52,7 @@ func (c *checker) checkSubtests(n *ast.Subtests) Type {
 	case c.subtestsRow != nil:
 		c.report(TypeError{Line: n.Line, Col: n.Col,
 			Message: "`subtests` cannot be written inside another `subtests` body: each row of the outer statement is one case",
-			Hints:   []string{"combine the two row lists into one, as in `subtests pairs, (a, b) { ... }`, or write the inner rows as a test of their own"}})
+			Hints:   []string{"combine the two row lists into one, as in `subtests pairs, #(a, b) { ... }`, or write the inner rows as a test of their own"}})
 	case c.setupBoundary != "" && c.tryBoundary == c.setupBoundary:
 		c.report(TypeError{Line: n.Line, Col: n.Col,
 			Message: "`subtests` cannot be used in a `setup`: a setup builds the value each test binds",
@@ -139,7 +139,7 @@ func (c *checker) checkSubtestsBoundary(n *ast.Subtests) {
 
 // subtestsRowType is the element type of rowsTy as an `Iter` sees it: T for
 // an `Iter<T>`, and for anything else whatever its `Iter` impl yields (a
-// List's or Vector's element, a Set's member, a Map's `(key, value)` pair, a
+// List's or Vector's element, a Set's member, a Map's `#(key, value)` pair, a
 // Range's value, a user type's own). ok is false when rowsTy is no Iter, and
 // the type is nil with ok true when it is one whose element is not
 // determined (`[]`).

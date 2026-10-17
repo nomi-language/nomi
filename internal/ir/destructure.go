@@ -21,7 +21,7 @@ package ir
 //	refute                       ir.Match       match.go
 //	name what was matched        ir.Bind        here
 //
-// A destructure's DELIVERY of a failure — a trap for `{k => v} = m`, an
+// A destructure's DELIVERY of a failure — a trap for `%{k => v} = m`, an
 // assertion failure for `assert pat = e`, nothing at all for an irrefutable
 // parameter — is the enclosing lowering's, which is match.go's argument and
 // the fault/delivery division of ir.go's package header.

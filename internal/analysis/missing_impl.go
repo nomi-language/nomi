@@ -408,7 +408,7 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 // the call-site bound check's, which knows the interface's functions.
 func missingImplHelp(iface, typeName string) string {
 	if opIface, ok := operatorInterfaceByName(iface); ok {
-		return fmt.Sprintf("write an `impl %s<Rhs, Out> for %s { fn %s(lhs: %s, rhs: Rhs): Out { ... } }` block",
+		return fmt.Sprintf("write an `impl %s<Rhs, Out> for %s { fn %s(lhs: %s, rhs: Rhs) -> Out { ... } }` block",
 			opIface.Interface, typeName, opIface.Method, typeName)
 	}
 	if deriveSupported[iface] {
@@ -527,7 +527,7 @@ func implementerList(types []string) string {
 }
 
 // requiredSignatures is each function an impl of bound for concrete must
-// write, as `fn name(param: Type): Result` with `self` read as concrete.
+// write, as `fn name(param: Type) -> Result` with `self` read as concrete.
 // A function with a default is left out.
 func (c *checker) requiredSignatures(bound *InterfaceType, concrete Type) []string {
 	it := bound
@@ -560,7 +560,7 @@ func (c *checker) requiredSignatures(bound *InterfaceType, concrete Type) []stri
 		}
 		sig := "fn " + m.Name + "(" + strings.Join(params, ", ") + ")"
 		if m.Return != nil && m.Return != TypeUnit {
-			sig += ": " + fmt.Sprint(Substitute(m.Return, subs))
+			sig += " -> " + fmt.Sprint(Substitute(m.Return, subs))
 		}
 		out = append(out, sig)
 	}

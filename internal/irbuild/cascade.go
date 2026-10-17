@@ -56,7 +56,7 @@ func patternBinders(p ast.Node) []string {
 
 	case *ast.EnumPattern:
 		// A variant binds either one name directly (`Some(x)`) or a nested
-		// pattern (`Some((a, b))`), never both — see ast.EnumPattern.Binding.
+		// pattern (`Some(#(a, b))`), never both — see ast.EnumPattern.Binding.
 		if t.Binding != "" {
 			return []string{t.Binding}
 		}

@@ -697,7 +697,7 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 	case *ir.Proj:
 		// A destructuring parameter's names are projections off the one
 		// parameter holding the whole value, so a function like
-		// `fn sum_point(Point{x, y}): Int { x + y }` reaches here twice.
+		// `fn sum_point(Point{x, y}) -> Int { x + y }` reaches here twice.
 		//
 		// Declared and anonymous fields, tuple components, variant payloads
 		// and distinct inners share the projection consumer.

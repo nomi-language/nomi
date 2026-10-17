@@ -96,7 +96,7 @@ func (m unifyMode) nested() unifyMode {
 
 // rebound is the mode a type parameter's existing binding meets another type
 // in. A parameter bound to a function type joins another function type
-// strictly: `pick(c, f, g)` with `fn pick<T>(c: Bool, a: T, b: T): T` widens
+// strictly: `pick(c, f, g)` with `fn pick<T>(c: Bool, a: T, b: T) -> T` widens
 // neither function's parameters into the other's.
 func (m unifyMode) rebound(existing Type) unifyMode {
 	if _, isFunc := resolveTV(existing).(*FuncType); isFunc {
@@ -174,7 +174,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 	// another parameter that one is bound to it. A function argument's
 	// parameters meet the callee's the other way round (contravariant,
 	// below), so a generic caller's own `E` arrives as a against the
-	// callee's `T` as b: `call(item, list, |rest, _item| rest)` inside `fn
+	// callee's `T` as b: `call(item, list, fn rest, _item -> rest)` inside `fn
 	// b<E>` solves T to E and is recorded at `List<E>`, the type it runs at.
 	if tpa, ok := a.(*TypeParam_); ok && subs != nil && rigid[tpa.Name_] == tpa {
 		if tpb, ok := b.(*TypeParam_); ok && rigid[tpb.Name_] != tpb {
@@ -454,7 +454,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 // This binds *any* generic interface's type parameters from a concrete
 // receiver — `Iter<T>` against `List<Int>` binds `T → Int` exactly like
 // before (its template's single arg `T` solves from `next`'s declared
-// `Maybe<(T, self)>` shape), and so does a user `Chooser<T>` whose default
+// `Maybe<#(T, self)>` shape), and so does a user `Chooser<T>` whose default
 // returns bare `T`. Non-generic interfaces (no type args) and pairs with no
 // recorded template fall through to accepting the conformance without binding
 // — the same permissive fallback as the prior "unknown element" path.
@@ -1252,9 +1252,9 @@ func isBoolVariantPair(a, b Type) bool {
 // sides have types have and next, the two being equal up to `embeds`: the
 // side whose type takes the other's values. A Circle enters a Shape and a
 // Shape may hold another variant, so Circle beside Shape joins to Shape, at
-// the top or nested (`(1, circle)` beside `(2, shape)` is an `(Int, Shape)`).
-// ok is false when neither side takes the other's values (`(Circle, Shape)`
-// beside `(Shape, Circle)`); the answer is then have.
+// the top or nested (`#(1, circle)` beside `#(2, shape)` is an `#(Int, Shape)`).
+// ok is false when neither side takes the other's values (`#(Circle, Shape)`
+// beside `#(Shape, Circle)`); the answer is then have.
 func embedsJoin(have, next Type) (Type, bool) {
 	if TypeAssignable(have, next) {
 		return have, true

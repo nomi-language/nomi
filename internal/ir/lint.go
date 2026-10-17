@@ -890,7 +890,7 @@ func lintNoMatch(f *Func, vs *[]Violation) {
 
 // lintLocals applies RuleLocalDeclared.
 //
-// WHAT NO OTHER RULE SEES. A graph for `fn sum_point(Point{x, y}): Int { x + y }`
+// WHAT NO OTHER RULE SEES. A graph for `fn sum_point(Point{x, y}) -> Int { x + y }`
 // that recorded neither the parameter nor its projections would still satisfy
 // `RuleTempDefinedBeforeUse`, because a `RefLocal`'s temporary is its own
 // DESTINATION and the read writes it. The missing fact is one level up: the

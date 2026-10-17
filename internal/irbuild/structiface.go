@@ -34,7 +34,7 @@ import (
 //     asked in `bindsImpl` rather than worked around at each erasure site.
 //
 //  2. IT DISPATCHES NOTHING. `update` is `host fn update(original: self,
-//     updates: Partial<self>): self` — self in the RETURN plus a
+//     updates: Partial<self>) -> self` — self in the RETURN plus a
 //     compiler-known type OPERATOR in a parameter. `stdIfaceMethodSpec.result`
 //     already states why a self-typed return is not expressible: "it erases to
 //     `any` in the table and only a dictionary-driven call can re-box it, which
@@ -45,8 +45,8 @@ import (
 // That keeps (2) small: `Struct.update` at a CONCRETE receiver
 // (`Struct.update(Point{x: 1, y: 2}, {x: 9})`) lowers with no `*ifaceDef`,
 // because it resolves through the stdlib FUNCTION index, and
-// `fn echo<T>(v: T): T where T: Struct` lowers too. What this file adds is the
-// existential kind, `fn one(s: Struct): Int`.
+// `fn echo<T>(v: T) -> T where T: Struct` lowers too. What this file adds is the
+// existential kind, `fn one(s: Struct) -> Int`.
 //
 // # IDENTITY
 //

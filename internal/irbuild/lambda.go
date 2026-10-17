@@ -60,8 +60,8 @@ import (
 // A `fn` states its result and every `return` is checked against it. A lambda
 // states nothing, so the first thing that produces a value — a `return`, or the
 // body's final expression — decides, and everything after it is checked against
-// that. Which one comes first is not fixed: `|x| if p { return a } else { b }`
-// settles on the `return`, and `|x| b` settles on the tail.
+// that. Which one comes first is not fixed: `fn x -> if p { return a } else { b }`
+// settles on the `return`, and `fn x -> b` settles on the tail.
 type resultInference struct {
 	k   kind
 	set bool
@@ -244,7 +244,7 @@ func (g *gen) destructure(pat ast.Node, src expr, at ast.Node) bool {
 		// checker rejects both in a parameter with "refutable pattern in
 		// parameter; bind the parameter and use a `case` in the body", and this
 		// arm has no source that reaches it: `|[a, b]: List<Int>|` and
-		// `|{"a" => v}: Map<String, Int>|` are both front-end errors.
+		// `|%{"a" => v}: Map<String, Int>|` are both front-end errors.
 		//
 		// It refuses rather than being omitted, because the alternative for a switch
 		// default is falling through to `return true` and binding nothing,
@@ -274,7 +274,7 @@ func (g *gen) destructureStruct(p *ast.StructPattern, src expr, at ast.Node) boo
 			// `{x, y} = point` over a RECORD. See anonstruct.go.
 			return g.destructureAnonStruct(p, src, at)
 		}
-		// `|{x, y}: Point|` — an anonymous struct pattern over a NAMED struct.
+		// `fn {x, y}: Point ->` — an anonymous struct pattern over a NAMED struct.
 		// A different feature from the record above: the pattern's field set is
 		// a SUBSET of a DECLARATION's rather than the whole of a record's type,
 		// so the field list comes from the def and the match is against a type
@@ -312,7 +312,7 @@ func (g *gen) destructureStruct(p *ast.StructPattern, src expr, at ast.Node) boo
 // through case.go's structArm, and destructureStruct routes an enum here rather
 // than refusing it as a pattern type mismatch. The corpus witness is
 // 10-generics-and-type-wrappers/embedded_variants_test.nomi:78,
-// `fn int_area(IntShape.IntCircle{r}): Int`, two lines below a tuple-shaped
+// `fn int_area(IntShape.IntCircle{r}) -> Int`, two lines below a tuple-shaped
 // `NumericIdentifier.NumericUserId(n)`.
 //
 // NO TAG TEST IS EMITTED, and that is the whole difference from structArm: the

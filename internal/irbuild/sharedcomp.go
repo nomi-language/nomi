@@ -257,11 +257,11 @@ func sharedTupleKind(parts []kind) (kind, bool) {
 //
 // `stdTypeKind`'s families are all NOMINAL plus a `*ast.GenericType` block for
 // the structural ones (`List`, `Map`, a prelude instance, a generic std struct).
-// A tuple is spelled neither way: the parser gives `(Int, Int)` as an
-// `*ast.FuncType` with a NIL Return, reusing one node for `(Int, Int)` and
+// A tuple is spelled neither way: the parser gives `#(Int, Int)` as an
+// `*ast.FuncType` with a NIL Return, reusing one node for `#(Int, Int)` and
 // `(Int) -> String` with the arrow as the only difference (collections.go's
 // structuralTypeOf says so). Without this arm a tuple annotation such as
-// `random.between_state(state: Int, from: Int, to: Int): (Int, Int)`'s would match nothing
+// `random.between_state(state: Int, from: Int, to: Int) -> #(Int, Int)`'s would match nothing
 // and refuse as `stdlib function outside the scalar subset`, though tuples are
 // an interned `tagTuple` over flat `F0`/`F1` fields.
 //
@@ -273,7 +273,7 @@ func sharedTupleKind(parts []kind) (kind, bool) {
 // type over package-neutral components has a process-wide `*compKind` and
 // renders to the same Go text in every module's package, so the boundary the
 // scalar rule protects is not crossed. Parts resolve through the same restricted
-// `stdTypeKind`, so `(Fragment<String>, Int)` refuses on the `Fragment`.
+// `stdTypeKind`, so `#(Fragment<String>, Int)` refuses on the `Fragment`.
 //
 // ONE-WAY BY CONSTRUCTION, and the asymmetry is not this function's to fix. A
 // tuple in a stdlib PARAMETER position is admitted here as a kind, and it is a

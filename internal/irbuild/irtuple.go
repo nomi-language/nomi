@@ -29,7 +29,7 @@ func irCompositePartKind(k kind) bool {
 }
 
 func (bl *irScalarBuilder) tupleMake(t *ast.TupleLit) (ir.Temp, kind, bool, bool) {
-	// `(1, #{})` whose set a later use fixes (`Hold{v: (1, #{}).1}` with
+	// `#(1, #{})` whose set a later use fixes (`Hold{v: #(1, #{}).1}` with
 	// `v: Set<Int>`): the checker's type of the tuple types each component,
 	// as a list literal's checked element does (literalParts).
 	if k := bl.g.project(bl.g.checkedExprType(t)); k.tag == tagTuple && k.comp != nil && len(k.comp.parts) == len(t.Items) &&
@@ -41,7 +41,7 @@ func (bl *irScalarBuilder) tupleMake(t *ast.TupleLit) (ir.Temp, kind, bool, bool
 }
 
 // tupleMakeWant is tupleMake with the position's expected tuple type, which
-// types each component: `(0, [])` against `(Int, List<Int>)` builds its empty
+// types each component: `#(0, [])` against `#(Int, List<Int>)` builds its empty
 // list at `List<Int>`.
 func (bl *irScalarBuilder) tupleMakeWant(t *ast.TupleLit, want kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }

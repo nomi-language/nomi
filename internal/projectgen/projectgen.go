@@ -403,13 +403,13 @@ func (p *Project) Edit(kind EditKind, n int) (key, text string) {
 		if n%2 == 1 {
 			return key, orig
 		}
-		return key, strings.Replace(orig, "(n: Int): Int {\n    n + 1\n", "(n: Int, extra: Int = 0): Int {\n    n + extra + 1\n", 1)
+		return key, strings.Replace(orig, "(n: Int) -> Int {\n    n + 1\n", "(n: Int, extra: Int = 0) -> Int {\n    n + extra + 1\n", 1)
 	case ImplLeaf:
 		if n%2 == 1 {
 			return key, orig
 		}
 		u := p.units[key]
-		return key, orig + fmt.Sprintf("\nimpl Display for Kind%d {\n    fn to_string(kind: Kind%d): String {\n        case kind {\n            .Plain -> \"plain\"\n            .Sized(n) -> \"sized ${n}\"\n            .Tagged(t) -> t\n        }\n    }\n}\n", u.i, u.i)
+		return key, orig + fmt.Sprintf("\nimpl Display for Kind%d {\n    fn to_string(kind: Kind%d) -> String {\n        case kind {\n            .Plain -> \"plain\"\n            .Sized(n) -> \"sized ${n}\"\n            .Tagged(t) -> t\n        }\n    }\n}\n", u.i, u.i)
 	case BodyEntry:
 		return key, strings.Replace(orig, "total = 0\n", fmt.Sprintf("total = %d\n", 1+n%2), 1)
 	}
@@ -428,7 +428,7 @@ derive Hashable for Id
 derive Comparable for Id
 
 impl Display for Id {
-    fn to_string(id: Id): String {
+    fn to_string(id: Id) -> String {
         Id(n) = id
         "#${n}"
     }
@@ -446,23 +446,23 @@ derive ToJson for Money
 
 impl Money {
     /// Euros, from cents.
-    pub fn of(cents: Int): Money {
+    pub fn of(cents: Int) -> Money {
         Money{cents}
     }
 
     /// The sum of two amounts, in the first one's currency.
-    pub fn add(a: Money, b: Money): Money {
+    pub fn add(a: Money, b: Money) -> Money {
         Money{cents: a.cents + b.cents, currency: a.currency}
     }
 
     /// Whether the amount is zero.
-    pub fn zero?(m: Money): Bool {
+    pub fn zero?(m: Money) -> Bool {
         m.cents == 0
     }
 }
 
 impl Display for Money {
-    fn to_string(m: Money): String {
+    fn to_string(m: Money) -> String {
         "${m.cents} ${m.currency}"
     }
 }
@@ -478,7 +478,7 @@ derive Equatable for Level
 derive Hashable for Level
 
 impl Display for Level {
-    fn to_string(level: Level): String {
+    fn to_string(level: Level) -> String {
         case level {
             .Low -> "low"
             .Mid -> "mid"
@@ -489,8 +489,8 @@ impl Display for Level {
 
 /// Something that can say what it is and how much it weighs.
 pub interface Describe {
-    fn describe(value: self): String
-    fn weight(value: self): Int
+    fn describe(value: self) -> String
+    fn weight(value: self) -> Int
 }
 
 /// The scale every weight is measured against.
@@ -508,12 +508,12 @@ pub struct Page<T> {
 }
 
 /// The whole of items as one page.
-pub fn page<T>(items: List<T>): Page<T> {
+pub fn page<T>(items: List<T>) -> Page<T> {
     Page{items, total: Iter.count(items)}
 }
 
 /// The first item, or fallback when there is none.
-pub fn first_or<T>(items: List<T>, fallback: T): T {
+pub fn first_or<T>(items: List<T>, fallback: T) -> T {
     case List.head(items) {
         Some(x) -> x
         None -> fallback
@@ -521,14 +521,14 @@ pub fn first_or<T>(items: List<T>, fallback: T): T {
 }
 
 /// The items for which keep holds, as a list.
-pub fn keep<T>(items: List<T>, keep: (T) -> Bool): List<T> {
+pub fn keep<T>(items: List<T>, keep: (T) -> Bool) -> List<T> {
     items
     |> Iter.filter(keep)
     |> Iter.to_list()
 }
 
 /// n, moved into lo..=hi.
-pub fn clamp(n: Int, lo: Int, hi: Int): Int {
+pub fn clamp(n: Int, lo: Int, hi: Int) -> Int {
     case {
         n < lo -> lo
         n > hi -> hi
@@ -537,12 +537,12 @@ pub fn clamp(n: Int, lo: Int, hi: Int): Int {
 }
 
 /// The sum of xs.
-pub fn total(xs: List<Int>): Int {
-    Iter.reduce(xs, |acc = 0, x| acc + x)
+pub fn total(xs: List<Int>) -> Int {
+    Iter.reduce(xs, fn acc = 0, x -> acc + x)
 }
 
 /// The level n falls in.
-pub fn level_of(n: Int): Level {
+pub fn level_of(n: Int) -> Level {
     case {
         n < 10 -> .Low
         n < 100 -> .Mid
@@ -551,8 +551,8 @@ pub fn level_of(n: Int): Level {
 }
 
 /// The sum of amounts.
-pub fn sum_money(amounts: List<Money>): Money {
-    Iter.reduce(amounts, |acc = Money.of(0), m| Money.add(acc, m))
+pub fn sum_money(amounts: List<Money>) -> Money {
+    Iter.reduce(amounts, fn acc = Money.of(0), m -> Money.add(acc, m))
 }
 
 /// A place on a page, held as a record.
@@ -561,22 +561,22 @@ pub struct Spot {
 }
 
 /// The spot at n.
-pub fn spot(n: Int): Spot {
+pub fn spot(n: Int) -> Spot {
     Spot{at: {x: n, y: n + 1}}
 }
 
 /// Where a spot is.
-pub fn place(s: Spot): {x: Int, y: Int} {
+pub fn place(s: Spot) -> {x: Int, y: Int} {
     s.at
 }
 
 /// The sum of any numbers.
-pub fn sum_all(xs: Iter<Int>): Int {
-    Iter.reduce(xs, |acc = 0, x| acc + x)
+pub fn sum_all(xs: Iter<Int>) -> Int {
+    Iter.reduce(xs, fn acc = 0, x -> acc + x)
 }
 
 /// What a change to the util hub changes.
-pub fn probe(n: Int): Int {
+pub fn probe(n: Int) -> Int {
     n + 1
 }
 
@@ -589,21 +589,21 @@ const textHub = `//# Text helpers.
 import core/util
 
 /// words joined by sep, each trimmed.
-pub fn joined(words: List<String>, sep: String): String {
+pub fn joined(words: List<String>, sep: String) -> String {
     words
     |> Iter.map(String.trim)
     |> String.join(sep)
 }
 
 /// s repeated n times, at most ten.
-pub fn repeated(s: String, n: Int): String {
+pub fn repeated(s: String, n: Int) -> String {
     1..=util.clamp(n, 0, 10)
-    |> Iter.map(|_| s)
+    |> Iter.map(fn _ -> s)
     |> String.join()
 }
 
 /// How many characters the words hold together.
-pub fn width(words: List<String>): Int {
+pub fn width(words: List<String>) -> Int {
     words
     |> Iter.map(String.length)
     |> Iter.to_list()
@@ -661,7 +661,7 @@ func renderUnit(u *unit) (string, []string) {
 
 	if u.head == u.key {
 		w("/// Something with a rank, implemented across cluster %d.\n", i)
-		w("pub interface Rank%d {\n    fn rank(value: self): Int\n}\n\n", i)
+		w("pub interface Rank%d {\n    fn rank(value: self) -> Int\n}\n\n", i)
 	}
 
 	w(`/// A record of unit %[1]d.
@@ -722,12 +722,12 @@ pub struct Pair%[1]d<A, B> {
 }
 
 /// The pair the other way round.
-pub fn swap%[1]d<A, B>(pair: Pair%[1]d<A, B>): Pair%[1]d<B, A> {
+pub fn swap%[1]d<A, B>(pair: Pair%[1]d<A, B>) -> Pair%[1]d<B, A> {
     Pair%[1]d{left: pair.right, right: pair.left}
 }
 
 /// The item at k, if there is one.
-pub fn pick%[1]d<T>(items: List<T>, k: Int): Maybe<T> {
+pub fn pick%[1]d<T>(items: List<T>, k: Int) -> Maybe<T> {
     items
     |> Iter.drop(k)
     |> Iter.first()
@@ -741,17 +741,17 @@ pub fn pick%[1]d<T>(items: List<T>, k: Int): Maybe<T> {
 		backRead = fmt.Sprintf(" + %s.base%d", u.back.name, u.back.i)
 	}
 	w(`impl Describe for Rec%[1]d {
-    fn describe(value: Rec%[1]d): String {
+    fn describe(value: Rec%[1]d) -> String {
         "${value.id} ${value.name}"
     }
 
-    fn weight(value: Rec%[1]d): Int {
+    fn weight(value: Rec%[1]d) -> Int {
         value.amount.cents + base%[1]d%[2]s
     }
 }
 
 impl Rank%[3]d for Rec%[1]d {
-    fn rank(value: Rec%[1]d): Int {
+    fn rank(value: Rec%[1]d) -> Int {
         Iter.count(value.tags) + %[1]d
     }
 }
@@ -766,21 +766,21 @@ impl Rank%[3]d for Rec%[1]d {
 
 	w(`impl Rec%[1]d {
     /// A record numbered n.
-    pub fn new(n: Int): Rec%[1]d {
+    pub fn new(n: Int) -> Rec%[1]d {
         Rec%[1]d{id: Id(n), name: "r${n}", amount: Money.of(n * 10), tags: ["a", "bb"]}
     }
 
     /// The record's score: its cents and the length of its tags.
-    pub fn score(r: Rec%[1]d): Int {
+    pub fn score(r: Rec%[1]d) -> Int {
         r.tags
         |> Iter.map(String.length)
-        |> Iter.filter(|n| n > 0)
-        |> Iter.reduce(|acc = r.amount.cents, n| acc + n)
+        |> Iter.filter(fn n -> n > 0)
+        |> Iter.reduce(fn acc = r.amount.cents, n -> acc + n)
     }
 }
 
 /// The kind n stands for.
-pub fn kind%[1]d(n: Int): Kind%[1]d {
+pub fn kind%[1]d(n: Int) -> Kind%[1]d {
     case n %% 3 {
         0 -> .Plain
         1 -> .Sized(n)
@@ -791,12 +791,12 @@ pub fn kind%[1]d(n: Int): Kind%[1]d {
 `, i)
 	if !u.light {
 		w(`/// n doubled, or why not.
-pub fn checked%[1]d(n: Int): Result<Int, String> {
+pub fn checked%[1]d(n: Int) -> Result<Int, String> {
     if n < 0 { Err("negative: ${n}") } else { Ok(n * 2) }
 }
 
 /// n doubled twice over.
-pub fn doubled%[1]d(n: Int): Result<Int, String> {
+pub fn doubled%[1]d(n: Int) -> Result<Int, String> {
     a = try checked%[1]d(n)
     b = try checked%[1]d(a)
     Ok(a + b)
@@ -827,7 +827,7 @@ pub struct Node%[1]d {
 derive Equatable for Node%[1]d
 
 /// A link of unit %[2]d over nodes of this unit, read back.
-pub fn linked%[1]d(n: Int): Int {
+pub fn linked%[1]d(n: Int) -> Int {
     leaf = Node%[1]d{rec: Rec%[1]d.new(n), parent: None}
     link = %[3]s.Link%[2]d{label: "l${n}", nodes: [leaf, leaf]}
     top = Node%[1]d{rec: Rec%[1]d.new(n + 1), parent: Some(link)}
@@ -841,7 +841,7 @@ pub fn linked%[1]d(n: Int): Int {
 `, i, front.i, front.name)
 	}
 	w(`/// What a change to this unit changes.
-pub fn probe%[1]d(n: Int): Int {
+pub fn probe%[1]d(n: Int) -> Int {
     n + 1
 }
 
@@ -881,9 +881,9 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
 		body = fmt.Sprintf(`    start = %[3]s
     m = n %% %[2]d + 1
     1..=m
-    |> Iter.map(|x| x * %[2]d)
-    |> Iter.filter(|x| x %% 2 == 0)
-    |> Iter.reduce(|acc = start, x| acc + x)`, i, c, prev)
+    |> Iter.map(fn x -> x * %[2]d)
+    |> Iter.filter(fn x -> x %% 2 == 0)
+    |> Iter.reduce(fn acc = start, x -> acc + x)`, i, c, prev)
 	case 2:
 		body = fmt.Sprintf(`    r = Rec%[1]d.new(n)
     s = Rec%[1]d.score(r)
@@ -908,7 +908,7 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
         Err(message) -> String.length(message)
     }`, i, c, prev)
 	case 5:
-		body = fmt.Sprintf(`    table = {"a" => n, "b" => n + %[2]d, "c" => %[3]s}
+		body = fmt.Sprintf(`    table = %%{"a" => n, "b" => n + %[2]d, "c" => %[3]s}
     Map.get(table, "b")
     |> Maybe.with_default(0)`, i, c, prev)
 	case 6:
@@ -919,7 +919,7 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
 			body = fmt.Sprintf(`    words = ["unit", "%[1]d", "${n}"]
     words
     |> Iter.map(String.length)
-    |> Iter.reduce(|acc = %[2]s, x| acc + x)`, i, prev)
+    |> Iter.reduce(fn acc = %[2]s, x -> acc + x)`, i, prev)
 		}
 	case 7:
 		body = fmt.Sprintf(`    summary = Summary%[1]d{name: "s${n}", count: n}
@@ -962,11 +962,11 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
 			calls += fmt.Sprintf(" + linked%d(n)", i)
 		}
 		if calls != "" {
-			return fmt.Sprintf("/// Step 0 of unit %d.\npub fn f%d_0(n: Int): Int {\n    value = {\n%s\n    }\n    value%s\n}\n\n",
+			return fmt.Sprintf("/// Step 0 of unit %d.\npub fn f%d_0(n: Int) -> Int {\n    value = {\n%s\n    }\n    value%s\n}\n\n",
 				i, i, indent(body), calls)
 		}
 	}
-	return fmt.Sprintf("/// Step %d of unit %d.\npub fn f%d_%d(n: Int): Int {\n%s\n}\n\n", k, i, i, k, body)
+	return fmt.Sprintf("/// Step %d of unit %d.\npub fn f%d_%d(n: Int) -> Int {\n%s\n}\n\n", k, i, i, k, body)
 }
 
 func indent(s string) string {

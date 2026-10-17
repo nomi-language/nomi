@@ -951,7 +951,7 @@ func (g *gen) declModifiers(d *typeDef, decs []ast.Decorator, tps []ast.TypePara
 	}
 	// `opaque` is deliberately NOT refused. The name-only auto-Debug
 	// rendering for an opaque type is produced in the ANALYZER, as an ordinary Nomi
-	// `impl Debug for T { fn inspect(value: T): String { "<opaque T>" } }` node
+	// `impl Debug for T { fn inspect(value: T) -> String { "<opaque T>" } }` node
 	// appended before the builder is handed the tree
 	// (analysis.synthesizeOpaqueNameOnlyDebug), so the builder lowers it
 	// through the impl path it already has and there is nothing to reproduce.
@@ -1096,7 +1096,7 @@ func (g *gen) settleLowerable(order []*typeDef) {
 // Four forms name a lowerable type. *ast.SimpleType names a scalar, a declared
 // struct/enum/distinct, or an interface existential. *ast.FuncType names a
 // function type; the SAME node with a nil Return names a TUPLE type, because
-// `(Int, String)` and `(Int) -> String` differ only in the arrow.
+// `#(Int, String)` and `(Int) -> String` differ only in the arrow.
 // *ast.GenericType names `List<T>`. All three of the latter are STRUCTURAL —
 // their identity is interned (see composite.go), not declared.
 //
@@ -1284,7 +1284,7 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 	}
 	if d, isStdEnum := g.stdEnumNamed(st.Name); isStdEnum {
 		// A monomorphic stdlib enum this module MENTIONS without declaring:
-		// `fn compare(a: Priority, b: Priority): Ordering`. Its Go type is
+		// `fn compare(a: Priority, b: Priority) -> Ordering`. Its Go type is
 		// declared in rt, so it needs no mirror and no import. Asked beside
 		// the opaque lookup because it is the same question about a different
 		// declaration kind. See stdenum.go.

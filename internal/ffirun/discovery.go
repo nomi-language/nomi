@@ -79,7 +79,7 @@ type DiscoveredExport struct {
 // bindings:
 //
 //	gopkg "example.com/app/ffi" as ffi
-//	fn echo_upper(s: String): String go ffi.EchoUpper
+//	fn echo_upper(s: String) -> String go ffi.EchoUpper
 //
 // The returned slice is sorted by import path for determinism (the codegen
 // template depends on stable ordering for golden tests and reproducible cache
@@ -584,7 +584,7 @@ func nomiExternFuncSource(fn *nomiast.ExternFunc) string {
 	}
 	b.WriteString(")")
 	if fn.ReturnTypeExpr != nil {
-		b.WriteString(": ")
+		b.WriteString(" -> ")
 		b.WriteString(fn.ReturnTypeExpr.TypeString())
 	}
 	return b.String()

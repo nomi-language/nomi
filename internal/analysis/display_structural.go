@@ -4,14 +4,14 @@ import "fmt"
 
 // Display over the types that have no declaration to hang an impl on.
 //
-// A tuple renders as `(Display(a), Display(b), ...)` and an anonymous struct
+// A tuple renders as `#(Display(a), Display(b), ...)` and an anonymous struct
 // as `{f: Display(v), ...}` (the spec's Display and Debug section), so one is
 // Display exactly when every part is. A function value has no Display at
 // all. Every Display question the checker asks about such a type goes
 // through the two functions below: an interpolation or interface-typed
 // argument (recordConformanceRecording), a `where T: Display` bound
 // (typeImplementsInterface), and a bound inside a generic impl's receiver
-// (`Maybe<(Int, Int)>` against `impl<T> Display for Maybe<T> where T:
+// (`Maybe<#(Int, Int)>` against `impl<T> Display for Maybe<T> where T:
 // Display`, typeSatisfiesInterfaceForImplMatch).
 
 // displayParts is the parts a tuple or anonymous struct renders through

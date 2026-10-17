@@ -29,7 +29,7 @@ type checker struct {
 	pipeLambdaParams  []pipeLambdaParam      // parameters of earlier bare-bodied `then` stages of the pipelines being checked; see pipe_then_stage.go
 	returnTy          Type                   // expected return type of current function boundary
 	iterBreakTy       Type                   // expected type of `break v` in the current iter-callback lambda
-	iterStateless     bool                   // the current iter callback is a stateless `Iter.loop(|| …)`: its state, every `break` and its result are Unit
+	iterStateless     bool                   // the current iter callback is a stateless `Iter.loop(fn -> …)`: its state, every `break` and its result are Unit
 	calleeNode        ast.Node               // the callee checkCallee is checking, which a struct-shaped variant may be; see rejectStructVariantValue
 	qualifierNode     ast.Node               // the object of the field access being checked, which a type name may be; see rejectTypeNameValue
 	funcRefNode       ast.Node               // the name checkNodeExpecting is instantiating against an expected function type; see generic_func_ref.go
@@ -164,7 +164,7 @@ type checker struct {
 // whose Members include the given variant name. Returns the enum name or ""
 // if no in-file enum claims the variant. Used to populate "did you mean
 // Shape.Circle?" hints when bare variant construction is rejected and to
-// route bare literal-attach prefixes (`Obj{"k" => v}`) to their owning
+// route bare literal-attach prefixes (`Obj%{"k" => v}`) to their owning
 // enum in resolveVariantPrefix.
 //
 // Walks three sources, in this order so same-file definitions take
@@ -377,7 +377,7 @@ func (c *checker) lookupEnumSymByName(name string) *Symbol {
 }
 
 // resolveVariantPrefix takes a TypeExpr written at a literal-attach prefix
-// position (e.g. the `Obj` in `Obj{"k" => v}`, the `Arr` in `Arr[1, 2, 3]`)
+// position (e.g. the `Obj` in `Obj%{"k" => v}`, the `Arr` in `Arr[1, 2, 3]`)
 // and decides whether it names an enum variant. Returns the variant's
 // enclosing EnumType, the variant's payload type (after substitution of any
 // enum type-args attached to the prefix), and the variant's bare name.
@@ -583,7 +583,7 @@ func (c *checker) resolveVariantPrefixInValuePos(typeExpr ast.TypeExpr, line, co
 		et, payload, vname := c.resolveVariantPrefix(typeExpr)
 		return et, payload, vname, true
 	case *ast.DotVariantType:
-		// Dot-leading literal-attach form (`.Obj{"k" => v}`, `.Arr[1,2,3]`,
+		// Dot-leading literal-attach form (`.Obj%{"k" => v}`, `.Arr[1,2,3]`,
 		// `.Rect{w: 4.0, h: 3.0}`). Resolves against c.expectedEnum staged
 		// by checkNodeExpecting. Diagnostics mirror checkDotVariant's so the
 		// user sees the same message whether they wrote a bare `.Variant`
@@ -2073,7 +2073,7 @@ func (c *checker) report(e TypeError) {
 // impl-block items. A `fn` written inside a block or a test body is none of
 // those, and `checkNode` had no arm for one — so until this existed a nested
 // `fn`'s BODY was never type-checked at all:
-// `fn bad(): Int { "nope" }` at file scope is `return type mismatch: expected
+// `fn bad() -> Int { "nope" }` at file scope is `return type mismatch: expected
 // Int, got String`, and the identical declaration nested inside `main` drew
 // SILENCE from the analyzer.
 //
@@ -2154,7 +2154,7 @@ func (c *checker) checkFunc(fn *ast.FuncDef) {
 	defer func() { c.returnUnwinds = prevReturns }()
 
 	// Make the function's TypeParam_s visible to lambda annotations inside
-	// the body — `|x: List<T>| …` should resolve T to the same TypeParam_
+	// the body — `fn x: List<T> -> …` should resolve T to the same TypeParam_
 	// the outer signature uses — and to a `T.member` qualifier, which needs
 	// every name the declaration writes and not only the ones a parameter or
 	// the return mentions.
@@ -2189,7 +2189,7 @@ func (c *checker) checkFunc(fn *ast.FuncDef) {
 	// by checking earlier statements normally, then the last with
 	// `checkNodeExpecting`.
 	// A trailing lambda gets the declared FuncType here, which infers its
-	// unannotated parameters (`fn make_adder(n: Int): (Int) -> Int { |x| n + x }`).
+	// unannotated parameters (`fn make_adder(n: Int) -> (Int) -> Int { fn x -> n + x }`).
 	bodyTy := c.checkBlockExpectingReturn(fn.Body)
 
 	// Check implicit return: body type must match declared return type.
@@ -2212,8 +2212,8 @@ func (c *checker) checkFunc(fn *ast.FuncDef) {
 			}
 			// The declared result is the tail's expected type, as an
 			// annotation is a binding's and as it is a `return`'s value
-			// (checkReturn): what `t: (Int, Named) = (1, Pt{x: 5})`
-			// accepts, `fn pair(): (Int, Named) { (1, Pt{x: 5}) }`
+			// (checkReturn): what `t: #(Int, Named) = #(1, Pt{x: 5})`
+			// accepts, `fn pair() -> #(Int, Named) { #(1, Pt{x: 5}) }`
 			// accepts.
 			if !matched && c.unifiesAsResult(c.returnTy, bodyTy, c.fnTypeParams) {
 				matched = true
@@ -2221,7 +2221,7 @@ func (c *checker) checkFunc(fn *ast.FuncDef) {
 			// Interface subtyping at the return-type boundary: a
 			// concrete struct that `impl`s the declared interface type
 			// satisfies the declaration, including the interface's type
-			// arguments. Most prominent use: `fn boot(): App {
+			// arguments. Most prominent use: `fn boot() -> App {
 			// AppEnv{...} }` — AppEnv is concrete, App is the
 			// interface, and an `impl App for AppEnv` block makes
 			// the substitution legal. This is narrow on purpose — we
@@ -3190,7 +3190,7 @@ func (c *checker) checkLambdaBody(n *ast.Lambda, expected Type) Type {
 }
 
 // lambdaTailExpected is the type a callback's body tail is checked against:
-// the callee's declared result when it is concrete, so `|a, b| .Less` passed
+// the callee's declared result when it is concrete, so `fn a, b -> .Less` passed
 // as a `(T, T) -> Ordering` resolves its dot variant as a fn body ending in
 // `.Less` does. A result still holding a type parameter or an unsolved
 // variable is nil: the body is what solves it, and checkLambdaExpecting
@@ -4107,7 +4107,7 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 		expectedFT, ok := expected.(*FuncType)
 		if !ok {
 			// A type expected here that is not a function's (`f: Int =
-			// |x| ...`) is the mismatch the position reports; an unknown
+			// fn x -> ...`) is the mismatch the position reports; an unknown
 			// parameter type is not a second error.
 			switch expected.(type) {
 			case nil, *TypeVar, *TypeParam_:
@@ -4118,7 +4118,7 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 		return c.checkLambdaExpecting(n, expectedFT)
 	case *ast.NamedArg:
 		// Named args wrap the underlying value; push expected through
-		// so e.g. `transform(..., f: |x| x + 1)` infers x's type from
+		// so e.g. `transform(..., f: fn x -> x + 1)` infers x's type from
 		// f's declared signature.
 		return c.checkNodeExpecting(n.Value, expected)
 	case *ast.ListLit:
@@ -4132,9 +4132,9 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 		}
 		// A collection literal is an `Iter` of its element type, so an
 		// expected `Iter<T>` pushes T into the items as `List<T>` would:
-		// `Iter.to_map([(.North, .Cave)])` expected to be
+		// `Iter.to_map([#(.North, .Cave)])` expected to be
 		// `Map<Direction, Place>` checks each tuple against
-		// `(Direction, Place)`.
+		// `#(Direction, Place)`.
 		if elemTy, ok := iterElemType(expected); ok {
 			return c.checkListLitExpecting(n, elemTy)
 		}
@@ -4160,8 +4160,8 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 		return c.checkNode(n)
 	case *ast.TupleLit:
 		// A tuple literal against a tuple type of its arity pushes each element
-		// type into its item, so `(.North, .Cave)` checked against
-		// `(Direction, Place)` resolves both variants.
+		// type into its item, so `#(.North, .Cave)` checked against
+		// `#(Direction, Place)` resolves both variants.
 		if tt, ok := resolveTypeVar(expected).(*TupleType); ok && len(tt.Elems) == len(n.Items) {
 			return c.checkTupleLitExpecting(n, tt.Elems)
 		}
@@ -4193,7 +4193,7 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 	case *ast.MapLit:
 		// Annotated map literal — push expected K/V down to each entry so
 		// dot-leading variant resolution sees the right expected enum at
-		// value positions (`themes: Map<String, Color> = {"a" => .Red}`).
+		// value positions (`themes: Map<String, Color> = %{"a" => .Red}`).
 		// Skip the literal-attach path (n.TypeName != nil); that's the
 		// variant/distinct construction site and routes through checkMapLit
 		// independently.
@@ -4359,8 +4359,8 @@ func (c *checker) checkMapLitExpecting(n *ast.MapLit, keyTy, valTy Type) Type {
 	return &MapType{Key: keyTy, Val: valTy}
 }
 
-// checkMapUpdateLit checks a map update, `{..base, key => value}`, which
-// means `Map.merge(base, {key => value})`. The base must be a `Map<K, V>`,
+// checkMapUpdateLit checks a map update, `%{..base, key => value}`, which
+// means `Map.merge(base, %{key => value})`. The base must be a `Map<K, V>`,
 // and the result has its type. Each entry's key must be a K and its value a
 // V, with the coercions a map literal's entries get under an expected type
 // (`None` for a `Maybe`, `[]` for a list). An open base, such as
@@ -4375,12 +4375,26 @@ func (c *checker) checkMapUpdateLit(n *ast.MapLit, expected Type) Type {
 	}
 	head = resolveTypeVar(head)
 	mt, ok := head.(*MapType)
+	line, col := n.SpreadLine, n.SpreadCol
+	if line == 0 {
+		line, col = n.Line, n.Col
+	}
+	if ok && len(n.Entries) == 0 {
+		// A spread that changes no entry is its base value, as a struct
+		// or set spread that changes nothing is.
+		if _, bare := n.Spread.(*ast.CurrentValue); bare {
+			c.addError(line, col, emptyUpdateMessage)
+			return head
+		}
+		base := "the value itself"
+		if id, isIdent := n.Spread.(*ast.Ident); isIdent {
+			base = "`" + id.Name + "`"
+		}
+		c.addError(line, col, "a map spread with no entries is its base value; write "+base)
+		return head
+	}
 	if !ok {
 		if head != nil {
-			line, col := n.SpreadLine, n.SpreadCol
-			if line == 0 {
-				line, col = n.Line, n.Col
-			}
 			c.addError(line, col, fmt.Sprintf(
 				"map spread `..` requires a map, got %s", formatTypeForError(head)))
 		}
@@ -4939,7 +4953,7 @@ func (c *checker) specializeInterfaceMethod(fn ast.Node, ft *FuncType, firstArg 
 	// specialises nothing. Checking it here, before its parameter's expected
 	// type is known, would also check it a second time against whatever
 	// expected type encloses the call: `.North` inside
-	// `Iter.to_map([(.North, .Cave)])` would be reported against the call's
+	// `Iter.to_map([#(.North, .Cave)])` would be reported against the call's
 	// `Map<Direction, Place>`.
 	switch firstArg.(type) {
 	case *ast.ListLit, *ast.VectorLit, *ast.SetLit, *ast.ListSpreadLit, *ast.MapLit, *ast.TupleLit:
@@ -4948,7 +4962,7 @@ func (c *checker) specializeInterfaceMethod(fn ast.Node, ft *FuncType, firstArg 
 	// This check only reads the argument's type. checkCall checks every
 	// argument again against its parameter, and that check reports; keeping
 	// this one's diagnostics would report each error in the argument twice
-	// (an undefined name inside `Iter.count(Iter.filter(xs, |x| ...))`).
+	// (an undefined name inside `Iter.count(Iter.filter(xs, fn x -> ...))`).
 	mark, undeterminedMark := len(c.errors), len(c.undetermined)
 	argTy := c.checkNode(firstArg)
 	c.errors = c.errors[:mark]
@@ -5445,14 +5459,14 @@ func (c *checker) validateImplBlockMethodSignatures(n *ast.ImplBlock, iface *Int
 		}
 		// `self` substitutes to the impl's OWN resolved self-position parameter
 		// — the applied receiver (e.g. `List<T>`), so `self` inside the return
-		// type (`Maybe<(T, self)>`) compares correctly. reg.Lookup(recvName)
+		// type (`Maybe<#(T, self)>`) compares correctly. reg.Lookup(recvName)
 		// gives the bare, unapplied generic (`List`), which wouldn't unify with
 		// `List<T>`. An interface function whose `self` appears only in other
-		// positions (`fn make(): self`, `FromJson.from_json(json: Json):
+		// positions (`fn make() -> self`, `FromJson.from_json(json: Json):
 		// Result<self, E>`) has no self-position parameter, and there `self` is
 		// the receiver as the header resolves it (recvTy, applied, with the
 		// block's own type parameters rigid). Left unsubstituted, `self` bound
-		// to whatever the impl wrote, so `impl Make for Day { fn make(): Int }`
+		// to whatever the impl wrote, so `impl Make for Day { fn make() -> Int }`
 		// was accepted.
 		subs := interfaceReqSubs(iface)
 		if iface.SelfParam != nil {
@@ -5627,7 +5641,7 @@ func isSelfPositionParam(t Type, iface *InterfaceType) bool {
 // parameter types or return type differ from the interface's: the function
 // the impl must write, with the header's type arguments in place of the
 // interface's parameters and the receiver in place of `self`.
-// `impl Add<Days, Day> for Day` requires `fn add(lhs: Day, rhs: Days): Day`.
+// `impl Add<Days, Day> for Day` requires `fn add(lhs: Day, rhs: Days) -> Day`.
 // An interface parameter the header gives no argument for keeps its name.
 func (c *checker) requiredImplSignature(iface *InterfaceType, sig *MethodSig, recvTy Type) string {
 	subs := interfaceReqSubsWithSelf(iface, recvTy)
@@ -5642,7 +5656,7 @@ func (c *checker) requiredImplSignature(iface *InterfaceType, sig *MethodSig, re
 	}
 	ret := ""
 	if sig.Return != nil && !isUnitLike(sig.Return) {
-		ret = ": " + typeString(Substitute(sig.Return, subs))
+		ret = " -> " + typeString(Substitute(sig.Return, subs))
 	}
 	return fmt.Sprintf("interface '%s' requires `fn %s(%s)%s`", iface, sig.Name, strings.Join(params, ", "), ret)
 }
@@ -6153,9 +6167,9 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 	// A pipe into a generic call in a position with a known expected type
 	// checks its head against the call's first parameter as the expected type
 	// solves it, as checkGenericCall does for a written-out first argument:
-	// `[(.North, .Cave)] |> Iter.to_map()` expected to be
+	// `[#(.North, .Cave)] |> Iter.to_map()` expected to be
 	// `Map<Direction, Place>` checks the list against
-	// `Iter<(Direction, Place)>`. The callee is resolved once, here, and reused
+	// `Iter<#(Direction, Place)>`. The callee is resolved once, here, and reused
 	// below.
 	var left Type
 	leftChecked := false
@@ -6248,7 +6262,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 				pipeLambda = then.Lambda
 				c.checkPipeLambdaArity(then.Lambda, "then")
 			} else if lambda, ok := ungroupExpr(rhs).(*ast.Lambda); ok {
-				// `x |> |v| ...` is not a stage (pipe_stage_call.go). The
+				// `x |> fn v -> ...` is not a stage (pipe_stage_call.go). The
 				// lambda is still checked against the piped value, so the
 				// rest of the pipeline is typed as the `then` it should be.
 				pipeLambda = lambda
@@ -6881,7 +6895,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 	// computePositionalSlots from the direct-call path: identity mapping
 	// (positional i → slot i+argShift), with trailing-lambda routing
 	// applied when the last positional is a lambda that would otherwise
-	// land in a non-last slot. Without this, `xs |> f(|y| ...)` with a
+	// land in a non-last slot. Without this, `xs |> f(fn y -> ...)` with a
 	// defaulted middle param misroutes the lambda to the middle slot,
 	// dropping bidirectional inference into the lambda body.
 	var pipeSlots []int
@@ -7526,7 +7540,7 @@ func (c *checker) typeParamFunctionNotFieldHint(tp *TypeParam_, field string, re
 	switch len(providers) {
 	case 0:
 		return fmt.Sprintf(
-			"a type parameter has no fields; declare `fn %s(value: self): ...` in its bound and call `%s.%s(value)`",
+			"a type parameter has no fields; declare `fn %s(value: self) -> ...` in its bound and call `%s.%s(value)`",
 			field, tp.Name_, field)
 	case 1:
 		return fmt.Sprintf("`%s` declares `fn %s`; call it as %s",
@@ -7710,7 +7724,7 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 				return dt
 			}
 			// Tuple-distinct (inner is a TupleType of arity N>=2) accepts
-			// either a single tuple-typed arg (call-form: `Pair((1, "x"))`)
+			// either a single tuple-typed arg (call-form: `Pair(#(1, "x"))`)
 			// or N positional args matching the inner element types
 			// (literal-attach: `Pair(1, "x")`). Other shapes are arity errors.
 			if innerTup, ok := dt.Inner.(*TupleType); ok && len(innerTup.Elems) >= 2 {
@@ -7725,7 +7739,7 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 			}
 			// The argument is checked against the wrapped type, which is
 			// also pushed as its expected type: a lambda literal passed to
-			// `Callback(|s| ...)` (Callback wraps `(String) -> String`) gets
+			// `Callback(fn s -> ...)` (Callback wraps `(String) -> String`) gets
 			// its parameters inferred. See distinct_construction.go.
 			return c.checkDistinctCtorCall(n, dt)
 		}
@@ -8450,11 +8464,11 @@ func positionalNamedConflicts(args []ast.Node, slots []int, paramNames []string,
 }
 
 // routesAsTrailingFunc extends trailing-lambda routing to a function passed
-// by name. `Iter.map(xs, |n| n * 2)` and `Iter.map(xs, double)` mean the same
+// by name. `Iter.map(xs, fn n -> n * 2)` and `Iter.map(xs, double)` mean the same
 // thing, so routing that depends on which one you wrote is a rule about
 // syntax where the reader expects a rule about arguments.
 //
-// A bare name is not self-evidently a function the way `|n| ...` is, and
+// A bare name is not self-evidently a function the way `fn n -> ...` is, and
 // inferring its type here would be circular for the lambda case. The
 // parameter shapes settle it instead: route only when the last parameter
 // takes a function and the slot the name would otherwise fill does not.
@@ -8768,7 +8782,7 @@ func containsTypeVar(t Type) bool {
 // shouldReportUnifyError decides whether a failed unification in a generic
 // call should surface as a user-visible type error. We report when the
 // parameter's shape is statically fixed by the signature — interface-typed
-// parameters with fixed type-arg shapes (e.g. Iter<(K, V)>) and
+// parameters with fixed type-arg shapes (e.g. Iter<#(K, V)>) and
 // anon-struct parameters whose fields commit to a constructed shape (e.g.
 // {tail: List<T>}). Other unification failures — partially-solved lambda
 // bodies, bare-TypeParam parameters, etc. — are left for downstream checks
@@ -8945,7 +8959,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 
 // functionJoinHint explains a rejected argument whose function type would be
 // assignable to the one an earlier argument bound the type parameter to:
-// `pick(c, float_str, shown)` with `fn pick<T>(c: Bool, a: T, b: T): T`. A type
+// `pick(c, float_str, shown)` with `fn pick<T>(c: Bool, a: T, b: T) -> T`. A type
 // parameter holds one function type, and a second function joins it only when
 // their types are the same.
 func (c *checker) functionJoinHint(param, solved, argTy Type) string {
@@ -9019,7 +9033,7 @@ func (c *checker) calleeIsNamelessValue(funcNode ast.Node) bool {
 		}
 		return false
 	case *ast.GroupedExpr:
-		// `(|x, y = 2| x + y)(1)` calls the literal, whose parameters are
+		// `(fn x, y = 2 -> x + y)(1)` calls the literal, whose parameters are
 		// in hand; any other parenthesized callee, a name included, is a
 		// value (`(parse)("12")`).
 		inner := fn.Expr
@@ -9040,7 +9054,7 @@ func (c *checker) calleeIsNamelessValue(funcNode ast.Node) bool {
 
 // calleeCopiesADeclaration reports whether a call's callee is a binding that
 // copies, directly or through other copies, a lambda or a partial
-// application bound to a name (`alias = f` after `f = |x = 1| x`). Such a
+// application bound to a name (`alias = f` after `f = fn x = 1 -> x`). Such a
 // copy keeps the declaration's defaults, which the IR builder supplies by
 // following the value back to it (callablePlan); it has no parameter names.
 func (c *checker) calleeCopiesADeclaration(funcNode ast.Node) bool {
@@ -9080,7 +9094,7 @@ func namedArgSlot(name string, paramNames []string) int {
 // `.Guess(x)`), which resolves against the expected enum, or an empty list,
 // vector, set or map literal, whose element type nothing in it fixes. Either
 // may sit directly in the argument or inside a list, vector, set, tuple or map
-// literal or a nested call's arguments (`[(.North, .Cave)]`, `Some(.North)`).
+// literal or a nested call's arguments (`[#(.North, .Cave)]`, `Some(.North)`).
 // Those arguments cannot be checked against an un-instantiated type param, so
 // the expected type has to be seeded into the substitution first. NamedArg
 // wrappers are unwrapped. Lambda bodies and blocks are not searched: what
@@ -9114,7 +9128,7 @@ func needsExpectedType(node ast.Node) bool {
 	case *ast.Lambda:
 		// A parameter with no annotation or default takes its type from
 		// the function type the lambda is checked against; where only the
-		// call's result fixes that type (`f: (Int) -> Int = ident(|x| x + 1)`),
+		// call's result fixes that type (`f: (Int) -> Int = ident(fn x -> x + 1)`),
 		// the lambda has none without the seed.
 		for _, p := range v.Params {
 			if p.Destructure == nil && p.TypeAnnotation == nil && p.Default == nil {
@@ -9243,7 +9257,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// Turbofish: bind the callee's type params from explicit type args before
 	// solving from arguments. Params are taken in first-appearance order across
 	// the signature (params then return), which equals declaration order for
-	// all but exotic out-of-order signatures (`fn f<B, A>(x: A): B`).
+	// all but exotic out-of-order signatures (`fn f<B, A>(x: A) -> B`).
 	if n.TypeArgs != nil {
 		tps := collectOrderedTypeParams(ft)
 		if len(n.TypeArgs) != len(tps) {
@@ -9275,7 +9289,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// bare type param. `Result.Ok(.Quit)` expected to be `Result<Input, String>`
 	// then sees `.Quit`'s expected type as `Input`, and `Iter.to_map([(.North,
 	// .Cave)])` expected to be `Map<Direction, Place>` checks its list against
-	// `Iter<(Direction, Place)>`.
+	// `Iter<#(Direction, Place)>`.
 	//
 	// Scoped deliberately tight:
 	//   - `expected`, not c.returnTy — c.returnTy is the ambient enclosing return,
@@ -9333,7 +9347,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// Arg → param-slot mapping goes through computePositionalSlots — the
 	// same routing the non-generic path uses — so trailing-lambda routing
 	// applies to generic callees too (a final lambda skips a defaulted
-	// middle param into the last slot: `Iter.sort_by(users, |u| u.name)`).
+	// middle param into the last slot: `Iter.sort_by(users, fn u -> u.name)`).
 	// NamedArg entries come back as -1 and route by name to the parameter
 	// they name, as in the non-generic path and the pipe path: checking one
 	// against the parameter at its written position rejected
@@ -9395,7 +9409,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		instArgs = append(instArgs, [2]Type{ft.Params[slot], argTy})
 
 		// Unify argument type against the (original) parameter type to solve more params.
-		// When the parameter shape constrains the argument (e.g. Iter<(K, V)>
+		// When the parameter shape constrains the argument (e.g. Iter<#(K, V)>
 		// vs a List of non-tuple values), surface the mismatch as a type error.
 		if err := c.unifyInto(ft.Params[slot], argTy, subs); err != nil {
 			c.reportGenericArgMismatch(n.Func, ft.Params[slot], argTy, subs, arg, label, errLine, errCol, nil)
@@ -9416,7 +9430,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// (concrete, iface) only for the interface's `self` TypeParam_ — the
 	// receiver-position binding is the actual conformance fact A2's other
 	// recorders miss for this call shape. Other TypeParamDefs (e.g. T in
-	// `Pusher<T> { fn push(c: self, v: T): self }`) are unrelated to
+	// `Pusher<T> { fn push(c: self, v: T) -> self }`) are unrelated to
 	// conformance: T binding to Int says nothing about Int implementing
 	// Pusher. Existential self bindings (interface, type param, type var)
 	// are skipped.
@@ -9492,7 +9506,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	}
 
 	// A type parameter named only in a `where` bound's arguments and the
-	// result (`Out` in `fn plus<L, R, Out>(lhs: L, rhs: R): Out where L:
+	// result (`Out` in `fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L:
 	// Add<R, Out>`) is the one the solved subject's impl of the bound
 	// gives, as `lhs + rhs` itself is typed by that impl. Solved before the
 	// fallback below, which would otherwise read it off the enclosing
@@ -9502,7 +9516,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	}
 
 	// A type parameter no argument solves and the result names
-	// (`fn first<T>(): Maybe<T>`) is solved by where the result goes, as a
+	// (`fn first<T>() -> Maybe<T>`) is solved by where the result goes, as a
 	// return-only self is above: `c: Maybe<Coin> = first()` calls first at
 	// Coin. Solved here, the parameter's bounds are checked below and the
 	// call's instantiation is recorded, as an argument-solved one's is.
@@ -9591,7 +9605,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// "caller-scope TypeParam_s (c.fnTypeParams) are preserved as nominal so
 	// a generic body's own params don't get accidentally fresh-vared". A bare
 	// ContainsTypeParam cannot see that difference, so `Ok(x)` inside
-	// `fn ok<T>(x: T): Result<T, String>` — whose instantiation IS determined,
+	// `fn ok<T>(x: T) -> Result<T, String>` — whose instantiation IS determined,
 	// as `Result<T, String>` with the enclosing declaration's own T — recorded
 	// nothing, while the identical call in a non-generic twin recorded
 	// `(Int) -> Result<Int, String>`.
@@ -9602,8 +9616,8 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// `Ok: (T) -> Result<T, E>` — and looks those names up in the IR builder's
 	// substitution frame BY SPELLING. That is an unrelated declaration's type
 	// parameters resolved against the enclosing function's frame:
-	// `fn wrap<T>(x: T): Maybe<T>` lowered only because both spell it `T`, and
-	// `fn wrap<A>(x: A): Maybe<A>` refused. Recording the instantiation here
+	// `fn wrap<T>(x: T) -> Maybe<T>` lowered only because both spell it `T`, and
+	// `fn wrap<A>(x: A) -> Maybe<A>` refused. Recording the instantiation here
 	// removes the fallback's reason to exist for this population, and what it
 	// records carries the ENCLOSING function's parameters, which the frame is
 	// keyed on.
@@ -10135,7 +10149,7 @@ func (c *checker) callFuncSym(funcNode ast.Node) (*Symbol, bool) {
 // resolves to, supporting:
 //   - direct fn references (`add(...)` → *ast.FuncDef)
 //   - host fn references (`io.print(...)` → *ast.ExternFunc)
-//   - lambdas bound to a name (`f = |x| ...; f(...)` → *ast.Binding whose
+//   - lambdas bound to a name (`f = fn x -> ...; f(...)` → *ast.Binding whose
 //     Value is *ast.Lambda)
 //   - partial applications bound to a name (`f = connect(_, port: _)`):
 //     the callee's parameters at the open slots (partialOpenParams)
@@ -10246,7 +10260,7 @@ func (c *checker) callParamName(funcNode ast.Node, paramIdx int) string {
 
 // checkTupleDistinctArgs validates a call to a tuple-distinct constructor.
 // Two construction forms are accepted:
-//   - call-form:      Pair((1, "x"))   — a single argument whose type unifies
+//   - call-form:      Pair(#(1, "x"))   — a single argument whose type unifies
 //     with the inner tuple type.
 //   - literal-attach: Pair(1, "x")     — N positional args matching the
 //     inner tuple's element types.
@@ -10550,7 +10564,7 @@ func (c *checker) checkStructLitAgainstStruct(lit *ast.StructLit, st *StructType
 	subs := map[*TypeParam_]Type{}
 	canInferArgs := len(st.TypeParamDefs) > 0 && len(st.TypeArgs) == 0
 	// The type the literal is expected to have, when it is this struct with
-	// its arguments (`f: Box<(Int) -> Int> = Box{v: |x| x + 1}`), says what
+	// its arguments (`f: Box<(Int) -> Int> = Box{v: fn x -> x + 1}`), says what
 	// a field whose type the values have not yet solved should be checked
 	// against, so a lambda there gets its parameter types. It only steers
 	// the field's check: the values still decide the arguments, and the
@@ -10829,7 +10843,7 @@ func typeArgsKnown(args []Type) bool {
 // one verdict.
 //
 // THE RESULT TYPE IS THE HEAD'S TYPE, which is also what
-// `Struct.update(original, updates): self` returns. Nominal in,
+// `Struct.update(original, updates) -> self` returns. Nominal in,
 // nominal out; anonymous in, anonymous out.
 //
 // An ANONYMOUS head reaches the same validator through a StructType built
@@ -10842,22 +10856,15 @@ func (c *checker) checkStructUpdateLit(n *ast.StructLit) Type {
 	// and have no identity, so there is nothing a copy could do that the
 	// value itself does not; the form only gives a reader something to work
 	// out.
-	//
-	// `{..m}` over a map parses as this form, since nothing after the
-	// spread says map; its base's type says which spread it is.
 	head := resolveTypeVar(c.checkNode(n.Spread))
 	_, mapBase := head.(*MapType)
 	_, bare := n.Spread.(*ast.CurrentValue)
 	if len(n.Fields) == 0 && bare {
 		// `{..}` at a field or key: an update that changes nothing.
-		if mapBase {
-			c.addError(n.SpreadLine, n.SpreadCol, emptyUpdateMessage)
-			return head
-		}
 		if isStructShaped(head) {
 			c.addError(n.SpreadLine, n.SpreadCol, emptyUpdateMessage)
 		}
-	} else if len(n.Fields) == 0 {
+	} else if len(n.Fields) == 0 && isStructShaped(head) {
 		line, col := n.SpreadLine, n.SpreadCol
 		if line == 0 {
 			line, col = n.Line, n.Col
@@ -10865,10 +10872,6 @@ func (c *checker) checkStructUpdateLit(n *ast.StructLit) Type {
 		base := "the value itself"
 		if id, ok := n.Spread.(*ast.Ident); ok {
 			base = "`" + id.Name + "`"
-		}
-		if mapBase {
-			c.addError(line, col, "a map spread with no entries is its base value; write "+base)
-			return head
 		}
 		c.addError(line, col, "a struct spread with no fields is its base value; write "+base)
 	}
@@ -10931,7 +10934,7 @@ func (c *checker) checkStructUpdateLit(n *ast.StructLit) Type {
 		err := TypeError{Line: line, Col: col, Message: fmt.Sprintf(
 			"struct spread `..` requires a struct, got %s", formatTypeForError(head))}
 		if mapBase {
-			err = err.WithHint("a map spread's entries are written `key => value`")
+			err = err.WithHint("a map update is written `%{..base, key => value}`")
 		}
 		if et, isEnum := head.(*EnumType); isEnum && et.Name == "Maybe" && bare {
 			err = err.WithHint("a bare `..` cannot reach inside a Maybe, which may hold no value; write a whole value")
@@ -11033,11 +11036,11 @@ func formatTypeForError(t Type) string {
 
 // flatVariantCallType is the function type a flat call of a tuple-payload
 // variant is checked against: `Shape.Segment(1, 2)` for a variant over
-// `(Int, Int)` is a call form of its one tuple (spec §8), so the call is
+// `#(Int, Int)` is a call form of its one tuple (spec §8), so the call is
 // checked as one to `(Int, Int) -> Shape`, each element an argument. The
 // generic constructor's flattened type keeps its type parameters, so
 // `Two.Both(1, "x")` solves them from the elements by the same inference a
-// tupled `Two.Both((1, "x"))` gets, and a mismatch is reported at the
+// tupled `Two.Both(#(1, "x"))` gets, and a mismatch is reported at the
 // element. nil when the call is not that shape: the callee is not a variant
 // constructor, its payload is not a tuple of two or more elements, or the
 // call does not supply one argument per element. `piped` counts a pipe's
@@ -11238,13 +11241,13 @@ type undeterminedPattern struct {
 // `Ok(z) = Maybe.to_result(None, "none") else { ... }` binds z to the T of
 // `Maybe<T>`, which nothing fixes, so z is a value of no type and no use of
 // it can be compiled. A name whose type only holds an unsolved variable
-// (`a` in `(a, b) = (None, 1)`, a Maybe<T> that can only be None) is a
+// (`a` in `#(a, b) = #(None, 1)`, a Maybe<T> that can only be None) is a
 // value like any other and is not reported.
 //
 // A pattern's names are checked at the end, not where they are bound as
 // `name = value` is (checkLocallyDetermined), because the matched value is
 // often a lambda parameter that later lines of the body determine
-// (`|state = ([], []), item| { (ts, fs) = state ... }` in std/iter). A
+// (`fn state = #([], []), item -> { #(ts, fs) = state ... }` in std/iter). A
 // matched value whose call is reported here is not reported again by
 // checkUndeterminedTypeArgs.
 func (c *checker) checkUndeterminedPatternBindings() {
@@ -11338,13 +11341,13 @@ func (c *checker) checkBinding(n *ast.Binding) Type {
 	// A lambda bound to a local name with no annotation has no function type
 	// to take its parameters' types from; checkNode reports each one it
 	// cannot infer (checkLambda). For a non-function
-	// annotation (`f: Int = |x| ...`) the unify check below reports the
+	// annotation (`f: Int = fn x -> ...`) the unify check below reports the
 	// mismatch, with no per-parameter errors beside it.
 
 	var valTy Type
 	if declared != nil {
 		// Push the declared type into the RHS so polymorphic returns
-		// (e.g. `Map.empty(): Map<K, V>`) can resolve to a concrete type
+		// (e.g. `Map.empty() -> Map<K, V>`) can resolve to a concrete type
 		// instead of leaving fresh TypeVars unbound.
 		valTy = c.checkNodeExpecting(n.Value, declared)
 		// Validate: the RHS type must unify with the declared type. The
@@ -11403,7 +11406,7 @@ func (c *checker) checkBinding(n *ast.Binding) Type {
 		}
 		// Surface the original param names so hover renders
 		// `(x: Int) -> Int` instead of the nameless `(Int) -> Int`. Two
-		// shapes apply here: a direct lambda (`f = |x, y| ...`) and a
+		// shapes apply here: a direct lambda (`f = fn x, y -> ...`) and a
 		// partial application (`g = f(_, 2)`).
 		switch v := n.Value.(type) {
 		case *ast.Lambda:
@@ -11608,10 +11611,10 @@ func (c *checker) checkStructDestructure(n *ast.StructDestructure) Type {
 // an unknown-identifier bug and stayed invisible for the checker's whole life.
 //
 // MEASURED, as a paired positive/negative rather than an absence:
-// `{Int.to_string(1, 2, 3) => "x"}` — a map LITERAL — is a front-end error
+// `%{Int.to_string(1, 2, 3) => "x"}` — a map LITERAL — is a front-end error
 // ("expected 1 arguments, got 3"), because checkMapLit calls
 // checkNodeExpecting on its keys. The SAME expression as a map PATTERN key,
-// `case m { {Int.to_string(1, 2, 3) => v} -> v }`, was ACCEPTED. One expression,
+// `case m { %{Int.to_string(1, 2, 3) => v} -> v }`, was ACCEPTED. One expression,
 // two answers, and the literal path is the one that is right. So this is a
 // known-present check that was simply not wired to a second position, not a
 // check nobody had written.
@@ -11621,7 +11624,7 @@ func (c *checker) checkStructDestructure(n *ast.StructDestructure) Type {
 // The obvious spelling is checkNodeExpecting(entry.Key, mt.Key), matching the
 // literal path exactly. It is WRONG here, and 08-pattern-matching/
 // map_patterns_test.nomi:108-121 is the counterexample: it writes
-// `{Color.Blue => v}` against a `Map<Bool, String>` and asserts the arm does
+// `%{Color.Blue => v}` against a `Map<Bool, String>` and asserts the arm does
 // NOT match, falling through to `_` with the value "fallthrough". A map
 // pattern's key is an EXPRESSION evaluated against the map and then looked up,
 // so a key of an unrelated type is not a type error — it is a guaranteed miss,
@@ -11637,7 +11640,7 @@ func (c *checker) checkStructDestructure(n *ast.StructDestructure) Type {
 //
 // # The consequence that motivated finding it
 //
-// A prelude constructor in key position — `{Some(2) => v}` — records no
+// A prelude constructor in key position — `%{Some(2) => v}` — records no
 // instantiated signature when nothing checks it, so `Symbol.CallType` is nil
 // and internal/irbuild's preludeArgs refuses it under `generic enum over a type
 // parameter | Maybe.Some at Maybe<T>`. That reads as a missing SOURCE of type
@@ -11732,7 +11735,7 @@ const noFallbackPayloadMessage = "this pattern has no single payload a fallback 
 // Infallible: return, break, continue, or a branch whose paths all do) or
 // produces a fallback. A fallback is allowed only when the pattern is one
 // variant with a payload whose own pattern always matches (`Some(email)`,
-// `Ok((w, h))`, `.Valid{addr, score}`): the fallback stands in for that
+// `Ok(#(w, h))`, `.Valid{addr, score}`): the fallback stands in for that
 // payload, and the inner pattern binds from it as it would on a match. In
 // the arms form the arms match the value that failed, and the binding's
 // pattern plus the arms must be exhaustive by case's rules.
@@ -11827,7 +11830,7 @@ func (c *checker) checkPatternBinding(n *ast.PatternBinding) Type {
 // to: the payload of the one variant the pattern names, when the pattern's
 // own payload pattern always matches. variant is that variant's name.
 //
-// `Some(email)` over Maybe<String> answers String; `Ok((w, h))` answers the
+// `Some(email)` over Maybe<String> answers String; `Ok(#(w, h))` answers the
 // tuple; `.Valid{addr, score}` and `.Valid(v)` over a struct variant answer
 // the anonymous struct of its fields. A pattern with no single payload to
 // stand in for (`[first, ..rest]`, `Ok(Some(x))`, a literal) answers false.
@@ -12539,7 +12542,7 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 		// interface declares functions only.
 		if it, ok := interfaceObjectType(c, n.Object, objTy); ok {
 			hint := fmt.Sprintf(
-				"an interface declares functions only; declare `fn %s(value: self): ...` in '%s' and call `%s.%s(value)`",
+				"an interface declares functions only; declare `fn %s(value: self) -> ...` in '%s' and call `%s.%s(value)`",
 				n.Field.Name, it.Name, it.Name, n.Field.Name)
 			if interfaceMethodFuncType(it, n.Field.Name) != nil {
 				hint = fmt.Sprintf("`%s` declares `fn %s`; call it as %s",
@@ -13061,7 +13064,7 @@ func (c *checker) unwrapTryResult(ty Type, at, operand ast.Node) Type {
 // inhabit that declaration. Three ways it can fail, all reported here and all
 // naming both sides:
 //
-//  1. the boundary is not a `Result` or a `Maybe` at all (`fn f(): Int`, or a
+//  1. the boundary is not a `Result` or a `Maybe` at all (`fn f() -> Int`, or a
 //     `fn` with no declared return type, whose result is Unit);
 //  2. the flavours disagree — `try` on a `Maybe` inside a `Result`-returning
 //     function, or the reverse;
@@ -13069,7 +13072,7 @@ func (c *checker) unwrapTryResult(ty Type, at, operand ast.Node) Type {
 //
 // (1) and (2) are spec §9's stated rule ("the nearest function boundary's
 // return type must match"); (3) is the soundness rule. Without it,
-// `try Json.decode(s)` inside `fn f(s: String): Result<Int, String>` would be
+// `try Json.decode(s)` inside `fn f(s: String) -> Result<Int, String>` would be
 // accepted, and the Err path would carry a `Json.DecodeError` out of a
 // function promising `String`: `try` propagates the operand's variant value
 // unchanged, so nothing would notice until a caller rendered it and died in
@@ -13149,7 +13152,7 @@ func (c *checker) checkTryBoundary(operand *EnumType, at ast.Node) {
 //   - TypeAssignable is the whole rule for the concrete case and the fast path.
 //   - unify admits a side still carrying an unresolved inference variable, and
 //     a generic boundary whose error side is the function's own type parameter
-//     (`fn f<E>(…): Result<T, E>` propagating a `Result<_, E>`). A PROTECTED
+//     (`fn f<E>(…) -> Result<T, E>` propagating a `Result<_, E>`). A PROTECTED
 //     type parameter is not unified away — mirroring checkReturn — so a
 //     generic boundary is not silently satisfied by a concrete error type.
 //   - argMatchesParam is the interface rung: an INTERFACE-typed declared error
@@ -13176,7 +13179,7 @@ func (c *checker) tryErrTypesAgree(want, got Type, line, col int) bool {
 // enum its element implements or embeds. The function's own type
 // parameters stay rigid: unification treats a type parameter as a hole, so
 // each is replaced on both sides by a type that equals only itself, and
-// `fn wrap<T>(x: T): List<T> { x }` stays a mismatch.
+// `fn wrap<T>(x: T) -> List<T> { x }` stays a mismatch.
 func (c *checker) unifiesAsResult(declared, got Type, own map[string]*TypeParam_) bool {
 	var rigid map[*TypeParam_]Type
 	for _, tp := range own {
@@ -13228,7 +13231,7 @@ func (c *checker) checkReturn(n *ast.Return) Type {
 
 // statelessLoopHint is the help on a value a stateless `Iter.loop` cannot
 // carry: the loop needs a state to carry it.
-const statelessLoopHint = "to end with a value, give the loop a state, as in `Iter.loop(|n = 0| …)` with `break n`; or write `break` alone"
+const statelessLoopHint = "to end with a value, give the loop a state, as in `Iter.loop(fn n = 0 -> …)` with `break n`; or write `break` alone"
 
 func (c *checker) checkBreak(n *ast.Break) Type {
 	if c.rejectExitlessExit("break", n.Line, n.Col) {
@@ -13250,7 +13253,7 @@ func (c *checker) checkBreak(n *ast.Break) Type {
 		vTy := c.checkNode(n.Value)
 		if vTy != nil && c.iterBreakTy != nil {
 			// Unify against the enclosing iter-callback's declared return
-			// type. For `loop(|n = 5| …)` the expected type is S, already
+			// type. For `loop(fn n = 5 -> …)` the expected type is S, already
 			// substituted to Int (from the default), so `break "hello"`
 			// surfaces as Int vs String.
 			subs := map[*TypeParam_]Type{}
@@ -13496,7 +13499,7 @@ func makeSetType(elem Type, reg *TypeRegistry) Type {
 // other's type, whichever came first (`None` beside `Some(1)`, `[]` beside
 // `[1]`). Elements mixing an enum with values of a type it embeds take the
 // enum, at the top or nested (`[c, Shape.Dot]` is a `List<Shape>`,
-// `[(1, c), (2, Shape.Dot)]` a `List<(Int, Shape)>`; embedsJoin). ok is false
+// `[#(1, c), #(2, Shape.Dot)]` a `List<#(Int, Shape)>`; embedsJoin). ok is false
 // when the two do not join; the caller reports the mismatch and keeps have.
 func (c *checker) joinLitElem(have, ty Type) (Type, bool) {
 	if have == nil {
@@ -13701,14 +13704,14 @@ func (c *checker) checkMapLit(n *ast.MapLit) Type {
 	if n.Spread != nil {
 		return c.checkMapUpdateLit(n, nil)
 	}
-	// Type-prefixed map literals (`Kvs{"a" => 1}`) are the literal-attach
+	// Type-prefixed map literals (`Kvs%{"a" => 1}`) are the literal-attach
 	// construction form for map-distinct types. The named type must be a
 	// DistinctType wrapping a MapType — check entries against the inner
 	// K/V and return the named distinct type. Anything else (struct,
 	// non-map distinct, etc.) is a type error.
 	if n.TypeName != nil {
 		typeName := n.TypeName.TypeString()
-		// Variant literal-attach (value position): `Obj{"k" => v}` where
+		// Variant literal-attach (value position): `Obj%{"k" => v}` where
 		// `Obj` is an enum variant with a Map payload. Enforces
 		// qualification for bare same-file / imported-enum variants —
 		// only drill-through-imported and qualified `EnumName.Variant`
@@ -14529,10 +14532,10 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 	case *ast.MapPattern:
 		// Unwrap a map-distinct DistinctType to its inner MapType so the
 		// pattern can match the underlying map. Type-prefixed map patterns
-		// (`Kvs{"a" => v}`) additionally verify the prefix name agrees
+		// (`Kvs%{"a" => v}`) additionally verify the prefix name agrees
 		// with the scrutinee's distinct type.
 		actualTy := expectedTy
-		// Variant literal-attach destructure: `Obj{"k" => v}` against an
+		// Variant literal-attach destructure: `Obj%{"k" => v}` against an
 		// EnumType. Resolve the prefix to the matching variant and
 		// destructure the variant's Map payload — the variant must agree
 		// with the scrutinee's enum.
@@ -14545,7 +14548,7 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 				c.checkMapPatternEntries(n.Entries, nil)
 				return
 			}
-			// Bare-prefix map-variant pattern (`Obj{"k" => v}` against an
+			// Bare-prefix map-variant pattern (`Obj%{"k" => v}` against an
 			// enum): the same rule as the other pattern-position paths.
 			if st, ok := n.TypeName.(*ast.SimpleType); ok && !c.allowsBareVariantPattern(st.Name, Pos{Line: st.Line, Col: st.Col}) {
 				c.addError(st.Line, st.Col, bareVariantPatternMessage(st.Name, et.Name))
@@ -14633,8 +14636,8 @@ func stringPatternText(n *ast.StringLit) string {
 //     payload patterns of the arms naming it cover its payload type, so
 //     `Some(Ok(_))` + `Some(Err(_))` + `None` covers `Maybe<Result<T, E>>`.
 //   - A tuple, struct or distinct value is covered component by component:
-//     `(Some(_), _)` + `(None, Some(_))` + `(None, None)` covers
-//     `(Maybe<A>, Maybe<B>)`.
+//     `#(Some(_), _)` + `#(None, Some(_))` + `#(None, None)` covers
+//     `#(Maybe<A>, Maybe<B>)`.
 //   - A list is covered by length: `[]` + `[h, ..t]` covers every list.
 //   - A literal, string prefix or map pattern never covers
 //     its type (Int, String, Codepoint, Map, ...); a catch-all must.
@@ -15312,7 +15315,7 @@ func containsProtectedTypeParam(t Type, protected map[string]*TypeParam_) bool {
 // The params and the return are the usual sources. The WHERE BOUNDS are a
 // third, and omitting them was a soundness hole rather than a nicety: a
 // parameter mentioned in neither a param nor the return is still declared and
-// still dispatchable, so `fn f<T>(): String where T: Machine { T.nope() }`
+// still dispatchable, so `fn f<T>() -> String where T: Machine { T.nope() }`
 // found no `T` to resolve against, both validators returned "not a type
 // parameter", `nomi check` said ok and the program died on
 // `unknown builtin 'T.nope'`, while the same function with
@@ -15378,12 +15381,12 @@ func collectTypeParamsByName(ft *FuncType) map[string]*TypeParam_ {
 }
 
 // declaredTypeParamsByName is collectTypeParamsByName plus the names the
-// DECLARATION writes that the signature never mentions — `fn f<T>(): String`,
+// DECLARATION writes that the signature never mentions — `fn f<T>() -> String`,
 // where `T` appears in no parameter, no return and no `where` clause, so
 // nothing ever minted a TypeParam_ for it.
 //
 // Such a parameter is unusable except through a turbofish, and it was the
-// third shape of one soundness hole: `fn f<T>(): String { T.nope() }` passed
+// third shape of one soundness hole: `fn f<T>() -> String { T.nope() }` passed
 // `nomi check` and died on `unknown builtin 'T.nope'`, because
 // both `T.member` validators start by asking whether the qualifier is a type
 // parameter in scope and the answer was no. The minted parameter is
@@ -15411,7 +15414,7 @@ func declaredTypeParamsByName(ft *FuncType, declared []ast.TypeParam) map[string
 // right, then the return type). This equals declaration order for every
 // signature whose params appear in the same order they're declared — the
 // common case, including return-only params like `new<T>(): Channel<T>`. The
-// only divergence is exotic out-of-order declarations (`fn f<B, A>(x: A): B`),
+// only divergence is exotic out-of-order declarations (`fn f<B, A>(x: A) -> B`),
 // which turbofish would bind by appearance rather than declaration. Used to map
 // turbofish type args onto the callee's type params.
 func collectOrderedTypeParams(ft *FuncType) []*TypeParam_ {
@@ -15490,16 +15493,16 @@ func widenForDefault(t Type) Type {
 // `Unit` placeholder and no foreign `TypeParam_` lurking inside — both
 // signal that the default is shape-only (`[]` → `List<Unit>`, `None` →
 // `Maybe<T>`) and the body's references will determine the real type. The
-// enclosing function's own parameters are answers, not holes: `|acc = t, _|`
+// enclosing function's own parameters are answers, not holes: `fn acc = t, _ ->`
 // with `t: Box<T>` inside `fn wrap<T>` pins the accumulator at `Box<T>`.
 //
 // Examples:
 //   - `5` → Int — concrete, pin.
-//   - `(0, 1)` → (Int, Int) — concrete, pin (loop tuple state).
+//   - `#(0, 1)` → (Int, Int) — concrete, pin (loop tuple state).
 //   - `t` → Box<T>, T the enclosing function's — pin.
 //   - `[]` → List<Unit> — Unit placeholder, don't pin.
 //   - `None` → Maybe<T>, T Maybe's own — foreign TypeParam_ inside, don't pin.
-//   - `(0, [])` → (Int, List<Unit>) — Unit inside, don't pin.
+//   - `#(0, [])` → (Int, List<Unit>) — Unit inside, don't pin.
 func (c *checker) canPinFromDefault(t Type) bool {
 	if t == nil {
 		return false
@@ -15603,7 +15606,7 @@ func (c *checker) checkLambda(n *ast.Lambda, undeterminedErr bool) Type {
 			// but only when the default's shape is "concrete enough" — see
 			// canPinFromDefault. Defaults like `[]` and `None` carry placeholder
 			// types (List<Unit>, Maybe<TypeParam_>) and would over-narrow the
-			// param; defaults like `5`, `(0, 1)`, `False` are fine.
+			// param; defaults like `5`, `#(0, 1)`, `False` are fine.
 			if defTy := c.checkParamDefaultValue(p); c.canPinFromDefault(defTy) {
 				defTy = widenForDefault(defTy)
 				params[i] = defTy
@@ -15613,11 +15616,11 @@ func (c *checker) checkLambda(n *ast.Lambda, undeterminedErr bool) Type {
 			// No annotation, no default, and no function type expected
 			// here: nothing determines the parameter's type, so neither its
 			// uses nor the lambda's own type can be checked. A later use of
-			// the lambda (`case Some(|x| ...) { Some(h) -> f(h) }`) does
+			// the lambda (`case Some(fn x -> ...) { Some(h) -> f(h) }`) does
 			// not fix it; the checker has no variable for it to solve.
 			c.report(TypeError{Line: p.Line, Col: p.Col,
 				Message: fmt.Sprintf("cannot infer type for parameter %s", p.Name)}.
-				WithHint(fmt.Sprintf("annotate the parameter with its type, as in `|%s: T|`; a later use of the lambda does not give it one", p.Name)))
+				WithHint(fmt.Sprintf("annotate the parameter with its type, as in `fn %s: T -> ...`; a later use of the lambda does not give it one", p.Name)))
 			undetermined = true
 		}
 	}
@@ -15725,10 +15728,10 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 	// expected.Return.
 	if len(n.Params) == 0 && len(expected.Params) > 0 {
 		// Zero-arg lambda ignores the state parameter. A loop-shaped
-		// `(S) -> S` callback, `Iter.loop(|| …)`, is a stateless loop: S is
+		// `(S) -> S` callback, `Iter.loop(fn -> …)`, is a stateless loop: S is
 		// Unit, so every `break` and the body's result are Unit. Any other
 		// callback infers its unsolved parameters from the body, as a
-		// zero-param `Task.spawn(|| body)` infers its type param.
+		// zero-param `Task.spawn(fn -> body)` infers its type param.
 		subs := map[*TypeParam_]Type{}
 		var stateVars []*TypeVar
 		_, stateIsParam := expected.Params[0].(*TypeParam_)
@@ -15803,7 +15806,7 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 
 	params := make([]Type, effectiveCount)
 	// open holds the inference variable standing for each unsolved callee
-	// type parameter, one per parameter for the whole lambda, so `|a, b|`
+	// type parameter, one per parameter for the whole lambda, so `fn a, b ->`
 	// against `(U, U) -> U` gives both parameters and the result one variable.
 	open := map[*TypeParam_]Type{}
 	for i := 0; i < effectiveCount; i++ {
@@ -15814,7 +15817,7 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 		if p.TypeAnnotation != nil {
 			// Explicit annotation — resolve with the enclosing function's
 			// type-param map so references like `T` inside lambda annotations
-			// (e.g. `|state: (Int, List<T>) = (0, []), …|` inside
+			// (e.g. `fn state: #(Int, List<T>) = #(0, []), … ->` inside
 			// `fn drop<T>(...)`)  resolve to the same TypeParam_ used in the
 			// outer signature.
 			resolved, err := ResolveTypeExpr(p.TypeAnnotation, c.reg, c.fnTypeParams, c.fa.References)
@@ -15839,7 +15842,7 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 				// is concrete enough (see canPinFromDefault). Defaults like
 				// `[]` or `None` carry placeholder shapes (`List<Unit>`,
 				// `Maybe<TypeParam_>`) that would over-narrow the param;
-				// defaults like `5`, `(0, 1)`, `False` are fine.
+				// defaults like `5`, `#(0, 1)`, `False` are fine.
 				defTy := c.checkParamDefaultValue(p)
 				defaultChecked = true
 				if c.canPinFromDefault(defTy) {
@@ -15847,7 +15850,7 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 				}
 			}
 			// A callee type parameter nothing has solved yet (reduce's
-			// accumulator `U` in `Iter.reduce(xs, |a, b| a + b)`) is a hole
+			// accumulator `U` in `Iter.reduce(xs, fn a, b -> a + b)`) is a hole
 			// this call fills, not a rigid parameter of the lambda: the
 			// lambda's body solves it. Typed as the callee's own `U`, `a + b`
 			// was rejected as "type parameter U cannot use `+`" and the call
@@ -15858,7 +15861,7 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 			}
 			params[i] = paramTy
 			if te := unnamedParam(p, c.fa, c.reg); te != nil {
-				// `|String| 1` is a parameter written as its type, as
+				// `fn String -> 1` is a parameter written as its type, as
 				// checkLambda and a declared function report it. Checked
 				// as a pattern against the expected type it was "enum
 				// pattern requires an enum type, got String", which names
@@ -15895,8 +15898,8 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 
 	// Compute the `break v` expected type for this callback — expected.Return
 	// with any TypeParam_s that were concretized via param defaults/annotations
-	// substituted in. `loop(|n = 5| …)` sees iterBreakTy = Int (S bound from
-	// the default); a bare `|x| …` without a default leaves iterBreakTy as S.
+	// substituted in. `loop(fn n = 5 -> …)` sees iterBreakTy = Int (S bound from
+	// the default); a bare `fn x -> …` without a default leaves iterBreakTy as S.
 	expectedReturn := expected.Return
 	if expected.Return != nil {
 		subs := map[*TypeParam_]Type{}
@@ -16371,7 +16374,7 @@ func (c *checker) checkStructVariantLit(n *ast.StructLit, et *EnumType, variantN
 
 // seedVariantTypeArgs is the start of a variant construction's inference,
 // for the struct-variant literal and the list- and map-payload
-// literal-attach forms (`Bag.Items[1, 2]`, `Named{"a" => 4}`). It seeds
+// literal-attach forms (`Bag.Items[1, 2]`, `Named%{"a" => 4}`). It seeds
 // the substitution from arguments the site already supplies: the resolved
 // enum's own TypeArgs first, then an expected type naming THIS enum. The
 // name guard is what keeps `s: Maybe<Int> = Shape.Wrap{inner: 3}` from
@@ -16452,7 +16455,7 @@ func substituteScrutineeArgs(payload Type, et *EnumType) Type {
 
 // checkVariantPayloadValue checks one value written in a list- or
 // map-payload variant's literal-attach form (an element of `Bag.Items[1,
-// 2]`, a key or value of `Named{"a" => 4}`) against declared, its slot's
+// 2]`, a key or value of `Named%{"a" => 4}`) against declared, its slot's
 // type as the enum declares it. It is the field check of
 // checkStructVariantLit: the value is checked against what is solved so
 // far, and while the site supplied no arguments, a slot that mentions an
@@ -17883,7 +17886,7 @@ func (c *checker) checkTaggedString(n *ast.TaggedString) Type {
 			c.errors = append(c.errors, TypeError{
 				Line:    n.Line,
 				Col:     tagCol,
-				Message: fmt.Sprintf("type '%s' has no typed-literal handler — write `impl Literal for %s { fn from_fragments(fragments: List<Fragment<I>>): R }`", n.Tag, n.Tag),
+				Message: fmt.Sprintf("type '%s' has no typed-literal handler — write `impl Literal for %s { fn from_fragments(fragments: List<Fragment<I>>) -> R }`", n.Tag, n.Tag),
 			})
 			return nil
 		}

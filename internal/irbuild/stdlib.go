@@ -376,7 +376,7 @@ func kindOfGoType(t reflect.Type) kind {
 		return k
 	}
 	// A NOMI TUPLE, whose Go representation is a flat anonymous struct over
-	// `F0`, `F1`, …: `(Int, Int)` is `struct { F0 int64; F1 int64 }`.
+	// `F0`, `F1`, …: `#(Int, Int)` is `struct { F0 int64; F1 int64 }`.
 	//
 	// THIS IS READING THE BUILDER'S OWN CONVENTION BACK, not inventing one: tuples
 	// are an interned tagTuple over flat F0/F1 fields (sharedcomp.go's
@@ -1023,7 +1023,7 @@ func (x *stdlibIndex) add(f *stdFunc) {
 // wins on merit.
 //
 // std/bytes declares `Bytes.to_string` twice for one receiver: inherent
-// `pub host fn to_string(data: Bytes): Result<String, String>`, and
+// `pub host fn to_string(data: Bytes) -> Result<String, String>`, and
 // `impl Display for Bytes` returning `String`. Both take exactly `(Bytes)`.
 // Marking both ambiguous would clear `rtCall` (markAmbiguous does) and refuse
 // a call the analyzer resolves without hesitating; the tour's `Bytes` chapter
@@ -1872,7 +1872,7 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 		return named(opaqueDefs()[i])
 	}
 	if i, anchored := anchors.enums[name]; anchored {
-		// A monomorphic stdlib enum: `Int.compare(a: Int, b: Int): Ordering`.
+		// A monomorphic stdlib enum: `Int.compare(a: Int, b: Int) -> Ordering`.
 		// Admitted on the same terms as an opaque newtype and for the same
 		// reason — its *typeDef is process-wide and its Go type is declared in
 		// rt, so it belongs to no generated package and crossing the boundary
@@ -1887,7 +1887,7 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 		return named(stdStructDefs()[i])
 	}
 	if i, anchored := anchors.hosts[name]; anchored {
-		// A stdlib `pub host type`: `Bytes.length(data: Bytes): Int`. The same
+		// A stdlib `pub host type`: `Bytes.length(data: Bytes) -> Int`. The same
 		// terms a fourth time — a process-wide *typeDef over a Go type rt
 		// declares, and a LEAF, so it has no components to be
 		// package-relative. See stdhost.go.
@@ -1906,7 +1906,7 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 		// constructor would collapse. The identity travels in the components.
 		return stdIfaceKind(i)
 	}
-	// A TUPLE — `random.between_state(...): (Int, Int)`. Placed before the
+	// A TUPLE — `random.between_state(...) -> #(Int, Int)`. Placed before the
 	// GenericType block because a tuple is spelled neither nominally nor
 	// generically: the parser gives it as an *ast.FuncType with a nil Return.
 	// Admitted on the List and Map arms' terms; see tupleSigKind.
@@ -1994,8 +1994,8 @@ type stdAnchors struct {
 	// (origin, name) + validated-shape anchor a gen uses.
 	//
 	// It lets std's own signatures name a generic std struct as a user's
-	// annotation can: `ranges.Range.from(n: Int): Range<Int>` and
-	// `Range.naturals(): Range<Int>` resolve here. See stdgensig.go.
+	// annotation can: `ranges.Range.from(n: Int) -> Range<Int>` and
+	// `Range.naturals() -> Range<Int>` resolve here. See stdgensig.go.
 	genStructs map[string]*stdGenStructAnchor
 	// declared answers "is this name a TYPE in the declaring module" — the
 	// resolver half of analysis.ReceiverTypeParamNames, which needs it to tell a
@@ -2185,7 +2185,7 @@ func stdHeadTypeName(te ast.TypeExpr) string {
 //  2. FIELDS EXACTLY `F0`..`Fn-1`, IN ORDER. Any other name, any gap, or any
 //     reordering is some other struct. Checked positionally rather than as a
 //     set, because the tuple's component ORDER is its meaning.
-//  3. EVERY COMPONENT REPRESENTABLE. Recursive, so `(Int, (Float, Int))` works
+//  3. EVERY COMPONENT REPRESENTABLE. Recursive, so `#(Int, #(Float, Int))` works
 //     and a component this builder cannot represent refuses the whole tuple
 //     rather than producing a kind with a hole in it.
 //

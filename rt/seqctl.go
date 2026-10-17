@@ -9,7 +9,7 @@ package rt
 // is why only these two functions exist rather than a control-carrying variant
 // of every terminal.
 //
-// The encoding is a second return value, `(acc, keepGoing)`, and it is chosen
+// The encoding is a second return value, `#(acc, keepGoing)`, and it is chosen
 // against two alternatives:
 //
 //   - a sentinel accumulator value, which needs a value no accumulator can be.

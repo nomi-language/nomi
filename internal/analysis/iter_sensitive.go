@@ -1351,7 +1351,7 @@ func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
 
 // checkReduceSeed reports an `Iter.reduce`, `Iter.scan` or `Iter.map_reduce`
 // whose callback carries no starting value. The only starting value is the
-// callback lambda's first-parameter default (`|acc = 0, x| acc + x`), so a
+// callback lambda's first-parameter default (`fn acc = 0, x -> acc + x`), so a
 // function value (`Int.add`), a lambda without a default, a partial
 // application and a callback slot left open (`Iter.reduce(xs, _)`) are all
 // rejected: there is no first-element fallback, and an empty source would
@@ -1377,7 +1377,7 @@ func (s *iterSensitivity) checkReduceSeed(call *ast.Call, pipeLHS ast.Node) {
 		return
 	}
 	if _, open := cb.(*ast.Placeholder); open {
-		s.errors = append(s.errors, reduceSeedError(name, cb, fmt.Sprintf("pass the callback here, as a lambda whose accumulator has a starting value: `Iter.%s(xs, |acc = <start>, x| ...)`", name)))
+		s.errors = append(s.errors, reduceSeedError(name, cb, fmt.Sprintf("pass the callback here, as a lambda whose accumulator has a starting value: `Iter.%s(xs, fn acc = <start>, x -> ...)`", name)))
 		return
 	}
 	s.errors = append(s.errors, reduceSeedError(name, cb, reduceSeedHints(name, cb)...))
@@ -1385,8 +1385,8 @@ func (s *iterSensitivity) checkReduceSeed(call *ast.Call, pipeLHS ast.Node) {
 
 // checkLoopSeed reports an `Iter.loop` whose callback carries no starting
 // state. The state starts from the callback lambda's parameter default
-// (`|n = 0| ...`), and a stateless loop is a lambda with no parameter
-// (`|| ...`), so a lambda whose parameter has no default and a function
+// (`fn n = 0 -> ...`), and a stateless loop is a lambda with no parameter
+// (`fn -> ...`), so a lambda whose parameter has no default and a function
 // value (`Iter.loop(step)`) are rejected: the loop would have no first
 // state to call the callback with.
 func (s *iterSensitivity) checkLoopSeed(call *ast.Call, pipeLHS ast.Node) {
@@ -1415,11 +1415,11 @@ func (s *iterSensitivity) checkLoopSeed(call *ast.Call, pipeLHS ast.Node) {
 		if n.Params[0].Destructure == nil {
 			name = n.Params[0].Name
 		}
-		e.Hints = []string{fmt.Sprintf("give the state a starting value: `|%s = <start>| ...`, or take no parameter for a loop with no state: `|| ...`", name)}
+		e.Hints = []string{fmt.Sprintf("give the state a starting value: `fn %s = <start> -> ...`, or take no parameter for a loop with no state: `fn -> ...`", name)}
 	case *ast.Ident, *ast.FieldAccess:
-		e.Hints = []string{fmt.Sprintf("call it from a lambda whose state has a starting value: `|state = <start>| %s(state)`", calleeText(n))}
+		e.Hints = []string{fmt.Sprintf("call it from a lambda whose state has a starting value: `fn state = <start> -> %s(state)`", calleeText(n))}
 	default:
-		e.Hints = []string{"pass a lambda whose state has a starting value: `|state = <start>| ...`"}
+		e.Hints = []string{"pass a lambda whose state has a starting value: `fn state = <start> -> ...`"}
 	}
 	s.errors = append(s.errors, e)
 }
@@ -1460,13 +1460,13 @@ func reduceSeedHints(fn string, cb ast.Node) []string {
 		if len(n.Params) == 2 && n.Params[0].Destructure == nil && n.Params[1].Destructure == nil {
 			acc, item = n.Params[0].Name, n.Params[1].Name
 		}
-		return []string{fmt.Sprintf("give the accumulator a starting value: `|%s = <start>, %s| ...`", acc, item)}
+		return []string{fmt.Sprintf("give the accumulator a starting value: `fn %s = <start>, %s -> ...`", acc, item)}
 	case *ast.Ident, *ast.FieldAccess:
 		callee := calleeText(n)
 		if callee == "?" || strings.HasPrefix(callee, "?.") {
 			break
 		}
-		hints := []string{fmt.Sprintf("call it from a lambda whose accumulator has a starting value: `|acc = <start>, x| %s(acc, x)`", callee)}
+		hints := []string{fmt.Sprintf("call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> %s(acc, x)`", callee)}
 		if fn != "reduce" {
 			return hints
 		}
@@ -1478,5 +1478,5 @@ func reduceSeedHints(fn string, cb ast.Node) []string {
 		}
 		return hints
 	}
-	return []string{"pass a lambda whose accumulator has a starting value: `|acc = <start>, x| ...`"}
+	return []string{"pass a lambda whose accumulator has a starting value: `fn acc = <start>, x -> ...`"}
 }

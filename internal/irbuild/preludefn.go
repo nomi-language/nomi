@@ -8,7 +8,7 @@ package irbuild
 // The stdlib index files these declarations as `stdlib generic function`, a
 // name that says they need the type-parameter dispatch DICTIONARY. They do not.
 // `typeParamsNeedDictionary` (generic.go) is this project's own line for that
-// question, and `pub fn some?<T>(maybe: Maybe<T>): Bool` has no bound, no
+// question, and `pub fn some?<T>(maybe: Maybe<T>) -> Bool` has no bound, no
 // `where` clause and calls no interface method on `T`. Its body is a `case`.
 //
 // stdCandidateFor (stdlib.go) decides `generic` from a purely syntactic

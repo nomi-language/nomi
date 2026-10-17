@@ -160,7 +160,7 @@ func allDifferByEmbeds(wide, narrow []Type) bool {
 
 // positionTypedHead returns the node that takes its type from its position
 // when operand is one of the forms that do: a dot-leading variant in any of
-// its spellings (`.A`, `.A(x)`, `.A{f: x}`, `.A[x]`, `.A{"k" => v}`), or a
+// its spellings (`.A`, `.A(x)`, `.A{f: x}`, `.A[x]`, `.A%{"k" => v}`), or a
 // brace literal with no type name and no spread (`{x: 1, y: 2}`). It returns
 // nil for any other operand.
 func positionTypedHead(operand ast.Node) ast.Node {

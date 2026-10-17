@@ -6,9 +6,9 @@ import (
 )
 
 // A function value whose signature is wider than the function type its
-// position expects: `fn cnt<T>(xs: Iter<T>): Int` passed where a
+// position expects: `fn cnt<T>(xs: Iter<T>) -> Int` passed where a
 // `(List<Int>) -> Int` is expected, `Iter.count` given to
-// `Map.map_values` over list values, `fn show(x: Display): String` given to
+// `Map.map_values` over list values, `fn show(x: Display) -> String` given to
 // `Iter.map` over Ints. The checker accepts these because each expected
 // parameter enters the function's own parameter as an argument of a direct
 // call does (a List is viewed as an `Iter`, a concrete value erases into its

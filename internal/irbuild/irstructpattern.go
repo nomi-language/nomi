@@ -74,7 +74,7 @@ func (bl *irScalarBuilder) nominalCaseTest(pattern ast.Node, subj ir.Temp, k kin
 			}
 		}
 	case *ast.MapPattern:
-		// `Kvs{"a" => v}` over a distinct of a map, or the bare `{"a" => v}`
+		// `Kvs%{"a" => v}` over a distinct of a map, or the bare `%{"a" => v}`
 		// that matches against the inner map: the inner map's pattern.
 		if !irCompositeDistinct(k.def) || k.def.inner.tag != tagMap || (p.TypeName != nil && typeText(p.TypeName) != k.def.nomi) {
 			return false

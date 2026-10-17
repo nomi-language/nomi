@@ -255,7 +255,7 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 				rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, want)
 			}
 		} else if want, holds := bl.g.irEmptyListsAtInt(lk); holds && lk == rk {
-			// `(1, []) == (1, [])`: the same, as `[] == []` is, for an
+			// `#(1, []) == #(1, [])`: the same, as `[] == []` is, for an
 			// empty list inside a tuple whose element type nothing fixed.
 			if lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, want); ok {
 				rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, want)

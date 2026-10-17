@@ -37,8 +37,8 @@ import (
 // parameter is what the front end's scope does, and it would be WRONG here.
 // `impl Range<T>` contains
 //
-//	pub fn from(n: Int): Range<Int>
-//	pub fn naturals(): Range<Int>
+//	pub fn from(n: Int) -> Range<Int>
+//	pub fn naturals() -> Range<Int>
 //
 // which mention no type parameter at all: `T` is merely IN SCOPE. Marking the
 // block generic would move those two onto `stdlib generic function`, a wrong
@@ -77,7 +77,7 @@ func sigNamesTypeParam(params []ast.Param, ret ast.TypeExpr, tp map[string]bool)
 //
 // Every composite form is walked rather than only the head, because the mis-keyed
 // population is dominated by CONTAINERS over a parameter — `List<T>`,
-// `Map<K, V>`, `(T) -> Bool`, `((K, V)) -> Bool` — and a head-only test would
+// `Map<K, V>`, `(T) -> Bool`, `(#(K, V)) -> Bool` — and a head-only test would
 // have caught none of them.
 func typeNamesAny(te ast.TypeExpr, tp map[string]bool) bool {
 	if te == nil || isNilNode(te) {

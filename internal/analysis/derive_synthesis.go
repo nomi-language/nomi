@@ -1111,7 +1111,7 @@ func typeDeclIsOpaque(n ast.Node) bool {
 }
 
 // synthesizeOpaqueNameOnlyDebug emits the degenerate name-only Debug impl for
-// an opaque type: `impl Debug for T { fn inspect(value: T): String { "<opaque T>" } }`.
+// an opaque type: `impl Debug for T { fn inspect(value: T) -> String { "<opaque T>" } }`.
 // The body is a single static StringLit — no field access, no recursion —
 // so nothing about the type's hidden representation is exposed. Generic
 // opaque types still carry their type params on the impl (with a harmless
@@ -1145,7 +1145,7 @@ func synthesizeOpaqueNameOnlyDebug(typeNode ast.Node, site synthSite) []ast.Node
 }
 
 // synthesizeExternNameOnlyDebug emits the bare-name Debug impl for a declared
-// `host type`: `impl Debug for T { fn inspect(value: T): String { "T" } }`.
+// `host type`: `impl Debug for T { fn inspect(value: T) -> String { "T" } }`.
 // Like the opaque body it is a single static StringLit — extern internals are
 // host-side, so there is nothing structural for the body to reach — but the
 // rendering is the BARE name (matching zero-sized distincts like
@@ -1181,7 +1181,7 @@ func synthesizeExternNameOnlyDebug(et *ast.ExternType, site synthSite) []ast.Nod
 // ---------------------------------------------------------------------------
 
 // synthesizeDeriveEquatable emits a single `impl Equatable for T { fn equal?(a: T, b:
-// T): Bool { ... } }` block whose body is structurally appropriate for the
+// T) -> Bool { ... } }` block whose body is structurally appropriate for the
 // type's shape:
 //
 //   - Struct: AND-chain of pairwise `Equatable.equal?(a.f, b.f)` calls; for a
@@ -1342,7 +1342,7 @@ func enumVariantPattern(enumName string, v ast.EnumVariant, suffix string, line,
 		// DataTypeExpr is either a single type or a FuncType (tuple) for
 		// arity ≥ 2. Single → one ident binding. Tuple → nested tuple
 		// pattern with one ident per arg. Canonical form is
-		// `Variant((a0, a1, ...))` (Flat: false); the analyzer rejects
+		// `Variant(#(a0, a1, ...))` (Flat: false); the analyzer rejects
 		// the flat shorthand for variant payloads (checker.go: "variant
 		// pattern '...': multi-binding is not supported").
 		if ft, isTuple := v.DataTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
@@ -2402,7 +2402,7 @@ func boundedTypeParams(typeParams []ast.TypeParam, ifaceName string, line, col i
 // Hashable synthesizer
 // ---------------------------------------------------------------------------
 
-// synthesizeDeriveHashable emits a single `impl Hashable for T { fn hash(value: T): Int }`
+// synthesizeDeriveHashable emits a single `impl Hashable for T { fn hash(value: T) -> Int }`
 // block whose body is structurally appropriate for the type's shape:
 //
 //   - Struct: left-fold mix `Hashable.hash(value.f0) * 31 + Hashable.hash(value.f1) * 31 + ...`.
@@ -2675,7 +2675,7 @@ func intLit(n int64, line, col int) *ast.IntLit {
 // ---------------------------------------------------------------------------
 
 // synthesizeDeriveComparable emits a single `impl Comparable for T { fn compare(a: T,
-// b: T): Ordering }` block whose body is structurally appropriate for the
+// b: T) -> Ordering }` block whose body is structurally appropriate for the
 // type's shape:
 //
 //   - Struct: lexicographic chain of `Comparable.compare(a.f, b.f)` over

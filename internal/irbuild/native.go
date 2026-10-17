@@ -100,7 +100,7 @@ const (
 	// tagIface is an existential. Its identity is the *ifaceDef, so two
 	// interfaces are two kinds however identically they lower.
 	tagIface
-	// tagList is `List<T>` and tagTuple `(A, B, …)`. Both structural: the
+	// tagList is `List<T>` and tagTuple `#(A, B, …)`. Both structural: the
 	// identity is the interned *compKind, not the tag, because one tag covers
 	// unboundedly many Go types. See collections.go.
 	tagList
@@ -223,7 +223,7 @@ func (k kind) key() string {
 //
 // Deliberately NOT generic over structural kinds: whether one stores nothing
 // depends on the tag. A Go func value is a pointer pair and never vanishes,
-// while a hypothetical `(Unit, Unit)` genuinely stores nothing — so each
+// while a hypothetical `#(Unit, Unit)` genuinely stores nothing — so each
 // structural tag answers for itself rather than inheriting a guess.
 func (k kind) zeroSized() bool {
 	return k.zeroSizedOn(nil)
@@ -1367,7 +1367,7 @@ func (g *gen) signature(fd *ast.FuncDef) *fnSig {
 		sig.params, sig.result, sig.tps, sig.genericWhy = params, result, tps, why
 		sig.lowerable = why == ""
 		// Erasure declined. The DEPTH residue — a type parameter mentioned
-		// inside `List<T>`, `Half<T>`, `(T, Int)` — is monomorphizable per call
+		// inside `List<T>`, `Half<T>`, `#(T, Int)` — is monomorphizable per call
 		// site instead, and monoTemplateFor re-derives its OWN preconditions
 		// rather than reading `why`: that string is one spelling for eight
 		// different reasons, so keying off it would make a decorator on a

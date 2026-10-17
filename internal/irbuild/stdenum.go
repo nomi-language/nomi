@@ -976,7 +976,7 @@ func stdEnumAnchors(fa *analysis.FileAnalysis) (map[*ast.EnumDef]int, map[string
 //
 // stdEnumAnchors above resolves through `fa.ModuleScope`, i.e. through the
 // deriving file's IMPORTS, and for a hand-written declaration that is exactly
-// right: `Int.compare(a: Int, b: Int): Ordering` is written in std/int.nomi,
+// right: `Int.compare(a: Int, b: Int) -> Ordering` is written in std/int.nomi,
 // which imports `std/comparable.Ordering`, and a file that did not import it
 // could not write that signature at all.
 //
@@ -986,7 +986,7 @@ func stdEnumAnchors(fa *analysis.FileAnalysis) (map[*ast.EnumDef]int, map[string
 // of `Ordering.Less` value/pattern refs) ... Synthesized code is compiler output
 // — these names resolve through the compiler-known route, never through the
 // deriving file's imports". So `derive Comparable for Codepoint` yields
-// `compare(a: Codepoint, b: Codepoint): Ordering` in a file that never mentions
+// `compare(a: Codepoint, b: Codepoint) -> Ordering` in a file that never mentions
 // `Ordering`, and the module-scope lookup answers nil.
 //
 // Four std files derive Comparable, and three of them (std/bool,
@@ -1234,7 +1234,7 @@ func (g *gen) stdEnumOwns(owner string, d *typeDef) bool {
 // (stdEnumDeclaredInStd): stdStructOfType's rule for std records. Not by this
 // module's anchor, because the positions that reach a projection are the ones
 // where the program never writes the name. `Date.parse(s) |>
-// Result.map_err(|e| "${e}")` solves `e` as std/calendar's `Error` in a file
+// Result.map_err(fn e -> "${e}")` solves `e` as std/calendar's `Error` in a file
 // that imports only `Date`, and an anchor keyed on this file's scope refused
 // the parameter there while lowering it once the file imported `Error`. The
 // Origin keeps a user's own `Error` out, since its origin is the user's file.

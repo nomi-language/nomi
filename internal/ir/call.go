@@ -80,7 +80,7 @@ import "strconv"
 //
 // # THE DISPATCH KEY IS AN OPERAND INDEX, AND IT IS NOT ZERO
 //
-// `interface Tagger { fn tag(label: String, target: self): String }` dispatches
+// `interface Tagger { fn tag(label: String, target: self) -> String }` dispatches
 // on argument ONE. The analyzer finds an impl's receiver by scanning for the
 // `self`-typed parameter, and a dispatcher that hardcoded `args[0]` would agree
 // with it only because every stdlib interface happens to declare `self` first.
@@ -104,8 +104,8 @@ import "strconv"
 // whether the bit is set or not. VARIES OVER ITS POPULATION: the corpus has
 // calls in both positions.
 //
-// AND IT CANNOT LIVE ON THE CALLEE. `fn a(): Int { b() }` and
-// `fn c(): Int { b() + 1 }` call one declaration from two positions, so a bit
+// AND IT CANNOT LIVE ON THE CALLEE. `fn a() -> Int { b() }` and
+// `fn c() -> Int { b() + 1 }` call one declaration from two positions, so a bit
 // on the callee would have to be both. It cannot live on the block either: a
 // Nomi tail call is an EXPRESSION in tail position, and whether its value
 // reaches a Return is a question about the path after it (ir.TailTransfers),

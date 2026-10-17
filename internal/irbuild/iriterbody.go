@@ -124,7 +124,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	}
 	vecElem, isVector := vectorElem(sk)
 	isVector = isVector && (irRetainedVectorKind(sk) || irCallableValueKind(vecElem))
-	// A Map pushes `(K, V)` pairs and a Set its members.
+	// A Map pushes `#(K, V)` pairs and a Set its members.
 	isMap := sk.tag == tagMap && sk != kindEmptyMap && irRetainedMapKind(sk)
 	setMember, isSet := setElem(sk)
 	isSet = isSet && sk != kindEmptySet && irRetainedSetKind(sk)
@@ -250,7 +250,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 		}
 	}
 	if method == "map_reduce" {
-		// `(A, T) -> (U, A)`, answering `(List<U>, A)`.
+		// `(A, T) -> #(U, A)`, answering `#(List<U>, A)`.
 		fk := args.kinds[1]
 		if fk.tag != tagFunc || len(funcParams(fk)) != 2 || funcParams(fk)[1] != elem {
 			return no()
@@ -542,7 +542,7 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call, method string) (ir.Temp, 
 	// the widened callback, so the seed is evaluated before the callback is
 	// written.
 	if named != nil {
-		// `|acc = 0, x| sum_valid(acc, x)` over an iter-sensitive `sum_valid`:
+		// `fn acc = 0, x -> sum_valid(acc, x)` over an iter-sensitive `sum_valid`:
 		// its signals stop this reduction, so the callback is the function
 		// itself, lowered in the reduce form by its own body
 		// (irNamedCtlForm), from the lambda's seed.
@@ -602,7 +602,7 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call, method string) (ir.Temp, 
 }
 
 // reduceForwardee is the iter-sensitive module function a seeded reduce
-// callback only forwards to, `|acc = 0, x| f(acc, x)` with f's own `break` or
+// callback only forwards to, `fn acc = 0, x -> f(acc, x)` with f's own `break` or
 // `continue` meant for this reduction, or nil. A lambda calling such a
 // function any other way is declined where the call is lowered.
 func (bl *irScalarBuilder) reduceForwardee(lam *ast.Lambda) *ast.Ident {
@@ -1000,7 +1000,7 @@ const irRangeKnownCountHost = "Range.known_count"
 // localCompareItem is a nominal element's local `Comparable.compare`, the
 // first route compareResult takes, with a body the builder can retain.
 // siblingCompareSym is the callee symbol of a sibling file's written
-// `impl Comparable for T { fn compare(a: T, b: T): Ordering }`, for an element
+// `impl Comparable for T { fn compare(a: T, b: T) -> Ordering }`, for an element
 // type another file of the program declares, or nil.
 func (bl *irScalarBuilder) siblingCompareSym(elem kind) *ir.Symbol {
 	if elem.tag != tagNamed || elem.def == nil {
@@ -1128,7 +1128,7 @@ func (bl *irScalarBuilder) iterPlainView(at ast.Node, src ir.Temp, sk kind) (ir.
 	if member, isSet := setElem(sk); isSet && sk != kindEmptySet && irRetainedSetKind(sk) {
 		return view(ir.IterOverSet, member)
 	}
-	// `Iter.zip(xs, m)`, `Iter.zip(xs, 5..9)`: a Map pushes its `(K, V)`
+	// `Iter.zip(xs, m)`, `Iter.zip(xs, 5..9)`: a Map pushes its `#(K, V)`
 	// pairs, a Range its elements and a user source what its `each_while`
 	// does, viewed as an Iter call's first operand is (seqView).
 	var elem kind
@@ -1160,7 +1160,7 @@ func (bl *irScalarBuilder) iterPlainView(at ast.Node, src ir.Temp, sk kind) (ir.
 	return ir.NoTemp, kindInvalid, false
 }
 
-// mapView views a Map as its `(K, V)` pairs. Go takes a minted tuple
+// mapView views a Map as its `#(K, V)` pairs. Go takes a minted tuple
 // constructor; the VM builds the tuple itself.
 func (bl *irScalarBuilder) mapView(at ast.Node, src ir.Temp, m, pair kind) ir.Temp {
 	n := ir.NewIter(bl.g.irNodePos(at), bl.f.NewTemp(), ir.IterView, ir.IterOverMap, src)

@@ -45,7 +45,7 @@ import (
 //
 // # A default is monomorphized, not shared
 //
-// `interface Identity { fn name(v: self): String; fn describe(v: self): String
+// `interface Identity { fn name(v: self) -> String; fn describe(v: self) -> String
 // { "I am " + Identity.name(v) } }` gives every implementor a `describe`. The
 // body
 // is lowered ONCE PER IMPLEMENTING TYPE, with `self` bound to that concrete
@@ -194,7 +194,7 @@ type ifaceMethod struct {
 	// when the method's SIGNATURE cannot be represented in one.
 	//
 	// Note what this is NOT: a table may exist for a method that cannot be
-	// dispatched on an erased receiver. `Zero.zero(): self` has no receiver,
+	// dispatched on an erased receiver. `Zero.zero() -> self` has no receiver,
 	// so `why` names that gap and every erased-receiver site refuses — but the
 	// table is still the right home for `T.zero()`, which is keyed by the
 	// concrete type argument instead. See methodSignatureGap.
@@ -467,7 +467,7 @@ func (g *gen) resolveIface(d *ifaceDef) {
 				m.params = append(m.params, kindInvalid)
 				continue
 			}
-			// paramKind, so a destructuring parameter (`(a, b): (Int, Int)`,
+			// paramKind, so a destructuring parameter (`#(a, b): #(Int, Int)`,
 			// `Point{x, y}`) has the kind its annotation or pattern head names;
 			// a default body's prologue reads its names off that value.
 			m.params = append(m.params, g.paramKind(im.Params[j]))
@@ -576,8 +576,8 @@ func erasedReceiverGap(m *ifaceMethod) string {
 // gapNestedSelfResult is the row that says why a self inside a CONTAINER is
 // not the same question as a self return.
 //
-// `FromJson.from_json(json: Json): Result<self, Json.ShapeError>`,
-// `Discrete.next(v: self): Maybe<self>`, `Steppable.step_by(…): Maybe<self>` —
+// `FromJson.from_json(json: Json) -> Result<self, Json.ShapeError>`,
+// `Discrete.next(v: self) -> Maybe<self>`, `Steppable.step_by(…) -> Maybe<self>` —
 // the three in std. A BARE
 // `self` return erases to `any` in the table and a dictionary-driven call
 // re-boxes it under the TypeID that selected the implementation, which recovers
@@ -586,7 +586,7 @@ func erasedReceiverGap(m *ifaceMethod) string {
 // apart and rebuild, and `Result<self, E>`'s `E` is not self.
 //
 // It is a SIGNATURE row and it is `hard`, which keeps the diagnostic accurate.
-// Without it `Parse.parse(text: String): Maybe<self>` would refuse as
+// Without it `Parse.parse(text: String) -> Maybe<self>` would refuse as
 // `interface function without a self-typed parameter` — true of the erased
 // route and irrelevant to the dictionary route, which exists precisely to serve
 // a method with no receiver. Naming the receiver at a call whose problem is the
@@ -1146,7 +1146,7 @@ var monomorphizedDefaultAnswers = map[string]bool{
 
 // inheritedDefaultSig is default m's parameter and result kinds for
 // implementor d, with every `self` in its signature, bare or inside a
-// composite (`(self, self)`, `List<self>`), read as d's receiver. ok is false
+// composite (`#(self, self)`, `List<self>`), read as d's receiver. ok is false
 // when a kind is still outside the subset.
 func (g *gen) inheritedDefaultSig(d *implDef, m *ifaceMethod) ([]kind, kind, bool) {
 	prev := g.defaultSelf

@@ -100,7 +100,7 @@ type ExportParam struct {
 }
 
 // Signature is e as Nomi declares it, without `export fn`:
-// `guess(game: Game, letter: String): Game`.
+// `guess(game: Game, letter: String) -> Game`.
 func (e *Export) Signature() string {
 	var b strings.Builder
 	b.WriteString(e.Name)
@@ -113,7 +113,7 @@ func (e *Export) Signature() string {
 	}
 	b.WriteByte(')')
 	if e.Result != "" {
-		b.WriteString(": " + e.Result)
+		b.WriteString(" -> " + e.Result)
 	}
 	return b.String()
 }

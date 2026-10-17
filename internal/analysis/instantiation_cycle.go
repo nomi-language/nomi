@@ -19,7 +19,7 @@ import (
 // generic body to a generic `fn` adds, for each of the callee's parameters Q
 // and each of the caller's parameters P its type argument mentions, an edge
 // P -> Q. The edge GROWS when the argument is more than P itself (`Box<T>`,
-// `(T, T)`, `List<T>`); a bare `T`, or a swap of parameters, does not. A cycle
+// `#(T, T)`, `List<T>`); a bare `T`, or a swap of parameters, does not. A cycle
 // through a growing edge is an unbounded instantiation chain. Every edge of a
 // strongly connected component lies on a cycle, so a growing edge whose two
 // ends share a component is exactly such a cycle.
@@ -85,7 +85,7 @@ func (c *checker) recordInstantiation(n *ast.Call, subs map[*TypeParam_]Type, ar
 // parameters: every type parameter of ft is the caller's own, and each
 // argument passes it at itself (`walk(rest)` with `rest: List<T>` inside
 // `fn walk<T>`). A parameter an argument passes at anything else
-// (`f((x, x))`) or nothing passes answers false.
+// (`f(#(x, x))`) or nothing passes answers false.
 func (c *checker) selfCallAtOwnParams(ft *FuncType, args [][2]Type) bool {
 	own := collectTypeParamsByName(ft)
 	if len(own) == 0 || c.containsForeignTypeParam(ft) {

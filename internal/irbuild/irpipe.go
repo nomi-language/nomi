@@ -81,7 +81,7 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		return bl.pipedInto(&spliced)
 
 	case *ast.Then:
-		// `x |> then |v| body` calls the lambda with the piped value. The
+		// `x |> then fn v -> body` calls the lambda with the piped value. The
 		// synthetic call takes the lambda's position, so it carries the
 		// stage's own position rather than the pipe's.
 		return bl.pipedInto(&ast.Call{Func: r.Lambda, Args: []ast.Node{t.Left},
@@ -132,7 +132,7 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 	return no()
 }
 
-// pipeTap lowers `x |> tap |v| body`: x is evaluated once and held, the
+// pipeTap lowers `x |> tap fn v -> body`: x is evaluated once and held, the
 // lambda is called with it and its result dropped, and the stage answers the
 // held x. The call reaches the held value through a synthesized name bound to
 // its temporary, as a placeholder pipe's hole does.

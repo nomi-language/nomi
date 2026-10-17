@@ -18,10 +18,10 @@ import (
 // # (1) A prelude enum named by a type annotation
 //
 // `derive FromJson for User` synthesizes
-// `fn from_json(json: Json): Result<User, Json.ShapeError>`. Both type
+// `fn from_json(json: Json) -> Result<User, Json.ShapeError>`. Both type
 // arguments are representable — `User` is a declared struct and
 // `Json.ShapeError` is a `stdStructSpecs` row over `rt.JsonShapeError` — and the
-// SAME annotation in a hand-written `fn f(): Result<User, Json.ShapeError>`
+// SAME annotation in a hand-written `fn f() -> Result<User, Json.ShapeError>`
 // lowers with no refusal at all. If the synthesized one answered kindInvalid,
 // implItemSig would refuse the whole block `generic type`, `d.order` would be
 // empty, resolveImplMembers would index nothing, and `User.from_json(x)` would

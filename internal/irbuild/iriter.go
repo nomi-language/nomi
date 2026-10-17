@@ -10,7 +10,7 @@ package irbuild
 // set: a pull protocol would produce the same instructions, so the protocol
 // is invisible at this level. See ir/iter.go.
 //
-// `Iter.loop` is not an `ir.Iter`: `pub host fn loop<S>(f: (S) -> S): S`
+// `Iter.loop` is not an `ir.Iter`: `pub host fn loop<S>(f: (S) -> S) -> S`
 // never mentions `Iter` and has no source or driver. It lowers to branches
 // and jumps over blocks (irloop.go).
 

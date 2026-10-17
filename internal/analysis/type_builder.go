@@ -448,7 +448,7 @@ func buildBodyTypes(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node) []Typ
 	// and its Type left nil, so checkNestedFunc's `sym.Type.(*FuncType)` missed
 	// and the body went unchecked — which meant no generic call inside it ever
 	// recorded an instantiated CallType, and the IR builder refused `Some(1)`
-	// inside `test "…" { fn f(): Maybe<Int> { Some(1) } }` under `generic enum
+	// inside `test "…" { fn f() -> Maybe<Int> { Some(1) } }` under `generic enum
 	// over a type parameter` while the identical declaration inside `fn main`
 	// lowered.
 	//
@@ -476,7 +476,7 @@ func buildBodyTypes(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node) []Typ
 			}
 		}
 		// A module-level `once`'s value may declare a `fn` in a block,
-		// `once g = { fn h(x: Int): Int { x + 1 } \n h(4) }`; without its
+		// `once g = { fn h(x: Int) -> Int { x + 1 } \n h(4) }`; without its
 		// signature `h(4)` had no type and neither did `g`.
 		for _, once := range moduleOnces(node) {
 			if once.Value != nil {
@@ -884,11 +884,11 @@ func buildTestDeclFuncTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.TestDecl
 }
 
 // missingParamType is the error for a declared function's parameter written
-// without a type, `fn tag(_v): String`: a parameter of a `fn`, an impl's or
+// without a type, `fn tag(_v) -> String`: a parameter of a `fn`, an impl's or
 // an interface's function, or a `host fn` needs one (only a lambda's may be
 // inferred). A synthesized declaration's parameters are the compiler's. An
 // interface's or a `host fn`'s parameter written as a bare type,
-// `host fn f(String): Int`, is a destructuring pattern to the parser and gets
+// `host fn f(String) -> Int`, is a destructuring pattern to the parser and gets
 // unnamedParam's error; a `fn`'s goes through paramPatternType instead.
 func missingParamType(p ast.Param, fa *FileAnalysis, reg *TypeRegistry) []TypeError {
 	if IsSynthesizedLine(p.Line) {
@@ -1528,7 +1528,7 @@ func buildInterfaceMethods(fa *FileAnalysis, reg *TypeRegistry, n *ast.Interface
 		// parameter (the call-site slot-mapping binds a trailing lambda to the
 		// last param and fills the skipped middle default), which is how
 		// `sort_by(xs, direction = Ascending, key)` lets callers write
-		// `Iter.sort_by(xs, |x| key)`. The one restriction: only a
+		// `Iter.sort_by(xs, fn x -> key)`. The one restriction: only a
 		// Nomi-bodied default method carries the default at runtime (its
 		// DefaultFn is a FuncVal that applies it). A required method dispatches
 		// to an impl that never saw the interface's default, and a host
@@ -1717,7 +1717,7 @@ func buildFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef, 
 	params := make([]Type, 0, len(n.Params))
 	for _, p := range n.Params {
 		// Destructuring param: the type comes from the annotation OR the
-		// self-typing pattern head (`fn unwrap(Dur(x)): Int` derives Dur).
+		// self-typing pattern head (`fn unwrap(Dur(x)) -> Int` derives Dur).
 		// paramPatternType resolves both and reports the missing-annotation
 		// error for type-less shapes. The bound inner names are typed later
 		// by checkFunc via checkPattern; here we only need the slot type so
@@ -2079,7 +2079,7 @@ func buildImplBlockTypes(fa *FileAnalysis, stdlib map[string]*Scope, reg *TypeRe
 		params := make([]Type, 0, len(fn.Params))
 		for _, p := range fn.Params {
 			// Destructuring param: the slot type comes from the annotation OR
-			// the self-typing pattern head (`fn as_nanos(Dur(ns)): Int` derives
+			// the self-typing pattern head (`fn as_nanos(Dur(ns)) -> Int` derives
 			// Dur). Mirror buildFuncType — without this the self-typed head was
 			// ignored (only p.TypeAnnotation, nil here, was consulted), the slot
 			// stayed nil, and checkPattern never typed the inner bindings. The
@@ -2250,7 +2250,7 @@ func buildExternFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.Ext
 	//     function-local type parameters.
 	//   - Implicit fallback: scan parameter / return annotations for
 	//     PascalCase names not in the type registry and treat each as an
-	//     unbound TypeParam_. Preserves the bare `fn f(x: T): T` shape
+	//     unbound TypeParam_. Preserves the bare `fn f(x: T) -> T` shape
 	//     that the rest of the stdlib uses.
 	tp := cloneTypeParamMap(base)
 	explicit := buildTypeParamsWithFA(n.TypeParams, reg, fa)

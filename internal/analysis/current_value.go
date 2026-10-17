@@ -9,7 +9,7 @@ import (
 )
 
 // A bare `..` (*ast.CurrentValue) is the spread of an update literal with no
-// head: `{.., city: "NYC"}`, `{.., "k" => v}`, `#{.., x}`, `[t, ..]`. It
+// head: `{.., city: "NYC"}`, `%{.., "k" => v}`, `#{.., x}`, `[t, ..]`. It
 // stands for the value already at the field or key the literal is written
 // at, so
 //

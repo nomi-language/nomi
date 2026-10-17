@@ -27,7 +27,7 @@ func tupleCaseComponents(pattern ast.Node, k kind) ([]int, bool) {
 			}
 			tested = append(tested, i)
 		default:
-			// A nested pattern (`(Some(id), _)`) is a component test that
+			// A nested pattern (`#(Some(id), _)`) is a component test that
 			// patternValueTest builds.
 			if !irFieldSubPattern(component, k.comp.parts[i]) {
 				return nil, false

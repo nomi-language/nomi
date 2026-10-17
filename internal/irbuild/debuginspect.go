@@ -38,7 +38,7 @@ package irbuild
 //
 // The STRUCTURE is shared with Display and with the row, and that part is safe
 // to share because it is not a rendering decision: a List is `[a, b, c]` and a
-// Map is `{k => v}` under all three, which is why `rt.FormatList` and
+// Map is `%{k => v}` under all three, which is why `rt.FormatList` and
 // `rt.FormatMap` take the element renderer as a parameter. std's
 // `impl Debug for List<T>` (std/lists.nomi) joins with ", " inside brackets and
 // so does `impl Display for List<T>`; only the element differs.

@@ -557,7 +557,7 @@ func kindParts(k kind) []kind {
 // projectGenericInstance is userGenericTypeOf for a type the CHECKER solved
 // rather than the program wrote — an unannotated lambda parameter, a binding.
 //
-// An annotated `b: Box<Inner>` lowering while an inferred `|b|` over the same
+// An annotated `b: Box<Inner>` lowering while an inferred `fn b ->` over the same
 // value refuses would not be a smaller subset, it would be two answers to one
 // question. inferred.go's Map, Distinct and AnonStruct arms exist for the same
 // reason.

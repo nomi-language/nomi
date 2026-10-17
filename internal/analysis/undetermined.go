@@ -21,7 +21,7 @@ import (
 // signature mentions it
 //
 //   - inside a function type: the callee calls a function with, or receives
-//     from it, a value of that type (`Iter.map([], |x| x)`), or
+//     from it, a value of that type (`Iter.map([], fn x -> x)`), or
 //   - two levels inside a parameter type and inside a collection in its
 //     result: the callee takes the argument apart and gathers what it finds
 //     into a new collection (`Result.collect`'s T, from `Iter<Result<T, E>>`
@@ -410,7 +410,7 @@ func emptyLiteralText(n ast.Node) (string, bool) {
 		}
 	case *ast.MapLit:
 		if len(v.Entries) == 0 && v.TypeName == nil {
-			return "{=>}", true
+			return "%{}", true
 		}
 	}
 	return "", false

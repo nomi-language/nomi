@@ -9,7 +9,7 @@ package irbuild
 // therefore to give that type one. `Struct.update` is the exception, and the
 // difference is not a matter of degree:
 //
-//	host fn update(original: self, updates: Partial<self>): self
+//	host fn update(original: self, updates: Partial<self>) -> self
 //
 // std/structs.nomi's own comment says what `Partial<T>` is — "a compiler-known
 // built-in type operator ... It has no import and no declaration anywhere in

@@ -144,7 +144,7 @@ func paramPatternType(p ast.Param, reg *TypeRegistry, typeParams map[string]*Typ
 }
 
 // unnamedParam reports a parameter written as a type with no name,
-// `fn echo(String): String`. The parser reads a bare `String` in parameter
+// `fn echo(String) -> String`. The parser reads a bare `String` in parameter
 // position as a variant pattern with no payload, which binds nothing, so the
 // parameter would have a type and no name. A `go`-bound fn has no body whose
 // pattern check would reject it, so this runs for every declared function.
@@ -219,7 +219,7 @@ func patternColOf(n ast.Node) int {
 
 // checkParamPatternRefutable reports an error for each refutable sub-pattern in
 // a parameter position. It is type-driven, recursing into tuple/struct element
-// types so a nested refutable pattern (`(.Some(x), n)`) is caught. addError is
+// types so a nested refutable pattern (`#(.Some(x), n)`) is caught. addError is
 // the checker's error sink (line, col, msg).
 func (c *checker) checkParamPatternRefutable(pattern ast.Node, ty Type, addError func(line, col int, msg string)) {
 	switch p := pattern.(type) {

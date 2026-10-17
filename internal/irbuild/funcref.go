@@ -43,7 +43,7 @@ import (
 // a reference to a monomorphic module function is its Go name and nothing else —
 // no wrapper, no closure, no allocation. The frame threads through exactly as it
 // does for a lambda, which is what makes a named function and a lambda
-// interchangeable in every position: `apply(double, 7)` and `apply(|x| x * 2, 7)`
+// interchangeable in every position: `apply(double, 7)` and `apply(fn x -> x * 2, 7)`
 // produce the same Go type at the same slot.
 //
 // That equivalence is also the argument that this is not a dispatch. Nomi has no

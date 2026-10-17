@@ -11,7 +11,7 @@ package irbuild
 //
 // stdgenstruct.go supplies the kind. What it cannot supply is a
 // LOWERING, because every function of `impl Set<T>` is generic over T:
-// `pub fn size<T>(s: Set<T>): Int` mentions T inside `Set<T>` rather than bare,
+// `pub fn size<T>(s: Set<T>) -> Int` mentions T inside `Set<T>` rather than bare,
 // which is exactly the shape generic.go refuses ("the box would be at the wrong
 // DEPTH"). So the index answers with a refusal and this arm answers with an
 // implementation, reading the element type off the LOWERED RECEIVER — information

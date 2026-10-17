@@ -146,7 +146,7 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 	if seeded := c.namesSeededIterFunc(node); seeded != "" {
 		// Its callback arrives later, so nothing here can give it a starting
 		// value (checkReduceSeed).
-		c.report(reduceSeedError(seeded, node, fmt.Sprintf("call it from a lambda with a seeded callback instead: `|xs, f| Iter.%s(xs, |acc = <start>, x| f(acc, x))`", seeded)))
+		c.report(reduceSeedError(seeded, node, fmt.Sprintf("call it from a lambda with a seeded callback instead: `fn xs, f -> Iter.%s(xs, fn acc = <start>, x -> f(acc, x))`", seeded)))
 		return nil
 	}
 	line, col := nodeLineCol(node)

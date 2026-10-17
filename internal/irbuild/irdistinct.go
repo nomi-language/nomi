@@ -149,7 +149,7 @@ func irDistinctOverValue(d *typeDef) bool {
 
 // irDistinctOverKind reports whether k is a composite distinct whose inner
 // is a map or a list (inner), which a map or list pattern matches through the
-// distinct (`Kvs{"a" => v}`, `Stack[a, .._]`, or the bare `[a, .._]`).
+// distinct (`Kvs%{"a" => v}`, `Stack[a, .._]`, or the bare `[a, .._]`).
 func irDistinctOverKind(k kind, inner tag) bool {
 	return k.tag == tagNamed && irCompositeDistinct(k.def) && k.def.inner.tag == inner
 }
@@ -228,7 +228,7 @@ func (bl *irScalarBuilder) distinctMakeOf(t *ast.Call, d *typeDef) (ir.Temp, kin
 	return m.Dst(), out, pure, true
 }
 
-// compositeDistinctMake lowers `Coord(3, 4)` and `Coord((3, 4))` over a tuple
+// compositeDistinctMake lowers `Coord(3, 4)` and `Coord(#(3, 4))` over a tuple
 // inner, and `Headers({...})` over a map inner: the inner value, built at the
 // declared inner type, wrapped by MakeDistinct. A tuple inner written flat
 // is one argument per component.

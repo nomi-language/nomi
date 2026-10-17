@@ -151,7 +151,7 @@ type RecordKind uint8
 const (
 	KindStruct   RecordKind = iota + 1 // a named struct: `Point{x: 1}`
 	KindAnon                           // an anonymous record: `{x: 1}`
-	KindTuple                          // `(1, "a")`
+	KindTuple                          // `#(1, "a")`
 	KindEnum                           // a variant of a named enum
 	KindDistinct                       // a distinct value `Id(5)` or a marker `Expired`
 )

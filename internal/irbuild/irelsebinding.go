@@ -13,7 +13,7 @@ package irbuild
 // signalling callback's `break` or `continue` (the checker requires it).
 //
 // FALLBACK. The pattern is one variant with a payload whose own pattern always
-// matches (`Some(email)`, `Ok((w, h))`, `.Valid{addr, score}`), so an else path
+// matches (`Some(email)`, `Ok(#(w, h))`, `.Valid{addr, score}`), so an else path
 // may produce a value instead of leaving. A slot of the payload's kind is
 // declared; the variant is tested; the success edge writes the projected
 // payload into the slot and the else's value paths write their fallback into

@@ -38,7 +38,7 @@ type irLambdaGroup struct {
 	// slot in this order (before). A partial application's lambda takes its
 	// placeholders in written order but fills them in the callee's order,
 	// since a callee's default reads the callee's earlier parameters:
-	// `span(b: _, _)` over `fn span(a: Int, b: Int = a * 2)` is `(b, a)`,
+	// `span(b: _, _)` over `fn span(a: Int, b: Int = a * 2)` is `#(b, a)`,
 	// and b's supplier takes a.
 	order []int
 }
@@ -100,15 +100,15 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 		} else if p.TypeAnnotation != nil {
 			params[i] = bl.g.typeOf(p.TypeAnnotation)
 		} else if p.Destructure != nil && !tuple {
-			// A self-typing pattern names its type: `|Dur(n)|` takes a Dur,
-			// `|Point{x, y}|` a Point and `|Box.Extent{w, h}|` a Box.
+			// A self-typing pattern names its type: `fn Dur(n) ->` takes a Dur,
+			// `fn Point{x, y} ->` a Point and `fn Box.Extent{w, h} ->` a Box.
 			params[i] = bl.g.irPatternHeadKind(p.Destructure)
 			// kindInvalid: lookup — the head names no distinct; a struct or enum head may name the type, and a miss declines below.
 			if params[i] == kindInvalid {
 				params[i] = bl.g.irParamPatternKind(p)
 			}
 		} else if tuple {
-			// `|(k, v)|`, `|(_, v)|`, `|(a, (b, _))|`: the type the checker
+			// `fn #(k, v) ->`, `fn #(_, v) ->`, `fn #(a, #(b, _)) ->`: the type the checker
 			// recorded for the whole pattern; a miss declines below.
 			params[i] = bl.g.irParamPatternKind(p)
 		} else {
@@ -229,7 +229,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 			continue
 		}
 		if p.Destructure != nil {
-			// `|Dur(n)|`: the argument's inner value, bound to n, as a
+			// `fn Dur(n) ->`: the argument's inner value, bound to n, as a
 			// distinct destructure statement binds it.
 			name, _ := irDistinctParamBinding(p.Destructure, params[i])
 			if !ast.IsDiscardName(name) {
@@ -269,7 +269,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		case *ast.If, *ast.Case:
 			sig = irFuncSig{result: want}
 		case *ast.ListLit:
-			// `|| { io.print("left") [] }`: an untyped literal answers the
+			// `fn -> { io.print("left") [] }`: an untyped literal answers the
 			// solved result.
 			if len(b.Items) == 0 && b.TypeName == nil {
 				sig = irFuncSig{result: want}
@@ -279,15 +279,15 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 				sig = irFuncSig{result: want}
 			}
 		default:
-			// `|| { io.print("empty") None }`.
+			// `fn -> { io.print("empty") None }`.
 			if _, _, _, bare := preludeValueName(body); bare {
 				sig = irFuncSig{result: want}
 			}
 		}
 		if want.tag == tagSeq || irExistentialKind(want) || bl.g.declaredFnLambda == t {
-			// `|_| [20]` where an `(Int) -> Iter<Int>` is expected: the
+			// `fn _ -> [20]` where an `(Int) -> Iter<Int>` is expected: the
 			// body's list enters the declared sequence, as a named
-			// function's result does. `|n| n + 1` where an
+			// function's result does. `fn n -> n + 1` where an
 			// `(Int) -> Display` is expected, or a nested fn declared to
 			// return `Display`: the body's value and every `return`'s
 			// enter the existential.
@@ -298,7 +298,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	if supplier < 0 && child.ctl != irCtlNone {
 		lead, body = bl.g.irCtlTailGuard(lead, body)
 		if cond, isIf := body.(*ast.If); isIf && cond.Else == nil && sig.inferResult {
-			// `|s| if s == "STOP" { break }`: an `if` with no `else` is Unit
+			// `fn s -> if s == "STOP" { break }`: an `if` with no `else` is Unit
 			// either way, so a signalling arm has a known result to leave
 			// with.
 			sig = irFuncSig{result: kindUnit}
@@ -339,7 +339,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		}
 		k, ok = child.explicitReturn(t)
 	case *ast.Break, *ast.Continue:
-		// `|acc, x| { break Some(x) }`: a signalling callback whose whole
+		// `fn acc, x -> { break Some(x) }`: a signalling callback whose whole
 		// body leaves it, as a `break` ending an arm does (armInto).
 		if supplier >= 0 || child.ctl == irCtlNone {
 			return no()
@@ -404,7 +404,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		// what those returns settled.
 		k = child.returnKind
 		// In a signalling callback every arm may leave by `break` or
-		// `continue` (`|x| case x { 1 -> continue  _ -> break 9 }`), and the
+		// `continue` (`fn x -> case x { 1 -> continue  _ -> break 9 }`), and the
 		// result is the checker's.
 		// kindInvalid: sentinel — no `return` settled it.
 		if k == kindInvalid && child.ctl != irCtlNone {
@@ -518,7 +518,7 @@ func (bl *irScalarBuilder) callablePlan(temp ir.Temp) *irLambdaPlan {
 }
 
 // capturedPlan is the plan of a lambda this closure captured, as the
-// enclosing builder holds it: `g = || f(1)` calls the f its parent built.
+// enclosing builder holds it: `g = fn -> f(1)` calls the f its parent built.
 // The plan's names carry over. Its default suppliers are closures of the
 // parent's graph, so each is captured too, beside the value, and the copy's
 // suppliers are those captures. nil when temp is no capture, or the parent
@@ -812,7 +812,7 @@ func (g *gen) lambdaCheckedResult(lam *ast.Lambda) kind {
 }
 
 // lambdaTypedResult is lambdaCheckedResult, or where no function type was
-// expected at lam (`f = || …`), the result of the type the checker gave lam
+// expected at lam (`f = fn -> …`), the result of the type the checker gave lam
 // itself. A lambda ending in an `Iter.loop` with no `break` asks it: the loop
 // has its state type there, not Infallible.
 func (g *gen) lambdaTypedResult(lam *ast.Lambda) kind {

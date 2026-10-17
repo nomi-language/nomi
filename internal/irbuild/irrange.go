@@ -235,7 +235,7 @@ func (bl *irScalarBuilder) elemStepper(elem, by kind) (*ir.Symbol, []kind, kind,
 }
 
 // stepperSignature reports whether a program impl's `step_by` is
-// `(elem, by): Maybe<elem>`.
+// `#(elem, by): Maybe<elem>`.
 func (g *gen) stepperSignature(params []kind, result, elem, by kind) bool {
 	if len(params) != 2 || params[0] != elem || params[1] != by {
 		return false

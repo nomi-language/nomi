@@ -1188,7 +1188,7 @@ func inferAppStruct(bootFn *ast.FuncDef, fas []*FileAnalysis) (Type, *Symbol) {
 
 // bootSignatureMsg rejects an entry boot that takes anything but no parameter
 // or one Startup.
-const bootSignatureMsg = "boot must be `fn boot(): App` or `fn boot(startup: Startup): App`, taking no parameter or one Startup and returning the application struct"
+const bootSignatureMsg = "boot must be `fn boot() -> App` or `fn boot(startup: Startup) -> App`, taking no parameter or one Startup and returning the application struct"
 
 // validateScopedBootSignature checks an entry boot's signature: it takes no
 // parameter or one `Startup`, which may have a default, and returns a struct

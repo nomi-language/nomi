@@ -46,8 +46,8 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 		return nil, nil, false
 	}
 	if attached := irAttachedVariantPattern(pat.Payload); attached != pat.Payload {
-		// `Some(.Obj{"k" => v})`: the payload is a literal-attach pattern,
-		// which is the nested variant pattern `.Obj({"k" => v})`.
+		// `Some(.Obj%{"k" => v})`: the payload is a literal-attach pattern,
+		// which is the nested variant pattern `.Obj(%{"k" => v})`.
 		copied := *pat
 		copied.Payload = attached
 		pat = &copied
@@ -87,7 +87,7 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 			return nil, nil, false
 		}
 	case *ast.MapPattern:
-		// A map pattern over a map payload (`Some({"k" => v})`), tested
+		// A map pattern over a map payload (`Some(%{"k" => v})`), tested
 		// against the projected payload as a map case arm is.
 		if pat.Binding != "" || pk.tag != tagMap || !irRetainedMapKind(pk) {
 			return nil, nil, false
@@ -99,7 +99,7 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 			return nil, nil, false
 		}
 	case *ast.TuplePattern:
-		// A flat tuple pattern over a tuple payload (`Some((n, _))`), tested
+		// A flat tuple pattern over a tuple payload (`Some(#(n, _))`), tested
 		// against the projected payload as a tuple case arm is.
 		if _, ok := tupleCaseComponents(pat.Payload, pk); pat.Binding != "" || !ok {
 			return nil, nil, false
@@ -181,8 +181,8 @@ func (bl *irScalarBuilder) distinctSubBinding(p *ast.EnumPattern, payload ir.Tem
 }
 
 // irAttachedVariantPattern reads a literal-attach pattern over an enum
-// (`.Obj{"k" => v}`, `.Arr[a, b]`) as the variant pattern it means,
-// `.Obj({"k" => v})`: a typed map or list pattern's prefix is the variant's
+// (`.Obj%{"k" => v}`, `.Arr[a, b]`) as the variant pattern it means,
+// `.Obj(%{"k" => v})`: a typed map or list pattern's prefix is the variant's
 // name, and the payload is matched against the anonymous pattern. Any other pattern is returned unchanged.
 func irAttachedVariantPattern(pattern ast.Node) ast.Node {
 	switch p := pattern.(type) {

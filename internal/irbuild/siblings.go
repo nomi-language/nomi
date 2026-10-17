@@ -361,7 +361,7 @@ func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef) *fileFunc {
 
 // typeFileFunc types one sibling function's signature in its OWN file's gen.
 //
-// In the declaring gen and nowhere else: `pub fn build(): EffectsApp` names
+// In the declaring gen and nowhere else: `pub fn build() -> EffectsApp` names
 // `EffectsApp` through ITS file's scope, and resolving that name at a caller
 // that never imported it would answer nothing — or, worse, answer with a
 // DIFFERENT `EffectsApp` the caller does import, which is a silent wrong answer
@@ -376,7 +376,7 @@ func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef) *fileFunc {
 // the ONE implementation of "which parameters resolve", so a second walk here
 // that refused a shape funcDecl lowers would refuse a call the declaring file
 // compiles, for instance a destructuring parameter whose pattern head NAMES a
-// type and is its own annotation (`pub fn shift(Point{x, y}): Int`).
+// type and is its own annotation (`pub fn shift(Point{x, y}) -> Int`).
 //
 // A signature this builder cannot type is ECHOED, not reported. Every user file
 // in the import graph is lowered, so that file's own funcDecl already names the

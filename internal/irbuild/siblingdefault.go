@@ -8,7 +8,7 @@ import (
 )
 
 // A call into another FILE that omits a defaulted parameter:
-// `lib.add(1)` against `pub fn add(a: Int, b: Int = 1): Int`, or `add(1)`
+// `lib.add(1)` against `pub fn add(a: Int, b: Int = 1) -> Int`, or `add(1)`
 // after `import lib.add`.
 //
 // A default is Nomi source belonging to the file that declared it. It may name

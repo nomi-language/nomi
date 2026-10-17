@@ -26,7 +26,7 @@ import (
 //
 // The implementations are std's own. `Discrete.next` at Codepoint is
 //
-//	fn next(cp: Codepoint): Maybe<Codepoint> {
+//	fn next(cp: Codepoint) -> Maybe<Codepoint> {
 //	  n = Codepoint.to_int(cp)
 //	  if n == 1_114_111 { None }
 //	  else if n == 55_295 { Codepoint.from_int(57_344) }

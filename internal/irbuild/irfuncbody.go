@@ -1651,7 +1651,7 @@ func (g *gen) exitingRegion(n ast.Node) bool {
 // blockLeaves reports whether block's tail, as irScalarBlock finds it,
 // leaves: a `return`, `break` or `continue`, or an exiting region
 // (exitingRegion), nested to any depth, as in `{ io.print("a")  case n { 0 ->
-// return 1  _ -> return 2 } }` or `{ io.print("start")  Iter.loop(|| …) }`.
+// return 1  _ -> return 2 } }` or `{ io.print("start")  Iter.loop(fn -> …) }`.
 // Nothing reaches the end of such a block, so a block holding it ends at it,
 // and it is lowered where its tail would be (leavingBlocks).
 func (g *gen) blockLeaves(block *ast.Block) bool {
@@ -1668,7 +1668,7 @@ func (g *gen) blockLeaves(block *ast.Block) bool {
 
 // neverFinishes reports whether n is an `Iter.loop` with no `break`
 // (analysis.LoopNeverBreaks), or a block whose tail, as irScalarBlock finds
-// it, never finishes: `{ io.print("start")  Iter.loop(|| …) }`, nested to any
+// it, never finishes: `{ io.print("start")  Iter.loop(fn -> …) }`, nested to any
 // depth.
 func (g *gen) neverFinishes(n ast.Node) bool {
 	if g.fa.LoopNeverBreaks(n) {
@@ -1948,7 +1948,7 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 	}
 	switch st := n.(type) {
 	case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.PatternBinding:
-		// A destructuring binding ending a block, `(_, _) = pair`: the value
+		// A destructuring binding ending a block, `#(_, _) = pair`: the value
 		// is evaluated and matched, and the block answers Unit, as it does
 		// after any binding statement.
 		line, col := nodePos(st)
@@ -2412,7 +2412,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 	}
 	bl.markStmt(body, ir.StmtStatement)
 	if endless, ok := bl.endlessLoop(body); endless {
-		// `0 -> Iter.loop(|| …)` with no `break`: the arm never reaches the
+		// `0 -> Iter.loop(fn -> …)` with no `break`: the arm never reaches the
 		// region's exit and writes nothing, as a `return` arm does.
 		if !ok {
 			return kindInvalid, false

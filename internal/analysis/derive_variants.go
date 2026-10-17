@@ -44,7 +44,7 @@ func typeDeclKindPhrase(decl ast.Node) string {
 	return "not a type"
 }
 
-// synthesizeDeriveVariants emits `fn variants(): List<E>` whose body lists
+// synthesizeDeriveVariants emits `fn variants() -> List<E>` whose body lists
 // every variant of the enum in declaration order, the order derived
 // Comparable ranks them in: `[E.A, E.B, ...]`. The caller has checked the
 // shape with variantsDeriveError; anything else synthesizes nothing.

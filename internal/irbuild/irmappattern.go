@@ -20,7 +20,7 @@ import (
 // A key sees the names in scope before the pattern, never a name the pattern
 // itself binds, because the checker resolves it there (analysis/builder.go
 // walks every key of a map pattern before it defines the pattern's names).
-// In `{"mode" => a, a => b}` the second key is the `a` bound before the
+// In `%{"mode" => a, a => b}` the second key is the `a` bound before the
 // pattern. Each key is lowered in a copy of the scope the pattern started in
 // (mapKeyScope), so a name an earlier entry bound is not visible to it.
 //
@@ -28,7 +28,7 @@ import (
 // about the rest, so `{}` matches every map.
 //
 // A missing key or a failed value test selects the next arm, or the `else`
-// of a binding (`{"k" => v} = m else { ... }`): a map pattern is refutable.
+// of a binding (`%{"k" => v} = m else { ... }`): a map pattern is refutable.
 
 // mapEntryGet lowers one entry's key and looks it up in subj: the Maybe the
 // lookup answers, its kind and its Some variant.
@@ -38,7 +38,7 @@ func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNo
 	}
 	keyK, valK := mk.comp.parts[0], mk.comp.parts[1]
 	// A key of another type than the map's can never be found, and the
-	// checker admits it (`{Color.Blue => v}` over a Map<Bool, String>): the
+	// checker admits it (`%{Color.Blue => v}` over a Map<Bool, String>): the
 	// lookup is made anyway and misses, so the key
 	// expression still runs.
 	var key ir.Temp

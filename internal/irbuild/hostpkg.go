@@ -17,7 +17,7 @@ import (
 //
 //	gopkg "example.com/app/ffi" as ffi
 //	opaque type RawBox go ffi.Box
-//	pub fn echo_upper(s: String): String go ffi.EchoUpper
+//	pub fn echo_upper(s: String) -> String go ffi.EchoUpper
 //
 // The builder does not convert anything at this boundary. A Go-bound `host
 // fn` becomes an ordinary function whose VM body is one crossing under the
@@ -56,7 +56,7 @@ func hostTableFn(ef *ast.ExternFunc) bool {
 }
 
 // hostBoundImplFn reports whether ef, an item of an impl block (inherent or
-// interface), is bound to a Go symbol (`impl Box<T> { pub fn origin(): Int
+// interface), is bound to a Go symbol (`impl Box<T> { pub fn origin() -> Int
 // go ffi.Origin }`). The Go function is the same whatever the receiver's type
 // arguments are, so its VM body is one crossing under the binding's key
 // (hostImplKey), built wherever the block's items are.

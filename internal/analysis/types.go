@@ -363,7 +363,7 @@ func (t *TupleType) String() string {
 	for i, e := range t.Elems {
 		elems[i] = e.String()
 	}
-	return fmt.Sprintf("(%s)", strings.Join(elems, ", "))
+	return fmt.Sprintf("#(%s)", strings.Join(elems, ", "))
 }
 
 func (t *TupleType) typeTag() {}

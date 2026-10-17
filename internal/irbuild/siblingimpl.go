@@ -7,7 +7,7 @@ import (
 )
 
 // A TYPE-qualified call whose callee lives in a SIBLING FILE's impl block:
-// `Status.active()` in one file, `impl Status { pub fn active(): Status }` in
+// `Status.active()` in one file, `impl Status { pub fn active() -> Status }` in
 // another.
 //
 // # Why the local route cannot find it

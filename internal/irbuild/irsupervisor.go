@@ -4,7 +4,7 @@ package irbuild
 //
 // A Supervisor is a retained value kind: a boot result field, an app-field
 // read, and the parameter of std's Nomi-bodied `Supervisor.new` and
-// `Supervisor.flush`. `Supervisor.spawn(sup, || body)` is a host crossing
+// `Supervisor.flush`. `Supervisor.spawn(sup, fn -> body)` is a host crossing
 // spelled with the `rt.SupervisorSpawn` target, and
 // `Supervisor.spawn_all(sup, source, f)` one spelled `rt.SupervisorSpawnAll`,
 // answering supervised `Task<Unit>` handles. The two module-private externs

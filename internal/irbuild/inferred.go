@@ -98,7 +98,7 @@ func (g *gen) inferredParamKind(p ast.Param) (analysis.Type, kind) {
 		// NAME — so this asks the same question that recording answered, and
 		// cannot read some other symbol that happens to share a position.
 		//
-		// Despite the name match, a DISCARD parameter does NOT land here. `|_| 7` gets a real SymbolParam named
+		// Despite the name match, a DISCARD parameter does NOT land here. `fn _ -> 7` gets a real SymbolParam named
 		// "_" carrying the caller's type, so it lowers, and
 		// testdata/lambda_inferred.nomi pins that. What lands here is a lambda
 		// in a position no expected type reaches — an element of a list or
@@ -192,7 +192,7 @@ func (g *gen) project(t analysis.Type) kind {
 		}
 		// A BLESSED primitive with an rt type. Named through the same
 		// singleton-pointer identity the annotation channel uses, so
-		// `|b| Byte.to_int(b)` and `fn f(b: Byte)` cannot become two rows.
+		// `fn b -> Byte.to_int(b)` and `fn f(b: Byte)` cannot become two rows.
 		// See stdhost.go.
 		// kindInvalid: lookup — origin-backed hosts need a declaration anchor.
 		if k := stdHostKindOfPrimitive(ty); k != kindInvalid {
@@ -217,7 +217,7 @@ func (g *gen) project(t analysis.Type) kind {
 			if k, isGenStruct := g.genStructOfType(ty.Origin, ty.Name, args); isGenStruct {
 				return k
 			}
-			// A generic instantiation the checker solved — `|b| b.item` over a
+			// A generic instantiation the checker solved — `fn b -> b.item` over a
 			// `Box<Inner>`. Answered so the annotated `b: Box<Inner>` and the
 			// inferred one are not two different answers about one position,
 			// which is the rule the Map arm below states. A template this
@@ -239,7 +239,7 @@ func (g *gen) project(t analysis.Type) kind {
 		// A stdlib RECORD struct — `Diagnostic`, `DateTime` — whose Go type rt
 		// declares. Answered before localNamed and by (Origin, Name) rather
 		// than through module scope, because the checker solves this type for
-		// positions where the program never writes the NAME: `|diagnostic|`
+		// positions where the program never writes the NAME: `fn diagnostic ->`
 		// over `compiler.check(src)`. Same rule as the EnumType arm's
 		// projectStdEnum below. See stdstruct.go's stdStructOfType.
 		if d, isStdStruct := stdStructOfType(ty.Origin, ty.Name); isStdStruct {
@@ -261,7 +261,7 @@ func (g *gen) project(t analysis.Type) kind {
 		}
 		// A MONOMORPHIC stdlib enum — `Ordering` — whose Go type rt also
 		// declares. Answered here so the annotated `o: Ordering` and the
-		// inferred `|o|` over one are not two different answers about one
+		// inferred `fn o ->` over one are not two different answers about one
 		// parameter, which is the rule this file's Map arm below states.
 		if k, isStdEnum := g.projectStdEnum(ty); isStdEnum {
 			return k
@@ -317,7 +317,7 @@ func (g *gen) project(t analysis.Type) kind {
 	case *analysis.MapType:
 		// The annotated spelling lowers through maps.go's `Map<K, V>`; this
 		// arm stops the two spellings of one parameter from disagreeing.
-		// `m: Map<String, Int>` lowering while `|m|` over the same value
+		// `m: Map<String, Int>` lowering while `fn m ->` over the same value
 		// refuses would not be a smaller subset, it would be two answers to
 		// one question.
 		return g.mapKind(g.project(ty.Key), g.project(ty.Val))
@@ -457,7 +457,7 @@ func (g *gen) localNamed(t analysis.Type, origin, name string, shape func(*typeD
 //
 // Resolved by ORIGIN rather than by this file's imports, because the positions
 // that reach here are exactly the ones where the program never writes the name
-// — `|w| w.name` over a list a sibling's function returned. There is no import
+// — `fn w -> w.name` over a list a sibling's function returned. There is no import
 // binding to consult.
 func (g *gen) siblingNamed(origin, name string, shape func(*typeDef) bool) kind {
 	o := g.siblingOwner(origin, name)

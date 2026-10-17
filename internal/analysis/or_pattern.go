@@ -237,7 +237,7 @@ func patternText(n ast.Node) string {
 		b.WriteString("}")
 		return b.String()
 	case *ast.TuplePattern:
-		return "(" + patternListText(p.Patterns) + ")"
+		return "#(" + patternListText(p.Patterns) + ")"
 	case *ast.ListPattern:
 		parts := make([]string, 0, len(p.Heads)+1)
 		for _, h := range p.Heads {
@@ -256,7 +256,7 @@ func patternText(n ast.Node) string {
 		if p.TypeName != nil {
 			prefix = p.TypeName.TypeString()
 		}
-		return prefix + "{..}"
+		return prefix + "%{..}"
 	}
 	return "_"
 }

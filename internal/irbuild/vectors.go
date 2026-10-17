@@ -104,7 +104,7 @@ type vectorFn struct {
 	// result is how the result kind is derived. "vector" is `Vector<T>`, "int"
 	// `Int`, "bool" `Bool`, "string" `String`, "ordering" the
 	// shared `Ordering`, "elem" `T`, "maybeElem" `Maybe<T>`,
-	// "nextItem" `Maybe<(T, Vector<T>)>`.
+	// "nextItem" `Maybe<#(T, Vector<T>)>`.
 	result string
 	// ops records which element operation the rt call needs appended: "" none,
 	// "eq", "hash", "cmp", or "render" for a rendering.

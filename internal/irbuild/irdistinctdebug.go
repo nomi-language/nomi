@@ -12,7 +12,7 @@ func (bl *irScalarBuilder) distinctDebugPlan(k kind) (*irQualPlan, bool) {
 	if k.tag == tagNamed && (irRetainedStructKind(k.def) || irRetainedEnumKind(k.def) || irCompositeDistinct(k.def)) {
 		// A distinct over a tuple renders through its (derived or universal)
 		// impl, `Coord(3, 4)`, which rt's structural Debug would spell
-		// `Coord((3, 4))`.
+		// `Coord(#(3, 4))`.
 		return bl.structDebugPlan(k)
 	}
 	if !irWrappingDistinct(k.def) && !irRetainedMarker(k.def) {

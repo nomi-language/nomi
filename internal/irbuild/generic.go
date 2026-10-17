@@ -33,7 +33,7 @@ import (
 // The obvious lowering — `func Nomi_first[T any](fr *rt.Frame, x T) T` — does
 // not work, because monomorphization rejects programs that are valid:
 //
-//	fn tail_grow<T>(x: T, depth: Int): Int {
+//	fn tail_grow<T>(x: T, depth: Int) -> Int {
 //	  if depth <= 0 { 0 } else { tail_grow(Box{inner: x}, depth - 1) }
 //	}
 //
@@ -63,7 +63,7 @@ import (
 // # What stays refused here, and why
 //
 //   - A type parameter mentioned anywhere but bare: `List<T>`, `Maybe<T>`,
-//     `Pair<A, B>`, `(T, Int)`, `(A) -> C`. The box would be at the wrong
+//     `Pair<A, B>`, `#(T, Int)`, `(A) -> C`. The box would be at the wrong
 //     DEPTH — the body builds a `*rt.List[any]` and the caller wants a
 //     `*rt.List[int64]`, so an assertion would fail at run time rather than
 //     refuse at compile time.
@@ -224,7 +224,7 @@ func (g *gen) genericSignature(fd *ast.FuncDef) (params []kind, result kind, tps
 // `genericWhy`, and neither re-derives the decision.
 //
 // The obstacle is real and reachable rather than defensive.
-// `fn count<T>(x: T, n: Int): Int { if n == 0 { 0 } else { count(x, n - 1) } }`
+// `fn count<T>(x: T, n: Int) -> Int { if n == 0 { 0 } else { count(x, n - 1) } }`
 // is a tail self-call under Nomi's constant-stack guarantee (spec §12, *Tail-call optimization*), and
 // decideTailPlan marks a single-member component `ok` WITHOUT calling
 // tailMemberSig — so nothing else would stop it becoming unbounded Go

@@ -13,9 +13,9 @@ import (
 // type's zero value". Both are reachable in Nomi source and Nomi tells them
 // apart:
 //
-//	fi = |x = 5| x        fi(0)     -> 0      fi()  -> 5
-//	fs = |s = "hi"| s     fs("")    -> ""     fs()  -> "hi"
-//	fb = |b = True| b     fb(False) -> False  fb()  -> True
+//	fi = fn x = 5 -> x        fi(0)     -> 0      fi()  -> 5
+//	fs = fn s = "hi" -> s     fs("")    -> ""     fs()  -> "hi"
+//	fb = fn b = True -> b     fb(False) -> False  fb()  -> True
 //
 // So which slots a call omits is decided from the CALL's shape at build time
 // and from nothing else. There is no presence flag at run time and no test on
@@ -29,7 +29,7 @@ import (
 //
 //  1. A SHADOW between the declaration and the call.
 //
-//     x = 5 ; f = |a = x| a
+//     x = 5 ; f = fn a = x -> a
 //     f()                       -> 5
 //     if True { x = 7 ; f() }   -> 5, with the inner x observably 7
 //
@@ -38,7 +38,7 @@ import (
 //
 //  2. The lambda ESCAPES its declaring function.
 //
-//     fn build(): () -> Int { n = 41 ; |a = n + 1| a }
+//     fn build() -> () -> Int { n = 41 ; fn a = n + 1 -> a }
 //     h = build() ; h()         -> 42
 //
 //     `n` is a local of `build` and is not in scope at the call site at all, so
@@ -65,7 +65,7 @@ import (
 // **the lambda's Go type stays exactly its Nomi type.** A mask in the signature
 // would change `(Int) -> Int` into something no `(Int) -> Int` position accepts
 // and break assignability at every higher-order position in the language.
-// The shape is reachable: `apply2(|x = 9| x)` is 1, a defaulted lambda passed
+// The shape is reachable: `apply2(fn x = 9 -> x)` is 1, a defaulted lambda passed
 // where a plain function is expected, its default unused.
 //
 // Further properties this encoding reproduces:
@@ -73,14 +73,14 @@ import (
 //   - PER-OMITTING-CALL evaluation. A default whose expression prints fires on
 //     the omitting calls only, once each — because the supplier is CALLED at
 //     the call, not read from a variable initialized once.
-//   - A default may name an EARLIER PARAMETER. `p = |a: Int, b = a + 1|` gives
+//   - A default may name an EARLIER PARAMETER. `p = fn a: Int, b = a + 1 ->` gives
 //     p(3) = 304 and p(3, 9) = 309, so the supplier takes the earlier slots as
 //     its own Go parameters and the call passes the already-emitted arguments.
 //   - An omitted default passed to later suppliers is materialized once per
 //     call. Later defaults and the final call share that value, so a chain of
 //     dependent defaults cannot repeat an earlier default's effects.
 //   - A REBIND between declaration and call is NOT observed. `x = 5;
-//     f = |a = x| a` then `x = 99` answers 5 both times: the default's
+//     f = fn a = x -> a` then `x = 99` answers 5 both times: the default's
 //     supplier is a closure, and a closure captures the value a name held when
 //     it was made (spec §23).
 //

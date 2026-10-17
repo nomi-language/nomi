@@ -36,7 +36,7 @@ func (bl *irScalarBuilder) listCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 		return false
 	}
 	// A head may also be a flat tuple of names and wildcards over a tuple
-	// element (`[(w, _), ..tail]`); its components are projected from the
+	// element (`[#(w, _), ..tail]`); its components are projected from the
 	// element in the success arm.
 	flatTuple := func(n ast.Node) bool {
 		tp, isTuple := n.(*ast.TuplePattern)

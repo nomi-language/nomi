@@ -268,9 +268,11 @@ func unlistItem(n ast.Node) {
 	}
 }
 
-// parsePatternList parses the comma-separated patterns of a tuple pattern
-// after its `(`, through its `)`. tok is the `(`, for errors.
-func (p *Parser) parsePatternList(tok token.Token) ([]ast.Node, error) {
+// parsePatternList parses the patterns in parentheses after the `(`,
+// through the `)`: a tuple pattern's comma-separated patterns when tuple is
+// set, and otherwise the one pattern a grouping holds. tok is the `(`, for
+// errors.
+func (p *Parser) parsePatternList(tok token.Token, tuple bool) ([]ast.Node, error) {
 	var patterns []ast.Node
 	var lc listComments
 	lc.open(p)
@@ -283,12 +285,18 @@ func (p *Parser) parsePatternList(tok token.Token) ([]ast.Node, error) {
 		patterns = append(patterns, pat)
 		p.listAfter(&lc)
 		if p.atEnd() {
+			if !tuple {
+				return nil, errorAt(tok.Line, tok.Col, "expected ')' after pattern")
+			}
 			return nil, errorAt(tok.Line, tok.Col, "expected ')' in tuple pattern")
 		}
 		if p.peek().Type == token.RPAREN {
 			lc.close()
 			p.advance()
 			break
+		}
+		if !tuple {
+			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ')' after pattern")
 		}
 		if p.peek().Type != token.COMMA {
 			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ')' in tuple pattern")

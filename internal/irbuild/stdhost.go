@@ -196,7 +196,7 @@ func (s *stdHostSpec) declaredHostType(decl *ast.ExternType) bool {
 var stdHostSpecs = []stdHostSpec{
 	// Two rows for two types: `Byte` is one octet and `Bytes` a buffer of
 	// them, and they are separate Nomi types, so a single row would collapse
-	// `Bytes.get(data, i): Maybe<Byte>`'s two positions onto one.
+	// `Bytes.get(data, i) -> Maybe<Byte>`'s two positions onto one.
 	{prim: analysis.TypeByte, nomi: "Byte", goType: reflect.TypeFor[rt.Byte]()},
 	{prim: analysis.TypeBytes, nomi: "Bytes", goType: reflect.TypeFor[rt.Bytes]()},
 	// `Decimal` differs from its two neighbours in one way that matters to the
@@ -385,7 +385,7 @@ func stdHostKindOfGoType(t reflect.Type) kind {
 //
 // A free function rather than a gen method for opaqueAnchors' reason: the
 // STDLIB SIGNATURE pass runs before any gen exists and has to know whether
-// `Bytes` in `Bytes.length(data: Bytes): Int` is a representable type.
+// `Bytes` in `Bytes.length(data: Bytes) -> Int` is a representable type.
 func stdHostAnchors(fa *analysis.FileAnalysis) map[string]int {
 	byName := map[string]int{}
 	if fa == nil || fa.ModuleScope == nil {

@@ -1,7 +1,7 @@
 package parser
 
 // MaxNesting is how deeply expressions, patterns and types may sit inside one
-// another: `((…))`, `[[…]]`, `{ {…} }`, `|| || …`, `if … { if … {` and
+// another: `((…))`, `[[…]]`, `{ {…} }`, `fn -> fn -> …`, `if … { if … {` and
 // `List<List<…>>` each count a level per nesting, and a flat chain of
 // operators or `|>` stages does not.
 //

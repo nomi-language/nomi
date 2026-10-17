@@ -150,7 +150,7 @@ type FileBodies struct {
 	// (refreshReceiverMembers). Nil until the first record.
 	receiverMembers map[*Symbol]*Symbol
 	// LambdaPatternTypes maps a lambda's destructuring parameter, keyed by
-	// its pattern node (`(_, v)` in `|(_, v)| v`), to the type the checker
+	// its pattern node (`#(_, v)` in `fn #(_, v) -> v`), to the type the checker
 	// gave the whole parameter. The parameter has no name and so no symbol
 	// in Definitions, and a wildcard part binds nothing, so the names the
 	// pattern introduces cannot always say what the parameter is. Nil until
@@ -224,7 +224,7 @@ type FileBodies struct {
 	// answers TRUE for it at every concrete type AND at a bare type variable.
 	// That is what lets a developer write
 	//
-	//	fn show<T>(x: T): String { Debug.inspect(x) }
+	//	fn show<T>(x: T) -> String { Debug.inspect(x) }
 	//
 	// with no annotation at all — and it is also why nothing ever recorded that
 	// `T` is used at a Debug bound. The conformance check cannot reject

@@ -55,7 +55,7 @@ const (
 	// KindDistinct is `type Name Inner` (Elems[0] is Inner) or a zero-sized
 	// marker `type Name` (no Elems).
 	KindDistinct
-	// KindTuple is `(A, B, ...)`; Elems are the components in order.
+	// KindTuple is `#(A, B, ...)`; Elems are the components in order.
 	KindTuple
 	// KindRecord is an anonymous struct `{x: A, y: B}`; Names are the field
 	// names in canonical (sorted) order and Elems their types, parallel.
@@ -557,7 +557,7 @@ func (t *ValType) write(b *strings.Builder) {
 		b.WriteString("dyn ")
 		b.WriteString(t.sym.Name())
 	case KindTuple:
-		args("(", ")")
+		args("#(", ")")
 	case KindRecord:
 		b.WriteString("{")
 		for i, e := range t.elems {

@@ -43,7 +43,7 @@ func (u UnresolvedExpr) String() string {
 //   - a name: the field of `x.f`, the type or file qualifier of `T.f` and
 //     `io.print`, a field accessor's path, the target of `with App.f = v`,
 //     an import, a derive decorator and its options.
-//   - a pipe stage, the right of `|>` (`f(a)`, `try f()`, `then |x| ...`,
+//   - a pipe stage, the right of `|>` (`f(a)`, `try f()`, `then fn x -> ...`,
 //     `dbg`, an `if` or `case` stage): it is a call with its subject
 //     missing, and the pipe's own type is recorded. Its arguments count.
 //   - a partial application's `_`, a `todo`'s message, and a block: a

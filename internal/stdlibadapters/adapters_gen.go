@@ -701,7 +701,7 @@ func (b *bound) out3(v int64) (rt.Value, error) {
 	return int64(v), nil
 }
 
-// fn1 adapts Date.days_between: days_between(earlier: Date, later: Date): Int
+// fn1 adapts Date.days_between: days_between(earlier: Date, later: Date) -> Int
 func (b *bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("Date.days_between", &err)
 	if len(args) != 2 {
@@ -728,7 +728,7 @@ func (b *bound) out5(v string) (rt.Value, error) {
 	return string(v), nil
 }
 
-// fn4 adapts Date.to_string: to_string(d: Date): String
+// fn4 adapts Date.to_string: to_string(d: Date) -> String
 func (b *bound) fn4(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("Date.to_string", &err)
 	if len(args) != 1 {
@@ -769,7 +769,7 @@ func (b *bound) in7(fr *rt.Frame, v rt.Value) (out stdcalendar.DateTime, err err
 	return out, nil
 }
 
-// fn6 adapts DateTime.day: day(value: DateTime): Int
+// fn6 adapts DateTime.day: day(value: DateTime) -> Int
 func (b *bound) fn6(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("DateTime.day", &err)
 	if len(args) != 1 {
@@ -787,7 +787,7 @@ func (b *bound) fn6(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn8 adapts DateTime.hour: hour(value: DateTime): Int
+// fn8 adapts DateTime.hour: hour(value: DateTime) -> Int
 func (b *bound) fn8(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("DateTime.hour", &err)
 	if len(args) != 1 {
@@ -805,7 +805,7 @@ func (b *bound) fn8(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn9 adapts DateTime.minute: minute(value: DateTime): Int
+// fn9 adapts DateTime.minute: minute(value: DateTime) -> Int
 func (b *bound) fn9(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("DateTime.minute", &err)
 	if len(args) != 1 {
@@ -823,7 +823,7 @@ func (b *bound) fn9(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn10 adapts DateTime.month: month(value: DateTime): Int
+// fn10 adapts DateTime.month: month(value: DateTime) -> Int
 func (b *bound) fn10(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("DateTime.month", &err)
 	if len(args) != 1 {
@@ -841,7 +841,7 @@ func (b *bound) fn10(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn11 adapts DateTime.nanosecond: nanosecond(value: DateTime): Int
+// fn11 adapts DateTime.nanosecond: nanosecond(value: DateTime) -> Int
 func (b *bound) fn11(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("DateTime.nanosecond", &err)
 	if len(args) != 1 {
@@ -859,7 +859,7 @@ func (b *bound) fn11(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn12 adapts DateTime.second: second(value: DateTime): Int
+// fn12 adapts DateTime.second: second(value: DateTime) -> Int
 func (b *bound) fn12(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("DateTime.second", &err)
 	if len(args) != 1 {
@@ -885,7 +885,7 @@ func (b *bound) out14(v stdcalendar.OffsetDateTime) (rt.Value, error) {
 	return r, nil
 }
 
-// fn13 adapts DateTime.to_offset: to_offset(d: DateTime): OffsetDateTime
+// fn13 adapts DateTime.to_offset: to_offset(d: DateTime) -> OffsetDateTime
 func (b *bound) fn13(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("DateTime.to_offset", &err)
 	if len(args) != 1 {
@@ -903,7 +903,7 @@ func (b *bound) fn13(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn15 adapts DateTime.to_string: to_string(d: DateTime): String
+// fn15 adapts DateTime.to_string: to_string(d: DateTime) -> String
 func (b *bound) fn15(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("DateTime.to_string", &err)
 	if len(args) != 1 {
@@ -921,7 +921,7 @@ func (b *bound) fn15(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn16 adapts DateTime.year: year(value: DateTime): Int
+// fn16 adapts DateTime.year: year(value: DateTime) -> Int
 func (b *bound) fn16(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("DateTime.year", &err)
 	if len(args) != 1 {
@@ -1006,7 +1006,7 @@ func (b *bound) out19(v stdcalendar.Date) (rt.Value, error) {
 	return r, nil
 }
 
-// fn17 adapts NaiveDateTime.to_date: to_date(dt: NaiveDateTime): Date
+// fn17 adapts NaiveDateTime.to_date: to_date(dt: NaiveDateTime) -> Date
 func (b *bound) fn17(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("NaiveDateTime.to_date", &err)
 	if len(args) != 1 {
@@ -1024,7 +1024,7 @@ func (b *bound) fn17(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn20 adapts NaiveDateTime.to_string: to_string(dt: NaiveDateTime): String
+// fn20 adapts NaiveDateTime.to_string: to_string(dt: NaiveDateTime) -> String
 func (b *bound) fn20(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("NaiveDateTime.to_string", &err)
 	if len(args) != 1 {
@@ -1052,7 +1052,7 @@ func (b *bound) out22(v stdcalendar.Time) (rt.Value, error) {
 	return r, nil
 }
 
-// fn21 adapts NaiveDateTime.to_time: to_time(dt: NaiveDateTime): Time
+// fn21 adapts NaiveDateTime.to_time: to_time(dt: NaiveDateTime) -> Time
 func (b *bound) fn21(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("NaiveDateTime.to_time", &err)
 	if len(args) != 1 {
@@ -1093,7 +1093,7 @@ func (b *bound) in24(fr *rt.Frame, v rt.Value) (out stdcalendar.OffsetDateTime, 
 	return out, nil
 }
 
-// fn23 adapts OffsetDateTime.day: day(value: OffsetDateTime): Int
+// fn23 adapts OffsetDateTime.day: day(value: OffsetDateTime) -> Int
 func (b *bound) fn23(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("OffsetDateTime.day", &err)
 	if len(args) != 1 {
@@ -1111,7 +1111,7 @@ func (b *bound) fn23(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn25 adapts OffsetDateTime.hour: hour(value: OffsetDateTime): Int
+// fn25 adapts OffsetDateTime.hour: hour(value: OffsetDateTime) -> Int
 func (b *bound) fn25(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("OffsetDateTime.hour", &err)
 	if len(args) != 1 {
@@ -1129,7 +1129,7 @@ func (b *bound) fn25(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn26 adapts OffsetDateTime.minute: minute(value: OffsetDateTime): Int
+// fn26 adapts OffsetDateTime.minute: minute(value: OffsetDateTime) -> Int
 func (b *bound) fn26(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("OffsetDateTime.minute", &err)
 	if len(args) != 1 {
@@ -1147,7 +1147,7 @@ func (b *bound) fn26(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn27 adapts OffsetDateTime.month: month(value: OffsetDateTime): Int
+// fn27 adapts OffsetDateTime.month: month(value: OffsetDateTime) -> Int
 func (b *bound) fn27(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("OffsetDateTime.month", &err)
 	if len(args) != 1 {
@@ -1165,7 +1165,7 @@ func (b *bound) fn27(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn28 adapts OffsetDateTime.nanosecond: nanosecond(value: OffsetDateTime): Int
+// fn28 adapts OffsetDateTime.nanosecond: nanosecond(value: OffsetDateTime) -> Int
 func (b *bound) fn28(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("OffsetDateTime.nanosecond", &err)
 	if len(args) != 1 {
@@ -1183,7 +1183,7 @@ func (b *bound) fn28(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn29 adapts OffsetDateTime.second: second(value: OffsetDateTime): Int
+// fn29 adapts OffsetDateTime.second: second(value: OffsetDateTime) -> Int
 func (b *bound) fn29(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("OffsetDateTime.second", &err)
 	if len(args) != 1 {
@@ -1201,7 +1201,7 @@ func (b *bound) fn29(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn30 adapts OffsetDateTime.to_string: to_string(odt: OffsetDateTime): String
+// fn30 adapts OffsetDateTime.to_string: to_string(odt: OffsetDateTime) -> String
 func (b *bound) fn30(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("OffsetDateTime.to_string", &err)
 	if len(args) != 1 {
@@ -1219,7 +1219,7 @@ func (b *bound) fn30(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn31 adapts OffsetDateTime.year: year(value: OffsetDateTime): Int
+// fn31 adapts OffsetDateTime.year: year(value: OffsetDateTime) -> Int
 func (b *bound) fn31(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("OffsetDateTime.year", &err)
 	if len(args) != 1 {
@@ -1274,7 +1274,7 @@ func (b *bound) in33(fr *rt.Frame, v rt.Value) (out stdcalendar.Time, err error)
 	return out, nil
 }
 
-// fn32 adapts Time.to_string: to_string(t: Time): String
+// fn32 adapts Time.to_string: to_string(t: Time) -> String
 func (b *bound) fn32(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("Time.to_string", &err)
 	if len(args) != 1 {
@@ -1301,7 +1301,7 @@ func (b *bound) in35(fr *rt.Frame, v rt.Value) (out int64, err error) {
 	return int64(x), nil
 }
 
-// fn34 adapts calendar.date_add_days: date_add_days(d: Date, n: Int): Date
+// fn34 adapts calendar.date_add_days: date_add_days(d: Date, n: Int) -> Date
 func (b *bound) fn34(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.date_add_days", &err)
 	if len(args) != 2 {
@@ -1323,7 +1323,7 @@ func (b *bound) fn34(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn36 adapts calendar.date_add_months: date_add_months(d: Date, n: Int): Date
+// fn36 adapts calendar.date_add_months: date_add_months(d: Date, n: Int) -> Date
 func (b *bound) fn36(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.date_add_months", &err)
 	if len(args) != 2 {
@@ -1345,7 +1345,7 @@ func (b *bound) fn36(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn37 adapts calendar.date_add_years: date_add_years(d: Date, n: Int): Date
+// fn37 adapts calendar.date_add_years: date_add_years(d: Date, n: Int) -> Date
 func (b *bound) fn37(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.date_add_years", &err)
 	if len(args) != 2 {
@@ -1380,7 +1380,7 @@ func (b *bound) out39(v stdcalendar.DateAttempt) (rt.Value, error) {
 	return r, nil
 }
 
-// fn38 adapts calendar.date_new_raw: date_new_raw(year: Int, month: Int, day: Int): DateAttempt
+// fn38 adapts calendar.date_new_raw: date_new_raw(year: Int, month: Int, day: Int) -> DateAttempt
 func (b *bound) fn38(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.date_new_raw", &err)
 	if len(args) != 3 {
@@ -1415,7 +1415,7 @@ func (b *bound) in42(fr *rt.Frame, v rt.Value) (out string, err error) {
 	return string(x), nil
 }
 
-// fn41 adapts calendar.date_parse_raw: date_parse_raw(s: String): DateAttempt
+// fn41 adapts calendar.date_parse_raw: date_parse_raw(s: String) -> DateAttempt
 func (b *bound) fn41(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.date_parse_raw", &err)
 	if len(args) != 1 {
@@ -1446,7 +1446,7 @@ func (b *bound) out44(v stdcalendar.NaiveDateTime) (rt.Value, error) {
 	return r, nil
 }
 
-// fn43 adapts calendar.naive_add_days: naive_add_days(dt: NaiveDateTime, n: Int): NaiveDateTime
+// fn43 adapts calendar.naive_add_days: naive_add_days(dt: NaiveDateTime, n: Int) -> NaiveDateTime
 func (b *bound) fn43(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.naive_add_days", &err)
 	if len(args) != 2 {
@@ -1468,7 +1468,7 @@ func (b *bound) fn43(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn45 adapts calendar.naive_add_months: naive_add_months(dt: NaiveDateTime, n: Int): NaiveDateTime
+// fn45 adapts calendar.naive_add_months: naive_add_months(dt: NaiveDateTime, n: Int) -> NaiveDateTime
 func (b *bound) fn45(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.naive_add_months", &err)
 	if len(args) != 2 {
@@ -1490,7 +1490,7 @@ func (b *bound) fn45(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn46 adapts calendar.naive_add_nanos: naive_add_nanos(dt: NaiveDateTime, nanos: Int): NaiveDateTime
+// fn46 adapts calendar.naive_add_nanos: naive_add_nanos(dt: NaiveDateTime, nanos: Int) -> NaiveDateTime
 func (b *bound) fn46(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.naive_add_nanos", &err)
 	if len(args) != 2 {
@@ -1512,7 +1512,7 @@ func (b *bound) fn46(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn47 adapts calendar.naive_add_years: naive_add_years(dt: NaiveDateTime, n: Int): NaiveDateTime
+// fn47 adapts calendar.naive_add_years: naive_add_years(dt: NaiveDateTime, n: Int) -> NaiveDateTime
 func (b *bound) fn47(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.naive_add_years", &err)
 	if len(args) != 2 {
@@ -1534,7 +1534,7 @@ func (b *bound) fn47(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn48 adapts calendar.naive_between_nanos: naive_between_nanos(earlier: NaiveDateTime, later: NaiveDateTime): Int
+// fn48 adapts calendar.naive_between_nanos: naive_between_nanos(earlier: NaiveDateTime, later: NaiveDateTime) -> Int
 func (b *bound) fn48(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.naive_between_nanos", &err)
 	if len(args) != 2 {
@@ -1569,7 +1569,7 @@ func (b *bound) out50(v stdcalendar.NaiveAttempt) (rt.Value, error) {
 	return r, nil
 }
 
-// fn49 adapts calendar.naive_new_exact_raw: naive_new_exact_raw(year: Int, month: Int, day: Int, hour: Int, minute: Int, second: Int, nanosecond: Int): NaiveAttempt
+// fn49 adapts calendar.naive_new_exact_raw: naive_new_exact_raw(year: Int, month: Int, day: Int, hour: Int, minute: Int, second: Int, nanosecond: Int) -> NaiveAttempt
 func (b *bound) fn49(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.naive_new_exact_raw", &err)
 	if len(args) != 7 {
@@ -1611,7 +1611,7 @@ func (b *bound) fn49(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn52 adapts calendar.naive_parse_raw: naive_parse_raw(s: String): NaiveAttempt
+// fn52 adapts calendar.naive_parse_raw: naive_parse_raw(s: String) -> NaiveAttempt
 func (b *bound) fn52(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.naive_parse_raw", &err)
 	if len(args) != 1 {
@@ -1629,7 +1629,7 @@ func (b *bound) fn52(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn53 adapts calendar.offset_add_months: offset_add_months(odt: OffsetDateTime, n: Int): OffsetDateTime
+// fn53 adapts calendar.offset_add_months: offset_add_months(odt: OffsetDateTime, n: Int) -> OffsetDateTime
 func (b *bound) fn53(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.offset_add_months", &err)
 	if len(args) != 2 {
@@ -1651,7 +1651,7 @@ func (b *bound) fn53(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn54 adapts calendar.offset_add_years: offset_add_years(odt: OffsetDateTime, n: Int): OffsetDateTime
+// fn54 adapts calendar.offset_add_years: offset_add_years(odt: OffsetDateTime, n: Int) -> OffsetDateTime
 func (b *bound) fn54(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.offset_add_years", &err)
 	if len(args) != 2 {
@@ -1673,7 +1673,7 @@ func (b *bound) fn54(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn55 adapts calendar.offset_from_instant_nanos: offset_from_instant_nanos(instant_nanos: Int, offset_nanos: Int): OffsetDateTime
+// fn55 adapts calendar.offset_from_instant_nanos: offset_from_instant_nanos(instant_nanos: Int, offset_nanos: Int) -> OffsetDateTime
 func (b *bound) fn55(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.offset_from_instant_nanos", &err)
 	if len(args) != 2 {
@@ -1708,7 +1708,7 @@ func (b *bound) out57(v stdcalendar.OffsetAttempt) (rt.Value, error) {
 	return r, nil
 }
 
-// fn56 adapts calendar.offset_parse_raw: offset_parse_raw(s: String): OffsetAttempt
+// fn56 adapts calendar.offset_parse_raw: offset_parse_raw(s: String) -> OffsetAttempt
 func (b *bound) fn56(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.offset_parse_raw", &err)
 	if len(args) != 1 {
@@ -1726,7 +1726,7 @@ func (b *bound) fn56(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn59 adapts calendar.offset_with_offset_raw: offset_with_offset_raw(dt: NaiveDateTime, offset_nanos: Int): OffsetAttempt
+// fn59 adapts calendar.offset_with_offset_raw: offset_with_offset_raw(dt: NaiveDateTime, offset_nanos: Int) -> OffsetAttempt
 func (b *bound) fn59(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.offset_with_offset_raw", &err)
 	if len(args) != 2 {
@@ -1748,7 +1748,7 @@ func (b *bound) fn59(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn60 adapts calendar.time_add_nanos: time_add_nanos(t: Time, nanos: Int): Time
+// fn60 adapts calendar.time_add_nanos: time_add_nanos(t: Time, nanos: Int) -> Time
 func (b *bound) fn60(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.time_add_nanos", &err)
 	if len(args) != 2 {
@@ -1783,7 +1783,7 @@ func (b *bound) out62(v stdcalendar.TimeAttempt) (rt.Value, error) {
 	return r, nil
 }
 
-// fn61 adapts calendar.time_parse_raw: time_parse_raw(s: String): TimeAttempt
+// fn61 adapts calendar.time_parse_raw: time_parse_raw(s: String) -> TimeAttempt
 func (b *bound) fn61(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.time_parse_raw", &err)
 	if len(args) != 1 {
@@ -1809,7 +1809,7 @@ func (b *bound) out65(v stdcalendar.DateTime) (rt.Value, error) {
 	return r, nil
 }
 
-// fn64 adapts calendar.zoned_add_days: zoned_add_days(d: DateTime, n: Int): DateTime
+// fn64 adapts calendar.zoned_add_days: zoned_add_days(d: DateTime, n: Int) -> DateTime
 func (b *bound) fn64(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.zoned_add_days", &err)
 	if len(args) != 2 {
@@ -1831,7 +1831,7 @@ func (b *bound) fn64(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn66 adapts calendar.zoned_add_hours: zoned_add_hours(d: DateTime, n: Int): DateTime
+// fn66 adapts calendar.zoned_add_hours: zoned_add_hours(d: DateTime, n: Int) -> DateTime
 func (b *bound) fn66(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.zoned_add_hours", &err)
 	if len(args) != 2 {
@@ -1853,7 +1853,7 @@ func (b *bound) fn66(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn67 adapts calendar.zoned_add_microseconds: zoned_add_microseconds(d: DateTime, n: Int): DateTime
+// fn67 adapts calendar.zoned_add_microseconds: zoned_add_microseconds(d: DateTime, n: Int) -> DateTime
 func (b *bound) fn67(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.zoned_add_microseconds", &err)
 	if len(args) != 2 {
@@ -1875,7 +1875,7 @@ func (b *bound) fn67(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn68 adapts calendar.zoned_add_milliseconds: zoned_add_milliseconds(d: DateTime, n: Int): DateTime
+// fn68 adapts calendar.zoned_add_milliseconds: zoned_add_milliseconds(d: DateTime, n: Int) -> DateTime
 func (b *bound) fn68(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.zoned_add_milliseconds", &err)
 	if len(args) != 2 {
@@ -1897,7 +1897,7 @@ func (b *bound) fn68(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn69 adapts calendar.zoned_add_minutes: zoned_add_minutes(d: DateTime, n: Int): DateTime
+// fn69 adapts calendar.zoned_add_minutes: zoned_add_minutes(d: DateTime, n: Int) -> DateTime
 func (b *bound) fn69(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.zoned_add_minutes", &err)
 	if len(args) != 2 {
@@ -1919,7 +1919,7 @@ func (b *bound) fn69(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn70 adapts calendar.zoned_add_months: zoned_add_months(d: DateTime, n: Int): DateTime
+// fn70 adapts calendar.zoned_add_months: zoned_add_months(d: DateTime, n: Int) -> DateTime
 func (b *bound) fn70(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.zoned_add_months", &err)
 	if len(args) != 2 {
@@ -1941,7 +1941,7 @@ func (b *bound) fn70(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn71 adapts calendar.zoned_add_nanoseconds: zoned_add_nanoseconds(d: DateTime, n: Int): DateTime
+// fn71 adapts calendar.zoned_add_nanoseconds: zoned_add_nanoseconds(d: DateTime, n: Int) -> DateTime
 func (b *bound) fn71(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.zoned_add_nanoseconds", &err)
 	if len(args) != 2 {
@@ -1963,7 +1963,7 @@ func (b *bound) fn71(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn72 adapts calendar.zoned_add_seconds: zoned_add_seconds(d: DateTime, n: Int): DateTime
+// fn72 adapts calendar.zoned_add_seconds: zoned_add_seconds(d: DateTime, n: Int) -> DateTime
 func (b *bound) fn72(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.zoned_add_seconds", &err)
 	if len(args) != 2 {
@@ -1985,7 +1985,7 @@ func (b *bound) fn72(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn73 adapts calendar.zoned_add_years: zoned_add_years(d: DateTime, n: Int): DateTime
+// fn73 adapts calendar.zoned_add_years: zoned_add_years(d: DateTime, n: Int) -> DateTime
 func (b *bound) fn73(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.zoned_add_years", &err)
 	if len(args) != 2 {
@@ -2020,7 +2020,7 @@ func (b *bound) out75(v stdcalendar.ZonedAttempt) (rt.Value, error) {
 	return r, nil
 }
 
-// fn74 adapts calendar.zoned_from_instant_in_raw: zoned_from_instant_in_raw(instant_nanos: Int, zone: String): ZonedAttempt
+// fn74 adapts calendar.zoned_from_instant_in_raw: zoned_from_instant_in_raw(instant_nanos: Int, zone: String) -> ZonedAttempt
 func (b *bound) fn74(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.zoned_from_instant_in_raw", &err)
 	if len(args) != 2 {
@@ -2042,7 +2042,7 @@ func (b *bound) fn74(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn77 adapts calendar.zoned_in_zone_raw: zoned_in_zone_raw(dt: NaiveDateTime, zone: String, mode: Int): ZonedAttempt
+// fn77 adapts calendar.zoned_in_zone_raw: zoned_in_zone_raw(dt: NaiveDateTime, zone: String, mode: Int) -> ZonedAttempt
 func (b *bound) fn77(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.zoned_in_zone_raw", &err)
 	if len(args) != 3 {
@@ -2068,7 +2068,7 @@ func (b *bound) fn77(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn78 adapts calendar.zoned_offset_nanos: zoned_offset_nanos(d: DateTime): Int
+// fn78 adapts calendar.zoned_offset_nanos: zoned_offset_nanos(d: DateTime) -> Int
 func (b *bound) fn78(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.zoned_offset_nanos", &err)
 	if len(args) != 1 {
@@ -2086,7 +2086,7 @@ func (b *bound) fn78(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn79 adapts calendar.zoned_parse_raw: zoned_parse_raw(s: String): ZonedAttempt
+// fn79 adapts calendar.zoned_parse_raw: zoned_parse_raw(s: String) -> ZonedAttempt
 func (b *bound) fn79(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.zoned_parse_raw", &err)
 	if len(args) != 1 {
@@ -2104,7 +2104,7 @@ func (b *bound) fn79(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn80 adapts calendar.zoned_with_zone_raw: zoned_with_zone_raw(d: DateTime, zone: String): ZonedAttempt
+// fn80 adapts calendar.zoned_with_zone_raw: zoned_with_zone_raw(d: DateTime, zone: String) -> ZonedAttempt
 func (b *bound) fn80(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("calendar.zoned_with_zone_raw", &err)
 	if len(args) != 2 {
@@ -2126,7 +2126,7 @@ func (b *bound) fn80(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn81 adapts random.between_state: between_state(state: Int, from: Int, to: Int): (Int, Int)
+// fn81 adapts random.between_state: between_state(state: Int, from: Int, to: Int) -> #(Int, Int)
 func (b *bound) fn81(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("random.between_state", &err)
 	if len(args) != 3 {
@@ -2151,7 +2151,7 @@ func (b *bound) fn81(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return tup, nil
 }
 
-// fn82 adapts random.os_state: os_state(): Result<Int, String>
+// fn82 adapts random.os_state: os_state() -> Result<Int, String>
 func (b *bound) fn82(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("random.os_state", &err)
 	if len(args) != 0 {
@@ -2186,7 +2186,7 @@ func (b *bound) out85(v rt.Unit) (rt.Value, error) {
 	return rt.Unit{}, nil
 }
 
-// fn83 adapts random.require_float_range: require_float_range(from: Float, to: Float): Unit
+// fn83 adapts random.require_float_range: require_float_range(from: Float, to: Float) -> Unit
 func (b *bound) fn83(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("random.require_float_range", 2, len(args))
@@ -2207,7 +2207,7 @@ func (b *bound) fn83(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn86 adapts random.require_int_range: require_int_range(from: Int, to: Int): Unit
+// fn86 adapts random.require_int_range: require_int_range(from: Int, to: Int) -> Unit
 func (b *bound) fn86(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("random.require_int_range", 2, len(args))
@@ -2228,7 +2228,7 @@ func (b *bound) fn86(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn87 adapts random.unit_float_state: unit_float_state(state: Int): (Float, Int)
+// fn87 adapts random.unit_float_state: unit_float_state(state: Int) -> #(Float, Int)
 func (b *bound) fn87(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("random.unit_float_state", &err)
 	if len(args) != 1 {
@@ -2250,7 +2250,7 @@ func (b *bound) out89(v *stdregex.Regex) (rt.Value, error) {
 	return rt.HostHandle{TypeName: "regex.Regex", Value: v}, nil
 }
 
-// fn88 adapts Regex.compile: compile(pattern: String): Result<Regex, String>
+// fn88 adapts Regex.compile: compile(pattern: String) -> Result<Regex, String>
 func (b *bound) fn88(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("Regex.compile", &err)
 	if len(args) != 1 {
@@ -2293,7 +2293,7 @@ func (b *bound) out92(v bool) (rt.Value, error) {
 	return bool(v), nil
 }
 
-// fn90 adapts Regex.contained_in?: contained_in?(re: Regex, text: String): Bool
+// fn90 adapts Regex.contained_in?: contained_in?(re: Regex, text: String) -> Bool
 func (b *bound) fn90(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("Regex.contained_in?", &err)
 	if len(args) != 2 {
@@ -2325,7 +2325,7 @@ func (b *bound) out94(v *string) (rt.Value, error) {
 	return r, nil
 }
 
-// fn93 adapts Regex.find_in: find_in(re: Regex, text: String): Maybe<String>
+// fn93 adapts Regex.find_in: find_in(re: Regex, text: String) -> Maybe<String>
 func (b *bound) fn93(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("Regex.find_in", &err)
 	if len(args) != 2 {
@@ -2360,7 +2360,7 @@ func (b *bound) out96(v []string) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn95 adapts Regex.find_all_in: find_all_in(re: Regex, text: String): List<String>
+// fn95 adapts Regex.find_all_in: find_all_in(re: Regex, text: String) -> List<String>
 func (b *bound) fn95(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("Regex.find_all_in", &err)
 	if len(args) != 2 {
@@ -2382,7 +2382,7 @@ func (b *bound) fn95(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn97 adapts Regex.pattern: pattern(re: Regex): String
+// fn97 adapts Regex.pattern: pattern(re: Regex) -> String
 func (b *bound) fn97(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("Regex.pattern", &err)
 	if len(args) != 1 {
@@ -2400,7 +2400,7 @@ func (b *bound) fn97(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn98 adapts Regex.prefix_of?: prefix_of?(re: Regex, text: String): Bool
+// fn98 adapts Regex.prefix_of?: prefix_of?(re: Regex, text: String) -> Bool
 func (b *bound) fn98(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("Regex.prefix_of?", &err)
 	if len(args) != 2 {
@@ -2422,7 +2422,7 @@ func (b *bound) fn98(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn99 adapts Regex.replace_all: replace_all(re: Regex, value: String, replacement: String): String
+// fn99 adapts Regex.replace_all: replace_all(re: Regex, value: String, replacement: String) -> String
 func (b *bound) fn99(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("Regex.replace_all", &err)
 	if len(args) != 3 {
@@ -2448,7 +2448,7 @@ func (b *bound) fn99(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn100 adapts Regex.replace_in: replace_in(re: Regex, text: String, replacement: String): String
+// fn100 adapts Regex.replace_in: replace_in(re: Regex, text: String, replacement: String) -> String
 func (b *bound) fn100(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("Regex.replace_in", &err)
 	if len(args) != 3 {
@@ -2474,7 +2474,7 @@ func (b *bound) fn100(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn101 adapts Regex.split_in: split_in(re: Regex, text: String): List<String>
+// fn101 adapts Regex.split_in: split_in(re: Regex, text: String) -> List<String>
 func (b *bound) fn101(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("Regex.split_in", &err)
 	if len(args) != 2 {
@@ -2496,7 +2496,7 @@ func (b *bound) fn101(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn102 adapts Regex.suffix_of?: suffix_of?(re: Regex, text: String): Bool
+// fn102 adapts Regex.suffix_of?: suffix_of?(re: Regex, text: String) -> Bool
 func (b *bound) fn102(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("Regex.suffix_of?", &err)
 	if len(args) != 2 {
@@ -2545,7 +2545,7 @@ func (b *bound) out104(v *[]*string) (rt.Value, error) {
 	return r, nil
 }
 
-// fn103 adapts String.captures: captures(s: String, re: Regex): Maybe<List<Maybe<String>>>
+// fn103 adapts String.captures: captures(s: String, re: Regex) -> Maybe<List<Maybe<String>>>
 func (b *bound) fn103(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("String.captures", &err)
 	if len(args) != 2 {
@@ -2580,7 +2580,7 @@ func (b *bound) out108(v [][]*string) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn107 adapts String.captures_all: captures_all(s: String, re: Regex): List<List<Maybe<String>>>
+// fn107 adapts String.captures_all: captures_all(s: String, re: Regex) -> List<List<Maybe<String>>>
 func (b *bound) fn107(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("String.captures_all", &err)
 	if len(args) != 2 {
@@ -2602,7 +2602,7 @@ func (b *bound) fn107(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn109 adapts strings.String.contained_in?: contained_in?(needle: String, text: String): Bool
+// fn109 adapts strings.String.contained_in?: contained_in?(needle: String, text: String) -> Bool
 func (b *bound) fn109(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("strings.String.contained_in?", 2, len(args))
@@ -2623,7 +2623,7 @@ func (b *bound) fn109(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn110 adapts strings.String.prefix_of?: prefix_of?(prefix: String, text: String): Bool
+// fn110 adapts strings.String.prefix_of?: prefix_of?(prefix: String, text: String) -> Bool
 func (b *bound) fn110(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("strings.String.prefix_of?", 2, len(args))
@@ -2644,7 +2644,7 @@ func (b *bound) fn110(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn111 adapts strings.String.suffix_of?: suffix_of?(suffix: String, text: String): Bool
+// fn111 adapts strings.String.suffix_of?: suffix_of?(suffix: String, text: String) -> Bool
 func (b *bound) fn111(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("strings.String.suffix_of?", 2, len(args))
@@ -2688,7 +2688,7 @@ func (b *bound) out113(v *rt.List[string]) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn112 adapts strings.String.find_all_in: find_all_in(needle: String, text: String): List<String>
+// fn112 adapts strings.String.find_all_in: find_all_in(needle: String, text: String) -> List<String>
 func (b *bound) fn112(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("strings.String.find_all_in", 2, len(args))
@@ -2709,7 +2709,7 @@ func (b *bound) fn112(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn114 adapts strings.String.to_upper: to_upper(s: String): String
+// fn114 adapts strings.String.to_upper: to_upper(s: String) -> String
 func (b *bound) fn114(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("strings.String.to_upper", 1, len(args))
@@ -2726,7 +2726,7 @@ func (b *bound) fn114(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn115 adapts strings.String.to_lower: to_lower(s: String): String
+// fn115 adapts strings.String.to_lower: to_lower(s: String) -> String
 func (b *bound) fn115(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("strings.String.to_lower", 1, len(args))
@@ -2743,7 +2743,7 @@ func (b *bound) fn115(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn116 adapts strings.String.replace_in: replace_in(old: String, text: String, replacement: String): String
+// fn116 adapts strings.String.replace_in: replace_in(old: String, text: String, replacement: String) -> String
 func (b *bound) fn116(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("strings.String.replace_in", 3, len(args))
@@ -2768,7 +2768,7 @@ func (b *bound) fn116(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn117 adapts strings.String.trim: trim(s: String): String
+// fn117 adapts strings.String.trim: trim(s: String) -> String
 func (b *bound) fn117(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("strings.String.trim", 1, len(args))
@@ -2785,7 +2785,7 @@ func (b *bound) fn117(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn118 adapts strings.String.hash: hash(s: String): Int
+// fn118 adapts strings.String.hash: hash(s: String) -> Int
 func (b *bound) fn118(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("strings.String.hash", 1, len(args))
@@ -2802,7 +2802,7 @@ func (b *bound) fn118(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn119 adapts strings.string_compare: string_compare(a: String, b: String): Int
+// fn119 adapts strings.string_compare: string_compare(a: String, b: String) -> Int
 func (b *bound) fn119(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("strings.string_compare", 2, len(args))
@@ -2836,7 +2836,7 @@ func (b *bound) out121(v rt.Maybe[int64]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn120 adapts strings.String.to_int: to_int(s: String): Maybe<Int>
+// fn120 adapts strings.String.to_int: to_int(s: String) -> Maybe<Int>
 func (b *bound) fn120(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("strings.String.to_int", 1, len(args))
@@ -2853,7 +2853,7 @@ func (b *bound) fn120(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn122 adapts strings.String.split_in: split_in(separator: String, text: String): List<String>
+// fn122 adapts strings.String.split_in: split_in(separator: String, text: String) -> List<String>
 func (b *bound) fn122(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("strings.String.split_in", 2, len(args))
@@ -2874,7 +2874,7 @@ func (b *bound) fn122(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn123 adapts strings.String.words: words(s: String): List<String>
+// fn123 adapts strings.String.words: words(s: String) -> List<String>
 func (b *bound) fn123(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("strings.String.words", 1, len(args))
@@ -2891,7 +2891,7 @@ func (b *bound) fn123(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn124 adapts strings.String.lines: lines(s: String): List<String>
+// fn124 adapts strings.String.lines: lines(s: String) -> List<String>
 func (b *bound) fn124(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("strings.String.lines", 1, len(args))
@@ -2908,7 +2908,7 @@ func (b *bound) fn124(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn125 adapts strings.String.length: length(s: String): Int
+// fn125 adapts strings.String.length: length(s: String) -> Int
 func (b *bound) fn125(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("strings.String.length", 1, len(args))
@@ -2925,7 +2925,7 @@ func (b *bound) fn125(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn126 adapts strings.String.slice: slice(s: String, start: Int, end: Int): String
+// fn126 adapts strings.String.slice: slice(s: String, start: Int, end: Int) -> String
 func (b *bound) fn126(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("strings.String.slice", 3, len(args))
@@ -2950,7 +2950,7 @@ func (b *bound) fn126(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn127 adapts strings.String.reverse: reverse(s: String): String
+// fn127 adapts strings.String.reverse: reverse(s: String) -> String
 func (b *bound) fn127(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("strings.String.reverse", 1, len(args))
@@ -2980,7 +2980,7 @@ func (b *bound) out129(v rt.Maybe[rt.Byte]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn128 adapts bytes.Byte.from_int: from_int(n: Int): Maybe<Byte>
+// fn128 adapts bytes.Byte.from_int: from_int(n: Int) -> Maybe<Byte>
 func (b *bound) fn128(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("bytes.Byte.from_int", 1, len(args))
@@ -3006,7 +3006,7 @@ func (b *bound) in131(fr *rt.Frame, v rt.Value) (out rt.Byte, err error) {
 	return rt.Byte(x), nil
 }
 
-// fn130 adapts bytes.Byte.to_int: to_int(b: Byte): Int
+// fn130 adapts bytes.Byte.to_int: to_int(b: Byte) -> Int
 func (b *bound) fn130(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("bytes.Byte.to_int", 1, len(args))
@@ -3032,7 +3032,7 @@ func (b *bound) in133(fr *rt.Frame, v rt.Value) (out rt.Bytes, err error) {
 	return rt.Bytes(x), nil
 }
 
-// fn132 adapts bytes.Bytes.length: length(data: Bytes): Int
+// fn132 adapts bytes.Bytes.length: length(data: Bytes) -> Int
 func (b *bound) fn132(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("bytes.Bytes.length", 1, len(args))
@@ -3049,7 +3049,7 @@ func (b *bound) fn132(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn134 adapts bytes.Bytes.get: get(data: Bytes, index: Int): Maybe<Byte>
+// fn134 adapts bytes.Bytes.get: get(data: Bytes, index: Int) -> Maybe<Byte>
 func (b *bound) fn134(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("bytes.Bytes.get", 2, len(args))
@@ -3075,7 +3075,7 @@ func (b *bound) out136(v rt.Byte) (rt.Value, error) {
 	return rt.Byte(v), nil
 }
 
-// fn135 adapts bytes.Bytes.at: at(data: Bytes, index: Int): Byte
+// fn135 adapts bytes.Bytes.at: at(data: Bytes, index: Int) -> Byte
 func (b *bound) fn135(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("bytes.Bytes.at", 2, len(args))
@@ -3101,7 +3101,7 @@ func (b *bound) out138(v rt.Bytes) (rt.Value, error) {
 	return rt.Bytes(v), nil
 }
 
-// fn137 adapts bytes.Bytes.slice: slice(data: Bytes, start: Int, end: Int): Bytes
+// fn137 adapts bytes.Bytes.slice: slice(data: Bytes, start: Int, end: Int) -> Bytes
 func (b *bound) fn137(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("bytes.Bytes.slice", 3, len(args))
@@ -3126,7 +3126,7 @@ func (b *bound) fn137(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn139 adapts bytes.Bytes.concat: concat(a: Bytes, b: Bytes): Bytes
+// fn139 adapts bytes.Bytes.concat: concat(a: Bytes, b: Bytes) -> Bytes
 func (b *bound) fn139(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("bytes.Bytes.concat", 2, len(args))
@@ -3162,7 +3162,7 @@ func (b *bound) out141(v rt.Result[string, string]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn140 adapts bytes.Bytes.to_string: to_string(data: Bytes): Result<String, String>
+// fn140 adapts bytes.Bytes.to_string: to_string(data: Bytes) -> Result<String, String>
 func (b *bound) fn140(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("bytes.Bytes.to_string", 1, len(args))
@@ -3179,7 +3179,7 @@ func (b *bound) fn140(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn142 adapts bytes.Bytes.hash: hash(data: Bytes): Int
+// fn142 adapts bytes.Bytes.hash: hash(data: Bytes) -> Int
 func (b *bound) fn142(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("bytes.Bytes.hash", 1, len(args))
@@ -3196,7 +3196,7 @@ func (b *bound) fn142(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn143 adapts strings.String.to_bytes: to_bytes(s: String): Bytes
+// fn143 adapts strings.String.to_bytes: to_bytes(s: String) -> Bytes
 func (b *bound) fn143(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("strings.String.to_bytes", 1, len(args))
@@ -3213,7 +3213,7 @@ func (b *bound) fn143(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn144 adapts int.Int.to_string: to_string(n: Int): String
+// fn144 adapts int.Int.to_string: to_string(n: Int) -> String
 func (b *bound) fn144(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("int.Int.to_string", 1, len(args))
@@ -3235,7 +3235,7 @@ func (b *bound) out146(v float64) (rt.Value, error) {
 	return float64(v), nil
 }
 
-// fn145 adapts int.Int.to_float: to_float(x: Int): Float
+// fn145 adapts int.Int.to_float: to_float(x: Int) -> Float
 func (b *bound) fn145(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("int.Int.to_float", 1, len(args))
@@ -3252,7 +3252,7 @@ func (b *bound) fn145(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn147 adapts int.Int.wrapping_add: wrapping_add(a: Int, b: Int): Int
+// fn147 adapts int.Int.wrapping_add: wrapping_add(a: Int, b: Int) -> Int
 func (b *bound) fn147(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.wrapping_add", 2, len(args))
@@ -3273,7 +3273,7 @@ func (b *bound) fn147(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn148 adapts int.Int.wrapping_sub: wrapping_sub(a: Int, b: Int): Int
+// fn148 adapts int.Int.wrapping_sub: wrapping_sub(a: Int, b: Int) -> Int
 func (b *bound) fn148(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.wrapping_sub", 2, len(args))
@@ -3294,7 +3294,7 @@ func (b *bound) fn148(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn149 adapts int.Int.wrapping_mul: wrapping_mul(a: Int, b: Int): Int
+// fn149 adapts int.Int.wrapping_mul: wrapping_mul(a: Int, b: Int) -> Int
 func (b *bound) fn149(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.wrapping_mul", 2, len(args))
@@ -3315,7 +3315,7 @@ func (b *bound) fn149(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn150 adapts int.Int.bitwise_and: bitwise_and(a: Int, b: Int): Int
+// fn150 adapts int.Int.bitwise_and: bitwise_and(a: Int, b: Int) -> Int
 func (b *bound) fn150(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.bitwise_and", 2, len(args))
@@ -3336,7 +3336,7 @@ func (b *bound) fn150(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn151 adapts int.Int.bitwise_or: bitwise_or(a: Int, b: Int): Int
+// fn151 adapts int.Int.bitwise_or: bitwise_or(a: Int, b: Int) -> Int
 func (b *bound) fn151(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.bitwise_or", 2, len(args))
@@ -3357,7 +3357,7 @@ func (b *bound) fn151(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn152 adapts int.Int.bitwise_xor: bitwise_xor(a: Int, b: Int): Int
+// fn152 adapts int.Int.bitwise_xor: bitwise_xor(a: Int, b: Int) -> Int
 func (b *bound) fn152(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.bitwise_xor", 2, len(args))
@@ -3378,7 +3378,7 @@ func (b *bound) fn152(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn153 adapts int.Int.bitwise_not: bitwise_not(a: Int): Int
+// fn153 adapts int.Int.bitwise_not: bitwise_not(a: Int) -> Int
 func (b *bound) fn153(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("int.Int.bitwise_not", 1, len(args))
@@ -3395,7 +3395,7 @@ func (b *bound) fn153(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn154 adapts float.Float.to_string: to_string(x: Float): String
+// fn154 adapts float.Float.to_string: to_string(x: Float) -> String
 func (b *bound) fn154(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.Float.to_string", 1, len(args))
@@ -3412,7 +3412,7 @@ func (b *bound) fn154(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn155 adapts float.Float.nan: nan(): Float
+// fn155 adapts float.Float.nan: nan() -> Float
 func (b *bound) fn155(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("float.Float.nan", 0, len(args))
@@ -3425,7 +3425,7 @@ func (b *bound) fn155(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn156 adapts float.Float.positive_infinity: positive_infinity(): Float
+// fn156 adapts float.Float.positive_infinity: positive_infinity() -> Float
 func (b *bound) fn156(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("float.Float.positive_infinity", 0, len(args))
@@ -3438,7 +3438,7 @@ func (b *bound) fn156(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn157 adapts float.Float.negative_infinity: negative_infinity(): Float
+// fn157 adapts float.Float.negative_infinity: negative_infinity() -> Float
 func (b *bound) fn157(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("float.Float.negative_infinity", 0, len(args))
@@ -3451,7 +3451,7 @@ func (b *bound) fn157(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn158 adapts float.Float.nan?: nan?(x: Float): Bool
+// fn158 adapts float.Float.nan?: nan?(x: Float) -> Bool
 func (b *bound) fn158(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.Float.nan?", 1, len(args))
@@ -3468,7 +3468,7 @@ func (b *bound) fn158(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn159 adapts float.Float.round: round(x: Float): Float
+// fn159 adapts float.Float.round: round(x: Float) -> Float
 func (b *bound) fn159(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.Float.round", 1, len(args))
@@ -3485,7 +3485,7 @@ func (b *bound) fn159(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn160 adapts float.Float.floor: floor(x: Float): Float
+// fn160 adapts float.Float.floor: floor(x: Float) -> Float
 func (b *bound) fn160(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.Float.floor", 1, len(args))
@@ -3502,7 +3502,7 @@ func (b *bound) fn160(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn161 adapts float.Float.ceil: ceil(x: Float): Float
+// fn161 adapts float.Float.ceil: ceil(x: Float) -> Float
 func (b *bound) fn161(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.Float.ceil", 1, len(args))
@@ -3519,7 +3519,7 @@ func (b *bound) fn161(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn162 adapts float.Float.trunc: trunc(x: Float): Float
+// fn162 adapts float.Float.trunc: trunc(x: Float) -> Float
 func (b *bound) fn162(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.Float.trunc", 1, len(args))
@@ -3536,7 +3536,7 @@ func (b *bound) fn162(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn163 adapts float.Float.to_int: to_int(x: Float): Maybe<Int>
+// fn163 adapts float.Float.to_int: to_int(x: Float) -> Maybe<Int>
 func (b *bound) fn163(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.Float.to_int", 1, len(args))
@@ -3553,7 +3553,7 @@ func (b *bound) fn163(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn164 adapts float.float_bits: float_bits(x: Float): Int
+// fn164 adapts float.float_bits: float_bits(x: Float) -> Int
 func (b *bound) fn164(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.float_bits", 1, len(args))
@@ -3579,7 +3579,7 @@ func (b *bound) in166(fr *rt.Frame, v rt.Value) (out rt.Decimal, err error) {
 	return x, nil
 }
 
-// fn165 adapts decimal.Decimal.to_string: to_string(d: Decimal): String
+// fn165 adapts decimal.Decimal.to_string: to_string(d: Decimal) -> String
 func (b *bound) fn165(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.to_string", 1, len(args))
@@ -3596,7 +3596,7 @@ func (b *bound) fn165(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn167 adapts decimal.Decimal.equal?: equal?(a: Decimal, b: Decimal): Bool
+// fn167 adapts decimal.Decimal.equal?: equal?(a: Decimal, b: Decimal) -> Bool
 func (b *bound) fn167(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("decimal.Decimal.equal?", 2, len(args))
@@ -3617,7 +3617,7 @@ func (b *bound) fn167(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn168 adapts decimal.Decimal.hash: hash(d: Decimal): Int
+// fn168 adapts decimal.Decimal.hash: hash(d: Decimal) -> Int
 func (b *bound) fn168(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.hash", 1, len(args))
@@ -3647,7 +3647,7 @@ func (b *bound) out170(v rt.Ordering) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Ordering carries tag %d, which names no variant of comparable.Ordering", v.Tag)
 }
 
-// fn169 adapts decimal.Decimal.compare: compare(a: Decimal, b: Decimal): Ordering
+// fn169 adapts decimal.Decimal.compare: compare(a: Decimal, b: Decimal) -> Ordering
 func (b *bound) fn169(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("decimal.Decimal.compare", 2, len(args))
@@ -3681,7 +3681,7 @@ func (b *bound) in172(fr *rt.Frame, v rt.Value) (out rt.Duration, err error) {
 	return rt.Duration(x), nil
 }
 
-// fn171 adapts duration.Duration.to_string: to_string(d: Duration): String
+// fn171 adapts duration.Duration.to_string: to_string(d: Duration) -> String
 func (b *bound) fn171(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("duration.Duration.to_string", 1, len(args))
@@ -3705,7 +3705,7 @@ func (b *bound) out174(v rt.Instant) (rt.Value, error) {
 	return r, nil
 }
 
-// fn173 adapts instant.Instant.now: now(): Instant
+// fn173 adapts instant.Instant.now: now() -> Instant
 func (b *bound) fn173(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("instant.Instant.now", 0, len(args))
@@ -3731,7 +3731,7 @@ func (b *bound) in176(fr *rt.Frame, v rt.Value) (out rt.Codepoint, err error) {
 	return rt.Codepoint(x), nil
 }
 
-// fn175 adapts codepoints.Codepoint.to_string: to_string(cp: Codepoint): String
+// fn175 adapts codepoints.Codepoint.to_string: to_string(cp: Codepoint) -> String
 func (b *bound) fn175(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("codepoints.Codepoint.to_string", 1, len(args))
@@ -3748,7 +3748,7 @@ func (b *bound) fn175(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn177 adapts codepoints.Codepoint.letter?: letter?(cp: Codepoint): Bool
+// fn177 adapts codepoints.Codepoint.letter?: letter?(cp: Codepoint) -> Bool
 func (b *bound) fn177(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("codepoints.Codepoint.letter?", 1, len(args))
@@ -3765,7 +3765,7 @@ func (b *bound) fn177(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn178 adapts codepoints.Codepoint.whitespace?: whitespace?(cp: Codepoint): Bool
+// fn178 adapts codepoints.Codepoint.whitespace?: whitespace?(cp: Codepoint) -> Bool
 func (b *bound) fn178(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("codepoints.Codepoint.whitespace?", 1, len(args))
@@ -3782,7 +3782,7 @@ func (b *bound) fn178(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn179 adapts codepoints.Codepoint.upper?: upper?(cp: Codepoint): Bool
+// fn179 adapts codepoints.Codepoint.upper?: upper?(cp: Codepoint) -> Bool
 func (b *bound) fn179(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("codepoints.Codepoint.upper?", 1, len(args))
@@ -3799,7 +3799,7 @@ func (b *bound) fn179(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn180 adapts codepoints.Codepoint.lower?: lower?(cp: Codepoint): Bool
+// fn180 adapts codepoints.Codepoint.lower?: lower?(cp: Codepoint) -> Bool
 func (b *bound) fn180(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("codepoints.Codepoint.lower?", 1, len(args))
@@ -3846,7 +3846,7 @@ func (b *bound) out182(v *rt.List[rt.Codepoint]) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn181 adapts strings.String.to_codepoints: to_codepoints(s: String): List<Codepoint>
+// fn181 adapts strings.String.to_codepoints: to_codepoints(s: String) -> List<Codepoint>
 func (b *bound) fn181(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("strings.String.to_codepoints", 1, len(args))
@@ -3877,7 +3877,7 @@ func (b *bound) out186(v rt.Context) (rt.Value, error) {
 	return v, nil
 }
 
-// fn184 adapts context.Context.with_timeout: with_timeout(c: Context, dur: Duration): Context
+// fn184 adapts context.Context.with_timeout: with_timeout(c: Context, dur: Duration) -> Context
 func (b *bound) fn184(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("context.Context.with_timeout", 2, len(args))
@@ -3898,7 +3898,7 @@ func (b *bound) fn184(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn187 adapts context.Context.root: root(): Context
+// fn187 adapts context.Context.root: root() -> Context
 func (b *bound) fn187(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("context.Context.root", 0, len(args))
@@ -4026,7 +4026,7 @@ func (b *bound) out189(v rt.Result[rt.Json, rt.JsonDecodeError]) (rt.Value, erro
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn188 adapts json.Json.decode: decode(source: String): Result<Json, Json.DecodeError>
+// fn188 adapts json.Json.decode: decode(source: String) -> Result<Json, Json.DecodeError>
 func (b *bound) fn188(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("json.Json.decode", 1, len(args))
@@ -4172,7 +4172,7 @@ func (b *bound) in199(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
 	return out, nil
 }
 
-// fn198 adapts json.Json.encode: encode(jv: Json): String
+// fn198 adapts json.Json.encode: encode(jv: Json) -> String
 func (b *bound) fn198(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("json.Json.encode", 1, len(args))
@@ -4189,7 +4189,7 @@ func (b *bound) fn198(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn203 adapts timer.sleep: sleep(d: Duration): Unit
+// fn203 adapts timer.sleep: sleep(d: Duration) -> Unit
 func (b *bound) fn203(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("timer.sleep", 1, len(args))
@@ -4287,7 +4287,7 @@ func (b *bound) out208(v rt.Supervisor) (rt.Value, error) {
 	return v, nil
 }
 
-// fn204 adapts supervisors.Supervisor.new_exact: new_exact(max_running: Int, shutdown_timeout: Duration, restart: Restart, backoff: Backoff, on_give_up: GiveUp): Supervisor
+// fn204 adapts supervisors.Supervisor.new_exact: new_exact(max_running: Int, shutdown_timeout: Duration, restart: Restart, backoff: Backoff, on_give_up: GiveUp) -> Supervisor
 func (b *bound) fn204(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 5 {
 		return nil, hostadapt.Arity("supervisors.Supervisor.new_exact", 5, len(args))
@@ -4366,7 +4366,7 @@ func (b *bound) out212(v rt.FlushOutcome) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.FlushOutcome carries tag %d, which names no variant of supervisors.FlushOutcome", v.Tag)
 }
 
-// fn209 adapts supervisors.Supervisor.flush_bounded: flush_bounded(supervisor: Supervisor, bound: Wait): FlushOutcome
+// fn209 adapts supervisors.Supervisor.flush_bounded: flush_bounded(supervisor: Supervisor, bound: Wait) -> FlushOutcome
 func (b *bound) fn209(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("supervisors.Supervisor.flush_bounded", 2, len(args))
@@ -4753,7 +4753,7 @@ func (b *bound) in214(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionFailure, er
 	return out, nil
 }
 
-// fn213 adapts assertions.AssertionFailure.format: format(failure: AssertionFailure): String
+// fn213 adapts assertions.AssertionFailure.format: format(failure: AssertionFailure) -> String
 func (b *bound) fn213(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("assertions.AssertionFailure.format", 1, len(args))
@@ -4775,7 +4775,7 @@ func (b *bound) out227(v rt.Decimal) (rt.Value, error) {
 	return v, nil
 }
 
-// fn226 adapts decimal.Decimal.from_int: from_int(n: Int): Decimal
+// fn226 adapts decimal.Decimal.from_int: from_int(n: Int) -> Decimal
 func (b *bound) fn226(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.from_int", 1, len(args))
@@ -4809,7 +4809,7 @@ func (b *bound) out229(v rt.Maybe[rt.Decimal]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn228 adapts decimal.Decimal.from_string: from_string(s: String): Maybe<Decimal>
+// fn228 adapts decimal.Decimal.from_string: from_string(s: String) -> Maybe<Decimal>
 func (b *bound) fn228(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.from_string", 1, len(args))
@@ -4826,7 +4826,7 @@ func (b *bound) fn228(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn231 adapts decimal.Decimal.to_int: to_int(d: Decimal): Maybe<Int>
+// fn231 adapts decimal.Decimal.to_int: to_int(d: Decimal) -> Maybe<Int>
 func (b *bound) fn231(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.to_int", 1, len(args))
@@ -4843,7 +4843,7 @@ func (b *bound) fn231(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn232 adapts decimal.Decimal.to_float: to_float(d: Decimal): Float
+// fn232 adapts decimal.Decimal.to_float: to_float(d: Decimal) -> Float
 func (b *bound) fn232(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.to_float", 1, len(args))
@@ -4890,7 +4890,7 @@ func (b *bound) in234(fr *rt.Frame, v rt.Value) (out rt.RoundingMode, err error)
 	return out, nil
 }
 
-// fn233 adapts decimal.Decimal.from_float: from_float(f: Float, scale: Int, mode: RoundingMode): Maybe<Decimal>
+// fn233 adapts decimal.Decimal.from_float: from_float(f: Float, scale: Int, mode: RoundingMode) -> Maybe<Decimal>
 func (b *bound) fn233(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("decimal.Decimal.from_float", 3, len(args))
@@ -4915,7 +4915,7 @@ func (b *bound) fn233(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn235 adapts decimal.Decimal.divide: divide(a: Decimal, b: Decimal, scale: Int, mode: RoundingMode): Decimal
+// fn235 adapts decimal.Decimal.divide: divide(a: Decimal, b: Decimal, scale: Int, mode: RoundingMode) -> Decimal
 func (b *bound) fn235(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 4 {
 		return nil, hostadapt.Arity("decimal.Decimal.divide", 4, len(args))
@@ -4944,7 +4944,7 @@ func (b *bound) fn235(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn236 adapts decimal.Decimal.round: round(d: Decimal, scale: Int, mode: RoundingMode): Decimal
+// fn236 adapts decimal.Decimal.round: round(d: Decimal, scale: Int, mode: RoundingMode) -> Decimal
 func (b *bound) fn236(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("decimal.Decimal.round", 3, len(args))
@@ -4969,7 +4969,7 @@ func (b *bound) fn236(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn237 adapts decimal.Decimal.normalize: normalize(d: Decimal): Decimal
+// fn237 adapts decimal.Decimal.normalize: normalize(d: Decimal) -> Decimal
 func (b *bound) fn237(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.normalize", 1, len(args))
@@ -4986,7 +4986,7 @@ func (b *bound) fn237(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn238 adapts decimal.Decimal.scale: scale(d: Decimal): Int
+// fn238 adapts decimal.Decimal.scale: scale(d: Decimal) -> Int
 func (b *bound) fn238(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.scale", 1, len(args))
@@ -5003,7 +5003,7 @@ func (b *bound) fn238(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn239 adapts strings.String.repeat: repeat(s: String, count: Int): String
+// fn239 adapts strings.String.repeat: repeat(s: String, count: Int) -> String
 func (b *bound) fn239(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("strings.String.repeat", 2, len(args))
@@ -5024,7 +5024,7 @@ func (b *bound) fn239(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn240 adapts int.Int.shift_left: shift_left(a: Int, n: Int): Int
+// fn240 adapts int.Int.shift_left: shift_left(a: Int, n: Int) -> Int
 func (b *bound) fn240(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.shift_left", 2, len(args))
@@ -5045,7 +5045,7 @@ func (b *bound) fn240(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn241 adapts int.Int.shift_right: shift_right(a: Int, n: Int): Int
+// fn241 adapts int.Int.shift_right: shift_right(a: Int, n: Int) -> Int
 func (b *bound) fn241(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.shift_right", 2, len(args))
@@ -5083,7 +5083,7 @@ func (b *bound) out243(v rt.Maybe[rt.Instant]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn242 adapts context.Context.deadline: deadline(c: Context): Maybe<Instant>
+// fn242 adapts context.Context.deadline: deadline(c: Context) -> Maybe<Instant>
 func (b *bound) fn242(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("context.Context.deadline", 1, len(args))
@@ -5124,7 +5124,7 @@ func (b *bound) out246(v rt.Maybe[rt.Duration]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn245 adapts context.Context.deadline_remaining: deadline_remaining(c: Context): Maybe<Duration>
+// fn245 adapts context.Context.deadline_remaining: deadline_remaining(c: Context) -> Maybe<Duration>
 func (b *bound) fn245(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("context.Context.deadline_remaining", 1, len(args))
@@ -5154,7 +5154,7 @@ func (b *bound) in250(fr *rt.Frame, v rt.Value) (out rt.Instant, err error) {
 	return rt.Instant(x), nil
 }
 
-// fn249 adapts context.Context.with_deadline: with_deadline(c: Context, at: Instant): Context
+// fn249 adapts context.Context.with_deadline: with_deadline(c: Context, at: Instant) -> Context
 func (b *bound) fn249(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("context.Context.with_deadline", 2, len(args))
@@ -5198,7 +5198,7 @@ func (b *bound) out252(v *rt.List[rt.Byte]) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn251 adapts bytes.Bytes.to_list: to_list(data: Bytes): List<Byte>
+// fn251 adapts bytes.Bytes.to_list: to_list(data: Bytes) -> List<Byte>
 func (b *bound) fn251(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("bytes.Bytes.to_list", 1, len(args))
@@ -5237,7 +5237,7 @@ func (b *bound) in254(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Byte], err erro
 	return out, nil
 }
 
-// fn253 adapts bytes.Bytes.from_list: from_list(items: List<Byte>): Bytes
+// fn253 adapts bytes.Bytes.from_list: from_list(items: List<Byte>) -> Bytes
 func (b *bound) fn253(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("bytes.Bytes.from_list", 1, len(args))
@@ -5288,7 +5288,7 @@ func (b *bound) out256(v rt.Result[string, rt.IOError]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn255 adapts io.read_file: read_file(path: String): Result<String, IOError>
+// fn255 adapts io.read_file: read_file(path: String) -> Result<String, IOError>
 func (b *bound) fn255(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("io.read_file", 1, len(args))
@@ -5328,7 +5328,7 @@ func (b *bound) out260(v rt.Result[rt.Unit, rt.IOError]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn259 adapts io.write_file: write_file(path: String, content: String): Result<Unit, IOError>
+// fn259 adapts io.write_file: write_file(path: String, content: String) -> Result<Unit, IOError>
 func (b *bound) fn259(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("io.write_file", 2, len(args))
@@ -5371,7 +5371,7 @@ func (b *bound) in264(fr *rt.Frame, v rt.Value) (out rt.NormalForm, err error) {
 	return out, nil
 }
 
-// fn263 adapts strings.String.normalize: normalize(s: String, form: NormalForm): String
+// fn263 adapts strings.String.normalize: normalize(s: String, form: NormalForm) -> String
 func (b *bound) fn263(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("strings.String.normalize", 2, len(args))
@@ -5480,7 +5480,7 @@ func (b *bound) out267(v rt.Result[rt.Dynamic, rt.DynamicDecodeError]) (rt.Value
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn265 adapts dynamic.Dynamic.field: field(d: Dynamic, name: String): Result<Dynamic, DecodeError>
+// fn265 adapts dynamic.Dynamic.field: field(d: Dynamic, name: String) -> Result<Dynamic, DecodeError>
 func (b *bound) fn265(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.field", 2, len(args))
@@ -5501,7 +5501,7 @@ func (b *bound) fn265(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn275 adapts dynamic.Dynamic.index: index(d: Dynamic, i: Int): Result<Dynamic, DecodeError>
+// fn275 adapts dynamic.Dynamic.index: index(d: Dynamic, i: Int) -> Result<Dynamic, DecodeError>
 func (b *bound) fn275(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.index", 2, len(args))
@@ -5522,7 +5522,7 @@ func (b *bound) fn275(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn276 adapts dynamic.Dynamic.path: path(d: Dynamic, dotted: String): Result<Dynamic, DecodeError>
+// fn276 adapts dynamic.Dynamic.path: path(d: Dynamic, dotted: String) -> Result<Dynamic, DecodeError>
 func (b *bound) fn276(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.path", 2, len(args))
@@ -5562,7 +5562,7 @@ func (b *bound) out278(v rt.Result[string, rt.DynamicDecodeError]) (rt.Value, er
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn277 adapts dynamic.Dynamic.as_string: as_string(d: Dynamic): Result<String, DecodeError>
+// fn277 adapts dynamic.Dynamic.as_string: as_string(d: Dynamic) -> Result<String, DecodeError>
 func (b *bound) fn277(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.as_string", 1, len(args))
@@ -5598,7 +5598,7 @@ func (b *bound) out281(v rt.Result[int64, rt.DynamicDecodeError]) (rt.Value, err
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn280 adapts dynamic.Dynamic.as_int: as_int(d: Dynamic): Result<Int, DecodeError>
+// fn280 adapts dynamic.Dynamic.as_int: as_int(d: Dynamic) -> Result<Int, DecodeError>
 func (b *bound) fn280(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.as_int", 1, len(args))
@@ -5634,7 +5634,7 @@ func (b *bound) out284(v rt.Result[float64, rt.DynamicDecodeError]) (rt.Value, e
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn283 adapts dynamic.Dynamic.as_float: as_float(d: Dynamic): Result<Float, DecodeError>
+// fn283 adapts dynamic.Dynamic.as_float: as_float(d: Dynamic) -> Result<Float, DecodeError>
 func (b *bound) fn283(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.as_float", 1, len(args))
@@ -5670,7 +5670,7 @@ func (b *bound) out287(v rt.Result[bool, rt.DynamicDecodeError]) (rt.Value, erro
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn286 adapts dynamic.Dynamic.as_bool: as_bool(d: Dynamic): Result<Bool, DecodeError>
+// fn286 adapts dynamic.Dynamic.as_bool: as_bool(d: Dynamic) -> Result<Bool, DecodeError>
 func (b *bound) fn286(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.as_bool", 1, len(args))
@@ -5733,7 +5733,7 @@ func (b *bound) out290(v rt.Result[*rt.List[rt.Dynamic], rt.DynamicDecodeError])
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn289 adapts dynamic.Dynamic.as_list: as_list(d: Dynamic): Result<List<Dynamic>, DecodeError>
+// fn289 adapts dynamic.Dynamic.as_list: as_list(d: Dynamic) -> Result<List<Dynamic>, DecodeError>
 func (b *bound) fn289(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.as_list", 1, len(args))
@@ -5791,7 +5791,7 @@ func (b *bound) out295(v rt.Result[rt.Map[string, rt.Dynamic], rt.DynamicDecodeE
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn294 adapts dynamic.Dynamic.as_dict: as_dict(d: Dynamic): Result<Map<String, Dynamic>, DecodeError>
+// fn294 adapts dynamic.Dynamic.as_dict: as_dict(d: Dynamic) -> Result<Map<String, Dynamic>, DecodeError>
 func (b *bound) fn294(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.as_dict", 1, len(args))
@@ -5808,7 +5808,7 @@ func (b *bound) fn294(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn299 adapts dynamic.Dynamic.null?: null?(d: Dynamic): Bool
+// fn299 adapts dynamic.Dynamic.null?: null?(d: Dynamic) -> Bool
 func (b *bound) fn299(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.null?", 1, len(args))
@@ -5825,7 +5825,7 @@ func (b *bound) fn299(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn300 adapts dynamic.Dynamic.has?: has?(d: Dynamic, name: String): Bool
+// fn300 adapts dynamic.Dynamic.has?: has?(d: Dynamic, name: String) -> Bool
 func (b *bound) fn300(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.has?", 2, len(args))
@@ -5846,7 +5846,7 @@ func (b *bound) fn300(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn301 adapts dynamic.Dynamic.inspect: inspect(d: Dynamic): String
+// fn301 adapts dynamic.Dynamic.inspect: inspect(d: Dynamic) -> String
 func (b *bound) fn301(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.inspect", 1, len(args))
@@ -5863,7 +5863,7 @@ func (b *bound) fn301(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn302 adapts json.Json.to_dynamic: to_dynamic(jv: Json): Dynamic
+// fn302 adapts json.Json.to_dynamic: to_dynamic(jv: Json) -> Dynamic
 func (b *bound) fn302(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("json.Json.to_dynamic", 1, len(args))
@@ -5880,7 +5880,7 @@ func (b *bound) fn302(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn303 adapts io.read_line: read_line(): Result<String, String>
+// fn303 adapts io.read_line: read_line() -> Result<String, String>
 func (b *bound) fn303(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("io.read_line", 0, len(args))

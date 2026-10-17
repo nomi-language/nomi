@@ -177,7 +177,7 @@ func (c *checker) callbackDowncast(callee, arg ast.Node, want, have Type, label 
 			if fn != "" {
 				body = fn + "(value) ..."
 			}
-			hint = fmt.Sprintf("pass a function that takes %s %s and matches it first: `|value| case value { %s -> %s }`",
+			hint = fmt.Sprintf("pass a function that takes %s %s and matches it first: `fn value -> case value { %s -> %s }`",
 				articleFor(et.Name), et.Name, pattern, body)
 		}
 		return TypeError{Line: line, Col: col, Message: msg}.Spanning(arg).WithHint(hint), true

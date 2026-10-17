@@ -211,7 +211,7 @@ type Symbol struct {
 	// enclosing expression is checked, so a reader reads it after checking.
 	VariantType Type
 	// ParamOf is the function, lambda or interface method whose DESTRUCTURED
-	// parameter introduced this binding (`|(word, count)| count`), and nil for
+	// parameter introduced this binding (`fn #(word, count) -> count`), and nil for
 	// every other symbol. The unused-binding check reports such a name as a
 	// parameter.
 	ParamOf ast.Node

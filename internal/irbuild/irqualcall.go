@@ -392,7 +392,7 @@ func (bl *irScalarBuilder) qualCheckedFuncWant(t *ast.Call, i int, k kind) (kind
 	}
 	// Only a parameter makes the value need an adapter here: a callback
 	// whose result is a List where an Iter is expected (`Iter.flat_map(xs,
-	// |x| [x])`) is read by the operation as it is.
+	// fn x -> [x])`) is read by the operation as it is.
 	for i, p := range funcParams(want) {
 		if p != funcParams(k)[i] {
 			return want, true

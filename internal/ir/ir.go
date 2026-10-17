@@ -906,7 +906,7 @@ func (b *Branch) irTerm()                      {}
 // Return leaves the function.
 //
 // Its position is the tail's own. An inherited position would be wrong here:
-// the return for `fn total(limit: Int): Int { Iter.loop(...) }` is lowered
+// the return for `fn total(limit: Int) -> Int { Iter.loop(...) }` is lowered
 // after the loop's arms, so an ambient cursor would attribute it to whichever
 // arm's line was lowered last.
 type Return struct {

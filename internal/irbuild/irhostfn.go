@@ -12,7 +12,7 @@ import (
 // A user `host fn` bound to a Go symbol, as the VM calls it.
 //
 //	gopkg "durationffiapp" as ffi
-//	pub fn timeout(): Duration go ffi.Timeout
+//	pub fn timeout() -> Duration go ffi.Timeout
 //
 // Every call site reaches the declaration through the ordinary direct,
 // sibling and bare-sibling routes, under the declaration symbol of the shell

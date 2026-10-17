@@ -468,7 +468,7 @@ func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, task
 				//
 				// The context check is load-bearing and the return value alone
 				// cannot replace it. A cancelled body does not reliably
-				// propagate: the idiomatic `fn serve(): Unit { _f =
+				// propagate: the idiomatic `fn serve() -> Unit { _f =
 				// Iter.loop(...); Unit }` swallows the unwind into a discarded
 				// binding and returns Unit, so the task looks like it finished
 				// on its own. Asking the context asks the runtime what

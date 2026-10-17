@@ -60,7 +60,7 @@ func vectorHost(key string) hostFn {
 		case "Vector.push":
 			return rt.VectorPush(vec, args[1]), nil
 		case "Vector.next_item":
-			// `Some((head, tail))`, or None when empty: rt.VectorNextItem's
+			// `Some(#(head, tail))`, or None when empty: rt.VectorNextItem's
 			// answer with the pair as the machine's tuple.
 			if rt.VectorLength(vec) == 0 {
 				return noneValue, nil

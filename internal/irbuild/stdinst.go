@@ -646,7 +646,7 @@ func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir
 			// kindInvalid: sentinel — no receiver kind selects this member.
 			if !ok && self != kindInvalid {
 				// A receiver built with a type argument nothing determined
-				// (`(1, Ok(f)).1`, whose error type is the Unit the
+				// (`#(1, Ok(f)).1`, whose error type is the Unit the
 				// constructor read the hole as): the receiver's own kind
 				// is the instance, Unit included.
 				args, ok = bl.g.stdInstSolveHoled(f, tps, ib, params, result, self, true)

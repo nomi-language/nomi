@@ -20,10 +20,10 @@ import (
 //	lib.nomi   pub struct Plain { v: Int }
 //
 //	main.nomi  import { lib }
-//	           fn f(): Result<lib.Plain, String>
+//	           fn f() -> Result<lib.Plain, String>
 //
 //	main.nomi  import { lib.{Plain} }
-//	           fn f(): Result<Plain, String>
+//	           fn f() -> Result<Plain, String>
 //
 // Same type, same declaring file, same signature position, one difference in
 // spelling. `foreignDecl` resolves a bare name through `g.fa.ModuleScope`,

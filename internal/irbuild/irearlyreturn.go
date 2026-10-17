@@ -94,7 +94,7 @@ func (bl *irScalarBuilder) explicitReturn(ret *ast.Return) (kind, bool) {
 
 // irCtlForm is the signalling convention a callback is lowered under, which
 // its enclosing Iter call decides: the reduce form `(acc, bool)` or the
-// adapter form `(value, rt.Ctl)`.
+// adapter form `#(value, rt.Ctl)`.
 type irCtlForm uint8
 
 const (

@@ -10,7 +10,7 @@ import (
 //
 // In `impl Box<T> { ... }` or `impl Iter<T> { ... }` the block's `T` is in
 // scope, but a function is generic over it only when its signature names it.
-// `fn seven(): Int`, `fn twice<U>(x: U): (U, U)` and `fn find<T>(source:
+// `fn seven() -> Int`, `fn twice<U>(x: U) -> #(U, U)` and `fn find<T>(source:
 // Iter<T>)`, whose own `T` shadows the block's, name none of the block's
 // parameters, so no call determines one, and the checker rejects a body that
 // names one (analysis/owner_type_params.go). Such a function is an ordinary

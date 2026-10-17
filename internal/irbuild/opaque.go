@@ -158,7 +158,7 @@ var opaqueSpecs = []opaqueSpec{
 	{origin: "std/toml", nomi: "Toml", form: formDistinct, inner: kindString, goType: reflect.TypeFor[rt.Toml]()},
 	// std/random's PRNG register. A row with NO extern over it, which this
 	// table's own header says is the normal case rather than the exception:
-	// `Seed.from_int(n: Int): Seed` is the Nomi body `Seed(n)`. See
+	// `Seed.from_int(n: Int) -> Seed` is the Nomi body `Seed(n)`. See
 	// rt/random.go for why no rule belongs beside the type.
 	{origin: "std/random", nomi: "Seed", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.Seed]()},
 	// std/calendar's civil periods. Ten rows for ten declarations rather than
@@ -371,7 +371,7 @@ func (g *gen) opaqueNamed(name string) (*typeDef, bool) {
 // whose declaration was validated through `matches` in its DECLARING module
 // (opaqueDeclaredInStd), not by this module's anchor. A projection answers for
 // positions where the program never writes the name, so an anchor keyed on
-// this file's imports would refuse `|d|` over a std function's `Duration`
+// this file's imports would refuse `fn d ->` over a std function's `Duration`
 // result in a file that does not import `Duration`. The Origin is what keeps a
 // user module's own `Days` out.
 func (g *gen) projectStdOpaque(ty *analysis.DistinctType) (kind, bool) {

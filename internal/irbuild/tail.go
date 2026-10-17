@@ -21,7 +21,7 @@ import (
 // and
 //
 //	impl Stepper for Down {
-//	  fn step(value: Down, n: Int): Int {
+//	  fn step(value: Down, n: Int) -> Int {
 //	    if n == 0 { 0 } else { Stepper.step(value, n - 1) }
 //	  }
 //	}
@@ -326,7 +326,7 @@ func (g *gen) planTailCycles() {
 // What is still refused, each a real shape with a witness rather than a hedge:
 //
 //   - Members whose declared results differ. The driver has one result slot.
-//     `fn wide(n: Int): Shape` / `fn narrow(n: Int): Circle` over
+//     `fn wide(n: Int) -> Shape` / `fn narrow(n: Int) -> Circle` over
 //     `enum Shape { embeds Circle; ... }` type-checks clean, so this is a
 //     lowering limit rather than a soundness bug, and the
 //     refusal costs nothing because the shape had to be constructed.

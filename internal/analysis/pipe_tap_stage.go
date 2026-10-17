@@ -6,7 +6,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// checkTapStage checks the stage `x |> tap |v| body`, whose piped value has
+// checkTapStage checks the stage `x |> tap fn v -> body`, whose piped value has
 // type left. The lambda takes the piped value and returns Unit, and the stage
 // answers the piped value itself. A body ending in a `dbg` observation
 // returns Unit, as a Unit function body ending in one does.

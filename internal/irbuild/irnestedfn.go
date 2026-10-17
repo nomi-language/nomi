@@ -73,8 +73,8 @@ func (bl *irScalarBuilder) nestedInstance(fd *ast.FuncDef, name string) bool {
 	}
 	if fd.ReturnTypeExpr != nil {
 		if want := bl.g.typeOf(fd.ReturnTypeExpr); want != kindUnit && irCallableValueKind(want) {
-			// `fn f(): Shape { Spot{n: 3} }`, `fn f(): Display { 5 }`,
-			// `fn f(): Set<Int> { #{} }`: the body and each `return`
+			// `fn f() -> Shape { Spot{n: 3} }`, `fn f() -> Display { 5 }`,
+			// `fn f() -> Set<Int> { #{} }`: the body and each `return`
 			// answer the declared type, widened to it as a module
 			// function's result is (lambdaFunction's declaredFnLambda).
 			prevFor, prev, prevDecl := bl.g.lambdaWantFor, bl.g.lambdaWant, bl.g.declaredFnLambda
@@ -221,7 +221,7 @@ func (g *gen) nestedInstanceArgs(fd *ast.FuncDef, params map[string]bool, ft *an
 		return nil, false
 	}
 	if irUnsolvedType(ft) {
-		// `apply(1, |x| Ok(x + 1))` leaves the error type open and makes no
+		// `apply(1, fn x -> Ok(x + 1))` leaves the error type open and makes no
 		// value of it (spec, "Determined type arguments"): the holes are
 		// filled as a module-level generic call's are, so the instance the
 		// declaration builds and the one this call names agree.

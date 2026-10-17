@@ -11,7 +11,7 @@ package rt
 //	}
 //
 //	impl Iter for Seq<T> {
-//	  fn each_while(s: Seq<T>, yield: (T) -> Bool): Bool { s.run(yield) }
+//	  fn each_while(s: Seq<T>, yield: (T) -> Bool) -> Bool { s.run(yield) }
 //	}
 //
 // A Nomi function value lowers to a Go func with a leading `*Frame`, so
@@ -106,7 +106,7 @@ func ListCount[T any](xs *List[T]) int64 {
 	return ListCellCount[T, List[T]](xs)
 }
 
-// FromEach is std/iter's `host fn from_each(start: Int, yield): Bool` — the
+// FromEach is std/iter's `host fn from_each(start: Int, yield) -> Bool` — the
 // unbounded ascending source.
 //
 // `n++` and not CheckedAdd, which is a divergence from every other Int addition
@@ -120,8 +120,8 @@ func FromEach(fr *Frame, start int64, yield func(fr *Frame, item int64) bool) bo
 	}
 }
 
-// SeqFrom is `pub fn from(start: Int): Iter<Int>`, whose whole body is
-// `Seq{run: |yield: (Int) -> Bool| from_each(start, yield)}`.
+// SeqFrom is `pub fn from(start: Int) -> Iter<Int>`, whose whole body is
+// `Seq{run: fn yield: (Int) -> Bool -> from_each(start, yield)}`.
 func SeqFrom(start int64) Seq[int64] {
 	return Seq[int64]{Run: func(fr *Frame, yield func(fr *Frame, item int64) bool) bool {
 		return FromEach(fr, start, yield)
@@ -133,7 +133,7 @@ func SeqFrom(start int64) Seq[int64] {
 // Each pair below is one Nomi declaration lowered, and the split is the split
 // std itself makes: a `host fn <name>_each` that mediates the protocol, plus a
 // one-line `pub fn <name>` whose entire body is
-// `Seq{run: |yield| <name>_each(...)}`.
+// `Seq{run: fn yield -> <name>_each(...)}`.
 //
 // So `SeqMap` is not a Go reimplementation of `Iter.map` — it is `Iter.map`'s
 // body, which the stdlib lowering path cannot reach because the function is
@@ -148,7 +148,7 @@ func SeqFrom(start int64) Seq[int64] {
 // lets a `take(3)` shut a whole chain down while `concat` still moves on to its
 // second source.
 
-// MapEach is `host fn map_each<T, U>(source: Iter<T>, f: (T) -> U, yield: (U) -> Bool): Bool`.
+// MapEach is `host fn map_each<T, U>(source: Iter<T>, f: (T) -> U, yield: (U) -> Bool) -> Bool`.
 //
 // A Nomi callback may answer with five different control signals — a value,
 // Unit, `continue`, `break v`, or bare `break` — and each maps to a different
@@ -164,14 +164,14 @@ func MapEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) U, yield
 	})
 }
 
-// SeqMap is `pub fn map<T, U>(source: Iter<T>, f: (T) -> U): Iter<U>`.
+// SeqMap is `pub fn map<T, U>(source: Iter<T>, f: (T) -> U) -> Iter<U>`.
 func SeqMap[T, U any](src Seq[T], f func(fr *Frame, item T) U) Seq[U] {
 	return Seq[U]{Run: func(fr *Frame, yield func(fr *Frame, item U) bool) bool {
 		return MapEach(fr, src, f, yield)
 	}}
 }
 
-// FilterEach is `host fn filter_each<T>(source: Iter<T>, pred: (T) -> Bool, yield: (T) -> Bool): Bool`.
+// FilterEach is `host fn filter_each<T>(source: Iter<T>, pred: (T) -> Bool, yield: (T) -> Bool) -> Bool`.
 //
 // Note which value is forwarded: the element, not the predicate's answer. In
 // `filter` the callback's value is the keep/drop decision, which is the one
@@ -185,14 +185,14 @@ func FilterEach[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bool,
 	})
 }
 
-// SeqFilter is `pub fn filter<T>(source: Iter<T>, pred: (T) -> Bool): Iter<T>`.
+// SeqFilter is `pub fn filter<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T>`.
 func SeqFilter[T any](src Seq[T], pred func(fr *Frame, item T) bool) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return FilterEach(fr, src, pred, yield)
 	}}
 }
 
-// TakeEach is `host fn take_each<T>(source: Iter<T>, n: Int, yield: (T) -> Bool): Bool`.
+// TakeEach is `host fn take_each<T>(source: Iter<T>, n: Int, yield: (T) -> Bool) -> Bool`.
 //
 // Two details are observable:
 //
@@ -229,7 +229,7 @@ func TakeEach[T any](fr *Frame, src Seq[T], n int64, yield func(fr *Frame, item 
 	return completed || bounded
 }
 
-// SeqTake is `pub fn take<T>(source: Iter<T>, n: Int): Iter<T>`.
+// SeqTake is `pub fn take<T>(source: Iter<T>, n: Int) -> Iter<T>`.
 func SeqTake[T any](src Seq[T], n int64) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return TakeEach(fr, src, n, yield)
@@ -238,7 +238,7 @@ func SeqTake[T any](src Seq[T], n int64) Seq[T] {
 
 // --- terminals --------------------------------------------------------------
 
-// SeqReduce is `pub host fn reduce<T, U>(source: Iter<T>, f: (U, T) -> U): U`
+// SeqReduce is `pub host fn reduce<T, U>(source: Iter<T>, f: (U, T) -> U) -> U`
 // where the callback declares a first-parameter default — the seed.
 //
 // # Why the seed is a parameter here and not a field of anything

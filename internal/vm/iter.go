@@ -861,7 +861,7 @@ func countValue(m rt.Maybe[int64]) any {
 // entry, a partition's two lists, an index and its element, a zip.
 var pairDesc = rt.TupleDesc(rt.SlotRef, rt.SlotRef)
 
-// pair is the tuple `(a, b)`.
+// pair is the tuple `#(a, b)`.
 func pair(a, b any) any { return pairDesc.Make(a, b) }
 
 // iterCallback reads operand i of n as a function value of the given arity.

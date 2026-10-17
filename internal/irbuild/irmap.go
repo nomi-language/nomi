@@ -175,21 +175,46 @@ func (bl *irScalarBuilder) mapMake(t *ast.MapLit) (ir.Temp, kind, bool, bool) {
 func (bl *irScalarBuilder) mapMakeOf(t *ast.MapLit, wants []kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if t.TypeName != nil {
-		// `Json.Obj{"k" => v}` is the variant call over the anonymous map.
+		// `Json.Obj%{"k" => v}` is the variant call over the anonymous map.
 		anon := *t
 		anon.TypeName = nil
 		return bl.attachedVariant(t, t.TypeName, &anon)
 	}
-	if t.TypeName != nil || len(t.Entries) == 0 {
-		return no()
-	}
 	if t.Spread != nil {
+		if len(t.Entries) == 0 {
+			return no()
+		}
 		return bl.mapUpdate(t, wants)
+	}
+	if len(t.Entries) == 0 {
+		return bl.emptyMapLit(t, wants)
 	}
 	return bl.mapEntries(t, wants)
 }
 
-// mapUpdate builds `{..base, key => value}`: the base, then the entries as
+// emptyMapLit builds `%{}`, the empty map. Like `[]`, it is the map its
+// position makes it when the checker solved the key and value types there,
+// and otherwise the empty map of no type yet.
+func (bl *irScalarBuilder) emptyMapLit(t *ast.MapLit, wants []kind) (ir.Temp, kind, bool, bool) {
+	n := ir.NewMakeMap(bl.g.irNodePos(t), bl.f.NewTemp(), nil)
+	bl.b.Append(n)
+	bl.side(n.Dst(), irScalarSide{k: kindEmptyMap, pureMake: true})
+	parts := wants
+	if len(parts) != 2 {
+		parts = bl.checkedLiteralParts(t, tagMap)
+	}
+	if len(parts) == 2 && irFullyTyped(parts[0]) && irFullyTyped(parts[1]) {
+		want := bl.g.mapKind(parts[0], parts[1])
+		if irRetainedMapKind(want) {
+			if v, k, ok := bl.coerceEmpty(t, n.Dst(), kindEmptyMap, want); ok && k == want {
+				return v, k, true, true
+			}
+		}
+	}
+	return n.Dst(), kindEmptyMap, true, true
+}
+
+// mapUpdate builds `%{..base, key => value}`: the base, then the entries as
 // a map literal, then `Map.merge(base, literal)`, so the entries win and
 // keep the order Map.merge gives them. The checker typed the literal as the
 // base's `Map<K, V>`, which is the kind both operands are lowered to.
@@ -216,7 +241,7 @@ func (bl *irScalarBuilder) mapUpdate(t *ast.MapLit, wants []kind) (ir.Temp, kind
 		return no()
 	}
 	if bk == kindEmptyMap {
-		// `{..Map.empty(), "a" => 1}`: the entries say what the base holds.
+		// `%{..Map.empty(), "a" => 1}`: the entries say what the base holds.
 		if base, bk, ok = bl.coerceEmpty(t.Spread, base, bk, lk); !ok {
 			return no()
 		}
@@ -255,13 +280,13 @@ func (bl *irScalarBuilder) mapEntriesOver(t *ast.MapLit, wants []kind, base ir.T
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	// Keys and values are lowered in source order. Entries whose keys (or
 	// values) differ only by an embedded type join to the enum that embeds
-	// it (`{1 => circle, 2 => shape}` is a `Map<Int, Shape>`), as the
+	// it (`%{1 => circle, 2 => shape}` is a `Map<Int, Shape>`), as the
 	// checker joins them; the embedded ones are widened afterwards.
 	var temps [2][]ir.Temp
 	var items [2][]ast.Node
 	var kinds [2][]kind
 	// A key or value type holding an embedded type's enum below its top
-	// (`Map<Int, (Int, Shape)>`) is each entry's context (literalParts).
+	// (`Map<Int, #(Int, Shape)>`) is each entry's context (literalParts).
 	if wants == nil {
 		wants = bl.literalParts(t, tagMap)
 	}

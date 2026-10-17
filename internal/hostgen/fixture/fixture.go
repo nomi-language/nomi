@@ -48,37 +48,37 @@ pub struct Tagged {
 
 pub host type Box
 
-pub host fn echo(t: Tagged): Tagged
-pub host fn narrow(a: Int, b: Int, c: Int, d: Int, e: Int, f: Int, g: Int, h: Int): Int
-pub host fn biggest(): Int
-pub host fn halve(f: Float): Float
-pub host fn later(t: Instant, by: Duration): Instant
-pub host fn zero_time(): Instant
-pub host fn mirror(p: Maybe<Point>): Maybe<Point>
-pub host fn octets(b: Bytes): Bytes
-pub host fn flip(b: Byte): Byte
-pub host fn shout(s: String): String
-pub host fn negate(b: Bool): Bool
-pub host fn triple(n: Int): (Int, String, Bool)
-pub host fn triple_or_fail(n: Int): Result<(Int, String), String>
-pub host fn nothing(): Unit
-pub host fn nothing_or_fail(fail: Bool): Result<Unit, String>
-pub host fn points(n: Int): List<Point>
-pub host fn new_box(n: Int): Box
-pub host fn box_value(b: Box): Int
-pub host fn apply(f: (Int) -> Int, x: Int): Int
-pub host fn check(f: (Point) -> Bool, p: Point): Bool
-pub host fn attempt(f: (String) -> Result<Int, String>, s: String): Result<Int, String>
-pub host fn run(f: () -> Result<Unit, String>): Result<Unit, String>
-pub host fn visit(f: (Int) -> Unit, n: Int): Unit
+pub host fn echo(t: Tagged) -> Tagged
+pub host fn narrow(a: Int, b: Int, c: Int, d: Int, e: Int, f: Int, g: Int, h: Int) -> Int
+pub host fn biggest() -> Int
+pub host fn halve(f: Float) -> Float
+pub host fn later(t: Instant, by: Duration) -> Instant
+pub host fn zero_time() -> Instant
+pub host fn mirror(p: Maybe<Point>) -> Maybe<Point>
+pub host fn octets(b: Bytes) -> Bytes
+pub host fn flip(b: Byte) -> Byte
+pub host fn shout(s: String) -> String
+pub host fn negate(b: Bool) -> Bool
+pub host fn triple(n: Int) -> #(Int, String, Bool)
+pub host fn triple_or_fail(n: Int) -> Result<#(Int, String), String>
+pub host fn nothing() -> Unit
+pub host fn nothing_or_fail(fail: Bool) -> Result<Unit, String>
+pub host fn points(n: Int) -> List<Point>
+pub host fn new_box(n: Int) -> Box
+pub host fn box_value(b: Box) -> Int
+pub host fn apply(f: (Int) -> Int, x: Int) -> Int
+pub host fn check(f: (Point) -> Bool, p: Point) -> Bool
+pub host fn attempt(f: (String) -> Result<Int, String>, s: String) -> Result<Int, String>
+pub host fn run(f: () -> Result<Unit, String>) -> Result<Unit, String>
+pub host fn visit(f: (Int) -> Unit, n: Int) -> Unit
 
 pub struct Query {
   path: String
   params: Map<String, List<String>>
 }
 
-pub host fn query(path: String, words: List<String>): Query
-pub host fn sizes(m: Map<String, List<String>>): Map<String, Int>
+pub host fn query(path: String, words: List<String>) -> Query
+pub host fn sizes(m: Map<String, List<String>>) -> Map<String, Int>
 `
 
 // Point is `ffx.Point`.

@@ -151,7 +151,7 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 			return no()
 		}
 		if inner, viewed := bl.innerSourceElem(r); viewed {
-			// `|s| s` answering a String, a Range, a Set or a Vector: each
+			// `fn s -> s` answering a String, a Range, a Set or a Vector: each
 			// result is mapped, then viewed as the Iter it is.
 			view, ok := bl.sourceViewFunc(t, r, inner)
 			if !ok {

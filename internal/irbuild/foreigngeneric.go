@@ -179,7 +179,7 @@ func (g *gen) foreignTemplate(name string) (foreignTemplateRef, bool) {
 // foreignTemplateAt resolves the template another user file declares as
 // `name`, where that file is the one whose analyzer origin is `origin`: the
 // template of an instance the CHECKER solved at a position the program never
-// spells (`|t|` over a `List<Tree<String>>` whose `Tree` another file
+// spells (`fn t ->` over a `List<Tree<String>>` whose `Tree` another file
 // declares). By origin rather than through this file's imports, for
 // siblingOwner's reason.
 func (g *gen) foreignTemplateAt(origin, name string) (foreignTemplateRef, bool) {

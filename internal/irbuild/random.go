@@ -72,7 +72,7 @@ var randomSeedKind = sync.OnceValue(func() kind {
 	return opaqueKindOfGoType(reflect.TypeFor[rt.Seed]())
 })
 
-// generatorFieldKind is `Generator<T>`'s one field: `(Seed) -> (T, Seed)`.
+// generatorFieldKind is `Generator<T>`'s one field: `(Seed) -> #(T, Seed)`.
 //
 // The first field in either struct family whose kind is a FUNCTION, and it
 // composes two structural constructors over an anchored opaque newtype. Both

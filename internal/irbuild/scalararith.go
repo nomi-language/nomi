@@ -10,7 +10,7 @@ import (
 // # These are the same operation as `+`, at a different source position
 //
 // std/int.nomi declares `impl Add<Int, Int> for Int { host fn add(lhs: Int, rhs:
-// Int): Int }` and eight siblings across int, float and strings. Those nine
+// Int) -> Int }` and eight siblings across int, float and strings. Those nine
 // declarations ARE the definitions of `+ - * /` on the scalars, and native.go's
 // arith() lowers the OPERATOR spelling natively. So nothing here is a new
 // operation; this is the route from the written-out spelling to the same rt

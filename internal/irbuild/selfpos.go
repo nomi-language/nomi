@@ -9,7 +9,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 //
 // "Argument zero is the receiver" is false in BOTH directions:
 //
-//   - ZERO self positions. `FromJson.from_json(json: Json): Result<self, …>`
+//   - ZERO self positions. `FromJson.from_json(json: Json) -> Result<self, …>`
 //     declares self only in its RETURN. Probing argument zero there reads an
 //     argument list that does not contain a receiver at all; the implementation
 //     has to come from the type-parameter binding instead.
@@ -21,7 +21,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 //     for the one whose declared type IS `self` (`isSelfPositionParam`,
 //     analysis/checker.go). Hardcoding argument 0 agrees with it only by
 //     COINCIDENCE — every stdlib interface happens to declare self first — and
-//     `interface Tagger { fn tag(label: String, target: self): String }` is the
+//     `interface Tagger { fn tag(label: String, target: self) -> String }` is the
 //     shape that separates them.
 //
 // Each of those is two places computing "which argument is the receiver" and
@@ -32,7 +32,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 //
 // A PROTOCOL CONFORMANCE question is a different question and must not be
 // routed here. `iter.go` asks whether a declaration is shaped exactly like
-// `Iter`'s `each_while(collection: self, yield: (T) -> Bool): Bool` — a fixed
+// `Iter`'s `each_while(collection: self, yield: (T) -> Bool) -> Bool` — a fixed
 // shape it then emits a fixed lowering for — and "self must be at index 0" is
 // part of the SHAPE it requires, not an assumption about where receivers live.
 // Collapsing the two would create a shared helper whose callers need different

@@ -30,7 +30,7 @@ func funcShapeDiffers(param, arg Type) bool {
 
 // headDiffers reports a generic parameter and an argument whose outermost
 // type constructors differ, where both are fixed: `Set<T>` given Unit or an
-// Int, `List<T>` given a String, `(A, B)` given a three-tuple. No type
+// Int, `List<T>` given a String, `#(A, B)` given a three-tuple. No type
 // argument makes them equal, so the argument is a mismatch even though the
 // parameter's type variables are unsolved. As in funcShapeDiffers, a bare
 // type parameter or inference variable, an interface, a distinct type, Any
