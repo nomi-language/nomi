@@ -7,7 +7,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/list-ops.
 ## Choices
 
 - `foldl` is the one primitive, a tail-recursive `case` over `[]` and `[head, ..tail]`. `foldr` is `foldl` over the reversed list, and `reverse`, `length`, `append`, `concat`, `filter` and `map` are folds.
-- `append` is `foldr(first, second, |rest, item| [item, ..rest])`: the first list folded onto the second.
+- `append` is `foldr(first, second, fn rest, item -> [item, ..rest])`: the first list folded onto the second.
 - Both folds call `f(accumulator, item)`, the argument order the canonical data's reimplemented cases fix.
 - The direction-dependent fold cases use `Float` lists, since `el / acc` on the canonical numbers is fractional and Nomi has one `/` per type.
 - The functions are file-level and called `list_ops.map(...)`; the names do not clash with `Iter.map` because file qualification keeps them apart.

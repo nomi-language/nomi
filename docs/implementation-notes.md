@@ -16,7 +16,7 @@ applies to struct-shaped enum variant payloads (`HttpError {status: Int, ...}`)
 and to struct literals (named `Point{x: 3, y: 4}` and anonymous
 `{x: 3, y: 4}`), since the surface syntax is identical. An anonymous struct
 nested inside another type expression also breaks at its own column:
-`(String, {long anon})`, `List<{long anon}>` and
+`#(String, {long anon})`, `List<{long anon}>` and
 `Map<String, List<{long anon}>>` all keep the outer container inline and flow
 the inner anonymous struct multi-line. The one exception is an anonymous struct
 inside a function type's parameter list (`({long anon}) -> R`): the function
@@ -83,8 +83,8 @@ per line keeps one row per line.
 A lambda body written in braces whose first statement starts on a line below the `{` stays a block,
 each statement on its own line, however short; this is Prettier's rule that
 a line break after an object literal's `{` keeps it expanded. A braced body
-whose contents start on the `{` line (`|x| { x + 1 }`) and a bare body
-(`|x| x + 1`) are laid out by width, one expression going on the
+whose contents start on the `{` line (`fn x -> { x + 1 }`) and a bare body
+(`fn x -> x + 1`) are laid out by width, one expression going on the
 parameters' line without braces when it fits. When it does not fit, the
 formatter writes the body as a braced block below the parameters, as
 rustfmt writes a closure, wherever the lambda stands: a call argument, a
@@ -92,7 +92,7 @@ named argument, a pipe or `then`/`tap` stage, a binding, a struct field or
 a list item (`openBraceWhenBroken` and `closeBraceWhenBroken`, inside the
 lambda's own Group). An `if` that holds `break`, `continue` or `return`
 always goes there, broken. The parser builds the same tree for
-`|x| { e }` and `|x| e`, a `Block` holding one `ExprStmt`, and records the
+`fn x -> { e }` and `fn x -> e`, a `Block` holding one `ExprStmt`, and records the
 `{` line and the first statement's line, which is all the formatter reads
 (`lambdaKeepsBlock` in `internal/format/emit.go`). So the braces the
 formatter adds stay on later runs, even after the body shrinks to fit the
@@ -129,7 +129,7 @@ fits, since three levels of brackets on one line are hard to match up
 (`maxCompoundDepth` and `compoundDepth` in `internal/format/emit.go`). Each
 of those literals and patterns adds a level. A call (`Ok(...)`), an enum
 pattern's payload, a tuple, an `as` or `or` pattern and parentheses add
-none but pass their contents' depth through, so `[("a", #[#[0, 1]])]` is
+none but pass their contents' depth through, so `[#("a", #[#[0, 1]])]` is
 three deep. Only the literal or pattern that reaches the depth breaks for
 it: its elements are laid out on their own merits, by width and by their
 own depth, so `[R{p: P{x: 0, y: 0}, n: 1}]` breaks the list and keeps
@@ -157,7 +157,7 @@ and type parameters, a tuple or variant pattern, a tuple destructure, a list
 ending in a spread, and a call with one argument. Parentheses around an
 expression holding a comment stay, the comment inside them. A lambda header
 whose only comments each end the line of a parameter other than the last
-keeps its own layout, the first parameter on the `|` line.
+keeps its own layout, the first parameter on the `fn` line.
 
 ## Formatter: comments with no slot
 

@@ -189,7 +189,7 @@ With nvim-dap installed:
   starts a task cannot go back, and the session says why.
 - In a paused session, `:NomiDebug target` is nvim-dap's
   `step_into({ askForTargets = true })`: it lists the calls on the paused
-  line, lambdas passed to `Iter` adapters included (`Iter.map(|n| ...)
+  line, lambdas passed to `Iter` adapters included (`Iter.map(fn n -> ...)
   callback`), and steps into the one you pick. If the line finishes without
   calling it, the step stops at the next statement and the REPL says so.
 - `:NomiDebug break transact` toggles a function breakpoint, which stops at

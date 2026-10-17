@@ -628,7 +628,7 @@ The spec is canonical; these are the rules most often gotten wrong.
 - **Type bodies are newline-separated items.** Struct fields are bare
   `name: Type` lines with no commas and no `field` keyword. An interface
   declares functions only; a value every implementor must supply is a
-  function requirement (`fn name(value: self): String`, called
+  function requirement (`fn name(value: self) -> String`, called
   `HasName.name(x)` or `T.name(x)`). Enum variants are bare, one per line,
   no `|`.
   Behavior lives in `impl Type { ... }` and `impl Iface for Type { ... }`
@@ -659,7 +659,7 @@ The spec is canonical; these are the rules most often gotten wrong.
 - **Naming.** Types PascalCase; functions, bindings and parameters snake_case.
 - **Values are immutable; closures capture values at creation.** `return` and
   `try` inside a lambda exit the lambda.
-- **Scoped application fields.** `fn boot(startup: Startup): App`, in an
+- **Scoped application fields.** `fn boot(startup: Startup) -> App`, in an
   entry file, returns the app struct, which has at most one `Context` field
   (boot builds it with `Context.root()`). Its fields are read as `App.field`.
   The statement `with App.field = value` replaces one field from that line to

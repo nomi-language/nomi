@@ -30,8 +30,8 @@ import {
 type Sql String
 
 impl Literal for Sql {
-    fn from_fragments(fragments: List<Fragment<String>>): Sql {
-        body = Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Sql {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + "'" + v + "'"
@@ -78,8 +78,8 @@ struct Box {
 }
 
 impl Literal for Box {
-    fn from_fragments(fragments: List<Fragment<String>>): Box {
-        body = Iter.reduce(fragments, |acc = "", frag| {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Box {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -134,7 +134,7 @@ import {
 
 once letters = Regex`[A-Za-z]+`
 
-fn main(): Result<Unit, String> {
+fn main() -> Result<Unit, String> {
     digits: Regex = Regex`\d+`
     prefixed = try Regex"room ${Regex.pattern(digits)}"
     text = "room 42, floor 7"

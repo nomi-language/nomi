@@ -35,7 +35,7 @@ import {
     std/calendar.DateTime
 }
 
-fn main(): Result<Unit, Error> {
+fn main() -> Result<Unit, Error> {
     d = try Date"2026-06-15"
     dbg d
 
@@ -69,7 +69,7 @@ import {
     std/calendar.Date
 }
 
-fn main(): Result<Unit, Error> {
+fn main() -> Result<Unit, Error> {
     start = try Date"2026-05-04"
     jan31 = try Date"2026-01-31"
     leap = try Date"2024-02-29"
@@ -155,7 +155,7 @@ import {
     std/calendar.DateTime
 }
 
-fn main(): Result<Unit, Error> {
+fn main() -> Result<Unit, Error> {
     ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
     paris = try DateTime"2026-06-15T18:00:00+02:00[Europe/Paris]"
 
@@ -185,7 +185,7 @@ import {
     std/duration.Duration
 }
 
-fn main(): Result<Unit, Error> {
+fn main() -> Result<Unit, Error> {
     start = try DateTime"2026-03-07T12:00:00-05:00[America/New_York]"
     civil = start + Days(1)
     physical = start + Duration.hours(24)
@@ -240,7 +240,7 @@ import {
     std/calendar.{DateTime}
 }
 
-fn main(): Result<Unit, Error> {
+fn main() -> Result<Unit, Error> {
     ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
     tokyo = try DateTime.with_zone(ny, "Asia/Tokyo")
     dbg tokyo
@@ -272,7 +272,7 @@ import {
     std/instant.Instant
 }
 
-fn main(): Result<Unit, Error> {
+fn main() -> Result<Unit, Error> {
     // 2026-11-01 01:30 NY happens twice (2am EDT rolls back to 1am EST).
     naive = try NaiveDateTime"2026-11-01T01:30:00"
 
@@ -331,7 +331,7 @@ import {
     std/calendar.{DateTime}
 }
 
-fn main(): Result<Unit, Error> {
+fn main() -> Result<Unit, Error> {
     now = try DateTime.now_in("America/New_York")
     dbg now // example: dbg line 6: now = 2026-05-26T17:42:00-04:00[America/New_York]
     Ok(Unit)

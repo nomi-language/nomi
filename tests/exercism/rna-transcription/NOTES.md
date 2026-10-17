@@ -29,10 +29,10 @@ Adapted from Exercism problem-specifications (MIT), exercises/rna-transcription.
     |
   7 |     |> Result.map(String.join)
     |                   ^^^^^^^^^^^
-    = help: defaults do not apply to a function value, so pass a lambda that calls it: |a| String.join(a)
+    = help: defaults do not apply to a function value, so pass a lambda that calls it: fn a -> String.join(a)
   ```
 
-  The help is clear, and `|parts| String.join(parts)` works. It is the one
+  The help is clear, and `fn parts -> String.join(parts)` works. It is the one
   place in these exercises where style §22's "pass the function, not a
   lambda" could not be followed. Gleam has no defaults; in Elixir
   `&Enum.join/1` names the one-argument arity, which is what this wants.

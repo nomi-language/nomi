@@ -8,7 +8,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/bob.
 ## Choices
 
 - Silence leaves early with `if remark == "" { return ... }`, and the other
-  four answers are a `case` on the tuple `(question, shouting)` with all four
+  four answers are a `case` on the tuple `#(question, shouting)` with all four
   Bool pairs written out. The checker proves the four arms exhaustive, and the
   table reads as the problem's rules. A chain of `else if`s was the
   alternative.

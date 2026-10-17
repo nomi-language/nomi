@@ -181,20 +181,20 @@ T
 C collections.md:L219
 E 0
 N 0
-H 980f2b0c1091047fe11e3aecf7ac7a95eab7c7db8b8774a806250811667bbf4a
+H 5fe513e0d9c0eb1756b2f3513b3fa3ea3fdd696b721ebcb0e5d146d9c19a45a9
 T dbg line 7: ["Ada", ..xs] = ["Ada", "Bo"]
 T dbg line 8: #[..v, "Cy"] = #["Bo", "Cy"]
 T dbg line 9: #["Ada", ..v] = #["Ada", "Bo"]
 T dbg line 10: #{..s, "blue"} = #{"red", "blue"}
-T dbg line 11: {..m, "port" => "9090", "user" => "ada"} = {"host" => "localhost", "port" => "9090", "user" => "ada"}
+T dbg line 11: %{..m, "port" => "9090", "user" => "ada"} = %{"host" => "localhost", "port" => "9090", "user" => "ada"}
 T
 C collections.md:L252
 E 0
 N 0
-H 86aa770d3eea4710509c105a2cd7cce4ee1e6c814c9c72c7caef1f70049a04b7
+H f82d1b73a696564942d66c6d4a9191257ce8bd5c5add885ba9af5348cdd97b07
 T dbg line 9: {..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: #{.., "blue"}} = Team{members: ["Ada", "Bo"], roster: #["Bo", "Cy"], tags: #{"red", "blue"}}
-T dbg line 13: {..teams, "hawks" => {.., "city" => "Atlanta"}, "kites" => {.., "city" => "Leeds"}} = {"hawks" => {"name" => "Hawks", "city" => "Atlanta"}, "kites" => {"city" => "Leeds"}}
-T dbg line 14: {..scores, "ada" => [5, ..], "bob" => [1, ..]} = {"ada" => [5, 3], "bob" => [1]}
+T dbg line 13: %{..teams, "hawks" => %{.., "city" => "Atlanta"}, "kites" => %{.., "city" => "Leeds"}} = %{"hawks" => %{"name" => "Hawks", "city" => "Atlanta"}, "kites" => %{"city" => "Leeds"}}
+T dbg line 14: %{..scores, "ada" => [5, ..], "bob" => [1, ..]} = %{"ada" => [5, 3], "bob" => [1]}
 T
 C collections.md:L293
 E 0
@@ -257,11 +257,11 @@ T
 C collections.md:L73
 E 0
 N 0
-H 5b82168a712e1031ae1de76f0da1d7aab2dd9bf1853e45a15f53e3a41de492b3
+H f53d3738b6e5a474e130b498522620100f4f9e3b4c35ab6c94dd53b79d901240
 T dbg line 8:
 T   xs
-T   |> Iter.filter(|n| n > 2)
-T   |> Iter.map(|n| n * n)
+T   |> Iter.filter(fn n -> n > 2)
+T   |> Iter.map(fn n -> n * n)
 T   |> Iter.sum()
 T   = 50
 T
@@ -406,17 +406,17 @@ T
 C functions-and-lambdas.md:L161
 E 0
 N 0
-H 50186f7fae2f0e3eae313cd0715e9352453557deb04a1d53e60d14a91c83bdcb
+H 2dd345f90f7d867c1f990360e879b4c0045f7be19a25e6aa0bd1d7472f6741ee
 T dbg line 22: diff = 7
 T dbg line 23: sum_point(Point{x: 4, y: 5}) = 9
-T dbg line 24: add_pair((20, 22)) = 42
+T dbg line 24: add_pair(#(20, 22)) = 42
 T
 C functions-and-lambdas.md:L209
 E 0
 N 0
-H 6baeef16df6220c5a28e4fa6065158c36e915c50e937ca11c4737822e073a9f5
-T dbg line 10: transform(5, |x| x + 1) = 6
-T dbg line 11: transform(5, factor: 3, |x| x + 1) = 16
+H 1b3f2615e5310cafc065aef3b352e88fdd3769495725b2a187d165775ed4973f
+T dbg line 10: transform(5, fn x -> x + 1) = 6
+T dbg line 11: transform(5, factor: 3, fn x -> x + 1) = 16
 T dbg line 12: transform(5, factor: 3, double) = 30
 T
 C functions-and-lambdas.md:L49
@@ -440,8 +440,8 @@ T
 C generics.md:L17
 E 0
 N 0
-H 64b98937e1d2b1632aa128962203366068eb29b48a6cda8d9d468f14eb6dea1a
-T dbg line 6: pair("age", 30) = ("age", 30)
+H db706acb39de43e548131a3b1d115db125e48ed71d7592eec7f7edc12e57fdcd
+T dbg line 6: pair("age", 30) = #("age", 30)
 T
 C generics.md:L39
 E 0
@@ -528,10 +528,10 @@ T
 C interfaces-and-dispatch.md:L592
 E 0
 N 0
-H 21a4d30d1a44789ef5c7ae1f3a29aa4c38146ec8530dfcd9c9d9e1ca5f3ae4d0
+H 34c5c9d41923611f88ff0f6b4007e863d1fbfa1310b14c310e20dcbb46817ff7
 T dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True
 T dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
-T dbg line 9: {Point{x: 1, y: 2} => "home"} = {Point{x: 1, y: 2} => "home"}
+T dbg line 9: %{Point{x: 1, y: 2} => "home"} = %{Point{x: 1, y: 2} => "home"}
 T
 C interfaces-and-dispatch.md:L640
 E 0
@@ -703,11 +703,11 @@ T
 C pipes.md:L112
 E 0
 N 0
-H 1fd4c42f4279988677cdeb4658ac6572ea1a26b997b1289680614f7d773e503c
+H b396ae5f545e564664c7eeb54458e8dcb39b1731de010be431e918c0f6aef987
 T dbg line 12:
 T   1
 T   |> find_name()
-T   |> then |name| name == Some("Ada")
+T   |> then fn name -> name == Some("Ada")
 T   = True
 T
 C pipes.md:L13
@@ -765,21 +765,21 @@ T
 C pipes.md:L39
 E 0
 N 0
-H 4076e3c23ac98d168838a83d4f57cb7aaed40df2fc4bd16871f864f683ae6c8c
+H 4ad04993f35496192d8c7ca935fe83337ccce67c3e61116770b8bd792633c6e1
 T dbg line 5:
 T   [1, 2, 3]
-T   |> Iter.map(|n| n * n)
+T   |> Iter.map(fn n -> n * n)
 T   |> Iter.to_list()
 T   = [1, 4, 9]
 T
 C pipes.md:L61
 E 0
 N 0
-H a409a61eaa17b89bff6721580bd0c59cc9aa3a821caeec18d6f6ba3840fe2fd5
-T dbg line 3: Iter.count(Iter.filter([1, 2, 3, 4, 5], |n| n > 2)) = 3
+H 99bc577b14cfb5d9f5c0be4726bdd036ed3836dc94da4a8568cb091250e5d7d6
+T dbg line 3: Iter.count(Iter.filter([1, 2, 3, 4, 5], fn n -> n > 2)) = 3
 T dbg line 9:
 T   [1, 2, 3, 4, 5]
-T   |> Iter.filter(|n| n > 2)
+T   |> Iter.filter(fn n -> n > 2)
 T   |> Iter.count()
 T   = 3
 T
@@ -927,12 +927,12 @@ T
 C structs-enums-distinct.md:L188
 E 0
 N 0
-H 2272c1602630930d1dc211b873489bd1c20cfb873f9107e8977f477558512549
-T dbg line 5: pair = ("Ada", 37)
+H 089d10d46b62826d8a9ff67542e375e3cb7a62e48f849daf4ed49b0b08af9f95
+T dbg line 5: pair = #("Ada", 37)
 T dbg line 6: name = "Ada"
 T dbg line 7: pair.1 = 37
 T
-C structs-enums-distinct.md:L216
+C structs-enums-distinct.md:L217
 E 0
 N 0
 H 96b9697e94d58a32b955a7aec8e4503295c4ec4bbc14daef77220f66ef39b634
@@ -952,7 +952,7 @@ T dbg line 9: alice.age = 30
 T dbg line 13: bob.age = 0
 T dbg line 20: carol = User{name: "Carol", age: 28}
 T
-C structs-enums-distinct.md:L249
+C structs-enums-distinct.md:L250
 E 0
 N 0
 H 3d6ac3fcbf0c99996365e81d5df22af7ccc3df35694c74d9a23623be6559400f
@@ -960,14 +960,14 @@ T dbg line 10: id = Id(42)
 T dbg line 14: n = 42
 T dbg line 16: raw(id) = 42
 T
-C structs-enums-distinct.md:L290
+C structs-enums-distinct.md:L291
 E 0
 N 0
 H caa2c7537f180822fbe1354f21b84575c40aa9aa16d97536f082e01cd1abf304
 T dbg line 7: state = Expired
 T dbg line 8: Online = Online
 T
-C structs-enums-distinct.md:L316
+C structs-enums-distinct.md:L317
 E 0
 N 0
 H dc5d10561384c90bcfd162c700b3d04eea6cc2ac5744299c64bb221a7d67fb62
@@ -975,31 +975,31 @@ T dbg line 14: Direction.North = North
 T dbg line 17: c = Circle(3.0)
 T dbg line 20: r = Rectangle{width: 4.0, height: 5.0}
 T
-C structs-enums-distinct.md:L352
+C structs-enums-distinct.md:L353
 E 0
 N 0
 H 38c6069ff4a4e3f28c2d1c5d6802955c4e74334b35bc0dd40c90dec518aca38e
 T dbg line 21: describe(.North) = "up"
 T dbg line 22: describe(.West) = "left"
 T
-C structs-enums-distinct.md:L393
+C structs-enums-distinct.md:L394
 E 0
 N 0
 H 2173ea1bbc0759a94c9aa3b8ed9eec733df5655d591eb881c020f7cd4a8cc0e5
 T dbg line 18: User.full_name(alice) = "Ada Lovelace"
 T dbg line 21: User.full_name(renamed) = "Augusta Lovelace"
 T
-C structs-enums-distinct.md:L444
+C structs-enums-distinct.md:L445
 E 0
 N 0
 H c2c34c1d0c53993b4411a413b1e27710756f1df5b9d9a071651a1687086dcf10
 T dbg line 22: events = [Click{x: 10, y: 20}, KeyDown{key: "Enter"}, FocusLost]
 T
-C structs-enums-distinct.md:L490
+C structs-enums-distinct.md:L491
 E 0
 N 0
-H d48d42c1015d3886702000c505a3b231b0b1394774b33069ad6899bd37ea03a6
-T dbg line 21: result = {"evens" => [4, 2], "odds" => [1]}
+H 146e277c6689f3178c5dda691a859dae1ee257987a25d16620ccfa1295befd86
+T dbg line 21: result = %{"evens" => [4, 2], "odds" => [1]}
 T
 C structs-enums-distinct.md:L62
 E 0

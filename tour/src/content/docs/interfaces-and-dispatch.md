@@ -24,7 +24,7 @@ or through the interface's name, as in
 import std/io
 
 interface Speech {
-    fn speak(animal: self): String
+    fn speak(animal: self) -> String
 }
 
 struct Dog {
@@ -32,7 +32,7 @@ struct Dog {
 }
 
 impl Speech for Dog {
-    fn speak(d: Dog): String {
+    fn speak(d: Dog) -> String {
         "${d.name} says woof"
     }
 }
@@ -42,7 +42,7 @@ struct Cat {
 }
 
 impl Speech for Cat {
-    fn speak(c: Cat): String {
+    fn speak(c: Cat) -> String {
         "${c.name} says meow"
     }
 }
@@ -76,7 +76,7 @@ impl:
 import std/io
 
 interface Speech {
-    fn speak(animal: self): String
+    fn speak(animal: self) -> String
 }
 
 struct Dog {
@@ -84,7 +84,7 @@ struct Dog {
 }
 
 impl Speech for Dog {
-    fn speak(d: Dog): String {
+    fn speak(d: Dog) -> String {
         "${d.name} says woof"
     }
 }
@@ -136,15 +136,15 @@ A type can't replace a default unless the interface marks it `open`:
 import std/io
 
 interface Formatted {
-    fn label(value: self): String
+    fn label(value: self) -> String
 
     // Final default — overriding it is a compile error.
-    fn shout(value: self): String {
+    fn shout(value: self) -> String {
         "${label(value)}!"
     }
 
     // Open default — implementors MAY override.
-    open fn brief(value: self): String {
+    open fn brief(value: self) -> String {
         label(value)
     }
 }
@@ -154,12 +154,12 @@ struct User {
 }
 
 impl Formatted for User {
-    fn label(u: User): String {
+    fn label(u: User) -> String {
         u.name
     }
 
     // `brief` is `open`, so this override is allowed.
-    fn brief(u: User): String {
+    fn brief(u: User) -> String {
         "user:${u.name}"
     }
 }
@@ -201,9 +201,9 @@ an error.
 import std/io
 
 interface Scale {
-    fn unit(value: self): String
+    fn unit(value: self) -> String
 
-    fn format(value: self): String where self: Display {
+    fn format(value: self) -> String where self: Display {
         "${value} ${unit(value)}"
     }
 }
@@ -211,13 +211,13 @@ interface Scale {
 type Grams Int
 
 impl Display for Grams {
-    fn to_string(Grams(n)): String {
+    fn to_string(Grams(n)) -> String {
         "${n}"
     }
 }
 
 impl Scale for Grams {
-    fn unit(_g: Grams): String {
+    fn unit(_g: Grams) -> String {
         "g"
     }
 }
@@ -226,11 +226,11 @@ type Secret Int
 
 // No Display, so Secret writes `format` itself.
 impl Scale for Secret {
-    fn unit(_s: Secret): String {
+    fn unit(_s: Secret) -> String {
         "?"
     }
 
-    fn format(_s: Secret): String {
+    fn format(_s: Secret) -> String {
         "hidden"
     }
 }
@@ -267,25 +267,25 @@ type Celsius Decimal
 type Fahrenheit Decimal
 
 interface Temperature {
-    fn unit(t: self): String
+    fn unit(t: self) -> String
 
-    fn label(self(n) as t): String where self: Distinct<Decimal> {
+    fn label(self(n) as t) -> String where self: Distinct<Decimal> {
         "${Decimal.round(n, 1, .HalfUp)} ${Temperature.unit(t)}"
     }
 
-    fn scale(self(n), by: Decimal): self where self: Distinct<Decimal> {
+    fn scale(self(n), by: Decimal) -> self where self: Distinct<Decimal> {
         self(n * by)
     }
 }
 
 impl Temperature for Celsius {
-    fn unit(_t: Celsius): String {
+    fn unit(_t: Celsius) -> String {
         "C"
     }
 }
 
 impl Temperature for Fahrenheit {
-    fn unit(_t: Fahrenheit): String {
+    fn unit(_t: Fahrenheit) -> String {
         "F"
     }
 }
@@ -364,7 +364,7 @@ struct User {
 }
 
 impl Display for User {
-    fn to_string(u: User): String {
+    fn to_string(u: User) -> String {
         "${u.name} (${u.age})"
     }
 }
@@ -387,7 +387,7 @@ A generic function can require its type parameter to implement an interface.
 Each call is checked against that requirement:
 
 ```nomi-run
-fn first_two_sorted<T>(xs: List<T>): List<T> where T: Comparable {
+fn first_two_sorted<T>(xs: List<T>) -> List<T> where T: Comparable {
     xs
     |> Iter.sort()
     |> Iter.take(2)
@@ -422,9 +422,9 @@ its body if it has one. If it needs its own type parameter, declare it in
 
 ```nomi ignore
 interface Ranked<T> {
-    fn item(value: self): T
+    fn item(value: self) -> T
 
-    fn prefer<K>(_value: self, lhs: K, rhs: K): Bool where K: Comparable {
+    fn prefer<K>(_value: self, lhs: K, rhs: K) -> Bool where K: Comparable {
         case Comparable.compare(lhs, rhs) {
             .Less -> False
             _ -> True
@@ -453,33 +453,33 @@ scores, and adding a number of days to a day:
 ```nomi-run
 type Score Int
 
-fn score_number(score: Score): Int {
+fn score_number(score: Score) -> Int {
     Score(n) = score
     n
 }
 
 type Day Int
 
-fn day_number(day: Day): Int {
+fn day_number(day: Day) -> Int {
     Day(n) = day
     n
 }
 
 type Days Int
 
-fn days_number(days: Days): Int {
+fn days_number(days: Days) -> Int {
     Days(n) = days
     n
 }
 
 impl Add<Score, Score> for Score {
-    fn add(lhs: Score, rhs: Score): Score {
+    fn add(lhs: Score, rhs: Score) -> Score {
         Score(score_number(lhs) + score_number(rhs))
     }
 }
 
 impl Add<Days, Day> for Day {
-    fn add(lhs: Day, rhs: Days): Day {
+    fn add(lhs: Day, rhs: Days) -> Day {
         Day(day_number(lhs) + days_number(rhs))
     }
 }
@@ -530,7 +530,7 @@ struct User {
 derive ToJson for User with ToJson.Options{rename_all: Camel}
 derive FromJson for User with FromJson.Options{rename_all: Camel}
 
-fn main(): Result<Unit, Json.ShapeError> {
+fn main() -> Result<Unit, Json.ShapeError> {
     user = User{first_name: "Ada", age: 36}
     shape = User.to_json(user)
 
@@ -598,14 +598,14 @@ struct Point {
 fn main() {
     dbg Point{x: 1, y: 2} == Point{x: 1, y: 2}
     dbg Point{x: 1, y: 2} == Point{x: 1, y: 3}
-    dbg {Point{x: 1, y: 2} => "home"}
+    dbg %{Point{x: 1, y: 2} => "home"}
 }
 
 ```
 <!-- expect
 dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True
 dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
-dbg line 9: {Point{x: 1, y: 2} => "home"} = {Point{x: 1, y: 2} => "home"}
+dbg line 9: %{Point{x: 1, y: 2} => "home"} = %{Point{x: 1, y: 2} => "home"}
 -->
 
 You still sometimes need `derive Equatable` or `derive Hashable`, for one of
@@ -616,8 +616,8 @@ types that implement `Equatable`. Built-in `==` doesn't count. Without the
 derive, this call is a compile error:
 
 ```nomi
-fn contains<T>(xs: List<T>, needle: T): Bool where T: Equatable {
-    Iter.any?(xs, |x| x == needle)
+fn contains<T>(xs: List<T>, needle: T) -> Bool where T: Equatable {
+    Iter.any?(xs, fn x -> x == needle)
 }
 
 contains([Point{x: 1, y: 2}], Point{x: 1, y: 2})
@@ -705,7 +705,7 @@ enum Coin {
 
 derive Variants for Coin
 
-fn cents(coin: Coin): Int {
+fn cents(coin: Coin) -> Int {
     case coin {
         .Penny -> 1
         .Nickel -> 5
@@ -819,14 +819,14 @@ on a `User`, an `Order` and an `Invoice` is three different kinds of id. A
 function that accepted all three by accident would hide mistakes. Nomi gives
 you three explicit ways instead:
 
-1. Declare an interface. A function such as `fn name(value: self): String`
+1. Declare an interface. A function such as `fn name(value: self) -> String`
    gives every type that implements it the same way to get a name. Each type
    opts in with an `impl` block.
 2. Build an anonymous struct at the call, such as
    `distance({x: p.x, y: p.y}, {x: q.x, y: q.y})`. The call shows exactly
    which fields it passes.
 3. Declare a type for the purpose and a function that converts to it, such
-   as `fn to_coord(p: Point): Coord2D { … }`.
+   as `fn to_coord(p: Point) -> Coord2D { … }`.
 
 Use an interface when several types should share the behavior for a long
 time. Build an anonymous struct when one call needs a different shape.

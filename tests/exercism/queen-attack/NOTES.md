@@ -14,4 +14,4 @@ Adapted from Exercism problem-specifications (MIT), exercises/queen-attack.
 
 ## Friction
 
-- [verbose] `nomi fmt` never breaks a `subtests` header (`emitSubtests` in `internal/format/emit.go`), so a row pattern that names every column runs past 100 columns. `subtests cases, (_description, (white_row, white_column), (black_row, black_column), expected) {` was 104 columns, and the solution shortened the names to `white_col` and `black_col`. Fixed: a header too long for its line breaks its tuple pattern one element per line, and the table uses the full names again.
+- [verbose] `nomi fmt` never breaks a `subtests` header (`emitSubtests` in `internal/format/emit.go`), so a row pattern that names every column runs past 100 columns. `subtests cases, #(_description, #(white_row, white_column), #(black_row, black_column), expected) {` was 104 columns, and the solution shortened the names to `white_col` and `black_col`. Fixed: a header too long for its line breaks its tuple pattern one element per line, and the table uses the full names again.

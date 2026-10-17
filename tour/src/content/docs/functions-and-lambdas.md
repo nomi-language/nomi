@@ -10,11 +10,11 @@ one can go into a pipe or be passed to another function.
 ## Defining a function
 
 ```nomi-run
-fn add(x: Int, y: Int): Int {
+fn add(x: Int, y: Int) -> Int {
     x + y
 }
 
-fn abs(x: Int): Int {
+fn abs(x: Int) -> Int {
     if x < 0 { return -x }
     x
 }
@@ -30,13 +30,13 @@ dbg line 11: add(3, 4) = 7
 dbg line 12: abs(-9) = 9
 -->
 
-A function is written `fn name(params): ReturnType { body }`. The last
+A function is written `fn name(params) -> ReturnType { body }`. The last
 expression in the body is the return value, so most functions never write
 `return`. Use `return` to leave early, as `abs` does for a negative number.
 
 Every parameter must be read in the body. If a parameter is unused on
 purpose, name it `_` or start its name with `_`, as in
-`fn constant(_input: Int): Int { 42 }`. The rule covers functions, lambdas,
+`fn constant(_input: Int) -> Int { 42 }`. The rule covers functions, lambdas,
 functions in `impl` blocks, and `boot`. Interface and host declarations have
 no body, so it doesn't apply to them.
 
@@ -48,7 +48,7 @@ body.
 
 ```nomi-run
 fn main() {
-    inc = |x: Int| x + 1
+    inc = fn x: Int -> x + 1
     dbg inc(41)
 }
 
@@ -57,7 +57,7 @@ fn main() {
 dbg line 3: inc(41) = 42
 -->
 
-A lambda is written `|params| body`. Write a parameter's type when nothing
+A lambda is written `fn params -> body`. Write a parameter's type when nothing
 else tells the compiler what it is. When the lambda is passed to a function
 that expects a certain type, the type is inferred.
 
@@ -75,11 +75,11 @@ between functions by the types of the arguments, so this is an error:
 ```nomi-run ignore
 type UserId String
 
-fn parse(_text: String): Int {
+fn parse(_text: String) -> Int {
     0
 }
 
-fn parse(_id: UserId): Int {
+fn parse(_id: UserId) -> Int {
     0
 }
 
@@ -101,7 +101,7 @@ runs.
 ## Default parameter values
 
 ```nomi-run
-fn greet(name: String, greeting: String = "Hello"): String {
+fn greet(name: String, greeting: String = "Hello") -> String {
     "${greeting}, ${name}!"
 }
 
@@ -110,7 +110,7 @@ fn main() {
     dbg greet("World", "Hi")
 
     // Lambdas take defaults the same way:
-    add = |x: Int, y = 10| x + y
+    add = fn x: Int, y = 10 -> x + y
     dbg add(5)
     dbg add(5, 2)
 }
@@ -133,7 +133,7 @@ the type comes from the default value.
 ## Named arguments
 
 ```nomi-run
-fn connect(host: String, port: Int = 8080, timeout: Int = 30): String {
+fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String {
     "${host}:${port}:${timeout}"
 }
 
@@ -166,15 +166,15 @@ struct Point {
     y: Int
 }
 
-fn subtract(Dur(a), Dur(b)): Dur {
+fn subtract(Dur(a), Dur(b)) -> Dur {
     Dur(a - b)
 }
 
-fn sum_point(Point{x, y}): Int {
+fn sum_point(Point{x, y}) -> Int {
     x + y
 }
 
-fn add_pair((a, b): (Int, Int)): Int {
+fn add_pair(#(a, b): #(Int, Int)) -> Int {
     a + b
 }
 
@@ -182,14 +182,14 @@ fn main() {
     Dur(diff) = subtract(Dur(10), Dur(3))
     dbg diff
     dbg sum_point(Point{x: 4, y: 5})
-    dbg add_pair((20, 22))
+    dbg add_pair(#(20, 22))
 }
 
 ```
 <!-- expect
 dbg line 22: diff = 7
 dbg line 23: sum_point(Point{x: 4, y: 5}) = 9
-dbg line 24: add_pair((20, 22)) = 42
+dbg line 24: add_pair(#(20, 22)) = 42
 -->
 
 A parameter can be a pattern instead of a plain name. The pattern unpacks the
@@ -202,34 +202,34 @@ enums with one variant all qualify.
 
 When the pattern names a type, as `Dur(a)` and `Point{x, y}` do, you don't
 write the type again. A tuple or an anonymous struct pattern names no type,
-so it needs one, as in `(a, b): (Int, Int)`.
+so it needs one, as in `#(a, b): #(Int, Int)`.
 
 ## Trailing callbacks
 
 ```nomi-run
-fn transform(x: Int, factor: Int = 1, f: (Int) -> Int): Int {
+fn transform(x: Int, factor: Int = 1, f: (Int) -> Int) -> Int {
     f(x * factor)
 }
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 
 fn main() {
-    dbg transform(5, |x| x + 1)
-    dbg transform(5, factor: 3, |x| x + 1)
+    dbg transform(5, fn x -> x + 1)
+    dbg transform(5, factor: 3, fn x -> x + 1)
     dbg transform(5, factor: 3, double)
 }
 
 ```
 <!-- expect
-dbg line 10: transform(5, |x| x + 1) = 6
-dbg line 11: transform(5, factor: 3, |x| x + 1) = 16
+dbg line 10: transform(5, fn x -> x + 1) = 6
+dbg line 11: transform(5, factor: 3, fn x -> x + 1) = 16
 dbg line 12: transform(5, factor: 3, double) = 30
 -->
 
 When a function's last parameter is a function, you can pass that argument
-last without a name. In `transform(5, |x| x + 1)`, the lambda skips `factor`
+last without a name. In `transform(5, fn x -> x + 1)`, the lambda skips `factor`
 and goes to `f`, so `factor` keeps its default. The same happens after a
 named argument, as in the second call.
 
@@ -244,7 +244,7 @@ not. When both take functions, the arguments fill the parameters in order.
 ## Unwritten code
 
 ```nomi
-fn parse(text: String): Header {
+fn parse(text: String) -> Header {
     todo "parse the header"
 }
 ```

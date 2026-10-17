@@ -187,8 +187,8 @@ The same `..` works for a map's values and for list fields (`[t, ..]`), as the
 
 ```nomi-run
 fn main() {
-    pair = ("Ada", 37)
-    (name, _) = pair
+    pair = #("Ada", 37)
+    #(name, _) = pair
 
     dbg pair
     dbg name
@@ -197,19 +197,20 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 5: pair = ("Ada", 37)
+dbg line 5: pair = #("Ada", 37)
 dbg line 6: name = "Ada"
 dbg line 7: pair.1 = 37
 -->
 
 A tuple groups a fixed number of values by position instead of by name. You
-read a slot with `.0`, `.1` and so on, or take the tuple apart with a pattern
-like `(name, _)`.
+write one as `#(a, b)`, with at least two values, and its type the same way,
+`#(String, Int)`. Plain parentheses only group. You read a slot with `.0`,
+`.1` and so on, or take the tuple apart with a pattern like `#(name, _)`.
 
 Tuples suit small groupings used in one place, where the positions are
 obvious. When the values travel further, such as through a public function,
 give them names with a struct: `User{name: String, score: Int}` says more than
-`(String, Int)`.
+`#(String, Int)`.
 
 ## Field accessors
 
@@ -236,7 +237,7 @@ dbg line 11:
   = ["Ada", "Alan"]
 -->
 
-`.name` is short for the lambda `|user| user.name`. You can use it wherever a
+`.name` is short for the lambda `fn user -> user.name`. You can use it wherever a
 function is expected and the argument's type is already known. In a pipe, the
 type comes from the collection before it.
 
@@ -250,7 +251,7 @@ a field of a value you have, write `user.name`.
 type Id Int
 type Email String
 
-fn raw(Id(n)): Int {
+fn raw(Id(n)) -> Int {
     n
 }
 
@@ -357,7 +358,7 @@ enum Direction {
     West
 }
 
-fn describe(d: Direction): String {
+fn describe(d: Direction) -> String {
     // `d` is a Direction, so each arm's dot-leading pattern
     // unambiguously matches one of Direction's variants.
     case d {
@@ -397,11 +398,11 @@ struct User {
 }
 
 impl User {
-    fn full_name(user: User): String {
+    fn full_name(user: User) -> String {
         "${user.first} ${user.last}"
     }
 
-    fn rename(user: User, first: String): User {
+    fn rename(user: User, first: String) -> User {
         User{first, last: user.last}
     }
 }
@@ -490,7 +491,7 @@ this one, with one `embeds` per kind of event.
 ```nomi-run
 typealias Index Map<String, List<Int>>
 
-fn record(index: Index, bucket: String, n: Int): Index {
+fn record(index: Index, bucket: String, n: Int) -> Index {
     existing: List<Int> = case Map.get(index, bucket) {
         Some(xs) -> xs
         None -> []
@@ -512,7 +513,7 @@ fn main() {
 }
 ```
 <!-- expect
-dbg line 21: result = {"evens" => [4, 2], "odds" => [1]}
+dbg line 21: result = %{"evens" => [4, 2], "odds" => [1]}
 -->
 
 A `typealias` is another name for an existing type. `Index` and

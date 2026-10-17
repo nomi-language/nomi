@@ -10,9 +10,9 @@ owns.
 There are two kinds of owner. Pick by asking how long the work should live:
 
 - If you need the result here, use a `concurrent { … }` block and
-  `Task.spawn(|| …)`.
+  `Task.spawn(fn -> …)`.
 - If the work should keep running after this call returns, use
-  `Supervisor.spawn(supervisor, || …)`.
+  `Supervisor.spawn(supervisor, fn -> …)`.
 
 One function can use both. A request handler might compute its response in
 a `concurrent` block, then give an audit write to a supervisor. The response
@@ -30,15 +30,15 @@ Start with a block:
 ```nomi-run
 import std/tasks.Task
 
-fn double(n: Int): Int {
+fn double(n: Int) -> Int {
     n * 2
 }
 
 fn main() {
     total = concurrent {
-        a = Task.spawn(|| double(10))
-        b = Task.spawn(|| double(20))
-        c = Task.spawn(|| double(30))
+        a = Task.spawn(fn -> double(10))
+        b = Task.spawn(fn -> double(20))
+        c = Task.spawn(fn -> double(30))
         Task.await(a) + Task.await(b) + Task.await(c)
     }
 
@@ -52,7 +52,7 @@ dbg line 15: total = 120
 
 - `concurrent { ... }` owns every task started inside it. Its value is its
   last expression.
-- [`Task.spawn(|| expr)`](/reference/tasks/#taskspawn) starts the lambda as
+- [`Task.spawn(fn -> expr)`](/reference/tasks/#taskspawn) starts the lambda as
   a task and returns a handle to it, a `Task<T>`, right away.
 - [`Task.await(task)`](/reference/tasks/#taskawait) waits for the task and
   returns its result.
@@ -80,15 +80,15 @@ import {
     std/tasks.Task
 }
 
-fn produce(out: Sender<Int>, n: Int): Unit {
+fn produce(out: Sender<Int>, n: Int) -> Unit {
     case Sender.send(out, n) {
         Ok(_) -> Unit
         Err(_) -> io.print("send failed")
     }
 }
 
-fn consume(inbox: Receiver<Int>): Int {
-    Iter.loop(|sum = 0| {
+fn consume(inbox: Receiver<Int>) -> Int {
+    Iter.loop(fn sum = 0 -> {
         case Receiver.receive(inbox) {
             Some(v) -> sum + v
             None -> break sum
@@ -100,10 +100,10 @@ fn main() {
     ch = Channel.buffered<Int>(4)
 
     total = concurrent {
-        p1 = Task.spawn(|| produce(ch.sender, 10))
-        p2 = Task.spawn(|| produce(ch.sender, 20))
-        p3 = Task.spawn(|| produce(ch.sender, 30))
-        cons = Task.spawn(|| consume(ch.receiver))
+        p1 = Task.spawn(fn -> produce(ch.sender, 10))
+        p2 = Task.spawn(fn -> produce(ch.sender, 20))
+        p3 = Task.spawn(fn -> produce(ch.sender, 30))
+        cons = Task.spawn(fn -> consume(ch.receiver))
 
         // Drain the producers, close so the consumer's loop ends on None.
         Task.await(p1)
@@ -157,20 +157,20 @@ import {
     std/timer
 }
 
-fn short_fail(): Result<Int, String> {
+fn short_fail() -> Result<Int, String> {
     timer.sleep(Duration.milliseconds(10))
     Err("boom")
 }
 
-fn long_sleep(): Result<Int, String> {
+fn long_sleep() -> Result<Int, String> {
     timer.sleep(Duration.seconds(5))
     Ok(0)
 }
 
 fn main() {
     outcome = concurrent {
-        short = Task.spawn(|| short_fail())
-        long = Task.spawn(|| long_sleep())
+        short = Task.spawn(fn -> short_fail())
+        long = Task.spawn(fn -> long_sleep())
         n = try Task.await(short)
         _ = try Task.await(long)
         Ok(n)
@@ -216,11 +216,11 @@ You could start one task per item:
 concurrent {
     handles =
         ids
-        |> Iter.map(|id| Task.spawn(|| fetch_user(id)))
+        |> Iter.map(fn id -> Task.spawn(fn -> fetch_user(id)))
         |> Iter.to_list()
 
     handles
-    |> Iter.map(|h| Task.await(h))
+    |> Iter.map(fn h -> Task.await(h))
     |> Iter.to_list()
 }
 ```
@@ -236,11 +236,11 @@ import {
     std/tasks.Task
 }
 
-fn active?(id: Int): Bool {
+fn active?(id: Int) -> Bool {
     id != 2
 }
 
-fn fetch_user(id: Int): String {
+fn fetch_user(id: Int) -> String {
     "user-${Display.to_string(id)}"
 }
 
@@ -303,7 +303,7 @@ outcomes = concurrent {
     |> Task.await_all()
 }
 
-failures = Iter.filter(outcomes, |r| Result.err?(r))
+failures = Iter.filter(outcomes, fn r -> Result.err?(r))
 ```
 
 The stopping in [Errors cancel siblings](#errors-cancel-siblings) happens
@@ -364,7 +364,7 @@ struct Config {
     alerts: Channel<String>
 }
 
-fn boot(): Config {
+fn boot() -> Config {
     Config{
         context: Context.root(),
         audit: Supervisor.new(
@@ -414,11 +414,11 @@ Read a supervisor from the app struct by its type name. You don't need to
 pass it as a parameter:
 
 ```nomi
-fn handle_order(id: Int): Response {
+fn handle_order(id: Int) -> Response {
     resp = build_response(id)
 
-    _ = Supervisor.spawn(Config.audit, || record_audit(id, resp))
-    _ = Supervisor.spawn(Config.notify, || try_notify(id))
+    _ = Supervisor.spawn(Config.audit, fn -> record_audit(id, resp))
+    _ = Supervisor.spawn(Config.notify, fn -> try_notify(id))
 
     resp
 }
@@ -449,7 +449,7 @@ struct Config {
     written: Channel<Int>
 }
 
-fn boot(): Config {
+fn boot() -> Config {
     Config{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4),
@@ -457,7 +457,7 @@ fn boot(): Config {
     }
 }
 
-fn record_audit(id: Int): Unit {
+fn record_audit(id: Int) -> Unit {
     // Stands in for the slow part — a write, an API call.
     timer.sleep(Duration.milliseconds(50))
 
@@ -467,15 +467,15 @@ fn record_audit(id: Int): Unit {
     }
 }
 
-fn handle_order(id: Int): String {
-    _ = Supervisor.spawn(Config.audit, || record_audit(id))
+fn handle_order(id: Int) -> String {
+    _ = Supervisor.spawn(Config.audit, fn -> record_audit(id))
     "order ${Display.to_string(id)} accepted"
 }
 
 // Both ids are on the channel by the time this runs, but in whichever
 // order the two tasks got there — so it sums them rather than reading
 // them one at a time and claiming an order.
-fn audited_total(): Int {
+fn audited_total() -> Int {
     first = Maybe.with_default(Receiver.receive(Config.written.receiver), 0)
     second = Maybe.with_default(Receiver.receive(Config.written.receiver), 0)
     first + second
@@ -521,21 +521,21 @@ _ = Supervisor.spawn_all(Config.notify, users, send_welcome)
 This handler uses both kinds of owner:
 
 ```nomi
-fn handle_order(id: Int): Response {
+fn handle_order(id: Int) -> Response {
     // Need both values, right here, to build the response.
     priced = concurrent {
-        validation = Task.spawn(|| validate(id))
-        pricing = Task.spawn(|| price(id))
-        Ok((try Task.await(validation), try Task.await(pricing)))
+        validation = Task.spawn(fn -> validate(id))
+        pricing = Task.spawn(fn -> price(id))
+        Ok(#(try Task.await(validation), try Task.await(pricing)))
     }
 
     resp = case priced {
-        Ok((v, p)) -> build_response(id, v, p)
+        Ok(#(v, p)) -> build_response(id, v, p)
         Err(e) -> error_response(id, e)
     }
 
     // Outlives the call — the response goes back without waiting.
-    _ = Supervisor.spawn(Config.audit, || record_audit(id, resp))
+    _ = Supervisor.spawn(Config.audit, fn -> record_audit(id, resp))
     resp
 }
 ```
@@ -565,7 +565,7 @@ Here is a common bug with background work:
 ```nomi
 // Rejected at compile time — send_email returns Result, and nobody
 // is around to look at it.
-_ = Supervisor.spawn(Config.notify, || send_email(user.email, body))
+_ = Supervisor.spawn(Config.notify, fn -> send_email(user.email, body))
 ```
 
 Nobody has to await a supervisor's task, so a `Result` it returns could be
@@ -576,9 +576,9 @@ The task still does its work. Before it returns, it decides what to do if
 that work failed:
 
 ```nomi
-_ = Supervisor.spawn(Config.notify, || send_welcome(user))
+_ = Supervisor.spawn(Config.notify, fn -> send_welcome(user))
 
-fn send_welcome(user: User): Unit {
+fn send_welcome(user: User) -> Unit {
     // The work. This is what takes time; the task isn't done until it returns.
     sent = send_email(user.email, welcome_body(user))
 
@@ -591,7 +591,7 @@ fn send_welcome(user: User): Unit {
 
 // Failures nobody is awaiting go on a channel, for a long-lived consumer
 // to drain. A full alerts queue at shutdown is not worth crashing over.
-fn report(ch: Channel<String>, msg: String): Unit {
+fn report(ch: Channel<String>, msg: String) -> Unit {
     case Sender.send(ch.sender, msg) {
         Ok(_) -> Unit
         Err(_) -> Unit
@@ -608,8 +608,8 @@ can still take a long time waiting on the mail server.
 task handle, from a block or from a supervisor.
 
 ```nomi
-fn start_conn(conn: Int): Task<Unit> {
-    Supervisor.spawn(Config.connections, || serve_conn(conn))
+fn start_conn(conn: Int) -> Task<Unit> {
+    Supervisor.spawn(Config.connections, fn -> serve_conn(conn))
 }
 
 fn main() {
@@ -634,7 +634,7 @@ import {
     std/timer
 }
 
-fn serve_conn(): Int {
+fn serve_conn() -> Int {
     // Would take half a minute if left alone.
     timer.sleep(Duration.seconds(30))
     1
@@ -642,7 +642,7 @@ fn serve_conn(): Int {
 
 fn main() {
     outcome = concurrent {
-        conn = Task.spawn(|| serve_conn())
+        conn = Task.spawn(fn -> serve_conn())
         Task.cancel(conn)
         // `outcome`, not `await` — inheriting a cancellation you asked for
         // makes no sense.
@@ -691,7 +691,7 @@ later than that anyway. So you write a worker loop as if it runs forever:
 
 ```nomi
 fn outbox_worker() {
-    Iter.loop(|| {
+    Iter.loop(fn -> {
         drain_pending(Config.outbox)
         timer.sleep(Duration.seconds(1))
     })
@@ -710,7 +710,7 @@ reads whether it was cancelled; the runtime stops it.
 Second, you can give the work a deadline by deriving a new context:
 
 ```nomi
-fn send_welcome(user: User): Unit {
+fn send_welcome(user: User) -> Unit {
     // `deliver` is the body from the section above, under its own name: the
     // part that sends and turns the mail server's Result into Unit. All
     // `send_welcome` adds is a ceiling everything below inherits.
@@ -751,14 +751,14 @@ deadline is skipped. In `main`, the program ends. In a task, the task ends.
 So this attempt to try for a while and then fall back does not work:
 
 ```nomi
-fn attempt(): String {
+fn attempt() -> String {
     // Broken: the `with` line covers the rest of the function, the observer
     // as well as the work, so the deadline is over `Task.outcome` too. The
     // observer unwinds along with the work and the `case` never runs.
     with Config.context = Context.with_timeout(Config.context, Duration.seconds(1))
 
     outcome = concurrent {
-        t = Task.spawn(|| slow())
+        t = Task.spawn(fn -> slow())
         Task.outcome(t)
     }
 
@@ -784,24 +784,24 @@ struct Config {
     context: Context
 }
 
-fn boot(): Config {
+fn boot() -> Config {
     Config{context: Context.root()}
 }
 
-fn slow(): Int {
+fn slow() -> Int {
     timer.sleep(Duration.minutes(5))
     1
 }
 
 // The deadline covers `slow` and nothing else.
-fn slow_bounded(): Int {
+fn slow_bounded() -> Int {
     with Config.context = Context.with_timeout(Config.context, Duration.milliseconds(50))
     slow()
 }
 
 fn main() {
     outcome = concurrent {
-        t = Task.spawn(|| slow_bounded())
+        t = Task.spawn(fn -> slow_bounded())
         Task.outcome(t)
     }
 
@@ -963,7 +963,7 @@ By default a supervisor restarts nothing. That default is
 run again:
 
 ```nomi
-fn boot(): Config {
+fn boot() -> Config {
     Config{
         context: Context.root(),
         // A long-lived worker: retry patiently through a long outage,
@@ -1093,18 +1093,18 @@ pub struct Counter {
     inbox: Channel<Request>
 }
 
-fn start(): Counter {
+fn start() -> Counter {
     inbox = Channel.buffered<Request>(16)
 
     _ =
         Supervisor.new(max_running: 1, restart: Restart.Permanent)
-        |> Supervisor.spawn(|| serve(inbox))
+        |> Supervisor.spawn(fn -> serve(inbox))
 
     Counter{inbox}
 }
 
-fn serve(inbox: Channel<Request>): Unit {
-    _final = Iter.loop(|count = 0| {
+fn serve(inbox: Channel<Request>) -> Unit {
+    _final = Iter.loop(fn count = 0 -> {
         case Receiver.receive(inbox.receiver) {
             Some(.Increment(n)) ->
                 count + n
@@ -1122,14 +1122,14 @@ fn serve(inbox: Channel<Request>): Unit {
     Unit
 }
 
-fn increment(counter: Counter, n: Int): Unit {
+fn increment(counter: Counter, n: Int) -> Unit {
     case Sender.send(counter.inbox.sender, .Increment(n)) {
         Ok(_) -> Unit
         Err(_) -> Unit
     }
 }
 
-fn get(counter: Counter): Int {
+fn get(counter: Counter) -> Int {
     reply = Channel.buffered<Int>(1)
     _ = Sender.send(counter.inbox.sender, .Get{reply})
 
@@ -1145,7 +1145,7 @@ struct Config {
     counter: Counter
 }
 
-fn boot(): Config {
+fn boot() -> Config {
     Config{context: Context.root(), counter: start()}
 }
 

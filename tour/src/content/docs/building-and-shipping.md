@@ -72,11 +72,11 @@ struct Game {
 derive ToJson for Game
 derive FromJson for Game
 
-export fn new_game(word: String): Game {
+export fn new_game(word: String) -> Game {
     Game{word, guesses: []}
 }
 
-export fn guess(game: Game, letter: String): Game {
+export fn guess(game: Game, letter: String) -> Game {
     {..game, guesses: [letter, ..game.guesses]}
 }
 ```
@@ -148,7 +148,7 @@ const vm = await loadRuntime("./nomi-vm-reactor.wasm");
 
 const game = await vm.load("./game.nomic");
 console.log(game.exports);
-// ["new_game(word: String): Game", "guess(game: Game, letter: String): Game"]
+// ["new_game(word: String) -> Game", "guess(game: Game, letter: String) -> Game"]
 let state = await game.call("new_game", "pipeline");
 state = await game.call("guess", state, "e");
 console.log(state); // { word: "pipeline", guesses: ["e"] }

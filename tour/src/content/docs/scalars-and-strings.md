@@ -228,7 +228,7 @@ the character, its code point and its UTF-8 byte the same thing. `'é'` is an
 error; write `"é"` as a string.
 
 ```nomi-run
-fn kind(cp: Codepoint): String {
+fn kind(cp: Codepoint) -> String {
     case cp {
         ',' -> "comma"
         ' ' -> "space"

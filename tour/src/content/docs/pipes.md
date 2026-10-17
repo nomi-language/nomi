@@ -11,11 +11,11 @@ this way.
 ## The pipe operator
 
 ```nomi-run
-fn double(x: Int): Int {
+fn double(x: Int) -> Int {
     x * 2
 }
 
-fn add(x: Int, y: Int): Int {
+fn add(x: Int, y: Int) -> Int {
     x + y
 }
 
@@ -39,7 +39,7 @@ A longer pipeline puts one stage on each line:
 ```nomi-run
 fn main() {
     [1, 2, 3]
-    |> Iter.map(|n| n * n)
+    |> Iter.map(fn n -> n * n)
     |> Iter.to_list()
     |> dbg
 }
@@ -48,7 +48,7 @@ fn main() {
 <!-- expect
 dbg line 5:
   [1, 2, 3]
-  |> Iter.map(|n| n * n)
+  |> Iter.map(fn n -> n * n)
   |> Iter.to_list()
   = [1, 4, 9]
 -->
@@ -61,21 +61,21 @@ is used. Here is the same calculation written both ways:
 ```nomi-run
 fn main() {
     // inside-out
-    dbg Iter.count(Iter.filter([1, 2, 3, 4, 5], |n| n > 2))
+    dbg Iter.count(Iter.filter([1, 2, 3, 4, 5], fn n -> n > 2))
 
     // pipeline — data first, transformations next, output last
     [1, 2, 3, 4, 5]
-    |> Iter.filter(|n| n > 2)
+    |> Iter.filter(fn n -> n > 2)
     |> Iter.count()
     |> dbg
 }
 
 ```
 <!-- expect
-dbg line 3: Iter.count(Iter.filter([1, 2, 3, 4, 5], |n| n > 2)) = 3
+dbg line 3: Iter.count(Iter.filter([1, 2, 3, 4, 5], fn n -> n > 2)) = 3
 dbg line 9:
   [1, 2, 3, 4, 5]
-  |> Iter.filter(|n| n > 2)
+  |> Iter.filter(fn n -> n > 2)
   |> Iter.count()
   = 3
 -->
@@ -89,7 +89,7 @@ To pass the value as some argument other than the first, write `_` where it
 should go:
 
 ```nomi-run
-fn divide(x: Int, y: Int): Int {
+fn divide(x: Int, y: Int) -> Int {
     x / y
 }
 
@@ -110,7 +110,7 @@ too: `100 |> divide(y: 4, x: _)` is `divide(100, 4)`.
 ## The `then` stage
 
 ```nomi-run
-fn find_name(id: Int): Maybe<String> {
+fn find_name(id: Int) -> Maybe<String> {
     case id {
         1 -> Some("Ada")
         _ -> None
@@ -120,7 +120,7 @@ fn find_name(id: Int): Maybe<String> {
 fn main() {
     1
     |> find_name()
-    |> then |name| name == Some("Ada")
+    |> then fn name -> name == Some("Ada")
     |> dbg
 }
 ```
@@ -128,7 +128,7 @@ fn main() {
 dbg line 12:
   1
   |> find_name()
-  |> then |name| name == Some("Ada")
+  |> then fn name -> name == Some("Ada")
   = True
 -->
 
@@ -146,7 +146,7 @@ fn main() {
     shout =
         "go north now"
         |> String.words()
-        |> tap |words| io.print("got ${Iter.count(words)} words")
+        |> tap fn words -> io.print("got ${Iter.count(words)} words")
         |> Iter.map(String.to_upper)
         |> String.join(" ")
 
@@ -180,7 +180,7 @@ Some keywords can be pipeline stages too:
 or `Err`, it returns that from the function straight away:
 
 ```nomi-run
-fn parse(): Maybe<Int> {
+fn parse() -> Maybe<Int> {
     "  42  "
     |> String.trim()
     |> try String.to_int()

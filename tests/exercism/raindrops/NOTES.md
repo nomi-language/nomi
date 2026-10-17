@@ -16,7 +16,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/raindrops.
 - The number becomes text by interpolation, `"${number}"`, rather than
   `Int.to_string(number)`; both are the same `Display` call.
 - The lambdas destructure the tuples and name the unused half
-  (`|(factor, _sound)|`). Two field accessors would need a struct; for a
+  (`fn #(factor, _sound) ->`). Two field accessors would need a struct; for a
   three-row local table a tuple is the right size.
 
 ## Friction

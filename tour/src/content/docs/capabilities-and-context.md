@@ -24,7 +24,7 @@ struct App {
     context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
     App{port: 8080, context: Context.root()}
 }
 
@@ -60,7 +60,7 @@ struct Server {
     execution: Context
 }
 
-fn boot(): Server {
+fn boot() -> Server {
     Server{port: 8080, execution: Context.root()}
 }
 
@@ -98,19 +98,19 @@ import {
 }
 
 interface Logger {
-    fn log(logger: self, msg: String): Unit
+    fn log(logger: self, msg: String) -> Unit
 }
 
 type Stdout
 impl Logger for Stdout {
-    fn log(_logger: Stdout, msg: String): Unit {
+    fn log(_logger: Stdout, msg: String) -> Unit {
         io.print("[log] ${msg}")
     }
 }
 
 struct PrefixedLogger { tag: String }
 impl Logger for PrefixedLogger {
-    fn log(logger: PrefixedLogger, msg: String): Unit {
+    fn log(logger: PrefixedLogger, msg: String) -> Unit {
         io.print("[${logger.tag}] ${msg}")
     }
 }
@@ -120,7 +120,7 @@ struct App {
     context: Context
 }
 
-fn boot(): App {
+fn boot() -> App {
     App{logger: Stdout, context: Context.root()}
 }
 
@@ -163,18 +163,18 @@ struct App {
     greeting: String
 }
 
-fn boot(): App {
+fn boot() -> App {
     App{greeting: "hello"}
 }
 
-fn greet(): String {
+fn greet() -> String {
     "${App.greeting}, world"
 }
 
-fn quiet_greeter(): () -> String {
+fn quiet_greeter() -> () -> String {
     with App.greeting = "psst"
     io.print(greet())
-    || greet()
+    fn -> greet()
 }
 
 fn main() {
@@ -202,7 +202,7 @@ struct Conn {
     name: String
 }
 
-fn close(conn: Conn): Unit {
+fn close(conn: Conn) -> Unit {
     io.print("close ${conn.name}")
 }
 

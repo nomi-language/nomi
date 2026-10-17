@@ -26,4 +26,4 @@ One indexed read.
 
 There is no `try` helper: the `None` is consumed one stage later by `Maybe.values`, which is the point of the read.
 
-The trapping `Vector.at` was added as a result of the indexing exercises, and it does not fit here: the rows that reach the column would have to be selected first (`Iter.take_while(|row| Vector.length(row) > column)`), one more stage, and 5 lines would become 6.
+The trapping `Vector.at` was added as a result of the indexing exercises, and it does not fit here: the rows that reach the column would have to be selected first (`Iter.take_while(fn row -> Vector.length(row) > column)`), one more stage, and 5 lines would become 6.

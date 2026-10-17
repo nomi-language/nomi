@@ -22,19 +22,19 @@ Adapted from Exercism problem-specifications (MIT), exercises/leap.
   body. I first wrote:
 
   ```nomi
-  divisible? = |n| year % n == 0
+  divisible? = fn n -> year % n == 0
   divisible?(4) and (!divisible?(100) or divisible?(400))
   ```
 
-  and got `error: cannot infer type for parameter n` at `|n|`. `year` is an
+  and got `error: cannot infer type for parameter n` at `fn n ->`. `year` is an
   `Int`, so `n` can only be an `Int`, and Gleam infers it from the same body
   (`let divisible = fn(n) { year % n == 0 }`). The spec says this is deliberate ("A later use
-  never types a parameter"), and `|n: Int|` fixes it. Fixed: the error now has
-  a hint showing that annotation (`|n: T|`).
+  never types a parameter"), and `fn n: Int ->` fixes it. Fixed: the error now has
+  a hint showing that annotation (`fn n: T ->`).
 - [feature] A `subtests` row has no name of its own, so a table that wants
   the canonical description in its failure report carries it as a discarded
   first column. A form such as `subtests cases, name: .description, (...)`, or
   rendering a row's first String as its label, would read better than
-  `(_description, year, expected)` repeated through every exercise here.
+  `#(_description, year, expected)` repeated through every exercise here.
   Fixed: `subtests rows, pattern, name { ... }` names each row, and every
   table here names its rows with the description column.

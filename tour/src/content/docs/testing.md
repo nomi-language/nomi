@@ -29,7 +29,7 @@ You can also assert a [`Maybe`](/reference/maybe/) or a
 pattern, as the second line of each test below does.
 
 ```nomi-run
-fn parse_id(text: String): Result<Int, String> {
+fn parse_id(text: String) -> Result<Int, String> {
     case String.to_int(text) {
         Some(id) -> Ok(id)
         None -> Err("expected a numeric id")
@@ -100,13 +100,13 @@ it after `//!`. `nomi test` runs each group of `//!` lines as one test.
 //! assert answer() == 42
 //! assert (answer() + 1) == 43
 //
-fn answer(): Int {
+fn answer() -> Int {
     42
 }
 
 //! assert label("ready") == "[ready]"
 //
-fn label(text: String): String {
+fn label(text: String) -> String {
     "[" + text + "]"
 }
 ```
@@ -117,7 +117,7 @@ An attached test can bind names before it asserts:
 //! value = parse_int("42")
 //! assert value == Some(42)
 //
-fn parse_int(text: String): Maybe<Int> {
+fn parse_int(text: String) -> Maybe<Int> {
     String.to_int(text)
 }
 ```
@@ -129,7 +129,7 @@ It can also hold several assertions:
 //! assert value == Some(42)
 //! refute value == None
 //
-fn parse_int_again(text: String): Maybe<Int> {
+fn parse_int_again(text: String) -> Maybe<Int> {
     String.to_int(text)
 }
 ```
@@ -158,14 +158,14 @@ test "pipeline assertions validate transformed values" {
 `subtests` runs the same check over a list of cases. Each case is a row.
 
 ```nomi-run
-fn palindrome?(text: String): Bool {
+fn palindrome?(text: String) -> Bool {
     String.reverse(text) == text
 }
 
 test "determines palindromes" {
-    cases = [("abba", True), ("abc", False), ("x", True)]
+    cases = [#("abba", True), #("abc", False), #("x", True)]
 
-    subtests cases, (line, known_palindrome) {
+    subtests cases, #(line, known_palindrome) {
         assert palindrome?(line) == known_palindrome
     }
 }
@@ -177,7 +177,7 @@ other `Iter`.
 
 A failed assertion ends its row, and the next row still runs. After the last
 row, the test fails if any row failed. The report shows each failed row, then
-how many failed. If the second row were `("abc", True)`, the test above would
+how many failed. If the second row were `#("abc", True)`, the test above would
 report:
 
 ```text
@@ -204,18 +204,18 @@ use the names the pattern binds. A table often carries a description column
 for this:
 
 ```nomi-run
-fn leap_year?(year: Int): Bool {
+fn leap_year?(year: Int) -> Bool {
     year % 400 == 0 or (year % 4 == 0 and year % 100 != 0)
 }
 
 test "leap years" {
     cases = [
-        ("year divisible by 400 is leap year", 2000, True),
-        ("year divisible by 100, not divisible by 400 in common year", 1900, False),
-        ("year divisible by 4, not divisible by 100 in leap year", 1996, True),
+        #("year divisible by 400 is leap year", 2000, True),
+        #("year divisible by 100, not divisible by 400 in common year", 1900, False),
+        #("year divisible by 4, not divisible by 100 in leap year", 1996, True),
     ]
 
-    subtests cases, (description, year, expected), description {
+    subtests cases, #(description, year, expected), description {
         assert leap_year?(year) == expected
     }
 }
@@ -239,7 +239,7 @@ FAIL leap_test.nomi :: leap years
 ```
 
 You can also build a name from the row, as in
-`subtests cases, (a, b, sum), "${a} + ${b}" { ... }`. To leave a column out,
+`subtests cases, #(a, b, sum), "${a} + ${b}" { ... }`. To leave a column out,
 name it `_` as usual.
 
 ## Input And Output
@@ -397,7 +397,7 @@ A test sees only the value `setup` returns. Names bound inside the `setup`
 block don't reach the tests.
 
 The value can be anything. A test can bind a record with `{name, role}`, a
-tuple with `(left, right)`, or the whole value with a name, as in
+tuple with `#(left, right)`, or the whole value with a name, as in
 `test "loads rows", db { ... }`. The pattern has to match every value setup
 can produce, so a pattern such as `Some(n)` is an error. Bind a name instead,
 and match it in the test's body.
@@ -422,7 +422,7 @@ struct Config {
     env: String
 }
 
-fn boot(startup: Startup): Config {
+fn boot(startup: Startup) -> Config {
     Config{env: Map.get(startup.env, "APP_ENV") |> Maybe.with_default("dev")}
 }
 
@@ -431,7 +431,7 @@ fn main() {
 }
 
 group "app-backed behavior" {
-    boot boot(Startup{env: {"APP_ENV" => "test"}})
+    boot boot(Startup{env: %{"APP_ENV" => "test"}})
 
     test "reads the booted field" {
         assert Config.env == "test"
@@ -464,8 +464,8 @@ struct Config {
     verbose: Bool
 }
 
-fn boot(startup: Startup = Startup{}): Config {
-    Config{verbose: Iter.any?(startup.args, |arg| arg == "-v")}
+fn boot(startup: Startup = Startup{}) -> Config {
+    Config{verbose: Iter.any?(startup.args, fn arg -> arg == "-v")}
 }
 
 fn main() {
@@ -526,7 +526,7 @@ group "welcome email" {
 ```
 
 Here `test_support.startup()` builds the inputs this group needs. If
-`server.nomi` declares `pub fn boot(startup: Startup = Startup{}): App`, a group
+`server.nomi` declares `pub fn boot(startup: Startup = Startup{}) -> App`, a group
 that needs no input writes `boot server.boot()`.
 
 ## Virtual Time

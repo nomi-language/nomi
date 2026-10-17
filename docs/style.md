@@ -33,8 +33,8 @@ else goes in them: `|> Iter.to_list()`, `|> io.print()`, `|> Ok()`. A name
 without parentheses is a function reference, as it is in
 `Iter.map(xs, io.print)`, so `x |> io.print` is a compile error that names
 the call to write. The exceptions are the keyword stages (`|> dbg`,
-`|> try`, `|> if`, `|> case`, `|> todo`), `|> then |v| ...`, which
-applies a lambda to the value, and `|> tap |v| ...`, which runs one on the
+`|> try`, `|> if`, `|> case`, `|> todo`), `|> then fn v -> ...`, which
+applies a lambda to the value, and `|> tap fn v -> ...`, which runs one on the
 value and passes it on. Reach for `then` for a small step no named function
 covers; once the step has a name worth giving, write the function and call
 it.
@@ -60,8 +60,8 @@ chain under the binding:
 ```nomi
 evens =
     [1, 2, 3, 4, 5, 6, 7, 8]
-    |> Iter.filter(|x| x % 2 == 0)
-    |> Iter.map(|x| x * 1000)
+    |> Iter.filter(fn x -> x % 2 == 0)
+    |> Iter.map(fn x -> x * 1000)
     |> Iter.to_list()
 ```
 
@@ -81,7 +81,7 @@ real pipeline work, when a lambda makes a stage multi-line, or when starting
 from the subject makes the data flow easier to scan. `fmt` stacks every
 pipeline that has a `then` or `tap` stage: such a lambda's body ends at the
 next `|>`, and a line per stage shows where. Any other lambda's body runs to the
-end of its expression, so `Iter.map(xs, |s| String.to_int(s) |> Maybe.with_default(0))`
+end of its expression, so `Iter.map(xs, fn s -> String.to_int(s) |> Maybe.with_default(0))`
 needs no braces.
 
 **Lift a composite-literal seed to its own stage.** When the innermost subject
@@ -106,7 +106,7 @@ Iter.to_set([1, 2, 3])
 - A plain value or literal argument stays a direct call: `Int.to_string(n)`,
   `Iter.count(s)`. A lone call is never a pipe.
 - A composite literal also stays direct when there is only one operation and
-  the call is the whole expression: `Iter.reduce([1, 2, 3], |acc = 0, n| acc + n)`.
+  the call is the whole expression: `Iter.reduce([1, 2, 3], fn acc = 0, n -> acc + n)`.
 - An incidental, non-subject argument stays nested:
   `Map.put(m, k, compute(v))`. `compute(v)` is a value being stored, not the
   pipeline subject. Reach for `|> f(a, _)` placeholder placement only when the
@@ -148,7 +148,7 @@ together; `fmt` keeps a single blank line you write between them, so use one to
 mark a step. It removes a blank line at the top or bottom of a block:
 
 ```nomi
-fn pad(generation: Int): String {
+fn pad(generation: Int) -> String {
     text = "${generation}"
     width = String.length(text)
 
@@ -166,7 +166,7 @@ Set.size(s) |> io.print() // expect: 3
 Set.contains?(s, 2) |> io.print() // expect: True
 
 s
-|> Iter.map(|x| x * 2)
+|> Iter.map(fn x -> x * 2)
 |> Iter.to_list()
 |> io.print() // expect: [2, 4, 6]
 ```
@@ -179,7 +179,7 @@ arm fits on one line as `pattern -> body` and no arm's body is a block, the
 arms sit on consecutive lines:
 
 ```nomi
-fn label(n: Int): String {
+fn label(n: Int) -> String {
     case n {
         0 -> "zero"
         n when n < 0 -> "negative"
@@ -194,7 +194,7 @@ only one. Every other arm puts its body on the next line, one indent in. One
 blank line separates every two arms:
 
 ```nomi
-fn describe(result: Result<Int, String>): String {
+fn describe(result: Result<Int, String>) -> String {
     case result {
         Ok(n) ->
             "${n}"
@@ -229,7 +229,7 @@ once max_retries = 3
 once default_host = "localhost"
 
 pub type Email String
-pub type Coord (Int, Int)
+pub type Coord #(Int, Int)
 pub type Handler (String, String) -> Result<String, String>
 pub type Expired
 pub opaque type Counter Int
@@ -271,7 +271,7 @@ impl RetryPolicy {
         delay: Duration.seconds(1),
     }
 
-    pub fn with_attempts(policy: RetryPolicy, attempts: Int): RetryPolicy {
+    pub fn with_attempts(policy: RetryPolicy, attempts: Int) -> RetryPolicy {
         {..policy, attempts}
     }
 }
@@ -279,7 +279,7 @@ impl RetryPolicy {
 derive Equatable for RetryPolicy
 
 impl Display for RetryPolicy {
-    fn to_string(policy: RetryPolicy): String {
+    fn to_string(policy: RetryPolicy) -> String {
         "${policy.attempts} attempts"
     }
 }
@@ -327,7 +327,7 @@ a yes/no question about its subject; a plain snake_case name is equally fine.
 
 Bindings are bare `name = expr` (optionally `name: T = expr`), never
 `let name = …`. This applies to every binding shape: simple, tuple destructure
-(`(a, b) = …`), struct destructure (`{a, b} = …`) and distinct destructure
+(`#(a, b) = …`), struct destructure (`{a, b} = …`) and distinct destructure
 (`Id(n) = …`). File-level values use `once name = …`.
 
 Read binding-position `=` as match-and-bind, not assignment: the value on the
@@ -368,10 +368,10 @@ including an `Iter.reduce` seed:
 
 ```nomi
 once upto = 400
-once offsets = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+once offsets = [#(-1, 0), #(1, 0), #(0, -1), #(0, 1)]
 
-total = Iter.reduce(1..=upto, |sum = 0, n| sum + n)
-lengths = Iter.reduce(words, |acc = Map.empty(), word| Map.put(acc, word, String.length(word)))
+total = Iter.reduce(1..=upto, fn sum = 0, n -> sum + n)
+lengths = Iter.reduce(words, fn acc = Map.empty(), word -> Map.put(acc, word, String.length(word)))
 ```
 
 Write the type when nothing else pins the value down, such as an empty
@@ -405,11 +405,11 @@ bare:
 
 ```nomi
 impl Speech for Dog {
-    fn speak(d: Dog): String {
+    fn speak(d: Dog) -> String {
         "${d.name} says woof"
     }
 
-    fn shout(d: Dog): String {
+    fn shout(d: Dog) -> String {
         speak(d) + "!"
     }
 }
@@ -445,25 +445,25 @@ struct Stack<T> {
 }
 
 impl Stack<T> {
-    pub fn peek<T>(stack: Stack<T>): Maybe<T> {
+    pub fn peek<T>(stack: Stack<T>) -> Maybe<T> {
         List.head(stack.items)
     }
 
-    pub fn push<T>(stack: Stack<T>, item: T): Stack<T> {
+    pub fn push<T>(stack: Stack<T>, item: T) -> Stack<T> {
         Stack{items: [item, ..stack.items]}
     }
 }
 
 impl Display for Stack<T> {
-    fn to_string(stack: Stack<T>): String {
+    fn to_string(stack: Stack<T>) -> String {
         "stack of ${Iter.count(stack.items)}"
     }
 }
 ```
 
 So a contract function reads concretely across implementors: `String`'s
-`Display` function is `fn to_string(s: String): String`, and `Int`'s is
-`fn to_string(n: Int): String`. What differs between signatures is only ever a
+`Display` function is `fn to_string(s: String) -> String`, and `Int`'s is
+`fn to_string(n: Int) -> String`. What differs between signatures is only ever a
 different type: a different instantiation (`Iter.map` returns `Iter<U>`, not
 `Iter<T>`), the element type (`List.head` returns `Maybe<T>`), or a plain other
 type (`Comparable.compare` returns `Ordering`). See spec §13.
@@ -482,7 +482,7 @@ impl Set<T> {
     //! assert Set.insert(#{1, 2}, 3) == #{1, 2, 3}
     //! assert Set.insert(#{1, 2}, 2) == #{1, 2}
     //
-    pub fn insert<T>(s: Set<T>, elem: T): Set<T> {
+    pub fn insert<T>(s: Set<T>, elem: T) -> Set<T> {
         Set{items: Map.put(s.items, elem, True)}
     }
 }
@@ -502,7 +502,7 @@ attaches to nothing, so it stays the file's.
 //# Parses and evaluates the word problems of the exercise.
 
 /// Answers a word problem.
-pub fn answer(question: String): Result<Int, Error> {
+pub fn answer(question: String) -> Result<Int, Error> {
     ...
 }
 ```
@@ -531,7 +531,7 @@ When an attached assertion's subject becomes multi-line, keep the assertion at
 the front and prompt each continuation line:
 
 ```nomi
-//! assert Iter.loop(|n = 0| {
+//! assert Iter.loop(fn n = 0 -> {
 //!     if n >= 3 {
 //!         break n
 //!     } else {
@@ -552,8 +552,8 @@ whose body is an `if` containing `break`, `continue` or `return` goes below
 the lambda header in braces. A value-producing conditional lambda stays inline
 when it fits; when it does not, its body goes below the header in braces too,
 and a call it ends closes with `})`. A lambda body written in braces with its contents on the lines below the
-`{` stays that way, even when it would fit on one line; write `|x| x + 1`, or
-`|x| { x + 1 }` on one line, to let `fmt` put a short body on the header's
+`{` stays that way, even when it would fit on one line; write `fn x -> x + 1`, or
+`fn x -> { x + 1 }` on one line, to let `fmt` put a short body on the header's
 line.
 
 Use `assert` for the positive shape and `refute` when the thing under test is
@@ -573,9 +573,9 @@ column:
 
 ```nomi
 test "parses ids" {
-    cases = [("42", Ok(42)), ("007", Ok(7)), ("nope", Err("expected a numeric id"))]
+    cases = [#("42", Ok(42)), #("007", Ok(7)), #("nope", Err("expected a numeric id"))]
 
-    subtests cases, (text, expected) {
+    subtests cases, #(text, expected) {
         assert parse_id(text) == expected
     }
 }
@@ -588,11 +588,11 @@ it is:
 ```nomi
 test "leap years" {
     cases = [
-        ("year divisible by 400 is leap year", 2000, True),
-        ("year divisible by 100, not divisible by 400 in common year", 1900, False),
+        #("year divisible by 400 is leap year", 2000, True),
+        #("year divisible by 100, not divisible by 400 in common year", 1900, False),
     ]
 
-    subtests cases, (description, year, expected), description {
+    subtests cases, #(description, year, expected), description {
         assert leap_year?(year) == expected
     }
 }
@@ -667,7 +667,7 @@ then shows a named expression:
 ```nomi
 found =
     [1, 2, 3, 4, 5]
-    |> Iter.find(|x| x == 3)
+    |> Iter.find(fn x -> x == 3)
 
 assert found == Some(3)
 ```
@@ -693,10 +693,10 @@ assert values
 ```
 
 **Boot with no startup input when the tests need none.** A boot that reads no
-startup input declares no parameter, `fn boot(): App`, and its groups write
+startup input declares no parameter, `fn boot() -> App`, and its groups write
 `boot server.boot()`. A boot that reads startup takes
 `startup: Startup`. When most of its tests need no input, default the
-parameter, `fn boot(startup: Startup = Startup{}): App`, so those groups
+parameter, `fn boot(startup: Startup = Startup{}) -> App`, so those groups
 write `boot server.boot()` and only the groups that test the inputs build a
 Startup. The runtime still passes the real Startup to `main`'s boot, so the
 default changes nothing outside tests. Leave the parameter required when every
@@ -705,7 +705,7 @@ test must decide its inputs, such as a boot that fails without a database URL.
 **Groups that boot share one helper file.** Put the fakes a project's tests
 install, and the `Startup` they boot with when they need one, in a test helper
 file such as `test_support.nomi`. It exports the fake types and, when tests
-need startup input, `pub fn startup(): Startup`. A group passes
+need startup input, `pub fn startup() -> Startup`. A group passes
 `test_support.startup()` to its `boot` line and installs fakes with `with`
 lines in `setup`, so every test in the group runs against them. Build the
 Startup with only the fields it sets; the rest default to empty:
@@ -714,14 +714,14 @@ Startup with only the fields it sets; the rest default to empty:
 // test_support.nomi
 import server.Mailer
 
-pub fn startup(): Startup {
-    Startup{env: {"SENDER" => "test@example.com"}}
+pub fn startup() -> Startup {
+    Startup{env: %{"SENDER" => "test@example.com"}}
 }
 
 pub type FakeMailer
 
 impl Mailer for FakeMailer {
-    fn send(_mailer: FakeMailer, to: String): Result<Unit, String> {
+    fn send(_mailer: FakeMailer, to: String) -> Result<Unit, String> {
         if to == "" {
             Err("no address")
         } else {
@@ -921,7 +921,7 @@ An import inside a block sits at the top of that block, followed by a blank
 line; `fmt` moves it there:
 
 ```nomi
-fn first(): Maybe<Int> {
+fn first() -> Maybe<Int> {
     import std/maybe.Maybe as Local
 
     Local.Some(1)
@@ -954,16 +954,16 @@ is part of the program's behavior. Reach for `dbg` for temporary tracing.
 
 - `|> dbg` is a temporary look at the value. It is a warning in the editor and
   `nomi build` refuses it, so it never ships.
-- `|> tap |v| ...` is an effect the program keeps, such as a log line or a
+- `|> tap fn v -> ...` is an effect the program keeps, such as a log line or a
   progress message, run on the value without changing it. Its lambda returns
   `Unit`.
-- `|> then |v| ...` replaces the value with the lambda's result.
+- `|> then fn v -> ...` replaces the value with the lambda's result.
 
 ```nomi
 command =
     input
     |> String.words()
-    |> tap |words| log.debug("got ${Iter.count(words)} words")
+    |> tap fn words -> log.debug("got ${Iter.count(words)} words")
     |> parse_command()
 ```
 
@@ -999,14 +999,14 @@ suffixed names:
 
 ```nomi
 // no: invented ladder
-fn normalize(name: String): String {
+fn normalize(name: String) -> String {
     name_trimmed = String.trim(name)
     name_lower = String.to_lower(name_trimmed)
     name_lower
 }
 
 // yes: thread the binding
-fn normalize(name: String): String {
+fn normalize(name: String) -> String {
     name = String.trim(name)
     name = String.to_lower(name)
     name
@@ -1030,7 +1030,7 @@ The threading idiom (`x = f(x)`) always reads the prior `x`, so it is clean.
 When a value is intentionally ignored, use a discard binder: `_`, or `_name`
 when a label makes the ignored value clearer. Discard binders do not enter
 scope, so `_name` cannot be read later. The same holds inside a pattern: write
-`|(_word, count)| count`, `Some(_) -> True` or `[first, .._]`, and leave a struct
+`fn #(_word, count) -> count`, `Some(_) -> True` or `[first, .._]`, and leave a struct
 pattern's unneeded fields out (`.Suspended{reason}`) rather than binding them.
 
 `assert` and `refute` may stand alone as statements, since the check is the
@@ -1094,19 +1094,19 @@ struct Dog {
 }
 
 impl Dog {
-    fn rename(_d: Dog, new_name: String): Dog {
+    fn rename(_d: Dog, new_name: String) -> Dog {
         Dog{name: new_name}
     }
 }
 
 impl Speech for Dog {
-    fn speak(d: Dog): String {
+    fn speak(d: Dog) -> String {
         "${d.name} says woof"
     }
 }
 
 impl Html for users.User {
-    fn to_html(u: users.User): String {
+    fn to_html(u: users.User) -> String {
         "<span>${u.name}</span>"
     }
 }
@@ -1123,7 +1123,7 @@ struct Span<T> where T: Comparable {
 }
 
 impl Span<T> {
-    fn longer?(a: Span<T>, b: Span<T>): Bool {
+    fn longer?(a: Span<T>, b: Span<T>) -> Bool {
         a.stop > b.stop
     }
 }
@@ -1135,8 +1135,8 @@ PascalCase name does not create an implicit type parameter.
 
 ```nomi
 interface Ranked<T> {
-    fn item(value: self): T
-    fn prefer<K>(value: self, lhs: K, rhs: K): Bool where K: Comparable
+    fn item(value: self) -> T
+    fn prefer<K>(value: self, lhs: K, rhs: K) -> Bool where K: Comparable
 }
 ```
 
@@ -1189,7 +1189,7 @@ pub struct Config {
     context: Context
 }
 
-pub fn boot(): Config {
+pub fn boot() -> Config {
     Config{context: Context.root()}
 }
 ```
@@ -1252,7 +1252,7 @@ Ok(user) = load(id) else {
 Some(email) = user.email else { "none" }
 
 // else: skip what does not parse
-Iter.each(lines, |line| {
+Iter.each(lines, fn line -> {
     Ok(entry) = parse(line) else { continue }
     record(entry)
 })
@@ -1302,7 +1302,7 @@ already names the struct, write the fields alone:
 ```nomi
 ada = Person{name: "Ada", address: {street: "1 Main", city: "Bath"}}
 
-fn origin(): Point {
+fn origin() -> Point {
     {x: 0, y: 0}
 }
 ```
@@ -1317,19 +1317,19 @@ would make an anonymous struct instead.
 
 ## 18. Use a tuple for a local pairing and a struct once it travels
 
-Use a tuple for a small, local pairing whose positions are obvious: a function
-returning two values, a map entry. Switch to an anonymous struct (or a
+Use a tuple, `#(a, b)`, for a small, local pairing whose positions are
+obvious: a function returning two values, a map entry. Switch to an anonymous struct (or a
 struct) once a slot is updated, or read by position far from where the tuple
 was built. A named field reads better than `.1`, and an anonymous struct
 already supports a spread update, which a tuple does not: there is no
 `Tuple.update`, because its result type would depend on a literal index.
 
 ```nomi
-fn divide(x: Int, y: Int): (Int, Int) {
-    (x / y, x % y)
+fn divide(x: Int, y: Int) -> #(Int, Int) {
+    #(x / y, x % y)
 }
 
-fn step(point: {x: Int, y: Int}): {x: Int, y: Int} {
+fn step(point: {x: Int, y: Int}) -> {x: Int, y: Int} {
     {..point, y: point.y + 1}
 }
 ```
@@ -1348,7 +1348,7 @@ in a `case`. Write `'a'` rather than `try Codepoint.from_int(97)`: the literal
 is infallible and says which character it is.
 
 ```nomi
-fn delimiter?(cp: Codepoint): Bool {
+fn delimiter?(cp: Codepoint) -> Bool {
     case cp {
         ',' -> True
         ';' -> True
@@ -1369,7 +1369,7 @@ When a signature is settled and its body is not, write `todo` with a reason
 rather than a value that happens to type-check:
 
 ```nomi
-fn parse(text: String): Header {
+fn parse(text: String) -> Header {
     todo "parse the header"
 }
 ```
@@ -1382,7 +1382,7 @@ do. Use `todo` while writing code, not as a permanent "unreachable" marker: a
 case that cannot happen is better shaped out of the types, and one that can
 happen deserves a real answer or an `Err`.
 
-## 21. Read a field with `.name`, not `|x| x.name`
+## 21. Read a field with `.name`, not `fn x -> x.name`
 
 Where a function only reads a field, pass the field accessor (spec, *Field
 Accessors*). It says the one thing the lambda says, without a parameter name
@@ -1395,11 +1395,11 @@ cities = users |> Iter.map(.address.city) |> Iter.to_list()
 ```
 
 Keep the lambda when its body does more than read fields: a computation
-(`|u| u.age + 1`), a call (`|u| String.to_upper(u.name)`), or a condition
-(`|u| u.age > 18`). Don't pipe into an accessor; read the field from the
+(`fn u -> u.age + 1`), a call (`fn u -> String.to_upper(u.name)`), or a condition
+(`fn u -> u.age > 18`). Don't pipe into an accessor; read the field from the
 value: `user.name`, not `user |> .name`, which is an error.
 
-## 22. Pass a constructor, not `|x| Some(x)`
+## 22. Pass a constructor, not `fn x -> Some(x)`
 
 Where a function only wraps its argument, pass the constructor itself (spec,
 *Constructors as Function Values*): a positional variant (`Some`, `Ok`,
@@ -1414,8 +1414,8 @@ labelled = Result.map_err(result, ParseError)
 ```
 
 Keep the lambda when it does more than wrap: a computation inside the
-constructor (`|n| Id(n + 1)`), a struct-shaped variant, which has no function
-value (`|w| Shape.Rect{w: w, h: w}`), or a positional variant over a tuple
+constructor (`fn n -> Id(n + 1)`), a struct-shaped variant, which has no function
+value (`fn w -> Shape.Rect{w: w, h: w}`), or a positional variant over a tuple
 whose parts arrive as separate arguments.
 
 ## 23. `return` is for leaving early
@@ -1424,7 +1424,7 @@ A block's last expression is its value, so a function or lambda ends with
 the value, not `return value`. Keep `return` for an exit before the end:
 
 ```nomi
-fn clamp(n: Int): Int {
+fn clamp(n: Int) -> Int {
     if n < 0 { return 0 }
     if n > 100 { return 100 }
     n
@@ -1459,7 +1459,7 @@ its own file and call that:
 type Balance Int
 
 impl Balance {
-    pub fn cents(Balance(n)): Int { n }
+    pub fn cents(Balance(n)) -> Int { n }
 }
 ```
 
@@ -1490,7 +1490,7 @@ A fold that starts from the empty sum and adds each element is `Iter.sum`:
 total = prices |> Iter.map(.cents) |> Iter.sum()
 ```
 
-not `Iter.reduce(|total = 0, n| total + n)`, which spells out the starting
+not `Iter.reduce(fn total = 0, n -> total + n)`, which spells out the starting
 value and the step the type's `Summable` and `Add` impls already name. Keep
 `Iter.reduce` when the fold does more than add (`total + n * weight`), starts
 from another value, or breaks early.
@@ -1501,18 +1501,18 @@ A fold whose every intermediate state is wanted is `Iter.scan`, and a map that
 threads a state from one element to the next is `Iter.map_reduce`:
 
 ```nomi
-balances = deposits |> Iter.scan(|balance = opening, amount| balance + amount)
+balances = deposits |> Iter.scan(fn balance = opening, amount -> balance + amount)
 
-(rows, _width) =
+#(rows, _width) =
     lines
     |> Iter.reverse()
-    |> Iter.map_reduce(|width = 0, line| {
+    |> Iter.map_reduce(fn width = 0, line -> {
         width = Int.max(width, String.length(line))
-        (String.pad_end(line, width), width)
+        #(String.pad_end(line, width), width)
     })
 ```
 
-not an `Iter.reduce` whose accumulator is a `(state, list)` pair that conses
+not an `Iter.reduce` whose accumulator is a `#(state, list)` pair that conses
 each result and is reversed afterwards. Use `scan` when the outputs are the
 states themselves, and it stays lazy, so it can run over an unbounded source
 under a `take`. Use `map_reduce` when each element has its own output and

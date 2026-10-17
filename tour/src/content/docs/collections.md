@@ -33,11 +33,11 @@ import std/io
 fn main() {
     result =
         Range.naturals()
-        |> Iter.map(|n| {
+        |> Iter.map(fn n -> {
             io.print("squaring ${n}")
             n * n
         })
-        |> Iter.filter(|sq| sq > 10)
+        |> Iter.filter(fn sq -> sq > 10)
         |> Iter.take(2)
         |> Iter.to_list()
 
@@ -75,8 +75,8 @@ fn main() {
     xs = [1, 2, 3, 4, 5]
 
     xs
-    |> Iter.filter(|n| n > 2)
-    |> Iter.map(|n| n * n)
+    |> Iter.filter(fn n -> n > 2)
+    |> Iter.map(fn n -> n * n)
     |> Iter.sum()
     |> dbg
 }
@@ -85,8 +85,8 @@ fn main() {
 <!-- expect
 dbg line 8:
   xs
-  |> Iter.filter(|n| n > 2)
-  |> Iter.map(|n| n * n)
+  |> Iter.filter(fn n -> n > 2)
+  |> Iter.map(fn n -> n * n)
   |> Iter.sum()
   = 50
 -->
@@ -150,7 +150,7 @@ index and stops the program the same way.
 
 ```nomi-run
 fn main() {
-    config = {"host" => "localhost", "port" => "8080"}
+    config = %{"host" => "localhost", "port" => "8080"}
 
     dbg Map.size(config)
     dbg Map.get(config, "host")
@@ -164,7 +164,7 @@ dbg line 5: Map.get(config, "host") = Some("localhost")
 dbg line 6: Map.get(config, "user") = None
 -->
 
-You write a map as `{"key" => value, ...}`.
+You write a map as `%{"key" => value, ...}`, and the empty map as `%{}`.
 
 [`Map.get`](/reference/maps/#mapget) returns a [`Maybe<V>`](/reference/maybe/).
 That is `Some(value)` when the key is there and `None` when it is not.
@@ -221,13 +221,13 @@ fn main() {
     xs = ["Bo"]
     v = #["Bo"]
     s = #{"red"}
-    m = {"host" => "localhost", "port" => "8080"}
+    m = %{"host" => "localhost", "port" => "8080"}
 
     dbg ["Ada", ..xs]
     dbg #[..v, "Cy"]
     dbg #["Ada", ..v]
     dbg #{..s, "blue"}
-    dbg {..m, "port" => "9090", "user" => "ada"}
+    dbg %{..m, "port" => "9090", "user" => "ada"}
 }
 
 ```
@@ -236,7 +236,7 @@ dbg line 7: ["Ada", ..xs] = ["Ada", "Bo"]
 dbg line 8: #[..v, "Cy"] = #["Bo", "Cy"]
 dbg line 9: #["Ada", ..v] = #["Ada", "Bo"]
 dbg line 10: #{..s, "blue"} = #{"red", "blue"}
-dbg line 11: {..m, "port" => "9090", "user" => "ada"} = {"host" => "localhost", "port" => "9090", "user" => "ada"}
+dbg line 11: %{..m, "port" => "9090", "user" => "ada"} = %{"host" => "localhost", "port" => "9090", "user" => "ada"}
 -->
 
 Where the spread goes depends on the collection:
@@ -244,7 +244,7 @@ Where the spread goes depends on the collection:
 - In a list it goes last, so you add items at the front.
 - In a vector it can go first or last.
 - In a set or a map it goes first. `#{..s, x}` is `s` with `x` added.
-  `{..m, k => v}` is `m` with the entry `k => v` added or replaced.
+  `%{..m, k => v}` is `m` with the entry `k => v` added or replaced.
 
 A spread also works inside a struct or a map that you are updating. There, a
 `..` with nothing after it means the value that is already there:
@@ -260,17 +260,17 @@ fn main() {
     team = Team{members: ["Bo"], roster: #["Bo"], tags: #{"red"}}
     dbg {..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: #{.., "blue"}}
 
-    teams = {"hawks" => {"name" => "Hawks"}}
-    scores = {"ada" => [3]}
-    dbg {..teams, "hawks" => {.., "city" => "Atlanta"}, "kites" => {.., "city" => "Leeds"}}
-    dbg {..scores, "ada" => [5, ..], "bob" => [1, ..]}
+    teams = %{"hawks" => %{"name" => "Hawks"}}
+    scores = %{"ada" => [3]}
+    dbg %{..teams, "hawks" => %{.., "city" => "Atlanta"}, "kites" => %{.., "city" => "Leeds"}}
+    dbg %{..scores, "ada" => [5, ..], "bob" => [1, ..]}
 }
 
 ```
 <!-- expect
 dbg line 9: {..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: #{.., "blue"}} = Team{members: ["Ada", "Bo"], roster: #["Bo", "Cy"], tags: #{"red", "blue"}}
-dbg line 13: {..teams, "hawks" => {.., "city" => "Atlanta"}, "kites" => {.., "city" => "Leeds"}} = {"hawks" => {"name" => "Hawks", "city" => "Atlanta"}, "kites" => {"city" => "Leeds"}}
-dbg line 14: {..scores, "ada" => [5, ..], "bob" => [1, ..]} = {"ada" => [5, 3], "bob" => [1]}
+dbg line 13: %{..teams, "hawks" => %{.., "city" => "Atlanta"}, "kites" => %{.., "city" => "Leeds"}} = %{"hawks" => %{"name" => "Hawks", "city" => "Atlanta"}, "kites" => %{"city" => "Leeds"}}
+dbg line 14: %{..scores, "ada" => [5, ..], "bob" => [1, ..]} = %{"ada" => [5, 3], "bob" => [1]}
 -->
 
 `members: ["Ada", ..]` puts `"Ada"` in front of the members the team already
@@ -376,7 +376,7 @@ dbg line 5:
 
 ```nomi-run
 fn main() {
-    m1 = {"a" => 1, "b" => 2}
+    m1 = %{"a" => 1, "b" => 2}
     m2 = Map.put(m1, "c", 3)
 
     dbg Map.size(m1)
