@@ -271,10 +271,34 @@ func (p *Program) leftovers() []Leftover {
 // dbgTextLimit is how many runes of a dbg's operand the refusal shows.
 const dbgTextLimit = 40
 
-// compactSource is src on one line, each run of whitespace one space, cut to
-// limit runes with "..." after it when longer.
+// compactSource is src, the formatter's rendering of an operand, on one
+// line, cut to limit runes with "..." after it when longer. The formatter
+// keeps a literal broken one element per line when its source breaks after
+// the bracket, so src may be broken where its flat form fits; the lines are
+// joined as the flat form reads: nothing after an opening bracket, nothing
+// before a closing one and no trailing comma there, one space elsewhere.
 func compactSource(src string, limit int) string {
-	one := strings.Join(strings.Fields(src), " ")
+	var b strings.Builder
+	for _, line := range strings.Split(src, "\n") {
+		line = strings.Join(strings.Fields(line), " ")
+		if line == "" {
+			continue
+		}
+		if b.Len() > 0 {
+			joined := b.String()
+			switch {
+			case strings.ContainsAny(line[:1], ")]}"):
+				if strings.HasSuffix(joined, ",") {
+					b.Reset()
+					b.WriteString(strings.TrimSuffix(joined, ","))
+				}
+			case !strings.ContainsAny(joined[len(joined)-1:], "([{"):
+				b.WriteByte(' ')
+			}
+		}
+		b.WriteString(line)
+	}
+	one := b.String()
 	if r := []rune(one); len(r) > limit {
 		return string(r[:limit]) + "..."
 	}
