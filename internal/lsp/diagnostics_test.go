@@ -558,6 +558,47 @@ func TestGroupWithoutANamePublishesTheMissingName(t *testing.T) {
 	}
 }
 
+// A `test` or `group` inside a body publishes the parser's refusal at its
+// keyword, in a test body and in an attached prompt, and the nested
+// declaration's own body is still analyzed.
+func TestNestedTestDeclarationsPublishTheRefusal(t *testing.T) {
+	cases := []struct{ name, src, want, inner string }{
+		{"test in a test",
+			"test \"outer\" {\n    test \"inner\" { assert 1 == \"one\" }\n    assert 1 == 1\n}\n",
+			"2:5: a `test` is declared at the top level of a file or in a `group`; it cannot be nested inside a body", "2:"},
+		{"group in a function",
+			"fn main() {\n    group \"g\" {\n        test \"a\" { assert 1 == \"one\" }\n    }\n}\n",
+			"2:5: a `group` is declared at the top level of a file; it cannot be nested inside a body", "3:"},
+		{"test in an attached prompt",
+			"//! test \"x\" { assert 1 == 1 }\n//! assert answer() == 42\n//\nfn answer() -> Int {\n    42\n}\n",
+			"1:5: a `test` is declared at the top level of a file or in a `group`; it cannot be nested inside a body", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dm := analysis.NewDocumentManager()
+			doc := dm.Open("file:///test.nomi", c.src)
+			var got []string
+			for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Errors, doc.Analysis.TypeErrors) {
+				got = append(got, fmt.Sprintf("%d:%d: %s", d.Range.Start.Line+1, d.Range.Start.Character+1, d.Message))
+			}
+			found, inner := false, c.inner == ""
+			for _, g := range got {
+				if g == c.want {
+					found = true
+				} else if strings.HasPrefix(g, c.inner) && strings.Contains(g, "String") {
+					inner = true
+				}
+			}
+			if !found {
+				t.Errorf("publishes:\n%s\nwant:\n%s", strings.Join(got, "\n"), c.want)
+			}
+			if !inner {
+				t.Errorf("nothing published for the mistyped assert inside the nested declaration:\n%s", strings.Join(got, "\n"))
+			}
+		})
+	}
+}
+
 // An import that names nothing but brings in impl blocks the program uses
 // publishes nothing, and the structured query the quick fix and organize
 // imports read does not offer to remove it. One whose impls nothing uses is

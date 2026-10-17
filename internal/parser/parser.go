@@ -637,9 +637,12 @@ func (p *Parser) parseAttachedCommentTest() (ast.AttachedTest, error) {
 	if err != nil {
 		return ast.AttachedTest{}, err
 	}
-	body, recovered, err := parseAttachedTestBody(bodyTokens, openTok, closeTok, p.resilient)
+	body, recovered, soft, err := parseAttachedTestBody(bodyTokens, openTok, closeTok, p.resilient)
 	if err != nil {
 		return ast.AttachedTest{}, err
+	}
+	for _, e := range soft {
+		p.softError(e)
 	}
 	p.recoveries += recovered
 	// A damaged line may be the assertion being typed (`//! assert u.`),
@@ -752,10 +755,13 @@ func tokenEndLine(tok token.Token) int {
 // mode a statement that does not parse becomes an *ast.ErrorNode, as in a
 // block, so the group's other bindings stay in scope for the editor;
 // recovered counts them.
-func parseAttachedTestBody(tokens []token.Token, openTok, closeTok token.Token, resilient bool) (body *ast.Block, recovered int, err error) {
+func parseAttachedTestBody(tokens []token.Token, openTok, closeTok token.Token, resilient bool) (body *ast.Block, recovered int, soft []ParseError, err error) {
 	bodyTokens := append([]token.Token(nil), tokens...)
 	bodyTokens = append(bodyTokens, token.Token{Type: token.EOF, Line: closeTok.Line, Col: closeTok.Col})
-	bodyParser := &Parser{tokens: bodyTokens, resilient: resilient}
+	// The prompt's lines are a test body, so its statements are a
+	// block's: a nested `test` or a `pub` is refused there, and
+	// `subtests` is read as one.
+	bodyParser := &Parser{tokens: bodyTokens, resilient: resilient, blockDepth: 1}
 	var stmts []ast.Node
 	var endTrivia []ast.Trivia
 	for !bodyParser.atEnd() {
@@ -768,7 +774,7 @@ func parseAttachedTestBody(tokens []token.Token, openTok, closeTok token.Token, 
 		node, attachedDoc, attachedLeading, err := bodyParser.parseStmt()
 		if err != nil {
 			if !resilient {
-				return nil, 0, err
+				return nil, 0, nil, err
 			}
 			stmts = append(stmts, bodyParser.recoverStmtInBlock(stmtStart, err))
 			continue
@@ -793,9 +799,15 @@ func parseAttachedTestBody(tokens []token.Token, openTok, closeTok token.Token, 
 		// offered here.
 		first := bodyParser.firstError(nil).(ParseError)
 		first.Fix = nil
-		return nil, 0, first
+		return nil, 0, nil, first
 	}
-	return body, bodyParser.recoveries, nil
+	// A resilient parse keeps the body and hands its soft errors to the
+	// file's parser, without their fixes for the same reason.
+	for _, e := range bodyParser.errors {
+		e.Fix = nil
+		soft = append(soft, e)
+	}
+	return body, bodyParser.recoveries, soft, nil
 }
 
 func (p *Parser) parseAttachedTestPromptsAndDoc() ([]ast.AttachedTest, string, []ast.Trivia, error) {
@@ -1139,6 +1151,13 @@ func rejectAttachedTestsOnNonDeclaration(tests []ast.AttachedTest, context strin
 	return errorAt(tests[0].Line, tests[0].Col, "attached test prompt is not supported on %s", context)
 }
 
+// nestedTestMessage is the error at a `test` inside a body: a function's, a
+// lambda's, a test's, a `once` initializer's or any block in one.
+const nestedTestMessage = "a `test` is declared at the top level of a file or in a `group`; it cannot be nested inside a body"
+
+// nestedGroupMessage is the error at a `group "name"` inside a body.
+const nestedGroupMessage = "a `group` is declared at the top level of a file; it cannot be nested inside a body"
+
 // parseBlockStmt parses one statement of a block body.
 func (p *Parser) parseBlockStmt() (ast.Node, string, []ast.Trivia, error) {
 	p.blockDepth++
@@ -1337,6 +1356,21 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	// Test declarations: test "name" { ... } / group "name" { ... }. `group`
 	// is a contextual keyword, read as one only at the top level.
 	if p.peek().Type == token.TEST || (p.blockDepth == 0 && p.atGroupStart()) {
+		if p.blockDepth > 0 {
+			// A test is a declaration of the file or of a group. The
+			// nested one is still read, so the rest of the body parses
+			// and an editor keeps its scopes.
+			tok := p.peek()
+			p.softError(ParseError{Line: tok.Line, Col: tok.Col, Message: nestedTestMessage})
+		}
+		return p.parseTestDecl()
+	}
+	// In a body `group` is an ordinary name, but a name followed on its
+	// line by a string starts no statement, so `group "name"` there is a
+	// misplaced group. It is read as one, as a nested `test` is.
+	if p.blockDepth > 0 && p.atGroupStart() && p.peekAt(1).Type != token.LBRACE {
+		tok := p.peek()
+		p.softError(ParseError{Line: tok.Line, Col: tok.Col, Message: nestedGroupMessage})
 		return p.parseTestDecl()
 	}
 
@@ -5025,6 +5059,11 @@ func (p *Parser) parseGoPackageDecl() (ast.Node, error) {
 
 	if p.atEnd() || p.peek().Type != token.STRING_LITERAL {
 		return nil, errorAt(goPkgTok.Line, goPkgTok.Col, "expected Go import path string after `gopkg`")
+	}
+	if p.blockDepth > 0 {
+		// The `go` bindings that use a handle are top-level, so a handle
+		// declared in a body could serve none of them.
+		p.softError(ParseError{Line: goPkgTok.Line, Col: goPkgTok.Col, Message: "a `gopkg` declaration belongs at the top level of a file, beside the `go` bindings that use it; it cannot appear inside a body"})
 	}
 	pathTok := p.peek()
 	importPath := pathTok.Lexeme

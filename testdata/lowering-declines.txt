@@ -832,7 +832,7 @@ a	irScalarBuilder.testLeaving | false | isStmt && region == e && !endless#1	irte
 -	irScalarBuilder.testLeaving | false | bl.recording > 0#1	irtestbody.go:433	-	
 b	irScalarBuilder.testStmt | false | !emittableLine(line)#1	irtestbody.go:478	-	defensive fence: source statements always carry an emittable line
 b	irScalarBuilder.testStmt | false | isNilNode(st.Expr)#1	irtestbody.go:521	-	defensive fence: the parser never builds an ExprStmt with a nil expression
-c	irScalarBuilder.testStmt | note | fmt.Sprintf("a test-body statement form: %T", s)#1	irtestbody.go:544	-	pinned as gapTestLocalImpl (reason: a test-body statement form: *ast.ImplBlock)
+b	irScalarBuilder.testStmt | note | fmt.Sprintf("a test-body statement form: %T", s)#1	irtestbody.go:544	-	the forms left are refused in a body: `test`, `group` and `gopkg` by the parser, `impl`, `derive` and `once` by the checker
 b	irScalarBuilder.testReturn | note | "a return in a test body the builder reads back"#1	irtestbody.go:561	-	defensive fence: testStmt is only reached from test-body statement runs, never while an assertion subject is recording (subject blocks go through leading, not testStmt)
 b	irScalarBuilder.testRegion | note | "an `if` or `case` statement in a test body the builder reads back"#1	irtestbody.go:614	-	defensive fence: same as line 556
 b	irScalarBuilder.testBlock | note | "a test-body block in a body the builder reads back"#1	irtestbody.go:633	-	defensive fence: same as line 556
