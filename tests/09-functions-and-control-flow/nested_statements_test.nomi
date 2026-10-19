@@ -280,7 +280,7 @@ test "a pipe binding whose stage holds a pipe records its spine" {
 }
 
 test "an annotated pipe binding" {
-    xs: List<Int> = [1, 2] |> Iter.map(fn x -> x + 1) |> Iter.to_list()
+    xs: List<Int> = [1, 2] |> Iter.map(&(&1 + 1)) |> Iter.to_list()
     assert [2, _] = xs
 }
 

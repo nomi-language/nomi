@@ -54,7 +54,7 @@ test "one inherent impl serves every instance" {
     words = #Span{start: "x", stop: "y"}
     assert Span.first(words) == "x"
     assert Span.ends(words) == ["x", "y"]
-    assert Span.map(words, fn w -> String.length(w)).stop == 1
+    assert Span.map(words, &String.length(&1)).stop == 1
 }
 
 test "an inherent function with no receiver operand takes the solved instance" {

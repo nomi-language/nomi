@@ -1,6 +1,7 @@
 import {
     add.Add
     bool.Bool
+    contains.Contains
     debug.Debug
     display.Display
     equatable.Equatable
@@ -39,12 +40,6 @@ impl Map<K, V> {
     //
     pub host fn put<K, V>(m: Map<K, V>, key: K, value: V) -> Map<K, V>
 
-    /// Returns an empty map.
-    //! m: Map<String, Int> = Map.empty()
-    //! assert Map.size(m) == 0
-    //
-    pub host fn empty<K, V>() -> Map<K, V>
-
     /// Returns a new map with the key removed. No-op if the key is absent.
     //! assert Map.remove(%{"a" => 1, "b" => 2}, "a") == %{"b" => 2}
     //
@@ -58,14 +53,14 @@ impl Map<K, V> {
 
     /// Returns the next key-value pair and remaining map, or None if empty.
     /// Drives the `Iter` implementation for `Map`.
-    //! assert Map.map_next(%{"a" => 1}) == Some(#(#("a", 1), Map.empty()))
+    //! assert Map.map_next(%{"a" => 1}) == Some(#(#("a", 1), %{}))
     //
     pub host fn map_next<K, V>(m: Map<K, V>) -> Maybe<#(#(K, V), Map<K, V>)>
 
     /// Returns the number of entries in the map. O(1) — read from the backing
     /// map's size (host-backed), not folded.
     //! assert Map.size(%{"a" => 1, "b" => 2}) == 2
-    //! m: Map<String, Int> = Map.empty()
+    //! m: Map<String, Int> = %{}
     //! assert Map.size(m) == 0
     //
     pub host fn size<K, V>(m: Map<K, V>) -> Int
@@ -84,16 +79,8 @@ impl Map<K, V> {
         Iter.map(m, fn #(_, v) -> v) |> Iter.to_list()
     }
 
-    /// Returns true if the map contains the key.
-    //! assert Map.contains_key?(%{"a" => 1}, "a")
-    //! refute Map.contains_key?(%{"a" => 1}, "z")
-    //
-    pub fn contains_key?<K, V>(m: Map<K, V>, key: K) -> Bool {
-        Map.get(m, key) |> Maybe.some?()
-    }
-
     /// Transforms each value by applying a function. Keys are unchanged.
-    //! assert Map.map_values(%{"a" => 1, "b" => 2}, fn v -> v * 10) == %{"a" => 10, "b" => 20}
+    //! assert Map.map_values(%{"a" => 1, "b" => 2}, &(&1 * 10)) == %{"a" => 10, "b" => 20}
     //
     pub fn map_values<K, V, U>(m: Map<K, V>, f: (V) -> U) -> Map<K, U> {
         Iter.map(m, fn #(k, v) -> #(k, f(v))) |> Iter.to_map()
@@ -101,10 +88,23 @@ impl Map<K, V> {
 
     /// Transforms each key by applying a function. Collisions resolve
     /// last-write-wins in insertion order.
-    //! assert Map.map_keys(%{"a" => 1, "b" => 2}, fn k -> k + "!") == %{"a!" => 1, "b!" => 2}
+    //! assert Map.map_keys(%{"a" => 1, "b" => 2}, &(&1 + "!")) == %{"a!" => 1, "b!" => 2}
     //
     pub fn map_keys<K, V, J>(m: Map<K, V>, f: (K) -> J) -> Map<J, V> {
         Iter.map(m, fn #(k, v) -> #(f(k), v)) |> Iter.to_map()
+    }
+}
+
+impl Contains for Map<K, V> {
+    /// True if `x` is a key of the map: a hash lookup. A value is not a key.
+    //! assert Map.contains?(%{"a" => 1}, "a")
+    //! refute Map.contains?(%{"a" => 1}, "z")
+    //! refute Map.contains?(%{"a" => "b"}, "b")
+    //! empty: Map<String, Int> = %{}
+    //! refute Map.contains?(empty, "a")
+    //
+    fn contains?(c: Map<K, V>, x: K) -> Bool {
+        Map.get(c, x) |> Maybe.some?()
     }
 }
 
@@ -178,7 +178,7 @@ impl Hashable for Map<K, V> where K: Hashable, V: Hashable {
 impl Add<Map<K, V>, Map<K, V>> for Map<K, V> {
     /// `a + b` is `Map.merge(a, b)`: the right-hand map wins on a shared key.
     //! assert %{"a" => 1} + %{"a" => 9, "b" => 2} == %{"a" => 9, "b" => 2}
-    //! empty: Map<String, Int> = Map.empty()
+    //! empty: Map<String, Int> = %{}
     //! assert empty + %{"a" => 1} == %{"a" => 1}
     //
     fn add(a: Map<K, V>, rhs: Map<K, V>) -> Map<K, V> {
@@ -195,6 +195,6 @@ impl Summable for Map<K, V> {
     //! assert Iter.sum([%{"a" => 1}, %{"a" => 9, "b" => 2}]) == %{"a" => 9, "b" => 2}
     //
     fn empty_sum() -> Map<K, V> {
-        Map.empty()
+        %{}
     }
 }

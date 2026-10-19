@@ -465,7 +465,7 @@ struct Config {
 }
 
 fn boot(startup: Startup = #Startup{}) -> Config {
-    #Config{verbose: Iter.any?(startup.args, fn arg -> arg == "-v")}
+    #Config{verbose: List.contains?(startup.args, "-v")}
 }
 
 fn main() {

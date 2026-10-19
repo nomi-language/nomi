@@ -135,6 +135,14 @@
 04-scalars-and-text/strings_test.nomi:slash_joined	PROBE: a synthesized argument is not a value of the declared type
 04-scalars-and-text/words_and_lines_test.nomi:count_non_empty_lines	ran
 04-scalars-and-text/words_and_lines_test.nomi:sum_numbers	ran
+06-collections/contains_test.nomi:Tag.equal?	ran
+06-collections/contains_test.nomi:Tag.inspect	ran
+06-collections/contains_test.nomi:all_present	ran
+06-collections/contains_test.nomi:all_present	ran
+06-collections/contains_test.nomi:all_present	ran
+06-collections/contains_test.nomi:all_present	ran
+06-collections/contains_test.nomi:all_present	ran
+06-collections/contains_test.nomi:all_present	ran
 06-collections/lists_test.nomi:sum	ran
 06-collections/named_literals_test.nomi:Ids.inspect	ran
 06-collections/named_literals_test.nomi:Json.inspect	ran
@@ -415,6 +423,15 @@
 09-functions-and-control-flow/call_semantics_test.nomi:trailing	ran
 09-functions-and-control-flow/call_semantics_test.nomi:transform	ran
 09-functions-and-control-flow/call_semantics_test.nomi:two_skip	ran
+09-functions-and-control-flow/captures_test.nomi:Box.inspect	ran
+09-functions-and-control-flow/captures_test.nomi:Point.inspect	ran
+09-functions-and-control-flow/captures_test.nomi:Rule.inspect	ran
+09-functions-and-control-flow/captures_test.nomi:Shape.inspect	ran
+09-functions-and-control-flow/captures_test.nomi:above	ran
+09-functions-and-control-flow/captures_test.nomi:apply2	ran
+09-functions-and-control-flow/captures_test.nomi:halve	ran
+09-functions-and-control-flow/captures_test.nomi:noisy	ran
+09-functions-and-control-flow/captures_test.nomi:tens	ran
 09-functions-and-control-flow/closures_and_lambdas_test.nomi:apply	ran
 09-functions-and-control-flow/closures_and_lambdas_test.nomi:double	ran
 09-functions-and-control-flow/closures_and_lambdas_test.nomi:make_adder	ran
@@ -596,6 +613,102 @@
 10-generics-and-type-wrappers/type_wrappers_test.nomi:run	ran
 10-generics-and-type-wrappers/type_wrappers_test.nomi:shape_size	ran
 11-interfaces-and-impls/block_impl_diagnostics_test.nomi:only	ran
+11-interfaces-and-impls/container_impls/container_impls_test.nomi:List<Int>.size	ran
+11-interfaces-and-impls/container_impls/container_impls_test.nomi:Maybe<String>.size	ran
+11-interfaces-and-impls/container_impls/container_impls_test.nomi:has	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/container_impls_test.nomi:has	ran
+11-interfaces-and-impls/container_impls/container_impls_test.nomi:has	ran
+11-interfaces-and-impls/container_impls/container_impls_test.nomi:has	ran
+11-interfaces-and-impls/container_impls/container_impls_test.nomi:made	ran
+11-interfaces-and-impls/container_impls/container_impls_test.nomi:shown	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/container_impls_test.nomi:shown	ran
+11-interfaces-and-impls/container_impls/impls.nomi:List<Int>.holds?	ran
+11-interfaces-and-impls/container_impls/impls.nomi:List<Int>.loud	ran
+11-interfaces-and-impls/container_impls/impls.nomi:List<Int>.show	ran
+11-interfaces-and-impls/container_impls/impls.nomi:List<Int>.zero	ran
+11-interfaces-and-impls/container_impls/impls.nomi:List<List<Int>>.loud	ran
+11-interfaces-and-impls/container_impls/impls.nomi:List<List<Int>>.show	ran
+11-interfaces-and-impls/container_impls/impls.nomi:List<List<Int>>.zero	ran
+11-interfaces-and-impls/container_impls/impls.nomi:List<Maybe<Int>>.loud	ran
+11-interfaces-and-impls/container_impls/impls.nomi:List<String>.holds?	ran
+11-interfaces-and-impls/container_impls/impls.nomi:List<String>.loud	ran
+11-interfaces-and-impls/container_impls/impls.nomi:List<String>.show	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Map<String, Int>.loud	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Map<String, Int>.show	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Map<String, List<Int>>.loud	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Map<String, List<Int>>.show	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Int>.holds?	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Int>.loud	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Int>.show	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Int>.zero	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Maybe<List<Int>>.zero	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Maybe<List<Maybe<Int>>>.loud	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Maybe<List<Maybe<Int>>>.show	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Maybe<String>.loud	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Maybe<String>.show	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Vector<Int>>.loud	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Vector<Int>>.show	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/impls.nomi:Result<Int, String>.loud	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Result<Int, String>.show	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Set<String>.loud	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/impls.nomi:Set<String>.show	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/impls.nomi:Show.show	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.holds?	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.holds?	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.loud	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.show	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/protocols.nomi:Int.loud	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Int.show	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Int.zero	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:String.loud	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:String.show	ran
+11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:Tally.got	ran
+11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:Tally.held	ran
+11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:Tally.inspect	ran
+11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:Tally.shout	ran
+11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:Tally.twice	ran
+11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:got_by	ran
+11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:got_by	ran
+11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:held_by	ran
+11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:held_by	ran
+11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:held_by	ran
+11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:held_by	ran
+11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:shouted	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Bag.held	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Bag.shout	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Num.add	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Num.add	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Wrap.got	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Wrap.got	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Wrap.got	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Wrap.held	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Wrap.held	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Wrap.held	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Wrap.shout	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Wrap.shout	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Wrap.shout	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Wrap.twice	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Wrap.twice	ran
+11-interfaces-and-impls/cross_file_impls/impls.nomi:Wrap.twice	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Crate.held	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Crate.shout	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Bag.got	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Bag.inspect	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Bag.twice	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Crate.inspect	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Num.inspect	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Pair.held	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Pair.held	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Pair.held	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Pair.inspect	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Pair.inspect	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Pair.inspect	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Pair.shout	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Pair.shout	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Pair.shout	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Wrap.inspect	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Wrap.inspect	ran
+11-interfaces-and-impls/cross_file_impls/things.nomi:Wrap.inspect	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Cat.inspect	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Cat.speak	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Describe.describe	ran
@@ -686,6 +799,17 @@
 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:user	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users/teams.nomi:Member.inspect	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users/teams.nomi:member	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.got	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.got	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.holds?	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.holds?	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.holds_none?	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.holds_none?	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.inspect	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:holds_by	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:holds_by	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:number	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/multiple_instantiations_test.nomi:text	PROBE: a synthesized argument is not a value of the declared type
 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi:Error.inspect	ran
 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi:Error.to_string	ran
 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi:Seed.from_int	ran

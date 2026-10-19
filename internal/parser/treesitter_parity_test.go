@@ -350,6 +350,8 @@ var rejectedInputs = []parityInput{
 	// Every literal of a built-in shape starts with its shape's symbol, and a
 	// name followed by `{` is never a literal. The other spellings are errors
 	// in both parsers.
+	// A capture's body is a call, a parenthesized expression or a literal.
+	{"a capture of a name", "fn main() {\n    _f = &x\n}\n"},
 	{"a set written #{...}", "fn main() {\n    _s = #{1, 2}\n}\n"},
 	{"a map attach written Name%{...}", "fn main() {\n    _k = Kvs%{\"a\" => 1}\n}\n"},
 	{"a struct with no type name written {...}", "fn main() {\n    _p = {x: 1}\n}\n"},

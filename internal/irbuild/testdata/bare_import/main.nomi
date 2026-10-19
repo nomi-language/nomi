@@ -12,16 +12,16 @@
 // MISS — and would then refuse under a key saying the function does not exist.
 // Resolution is by DECLARATION NODE, so both spellings reach one entry.
 //
-// `String.{contains? as has}` is the same correction one layer over: a stdlib
+// `String.{starts_with? as has}` is the same correction one layer over: a stdlib
 // TYPE's method reached bare, routed to the same implCall the qualified
-// spelling `String.contains?` reaches, so the two cannot answer differently.
+// spelling `String.starts_with?` reaches, so the two cannot answer differently.
 //
 // And `std/io.{print}` is a stdlib FILE's free function reached bare, the
 // spelling that would otherwise report `call to an unlowered function` for
 // the one host function this builder does lower.
 import {
     std/io.print
-    std/strings.String.{contains? as has}
+    std/strings.String.{starts_with? as has}
     lib.{self, Widget, label, make, twice as doubled}
 }
 
@@ -30,7 +30,7 @@ fn main() {
     print("label = ${label(w)}")
     print("doubled(21) = ${doubled(21)}")
     print("twice via alias and qualified agree: ${doubled(4) == lib.twice(4)}")
-    print("has = ${has("nomi", "om")}")
+    print("has = ${has("nomi", "no")}")
 
     // The bare name and the qualified one are the same function, so a Widget
     // built one way is usable the other way. If the two spellings had reached two

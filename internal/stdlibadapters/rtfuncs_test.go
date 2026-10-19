@@ -326,8 +326,11 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		hFloat(-0.4), hFloat(1e21), hFloat(1e-7), hFloat(0.1 + 0.2), hFloat(math.Inf(1)), hFloat(math.Inf(-1)),
 		hFloat(math.NaN()), hFloat(9.3e18), hFloat(-9.3e18), hFloat(9.2e18), hFloat(-9.223372036854775808e18)}
 	blobs := []any{hBytes(""), hBytes("\x00"), hBytes("ab"), hBytes("\xff\xfe"), hBytes("héllo")}
-	var at, slice, bslice []hostCase
+	var at, slice, bslice, holds []hostCase
 	for _, b := range blobs {
+		for _, x := range []byte{0, 0x61, 0xfe, 0xff} {
+			holds = append(holds, hostCase{args: args(b, hByte(x))})
+		}
 		for _, n := range []int64{-1, 0, 1, 4, 100} {
 			at = append(at, hostCase{args: args(b, hInt(n))})
 		}
@@ -380,6 +383,7 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		"bytes.Bytes.at":                   at,
 		"bytes.Bytes.slice":                bslice,
 		"bytes.Bytes.concat":               pairs(blobs...),
+		"bytes.Bytes.contains?":            holds,
 		"int.Int.to_string":                unary(ints...),
 		"int.Int.to_float":                 unary(ints...),
 		"int.Int.bitwise_not":              unary(ints...),

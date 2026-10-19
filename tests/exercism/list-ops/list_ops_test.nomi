@@ -62,11 +62,11 @@ group "returns the length of a list" {
 
 group "return a list of elements whose values equal the list value transformed by the mapping function" {
     test "empty list" {
-        assert list_ops.map([], fn x -> x + 1) == []
+        assert list_ops.map([], &(&1 + 1)) == []
     }
 
     test "non-empty list" {
-        assert list_ops.map([1, 3, 5, 7], fn x -> x + 1) == [2, 4, 6, 8]
+        assert list_ops.map([1, 3, 5, 7], &(&1 + 1)) == [2, 4, 6, 8]
     }
 }
 

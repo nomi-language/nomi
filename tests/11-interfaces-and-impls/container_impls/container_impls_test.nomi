@@ -1,0 +1,106 @@
+// A program's own interface implemented for std containers: generically
+// (`impl Show for List<T> where T: Show`, in impls.nomi), at a concrete
+// instance (`impl Sized for List<Int>`, here), and at a partly concrete one
+// (`Map<String, V>`). Each call form reaches the impl the instance selects.
+import {
+    impls
+    protocols.{Holds, Show, Zero}
+}
+
+interface Sized {
+    fn size(value: self) -> Int
+}
+
+impl Sized for List<Int> {
+    fn size(xs: List<Int>) -> Int {
+        Iter.count(xs)
+    }
+}
+
+impl Sized for Maybe<String> {
+    fn size(m: Maybe<String>) -> Int {
+        case m {
+            Some(s) -> String.length(s)
+            None -> 0
+        }
+    }
+}
+
+fn shown<T>(x: T) -> String where T: Show {
+    T.loud(x)
+}
+
+fn made<T>(n: Int) -> T where T: Zero {
+    T.zero(n)
+}
+
+fn has<C, T>(c: C, x: T) -> Bool where C: Holds<T> {
+    C.holds?(c, x)
+}
+
+test "an interface-qualified call reaches each container's impl" {
+    assert Show.show([1, 2]) == "[i1 i2]"
+    assert Show.show(#[3]) == "#[i3]"
+    assert Show.show(%["a", "b"]) == "set of 2"
+    assert Show.show(%{"k" => 4}) == "k=i4"
+    assert Show.show(Some("s")) == "some 's'"
+    r: Result<Int, String> = Err("no")
+    assert Show.show(r) == "err 'no'"
+}
+
+test "a generic interface implemented for a container at several type arguments" {
+    assert Holds.holds?([1, 2], 2)
+    assert Holds.holds?(Some(4), "4")
+    assert Holds.holds?(#[5, 6], 6)
+    assert Holds.holds?(#[5, 6], "5")
+    assert !Vector.holds?(#[5], "6")
+    assert has(#[7], 7)
+}
+
+test "a type-qualified call" {
+    assert List.show(["x"]) == "['x']"
+    assert Vector.show(#[5, 6]) == "#[i5 i6]"
+    assert Maybe.show(Some(7)) == "some i7"
+    assert List.size([1, 2, 3]) == 3
+    assert Maybe.size(Some("four")) == 4
+}
+
+test "nested instances" {
+    assert Show.show([[1], [2, 3]]) == "[[i1] [i2 i3]]"
+    assert Show.show(Some([Some(8)])) == "some [some i8]"
+    assert Show.show(%{"a" => [9]}) == "a=[i9]"
+}
+
+test "an interface default the impl does not override" {
+    assert Show.loud([1]) == "[i1]!"
+    assert Maybe.loud(Some(2)) == "some i2!"
+}
+
+test "a call through a bound" {
+    assert shown([10, 11]) == "[i10 i11]!"
+    assert shown(Some(#[12])) == "some #[i12]!"
+    assert has([1, 2], 2)
+    assert !has(["a"], "b")
+    assert has(Some(4), "4")
+}
+
+test "a receiverless function, by turbofish, result type and bound" {
+    assert Zero.zero<List<Int>>(3) == [3, 3]
+    assert Zero.zero<Maybe<List<Int>>>(1) == Some([1, 1])
+    nested: List<List<Int>> = Zero.zero(2)
+    assert nested == [[2, 2], [2, 2]]
+    some: Maybe<Int> = made(5)
+    assert some == Some(5)
+}
+
+test "pipes, placeholders and lambdas" {
+    assert [1, 2] |> Show.show() == "[i1 i2]"
+    assert [[3], [4]] |> Iter.map(&Show.show(&1)) |> String.join(";") == "[i3];[i4]"
+    assert [[5]] |> Iter.map(fn xs -> List.loud(xs)) |> String.join(";") == "[i5]!"
+}
+
+test "std's own impls for the containers are unchanged" {
+    assert "${[1, 2]}" == "[1, 2]"
+    assert Debug.inspect(Some([1])) == "Some([1])"
+    assert [1, 2] == [1, 2]
+}

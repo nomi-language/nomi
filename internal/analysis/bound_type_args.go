@@ -83,6 +83,39 @@ func (c *checker) boundArgsFit(concrete Type, bound *InterfaceType, subs map[*Ty
 	return false, have
 }
 
+// boundArgsAmbiguous reports, and says it did, a call whose bound's subject
+// implements the bound's interface at several type arguments when the call
+// leaves the bound's arguments open: `via(b, .Red)` for `fn via<C, T>(c: C,
+// x: T) where C: Holds<T>` and a `Box` implementing `Holds<Color>` and
+// `Holds<Shade>`. Arguments the call solved chose (boundArgsFit).
+func (c *checker) boundArgsAmbiguous(line, col int, concrete Type, bound *InterfaceType, subs map[*TypeParam_]Type) bool {
+	if bound == nil || len(bound.TypeArgs) == 0 || c.fa == nil {
+		return false
+	}
+	concrete = resolveTypeVar(concrete)
+	if ContainsTypeParam(concrete) || containsTypeVar(concrete) {
+		return false
+	}
+	open := false
+	for _, a := range bound.TypeArgs {
+		w := resolveTypeVar(Substitute(a, subs))
+		if containsTypeVar(w) || c.containsForeignTypeParam(w) {
+			open = true
+		}
+	}
+	if !open {
+		return false
+	}
+	cands := c.implCandidates(concrete, bound.Name, bound.Origin)
+	if len(cands) < 2 {
+		return false
+	}
+	c.addError(line, col, fmt.Sprintf(
+		"`%s` implements `%s` at %s, and the call's arguments do not choose one for this bound: annotate them",
+		concrete, bound.Name, candidateList(cands)))
+	return true
+}
+
 // boundArgsError is a call whose bound's subject implements the bound's
 // interface, but not with the type arguments the call gives it:
 // `Range.step_by(1.0d..=1.3d, 0.1)` steps a Decimal range by a Float.

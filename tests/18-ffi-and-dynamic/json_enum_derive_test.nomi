@@ -22,7 +22,7 @@ derive FromJson for Shape with #FromJson.Options{rename_all: Json.Case.Camel}
 
 fn decoded(text: String) -> Result<Shape, String> {
     case Json.decode(text) {
-        Ok(json) -> Shape.from_json(json) |> Result.map_err(fn e -> Display.to_string(e))
+        Ok(json) -> Shape.from_json(json) |> Result.map_err(&Display.to_string(&1))
         Err(e) -> Err(Display.to_string(e))
     }
 }
@@ -46,8 +46,8 @@ test "a derived enum's FromJson reads what its ToJson writes" {
         "\"Dot\"",
     ]
 
-    back = Iter.map(texts, fn t -> decoded(t)) |> Iter.to_list()
-    assert back == Iter.map(shapes, fn s -> Ok(s)) |> Iter.to_list()
+    back = Iter.map(texts, &decoded(&1)) |> Iter.to_list()
+    assert back == Iter.map(shapes, &Ok(&1)) |> Iter.to_list()
 }
 
 test "a derived enum's FromJson names what it could not read" {

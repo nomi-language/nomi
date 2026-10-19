@@ -19,15 +19,15 @@ test "maps can use structurally keyable values" {
     tuple_keyed = %{#(1, 2) => "a", #(3, 4) => "b"}
 
     list_keyed =
-        Map.empty()
+        %{}
         |> Map.put([1, 2, 3], "lst")
 
     nan_keyed =
-        Map.empty()
+        %{}
         |> Map.put(Float.nan(), "n")
 
     zero_keyed =
-        Map.empty()
+        %{}
         |> Map.put(-0.0, "z")
 
     assert lookup(tuple_keyed, #(3, 4)) == "b"

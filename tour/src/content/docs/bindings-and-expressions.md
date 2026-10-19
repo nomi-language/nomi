@@ -297,19 +297,19 @@ first `name` is never read.
 
 Most bindings don't need a type written out, because Nomi reads it from the
 right-hand side. You need one when the right-hand side doesn't say what the
-type is. The usual case is a function that creates an empty value:
+type is. The usual case is an empty collection:
 
 ```nomi-run
 fn main() {
-    // LHS annotation — `Map<String, Int>` tells the compiler what K and V
-    // are. `Map.empty()` alone has nothing to infer from.
-    scores: Map<String, Int> = Map.empty()
+    // LHS annotation: `Map<String, Int>` tells the compiler what K and V
+    // are. `%{}` alone has nothing to infer from.
+    scores: Map<String, Int> = %{}
     Map.size(scores) |> dbg
 
-    // RHS turbofish — same job, supplied on the call instead of the
-    // binding. Reach for it when the value isn't being bound — e.g. it
+    // RHS turbofish: the same job, supplied on a call instead of the
+    // binding. Reach for it when the value isn't being bound, e.g. it
     // flows straight through a pipe.
-    Map.empty<String, Int>()
+    Iter.to_map<String, Int>([])
     |> Map.size()
     |> dbg
 }
@@ -318,19 +318,21 @@ fn main() {
 <!-- expect
 dbg line 5: Map.size(scores) = 0
 dbg line 12:
-  Map.empty<String, Int>()
+  Iter.to_map<String, Int>([])
   |> Map.size()
   = 0
 -->
 
-`Map.empty()` alone could make a map of any key and value types, so you say
-which. There are two ways:
+`%{}` alone could be a map of any key and value types, so you say which.
+The empty literals `[]`, `#[]`, `%[]` and `%{}` are each collection's empty
+value, and each needs its type from somewhere. There are two ways to give a
+type:
 
-- Annotate the binding: `scores: Map<String, Int> = Map.empty()`. Use this
-  when you name the value.
-- Give the type arguments on the call: `Map.empty<String, Int>()`. This form
-  is called a turbofish. Use it when the value goes straight into a pipe or
-  another call.
+- Annotate the binding: `scores: Map<String, Int> = %{}`. Use this when you
+  name the value.
+- Give the type arguments on a call: `Iter.to_map<String, Int>([])`. This
+  form is called a turbofish. Use it when the value goes straight into a pipe
+  or another call.
 
 Without either, the compiler reports that the binding's type is not locally
 determined.
@@ -441,8 +443,8 @@ Inside a function body, Nomi works out types from how values are used:
   type, or another `case` arm.
 - In `f: (Int) -> Int = fn x -> x + 1`, the lambda's `x` gets its type from the
   annotation, so you don't write `fn x: Int ->`.
-- In `m: Map<String, Int> = Map.empty()`, the annotation tells `empty()`
-  which map to make.
+- In `m: Map<String, Int> = %{}`, the annotation tells `%{}` which map it
+  is.
 
 Inference stops at two boundaries.
 
@@ -461,7 +463,7 @@ from an annotation on the binding, or from the expression on the right and
 what is expected of it there. Later lines don't count:
 
 ```nomi
-m = Map.empty() // Map<?, ?> — locally undetermined
+m = %{} // Map<?, ?> — locally undetermined
 
 m = Map.put(m, "alice", 90) // K=String, V=Int could be solved
 // from this line — but line 1 is
@@ -475,9 +477,9 @@ reading from the top should know what `m` is without looking ahead.
 The fix is one of the two forms from earlier, an annotation or a turbofish:
 
 ```nomi
-m: Map<String, Int> = Map.empty() // LHS annotation
+m: Map<String, Int> = %{} // LHS annotation
 
-m = Map.empty<String, Int>() // RHS turbofish
+m = Iter.to_map<String, Int>([]) // RHS turbofish
 ```
 
 Most lines in a function body need no annotation. You write types at

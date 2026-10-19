@@ -7,7 +7,7 @@ test "take drop and take_while materialize expected values" {
         |> Iter.to_list()
         |> List.equal?([3, 4])
 
-    assert Iter.take_while([1, 2, 3, 4, 5], fn x -> x < 4)
+    assert Iter.take_while([1, 2, 3, 4, 5], &(&1 < 4))
         |> Iter.to_list()
         |> List.equal?([1, 2, 3])
 }

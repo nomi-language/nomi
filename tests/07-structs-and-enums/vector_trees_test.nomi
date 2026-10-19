@@ -26,11 +26,8 @@ struct Stmt {
 
 fn sum(tree: Tree) -> Int {
     case tree {
-        Tree.Leaf(n) ->
-            n
-
-        Tree.Node(kids) ->
-            kids |> Iter.map(fn kid -> sum(kid)) |> Iter.reduce(fn total = 0, n -> total + n)
+        Tree.Leaf(n) -> n
+        Tree.Node(kids) -> kids |> Iter.map(&sum(&1)) |> Iter.reduce(fn total = 0, n -> total + n)
     }
 }
 
@@ -41,13 +38,13 @@ fn depth(tree: Tree) -> Int {
 
         Tree.Node(kids) ->
             1 + (kids
-            |> Iter.map(fn kid -> depth(kid))
+            |> Iter.map(&depth(&1))
             |> Iter.reduce(fn deepest = 0, d -> Int.max(deepest, d)))
     }
 }
 
 fn total(dir: Dir) -> Int {
-    dir.kids |> Iter.map(fn kid -> total(kid)) |> Iter.reduce(fn sum = dir.size, n -> sum + n)
+    dir.kids |> Iter.map(&total(&1)) |> Iter.reduce(fn sum = dir.size, n -> sum + n)
 }
 
 fn eval(expr: Expr) -> Int {

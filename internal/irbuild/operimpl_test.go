@@ -1,7 +1,6 @@
 package irbuild
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -259,64 +258,6 @@ fn score_value(s: Score) -> Int {
 					"beside TestOperImpl_AShapeMismatchIsRefusedByName and move this row out")
 			}
 		})
-	}
-}
-
-// TestOperImpl_TwoImplsAtOneRhsAreAFrontEndError holds that `operKey`'s
-// coherence rule is a FENCE: the front end rejects the shape first.
-//
-// `impl Add<Days, Day> for Day` beside `impl Add<Days, Days> for Day` differs
-// only in the output. Both register under one runtime dispatch key, so the
-// program cannot run. `analysis`' coherence key keys operator impls on
-// (interface, receiver, RHS), via analysis.DispatchImplKey, so the program is a
-// compile error and this shape cannot reach the builder from source.
-//
-// `operShapeRefusal`'s duplicate clause stays, on the same grounds as the four
-// rows above: it is defence in depth for a front end that might change.
-//
-// The `Out` axis being excluded from the key is not a simplification; it is
-// the spec's rule for every generic interface (docs/spec.md,
-// "Generic Interfaces": the type parameter "is determined by each implementor …
-// never written on the interface name where the implementor is already known"),
-// and `Out` remains a real parameter in bound position (`where L: Add<R, Out>`).
-func TestOperImpl_TwoImplsAtOneRhsAreAFrontEndError(t *testing.T) {
-	const src = `type Day Int
-type Days Int
-
-fn day_value(d: Day) -> Int {
-  Day(n) = d
-  n
-}
-
-fn days_value(d: Days) -> Int {
-  Days(n) = d
-  n
-}
-
-impl Add<Days, Day> for Day {
-  fn add(lhs: Day, rhs: Days) -> Day {
-    Day(day_value(lhs) + days_value(rhs))
-  }
-}
-
-impl Add<Days, Days> for Day {
-  fn add(lhs: Day, rhs: Days) -> Days {
-    Days(day_value(lhs) + days_value(rhs))
-  }
-}
-`
-	_, analyzeErr := AnalyzeSource("operimpl_outaxis", src)
-	if analyzeErr == nil {
-		t.Fatal("the front end ACCEPTS two operator impls differing only in Out. That " +
-			"program has two bodies for one dispatch slot, so this is a defect, not " +
-			"a relaxation — see analysis/impl_coherence.go's detectImplCollisions")
-	}
-	msg := analyzeErr.Error()
-	for _, want := range []string{"Add<Days, Day>", "Add<Days, Days>", "OUTPUT type"} {
-		if !strings.Contains(msg, want) {
-			t.Errorf("the front-end rejection does not name %q; the diagnostic is the "+
-				"deliverable, not just the rejection: %s", want, msg)
-		}
 	}
 }
 

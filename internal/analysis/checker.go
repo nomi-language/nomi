@@ -11,11 +11,29 @@ import (
 
 // checker walks function bodies and validates type consistency.
 type checker struct {
-	// callHoles holds the `_` arguments of the calls checked so far
-	// (markCallHoles). Any other `_` read as a value is an error.
+	// callHoles holds the open arguments (`&1`) of the partial captures
+	// checked so far (markCallHoles).
 	callHoles map[*ast.Placeholder]bool
-	fa        *FileAnalysis
-	reg       *TypeRegistry
+	// funcHoles holds the `&N`s of the captures being checked (captures.go),
+	// each with the type the function's parameter has there, nil when
+	// nothing gave it one.
+	funcHoles map[*ast.PlaceholderParam]Type
+	// captures is the captures being checked, innermost last; a lambda's
+	// body starts with none (captures do not nest).
+	captures []*ast.Capture
+	// fileNodes is the file's top-level nodes, and strays each `&N` among
+	// them outside a capture (strayPlaceholders).
+	fileNodes []ast.Node
+	strays    map[*ast.PlaceholderParam]*strayPlaceholder
+	// exprStack is the expressions checkNode and checkNodeExpecting are
+	// inside, innermost last, by which a diagnostic finds the call an
+	// argument stands in (captures.go).
+	exprStack []ast.Node
+	// discardsReported holds the `_`s read as values that an error at
+	// another `_` of the same call already covers (checkDiscardRead).
+	discardsReported map[*ast.Ident]bool
+	fa               *FileAnalysis
+	reg              *TypeRegistry
 	// blockMethodIfaces maps each FuncDef item of a file-local interface-impl
 	// block (`impl Iface for T { fn m … }`) to the interface name(s) it
 	// impl. Built once up front by indexFileImplBlocks so dispatch
@@ -1175,6 +1193,8 @@ func nodeLineCol(n ast.Node) (int, int) {
 		return v.Line, v.Col
 	case *ast.GroupedExpr:
 		return v.Line, v.Col
+	case *ast.Capture:
+		return v.Line, v.Col
 	case *ast.Unary:
 		return v.Line, v.Col
 	case *ast.FieldAccess:
@@ -1225,41 +1245,33 @@ func nodeLineCol(n ast.Node) (int, int) {
 
 // implTypeArgsContext returns the interface type-argument template tables the
 // unifier should consult, file-local first then project-level
-// (c.fa.Program().ImplIndex.ImplTypeArgs, the union of every reachable FA's
-// ImplTypeArgs built by buildProjectImplIndex). File-local entries take
-// precedence so a user-defined impl with the same type name as a stdlib type
-// resolves to the user's template. These templates bind any generic interface's
-// type parameters from a concrete receiver, Iter's element type included.
-func (c *checker) implTypeArgsContext() []map[string]map[string]*ImplTypeArgs {
+// (c.fa.Program().ImplIndex.ImplTypeArgSets, the union of every reachable
+// FA's ImplTypeArgSets). File-local entries come first so a user-defined impl
+// with the same type name as a stdlib type resolves to the user's template.
+// These templates bind any generic interface's type parameters from a
+// concrete receiver, Iter's element type included. Each table holds every
+// impl of an interface for a type, so the unifier can choose among several
+// (impl_selection.go).
+func (c *checker) implTypeArgsContext() []map[string]map[string][]*ImplTypeArgs {
 	return c.fa.implTypeArgsContext()
 }
 
-func (fa *FileAnalysis) implTypeArgsContext() []map[string]map[string]*ImplTypeArgs {
+func (fa *FileAnalysis) implTypeArgsContext() []map[string]map[string][]*ImplTypeArgs {
 	if fa == nil {
 		return nil
 	}
-	tables := make([]map[string]map[string]*ImplTypeArgs, 0, 2)
-	if fa.ImplTypeArgs != nil {
-		tables = append(tables, fa.ImplTypeArgs)
+	tables := make([]map[string]map[string][]*ImplTypeArgs, 0, 2)
+	if fa.ImplTypeArgSets != nil {
+		tables = append(tables, fa.ImplTypeArgSets)
 	}
-	if idx := fa.Program().ImplIndex; idx != nil && idx.ImplTypeArgs != nil {
-		tables = append(tables, idx.ImplTypeArgs)
+	if idx := fa.Program().ImplIndex; idx != nil && idx.ImplTypeArgSets != nil {
+		tables = append(tables, idx.ImplTypeArgSets)
 	}
 	return tables
 }
 
 func (c *checker) implTypeArgSetsContext() []map[string]map[string][]*ImplTypeArgs {
-	if c.fa == nil {
-		return nil
-	}
-	tables := make([]map[string]map[string][]*ImplTypeArgs, 0, 2)
-	if c.fa.ImplTypeArgSets != nil {
-		tables = append(tables, c.fa.ImplTypeArgSets)
-	}
-	if idx := c.fa.Program().ImplIndex; idx != nil && idx.ImplTypeArgSets != nil {
-		tables = append(tables, idx.ImplTypeArgSets)
-	}
-	return tables
+	return c.fa.implTypeArgsContext()
 }
 
 // unify performs a type unification using the checker's impl context. It
@@ -1327,7 +1339,7 @@ func newChecker(fa *FileAnalysis, nodes []ast.Node) *checker {
 	// for the symmetry rationale with destructured-import lookups.
 	registerModuleQualifiedTypes(reg, fa.ModuleScope)
 
-	c := &checker{fa: fa, reg: reg}
+	c := &checker{fa: fa, reg: reg, fileNodes: nodes}
 	c.indexFileImplBlocks(nodes)
 	return c
 }
@@ -3204,9 +3216,11 @@ func (c *checker) checkBoundaryBody(body *ast.Block, expected Type, line, col in
 // resolves against expected or reports that nothing names its enum, never
 // against the callback type around it.
 func (c *checker) checkLambdaBody(n *ast.Lambda, expected Type) Type {
-	prevAt, prevEnum := c.expectedAt, c.expectedEnum
-	c.expectedAt, c.expectedEnum = nil, nil
-	defer func() { c.expectedAt, c.expectedEnum = prevAt, prevEnum }()
+	prevAt, prevEnum, prevCaptures := c.expectedAt, c.expectedEnum, c.captures
+	// A capture in the body is no capture's inside: the lambda is the
+	// function around it (captures.go).
+	c.expectedAt, c.expectedEnum, c.captures = nil, nil, nil
+	defer func() { c.expectedAt, c.expectedEnum, c.captures = prevAt, prevEnum, prevCaptures }()
 	return c.checkBoundaryBody(n.Body, expected, n.Line, n.Col)
 }
 
@@ -4041,6 +4055,8 @@ func (c *checker) checkNodeExpecting(node ast.Node, expected Type) Type {
 	if expected != nil {
 		c.fa.recordExpectedType(node, expected)
 	}
+	c.exprStack = append(c.exprStack, node)
+	defer func() { c.exprStack = c.exprStack[:len(c.exprStack)-1] }()
 	ty := c.rejectKeyWithoutEquality(node, c.checkNodeExpectingType(node, expected))
 	c.fa.recordExprType(node, ty)
 	return ty
@@ -4054,6 +4070,9 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 	}
 	if expected == nil {
 		return c.checkNode(node)
+	}
+	if capture, ok := node.(*ast.Capture); ok {
+		return c.checkCapture(capture, expected)
 	}
 	if ty, ok := c.checkTypeWitnessExpr(node, expected); ok {
 		return ty
@@ -4392,7 +4411,7 @@ func (c *checker) checkMapLitExpecting(n *ast.MapLit, keyTy, valTy Type) Type {
 // and the result has its type. Each entry's key must be a K and its value a
 // V, with the coercions a map literal's entries get under an expected type
 // (`None` for a `Maybe`, `[]` for a list). An open base, such as
-// `Map.empty()`, takes its K and V from the entries. expected, when
+// `%{}`, takes its K and V from the entries. expected, when
 // non-nil, is the type the position expects, pushed into the base.
 func (c *checker) checkMapUpdateLit(n *ast.MapLit, expected Type) Type {
 	var head Type
@@ -4467,6 +4486,8 @@ func (c *checker) checkMapUpdateLit(n *ast.MapLit, expected Type) Type {
 }
 
 func (c *checker) checkNode(node ast.Node) Type {
+	c.exprStack = append(c.exprStack, node)
+	defer func() { c.exprStack = c.exprStack[:len(c.exprStack)-1] }()
 	ty := c.rejectKeyWithoutEquality(node, c.checkNodeType(node))
 	c.fa.recordExprType(node, ty)
 	return ty
@@ -4539,6 +4560,9 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 		return c.checkTaggedString(n)
 
 	case *ast.Ident:
+		if n.Name == "_" {
+			return c.checkDiscardRead(n)
+		}
 		ty := c.checkIdent(n)
 		if node != c.qualifierNode && c.isModuleObject(n) {
 			// A file qualifier names the functions and types a file
@@ -4573,6 +4597,12 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 
 	case *ast.GroupedExpr:
 		return c.checkNode(n.Expr)
+
+	case *ast.Capture:
+		return c.checkCapture(n, nil)
+
+	case *ast.PlaceholderParam:
+		return c.checkPlaceholderParam(n)
 
 	case *ast.Unary:
 		return c.checkUnary(n)
@@ -4620,8 +4650,9 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 		return c.checkCurrentValue(n)
 
 	case *ast.Placeholder:
-		// `_` is a value only as a call's argument, where it leaves that
-		// argument open (partial application, or the slot a pipe fills).
+		// An open argument of a partial capture's call (`&add(1, &1)`),
+		// which the call leaves open; any other `&N` is a PlaceholderParam
+		// (captures.go).
 		if !c.callHoles[n] {
 			c.report(errAt(n, placeholderValueMsg).WithHint(placeholderValueHint))
 		}
@@ -5246,6 +5277,7 @@ func (c *checker) checkImplBlock(n *ast.ImplBlock) {
 		c.checkImplReceiverDeclared(n)
 		if n.Interface != nil {
 			c.checkImplInterfaceArgsResolve(n)
+			c.checkImplInstantiations(n)
 		}
 	}
 
@@ -5873,6 +5905,9 @@ func (c *checker) recordWhereBoundDemands(ft *FuncType, subs map[*TypeParam_]Typ
 				c.boundArgsError(line, errCol, concrete, bound, wb.Param.Name_, subs, have)
 				continue
 			}
+			if c.boundArgsAmbiguous(line, errCol, concrete, bound, subs) {
+				continue
+			}
 			c.recordBoundConformance(concrete, bound.Name, c.recPos(line, col), RecordingKindGenericBoundCheck)
 		}
 	}
@@ -6209,7 +6244,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 	var earlyCallee Type
 	earlyCall := false
 	if n.Op == "|>" && needsExpectedType(n.Left) && concreteExpected(expected) {
-		if call, ok := n.Right.(*ast.Call); ok && !callHasPlaceholder(call.Args) {
+		if call, ok := n.Right.(*ast.Call); ok {
 			earlyCallee = c.pipeCalleeType(call)
 			earlyCall = true
 			// A struct-shaped variant's head is a record, not the struct
@@ -6249,7 +6284,9 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 	var pipeAssertion *ast.Assertion
 	var pipeIf *ast.If
 	var pipeCase *ast.Case
-	var pipeLambda *ast.Lambda
+	// pipeLambda is the function a `then` stage applies: a lambda or a
+	// capture.
+	var pipeLambda ast.Node
 	var pipeTap *ast.Tap
 	if n.Op == "|>" {
 		rhs := n.Right
@@ -6290,21 +6327,39 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		if pipeTry == nil && pipeAssertion == nil && !pipeDbg && pipeIf == nil && pipeCase == nil {
 			if tap, ok := rhs.(*ast.Tap); ok {
 				pipeTap = tap
-				right = c.checkTapStage(tap, left)
+				right = c.checkTapStage(n, tap, left)
 			} else if then, ok := rhs.(*ast.Then); ok {
-				pipeLambda = then.Lambda
-				c.checkPipeLambdaArity(then.Lambda, "then")
+				pipeLambda = then.Fn()
+				if then.Lambda != nil {
+					c.checkPipeLambdaArity(then.Lambda, "then")
+				}
 			} else if lambda, ok := ungroupExpr(rhs).(*ast.Lambda); ok {
 				// `x |> fn v -> ...` is not a stage (pipe_stage_call.go). The
 				// lambda is still checked against the piped value, so the
 				// rest of the pipeline is typed as the `then` it should be.
 				pipeLambda = lambda
 				c.reportLambdaPipeStage(lambda)
+			} else if capture, ok := ungroupExpr(rhs).(*ast.Capture); ok {
+				// `x |> &f(&1)`: as for a lambda, `then` applies it.
+				pipeLambda = capture
+				c.reportCapturePipeStage(capture)
 			}
 			if pipeLambda != nil {
 				expectedFT := &FuncType{Params: []Type{left}, Return: expected}
-				if ft, ok := c.checkLambdaExpecting(pipeLambda, expectedFT).(*FuncType); ok {
+				var lamTy Type
+				if lam, ok := pipeLambda.(*ast.Lambda); ok {
+					lamTy = c.checkLambdaExpecting(lam, expectedFT)
+				} else {
+					lamTy = c.checkCapture(pipeLambda.(*ast.Capture), expectedFT)
+				}
+				// Recorded as an argument's lambda is, for the hover on
+				// its `fn`.
+				c.fa.recordExprType(pipeLambda, lamTy)
+				if ft, ok := lamTy.(*FuncType); ok {
 					right = ft.Return
+					if capture, ok := pipeLambda.(*ast.Capture); ok && len(ft.Params) > 0 {
+						c.checkThenCaptureTakes(n, capture, left, ft.Params[0])
+					}
 				}
 			}
 			if then, ok := rhs.(*ast.Then); ok {
@@ -6333,7 +6388,6 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 			c.addError(acc.Line, acc.Col, fieldAccessorPipeStageMessage(acc))
 		} else if call, ok := rhs.(*ast.Call); ok {
 			pipeCall = call
-			c.markCallHoles(call)
 			if earlyCall {
 				right = earlyCallee
 			} else {
@@ -6365,7 +6419,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		if left == nil || right == nil {
 			return left // best effort
 		}
-		return c.checkOperatorBinary(n, left, right)
+		return c.checkOperatorBinary(n, left, right, expected)
 
 	case "%":
 		if left == nil || right == nil {
@@ -6538,17 +6592,24 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		}
 		if pipeCall != nil {
 			if form, ok := c.variantCtorCallee(pipeCall.Func, right); ok {
-				if !callHasPlaceholder(pipeCall.Args) {
-					return c.openVariantEnum(c.checkPipedVariantCtor(pipeCall, n.Left, left, form))
-				}
+				return c.openVariantEnum(c.checkPipedVariantCtor(pipeCall, n.Left, left, form))
 			}
-			if dt, ok := right.(*DistinctType); ok && isTypeConstructorCallee(pipeCall.Func) && !callHasPlaceholder(pipeCall.Args) {
+			if dt, ok := right.(*DistinctType); ok && isTypeConstructorCallee(pipeCall.Func) {
 				if ty := c.checkPipedDistinctCtor(pipeCall, n.Left, left, dt); ty != nil {
 					return ty
 				}
 			}
 			if ty, handled := c.checkPipedTypeNameCall(pipeCall, n.Left, left, right); handled {
 				return ty
+			}
+			// `s |> String.contains?(Regex`x`)`: the stage's impl, chosen
+			// from the piped value and the stage's own arguments.
+			if sel, handled := c.selectCallImpl(pipeCall, expected, n.Left, left); handled {
+				if sel == nil {
+					return nil
+				}
+				right = sel.ft
+				defer c.recordSelectedImpl(pipeCall, sel)
 			}
 		}
 		return c.checkPipe(n, left, right, pipeCall, expected)
@@ -6606,12 +6667,12 @@ func operandPos(operand ast.Node, opLine, opCol int) Pos {
 	return Pos{Line: opLine, Col: opCol}
 }
 
-func (c *checker) checkOperatorBinary(n *ast.Binary, left, right Type) Type {
+func (c *checker) checkOperatorBinary(n *ast.Binary, left, right, expected Type) Type {
 	opIface, ok := operatorInterfaceForOp(n.Op)
 	if !ok {
 		return left
 	}
-	if result, ok := c.checkOperatorInterface(n, opIface, left, right); ok {
+	if result, ok := c.checkOperatorInterface(n, opIface, left, right, expected); ok {
 		return result
 	}
 	if result, ok := c.checkBuiltinOperator(n, left, right); ok {
@@ -6633,7 +6694,7 @@ func (c *checker) checkOperatorBinary(n *ast.Binary, left, right Type) Type {
 	return left
 }
 
-func (c *checker) checkOperatorInterface(n *ast.Binary, opIface operatorInterface, left, right Type) (Type, bool) {
+func (c *checker) checkOperatorInterface(n *ast.Binary, opIface operatorInterface, left, right, expected Type) (Type, bool) {
 	leftResolved := resolveTypeVar(left)
 	switch lt := leftResolved.(type) {
 	case *TypeParam_:
@@ -6670,7 +6731,11 @@ func (c *checker) checkOperatorInterface(n *ast.Binary, opIface operatorInterfac
 	if name == "" || !interfaceImplemented(name, opIface.Interface, OriginUnresolved, c.implsContext()) {
 		return nil, false
 	}
-	rhsExpected, result, matched := c.lookupOperatorImplTypeArgs(opIface, leftResolved, right)
+	rhsExpected, result, matched, ambiguous := c.selectOperatorImpl(opIface, leftResolved, right, expected)
+	if len(ambiguous) > 0 {
+		c.reportAmbiguousOperator(n.Line, n.Col, opIface, left, ambiguous)
+		return nil, true
+	}
 	if !matched {
 		if isBuiltinOperatorCandidate(n.Op, leftResolved) {
 			return nil, false
@@ -6690,61 +6755,82 @@ func (c *checker) checkOperatorInterface(n *ast.Binary, opIface operatorInterfac
 	return c.checkOperatorRhs(n, opIface, right, rhsExpected, result)
 }
 
-// lookupOperatorImplTypeArgs selects the operator impl for `left op right` and
+// selectOperatorImpl selects the operator impl for `left op right` and
 // returns its right-hand and output types at left's type arguments
-// (`Box<Int>`'s `impl Add<T, Box<T>>` takes Int and gives Box<Int>). On a
-// miss it still returns the one impl's types when exactly one impl's
-// receiver matches, so the caller can report the right operand instead of a
-// missing impl; matched is false either way.
-func (c *checker) lookupOperatorImplTypeArgs(opIface operatorInterface, left, right Type) (Type, Type, bool) {
+// (`Box<Int>`'s `impl Add<T, Box<T>>` takes Int and gives Box<Int>). It is
+// the operator interfaces' share of impl selection (impl_selection.go): the
+// impl of opIface for left whose right-hand type
+// takes right, and among several that differ only in their output, the one
+// whose output fits the expected type. matched is false on a miss, with the
+// one impl's types when there is one, so the caller reports the right
+// operand. ambiguous is every impl the operands admit when they do not
+// choose one; the caller reports them.
+func (c *checker) selectOperatorImpl(opIface operatorInterface, left, right, expected Type) (Type, Type, bool, []implCandidate) {
 	if c == nil || c.fa == nil {
-		return nil, nil, false
+		return nil, nil, false, nil
 	}
 	concrete := resolveTypeVar(left)
-	name := concreteTypeName(concrete)
-	if name == "" {
-		return nil, nil, false
+	if concreteTypeName(concrete) == "" {
+		return nil, nil, false, nil
 	}
-	cargs := concreteTypeArgs(concrete)
-	candidates := lookupImplTypeArgSets(name, opIface.Interface, c.implTypeArgSetsContext())
-	if len(candidates) == 0 {
-		if info := lookupImplTypeArgs(name, opIface.Interface, c.implTypeArgsContext()); info != nil {
-			candidates = []*ImplTypeArgs{info}
+	var cands []implCandidate
+	for _, cand := range c.implCandidates(concrete, opIface.Interface, OriginUnresolved) {
+		if len(cand.args) == 2 {
+			cands = append(cands, cand)
 		}
 	}
-	// The right-hand and output types of every impl whose receiver matches.
-	// When there is exactly one, a miss against it is a right-operand
-	// mismatch rather than a missing impl.
-	var rhsSeen, outSeen []Type
-	for _, info := range candidates {
-		if info == nil || len(info.Args) != 2 {
-			continue
+	var fits []implCandidate
+	for _, cand := range cands {
+		if c.fitsInto(cand.args[0], right) || TypesEqual(cand.args[0], right) {
+			fits = append(fits, cand)
 		}
-		if !implReceiverMatches(info, concrete, c.implsContext(), c.implTypeArgsContext()) {
-			continue
+	}
+	switch len(fits) {
+	case 0:
+		if len(cands) == 1 {
+			// One impl for this receiver, so the right operand is what is
+			// wrong.
+			return cands[0].args[0], cands[0].args[1], false, nil
 		}
-		rhs := substituteTypeParamDefs(info.TypeParamDefs, cargs, info.Args[0])
-		out := substituteTypeParamDefs(info.TypeParamDefs, cargs, info.Args[1])
-		if c.unify(rhs, right, nil) == nil || TypesEqual(rhs, right) {
-			return rhs, out, true
+		return nil, nil, false, nil
+	case 1:
+		return c.bindOperatorRhs(fits[0], right)
+	}
+	sameRhs := true
+	for _, f := range fits[1:] {
+		if !TypesEqual(f.args[0], fits[0].args[0]) {
+			sameRhs = false
 		}
-		// The same block can reach this loop from the file's table and the
-		// project's, so keep distinct right-hand types only.
-		seen := false
-		for _, prior := range rhsSeen {
-			if TypesEqual(prior, rhs) {
-				seen = true
-				break
+	}
+	if sameRhs && expected != nil && !containsTypeVar(expected) {
+		var byResult []implCandidate
+		for _, f := range fits {
+			if c.fitsInto(expected, f.args[1]) {
+				byResult = append(byResult, f)
 			}
 		}
-		if !seen {
-			rhsSeen, outSeen = append(rhsSeen, rhs), append(outSeen, out)
+		if len(byResult) == 1 {
+			return c.bindOperatorRhs(byResult[0], right)
 		}
 	}
-	if len(rhsSeen) == 1 {
-		return rhsSeen[0], outSeen[0], false
+	return nil, nil, false, fits
+}
+
+func (c *checker) bindOperatorRhs(cand implCandidate, right Type) (Type, Type, bool, []implCandidate) {
+	_ = c.unify(cand.args[0], right, nil)
+	return cand.args[0], cand.args[1], true, nil
+}
+
+// reportAmbiguousOperator is the error at an operator, or its function's
+// call, whose operands and expected type do not choose one impl.
+func (c *checker) reportAmbiguousOperator(line, col int, opIface operatorInterface, left Type, fits []implCandidate) {
+	sameRhs := true
+	for _, f := range fits[1:] {
+		if !TypesEqual(f.args[0], fits[0].args[0]) {
+			sameRhs = false
+		}
 	}
-	return nil, nil, false
+	c.addError(line, col, ambiguousImplMessage(&InterfaceType{Name: opIface.Interface}, opIface.Method, resolveTypeVar(left), fits, !sameRhs))
 }
 
 func (c *checker) checkOperatorRhs(n *ast.Binary, opIface operatorInterface, right, rhsExpected, result Type) (Type, bool) {
@@ -6889,40 +6975,26 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 		}
 		return nil
 	}
-	// `1 |> Some(l: _)`: a positional variant's payload has no name.
+	// `1 |> Some(l: 2)`: a positional variant's payload has no name.
 	if pipeCall != nil && c.calleeIsPositionalVariant(pipeCall.Func, ft) &&
 		c.reportNamedCtorArgs(pipeCall.Args, variantPayloadNameHint) {
 		return nil
 	}
 	// `9 |> Two.Both("nine")`: the flat call of a tuple-payload variant,
-	// its head the first element (or the one its `_` names).
+	// its head the first element.
 	if pipeCall != nil {
-		piped := 1
-		if callHasPlaceholder(pipeCall.Args) {
-			piped = 0
-		}
-		if flat := c.flatVariantCallType(pipeCall.Func, ft, pipeCall.Args, piped); flat != nil {
+		if flat := c.flatVariantCallType(pipeCall.Func, ft, pipeCall.Args, 1); flat != nil {
 			ft = flat
 		}
 	}
 
-	// Pipe semantics: when the call has explicit `_`s, positional or named
-	// (`w: _`), the piped value fills each of them in place, so explicit
-	// args fill slots from 0 and each `_`'s slot is a piped one. Without a
-	// `_`, the piped value is prepended as the first arg, so explicit args
-	// fill slots 1..N.
+	// Pipe semantics: the piped value is prepended as the first arg, so
+	// explicit args fill slots 1..N.
 	pipedSlot := 0
 	argShift := 1
-	var holes []int
-	if pipeCall != nil {
-		holes = pipeHoles(pipeCall.Args)
-		if len(holes) > 0 {
-			argShift = 0
-		}
-	}
-	// fills is each slot the piped value fills, with the `_` that names
-	// it (index into pipeCall.Args, -1 for the prepended first argument).
-	fills := []pipeFill{{slot: 0, arg: -1}}
+	// fills is the slot the piped value fills: the first, as the prepended
+	// first argument (arg -1).
+	fills := []pipeFill{{slot: 0}}
 
 	// Pre-compute the slot mapping for explicit args. Mirrors
 	// computePositionalSlots from the direct-call path: identity mapping
@@ -6964,30 +7036,10 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 			}
 		}
 		pipeSlots = computePipeArgSlots(pipeCall.Args, argShift, c.callDefParams(pipeCall.Func), ft.Params)
-		if len(holes) > 0 {
-			fills = fills[:0]
-			for _, i := range holes {
-				slot := pipeSlots[i]
-				if na, ok := pipeCall.Args[i].(*ast.NamedArg); ok {
-					// `x |> f(1, w: _)` fills `w`; an unknown name is
-					// reported with the other named arguments below.
-					slot = namedArgSlot(na.Name, c.callDefParams(pipeCall.Func))
-					if slot < 0 {
-						slot = len(ft.Params)
-					}
-				}
-				fills = append(fills, pipeFill{slot: slot, arg: i})
-			}
-			pipedSlot = fills[0].slot
-		}
 		for _, na := range positionalNamedConflicts(pipeCall.Args, pipeSlots, c.callDefParams(pipeCall.Func), argShift) {
 			c.addError(na.Line, 1, fmt.Sprintf("parameter '%s' already has a value", na.Name))
 		}
-		if argShift == 1 {
-			c.checkRequiredSlotsFilled(pipeCall, pipeCall.Args, pipeSlots, pipedSlot, ft.Params)
-		} else {
-			c.checkRequiredSlotsFilled(pipeCall, pipeCall.Args, pipeSlots, -1, ft.Params)
-		}
+		c.checkRequiredSlotsFilled(pipeCall, pipeCall.Args, pipeSlots, pipedSlot, ft.Params)
 	}
 
 	// Check if the function is generic.
@@ -7039,14 +7091,6 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 					slot := namedArgSlot(na.Name, defParams)
 					if slot >= 0 && slot < len(ft.Params) {
 						expectedTy := Substitute(ft.Params[slot], subs)
-						if ph, ok := na.Value.(*ast.Placeholder); ok && expectedTy != nil {
-							c.fa.References[Pos{Line: ph.Line, Col: ph.Col}] = &Symbol{
-								Name: "_",
-								Kind: SymbolBinding,
-								Pos:  Pos{Line: ph.Line, Col: ph.Col},
-								Type: expectedTy,
-							}
-						}
 						valTy := c.checkNodeExpecting(na.Value, expectedTy)
 						if valTy != nil {
 							slotArgs[slot] = na.Value
@@ -7064,16 +7108,6 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 				}
 				if paramIdx >= 0 && paramIdx < len(ft.Params) {
 					expectedTy := Substitute(ft.Params[paramIdx], subs)
-					// `_` placeholder in a pipe call gets a hover Symbol
-					// carrying the slot's expected type.
-					if ph, ok := arg.(*ast.Placeholder); ok && expectedTy != nil {
-						c.fa.References[Pos{Line: ph.Line, Col: ph.Col}] = &Symbol{
-							Name: "_",
-							Kind: SymbolBinding,
-							Pos:  Pos{Line: ph.Line, Col: ph.Col},
-							Type: expectedTy,
-						}
-					}
 					explicitArgTy := c.checkNodeExpecting(arg, expectedTy)
 					if explicitArgTy != nil {
 						slotArgs[paramIdx] = arg
@@ -7257,7 +7291,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 
 // computePipeArgSlots returns the param slot each pipeCall.Args[i] targets.
 // argShift is 1 when the piped value is prepended (no placeholder) and 0
-// when the piped value substitutes for an explicit `_` placeholder in args.
+// when the piped value substitutes for an explicit `&1` placeholder in args.
 // Named args claim their named param; remaining positional args fill slots
 // left-to-right starting at argShift, skipping claimed slots. If the last
 // positional arg is a lambda and the last param slot is unclaimed but not
@@ -7471,7 +7505,23 @@ func (c *checker) checkTypeParamQualifiedCall(n *ast.Call) (Type, bool) {
 		return nil, false
 	}
 	if len(providers) == 1 {
-		return typeParamQualifiedMethodFuncType(providers[0], fa.Field.Name, tp), true
+		ft := typeParamQualifiedMethodFuncType(providers[0], fa.Field.Name, tp)
+		if ft != nil {
+			// The reference keeps the signature the call is typed by, with
+			// self as T: `T.zero(n)` is `(Int) -> T`, which an instance's
+			// substitution makes concrete, and which names the instance a
+			// call with no receiver operand reaches (`T.zero(n)` at
+			// `T = Box<String>`). Under `where C: Make<T>`, the bound's
+			// arguments also name which of C's impls an instance calls,
+			// when C implements Make at several (impl_selection.go).
+			pos := Pos{Line: fa.Field.Line, Col: fa.Field.Col}
+			if existing := c.fa.References[pos]; existing != nil {
+				ref := *existing
+				ref.CallType = ft
+				c.fa.References[pos] = &ref
+			}
+		}
+		return ft, true
 	}
 	// Zero providers, or more than one, is the same mistake whether the member
 	// is called or taken bare, so the diagnostic is checkFieldAccess's — the
@@ -7804,11 +7854,22 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 		return c.checkTypeNameCall(ref, resolved, n.Args, argTys)
 	}
 
+	// A function of a generic interface its receiver implements at several
+	// type arguments: the call is typed by the impl its arguments choose
+	// (impl_selection.go).
+	if sel, handled := c.selectCallImpl(n, expected, nil, nil); handled {
+		if sel == nil {
+			return nil
+		}
+		fnTy = sel.ft
+		defer c.recordSelectedImpl(n, sel)
+	}
+
 	// Operator-interface functions (`add`, `divide`, etc.) are selected from
 	// their full operand shape. Run that selection before the older bare-name
 	// dispatch rejection so `divide(10, nz)` can resolve to
 	// `impl Divide<NonZeroInt, Int> for Int`.
-	if ty, handled := c.checkOperatorInterfaceCall(n); handled {
+	if ty, handled := c.checkOperatorInterfaceCall(n, expected); handled {
 		return ty
 	}
 
@@ -7870,7 +7931,7 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 	if !isDispatch {
 		if flat := c.flatVariantCallType(n.Func, ft, n.Args, 0); flat != nil {
 			ft, flatVariant = flat, true
-			// A partial (`Seg.Pair(_, "c")`) is built over the elements,
+			// A partial (`&Seg.Pair(&1, "c")`) is built over the elements,
 			// which the IR builder reads off the call's recorded
 			// signature; a generic one records it once solved.
 			if callHasPlaceholder(n.Args) && !ContainsTypeParam(ft) {
@@ -7893,7 +7954,7 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 	}
 
 	// Check argument count (skip for dispatch methods). A partial
-	// application's `_` is an argument like any other: `add(_, 1, 2)` gives a
+	// application's `&1` is an argument like any other: `&add(&1, 1, 2)` gives a
 	// two-parameter add three, and `add(_)` leaves b with nothing.
 	minArgs := len(ft.Params) - ft.DefaultCount
 	if !isDispatch && (len(n.Args) < minArgs || len(n.Args) > len(ft.Params)) {
@@ -7935,7 +7996,7 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 	var remainingParams []Type
 	remainingDefaults := 0
 	calleeDefaults := c.callDefParamHasDefault(n.Func)
-	// A named `_` that reaches no slot leaves the partial's shape unknown;
+	// A named `&1` that reaches no slot leaves the partial's shape unknown;
 	// the call then has no type rather than the callee's result, which
 	// would report `String` is not a function at the partial's call.
 	unplacedOpen := false
@@ -8120,7 +8181,7 @@ func isTypeConstructorCallee(n ast.Node) bool {
 	}
 }
 
-func (c *checker) checkOperatorInterfaceCall(n *ast.Call) (Type, bool) {
+func (c *checker) checkOperatorInterfaceCall(n *ast.Call, expected Type) (Type, bool) {
 	if len(n.Args) != 2 {
 		return nil, false
 	}
@@ -8133,7 +8194,12 @@ func (c *checker) checkOperatorInterfaceCall(n *ast.Call) (Type, bool) {
 	if left == nil || right == nil {
 		return nil, true
 	}
-	rhsExpected, result, matched := c.lookupOperatorImplTypeArgs(opIface, left, right)
+	rhsExpected, result, matched, ambiguous := c.selectOperatorImpl(opIface, left, right, expected)
+	if len(ambiguous) > 0 {
+		at := operandPos(n, n.Line, n.Col)
+		c.reportAmbiguousOperator(at.Line, at.Col, opIface, left, ambiguous)
+		return nil, true
+	}
 	if !matched {
 		if rhsExpected != nil {
 			// One impl for this receiver: argument 2 is what is wrong.
@@ -8529,12 +8595,12 @@ func routesAsTrailingFunc(arg ast.Node, params []Type, currentSlot int) bool {
 }
 
 // isLambdaArg reports whether a call-site arg is a lambda (or block, used
-// as an implicit-`it` lambda in some forms). A field accessor `.name` is a
-// function written in place, and routes as a lambda does
-// (`Iter.sort_by(users, .name)`).
+// as an implicit-`it` lambda in some forms). A field accessor `.name` and a
+// capture (`&(&1 * 2)`, `&String.length(&1)`) are functions written in
+// place, and route as a lambda does (`Iter.sort_by(users, .name)`).
 func isLambdaArg(n ast.Node) bool {
 	switch n.(type) {
-	case *ast.Lambda, *ast.FieldAccessor:
+	case *ast.Lambda, *ast.FieldAccessor, *ast.Capture:
 		return true
 	case *ast.Block:
 		return true
@@ -8542,10 +8608,10 @@ func isLambdaArg(n ast.Node) bool {
 	return false
 }
 
-// markCallHoles records each `_` argument of call, positional or named
-// (`port: _`), as a partial-application hole: the one place `_` is a value.
-// Every path that checks the arguments may then visit the `_` without
-// knowing it is one.
+// markCallHoles records each open argument (`&1`) of call, positional or
+// named (`port: &1`): a partial capture's parameter (`&connect("h", port:
+// &1)`). Every path that checks the arguments may then visit the `&1`
+// without knowing it is one.
 func (c *checker) markCallHoles(call *ast.Call) {
 	for _, arg := range call.Args {
 		if na, ok := arg.(*ast.NamedArg); ok {
@@ -8556,19 +8622,21 @@ func (c *checker) markCallHoles(call *ast.Call) {
 				c.callHoles = map[*ast.Placeholder]bool{}
 			}
 			c.callHoles[ph] = true
+			c.fa.recordPlaceholder(ph.Line, ph.Col, ph.N)
 		}
 	}
 }
 
-// placeholderValueMsg is the error for `_` read as a value outside a call's
-// argument list, and placeholderValueHint says where `_` does stand for one.
+// placeholderValueMsg is the error for an open argument no call claimed,
+// and placeholderValueHint says where `&N` forms a function.
 const (
-	placeholderValueMsg  = "`_` has no value here"
-	placeholderValueHint = "`_` stands for a missing argument only in a call, as in add(1, _)"
+	placeholderValueMsg  = "this `&N` has no call to leave an argument of"
+	placeholderValueHint = "`&N` is the parameter of the capture around it, as in `&Int.max(&1, 0)`"
 )
 
-// callHasPlaceholder reports whether any call-site arg is a `_` placeholder,
-// either positionally or as a named-arg value (`f(port: _)`).
+// callHasPlaceholder reports whether any call-site arg is an open `&N`
+// argument of a partial capture, either positionally or as a named-arg
+// value (`port: &1`).
 func callHasPlaceholder(args []ast.Node) bool {
 	for _, arg := range args {
 		switch a := arg.(type) {
@@ -8581,18 +8649,6 @@ func callHasPlaceholder(args []ast.Node) bool {
 		}
 	}
 	return false
-}
-
-// pipeHoles is the index in a pipe stage's args of each `_` argument,
-// positional or named (`w: _`). The piped value fills the first.
-func pipeHoles(args []ast.Node) []int {
-	var out []int
-	for i, arg := range args {
-		if isPlaceholderArg(arg) {
-			out = append(out, i)
-		}
-	}
-	return out
 }
 
 // callDefParams returns the param-name list of the function being called via
@@ -9158,6 +9214,11 @@ func needsExpectedType(node ast.Node) bool {
 		return needsExpectedType(v.Value)
 	case *ast.GroupedExpr:
 		return needsExpectedType(v.Expr)
+	case *ast.Capture:
+		// `&(&1 > 2)` takes its parameters' types from the function type
+		// its position expects, as a lambda without annotations does; a
+		// partial capture's callee may be generic.
+		return true
 	case *ast.Lambda:
 		// A parameter with no annotation or default takes its type from
 		// the function type the lambda is checked against; where only the
@@ -9243,6 +9304,12 @@ func (c *checker) argTakesExpectedType(node ast.Node) bool {
 		return v.TypeName == nil && (len(v.Items) > 1 || c.argsTakeExpectedType(v.Items))
 	case *ast.TupleLit:
 		return v.TypeName == nil && c.argsTakeExpectedType(v.Items)
+	case *ast.Call:
+		// `Some(Gives.gives(t))` where `Maybe<Int>` is expected: a call
+		// whose receiver may implement the function's interface at several
+		// type arguments that only its result names is chosen by the type
+		// its result is expected to have (impl_selection.go).
+		return c.selectsByResult(v)
 	}
 	// A call's arguments take their types from its own parameters, not
 	// from this call's expected type.
@@ -9420,7 +9487,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 			continue
 		}
 
-		// A `_`, positional or named, leaves the slot open: the call is a
+		// A `&1`, positional or named, leaves the slot open: the call is a
 		// partial application, typed below once the written arguments have
 		// solved what they can.
 		if isPlaceholderArg(arg) {
@@ -9506,10 +9573,10 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 
 	retTy := Substitute(ft.Return, subs)
 
-	// Nullary calls to a generic function (e.g. `Map.empty()`) have no args
+	// Nullary calls to a generic function (e.g. `%{}`) have no args
 	// to drive type-param solving. Instantiate any callee TypeParam_s left
 	// in retTy as fresh inference vars so downstream uses can resolve them
-	// — `Map.empty()` ends up as `Map<?α, ?β>` instead of `Map<K, V>`.
+	// — `%{}` ends up as `Map<?α, ?β>` instead of `Map<K, V>`.
 	// Caller-scope TypeParam_s (c.fnTypeParams) are preserved.
 	//
 	// Run this BEFORE the c.returnTy fallback below: that fallback would
@@ -9793,7 +9860,7 @@ func embedsWidenedSubs(subs, target map[*TypeParam_]Type, values [][2]Type) map[
 }
 
 // partialCallShape is the function type a partial application of generic
-// ft builds before any argument is checked: the parameters at its `_` slots,
+// ft builds before any argument is checked: the parameters at its `&1` slots,
 // in the order they are written, returning ft's result. checkGenericCall
 // types the partial the same way once its arguments have solved what they
 // can.
@@ -9819,7 +9886,7 @@ func (c *checker) partialCallShape(n *ast.Call, ft *FuncType) Type {
 	return &FuncType{Params: params, Return: ft.Return}
 }
 
-// isPlaceholderArg reports a `_` argument, positional or named (`port: _`).
+// isPlaceholderArg reports a `&1` argument, positional or named (`port: &1`).
 func isPlaceholderArg(arg ast.Node) bool {
 	if na, ok := arg.(*ast.NamedArg); ok {
 		arg = na.Value
@@ -10219,10 +10286,14 @@ func (c *checker) calleeParamsDepth(funcNode ast.Node, depth int) []ast.Param {
 		switch v := def.Value.(type) {
 		case *ast.Lambda:
 			return v.Params
-		case *ast.Call:
-			if callHasPlaceholder(v.Args) && depth < maxPartialChain {
-				return c.partialOpenParams(v, depth+1)
+		case *ast.Capture:
+			if call := v.PartialCall(); call != nil {
+				if depth < maxPartialChain {
+					return c.partialOpenParams(call, depth+1)
+				}
+				return nil
 			}
+			return captureParams(v)
 		}
 	}
 	return nil
@@ -10234,7 +10305,7 @@ const maxPartialChain = 64
 
 // partialOpenParams is the parameter list of the function a partial
 // application makes: the callee's parameter at each `_`, in the order the
-// `_`s are written, with its name and default. A partial is called by those
+// placeholders are written, with its name and default. A partial is called by those
 // names (`f = connect("h", port: _)` then `f(port: 80)`) and leaves a
 // defaulted one to its default, as the IR builder lowers it
 // (internal/irbuild/irpartial.go). Arguments reach slots as in any call
@@ -11043,7 +11114,7 @@ func formatTypeForError(t Type) string {
 // element. nil when the call is not that shape: the callee is not a variant
 // constructor, its payload is not a tuple of two or more elements, or the
 // call does not supply one argument per element. `piped` counts a pipe's
-// head that fills a slot of its own (`9 |> Two.Both("nine")`). A `_` is an
+// head that fills a slot of its own (`9 |> Two.Both("nine")`). A `&1` is an
 // element left open: `Seg.Pair(_, "c")` is a function of the first element.
 func (c *checker) flatVariantCallType(funcNode ast.Node, ft *FuncType, args []ast.Node, piped int) *FuncType {
 	if ft == nil || len(ft.Params) != 1 {
@@ -11130,7 +11201,7 @@ func (c *checker) attachCallType(funcNode ast.Node, ct Type) {
 // from its own line. It rejects a binding whose type carries *no* concrete
 // information — a "wholly unresolved" type: a bare inference var, or a
 // generic whose every direct type argument is an unbound var (e.g.
-// `ch = Channel.buffered(4)` → Channel<?>, `m = Map.empty()` →
+// `ch = Channel.buffered(4)` → Channel<?>, `m = %{}` →
 // Map<?, ?>, `xs = []` → List<?>, `x = None` → Maybe<?>). The fix is an LHS
 // annotation or an RHS turbofish.
 //
@@ -11360,7 +11431,7 @@ func (c *checker) checkBinding(n *ast.Binding) Type {
 	var valTy Type
 	if declared != nil {
 		// Push the declared type into the RHS so polymorphic returns
-		// (e.g. `Map.empty() -> Map<K, V>`) can resolve to a concrete type
+		// (e.g. `%{} -> Map<K, V>`) can resolve to a concrete type
 		// instead of leaving fresh TypeVars unbound.
 		valTy = c.checkNodeExpecting(n.Value, declared)
 		// Validate: the RHS type must unify with the declared type. The
@@ -11439,7 +11510,7 @@ func (c *checker) checkBinding(n *ast.Binding) Type {
 }
 
 // partialAppParamNames returns the original parameter names of the unbound
-// slots in a partial-application call (one with `_` placeholders), parallel
+// slots in a partial-application call (one with `&1` placeholders), parallel
 // to the FuncType returned by checkCall. Empty entries mark slots whose name
 // couldn't be resolved (callee not a FuncDef/ExternFunc, or arg index past
 // the param list). Returns nil when the call has no placeholders or when no
@@ -12420,7 +12491,7 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 
 	// Step 2: dispatch qualified-name access via the References table.
 	// This is the primary path for module-qualified calls (`io.print`,
-	// `Map.empty`) and enum-qualified variant access (`Maybe.None`,
+	// `Map.get`) and enum-qualified variant access (`Maybe.None`,
 	// `Direction.North`) — the builder pre-populates References[fieldPos]
 	// with the resolved member symbol whenever `n.Object` is a known
 	// module or enum. Under the collision-error rule, an identifier
@@ -12553,8 +12624,12 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 					return nil
 				}
 			}
+			hint := emptyCollectionLiteralHint(c.reg.Lookup(tqTypeName), n.Field.Name)
+			if hint == "" {
+				hint = didYouMean(n.Field.Name, c.typeMemberNames(tqTypeName))
+			}
 			c.report(TypeError{Line: fieldPos.Line, Col: fieldPos.Col, Message: fmt.Sprintf(
-				"type '%s' has no member '%s'", tqTypeName, n.Field.Name)}.WithHint(didYouMean(n.Field.Name, c.typeMemberNames(tqTypeName))))
+				"type '%s' has no member '%s'", tqTypeName, n.Field.Name)}.WithHint(hint))
 		}
 		return nil
 	}
@@ -14013,6 +14088,7 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 	// tuple). Every arm below type-switches on the expected type, so follow
 	// the binding once here rather than in each arm.
 	expectedTy = resolveTypeVar(expectedTy)
+	c.fa.recordPatternType(pattern, expectedTy)
 	switch n := pattern.(type) {
 	case *ast.WildcardPattern:
 		// Wildcard binds nothing, but the position has a known type from

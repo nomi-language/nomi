@@ -92,13 +92,15 @@ func TestComponent_MergesExactlyTheCycles(t *testing.T) {
 	// Each file is analysed as its own entry, so an SCC contributes one
 	// program per member plus each entry above it: {app, prod, test} under
 	// config_pattern/ and {app, dev, prod, test} under effects/ with
-	// `main.nomi` above it. `greeter.nomi` imports app.EffectsApp to read its
-	// fields, and analysed as its own entry it reaches no boot, so those reads
-	// are errors and it is not a program here. Absolute, because a partition
+	// `main.nomi` above it, and {protocols, things} under cross_file_impls/
+	// with `impls.nomi` and the test file above it. `greeter.nomi` imports
+	// app.EffectsApp to read its fields, and analysed as its own entry it
+	// reaches no boot, so those reads are errors and it is not a program
+	// here. Absolute, because a partition
 	// that merged more or less than the cycles would still satisfy every other
 	// assertion here. A change is new corpus material or a partition that
 	// stopped being the cycles; name which in the commit message.
-	const wantCyclic = 9
+	const wantCyclic = 13
 	cyclic, acyclic := 0, 0
 	for _, f := range files {
 		p := f.Prog

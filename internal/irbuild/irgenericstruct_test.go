@@ -37,7 +37,7 @@ func TestIRGenericStruct_MissingFieldMetadataKeepsNativeFallback(t *testing.T) {
 // A generic struct's field read runs beside a struct whose field holds a
 // Map of function values.
 func TestIRGenericStruct_BesideAFunctionMapFieldRuns(t *testing.T) {
-	verifyLambdaProgram(t, "import std/io\nstruct Box<T> { value: T }\nstruct Point { x: Int }\nstruct Outer { p: List<Point>\n f: Map<String, (Int) -> Int> }\nfn main() { box = #Box{value: 42} io.print(box.value) io.inspect(#Outer{p: [#Point{x: 2}], f: Map.empty()}) }\n",
+	verifyLambdaProgram(t, "import std/io\nstruct Box<T> { value: T }\nstruct Point { x: Int }\nstruct Outer { p: List<Point>\n f: Map<String, (Int) -> Int> }\nfn main() { box = #Box{value: 42} io.print(box.value) io.inspect(#Outer{p: [#Point{x: 2}], f: %{}}) }\n",
 		"42\n#Outer{p: [#Point{x: 2}], f: %{}}\n")
 }
 

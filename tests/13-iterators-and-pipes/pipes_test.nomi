@@ -20,7 +20,7 @@ test "pipes thread the previous value into call stages" {
 
     placed =
         10
-        |> divide(100, _)
+        |> then &divide(100, &1)
 
     doubled =
         5
@@ -37,8 +37,8 @@ test "pipes thread the previous value into call stages" {
 }
 
 test "partial applications leave placeholder arguments open" {
-    add1 = add(1, _)
-    half = divide(_, 2)
+    add1 = &add(1, &1)
+    half = &divide(&1, 2)
 
     assert add1(9) == 10
     assert half(20) == 10

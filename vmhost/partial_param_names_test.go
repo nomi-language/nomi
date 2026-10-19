@@ -24,19 +24,19 @@ fn tag(_label: String, n: Int) -> Int {
 }
 
 fn main() {
-    m = maybe.Maybe.map(_, fn n: Int -> n + noted(1))
+    m = &maybe.Maybe.map(&1, fn n: Int -> n + noted(1))
     io.inspect(m(Some(4)))
     io.inspect(m(maybe: Some(1)))
-    w = maybe.Maybe.with_default(_, noted(0))
+    w = &maybe.Maybe.with_default(&1, noted(0))
     io.inspect(w(None))
     io.inspect(w(Some(5)))
-    h = lists.List.head(_)
+    h = &lists.List.head(&1)
     io.inspect(h([7]))
-    t = tag(_, noted(3))
+    t = &tag(&1, noted(3))
     io.inspect(t(_label: "z"))
 }
 `})
-	want := "made 1\nSome(5)\nmade 1\nSome(2)\nmade 0\n0\n5\nSome(7)\nmade 3\n3\n"
+	want := "made 1\nSome(5)\nmade 1\nSome(2)\nmade 0\n0\nmade 0\n5\nSome(7)\nmade 3\n3\n"
 	if got != want {
 		t.Fatalf("output %q, want %q", got, want)
 	}

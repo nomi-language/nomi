@@ -105,7 +105,7 @@ fn main() {
     io.print(merged(%{1 => "x"}, %{2 => "y", 1 => "z"}))
     io.print(Map.size(%{#Point{x: 1} => True} + %{#Point{x: 2} => False}))
     io.print(%{"p" => #Point{x: 1}} + %{"p" => #Point{x: 2}} == %{"p" => #Point{x: 2}})
-    e: Map<String, Int> = Map.empty()
+    e: Map<String, Int> = %{}
     io.print(e + e)
 }
 `, "%{a => 9, b => 2}\n%{a => 1, b => 2}\n%{1 => z, 2 => y}\n2\nTrue\n%{}\n")

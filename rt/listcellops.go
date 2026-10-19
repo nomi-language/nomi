@@ -69,6 +69,21 @@ func ListCellConcat[T any, N ListCellShape[T, N]](a, b *N) *N {
 	return out
 }
 
+// ListCellContains is `impl Contains<T> for List<T>`: whether a cell's head
+// is eq to x, walking the cells in order and stopping at the first match. eq
+// is the element's `==`, so the walk makes one comparison per cell it visits
+// and calls nothing else.
+func ListCellContains[T any, N ListCellShape[T, N]](xs *N, x T, eq func(T, T) bool) bool {
+	for node := xs; node != nil; {
+		cell := ListCell[T, N](*node)
+		if eq(cell.Head, x) {
+			return true
+		}
+		node = cell.Tail
+	}
+	return false
+}
+
 // ListCellCount reads the cached length without traversing the list.
 func ListCellCount[T any, N ListCellShape[T, N]](xs *N) int64 {
 	if xs == nil {

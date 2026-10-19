@@ -87,5 +87,5 @@ pub fn boot() -> Config {
 fn main() {
     _ = Supervisor.spawn(Config.audit, fn -> record_audit(7))
     _ = Supervisor.flush(Config.audit)
-    drain_alerts() |> Iter.each(fn m -> io.print(m))
+    drain_alerts() |> Iter.each(&io.print(&1))
 }

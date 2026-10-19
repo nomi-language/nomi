@@ -38,9 +38,9 @@ fn main() {
     io.print("values = ${Map.values(m)}")
 
     // The rebuild path and the read path over one map.
-    io.print("map_values = ${Map.map_values(m, fn v -> v * 10)}")
-    io.print("map_values keys = ${Map.keys(Map.map_values(m, fn v -> v * 10))}")
-    io.print("map_values values = ${Map.values(Map.map_values(m, fn v -> v * 10))}")
+    io.print("map_values = ${Map.map_values(m, &(&1 * 10))}")
+    io.print("map_values keys = ${Map.keys(Map.map_values(m, &(&1 * 10)))}")
+    io.print("map_values values = ${Map.values(Map.map_values(m, &(&1 * 10)))}")
 
     // A callback whose result type is NOT the value type: `(Int) -> String`. The
     // result map's value kind comes from the callback and not from the receiver,
@@ -64,10 +64,10 @@ fn main() {
     io.print("merged = ${Map.keys(Map.merge(%{"a" => 1}, %{"b" => 2, "a" => 9}))}")
 
     // Empty map: an empty list, not a fault.
-    blank: Map<String, Int> = Map.empty()
+    blank: Map<String, Int> = %{}
     io.print("blank keys = ${Map.keys(blank)}")
     io.print("blank values = ${Map.values(blank)}")
-    io.print("blank map_values = ${Map.map_values(blank, fn v -> v + 1)}")
+    io.print("blank map_values = ${Map.map_values(blank, &(&1 + 1))}")
 
     // Int keys, so the key type is not always String.
     io.print("int keys = ${Map.keys(%{2 => "two", 1 => "one"})}")

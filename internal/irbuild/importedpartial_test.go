@@ -14,20 +14,20 @@ func TestImportedFnPartial_Runs(t *testing.T) {
 import lib.{add3, conn, pair, plain}
 
 fn main() {
-    f = add3(_, 10)
+    f = &add3(&1, 10)
     io.inspect(f(2))
-    g = add3(1, _, _)
+    g = &add3(1, &1, &2)
     io.inspect(g(2))
     io.inspect(g(2, 3))
-    h = add3(c: _, a: 1, _)
+    h = &add3(c: &1, a: 1, &2)
     io.inspect(h(5, 7))
-    c = conn("h", _)
+    c = &conn("h", &1)
     io.print(c())
     io.print(c(1))
-    p = pair(1, _)
+    p = &pair(1, &1)
     io.inspect(p())
     io.inspect(p(4))
-    q = plain(_, "z")
+    q = &plain(&1, "z")
     k = 3
     w = fn -> q(k)
     io.print(w())

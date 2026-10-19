@@ -1,0 +1,217 @@
+//# A capture is `&` and a function's body: a call, a parenthesized
+//# expression or a literal. Each `&N` in the body is its parameter N, and a
+//# call of the capture evaluates the body, as the equivalent lambda does.
+
+import {
+    std/compiler
+    std/io
+}
+
+struct Point {
+    x: Int
+    y: Int
+}
+
+struct Box<T> {
+    v: T
+}
+
+struct Rule {
+    name: String
+    keep: (Int) -> Bool
+}
+
+enum Shape {
+    Circle {radius: Float}
+    Dot
+}
+
+fn above<T>(xs: List<T>, min: T) -> List<T> where T: Comparable {
+    xs |> Iter.filter(&(&1 > min)) |> Iter.to_list()
+}
+
+fn apply2(f: (Int, Int) -> Int) -> Int {
+    f(3, 4)
+}
+
+fn tens(a: Int, b: Int) -> Int {
+    a * 10 + b
+}
+
+fn halve(n: Int, by: Int) -> Int {
+    n / by
+}
+
+fn noisy(n: Int) -> Int {
+    io.print("noisy ${n}")
+    n
+}
+
+test "a parenthesized operator is a function of its parameters" {
+    assert ([1, 2, 3] |> Iter.filter(&(&1 > 2)) |> Iter.to_list()) == [3]
+    assert ([-1, 2] |> Iter.filter(&(0 < &1)) |> Iter.to_list()) == [2]
+    assert ([1, 2, 3] |> Iter.map(&(&1 * 2 + 1)) |> Iter.to_list()) == [3, 5, 7]
+    assert ([1, 2, 3] |> Iter.filter(&(&1 % 2 == 0)) |> Iter.to_list()) == [2]
+    assert (["a", "b"] |> Iter.map(&(&1 + "!")) |> String.join(",")) == "a!,b!"
+    assert ([[1], [2]] |> Iter.map(&(&1 + [0])) |> Iter.to_list()) == [[1, 0], [2, 0]]
+    assert above([1, 5, 9], 4) == [5, 9]
+}
+
+test "a capture names its parameters by number" {
+    add: (Int, Int) -> Int = &(&1 + &2)
+    less: (Int, Int) -> Int = &(&2 - &1)
+    square: (Int) -> Int = &(&1 * &1)
+    assert add(2, 3) == 5
+    assert less(3, 10) == 7
+    assert square(4) == 16
+    assert apply2(&(&2 * 10)) == 40
+    assert apply2(&(&2)) == 4
+}
+
+test "ranges and unary operators" {
+    upto: (Int) -> Range<Int> = &(0..&1)
+    assert Iter.to_list(upto(3)) == [0, 1, 2]
+    assert ([1, -2] |> Iter.map(&(-&1)) |> Iter.to_list()) == [-1, 2]
+    assert ([True, False] |> Iter.filter(&(!&1)) |> Iter.count()) == 1
+}
+
+test "a literal with a parameter is a construction of it" {
+    mk: (Int) -> Point = &#Point{x: &1, y: 0}
+    swap: (Int, Int) -> Point = &#Point{y: &1, x: &2}
+    anon: (Int) -> Point = &#{x: &1, y: 7}
+    box: (String) -> Box<String> = &#Box{v: &1}
+    pair: (Int, String) -> #(Int, String) = &#(&1, &2)
+    twice: (Int) -> List<Int> = &[&1, &1]
+    assert mk(5) == #Point{x: 5, y: 0}
+    assert mk(x: 6) == #Point{x: 6, y: 0}
+    assert swap(1, 2) == #Point{x: 2, y: 1}
+    assert anon(1) == #Point{x: 1, y: 7}
+    assert box("b") == #Box{v: "b"}
+    assert pair(1, "a") == #(1, "a")
+    assert twice(3) == [3, 3]
+
+    assert ([1.5] |> Iter.map(&#Shape.Circle{radius: &1}) |> Iter.to_list()) == [
+        #Shape.Circle{radius: 1.5},
+    ]
+
+    assert ([1, 2] |> Iter.map(&#(&1, 0)) |> Iter.to_list()) == [#(1, 0), #(2, 0)]
+}
+
+test "a field of function type takes one" {
+    rule = #Rule{name: "big", keep: &(&1 > 10)}
+    assert rule.keep(11)
+    refute rule.keep(9)
+}
+
+test "the `&` marks the function's body" {
+    assert ([-1, 2] |> Iter.map(&(Int.max(&1, 0) + 1)) |> Iter.to_list()) == [1, 3]
+    wrapped: Maybe<(Int) -> Int> = Some(&(&1 + 1))
+    assert Maybe.map(wrapped, fn f -> f(1)) == Some(2)
+    wrap: (Int) -> Maybe<Int> = &Some(&1 + 1)
+    assert wrap(1) == Some(2)
+    pair = #(&Int.max(&1, 0), 1)
+    assert pair.0(-3) == 0
+}
+
+test "a partial capture takes the callee's parameters" {
+    inc = &tens(1, &1)
+    assert inc(2) == 12
+    assert inc(b: 3) == 13
+    assert (&tens(2, &1))(4) == 24
+}
+
+test "a then stage applies a capture to the piped value" {
+    assert (10 |> then &halve(100, &1)) == 10
+    assert (3 |> then &tens(&1, &1)) == 33
+}
+
+test "a capture evaluates its body on each call" {
+    f: (Int) -> Int = &tens(noisy(1), &1)
+    io.print("made")
+    assert f(2) == 12
+    assert f(3) == 13
+}
+
+test "a parameter outside a capture is an error" {
+    diagnostics =
+        """
+            fn main() {
+                f: (Int) -> Int = Int.max(&1, 0)
+                _ = f
+            }
+            """
+        |> compiler.check()
+
+    assert Iter.any?(diagnostics, fn d -> {
+        String.contains?(
+            d.message,
+            "`&1` is a capture's parameter: write the function as `&(...)` or `&f(...)`",
+        )
+    })
+}
+
+test "a pipe fills the first argument" {
+    diagnostics =
+        """
+            fn halve(n: Int, by: Int) -> Int {
+                n / by
+            }
+
+            fn main() {
+                _ = 10 |> halve(100, &1)
+            }
+            """
+        |> compiler.check()
+
+    assert Iter.any?(diagnostics, fn d -> {
+        String.contains?(
+            d.message,
+            "a pipe fills the first argument; write `|> then &halve(100, &1)`",
+        )
+    })
+}
+
+test "captures do not nest" {
+    diagnostics =
+        """
+            fn main() {
+                f: (Int) -> Int = &Int.max(&1, &Int.min(&1, 0))
+                _ = f
+            }
+            """
+        |> compiler.check()
+
+    assert Iter.any?(diagnostics, fn d -> {
+        String.contains?(d.message, "captures do not nest; write the inner one as `fn x -> ...`")
+    })
+}
+
+test "with no expected function type a capture has no type" {
+    diagnostics =
+        """
+            fn main() {
+                f = &(&1 > 2)
+                _ = f
+            }
+            """
+        |> compiler.check()
+
+    assert Iter.any?(diagnostics, fn d -> {
+        String.contains?(d.message, "cannot infer type for `&1` in `&(&1 > 2)`")
+    })
+}
+
+test "`_` is a discard, not a capture's parameter" {
+    diagnostics =
+        """
+            fn main() {
+                f: (Int) -> Int = Int.max(_, 0)
+                _ = f
+            }
+            """
+        |> compiler.check()
+
+    assert Iter.any?(diagnostics, fn d -> {
+        String.contains?(d.message, "`_` is a discard name, not a value")
+    })
+}

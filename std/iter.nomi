@@ -215,8 +215,8 @@ impl Iter<T> {
 
     /// Returns the first element matching the predicate, or None.
     //
-    //! assert Iter.find([1, 2, 3, 4], fn x -> x > 2) == Some(3)
-    //! assert Iter.find([1, 2], fn x -> x > 99) == None
+    //! assert Iter.find([1, 2, 3, 4], &(&1 > 2)) == Some(3)
+    //! assert Iter.find([1, 2], &(&1 > 99)) == None
     //
     pub fn find<T>(source: Iter<T>, f: (T) -> Bool) -> Maybe<T> {
         reduce(source, fn _acc = None, item -> {
@@ -255,7 +255,7 @@ impl Iter<T> {
         direction: Direction = Direction.Ascending,
     ) -> List<T> where T: Comparable {
         case direction {
-            .Ascending -> sort_with(source, fn a, b -> Comparable.compare(a, b))
+            .Ascending -> sort_with(source, &Comparable.compare(&1, &2))
             .Descending -> sort_with(source, fn a, b -> Comparable.compare(b, a))
         }
     }
@@ -266,7 +266,7 @@ impl Iter<T> {
     /// be passed with `direction` omitted (`Iter.sort_by(xs, .k)`); the
     /// default fills the skipped slot.
     //
-    //! assert Iter.sort_by(["bb", "a", "ccc"], fn s -> String.length(s)) == ["a", "bb", "ccc"]
+    //! assert Iter.sort_by(["bb", "a", "ccc"], &String.length(&1)) == ["a", "bb", "ccc"]
     //! assert Iter.sort_by([1, 2, 3], Direction.Descending, fn n -> n) == [3, 2, 1]
     //
     pub fn sort_by<T, K>(
@@ -294,8 +294,8 @@ impl Iter<T> {
     /// Returns true if any element matches the predicate. Short-circuits on the
     /// first match.
     //
-    //! assert Iter.any?([1, 2, 3], fn x -> x > 2)
-    //! refute Iter.any?([1, 2], fn x -> x > 99)
+    //! assert Iter.any?([1, 2, 3], &(&1 > 2))
+    //! refute Iter.any?([1, 2], &(&1 > 99))
     //
     pub fn any?<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
         reduce(source, fn _acc = False, item -> {
@@ -307,11 +307,30 @@ impl Iter<T> {
         })
     }
 
+    /// Returns true if an element is `==` to `x`. A linear scan through the
+    /// push protocol that stops at the first match, so it ends on an infinite
+    /// source that holds `x`. For any iterable, including a lazy pipeline; a
+    /// collection's own `contains?` (the `Contains` interface) may be faster.
+    //
+    //! assert Iter.contains?([1, 2, 3], 2)
+    //! refute Iter.contains?(Iter.map([1, 2], &(&1 * 10)), 2)
+    //! assert Iter.contains?(Iter.from(0), 1_000)
+    //
+    pub fn contains?<T>(source: Iter<T>, x: T) -> Bool where T: Equatable {
+        reduce(source, fn _acc = False, item -> {
+            if item == x {
+                break True
+            } else {
+                False
+            }
+        })
+    }
+
     /// Returns true if all elements match the predicate. Vacuously true for an
     /// empty iterator. Short-circuits on the first miss.
     //
-    //! assert Iter.all?([2, 4, 6], fn x -> x > 0)
-    //! refute Iter.all?([2, -4, 6], fn x -> x > 0)
+    //! assert Iter.all?([2, 4, 6], &(&1 > 0))
+    //! refute Iter.all?([2, -4, 6], &(&1 > 0))
     //
     pub fn all?<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
         reduce(source, fn _acc = True, item -> {
@@ -392,7 +411,7 @@ impl Iter<T> {
     /// Splits the elements into #(matches, rest) by a predicate, preserving the
     /// original order within each. Materializing.
     //
-    //! assert Iter.partition([1, 2, 3, 4], fn x -> x > 2) == #([3, 4], [1, 2])
+    //! assert Iter.partition([1, 2, 3, 4], &(&1 > 2)) == #([3, 4], [1, 2])
     //
     pub fn partition<T>(source: Iter<T>, f: (T) -> Bool) -> #(List<T>, List<T>) {
         state = reduce(source, fn state = #([], []), item -> {
@@ -412,10 +431,10 @@ impl Iter<T> {
     /// Groups elements by a key function. Each group preserves the original order
     /// of its members. Materializing.
     //
-    //! assert Iter.group_by([1, 2, 3, 4], fn x -> x % 2) == %{1 => [1, 3], 0 => [2, 4]}
+    //! assert Iter.group_by([1, 2, 3, 4], &(&1 % 2)) == %{1 => [1, 3], 0 => [2, 4]}
     //
     pub fn group_by<T, K>(source: Iter<T>, key_fn: (T) -> K) -> Map<K, List<T>> {
-        bucketed = reduce(source, fn acc: Map<K, List<T>> = Map.empty(), item -> {
+        bucketed = reduce(source, fn acc: Map<K, List<T>> = %{}, item -> {
             k = key_fn(item)
             current: List<T> = Maybe.with_default(Map.get(acc, k), [])
             Map.put(acc, k, [item, ..current])
@@ -437,7 +456,7 @@ impl Iter<T> {
     //! assert Iter.frequencies(empty) |> Map.size() == 0
     //
     pub fn frequencies<T>(source: Iter<T>) -> Map<T, Int> {
-        reduce(source, fn acc: Map<T, Int> = Map.empty(), item -> {
+        reduce(source, fn acc: Map<T, Int> = %{}, item -> {
             Map.put(acc, item, Maybe.with_default(Map.get(acc, item), 0) + 1)
         })
     }
@@ -461,7 +480,7 @@ impl Iter<T> {
     //! tens =
     //!     [1, 2, 3, 4]
     //!     |> Iter.filter(fn x -> x % 2 == 0)
-    //!     |> Iter.map(fn x -> x * 10)
+    //!     |> Iter.map(&(&1 * 10))
     //!     |> Iter.to_vector()
     //!
     //! assert tens == #[20, 40]
@@ -478,7 +497,7 @@ impl Iter<T> {
     //! assert 1..=3 |> Iter.to_set() == %[1, 2, 3]
     //
     pub fn to_set<T>(source: Iter<T>) -> Set<T> {
-        reduce(source, fn set = Set.new(), item -> Set.insert(set, item))
+        reduce(source, fn set = %[], item -> Set.insert(set, item))
     }
 
     // ---------------------------------------------------------------------------
@@ -557,7 +576,7 @@ impl Iter<T> {
     /// then stops, `break False`/bare `break` stop without it, `continue` skips it.
     //
     //! assert Iter.from(1)
-    //! |> Iter.take_while(fn x -> x < 4)
+    //! |> Iter.take_while(&(&1 < 4))
     //! |> Iter.to_list() == [1, 2, 3]
     //
     pub fn take_while<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T> {
@@ -566,7 +585,7 @@ impl Iter<T> {
 
     /// Lazy: applies `f` to each element of `source`.
     //
-    //! assert [1, 2, 3] |> Iter.map(fn x -> x * 10) |> Iter.to_list() == [10, 20, 30]
+    //! assert [1, 2, 3] |> Iter.map(&(&1 * 10)) |> Iter.to_list() == [10, 20, 30]
     //
     pub fn map<T, U>(source: Iter<T>, f: (T) -> U) -> Iter<U> {
         #Seq{run: fn yield: (U) -> Bool -> map_each(source, f, yield)}
@@ -578,7 +597,7 @@ impl Iter<T> {
     /// deciding, `continue` skips. Append `|> Iter.to_list()` for the strict,
     /// List-returning form.
     //
-    //! assert [1, 2, 3, 4] |> Iter.filter(fn x -> x > 2) |> Iter.to_list() == [3, 4]
+    //! assert [1, 2, 3, 4] |> Iter.filter(&(&1 > 2)) |> Iter.to_list() == [3, 4]
     //
     pub fn filter<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T> {
         #Seq{run: fn yield: (T) -> Bool -> filter_each(source, pred, yield)}
@@ -594,7 +613,7 @@ impl Iter<T> {
 
     /// Lazy: drops the leading run of elements where `pred` is true.
     //
-    //! assert [1, 2, 3, 1] |> Iter.drop_while(fn x -> x < 3) |> Iter.to_list() == [3, 1]
+    //! assert [1, 2, 3, 1] |> Iter.drop_while(&(&1 < 3)) |> Iter.to_list() == [3, 1]
     //
     pub fn drop_while<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T> {
         #Seq{run: fn yield: (T) -> Bool -> drop_while_each(source, pred, yield)}
@@ -626,7 +645,7 @@ impl Iter<T> {
     //! assert [1, 1, 2, 2, 1] |> Iter.chunk_by(fn x -> x) |> Iter.to_list() == [[1, 1], [2, 2], [1]]
     //!
     //! assert ["ant", "ape", "bee", "bat", "cat"]
-    //!     |> Iter.chunk_by(fn s -> String.contains?(s, "a"))
+    //!     |> Iter.chunk_by(&String.contains?(&1, "a"))
     //!     |> Iter.to_list()
     //!     |> List.equal?([["ant", "ape"], ["bee"], ["bat", "cat"]])
     //
@@ -665,7 +684,7 @@ impl Iter<T> {
     /// - `continue`: runtime error — iterate's step *is* the state-advancement,
     /// so `continue` has no next state to fall forward to. Use
     /// `Iter.iterate(...) |> Iter.filter(...)` to skip states.
-    //! assert Iter.iterate(1, fn x -> x * 2)
+    //! assert Iter.iterate(1, &(&1 * 2))
     //! |> Iter.take(4)
     //! |> Iter.to_list() == [1, 2, 4, 8]
     //!
@@ -772,7 +791,7 @@ impl Iter<T> {
     /// source. Of elements with equal least keys, the first wins. Calls `key`
     /// once per element.
     //
-    //! assert Iter.min_by(["pear", "fig", "plum"], fn s -> String.length(s)) == Some("fig")
+    //! assert Iter.min_by(["pear", "fig", "plum"], &String.length(&1)) == Some("fig")
     //! assert Iter.min_by([#(1, "a"), #(0, "b"), #(0, "c")], fn #(n, _) -> n) == Some(#(0, "b"))
     //
     pub fn min_by<T, K>(source: Iter<T>, key: (T) -> K) -> Maybe<T> where K: Comparable {
@@ -792,7 +811,7 @@ impl Iter<T> {
     /// source. Of elements with equal greatest keys, the first wins. Calls
     /// `key` once per element.
     //
-    //! assert Iter.max_by(["pear", "fig", "plum"], fn s -> String.length(s)) == Some("pear")
+    //! assert Iter.max_by(["pear", "fig", "plum"], &String.length(&1)) == Some("pear")
     //! assert Iter.max_by([#(1, "a"), #(0, "b"), #(1, "c")], fn #(n, _) -> n) == Some(#(1, "a"))
     //
     pub fn max_by<T, K>(source: Iter<T>, key: (T) -> K) -> Maybe<T> where K: Comparable {

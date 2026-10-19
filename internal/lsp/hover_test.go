@@ -1949,8 +1949,8 @@ fn unwrap_or(m: Maybe<Result<Int, String>>) -> Int {
 		t.Fatalf("could not find Ok reference at line 5 col 10. References:\n%s", strings.Join(lines, "\n"))
 	}
 	got := renderHover(okSym)
-	if !strings.Contains(got, "variant Ok(Int) -> Result<Int, String>") {
-		t.Errorf("expected hover to show `variant Ok(Int) -> Result<Int, String>`, got:\n%s", got)
+	if !strings.Contains(got, "Result.Ok(Int) -> Result<Int, String>") {
+		t.Errorf("expected hover to show `Result.Ok(Int) -> Result<Int, String>`, got:\n%s", got)
 	}
 }
 
@@ -1977,7 +1977,7 @@ func TestHover_VariantConstructorAtCallSite(t *testing.T) {
 		CallType: ft,
 	}
 	got := renderHover(sym)
-	want := "```nomi\nvariant Some(Result<Int, String>) -> Maybe<Result<Int, String>>\n```"
+	want := "```nomi\nMaybe.Some(Result<Int, String>) -> Maybe<Result<Int, String>>\n```"
 	if got != want {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, want)
 	}

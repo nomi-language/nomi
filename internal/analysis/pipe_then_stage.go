@@ -25,13 +25,14 @@ type pipeLambdaParam struct {
 }
 
 // pipeStageLambda is the lambda of a `then` or `tap` stage, with the stage's
-// keyword and position. ok is false for any other node.
+// keyword and position. ok is false for any other node, and for a stage
+// that applies a capture, whose body ends with it.
 func pipeStageLambda(n ast.Node) (lam *ast.Lambda, keyword string, line, col int, ok bool) {
 	switch stage := n.(type) {
 	case *ast.Then:
-		return stage.Lambda, "then", stage.Line, stage.Col, true
+		return stage.Lambda, "then", stage.Line, stage.Col, stage.Lambda != nil
 	case *ast.Tap:
-		return stage.Lambda, "tap", stage.Line, stage.Col, true
+		return stage.Lambda, "tap", stage.Line, stage.Col, stage.Lambda != nil
 	}
 	return nil, "", 0, 0, false
 }

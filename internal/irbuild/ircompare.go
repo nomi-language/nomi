@@ -264,6 +264,12 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 			rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, lk)
 		} else if rk.tag == tagList && lk.tag == tagEmptyList {
 			lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, rk)
+		} else if irEmptyCollectionKind(lk) && lk == rk {
+			// `%{} == %{}`: as `[] == []`, no element is read, so both
+			// take the fill an open element takes (typeOpenEmpty).
+			if lhs, lk, ok = bl.typeOpenEmpty(t.Left, lhs, lk); ok {
+				rhs, rk, ok = bl.typeOpenEmpty(t.Right, rhs, rk)
+			}
 		} else if irEmptyCollectionKind(rk) && !irEmptyCollectionKind(lk) {
 			// `v == #[]`: the empty Vector, Set or Map takes the other
 			// operand's element types.

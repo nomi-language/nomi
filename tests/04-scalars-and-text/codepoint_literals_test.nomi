@@ -87,7 +87,7 @@ test "codepoint literals match inside variant and tuple patterns" {
 test "a scanner splits on a codepoint" {
     fields =
         String.to_codepoints("a,bc,,d")
-        |> Iter.filter(fn cp -> cp != ',')
+        |> Iter.filter(&(&1 != ','))
         |> Iter.map(Codepoint.to_string)
         |> String.join()
 

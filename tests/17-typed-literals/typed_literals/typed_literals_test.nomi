@@ -41,7 +41,7 @@ impl Literal for Box {
 
 fn param_strings(q: Query) -> List<String> {
     q.params
-    |> Iter.map(fn p -> Display.to_string(p))
+    |> Iter.map(&Display.to_string(&1))
     |> Iter.to_list()
 }
 

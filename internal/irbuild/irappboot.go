@@ -126,7 +126,7 @@ func (g *gen) irErases(want, have kind) bool {
 		// VM dispatches on the scalar's own type name (vm.runtimeTypeName).
 		return irExistentialKind(want) && g.implements(want.iface, have)
 	}
-	erases := irExistentialKind(want) && have.tag == tagNamed && have.def != nil && !have.def.isEnum &&
+	erases := irExistentialKind(want) && have.tag == tagNamed && have.def != nil && (!have.def.isEnum || irDispatchEnum(have.def)) &&
 		irRetainedValueKind(have) && g.implements(want.iface, have)
 	if erases && have.def.genericOf != nil {
 		// An instance of a generic struct (`Box<Int>`) is held erased: its
@@ -137,8 +137,31 @@ func (g *gen) irErases(want, have kind) bool {
 			g.erasedInstances = map[kind]bool{}
 		}
 		g.erasedInstances[have] = true
+		if g.reg != nil {
+			if g.reg.erasedInsts == nil {
+				g.reg.erasedInsts = map[*typeDef]bool{}
+			}
+			g.reg.erasedInsts[instIdentity(have.def)] = true
+		}
 	}
 	return erases
+}
+
+// irDispatchEnum reports whether d is an enum a dispatch can select an impl
+// for by the type its values carry: every value is an enum record whose
+// descriptor names d (vm.implOf). A prelude enum's values are rt's own, and
+// a value widened into an `embeds` variant is the embedded struct itself,
+// which names the struct.
+func irDispatchEnum(d *typeDef) bool {
+	if d == nil || !d.isEnum || d.preludeOf != nil {
+		return false
+	}
+	for _, v := range d.variants {
+		if v.embeds != nil || v.kind == "embedded" {
+			return false
+		}
+	}
+	return true
 }
 
 // irDisplayErasedContainer reports whether have is a list, vector or map
@@ -330,7 +353,8 @@ func testDeclaresBoot(t *ast.TestDecl) bool {
 
 // irRecordImpls records, on this unit's module, every retained impl body a
 // dispatched call can select: a local interface's method implemented for a
-// declared non-enum type, keyed by the type identity the VM's values carry.
+// declared struct, distinct or enum (irDispatchEnum), keyed by the type
+// identity the VM's values carry.
 func (g *gen) irRecordImpls() {
 	g.irRecordDisplayImpls()
 	g.irRecordRowDebugImpls()
@@ -339,7 +363,7 @@ func (g *gen) irRecordImpls() {
 		var typ *ir.Symbol
 		if name, scalar := irDispatchScalarName(d.recv); scalar {
 			typ = g.irTypes().Symbol(irScalarTypeToken{name}, name)
-		} else if d.recv.tag == tagNamed && d.recv.def != nil && !d.recv.def.isEnum {
+		} else if d.recv.tag == tagNamed && d.recv.def != nil && (!d.recv.def.isEnum || irDispatchEnum(d.recv.def)) {
 			typ = g.irImplTypeSym(d.recv)
 		}
 		if d.iface == nil || typ == nil {
@@ -397,7 +421,12 @@ func (g *gen) irInstanceImpls() []*implDef {
 	var entries []entry
 	for iface, byRecv := range g.implsByIface {
 		for recv, d := range byRecv {
-			if d == nil || !g.erasedInstances[recv] || recv.def.preludeOf != nil {
+			if d == nil || recv.def == nil || recv.def.preludeOf != nil {
+				continue
+			}
+			if !g.erasedInstances[recv] && (g.reg == nil || !g.reg.erasedInsts[instIdentity(recv.def)]) {
+				// Held erased nowhere. Another file may hold erased the
+				// instance an impl written here is for.
 				continue
 			}
 			v := g.irValType(recv)
@@ -529,6 +558,10 @@ func irKeyImplRecv(k kind) bool {
 // dispatch in one file finds an impl recorded in another. nil when the
 // declaring unit's gen or its declaration is not available.
 func (g *gen) irIfaceMethodSym(d *ifaceDef, m *ifaceMethod) *ir.Symbol {
+	if d.instOf != nil {
+		// `Gets<String>.got`: the instance's own table (instimpl.go).
+		return g.instMethodSym(d, m)
+	}
 	if d.foreign == "" {
 		return g.irCalleeSym(m, d.nomi+"."+m.name)
 	}
@@ -575,7 +608,7 @@ func (bl *irScalarBuilder) appFieldStore(w *ast.With) bool {
 		return false
 	}
 	if vk != k {
-		// `with App.cache = Map.empty()`: an empty collection takes the
+		// `with App.cache = %{}`: an empty collection takes the
 		// field's type, an embedded value widens and a concrete value
 		// enters its interface, as an argument enters its parameter.
 		have := vk

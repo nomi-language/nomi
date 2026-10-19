@@ -163,18 +163,16 @@ var operIfaceByName = func() map[string]*operIfaceSpec {
 }()
 
 // operKey identifies one operator-interface impl: the interface, the receiver,
-// and the RIGHT-HAND type — the axis `implsByIface` drops.
-//
-// The `Out` type is deliberately NOT in the key. Two impls of `Add<Days, X>` for
-// one receiver differing only in their output would be a coherence error the
-// analyzer rejects, and keying on the output as well would admit them silently
-// while leaving the CALL site — which knows the operands and not the result — no
-// way to choose. So a collision on (iface, recv, rhs) is refused as a duplicate
-// exactly as `implsByIface` refuses a collision on (iface, recv).
+// and its two type arguments, the right-hand type (the axis `implsByIface`
+// drops) and the output. Two impls of `Add<Days, X>` for one receiver that
+// differ only in their output are two impls; the front end chooses between
+// them by the type the operator's result is expected to have, and the call
+// site reads that choice (operImplFor's want).
 type operKey struct {
 	iface string
 	recv  kind
 	rhs   kind
+	out   kind
 }
 
 // operIfaceAnchoredIn reports whether `name` in this module is the stdlib
@@ -400,7 +398,7 @@ func (g *gen) registerOperImpl(d *implDef) {
 	if g.operImpls == nil {
 		g.operImpls = map[operKey]*implDef{}
 	}
-	key := operKey{iface: d.ifaceName, recv: d.recv, rhs: d.operRhs}
+	key := operKey{iface: d.ifaceName, recv: d.recv, rhs: d.operRhs, out: d.operOut}
 	if prior, dup := g.operImpls[key]; dup {
 		prior.lowerable, prior.why, prior.whyDetail = false, "duplicate impl block", d.operLabel()
 		d.lowerable, d.why, d.whyDetail = false, "duplicate impl block", d.operLabel()
@@ -446,6 +444,14 @@ func (d *implDef) operLabel() string {
 // Every candidate scanned here is an operator impl, and `g.operImpls` holds
 // nothing else, so this route cannot change the answer of a call site that
 // resolves through `implsByIface`.
-func (g *gen) operImplFor(iface string, recv kind, method string, args []kind) (chosen *implItem, decl *ir.Decl, rival bool) {
-	return g.irSelectOperImpl(iface, recv, method, args)
+//
+// want, when given and valid, is the result kind the front end chose the
+// impl by: among rivals that take the operands alike, the one returning it.
+func (g *gen) operImplFor(iface string, recv kind, method string, args []kind, want ...kind) (chosen *implItem, decl *ir.Decl, rival bool) {
+	chosen, decl, rival = g.irSelectOperImpl(iface, recv, method, args, nil)
+	// kindInvalid: lookup — no solved result keeps the rivals rivals.
+	if rival && len(want) == 1 && want[0] != kindInvalid {
+		return g.irSelectOperImpl(iface, recv, method, args, func(it *implItem) bool { return it.result == want[0] })
+	}
+	return chosen, decl, rival
 }

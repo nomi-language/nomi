@@ -184,8 +184,8 @@ func TestFormat_AuthorBreakInArgumentsIsIgnored(t *testing.T) {
 		},
 		{
 			"type arguments",
-			"fn main() {\n    xs: Map<\n        String, Int> = Map.empty()\n}\n",
-			"fn main() {\n    xs: Map<String, Int> = Map.empty()\n}\n",
+			"fn main() {\n    xs: Map<\n        String, Int> = %{}\n}\n",
+			"fn main() {\n    xs: Map<String, Int> = %{}\n}\n",
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {

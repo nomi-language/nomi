@@ -97,7 +97,7 @@ impl Task<T> {
     /// enqueueing.
     //! results = concurrent {
     //!     [1, 2, 3]
-    //!     |> Task.spawn_all(fn n -> n * 2, max_running: 2)
+    //!     |> Task.spawn_all(&(&1 * 2), max_running: 2)
     //!     |> Task.await_all()
     //! }
     //!
@@ -122,7 +122,7 @@ impl Task<T> {
     /// lowest-indexed one.
     //! results = concurrent {
     //!     ["a", "b"]
-    //!     |> Task.spawn_all(fn s -> s + "!", max_running: 2)
+    //!     |> Task.spawn_all(&(&1 + "!"), max_running: 2)
     //!     |> Task.await_all()
     //! }
     //!

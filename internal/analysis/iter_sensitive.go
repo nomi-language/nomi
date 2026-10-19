@@ -482,6 +482,8 @@ func (s *iterSensitivity) walkBody(owner *Symbol, n ast.Node, caughtHere bool) {
 		s.walkBody(owner, node.Expr, caughtHere)
 	case *ast.GroupedExpr:
 		s.walkBody(owner, node.Expr, caughtHere)
+	case *ast.Capture:
+		s.walkBody(owner, node.Body, caughtHere)
 	case *ast.If:
 		s.walkBody(owner, node.Cond, caughtHere)
 		s.walkBody(owner, node.Then, caughtHere)
@@ -568,9 +570,9 @@ func (s *iterSensitivity) walkBody(owner *Symbol, n ast.Node, caughtHere bool) {
 	case *ast.Dbg:
 		s.walkBody(owner, node.Expr, caughtHere)
 	case *ast.Then:
-		s.walkBody(owner, node.Lambda, caughtHere)
+		s.walkBody(owner, node.Fn(), caughtHere)
 	case *ast.Tap:
-		s.walkBody(owner, node.Lambda, caughtHere)
+		s.walkBody(owner, node.Fn(), caughtHere)
 	case *ast.Assertion:
 		s.walkBody(owner, node.Expr, caughtHere)
 	case *ast.StringInterp:
@@ -829,6 +831,8 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 			walk(node.Expr, inIter)
 		case *ast.GroupedExpr:
 			walk(node.Expr, inIter)
+		case *ast.Capture:
+			walk(node.Body, inIter)
 		case *ast.If:
 			walk(node.Cond, inIter)
 			walk(node.Then, inIter)
@@ -914,9 +918,9 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 		case *ast.Dbg:
 			walk(node.Expr, inIter)
 		case *ast.Then:
-			walk(node.Lambda, inIter)
+			walk(node.Fn(), inIter)
 		case *ast.Tap:
-			walk(node.Lambda, inIter)
+			walk(node.Fn(), inIter)
 		case *ast.Assertion:
 			walk(node.Expr, inIter)
 		case *ast.TestDecl:
@@ -1021,6 +1025,8 @@ func (s *iterSensitivity) findFirstDirectBC(n ast.Node) (int, int, bool) {
 			walk(node.Expr, caught)
 		case *ast.GroupedExpr:
 			walk(node.Expr, caught)
+		case *ast.Capture:
+			walk(node.Body, caught)
 		case *ast.If:
 			walk(node.Cond, caught)
 			walk(node.Then, caught)
@@ -1117,9 +1123,9 @@ func (s *iterSensitivity) findFirstDirectBC(n ast.Node) (int, int, bool) {
 		case *ast.Dbg:
 			walk(node.Expr, caught)
 		case *ast.Then:
-			walk(node.Lambda, caught)
+			walk(node.Fn(), caught)
 		case *ast.Tap:
-			walk(node.Lambda, caught)
+			walk(node.Fn(), caught)
 		case *ast.Assertion:
 			walk(node.Expr, caught)
 		case *ast.StringInterp:
@@ -1238,6 +1244,8 @@ func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
 			walk(node.Expr, enclosing, immediateIter)
 		case *ast.GroupedExpr:
 			walk(node.Expr, enclosing, immediateIter)
+		case *ast.Capture:
+			walk(node.Body, enclosing, immediateIter)
 		case *ast.If:
 			walk(node.Cond, enclosing, immediateIter)
 			walk(node.Then, enclosing, immediateIter)
@@ -1321,9 +1329,9 @@ func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
 		case *ast.Dbg:
 			walk(node.Expr, enclosing, immediateIter)
 		case *ast.Then:
-			walk(node.Lambda, enclosing, immediateIter)
+			walk(node.Fn(), enclosing, immediateIter)
 		case *ast.Tap:
-			walk(node.Lambda, enclosing, immediateIter)
+			walk(node.Fn(), enclosing, immediateIter)
 		case *ast.Assertion:
 			walk(node.Expr, enclosing, immediateIter)
 		case *ast.TestDecl:

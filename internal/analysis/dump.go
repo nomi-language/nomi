@@ -123,6 +123,12 @@ func DumpFileForTest(fa *FileAnalysis, errs []TypeError, root string) string {
 	for n, t := range fa.FieldAccessors {
 		lines = append(lines, fmt.Sprintf("accessor %s = %s", at(n), typ(t)))
 	}
+	for p, length := range fa.Placeholders {
+		lines = append(lines, fmt.Sprintf("placeholder %d:%d length %d", p.Line, p.Col, length))
+	}
+	for n, t := range fa.PatternTypes {
+		lines = append(lines, fmt.Sprintf("pattern %s = %s", at(n), typ(t)))
+	}
 	for n, t := range fa.LambdaPatternTypes {
 		lines = append(lines, fmt.Sprintf("lambda pattern %s = %s", at(n), typ(t)))
 	}

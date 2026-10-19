@@ -228,7 +228,7 @@ func TestUserImplForAPrimitiveIsADuplicateOfStdlibs(t *testing.T) {
 		{"Equatable", "equal?", "Bool", "Bool", "False", "bool.Bool", "std/bool"},
 		// `String` is absent from Hashable: std/strings spells its `hash` as
 		// a `host fn`, which this check cannot see; see
-		// TestExternStdImplsAreInvisibleToTheDuplicateRule.
+		// TestExternStdImplsCannotBeReplaced.
 		{"Hashable", "hash", "Int", "Int", "0", "int.Int", "std/int"},
 		{"Hashable", "hash", "Float", "Int", "0", "float.Float", "std/float"},
 	} {
@@ -275,14 +275,14 @@ func TestACleanProgramReportsNoDuplicateImpl(t *testing.T) {
 	t.Fatalf("unexpected diagnostic on a trivial program: %v", err)
 }
 
-// An extern std impl (`impl Hashable for String { host fn hash }`) is
-// invisible to the duplicate rule, so a user can declare a second one and
-// silently replace std's. This pins an open gap: it asserts that the wrong
-// behaviour is still present, that the duplicate rule is blind to extern std
-// impls. Closing it means `detectImplCollisions` grouping FuncDefs and
-// ExternFuncs together. The test fails when the gap closes; the person
-// closing it deletes this and says so.
-func TestExternStdImplsAreInvisibleToTheDuplicateRule(t *testing.T) {
+// A user impl that would replace an extern std impl (`impl Hashable for
+// String { host fn hash }`) is rejected. The duplicate rule cannot see an
+// extern std impl, since `detectImplCollisions` groups FuncDefs only, but
+// the orphan rule reaches it first: a std interface for a std type cannot be
+// implemented outside std, in a project or in a file with no nomi.toml. The
+// rows fail if either override is accepted, which would let it silently
+// replace std's.
+func TestExternStdImplsCannotBeReplaced(t *testing.T) {
 	for _, c := range []struct {
 		name string
 		src  string
@@ -301,10 +301,12 @@ func TestExternStdImplsAreInvisibleToTheDuplicateRule(t *testing.T) {
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			if err := checkEntry(t, c.src); err != nil {
-				t.Fatalf("this is now REJECTED: %v\n\nThe extern half of the "+
-					"duplicate rule has been closed. Delete this test and move "+
-					"these rows into TestUserImplForAPrimitiveIsADuplicateOfStdlibs.", err)
+			err := checkEntry(t, c.src)
+			if err == nil {
+				t.Fatalf("the override was ACCEPTED; it would silently replace std's impl")
+			}
+			if !strings.Contains(err.Error(), "orphan impl") {
+				t.Fatalf("rejected for the wrong reason (want `orphan impl`): %v", err)
 			}
 		})
 	}

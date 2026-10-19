@@ -570,11 +570,14 @@ func (x *fileIndex) implUnitsFor(fa *analysis.FileAnalysis, name string) []int {
 // declaration, before any type is resolved.
 //
 // Before, because closeReferences needs it and closeReferences runs before the
-// first gen exists. So the receiver is read as SYNTAX — every type name it
-// mentions, resolved through the declaring file's own scope — rather than as a
-// kind. Deliberately a SUPERSET for closeReferences' stated reason: a name in a
+// first gen exists. So the receiver is read as SYNTAX — the type its head
+// names, resolved through the declaring file's own scope — rather than as a
+// kind. Deliberately a SUPERSET for closeReferences' stated reason: a
 // receiver this builder will refuse still counts, because over-counting can
-// only over-refuse a cycle while under-counting misses one.
+// only over-refuse a cycle while under-counting misses one. A type argument
+// does not count: `String.join` reaches no block of `impl Sized for
+// Maybe<String>`, and counting it would add an edge to a file the caller
+// need not import.
 func implUnitsByDecl(p *Program) map[ast.Node][]int {
 	out := map[ast.Node][]int{}
 	for i := range p.Modules {
@@ -588,7 +591,7 @@ func implUnitsByDecl(p *Program) map[ast.Node][]int {
 				continue
 			}
 			names := map[string]bool{}
-			typeNamesIn(ib.Receiver, names)
+			typeNamesIn(receiverHead(ib.Receiver), names)
 			for name := range names {
 				sym := resolvedTypeSymbol(fa, name)
 				if sym == nil || sym.Node == nil {
@@ -601,6 +604,20 @@ func implUnitsByDecl(p *Program) map[ast.Node][]int {
 		}
 	}
 	return out
+}
+
+// receiverHead is an impl receiver without its type arguments: `Box` for
+// `Box<Point>`, `lib.Box` for `lib.Box<Point>`.
+func receiverHead(te ast.TypeExpr) ast.TypeExpr {
+	switch t := te.(type) {
+	case *ast.GenericType:
+		return &ast.SimpleType{Name: t.Name, Line: t.Line, Col: t.Col}
+	case *ast.QualifiedType:
+		head := *t
+		head.Member = receiverHead(t.Member)
+		return &head
+	}
+	return te
 }
 
 // lookupBare resolves a BARE name to the sibling `fn` declaration it names,

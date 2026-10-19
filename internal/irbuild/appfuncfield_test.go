@@ -41,7 +41,7 @@ fn boot() -> App {
   k = 7
   #App{
     steps: double
-    add: plus(100, _)
+    add: &plus(100, &1)
     scale: fn x -> x * k
     cfg: #Cfg{f: fn x -> x + 1}
     hook: Some(fn x -> x - 1)

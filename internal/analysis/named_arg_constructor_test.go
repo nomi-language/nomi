@@ -75,11 +75,11 @@ func TestNamedArgToConstructor_IsAnError(t *testing.T) {
   Box.Full(v: 1)
 }`, "v: 1", variantNameHint},
 		{"a named placeholder", `fn f() -> (Int) -> Maybe<Int> {
-  Some(l: _)
-}`, "l: _", variantNameHint},
+  &Some(l: &1)
+}`, "l: &1", variantNameHint},
 		{"a pipe", `fn f() -> Maybe<Int> {
-  1 |> Some(l: _)
-}`, "l: _", variantNameHint},
+  1 |> then &Some(l: &1)
+}`, "l: &1", variantNameHint},
 		{"the fuzzer's Assertable impl", `import std/assertions.{Assertable, AssertionDetails}
 struct Same {
   a: Int
@@ -173,7 +173,7 @@ func TestNamedArgToConstructor_PositionalStillChecks(t *testing.T) {
   c: Shape = .Sq(1)
   d: Shape = Shape.Pair(1, 2)
   e: Box<Int> = Box.Full(1)
-  f = Some(_)
+  f = &Some(&1)
   g: Maybe<Int> = 1 |> Some()
   h: Id = Id(5)
   i: Two = #Two(1, "x")

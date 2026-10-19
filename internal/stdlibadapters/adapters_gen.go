@@ -289,6 +289,7 @@ func Names() []string {
 		"bytes.Bytes.concat",
 		"bytes.Bytes.to_string",
 		"bytes.Bytes.hash",
+		"bytes.Bytes.contains?",
 		"strings.String.to_bytes",
 		"int.Int.to_string",
 		"int.Int.to_float",
@@ -588,81 +589,82 @@ func Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 		"bytes.Bytes.concat":                   b.fn139,
 		"bytes.Bytes.to_string":                b.fn140,
 		"bytes.Bytes.hash":                     b.fn142,
-		"strings.String.to_bytes":              b.fn143,
-		"int.Int.to_string":                    b.fn144,
-		"int.Int.to_float":                     b.fn145,
-		"int.Int.wrapping_add":                 b.fn147,
-		"int.Int.wrapping_sub":                 b.fn148,
-		"int.Int.wrapping_mul":                 b.fn149,
-		"int.Int.bitwise_and":                  b.fn150,
-		"int.Int.bitwise_or":                   b.fn151,
-		"int.Int.bitwise_xor":                  b.fn152,
-		"int.Int.bitwise_not":                  b.fn153,
-		"float.Float.to_string":                b.fn154,
-		"float.Float.nan":                      b.fn155,
-		"float.Float.positive_infinity":        b.fn156,
-		"float.Float.negative_infinity":        b.fn157,
-		"float.Float.nan?":                     b.fn158,
-		"float.Float.round":                    b.fn159,
-		"float.Float.floor":                    b.fn160,
-		"float.Float.ceil":                     b.fn161,
-		"float.Float.trunc":                    b.fn162,
-		"float.Float.to_int":                   b.fn163,
-		"float.float_bits":                     b.fn164,
-		"decimal.Decimal.to_string":            b.fn165,
-		"decimal.Decimal.equal?":               b.fn167,
-		"decimal.Decimal.hash":                 b.fn168,
-		"decimal.Decimal.compare":              b.fn169,
-		"duration.Duration.to_string":          b.fn171,
-		"instant.Instant.now":                  b.fn173,
-		"codepoints.Codepoint.to_string":       b.fn175,
-		"codepoints.Codepoint.letter?":         b.fn177,
-		"codepoints.Codepoint.whitespace?":     b.fn178,
-		"codepoints.Codepoint.upper?":          b.fn179,
-		"codepoints.Codepoint.lower?":          b.fn180,
-		"strings.String.to_codepoints":         b.fn181,
-		"context.Context.with_timeout":         b.fn184,
-		"context.Context.root":                 b.fn187,
-		"json.Json.decode":                     b.fn188,
-		"json.Json.encode":                     b.fn198,
-		"timer.sleep":                          b.fn203,
-		"supervisors.Supervisor.new_exact":     b.fn204,
-		"supervisors.Supervisor.flush_bounded": b.fn209,
-		"assertions.AssertionFailure.format":   b.fn213,
-		"decimal.Decimal.from_int":             b.fn226,
-		"decimal.Decimal.from_string":          b.fn228,
-		"decimal.Decimal.to_int":               b.fn231,
-		"decimal.Decimal.to_float":             b.fn232,
-		"decimal.Decimal.from_float":           b.fn233,
-		"decimal.Decimal.divide":               b.fn235,
-		"decimal.Decimal.round":                b.fn236,
-		"decimal.Decimal.normalize":            b.fn237,
-		"decimal.Decimal.scale":                b.fn238,
-		"strings.String.repeat":                b.fn239,
-		"int.Int.shift_left":                   b.fn240,
-		"int.Int.shift_right":                  b.fn241,
-		"context.Context.deadline":             b.fn242,
-		"context.Context.deadline_remaining":   b.fn245,
-		"context.Context.with_deadline":        b.fn249,
-		"bytes.Bytes.to_list":                  b.fn251,
-		"bytes.Bytes.from_list":                b.fn253,
-		"io.read_file":                         b.fn255,
-		"io.write_file":                        b.fn259,
-		"strings.String.normalize":             b.fn263,
-		"dynamic.Dynamic.field":                b.fn265,
-		"dynamic.Dynamic.index":                b.fn275,
-		"dynamic.Dynamic.path":                 b.fn276,
-		"dynamic.Dynamic.as_string":            b.fn277,
-		"dynamic.Dynamic.as_int":               b.fn280,
-		"dynamic.Dynamic.as_float":             b.fn283,
-		"dynamic.Dynamic.as_bool":              b.fn286,
-		"dynamic.Dynamic.as_list":              b.fn289,
-		"dynamic.Dynamic.as_dict":              b.fn294,
-		"dynamic.Dynamic.null?":                b.fn299,
-		"dynamic.Dynamic.has?":                 b.fn300,
-		"dynamic.Dynamic.inspect":              b.fn301,
-		"json.Json.to_dynamic":                 b.fn302,
-		"io.read_line":                         b.fn303,
+		"bytes.Bytes.contains?":                b.fn143,
+		"strings.String.to_bytes":              b.fn144,
+		"int.Int.to_string":                    b.fn145,
+		"int.Int.to_float":                     b.fn146,
+		"int.Int.wrapping_add":                 b.fn148,
+		"int.Int.wrapping_sub":                 b.fn149,
+		"int.Int.wrapping_mul":                 b.fn150,
+		"int.Int.bitwise_and":                  b.fn151,
+		"int.Int.bitwise_or":                   b.fn152,
+		"int.Int.bitwise_xor":                  b.fn153,
+		"int.Int.bitwise_not":                  b.fn154,
+		"float.Float.to_string":                b.fn155,
+		"float.Float.nan":                      b.fn156,
+		"float.Float.positive_infinity":        b.fn157,
+		"float.Float.negative_infinity":        b.fn158,
+		"float.Float.nan?":                     b.fn159,
+		"float.Float.round":                    b.fn160,
+		"float.Float.floor":                    b.fn161,
+		"float.Float.ceil":                     b.fn162,
+		"float.Float.trunc":                    b.fn163,
+		"float.Float.to_int":                   b.fn164,
+		"float.float_bits":                     b.fn165,
+		"decimal.Decimal.to_string":            b.fn166,
+		"decimal.Decimal.equal?":               b.fn168,
+		"decimal.Decimal.hash":                 b.fn169,
+		"decimal.Decimal.compare":              b.fn170,
+		"duration.Duration.to_string":          b.fn172,
+		"instant.Instant.now":                  b.fn174,
+		"codepoints.Codepoint.to_string":       b.fn176,
+		"codepoints.Codepoint.letter?":         b.fn178,
+		"codepoints.Codepoint.whitespace?":     b.fn179,
+		"codepoints.Codepoint.upper?":          b.fn180,
+		"codepoints.Codepoint.lower?":          b.fn181,
+		"strings.String.to_codepoints":         b.fn182,
+		"context.Context.with_timeout":         b.fn185,
+		"context.Context.root":                 b.fn188,
+		"json.Json.decode":                     b.fn189,
+		"json.Json.encode":                     b.fn199,
+		"timer.sleep":                          b.fn204,
+		"supervisors.Supervisor.new_exact":     b.fn205,
+		"supervisors.Supervisor.flush_bounded": b.fn210,
+		"assertions.AssertionFailure.format":   b.fn214,
+		"decimal.Decimal.from_int":             b.fn227,
+		"decimal.Decimal.from_string":          b.fn229,
+		"decimal.Decimal.to_int":               b.fn232,
+		"decimal.Decimal.to_float":             b.fn233,
+		"decimal.Decimal.from_float":           b.fn234,
+		"decimal.Decimal.divide":               b.fn236,
+		"decimal.Decimal.round":                b.fn237,
+		"decimal.Decimal.normalize":            b.fn238,
+		"decimal.Decimal.scale":                b.fn239,
+		"strings.String.repeat":                b.fn240,
+		"int.Int.shift_left":                   b.fn241,
+		"int.Int.shift_right":                  b.fn242,
+		"context.Context.deadline":             b.fn243,
+		"context.Context.deadline_remaining":   b.fn246,
+		"context.Context.with_deadline":        b.fn250,
+		"bytes.Bytes.to_list":                  b.fn252,
+		"bytes.Bytes.from_list":                b.fn254,
+		"io.read_file":                         b.fn256,
+		"io.write_file":                        b.fn260,
+		"strings.String.normalize":             b.fn264,
+		"dynamic.Dynamic.field":                b.fn266,
+		"dynamic.Dynamic.index":                b.fn276,
+		"dynamic.Dynamic.path":                 b.fn277,
+		"dynamic.Dynamic.as_string":            b.fn278,
+		"dynamic.Dynamic.as_int":               b.fn281,
+		"dynamic.Dynamic.as_float":             b.fn284,
+		"dynamic.Dynamic.as_bool":              b.fn287,
+		"dynamic.Dynamic.as_list":              b.fn290,
+		"dynamic.Dynamic.as_dict":              b.fn295,
+		"dynamic.Dynamic.null?":                b.fn300,
+		"dynamic.Dynamic.has?":                 b.fn301,
+		"dynamic.Dynamic.inspect":              b.fn302,
+		"json.Json.to_dynamic":                 b.fn303,
+		"io.read_line":                         b.fn304,
 	}, nil
 }
 
@@ -3196,8 +3198,29 @@ func (b *bound) fn142(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn143 adapts strings.String.to_bytes: to_bytes(s: String) -> Bytes
+// fn143 adapts bytes.Bytes.contains?: contains?(c: Bytes, x: Byte) -> Bool
 func (b *bound) fn143(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	if len(args) != 2 {
+		return nil, hostadapt.Arity("bytes.Bytes.contains?", 2, len(args))
+	}
+	a0, err := b.in133(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Arg("bytes.Bytes.contains?", 0, err)
+	}
+	a1, err := b.in131(fr, args[1])
+	if err != nil {
+		return nil, hostadapt.Arg("bytes.Bytes.contains?", 1, err)
+	}
+	r0 := rt.BytesContains(a0, a1)
+	v0, err := b.out92(r0)
+	if err != nil {
+		return nil, err
+	}
+	return v0, nil
+}
+
+// fn144 adapts strings.String.to_bytes: to_bytes(s: String) -> Bytes
+func (b *bound) fn144(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("strings.String.to_bytes", 1, len(args))
 	}
@@ -3213,8 +3236,8 @@ func (b *bound) fn143(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn144 adapts int.Int.to_string: to_string(n: Int) -> String
-func (b *bound) fn144(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn145 adapts int.Int.to_string: to_string(n: Int) -> String
+func (b *bound) fn145(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("int.Int.to_string", 1, len(args))
 	}
@@ -3230,13 +3253,13 @@ func (b *bound) fn144(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// out146 builds a Float from Go float64.
-func (b *bound) out146(v float64) (rt.Value, error) {
+// out147 builds a Float from Go float64.
+func (b *bound) out147(v float64) (rt.Value, error) {
 	return float64(v), nil
 }
 
-// fn145 adapts int.Int.to_float: to_float(x: Int) -> Float
-func (b *bound) fn145(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn146 adapts int.Int.to_float: to_float(x: Int) -> Float
+func (b *bound) fn146(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("int.Int.to_float", 1, len(args))
 	}
@@ -3245,15 +3268,15 @@ func (b *bound) fn145(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("int.Int.to_float", 0, err)
 	}
 	r0 := rt.IntToFloat(a0)
-	v0, err := b.out146(r0)
+	v0, err := b.out147(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn147 adapts int.Int.wrapping_add: wrapping_add(a: Int, b: Int) -> Int
-func (b *bound) fn147(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn148 adapts int.Int.wrapping_add: wrapping_add(a: Int, b: Int) -> Int
+func (b *bound) fn148(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.wrapping_add", 2, len(args))
 	}
@@ -3273,8 +3296,8 @@ func (b *bound) fn147(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn148 adapts int.Int.wrapping_sub: wrapping_sub(a: Int, b: Int) -> Int
-func (b *bound) fn148(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn149 adapts int.Int.wrapping_sub: wrapping_sub(a: Int, b: Int) -> Int
+func (b *bound) fn149(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.wrapping_sub", 2, len(args))
 	}
@@ -3294,8 +3317,8 @@ func (b *bound) fn148(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn149 adapts int.Int.wrapping_mul: wrapping_mul(a: Int, b: Int) -> Int
-func (b *bound) fn149(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn150 adapts int.Int.wrapping_mul: wrapping_mul(a: Int, b: Int) -> Int
+func (b *bound) fn150(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.wrapping_mul", 2, len(args))
 	}
@@ -3315,8 +3338,8 @@ func (b *bound) fn149(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn150 adapts int.Int.bitwise_and: bitwise_and(a: Int, b: Int) -> Int
-func (b *bound) fn150(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn151 adapts int.Int.bitwise_and: bitwise_and(a: Int, b: Int) -> Int
+func (b *bound) fn151(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.bitwise_and", 2, len(args))
 	}
@@ -3336,8 +3359,8 @@ func (b *bound) fn150(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn151 adapts int.Int.bitwise_or: bitwise_or(a: Int, b: Int) -> Int
-func (b *bound) fn151(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn152 adapts int.Int.bitwise_or: bitwise_or(a: Int, b: Int) -> Int
+func (b *bound) fn152(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.bitwise_or", 2, len(args))
 	}
@@ -3357,8 +3380,8 @@ func (b *bound) fn151(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn152 adapts int.Int.bitwise_xor: bitwise_xor(a: Int, b: Int) -> Int
-func (b *bound) fn152(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn153 adapts int.Int.bitwise_xor: bitwise_xor(a: Int, b: Int) -> Int
+func (b *bound) fn153(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.bitwise_xor", 2, len(args))
 	}
@@ -3378,8 +3401,8 @@ func (b *bound) fn152(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn153 adapts int.Int.bitwise_not: bitwise_not(a: Int) -> Int
-func (b *bound) fn153(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn154 adapts int.Int.bitwise_not: bitwise_not(a: Int) -> Int
+func (b *bound) fn154(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("int.Int.bitwise_not", 1, len(args))
 	}
@@ -3395,8 +3418,8 @@ func (b *bound) fn153(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn154 adapts float.Float.to_string: to_string(x: Float) -> String
-func (b *bound) fn154(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn155 adapts float.Float.to_string: to_string(x: Float) -> String
+func (b *bound) fn155(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.Float.to_string", 1, len(args))
 	}
@@ -3412,47 +3435,47 @@ func (b *bound) fn154(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn155 adapts float.Float.nan: nan() -> Float
-func (b *bound) fn155(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn156 adapts float.Float.nan: nan() -> Float
+func (b *bound) fn156(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("float.Float.nan", 0, len(args))
 	}
 	r0 := rt.FloatNaN()
-	v0, err := b.out146(r0)
+	v0, err := b.out147(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn156 adapts float.Float.positive_infinity: positive_infinity() -> Float
-func (b *bound) fn156(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn157 adapts float.Float.positive_infinity: positive_infinity() -> Float
+func (b *bound) fn157(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("float.Float.positive_infinity", 0, len(args))
 	}
 	r0 := rt.FloatPositiveInfinity()
-	v0, err := b.out146(r0)
+	v0, err := b.out147(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn157 adapts float.Float.negative_infinity: negative_infinity() -> Float
-func (b *bound) fn157(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn158 adapts float.Float.negative_infinity: negative_infinity() -> Float
+func (b *bound) fn158(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("float.Float.negative_infinity", 0, len(args))
 	}
 	r0 := rt.FloatNegativeInfinity()
-	v0, err := b.out146(r0)
+	v0, err := b.out147(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn158 adapts float.Float.nan?: nan?(x: Float) -> Bool
-func (b *bound) fn158(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn159 adapts float.Float.nan?: nan?(x: Float) -> Bool
+func (b *bound) fn159(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.Float.nan?", 1, len(args))
 	}
@@ -3468,8 +3491,8 @@ func (b *bound) fn158(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn159 adapts float.Float.round: round(x: Float) -> Float
-func (b *bound) fn159(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn160 adapts float.Float.round: round(x: Float) -> Float
+func (b *bound) fn160(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.Float.round", 1, len(args))
 	}
@@ -3478,15 +3501,15 @@ func (b *bound) fn159(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("float.Float.round", 0, err)
 	}
 	r0 := rt.FloatRound(a0)
-	v0, err := b.out146(r0)
+	v0, err := b.out147(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn160 adapts float.Float.floor: floor(x: Float) -> Float
-func (b *bound) fn160(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn161 adapts float.Float.floor: floor(x: Float) -> Float
+func (b *bound) fn161(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.Float.floor", 1, len(args))
 	}
@@ -3495,15 +3518,15 @@ func (b *bound) fn160(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("float.Float.floor", 0, err)
 	}
 	r0 := rt.FloatFloor(a0)
-	v0, err := b.out146(r0)
+	v0, err := b.out147(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn161 adapts float.Float.ceil: ceil(x: Float) -> Float
-func (b *bound) fn161(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn162 adapts float.Float.ceil: ceil(x: Float) -> Float
+func (b *bound) fn162(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.Float.ceil", 1, len(args))
 	}
@@ -3512,15 +3535,15 @@ func (b *bound) fn161(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("float.Float.ceil", 0, err)
 	}
 	r0 := rt.FloatCeil(a0)
-	v0, err := b.out146(r0)
+	v0, err := b.out147(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn162 adapts float.Float.trunc: trunc(x: Float) -> Float
-func (b *bound) fn162(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn163 adapts float.Float.trunc: trunc(x: Float) -> Float
+func (b *bound) fn163(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.Float.trunc", 1, len(args))
 	}
@@ -3529,15 +3552,15 @@ func (b *bound) fn162(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("float.Float.trunc", 0, err)
 	}
 	r0 := rt.FloatTrunc(a0)
-	v0, err := b.out146(r0)
+	v0, err := b.out147(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn163 adapts float.Float.to_int: to_int(x: Float) -> Maybe<Int>
-func (b *bound) fn163(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn164 adapts float.Float.to_int: to_int(x: Float) -> Maybe<Int>
+func (b *bound) fn164(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.Float.to_int", 1, len(args))
 	}
@@ -3553,8 +3576,8 @@ func (b *bound) fn163(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn164 adapts float.float_bits: float_bits(x: Float) -> Int
-func (b *bound) fn164(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn165 adapts float.float_bits: float_bits(x: Float) -> Int
+func (b *bound) fn165(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("float.float_bits", 1, len(args))
 	}
@@ -3570,8 +3593,8 @@ func (b *bound) fn164(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// in166 reads a Decimal as Go rt.Decimal.
-func (b *bound) in166(fr *rt.Frame, v rt.Value) (out rt.Decimal, err error) {
+// in167 reads a Decimal as Go rt.Decimal.
+func (b *bound) in167(fr *rt.Frame, v rt.Value) (out rt.Decimal, err error) {
 	x, ok := v.(rt.Decimal)
 	if !ok {
 		return out, hostadapt.Want("Decimal", v)
@@ -3579,12 +3602,12 @@ func (b *bound) in166(fr *rt.Frame, v rt.Value) (out rt.Decimal, err error) {
 	return x, nil
 }
 
-// fn165 adapts decimal.Decimal.to_string: to_string(d: Decimal) -> String
-func (b *bound) fn165(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn166 adapts decimal.Decimal.to_string: to_string(d: Decimal) -> String
+func (b *bound) fn166(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.to_string", 1, len(args))
 	}
-	a0, err := b.in166(fr, args[0])
+	a0, err := b.in167(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.to_string", 0, err)
 	}
@@ -3596,16 +3619,16 @@ func (b *bound) fn165(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn167 adapts decimal.Decimal.equal?: equal?(a: Decimal, b: Decimal) -> Bool
-func (b *bound) fn167(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn168 adapts decimal.Decimal.equal?: equal?(a: Decimal, b: Decimal) -> Bool
+func (b *bound) fn168(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("decimal.Decimal.equal?", 2, len(args))
 	}
-	a0, err := b.in166(fr, args[0])
+	a0, err := b.in167(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.equal?", 0, err)
 	}
-	a1, err := b.in166(fr, args[1])
+	a1, err := b.in167(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.equal?", 1, err)
 	}
@@ -3617,12 +3640,12 @@ func (b *bound) fn167(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn168 adapts decimal.Decimal.hash: hash(d: Decimal) -> Int
-func (b *bound) fn168(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn169 adapts decimal.Decimal.hash: hash(d: Decimal) -> Int
+func (b *bound) fn169(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.hash", 1, len(args))
 	}
-	a0, err := b.in166(fr, args[0])
+	a0, err := b.in167(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.hash", 0, err)
 	}
@@ -3634,8 +3657,8 @@ func (b *bound) fn168(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// out170 builds a Ordering from Go rt.Ordering.
-func (b *bound) out170(v rt.Ordering) (rt.Value, error) {
+// out171 builds a Ordering from Go rt.Ordering.
+func (b *bound) out171(v rt.Ordering) (rt.Value, error) {
 	switch v.Tag {
 	case 1:
 		return b.d19.NewVariant(0), nil
@@ -3647,29 +3670,29 @@ func (b *bound) out170(v rt.Ordering) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Ordering carries tag %d, which names no variant of comparable.Ordering", v.Tag)
 }
 
-// fn169 adapts decimal.Decimal.compare: compare(a: Decimal, b: Decimal) -> Ordering
-func (b *bound) fn169(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn170 adapts decimal.Decimal.compare: compare(a: Decimal, b: Decimal) -> Ordering
+func (b *bound) fn170(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("decimal.Decimal.compare", 2, len(args))
 	}
-	a0, err := b.in166(fr, args[0])
+	a0, err := b.in167(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.compare", 0, err)
 	}
-	a1, err := b.in166(fr, args[1])
+	a1, err := b.in167(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.compare", 1, err)
 	}
 	r0 := rt.DecimalCompare(a0, a1)
-	v0, err := b.out170(r0)
+	v0, err := b.out171(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// in172 reads a Duration as Go rt.Duration.
-func (b *bound) in172(fr *rt.Frame, v rt.Value) (out rt.Duration, err error) {
+// in173 reads a Duration as Go rt.Duration.
+func (b *bound) in173(fr *rt.Frame, v rt.Value) (out rt.Duration, err error) {
 	r, err := hostadapt.Record(v, "duration.Duration")
 	if err != nil {
 		return out, err
@@ -3681,12 +3704,12 @@ func (b *bound) in172(fr *rt.Frame, v rt.Value) (out rt.Duration, err error) {
 	return rt.Duration(x), nil
 }
 
-// fn171 adapts duration.Duration.to_string: to_string(d: Duration) -> String
-func (b *bound) fn171(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn172 adapts duration.Duration.to_string: to_string(d: Duration) -> String
+func (b *bound) fn172(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("duration.Duration.to_string", 1, len(args))
 	}
-	a0, err := b.in172(fr, args[0])
+	a0, err := b.in173(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("duration.Duration.to_string", 0, err)
 	}
@@ -3698,28 +3721,28 @@ func (b *bound) fn171(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// out174 builds a Instant from Go rt.Instant.
-func (b *bound) out174(v rt.Instant) (rt.Value, error) {
+// out175 builds a Instant from Go rt.Instant.
+func (b *bound) out175(v rt.Instant) (rt.Value, error) {
 	r := b.d21.New()
 	r.W[0] = rt.IntWord(int64(v))
 	return r, nil
 }
 
-// fn173 adapts instant.Instant.now: now() -> Instant
-func (b *bound) fn173(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn174 adapts instant.Instant.now: now() -> Instant
+func (b *bound) fn174(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("instant.Instant.now", 0, len(args))
 	}
 	r0 := rt.InstantNow()
-	v0, err := b.out174(r0)
+	v0, err := b.out175(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// in176 reads a Codepoint as Go rt.Codepoint.
-func (b *bound) in176(fr *rt.Frame, v rt.Value) (out rt.Codepoint, err error) {
+// in177 reads a Codepoint as Go rt.Codepoint.
+func (b *bound) in177(fr *rt.Frame, v rt.Value) (out rt.Codepoint, err error) {
 	r, err := hostadapt.Record(v, "codepoints.Codepoint")
 	if err != nil {
 		return out, err
@@ -3731,12 +3754,12 @@ func (b *bound) in176(fr *rt.Frame, v rt.Value) (out rt.Codepoint, err error) {
 	return rt.Codepoint(x), nil
 }
 
-// fn175 adapts codepoints.Codepoint.to_string: to_string(cp: Codepoint) -> String
-func (b *bound) fn175(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn176 adapts codepoints.Codepoint.to_string: to_string(cp: Codepoint) -> String
+func (b *bound) fn176(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("codepoints.Codepoint.to_string", 1, len(args))
 	}
-	a0, err := b.in176(fr, args[0])
+	a0, err := b.in177(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("codepoints.Codepoint.to_string", 0, err)
 	}
@@ -3748,12 +3771,12 @@ func (b *bound) fn175(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn177 adapts codepoints.Codepoint.letter?: letter?(cp: Codepoint) -> Bool
-func (b *bound) fn177(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn178 adapts codepoints.Codepoint.letter?: letter?(cp: Codepoint) -> Bool
+func (b *bound) fn178(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("codepoints.Codepoint.letter?", 1, len(args))
 	}
-	a0, err := b.in176(fr, args[0])
+	a0, err := b.in177(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("codepoints.Codepoint.letter?", 0, err)
 	}
@@ -3765,12 +3788,12 @@ func (b *bound) fn177(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn178 adapts codepoints.Codepoint.whitespace?: whitespace?(cp: Codepoint) -> Bool
-func (b *bound) fn178(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn179 adapts codepoints.Codepoint.whitespace?: whitespace?(cp: Codepoint) -> Bool
+func (b *bound) fn179(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("codepoints.Codepoint.whitespace?", 1, len(args))
 	}
-	a0, err := b.in176(fr, args[0])
+	a0, err := b.in177(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("codepoints.Codepoint.whitespace?", 0, err)
 	}
@@ -3782,12 +3805,12 @@ func (b *bound) fn178(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn179 adapts codepoints.Codepoint.upper?: upper?(cp: Codepoint) -> Bool
-func (b *bound) fn179(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn180 adapts codepoints.Codepoint.upper?: upper?(cp: Codepoint) -> Bool
+func (b *bound) fn180(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("codepoints.Codepoint.upper?", 1, len(args))
 	}
-	a0, err := b.in176(fr, args[0])
+	a0, err := b.in177(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("codepoints.Codepoint.upper?", 0, err)
 	}
@@ -3799,12 +3822,12 @@ func (b *bound) fn179(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn180 adapts codepoints.Codepoint.lower?: lower?(cp: Codepoint) -> Bool
-func (b *bound) fn180(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn181 adapts codepoints.Codepoint.lower?: lower?(cp: Codepoint) -> Bool
+func (b *bound) fn181(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("codepoints.Codepoint.lower?", 1, len(args))
 	}
-	a0, err := b.in176(fr, args[0])
+	a0, err := b.in177(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("codepoints.Codepoint.lower?", 0, err)
 	}
@@ -3816,15 +3839,15 @@ func (b *bound) fn180(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// out183 builds a Codepoint from Go rt.Codepoint.
-func (b *bound) out183(v rt.Codepoint) (rt.Value, error) {
+// out184 builds a Codepoint from Go rt.Codepoint.
+func (b *bound) out184(v rt.Codepoint) (rt.Value, error) {
 	r := b.d22.New()
 	r.W[0] = rt.IntWord(int64(v))
 	return r, nil
 }
 
-// out182 builds a List<Codepoint> from Go *rt.List[rt.Codepoint].
-func (b *bound) out182(v *rt.List[rt.Codepoint]) (rt.Value, error) {
+// out183 builds a List<Codepoint> from Go *rt.List[rt.Codepoint].
+func (b *bound) out183(v *rt.List[rt.Codepoint]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -3832,7 +3855,7 @@ func (b *bound) out182(v *rt.List[rt.Codepoint]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out183(c.Head)
+		x, err := b.out184(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -3846,8 +3869,8 @@ func (b *bound) out182(v *rt.List[rt.Codepoint]) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn181 adapts strings.String.to_codepoints: to_codepoints(s: String) -> List<Codepoint>
-func (b *bound) fn181(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn182 adapts strings.String.to_codepoints: to_codepoints(s: String) -> List<Codepoint>
+func (b *bound) fn182(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("strings.String.to_codepoints", 1, len(args))
 	}
@@ -3856,15 +3879,15 @@ func (b *bound) fn181(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("strings.String.to_codepoints", 0, err)
 	}
 	r0 := rt.StringToCodepoints(a0)
-	v0, err := b.out182(r0)
+	v0, err := b.out183(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// in185 reads a Context as Go rt.Context.
-func (b *bound) in185(fr *rt.Frame, v rt.Value) (out rt.Context, err error) {
+// in186 reads a Context as Go rt.Context.
+func (b *bound) in186(fr *rt.Frame, v rt.Value) (out rt.Context, err error) {
 	x, ok := v.(rt.Context)
 	if !ok {
 		return out, hostadapt.Want("Context", v)
@@ -3872,47 +3895,47 @@ func (b *bound) in185(fr *rt.Frame, v rt.Value) (out rt.Context, err error) {
 	return x, nil
 }
 
-// out186 builds a Context from Go rt.Context.
-func (b *bound) out186(v rt.Context) (rt.Value, error) {
+// out187 builds a Context from Go rt.Context.
+func (b *bound) out187(v rt.Context) (rt.Value, error) {
 	return v, nil
 }
 
-// fn184 adapts context.Context.with_timeout: with_timeout(c: Context, dur: Duration) -> Context
-func (b *bound) fn184(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn185 adapts context.Context.with_timeout: with_timeout(c: Context, dur: Duration) -> Context
+func (b *bound) fn185(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("context.Context.with_timeout", 2, len(args))
 	}
-	a0, err := b.in185(fr, args[0])
+	a0, err := b.in186(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("context.Context.with_timeout", 0, err)
 	}
-	a1, err := b.in172(fr, args[1])
+	a1, err := b.in173(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Arg("context.Context.with_timeout", 1, err)
 	}
 	r0 := rt.ContextWithTimeout(a0, a1)
-	v0, err := b.out186(r0)
+	v0, err := b.out187(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn187 adapts context.Context.root: root() -> Context
-func (b *bound) fn187(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn188 adapts context.Context.root: root() -> Context
+func (b *bound) fn188(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("context.Context.root", 0, len(args))
 	}
 	r0 := rt.ContextRoot()
-	v0, err := b.out186(r0)
+	v0, err := b.out187(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// out191 builds a List<Json> from Go *rt.List[rt.Json].
-func (b *bound) out191(v *rt.List[rt.Json]) (rt.Value, error) {
+// out192 builds a List<Json> from Go *rt.List[rt.Json].
+func (b *bound) out192(v *rt.List[rt.Json]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -3920,7 +3943,7 @@ func (b *bound) out191(v *rt.List[rt.Json]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out190(c.Head)
+		x, err := b.out191(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -3934,8 +3957,8 @@ func (b *bound) out191(v *rt.List[rt.Json]) (rt.Value, error) {
 	return xs, nil
 }
 
-// out193 builds a Map<String, Json> from Go rt.Map[string, rt.Json].
-func (b *bound) out193(v rt.Map[string, rt.Json]) (rt.Value, error) {
+// out194 builds a Map<String, Json> from Go rt.Map[string, rt.Json].
+func (b *bound) out194(v rt.Map[string, rt.Json]) (rt.Value, error) {
 	ents := rt.MapEntries(v)
 	conv := make([]rt.MapEntry[any, any], len(ents))
 	for i, e := range ents {
@@ -3943,7 +3966,7 @@ func (b *bound) out193(v rt.Map[string, rt.Json]) (rt.Value, error) {
 		if err != nil {
 			return nil, fmt.Errorf("key %d: %w", i, err)
 		}
-		x, err := b.out190(e.Val)
+		x, err := b.out191(e.Val)
 		if err != nil {
 			return nil, fmt.Errorf("value %d: %w", i, err)
 		}
@@ -3952,8 +3975,8 @@ func (b *bound) out193(v rt.Map[string, rt.Json]) (rt.Value, error) {
 	return rt.MapOf(rt.Hash, rt.Equal, conv), nil
 }
 
-// out190 builds a Json from Go rt.Json.
-func (b *bound) out190(v rt.Json) (rt.Value, error) {
+// out191 builds a Json from Go rt.Json.
+func (b *bound) out191(v rt.Json) (rt.Value, error) {
 	switch v.Tag {
 	case 1:
 		r := b.d24.NewVariant(0)
@@ -3973,19 +3996,19 @@ func (b *bound) out190(v rt.Json) (rt.Value, error) {
 		return r, nil
 	case 5:
 		r := b.d24.NewVariant(4)
-		w192, err := b.out191(v.Arr)
+		w193, err := b.out192(v.Arr)
 		if err != nil {
 			return nil, fmt.Errorf("Arr: %w", err)
 		}
-		r.R[0] = w192
+		r.R[0] = w193
 		return r, nil
 	case 6:
 		r := b.d24.NewVariant(5)
-		w194, err := b.out193(v.Obj)
+		w195, err := b.out194(v.Obj)
 		if err != nil {
 			return nil, fmt.Errorf("Obj: %w", err)
 		}
-		r.R[0] = w194
+		r.R[0] = w195
 		return r, nil
 	case 7:
 		return b.d24.NewVariant(6), nil
@@ -3993,8 +4016,8 @@ func (b *bound) out190(v rt.Json) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Json carries tag %d, which names no variant of json.Json", v.Tag)
 }
 
-// out196 builds a Json.DecodeError from Go rt.JsonDecodeError.
-func (b *bound) out196(v rt.JsonDecodeError) (rt.Value, error) {
+// out197 builds a Json.DecodeError from Go rt.JsonDecodeError.
+func (b *bound) out197(v rt.JsonDecodeError) (rt.Value, error) {
 	r := b.d25.New()
 	r.S[0] = string(v.Message)
 	r.W[0] = rt.IntWord(int64(v.Line))
@@ -4003,31 +4026,31 @@ func (b *bound) out196(v rt.JsonDecodeError) (rt.Value, error) {
 	return r, nil
 }
 
-// out189 builds a Result<Json, Json.DecodeError> from Go rt.Result[rt.Json, rt.JsonDecodeError].
-func (b *bound) out189(v rt.Result[rt.Json, rt.JsonDecodeError]) (rt.Value, error) {
+// out190 builds a Result<Json, Json.DecodeError> from Go rt.Result[rt.Json, rt.JsonDecodeError].
+func (b *bound) out190(v rt.Result[rt.Json, rt.JsonDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d23.NewVariant(0)
-		w195, err := b.out190(v.Ok)
+		w196, err := b.out191(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w195
+		r.R[0] = w196
 		return r, nil
 	case rt.TagErr:
 		r := b.d23.NewVariant(1)
-		w197, err := b.out196(v.Err)
+		w198, err := b.out197(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w197
+		r.R[0] = w198
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn188 adapts json.Json.decode: decode(source: String) -> Result<Json, Json.DecodeError>
-func (b *bound) fn188(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn189 adapts json.Json.decode: decode(source: String) -> Result<Json, Json.DecodeError>
+func (b *bound) fn189(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("json.Json.decode", 1, len(args))
 	}
@@ -4036,15 +4059,15 @@ func (b *bound) fn188(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("json.Json.decode", 0, err)
 	}
 	r0 := rt.JsonDecode(a0)
-	v0, err := b.out189(r0)
+	v0, err := b.out190(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// in200 reads a Bool as Go bool.
-func (b *bound) in200(fr *rt.Frame, v rt.Value) (out bool, err error) {
+// in201 reads a Bool as Go bool.
+func (b *bound) in201(fr *rt.Frame, v rt.Value) (out bool, err error) {
 	x, ok := v.(bool)
 	if !ok {
 		return out, hostadapt.Want("Bool", v)
@@ -4052,8 +4075,8 @@ func (b *bound) in200(fr *rt.Frame, v rt.Value) (out bool, err error) {
 	return bool(x), nil
 }
 
-// in201 reads a List<Json> as Go *rt.List[rt.Json].
-func (b *bound) in201(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Json], err error) {
+// in202 reads a List<Json> as Go *rt.List[rt.Json].
+func (b *bound) in202(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Json], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -4061,7 +4084,7 @@ func (b *bound) in201(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Json], err erro
 	items := make([]rt.Json, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in199(fr, c.Head)
+		e, err := b.in200(fr, c.Head)
 		if err != nil {
 			return out, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -4074,8 +4097,8 @@ func (b *bound) in201(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Json], err erro
 	return out, nil
 }
 
-// in202 reads a Map<String, Json> as Go rt.Map[string, rt.Json].
-func (b *bound) in202(fr *rt.Frame, v rt.Value) (out rt.Map[string, rt.Json], err error) {
+// in203 reads a Map<String, Json> as Go rt.Map[string, rt.Json].
+func (b *bound) in203(fr *rt.Frame, v rt.Value) (out rt.Map[string, rt.Json], err error) {
 	m, ok := v.(rt.Map[any, any])
 	if !ok {
 		return out, hostadapt.Want("Map<String, Json>", v)
@@ -4087,7 +4110,7 @@ func (b *bound) in202(fr *rt.Frame, v rt.Value) (out rt.Map[string, rt.Json], er
 		if err != nil {
 			return out, fmt.Errorf("key %d: %w", i, err)
 		}
-		x, err := b.in199(fr, e.Val)
+		x, err := b.in200(fr, e.Val)
 		if err != nil {
 			return out, fmt.Errorf("value %d: %w", i, err)
 		}
@@ -4096,8 +4119,8 @@ func (b *bound) in202(fr *rt.Frame, v rt.Value) (out rt.Map[string, rt.Json], er
 	return rt.MapOf(rt.HashString, rt.Eq[string], conv), nil
 }
 
-// in199 reads a Json as Go rt.Json.
-func (b *bound) in199(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
+// in200 reads a Json as Go rt.Json.
+func (b *bound) in200(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
 	r, tag, err := hostadapt.Variant(v, "json.Json")
 	if err != nil {
 		return out, err
@@ -4137,7 +4160,7 @@ func (b *bound) in199(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
 	case "Bool":
 		{
 			p := hostadapt.Payload(r)
-			x, err := b.in200(fr, p)
+			x, err := b.in201(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Bool: %w", err)
 			}
@@ -4147,7 +4170,7 @@ func (b *bound) in199(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
 	case "Arr":
 		{
 			p := hostadapt.Payload(r)
-			x, err := b.in201(fr, p)
+			x, err := b.in202(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Arr: %w", err)
 			}
@@ -4157,7 +4180,7 @@ func (b *bound) in199(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
 	case "Obj":
 		{
 			p := hostadapt.Payload(r)
-			x, err := b.in202(fr, p)
+			x, err := b.in203(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Obj: %w", err)
 			}
@@ -4172,12 +4195,12 @@ func (b *bound) in199(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
 	return out, nil
 }
 
-// fn198 adapts json.Json.encode: encode(jv: Json) -> String
-func (b *bound) fn198(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn199 adapts json.Json.encode: encode(jv: Json) -> String
+func (b *bound) fn199(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("json.Json.encode", 1, len(args))
 	}
-	a0, err := b.in199(fr, args[0])
+	a0, err := b.in200(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("json.Json.encode", 0, err)
 	}
@@ -4189,12 +4212,12 @@ func (b *bound) fn198(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn203 adapts timer.sleep: sleep(d: Duration) -> Unit
-func (b *bound) fn203(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn204 adapts timer.sleep: sleep(d: Duration) -> Unit
+func (b *bound) fn204(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("timer.sleep", 1, len(args))
 	}
-	a0, err := b.in172(fr, args[0])
+	a0, err := b.in173(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("timer.sleep", 0, err)
 	}
@@ -4206,8 +4229,8 @@ func (b *bound) fn203(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// in205 reads a Restart as Go rt.Restart.
-func (b *bound) in205(fr *rt.Frame, v rt.Value) (out rt.Restart, err error) {
+// in206 reads a Restart as Go rt.Restart.
+func (b *bound) in206(fr *rt.Frame, v rt.Value) (out rt.Restart, err error) {
 	r, tag, err := hostadapt.Variant(v, "supervisors.Restart")
 	if err != nil {
 		return out, err
@@ -4226,8 +4249,8 @@ func (b *bound) in205(fr *rt.Frame, v rt.Value) (out rt.Restart, err error) {
 	return out, nil
 }
 
-// in206 reads a Backoff as Go rt.Backoff.
-func (b *bound) in206(fr *rt.Frame, v rt.Value) (out rt.Backoff, err error) {
+// in207 reads a Backoff as Go rt.Backoff.
+func (b *bound) in207(fr *rt.Frame, v rt.Value) (out rt.Backoff, err error) {
 	r, tag, err := hostadapt.Variant(v, "supervisors.Backoff")
 	if err != nil {
 		return out, err
@@ -4251,7 +4274,7 @@ func (b *bound) in206(fr *rt.Frame, v rt.Value) (out rt.Backoff, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in172(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Exponential.max_elapsed: %w", err)
 			}
@@ -4264,8 +4287,8 @@ func (b *bound) in206(fr *rt.Frame, v rt.Value) (out rt.Backoff, err error) {
 	return out, nil
 }
 
-// in207 reads a GiveUp as Go rt.GiveUp.
-func (b *bound) in207(fr *rt.Frame, v rt.Value) (out rt.GiveUp, err error) {
+// in208 reads a GiveUp as Go rt.GiveUp.
+func (b *bound) in208(fr *rt.Frame, v rt.Value) (out rt.GiveUp, err error) {
 	r, tag, err := hostadapt.Variant(v, "supervisors.GiveUp")
 	if err != nil {
 		return out, err
@@ -4282,13 +4305,13 @@ func (b *bound) in207(fr *rt.Frame, v rt.Value) (out rt.GiveUp, err error) {
 	return out, nil
 }
 
-// out208 builds a Supervisor from Go rt.Supervisor.
-func (b *bound) out208(v rt.Supervisor) (rt.Value, error) {
+// out209 builds a Supervisor from Go rt.Supervisor.
+func (b *bound) out209(v rt.Supervisor) (rt.Value, error) {
 	return v, nil
 }
 
-// fn204 adapts supervisors.Supervisor.new_exact: new_exact(max_running: Int, shutdown_timeout: Duration, restart: Restart, backoff: Backoff, on_give_up: GiveUp) -> Supervisor
-func (b *bound) fn204(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn205 adapts supervisors.Supervisor.new_exact: new_exact(max_running: Int, shutdown_timeout: Duration, restart: Restart, backoff: Backoff, on_give_up: GiveUp) -> Supervisor
+func (b *bound) fn205(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 5 {
 		return nil, hostadapt.Arity("supervisors.Supervisor.new_exact", 5, len(args))
 	}
@@ -4296,32 +4319,32 @@ func (b *bound) fn204(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Arg("supervisors.Supervisor.new_exact", 0, err)
 	}
-	a1, err := b.in172(fr, args[1])
+	a1, err := b.in173(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Arg("supervisors.Supervisor.new_exact", 1, err)
 	}
-	a2, err := b.in205(fr, args[2])
+	a2, err := b.in206(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Arg("supervisors.Supervisor.new_exact", 2, err)
 	}
-	a3, err := b.in206(fr, args[3])
+	a3, err := b.in207(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Arg("supervisors.Supervisor.new_exact", 3, err)
 	}
-	a4, err := b.in207(fr, args[4])
+	a4, err := b.in208(fr, args[4])
 	if err != nil {
 		return nil, hostadapt.Arg("supervisors.Supervisor.new_exact", 4, err)
 	}
 	r0 := rt.SupervisorNewExact(fr, a0, a1, a2, a3, a4)
-	v0, err := b.out208(r0)
+	v0, err := b.out209(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// in210 reads a Supervisor as Go rt.Supervisor.
-func (b *bound) in210(fr *rt.Frame, v rt.Value) (out rt.Supervisor, err error) {
+// in211 reads a Supervisor as Go rt.Supervisor.
+func (b *bound) in211(fr *rt.Frame, v rt.Value) (out rt.Supervisor, err error) {
 	x, ok := v.(rt.Supervisor)
 	if !ok {
 		return out, hostadapt.Want("Supervisor", v)
@@ -4329,8 +4352,8 @@ func (b *bound) in210(fr *rt.Frame, v rt.Value) (out rt.Supervisor, err error) {
 	return x, nil
 }
 
-// in211 reads a Wait as Go rt.Wait.
-func (b *bound) in211(fr *rt.Frame, v rt.Value) (out rt.Wait, err error) {
+// in212 reads a Wait as Go rt.Wait.
+func (b *bound) in212(fr *rt.Frame, v rt.Value) (out rt.Wait, err error) {
 	r, tag, err := hostadapt.Variant(v, "supervisors.Wait")
 	if err != nil {
 		return out, err
@@ -4342,7 +4365,7 @@ func (b *bound) in211(fr *rt.Frame, v rt.Value) (out rt.Wait, err error) {
 	case "UpTo":
 		{
 			p := hostadapt.Payload(r)
-			x, err := b.in172(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("UpTo: %w", err)
 			}
@@ -4355,8 +4378,8 @@ func (b *bound) in211(fr *rt.Frame, v rt.Value) (out rt.Wait, err error) {
 	return out, nil
 }
 
-// out212 builds a FlushOutcome from Go rt.FlushOutcome.
-func (b *bound) out212(v rt.FlushOutcome) (rt.Value, error) {
+// out213 builds a FlushOutcome from Go rt.FlushOutcome.
+func (b *bound) out213(v rt.FlushOutcome) (rt.Value, error) {
 	switch v.Tag {
 	case 1:
 		return b.d26.NewVariant(0), nil
@@ -4366,29 +4389,29 @@ func (b *bound) out212(v rt.FlushOutcome) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.FlushOutcome carries tag %d, which names no variant of supervisors.FlushOutcome", v.Tag)
 }
 
-// fn209 adapts supervisors.Supervisor.flush_bounded: flush_bounded(supervisor: Supervisor, bound: Wait) -> FlushOutcome
-func (b *bound) fn209(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn210 adapts supervisors.Supervisor.flush_bounded: flush_bounded(supervisor: Supervisor, bound: Wait) -> FlushOutcome
+func (b *bound) fn210(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("supervisors.Supervisor.flush_bounded", 2, len(args))
 	}
-	a0, err := b.in210(fr, args[0])
+	a0, err := b.in211(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("supervisors.Supervisor.flush_bounded", 0, err)
 	}
-	a1, err := b.in211(fr, args[1])
+	a1, err := b.in212(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Arg("supervisors.Supervisor.flush_bounded", 1, err)
 	}
 	r0 := rt.SupervisorFlushBounded(fr, a0, a1)
-	v0, err := b.out212(r0)
+	v0, err := b.out213(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// in215 reads a Maybe<String> as Go rt.Maybe[string].
-func (b *bound) in215(fr *rt.Frame, v rt.Value) (out rt.Maybe[string], err error) {
+// in216 reads a Maybe<String> as Go rt.Maybe[string].
+func (b *bound) in216(fr *rt.Frame, v rt.Value) (out rt.Maybe[string], err error) {
 	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
 	if err != nil {
 		return out, err
@@ -4406,8 +4429,8 @@ func (b *bound) in215(fr *rt.Frame, v rt.Value) (out rt.Maybe[string], err error
 	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
 }
 
-// in219 reads a AssertionPipelineStage as Go rt.NomiAssertionPipelineStage.
-func (b *bound) in219(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionPipelineStage, err error) {
+// in220 reads a AssertionPipelineStage as Go rt.NomiAssertionPipelineStage.
+func (b *bound) in220(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionPipelineStage, err error) {
 	r, err := hostadapt.Record(v, "assertions.AssertionPipelineStage")
 	if err != nil {
 		return out, err
@@ -4429,8 +4452,8 @@ func (b *bound) in219(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionPipelineSta
 	return out, nil
 }
 
-// in218 reads a List<AssertionPipelineStage> as Go *rt.List[rt.NomiAssertionPipelineStage].
-func (b *bound) in218(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionPipelineStage], err error) {
+// in219 reads a List<AssertionPipelineStage> as Go *rt.List[rt.NomiAssertionPipelineStage].
+func (b *bound) in219(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionPipelineStage], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -4438,7 +4461,7 @@ func (b *bound) in218(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionPi
 	items := make([]rt.NomiAssertionPipelineStage, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in219(fr, c.Head)
+		e, err := b.in220(fr, c.Head)
 		if err != nil {
 			return out, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -4451,8 +4474,8 @@ func (b *bound) in218(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionPi
 	return out, nil
 }
 
-// in217 reads a AssertionBinding as Go rt.NomiAssertionBinding.
-func (b *bound) in217(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionBinding, err error) {
+// in218 reads a AssertionBinding as Go rt.NomiAssertionBinding.
+func (b *bound) in218(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionBinding, err error) {
 	r, err := hostadapt.Record(v, "assertions.AssertionBinding")
 	if err != nil {
 		return out, err
@@ -4483,7 +4506,7 @@ func (b *bound) in217(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionBinding, er
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in218(fr, x)
+		y, err := b.in219(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "pipeline", err)
 		}
@@ -4492,15 +4515,15 @@ func (b *bound) in217(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionBinding, er
 	return out, nil
 }
 
-// in216 reads a Maybe<AssertionBinding> as Go rt.Maybe[rt.NomiAssertionBinding].
-func (b *bound) in216(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.NomiAssertionBinding], err error) {
+// in217 reads a Maybe<AssertionBinding> as Go rt.Maybe[rt.NomiAssertionBinding].
+func (b *bound) in217(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.NomiAssertionBinding], err error) {
 	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
 	if err != nil {
 		return out, err
 	}
 	switch tag {
 	case "Some":
-		x, err := b.in217(fr, hostadapt.Payload(r))
+		x, err := b.in218(fr, hostadapt.Payload(r))
 		if err != nil {
 			return out, fmt.Errorf("Some: %w", err)
 		}
@@ -4511,8 +4534,8 @@ func (b *bound) in216(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.NomiAssertionBi
 	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
 }
 
-// in221 reads a AssertionValue as Go rt.NomiAssertionValue.
-func (b *bound) in221(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionValue, err error) {
+// in222 reads a AssertionValue as Go rt.NomiAssertionValue.
+func (b *bound) in222(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionValue, err error) {
 	r, err := hostadapt.Record(v, "assertions.AssertionValue")
 	if err != nil {
 		return out, err
@@ -4536,7 +4559,7 @@ func (b *bound) in221(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionValue, err 
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in218(fr, x)
+		y, err := b.in219(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "pipeline", err)
 		}
@@ -4545,8 +4568,8 @@ func (b *bound) in221(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionValue, err 
 	return out, nil
 }
 
-// in220 reads a List<AssertionValue> as Go *rt.List[rt.NomiAssertionValue].
-func (b *bound) in220(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionValue], err error) {
+// in221 reads a List<AssertionValue> as Go *rt.List[rt.NomiAssertionValue].
+func (b *bound) in221(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionValue], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -4554,7 +4577,7 @@ func (b *bound) in220(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionVa
 	items := make([]rt.NomiAssertionValue, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in221(fr, c.Head)
+		e, err := b.in222(fr, c.Head)
 		if err != nil {
 			return out, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -4567,8 +4590,8 @@ func (b *bound) in220(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionVa
 	return out, nil
 }
 
-// in223 reads a AssertionDetail as Go rt.NomiAssertionDetail.
-func (b *bound) in223(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionDetail, err error) {
+// in224 reads a AssertionDetail as Go rt.NomiAssertionDetail.
+func (b *bound) in224(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionDetail, err error) {
 	r, err := hostadapt.Record(v, "assertions.AssertionDetail")
 	if err != nil {
 		return out, err
@@ -4590,8 +4613,8 @@ func (b *bound) in223(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionDetail, err
 	return out, nil
 }
 
-// in222 reads a List<AssertionDetail> as Go *rt.List[rt.NomiAssertionDetail].
-func (b *bound) in222(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionDetail], err error) {
+// in223 reads a List<AssertionDetail> as Go *rt.List[rt.NomiAssertionDetail].
+func (b *bound) in223(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionDetail], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -4599,7 +4622,7 @@ func (b *bound) in222(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionDe
 	items := make([]rt.NomiAssertionDetail, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in223(fr, c.Head)
+		e, err := b.in224(fr, c.Head)
 		if err != nil {
 			return out, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -4612,8 +4635,8 @@ func (b *bound) in222(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionDe
 	return out, nil
 }
 
-// in225 reads a SubtestFailure as Go rt.NomiSubtestFailure.
-func (b *bound) in225(fr *rt.Frame, v rt.Value) (out rt.NomiSubtestFailure, err error) {
+// in226 reads a SubtestFailure as Go rt.NomiSubtestFailure.
+func (b *bound) in226(fr *rt.Frame, v rt.Value) (out rt.NomiSubtestFailure, err error) {
 	r, err := hostadapt.Record(v, "assertions.SubtestFailure")
 	if err != nil {
 		return out, err
@@ -4630,7 +4653,7 @@ func (b *bound) in225(fr *rt.Frame, v rt.Value) (out rt.NomiSubtestFailure, err 
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in214(fr, x)
+		y, err := b.in215(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "failure", err)
 		}
@@ -4639,8 +4662,8 @@ func (b *bound) in225(fr *rt.Frame, v rt.Value) (out rt.NomiSubtestFailure, err 
 	return out, nil
 }
 
-// in224 reads a List<SubtestFailure> as Go *rt.List[rt.NomiSubtestFailure].
-func (b *bound) in224(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiSubtestFailure], err error) {
+// in225 reads a List<SubtestFailure> as Go *rt.List[rt.NomiSubtestFailure].
+func (b *bound) in225(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiSubtestFailure], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -4648,7 +4671,7 @@ func (b *bound) in224(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiSubtestFail
 	items := make([]rt.NomiSubtestFailure, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in225(fr, c.Head)
+		e, err := b.in226(fr, c.Head)
 		if err != nil {
 			return out, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -4661,8 +4684,8 @@ func (b *bound) in224(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiSubtestFail
 	return out, nil
 }
 
-// in214 reads a AssertionFailure as Go rt.NomiAssertionFailure.
-func (b *bound) in214(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionFailure, err error) {
+// in215 reads a AssertionFailure as Go rt.NomiAssertionFailure.
+func (b *bound) in215(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionFailure, err error) {
 	r, err := hostadapt.Record(v, "assertions.AssertionFailure")
 	if err != nil {
 		return out, err
@@ -4700,7 +4723,7 @@ func (b *bound) in214(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionFailure, er
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in215(fr, x)
+		y, err := b.in216(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "actual", err)
 		}
@@ -4711,7 +4734,7 @@ func (b *bound) in214(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionFailure, er
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in216(fr, x)
+		y, err := b.in217(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "binding", err)
 		}
@@ -4722,7 +4745,7 @@ func (b *bound) in214(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionFailure, er
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in220(fr, x)
+		y, err := b.in221(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "values", err)
 		}
@@ -4733,7 +4756,7 @@ func (b *bound) in214(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionFailure, er
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in222(fr, x)
+		y, err := b.in223(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "details", err)
 		}
@@ -4744,7 +4767,7 @@ func (b *bound) in214(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionFailure, er
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in224(fr, x)
+		y, err := b.in225(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "subtests", err)
 		}
@@ -4753,12 +4776,12 @@ func (b *bound) in214(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionFailure, er
 	return out, nil
 }
 
-// fn213 adapts assertions.AssertionFailure.format: format(failure: AssertionFailure) -> String
-func (b *bound) fn213(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn214 adapts assertions.AssertionFailure.format: format(failure: AssertionFailure) -> String
+func (b *bound) fn214(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("assertions.AssertionFailure.format", 1, len(args))
 	}
-	a0, err := b.in214(fr, args[0])
+	a0, err := b.in215(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("assertions.AssertionFailure.format", 0, err)
 	}
@@ -4770,13 +4793,13 @@ func (b *bound) fn213(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// out227 builds a Decimal from Go rt.Decimal.
-func (b *bound) out227(v rt.Decimal) (rt.Value, error) {
+// out228 builds a Decimal from Go rt.Decimal.
+func (b *bound) out228(v rt.Decimal) (rt.Value, error) {
 	return v, nil
 }
 
-// fn226 adapts decimal.Decimal.from_int: from_int(n: Int) -> Decimal
-func (b *bound) fn226(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn227 adapts decimal.Decimal.from_int: from_int(n: Int) -> Decimal
+func (b *bound) fn227(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.from_int", 1, len(args))
 	}
@@ -4785,23 +4808,23 @@ func (b *bound) fn226(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("decimal.Decimal.from_int", 0, err)
 	}
 	r0 := rt.DecimalFromInt(a0)
-	v0, err := b.out227(r0)
+	v0, err := b.out228(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// out229 builds a Maybe<Decimal> from Go rt.Maybe[rt.Decimal].
-func (b *bound) out229(v rt.Maybe[rt.Decimal]) (rt.Value, error) {
+// out230 builds a Maybe<Decimal> from Go rt.Maybe[rt.Decimal].
+func (b *bound) out230(v rt.Maybe[rt.Decimal]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d15.NewVariant(0)
-		w230, err := b.out227(v.Some)
+		w231, err := b.out228(v.Some)
 		if err != nil {
 			return nil, fmt.Errorf("Some: %w", err)
 		}
-		r.R[0] = w230
+		r.R[0] = w231
 		return r, nil
 	case rt.TagNone:
 		return b.d15.NewVariant(1), nil
@@ -4809,8 +4832,8 @@ func (b *bound) out229(v rt.Maybe[rt.Decimal]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn228 adapts decimal.Decimal.from_string: from_string(s: String) -> Maybe<Decimal>
-func (b *bound) fn228(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn229 adapts decimal.Decimal.from_string: from_string(s: String) -> Maybe<Decimal>
+func (b *bound) fn229(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.from_string", 1, len(args))
 	}
@@ -4819,19 +4842,19 @@ func (b *bound) fn228(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("decimal.Decimal.from_string", 0, err)
 	}
 	r0 := rt.DecimalFromString(a0)
-	v0, err := b.out229(r0)
+	v0, err := b.out230(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn231 adapts decimal.Decimal.to_int: to_int(d: Decimal) -> Maybe<Int>
-func (b *bound) fn231(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn232 adapts decimal.Decimal.to_int: to_int(d: Decimal) -> Maybe<Int>
+func (b *bound) fn232(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.to_int", 1, len(args))
 	}
-	a0, err := b.in166(fr, args[0])
+	a0, err := b.in167(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.to_int", 0, err)
 	}
@@ -4843,25 +4866,25 @@ func (b *bound) fn231(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn232 adapts decimal.Decimal.to_float: to_float(d: Decimal) -> Float
-func (b *bound) fn232(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn233 adapts decimal.Decimal.to_float: to_float(d: Decimal) -> Float
+func (b *bound) fn233(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.to_float", 1, len(args))
 	}
-	a0, err := b.in166(fr, args[0])
+	a0, err := b.in167(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.to_float", 0, err)
 	}
 	r0 := rt.DecimalToFloat(a0)
-	v0, err := b.out146(r0)
+	v0, err := b.out147(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// in234 reads a RoundingMode as Go rt.RoundingMode.
-func (b *bound) in234(fr *rt.Frame, v rt.Value) (out rt.RoundingMode, err error) {
+// in235 reads a RoundingMode as Go rt.RoundingMode.
+func (b *bound) in235(fr *rt.Frame, v rt.Value) (out rt.RoundingMode, err error) {
 	r, tag, err := hostadapt.Variant(v, "decimal.RoundingMode")
 	if err != nil {
 		return out, err
@@ -4890,8 +4913,8 @@ func (b *bound) in234(fr *rt.Frame, v rt.Value) (out rt.RoundingMode, err error)
 	return out, nil
 }
 
-// fn233 adapts decimal.Decimal.from_float: from_float(f: Float, scale: Int, mode: RoundingMode) -> Maybe<Decimal>
-func (b *bound) fn233(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn234 adapts decimal.Decimal.from_float: from_float(f: Float, scale: Int, mode: RoundingMode) -> Maybe<Decimal>
+func (b *bound) fn234(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("decimal.Decimal.from_float", 3, len(args))
 	}
@@ -4903,28 +4926,28 @@ func (b *bound) fn233(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.from_float", 1, err)
 	}
-	a2, err := b.in234(fr, args[2])
+	a2, err := b.in235(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.from_float", 2, err)
 	}
 	r0 := rt.DecimalFromFloat(a0, a1, a2)
-	v0, err := b.out229(r0)
+	v0, err := b.out230(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn235 adapts decimal.Decimal.divide: divide(a: Decimal, b: Decimal, scale: Int, mode: RoundingMode) -> Decimal
-func (b *bound) fn235(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn236 adapts decimal.Decimal.divide: divide(a: Decimal, b: Decimal, scale: Int, mode: RoundingMode) -> Decimal
+func (b *bound) fn236(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 4 {
 		return nil, hostadapt.Arity("decimal.Decimal.divide", 4, len(args))
 	}
-	a0, err := b.in166(fr, args[0])
+	a0, err := b.in167(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.divide", 0, err)
 	}
-	a1, err := b.in166(fr, args[1])
+	a1, err := b.in167(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.divide", 1, err)
 	}
@@ -4932,24 +4955,24 @@ func (b *bound) fn235(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.divide", 2, err)
 	}
-	a3, err := b.in234(fr, args[3])
+	a3, err := b.in235(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.divide", 3, err)
 	}
 	r0 := rt.DecimalDivide(a0, a1, a2, a3)
-	v0, err := b.out227(r0)
+	v0, err := b.out228(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn236 adapts decimal.Decimal.round: round(d: Decimal, scale: Int, mode: RoundingMode) -> Decimal
-func (b *bound) fn236(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn237 adapts decimal.Decimal.round: round(d: Decimal, scale: Int, mode: RoundingMode) -> Decimal
+func (b *bound) fn237(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("decimal.Decimal.round", 3, len(args))
 	}
-	a0, err := b.in166(fr, args[0])
+	a0, err := b.in167(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.round", 0, err)
 	}
@@ -4957,41 +4980,41 @@ func (b *bound) fn236(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.round", 1, err)
 	}
-	a2, err := b.in234(fr, args[2])
+	a2, err := b.in235(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.round", 2, err)
 	}
 	r0 := rt.DecimalRound(a0, a1, a2)
-	v0, err := b.out227(r0)
+	v0, err := b.out228(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn237 adapts decimal.Decimal.normalize: normalize(d: Decimal) -> Decimal
-func (b *bound) fn237(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn238 adapts decimal.Decimal.normalize: normalize(d: Decimal) -> Decimal
+func (b *bound) fn238(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.normalize", 1, len(args))
 	}
-	a0, err := b.in166(fr, args[0])
+	a0, err := b.in167(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.normalize", 0, err)
 	}
 	r0 := rt.DecimalNormalize(a0)
-	v0, err := b.out227(r0)
+	v0, err := b.out228(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn238 adapts decimal.Decimal.scale: scale(d: Decimal) -> Int
-func (b *bound) fn238(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn239 adapts decimal.Decimal.scale: scale(d: Decimal) -> Int
+func (b *bound) fn239(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("decimal.Decimal.scale", 1, len(args))
 	}
-	a0, err := b.in166(fr, args[0])
+	a0, err := b.in167(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("decimal.Decimal.scale", 0, err)
 	}
@@ -5003,8 +5026,8 @@ func (b *bound) fn238(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn239 adapts strings.String.repeat: repeat(s: String, count: Int) -> String
-func (b *bound) fn239(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn240 adapts strings.String.repeat: repeat(s: String, count: Int) -> String
+func (b *bound) fn240(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("strings.String.repeat", 2, len(args))
 	}
@@ -5024,8 +5047,8 @@ func (b *bound) fn239(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn240 adapts int.Int.shift_left: shift_left(a: Int, n: Int) -> Int
-func (b *bound) fn240(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn241 adapts int.Int.shift_left: shift_left(a: Int, n: Int) -> Int
+func (b *bound) fn241(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.shift_left", 2, len(args))
 	}
@@ -5045,8 +5068,8 @@ func (b *bound) fn240(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn241 adapts int.Int.shift_right: shift_right(a: Int, n: Int) -> Int
-func (b *bound) fn241(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn242 adapts int.Int.shift_right: shift_right(a: Int, n: Int) -> Int
+func (b *bound) fn242(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("int.Int.shift_right", 2, len(args))
 	}
@@ -5066,16 +5089,16 @@ func (b *bound) fn241(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// out243 builds a Maybe<Instant> from Go rt.Maybe[rt.Instant].
-func (b *bound) out243(v rt.Maybe[rt.Instant]) (rt.Value, error) {
+// out244 builds a Maybe<Instant> from Go rt.Maybe[rt.Instant].
+func (b *bound) out244(v rt.Maybe[rt.Instant]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d15.NewVariant(0)
-		w244, err := b.out174(v.Some)
+		w245, err := b.out175(v.Some)
 		if err != nil {
 			return nil, fmt.Errorf("Some: %w", err)
 		}
-		r.R[0] = w244
+		r.R[0] = w245
 		return r, nil
 	case rt.TagNone:
 		return b.d15.NewVariant(1), nil
@@ -5083,40 +5106,40 @@ func (b *bound) out243(v rt.Maybe[rt.Instant]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn242 adapts context.Context.deadline: deadline(c: Context) -> Maybe<Instant>
-func (b *bound) fn242(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn243 adapts context.Context.deadline: deadline(c: Context) -> Maybe<Instant>
+func (b *bound) fn243(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("context.Context.deadline", 1, len(args))
 	}
-	a0, err := b.in185(fr, args[0])
+	a0, err := b.in186(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("context.Context.deadline", 0, err)
 	}
 	r0 := rt.ContextDeadline(a0)
-	v0, err := b.out243(r0)
+	v0, err := b.out244(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// out247 builds a Duration from Go rt.Duration.
-func (b *bound) out247(v rt.Duration) (rt.Value, error) {
+// out248 builds a Duration from Go rt.Duration.
+func (b *bound) out248(v rt.Duration) (rt.Value, error) {
 	r := b.d20.New()
 	r.W[0] = rt.IntWord(int64(v))
 	return r, nil
 }
 
-// out246 builds a Maybe<Duration> from Go rt.Maybe[rt.Duration].
-func (b *bound) out246(v rt.Maybe[rt.Duration]) (rt.Value, error) {
+// out247 builds a Maybe<Duration> from Go rt.Maybe[rt.Duration].
+func (b *bound) out247(v rt.Maybe[rt.Duration]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d15.NewVariant(0)
-		w248, err := b.out247(v.Some)
+		w249, err := b.out248(v.Some)
 		if err != nil {
 			return nil, fmt.Errorf("Some: %w", err)
 		}
-		r.R[0] = w248
+		r.R[0] = w249
 		return r, nil
 	case rt.TagNone:
 		return b.d15.NewVariant(1), nil
@@ -5124,25 +5147,25 @@ func (b *bound) out246(v rt.Maybe[rt.Duration]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn245 adapts context.Context.deadline_remaining: deadline_remaining(c: Context) -> Maybe<Duration>
-func (b *bound) fn245(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn246 adapts context.Context.deadline_remaining: deadline_remaining(c: Context) -> Maybe<Duration>
+func (b *bound) fn246(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("context.Context.deadline_remaining", 1, len(args))
 	}
-	a0, err := b.in185(fr, args[0])
+	a0, err := b.in186(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("context.Context.deadline_remaining", 0, err)
 	}
 	r0 := rt.ContextDeadlineRemaining(a0)
-	v0, err := b.out246(r0)
+	v0, err := b.out247(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// in250 reads a Instant as Go rt.Instant.
-func (b *bound) in250(fr *rt.Frame, v rt.Value) (out rt.Instant, err error) {
+// in251 reads a Instant as Go rt.Instant.
+func (b *bound) in251(fr *rt.Frame, v rt.Value) (out rt.Instant, err error) {
 	r, err := hostadapt.Record(v, "instant.Instant")
 	if err != nil {
 		return out, err
@@ -5154,29 +5177,29 @@ func (b *bound) in250(fr *rt.Frame, v rt.Value) (out rt.Instant, err error) {
 	return rt.Instant(x), nil
 }
 
-// fn249 adapts context.Context.with_deadline: with_deadline(c: Context, at: Instant) -> Context
-func (b *bound) fn249(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn250 adapts context.Context.with_deadline: with_deadline(c: Context, at: Instant) -> Context
+func (b *bound) fn250(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("context.Context.with_deadline", 2, len(args))
 	}
-	a0, err := b.in185(fr, args[0])
+	a0, err := b.in186(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("context.Context.with_deadline", 0, err)
 	}
-	a1, err := b.in250(fr, args[1])
+	a1, err := b.in251(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Arg("context.Context.with_deadline", 1, err)
 	}
 	r0 := rt.ContextWithDeadline(a0, a1)
-	v0, err := b.out186(r0)
+	v0, err := b.out187(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// out252 builds a List<Byte> from Go *rt.List[rt.Byte].
-func (b *bound) out252(v *rt.List[rt.Byte]) (rt.Value, error) {
+// out253 builds a List<Byte> from Go *rt.List[rt.Byte].
+func (b *bound) out253(v *rt.List[rt.Byte]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -5198,8 +5221,8 @@ func (b *bound) out252(v *rt.List[rt.Byte]) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn251 adapts bytes.Bytes.to_list: to_list(data: Bytes) -> List<Byte>
-func (b *bound) fn251(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn252 adapts bytes.Bytes.to_list: to_list(data: Bytes) -> List<Byte>
+func (b *bound) fn252(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("bytes.Bytes.to_list", 1, len(args))
 	}
@@ -5208,15 +5231,15 @@ func (b *bound) fn251(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("bytes.Bytes.to_list", 0, err)
 	}
 	r0 := rt.BytesToList(a0)
-	v0, err := b.out252(r0)
+	v0, err := b.out253(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// in254 reads a List<Byte> as Go *rt.List[rt.Byte].
-func (b *bound) in254(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Byte], err error) {
+// in255 reads a List<Byte> as Go *rt.List[rt.Byte].
+func (b *bound) in255(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Byte], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -5237,12 +5260,12 @@ func (b *bound) in254(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Byte], err erro
 	return out, nil
 }
 
-// fn253 adapts bytes.Bytes.from_list: from_list(items: List<Byte>) -> Bytes
-func (b *bound) fn253(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn254 adapts bytes.Bytes.from_list: from_list(items: List<Byte>) -> Bytes
+func (b *bound) fn254(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("bytes.Bytes.from_list", 1, len(args))
 	}
-	a0, err := b.in254(fr, args[0])
+	a0, err := b.in255(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("bytes.Bytes.from_list", 0, err)
 	}
@@ -5254,8 +5277,8 @@ func (b *bound) fn253(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// out257 builds a IOError from Go rt.IOError.
-func (b *bound) out257(v rt.IOError) (rt.Value, error) {
+// out258 builds a IOError from Go rt.IOError.
+func (b *bound) out258(v rt.IOError) (rt.Value, error) {
 	switch v.Tag {
 	case 1:
 		r := b.d34.NewVariant(0)
@@ -5269,8 +5292,8 @@ func (b *bound) out257(v rt.IOError) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.IOError carries tag %d, which names no variant of io.IOError", v.Tag)
 }
 
-// out256 builds a Result<String, IOError> from Go rt.Result[string, rt.IOError].
-func (b *bound) out256(v rt.Result[string, rt.IOError]) (rt.Value, error) {
+// out257 builds a Result<String, IOError> from Go rt.Result[string, rt.IOError].
+func (b *bound) out257(v rt.Result[string, rt.IOError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d33.NewVariant(0)
@@ -5278,18 +5301,18 @@ func (b *bound) out256(v rt.Result[string, rt.IOError]) (rt.Value, error) {
 		return r, nil
 	case rt.TagErr:
 		r := b.d33.NewVariant(1)
-		w258, err := b.out257(v.Err)
+		w259, err := b.out258(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w258
+		r.R[0] = w259
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn255 adapts io.read_file: read_file(path: String) -> Result<String, IOError>
-func (b *bound) fn255(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn256 adapts io.read_file: read_file(path: String) -> Result<String, IOError>
+func (b *bound) fn256(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("io.read_file", 1, len(args))
 	}
@@ -5298,38 +5321,38 @@ func (b *bound) fn255(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("io.read_file", 0, err)
 	}
 	r0 := stdio.ReadFile(a0)
-	v0, err := b.out256(r0)
+	v0, err := b.out257(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// out260 builds a Result<Unit, IOError> from Go rt.Result[rt.Unit, rt.IOError].
-func (b *bound) out260(v rt.Result[rt.Unit, rt.IOError]) (rt.Value, error) {
+// out261 builds a Result<Unit, IOError> from Go rt.Result[rt.Unit, rt.IOError].
+func (b *bound) out261(v rt.Result[rt.Unit, rt.IOError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d23.NewVariant(0)
-		w261, err := b.out85(v.Ok)
+		w262, err := b.out85(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w261
+		r.R[0] = w262
 		return r, nil
 	case rt.TagErr:
 		r := b.d23.NewVariant(1)
-		w262, err := b.out257(v.Err)
+		w263, err := b.out258(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w262
+		r.R[0] = w263
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn259 adapts io.write_file: write_file(path: String, content: String) -> Result<Unit, IOError>
-func (b *bound) fn259(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn260 adapts io.write_file: write_file(path: String, content: String) -> Result<Unit, IOError>
+func (b *bound) fn260(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("io.write_file", 2, len(args))
 	}
@@ -5342,15 +5365,15 @@ func (b *bound) fn259(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("io.write_file", 1, err)
 	}
 	r0 := stdio.WriteFile(a0, a1)
-	v0, err := b.out260(r0)
+	v0, err := b.out261(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// in264 reads a NormalForm as Go rt.NormalForm.
-func (b *bound) in264(fr *rt.Frame, v rt.Value) (out rt.NormalForm, err error) {
+// in265 reads a NormalForm as Go rt.NormalForm.
+func (b *bound) in265(fr *rt.Frame, v rt.Value) (out rt.NormalForm, err error) {
 	r, tag, err := hostadapt.Variant(v, "strings.NormalForm")
 	if err != nil {
 		return out, err
@@ -5371,8 +5394,8 @@ func (b *bound) in264(fr *rt.Frame, v rt.Value) (out rt.NormalForm, err error) {
 	return out, nil
 }
 
-// fn263 adapts strings.String.normalize: normalize(s: String, form: NormalForm) -> String
-func (b *bound) fn263(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn264 adapts strings.String.normalize: normalize(s: String, form: NormalForm) -> String
+func (b *bound) fn264(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("strings.String.normalize", 2, len(args))
 	}
@@ -5380,7 +5403,7 @@ func (b *bound) fn263(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Arg("strings.String.normalize", 0, err)
 	}
-	a1, err := b.in264(fr, args[1])
+	a1, err := b.in265(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Arg("strings.String.normalize", 1, err)
 	}
@@ -5392,8 +5415,8 @@ func (b *bound) fn263(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// in266 reads a Dynamic as Go rt.Dynamic.
-func (b *bound) in266(fr *rt.Frame, v rt.Value) (out rt.Dynamic, err error) {
+// in267 reads a Dynamic as Go rt.Dynamic.
+func (b *bound) in267(fr *rt.Frame, v rt.Value) (out rt.Dynamic, err error) {
 	x, ok := v.(rt.Dynamic)
 	if !ok {
 		return out, hostadapt.Want("Dynamic", v)
@@ -5401,13 +5424,13 @@ func (b *bound) in266(fr *rt.Frame, v rt.Value) (out rt.Dynamic, err error) {
 	return x, nil
 }
 
-// out268 builds a Dynamic from Go rt.Dynamic.
-func (b *bound) out268(v rt.Dynamic) (rt.Value, error) {
+// out269 builds a Dynamic from Go rt.Dynamic.
+func (b *bound) out269(v rt.Dynamic) (rt.Value, error) {
 	return v, nil
 }
 
-// out272 builds a PathSegment from Go rt.DynamicPathSegment.
-func (b *bound) out272(v rt.DynamicPathSegment) (rt.Value, error) {
+// out273 builds a PathSegment from Go rt.DynamicPathSegment.
+func (b *bound) out273(v rt.DynamicPathSegment) (rt.Value, error) {
 	switch v.Tag {
 	case 1:
 		r := b.d36.NewVariant(0)
@@ -5421,8 +5444,8 @@ func (b *bound) out272(v rt.DynamicPathSegment) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.DynamicPathSegment carries tag %d, which names no variant of dynamic.PathSegment", v.Tag)
 }
 
-// out271 builds a List<PathSegment> from Go *rt.List[rt.DynamicPathSegment].
-func (b *bound) out271(v *rt.List[rt.DynamicPathSegment]) (rt.Value, error) {
+// out272 builds a List<PathSegment> from Go *rt.List[rt.DynamicPathSegment].
+func (b *bound) out272(v *rt.List[rt.DynamicPathSegment]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -5430,7 +5453,7 @@ func (b *bound) out271(v *rt.List[rt.DynamicPathSegment]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out272(c.Head)
+		x, err := b.out273(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -5444,48 +5467,48 @@ func (b *bound) out271(v *rt.List[rt.DynamicPathSegment]) (rt.Value, error) {
 	return xs, nil
 }
 
-// out270 builds a DecodeError from Go rt.DynamicDecodeError.
-func (b *bound) out270(v rt.DynamicDecodeError) (rt.Value, error) {
+// out271 builds a DecodeError from Go rt.DynamicDecodeError.
+func (b *bound) out271(v rt.DynamicDecodeError) (rt.Value, error) {
 	r := b.d35.New()
-	w273, err := b.out271(v.Path)
+	w274, err := b.out272(v.Path)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "path", err)
 	}
-	r.R[0] = w273
+	r.R[0] = w274
 	r.S[0] = string(v.Expected)
 	r.S[1] = string(v.Got)
 	return r, nil
 }
 
-// out267 builds a Result<Dynamic, DecodeError> from Go rt.Result[rt.Dynamic, rt.DynamicDecodeError].
-func (b *bound) out267(v rt.Result[rt.Dynamic, rt.DynamicDecodeError]) (rt.Value, error) {
+// out268 builds a Result<Dynamic, DecodeError> from Go rt.Result[rt.Dynamic, rt.DynamicDecodeError].
+func (b *bound) out268(v rt.Result[rt.Dynamic, rt.DynamicDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d23.NewVariant(0)
-		w269, err := b.out268(v.Ok)
+		w270, err := b.out269(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w269
+		r.R[0] = w270
 		return r, nil
 	case rt.TagErr:
 		r := b.d23.NewVariant(1)
-		w274, err := b.out270(v.Err)
+		w275, err := b.out271(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w274
+		r.R[0] = w275
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn265 adapts dynamic.Dynamic.field: field(d: Dynamic, name: String) -> Result<Dynamic, DecodeError>
-func (b *bound) fn265(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn266 adapts dynamic.Dynamic.field: field(d: Dynamic, name: String) -> Result<Dynamic, DecodeError>
+func (b *bound) fn266(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.field", 2, len(args))
 	}
-	a0, err := b.in266(fr, args[0])
+	a0, err := b.in267(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("dynamic.Dynamic.field", 0, err)
 	}
@@ -5494,19 +5517,19 @@ func (b *bound) fn265(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("dynamic.Dynamic.field", 1, err)
 	}
 	r0 := rt.DynamicField(a0, a1)
-	v0, err := b.out267(r0)
+	v0, err := b.out268(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn275 adapts dynamic.Dynamic.index: index(d: Dynamic, i: Int) -> Result<Dynamic, DecodeError>
-func (b *bound) fn275(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn276 adapts dynamic.Dynamic.index: index(d: Dynamic, i: Int) -> Result<Dynamic, DecodeError>
+func (b *bound) fn276(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.index", 2, len(args))
 	}
-	a0, err := b.in266(fr, args[0])
+	a0, err := b.in267(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("dynamic.Dynamic.index", 0, err)
 	}
@@ -5515,19 +5538,19 @@ func (b *bound) fn275(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("dynamic.Dynamic.index", 1, err)
 	}
 	r0 := rt.DynamicIndex(a0, a1)
-	v0, err := b.out267(r0)
+	v0, err := b.out268(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn276 adapts dynamic.Dynamic.path: path(d: Dynamic, dotted: String) -> Result<Dynamic, DecodeError>
-func (b *bound) fn276(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn277 adapts dynamic.Dynamic.path: path(d: Dynamic, dotted: String) -> Result<Dynamic, DecodeError>
+func (b *bound) fn277(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.path", 2, len(args))
 	}
-	a0, err := b.in266(fr, args[0])
+	a0, err := b.in267(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("dynamic.Dynamic.path", 0, err)
 	}
@@ -5536,15 +5559,15 @@ func (b *bound) fn276(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("dynamic.Dynamic.path", 1, err)
 	}
 	r0 := rt.DynamicPath(a0, a1)
-	v0, err := b.out267(r0)
+	v0, err := b.out268(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// out278 builds a Result<String, DecodeError> from Go rt.Result[string, rt.DynamicDecodeError].
-func (b *bound) out278(v rt.Result[string, rt.DynamicDecodeError]) (rt.Value, error) {
+// out279 builds a Result<String, DecodeError> from Go rt.Result[string, rt.DynamicDecodeError].
+func (b *bound) out279(v rt.Result[string, rt.DynamicDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d33.NewVariant(0)
@@ -5552,35 +5575,35 @@ func (b *bound) out278(v rt.Result[string, rt.DynamicDecodeError]) (rt.Value, er
 		return r, nil
 	case rt.TagErr:
 		r := b.d33.NewVariant(1)
-		w279, err := b.out270(v.Err)
+		w280, err := b.out271(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w279
+		r.R[0] = w280
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn277 adapts dynamic.Dynamic.as_string: as_string(d: Dynamic) -> Result<String, DecodeError>
-func (b *bound) fn277(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn278 adapts dynamic.Dynamic.as_string: as_string(d: Dynamic) -> Result<String, DecodeError>
+func (b *bound) fn278(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.as_string", 1, len(args))
 	}
-	a0, err := b.in266(fr, args[0])
+	a0, err := b.in267(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("dynamic.Dynamic.as_string", 0, err)
 	}
 	r0 := rt.DynamicAsString(a0)
-	v0, err := b.out278(r0)
+	v0, err := b.out279(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// out281 builds a Result<Int, DecodeError> from Go rt.Result[int64, rt.DynamicDecodeError].
-func (b *bound) out281(v rt.Result[int64, rt.DynamicDecodeError]) (rt.Value, error) {
+// out282 builds a Result<Int, DecodeError> from Go rt.Result[int64, rt.DynamicDecodeError].
+func (b *bound) out282(v rt.Result[int64, rt.DynamicDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d37.NewVariant(0)
@@ -5588,35 +5611,35 @@ func (b *bound) out281(v rt.Result[int64, rt.DynamicDecodeError]) (rt.Value, err
 		return r, nil
 	case rt.TagErr:
 		r := b.d37.NewVariant(1)
-		w282, err := b.out270(v.Err)
+		w283, err := b.out271(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w282
+		r.R[0] = w283
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn280 adapts dynamic.Dynamic.as_int: as_int(d: Dynamic) -> Result<Int, DecodeError>
-func (b *bound) fn280(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn281 adapts dynamic.Dynamic.as_int: as_int(d: Dynamic) -> Result<Int, DecodeError>
+func (b *bound) fn281(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.as_int", 1, len(args))
 	}
-	a0, err := b.in266(fr, args[0])
+	a0, err := b.in267(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("dynamic.Dynamic.as_int", 0, err)
 	}
 	r0 := rt.DynamicAsInt(a0)
-	v0, err := b.out281(r0)
+	v0, err := b.out282(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// out284 builds a Result<Float, DecodeError> from Go rt.Result[float64, rt.DynamicDecodeError].
-func (b *bound) out284(v rt.Result[float64, rt.DynamicDecodeError]) (rt.Value, error) {
+// out285 builds a Result<Float, DecodeError> from Go rt.Result[float64, rt.DynamicDecodeError].
+func (b *bound) out285(v rt.Result[float64, rt.DynamicDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d38.NewVariant(0)
@@ -5624,35 +5647,35 @@ func (b *bound) out284(v rt.Result[float64, rt.DynamicDecodeError]) (rt.Value, e
 		return r, nil
 	case rt.TagErr:
 		r := b.d38.NewVariant(1)
-		w285, err := b.out270(v.Err)
+		w286, err := b.out271(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w285
+		r.R[0] = w286
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn283 adapts dynamic.Dynamic.as_float: as_float(d: Dynamic) -> Result<Float, DecodeError>
-func (b *bound) fn283(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn284 adapts dynamic.Dynamic.as_float: as_float(d: Dynamic) -> Result<Float, DecodeError>
+func (b *bound) fn284(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.as_float", 1, len(args))
 	}
-	a0, err := b.in266(fr, args[0])
+	a0, err := b.in267(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("dynamic.Dynamic.as_float", 0, err)
 	}
 	r0 := rt.DynamicAsFloat(a0)
-	v0, err := b.out284(r0)
+	v0, err := b.out285(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// out287 builds a Result<Bool, DecodeError> from Go rt.Result[bool, rt.DynamicDecodeError].
-func (b *bound) out287(v rt.Result[bool, rt.DynamicDecodeError]) (rt.Value, error) {
+// out288 builds a Result<Bool, DecodeError> from Go rt.Result[bool, rt.DynamicDecodeError].
+func (b *bound) out288(v rt.Result[bool, rt.DynamicDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d39.NewVariant(0)
@@ -5660,35 +5683,35 @@ func (b *bound) out287(v rt.Result[bool, rt.DynamicDecodeError]) (rt.Value, erro
 		return r, nil
 	case rt.TagErr:
 		r := b.d39.NewVariant(1)
-		w288, err := b.out270(v.Err)
+		w289, err := b.out271(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w288
+		r.R[0] = w289
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn286 adapts dynamic.Dynamic.as_bool: as_bool(d: Dynamic) -> Result<Bool, DecodeError>
-func (b *bound) fn286(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn287 adapts dynamic.Dynamic.as_bool: as_bool(d: Dynamic) -> Result<Bool, DecodeError>
+func (b *bound) fn287(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.as_bool", 1, len(args))
 	}
-	a0, err := b.in266(fr, args[0])
+	a0, err := b.in267(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("dynamic.Dynamic.as_bool", 0, err)
 	}
 	r0 := rt.DynamicAsBool(a0)
-	v0, err := b.out287(r0)
+	v0, err := b.out288(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// out291 builds a List<Dynamic> from Go *rt.List[rt.Dynamic].
-func (b *bound) out291(v *rt.List[rt.Dynamic]) (rt.Value, error) {
+// out292 builds a List<Dynamic> from Go *rt.List[rt.Dynamic].
+func (b *bound) out292(v *rt.List[rt.Dynamic]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -5696,7 +5719,7 @@ func (b *bound) out291(v *rt.List[rt.Dynamic]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out268(c.Head)
+		x, err := b.out269(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -5710,48 +5733,48 @@ func (b *bound) out291(v *rt.List[rt.Dynamic]) (rt.Value, error) {
 	return xs, nil
 }
 
-// out290 builds a Result<List<Dynamic>, DecodeError> from Go rt.Result[*rt.List[rt.Dynamic], rt.DynamicDecodeError].
-func (b *bound) out290(v rt.Result[*rt.List[rt.Dynamic], rt.DynamicDecodeError]) (rt.Value, error) {
+// out291 builds a Result<List<Dynamic>, DecodeError> from Go rt.Result[*rt.List[rt.Dynamic], rt.DynamicDecodeError].
+func (b *bound) out291(v rt.Result[*rt.List[rt.Dynamic], rt.DynamicDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d23.NewVariant(0)
-		w292, err := b.out291(v.Ok)
+		w293, err := b.out292(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w292
+		r.R[0] = w293
 		return r, nil
 	case rt.TagErr:
 		r := b.d23.NewVariant(1)
-		w293, err := b.out270(v.Err)
+		w294, err := b.out271(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w293
+		r.R[0] = w294
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn289 adapts dynamic.Dynamic.as_list: as_list(d: Dynamic) -> Result<List<Dynamic>, DecodeError>
-func (b *bound) fn289(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn290 adapts dynamic.Dynamic.as_list: as_list(d: Dynamic) -> Result<List<Dynamic>, DecodeError>
+func (b *bound) fn290(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.as_list", 1, len(args))
 	}
-	a0, err := b.in266(fr, args[0])
+	a0, err := b.in267(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("dynamic.Dynamic.as_list", 0, err)
 	}
 	r0 := rt.DynamicAsList(a0)
-	v0, err := b.out290(r0)
+	v0, err := b.out291(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// out296 builds a Map<String, Dynamic> from Go rt.Map[string, rt.Dynamic].
-func (b *bound) out296(v rt.Map[string, rt.Dynamic]) (rt.Value, error) {
+// out297 builds a Map<String, Dynamic> from Go rt.Map[string, rt.Dynamic].
+func (b *bound) out297(v rt.Map[string, rt.Dynamic]) (rt.Value, error) {
 	ents := rt.MapEntries(v)
 	conv := make([]rt.MapEntry[any, any], len(ents))
 	for i, e := range ents {
@@ -5759,7 +5782,7 @@ func (b *bound) out296(v rt.Map[string, rt.Dynamic]) (rt.Value, error) {
 		if err != nil {
 			return nil, fmt.Errorf("key %d: %w", i, err)
 		}
-		x, err := b.out268(e.Val)
+		x, err := b.out269(e.Val)
 		if err != nil {
 			return nil, fmt.Errorf("value %d: %w", i, err)
 		}
@@ -5768,52 +5791,52 @@ func (b *bound) out296(v rt.Map[string, rt.Dynamic]) (rt.Value, error) {
 	return rt.MapOf(rt.Hash, rt.Equal, conv), nil
 }
 
-// out295 builds a Result<Map<String, Dynamic>, DecodeError> from Go rt.Result[rt.Map[string, rt.Dynamic], rt.DynamicDecodeError].
-func (b *bound) out295(v rt.Result[rt.Map[string, rt.Dynamic], rt.DynamicDecodeError]) (rt.Value, error) {
+// out296 builds a Result<Map<String, Dynamic>, DecodeError> from Go rt.Result[rt.Map[string, rt.Dynamic], rt.DynamicDecodeError].
+func (b *bound) out296(v rt.Result[rt.Map[string, rt.Dynamic], rt.DynamicDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d23.NewVariant(0)
-		w297, err := b.out296(v.Ok)
+		w298, err := b.out297(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w297
+		r.R[0] = w298
 		return r, nil
 	case rt.TagErr:
 		r := b.d23.NewVariant(1)
-		w298, err := b.out270(v.Err)
+		w299, err := b.out271(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w298
+		r.R[0] = w299
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn294 adapts dynamic.Dynamic.as_dict: as_dict(d: Dynamic) -> Result<Map<String, Dynamic>, DecodeError>
-func (b *bound) fn294(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn295 adapts dynamic.Dynamic.as_dict: as_dict(d: Dynamic) -> Result<Map<String, Dynamic>, DecodeError>
+func (b *bound) fn295(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.as_dict", 1, len(args))
 	}
-	a0, err := b.in266(fr, args[0])
+	a0, err := b.in267(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("dynamic.Dynamic.as_dict", 0, err)
 	}
 	r0 := rt.DynamicAsDict(a0)
-	v0, err := b.out295(r0)
+	v0, err := b.out296(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn299 adapts dynamic.Dynamic.null?: null?(d: Dynamic) -> Bool
-func (b *bound) fn299(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn300 adapts dynamic.Dynamic.null?: null?(d: Dynamic) -> Bool
+func (b *bound) fn300(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.null?", 1, len(args))
 	}
-	a0, err := b.in266(fr, args[0])
+	a0, err := b.in267(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("dynamic.Dynamic.null?", 0, err)
 	}
@@ -5825,12 +5848,12 @@ func (b *bound) fn299(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn300 adapts dynamic.Dynamic.has?: has?(d: Dynamic, name: String) -> Bool
-func (b *bound) fn300(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn301 adapts dynamic.Dynamic.has?: has?(d: Dynamic, name: String) -> Bool
+func (b *bound) fn301(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.has?", 2, len(args))
 	}
-	a0, err := b.in266(fr, args[0])
+	a0, err := b.in267(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("dynamic.Dynamic.has?", 0, err)
 	}
@@ -5846,12 +5869,12 @@ func (b *bound) fn300(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn301 adapts dynamic.Dynamic.inspect: inspect(d: Dynamic) -> String
-func (b *bound) fn301(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn302 adapts dynamic.Dynamic.inspect: inspect(d: Dynamic) -> String
+func (b *bound) fn302(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("dynamic.Dynamic.inspect", 1, len(args))
 	}
-	a0, err := b.in266(fr, args[0])
+	a0, err := b.in267(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("dynamic.Dynamic.inspect", 0, err)
 	}
@@ -5863,25 +5886,25 @@ func (b *bound) fn301(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn302 adapts json.Json.to_dynamic: to_dynamic(jv: Json) -> Dynamic
-func (b *bound) fn302(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn303 adapts json.Json.to_dynamic: to_dynamic(jv: Json) -> Dynamic
+func (b *bound) fn303(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("json.Json.to_dynamic", 1, len(args))
 	}
-	a0, err := b.in199(fr, args[0])
+	a0, err := b.in200(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("json.Json.to_dynamic", 0, err)
 	}
 	r0 := rt.JsonToDynamic(a0)
-	v0, err := b.out268(r0)
+	v0, err := b.out269(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn303 adapts io.read_line: read_line() -> Result<String, String>
-func (b *bound) fn303(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn304 adapts io.read_line: read_line() -> Result<String, String>
+func (b *bound) fn304(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("io.read_line", 0, len(args))
 	}

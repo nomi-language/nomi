@@ -128,16 +128,16 @@ fn main() {
   io.inspect(Map.keys(m))
   io.inspect(Map.values(Map.remove(m, "q")))
   io.inspect(Map.map_values(m, fn v -> v * 10))
-  io.inspect(Map.contains_key?(m, "r"))
+  io.inspect(Map.contains?(m, "r"))
   io.inspect(Map.merge(m, %{"r" => 9, "s" => 3}))
   io.inspect(Map.map_keys(%{"a" => 1, "b" => 2, "c" => 3}, fn k -> k == "c"))
-  s: Set<Int> = Set.new()
+  s: Set<Int> = %[]
   io.inspect(Set.size(s))
   io.inspect(%[1, 2] == %[2, 1])
 }
 `
 
-// Map.keys, values, remove, contains_key?, merge and map_values are machine
+// Map.keys, values, remove, contains?, merge and map_values are machine
 // intrinsics over rt's map, in the keys' insertion order.
 func TestIRMapFuncs_Intrinsics(t *testing.T) {
 	verifyLambdaProgram(t, irMapFuncsSource,

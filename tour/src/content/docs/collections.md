@@ -50,7 +50,7 @@ fn main() {
             io.print("squaring ${n}")
             n * n
         })
-        |> Iter.filter(fn sq -> sq > 10)
+        |> Iter.filter(&(&1 > 10))
         |> Iter.take(2)
         |> Iter.to_list()
 
@@ -88,7 +88,7 @@ fn main() {
     xs = [1, 2, 3, 4, 5]
 
     xs
-    |> Iter.filter(fn n -> n > 2)
+    |> Iter.filter(&(&1 > 2))
     |> Iter.map(fn n -> n * n)
     |> Iter.sum()
     |> dbg
@@ -98,7 +98,7 @@ fn main() {
 <!-- expect
 dbg line 8:
   xs
-  |> Iter.filter(fn n -> n > 2)
+  |> Iter.filter(&(&1 > 2))
   |> Iter.map(fn n -> n * n)
   |> Iter.sum()
   = 50

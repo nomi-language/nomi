@@ -46,11 +46,11 @@ func TestFuncValueDefaults_AcceptedThroughALambdaOrAPartial(t *testing.T) {
 	_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + `
 fn main() {
   a: Maybe<Maybe<Int>> = Maybe.map(Some("1"), fn s -> parse(s))
-  b: List<Maybe<Int>> = Iter.map(["1"], parse(_)) |> Iter.to_list()
-  c: List<Maybe<Int>> = Iter.map(["1"], parse(_, strict: True)) |> Iter.to_list()
+  b: List<Maybe<Int>> = Iter.map(["1"], &parse(&1)) |> Iter.to_list()
+  c: List<Maybe<Int>> = Iter.map(["1"], &parse(&1, strict: True)) |> Iter.to_list()
   f: (String) -> Maybe<Int> = fn s -> parse(s)
   g: (String, Bool) -> Maybe<Int> = parse
-  _ = #(a, b, c, f("1"), g("1", True), apply(parse(_), "2"), parse("3"))
+  _ = #(a, b, c, f("1"), g("1", True), apply(&parse(&1), "2"), parse("3"))
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -108,7 +108,7 @@ fn main() {
   a = parse("1")
   b = "1" |> parse()
   h = fn x = 1 -> x
-  k = parse(_)
+  k = &parse(&1)
   g = parse
   _ = #(a, b, h(), h(2), k("1"), k(s: "1"), g("1", True), "1" |> g(True))
 }

@@ -45,32 +45,32 @@ impl Box {
 }
 
 fn main() {
-    c = conn("h", _)
+    c = &conn("h", &1)
     io.print(c(3))
     io.print(c())
     base = 99
     io.print("${base}")
-    d = conn(_, _)
+    d = &conn(&1, &2)
     io.print(d("x"))
     io.print(d("y", port: 5))
-    s = span(4, _, _)
+    s = &span(4, &1, &2)
     io.inspect(s())
     io.inspect(s(1))
-    t = span(_, c: 7, _)
+    t = &span(&1, c: 7, &2)
     io.inspect(t(3))
-    p = pair(1, _)
+    p = &pair(1, &1)
     io.inspect(p())
-    m = Box.make(1, _)
+    m = &Box.make(1, &1)
     io.inspect(m())
     n = 5
     cf = fn x: Int, y: Int = x + n -> x * y
     n = 100
-    q = cf(2, _)
+    q = &cf(2, &1)
     io.inspect(q())
     io.inspect(q(3))
     g = fn -> q()
     io.inspect(g())
-    l = lib.dial("l", _)
+    l = &lib.dial("l", &1)
     io.print(l())
     io.print(l(1))
     io.inspect(n)
@@ -110,20 +110,20 @@ fn three(a: Int, b: Int = a + 1, c: Int = a + b) -> #(Int, Int, Int) {
 }
 
 fn main() {
-    u = span(b: _, _)
+    u = &span(b: &1, &2)
     io.inspect(u(1, 2))
     io.inspect(u(a: 5))
-    w = u(_, 7)
+    w = &u(&1, 7)
     io.inspect(w(3))
     io.inspect(w())
     f = fn -> u(a: 9)
     io.inspect(f())
-    t = three(c: _, b: _, _)
+    t = &three(c: &1, b: &2, &3)
     io.inspect(t(a: 1))
     io.inspect(t(b: 10, a: 1))
     io.inspect(t(100, a: 1))
     cf = fn x: Int, y: Int = x + 1 -> x * 10 + y
-    q = cf(y: _, _)
+    q = &cf(y: &1, &2)
     io.inspect(q(x: 4))
     io.inspect(q(0, 4))
 }

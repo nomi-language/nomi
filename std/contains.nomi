@@ -1,0 +1,42 @@
+import {
+    bool.Bool
+    lists.List
+    maps.Map
+    ranges.Range
+    sets.Set
+}
+
+/// A collection that answers whether it holds a value: `contains?(c, x)`.
+/// The std collections implement it:
+///
+/// - `Set<T>`: whether `x` is a member, by hash lookup.
+/// - `Map<K, V>`: whether `x` is a key, by hash lookup. A value is not a key.
+/// - `Range<T>`: whether `x` lies between the ends, by two comparisons. An
+///   exclusive range leaves out its end, and an unbounded one checks only its
+///   start.
+/// - `List<T>` and `Vector<T>`: whether an element is `==` to `x`, by a
+///   linear scan.
+/// - `Bytes`: whether a byte equals `x`, by a linear scan.
+/// - `String`, at three type arguments: whether a `String` occurs as a
+///   substring, a `Regex` matches anywhere, or a `Codepoint` occurs. A call
+///   takes the impl its argument's type chooses.
+///
+/// `Iter.contains?` answers membership under the same name without
+/// implementing the interface: it scans any iterable, a lazy pipeline
+/// included.
+///
+/// `List`, `Vector`, `Bytes`, `String` and `Iter` membership is linear in the
+/// collection's size, and stops at the first match. For repeated lookups,
+/// convert to a `Set` once.
+///
+/// Elements compare as `==` does: a struct with a hand-written `Equatable` is
+/// compared by it, and Float equality is reflexive, so a `NaN` element is
+/// found by `NaN` and `0.0` by `-0.0`.
+//! assert Set.contains?(%[1, 2], 1)
+//! assert Map.contains?(%{"a" => 1}, "a")
+//! assert List.contains?([1, 2, 3], 2)
+//! assert Range.contains?(1..5, 3)
+//
+pub interface Contains<T> {
+    fn contains?(c: self, x: T) -> Bool
+}

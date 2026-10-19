@@ -75,11 +75,11 @@ fn apply<T, U>(x: T, f: (T) -> U) -> U {
 }
 
 fn main() {
-  f: (Int) -> Int = pick(True, _, 4)
+  f: (Int) -> Int = &pick(True, &1, 4)
   io.inspect(f(1))
-  g: (String) -> String = pick(False, _, "b")
+  g: (String) -> String = &pick(False, &1, "b")
   io.inspect(g("a"))
-  io.inspect(apply(3, pick(False, _, 4)))
+  io.inspect(apply(3, &pick(False, &1, 4)))
 }
 `)
 	want := "1\n\"b\"\n4\n"

@@ -10,12 +10,12 @@ import (
 	"github.com/nomi-language/nomi/internal/vm"
 )
 
-// The empty constructors with explicit type arguments (`Vector.empty<Int>()`,
-// `Set.new<Int>()`, `Map.empty<String, Int>()`) lower and run wherever the
-// call's own type is not what the context asks for: as an `Iter` source, in a
-// pipe, inside a generic body. The empty literal the builder emits feeds a
-// retyping Copy, and both temporaries carry a stored type (`ir.Lint`).
-func TestIREmptyCtor_ExplicitTypeArgumentsRun(t *testing.T) {
+// The empty literals of a generic body (`#[]`, `%[]`, `%{}` in a function
+// over T) lower and run wherever the call's own type is not what the context
+// asks for: as an `Iter` source, in a pipe. The empty literal the builder
+// emits feeds a retyping Copy, and both temporaries carry a stored type
+// (`ir.Lint`).
+func TestIREmptyCtor_GenericEmptyLiteralsRun(t *testing.T) {
 	src := `import std/io
 
 struct P {
@@ -23,24 +23,26 @@ struct P {
 }
 
 fn vec<T>() -> Vector<T> {
-  Vector.empty<T>()
+  #[]
 }
 
 fn set<T>() -> Set<T> {
-  Set.new<T>()
+  %[]
+}
+
+fn map<K, V>() -> Map<K, V> {
+  %{}
 }
 
 fn main() {
-  io.inspect(Iter.to_list(Vector.empty<Int>()))
-  io.inspect(Vector.empty<String>())
-  io.inspect(Iter.count(Vector.empty<P>()))
-  io.inspect(Vector.empty<Int>() |> Vector.push(1))
-  io.inspect(Iter.to_list(Set.new<Int>()))
-  io.inspect(Set.new<String>() |> Set.insert("a"))
-  io.inspect(Iter.to_list(Map.empty<String, Int>()))
   io.inspect(Iter.to_list(vec<Int>()))
-  io.inspect(Iter.to_list(set<String>()))
-  v: Vector<Int> = Vector.empty()
+  io.inspect(vec<String>())
+  io.inspect(Iter.count(vec<P>()))
+  io.inspect(vec<Int>() |> Vector.push(1))
+  io.inspect(Iter.to_list(set<Int>()))
+  io.inspect(set<String>() |> Set.insert("a"))
+  io.inspect(Iter.to_list(map<String, Int>()))
+  v: Vector<Int> = #[]
   io.inspect(Iter.to_list(v))
 }
 `
@@ -79,8 +81,6 @@ fn main() {
 #[1]
 []
 %["a"]
-[]
-[]
 []
 []
 `

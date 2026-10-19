@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"sort"
 	"strings"
 	"unicode"
 )
@@ -2088,8 +2089,11 @@ type FuncDef struct {
 	// ImplIfaceSourceQualified is retained for legacy ASTs. Source no longer
 	// accepts qualified implementation function headers.
 	ImplIfaceSourceQualified bool
-	Line                     int
-	Col                      int
+	// Line is the line of the `fn` keyword and Col the column of the name;
+	// FnCol is the keyword's column, which the editor's hover answers on.
+	Line  int
+	Col   int
+	FnCol int
 }
 
 func (*FuncDef) NodeType() string { return "FuncDef" }
@@ -2216,6 +2220,10 @@ type Lambda struct {
 	Col     int
 	EndLine int // one past the last token of the body; for ScopeAt span (fixes synthesized single-expr Body.EndLine == 0)
 	EndCol  int
+	// ArrowLine and ArrowCol are the position of the `->` that ends the
+	// parameters, which the editor's hover answers on.
+	ArrowLine int
+	ArrowCol  int
 }
 
 func (*Lambda) NodeType() string { return "Lambda" }
@@ -2277,29 +2285,49 @@ func (*TryOp) NodeType() string { return "TryOp" }
 func (n *TryOp) LineNum() int   { return n.Line }
 
 // Then is the pipe stage `x |> then fn v -> body`, which applies Lambda to the
-// piped value: `(fn v -> body)(x)`. It is only ever the right operand of a `|>`.
-// Line and Col are the `then` keyword's.
+// piped value: `(fn v -> body)(x)`, or `x |> then &f(a, &1)`, which applies
+// Capture to it. Exactly one of Lambda and Capture is set. It is only ever
+// the right operand of a `|>`. Line and Col are the `then` keyword's.
 type Then struct {
 	TriviaCarrier
 	SpanCarrier
-	Lambda *Lambda
-	Line   int
-	Col    int
+	Lambda  *Lambda
+	Capture *Capture
+	Line    int
+	Col     int
+}
+
+// Fn is the stage's function: its lambda or its capture.
+func (n *Then) Fn() Node {
+	if n.Capture != nil {
+		return n.Capture
+	}
+	return n.Lambda
 }
 
 func (*Then) NodeType() string { return "Then" }
 func (n *Then) LineNum() int   { return n.Line }
 
-// Tap is the pipe stage `x |> tap fn v -> body`, which runs Lambda on the piped
-// value for its effect and passes the value on unchanged. The lambda returns
-// Unit. It is only ever the right operand of a `|>`. Line and Col are the
-// `tap` keyword's.
+// Tap is the pipe stage `x |> tap fn v -> body` (or `x |> tap &f(&1)`),
+// which runs Lambda (or Capture) on the piped value for its effect and
+// passes the value on unchanged. Exactly one of Lambda and Capture is set,
+// and the function returns Unit. It is only ever the right operand of a
+// `|>`. Line and Col are the `tap` keyword's.
 type Tap struct {
 	TriviaCarrier
 	SpanCarrier
-	Lambda *Lambda
-	Line   int
-	Col    int
+	Lambda  *Lambda
+	Capture *Capture
+	Line    int
+	Col     int
+}
+
+// Fn is the stage's function: its lambda or its capture.
+func (n *Tap) Fn() Node {
+	if n.Capture != nil {
+		return n.Capture
+	}
+	return n.Lambda
 }
 
 func (*Tap) NodeType() string { return "Tap" }
@@ -2347,16 +2375,121 @@ func UpdateHole(n Node) *CurrentValue {
 	return cv
 }
 
-// Placeholder represents _ in expressions (partial application).
+// Placeholder is an `&N` that is one of a partial capture's own arguments:
+// `&1` in `&add(1, &1)` and `&connect("h", port: &1)` (Capture.PartialCall).
+// The parser writes one in place of the PlaceholderParam it read, so the
+// checker and the builder read the call as the partial application it is,
+// which takes the callee's parameter types, names and defaults.
 type Placeholder struct {
 	TriviaCarrier
 	SpanCarrier
+	// N is the open argument's number: the partial's parameter it is.
+	N    int
 	Line int
 	Col  int
 }
 
 func (*Placeholder) NodeType() string { return "Placeholder" }
 func (n *Placeholder) LineNum() int   { return n.Line }
+
+// Capture is a function written as `&` and its body (spec §5, *Captures*):
+// a call (`&Int.max(&1, 0)`), a parenthesized expression (`&(&1 > 2)`) or a
+// literal (`&#Point{x: &1, y: 0}`, `&#(&1, 0)`, `&[&1]`). Each `&N` in Body
+// (a PlaceholderParam, or a Placeholder in a partial capture) is the
+// function's parameter N. A call of the function evaluates Body with the
+// parameters filled, as the equivalent lambda would. Line and Col are the
+// `&`'s.
+type Capture struct {
+	TriviaCarrier
+	SpanCarrier
+	Body Node
+	Line int
+	Col  int
+}
+
+func (*Capture) NodeType() string { return "Capture" }
+func (n *Capture) LineNum() int   { return n.Line }
+
+// Holes is the parameters the capture's body reads, in the order they are
+// written; `&N` stands for parameter N, and one may stand several times. An
+// `&N` inside a lambda or another capture in the body is not this one's.
+// A partial capture's holes are its call's open arguments (Placeholder).
+func (n *Capture) Holes() []Node {
+	var holes []Node
+	Inspect(n.Body, func(m Node) bool {
+		switch m.(type) {
+		case *PlaceholderParam, *Placeholder:
+			holes = append(holes, m)
+		case *Capture, *Lambda:
+			return false
+		}
+		return true
+	})
+	sort.SliceStable(holes, func(i, j int) bool {
+		al, ac := holePos(holes[i])
+		bl, bc := holePos(holes[j])
+		return al < bl || al == bl && ac < bc
+	})
+	return holes
+}
+
+// HoleNumber is the parameter an `&N` names, either kind.
+func HoleNumber(h Node) int {
+	switch v := h.(type) {
+	case *PlaceholderParam:
+		return v.N
+	case *Placeholder:
+		return v.N
+	}
+	return 0
+}
+
+func holePos(h Node) (int, int) {
+	switch v := h.(type) {
+	case *PlaceholderParam:
+		return v.Line, v.Col
+	case *Placeholder:
+		return v.Line, v.Col
+	}
+	return 0, 0
+}
+
+// PartialCall is the call a partial capture applies: a capture whose body
+// is a call taking each of the capture's `&N` as one of its own arguments,
+// positional or named, numbered `&1`, `&2`, ... in the order they are
+// written, each once (`&add(1, &1)`, `&connect(&1, port: &2)`). Such a
+// capture takes the callee's parameter types, names and defaults. nil for
+// any other capture.
+func (n *Capture) PartialCall() *Call {
+	call, ok := n.Body.(*Call)
+	if !ok {
+		return nil
+	}
+	for _, a := range call.Args {
+		if na, named := a.(*NamedArg); named {
+			a = na.Value
+		}
+		if _, open := a.(*Placeholder); open {
+			return call
+		}
+	}
+	return nil
+}
+
+// PlaceholderParam is `&N` in a capture's body: the capture's parameter N.
+// One the parser finds outside any capture is the checker's error.
+type PlaceholderParam struct {
+	TriviaCarrier
+	SpanCarrier
+	// N is the parameter's number, from 1: `&2` is the function's second
+	// parameter.
+	N    int
+	Line int
+	Col  int
+}
+
+func (*PlaceholderParam) NodeType() string { return "PlaceholderParam" }
+func (n *PlaceholderParam) LineNum() int   { return n.Line }
 
 // NamedArg represents a named argument at a call site: name: expr
 type NamedArg struct {

@@ -179,7 +179,7 @@ func TestStdGenStructDefsArePackageNeutral(t *testing.T) {
 //
 // Built from the real `Set` row rather than an invented spec, so the cases are
 // about the clause and not about a shape nothing else uses. `Set.items` is a
-// `Map<T, Bool>`, so `= Map.empty()` is a default std COULD write and
+// `Map<T, Bool>`, so `= %{}` is a default std COULD write and
 // stdEmptyMapDefault is the matching row.
 func TestStdGenStructDefaultGateIsConsulted(t *testing.T) {
 	plain := *specNamed(t, "Set")
@@ -196,7 +196,7 @@ func TestStdGenStructDefaultGateIsConsulted(t *testing.T) {
 	wrongShape.fields[0].deflt = stdEmptyListDefault()
 
 	const bare = "pub opaque struct Set<T> {\n  items: Map<T, Bool>\n}\n"
-	const withDefault = "pub opaque struct Set<T> {\n  items: Map<T, Bool> = Map.empty()\n}\n"
+	const withDefault = "pub opaque struct Set<T> {\n  items: Map<T, Bool> = %{}\n}\n"
 
 	for _, c := range []struct {
 		label string

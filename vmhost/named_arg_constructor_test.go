@@ -51,7 +51,7 @@ fn main() {
     c: Shape = .Sq(3)
     d = Shape.Pair(4, 5)
     e = Shape.Id(6)
-    f = Some(_)
+    f = &Some(&1)
     g: Maybe<Int> = 7 |> Some()
     h = #Two(8, "x")
     io.print(Debug.inspect(#(a, b, c, d, e, f(9), g, h)))

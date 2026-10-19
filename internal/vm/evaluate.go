@@ -168,7 +168,7 @@ func (m *Machine) Evaluate(ctx context.Context, f *ir.Func, args []any, lim Limi
 var pureCrossings = map[string]bool{
 	"Result.map_err": true, "Maybe.to_result": true,
 	"Maybe.with_default": true, "Result.with_default": true,
-	"List.head": true, "List.tail": true, "List.concat": true, "List.compare": true,
+	"List.head": true, "List.tail": true, "List.concat": true, "List.compare": true, "List.contains?": true,
 	"Vector.compare": true, "vm.unreachable": true,
 	"Range.contains?": true, "Range.step_by": true, "Range.known_count": true,
 	"Range.bounded?": true, "Range.contains?Float": true,
@@ -176,9 +176,9 @@ var pureCrossings = map[string]bool{
 	"Set.union": true, "Set.intersection": true, "Set.difference": true,
 	"Set.subset?":   true,
 	"Vector.length": true, "Vector.get": true, "Vector.at": true, "Vector.push": true, "Vector.concat": true,
-	"Vector.set": true, "Vector.next_item": true,
+	"Vector.set": true, "Vector.next_item": true, "Vector.contains?": true,
 	"Map.get": true, "Map.put": true, "Map.size": true,
-	"Map.remove": true, "Map.contains_key?": true, "Map.merge": true, "Map.keys": true,
+	"Map.remove": true, "Map.contains?": true, "Map.merge": true, "Map.keys": true,
 	"Map.values": true, "Map.map_values": true, "Map.map_keys": true, "Map.map_next": true,
 
 	"Date.days_between": true, "Date.to_string": true,
@@ -225,7 +225,7 @@ var pureCrossings = map[string]bool{
 	// strings.String.repeat is not here: its cost is its Int operand.
 	"bytes.Byte.from_int": true, "bytes.Byte.to_int": true, "bytes.Bytes.length": true,
 	"bytes.Bytes.get": true, "bytes.Bytes.at": true, "bytes.Bytes.slice": true, "bytes.Bytes.concat": true,
-	"bytes.Bytes.to_string": true, "bytes.Bytes.hash": true,
+	"bytes.Bytes.to_string": true, "bytes.Bytes.hash": true, "bytes.Bytes.contains?": true,
 	"bytes.Bytes.to_list": true, "bytes.Bytes.from_list": true,
 	"int.Int.to_string": true, "int.Int.to_float": true, "int.Int.wrapping_add": true,
 	"int.Int.wrapping_sub": true, "int.Int.wrapping_mul": true, "int.Int.bitwise_and": true,

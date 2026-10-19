@@ -25,8 +25,8 @@ func TestCheck_MapSpread_Accepts(t *testing.T) {
 		"a key the base holds": "  m = %{\"a\" => 1}\n  _a: Map<String, Int> = %{..m, \"a\" => 2}\n",
 		"maybe values":         "  m: Map<String, Maybe<Int>> = %{\"a\" => Some(1)}\n  _a: Map<String, Maybe<Int>> = %{..m, \"b\" => None}\n",
 		"list values":          "  m = %{\"a\" => [1]}\n  _a: Map<String, List<Int>> = %{..m, \"b\" => []}\n",
-		"an empty base":        "  _a: Map<String, Int> = %{..Map.empty(), \"a\" => 1}\n",
-		"an unannotated empty": "  e = %{..Map.empty(), \"a\" => 1}\n  _a: Map<String, Int> = e\n",
+		"an empty base":        "  _a: Map<String, Int> = %{..%{}, \"a\" => 1}\n",
+		"an unannotated empty": "  e = %{..%{}, \"a\" => 1}\n  _a: Map<String, Int> = e\n",
 		"nested in a struct":   "  c = #Cfg{name: \"x\", prefs: %{\"theme\" => \"light\"}}\n  _a: Cfg = #{..c, prefs: %{..c.prefs, \"theme\" => \"dark\"}}\n",
 		"nested in a value":    "  m = %{\"o\" => %{\"k\" => 1}}\n  i = %{\"k\" => 2}\n  _a: Map<String, Map<String, Int>> = %{..m, \"o\" => %{..i, \"j\" => 3}}\n",
 	}
@@ -65,7 +65,7 @@ func TestCheck_MapSpread_Refuses(t *testing.T) {
 	}{
 		"no entries": {"  m = %{\"a\" => 1}\n  _a = %{..m}\n",
 			"a map spread with no entries is its base value; write `m`", "", 10, 10},
-		"a call base with no entries": {"  _a = %{..Map.empty()}\n",
+		"a call base with no entries": {"  _a = %{..Map.remove(%{\"a\" => 1}, \"a\")}\n",
 			"a map spread with no entries is its base value; write the value itself", "", 9, 10},
 		"a wrong key": {"  m = %{\"a\" => 1}\n  _a = %{..m, 1 => 2}\n",
 			"map spread key type mismatch: expected String, got Int", "", 10, 15},

@@ -1,0 +1,25 @@
+// Interfaces, and one impl written beside its interface for a type another
+// file declares.
+import things.Crate
+
+pub interface Holds {
+    fn held(value: self) -> String
+
+    fn shout(value: self) -> String {
+        "${Holds.held(value)}!"
+    }
+}
+
+pub interface Gets<T> {
+    fn got(value: self) -> T
+
+    fn twice(value: self) -> List<T> {
+        [Gets.got(value), Gets.got(value)]
+    }
+}
+
+impl Holds for Crate {
+    fn held(c: Crate) -> String {
+        "crate of ${c.count}"
+    }
+}

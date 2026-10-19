@@ -135,6 +135,11 @@ type genericTemplate struct {
 	// module-level one. Its instances are resolved, and their impls built,
 	// with that block's declarations visible, as its fields may name them.
 	scope *blockTypeDecls
+	// siblingImpls are the impl blocks other files write over this template,
+	// and registered is every instance whose impls are registered. See
+	// siblingtemplateimpl.go.
+	siblingImpls []siblingTemplateImpl
+	registered   []*typeDef
 }
 
 // structDecl is the template's declaration when it is a struct, and nil when it

@@ -501,7 +501,7 @@ fn f() {
     a = #{x: 1}
     m = %{"k" => 1}
     g = fn -> {
-        t: Map<String, Int> = Map.empty()
+        t: Map<String, Int> = %{}
         t
     }
 }
@@ -536,8 +536,5 @@ fn f() {
                 (type_identifier)
                 (type_identifier)
                 (type_identifier))
-              (call_expression
-                (field_access
-                  (type_identifier)
-                  (identifier))))
+              (map_construction))
             (identifier)))))))

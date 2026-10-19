@@ -49,6 +49,10 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfCall(n, fn)
 		}
+	case *Capture:
+		if n != nil {
+			childrenOfCapture(n, fn)
+		}
 	case *Case:
 		if n != nil {
 			childrenOfCase(n, fn)
@@ -205,6 +209,7 @@ func generatedChildren(n Node, fn func(Node)) bool {
 			childrenOfPatternDestructure(n, fn)
 		}
 	case *Placeholder:
+	case *PlaceholderParam:
 	case *QualifiedType:
 		if n != nil {
 			childrenOfQualifiedType(n, fn)
@@ -347,6 +352,8 @@ func absent(n Node) bool {
 		return n == nil
 	case *Call:
 		return n == nil
+	case *Capture:
+		return n == nil
 	case *Case:
 		return n == nil
 	case *CodepointLit:
@@ -442,6 +449,8 @@ func absent(n Node) bool {
 	case *PatternDestructure:
 		return n == nil
 	case *Placeholder:
+		return n == nil
+	case *PlaceholderParam:
 		return n == nil
 	case *QualifiedType:
 		return n == nil
@@ -687,6 +696,12 @@ func childrenOfCall(x *Call, fn func(Node)) {
 		if !absent(e2) {
 			fn(e2)
 		}
+	}
+}
+
+func childrenOfCapture(x *Capture, fn func(Node)) {
+	if !absent(x.Body) {
+		fn(x.Body)
 	}
 }
 
@@ -1428,6 +1443,9 @@ func childrenOfTap(x *Tap, fn func(Node)) {
 	if x.Lambda != nil {
 		fn(x.Lambda)
 	}
+	if x.Capture != nil {
+		fn(x.Capture)
+	}
 }
 
 func childrenOfTestDecl(x *TestDecl, fn func(Node)) {
@@ -1451,6 +1469,9 @@ func childrenOfTestDecl(x *TestDecl, fn func(Node)) {
 func childrenOfThen(x *Then, fn func(Node)) {
 	if x.Lambda != nil {
 		fn(x.Lambda)
+	}
+	if x.Capture != nil {
+		fn(x.Capture)
 	}
 }
 
@@ -1624,6 +1645,7 @@ var generatedTypes = []any{
 	(*Block)(nil),
 	(*Break)(nil),
 	(*Call)(nil),
+	(*Capture)(nil),
 	(*Case)(nil),
 	(*CodepointLit)(nil),
 	(*ConcurrentBlock)(nil),
@@ -1672,6 +1694,7 @@ var generatedTypes = []any{
 	(*PatternBinding)(nil),
 	(*PatternDestructure)(nil),
 	(*Placeholder)(nil),
+	(*PlaceholderParam)(nil),
 	(*QualifiedType)(nil),
 	(*RangeLit)(nil),
 	(*Return)(nil),

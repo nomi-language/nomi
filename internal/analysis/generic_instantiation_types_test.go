@@ -188,16 +188,16 @@ fn demo() -> Int {
 func TestExprTypes_GenericOwnerCallsAndPartialApplication(t *testing.T) {
 	src := `fn demo() -> Int {
   xs = List.concat([1], [2])
-  m = Map.put(Map.empty(), "k", 1)
+  m = Map.put(%{}, "k", 1)
   ys = [3] |> List.concat(xs)
-  f = Iter.map(xs, _)
+  f = &Iter.map(xs, &1)
   zs = f(fn x -> Int.to_string(x)) |> Iter.to_list()
   Iter.count(ys) + Iter.count(zs) + Map.size(m)
 }`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoErrorsT(t, errs)
 	wantRecorded(t, fa, "Call", 2, "List<Int>")
-	wantRecorded(t, fa, "Call", 3, "Map<String, Int>", "Map<String, Int>")
+	wantRecorded(t, fa, "Call", 3, "Map<String, Int>")
 	wantRecorded(t, fa, "Binary", 4, "List<Int>")
 	wantRecorded(t, fa, "Call", 5, "((Int) -> String) -> Iter<String>")
 	wantRecorded(t, fa, "Binary", 6, "List<String>")

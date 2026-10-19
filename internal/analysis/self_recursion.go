@@ -217,9 +217,9 @@ func (r *selfRecursion) isSelfCallee(callee ast.Node) bool {
 }
 
 // call normalizes a call or a pipe into its callee and arguments. ok is
-// false for anything else, for a partial application (`f(_, x)` outside a
-// pipe builds a function rather than calling one), and for a call with
-// explicit type arguments, which may name another instantiation.
+// false for anything else, for a partial capture's call (`&f(&1, x)` builds
+// a function rather than calling one), and for a call with explicit type
+// arguments, which may name another instantiation.
 func call(n ast.Node) (callee ast.Node, args []ast.Node, ok bool) {
 	switch x := unparen(n).(type) {
 	case *ast.Call:
@@ -241,28 +241,7 @@ func call(n ast.Node) (callee ast.Node, args []ast.Node, ok bool) {
 			if len(rhs.TypeArgs) > 0 {
 				return nil, nil, false
 			}
-			filled := false
-			out := make([]ast.Node, 0, len(rhs.Args)+1)
-			for _, a := range rhs.Args {
-				if isPlaceholderArg(a) {
-					if filled {
-						return nil, nil, false
-					}
-					filled = true
-					// A named `_` (`w: _`) passes the piped value by name.
-					if na, named := a.(*ast.NamedArg); named {
-						out = append(out, &ast.NamedArg{Name: na.Name, Value: x.Left, Line: na.Line, Col: na.Col})
-						continue
-					}
-					out = append(out, x.Left)
-					continue
-				}
-				out = append(out, a)
-			}
-			if !filled {
-				out = append([]ast.Node{x.Left}, out...)
-			}
-			return rhs.Func, out, true
+			return rhs.Func, append([]ast.Node{x.Left}, rhs.Args...), true
 		}
 	}
 	return nil, nil, false
@@ -577,9 +556,9 @@ func (r *selfRecursion) mustRecurse(n ast.Node, tail, clean bool) bool {
 	case *ast.Dbg:
 		return r.mustRecurse(x.Expr, false, clean)
 	case *ast.Then:
-		return r.mustRecurse(x.Lambda, false, clean)
+		return r.mustRecurse(x.Fn(), false, clean)
 	case *ast.Tap:
-		return r.mustRecurse(x.Lambda, false, clean)
+		return r.mustRecurse(x.Fn(), false, clean)
 	case *ast.Unary:
 		return r.mustRecurse(x.Right, false, clean)
 	case *ast.FieldAccess:
@@ -702,7 +681,7 @@ func (r *selfRecursion) mayCallUncached(n ast.Node) bool {
 	case nil:
 		return false
 	case *ast.Ident, *ast.TypeIdent, *ast.IntLit, *ast.FloatLit, *ast.DecimalLit,
-		*ast.CodepointLit, *ast.StringLit, *ast.Lambda, *ast.FuncDef, *ast.Placeholder:
+		*ast.CodepointLit, *ast.StringLit, *ast.Lambda, *ast.Capture, *ast.FuncDef, *ast.Placeholder, *ast.PlaceholderParam:
 		return false
 	case *ast.ExprStmt:
 		return r.mayCall(x.Expr)
@@ -792,7 +771,7 @@ func (r *selfRecursion) mayExitUncached(n ast.Node) bool {
 	case nil:
 		return false
 	case *ast.Ident, *ast.TypeIdent, *ast.IntLit, *ast.FloatLit, *ast.DecimalLit,
-		*ast.CodepointLit, *ast.StringLit, *ast.Lambda, *ast.FuncDef, *ast.Placeholder:
+		*ast.CodepointLit, *ast.StringLit, *ast.Lambda, *ast.Capture, *ast.FuncDef, *ast.Placeholder, *ast.PlaceholderParam:
 		return false
 	case *ast.Return, *ast.TryOp, *ast.Break, *ast.Continue:
 		return true
@@ -811,9 +790,9 @@ func (r *selfRecursion) mayExitUncached(n ast.Node) bool {
 	case *ast.Dbg:
 		return r.mayExit(x.Expr)
 	case *ast.Then:
-		return r.mayExit(x.Lambda)
+		return r.mayExit(x.Fn())
 	case *ast.Tap:
-		return r.mayExit(x.Lambda)
+		return r.mayExit(x.Fn())
 	case *ast.FieldAccess:
 		return r.mayExit(x.Object)
 	case *ast.Unary:

@@ -243,8 +243,8 @@ fn lambda_forms() {
 // Pipes — one |> stays inline; two or more break one stage per line
 // ---------------------------------------------------------------------------
 fn pipe_chain(xs: List<Int>) -> List<Int> {
-    Iter.map(xs, fn x -> x + 1)
-    |> Iter.filter(fn x -> x > 0)
+    Iter.map(xs, &(&1 + 1))
+    |> Iter.filter(&(&1 > 0))
     |> Iter.take(10)
     |> Iter.to_list()
 }

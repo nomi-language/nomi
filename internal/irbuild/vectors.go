@@ -83,8 +83,8 @@ import (
 //
 // # What is NOT here
 //
-// `Vector.new` has no row: std declares `Vector.empty()` and no `new`, which is
-// where this differs from `Set`. `Vector.next_item` DOES have one, because std
+// There is no empty constructor: the empty vector is the literal `#[]`
+// (irvector.go). `Vector.next_item` DOES have one, because std
 // declares it as the driver for the `Iter` impl and `vectors_test.nomi`'s doctest
 // reads it — where `Set.next_item` does not exist at all.
 
@@ -112,12 +112,9 @@ type vectorFn struct {
 	ops string
 }
 
-// vectorFuncs is the lowered surface of `std/vectors.nomi`: the six functions of
-// `impl Vector<T>` other than `empty`, plus the five interface members the module
-// declares for the type.
-//
-// `empty` is beside them rather than in the table, because its result type comes
-// from context and not from an argument — setNewCall's split, for its reason.
+// vectorFuncs is the lowered surface of `std/vectors.nomi`: the functions of
+// `impl Vector<T>`, plus the five interface members the module declares for
+// the type.
 //
 // The five interface members are here under their METHOD names because that is
 // how a program spells them: `Vector.equal?(a, b)`, `Vector.to_string(v)`,

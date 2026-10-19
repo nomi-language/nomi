@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover.
-records 150
+records 151
 declared-cases 21
 failing 0
 C bindings-and-expressions.md:L116
@@ -75,20 +75,20 @@ T
 C bindings-and-expressions.md:L302
 E 0
 N 0
-H 8c6dfb5513662047e95ccae0c2b1c0c42a186eaf9a7a80762ce0a67252cd45a9
+H 9cdd8df3d8a08da393ad126b6fb120c24295f5428b46ea8b70c1951c7d44238c
 T dbg line 5: Map.size(scores) = 0
 T dbg line 12:
-T   Map.empty<String, Int>()
+T   Iter.to_map<String, Int>([])
 T   |> Map.size()
 T   = 0
 T
-C bindings-and-expressions.md:L340
+C bindings-and-expressions.md:L342
 E 0
 N 0
 H 43b613d8570e1fd94b76c24cf0c81073887de870e640dc2f2a0eaff21897d114
 T dbg line 8: total = 30
 T
-C bindings-and-expressions.md:L364
+C bindings-and-expressions.md:L366
 E 0
 N 0
 H f3443d8a6076b8cbdaee47df7e54478e1ee5f705d73a1494a47f308b1a9a4b83
@@ -96,7 +96,7 @@ T dbg line 5: size = "small"
 T dbg line 13: label = "many"
 T dbg line 22: range = "medium"
 T
-C bindings-and-expressions.md:L406
+C bindings-and-expressions.md:L408
 E 0
 N 0
 H 2c5d5933a76b066781c055af8e23078df59868d2d4fe8e12893d5bcdbf35e2f7
@@ -275,10 +275,10 @@ T
 C collections.md:L86
 E 0
 N 0
-H f53d3738b6e5a474e130b498522620100f4f9e3b4c35ab6c94dd53b79d901240
+H 713800f9ab33b487bc5bb05b569caee15829c376bd8940e6860186da900c6876
 T dbg line 8:
 T   xs
-T   |> Iter.filter(fn n -> n > 2)
+T   |> Iter.filter(&(&1 > 2))
 T   |> Iter.map(fn n -> n * n)
 T   |> Iter.sum()
 T   = 50
@@ -397,7 +397,14 @@ T dbg line 14: jan31 + Months(1) = 2026-02-28
 T dbg line 15: jan31 - Months(1) = 2025-12-31
 T dbg line 16: leap + Years(1) = 2025-02-28
 T
-C functions-and-lambdas.md:L103
+C functions-and-lambdas.md:L12
+E 0
+N 0
+H f6ccf37ab3ee63b6e0ad8400466695f930c851fb4f99f3d4eb56d58d05d846be
+T dbg line 11: add(3, 4) = 7
+T dbg line 12: abs(-9) = 9
+T
+C functions-and-lambdas.md:L142
 E 0
 N 0
 H 41732bf383823f41415afcdec076d138095dbffa40e2be0721f8b497e57bdd5e
@@ -406,14 +413,7 @@ T dbg line 7: greet("World", "Hi") = "Hi, World!"
 T dbg line 11: add(5) = 15
 T dbg line 12: add(5, 2) = 7
 T
-C functions-and-lambdas.md:L12
-E 0
-N 0
-H f6ccf37ab3ee63b6e0ad8400466695f930c851fb4f99f3d4eb56d58d05d846be
-T dbg line 11: add(3, 4) = 7
-T dbg line 12: abs(-9) = 9
-T
-C functions-and-lambdas.md:L135
+C functions-and-lambdas.md:L174
 E 0
 N 0
 H 5a75baa21186e7996be93bb40480a8abfdcb0f66042a04e61111288d5c50fa29
@@ -421,7 +421,7 @@ T dbg line 6: connect("localhost") = "localhost:8080:30"
 T dbg line 7: connect("localhost", timeout: 10) = "localhost:8080:10"
 T dbg line 8: connect(host: "api", port: 443, timeout: 5) = "api:443:5"
 T
-C functions-and-lambdas.md:L161
+C functions-and-lambdas.md:L200
 E 0
 N 0
 H c27a029891c7432cf7c262c129860a7c469751319f0948f1cdafc8377f219ff1
@@ -429,7 +429,7 @@ T dbg line 22: diff = 7
 T dbg line 23: sum_point(#Point{x: 4, y: 5}) = 9
 T dbg line 24: add_pair(#(20, 22)) = 42
 T
-C functions-and-lambdas.md:L209
+C functions-and-lambdas.md:L248
 E 0
 N 0
 H 1b3f2615e5310cafc065aef3b352e88fdd3769495725b2a187d165775ed4973f
@@ -442,6 +442,15 @@ E 0
 N 0
 H ffd7382a4da6f6b7b5d8175f29b402c24f145e4a6afb3438a7eb313a1b0184c1
 T dbg line 3: inc(41) = 42
+T
+C functions-and-lambdas.md:L72
+E 0
+N 0
+H ac0d090600800bf092984bb9f56b976690266a1af0ddf98b68cc80c6ed65e409
+T dbg line 8: xs |> Iter.filter(&(&1 > 1)) |> Iter.to_list() = [2, 3]
+T dbg line 9: xs |> Iter.map(&(&1 * 2 + 1)) |> Iter.to_list() = [3, 5, 7]
+T dbg line 10: xs |> Iter.map(&#Point{x: &1, y: 0}) |> Iter.to_list() = [#Point{x: 1, y: 0}, #Point{x: 2, y: 0}, #Point{x: 3, y: 0}]
+T dbg line 11: xs |> Iter.map(&Int.max(&1, 2)) |> Iter.to_list() = [2, 2, 3]
 T
 C generics.md:L105
 E 0
@@ -551,14 +560,14 @@ T dbg line 7: #Point{x: 1, y: 2} == #Point{x: 1, y: 2} = True
 T dbg line 8: #Point{x: 1, y: 2} == #Point{x: 1, y: 3} = False
 T dbg line 9: %{#Point{x: 1, y: 2} => "home"} = %{#Point{x: 1, y: 2} => "home"}
 T
-C interfaces-and-dispatch.md:L640
+C interfaces-and-dispatch.md:L637
 E 0
 N 0
 H c28ec0b0d00be6b0bcb91f15e2b02a82c380db8ca91ea3b083e41c50820a9af3
 T dbg line 8: #Money{amount: 100} < #Money{amount: 250} = True
 T dbg line 11: Iter.sort(ms) = [#Money{amount: 1}, #Money{amount: 2}, #Money{amount: 3}]
 T
-C interfaces-and-dispatch.md:L666
+C interfaces-and-dispatch.md:L663
 E 0
 N 0
 H a13f73cc0db59201e1a1ea8d94eb09c1b105cd5dcf56627b6e3cdf1b3224c1c0
@@ -566,14 +575,14 @@ T dbg line 10: Severity.Info < Severity.Warning(1) = True
 T dbg line 11: Severity.Warning(9) < Severity.Error(1) = True
 T dbg line 12: Severity.Warning(1) < Severity.Warning(2) = True
 T
-C interfaces-and-dispatch.md:L698
+C interfaces-and-dispatch.md:L695
 E 0
 N 0
 H 7e19a9e585a20e8395616f4f3df7b35f8674d950cf0296b9b7efeb01617df84e
 T dbg line 20: Coin.variants() = [Penny, Nickel, Dime, Quarter]
 T dbg line 21: Coin.variants() |> Iter.map(cents) |> Iter.to_list() = [1, 5, 10, 25]
 T
-C interfaces-and-dispatch.md:L740
+C interfaces-and-dispatch.md:L737
 E 0
 N 0
 H 6f47c96660718d8ae0829ad5e2b575de50bde592047b8a353886688e1a27f4f3
@@ -727,7 +736,7 @@ T dbg line 26: last(#[1, 2, 3]) = Some(3)
 T dbg line 27: access(%["viewer", "editor"]) = "write and read"
 T dbg line 28: access(%["viewer"]) = "read only"
 T
-C pipes.md:L112
+C pipes.md:L116
 E 0
 N 0
 H b396ae5f545e564664c7eeb54458e8dcb39b1731de010be431e918c0f6aef987
@@ -744,14 +753,14 @@ H 82311262069034c45876e9fcb7dec2c70b3e4d27baf41c85b57a205944c42016
 T dbg line 10: 5 |> double() = 10
 T dbg line 12: 5 |> add(3) = 8
 T
-C pipes.md:L142
+C pipes.md:L146
 E 0
 N 0
 H 8e2f8cbcbab2178f82dc2bf661bbd1dc5133d5b4c5a8cbd25c3cc7242a71610b
 T got 3 words
 T GO NORTH NOW
 T
-C pipes.md:L182
+C pipes.md:L186
 E 0
 N 0
 H 189fe06c5cef0e801006023392fe3183880d7857bad6fba05f3476eeab0150b4
@@ -762,14 +771,14 @@ T   |> try String.to_int()
 T   |> Some()
 T   = Some(42)
 T
-C pipes.md:L207
+C pipes.md:L211
 E 0
 N 1
 H 6466c7087e99d349b351e11d2c93f7b122939dd4b964973e2d18dcfd315aa648
 T ok pipeline result is true
 T test result: ok. 1 passed, 0 failed
 T
-C pipes.md:L222
+C pipes.md:L226
 E 0
 N 0
 H 0a300ca641470706b3816d9253e603d7598f7dc0842d3061ab00b0735009166d
@@ -802,20 +811,20 @@ T
 C pipes.md:L61
 E 0
 N 0
-H 99bc577b14cfb5d9f5c0be4726bdd036ed3836dc94da4a8568cb091250e5d7d6
-T dbg line 3: Iter.count(Iter.filter([1, 2, 3, 4, 5], fn n -> n > 2)) = 3
+H 25bb188bbd86e71039fcccc607f51c8387162f126c4b8e226329b31ea6d59f88
+T dbg line 3: Iter.count(Iter.filter([1, 2, 3, 4, 5], &(&1 > 2))) = 3
 T dbg line 9:
 T   [1, 2, 3, 4, 5]
-T   |> Iter.filter(fn n -> n > 2)
+T   |> Iter.filter(&(&1 > 2))
 T   |> Iter.count()
 T   = 3
 T
-C pipes.md:L91
+C pipes.md:L92
 E 0
 N 0
-H 2dbb8dfa2af6f8bcae5982cd021ab5c69b6d17d6a4aa7d625d02af530b0f92df
-T dbg line 6: 10 |> divide(100, _) = 10
-T dbg line 7: 100 |> divide(y: 4, x: _) = 25
+H 2876bfc0caac1aefa2e0bbe450a2ecc97317495c62355a74ae265d0bd8f46996
+T dbg line 6: 10 |> then &divide(100, &1) = 10
+T dbg line 7: 100 |> then &divide(y: 4, x: &1) = 25
 T
 C scalars-and-strings.md:L121
 E 0

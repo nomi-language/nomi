@@ -37,3 +37,18 @@ func listHost(key string) hostFn {
 		return nil, fmt.Errorf("vm: unsupported list host %s", key)
 	}
 }
+
+// listContainsHost is `List.contains?`: rt's cell walk comparing each element
+// with x as `==` does (keys.go), so a List of declared records reaches their
+// own Equatable and every other element is compared in rt, with no Nomi call.
+func listContainsHost(mach *Machine, _ ir.Pos, args []any) (_ any, err error) {
+	defer recoverKey(&err)
+	if len(args) != 2 {
+		return nil, fmt.Errorf("vm: List.contains?: expected 2 operands, got %d", len(args))
+	}
+	xs, ok := args[0].(*list)
+	if !ok {
+		return nil, fmt.Errorf("vm: List.contains?: operand 1 is %T, want List", args[0])
+	}
+	return rt.ListCellContains[any, list](xs, args[1], mach.keysOver(nil, args[1]).EqualFunc()), nil
+}

@@ -110,7 +110,7 @@ test "bare std variants and attached literals" {
 }
 
 test "partial application and lambda patterns" {
-  add1 = add(1, _)
+  add1 = &add(1, &1)
   assert add1(9) == 10
   doubled =
     [Dur(1), Dur(2)]

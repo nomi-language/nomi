@@ -27,7 +27,7 @@ impl Store for SqliteStore {
 
         rows = try query_all(conn, Sql"SELECT id, title, created, status FROM tasks")
 
-        Iter.reduce(rows, fn tasks = Ok(Map.empty()), row -> {
+        Iter.reduce(rows, fn tasks = Ok(%{}), row -> {
             tasks = try tasks
             task = try parse_row(row)
             Ok(Map.put(tasks, task.id, task))

@@ -10,8 +10,8 @@ package irbuild
 //
 // # Why a desugaring and not its own lowering
 //
-// A pipe's decisions — which function the stage names, whether a placeholder
-// claims the piped slot, whether a trailing lambda routes past a defaulted
+// A pipe's decisions — which function the stage names, whether a trailing
+// lambda routes past a defaulted
 // parameter — are all properties of the call, and gen.call already makes all
 // of them for a call that was written directly. Reimplementing them here would
 // be a second call lowering whose only distinguishing feature is that it can

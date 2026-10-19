@@ -6,7 +6,7 @@ pub fn steps(number: Int) -> Result<Int, String> {
     }
 
     Iter.iterate(number, next)
-    |> Iter.take_while(fn n -> n != 1)
+    |> Iter.take_while(&(&1 != 1))
     |> Iter.count()
     |> Ok()
 }

@@ -99,25 +99,16 @@ type ifaceDef struct {
 	// declaration rather than one of its functions — and this field is the rule
 	// applied there rather than a new one.
 	//
-	// It is a SECOND FIELD instead of flipping `lowerable`, and the difference
-	// is a wrong-answer boundary rather than bookkeeping. `lowerable` is read
+	// It is a SECOND FIELD instead of flipping `lowerable`. `lowerable` is read
 	// by `typeOf`'s interface arms and `inferred.go`'s `solvedIface` arm to
-	// decide whether a value may be ERASED to this interface, and a generic one
-	// cannot: `existential(d)` takes its identity from the `*ifaceDef` POINTER,
-	// so `Chooser<Int>` and `Chooser<String>` would be one existential kind and
-	// one dispatch table. `registerImplDef` reads it to refuse an impl block of
-	// an interface whose requirements this builder has not checked. Every one of
-	// those answers must stay NO. The only thing that changes is whether the
-	// DECLARATION spends a refusal on something the file may never reach, as
-	// when a file declares one generic interface, implements it nowhere, and
-	// calls it never.
-	//
-	// A call through a generic interface on a CONCRETE receiver
-	// (`Chooser.left(#Pair{a: 10, b: 20})`) does lower, but not through this
-	// def: the impl block binds a per-instantiation def that `resolveIface`
-	// resolves under the impl's substitution (ifaceinst.go), and the call
-	// reaches that impl's item directly. This def is the TEMPLATE, and keeping
-	// its `lowerable` false keeps the erased routes above shut.
+	// decide whether a value may be ERASED to this interface, and the TEMPLATE
+	// may not: `existential(d)` takes its identity from the `*ifaceDef`
+	// pointer, so a value held as `Chooser` with no arguments would be one
+	// existential for every instantiation. A value held as `Chooser<Int>` is
+	// the existential of that instantiation's own def, and a call on a
+	// concrete receiver reaches the impl block's instance (ifaceinst.go). The
+	// only thing this field changes is whether the DECLARATION spends a
+	// refusal on something the file may never reach.
 	useSiteOnly bool
 	// stdShared marks one of stdIfaceDefs' PROCESS-WIDE defs, set in exactly one
 	// place — that table's builder — and nowhere else.
@@ -163,14 +154,13 @@ type ifaceDef struct {
 	// decides whether one of its defaults means the same thing here.
 	unit int
 	// instOf is the generic interface DECLARATION this def is an instantiation
-	// of, or nil for an ordinary def.
-	//
-	// Its one reader is resolveIface, which mints no dispatch table for an
-	// instance. Two instances of one template would otherwise mint two tables
-	// from one declaration and neither would ever be DECLARED — `ifaceDecl`
-	// walks `g.ifaceOrder`, which holds the TEMPLATE — so a lowered call would
-	// name a table that does not exist. See ifaceinst.go.
+	// of, or nil for an ordinary def. An instance's dispatch symbols are named
+	// by the template and its arguments (instMethodSym). See ifaceinst.go.
 	instOf *ast.InterfaceDef
+	// instArgs is an instance's type arguments, in the template's parameter
+	// order; nil for an ordinary def. With instOf it is the instance's
+	// identity (ifaceInstKey).
+	instArgs []kind
 }
 
 // ifaceMethod is one function an interface declares, required or default.
@@ -215,6 +205,13 @@ func (m *ifaceMethod) hasTable() bool { return m.table }
 
 // implDef is one `impl Iface for Type` or inherent `impl Type` block.
 type implDef struct {
+	// siblingTemplate is the other file's template a block over it is
+	// registered per instance for; the block itself lowers nothing.
+	siblingTemplate *genericTemplate
+	// stdRecvTemplate is the block over a std generic container this def
+	// stands for; it lowers nothing, and each container kind a call needs
+	// registers a def of its own (stdrecvimpl.go).
+	stdRecvTemplate *stdRecvTemplate
 	// ifaceName is the interface as written, "" for an inherent block. It is
 	// recorded even when the interface is NOT declared in this module — an
 	// `impl Debug for Member` still lowers its function, and
@@ -235,6 +232,11 @@ type implDef struct {
 	// registering frame was popped, and a monomorphized default BODY is exactly
 	// where a type parameter still has to resolve. See ifaceinst.go.
 	ifaceSubst map[string]kind
+	// instArgs is the interface type arguments this block implements, in
+	// the interface's parameter order, or nil for a non-generic interface or
+	// one whose arguments are not known here. A receiver may implement one
+	// generic interface at several, each a block of its own (instimpl.go).
+	instArgs []kind
 	// oper is the stdlib OPERATOR interface this block implements, or nil.
 	// Non-nil marks the one family that is registered in `g.operImpls` instead
 	// of in `g.implsByIface`, because a receiver may carry SEVERAL impls of one
@@ -487,11 +489,10 @@ func (g *gen) resolveIface(d *ifaceDef) {
 		// under — but a call keyed by a concrete type ARGUMENT can, which is
 		// where a bounded `T.zero()` looks. See dict.go.
 		//
-		// An INSTANCE of a generic interface mints none, and that clause is not
-		// a policy choice: `ifaceDecl` declares a table variable for the defs
-		// in `g.ifaceOrder`, which holds the TEMPLATE, so an instance's table
-		// would be named by a lowered call and declared nowhere. See ifaceinst.go.
-		if gap, _ := g.methodSignatureGap(im, m); gap == "" && d.instOf == nil {
+		// An INSTANCE of a generic interface has its own: `Gets<String>.got`
+		// and `Gets<Int>.got` are two tables, so a value held as either
+		// dispatches to the impl at its own arguments. See ifaceinst.go.
+		if gap, _ := g.methodSignatureGap(im, m); gap == "" {
 			m.table = true
 		}
 		d.methods[im.Name] = m
@@ -710,6 +711,17 @@ func (g *gen) registerImpl(ib *ast.ImplBlock) {
 		// owner functions. See ownerimpl.go.
 		return
 	}
+	if tpl, ok := g.siblingImplTemplate(ib); ok {
+		// An impl over another file's generic type, registered per instance.
+		// See siblingtemplateimpl.go.
+		g.registerSiblingTemplateImpl(d, ib, tpl)
+		return
+	}
+	if g.registerStdRecvTemplate(d, ib) {
+		// An impl over a std generic container, registered per container
+		// kind when a call needs it. See stdrecvimpl.go.
+		return
+	}
 	if len(ib.Generics) > 0 || len(ib.WhereClauses) > 0 {
 		d.lowerable, d.why, d.whyDetail = false, "generic impl block", typeText(ib.Receiver)
 		return
@@ -746,27 +758,17 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 		// A GENERIC interface, monomorphized at this block's type arguments.
 		// Asked FIRST, and the order is the whole safety argument: the template
 		// def below is deliberately unlowerable, so falling through would
-		// refuse the very block this instantiation serves.
-		//
-		// The RECEIVER is resolved here rather than taken from below, because an
-		// instance's identity is (block, receiver) — one block on a generic
-		// receiver is registered once per INSTANTIATION, and keying on the block
-		// alone would hand the second instantiation the first's bindings. Asking
-		// `receiverKind` is the same question the arm below asks and it declines
-		// identically; a generic receiver only ever arrives through
-		// `registerImplAt`, which supplies `recv` directly. See ifaceinst.go.
+		// refuse the very block this instantiation serves. The instance is
+		// the template at the block's type arguments, solved under the frame
+		// a generic receiver's instance was registered at. See ifaceinst.go.
 		if tpl := g.ifaceTemplate(name); tpl != nil {
-			instRecv := recv
-			// kindInvalid: sentinel — the caller's "resolve it yourself" request, not an operand.
-			if instRecv == kindInvalid {
-				instRecv, _ = g.receiverKind(ib.Receiver)
-			}
-			inst, why, detail := g.ifaceInstanceFor(tpl, ib, instRecv)
+			inst, why, detail := g.ifaceInstanceFor(tpl, ib)
 			if why != "" {
 				d.lowerable, d.why, d.whyDetail = false, why, detail
 				return
 			}
 			d.iface, d.ifaceSubst = inst.def, inst.subst
+			d.instArgs = ifaceTemplateArgs(tpl, inst.subst)
 			// Live for every item signature AND for inheritDefaults below: an
 			// item's annotation may name `T` and an inherited default's
 			// parameter kinds are the INSTANCE's, already substituted.
@@ -797,9 +799,20 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 			// comment exists to prevent. The divert is at the LAST step, the
 			// registration — see the `d.oper != nil` arm there.
 			g.admitOperImpl(d, ib, name)
-			if _, explicit := ifaceHeaderArgs(ib.Interface); explicit && d.oper == nil {
-				d.lowerable, d.why, d.whyDetail = false, "generic interface impl", typeText(ib.Interface)
-				return
+			if gt, explicit := ifaceHeaderArgs(ib.Interface); explicit && d.oper == nil {
+				// `impl Contains<Regex> for Text`: a std or sibling generic
+				// interface at written arguments. The items carry their own
+				// signatures; the arguments are the block's identity among
+				// the receiver's impls of the interface (instimpl.go).
+				args := make([]kind, len(gt))
+				for i, te := range gt {
+					// kindInvalid: lookup — an argument this builder cannot name declines the block.
+					if args[i] = g.typeOf(te); args[i] == kindInvalid {
+						d.lowerable, d.why, d.whyDetail = false, "generic interface impl", typeText(ib.Interface)
+						return
+					}
+				}
+				d.instArgs = args
 			}
 		}
 		if d.iface == nil {
@@ -827,7 +840,7 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 	// kindInvalid: sentinel — an in-band request, never an operand.
 	if recv == kindInvalid {
 		var ok bool
-		recv, ok = g.receiverKind(ib.Receiver)
+		recv, ok = g.receiverKind(ib)
 		if !ok {
 			// The RECEIVER's own reason, exactly as the interface arm above
 			// reports the INTERFACE's. An impl block adds no reason of its own
@@ -909,6 +922,9 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 		byRecv = map[kind]*implDef{}
 		g.implsByIface[d.ifaceName] = byRecv
 	}
+	if g.registerInstImpl(byRecv, d) {
+		return
+	}
 	if prior, dup := byRecv[d.recv]; dup {
 		// Two impls of one interface for one type is a coherence error the
 		// analyzer rejects. Refusing both rather than picking is the same rule
@@ -925,9 +941,22 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 // A builtin scalar is admitted: `impl Numberish for Int` is legal under the
 // orphan rule as long as the interface is local, and it is precisely the case a
 // Go method could not express.
-func (g *gen) receiverKind(te ast.TypeExpr) (kind, bool) {
+func (g *gen) receiverKind(ib *ast.ImplBlock) (kind, bool) {
+	te := ib.Receiver
 	switch q := te.(type) {
 	case *ast.SimpleType:
+	case *ast.GenericType:
+		// `impl Show for List<Int>`: a std container at concrete arguments,
+		// for an interface of the program's own (stdrecvimpl.go). A user
+		// generic type's receiver is its template's (genericimpl.go).
+		if !g.programIface(ib) {
+			return kindInvalid, false
+		}
+		k := g.typeOf(te)
+		if _, _, std := stdRecvParts(k); !std {
+			return kindInvalid, false
+		}
+		return k, true
 	case *ast.QualifiedType:
 		// `impl Display for lib.Dog`: another file's type, which this file
 		// may give an impl of an interface it declares or std declares.
@@ -1320,7 +1349,7 @@ func (g *gen) implDecl(ib *ast.ImplBlock) {
 		g.rejectWithheldItems(d, ib)
 		return
 	}
-	if g.isGenericImplTemplate(ib) {
+	if g.isGenericImplTemplate(ib) || d.siblingTemplate != nil || d.stdRecvTemplate != nil {
 		// A TEMPLATE, not an impl. Lowers nothing and REFUSES nothing, which is
 		// funcDecl's rule for a monomorphized generic `fn` verbatim: a template
 		// is not a function, it is a rule for making them. Every instance is

@@ -95,7 +95,7 @@ fn total(v: Vector<Int>) -> Int {
 }
 
 fn pair_of(a: String, b: String) -> Vector<String> {
-    Vector.push(Vector.push(Vector.empty(), a), b)
+    Vector.push(Vector.push(#[], a), b)
 }
 
 fn main() {
@@ -176,7 +176,7 @@ fn main() {
     // WRAPPING. Forty large Ints, so std's `Int.wrapping_mul(acc, 31)` overflows
     // many times over. A checked `*` would TRAP here.
     big = Iter.to_vector(
-        Iter.map(1..41, fn n -> n * 1000000000000000)
+        Iter.map(1..41, &(&1 * 1000000000000000))
         |> Iter.to_list()
     )
 
@@ -237,12 +237,12 @@ fn main() {
     io.print("pair ${pair_of("x", "y")}")
 
     // --- Iter over a Vector at two and three stages -------------------------
-    io.print("iter2 ${#[1, 2, 3] |> Iter.map(fn n -> n * 2) |> Iter.to_list()}")
+    io.print("iter2 ${#[1, 2, 3] |> Iter.map(&(&1 * 2)) |> Iter.to_list()}")
 
     io.print(
         "iter3 ${#[1, 2, 3, 4]
-        |> Iter.map(fn n -> n * 2)
-        |> Iter.filter(fn n -> n > 4)
+        |> Iter.map(&(&1 * 2))
+        |> Iter.filter(&(&1 > 4))
         |> Iter.to_list()}"
     )
 
@@ -252,7 +252,7 @@ fn main() {
     // predicate over the same Vector source through the same adapter chain.
     io.print(
         "iter filter ${#["ada", "grace"]
-        |> Iter.filter(fn s -> String.contains?(s, "ace"))
+        |> Iter.filter(&String.contains?(&1, "ace"))
         |> Iter.count()}"
     )
 

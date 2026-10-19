@@ -37,10 +37,22 @@ func TestCompletion_ConstructorsOfTheExpectedType(t *testing.T) {
 			nil,
 		},
 		{
-			"generic binding instantiated against the annotation",
+			"a map offers its empty literal",
 			"fn f() -> Int {\n    m: Map<String, Int> = " + cursorMark + "\n    1\n}\n",
-			"Map.empty", "Map.empty()$0",
-			[]string{"Map.put", "Map.merge", "Map.map_values"},
+			"%{}", "%{}",
+			[]string{"Map.put", "Map.merge", "Map.map_values", "Map.empty"},
+		},
+		{
+			"a set offers its empty literal",
+			"fn f() -> Int {\n    s: Set<Int> = " + cursorMark + "\n    1\n}\n",
+			"%[]", "%[]",
+			[]string{"Set.insert", "Set.new"},
+		},
+		{
+			"a vector offers its empty literal",
+			"fn f() -> Int {\n    v: Vector<Int> = " + cursorMark + "\n    1\n}\n",
+			"#[]", "#[]",
+			[]string{"Vector.push", "Vector.empty"},
 		},
 		{
 			"Result of the type offers its owner's Result constructors",
@@ -71,10 +83,10 @@ func TestCompletion_ConstructorsOfTheExpectedType(t *testing.T) {
 }
 
 func TestCompletion_ConstructorsRankAfterFittingLocals(t *testing.T) {
-	src := "fn f() -> Int {\n    word = \"a\"\n    base: Map<String, Int> = Map.empty()\n    m: Map<String, Int> = " + cursorMark + "\n    1\n}\n"
+	src := "fn f() -> Int {\n    word = \"a\"\n    base: Map<String, Int> = %{}\n    m: Map<String, Int> = " + cursorMark + "\n    1\n}\n"
 	items := complete(t, src)
-	labelsBefore(t, items, "base", "Map.empty")
-	labelsBefore(t, items, "Map.empty", "word")
+	labelsBefore(t, items, "base", "%{}")
+	labelsBefore(t, items, "%{}", "word")
 }
 
 func TestCompletion_ConstructorsMatchTheFunctionName(t *testing.T) {
@@ -116,7 +128,7 @@ func TestCompletion_NoConstructorsWithoutANominalExpectedType(t *testing.T) {
 func TestCompletion_ConstructorsPlainTextFallback(t *testing.T) {
 	tests := []struct{ src, label, text string }{
 		{"import std/duration.Duration\n\nfn f() -> Int {\n    d: Duration = " + cursorMark + "\n    1\n}\n", "Duration.seconds", "Duration.seconds"},
-		{"fn f() -> Int {\n    m: Map<String, Int> = " + cursorMark + "\n    1\n}\n", "Map.empty", "Map.empty()"},
+		{"fn f() -> Int {\n    m: Map<String, Int> = " + cursorMark + "\n    1\n}\n", "%{}", "%{}"},
 		{"import std/calendar.Date\n\nfn f() -> Int {\n    d: Date = " + cursorMark + "\n    1\n}\n", `Date"2026-05-04"`, `Date"2026-05-04"`},
 	}
 	for _, tt := range tests {

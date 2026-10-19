@@ -32,7 +32,7 @@ struct Member {
 
 fn size(node: Node) -> Int {
     node.children
-    |> Iter.map(fn child -> size(child))
+    |> Iter.map(&size(&1))
     |> Iter.reduce(fn total = 1, n -> total + n)
 }
 
@@ -44,7 +44,7 @@ fn length(link: Link) -> Int {
 }
 
 fn leaf(head: Int) -> Stream {
-    #Stream{head, rest: Iter.repeat(head) |> Iter.take(0) |> Iter.map(fn n -> leaf(n))}
+    #Stream{head, rest: Iter.repeat(head) |> Iter.take(0) |> Iter.map(&leaf(&1))}
 }
 
 test "a struct holds itself through a List" {
@@ -78,7 +78,9 @@ test "a struct holds itself through a Maybe" {
 test "a struct holds itself through a Map" {
     root = #Dir{
         name: "/",
-        entries: %{"usr" => #Dir{name: "usr", entries: Map.empty()}},
+        entries: %{
+            "usr" => #Dir{name: "usr", entries: %{}},
+        },
     }
 
     assert Map.size(root.entries) == 1

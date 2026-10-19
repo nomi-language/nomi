@@ -24,7 +24,7 @@
 //
 // # THE `env` DEFAULT IS NOT OBSERVABLE HERE, AND THAT IS WORTH STATING
 //
-// `RunFile.env` is declared `Map<String, String> = Map.empty()`, so the builder
+// `RunFile.env` is declared `Map<String, String> = %{}`, so the builder
 // must supply a value where a construction site omits the field. It does — see
 // stdEmptyMapDefault — and NO OUTPUT IN THIS FIXTURE CAN TELL whether it did,
 // because an omitted `rt.Map` field's zero value IS a perfectly good empty
@@ -35,7 +35,7 @@
 // This is the failure mode the contract calls "a default whose value is the zero
 // value collapses three derivations into one observation", and the honest answer
 // is that the default is guarded somewhere else: `stdStructSpec.matches` requires
-// std's declared default to have the shape `Map.empty()`, and
+// std's declared default to have the shape `%{}`, and
 // TestStdStructSpecsMatchStdSource fails if it does not — at which point NO
 // anchor is built and every mention of `RunFile` refuses loudly. So a std edit to
 // that default is caught; a missing builder default is not, and could not be by
@@ -82,7 +82,7 @@ fn main() {
     // --- 2. THE EXPLICIT-EMPTY PATH, same observation, different derivation --
     // Identical output to row 1 BY CONSTRUCTION. Present so the coincidence is in
     // the fixture rather than in a reader's head; see the header.
-    io.print("explicit_empty = " + out(#RunFile{entry_point: "target", env: Map.empty()}))
+    io.print("explicit_empty = " + out(#RunFile{entry_point: "target", env: %{}}))
 
     // --- 3. THE ENV ACTUALLY ARRIVES ---------------------------------------
     // The only row that distinguishes "env is threaded" from "env is dropped".

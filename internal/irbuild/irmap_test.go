@@ -84,7 +84,7 @@ func TestIRMap_FunctionValuedFieldRuns(t *testing.T) {
 struct Point { x: Int }
 struct Outer {
   p: List<Point>
-  hooks: Map<String, (Int) -> Int> = Map.empty()
+  hooks: Map<String, (Int) -> Int> = %{}
 }
 fn main() {
   m = %{"a" => 1}

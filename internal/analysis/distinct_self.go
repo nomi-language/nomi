@@ -184,7 +184,7 @@ func (c *checker) checkSelfCall(n *ast.Call) Type {
 	c.fa.recordExprType(callee, &FuncType{Params: []Type{inner}, Return: selfTy})
 	if callHasPlaceholder(n.Args) {
 		c.checkArgs(n.Args)
-		c.addError(callee.Line, callee.Col, "`self` is already the constructor function; write `self` instead of `self(_)`")
+		c.addError(callee.Line, callee.Col, "`self` is already the constructor function; write `self` instead of `self(&1)`")
 		return selfTy
 	}
 	if len(n.Args) != 1 || isNamedArg(n.Args[0]) {

@@ -971,6 +971,22 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 		}
 		return no()
 	}
+	if v, rk, mobile, ok, handled := bl.stdRecvKindCall(t, k, method); handled {
+		// `T.zero(n)` at a `List<Int>`, `Zero.zero<Maybe<Int>>(1)`: the
+		// program's impl over the container. See stdrecvimpl.go.
+		return v, rk, mobile, ok, true
+	}
+	if method == "contains?" && (base == "Set" || base == "Map" || base == "List" || base == "Vector") {
+		// `C.contains?(c, x)` at a Set, Map, List or Vector: the impl is the
+		// intrinsic the owner-qualified call reaches (`Set.contains?`), not
+		// a body to instantiate.
+		call := *t
+		call.TypeArgs = nil
+		call.Func = &ast.FieldAccess{Object: &ast.TypeIdent{Name: base, Line: fa.Line, Col: fa.Col},
+			Field: fa.Field, Line: fa.Line, Col: fa.Col}
+		v, rk, mobile, ok := bl.lower(&call)
+		return v, rk, mobile, ok, true
+	}
 	f := bl.g.stdGenericTemplate(base, method)
 	if f == nil {
 		return no()
@@ -1262,7 +1278,7 @@ func irUnsolvedIfaceArg(t analysis.Type) bool {
 
 // projectFilledHoles is the kind of ty with the holes the checker left open
 // filled as a user generic call's are (checkedMonoTypeArgsFilled): a hole
-// that is a collection's element or key (`Map.empty()`'s, `[]`'s) as Int, the
+// that is a collection's element or key (`%{}`'s, `[]`'s) as Int, the
 // representation of an element the program never holds, and any other hole
 // (`Ok(1)`'s error type) as Unit. It answers kindInvalid when the filled
 // type has no representation.

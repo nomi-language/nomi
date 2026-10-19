@@ -254,8 +254,9 @@ fn helper_use() -> List<Int> {
 }
 
 fn placeholder_use() -> (Int) -> Int {
-    add(1, _)
-    //     ^ variable
+    &add(1, &1)
+    // <- keyword
+    //      ^ variable.parameter
 }
 
 fn once_use() -> Maybe<Int> {

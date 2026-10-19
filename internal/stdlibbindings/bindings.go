@@ -237,6 +237,7 @@ func RtFuncs() []Binding {
 		{Name: "bytes.Bytes.concat", Fn: rt.BytesConcat},
 		{Name: "bytes.Bytes.to_string", Fn: rt.BytesToString},
 		{Name: "bytes.Bytes.hash", Fn: rt.BytesHash},
+		{Name: "bytes.Bytes.contains?", Fn: rt.BytesContains},
 		{Name: "strings.String.to_bytes", Fn: rt.StringToBytes},
 		{Name: "int.Int.to_string", Fn: rt.FormatInt},
 		{Name: "int.Int.to_float", Fn: rt.IntToFloat},

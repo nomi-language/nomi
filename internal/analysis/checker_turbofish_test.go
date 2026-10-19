@@ -17,7 +17,7 @@ fn ident<T>(x: T) -> T {
 }
 
 fn main() {
-  _ = Map.size(Map.empty<String, Nope>())
+  _ = Map.size(Map.put<String, Nope>(%{}, "a", 1))
   _ = ident<Nope>(1)
   type Meters Int
   _ = ident<Meters>(Meters(2))
@@ -28,7 +28,7 @@ fn main() {
 		got = append(got, fmt.Sprintf("%d:%d %s", e.Line, e.Col, e.Message))
 	}
 	want := []string{
-		`7:34 unknown type "Nope"`,
+		`7:32 unknown type "Nope"`,
 		`8:13 unknown type "Nope"`,
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {

@@ -68,6 +68,9 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 	if !args.ok {
 		return nil
 	}
+	if method == "contains?" {
+		return bl.seqContainsPlan(t, args, "Vector")
+	}
 	switch method {
 	case "length", "get", "at", "push", "concat", "set", "next_item":
 	default:

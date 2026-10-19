@@ -128,7 +128,7 @@ const (
 	// EMITTED function values rather than anything the tag carries, because a
 	// Nomi map key is compared structurally and not by any user impl.
 	tagMap
-	// tagEmptyMap is `Map.empty()` before its type arguments are known — the
+	// tagEmptyMap is `%{}` before its type arguments are known — the
 	// third untyped literal, alongside tagEmptyList and tagBareNone, and it
 	// exists for the same reason: the checker solves the type from context and
 	// coerce discharges it at the one place that context is known.
@@ -197,7 +197,7 @@ var (
 	// kindBareNone is the prelude `None` before its type argument is known.
 	// See prelude.go: it exists only to be discharged by coerce.
 	kindBareNone = kind{tag: tagBareNone}
-	// kindEmptyMap is `Map.empty()` before its type arguments are known. Its
+	// kindEmptyMap is `%{}` before its type arguments are known. Its
 	// Go type is the only one an entry-less map can be given, and it is never
 	// wrong because there is no entry to observe. See maps.go.
 	kindEmptyMap = kind{tag: tagEmptyMap}
@@ -729,6 +729,13 @@ type gen struct {
 	// them by (interface spelling, receiver kind) for dispatch.
 	implOrder    []*implDef
 	implsByIface map[string]map[kind]*implDef
+	// instImpls holds the impls of a generic interface a receiver implements
+	// at several type arguments (`impl Contains<String> for Text` beside
+	// `impl Contains<Regex> for Text`), keyed (interface, receiver), each
+	// at its own instArgs. Such a receiver has no implsByIface entry for the
+	// interface, so a lookup there never answers one of several; a call
+	// selects among these (instimpl.go).
+	instImpls map[string]map[kind][]*implDef
 	// erasedInstances are the generic struct instances this unit holds as
 	// an interface's existential (irErases), whose per-instance impls
 	// irInstanceImpls records for the VM's dispatch.
@@ -852,6 +859,9 @@ type gen struct {
 	// the binding lowers its own lambda before anything else can ask.
 	lambdaWantFor *ast.Lambda
 	lambdaWant    kind
+	// holeSubst names, while a capture's body lowers, the parameter each
+	// of its `&N`s is read as (capture.go).
+	holeSubst map[ast.Node]string
 	// unitFnLambda is the lambda a nested Unit `fn` is lowering as: its
 	// body may end in a `dbg` observation, whose value is discarded.
 	unitFnLambda *ast.Lambda
@@ -932,9 +942,17 @@ type gen struct {
 	// instantiation's identity there, which is the property genericInstKey
 	// establishes. See foreign.go's importGenericInstance.
 	foreignInstDefs map[*typeDef]*typeDef
-	importWhy       string
-	typesBusy       bool
-	typesDone       bool
+	// siblingInstDone is each (impl block, owner instance) pair registered
+	// here for another file's template. See siblingtemplateimpl.go.
+	siblingInstDone map[siblingInstKey]bool
+	// stdRecvTemplates are this file's impl blocks over a std generic
+	// container, and stdRecvDone each one registered at one of its kinds
+	// (nil when it declined there). See stdrecvimpl.go.
+	stdRecvTemplates []*stdRecvTemplate
+	stdRecvDone      map[stdRecvKey]*implDef
+	importWhy        string
+	typesBusy        bool
+	typesDone        bool
 	// building is the type group this file's types are built in, a group
 	// of this file alone when it is on no cycle; nil until the build starts
 	// and for a stdlib module. See typecycle.go.

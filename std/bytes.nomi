@@ -1,6 +1,7 @@
 import {
     add.Add
     bool.Bool
+    contains.Contains
     debug.Debug
     display.Display
     equatable.Equatable
@@ -152,6 +153,19 @@ impl Iter for Bytes {
     //! |> Iter.to_list() == [97, 98]
     //
     host fn each_while(data: Bytes, yield: (Byte) -> Bool) -> Bool
+}
+
+impl Contains for Bytes {
+    /// True if a byte of the buffer equals `x`. A linear scan that the runtime
+    /// runs.
+    //! a = try Byte.from_int(97)
+    //! b = try Byte.from_int(98)
+    //! z = try Byte.from_int(122)
+    //! assert Bytes.contains?(Bytes.from_list([a, b]), b)
+    //! refute Bytes.contains?(Bytes.from_list([a, b]), z)
+    //! refute Bytes.contains?(Bytes.from_list([]), a)
+    //
+    host fn contains?(c: Bytes, x: Byte) -> Bool
 }
 
 impl Add<Bytes, Bytes> for Bytes {

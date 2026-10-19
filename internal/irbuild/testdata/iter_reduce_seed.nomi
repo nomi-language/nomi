@@ -30,7 +30,7 @@ fn main() {
     io.print("${Iter.reduce(empty, fn acc = 42, x -> acc + x)}")
 
     // Through a lazy pipeline, so the seed survives an erased source.
-    io.print("${[1, 2, 3] |> Iter.map(fn x -> x * 10) |> Iter.reduce(fn acc = 5, x -> acc + x)}")
+    io.print("${[1, 2, 3] |> Iter.map(&(&1 * 10)) |> Iter.reduce(fn acc = 5, x -> acc + x)}")
     io.print("${Iter.from(1) |> Iter.take(4) |> Iter.reduce(fn acc = 1000, x -> acc + x)}")
 
     // A COMPOSITE seed. `[9]` is a non-empty list, so a dropped seed prints

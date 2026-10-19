@@ -117,7 +117,7 @@ fn load_map(path: String) -> Result<Map<Int, TodoTask>, String> {
 
         Err(e) ->
             case e {
-                #IOError.NotFound{path: _} -> Ok(Map.empty())
+                #IOError.NotFound{path: _} -> Ok(%{})
                 #IOError.Other{reason} -> Err(reason)
             }
     }
@@ -153,10 +153,10 @@ fn deserialize(content: String) -> Result<Map<Int, TodoTask>, String> {
     trimmed = String.trim(content)
 
     if String.length(trimmed) == 0 {
-        Ok(Map.empty())
+        Ok(%{})
     } else {
         String.split(trimmed, "\n")
-        |> Iter.reduce(fn acc = Ok(Map.empty()), line -> {
+        |> Iter.reduce(fn acc = Ok(%{}), line -> {
             case acc {
                 Err(e) ->
                     Err(e)

@@ -1,6 +1,7 @@
 import {
     add.Add
     bool.Bool.{self, True}
+    contains.Contains
     debug.Debug
     display.Display
     equatable.Equatable
@@ -21,14 +22,6 @@ pub opaque struct Set<T> {
 }
 
 impl Set<T> {
-    /// The empty set.
-    //! s: Set<Int> = Set.new()
-    //! assert Set.size(s) == 0
-    //
-    pub fn new<T>() -> Set<T> {
-        #Set{items: Map.empty()}
-    }
-
     /// Returns a new set with `elem` added (no-op if already present).
     //! assert Set.insert(%[1, 2], 3) == %[1, 2, 3]
     //! assert Set.insert(%[1, 2], 2) == %[1, 2]
@@ -43,14 +36,6 @@ impl Set<T> {
     //
     pub fn remove<T>(s: Set<T>, elem: T) -> Set<T> {
         #Set{items: Map.remove(s.items, elem)}
-    }
-
-    /// True if `elem` is a member of the set.
-    //! assert Set.contains?(%[1, 2], 1)
-    //! refute Set.contains?(%[1, 2], 9)
-    //
-    pub fn contains?<T>(s: Set<T>, elem: T) -> Bool {
-        Map.contains_key?(s.items, elem)
     }
 
     /// The number of elements. O(1) — the set's own count; the generic count is
@@ -72,7 +57,7 @@ impl Set<T> {
     //! assert Set.intersection(%[1, 2], %[2, 3]) == %[2]
     //
     pub fn intersection<T>(a: Set<T>, b: Set<T>) -> Set<T> {
-        Iter.filter(a, fn e -> Set.contains?(b, e)) |> Iter.to_set()
+        Iter.filter(a, &Set.contains?(b, &1)) |> Iter.to_set()
     }
 
     /// Elements in `a` but not `b`. `a - b` is the same call.
@@ -87,7 +72,19 @@ impl Set<T> {
     //! refute Set.subset?(%[1, 4], %[1, 2, 3])
     //
     pub fn subset?<T>(a: Set<T>, b: Set<T>) -> Bool {
-        Iter.to_list(a) |> Iter.all?(fn e -> Set.contains?(b, e))
+        Iter.to_list(a) |> Iter.all?(&Set.contains?(b, &1))
+    }
+}
+
+impl Contains for Set<T> {
+    /// True if `x` is a member of the set: a hash lookup.
+    //! assert Set.contains?(%[1, 2], 1)
+    //! refute Set.contains?(%[1, 2], 9)
+    //! empty: Set<Int> = %[]
+    //! refute Set.contains?(empty, 1)
+    //
+    fn contains?(c: Set<T>, x: T) -> Bool {
+        Map.contains?(c.items, x)
     }
 }
 
@@ -121,7 +118,7 @@ impl Display for Set<T> where T: Display {
 impl Debug for Set<T> {
     fn inspect(s: Set<T>) -> String {
         inner =
-            Iter.map(s, fn e -> Debug.inspect(e))
+            Iter.map(s, &Debug.inspect(&1))
             |> String.join(", ")
 
         "%[" + inner + "]"
@@ -162,7 +159,7 @@ impl Summable for Set<T> {
     //! assert Iter.sum([%[1, 2], %[2, 3]]) == %[1, 2, 3]
     //
     fn empty_sum() -> Set<T> {
-        Set.new()
+        %[]
     }
 }
 

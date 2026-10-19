@@ -11,6 +11,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/nucleotide-count.
 - Parsing and counting are separate steps: `Iter.map(Nucleotide.parse)` then `Result.collect()` with `try`, then `Iter.frequencies`, merged over the zero map with `+`.
 - `fmt` turned `|> Result.collect() |> try` into `|> try Result.collect()`; both read fine.
 - The expected maps use dot-shorthand keys after the first (`%{Nucleotide.A => 0, .C => 0, ...}`), which the map literal accepts.
+- The zero map pairs each nucleotide with 0 through `Iter.map(&#(&1, 0))`: a capture of the tuple literal is the function that builds it, which says the pairing without naming the nucleotide in a lambda.
 
 ## Friction
 

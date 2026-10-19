@@ -104,21 +104,21 @@ func TestPipeHeadMismatch_IsReportedAtTheStage(t *testing.T) {
 			"  _ = #Plain{x: 1} |> String.trim()\n",
 			"`String.trim` takes a String as its first argument, but the pipe passes a Plain",
 			"String.trim", "#Plain{x: 1}"},
-		{"the slot a `_` names",
-			"  c = Celsius(1d)\n  _ = c |> Celsius.to_fahrenheit() |> label(4, _)\n",
+		{"the slot a then stage's `&1` names",
+			"  c = Celsius(1d)\n  _ = c |> Celsius.to_fahrenheit() |> then &label(4, &1)\n",
 			"`label` takes a String as its second argument, but the pipe passes a Fahrenheit\n" +
 				"help: Fahrenheit implements Display; add `|> Display.to_string()` before this stage",
-			"_", "Celsius.to_fahrenheit()"},
-		{"the slot a named `_` names",
-			"  c = Celsius(1d)\n  _ = c |> Celsius.to_fahrenheit() |> label(width: 4, text: _)\n",
+			"&1", "Celsius.to_fahrenheit()"},
+		{"the slot a then stage's named `&1` names",
+			"  c = Celsius(1d)\n  _ = c |> Celsius.to_fahrenheit() |> then &label(width: 4, text: &1)\n",
 			"`label` takes a String as `text`, but the pipe passes a Fahrenheit\n" +
 				"help: Fahrenheit implements Display; add `|> Display.to_string()` before this stage",
-			"_", "Celsius.to_fahrenheit()"},
-		{"the slot a named `_` names ahead of a positional argument",
-			"  _ = 3 |> label(text: _, 4)\n",
+			"&1", "Celsius.to_fahrenheit()"},
+		{"the slot a then stage's named `&1` names ahead of a positional argument",
+			"  _ = 3 |> then &label(text: &1, 4)\n",
 			"`label` takes a String as `text`, but the pipe passes an Int\n" +
 				"help: Int implements Display; add `|> Display.to_string()` before this stage",
-			"_", "3"},
+			"&1", "3"},
 		{"a generic stage",
 			"  _ = [1] |> Iter.map(fn x -> x + 1) |> first()\n",
 			"`first` takes a List<T> as its first argument, but the pipe passes an Iter<Int>\n" +
@@ -154,8 +154,8 @@ func TestPipeHeadMismatch_AMatchingStageIsAccepted(t *testing.T) {
 	src := pipeHeadDecls + `fn main() {
   c = Celsius(1d)
   _ = c |> Celsius.to_fahrenheit() |> Display.to_string() |> String.pad_start(6)
-  _ = "x" |> label(4, _)
-  _ = "x" |> label(width: 4, text: _)
+  _ = "x" |> then &label(4, &1)
+  _ = "x" |> then &label(width: 4, text: &1)
   _ = [1] |> Iter.map(fn x -> x + 1) |> Iter.to_list() |> total()
   _ = 3 |> Int.to_float() |> half()
 }

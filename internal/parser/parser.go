@@ -133,7 +133,6 @@ func (p *Parser) parse() ([]ast.Node, error) {
 			return nil, err
 		}
 	}
-
 	return stmts, nil
 }
 
@@ -961,6 +960,8 @@ func firstNestedAssertion(n ast.Node) (line, col int, ok bool) {
 		return firstNestedAssertion(v.Right)
 	case *ast.GroupedExpr:
 		return firstNestedAssertion(v.Expr)
+	case *ast.Capture:
+		return firstNestedAssertion(v.Body)
 	case *ast.Call:
 		if line, col, ok := firstNestedAssertion(v.Func); ok {
 			return line, col, true
@@ -1043,9 +1044,9 @@ func firstNestedAssertion(n ast.Node) (line, col int, ok bool) {
 	case *ast.Lambda:
 		return firstNestedAssertion(v.Body)
 	case *ast.Then:
-		return firstNestedAssertion(v.Lambda)
+		return firstNestedAssertion(v.Fn())
 	case *ast.Tap:
-		return firstNestedAssertion(v.Lambda)
+		return firstNestedAssertion(v.Fn())
 	case *ast.TryOp:
 		return firstNestedAssertion(v.Expr)
 	case *ast.Dbg:
@@ -1930,23 +1931,43 @@ func (p *Parser) parsePipeLambdaStage(left ast.Node, pipeTok token.Token, leadin
 	start := p.pos
 	tok := p.peek()
 	p.advance() // consume THEN or TAP
-	if p.atEnd() || p.peek().Type != token.FN {
-		return nil, errorAt(tok.Line, tok.Col, "`%s` takes a lambda: write `%s fn v -> ...`", tok.Lexeme, tok.Lexeme)
-	}
-	lamStart := p.pos
-	lam, err := p.parseLambdaStop(true)
-	if err != nil {
-		return nil, err
-	}
-	p.recordSpan(lam, lamStart)
 	var stage interface {
 		ast.Node
 		AddLeading(ast.Trivia)
 	}
-	if tok.Type == token.TAP {
-		stage = &ast.Tap{Lambda: lam.(*ast.Lambda), Line: tok.Line, Col: tok.Col}
+	if !p.atEnd() && p.peek().Type == token.CAPTURE {
+		// `then &divide(100, &1)`: a capture ends with its body, so the
+		// stages after it stay in the pipeline.
+		capStart := p.pos
+		fn, err := p.parseExpr(tryOperandPrecedence)
+		if err != nil {
+			return nil, err
+		}
+		p.recordSpan(fn, capStart)
+		capture, ok := fn.(*ast.Capture)
+		if !ok {
+			return nil, errorAt(tok.Line, tok.Col, "`%s` takes a lambda or a capture: write `%s fn v -> ...` or `%s &f(&1)`", tok.Lexeme, tok.Lexeme, tok.Lexeme)
+		}
+		if tok.Type == token.TAP {
+			stage = &ast.Tap{Capture: capture, Line: tok.Line, Col: tok.Col}
+		} else {
+			stage = &ast.Then{Capture: capture, Line: tok.Line, Col: tok.Col}
+		}
 	} else {
-		stage = &ast.Then{Lambda: lam.(*ast.Lambda), Line: tok.Line, Col: tok.Col}
+		if p.atEnd() || p.peek().Type != token.FN {
+			return nil, errorAt(tok.Line, tok.Col, "`%s` takes a lambda or a capture: write `%s fn v -> ...` or `%s &f(&1)`", tok.Lexeme, tok.Lexeme, tok.Lexeme)
+		}
+		lamStart := p.pos
+		lam, err := p.parseLambdaStop(true)
+		if err != nil {
+			return nil, err
+		}
+		p.recordSpan(lam, lamStart)
+		if tok.Type == token.TAP {
+			stage = &ast.Tap{Lambda: lam.(*ast.Lambda), Line: tok.Line, Col: tok.Col}
+		} else {
+			stage = &ast.Then{Lambda: lam.(*ast.Lambda), Line: tok.Line, Col: tok.Col}
+		}
 	}
 	p.recordSpan(stage, start)
 	for _, tr := range leadingForRight {
@@ -2544,8 +2565,18 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		return &ast.Unary{Op: "-", Right: right, Line: tok.Line, Col: tok.Col}, nil
 
 	case token.UNDERSCORE:
+		// `_` is a discard name; read as a value it is the checker's
+		// error, which says a placeholder is written `&1`.
 		p.advance()
-		return &ast.Placeholder{Line: tok.Line, Col: tok.Col}, nil
+		return &ast.Ident{Name: "_", Line: tok.Line, Col: tok.Col}, nil
+
+	case token.PLACEHOLDER:
+		p.advance()
+		n, _ := strconv.Atoi(tok.Lexeme[1:])
+		return &ast.PlaceholderParam{N: n, Line: tok.Line, Col: tok.Col}, nil
+
+	case token.CAPTURE:
+		return p.parseCapture()
 
 	case token.DOT:
 		// Dot-leading variant shorthand: `.X`, `.X(args)`, `.X[...]`. Must
@@ -4174,7 +4205,7 @@ func (p *Parser) statementEnds() error {
 	next := p.peek()
 	switch next.Type {
 	case token.LBRACE, token.LBRACKET, token.LPAREN, token.HASH, token.PERCENT,
-		token.IDENT, token.TYPE_IDENT, token.SELF, token.DOT, token.UNDERSCORE,
+		token.IDENT, token.TYPE_IDENT, token.SELF, token.DOT, token.UNDERSCORE, token.PLACEHOLDER, token.CAPTURE,
 		token.INT, token.FLOAT, token.DECIMAL, token.CODEPOINT_LITERAL,
 		token.STRING_LITERAL, token.TRIPLE_STRING_LITERAL, token.RAW_STRING_LITERAL,
 		token.RAW_TRIPLE_STRING_LITERAL, token.STRING_START, token.TRIPLE_STRING_START:
@@ -4768,8 +4799,10 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 	var params []ast.Param
 	var lc listComments
 
+	var arrow token.Token
 	// Zero-parameter form: `fn -> body`.
 	if !p.atEnd() && p.peek().Type == token.ARROW {
+		arrow = p.peek()
 		p.advance() // consume ARROW
 	} else {
 		lc.open(p)
@@ -4797,6 +4830,7 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 			}
 			if p.peek().Type == token.ARROW {
 				lc.close()
+				arrow = p.peek()
 				p.advance() // consume ARROW
 				break
 			}
@@ -4828,12 +4862,14 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 		// be.
 		errNode := p.recoverStmtInBlock(bodyStart, err)
 		return &ast.Lambda{
-			Params:  params,
-			Body:    &ast.Block{Stmts: []ast.Node{errNode}, Line: errNode.Line, Col: startTok.Col, EndLine: errNode.EndLine, EndCol: errNode.EndCol},
-			Line:    startTok.Line,
-			Col:     startTok.Col,
-			EndLine: errNode.EndLine,
-			EndCol:  errNode.EndCol,
+			Params:    params,
+			Body:      &ast.Block{Stmts: []ast.Node{errNode}, Line: errNode.Line, Col: startTok.Col, EndLine: errNode.EndLine, EndCol: errNode.EndCol},
+			Line:      startTok.Line,
+			Col:       startTok.Col,
+			EndLine:   errNode.EndLine,
+			EndCol:    errNode.EndCol,
+			ArrowLine: arrow.Line,
+			ArrowCol:  arrow.Col,
 		}, nil
 	}
 
@@ -4851,12 +4887,14 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 
 	endLine, endCol := tokenEnd(p.tokens[p.pos-1])
 	lam := &ast.Lambda{
-		Params:  params,
-		Body:    body,
-		Line:    startTok.Line,
-		Col:     startTok.Col,
-		EndLine: endLine,
-		EndCol:  endCol,
+		Params:    params,
+		Body:      body,
+		Line:      startTok.Line,
+		Col:       startTok.Col,
+		EndLine:   endLine,
+		EndCol:    endCol,
+		ArrowLine: arrow.Line,
+		ArrowCol:  arrow.Col,
 	}
 	if body.EndLine == 0 && !p.atEnd() && p.peek().Type == token.NEWLINE {
 		if p.lambdaHeads == nil {
@@ -5125,6 +5163,7 @@ func (p *Parser) parseFuncDef(public bool, allowImplQualifier bool) (ast.Node, e
 		ImplIfaceSourceQualified: sourceQualified,
 		Line:                     tok.Line,
 		Col:                      nameTok.Col,
+		FnCol:                    tok.Col,
 	}, nil
 }
 

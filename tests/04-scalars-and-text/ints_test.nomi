@@ -63,7 +63,7 @@ test "modulo is the dividend less the divisor times the floored quotient" {
         |> Iter.flat_map(fn x -> {
             divisors
             |> Iter.filter(fn y -> Int.modulo(x, y) != x - y * floor_divide(x, y))
-            |> Iter.map(fn y -> #(x, y))
+            |> Iter.map(&#(x, &1))
         })
         |> Iter.to_list()
 

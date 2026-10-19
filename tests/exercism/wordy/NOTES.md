@@ -12,6 +12,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/wordy.
 - Division by zero is `Error.DivisionByZero`, through `Int.to_non_zero` and `Int.divide`, instead of the trap `/` raises. The canonical data has no such case; the test file adds one, marked as not canonical.
 - Guards use binding `else` (`[first, ..rest] = String.words(problem) else { ... }`) so the success path stays unindented.
 - The 27 canonical cases are one `subtests` table.
+- The trailing `?` comes off through `Maybe.flat_map(&String.strip_suffix(&1, "?"))`: one call that uses its parameter once, so it is a capture rather than `fn rest -> ...` (style §31).
 
 ## Friction
 

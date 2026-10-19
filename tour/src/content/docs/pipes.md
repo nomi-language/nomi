@@ -61,21 +61,21 @@ is used. Here is the same calculation written both ways:
 ```nomi-run
 fn main() {
     // inside-out
-    dbg Iter.count(Iter.filter([1, 2, 3, 4, 5], fn n -> n > 2))
+    dbg Iter.count(Iter.filter([1, 2, 3, 4, 5], &(&1 > 2)))
 
     // pipeline — data first, transformations next, output last
     [1, 2, 3, 4, 5]
-    |> Iter.filter(fn n -> n > 2)
+    |> Iter.filter(&(&1 > 2))
     |> Iter.count()
     |> dbg
 }
 
 ```
 <!-- expect
-dbg line 3: Iter.count(Iter.filter([1, 2, 3, 4, 5], fn n -> n > 2)) = 3
+dbg line 3: Iter.count(Iter.filter([1, 2, 3, 4, 5], &(&1 > 2))) = 3
 dbg line 9:
   [1, 2, 3, 4, 5]
-  |> Iter.filter(fn n -> n > 2)
+  |> Iter.filter(&(&1 > 2))
   |> Iter.count()
   = 3
 -->
@@ -83,10 +83,11 @@ dbg line 9:
 Both give `3`. The nested version runs from the inside out, so you read it
 backwards. The pipeline runs in the order you read it.
 
-## The `_` placeholder
+## Piping into another argument
 
-To pass the value as some argument other than the first, write `_` where it
-should go:
+A stage takes the piped value as its first argument. To pass it as another
+argument, write a `then` stage with a
+[capture](/functions-and-lambdas/#captures), whose `&1` is the piped value:
 
 ```nomi-run
 fn divide(x: Int, y: Int) -> Int {
@@ -94,18 +95,21 @@ fn divide(x: Int, y: Int) -> Int {
 }
 
 fn main() {
-    10 |> divide(100, _) |> dbg
-    100 |> divide(y: 4, x: _) |> dbg
+    10 |> then &divide(100, &1) |> dbg
+    100 |> then &divide(y: 4, x: &1) |> dbg
 }
 
 ```
 <!-- expect
-dbg line 6: 10 |> divide(100, _) = 10
-dbg line 7: 100 |> divide(y: 4, x: _) = 25
+dbg line 6: 10 |> then &divide(100, &1) = 10
+dbg line 7: 100 |> then &divide(y: 4, x: &1) = 25
 -->
 
-`10 |> divide(100, _)` is `divide(100, 10)`. A named argument can be `_`
-too: `100 |> divide(y: 4, x: _)` is `divide(100, 4)`.
+`10 |> then &divide(100, &1)` is `divide(100, 10)`. A named argument can
+be `&1` too: `100 |> then &divide(y: 4, x: &1)` is `divide(100, 4)`. The
+stage passes one value, so the capture takes one parameter. A bare `&1` in
+a call stage, as in `10 |> divide(100, &1)`, is an error that suggests the
+`then` stage.
 
 ## The `then` stage
 
@@ -132,10 +136,10 @@ dbg line 12:
   = True
 -->
 
-`then` calls a lambda with the piped value and passes on what the lambda
-returns. Use it for a small step that no named function does. The lambda's
-body ends at the next `|>`, so the stages after it are still part of the
-pipeline.
+`then` calls a lambda, or a capture, with the piped value and passes on
+what it returns. Use it for a small step that no named function does. The
+lambda's body ends at the next `|>`, so the stages after it are still part
+of the pipeline.
 
 ## The `tap` stage
 

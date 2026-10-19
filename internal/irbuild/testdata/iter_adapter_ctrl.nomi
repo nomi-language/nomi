@@ -124,7 +124,7 @@ fn main() {
             if x > 4 { break }
             x % 2 == 0
         })
-        |> Iter.map(fn x -> x * 100)
+        |> Iter.map(&(&1 * 100))
         |> Iter.to_list()
 
     io.print("break stops the source through a chain: ${chained}")

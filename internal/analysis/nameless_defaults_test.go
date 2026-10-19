@@ -20,14 +20,14 @@ fn id<T>(x: T) -> T {
 }
 
 fn main() {
-  c = connect(_, port: _)
+  c = &connect(&1, port: &2)
   _ = c("a")
   r = id(c)
   _ = r("b")
   _ = r("b", 1)
   h = c
   _ = h("d")
-  p = fn -> connect(_, port: _)
+  p = fn -> &connect(&1, port: &2)
   _ = p()("e")
   _ = case Some(c) {
     Some(k) -> k("f")
@@ -66,15 +66,15 @@ fn id<T>(x: T) -> T {
   x
 }
 
-once oc = connect(_, port: _)
+once oc = &connect(&1, port: &2)
 
 once ol = fn s: String, n: Int = 5 -> s
 
 fn main() {
-  c = connect(_, port: _)
+  c = &connect(&1, port: &2)
   r = id(c)
   _ = "a" |> r()
-  _ = "a" |> r(_)
+  _ = "a" |> then &r(&1)
   _ = "a" |> oc()
   _ = (c)("b")
   b = True
@@ -101,7 +101,7 @@ fn main() {
 	hint := "[a function type's parameters have no defaults; pass every argument]"
 	want := []string{
 		"17:14 expected 2 arguments, got 1 (counting the piped value) " + hint,
-		"18:14 expected 2 arguments, got 1 (counting the piped value) " + hint,
+		"18:20 expected 2 arguments, got 1 " + hint,
 		"19:14 expected 2 arguments, got 1 (counting the piped value) " + hint,
 		"20:7 expected 2 arguments, got 1 " + hint,
 		"22:7 expected 2 arguments, got 1 " + hint,

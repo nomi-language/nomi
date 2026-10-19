@@ -267,22 +267,27 @@ func applyStage(stage, value ast.Node, last bool) (ast.Node, bool) {
 			return nil, false
 		}
 		c := *s
+		c.Args = append([]ast.Node{value}, s.Args...)
+		return &c, true
+	case *ast.Then:
+		// `x |> then &f(a, &1)` is `f(a, x)`: a partial capture with one
+		// open argument takes the value there.
+		if s.Capture == nil || s.Capture.PartialCall() == nil || len(s.Capture.Holes()) != 1 {
+			return nil, false
+		}
+		call := s.Capture.PartialCall()
+		c := *call
 		at := -1
-		for i, a := range s.Args {
-			if !hasPlaceholderArg(a) {
-				continue
+		for i, a := range call.Args {
+			if hasPlaceholderArg(a) {
+				at = i
 			}
-			if at >= 0 {
-				return nil, false
-			}
-			at = i
 		}
 		if at < 0 {
-			c.Args = append([]ast.Node{value}, s.Args...)
-			return &c, true
+			return nil, false
 		}
-		c.Args = append([]ast.Node(nil), s.Args...)
-		if named, ok := s.Args[at].(*ast.NamedArg); ok {
+		c.Args = append([]ast.Node(nil), call.Args...)
+		if named, ok := call.Args[at].(*ast.NamedArg); ok {
 			na := *named
 			na.Value = value
 			c.Args[at] = &na

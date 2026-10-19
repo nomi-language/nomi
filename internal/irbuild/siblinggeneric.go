@@ -158,7 +158,12 @@ func (g *gen) siblingResolve(owner *gen, tpl *monoTemplate, f *fileFunc, args []
 // instance's own uses.
 func (bl *irScalarBuilder) siblingInstanceImplPlan(t *ast.Call, args irQualArgs, d *typeDef, method, iface string) *irQualPlan {
 	g := bl.g
-	owner, impl := g.instanceImpl(d, iface, method)
+	src := d.instOrigin
+	if src == nil {
+		// This file's own instance, whose impl another file writes.
+		src = d
+	}
+	owner, impl := g.instanceImplAnywhere(src, iface, method)
 	if impl == nil || !impl.lowerable {
 		return nil
 	}

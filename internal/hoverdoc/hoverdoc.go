@@ -21,9 +21,16 @@ import (
 //
 // Callers provide project analysis so scoped field references resolve with
 // the same contract and nominal identity as the editor.
-func At(fa *analysis.FileAnalysis, pos analysis.Pos) string {
+//
+// nodes are the file's syntax trees the analysis was built from, which the
+// hover on a literal's or pattern's punctuation and on a pipe's `|>`
+// reads (SyntaxAt).
+func At(fa *analysis.FileAnalysis, nodes []ast.Node, pos analysis.Pos) string {
 	if fa == nil {
 		return ""
+	}
+	if content, _, _, ok := SyntaxAt(fa, nodes, pos); ok {
+		return content
 	}
 	sym := fa.SymbolAt(pos)
 	if sym == nil {
@@ -125,14 +132,14 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			if sym.Resolved != nil {
 				resolved = sym.Resolved
 			}
-			// Variant constructors render as `variant` rather than `fn` —
-			// there's no top-level `fn Some` declaration to navigate to,
-			// and labelling them as functions makes the reader hunt for
-			// one that doesn't exist.
+			// A variant constructor renders as the variant with its enum
+			// (`Maybe.Some(Int) -> Maybe<Int>`): there is no `fn Some`
+			// declaration to navigate to.
+			if resolved.Kind == analysis.SymbolEnumVariant || sym.Kind == analysis.SymbolEnumVariant {
+				return renderVariant(sym, false)
+			}
 			prefix := "fn "
-			if resolved.Kind == analysis.SymbolEnumVariant {
-				prefix = "variant "
-			} else if fd, ok := resolved.Node.(*ast.FuncDef); ok && fd.Export {
+			if fd, ok := resolved.Node.(*ast.FuncDef); ok && fd.Export {
 				prefix = "export fn "
 			}
 			receiverName := ""
@@ -184,7 +191,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 				sig += "\n\n" + fnSig
 			}
 		}
-		if st, ok := sym.Type.(*analysis.StructType); ok {
+		if st, ok := sym.Type.(*analysis.StructType); ok && !st.Opaque {
 			sig += "\n\n" + renderStructFromType(st)
 		}
 	case analysis.SymbolBinding:
@@ -197,7 +204,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 				sig += "\n\n" + fnSig
 			}
 		}
-		if st, ok := sym.Type.(*analysis.StructType); ok {
+		if st, ok := sym.Type.(*analysis.StructType); ok && !st.Opaque {
 			sig += "\n\n" + renderStructFromType(st)
 		}
 	case analysis.SymbolOnce:
@@ -219,7 +226,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			}
 			doc = n.Doc
 		}
-		if st, ok := sym.Type.(*analysis.StructType); ok {
+		if st, ok := sym.Type.(*analysis.StructType); ok && !st.Opaque {
 			sig += "\n\n" + renderStructFromType(st)
 		}
 	case analysis.SymbolField:
@@ -229,15 +236,10 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			sig = sym.Name + ": " + displayValueType(sym.Type)
 		}
 	case analysis.SymbolEnumVariant:
-		if enum, ok := sym.Node.(*ast.EnumDef); ok {
-			if v, ok := findEnumVariant(enum, sym); ok {
-				sig = renderEnumVariantDecl(v)
-				doc = v.Doc
-			}
-		}
+		return renderVariant(sym, false)
 	case analysis.SymbolArgHint:
-		// Synthetic hover-only marker for literal call args / `_`
-		// placeholders. Render as `<param_name>: <type>` so a hover on
+		// Synthetic hover-only marker for literal call args and the
+		// open `&N` of a partial capture. Render as `<param_name>: <type>` so a hover on
 		// `100` in `divide(100, 50)` shows `x: Int`.
 		if sym.Type != nil {
 			sig = sym.Name + ": " + displayValueType(sym.Type)
@@ -1210,43 +1212,6 @@ func findEnumVariant(enum *ast.EnumDef, sym *analysis.Symbol) (ast.EnumVariant, 
 		}
 	}
 	return ast.EnumVariant{}, false
-}
-
-func renderEnumVariantDecl(v ast.EnumVariant) string {
-	var b strings.Builder
-	b.WriteString("variant ")
-	switch v.Kind {
-	case "embedded":
-		b.WriteString("embeds ")
-		if v.EmbeddedTypeExpr != nil {
-			b.WriteString(v.EmbeddedTypeExpr.TypeString())
-		} else {
-			b.WriteString(v.Name)
-		}
-	case "positional":
-		b.WriteString(v.Name)
-		if v.DataTypeExpr != nil {
-			b.WriteString(" ")
-			b.WriteString(v.DataTypeExpr.TypeString())
-		}
-	case "struct":
-		b.WriteString(v.Name)
-		b.WriteString(" {")
-		for i, f := range v.Fields {
-			if i > 0 {
-				b.WriteString(", ")
-			}
-			b.WriteString(f.Name)
-			if f.TypeAnnotation != nil {
-				b.WriteString(": ")
-				b.WriteString(f.TypeAnnotation.TypeString())
-			}
-		}
-		b.WriteString("}")
-	default:
-		b.WriteString(v.Name)
-	}
-	return b.String()
 }
 
 func findParamType(sym *analysis.Symbol) ast.TypeExpr {

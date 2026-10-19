@@ -62,12 +62,11 @@ type setFn struct {
 	ops bool
 }
 
-// setFuncs is the lowered surface of `impl Set<T>`, which is all nine of its
-// functions — eight here and `new` beside them, whose result type comes from
-// context rather than from an argument. See setNewCall.
+// setFuncs is the lowered surface of `impl Set<T>`. The empty set is the
+// literal `%[]`, which irset.go lowers.
 //
 // Use across tests/: size 12 sites, contains? 11, insert 1, union 1,
-// intersection 1, difference 1, subset? 1, remove 0, new 0.
+// intersection 1, difference 1, subset? 1, remove 0.
 var setFuncs = map[string]setFn{
 	"size":         {rtCall: "rt.SetSize", args: 1, sets: 1, result: "int"},
 	"contains?":    {rtCall: "rt.SetContains", args: 2, sets: 1, result: "bool", ops: true},

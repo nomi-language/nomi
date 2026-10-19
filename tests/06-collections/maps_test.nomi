@@ -2,7 +2,7 @@ test "maps expose size lookup insert keys and empty construction" {
     ages = %{"alice" => 30, "bob" => 25}
     updated = Map.put(ages, "carol", 28)
     keys = Map.keys(ages)
-    empty: Map<String, Int> = Map.empty()
+    empty: Map<String, Int> = %{}
 
     assert Map.size(ages) == 2
     assert Map.get(ages, "alice") == Some(30)
@@ -66,7 +66,7 @@ test "maps iterate as key value tuples" {
 
 test "map bulk construction and transforms preserve insertion behavior" {
     m = %{"a" => 1, "b" => 2}
-    doubled = Map.map_values(m, fn v -> v * 10)
+    doubled = Map.map_values(m, &(&1 * 10))
     x = "x"
     dup = %{x => 1, "x" => 9}
 
@@ -78,7 +78,7 @@ test "map bulk construction and transforms preserve insertion behavior" {
 test "maps merge with +" {
     defaults = %{"host" => "localhost", "port" => "8080"}
     overrides = %{"port" => "9090", "user" => "ada"}
-    empty: Map<String, String> = Map.empty()
+    empty: Map<String, String> = %{}
 
     assert defaults + overrides == %{"host" => "localhost", "port" => "9090", "user" => "ada"}
     assert defaults + overrides == Map.merge(defaults, overrides)

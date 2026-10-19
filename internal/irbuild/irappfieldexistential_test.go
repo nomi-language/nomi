@@ -36,7 +36,7 @@ fn show() {
 	irRunSource(t, src, "1\nx\n2,y\n")
 }
 
-// A `with` sets a Map application field from `Map.empty()`, whose element
+// A `with` sets a Map application field from `%{}`, whose element
 // types are the field's.
 func TestIRAppFieldEmptyMapWrite_Runs(t *testing.T) {
 	if testing.Short() {
@@ -58,7 +58,7 @@ fn size() -> Int {
 
 fn main() {
     io.print(size())
-    with App.cache = Map.empty()
+    with App.cache = %{}
     io.print(size())
 }
 `

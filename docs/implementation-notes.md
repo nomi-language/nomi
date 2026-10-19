@@ -208,6 +208,39 @@ A parameter's straight-line destructuring prologue cannot branch, so it holds
 the value an `or` inside a parameter matches, and the body's builder tests it
 before the body.
 
+## Captures
+
+The lexer reads `&` written against a name, `(`, `#`, `%`, `[` or `.` as a
+CAPTURE token, and `&` with a number as a parameter token. The parser
+(`internal/parser/captures.go`) reads one postfix-level operand after the
+`&`, as a prefix `try` does, and refuses a body that is no call,
+parenthesized expression or literal. The body is an `ast.Capture`'s; its
+`&N`s are `ast.PlaceholderParam`s, except that the `&N`s of a partial
+capture's call are written as `ast.Placeholder`, the call's open arguments,
+so the checker's and the builder's partial-application paths read the
+call as they read any call (`ast.Capture.PartialCall`).
+
+The checker (`internal/analysis/captures.go`) types a partial capture as
+its call, and any other as a lambda whose parameters the expected
+function type gives, with each `&N` read as parameter N. It keeps the
+captures it is inside, which a lambda's body resets, to report nesting.
+An `&N` outside every capture is found by a walk of the file's syntax
+(`strayPlaceholders`), which writes the help's capture from the nodes
+around it.
+
+The IR builder lowers a capture as the lambda it stands for
+(`internal/irbuild/capture.go`): the body is the capture's own
+expression, lowered with each `&N` read as the lambda's parameter
+(`holeSubst`), so nothing runs when the capture is made. A partial
+capture's lambda (`irpartial.go`) takes the callee's parameters at the
+open slots, with their defaults and names, and its body is the call with
+the written arguments in place, written by name in evaluation order when
+that is not their slots' order.
+
+The formatter writes `&` against the body and keeps a parenthesized
+body's parentheses, which `emitGroupedExpr` would drop: `&(f(&1))` is no
+partial and `&f(&1)` is one.
+
 ## Go FFI wrapper
 
 `nomi run`, `nomi check` and `nomi test` on a program with Go bindings scan its

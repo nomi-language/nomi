@@ -34,7 +34,7 @@ fn main() {
     offset = 100
     #(label, add) = #("captured", fn x: Int -> x + offset)
     io.print("${label} = ${add(1)}")
-    scaled = [scaler(2), scaler(3)] |> Iter.map(fn q -> apply(q)) |> Iter.to_list()
+    scaled = [scaler(2), scaler(3)] |> Iter.map(&apply(&1)) |> Iter.to_list()
 
     io.print("list = ${scaled}")
 

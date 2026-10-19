@@ -36,7 +36,7 @@ var deriveFieldDefaults = []struct {
 	{"block", "v: Int = {\n        x = 4\n        x + 1\n    }", "5"},
 	{"pipe and lambda", "v: List<Int> = [1, 2] |> Iter.map(fn x -> x * 10) |> Iter.to_list()", "[10, 20]"},
 	{"range", "v: List<Int> = 1..=3 |> Iter.to_list()", "[1, 2, 3]"},
-	{"call", "v: Map<String, Int> = Map.empty()", "%{}"},
+	{"call", "v: Map<String, Int> = Map.put(%{}, \"a\", 1)", "%{\"a\" => 1}"},
 	{"struct literal", "v: Inner = #Inner{a: 1}", "#Inner{a: 1}"},
 	{"struct update", "v: Inner = #{..#Inner{a: 1}, a: 2}", "#Inner{a: 2}"},
 	{"dot variant", "v: Color = .Red", "Red"},
@@ -81,8 +81,8 @@ derive ToJson for E
 derive FromJson for E
 
 fn main() {
-    io.print(Debug.inspect(S.from_json(Json.Obj(Map.empty()))))
-    io.print(Debug.inspect(E.from_json(%Json.Obj{"Rec" => Json.Obj(Map.empty())})))
+    io.print(Debug.inspect(S.from_json(Json.Obj(%{}))))
+    io.print(Debug.inspect(E.from_json(%Json.Obj{"Rec" => Json.Obj(%{})})))
     s = #S{}
     io.print(Debug.inspect(S.from_json(ToJson.to_json(s)) == Ok(s)))
 }

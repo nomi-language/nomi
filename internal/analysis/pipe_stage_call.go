@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/format"
 )
 
 // A pipe stage is a call. `x |> f(a)` calls `f(x, a)`: the pipe inserts the
@@ -86,6 +87,13 @@ const LambdaPipeStagePrefix = "a lambda is not a pipe stage"
 func (c *checker) reportLambdaPipeStage(lam *ast.Lambda) {
 	msg := fmt.Sprintf("%s: write `then %s ...`", LambdaPipeStagePrefix, lambdaHeaderText(lam))
 	c.report(errAt(lam, msg).WithHint("`then` applies a lambda to the piped value; a named function, called as `|> f()`, is the other way to write the step"))
+}
+
+// reportCapturePipeStage reports `x |> &f(&1)`. A stage is a call the pipe
+// fills at its first argument; `then &f(&1)` applies a capture.
+func (c *checker) reportCapturePipeStage(n *ast.Capture) {
+	c.report(errAt(n, fmt.Sprintf("a capture is not a pipe stage: write `then %s`", format.RenderNode(n))).
+		WithHint("`then` applies a capture or a lambda to the piped value"))
 }
 
 // lambdaHeaderText is lam's parameter list, `fn v ->` or `fn a, b ->`, with

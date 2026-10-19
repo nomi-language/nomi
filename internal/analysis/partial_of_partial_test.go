@@ -18,27 +18,27 @@ fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String {
 // Each case binds the partial at Unit, so the mismatch names its type.
 func TestPartialOfPartial_TypesAsAFunctionOfTheOpenSlots(t *testing.T) {
 	for _, tc := range []struct{ src, want string }{
-		{`  c = connect(_, port: _)
-  x: Unit = c(port: _, host: "x")`, "expected Unit, got (Int) -> String"},
-		{`  c = connect(_, port: _)
-  x: Unit = c(_, 2)`, "expected Unit, got (String) -> String"},
-		{`  c = connect(_, port: _)
-  x: Unit = c("h", port: _)`, "expected Unit, got (Int) -> String"},
+		{`  c = &connect(&1, port: &2)
+  x: Unit = &c(port: &1, host: "x")`, "expected Unit, got (Int) -> String"},
+		{`  c = &connect(&1, port: &2)
+  x: Unit = &c(&1, 2)`, "expected Unit, got (String) -> String"},
+		{`  c = &connect(&1, port: &2)
+  x: Unit = &c("h", port: &1)`, "expected Unit, got (Int) -> String"},
 		// A positional written after a named argument skips the slot the
 		// name claimed, as in a full call.
-		{`  c = connect(_, port: _, timeout: _)
-  x: Unit = c(timeout: _, host: "h", _)`, "expected Unit, got (Int, Int) -> String"},
+		{`  c = &connect(&1, port: &2, timeout: &3)
+  x: Unit = &c(timeout: &1, host: "h", &2)`, "expected Unit, got (Int, Int) -> String"},
 		// Three levels deep.
-		{`  c = connect(_, port: _, timeout: _)
-  d = c(port: _, host: _)
-  e = d(host: "h", port: _)
-  x: Unit = e(port: _)`, "expected Unit, got (Int) -> String"},
-		// The lone named `_` names the partial's parameter.
-		{`  lone = connect("h", port: _)
-  x: Unit = lone(port: _)`, "expected Unit, got (Int) -> String"},
+		{`  c = &connect(&1, port: &2, timeout: &3)
+  d = &c(port: &1, host: &2)
+  e = &d(host: "h", port: &1)
+  x: Unit = &e(port: &1)`, "expected Unit, got (Int) -> String"},
+		// The lone named `&1` names the partial's parameter.
+		{`  lone = &connect("h", port: &1)
+  x: Unit = &lone(port: &1)`, "expected Unit, got (Int) -> String"},
 		{`  lam = fn a: String, b: Int = 5 -> a
-  la = lam(b: _, a: _)
-  x: Unit = la(a: "a", b: _)`, "expected Unit, got (Int) -> String"},
+  la = &lam(b: &1, a: &2)
+  x: Unit = &la(a: "a", b: &1)`, "expected Unit, got (Int) -> String"},
 	} {
 		t.Run(tc.want, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(partialOfPartialDecls + "\nfn main() {\n" + tc.src + "\n  _ = x\n}\n")
@@ -50,13 +50,13 @@ func TestPartialOfPartial_TypesAsAFunctionOfTheOpenSlots(t *testing.T) {
 func TestPartialOfPartial_CallsAndDefaultsCheck(t *testing.T) {
 	_, errs := checkSourceWithStdlib(partialOfPartialDecls + `
 fn main() {
-  c = connect(_, port: _)
-  e = c(port: _, host: "x")
+  c = &connect(&1, port: &2)
+  e = &c(port: &1, host: "x")
   s: String = e(9)
   t: String = e(port: 9)
   u: String = e()
-  three = connect(_, port: _, timeout: _)
-  m: (Int, Int) -> String = three(timeout: _, host: "h", _)
+  three = &connect(&1, port: &2, timeout: &3)
+  m: (Int, Int) -> String = &three(timeout: &1, host: "h", &2)
   _ = #(s, t, u, m)
 }
 `)
@@ -65,19 +65,19 @@ fn main() {
 
 func TestPartialOfPartial_RejectsAWrongCall(t *testing.T) {
 	for _, tc := range []struct{ src, want string }{
-		{`  x = c(nope: _)`, "no parameter named 'nope'"},
-		{`  x = c(host: 1, port: _)`, "argument 'host': expected String, got Int"},
-		{`  x = c(_, host: _)`, "parameter 'host' already has a value"},
+		{`  x = &c(nope: &1)`, "no parameter named 'nope'"},
+		{`  x = &c(host: 1, port: &1)`, "argument 'host': expected String, got Int"},
+		{`  x = &c(&1, host: &2)`, "parameter 'host' already has a value"},
 		// The partial of the partial has `port` open and nothing else.
-		{`  e = c(host: "x", port: _)
-  x = e(host: _)`, "no parameter named 'host'"},
-		{`  e = c(host: "x", port: _)
-  x = e(1, _)`, "expected 0 to 1 arguments, got 2"},
-		{`  e = c(host: "x", port: _)
+		{`  e = &c(host: "x", port: &1)
+  x = &e(host: &1)`, "no parameter named 'host'"},
+		{`  e = &c(host: "x", port: &1)
+  x = &e(1, &1)`, "expected 0 to 1 arguments, got 2"},
+		{`  e = &c(host: "x", port: &1)
   x = e("p")`, "argument 1: expected Int, got String"},
 	} {
 		t.Run(tc.want, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib(partialOfPartialDecls + "\nfn main() {\n  c = connect(_, port: _)\n" + tc.src + "\n  _ = x\n}\n")
+			_, errs := checkSourceWithStdlib(partialOfPartialDecls + "\nfn main() {\n  c = &connect(&1, port: &2)\n" + tc.src + "\n  _ = x\n}\n")
 			expectStdlibError(t, errs, tc.want)
 		})
 	}

@@ -28,17 +28,17 @@ fn tag<T>(x: T, label: String = "t${base()}", n: Int = 0) -> String where T: Dis
 }
 
 fn main() {
-    c = conn(_)
+    c = &conn(&1)
     io.print(c("h"))
     io.print(c("i"))
-    d = conn(_, tls: True)
+    d = &conn(&1, tls: True)
     io.print(d("j"))
-    e = conn(tls: True, host: _)
+    e = &conn(tls: True, host: &1)
     io.print(e("k"))
-    f = tag(_, n: 2)
+    f = &tag(&1, n: 2)
     io.print(f(5))
     l = fn a: Int, b: Int = a * 2, z: Int = 1 -> a + b + z
-    g = l(_, z: 100)
+    g = &l(&1, z: 100)
     io.print(g(1))
 }
 `, "base\nh:11:False\nbase\ni:11:False\nbase\nj:11:True\nbase\nk:11:True\nbase\nt10=5/2\n103\n")

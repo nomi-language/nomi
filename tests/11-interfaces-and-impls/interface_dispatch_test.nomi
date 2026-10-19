@@ -127,7 +127,7 @@ fn announce(s: Speech) -> String {
 }
 
 test "interface-qualified dispatch works for structs distinct functions and enums" {
-    h = Callback(fn s -> "handled: " + s)
+    h = Callback(&("handled: " + &1))
 
     assert Speech.speak(#Dog{name: "Rex"}) == "Rex says woof"
     assert Speech.speak(#Cat{name: "Whiskers"}) == "Whiskers says meow"

@@ -82,7 +82,7 @@ func TestQualifiedOwnerFuncValue_Runs(t *testing.T) {
 		{
 			name: "partial application",
 			imp:  "leaf",
-			body: "    p = leaf.Box.add(_, 1)\n    io.print(Int.to_string(p(#leaf.Box{value: 9})))\n",
+			body: "    p = &leaf.Box.add(&1, 1)\n    io.print(Int.to_string(p(#leaf.Box{value: 9})))\n",
 			want: "10\n",
 		},
 		{

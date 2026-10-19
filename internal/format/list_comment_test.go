@@ -259,10 +259,10 @@ var listCommentCases = []struct {
 }
 `},
 	{"partial application", `fn main() {
-    f = add(
+    f = &add(
         // the first
         1,
-        _, // the open one
+        &1, // the open one
     )
 }
 `},
@@ -494,8 +494,8 @@ func TestListComment_KeepsMeaningOnFoundLayouts(t *testing.T) {
 			"fn main() {\n    x = (\n        // a\n        (\n            // b\n            1 + 2\n        )\n    )\n}\n",
 		},
 		{
-			"fn main() {\n    x = Map.empty<String, Int>(\n// b4\n)\n    |> Map.size( // a5\n\t\t)\n    |> dbg // t6\n}\n",
-			"fn main() {\n    x =\n        Map.empty<String, Int>(\n            // b4\n        )\n        |> Map.size(\n            // a5\n        )\n        |> dbg // t6\n}\n",
+			"fn main() {\n    x = Iter.to_map<String, Int>(\n// b4\n)\n    |> Map.size( // a5\n\t\t)\n    |> dbg // t6\n}\n",
+			"fn main() {\n    x =\n        Iter.to_map<String, Int>(\n            // b4\n        )\n        |> Map.size(\n            // a5\n        )\n        |> dbg // t6\n}\n",
 		},
 		{
 			"fn long_sleep( // b12\n     ) -> Result<Int, // a13\n\t\tString> { // t14\n    1\n}\n",

@@ -67,6 +67,45 @@ return it from one.
 Named functions are values too. After `f = add`, the call `f(3, 4)` works
 the same as `add(3, 4)`.
 
+## Captures
+
+```nomi-run
+struct Point {
+    x: Int
+    y: Int
+}
+
+fn main() {
+    xs = [1, 2, 3]
+    dbg xs |> Iter.filter(&(&1 > 1)) |> Iter.to_list()
+    dbg xs |> Iter.map(&(&1 * 2 + 1)) |> Iter.to_list()
+    dbg xs |> Iter.map(&#Point{x: &1, y: 0}) |> Iter.to_list()
+    dbg xs |> Iter.map(&Int.max(&1, 2)) |> Iter.to_list()
+}
+
+```
+<!-- expect
+dbg line 8: xs |> Iter.filter(&(&1 > 1)) |> Iter.to_list() = [2, 3]
+dbg line 9: xs |> Iter.map(&(&1 * 2 + 1)) |> Iter.to_list() = [3, 5, 7]
+dbg line 10: xs |> Iter.map(&#Point{x: &1, y: 0}) |> Iter.to_list() = [#Point{x: 1, y: 0}, #Point{x: 2, y: 0}, #Point{x: 3, y: 0}]
+dbg line 11: xs |> Iter.map(&Int.max(&1, 2)) |> Iter.to_list() = [2, 2, 3]
+-->
+
+A capture writes a small function in place: `&`, then the function's body.
+`&1` is its first parameter, `&2` its second. `&(&1 > 1)` is `fn x -> x >
+1`, `&(&1 * 2 + 1)` is `fn x -> x * 2 + 1`, and `&#Point{x: &1, y: 0}` is
+`fn x -> #Point{x: x, y: 0}`.
+
+The body after `&` is a call, a parenthesized expression or a literal, so
+an operator goes in parentheses. A call that takes the `&1`, `&2`, ... as
+its own arguments, in order, is a partial application: `&Int.max(&1, 2)`
+is `fn x -> Int.max(x, 2)`, and its parameters are the callee's, with
+their names and defaults, so `inc = &Int.max(&1, 0)` needs no annotation.
+
+The function the call expects gives the other captures' parameters their
+types. Each call of a capture runs its whole body, as the lambda would.
+Write a lambda when the body takes more than one step or needs names.
+
 ## No Function Overloads
 
 Two functions in the same scope can't have the same name. Nomi never picks

@@ -99,7 +99,7 @@ func TestBuildCommand_WasmTargetsWriteValidModules(t *testing.T) {
 fn main() {
   counts =
     ["a", "b", "a", "c", "a"]
-    |> Iter.reduce(fn acc = Map.empty(), k -> {
+    |> Iter.reduce(fn acc = %{}, k -> {
       case Map.get(acc, k) {
         Some(prev) -> Map.put(acc, k, prev + 1)
         None -> Map.put(acc, k, 1)

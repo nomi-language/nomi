@@ -21,7 +21,7 @@ fn main() {
         Some(xs) ->
             io.print(
                 xs
-                |> Iter.map(fn x -> Display.to_string(x))
+                |> Iter.map(&Display.to_string(&1))
                 |> String.join(",")
             )
 

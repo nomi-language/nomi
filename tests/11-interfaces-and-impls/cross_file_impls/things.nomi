@@ -1,0 +1,36 @@
+// Types, and impls written beside their type for an interface another file
+// declares.
+import protocols.{Gets, Holds}
+
+pub struct Bag {
+    s: String
+}
+
+pub struct Crate {
+    count: Int
+}
+
+pub struct Wrap<T> {
+    item: T
+}
+
+pub struct Pair<T> {
+    a: T
+    b: T
+}
+
+pub struct Num {
+    n: Int
+}
+
+impl Gets<String> for Bag {
+    fn got(b: Bag) -> String {
+        b.s
+    }
+}
+
+impl Holds for Pair<T> {
+    fn held(p: Pair<T>) -> String {
+        "pair ${Debug.inspect(p.a)} ${Debug.inspect(p.b)}"
+    }
+}

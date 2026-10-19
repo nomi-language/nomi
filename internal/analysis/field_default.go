@@ -140,7 +140,7 @@ func (c *checker) checkFieldDefaults(owner string, fields []ast.StructField, dec
 		// the field:
 		//
 		//	restart: Restart = .Temporary           // no enum named anywhere
-		//	tasks: Map<Int, Task> = Map.empty()     // element types from the field
+		//	tasks: Map<Int, Task> = %{}     // element types from the field
 		//
 		// A mutant using plain `checkNode` here leaves the first reporting
 		// `.Temporary requires a determinable enum type at this position`.

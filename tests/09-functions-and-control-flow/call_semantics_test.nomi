@@ -103,13 +103,13 @@ test "named arguments reorder skip and pipe into calls" {
 }
 
 test "partial application preserves open argument names and defaults" {
-    half = divide(_, 2)
-    divide_from_10 = divide(10, _)
-    ab = add3(_, _, 100)
-    with_h = trailing("h", _, 10)
-    port_only = trailing("h", _)
-    named_port = trailing("h", port: _, timeout: 10)
-    hp = trailing(_, port: _)
+    half = &divide(&1, 2)
+    divide_from_10 = &divide(10, &1)
+    ab = &add3(&1, &2, 100)
+    with_h = &trailing("h", &1, 10)
+    port_only = &trailing("h", &1)
+    named_port = &trailing("h", port: &1, timeout: 10)
+    hp = &trailing(&1, port: &2)
 
     assert half(20) == 10
     assert half(a: 20) == 10
@@ -125,7 +125,7 @@ test "partial application preserves open argument names and defaults" {
     assert hp("localhost", 3000) == "localhost:3000:30"
     assert hp("localhost") == "localhost:8080:30"
     assert hp(port: 80, host: "x") == "x:80:30"
-    assert hp(port: _, host: "x")(9) == "x:9:30"
+    assert (&hp(port: &1, host: "x"))(9) == "x:9:30"
 }
 
 test "lambdas as callees support defaults names partials and trailing callbacks" {
@@ -134,9 +134,9 @@ test "lambdas as callees support defaults names partials and trailing callbacks"
     f3 = fn x: Int, y = 10 -> x + y
     g = fn a = 1, b = 2 -> a + b
     h = fn x: Int, y: Int -> x * 10 + y
-    half = h(_, 5)
-    fix_x = h(x: _, y: 9)
-    port_only = g(_, b: 100)
+    half = &h(&1, 5)
+    fix_x = &h(x: &1, y: 9)
+    port_only = &g(&1, b: 100)
     caller = fn a: Int, _label = "z", cb: (Int) -> Int -> cb(a)
 
     assert f1(10) == 11

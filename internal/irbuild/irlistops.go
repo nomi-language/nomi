@@ -3,6 +3,9 @@ package irbuild
 import "github.com/nomi-language/nomi/internal/ast"
 
 func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method string) *irQualPlan {
+	if method == "contains?" {
+		return bl.seqContainsPlan(t, args, "List")
+	}
 	fn, known := listFuncs[method]
 	if !known || !args.ok || len(args.kinds) != fn.args {
 		return nil

@@ -22,7 +22,7 @@ fn total(d: Node, key: String) -> Int {
 }
 
 fn main() {
-    empty: Map<String, Iter<Int>> = Map.empty()
+    empty: Map<String, Iter<Int>> = %{}
     io.inspect(Map.size(#Node{f: empty}.f))
     runs: Map<String, Iter<Int>> = %{"a" => [1, 2, 3] |> Iter.map(fn x -> x), "b" => (1..=4) |> Iter.filter(fn x -> x > 1)}
     n = #Node{f: runs}

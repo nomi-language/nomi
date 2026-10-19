@@ -3,6 +3,7 @@ import {
     bool.Bool
     comparable.Comparable
     comparable.Ordering.{self, Equal, Greater, Less}
+    contains.Contains
     debug.Debug
     display.Display
     equatable.Equatable
@@ -80,6 +81,17 @@ impl Iter for List<T> {
     host fn known_count(list: List<T>) -> Maybe<Int>
 }
 
+impl Contains for List<T> where T: Equatable {
+    /// True if an element of the list is `==` to `x`. A linear scan that the
+    /// runtime runs, comparing each element as `==` does; convert to a `Set`
+    /// for repeated lookups.
+    //! assert List.contains?([1, 2, 3], 2)
+    //! refute List.contains?([1, 2, 3], 9)
+    //! refute List.contains?([], 1)
+    //
+    host fn contains?(c: List<T>, x: T) -> Bool
+}
+
 impl Add<List<T>, List<T>> for List<T> {
     fn add(lhs: List<T>, rhs: List<T>) -> List<T> {
         concat(lhs, rhs)
@@ -114,7 +126,7 @@ impl Debug for List<T> {
     fn inspect(value: List<T>) -> String {
         body =
             value
-            |> Iter.map(fn item -> Debug.inspect(item))
+            |> Iter.map(&Debug.inspect(&1))
             |> String.join(", ")
 
         "[" + body + "]"

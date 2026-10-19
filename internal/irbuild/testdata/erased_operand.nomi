@@ -68,7 +68,7 @@ impl Handler for Callback {
 }
 
 test "a value of a distinct-over-function type is callable" {
-    h = Callback(fn s -> "handled: " + s)
+    h = Callback(&("handled: " + &1))
 
     assert Handler.handle(h, "request") == "handled: request"
 }

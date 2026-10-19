@@ -35,7 +35,7 @@ fn main() {
 
     io.print(
         named_list()
-        |> Iter.map(fn p -> Named.name(p))
+        |> Iter.map(&Named.name(&1))
         |> String.join(",")
     )
 }

@@ -24,6 +24,15 @@ type ImplTypeArgs struct {
 	TypeParamDefs []*TypeParam_
 	Args          []Type
 	Receiver      Type
+	// Block is the impl block the template was recorded from, and Written
+	// says its header wrote the interface's type arguments. A receiver with
+	// several impls of one interface is selected among them by Args, and the
+	// chosen block's function is the impl a call names (impl_selection.go).
+	Block   *ast.ImplBlock
+	Written bool
+	// Origin is the interface declaration's build key, so impls of two
+	// same-named interfaces are never candidates for one call.
+	Origin string
 }
 
 // InherentMethodRecord captures one compiler-synthesized type-owned function for
@@ -3413,6 +3422,18 @@ func (b *builder) walkImplBlockBodies(n *ast.ImplBlock, scope *Scope) {
 		inner = NewScope(scope)
 	}
 	inner.ReceiverDisplay = receiverDisplay
+	// A block-level `where T: Decode` bounds the block's T in every body, so
+	// `T.decode` there resolves to the bound's method, as it does under a
+	// function's own `where` (walkNode's FieldAccess arm reads the bounds).
+	for _, wc := range n.WhereClauses {
+		if sym := inner.LookupLocal(wc.Name); sym != nil {
+			for _, bound := range wc.Bounds {
+				if bn := TypeExprBaseName(bound); bn != "" && !stringSliceContains(sym.TypeParamBounds, bn) {
+					sym.TypeParamBounds = append(sym.TypeParamBounds, bn)
+				}
+			}
+		}
+	}
 	// The self/generics scope spans the whole impl block.
 	setScopeSpan(inner, n.Line, n.Col, n.EndLine, n.EndCol)
 	for _, item := range n.Items {
@@ -4417,6 +4438,9 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.GroupedExpr:
 		b.walkNode(n.Expr, scope)
 
+	case *ast.Capture:
+		b.walkNode(n.Body, scope)
+
 	case *ast.ConcurrentBlock:
 		// `concurrent { body }` is the structured-concurrency scope —
 		// for the symbol/reference walk it's a child scope wrapping
@@ -4705,10 +4729,10 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		b.walkNode(n.Expr, scope)
 
 	case *ast.Then:
-		b.walkNode(n.Lambda, scope)
+		b.walkNode(n.Fn(), scope)
 
 	case *ast.Tap:
-		b.walkNode(n.Lambda, scope)
+		b.walkNode(n.Fn(), scope)
 
 	case *ast.StructLit:
 		b.walkTypeExpr(n.TypeName, scope)
@@ -4843,7 +4867,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	// Nodes that need no traversal: literals, patterns (handled via definePattern),
 	// Placeholder, WildcardPattern. (StructDef/EnumDef/TypeDef/ExternType/
 	// TypeAlias/InterfaceDef/ImportStmt are handled above for nested-decl support.)
-	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.StringLit, *ast.Placeholder,
+	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.StringLit, *ast.Placeholder, *ast.PlaceholderParam,
 		*ast.WildcardPattern,
 		*ast.IdentPattern, *ast.AsPattern, *ast.OrPattern, *ast.EnumPattern, *ast.StructPattern,
 		*ast.TuplePattern, *ast.ListPattern, *ast.MapPattern, *ast.VectorPattern, *ast.SetPattern,

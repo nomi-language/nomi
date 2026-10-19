@@ -189,9 +189,14 @@ func hoistsThrough(parent, child ast.Node) bool {
 	return false
 }
 
+// isLambda reports whether n is a function written in place, a lambda or
+// a capture, which takes its parameters' types from where it stands.
 func isLambda(n ast.Node) bool {
-	_, ok := n.(*ast.Lambda)
-	return ok
+	switch n.(type) {
+	case *ast.Lambda, *ast.Capture:
+		return true
+	}
+	return false
 }
 
 // isEffect reports whether evaluating n itself may act outside the value it

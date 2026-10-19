@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -247,6 +248,10 @@ func (p *dotVariantProject) rename(pos protocol.Position) ([]string, error) {
 // references and rename on a `.Variant` answer what they answer on the
 // written `Enum.Variant`, and a declaration's references and rename reach
 // its shorthand uses.
+// expectedEnumNote is the line a `.Variant` hover adds: the enum came from
+// the expected type.
+var expectedEnumNote = regexp.MustCompile("\n\n\\*`[A-Za-z]+` from the expected type\\*")
+
 func TestDotVariant_NavigatesLikeTheWrittenVariant(t *testing.T) {
 	p := openDotVariantProject(t)
 	m := func(marker, word string) string {
@@ -271,30 +276,30 @@ func TestDotVariant_NavigatesLikeTheWrittenVariant(t *testing.T) {
 	fullUses := []string{m("Slot.Full(n)", "Full"), m("fill(.Full(1))", "Full"), m("fill(Slot.Full(1))", "Full")}
 	sites := []site{
 		{name: "user function argument", marker: "paint(.Red)", written: "paint(Color.Red)", word: "Red",
-			hover: "variant Red", decl: m("    Red", "Red"), uses: redUses},
+			hover: "Color.Red", decl: m("    Red", "Red"), uses: redUses},
 		{name: "case arm", marker: "        .Red -> 1", written: "paint(Color.Red)", word: "Red",
-			hover: "variant Red", decl: m("    Red", "Red"), uses: redUses},
+			hover: "Color.Red", decl: m("    Red", "Red"), uses: redUses},
 		{name: "payload expression", marker: "area(.Circle(1.0))", written: "Shape.Circle(1.0)", word: "Circle",
-			hover: "variant Circle", decl: m("    Circle(Float)", "Circle"), uses: circleUses},
+			hover: "Shape.Circle(Float)", decl: m("    Circle(Float)", "Circle"), uses: circleUses},
 		{name: "payload pattern", marker: ".Circle(r) ->", word: "Circle",
-			hover: "variant Circle", decl: m("    Circle(Float)", "Circle"), uses: circleUses},
+			hover: "Shape.Circle(Float)", decl: m("    Circle(Float)", "Circle"), uses: circleUses},
 		{name: "struct expression", marker: "area(#.Rect{", word: "Rect",
-			hover: "variant Rect", decl: m("    Rect {", "Rect"), uses: rectUses},
+			hover: "Shape.Rect { w: Float, h: Float }", decl: m("    Rect {", "Rect"), uses: rectUses},
 		{name: "struct pattern", marker: "#.Rect{w, h}", word: "Rect",
-			hover: "variant Rect", decl: m("    Rect {", "Rect"), uses: rectUses},
+			hover: "Shape.Rect { w: Float, h: Float }", decl: m("    Rect {", "Rect"), uses: rectUses},
 		{name: "block-local enum", marker: "pick(.Two)", written: "pick(Local.Two)", word: "Two",
-			hover: "variant Two", decl: m("        Two", "Two"), uses: twoUses},
+			hover: "Local.Two", decl: m("        Two", "Two"), uses: twoUses},
 		{name: "generic enum", marker: "fill(.Full(1))", written: "fill(Slot.Full(1))", word: "Full",
-			hover: "variant Full", decl: m("    Full(T)", "Full"), uses: fullUses},
+			hover: "Slot.Full(Int) -> Slot<Int>", decl: m("    Full(T)", "Full"), uses: fullUses},
 		{name: "enum of another file", marker: "tones.tint(.Warm)", word: "Warm",
-			hover: "variant Warm", decl: "tones.nomi:1:4",
+			hover: "Tone.Warm", decl: "tones.nomi:1:4",
 			uses: []string{m("tones.tint(.Warm)", "Warm"), "tones.nomi:7:13"}},
 		{name: "std function argument", marker: "[3, 1, 2], .Descending", word: "Descending",
-			hover: "variant Descending", decl: "comparable.nomi:24:4", uses: []string{m("[3, 1, 2], .Descending", "Descending")}, std: true},
+			hover: "Direction.Descending", decl: "comparable.nomi:24:4", uses: []string{m("[3, 1, 2], .Descending", "Descending")}, std: true},
 		{name: "prelude enum", marker: "= .Some(1)", written: "= Maybe.Some(1)", word: "Some",
-			hover: "variant Some", decl: "maybe.nomi:20:4", uses: []string{m("= .Some(1)", "Some"), m("= Maybe.Some(1)", "Some")}, std: true},
+			hover: "Maybe.Some(Int) -> Maybe<Int>", decl: "maybe.nomi:20:4", uses: []string{m("= .Some(1)", "Some"), m("= Maybe.Some(1)", "Some")}, std: true},
 		{name: "lambda result", marker: "fn _x, _y -> .Less", written: "fn _x, _y -> Ordering.Less", word: "Less",
-			hover: "variant Less", decl: "comparable.nomi:9:4", uses: []string{m("fn _x, _y -> .Less", "Less"), m("fn _x, _y -> Ordering.Less", "Less")}, std: true},
+			hover: "Ordering.Less", decl: "comparable.nomi:9:4", uses: []string{m("fn _x, _y -> .Less", "Less"), m("fn _x, _y -> Ordering.Less", "Less")}, std: true},
 	}
 	for _, s := range sites {
 		t.Run(s.name, func(t *testing.T) {
@@ -306,8 +311,14 @@ func TestDotVariant_NavigatesLikeTheWrittenVariant(t *testing.T) {
 				t.Errorf("hover = %q, want it to show %q", h, s.hover)
 			}
 			if s.written != "" {
-				if w := p.hover(p.at(s.written, s.word)); h != w {
+				// The written form names its enum; the `.` form says the
+				// enum came from the expected type, and is otherwise the same.
+				w := p.hover(p.at(s.written, s.word))
+				if plain := expectedEnumNote.ReplaceAllString(h, ""); plain != w {
 					t.Errorf("hover = %q, the written form's = %q", h, w)
+				}
+				if !expectedEnumNote.MatchString(h) {
+					t.Errorf("hover = %q, want it to say the enum came from the expected type", h)
 				}
 			}
 			if s.word == "Red" {

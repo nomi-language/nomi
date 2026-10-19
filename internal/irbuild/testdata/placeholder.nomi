@@ -1,6 +1,5 @@
-// The `_` placeholder, which is TWO operations under one spelling: it claims
-// the PIPED slot in a pipe stage, and it opens a slot in a PARTIAL
-// APPLICATION. Both are here because both refused under one key.
+// Captures: a `then` stage applying a partial capture to the piped value,
+// and a partial capture bound to a name.
 //
 // Every `noisy` print is a row about EVALUATION ORDER or COUNT, which is the
 // half a value-only fixture cannot see.
@@ -24,45 +23,41 @@ fn apply(f: (Int) -> Int, v: Int) -> Int {
 }
 
 fn main() {
-    // A placeholder claims the piped slot INSTEAD of index 0, in both positions.
-    // Prepending would make the arity wrong; a lowering that only ever handled
-    // slot 0 would be indistinguishable from prepending.
-    io.print("slot 1:  ${10 |> divide(100, _)}")
-    io.print("slot 0:  ${10 |> divide(_, 2)}")
+    // The capture's `&1` takes the piped value wherever it stands, in both
+    // positions.
+    io.print("slot 1:  ${10 |> then &divide(100, &1)}")
+    io.print("slot 0:  ${10 |> then &divide(&1, 2)}")
 
-    // The piped value is evaluated ONCE however many placeholders name it — one
+    // The piped value is evaluated ONCE however many `&1`s read it — one
     // `eval piped` line, not two.
     io.print("two holes:")
-    io.print("  = ${noisy("piped", 10) |> add(_, _)}")
+    io.print("  = ${noisy("piped", 10) |> then &add(&1, &1)}")
 
-    // ORDER. The LEFT operand is evaluated BEFORE any sibling argument, so
-    // `eval left` must precede `eval right`. Splicing the operand's NODE into
-    // the placeholder's slot would reverse these two lines while leaving the
-    // VALUE unchanged, which is why the value alone is not the pin.
+    // ORDER. The LEFT operand is evaluated BEFORE the capture's body runs,
+    // so `eval left` must precede `eval right`.
     io.print("order:")
-    io.print("  = ${noisy("left", 100) |> divide(noisy("right", 500), _)}")
+    io.print("  = ${noisy("left", 100) |> then &divide(noisy("right", 500), &1)}")
 
-    // A partial application is a function VALUE with one parameter per
-    // placeholder, in encounter order, mapped back to that placeholder's slot.
-    add1 = add(1, _)
-    half = divide(_, 2)
-    both = add(_, _)
+    // A partial capture is a function VALUE with one parameter per `&N`, in
+    // the order they are written, mapped back to each one's slot.
+    add1 = &add(1, &1)
+    half = &divide(&1, 2)
+    both = &add(&1, &2)
     io.print("add1:    ${add1(9)}")
     io.print("half:    ${half(20)}")
     io.print("both:    ${both(3, 4)}")
 
-    // The BOUND arguments are evaluated EAGERLY, at creation, exactly once —
-    // one `eval bound` line above the two results, not one per invocation and
-    // not one per placeholder.
-    io.print("eager:")
-    eager = add(noisy("bound", 100), _)
-    io.print("  a = ${eager(1)}")
-    io.print("  b = ${eager(2)}")
+    // The written arguments are evaluated on EACH call, as the equivalent
+    // `fn y -> add(noisy("bound", 100), y)` evaluates them: one `eval bound`
+    // line per result, none when the capture is made.
+    io.print("per call:")
+    per_call = &add(noisy("bound", 100), &1)
+    io.print("  a = ${per_call(1)}")
+    io.print("  b = ${per_call(2)}")
 
     // And it is an ordinary value: passable to a parameter of function type.
-    io.print("passed:  ${apply(add(1, _), 9)}")
+    io.print("passed:  ${apply(&add(1, &1), 9)}")
 
-    // A placeholder in a pipe stage whose callee is reached through a partial's
-    // own value, so the two operations meet.
+    // A pipe stage whose callee is a partial capture's value.
     io.print("chained: ${20 |> half()}")
 }

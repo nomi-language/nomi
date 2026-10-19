@@ -15,7 +15,7 @@ impl Box<T> {
     }
 
     fn pairs<U>(b: Box<T>, u: U) -> Box<#(T, U)> {
-        #Box{items: b.items |> Iter.map(fn x -> #(x, u)) |> Iter.to_list()}
+        #Box{items: b.items |> Iter.map(&#(&1, u)) |> Iter.to_list()}
     }
 
     fn size(b: Box<T>) -> Int {

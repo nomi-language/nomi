@@ -46,7 +46,7 @@ fn key<H>(h: H) -> Int where H: Hashable {
 			"std interface, std type",
 			`has("abc", 3)`,
 			"Int does not implement Matcher (required by `where M: Matcher`)",
-			"only std can implement `Matcher` for `Int`; `Regex` and `String` implement it",
+			"only std can implement `Matcher` for `Int`; `Codepoint`, `Regex` and `String` implement it",
 		},
 		{
 			"broad std interface, std type",

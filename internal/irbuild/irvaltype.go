@@ -179,6 +179,17 @@ func (g *gen) irNamedValType(k kind) *ir.ValType {
 	switch {
 	case d.preludeOf != nil:
 		args = d.preludeArgs
+	case d.instOrigin != nil:
+		// A mirror of another file's instance carries no arguments of its
+		// own; its values are that instance's, keyed as the owner keys them.
+		args = make([]kind, len(d.instOrigin.genericArgs))
+		for i, a := range d.instOrigin.genericArgs {
+			ik, ok := g.importKind(a)
+			if !ok {
+				return nil
+			}
+			args[i] = ik
+		}
 	case d.genericOf != nil:
 		args = d.genericArgs
 	}

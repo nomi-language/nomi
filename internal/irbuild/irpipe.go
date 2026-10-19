@@ -18,17 +18,12 @@ package irbuild
 // # Retained stages
 //
 //	*ast.Call                  the splice, a shallow copy of the stage
-//	*ast.Then                  a call of its lambda with the piped value
-//	*ast.Tap                   a call of its lambda with the held piped value, which it answers
+//	*ast.Then                  a call of its lambda or capture with the piped value
+//	*ast.Tap                   a call of its lambda or capture with the held piped value, which it answers
 //	*ast.Dbg with a nil Expr   `bl.dbgOf`, whose operand is the piped value
 //
-// Placeholder calls evaluate the left operand first and substitute its stable
-// temporary at the hole, positional or named (`x |> f(1, w: _)`), and the
-// ordinary call path routes the arguments by name. Copy's injected delivery
-// handles forcing and name allocation.
-//
 // A `then` stage uses the same indirect-call path as a prefix lambda call. A
-// `tap` stage holds the piped value, calls its lambda with it through that
+// `tap` stage holds the piped value, calls its function with it through that
 // path, drops the result and answers the held value.
 //
 // Try stages use retained propagation. Bare if/case stages splice the piped
@@ -63,9 +58,6 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 	defer bl.stageAfter(t.Left, right)()
 	switch r := right.(type) {
 	case *ast.Call:
-		if hasPlaceholder(r.Args) {
-			return bl.pipePlaceholderCall(t, r)
-		}
 		// The order is the divergence risk pipe.go names: a pipe evaluates
 		// the LEFT operand first, and a lowering that appended it instead
 		// would produce `f(g(), x)` for `x |> f(g())`, a well-typed program
@@ -81,11 +73,12 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		return bl.pipedInto(&spliced)
 
 	case *ast.Then:
-		// `x |> then fn v -> body` calls the lambda with the piped value. The
-		// synthetic call takes the lambda's position, so it carries the
-		// stage's own position rather than the pipe's.
-		return bl.pipedInto(&ast.Call{Func: r.Lambda, Args: []ast.Node{t.Left},
-			Line: r.Lambda.Line, Col: r.Lambda.Col})
+		// `x |> then fn v -> body` calls the lambda with the piped value, and
+		// `x |> then &f(&1)` the capture. The synthetic call takes the
+		// function's position, so it carries the stage's own position rather
+		// than the pipe's.
+		line, col := nodePos(r.Fn())
+		return bl.pipedInto(&ast.Call{Func: r.Fn(), Args: []ast.Node{t.Left}, Line: line, Col: col})
 
 	case *ast.Tap:
 		return bl.pipeTap(t, r)
@@ -135,7 +128,7 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 // pipeTap lowers `x |> tap fn v -> body`: x is evaluated once and held, the
 // lambda is called with it and its result dropped, and the stage answers the
 // held x. The call reaches the held value through a synthesized name bound to
-// its temporary, as a placeholder pipe's hole does.
+// its temporary.
 func (bl *irScalarBuilder) pipeTap(t *ast.Binary, r *ast.Tap) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	src, k, mobile, ok := bl.lower(t.Left)
@@ -158,7 +151,8 @@ func (bl *irScalarBuilder) pipeTap(t *ast.Binary, r *ast.Tap) (ir.Temp, kind, bo
 	bl.bound[held.Name], bl.boundK[held.Name] = src, k
 	defer delete(bl.bound, held.Name)
 	defer delete(bl.boundK, held.Name)
-	call := &ast.Call{Func: r.Lambda, Args: []ast.Node{held}, Line: r.Lambda.Line, Col: r.Lambda.Col}
+	fnLine, fnCol := nodePos(r.Fn())
+	call := &ast.Call{Func: r.Fn(), Args: []ast.Node{held}, Line: fnLine, Col: fnCol}
 	res, resK, _, ok := bl.pipedInto(call)
 	if !ok {
 		return no()
@@ -178,35 +172,4 @@ func (bl *irScalarBuilder) pipedInto(spliced *ast.Call) (ir.Temp, kind, bool, bo
 	// ordinary expression dispatch so Some/Ok and nominal constructors retain
 	// the same represented values in prefix and pipeline spellings.
 	return bl.lower(spliced)
-}
-
-func (bl *irScalarBuilder) pipePlaceholderCall(t *ast.Binary, r *ast.Call) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	src, k, mobile, ok := bl.lower(t.Left)
-	if !ok {
-		return no()
-	}
-	copy := ir.NewCopy(bl.g.irNodePos(t.Left), bl.f.NewTemp(), src)
-	bl.b.Append(copy)
-	bl.side(copy.Dst(), irScalarSide{k: k, copy: irCopyInjected, copyPure: mobile})
-	line, col := nodePos(t.Left)
-	hole := &ast.Ident{Name: fmt.Sprintf("|pipe %d", copy.Dst()), Line: line, Col: col}
-	bl.bound[hole.Name], bl.boundK[hole.Name] = copy.Dst(), k
-	defer delete(bl.bound, hole.Name)
-	defer delete(bl.boundK, hole.Name)
-	spliced := *r
-	spliced.Args = append([]ast.Node(nil), r.Args...)
-	for i, a := range spliced.Args {
-		if _, placeholder := a.(*ast.Placeholder); placeholder {
-			spliced.Args[i] = hole
-		}
-		if na, named := a.(*ast.NamedArg); named {
-			if _, placeholder := na.Value.(*ast.Placeholder); placeholder {
-				filled := *na
-				filled.Value = hole
-				spliced.Args[i] = &filled
-			}
-		}
-	}
-	return bl.pipedInto(&spliced)
 }

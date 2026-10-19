@@ -193,6 +193,7 @@ func (bl *irScalarBuilder) listMakeOf(at ast.Node, items []ast.Node, tail ast.No
 		var ok bool
 		values[i], _, ok = bl.coerceEmpty(items[i], values[i], kinds[i], elem)
 		if !ok {
+			irDeclineNote("a list element of kind " + kinds[i].nomi() + " where " + elem.nomi() + " is expected")
 			return no()
 		}
 	}
@@ -588,6 +589,10 @@ func (bl *irScalarBuilder) lowerWant(at ast.Node, want kind) (ir.Temp, kind, boo
 // lowerTypedOperand supplies branch storage's type without moving coercion
 // ahead of the caller's effect-ordering and operand-forcing decisions.
 func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, kind, bool, bool) {
+	at = bl.g.holeRead(at)
+	// The routes below that try a shape and fall through: one that declined
+	// an operand abandons at, as lowerExact abandons a node.
+	defer irLowerFrame()()
 	if x, witness := typeWitnessArg(want); witness {
 		// A type name where a `Type<T>` is expected is the witness, not the
 		// value a marker's name would otherwise be (ircontextvalue.go).
@@ -621,6 +626,9 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 			bl.g.irTypeTemp(bl.f, v, k)
 			return v, k, mobile, true
 		}
+	}
+	if irLowerAbandoned() {
+		return ir.NoTemp, kindInvalid, false, false
 	}
 	if c, isCall := at.(*ast.Call); isCall {
 		if _, owner, isChannel := channelElem(want); isChannel && owner == "Channel" {

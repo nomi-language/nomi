@@ -800,14 +800,40 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// slice (it does not append to fa.TypeErrors itself), so capture
 	// them here. Callers that layer CheckTypes / AnalyzeIterSensitivity
 	// on top should append to fa.TypeErrors rather than overwrite it.
-	for _, fb := range built {
-		from := len(fb.fa.TypeErrors)
-		declErrs, bodyErrs := buildTypeHalves(fb.fa, fb.nodes, stdlibScopes)
+	//
+	// Every file takes each of BuildTypes' steps (fileTyping) before any
+	// file takes the next, since a step reads what an earlier one built of
+	// declarations in other files: an impl over a generic struct reads the
+	// struct's type parameters, and the impl type-argument pass
+	// (recordImplTypeArgs) the interface's. Typed a file at a time, `impl
+	// Greets for Wrap<T>` and `impl Holds<Int> for Box` in a file built
+	// before Wrap's or Holds's read a shell with no type parameters. Each
+	// file's errors keep the order buildTypes gives them.
+	type fileTyped struct {
+		*fileTyping
+		from               int
+		declErrs, bodyErrs []TypeError
+	}
+	typed := make([]fileTyped, len(built))
+	for i, fb := range built {
+		typed[i].from = len(fb.fa.TypeErrors)
+		typed[i].fileTyping = startFileTyping(fb.fa, fb.nodes, stdlibScopes)
+		typed[i].typeDeclarations()
+	}
+	for _, ft := range typed {
+		ft.typeSignatures()
+	}
+	for i := range typed {
+		typed[i].declErrs, typed[i].bodyErrs = typed[i].finish()
+	}
+	for i, fb := range built {
+		ft := typed[i]
+		recordImplTypeArgs(fb.fa, ft.reg, fb.nodes)
 		if k := fb.fa.kept; k != nil {
-			k.typeErrors = append(slices.Clone(fb.fa.TypeErrors[from:]), declErrs...)
+			k.typeErrors = append(slices.Clone(fb.fa.TypeErrors[ft.from:]), ft.declErrs...)
 		}
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, declErrs...)
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, bodyErrs...)
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, ft.declErrs...)
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, ft.bodyErrs...)
 	}
 
 	// The build's files now have their types, and with them the primitives
@@ -1009,17 +1035,18 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 				crossModuleSegments[shortName] = true
 			}
 		}
+		ownModule := orphanRuleModule(currentModuleName, proj)
 		var declModule map[string][]string
 		if share != nil {
-			declModule = share.declaringModules(orphanRuleNames(ifaceImpls, implBlockReceivers), currentModuleName, crossModuleSegments)
+			declModule = share.declaringModules(orphanRuleNames(ifaceImpls, implBlockReceivers), ownModule, crossModuleSegments)
 		} else {
 			declModule = declaringModuleIndex(
-				filesByKey, currentModuleName,
+				filesByKey, ownModule,
 				nil, nil, crossModuleSegments,
 			)
 		}
 		implModuleOf := func(fn *ast.FuncDef) string {
-			return moduleNameFromKey(ifaceImplFiles[fn], currentModuleName, crossModuleSegments)
+			return moduleNameFromKey(ifaceImplFiles[fn], ownModule, crossModuleSegments)
 		}
 		programErrs = append(
 			programErrs,

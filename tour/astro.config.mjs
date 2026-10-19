@@ -15,6 +15,7 @@ const referenceItems = [
 		'codepoints',
 		'comparable',
 		'compiler',
+		'contains',
 		'context',
 		'debug',
 		'decimal',

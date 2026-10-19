@@ -1163,6 +1163,11 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 		if k, isUserGeneric := g.userGenericTypeOf(gt.Name, gt.Params); isUserGeneric {
 			return k
 		}
+		// `Gets<String>`: a value held as a generic interface at type
+		// arguments, the existential of that instantiation. See instimpl.go.
+		if k, isInst := g.ifaceInstTypeOf(gt.Name, gt.Params); isInst {
+			return k
+		}
 	}
 	if qt, isQualified := te.(*ast.QualifiedType); isQualified {
 		// `shapes.Holder<Int>` — a generic template named through an imported
@@ -1445,12 +1450,12 @@ func (g *gen) replayTypeRefusals(d *typeDef, at ast.Node) {
 
 // untypedLiteral reports whether k is one of the five literals whose type the
 // CHECKER solves from context rather than the value carrying it: `[]`, a bare
-// `None`, `Map.empty()`, `%[]` and `#[]`.
+// `None`, `%{}`, `%[]` and `#[]`.
 //
 // The five are one concept and are listed together everywhere they appear
 // (native.go's tag comments, stdprelude.go's signature rule, generic.go's type
 // argument rule), so they are asked about through one predicate rather than
-// repeated switches that can drift apart. `Map.empty()` has no corpus site at
+// repeated switches that can drift apart. `%{}` has no corpus site at
 // the equality position, which is exactly the hole a partial list would
 // leave.
 func untypedLiteral(k kind) bool {

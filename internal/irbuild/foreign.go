@@ -131,6 +131,10 @@ type typeRegistry struct {
 	// and the question is asked from a package that holds only a mirror. See
 	// declaresEquatable.
 	equatable map[ast.Node]bool
+	// erasedInsts is every generic instance some file holds erased, by the
+	// owner's def: an impl another file writes for it is recorded for
+	// dispatch there (irInstanceImpls).
+	erasedInsts map[*typeDef]bool
 	// aliasOwner is the Go-spelled PACKAGE plus mirror name of every foreign
 	// alias some gen has already claimed, so exactly one gen declares it.
 	//

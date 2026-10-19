@@ -29,7 +29,7 @@ enum Light {
 func TestCompletion_DotVariantSharedByTwoEnumsNamesBoth(t *testing.T) {
 	src := sharedVariantDecls + "fn f() -> Int {\n    x = ." + cursorMark + "\n    1\n}\n"
 	const wantDetail = "variant of Light, Paint"
-	const wantDoc = "**Light**: `variant Red`\n\nStop.\n\n**Paint**: `variant Red Int`\n\nA red tin."
+	const wantDoc = "**Light**: `Light.Red`\n\nStop.\n\n**Paint**: `Paint.Red(Int)`\n\nA red tin."
 	for i := 0; i < 30; i++ {
 		s := NewServer()
 		list := completeIn(t, s, "file:///completion_case.nomi", src)
@@ -58,7 +58,7 @@ func TestCompletion_DotVariantSharedByTwoEnumsNamesBoth(t *testing.T) {
 		if doc.Value != wantDoc {
 			t.Fatalf("run %d: Red's documentation = %q, want %q", i, doc.Value, wantDoc)
 		}
-		if amber := findItem(list.Items, "Amber"); amber == nil || amber.Detail == nil || *amber.Detail != "variant Amber" {
+		if amber := findItem(list.Items, "Amber"); amber == nil || amber.Detail == nil || *amber.Detail != "Light.Amber" {
 			t.Fatalf("run %d: Amber, declared by one enum, should keep its declaration as its detail; got %+v", i, amber)
 		}
 	}

@@ -143,7 +143,7 @@ func TestSiblingGenericImplFunction_Runs(t *testing.T) {
 		},
 		{
 			name: "partial application",
-			body: "    h: (Int) -> Int = Box.pick(True, _, 4)\n    io.inspect(h(9))\n    k = leaf.Box.pick(False, \"a\", _)\n    io.inspect(k(\"b\"))\n",
+			body: "    h: (Int) -> Int = &Box.pick(True, &1, 4)\n    io.inspect(h(9))\n    k = &leaf.Box.pick(False, \"a\", &1)\n    io.inspect(k(\"b\"))\n",
 			want: "9\n\"b\"\n",
 		},
 	} {

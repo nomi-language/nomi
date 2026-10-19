@@ -65,7 +65,7 @@ func TestUndeterminedTypeArgs_Rejected(t *testing.T) {
 			"the element type of `[]` is not determined: annotate it, as in `xs: List<T> = []` with T filled in", 16},
 		{"sum over an empty set literal", "dbg Iter.sum(%[])",
 			"the element type of `%[]` is not determined: annotate it, as in `xs: Set<T> = %[]`", 16},
-		{"sum over a call's empty set", "dbg Iter.sum(Set.new())",
+		{"sum over a call's empty set", "dbg Iter.sum(Set.union(%[], %[]))",
 			"the type argument T of `Iter.sum` is not determined: annotate the value passed in, or give the call its type arguments, as in `Iter.sum<T>(…)`", 16},
 	}
 	for _, tc := range cases {
@@ -110,8 +110,8 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 		"dbg Iter.to_vector([])",
 		"dbg List.head([])",
 		"dbg List.head([[]])",
-		"dbg Vector.empty()",
-		"dbg Vector.length(Vector.empty())",
+		"dbg #[]",
+		"dbg Vector.length(#[])",
 		"dbg List.concat([], [1])",
 		"dbg Result.map(Ok(3), fn x -> x + 1)",
 		"dbg Result.collect([Ok(1)])",
@@ -125,7 +125,7 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 		"dbg Iter.min([])",
 		"dbg Iter.max([]) == Iter.max([])",
 		"dbg Iter.sort([]) == []",
-		"dbg Set.new() == Set.new()",
+		"dbg %[] == %[]",
 		"dbg Iter.to_set([]) == Iter.to_set([])",
 		// The element of [[]] is a List, whose empty_sum() is [].
 		"dbg Iter.sum([[]]) == []",

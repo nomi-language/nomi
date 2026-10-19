@@ -33,7 +33,7 @@ pub fn counts(strand: String) -> Result<Map<Nucleotide, Int>, String> {
 
     none =
         Nucleotide.variants()
-        |> Iter.map(fn nucleotide -> #(nucleotide, 0))
+        |> Iter.map(&#(&1, 0))
         |> Iter.to_map()
 
     Ok(none + Iter.frequencies(nucleotides))

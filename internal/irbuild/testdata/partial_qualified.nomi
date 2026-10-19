@@ -1,6 +1,6 @@
 import std/io
 
-// `_` partial application over an interface-qualified call, an
+// A partial capture over an interface-qualified call, an
 // owner-qualified call, a generic function and a stdlib owner function. Each
 // is a function of its open slots.
 interface Console {
@@ -32,23 +32,23 @@ fn pair<T>(a: T, b: T) -> #(T, T) {
 
 fn main() {
     c = #Stdout{prefix: "> "}
-    Iter.each(["a", "b"], Console.write_line(c, _))
-    write: (String) -> Unit = Console.write_line(c, _)
+    Iter.each(["a", "b"], &Console.write_line(c, &1))
+    write: (String) -> Unit = &Console.write_line(c, &1)
     write("c")
-    Iter.each(["d"], Stdout.write_line(c, _))
-    Iter.each(["e", "f"], Console.write_line(App.console, _))
-    with_one: (Int) -> #(Int, Int) = pair(1, _)
+    Iter.each(["d"], &Stdout.write_line(c, &1))
+    Iter.each(["e", "f"], &Console.write_line(App.console, &1))
+    with_one: (Int) -> #(Int, Int) = &pair(1, &1)
     io.print(Debug.inspect(with_one(2)))
 
     io.print(
         [3, 4]
-        |> Iter.map(pair(0, _))
+        |> Iter.map(&pair(0, &1))
         |> Iter.to_list()
         |> Debug.inspect()
     )
 
     io.print(
-        Iter.map(["x"], String.repeat(_, 3))
+        Iter.map(["x"], &String.repeat(&1, 3))
         |> Iter.to_list()
         |> Debug.inspect()
     )

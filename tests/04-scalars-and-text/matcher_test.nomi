@@ -82,9 +82,9 @@ test "find works over Unicode text" {
 test "find is the first element find_all returns" {
     texts = ["", "abc", "banana", "order 66, aisle 7", "café crème", "a1b22c"]
 
-    assert Iter.all?(texts, fn t -> first_agrees(t, "an"))
-    assert Iter.all?(texts, fn t -> first_agrees(t, ""))
-    assert Iter.all?(texts, fn t -> first_agrees(t, "z"))
+    assert Iter.all?(texts, &first_agrees(&1, "an"))
+    assert Iter.all?(texts, &first_agrees(&1, ""))
+    assert Iter.all?(texts, &first_agrees(&1, "z"))
     assert Iter.all?(texts, fn t -> first_agrees(t, Regex`\d+`))
     assert Iter.all?(texts, fn t -> first_agrees(t, Regex`a*`))
     assert Iter.all?(texts, fn t -> first_agrees(t, Regex`a|an`))

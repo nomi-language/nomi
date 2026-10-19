@@ -448,7 +448,7 @@ fn main() { _ = #Cfg{} }
 			// the field.
 			name: "constructor with type arguments solved from the field",
 			src: `struct Cfg {
-  tasks: Map<Int, String> = Map.empty()
+  tasks: Map<Int, String> = %{}
 }
 fn main() { _ = #Cfg{} }
 `,

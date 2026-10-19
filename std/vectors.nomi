@@ -3,6 +3,7 @@ import {
     bool.Bool
     comparable.Comparable
     comparable.Ordering.{self, Equal, Greater, Less}
+    contains.Contains
     debug.Debug
     display.Display
     equatable.Equatable
@@ -23,12 +24,6 @@ import {
 pub host type Vector<T>
 
 impl Vector<T> {
-    /// Returns an empty vector.
-    //! v: Vector<Int> = Vector.empty()
-    //! assert Vector.length(v) == 0
-    //
-    pub host fn empty<T>() -> Vector<T>
-
     /// Returns the number of elements. O(1).
     //! assert Vector.length(#["a", "b"]) == 2
     //
@@ -85,6 +80,18 @@ impl Iter for Vector<T> {
     }
 }
 
+impl Contains for Vector<T> where T: Equatable {
+    /// True if an element of the vector is `==` to `x`. A linear scan that
+    /// the runtime runs, comparing each element as `==` does; convert to a
+    /// `Set` for repeated lookups.
+    //! assert Vector.contains?(#[1, 2, 3], 2)
+    //! refute Vector.contains?(#[1, 2, 3], 9)
+    //! empty: Vector<Int> = #[]
+    //! refute Vector.contains?(empty, 1)
+    //
+    host fn contains?(c: Vector<T>, x: T) -> Bool
+}
+
 impl Add<Vector<T>, Vector<T>> for Vector<T> {
     /// `a + b` is `Vector.concat(a, b)`.
     //! assert #[1, 2] + #[3] == #[1, 2, 3]
@@ -104,7 +111,7 @@ impl Summable for Vector<T> {
     //! assert Iter.sum([#[1], #[2, 3]]) == #[1, 2, 3]
     //
     fn empty_sum() -> Vector<T> {
-        Vector.empty()
+        #[]
     }
 }
 
@@ -123,7 +130,7 @@ impl Debug for Vector<T> {
     fn inspect(vector: Vector<T>) -> String {
         body =
             vector
-            |> Iter.map(fn item -> Debug.inspect(item))
+            |> Iter.map(&Debug.inspect(&1))
             |> String.join(", ")
 
         "#[" + body + "]"

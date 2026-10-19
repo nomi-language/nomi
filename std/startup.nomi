@@ -12,6 +12,6 @@ import {
 /// environment and no arguments, and a test writes only the inputs it sets:
 /// `#Startup{args: ["-v"]}` or `#Startup{env: %{"PORT" => "8080"}}`.
 pub struct Startup {
-    env: Map<String, String> = Map.empty()
+    env: Map<String, String> = %{}
     args: List<String> = []
 }

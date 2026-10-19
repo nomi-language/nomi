@@ -1,0 +1,100 @@
+// Dispatch reaches an impl wherever it is written: beside the interface
+// (protocols.nomi), beside the type (things.nomi), in a third file
+// (impls.nomi), or in the calling file, here.
+import {
+    impls
+    protocols.{Gets, Holds}
+    things.{Bag, Crate, Num, Pair, Wrap}
+}
+
+struct Tally {
+    n: Int
+}
+
+impl Gets<Int> for Tally {
+    fn got(t: Tally) -> Int {
+        t.n
+    }
+}
+
+impl Holds for Tally {
+    fn held(t: Tally) -> String {
+        "tally ${t.n}"
+    }
+}
+
+fn held_by<H>(h: H) -> String where H: Holds {
+    H.held(h)
+}
+
+fn got_by<G>(g: G) -> Int where G: Gets<Int> {
+    G.got(g)
+}
+
+fn shouted(h: Holds) -> String {
+    Holds.shout(h)
+}
+
+test "an interface-qualified call reaches each file's impl" {
+    assert Holds.held(#Bag{s: "x"}) == "bag of x"
+    assert Holds.held(#Crate{count: 2}) == "crate of 2"
+    assert Holds.held(#Pair{a: 1, b: 2}) == "pair 1 2"
+    assert Holds.held(#Wrap{item: "w"}) == "wrap \"w\""
+    assert Holds.held(#Tally{n: 4}) == "tally 4"
+}
+
+test "a type-qualified call reaches each file's impl" {
+    assert Bag.held(#Bag{s: "x"}) == "bag of x"
+    assert Crate.held(#Crate{count: 2}) == "crate of 2"
+    assert Pair.held(#Pair{a: True, b: False}) == "pair True False"
+    assert Wrap.held(#Wrap{item: 5}) == "wrap 5"
+}
+
+test "an interface default the impl does not override" {
+    assert Holds.shout(#Bag{s: "x"}) == "bag of x!"
+    assert Crate.shout(#Crate{count: 3}) == "crate of 3!"
+    assert Holds.shout(#Wrap{item: 1.5}) == "wrap 1.5!"
+}
+
+test "a call through a bound" {
+    assert held_by(#Bag{s: "y"}) == "bag of y"
+    assert held_by(#Crate{count: 1}) == "crate of 1"
+    assert held_by(#Pair{a: "p", b: "q"}) == "pair \"p\" \"q\""
+    assert held_by(#Wrap{item: 9}) == "wrap 9"
+    assert got_by(#Wrap{item: 9}) == 9
+    assert got_by(#Tally{n: 6}) == 6
+}
+
+test "a value held as the interface dispatches at run time" {
+    held: List<Holds> = [
+        #Bag{s: "b"},
+        #Crate{count: 7},
+        #Pair{a: 1, b: 2},
+        #Wrap{item: 3},
+        #Tally{n: 8},
+    ]
+
+    assert Iter.map(held, &shouted(&1)) |> Iter.to_list() == [
+        "bag of b!",
+        "crate of 7!",
+        "pair 1 2!",
+        "wrap 3!",
+        "tally 8!",
+    ]
+}
+
+test "a generic interface implemented in another file" {
+    assert Gets.got(#Bag{s: "g"}) == "g"
+    assert Bag.got(#Bag{s: "g"}) == "g"
+    assert Gets.got(#Wrap{item: 4}) == 4
+    assert Wrap.got(#Wrap{item: "s"}) == "s"
+    assert Gets.twice(#Wrap{item: 2}) == [2, 2]
+    assert Gets.twice(#Tally{n: 1}) == [1, 1]
+}
+
+test "an operator implemented in another file" {
+    assert #Num{n: 1} + 4 == 5
+    assert (#Num{n: 1} + #Num{n: 2}).n == 3
+    assert Add.add(#Num{n: 2}, 3) == 5
+    assert Num.add(#Num{n: 2}, 3) == 5
+}

@@ -186,7 +186,7 @@ func (bl *irScalarBuilder) qualTypeEmptyArgs(t *ast.Call, a *irQualArgs) {
 		want := bl.g.project(ft.Params[i])
 		// kindInvalid: lookup — an unsolved parameter type tries its filled holes next.
 		if want == kindInvalid && irUnsolvedType(ft.Params[i]) {
-			// `Map.size(Map.empty())`: nothing determines the element
+			// `Map.size(%{})`: nothing determines the element
 			// types and no value of them is made (spec, "Determined
 			// type arguments"), so the holes are filled as a generic
 			// call's are.
@@ -194,7 +194,7 @@ func (bl *irScalarBuilder) qualTypeEmptyArgs(t *ast.Call, a *irQualArgs) {
 		}
 		// kindInvalid: lookup — a parameter with no kind tries the operand's checked type next.
 		if at := bl.g.checkedExprType(t.Args[i]); want == kindInvalid && irUnsolvedType(at) {
-			// `Iter.count(Map.empty())`: a parameter typed by a bound
+			// `Iter.count(%{})`: a parameter typed by a bound
 			// (`I` where `I: Iter<T>`) names no collection, and the
 			// operand's own checked type is the one with the holes.
 			want = bl.g.projectFilledHoles(at)
@@ -215,7 +215,7 @@ func (bl *irScalarBuilder) qualTypeEmptyArgs(t *ast.Call, a *irQualArgs) {
 
 // emptyAtIterParam is the collection an empty literal of kind k stands for
 // where its parameter is an `Iter<E>` whose element the checker left open
-// (`Iter.count(Map.empty())`, `Iter.zip([], [])`): the literal's own
+// (`Iter.count(%{})`, `Iter.zip([], [])`): the literal's own
 // collection over E, each open hole of E filled as a collection element's is
 // (projectFilledHoles). It answers kindInvalid for any other parameter.
 func (g *gen) emptyAtIterParam(k kind, param analysis.Type) kind {
@@ -248,7 +248,7 @@ func (g *gen) emptyAtIterParam(k kind, param analysis.Type) kind {
 }
 
 // typeOpenEmpty gives an empty collection literal that no position types
-// (`io.inspect(Map.empty())`, `dbg %[]`) the collection over Int, the fill an
+// (`io.inspect(%{})`, `dbg %[]`) the collection over Int, the fill an
 // open element takes (projectFilledHoles); nothing reads an element, so the
 // value shows as the literal does. Any other value is answered unchanged.
 func (bl *irScalarBuilder) typeOpenEmpty(n ast.Node, src ir.Temp, k kind) (ir.Temp, kind, bool) {
@@ -312,6 +312,26 @@ func (bl *irScalarBuilder) ifaceContainerCall(t *ast.Call, args irQualArgs, ifac
 	base := irContainerBaseName(self)
 	if base == "" {
 		return no()
+	}
+	if iface == "Contains" && method == "contains?" {
+		// `Contains.contains?(set, x)`: each container's impl is the
+		// intrinsic its type-qualified call reaches (`Set.contains?`), so the
+		// interface-qualified call is that call.
+		var plan *irQualPlan
+		switch base {
+		case "Set":
+			plan = bl.setCallPlan(t, args, method)
+		case "Map":
+			plan = bl.mapCallPlan(t, args, method)
+		case "List":
+			plan = bl.listCallPlan(t, args, method)
+		case "Vector":
+			plan = bl.vectorCallPlan(t, args, method)
+		}
+		if plan != nil {
+			v, k, mobile, ok := bl.qualEmit(t, args, plan)
+			return v, k, mobile, ok, true
+		}
 	}
 	f := bl.g.stdGenericTemplate(base, method)
 	if f == nil || bl.g.stdInsts == nil {
@@ -699,7 +719,10 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 			return r, kindString, false, true
 		}
 	}
-	if ti.Name == "Result" && method == "map_err" {
+	if p := bl.stdRecvOwnerPlan(t, args, ti.Name, method); p != nil {
+		// `List.show(xs)`: the program's impl over a std container.
+		plan = p
+	} else if ti.Name == "Result" && method == "map_err" {
 		plan = bl.resultMapErrPlan(t, args)
 	} else if ti.Name == "Maybe" && method == "to_result" {
 		plan = bl.preludeToResultPlan(t, args)
@@ -841,7 +864,7 @@ func irQualIsLocal(bl *irScalarBuilder, name string) bool {
 // A local receiver's implementation takes precedence over a stdlib type with
 // the same spelling. The stdlib resolver independently rejects local shadows.
 func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
-	if p := bl.operQualPlan(args, owner, method); p != nil {
+	if p := bl.operQualPlan(t, args, owner, method); p != nil {
 		return p
 	}
 	key := owner + "." + method
@@ -873,6 +896,25 @@ func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, met
 		var only *implItem
 		for _, d := range bl.g.implsOf(k) {
 			if d.recv != k || !d.lowerable {
+				continue
+			}
+			if defs := bl.g.instImpls[d.ifaceName][k]; len(defs) > 1 {
+				// `Box.holds?(b, 1)` where Box implements Holds at several
+				// type arguments: one of them, the call's own.
+				if d != defs[0] {
+					continue
+				}
+				_, item := bl.pickInstImpl(t, defs, method, args)
+				if item == nil {
+					if defs[0].items[method] != nil {
+						return nil
+					}
+					continue
+				}
+				if only != nil {
+					return nil
+				}
+				only = item
 				continue
 			}
 			item := d.items[method]
@@ -968,7 +1010,7 @@ func (bl *irScalarBuilder) siblingReceiverPlan(t *ast.Call, args irQualArgs, own
 // one operator interface at several right-hand types. The impl is the one
 // `Day(10) + Days(4)` selects (operImplFor), so the operator and its two
 // qualified spellings reach one declaration.
-func (bl *irScalarBuilder) operQualPlan(args irQualArgs, owner, method string) *irQualPlan {
+func (bl *irScalarBuilder) operQualPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
 	if !args.ok || len(args.kinds) != 2 {
 		return nil
 	}
@@ -992,11 +1034,23 @@ func (bl *irScalarBuilder) operQualPlan(args irQualArgs, owner, method string) *
 	if spec == nil {
 		return nil
 	}
-	it, _, rival := bl.g.operImplFor(spec.nomi, lk, spec.method, []kind{lk, rk})
-	if rival || it == nil || !it.lowerable || len(it.params) != 2 || len(it.params0) != 2 || it.params[0] != lk || it.params[1] != rk || !irCallableValueKind(it.result) {
+	it, _, rival := bl.g.operImplFor(spec.nomi, lk, spec.method, []kind{lk, rk}, bl.g.checkedKind(t))
+	var og *gen
+	params, result := []kind{lk, rk}, kindInvalid
+	if it != nil {
+		params, result = it.params, it.result
+	} else if !rival && bl.g.stdModule == "" {
+		// An impl another file writes.
+		og, it, params, result, rival = bl.g.siblingOperImpl(spec, lk, rk)
+	}
+	if rival || it == nil || !it.lowerable || len(params) != 2 || len(it.params0) != 2 || params[0] != lk || params[1] != rk || !irCallableValueKind(result) {
 		return nil
 	}
-	return &irQualPlan{token: it, name: spec.nomi + "." + spec.method, result: it.result}
+	p := &irQualPlan{token: it, name: spec.nomi + "." + spec.method, result: result}
+	if og != nil {
+		p.sym = og.irCalleeSym(it, spec.nomi+"."+spec.method)
+	}
+	return p
 }
 
 // qualSiblingImplPlan resolves `Owner.method(args)` to an impl function a
@@ -1035,12 +1089,13 @@ func (bl *irScalarBuilder) qualSiblingIfaceImplPlan(t *ast.Call, args irQualArgs
 	if d == nil || !d.lowerable || d.decl == nil {
 		return nil
 	}
-	if d.instOrigin != nil {
-		// Another file's generic instance: its impls are the owner's
-		// instance's, not the template's written sites.
+	if d.instOrigin != nil || d.genericOf != nil {
+		// A generic instance, another file's or this one's: its impls are
+		// registered per instance, not at the template's written sites.
 		return bl.siblingInstanceImplPlan(t, args, d, method, iface)
 	}
-	if site := g.siblingImplSite(d, method, iface); site != nil && site.withheld != nil {
+	pick := bl.siblingInstPick(t, args)
+	if site := g.siblingImplSiteBy(d, method, iface, pick); site != nil && site.withheld != nil {
 		// `leaf.Box.ident(6)`: a generic member, instantiated by its file.
 		if site.fn.why != "generic impl function" {
 			// A private inherent member, which the checker already refuses.
@@ -1048,7 +1103,7 @@ func (bl *irScalarBuilder) qualSiblingIfaceImplPlan(t *ast.Call, args irQualArgs
 		}
 		return bl.siblingMethodPlan(t, args, g.reg.gens[site.unit], site.withheld, method)
 	}
-	chosen, params, result, owning := g.siblingImplMember(d, method, iface)
+	chosen, params, result, owning := g.siblingImplMemberBy(d, method, iface, pick)
 	if chosen == nil {
 		return nil
 	}
@@ -1083,21 +1138,40 @@ func (bl *irScalarBuilder) qualSiblingIfaceImplPlan(t *ast.Call, args irQualArgs
 // its type d under `method`, narrowed to iface's impls when iface is not
 // empty, or nil when there is none or more than one.
 func (g *gen) siblingImplSite(d *typeDef, method, iface string) *implMemberSite {
+	return g.siblingImplSiteBy(d, method, iface, nil)
+}
+
+// siblingImplSiteBy is siblingImplSite where several sites of one interface
+// are its impls at several type arguments, and pick, when not nil, chooses
+// the call's (instimpl.go).
+func (g *gen) siblingImplSiteBy(d *typeDef, method, iface string, pick func([]implMemberSite) *implMemberSite) *implMemberSite {
 	if g.files == nil || g.fileUnit < 0 || g.reg == nil || d == nil || d.decl == nil {
 		return nil
 	}
-	var chosen *implMemberSite
+	var sites []implMemberSite
 	for _, site := range writtenImplMembers(g.files.implMembers[implMemberKey{recv: d.decl, method: method}]) {
 		if site.unit == g.fileUnit || (iface != "" && site.iface != iface) {
 			continue
 		}
-		if chosen != nil {
-			return nil
-		}
-		site := site
-		chosen = &site
+		sites = append(sites, site)
 	}
-	return chosen
+	switch {
+	case len(sites) == 1:
+		return &sites[0]
+	case len(sites) > 1 && pick != nil && site0Iface(sites):
+		return pick(sites)
+	}
+	return nil
+}
+
+// site0Iface reports whether every site implements one interface.
+func site0Iface(sites []implMemberSite) bool {
+	for _, s := range sites {
+		if s.iface == "" || s.iface != sites[0].iface {
+			return false
+		}
+	}
+	return true
 }
 
 // siblingImplMember is the one impl function another file declares for its
@@ -1106,7 +1180,13 @@ func (g *gen) siblingImplSite(d *typeDef, method, iface string) *implMemberSite 
 // that declares it. A nil site is no such function, more than one (native
 // reports `ambiguous type-qualified call`), or one this unit cannot type.
 func (g *gen) siblingImplMember(d *typeDef, method, iface string) (*implMemberSite, []kind, kind, *gen) {
-	chosen := g.siblingImplSite(d, method, iface)
+	return g.siblingImplMemberBy(d, method, iface, nil)
+}
+
+// siblingImplMemberBy is siblingImplMember choosing among a receiver's
+// impls of one interface at several type arguments with pick.
+func (g *gen) siblingImplMemberBy(d *typeDef, method, iface string, pick func([]implMemberSite) *implMemberSite) (*implMemberSite, []kind, kind, *gen) {
+	chosen := g.siblingImplSiteBy(d, method, iface, pick)
 	if chosen == nil || chosen.item == nil || !chosen.fn.lowerable() {
 		return nil, nil, kindInvalid, nil
 	}

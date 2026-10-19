@@ -15,7 +15,7 @@ import std/io
 // working one.
 //
 // THE FOUR UNTYPED LITERALS, NOT THE ONE THE CORPUS NEEDED. `[]`, `None`,
-// `Map.empty()` and `%[]` are the four values whose type the CHECKER solves from
+// `%{}` and `%[]` are the four values whose type the CHECKER solves from
 // context (types.go's untypedLiteral), and the widening delegates to gen.coerce
 // rather than restating a list of tags — so all four are exercised, because a
 // table-driven guard is only as wide as its table and a rule that named only
@@ -124,7 +124,7 @@ fn first_none(t: Tag, n: Int) -> Maybe<Int> {
 // An empty MAP first.
 fn first_empty_map(t: Tag, n: Int) -> Map<String, Int> {
     case t {
-        Tag.Drop -> Map.empty()
+        Tag.Drop -> %{}
         Tag.Keep -> %{"n" => n}
     }
 }

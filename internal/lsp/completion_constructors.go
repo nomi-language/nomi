@@ -16,7 +16,7 @@ import (
 // Vector), completion offers what builds a T besides the names in scope:
 //
 //   - T's inherent owner functions that return T and take no T, inserted as
-//     owner-qualified calls (`Duration.seconds(${1:n})`, `Map.empty()`). A
+//     owner-qualified calls (`Duration.seconds(${1:n})`). A
 //     function that takes a T (`Map.put`, `Set.union`) transforms a T the
 //     caller already has, which the locals of type T cover.
 //   - Where T is `Maybe<X>` or `Result<X, E>`, also X's inherent functions
@@ -24,6 +24,8 @@ import (
 //     `Result<Date, Error>` is expected). A function returning `Result<T, _>`
 //     is not offered where a plain T is expected: it does not fit there
 //     without a `try` or a match.
+//   - Where T is std's Map, Set or Vector, its empty literal (`%{}`, `%[]`,
+//     `#[]`): the collections have no empty constructor.
 //   - When T implements `Literal`, one typed literal written from the first
 //     example its docs give (`Date"${1:2026}-${2:05}-${3:04}"`), as
 //     completion inside a literal's body offers them.
@@ -46,10 +48,43 @@ func (r *completionRequest) constructorCandidates() []candidate {
 	if inner, ok := wrappedType(t); ok && buildableType(inner) {
 		out = append(out, r.ownerConstructors(inner, t)...)
 	}
+	if c, ok := emptyCollectionLiteral(t); ok {
+		out = append(out, c)
+	}
 	if c, ok := r.literalConstructor(t); ok {
 		out = append(out, c)
 	}
 	return out
+}
+
+// emptyCollectionLiteral is the empty literal of t when t is std's Map, Set
+// or Vector.
+func emptyCollectionLiteral(t analysis.Type) (candidate, bool) {
+	var text, name string
+	switch v := t.(type) {
+	case *analysis.MapType:
+		text, name = "%{}", "Map"
+	case *analysis.StructType:
+		if v.Name == "Set" && analysis.IsStdlibKey(v.Origin) {
+			text, name = "%[]", "Set"
+		}
+	case *analysis.DistinctType:
+		if v.Name == "Vector" && analysis.IsStdlibKey(v.Origin) {
+			text, name = "#[]", "Vector"
+		}
+	}
+	if text == "" {
+		return candidate{}, false
+	}
+	return candidate{
+		label:    text,
+		kind:     protocol.CompletionItemKindValue,
+		detail:   "the empty " + name,
+		typ:      t,
+		insert:   text,
+		filter:   text,
+		locality: 2,
+	}, true
 }
 
 // buildableType reports whether t is a nominal type whose owner functions

@@ -29,7 +29,7 @@ fn parse_small(s: String) -> Result<Int, ParseError> {
 // The operand fails with a `ParseError`; this function declares `String`. The
 // conversion is written at the `try`.
 fn describe(s: String) -> Result<String, String> {
-    n = try Result.map_err(parse_small(s), fn err -> error_text(err))
+    n = try Result.map_err(parse_small(s), &error_text(&1))
 
     Ok("parsed " + Int.to_string(n))
 }

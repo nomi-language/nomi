@@ -179,6 +179,12 @@ contexts:
         2: storage.type.nomi
     - match: '\b{{type_ident}}\b'
       scope: storage.type.nomi
+    # A capture's parameter, `&1`, and the capture's `&`, written against
+    # the function's body: `&(&1 > 2)`, `&f(&1)`, `&#Point{x: &1}`.
+    - match: '&[1-9][0-9]*'
+      scope: variable.parameter.nomi
+    - match: '&(?=[(\[#%.A-Za-z])'
+      scope: keyword.other.capture.nomi
     - match: '\b_(?!_)[a-zA-Z0-9_]*\??\b'
       scope: comment.discard.nomi
     - match: '\b{{ident}}(?=\s*\()'

@@ -11,7 +11,7 @@ import std/io
 //     instantiation. The lines below are a function of the SOURCE being empty
 //     and of nothing else, which is exactly why a placeholder element type is
 //     sound here.
-//   - EMPTY MAP. `Map.empty() |> Map.put(k, v)` is the opposite case: the key
+//   - EMPTY MAP. `%{} |> Map.put(k, v)` is the opposite case: the key
 //     and value types are DETERMINED by the arguments, and the map is then READ
 //     BACK. So these lines are a function of the key type being right — a
 //     placeholder key would hash as the wrong type and `Map.get` would answer
@@ -53,7 +53,7 @@ fn main() {
 
     // EMPTY MAP, built by `put` and read back.
     list_keyed =
-        Map.empty()
+        %{}
         |> Map.put([1, 2, 3], "lst")
 
     io.print("${lookup(list_keyed, [1, 2, 3])}")
@@ -61,20 +61,20 @@ fn main() {
     io.print("${Map.size(list_keyed)}")
 
     nan_keyed =
-        Map.empty()
+        %{}
         |> Map.put(Float.nan(), "n")
 
     io.print("${lookup_f(nan_keyed, Float.nan())}")
 
     zero_keyed =
-        Map.empty()
+        %{}
         |> Map.put(-0.0, "z")
 
     io.print("${lookup_f(zero_keyed, 0.0)}")
 
     // Chained puts on the same solved receiver.
     two =
-        Map.empty()
+        %{}
         |> Map.put([1], "a")
         |> Map.put([2], "b")
 

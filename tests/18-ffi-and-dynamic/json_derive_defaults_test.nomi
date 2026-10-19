@@ -7,11 +7,11 @@ struct Game {
     word: String
     guessed: Set<String> = %[]
     misses: Int = 0
-    scores: Vector<Int> = Vector.empty()
+    scores: Vector<Int> = #[]
     hint: String = "no ${"hint"}"
     ratio: Float = -0.5
     hard: Bool = if 1 > 2 { True } else { False }
-    letters: List<String> = ["a", "b"] |> Iter.map(fn s -> String.to_upper(s)) |> Iter.to_list()
+    letters: List<String> = ["a", "b"] |> Iter.map(&String.to_upper(&1)) |> Iter.to_list()
 }
 
 derive Equatable for Game
@@ -38,7 +38,7 @@ test "a derived FromJson fills a missing field from its default" {
         word: "cat",
         guessed: %[],
         misses: 0,
-        scores: Vector.empty(),
+        scores: #[],
         hint: "no hint",
         ratio: -0.5,
         hard: False,

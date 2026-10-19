@@ -109,8 +109,8 @@ Iter.to_set([1, 2, 3])
   the call is the whole expression: `Iter.reduce([1, 2, 3], fn acc = 0, n -> acc + n)`.
 - An incidental, non-subject argument stays nested:
   `Map.put(m, k, compute(v))`. `compute(v)` is a value being stored, not the
-  pipeline subject. Reach for `|> f(a, _)` placeholder placement only when the
-  nested call is the subject.
+  pipeline subject. Reach for `|> then &f(a, &1)` only when the nested call
+  is the subject and its value goes elsewhere than the first argument.
 
 **Operators and fields:**
 
@@ -371,15 +371,19 @@ once upto = 400
 once offsets = [#(-1, 0), #(1, 0), #(0, -1), #(0, 1)]
 
 total = Iter.reduce(1..=upto, fn sum = 0, n -> sum + n)
-lengths = Iter.reduce(words, fn acc = Map.empty(), word -> Map.put(acc, word, String.length(word)))
+lengths = Iter.reduce(words, fn acc = %{}, word -> Map.put(acc, word, String.length(word)))
 ```
 
 Write the type when nothing else pins the value down, such as an empty
 `Map`, `List` or `None` that no later use fixes: the checker rejects it with
 "type is not locally determined" until it has an annotation
-(`once routes: Map<String, Handler> = Map.empty()`). Struct field defaults
+(`once routes: Map<String, Handler> = %{}`). Struct field defaults
 (`port: Int = 8080`) are declarations, not bindings, and always carry their
 type.
+
+Write an empty collection as its literal: `[]`, `#[]`, `%[]` or `%{}`. The
+collections have no empty constructor. Where nothing else gives the literal
+its type, annotate the binding (`seen: Set<String> = %[]`).
 
 ## 6. Call style
 
@@ -543,7 +547,7 @@ the front and prompt each continuation line:
 When a compact example needs setup, write the setup as ordinary prompted lines:
 
 ```nomi
-//! v: Vector<Int> = Vector.empty()
+//! v: Vector<Int> = #[]
 //! assert Vector.length(v) == 0
 ```
 
@@ -1579,3 +1583,56 @@ such as a grid's row and column. A set pattern tests membership, so reach
 for one when an arm needs several elements present at once
 (`%["admin", "owner", ..]`) or binds the rest; to test one element,
 `Set.contains?` is shorter.
+
+## 30. Test membership with `contains?`
+
+Every collection answers membership with `contains?`: `Set.contains?`,
+`Map.contains?` (a key), `Range.contains?`, `List.contains?`,
+`Vector.contains?`, `Bytes.contains?`, `String.contains?` and, for any
+iterable, `Iter.contains?`.
+
+```nomi
+if List.contains?(reserved, name) {
+    Err("${name} is reserved")
+} else {
+    Ok(name)
+}
+```
+
+not `Iter.any?(reserved, fn r -> r == name)`, which spells out the comparison
+`contains?` makes. Keep `Iter.any?` for a predicate other than `==`. A `List`,
+`Vector`, `Bytes` or `Iter` lookup is a linear scan, so a value looked up
+repeatedly belongs in a `Set`: convert once with `Iter.to_set` and test that.
+
+## 31. Prefer a capture for a single operation
+
+Prefer a capture (spec, *Captures*) when a lambda's body is a single
+operation: one call, one operator or one construction, using its
+parameter once. `&f(&1)` says what the lambda says without a parameter
+name to invent. Write `fn` when the body has more than one step.
+
+Keep `fn x -> ...` when any of these holds:
+
+- the body takes more than one step (`fn x -> x * 2 + 1`);
+- it uses the parameter twice (`fn n -> n * n`);
+- it takes the parameter apart with a pattern (`fn #(k, v) -> v`);
+- it reads a field off the parameter (`fn o -> o.total > 100`); a bare field
+  read is `.total` (rule 21);
+- it needs a seed (`fn total = 0, x -> total + x`);
+- no expected function type gives the parameter its type (`f = fn x: Int ->
+  x > 2`, where `f = &(&1 > 2)` is an error). A partial capture of a call
+  (`inc = &add(1, &1)`) takes its types from the callee and needs none.
+
+| Lambda | Write |
+|---|---|
+| `fn s -> s > 50` | `&(&1 > 50)` |
+| `fn x -> #Point{x: x, y: 0}` | `&#Point{x: &1, y: 0}` |
+| `fn l -> Set.contains?(letters, l)` | `&Set.contains?(letters, &1)` |
+| `fn v -> divide(100, v)` as a pipe stage | `then &divide(100, &1)` |
+| `fn x -> x * 2 + 1` | unchanged: two steps |
+| `fn o -> o.total > 100` | unchanged: a field read and a comparison |
+| `fn #(k, v) -> v` | unchanged: a pattern |
+
+The language allows more than this rule uses: `&(&1 * 2 + 1)`, `&(&1 *
+&1)` and `&f(&2, &1)` are all functions. A parameter used twice or out of
+order reads better as a lambda whose parameters have names.

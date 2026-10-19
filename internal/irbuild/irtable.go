@@ -271,14 +271,14 @@ func (g *gen) irSelectAmong(cands []irCandidate, args []kind) (*implItem, *ir.De
 // It collects the candidate set — the same filter `operImplFor` applied, which
 // is this package's knowledge of which impl blocks are operator impls of one
 // interface for one receiver — and hands it to irSelectAmong.
-func (g *gen) irSelectOperImpl(iface string, recv kind, method string, args []kind) (*implItem, *ir.Decl, bool) {
+func (g *gen) irSelectOperImpl(iface string, recv kind, method string, args []kind, keep func(*implItem) bool) (*implItem, *ir.Decl, bool) {
 	var cands []irCandidate
 	for _, d := range g.operOrder {
 		if d.ifaceName != iface || d.recv != recv || !d.lowerable {
 			continue
 		}
 		it := d.items[method]
-		if it == nil {
+		if it == nil || (keep != nil && !keep(it)) {
 			continue
 		}
 		cands = append(cands, irCandidate{recv: recv, it: it})

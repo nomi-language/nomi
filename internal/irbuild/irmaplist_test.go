@@ -14,7 +14,7 @@ fn record(index: Index, bucket: String, n: Int) -> Index {
 }
 
 fn main() {
-  start: Index = Map.empty()
+  start: Index = %{}
   result =
     start
     |> record("evens", 2)
@@ -36,7 +36,7 @@ fn main() {
   dbg lists
   dbg more
   io.print(Map.size(more))
-  empty: Map<String, Int> = Map.empty()
+  empty: Map<String, Int> = %{}
   dbg empty
   io.print("done")
 }

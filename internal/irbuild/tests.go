@@ -643,7 +643,7 @@ func (g *gen) refuseDuplicateTestNames(cases []testCaseDecl) {
 
 // --- value recording -------------------------------------------------------
 
-// skipAssertionArg classifies one call argument: a lambda, a block or a type name explains nothing; a
+// skipAssertionArg classifies one call argument: a lambda, a capture, a block or a type name explains nothing; a
 // literal explains something only for a predicate.
 //
 // A `"""` literal is recorded all the same. Its row never prints, since
@@ -652,7 +652,7 @@ func (g *gen) refuseDuplicateTestNames(cases []testCaseDecl) {
 // transcript lines from it (internal/vm's replayDiff).
 func skipAssertionArg(arg ast.Node, includeLiterals bool) bool {
 	switch a := arg.(type) {
-	case *ast.Lambda, *ast.Block, *ast.FieldAccessor, *ast.TypeIdent:
+	case *ast.Lambda, *ast.Block, *ast.FieldAccessor, *ast.Capture, *ast.TypeIdent:
 		return true
 	case *ast.StringLit:
 		return !includeLiterals && !(a.Triple && !a.Raw)

@@ -2,7 +2,7 @@
 //
 // # `untyped:` — an UNTYPED LITERAL nested inside a tuple
 //
-// `[]`, `Map.empty()`, `%[]`, `#[]` and a bare `None` have no type of their own;
+// `[]`, `%{}`, `%[]`, `#[]` and a bare `None` have no type of their own;
 // the checker solves each from context. `coerce` discharged them at the TOP
 // LEVEL only, so `#(0, [])` flowing into a `#(Int, List<Int>)` position was never
 // discharged — and the same absence was reported under THREE different key
@@ -76,7 +76,7 @@ fn main() {
     // pattern introduces.
     counts =
         [#("a", 1), #("b", 2), #("a", 3)]
-        |> Iter.reduce(fn acc = Map.empty(), #(k, v) -> {
+        |> Iter.reduce(fn acc = %{}, #(k, v) -> {
             case Map.get(acc, k) {
                 Some(prev) -> Map.put(acc, k, prev + v)
                 None -> Map.put(acc, k, v)

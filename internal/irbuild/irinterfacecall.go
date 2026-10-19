@@ -96,12 +96,27 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 		recv = args.kinds[recvAt]
 	}
 	if recv.tag == tagIface {
+		if inst := recv.iface; inst != nil && inst.instOf != nil && inst.instOf == d.decl {
+			// `Gets.got(h)` for an `h: Gets<String>`: the instance's table.
+			d, m = inst, inst.methods[method]
+		}
 		if m == nil {
 			return nil
 		}
 		return bl.erasedInterfacePlan(t, args, d, m)
 	}
 	impl := bl.g.implsByIface[d.nomi][recv]
+	if impl == nil {
+		if p := bl.stdRecvIfacePlan(t, args, d, method, recv); p != nil {
+			// `Show.show([1, 2])`: an impl over a std container.
+			return p
+		}
+		if defs := bl.g.instImpls[d.nomi][recv]; len(defs) > 0 {
+			// `Holds.holds?(b, 1)` where Box implements Holds at several
+			// type arguments: the call's own.
+			impl, _ = bl.pickInstImpl(t, defs, method, args)
+		}
+	}
 	if impl == nil {
 		if p := bl.callerImplPlan(t, args, d.nomi, method, recv); p != nil {
 			return p

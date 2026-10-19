@@ -35,7 +35,7 @@ fn main() {
     io.inspect(Pairs.second(b, 2.5))
     io.inspect(Box.second(b, "x"))
     io.inspect(Box.second(b, [1, 2]))
-    f = Box.second(b, _)
+    f = &Box.second(b, &1)
     io.inspect(f(True))
 }
 `})

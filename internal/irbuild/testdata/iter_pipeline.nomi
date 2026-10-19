@@ -14,7 +14,7 @@ fn shout(n: Int) -> Unit {
 fn main() {
     // The representative depth-1 pipeline: a concrete source, one lazy adapter,
     // one materializing terminal.
-    io.print("${[1, 2, 3] |> Iter.map(fn x -> x * 10) |> Iter.to_list()}")
+    io.print("${[1, 2, 3] |> Iter.map(&(&1 * 10)) |> Iter.to_list()}")
 
     // The same call written directly rather than piped. The pipe is a
     // desugaring, so these must agree — and a piped call records no assertion
@@ -28,8 +28,8 @@ fn main() {
     io.print("${[] |> Iter.to_list()}")
 
     // filter, and a predicate that keeps nothing.
-    io.print("${[1, 2, 3, 4] |> Iter.filter(fn x -> x > 2) |> Iter.to_list()}")
-    io.print("${[1, 2, 3] |> Iter.filter(fn x -> x > 99) |> Iter.to_list()}")
+    io.print("${[1, 2, 3, 4] |> Iter.filter(&(&1 > 2)) |> Iter.to_list()}")
+    io.print("${[1, 2, 3] |> Iter.filter(&(&1 > 99)) |> Iter.to_list()}")
 
     // An unbounded source, bounded. This is the shape that makes laziness
     // observable rather than incidental: `Iter.from` never terminates on its own,
@@ -41,8 +41,8 @@ fn main() {
     // 13-iterators-and-pipes/iter_test.nomi:32.
     io.print(
         "${Iter.from(1)
-        |> Iter.map(fn x -> x * 2)
-        |> Iter.filter(fn x -> x > 4)
+        |> Iter.map(&(&1 * 2))
+        |> Iter.filter(&(&1 > 4))
         |> Iter.take(3)
         |> Iter.to_list()}"
     )
@@ -62,7 +62,7 @@ fn main() {
     // would be easy to lower as "skip". A `List<Unit>` has no Display impl, so
     // the observable is its LENGTH: 2 means each element produced one, 0 would
     // mean the Unit answer was read as a skip.
-    units = [1, 2] |> Iter.map(fn x -> shout(x)) |> Iter.to_list()
+    units = [1, 2] |> Iter.map(&shout(&1)) |> Iter.to_list()
 
     io.print("${units |> Iter.count()}")
 
@@ -88,5 +88,5 @@ fn main() {
     // Early termination stops the SOURCE. `take(2)` over a noisy list must print
     // two `evaluating` lines from the list literal — which is eager — and then
     // exactly two mapped notes, never three.
-    io.print("${[note(4), note(5)] |> Iter.map(fn x -> note(x)) |> Iter.take(1) |> Iter.to_list()}")
+    io.print("${[note(4), note(5)] |> Iter.map(&note(&1)) |> Iter.take(1) |> Iter.to_list()}")
 }

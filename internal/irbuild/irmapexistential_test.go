@@ -12,7 +12,7 @@ func TestIRMapPutIntoExistentialValues_Runs(t *testing.T) {
 	const src = `import std/io
 
 fn main() {
-    m: Map<String, Display> = Map.put(Map.put(Map.empty(), "a", 1), "b", True)
+    m: Map<String, Display> = Map.put(Map.put(%{}, "a", 1), "b", True)
     io.print(Map.values(m) |> Iter.map(Display.to_string) |> String.join(","))
 }
 `

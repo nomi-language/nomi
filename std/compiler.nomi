@@ -47,7 +47,7 @@ pub struct RunFile {
 
     /// Process environment overrides included in `startup.env` when `boot`
     /// builds the app value. Missing keys inherit the current test process env.
-    env: Map<String, String> = Map.empty()
+    env: Map<String, String> = %{}
 }
 
 /// Checks `source` as a standalone Nomi entry file and returns every

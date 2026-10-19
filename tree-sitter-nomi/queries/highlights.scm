@@ -83,7 +83,7 @@
 ; Discard names (`_` and `_name`) bind nothing a program can read, so a name
 ; a pattern binds that way reads as a comment. The
 ; anonymous `_` token appears only where a pattern binds (and as a blank Go
-; package name); a `_` that stands for a missing call argument (`add(1, _)`)
+; package name); a `_` read as a value (an error: a capture's parameter is `&1`)
 ; lexes as an identifier and keeps its variable colour, and so does a read of
 ; a top-level `fn _helper` or `once _cache`. The regex allows leading
 ; whitespace because some identifiers after a field name or `as` carry it.
@@ -356,6 +356,11 @@
 ; Parameters
 (parameter
   name: (identifier) @variable.parameter)
+
+; A capture's parameter, `&1`, and the capture's `&`, which makes a
+; function of the body it is written against, as `fn` does.
+(placeholder) @variable.parameter
+(capture "&" @keyword)
 
 ; Lambda parameters
 (lambda_parameter

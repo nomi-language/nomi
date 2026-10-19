@@ -28,7 +28,7 @@ type CallShape struct {
 // It answers nil rather than a guess: when an argument does not unify, when
 // a type parameter the result names stays unsolved (an argument whose type
 // is unknown, such as a lambda whose parameter types need inference), when
-// the call is a partial application (`_`), and when an argument's type
+// the call is a partial application (`&1`), and when an argument's type
 // holds an unsolved inference variable, which unification would bind in
 // the analysis it was read from.
 func (fa *FileAnalysis) CallResultType(ft *FuncType, call CallShape) Type {

@@ -225,17 +225,35 @@ func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 // buildTypes is BuildTypes against the stdlib module scopes stdlib, which a
 // project build passes before its files have their Program.
 func buildTypes(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) []TypeError {
-	declErrs, bodyErrs := buildTypeHalves(fa, nodes, stdlib)
+	ft := startFileTyping(fa, nodes, stdlib)
+	ft.typeDeclarations()
+	ft.typeSignatures()
+	declErrs, bodyErrs := ft.finish()
+	recordImplTypeArgs(fa, ft.reg, nodes)
 	return append(declErrs, bodyErrs...)
 }
 
-// buildTypeHalves is buildTypes with its errors in two halves: those about
-// the file's declarations, and those about what its bodies declare
-// (buildBodyTypes). The impl type-argument pass appends its own errors to
-// fa.TypeErrors, which come before both. When fa is kept (keepDecls), the
-// work on declarations is recorded (typingDecls), and so is the registry the
-// bodies are typed with.
-func buildTypeHalves(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) (declErrs, bodyErrs []TypeError) {
+// fileTyping is BuildTypes over one file in steps, so a project build can
+// take every file through one step before any file takes the next: what a
+// later step reads of a declaration may be declared in another file. In
+// order: startFileTyping (pass 1), typeDeclarations and typeSignatures
+// (pass 2), finish (pass 2b), and recordImplTypeArgs (pass 3). The impl
+// type-argument pass appends its own errors to fa.TypeErrors; finish
+// answers the rest in two halves, those about the file's declarations and
+// those about what its bodies declare (buildBodyTypes). When fa is kept
+// (keepDecls), the work on declarations is recorded (typingDecls), and so
+// is the registry the bodies are typed with.
+type fileTyping struct {
+	fa    *FileAnalysis
+	nodes []ast.Node
+	// reg is the registry the file is typed with, which every step reads.
+	reg   *TypeRegistry
+	decls *declTyping
+}
+
+// startFileTyping is BuildTypes' pass 1 over fa: the registry of the
+// file's own types and the ones it sees.
+func startFileTyping(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) *fileTyping {
 	reg := NewTypeRegistry()
 
 	// Pre-populate registry with types from parent scopes (e.g. primitives types
@@ -361,77 +379,144 @@ func buildTypeHalves(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scop
 	// supposed to be symmetric.
 	registerModuleQualifiedTypes(reg, fa.ModuleScope)
 
-	// Pass 2: resolve details and attach to symbols. An alias is built at
-	// its declaration or at the first lookup of its name, whichever comes
-	// first (newAliasBuilder).
-	fa.typingDecls(func() { declErrs = buildDeclTypes(fa, reg, nodes, stdlib, unnamed) })
+	return &fileTyping{fa: fa, nodes: nodes, reg: reg, decls: newDeclTyping(fa, reg, nodes, stdlib, unnamed)}
+}
 
-	bodyErrs = buildBodyTypes(fa, reg, nodes)
+// typeDeclarations is pass 2's first half (declTyping.typeDeclarations).
+func (ft *fileTyping) typeDeclarations() {
+	ft.fa.typingDecls(ft.decls.typeDeclarations)
+}
 
-	// Pass 3: after all impl/extend method signatures are resolved, solve the
-	// interface type-argument template for each `impl Iface for T` block. The
-	// unifier consults these templates to bind any generic interface's type
-	// parameters from a concrete receiver — `Iter<T>` against std/iter's `Seq`
-	// or a user iterator binds `T` from `each_while`'s `yield: (T) -> Bool`
-	// parameter, and a user `Chooser<T>` binds `T` from whichever
-	// method carries it. See recordImplTypeArgsFromBlock + the
-	// general-interface-typearg-inference design.
-	fa.typingDecls(func() { recordImplTypeArgsInNodes(fa, reg, nodes) })
+// typeSignatures is pass 2's second half (declTyping.typeSignatures).
+func (ft *fileTyping) typeSignatures() {
+	ft.fa.typingDecls(ft.decls.typeSignatures)
+}
 
-	if fa.kept != nil {
-		fa.kept.types = reg
+// finish types what the file's bodies declare (pass 2b) and answers pass
+// 2's errors and pass 2b's. When fa is kept, it records the registry.
+func (ft *fileTyping) finish() (declErrs, bodyErrs []TypeError) {
+	declErrs = ft.decls.errors()
+	bodyErrs = buildBodyTypes(ft.fa, ft.reg, ft.nodes)
+	if ft.fa.kept != nil {
+		ft.fa.kept.types = ft.reg
 	}
 	return declErrs, bodyErrs
 }
 
-// buildDeclTypes is BuildTypes' pass 2: it types the file's declarations
-// against reg, each declaration whose name belongs to something else in the
-// file (unnamed) against a registry of its own.
-func buildDeclTypes(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node, stdlib map[string]*Scope, unnamed map[string]bool) []TypeError {
-	var errs []TypeError
-	aliases := newAliasBuilder(fa, nodes, func(n *ast.TypeAlias) (*TypeRegistry, bool) {
-		_, owns := typeDeclSymbol(fa, fa.ModuleScope, n.Name, n.Line, n.Col)
-		return ownRegistry(fa, reg, n.Name, n.Line, n.Col), owns
-	})
-	for _, node := range nodes {
+// recordImplTypeArgs is BuildTypes' pass 3: after all impl method signatures
+// are resolved, it solves the interface type-argument template for each
+// `impl Iface for T` block in nodes, and appends its errors to
+// fa.TypeErrors. The unifier consults these templates to bind any generic
+// interface's type parameters from a concrete receiver: `Iter<T>` against
+// std/iter's `Seq` or a user iterator binds `T` from `each_while`'s
+// `yield: (T) -> Bool` parameter, and a user `Chooser<T>` binds `T` from
+// whichever method carries it. See recordImplTypeArgsFromBlock.
+//
+// The pass reads each named interface's type parameters and method
+// signatures, so it runs once that interface is built. A project build runs
+// it for every file after every file's passes 1 and 2 (buildProject's Sweep
+// C-types), since an interface declared in a file built later is a shell
+// with neither until its own file is typed.
+func recordImplTypeArgs(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node) {
+	fa.typingDecls(func() { recordImplTypeArgsInNodes(fa, reg, nodes) })
+}
+
+// declTyping is BuildTypes' pass 2 over one file: it types the file's
+// declarations against reg, each declaration whose name belongs to
+// something else in the file (unnamed) against a registry of its own. It
+// runs in two steps. typeDeclarations builds the types (structs, enums,
+// distinct types, interfaces, aliases, host types); typeSignatures then
+// types what reads their shapes (functions, onces, host functions, impls).
+// An impl over a generic type takes that type's parameters and their
+// bounds (`impl Greets for Wrap<T>` binds T as Wrap declares it), so it is
+// typed once the type is built, wherever the type is declared: below the
+// impl, or in a file a project build types later, which is why a project
+// build runs the first step for every file before the second
+// (buildProject's Sweep C-types).
+type declTyping struct {
+	fa      *FileAnalysis
+	reg     *TypeRegistry
+	nodes   []ast.Node
+	stdlib  map[string]*Scope
+	unnamed map[string]bool
+	// An alias is built at its declaration or at the first lookup of its
+	// name, whichever comes first (newAliasBuilder).
+	aliases *aliasBuilder
+	// errs holds each node's errors, by its index in nodes.
+	errs [][]TypeError
+}
+
+func newDeclTyping(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node, stdlib map[string]*Scope, unnamed map[string]bool) *declTyping {
+	return &declTyping{
+		fa: fa, reg: reg, nodes: nodes, stdlib: stdlib, unnamed: unnamed,
+		aliases: newAliasBuilder(fa, nodes, func(n *ast.TypeAlias) (*TypeRegistry, bool) {
+			_, owns := typeDeclSymbol(fa, fa.ModuleScope, n.Name, n.Line, n.Col)
+			return ownRegistry(fa, reg, n.Name, n.Line, n.Col), owns
+		}),
+		errs: make([][]TypeError, len(nodes)),
+	}
+}
+
+// typeDeclarations builds the file's types.
+func (d *declTyping) typeDeclarations() {
+	fa, reg := d.fa, d.reg
+	for i, node := range d.nodes {
 		switch n := node.(type) {
 		case *ast.TypeAlias:
-			aliases.build(n)
+			d.aliases.build(n)
 		case *ast.StructDef:
-			errs = append(errs, buildStructType(fa, ownRegistry(fa, reg, n.Name, n.Line, n.Col), n)...)
+			d.errs[i] = buildStructType(fa, ownRegistry(fa, reg, n.Name, n.Line, n.Col), n)
 		case *ast.EnumDef:
-			errs = append(errs, buildEnumType(fa, ownRegistry(fa, reg, n.Name, n.Line, n.Col), n)...)
+			d.errs[i] = buildEnumType(fa, ownRegistry(fa, reg, n.Name, n.Line, n.Col), n)
 		case *ast.TypeDef:
-			errs = append(errs, buildTypeDef(fa, ownRegistry(fa, reg, n.Name, n.Line, n.Col), n)...)
+			d.errs[i] = buildTypeDef(fa, ownRegistry(fa, reg, n.Name, n.Line, n.Col), n)
 		case *ast.InterfaceDef:
-			errs = append(errs, buildInterfaceMethods(fa, ownRegistry(fa, reg, n.Name, n.Line, n.Col), n)...)
-		case *ast.FuncDef:
-			errs = append(errs, buildFuncType(fa, reg, n)...)
-		case *ast.OnceBinding:
-			// Imported reads need the declared type before function bodies
-			// infer lambda results, regardless of the files' checking order.
-			errs = append(errs, buildOnceTypeWithBase(fa, reg, n, nil)...)
-		case *ast.ExternFunc:
-			errs = append(errs, buildExternFuncType(fa, reg, n)...)
+			d.errs[i] = buildInterfaceMethods(fa, ownRegistry(fa, reg, n.Name, n.Line, n.Col), n)
 		case *ast.ExternType:
 			if sym := fa.Definitions[Pos{Line: n.Line, Col: n.Col}]; sym != nil && sym.Type == nil {
 				sym.Type = buildExternTypeShell(fa, n)
 			}
-			errs = append(errs, buildExternType(fa, reg, n)...)
+			d.errs[i] = buildExternType(fa, reg, n)
+		}
+	}
+}
+
+// typeSignatures types the file's functions, onces, host functions and
+// impls, once typeDeclarations has built the types they read.
+func (d *declTyping) typeSignatures() {
+	fa, reg := d.fa, d.reg
+	for i, node := range d.nodes {
+		switch n := node.(type) {
+		case *ast.FuncDef:
+			d.errs[i] = buildFuncType(fa, reg, n)
+		case *ast.OnceBinding:
+			// Imported reads need the declared type before function bodies
+			// infer lambda results, regardless of the files' checking order.
+			d.errs[i] = buildOnceTypeWithBase(fa, reg, n, nil)
+		case *ast.ExternFunc:
+			d.errs[i] = buildExternFuncType(fa, reg, n)
 		case *ast.ImplBlock:
 			// The universal Debug impl synthesized for a declaration that does
 			// not own its name would be typed against the type the name does
 			// mean (std's `List`, not the local `struct List`), and report
 			// errors about a declaration the user never wrote. The
 			// declaration is already an error at its own site.
-			if isAutoSynthImplFor(n, unnamed) {
+			if isAutoSynthImplFor(n, d.unnamed) {
 				continue
 			}
-			errs = append(errs, buildImplBlockTypes(fa, stdlib, reg, n)...)
+			d.errs[i] = buildImplBlockTypes(fa, d.stdlib, reg, n)
 		}
 	}
+}
 
-	return append(errs, aliases.errs...)
+// errors answers pass 2's errors: each declaration's in the order the file
+// declares them, then the aliases'.
+func (d *declTyping) errors() []TypeError {
+	var errs []TypeError
+	for _, e := range d.errs {
+		errs = append(errs, e...)
+	}
+	return append(errs, d.aliases.errs...)
 }
 
 // buildBodyTypes is BuildTypes' pass 2b, which types what the file's bodies
@@ -634,6 +719,9 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 		TypeParamDefs: typeParamDefs,
 		Args:          args,
 		Receiver:      receiver,
+		Block:         n,
+		Written:       len(headerArgs) > 0 || headerWritesTypeArgs(n.Interface),
+		Origin:        iface.Origin,
 	}
 	if fa.ImplTypeArgs[implTypeName][ifaceName] == nil {
 		fa.ImplTypeArgs[implTypeName][ifaceName] = info

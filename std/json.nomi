@@ -91,8 +91,8 @@ impl Json {
 
 // The element decoder arrives as a closure rather than being reached through
 // `T.from_json`: a type parameter's concrete binding lives on the activation
-// that supplied the type argument, so it is visible to a lambda written in
-// the impl body but not to a separate generic helper the impl calls.
+// that supplied the type argument, so a capture written in the impl body
+// sees it (`&T.from_json(&1)`) but a separate generic helper does not.
 fn decode_list<T>(
     items: List<Json>,
     index: Int,
@@ -300,7 +300,7 @@ impl FromJson for Bool {
 impl ToJson for List<T> where T: ToJson {
     fn to_json(value: List<T>) -> Json {
         Json.Arr(
-            Iter.map(value, fn item -> ToJson.to_json(item))
+            Iter.map(value, &ToJson.to_json(&1))
             |> Iter.to_list()
         )
     }
@@ -309,7 +309,7 @@ impl ToJson for List<T> where T: ToJson {
 impl FromJson for List<T> where T: FromJson {
     fn from_json(json: Json) -> Result<List<T>, Json.ShapeError> {
         case json {
-            Json.Arr(items) -> decode_list(items, 0, [], fn item -> T.from_json(item))
+            Json.Arr(items) -> decode_list(items, 0, [], &T.from_json(&1))
             _ -> Err(shape_error_root("array", json))
         }
     }
@@ -318,7 +318,7 @@ impl FromJson for List<T> where T: FromJson {
 impl ToJson for Vector<T> where T: ToJson {
     fn to_json(value: Vector<T>) -> Json {
         Json.Arr(
-            Iter.map(value, fn item -> ToJson.to_json(item))
+            Iter.map(value, &ToJson.to_json(&1))
             |> Iter.to_list()
         )
     }
@@ -329,7 +329,7 @@ impl FromJson for Vector<T> where T: FromJson {
     fn from_json(json: Json) -> Result<Vector<T>, Json.ShapeError> {
         case json {
             Json.Arr(items) ->
-                case decode_list(items, 0, [], fn item -> T.from_json(item)) {
+                case decode_list(items, 0, [], &T.from_json(&1)) {
                     Ok(list) -> Ok(Iter.to_vector(list))
                     Err(e) -> Err(e)
                 }
@@ -343,7 +343,7 @@ impl FromJson for Vector<T> where T: FromJson {
 impl ToJson for Set<T> where T: ToJson {
     fn to_json(value: Set<T>) -> Json {
         Json.Arr(
-            Iter.map(value, fn item -> ToJson.to_json(item))
+            Iter.map(value, &ToJson.to_json(&1))
             |> Iter.to_list()
         )
     }
@@ -354,7 +354,7 @@ impl FromJson for Set<T> where T: FromJson {
     fn from_json(json: Json) -> Result<Set<T>, Json.ShapeError> {
         case json {
             Json.Arr(items) ->
-                case decode_list(items, 0, [], fn item -> T.from_json(item)) {
+                case decode_list(items, 0, [], &T.from_json(&1)) {
                     Ok(list) -> Ok(Iter.to_set(list))
                     Err(e) -> Err(e)
                 }
@@ -391,7 +391,7 @@ impl FromJson for Maybe<T> where T: FromJson {
 
 impl ToJson for Map<String, V> where V: ToJson {
     fn to_json(value: Map<String, V>) -> Json {
-        Json.Obj(Map.map_values(value, fn item -> ToJson.to_json(item)))
+        Json.Obj(Map.map_values(value, &ToJson.to_json(&1)))
     }
 }
 
@@ -399,7 +399,7 @@ impl FromJson for Map<String, V> where V: FromJson {
     fn from_json(json: Json) -> Result<Map<String, V>, Json.ShapeError> {
         case json {
             Json.Obj(items) ->
-                Iter.reduce(items, fn state = Ok(Map.empty()), #(key, value) -> {
+                Iter.reduce(items, fn state = Ok(%{}), #(key, value) -> {
                     case state {
                         Err(e) ->
                             break Err(e)

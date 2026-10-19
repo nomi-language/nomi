@@ -18,9 +18,9 @@ fn pick<T>(c: Bool, a: T, b: T) -> T {
 }
 
 fn main() {
-    f = pick(False, _, Some(Ok(6.5)))
+    f = &pick(False, &1, Some(Ok(6.5)))
     io.inspect(f(None))
-    g: (Maybe<Result<Float, String>>) -> Maybe<Result<Float, String>> = pick(True, _, Some(Ok(6.5)))
+    g: (Maybe<Result<Float, String>>) -> Maybe<Result<Float, String>> = &pick(True, &1, Some(Ok(6.5)))
     io.inspect(g(Some(Err("e"))))
 }
 `, "Some(Ok(6.5))\nSome(Err(\"e\"))\n")

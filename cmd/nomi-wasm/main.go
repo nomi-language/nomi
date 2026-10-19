@@ -312,12 +312,12 @@ func hoverSrc(this js.Value, args []js.Value) (res any) {
 		return ""
 	}
 	src := args[0].String()
-	fa := highlight.Analyze(src, stdLib)
+	fa, nodes := highlight.AnalyzeNodes(src, stdLib)
 	if fa == nil {
 		return ""
 	}
 	line := args[1].Int()
-	return hoverdoc.At(fa, analysis.Pos{Line: line, Col: highlight.ByteCol(src, line, args[2].Int())})
+	return hoverdoc.At(fa, nodes, analysis.Pos{Line: line, Col: highlight.ByteCol(src, line, args[2].Int())})
 }
 
 func result(output, errStr string) any {

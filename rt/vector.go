@@ -223,6 +223,19 @@ func VectorEqual[T any](a, b Vector[T], eq func(T, T) bool) bool {
 	return true
 }
 
+// VectorContains is `impl Contains<T> for Vector<T>`: whether an element is
+// eq to x, scanned in order and stopping at the first match. eq is the
+// element's `==`, so the scan makes one comparison per element it visits and
+// calls nothing else.
+func VectorContains[T any](v Vector[T], x T, eq func(T, T) bool) bool {
+	for i := range v.Len {
+		if eq(v.Items[v.Start+i], x) {
+			return true
+		}
+	}
+	return false
+}
+
 // --- rendering --------------------------------------------------------------
 
 // FormatVector renders a Vector as `#[a, b]`, and `#[]` when empty.

@@ -129,7 +129,7 @@ test "a map" {
 }
 
 test "an empty map" {
-    m: Map<String, Int> = Map.empty()
+    m: Map<String, Int> = %{}
     assert no_map(m)
 }
 

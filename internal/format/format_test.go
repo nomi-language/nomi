@@ -176,9 +176,9 @@ func TestFormat_Binding_WithTypeAnnotation(t *testing.T) {
 }
 
 func TestFormat_Binding_WithGenericTypeAnnotation(t *testing.T) {
-	src := "m: Map<String, Int> = Map.empty()\n"
+	src := "m: Map<String, Int> = %{}\n"
 	got, _ := Format(src)
-	want := "m: Map<String, Int> = Map.empty()\n"
+	want := "m: Map<String, Int> = %{}\n"
 	if got != want {
 		t.Errorf("\nwant: %q\ngot:  %q", want, got)
 	}
@@ -2818,8 +2818,8 @@ func TestFormat_TupleIndex_One(t *testing.T) {
 }
 
 func TestFormat_PartialApp(t *testing.T) {
-	got, _ := Format("f = add(1, _)\n")
-	if got != "f = add(1, _)\n" {
+	got, _ := Format("f = &add(1, &1)\n")
+	if got != "f = &add(1, &1)\n" {
 		t.Errorf("got %q", got)
 	}
 }
@@ -2827,8 +2827,8 @@ func TestFormat_PartialApp(t *testing.T) {
 func TestFormat_PartialApp_Pipe(t *testing.T) {
 	// Placeholder used in pipe target: `10 |> divide(100, _)`. Written inline
 	// and within budget, the chain stays on one line (width-based pipes).
-	src := "x = 10 |> divide(100, _)\n"
-	want := "x = 10 |> divide(100, _)\n"
+	src := "x = 10 |> then &divide(100, &1)\n"
+	want := "x = 10 |> then &divide(100, &1)\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)

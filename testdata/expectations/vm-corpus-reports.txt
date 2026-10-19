@@ -41,6 +41,7 @@
 05-calendar-and-time/naive_datetime_test.nomi
 05-calendar-and-time/offset_datetime_test.nomi
 05-calendar-and-time/times_test.nomi
+06-collections/contains_test.nomi
 06-collections/lists_test.nomi
 06-collections/maps_test.nomi
 06-collections/named_literals_test.nomi
@@ -82,6 +83,8 @@
 10-generics-and-type-wrappers/opaque_types/opaque_types_test.nomi
 10-generics-and-type-wrappers/turbofish_test.nomi
 10-generics-and-type-wrappers/type_wrappers_test.nomi
+11-interfaces-and-impls/container_impls/container_impls_test.nomi
+11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi
 11-interfaces-and-impls/interface_field_update_test.nomi
 11-interfaces-and-impls/module_qualified_impl_dispatch/module_qualified_impl_dispatch_test.nomi
 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi

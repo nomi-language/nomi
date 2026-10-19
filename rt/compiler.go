@@ -96,7 +96,7 @@ type Project struct {
 // a value that must not — so the builder could construct either shape for either
 // function, and the mistake would be a wrong answer rather than a compile error.
 //
-// `Env` carries a field default of `Map.empty()`, which is why the builder needs
+// `Env` carries a field default of `%{}`, which is why the builder needs
 // a value to supply at a construction site that omits it. Unlike `Maybe`, an
 // omitted `rt.Map` zero value is a perfectly good empty map — the trie root is a
 // nil pointer and the count is zero — so the default here is not load-bearing

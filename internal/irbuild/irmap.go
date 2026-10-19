@@ -241,7 +241,7 @@ func (bl *irScalarBuilder) mapUpdate(t *ast.MapLit, wants []kind) (ir.Temp, kind
 		return no()
 	}
 	if bk == kindEmptyMap {
-		// `%{..Map.empty(), "a" => 1}`: the entries say what the base holds.
+		// `%{..%{}, "a" => 1}`: the entries say what the base holds.
 		if base, bk, ok = bl.coerceEmpty(t.Spread, base, bk, lk); !ok {
 			return no()
 		}
@@ -437,48 +437,6 @@ func (bl *irScalarBuilder) mapAtSolvedExistential(t *ast.Call, v ir.Temp, have k
 	return n.Dst(), solved, true
 }
 
-// openEmptyCallKind is the collection an empty constructor's call stands
-// for when the checker left its element types open, which it does only when
-// nothing in the program determines them and no element is made (spec,
-// "Determined type arguments"): the checked result with its holes filled
-// (projectFilledHoles). It answers kindInvalid when the checker solved the
-// result, so the empty kind takes it from the position as before.
-func (g *gen) openEmptyCallKind(t *ast.Call) kind {
-	at := g.checkedExprType(t)
-	if !irUnsolvedType(at) {
-		return kindInvalid
-	}
-	return g.projectFilledHoles(at)
-}
-
-// emptyMap recognizes the reserved constructor before generic-call routing.
-// Explicit type arguments take the call's checked result.
-func (bl *irScalarBuilder) emptyMap(t *ast.Call) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	fa, ok := t.Func.(*ast.FieldAccess)
-	if !ok || fa.Field == nil || fa.Field.Name != "empty" || len(t.Args) != 0 {
-		return no()
-	}
-	owner, ok := fa.Object.(*ast.TypeIdent)
-	if !ok || owner.Name != "Map" {
-		return no()
-	}
-	want := kindEmptyMap
-	if len(t.TypeArgs) != 0 {
-		want = bl.g.solvedCallReturn(t)
-		if want.tag != tagMap || !irRetainedMapKind(want) {
-			return no()
-		}
-	} else if filled := bl.g.openEmptyCallKind(t); filled.tag == tagMap && irRetainedMapKind(filled) {
-		want = filled
-	}
-	n := ir.NewMakeMap(bl.g.irNodePos(t), bl.f.NewTemp(), nil)
-	bl.b.Append(n)
-	bl.side(n.Dst(), irScalarSide{k: kindEmptyMap, pureMake: true})
-	v, k, ok := bl.coerceEmpty(t, n.Dst(), kindEmptyMap, want)
-	return v, k, true, ok
-}
-
 // mapProjectionPlan is `Map.keys(m)` / `Map.values(m)`: the keys, or the
 // values, as a List in the keys' insertion order (rt.MapKeys / rt.MapValues),
 // which is what std's `Iter.map |> Iter.to_list` bodies answer.
@@ -531,55 +489,4 @@ func (bl *irScalarBuilder) mapMapValuesPlan(t *ast.Call, args irQualArgs, method
 	}
 	name := "Map." + method
 	return &irQualPlan{token: name, name: name, result: result, host: true}
-}
-
-// emptyCollection recognizes `Set.new()` and `Vector.empty()`, the empty
-// constructors std declares for Set and Vector, as their empty literals:
-// `%[]` and `#[]`. The literal takes its element type from the context, as
-// `Map.empty()` does; explicit type arguments take the call's checked result.
-func (bl *irScalarBuilder) emptyCollection(t *ast.Call) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	fa, ok := t.Func.(*ast.FieldAccess)
-	if !ok || fa.Field == nil || len(t.Args) != 0 {
-		return no()
-	}
-	owner, ok := fa.Object.(*ast.TypeIdent)
-	if !ok {
-		return no()
-	}
-	if _, shadowed := bl.g.namedType(owner.Name); shadowed && bl.g.stdModule == "" {
-		// A user type of the same name; inside std the name is std's own.
-		return no()
-	}
-	var c *ir.Const
-	var empty kind
-	switch {
-	case owner.Name == "Set" && fa.Field.Name == "new":
-		c, empty = ir.NewEmptySet(bl.g.irNodePos(t), bl.f.NewTemp(), nil), kindEmptySet
-	case owner.Name == "Vector" && fa.Field.Name == "empty":
-		c, empty = ir.NewEmptyVector(bl.g.irNodePos(t), bl.f.NewTemp(), nil), kindEmptyVector
-	default:
-		return no()
-	}
-	want := empty
-	if len(t.TypeArgs) != 0 {
-		want = bl.g.solvedCallReturn(t)
-		if !irRetainedValueKind(want) {
-			return no()
-		}
-	} else {
-		// kindInvalid: lookup — an open empty call whose filled type has no kind keeps the empty kind.
-		if filled := bl.g.openEmptyCallKind(t); filled != kindInvalid && irRetainedValueKind(filled) {
-			want = filled
-		}
-	}
-	bl.b.Append(c)
-	if want == empty {
-		return c.Dst(), empty, true, true
-	}
-	// The literal feeds the retyping Copy and is never returned, so the
-	// wrapper in `bl.lower` does not store its type; it is stored here.
-	bl.g.irTypeTemp(bl.f, c.Dst(), empty)
-	v, k, ok := bl.coerceEmpty(t, c.Dst(), empty, want)
-	return v, k, true, ok
 }

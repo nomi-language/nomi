@@ -21,17 +21,17 @@ fn id<T>(x: T) -> T {
 }
 
 fn main() {
-    c = connect(_, port: _)
+    c = &connect(&1, port: &2)
     io.print(c("a"))
     r = id(c)
     io.print(r("b", 1))
-    p = fn -> connect(_, port: _)
+    p = fn -> &connect(&1, port: &2)
     io.print(p()("c", 2))
     case Some(c) {
         Some(k) -> io.print(k("d", 3))
         None -> io.print("none")
     }
-    fs = [c, connect(_, _)]
+    fs = [c, &connect(&1, &2)]
     io.print(fs |> Iter.map(fn f -> f("e", 4)) |> String.join(" "))
 }
 `
@@ -59,13 +59,13 @@ fn id<T>(x: T) -> T {
     x
 }
 
-once oc = connect(_, port: _)
+once oc = &connect(&1, port: &2)
 
 once ol = fn s: String, n: Int = 5 -> "${s}${n}"
 
 fn main() {
-    c = connect(_, port: _)
-    d = other(_, port: _)
+    c = &connect(&1, port: &2)
+    d = &other(&1, port: &2)
     r = id(c)
     io.print("a" |> r(1))
     b = False

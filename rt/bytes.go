@@ -125,6 +125,13 @@ func BytesSlice(data Bytes, start, end int64) Bytes {
 // BytesConcat is `Bytes.concat`, in argument order.
 func BytesConcat(a, b Bytes) Bytes { return a + b }
 
+// BytesContains is `impl Contains<Byte> for Bytes`: whether any octet of data
+// is b. Bytes is a Go string, so the scan is strings.IndexByte, the string
+// form of bytes.IndexByte over the same vectorized search.
+func BytesContains(data Bytes, b Byte) bool {
+	return strings.IndexByte(string(data), byte(b)) >= 0
+}
+
 // bytesDecodeString is `Bytes.to_string`'s validity rule: the decoded text and
 // whether the octets were well-formed UTF-8. Go's string(b) conversion always
 // succeeds, including on ill-formed UTF-8, so the check is explicit.

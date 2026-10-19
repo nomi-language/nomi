@@ -39,13 +39,13 @@ func TestPartialGeneric_TypesAsAFunctionOfTheOpenSlots(t *testing.T) {
 	_, errs := checkSourceWithStdlib(partialGenericDecls + `
 fn main() {
   c = #Stdout{prefix: "> "}
-  Iter.each(["a", "b"], Console.write_line(c, _))
-  w: (String) -> Unit = Console.write_line(c, _)
+  Iter.each(["a", "b"], &Console.write_line(c, &1))
+  w: (String) -> Unit = &Console.write_line(c, &1)
   w("c")
-  p: (Int) -> #(Int, Int) = pair(1, _)
-  q: (Int) -> #(Int, Int) = pair(_, 2)
+  p: (Int) -> #(Int, Int) = &pair(1, &1)
+  q: (Int) -> #(Int, Int) = &pair(&1, 2)
   _ = #(p(2), q(1))
-  s: (List<Int>) -> List<Int> = spread(1, xs: _)
+  s: (List<Int>) -> List<Int> = &spread(1, xs: &1)
   _ = s([2])
 }
 `)
@@ -56,9 +56,9 @@ func TestPartialGeneric_RejectsAMismatchedPartial(t *testing.T) {
 	for _, tc := range []struct{ src, want string }{
 		// The partial is a function: binding it where its result is
 		// expected is the mismatch, named with the function type.
-		{`  x: Unit = Console.write_line(#Stdout{prefix: ""}, _)`, "expected Unit, got (String) -> Unit"},
+		{`  x: Unit = &Console.write_line(#Stdout{prefix: ""}, &1)`, "expected Unit, got (String) -> Unit"},
 		// The open slot's type is the one the written arguments solved.
-		{`  p: (String) -> #(Int, Int) = pair(1, _)`, "expected (String) -> #(Int, Int), got (Int) -> #(Int, Int)"},
+		{`  p: (String) -> #(Int, Int) = &pair(1, &1)`, "expected (String) -> #(Int, Int), got (Int) -> #(Int, Int)"},
 	} {
 		t.Run(tc.want, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(partialGenericDecls + "\nfn main() {\n" + tc.src + "\n  _ = 0\n}\n")

@@ -966,13 +966,20 @@ module.exports = grammar({
     // The pipe stage `x |> then fn v -> body` applies the lambda to the
     // piped value. Its lambda's body ends at the next `|>` of the pipeline,
     // so it is parsed from `_lambda_body_expression`, which has no pipe;
-    // braces keep a pipe inside it.
-    then_stage: $ => seq('then', field('lambda', alias($._then_lambda, $.lambda))),
+    // braces keep a pipe inside it. `x |> then &f(a, &1)` applies a
+    // capture, which ends with its body.
+    then_stage: $ => seq('then', choice(
+      field('lambda', alias($._then_lambda, $.lambda)),
+      field('capture', $.capture),
+    )),
 
-    // The pipe stage `x |> tap fn v -> body` runs the lambda on the piped
-    // value and passes the value on. Its lambda is a `then` lambda: the body
-    // ends at the next `|>`.
-    tap_stage: $ => seq('tap', field('lambda', alias($._then_lambda, $.lambda))),
+    // The pipe stage `x |> tap fn v -> body` runs the lambda (or capture) on
+    // the piped value and passes the value on. Its lambda is a `then`
+    // lambda: the body ends at the next `|>`.
+    tap_stage: $ => seq('tap', choice(
+      field('lambda', alias($._then_lambda, $.lambda)),
+      field('capture', $.capture),
+    )),
 
     // A call body is preferred over ending the lambda early: without it,
     // `then fn v -> io.print(v)` parsed as `(x |> then fn v -> io).print(v)`.
@@ -1360,6 +1367,8 @@ module.exports = grammar({
     // Expressions
     _expression: $ => choice(
       $.identifier,
+      $.placeholder,
+      $.capture,
       $.self_expression,
       $.type_identifier,
       $.dot_variant,
@@ -2084,6 +2093,27 @@ module.exports = grammar({
     // Identifiers
     _field_identifier: $ => prec(1, $.identifier),
     identifier: $ => /[a-z_][a-zA-Z0-9_]*\??/,
+    // `&1`, `&2`, ...: a parameter of the capture around it.
+    placeholder: $ => /&[1-9][0-9]*/,
+
+    // A capture: `&` against a function's body, which is one postfix-level
+    // operand: a call (`&Int.max(&1, 0)`), a parenthesized expression
+    // (`&(&1 > 2)`) or a literal (`&#Point{x: &1}`, `&#(&1, 0)`, `&[&1]`).
+    // It binds below a call and above every binary operator, so
+    // `&f(&1)(2)` captures both calls and `&f(&1) + 1` adds to the capture.
+    capture: $ => prec(10, seq('&', field('body', choice(
+      $.call_expression,
+      $.paren_expression,
+      $.struct_construction,
+      $.anon_struct,
+      $.struct_update,
+      $.tuple_expression,
+      $.list,
+      $.typed_list,
+      $.vector,
+      $.set,
+      $.map_construction,
+    )))),
     type_identifier: $ => /[A-Z][a-zA-Z0-9_]*/,
 
     // Comments

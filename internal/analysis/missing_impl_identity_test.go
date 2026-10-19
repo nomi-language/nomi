@@ -255,14 +255,14 @@ func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
 // implIdentityFallbackPopulation is every (T, Iface) pair the bare table
 // claims and the identity index cannot judge, measured over the stdlib.
 //
-// All 35 are OPERATOR interfaces, and one mechanism explains the whole set:
-// `ImplBlockInterfaceKey` spells an operator impl with its type arguments
-// (`Add<Days, Date>`), while `Impls` and `ImplManifest` both key the bare
-// name (`Add`), so the two spellings never meet and no operator conformance
-// enters the covered set. `DispatchImplKey` (dispatch_key.go) is the existing
-// translation between them.
+// They are the impls whose headers write type arguments: the 35 OPERATOR
+// pairs and String's Contains. One mechanism explains the whole set:
+// `ImplBlockInterfaceKey` spells such an impl with its type arguments
+// (`Add<Days, Date>`, `Contains<Regex>`), while `Impls` and `ImplManifest`
+// both key the bare name (`Add`), so the two spellings never meet and none
+// of those conformances enters the covered set.
 //
-// NOT widened here, deliberately. Every non-operator conformance — the
+// NOT widened here, deliberately. Every other conformance — the
 // Equatable / Display / Debug / Hashable / Comparable family, which is what
 // the defect was about — is covered. Reaching the operator family means
 // judging std/calendar's `Add`/`Subtract` ladder by identity, and that ladder
@@ -277,4 +277,4 @@ const implIdentityFallbackPopulation = "Bytes/Add Date/Add Date/Subtract " +
 	"Float/Multiply Float/Subtract Instant/Add Instant/Subtract Int/Add Int/Divide " +
 	"Int/Multiply Int/Subtract List/Add Map/Add NaiveDateTime/Add " +
 	"NaiveDateTime/Subtract OffsetDateTime/Add OffsetDateTime/Subtract " +
-	"Set/Add Set/Subtract String/Add Time/Add Time/Subtract Vector/Add"
+	"Set/Add Set/Subtract String/Add String/Contains Time/Add Time/Subtract Vector/Add"

@@ -115,7 +115,7 @@ type mapEntry[K, V any] struct {
 // Map is Nomi's `Map<K, V>`.
 //
 // A value, not a pointer, so the zero Map is the empty map — the analogue of
-// nil being the empty List. That makes `Map.empty()` free (no allocation and no
+// nil being the empty List. That makes `%{}` free (no allocation and no
 // constructor to emit) and makes a Map-typed struct field correct without
 // initialization, which matters because Nomi has no zero values and a caller
 // would otherwise have to invent one here.
@@ -198,7 +198,7 @@ func MapSize[K, V any](m Map[K, V]) int64 { return int64(m.n) }
 // MapLookup is the raw get: the bound value, and whether the key was present.
 //
 // Exported because it is the shape more than one caller wants — MapEqual and
-// MapMerge use it, `Map.contains_key?` wants only the bool, and `Map.get` wants
+// MapMerge use it, `Map.contains?` wants only the bool, and `Map.get` wants
 // a `Maybe<V>`.
 //
 // mapCountNode and mapCountProbe mark each node visited and each entry whose

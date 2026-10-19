@@ -57,8 +57,8 @@ impl Result<T, E> {
     }
 
     /// Transforms the Ok value, passes Err through.
-    //! assert Result.map(Result.Ok(3), fn x -> x * 2) == Result.Ok(6)
-    //! assert Result.map(Result.Err("bad"), fn x -> x * 2) == Result.Err("bad")
+    //! assert Result.map(Result.Ok(3), &(&1 * 2)) == Result.Ok(6)
+    //! assert Result.map(Result.Err("bad"), &(&1 * 2)) == Result.Err("bad")
     //
     pub fn map<T, E, U>(result: Result<T, E>, f: (T) -> U) -> Result<U, E> {
         case result {
@@ -87,8 +87,8 @@ impl Result<T, E> {
     //!     }
     //! }
     //!
-    //! assert Result.flat_map(Result.Ok("1"), fn s -> parse_int(s)) == Result.Ok(1)
-    //! assert Result.flat_map(Result.Ok("x"), fn s -> parse_int(s)) == Result.Err("nope")
+    //! assert Result.flat_map(Result.Ok("1"), &parse_int(&1)) == Result.Ok(1)
+    //! assert Result.flat_map(Result.Ok("x"), &parse_int(&1)) == Result.Err("nope")
     //
     pub fn flat_map<T, E, U>(result: Result<T, E>, f: (T) -> Result<U, E>) -> Result<U, E> {
         case result {
@@ -98,8 +98,8 @@ impl Result<T, E> {
     }
 
     /// Transforms the Err value, passes Ok through.
-    //! assert Result.map_err(Result.Err("bad"), fn e -> "error: " + e) == Result.Err("error: bad")
-    //! assert Result.map_err(Result.Ok(3), fn e -> "error: " + e) == Result.Ok(3)
+    //! assert Result.map_err(Result.Err("bad"), &("error: " + &1)) == Result.Err("error: bad")
+    //! assert Result.map_err(Result.Ok(3), &("error: " + &1)) == Result.Ok(3)
     //
     pub fn map_err<T, E, F>(result: Result<T, E>, f: (E) -> F) -> Result<T, F> {
         case result {

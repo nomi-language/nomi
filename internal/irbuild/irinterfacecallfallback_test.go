@@ -14,7 +14,7 @@ type Token
 struct Point { x: Int }
 struct Outer {
   p: List<Point>
-  hooks: Map<String, (Int) -> Int> = Map.empty()
+  hooks: Map<String, (Int) -> Int> = %{}
 }
 interface Named { fn name(value: self) -> String }
 impl Named for Token { fn name(value: Token) -> String { _ = value; "token" } }

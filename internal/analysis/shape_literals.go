@@ -324,6 +324,10 @@ func (c *checker) checkSetPattern(n *ast.SetPattern, expectedTy Type) {
 			c.addError(v.Line, v.Col, fmt.Sprintf(setPatternElementMessage, "`_` names no value; `..` matches the other elements"))
 			continue
 		case *ast.Ident:
+			if v.Name == "_" {
+				c.addError(v.Line, v.Col, fmt.Sprintf(setPatternElementMessage, "`_` names no value; `..` matches the other elements"))
+				continue
+			}
 			if c.fa.References[Pos{Line: v.Line, Col: v.Col}] == nil {
 				c.addError(v.Line, v.Col, fmt.Sprintf(setPatternElementMessage, fmt.Sprintf("`%s` is not in scope, and `..%s` binds the other elements", v.Name, v.Name)))
 				continue

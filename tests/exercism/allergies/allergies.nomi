@@ -22,7 +22,7 @@ pub fn allergic_to?(score: Int, allergen: Allergen) -> Bool {
 /// above the last allergen are ignored.
 pub fn list(score: Int) -> List<Allergen> {
     Allergen.variants()
-    |> Iter.filter(fn allergen -> allergic_to?(score, allergen))
+    |> Iter.filter(&allergic_to?(score, &1))
     |> Iter.to_list()
 }
 

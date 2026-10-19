@@ -7,5 +7,5 @@ pub fn pangram?(sentence: String) -> Bool {
         |> String.to_codepoints()
         |> Iter.to_set()
 
-    Iter.all?('a'..='z', fn letter -> Set.contains?(letters, letter))
+    Iter.all?('a'..='z', &Set.contains?(letters, &1))
 }

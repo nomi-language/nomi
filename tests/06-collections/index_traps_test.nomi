@@ -57,7 +57,7 @@ test "an index trap inside a std call is reported at the program's call" {
         """
             fn main() {
               rows = [#[1, 2], #[3]]
-              _ = rows |> Iter.map(Vector.at(_, 1)) |> Iter.to_list()
+              _ = rows |> Iter.map(&Vector.at(&1, 1)) |> Iter.to_list()
             }
             """
         |> compiler.run()

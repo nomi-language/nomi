@@ -9,7 +9,7 @@ struct Holder {
 }
 
 fn apply_partial(g: (String, Int) -> String) -> String {
-    h = g(_, 7)
+    h = &g(&1, 7)
     h("arg")
 }
 
@@ -18,35 +18,35 @@ fn each(n: Int, scale: Int = 10, cb: (Int) -> Int) -> Int {
 }
 
 fn main() {
-    c = connect(_, port: _)
+    c = &connect(&1, port: &2)
     io.print(c("a", 1))
-    positional = c(_, 2)
+    positional = &c(&1, 2)
     io.print(positional("positional"))
-    named = c("named", port: _)
+    named = &c("named", port: &1)
     io.print(named(3))
-    swapped = c(port: _, host: "swapped")
+    swapped = &c(port: &1, host: "swapped")
     io.print(swapped(port: 4))
     io.print(swapped())
-    three = connect(_, port: _, timeout: _)
-    mixed = three(timeout: _, host: "mixed", _)
+    three = &connect(&1, port: &2, timeout: &3)
+    mixed = &three(timeout: &1, host: "mixed", &2)
     io.print(mixed(5, 6))
-    d1 = three(port: _, host: _)
-    d2 = d1(host: "deep", port: _)
-    d3 = d2(port: _)
+    d1 = &three(port: &1, host: &2)
+    d2 = &d1(host: "deep", port: &1)
+    d3 = &d2(port: &1)
     io.print(d3(port: 7))
     io.print(d3())
-    lone = connect("lone", port: _)
-    again = lone(port: _)
+    lone = &connect("lone", port: &1)
+    again = &lone(port: &1)
     io.print(again(8))
     holder = #Holder{f: fn h, p -> connect(h, p)}
-    field = holder.f(_, 9)
+    field = &holder.f(&1, 9)
     io.print(field("field"))
     io.print(apply_partial(fn h, p -> connect(h, port: p)))
     lam = fn a: String, b: Int = 5 -> "${a}/${Int.to_string(b)}"
-    la = lam(b: _, a: _)
-    lb = la(a: "lambda", b: _)
+    la = &lam(b: &1, a: &2)
+    lb = &la(a: "lambda", b: &1)
     io.print(lb(10))
     io.print(lb())
-    routed = each(_, fn x -> x + 1)
+    routed = &each(&1, fn x -> x + 1)
     io.print(Int.to_string(routed(2)))
 }

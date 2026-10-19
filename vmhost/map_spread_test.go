@@ -43,7 +43,7 @@ fn main() {
     io.print(%{..scores, "bob" => None})
     lists = %{"a" => [1]}
     io.print(%{..lists, "b" => []})
-    io.print(%{..Map.empty(), "a" => 1})
+    io.print(%{..%{}, "a" => 1})
     piped = base |> then fn m -> %{..m, "p" => 9}
     io.print(piped)
 }

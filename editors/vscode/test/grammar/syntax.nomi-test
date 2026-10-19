@@ -125,6 +125,9 @@ case shape { .Circle(r) => r, _ => 0.0 }
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~- comment.discard.nomi
 span = 0..=10
 // <~~~~~~~~--- keyword.operator.range.nomi
+big = Iter.filter(xs, &(&1 > 2))
+// <~~~~~~~~~~~~~~~~~~~~~~- keyword.other.capture.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~-- variable.parameter.placeholder.nomi
 import std/test.Thing
 // <------ keyword.declaration.nomi
 // <~~~~~~~~~~~---- variable.other.nomi

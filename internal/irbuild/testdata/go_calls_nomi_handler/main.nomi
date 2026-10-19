@@ -7,7 +7,7 @@ fn main() {
     paths = ["/", "/echo", "/missing", "/fail", "/echo", "/", "/fail", "/missing"]
 
     case handler.serve_concurrently(paths, handle) {
-        Ok(lines) -> Iter.each(lines, fn line -> io.print(line))
+        Ok(lines) -> Iter.each(lines, &io.print(&1))
         Err(e) -> io.print("error: ${e}")
     }
 }

@@ -191,9 +191,9 @@ struct Range<T> where T: Comparable {
     end: T
 }
 
-impl Range<T> {
-    fn contains?(r: Range<T>, value: T) -> Bool {
-        r.start <= value and value <= r.end
+impl Contains for Range<T> {
+    fn contains?(r: Range<T>, x: T) -> Bool {
+        r.start <= x and x <= r.end
     }
 }
 

@@ -46,7 +46,7 @@ func (u UnresolvedExpr) String() string {
 //   - a pipe stage, the right of `|>` (`f(a)`, `try f()`, `then fn x -> ...`,
 //     `dbg`, an `if` or `case` stage): it is a call with its subject
 //     missing, and the pipe's own type is recorded. Its arguments count.
-//   - a partial application's `_`, a `todo`'s message, and a block: a
+//   - a partial application's `&1`, a `todo`'s message, and a block: a
 //     function's, test's, lambda's or branch's body block, and an `else if`
 //     (the chain's first `if` carries the type). A block's statements and
 //     tail count.
@@ -117,9 +117,9 @@ func (w *unresolvedWalk) visit(n ast.Node) bool {
 			case *ast.TryOp:
 				w.notValue[st.Expr] = true
 			case *ast.Then:
-				w.notValue[st.Lambda] = true
+				w.notValue[st.Fn()] = true
 			case *ast.Tap:
-				w.notValue[st.Lambda] = true
+				w.notValue[st.Fn()] = true
 			case *ast.If:
 				w.notValue[st.Cond] = true
 			}
@@ -290,7 +290,7 @@ func isValueExpr(n ast.Node) bool {
 		*ast.Binary, *ast.GroupedExpr, *ast.If, *ast.Call, *ast.DotVariant,
 		*ast.FieldAccess, *ast.StructLit, *ast.RangeLit, *ast.Lambda, *ast.TryOp, *ast.Then, *ast.Tap,
 		*ast.Case, *ast.ConcurrentBlock, *ast.Dbg, *ast.Return, *ast.Break, *ast.Continue,
-		*ast.CurrentValue:
+		*ast.CurrentValue, *ast.Capture, *ast.PlaceholderParam:
 		return true
 	}
 	return false

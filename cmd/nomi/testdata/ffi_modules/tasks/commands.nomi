@@ -36,7 +36,7 @@ pub fn parse(line: String) -> Result<Command, String> {
     words =
         line
         |> String.split(" ")
-        |> Iter.filter(fn word -> word != "")
+        |> Iter.filter(&(&1 != ""))
         |> Iter.to_list()
 
     case words {
@@ -62,13 +62,13 @@ pub fn parse(line: String) -> Result<Command, String> {
             |> Maybe.to_result("unknown status '${status}'")
 
         ["start", id] ->
-            parse_id(id) |> Result.map(fn id -> #Command.Mark{id, status: Status.Started})
+            parse_id(id) |> Result.map(&#Command.Mark{id: &1, status: Status.Started})
 
         ["done", id] ->
-            parse_id(id) |> Result.map(fn id -> #Command.Mark{id, status: Status.Done})
+            parse_id(id) |> Result.map(&#Command.Mark{id: &1, status: Status.Done})
 
         ["delete", id] ->
-            parse_id(id) |> Result.map(fn id -> #Command.Delete{id})
+            parse_id(id) |> Result.map(&#Command.Delete{id: &1})
 
         _ ->
             Err("unknown command '${line}', try 'help'")
@@ -121,9 +121,9 @@ fn list(tasks: Map<Int, Task>, status: Maybe<Status>) -> List<String> {
     lines =
         tasks
         |> Map.values()
-        |> Iter.filter(shown?(_, status))
+        |> Iter.filter(&shown?(&1, status))
         |> Iter.sort_by(.id)
-        |> Iter.map(fn task -> Task.render(task))
+        |> Iter.map(&Task.render(&1))
         |> Iter.to_list()
 
     if lines == [] { ["no tasks"] } else { lines }

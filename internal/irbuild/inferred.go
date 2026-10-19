@@ -389,11 +389,11 @@ func (g *gen) project(t analysis.Type) kind {
 			return k
 		}
 		if len(ty.TypeArgs) > 0 {
-			// A GENERIC interface instantiation. Its declaration is refused
-			// `generic interface` (impl.go's declareIfaces), so there is no
-			// lowerable def for an existential to take its shape from, and the
-			// resolution below would answer with the unlowerable shell.
-			return kindInvalid
+			// A GENERIC interface instantiation, `Gets<String>`: the
+			// existential of the template's instance at the arguments, as
+			// typeOf answers the annotation (instimpl.go). The template
+			// itself is no lowerable def.
+			return g.projectIfaceInst(ty)
 		}
 		if d, found := g.solvedIface(ty.Origin, ty.Name); found && d.lowerable {
 			return existential(d)

@@ -1,12 +1,12 @@
 test "inspecting a lazy Iter prints a placeholder" {
-    doubled = [1, 2, 3] |> Iter.map(fn x -> x * 2)
+    doubled = [1, 2, 3] |> Iter.map(&(&1 * 2))
 
     assert Debug.inspect(doubled) == "<iter>"
     assert Debug.inspect([doubled]) == "[<iter>]"
 }
 
 test "inspecting a lazy Iter does not consume it" {
-    doubled = [1, 2, 3] |> Iter.map(fn x -> x * 2)
+    doubled = [1, 2, 3] |> Iter.map(&(&1 * 2))
 
     _text = Debug.inspect(doubled)
 

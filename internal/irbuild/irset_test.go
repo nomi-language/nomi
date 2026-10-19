@@ -10,7 +10,7 @@ func TestIRSet_BesideAFunctionMapFieldRuns(t *testing.T) {
 struct Point { x: Int }
 struct Outer {
   p: List<Point>
-  hooks: Map<String, (Int) -> Int> = Map.empty()
+  hooks: Map<String, (Int) -> Int> = %{}
 }
 fn main() { s = %[1, 2] io.inspect(#Outer{p: [#Point{x: Set.size(s)}]}) }
 `, "#Outer{p: [#Point{x: 2}], hooks: %{}}\n")

@@ -87,10 +87,10 @@ func TestPipeToStringFix_InsertsTheStage(t *testing.T) {
 	}
 }
 
-// A `_` slot is not preceded by `|>`, so the diagnostic there keeps its help
+// A `&1` slot is not preceded by `|>`, so the diagnostic there keeps its help
 // and gets no fix.
 func TestPipeToStringFix_NotOfferedForAPlaceholder(t *testing.T) {
-	src := pipeToStringDecls + "fn main() {\n    f = Fahrenheit(1d)\n    _ = f |> label(4, _)\n}\n"
+	src := pipeToStringDecls + "fn main() {\n    f = Fahrenheit(1d)\n    _ = f |> then &label(4, &1)\n}\n"
 	s := NewServer()
 	diags, actions := pipeToStringActions(t, s, pipeToStringURI, src)
 	found := false

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/semtokens"
@@ -44,8 +45,15 @@ import (
 // BuildProject have the richer index already. No explicit BuildTypes either —
 // Sweep C runs inside the project build.
 func Analyze(code string, lib *std.StdLib) *analysis.FileAnalysis {
+	fa, _ := AnalyzeNodes(code, lib)
+	return fa
+}
+
+// AnalyzeNodes is Analyze, also answering the syntax trees the analysis was
+// built from.
+func AnalyzeNodes(code string, lib *std.StdLib) (*analysis.FileAnalysis, []ast.Node) {
 	if lib == nil {
-		return nil
+		return nil, nil
 	}
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(code))
 	nodes, _ = analysis.LowerDerives(nodes)
@@ -53,10 +61,10 @@ func Analyze(code string, lib *std.StdLib) *analysis.FileAnalysis {
 	nodes = analysis.SynthesizeUniversalDebug(nodes)
 	fa, _, _ := analysis.BuildProjectWithCache(nodes, lib.Primitives, lib.Modules, lib.Files, "", nil)
 	if fa == nil {
-		return nil
+		return nil, nil
 	}
 	_ = analysis.CheckTypes(fa, nodes)
-	return fa
+	return fa, nodes
 }
 
 // SemanticTokens analyzes a snippet and returns its analyzer-derived semantic

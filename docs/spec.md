@@ -48,7 +48,7 @@ fn main() {
     total = 2 + 3
     io.print("computed")
     [1, 2, 3]
-    |> Iter.map(fn n -> n * total)
+    |> Iter.map(&(&1 * total))
     |> Iter.to_list()
     |> dbg
 }
@@ -96,10 +96,10 @@ lexically resolved binding, including a local callable parameter or an ordinary
 file function. Same-owner method lookup supplies a callee only when no such
 binding resolves the name. This precedence also applies to pipeline calls.
 
-A binding may carry an optional inline type annotation: `name: Type = value`. The annotation drives bidirectional inference into the value (so `m: Map<String, Int> = Map.empty()` constrains the polymorphic `empty()` return to a concrete map type) and is also a checked assertion — a value whose inferred type cannot unify with the annotation is a compile error. A function-typed annotation also drives each lambda parameter's type, so `f: (Int) -> Int = fn x -> x + 1` is accepted without per-param annotations on the lambda. Annotations are not yet supported on destructuring patterns (`#(a, b) = pair`).
+A binding may carry an optional inline type annotation: `name: Type = value`. The annotation drives bidirectional inference into the value (so `m: Map<String, Int> = %{}` gives the empty map literal its key and value types) and is also a checked assertion — a value whose inferred type cannot unify with the annotation is a compile error. A function-typed annotation also drives each lambda parameter's type, so `f: (Int) -> Int = fn x -> x + 1` is accepted without per-param annotations on the lambda. Annotations are not yet supported on destructuring patterns (`#(a, b) = pair`).
 
 ```nomi
-m: Map<String, Int> = Map.empty() // pins the polymorphic return
+m: Map<String, Int> = %{} // types the empty literal
 
 count: Int = try parse_int("42") // assertion: Int or compile error
 
@@ -113,7 +113,7 @@ Type inference and the requirement to annotate are **decoupled**. The checker pr
 A binding is rejected when its type is *wholly unresolved* — it carries no concrete information because its only type parameters are unsolved with nothing on the line to pin them:
 
 ```nomi
-m = Map.empty() // ✗ Map<?, ?> — not locally determined
+m = %{} // ✗ Map<?, ?> — not locally determined
 
 ch = Channel.buffered(4) // ✗ Channel<?>
 
@@ -125,7 +125,7 @@ x = None // ✗ Maybe<?>
 Supply the type with an **LHS annotation** or an **RHS turbofish** — explicit type arguments on a call, `f<T>(...)`, which mirror the callee's signature `<...>`:
 
 ```nomi
-m: Map<String, Int> = Map.empty() // LHS annotation
+m: Map<String, Int> = %{} // LHS annotation
 
 ch = Channel.buffered<Int>(4) // RHS turbofish on a type-qualified callee
 
@@ -174,7 +174,7 @@ dbg Iter.map([], fn x -> x) // ✗ the element type of `[]` is not determined: x
 dbg Iter.sum([]) // ✗ the element type of `[]` is not determined: `empty_sum()` makes a T
 ```
 
-An unsolved type argument that no value has is not an error: the element of an empty collection (`dbg []`, `Iter.to_list([])`, `List.head([])`, `Vector.empty()`, and `Iter.sum([[]])`, whose T is a `List` and whose sum is `[]`) or the variant a value is not (`Ok(1)`, `Result.collect([Ok(1)])`, whose E only passes an error through). Fix the error as a binding: annotate the empty value (`xs: List<Result<Int, String>> = []`) or give the call its type arguments (`Result.collect<Int, String>([])`).
+An unsolved type argument that no value has is not an error: the element of an empty collection (`dbg []`, `Iter.to_list([])`, `List.head([])`, `dbg #[]`, and `Iter.sum([[]])`, whose T is a `List` and whose sum is `[]`) or the variant a value is not (`Ok(1)`, `Result.collect([Ok(1)])`, whose E only passes an error through). Fix the error as a binding: annotate the empty value (`xs: List<Result<Int, String>> = []`) or give the call its type arguments (`Result.collect<Int, String>([])`).
 
 ### `once` Bindings
 
@@ -202,7 +202,7 @@ Rules:
 - **No early exits.** An initializer is not a function body, so it has nothing for `try`, `return`, `break`, `continue` or an assertion to exit. One written directly in the initializer is a compile error at the keyword (`once port = try parse(text)` is `` `try` cannot be used in the initializer of `once port`: a `once` has no function to return from ``); bind the `Result` or `Maybe` and handle it where it is read, or compute the value inside a function. A lambda, a nested `fn` or a `concurrent` block inside the initializer is a boundary of its own, and an exit there leaves it as it does anywhere else.
 - **Cycles are rejected at evaluation time.** If `once a` transitively reads itself while forcing, the runtime reports a cyclic-binding error rather than stack-overflowing.
 - **Exportable like other container members.** `once` bindings can carry the `pub` modifier (see §3).
-- **A function value has no defaults.** A `once` that holds a lambda or a partial application is a value, not a declaration: a call through it passes every argument, as a call through a parameter does (§5, *Default Arguments*).
+- **A function value has no defaults.** A `once` that holds a lambda or a partial capture is a value, not a declaration: a call through it passes every argument, as a call through a parameter does (§5, *Default Arguments*).
 
 ## 3. Visibility
 
@@ -427,10 +427,10 @@ f: (String) -> Maybe<Int> = parse // error: the same mismatch
 
 Iter.map(words, fn w -> parse(w)) // OK
 
-Iter.map(words, parse(_)) // OK — a partial application leaves strict to its default
+Iter.map(words, &parse(&1)) // OK — a partial capture leaves strict to its default
 ```
 
-A call through the value passes every argument too, since only a call of `parse` by name fills its defaults. After `g = parse`, `g("12")` is the error `` expected 2 arguments, got 1: `g` holds the function `parse` as a value, and defaults apply only to a call of `parse` by name ``, whose help suggests calling `parse` directly or binding `g = fn s -> parse(s)`. The same holds for `"12" |> g()`, for `(parse)("12")`, and for a value passed through a parameter, a field or a generic function. The value's parameters have no names either (*Named Arguments* below). A lambda's own defaults (*Lambda Default Parameters*) and a partial application's open defaults belong to the name the value is bound to and its copies, so `h = fn x = 1 -> x` is called as `h()`, and so is `g = h`, by a call or a pipe (`1 |> g()`). The value passed on or taken out of a container has no defaults (*Named Arguments*), and neither has one reached through anything but a local name: `(h)()`, `(if b { h } else { k })()` and a pipe into a call's result each pass every argument. A `once` holding a lambda or a partial (`once ping = connect(_, port: _)`) has no defaults either: its value is computed once in its own initializer, so `ping("a")` is `expected 2 arguments, got 1`, and `ping("a", 80)` runs.
+A call through the value passes every argument too, since only a call of `parse` by name fills its defaults. After `g = parse`, `g("12")` is the error `` expected 2 arguments, got 1: `g` holds the function `parse` as a value, and defaults apply only to a call of `parse` by name ``, whose help suggests calling `parse` directly or binding `g = fn s -> parse(s)`. The same holds for `"12" |> g()`, for `(parse)("12")`, and for a value passed through a parameter, a field or a generic function. The value's parameters have no names either (*Named Arguments* below). A lambda's own defaults (*Lambda Default Parameters*) and a partial capture's open defaults belong to the name the value is bound to and its copies, so `h = fn x = 1 -> x` is called as `h()`, and so is `g = h`, by a call or a pipe (`1 |> g()`). The value passed on or taken out of a container has no defaults (*Named Arguments*), and neither has one reached through anything but a local name: `(h)()`, `(if b { h } else { k })()` and a pipe into a call's result each pass every argument. A `once` holding a lambda or a partial capture (`once ping = &connect(&1, port: &2)`) has no defaults either: its value is computed once in its own initializer, so `ping("a")` is `expected 2 arguments, got 1`, and `ping("a", 80)` runs.
 
 ### Parameter Destructuring
 
@@ -490,7 +490,7 @@ do_thing(5, option_a: "custom", fn x -> x + 1) // override option_a; the trailin
 
 **Trailing-callback routing:** when the function's last parameter is still empty, the *final positional* argument is automatically routed into that last slot — even if defaulted parameters sit between it and the preceding positional args. This lets a required trailing callback stay unnamed in the common pattern (`Iter.each(items, fn x -> ...)`, `Iter.reduce(items, fn acc = 0, x -> ...)`) without forcing the caller to name it whenever a middle default is skipped.
 
-The routing is decided by the parameter list, not by how the argument was written, so `each(items, process)` routes exactly like `each(items, fn x -> process(x))`. A lambda routes on sight, and so does a field accessor (`Iter.sort_by(users, .age)`, §8 Field Accessors). An argument written as a bare name routes when the last parameter takes a function and the slot it would otherwise fill does not — where both take functions there is a genuine choice, and the left-to-right order the call already states wins.
+The routing is decided by the parameter list, not by how the argument was written, so `each(items, process)` routes exactly like `each(items, fn x -> process(x))`. A lambda routes on sight, and so do a field accessor (`Iter.sort_by(users, .age)`, §8 Field Accessors) and a capture, a partial one included (`Iter.sort_by(names, &String.length(&1))`, `do_thing(5, &(&1 * 2))`, §5 Captures). An argument written as a bare name routes when the last parameter takes a function and the slot it would otherwise fill does not — where both take functions there is a genuine choice, and the left-to-right order the call already states wins.
 
 A single trailing positional may also follow named arguments (`each(items, opts: cfg, process)`): the named argument has already claimed its slot, so the positional skips past it. A positional written *before* a named argument still means the slot it sits in, which keeps `sum(1, a: 2)` the duplicate it reads as.
 
@@ -538,11 +538,11 @@ add(1, y: 2) // OK — positional fills x, named fills y
 add(1, x: 2) // error — x already filled by the positional 1
 ```
 
-This rule also governs partial application: a named placeholder targets its named slot, and any positional placeholder/value still fills `0..N` strictly. The `_` may be named (`port: _`); either way, the partial's parameter at that slot takes the callee's name for it (see §5 Partial Application).
+This rule also governs a partial capture: a named `&N` targets its named slot, and any positional `&N` or value still fills `0..N` strictly. The `&N` may be named (`port: &1`); either way, the partial's parameter at that slot takes the callee's name for it (see §5 Captures).
 
-A name needs a declaration to name. A declared `fn`, a lambda bound to a name and a partial application bound to a name have parameter names. A value whose type is only a function type does not: a parameter or struct field typed `(String, Int) -> String`, a binding that copies another function value (`g = connect`), a call's result, or a value taken out of a `Maybe` or a list. A named argument through such a value, full or `_`, is the error `no parameter named 'port'`, whose help says a function type's parameters have no names and to pass the arguments by position. Such a value has no defaults either, even when it came from a function with some, except a copy of a lambda or partial application bound to a name, which keeps them: a call through it passes every argument, and leaving one out is the error `expected 2 arguments, got 1`, whose help says a function type's parameters have no defaults.
+A name needs a declaration to name. A declared `fn`, a lambda bound to a name and a partial capture bound to a name have parameter names. A value whose type is only a function type does not: a parameter or struct field typed `(String, Int) -> String`, a binding that copies another function value (`g = connect`), a call's result, or a value taken out of a `Maybe` or a list. A named argument through such a value, in a call or a partial capture, is the error `no parameter named 'port'`, whose help says a function type's parameters have no names and to pass the arguments by position. Such a value has no defaults either, even when it came from a function with some, except a copy of a lambda or partial capture bound to a name, which keeps them: a call through it passes every argument, and leaving one out is the error `expected 2 arguments, got 1`, whose help says a function type's parameters have no defaults.
 
-A positional construction has no names either: a variant's payload (`Some(1)`, `Shape.Square(2.0)`, `.Square(2.0)`, `Some(_)`), a distinct type's wrapped value (`UserId(5)`) and a struct's record call form (`Point(#{x: 1})`). `Some(value: 1)` is the error `no parameter named 'value'` at the name, and its help says the payload is positional. An interface-qualified call takes the interface function's own parameter names: `Display.to_string(value: 1)`, `T.to_string(value: x)` and `Struct.update(updates: #{x: 2}, original: p)`.
+A positional construction has no names either: a variant's payload (`Some(1)`, `Shape.Square(2.0)`, `.Square(2.0)`, `&Some(&1)`), a distinct type's wrapped value (`UserId(5)`) and a struct's record call form (`Point(#{x: 1})`). `Some(value: 1)` is the error `no parameter named 'value'` at the name, and its help says the payload is positional. An interface-qualified call takes the interface function's own parameter names: `Display.to_string(value: 1)`, `T.to_string(value: x)` and `Struct.update(updates: #{x: 2}, original: p)`.
 
 ### Anonymous Functions (Lambdas)
 
@@ -667,26 +667,119 @@ fn examples() {
 
 The reverse is a compile error, since the function would receive a value it does not accept: `fn float_str(f: Float) -> String` is not a `(Display) -> String`, and `fn total(xs: List<Int>) -> Int` is not an `(Iter<Int>) -> Int`. Where nothing says which way a value flows, two function types must be the same: the branches of an `if` or `case`, the elements of an unannotated list, and two arguments for one type parameter (`pick(c, shown, float_str)` with `fn pick<T>(c: Bool, a: T, b: T) -> T`). Pass a lambda of the one type instead (`pick(c, float_str, fn x -> shown(x))`).
 
-### Partial Application
+### Captures
 
-Explicit, using `_` placeholder. `_` as a bare function argument creates a partially applied function:
+A capture is a function written in place: `&` and the function's body, in
+which `&1`, `&2`, ... stand for its parameters.
 
 ```nomi
-add(1, _) // same as fn x -> add(1, x)
+big = Iter.filter(xs, &(&1 > 2)) |> Iter.to_list()
+points = Iter.map(xs, &#Point{x: &1, y: 0}) |> Iter.to_list()
+lengths = Iter.map(names, &String.length(&1)) |> Iter.to_list()
+add: (Int, Int) -> Int = &(&1 + &2)
 ```
 
-Each `_` leaves exactly one argument open. Can be named. Defaults are preserved. A `_` is an argument, so a partial application is held to the callee's argument count as a full call is: `add(_, 1, 2)` against a two-parameter `add` is the error `expected 2 arguments, got 3`, and `add(_)` leaves `b` with nothing.
+The `&` is written against the body, with no space, and the body is one of
+these:
 
-A partial application is a function of its open arguments, in the order the `_`s are written, returning the callee's result. Where a function type is expected, that function meets it, and a generic callee's type parameters are solved from it: `f: (Int) -> Int = pick(True, _, 4)` instantiates `pick` at `Int`.
+- a call: `&Int.max(&1, 0)`, `&String.length(&1)`, `&Some(&1 + 1)`,
+  `&T.from_json(&1)`, `&f(&2, &1)`;
+- a parenthesized expression: `&(&1 > 2)`, `&(&1 * 2 + 1)`,
+  `&(&1 % 2 == 0)`, `&(&2)`, `&(!&1)`;
+- a literal or a construction: `&#Point{x: &1, y: 0}`, `&#(&1, 0)`,
+  `&#.Circle{radius: &1}`, `&%{&1 => 0}`, `&[&1, 0]`, `&#[&1]`, `&%[&1]`.
 
-`_` stands for a value only as a call's argument, positional or named (`add(1, _)`, `connect(port: _)`), including the argument a pipe fills, positional or named (`10 |> divide(100, _)`, `3000 |> connect("localhost", port: _)`). Elsewhere `_` is a binding-position name: a discard binding (`_ = expr`), a discard parameter (`fn _ -> 0`, `fn f(_: Int)`), a wildcard pattern, or a subject-less `case`'s catch-all arm. Any other `_` read as a value (`#Point{x: _}`, `.A -> _`, `x = _`, `[1, _]`, `add(1 + _, 2)`) is the error `` `_` has no value here ``, whose hint says that `_` stands for a missing argument only in a call.
+The body is one postfix-level operand, as a prefix `try`'s is. So
+`&f(&1)(2)` captures the call `f(&1)(2)`, and `&f(&1) + 1` adds 1 to a
+capture, which is a type error; the function of the sum is
+`&(f(&1) + 1)`. Anything else after `&` is the parse error `` a capture
+is `&` and a call, a parenthesized expression or a literal, as in `&f(&1)`
+or `&(&1 > 2)` ``: `&x`, `&f(&1).x` (write `&(f(&1).x)`), and `&Int.max`,
+which is no call (the function itself is `Int.max`). `& (x)`, with a
+space, is the error that says the `&` goes against its body.
+
+`&N` is parameter N of the capture around it: `&(&1 > 2)` is `fn x -> x >
+2`, `&(&2 - &1)` is `fn a, b -> b - a`, and `&#Point{x: &1, y: 0}` is `fn
+x -> #Point{x: x, y: 0}`. `&` followed by a decimal number from 1, with
+no leading zero, is one token; `&0` and `&01` are errors that say so, and
+`&&` keeps its own error (Nomi spells it `and`).
+
+Each `&N` belongs to one capture, so captures do not nest: `&f(&1,
+&g(&1))` is the error `` captures do not nest; write the inner one as `fn
+x -> ...` ``, whose help names the inner capture. A lambda is a function
+of its own: a capture inside a lambda inside a capture is no nesting, and
+an `&N` in a lambda's body belongs to no capture outside the lambda.
+
+An `&N` outside every capture is the error `` `&1` is a capture's
+parameter: write the function as `&(...)` or `&f(...)` ``. Its help writes
+the capture the `&N` most likely belongs to: the call it is an argument of
+(`Iter.map(xs, Int.max(&1, 0))` says to write `&Int.max(&1, 0)`), the
+expression an operator, a range, a field read or parentheses make of it
+(`Iter.map(xs, &1 * 2 + 1)` says `&(&1 * 2 + 1)`), or the literal it is a
+field or element of (`&#Point{x: &1, y: 0}`). In a pipe stage the help
+says the pipe fills the first argument (§6, *The `then` stage*). A
+capture with no `&N` in it is the error `` a capture uses at least `&1`
+``, whose help writes the function of no arguments as a lambda (`fn ->
+f()`).
+
+`_` is not a capture's parameter. It is a discard name, in a pattern or as
+a parameter or binding name (§2, *Bindings*). Read as a value, `_` is the
+error `` `_` is a discard name, not a value ``. When the `_` is a call's
+argument, the help writes the call as a capture with its parameters
+numbered: `add(1, _)` says to write `&add(1, &1)`, `connect(_, port: _)`
+says `&connect(&1, port: &2)`, and a pipe stage's `|> add(100, _)` says
+`|> then &add(100, &1)`.
+
+#### Parameters and their types
+
+The function type a capture's position expects fixes how many parameters
+it has and their types, as it gives an unannotated lambda's (*Anonymous
+Functions* above): a call's parameter (`Iter.map(xs, &(&1 * 2))` solves
+`Iter.map`'s result from the body), an annotated binding, a field of
+function type (`#Rule{keep: &(&1 > 2)}`), a return, and the piped value
+of a `then` stage. Each `&N` must name one of those parameters:
+`Iter.map(xs, &(&2 + 1))` is `` `Iter.map` passes one argument; `&2`
+names a second ``, and `g: (Int) -> Int = &(&1 + &3)` is `` the function
+expected here takes one argument; `&3` names a third ``. A parameter no
+`&N` names is ignored, so `apply2(&(&2))`, where `apply2` takes an
+`(Int, Int) -> Int`, is `fn _a, b -> b`. One `&N` may stand several times
+(`&(&1 * &1)` is `fn x -> x * x`), and the parameters in any order
+(`&f(&2, &1)`).
+
+With no function type expected, `f = &(&1 > 2)` is `` cannot infer type
+for `&1` in `&(&1 > 2)` ``, whose help says to annotate the binding (`f:
+(Int) -> Bool = &(&1 > 2)`) or to write a lambda with an annotated
+parameter (`fn x: Int -> x > 2`). A capture that is the argument of a
+construction is this error when nothing expects the construction to hold
+a function, and its help writes the construction as the capture:
+`Some(&(&1 + 1))` is a `Maybe` holding a function, and `&Some(&1 + 1)` is
+a function answering a `Maybe`.
+
+A partial capture is the one that needs no expected type: a capture whose
+body is a call taking each of its `&N` as one of its own arguments,
+positional or named, numbered `&1`, `&2`, ... in the order they are
+written, each once (`&add(1, &1)`, `&connect(&1, port: &2)`). It is a
+partial application of the callee. Its parameters are the callee's
+parameters at those slots, with their types, names and defaults, and it
+is held to the callee's argument count as a full call is: `&add(&1, 1,
+2)` against a two-parameter `add` is `expected 2 arguments, got 3`. A
+generic callee's type parameters are solved from the expected function
+type when there is one: `f: (Int) -> Int = &pick(True, &1, 4)`
+instantiates `pick` at `Int`. An expected function type of more
+parameters gives the ones past the partial's, which it ignores
+(`apply2(&add(&1, 100))` is `fn a, _b -> add(a, 100)`); one of fewer is
+the error for an `&N` past the arity. A call whose `&N`s repeat, come in
+another order or stand deeper than its own arguments (`&add(&1, &1)`,
+`&add(&2, &1)`, `&Some(&1 + 1)`) is no partial, and takes its types from
+the expected function type, and so is a parenthesized call (`&(add(1,
+&1))`).
 
 ```nomi
-halve = divide(_, 2)
+halve = &divide(&1, 2)
 
-divide_from_10 = divide(10, _)
+divide_from_10 = &divide(10, &1)
 
-connect_local = connect("localhost", port: _, timeout: 10)
+connect_local = &connect("localhost", port: &1, timeout: 10)
 
 connect_local(3000) // connect("localhost", 3000, 10)
 ```
@@ -694,14 +787,14 @@ connect_local(3000) // connect("localhost", 3000, 10)
 Partial application with defaults:
 
 ```nomi
-f = connect(_, port: _)
+f = &connect(&1, port: &2)
 
 f("localhost", 3000) // timeout uses default 30
 
 f("localhost") // port uses default 8080, timeout uses default 30
 ```
 
-A partial's parameters are the callee's parameters at its open slots, positional `_` and named `_` alike, with the callee's names and defaults. So a partial bound to a name is called by those names, partially applied again, and leaves a defaulted open slot to its default:
+A partial's parameters are the callee's parameters at its open slots, positional and named alike, with the callee's names and defaults. So a partial bound to a name is called by those names, partially applied again, and leaves a defaulted open slot to its default:
 
 ```nomi
 import std/io
@@ -711,16 +804,44 @@ fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String {
 }
 
 fn main() {
-    c = connect(_, port: _)
+    c = &connect(&1, port: &2)
     io.print(c(port: 80, host: "x")) // x:80/30
-    io.print(c(port: _, host: "x")(9)) // x:9/30
+    io.print((&c(port: &1, host: "x"))(9)) // x:9/30
     io.print(c("y")) // y:8080/30
 }
 ```
 
+Any other capture's parameters have no names and no defaults, except a
+struct literal whose `&N`s are its whole fields, each once, which takes
+the fields' names: after `mk: (Int) -> Point = &#Point{x: &1, y: 0}`,
+`mk(x: 3)` is `#Point{x: 3, y: 0}`, and `big(lhs: 3)` after `big: (Int)
+-> Bool = &(&1 > 2)` is `no parameter named 'lhs'`. A field's default
+fills a field the literal leaves out, and a field written `&1` is not left
+out, so a call passes every argument.
+
+#### Evaluation
+
+A capture is a function value, and nothing in its body runs when it is
+made. A call of it evaluates the whole body with its parameters filled,
+as the equivalent `fn` does: `big: (Int) -> Bool = &(&1 > limit())` calls
+`limit` on each call of `big`, and `f: (Int) -> Int = &add(noted(1),
+&1)` calls `noted` on each call of `f`. A partial capture's written
+arguments run in the order its call would run them: the positional ones,
+then the named ones, each in the order they are written (*Named
+Arguments* above).
+
+A capture routes to a trailing callback as a lambda does
+(`do_thing(5, &(&1 * 2))` past a defaulted parameter, *Lambdas at Call
+Sites* above), and it is no reduction's starting value
+(`Iter.reduce(xs, &(&1 + &2))` is `` `Iter.reduce` needs a starting value
+``). It is an operand like any other value: in `&(&1 > 2) and ready`
+nothing expects a function of the capture, so it is `` cannot infer type
+for `&1` in `&(&1 > 2)` ``, and the function of the whole condition is
+`&(&1 > 2 and ready)`.
+
 ### No Auto-Currying
 
-Functions are not automatically curried. Use `_` for partial application instead.
+Functions are not automatically curried. Use a partial capture (`&add(1, &1)`) instead.
 
 ### No Overloaded Functions
 
@@ -1058,17 +1179,17 @@ links no project's Go bindings.
 
 ## 6. Pipe Operator
 
-Left-to-right piping with `|>`. A stage is a call, and by default the piped value fills its **first argument**. Use `_` to override placement:
+Left-to-right piping with `|>`. A stage is a call, and the piped value fills its **first argument**. To put the value anywhere else, apply a capture to it with `then` (*The `then` stage* below):
 
 ```nomi
-// default: fills the first argument
+// a call stage: the value fills the first argument
 [1, 2, 3] |> Iter.filter(fn x -> x > 2)
 
-// explicit: fills a different position
-10 |> divide(100, _)
+// a capture applied to the value, which is its `&1`
+10 |> then &divide(100, &1)
 
-// or the argument a named `_` names
-"7" |> String.pad_start(width: 3, s: _)
+// `&1` may be a named argument
+"7" |> then &String.pad_start(width: 3, s: &1)
 
 // works with case — piped value becomes the match target
 value
@@ -1078,13 +1199,14 @@ value
 }
 ```
 
-A `_` in a stage may be positional or named. The piped value fills it and
-the call's other arguments fill the remaining parameters as they would in a
-direct call, so `x |> connect(port: _, "localhost")` is
-`connect("localhost", port: x)` and a named `_` may skip a defaulted
-parameter. A stage with several `_`s passes the piped value to each, computed
-once: `n |> add(_, b: _)` is `add(n, n)`. Outside a pipe stage a named `_` is
-a partial application (§5).
+A pipe fills the first argument only. An `&N` in a call stage is outside
+every capture, so `x |> divide(100, &1)` is the error `` `&1` is a capture's
+parameter: write the function as `&(...)` or `&f(...)` ``, whose help says
+`` a pipe fills the first argument; write `|> then &divide(100, &1)` ``. In
+a `then` stage the capture's `&1` is the piped value wherever it stands,
+positional or named, and as often as it is written, computed once: `x |>
+then &connect(port: &1, "localhost")` is `connect("localhost", port: x)`,
+and `n |> then &add(&1, b: &1)` is `add(n, b: n)` (§5, *Captures*).
 
 **A stage is a call.** `x |> f()` is `f(x)` and `x |> f(a)` is `f(x, a)`:
 the pipe inserts its value into the call that follows it. A name without
@@ -1098,11 +1220,13 @@ stage cannot see its enum (§8). The stages that are not calls are the
 `then` and `tap` stages and the keyword stages below.
 
 **A stage that does not take the piped value is the error.** It is reported
-at the stage (at its `_` when one names the slot) and names the argument the
-value fills: `` `String.pad_start` takes a String as its first argument, but
-the pipe passes a Fahrenheit ``, or, for a named `_`, the parameter
-(`` `label` takes a String as `text`, but the pipe passes an Int ``), with a
-note at the expression the value comes from. When the value's type implements `Display` and the stage takes a
+at the stage and names the argument the value fills: `` `String.pad_start`
+takes a String as its first argument, but the pipe passes a Fahrenheit ``,
+with a note at the expression the value comes from. A `then` stage's
+partial capture that does not take the value at its `&1` is reported the
+same way, at the `&1`: `` `label` takes a String as its second argument ``,
+or, for a named `&1`, the parameter (`` `label` takes a String as `text`,
+but the pipe passes an Int ``). When the value's type implements `Display` and the stage takes a
 `String`, the help says to add `|> Display.to_string()` before the stage, and
 the language server offers a quick fix that inserts it.
 
@@ -1113,12 +1237,17 @@ maps each string to an `Int`, and `fn n -> n * 2 |> dbg` is a lambda whose body
 ends in `dbg`. The one exception is the lambda of a `then` or `tap` stage.
 
 **The `then` stage:** `x |> then fn v -> body` applies the lambda to the piped
-value, as `(fn v -> body)(x)` would. `then` is followed by the lambda itself;
-anything else after it (`x |> then f`) is the parse error
-`` `then` takes a lambda: write `then fn v -> ...` ``, and the same holds for
-`tap`. The lambda takes one parameter, which may
-be a destructuring pattern (`then fn #(a, b) -> a + b`). Its body ends at the next
-`|>` of the pipeline, so the stages after it stay in the pipeline:
+value, as `(fn v -> body)(x)` would, and `x |> then &f(a, &1)` applies the
+capture, as `(&f(a, &1))(x)` would. `then` is followed by the lambda or the
+capture itself; anything else after it (`x |> then f`) is the parse error
+`` `then` takes a lambda or a capture: write `then fn v -> ...` or `then &f(&1)` ``,
+and the same holds for `tap`. The function takes one parameter, the piped
+value: a lambda's may be a destructuring pattern (`then fn #(a, b) -> a +
+b`), and a capture's is `&1` (`then &add(&1, &2)` is `` the function
+expected here takes one argument; `&2` names a second ``). A capture ends
+with its body, so `10 |> then &divide(100, &1) |> dbg` divides and then
+prints. A lambda's body ends at the next `|>` of the pipeline, so the
+stages after it stay in the pipeline:
 
 ```nomi
 total =
@@ -1133,15 +1262,19 @@ Braces keep a pipe inside the body:
 bare `then` body used in a later stage is an error that says where the body
 ended. A lambda is not a stage without `then`: `xs |> fn n -> n * 2` is the error
 `` a lambda is not a pipe stage: write `then fn n -> ...` ``, and the language
-server offers a quick fix that inserts the `then`. `then` is a reserved word
-and stands only after `|>`; a keyword stage does not prefix it
-(`|> try then fn v -> ...` is an error), so a `try` after a `then` is its own
-stage. `nomi fmt` puts each stage of a pipeline with a `then` stage on its
-own line.
+server offers a quick fix that inserts the `then`. A capture is not a
+stage without `then` either: `x |> &f(&1)` is `` a capture is not a pipe
+stage: write `then &f(&1)` ``. `then` is a reserved word and stands only
+after `|>`; a keyword stage does not prefix it (`|> try then fn v -> ...`
+is an error), so a `try` after a `then` is its own stage. `nomi fmt` puts
+each stage of a pipeline with a `then` lambda on its own line; a `then`
+capture, which ends with its body, does not move the pipeline off one
+line.
 
 **The `tap` stage:** `x |> tap fn v -> body` runs the lambda on the piped value
-for its effect and passes the value on unchanged. The value is computed once,
-and the lambda runs exactly once, at that point in the pipeline:
+for its effect and passes the value on unchanged, and so does `x |> tap
+&io.print(&1)` with its capture. The value is computed once, and the
+function runs exactly once, at that point in the pipeline:
 
 ```nomi
 import std/io
@@ -1172,8 +1305,8 @@ replace the value. A body may end in a `dbg` observation (`tap fn v -> dbg v`), 
 a `Unit` function body may. `try` and `return` inside the lambda exit the
 lambda, as they do in any lambda, so a body that uses `try` answers a
 `Result` or a `Maybe` and is rejected: handle the failure inside the body, or
-use `then`. `nomi fmt` stacks a pipeline with a `tap` stage as it does one
-with a `then` stage.
+use `then`. `nomi fmt` stacks a pipeline with a `tap` lambda as it does one
+with a `then` lambda.
 
 **Keyword stages:** `dbg` and `try` are unary pipe stages. Read them as
 built-in one-argument functions over the current pipe value, written without
@@ -1887,7 +2020,7 @@ somes: List<Maybe<Int>> = Iter.map([1, 2], Some) |> Iter.to_list()
 ```
 
 - **A generic constructor is instantiated as a generic function used as a value is** (§5): its type parameters are solved from the function type its position expects. `Iter.map(ns, Some)` solves `T` from the elements. `Ok` and `Err` leave the other parameter to the result, so `Iter.map(ns, Ok)` needs an annotated destination (`rs: List<Result<Int, String>> = Iter.map(ns, Ok) |> Iter.to_list()`) or an annotated function (`f: (String) -> Result<Int, String> = Err`). With nothing to solve it from, `f = Some` is the error "cannot infer type parameter T of generic constructor 'Some' used as a value".
-- **A variant over a tuple takes the tuple.** A variant has one payload, so its function takes one argument. `Shape.Segment` is a `(#(Int, Int)) -> Shape`, and `Iter.map(pairs, Shape.Segment)` builds one from each tuple. The flat call `Shape.Segment(1, 2)` is a call form of that one tuple, not a second parameter list. A tuple-distinct (`type Pair #(Int, String)`) has the same function, `(#(Int, String)) -> Pair`, but no flat call: `Pair(1, "x")` is an error, and the literal `#Pair(1, "x")` builds one from its elements (§15 *Distinct Types*). A variant's flat call takes the elements as a call takes arguments: a generic variant's type arguments are solved from them as from the tuple (`Two.Both(1, "x")` is a `Two<Int, String>`), a pipe's head is the first (`2 |> Shape.Segment(3)`), and a `_` leaves one open (`Shape.Segment(_, 0)` is an `(Int) -> Shape`).
+- **A variant over a tuple takes the tuple.** A variant has one payload, so its function takes one argument. `Shape.Segment` is a `(#(Int, Int)) -> Shape`, and `Iter.map(pairs, Shape.Segment)` builds one from each tuple. The flat call `Shape.Segment(1, 2)` is a call form of that one tuple, not a second parameter list. A tuple-distinct (`type Pair #(Int, String)`) has the same function, `(#(Int, String)) -> Pair`, but no flat call: `Pair(1, "x")` is an error, and the literal `#Pair(1, "x")` builds one from its elements (§15 *Distinct Types*). A variant's flat call takes the elements as a call takes arguments: a generic variant's type arguments are solved from them as from the tuple (`Two.Both(1, "x")` is a `Two<Int, String>`), a pipe's head is the first (`2 |> Shape.Segment(3)`), and a partial capture leaves one open (`&Shape.Segment(&1, 0)` is an `(Int) -> Shape`).
 - **A payload-free variant is a value, not a function.** `Shape.Point` is a `Shape`.
 - **A struct-shaped variant is not a function value**, as a struct is not: `Iter.map(records, Shape.Rectangle)` is an error naming the brace and record forms.
 - **`.Variant` is not a function value.** A dot-leading variant resolves only where the expected type is its enum (*Variant Resolution* below), and a function type is not an enum: `f: (Float) -> Shape = .Circle` is an error whose hint names `Shape.Circle`.
@@ -3727,7 +3860,7 @@ impl Formatted for User {
 }
 ```
 
-Once accepted, every manual impl feeds the same implementation model: coherence ("one impl per `#(Iface, Type)` program-wide"), the orphan rule, missing-impl diagnostics, and dispatch. Duplicate `impl Iface for Type` declarations collide.
+Once accepted, every manual impl feeds the same implementation model: coherence ("one impl per `#(Iface, Type)` and type arguments, program-wide"), the orphan rule, missing-impl diagnostics, and dispatch. Duplicate `impl Iface for Type` declarations collide.
 
 **The `impl ... for` rule:** an `impl Iface for Type` declaration declares exactly one implementation. Add a `{ ... }` body only when the interface has functions to implement. Implement several interfaces with one declaration each. Generic implementing types name their receiver parameters in the receiver type: `impl Iface for Box<T>`.
 
@@ -3993,7 +4126,7 @@ fn sort<T>(list: List<T>) -> List<T> where T: Comparable
 
 `T` must implement `Comparable`. The bound is also what the body may use: a generic body runs for every type argument its callers pass, so an interface it needs of a value of type `T` (an interface-qualified call or pipe, `"${value}"`, an ordering or arithmetic operator, a call of a generic function bounding it) must be one of `T`'s bounds, from the function's `where`, its impl block's or its type's declaration. Without it the use is an error, `` `x` is a `T`, and `f` does not require Display of `T` ``, with a hint showing the signature with `where T: Display` added; a value that holds `T` (`xs: List<T>` in `"${xs}"`) is reported as `` `xs` holds values of `T` ``. On an interface impl the hint shows the bound on the block (`impl Display for Box<T> where T: Display`), and on an inherent impl, whose block has no `where`, on the function. `Debug` needs no bound, since every type implements it, and neither does `==`, which compares structurally. The compiler rejects calls with types that don't satisfy the bound: `sort([#(1, 2)])` fails with ``no impl of `Comparable` for `#(Int, Int)`; tuple types cannot implement `Comparable` ``.
 
-The error's help offers what the program can write. For a type it declares, that is `derive` when the interface is derivable (§38.1) and an impl block spelled with the interface's required functions (``write an `impl Shape for Point` block with `fn area(s: Point) -> Float` ``). Where it declares neither the type nor the interface, the orphan rule forbids the impl, and the help says so. For an interface at most four types implement, it names them: `String.split("a1b", 1)` reports ``Int does not implement Matcher (required by `where M: Matcher`)`` with the help ``only std can implement `Matcher` for `Int`; `Regex` and `String` implement it``. For one that more types implement, it says to wrap the type: ``only std can implement `Hashable` for `Ordering`; wrap it in a type of your own that implements `Hashable` ``.
+The error's help offers what the program can write. For a type it declares, that is `derive` when the interface is derivable (§38.1) and an impl block spelled with the interface's required functions (``write an `impl Shape for Point` block with `fn area(s: Point) -> Float` ``). Where it declares neither the type nor the interface, the orphan rule forbids the impl, and the help says so. For an interface at most four types implement, it names them: `String.split("a1b", 1)` reports ``Int does not implement Matcher (required by `where M: Matcher`)`` with the help ``only std can implement `Matcher` for `Int`; `Codepoint`, `Regex` and `String` implement it``. For one that more types implement, it says to wrap the type: ``only std can implement `Hashable` for `Ordering`; wrap it in a type of your own that implements `Hashable` ``.
 
 Multiple bounds are joined with `and`:
 
@@ -4118,7 +4251,64 @@ interface Container<T> {
 
 In interface definitions, `self` implicitly includes the type parameters — so `self` in `Container<T>` means the full implementing type with its type arguments. A generic implementation writes the concrete implementing type explicitly (`impl Container for Shelf<T> { ... }`); `T` is the type parameter declared by `Shelf`.
 
-Interface arguments may be inferred from the implementation function signatures or written in the impl header when the interface identity needs to be explicit. For example, `impl Container for Shelf<T>` can infer the contained item type from `fn get(...) -> Maybe<T>`, while `impl Add<Days, Day> for Day` says up front that `Day + Days` returns `Day`. A type can implement distinct instantiations of the same generic interface when those instantiations represent different contracts, such as `impl Add<Days, Day> for Day` and `impl Add<Weeks, Day> for Day`.
+Interface arguments may be inferred from the implementation function signatures or written in the impl header when the interface identity needs to be explicit. For example, `impl Container for Shelf<T>` can infer the contained item type from `fn get(...) -> Maybe<T>`, while `impl Add<Days, Day> for Day` says up front that `Day + Days` returns `Day`.
+
+#### Several instantiations for one type
+
+A type may implement one generic interface at several type arguments: `impl Contains<String> for String`, `impl Contains<Regex> for String` and `impl Contains<Codepoint> for String` are three impls, as are `impl Add<Days, Day> for Day` and `impl Add<Weeks, Day> for Day`. The operator interfaces follow the same rule as every other generic interface. Two rules keep the impls apart:
+
+- **Each writes its type arguments.** An impl whose header leaves them to be inferred beside another impl of the interface for the type is the error `` `Box` implements `Holds` more than once, so each impl writes its type arguments in its header ``, whose help is the header to write (`` write `impl Holds<Int> for Box` ``).
+- **No two overlap.** Either every impl names its interface type arguments with distinct concrete types, or there is exactly one impl, which may be generic in them. `impl Holds<T> for Wrap<T>` beside `impl Holds<Int> for Wrap<T>` is the error `` overlapping impls: `Holds<T>` for `Wrap` is generic in its type arguments, so it covers `Holds<Int>`, which `Wrap` also implements ``. Two impls at the same arguments are a duplicate impl, `` duplicate impl: `Holds<Int>` is implemented for `Box` by modules main (function `holds?`); a type implements an interface once at each set of type arguments ``.
+
+The orphan rule applies to each impl as to any other (§*Foreign Types*): the interface or the receiver is the module's own. A type argument the module declares counts for neither, so `impl Contains<Tag> for String` outside std is an orphan impl.
+
+A call takes the impl its arguments' types choose, statically, and calls it directly: `String.contains?(s, "x")`, `Contains.contains?(s, '-')`, a pipe stage `` s |> String.contains?(Regex`\d`) ``, a partial capture `&String.contains?(&1, "x")` where a `(String) -> Bool` is expected, an operator, and a generic call whose bound `where C: Contains<T>` the call solves (`all_present(s, ["a"])` takes `Contains<String>`) all select the same way. A type argument that no parameter names, only the result, is chosen by the type the result is expected to have, as a generic call's result-only type parameter is (§2): with `impl Make<Int> for Factory` and `impl Make<String> for Factory`, `n: Int = Factory.make(f)` calls the first. When the arguments and the expected type do not choose one impl, the call is an error that names the candidates: `Box.holds?(b, .Red)` with `Holds` implemented at `Color` and `Shade` is `` `Holds.holds?` for `Box` has impls at `Color` and `Shade`; the argument's type does not choose one: annotate it ``, an unannotated `Factory.make(f)` is `` `Make.make` for `Factory` has impls at `Int` and `String`; only the result's type tells them apart, and nothing here expects one: annotate the result ``, and an argument no impl takes is `` `Holds.holds?` for `Box` has impls at `Int`, `String` and `Color`, and none takes `Float` ``. An argument whose type its parameter decides (`.Variant`, a partial capture's open `&1` with nothing expected) does not choose.
+
+A value held as an instantiation, `h: Holds<Int>` or a `List<Holds<Int>>`, takes any type with an impl at those arguments, and a call through it dispatches to that impl; a type implementing two instantiations is held as either.
+
+```nomi
+import std/io
+
+interface Holds<T> {
+    fn holds?(b: self, x: T) -> Bool
+}
+
+struct Box {
+    n: Int
+    s: String
+}
+
+impl Holds<Int> for Box {
+    fn holds?(b: Box, x: Int) -> Bool {
+        b.n == x
+    }
+}
+
+impl Holds<String> for Box {
+    fn holds?(b: Box, x: String) -> Bool {
+        b.s == x
+    }
+}
+
+fn held_by<C, T>(c: C, x: T) -> Bool where C: Holds<T> {
+    C.holds?(c, x)
+}
+
+fn first_text(hs: List<Holds<String>>) -> Bool {
+    case hs {
+        [h, .._] -> Holds.holds?(h, "a")
+        [] -> False
+    }
+}
+
+fn main() {
+    b = #Box{n: 1, s: "a"}
+    io.print(Bool.to_string(Box.holds?(b, 1)))         // True: Holds<Int>
+    io.print(Bool.to_string(Holds.holds?(b, "b")))     // False: Holds<String>
+    io.print(Bool.to_string(held_by(b, "a")))          // True: the bound at String
+    io.print(Bool.to_string(first_text([b])))          // True
+}
+```
 
 Example implementation:
 
@@ -4171,7 +4361,7 @@ fn saw_any?<T, I>(it: I) -> Bool where I: Iter<T> {
 saw_any?([10, 20, 30]) // True — I = List<Int>, T = Int
 ```
 
-This `<T>` is the same one the impl receiver names, seen from the other direction. A generic interface's type parameter is *determined* by each implementor (one impl per type), so it is never written on the interface name where the implementor is already known (`impl Iter for List<T>`, not `impl Iter<T> for List<T>`). Where it earns a name is exactly where the implementor is *unknown*: an interface-typed parameter (`container: Container<T>`) or a bound (`I: Iter<T>`), abstracting over an arbitrary conformer and projecting its element type. The projection resolves by inference — `saw_any?([10, 20, 30])` pins `I = List<Int>` and `T = Int` from the argument — precisely because the one-impl-per-type rule makes the element type a function of the implementor. A type parameter that only a bound and the result name is projected the same way, wherever the call sits: `plus(Day(10), Days(4))` for `fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out>` is a `Day`, because `impl Add<Days, Day> for Day` is Day's impl of `Add` at `Days`. This is the multi-parameter interface encoding of associated types: there is no separate associated-type declaration or projection syntax (no `I::Item`), because the type parameter plus the coherence rule already supply both the name and the functional dependency that would otherwise require one.
+This `<T>` is the same one the impl receiver names, seen from the other direction. When a type implements a generic interface once, the interface's type parameter is *determined* by the implementor, so the impl may leave it unwritten (`impl Iter for List<T>`, not `impl Iter<T> for List<T>`); a type that implements the interface at several type arguments writes them on each impl (§*Several instantiations for one type*). Where the parameter earns a name is where the implementor is *unknown*: an interface-typed parameter (`container: Container<T>`) or a bound (`I: Iter<T>`), abstracting over an arbitrary conformer and projecting its element type. The projection resolves by inference: `saw_any?([10, 20, 30])` pins `I = List<Int>` and `T = Int` from the argument, because List's one impl of `Iter` makes the element type a function of the implementor. A type parameter that only a bound and the result name is projected the same way, wherever the call sits: `plus(Day(10), Days(4))` for `fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out>` is a `Day`, because `impl Add<Days, Day> for Day` is Day's impl of `Add` at `Days`. When the subject has several impls, the call's arguments and expected type choose among them, and a bound they leave open is the error `` `Box` implements `Holds` at `Int` and `String`, and the call's arguments do not choose one for this bound: annotate them ``. This is the multi-parameter interface encoding of associated types: there is no separate associated-type declaration or projection syntax (no `I::Item`).
 
 ### Foreign Types
 
@@ -4193,9 +4383,11 @@ impl Html for User {
 
 Any file that can see the impl calls it through the implementing type or the interface — `User.to_html(user)` or `Html.to_html(user)`. Coherence guarantees at most one `Html` impl for `User` program-wide, so there is never anything to disambiguate by location.
 
+A std generic container is an imported type like any other, so an interface of the module's own may be implemented for it: generically (`impl Show for List<T> where T: Show`), at a partly concrete instance (`impl Show for Map<String, V> where V: Show`) or at a concrete one (`impl Sized for List<Int>`). The call `Show.show([[1], [2]])` takes the `List<T>` impl at `T = List<Int>`, whose `T.show` takes it again at `T = Int`. A concrete instance beside a generic impl of the same interface over the same container is a duplicate impl. A std interface on a std container is an orphan impl.
+
 An impl block is part of a program when its file is, and a file is part of a program when some file in the program imports it. Once it is, the impl applies everywhere in the program, including files that do not import its file. A file that holds only impls for types and interfaces declared elsewhere is brought in with an import that names nothing from it (`import html_impls`); that import is used when the program uses one of those impls (§*Unused imports are errors*). The standard library's impls are always part of the program.
 
-**Orphan rule.** An `impl Iface for T { ... }` block must have either `Iface` or `T` declared in the *current Nomi module* (the directory tree rooted at `nomi.toml` + `go.mod`, per the module model in §14 and §31). A third-party module that owns neither side cannot write the impl directly — the normal escape is a wrapper (newtype) the module owns. The whole-program collision check is the correctness backstop; the orphan rule is the hygiene layer that makes the common case of "two libraries both implementing `Display` for `Int`" unrepresentable.
+**Orphan rule.** An `impl Iface for T { ... }` block must have either `Iface` or `T` declared in the *current Nomi module* (the directory tree rooted at `nomi.toml` + `go.mod`, per the module model in §14 and §31). A program outside any module is one module of its own, rooted at its project root (§26, *Project root discovery*), so `impl Debug for Bool` in a lone script is an orphan impl too. A third-party module that owns neither side cannot write the impl directly — the normal escape is a wrapper (newtype) the module owns. The whole-program collision check is the correctness backstop; the orphan rule is the hygiene layer that makes the common case of "two libraries both implementing `Display` for `Int`" unrepresentable.
 
 ## 14. Files and Imports
 
@@ -4358,7 +4550,7 @@ Name collisions between specific imports are a compiler error.
 - File API aliases use `as`: `import http/request as req`, then `req.get(...)`.
 - Stdlib files use the `std/` prefix: `import std/io`, `import std/iter`. The `std/` prefix routes to the embedded stdlib filesystem and prevents user modules from shadowing stdlib names. `std` alone, like any other module's short name alone, is a directory and names no file: `import std` and `import std.io` (which selects `io` from a file `std`) are errors whose hint spells `import std/io`.
 - Variants must come through their enum. `import shape.Circle` (a flat selective variant import) is rejected with a clear error pointing at the owner selector form (`import shape.Shape.Circle`) or the qualified form (`import shape.Shape` then `Shape.Circle`). The owner selector path makes the originating enum visible at the import line, so cross-module collisions are caught at the import rather than silently shadowed.
-- Every user file is preceded conceptually by the imports listed in `std/prelude.nomi`. That file pulls in the primitives (`Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set`), `Bool` (with `True`/`False` variants) from `std/bool`, the `Maybe`/`Some`/`None` and `Result`/`Ok`/`Err` enums, the `Range` struct (so range literals like `1..=10` resolve everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Variants`, plus universal `Debug`), `Ordering`, `Type`, and the application lifecycle types `Startup` and `Context`. Owner functions on those types need no import (`Iter.map`, `String.trim`, `Map.get`, `Result.ok?`). The prelude exports no file API objects, so a file-level function needs its file imported (`import std/io` for `io.print`), and an owner function on a type outside the prelude needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`). The `std/literals` cluster (`Literal`/`Fragment`) and niche/helper types such as `Assertable` and `AssertionFailure` are *not* preluded — their authors import them explicitly. The prelude exports no bare functions — bare names are types, interfaces, and variant constructors only. Anything not listed in the prelude must be imported explicitly. Stdlib files do not receive the prelude — they import their dependencies by hand. See §24 for details.
+- Every user file is preceded conceptually by the imports listed in `std/prelude.nomi`. That file pulls in the primitives (`Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set`), `Bool` (with `True`/`False` variants) from `std/bool`, the `Maybe`/`Some`/`None` and `Result`/`Ok`/`Err` enums, the `Range` struct (so range literals like `1..=10` resolve everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Contains`/`Variants`, plus universal `Debug`), `Ordering`, `Type`, and the application lifecycle types `Startup` and `Context`. Owner functions on those types need no import (`Iter.map`, `String.trim`, `Map.get`, `Result.ok?`). The prelude exports no file API objects, so a file-level function needs its file imported (`import std/io` for `io.print`), and an owner function on a type outside the prelude needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`). The `std/literals` cluster (`Literal`/`Fragment`) and niche/helper types such as `Assertable` and `AssertionFailure` are *not* preluded — their authors import them explicitly. The prelude exports no bare functions — bare names are types, interfaces, and variant constructors only. Anything not listed in the prelude must be imported explicitly. Stdlib files do not receive the prelude — they import their dependencies by hand. See §24 for details.
 - Imports may appear inside a function body. A nested `import` binds names in the enclosing block's scope only and shadows any file-level binding of the same name. The file load itself is cached, so a nested import has no per-call cost beyond the first.
 
 ```nomi
@@ -4448,7 +4640,7 @@ Accessing a member the value's resolved type does not have is a **compile-time e
 - **A value of a concrete type** — `p.field` on a struct, anonymous struct, primitive, list, map, enum, tuple, or function — must name a field that type declares. A missing field (a typo, `#Point{x, y}` accessed as `p.z`) is a compile error: `struct 'Point' has no field 'z'`. A function of the type is not a field: where `impl HasName for Person` writes `fn name`, `p.name` is `struct 'Person' has no field 'name'`, and its hint names the call, `Person.name(p)` or `HasName.name(p)`. (Tuples index by position: `pair.0`, `pair.1`. Indices chain left to right, so `nested.1.0` is `(nested.1).0`. An index is decimal digits with no leading zero; `pair.01`, `pair.1_0` and `pair.0x1` are parse errors.)
 - **A value of interface type** (an existential) has no fields, because an interface declares functions only. `s.x` on a `Struct`-typed value is `interface 'Struct' has no field 'x'`. A value the interface requires is read through a function requirement, `HasName.name(n)` (§13 *Requiring a Value*). Only the interface's name qualifies its functions: `n.name` is `interface 'HasName' has no field 'name'` even though `HasName` declares `fn name`, bare, as a function value or called.
 - **A value of type-parameter type** `T` has no fields, bounded or not. `x.name` on `T: HasName` is ``type parameter `T` has no field 'name'``; call the bound's function, `T.name(x)`.
-- **A type qualifier** — `Type.member` — must name a real member of that type: an interface function, a constructor, or (for enums) a variant. A missing member is a compile error (`type 'List' has no member 'empty'`, `enum 'Maybe' has no variant 'Bogus'`), for both the call form `Type.member(...)` and a bare value `Type.member`. Cross-module members resolve too — an imported type's interface functions are visible to single-file analysis (the editor), so `User.to_string(user)` on an imported `User` is checked, not merely tolerated.
+- **A type qualifier** — `Type.member` — must name a real member of that type: an interface function, a constructor, or (for enums) a variant. A missing member is a compile error (`type 'List' has no member 'empty'`, `enum 'Maybe' has no variant 'Bogus'`), for both the call form `Type.member(...)` and a bare value `Type.member`. `empty` or `new` on `Map`, `Set` or `Vector` adds a hint naming the collection's empty literal (`write the empty map as %{}`). Cross-module members resolve too — an imported type's interface functions are visible to single-file analysis (the editor), so `User.to_string(user)` on an imported `User` is checked, not merely tolerated.
 
 Only members the static type can prove present are reachable; an unresolved member is reported where it is written. The lone exception is a value whose type is still being inferred (an unresolved type variable) — that defers rather than erroring, since inference resolves it first.
 
@@ -5366,7 +5558,9 @@ fn length(s: String) -> Int                                          // grapheme
 fn slice(s: String, start: Int, end: Int) -> String                  // grapheme indices
 fn pad_start(s: String, width: Int, fill: String = " ") -> String    // to `width` graphemes; never truncates
 fn pad_end(s: String, width: Int, fill: String = " ") -> String
-fn contains?<M>(s: String, needle: M) -> Bool where M: Matcher
+fn contains?(c: String, x: String) -> Bool                         // Contains<String> impl: a substring
+fn contains?(c: String, x: Regex) -> Bool                          // Contains<Regex> impl: a match anywhere
+fn contains?(c: String, x: Codepoint) -> Bool                      // Contains<Codepoint> impl: it occurs
 fn starts_with?<M>(s: String, prefix: M) -> Bool where M: Matcher
 fn ends_with?<M>(s: String, suffix: M) -> Bool where M: Matcher
 fn to_upper(s: String) -> String                                     // Unicode-aware, locale-independent
@@ -5391,7 +5585,7 @@ fn strip_suffix(s: String, suffix: String) -> Maybe<String>
 fn join(parts: Iter<String>, separator: String = "") -> String       // any Iter<String>, driven once
 ```
 
-The search functions take any `Matcher` (`std/matcher`) as the thing to look for: a `String` matches its own text and a `Regex` (`std/regex`) matches its pattern, so `String.split("a,b", ",")` and `` String.split(text, Regex`\s+`) `` are the same function. Each Matcher function answers one of these operations with the matcher first (`contained_in?`, `prefix_of?`, `suffix_of?`, `split_in`, `replace_in`, `find_all_in`, `find_in`), and a type of your own implements it to become searchable. A generic function of your own takes either with `where M: Matcher`. "Pattern" is not the name because a pattern in Nomi is a destructuring shape (§10). `String.replace` inserts its replacement literally for a regex too; `Regex.replace_all` expands `$1` capture references. `String.captures` and `String.captures_all` take a `Regex` rather than any `Matcher`, since only a regex has groups. Each match gives one entry per group from group 1 in the order the pattern opens them (the whole match is `String.find`'s answer, not an entry), `Some` of the text for a group that took part, even an empty one, and `None` for one that did not: `` String.captures("b", Regex`(a)|(b)`) `` is `Some([None, Some("b")])`. `String.split` and the other search functions are generic, so naming one as a value needs a function type to settle `M`: `contains: (String, String) -> Bool = String.contains?`.
+The search functions take any `Matcher` (`std/matcher`) as the thing to look for: a `String` matches its own text, a `Regex` (`std/regex`) matches its pattern, and a `Codepoint` matches itself, so `String.split("a,b", ",")` and `` String.split(text, Regex`\s+`) `` are the same function. `String.contains?` is String's `Contains` impl at the same three types, chosen by the needle's type (§*Several instantiations for one type*), so a `String` also satisfies `where C: Contains<String>` (§*Membership: `Contains`*). Each Matcher function answers one of these operations with the matcher first (`contained_in?`, `prefix_of?`, `suffix_of?`, `split_in`, `replace_in`, `find_all_in`, `find_in`), and a type of your own implements it to become searchable. A generic function of your own takes either with `where M: Matcher`. "Pattern" is not the name because a pattern in Nomi is a destructuring shape (§10). `String.replace` inserts its replacement literally for a regex too; `Regex.replace_all` expands `$1` capture references. `String.captures` and `String.captures_all` take a `Regex` rather than any `Matcher`, since only a regex has groups. Each match gives one entry per group from group 1 in the order the pattern opens them (the whole match is `String.find`'s answer, not an entry), `Some` of the text for a group that took part, even an empty one, and `None` for one that did not: `` String.captures("b", Regex`(a)|(b)`) `` is `Some([None, Some("b")])`. `String.split` and the other Matcher search functions are generic, so naming one as a value needs a function type to settle `M`: `split: (String, String) -> List<String> = String.split`.
 
 `String` also implements `Iter<String>` (one grapheme cluster per step), so every `Iter` owner function works on a string. To map or filter graphemes, run the generic adapter and join the result back into a `String`: `Iter.map(s, f) |> String.join()`, `Iter.filter(s, p) |> String.join()`. `String.join` takes any `Iter<String>` (a List, Set or Vector, graphemes, or a lazy chain) and a separator that defaults to `""`. `String.reverse`/`String.length` stay container-specific (native, by grapheme cluster).
 
@@ -5410,10 +5604,11 @@ fn concat(a: Bytes, b: Bytes) -> Bytes
 fn to_list(data: Bytes) -> List<Byte>
 fn from_list(items: List<Byte>) -> Bytes
 fn to_string(data: Bytes) -> Result<String, String> // UTF-8 decode
+fn contains?(c: Bytes, x: Byte) -> Bool            // Contains<Byte> impl; linear scan
 ```
 
-`Bytes` implements `Iter<Byte>`, `Add<Bytes, Bytes>`, `Display`, `Debug`,
-`Equatable`, and `Hashable`. `Byte` intentionally does not implement arithmetic
+`Bytes` implements `Contains<Byte>`, `Iter<Byte>`, `Add<Bytes, Bytes>`,
+`Display`, `Debug`, `Equatable`, and `Hashable`. `Byte` intentionally does not implement arithmetic
 operators; use `Byte.to_int` for numeric work.
 
 ### Display and Debug
@@ -5731,6 +5926,67 @@ Every literal of a built-in shape except a list starts with that shape's symbol:
 - A plain `{` only opens a block, and a name followed by `{` never starts a literal. `Point{x: 1}`, `.Circle{radius: 1.0}`, `Kvs{"a" => 1}` and `Map{"a" => 1}` are parse errors, and `Vector[1]` and `Set[1]` are list literals naming a type that is not a list type.
 - A payload variant and a distinct type over a scalar are calls, not literals: `Some(1)`, `.Circle(2.0)`, `UserId(5)`.
 
+### Membership: `Contains`
+
+Every collection answers "does it hold this value?" with one function name,
+`contains?`. The collections implement the prelude interface `Contains`
+(`std/contains`):
+
+```nomi
+interface Contains<T> {
+    fn contains?(c: self, x: T) -> Bool
+}
+```
+
+| Implementor | `contains?(c, x)` is true when | Cost |
+|---|---|---|
+| `Set<T>` | `x` is a member | hash lookup |
+| `Map<K, V>`, at its key type `K` | `x` is a key; a value is not a key | hash lookup |
+| `Range<T>` | `x` lies between the ends; an exclusive range leaves out its end, an unbounded one checks only its start | two comparisons |
+| `List<T>` where `T: Equatable` | an element is `==` to `x` | linear scan |
+| `Vector<T>` where `T: Equatable` | an element is `==` to `x` | linear scan |
+| `Bytes`, at `Byte` | a byte equals `x` | linear scan |
+| `String`, at `String` | `x` occurs as a substring | linear search |
+| `String`, at `Regex` | `x` matches anywhere | linear search |
+| `String`, at `Codepoint` | `x` occurs in the text | linear search |
+
+`String` implements `Contains` at three type arguments, and a call takes the
+one its argument's type chooses (§*Several instantiations for one type*):
+`String.contains?(s, "x")`, `` Contains.contains?(s, Regex`\d`) `` and
+`String.contains?(s, '-')` are three impls. `Iter` answers membership under the
+same name without implementing `Contains`: `Iter.contains?(source, x)`, where
+`T: Equatable`, scans any iterable, a lazy pipeline included (§*`std/iter`*).
+
+```nomi
+Set.contains?(%["admin"], "admin")  // True
+Map.contains?(%{"a" => 1}, "a")     // True
+Map.contains?(%{"a" => 1}, 1)       // compile error: 1 is not a key type
+Range.contains?(1..5, 5)            // False: the end is excluded
+List.contains?([1, 2, 3], 2)        // True
+String.contains?("a-b", '-')        // True
+Iter.contains?(Iter.from(0), 1_000) // True, and stops there
+```
+
+A linear scan stops at its first match, so `Iter.contains?` ends on an
+infinite source that holds `x`. It compares each element with `==`: a struct
+with a hand-written `impl Equatable` is compared by it, and every other value
+in the runtime, with no Nomi call per element. Float equality is reflexive
+(§*Float Special Values*), so `List.contains?([Float.nan()], Float.nan())` is
+`True` and `List.contains?([0.0], -0.0)` is `True`, as for a `Set` or a `Map`
+key. For repeated lookups in a `List`, `Vector` or `Bytes`, build a `Set` once.
+
+A generic function takes any implementor with a bound:
+
+```nomi
+fn all_present<C, T>(c: C, wanted: List<T>) -> Bool where C: Contains<T> {
+    Iter.all?(wanted, &C.contains?(c, &1))
+}
+```
+
+`all_present("a word", ["a", "word"])` takes String's impl at `String`, and
+`all_present("a-b", ['-'])` its impl at `Codepoint`: the bound's `T` is solved
+from `wanted`, and that chooses the impl.
+
 ### List
 
 Linked list. Use it for cons-style recursion, structural pattern matching, and
@@ -5745,6 +6001,7 @@ numbers = [1, 2, 3, 4, 5]
 - Literal syntax: `[1, 2, 3]`
 - Homogeneous — all elements must be the same type
 - Immutable — operations return new lists
+- `List.contains?(xs, x)` is the `Contains` impl, a linear scan (§*Membership: `Contains`*)
 - `..tail` after a comma spreads (cons): `[item, ..list]` is O(1), supports structural sharing. The spread must be the last element (`list spread ".." must be the last element`), because cons cells make prepending O(1) and appending O(n). The struct-update spread (§7) must be *first* instead; the rules differ because a list's is about representation and a record's is about notation.
 - At a field or key of an update, a bare `..` tail is the list already there: `#{..account, log: [t, ..]}` puts `t` in front of the old `log` (§7 *Nested updates*). A missing map key starts from `[]`.
 - A spread construction evaluates its tail first, then its head expressions from left to right. Each expression runs once. A plain list literal evaluates its elements from left to right.
@@ -5761,7 +6018,7 @@ numbers = [1, 2, 3, 4, 5]
 
 #### List Operations
 
-`List`'s owner API is small: it carries only the ops that read or rebuild a `List`'s cons structure (`head`, `tail`, `concat`, `next_item`) plus the `Iter` protocol (`each_while`, `known_count`). **Every generic operation — transform, filter, reduce, sort, count, index access — is an `Iter` owner function** over any `Iter<T>`, and a `List` is an `Iter<T>`. The adapters are lazy and fuse; end a chain with `Iter.to_list()` to materialize a `List` back (one allocation, at the visible step):
+`List`'s owner API is small: it carries only the ops that read or rebuild a `List`'s cons structure (`head`, `tail`, `concat`, `next_item`), the `Contains` impl (`contains?`), and the `Iter` protocol (`each_while`, `known_count`). **Every generic operation — transform, filter, reduce, sort, count, index access — is an `Iter` owner function** over any `Iter<T>`, and a `List` is an `Iter<T>`. The adapters are lazy and fuse; end a chain with `Iter.to_list()` to materialize a `List` back (one allocation, at the visible step):
 
 ```nomi
 names = ["Alice", "Bob"]
@@ -5788,6 +6045,7 @@ fn head(list: List<T>) -> Maybe<T>          // first element (cons-list idiom)
 fn tail(list: List<T>) -> Maybe<List<T>>    // all but the first
 fn concat(a: List<T>, b: List<T>) -> List<T>
 fn next_item(list: List<T>) -> Maybe<#(T, List<T>)> // head and tail together
+fn contains?(c: List<T>, x: T) -> Bool where T: Equatable // Contains impl; linear scan
 ```
 
 Plus the `Iter` protocol — `each_while`, and `known_count` (O(1), read from the cached length). Everything else is generic and lives on `Iter`:
@@ -5819,7 +6077,7 @@ Iter.scan(xs, fn acc = start, x -> f(acc, x)) / Iter.map_reduce(xs, fn acc = sta
 
 Iter.min(xs) / Iter.max(xs) / Iter.min_by(xs, key) / Iter.max_by(xs, key) / Iter.sum(xs)
 
-Iter.any?(xs, p) / Iter.all?(xs, p)
+Iter.any?(xs, p) / Iter.all?(xs, p) / Iter.contains?(xs, x)
 
 Iter.sort(xs) / Iter.sort_by(xs, key) / Iter.sort_with(xs, cmp)
 
@@ -5841,14 +6099,15 @@ empty: Vector<Int> = #[]
 
 - Literal syntax: `#[1, 2, 3]`, the `#` and the elements in brackets. The
   empty vector is `#[]`, which takes its element type from the expected type,
-  as `[]` does. A type over a vector writes its name after the `#`,
+  as `[]` does. There is no empty constructor: `#[]` is the empty value. A type over a vector writes its name after the `#`,
   `#Path[1, 2]`, and so does a vector-payload variant, `#.Items[1, 2]`.
   `Vector[1, 2]` is not a vector: it is a list literal naming a type that is
   not a list type, an error
 - Homogeneous — all elements must be the same type
 - Immutable — operations return new vectors
-- `Vector.get`, `Vector.at`, `Vector.push`, `Vector.set`, `Vector.concat` and
-  `Vector.length` are container-specific operations. Converting is `Iter`'s
+- `Vector.get`, `Vector.at`, `Vector.push`, `Vector.set`, `Vector.concat`,
+  `Vector.length` and `Vector.contains?` (the `Contains` impl, a linear scan)
+  are container-specific operations. Converting is `Iter`'s
   job: `Iter.to_list(v)` and `Iter.to_vector(xs)`
 - Indexes start at 0. `Vector.get(v, i)` answers `None` for an index outside
   `0 <= i < length`; `Vector.at(v, i)` returns the element and traps on such an
@@ -5895,7 +6154,7 @@ empty: Set<String> = %[]
 ```
 
 - Literal syntax: `%[1, 2, 3]`, the `%` and the elements in brackets. The
-  empty set is `%[]`. A type over a set writes its name after the `%`,
+  empty set is `%[]`, and there is no empty constructor. A type over a set writes its name after the `%`,
   `%Tags["a"]`
 - Elements equal at run time make one element; the same constant given twice
   (`%[1, 2, 1]`) is a compile error, by the rule for map keys (Map, *Repeated
@@ -5904,9 +6163,9 @@ empty: Set<String> = %[]
   with none, its binding needs an annotation
 - Homogeneous — all elements must be the same type
 - Immutable — operations return new sets
-- `Set.insert`, `Set.remove`, `Set.contains?`, `Set.union`,
-  `Set.intersection`, `Set.difference`, `Set.subset?`, and `Set.size` are
-  container-specific operations
+- `Set.insert`, `Set.remove`, `Set.contains?` (the `Contains` impl, a hash
+  lookup), `Set.union`, `Set.intersection`, `Set.difference`, `Set.subset?`,
+  and `Set.size` are container-specific operations
 - `a + b` is `Set.union(a, b)` and `a - b` is `Set.difference(a, b)`; both
   operands are sets, so one element is `s + %[x]`
 - `%[..s, x]` is `Set.union(s, %[x])` written as a literal: one spread, first,
@@ -5939,7 +6198,7 @@ updated = Map.put(ages, "Carol", 28) // new map with Carol added
 updated = Map.merge(ages, %{"Alice" => 31, "Bob" => 26}) // new map with values changed
 ```
 
-- Literal syntax: `%{key => value}`. The empty map is `%{}`, which takes its key and value types from the expected type. A map-distinct type or a map-payload variant writes its name after the `%`: `%Kvs{"a" => 1}`, `%Json.Obj{"k" => v}`, `%.Obj{"k" => v}` (§15 *Distinct Types Over Tuples and Maps*).
+- Literal syntax: `%{key => value}`. The empty map is `%{}`, which takes its key and value types from the expected type; there is no empty constructor. A map-distinct type or a map-payload variant writes its name after the `%`: `%Kvs{"a" => 1}`, `%Json.Obj{"k" => v}`, `%.Obj{"k" => v}` (§15 *Distinct Types Over Tuples and Maps*).
 - `%{` and `%Name{` always open a map literal and `#{` and `#Name{` a struct literal, so `%Kvs{}` is always the empty map and `#Point{}` always a struct. A plain `{` is a block, never a map, and a name followed by `{` never starts a literal (`Map{"a" => 1}` is a parse error). Where an operand begins, `%{`, `%[` and `%Name` start a literal, written with no space after the `%`; after an operand, `%` is the remainder operator (`a % b`).
 - Keys are always expressions — string literals require quotes, bare identifiers are evaluated as variables, and any keyable value works (tuples, variants, lists, structs, distinct types), not just scalars
 - `Map.get` returns `Maybe` since key might not exist
@@ -5977,7 +6236,7 @@ The rules mirror the struct spread's (§7 *Struct update by spread*):
 
 - **Exactly one spread, and it is the first element.** A spread after an entry, or a second spread, is `map spread \`..\` must be the first element`.
 - **At least one entry follows it.** `%{..m}` is `a map spread with no entries is its base value; write \`m\``.
-- **The result has the base's type.** The base must be a `Map<K, V>` (`map spread \`..\` requires a map, got Point` otherwise), and each entry's key must be a `K` and its value a `V`, with the coercions any map literal's entries get from an expected type: `None` for a `Maybe<V>`, `[]` for a `List<T>`. A key or value of the wrong type is `map spread key type mismatch: expected String, got Int` (or `value`). A base whose types are still open, such as `Map.empty()`, takes them from the entries: `%{..Map.empty(), "a" => 1}` is a `Map<String, Int>`.
+- **The result has the base's type.** The base must be a `Map<K, V>` (`map spread \`..\` requires a map, got Point` otherwise), and each entry's key must be a `K` and its value a `V`, with the coercions any map literal's entries get from an expected type: `None` for a `Maybe<V>`, `[]` for a `List<T>`. A key or value of the wrong type is `map spread key type mismatch: expected String, got Int` (or `value`). A base whose types are still open, such as `%{}`, takes them from the entries: `%{..%{}, "a" => 1}` is a `Map<String, Int>`.
 - **A key may repeat the base's; it may not repeat the literal's.** Replacing a base key is the point of the form, but two equal constant keys among the literal's entries are the error *Repeated keys* below describes.
 
 **An entry replaces the value at its key whole**, even when that value is itself a map, unless the value is written with a bare `..` (§7 *Nested updates*). The `..` stands for the value already at the key, so only the entries or fields written change; where the base lacks the key, it starts from an empty collection or builds a struct from its field defaults:
@@ -6059,14 +6318,13 @@ A set literal's elements equal only at run time make one element.
 
 ```nomi
 // Construction & access
-fn empty() -> Map<K, V>
 fn get(m: Map<K, V>, key: K) -> Maybe<V>
 fn put(m: Map<K, V>, key: K, value: V) -> Map<K, V>
 fn remove(m: Map<K, V>, key: K) -> Map<K, V>
 fn merge(a: Map<K, V>, b: Map<K, V>) -> Map<K, V>
 fn keys(m: Map<K, V>) -> List<K>
 fn values(m: Map<K, V>) -> List<V>
-fn contains_key?(m: Map<K, V>, key: K) -> Bool
+fn contains?(c: Map<K, V>, x: K) -> Bool          // Contains<K> impl: x is a key
 fn size(m: Map<K, V>) -> Int                       // O(1); the generic count is Iter.count
 fn map_next(m: Map<K, V>) -> Maybe<#(#(K, V), Map<K, V>)> // first entry and the rest
 
@@ -6121,7 +6379,7 @@ Range.from(1) |> Iter.take(5) |> Iter.to_list() // [1, 2, 3, 4, 5]
 #### Range functions (container-specific)
 
 ```nomi
-fn contains?<T>(r: Range<T>, n: T) -> Bool
+fn contains?(c: Range<T>, x: T) -> Bool    // Contains impl: two comparisons
 fn bounded?<T>(r: Range<T>) -> Bool
 fn from(n: Int) -> Range<Int>              // unbounded ascending from n
 fn naturals() -> Range<Int>                // unbounded from 0
@@ -6187,7 +6445,7 @@ There are **no eager collection-adapter functions** (`List.map`, `Set.filter`, �
 The `std/iter` file hosts the `Iter<T>` interface and its owner functions. The protocol surface is only `each_while` (required) and the lone `open` default `known_count` (`Maybe<Int>`; `None` unless a type stores its size). Every generic iteration op lives on `Iter`, reached `Iter.X(...)`:
 
 - **Adapters** (lazy, return `Iter<...>` — one closure over the upstream's push loop, allocated when the chain is built rather than rebuilt per element, so pipelines fuse): `map`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`/`chunks`/`chunk_by`.
-- **Terminals** (consume, produce a scalar): `reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`not_empty?`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`sort_with`/`partition`/`group_by`/`frequencies`.
+- **Terminals** (consume, produce a scalar): `reduce`/`find`/`each`/`any?`/`all?`/`contains?`/`empty?`/`not_empty?`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`sort_with`/`partition`/`group_by`/`frequencies`.
 - **Materializers / constructors** (consume or seed): `to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`/`from`/`repeat`/`iterate`.
 
 Because they're owner functions, `Iter.map` / `Iter.reduce` are not dispatch calls — the protocol functions remain `Iter.each_while` and `Iter.known_count`. `Iter.count` is O(1) on any source that stores or can compute its count (`List`/`Vector`/`Map`/`Set`/bounded countable ranges, via `known_count`) and an O(n) fold otherwise; like every full-consuming terminal it **does not terminate on an infinite source** — bound it with `Iter.take(n)` first.
@@ -6228,6 +6486,7 @@ fn each(source: Iter<T>, f: (T) -> Unit) -> Unit
 fn find(source: Iter<T>, f: (T) -> Bool) -> Maybe<T>
 fn any?(source: Iter<T>, f: (T) -> Bool) -> Bool
 fn all?(source: Iter<T>, f: (T) -> Bool) -> Bool
+fn contains?<T>(source: Iter<T>, x: T) -> Bool where T: Equatable   // an element == x; stops at the first
 fn empty?(source: Iter<T>) -> Bool
 fn not_empty?(source: Iter<T>) -> Bool
 fn first(source: Iter<T>) -> Maybe<T>
@@ -6260,7 +6519,7 @@ fn flatten(source: Iter<Iter<U>>) -> List<U>
 
 To join an `Iter<String>` into one `String`, use `String.join(parts, separator)`.
 
-`Iter.reduce` starts from the default of its callback lambda's first parameter: `Iter.reduce(xs, fn sum = 0, x -> sum + x)` is 0 for an empty `xs`. That default is the only starting value. A callback without one is a compile error at the callback, "`Iter.reduce` needs a starting value": a function value (`Iter.reduce(xs, Int.add)`, `xs |> Iter.reduce(add)`), a lambda whose first parameter has no default (`fn a, b -> a + b`), a partial application, a callback slot left open (`Iter.reduce(xs, _)`) and `Iter.reduce` named as a value. There is no first-element fallback, so a reduction never fails at run time for an empty source. For the least or greatest element, which has no answer for an empty source, use `Iter.min` and `Iter.max`: each answers a `Maybe`, `None` when the source is empty.
+`Iter.reduce` starts from the default of its callback lambda's first parameter: `Iter.reduce(xs, fn sum = 0, x -> sum + x)` is 0 for an empty `xs`. That default is the only starting value. A callback without one is a compile error at the callback, "`Iter.reduce` needs a starting value": a function value (`Iter.reduce(xs, Int.add)`, `xs |> Iter.reduce(add)`), a lambda whose first parameter has no default (`fn a, b -> a + b`), a capture (`&add(&1, &2)`), a callback slot left open (`&Iter.reduce(xs, &1)`) and `Iter.reduce` named as a value. There is no first-element fallback, so a reduction never fails at run time for an empty source. For the least or greatest element, which has no answer for an empty source, use `Iter.min` and `Iter.max`: each answers a `Maybe`, `None` when the source is empty.
 
 `Iter.scan` and `Iter.map_reduce` take their starting value the same way, and a callback without one is the same error with their own name ("`Iter.scan` needs a starting value"). `Iter.scan` is lazy: it runs the fold and yields each state after the starting value, one per element, so an empty source yields nothing. `Iter.map_reduce` is eager: its callback answers `#(output, next_state)` for each element, and the call answers the outputs in order with the final state, `#([], start)` for an empty source.
 
@@ -6722,7 +6981,7 @@ concurrent {
             url
             |> try fetch()
             |> try parse()
-            |> Sender.send(ch.sender, _)
+            |> then &Sender.send(ch.sender, &1)
             |> Result.map_err(fn _ -> "channel closed")
         })
     }) |> Iter.to_list()
@@ -6976,7 +7235,7 @@ The stdlib `.nomi` files are embedded in the compiler binary and analyzed once p
 
 ### Prelude
 
-One stdlib file, `std/prelude.nomi`, has a special role: it lists the imports every user file gets implicitly. It is itself a regular Nomi file containing only a `pub import` block — no special syntax. After every other stdlib module loads, the analyzer and runtime each evaluate `prelude.nomi`; the resulting module scope becomes the parent scope of every user file (analysis side) and the bindings are written into the root environment (runtime side). The set is intentionally minimal: primitives (`Int`/`Float`/`Decimal`/`String`/`Unit`/`Infallible`/`Byte`/`Bytes`/`Codepoint`/`List`/`Vector`/`Map`/`Set`), `Bool`/`True`/`False` from `std/bool`, `Maybe`/`Some`/`None`, `Result`/`Ok`/`Err`, the `Range` struct (so range literals work everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Variants`, plus universal `Debug`), the `Ordering` and `Type` types, and the application lifecycle types `Startup` and `Context`. File API objects are deliberately left out: importing `String` into the prelude does not import `strings`, importing `Map` does not import `maps`, and importing `Iter` does not import `iter`. Type-qualified calls such as `String.to_upper`, `Map.get`, `Iter.map`, and `Context.root` use the prelude types directly. File-qualified calls such as `io.print` require the corresponding file import (`import std/io`). `Ordering`'s `Less`/`Equal`/`Greater` variants are deliberately left out: `derive Comparable`'s synthesized body references them *qualified* (`Ordering.Less`), so nothing depends on the bare names being in scope, and — like the `std/literals` cluster (`Literal`/`Fragment` and the `Fragment` variants) and assertion-authoring types such as `Assertable`/`AssertionFailure` — they're named only by a narrower authoring audience that imports them explicitly. The prelude exports no bare functions. Anything else must be imported explicitly.
+One stdlib file, `std/prelude.nomi`, has a special role: it lists the imports every user file gets implicitly. It is itself a regular Nomi file containing only a `pub import` block — no special syntax. After every other stdlib module loads, the analyzer and runtime each evaluate `prelude.nomi`; the resulting module scope becomes the parent scope of every user file (analysis side) and the bindings are written into the root environment (runtime side). The set is intentionally minimal: primitives (`Int`/`Float`/`Decimal`/`String`/`Unit`/`Infallible`/`Byte`/`Bytes`/`Codepoint`/`List`/`Vector`/`Map`/`Set`), `Bool`/`True`/`False` from `std/bool`, `Maybe`/`Some`/`None`, `Result`/`Ok`/`Err`, the `Range` struct (so range literals work everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Contains`/`Variants`, plus universal `Debug`), the `Ordering` and `Type` types, and the application lifecycle types `Startup` and `Context`. File API objects are deliberately left out: importing `String` into the prelude does not import `strings`, importing `Map` does not import `maps`, and importing `Iter` does not import `iter`. Type-qualified calls such as `String.to_upper`, `Map.get`, `Iter.map`, and `Context.root` use the prelude types directly. File-qualified calls such as `io.print` require the corresponding file import (`import std/io`). `Ordering`'s `Less`/`Equal`/`Greater` variants are deliberately left out: `derive Comparable`'s synthesized body references them *qualified* (`Ordering.Less`), so nothing depends on the bare names being in scope, and — like the `std/literals` cluster (`Literal`/`Fragment` and the `Fragment` variants) and assertion-authoring types such as `Assertable`/`AssertionFailure` — they're named only by a narrower authoring audience that imports them explicitly. The prelude exports no bare functions. Anything else must be imported explicitly.
 
 Stdlib files themselves do **not** receive the prelude — they each import their dependencies by hand. The "is this a stdlib file?" check is the only place that distinguishes who gets the implicit imports. A stdlib file's `//!` prompts are part of the file and see the file's scope, as its bodies do: a prompt that writes a bare `False` or `Some` needs the file to import it (`import bool.Bool.False`). `nomi test`, `nomi check`, the language server and the reference editors all check a prompt in that scope.
 
@@ -7382,7 +7641,7 @@ environment and arguments:
 
 ```nomi
 pub struct Startup {
-    env: Map<String, String> = Map.empty()
+    env: Map<String, String> = %{}
     args: List<String> = []
 }
 ```
@@ -8025,7 +8284,7 @@ Container-specific functions (`std/ranges`):
 ```nomi
 fn from(n: Int) -> Range<Int>              // unbounded ascending from n
 fn naturals() -> Range<Int>                // unbounded ascending from 0
-fn contains?<T>(r: Range<T>, n: T) -> Bool
+fn contains?(c: Range<T>, x: T) -> Bool    // Contains impl
 fn bounded?<T>(r: Range<T>) -> Bool
 ```
 

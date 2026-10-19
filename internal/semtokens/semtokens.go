@@ -136,6 +136,13 @@ func Collect(fa *analysis.FileAnalysis) []Token {
 	for pos, sym := range fa.Definitions {
 		add(pos, sym, false)
 	}
+	// `&N` is a parameter of the capture around it.
+	for pos, length := range fa.Placeholders {
+		if !seen[pos] {
+			toks = append(toks, Token{Line: pos.Line, Col: pos.Col, Length: length, Type: "parameter"})
+			seen[pos] = true
+		}
+	}
 	sort.Slice(toks, func(i, j int) bool {
 		if toks[i].Line != toks[j].Line {
 			return toks[i].Line < toks[j].Line

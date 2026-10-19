@@ -35,19 +35,13 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 			Range:    ptrRange(utf16RangeFromContent(doc.Content, literalRange)),
 		}, nil
 	}
+	// The punctuation of a shape literal or pattern, a variant's `.` and
+	// `(`, a pattern's `..rest` and a pipe's `|>` (hoverdoc.SyntaxAt).
+	if content, at, n, ok := hoverdoc.SyntaxAt(doc.Analysis, doc.Nodes, pos); ok {
+		return tokenHover(doc.Content, content, at, n), nil
+	}
 	sym, tokPos, tokLen, ok := doc.Analysis.TokenAt(pos)
 	if !ok {
-		if content, isTarget := targetStructHover(doc.Analysis, pos); isTarget {
-			line := toZeroBased(pos.Line)
-			start := byteToUTF16Col(doc.Content, line, toZeroBased(pos.Col))
-			return &protocol.Hover{
-				Contents: protocol.MarkupContent{Kind: protocol.MarkupKindMarkdown, Value: content},
-				Range: &protocol.Range{
-					Start: protocol.Position{Line: line, Character: start},
-					End:   protocol.Position{Line: line, Character: start + 1},
-				},
-			}, nil
-		}
 		return nil, nil
 	}
 
@@ -59,54 +53,28 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 		content += "\n\n---\n\n" + literal
 	}
 
-	// Highlight the hovered token, anchored at its start (not the cursor —
-	// anchoring at the cursor makes the highlight appear to begin mid-token).
-	// Byte columns are converted to the UTF-16 columns the protocol expects.
-	hoverLine := toZeroBased(tokPos.Line)
-	startByte := toZeroBased(tokPos.Col)
-	startChar := byteToUTF16Col(doc.Content, hoverLine, startByte)
-	endChar := byteToUTF16Col(doc.Content, hoverLine, startByte+uint32(tokLen))
+	return tokenHover(doc.Content, content, tokPos, tokLen), nil
+}
 
+// tokenHover is a hover showing content over the token of length n at
+// start. The highlight is anchored at the token's start, not the cursor:
+// anchoring at the cursor makes it appear to begin mid-token. Byte columns
+// are converted to the UTF-16 columns the protocol expects.
+func tokenHover(content, markdown string, start analysis.Pos, n int) *protocol.Hover {
+	hoverLine := toZeroBased(start.Line)
+	startByte := toZeroBased(start.Col)
+	startChar := byteToUTF16Col(content, hoverLine, startByte)
+	endChar := byteToUTF16Col(content, hoverLine, startByte+uint32(n))
 	return &protocol.Hover{
 		Contents: protocol.MarkupContent{
 			Kind:  protocol.MarkupKindMarkdown,
-			Value: content,
+			Value: markdown,
 		},
 		Range: &protocol.Range{
 			Start: protocol.Position{Line: hoverLine, Character: startChar},
 			End:   protocol.Position{Line: hoverLine, Character: endChar},
 		},
-	}, nil
+	}
 }
 
 func ptrRange(r protocol.Range) *protocol.Range { return &r }
-
-// targetStructHover is the hover on the `#{` of a target-typed struct
-// literal (`a: Address = #{street: …}`): the struct the literal builds,
-// as hovering `Address` in `Address{…}` shows it. A generic struct leads with
-// its instantiation (`Box<Int>`).
-func targetStructHover(fa *analysis.FileAnalysis, pos analysis.Pos) (string, bool) {
-	for lit, st := range fa.TargetStructs {
-		if lit.Line != pos.Line || lit.Col != pos.Col && lit.Col+1 != pos.Col {
-			continue
-		}
-		head := "```nomi\n" + st.String() + "\n```"
-		var body string
-		if scope := fa.ScopeAt(pos); scope != nil {
-			if sym := realSymbol(scope.Lookup(st.Name)); sym != nil {
-				if decl, ok := sym.Type.(*analysis.StructType); ok && decl.Name == st.Name && decl.Origin == st.Origin {
-					body = hoverdoc.RenderForEditor(sym, fa)
-				}
-			}
-		}
-		switch {
-		case body == "":
-			return head, true
-		case len(st.TypeArgs) > 0:
-			return head + "\n\n---\n\n" + body, true
-		default:
-			return body, true
-		}
-	}
-	return "", false
-}

@@ -312,31 +312,17 @@ func stdEmptyListDefault() *stdFieldDefault {
 	}, lit: stdDefaultLit{form: stdDefaultEmptyList}}
 }
 
-// stdEmptyMapDefault is `= Map.empty()` on a Map field.
+// stdEmptyMapDefault is `= %{}` on a Map field.
 //
-// The only default in this family whose declared expression is a CALL rather than
-// a literal, and the shape check is correspondingly a shape check on the callee:
-// `Map.empty` as a field access on the `Map` type-ident, with no arguments. A
-// `Map.empty(x)` or a `Foo.empty()` therefore produces no anchor, which is what
-// keeps the value below from standing in for an expression it does not implement.
-//
-// The value is the untyped `kindEmptyMap` sentinel — the same one `Map.empty()`
-// produces at a user call site (maps.go) — so the field's real key and value
+// The value is the untyped `kindEmptyMap` sentinel, the same one `%{}`
+// produces at a user site (irmap.go), so the field's real key and value
 // kinds are reached through the ordinary `coerce` that discharges it. Nothing
 // here renders a Go type argument, so this default cannot disagree with the field
 // it fills.
 func stdEmptyMapDefault() *stdFieldDefault {
 	return &stdFieldDefault{shape: func(n ast.Node) bool {
-		call, isCall := n.(*ast.Call)
-		if !isCall || len(call.Args) != 0 {
-			return false
-		}
-		fa, isField := call.Func.(*ast.FieldAccess)
-		if !isField || fa.Field == nil || fa.Field.Name != "empty" {
-			return false
-		}
-		ti, isType := fa.Object.(*ast.TypeIdent)
-		return isType && ti.Name == "Map"
+		m, isMap := n.(*ast.MapLit)
+		return isMap && len(m.Entries) == 0 && m.Spread == nil && m.TypeName == nil
 	}, lit: stdDefaultLit{form: stdDefaultEmptyMap}}
 }
 
@@ -636,7 +622,7 @@ var stdStructSpecs = []stdStructSpec{{
 	// NO NEW MACHINERY. It is
 	// `Project` minus one field: `entry_point` is the same scalar, `env` is the
 	// same `Map<String, String>` projection through stdMapField's nil-gen
-	// process-wide intern, and the DEFAULT is the one new piece — `Map.empty()`
+	// process-wide intern, and the DEFAULT is the one new piece — `%{}`
 	// rather than `None`, which is stdEmptyMapDefault above.
 	//
 	// It is deliberately NOT the same Go type as `Project`. See rt.RunFile: a

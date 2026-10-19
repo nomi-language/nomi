@@ -134,8 +134,8 @@ const (
 	tagUnit
 	tagExistential
 	tagIter
-	// tagCall: the feature is a call with named arguments, defaults or
-	// placeholders, or a call qualified other than by its file.
+	// tagCall: the feature is a call with named arguments or defaults, a
+	// capture, or a call qualified other than by its file.
 	tagCall
 	// tagDbg: the program prints a `dbg` line, which the transcript
 	// comparison leaves out.
@@ -161,6 +161,30 @@ const (
 	mxCoin  = "enum Coin {\n    Penny\n    Dime\n}"
 	mxVTree = "enum VTree {\n    Leaf Int\n    Node Vector<VTree>\n}\n\nderive Equatable for VTree"
 	mxVDir  = "struct VDir {\n    name: String\n    kids: Vector<VDir>\n}"
+	mxHolds = "fn has<C, T>(c: C, x: T) -> Bool where C: Contains<T> {\n    C.contains?(c, x)\n}"
+	// An interface with a default, implemented for a generic struct.
+	mxLabeled = "interface Labeled {\n    fn label(value: self) -> String\n    fn loud(value: self) -> String {\n        Labeled.label(value) + \"!\"\n    }\n}\n\nstruct Bx<T> {\n    v: T\n}\n\nimpl Labeled for Bx<T> {\n    fn label(b: Bx<T>) -> String {\n        \"bx${Debug.inspect(b.v)}\"\n    }\n}"
+	mxGets    = "interface Gets<T> {\n    fn got(value: self) -> T\n}\n\nstruct Bag {\n    s: String\n}\n\nimpl Gets<String> for Bag {\n    fn got(b: Bag) -> String {\n        b.s\n    }\n}"
+	// Two generic interfaces, each implemented for one type at two type
+	// arguments: Takes chosen by an argument, Gives by the result.
+	mxTwo = "interface Takes<T> {\n    fn takes(value: self, x: T) -> String\n}\n\ninterface Gives<T> {\n    fn gives(value: self) -> T\n}\n\nstruct Two {\n    n: Int\n}\n\n" +
+		"impl Takes<Int> for Two {\n    fn takes(t: Two, x: Int) -> String {\n        \"int${t.n + x}\"\n    }\n}\n\n" +
+		"impl Takes<String> for Two {\n    fn takes(_t: Two, x: String) -> String {\n        \"str${x}\"\n    }\n}\n\n" +
+		"impl Gives<Int> for Two {\n    fn gives(t: Two) -> Int {\n        t.n\n    }\n}\n\n" +
+		"impl Gives<String> for Two {\n    fn gives(_t: Two) -> String {\n        \"two\"\n    }\n}\n\n" +
+		"fn took<C, T>(c: C, x: T) -> String where C: Takes<T> {\n    C.takes(c, x)\n}\n\n" +
+		"fn gives_text(g: Gives<String>) -> String {\n    Gives.gives(g)\n}"
+	// A program interface implemented for std containers: generically over
+	// List and Maybe, at a concrete Map, and receiverless for List.
+	mxShow = "interface Show {\n    fn show(value: self) -> String\n    fn loud(value: self) -> String {\n        Show.show(value) + \"!\"\n    }\n}\n\n" +
+		"interface Zero {\n    fn zero(n: Int) -> self\n}\n\n" +
+		"impl Show for Int {\n    fn show(n: Int) -> String {\n        \"i${n}\"\n    }\n}\n\n" +
+		"impl Zero for Int {\n    fn zero(n: Int) -> Int {\n        n\n    }\n}\n\n" +
+		"impl Show for List<T> where T: Show {\n    fn show(xs: List<T>) -> String {\n        \"[\" + (xs |> Iter.map(&T.show(&1)) |> String.join(\" \")) + \"]\"\n    }\n}\n\n" +
+		"impl Show for Maybe<T> where T: Show {\n    fn show(m: Maybe<T>) -> String {\n        case m {\n            Some(x) -> \"some \" + T.show(x)\n            None -> \"none\"\n        }\n    }\n}\n\n" +
+		"impl Show for Map<String, Int> {\n    fn show(m: Map<String, Int>) -> String {\n        \"map${Map.size(m)}\"\n    }\n}\n\n" +
+		"impl Zero for List<T> where T: Zero {\n    fn zero(n: Int) -> List<T> {\n        Iter.repeat(T.zero(n)) |> Iter.take(2) |> Iter.to_list()\n    }\n}\n\n" +
+		"fn shown<T>(x: T) -> String where T: Show {\n    T.loud(x)\n}"
 )
 
 var mxFeatures = []mxFeature{
@@ -180,7 +204,7 @@ var mxFeatures = []mxFeature{
 	{name: "set", typ: "Set<Int>", expr: "%[3, 4]", want: "%[3, 4]"},
 	{name: "map", typ: "Map<String, Int>", expr: `%{"a" => 1}`, want: `%{"a" => 1}`},
 	{name: "map spread", typ: "Map<String, Int>", expr: `%{..%{"a" => 1}, "b" => 2}`, want: `%{"a" => 1, "b" => 2}`},
-	{name: "empty map", typ: "Map<String, Int>", expr: "Map.empty()", want: "%{}", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
+	{name: "empty map", typ: "Map<String, Int>", expr: "%{}", want: "%{}", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
 	{name: "tuple", typ: "#(Int, String)", expr: `#(1, "a")`, want: `#(1, "a")`},
 	{name: "record", typ: "#{a: Int, b: String}", expr: `#{a: 1, b: "x"}`, want: `#{a: 1, b: "x"}`},
 	{name: "range", typ: "Range<Int>", expr: "1..4", want: "1..4"},
@@ -212,10 +236,23 @@ var mxFeatures = []mxFeature{
 		tags: tagFn | tagExpects, reject: "cannot infer type for parameter"},
 	{name: "captured lambda", typ: "(Int) -> Int", expr: "{\n    k = 5\n    fn n: Int -> n + k\n}",
 		obs: "Debug.inspect($v(2))", want: "7", tags: tagFn | tagNested},
-	{name: "partial", decls: mxAdd3, typ: "(Int) -> Int", expr: "add3(_, 10)", obs: "Debug.inspect($v(2))", want: "112",
+	{name: "partial", decls: mxAdd3, typ: "(Int) -> Int", expr: "&add3(&1, 10)", obs: "Debug.inspect($v(2))", want: "112",
 		tags: tagFn | tagCall},
-	{name: "named partial", decls: mxAdd3, typ: "(Int) -> Int", expr: "add3(1, b: _)", obs: "Debug.inspect($v(2))",
+	{name: "named partial", decls: mxAdd3, typ: "(Int) -> Int", expr: "&add3(1, b: &1)", obs: "Debug.inspect($v(2))",
 		want: "103", tags: tagFn | tagCall},
+	{name: "operator capture", typ: "(Int) -> Bool", expr: "&(&1 > 2)", obs: "Debug.inspect($v(3))", want: "True",
+		tags: tagFn | tagExpects | tagCall, reject: "cannot infer type for `&1`"},
+	{name: "struct capture", decls: mxPoint, typ: "(Int) -> Point", expr: "&#Point{x: &1, y: 5}",
+		obs: "Debug.inspect($v(1))", want: "#Point{x: 1, y: 5}", tags: tagFn | tagExpects | tagCall,
+		reject: "cannot infer type for `&1`"},
+	{name: "numbered capture parameters", typ: "(Int, Int) -> Int", expr: "&(&2 * &2 - &1)", obs: "Debug.inspect($v(1, 10))",
+		want: "99", tags: tagFn | tagExpects | tagCall, reject: "cannot infer type for `&2`"},
+	{name: "capture ignoring a parameter", typ: "(Int, Int) -> Int", expr: "&(&2)", obs: "Debug.inspect($v(1, 10))",
+		want: "10", tags: tagFn | tagExpects | tagCall, reject: "cannot infer type for `&2`"},
+	{name: "reordering capture", decls: mxAdd3, typ: "(Int, Int) -> Int", expr: "&add3(&2, 0, c: &1)",
+		obs: "Debug.inspect($v(1, 10))", want: "11", tags: tagFn | tagExpects | tagCall, reject: "cannot infer type for `&2`"},
+	{name: "list capture", typ: "(Int) -> List<Int>", expr: "&[&1, 0]", obs: "Debug.inspect($v(4))",
+		want: "[4, 0]", tags: tagFn | tagExpects | tagCall, reject: "cannot infer type for `&1`"},
 	{name: "constructor value", decls: mxShape, typ: "(Float) -> Shape", expr: "Shape.Circle",
 		obs: "Debug.inspect($v(2.0))", want: "Circle(2.0)", tags: tagFn},
 	{name: "owner function value", typ: "(String) -> Int", expr: "String.length", obs: `Debug.inspect($v("abc"))`,
@@ -225,7 +262,7 @@ var mxFeatures = []mxFeature{
 		reject: "cannot infer type parameter"},
 	{name: "unit function", decls: "fn noop(_n: Int) {}", typ: "(Int) -> Unit", expr: "noop",
 		obs: "Debug.inspect($v(1))", want: "Unit", tags: tagFn | tagUnit},
-	{name: "intrinsic partial", typ: "(String) -> String", expr: "String.pad_start(_, width: 3, fill: \"0\")",
+	{name: "intrinsic partial", typ: "(String) -> String", expr: "&String.pad_start(&1, width: 3, fill: \"0\")",
 		obs: `Debug.inspect($v("7"))`, want: `"007"`, tags: tagFn | tagCall},
 
 	// Interface values.
@@ -233,6 +270,26 @@ var mxFeatures = []mxFeature{
 		expr: "named_of(4)", obs: "Named.shout($v)", want: "pt4!", tags: tagExistential},
 	{name: "existential widening", decls: mxNamed, typ: "Named", expr: "#Pt{x: 5}", obs: "Named.shout($v)",
 		want: "pt5!", tags: tagExistential | tagWidens},
+	{name: "generic existential", decls: mxLabeled, typ: "Labeled", expr: "#Bx{v: 3}", obs: "Labeled.loud($v)",
+		want: "bx3!", tags: tagExistential | tagWidens},
+	{name: "generic interface call", decls: mxGets, typ: "String", expr: `Gets.got(#Bag{s: "x"})`, want: `"x"`,
+		tags: tagCall},
+	{name: "two-instantiation call", decls: mxTwo, typ: "String",
+		expr: `Takes.takes(#Two{n: 1}, 2) + Two.takes(#Two{n: 1}, "a")`, want: `"int3stra"`, tags: tagCall},
+	{name: "two-instantiation bound", decls: mxTwo, typ: "String", expr: `took(#Two{n: 2}, "b") + took(#Two{n: 2}, 5)`,
+		want: `"strbint7"`, tags: tagCall},
+	{name: "two-instantiation existential", decls: mxTwo, typ: "Gives<String>", expr: "#Two{n: 4}",
+		obs: "gives_text($v)", want: "two", tags: tagExistential | tagWidens},
+	{name: "two-instantiation result", decls: mxTwo, typ: "Int", expr: "Gives.gives(#Two{n: 6})", want: "6",
+		tags: tagExpects, reject: "only the result's type tells them apart"},
+	{name: "container impl call", decls: mxShow, typ: "String",
+		expr: `Show.loud([[1], [2]]) + List.show([3]) + Show.show(%{"a" => 1})`, want: `"[[i1] [i2]]![i3]map1"`, tags: tagCall},
+	{name: "container impl bound", decls: mxShow, typ: "String", expr: "shown(Some([4]))", want: `"some [i4]!"`,
+		tags: tagCall},
+	{name: "container receiverless impl", decls: mxShow, typ: "List<List<Int>>", expr: "Zero.zero<List<List<Int>>>(5)",
+		want: "[[5, 5], [5, 5]]", tags: tagCall},
+	{name: "container existential", decls: mxShow, typ: "Show", expr: "[1, 2]", obs: "Show.loud($v)", want: "[i1 i2]!",
+		tags: tagExistential | tagWidens},
 	{name: "existential list", typ: "List<Display>", expr: `[1, "a"]`,
 		obs: `$v |> Iter.map(fn d -> Display.to_string(d)) |> String.join(",")`, want: "1,a",
 		tags: tagExistential | tagExpects, reject: "list element type mismatch"},
@@ -246,6 +303,9 @@ var mxFeatures = []mxFeature{
 	{name: "maybe grid", typ: "Maybe<Vector<Vector<Int>>>", expr: "Vector.get(#[#[#[1]], #[#[3]]], 1)",
 		want: "Some(#[#[3]])"},
 	{name: "vector at", typ: "String", expr: `Vector.at(#["a", "b"], 1)`, want: `"b"`, tags: tagCall},
+	{name: "list contains", typ: "Bool", expr: `List.contains?(["a", "b"], "b")`, want: "True", tags: tagCall},
+	{name: "contains bound", decls: mxHolds, typ: "Bool", expr: `has(%{"k" => 1}, "k") and !has(#[1, 2], 3)`,
+		want: "True", tags: tagCall},
 
 	// Iter chains.
 	{name: "iter chain", typ: "Iter<Int>", expr: "[1, 2, 3] |> Iter.map(fn n -> n * 2) |> Iter.filter(fn n -> n > 2)",
@@ -273,6 +333,8 @@ var mxFeatures = []mxFeature{
 		expr: "{\n    f = fn -> {\n        h = try Some(8)\n        Some(h + 1)\n    }\n    f()\n}", want: "Some(9)", tags: tagNested},
 	{name: "dbg", typ: "Int", expr: "dbg 7", want: "7", tags: tagDbg},
 	{name: "and or", typ: "Bool", expr: "1 > 2 or (3 > 2 and True)", want: "True"},
+	{name: "user operator", decls: "struct Money {\n    n: Int\n}\n\nimpl Add<Int, Int> for Money {\n    fn add(lhs: Money, rhs: Int) -> Int {\n        lhs.n + rhs\n    }\n}",
+		typ: "Int", expr: "#Money{n: 1} + 4", want: "5"},
 	{name: "pipe", typ: "Int", expr: `"abc" |> String.length()`, want: "3"},
 	{name: "then stage", typ: "Int", expr: "4 |> then fn n -> n * n", want: "16"},
 	{name: "field access", decls: mxPoint, typ: "Int", expr: "#Point{x: 5}.x", want: "5"},
@@ -329,7 +391,7 @@ var mxFeatures = []mxFeature{
 		expr: "span(3)", want: "9", tags: tagCall},
 	{name: "intrinsic named arguments", typ: "String", expr: `String.pad_start("7", fill: "0", width: 3)`,
 		want: `"007"`, tags: tagCall},
-	{name: "captured partial named call", decls: mxAdd3, typ: "Int", expr: "{\n    g = add3(_, b: _)\n    g(b: 2, 1)\n}",
+	{name: "captured partial named call", decls: mxAdd3, typ: "Int", expr: "{\n    g = &add3(&1, b: &2)\n    g(b: 2, 1)\n}",
 		want: "103", tags: tagCall | tagNested},
 	{name: "owner qualified call", typ: "Int", expr: "Maybe.with_default(Some(5), 0)", want: "5", tags: tagCall},
 	{name: "interface qualified call", typ: "String", expr: "Display.to_string(12)", want: `"12"`, tags: tagCall},
@@ -673,6 +735,43 @@ var mxPlacements = []*mxContext{
 		b.decls = nil
 		b.expr = "produce()"
 	}},
+	mxPlaceImpls,
+}
+
+// mxPlaceImpls keeps the feature's impl blocks in the entry file
+// and moves its types and interfaces to another, so each impl is in a file
+// apart from what it implements and for what.
+var mxPlaceImpls = &mxContext{name: "impls apart from their types", fragile: true, place: func(b *mxBuild, featureDecls []string) {
+	var impls []string
+	for _, d := range featureDecls {
+		for _, part := range strings.Split(d, "\n\n") {
+			if mxImplDecl(part) {
+				impls = append(impls, part)
+			} else {
+				b.lib = append(b.lib, part)
+			}
+		}
+	}
+	b.decls = append(impls, b.decls[len(featureDecls):]...)
+}}
+
+// mxHasImpl reports whether a feature's declarations hold an impl block.
+func mxHasImpl(decls string) bool {
+	if decls == "" {
+		return false
+	}
+	for _, part := range strings.Split(decls, "\n\n") {
+		if mxImplDecl(part) {
+			return true
+		}
+	}
+	return false
+}
+
+// mxImplDecl reports whether a top-level declaration is an impl block. A
+// derive stays with its type, which the checker requires.
+func mxImplDecl(decl string) bool {
+	return strings.HasPrefix(decl, "impl ")
 }
 
 // mxCell is one program of the matrix.
@@ -815,6 +914,9 @@ var mxDbgLine = regexp.MustCompile(`(?m)^dbg line \d+: .*\n`)
 // mxCheckerRules lists the pairs the checker rejects for reasons of its
 // own.
 func mxExpectedRejection(c mxCell) (want, why, skip string) {
+	if c.place == mxPlaceImpls && !mxHasImpl(c.f.decls) {
+		return "", "", "the " + c.f.name + " declares no impl to place apart"
+	}
 	for _, r := range mxCheckerRules {
 		if r.applies(c) {
 			return r.want, r.why, ""
@@ -938,8 +1040,8 @@ func mxBindsWhollyOpen(c mxCell) bool {
 // mxOutcome is what checking and running one cell found.
 type mxOutcome struct {
 	// class: "rejected", "ok", or a failure: "unexpected rejection",
-	// "accepted, expected a rejection", "declines", "panics", "untyped",
-	// "crash", "wrong output".
+	// "accepted, expected a rejection", "declines", "declines without a
+	// cause", "panics", "untyped", "crash", "wrong output".
 	class  string
 	detail string
 	// gap names the known gap that excuses a failure.
@@ -966,16 +1068,8 @@ func checkCell(dir string, c mxCell) mxOutcome {
 var mxKnown = []struct {
 	gap   string
 	match func(c mxCell) bool
-}{}
-
-// mxHas reports whether one of c's wrapping contexts is named name.
-func mxHas(c mxCell, name string) bool {
-	for _, w := range c.wraps {
-		if w.name == name {
-			return true
-		}
-	}
-	return false
+}{
+	{gap: "std container held as a program interface", match: func(c mxCell) bool { return c.f.name == "container existential" }},
 }
 
 func mxKnownFor(c mxCell) string {
@@ -1008,9 +1102,13 @@ func checkCellAlone(dir string, c mxCell) mxOutcome {
 			o.gap = gap.name
 		}
 		return o
-	case len(lo.unplaced) > 0 || len(lo.declines) > 0:
+	case len(lo.unplaced) > 0:
+		// A decline that lost its cause is a builder bug wherever it is,
+		// and no gap excuses it, by its reason or by the cell's shape.
+		return mxOutcome{class: "declines without a cause", detail: strings.Join(lo.unplaced, "\n")}
+	case len(lo.declines) > 0:
 		o := mxOutcome{class: "declines", detail: strings.Join(lo.declines, "\n")}
-		if gap := knownGapFor(lo.reasons); gap != nil && len(lo.unplaced) == 0 {
+		if gap := knownGapFor(lo.reasons); gap != nil {
 			o.gap = gap.name
 		}
 		return o

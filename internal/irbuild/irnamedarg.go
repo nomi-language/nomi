@@ -298,3 +298,13 @@ func (bl *irScalarBuilder) siblingIfaceGapDefaults(t *ast.Call, im *ast.Interfac
 	}
 	return &fnSig{decl: &ast.FuncDef{Name: im.Name, Params: chosen.fn.params0}, params: params}, true
 }
+
+// hasNamedArg reports whether any argument is written by name.
+func hasNamedArg(args []ast.Node) bool {
+	for _, a := range args {
+		if _, isNamed := a.(*ast.NamedArg); isNamed {
+			return true
+		}
+	}
+	return false
+}

@@ -23,9 +23,6 @@ const (
 	irCopyDrop
 	// irCopyEmptyValue retypes an empty collection to its contextual type.
 	irCopyEmptyValue
-	// irCopyInjected stabilizes a placeholder pipe's left value before the
-	// other arguments are lowered.
-	irCopyInjected
 	// irCopyProjection holds a sort key projection the comparator reads twice.
 	irCopyProjection
 	// irCopyNever retypes a value of Infallible to its contextual type. It
@@ -37,9 +34,6 @@ const (
 // a parameter, a local read, a binding, a slot or an earlier copy — so a
 // lowering that needs the value held does not copy it again. A Bool constant
 // counts as held; every other instruction's result is copied.
-//
-// An injected pipe value whose source was itself held answers for its
-// source.
 func irHeldValue(f *ir.Func, t ir.Temp, sides []irScalarSide) bool {
 	switch n := f.Def(t).(type) {
 	case nil:
@@ -52,9 +46,6 @@ func irHeldValue(f *ir.Func, t ir.Temp, sides []irScalarSide) bool {
 	case *ir.Bind:
 		return true
 	case *ir.Copy:
-		if int(t) < len(sides) && sides[t].copy == irCopyInjected && sides[t].copyPure {
-			return irHeldValue(f, n.Src(), sides)
-		}
 		return true
 	case *ir.Slot:
 		return true

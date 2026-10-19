@@ -32,19 +32,19 @@ fn point_at(n: Int) -> Maybe<Point> {
 }
 
 fn sum_all(texts: List<String>) -> Result<Int, ParseError> {
-    numbers = texts |> Iter.map(fn t -> parse(t)) |> try Result.collect()
+    numbers = texts |> Iter.map(&parse(&1)) |> try Result.collect()
 
     Ok(Iter.sum(numbers))
 }
 
 test "Result.collect keeps every Ok value in order" {
-    parsed = ["3", "1", "2"] |> Iter.map(fn t -> parse_message(t)) |> Result.collect()
+    parsed = ["3", "1", "2"] |> Iter.map(&parse_message(&1)) |> Result.collect()
 
     assert parsed == Ok([3, 1, 2])
 }
 
 test "Result.collect returns the first Err" {
-    parsed = ["1", "x", "", "y"] |> Iter.map(fn t -> parse(t)) |> Result.collect()
+    parsed = ["1", "x", "", "y"] |> Iter.map(&parse(&1)) |> Result.collect()
 
     assert parsed == Err(ParseError.NotANumber("x"))
 }
@@ -74,24 +74,24 @@ test "Result.collect under try" {
 test "Result.partition keeps input order on both sides" {
     #(numbers, errors) =
         ["1", "x", "2", "", "3"]
-        |> Iter.map(fn t -> parse(t))
+        |> Iter.map(&parse(&1))
         |> Result.partition()
 
     assert numbers == [1, 2, 3]
     assert errors == [ParseError.NotANumber("x"), ParseError.Blank]
 
-    #(oks, messages) = #["4", "z"] |> Iter.map(fn t -> parse_message(t)) |> Result.partition()
+    #(oks, messages) = #["4", "z"] |> Iter.map(&parse_message(&1)) |> Result.partition()
 
     assert oks == [4]
     assert messages == ["bad: z"]
 }
 
 test "Maybe.collect of a user struct" {
-    points = [0, 1, 2] |> Iter.map(fn n -> point_at(n)) |> Maybe.collect()
+    points = [0, 1, 2] |> Iter.map(&point_at(&1)) |> Maybe.collect()
 
     assert points == Some([#Point{x: 0, y: 0}, #Point{x: 1, y: 2}, #Point{x: 2, y: 4}])
 
-    missing = [0, -1, 2] |> Iter.map(fn n -> point_at(n)) |> Maybe.collect()
+    missing = [0, -1, 2] |> Iter.map(&point_at(&1)) |> Maybe.collect()
 
     assert missing == None
 }
@@ -106,7 +106,7 @@ test "Maybe.collect stops pulling at the first None" {
 }
 
 test "Maybe.values drops every None" {
-    xs = #[0, -1, 2, -3] |> Iter.map(fn n -> point_at(n)) |> Maybe.values()
+    xs = #[0, -1, 2, -3] |> Iter.map(&point_at(&1)) |> Maybe.values()
 
     assert xs == [#Point{x: 0, y: 0}, #Point{x: 2, y: 4}]
 }

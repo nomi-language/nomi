@@ -60,25 +60,27 @@ fn main() {
     io.inspect(Some(%[]))
     io.inspect(Ok([]))
     io.inspect(Some(Some([])))
-    io.inspect(Some(Map.empty()))
-    io.inspect(Some(Vector.empty()))
-    io.inspect(Map.empty())
-    io.inspect(Map.size(Map.empty()))
-    io.inspect(Map.empty() |> Map.size())
-    io.inspect(Map.keys(Map.empty()) |> Iter.to_list())
-    io.inspect([Map.empty()])
-    io.inspect(#(Map.empty(), 1))
-    io.inspect(Map.empty() == Map.empty())
-    io.print("${Map.empty()}")
+    io.inspect(Some(%{}))
+    io.inspect(Some(#[]))
+    io.inspect(%{})
+    io.inspect(Map.size(%{}))
+    io.inspect(%{} |> Map.size())
+    io.inspect(Map.keys(%{}) |> Iter.to_list())
+    io.inspect([%{}])
+    io.inspect(#(%{}, 1))
+    io.inspect(%{} == %{})
+    io.inspect(%[] != %[])
+    io.inspect(#[] == #[])
+    io.print("${%{}}")
     io.inspect(Set.size(%[]))
     io.inspect(Set.union(%[], %[]))
-    io.inspect(Vector.length(Vector.empty()))
+    io.inspect(Vector.length(#[]))
     io.inspect(Iter.zip([], []) |> Iter.to_list())
     io.inspect(Iter.zip([], [1]) |> Iter.count())
     io.inspect(Iter.concat([], []) |> Iter.to_list())
     io.inspect(Iter.concat(%[], []) |> Iter.to_list())
-    io.inspect(Iter.to_list(Vector.empty()))
-    io.inspect(Iter.count(Map.empty()))
+    io.inspect(Iter.to_list(#[]))
+    io.inspect(Iter.count(%{}))
     fn apply<T, U>(x: T, f: (T) -> U) -> U {
         f(x)
     }
@@ -98,6 +100,8 @@ fn main() {
 		"[%{}]\n" +
 		"#(%{}, 1)\n" +
 		"True\n" +
+		"False\n" +
+		"True\n" +
 		"%{}\n" +
 		"0\n" +
 		"%[]\n" +
@@ -112,29 +116,29 @@ fn main() {
 	irRunSource(t, src, want)
 }
 
-// `dbg` of an empty constructor nothing types shows the literal.
+// `dbg` of an empty literal nothing types shows the literal.
 func TestIRUndeterminedTypeArgument_DbgOfAnOpenEmpty(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
 	const src = `fn main() {
-    dbg Map.empty()
+    dbg %{}
     dbg %[]
-    dbg Vector.empty()
+    dbg #[]
 }
 `
 	if _, err := AnalyzeSource("entry.nomi", src); err != nil {
 		t.Fatalf("the front end rejects this, so nothing below is tested: %v", err)
 	}
 	got := vmReference(writeTemp(t, src))
-	want := "dbg line 2: Map.empty() = %{}\ndbg line 3: %[] = %[]\ndbg line 4: Vector.empty() = #[]\n"
+	want := "dbg line 2: %{} = %{}\ndbg line 3: %[] = %[]\ndbg line 4: #[] = #[]\n"
 	if got.stdout+got.stderr != want || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s", got.exit, got.stdout, got.stderr, want)
 	}
 }
 
-// `Map.get(Map.empty(), 1)`, whose key fixes K and leaves V open, and
-// `Iter.zip([], Map.empty())` run by the same fill rule. A Map, a Range or
+// `Map.get(%{}, 1)`, whose key fixes K and leaves V open, and
+// `Iter.zip([], %{})` run by the same fill rule. A Map, a Range or
 // a user `Iter` as `Iter.zip`'s or `Iter.concat`'s second operand is viewed
 // as it is as the first.
 func TestIRUndeterminedTypeArgument_MapShapesRun(t *testing.T) {
@@ -160,10 +164,10 @@ impl Iter for Countdown {
 }
 
 fn main() {
-    io.inspect(Map.get(Map.empty(), 1))
-    io.inspect(Map.get(Map.empty(), "k") == None)
-    io.inspect(Iter.zip([], Map.empty()) |> Iter.to_list())
-    io.inspect(Iter.zip([1], Map.empty()) |> Iter.count())
+    io.inspect(Map.get(%{}, 1))
+    io.inspect(Map.get(%{}, "k") == None)
+    io.inspect(Iter.zip([], %{}) |> Iter.to_list())
+    io.inspect(Iter.zip([1], %{}) |> Iter.count())
     io.inspect(Iter.zip([1], %{1 => 2}) |> Iter.to_list())
     io.inspect(Iter.zip([1, 2], 5..9) |> Iter.to_list())
     io.inspect(Iter.zip(["a", "b"], #Countdown{from: 3}) |> Iter.to_list())

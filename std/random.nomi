@@ -155,7 +155,7 @@ impl Generator<T> {
     //! assert value == True or value == False
     //
     pub fn bool() -> Generator<Bool> {
-        unsafe_int(0, 1) |> map(fn n -> n == 1)
+        unsafe_int(0, 1) |> map(&(&1 == 1))
     }
 
     /// Always produces `value` (consuming no randomness, seed unchanged).
@@ -180,7 +180,7 @@ impl Generator<T> {
     pub fn uniform<T>(first: T, rest: List<T>) -> Generator<T> {
         all = [first, ..rest] |> Iter.to_vector()
 
-        unsafe_int(0, Iter.count(rest)) |> map(fn i -> Vector.at(all, i))
+        unsafe_int(0, Iter.count(rest)) |> map(&Vector.at(all, &1))
     }
 
     /// Weighted choice; each option carries a relative weight. Non-empty.
@@ -196,12 +196,12 @@ impl Generator<T> {
 
         Ok(
             unsafe_float(0.0, total)
-            |> map(fn target -> pick_weighted(first, rest, target))
+            |> map(&pick_weighted(first, rest, &1))
         )
     }
 
     /// Transform the produced value.
-    //! gen = Generator.constant(21) |> Generator.map(fn n -> n * 2)
+    //! gen = Generator.constant(21) |> Generator.map(&(&1 * 2))
     //!
     //! #(value, _) = Generator.step(gen, Seed.from_int(123))
     //! assert value == 42
@@ -247,7 +247,7 @@ impl Generator<T> {
     //! assert values == ["ha", "ha", "ha"]
     //
     pub fn list<T>(gen: Generator<T>, length: Int) -> Generator<List<T>> {
-        #Generator{run: fn seed -> draw_list(gen, length, seed, [])}
+        #Generator{run: &draw_list(gen, length, &1, [])}
     }
 }
 

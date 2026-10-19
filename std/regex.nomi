@@ -109,6 +109,13 @@ impl Display for Regex {
     }
 }
 
+// Whether m occurs in text. Generic, so a program builds it after every std
+// module is lowered: std/strings and this file import each other, and this
+// file's bodies are lowered before String's own functions exist to call.
+fn occurs?<M>(m: M, text: String) -> Bool where M: Matcher {
+    M.contained_in?(m, text)
+}
+
 impl Debug for Regex {
     /// The typed literal that builds this regex: raw, unless the pattern holds
     /// a backtick, which a raw literal cannot.
@@ -117,7 +124,7 @@ impl Debug for Regex {
     fn inspect(re: Regex) -> String {
         pattern = Regex.pattern(re)
 
-        if String.contains?(pattern, "`") {
+        if occurs?("`", pattern) {
             "Regex${Debug.inspect(pattern)}"
         } else {
             "Regex`${pattern}`"

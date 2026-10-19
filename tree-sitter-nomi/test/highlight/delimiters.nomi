@@ -476,22 +476,22 @@ fn function_calls(n: Int) -> String {
 }
 
 fn pipe_constructs(n: Int) -> #(Maybe<Int>, Result<Int, String>) {
-    pair = #(n |> Some(), n |> Ok(_))
+    pair = #(n |> Some(), n |> then &Ok(&1))
     //      ^ type
     //                ^ type
     //                 ^ type
-    //                           ^ type
-    //                             ^ type
-    //                              ^ type
+    //                                 ^ type
+    //                                    ^ type
+    //                                     ^ type
     pair
 }
 
-// A partial application of a constructor is @type too: it parses as the
+// A partial capture of a constructor is @type too: its call parses as the
 // pattern `Two.Both(_, "c")` does.
 fn partial_constructor() -> Two {
-    make = Two.Both(_, "c")
-    //             ^ type
-    //                    ^ type
+    make = &Two.Both(&1, "c")
+    //              ^ type
+    //                      ^ type
     make(1)
     //  ^ punctuation.bracket
     //    ^ punctuation.bracket

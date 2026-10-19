@@ -27,7 +27,7 @@ fn main() {
     h = fn -> f(y: 1, x: 5)
     io.print(h())
     m = fn x: Int, y: Int = 100 -> x - y
-    p = fn -> m(2, _)
+    p = fn -> &m(2, &1)
     q = p()
     io.print(q(3))
     deep = fn -> {

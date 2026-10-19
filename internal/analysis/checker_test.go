@@ -704,7 +704,7 @@ fn f() -> Int {
 func TestCheckPartialApplication(t *testing.T) {
 	src := `fn add(x: Int, y: Int) -> Int { x + y }
 fn f() -> Int {
-  add1 = add(1, _)
+  add1 = &add(1, &1)
   add1(9)
 }`
 	_, errs := checkSource(src)
@@ -3000,9 +3000,9 @@ func TestCheckTooManyArgumentsThroughAPipe(t *testing.T) {
 			src:  "fn add(x: Int, y: Int) -> Int { x + y }\nfn demo() -> Int { 1 |> add(2, 3) }",
 			want: "expected 2 arguments, got 3 (counting the piped value)",
 		},
-		"placeholder": {
-			src:  "fn add(x: Int, y: Int) -> Int { x + y }\nfn demo() -> Int { 1 |> add(2, _, 3) }",
-			want: "expected 2 arguments, got 3 (counting the piped value)",
+		"a then stage's capture": {
+			src:  "fn add(x: Int, y: Int) -> Int { x + y }\nfn demo() -> Int { 1 |> then &add(2, &1, 3) }",
+			want: "expected 2 arguments, got 3",
 		},
 		"defaults": {
 			src:  "fn add(x: Int, y: Int = 0) -> Int { x + y }\nfn demo() -> Int { 1 |> add(2, 3) }",
@@ -3017,7 +3017,7 @@ func TestCheckTooManyArgumentsThroughAPipe(t *testing.T) {
 	}
 	for _, ok := range []string{
 		"fn add(x: Int, y: Int) -> Int { x + y }\nfn demo() -> Int { 1 |> add(2) }",
-		"fn add(x: Int, y: Int) -> Int { x + y }\nfn demo() -> Int { 2 |> add(1, _) }",
+		"fn add(x: Int, y: Int) -> Int { x + y }\nfn demo() -> Int { 2 |> then &add(1, &1) }",
 		"fn add(x: Int, y: Int = 0) -> Int { x + y }\nfn demo() -> Int { 1 |> add() }",
 	} {
 		if _, errs := checkSource(ok); len(errs) != 0 {
@@ -3042,7 +3042,7 @@ fn demo() -> Int { add(1, 2) }`
 
 func TestCheckPartialApplicationNoCountError(t *testing.T) {
 	src := `fn add(x: Int, y: Int) -> Int { x + y }
-fn demo() -> (Int) -> Int { add(1, _) }`
+fn demo() -> (Int) -> Int { &add(1, &1) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }

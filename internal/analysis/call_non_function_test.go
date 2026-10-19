@@ -83,7 +83,7 @@ fn piped<T>(x: Int, y: T) -> Int {
 }
 
 fn partial<T>(x: T) -> Int {
-  h = x(_)
+  h = &x(&1)
   h(1)
 }
 
@@ -119,7 +119,7 @@ fn main() {
 		"14:3 `T` is not a function",
 		"18:3 `T` is not a function",
 		"22:8 `T` is not a function",
-		"26:7 `T` is not a function",
+		"26:8 `T` is not a function",
 		"31:3 `Display` is not a function",
 		"35:8 `Int` is not a function",
 	}

@@ -4,65 +4,34 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// A GENERIC INTERFACE, monomorphized per impl block.
+// A GENERIC INTERFACE, monomorphized per instantiation.
 //
-// # The rule
+// `interface Gets<T>` is a template: its def stays unlowerable, and nothing
+// dispatches through it. Each instantiation the program reaches is an
+// ordinary `*ifaceDef` built by `resolveIface` over the same declaration
+// with the arguments' substitution frame pushed (`g.genericSubst`, which
+// typeOf's `*ast.SimpleType` arm and `project()` read), interned by the
+// template and its arguments (ifaceInstKey):
 //
-// THE DICTIONARY LOWERS WHAT IT CAN AND MONOMORPHIZATION TAKES ITS RESIDUE.
-// `interface Announcer<T>` has two use positions and they fall on opposite
-// sides of that line:
+//   - IMPLEMENTED. `impl Gets<String> for Bag` supplies ground arguments,
+//     read off the header when it writes them and solved from the item
+//     signatures when it does not, and binds into the instance at them.
+//     A receiver may implement one template at several arguments, each a
+//     block of its own (instimpl.go).
+//   - ERASED. `h: Gets<String>` is the existential of the instance at
+//     `String`, whose method tables are its own: an impl at `Gets<Int>`
+//     binds into another instance, so a value held as either dispatches to
+//     the impl at its own arguments. Another file's instance is named by the
+//     template and portable arguments (instMethodToken), so every file
+//     dispatches through the declaring file's tables.
 //
-//   - ERASED. `fn f(a: Announcer)` would need one existential kind and one
-//     dispatch table for every instantiation at once, because `existential(d)`
-//     takes its identity from the `*ifaceDef` POINTER. That is the dictionary's
-//     shape — which interface plus which type argument — and it is NOT built
-//     here. It stays refused, and structurally so rather than by a check: the
-//     TEMPLATE def keeps `lowerable == false`, an instance is never registered
-//     in `g.ifaces`, and `typeOf`'s interface arm reads only `g.ifaces`. So no
-//     annotation in any file can NAME an instance.
-//   - IMPLEMENTED. `impl Announcer for Box` supplies GROUND type arguments —
-//     read off the header when they are written, solved from the item
-//     signatures when they are not — and every mention of `T` inside the
-//     interface then has a concrete kind. That is monomorphization, and it is
-//     what this file does.
-//
-// # WHY THIS IS A REPRESENTATION AND NOT A WIDENING
-//
-// `inferred.go`'s `project()` is subtractive with no default arm, and the
-// failure mode to avoid is widening `kind` so a projection succeeds. Nothing
-// here widens: NO new `kind` tag, NO new field on `kind`, and
-// no arm added to `zeroSized`, `nomi`, `packageNeutral`, `coerce` or the
-// equality switches. An interface instance is an ORDINARY `*ifaceDef` built by
-// `resolveIface` — the same function, over the same declaration node — with a
-// substitution frame pushed. The whole of the new identity is that there is one
-// def per impl block instead of one per declaration, which is `generictype.go`'s
-// move at the interface level.
-//
-// It is `g.genericSubst` that carries the frame, and that sharing is the point
-// rather than a convenience: `typeOf`'s `*ast.SimpleType` arm consults it, so
-// `T`, `List<T>`, `Maybe<T>` and `(T) -> Bool` are covered at every depth by an
-// insertion point that already exists. A fourth substitution stack would be a
-// fourth answer to a question three files already share one answer to.
-//
-// # NO TABLE FOR AN INSTANCE, and that is load-bearing
-//
-// `resolveIface` mints `m.table` for every method whose signature is
-// representable. Two instances of one template would mint two tables from one
-// declaration, and neither would ever be DECLARED — `ifaceDecl` walks
-// `g.ifaceOrder`, which holds the template.
-//
-// So `instOf` suppresses table minting, and the erased route then declines for
-// want of a table rather than for want of a check. That decline is unreachable,
-// for the structural reason above.
-//
-// # What stays refused
+// What stays refused:
 //
 //   - An interface-level `where` clause with no type parameters. It is a
-//     different construct — a constraint on `self` — and no arm here reads it.
+//     different construct, a constraint on `self`, and no arm here reads it.
 //   - A template whose type parameters cannot ALL be solved from the impl
 //     block. Reported as `generic interface` at the impl, naming the parameter
-//     that stayed open, so the reader is sent to the position that would have
-//     to change.
+//     that stayed open.
 //   - A generic interface FUNCTION (`fn choose<K>(…) where K: Comparable`).
 //     `methodSignatureGap` reports `generic interface function`: the function's
 //     OWN type parameter is bound by the call site rather than the impl block
@@ -85,27 +54,24 @@ type ifaceInst struct {
 	subst map[string]kind
 }
 
-// ifaceInstKey is one instantiation's identity: the impl BLOCK and the RECEIVER
-// it was registered at.
-//
-// Both halves are load-bearing. The block distinguishes two impls of one
-// template; the receiver distinguishes two INSTANTIATIONS of one block, which a
-// generic receiver produces and which the block alone could not see. See
-// ifaceInstanceFor.
+// ifaceInstKey is one instantiation's identity: the template and its type
+// arguments (portableArgsKey). Every impl of `Gets<String>` binds into one
+// def, whose method symbols are the dispatch table a value held as
+// `Gets<String>` is called through, and `Gets<Int>` is another.
 type ifaceInstKey struct {
-	decl *ast.ImplBlock
-	recv kind
+	tpl  *ast.InterfaceDef
+	args string
 }
 
 // ifaceTemplate is the *ast.InterfaceDef of a generic interface declared in this
-// module, or nil.
+// file or, when its signatures mean the same here, in a sibling file, or nil.
 //
-// Read off `g.ifaces` rather than kept in a second map: the template def is
-// already there, already carries the declaration, and already carries the
-// refusal every unreached mention reports. A parallel registry would be a
-// second place for "which interfaces are generic" to be answered.
+// Read off the interface's def rather than kept in a second map: the template
+// def already carries the declaration and the refusal every unreached mention
+// reports. A parallel registry would be a second place for "which interfaces
+// are generic" to be answered.
 func (g *gen) ifaceTemplate(name string) *ast.InterfaceDef {
-	d := g.ifaces[name]
+	d, _ := g.ifaceNamed(name)
 	if d == nil || d.lowerable || d.instOf != nil {
 		return nil
 	}
@@ -119,32 +85,68 @@ func (g *gen) ifaceTemplate(name string) *ast.InterfaceDef {
 	if len(d.decl.TypeParams) == 0 || len(d.decl.WhereClauses) > 0 {
 		return nil
 	}
+	if d.foreign != "" && !g.portableSignatures(d) {
+		return nil
+	}
 	return d.decl
+}
+
+// portableSignatures reports whether a sibling file's generic interface can
+// be instantiated here: its functions' signatures are resolved in this file,
+// so every name they mention must resolve to the same declaration in both
+// files, by portableDefault's rule.
+func (g *gen) portableSignatures(d *ifaceDef) bool {
+	if g.reg == nil || d.unit < 0 || d.unit >= len(g.reg.gens) {
+		return false
+	}
+	owner := g.reg.gens[d.unit]
+	if owner == nil || owner.fa == nil || g.fa == nil {
+		return false
+	}
+	names := map[string]bool{}
+	for i := range d.decl.Methods {
+		im := &d.decl.Methods[i]
+		for j := range im.Params {
+			walkNames(im.Params[j].TypeAnnotation, names, pickAnyName)
+		}
+		walkNames(im.ReturnTypeExpr, names, pickAnyName)
+	}
+	for name := range names {
+		there, here := resolvedTypeSymbol(owner.fa, name), resolvedTypeSymbol(g.fa, name)
+		switch {
+		case there == nil && here == nil:
+			// A type parameter, `self`, or a name neither file binds.
+		case there == nil || here == nil || there.Node != here.Node:
+			return false
+		}
+	}
+	return true
 }
 
 // ifaceInstanceFor is the instance an impl block of a generic interface binds
 // into, or a refusal naming what stayed open.
 //
-// INTERNED PER (IMPL BLOCK, RECEIVER KIND). Coherence gives one impl per
-// (interface, receiver), but that does not make the block alone an identity
-// for a GENERIC receiver: `impl Chooser for Pair<E>` is ONE block that
-// `registerInstanceImpls` registers once per INSTANTIATION, so the same
-// `*ast.ImplBlock` arrives at `Pair<Int>` and `Pair<Priority>`. A block-keyed
-// intern would hand the second the FIRST's def, whose `T` is already bound to
-// `Int` (`11-interfaces-and-impls/type_argument_inference`).
-//
-// Two blocks at one receiver cannot exist (that IS the coherence rule),
-// and with no table and no erasable kind an instance's POINTER is still never
-// compared against another instance's. So the key is exactly the identity, with
-// a comparable shape rather than a tuple of kinds spelled as a string.
-func (g *gen) ifaceInstanceFor(tpl *ast.InterfaceDef, ib *ast.ImplBlock, recv kind) (*ifaceInst, string, string) {
-	key := ifaceInstKey{decl: ib, recv: recv}
-	if inst := g.ifaceInsts[key]; inst != nil {
-		return inst, "", ""
-	}
+// The block's type arguments are solved under the frame its receiver was
+// registered at, so one block on a generic receiver (`impl Chooser for
+// Pair<E>`, registered once per instantiation) reaches `Chooser<Int>` for
+// `Pair<Int>` and `Chooser<Priority>` for `Pair<Priority>`
+// (`11-interfaces-and-impls/type_argument_inference`).
+func (g *gen) ifaceInstanceFor(tpl *ast.InterfaceDef, ib *ast.ImplBlock) (*ifaceInst, string, string) {
 	subst, why, detail := g.ifaceInstArgs(tpl, ib)
 	if why != "" {
 		return nil, why, detail
+	}
+	return g.ifaceInstAt(tpl, subst), "", ""
+}
+
+// ifaceInstAt is the template instantiated at subst, interned by its
+// arguments: the def every impl at those arguments binds into and every
+// value held as that instantiation is erased to.
+func (g *gen) ifaceInstAt(tpl *ast.InterfaceDef, subst map[string]kind) *ifaceInst {
+	args := ifaceTemplateArgs(tpl, subst)
+	key := ifaceInstKey{tpl: tpl, args: portableArgsKey(args)}
+	if inst := g.ifaceInsts[key]; inst != nil {
+		return inst
 	}
 	d := &ifaceDef{
 		nomi:      tpl.Name,
@@ -152,7 +154,15 @@ func (g *gen) ifaceInstanceFor(tpl *ast.InterfaceDef, ib *ast.ImplBlock, recv ki
 		methods:   map[string]*ifaceMethod{},
 		lowerable: true,
 		instOf:    tpl,
+		instArgs:  args,
 		unit:      -1,
+	}
+	if m := g.ifaces[tpl.Name]; m != nil && m.decl == tpl && m.foreign != "" {
+		// A sibling file's template: an inherited default is copied from
+		// that file, which inheritDefaults checks through these.
+		d.foreign, d.pkg, d.unit = m.foreign, m.pkg, m.unit
+	} else if o := g.templateOwner(tpl); o != nil {
+		d.foreign, d.pkg, d.unit = o.fileKey, o.pkg, o.unit
 	}
 	inst := &ifaceInst{def: d, subst: subst}
 	// Interned BEFORE resolving, so a default body that reaches this interface
@@ -164,7 +174,7 @@ func (g *gen) ifaceInstanceFor(tpl *ast.InterfaceDef, ib *ast.ImplBlock, recv ki
 	g.pushIfaceSubst(subst)
 	g.resolveIface(d)
 	g.popIfaceSubst()
-	return inst, "", ""
+	return inst
 }
 
 // ifaceInstArgs solves the template's type parameters against the impl block.

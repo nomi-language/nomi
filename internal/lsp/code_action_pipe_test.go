@@ -77,23 +77,23 @@ func TestToPipe_Refused(t *testing.T) {
 		"lone call": "n = Iter.count‸([1, 2])\nio.inspect(n)\n",
 		// A call in a later argument is a value, not the subject.
 		"later argument": "m = Map.put(%{\"a\" => 1}, \"k\", Iter.count‸([1]))\nio.inspect(m)\n",
-		// Partial application: the pipe would fill the `_`.
-		"placeholder": "f = Iter.map‸(Iter.filter([1], fn x -> x > 0), _)\nio.inspect(f(fn x -> x + 1))\n",
+		// A partial capture's call is the capture's body, not a stage.
+		"capture": "f = &Iter.map‸(Iter.filter([1], fn x -> x > 0), &1)\nio.inspect(f(fn x -> x + 1))\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			refuseRefactor(t, fnMain(body), "Convert to pipe")
 		})
 	}
 	// Inside a stage, the text's first argument is not the call's first.
-	refuseRefactor(t, fnMain("n = [[1]] |> Iter.map‸(Iter.count(_))\nio.inspect(n)\n"), "Convert to pipe")
+	refuseRefactor(t, fnMain("n = [[1]] |> Iter.map‸(&Iter.count(&1))\nio.inspect(n)\n"), "Convert to pipe")
 }
 
 func TestFromPipe_Stages(t *testing.T) {
 	decls := "fn parse(s: String) -> Result<Int, String> {\n    Maybe.with_default(String.to_int(s), 0) |> Ok()\n}\n\nfn divide(a: Int, b: Int) -> Int {\n    a / b\n}\n\n"
 	cases := []struct{ name, body, want string }{
 		{
-			"placeholder",
-			"fn f() -> Int {\n    10 |> div‸ide(100, _)\n}\n",
+			"a then stage's partial capture",
+			"fn f() -> Int {\n    10 |> then &div‸ide(100, &1)\n}\n",
 			"fn f() -> Int {\n    divide(100, 10)\n}\n",
 		},
 		{

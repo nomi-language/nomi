@@ -26,6 +26,23 @@ func (fa *FileAnalysis) recordExpectedType(node ast.Node, t Type) {
 	fa.ExpectedTypes[node] = t
 }
 
+// recordPatternType notes the type of the value a shape pattern matches
+// (FileAnalysis.PatternTypes).
+func (fa *FileAnalysis) recordPatternType(node ast.Node, t Type) {
+	if fa == nil || node == nil || t == nil || IsSynthesizedLine(node.LineNum()) {
+		return
+	}
+	switch node.(type) {
+	case *ast.ListPattern, *ast.VectorPattern, *ast.SetPattern, *ast.MapPattern, *ast.StructPattern, *ast.TuplePattern:
+	default:
+		return
+	}
+	if fa.PatternTypes == nil {
+		fa.PatternTypes = map[ast.Node]Type{}
+	}
+	fa.PatternTypes[node] = t
+}
+
 // ResolveTypeVar follows a type variable to the type it was solved to. Any
 // other type comes back unchanged, as does an unsolved variable.
 func ResolveTypeVar(t Type) Type { return resolveTypeVar(t) }

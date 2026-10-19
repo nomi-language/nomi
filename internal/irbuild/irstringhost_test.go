@@ -11,7 +11,7 @@ func TestIRStringHost_BesideAFunctionMapFieldRuns(t *testing.T) {
 struct Point { x: String }
 struct Outer {
   p: List<Point>
-  hooks: Map<String, (Int) -> Int> = Map.empty()
+  hooks: Map<String, (Int) -> Int> = %{}
 }
 fn main() { s = String.trim(" x ") io.inspect(#Outer{p: [#Point{x: s}]}) }
 `, "#Outer{p: [#Point{x: \"x\"}], hooks: %{}}\n")

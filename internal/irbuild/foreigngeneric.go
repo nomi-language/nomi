@@ -263,37 +263,13 @@ func (g *gen) instantiateForeign(ref foreignTemplateRef, args []kind) (kind, boo
 // qualSiblingIfaceImplPlan) would hand `Span<String>` the impl of whichever
 // instantiation it met first. The owner's instance def (instOrigin) is the
 // instantiation's identity, and registerInstanceImpls keyed its impls on it.
+//
+// The impl may be written in a third file (siblingtemplateimpl.go), so every
+// gen is asked, each at its own def for the instance.
 func (g *gen) instanceImpl(mirror *typeDef, iface, method string) (*gen, *implDef) {
 	src := mirror.instOrigin
 	if g.reg == nil || src == nil || src.genericOf == nil || src.genericOf.decl == nil {
 		return nil, nil
 	}
-	o := g.reg.byDecl[src.genericOf.decl]
-	if o == nil || o.unit < 0 || o.unit >= len(g.reg.gens) || g.reg.gens[o.unit] == nil {
-		return nil, nil
-	}
-	owner := g.reg.gens[o.unit]
-	recv := named(src)
-	if iface != "" {
-		d := owner.implsByIface[iface][recv]
-		if d == nil || (method != "" && !d.supplies(method)) {
-			return nil, nil
-		}
-		return owner, d
-	}
-	var found *implDef
-	for _, byRecv := range owner.implsByIface {
-		d := byRecv[recv]
-		if d == nil || !d.supplies(method) {
-			continue
-		}
-		if found != nil {
-			return nil, nil
-		}
-		found = d
-	}
-	if found == nil {
-		return nil, nil
-	}
-	return owner, found
+	return g.instanceImplAnywhere(src, iface, method)
 }

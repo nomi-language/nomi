@@ -10,13 +10,24 @@ import (
 // type left. The lambda takes the piped value and returns Unit, and the stage
 // answers the piped value itself. A body ending in a `dbg` observation
 // returns Unit, as a Unit function body ending in one does.
-func (c *checker) checkTapStage(n *ast.Tap, left Type) Type {
-	c.checkPipeLambdaArity(n.Lambda, "tap")
+func (c *checker) checkTapStage(pipe *ast.Binary, n *ast.Tap, left Type) Type {
 	expectedFT := &FuncType{Params: []Type{left}, Return: TypeUnit}
 	errsBefore := len(c.errors)
 	// A body that already failed to check (a `try` with nothing to
 	// propagate to, a mismatched `return`) is not also reported here.
-	if ft, ok := c.checkLambdaExpecting(n.Lambda, expectedFT).(*FuncType); ok && len(c.errors) == errsBefore {
+	var lamTy Type
+	if n.Capture != nil {
+		lamTy = c.checkCapture(n.Capture, expectedFT)
+	} else {
+		c.checkPipeLambdaArity(n.Lambda, "tap")
+		lamTy = c.checkLambdaExpecting(n.Lambda, expectedFT)
+	}
+	// Recorded as an argument's lambda is, for the hover on its `fn`.
+	c.fa.recordExprType(n.Fn(), lamTy)
+	if ft, ok := lamTy.(*FuncType); ok && n.Capture != nil && len(ft.Params) > 0 {
+		c.checkThenCaptureTakes(pipe, n.Capture, left, ft.Params[0])
+	}
+	if ft, ok := lamTy.(*FuncType); ok && len(c.errors) == errsBefore {
 		c.checkTapReturnsUnit(n, ft.Return)
 	}
 	c.registerControlFlowHover(n.Line, n.Col, "tap", left, left, left != nil, false)
@@ -32,8 +43,12 @@ func (c *checker) checkTapReturnsUnit(n *ast.Tap, ret Type) {
 	if _, open := resolveTypeVar(ret).(*TypeVar); open {
 		return
 	}
-	var at ast.Node = n.Lambda
-	if body := n.Lambda.Body; body != nil && len(body.Stmts) > 0 {
+	at := n.Fn()
+	if n.Capture != nil {
+		if EndsInDbg(n.Capture.Body) {
+			return
+		}
+	} else if body := n.Lambda.Body; body != nil && len(body.Stmts) > 0 {
 		if es, ok := body.Stmts[len(body.Stmts)-1].(*ast.ExprStmt); ok {
 			if EndsInDbg(es.Expr) {
 				return

@@ -50,7 +50,7 @@ fn main() {
     }
 
     fn empty_map() -> Map<String, Int> {
-        Map.empty()
+        %{}
     }
 
     fn shown() -> List<Display> {

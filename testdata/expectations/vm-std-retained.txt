@@ -390,8 +390,18 @@ results.nomi:Infallible.hash	NEVER: a parameter is Infallible, so nothing can ca
 results.nomi:Infallible.inspect	NEVER: a parameter is Infallible, so nothing can call it
 results.nomi:Infallible.to_string	NEVER: a parameter is Infallible, so nothing can call it
 startup.nomi:Startup.inspect	ran
+strings.nomi:Codepoint.contained_in?	ran
+strings.nomi:Codepoint.find_all_in	ran
+strings.nomi:Codepoint.find_in	ran
+strings.nomi:Codepoint.prefix_of?	ran
+strings.nomi:Codepoint.replace_in	ran
+strings.nomi:Codepoint.split_in	ran
+strings.nomi:Codepoint.suffix_of?	ran
 strings.nomi:NormalForm.inspect	ran
 strings.nomi:NormalForm.to_string	ran
+strings.nomi:String.Contains<Codepoint>.contains?	ran
+strings.nomi:String.Contains<Regex>.contains?	ran
+strings.nomi:String.Contains<String>.contains?	ran
 strings.nomi:String.compare	ran
 strings.nomi:String.empty_sum	ran
 strings.nomi:String.equal?	ran

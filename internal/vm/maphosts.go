@@ -15,7 +15,7 @@ func mapHost(key string) hostFn {
 		defer recoverKey(&err)
 		arity := 1
 		switch key {
-		case "Map.get", "Map.remove", "Map.contains_key?", "Map.merge", "Map.map_values", "Map.map_keys":
+		case "Map.get", "Map.remove", "Map.contains?", "Map.merge", "Map.map_values", "Map.map_keys":
 			arity = 2
 		case "Map.put":
 			arity = 3
@@ -44,7 +44,7 @@ func mapHost(key string) hostFn {
 			return mapPut(k, m, args[1], args[2]), nil
 		case "Map.remove":
 			return mapRemove(k, m, args[1]), nil
-		case "Map.contains_key?":
+		case "Map.contains?":
 			_, found := mapLookup(k, m, args[1])
 			return found, nil
 		case "Map.merge":

@@ -55,6 +55,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -124,6 +128,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -339,6 +347,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -408,6 +420,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -569,6 +585,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -654,6 +674,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -793,6 +817,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -862,6 +890,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -997,6 +1029,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -1114,6 +1150,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -1272,6 +1312,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -1341,6 +1385,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -1471,6 +1519,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -1548,6 +1600,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -1694,6 +1750,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -1835,6 +1895,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -1986,6 +2050,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -2055,6 +2123,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -2178,6 +2250,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -2247,6 +2323,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -2458,6 +2538,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -2527,6 +2611,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -2613,6 +2701,62 @@
     }
   },
   {
+    "type": "capture",
+    "named": true,
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "anon_struct",
+            "named": true
+          },
+          {
+            "type": "call_expression",
+            "named": true
+          },
+          {
+            "type": "list",
+            "named": true
+          },
+          {
+            "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "paren_expression",
+            "named": true
+          },
+          {
+            "type": "set",
+            "named": true
+          },
+          {
+            "type": "struct_construction",
+            "named": true
+          },
+          {
+            "type": "struct_update",
+            "named": true
+          },
+          {
+            "type": "tuple_expression",
+            "named": true
+          },
+          {
+            "type": "typed_list",
+            "named": true
+          },
+          {
+            "type": "vector",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "case_branch",
     "named": true,
     "fields": {},
@@ -2650,6 +2794,10 @@
         },
         {
           "type": "call_expression",
+          "named": true
+        },
+        {
+          "type": "capture",
           "named": true
         },
         {
@@ -2738,6 +2886,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -3055,6 +3207,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -3124,6 +3280,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -3278,6 +3438,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -3419,6 +3583,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -3565,6 +3733,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -3634,6 +3806,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -3839,6 +4015,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -3908,6 +4088,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -4069,6 +4253,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -4138,6 +4326,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -4437,6 +4629,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -4506,6 +4702,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -4624,6 +4824,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -4693,6 +4897,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -4834,6 +5042,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -4919,6 +5131,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -5126,6 +5342,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -5195,6 +5415,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -5672,6 +5896,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -5741,6 +5969,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -5935,6 +6167,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -6012,6 +6248,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -6455,6 +6695,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -6524,6 +6768,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -6646,6 +6894,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -6719,6 +6971,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -6943,6 +7199,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -7012,6 +7272,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -7594,6 +7858,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -7675,6 +7943,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -8392,6 +8664,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -8469,6 +8745,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -8603,6 +8883,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -8672,6 +8956,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -8919,6 +9207,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -8988,6 +9280,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -9133,6 +9429,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -9218,6 +9518,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -9356,6 +9660,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -9425,6 +9733,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -9623,6 +9935,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -9692,6 +10008,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -9980,6 +10300,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -10057,6 +10381,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -10206,6 +10534,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -10275,6 +10607,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -10397,6 +10733,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -10466,6 +10806,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -10583,6 +10927,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -10652,6 +11000,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -10793,6 +11145,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -10862,6 +11218,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -11102,6 +11462,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -11175,6 +11539,10 @@
         },
         {
           "type": "pipe_if_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -11358,6 +11726,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -11427,6 +11799,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -11590,6 +11966,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -11659,6 +12039,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -11814,6 +12198,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -11883,6 +12271,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -12028,6 +12420,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -12097,6 +12493,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -12219,6 +12619,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -12288,6 +12692,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -12420,6 +12828,10 @@
         },
         {
           "type": "call_expression",
+          "named": true
+        },
+        {
+          "type": "capture",
           "named": true
         },
         {
@@ -12564,6 +12976,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -12737,6 +13153,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -12806,6 +13226,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -12992,6 +13416,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -13061,6 +13489,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -13289,6 +13721,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -13358,6 +13794,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -13480,6 +13920,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -13549,6 +13993,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -13682,6 +14130,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -13751,6 +14203,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -13910,6 +14366,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -13979,6 +14439,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -14133,9 +14597,19 @@
     "type": "tap_stage",
     "named": true,
     "fields": {
+      "capture": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "capture",
+            "named": true
+          }
+        ]
+      },
       "lambda": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "lambda",
@@ -14217,9 +14691,19 @@
     "type": "then_stage",
     "named": true,
     "fields": {
+      "capture": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "capture",
+            "named": true
+          }
+        ]
+      },
       "lambda": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "lambda",
@@ -14309,6 +14793,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -14378,6 +14866,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -14524,6 +15016,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -14593,6 +15089,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -15009,6 +15509,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -15078,6 +15582,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -15273,6 +15781,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -15342,6 +15854,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -15487,6 +16003,10 @@
           "named": true
         },
         {
+          "type": "capture",
+          "named": true
+        },
+        {
           "type": "case_expression",
           "named": true
         },
@@ -15556,6 +16076,10 @@
         },
         {
           "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "placeholder",
           "named": true
         },
         {
@@ -15867,6 +16391,10 @@
             "named": true
           },
           {
+            "type": "capture",
+            "named": true
+          },
+          {
             "type": "case_expression",
             "named": true
           },
@@ -15936,6 +16464,10 @@
           },
           {
             "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "placeholder",
             "named": true
           },
           {
@@ -16068,6 +16600,10 @@
   },
   {
     "type": "%{",
+    "named": false
+  },
+  {
+    "type": "&",
     "named": false
   },
   {
@@ -16341,6 +16877,10 @@
   {
     "type": "or",
     "named": false
+  },
+  {
+    "type": "placeholder",
+    "named": true
   },
   {
     "type": "pub",

@@ -13,6 +13,7 @@ pub import {
     bytes.{Byte, Bytes}
     codepoints.Codepoint
     comparable.{Comparable, Ordering}
+    contains.Contains
     context.Context
 
     // Ordering's variants are intentionally not preluded; use `Ordering.Less` or

@@ -6,22 +6,22 @@ test "generic iterator adapters infer element types from concrete sources" {
         |> Iter.to_list()
         |> List.equal?([#(0, 1), #(1, 2), #(2, 3)])
 
-    assert Iter.find(xs, fn x -> x > 1) == Some(2)
-    assert Iter.find(xs, fn x -> x > 1) == Some(2)
+    assert Iter.find(xs, &(&1 > 1)) == Some(2)
+    assert Iter.find(xs, &(&1 > 1)) == Some(2)
 }
 
 test "custom iterable-backed adapters infer inline lambda parameter types" {
     from_lazy =
         Iter.from(0)
         |> Iter.take(4)
-        |> Iter.map(fn x -> x * 10)
+        |> Iter.map(&(&1 * 10))
         |> Iter.to_list()
 
     s = %[1, 2, 3, 4]
 
     from_set =
         s
-        |> Iter.map(fn x -> x * 2)
+        |> Iter.map(&(&1 * 2))
         |> Iter.to_list()
 
     filtered_set =

@@ -653,6 +653,8 @@ func emitNode(n ast.Node) Doc {
 		return emitBinary(v, followsOther)
 	case *ast.GroupedExpr:
 		return emitGroupedExpr(v)
+	case *ast.Capture:
+		return emitCapture(v)
 	case *ast.Unary:
 		return emitUnary(v, followsOther)
 	case *ast.Block:
@@ -941,7 +943,9 @@ func emitNode(n ast.Node) Doc {
 		}
 		return Concat(Text("continue "), emit(v.Value))
 	case *ast.Placeholder:
-		return Text("_")
+		return Text("&" + strconv.Itoa(v.N))
+	case *ast.PlaceholderParam:
+		return Text("&" + strconv.Itoa(v.N))
 	case *ast.ImportStmt:
 		return emitImport(v)
 	case *ast.ImportBlock:
@@ -1806,7 +1810,7 @@ func emitIfCondition(v *ast.If) Doc {
 func isAtomicExpr(n ast.Node) bool {
 	switch v := stripDroppedParens(n).(type) {
 	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.StringLit,
-		*ast.Ident, *ast.SelfExpr, *ast.TypeIdent, *ast.Placeholder:
+		*ast.Ident, *ast.SelfExpr, *ast.TypeIdent, *ast.Placeholder, *ast.PlaceholderParam:
 		return true
 	case *ast.FieldAccess:
 		return isAtomicExpr(v.Object)
@@ -2928,12 +2932,18 @@ func emitLambda(v *ast.Lambda) Doc {
 // written with: the body of a bare `then` lambda ends at the next `|>`, so
 // braces around a body that holds a pipe cannot go.
 func emitThen(v *ast.Then) Doc {
+	if v.Capture != nil {
+		return Concat(Text("then "), emit(v.Capture))
+	}
 	return Concat(Text("then "), emitLambdaKeepingBraces(v.Lambda, true))
 }
 
 // emitTap renders a `tap` stage, whose lambda keeps its braces as a `then`
 // stage's does.
 func emitTap(v *ast.Tap) Doc {
+	if v.Capture != nil {
+		return Concat(Text("tap "), emit(v.Capture))
+	}
 	return Concat(Text("tap "), emitLambdaKeepingBraces(v.Lambda, true))
 }
 
@@ -3633,6 +3643,31 @@ func emitOperand(child ast.Node, minPrec int, next follower) Doc {
 		}
 	}
 	return emit(child)
+}
+
+// emitCapture writes a capture as `&` against its body. A parenthesized
+// body keeps its parentheses, whatever it holds: `&(f(&1))` is a function
+// of its body, where `&f(&1)` is a partial application, which takes the
+// callee's parameter names and defaults.
+func emitCapture(v *ast.Capture) Doc {
+	if g, ok := v.Body.(*ast.GroupedExpr); ok && g.Expr != nil {
+		return Concat(Text("&"), withDangling(g, captureParens(g)))
+	}
+	return Concat(Text("&"), emit(v.Body))
+}
+
+// captureParens writes a capture's parenthesized body, keeping the
+// parentheses emitGroupedExpr would drop. A comment inside them puts the
+// expression on its own line, and doubled parentheses (`&((x))`) write one
+// pair, their comments kept.
+func captureParens(g *ast.GroupedExpr) Doc {
+	if c := itemComments(g.Expr); c != nil {
+		return emitCommentedListNoLastComma("(", ")", []Doc{emit(g.Expr)}, []*ast.ItemComments{c})
+	}
+	if inner, ok := g.Expr.(*ast.GroupedExpr); ok && inner.Expr != nil {
+		return withDangling(inner, captureParens(inner))
+	}
+	return Concat(Text("("), emit(g.Expr), Text(")"))
 }
 
 // braceAttaches reports whether n, written as the formatter writes it with
@@ -5610,18 +5645,25 @@ func collectPipeChain(n *ast.Binary) (ast.Node, []ast.Node) {
 
 // pipeChainStacked reports whether a pipeline puts each stage on its own
 // line: when the author wrote it across lines, or when it has a `then` or
-// `tap` stage. Such a lambda's bare body ends at the next `|>`, which one line
-// hides (`5 |> then fn n -> n + 1 |> then fn n -> n * 2` reads as one lambda); a
-// line per stage shows where each body ends.
+// `tap` stage with a lambda. Such a lambda's bare body ends at the next `|>`,
+// which one line hides (`5 |> then fn n -> n + 1 |> then fn n -> n * 2` reads
+// as one lambda); a line per stage shows where each body ends. A capture
+// ends with its body, so a stage applying one stays on the line.
 func pipeChainStacked(source ast.Node, steps []ast.Node) bool {
 	return pipeChainAuthoredMultiline(source, steps) || pipeChainHasThenStage(steps)
 }
 
 func pipeChainHasThenStage(steps []ast.Node) bool {
 	for _, step := range steps {
-		switch step.(type) {
-		case *ast.Then, *ast.Tap:
-			return true
+		switch s := step.(type) {
+		case *ast.Then:
+			if s.Lambda != nil {
+				return true
+			}
+		case *ast.Tap:
+			if s.Lambda != nil {
+				return true
+			}
 		}
 	}
 	return false

@@ -78,9 +78,9 @@ fn main() {
         _ -> "other"
     }
     io.print(Display.to_string(e))
-    f = both(5, _)
+    f = &both(5, &1)
     io.print(f(3))
-    g = both(Meters(7), _)
+    g = &both(Meters(7), &1)
     io.print(g(4))
     h: (Int) -> Display = fn n -> n + 1
     io.print(Display.to_string(h(9)))

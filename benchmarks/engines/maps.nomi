@@ -10,7 +10,7 @@
 import std/io
 
 fn main() {
-    empty: Map<Int, Int> = Map.empty()
+    empty: Map<Int, Int> = %{}
     m = Iter.reduce(0..=49999, fn acc = empty, i -> Map.put(acc, i, i * 7))
 
     total = Iter.reduce(0..=49999, fn acc = 0, i -> {

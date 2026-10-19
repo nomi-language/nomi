@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// A partial application's `_` is an argument like any other, so the call
+// A partial application's `&1` is an argument like any other, so the call
 // is held to the callee's argument count. The front end skipped the count
 // for any call with a `_`, accepted `pick(False, _, x, 0)` against a
 // three-parameter pick and `add(_)` against a two-parameter add, and the
@@ -16,12 +16,12 @@ func TestPartialApplication_ArgumentCountIsChecked(t *testing.T) {
 	cases := []struct {
 		name, call, want string
 	}{
-		{"generic callee, too many", "pick(False, _, case Some(1) {\n        .Some(o) -> o\n        .None -> 0\n    }, 0)", "expected 3 arguments, got 4"},
-		{"plain callee, too many", "add(_, 1, 2)", "expected 2 arguments, got 3"},
-		{"plain callee, too few", "add(_)", "expected 2 arguments, got 1"},
-		{"generic callee, too few", "pick(False, _)", "expected 3 arguments, got 2"},
-		{"defaulted callee, too many", "connect(_, 1, 2, 3)", "expected 1 to 3 arguments, got 4"},
-		{"required slot skipped by a default", "middle(_, 2)", "missing argument for parameter 'c'"},
+		{"generic callee, too many", "&pick(False, &1, case Some(1) {\n        .Some(o) -> o\n        .None -> 0\n    }, 0)", "expected 3 arguments, got 4"},
+		{"plain callee, too many", "&add(&1, 1, 2)", "expected 2 arguments, got 3"},
+		{"plain callee, too few", "&add(&1)", "expected 2 arguments, got 1"},
+		{"generic callee, too few", "&pick(False, &1)", "expected 3 arguments, got 2"},
+		{"defaulted callee, too many", "&connect(&1, 1, 2, 3)", "expected 1 to 3 arguments, got 4"},
+		{"required slot skipped by a default", "&middle(&1, 2)", "missing argument for parameter 'c'"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -63,10 +63,11 @@ fn main() {
 	}
 }
 
-// The written arguments of a partial application are evaluated once, when
-// the partial is made, in source order, however often it is called; and a
-// partial that gives every slot, with defaults left to the callee, runs.
-func TestPartialApplication_WrittenArgumentsRunOnce(t *testing.T) {
+// The written arguments of a partial capture are evaluated on each call, in
+// source order, as the equivalent lambda evaluates them, and not when the
+// capture is made; and a partial that gives every slot, with defaults left
+// to the callee, runs.
+func TestPartialCapture_WrittenArgumentsRunOnEachCall(t *testing.T) {
 	src := `import std/io
 
 fn pick<T>(c: Bool, a: T, b: T) -> T {
@@ -83,9 +84,9 @@ fn connect(host: String, port: Int = 80, timeout: Int = 30) -> String {
 }
 
 fn main() {
-    p = pick(
+    p = &pick(
         noisy("c", 0) == 1,
-        _,
+        &1,
         case Some(noisy("b", 7)) {
             .Some(o) -> o
             .None -> 0
@@ -94,7 +95,7 @@ fn main() {
     io.print("made")
     io.inspect(p(1))
     io.inspect(p(2))
-    f = connect(_, port: _)
+    f = &connect(&1, port: &2)
     io.print(f("h", 8080))
     io.print(f("h"))
 }
@@ -111,7 +112,7 @@ fn main() {
 	if err := p.Run(context.Background(), &out, nil, false); err != nil {
 		t.Fatalf("run: %v\noutput so far:\n%s", err, out.String())
 	}
-	want := "c\nb\nmade\n7\n7\nh:8080/30\nh:80/30\n"
+	want := "made\nc\nb\n7\nc\nb\n7\nh:8080/30\nh:80/30\n"
 	if got := out.String(); got != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 	}

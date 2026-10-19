@@ -863,40 +863,16 @@ func PopulateProjectTypeMethodSymbols(idx *ProjectImplIndex, filesByKey map[stri
 // stdlib impls reach this index via the same per-file walk over
 // stdlib FAs folded into filesByKey.
 //
-// # THE COHERENCE KEY IS THE RUNTIME DISPATCH KEY, DERIVED IN ONE PLACE
+// # THE KEY IS THE RECEIVER AND THE WHOLE INTERFACE HEADER
 //
-// Coherence keys on the receiver base name plus DispatchImplKey — the part of
-// the interface header the runtime dispatch table can actually tell apart. That
-// keeps ordinary impls unique (`Display for User`) and keeps distinct operator
-// instantiations such as `Add<Days, Date> for Date` and `Add<Months, Date> for
-// Date` distinct, while REJECTING two impls the table would have to store in one
-// slot.
-//
-// Keying on the receiver plus the FULL interface header would be wrong in both
-// directions the header can differ from the dispatch key:
-//
-//   - `impl Add<Days, Day> for Day` beside `impl Add<Days, Days> for Day` -
-//     same receiver, same right-hand type, different OUTPUT. Both claim the
-//     dispatch slot `Add.add` for `Day` with right-hand `Days`.
-//   - `impl Holds<Int> for Box` beside `impl Holds<String> for Box` - a
-//     NON-operator generic interface, whose runtime key is the receiver alone,
-//     so every type argument is dropped rather than just the output. Both
-//     claim `Holds.hold` for `Box`.
-//
-// Both are rejected with a diagnostic naming both headers. Regression:
-// analysis.TestDetectImplCollisions_OperatorImplsDifferingOnlyInOutputCollide,
-// ...NonOperatorGenericInstantiationsCollide, and the BuildProject-level pair
-// in operator_coherence_project_test.go.
-//
-// The rejection is not conservatism: dispatch cannot hold two impls in one
-// slot. Lifting the rejection needs the RUNTIME key to carry the output type (and, for a
-// non-operator interface, the type arguments), which is a separate change and a
-// language decision: nothing in Nomi's syntax selects an operator impl by its
-// return type, and checkOperatorBinary takes the result type FROM the impl it
-// resolved, so `(Add, Self, Rhs) -> Out` is a functional dependency. Rust spells
-// the same dependency by making `Output` an associated type rather than a
-// parameter; Nomi spells `Out` as a parameter, which makes the ill-formed
-// program writable, and this check is what restores the dependency.
+// A generic interface may be implemented for one receiver at several type
+// arguments (`impl Add<Days, Date> for Date` beside `impl Add<Months, Date>
+// for Date`, `impl Contains<String> for String` beside `impl
+// Contains<Regex> for String`), and a call selects one statically
+// (impl_selection.go). So two impls collide when they name the same
+// receiver and the same header. Two impls at different arguments that could
+// still name one instantiation, a generic one beside a concrete one, are
+// the overlap checkImplInstantiations reports at the impl.
 func detectImplCollisions(
 	index map[string]map[string][]*ast.FuncDef,
 	files map[*ast.FuncDef]string,
@@ -923,11 +899,8 @@ func detectImplCollisions(
 		for _, method := range methodNames {
 			fns := byMethod[method]
 			// Group this (iface, method)'s FuncDefs by receiver base name and
-			// DISPATCH key. Only the part of the interface header the runtime
-			// table can tell apart is part of impl identity here: the right-hand
-			// type for an operator interface, nothing for any other. Two impls
-			// landing in one group are two impls the table would store in one
-			// slot, which is the collision.
+			// interface header: two impls in one group implement one
+			// instantiation of the interface for one type.
 			byReceiver := map[string][]*ast.FuncDef{}
 			for _, fn := range fns {
 				key := collisionGroupKey(iface, fn, receivers, interfaceKeys)
@@ -975,8 +948,8 @@ func detectImplCollisions(
 }
 
 // collisionGroupKey is the group detectImplCollisions puts fn, an impl of
-// iface, in: its receiver's base name and its DISPATCH key. Empty when the
-// receiver is unkeyable.
+// iface, in: its receiver's base name and its interface header as written.
+// Empty when the receiver is unkeyable.
 func collisionGroupKey(iface string, fn *ast.FuncDef, receivers, interfaceKeys map[*ast.FuncDef]string) string {
 	recv := receiverBaseName(fn, receivers)
 	if recv == "" {
@@ -986,7 +959,7 @@ func collisionGroupKey(iface string, fn *ast.FuncDef, receivers, interfaceKeys m
 	if interfaceKeys != nil && interfaceKeys[fn] != "" {
 		ifaceKey = interfaceKeys[fn]
 	}
-	return recv + "\x00" + DispatchImplKey(iface, ifaceKey)
+	return recv + "\x00" + ifaceKey
 }
 
 // CollisionImplIndex unions the reachable-set impl index with the project
@@ -1243,30 +1216,6 @@ func receiverBaseName(fn *ast.FuncDef, receivers map[*ast.FuncDef]string) string
 // The other bad position was `line 1433485312, col 1` for
 // `impl Equatable for Bool`: the derive-synthesis reserved line band leaking
 // into user-facing output.
-//
-// The reason it gives is EVALUATED, not asserted, and there are TWO shapes
-// with two reasons. "A type may implement an interface at most once" is false
-// for one of them, and a user reading that sentence would go looking for a
-// duplicate that does not exist.
-//
-//   - The group's members name ONE interface at two different INSTANTIATIONS —
-//     `Add<Days, Day>` beside `Add<Days, Days>`, or `Holds<Int>` beside
-//     `Holds<String>`. Each pair is implemented once; what collides is the
-//     dispatch key, which carries less than the header. `interfaceKeys` is what
-//     distinguishes this shape, and the message names both headers because the
-//     module list cannot: both impls are usually in the same file.
-//   - Anything else is a genuine duplicate of one (interface, receiver) pair.
-//
-// A THIRD shape does not reach here: two DIFFERENT interfaces sharing a
-// spelling, each implemented once for one receiver. It is accepted, because
-// dispatch keys each impl under its interface's declaration —
-// `detectImplCollisions` partitions by that origin
-// before calling this (ifaceOriginBuckets), so every group arriving here names
-// one declaration or has no identity to go on.
-//
-// Both remaining shapes stay REJECTED, and that is not conservatism: each puts
-// two impls in one dispatch slot. Lifting either needs the RUNTIME key to carry what the
-// header carries: the output type, or the type arguments.
 func implCollisionError(
 	iface, method, recv string,
 	group []*ast.FuncDef,
@@ -1292,13 +1241,8 @@ func implCollisionError(
 		label = headers[0]
 	}
 	msg := fmt.Sprintf(
-		"duplicate impl: `%s` is implemented for `%s` by modules %s (function `%s`) — a type may implement an interface at most once",
+		"duplicate impl: `%s` is implemented for `%s` by modules %s (function `%s`); a type implements an interface once at each set of type arguments",
 		label, recv, strings.Join(mods, ", "), method)
-	if len(headers) > 1 {
-		msg = fmt.Sprintf("`%s` implements `%s` more than once at one dispatch key: %s. %s",
-			recv, iface, quotedList(headers),
-			dispatchKeyReason(iface, method, recv, group, interfaceKeys))
-	}
 	line, col := collisionAnchor(group, files)
 	return TypeError{
 		Line:    line,
@@ -1336,9 +1280,8 @@ func collisionAnchor(group []*ast.FuncDef, files map[*ast.FuncDef]string) (int, 
 }
 
 // distinctInterfaceHeaders is the sorted set of interface headers the group's
-// impls declared, deduplicated. Empty when no member recorded one, one entry
-// when they all agree (the ordinary duplicate), more than one when the headers
-// differ in a part the dispatch key does not carry.
+// impls declared, deduplicated. Empty when no member recorded one, and one
+// entry otherwise, since a group shares its header.
 func distinctInterfaceHeaders(group []*ast.FuncDef, interfaceKeys map[*ast.FuncDef]string) []string {
 	if interfaceKeys == nil {
 		return nil
@@ -1355,77 +1298,6 @@ func distinctInterfaceHeaders(group []*ast.FuncDef, interfaceKeys map[*ast.FuncD
 	}
 	sort.Strings(out)
 	return out
-}
-
-// dispatchKeyReason says WHY two impls share one slot. The two arms are NOT the
-// same kind of statement, and the wording is deliberately different, because
-// telling a user "your program is wrong" and "the compiler cannot do this yet"
-// with one sentence is how an implementation limit gets remembered as a language
-// rule.
-//
-// # THE OPERATOR ARM IS A SETTLED RULE, AND IT CITES THE SPEC
-//
-// docs/spec.md, "Generic Interfaces": a generic interface's type
-// parameter "is *determined* by each implementor (one impl per type), so it is
-// never written on the interface name where the implementor is already known …
-// Where it earns a name is exactly where the implementor is *unknown* — an
-// interface-typed parameter … or a bound". `Out` sits on both sides:
-//
-//	impl Add<Days, Day> for Day     determined by the impl -> not a discriminator
-//	where L: Add<R, Out>            implementor unknown     -> earns its name
-//
-// So this is not a new special case for operators. It is the existing
-// duplicate-impl rule reaching a case it was not reaching, because the key it
-// grouped on carried a type argument the implementor determines. Bound solving is
-// untouched — `Out` remains a type parameter, and it has to: `tests/
-// 12-derives-and-standard-interfaces/add_test.nomi:90` names it in bound position
-// four times. Every other component already agreed: the runtime dispatch key, the
-// IR builder's `g.operImpls` (keyed `(interface, receiver, RHS)`), and all of the
-// stdlib, in which no (receiver, right-hand type) pair carries two outputs
-// (TestStdlibOperatorOutputIsDeterminedByReceiverAndRhs — 66 impls, 66 groups).
-//
-// # THE NON-OPERATOR ARM IS A LIMITATION, AND SAYS SO
-//
-// `impl Holds<Int> for Box` beside `impl Holds<String> for Box` is NOT an exotic
-// shape — it is Rust's `impl From<i32> for Foo` / `impl From<String> for Foo`, one
-// of that language's most-used patterns, dispatched on the argument type at the
-// call site. Nomi cannot express it, and nobody decided that: the runtime key for
-// a non-operator interface is the receiver ALONE (DispatchImplKey), so both
-// impls land in one slot if they are not rejected here.
-//
-// Lifting it is a COSTED option rather than a wall, and the shape already exists:
-// the runtime key would have to carry the interface's type arguments, exactly as
-// operator dispatch already carries the right-hand type, and the IR builder's
-// `g.operImpls` is the precedent for doing it in a SECOND index rather than by
-// widening the shared one (widening `implsByIface` breaks `noEquatableImpl`, which
-// reads it to establish ABSENCE — measured). Until someone pays for that, the
-// diagnostic names the two things a user can write instead.
-func dispatchKeyReason(iface, method, recv string, group []*ast.FuncDef, interfaceKeys map[*ast.FuncDef]string) string {
-	op, isOperator := operatorInterfaceByName(iface)
-	if !isOperator {
-		return fmt.Sprintf(
-			"Interface dispatch is keyed on the receiver ALONE today, so `%s.%s` has one slot for `%s` "+
-				"and the type argument cannot choose between them. This is a LIMITATION of the current "+
-				"dispatch key, not a rule about your program: lifting it means the runtime key carrying "+
-				"the interface's type arguments, the way operator dispatch already carries its "+
-				"right-hand type. Until then, write one named function per case, or take a single impl "+
-				"over an enum of the argument types.",
-			iface, method, recv)
-	}
-	rhs := ""
-	for _, fn := range group {
-		if r := OperatorInterfaceRhs(interfaceKeys[fn]); r != "" {
-			rhs = r
-			break
-		}
-	}
-	return fmt.Sprintf(
-		"These differ only in the OUTPUT type, which an impl DETERMINES rather than chooses: for "+
-			"receiver `%s` and right-hand type `%s` there is one answer, so `%s.%s` has one slot and "+
-			"`lhs %s rhs` would otherwise have two types. `Out` is a real parameter only where the "+
-			"implementor is unknown (`where L: %s<R, Out>`). Give these different right-hand types, or "+
-			"remove one.",
-		recv, rhs, iface, method, op.Op, iface)
 }
 
 // quotedList renders `a`, `b` and `c` for a diagnostic.
@@ -1541,7 +1413,7 @@ func orphanImplError(iface, method, recv, ifaceMod, recvMod, implMod string, fn 
 		Line: fn.Line,
 		Col:  fn.Col,
 		Message: fmt.Sprintf(
-			"orphan impl: `%s` (declared in file %q) for `%s` (declared in file %q) cannot be implemented in file %q (function `%s`) — at least one of the interface or the implementing type must be declared in the implementing file",
+			"orphan impl: `%s` (declared in module %q) for `%s` (declared in module %q) cannot be implemented in module %q (function `%s`) — at least one of the interface or the implementing type must be declared in the implementing module",
 			iface, ifaceMod, recv, recvMod, implMod, method),
 	}
 }

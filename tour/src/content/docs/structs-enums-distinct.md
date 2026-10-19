@@ -546,7 +546,7 @@ fn record(index: Index, bucket: String, n: Int) -> Index {
 }
 
 fn main() {
-    start: Index = Map.empty()
+    start: Index = %{}
 
     result =
         start

@@ -18,7 +18,7 @@ struct Gbox<A> {
 fn main() {
     io.inspect(#Gbox{v: []})
     io.inspect(#Gbox{v: %[]})
-    io.inspect(#Gbox{v: Map.empty()})
+    io.inspect(#Gbox{v: %{}})
     io.inspect(#Gbox{v: [[]]})
     io.inspect([%[]])
     io.inspect([#[]])

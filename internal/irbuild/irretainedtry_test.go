@@ -11,7 +11,7 @@ func TestIRRetainedTry_BesideAFunctionMapFieldRuns(t *testing.T) {
 struct Point { x: Int }
 struct Outer {
   p: List<Point>
-  hooks: Map<String, (Int) -> Int> = Map.empty()
+  hooks: Map<String, (Int) -> Int> = %{}
 }
 fn get() -> Result<Int, String> { Ok(42) }
 fn work() -> Result<Int, String> {

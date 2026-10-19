@@ -265,6 +265,8 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 		s.walkBody(owner, node.Expr, inConcurrent)
 	case *ast.GroupedExpr:
 		s.walkBody(owner, node.Expr, inConcurrent)
+	case *ast.Capture:
+		s.walkBody(owner, node.Body, inConcurrent)
 	case *ast.If:
 		s.walkBody(owner, node.Cond, inConcurrent)
 		s.walkBody(owner, node.Then, inConcurrent)
@@ -338,9 +340,9 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 	case *ast.Dbg:
 		s.walkBody(owner, node.Expr, inConcurrent)
 	case *ast.Then:
-		s.walkBody(owner, node.Lambda, inConcurrent)
+		s.walkBody(owner, node.Fn(), inConcurrent)
 	case *ast.Tap:
-		s.walkBody(owner, node.Lambda, inConcurrent)
+		s.walkBody(owner, node.Fn(), inConcurrent)
 	case *ast.StringInterp:
 		for _, part := range node.Parts {
 			if se, ok := part.(ast.StringExpr); ok {
@@ -574,6 +576,8 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 			walk(node.Expr, enclosing, inConcurrent)
 		case *ast.GroupedExpr:
 			walk(node.Expr, enclosing, inConcurrent)
+		case *ast.Capture:
+			walk(node.Body, enclosing, inConcurrent)
 		case *ast.If:
 			walk(node.Cond, enclosing, inConcurrent)
 			walk(node.Then, enclosing, inConcurrent)
@@ -647,9 +651,9 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 		case *ast.Dbg:
 			walk(node.Expr, enclosing, inConcurrent)
 		case *ast.Then:
-			walk(node.Lambda, enclosing, inConcurrent)
+			walk(node.Fn(), enclosing, inConcurrent)
 		case *ast.Tap:
-			walk(node.Lambda, enclosing, inConcurrent)
+			walk(node.Fn(), enclosing, inConcurrent)
 		case *ast.StringInterp:
 			for _, part := range node.Parts {
 				if se, ok := part.(ast.StringExpr); ok {

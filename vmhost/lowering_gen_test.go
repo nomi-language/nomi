@@ -597,7 +597,7 @@ func (g *gen) callback(u, t *gt, depth int, sc []gvar, annotate bool) string {
 	if u.eq(t) {
 		opts = append(opts,
 			func() string { return "ident" },
-			func() string { return "pick(" + g.boolLit() + ", _, " + g.expr(t, depth-1, sc) + ")" })
+			func() string { return "&pick(" + g.boolLit() + ", &1, " + g.expr(t, depth-1, sc) + ")" })
 	}
 	switch {
 	case u.eq(tInt) && t.eq(tMeters):
@@ -709,7 +709,7 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 		},
 		func() string {
 			f := g.fresh("partial")
-			return "{\n" + f + " = pick(" + g.boolLit() + ", _, " + g.expr(t, d, sc) + ")\n" + f + "(" + g.expr(t, d, sc) + ")\n}"
+			return "{\n" + f + " = &pick(" + g.boolLit() + ", &1, " + g.expr(t, d, sc) + ")\n" + f + "(" + g.expr(t, d, sc) + ")\n}"
 		},
 	)
 	add(
@@ -1308,7 +1308,7 @@ func (g *gen) erasedBlock() string {
 			name("ea"), name("eb"), name("ev"))
 		fmt.Fprintf(&out, "io.print(\"${Display.to_string(%s)} ${Int.to_string(%s)}\")\n", name("ea"), name("eb"))
 	case 11:
-		fmt.Fprintf(&out, "%s: Map<String, Display> = Map.put(Map.put(Map.empty(), \"a\", %s), \"b\", %s)\n", name("ev"), val(), val())
+		fmt.Fprintf(&out, "%s: Map<String, Display> = Map.put(Map.put(%%{}, \"a\", %s), \"b\", %s)\n", name("ev"), val(), val())
 		fmt.Fprintf(&out, "io.print(Map.values(%s) |> Iter.map(Display.to_string) |> String.join(\",\"))\n", name("ev"))
 	case 12:
 		fmt.Fprintf(&out, "%s: Display = %s\n%s = [#{n: 1, d: %s}]\n", name("ed"), val(), name("ev"), name("ed"))
@@ -1336,7 +1336,7 @@ func (g *gen) erasedBlock() string {
 		if r.Intn(2) == 0 {
 			fmt.Fprintf(&out, "io.print(%s(%s, 1))\n", name("ef"), val())
 		} else {
-			fmt.Fprintf(&out, "%s = %s(%s, _)\nio.print(%s(2))\n", name("ep"), name("ef"), val(), name("ep"))
+			fmt.Fprintf(&out, "%s = &%s(%s, &1)\nio.print(%s(2))\n", name("ep"), name("ef"), val(), name("ep"))
 		}
 	case 6:
 		fmt.Fprintf(&out, "struct %s {\nd: Display\n}\n", name("Held"))
@@ -1706,12 +1706,17 @@ func (g *gen) callBlock() string {
 	n := r.Intn(4)
 	var out strings.Builder
 	out.WriteString("{\n")
-	switch r.Intn(12) {
+	switch r.Intn(13) {
+	case 12:
+		// A capture: an operator, one parameter used twice, a filter's
+		// predicate and a tuple literal.
+		forms := []string{"Iter.map([1, %d], &(&1 * 2 + 1))", "Iter.map([1, %d], &(&1 * &1))", "Iter.filter([1, %d], &(&1 > 1))", "Iter.map([1, %d], &#(&1, 0))"}
+		fmt.Fprintf(&out, "io.inspect(%s |> Iter.to_list())\n", fmt.Sprintf(forms[r.Intn(len(forms))], n))
 	case 11:
 		// A partial that leaves a slot with a computed default unmentioned,
 		// before a slot it names or after the open one.
 		fmt.Fprintf(&out, "fn %s(a: Int, b: Int = a + %d, c: Int = 0) -> Int {\na * 100 + b * 10 + c\n}\n", name("cpf"), n)
-		partials := []string{"%s(_, c: 1)", "%s(_)", "%s(c: 2, a: _)"}
+		partials := []string{"&%s(&1, c: 1)", "&%s(&1)", "&%s(c: 2, a: &1)"}
 		fmt.Fprintf(&out, "%s = %s\n", name("cpg"), fmt.Sprintf(partials[r.Intn(len(partials))], name("cpf")))
 		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("cpg"), n)
 	case 10:
@@ -1738,7 +1743,7 @@ func (g *gen) callBlock() string {
 	case 6:
 		// A lambda with a default, captured by another closure and called
 		// there short, by name and partially.
-		calls := []string{"%s(2)", "%s(y: 3, x: 2)", "%s(_, 3)(2)", "%s(2, _)(4)"}
+		calls := []string{"%s(2)", "%s(y: 3, x: 2)", "(&%s(&1, 3))(2)", "(&%s(2, &1))(4)"}
 		call := fmt.Sprintf(calls[r.Intn(len(calls))], name("cf"))
 		fmt.Fprintf(&out, "%s = fn x: Int, y: Int = x + %d -> x * y\n", name("cf"), n)
 		fmt.Fprintf(&out, "%s = fn -> %s\n", name("cg"), call)
@@ -1746,7 +1751,7 @@ func (g *gen) callBlock() string {
 	case 7:
 		// A partial over a generic helper whose instantiation leaves a
 		// hole: the Result's error type.
-		fmt.Fprintf(&out, "%s = pick(%s, _, Some(Ok(%d)))\n", name("cp"), g.boolLitFrom(r), n)
+		fmt.Fprintf(&out, "%s = &pick(%s, &1, Some(Ok(%d)))\n", name("cp"), g.boolLitFrom(r), n)
 		fmt.Fprintf(&out, "io.inspect(%s(None))\n", name("cp"))
 	case 5:
 		// A generic helper with a destructuring parameter and a default
@@ -1849,7 +1854,7 @@ func (g *gen) leaveBlock() string {
 		// A partial whose open slot has a computed default, over a nested
 		// fn, called omitting the slot and giving it.
 		fmt.Fprintf(&out, "fn %s(a: Int, b: Int = a * %d + 1) -> Int {\na + b\n}\n", name("lo"), n)
-		fmt.Fprintf(&out, "%s = %s(%d, _)\n", name("lq"), name("lo"), r.Intn(9))
+		fmt.Fprintf(&out, "%s = &%s(%d, &1)\n", name("lq"), name("lo"), r.Intn(9))
 		fmt.Fprintf(&out, "io.inspect(%s())\n", name("lq"))
 		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lq"), r.Intn(9))
 	case 5:
@@ -1960,7 +1965,7 @@ func (g *gen) holdBlock() string {
 		fmt.Fprintf(&out, "io.inspect(Equatable.equal?(#{a: %d}, #{a: %d}))\n", n, n+r.Intn(2))
 	default:
 		fmt.Fprintf(&out, "fn %s(a: Int, b: Int = %d) -> Int {\na * 10 + b\n}\n", name("hd"), n)
-		fmt.Fprintf(&out, "%s = %s(_, b: _)\n", name("hp"), name("hd"))
+		fmt.Fprintf(&out, "%s = &%s(&1, b: &2)\n", name("hp"), name("hd"))
 		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("hp"), n)
 		fmt.Fprintf(&out, "io.inspect(ident(%s)(%d, 1))\n", name("hp"), n)
 		fmt.Fprintf(&out, "io.inspect(Some(%s) |> Maybe.map(fn f: (Int, Int) -> Int -> f(1, 2)))\n", name("hp"))

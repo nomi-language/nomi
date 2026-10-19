@@ -30,7 +30,7 @@ fn main() { io.print(Duration.as_hours(#Duration{n: 9})) }
 // A std method call's result builds a struct whose field holds a Map of
 // function values.
 func TestIRStdMethodCall_BesideAFunctionMapFieldRuns(t *testing.T) {
-	verifyLambdaProgram(t, "import { std/io std/duration.Duration }\nstruct Point { x: Int }\nstruct Outer { p: List<Point>\n hooks: Map<String, (Int) -> Int> = Map.empty() }\nfn main() { n = Duration.as_hours(Duration.hours(2)) io.inspect(#Outer{p: [#Point{x: n}]}) }\n",
+	verifyLambdaProgram(t, "import { std/io std/duration.Duration }\nstruct Point { x: Int }\nstruct Outer { p: List<Point>\n hooks: Map<String, (Int) -> Int> = %{} }\nfn main() { n = Duration.as_hours(Duration.hours(2)) io.inspect(#Outer{p: [#Point{x: n}]}) }\n",
 		"#Outer{p: [#Point{x: 2}], hooks: %{}}\n")
 }
 

@@ -18,13 +18,17 @@ func (bl *irScalarBuilder) userOperatorCall(at *ast.Binary, left, right ir.Temp,
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	og := bl.g
-	it, _, rival := og.operImplFor(spec.nomi, lk, spec.method, []kind{lk, rk})
+	it, _, rival := og.operImplFor(spec.nomi, lk, spec.method, []kind{lk, rk}, bl.g.checkedKind(at))
 	params, result := []kind{lk, rk}, kindInvalid
 	if it != nil {
 		params, result = it.params, it.result
 	}
 	if s := bl.g.stdInsts; it == nil && !rival && s != nil && s.caller != nil && s.caller != bl.g && bl.g.stdModule != "" {
 		og, it, params, result, rival = s.callerOperImpl(spec, lk, rk)
+	}
+	if it == nil && !rival && bl.g.stdModule == "" {
+		// An impl another file writes.
+		og, it, params, result, rival = bl.g.siblingOperImpl(spec, lk, rk)
 	}
 	if rival || it == nil || !it.lowerable || len(params) != 2 || len(it.params0) != 2 || params[0] != lk || params[1] != rk || !irCallableValueKind(result) {
 		return ir.NoTemp, kindInvalid, false, false
@@ -48,35 +52,61 @@ func (s *stdInstances) callerOperImpl(spec *operIfaceSpec, lk, rk kind) (*gen, *
 		}
 		return s.caller, it, it.params, it.result, rival
 	}
-	if lk != rk || lk.tag != tagNamed || lk.def == nil || lk.def.decl == nil || lk.def.instOrigin != nil || s.caller.reg == nil {
+	return s.caller.siblingOperImpl(spec, lk, rk)
+}
+
+// siblingOperImpl is the operator impl for `lk op rk` that another file
+// writes for lk's type (`impl Add<Int, Int> for Bag` apart from the call),
+// with its parameter and result kinds named in this gen's tables. Each other
+// gen selects among its own impls at its kinds for the operands, as
+// operImplFor does here. Reports a rival when two fit.
+func (g *gen) siblingOperImpl(spec *operIfaceSpec, lk, rk kind) (*gen, *implItem, []kind, kind, bool) {
+	if lk.tag != tagNamed || lk.def == nil || lk.def.decl == nil || lk.def.instOrigin != nil || lk.def.genericOf != nil || g.reg == nil {
 		return nil, nil, nil, kindInvalid, false
 	}
-	for _, g := range s.caller.reg.gens {
-		if g == nil || g == s.caller {
+	var og *gen
+	var chosen *implItem
+	for _, gg := range g.reg.gens {
+		if gg == nil || gg == g {
 			continue
 		}
-		for _, d := range g.operOrder {
-			if d.ifaceName != spec.nomi || d.recv.tag != tagNamed || d.recv.def == nil || d.recv.def.decl != lk.def.decl {
-				continue
+		var recv kind
+		writes := false
+		for _, d := range gg.operOrder {
+			if d.ifaceName == spec.nomi && d.recv.tag == tagNamed && d.recv.def != nil && d.recv.def.decl == lk.def.decl {
+				recv, writes = d.recv, true
+				break
 			}
-			it, _, rival := g.operImplFor(spec.nomi, d.recv, spec.method, []kind{d.recv, d.recv})
-			if it == nil || rival {
-				return nil, nil, nil, kindInvalid, rival
-			}
-			params := make([]kind, len(it.params))
-			for i, p := range it.params {
-				ip, ok := s.caller.importKind(p)
-				if !ok {
-					return nil, nil, nil, kindInvalid, false
-				}
-				params[i] = ip
-			}
-			result, ok := s.caller.importKind(it.result)
-			if !ok {
-				return nil, nil, nil, kindInvalid, false
-			}
-			return g, it, params, result, false
+		}
+		if !writes {
+			continue
+		}
+		there, ok := gg.importKind(rk)
+		if !ok {
+			continue
+		}
+		it, _, rival := gg.operImplFor(spec.nomi, recv, spec.method, []kind{recv, there})
+		if rival || (it != nil && chosen != nil) {
+			return nil, nil, nil, kindInvalid, true
+		}
+		if it != nil {
+			og, chosen = gg, it
 		}
 	}
-	return nil, nil, nil, kindInvalid, false
+	if chosen == nil {
+		return nil, nil, nil, kindInvalid, false
+	}
+	params := make([]kind, len(chosen.params))
+	for i, p := range chosen.params {
+		ip, ok := g.importKind(p)
+		if !ok {
+			return nil, nil, nil, kindInvalid, false
+		}
+		params[i] = ip
+	}
+	result, ok := g.importKind(chosen.result)
+	if !ok {
+		return nil, nil, nil, kindInvalid, false
+	}
+	return og, chosen, params, result, false
 }

@@ -83,13 +83,13 @@ func TestLambdaBodyDiagnostic_ReportedOnce(t *testing.T) {
 		{"function body", "fn f() -> (Int) -> Int {\n    fn n -> n + nope\n}\n"},
 		{"function body, annotated parameter", "fn f() -> (Int) -> Int {\n    fn n: Int -> n + nope\n}\n"},
 		{"nested function body", "fn f() -> Int {\n    fn g() -> (Int) -> Int {\n        fn n -> n + nope\n    }\n    g()(1)\n}\n"},
-		{"stray placeholder", "fn f() -> (Int) -> Int {\n    fn n -> n + _\n}\n"},
+		{"stray discard", "fn f() -> (Int) -> Int {\n    fn _n -> _\n}\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(decls + tc.src)
 			want := "undefined variable 'nope'"
-			if tc.name == "stray placeholder" {
-				want = "`_` has no value here\nhelp: `_` stands for a missing argument only in a call, as in add(1, _)"
+			if tc.name == "stray discard" {
+				want = "`_` is a discard name, not a value\nhelp: a capture's parameter is written `&1`, as in `Iter.map(xs, &(&1 * 2))`"
 			}
 			if len(errs) != 1 || diagText(errs[0]) != want {
 				t.Fatalf("errors = %v, want exactly one %q", errs, want)

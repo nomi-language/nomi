@@ -22,7 +22,7 @@ import (
 //
 //	default / explicit_empty   THE SAME OBSERVATION FOR TWO REASONS, on purpose.
 //	                           Row 1 omits `env` and the builder supplies the
-//	                           declared `Map.empty()`; row 2 writes it. An
+//	                           declared `%{}`; row 2 writes it. An
 //	                           omitted `rt.Map` field's Go zero value IS an empty
 //	                           map, so these two cannot be distinguished by any
 //	                           program — recorded rather than mistaken for

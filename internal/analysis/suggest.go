@@ -222,3 +222,36 @@ func publicNames(scope *Scope) []string {
 	}
 	return names
 }
+
+// emptyCollectionLiteralHint is the hint for an empty constructor a
+// collection does not have: the empty Map, Set and Vector are written as
+// their literals, as the empty List is `[]`. ty is the type the call names,
+// and the hint is "" for any type but std's and any other member.
+func emptyCollectionLiteralHint(ty Type, member string) string {
+	if member != "empty" && member != "new" {
+		return ""
+	}
+	var name, origin string
+	switch t := ty.(type) {
+	case *PrimitiveType:
+		name, origin = t.Name_, t.Origin
+	case *DistinctType:
+		name, origin = t.Name, t.Origin
+	case *StructType:
+		name, origin = t.Name, t.Origin
+	default:
+		return ""
+	}
+	if !IsStdlibKey(origin) {
+		return ""
+	}
+	switch name {
+	case "Map":
+		return "write the empty map as %{}"
+	case "Set":
+		return "write the empty set as %[]"
+	case "Vector":
+		return "write the empty vector as #[]"
+	}
+	return ""
+}

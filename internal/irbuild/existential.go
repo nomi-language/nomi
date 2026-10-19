@@ -141,6 +141,9 @@ func (g *gen) mirrorIface(o *typeOwner) *ifaceDef {
 			d = g.blockedIface(o, "duplicate interface declaration", o.fileKey+"."+o.nomi)
 		case !src.lowerable:
 			d = g.blockedIface(o, src.why, o.fileKey+"."+o.nomi)
+			// A generic interface's template stays usable through a
+			// concrete qualifier here as in its own file.
+			d.useSiteOnly = src.useSiteOnly
 		case deferred:
 			// A member of this file's type group, whose interface signatures
 			// are not resolved yet. See typecycle.go.
@@ -277,6 +280,10 @@ func (g *gen) importIfaceKind(src *ifaceDef) (kind, bool) {
 	if g.reg == nil || src == nil || src.decl == nil {
 		g.importWhy = "existential over a sibling file type"
 		return kindInvalid, false
+	}
+	if src.instOf != nil {
+		// `Gets<String>` held in another file: its instance here.
+		return g.importIfaceInstKind(src)
 	}
 	// The DECLARATION node, not the def: `src` may itself be a mirror the owner
 	// built of a third file's interface, and a mirror carries the original
@@ -585,9 +592,12 @@ func pickAnyName(n ast.Node, out map[string]bool) bool {
 // name-keyed index would let one file's impl satisfy the other's interface.
 // The receiver of an impl for a BUILTIN has no declaration node, so its key is
 // the scalar kind's own tag — distinct from every node by construction, since
-// no node is an integer.
+// no node is an integer. An instance of a generic interface adds its type
+// arguments (portableArgsKey): an impl of `Gets<Int>` is no impl of
+// `Gets<String>`.
 type implKey struct {
 	iface ast.Node
+	args  string
 	recv  ast.Node
 	tag   tag
 }
@@ -633,6 +643,9 @@ func buildImplIndex(gens []*gen) *implIndex {
 // implKeyFor is the key an interface and a receiver kind share across packages.
 func implKeyFor(d *ifaceDef, recv kind) implKey {
 	k := implKey{iface: d.decl, tag: recv.tag}
+	if d.instOf != nil {
+		k.args = portableArgsKey(d.instArgs)
+	}
 	if recv.tag == tagNamed && recv.def != nil {
 		k.recv = recv.def.decl
 	}
@@ -680,7 +693,23 @@ func (g *gen) bindsImpl(d *ifaceDef, k kind) bool {
 	// Additive in the safe direction: this can only turn a "no" into a "yes" for
 	// an impl THIS gen registered and marked lowerable, never the reverse.
 	impl := g.implsByIface[d.nomi][k]
-	return impl != nil && impl.lowerable
+	if impl != nil && impl.lowerable && (d.instOf == nil || impl.iface == d) {
+		return true
+	}
+	for _, impl := range g.instImpls[d.nomi][k] {
+		// One of k's impls of a generic interface at several arguments:
+		// the one at d's.
+		if impl.lowerable && impl.iface == d {
+			return true
+		}
+	}
+	if k.tag == tagNamed && k.def != nil && (k.def.genericOf != nil || k.def.instOrigin != nil) && d.decl != nil {
+		// A generic instance whose impl another file registers for it
+		// (siblingtemplateimpl.go), or the owner does for a mirror here.
+		_, impl := g.instanceImplAnywhere(instIdentity(k.def), d.nomi, "")
+		return impl != nil && impl.lowerable && impl.iface != nil && impl.iface.decl == d.decl
+	}
+	return false
 }
 
 // paramBoundNames is every name parameter p binds: its name, or each name

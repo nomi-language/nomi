@@ -45,7 +45,7 @@ fn size_of(s: Set<Int>) -> Int {
 }
 
 fn singleton(n: Int) -> Set<Int> {
-    Set.insert(Set.new(), n)
+    Set.insert(%[], n)
 }
 
 fn main() {
@@ -92,7 +92,7 @@ fn main() {
     io.print("tuple_size = ${Set.size(tuples)}")
     io.print("tuple_order = ${Iter.to_list(tuples)}")
 
-    io.print("mapped = ${Iter.to_list(Iter.map(s, fn x -> x * 10))}")
-    io.print("to_set = ${Iter.to_list(Iter.to_set(Iter.map(s, fn x -> x % 2)))}")
+    io.print("mapped = ${Iter.to_list(Iter.map(s, &(&1 * 10)))}")
+    io.print("to_set = ${Iter.to_list(Iter.to_set(Iter.map(s, &(&1 % 2))))}")
     io.print("reduced = ${Iter.reduce(s, fn acc = 0, x -> acc + x)}")
 }

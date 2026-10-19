@@ -96,14 +96,14 @@ func TestAnalyze_AppFieldReadHovers(t *testing.T) {
 	if sym := fa.SymbolAt(labelPos); sym == nil {
 		t.Fatalf("CONTROL FAILED: no symbol at the `label` read %v; the probe is measuring nothing and the `Cfg.tag` result below is worthless", labelPos)
 	}
-	if got := hoverdoc.At(fa, labelPos); got != "```nomi\nlabel: String\n```" {
+	if got := hoverdoc.At(fa, nil, labelPos); got != "```nomi\nlabel: String\n```" {
 		t.Fatalf("CONTROL FAILED: hover on `label` = %q, want %q; the probe is off-position", got, "```nomi\nlabel: String\n```")
 	}
 
 	if sym := fa.SymbolAt(tagPos); sym == nil {
 		t.Fatalf("no symbol at the `Cfg.tag` read %v, while the control on the same line resolved", tagPos)
 	}
-	got := hoverdoc.At(fa, tagPos)
+	got := hoverdoc.At(fa, nil, tagPos)
 	if want := "```nomi\ntag: String\n```\n\n*app field of* `Cfg`"; got != want {
 		t.Errorf("hover on `Cfg.tag` = %q, want %q", got, want)
 	}
@@ -112,10 +112,10 @@ func TestAnalyze_AppFieldReadHovers(t *testing.T) {
 	cfgPos := appFieldCol(t, appFieldHoverSrc, ") -> Cfg", 1)
 	cfgPos.Col += len(") -> ")
 	wantCfg := "```nomi\nstruct Cfg {\n    context: Context\n    tag: String\n}\n```"
-	if typeName := hoverdoc.At(fa, cfgPos); typeName != wantCfg {
+	if typeName := hoverdoc.At(fa, nil, cfgPos); typeName != wantCfg {
 		t.Fatalf("CONTROL: hover on the type name `Cfg` = %q, want %q", typeName, wantCfg)
 	}
-	if owner := hoverdoc.At(fa, ownerPos); owner != wantCfg {
+	if owner := hoverdoc.At(fa, nil, ownerPos); owner != wantCfg {
 		t.Errorf("hover on the `Cfg` of `Cfg.tag` = %q, want the type name's hover %q", owner, wantCfg)
 	}
 
@@ -131,8 +131,8 @@ func TestAnalyze_AppFieldReadHovers(t *testing.T) {
 		{"Cfg of Cfg.tag", ownerPos},
 		{"label (control)", labelPos},
 	} {
-		tour := hoverdoc.At(fa, c.pos)
-		editor := hoverdoc.At(lspFA, c.pos)
+		tour := hoverdoc.At(fa, nil, c.pos)
+		editor := hoverdoc.At(lspFA, nil, c.pos)
 		if editor == "" {
 			t.Fatalf("the LSP itself hovers nothing at %s %v; the fixture, not the tour, is wrong", c.what, c.pos)
 		}
@@ -180,11 +180,11 @@ func TestAnalyze_AppFieldReadUnderTwoBootsHovers(t *testing.T) {
 	}
 	name := appFieldCol(t, twoBootHoverSrc, "App.logger", 1)
 	name.Col += len("App.")
-	if got, want := hoverdoc.At(fa, name), "```nomi\nlogger: String\n```\n\n*app field of* `App`"; got != want {
+	if got, want := hoverdoc.At(fa, nil, name), "```nomi\nlogger: String\n```\n\n*app field of* `App`"; got != want {
 		t.Errorf("tour hover on `App.logger` = %q, want %q", got, want)
 	}
 	lspFA := lspAnalysisFor(t, lib, twoBootHoverSrc)
-	if tour, editor := hoverdoc.At(fa, name), hoverdoc.At(lspFA, name); tour != editor {
+	if tour, editor := hoverdoc.At(fa, nil, name), hoverdoc.At(lspFA, nil, name); tour != editor {
 		t.Errorf("hover diverges from the LSP:\n tour:   %q\n editor: %q", tour, editor)
 	}
 }

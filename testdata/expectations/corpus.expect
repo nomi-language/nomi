@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 368
-declared-cases 1128
+records 378
+declared-cases 1175
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -761,6 +761,23 @@ T ok <root>/tests/05-calendar-and-time/times_test.nomi :: times sort chronologic
 T ok <root>/tests/05-calendar-and-time/times_test.nomi :: time construction rejects invalid components
 T test result: ok. 6 passed, 0 failed
 T
+C 06-collections/contains_test.nomi
+E 0
+N 11
+H 06d34474b7e3759890402465b6f9a9b91ae1cf086026a9272929cc480f1655c2
+T ok <root>/tests/06-collections/contains_test.nomi :: a set holds its members
+T ok <root>/tests/06-collections/contains_test.nomi :: a map holds its keys and not its values
+T ok <root>/tests/06-collections/contains_test.nomi :: a range holds what lies between its ends
+T ok <root>/tests/06-collections/contains_test.nomi :: a list and a vector hold elements equal to the value
+T ok <root>/tests/06-collections/contains_test.nomi :: a list compares a struct by its own equal?
+T ok <root>/tests/06-collections/contains_test.nomi :: Float membership is reflexive for NaN and joins the zeros
+T ok <root>/tests/06-collections/contains_test.nomi :: bytes hold their octets
+T ok <root>/tests/06-collections/contains_test.nomi :: a string holds substrings, regex matches and codepoints
+T ok <root>/tests/06-collections/contains_test.nomi :: Iter.contains? scans any iterable and stops at the first match
+T ok <root>/tests/06-collections/contains_test.nomi :: Contains is the one interface the collections share
+T ok <root>/tests/06-collections/contains_test.nomi :: a bound takes any collection that implements Contains
+T test result: ok. 11 passed, 0 failed
+T
 C 06-collections/index_traps_test.nomi
 E 0
 N 6
@@ -1262,6 +1279,29 @@ T ok <root>/tests/09-functions-and-control-flow/call_semantics_test.nomi :: a po
 T ok <root>/tests/09-functions-and-control-flow/call_semantics_test.nomi :: trailing lambdas route across defaulted parameters and pipes
 T test result: ok. 8 passed, 0 failed
 T
+C 09-functions-and-control-flow/captures_test.nomi
+E 0
+N 14
+H ce6795c68afe680fdfb6f60942d43a60b39d30ce46146e9d4f00fee8be7b1ca4
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: a parenthesized operator is a function of its parameters
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: a capture names its parameters by number
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: ranges and unary operators
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: a literal with a parameter is a construction of it
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: a field of function type takes one
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: the `&` marks the function's body
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: a partial capture takes the callee's parameters
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: a then stage applies a capture to the piped value
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: a capture evaluates its body on each call
+T   made
+T   noisy 1
+T   noisy 1
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: a parameter outside a capture is an error
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: a pipe fills the first argument
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: captures do not nest
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: with no expected function type a capture has no type
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: `_` is a discard, not a capture's parameter
+T test result: ok. 14 passed, 0 failed
+T
 C 09-functions-and-control-flow/closures_and_lambdas_test.nomi
 E 0
 N 3
@@ -1488,6 +1528,69 @@ T ok <root>/tests/11-interfaces-and-impls/block_impl_diagnostics_test.nomi :: an
 T ok <root>/tests/11-interfaces-and-impls/block_impl_diagnostics_test.nomi :: a derive inside a lambda body is rejected
 T test result: ok. 2 passed, 0 failed
 T
+C 11-interfaces-and-impls/container_impls/container_impls_test.nomi
+E 0
+N 9
+H 389fa8ab306acee85895d8053321713c3831807adb6f4cd942e7802ce2bd5acf
+T ok <root>/tests/11-interfaces-and-impls/container_impls/container_impls_test.nomi :: an interface-qualified call reaches each container's impl
+T ok <root>/tests/11-interfaces-and-impls/container_impls/container_impls_test.nomi :: a generic interface implemented for a container at several type arguments
+T ok <root>/tests/11-interfaces-and-impls/container_impls/container_impls_test.nomi :: a type-qualified call
+T ok <root>/tests/11-interfaces-and-impls/container_impls/container_impls_test.nomi :: nested instances
+T ok <root>/tests/11-interfaces-and-impls/container_impls/container_impls_test.nomi :: an interface default the impl does not override
+T ok <root>/tests/11-interfaces-and-impls/container_impls/container_impls_test.nomi :: a call through a bound
+T ok <root>/tests/11-interfaces-and-impls/container_impls/container_impls_test.nomi :: a receiverless function, by turbofish, result type and bound
+T ok <root>/tests/11-interfaces-and-impls/container_impls/container_impls_test.nomi :: pipes, placeholders and lambdas
+T ok <root>/tests/11-interfaces-and-impls/container_impls/container_impls_test.nomi :: std's own impls for the containers are unchanged
+T test result: ok. 9 passed, 0 failed
+T
+C 11-interfaces-and-impls/container_impls/impls.nomi
+E 1
+N 0
+H a01620cb9cd27eedd318510dbbbe32a9441546b196568f745622078b942b9541
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/container_impls/impls.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/container_impls/protocols.nomi
+E 1
+N 0
+H 68e12310733f53c7a13650fba605203d747e7052f5503c2811423ed8587906b4
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/container_impls/protocols.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi
+E 0
+N 7
+H ca54e83bcc4aa6fb76374fa945b6299fdfec008b83600e17d12ec670ec30374e
+T ok <root>/tests/11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi :: an interface-qualified call reaches each file's impl
+T ok <root>/tests/11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi :: a type-qualified call reaches each file's impl
+T ok <root>/tests/11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi :: an interface default the impl does not override
+T ok <root>/tests/11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi :: a call through a bound
+T ok <root>/tests/11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi :: a value held as the interface dispatches at run time
+T ok <root>/tests/11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi :: a generic interface implemented in another file
+T ok <root>/tests/11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi :: an operator implemented in another file
+T test result: ok. 7 passed, 0 failed
+T
+C 11-interfaces-and-impls/cross_file_impls/impls.nomi
+E 1
+N 0
+H 54163f82797f22d6450c62655c987b962f0560f79d877bdffd0a33376b6abd35
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/cross_file_impls/impls.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/cross_file_impls/protocols.nomi
+E 1
+N 0
+H 8ec2dfd2e131103eac7126416221690c1d0e6a627133fb82350dd9dcb1068c6e
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/cross_file_impls/protocols.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/cross_file_impls/things.nomi
+E 1
+N 0
+H 90e32620e9cab1095fca9af2288b3fdc0aec17f875fd01662cf29153c5f541fc
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/cross_file_impls/things.nomi declares no `fn main`, so there is no program to run
+T
 C 11-interfaces-and-impls/impl_blocks_test.nomi
 E 0
 N 7
@@ -1624,6 +1727,18 @@ N 0
 H 5f7c12367be673f9cd6b123dfda2b6e85f10f5e77e8766c6c9a2aff89fb3fe70
 T --- stderr ---
 T nomi run: <root>/tests/11-interfaces-and-impls/module_qualified_impl_dispatch/users/teams.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/multiple_instantiations_test.nomi
+E 0
+N 6
+H 7964392b418036804408fcf61ceb9a486fa3670a737dbf23b0b49537b7aae6c1
+T ok <root>/tests/11-interfaces-and-impls/multiple_instantiations_test.nomi :: a call takes the impl its argument's type chooses
+T ok <root>/tests/11-interfaces-and-impls/multiple_instantiations_test.nomi :: a result-only type argument is chosen by the expected type
+T ok <root>/tests/11-interfaces-and-impls/multiple_instantiations_test.nomi :: a value held as an instantiation dispatches at its own arguments
+T ok <root>/tests/11-interfaces-and-impls/multiple_instantiations_test.nomi :: String contains a String, a Regex and a Codepoint
+T ok <root>/tests/11-interfaces-and-impls/multiple_instantiations_test.nomi :: an argument that does not choose an impl is an error
+T ok <root>/tests/11-interfaces-and-impls/multiple_instantiations_test.nomi :: a generic impl beside a concrete one overlaps
+T test result: ok. 6 passed, 0 failed
 T
 C 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi
 E 0

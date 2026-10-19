@@ -71,13 +71,13 @@ fn main() {
 	}{
 		{`_ = Iter.reduce(xs, Int.add)`, "11:23", "call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> Int.add(acc, x)`"},
 		{`_ = Iter.reduce(xs, fn a, b -> a + b)`, "11:23", "give the accumulator a starting value: `fn a = <start>, b -> ...`"},
-		{`_ = Iter.reduce(xs, add(_, _))`, "11:23", "pass a lambda whose accumulator has a starting value: `fn acc = <start>, x -> ...`"},
+		{`_ = Iter.reduce(xs, &add(&1, &2))`, "11:23", "pass a lambda whose accumulator has a starting value: `fn acc = <start>, x -> ...`"},
 		{`_ = xs |> Iter.reduce(Int.add)`, "11:25", "call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> Int.add(acc, x)`"},
 		{`_ = Iter.reduce(xs, add)`, "11:23", "call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> add(acc, x)`"},
-		{`g = Iter.reduce(_, add)
-  _ = g(xs)`, "11:22", "call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> add(acc, x)`"},
-		{`g = Iter.reduce(xs, _)
-  _ = g(add)`, "11:23", "pass the callback here, as a lambda whose accumulator has a starting value: `Iter.reduce(xs, fn acc = <start>, x -> ...)`"},
+		{`g = &Iter.reduce(&1, add)
+  _ = g(xs)`, "11:24", "call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> add(acc, x)`"},
+		{`g = &Iter.reduce(xs, &1)
+  _ = g(add)`, "11:24", "pass the callback here, as a lambda whose accumulator has a starting value: `Iter.reduce(xs, fn acc = <start>, x -> ...)`"},
 		{"_ = apply(Iter.reduce)\n  _ = xs", "11:13", "call it from a lambda with a seeded callback instead: `fn xs, f -> Iter.reduce(xs, fn acc = <start>, x -> f(acc, x))`"},
 	} {
 		err := checkSource(t, prelude+c.src+"\n}\n")

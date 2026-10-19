@@ -102,8 +102,8 @@ func TestLambda_BodyRunsPastAPipe(t *testing.T) {
 func TestThen_Errors(t *testing.T) {
 	for src, want := range map[string]string{
 		"x = then fn v -> v":            "`then` is a pipe stage: write `value |> then fn v -> ...`",
-		"x = 5 |> then f":               "`then` takes a lambda: write `then fn v -> ...`",
-		"x = 5 |> then":                 "`then` takes a lambda: write `then fn v -> ...`",
+		"x = 5 |> then f":               "`then` takes a lambda or a capture: write `then fn v -> ...` or `then &f(&1)`",
+		"x = 5 |> then":                 "`then` takes a lambda or a capture: write `then fn v -> ...` or `then &f(&1)`",
 		"x = 5 |> try then fn v -> v":   "`try` does not prefix a `then` stage: write `|> then fn v -> ...` and `|> try` as two stages",
 		"x = 5 |> if then fn v -> v {}": "`then` is a pipe stage",
 	} {

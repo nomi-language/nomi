@@ -5,6 +5,7 @@ import {
     codepoints.Codepoint
     comparable.Comparable
     comparable.Ordering.{self, Equal, Greater, Less}
+    contains.Contains
     debug.Debug
     display.Display
     equatable.Equatable
@@ -22,25 +23,50 @@ import {
 //# `reverse`, ...) and the grapheme-cluster iterator used to drive lazy `iter`
 //# pipelines over a `String`. Transform graphemes with `Iter.map(s, f) |>
 //# String.join()`; join any `Iter<String>` back into one string with `String.join`.
-//# The search functions (`contains?`, `starts_with?`, `ends_with?`, `replace`,
-//# `split`, `find`, `find_all`) take any `Matcher`: a `String` or a `Regex`.
+//# The search functions (`starts_with?`, `ends_with?`, `replace`, `split`,
+//# `find`, `find_all`) take any `Matcher`: a `String`, a `Regex` or a
+//# `Codepoint`. `contains?` takes the same three as String's `Contains` impls.
 
 /// UTF-8 encoded string.
 pub host type String
 
-impl String {
-    /// True if `needle` matches anywhere in `s`. `needle` is any `Matcher`: a
-    /// `String` matches its own text, a `Regex` its pattern.
-    //! import std/regex.Regex
-    //!
+// String's membership test is `Contains` at three type arguments: a `String`
+// occurs as a substring, a `Regex` matches anywhere, and a `Codepoint` occurs
+// in the text. Each is a linear search.
+impl Contains<String> for String {
+    /// True if `x` occurs in `c` as a substring. Every string holds `""`.
     //! assert String.contains?("hello world", "world")
     //! refute String.contains?("hello", "xyz")
-    //! assert String.contains?("order 66", Regex`\d+`)
+    //! assert String.contains?("hello", "")
     //
-    pub fn contains?<M>(s: String, needle: M) -> Bool where M: Matcher {
-        M.contained_in?(needle, s)
+    fn contains?(c: String, x: String) -> Bool {
+        String.contained_in?(x, c)
     }
+}
 
+impl Contains<Regex> for String {
+    /// True if `x` matches anywhere in `c`.
+    //! import std/regex.Regex
+    //!
+    //! assert String.contains?("order 66", Regex`\d+`)
+    //! refute String.contains?("room", Regex`\d+`)
+    //
+    fn contains?(c: String, x: Regex) -> Bool {
+        Regex.contained_in?(x, c)
+    }
+}
+
+impl Contains<Codepoint> for String {
+    /// True if `x` occurs in `c`.
+    //! assert String.contains?("a-b", '-')
+    //! refute String.contains?("ab", '-')
+    //
+    fn contains?(c: String, x: Codepoint) -> Bool {
+        Codepoint.contained_in?(x, c)
+    }
+}
+
+impl String {
     /// True if `prefix` matches at the start of `s`. `prefix` is a `String` or
     /// a `Regex`.
     //! import std/regex.Regex
@@ -387,6 +413,49 @@ impl Matcher for String {
         } else {
             None
         }
+    }
+}
+
+impl Matcher for Codepoint {
+    // A codepoint matches its own one-codepoint text, so each search is the
+    // String matcher's over `Codepoint.to_string(cp)`. Declared here rather
+    // than in std/codepoints so the String host functions are this module's.
+    //! e_acute = try Codepoint.from_int(0xE9)
+    //! assert String.contains?("café", e_acute)
+    //! refute String.contains?("cafe", e_acute)
+    //! assert String.split("a,b", ',') == ["a", "b"]
+    //! assert String.starts_with?("#tag", '#')
+    //! assert String.ends_with?("done.", '.')
+    //! assert String.replace("a-b-c", '-', "+") == "a+b+c"
+    //! assert String.find("x=1", '=') == Some("=")
+    //! assert String.find_all("a,b,c", ',') == [",", ","]
+    //
+    fn contained_in?(cp: Codepoint, text: String) -> Bool {
+        String.contained_in?(Codepoint.to_string(cp), text)
+    }
+
+    fn prefix_of?(cp: Codepoint, text: String) -> Bool {
+        String.prefix_of?(Codepoint.to_string(cp), text)
+    }
+
+    fn suffix_of?(cp: Codepoint, text: String) -> Bool {
+        String.suffix_of?(Codepoint.to_string(cp), text)
+    }
+
+    fn split_in(cp: Codepoint, text: String) -> List<String> {
+        String.split_in(Codepoint.to_string(cp), text)
+    }
+
+    fn replace_in(cp: Codepoint, text: String, replacement: String) -> String {
+        String.replace_in(Codepoint.to_string(cp), text, replacement)
+    }
+
+    fn find_all_in(cp: Codepoint, text: String) -> List<String> {
+        String.find_all_in(Codepoint.to_string(cp), text)
+    }
+
+    fn find_in(cp: Codepoint, text: String) -> Maybe<String> {
+        String.find_in(Codepoint.to_string(cp), text)
     }
 }
 

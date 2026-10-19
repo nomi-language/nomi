@@ -10,7 +10,7 @@ func TestIRRange_InAStructWithAFunctionMapFieldRuns(t *testing.T) {
 struct Point { x: Int }
 struct Outer {
   p: List<Point>
-  hooks: Map<String, (Int) -> Int> = Map.empty()
+  hooks: Map<String, (Int) -> Int> = %{}
 }
 fn main() { r = 1..5 io.inspect(#Outer{p: [#Point{x: if Range.contains?(r, 3) { 1 } else { 0 }}]}) }
 `, "#Outer{p: [#Point{x: 1}], hooks: %{}}\n")

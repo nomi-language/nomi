@@ -1125,7 +1125,7 @@ func (bl *irScalarBuilder) recordCallSlots(args []ast.Node, plan argPlan, names 
 		slot := i
 		if i == len(positional)-1 && i != len(params)-1 && len(positional) <= len(params) {
 			switch arg.(type) {
-			case *ast.Lambda, *ast.Block, *ast.FieldAccessor:
+			case *ast.Lambda, *ast.Block, *ast.FieldAccessor, *ast.Capture:
 				slot = len(params) - 1
 			}
 		}

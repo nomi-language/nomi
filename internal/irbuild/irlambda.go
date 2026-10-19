@@ -35,10 +35,10 @@ type irLambdaGroup struct {
 	suppliers []ir.Temp
 	// order is the parameters in the order a call fills the ones it omits,
 	// nil for their own order. A supplier takes the parameters before its
-	// slot in this order (before). A partial application's lambda takes its
-	// placeholders in written order but fills them in the callee's order,
-	// since a callee's default reads the callee's earlier parameters:
-	// `span(b: _, _)` over `fn span(a: Int, b: Int = a * 2)` is `#(b, a)`,
+	// slot in this order (before). A partial capture's lambda takes its
+	// `&N`s in written order but fills them in the callee's order, since a
+	// callee's default reads the callee's earlier parameters:
+	// `&span(b: &1, &2)` over `fn span(a: Int, b: Int = a * 2)` is `#(b, a)`,
 	// and b's supplier takes a.
 	order []int
 }

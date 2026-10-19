@@ -25,13 +25,13 @@ func TestCheckTupleStateDestructureNoAnnotation(t *testing.T) {
 }
 
 // Inline binding annotation drives polymorphic inference. Without the
-// annotation, `Map.empty()` would yield `Map<?α, ?β>`. With the declared
+// annotation, `%{}` would yield `Map<?α, ?β>`. With the declared
 // type, the binding resolves to a concrete `Map<String, Int>` so hover
 // (and downstream uses) see the user's written shape.
 //
 // Three independent assertions witness the production behavior:
 //
-//  1. Control: WITHOUT an annotation, `Map.empty()`'s RHS leaves the
+//  1. Control: WITHOUT an annotation, `%{}`'s RHS leaves the
 //     polymorphic Map<K, V> as `Map<?α, ?β>` — the symbol's Type is a
 //     *MapType whose Key/Val are unresolved *TypeVars. This pins down the
 //     baseline (no bidirectional driver) so the contrast with case (2) is
@@ -49,11 +49,11 @@ func TestCheckTupleStateDestructureNoAnnotation(t *testing.T) {
 //     makes this case silently pass type-checking, failing this assertion.
 //     This is the tight witness that unify actually fires on the RHS.
 func TestCheckBinding_AnnotationDrivesInference(t *testing.T) {
-	// (1) Control: no annotation on a wholly-unresolved RHS (Map.empty() →
+	// (1) Control: no annotation on a wholly-unresolved RHS (%{} →
 	// Map<?, ?>) is now rejected by the locally-determined-binding rule —
 	// which is exactly what makes the annotation in (2) necessary.
 	control := `fn main() {
-  m = Map.empty()
+  m = %{}
 }`
 	_, ctrlErrs := checkSourceWithStdlib(control)
 	foundLD := false
@@ -63,12 +63,12 @@ func TestCheckBinding_AnnotationDrivesInference(t *testing.T) {
 		}
 	}
 	if !foundLD {
-		t.Fatalf("control: expected a 'not locally determined' error for unannotated `m = Map.empty()`, got: %v", ctrlErrs)
+		t.Fatalf("control: expected a 'not locally determined' error for unannotated `m = %%{}`, got: %v", ctrlErrs)
 	}
 
 	// (2) Positive: annotation present → m.Type is Map<String, Int>.
 	positive := `fn main() {
-  m: Map<String, Int> = Map.empty()
+  m: Map<String, Int> = %{}
 }`
 	faPos, errs := checkSourceWithStdlib(positive)
 	expectNoStdlibErrors(t, errs)
@@ -155,7 +155,7 @@ func TestCheckBinding_VariantConstructorAnnotation(t *testing.T) {
 // Without walking the annotation, none of those positions resolve.
 func TestCheckBinding_AnnotationGenericArgsAreReferenced(t *testing.T) {
 	src := `fn main() {
-  m: Map<String, Int> = Map.empty()
+  m: Map<String, Int> = %{}
 }`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
@@ -193,12 +193,12 @@ func findBindingSymbol(t *testing.T, fa *analysis.FileAnalysis, name string) *an
 	return nil
 }
 
-// Empty Map default via `Map.empty()` should similarly type-check without
+// Empty Map default via `%{}` should similarly type-check without
 // an annotation. The body's `Map.put(...)` references constrain K and V
 // once unification has a real placeholder to bind.
 func TestCheckMapAccumulatorNoAnnotation(t *testing.T) {
 	src := `fn f(pairs: List<#(String, Int)>) -> Map<String, Int> {
-  Iter.reduce(pairs, fn acc = Map.empty(), #(k, v) -> Map.put(acc, k, v))
+  Iter.reduce(pairs, fn acc = %{}, #(k, v) -> Map.put(acc, k, v))
 }`
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)

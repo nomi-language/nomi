@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// TestVM_PartialQualified runs `_` partial application over callees the
+// TestVM_PartialQualified runs `&1` partial application over callees the
 // builder reads off the checker's instantiated signature: an
 // interface-qualified call on a local and on an app field, an owner-qualified
 // call, a generic function and a stdlib owner function. The checker used to
@@ -51,12 +51,12 @@ fn pick<T>(c: Bool, a: T, b: T) -> T {
 
 fn main() {
     n = Iter.count({
-        q = pick(True, _, [Ok(1)])
+        q = &pick(True, &1, [Ok(1)])
         q([Ok<Int, String>(2), Ok(3)])
     })
     io.inspect(n)
     m = Iter.count({
-        q = pick(False, _, [Ok(1)])
+        q = &pick(False, &1, [Ok(1)])
         q([Ok<Int, String>(2), Ok(3)])
     })
     io.inspect(m)

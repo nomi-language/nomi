@@ -81,6 +81,9 @@ func mark(n ast.Node, tail bool) {
 		mark(x.Expr, tail)
 	case *ast.GroupedExpr:
 		mark(x.Expr, tail)
+	case *ast.Capture:
+		// The value is the function, not its expression's.
+		mark(x.Body, false)
 	case *ast.Binding:
 		// Binding evaluates to Unit; its RHS is never tail.
 		mark(x.Value, false)
@@ -200,9 +203,9 @@ func mark(n ast.Node, tail bool) {
 	case *ast.Dbg:
 		mark(x.Expr, false)
 	case *ast.Then:
-		mark(x.Lambda, false)
+		mark(x.Fn(), false)
 	case *ast.Tap:
-		mark(x.Lambda, false)
+		mark(x.Fn(), false)
 	case *ast.Return:
 		// `return expr` always exits the enclosing function, so expr is in
 		// tail position regardless of whether the surrounding context was.

@@ -112,11 +112,11 @@ func TestDiagnosticShape(t *testing.T) {
 			hints:   []string{"prefix it with '_' if the value is intentionally ignored"},
 		},
 		{
-			name:    "placeholder as a value",
+			name:    "discard read as a value",
 			src:     "fn f() -> Int {\n  x = _\n  x\n}\n",
-			message: "`_` has no value here",
+			message: "`_` is a discard name, not a value",
 			span:    "2:7-2:8",
-			hints:   []string{"`_` stands for a missing argument only in a call, as in add(1, _)"},
+			hints:   []string{"a capture's parameter is written `&1`, as in `Iter.map(xs, &(&1 * 2))`"},
 		},
 		{
 			name:    "then stage boundary",

@@ -136,9 +136,13 @@ func irDeclineAside(build func()) {
 	fn, seen, path, cur, bodyWhy, why, line, col := irDeclineFn, irDeclineSeen, irDeclinePath, irDeclineCur, irDeclineBodyWhy, irDeclineWhy, irDeclineLine, irDeclineCol
 	observed, at := IRDeclineObserved, IRDeclineAt
 	IRDeclineObserved, IRDeclineAt = nil, nil
+	// What build declines abandons none of the attempt's expressions.
+	failures, open := irLowerFailures, irLowerOpen
+	irLowerOpen = nil
 	defer func() {
 		irDeclineFn, irDeclineSeen, irDeclinePath, irDeclineCur, irDeclineBodyWhy, irDeclineWhy, irDeclineLine, irDeclineCol = fn, seen, path, cur, bodyWhy, why, line, col
 		IRDeclineObserved, IRDeclineAt = observed, at
+		irLowerFailures, irLowerOpen = failures, open
 	}()
 	build()
 }
@@ -228,6 +232,15 @@ func (bl *irScalarBuilder) lower(n ast.Node) (ir.Temp, kind, bool, bool) {
 // lowerExact is lower without retyping a value of Infallible: the operand of
 // a construct that never runs because of it (irnever.go's neverOperand).
 func (bl *irScalarBuilder) lowerExact(n ast.Node) (ir.Temp, kind, bool, bool) {
+	n = bl.g.holeRead(n)
+	if irLowerAbandoned() {
+		// An operand of an enclosing expression already declined, so that
+		// expression declines too; another route to it (a constructor
+		// retried as a call of its function value) would append to the
+		// blocks the abandoned operand left, which it may have terminated.
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	defer irLowerFrame()()
 	planted := plantedDeclineAt(n)
 	t, k := ir.NoTemp, kindInvalid
 	var m, ok, handled bool
@@ -236,6 +249,14 @@ func (bl *irScalarBuilder) lowerExact(n ast.Node) (ir.Temp, kind, bool, bool) {
 		if !handled {
 			t, k, m, ok = bl.lowerNode(n)
 		}
+	}
+	if ok && irLowerFailures != irLowerOpen[len(irLowerOpen)-1] {
+		// Something inside n declined, and n answered anyway by another
+		// route: the declined operand's IR is still in n's blocks.
+		ok = false
+	}
+	if !ok {
+		irLowerFailures++
 	}
 	if ok {
 		bl.g.irTypeTemp(bl.f, t, k)
@@ -261,6 +282,30 @@ func (bl *irScalarBuilder) lowerExact(n ast.Node) (ir.Temp, kind, bool, bool) {
 		}
 	}
 	return t, k, m, ok
+}
+
+// irLowerFailures counts the expressions that declined, and irLowerOpen
+// holds its value as each expression being lowered began (`lowerExact`,
+// `lowerTypedOperand`). An expression one of whose operands declined
+// declines without lowering anything more (irLowerAbandoned): the operand
+// may have left a partial region behind, a terminated block among it, and
+// a second route to the expression would build on it.
+var (
+	irLowerFailures int
+	irLowerOpen     []int
+)
+
+// irLowerFrame opens an expression whose routes irLowerAbandoned answers
+// for; the caller defers the function it returns.
+func irLowerFrame() (end func()) {
+	irLowerOpen = append(irLowerOpen, irLowerFailures)
+	return func() { irLowerOpen = irLowerOpen[:len(irLowerOpen)-1] }
+}
+
+// irLowerAbandoned reports whether the innermost expression being lowered
+// has had an operand decline.
+func irLowerAbandoned() bool {
+	return len(irLowerOpen) > 0 && irLowerFailures != irLowerOpen[len(irLowerOpen)-1]
 }
 
 // irDeclineAtNode places the open attempt's decline at n when nothing

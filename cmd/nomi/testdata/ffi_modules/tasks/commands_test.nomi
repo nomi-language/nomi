@@ -27,7 +27,7 @@ struct FakeStore {
 
 impl Store for FakeStore {
     fn load(_store: FakeStore) -> Result<Map<Int, Task>, String> {
-        Ok(Map.empty())
+        Ok(%{})
     }
 
     fn save(store: FakeStore, task: Task) -> Result<Unit, String> {
@@ -51,7 +51,7 @@ fn outcome(store: FakeStore) -> Result<Unit, String> {
 /// Runs each line in turn, starting from no tasks, and returns the tasks and
 /// the lines the last command showed.
 fn run_lines(lines: List<String>) -> Result<#(Map<Int, Task>, List<String>), String> {
-    Iter.reduce(lines, fn state = Ok(#(Map.empty(), [])), line -> {
+    Iter.reduce(lines, fn state = Ok(#(%{}, [])), line -> {
         #(tasks, _shown) = try state
         command = try commands.parse(line)
         commands.run(command, tasks, #FakeStore{}, #FixedClock{at: noon})
@@ -90,7 +90,7 @@ test "an unknown id is an error" {
 
 test "a failed save is an error" {
     store = #FakeStore{error: Some("disk full")}
-    result = commands.run(#Command.Add{title: "a"}, Map.empty(), store, #FixedClock{at: noon})
+    result = commands.run(#Command.Add{title: "a"}, %{}, store, #FixedClock{at: noon})
 
     assert result == Err("disk full")
 }

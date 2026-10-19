@@ -360,7 +360,7 @@ fn parse(text: String) -> Result<Int, String> {
 }
 
 fn total(inputs: List<String>) -> Result<Int, String> {
-    numbers = inputs |> Iter.map(fn s -> parse(s)) |> try Result.collect()
+    numbers = inputs |> Iter.map(&parse(&1)) |> try Result.collect()
 
     Ok(Iter.sum(numbers))
 }
@@ -368,7 +368,7 @@ fn total(inputs: List<String>) -> Result<Int, String> {
 fn main() {
     dbg total(["1", "2", "3"])
     dbg total(["1", "x", "y"])
-    #(numbers, errors) = ["1", "x", "y"] |> Iter.map(fn s -> parse(s)) |> Result.partition()
+    #(numbers, errors) = ["1", "x", "y"] |> Iter.map(&parse(&1)) |> Result.partition()
 
     dbg numbers
     dbg errors

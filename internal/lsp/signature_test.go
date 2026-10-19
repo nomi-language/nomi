@@ -54,7 +54,7 @@ func checkSignatureFile(t *testing.T, path string) {
 	// single-file path needs an explicit stdlib ProjectImpls so the
 	// unifier sees Int/String/Map/etc.'s stdlib impls; without it
 	// generic inference through stdlib types breaks (e.g. a `#(k, v)`
-	// destructure on `Iter.reduce(..., Map.empty(), ...)` where K and
+	// destructure on `Iter.reduce(..., %{}, ...)` where K and
 	// V are pinned by `Map.iter`'s `Iter<#(K, V)>` impl).
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
 	_ = analysis.BuildTypes(fa, nodes)

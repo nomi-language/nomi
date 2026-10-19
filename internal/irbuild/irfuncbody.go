@@ -426,6 +426,8 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return bl.lambda(t)
 	case *ast.FieldAccessor:
 		return bl.fieldAccessor(t)
+	case *ast.Capture:
+		return bl.captureFunc(t)
 	case *ast.ConcurrentBlock:
 		return bl.concurrent(t)
 
@@ -596,15 +598,6 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return bl.fieldRead(t)
 
 	case *ast.Call:
-		if hasPlaceholder(t.Args) {
-			return bl.partialApplication(t)
-		}
-		if dst, k, mobile, ok := bl.emptyMap(t); ok {
-			return dst, k, mobile, true
-		}
-		if dst, k, mobile, ok := bl.emptyCollection(t); ok {
-			return dst, k, mobile, true
-		}
 		if dst, k, mobile, ok := bl.preludeCall(t); ok {
 			return dst, k, mobile, true
 		}

@@ -26,7 +26,7 @@ test "concrete annotations assert the inferred type" {
 }
 
 test "annotations drive otherwise-unconstrained generic inference" {
-    ages: Map<String, Int> = Map.empty()
+    ages: Map<String, Int> = %{}
     scores: List<Int> = []
     buckets: List<Map<String, Int>> = []
 
@@ -36,7 +36,7 @@ test "annotations drive otherwise-unconstrained generic inference" {
 }
 
 test "function annotations drive lambda parameter types" {
-    add_one: (Int) -> Int = fn x -> x + 1
+    add_one: (Int) -> Int = &(&1 + 1)
 
     assert add_one(41) == 42
 }

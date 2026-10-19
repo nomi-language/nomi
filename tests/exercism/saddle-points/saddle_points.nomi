@@ -29,7 +29,7 @@ fn column_minima(matrix: Vector<Vector<Int>>) -> Vector<Int> {
     width = matrix |> Iter.first() |> Maybe.map(Vector.length) |> Maybe.with_default(0)
 
     0..width
-    |> Iter.map(fn column -> column_minimum(matrix, column))
+    |> Iter.map(&column_minimum(matrix, &1))
     |> Maybe.collect()
     |> Maybe.with_default([])
     |> Iter.to_vector()
@@ -37,6 +37,6 @@ fn column_minima(matrix: Vector<Vector<Int>>) -> Vector<Int> {
 
 fn column_minimum(matrix: Vector<Vector<Int>>, column: Int) -> Maybe<Int> {
     matrix
-    |> Iter.map(fn cells -> Vector.at(cells, column))
+    |> Iter.map(&Vector.at(&1, column))
     |> Iter.min()
 }

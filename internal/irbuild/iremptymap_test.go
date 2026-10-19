@@ -8,7 +8,7 @@ import (
 func TestIREmptyMap_ASetValueRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
-  m: Map<String, Set<Int>> = Map.empty<String, Set<Int>>()
+  m: Map<String, Set<Int>> = %{}
   io.print(Map.size(m))
   n = Map.put(m, "k", %[1, 2])
   io.print(Map.get(n, "k") == Some(%[2, 1]))
@@ -16,15 +16,15 @@ fn main() {
 `, "0\nTrue\n")
 }
 
-func TestIREmptyMap_AnnotationsAndTypeArguments(t *testing.T) {
+func TestIREmptyMap_AnnotationsAndReturnTypes(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn empty() -> Map<String, Int> { Map.empty() }
+fn empty() -> Map<String, Int> { %{} }
 fn main() {
-  scores: Map<String, Int> = Map.empty()
+  scores: Map<String, Int> = %{}
   io.print(Map.size(scores))
-  Map.empty<String, Int>() |> Map.size() |> io.print()
+  empty() |> Map.size() |> io.print()
   io.print(Map.size(empty()))
-  one = Map.put(Map.empty(), "a", 1)
+  one = Map.put(%{}, "a", 1)
   io.inspect(Map.get(one, "a"))
 }
 `, "0\n0\n0\nSome(1)\n")
@@ -36,7 +36,7 @@ fn size(m: Map<String, Int>) -> Int { Map.size(m) }
 fn take(m: Map<String, Int>, n: Int) -> Int { Map.size(m) + n }
 fn mark() -> Int { io.print("mark") 1 }
 fn main() {
-  empty = fn -> { io.print("empty") Map.empty() }
+  empty = fn -> { io.print("empty") %{} }
   io.print(size(empty()))
   io.print(take(empty(), mark()))
   bound: Map<String, Int> = empty()
@@ -49,20 +49,20 @@ fn main() {
 
 func TestIREmptyMap_EffectsAndContext(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn empty() -> Map<String, Int> { io.print("empty") Map.empty() }
-fn size(m: Map<String, Int> = Map.empty()) -> Int { Map.size(m) }
+fn empty() -> Map<String, Int> { io.print("empty") %{} }
+fn size(m: Map<String, Int> = %{}) -> Int { Map.size(m) }
 fn choose(b: Bool) -> Map<String, Int> {
-  if b { Map.empty() } else { %{"a" => 1} }
+  if b { %{} } else { %{"a" => 1} }
 }
 fn main() {
   m: Map<String, Int> = empty()
   io.print(Map.size(m))
   io.print(size())
-  io.print(size(Map.empty()))
+  io.print(size(%{}))
   io.print(Map.size(choose(True)))
   io.print(Map.size(choose(False)))
   get = fn m: Map<String, Int> -> Map.get(m, "a")
-  io.inspect(get(Map.empty()))
+  io.inspect(get(%{}))
 }
 `, "empty\n0\n0\n0\n0\n1\nNone\n")
 }

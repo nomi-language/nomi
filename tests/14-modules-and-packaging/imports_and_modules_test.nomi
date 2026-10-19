@@ -1,6 +1,6 @@
 import {
     std/maybe.Maybe.{None as Nothing, Some as Just}
-    std/strings.String.{contains? as has, length as len}
+    std/strings.String.{length as len, starts_with? as has}
 }
 
 once default_greeting: String = "Hello"
@@ -68,7 +68,7 @@ test "import aliases rename modules functions and variant constructors" {
     assert Just(7) == Some(7)
     assert Nothing == None
     assert len("nomi") == 4
-    assert has("nomi", "om")
+    assert has("nomi", "no")
 }
 
 test "inline visibility keeps private helpers usable within the file" {

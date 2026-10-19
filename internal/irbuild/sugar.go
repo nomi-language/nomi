@@ -270,7 +270,7 @@ func argSlotPlan(args []ast.Node, params []kind, names []string) (argPlan, bool)
 		if lastSlot != lastParam && !filled[lastParam] {
 			routed := false
 			switch args[lastWritten].(type) {
-			case *ast.Lambda, *ast.Block, *ast.FieldAccessor:
+			case *ast.Lambda, *ast.Block, *ast.FieldAccessor, *ast.Capture:
 				routed = true
 			case *ast.Ident:
 				// The SLOT the argument currently occupies decides, not its

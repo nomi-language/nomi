@@ -29,6 +29,7 @@ var stdlibInventory = []stdModuleRow{
 	// std/compiler's host fns are the analyzer, the VM runner and the LSP
 	// hover renderer; internal/compilerhosts answers them.
 	{module: "compiler", permanent: true},
+	{module: "contains"},
 	{module: "context"},
 	{module: "debug"},
 	{module: "decimal"},

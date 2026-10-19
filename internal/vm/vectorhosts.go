@@ -77,3 +77,18 @@ func vectorHost(key string) hostFn {
 		}
 	}
 }
+
+// vectorContainsHost is `Vector.contains?`: rt's scan of the vector's window
+// comparing each element with x as `==` does (keys.go), as listContainsHost
+// walks a List.
+func vectorContainsHost(mach *Machine, _ ir.Pos, args []any) (_ any, err error) {
+	defer recoverKey(&err)
+	if len(args) != 2 {
+		return nil, fmt.Errorf("vm: Vector.contains?: expected 2 operands, got %d", len(args))
+	}
+	vec, ok := args[0].(rt.Vector[any])
+	if !ok {
+		return nil, fmt.Errorf("vm: Vector.contains?: operand 1 is %T, want Vector", args[0])
+	}
+	return rt.VectorContains(vec, args[1], mach.keysOver(nil, args[1]).EqualFunc()), nil
+}

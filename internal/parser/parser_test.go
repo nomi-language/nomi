@@ -664,7 +664,7 @@ func TestBinding_WithTypeAnnotation(t *testing.T) {
 }
 
 func TestBinding_WithGenericTypeAnnotation(t *testing.T) {
-	src := `m: Map<String, Int> = Map.empty()`
+	src := `m: Map<String, Int> = %{}`
 	tokens := lexer.Lex(src)
 	nodes, errs := ParseWithRecovery(tokens)
 	if len(errs) != 0 {
@@ -2056,14 +2056,19 @@ func TestParsePipeBindsTighterThanEquality(t *testing.T) {
 	}
 }
 
-// --- Placeholder ---
+// --- Captures ---
 
 func TestParsePlaceholder(t *testing.T) {
-	// "add(1, _)" → Call{Ident{"add"}, [IntLit{1}, Placeholder{}]}
-	expr := parseExpr(t, "add(1, _)")
-	call, ok := expr.(*ast.Call)
+	// "&add(1, &1)" → Capture{Call{Ident{"add"}, [IntLit{1}, Placeholder{1}]}}:
+	// a partial capture, whose `&1` is its call's open argument.
+	expr := parseExpr(t, "&add(1, &1)")
+	capture, ok := expr.(*ast.Capture)
 	if !ok {
-		t.Fatalf("expected *ast.Call, got %T", expr)
+		t.Fatalf("expected *ast.Capture, got %T", expr)
+	}
+	call, ok := capture.Body.(*ast.Call)
+	if !ok || capture.PartialCall() != call {
+		t.Fatalf("expected a partial capture of a call, got %T", capture.Body)
 	}
 	fn, ok := call.Func.(*ast.Ident)
 	if !ok || fn.Name != "add" {
@@ -2206,8 +2211,8 @@ func TestParseEmptySetLiteral(t *testing.T) {
 }
 
 func TestParsePipePlaceholder(t *testing.T) {
-	// "10 |> divide(100, _)" → Binary{IntLit{10}, "|>", Call{Ident{"divide"}, [IntLit{100}, Placeholder{}]}}
-	expr := parseExpr(t, "10 |> divide(100, _)")
+	// "10 |> then &divide(100, &1)" → Binary{IntLit{10}, "|>", Then{Capture{Call{Ident{"divide"}, [IntLit{100}, Placeholder{1}]}}}}
+	expr := parseExpr(t, "10 |> then &divide(100, &1)")
 	bin, ok := expr.(*ast.Binary)
 	if !ok {
 		t.Fatalf("expected *ast.Binary, got %T", expr)
@@ -2219,9 +2224,13 @@ func TestParsePipePlaceholder(t *testing.T) {
 	if !ok || left.Value != 10 {
 		t.Errorf("expected left IntLit{10}, got %T %v", bin.Left, bin.Left)
 	}
-	call, ok := bin.Right.(*ast.Call)
+	then, ok := bin.Right.(*ast.Then)
+	if !ok || then.Capture == nil || then.Lambda != nil {
+		t.Fatalf("expected right *ast.Then applying a capture, got %T", bin.Right)
+	}
+	call, ok := then.Capture.Body.(*ast.Call)
 	if !ok {
-		t.Fatalf("expected right *ast.Call, got %T", bin.Right)
+		t.Fatalf("expected the capture's body *ast.Call, got %T", then.Capture.Body)
 	}
 	fn, ok := call.Func.(*ast.Ident)
 	if !ok || fn.Name != "divide" {

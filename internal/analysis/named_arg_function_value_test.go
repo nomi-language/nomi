@@ -43,9 +43,9 @@ func TestNamedArgThroughFunctionValue_IsAnError(t *testing.T) {
 }`, "port: 1"},
 		{"struct field, named placeholder", `fn main() {
   holder = #Holder{f: connect}
-  x = holder.f(port: _, host: "h")
+  x = &holder.f(port: &1, host: "h")
   _ = x
-}`, "port: _"},
+}`, "port: &1"},
 		{"struct field, pipe", `fn main() {
   holder = #Holder{f: connect}
   x = "h" |> holder.f(port: 1)
@@ -58,7 +58,7 @@ fn main() {
   _ = through(connect)
 }`, "port: 1"},
 		{"parameter, named placeholder", `fn through(g: (String, Int) -> String) -> (String) -> String {
-  g(port: 1, host: _)
+  &g(port: 1, host: &1)
 }
 fn main() {
   _ = through(connect)
@@ -146,9 +146,9 @@ func TestNamedArgThroughFunctionValue_DeclaredCalleesKeepNames(t *testing.T) {
   a: String = connect(port: 1, host: "h")
   f = fn host: String, port: Int -> if port > 0 { host } else { "" }
   b: String = f(port: 1, host: "h")
-  c = connect(_, port: _)
+  c = &connect(&1, port: &2)
   d: String = c(port: 1, host: "h")
-  e: String = c(port: _, host: "h")(9)
+  e: String = (&c(port: &1, host: "h"))(9)
   holder = #Holder{f: connect}
   g: String = holder.f("h", 1)
   _ = #(a, b, d, e, g)

@@ -414,6 +414,14 @@
           "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
         },
         {
+          "name": "variable.parameter.placeholder.nomi",
+          "match": "&[1-9][0-9]*"
+        },
+        {
+          "name": "keyword.other.capture.nomi",
+          "match": "&(?=[(\\[#%.A-Za-z])"
+        },
+        {
           "name": "comment.discard.nomi",
           "match": "\\b_(?!_)[a-zA-Z0-9_]*\\??"
         },

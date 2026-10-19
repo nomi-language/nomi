@@ -612,15 +612,12 @@ You still sometimes need `derive Equatable` or `derive Hashable`, for one of
 two reasons.
 
 The first is generic bounds. A function with `where T: Equatable` accepts only
-types that implement `Equatable`. Built-in `==` doesn't count. Without the
-derive, this call is a compile error:
+types that implement `Equatable`. Built-in `==` doesn't count. `List`'s
+`contains?` is one: `impl Contains for List<T> where T: Equatable`. Without
+the derive, this call is a compile error:
 
 ```nomi
-fn contains<T>(xs: List<T>, needle: T) -> Bool where T: Equatable {
-    Iter.any?(xs, fn x -> x == needle)
-}
-
-contains([#Point{x: 1, y: 2}], #Point{x: 1, y: 2})
+List.contains?([#Point{x: 1, y: 2}], #Point{x: 1, y: 2})
 // error: Point does not implement Equatable (required by `where T: Equatable`)
 ```
 
@@ -784,6 +781,14 @@ A type can implement an interface only once in a whole program. Two
 `impl Display for User { ... }` blocks anywhere in the program are a compile
 error, reported before anything runs.
 
+A generic interface is the one exception: a type may implement it once at
+each set of type arguments. `String` implements `Contains<String>`,
+`Contains<Regex>` and `Contains<Codepoint>`, and each call takes the impl its
+argument's type chooses, so `String.contains?(s, "x")` and
+`String.contains?(s, '-')` call different impls. Each such impl writes its
+type arguments in its header, and a generic impl such as
+`impl Holds<T> for Wrap<T>` must stand alone.
+
 Two types with the same name in different files are different types. So a
 `Display` impl for one file's `Date` doesn't clash with a `Display` impl for
 another file's `Date`.
@@ -797,7 +802,8 @@ module that declares either `Iface` or `T`. Code that declares neither can't
 write the impl.
 
 A Nomi module is the directory tree that holds its `nomi.toml` and `go.mod`.
-To implement someone else's interface for someone else's type, wrap the type
+A program with no `nomi.toml`, such as a lone script, is a module of its own,
+so it can't write `impl Display for Int` either. To implement someone else's interface for someone else's type, wrap the type
 in your own. Declare `type MyId Int` in your module, and then
 `impl Display for MyId { ... }` is allowed, because `MyId` is yours.
 

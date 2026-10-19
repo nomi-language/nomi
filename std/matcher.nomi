@@ -6,12 +6,13 @@ import {
 }
 
 //# The `Matcher` interface: what `String.split`, `String.replace`,
-//# `String.contains?`, `String.starts_with?`, `String.ends_with?`,
-//# `String.find` and `String.find_all` accept as the thing to look for. A
-//# `String` matches its own text and a `Regex` matches its pattern.
+//# `String.starts_with?`, `String.ends_with?`, `String.find` and
+//# `String.find_all` accept as the thing to look for. A `String` matches its
+//# own text, a `Regex` matches its pattern, and a `Codepoint` matches itself.
+//# `String.contains?` takes the same three, as String's `Contains` impls.
 
-/// Something to look for in a string. `String` and `Regex` implement it, so
-/// the String search functions take either:
+/// Something to look for in a string. `String`, `Regex` and `Codepoint`
+/// implement it, so the String search functions take any of them:
 ///
 /// ```nomi
 /// String.split("a,b", ",")                     // ["a", "b"]

@@ -273,6 +273,7 @@ func implWhereNamesTemplateParams(ib *ast.ImplBlock, tpl *genericTemplate) bool 
 // front end is acceptable rather than merely convenient.
 func (g *gen) registerInstanceImpls(tpl *genericTemplate, d *typeDef, args []kind) (string, string) {
 	if len(tpl.impls) == 0 {
+		tpl.registerSiblingInstances(d)
 		return "", ""
 	}
 	recv := named(d)
@@ -300,6 +301,7 @@ func (g *gen) registerInstanceImpls(tpl *genericTemplate, d *typeDef, args []kin
 		g.genericImplQueue = append(g.genericImplQueue,
 			&genericImplInst{impl: id, tpl: tpl, args: args})
 	}
+	tpl.registerSiblingInstances(d)
 	return "", ""
 }
 
@@ -495,10 +497,24 @@ func (g *gen) implsOf(k kind) []*implDef {
 	}
 	var out []*implDef
 	for _, it := range k.def.genericOf.impls {
+		found := false
 		for _, byRecv := range g.implsByIface {
 			if d := byRecv[k]; d != nil && d.decl == it.decl {
 				out = append(out, d)
+				found = true
 				break
+			}
+		}
+		if found {
+			continue
+		}
+		// One of the instance's impls of a generic interface at several
+		// type arguments (instimpl.go).
+		for _, byRecv := range g.instImpls {
+			for _, d := range byRecv[k] {
+				if d.decl == it.decl {
+					out = append(out, d)
+				}
 			}
 		}
 	}

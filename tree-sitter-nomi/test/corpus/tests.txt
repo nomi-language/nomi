@@ -94,7 +94,7 @@ Setup expression bound by a tuple pattern and a name
 ================================================================================
 
 group "env" {
-  boot boot(#Startup{env: Map.empty(), args: []})
+  boot boot(#Startup{env: %{}, args: []})
   setup #(#Env{mode: "test"}, 2)
 
   test "tuple", #(env, n) {
@@ -119,10 +119,7 @@ group "env" {
           (struct_construction
             (type_identifier)
             (identifier)
-            (call_expression
-              (field_access
-                (type_identifier)
-                (identifier)))
+            (map_construction)
             (identifier)
             (list))))
       (setup_block

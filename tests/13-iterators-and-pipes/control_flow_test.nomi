@@ -98,11 +98,11 @@ test "filter supports break values" {
 test "find returns Maybe values" {
     found =
         [1, 2, 3, 4, 5]
-        |> Iter.find(fn x -> x == 3)
+        |> Iter.find(&(&1 == 3))
 
     not_found =
         [1, 2, 3]
-        |> Iter.find(fn x -> x > 10)
+        |> Iter.find(&(&1 > 10))
 
     assert found == Some(3)
     assert not_found == None

@@ -1,0 +1,83 @@
+// Impls for std containers, in a file apart from the interfaces.
+import protocols.{Holds, Show, Zero}
+
+impl Show for List<T> where T: Show {
+    fn show(xs: List<T>) -> String {
+        "[" + (xs |> Iter.map(&T.show(&1)) |> String.join(" ")) + "]"
+    }
+}
+
+impl Show for Vector<T> where T: Show {
+    fn show(v: Vector<T>) -> String {
+        "#[" + (v |> Iter.map(&T.show(&1)) |> String.join(" ")) + "]"
+    }
+}
+
+impl Show for Set<T> where T: Show {
+    fn show(s: Set<T>) -> String {
+        "set of ${Set.size(s)}"
+    }
+}
+
+impl Show for Map<String, V> where V: Show {
+    fn show(m: Map<String, V>) -> String {
+        m |> Iter.map(fn #(k, v) -> "${k}=${V.show(v)}") |> String.join(",")
+    }
+}
+
+impl Show for Maybe<T> where T: Show {
+    fn show(m: Maybe<T>) -> String {
+        case m {
+            Some(x) -> "some ${T.show(x)}"
+            None -> "none"
+        }
+    }
+}
+
+impl Show for Result<T, E> where T: Show, E: Show {
+    fn show(r: Result<T, E>) -> String {
+        case r {
+            Ok(x) -> "ok ${T.show(x)}"
+            Err(e) -> "err ${E.show(e)}"
+        }
+    }
+}
+
+impl Zero for List<T> where T: Zero {
+    fn zero(n: Int) -> List<T> {
+        Iter.repeat(T.zero(n)) |> Iter.take(2) |> Iter.to_list()
+    }
+}
+
+impl Zero for Maybe<T> where T: Zero {
+    fn zero(n: Int) -> Maybe<T> {
+        Some(T.zero(n))
+    }
+}
+
+impl Holds<T> for List<T> where T: Equatable {
+    fn holds?(xs: List<T>, x: T) -> Bool {
+        xs |> Iter.any?(fn y -> y == x)
+    }
+}
+
+impl Holds<Int> for Vector<Int> {
+    fn holds?(v: Vector<Int>, x: Int) -> Bool {
+        v |> Iter.any?(fn y -> y == x)
+    }
+}
+
+impl Holds<String> for Vector<Int> {
+    fn holds?(v: Vector<Int>, x: String) -> Bool {
+        v |> Iter.any?(fn y -> Int.to_string(y) == x)
+    }
+}
+
+impl Holds<String> for Maybe<Int> {
+    fn holds?(m: Maybe<Int>, x: String) -> Bool {
+        case m {
+            Some(n) -> Int.to_string(n) == x
+            None -> False
+        }
+    }
+}

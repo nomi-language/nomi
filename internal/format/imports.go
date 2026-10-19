@@ -88,9 +88,9 @@ func normalizeNestedImportLayout(node ast.Node) {
 	case *ast.Dbg:
 		normalizeNestedImportLayout(n.Expr)
 	case *ast.Then:
-		normalizeNestedImportLayout(n.Lambda)
+		normalizeNestedImportLayout(n.Fn())
 	case *ast.Tap:
-		normalizeNestedImportLayout(n.Lambda)
+		normalizeNestedImportLayout(n.Fn())
 	case *ast.Assertion:
 		normalizeNestedImportLayout(n.Expr)
 	case *ast.With:
@@ -105,6 +105,8 @@ func normalizeNestedImportLayout(node ast.Node) {
 		normalizeNestedImportLayout(n.Call)
 	case *ast.GroupedExpr:
 		normalizeNestedImportLayout(n.Expr)
+	case *ast.Capture:
+		normalizeNestedImportLayout(n.Body)
 	case *ast.Unary:
 		normalizeNestedImportLayout(n.Right)
 	case *ast.Binary:

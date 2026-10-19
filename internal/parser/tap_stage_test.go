@@ -45,8 +45,8 @@ func TestTap_Errors(t *testing.T) {
 	for src, want := range map[string]string{
 		"x = tap fn v -> v":            "`tap` is a pipe stage: write `value |> tap fn v -> ...`",
 		"tap = 1":                      "`tap` is a pipe stage",
-		"x = 5 |> tap f":               "`tap` takes a lambda: write `tap fn v -> ...`",
-		"x = 5 |> tap":                 "`tap` takes a lambda: write `tap fn v -> ...`",
+		"x = 5 |> tap f":               "`tap` takes a lambda or a capture: write `tap fn v -> ...` or `tap &f(&1)`",
+		"x = 5 |> tap":                 "`tap` takes a lambda or a capture: write `tap fn v -> ...` or `tap &f(&1)`",
 		"x = 5 |> try tap fn v -> v":   "`try` does not prefix a `tap` stage: write `|> tap fn v -> ...` and `|> try` as two stages",
 		"x = 5 |> dbg tap fn v -> v":   "`dbg` does not prefix a `tap` stage: write `|> tap fn v -> ...` and `|> dbg` as two stages",
 		"x = 5 |> if tap fn v -> v {}": "`tap` is a pipe stage",

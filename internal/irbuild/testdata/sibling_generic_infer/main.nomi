@@ -23,7 +23,7 @@ fn label(t: Tree<String>) -> String {
 fn main() {
     names =
         [Tree.Node("a"), Tree.Leaf, Tree.Node("b")]
-        |> Iter.map(fn t -> label(t))
+        |> Iter.map(&label(&1))
         |> Iter.to_list()
 
     io.print("names ${names}")

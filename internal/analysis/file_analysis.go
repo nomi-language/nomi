@@ -180,6 +180,11 @@ type FileBodies struct {
 	// the first record.
 	ExprTypes     map[ast.Node]Type
 	ExpectedTypes map[ast.Node]Type
+	// PatternTypes maps each list, vector, set, map, struct and tuple
+	// pattern the checker checked to the type of the value it matches. The
+	// editor's hover reads it to say what a pattern matches. Nil until the
+	// first record.
+	PatternTypes map[ast.Node]Type
 	// TargetStructs maps a brace literal with no type name and no spread
 	// (`#{street: "1 Main", city: "Bath"}`) to the nominal struct it builds
 	// because the position expected that struct (checkTargetTypedStructLit).
@@ -194,6 +199,10 @@ type FileBodies struct {
 	// accessor as a one-parameter closure over that type. Nil until the
 	// first record.
 	FieldAccessors map[*ast.FieldAccessor]Type
+	// Placeholders holds each capture parameter `&N` the checker met, by
+	// position, with its length in bytes: the semantic tokens color it as a
+	// parameter. Nil until the first record.
+	Placeholders map[Pos]int
 	// ImplManifest records (interfaceName, typeName) pairs the file's
 	// call sites statically demand impls for, along with the list of
 	// Recording entries that each demanded the pair. Populated by the

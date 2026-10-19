@@ -49,12 +49,12 @@ test "empty vectors need type context" {
 test "vectors iterate with generic Iter operations" {
     doubled =
         #[1, 2, 3]
-        |> Iter.map(fn n -> n * 2)
+        |> Iter.map(&(&1 * 2))
         |> Iter.to_list()
 
     found =
         #["ada", "grace", "katherine"]
-        |> Iter.find(fn name -> String.contains?(name, "ace"))
+        |> Iter.find(&String.contains?(&1, "ace"))
 
     assert doubled == [2, 4, 6]
     assert found == Some("grace")
@@ -118,7 +118,7 @@ test "Iter.to_vector materializes any iterator into a vector" {
     tens =
         Iter.from(1)
         |> Iter.filter(fn x -> x % 2 == 0)
-        |> Iter.map(fn x -> x * 10)
+        |> Iter.map(&(&1 * 10))
         |> Iter.take(3)
         |> Iter.to_vector()
 

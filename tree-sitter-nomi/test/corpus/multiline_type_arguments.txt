@@ -3,7 +3,7 @@ Typed binding first in a block
 ================================================================================
 
 fn main() {
-    t: Map<String, Int> = Map.empty()
+    t: Map<String, Int> = %{}
 }
 
 --------------------------------------------------------------------------------
@@ -19,10 +19,7 @@ fn main() {
           (type_identifier)
           (type_identifier)
           (type_identifier))
-        (call_expression
-          (field_access
-            (type_identifier)
-            (identifier)))))))
+        (map_construction)))))
 
 ================================================================================
 Typed binding after another statement
@@ -63,16 +60,16 @@ fn main() {
     t: Map<
         String,
         Int
-    > = Map.empty()
+    > = %{}
     u: Map<
         String, // keys
         Int
-    > = Map.empty()
+    > = %{}
     v: Map<
         // keys
         String,
         Int
-    > = Map.empty()
+    > = %{}
 }
 
 --------------------------------------------------------------------------------
@@ -88,10 +85,7 @@ fn main() {
           (type_identifier)
           (type_identifier)
           (type_identifier))
-        (call_expression
-          (field_access
-            (type_identifier)
-            (identifier))))
+        (map_construction))
       (binding
         (identifier)
         (generic_type
@@ -99,10 +93,7 @@ fn main() {
           (type_identifier)
           (line_comment)
           (type_identifier))
-        (call_expression
-          (field_access
-            (type_identifier)
-            (identifier))))
+        (map_construction))
       (binding
         (identifier)
         (generic_type
@@ -110,10 +101,7 @@ fn main() {
           (line_comment)
           (type_identifier)
           (type_identifier))
-        (call_expression
-          (field_access
-            (type_identifier)
-            (identifier)))))))
+        (map_construction)))))
 
 ================================================================================
 Parameter and return types with multi-line type argument lists
@@ -425,15 +413,15 @@ fn main() {
         t: Map<
             String, // k
             Int
-        > = Map.empty()
+        > = %{}
         Map.get(t, k)
     }
     x = case f("a") {
         Some(v) -> {
-            m: Map<String, Int> = Map.empty()
+            m: Map<String, Int> = %{}
             m
         }
-        None -> Map.empty()
+        None -> %{}
     }
     g = fn p -> #{x: p, y: p}
 }
@@ -458,10 +446,7 @@ fn main() {
                 (type_identifier)
                 (line_comment)
                 (type_identifier))
-              (call_expression
-                (field_access
-                  (type_identifier)
-                  (identifier))))
+              (map_construction))
             (call_expression
               (field_access
                 (type_identifier)
@@ -486,17 +471,11 @@ fn main() {
                   (type_identifier)
                   (type_identifier)
                   (type_identifier))
-                (call_expression
-                  (field_access
-                    (type_identifier)
-                    (identifier))))
+                (map_construction))
               (identifier)))
           (case_branch
             (type_identifier)
-            (call_expression
-              (field_access
-                (type_identifier)
-                (identifier))))))
+            (map_construction))))
       (binding
         (identifier)
         (lambda

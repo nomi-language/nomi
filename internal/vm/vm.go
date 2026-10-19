@@ -323,6 +323,7 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"List.head":            listHost("List.head"),
 		"List.tail":            listHost("List.tail"),
 		"List.concat":          listHost("List.concat"),
+		"List.contains?":       listContainsHost,
 		// A call the builder lowered as unreachable: a bound dispatch on a type
 		// argument it filled itself (irbuild's holeBoundCall). It faults with
 		// the builder's text if control ever arrives.
@@ -350,13 +351,14 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"Vector.concat":        vectorHost("Vector.concat"),
 		"Vector.set":           vectorHost("Vector.set"),
 		"Vector.next_item":     vectorHost("Vector.next_item"),
+		"Vector.contains?":     vectorContainsHost,
 		"Map.get":              mapHost("Map.get"),
 		"Map.put":              mapHost("Map.put"),
 		"Map.size":             mapHost("Map.size"),
 		"Context.with_value":   contextWithValueHost,
 		"Context.value":        contextValueHost,
 		"Map.remove":           mapHost("Map.remove"),
-		"Map.contains_key?":    mapHost("Map.contains_key?"),
+		"Map.contains?":        mapHost("Map.contains?"),
 		"Map.merge":            mapHost("Map.merge"),
 		"Map.keys":             mapHost("Map.keys"),
 		"Map.values":           mapHost("Map.values"),

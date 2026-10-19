@@ -271,6 +271,8 @@ func (c *hintCollector) walkNode(node ast.Node) {
 
 	case *ast.GroupedExpr:
 		c.walkNode(n.Expr)
+	case *ast.Capture:
+		c.walkNode(n.Body)
 
 	case *ast.NamedArg:
 		c.walkNode(n.Value)
@@ -281,9 +283,9 @@ func (c *hintCollector) walkNode(node ast.Node) {
 	case *ast.Dbg:
 		c.walkNode(n.Expr)
 	case *ast.Then:
-		c.walkNode(n.Lambda)
+		c.walkNode(n.Fn())
 	case *ast.Tap:
-		c.walkNode(n.Lambda)
+		c.walkNode(n.Fn())
 
 	case *ast.TestDecl:
 		c.walkNode(n.Setup)

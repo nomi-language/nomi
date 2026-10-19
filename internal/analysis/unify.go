@@ -27,11 +27,11 @@ func UnifyWith(a, b Type, subs map[*TypeParam_]Type) error {
 // generic interface's type parameters from a concrete receiver (Iter's
 // element type is one ordinary entry — its `T` solves from `each_while`'s
 // declared `yield: (T) -> Bool` parameter like every other interface).
-func UnifyWithImpls(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs) error {
+func UnifyWithImpls(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs) error {
 	return unifyFull(a, b, subs, impls, implTypeArgs)
 }
 
-func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs) error {
+func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs) error {
 	return unifyIn(unifySym, a, b, subs, impls, implTypeArgs, nil)
 }
 
@@ -47,7 +47,7 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 // builder's adapter closure performs (irbuild/irfuncwiden.go). Outside
 // function types it is unifyFull. rigid holds the type parameters of the
 // function being checked, by name: types there, never solved in subs.
-func UnifyInto(want, have Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
+func UnifyInto(want, have Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
 	return unifyIn(unifyAssign, want, have, subs, impls, implTypeArgs, rigid)
 }
 
@@ -105,7 +105,7 @@ func (m unifyMode) rebound(existing Type) unifyMode {
 	return m
 }
 
-func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
+func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
 	if a == nil || b == nil {
 		return nil
 	}
@@ -458,7 +458,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 // returns bare `T`. Non-generic interfaces (no type args) and pairs with no
 // recorded template fall through to accepting the conformance without binding
 // — the same permissive fallback as the prior "unknown element" path.
-func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
+func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
 	// Universal struct interface: `Struct` is satisfied structurally by every
 	// struct — named or anonymous — with no impl-table entry. Handled before
 	// the impl-table lookups below, both because there is no entry to find and
@@ -491,34 +491,93 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 	if !interfaceImplemented(concreteName, iface.Name, iface.Origin, impls) {
 		return typeErrorf("%s does not implement %s", concrete, iface)
 	}
-	info := lookupImplTypeArgs(concreteName, iface.Name, implTypeArgs)
-	if info != nil && !implReceiverMatches(info, concrete, impls, implTypeArgs) {
+	// Every impl of the interface the receiver has: a generic interface may
+	// be implemented at several type arguments, and the interface's own
+	// arguments here choose among them (impl_selection.go).
+	var infos []*ImplTypeArgs
+	recorded := false
+	for _, info := range distinctImpls(lookupImplTypeArgSets(concreteName, iface.Name, implTypeArgs)) {
+		if !sameNominalIdentity(iface.Origin, iface.Name, info.Origin, iface.Name) {
+			continue
+		}
+		recorded = true
+		if implReceiverMatches(info, concrete, impls, implTypeArgs) {
+			infos = append(infos, info)
+		}
+	}
+	if recorded && len(infos) == 0 {
 		return fmt.Errorf("%s does not implement %s", concrete, iface.Name)
 	}
 	if len(iface.TypeArgs) == 0 {
 		return nil
 	}
-	if info == nil || len(info.Args) != len(iface.TypeArgs) {
+	cargs := concreteTypeArgs(concrete)
+	var lists [][]Type
+	for _, info := range infos {
+		if len(info.Args) != len(iface.TypeArgs) {
+			continue
+		}
+		args := make([]Type, len(info.Args))
+		for i, a := range info.Args {
+			args[i] = substituteTypeParamDefs(info.TypeParamDefs, cargs, a)
+		}
+		dup := false
+		for _, l := range lists {
+			if typesAllEqual(l, args) {
+				dup = true
+				break
+			}
+		}
+		if !dup {
+			lists = append(lists, args)
+		}
+	}
+	if len(lists) == 0 {
 		// No recorded template (or an arity mismatch from a malformed impl):
 		// accept the conformance without binding the interface's type args,
 		// leaving them as fresh vars at the use site.
 		return nil
 	}
-	cargs := concreteTypeArgs(concrete)
-	for i := range iface.TypeArgs {
-		arg := substituteTypeParamDefs(info.TypeParamDefs, cargs, info.Args[i])
-		if err := unifyIn(m.nested(), iface.TypeArgs[i], arg, subs, impls, implTypeArgs, rigid); err != nil {
-			return err
+	bind := func(args []Type, into map[*TypeParam_]Type) error {
+		for i := range iface.TypeArgs {
+			if err := unifyIn(m.nested(), iface.TypeArgs[i], args[i], into, impls, implTypeArgs, rigid); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if len(lists) == 1 {
+		return bind(lists[0], subs)
+	}
+	var fit [][]Type
+	for _, args := range lists {
+		trial := make(map[*TypeParam_]Type, len(subs))
+		for k, v := range subs {
+			trial[k] = v
+		}
+		saved := saveTypeVars(append(append([]Type{}, iface.TypeArgs...), args...)...)
+		err := bind(args, trial)
+		saved.restore()
+		if err == nil {
+			fit = append(fit, args)
 		}
 	}
+	switch len(fit) {
+	case 0:
+		return typeErrorf("%s does not implement %s", concrete, iface)
+	case 1:
+		return bind(fit[0], subs)
+	}
+	// Several impls admit the interface's arguments as they stand: nothing
+	// here chooses, so nothing is bound.
 	return nil
 }
 
-func implReceiverMatches(info *ImplTypeArgs, concrete Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs) bool {
+func implReceiverMatches(info *ImplTypeArgs, concrete Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs) bool {
 	return implReceiverMatchesSeen(info, concrete, impls, implTypeArgs, nil)
 }
 
-func implReceiverMatchesSeen(info *ImplTypeArgs, concrete Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs, seen map[string]bool) bool {
+func implReceiverMatchesSeen(info *ImplTypeArgs, concrete Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, seen map[string]bool) bool {
 	if info == nil || info.Receiver == nil || concrete == nil {
 		return true
 	}
@@ -536,7 +595,7 @@ func implReceiverMatchesSeen(info *ImplTypeArgs, concrete Type, impls []ImplTabl
 	return true
 }
 
-func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs, seen map[string]bool) bool {
+func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, seen map[string]bool) bool {
 	if iface == nil {
 		return true
 	}
@@ -632,20 +691,22 @@ func interfaceImplemented(concreteName, ifaceName, ifaceOrigin string, impls []I
 	return false
 }
 
-// lookupImplTypeArgs consults the ImplTypeArgs tables in the order supplied by
-// the caller (checker.implTypeArgsContext threads FileAnalysis.ImplTypeArgs
-// first, then fa.Program().ImplIndex.ImplTypeArgs — the project-level union built by
-// buildProjectImplIndex over every reachable FA). The first hit wins, so
-// file-local user impls shadow a same-named project-wide entry — matching how
-// `interfaceImplemented` ranges its `impls` slice.
-func lookupImplTypeArgs(typeName, ifaceName string, tables []map[string]map[string]*ImplTypeArgs) *ImplTypeArgs {
+// lookupImplTypeArgs consults the ImplTypeArgSets tables in the order supplied
+// by the caller (checker.implTypeArgsContext threads FileAnalysis.ImplTypeArgSets
+// first, then the project-level union) and answers the first impl of the
+// first table that has one, so file-local user impls shadow a same-named
+// project-wide entry, matching how `interfaceImplemented` ranges its `impls`
+// slice. A caller that may face several impls asks lookupImplTypeArgSets.
+func lookupImplTypeArgs(typeName, ifaceName string, tables []map[string]map[string][]*ImplTypeArgs) *ImplTypeArgs {
 	for _, table := range tables {
 		if table == nil {
 			continue
 		}
 		if byIface, ok := table[typeName]; ok {
-			if info, ok := byIface[ifaceName]; ok {
-				return info
+			for _, info := range byIface[ifaceName] {
+				if info != nil {
+					return info
+				}
 			}
 		}
 	}
@@ -1267,7 +1328,7 @@ func embedsJoin(have, next Type) (Type, bool) {
 
 // bindParam binds tp, a type parameter subs solves, to other, or checks other
 // against tp's binding when it has one.
-func bindParam(m unifyMode, tp *TypeParam_, other Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
+func bindParam(m unifyMode, tp *TypeParam_, other Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
 	if existing, bound := subs[tp]; bound {
 		return unifyIn(m.rebound(existing), other, existing, nil, impls, implTypeArgs, rigid)
 	}
@@ -1338,7 +1399,7 @@ func embeddableTypeName(t Type) string {
 // callee's T stayed unsolved and a lambda over the elements saw it rigid.
 // Errors are ignored: the binding of the parameter itself, which follows,
 // decides whether the unification succeeds.
-func projectThroughBound(iface *InterfaceType, tp *TypeParam_, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs) {
+func projectThroughBound(iface *InterfaceType, tp *TypeParam_, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs) {
 	if len(iface.TypeArgs) == 0 {
 		return
 	}

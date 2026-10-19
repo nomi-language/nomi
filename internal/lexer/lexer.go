@@ -3,6 +3,7 @@ package lexer
 import (
 	"github.com/nomi-language/nomi/internal/strlit"
 	"github.com/nomi-language/nomi/internal/token"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -1093,16 +1094,36 @@ func (l *lexer) scanOperatorOrDelimiter() {
 		l.advance()
 		l.tokens = append(l.tokens, token.Token{Type: token.PERCENT, Lexeme: "%", Line: startLine, Col: startCol})
 	case '&':
-		// Nomi has no `&` operator. `&&` is the C-family spelling of `and`,
-		// so it is one ILLEGAL token that says so.
-		if l.peekAt(1) == '&' {
+		// `&1`, `&2`, ...: the parameter of that number of the capture
+		// around it, and `&` written against a call, a parenthesized
+		// expression or a literal starts a capture (spec §5, *Captures*).
+		// Nomi has no `&` operator otherwise. `&&` is the C-family spelling
+		// of `and`, so it is one ILLEGAL token that says so.
+		if startsCaptureBody(l.peekAt(1)) {
+			l.advance()
+			l.tokens = append(l.tokens, token.Token{Type: token.CAPTURE, Lexeme: "&", Line: startLine, Col: startCol})
+		} else if isDigit(l.peekAt(1)) {
+			l.advance()
+			digits := ""
+			for !l.atEnd() && isDigit(l.peek()) {
+				digits += string(l.peek())
+				l.advance()
+			}
+			tok := token.Token{Type: token.PLACEHOLDER, Lexeme: "&" + digits, Line: startLine, Col: startCol}
+			if n, err := strconv.Atoi(digits); err != nil || n < 1 || digits[0] == '0' {
+				tok.Type = token.ILLEGAL
+				tok.Problem = "a capture's parameter is numbered from 1, with no leading zero: write `&1` for the first parameter, `&2` for the second"
+			}
+			l.tokens = append(l.tokens, tok)
+		} else if l.peekAt(1) == '&' {
 			l.advance()
 			l.advance()
 			l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: "&&",
 				Problem: "Nomi spells logical and `and`: write `a and b`, not `a && b`", Line: startLine, Col: startCol})
 		} else {
 			l.advance()
-			l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: "&", Line: startLine, Col: startCol})
+			l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: "&", Line: startLine, Col: startCol,
+				Problem: "a capture's `&` is written against its body, with no space: `&(&1 > 2)`, `&f(&1)`, `&#Point{x: &1}`"})
 		}
 	case '!':
 		if l.peekAt(1) == '=' {
@@ -1251,6 +1272,19 @@ func isDigit(ch byte) bool {
 	return ch >= '0' && ch <= '9'
 }
 
+// startsCaptureBody reports whether ch, written right after `&`, starts a
+// capture's body: a call's callee (a name or `.Variant`), `(`, or a
+// literal's `#`, `%` or `[`.
+func startsCaptureBody(ch byte) bool {
+	switch {
+	case ch == '(', ch == '[', ch == '#', ch == '%', ch == '.':
+		return true
+	case ch >= 'a' && ch <= 'z', ch >= 'A' && ch <= 'Z':
+		return true
+	}
+	return false
+}
+
 func isHexDigit(ch byte) bool {
 	return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')
 }
@@ -1278,7 +1312,7 @@ func canEndStatement(tt token.TokenType) bool {
 		token.RPAREN, token.RBRACKET, token.RBRACE, token.GT,
 		token.RETURN, token.BREAK, token.CONTINUE,
 		token.ASSERT, token.REFUTE, token.TRY, token.DBG, token.TODO,
-		token.UNDERSCORE:
+		token.UNDERSCORE, token.PLACEHOLDER:
 		return true
 	default:
 		return false

@@ -20,36 +20,26 @@ type pipeHead struct {
 	call *ast.Call
 	// slot is the parameter the value fills.
 	slot int
-	// hole is the `_` the value fills, nil when it fills the first argument.
+	// hole is the `&1` of a `then` stage's partial capture the value
+	// fills, nil when it fills the first argument of a call stage, and
+	// name the parameter a named one names (`text` in `then &label(4,
+	// text: &1)`), empty for a positional one.
 	hole ast.Node
-	// name is the parameter a named `_` names (`w` in `f(1, w: _)`), empty
-	// for a positional one.
 	name string
 }
 
-// pipeFill is one slot a pipe's value fills in its stage call: parameter
-// slot, named by the `_` at call.Args[arg], or the prepended first argument
-// when arg is -1.
+// pipeFill is the slot a pipe's value fills in its stage call: the
+// prepended first argument.
 type pipeFill struct {
 	slot int
-	arg  int
 }
 
 // newPipeHead is the place pipe n's value goes in its stage call.
 func newPipeHead(n *ast.Binary, call *ast.Call, fill pipeFill) *pipeHead {
-	p := &pipeHead{pipe: n, call: call, slot: fill.slot}
-	if call != nil && fill.arg >= 0 && fill.arg < len(call.Args) {
-		switch a := call.Args[fill.arg].(type) {
-		case *ast.Placeholder:
-			p.hole = a
-		case *ast.NamedArg:
-			p.hole, p.name = a.Value, a.Name
-		}
-	}
-	return p
+	return &pipeHead{pipe: n, call: call, slot: fill.slot}
 }
 
-// site is the node a mismatch is reported at: the `_` the value fills, or
+// site is the node a mismatch is reported at: the `&1` the value fills, or
 // the stage's callee, which is what refuses the value.
 func (p *pipeHead) site() ast.Node {
 	if p.hole != nil {
@@ -74,13 +64,44 @@ func (p *pipeHead) stageName() string {
 	return "this stage"
 }
 
-// argName is the argument the value fills as an error names it: "`w`" for a
-// named `_`, otherwise its position ("its first argument").
+// argName is the argument the value fills as an error names it: "`text`"
+// for a named `&1`, otherwise its position ("its first argument").
 func (p *pipeHead) argName() string {
 	if p.name != "" {
 		return "`" + p.name + "`"
 	}
 	return "its " + argOrdinal(p.slot)
+}
+
+// checkThenCaptureTakes reports a `then` or `tap` stage whose partial
+// capture does not take the piped value at its `&1`: `x |> then &label(4,
+// &1)` with x a Fahrenheit and label's second parameter a String. The
+// capture's parameter is the callee's, so the value must fit it as it would
+// fit the argument written there.
+func (c *checker) checkThenCaptureTakes(pipe *ast.Binary, capture *ast.Capture, piped, want Type) {
+	call := capture.PartialCall()
+	if call == nil || piped == nil || want == nil {
+		return
+	}
+	if c.argMatchesParam(piped, want, c.recPos(pipe.Line, pipe.Col), RecordingKindInterfaceTypedParam) {
+		return
+	}
+	p := &pipeHead{pipe: pipe, call: call}
+	positional := 0
+	for _, a := range call.Args {
+		value, name := a, ""
+		if na, named := a.(*ast.NamedArg); named {
+			value, name = na.Value, na.Name
+		}
+		if ph, open := value.(*ast.Placeholder); open && ph.N == 1 {
+			p.hole, p.name, p.slot = ph, name, positional
+			break
+		}
+		if name == "" {
+			positional++
+		}
+	}
+	c.report(c.pipeHeadMismatch(p, want, piped).WithHint(mismatchHint(want, piped)))
 }
 
 // source is the expression the piped value comes from: the stage before

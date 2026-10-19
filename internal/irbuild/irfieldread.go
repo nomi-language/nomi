@@ -51,7 +51,7 @@ func (bl *irScalarBuilder) fieldRead(t *ast.FieldAccess) (ir.Temp, kind, bool, b
 	}
 	_, appObject := bl.g.appRead(t.Object)
 	switch t.Object.(type) {
-	case *ast.Ident:
+	case *ast.Ident, *ast.PlaceholderParam:
 	case *ast.Call:
 		// `base_cfg().clock`: a field of a call's result. The call is lowered
 		// once, below, and its value projected.

@@ -35,7 +35,7 @@ fn total(xs: Iter<Int>) -> Int {
 }
 
 fn doubled(xs: List<Int>) -> Iter<Int> {
-    xs |> Iter.map(fn x -> x * 2)
+    xs |> Iter.map(&(&1 * 2))
 }
 
 fn evens() -> Iter<Int> {
@@ -47,7 +47,7 @@ fn first_of<T>(xs: Iter<T>) -> Maybe<T> {
 }
 
 test "an Iter is a struct field" {
-    feed = #Feed{name: "odds", items: [1, 3, 5] |> Iter.map(fn x -> x + 1)}
+    feed = #Feed{name: "odds", items: [1, 3, 5] |> Iter.map(&(&1 + 1))}
 
     assert Iter.to_list(feed.items) == [2, 4, 6]
 }
@@ -59,16 +59,16 @@ test "a struct field takes any source" {
 }
 
 test "an Iter is a tuple part and a record field" {
-    pair = #(1, [1, 2] |> Iter.map(fn x -> x * 10))
+    pair = #(1, [1, 2] |> Iter.map(&(&1 * 10)))
     #(_, tens) = pair
-    record = #{label: "r", items: [3] |> Iter.map(fn x -> x + 1)}
+    record = #{label: "r", items: [3] |> Iter.map(&(&1 + 1))}
 
     assert Iter.to_list(tens) == [10, 20]
     assert Iter.to_list(record.items) == [4]
 }
 
 test "an Iter is a Some and an Ok payload" {
-    bumped = [1, 2] |> Iter.map(fn x -> x + 1)
+    bumped = [1, 2] |> Iter.map(&(&1 + 1))
 
     found = Some(bumped)
     checked: Result<Iter<Int>, String> = Ok([7, 8])
@@ -78,7 +78,7 @@ test "an Iter is a Some and an Ok payload" {
 }
 
 test "an Iter is an enum payload" {
-    large = [4, 5] |> Iter.filter(fn x -> x > 4)
+    large = [4, 5] |> Iter.filter(&(&1 > 4))
 
     source = Source.Lazy(large)
 
@@ -97,7 +97,7 @@ test "an Iter is a parameter and a return type" {
 }
 
 test "a list holds Iters" {
-    streams: List<Iter<Int>> = [[1] |> Iter.map(fn x -> x * 3), [4, 5]]
+    streams: List<Iter<Int>> = [[1] |> Iter.map(&(&1 * 3)), [4, 5]]
 
     assert streams |> Iter.flat_map(fn s -> s) |> Iter.to_list() == [3, 4, 5]
 }
@@ -128,7 +128,7 @@ test "every source enters an Iter parameter" {
 }
 
 test "storing an Iter does not consume it" {
-    feed = #Feed{name: "twice", items: [1, 2] |> Iter.map(fn x -> x * 5)}
+    feed = #Feed{name: "twice", items: [1, 2] |> Iter.map(&(&1 * 5))}
 
     assert Iter.to_list(feed.items) == [5, 10]
     assert Iter.to_list(feed.items) == [5, 10]

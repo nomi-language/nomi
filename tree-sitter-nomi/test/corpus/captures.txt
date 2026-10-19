@@ -1,0 +1,115 @@
+================================================================================
+A capture of a call, of a parenthesized expression and of a literal
+================================================================================
+
+fn f() {
+  a = &Int.max(&1, 0)
+  b = &(&1 > 2)
+  c = &#Point{x: &1, y: 0}
+  d = &#(&1, 0)
+  e = &[&1]
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (capture
+          body: (call_expression
+            function: (field_access
+              (type_identifier)
+              (identifier))
+            (placeholder)
+            (integer))))
+      (binding
+        (identifier)
+        (capture
+          body: (paren_expression
+            (binary_expression
+              (placeholder)
+              (integer)))))
+      (binding
+        (identifier)
+        (capture
+          body: (struct_construction
+            type: (type_identifier)
+            field_name: (identifier)
+            (placeholder)
+            field_name: (identifier)
+            (integer))))
+      (binding
+        (identifier)
+        (capture
+          body: (tuple_expression
+            (placeholder)
+            (integer))))
+      (binding
+        (identifier)
+        (capture
+          body: (list
+            (placeholder)))))))
+
+================================================================================
+A capture binds below a call and above an operator
+================================================================================
+
+fn g() {
+  a = &f(&1)(2)
+  b = &f(&1) + 1
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (capture
+          body: (call_expression
+            function: (call_expression
+              function: (identifier)
+              (placeholder))
+            (integer))))
+      (binding
+        (identifier)
+        (binary_expression
+          (capture
+            body: (call_expression
+              function: (identifier)
+              (placeholder)))
+          (integer))))))
+
+================================================================================
+A then stage applies a capture, which ends with its body
+================================================================================
+
+fn h() {
+  10 |> then &divide(100, &1) |> g()
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (pipe_expression
+        (pipe_expression
+          (integer)
+          (then_stage
+            capture: (capture
+              body: (call_expression
+                function: (identifier)
+                (integer)
+                (placeholder)))))
+        (call_expression
+          function: (identifier))))))

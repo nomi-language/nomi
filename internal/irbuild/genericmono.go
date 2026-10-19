@@ -277,8 +277,8 @@ func markMentionedParams(te ast.TypeExpr, params, out map[string]bool) {
 //
 // WHICH identifier is calleeRefPos' question, and getting it wrong is a silent
 // miss rather than an error: a `Type.member` callee records its reference at
-// the MEMBER. On `Map.empty<String, Int>()` the reference at `Map` carries no
-// CallType at all while the one at `empty` carries `() -> Map<String, Int>`,
+// the MEMBER. On `Iter.to_map<String, Int>(xs)` the reference at `Iter` carries no
+// CallType at all while the one at `to_map` carries the instantiated signature,
 // which is what preludeCall reads (it is handed `callee.Field.Line,
 // callee.Field.Col` and never the FieldAccess').
 //
@@ -573,7 +573,7 @@ func (g *gen) boundTypeArgs(iface string, k kind) ([]kind, bool) {
 //
 // One rule, and it is the analyzer's rather than a guess: a reference is
 // recorded at the IDENTIFIER that names the thing, so `f(x)` records at `f`
-// and `Map.empty(...)` records at `empty` — not at `Map`, which names the
+// and `Map.get(...)` records at `get` — not at `Map`, which names the
 // qualifier. Everything else answers with its own position, which for a
 // parenthesised or computed callee is the position no reference is recorded
 // at, so the lookup misses and the caller's "nothing to say" answer stands.
@@ -761,7 +761,7 @@ func (g *gen) checkedNodeType(n ast.Node) analysis.Type {
 
 // checkedExprType is the type the checker gave n: checkedNodeType's answer,
 // or else the one it recorded for the node (FileAnalysis.ExprTypes), which
-// covers a call with no instantiated signature (`Map.empty()`).
+// covers a call with no instantiated signature (`%{}`).
 func (g *gen) checkedExprType(n ast.Node) analysis.Type {
 	if t := g.checkedNodeType(n); t != nil {
 		return t
@@ -770,6 +770,15 @@ func (g *gen) checkedExprType(n ast.Node) analysis.Type {
 		return nil
 	}
 	return g.srcFA().ExprTypes[n]
+}
+
+// checkedKind is the kind of the type the checker gave n, or kindInvalid.
+func (g *gen) checkedKind(n ast.Node) kind {
+	t := g.checkedExprType(n)
+	if t == nil || irUnsolvedType(t) {
+		return kindInvalid
+	}
+	return g.project(t)
 }
 
 // irUnsolvedType reports whether an inference variable the checker never

@@ -53,6 +53,42 @@ fn main() {
 	t.Error("expected `to_string` in `T.to_string` to reference the Display interface method (hover/go-to-def)")
 }
 
+// An impl block's own `where T: Decode` bounds T in the block's bodies as a
+// function's `where` does, so `decode` in `T.decode(n)` and in the partial
+// `T.decode(&1)` references the bound's method, at its position.
+func TestTypeParamQualifiedDispatch_MethodReferenceUnderAnImplWhere(t *testing.T) {
+	src := `interface Decode {
+  fn decode(n: Int) -> self
+}
+
+struct Pair<T> {
+  a: T
+  b: T
+}
+
+fn both<T>(n: Int, f: (Int) -> T) -> Pair<T> {
+  #Pair{a: f(n), b: f(n + 1)}
+}
+
+impl Decode for Pair<T> where T: Decode {
+  fn decode(n: Int) -> Pair<T> {
+    _ = T.decode(n)
+    both(n, &T.decode(&1))
+  }
+}
+`
+	fa, errs := checkSourceWithStdlib(src)
+	if len(errs) != 0 {
+		t.Fatalf("the front end rejects this, so nothing below is tested: %v", errs)
+	}
+	for _, pos := range []analysis.Pos{{Line: 16, Col: 11}, {Line: 17, Col: 16}} {
+		sym := fa.References[pos]
+		if sym == nil || sym.Kind != analysis.SymbolInterfaceMethod || sym.OwningInterface != "Decode" {
+			t.Errorf("%d:%d: reference %+v, want the Decode interface's decode", pos.Line, pos.Col, sym)
+		}
+	}
+}
+
 func TestTypeParamQualifiedDispatch_SelfReturnStaysConcreteTypeParam(t *testing.T) {
 	src := `interface Stepper<S> {
   fn step(value: self, by: S) -> Maybe<self>

@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 391
+records 392
 declared-cases 0
-failing 78
+failing 79
 C assert_subject_test.nomi@52b656b5ada294aa
 E 1
 N 0
@@ -1372,6 +1372,37 @@ T ok <dir>/control_test.nomi :: debug keeps the range syntax
 T   1..4
 T   [1..=2, 3..4]
 T test result: FAILED. 1 passed, 3 failed
+T
+C control_test.nomi@8df1eba0bbd0e76d
+E 1
+N 0
+H bfe98881d3ffa935e35596f86f3f298402b176357a4d7a3d6f31ed4469cb442b
+S -- control_test.nomi 418 --
+S fn do_thing(required: Int, option_a: String = "default", f: (Int) -> Int) -> Int {
+S     f(required) + String.length(option_a)
+S }
+S
+S test "a trailing partial routes past the default" {
+S     assert do_thing(5, &Int.max(&1, 70)) == 77
+S     assert Iter.sort_by(["ccc", "a"], &String.length(&1)) == ["a", "ccc"]
+S }
+S
+S test "a failing assertion records the routed partial" {
+S     n = 5
+S     assert do_thing(n, &Int.max(&1, 70)) == 0
+S }
+S
+S
+T ok <dir>/control_test.nomi :: a trailing partial routes past the default
+T FAIL <dir>/control_test.nomi :: a failing assertion records the routed partial
+T   line 12: assertion failed
+T     assert do_thing(n, &Int.max(&1, 70)) == 0
+T     values:
+T       n
+T         = 5
+T       do_thing(n, &Int.max(&1, 70))
+T         = 77
+T test result: FAILED. 1 passed, 1 failed
 T
 C control_test.nomi@b81cba0f931a45fa
 E 1
@@ -3599,7 +3630,7 @@ T   line 126: check failed
 T     check 1 == 2
 T test result: ok. 7 passed, 0 failed
 T
-C internal/irbuild/testdata/bare_import/main.nomi@22dc430b73d34b21
+C internal/irbuild/testdata/bare_import/main.nomi@c0586fd28c5f1869
 E 0
 N 0
 H fd3448865f18c02171a2a3673a95a38749f133ecb4eb8b29741f24bfc050d6d6
@@ -3664,7 +3695,7 @@ T 5
 T 42
 T 3 7
 T
-C internal/irbuild/testdata/branch_untyped_literal.nomi@0ed0efbd52edcf6e
+C internal/irbuild/testdata/branch_untyped_literal.nomi@2b1e27931b4988c1
 E 0
 N 0
 H 3cfe6f0c9ab1da1bcdebef53fce680078a4a070e069eb35d6160a6eb17e8a92a
@@ -4889,7 +4920,7 @@ T 2/B/Qz
 T A/none
 T B/none
 T
-C internal/irbuild/testdata/erased_operand.nomi@c0813c3825104754
+C internal/irbuild/testdata/erased_operand.nomi@ac31cce06390b058
 E 1
 N 0
 H 955da1da83f4b194271d9af2bbcf3cd38387340038dc42886643af2ce6986994
@@ -5594,7 +5625,7 @@ T None
 T #{a: 1, a0: 2}
 T ["a", "b"]
 T
-C internal/irbuild/testdata/iter_adapter_ctrl.nomi@edc28f4e7adfa32b
+C internal/irbuild/testdata/iter_adapter_ctrl.nomi@f675c93d7ee6c0c7
 E 0
 N 0
 H 994fc8b79823b3190674867707473ac4a361d6b9dd3b20f591b6e3a85fdfcce6
@@ -5636,7 +5667,7 @@ T count 1
 T count 1
 T shadowed rebinding: 1 (outer count still 0)
 T
-C internal/irbuild/testdata/iter_operand_report.nomi@18ca4a88405c085b
+C internal/irbuild/testdata/iter_operand_report.nomi@311d16754afd9a8c
 E 1
 N 0
 H 8a281ebfa6773314c2a51339ef2363789350fab08bef2a446bef605ee8293106
@@ -5668,7 +5699,7 @@ T       Iter.count(pair)
 T         = 2
 T test result: FAILED. 0 passed, 3 failed
 T
-C internal/irbuild/testdata/iter_pipeline.nomi@354341a67089e2ce
+C internal/irbuild/testdata/iter_pipeline.nomi@a28f352c2af697f4
 E 0
 N 0
 H 30f73bbdc150bf19eb9881cff00688c5db4db34202e41a41cd83097450e58c6a
@@ -5713,7 +5744,7 @@ T return advances the accumulator: 3
 T break before the element keeps the fold so far: 9
 T done
 T
-C internal/irbuild/testdata/iter_reduce_seed.nomi@8793042a03f4483b
+C internal/irbuild/testdata/iter_reduce_seed.nomi@2c98aa76ea01f33c
 E 0
 N 0
 H ce1f3b13bc640f2c2f1d4b4ec17deba3679802ea091be7507f456fb5c83b0b87
@@ -5735,7 +5766,7 @@ T   src 2
 T   seed 100
 T 103
 T
-C internal/irbuild/testdata/iter_sources.nomi@fa844e56780aaf0d
+C internal/irbuild/testdata/iter_sources.nomi@90b0bd2e28180f1d
 E 0
 N 0
 H 35f663d3c65de434531405dd4050686f5ae2c928b57b01ede8a8f5769fbccaf1
@@ -5792,7 +5823,7 @@ T [[#(0, 2), #(1, 3)], [#(2, 4), #(3, 5)]]
 T [1, 2, 1]
 T [1, 2, 1]
 T
-C internal/irbuild/testdata/iter_terminals.nomi@d0a63fd21a8a3290
+C internal/irbuild/testdata/iter_terminals.nomi@bcc6d15e927de239
 E 0
 N 0
 H 560183231f2adff9bc44049f2b97bab2854e296068c8ea09dff2503f17a222cf
@@ -5874,7 +5905,7 @@ T get     True
 T miss    False
 T empty   True
 T
-C internal/irbuild/testdata/iter_untyped_containers.nomi@55d0ea4ebeea4035
+C internal/irbuild/testdata/iter_untyped_containers.nomi@16357b31acb08dd3
 E 0
 N 0
 H 02b16afea69f5fc989550d9b58bd43c782fbc97f8736fd35c851ae9070ed4ffb
@@ -5892,7 +5923,7 @@ T a
 T b
 T 2
 T
-C internal/irbuild/testdata/iter_user_source.nomi@34e3fc4f48d483f3
+C internal/irbuild/testdata/iter_user_source.nomi@e7929f09c156426e
 E 0
 N 0
 H 969bd65fead316ddb746753295eb207253d4fd93bc0ce4fd0a3e55b14089217c
@@ -6197,7 +6228,7 @@ T distinct call = b=2
 T distinct bare = bare a=1
 T distinct bare miss = bare miss
 T
-C internal/irbuild/testdata/map_surface.nomi@760f7670f09efecb
+C internal/irbuild/testdata/map_surface.nomi@bb412a6b6a997983
 E 0
 N 0
 H f6ae051d1e2563adf8570561c742c007a17f9a446629837ef7b6d4187ca2bd7f
@@ -6245,7 +6276,7 @@ T get Id(1) = Some(two)
 T get Id(2) = Some(two)
 T get Id(3) = Some(two)
 T
-C internal/irbuild/testdata/maps.nomi@b1011b93f9a87b99
+C internal/irbuild/testdata/maps.nomi@a541335481facfde
 E 0
 N 0
 H 655576e2ed8ad0202788828bab077dcc9dff256306cd1fdc9b8568303b9e837b
@@ -6747,10 +6778,10 @@ T lambda = 42
 T piped into print
 T total = 6
 T
-C internal/irbuild/testdata/placeholder.nomi@9d1d9d3f2fa86c00
+C internal/irbuild/testdata/placeholder.nomi@11593c88bb35ea63
 E 0
 N 0
-H 64d122fa3ca3890694c1ef26d5c3d4719dcea8f5c1e95ea330dea6e79e496c63
+H 60e642ae732f4c2d50c29e9783d0c2349ea64d1bebdd85007073c242dbdb5c19
 T slot 1:  10
 T slot 0:  5
 T two holes:
@@ -6763,9 +6794,10 @@ T   = 5
 T add1:    10
 T half:    10
 T both:    7
-T eager:
+T per call:
 T   eval bound
 T   a = 101
+T   eval bound
 T   b = 102
 T passed:  10
 T chained: 10
@@ -6840,7 +6872,7 @@ T piped none:   1
 T agree:        True
 T differ:       False
 T
-C internal/irbuild/testdata/prelude_hof.nomi@8992a60d8fca5b3f
+C internal/irbuild/testdata/prelude_hof.nomi@d9d4b5ac2ad80a64
 E 0
 N 0
 H 42b56b2b97878f75c4e62f904ab3829f6657733007467e4617790c43a4b209ea
@@ -6922,7 +6954,7 @@ H 4ff5f12ba4d28d29fcee8a449e73034b0ec4f7a2134aefd130f4c2e296216f05
 T label=staged
 T tier=7
 T
-C internal/irbuild/testdata/ranges.nomi@8062532e45c096d7
+C internal/irbuild/testdata/ranges.nomi@0d5473f2f5c3a135
 E 0
 N 0
 H a70248c59fc13f38a409040f940d68d8b2ea979d8787ccdefd975015a12d5649
@@ -7010,7 +7042,7 @@ T before
 T 0
 T after
 T
-C internal/irbuild/testdata/result_widening.nomi@7aef2520a3b229be
+C internal/irbuild/testdata/result_widening.nomi@b855791b9297f5e2
 E 0
 N 0
 H 5a1de0867ae3f850e25811d8e6790fbde61043404c33c16dc71cecbc65bd55b8
@@ -7018,7 +7050,7 @@ T 1 pt5
 T pt6
 T pt7
 T
-C internal/irbuild/testdata/run_file/main.nomi@a59ae5382da45e7a
+C internal/irbuild/testdata/run_file/main.nomi@c168f93a4905cdc8
 E 0
 N 0
 H daf9ffb34b5cd91077f0a0a45cdfe3b0e9e3eed1946b987d0d8ce21e26c0f036
@@ -7075,7 +7107,7 @@ T FAIL <dir>/scalar_operator_traps.nomi :: an impl-form Multiply overflow blames
 T   line 63: integer overflow: 9223372036854775807 * 2
 T test result: FAILED. 2 passed, 6 failed
 T
-C internal/irbuild/testdata/seed_function_value.nomi@943e11493e07f3d5
+C internal/irbuild/testdata/seed_function_value.nomi@aac4d61b6ea2c7f7
 E 0
 N 0
 H 8f221c680225939632cb74346cd5bfe9639b2c94cdb428a8958be7574c8389a8
@@ -7083,7 +7115,7 @@ T 7
 T 1,a
 T 9
 T
-C internal/irbuild/testdata/sets.nomi@0156dfdc135f3571
+C internal/irbuild/testdata/sets.nomi@a06dec29fc985edb
 E 0
 N 0
 H 92594ba64d4666d7f272ad8bf660a286db600e9049b96d036fac50ffba818458
@@ -7234,7 +7266,7 @@ T label = a..z
 T label bare = m..n
 T equal = True
 T
-C internal/irbuild/testdata/siblingcompare_alias/main.nomi@a574b01f43ad3968
+C internal/irbuild/testdata/siblingcompare_alias/main.nomi@f89b269b0fa724ab
 E 0
 N 0
 H a20f020d90886f35c197a1d254bddab5172e280c4f14dc5d27f3c81417656fcb
@@ -8048,7 +8080,7 @@ T     assert 1 == 2
 T ok <dir>/tests_mixed.nomi :: third still runs
 T test result: FAILED. 2 passed, 1 failed
 T
-C internal/irbuild/testdata/tests_operands.nomi@52fdc6b59252ad3a
+C internal/irbuild/testdata/tests_operands.nomi@4938ec8f3389b289
 E 1
 N 0
 H e612a38f2af3657cf950897da896c653c47628782d625e53a874226437654856
@@ -8392,7 +8424,7 @@ T   after the lambda
 T ok <dir>/try_in_test.nomi :: the case after a propagating one still runs
 T test result: FAILED. 3 passed, 4 failed
 T
-C internal/irbuild/testdata/tuple_coerce_and_pattern.nomi@1a1a51d356ce13b1
+C internal/irbuild/testdata/tuple_coerce_and_pattern.nomi@461f06ff4e21d970
 E 0
 N 0
 H f7417b0b336cecaddde47cd35eeedbf61ff98fff935b4b37132e7cf113aaaafa
@@ -8503,7 +8535,7 @@ T       nothing()
 T         = Unit
 T test result: FAILED. 2 passed, 1 failed
 T
-C internal/irbuild/testdata/untyped_equality.nomi@58ac097a4fcccd72
+C internal/irbuild/testdata/untyped_equality.nomi@309acbebcf97a993
 E 0
 N 0
 H adb7b7d2e8e6b4bade01a1cdce85a21edf3ece7dade8df8049418e45c488770d
@@ -8642,7 +8674,7 @@ T 5/1
 T lib
 T entry
 T
-C internal/irbuild/testdata/vectors.nomi@ee22eb355bcaf74b
+C internal/irbuild/testdata/vectors.nomi@76e373a6599f77d7
 E 0
 N 0
 H 46f2348481122360191e51fa5a00dfe8e0fbfb3fee487894c34ce08f2a98b717
@@ -9640,7 +9672,7 @@ T       3 < 4
 T ok <dir>/pattern_test.nomi :: a passing bare name
 T test result: FAILED. 4 passed, 7 failed
 T
-C tests/01-foundations/inline_annotations/inline_annotations_test.nomi@efa8b10ba2e7cdaf
+C tests/01-foundations/inline_annotations/inline_annotations_test.nomi@34a1e00cf4679038
 E 0
 N 0
 H 5021b367003179fc2b49a2322a84aea55c7880ec1461fcbec43b7bf84f8e5451
@@ -9684,7 +9716,7 @@ T ok <dir>/dbg_test.nomi :: dbg expression prints source and returns value
 T ok <dir>/dbg_test.nomi :: dbg pipe stage prints source and passes the value through
 T test result: ok. 2 passed, 0 failed
 T
-C tests/03-tooling-and-diagnostics/formatting_test.nomi@0c75ff854ccb21b1
+C tests/03-tooling-and-diagnostics/formatting_test.nomi@1885d7ba218231ed
 E 0
 N 0
 H 87e33a9a852ce0988ab214be2ae4be8516c91906447ed1feee4f44af456bd563
@@ -9762,7 +9794,7 @@ T ok <dir>/struct_spread_test.nomi :: ordinary construction is not a patch
 T ok <dir>/struct_spread_test.nomi :: a spread with no fields is rejected
 T test result: ok. 23 passed, 0 failed
 T
-C tests/09-functions-and-control-flow/call_semantics_test.nomi@547a4327191e34fe
+C tests/09-functions-and-control-flow/call_semantics_test.nomi@0e7bd57452281d96
 E 0
 N 0
 H cd1ef70afeeadd6e49dfb427623801901d9c8e1075fabcc7af411addf41331aa
@@ -9844,7 +9876,7 @@ T ok <dir>/add_test.nomi :: Add impl identity includes rhs type
 T ok <dir>/add_test.nomi :: generic operators use their interface output type
 T test result: ok. 6 passed, 0 failed
 T
-C tests/13-iterators-and-pipes/pipes_test.nomi@c28a1cec33e58f1d
+C tests/13-iterators-and-pipes/pipes_test.nomi@ca7b47e51fd46af5
 E 0
 N 0
 H 9e0436ed2f67a56e40284d844885c425b0e97ac92c29c89fa7aa2cb312dab2b1
@@ -9891,7 +9923,7 @@ T [INFO] hello, Ada
 T [WARN] config checked
 T console ready
 T
-C tests/16-concurrency/supervisors/supervisors_test.nomi@46348cdf135c12c1
+C tests/16-concurrency/supervisors/supervisors_test.nomi@4d946aceb9fea65e
 E 0
 N 0
 H d2caeccdfc0a9c5e2d9a1ecff6e49c162eb0c8e7eaa586b4fe9f2ddebefe06fe

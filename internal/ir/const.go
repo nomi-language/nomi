@@ -18,7 +18,7 @@ import "strconv"
 //   - Three owners build an EMPTY CONTAINER: `emptyList`, `setNewCall` and
 //     `vectorEmptyCall`, all at the Unit instantiation and none at an element
 //     type. The element type is not merely unavailable at those positions:
-//     `Set.new()` names no `T` at all, and the type argument arrives later,
+//     `%[]` names no `T` at all, and the type argument arrives later,
 //     from the context that discharges the sentinel.
 //
 //     So the element type is OPTIONAL. A producer that has one supplies it; a
@@ -208,7 +208,7 @@ func (c *Const) Type() *Symbol { return c.typ }
 // argument.
 //
 // It is a property of the language and not of a producer's inference. `[]`,
-// `Set.new()` and `Vector.empty()` name no element type at their own position;
+// `%[]` and `#[]` name no element type at their own position;
 // the argument arrives from the context that consumes them, and until it does
 // the value is a sentinel a consumer must not store or return. The producer
 // and the consumer both need the distinction: the builder refuses an
