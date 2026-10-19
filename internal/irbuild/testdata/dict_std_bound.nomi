@@ -72,11 +72,11 @@ fn pair(a: Meters, b: Label) -> String {
 }
 
 fn main() {
-    io.print(shout(Meters{amount: 5}))
-    io.print(shout(Label{head: "a", tail: "b"}))
-    io.print(qualified(Meters{amount: 7}))
-    io.print(qualified(Label{head: "c", tail: "d"}))
-    io.print(relay(Meters{amount: 9}))
-    io.print(relay(Label{head: "e", tail: "f"}))
-    io.print(pair(Meters{amount: 1}, Label{head: "g", tail: "h"}))
+    io.print(shout(#Meters{amount: 5}))
+    io.print(shout(#Label{head: "a", tail: "b"}))
+    io.print(qualified(#Meters{amount: 7}))
+    io.print(qualified(#Label{head: "c", tail: "d"}))
+    io.print(relay(#Meters{amount: 9}))
+    io.print(relay(#Label{head: "e", tail: "f"}))
+    io.print(pair(#Meters{amount: 1}, #Label{head: "g", tail: "h"}))
 }

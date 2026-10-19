@@ -33,12 +33,12 @@ fn main() {
     io.print("${first(2.5)}")
     io.print("${first([1, 2, 3])}")
     io.print("${first(#(4, "five"))}")
-    io.print("${first(Point{x: 1, y: 2}).x}")
+    io.print("${first(#Point{x: 1, y: 2}).x}")
     io.print("${first(first(11))}")
 
     io.print("${pick(1, "b")}")
     io.print("${pick("a", 2)}")
-    io.print("${pick(Point{x: 6, y: 7}, pick(3, 4.5)).x}")
+    io.print("${pick(#Point{x: 6, y: 7}, pick(3, 4.5)).x}")
 
     io.print("${tally("anything", 1)}")
     io.print("${tally(9, 2)}")

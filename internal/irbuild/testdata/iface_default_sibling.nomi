@@ -121,8 +121,8 @@ fn render(value: Formatted) -> String {
 }
 
 fn main() {
-    loud = Loud{name: "a"}
-    quiet = Quiet{name: "b"}
+    loud = #Loud{name: "a"}
+    quiet = #Quiet{name: "b"}
 
     io.print(Formatted.label(loud))
     io.print(Formatted.shout(loud))

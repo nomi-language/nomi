@@ -54,7 +54,7 @@ func asNameTypes(t *testing.T, src string) map[string]string {
 func TestAsPattern_NameHasTheTypeOfItsPosition(t *testing.T) {
 	src := asDecls + `fn arm(r: Result<Tx, String>) -> Int {
     case r {
-        Ok(Tx{kind: .Deposit} as deposit) -> deposit.end
+        Ok(#Tx{kind: .Deposit} as deposit) -> deposit.end
         Ok(_) as whole -> ok_count(whole)
         Err(_) -> 0
     }
@@ -70,13 +70,13 @@ fn nested(xs: List<#(Maybe<Int>, String)>, m: Map<String, Kind>, l: Line) -> Int
         _ -> 0
     }
     c = case l {
-        Line{from: Tx{kind: .Withdrawal} as src} -> src.start
+        #Line{from: #Tx{kind: .Withdrawal} as src} -> src.start
         _ -> 0
     }
     a + b + c
 }
 
-fn param({start, end} as tx: Tx) -> Int {
+fn param(#{start, end} as tx: Tx) -> Int {
     start + end + tx.start
 }
 

@@ -97,6 +97,20 @@ pair = #(1, 2)
 // <~~~~~~~- punctuation.section.nomi
 ages = %{"ada" => 36}
 // <~~~~~~~- punctuation.section.nomi
+point = #{x: 1}
+// <~~~~~~~~- punctuation.section.nomi
+digits = #[1, 2]
+// <~~~~~~~~~- punctuation.section.nomi
+tags = %["a"]
+// <~~~~~~~- punctuation.section.nomi
+origin = #Point{x: 0}
+// <~~~~~~~~~- punctuation.section.nomi
+// <~~~~~~~~~~----- entity.name.type.nomi
+kvs = %Kvs{"a" => 1}
+// <~~~~~~- punctuation.section.nomi
+// <~~~~~~~--- entity.name.type.nomi
+rest = n % 2
+// <~~~~~~~~~- keyword.operator.nomi
 shape = .Circle(1.0)
 // <~~~~~~~~- punctuation.accessor.nomi
 // <~~~~~~~~~------ variable.other.enummember.nomi

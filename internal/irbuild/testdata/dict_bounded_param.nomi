@@ -45,8 +45,8 @@ fn twice<U>(y: U) -> String where U: Shout {
 }
 
 fn main() {
-    io.print(announce(Dog{name: "rex"}))
-    io.print(announce(Cat{name: "mia"}))
-    io.print(twice(Dog{name: "rex"}))
-    io.print(twice(Cat{name: "mia"}))
+    io.print(announce(#Dog{name: "rex"}))
+    io.print(announce(#Cat{name: "mia"}))
+    io.print(twice(#Dog{name: "rex"}))
+    io.print(twice(#Cat{name: "mia"}))
 }

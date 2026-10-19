@@ -45,7 +45,7 @@ func TestReplVM_AFunctionDefinedEarlierIsCalledLater(t *testing.T) {
 func TestReplVM_ATypeDefinedEarlierIsUsedLater(t *testing.T) {
 	replExpect(t, "struct Point {\n  x: Int\n  y: Int\n}\n"+
 		"impl Point {\n  pub fn sum(p: Point) -> Int {\n    p.x + p.y\n  }\n}\n"+
-		"p = Point{x: 1, y: 2}\nPoint.sum(p)\np.y\n",
+		"p = #Point{x: 1, y: 2}\nPoint.sum(p)\np.y\n",
 		"3\n2\n")
 }
 
@@ -134,7 +134,7 @@ func TestReplVM_AOnceIsForcedOnFirstUse(t *testing.T) {
 // Redeclaring a type drops the functions that name it, and the definitions
 // that use those; an identical redeclaration drops nothing.
 func TestReplVM_RedeclaringATypeDropsItsFunctions(t *testing.T) {
-	replExpect(t, "struct P {\n  x: Int\n}\nfn px(p: P) -> Int {\n  p.x\n}\nfn one() -> Int {\n  px(P{x: 1})\n}\n"+
+	replExpect(t, "struct P {\n  x: Int\n}\nfn px(p: P) -> Int {\n  p.x\n}\nfn one() -> Int {\n  px(#P{x: 1})\n}\n"+
 		"fn other() -> Int {\n  2\n}\n"+
 		"struct P {\n  x: Int\n}\none()\nstruct P {\n  y: Int\n}\nother()\none()\n",
 		"1\n2\n",
@@ -143,7 +143,7 @@ func TestReplVM_RedeclaringATypeDropsItsFunctions(t *testing.T) {
 
 // Redeclaring a type drops the values of its old layout.
 func TestReplVM_RedeclaringATypeDropsItsValues(t *testing.T) {
-	replExpect(t, "struct P {\n  x: Int\n}\np = P{x: 1}\nn = 3\nstruct P {\n  y: Int\n}\nn\np\n",
+	replExpect(t, "struct P {\n  x: Int\n}\np = #P{x: 1}\nn = 3\nstruct P {\n  y: Int\n}\nn\np\n",
 		"3\n",
 		"note: p is no longer in scope", "undefined variable 'p'")
 }

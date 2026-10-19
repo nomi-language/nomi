@@ -32,6 +32,6 @@ impl Shout for Widget {
 }
 
 fn main() {
-    io.print(announce(Widget{label: "here"}))
+    io.print(announce(#Widget{label: "here"}))
     io.print(other_announced())
 }

@@ -5,7 +5,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// An `or` pattern, `.Circle{r} or .Square{r}`.
+// An `or` pattern, `#.Circle{r} or #.Square{r}`.
 //
 // Its alternatives are tested in turn against the one value. An alternative
 // that matches copies each name it binds into a join temporary the

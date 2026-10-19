@@ -62,7 +62,7 @@ var specDivergences = map[string]string{
 	"typealias Lookup<V> Map<String, V>": "`typealias` IS a keyword the parser knows and `typealias Name Target` (no `=`) works end to end; " +
 		"only the GENERIC form is refused, as a hard parse error at the `<` (`expected type name, got LT`). " +
 		"`ast.TypeAlias` has no type-parameter field to hold one. §15 Type Aliases carries the callout.",
-	"Rectangle (Float, Float)    // payload is a tuple": "a trailing `//` comment on an enum variant line. A parser INCONSISTENCY, not a language rule: " +
+	"Rectangle #(Float, Float)    // payload is a tuple": "a trailing `//` comment on an enum variant line. A parser INCONSISTENCY, not a language rule: " +
 		"all four variant kinds reject one (bare -> `expected type name, got COMMENT`; positional, struct-shaped and " +
 		"`embeds` -> `enum variants are newline- or semicolon-separated`), while a struct field and an interface " +
 		"requirement line both accept one. Two arms are implicated — `parser.go:5330`'s same-line separator check " +
@@ -264,16 +264,16 @@ func TestSpecExamples_PinnedDivergencesStillFail(t *testing.T) {
 //
 //	user = users.User
 //
-//	{name: "Alice", age: 30}
+//	#{name: "Alice", age: 30}
 //
 // parses clean as two statements — a binding of the bare name, then an
 // anonymous struct built and thrown away. At file scope there is no tail-value
 // position, so a discarded anonymous struct literal is never what the author
-// meant. Named literals are not flagged: `User{a: 1}` alone is a legitimate
+// meant. Named literals are not flagged: `#User{a: 1}` alone is a legitimate
 // "here is the expression" demonstration.
 //
-// The braces are caught in both shapes they can take. `{status: 404}` parses
-// as an anonymous *ast.StructLit; `{}` — the detached form of `Response{}`,
+// The braces are caught in both shapes they can take. `#{status: 404}` parses
+// as an anonymous *ast.StructLit; `{}` — the detached form of `#Response{}`,
 // a struct built entirely from field defaults — is ambiguous with a block and
 // the parser resolves it to an empty *ast.Block. A bare block at file scope is
 // no more meaningful than a discarded literal, so both are reported.

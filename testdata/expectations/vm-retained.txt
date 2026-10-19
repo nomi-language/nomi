@@ -136,6 +136,11 @@
 04-scalars-and-text/words_and_lines_test.nomi:count_non_empty_lines	ran
 04-scalars-and-text/words_and_lines_test.nomi:sum_numbers	ran
 06-collections/lists_test.nomi:sum	ran
+06-collections/named_literals_test.nomi:Ids.inspect	ran
+06-collections/named_literals_test.nomi:Json.inspect	ran
+06-collections/named_literals_test.nomi:Kvs.inspect	ran
+06-collections/named_literals_test.nomi:Settings.inspect	ran
+06-collections/named_literals_test.nomi:depth_of	ran
 06-collections/tuples_test.nomi:classify	ran
 06-collections/tuples_test.nomi:divide	ran
 06-collections/vectors_test.nomi:Countdown.each_while	ran
@@ -297,6 +302,7 @@
 08-pattern-matching/distinct_sub_patterns_test.nomi:bind_else	ran
 08-pattern-matching/distinct_sub_patterns_test.nomi:fallback	ran
 08-pattern-matching/distinct_sub_patterns_test.nomi:kvs	ran
+08-pattern-matching/distinct_sub_patterns_test.nomi:label	ran
 08-pattern-matching/distinct_sub_patterns_test.nomi:record_stack	ran
 08-pattern-matching/distinct_sub_patterns_test.nomi:top	ran
 08-pattern-matching/distinct_sub_patterns_test.nomi:tuple_case	ran
@@ -389,6 +395,12 @@
 08-pattern-matching/variant_resolution/variant_resolution_test.nomi:show_input	ran
 08-pattern-matching/variant_resolution/variant_resolution_test.nomi:try_describe	ran
 08-pattern-matching/variant_resolution/variant_resolution_test.nomi:wrap_input	ran
+08-pattern-matching/vector_set_patterns_test.nomi:Bag.inspect	ran
+08-pattern-matching/vector_set_patterns_test.nomi:Path.inspect	ran
+08-pattern-matching/vector_set_patterns_test.nomi:Tags.inspect	ran
+08-pattern-matching/vector_set_patterns_test.nomi:ends	PROBE: a synthesized argument is not a value of the declared type
+08-pattern-matching/vector_set_patterns_test.nomi:role	PROBE: a synthesized argument is not a value of the declared type
+08-pattern-matching/vector_set_patterns_test.nomi:sum	PROBE: a synthesized argument is not a value of the declared type
 09-functions-and-control-flow/call_semantics_test.nomi:abs	ran
 09-functions-and-control-flow/call_semantics_test.nomi:add	ran
 09-functions-and-control-flow/call_semantics_test.nomi:add3	ran

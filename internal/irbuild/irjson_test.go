@@ -14,11 +14,11 @@ struct User {
   age: Int
 }
 
-derive ToJson for User with ToJson.Options{rename_all: Camel}
-derive FromJson for User with FromJson.Options{rename_all: Camel}
+derive ToJson for User with #ToJson.Options{rename_all: Camel}
+derive FromJson for User with #FromJson.Options{rename_all: Camel}
 
 fn main() -> Result<Unit, Json.ShapeError> {
-  user = User{first_name: "Ada", age: 36}
+  user = #User{first_name: "Ada", age: 36}
   shape = User.to_json(user)
 
   dbg Json.encode(shape)
@@ -49,7 +49,7 @@ dbg line 37: point_of("{\"y\": 2, \"x\": 7}") = "point 7,2"
 dbg line 38: point_of("{\"x\": 1}") = "shape error: expected Int, got missing"
 dbg line 39: point_of("{\"x\": 1,") = "decode error at 1:9: unexpected end of input: incomplete JSON value"
 dbg line 42: flag_text = "{\"label\":\"a \\\"quoted\\\" label\",\"ratio\":0.25,\"on\":true}"
-dbg line 51: back = Flag{label: "a \"quoted\" label", ratio: 0.25, on: True}
+dbg line 51: back = #Flag{label: "a \"quoted\" label", ratio: 0.25, on: True}
 `)
 }
 
@@ -85,14 +85,14 @@ fn point_of(text: String) -> String {
 }
 
 fn main() {
-  p = Point{x: 3, y: -4}
+  p = #Point{x: 3, y: -4}
   text = Json.encode(Point.to_json(p))
   dbg text
   dbg point_of(text)
   dbg point_of("{\"y\": 2, \"x\": 7}")
   dbg point_of("{\"x\": 1}")
   dbg point_of("{\"x\": 1,")
-  flag = Flag{label: "a \"quoted\" label", ratio: 0.25, on: True}
+  flag = #Flag{label: "a \"quoted\" label", ratio: 0.25, on: True}
   flag_text = Json.encode(ToJson.to_json(flag))
   dbg flag_text
   back = case Json.decode(flag_text) {
@@ -116,7 +116,7 @@ func TestIRJSON_DecodedValueAndDebug(t *testing.T) {
 }
 
 fn wrap(j: Json) -> Json {
-  Json.Obj%{"items" => j}
+  %Json.Obj{"items" => j}
 }
 
 fn main() {

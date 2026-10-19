@@ -271,10 +271,10 @@ func TestLoopState_BareBreakInAStatedLoopHasTheStateType(t *testing.T) {
 }
 
 fn open(inputs: List<Int>) -> Account {
-  Iter.loop(fn account = Account{} -> {
+  Iter.loop(fn account = #Account{} -> {
     if Iter.empty?(inputs) { break }
-    if account.balance > 3 { break {..account, balance: 0} }
-    {..account, balance: account.balance + 1}
+    if account.balance > 3 { break #{..account, balance: 0} }
+    #{..account, balance: account.balance + 1}
   })
 }
 

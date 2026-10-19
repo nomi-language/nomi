@@ -171,7 +171,7 @@ impl Literal for Box {
         .Static(s) -> acc + s
         .Dynamic(v) -> acc + v
       })
-    Box{contents: body}
+    #Box{contents: body}
   }
 }
 

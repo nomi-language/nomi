@@ -31,16 +31,16 @@ func TestParamDefault_RightTypeIsAccepted(t *testing.T) {
 }
 
 impl Count {
-  once zero: Count = Count{n: 0}
+  once zero: Count = #Count{n: 0}
 }
 
 fn bump(by: Int, c: Count = Count.zero, seen: List<Int> = []) -> Count {
-  Count{n: c.n + by}
+  #Count{n: c.n + by}
 }
 
 fn main() -> Unit {
-  total = Iter.reduce([1, 2], fn c: Count = Count.zero, x -> Count{n: c.n + x})
-  add = fn by: Int, c: Count = Count.zero -> Count{n: c.n + by}
+  total = Iter.reduce([1, 2], fn c: Count = Count.zero, x -> #Count{n: c.n + x})
+  add = fn by: Int, c: Count = Count.zero -> #Count{n: c.n + by}
 }`
 	expectClean(t, checkWithStdlib(src))
 }

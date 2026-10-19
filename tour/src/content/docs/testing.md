@@ -182,7 +182,7 @@ report:
 
 ```text
 FAIL palindrome_test.nomi :: determines palindromes
-  subtest ("abc", True): line 10: assertion failed
+  subtest #("abc", True): line 10: assertion failed
     assert palindrome?(line) == known_palindrome
     values:
       line
@@ -380,9 +380,9 @@ value through a pattern after its name.
 
 ```nomi-run
 group "user labels" {
-    setup {name: "Ada", role: "admin"}
+    setup #{name: "Ada", role: "admin"}
 
-    test "setup value is explicit", {name, role} {
+    test "setup value is explicit", #{name, role} {
         assert name == "Ada"
         assert role == "admin"
     }
@@ -396,7 +396,7 @@ group "user labels" {
 A test sees only the value `setup` returns. Names bound inside the `setup`
 block don't reach the tests.
 
-The value can be anything. A test can bind a record with `{name, role}`, a
+The value can be anything. A test can bind a record with `#{name, role}`, a
 tuple with `#(left, right)`, or the whole value with a name, as in
 `test "loads rows", db { ... }`. The pattern has to match every value setup
 can produce, so a pattern such as `Some(n)` is an error. Bind a name instead,
@@ -423,7 +423,7 @@ struct Config {
 }
 
 fn boot(startup: Startup) -> Config {
-    Config{env: Map.get(startup.env, "APP_ENV") |> Maybe.with_default("dev")}
+    #Config{env: Map.get(startup.env, "APP_ENV") |> Maybe.with_default("dev")}
 }
 
 fn main() {
@@ -431,7 +431,7 @@ fn main() {
 }
 
 group "app-backed behavior" {
-    boot boot(Startup{env: %{"APP_ENV" => "test"}})
+    boot boot(#Startup{env: %{"APP_ENV" => "test"}})
 
     test "reads the booted field" {
         assert Config.env == "test"
@@ -464,8 +464,8 @@ struct Config {
     verbose: Bool
 }
 
-fn boot(startup: Startup = Startup{}) -> Config {
-    Config{verbose: Iter.any?(startup.args, fn arg -> arg == "-v")}
+fn boot(startup: Startup = #Startup{}) -> Config {
+    #Config{verbose: Iter.any?(startup.args, fn arg -> arg == "-v")}
 }
 
 fn main() {
@@ -481,7 +481,7 @@ group "quiet by default" {
 }
 
 group "verbose" {
-    boot boot(Startup{args: ["-v"]})
+    boot boot(#Startup{args: ["-v"]})
 
     test "reads -v" {
         assert Config.verbose
@@ -526,7 +526,7 @@ group "welcome email" {
 ```
 
 Here `test_support.startup()` builds the inputs this group needs. If
-`server.nomi` declares `pub fn boot(startup: Startup = Startup{}) -> App`, a group
+`server.nomi` declares `pub fn boot(startup: Startup = #Startup{}) -> App`, a group
 that needs no input writes `boot server.boot()`.
 
 ## Virtual Time

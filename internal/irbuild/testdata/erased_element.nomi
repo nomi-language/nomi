@@ -99,8 +99,8 @@ fn show_beta(m: Maybe<Beta>) -> String {
 }
 
 fn main() {
-    p = P{n: 7}
-    q = Q{s: "z"}
+    p = #P{n: 7}
+    q = #Q{s: "z"}
 
     // Widened one at a time: a list LITERAL whose elements need widening to an
     // existential is a separate gap (`list element type mismatch`), and this

@@ -141,7 +141,7 @@ func preludeSpecNamed(nomi string) *preludeSpec {
 // argument expression.
 //
 // The four UNTYPED literal kinds are excluded for bindableTypeArg's reason,
-// stated there: `[]`, a bare `None`, `Map.empty()` and `#{}` have no type of their own,
+// stated there: `[]`, a bare `None`, `Map.empty()` and `%[]` have no type of their own,
 // so binding one would fix the artifact's element type from a literal whose real
 // type the program decides elsewhere. Here that would make
 // `Maybe.to_result(m, [])` produce a `Result<T, List<Unit>>`.

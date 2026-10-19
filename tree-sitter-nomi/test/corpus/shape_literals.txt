@@ -1,0 +1,681 @@
+================================================================================
+Struct literals that name a module type, a variant and a dot variant
+================================================================================
+
+once p = #geo.Point{x: 1}
+once c = #Shape.Circle{radius: 1.0}
+once d: Shape = #.Circle{radius: 1.0}
+once e = #geo.Shape.Circle{radius}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    (identifier)
+    (struct_construction
+      (identifier)
+      (type_identifier)
+      (identifier)
+      (integer)))
+  (once_binding
+    (identifier)
+    (struct_construction
+      (type_identifier)
+      (type_identifier)
+      (identifier)
+      (float)))
+  (once_binding
+    (identifier)
+    (type_identifier)
+    (struct_construction
+      (dot_variant
+        (type_identifier))
+      (identifier)
+      (float)))
+  (once_binding
+    (identifier)
+    (struct_construction
+      (identifier)
+      (type_identifier)
+      (type_identifier)
+      (identifier))))
+
+================================================================================
+Named tuple, vector and set literals
+================================================================================
+
+once t = #Pair(1, "x")
+once v = #Path[1, 2]
+once w: Bag = #.Items[1]
+once s = %Tags["a", "b"]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    (identifier)
+    (tuple_expression
+      (type_identifier)
+      (integer)
+      (string
+        (string_content))))
+  (once_binding
+    (identifier)
+    (vector
+      (type_identifier)
+      (integer)
+      (integer)))
+  (once_binding
+    (identifier)
+    (type_identifier)
+    (vector
+      (dot_variant
+        (type_identifier))
+      (integer)))
+  (once_binding
+    (identifier)
+    (set
+      (type_identifier)
+      (string
+        (string_content))
+      (string
+        (string_content)))))
+
+================================================================================
+Named map literals
+================================================================================
+
+once k = %Kvs{"a" => 1}
+once e = %Kvs{}
+once j: Json = %.Obj{"k" => v}
+once q = %Json.Obj{}
+once b = %shapes.Bag.Named{"a" => 4}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    (identifier)
+    (map_construction
+      (type_identifier)
+      (map_entry
+        (string
+          (string_content))
+        (integer))))
+  (once_binding
+    (identifier)
+    (map_construction
+      (type_identifier)))
+  (once_binding
+    (identifier)
+    (type_identifier)
+    (map_construction
+      (dot_variant
+        (type_identifier))
+      (map_entry
+        (string
+          (string_content))
+        (identifier))))
+  (once_binding
+    (identifier)
+    (map_construction
+      (type_identifier)
+      (type_identifier)))
+  (once_binding
+    (identifier)
+    (map_construction
+      (identifier)
+      (type_identifier)
+      (type_identifier)
+      (map_entry
+        (string
+          (string_content))
+        (integer)))))
+
+================================================================================
+A list keeps its brackets, with a name before them
+================================================================================
+
+once l = Ids[1, 2]
+once m = .Items[1]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    (identifier)
+    (typed_list
+      (type_identifier)
+      (list
+        (integer)
+        (integer))))
+  (once_binding
+    (identifier)
+    (typed_list
+      (dot_variant
+        (type_identifier))
+      (list
+        (integer)))))
+
+================================================================================
+Vector patterns from either end
+================================================================================
+
+fn f(v: Vector<Int>) -> Int {
+    case v {
+        #[] -> 0
+        #[a, b] -> a
+        #[first, ..rest] -> first
+        #[.., last] -> last
+        #[a, b, ..] -> a
+        #[a, ..mid, z] -> a
+        #[.._] -> 0
+        #Path[a, ..] -> a
+        #.Items[x] -> x
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (case_expression
+        (identifier)
+        (case_branch
+          (vector_pattern)
+          (integer))
+        (case_branch
+          (vector_pattern
+            (identifier)
+            (identifier))
+          (identifier))
+        (case_branch
+          (vector_pattern
+            (identifier)
+            (pattern_spread
+              (identifier)))
+          (identifier))
+        (case_branch
+          (vector_pattern
+            (pattern_spread)
+            (identifier))
+          (identifier))
+        (case_branch
+          (vector_pattern
+            (identifier)
+            (identifier)
+            (pattern_spread))
+          (identifier))
+        (case_branch
+          (vector_pattern
+            (identifier)
+            (pattern_spread
+              (identifier))
+            (identifier))
+          (identifier))
+        (case_branch
+          (vector_pattern
+            (pattern_spread))
+          (integer))
+        (case_branch
+          (vector_pattern
+            (type_identifier)
+            (identifier)
+            (pattern_spread))
+          (identifier))
+        (case_branch
+          (vector_pattern
+            (dot_variant
+              (type_identifier))
+            (identifier))
+          (identifier))))))
+
+================================================================================
+Set patterns test membership
+================================================================================
+
+fn f(s: Set<String>) -> Int {
+    case s {
+        %["admin", ..rest] -> 1
+        %["guest", ..] -> 2
+        %[] -> 3
+        %Tags["a", ..] -> 4
+        _ -> 5
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (case_expression
+        (identifier)
+        (case_branch
+          (set_pattern
+            (string
+              (string_content))
+            (identifier))
+          (integer))
+        (case_branch
+          (set_pattern
+            (string
+              (string_content)))
+          (integer))
+        (case_branch
+          (set_pattern)
+          (integer))
+        (case_branch
+          (set_pattern
+            (type_identifier)
+            (string
+              (string_content)))
+          (integer))
+        (case_branch
+          (integer))))))
+
+================================================================================
+Struct, map and tuple patterns that name their type
+================================================================================
+
+fn f(s: Shape) -> Int {
+    case s {
+        #.Circle{radius} -> radius
+        #Shape.Square{side: 0} -> 0
+        #geo.Point{x} -> x
+        %Kvs{"k" => v} -> v
+        %.Obj{"k" => v} -> v
+        #Pair(a, b) -> a
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (body
+      (case_expression
+        (identifier)
+        (case_branch
+          (struct_pattern
+            (dot_variant
+              (type_identifier))
+            (pattern_field
+              (identifier)))
+          (identifier))
+        (case_branch
+          (struct_pattern
+            (type_identifier)
+            (type_identifier)
+            (pattern_field
+              (identifier)
+              (integer)))
+          (integer))
+        (case_branch
+          (struct_pattern
+            (identifier)
+            (type_identifier)
+            (pattern_field
+              (identifier)))
+          (identifier))
+        (case_branch
+          (map_pattern
+            (type_identifier)
+            (string
+              (string_content))
+            (identifier))
+          (identifier))
+        (case_branch
+          (map_pattern
+            (dot_variant
+              (type_identifier))
+            (string
+              (string_content))
+            (identifier))
+          (identifier))
+        (case_branch
+          (tuple_pattern
+            (type_identifier)
+            (identifier)
+            (identifier))
+          (identifier))))))
+
+================================================================================
+Bindings and parameters take the named patterns apart
+================================================================================
+
+fn f(#Point{x, y}, #[a, ..], %{"k" => v}) -> Int {
+    #Pair(n, m) = pair
+    #Point{x, y} = p
+    #[first, ..rest] = v else { return 0 }
+    %["a", ..others] = s else { return 0 }
+    %Kvs{"k" => w} = kvs else { return 0 }
+    g = fn #[x, ..] -> x
+    x
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (struct_pattern
+          (type_identifier)
+          (pattern_field
+            (identifier))
+          (pattern_field
+            (identifier))))
+      (parameter
+        (vector_pattern
+          (identifier)
+          (pattern_spread)))
+      (parameter
+        (map_pattern
+          (string
+            (string_content))
+          (identifier))))
+    (type_identifier)
+    (body
+      (destructuring_binding
+        (type_identifier)
+        (identifier)
+        (identifier)
+        (identifier))
+      (pattern_binding
+        (struct_construction
+          (type_identifier)
+          (identifier)
+          (identifier))
+        (identifier))
+      (else_binding
+        (vector
+          (identifier)
+          (identifier))
+        (identifier)
+        (body
+          (return_statement
+            (integer))))
+      (else_binding
+        (set
+          (string
+            (string_content))
+          (identifier))
+        (identifier)
+        (body
+          (return_statement
+            (integer))))
+      (else_binding
+        (destructuring_binding
+          (type_identifier)
+          (string
+            (string_content))
+          (identifier)
+          (identifier))
+        (body
+          (return_statement
+            (integer))))
+      (binding
+        (identifier)
+        (lambda
+          (lambda_parameter
+            (vector_pattern
+              (identifier)
+              (pattern_spread)))
+          (identifier)))
+      (identifier))))
+
+================================================================================
+Pattern conditions with vectors and sets
+================================================================================
+
+fn f(v: Vector<Int>, s: Set<Int>) -> Int {
+    if #[a, ..] = v {
+        a
+    } else if %[1, ..] = s {
+        1
+    } else if #[.., z] == v {
+        z
+    } else {
+        0
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)))
+      (parameter
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (if_expression
+        (if_match_condition
+          (vector_pattern
+            (identifier)
+            (pattern_spread))
+          (identifier))
+        (body
+          (identifier))
+        (if_expression
+          (if_match_condition
+            (set_pattern
+              (integer))
+            (identifier))
+          (body
+            (integer))
+          (if_expression
+            (binary_expression
+              (vector
+                (identifier))
+              (identifier))
+            (body
+              (identifier))
+            (body
+              (integer))))))))
+
+================================================================================
+A struct literal in an if condition and a case subject
+================================================================================
+
+fn f(p: Point) -> Int {
+    x = if p == #Point{x: 1} { 1 } else { 2 }
+    case #Point{x: 1} {
+        #Point{x} -> x
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (body
+      (binding
+        (identifier)
+        (if_expression
+          (binary_expression
+            (identifier)
+            (struct_construction
+              (type_identifier)
+              (identifier)
+              (integer)))
+          (body
+            (integer))
+          (body
+            (integer))))
+      (case_expression
+        (struct_construction
+          (type_identifier)
+          (identifier)
+          (integer))
+        (case_branch
+          (struct_pattern
+            (type_identifier)
+            (pattern_field
+              (identifier)))
+          (identifier))))))
+
+================================================================================
+Remainder and the hashed literals
+================================================================================
+
+once a = n % m
+once b = n % (m)
+once c = n % #{m: 1}.m
+once d = %{1 => 2}
+once e = %[1]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    (identifier)
+    (binary_expression
+      (identifier)
+      (identifier)))
+  (once_binding
+    (identifier)
+    (binary_expression
+      (identifier)
+      (paren_expression
+        (identifier))))
+  (once_binding
+    (identifier)
+    (binary_expression
+      (identifier)
+      (field_access
+        (anon_struct
+          (anon_struct_field
+            (identifier)
+            (integer)))
+        (identifier))))
+  (once_binding
+    (identifier)
+    (map_construction
+      (map_entry
+        (integer)
+        (integer))))
+  (once_binding
+    (identifier)
+    (set
+      (integer))))
+
+================================================================================
+Two statements on one line are an error
+================================================================================
+
+fn f() {
+    x = 1 2
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (integer))
+      (ERROR
+        (integer)))))
+
+================================================================================
+Statements separated by a semicolon
+================================================================================
+
+fn f() {
+    x = 1; y = 2
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (integer))
+      (binding
+        (identifier)
+        (integer)))))
+
+================================================================================
+A name before a brace is not a literal
+================================================================================
+
+fn f() {
+    p = Point{x: 1}
+}
+
+fn g() {
+    m = Map{}
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (ERROR
+          (type_identifier))
+        (body
+          (ERROR
+            (identifier))
+          (integer)))))
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (ERROR
+          (type_identifier))
+        (body)))))

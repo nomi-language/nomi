@@ -14,9 +14,9 @@
 //     are the case's only through its pattern: a sibling group declared after
 //     another must still see its own setup's value.
 group "config" {
-    setup {limit: 12, label: "root"}
+    setup #{limit: 12, label: "root"}
 
-    test "a case reads the value its group produced", {limit, label} {
+    test "a case reads the value its group produced", #{limit, label} {
         assert limit == 12
         assert label == "root"
     }

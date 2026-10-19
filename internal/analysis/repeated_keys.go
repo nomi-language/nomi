@@ -12,7 +12,7 @@ import (
 
 // checkRepeatedKeys reports a key given twice in one map literal or map
 // pattern, and an element given twice in one set literal, when the two are
-// the same constant: `%{1 => "a", 1 => "b"}`, `#{"x", "x"}`,
+// the same constant: `%{1 => "a", 1 => "b"}`, `%["x", "x"]`,
 // `%{"k" => a, "k" => b} = m`. At run time the later map entry replaces the
 // earlier one and a set holds the element once, so the earlier one is dead
 // code; a pattern would match one value twice. Keys whose equality is only
@@ -53,6 +53,9 @@ func (c *checker) checkRepeatedKeys(nodes []ast.Node) {
 	setLit := func(display string) string {
 		return fmt.Sprintf("element `%s` is given twice in this set literal; a set holds it once", display)
 	}
+	setPat := func(display string) string {
+		return fmt.Sprintf("element `%s` is given twice in this set pattern; test it once", display)
+	}
 	patternKeys := func(entries []ast.MapPatternEntry) []ast.Node {
 		keys := make([]ast.Node, len(entries))
 		for i, e := range entries {
@@ -77,6 +80,8 @@ func (c *checker) checkRepeatedKeys(nodes []ast.Node) {
 				check(v.Items, setLit)
 			case *ast.MapPattern:
 				check(patternKeys(v.Entries), mapPat)
+			case *ast.SetPattern:
+				check(v.Elems, setPat)
 			}
 			return true
 		})

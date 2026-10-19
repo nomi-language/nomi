@@ -9,23 +9,23 @@ func TestIRFieldDefault_TourUserDefaults(t *testing.T) {
 }
 
 fn main() {
-  alice = User{name: "Alice", age: 30}
+  alice = #User{name: "Alice", age: 30}
   dbg alice.name
   dbg alice.age
 
   // The default lets the caller omit `+"`age`"+`.
-  bob = User{name: "Bob"}
+  bob = #User{name: "Bob"}
   dbg bob.age
 
-  // Field-name punning: `+"`User{name, age}`"+` is shorthand for
-  // `+"`User{name: name, age: age}`"+` when bindings of those names are in scope.
+  // Field-name punning: `+"`#User{name, age}`"+` is shorthand for
+  // `+"`#User{name: name, age: age}`"+` when bindings of those names are in scope.
   name = "Carol"
   age = 28
-  carol = User{name, age}
+  carol = #User{name, age}
   dbg carol
 }
 `, "dbg line 8: alice.name = \"Alice\"\ndbg line 9: alice.age = 30\ndbg line 13: bob.age = 0\n"+
-		"dbg line 20: carol = User{name: \"Carol\", age: 28}\n")
+		"dbg line 20: carol = #User{name: \"Carol\", age: 28}\n")
 }
 
 // Defaults run per construction, after the written fields, in declaration
@@ -44,9 +44,9 @@ struct Cfg {
 }
 fn main() {
   base = 100
-  x = Cfg{b: mark("b", base)}
+  x = #Cfg{b: mark("b", base)}
   io.inspect(x.a + x.b + x.c)
-  y = Cfg{c: 5, b: 1}
+  y = #Cfg{c: 5, b: 1}
   io.inspect(y.a + y.c)
 }
 `, "b\na\nc\n115\na\n6\n")
@@ -59,11 +59,11 @@ func TestIRFieldDefault_DerivedStructDebug(t *testing.T) {
   ok: Bool = True
 }
 fn main() {
-  dbg Point{x: 3}
-  dbg Point{x: -1, label: "a\nb", ok: False}
+  dbg #Point{x: 3}
+  dbg #Point{x: -1, label: "a\nb", ok: False}
 }
-`, "dbg line 7: Point{x: 3} = Point{x: 3, label: \"origin \\\"0\\\"\", ok: True}\n"+
-		"dbg line 8: Point{x: -1, label: \"a\\nb\", ok: False} = Point{x: -1, label: \"a\nb\", ok: False}\n")
+`, "dbg line 7: #Point{x: 3} = #Point{x: 3, label: \"origin \\\"0\\\"\", ok: True}\n"+
+		"dbg line 8: #Point{x: -1, label: \"a\\nb\", ok: False} = #Point{x: -1, label: \"a\nb\", ok: False}\n")
 }
 
 func TestIRNominalDebug_TourDbgKinds(t *testing.T) {
@@ -80,11 +80,11 @@ enum Status {
 type Email String
 
 fn main() {
-  dbg Point{x: 3, y: 4}
+  dbg #Point{x: 3, y: 4}
   dbg Status.Pending(7)
   dbg Email("a@b.com")
 }
-`, "dbg line 14: Point{x: 3, y: 4} = Point{x: 3, y: 4}\n"+
+`, "dbg line 14: #Point{x: 3, y: 4} = #Point{x: 3, y: 4}\n"+
 		"dbg line 15: Status.Pending(7) = Pending(7)\n"+
 		"dbg line 16: Email(\"a@b.com\") = Email(\"a@b.com\")\n")
 }
@@ -104,7 +104,7 @@ impl Display for User {
 }
 
 fn main() {
-  io.print(User{name: "Alice", age: 30})
+  io.print(#User{name: "Alice", age: 30})
 }
 `, "Alice (30)\n")
 }
@@ -121,12 +121,12 @@ enum E {
 }
 fn make(n: Int) -> P {
   io.print("made")
-  P{x: n, s: "q\"q"}
+  #P{x: n, s: "q\"q"}
 }
 fn main() {
   io.inspect(make(2))
   io.inspect(E.B(3))
   io.inspect(E.A)
 }
-`, "made\nP{x: 2, s: \"q\\\"q\"}\nB(3)\nA\n")
+`, "made\n#P{x: 2, s: \"q\\\"q\"}\nB(3)\nA\n")
 }

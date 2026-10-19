@@ -51,7 +51,7 @@ fn paint(c: Color) -> Int {
 fn area(s: Shape) -> Float {
     case s {
         .Circle(r) -> r * r
-        .Rect{w, h} -> w * h
+        #.Rect{w, h} -> w * h
     }
 }
 
@@ -67,7 +67,7 @@ fn main() {
     _b = Iter.sort([3, 1, 2], .Descending)
     _c = Iter.sort_with([3, 1, 2], fn _x, _y -> .Less)
     _d = area(.Circle(1.0))
-    _e = area(.Rect{w: 1.0, h: 2.0})
+    _e = area(#.Rect{w: 1.0, h: 2.0})
     _f = paint(Color.Red)
     _g = area(Shape.Circle(1.0))
     _h = Iter.sort_with([3, 1, 2], fn _x, _y -> Ordering.Less)
@@ -266,7 +266,7 @@ func TestDotVariant_NavigatesLikeTheWrittenVariant(t *testing.T) {
 	}
 	redUses := []string{m("        .Red -> 1", "Red"), m("paint(.Red)", "Red"), m("paint(Color.Red)", "Red")}
 	circleUses := []string{m(".Circle(r) ->", "Circle"), m("area(.Circle(1.0))", "Circle"), m("Shape.Circle(1.0)", "Circle")}
-	rectUses := []string{m(".Rect{w, h}", "Rect"), m("area(.Rect{", "Rect")}
+	rectUses := []string{m("#.Rect{w, h}", "Rect"), m("area(#.Rect{", "Rect")}
 	twoUses := []string{m("pick(.Two)", "Two"), m("pick(Local.Two)", "Two")}
 	fullUses := []string{m("Slot.Full(n)", "Full"), m("fill(.Full(1))", "Full"), m("fill(Slot.Full(1))", "Full")}
 	sites := []site{
@@ -278,9 +278,9 @@ func TestDotVariant_NavigatesLikeTheWrittenVariant(t *testing.T) {
 			hover: "variant Circle", decl: m("    Circle(Float)", "Circle"), uses: circleUses},
 		{name: "payload pattern", marker: ".Circle(r) ->", word: "Circle",
 			hover: "variant Circle", decl: m("    Circle(Float)", "Circle"), uses: circleUses},
-		{name: "struct expression", marker: "area(.Rect{", word: "Rect",
+		{name: "struct expression", marker: "area(#.Rect{", word: "Rect",
 			hover: "variant Rect", decl: m("    Rect {", "Rect"), uses: rectUses},
-		{name: "struct pattern", marker: ".Rect{w, h}", word: "Rect",
+		{name: "struct pattern", marker: "#.Rect{w, h}", word: "Rect",
 			hover: "variant Rect", decl: m("    Rect {", "Rect"), uses: rectUses},
 		{name: "block-local enum", marker: "pick(.Two)", written: "pick(Local.Two)", word: "Two",
 			hover: "variant Two", decl: m("        Two", "Two"), uses: twoUses},

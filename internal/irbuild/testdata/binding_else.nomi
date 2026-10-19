@@ -81,22 +81,22 @@ fn port(text: String) -> Result<Int, String> {
 
 fn check(n: Int) -> Check {
     if n > 0 {
-        Check.Valid{addr: "a${n}", score: n}
+        #Check.Valid{addr: "a${n}", score: n}
     } else {
         Check.Invalid("neg")
     }
 }
 
 fn describe(n: Int) -> String {
-    .Valid{addr, score} = check(n) else {
-        .Invalid(_) -> {addr: "unknown", score: 0}
+    #.Valid{addr, score} = check(n) else {
+        .Invalid(_) -> #{addr: "unknown", score: 0}
     }
 
     "${addr}:${score}"
 }
 
 fn whole(c: Check) -> Int {
-    .Valid(r) = c else { {addr: "none", score: -1} }
+    .Valid(r) = c else { #{addr: "none", score: -1} }
     r.score
 }
 
@@ -192,7 +192,7 @@ fn main() {
     io.print(port("y"))
     io.print(describe(3))
     io.print(describe(-1))
-    io.print(whole(Check.Valid{addr: "x", score: 7}))
+    io.print(whole(#Check.Valid{addr: "x", score: 7}))
     io.print(whole(Check.Invalid("bad")))
     io.print(first_or([4, 5]))
     io.print(first_or([]))

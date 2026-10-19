@@ -69,7 +69,7 @@ fn every(
   _o: Ordering,
   _p: Decimal,
   _r: Handler,
-  _s: {x: Int},
+  _s: #{x: Int},
   _t: List<Ordering>,
   _u: Literal<Int, Int>,
   _v: Iter<Int>

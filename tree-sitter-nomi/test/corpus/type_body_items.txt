@@ -7,7 +7,7 @@ pub struct Point {
   y: Int = 0
 
   pub fn origin() -> Point {
-    Point{x: 0, y: 0}
+    #Point{x: 0, y: 0}
   }
 }
 
@@ -35,7 +35,7 @@ derive Debug for Point
         return_type: (type_identifier)
         (body
           (struct_construction
-            (type_identifier)
+            type: (type_identifier)
             field_name: (identifier)
             (integer)
             field_name: (identifier)

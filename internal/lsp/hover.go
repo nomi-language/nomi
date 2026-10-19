@@ -81,13 +81,13 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 
 func ptrRange(r protocol.Range) *protocol.Range { return &r }
 
-// targetStructHover is the hover on the opening brace of a target-typed
-// struct literal (`a: Address = {street: …}`): the struct the literal builds,
+// targetStructHover is the hover on the `#{` of a target-typed struct
+// literal (`a: Address = #{street: …}`): the struct the literal builds,
 // as hovering `Address` in `Address{…}` shows it. A generic struct leads with
 // its instantiation (`Box<Int>`).
 func targetStructHover(fa *analysis.FileAnalysis, pos analysis.Pos) (string, bool) {
 	for lit, st := range fa.TargetStructs {
-		if lit.Line != pos.Line || lit.Col != pos.Col {
+		if lit.Line != pos.Line || lit.Col != pos.Col && lit.Col+1 != pos.Col {
 			continue
 		}
 		head := "```nomi\n" + st.String() + "\n```"

@@ -35,7 +35,7 @@ pub opaque struct Conn {
 /// `":memory:"` opens a private in-memory database. Close it with
 /// `defer sqlite.close(conn)` right after opening.
 pub fn open(path: String) -> Result<Conn, String> {
-    open_raw(path) |> Result.map(fn raw -> Conn{raw})
+    open_raw(path) |> Result.map(fn raw -> #Conn{raw})
 }
 
 /// Runs a statement that returns no rows, such as `CREATE`, `INSERT`,

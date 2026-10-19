@@ -14,8 +14,8 @@ once path: String = "/tmp/nomi-io-files-fixture.txt"
 
 fn describe(e: IOError) -> String {
     case e {
-        IOError.NotFound{path} -> "missing:${path}"
-        IOError.Other{reason: _} -> "other"
+        #IOError.NotFound{path} -> "missing:${path}"
+        #IOError.Other{reason: _} -> "other"
     }
 }
 
@@ -59,7 +59,7 @@ test "a write whose parent is not a directory reports Other" {
 }
 
 test "IOError values compare by variant and payload" {
-    assert IOError.NotFound{path: "a"} == IOError.NotFound{path: "a"}
-    refute IOError.NotFound{path: "a"} == IOError.NotFound{path: "b"}
-    refute IOError.NotFound{path: "a"} == IOError.Other{reason: "a"}
+    assert #IOError.NotFound{path: "a"} == #IOError.NotFound{path: "a"}
+    refute #IOError.NotFound{path: "a"} == #IOError.NotFound{path: "b"}
+    refute #IOError.NotFound{path: "a"} == #IOError.Other{reason: "a"}
 }

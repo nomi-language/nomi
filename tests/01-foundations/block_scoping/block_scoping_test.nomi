@@ -24,7 +24,7 @@ test "block-scoped declarations are visible inside their enclosing block" {
     }
 
     fn make_point() -> Point {
-        Point{x: 3, y: 4}
+        #Point{x: 3, y: 4}
     }
 
     p = make_point()
@@ -34,7 +34,7 @@ test "block-scoped declarations are visible inside their enclosing block" {
         v: Int = 99
     }
 
-    d = Defaulted{}
+    d = #Defaulted{}
     assert d.v == 99
 
     typealias Count Int

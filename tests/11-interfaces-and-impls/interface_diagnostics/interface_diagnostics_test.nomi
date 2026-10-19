@@ -34,7 +34,7 @@ test "duplicate impl blocks report coherence diagnostics" {
 }
 
 test "package-local types can use impl blocks" {
-    diagnostics = compiler.check_project(Project{
+    diagnostics = compiler.check_project(#Project{
         entry_point: "main",
         manifest: Some(
             Toml"""
@@ -74,7 +74,7 @@ test "package-local types can use impl blocks" {
 // disabled this: two type-owned functions of one name on ONE type are still
 // one ambiguous slot, and are still rejected.
 test "duplicate type-owned functions report coherence diagnostics" {
-    diagnostics = compiler.check_project(Project{
+    diagnostics = compiler.check_project(#Project{
         entry_point: "main",
         files: %{
             "main" => """
@@ -84,11 +84,11 @@ test "duplicate type-owned functions report coherence diagnostics" {
 
                 impl Cookie {
                   pub fn new(flavor: String) -> Cookie {
-                    Cookie{flavor: flavor}
+                    #Cookie{flavor: flavor}
                   }
 
                   pub fn new(other: String) -> Cookie {
-                    Cookie{flavor: other}
+                    #Cookie{flavor: other}
                   }
                 }
 

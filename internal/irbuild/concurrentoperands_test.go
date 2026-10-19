@@ -28,7 +28,7 @@ struct Holder {
 }
 
 fn boot() -> App {
-    App{context: Context.root(), work: Supervisor.new(1)}
+    #App{context: Context.root(), work: Supervisor.new(1)}
 }
 
 fn seven() -> Int {
@@ -51,12 +51,12 @@ fn main() {
         Task.await(a) + Task.await(b)
     }
     io.inspect(n)
-    h = Holder{sup: App.work}
+    h = #Holder{sup: App.work}
     _ = Task.await_all([Supervisor.spawn(h.sup, job)])
     _ = Task.await_all([Supervisor.spawn(if n > 0 { App.work } else { h.sup }, job)])
     xs = concurrent {
         from_vector = Task.spawn_all(#[1, 2], double, max_running: 2)
-        from_set = Task.spawn_all(#{3}, double, max_running: 1)
+        from_set = Task.spawn_all(%[3], double, max_running: 1)
         from_range = Task.spawn_all(1..=2, double, max_running: 1)
         from_iter = Task.spawn_all([4] |> Iter.map(fn x: Int -> x + 1), double, max_running: 1)
         [from_vector, from_set, from_range, from_iter] |> Iter.map(Task.await_all) |> Iter.to_list()

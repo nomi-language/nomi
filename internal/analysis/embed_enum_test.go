@@ -98,8 +98,8 @@ enum Drawable {
 }
 fn radius(d: Drawable) -> Float {
   case d {
-    Drawable.Circle{radius} -> radius
-    Drawable.Wrapped({radius}) -> radius
+    #Drawable.Circle{radius} -> radius
+    Drawable.Wrapped(#{radius}) -> radius
     Drawable.Boxed(Shape.Square(_)) -> 1.0
     _ -> 0.0
   }

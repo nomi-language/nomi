@@ -90,8 +90,8 @@ test "rendered pipe-stage check includes pipeline source and values" {
 }
 
 test "a Set reads in the values row as its Debug form" {
-    small = #{1, 2}
-    nested = [#{"a"}]
+    small = %[1, 2]
+    nested = [%["a"]]
     assert Err(failure) = testing.check(Set.size(small) == Iter.count(nested))
 
     assert AssertionFailure.format(failure) == """
@@ -99,9 +99,9 @@ test "a Set reads in the values row as its Debug form" {
           check Set.size(small) == Iter.count(nested)
           values:
             small
-              = #{1, 2}
+              = %[1, 2]
             nested
-              = [#{"a"}]
+              = [%["a"]]
             Set.size(small)
               = 2
             Iter.count(nested)

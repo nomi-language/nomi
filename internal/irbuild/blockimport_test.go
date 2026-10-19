@@ -80,9 +80,9 @@ fn main() {
     struct Local {
         x: B
     }
-    io.inspect(Local{x: B{v: 3}})
+    io.inspect(#Local{x: #B{v: 3}})
 }
-`, "Local{x: B{v: 3}}\n", map[string]string{"b.nomi": `pub struct B {
+`, "#Local{x: #B{v: 3}}\n", map[string]string{"b.nomi": `pub struct B {
     v: Int
 }
 `})
@@ -104,9 +104,9 @@ fn main() {
     struct Local {
         x: B
     }
-    io.inspect(Local{x: B{a: A{n: 1}}})
+    io.inspect(#Local{x: #B{a: #A{n: 1}}})
 }
-`, "Local{x: B{a: A{n: 1}}}\n", map[string]string{"b.nomi": `import main.A
+`, "#Local{x: #B{a: #A{n: 1}}}\n", map[string]string{"b.nomi": `import main.A
 
 pub struct B {
     a: A

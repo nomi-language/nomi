@@ -13,7 +13,7 @@ pub struct Box {
 }
 
 pub fn make_box(n: Int) -> Box {
-    Box{value: n}
+    #Box{value: n}
 }
 
 pub fn open_box(b: Box) -> Int {

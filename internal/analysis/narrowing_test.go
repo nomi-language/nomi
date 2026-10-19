@@ -29,17 +29,17 @@ fn tag(_t: Tag) -> Int { 2 }
 fn whole(_s: Shape) -> Int { 3 }
 fn f(value: Shape) -> Int {
   case value {
-    .Circle{radius: _} -> take(value)
+    #.Circle{radius: _} -> take(value)
     .Tag(_) -> tag(value)
     .Point -> whole(value)
   }
 }
 fn g(value: Shape) -> Int {
-  if .Circle{radius: _} = value { take(value) } else { whole(value) }
+  if #.Circle{radius: _} = value { take(value) } else { whole(value) }
 }
 fn h(value: Shape) -> Int {
   case value {
-    .Circle{radius: _} as s -> whole(s)
+    #.Circle{radius: _} as s -> whole(s)
     _ -> 0
   }
 }`
@@ -49,12 +49,12 @@ fn h(value: Shape) -> Int {
 		line, col int
 		want      string
 	}{
-		{9, 32, "Circle"},
+		{9, 33, "Circle"},
 		{10, 20, "Tag"},
 		{11, 21, "Shape"},
-		{15, 40, "Circle"},
-		{15, 62, "Shape"},
-		{19, 38, "Shape"},
+		{15, 41, "Circle"},
+		{15, 63, "Shape"},
+		{19, 39, "Shape"},
 	}
 	for _, c := range cases {
 		if got := identTypeAt(t, fa, c.line, c.col); got == nil || got.String() != c.want {

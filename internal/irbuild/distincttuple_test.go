@@ -25,7 +25,7 @@ func writeTemp(t *testing.T, src string) string {
 // CONTAINER rendered by `Debug.inspect`.
 //
 // The two arrive together because clearing the first exposed the second: the
-// corpus files carrying `Coord(3, 4)` also carry `type Kvs Map<String, Int>`
+// corpus files carrying `#Coord(3, 4)` also carry `type Kvs Map<String, Int>`
 // and `type Items List<Int>`, and neither could render until the guard over
 // synthesized distinct impls came down.
 
@@ -35,7 +35,7 @@ func writeTemp(t *testing.T, src string) string {
 // THIS TEST EXISTS BECAUSE IT REFUTED THE COMMENT IT WAS WRITTEN TO CONFIRM.
 // enumtuple.go's first draft said the checker was LOOSER for a distinct than
 // for a variant, "which is how those fourteen sites arose". Running it says
-// otherwise: `Coord(1, 2, 3)` on a 2-tuple distinct is a front-end error, word
+// otherwise: `#Coord(1, 2, 3)` on a 2-tuple distinct is a front-end error, word
 // for word "Coord takes 2 arguments, got 3". The fourteen sites arose because
 // the BUILDER accepted only one of the two LEGAL counts, not because the
 // checker let a wrong one through.
@@ -45,7 +45,7 @@ func writeTemp(t *testing.T, src string) string {
 // a backstop and this test says so at that moment rather than passing quietly.
 func TestDistinctTuple_ArityIsTheFrontEndsJobForADistinctToo(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "entry_test.nomi")
-	src := "type Coord #(Int, Int)\n\ntest \"t\" {\n  assert Debug.inspect(Coord(1, 2, 3)) == \"x\"\n}\n"
+	src := "type Coord #(Int, Int)\n\ntest \"t\" {\n  assert Debug.inspect(#Coord(1, 2, 3)) == \"x\"\n}\n"
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,8 @@ func TestDistinctTuple_ArityIsTheFrontEndsJobForADistinctToo(t *testing.T) {
 			"builder's `call arity` arm is reachable from source and must be exercised " +
 			"directly rather than left as a backstop")
 	}
-	if !strings.Contains(err.Error(), "Coord takes 2 arguments, got 3") {
+	if !strings.Contains(err.Error(), "Coord wraps #(Int, Int), a tuple of 2 elements; `#Coord(...)` has 3") {
+
 		t.Fatalf("the front end still rejects this, but with different words, so the "+
 			"claim above needs re-reading: %v", err)
 	}

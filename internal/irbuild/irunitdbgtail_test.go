@@ -35,7 +35,7 @@ fn main() {
     "nested" |> dbg
   }
   inner()
-  Box.show(Box{n: 7})
+  Box.show(#Box{n: 7})
   report()
   io.print("total ${twice(1)}")
   [1, 2]

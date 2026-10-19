@@ -178,7 +178,7 @@ func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams
 	// answers any other `>`, `{`, quote, `:` or `,` with nothing. Items
 	// carry no documentation until the client resolves them.
 	capabilities.CompletionProvider = &protocol.CompletionOptions{
-		TriggerCharacters: []string{".", ">", "{", "}", `"`, "`", ":", ","},
+		TriggerCharacters: []string{".", ">", "{", "}", `"`, "`", ":", ",", "#", "%"},
 		ResolveProvider:   boolPtr(true),
 	}
 	s.snippetSupport = clientSnippetSupport(params)

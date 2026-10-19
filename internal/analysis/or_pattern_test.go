@@ -49,8 +49,8 @@ func orErrorsOf(t *testing.T, src string) []string {
 func TestOrPattern_Accepts(t *testing.T) {
 	src := `fn arms(s: Shape, c: Color, t: Two, cs: List<Codepoint>, m: Maybe<Color>, word: String, n: Int) -> Float {
     a = case s {
-        .Circle{r} or .Square{r} when r > 10.0 -> r
-        .Circle{r} or .Square{r} -> r * 2.0
+        #.Circle{r} or #.Square{r} when r > 10.0 -> r
+        #.Circle{r} or #.Square{r} -> r * 2.0
         .Point -> 0.0
     }
     b = case c {
@@ -110,7 +110,7 @@ fn lambda(ts: List<Two>) -> List<Int> {
 func TestOrPattern_NameHasItsType(t *testing.T) {
 	fa, errs := checkSourceWithStdlib(orDecls + `fn f(s: Shape) -> Float {
     case s {
-        .Circle{r} or .Square{r} -> r
+        #.Circle{r} or #.Square{r} -> r
         .Point -> 0.0
     }
 }
@@ -141,16 +141,16 @@ func TestOrPattern_Errors(t *testing.T) {
 	for name, tc := range map[string]struct{ body, want string }{
 		"a name one alternative lacks": {`fn f(s: Shape) -> Float {
     case s {
-        .Circle{r} or .Point -> r
-        .Square{r} -> r
+        #.Circle{r} or .Point -> r
+        #.Square{r} -> r
     }
-}`, "30:23: `r` is bound by `.Circle{r}` but not by `.Point`; every alternative of an `or` pattern must bind the same names"},
+}`, "30:24: `r` is bound by `#.Circle{r}` but not by `.Point`; every alternative of an `or` pattern must bind the same names"},
 		"a name only a later alternative binds": {`fn f(s: Shape) -> Float {
     case s {
-        .Point or .Circle{r} -> r
-        .Square{r} -> r
+        .Point or #.Circle{r} -> r
+        #.Square{r} -> r
     }
-}`, "30:27: `r` is bound by `.Circle{r}` but not by `.Point`; every alternative of an `or` pattern must bind the same names"},
+}`, "30:28: `r` is bound by `#.Circle{r}` but not by `.Point`; every alternative of an `or` pattern must bind the same names"},
 		"a name at two types": {`fn f(m: Mixed) -> Int {
     case m {
         .N(v) or .S(v) -> case v { _ -> 0 }

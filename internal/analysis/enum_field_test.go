@@ -15,7 +15,7 @@ enum Error {
 }
 
 fn demo() -> Int {
-    err = Error.HttpError{status: 404, message: "not found"}
+    err = #Error.HttpError{status: 404, message: "not found"}
     err.status
 }
 `
@@ -51,7 +51,7 @@ enum Drawable {
 }
 
 fn demo() -> Float {
-    c = Drawable.Circle2{radius: 5.0}
+    c = #Drawable.Circle2{radius: 5.0}
     c.radius
 }
 `

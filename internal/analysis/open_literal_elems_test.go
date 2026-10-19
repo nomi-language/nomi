@@ -24,7 +24,7 @@ func TestOpenLiteralElems_TakeTheOtherElementsType(t *testing.T) {
 		{"map key, each side open", `%{Ok(1) => 1, Err("e") => 2}`, "Map<Result<Int, String>, Int>"},
 		{"nested map", `%{1 => %{None => [Some(1)]}, 2 => %{Some(2) => [None]}}`, "Map<Int, Map<Maybe<Int>, List<Maybe<Int>>>>"},
 		{"list", `[None, Some(1)]`, "List<Maybe<Int>>"},
-		{"set", `#{None, Some(1)}`, "Set<Maybe<Int>>"},
+		{"set", `%[None, Some(1)]`, "Set<Maybe<Int>>"},
 		{"vector", `#[None, Some(1)]`, "Vector<Maybe<Int>>"},
 	}
 	for _, tc := range cases {

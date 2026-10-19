@@ -56,6 +56,7 @@ const (
 	ctxTestBoot                   // the call after a group's `boot`
 	ctxParamName                  // a typed parameter name in a `fn` signature
 	ctxImplItem                   // a declaration in an `impl Iface for T` body
+	ctxShapeHead                  // the type name right after a literal's `#` or `%`
 )
 
 // completionContext is what the cursor position is, read from the reparsed
@@ -114,6 +115,10 @@ type completionContext struct {
 	// implStub is the interface impl block whose body the cursor starts a
 	// declaration in (ctxImplItem, completion_impl_stubs.go).
 	implStub *implStubSite
+	// shapeSigil is the `#` or `%` a literal's type name follows
+	// (ctxShapeHead); typeQualifier then holds its module, if any
+	// (`#geo.Po`).
+	shapeSigil byte
 }
 
 // pathStep is one hop from the root of the reparsed tree toward the value
@@ -338,19 +343,92 @@ func classifyCompletionWalking(content string, off int, atCursor bool) completio
 				ctx.hit = &h
 				classifyHit(&ctx)
 				if ctx.kind == ctxStructField && !startsField(content, start) {
-					// `{..p, address: {}‸}`: the reparse reads the word
+					// `#{..p, address: {}‸}`: the reparse reads the word
 					// as a field, but no `,` or line break separates it
 					// from the value before.
 					ctx.kind = ctxNone
 				}
 				classifyParamSlot(&ctx, lastTokens)
+				classifyShapeHead(&ctx, content)
 				return ctx
 			}
 		}
 	}
 	classifyTokens(&ctx, lastTokens)
 	classifyParamSlot(&ctx, lastTokens)
+	classifyShapeHead(&ctx, content)
 	return ctx
+}
+
+// classifyShapeHead makes a name written right after the `#` or `%` that
+// starts a literal a literal's head (`#Po‸`, `%Ta‸`, `#geo.Po‸`), where only
+// the names of types built on that symbol's shapes fit. A `%` after an
+// operand is the remainder operator, and a `#.` starts a variant, which
+// ctxDotVariant answers.
+func classifyShapeHead(ctx *completionContext, content string) {
+	switch ctx.kind {
+	case ctxExpr, ctxStatement, ctxType, ctxMember:
+	default:
+		return
+	}
+	i := ctx.start
+	qualifier := ""
+	if i > 0 && content[i-1] == '.' {
+		j := i - 1
+		for j > 0 && isWordByte(content[j-1]) {
+			j--
+		}
+		qualifier = content[j : i-1]
+		if qualifier == "" || !(qualifier[0] >= 'a' && qualifier[0] <= 'z') {
+			return
+		}
+		i = j
+	}
+	if i == 0 {
+		return
+	}
+	sigil := content[i-1]
+	switch sigil {
+	case '#':
+	case '%':
+		if !percentStartsOperand(content, i-1) {
+			return
+		}
+	default:
+		return
+	}
+	ctx.kind = ctxShapeHead
+	ctx.shapeSigil = sigil
+	ctx.typeQualifier = qualifier
+	ctx.object = nil
+}
+
+// percentStartsOperand reports whether the `%` at pct stands where an
+// operand begins, so it starts a map or set literal rather than taking a
+// remainder: no value ends right before it.
+func percentStartsOperand(content string, pct int) bool {
+	j := pct
+	for j > 0 && (content[j-1] == ' ' || content[j-1] == '\t') {
+		j--
+	}
+	if j == 0 {
+		return true
+	}
+	switch c := content[j-1]; {
+	case isWordByte(c):
+		k := j
+		for k > 0 && isWordByte(content[k-1]) {
+			k--
+		}
+		switch content[k:j] {
+		case "return", "in", "then", "else", "and", "or", "not", "assert":
+			return true
+		}
+		return false
+	case c == ')' || c == ']' || c == '}' || c == '"' || c == '`' || c == '\'' || c == '?':
+		return false
+	}
+	return true
 }
 
 // startsField reports whether a word at start can begin a struct literal's
@@ -364,7 +442,7 @@ func startsField(content string, start int) bool {
 }
 
 // lineClosers closes, innermost first, the brackets the cursor's line opens
-// before the cursor and does not close: `Person{address: {‸` gets `}}` and
+// before the cursor and does not close: `#Person{address: #{‸` gets `}}` and
 // `[{‸` gets `}]`, what an auto-pair plugin would have typed. It is the last
 // suffix tried, for a client typing with no such plugin. A string's
 // brackets do not count.

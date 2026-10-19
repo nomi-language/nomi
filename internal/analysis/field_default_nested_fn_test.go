@@ -30,7 +30,7 @@ enum Job {
 }
 
 fn make() -> D {
-    D{}
+    #D{}
 }
 `
 	fa, nodes := checkNodes(t, src)

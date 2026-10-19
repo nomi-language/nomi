@@ -1,0 +1,166 @@
+type Path Vector<Int>
+
+type Tags Set<String>
+
+enum Bag {
+    Items Vector<Int>
+    Named Set<String>
+    Empty
+}
+
+fn sum(v: Vector<Int>) -> Int {
+    case v {
+        #[] -> 0
+        #[x, ..rest] -> x + sum(rest)
+    }
+}
+
+fn ends(v: Vector<Int>) -> String {
+    case v {
+        #[] -> "empty"
+        #[only] -> "one ${only}"
+        #[first, .., last] -> "${first} to ${last}"
+    }
+}
+
+fn role(s: Set<String>) -> String {
+    case s {
+        %["admin", ..rest] -> "admin and ${Set.size(rest)} more"
+        %["user", ..] -> "user"
+        %[] -> "nobody"
+        _ -> "other"
+    }
+}
+
+test "a vector pattern takes a vector apart from either end" {
+    assert sum(#[1, 2, 3, 4]) == 10
+    assert ends(#[]) == "empty"
+    assert ends(#[7]) == "one 7"
+    assert ends(#[1, 2, 3]) == "1 to 3"
+}
+
+test "a vector pattern's rest is the elements between its heads and tails" {
+    result = case #[1, 2, 3, 4, 5] {
+        #[a, ..mid, z] -> #(a, mid, z)
+        _ -> #(0, #[], 0)
+    }
+
+    assert result == #(1, #[2, 3, 4], 5)
+    #[first, ..rest] = #[9, 8] else { return }
+    assert first == 9
+    assert rest == #[8]
+}
+
+test "an exact vector pattern matches only its own length" {
+    pair = fn v: Vector<Int> -> {
+        case v {
+            #[a, b] -> a + b
+            _ -> -1
+        }
+    }
+
+    assert pair(#[2, 3]) == 5
+    assert pair(#[2, 3, 4]) == -1
+    assert pair(#[2]) == -1
+}
+
+test "vector patterns nest and combine with or and as" {
+    pairs = #[#(1, "a"), #(2, "b")]
+
+    assert case pairs {
+        #[#(n, s), ..] -> "${n}${s}"
+        _ -> ""
+    } == "1a"
+
+    small = fn v: Vector<Int> -> {
+        case v {
+            #[] or #[_] -> True
+            _ -> False
+        }
+    }
+
+    assert small(#[1])
+    refute small(#[1, 2])
+
+    whole = case #[4, 5] {
+        #[4, ..] as v -> Vector.length(v)
+        _ -> 0
+    }
+
+    assert whole == 2
+
+    if #[.., last] = #[1, 2, 3] {
+        assert last == 3
+    } else {
+        assert False
+    }
+}
+
+test "a vector pattern names a type over a vector" {
+    p = #Path[5, 6, 7]
+
+    assert case p {
+        #Path[a, .., z] -> a + z
+        _ -> 0
+    } == 12
+
+    b: Bag = #.Items[1, 2]
+
+    assert case b {
+        #.Items[x, ..] -> x
+        _ -> 0
+    } == 1
+}
+
+test "a set pattern tests membership" {
+    assert role(%["admin", "x", "y"]) == "admin and 2 more"
+    assert role(%["user", "y"]) == "user"
+    assert role(%[]) == "nobody"
+    assert role(%["z"]) == "other"
+}
+
+test "a set pattern without a rest matches exactly its elements" {
+    exact = fn s: Set<Int> -> {
+        case s {
+            %[2, 1] -> "both"
+            %[1] -> "one"
+            _ -> "other"
+        }
+    }
+
+    assert exact(%[1, 2]) == "both"
+    assert exact(%[1]) == "one"
+    assert exact(%[1, 2, 3]) == "other"
+}
+
+test "a set pattern's elements are values in scope" {
+    who = "user"
+
+    found = case %["user", "guest"] {
+        %[who, ..others] -> others
+        _ -> %[]
+    }
+
+    assert found == %["guest"]
+
+    %["guest", ..] = %["guest"] else {
+        assert False
+        return
+    }
+}
+
+test "a set pattern names a type over a set" {
+    t = %Tags["a", "b"]
+
+    assert case t {
+        %Tags["a", ..others] -> others
+        _ -> %[]
+    } == %["b"]
+
+    n: Bag = .Named(%["x"])
+
+    assert case n {
+        .Named(%["x", ..]) -> True
+        _ -> False
+    }
+}

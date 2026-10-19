@@ -269,11 +269,11 @@ func TestManifestSelfBindingOnly(t *testing.T) {
 pub struct Bag { count: Int }
 
 impl Pusher for Bag {
-  fn push(c: Bag, v: Int) -> Bag { Bag{count: c.count + v} }
+  fn push(c: Bag, v: Int) -> Bag { #Bag{count: c.count + v} }
 }
 
 fn demo() -> Pusher<Int> {
-  b = Bag{count: 0}
+  b = #Bag{count: 0}
   Pusher.push(b, 42)
 }`
 	fa, errs := checkSourceWithStdlib(src)
@@ -301,11 +301,11 @@ func TestManifestSelfBindingOnly_MultipleNonSelfTypeParams(t *testing.T) {
 pub struct Bag { count: Int }
 
 impl Foo for Bag {
-  fn baz(x: Bag, a: Int, b: String) -> Bag { _ = b; Bag{count: x.count + a} }
+  fn baz(x: Bag, a: Int, b: String) -> Bag { _ = b; #Bag{count: x.count + a} }
 }
 
 fn demo() -> Foo<Int, String> {
-  b = Bag{count: 0}
+  b = #Bag{count: 0}
   Foo.baz(b, 42, "hello")
 }`
 	fa, errs := checkSourceWithStdlib(src)
@@ -478,7 +478,7 @@ impl Speech for Dog {
 }
 
 fn main() {
-  io.print(speak(Dog{name: "Rex"}))
+  io.print(speak(#Dog{name: "Rex"}))
 }`
 	_, errs := checkSourceWithStdlib(src)
 	expectStdlibError(t, errs, "bare-name dispatch is not supported")
@@ -545,7 +545,7 @@ impl Identity for Robot {
 }
 
 fn main() {
-  io.print(describe(Robot{model: "T-800"}))
+  io.print(describe(#Robot{model: "T-800"}))
 }`
 	_, errs := checkSourceWithStdlib(src)
 	expectStdlibError(t, errs, "bare-name dispatch is not supported")
@@ -577,7 +577,7 @@ impl Farewell for Person {
 }
 
 fn main() {
-  io.print(greet(Person{name: "Ada"}))
+  io.print(greet(#Person{name: "Ada"}))
 }`
 	_, errs := checkSourceWithStdlib(src)
 	expectStdlibError(t, errs, "bare-name dispatch is not supported")
@@ -610,8 +610,8 @@ impl Speech for Cat {
 }
 
 fn main() {
-  io.print(Speech.speak(Dog{name: "Rex"}))
-  io.print(Speech.speak(Cat{name: "Whiskers"}))
+  io.print(Speech.speak(#Dog{name: "Rex"}))
+  io.print(Speech.speak(#Cat{name: "Whiskers"}))
 }`
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
@@ -648,7 +648,7 @@ pub struct Box {
 derive Display for Box
 
 fn main() {
-  b = Box{n: 42}
+  b = #Box{n: 42}
   io.print(Display.to_string(b))
 }`
 	fa, errs := checkSourceWithStdlib(src)
@@ -715,7 +715,7 @@ pub struct Holder {
 derive Display for Holder
 
 fn main() {
-  h = Holder{w: Wrapper{value: C{x: 7}}}
+  h = #Holder{w: #Wrapper{value: #C{x: 7}}}
   io.print(Display.to_string(h))
 }`
 	fa, errs := checkSourceWithStdlib(src)

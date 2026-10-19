@@ -57,7 +57,7 @@ func TestCompletion_MapSpread(t *testing.T) {
 		// The slot after the spread holds a key, not a field label: it
 		// parses as the struct form, and the map base makes it an
 		// expression.
-		{"first key", `  {..scores, ‸}`},
+		{"first key", `  #{..scores, ‸}`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

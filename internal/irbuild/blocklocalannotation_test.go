@@ -37,13 +37,13 @@ fn main() {
     h = ident(len)
     io.inspect(h(Meters(3)))
     m: Meters = Meters(7)
-    b: Box<Meters> = Box{v: m}
+    b: Box<Meters> = #Box{v: m}
     io.inspect(b)
 }
 `
 	const want = "True\n" +
 		"5\n" +
 		"3\n" +
-		"Box{v: Meters(7)}\n"
+		"#Box{v: Meters(7)}\n"
 	irRunSource(t, src, want)
 }

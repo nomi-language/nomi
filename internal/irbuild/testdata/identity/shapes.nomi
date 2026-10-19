@@ -11,5 +11,5 @@ pub struct Point {
 }
 
 pub fn origin_x() -> Int {
-    Point{x: 0, y: 7}.x
+    #Point{x: 0, y: 7}.x
 }

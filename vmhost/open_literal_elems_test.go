@@ -44,9 +44,9 @@ fn main() {
 }
 
 // A set or vector literal whose items differ by an empty collection
-// (`#{[], [1]}`, `#[#[], #[1]]`) takes the checked element type, annotated
+// (`%[[], [1]]`, `#[#[], #[1]]`) takes the checked element type, annotated
 // or not, and runs; so does one whose items are all empty where the checked
-// type gives the element (`#{[]}` inside `#{#{[]}, #{[1]}}`). The checker
+// type gives the element (`%[[]]` inside `%[%[[]], %[[1]]]`). The checker
 // accepted each, and the IR builder declined it: the item kinds (an empty
 // list beside a List<Int>) have no embeds join. An embedded value beside
 // an empty collection still widens into its enum.
@@ -68,39 +68,39 @@ derive Equatable for Shape
 derive Hashable for Shape
 
 fn main() {
-    a = #{[], [1]}
+    a = %[[], [1]]
     b = #[[1], []]
-    c: Set<List<Int>> = #{[], [1]}
+    c: Set<List<Int>> = %[[], [1]]
     d: Vector<List<Int>> = #[[], [1]]
-    e = #{#{}, #{1}}
+    e = %[%[], %[1]]
     f = #[#[], #[1]]
-    g: Set<Set<Int>> = #{#{}, #{1}}
+    g: Set<Set<Int>> = %[%[], %[1]]
     h = #[Map.empty(), %{1 => 2}]
-    i = #{#{[]}, #{[1]}}
+    i = %[%[[]], %[[1]]]
     j = #[#[[]], #[[1]]]
-    k: Set<List<Int>> = #{[]}
-    l = %{1 => #{[]}, 2 => #{[1]}}
-    m = #{None, Some(1)}
+    k: Set<List<Int>> = %[[]]
+    l = %{1 => %[[]], 2 => %[[1]]}
+    m = %[None, Some(1)]
     n = #[Ok(1), Err("e")]
     o = #[None, Some([]), Some([1])]
-    ci = Circle{r: 1}
+    ci = #Circle{r: 1}
     s: Shape = .Dot
     p = #[[ci], [], [s]]
-    q = #{#{ci}, #{}, #{s}}
+    q = %[%[ci], %[], %[s]]
     io.print(Debug.inspect(#(a, b, c, d)))
     io.print(Debug.inspect(#(e, f, g, h)))
     io.print(Debug.inspect(#(i, j, k, l)))
     io.print(Debug.inspect(#(m, n, o)))
     io.print(Debug.inspect(#(p, q)))
-    io.print("${Set.contains?(a, [])} ${Set.contains?(i, #{[1]})} ${Vector.get(b, 1)}")
+    io.print("${Set.contains?(a, [])} ${Set.contains?(i, %[[1]])} ${Vector.get(b, 1)}")
 }
 `
 	want := strings.Join([]string{
-		"#(#{[], [1]}, #[[1], []], #{[], [1]}, #[[], [1]])",
-		"#(#{#{}, #{1}}, #[#[], #[1]], #{#{}, #{1}}, #[%{}, %{1 => 2}])",
-		"#(#{#{[]}, #{[1]}}, #[#[[]], #[[1]]], #{[]}, %{1 => #{[]}, 2 => #{[1]}})",
-		`#(#{None, Some(1)}, #[Ok(1), Err("e")], #[None, Some([]), Some([1])])`,
-		"#(#[[Circle{r: 1}], [], [Dot]], #{#{Circle{r: 1}}, #{}, #{Dot}})",
+		"#(%[[], [1]], #[[1], []], %[[], [1]], #[[], [1]])",
+		"#(%[%[], %[1]], #[#[], #[1]], %[%[], %[1]], #[%{}, %{1 => 2}])",
+		"#(%[%[[]], %[[1]]], #[#[[]], #[[1]]], %[[]], %{1 => %[[]], 2 => %[[1]]})",
+		`#(%[None, Some(1)], #[Ok(1), Err("e")], #[None, Some([]), Some([1])])`,
+		"#(#[[#Circle{r: 1}], [], [Dot]], %[%[#Circle{r: 1}], %[], %[Dot]])",
 		"True True Some([])",
 		"",
 	}, "\n")
@@ -134,12 +134,12 @@ fn main() {
     b = [[], [[]], [[1]]]
     c = %{1 => #(None, []), 2 => #(Some(1), [2])}
     d = [Some([]), Some([1])]
-    e = [P{a: []}, P{a: [1]}]
-    f = [Box{v: []}, Box{v: [1]}]
-    g = [{a: [], b: 1}, {a: [2], b: 3}]
-    h = #{#(1, []), #(2, [3])}
-    i = #{#{[]}, #{[1]}}
-    j = #[[#{}], [#{1}]]
+    e = [#P{a: []}, #P{a: [1]}]
+    f = [#Box{v: []}, #Box{v: [1]}]
+    g = [#{a: [], b: 1}, #{a: [2], b: 3}]
+    h = %[#(1, []), #(2, [3])]
+    i = %[%[[]], %[[1]]]
+    j = #[[%[]], [%[1]]]
     k = #[Some(#[]), Some(#[1])]
     l = %{1 => [[]], 2 => [[1]]}
     m = %{#(1, []) => 1, #(2, [3]) => 2}
@@ -158,8 +158,8 @@ fn main() {
 `
 	want := strings.Join([]string{
 		`#(#[#(1, []), #(2, [3])], [[], [[]], [[1]]], %{1 => #(None, []), 2 => #(Some(1), [2])})`,
-		`#([Some([]), Some([1])], [P{a: []}, P{a: [1]}], [Box{v: []}, Box{v: [1]}], [{a: [], b: 1}, {a: [2], b: 3}])`,
-		`#(#{#(1, []), #(2, [3])}, #{#{[]}, #{[1]}}, #[[#{}], [#{1}]], #[Some(#[]), Some(#[1])])`,
+		`#([Some([]), Some([1])], [#P{a: []}, #P{a: [1]}], [#Box{v: []}, #Box{v: [1]}], [#{a: [], b: 1}, #{a: [2], b: 3}])`,
+		`#(%[#(1, []), #(2, [3])], %[%[[]], %[[1]]], #[[%[]], [%[1]]], #[Some(#[]), Some(#[1])])`,
 		`#(%{1 => [[]], 2 => [[1]]}, %{#(1, []) => 1, #(2, [3]) => 2}, [#(1, %{}), #(2, %{"a" => 1})], [#([], 1), #([2], 3)])`,
 		"True True Some(2)",
 		"1",

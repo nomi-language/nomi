@@ -20,5 +20,5 @@ pub struct Stamp {
 }
 
 pub fn stamp(s: String) -> Stamp {
-    Stamp{s}
+    #Stamp{s}
 }

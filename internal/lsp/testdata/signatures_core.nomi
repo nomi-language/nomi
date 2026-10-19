@@ -35,7 +35,7 @@ fn identity<T>(value: T) -> T {
 }
 
 fn make_user(id: Int, name: String) -> User {
-    User{id, name}
+    #User{id, name}
 }
 
 fn demo() -> String {
@@ -43,7 +43,7 @@ fn demo() -> String {
 
     message = greet(sample)
 
-    wrapped = Box{value: identity(42)}
+    wrapped = #Box{value: identity(42)}
 
     if wrapped.value == 42 {
         message

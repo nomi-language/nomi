@@ -19,7 +19,7 @@
 -> stackTrace {"threadId":1}
 <- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":33,"name":"main","source":{"name":"eval.nomi","path":"$TESTDATA/eval.nomi"}}],"totalFrames":1}
 -> evaluate {"context":"watch","expression":"p","frameId":1}
-<- response evaluate {"namedVariables":2,"result":"Point{x: 3, y: 4}","type":"Point","variablesReference":1}
+<- response evaluate {"namedVariables":2,"result":"#Point{x: 3, y: 4}","type":"Point","variablesReference":1}
 -> variables {"variablesReference":1}
 <- response variables {"variables":[{"name":"x","type":"Int","value":"3","variablesReference":0},{"name":"y","type":"Int","value":"4","variablesReference":0}]}
 -> evaluate {"context":"hover","expression":"p.x","frameId":1}
@@ -28,8 +28,8 @@
 <- response evaluate {"result":"\"pt\"","type":"String","variablesReference":0}
 -> evaluate {"context":"watch","expression":"norm(p) + Iter.count(xs)","frameId":1}
 <- response evaluate {"result":"28","type":"Int","variablesReference":0}
--> evaluate {"context":"repl","expression":"Point{x: p.y, y: p.x}","frameId":1}
-<- response evaluate {"namedVariables":2,"result":"Point{x: 4, y: 3}","type":"Point","variablesReference":2}
+-> evaluate {"context":"repl","expression":"#Point{x: p.y, y: p.x}","frameId":1}
+<- response evaluate {"namedVariables":2,"result":"#Point{x: 4, y: 3}","type":"Point","variablesReference":2}
 -> variables {"variablesReference":2}
 <- response variables {"variables":[{"name":"x","type":"Int","value":"4","variablesReference":0},{"name":"y","type":"Int","value":"3","variablesReference":0}]}
 -> evaluate {"context":"repl","expression":"xs |> Iter.map(fn x -> x * label.length) |> Iter.to_list()","frameId":1}

@@ -13,54 +13,54 @@ import std/io
 // The test corpus has no field-name pair where the two sorts disagree, so this
 // fixture is the only coverage for that case. Anyone changing either renderer
 // should check this file's recorded output.
-fn greet(p: {name: String, age: Int}) -> String {
+fn greet(p: #{name: String, age: Int}) -> String {
     "Hi " + p.name + ", you are " + Int.to_string(p.age)
 }
 
-fn no(_v: {a: Int, a0: Int}) -> Bool {
+fn no(_v: #{a: Int, a0: Int}) -> Bool {
     False
 }
 
 test "records are structural, ordered by nothing the programmer wrote" {
-    point = {x: 10, y: 20}
+    point = #{x: 10, y: 20}
     io.print(Int.to_string(point.x + point.y))
 
     // Same fields, two orderings, one type — equal by value, and each usable
     // where the other is.
-    forward = {x: 1, y: 2}
-    backward = {y: 2, x: 1}
+    forward = #{x: 1, y: 2}
+    backward = #{y: 2, x: 1}
     assert forward == backward
-    refute forward == {x: 1, y: 3}
+    refute forward == #{x: 1, y: 3}
 
     // A parameter typed by a record, called with both orderings.
-    io.print(greet({name: "Bob", age: 42}))
-    io.print(greet({age: 30, name: "Carol"}))
+    io.print(greet(#{name: "Bob", age: 42}))
+    io.print(greet(#{age: 30, name: "Carol"}))
 
     // `${…}` renders each field through Display, so the String is unquoted.
-    who = {name: "Ada", n: 1}
+    who = #{name: "Ada", n: 1}
     io.print("${who}")
 
     // Nesting, and a field whose value is itself a record.
-    nested = {outer: {inner: 1, label: "hi"}, count: 3}
+    nested = #{outer: #{inner: 1, label: "hi"}, count: 3}
     io.print("${nested}")
     io.print(Int.to_string(nested.outer.inner))
 
     // Matched inside a `case`, punned and renamed. The STATEMENT form
-    // `{x, y} = point` is a different construct (`struct destructuring`, which
+    // `#{x, y} = point` is a different construct (`struct destructuring`, which
     // is unlowered for a nominal struct too) and is deliberately not here.
     label = case point {
-        {x: 10, y} -> "x is ten, y is ${y}"
+        #{x: 10, y} -> "x is ten, y is ${y}"
         _ -> "other"
     }
 
     io.print(label)
 
     renamed = case point {
-        {x: a, y: b} -> a + b
+        #{x: a, y: b} -> a + b
     }
 
     io.print(Int.to_string(renamed))
 
     // The failing assertion prints the `values:` row, which is the OTHER sort.
-    assert no({a: 1, a0: 2})
+    assert no(#{a: 1, a0: 2})
 }

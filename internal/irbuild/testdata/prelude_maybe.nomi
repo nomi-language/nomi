@@ -70,8 +70,8 @@ fn main() -> Unit {
     io.print(describe(pick_qualified(False)))
 
     // A Maybe in a struct field, built both ways.
-    full = Box{slot: Some(41)}
-    empty = Box{slot: None}
+    full = #Box{slot: Some(41)}
+    empty = #Box{slot: None}
     io.print("${or_zero(full.slot)}")
     io.print("${or_zero(empty.slot)}")
 

@@ -10,7 +10,7 @@
 //     and the report is the fixture's real output. A passing assertion renders
 //     nothing at all.
 //   - `rt.RecordOperand` drops a row that reads exactly like its own expression
-//     text, so `announce(Dog{name: "Rex"})` — a struct LITERAL argument —
+//     text, so `announce(#Dog{name: "Rex"})` — a struct LITERAL argument —
 //     builds the rendering and then prints no row. Every operand this fixture
 //     wants to SEE is therefore a BINDING, whose expression text is a bare name
 //     and whose value is the structure.
@@ -18,10 +18,10 @@
 // The field names are chosen so that two plausible derivations cannot coincide.
 // The row is `rt.InspectStruct`, which sorts the fields by NAME, and:
 //
-//   - `Dog{name, age}` separates sorted order from DECLARATION order: the row
-//     is `Dog{age: 3, name: "Rex"}` and declaration order would print `name`
+//   - `#Dog{name, age}` separates sorted order from DECLARATION order: the row
+//     is `#Dog{age: 3, name: "Rex"}` and declaration order would print `name`
 //     first.
-//   - `Cat{a, a0}` separates sorting the FIELD NAME from sorting the composed
+//   - `#Cat{a, a0}` separates sorting the FIELD NAME from sorting the composed
 //     `name: value` string: '0' sorts below ':', so the composed sort would put
 //     `a0: 2` before `a: 1`, where the name sort, and `Debug.inspect`, put `a`
 //     first.
@@ -74,13 +74,13 @@ test "a value of a distinct-over-function type is callable" {
 }
 
 test "an existential-position argument renders as its concrete type" {
-    d = Dog{name: "Rex", age: 3}
+    d = #Dog{name: "Rex", age: 3}
 
     assert announce(d) == "not what Rex says"
 }
 
 test "the row sorts by field name and not by composed string" {
-    c = Cat{a: 1, a0: 2}
+    c = #Cat{a: 1, a0: 2}
 
     assert announce(c) == "not what the cat says"
 }

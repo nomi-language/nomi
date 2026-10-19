@@ -117,8 +117,8 @@ fn load_map(path: String) -> Result<Map<Int, TodoTask>, String> {
 
         Err(e) ->
             case e {
-                IOError.NotFound{path: _} -> Ok(Map.empty())
-                IOError.Other{reason} -> Err(reason)
+                #IOError.NotFound{path: _} -> Ok(Map.empty())
+                #IOError.Other{reason} -> Err(reason)
             }
     }
 }
@@ -180,7 +180,7 @@ fn deserialize_one(line: String) -> Result<TodoTask, String> {
                 parse_status(status_str),
                 parse_priority(pri_str),
             ) {
-                #(Some(id), Some(secs), Some(status), Some(priority)) -> Ok(TodoTask{
+                #(Some(id), Some(secs), Some(status), Some(priority)) -> Ok(#TodoTask{
                     id,
                     title,
                     created: Instant.from_seconds(secs),
@@ -202,20 +202,20 @@ test "file store pattern saves reloads and deletes tasks" {
         _ -> Unit
     }
 
-    fs = FileStore{path: test_path}
+    fs = #FileStore{path: test_path}
 
     // Load on an empty file.
     assert Ok(empty) = Store.load(fs)
     assert Map.size(empty) == 0
 
     // Save two tasks.
-    t1 = TodoTask{
+    t1 = #TodoTask{
         id: 1,
         title: "buy milk",
         created: Instant.from_seconds(1_700_000_000),
     }
 
-    t2 = TodoTask{
+    t2 = #TodoTask{
         id: 2,
         title: "write tests",
         created: Instant.from_seconds(1_700_000_100),
@@ -227,7 +227,7 @@ test "file store pattern saves reloads and deletes tasks" {
     assert Store.save(fs, t2) == Ok(t2)
 
     // Reload with a fresh FileStore value pointing at the same path.
-    fs2 = FileStore{path: test_path}
+    fs2 = #FileStore{path: test_path}
     assert Ok(loaded) = Store.load(fs2)
     assert Map.size(loaded) == 2
     assert Some(loaded_t1) = Map.get(loaded, 1)

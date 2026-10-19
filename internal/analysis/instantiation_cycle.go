@@ -7,7 +7,7 @@ import (
 )
 
 // Polymorphic recursion: a generic function that reaches itself at a type
-// built from its own type parameter (`fn grow<T>(x: T) { grow(Box{inner: x}) }`)
+// built from its own type parameter (`fn grow<T>(x: T) { grow(#Box{inner: x}) }`)
 // needs an instance at T, Box<T>, Box<Box<T>>, … — infinitely many. Nomi
 // instantiates every generic function per type-argument tuple (spec §13), so
 // the program has no finite translation and is rejected here rather than at
@@ -44,7 +44,7 @@ type instEdge struct {
 // solved substitution, or read off the call's arguments against the
 // parameters they fill. A self call leaves its own parameters unsolved in
 // subs (they are the caller's, which unification keeps rigid), so the
-// argument pairs are what carry `grow(Box{inner: x})`'s T = Box<T>.
+// argument pairs are what carry `grow(#Box{inner: x})`'s T = Box<T>.
 func (c *checker) recordInstantiation(n *ast.Call, subs map[*TypeParam_]Type, args [][2]Type) {
 	caller := c.currentFnDecl
 	if caller == nil || len(caller.TypeParams) == 0 || len(c.fnTypeParams) == 0 {

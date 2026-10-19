@@ -16,17 +16,17 @@ func TestIRSiblingGenericDebug_InstanceImplsAreTheOwnersInstances(t *testing.T) 
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	want := "Span{start: 1, stop: 2}\n" +
-		"Span{start: \"a\", stop: \"b\"}\n" +
+	want := "#Span{start: 1, stop: 2}\n" +
+		"#Span{start: \"a\", stop: \"b\"}\n" +
 		"Node(3)\n" +
 		"Leaf\n" +
 		"tagged\n" +
 		"#7\n" +
 		"#x\n" +
-		"#(Span{start: 1, stop: 2}, 9)\n" +
-		"{s: tagged}\n" +
-		"[Span{start: 1, stop: 2}]\n" +
-		"[Span{start: \"p\", stop: \"q\"}]\n" +
+		"#(#Span{start: 1, stop: 2}, 9)\n" +
+		"#{s: tagged}\n" +
+		"[#Span{start: 1, stop: 2}]\n" +
+		"[#Span{start: \"p\", stop: \"q\"}]\n" +
 		"[#1]\n" +
 		"[#s]\n"
 	got := vmReference(fixture("sibling_generic_debug/main.nomi"))

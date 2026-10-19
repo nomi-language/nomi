@@ -14,7 +14,7 @@ const pointDecls = `struct Point {
 
 impl Point {
     pub fn origin() -> Point {
-        Point{x: 0, y: 0}
+        #Point{x: 0, y: 0}
     }
 }
 
@@ -116,7 +116,7 @@ func TestCompletion_ValueMembersAreFieldsOnly(t *testing.T) {
 		},
 		{
 			"anonymous struct",
-			"fn f() -> Int {\n    cfg = {name: \"a\", port: 1}\n    cfg." + cursorMark + "\n}\n",
+			"fn f() -> Int {\n    cfg = #{name: \"a\", port: 1}\n    cfg." + cursorMark + "\n}\n",
 			[]string{"name", "port"},
 			nil,
 		},
@@ -186,7 +186,7 @@ impl App {
 }
 
 fn boot(_startup: Startup) -> App {
-    App{port: 3, context: Context.root()}
+    #App{port: 3, context: Context.root()}
 }
 `
 

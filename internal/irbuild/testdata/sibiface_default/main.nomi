@@ -22,7 +22,7 @@ import {
 }
 
 fn main() {
-    e = Engine{name: "v8"}
+    e = #Engine{name: "v8"}
     io.print(Powered.describe(e))
     io.print(Powered.describe(e, Mode.Slow))
     io.print(Powered.label(e))

@@ -21,7 +21,7 @@ fn add(a: Int, b: Int) -> Int { a + b }
 // `_` read as a value anywhere but a call's argument list has no value.
 func TestPlaceholder_OutsideACallIsRejected(t *testing.T) {
 	for name, body := range map[string]string{
-		"struct field value":                  "fn f() -> Point { Point{x: _, y: 1} }\n",
+		"struct field value":                  "fn f() -> Point { #Point{x: _, y: 1} }\n",
 		"case arm body":                       "fn f(e: E) -> Int {\n    case e {\n        .A -> _\n        .B -> 1\n    }\n}\n",
 		"function body":                       "fn f() -> Int { _ }\n",
 		"binding value":                       "fn f() -> Int {\n    x = _\n    x\n}\n",

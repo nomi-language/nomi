@@ -66,16 +66,16 @@ fn main() {
   io.inspect(case { noisy("a", False) and noisy("b", True) -> 1 _ -> 0 })
   io.inspect(Iter.sort([2.0, 1.0, 3.0, -0.0, 0.0]))
   io.inspect([False < True, True <= False, True >= True, "a" < "b", [1, 2] < [1, 3], [2] > [1, 9]])
-  c = Coord(3, 4)
+  c = #Coord(3, 4)
   io.inspect(c)
-  io.inspect(c == Coord(3, 4))
+  io.inspect(c == #Coord(3, 4))
   io.inspect(c == Coord(#(3, 5)))
-  k = Kvs%{"a" => 1}
+  k = %Kvs{"a" => 1}
   io.inspect(k)
   cb = Callback(fn s -> s + "!")
   io.print(run(cb, "go"))
-  io.print(say(Dog{name: "Rex"}))
-  io.print(Named.greet(Dog{name: "Rex"}, True))
+  io.print(say(#Dog{name: "Rex"}))
+  io.print(Named.greet(#Dog{name: "Rex"}, True))
   io.inspect(classify(-2.5))
   io.inspect(classify(-0.0))
   io.inspect(Set.size(Iter.to_set([1.50d, 1.5d, 2.0d])))
@@ -84,5 +84,5 @@ fn main() {
 fn run(cb: Callback, s: String) -> String {
   cb(s)
 }
-`, "\"both\"\n\"one\"\n\"none\"\na\n0\n[-0.0, 0.0, 1.0, 2.0, 3.0]\n[True, False, True, True, True, True]\nCoord(3, 4)\nTrue\nFalse\nKvs(%{\"a\" => 1})\ngo!\nhi Rex/Rex\nHI Rex\n\"neg\"\n\"zero\"\n2\n")
+`, "\"both\"\n\"one\"\n\"none\"\na\n0\n[-0.0, 0.0, 1.0, 2.0, 3.0]\n[True, False, True, True, True, True]\n#Coord(3, 4)\nTrue\nFalse\nKvs(%{\"a\" => 1})\ngo!\nhi Rex/Rex\nHI Rex\n\"neg\"\n\"zero\"\n2\n")
 }

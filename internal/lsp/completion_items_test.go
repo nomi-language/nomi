@@ -76,8 +76,8 @@ func TestInitialize_CompletionCapabilities(t *testing.T) {
 	if cp == nil || cp.ResolveProvider == nil || !*cp.ResolveProvider {
 		t.Fatalf("completion provider = %#v, want resolveProvider", caps.CompletionProvider)
 	}
-	if strings.Join(cp.TriggerCharacters, " ") != ". > { } \" ` : ," {
-		t.Fatalf("trigger characters = %v, want . > { \" ` :", cp.TriggerCharacters)
+	if strings.Join(cp.TriggerCharacters, " ") != ". > { } \" ` : , # %" {
+		t.Fatalf("trigger characters = %v, want . > { } \" ` : , # %%", cp.TriggerCharacters)
 	}
 	if !s.snippetSupport {
 		t.Fatal("the client's snippetSupport was not read")
@@ -94,12 +94,12 @@ func TestCompletion_TriggerCharacters(t *testing.T) {
 		{"pipe", ">", "fn f(xs: List<Int>) -> Int {\n    xs |>" + cursorMark + "\n}\n", true},
 		{"arrow", ">", "fn f(c: Bool) -> Int {\n    case c {\n        True ->" + cursorMark + "\n    }\n}\n", false},
 		{"comparison", ">", "fn f(n: Int) -> Bool {\n    n >" + cursorMark + "\n}\n", false},
-		{"struct literal", "{", "struct P {\n    x: Int\n}\n\nfn f() -> P {\n    P{" + cursorMark + "}\n}\n", true},
+		{"struct literal", "{", "struct P {\n    x: Int\n}\n\nfn f() -> P {\n    #P{" + cursorMark + "}\n}\n", true},
 		{"block", "{", "fn f() {" + cursorMark + "\n}\n", false},
-		{"struct literal, brace auto-paired", "}", "struct P {\n    x: Int\n}\n\nfn f() -> P {\n    P{" + cursorMark + "}\n}\n", true},
-		{"struct pattern, brace auto-paired", "}", "struct P {\n    x: Int\n}\n\nfn f(p: P) -> Int {\n    case p {\n        P{" + cursorMark + "} -> 0\n    }\n}\n", true},
-		{"struct literal's next field", ",", "struct P {\n    x: Int\n    y: Int\n}\n\nfn f() -> P {\n    P{x: 1," + cursorMark + "}\n}\n", true},
-		{"struct pattern's next field", ",", "struct P {\n    x: Int\n    y: Int\n}\n\nfn f(p: P) -> Int {\n    case p {\n        P{x," + cursorMark + "} -> 0\n    }\n}\n", true},
+		{"struct literal, brace auto-paired", "}", "struct P {\n    x: Int\n}\n\nfn f() -> P {\n    #P{" + cursorMark + "}\n}\n", true},
+		{"struct pattern, brace auto-paired", "}", "struct P {\n    x: Int\n}\n\nfn f(p: P) -> Int {\n    case p {\n        #P{" + cursorMark + "} -> 0\n    }\n}\n", true},
+		{"struct literal's next field", ",", "struct P {\n    x: Int\n    y: Int\n}\n\nfn f() -> P {\n    #P{x: 1," + cursorMark + "}\n}\n", true},
+		{"struct pattern's next field", ",", "struct P {\n    x: Int\n    y: Int\n}\n\nfn f(p: P) -> Int {\n    case p {\n        #P{x," + cursorMark + "} -> 0\n    }\n}\n", true},
 		{"comma in a call", ",", "fn g(a: Int, b: Int) -> Int {\n    a\n}\n\nfn f() -> Int {\n    g(1," + cursorMark + ")\n}\n", false},
 		{"comma in a list", ",", "fn f() -> List<Int> {\n    [1," + cursorMark + "]\n}\n", false},
 		{"closing a block", "}", "fn f() {\n    x = 1\n}" + cursorMark + "\n", false},
@@ -113,7 +113,7 @@ func TestCompletion_TriggerCharacters(t *testing.T) {
 		{"generic return type", ">", "fn f<T>(x: T) ->" + cursorMark + "\n", true},
 		{"lambda arrow after a tuple pattern", ">", "fn f() {\n    g = fn #(a, b) ->" + cursorMark + "\n}\n", false},
 		{"struct field declaration", ":", "struct P {\n    x:" + cursorMark + "\n}\n", true},
-		{"struct literal field", ":", "struct P {\n    x: Int\n}\n\nfn f() -> P {\n    P{x:" + cursorMark + "}\n}\n", false},
+		{"struct literal field", ":", "struct P {\n    x: Int\n}\n\nfn f() -> P {\n    #P{x:" + cursorMark + "}\n}\n", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -261,13 +261,13 @@ func TestCompletion_TextEditReplacesTheWord(t *testing.T) {
 
 // A field accepted straight after the `,` brings the space after it.
 func TestCompletion_FieldAfterACommaGetsItsSpace(t *testing.T) {
-	src := "struct P {\n    x: Int\n    y: Int\n}\n\nfn f() -> P {\n    P{x: 1," + cursorMark + "}\n}\n"
+	src := "struct P {\n    x: Int\n    y: Int\n}\n\nfn f() -> P {\n    #P{x: 1," + cursorMark + "}\n}\n"
 	items := complete(t, src)
 	te := textEditOf(t, mustItem(t, items, "y"))
 	if !strings.HasPrefix(te.NewText, " y") {
 		t.Fatalf("insert = %q, want it to start with the space after the comma", te.NewText)
 	}
-	spaced := complete(t, "struct P {\n    x: Int\n    y: Int\n}\n\nfn f() -> P {\n    P{x: 1, "+cursorMark+"}\n}\n")
+	spaced := complete(t, "struct P {\n    x: Int\n    y: Int\n}\n\nfn f() -> P {\n    #P{x: 1, "+cursorMark+"}\n}\n")
 	if te := textEditOf(t, mustItem(t, spaced, "y")); strings.HasPrefix(te.NewText, " ") {
 		t.Fatalf("insert = %q after a space, want no second space", te.NewText)
 	}

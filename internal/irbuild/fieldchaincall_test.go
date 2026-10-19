@@ -25,11 +25,11 @@ struct P {
 }
 
 fn make() -> P {
-    P{t: #(fn x -> x * 10, 2), q: Q{f: fn x -> x - 1}, qs: #(0, #(Q{f: fn x -> x * x}, 3))}
+    #P{t: #(fn x -> x * 10, 2), q: #Q{f: fn x -> x - 1}, qs: #(0, #(#Q{f: fn x -> x * x}, 3))}
 }
 
 fn main() {
-    p = P{t: #(fn x -> x + 1, 1), q: Q{f: fn x -> x + 100}, qs: #(0, #(Q{f: fn x -> x + 7}, 3))}
+    p = #P{t: #(fn x -> x + 1, 1), q: #Q{f: fn x -> x + 100}, qs: #(0, #(#Q{f: fn x -> x + 7}, 3))}
     io.inspect(p.t.0(8))
     io.inspect(p.q.f(8))
     io.inspect((p.qs.1).0.f(8))
@@ -60,13 +60,13 @@ struct P {
 }
 
 test "passes" {
-    p = P{t: #(fn x -> x + 1, 1), q: Q{f: fn x -> x + 100}}
+    p = #P{t: #(fn x -> x + 1, 1), q: #Q{f: fn x -> x + 100}}
     assert p.t.0(8) == 9
     assert p.q.f(p.t.0(1)) == 102
 }
 
 test "fails" {
-    p = P{t: #(fn x -> x + 1, 1), q: Q{f: fn x -> x + 100}}
+    p = #P{t: #(fn x -> x + 1, 1), q: #Q{f: fn x -> x + 100}}
     assert p.q.f(2) == 3
 }
 `

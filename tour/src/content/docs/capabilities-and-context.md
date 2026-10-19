@@ -25,7 +25,7 @@ struct App {
 }
 
 fn boot() -> App {
-    App{port: 8080, context: Context.root()}
+    #App{port: 8080, context: Context.root()}
 }
 
 fn main() {
@@ -61,7 +61,7 @@ struct Server {
 }
 
 fn boot() -> Server {
-    Server{port: 8080, execution: Context.root()}
+    #Server{port: 8080, execution: Context.root()}
 }
 
 fn bounded_work() {
@@ -90,7 +90,7 @@ Each line sees the values set by the lines above it.
 
 `with` replaces whole fields of the app struct. To change one part of a
 field, build an updated copy of it:
-`with App.database = {..App.database, host: "localhost"}`.
+`with App.database = #{..App.database, host: "localhost"}`.
 
 ```nomi-run
 import {
@@ -121,7 +121,7 @@ struct App {
 }
 
 fn boot() -> App {
-    App{logger: Stdout, context: Context.root()}
+    #App{logger: Stdout, context: Context.root()}
 }
 
 fn main() {
@@ -131,7 +131,7 @@ fn main() {
 }
 
 fn audit_greet(name: String) {
-    with App.logger = PrefixedLogger{tag: "audit"}
+    with App.logger = #PrefixedLogger{tag: "audit"}
     greet(name)
 }
 
@@ -164,7 +164,7 @@ struct App {
 }
 
 fn boot() -> App {
-    App{greeting: "hello"}
+    #App{greeting: "hello"}
 }
 
 fn greet() -> String {
@@ -208,10 +208,10 @@ fn close(conn: Conn) -> Unit {
 
 fn main() {
     {
-        first = Conn{name: "first"}
+        first = #Conn{name: "first"}
         defer close(first)
 
-        second = Conn{name: "second"}
+        second = #Conn{name: "second"}
         defer close(second)
 
         io.print("body")

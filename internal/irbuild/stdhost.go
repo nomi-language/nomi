@@ -265,7 +265,7 @@ var stdHostSpecs = []stdHostSpec{
 	//
 	// A LEAF whose payload rt owns, which is what `rtOpaque` says: `rt.Supervisor`
 	// is a one-field struct over an unexported `*supervisor`, so the VALUE is
-	// copyable — it sits in a `Config{}` literal and in a struct field with no
+	// copyable — it sits in a `#Config{}` literal and in a struct field with no
 	// position spelling a pointer — while nothing a program lowers can
 	// reach inside it. `Task[T]`'s and `Sender[T]`'s arrangement.
 	//

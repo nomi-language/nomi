@@ -473,6 +473,26 @@ func projValue(fr *frame, n *ir.Proj, subj any) (any, error) {
 		}
 		return xs.Head, nil
 
+	case ir.ProjVectorElem, ir.ProjVectorSlice:
+		vec, ok := subj.(rt.Vector[any])
+		if !ok {
+			return nil, fmt.Errorf("vm: %s: %s reads %T, not a vector", fr.fn.Name(), n, subj)
+		}
+		if n.Kind() == ir.ProjVectorSlice {
+			if n.Index()+n.Drop() > vec.Len {
+				return nil, fmt.Errorf("vm: %s: %s projects beyond the vector", fr.fn.Name(), n)
+			}
+			return rt.VectorSlice(vec, n.Index(), n.Drop()), nil
+		}
+		i := n.Index()
+		if i < 0 {
+			i += vec.Len
+		}
+		if i < 0 || i >= vec.Len {
+			return nil, fmt.Errorf("vm: %s: %s projects beyond the vector", fr.fn.Name(), n)
+		}
+		return vec.Items[vec.Start+i], nil
+
 	case ir.ProjStrSuffix:
 		s, ok := subj.(string)
 		if !ok || n.Index() > len(s) {

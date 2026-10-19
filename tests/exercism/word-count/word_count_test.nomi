@@ -61,7 +61,11 @@ test "counts words" {
             ",\n,one,\n ,two \n 'three'",
             %{"one" => 1, "two" => 1, "three" => 1},
         ),
-        #("quotation for word with apostrophe", "can, can't, 'can't'", %{"can" => 1, "can't" => 2}),
+        #(
+            "quotation for word with apostrophe",
+            "can, can't, 'can't'",
+            %{"can" => 1, "can't" => 2},
+        ),
     ]
 
     subtests cases, #(description, sentence, expected), description {

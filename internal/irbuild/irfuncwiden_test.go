@@ -76,7 +76,7 @@ fn main() {
     io.print(Map.map_values(m, c))
     fs = [cnt_int]
     Iter.each(fs, fn f -> io.print(Map.map_values(m, f)))
-    held = {count: cnt_int}
+    held = #{count: cnt_int}
     io.print(Map.map_values(m, held.count))
     f: (List<Int>) -> Int = cnt_int
     io.print(f([1]))
@@ -156,7 +156,7 @@ fn shown(x: Display) -> String {
 
 fn area(s: Shape) -> Int {
     case s {
-        .Circle{r} -> r * r
+        #.Circle{r} -> r * r
         .Dot -> 0
     }
 }
@@ -178,7 +178,7 @@ fn use_show(f: (Int) -> String) -> String {
 }
 
 fn use_circle(f: (Circle) -> Int) -> Int {
-    f(Circle{r: 3})
+    f(#Circle{r: 3})
 }
 
 fn use_iter(f: (Int) -> Iter<Int>) -> List<Int> {
@@ -225,9 +225,9 @@ fn main() {
     io.print(f([1, 2]))
     fs: List<(List<Int>) -> Int> = [cnt, fn xs -> Iter.count(xs) + 100]
     io.print(Iter.map(fs, fn g -> g([1, 2, 3])) |> Iter.to_list())
-    h = Holder{f: cnt}
+    h = #Holder{f: cnt}
     io.print(h.f([1]))
-    b: Box<(List<Int>) -> Int> = Box{v: f}
+    b: Box<(List<Int>) -> Int> = #Box{v: f}
     io.print(b.v([9]))
     io.print(returns_fn()([1, 2, 3, 4]))
     io.print(returns_early(True)([1]))
@@ -235,7 +235,7 @@ fn main() {
     c = pick(True, fn x: Float -> Float.to_string(x), fn x -> shown(x))
     io.print(c(1.5))
     d: (Circle) -> Int = area
-    io.print(d(Circle{r: 4}))
+    io.print(d(#Circle{r: 4}))
 }
 `
 	const want = "3\n" +

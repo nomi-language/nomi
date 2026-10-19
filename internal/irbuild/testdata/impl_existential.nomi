@@ -51,11 +51,11 @@ fn announce(s: Speech) -> String {
 // widen a concrete type into one interface-typed result, and `announce` can
 // no longer see which.
 fn as_speech_dog(name: String) -> Speech {
-    Dog{name}
+    #Dog{name}
 }
 
 fn as_speech_cat(name: String) -> Speech {
-    Cat{name}
+    #Cat{name}
 }
 
 fn tag(n: Numberish) -> String {
@@ -63,8 +63,8 @@ fn tag(n: Numberish) -> String {
 }
 
 fn main() {
-    io.print(announce(Dog{name: "Rex"}))
-    io.print(announce(Cat{name: "Whiskers"}))
+    io.print(announce(#Dog{name: "Rex"}))
+    io.print(announce(#Cat{name: "Whiskers"}))
     io.print(announce(as_speech_dog("Rex")))
     io.print(announce(as_speech_cat("Whiskers")))
     io.print(tag(42))

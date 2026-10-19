@@ -14,21 +14,21 @@ once label = "entry"
 
 fn describe(b: Backoff) -> String {
     case b {
-        Backoff.Exponential{max_restarts, max_elapsed} -> "${max_restarts}/${max_elapsed}"
+        #Backoff.Exponential{max_restarts, max_elapsed} -> "${max_restarts}/${max_elapsed}"
         Backoff.Off -> "off"
     }
 }
 
 fn main() {
-    io.print(describe(Backoff.Exponential{max_restarts: 3}))
-    io.print(describe(Backoff.Exponential{}))
+    io.print(describe(#Backoff.Exponential{max_restarts: 3}))
+    io.print(describe(#Backoff.Exponential{}))
     io.print(describe(Backoff.Off))
 
-    io.print(describe(.Exponential{max_elapsed: 5}))
+    io.print(describe(#.Exponential{max_elapsed: 5}))
 
-    l = Limits{}
+    l = #Limits{}
     io.print("${l.soft}/${l.hard}")
-    n = Limits{hard: 1}
+    n = #Limits{hard: 1}
     io.print("${n.soft}/${n.hard}")
 
     io.print(origin())

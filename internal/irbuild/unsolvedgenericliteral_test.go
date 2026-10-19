@@ -16,14 +16,14 @@ struct Gbox<A> {
 }
 
 fn main() {
-    io.inspect(Gbox{v: []})
-    io.inspect(Gbox{v: #{}})
-    io.inspect(Gbox{v: Map.empty()})
-    io.inspect(Gbox{v: [[]]})
-    io.inspect([#{}])
+    io.inspect(#Gbox{v: []})
+    io.inspect(#Gbox{v: %[]})
+    io.inspect(#Gbox{v: Map.empty()})
+    io.inspect(#Gbox{v: [[]]})
+    io.inspect([%[]])
     io.inspect([#[]])
     io.inspect(Map.get(%{"k" => []}, "k"))
 }
 `
-	irRunSource(t, src, "Gbox{v: []}\nGbox{v: #{}}\nGbox{v: %{}}\nGbox{v: [[]]}\n[#{}]\n[#[]]\nSome([])\n")
+	irRunSource(t, src, "#Gbox{v: []}\n#Gbox{v: %[]}\n#Gbox{v: %{}}\n#Gbox{v: [[]]}\n[%[]]\n[#[]]\nSome([])\n")
 }

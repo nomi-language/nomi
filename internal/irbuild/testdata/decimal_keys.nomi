@@ -95,7 +95,7 @@ fn main() {
     io.print("list miss = ${found_list(lists, [1.5d])}")
 
     // SET against MAP: the same pair reached through a set literal.
-    s = #{1.50d, short, 2.00d}
+    s = %[1.50d, short, 2.00d]
     io.print("set size = ${Set.size(s)}")
     io.print("set = ${s}")
     io.print("set has other scale = ${Set.contains?(s, 1.500d)}")

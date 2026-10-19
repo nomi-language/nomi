@@ -32,11 +32,11 @@ pub fn greeting() -> String {
 }
 
 pub fn boot() -> Settings {
-    Settings{context: Context.root(), tag: "root"}
+    #Settings{context: Context.root(), tag: "root"}
 }
 
 fn main() {
-    io.print(report.describe(Circle{radius: shapes.unit}))
+    io.print(report.describe(#Circle{radius: shapes.unit}))
     io.print(report.title())
 }
 `,
@@ -90,7 +90,7 @@ pub fn title() -> String {
 }
 
 test "area" {
-    assert Shape.area(Circle{radius: 1}) > 0
+    assert Shape.area(#Circle{radius: 1}) > 0
 }
 `,
 	"settings.nomi": `import main
@@ -130,7 +130,7 @@ impl Display for Local {
 
 fn main() {
     io.print(lib.evens([1, 2]))
-    io.print(Display.to_string(Local{n: 1}))
+    io.print(Display.to_string(#Local{n: 1}))
 }
 `,
 	"lib.nomi": `import dep
@@ -174,7 +174,7 @@ impl Shape for Circle {
 }
 
 fn main() {
-    io.inspect(shapes.total([Circle{radius: 1}]))
+    io.inspect(shapes.total([#Circle{radius: 1}]))
 }
 `,
 	"shapes.nomi": `pub interface Shape {
@@ -190,7 +190,7 @@ pub fn total(circles: List<Circle>) -> Int {
 }
 
 test "total" {
-    assert total([Circle{radius: 1}]) == 3
+    assert total([#Circle{radius: 1}]) == 3
 }
 `,
 }

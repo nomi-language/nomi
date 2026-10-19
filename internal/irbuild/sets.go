@@ -1,6 +1,6 @@
 package irbuild
 
-// `Set<T>` as `rt.Set[T]` — the `#{…}` literal, the `impl Set<T>` method
+// `Set<T>` as `rt.Set[T]` — the `Set[…]` literal, the `impl Set<T>` method
 // surface, and the `Iter` source.
 //
 // # Why this is an owner-keyed arm and not the stdlib path

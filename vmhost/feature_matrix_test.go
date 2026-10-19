@@ -176,33 +176,33 @@ var mxFeatures = []mxFeature{
 	{name: "list spread", typ: "List<Int>", expr: "[0, ..[1, 2]]", want: "[0, 1, 2]"},
 	{name: "empty vector", typ: "Vector<Int>", expr: "#[]", want: "#[]", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
 	{name: "vector", typ: "Vector<Int>", expr: "#[1, 2]", want: "#[1, 2]"},
-	{name: "empty set", typ: "Set<Int>", expr: "#{}", want: "#{}", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
-	{name: "set", typ: "Set<Int>", expr: "#{3, 4}", want: "#{3, 4}"},
+	{name: "empty set", typ: "Set<Int>", expr: "%[]", want: "%[]", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
+	{name: "set", typ: "Set<Int>", expr: "%[3, 4]", want: "%[3, 4]"},
 	{name: "map", typ: "Map<String, Int>", expr: `%{"a" => 1}`, want: `%{"a" => 1}`},
 	{name: "map spread", typ: "Map<String, Int>", expr: `%{..%{"a" => 1}, "b" => 2}`, want: `%{"a" => 1, "b" => 2}`},
 	{name: "empty map", typ: "Map<String, Int>", expr: "Map.empty()", want: "%{}", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
 	{name: "tuple", typ: "#(Int, String)", expr: `#(1, "a")`, want: `#(1, "a")`},
-	{name: "record", typ: "{a: Int, b: String}", expr: `{a: 1, b: "x"}`, want: `{a: 1, b: "x"}`},
+	{name: "record", typ: "#{a: Int, b: String}", expr: `#{a: 1, b: "x"}`, want: `#{a: 1, b: "x"}`},
 	{name: "range", typ: "Range<Int>", expr: "1..4", want: "1..4"},
 
 	// Declared types.
-	{name: "struct", decls: mxPoint, typ: "Point", expr: "Point{x: 1}", want: "Point{x: 1, y: 2}"},
+	{name: "struct", decls: mxPoint, typ: "Point", expr: "#Point{x: 1}", want: "#Point{x: 1, y: 2}"},
 	{name: "enum bare variant", decls: mxShape, typ: "Shape", expr: "Shape.Dot", want: "Dot"},
 	{name: "enum payload variant", decls: mxShape, typ: "Shape", expr: "Shape.Circle(1.5)", want: "Circle(1.5)"},
-	{name: "enum struct variant", decls: mxShape, typ: "Shape", expr: "Shape.Rect{w: 1, h: 2}", want: "Rect{w: 1, h: 2}"},
-	{name: "embedded struct", decls: mxShape, typ: "Shape", expr: "Spot{n: 3}", want: "Spot{n: 3}", tags: tagWidens},
+	{name: "enum struct variant", decls: mxShape, typ: "Shape", expr: "#Shape.Rect{w: 1, h: 2}", want: "#Rect{w: 1, h: 2}"},
+	{name: "embedded struct", decls: mxShape, typ: "Shape", expr: "#Spot{n: 3}", want: "#Spot{n: 3}", tags: tagWidens},
 	{name: "embedded distinct", decls: mxShape, typ: "Shape", expr: `Tag("t")`, want: `Tag("t")`, tags: tagWidens},
 	{name: "dot variant", decls: mxShape, typ: "Shape", expr: ".Circle(2.0)", want: "Circle(2.0)", tags: tagExpects,
 		reject: "requires a determinable enum type|resolves only to enum variants|cannot be resolved here|is not determined"},
 	{name: "distinct", decls: "type Meters Int", typ: "Meters", expr: "Meters(3)", want: "Meters(3)"},
 	{name: "unit", typ: "Unit", expr: "Unit", want: "Unit", tags: tagUnit},
-	{name: "generic struct", decls: mxBox, typ: "Box<Int>", expr: "Box{v: 1}", want: "Box{v: 1}"},
+	{name: "generic struct", decls: mxBox, typ: "Box<Int>", expr: "#Box{v: 1}", want: "#Box{v: 1}"},
 	{name: "generic enum", decls: mxTree, typ: "Tree<String>", expr: `Tree.Leaf("a")`, want: `Leaf("a")`},
 	{name: "generic bare variant", decls: mxTree, typ: "Tree<Int>", expr: "Tree.Nil", want: "Nil", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
 	{name: "recursive vector enum", decls: mxVTree, typ: "VTree", expr: "VTree.Node(#[VTree.Leaf(1), VTree.Node(#[])])",
 		obs: `"${Debug.inspect($v)} ${$v == $v}"`, want: "Node(#[Leaf(1), Node(#[])]) True"},
-	{name: "recursive vector struct", decls: mxVDir, typ: "VDir", expr: `VDir{name: "r", kids: #[VDir{name: "a", kids: #[]}]}`,
-		want: `VDir{name: "r", kids: #[VDir{name: "a", kids: #[]}]}`},
+	{name: "recursive vector struct", decls: mxVDir, typ: "VDir", expr: `#VDir{name: "r", kids: #[#VDir{name: "a", kids: #[]}]}`,
+		want: `#VDir{name: "r", kids: #[#VDir{name: "a", kids: #[]}]}`},
 
 	// Function values.
 	{name: "named function", decls: "fn twice(n: Int) -> Int {\n    n * 2\n}", typ: "(Int) -> Int", expr: "twice",
@@ -229,9 +229,9 @@ var mxFeatures = []mxFeature{
 		obs: `Debug.inspect($v("7"))`, want: `"007"`, tags: tagFn | tagCall},
 
 	// Interface values.
-	{name: "existential", decls: mxNamed + "\n\nfn named_of(n: Int) -> Named {\n    Pt{x: n}\n}", typ: "Named",
+	{name: "existential", decls: mxNamed + "\n\nfn named_of(n: Int) -> Named {\n    #Pt{x: n}\n}", typ: "Named",
 		expr: "named_of(4)", obs: "Named.shout($v)", want: "pt4!", tags: tagExistential},
-	{name: "existential widening", decls: mxNamed, typ: "Named", expr: "Pt{x: 5}", obs: "Named.shout($v)",
+	{name: "existential widening", decls: mxNamed, typ: "Named", expr: "#Pt{x: 5}", obs: "Named.shout($v)",
 		want: "pt5!", tags: tagExistential | tagWidens},
 	{name: "existential list", typ: "List<Display>", expr: `[1, "a"]`,
 		obs: `$v |> Iter.map(fn d -> Display.to_string(d)) |> String.join(",")`, want: "1,a",
@@ -275,31 +275,40 @@ var mxFeatures = []mxFeature{
 	{name: "and or", typ: "Bool", expr: "1 > 2 or (3 > 2 and True)", want: "True"},
 	{name: "pipe", typ: "Int", expr: `"abc" |> String.length()`, want: "3"},
 	{name: "then stage", typ: "Int", expr: "4 |> then fn n -> n * n", want: "16"},
-	{name: "field access", decls: mxPoint, typ: "Int", expr: "Point{x: 5}.x", want: "5"},
-	{name: "struct update", decls: mxPoint, typ: "Point", expr: "Struct.update(Point{x: 1}, {y: 9})",
-		want: "Point{x: 1, y: 9}"},
-	{name: "struct spread", decls: mxPoint + "\n\nfn origin() -> Point {\n    Point{x: 0, y: 0}\n}", typ: "Point",
-		expr: "{..origin(), x: 7}", want: "Point{x: 7, y: 0}"},
-	{name: "nested spread", decls: mxPoint + "\n\nstruct Line {\n    a: Point\n    b: Point\n}\n\nfn line0() -> Line {\n    Line{a: Point{x: 0}, b: Point{x: 1}}\n}",
-		typ: "Line", expr: "{..line0(), a: {.., x: 5}}", want: "Line{a: Point{x: 5, y: 2}, b: Point{x: 1, y: 2}}"},
+	{name: "field access", decls: mxPoint, typ: "Int", expr: "#Point{x: 5}.x", want: "5"},
+	{name: "struct update", decls: mxPoint, typ: "Point", expr: "Struct.update(#Point{x: 1}, #{y: 9})",
+		want: "#Point{x: 1, y: 9}"},
+	{name: "struct spread", decls: mxPoint + "\n\nfn origin() -> Point {\n    #Point{x: 0, y: 0}\n}", typ: "Point",
+		expr: "#{..origin(), x: 7}", want: "#Point{x: 7, y: 0}"},
+	{name: "nested spread", decls: mxPoint + "\n\nstruct Line {\n    a: Point\n    b: Point\n}\n\nfn line0() -> Line {\n    #Line{a: #Point{x: 0}, b: #Point{x: 1}}\n}",
+		typ: "Line", expr: "#{..line0(), a: #{.., x: 5}}", want: "#Line{a: #Point{x: 5, y: 2}, b: #Point{x: 1, y: 2}}"},
 
 	// Patterns.
 	{name: "tuple pattern", typ: "String", expr: "case #(1, \"a\") {\n    #(n, s) -> \"${n}${s}\"\n}", want: `"1a"`, tags: tagNested},
 	{name: "list pattern", typ: "Int", expr: "case [1, 2, 3] {\n    [h, ..t] -> h + Iter.count(t)\n    [] -> 0\n}", want: "3",
 		tags: tagNested},
-	{name: "struct pattern", decls: mxPoint, typ: "Int", expr: "case Point{x: 1, y: 5} {\n    Point{x, y} -> x + y\n}",
+	{name: "struct pattern", decls: mxPoint, typ: "Int", expr: "case #Point{x: 1, y: 5} {\n    #Point{x, y} -> x + y\n}",
 		want: "6", tags: tagNested},
 	{name: "variant guard pattern", decls: mxShape, typ: "String",
 		expr: "case Shape.Circle(3.0) {\n    .Circle(r) when r > 2.0 -> \"big\"\n    _ -> \"other\"\n}", want: `"big"`, tags: tagNested},
 	{name: "map pattern", typ: "Int", expr: "case %{\"k\" => 4} {\n    %{\"k\" => w} -> w\n    _ -> 0\n}", want: "4",
 		tags: tagNested},
+	{name: "vector pattern", typ: "Int", expr: "case #[1, 2, 3] {\n    #[h, ..mid, z] -> h + z + Vector.length(mid)\n    _ -> 0\n}",
+		want: "5", tags: tagNested},
+	{name: "vector end pattern", typ: "Int", expr: "case #[4, 5] {\n    #[] -> 0\n    #[.., last] -> last\n}", want: "5",
+		tags: tagNested},
+	{name: "set pattern", typ: "Int", expr: "case %[\"a\", \"b\"] {\n    %[\"a\", ..rest] -> Set.size(rest)\n    _ -> 0\n}",
+		want: "1", tags: tagNested},
+	{name: "exact set pattern", typ: "String", expr: "case %[2, 1] {\n    %[1, 2] -> \"both\"\n    _ -> \"no\"\n}",
+		want: `"both"`, tags: tagNested},
+
 	{name: "prefix pattern", typ: "String", expr: "case \"/u/7\" {\n    \"/u/\" + id -> id\n    _ -> \"\"\n}", want: `"7"`,
 		tags: tagNested},
 	{name: "as pattern", typ: "String",
 		expr: "case Some(2) {\n    Some(n) as whole -> \"${n}${Debug.inspect(whole)}\"\n    None -> \"\"\n}", want: `"2Some(2)"`,
 		tags: tagNested},
 	{name: "or pattern", decls: mxShape, typ: "String",
-		expr: "case Shape.Rect{w: 2, h: 3} {\n    .Circle(_) or .Dot -> \"round\"\n    .Rect{w: n} or .Rect{h: n} when n > 5 -> \"wide\"\n    .Rect{w: 1 or 2 as n} -> \"${n}\"\n    _ -> \"other\"\n}",
+		expr: "case #Shape.Rect{w: 2, h: 3} {\n    .Circle(_) or .Dot -> \"round\"\n    #.Rect{w: n} or #.Rect{h: n} when n > 5 -> \"wide\"\n    #.Rect{w: 1 or 2 as n} -> \"${n}\"\n    _ -> \"other\"\n}",
 		want: `"2"`, tags: tagNested},
 	{name: "or parameter pattern", typ: "Int", expr: "{\n    f = fn #(0, n) or #(n, _): #(Int, Int) -> n * 2\n    f(#(0, 4)) + f(#(3, 1))\n}",
 		want: "14", tags: tagNested},
@@ -330,20 +339,20 @@ var mxFeatures = []mxFeature{
 
 	// Derived impls.
 	{name: "derive Equatable", decls: "struct Cpt {\n    a: Int\n}\n\nderive Equatable for Cpt", typ: "Cpt",
-		expr: "Cpt{a: 1}", obs: "Debug.inspect($v == Cpt{a: 1})", want: "True"},
+		expr: "#Cpt{a: 1}", obs: "Debug.inspect($v == #Cpt{a: 1})", want: "True"},
 	{name: "derive Hashable", decls: "struct Hp {\n    a: Int\n}\n\nderive Equatable for Hp\nderive Hashable for Hp", typ: "Hp",
-		expr: "Hp{a: 1}", obs: "Debug.inspect(Hashable.hash($v) == Hashable.hash(Hp{a: 1}))", want: "True"},
+		expr: "#Hp{a: 1}", obs: "Debug.inspect(Hashable.hash($v) == Hashable.hash(#Hp{a: 1}))", want: "True"},
 	{name: "derive Comparable", decls: mxCoin + "\n\nderive Equatable for Coin\nderive Comparable for Coin", typ: "Coin",
 		expr: "Coin.Penny", obs: "Debug.inspect($v < Coin.Dime)", want: "True"},
 	{name: "derive Display", decls: "struct Shown {\n    name: String\n}\n\nderive Display for Shown", typ: "Shown",
-		expr: `Shown{name: "bob"}`, obs: "Display.to_string($v)", want: "Shown{name: bob}"},
+		expr: `#Shown{name: "bob"}`, obs: "Display.to_string($v)", want: "#Shown{name: bob}"},
 	{name: "derive Debug", decls: "struct Dbg {\n    s: String\n}\n\nderive Debug for Dbg", typ: "Dbg",
-		expr: `Dbg{s: "q"}`, want: `Dbg{s: "q"}`},
+		expr: `#Dbg{s: "q"}`, want: `#Dbg{s: "q"}`},
 	{name: "derive ToJson", decls: "struct Jp {\n    a: Int\n    s: String\n}\n\nderive ToJson for Jp", typ: "Jp",
-		expr: `Jp{a: 1, s: "x"}`, obs: "Json.encode(ToJson.to_json($v))", want: `{"a":1,"s":"x"}`},
+		expr: `#Jp{a: 1, s: "x"}`, obs: "Json.encode(ToJson.to_json($v))", want: `{"a":1,"s":"x"}`},
 	{name: "derive FromJson",
 		decls: "struct Jq {\n    a: Int\n}\n\nderive ToJson for Jq\nderive FromJson for Jq", typ: "Jq",
-		expr: "Jq{a: 2}", obs: "Debug.inspect(FromJson.from_json<Jq>(ToJson.to_json($v)))", want: "Ok(Jq{a: 2})"},
+		expr: "#Jq{a: 2}", obs: "Debug.inspect(FromJson.from_json<Jq>(ToJson.to_json($v)))", want: "Ok(#Jq{a: 2})"},
 	{name: "derive Variants", decls: mxCoin + "\n\nderive Variants for Coin", typ: "List<Coin>",
 		expr: "Coin.variants()", want: "[Penny, Dime]"},
 }
@@ -498,15 +507,15 @@ var mxWraps = []*mxContext{
 	wrapCtx("struct field", true, mxGives, func(b *mxBuild, n int) {
 		b.decls = append(b.decls, fmt.Sprintf("struct Hold%d {\n    v: %s\n}", n, b.typ))
 		h := fmt.Sprintf("h%d", n)
-		b.expr = mxBlock(fmt.Sprintf("%s = Hold%d{v: %s}", h, n, b.expr), h+".v")
+		b.expr = mxBlock(fmt.Sprintf("%s = #Hold%d{v: %s}", h, n, b.expr), h+".v")
 	}),
 	wrapCtx("field default", true, mxGives, func(b *mxBuild, n int) {
 		b.decls = append(b.decls, fmt.Sprintf("struct Dflt%d {\n    v: %s = %s\n}", n, b.typ, mxIndentTail(b.expr)))
-		b.expr = fmt.Sprintf("Dflt%d{}.v", n)
+		b.expr = fmt.Sprintf("#Dflt%d{}.v", n)
 	}),
 	wrapCtx("record field", true, mxFlows, func(b *mxBuild, n int) {
 		r := fmt.Sprintf("r%d", n)
-		b.expr = mxBlock(fmt.Sprintf("%s = {f: %s, g: 0}", r, b.expr), r+".f")
+		b.expr = mxBlock(fmt.Sprintf("%s = #{f: %s, g: 0}", r, b.expr), r+".f")
 	}),
 	wrapCtx("enum payload", true, mxGives, func(b *mxBuild, n int) {
 		b.decls = append(b.decls, fmt.Sprintf("enum Pay%d {\n    Has %s\n    Gone\n}", n, mxPayload(b.typ)))
@@ -525,7 +534,7 @@ var mxWraps = []*mxContext{
 	wrapCtx("generic struct field", true, mxFlows, func(b *mxBuild, n int) {
 		b.decls = append(b.decls, fmt.Sprintf("struct Gbox%d<A> {\n    v: A\n}", n))
 		g := fmt.Sprintf("g%d", n)
-		b.expr = mxBlock(fmt.Sprintf("%s = Gbox%d{v: %s}", g, n, b.expr), g+".v")
+		b.expr = mxBlock(fmt.Sprintf("%s = #Gbox%d{v: %s}", g, n, b.expr), g+".v")
 	}),
 	wrapCtx("generic enum payload", true, mxFlows, func(b *mxBuild, n int) {
 		b.decls = append(b.decls, fmt.Sprintf("enum Gopt%d<A> {\n    Full A\n    Nothing\n}", n))
@@ -571,7 +580,7 @@ var mxWraps = []*mxContext{
 }
 
 // mxPayload is typ as a variant's payload type: an anonymous struct type is
-// parenthesized, since `Has {a: Int}` would declare a struct variant.
+// parenthesized, since `#Has {a: Int}` would declare a struct variant.
 func mxPayload(typ string) string {
 	if strings.HasPrefix(typ, "{") {
 		return "(" + typ + ")"
@@ -644,7 +653,7 @@ var mxShells = []*mxContext{
 			"body\n" + want + "\n" + want + "\n\n--- ok: <nil>"
 	}},
 	{name: "with", shell: func(b *mxBuild, e, obs, want string) (string, []string, string) {
-		decls := []string{"struct App {\n    v: " + b.typ + "\n}", "fn boot() -> App {\n    App{v: " + mxIndentTail(mxIndentTail(e)) + "}\n}"}
+		decls := []string{"struct App {\n    v: " + b.typ + "\n}", "fn boot() -> App {\n    #App{v: " + mxIndentTail(mxIndentTail(e)) + "}\n}"}
 		return "fn main() {\n    with App.v = " + mxIndentTail(e) + "\n    got = App.v\n    io.print(" + mxObs(obs, "got") + ")\n}",
 			decls, want + "\n\n--- ok: <nil>"
 	}},

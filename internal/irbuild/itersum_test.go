@@ -47,7 +47,7 @@ fn main() {
     io.print(c)
     Coins(n) = Iter.sum([Coins(4), Coins(5)])
     io.print(n)
-    io.print(Iter.sum([Point{x: 1}, Point{x: 2}]).x)
+    io.print(Iter.sum([#Point{x: 1}, #Point{x: 2}]).x)
     none: List<Point> = []
     io.print(Iter.sum(none).x)
 }
@@ -71,13 +71,13 @@ pub struct Point {
 
 impl Add<Point, Point> for Point {
     fn add(lhs: Point, rhs: Point) -> Point {
-        Point{x: lhs.x + rhs.x}
+        #Point{x: lhs.x + rhs.x}
     }
 }
 
 impl Summable for Point {
     fn empty_sum() -> Point {
-        Point{x: 0}
+        #Point{x: 0}
     }
 }
 `})

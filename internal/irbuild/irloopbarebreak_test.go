@@ -35,9 +35,9 @@ fn main() {
     })
     io.inspect(a)
     // An else binding: the pattern fails once five elements are dropped.
-    b = Iter.loop(fn t = Tally{label: "t", count: 0} -> {
+    b = Iter.loop(fn t = #Tally{label: "t", count: 0} -> {
         Some(_) = first_even(Iter.drop([1, 3, 2, 5, 4], t.count) |> Iter.to_list()) else { break }
-        {..t, count: t.count + 1}
+        #{..t, count: t.count + 1}
     })
     io.inspect(b)
     // A case arm, bare and in a block.
@@ -59,13 +59,13 @@ fn main() {
     })
     io.inspect(d)
     // A guard nested in an arm's block, and a value 'if' tail.
-    e = Iter.loop(fn t = Tally{label: "e", count: 0} -> {
+    e = Iter.loop(fn t = #Tally{label: "e", count: 0} -> {
         case t.count % 2 {
             0 -> {
                 if t.count >= 4 { break }
-                {..t, count: t.count + 1}
+                #{..t, count: t.count + 1}
             }
-            _ -> {..t, count: t.count + 1}
+            _ -> #{..t, count: t.count + 1}
         }
     })
     io.inspect(e)
@@ -104,11 +104,11 @@ fn main() {
     io.inspect(u)
 }
 `, `5
-Tally{label: "t", count: 5}
+#Tally{label: "t", count: 5}
 14
 stop at 8
 8
-Tally{label: "e", count: 4}
+#Tally{label: "e", count: 4}
 81
 3
 10
@@ -141,14 +141,14 @@ fn parse_amount(s: String) -> Result<Int, String> {
 }
 
 fn open(inputs: List<String>) -> Account {
-    #(_, account) = Iter.loop(fn state = #(inputs, Account{}) -> {
+    #(_, account) = Iter.loop(fn state = #(inputs, #Account{}) -> {
         #(rest, account) = state
         Some(input) = List.head(rest) else { break }
         case parse_amount(input) {
-            Ok(amount) -> break #(rest, {..account, balance: amount})
+            Ok(amount) -> break #(rest, #{..account, balance: amount})
             Err(msg) -> {
                 io.print(msg)
-                #(Iter.drop(rest, 1) |> Iter.to_list(), {..account, name: "${account.name}!"})
+                #(Iter.drop(rest, 1) |> Iter.to_list(), #{..account, name: "${account.name}!"})
             }
         }
     })
@@ -160,9 +160,9 @@ fn main() {
     io.inspect(open(["abc", "def"]))
 }
 `, `not a number: abc
-Account{name: "x!", balance: 12}
+#Account{name: "x!", balance: 12}
 not a number: abc
 not a number: def
-Account{name: "x!!", balance: 0}
+#Account{name: "x!!", balance: 0}
 `)
 }

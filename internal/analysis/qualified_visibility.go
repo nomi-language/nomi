@@ -14,7 +14,7 @@ import (
 // 'Hidden'".
 //
 // A file-qualified type is spelled as an *ast.QualifiedType wherever it
-// appears: an annotation, a struct literal's head (`other.Hidden{v: 1}`), a
+// appears: an annotation, a struct literal's head (`#other.Hidden{v: 1}`), a
 // pattern's head, an interface bound, an `impl other.Iface for ...` header,
 // and a type argument (`List<other.Hidden>`). The walk visits every one of
 // them in the file's AST rather than relying on each resolution path to

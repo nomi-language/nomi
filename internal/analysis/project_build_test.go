@@ -80,7 +80,7 @@ pub struct B {
 //	                impl Iface for ProdImpl.
 //	effects.nomi  — imports log.{Iface, ProdImpl} and exposes a
 //	                Holder struct whose `handler` field is typed as
-//	                Iface. The body `Holder{handler: ProdImpl{}}`
+//	                Iface. The body `#Holder{handler: #ProdImpl{}}`
 //	                inside effects.make() is the conformance site
 //	                that needs log's impl visible in effects.fa.
 //	main.nomi     — imports both, constructs a Holder via the
@@ -104,7 +104,7 @@ func TestBuildProject_PropagatesCrossFileImpls(t *testing.T) {
 }
 
 fn main() {
-  h: Iface = ProdImpl{}
+  h: Iface = #ProdImpl{}
   e: Holder = effects.make()
   Unit
 }
@@ -126,7 +126,7 @@ pub struct Holder {
 }
 
 pub fn make() -> Holder {
-  Holder{handler: ProdImpl{}}
+  #Holder{handler: #ProdImpl{}}
 }
 
 `)
@@ -249,7 +249,7 @@ pub struct Widget {
 }
 
 pub fn make(name: String) -> Widget {
-  Widget{name}
+  #Widget{name}
 }
 
 fn secret(w: Widget) -> String {
@@ -943,7 +943,7 @@ func TestBuildProject_AllowsLocalAppFileAlongsideStdApp(t *testing.T) {
 }
 
 fn boot() -> EffectsApp {
-  EffectsApp{context: Context.root(), }
+  #EffectsApp{context: Context.root(), }
 }
 `)
 	mustWrite("app.nomi", `pub struct EffectsApp {}

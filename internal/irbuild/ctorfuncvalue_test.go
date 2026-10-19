@@ -18,7 +18,7 @@ func TestCtorFuncValue_BuildsWhatTheCallBuilds(t *testing.T) {
 		"True\n" +
 		"Id(3)\n" +
 		"Id(4)\n" +
-		"[Pair(1, \"a\")]\n" +
+		"[#Pair(1, \"a\")]\n" +
 		"[UserId(5)]\n" +
 		"True\n" +
 		"[Some(1)]\n" +

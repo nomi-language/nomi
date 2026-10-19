@@ -32,7 +32,7 @@ package irbuild
 //
 // A type token here is the whole `kind` value, so two IR types are identical
 // exactly when two kinds are `==`. The `embeds` edge is registered against
-// `kind{tag: tagNamed, def: e}`. If some named kind carried a non-nil `comp`,
+// `kind#{tag: tagNamed, def: e}`. If some named kind carried a non-nil `comp`,
 // `iface` or `tp` beside its `def`, the edge would miss and the table would
 // reject the candidate, which makes the call decline with a named reason. It
 // cannot silently accept a candidate it should reject.
@@ -143,7 +143,7 @@ func (g *gen) irTypeOf(k kind) *ir.Type {
 			if e == nil {
 				continue
 			}
-			// `kind{tag: tagNamed, def: e}` and not the variant's own kind: the
+			// `kind#{tag: tagNamed, def: e}` and not the variant's own kind: the
 			// subtype's identity in the embeds relation is its declaration and
 			// nothing else.
 			if sub := g.irTypeOf(kind{tag: tagNamed, def: e}); sub != nil {

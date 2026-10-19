@@ -55,7 +55,7 @@ fn qualified(op: Op) -> Bool {
 pub fn demo() -> String {
     a: Op = .ToJson
     b = Op.ToJson
-    j = encode(P{n: 1})
+    j = encode(#P{n: 1})
     name(a) + name(b) + Json.encode(j)
 }
 `

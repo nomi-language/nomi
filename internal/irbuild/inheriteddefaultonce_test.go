@@ -38,9 +38,9 @@ impl Powered for Widget {
 }
 
 fn main() {
-    io.print(Powered.tagged(Widget{name: "w"}))
-    io.print(Powered.tagged(Widget{name: "v"}, "given"))
-    ps: List<Powered> = [Widget{name: "a"}]
+    io.print(Powered.tagged(#Widget{name: "w"}))
+    io.print(Powered.tagged(#Widget{name: "v"}, "given"))
+    ps: List<Powered> = [#Widget{name: "a"}]
     io.inspect(Iter.map(ps, fn p -> Powered.tagged(p)) |> Iter.to_list())
     io.print(tag)
 }

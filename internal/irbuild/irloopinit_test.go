@@ -116,7 +116,7 @@ fn boot() -> App {
         if n >= k { break n }
         n + 3
     })
-    App{context: Context.root(), total: total, stepped: steps(10)}
+    #App{context: Context.root(), total: total, stepped: steps(10)}
 }
 
 fn main() {
@@ -124,7 +124,7 @@ fn main() {
     io.inspect(App.stepped)
     io.inspect(lib.pick())
     io.inspect(lib.pick(3))
-    io.inspect(lib.Cfg{}.n)
+    io.inspect(#lib.Cfg{}.n)
 }
 `, "214\n10\n32\n24\n12\n", map[string]string{"lib.nomi": `pub struct Cfg {
     n: Int = Iter.loop(fn i = 0 -> {
@@ -162,7 +162,7 @@ fn pick(k: Int = Iter.loop(fn i = 1 -> {
 }
 
 fn main() {
-    io.inspect(Cfg{}.n)
+    io.inspect(#Cfg{}.n)
     io.inspect(pick())
 }
 `, "4\n32\n")
@@ -185,7 +185,7 @@ pub fn boot() -> App {
         if i > 5 { break i * 10 }
         i + 1
     })
-    App{context: Context.root(), base: base}
+    #App{context: Context.root(), base: base}
 }
 
 fn main() {}
@@ -204,7 +204,7 @@ group "loops in boot and setup" {
             i + 1
         })
         io.print("setup ${n}")
-        Fix{n: n, f: fn k: Int -> Iter.loop(fn m = 0 -> {
+        #Fix{n: n, f: fn k: Int -> Iter.loop(fn m = 0 -> {
             if m == 4 { return 6 }
             if m >= k { break m }
             m + 4

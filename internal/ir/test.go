@@ -11,7 +11,7 @@ import (
 // WHICH ROUTING READS IT, which is module.go's own test for a field on this
 // container and the reason this is not a seventh absent-and-argued entry in
 // that header. `internal/vm`'s runner reads it: a record in
-// `testdata/expectations/{corpus,stdlib,failure}.expect` whose `N` is non-zero
+// `testdata/expectations/#{corpus,stdlib,failure}.expect` whose `N` is non-zero
 // is a `rt.TestReporter` REPORT rather than a program's output, and 232 of the
 // 468 committed records are that shape. A machine can only produce one if it
 // can enumerate a file's cases by name and run each body; `Funcs()` cannot

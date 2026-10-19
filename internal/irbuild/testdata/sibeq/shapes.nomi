@@ -10,7 +10,7 @@ pub struct Point {
 }
 
 pub fn point(x: Int, y: Int) -> Point {
-    Point{x, y}
+    #Point{x, y}
 }
 
 impl Loose for Point {

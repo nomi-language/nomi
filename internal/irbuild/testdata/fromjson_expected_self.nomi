@@ -12,7 +12,7 @@ derive FromJson for Note
 
 fn parse(source: String) -> Result<Json, Json.ShapeError> {
     Json.decode(source)
-    |> Result.map_err(fn _ -> Json.ShapeError{path: [], expected: "json", got: "invalid"})
+    |> Result.map_err(fn _ -> #Json.ShapeError{path: [], expected: "json", got: "invalid"})
 }
 
 // `FromJson.from_json` declares self only in its result, so the binding's

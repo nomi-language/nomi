@@ -145,10 +145,10 @@ var primitiveTypes = map[string]*PrimitiveType{
 // (e.g. `Response { status: Int = 200 }`); anonymous-struct fields, enum
 // struct-variant fields, and any other non-defaulted slot leave it false.
 // The flag drives the call-form constructor's missing-required-field
-// check: `Foo({a: 1})` is OK iff every absent field has HasDefault==true.
+// check: `Foo(#{a: 1})` is OK iff every absent field has HasDefault==true.
 //
 // Line and Col are where an anonymous struct TYPE written in source names the
-// field (`{logger: String}` in a signature or annotation), the position
+// field (`#{logger: String}` in a signature or annotation), the position
 // resolveTypeExpr records the field's symbol at. An anonymous literal checked
 // against that type points its labels there (recordAnonLitFieldLabels). They
 // are zero for every other field: nominal struct fields have their own
@@ -200,7 +200,7 @@ func (t *StructType) typeTag() {}
 //   - VariantPositional: a typed positional payload created via the variant's
 //     own constructor (e.g. `Some(T)`).
 //   - VariantStruct: named-field payload defined inline on the variant
-//     (e.g. `Line{start: Point, end: Point}`).
+//     (e.g. `#Line{start: Point, end: Point}`).
 //   - VariantEmbedded: payload is a standalone struct or distinct type
 //     defined elsewhere; the variant name equals the embedded type's name
 //     (e.g. `embeds Circle`). Embedded variants admit subtype coercion —
@@ -394,7 +394,7 @@ func (t *AnonStructType) String() string {
 	for i, f := range t.Fields {
 		fields[i] = fmt.Sprintf("%s: %s", f.Name, f.Type.String())
 	}
-	return fmt.Sprintf("{%s}", strings.Join(fields, ", "))
+	return fmt.Sprintf("#{%s}", strings.Join(fields, ", "))
 }
 
 func (t *AnonStructType) typeTag() {}

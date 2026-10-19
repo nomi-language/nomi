@@ -8,8 +8,8 @@ import "testing"
 func TestFormat_AnonStructLiteralKeepsItsOpeningComment(t *testing.T) {
 	cases := map[string]struct{ src, want string }{
 		"before the first field": {
-			src: "point = { // origin\n    x: 1.0, y: 2.0}\n",
-			want: "point = {\n" +
+			src: "point = #{ // origin\n    x: 1.0, y: 2.0}\n",
+			want: "point = #{\n" +
 				"    // origin\n" +
 				"    x: 1.0,\n" +
 				"    y: 2.0,\n" +
@@ -17,8 +17,8 @@ func TestFormat_AnonStructLiteralKeepsItsOpeningComment(t *testing.T) {
 		},
 		// The spread is the first element, so the comment stays above it.
 		"before a spread": {
-			src: "moved = { // moved\n    ..point, x: 3.0}\n",
-			want: "moved = {\n" +
+			src: "moved = #{ // moved\n    ..point, x: 3.0}\n",
+			want: "moved = #{\n" +
 				"    // moved\n" +
 				"    ..point,\n" +
 				"    x: 3.0,\n" +

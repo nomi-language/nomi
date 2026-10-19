@@ -52,7 +52,7 @@ fn severity(r: Probe.Reading) -> Int {
     case r {
         .Steady -> 0
         .Spike(n) -> n
-        .Blip{at} -> at
+        #.Blip{at} -> at
     }
 }
 
@@ -62,7 +62,7 @@ fn severity_qualified(r: Probe.Reading) -> Int {
     case r {
         Probe.Reading.Steady -> 0
         Probe.Reading.Spike(n) -> n
-        Probe.Reading.Blip{at} -> at
+        #Probe.Reading.Blip{at} -> at
     }
 }
 
@@ -79,7 +79,7 @@ fn inner_severity(m: Maybe<Probe.Reading>) -> Int {
     case m {
         Some(Probe.Reading.Steady) -> 0
         Some(Probe.Reading.Spike(n)) -> n
-        Some(Probe.Reading.Blip{at}) -> at
+        Some(#Probe.Reading.Blip{at}) -> at
         None -> -1
     }
 }
@@ -87,7 +87,7 @@ fn inner_severity(m: Maybe<Probe.Reading>) -> Int {
 fn main() {
     steady = Probe.Reading.Steady
     spike = Probe.Reading.Spike(3)
-    blip = Probe.Reading.Blip{at: 9}
+    blip = #Probe.Reading.Blip{at: 9}
 
     io.print("steady = ${severity(steady)}")
     io.print("spike = ${severity(spike)}")

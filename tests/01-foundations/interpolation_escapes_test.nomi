@@ -21,5 +21,5 @@ test "a triple-quoted string reads only the escaped opener" {
 }
 
 test "an interpolation holds a set literal" {
-    assert "${Set.size(#{1, 2})}" == "2"
+    assert "${Set.size(%[1, 2])}" == "2"
 }

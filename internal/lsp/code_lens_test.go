@@ -22,7 +22,7 @@ struct Box {
 }
 
 impl Box {
-    //! assert Box.get(Box{n: 1}) == 1
+    //! assert Box.get(#Box{n: 1}) == 1
     fn get(b: Box) -> Int { b.n }
 }
 
@@ -36,11 +36,11 @@ test "doubles" {
 
 group "boxes" {
     test "get" {
-        assert Box.get(Box{n: 2}) == 2
+        assert Box.get(#Box{n: 2}) == 2
     }
 
     test "wrong" {
-        assert Box.get(Box{n: 2}) == 3
+        assert Box.get(#Box{n: 2}) == 3
     }
 }
 `

@@ -22,8 +22,8 @@ func TestVM_TupleFunctionPart(t *testing.T) {
 		"record = 6",
 		"record destructured = 6",
 		"debug = #(1, <function>)",
-		"record debug = {f: <function>, n: 3}",
-		"nested debug = #(Pt{x: 1}, <function>)",
+		"record debug = #{f: <function>, n: 3}",
+		"nested debug = #(#Pt{x: 1}, <function>)",
 		"",
 	}, "\n")
 	if got := vmReference(fixture("tuple_function_part.nomi")); got.stdout != want || got.exit != 0 {
@@ -65,7 +65,7 @@ fn main() {
 		{"list and struct components", `import std/io
 struct Point { x: Int }
 fn main() {
-  pair = #([1, 2], Point{x: 7})
+  pair = #([1, 2], #Point{x: 7})
   xs = pair.0
   point = pair.1
   io.inspect(xs) io.print(point.x)

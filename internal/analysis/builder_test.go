@@ -752,8 +752,8 @@ func TestCrossFile_CacheHit(t *testing.T) {
 
 // Same-file bare struct-variant construction is rejected just like
 // positional / nullary forms. The qualified-variant rule applies
-// uniformly: `enum Error { HttpError{status: Int} | ... }` requires
-// `Error.HttpError{status: 404}`, never bare `HttpError{status: 404}`.
+// uniformly: `enum Error { HttpError {status: Int} ... }` requires
+// `#Error.HttpError{status: 404}`, never bare `#HttpError{status: 404}`.
 // Without this check, the StructLit path slipped past the existing
 // TypeIdent-position rule and the user got a confusing "(Int, String)
 // -> Error" function-type mismatch instead of the qualified-form hint.
@@ -763,7 +763,7 @@ func TestSameFile_BareStructVariantConstructionRejected(t *testing.T) {
   Timeout
 }
 
-fn make() -> Error { HttpError{status: 404, message: "x"} }`
+fn make() -> Error { #HttpError{status: 404, message: "x"} }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -782,7 +782,7 @@ fn make() -> Error { HttpError{status: 404, message: "x"} }`
 		}
 	}
 	if !found {
-		t.Errorf("expected an error suggesting Error.HttpError for bare HttpError{...}, got: %v", all)
+		t.Errorf("expected an error suggesting Error.HttpError for bare #HttpError{...}, got: %v", all)
 	}
 }
 
@@ -919,7 +919,7 @@ func TestImport_SelectsModuleFunction(t *testing.T) {
   n: Int
 }
 
-pub fn make(n: Int) -> Widget { Widget{n} }
+pub fn make(n: Int) -> Widget { #Widget{n} }
 `
 	widgetTokens := lexer.Lex(widgetSrc)
 	widgetNodes, _ := parser.ParseWithRecovery(widgetTokens)
@@ -1073,7 +1073,7 @@ func TestCrossFile_QualifiedEnumVariantResolves(t *testing.T) {
 	}
 
 	src := `import ast.{Expr}
-fn make() -> Expr { Expr.Let{name: "x", value: Expr.Lit(1), body: Expr.Lit(2)} }`
+fn make() -> Expr { #Expr.Let{name: "x", value: Expr.Lit(1), body: Expr.Lit(2)} }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFileWithStdlib(nodes, nil, nil, "/project", loader)
@@ -1099,18 +1099,18 @@ fn make() -> Expr { Expr.Let{name: "x", value: Expr.Lit(1), body: Expr.Lit(2)} }
 }
 
 // `embeds Circle` must NOT shadow the underlying Circle struct's
-// scope entry. Bare `Circle{...}` should resolve to the struct, and
-// `Shape.Circle{...}` to the variant. Same applies for distinct-type
+// scope entry. Bare `#Circle{...}` should resolve to the struct, and
+// `#Shape.Circle{...}` to the variant. Same applies for distinct-type
 // embeds — `embeds UserId` doesn't override the `UserId` constructor.
 func TestEmbeds_VariantDoesNotShadowUnderlyingStruct(t *testing.T) {
 	src := `struct Circle { radius: Float }
 enum Shape { embeds Circle; Point }
-fn make_circle(r: Float) -> Circle { Circle{radius: r} }`
+fn make_circle(r: Float) -> Circle { #Circle{radius: r} }`
 	_, errs := checkSource(src)
 	for _, e := range errs {
 		if strings.Contains(e.Message, "return type mismatch") ||
 			strings.Contains(e.Message, "(Circle) -> Shape") {
-			t.Errorf("Circle{...} should resolve to the Circle struct, not the Shape.Circle variant: %v", e)
+			t.Errorf("#Circle{...} should resolve to the Circle struct, not the Shape.Circle variant: %v", e)
 		}
 	}
 }

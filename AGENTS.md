@@ -625,6 +625,13 @@ The spec is canonical; these are the rules most often gotten wrong.
 
 - **No `let`.** Bindings are `name = expr`, with optional `: T`. A binding may
   shadow an earlier one in the same scope.
+- **Literals start with their shape's symbol.** `#` for a vector, struct or
+  tuple (`#[1, 2]`, `#Point{x: 1}`, `#{x: 1}`, `#(a, b)`), `%` for a map or
+  set (`%{"k" => v}`, `%[1, 2]`); a type built on a shape writes its name
+  after the symbol (`#.Circle{radius: 1.0}`, `#Pair(1, "x")`, `%Kvs{"a" => 1}`).
+  Lists keep `[1, 2]` and `Ids[1, 2]`. Patterns use the same forms
+  (`#[first, ..rest]`, `%["admin", ..rest]`). A name followed by `{` never
+  starts a literal, and types are unchanged (`Vector<T>`, `#(Int, Int)`).
 - **Type bodies are newline-separated items.** Struct fields are bare
   `name: Type` lines with no commas and no `field` keyword. An interface
   declares functions only; a value every implementor must supply is a

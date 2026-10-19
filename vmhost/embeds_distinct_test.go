@@ -61,41 +61,41 @@ fn radius(s: Shape) -> Int {
 
 fn circle(r: Int) -> Circle {
     io.print("circle ${r}")
-    Circle{r: r}
+    #Circle{r: r}
 }
 
 fn main() {
     shapes = [
         Shape.Wrapped(circle(1)),
         Shape.Tagged(Color.Green),
-        Shape.Boxed(Box{value: 4}),
-        Circle{r: 2} |> Shape.Wrapped(),
+        Shape.Boxed(#Box{value: 4}),
+        #Circle{r: 2} |> Shape.Wrapped(),
         Shape.Dot,
     ]
     io.print(Debug.inspect(shapes))
     shapes |> Iter.map(describe) |> String.join(", ") |> io.print()
-    io.print("${radius(Shape.Wrapped(Circle{r: 9}))} ${radius(Shape.Dot)}")
-    widened: List<Shape> = [Wrapped(circle(3)), Tagged(Color.Red), Boxed(Box{value: 5})]
+    io.print("${radius(Shape.Wrapped(#Circle{r: 9}))} ${radius(Shape.Dot)}")
+    widened: List<Shape> = [Wrapped(circle(3)), Tagged(Color.Red), Boxed(#Box{value: 5})]
     io.print(Debug.inspect(widened))
     t: Shape = Tagged(Color.Red)
-    io.print("${Shape.Tagged(Color.Red) == t} ${Shape.Boxed(Box{value: 5}) == Shape.Boxed(Box{value: 6})}")
-    w: Shape = Wrapped(Circle{r: 7})
-    io.print("${Shape.Wrapped(Circle{r: 7}) == w}")
-    [Circle{r: 8}] |> Iter.map(Shape.Wrapped) |> Iter.map(Debug.inspect) |> String.join(", ") |> io.print()
+    io.print("${Shape.Tagged(Color.Red) == t} ${Shape.Boxed(#Box{value: 5}) == Shape.Boxed(#Box{value: 6})}")
+    w: Shape = Wrapped(#Circle{r: 7})
+    io.print("${Shape.Wrapped(#Circle{r: 7}) == w}")
+    [#Circle{r: 8}] |> Iter.map(Shape.Wrapped) |> Iter.map(Debug.inspect) |> String.join(", ") |> io.print()
 }
 `
 
 func TestEmbedsDistinct_OverAStructAnEnumAndAGenericStruct(t *testing.T) {
 	want := strings.Join([]string{
 		"circle 1",
-		"[Wrapped(Circle{r: 1}), Tagged(Green), Boxed(Box{value: 4}), Wrapped(Circle{r: 2}), Dot]",
+		"[Wrapped(#Circle{r: 1}), Tagged(Green), Boxed(#Box{value: 4}), Wrapped(#Circle{r: 2}), Dot]",
 		"circle 1, green, box 4, circle 2, dot",
 		"9 0",
 		"circle 3",
-		"[Wrapped(Circle{r: 3}), Tagged(Red), Boxed(Box{value: 5})]",
+		"[Wrapped(#Circle{r: 3}), Tagged(Red), Boxed(#Box{value: 5})]",
 		"True False",
 		"True",
-		"Wrapped(Circle{r: 8})",
+		"Wrapped(#Circle{r: 8})",
 		"",
 	}, "\n")
 	for name, src := range map[string]string{
@@ -137,17 +137,17 @@ enum Shape<T> {
 fn first(s: Shape<Int>) -> Int {
     case s {
         Shape.UserId(n) -> n
-        Shape.Circle{r} -> r
+        #Shape.Circle{r} -> r
         Shape.Expired -> 7
         Shape.Val(v) -> v
-        Shape.Rect{w} -> w
+        #Shape.Rect{w} -> w
     }
 }
 
 fn main() {
     io.print("${first(Shape.UserId(3))} ${first(4 |> Shape.UserId())} ${first(Shape.Val(5))}")
-    io.print("${first(Shape.Circle({r: 6}))} ${first({r: 8} |> Shape.Circle())} ${first(Shape.Expired)}")
-    io.print("${first(Shape.Rect({w: 12}))} ${first({w: 13} |> Shape.Rect())}")
+    io.print("${first(Shape.Circle(#{r: 6}))} ${first(#{r: 8} |> Shape.Circle())} ${first(Shape.Expired)}")
+    io.print("${first(Shape.Rect(#{w: 12}))} ${first(#{w: 13} |> Shape.Rect())}")
     t: Shape<String> = Shape.UserId(9)
     io.print(Debug.inspect(t))
     xs = [Shape.UserId(10), Shape.Val("a")]

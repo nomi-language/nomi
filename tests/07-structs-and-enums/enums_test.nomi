@@ -43,11 +43,11 @@ test "enum tuple payloads match and bind their contents" {
 }
 
 test "enum struct variants expose fields and defaults" {
-    err = Error.HttpError{status: 404, message: "not found"}
+    err = #Error.HttpError{status: 404, message: "not found"}
 
     result = case err {
-        Error.HttpError{retryable: True} -> "retry"
-        Error.HttpError{message} -> message
+        #Error.HttpError{retryable: True} -> "retry"
+        #Error.HttpError{message} -> message
         Error.Timeout -> "timeout"
         Error.ConnectionRefused -> "refused"
     }
@@ -58,7 +58,7 @@ test "enum struct variants expose fields and defaults" {
 }
 
 test "embedded enum variants expose embedded fields" {
-    c = Drawable.Circle2{radius: 5.0}
+    c = #Drawable.Circle2{radius: 5.0}
 
     assert c.radius == 5.0
 }
@@ -70,10 +70,10 @@ enum Op {
 }
 
 test "an enum field holding a function reads and calls" {
-    o = Op.Unary{f: fn x -> x + 1, name: "inc"}
+    o = #Op.Unary{f: fn x -> x + 1, name: "inc"}
     g = o.f
     assert g(1) == 2
-    s = Op.Scaled{f: fn x -> x * 3, name: "triple", by: 2}
+    s = #Op.Scaled{f: fn x -> x * 3, name: "triple", by: 2}
     assert s.f(4) == 12
     assert s.name == "triple"
 }

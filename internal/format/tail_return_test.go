@@ -74,18 +74,18 @@ func TestFormat_StripsTailReturn(t *testing.T) {
 		},
 		{
 			"value opening with a brace",
-			"fn i() -> {n: Int} {\n    n = 1\n    m = n\n    return {n: m}\n}\n",
-			"fn i() -> {n: Int} {\n    n = 1\n    m = n\n    {n: m}\n}\n",
+			"fn i() -> #{n: Int} {\n    n = 1\n    m = n\n    return #{n: m}\n}\n",
+			"fn i() -> #{n: Int} {\n    n = 1\n    m = n\n    #{n: m}\n}\n",
 		},
 		{
 			"struct update after a binding",
-			"fn i2(p: P) -> P {\n    q = p\n    return {..q, x: q.x + 1}\n}\n",
-			"fn i2(p: P) -> P {\n    q = p\n    {..q, x: q.x + 1}\n}\n",
+			"fn i2(p: P) -> P {\n    q = p\n    return #{..q, x: q.x + 1}\n}\n",
+			"fn i2(p: P) -> P {\n    q = p\n    #{..q, x: q.x + 1}\n}\n",
 		},
 		{
 			"brace values in case arms and if branches",
-			"fn j(x: Int) -> {n: Int} {\n    case x {\n        0 -> return {n: 0}\n        _ -> {\n            if x > 0 {\n                return {n: x}\n            } else {\n                return {n: 1}\n            }\n        }\n    }\n}\n",
-			"fn j(x: Int) -> {n: Int} {\n    case x {\n        0 ->\n            {n: 0}\n\n        _ -> {\n            if x > 0 { {n: x} } else { {n: 1} }\n        }\n    }\n}\n",
+			"fn j(x: Int) -> #{n: Int} {\n    case x {\n        0 -> return #{n: 0}\n        _ -> {\n            if x > 0 {\n                return #{n: x}\n            } else {\n                return #{n: 1}\n            }\n        }\n    }\n}\n",
+			"fn j(x: Int) -> #{n: Int} {\n    case x {\n        0 ->\n            #{n: 0}\n\n        _ -> {\n            if x > 0 { #{n: x} } else { #{n: 1} }\n        }\n    }\n}\n",
 		},
 		{
 			"test body",

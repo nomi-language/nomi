@@ -22,7 +22,7 @@ struct Cfg {
 }
 
 fn boot() -> Cfg {
-  Cfg{context: Context.root(), tag: "hi"}
+  #Cfg{context: Context.root(), tag: "hi"}
 }
 
 fn main() {
@@ -152,7 +152,7 @@ struct App {
 }
 
 fn boot() -> App {
-  App{logger: "app", context: Context.root()}
+  #App{logger: "app", context: Context.root()}
 }
 
 fn label() -> String {

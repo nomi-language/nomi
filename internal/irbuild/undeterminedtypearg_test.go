@@ -57,7 +57,7 @@ func TestIRUndeterminedTypeArgument_StdShapesRun(t *testing.T) {
 
 fn main() {
     io.inspect(Some([]))
-    io.inspect(Some(#{}))
+    io.inspect(Some(%[]))
     io.inspect(Ok([]))
     io.inspect(Some(Some([])))
     io.inspect(Some(Map.empty()))
@@ -70,13 +70,13 @@ fn main() {
     io.inspect(#(Map.empty(), 1))
     io.inspect(Map.empty() == Map.empty())
     io.print("${Map.empty()}")
-    io.inspect(Set.size(#{}))
-    io.inspect(Set.union(#{}, #{}))
+    io.inspect(Set.size(%[]))
+    io.inspect(Set.union(%[], %[]))
     io.inspect(Vector.length(Vector.empty()))
     io.inspect(Iter.zip([], []) |> Iter.to_list())
     io.inspect(Iter.zip([], [1]) |> Iter.count())
     io.inspect(Iter.concat([], []) |> Iter.to_list())
-    io.inspect(Iter.concat(#{}, []) |> Iter.to_list())
+    io.inspect(Iter.concat(%[], []) |> Iter.to_list())
     io.inspect(Iter.to_list(Vector.empty()))
     io.inspect(Iter.count(Map.empty()))
     fn apply<T, U>(x: T, f: (T) -> U) -> U {
@@ -86,7 +86,7 @@ fn main() {
 }
 `
 	const want = "Some([])\n" +
-		"Some(#{})\n" +
+		"Some(%[])\n" +
 		"Ok([])\n" +
 		"Some(Some([]))\n" +
 		"Some(%{})\n" +
@@ -100,7 +100,7 @@ fn main() {
 		"True\n" +
 		"%{}\n" +
 		"0\n" +
-		"#{}\n" +
+		"%[]\n" +
 		"0\n" +
 		"[]\n" +
 		"0\n" +
@@ -119,7 +119,7 @@ func TestIRUndeterminedTypeArgument_DbgOfAnOpenEmpty(t *testing.T) {
 	}
 	const src = `fn main() {
     dbg Map.empty()
-    dbg #{}
+    dbg %[]
     dbg Vector.empty()
 }
 `
@@ -127,7 +127,7 @@ func TestIRUndeterminedTypeArgument_DbgOfAnOpenEmpty(t *testing.T) {
 		t.Fatalf("the front end rejects this, so nothing below is tested: %v", err)
 	}
 	got := vmReference(writeTemp(t, src))
-	want := "dbg line 2: Map.empty() = %{}\ndbg line 3: #{} = #{}\ndbg line 4: Vector.empty() = #[]\n"
+	want := "dbg line 2: Map.empty() = %{}\ndbg line 3: %[] = %[]\ndbg line 4: Vector.empty() = #[]\n"
 	if got.stdout+got.stderr != want || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s", got.exit, got.stdout, got.stderr, want)
 	}
@@ -152,7 +152,7 @@ impl Iter for Countdown {
         if c.from == 0 {
             True
         } else if yield(c.from) {
-            each_while(Countdown{from: c.from - 1}, yield)
+            each_while(#Countdown{from: c.from - 1}, yield)
         } else {
             False
         }
@@ -166,9 +166,9 @@ fn main() {
     io.inspect(Iter.zip([1], Map.empty()) |> Iter.count())
     io.inspect(Iter.zip([1], %{1 => 2}) |> Iter.to_list())
     io.inspect(Iter.zip([1, 2], 5..9) |> Iter.to_list())
-    io.inspect(Iter.zip(["a", "b"], Countdown{from: 3}) |> Iter.to_list())
+    io.inspect(Iter.zip(["a", "b"], #Countdown{from: 3}) |> Iter.to_list())
     io.inspect(Iter.concat([#(1, 2)], %{3 => 4}) |> Iter.to_list())
-    io.inspect(Iter.concat([9], Countdown{from: 2}) |> Iter.to_list())
+    io.inspect(Iter.concat([9], #Countdown{from: 2}) |> Iter.to_list())
 }
 `
 	const want = "None\n" +

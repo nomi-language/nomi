@@ -182,8 +182,8 @@ fn erased(s: Sum) -> Int {
 }
 
 fn main() {
-    x = Box{n: 4}
-    o = Own{n: 5}
+    x = #Box{n: 4}
+    o = #Own{n: 5}
     io.inspect(Sum.f(x, 1, c: 9))
     io.inspect(Box.f(x, 1, c: 9))
     io.inspect(Sum.f(o, 1, c: 9))

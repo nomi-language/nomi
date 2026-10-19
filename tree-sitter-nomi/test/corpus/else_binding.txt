@@ -1,6 +1,6 @@
-==========
+================================================================================
 A binding else takes a block
-==========
+================================================================================
 
 fn main() {
   Some(email) = user.email else {
@@ -9,11 +9,11 @@ fn main() {
   Some(e) = m else { "none" }
   Ok(#(w, h)) = parse(text) else { #(80, 24) }
   [first, ..rest] = xs else { return 0 }
-  .Valid(r) = c else { {addr: "none", score: 0} }
+  .Valid(r) = c else { #{addr: "none", score: 0} }
   %{"a" => a} = m else { return 0 }
 }
 
----
+--------------------------------------------------------------------------------
 
 (source_file
   (function_definition
@@ -87,21 +87,21 @@ fn main() {
           (return_statement
             (integer)))))))
 
-==========
+================================================================================
 A binding else takes case arms, and an if keeps its own else
-==========
+================================================================================
 
 fn main() {
   Ok(user) = load(id) else {
     Err(.NotFound) -> return Err("no user")
     Err(e) when e == "x" -> 8080
-    .Invalid{reason} -> continue
+    #.Invalid{reason} -> continue
     _ -> break
   }
   label = if ok { "a" } else { "b" }
 }
 
----
+--------------------------------------------------------------------------------
 
 (source_file
   (function_definition
@@ -136,10 +136,11 @@ fn main() {
                 (string_content)))
             (integer))
           (else_arm
-            (struct_construction
-              (dot_variant
+            (struct_pattern
+              type: (dot_variant
                 (type_identifier))
-              field_name: (identifier))
+              (pattern_field
+                name: (identifier)))
             (continue_statement))
           (else_arm
             (break_statement))))
@@ -163,10 +164,10 @@ fn f(m: Map<String, Int>, p: Point, xs: List<Int>) -> Int {
         %{"fallback" => fallback} -> return fallback
         _ -> return 80
     }
-    {x: 0, y} = p else {
+    #{x: 0, y} = p else {
         return 0
     }
-    {done: True, n} = p else {
+    #{done: True, n} = p else {
         return 0
     }
     [first, ..rest] = xs else {
@@ -208,7 +209,7 @@ fn f(m: Map<String, Int>, p: Point, xs: List<Int>) -> Int {
           (identifier))
         (else_arms
           (else_arm
-            (map_literal
+            (map_construction
               (map_entry
                 (string
                   (string_content))
@@ -246,12 +247,12 @@ fn f(m: Map<String, Int>, p: Point, xs: List<Int>) -> Int {
             (integer))))
       (else_binding
         (binary_expression
-          (map_literal
+          (map_construction
             (map_entry
               (string
                 (string_content))
               (identifier)))
-          (map_literal
+          (map_construction
             (map_entry
               (string
                 (string_content))
@@ -283,10 +284,10 @@ host fn now() -> Int
 fn address(host: String) -> Server {
     host = String.trim(host)
     %{"host" => h} = config() else {
-        return Server{host}
+        return #Server{host}
     }
     host
-    Server{host: "${host}:${h}"}
+    #Server{host: "${host}:${h}"}
 }
 
 --------------------------------------------------------------------------------

@@ -51,22 +51,22 @@ fn main() {
 }
 
 export fn new_game(word: String) -> Game {
-  Game{word, guesses: []}
+  #Game{word, guesses: []}
 }
 
 export fn guess(game: Game, letter: String) -> Game {
   io.print("guessed ${letter}")
-  {..game, guesses: [letter, ..game.guesses]}
+  #{..game, guesses: [letter, ..game.guesses]}
 }
 
 export fn outcome(game: Game) -> Outcome {
-  if List.head(game.guesses) == Some("w") { Outcome.Won } else { Outcome.Playing{left: 6 - Iter.count(game.guesses)} }
+  if List.head(game.guesses) == Some("w") { Outcome.Won } else { #Outcome.Playing{left: 6 - Iter.count(game.guesses)} }
 }
 
 export fn describe(o: Outcome) -> String {
   case o {
     Outcome.Won -> "won"
-    Outcome.Playing{left} -> "${left} left"
+    #Outcome.Playing{left} -> "${left} left"
   }
 }
 
@@ -104,7 +104,7 @@ struct App {
 fn boot(startup: Startup) -> App {
   io.print(startup.args)
   io.print(Map.get(startup.env, "NAME"))
-  App{context: Context.root()}
+  #App{context: Context.root()}
 }
 
 fn main() {

@@ -26,18 +26,18 @@ pub enum Reading {
 pub type Meters Int
 
 pub fn origin() -> Point {
-    Point{x: 0, y: 0, tag: "origin"}
+    #Point{x: 0, y: 0, tag: "origin"}
 }
 
 pub fn shift(p: Point, by: Int) -> Point {
-    Point{x: p.x + by, y: p.y + by, tag: p.tag}
+    #Point{x: p.x + by, y: p.y + by, tag: p.tag}
 }
 
 pub fn describe(r: Reading) -> String {
     case r {
         Reading.Empty -> "empty"
         Reading.Whole(n) -> "whole ${n}"
-        Reading.Labelled{name, at} -> "labelled ${name} at ${at.x}"
+        #Reading.Labelled{name, at} -> "labelled ${name} at ${at.x}"
     }
 }
 
@@ -67,5 +67,5 @@ struct Hidden {
 }
 
 pub fn hidden_count() -> Int {
-    Hidden{n: 3}.n
+    #Hidden{n: 3}.n
 }

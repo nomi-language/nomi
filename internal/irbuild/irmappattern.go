@@ -141,6 +141,7 @@ func (bl *irScalarBuilder) patternValueTest(pat ast.Node, value ir.Temp, k kind,
 }
 
 func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k kind, arm, next *ir.Block) bool {
+	pat = irPattern(pat)
 	jump := func() bool {
 		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(pat), arm.ID()))
 		bl.b = arm
@@ -219,6 +220,28 @@ func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k k
 			return false
 		}
 		return bl.listCaseTest(p, value, k, arm, next)
+	case *ast.VectorPattern:
+		if irDistinctOverVector(k) {
+			return bl.nominalCaseTest(p, value, k, arm, next)
+		}
+		if p.TypeName != nil {
+			if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
+				return false
+			}
+			return bl.enumCaseTest(p, value, k, arm, next)
+		}
+		return irVectorCaseKind(k) && bl.vectorCaseTest(p, value, k, arm, next)
+	case *ast.SetPattern:
+		if irDistinctOverSet(k) {
+			return bl.nominalCaseTest(p, value, k, arm, next)
+		}
+		if p.TypeName != nil {
+			if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
+				return false
+			}
+			return bl.enumCaseTest(p, value, k, arm, next)
+		}
+		return irSetCaseKind(k) && bl.setCaseTest(p, value, k, arm, next)
 	}
 	return false
 }

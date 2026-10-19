@@ -17,27 +17,27 @@ failing 52
 C anon_struct.nomi
 E 1
 N 1
-H 1764b3d76a0f29bf6baa0da553100100b895da3d793dd038c42145e05caa4bba
+H 3b6c36e3cdeb5700cc6ce19e1035c568875572f68c8f7f7957bd15c09901c681
 T FAIL <root>/internal/irbuild/testdata/anon_struct.nomi :: records are structural, ordered by nothing the programmer wrote
 T   30
 T   Hi Bob, you are 42
 T   Hi Carol, you are 30
-T   {n: 1, name: Ada}
-T   {count: 3, outer: {inner: 1, label: hi}}
+T   #{n: 1, name: Ada}
+T   #{count: 3, outer: #{inner: 1, label: hi}}
 T   1
 T   x is ten, y is 20
 T   30
 T   line 65: assertion failed
-T     assert no({a: 1, a0: 2})
+T     assert no(#{a: 1, a0: 2})
 T     values:
-T       {a: 1, a0: 2}
-T         = {a: 1, a0: 2}
+T       #{a: 1, a0: 2}
+T         = #{a: 1, a0: 2}
 T test result: FAILED. 0 passed, 1 failed
 T
 C anon_vs_nominal.nomi
 E 1
 N 2
-H d3b4d82a396cd263d850ce74bbfefaf787330a6015309414de69a9f50b7c2a6a
+H 2a6ab5edef9fd2d2337893831004674406824b768eb02dfefb726ea8e3423fe1
 T FAIL <root>/internal/irbuild/testdata/anon_vs_nominal.nomi :: a record and a same-shaped nominal struct stay apart
 T   3
 T   3
@@ -45,13 +45,13 @@ T   line 38: assertion failed
 T     assert no_nominal(nom)
 T     values:
 T       nom
-T         = Point{x: 1, y: 2}
+T         = #Point{x: 1, y: 2}
 T FAIL <root>/internal/irbuild/testdata/anon_vs_nominal.nomi :: and they render apart
 T   line 43: assertion failed
 T     assert no_record(rec)
 T     values:
 T       rec
-T         = {x: 1, y: 2}
+T         = #{x: 1, y: 2}
 T test result: FAILED. 0 passed, 2 failed
 T
 C assert_boundary.nomi
@@ -146,12 +146,12 @@ T
 C check_shape_report.nomi
 E 1
 N 2
-H 1643cfe490603dc9cb24db603c1a2c7eb3e3c96acaac9a47769784ef0496c7fd
+H 14ade40d35140bf9db8230aeb83731e60d317d808a43855297524f90f17b70e2
 T ok <root>/internal/irbuild/testdata/check_shape_report.nomi :: a shape check that holds keeps the whole file honest
 T FAIL <root>/internal/irbuild/testdata/check_shape_report.nomi :: a failing shape check renders its own failure value
 T   line 34: pattern did not match
 T     assert Ok(_) = testing.check(find_name(2))
-T     actual: Err(AssertionFailure{actual: Some("None"), binding: None, details: [], expression: "find_name(2)", keyword: "check", line: 34, reason: "check failed", subtests: [], values: []})
+T     actual: Err(#AssertionFailure{actual: Some("None"), binding: None, details: [], expression: "find_name(2)", keyword: "check", line: 34, reason: "check failed", subtests: [], values: []})
 T test result: FAILED. 1 passed, 1 failed
 T
 C context_values_report.nomi
@@ -193,17 +193,17 @@ T
 C dbg_surfaces.nomi
 E 1
 N 9
-H f1b256f71534cc3d8d3d90cf69c1d3f487578a72c91e29ed6c4530ffa4b48c27
+H e85762b6d652978fa486880eb403a64687145f5a060d261daca5678995e48167
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg renders a struct in declaration order
-T   dbg line 76: Rev{zeta: 1, alpha: 2} = Rev{zeta: 1, alpha: 2}
+T   dbg line 76: #Rev{zeta: 1, alpha: 2} = #Rev{zeta: 1, alpha: 2}
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: the values row for the same struct sorts it
 T   line 82: assertion failed
 T     assert no_rev(r)
 T     values:
 T       r
-T         = Rev{alpha: 2, zeta: 1}
+T         = #Rev{alpha: 2, zeta: 1}
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg honours a hand-written impl Debug
-T   dbg line 86: Custom{zeta: 1, alpha: 2} = CUSTOM-DEBUG
+T   dbg line 86: #Custom{zeta: 1, alpha: 2} = CUSTOM-DEBUG
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: the values row for the same value honours that impl
 T   line 92: assertion failed
 T     assert no_custom(c)
@@ -219,37 +219,37 @@ T     values:
 T       m
 T         = Meters(7)
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg over containers and prelude instances
-T   dbg line 106: [Rev{zeta: 1, alpha: 2}] = [Rev{zeta: 1, alpha: 2}]
+T   dbg line 106: [#Rev{zeta: 1, alpha: 2}] = [#Rev{zeta: 1, alpha: 2}]
 T   dbg line 107: #(1, "two") = #(1, "two")
 T   dbg line 108: Some(42) = Some(42)
 T   dbg line 109: None = None
-T   dbg line 110: {a: 1, a0: 2} = {a: 1, a0: 2}
+T   dbg line 110: #{a: 1, a0: 2} = #{a: 1, a0: 2}
 T   dbg line 111: double = <function>
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: a dbg in a test body prints above its own result line
 T   dbg line 116: 7 = 7
 T   after the dbg, before the report
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: a dbg above a FAILING assertion, so all three interleave
-T   dbg line 122: Rev{zeta: 3, alpha: 4} = Rev{zeta: 3, alpha: 4}
+T   dbg line 122: #Rev{zeta: 3, alpha: 4} = #Rev{zeta: 3, alpha: 4}
 T   printed before the failure
 T   line 124: assertion failed
 T     assert no_rev(r)
 T     values:
 T       r
-T         = Rev{alpha: 4, zeta: 3}
+T         = #Rev{alpha: 4, zeta: 3}
 T test result: FAILED. 5 passed, 4 failed
 T
 C debug_display_surfaces.nomi
 E 1
 N 7
-H 7eb3c3b174b32cd638a279ba64b34f7d1eeef0a49b83d261698e3280c891336e
+H 393d3e75641e5812a4dde9da7ca87c9043ddab3018f9a4ba4dddeda04236f6a4
 T ok <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: the four renderings of one value
 T   1 Display.to_string(r) = REV-DISPLAY
 T   2 interpolated r       = REV-DISPLAY
 T   3 Display.to_string(c) = CUSTOM-DISPLAY
 T   4 interpolated c       = CUSTOM-DISPLAY
-T   5 Debug.inspect(r)     = Rev{zeta: 1, alpha: 2}
+T   5 Debug.inspect(r)     = #Rev{zeta: 1, alpha: 2}
 T   6 Debug.inspect(c)     = CUSTOM-DEBUG
-T   7 Debug.inspect(p)     = Plain{zeta: 1, alpha: 2}
+T   7 Debug.inspect(p)     = #Plain{zeta: 1, alpha: 2}
 T   8 Debug.inspect(m)     = <opaque Meters>
 T   9 Debug.inspect(True)  = True
 T   10 Debug.inspect(b)    = False
@@ -260,7 +260,7 @@ T   line 178: assertion failed
 T     assert no_rev(r)
 T     values:
 T       r
-T         = Rev{alpha: 2, zeta: 1}
+T         = #Rev{alpha: 2, zeta: 1}
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row honours a hand-written impl Debug
 T   line 183: assertion failed
 T     assert no_custom(c)
@@ -272,7 +272,7 @@ T   line 188: assertion failed
 T     assert no_plain(p)
 T     values:
 T       p
-T         = Plain{alpha: 2, zeta: 1}
+T         = #Plain{alpha: 2, zeta: 1}
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row for a Bool
 T   line 193: assertion failed
 T     assert no_bool(b)
@@ -296,15 +296,15 @@ T
 C debug_embeds.nomi
 E 1
 N 6
-H c29eec1a578ae5071d356243e880ca6113a7eb687633a4d77a62ea041aaa9fea
+H 64fee7a2dfef0a02c6777d66ab8f4945a454d7b43a9c47a38e5dc17fd5ed9d01
 T ok <root>/internal/irbuild/testdata/debug_embeds.nomi :: an embeds variant's Debug delegates to the embedded value, unwrapped
-T   1  Debug.inspect(w)         = Worker{zeta: 1, alpha: 2}
-T   2  Debug.inspect(n_worker)  = Worker{zeta: 1, alpha: 2}
-T   3  Debug.inspect(n_qual)    = Worker{zeta: 1, alpha: 2}
+T   1  Debug.inspect(w)         = #Worker{zeta: 1, alpha: 2}
+T   2  Debug.inspect(n_worker)  = #Worker{zeta: 1, alpha: 2}
+T   3  Debug.inspect(n_qual)    = #Worker{zeta: 1, alpha: 2}
 T   4  Debug.inspect(n_custom)  = CUSTOM-DEBUG
 T   5  Debug.inspect(n_expired) = Expired
 T   6  Debug.inspect(n_userid)  = UserId("ada")
-T   7  Debug.inspect(o_worker)  = Worker{zeta: 1, alpha: 2}
+T   7  Debug.inspect(o_worker)  = #Worker{zeta: 1, alpha: 2}
 T   8  Debug.inspect(Node.Origin) = Origin
 T   9  Debug.inspect(Node.Ready(7)) = Ready(7)
 T   10 Debug.inspect(Other.Blank) = Blank
@@ -313,13 +313,13 @@ T   line 196: assertion failed
 T     assert no_worker(w)
 T     values:
 T       w
-T         = Worker{alpha: 2, zeta: 1}
+T         = #Worker{alpha: 2, zeta: 1}
 T FAIL <root>/internal/irbuild/testdata/debug_embeds.nomi :: values row for a qualified embeds variant
 T   line 204: assertion failed
 T     assert no_node(n)
 T     values:
 T       n
-T         = Worker{alpha: 2, zeta: 1}
+T         = #Worker{alpha: 2, zeta: 1}
 T FAIL <root>/internal/irbuild/testdata/debug_embeds.nomi :: values row for a zero-sized embed
 T   line 209: assertion failed
 T     assert no_node(n)
@@ -343,16 +343,16 @@ T
 C debug_erased.nomi
 E 1
 N 2
-H 24622ad9b28c27ec63bb25702f075d92491c906092e38b33d322c731c94b5ec1
+H 3d60079bd6591c91a03008fdd491492260c76a0dd7eac20574eb78094138eeac
 T ok <root>/internal/irbuild/testdata/debug_erased.nomi :: the four renderings of one value survive erasure
-T   1 param  Rev    = Rev{zeta: 1, alpha: 2}
+T   1 param  Rev    = #Rev{zeta: 1, alpha: 2}
 T   2 param  Custom = CUSTOM-DEBUG
 T   3 param  Meters = <opaque Meters>
 T   4 param  Int    = 42
 T   5 param  String = "hi"
-T   6 iface  Rev    = Rev{zeta: 1, alpha: 2}
+T   6 iface  Rev    = #Rev{zeta: 1, alpha: 2}
 T   7 iface  Custom = CUSTOM-DEBUG
-T   8 direct Rev    = Rev{zeta: 1, alpha: 2}
+T   8 direct Rev    = #Rev{zeta: 1, alpha: 2}
 T   9 direct Custom = CUSTOM-DEBUG
 T   10 direct Meters = <opaque Meters>
 T   11 direct Int    = 42
@@ -362,7 +362,7 @@ T   line 116: assertion failed
 T     assert no_rev(r)
 T     values:
 T       r
-T         = Rev{alpha: 2, zeta: 1}
+T         = #Rev{alpha: 2, zeta: 1}
 T test result: FAILED. 1 passed, 1 failed
 T
 C decimal.nomi
@@ -411,14 +411,14 @@ T
 C erased_operand.nomi
 E 1
 N 3
-H dbdb525c823643a0f48b9f090c66ac0fa2ef77f0965d0e5a69106c4e8e19e354
+H e8d12be5af9ebea6959e15605d2e29e42e5c6f60015f576c9f574548ec9683cb
 T ok <root>/internal/irbuild/testdata/erased_operand.nomi :: a value of a distinct-over-function type is callable
 T FAIL <root>/internal/irbuild/testdata/erased_operand.nomi :: an existential-position argument renders as its concrete type
 T   line 79: assertion failed
 T     assert announce(d) == "not what Rex says"
 T     values:
 T       d
-T         = Dog{age: 3, name: "Rex"}
+T         = #Dog{age: 3, name: "Rex"}
 T       announce(d)
 T         = "Rex says woof"
 T FAIL <root>/internal/irbuild/testdata/erased_operand.nomi :: the row sorts by field name and not by composed string
@@ -426,7 +426,7 @@ T   line 85: assertion failed
 T     assert announce(c) == "not what the cat says"
 T     values:
 T       c
-T         = Cat{a: 1, a0: 2}
+T         = #Cat{a: 1, a0: 2}
 T       announce(c)
 T         = "meow x1"
 T test result: FAILED. 1 passed, 2 failed
@@ -434,13 +434,13 @@ T
 C erased_operand_row.nomi
 E 1
 N 6
-H 6ac10ea4c16412478588fb2b266599c9fb639c5e73fc03ca608892b4126f533e
+H 9e83983d8571ecae253e0f12a3bd090bb6d1a13895222fa3e964c541b947ec11
 T FAIL <root>/internal/irbuild/testdata/erased_operand_row.nomi :: the erasure IS in view: an argument widened at the call site
 T   line 78: assertion failed
 T     assert announce(d) == "NOPE"
 T     values:
 T       d
-T         = Dog{name: "Rex"}
+T         = #Dog{name: "Rex"}
 T       announce(d)
 T         = "Rex says woof"
 T FAIL <root>/internal/irbuild/testdata/erased_operand_row.nomi :: a BINDING declared at the interface type
@@ -448,32 +448,32 @@ T   line 83: assertion failed
 T     assert no_speech(d)
 T     values:
 T       d
-T         = Dog{name: "Rex"}
+T         = #Dog{name: "Rex"}
 T FAIL <root>/internal/irbuild/testdata/erased_operand_row.nomi :: the OTHER implementor, through the same binding shape
 T   line 88: assertion failed
 T     assert no_speech(c)
 T     values:
 T       c
-T         = Cat{lives: 9}
+T         = #Cat{lives: 9}
 T FAIL <root>/internal/irbuild/testdata/erased_operand_row.nomi :: an interface-typed FIELD, two levels down from the operand
 T   line 93: assertion failed
 T     assert no_kennel(k)
 T     values:
 T       k
-T         = Kennel{pet: Dog{name: "Ada"}}
+T         = #Kennel{pet: #Dog{name: "Ada"}}
 T FAIL <root>/internal/irbuild/testdata/erased_operand_row.nomi :: the same field holding the other implementor
 T   line 98: assertion failed
 T     assert no_kennel(k)
 T     values:
 T       k
-T         = Kennel{pet: Cat{lives: 7}}
+T         = #Kennel{pet: #Cat{lives: 7}}
 T FAIL <root>/internal/irbuild/testdata/erased_operand_row.nomi :: a value crossing a function boundary as a parameter
 T   Bo says woof
 T   line 106: assertion failed
 T     assert no_speech(d)
 T     values:
 T       d
-T         = Dog{name: "Bo"}
+T         = #Dog{name: "Bo"}
 T test result: FAILED. 0 passed, 6 failed
 T
 C func_operand_row.nomi
@@ -529,23 +529,23 @@ T
 C generic_struct.nomi
 E 1
 N 7
-H 74c63c5dd86fcfeb8d9a62069ab604dd68a18646a88dcff109e039f98d605168
+H eca5a608eaa83932ed320ffebdf863bc01a255e4ff9722ad7e90875065e54065
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: a second instantiation of one template renders as the same Nomi type
 T   line 88: assertion failed
-T     assert no_box_text(Box{item: "s"})
+T     assert no_box_text(#Box{item: "s"})
 T     values:
-T       Box{item: "s"}
-T         = Box{item: "s"}
+T       #Box{item: "s"}
+T         = #Box{item: "s"}
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: and a nested instantiation renders as its own declaration
 T   line 92: assertion failed
-T     assert no_crate(Crate{
-T         box: Box{item: Inner{value: 7}},
+T     assert no_crate(#Crate{
+T         box: #Box{item: #Inner{value: 7}},
 T     })
 T     values:
-T       Crate{
-T           box: Box{item: Inner{value: 7}},
+T       #Crate{
+T           box: #Box{item: #Inner{value: 7}},
 T       }
-T         = Crate{box: Box{item: Inner{value: 7}}}
+T         = #Crate{box: #Box{item: #Inner{value: 7}}}
 T ok <root>/internal/irbuild/testdata/generic_struct.nomi :: a nested instantiation resolves through an annotation
 T   41
 T ok <root>/internal/irbuild/testdata/generic_struct.nomi :: the argument keeps its own dispatch through the instance
@@ -555,31 +555,31 @@ T   line 114: assertion failed
 T     assert no_pair(p)
 T     values:
 T       p
-T         = Pair{first: 7, second: "s"}
+T         = #Pair{first: 7, second: "s"}
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: a same-shaped monomorphic twin stays a different type
 T   line 118: assertion failed
-T     assert no_box(Box{item: 1})
+T     assert no_box(#Box{item: 1})
 T     values:
-T       Box{item: 1}
-T         = Box{item: 1}
+T       #Box{item: 1}
+T         = #Box{item: 1}
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: and the twin says so too
 T   line 122: assertion failed
-T     assert no_twin(Twin{item: 1})
+T     assert no_twin(#Twin{item: 1})
 T     values:
-T       Twin{item: 1}
-T         = Twin{item: 1}
+T       #Twin{item: 1}
+T         = #Twin{item: 1}
 T test result: FAILED. 2 passed, 5 failed
 T
 C impl_call_operand_row.nomi
 E 1
 N 7
-H 33f4e0d79a29009184b4ba2b0b222f03da29aa3ee8cab4d052d1590d1ab9878e
+H 31663533e5dd50e35e778ed7edf107dba35050d284bfe02f24f625557d1657e7
 T FAIL <root>/internal/irbuild/testdata/impl_call_operand_row.nomi :: a type-qualified impl call records its arguments
 T   line 79: assertion failed
 T     assert Counter.bump(c, step()) == 99
 T     values:
 T       c
-T         = Counter{n: 5}
+T         = #Counter{n: 5}
 T       step()
 T         = 2
 T       Counter.bump(c, step())
@@ -589,7 +589,7 @@ T   line 84: assertion failed
 T     assert Bumper.bump(c, step()) == 99
 T     values:
 T       c
-T         = Counter{n: 5}
+T         = #Counter{n: 5}
 T       step()
 T         = 2
 T       Bumper.bump(c, step())
@@ -599,7 +599,7 @@ T   line 89: assertion failed
 T     assert Bumper.even_sum?(c, 2)
 T     values:
 T       c
-T         = Counter{n: 5}
+T         = #Counter{n: 5}
 T       2
 T         = 2
 T FAIL <root>/internal/irbuild/testdata/impl_call_operand_row.nomi :: an Int-returning impl call drops its literal argument
@@ -607,7 +607,7 @@ T   line 94: assertion failed
 T     assert Counter.bump(c, 3) == 99
 T     values:
 T       c
-T         = Counter{n: 5}
+T         = #Counter{n: 5}
 T       Counter.bump(c, 3)
 T         = 8
 T FAIL <root>/internal/irbuild/testdata/impl_call_operand_row.nomi :: a generic impl template's call records its arguments
@@ -615,7 +615,7 @@ T   line 99: assertion failed
 T     assert Boxer.wrap(b, step()) == 99
 T     values:
 T       b
-T         = Boxer{item: "x", seed: 4}
+T         = #Boxer{item: "x", seed: 4}
 T       step()
 T         = 2
 T       Boxer.wrap(b, step())
@@ -649,7 +649,7 @@ T
 C inspect_through_list.nomi
 E 1
 N 3
-H 1bd7b17b6d7ff5a21906dc1d15ee99de104fc50f365a653f57b51768c4fb6af1
+H d965ec68349f0e298b73cdda55cd4a93930d1af7c1b21181cd30ce0237e6bfc9
 T FAIL <root>/internal/irbuild/testdata/inspect_through_list.nomi :: a List of a user struct renders in a failure row
 T   line 35: assertion failed
 T     assert b.label == "right"
@@ -661,17 +661,17 @@ T   line 46: assertion failed
 T     assert b == other
 T     values:
 T       b
-T         = Bag{items: [Point{x: 7}], label: "solo"}
+T         = #Bag{items: [#Point{x: 7}], label: "solo"}
 T       other
-T         = Bag{items: [], label: "empty"}
+T         = #Bag{items: [], label: "empty"}
 T FAIL <root>/internal/irbuild/testdata/inspect_through_list.nomi :: nesting a list inside a list inside a struct
 T   line 63: assertion failed
 T     assert d == empty
 T     values:
 T       d
-T         = Depot{bags: [Bag{items: [Point{x: 3}], label: "one"}]}
+T         = #Depot{bags: [#Bag{items: [#Point{x: 3}], label: "one"}]}
 T       empty
-T         = Depot{bags: []}
+T         = #Depot{bags: []}
 T test result: FAILED. 0 passed, 3 failed
 T
 C iter_operand_report.nomi
@@ -709,7 +709,7 @@ T
 C ordering.nomi
 E 1
 N 6
-H ee2d5dae50184af3070c527258702b2f702280abeb53f947236af912290f06fd
+H 36b3168625f52f132756e1b1473303273f32bae8663fae2ef52bebd6c59f6258
 T ok <root>/internal/irbuild/testdata/ordering.nomi :: the three variants are distinct values
 T ok <root>/internal/irbuild/testdata/ordering.nomi :: Int.compare answers all three
 T ok <root>/internal/irbuild/testdata/ordering.nomi :: String.compare is byte-lexicographic
@@ -717,7 +717,7 @@ T ok <root>/internal/irbuild/testdata/ordering.nomi :: the ordering operators di
 T ok <root>/internal/irbuild/testdata/ordering.nomi :: Float compare is a total order and the operators are not
 T FAIL <root>/internal/irbuild/testdata/ordering.nomi :: a failing ordering comparison renders its operands
 T   line 104: assertion failed
-T     assert Priority{level: 9} < Priority{level: 1}
+T     assert #Priority{level: 9} < #Priority{level: 1}
 T test result: FAILED. 5 passed, 1 failed
 T
 C pattern_assert.nomi
@@ -868,7 +868,7 @@ T
 C pipe_stages.nomi
 E 1
 N 4
-H 4fa1a503e78f05cf5e6e20ced88a8c79022f647da75c4e48e3fe46be6d5f52ba
+H 3704c10c949ea2ce75d604bccd301485601c04a31dac8fa6e5facdb844eb52e3
 T FAIL <root>/internal/irbuild/testdata/pipe_stages.nomi :: a pipeline-bound name prints its stages uncompacted
 T   line 62: assertion failed
 T     assert found
@@ -901,14 +901,14 @@ T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stages.nomi :: a piped check carries its stages on the whole-subject row
 T   line 75: pattern did not match
 T     assert Ok(True) = piped_check()
-T     actual: Err(AssertionFailure{actual: None, binding: None, details: [], expression: ""Ada Lovelace"
-T |> String.contains?("Grace")", keyword: "check", line: 43, reason: "check failed", subtests: [], values: [AssertionValue{expression: ""Ada Lovelace"
-T |> String.contains?("Grace")", pipeline: [AssertionPipelineStage{expression: ""Ada Lovelace"", value: ""Ada Lovelace""}, AssertionPipelineStage{expression: ""Ada Lovelace"
+T     actual: Err(#AssertionFailure{actual: None, binding: None, details: [], expression: ""Ada Lovelace"
+T |> String.contains?("Grace")", keyword: "check", line: 43, reason: "check failed", subtests: [], values: [#AssertionValue{expression: ""Ada Lovelace"
+T |> String.contains?("Grace")", pipeline: [#AssertionPipelineStage{expression: ""Ada Lovelace"", value: ""Ada Lovelace""}, #AssertionPipelineStage{expression: ""Ada Lovelace"
 T |> String.contains?("Grace")", value: "False"}], value: "False"}]})
 T FAIL <root>/internal/irbuild/testdata/pipe_stages.nomi :: an unpiped check beside it carries no pipeline at all
 T   line 79: pattern did not match
 T     assert Ok(True) = unpiped_check()
-T     actual: Err(AssertionFailure{actual: None, binding: None, details: [], expression: "String.contains?("Ada Lovelace", "Grace")", keyword: "check", line: 52, reason: "check failed", subtests: [], values: [AssertionValue{expression: ""Ada Lovelace"", pipeline: [], value: ""Ada Lovelace""}, AssertionValue{expression: ""Grace"", pipeline: [], value: ""Grace""}]})
+T     actual: Err(#AssertionFailure{actual: None, binding: None, details: [], expression: "String.contains?("Ada Lovelace", "Grace")", keyword: "check", line: 52, reason: "check failed", subtests: [], values: [#AssertionValue{expression: ""Ada Lovelace"", pipeline: [], value: ""Ada Lovelace""}, #AssertionValue{expression: ""Grace"", pipeline: [], value: ""Grace""}]})
 T test result: FAILED. 0 passed, 4 failed
 T
 C scalar_operator_traps.nomi
@@ -1038,7 +1038,7 @@ T
 C subtests_report.nomi
 E 1
 N 5
-H 1fc97af4cc86b18abe7ae2fbe46a3ccd1966198b076f0cd7571572a2a87da9d0
+H 28225f476d6ff3cb0aafa2c4ed8cfc0e154c4bc2080cab432b5986e911be6da2
 T FAIL <root>/internal/irbuild/testdata/subtests_report.nomi :: two of four rows fail
 T   subtest #("abc", True): line 18: assertion failed
 T     assert palindrome?(line) == known_palindrome
@@ -1072,7 +1072,7 @@ T       n
 T         = 3
 T   2 of 3 subtests failed
 T FAIL <root>/internal/irbuild/testdata/subtests_report.nomi :: a helper's failed rows fail the test that calls it
-T   subtest Point{x: 4, y: 3}: line 32: assertion failed
+T   subtest #Point{x: 4, y: 3}: line 32: assertion failed
 T     assert x < y
 T     values:
 T       x
@@ -1272,7 +1272,7 @@ T
 C tests_operands.nomi
 E 1
 N 21
-H 6a2e3216f98289dc48d8ccb451e0e50bea9b64aa6a30de54ea3a59a352d9ccef
+H d1763c3cf82316b1aeaa41e0f20fffa5eaa766706b50b37daad7d3a3bd139f66
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a list of Int
 T   line 103: assertion failed
 T     assert no_list(xs)
@@ -1320,19 +1320,19 @@ T   line 148: assertion failed
 T     assert no_point(p)
 T     values:
 T       p
-T         = Point{x: 1, y: "two"}
+T         = #Point{x: 1, y: "two"}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a struct with no fields
 T   line 153: assertion failed
 T     assert no_nothing(n)
 T     values:
 T       n
-T         = Nothing{}
+T         = #Nothing{}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a nested struct
 T   line 158: assertion failed
 T     assert no_outer(o)
 T     values:
 T       o
-T         = Outer{p: Point{x: 1, y: "two"}, tag: 9}
+T         = #Outer{p: #Point{x: 1, y: "two"}, tag: 9}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a distinct type
 T   line 163: assertion failed
 T     assert no_user(u)
@@ -1356,13 +1356,13 @@ T   line 178: assertion failed
 T     assert no_shape(s)
 T     values:
 T       s
-T         = Box(Box{h: "tall", w: 1})
+T         = #Box{h: "tall", w: 1}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: an embedded struct variant
 T   line 183: assertion failed
 T     assert no_shape(s)
 T     values:
 T       s
-T         = Wrapped{n: 4}
+T         = #Wrapped{n: 4}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: an embedded marker variant carries nothing
 T   line 188: assertion failed
 T     assert no_shape(s)
@@ -1398,7 +1398,7 @@ T   line 213: assertion failed
 T     assert no_maybe_point(m)
 T     values:
 T       m
-T         = Some(Point{x: 1, y: "two"})
+T         = Some(#Point{x: 1, y: "two"})
 T test result: FAILED. 0 passed, 21 failed
 T
 C tests_refute.nomi

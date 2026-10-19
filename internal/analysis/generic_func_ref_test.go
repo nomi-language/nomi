@@ -107,7 +107,7 @@ fn show<T>(x: T) -> String where T: Display {
   Display.to_string(x)
 }
 fn main() {
-  [Opaque{n: 1}] |> Iter.map(show) |> Iter.each(io.print)
+  [#Opaque{n: 1}] |> Iter.map(show) |> Iter.each(io.print)
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "Opaque does not implement Display (required by `where T: Display`)")
 }

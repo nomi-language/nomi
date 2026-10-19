@@ -13,7 +13,7 @@ struct Tx {
 
 fn change(r: Result<Tx, String>) -> Int {
     case r {
-        Ok(Tx{kind: .Deposit} as t) -> t.end - t.start
+        Ok(#Tx{kind: .Deposit} as t) -> t.end - t.start
         Ok(t) -> t.start - t.end
         Err(_) -> 0
     }
@@ -31,8 +31,8 @@ fn sum_with(#(a, b) as pair: #(Int, Int)) -> Int {
 }
 
 test "an as name inside a payload binds the payload" {
-    assert change(Ok(Tx{kind: .Deposit, start: 10, end: 25})) == 15
-    assert change(Ok(Tx{kind: .Withdrawal, start: 25, end: 5})) == 20
+    assert change(Ok(#Tx{kind: .Deposit, start: 10, end: 25})) == 15
+    assert change(Ok(#Tx{kind: .Withdrawal, start: 25, end: 5})) == 20
     assert change(Err("closed")) == 0
 }
 

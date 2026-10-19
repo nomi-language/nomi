@@ -2,7 +2,7 @@
 Bare spread in a nested struct update
 ================================================================================
 
-once u = {..user, address: {.., city: "NYC"}}
+once u = #{..user, address: #{.., city: "NYC"}}
 
 --------------------------------------------------------------------------------
 
@@ -32,13 +32,13 @@ once t = %{..team, "address" => %{.., "city" => "Atlanta"}}
 (source_file
   (once_binding
     name: (identifier)
-    value: (map_update
+    value: (map_construction
       (map_update_spread
         head: (identifier))
       (map_entry
         (string
           (string_content))
-        (map_update
+        (map_construction
           (map_update_spread)
           (map_entry
             (string
@@ -50,7 +50,7 @@ once t = %{..team, "address" => %{.., "city" => "Atlanta"}}
 Bare spread as a list tail and a set head
 ================================================================================
 
-once a = {..account, transactions: [t, ..], seen: #{.., 3}}
+once a = #{..account, transactions: [t, ..], seen: %[.., 3]}
 
 --------------------------------------------------------------------------------
 
@@ -67,14 +67,13 @@ once a = {..account, transactions: [t, ..], seen: #{.., 3}}
       (struct_update_field
         field_name: (identifier)
         (set
-          (set_spread)
           (integer))))))
 
 ================================================================================
 Bare spread at either end of a vector
 ================================================================================
 
-once a = {..log, recent: #[.., e], first: #[e, ..]}
+once a = #{..log, recent: #[.., e], first: #[e, ..]}
 
 --------------------------------------------------------------------------------
 
@@ -125,7 +124,7 @@ once b = #["Noah", ..Team.names(t)]
 Set update with a named base
 ================================================================================
 
-once s = #{..base, 3, 4}
+once s = %[..base, 3, 4]
 
 --------------------------------------------------------------------------------
 
@@ -133,8 +132,7 @@ once s = #{..base, 3, 4}
   (once_binding
     name: (identifier)
     value: (set
-      (set_spread
-        head: (identifier))
+      (identifier)
       (integer)
       (integer))))
 
@@ -142,9 +140,9 @@ once s = #{..base, 3, 4}
 Broken bare spread keeps its comma
 ================================================================================
 
-once u = {
+once u = #{
   ..user,
-  address: {
+  address: #{
     ..,
     city: "NYC",
   },

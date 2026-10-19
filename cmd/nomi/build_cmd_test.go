@@ -79,7 +79,7 @@ struct Settings {
 fn boot(startup: Startup) -> Settings {
   io.print(Map.get(startup.env, "NOMI_BUILD_TEST"))
   io.print(startup.args)
-  Settings{context: Context.root()}
+  #Settings{context: Context.root()}
 }
 
 fn main() {

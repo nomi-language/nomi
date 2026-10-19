@@ -154,6 +154,20 @@ func VectorTail[T any](v Vector[T]) Vector[T] {
 	return Vector[T]{Items: v.Items, Start: v.Start + 1, Len: v.Len - 1}
 }
 
+// VectorSlice is the window of v from position from up to drop elements
+// before its end, in O(1): the `..rest` of a vector pattern
+// `#[a, ..rest, z]`, with from the heads and drop the tails. Like
+// VectorTail it shares v's storage, so a recursive `#[x, ..rest]` walk
+// reads each element once instead of copying the rest at every step. A
+// window that would be empty or negative is the empty vector.
+func VectorSlice[T any](v Vector[T], from, drop int) Vector[T] {
+	n := v.Len - from - drop
+	if from < 0 || drop < 0 || n <= 0 {
+		return Vector[T]{}
+	}
+	return Vector[T]{Items: v.Items, Start: v.Start + from, Len: n}
+}
+
 // --- iteration --------------------------------------------------------------
 
 // VectorEachWhile is `impl Iter for Vector<T>`'s `each_while`.

@@ -42,7 +42,7 @@ func TestCompletion_DotVariantUsesTheExpectedEnum(t *testing.T) {
 		{"named argument", "fn f() -> Int {\n    paint(c: ." + cursorMark + ")\n}\n"},
 		{"pipe stage argument", "fn f() -> Int {\n    3 |> mix(." + cursorMark + ")\n}\n"},
 		{"annotated binding", "fn f() -> Int {\n    x: Color = ." + cursorMark + "\n    1\n}\n"},
-		{"struct literal field", "fn f() -> Brush {\n    Brush{color: ." + cursorMark + ", width: 1}\n}\n"},
+		{"struct literal field", "fn f() -> Brush {\n    #Brush{color: ." + cursorMark + ", width: 1}\n}\n"},
 		{"equality", "fn f(c: Color) -> Bool {\n    c == ." + cursorMark + "\n}\n"},
 		{"case arm pattern", "fn f(c: Color) -> Int {\n    case c {\n        ." + cursorMark + "\n    }\n}\n"},
 		{"case arm body", "fn f(s: Size) -> Color {\n    case s {\n        .Small -> ." + cursorMark + "\n        .Large -> .Green\n    }\n}\n"},

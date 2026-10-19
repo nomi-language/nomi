@@ -13,7 +13,7 @@ import (
 // programs would analyze clean and misbehave:
 //
 //	struct Cfg { port: Int = "not an int" }     // would print `not an int`
-//	struct Cfg { clock: Clock = NoClock{t: 7} } // would trap at run time
+//	struct Cfg { clock: Clock = #NoClock{t: 7} } // would trap at run time
 //	                                            // with `Clock.at: no implementation
 //	                                            // for type 'NoClock'`
 //

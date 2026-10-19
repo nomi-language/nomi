@@ -45,7 +45,7 @@ fn main() {
 
     [1, 2] |> Iter.map(ident) |> Iter.each(io.print)
 
-    [Point{x: 1, y: 2}] |> Iter.map(show) |> Iter.each(io.print)
+    [#Point{x: 1, y: 2}] |> Iter.map(show) |> Iter.each(io.print)
 
     [3, 4] |> Iter.map(span.ident) |> Iter.each(io.print)
 

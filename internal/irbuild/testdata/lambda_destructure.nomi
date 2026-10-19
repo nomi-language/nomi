@@ -33,18 +33,18 @@ enum Wrapper {
 fn main() {
     // Punning: each field binds to its own name. Self-typed by the head, so no
     // annotation.
-    norm = fn Point{x, y} -> x * x + y * y
-    io.print("norm = ${norm(Point{x: 3, y: 4})}")
+    norm = fn #Point{x, y} -> x * x + y * y
+    io.print("norm = ${norm(#Point{x: 3, y: 4})}")
 
     // Renaming: the binding differs from the field name, which is the case that
     // catches a builder reading the wrong one of the two.
-    flip = fn Point{x: a, y: b} -> "(${b}, ${a})"
-    io.print("flip = ${flip(Point{x: 1, y: 2})}")
+    flip = fn #Point{x: a, y: b} -> "(${b}, ${a})"
+    io.print("flip = ${flip(#Point{x: 1, y: 2})}")
 
     // Nested: a struct pattern inside a struct pattern, with a wildcard beside
     // it. Nothing may be bound for `to`.
-    startx = fn Segment{from: Point{x, y: _}, to: _} -> x
-    io.print("startx = ${startx(Segment{from: Point{x: 7, y: 8}, to: Point{x: 9, y: 10}})}")
+    startx = fn #Segment{from: #Point{x, y: _}, to: _} -> x
+    io.print("startx = ${startx(#Segment{from: #Point{x: 7, y: 8}, to: #Point{x: 9, y: 10}})}")
 
     // A wrapping distinct unwraps to its inner value.
     plus = fn Meters(m) -> m + 1
@@ -57,6 +57,6 @@ fn main() {
     // A destructuring parameter captures like any other: `base` is closed over
     // while `x` comes out of the pattern.
     base = 100
-    offset = fn Point{x, y: _} -> x + base
-    io.print("offset = ${offset(Point{x: 5, y: 0})}")
+    offset = fn #Point{x, y: _} -> x + base
+    io.print("offset = ${offset(#Point{x: 5, y: 0})}")
 }

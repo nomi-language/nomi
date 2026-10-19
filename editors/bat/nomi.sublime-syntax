@@ -156,9 +156,10 @@ contexts:
       scope: constant.language.nomi
 
   operators:
-    # A map literal's `%{` opens a collection, as `#{` does; only a `%`
-    # standing alone is the remainder operator.
-    - match: '%(?=\{)'
+    # A map or set literal starts with `%` written right before its bracket
+    # or its type name: `%{`, `%[`, `%Kvs{`, `%.Obj{`, `%geo.Tags[`. A `%`
+    # with a space after it is the remainder operator.
+    - match: '%(?=[\{\[.A-Z]|{{ident}}\.[A-Z])'
       scope: punctuation.section.nomi
     - match: '\|>|->|=>|==|!=|<=|>=|\.\.=|\.\.'
       scope: keyword.operator.nomi
@@ -166,7 +167,7 @@ contexts:
       scope: keyword.operator.nomi
 
   identifiers:
-    # Dot-leading variant shorthand: `.Red`, `.Circle(1.0)`, `.Obj{...}`.
+    # Dot-leading variant shorthand: `.Red`, `.Circle(1.0)`, `#.Circle{...}`.
     # Listed first (first-wins per the syntect priority order) so the
     # leading dot + identifier pair is scoped together, with the
     # identifier itself reading as a type/constructor consistent with
@@ -186,7 +187,10 @@ contexts:
       scope: variable.other.nomi
 
   punctuation:
-    - match: '#(?=[\[\{(])'
+    # `#` starts a struct, tuple or vector literal: `#{`, `#(`, `#[`, or
+    # with the type name right after it, `#Point{`, `#.Circle{`,
+    # `#geo.Point{`.
+    - match: '#(?=[\{(\[.A-Z]|{{ident}}\.[A-Z])'
       scope: punctuation.section.nomi
     - match: '[,.:;]'
       scope: punctuation.separator.nomi

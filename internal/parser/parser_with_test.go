@@ -53,7 +53,7 @@ func TestParseWithStatement(t *testing.T) {
 // Several fields are several `with` lines, and a struct literal value needs
 // no parentheses.
 func TestParseWithSeveralStatements(t *testing.T) {
-	nodes := parse(t, "fn main() {\n  with A.store = Fake{n: 1}\n  with app.A.x = 2\n  run()\n}")
+	nodes := parse(t, "fn main() {\n  with A.store = #Fake{n: 1}\n  with app.A.x = 2\n  run()\n}")
 	stmts := nodes[0].(*ast.FuncDef).Body.Stmts
 	first, ok := stmts[0].(*ast.With)
 	if !ok {

@@ -94,7 +94,7 @@ fn deposit(account: Account, input: Receiver<String>) -> Account {
         case parse(text) {
             Ok(amount) -> {
                 io.print("deposit ${amount}")
-                break {..acc, balance: amount}
+                break #{..acc, balance: amount}
             }
             Err(msg) -> {
                 io.print(msg)
@@ -189,8 +189,8 @@ fn main() {
     io.inspect(break_or_next())
     io.inspect(bare_arms(feed(["ab", "skip", "cde"])))
     io.inspect(block_arms(feed(["ab", "skip", "cde"])))
-    io.inspect(deposit({owner: "ann", balance: 1}, feed(["x", "y", "40", "50"])))
-    io.inspect(deposit({owner: "bob", balance: 1}, feed(["x"])))
+    io.inspect(deposit(#{owner: "ann", balance: 1}, feed(["x", "y", "40", "50"])))
+    io.inspect(deposit(#{owner: "bob", balance: 1}, feed(["x"])))
     bare_break(feed(["a", "stop", "b"]))
     io.inspect(if_else(feed(["ab", "skip", "cde"])))
     io.inspect(if_else_bare(feed(["a", "b"])))
@@ -201,8 +201,8 @@ fn main() {
 }
 `, "0\n3\n5\n"+
 		"got ab\nskip\ngot cde\ndone\n5\n"+
-		"not a number: x\nnot a number: y\ndeposit 40\nAccount{owner: \"ann\", balance: 40}\n"+
-		"not a number: x\nAccount{owner: \"bob\", balance: 1}\n"+
+		"not a number: x\nnot a number: y\ndeposit 40\n#Account{owner: \"ann\", balance: 40}\n"+
+		"not a number: x\n#Account{owner: \"bob\", balance: 1}\n"+
 		"stopped\n"+
 		"skip\n5\n0\n5\n2\n5\n3\n")
 }
@@ -436,9 +436,9 @@ fn plus(x: Int) -> Int {
 }
 
 fn field(x: Int) -> Point {
-    Point{x: noisy(3), y: case x {
-        0 -> return Point{x: 0, y: 0}
-        _ -> return Point{x: 1, y: 1}
+    #Point{x: noisy(3), y: case x {
+        0 -> return #Point{x: 0, y: 0}
+        _ -> return #Point{x: 1, y: 1}
     }}
 }
 
@@ -578,7 +578,7 @@ fn main() {
 `, "10\n"+
 		"noisy 1\n21\n"+
 		"noisy 2\n40\n"+
-		"noisy 3\nPoint{x: 0, y: 0}\n"+
+		"noisy 3\n#Point{x: 0, y: 0}\n"+
 		"noisy 4\n[1]\n"+
 		"50\n80\n"+
 		"noisy 5\n90\n"+

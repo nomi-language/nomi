@@ -120,6 +120,21 @@ const (
 	// falls on the boundary between two whole UTF-8 sequences and the result
 	// is a valid String. Owner: strPrefixTest.
 	ProjStrSuffix
+	// ProjVectorElem reads the element of a Vector at a CONSTANT position:
+	// `Index` counts from the front when it is zero or more, and from the end
+	// when it is negative, -1 being the last element. A vector pattern's
+	// heads read from the front and its tails, after a `..`, from the end
+	// (`#[first, .., last]`). It is in bounds only after a MatchVectorLen or
+	// MatchVectorMin test passed. Owner: vectorCaseTest.
+	ProjVectorElem
+	// ProjVectorSlice reads the Vector of a Vector's elements from position
+	// `Index` up to `Drop` elements before its end: the `..rest` of
+	// `#[a, ..rest, z]`, with `Index` the heads and `Drop` the tails.
+	//
+	// A WINDOW AND NOT A COPY: the result shares the subject's storage, so
+	// a recursive `#[x, ..rest]` walk is linear (rt.VectorSlice). Owner:
+	// vectorCaseTest.
+	ProjVectorSlice
 )
 
 func (k ProjKind) String() string {
@@ -142,6 +157,10 @@ func (k ProjKind) String() string {
 		return "suffix"
 	case ProjStrSuffix:
 		return "strsuffix"
+	case ProjVectorElem:
+		return "vectorelem"
+	case ProjVectorSlice:
+		return "vectorslice"
 	}
 	return "proj?"
 }
@@ -163,6 +182,9 @@ type Proj struct {
 	// embeds is the embedded type of an `embeds` variant's payload; nil
 	// otherwise.
 	embeds *Symbol
+	// drop is how many elements a ProjVectorSlice leaves off the end; zero
+	// for every other kind.
+	drop int
 }
 
 // NewProjField reads a declared struct field. field is the FIELD's identity.
@@ -288,6 +310,34 @@ func NewProjSuffix(pos Pos, dst, subj Temp, i int, shape ValShape) *Proj {
 	return p
 }
 
+// NewProjVectorElem reads the element of a Vector at constant position i,
+// counted from the end when i is negative (-1 is the last element).
+func NewProjVectorElem(pos Pos, dst, subj Temp, i int, shape ValShape) *Proj {
+	p := newProj(pos, dst, subj, ProjVectorElem, shape, "NewProjVectorElem")
+	p.idx = i
+	return p
+}
+
+// NewProjVectorSlice reads the Vector of subj's elements from position from
+// up to drop elements before its end. Its result is a Vector, so, as for
+// NewProjSuffix, the shape is checked.
+func NewProjVectorSlice(pos Pos, dst, subj Temp, from, drop int, shape ValShape) *Proj {
+	if from < 0 || drop < 0 {
+		panic("ir.NewProjVectorSlice: negative bound " + strconv.Itoa(from) + ", " + strconv.Itoa(drop))
+	}
+	if shape != ValUnknown && shape != ValContainer {
+		panic("ir.NewProjVectorSlice: a Vector's slice is a Vector, not " + shape.String())
+	}
+	p := newProj(pos, dst, subj, ProjVectorSlice, shape, "NewProjVectorSlice")
+	p.idx = from
+	p.drop = drop
+	return p
+}
+
+// Drop is how many elements a ProjVectorSlice leaves off the end of its
+// subject.
+func (p *Proj) Drop() int { return p.drop }
+
 // NewProjStrSuffix reads the String of subj's bytes from byte offset i on.
 // Its result is a String, so the shape is not taken from the producer.
 func NewProjStrSuffix(pos Pos, dst, subj Temp, i int) *Proj {
@@ -389,8 +439,10 @@ func (p *Proj) AppendUses(dst []Temp) []Temp { return append(dst, p.subj) }
 func (p *Proj) String() string {
 	s := p.dst.String() + " = " + p.kind.String() + " " + p.subj.String()
 	switch p.kind {
-	case ProjSlot, ProjElem, ProjSuffix, ProjStrSuffix:
+	case ProjSlot, ProjElem, ProjSuffix, ProjStrSuffix, ProjVectorElem:
 		s += "." + strconv.Itoa(p.idx)
+	case ProjVectorSlice:
+		s += "." + strconv.Itoa(p.idx) + ".." + strconv.Itoa(p.drop)
 	case ProjPayload:
 		s += " " + p.sym.Name() + "." + p.text + "[" + strconv.Itoa(p.idx) + "]"
 		if p.embeds != nil {

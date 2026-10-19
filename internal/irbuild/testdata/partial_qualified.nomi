@@ -23,7 +23,7 @@ struct App {
 }
 
 fn boot() -> App {
-    App{console: Stdout{prefix: "app> "}, context: Context.root()}
+    #App{console: #Stdout{prefix: "app> "}, context: Context.root()}
 }
 
 fn pair<T>(a: T, b: T) -> #(T, T) {
@@ -31,7 +31,7 @@ fn pair<T>(a: T, b: T) -> #(T, T) {
 }
 
 fn main() {
-    c = Stdout{prefix: "> "}
+    c = #Stdout{prefix: "> "}
     Iter.each(["a", "b"], Console.write_line(c, _))
     write: (String) -> Unit = Console.write_line(c, _)
     write("c")

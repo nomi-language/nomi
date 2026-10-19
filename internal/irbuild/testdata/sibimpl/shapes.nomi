@@ -29,7 +29,7 @@ impl Status {
     }
 
     pub fn suspend(until: Int, reason: String) -> Status {
-        Status.Suspended{until, reason}
+        #Status.Suspended{until, reason}
     }
 
     pub fn is_active(s: Status) -> Bool {
@@ -42,7 +42,7 @@ impl Status {
     pub fn reason(s: Status) -> Maybe<String> {
         case s {
             .Inactive(r) -> Some(r)
-            .Suspended{reason} -> Some(reason)
+            #.Suspended{reason} -> Some(reason)
             _ -> None
         }
     }
@@ -57,7 +57,7 @@ pub struct Tag {
 }
 
 pub fn tag(label: String) -> Tag {
-    Tag{label}
+    #Tag{label}
 }
 
 impl Debug for Tag {

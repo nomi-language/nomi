@@ -47,7 +47,7 @@ fn pick<T>(xs: List<T>, d: T) -> T {
 }
 
 fn make() -> Header {
-    Header{name: "x", size: todo """
+    #Header{name: "x", size: todo """
         a multi-line reason
         """}
 }

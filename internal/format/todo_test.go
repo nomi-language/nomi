@@ -10,7 +10,7 @@ func TestFormat_TodoRoundTrips(t *testing.T) {
 		"escaped":       "fn main() -> Int {\n    todo \"a \\\"quoted\\\" step\"\n}\n",
 		"raw reason":    "fn main() -> Int {\n    todo `C:\\path`\n}\n",
 		"triple reason": "fn main() -> Int {\n    todo \"\"\"\n        a longer reason\n        \"\"\"\n}\n",
-		"field value":   "fn main() -> Point {\n    Point{x: 1, y: todo}\n}\n",
+		"field value":   "fn main() -> Point {\n    #Point{x: 1, y: todo}\n}\n",
 		"pipe stage":    "fn main() -> Int {\n    3 |> todo\n}\n",
 		"case arm":      "fn main(n: Int) -> Int {\n    case n {\n        0 -> todo \"zero\"\n        _ -> n\n    }\n}\n",
 	} {

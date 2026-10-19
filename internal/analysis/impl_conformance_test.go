@@ -66,7 +66,7 @@ func TestImplHeader_UnknownInterfaceTypeArgument(t *testing.T) {
 	// parameter, are accepted.
 	for _, src := range []string{
 		dayDecls + "impl Add<Days, Day> for Day {\n    fn add(lhs: Day, rhs: Days) -> Day {\n        Day(day_number(lhs) + days_number(rhs))\n    }\n}\n\nfn main() {\n    day = Day(10) + Days(4)\n    dbg day_number(day)\n}\n",
-		storeDecls + "impl Store<String, T> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Maybe<T> {\n        Map.get(cache.items, key)\n    }\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T> {\n        Cache{items: Map.put(cache.items, key, value)}\n    }\n}\n",
+		storeDecls + "impl Store<String, T> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Maybe<T> {\n        Map.get(cache.items, key)\n    }\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T> {\n        #Cache{items: Map.put(cache.items, key, value)}\n    }\n}\n",
 	} {
 		if _, errs := checkSourceWithStdlib(src); len(errs) != 0 {
 			t.Errorf("the front end rejects a valid impl header: %v\n%s", errs, src)
@@ -142,7 +142,7 @@ func TestImplFunction_MatchesTheInstantiatedRequirement(t *testing.T) {
 		},
 		{
 			"return-only self of a generic receiver",
-			make + boxDecl + "impl Make for Box<T> {\n    fn make(n: Int) -> Box<Int> {\n        Box{item: n}\n    }\n}\n",
+			make + boxDecl + "impl Make for Box<T> {\n    fn make(n: Int) -> Box<Int> {\n        #Box{item: n}\n    }\n}\n",
 			"impl function 'make': return type Box<Int> does not match interface 'Make' return type Box<T>",
 			"interface 'Make' requires `fn make(n: Int) -> Box<T>`",
 			10, 8,
@@ -179,7 +179,7 @@ func TestImplFunction_MatchesTheInstantiatedRequirement(t *testing.T) {
 	for _, src := range []string{
 		make + "type Day Int\n\nimpl Make for Day {\n    fn make(n: Int) -> Day {\n        Day(n)\n    }\n}\n",
 		maybeMake + "type Day Int\n\nimpl MaybeMake for Day {\n    fn make(n: Int) -> Maybe<Day> {\n        Some(Day(n))\n    }\n}\n",
-		make + boxDecl + "impl Make for Box<Int> {\n    fn make(n: Int) -> Box<Int> {\n        Box{item: n}\n    }\n}\n",
+		make + boxDecl + "impl Make for Box<Int> {\n    fn make(n: Int) -> Box<Int> {\n        #Box{item: n}\n    }\n}\n",
 		maybeMake + boxDecl + "impl MaybeMake for Box<T> {\n    fn make(n: Int) -> Maybe<Box<T>> {\n        _ = n\n        None\n    }\n}\n",
 		conv + "type Day Int\n\nimpl Conv<Int> for Day {\n    fn conv(x: Day) -> Int {\n        Day(n) = x\n        n\n    }\n}\n",
 		show + "type Day Int\n\nimpl Show for Day {\n    fn show(x: Day) -> String {\n        _ = x\n        \"day\"\n    }\n}\n",

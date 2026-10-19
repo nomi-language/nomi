@@ -627,7 +627,7 @@ var stdStructSpecs = []stdStructSpec{{
 }, {
 	// std/compiler's ON-DISK run input, constructed by
 	// `15-app-and-defer/effects/effects_test.nomi` as
-	// `compiler.run_file(RunFile{entry_point: "main"})`.
+	// `compiler.run_file(#RunFile{entry_point: "main"})`.
 	//
 	// Placed after the rows above, for the reason the constants below give: rows
 	// here name each other POSITIONALLY, and inserting this beside `Project`,

@@ -30,21 +30,21 @@ import shapes.Shape.{Sq}
 
 fn show(h: shapes.Holder<Int>) -> String {
     case h {
-        O{value} -> "of ${value}"
+        #O{value} -> "of ${value}"
         W(v) -> "wrap ${v}"
         Empty -> "empty"
     }
 }
 
 fn main() {
-    io.print(show(O{value: 1}))
+    io.print(show(#O{value: 1}))
     io.print(show(W(2)))
     io.print(show(Empty))
     e: shapes.Holder<String> = Empty
     io.print(Debug.inspect(e))
     ws = [3, 4] |> Iter.map(W) |> Iter.map(show) |> Iter.to_list()
     io.print(String.join(ws, ","))
-    p = Both{left: "x", right: 5}
+    p = #Both{left: "x", right: 5}
     io.print(Debug.inspect(p))
     io.print(Int.to_string(same.make()))
     io.print(Debug.inspect(Sq(9)))
@@ -53,9 +53,9 @@ fn main() {
 		"same.nomi": `import shapes.Holder.{Of}
 
 pub fn make() -> Int {
-    h = Of{value: 8}
+    h = #Of{value: 8}
     case h {
-        Of{value} -> value
+        #Of{value} -> value
         _ -> 0
     }
 }
@@ -84,7 +84,7 @@ pub enum Shape {
 	if _, err := Analyze(entry); err != nil {
 		t.Fatalf("the front end rejects this, so nothing below is tested: %v", err)
 	}
-	const want = "of 1\nwrap 2\nempty\nEmpty\nwrap 3,wrap 4\nBoth{left: \"x\", right: 5}\n8\nSq(9)\n"
+	const want = "of 1\nwrap 2\nempty\nEmpty\nwrap 3,wrap 4\n#Both{left: \"x\", right: 5}\n8\nSq(9)\n"
 	got := vmReference(entry)
 	if got.stdout != want || got.stderr != "" || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s", got.exit, got.stdout, got.stderr)

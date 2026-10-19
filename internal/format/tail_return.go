@@ -18,7 +18,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 //
 // A `return value` becomes `value`, a brace-opening value included: a
 // return's value, a statement and an arm body are parsed by the same
-// expression parser, so `{n: n}` is the same literal in each place. A test
+// expression parser, so `#{n: n}` is the same literal in each place. A test
 // body has no declared result type, so its returns may carry values of
 // different types; a tail `if` or `case` there keeps its value returns,
 // whose branches would otherwise have to agree on one type.

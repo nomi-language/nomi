@@ -61,11 +61,11 @@ fn render(d: Display) -> String {
 // accepted the widening — and unboxed by nobody: it stays erased across the
 // call boundary and is dispatched at the caller.
 fn a_tag(name: String) -> Display {
-    Tag{name}
+    #Tag{name}
 }
 
 fn a_count(n: Int) -> Display {
-    Count{n}
+    #Count{n}
 }
 
 fn pick(flag: Bool) -> Display {
@@ -115,21 +115,21 @@ fn boxed_count(_c: Comparable) -> Int {
 // goes near the table: the first is a direct call into this module's own impl,
 // the second is the stdlib function index. Both lowered before this slice and
 // both must keep the route they had — a peer measured a mutation in which
-// giving stdlib interfaces an owner turned `Display.to_string(Cat{...})` from
+// giving stdlib interfaces an owner turned `Display.to_string(#Cat{...})` from
 // a lowering into a refusal, and no corpus file could see it.
 fn direct() -> String {
-    same = case Comparable.compare(Count{n: 1}, Count{n: 1}) {
+    same = case Comparable.compare(#Count{n: 1}, #Count{n: 1}) {
         Ordering.Less -> "less"
         Ordering.Equal -> "equal"
         Ordering.Greater -> "greater"
     }
 
-    "${Display.to_string(Tag{name: "direct"})}/${Display.to_string(42)}/${same}"
+    "${Display.to_string(#Tag{name: "direct"})}/${Display.to_string(42)}/${same}"
 }
 
 fn main() {
-    io.print(render(Tag{name: "alpha"}))
-    io.print(render(Count{n: 7}))
+    io.print(render(#Tag{name: "alpha"}))
+    io.print(render(#Count{n: 7}))
 
     io.print(render(pick(True)))
     io.print(render(pick(False)))
@@ -138,9 +138,9 @@ fn main() {
     io.print(render_maybe(Some(a_count(3))))
     io.print(render_maybe(None))
 
-    io.print(describe(Slot{label: "one", held: Tag{name: "held"}}))
-    io.print(describe(Slot{label: "two", held: Count{n: 99}}))
+    io.print(describe(#Slot{label: "one", held: #Tag{name: "held"}}))
+    io.print(describe(#Slot{label: "two", held: #Count{n: 99}}))
 
-    io.print("${boxed_count(Count{n: 5}) + boxed_count(Tag{name: "x"})}")
+    io.print("${boxed_count(#Count{n: 5}) + boxed_count(#Tag{name: "x"})}")
     io.print(direct())
 }

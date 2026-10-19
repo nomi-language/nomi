@@ -28,8 +28,8 @@ pub enum Command {
 
 /// Reads one input line as a command by matching its words against list
 /// patterns.
-//! assert parse("add buy  milk") == Ok(Command.Add{title: "buy milk"})
-//! assert parse("done 2") == Ok(Command.Mark{id: 2, status: Status.Done})
+//! assert parse("add buy  milk") == Ok(#Command.Add{title: "buy milk"})
+//! assert parse("done 2") == Ok(#Command.Mark{id: 2, status: Status.Done})
 //! assert parse("done two") == Err("expected a task id, got 'two'")
 //
 pub fn parse(line: String) -> Result<Command, String> {
@@ -50,25 +50,25 @@ pub fn parse(line: String) -> Result<Command, String> {
             Ok(Command.Quit)
 
         ["add", first, ..rest] ->
-            Ok(Command.Add{title: String.join([first, ..rest], " ")})
+            Ok(#Command.Add{title: String.join([first, ..rest], " ")})
 
         ["list"] ->
-            Ok(Command.List{status: None})
+            Ok(#Command.List{status: None})
 
         ["list", status] ->
             status
             |> Status.parse()
-            |> Maybe.map(fn status -> Command.List{status: Some(status)})
+            |> Maybe.map(fn status -> #Command.List{status: Some(status)})
             |> Maybe.to_result("unknown status '${status}'")
 
         ["start", id] ->
-            parse_id(id) |> Result.map(fn id -> Command.Mark{id, status: Status.Started})
+            parse_id(id) |> Result.map(fn id -> #Command.Mark{id, status: Status.Started})
 
         ["done", id] ->
-            parse_id(id) |> Result.map(fn id -> Command.Mark{id, status: Status.Done})
+            parse_id(id) |> Result.map(fn id -> #Command.Mark{id, status: Status.Done})
 
         ["delete", id] ->
-            parse_id(id) |> Result.map(fn id -> Command.Delete{id})
+            parse_id(id) |> Result.map(fn id -> #Command.Delete{id})
 
         _ ->
             Err("unknown command '${line}', try 'help'")
@@ -88,22 +88,22 @@ pub fn run(
         Command.Help ->
             Ok(#(tasks, help))
 
-        Command.Add{title} -> {
-            task = Task{id: next_id(tasks), title, created: Clock.now(clock)}
+        #Command.Add{title} -> {
+            task = #Task{id: next_id(tasks), title, created: Clock.now(clock)}
             try Store.save(store, task)
             Ok(#(Map.put(tasks, task.id, task), ["added ${Task.render(task)}"]))
         }
 
-        Command.List{status} ->
+        #Command.List{status} ->
             Ok(#(tasks, list(tasks, status)))
 
-        Command.Mark{id, status} -> {
-            task = {..try find(tasks, id), status}
+        #Command.Mark{id, status} -> {
+            task = #{..try find(tasks, id), status}
             try Store.save(store, task)
             Ok(#(Map.put(tasks, id, task), [Task.render(task)]))
         }
 
-        Command.Delete{id} -> {
+        #Command.Delete{id} -> {
             task = try find(tasks, id)
             try Store.delete(store, id)
             Ok(#(Map.remove(tasks, id), ["deleted ${Task.render(task)}"]))

@@ -36,10 +36,10 @@ fn describe_named(value: Named) -> String {
 }
 
 test "universal Debug renders declared types structurally" {
-    assert Debug.inspect(UniversalPoint{x: 1, y: 2}) == "UniversalPoint{x: 1, y: 2}"
+    assert Debug.inspect(#UniversalPoint{x: 1, y: 2}) == "#UniversalPoint{x: 1, y: 2}"
 
     assert Debug.inspect(UniversalShape.Circle(1.5)) == "Circle(1.5)"
-    assert Debug.inspect(UniversalShape.Rect{w: 1.0, h: 2.0}) == "Rect{w: 1.0, h: 2.0}"
+    assert Debug.inspect(#UniversalShape.Rect{w: 1.0, h: 2.0}) == "#Rect{w: 1.0, h: 2.0}"
 
     assert Debug.inspect(UniversalShape.Nothing) == "Nothing"
     assert Debug.inspect(UniversalId(7)) == "UniversalId(7)"
@@ -47,8 +47,8 @@ test "universal Debug renders declared types structurally" {
 
 test "universal Debug works for opaque values generics and existentials" {
     assert Debug.inspect(token.make(99)) == "<opaque Token>"
-    assert debug_show(UniversalPoint{x: 3, y: 4}) == "UniversalPoint{x: 3, y: 4}"
+    assert debug_show(#UniversalPoint{x: 3, y: 4}) == "#UniversalPoint{x: 3, y: 4}"
     assert debug_show(42) == "42"
     assert debug_show("hi") == "\"hi\""
-    assert describe_named(UniversalDog{name: "Rex"}) == "UniversalDog{name: \"Rex\"}"
+    assert describe_named(#UniversalDog{name: "Rex"}) == "#UniversalDog{name: \"Rex\"}"
 }

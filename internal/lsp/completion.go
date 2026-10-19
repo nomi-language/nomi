@@ -123,10 +123,6 @@ type completionRequest struct {
 	// incomplete marks the list as one the client should ask for again as
 	// the word grows: a source that offers only to a typed prefix ran.
 	incomplete bool
-	// braceType is the struct a bare brace builds or patches, and braceHop
-	// the brace's hop on the sentinel's path (completion_bare_brace.go).
-	braceType analysis.Type
-	braceHop  int
 }
 
 func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.CompletionParams) (any, error) {
@@ -159,7 +155,7 @@ func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.Comple
 		return nil, nil
 	}
 	if trigger == "}" {
-		// An auto-pair plugin typed the `}` of `Point{}` right after the
+		// An auto-pair plugin typed the `}` of `#Point{}` right after the
 		// user's `{`, and a client that reports only the last character
 		// typed (blink.cmp) sends that instead: answer it as the `{`.
 		trigger = "{"
@@ -178,8 +174,13 @@ func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.Comple
 		r.scope = doc.Analysis.ModuleScope
 	}
 	r.ctx = classifyCompletion(doc.Content, off)
-	r.promoteBareBrace()
+	if (trigger == "#" || trigger == "%") && r.ctx.kind != ctxShapeHead {
+		// Only a name right after the symbol of a literal; a `%` after an
+		// operand is the remainder operator.
+		return nil, nil
+	}
 	r.demoteMapSpreadField()
+
 	if (trigger == "{" || trigger == ",") && r.ctx.kind != ctxStructField && r.ctx.kind != ctxPatternField {
 		return nil, nil
 	}
@@ -191,7 +192,7 @@ func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.Comple
 	return &protocol.CompletionList{IsIncomplete: r.incomplete, Items: items}, nil
 }
 
-// demoteMapSpreadField makes the slot after `{..base, ` an expression
+// demoteMapSpreadField makes the slot after `#{..base, ` an expression
 // when base is a map: the next element is an entry's key, `key => value`,
 // not a field label.
 func (r *completionRequest) demoteMapSpreadField() {
@@ -217,8 +218,8 @@ func triggerCharacter(params *protocol.CompletionParams) string {
 // can lead anywhere, so the common `>` of a case arm's `->` or a comparison
 // and the `{` of a block cost nothing: `>` only completes the `|>` of a pipe
 // or the return type after a signature's `)` (`fn f() ->`), and `{`
-// only a struct literal's fields, whose `{` follows the type's name
-// (`Point{`) or stands where a value goes (braceMayOpenLiteral), a quote or backtick only a typed literal's body (`Date"`),
+// only a struct literal's fields, whose `{` follows its `#` and type name
+// (`#Point{`, `#{`; braceMayOpenLiteral), a quote or backtick only a typed literal's body (`Date"`),
 // and `:` only an annotation, whose `:` follows the annotated name.
 func triggerMayOpen(trigger, content string, off int) bool {
 	switch trigger {
@@ -242,8 +243,9 @@ func triggerMayOpen(trigger, content string, off int) bool {
 		// opens nothing.
 		return off >= 1 && content[off-1] == ','
 	case "}":
-		// Only the `}` an auto-pair plugin closes `Point{` or `{` with, the
+		// Only the `}` an auto-pair plugin closes `#Point{` or `#{` with, the
 		// cursor between the braces; a `}` closing a block opens nothing.
+
 		return off >= 2 && off < len(content) && content[off-1] == '{' && content[off] == '}' && braceMayOpenLiteral(content, off-1)
 	case `"`, "`":
 		// A typed literal's opener follows its type's name (`Date"`).
@@ -256,30 +258,16 @@ func triggerMayOpen(trigger, content string, off int) bool {
 }
 
 // braceMayOpenLiteral reports, from the text alone, whether the `{` at brace
-// can open a struct literal: right after the type's name (`Point{`), or where
-// a value goes and a bare brace may build the struct the position expects,
-// after `:`, `=`, `(`, `,`, `[`, a case arm's `->` (not a lambda's), `return`, or at the start
-// of a line (a block's tail). A function's, an if's or a case's `{` follows
-// a `)`, a type or a condition and a space, so it costs nothing;
-// classification decides the rest.
+// can open a struct literal: right after the `#` that starts one (`#{`), or
+// after the type or variant name written right after that `#`
+// (`#Point{`, `#geo.Point{`, `#.Circle{`). Any other `{` opens a block or a
+// map, so it costs nothing.
 func braceMayOpenLiteral(content string, brace int) bool {
-	if brace >= 1 && isWordByte(content[brace-1]) {
-		return true
-	}
 	i := brace
-	for i > 0 && (content[i-1] == ' ' || content[i-1] == '\t') {
+	for i > 0 && (isWordByte(content[i-1]) || content[i-1] == '.') {
 		i--
 	}
-	if i == 0 {
-		return false
-	}
-	switch content[i-1] {
-	case ':', '=', '(', ',', '[', '\n':
-		return true
-	case '>':
-		return i >= 2 && content[i-2] == '-' && !endsLambdaHeader(content, i-2)
-	}
-	return strings.HasSuffix(content[:i], "return") && (i == len("return") || !isWordByte(content[i-len("return")-1]))
+	return i >= 1 && content[i-1] == '#'
 }
 
 // endsLambdaHeader reports whether the `->` at arrow ends a lambda's
@@ -376,8 +364,28 @@ func (r *completionRequest) candidates() []candidate {
 		return r.importNameCandidates()
 	case ctxImplItem:
 		return r.implStubCandidates()
+	case ctxShapeHead:
+		return r.shapeHeadCandidates()
 	}
 	return nil
+}
+
+// shapeHeadCandidates offers the names a literal's `#` or `%` can head:
+// after `#`, structs, enums and distinct types over a tuple or vector;
+// after `%`, distinct types over a map or set. Unqualified, the modules
+// that qualify such a name are offered too.
+func (r *completionRequest) shapeHeadCandidates() []candidate {
+	sigil := r.ctx.shapeSigil
+	keep := func(sym *analysis.Symbol) bool {
+		return typeSymbol(sym) && analysis.LiteralSigil(realSymbol(sym).Type) == sigil
+	}
+	if r.ctx.typeQualifier != "" {
+		return r.moduleMemberCandidates(r.ctx.typeQualifier, keep)
+	}
+	out := r.scopeCandidates(func(sym *analysis.Symbol) bool {
+		return keep(sym) || typeQualifierModule(sym)
+	})
+	return out
 }
 
 // items filters the candidates against the typed prefix, ranks them and

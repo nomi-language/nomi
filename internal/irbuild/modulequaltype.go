@@ -120,7 +120,7 @@ func (g *gen) moduleQualifiedOwner(qualifier, name string) *typeOwner {
 //
 // # THE DOT SHORTHAND RECORDS A BARE NAME AND THE QUALIFIER IS NOT IN IT
 //
-// `b: shapes.Shape = .Ring{r: 7}` is resolved by the analyzer, which writes
+// `b: shapes.Shape = #.Ring{r: 7}` is resolved by the analyzer, which writes
 // `ast.DotVariantType.ResolvedEnum = "Shape"` — the DECLARED name, with no
 // module in it, because that field's job is to tell the evaluator which enum
 // and the evaluator resolves names differently. The builder then looked
@@ -179,7 +179,7 @@ func (g *gen) moduleQualifiedBare(name string) (string, bool) {
 // # THE SPLIT WAS BY SEGMENT COUNT, AND THAT IS WHAT THIS CLOSES
 //
 // A module-qualified reference to a DECLARATION already lowered:
-// `shapes.Circle{r: 1}` arrives as an *ast.QualifiedType and namespacedType
+// `#shapes.Circle{r: 1}` arrives as an *ast.QualifiedType and namespacedType
 // answers it. A module-qualified reference to a VARIANT of one did not, and
 // every spelling of it failed at the same place — `g.namedType("shapes.Shape")`
 // — because the owner is handed around this package as a dotted STRING:

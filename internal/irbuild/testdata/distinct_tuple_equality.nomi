@@ -14,54 +14,55 @@ type Tag #(Int, String)
 
 impl Equatable for Tag {
     fn equal?(a: Tag, b: Tag) -> Bool {
-        Tag(x, _) = a
-        Tag(y, _) = b
+        #Tag(x, _) = a
+        #Tag(y, _) = b
         x == y
     }
 }
 
 impl Hashable for Tag {
     fn hash(t: Tag) -> Int {
-        Tag(x, _) = t
+        #Tag(x, _) = t
         x
     }
 }
 
 fn main() {
-    pairs = [Pair(#(1, "a")), Pair(2, "b")]
+    pairs = [Pair(#(1, "a")), #Pair(2, "b")]
 
-    io.print("list-eq=${pairs == [Pair(1, "a"), Pair(#(2, "b"))]}")
-    io.print("list-ne=${pairs != [Pair(1, "a")]}")
-    io.print("list-differs=${pairs == [Pair(1, "a"), Pair(2, "z")]}")
-    io.print("nested-list=${[[Pair(1, "a")]] == [[Pair(1, "a")]]}")
-    io.print("vector=${#[Pair(1, "a")] == #[Pair(1, "a")]}")
-    io.print("set=${#{Pair(1, "a"), Pair(2, "b")} == #{Pair(2, "b"), Pair(1, "a")}}")
-    io.print("set-has=${Set.contains?(#{Pair(1, "a")}, Pair(1, "a"))}")
+    io.print("list-eq=${pairs == [#Pair(1, "a"), Pair(#(2, "b"))]}")
+    io.print("list-ne=${pairs != [#Pair(1, "a")]}")
+    io.print("list-differs=${pairs == [#Pair(1, "a"), #Pair(2, "z")]}")
+    io.print("nested-list=${[[#Pair(1, "a")]] == [[#Pair(1, "a")]]}")
+    io.print("vector=${#[#Pair(1, "a")] == #[#Pair(1, "a")]}")
+    io.print("set=${%[#Pair(1, "a"), #Pair(2, "b")] == %[#Pair(2, "b"), #Pair(1, "a")]}")
+    io.print("set-has=${Set.contains?(%[#Pair(1, "a")], #Pair(1, "a"))}")
 
     io.print(
-        "map-key=${Map.get(%{Pair(1, "a") => "one"}, Pair(1, "a")) |> Maybe.with_default("?")}"
+        "map-key=${Map.get(%{#Pair(1, "a") => "one"}, #Pair(1, "a")) |> Maybe.with_default("?")}"
     )
 
-    io.print("map-eq=${%{Pair(1, "a") => 1} == %{Pair(1, "a") => 1}}")
-    io.print("map-value=${%{"k" => Pair(1, "a")} == %{"k" => Pair(1, "b")}}")
-    io.print("maybe=${Some(Pair(1, "a")) == Some(Pair(1, "a"))}")
-    io.print("list-of-maybe=${[Some(Pair(1, "a"))] == [Some(Pair(1, "a"))]}")
-    io.print("tuple=${#(Pair(1, "a"), 2) == #(Pair(1, "a"), 2)}")
+    io.print("map-eq=${%{#Pair(1, "a") => 1} == %{#Pair(1, "a") => 1}}")
+    io.print("map-value=${%{"k" => #Pair(1, "a")} == %{"k" => #Pair(1, "b")}}")
+    io.print("maybe=${Some(#Pair(1, "a")) == Some(#Pair(1, "a"))}")
+    io.print("list-of-maybe=${[Some(#Pair(1, "a"))] == [Some(#Pair(1, "a"))]}")
+    io.print("tuple=${#(#Pair(1, "a"), 2) == #(#Pair(1, "a"), 2)}")
 
-    held: Maybe<Pair> = Some(Pair(3, "c"))
+    held: Maybe<Pair> = Some(#Pair(3, "c"))
     io.print("maybe-debug=${Debug.inspect(held)}")
 
     // The hand-written impl answers inside every container.
-    io.print("tag-list=${[Tag(1, "a")] == [Tag(1, "b")]}")
-    io.print("tag-list-ne=${[Tag(1, "a")] != [Tag(2, "a")]}")
-    io.print("tag-maybe=${Some(Tag(1, "a")) == Some(Tag(1, "z"))}")
-    tagged: Result<Tag, String> = Ok(Tag(1, "a"))
-    io.print("tag-result=${tagged == Ok(Tag(1, "q"))}")
-    tags = #{Tag(1, "a"), Tag(1, "b")}
+    io.print("tag-list=${[#Tag(1, "a")] == [#Tag(1, "b")]}")
+    io.print("tag-list-ne=${[#Tag(1, "a")] != [#Tag(2, "a")]}")
+    io.print("tag-maybe=${Some(#Tag(1, "a")) == Some(#Tag(1, "z"))}")
+    tagged: Result<Tag, String> = Ok(#Tag(1, "a"))
+    io.print("tag-result=${tagged == Ok(#Tag(1, "q"))}")
+    tags = %[#Tag(1, "a"), #Tag(1, "b")]
     io.print("tag-set-size=${Set.size(tags)}")
-    io.print("tag-set-has=${Set.contains?(tags, Tag(1, "zzz"))}")
+    io.print("tag-set-has=${Set.contains?(tags, #Tag(1, "zzz"))}")
 
     io.print(
-        "tag-map-key=${Map.get(%{Tag(3, "x") => "three"}, Tag(3, "y")) |> Maybe.with_default("?")}"
+        "tag-map-key=${Map.get(%{#Tag(3, "x") => "three"}, #Tag(3, "y"))
+        |> Maybe.with_default("?")}"
     )
 }

@@ -139,7 +139,7 @@ func funcResult(k kind) kind   { return k.comp.parts[len(k.comp.parts)-1] }
 //
 // The annotation wins when there is one. When there is not, the self-typing
 // rule applies: a pattern whose head NAMES a type is its own annotation
-// (`Duration(x)`, `Point{x, y}`, `E.V(x)`). A head-less pattern — a tuple, an
+// (`Duration(x)`, `#Point{x, y}`, `E.V(x)`). A head-less pattern — a tuple, an
 // anonymous struct, a dotted variant, a bare identifier — has nothing to read a
 // type off, and Nomi requires an annotation there, so its absence here means
 // the annotation named a type outside the subset.
@@ -155,9 +155,11 @@ func (g *gen) patternParamKind(p ast.Param, at ast.Node) (kind, bool) {
 		return k, true
 	}
 	var head ast.TypeExpr
-	switch pat := ast.WithoutAs(p.Destructure).(type) {
+	// irPattern reads `#Pair(a, b)` as the distinct type's pattern.
+	switch pat := irPattern(ast.WithoutAs(p.Destructure)).(type) {
 	case *ast.StructPattern:
 		head = pat.TypeName
+
 	case *ast.EnumPattern:
 		head = pat.Variant
 	}
@@ -183,7 +185,7 @@ func (g *gen) patternParamKind(p ast.Param, at ast.Node) (kind, bool) {
 		return kindInvalid, false
 	}
 	// `E.V(x)` names the ENUM through one of its variants; `Duration(x)` and
-	// `Point{x, y}` name the type directly.
+	// `#Point{x, y}` name the type directly.
 	name := owner
 	if name == "" {
 		name = member
@@ -199,6 +201,7 @@ func (g *gen) patternParamKind(p ast.Param, at ast.Node) (kind, bool) {
 // destructure emits the bindings an irrefutable pattern introduces from src,
 // and reports whether the whole pattern was lowered.
 func (g *gen) destructure(pat ast.Node, src expr, at ast.Node) bool {
+	pat = irPattern(pat)
 	switch p := pat.(type) {
 	case *ast.WildcardPattern:
 		return true
@@ -271,10 +274,10 @@ func (g *gen) bindDestructured(nomi string, src expr, at ast.Node) {
 func (g *gen) destructureStruct(p *ast.StructPattern, src expr, at ast.Node) bool {
 	if p.TypeName == nil {
 		if src.k.tag == tagAnonStruct {
-			// `{x, y} = point` over a RECORD. See anonstruct.go.
+			// `#{x, y} = point` over a RECORD. See anonstruct.go.
 			return g.destructureAnonStruct(p, src, at)
 		}
-		// `fn {x, y}: Point ->` — an anonymous struct pattern over a NAMED struct.
+		// `fn #{x, y}: Point ->` — an anonymous struct pattern over a NAMED struct.
 		// A different feature from the record above: the pattern's field set is
 		// a SUBSET of a DECLARATION's rather than the whole of a record's type,
 		// so the field list comes from the def and the match is against a type
@@ -291,7 +294,7 @@ func (g *gen) destructureStruct(p *ast.StructPattern, src expr, at ast.Node) boo
 	if d.isEnum {
 		return g.destructureVariantBraces(p, d, src, at)
 	}
-	// A generic struct's pattern head is the bare template name (`Box{value}`
+	// A generic struct's pattern head is the bare template name (`#Box{value}`
 	// over a `Box<Int>`), which names no instance, so it cannot be compared
 	// with src's kind. The checker has already required the head to name
 	// this struct (structPatternNames), as nominalCaseTest relies on for a
@@ -305,14 +308,14 @@ func (g *gen) destructureStruct(p *ast.StructPattern, src expr, at ast.Node) boo
 	return g.destructureFields(d, src, p, at)
 }
 
-// destructureVariantBraces binds `Enum.Variant{...}` in a destructuring
+// destructureVariantBraces binds `#Enum.Variant{...}` in a destructuring
 // parameter — the BRACE-shaped counterpart of destructureEnum's tuple shape.
 //
 // This is the third place the same match runs: `case` reaches the shape
 // through case.go's structArm, and destructureStruct routes an enum here rather
 // than refusing it as a pattern type mismatch. The corpus witness is
 // 10-generics-and-type-wrappers/embedded_variants_test.nomi:78,
-// `fn int_area(IntShape.IntCircle{r}) -> Int`, two lines below a tuple-shaped
+// `fn int_area(#IntShape.IntCircle{r}) -> Int`, two lines below a tuple-shaped
 // `NumericIdentifier.NumericUserId(n)`.
 //
 // NO TAG TEST IS EMITTED, and that is the whole difference from structArm: the
@@ -336,8 +339,8 @@ func (g *gen) destructureVariantBraces(p *ast.StructPattern, d *typeDef, src exp
 	case "embedded":
 		// RULE (`embeds` payload coercion): the field patterns address the
 		// EMBEDDED value's fields, one level down from the enum. Both
-		// construction spellings arrive here — `Box.Extent{wide: 1}`, which
-		// wraps at the literal, and a bare `Extent{wide: 1}` coerced at the
+		// construction spellings arrive here — `#Box.Extent{wide: 1}`, which
+		// wraps at the literal, and a bare `#Extent{wide: 1}` coerced at the
 		// argument — because coerce() has already wrapped the second by the
 		// time this runs. case.go's structArm says the same thing about the
 		// `case` path.
@@ -439,7 +442,7 @@ func (g *gen) destructureFields(d *typeDef, src expr, p *ast.StructPattern, at a
 // variantFieldArms, again without the block-opening.
 //
 // The slot is found by NAME rather than by the pattern's position, so
-// `Cell.Span{hi, lo}` and `Cell.Span{lo, hi}` bind the same two values. That is
+// `#Cell.Span{hi, lo}` and `#Cell.Span{lo, hi}` bind the same two values. That is
 // the field-identity reading; reading by position would be the slot reading,
 // and testdata/fn_destructure_variant.nomi lets the two disagree.
 func (g *gen) destructureVariantFields(d *typeDef, v *variantDef, src expr, p *ast.StructPattern, at ast.Node) bool {
@@ -474,13 +477,13 @@ func (g *gen) destructureField(f ast.StructPatternField, fe expr, at ast.Node) b
 	case f.Binding != "":
 		g.bindDestructured(f.Binding, fe, at)
 	default:
-		// Punning: `Point{x, y}` binds each field to its own name.
+		// Punning: `#Point{x, y}` binds each field to its own name.
 		g.bindDestructured(f.Name, fe, at)
 	}
 	return true
 }
 
-// destructureAnonStruct binds `{x, y: p} = record` — destructureStruct with the
+// destructureAnonStruct binds `#{x, y: p} = record` — destructureStruct with the
 // field list read from the interned record kind rather than from a declaration.
 func (g *gen) destructureAnonStruct(p *ast.StructPattern, src expr, at ast.Node) bool {
 	ok := true

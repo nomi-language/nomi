@@ -83,6 +83,20 @@ func patternBinders(p ast.Node) []string {
 		}
 		return append(out, patternBinders(t.TailSpread)...)
 
+	case *ast.VectorPattern:
+		var out []string
+		for _, sub := range t.Heads {
+			out = append(out, patternBinders(sub)...)
+		}
+		out = append(out, patternBinders(t.Rest)...)
+		for _, sub := range t.Tails {
+			out = append(out, patternBinders(sub)...)
+		}
+		return out
+
+	case *ast.SetPattern:
+		return patternBinders(t.Rest)
+
 	case *ast.MapPattern:
 		var out []string
 		for _, e := range t.Entries {
@@ -94,8 +108,8 @@ func patternBinders(p ast.Node) []string {
 	return nil
 }
 
-// appendPatternField adds the name a struct-pattern field binds. `Point{x}` puns
-// (Binding == Name); `Point{x: a}` renames; `Point{x: 1}` matches and binds
+// appendPatternField adds the name a struct-pattern field binds. `#Point{x}` puns
+// (Binding == Name); `#Point{x: a}` renames; `#Point{x: 1}` matches and binds
 // nothing, which is what a non-nil Pattern means.
 func appendPatternField(out []string, f ast.StructPatternField) []string {
 	if f.Pattern != nil {
@@ -116,7 +130,7 @@ func appendPatternField(out []string, f ast.StructPatternField) []string {
 //
 // Same rule, same reason: a destructuring parameter this builder refused still
 // puts its names in the body's scope in the source, so leaving them unbound
-// reports the refusal again at every use: `fn scale_point({x, y}: Point)`
+// reports the refusal again at every use: `fn scale_point(#{x, y}: Point)`
 // would report one refused pattern three times.
 func (g *gen) bindPatternNamesInvalid(pat ast.Node) {
 	for _, name := range patternBinders(pat) {

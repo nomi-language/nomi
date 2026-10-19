@@ -40,7 +40,7 @@ pub struct Cfg {
 }
 
 fn boot() -> Cfg {
-  Cfg{context: Context.root(), }
+  #Cfg{context: Context.root(), }
 }
 `
 	// THE POSITIVE CONTROL, first: boot plus main in the entry analyzes clean.
@@ -74,7 +74,7 @@ fn boot() -> Cfg {
 		}
 	}
 	write("cfg.nomi", decls)
-	write("main.nomi", "import cfg.Cfg\n\nfn main() {\n  _ = Cfg{context: Context.root()}\n}\n")
+	write("main.nomi", "import cfg.Cfg\n\nfn main() {\n  _ = #Cfg{context: Context.root()}\n}\n")
 	_, err = Analyze(filepath.Join(dir, "main.nomi"))
 	if err == nil {
 		t.Error("a `fn boot` declared in an imported file with no `fn main` analyzes clean. " +

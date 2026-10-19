@@ -35,7 +35,7 @@ func TestSession_EvaluatesInTheStoppedFrame(t *testing.T) {
 	h.eval(top, "hover", "p.x")
 	h.eval(top, "hover", "label")
 	h.eval(top, "watch", "norm(p) + Iter.count(xs)")
-	body = h.eval(top, "repl", "Point{x: p.y, y: p.x}")
+	body = h.eval(top, "repl", "#Point{x: p.y, y: p.x}")
 	h.children(body)
 	h.eval(top, "repl", "xs |> Iter.map(fn x -> x * label.length) |> Iter.to_list()")
 	h.eval(top, "repl", "xs |> Iter.map(fn x -> x * 10) |> Iter.to_list()")

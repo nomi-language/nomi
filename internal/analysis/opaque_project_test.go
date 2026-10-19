@@ -305,14 +305,14 @@ func TestOpaque_StructBody_BlocksConstructorOutsideOwningModule(t *testing.T) {
 }
 
 pub fn make(year: Int, month: Int, day: Int) -> Date {
-  Date{year: year, month: month, day: day}
+  #Date{year: year, month: month, day: day}
 }
 
 `,
 		"main.nomi": `import date.{Date}
 
 fn main() {
-  d = Date{year: 2026, month: 5, day: 4}
+  d = #Date{year: 2026, month: 5, day: 4}
 }
 `,
 	})
@@ -330,7 +330,7 @@ func TestOpaque_StructBody_BlocksFieldAccessOutsideOwningModule(t *testing.T) {
 }
 
 pub fn make(year: Int, month: Int, day: Int) -> Date {
-  Date{year: year, month: month, day: day}
+  #Date{year: year, month: month, day: day}
 }
 
 pub fn year(d: Date) -> Int { d.year }
@@ -363,7 +363,7 @@ func TestOpaque_StructBody_AllowsAccessorsInsideOwningModule(t *testing.T) {
 }
 
 pub fn make(year: Int, month: Int, day: Int) -> Date {
-  Date{year: year, month: month, day: day}
+  #Date{year: year, month: month, day: day}
 }
 
 pub fn year(d: Date) -> Int { d.year }
@@ -383,7 +383,7 @@ fn main() {
 }
 
 func TestOpaque_StructBody_BlocksDestructuringOutsideOwningModule(t *testing.T) {
-	// Struct destructuring (`case d { Date{year, ...} -> ... }`) on an
+	// Struct destructuring (`case d { #Date{year, ...} -> ... }`) on an
 	// opaque struct from outside its module is also blocked.
 	_, errs := opaqueProject(t, map[string]string{
 		"date.nomi": `pub opaque struct Date {
@@ -393,7 +393,7 @@ func TestOpaque_StructBody_BlocksDestructuringOutsideOwningModule(t *testing.T) 
 }
 
 pub fn make(year: Int, month: Int, day: Int) -> Date {
-  Date{year: year, month: month, day: day}
+  #Date{year: year, month: month, day: day}
 }
 
 `,
@@ -401,7 +401,7 @@ pub fn make(year: Int, month: Int, day: Int) -> Date {
 
 fn report(d: Date) -> Int {
   case d {
-    Date{year: y, month: m, day: dd} -> y
+    #Date{year: y, month: m, day: dd} -> y
   }
 }
 `,

@@ -46,7 +46,7 @@ struct Wrapper {
 derive Display for Wrapper
 
 fn main() {
-  io.print("${Wrapper{inner: Inner{n: 1}}}")
+  io.print("${#Wrapper{inner: #Inner{n: 1}}}")
 }
 `
 	p, err := AnalyzeSource("main", src)

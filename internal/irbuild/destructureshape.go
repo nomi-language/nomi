@@ -10,16 +10,16 @@ import (
 //
 // lambda.go's header says what a destructuring parameter is: one value, several
 // names, and no runtime checks because the pattern is IRREFUTABLE. It routes a
-// distinct `Duration(x)`, a typed `Point{x, y}` and a single-variant enum in
+// distinct `Duration(x)`, a typed `#Point{x, y}` and a single-variant enum in
 // both its tuple and brace spellings. This file handles the other two:
 //
-//	{x, y}: Point       an ANONYMOUS STRUCT pattern over a NAMED struct.
+//	#{x, y}: Point       an ANONYMOUS STRUCT pattern over a NAMED struct.
 //	#(a, b): #(Int, Int) a TUPLE pattern, over an interned tagTuple whose
 //	                    components are addressed by position, as `case`'s
 //	                    tupleArm matches one.
 //
 // Both are ordinary Nomi rather than corners. Spec §5's self-typing rule is why
-// each carries an annotation and `Point{x, y}` does not: a pattern whose head
+// each carries an annotation and `#Point{x, y}` does not: a pattern whose head
 // NAMES a type is its own annotation, and neither of these has a head, so Nomi
 // requires `: Type` and patternParamKind reads the kind straight off it.
 //
@@ -27,12 +27,12 @@ import (
 //
 // destructureAnonStruct reads its field list from the interned RECORD kind, so
 // the pattern's field set is the whole of the value's type. Over a NAMED struct
-// the pattern's field set is a SUBSET of a DECLARATION's — `{x}: Point` is legal
+// the pattern's field set is a SUBSET of a DECLARATION's — `#{x}: Point` is legal
 // and names one of two fields — and the match is against a type the pattern does
 // not name. Same node, two field sources, dispatched on src.k.
 //
 // So this reuses destructureFields, which case.go's structFieldArms and the
-// typed `Point{x, y}` parameter already share: it walks the PATTERN's fields and
+// typed `#Point{x, y}` parameter already share: it walks the PATTERN's fields and
 // looks each one up on the def BY NAME, which is exactly the subset rule.
 // Teaching destructureAnonStruct about named defs instead would make a second
 // field-identity implementation beside the one `case` uses.

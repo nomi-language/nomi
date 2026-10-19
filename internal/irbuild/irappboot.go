@@ -172,7 +172,7 @@ func (g *gen) irDisplayErasedContainer(want, have kind) bool {
 // irErasesFields reports whether an anonymous record of kind have enters a
 // position of record kind want field by field: the same field names, and each
 // field either the same kind or entering its position by erasure (irErases).
-// A boot answering `{logger: Console{}}` for `{logger: Logger}` is the case.
+// A boot answering `#{logger: #Console{}}` for `#{logger: Logger}` is the case.
 func (g *gen) irErasesFields(want, have kind) bool {
 	if want.tag != tagAnonStruct || have.tag != tagAnonStruct || want.comp == nil || have.comp == nil ||
 		len(want.comp.names) != len(have.comp.names) || len(want.comp.parts) != len(have.comp.parts) ||
@@ -260,7 +260,7 @@ func (g *gen) irBootRetain(fd *ast.FuncDef) {
 	}
 	result := g.typeOf(fd.ReturnTypeExpr)
 	// A named application struct, or an anonymous record
-	// (`{tag: String, execution: Context}`), whose fields the VM's boot
+	// (`#{tag: String, execution: Context}`), whose fields the VM's boot
 	// publishes by name alike.
 	if !(result.tag == tagNamed && irBootStructKind(result.def)) && !irBootRecordKind(result) {
 		g.irDeclineOpen(fd.Name)

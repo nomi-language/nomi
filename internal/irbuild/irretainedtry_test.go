@@ -16,11 +16,11 @@ struct Outer {
 fn get() -> Result<Int, String> { Ok(42) }
 fn work() -> Result<Int, String> {
   n = try get()
-  io.inspect(Outer{p: [Point{x: n}]})
+  io.inspect(#Outer{p: [#Point{x: n}]})
   Ok(n)
 }
 fn main() { io.inspect(work()) }
-`, "Outer{p: [Point{x: 42}], hooks: %{}}\nOk(42)\n")
+`, "#Outer{p: [#Point{x: 42}], hooks: %{}}\nOk(42)\n")
 }
 
 func TestIRRetainedTry_CompletePrograms(t *testing.T) {

@@ -37,9 +37,8 @@ import (
 // once: a literal case's subject is read once per rung of the chain, so it
 // must be a name or field read. Comments are kept where the formatter keeps
 // them; a conversion that would drop one is not offered. The rewrite is
-// parsed back and must read as the node it rendered, so a condition that
-// would change meaning in its new position (a struct literal in an `if`
-// condition) refuses the conversion.
+// parsed back and must read as the node it rendered; one that reads
+// differently refuses the conversion.
 
 func (r *refactorRequest) ifCaseConversions() []offer {
 	target := r.ifCaseAtHeader()

@@ -24,7 +24,7 @@ func TestFormat_StructBodyConformanceAndMethods(t *testing.T) {
 }
 
 fn doubled(m: Money) -> Money {
-    Money{cents: m.cents * 2}
+    #Money{cents: m.cents * 2}
 }
 
 derive Equatable for Money
@@ -106,7 +106,7 @@ func TestFormat_HoistConsolidatesScatteredConformances(t *testing.T) {
     x: Int
 }
 
-pub once origin: Point = Point{x: 0}
+pub once origin: Point = #Point{x: 0}
 
 derive Equatable for Point
 
@@ -118,7 +118,7 @@ derive Hashable for Point
     x: Int
 }
 
-pub once origin: Point = Point{x: 0}
+pub once origin: Point = #Point{x: 0}
 
 derive Equatable for Point
 derive Hashable for Point
@@ -337,13 +337,13 @@ func TestFormat_DeriveWhereClause(t *testing.T) {
 }
 
 func TestFormat_DeriveOptions(t *testing.T) {
-	src := `derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel}
+	src := `derive ToJson for User with #ToJson.Options{rename_all: Json.Case.Camel}
 `
 	roundTrip(t, src)
 }
 
 func TestFormat_DeriveOptionsBeforeWhereClause(t *testing.T) {
-	src := `derive ToJson for Box<T> with ToJson.Options{
+	src := `derive ToJson for Box<T> with #ToJson.Options{
     rename_all: Json.Case.Camel,
     omit_empty_fields: True,
 } where T: ToJson

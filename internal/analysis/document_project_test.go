@@ -294,7 +294,7 @@ pub struct AppEnv {
 }
 
 pub fn load(context: Context) -> AppEnv {
-  AppEnv{context, logger: ProdLogger}
+  #AppEnv{context, logger: ProdLogger}
 }
 
 `)

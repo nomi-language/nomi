@@ -29,8 +29,8 @@ impl Right {
 }
 
 fn main() {
-  io.print(Left.label(Left{n: 2}))
-  io.print(Right.read(Right{n: 2}))
+  io.print(Left.label(#Left{n: 2}))
+  io.print(Right.read(#Right{n: 2}))
 }
 `
 	const want = "left 3\n12\n"
@@ -89,8 +89,8 @@ impl Read for Box<T> {
   fn read(_p: Box<T>) -> Int { 7 }
 }
 fn main() {
-  io.print(Read.read(Box{item: 1, n: 3}))
-  io.print(Read.read(Box{item: "x", n: 7}))
+  io.print(Read.read(#Box{item: 1, n: 3}))
+  io.print(Read.read(#Box{item: "x", n: 7}))
 }
 `
 	var funcs []*ir.Func

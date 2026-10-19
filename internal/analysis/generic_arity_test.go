@@ -236,7 +236,7 @@ interface Shown<T> {
 	}{
 		{
 			name: "return type",
-			src:  "fn make() -> Box {\n  Box{inner: 1}\n}\n",
+			src:  "fn make() -> Box {\n  #Box{inner: 1}\n}\n",
 			want: "`Box` expects 1 type argument, got 0",
 			line: 9, col: 14,
 			// No `nothing` here: an unresolvable RETURN type falls back to
@@ -266,7 +266,7 @@ interface Shown<T> {
 		},
 		{
 			name: "binding annotation",
-			src:  "fn go() -> Int {\n  held: Box = Box{inner: 1}\n  1\n}\n",
+			src:  "fn go() -> Int {\n  held: Box = #Box{inner: 1}\n  1\n}\n",
 			want: "`Box` expects 1 type argument, got 0",
 			line: 10, col: 9,
 		},
@@ -402,7 +402,7 @@ impl Shown for Tag {
 `,
 		},
 		{
-			// `Box{inner: 1}` — 53 sites. The argument comes from the field
+			// `#Box{inner: 1}` — 53 sites. The argument comes from the field
 			// values, and there is no turbofish on a struct literal:
 			// `Box<Int>{…}` parses as a comparison. No spelling would satisfy
 			// a rule here.
@@ -412,7 +412,7 @@ impl Shown for Tag {
 }
 
 fn go() -> Int {
-  b = Box{inner: 1}
+  b = #Box{inner: 1}
   b.inner
 }
 `,

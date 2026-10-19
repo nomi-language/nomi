@@ -15,11 +15,11 @@ fn answer() -> Int {
   42
 }
 
-//! label = Label{text: "done"}
+//! label = #Label{text: "done"}
 //! assert Label.render(label) == "[done]"
 //! refute Label.render(label) == "[ready]"
 fn done_label() -> String {
-  Label.render(Label{text: "done"})
+  Label.render(#Label{text: "done"})
 }
 `))
 	if err != nil {
@@ -32,7 +32,7 @@ fn done_label() -> String {
 	}
 
 	testFn := findFunc(t, nodes, "done_label")
-	want := `label = Label{text: "done"}
+	want := `label = #Label{text: "done"}
 assert Label.render(label) == "[done]"
 refute Label.render(label) == "[ready]"`
 	if got := RenderAttachedTestBody(testFn.AttachedTests[0]); got != want {

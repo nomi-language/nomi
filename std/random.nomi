@@ -32,9 +32,9 @@ derive Equatable for Error
 impl Display for Error {
     fn to_string(e: Error) -> String {
         case e {
-            Error.InvalidWeight{weight} -> "invalid random weight: ${weight}"
+            #Error.InvalidWeight{weight} -> "invalid random weight: ${weight}"
             Error.ZeroWeightTotal -> "random weights must include at least one positive weight"
-            Error.OsEntropy{reason} -> "OS entropy unavailable: ${reason}"
+            #Error.OsEntropy{reason} -> "OS entropy unavailable: ${reason}"
         }
     }
 }
@@ -59,7 +59,7 @@ impl Seed {
     pub fn from_os() -> Result<Seed, Error> {
         case os_state() {
             Ok(state) -> Ok(Seed(state))
-            Err(reason) -> Err(Error.OsEntropy{reason})
+            Err(reason) -> Err(#Error.OsEntropy{reason})
         }
     }
 }
@@ -163,7 +163,7 @@ impl Generator<T> {
     //! assert value == "fixed"
     //
     pub fn constant<T>(value: T) -> Generator<T> {
-        Generator{run: fn seed -> #(value, seed)}
+        #Generator{run: fn seed -> #(value, seed)}
     }
 
     /// Uniform choice among `first` and `rest` -- non-empty by construction.
@@ -207,7 +207,7 @@ impl Generator<T> {
     //! assert value == 42
     //
     pub fn map<T, U>(gen: Generator<T>, f: (T) -> U) -> Generator<U> {
-        Generator{
+        #Generator{
             run: fn seed -> {
                 #(value, seed) = Generator.step(gen, seed)
                 #(f(value), seed)
@@ -231,7 +231,7 @@ impl Generator<T> {
     //! assert value == 30
     //
     pub fn flat_map<T, U>(gen: Generator<T>, f: (T) -> Generator<U>) -> Generator<U> {
-        Generator{
+        #Generator{
             run: fn seed -> {
                 #(value, seed) = Generator.step(gen, seed)
                 Generator.step(f(value), seed)
@@ -247,12 +247,12 @@ impl Generator<T> {
     //! assert values == ["ha", "ha", "ha"]
     //
     pub fn list<T>(gen: Generator<T>, length: Int) -> Generator<List<T>> {
-        Generator{run: fn seed -> draw_list(gen, length, seed, [])}
+        #Generator{run: fn seed -> draw_list(gen, length, seed, [])}
     }
 }
 
 fn unsafe_int(from: Int, to: Int) -> Generator<Int> {
-    Generator{
+    #Generator{
         run: fn seed -> {
             between(seed, from, to)
         },
@@ -260,7 +260,7 @@ fn unsafe_int(from: Int, to: Int) -> Generator<Int> {
 }
 
 fn unsafe_float(from: Float, to: Float) -> Generator<Float> {
-    Generator{
+    #Generator{
         run: fn seed -> {
             #(f, seed) = unit_float(seed)
             span = to - from
@@ -305,7 +305,7 @@ fn total_weight<T>(items: List<#(Float, T)>, acc: Float) -> Result<Float, Error>
     case items {
         [] ->
             if Float.finite?(acc) == False {
-                Err(Error.InvalidWeight{weight: acc})
+                Err(#Error.InvalidWeight{weight: acc})
             } else if acc > 0.0 {
                 Ok(acc)
             } else {
@@ -314,9 +314,9 @@ fn total_weight<T>(items: List<#(Float, T)>, acc: Float) -> Result<Float, Error>
 
         [#(w, _), ..tail] ->
             if Float.finite?(w) == False {
-                Err(Error.InvalidWeight{weight: w})
+                Err(#Error.InvalidWeight{weight: w})
             } else if w < 0.0 {
-                Err(Error.InvalidWeight{weight: w})
+                Err(#Error.InvalidWeight{weight: w})
             } else {
                 total_weight(tail, acc + w)
             }

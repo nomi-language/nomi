@@ -125,7 +125,7 @@ fn listed() -> List<List<String>> {
 }
 
 fn boxed() -> Box {
-    Box { items: help }
+    #Box { items: help }
 }
 
 fn count(xs: List<String>) -> Int {

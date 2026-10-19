@@ -22,7 +22,7 @@ pub struct App {
 }
 
 pub fn boot() -> App {
-  App{context: Context.root(), done: Channel.buffered<Int>(4)}
+  #App{context: Context.root(), done: Channel.buffered<Int>(4)}
 }
 
 fn main() {}
@@ -112,7 +112,7 @@ fn drain() -> List<String> {
 }
 
 pub fn boot() -> App {
-  App{
+  #App{
     context: Context.root(),
     work: Supervisor.new(max_running: 2),
     alerts: Channel.buffered<String>(8),

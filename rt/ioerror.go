@@ -8,8 +8,8 @@ package rt
 // See internal/irbuild/stdenum.go.
 //
 // Its payloads are struct-shaped, unlike the other carrying rows in that
-// family: std declares `NotFound {path: String}` and `Other {reason: String}`,
-// which a pattern binds by name (`IOError.NotFound{path} -> …`) rather than by
+// family: std declares `#NotFound {path: String}` and `#Other {reason: String}`,
+// which a pattern binds by name (`#IOError.NotFound{path} -> …`) rather than by
 // position. calendar.Error's five, PathSegment's two and Json's six carrying
 // rows are positional.
 //

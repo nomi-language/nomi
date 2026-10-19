@@ -376,7 +376,7 @@ func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef) *fileFunc {
 // the ONE implementation of "which parameters resolve", so a second walk here
 // that refused a shape funcDecl lowers would refuse a call the declaring file
 // compiles, for instance a destructuring parameter whose pattern head NAMES a
-// type and is its own annotation (`pub fn shift(Point{x, y}) -> Int`).
+// type and is its own annotation (`pub fn shift(#Point{x, y}) -> Int`).
 //
 // A signature this builder cannot type is ECHOED, not reported. Every user file
 // in the import graph is lowered, so that file's own funcDecl already names the

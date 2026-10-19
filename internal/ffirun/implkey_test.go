@@ -144,8 +144,8 @@ impl Add<Bonus, Score> for Score {
 }
 
 fn main() {
-  io.print(Int.to_string((Score{points: 1} + Score{points: 2}).points))
-  io.print(Int.to_string((Score{points: 1} + Bonus{points: 2}).points))
+  io.print(Int.to_string((#Score{points: 1} + #Score{points: 2}).points))
+  io.print(Int.to_string((#Score{points: 1} + #Bonus{points: 2}).points))
 }
 `)
 
@@ -271,11 +271,11 @@ impl Box<T> {
 }
 
 fn main() {
-  a = Score.add(Score{points: 1}, Score{points: 2})
+  a = Score.add(#Score{points: 1}, #Score{points: 2})
   io.print(a.points)
-  b = Add.add(Score{points: 1}, Bonus{points: 2})
+  b = Add.add(#Score{points: 1}, #Bonus{points: 2})
   io.print(b.points)
-  s: Score = Score{points: 1} + Score{points: 5}
+  s: Score = #Score{points: 1} + #Score{points: 5}
   io.print(s.points)
   io.print(Score.describe(a))
   io.print(Display.to_string(a))

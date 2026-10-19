@@ -51,7 +51,7 @@ impl Sized for Pot {
     }
 
     fn make(n: Int) -> Pot {
-        Pot { n: n }
+        #Pot { n: n }
     }
 }
 
@@ -71,7 +71,7 @@ impl Sized for Word {
     }
 
     fn make(n: Int) -> Word {
-        Word { text: Int.to_string(n) }
+        #Word { text: Int.to_string(n) }
     }
 }
 
@@ -88,17 +88,17 @@ fn total<T>(t: T) -> Int where T: Sized {
 }
 
 fn main() {
-    io.print(Pot.same(Pot { n: 3 }).n)
-    #(a, b) = Pot.pair(Pot { n: 3 })
+    io.print(Pot.same(#Pot { n: 3 }).n)
+    #(a, b) = Pot.pair(#Pot { n: 3 })
     io.print("${a.n} ${b.n}")
     io.print(Pot.twice(a, b) |> Iter.map(fn p -> p.n) |> Iter.to_list())
     io.print(Pot.zero().n)
     io.print(Word.zero().text)
-    io.print(Word.grown(Word { text: "abc" }).text)
-    io.print(Sized.same(Pot { n: 7 }).n)
-    io.print(total(Pot { n: 1 }))
-    io.print(total(Word { text: "hello" }))
-    io.print(Pot.shown(Pot { n: 9 }).n)
+    io.print(Word.grown(#Word { text: "abc" }).text)
+    io.print(Sized.same(#Pot { n: 7 }).n)
+    io.print(total(#Pot { n: 1 }))
+    io.print(total(#Word { text: "hello" }))
+    io.print(Pot.shown(#Pot { n: 9 }).n)
 }
 `})
 	want := "3\n3 4\n[3, 4]\n0\n0\n4\n7\n6\n4\nshowing pot 9\n9\n"
@@ -140,7 +140,7 @@ impl Grow for Pot {
     }
 
     fn make(n: Int) -> Pot {
-        Pot { n: n }
+        #Pot { n: n }
     }
 }
 
@@ -150,8 +150,8 @@ fn bigger<T>(t: T) -> Int where T: Grow {
 }
 
 fn main() {
-    io.print(Pot.grown(Pot { n: 1 }).n)
-    io.print(bigger(Pot { n: 5 }))
+    io.print(Pot.grown(#Pot { n: 1 }).n)
+    io.print(bigger(#Pot { n: 5 }))
     io.print(Pot.zero().n)
 }
 `})

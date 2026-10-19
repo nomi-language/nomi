@@ -123,7 +123,7 @@ fn main() {
   io.print(is_even(1000001))
   io.print(bounce(1000000, 0))
   io.print(via(fn x -> x - 1, 1000000))
-  io.print(Stepper.step(Down{by: 1}, 1000000))
+  io.print(Stepper.step(#Down{by: 1}, 1000000))
 }
 `)
 	if err != nil {

@@ -51,7 +51,7 @@ fn k(sx: Shape) -> Int {
   case sx {
     .Dot -> s(sx)
     .Round(_) -> s(sx)
-    .Rect{w: _} -> s(sx)
+    #.Rect{w: _} -> s(sx)
     .Wrapped(_) -> s(sx)
   }
 }

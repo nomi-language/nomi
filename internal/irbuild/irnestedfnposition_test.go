@@ -38,7 +38,7 @@ struct Point {
   y: Int
 }
 fn main() {
-  p = Point{x: {
+  p = #Point{x: {
     fn four() -> Int {
       4
     }
@@ -46,7 +46,7 @@ fn main() {
   }, y: 5}
   io.inspect(p)
 }
-`, "Point{x: 4, y: 5}\n"},
+`, "#Point{x: 4, y: 5}\n"},
 		{"operand", `import std/io
 fn main() {
   n = 10 + {
@@ -66,7 +66,7 @@ struct Point {
 fn main() {
   x = {
     fn origin() -> Point {
-      Point{x: 7, y: 8}
+      #Point{x: 7, y: 8}
     }
     origin()
   }.x

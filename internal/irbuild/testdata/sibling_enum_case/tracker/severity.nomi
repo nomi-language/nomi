@@ -11,6 +11,6 @@ pub fn of(n: Int) -> Severity {
         0 -> Severity.Low
         1 -> Severity.High(9)
         2 -> Severity.High(2)
-        _ -> Severity.Custom{label: "odd"}
+        _ -> #Severity.Custom{label: "odd"}
     }
 }

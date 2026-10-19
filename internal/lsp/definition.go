@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/tliron/glsp"
@@ -62,7 +63,7 @@ func (s *Server) textDocumentDefinition(ctx *glsp.Context, params *protocol.Defi
 	// textDocument/implementation, which jumps from an interface method to
 	// concrete methods.
 	if sym.Kind == analysis.SymbolFunction && sym.ImplInterface != "" && tokenOK && doc.Analysis.DefinitionAt(tokenStart) == sym {
-		if methodSym := s.findInterfaceMethodSymbol(doc.Analysis, sym.ImplInterface, sym.Name); methodSym != nil {
+		if methodSym := s.findInterfaceMethodSymbol(doc.Analysis, sym); methodSym != nil {
 			return s.toUTF16Location(s.definitionLocationForSymbol(uri, methodSym, sym)), nil
 		}
 	}
@@ -380,6 +381,54 @@ func findGoPackageDeclaration(dir string) (string, int, int, string, bool) {
 	return outFile, outLine, outCol, outPackage, outFile != ""
 }
 
+// stdModuleDeclaring names the std module that declares sym: a top-level
+// binding (an interface, a struct, a fn), a member of one (an interface
+// method, a variant's field) or a type-body method (List.concat, in the
+// file's TypeMethods). The declaration is matched by sameDeclaration, so
+// another module's symbol of the same name at the same line and column is
+// not taken. Only when no module holds the declaration itself, as for a
+// per-site copy of a symbol that records no AST node (a field), is it
+// matched by name and position; that fallback walks the modules in name
+// order, so its answer does not change from run to run.
+func (s *Server) stdModuleDeclaring(sym *analysis.Symbol) (string, bool) {
+	names := make([]string, 0, len(s.std.Files))
+	for name := range s.std.Files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	matchIn := func(fa *analysis.FileAnalysis, same func(a, b *analysis.Symbol) bool) bool {
+		if fa == nil || fa.ModuleScope == nil {
+			return false
+		}
+		if same(fa.ModuleScope.LookupLocal(sym.Name), sym) {
+			return true
+		}
+		for _, parent := range fa.ModuleScope.Symbols {
+			if same(parent.Members[sym.Name], sym) {
+				return true
+			}
+		}
+		for _, byName := range fa.TypeMethods {
+			if same(byName[sym.Name], sym) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, name := range names {
+		if matchIn(s.std.Files[name], sameDeclaration) {
+			return name, true
+		}
+	}
+	samePosition := func(a, b *analysis.Symbol) bool { return a != nil && a.Name == b.Name && a.Pos == b.Pos }
+	for _, name := range names {
+		if matchIn(s.std.Files[name], samePosition) {
+			return name, true
+		}
+	}
+	return "", false
+}
+
 func (s *Server) definitionLocationForSymbol(uri string, defSym, clickedSym *analysis.Symbol) *protocol.Location {
 	if defSym == nil {
 		return nil
@@ -415,44 +464,8 @@ func (s *Server) definitionLocationForSymbol(uri string, defSym, clickedSym *ana
 			if _, ok := s.std.Modules[defSym.Name]; ok {
 				targetURI = protocol.DocumentUri(s.stdFileURI(defSym.Name))
 			}
-		} else {
-			found := false
-			for modName, fa := range s.std.Files {
-				// Top-level symbol match: defSym is the same instance as a
-				// stdlib top-level binding (e.g. an Interface, Struct, fn).
-				if stdSym := fa.ModuleScope.LookupLocal(defSym.Name); stdSym != nil && stdSym.Pos == defSym.Pos {
-					targetURI = protocol.DocumentUri(s.stdFileURI(modName))
-					found = true
-					break
-				}
-				// Member match: defSym is an interface method or other
-				// member of a stdlib type (e.g. Io.write). Top-level
-				// LookupLocal misses members; walk each top-level symbol's
-				// Members map and match by Pos.
-				for _, parent := range fa.ModuleScope.Symbols {
-					if member, ok := parent.Members[defSym.Name]; ok && member.Pos == defSym.Pos {
-						targetURI = protocol.DocumentUri(s.stdFileURI(modName))
-						found = true
-						break
-					}
-				}
-				// Type-promoted method match: defSym is a type-body method
-				// (inherent op or impl method, e.g. List.concat) — those
-				// live in the FA's TypeMethods table, not module scope and
-				// not Members.
-				if !found {
-					for _, byName := range fa.TypeMethods {
-						if m, ok := byName[defSym.Name]; ok && m.Pos == defSym.Pos {
-							targetURI = protocol.DocumentUri(s.stdFileURI(modName))
-							found = true
-							break
-						}
-					}
-				}
-				if found {
-					break
-				}
-			}
+		} else if modName, ok := s.stdModuleDeclaring(defSym); ok {
+			targetURI = protocol.DocumentUri(s.stdFileURI(modName))
 		}
 	}
 

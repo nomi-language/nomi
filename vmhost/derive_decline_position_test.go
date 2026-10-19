@@ -44,7 +44,7 @@ struct Rec {
 derive Equatable for Rec
 
 fn main() {
-    io.inspect(Rec{m: Money{cents: 1}, c: Coin{n: 2}} == Rec{m: Money{cents: 1}, c: Coin{n: 2}})
+    io.inspect(#Rec{m: #Money{cents: 1}, c: #Coin{n: 2}} == #Rec{m: #Money{cents: 1}, c: #Coin{n: 2}})
 }
 `)
 	if err != nil {

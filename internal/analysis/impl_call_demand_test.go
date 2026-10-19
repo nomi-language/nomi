@@ -34,7 +34,7 @@ struct Plain {
 derive Display for DisplayBox<T> where T: Display
 
 fn main() {
-  _ = DisplayBox.to_string(DisplayBox{value: Plain{tag: "a"}})
+  _ = DisplayBox.to_string(#DisplayBox{value: #Plain{tag: "a"}})
 }
 `
 	fa := buildWithStdlibForDerive(src)

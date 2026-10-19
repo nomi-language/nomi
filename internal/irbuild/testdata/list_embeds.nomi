@@ -23,14 +23,14 @@ enum Shape {
 // The order is deliberate: a `Circle` first, a `Rect` second (which does not
 // widen into `Circle`), and `Shape.Point` last.
 fn main() {
-    shapes: List<Shape> = [Circle{radius: 5}, Rect{width: 3, height: 4}, Shape.Point]
+    shapes: List<Shape> = [#Circle{radius: 5}, #Rect{width: 3, height: 4}, Shape.Point]
 
     io.print("${count(shapes)}")
     io.print("${areas(shapes)}")
 
     // The same list built with every element already widened, so the two
     // construction spellings meet at one representation.
-    tagged: List<Shape> = [Shape.Circle{radius: 5}, Shape.Rect{width: 3, height: 4}, Shape.Point]
+    tagged: List<Shape> = [#Shape.Circle{radius: 5}, #Shape.Rect{width: 3, height: 4}, Shape.Point]
     io.print("${areas(tagged)}")
 
     // One element, and it is the widest: the degenerate case of the same rule.
@@ -53,8 +53,8 @@ fn areas(xs: List<Shape>) -> String {
 
 fn area(s: Shape) -> Int {
     case s {
-        Shape.Circle{radius} -> 3 * radius * radius
-        Shape.Rect{width, height} -> width * height
+        #Shape.Circle{radius} -> 3 * radius * radius
+        #Shape.Rect{width, height} -> width * height
         Shape.Point -> 0
     }
 }

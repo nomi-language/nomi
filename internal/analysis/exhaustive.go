@@ -17,11 +17,12 @@ import (
 //     as an anonymous struct) becomes a new column.
 //   - A tuple, struct or distinct type has one constructor whose components
 //     are its elements, fields or wrapped value.
-//   - A list splits by length: lengths 0 through M-1 exactly, and M or more,
-//     where M is the longest length any pattern in the column tells apart.
-//   - Every other type (Int, String, Codepoint, Map, ...) has no finite
-//     constructor set, so a literal, a string prefix or a map pattern never
-//     covers it: only rows with a catch-all there go on.
+//   - A list or a vector splits by length: lengths 0 through M-1 exactly,
+//     and M or more, where M is the longest length any pattern in the column
+//     tells apart.
+//   - Every other type (Int, String, Codepoint, Map, Set, ...) has no finite
+//     constructor set, so a literal, a string prefix, a map pattern or a set
+//     pattern never covers it: only rows with a catch-all there go on.
 //
 // When the column's patterns name every constructor, each constructor is
 // checked on the rows that match it. Otherwise only the catch-all rows can
@@ -215,6 +216,8 @@ func isUnenumerableConstraint(t Type, p ast.Node) bool {
 	case *ast.MapPattern:
 		_, isMap := t.(*MapType)
 		return isMap && v.TypeName == nil
+	case *ast.SetPattern:
+		return v.TypeName == nil && isSetType(t)
 	}
 	return false
 }
@@ -223,6 +226,14 @@ func isUnenumerableConstraint(t Type, p ast.Node) bool {
 // set of them (or is not known). column is the patterns over t, which fix
 // how many list lengths need telling apart.
 func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
+	if elem, ok := vectorElemType(t); ok {
+		return vectorCtors(elem, column)
+	}
+	if isSetType(t) {
+		// A set pattern tests membership, so no set of them covers every
+		// set: a Set has no constructors to tell apart.
+		return nil
+	}
 	switch tt := t.(type) {
 	case *EnumType:
 		if len(tt.Variants) == 0 {
@@ -245,9 +256,9 @@ func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 				ctor.subTypes = []Type{payload}
 				ctor.render = func(s []string) string {
 					if s[0] == "_" {
-						return name + "{..}"
+						return "#" + name + "{..}"
 					}
-					return name + s[0]
+					return "#" + name + strings.TrimPrefix(s[0], "#")
 				}
 			default:
 				ctor.subTypes = []Type{payload}
@@ -306,9 +317,9 @@ func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 				subs[def] = tt.TypeArgs[i]
 			}
 		}
-		return []patCtor{structCtor(tt.Name, tt.Fields, subs)}
+		return []patCtor{structCtor("#"+tt.Name, tt.Fields, subs)}
 	case *AnonStructType:
-		return []patCtor{structCtor("", tt.Fields, nil)}
+		return []patCtor{structCtor("#", tt.Fields, nil)}
 	case *ListType:
 		longest := -1
 		for _, p := range column {
@@ -350,6 +361,85 @@ func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 		return ctors
 	}
 	return nil
+}
+
+// vectorCtors is a vector's constructors by length, as a list's: lengths 0
+// through M-1 exactly and M or more, where M is the longest length a vector
+// pattern in column tells apart.
+func vectorCtors(elem Type, column []ast.Node) []patCtor {
+	longest := -1
+	for _, p := range column {
+		vp, ok := p.(*ast.VectorPattern)
+		if !ok || vp.TypeName != nil {
+			continue
+		}
+		n := len(vp.Heads) + len(vp.Tails)
+		if !vp.Spread {
+			n++
+		}
+		if n > longest {
+			longest = n
+		}
+	}
+	if longest < 0 {
+		return nil
+	}
+	ctors := make([]patCtor, 0, longest+1)
+	for n := 0; n <= longest; n++ {
+		elems := make([]Type, n)
+		for i := range elems {
+			elems[i] = elem
+		}
+		open := n == longest
+		ctors = append(ctors, patCtor{
+			listLen:  n,
+			listOpen: open,
+			subTypes: elems,
+			render: func(s []string) string {
+				parts := append([]string{}, s...)
+				if open {
+					parts = append(parts, "..")
+				}
+				return "#[" + strings.Join(parts, ", ") + "]"
+			},
+		})
+	}
+	return ctors
+}
+
+// specializeVector lines a vector pattern's elements up with the positions
+// of ctor's length class. A pattern with a `..` matches every length from
+// its element count on, its heads at the front and its tails at the end. In
+// the open class ("this length or more") the end is not a position the class
+// fixes, so a pattern there matches only when its tails test nothing.
+func specializeVector(ctor patCtor, p ast.Node) ([]ast.Node, bool) {
+	vp, ok := p.(*ast.VectorPattern)
+	if !ok || vp.TypeName != nil {
+		return nil, false
+	}
+	fixed := len(vp.Heads) + len(vp.Tails)
+	args := make([]ast.Node, ctor.listLen)
+	if !vp.Spread {
+		if fixed != ctor.listLen || ctor.listOpen {
+			return nil, false
+		}
+		copy(args, vp.Heads)
+		return args, true
+	}
+	if fixed > ctor.listLen {
+		return nil, false
+	}
+	copy(args, vp.Heads)
+	if ctor.listOpen {
+		for _, t := range vp.Tails {
+			if !isUnconstrainedPattern(t) {
+				return nil, false
+			}
+		}
+		return args, true
+	}
+	copy(args[ctor.listLen-len(vp.Tails):], vp.Tails)
+	return args, true
 }
 
 // structCtor is the one constructor of a struct type with the given fields.
@@ -420,6 +510,9 @@ func (c *checker) specializePattern(t Type, ctor patCtor, p ast.Node) ([]ast.Nod
 	if isCatchAllPattern(p) {
 		return make([]ast.Node, len(ctor.subTypes)), true
 	}
+	if isVectorType(t) {
+		return specializeVector(ctor, p)
+	}
 	switch tt := t.(type) {
 	case *InterfaceType:
 		v, ok := p.(*ast.EnumPattern)
@@ -453,6 +546,21 @@ func (c *checker) specializePattern(t Type, ctor patCtor, p ast.Node) ([]ast.Nod
 			stripped.TypeName = nil
 			inner = &stripped
 		case *ast.MapPattern:
+			stripped := *v
+			stripped.TypeName = nil
+			inner = &stripped
+		case *ast.VectorPattern:
+			stripped := *v
+			stripped.TypeName = nil
+			inner = &stripped
+		case *ast.SetPattern:
+			stripped := *v
+			stripped.TypeName = nil
+			inner = &stripped
+		case *ast.TuplePattern:
+			if v.TypeName == nil || !distinctTypeNameMatches(v.TypeName.TypeString(), tt.Name) {
+				return nil, false
+			}
 			stripped := *v
 			stripped.TypeName = nil
 			inner = &stripped

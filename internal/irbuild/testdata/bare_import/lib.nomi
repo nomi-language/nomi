@@ -6,7 +6,7 @@ pub struct Widget {
 }
 
 pub fn make(name: String) -> Widget {
-    Widget{name}
+    #Widget{name}
 }
 
 pub fn label(w: Widget) -> String {

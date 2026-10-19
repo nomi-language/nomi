@@ -15,9 +15,10 @@ import (
 //
 //   - paramPatternType derives a parameter's type. The type comes from either
 //     the `: T` annotation or — for self-typing patterns whose head names a
-//     concrete type (distinct `Dur(x)`, typed struct `Point{x, y}`, qualified
-//     single-variant enum `E.V(x)`) — the pattern head. Type-less shapes
-//     (tuple, anon struct, dot-variant, plain ident) require an annotation.
+//     concrete type (distinct `Dur(x)`, typed struct `#Point{x, y}`, a
+//     distinct over a tuple `#Pair(a, b)`, qualified single-variant enum
+//     `E.V(x)`) — the pattern head. Type-less shapes (tuple, anon struct,
+//     dot-variant, plain ident) require an annotation.
 //
 //   - checkParamPatternRefutable rejects refutable patterns (multi-variant
 //     enum variants, map / list / literal patterns, or any pattern nesting
@@ -41,6 +42,10 @@ func paramShapeName(pattern ast.Node) string {
 		return "map"
 	case *ast.ListPattern:
 		return "list"
+	case *ast.VectorPattern:
+		return "vector"
+	case *ast.SetPattern:
+		return "set"
 	}
 	return "destructuring"
 }
@@ -49,8 +54,14 @@ func paramShapeName(pattern ast.Node) string {
 // names, or returns (nil, nil) if the pattern is type-less (no head to read a
 // type from). A non-nil error reports a genuine resolution failure.
 func paramPatternHeadType(pattern ast.Node, reg *TypeRegistry, typeParams map[string]*TypeParam_, refs map[Pos]*Symbol) (Type, error) {
-	// `Point{x, y} as p` is typed by its pattern's head.
+	// `#Point{x, y} as p` is typed by its pattern's head.
 	switch p := ast.WithoutAs(pattern).(type) {
+	case *ast.TuplePattern:
+		// `#Pair(a, b)` names a distinct type over a tuple.
+		if p.TypeName == nil {
+			return nil, nil
+		}
+		return ResolveTypeExpr(p.TypeName, reg, typeParams, refs)
 	case *ast.EnumPattern:
 		switch v := p.Variant.(type) {
 		case *ast.SimpleType:
@@ -72,13 +83,13 @@ func paramPatternHeadType(pattern ast.Node, reg *TypeRegistry, typeParams map[st
 		}
 	case *ast.StructPattern:
 		if p.TypeName == nil {
-			return nil, nil // anonymous struct `{x, y}` — no type head
+			return nil, nil // anonymous struct `#{x, y}` — no type head
 		}
 		if qt, ok := p.TypeName.(*ast.QualifiedType); ok {
-			// `Outer.Inner{...}` may name a qualified struct type. Prefer the
-			// full dotted type when it exists; otherwise `E.V{...}` is an enum
+			// `#Outer.Inner{...}` may name a qualified struct type. Prefer the
+			// full dotted type when it exists; otherwise `#E.V{...}` is an enum
 			// struct variant pattern where the qualifier E is the type and V is
-			// the variant (e.g. `Shape.Circle{radius}`).
+			// the variant (e.g. `#Shape.Circle{radius}`).
 			if t, err := ResolveTypeExpr(qt, reg, typeParams, refs); err == nil && t != nil {
 				return t, nil
 			}
@@ -209,6 +220,10 @@ func patternColOf(n ast.Node) int {
 		return p.Col
 	case *ast.ListPattern:
 		return p.Col
+	case *ast.VectorPattern:
+		return p.Col
+	case *ast.SetPattern:
+		return p.Col
 	case *ast.AsPattern:
 		return p.Col
 	case *ast.OrPattern:
@@ -243,6 +258,11 @@ func (c *checker) checkParamPatternRefutable(pattern ast.Node, ty Type, addError
 
 	case *ast.ListPattern:
 		addError(p.Line, p.Col, refutableParamMsg)
+
+	case *ast.VectorPattern, *ast.SetPattern:
+		// Refutable as a list pattern is: a vector's length and a set's
+		// elements are not in their types.
+		addError(p.LineNum(), patternColOf(p), refutableParamMsg)
 
 	case *ast.EnumPattern:
 		if _, isSelf := p.Variant.(*ast.SelfType); isSelf {
@@ -284,6 +304,10 @@ func (c *checker) checkParamPatternRefutable(pattern ast.Node, ty Type, addError
 		}
 
 	case *ast.TuplePattern:
+		if dt, ok := ty.(*DistinctType); ok && p.TypeName != nil {
+			// `#Pair(a, b)` takes a distinct type apart, irrefutably.
+			ty = dt.Inner
+		}
 		if tt, ok := ty.(*TupleType); ok && len(tt.Elems) == len(p.Patterns) {
 			for i, sub := range p.Patterns {
 				c.checkParamPatternRefutable(sub, tt.Elems[i], addError)

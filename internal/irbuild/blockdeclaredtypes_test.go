@@ -17,7 +17,7 @@ fn pick(c: Bool) -> Int {
         struct A {
             n: Int
         }
-        A{n: 1}.n
+        #A{n: 1}.n
     } else {
         enum B {
             One
@@ -36,7 +36,7 @@ fn main() {
             a: T
         }
         type Meters Int
-        io.inspect(P{a: Meters(3)})
+        io.inspect(#P{a: Meters(3)})
         {
             struct Inner {
                 p: P<Int>
@@ -44,21 +44,21 @@ fn main() {
             fn get(i: Inner) -> Int {
                 i.p.a
             }
-            io.inspect(get(Inner{p: P{a: 4}}))
+            io.inspect(get(#Inner{p: #P{a: 4}}))
         }
     }
     x = {
         struct C {
             c: Int
         }
-        C{c: 6}.c
+        #C{c: 6}.c
     }
     io.inspect(x)
     io.inspect({
         struct D {
             d: Int
         }
-        D{d: 7}
+        #D{d: 7}
     })
     io.inspect(pick(True))
     io.inspect(pick(False))
@@ -66,7 +66,7 @@ fn main() {
         struct W {
             w: Int
         }
-        W{w: x}.w * 2
+        #W{w: x}.w * 2
     }
     io.inspect(f(21))
     xs = [1, 2]
@@ -74,7 +74,7 @@ fn main() {
         struct V {
             v: Int
         }
-        V{v: x + 1}.v
+        #V{v: x + 1}.v
     })
     |> Iter.to_list()
     io.inspect(xs)
@@ -83,13 +83,13 @@ fn main() {
             struct S {
                 s: Int
             }
-            S{s: n}.s
+            #S{s: n}.s
         }
         None -> 0
     })
 }
 `
-	const want = "P{a: Meters(3)}\n4\n6\nD{d: 7}\n1\n5\n42\n[2, 3]\n8\n"
+	const want = "#P{a: Meters(3)}\n4\n6\n#D{d: 7}\n1\n5\n42\n[2, 3]\n8\n"
 	irRunSource(t, src, want)
 }
 
@@ -104,12 +104,12 @@ func TestIRBlockDeclaredTypes_InATestBody(t *testing.T) {
         struct P {
             a: Int
         }
-        assert P{a: 1}.a == 1
+        assert #P{a: 1}.a == 1
         {
             enum E {
                 X Int
             }
-            assert case E.X(P{a: 2}.a) {
+            assert case E.X(#P{a: 2}.a) {
                 .X(n) -> n
             } == 2
             Unit
@@ -119,7 +119,7 @@ func TestIRBlockDeclaredTypes_InATestBody(t *testing.T) {
         struct Q {
             q: Int
         }
-        assert Q{q: 3}.q == 3
+        assert #Q{q: 3}.q == 3
         Unit
     }
     case Some(4) {
@@ -127,7 +127,7 @@ func TestIRBlockDeclaredTypes_InATestBody(t *testing.T) {
             struct R {
                 r: Int
             }
-            assert R{r: n}.r == 4
+            assert #R{r: n}.r == 4
             Unit
         }
         None -> Unit

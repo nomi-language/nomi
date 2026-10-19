@@ -43,6 +43,7 @@
 05-calendar-and-time/times_test.nomi
 06-collections/lists_test.nomi
 06-collections/maps_test.nomi
+06-collections/named_literals_test.nomi
 06-collections/sets_test.nomi
 06-collections/tuples_test.nomi
 06-collections/vectors_test.nomi
@@ -66,6 +67,7 @@
 08-pattern-matching/try_test.nomi
 08-pattern-matching/variant_literal_attach_test.nomi
 08-pattern-matching/variant_payloads_test.nomi
+08-pattern-matching/vector_set_patterns_test.nomi
 09-functions-and-control-flow/closures_and_lambdas_test.nomi
 09-functions-and-control-flow/field_access_and_predicates_test.nomi
 09-functions-and-control-flow/nested_fn_try_test.nomi

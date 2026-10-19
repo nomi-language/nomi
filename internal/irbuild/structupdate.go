@@ -1,6 +1,6 @@
 package irbuild
 
-// `Struct.update(original, {field: value})` — the universal struct patch.
+// `Struct.update(original, #{field: value})` — the universal struct patch.
 //
 // # Why this is a CALL-SITE lowering and not an anchor
 //
@@ -19,7 +19,7 @@ package irbuild
 // widening of the scalar subset reaches this signature.
 //
 // What CAN be lowered is the call, because at a call site the "partial" is a
-// literal whose field set is known: `{name: "Bob"}` names exactly one field.
+// literal whose field set is known: `#{name: "Bob"}` names exactly one field.
 // So the type operator never needs a runtime form; the patch is resolved where
 // the shape is written down. That is also why this arm DECLINES rather than
 // refuses for anything it cannot resolve — see structUpdateCall.
@@ -31,8 +31,8 @@ package irbuild
 // field's current value. Both halves are load-bearing and the corpus
 // distinguishes them in adjacent lines:
 //
-//	Struct.update(person, {address: {.., city: "NYC"}})        // merges: zip survives
-//	Struct.update(person, {address: Address{city:…, zip:…}})   // replaces
+//	Struct.update(person, #{address: #{.., city: "NYC"}})        // merges: zip survives
+//	Struct.update(person, #{address: Address{city:…, zip:…}})   // replaces
 //
 // So the recursion is driven by the SYNTAX of each update value: a `..`
 // literal reads the field from the base as its `..` (ircurrentvalue.go), and
@@ -49,7 +49,7 @@ package irbuild
 //
 // The original is evaluated exactly ONCE, as the argument to that literal.
 // Building `T{F: v, G: original.G, …}` instead would repeat it per surviving
-// field, which for `Struct.update(expensive(), {x: 1})` is a call per field and
+// field, which for `Struct.update(expensive(), #{x: 1})` is a call per field and
 // a different program.
 
 // stdStructUpdateIsStds reports whether `Struct.update` resolves to
@@ -76,7 +76,7 @@ func (g *gen) stdStructUpdateIsStds() bool {
 // shapes `Partial<self>` admits: a NAMED struct and an anonymous record.
 //
 // Two shapes because `Struct` is the interface EVERY struct satisfies, "a named
-// `struct` type or an anonymous `{...}`" in std's own words, so an arm that
+// `struct` type or an anonymous `#{...}`" in std's own words, so an arm that
 // served only named ones would lower half the interface and silently decline
 // the other half under a key that says nothing about records.
 func (g *gen) updateField(k kind, name string) (kind, bool) {

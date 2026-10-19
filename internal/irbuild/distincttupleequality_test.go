@@ -23,7 +23,7 @@ func TestDistinctTupleEquality_ContainersCompareOnTheVM(t *testing.T) {
 		"maybe=True\n" +
 		"list-of-maybe=True\n" +
 		"tuple=True\n" +
-		"maybe-debug=Some(Pair(3, \"c\"))\n" +
+		"maybe-debug=Some(#Pair(3, \"c\"))\n" +
 		"tag-list=True\n" +
 		"tag-list-ne=True\n" +
 		"tag-maybe=True\n" +

@@ -31,11 +31,11 @@ fn escape_program(attempt: String) -> String {
           struct Config {
             context: Context
 
-            spare: {context: Context}
+            spare: #{context: Context}
           }
 
           fn boot() -> Config {
-            Config{context: Context.root(), spare: {context: Context.root()}}
+            #Config{context: Context.root(), spare: #{context: Context.root()}}
           }
 
           fn inner() {
@@ -80,7 +80,7 @@ test "a nested deadline still tightens" {
         }
 
         fn boot() -> Empty {
-          Empty{context: Context.root()}
+          #Empty{context: Context.root()}
         }
 
         fn inner() {

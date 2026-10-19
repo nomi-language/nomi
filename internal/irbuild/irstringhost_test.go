@@ -13,8 +13,8 @@ struct Outer {
   p: List<Point>
   hooks: Map<String, (Int) -> Int> = Map.empty()
 }
-fn main() { s = String.trim(" x ") io.inspect(Outer{p: [Point{x: s}]}) }
-`, "Outer{p: [Point{x: \"x\"}], hooks: %{}}\n")
+fn main() { s = String.trim(" x ") io.inspect(#Outer{p: [#Point{x: s}]}) }
+`, "#Outer{p: [#Point{x: \"x\"}], hooks: %{}}\n")
 }
 
 func TestIRStringHost_PipelineConstructors(t *testing.T) {

@@ -22,7 +22,7 @@
 // single slot read.
 //
 // NOT PINNED HERE, deliberately: a bare struct annotated into the enum
-// (`s: Shape = Circle{radius: 1.0}`). That crosses the embeds coercion site,
+// (`s: Shape = #Circle{radius: 1.0}`). That crosses the embeds coercion site,
 // where the question is how the bare struct is wrapped into its variant rather
 // than how a field is read. Field access agrees however it is wrapped, so
 // pinning it here would tie this fixture to the coercion instead of to field
@@ -45,27 +45,27 @@ enum Shape {
 }
 
 test "a struct-shaped variant's field reads through the tag" {
-    s = Shape.Rect{radius: 1.5, height: 3}
+    s = #Shape.Rect{radius: 1.5, height: 3}
 
     assert s.radius == 1.5
     assert s.height == 3
 }
 
 test "an embeds variant's field reads through the embedded struct" {
-    s = Shape.Square{radius: 9.0}
+    s = #Shape.Square{radius: 9.0}
 
     assert s.radius == 9.0
 }
 
 test "a positional struct payload's field reads through the tag" {
-    s = Shape.Wrap(Circle{radius: 4.0})
+    s = Shape.Wrap(#Circle{radius: 4.0})
 
     assert s.radius == 4.0
 }
 
 test "the tag decides which provider answers, not the declaration order" {
-    wrapped = Shape.Wrap(Circle{radius: 4.0})
-    squared = Shape.Square{radius: 9.0}
+    wrapped = Shape.Wrap(#Circle{radius: 4.0})
+    squared = #Shape.Square{radius: 9.0}
 
     assert wrapped.radius + squared.radius == 13.0
 }
@@ -77,7 +77,7 @@ test "the tag decides which provider answers, not the declaration order" {
 // single-evaluation binding passes every other test in the package.
 fn announce() -> Shape {
     io.print("picked")
-    Shape.Rect{radius: 1.5, height: 3}
+    #Shape.Rect{radius: 1.5, height: 3}
 }
 
 test "the subject is evaluated once, however impure it is" {

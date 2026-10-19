@@ -31,7 +31,7 @@ func TestFormat_EnumVariant_TrailingComment_Migrates(t *testing.T) {
 // trailing comment forces the broken layout.
 func TestFormat_BracedFields_TrailingComment(t *testing.T) {
 	roundTrip(t, "enum Shape {\n    Rect {\n        w: Int, // w\n        h: Int, // h\n        // end\n    } // r\n}\n")
-	roundTrip(t, "fn f(p: {\n    x: Int, // x\n    y: Int, // y\n}) -> Int {\n    1\n}\n")
+	roundTrip(t, "fn f(p: #{\n    x: Int, // x\n    y: Int, // y\n}) -> Int {\n    1\n}\n")
 	migrates(t,
 		"enum Shape {\n    Rect {\n        w: Int // w\n        h: Int // h\n    }\n}\n",
 		"enum Shape {\n    Rect {\n        w: Int, // w\n        h: Int, // h\n    }\n}\n")
@@ -50,7 +50,7 @@ func TestFormat_TrailingComment_OtherItemPositions(t *testing.T) {
 		"import block": "import {\n    std/math // m\n    std/strings // s\n}\n",
 		"binding":      "fn main() {\n    x = 1 // x\n    y: Int = x + 1 // y\n}\n",
 		"case arm":     "fn f(x: Int) -> Int {\n    case x {\n        1 -> 2 // one\n        _ -> 3 // other\n    }\n}\n",
-		"group":        "group \"g\" {\n    clock Clock.Virtual // c\n\n    boot server.boot() // b\n    setup {name: \"x\"} // s\n\n    test \"a\", {name} {\n        assert name == \"x\" // a\n    } // end\n}\n",
+		"group":        "group \"g\" {\n    clock Clock.Virtual // c\n\n    boot server.boot() // b\n    setup #{name: \"x\"} // s\n\n    test \"a\", #{name} {\n        assert name == \"x\" // a\n    } // end\n}\n",
 	} {
 		t.Run(name, func(t *testing.T) { roundTrip(t, src) })
 	}

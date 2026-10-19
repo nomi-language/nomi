@@ -9,7 +9,7 @@ fn fetch(ok: Bool) -> Result<Int, random.Error> {
     if ok {
         Ok(1)
     } else {
-        Err(Error.OsEntropy{reason: "refused"})
+        Err(#Error.OsEntropy{reason: "refused"})
     }
 }
 

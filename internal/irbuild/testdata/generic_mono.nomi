@@ -49,7 +49,7 @@ fn wrapped<T>(x: T) -> List<T> {
 /// kind. `Pair<Int, String>` and `Pair<String, Int>` are different instances of
 /// one declaration and must not collide.
 fn swap<A, B>(p: Pair<A, B>) -> Pair<B, A> {
-    Pair{left: p.right, right: p.left}
+    #Pair{left: p.right, right: p.left}
 }
 
 /// A generic function calling ANOTHER generic function at its own type
@@ -67,12 +67,12 @@ fn tag<T>(x: T) -> #(T, Int) {
 }
 
 test "one declaration, two concrete type arguments" {
-    as_int = case recv(Half{slot: 7}) {
+    as_int = case recv(#Half{slot: 7}) {
         Some(v) -> v
         None -> 0
     }
 
-    as_string = case recv(Half{slot: "seven"}) {
+    as_string = case recv(#Half{slot: "seven"}) {
         Some(v) -> v
         None -> ""
     }
@@ -98,8 +98,8 @@ test "a constructed container keeps the caller's element type" {
 }
 
 test "two type parameters instantiate as a tuple, in both orders" {
-    a = swap(Pair{left: 1, right: "one"})
-    b = swap(Pair{left: "two", right: 2})
+    a = swap(#Pair{left: 1, right: "one"})
+    b = swap(#Pair{left: "two", right: 2})
 
     assert a.left == "one"
     assert a.right == 1
@@ -108,12 +108,12 @@ test "two type parameters instantiate as a tuple, in both orders" {
 }
 
 test "a generic function calls a generic function at its own type parameter" {
-    n = case recv_twice(Half{slot: 11}) {
+    n = case recv_twice(#Half{slot: 11}) {
         Some(v) -> v
         None -> 0
     }
 
-    s = case recv_twice(Half{slot: "eleven"}) {
+    s = case recv_twice(#Half{slot: "eleven"}) {
         Some(v) -> v
         None -> ""
     }
@@ -132,12 +132,12 @@ test "the same instantiation reached twice is one function" {
     // interning directly — that is TestMonoInstanceIsInternedPerInstantiation's
     // job — but this row runs both calls through whatever the table interned,
     // so a collision there shows up as a wrong or missing row.
-    one = case recv(Half{slot: 1}) {
+    one = case recv(#Half{slot: 1}) {
         Some(v) -> v
         None -> 0
     }
 
-    two = case recv(Half{slot: 2}) {
+    two = case recv(#Half{slot: 2}) {
         Some(v) -> v
         None -> 0
     }

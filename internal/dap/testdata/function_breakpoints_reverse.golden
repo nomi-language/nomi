@@ -25,7 +25,7 @@
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
 -> variables {"variablesReference":1}
-<- response variables {"variables":[{"declarationLocationReference":1,"name":"a","namedVariables":1,"type":"Account","value":"Account{balance: 5}","variablesReference":2},{"declarationLocationReference":2,"name":"n","type":"Int","value":"20","variablesReference":0}]}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"a","namedVariables":1,"type":"Account","value":"#Account{balance: 5}","variablesReference":2},{"declarationLocationReference":2,"name":"n","type":"Int","value":"20","variablesReference":0}]}
 -> reverseContinue {"threadId":1}
 <- response reverseContinue
 <- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"function breakpoint","threadId":1}
@@ -34,7 +34,7 @@
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
 -> variables {"variablesReference":1}
-<- response variables {"variables":[{"declarationLocationReference":1,"name":"a","namedVariables":1,"type":"Account","value":"Account{balance: 0}","variablesReference":2},{"declarationLocationReference":2,"name":"n","type":"Int","value":"5","variablesReference":0}]}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"a","namedVariables":1,"type":"Account","value":"#Account{balance: 0}","variablesReference":2},{"declarationLocationReference":2,"name":"n","type":"Int","value":"5","variablesReference":0}]}
 -> reverseContinue {"threadId":1}
 <- response reverseContinue
 <- event stopped {"allThreadsStopped":true,"description":"Start of the program","reason":"entry","text":"No breakpoint stopped the program before this point, so going back stopped at its first statement.","threadId":1}

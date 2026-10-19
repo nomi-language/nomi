@@ -15,12 +15,12 @@ import (
 
 func TestParseCurrentValue_Struct(t *testing.T) {
 	for _, src := range []string{
-		`{.., city: "NYC"}`,
-		`{.., city: "NYC",}`,
-		`{.., city}`,
-		"{\n  ..,\n  city: \"NYC\",\n}",
-		"{\n  .., // keep\n  city: \"NYC\",\n}",
-		`{..}`,
+		`#{.., city: "NYC"}`,
+		`#{.., city: "NYC",}`,
+		`#{.., city}`,
+		"#{\n  ..,\n  city: \"NYC\",\n}",
+		"#{\n  .., // keep\n  city: \"NYC\",\n}",
+		`#{..}`,
 	} {
 		t.Run(src, func(t *testing.T) {
 			lit, ok := parseExpr(t, src).(*ast.StructLit)
@@ -71,11 +71,11 @@ func TestParseSetSpread(t *testing.T) {
 		spread string
 		items  int
 	}{
-		{`#{.., 3}`, "*ast.CurrentValue", 1},
-		{`#{..s, 3, 4}`, "*ast.Ident", 2},
-		{`#{..f(x), 3}`, "*ast.Call", 1},
-		{"#{\n  // note\n  ..,\n  3,\n}", "*ast.CurrentValue", 1},
-		{`#{1, 2}`, "", 2},
+		{`%[.., 3]`, "*ast.CurrentValue", 1},
+		{`%[..s, 3, 4]`, "*ast.Ident", 2},
+		{`%[..f(x), 3]`, "*ast.Call", 1},
+		{"%[\n  // note\n  ..,\n  3,\n]", "*ast.CurrentValue", 1},
+		{`%[1, 2]`, "", 2},
 	}
 	for _, tc := range cases {
 		t.Run(tc.src, func(t *testing.T) {
@@ -98,7 +98,7 @@ func TestParseSetSpread(t *testing.T) {
 }
 
 func TestParseSetSpread_MustBeFirst(t *testing.T) {
-	for _, src := range []string{`#{1, ..s}`, `#{1, ..}`, `#{..a, ..b}`} {
+	for _, src := range []string{`%[1, ..s]`, `%[1, ..]`, `%[..a, ..b]`} {
 		err := parseError(t, src)
 		if !strings.Contains(err.Error(), "set spread `..` must be the first element") {
 			t.Errorf("%q: %v", src, err)
@@ -107,7 +107,7 @@ func TestParseSetSpread_MustBeFirst(t *testing.T) {
 }
 
 func TestParseCurrentValue_OnlyFirstInStruct(t *testing.T) {
-	err := parseError(t, `{a: 1, ..}`)
+	err := parseError(t, `#{a: 1, ..}`)
 	if !strings.Contains(err.Error(), "struct spread `..` must be the first element") {
 		t.Errorf("%v", err)
 	}
@@ -184,6 +184,7 @@ func TestParseVectorNamedSpread(t *testing.T) {
 		{`#[..Team.names(t), 1]`, "Call", false, 1, 1, 3},
 		{`#[..#[], 1]`, "VectorLit", false, 1, 1, 3},
 		{`#[..v]`, "Ident", false, 0, 1, 3},
+
 		{"#[\n  ..names,\n  \"Noah\",\n]", "Ident", false, 1, 2, 3},
 		{"#[\n  \"Noah\",\n  ..names\n]", "Ident", true, 1, 3, 3},
 	}

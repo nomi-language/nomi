@@ -11,11 +11,11 @@ struct Box<T> {
 
 impl Box<T> {
     fn gather(b: Box<T>) -> Box<List<T>> {
-        Box{items: [b.items]}
+        #Box{items: [b.items]}
     }
 
     fn pairs<U>(b: Box<T>, u: U) -> Box<#(T, U)> {
-        Box{items: b.items |> Iter.map(fn x -> #(x, u)) |> Iter.to_list()}
+        #Box{items: b.items |> Iter.map(fn x -> #(x, u)) |> Iter.to_list()}
     }
 
     fn size(b: Box<T>) -> Int {
@@ -29,7 +29,7 @@ interface Grow {
 
 impl Grow for Box<T> {
     fn grow(x: Box<T>) -> Box<Box<T>> {
-        Box{items: [x, x]}
+        #Box{items: [x, x]}
     }
 }
 
@@ -46,19 +46,19 @@ fn grown<X>(x: X) -> Box<X> where X: Grow {
 }
 
 test "a member with no type parameters of its own builds per call" {
-    assert Box.gather(Box{items: [1, 2]}).items == [[1, 2]]
+    assert Box.gather(#Box{items: [1, 2]}).items == [[1, 2]]
 }
 
 test "a nested instance gathers" {
-    one = Box{items: [1]}
-    two = Box{items: [2, 3]}
-    nested = Box.gather(Box{items: [one, two]})
+    one = #Box{items: [1]}
+    two = #Box{items: [2, 3]}
+    nested = Box.gather(#Box{items: [one, two]})
     assert Box.size(nested) == 1
     assert nested.items == [[one, two]]
 }
 
 test "a generic caller gathers twice" {
-    deep = twice(Box{items: ["a"]})
+    deep = twice(#Box{items: ["a"]})
 
     assert deep.items == [
         [["a"]],
@@ -66,7 +66,7 @@ test "a generic caller gathers twice" {
 }
 
 test "a pipe stage gathers" {
-    deep = Box{items: [True]} |> Box.gather() |> Box.gather()
+    deep = #Box{items: [True]} |> Box.gather() |> Box.gather()
 
     assert deep.items == [
         [[True]],
@@ -74,13 +74,13 @@ test "a pipe stage gathers" {
 }
 
 test "a member with its own type parameter from a generic caller" {
-    assert self_pairs(Box{items: [1, 2]}, 9).items == [#(1, 9), #(2, 9)]
-    assert Box.pairs(Box{items: ["s"]}, 'c').items == [#("s", 'c')]
+    assert self_pairs(#Box{items: [1, 2]}, 9).items == [#(1, 9), #(2, 9)]
+    assert Box.pairs(#Box{items: ["s"]}, 'c').items == [#("s", 'c')]
 }
 
 test "a bounded type parameter dispatches to an expansive interface impl" {
-    assert Box.size(grown(Box{items: [7]})) == 2
-    regrown = Box.grow(Box{items: [1]}) |> Box.grow()
+    assert Box.size(grown(#Box{items: [7]})) == 2
+    regrown = Box.grow(#Box{items: [1]}) |> Box.grow()
 
     assert Box.size(regrown) == 2
 }

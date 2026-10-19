@@ -25,7 +25,7 @@ fn make(n: Int) -> #(Int, Int) {
 
 fn point() -> Point {
   io.print("point")
-  Point{x: 1, y: 2}
+  #Point{x: 1, y: 2}
 }
 
 fn tuple_tail() {
@@ -33,11 +33,11 @@ fn tuple_tail() {
 }
 
 fn struct_tail() {
-  {x: _, y: _} = point()
+  #{x: _, y: _} = point()
 }
 
 fn named_struct_tail() {
-  Point{x: _, y: _} = point()
+  #Point{x: _, y: _} = point()
 }
 
 fn arm_tail(flag: Bool) {

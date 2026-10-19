@@ -23,14 +23,14 @@ enum Shape {
 fn total(it: Iter<Shape>) -> Int {
     it
         |> Iter.map(fn s -> case s {
-            Shape.Circle{r} -> r
+            #Shape.Circle{r} -> r
             Shape.Dot -> 100
         })
         |> Iter.reduce(fn acc = 0, n -> acc + n)
 }
 
 fn main() {
-    c = Circle{r: 2}
+    c = #Circle{r: 2}
     v: Vector<Iter<Shape>> = #[[c], [Shape.Dot, c]]
     io.print(Vector.length(v))
     io.inspect(v |> Iter.map(fn s -> total(s)) |> Iter.to_list())

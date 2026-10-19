@@ -136,13 +136,13 @@ fn no_meters(_v: Meters) -> Bool {
 }
 
 test "an embeds variant's Debug delegates to the embedded value, unwrapped" {
-    w = Worker{zeta: 1, alpha: 2}
-    n_worker: Node = Worker{zeta: 1, alpha: 2}
-    n_qual = Node.Worker{zeta: 1, alpha: 2}
-    n_custom: Node = Custom{zeta: 3, alpha: 4}
+    w = #Worker{zeta: 1, alpha: 2}
+    n_worker: Node = #Worker{zeta: 1, alpha: 2}
+    n_qual = #Node.Worker{zeta: 1, alpha: 2}
+    n_custom: Node = #Custom{zeta: 3, alpha: 4}
     n_expired = Node.Expired
     n_userid = Node.UserId("ada")
-    o_worker: Other = Worker{zeta: 1, alpha: 2}
+    o_worker: Other = #Worker{zeta: 1, alpha: 2}
 
     // The delegation is BARE: no `Worker(...)` and no `Node.Worker(...)` wrapping
     // appears in any of these. That is the assertion, and it is a wrong ANSWER
@@ -159,14 +159,14 @@ test "an embeds variant's Debug delegates to the embedded value, unwrapped" {
     io.print("10 Debug.inspect(Other.Blank) = " + Debug.inspect(Other.Blank))
 
     // Declaration order, not alphabetical: `zeta` first.
-    assert Debug.inspect(w) == "Worker{zeta: 1, alpha: 2}"
+    assert Debug.inspect(w) == "#Worker{zeta: 1, alpha: 2}"
     // Delegation, unwrapped — identical to the line above even though the static
     // type is the ENUM. If the enum's own impl were selected this would either
     // wrap or recurse.
-    assert Debug.inspect(n_worker) == "Worker{zeta: 1, alpha: 2}"
+    assert Debug.inspect(n_worker) == "#Worker{zeta: 1, alpha: 2}"
     // Both construction spellings agree: the coerced bare value and the
     // qualified variant literal.
-    assert Debug.inspect(n_qual) == "Worker{zeta: 1, alpha: 2}"
+    assert Debug.inspect(n_qual) == "#Worker{zeta: 1, alpha: 2}"
     // PRECEDENCE survives one level down: the hand-written impl wins.
     assert Debug.inspect(n_custom) == "CUSTOM-DEBUG"
     // A zero-sized distinct embed renders as its bare name.
@@ -176,7 +176,7 @@ test "an embeds variant's Debug delegates to the embedded value, unwrapped" {
     // into `Node` does.
     assert Debug.inspect(n_userid) == "UserId(\"ada\")"
     // The second enum embedding the same struct answers the same way.
-    assert Debug.inspect(o_worker) == "Worker{zeta: 1, alpha: 2}"
+    assert Debug.inspect(o_worker) == "#Worker{zeta: 1, alpha: 2}"
     // Non-embed arms of the same enum are untouched.
     assert Debug.inspect(Node.Origin) == "Origin"
     assert Debug.inspect(Node.Ready(7)) == "Ready(7)"
@@ -192,7 +192,7 @@ test "an embeds variant's Debug delegates to the embedded value, unwrapped" {
 // purpose. The row is a structural walk that sorts the composed strings, so
 // it must not agree with the Debug rows above.
 test "values row sorts and ignores the hand-written impl" {
-    w = Worker{zeta: 1, alpha: 2}
+    w = #Worker{zeta: 1, alpha: 2}
     assert no_worker(w)
 }
 
@@ -200,7 +200,7 @@ test "values row sorts and ignores the hand-written impl" {
 // does, and the two assertions here must agree
 // with each other.
 test "values row for a qualified embeds variant" {
-    n = Node.Worker{zeta: 1, alpha: 2}
+    n = #Node.Worker{zeta: 1, alpha: 2}
     assert no_node(n)
 }
 

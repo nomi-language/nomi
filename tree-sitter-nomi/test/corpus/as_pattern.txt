@@ -4,7 +4,7 @@ An as pattern names the whole value in every pattern position
 
 fn describe(r: Result<Tx, String>) -> Int {
     case r {
-        Ok(Tx{kind: .Deposit} as t) -> t.end
+        Ok(#Tx{kind: .Deposit} as t) -> t.end
         Ok(_) as whole -> 0
         Err(_) -> 1
     }
@@ -45,7 +45,7 @@ test "pattern assert" {
             (type_identifier)
             (as_pattern
               pattern: (struct_pattern
-                (type_identifier)
+                type: (type_identifier)
                 (pattern_field
                   name: (identifier)
                   (dot_variant
@@ -183,9 +183,9 @@ An as pattern on the left side of a binding and nested in a pattern spelled as a
 ================================================================================
 
 fn bindings(q: P, pair: #(#(Int, Int), Int), xs: List<Int>, m: Map<String, Int>) -> Int {
-    {x: _c, y} as p = q
-    {y, x: _c} as p = q
-    {x: #(a, b) as inner, y} as p = q
+    #{x: _c, y} as p = q
+    #{y, x: _c} as p = q
+    #{x: #(a, b) as inner, y} as p = q
     #(#(a, b) as inner, c) as t = pair
     [x, ..rest] as all = xs else { return 0 }
     Some(#(a, b) as inner) as n = opt else { return 0 }
@@ -196,15 +196,15 @@ fn bindings(q: P, pair: #(#(Int, Int), Int), xs: List<Int>, m: Map<String, Int>)
 fn nested_destructures(q: P, pair: #(#(Int, Int), Int)) -> Int {
     #(#(a, b), c) = pair
     #(#(a, b) as inner, c) = pair
-    {x: #(a, b), y} = q
-    {x: Some(a), y} = q else { return 0 }
+    #{x: #(a, b), y} = q
+    #{x: Some(a), y} = q else { return 0 }
     %{"a" => #(a, b)} = m else { return 0 }
     0
 }
 
 fn arms(q: P, v: Option<#(Int, Int)>) -> Int {
     case q {
-        {x: #(a, b) as xs, y} as p -> y
+        #{x: #(a, b) as xs, y} as p -> y
     }
 
     v |> case {
@@ -214,11 +214,11 @@ fn arms(q: P, v: Option<#(Int, Int)>) -> Int {
 }
 
 fn lambdas(xs: List<P>) -> Iter<Int> {
-    xs |> Iter.map(fn {x: #(a, b) as t, y} -> y)
+    xs |> Iter.map(fn #{x: #(a, b) as t, y} -> y)
 }
 
 test "pattern assert" {
-    assert {x: _c, y} as p = q
+    assert #{x: _c, y} as p = q
     assert Some(#(a, b) as p) = v
 }
 
@@ -319,7 +319,7 @@ test "pattern assert" {
             (integer))))
       (as_binding
         pattern: (as_pattern
-          pattern: (map_literal
+          pattern: (map_construction
             (map_entry
               (string
                 (string_content))

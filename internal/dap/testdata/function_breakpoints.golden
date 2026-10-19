@@ -20,7 +20,7 @@
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
 -> variables {"variablesReference":1}
-<- response variables {"variables":[{"declarationLocationReference":1,"name":"a","namedVariables":1,"type":"Account","value":"Account{balance: 5}","variablesReference":2},{"declarationLocationReference":2,"name":"n","type":"Int","value":"20","variablesReference":0}]}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"a","namedVariables":1,"type":"Account","value":"#Account{balance: 5}","variablesReference":2},{"declarationLocationReference":2,"name":"n","type":"Int","value":"20","variablesReference":0}]}
 -> continue {"threadId":1}
 <- response continue {"allThreadsContinued":true}
 <- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[2],"reason":"function breakpoint","threadId":1}
@@ -29,7 +29,7 @@
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
 -> variables {"variablesReference":1}
-<- response variables {"variables":[{"declarationLocationReference":1,"name":"a","namedVariables":1,"type":"Account","value":"Account{balance: 25}","variablesReference":2},{"declarationLocationReference":2,"name":"n","type":"Int","value":"30","variablesReference":0}]}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"a","namedVariables":1,"type":"Account","value":"#Account{balance: 25}","variablesReference":2},{"declarationLocationReference":2,"name":"n","type":"Int","value":"30","variablesReference":0}]}
 -> continue {"threadId":1}
 <- response continue {"allThreadsContinued":true}
 <- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[3],"reason":"function breakpoint","threadId":1}

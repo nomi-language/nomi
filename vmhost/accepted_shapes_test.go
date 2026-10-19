@@ -107,7 +107,7 @@ fn main() {
   m: Meters = Meters(3)
   f = fn x: Int, d: Meters = Meters(1) -> case d { Meters(n) -> x + n }
   g: (Meters) -> Int = fn Meters(n) -> n
-  p: Pt = Pt{x: 4}
+  p: Pt = #Pt{x: 4}
   io.inspect(m)
   io.inspect(f(1))
   io.inspect(g(Meters(7)))
@@ -119,7 +119,7 @@ fn main() {
   })
 }
 `)
-	want := "Meters(3)\n2\n7\nMeters(2)\nPt{x: 4}\nMeters(9)\n"
+	want := "Meters(3)\n2\n7\nMeters(2)\n#Pt{x: 4}\nMeters(9)\n"
 	if out != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", out, want)
 	}

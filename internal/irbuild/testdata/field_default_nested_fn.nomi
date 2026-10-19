@@ -44,9 +44,9 @@ enum Job {
 }
 
 fn main() {
-    d = Defaults{}
+    d = #Defaults{}
     io.inspect(d.unit)
     io.inspect(d.twice(4))
     io.print(d.word)
-    io.inspect(Job.Run{})
+    io.inspect(#Job.Run{})
 }

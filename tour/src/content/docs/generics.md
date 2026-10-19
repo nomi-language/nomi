@@ -42,7 +42,7 @@ struct Box<T> {
 }
 
 fn main() {
-    box = Box{value: 42}
+    box = #Box{value: 42}
     dbg box.value
 }
 

@@ -184,8 +184,8 @@ func astSkipField(name string) bool {
 }
 
 // bindGroupedNames rewrites, in place, a variant or struct field pattern
-// whose payload is a parenthesized name, `Some((n))` or `{x: (n)}`, to the
-// binding the parser builds for `Some(n)` and `{x: n}`. The two bind the
+// whose payload is a parenthesized name, `Some((n))` or `#{x: (n)}`, to the
+// binding the parser builds for `Some(n)` and `#{x: n}`. The two bind the
 // same name to the same value; the formatter writes the second.
 func bindGroupedNames(v reflect.Value) {
 	switch v.Kind() {
@@ -259,6 +259,18 @@ func nameImportSegments(v reflect.Value) {
 
 func bindGroupedName(n any) {
 	switch n := n.(type) {
+	case *ast.AttachedTest:
+		// A trailing empty `//!` prompt line and a bare `//` after the test
+		// both only end the prompt; the formatter writes the second.
+		n.TrailingPromptBlanks = 0
+		kept := n.After[:0]
+		for _, a := range n.After {
+			if !a.IsDoc && strings.TrimSpace(strings.TrimPrefix(a.Trivia.Text, "//")) == "" {
+				continue
+			}
+			kept = append(kept, a)
+		}
+		n.After = kept
 	case *ast.EnumPattern:
 		if id, ok := n.Payload.(*ast.IdentPattern); ok && n.Binding == "" {
 			n.Binding, n.Payload = id.Name, nil

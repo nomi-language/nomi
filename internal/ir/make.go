@@ -39,7 +39,7 @@ import "strconv"
 // be: fields are keyed by the bare declared name, and the module qualification
 // lives on the type name one level up.
 //
-// AN ENUM LITERAL IS THE CASE THAT PROVES IT. `Shape.Rect{w: 4.0}` could be
+// AN ENUM LITERAL IS THE CASE THAT PROVES IT. `#Shape.Rect{w: 4.0}` could be
 // laid out as a tagged struct — one integer tag field plus one slot per
 // payload, with zero-sized payloads given no slot at all and same-typed
 // payloads of different variants SHARING one — or as a record carrying a
@@ -116,7 +116,7 @@ const (
 	// start. `Inclusive` is the `..=` form and is canonically false when there
 	// is no end. Owners: rangeLit, rangeFromCall.
 	MakeRange
-	// MakeUpdate copies a struct or record and replaces named fields: `{..base,
+	// MakeUpdate copies a struct or record and replaces named fields: `#{..base,
 	// f: v}`. Operand 0 is the base and `Names` is parallel to the remaining
 	// operands, in source order. Owner: structSpreadLit.
 	MakeUpdate

@@ -20,7 +20,7 @@ import (
 //	    inbox = Channel.buffered<Request>(16)
 //	    _ = Supervisor.new(drain: …, restart: Restart.Permanent)
 //	      |> Supervisor.spawn(fn -> Counter.serve(inbox))
-//	    Counter{inbox}
+//	    #Counter{inbox}
 //	  }
 //	}
 //

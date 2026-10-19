@@ -3,7 +3,7 @@ import std/io
 // A nominal struct and a record of the IDENTICAL shape must not unify.
 //
 // Nominal identity is (declaring file, name) and never the shape, so `Point`
-// and `{x: Int, y: Int}` are two types, and a value of one is not a value of
+// and `#{x: Int, y: Int}` are two types, and a value of one is not a value of
 // the other.
 //
 // The two failing assertions show the values apart at run time: the
@@ -18,7 +18,7 @@ fn nominal_sum(p: Point) -> Int {
     p.x + p.y
 }
 
-fn record_sum(p: {x: Int, y: Int}) -> Int {
+fn record_sum(p: #{x: Int, y: Int}) -> Int {
     p.x + p.y
 }
 
@@ -26,19 +26,19 @@ fn no_nominal(_p: Point) -> Bool {
     False
 }
 
-fn no_record(_p: {x: Int, y: Int}) -> Bool {
+fn no_record(_p: #{x: Int, y: Int}) -> Bool {
     False
 }
 
 test "a record and a same-shaped nominal struct stay apart" {
-    nom = Point{x: 1, y: 2}
-    rec = {x: 1, y: 2}
+    nom = #Point{x: 1, y: 2}
+    rec = #{x: 1, y: 2}
     io.print(Int.to_string(nominal_sum(nom)))
     io.print(Int.to_string(record_sum(rec)))
     assert no_nominal(nom)
 }
 
 test "and they render apart" {
-    rec = {x: 1, y: 2}
+    rec = #{x: 1, y: 2}
     assert no_record(rec)
 }

@@ -94,14 +94,15 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	params := make([]kind, len(t.Params))
 	for i, p := range t.Params {
-		_, tuple := p.Destructure.(*ast.TuplePattern)
+		tp, tuple := p.Destructure.(*ast.TuplePattern)
+		tuple = tuple && tp.TypeName == nil // `#Pair(a, b)` names its type
 		if po, partial := bl.partialOpen[t]; partial {
 			params[i] = po.kinds[i]
 		} else if p.TypeAnnotation != nil {
 			params[i] = bl.g.typeOf(p.TypeAnnotation)
 		} else if p.Destructure != nil && !tuple {
 			// A self-typing pattern names its type: `fn Dur(n) ->` takes a Dur,
-			// `fn Point{x, y} ->` a Point and `fn Box.Extent{w, h} ->` a Box.
+			// `fn #Point{x, y} ->` a Point and `fn #Box.Extent{w, h} ->` a Box.
 			params[i] = bl.g.irPatternHeadKind(p.Destructure)
 			// kindInvalid: lookup — the head names no distinct; a struct or enum head may name the type, and a miss declines below.
 			if params[i] == kindInvalid {
@@ -756,11 +757,12 @@ func irDistinctParamBinding(pattern ast.Node, k kind) (string, bool) {
 // irPatternHeadKind is the type a self-typing parameter pattern names
 // (`Dur(n)` names Dur), or kindInvalid.
 func (g *gen) irPatternHeadKind(pattern ast.Node) kind {
-	ep, ok := pattern.(*ast.EnumPattern)
+	ep, ok := irPattern(pattern).(*ast.EnumPattern)
 	if !ok {
 		return kindInvalid
 	}
 	owner, member, ok := g.patternHead(ep.Variant)
+
 	if !ok || owner != "" {
 		return kindInvalid
 	}

@@ -25,7 +25,7 @@ fn parse_message(text: String) -> Result<Int, String> {
 
 fn point_at(n: Int) -> Maybe<Point> {
     if n >= 0 {
-        Some(Point{x: n, y: n * 2})
+        Some(#Point{x: n, y: n * 2})
     } else {
         None
     }
@@ -89,7 +89,7 @@ test "Result.partition keeps input order on both sides" {
 test "Maybe.collect of a user struct" {
     points = [0, 1, 2] |> Iter.map(fn n -> point_at(n)) |> Maybe.collect()
 
-    assert points == Some([Point{x: 0, y: 0}, Point{x: 1, y: 2}, Point{x: 2, y: 4}])
+    assert points == Some([#Point{x: 0, y: 0}, #Point{x: 1, y: 2}, #Point{x: 2, y: 4}])
 
     missing = [0, -1, 2] |> Iter.map(fn n -> point_at(n)) |> Maybe.collect()
 
@@ -108,5 +108,5 @@ test "Maybe.collect stops pulling at the first None" {
 test "Maybe.values drops every None" {
     xs = #[0, -1, 2, -3] |> Iter.map(fn n -> point_at(n)) |> Maybe.values()
 
-    assert xs == [Point{x: 0, y: 0}, Point{x: 2, y: 4}]
+    assert xs == [#Point{x: 0, y: 0}, #Point{x: 2, y: 4}]
 }

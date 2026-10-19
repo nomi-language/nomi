@@ -7,11 +7,11 @@ import (
 )
 
 // CheckRepeatedFields reports a field named twice in one struct literal or
-// struct pattern, at the second name: `Point{x: 1, x: 2}`, `{x: 1, x: 2}`,
-// `.Rect{w: 1, w: 2}`, `{..p, y: 1, y: 2}` (a spread's own fields; giving a
+// struct pattern, at the second name: `#Point{x: 1, x: 2}`, `#{x: 1, x: 2}`,
+// `#.Rect{w: 1, w: 2}`, `#{..p, y: 1, y: 2}` (a spread's own fields; giving a
 // field the spread already holds is the point of a spread),
-// `Struct.update(p, {y: 1, y: 2})`, `Point{x: a, x: b}` in a pattern and
-// `{x: a, x: b} = p`. A literal has no last-wins rule and a pattern has no
+// `Struct.update(p, #{y: 1, y: 2})`, `#Point{x: a, x: b}` in a pattern and
+// `#{x: a, x: b} = p`. A literal has no last-wins rule and a pattern has no
 // rule for matching one field twice, so each is an error.
 //
 // It also reports a name declared twice in one declaration, at the second

@@ -7,6 +7,6 @@ impl Debug for Box {
 }
 
 test "cross-file explicit Debug impl controls rendering" {
-    rendered = Box.inspect(Box{w: 5})
+    rendered = Box.inspect(#Box{w: 5})
     assert rendered == "Box(5)"
 }

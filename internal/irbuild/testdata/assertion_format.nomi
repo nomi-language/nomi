@@ -25,8 +25,8 @@ import {
 // Declared `zed` BEFORE `alpha`, which is the point of the type. An assertion's
 // `values:` row is the structural rendering, which sorts the
 // whole composed `name: value` string, so a correct report reads
-// `Point{alpha: 1, zed: 2}` and one that used declaration order (which is what
-// `Debug.inspect` uses) would read `Point{zed: 2, alpha: 1}`. Two renderings of
+// `#Point{alpha: 1, zed: 2}` and one that used declaration order (which is what
+// `Debug.inspect` uses) would read `#Point{zed: 2, alpha: 1}`. Two renderings of
 // one value, pinned apart, and this is the one an assertion shows.
 struct Point {
     zed: Int
@@ -76,8 +76,8 @@ test "a failed comparison renders both operands in the order they were seen" {
 }
 
 test "a struct-valued operand renders with its fields sorted, not declared" {
-    left = Point{zed: 2, alpha: 1}
-    right = Point{zed: 2, alpha: 9}
+    left = #Point{zed: 2, alpha: 1}
+    right = #Point{zed: 2, alpha: 9}
     assert Err(failure) = testing.check(same_alpha?(left, right))
 
     assert AssertionFailure.format(failure) == """
@@ -85,21 +85,21 @@ test "a struct-valued operand renders with its fields sorted, not declared" {
           check same_alpha?(left, right)
           values:
             left
-              = Point{alpha: 1, zed: 2}
+              = #Point{alpha: 1, zed: 2}
             right
-              = Point{alpha: 9, zed: 2}
+              = #Point{alpha: 9, zed: 2}
         """
 }
 
 test "a bound-name subject renders the expression it was defined as" {
-    alpha_matches = same_alpha?(Point{zed: 0, alpha: 3}, Point{zed: 0, alpha: 4})
+    alpha_matches = same_alpha?(#Point{zed: 0, alpha: 3}, #Point{zed: 0, alpha: 4})
     assert Err(failure) = testing.check(alpha_matches)
 
     assert AssertionFailure.format(failure) == """
         line 96: check failed
           check alpha_matches
           defined as:
-            same_alpha?(Point{zed: 0, alpha: 3}, Point{zed: 0, alpha: 4})
+            same_alpha?(#Point{zed: 0, alpha: 3}, #Point{zed: 0, alpha: 4})
         """
 }
 

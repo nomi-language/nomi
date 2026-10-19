@@ -57,7 +57,7 @@ impl Equatable for Job {
 }
 
 fn main() {
-    j = Job{id: 1, ctx: Context.root()}
+    j = #Job{id: 1, ctx: Context.root()}
     _ = j == j
 }
 `

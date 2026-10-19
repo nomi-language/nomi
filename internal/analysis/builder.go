@@ -310,7 +310,7 @@ const (
 	RecordingKindGenericBoundCheck
 	// RecordingKindInterfaceTypedParam marks a recording produced when
 	// a concrete value flows into an interface-typed parameter or
-	// interface-typed struct field (`Effects { logger: ProdLogger {} }`,
+	// interface-typed struct field (`#Effects { logger: #ProdLogger {} }`,
 	// `Iter.to_list(xs)` where to_list takes `Iter<T>`). Pos is the
 	// argument or field-value expression.
 	RecordingKindInterfaceTypedParam
@@ -861,6 +861,10 @@ type builder struct {
 	// blocks in one file can collectively claim methods of the same interface;
 	// the override set has to span all of them before defaults are registered.
 	implOverrides map[string]map[string]map[string]bool
+	// implOverrideOrder lists implOverrides' (typeName, ifaceName) pairs in
+	// the order their first impl block appears in the file, so
+	// registerImplDefaults visits the interfaces in source order.
+	implOverrideOrder []implPair
 
 	// inherentTypeMethods marks the file.TypeMethods slots whose incumbent was
 	// written by an INHERENT `impl T { ... }` block, so defineImplBlockStub can
@@ -1700,6 +1704,21 @@ func (b *builder) lookupImportedTypeSymbol(name string, scope *Scope) *Symbol {
 	// go-to-def see the same type reference the checker sees. An import at
 	// the top of a block binds only inside that block, so it answers only
 	// where scope sees it.
+	//
+	// Two imports may bind one name (selective imports of a name resolve
+	// last-wins). The innermost one scope binds answers; failing that, the
+	// last one declared, as the scope slot would hold. Definitions is a map,
+	// so the choice is made by scope and position, never by iteration order.
+	for s := scope; s != nil; s = s.Parent {
+		sym := s.Symbols[name]
+		if sym == nil || !isTypeRefSymbol(sym) || b.file.Definitions[sym.Pos] != sym {
+			continue
+		}
+		if _, ok := sym.Node.(*ast.ImportStmt); ok {
+			return sym
+		}
+	}
+	var best *Symbol
 	for _, sym := range b.file.Definitions {
 		if sym == nil || sym.Name != name || !isTypeRefSymbol(sym) {
 			continue
@@ -1711,9 +1730,11 @@ func (b *builder) lookupImportedTypeSymbol(name string, scope *Scope) *Symbol {
 		if b.blockImports[imp] && !scopeDefines(scope, sym) {
 			continue
 		}
-		return sym
+		if best == nil || earlierDeclaration(best, sym) {
+			best = sym
+		}
 	}
-	return nil
+	return best
 }
 
 // scopeDefines reports that sym is defined in scope or an enclosing scope.
@@ -2136,7 +2157,7 @@ func (b *builder) defineEnum(n *ast.EnumDef, scope *Scope) {
 			// Embed variants share their name with the underlying type
 			// they wrap (struct or distinct). Defining the variant in scope
 			// would shadow the type's bare-name entry, so bare uses like
-			// `Circle{radius: 5.0}` or `UserId("alice")` would resolve to
+			// `#Circle{radius: 5.0}` or `UserId("alice")` would resolve to
 			// the variant constructor instead of the type itself. Keep the
 			// variant reachable only through qualified access via
 			// `enumSym.Members[v.Name]`; bare patterns inside `case` are
@@ -2718,7 +2739,7 @@ func (b *builder) defineEnumStub(n *ast.EnumDef, scope *Scope) {
 		// Embed variants share their name with the underlying type they
 		// wrap (struct or distinct). Defining the variant in scope would
 		// shadow the type's bare-name entry, so bare uses like
-		// `Circle{radius: 5.0}` or `UserId("alice")` would resolve to the
+		// `#Circle{radius: 5.0}` or `UserId("alice")` would resolve to the
 		// variant constructor instead of the type itself. Keep the variant
 		// reachable only through qualified access via
 		// `enumSym.Members[v.Name]`; bare patterns inside `case` are
@@ -2922,6 +2943,7 @@ func (b *builder) recordInterfaceImpl(typeName, ifaceName, methodName string) {
 	}
 	if b.implOverrides[typeName][ifaceName] == nil {
 		b.implOverrides[typeName][ifaceName] = make(map[string]bool)
+		b.implOverrideOrder = append(b.implOverrideOrder, implPair{typeName: typeName, iface: ifaceName})
 	}
 	b.implOverrides[typeName][ifaceName][methodName] = true
 }
@@ -3479,55 +3501,66 @@ func (b *builder) walkTypeDeclDecoratorArgs(decorators []ast.Decorator, scope *S
 // recordInterfaceImpl as the block stubs are defined) rather than a single
 // block's method list, so default registration sees every impl block for a
 // given (type, iface) before deciding which defaults to register.
+//
+// The scope entry exists so a bare call to the default (`describe(r)`) is
+// reported as bare-name dispatch naming its interface, rather than as an
+// undefined name. A default is the weakest occupant of its name's slot, as a
+// public interface function is (see checkRedeclareInScopeKind): it takes the
+// slot only when nothing holds it, so a file function, an import or an earlier
+// interface function of the same name keeps it, and a bare call to a file
+// function stays an ordinary call. Interfaces are visited in the source order
+// of their impl blocks, so when two interfaces' defaults share a name the
+// first one's holds the slot, in every build of the file.
 func (b *builder) registerImplDefaults(scope *Scope) {
-	for _, ifaceMap := range b.implOverrides {
-		for ifaceName, overrides := range ifaceMap {
-			ifaceSym := scope.Lookup(ifaceName)
-			if ifaceSym == nil {
-				continue
+	for _, pair := range b.implOverrideOrder {
+		overrides := b.implOverrides[pair.typeName][pair.iface]
+		ifaceSym := scope.Lookup(pair.iface)
+		if ifaceSym == nil {
+			continue
+		}
+		real := ifaceSym
+		if real.Resolved != nil {
+			real = real.Resolved
+		}
+		if real.Kind != SymbolInterface {
+			continue
+		}
+		ifaceDef, ok := real.Node.(*ast.InterfaceDef)
+		if !ok {
+			continue
+		}
+		for i := range ifaceDef.Methods {
+			m := &ifaceDef.Methods[i]
+			if m.Body == nil {
+				continue // not a default
 			}
-			real := ifaceSym
-			if real.Resolved != nil {
-				real = real.Resolved
+			if overrides[m.Name] {
+				continue // user-implemented somewhere in this file
 			}
-			if real.Kind != SymbolInterface {
-				continue
-			}
-			ifaceDef, ok := real.Node.(*ast.InterfaceDef)
+			methodSym, ok := real.Members[m.Name]
 			if !ok {
 				continue
 			}
-			for i := range ifaceDef.Methods {
-				m := &ifaceDef.Methods[i]
-				if m.Body == nil {
-					continue // not a default
-				}
-				if overrides[m.Name] {
-					continue // user-implemented somewhere in this file
-				}
-				methodSym, ok := real.Members[m.Name]
-				if !ok {
-					continue
-				}
-				// NOTE: must Define the SAME *Symbol pointer that lives in
-				// real.Members[m.Name]. bareNameDispatchInterface in
-				// checker.go (shape 2, the pointer-identity scan) relies on
-				// `ic.Members[real.Name] == real` to find a default
-				// method's owning interface. Cloning/defensively copying
-				// the symbol here would silently break bare-name dispatch
-				// marking for default methods.
+			// NOTE: must Define the SAME *Symbol pointer that lives in
+			// real.Members[m.Name]. bareNameDispatchInterface in
+			// checker.go (shape 2, the pointer-identity scan) relies on
+			// `ic.Members[real.Name] == real` to find a default
+			// method's owning interface. Cloning/defensively copying
+			// the symbol here would silently break bare-name dispatch
+			// marking for default methods.
+			if scope.LookupLocal(m.Name) == nil {
 				scope.Define(methodSym)
-				if b.file.DispatchNames == nil {
-					b.file.DispatchNames = make(map[string]bool)
-				}
-				b.file.DispatchNames[m.Name] = true
 			}
+			if b.file.DispatchNames == nil {
+				b.file.DispatchNames = make(map[string]bool)
+			}
+			b.file.DispatchNames[m.Name] = true
 		}
 	}
 }
 
-// IsPunnedField reports whether a struct-literal field is punned, `{x}` for
-// `{x: x}`: the parser gives the label and the variable read one position.
+// IsPunnedField reports whether a struct-literal field is punned, `#{x}` for
+// `#{x: x}`: the parser gives the label and the variable read one position.
 func IsPunnedField(f ast.StructFieldVal) bool {
 	id, ok := f.Value.(*ast.Ident)
 	return ok && f.Line > 0 && id.Line == f.Line && id.Col == f.Col
@@ -3565,7 +3598,7 @@ func (b *builder) registerStructLitFieldRefs(n *ast.StructLit, scope *Scope) {
 			}
 		}
 	case *ast.QualifiedType:
-		// e.g. Error.HttpError{...} — resolve via the enum's Members.
+		// e.g. #Error.HttpError{...} — resolve via the enum's Members.
 		if enumSym := scope.Lookup(tn.Module); enumSym != nil {
 			real := enumSym
 			if real.Resolved != nil {
@@ -3584,13 +3617,18 @@ func (b *builder) registerStructLitFieldRefs(n *ast.StructLit, scope *Scope) {
 	// Members of their own — the fields live on the embedded struct itself.
 	// Look up the embedded struct via Definitions (scope.Lookup would find
 	// the variant, since it shares the embedded type's name) so
-	// `Drawable.Circle2{radius: …}` can hover the field name.
+	// `#Drawable.Circle2{radius: …}` can hover the field name.
+	// Blocks may each declare a struct of that name; the first declared
+	// answers, so the choice never depends on map order.
 	if holder != nil && holder.Kind == SymbolEnumVariant && len(holder.Members) == 0 {
+		var embedded *Symbol
 		for _, defSym := range b.file.Definitions {
-			if defSym.Name == holder.Name && defSym.Kind == SymbolStruct {
-				holder = defSym
-				break
+			if defSym.Name == holder.Name && defSym.Kind == SymbolStruct && (embedded == nil || earlierDeclaration(defSym, embedded)) {
+				embedded = defSym
 			}
+		}
+		if embedded != nil {
+			holder = embedded
 		}
 	}
 	if holder == nil || holder.Members == nil {
@@ -4675,14 +4713,14 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.StructLit:
 		b.walkTypeExpr(n.TypeName, scope)
 		// Register the field name's source position as a Reference to the
-		// struct's field Symbol so hover on `x` in `Point{x: 1}` shows the
+		// struct's field Symbol so hover on `x` in `#Point{x: 1}` shows the
 		// field's declared type. Resolution: SimpleType points to the
-		// struct directly; QualifiedType (e.g. Error.HttpError{...}) goes
+		// struct directly; QualifiedType (e.g. #Error.HttpError{...}) goes
 		// through the variant in the enum's Members.
 		b.registerStructLitFieldRefs(n, scope)
 		// The struct-update spread's head is an ordinary expression, so
 		// it binds and resolves like any other — this is what makes
-		// `{..p, x: 9}` count as a read of `p`, and what gives hover on
+		// `#{..p, x: 9}` count as a read of `p`, and what gives hover on
 		// the head.
 		if n.Spread != nil {
 			b.walkNode(n.Spread, scope)
@@ -4703,11 +4741,19 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		}
 
 	case *ast.VectorLit:
+		// A literal that names a type built on a vector (`#Path[1, 2]`,
+		// `#.Items[1]`) resolves the name as a list literal's prefix.
+		if n.TypeName != nil {
+			b.walkTypeExpr(n.TypeName, scope)
+		}
 		for _, item := range n.Operands() {
 			b.walkNode(item, scope)
 		}
 
 	case *ast.SetLit:
+		if n.TypeName != nil {
+			b.walkTypeExpr(n.TypeName, scope)
+		}
 		if n.Spread != nil {
 			b.walkNode(n.Spread, scope)
 		}
@@ -4724,14 +4770,18 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		}
 
 	case *ast.TupleLit:
+		// `#Pair(1, 2)` resolves the distinct type it names.
+		if n.TypeName != nil {
+			b.walkTypeExpr(n.TypeName, scope)
+		}
 		for _, item := range n.Items {
 			b.walkNode(item, scope)
 		}
 
 	case *ast.MapLit:
-		// Type-prefixed map literals (`Kvs%{"a" => 1}`) attach a TypeName for
-		// the map-distinct's name; resolve it like StructLit does so hover
-		// and goto-definition work on the type name.
+		// A map literal that names a type built on a map (`%Kvs{"a" => 1}`)
+		// resolves the name like StructLit does, so hover and goto-definition
+		// work on it.
 		if n.TypeName != nil {
 			b.walkTypeExpr(n.TypeName, scope)
 		}
@@ -4796,7 +4846,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.StringLit, *ast.Placeholder,
 		*ast.WildcardPattern,
 		*ast.IdentPattern, *ast.AsPattern, *ast.OrPattern, *ast.EnumPattern, *ast.StructPattern,
-		*ast.TuplePattern, *ast.ListPattern, *ast.MapPattern,
+		*ast.TuplePattern, *ast.ListPattern, *ast.MapPattern, *ast.VectorPattern, *ast.SetPattern,
 		*ast.ExternPackage:
 		// nothing to walk
 	}
@@ -5374,8 +5424,39 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 		}
 
 	case *ast.TuplePattern:
+		// `#Pair(a, b)` resolves the distinct type it names.
+		if n.TypeName != nil {
+			b.walkTypeExpr(n.TypeName, scope)
+		}
 		for _, p := range n.Patterns {
 			b.definePatternOwned(p, scope, owner)
+		}
+
+	case *ast.VectorPattern:
+		if n.TypeName != nil {
+			b.walkTypeExpr(n.TypeName, scope)
+		}
+		for _, h := range n.Heads {
+			b.definePatternOwned(h, scope, owner)
+		}
+		if n.Rest != nil {
+			b.definePatternOwned(n.Rest, scope, owner)
+		}
+		for _, t := range n.Tails {
+			b.definePatternOwned(t, scope, owner)
+		}
+
+	case *ast.SetPattern:
+		// An element is a value to look up, resolved in the scope before
+		// the pattern as a map pattern's keys are; only the rest binds.
+		if n.TypeName != nil {
+			b.walkTypeExpr(n.TypeName, scope)
+		}
+		for _, e := range n.Elems {
+			b.walkNode(e, scope)
+		}
+		if n.Rest != nil {
+			b.definePatternOwned(n.Rest, scope, owner)
 		}
 
 	case *ast.ListPattern:
@@ -5392,8 +5473,8 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 		}
 
 	case *ast.MapPattern:
-		// Type-prefixed map patterns (`Kvs%{"a" => v}`) resolve the type
-		// name like StructPattern does — supports hover/goto on the prefix.
+		// A map pattern that names its type (`%Kvs{"a" => v}`) resolves
+		// the name like StructPattern does — supports hover/goto on it.
 		if n.TypeName != nil {
 			b.walkTypeExpr(n.TypeName, scope)
 		}

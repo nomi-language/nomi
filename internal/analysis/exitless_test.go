@@ -100,9 +100,9 @@ once n = Some(3) |> try`,
 }
 
 impl P {
-    pub once zero: P = P{x: try Some(0)}
+    pub once zero: P = #P{x: try Some(0)}
 }`,
-			line: 6, col: 29,
+			line: 6, col: 30,
 			msg: "`try` cannot be used in the initializer of `once zero`",
 		},
 		{

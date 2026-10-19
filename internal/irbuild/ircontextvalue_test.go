@@ -44,10 +44,10 @@ test "a primitive is keyed by its own type" {
 }
 
 test "a child shadows and the parent is unchanged" {
-  parent = Context.with_value(Context.root(), Tag{name: "a"})
-  child = Context.with_value(parent, Tag{name: "b"})
-  assert find_in(child, Tag) == Some(Tag{name: "b"})
-  assert find_in(parent, Tag) == Some(Tag{name: "a"})
+  parent = Context.with_value(Context.root(), #Tag{name: "a"})
+  child = Context.with_value(parent, #Tag{name: "b"})
+  assert find_in(child, Tag) == Some(#Tag{name: "b"})
+  assert find_in(parent, Tag) == Some(#Tag{name: "a"})
 }
 
 test "markers compare equal and are values" {

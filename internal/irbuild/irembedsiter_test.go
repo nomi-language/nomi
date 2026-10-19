@@ -25,33 +25,33 @@ enum Shape {
 type P #(Iter<Shape>, Int)
 
 struct H {
-    it: Iter<Shape> = [Circle{r: 1}]
+    it: Iter<Shape> = [#Circle{r: 1}]
     n: Int = 0
 }
 
 fn total(it: Iter<Shape>) -> Int {
     it
         |> Iter.map(fn s -> case s {
-            Shape.Circle{r} -> r
+            #Shape.Circle{r} -> r
             Shape.Dot -> 100
         })
         |> Iter.reduce(fn acc = 0, n -> acc + n)
 }
 
 fn main() {
-    c = Circle{r: 2}
+    c = #Circle{r: 2}
     it: Iter<Shape> = [c, Shape.Dot]
     io.print(total(it))
     xs = [c, c]
     io.print(total(xs))
     io.print(total(#[c]))
-    P(pi, pn) = P([c], 1)
+    #P(pi, pn) = #P([c], 1)
     io.print(total(pi) + pn)
-    h = H{}
+    h = #H{}
     io.print(total(h.it))
-    h2 = {..h, it: [c, c, c]}
+    h2 = #{..h, it: [c, c, c]}
     io.print(total(h2.it))
-    h3 = Struct.update(updates: {it: [c]}, original: h)
+    h3 = Struct.update(updates: #{it: [c]}, original: h)
     io.print(total(h3.it))
     m: Iter<Maybe<Shape>> = [Some(c), None]
     io.print(Iter.count(m))

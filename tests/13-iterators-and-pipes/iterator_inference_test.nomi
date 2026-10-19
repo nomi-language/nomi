@@ -17,7 +17,7 @@ test "custom iterable-backed adapters infer inline lambda parameter types" {
         |> Iter.map(fn x -> x * 10)
         |> Iter.to_list()
 
-    s = #{1, 2, 3, 4}
+    s = %[1, 2, 3, 4]
 
     from_set =
         s

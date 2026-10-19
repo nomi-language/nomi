@@ -23,7 +23,7 @@ import (
 // outright, which this form does not weaken but does route around.
 //
 // WHAT WOULD HAPPEN WITHOUT THIS GUARD, which is why it is worth its weight:
-// `Backoff.Exponential{}` is `Supervisor.new`'s own declared default, so EVERY
+// `#Backoff.Exponential{}` is `Supervisor.new`'s own declared default, so EVERY
 // call that omits `backoff:` goes through it — and a program would retry on the
 // Go numbers while std's documentation states the Nomi ones. Nothing in the
 // corpus observes a backoff delay (the three supervisor files never fail a

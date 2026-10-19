@@ -48,10 +48,10 @@ fn main() {
   io.inspect(#(Feet(3), [Meters(2)]))
   io.inspect(#(Secret("x"), 1))
   io.inspect(#(Coord(#(1, 2)), Unknown))
-  io.inspect({a: Meters(4), b: Feet(5)})
+  io.inspect(#{a: Meters(4), b: Feet(5)})
   dbg #(Meters(1), Feet(2))
   return
-}`, "#(Meters(1), 2)\n#(3ft, [Meters(2)])\n#(<opaque Secret>, 1)\n#(Coord(1, 2), Unknown)\n{a: Meters(4), b: 5ft}\ndbg line 18: #(Meters(1), Feet(2)) = #(Meters(1), 2ft)\n"},
+}`, "#(Meters(1), 2)\n#(3ft, [Meters(2)])\n#(<opaque Secret>, 1)\n#(#Coord(1, 2), Unknown)\n#{a: Meters(4), b: 5ft}\ndbg line 18: #(Meters(1), Feet(2)) = #(Meters(1), 2ft)\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}

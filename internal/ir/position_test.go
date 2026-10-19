@@ -10,7 +10,7 @@ package ir_test
 //     building a planted program rather than describing it, because "this does
 //     not compile" is not assertable from inside a test.
 //
-//   - FABRICATING an invalid one is a PANIC AT CONSTRUCTION. `ir.Pos{}` is a
+//   - FABRICATING an invalid one is a PANIC AT CONSTRUCTION. `#ir.Pos{}` is a
 //     legal composite literal outside the package even though every field is
 //     unexported — Go permits an empty keyless literal — so the type system
 //     cannot close that hole and something else has to. Every constructor
@@ -103,7 +103,7 @@ func TestPosition_OmittingAPositionDoesNotCompile(t *testing.T) {
 }
 
 // TestPosition_FabricatingAnInvalidPositionPanics covers the hole the type
-// system leaves: `ir.Pos{}` compiles.
+// system leaves: `#ir.Pos{}` compiles.
 func TestPosition_FabricatingAnInvalidPositionPanics(t *testing.T) {
 	var zero ir.Pos
 	if zero.IsValid() {

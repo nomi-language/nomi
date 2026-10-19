@@ -7,7 +7,7 @@ import std/io
 // A FILE-LEVEL `Point` beside these is deliberately absent: MEASURED, the
 // analyzer resolves a struct literal against the module declaration even inside
 // a block that declares its own, so `struct Point { label: String }` here makes
-// `Point{x: 3, y: 4}` below "struct 'Point' has no field 'x'". A block-local
+// `#Point{x: 3, y: 4}` below "struct 'Point' has no field 'x'". A block-local
 // type does not shadow a module-level one today, so that third type is not a
 // Nomi program and cannot be a fixture.
 fn first() -> Int {
@@ -16,7 +16,7 @@ fn first() -> Int {
         y: Int
     }
 
-    p = Point{x: 3, y: 4}
+    p = #Point{x: 3, y: 4}
     p.x + p.y
 }
 
@@ -25,7 +25,7 @@ fn second() -> String {
         name: String
     }
 
-    Point{name: "second"}.name
+    #Point{name: "second"}.name
 }
 
 // A block-local struct with a field DEFAULT, so the default expression is
@@ -35,7 +35,7 @@ fn defaulted() -> Int {
         v: Int = 99
     }
 
-    d = Defaulted{}
+    d = #Defaulted{}
     d.v
 }
 
@@ -90,8 +90,8 @@ fn nominal_vs_anon() -> String {
         b: Int
     }
 
-    nominal = Pair{a: 1, b: 2}
-    anon = {a: 3, b: 4}
+    nominal = #Pair{a: 1, b: 2}
+    anon = #{a: 3, b: 4}
     "${nominal.a + nominal.b} ${anon.a + anon.b}"
 }
 

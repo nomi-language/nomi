@@ -30,7 +30,7 @@ impl Flags {
 }
 
 fn main() {
-    f = Flags{ok?: 1, ok_: 2}
+    f = #Flags{ok?: 1, ok_: 2}
     io.print("ok? = " + Int.to_string(f.ok?))
     io.print("ok_ = " + Int.to_string(f.ok_))
     io.print("sum = " + Int.to_string(f.ok? + f.ok_))

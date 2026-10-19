@@ -41,7 +41,7 @@ fn tag_text(t: Tag) -> String {
 
 fn name(s: Shape) -> String {
     case s {
-        .Circle{radius: _} -> "a circle"
+        #.Circle{radius: _} -> "a circle"
         .Tag(_) -> "a tag"
         .Point -> "a point"
     }
@@ -49,7 +49,7 @@ fn name(s: Shape) -> String {
 
 fn plain(value: Shape) -> String {
     case value {
-        .Circle{radius} -> "${take(value)} r=${radius}"
+        #.Circle{radius} -> "${take(value)} r=${radius}"
         .Tag(_) -> tag_text(value)
         .Point -> name(value)
     }
@@ -57,15 +57,15 @@ fn plain(value: Shape) -> String {
 
 fn guarded(value: Shape) -> String {
     case value {
-        .Circle{radius: _} when value.radius > 1.0 -> "big ${take(value)}"
-        .Circle{radius: _} -> "small ${value.radius}"
+        #.Circle{radius: _} when value.radius > 1.0 -> "big ${take(value)}"
+        #.Circle{radius: _} -> "small ${value.radius}"
         _ -> name(value)
     }
 }
 
 fn captured(value: Shape) -> String {
     case value {
-        .Circle{radius: _} -> {
+        #.Circle{radius: _} -> {
             f = fn -> take(value)
             f()
         }
@@ -75,13 +75,13 @@ fn captured(value: Shape) -> String {
 
 fn as_bound(value: Shape) -> String {
     case value {
-        Shape.Circle{radius: _} as s -> "${take(value)}, ${name(s)}"
+        #Shape.Circle{radius: _} as s -> "${take(value)}, ${name(s)}"
         _ -> "other"
     }
 }
 
 fn destructured(w: Wrap) -> String {
-    Wrap{shape: s} = w
+    #Wrap{shape: s} = w
     case s {
         .Tag(_) -> tag_text(s)
         _ -> "not a tag"
@@ -89,7 +89,7 @@ fn destructured(w: Wrap) -> String {
 }
 
 fn by_if(value: Shape) -> String {
-    if .Circle{radius: _} = value {
+    if #.Circle{radius: _} = value {
         take(value)
     } else {
         "not a circle"
@@ -105,20 +105,20 @@ fn by_if_distinct(value: Shape) -> String {
 }
 
 fn main() {
-    io.print(plain(Circle{radius: 2.0}))
+    io.print(plain(#Circle{radius: 2.0}))
     io.print(plain(Shape.Tag("x")))
     io.print(plain(Shape.Point))
-    io.print(guarded(Circle{radius: 2.0}))
-    io.print(guarded(Circle{radius: 0.5}))
+    io.print(guarded(#Circle{radius: 2.0}))
+    io.print(guarded(#Circle{radius: 0.5}))
     io.print(guarded(Shape.Point))
-    io.print(captured(Circle{radius: 3.0}))
-    io.print(as_bound(Circle{radius: 4.0}))
-    io.print(destructured(Wrap{shape: Shape.Tag("y")}))
-    io.print(destructured(Wrap{shape: Shape.Point}))
-    io.print(by_if(Circle{radius: 5.0}))
+    io.print(captured(#Circle{radius: 3.0}))
+    io.print(as_bound(#Circle{radius: 4.0}))
+    io.print(destructured(#Wrap{shape: Shape.Tag("y")}))
+    io.print(destructured(#Wrap{shape: Shape.Point}))
+    io.print(by_if(#Circle{radius: 5.0}))
     io.print(by_if(Shape.Point))
     io.print(by_if_distinct(Shape.Tag("z")))
-    io.print(by_if_distinct(Circle{radius: 1.0}))
+    io.print(by_if_distinct(#Circle{radius: 1.0}))
 }
 `)
 	want := `circle 2.0 r=2.0
@@ -174,7 +174,7 @@ impl Display for Circle {
 impl Display for Shape {
     fn to_string(s: Shape) -> String {
         case s {
-            .Circle{radius: _} -> "a shape"
+            #.Circle{radius: _} -> "a shape"
             .Point -> "a point"
         }
     }
@@ -182,16 +182,16 @@ impl Display for Shape {
 
 fn same(value: Shape) -> Shape {
     case value {
-        .Circle{radius: _} -> value
+        #.Circle{radius: _} -> value
         .Point -> value
     }
 }
 
 fn describe(value: Shape, other: Shape) -> String {
     case value {
-        .Circle{radius: _} -> {
+        #.Circle{radius: _} -> {
             all: List<Shape> = [value, Shape.Point]
-            w = Wrap{shape: value}
+            w = #Wrap{shape: value}
             "${Display.to_string(value)}; ${Shape.to_string(value)}; ${value == other} ${other != value}; ${Iter.count(all)}; ${Debug.inspect(w)}"
         }
         .Point -> Display.to_string(value)
@@ -199,14 +199,14 @@ fn describe(value: Shape, other: Shape) -> String {
 }
 
 fn main() {
-    io.print(describe(Circle{radius: 1.0}, Circle{radius: 1.0}))
-    io.print(describe(Circle{radius: 1.0}, Shape.Point))
+    io.print(describe(#Circle{radius: 1.0}, #Circle{radius: 1.0}))
+    io.print(describe(#Circle{radius: 1.0}, Shape.Point))
     io.print(describe(Shape.Point, Shape.Point))
-    io.print(Display.to_string(same(Circle{radius: 2.0})))
+    io.print(Display.to_string(same(#Circle{radius: 2.0})))
 }
 `)
-	want := `circle of 1.0; a shape; True False; 2; Wrap{shape: Circle{radius: 1.0}}
-circle of 1.0; a shape; False True; 2; Wrap{shape: Circle{radius: 1.0}}
+	want := `circle of 1.0; a shape; True False; 2; #Wrap{shape: #Circle{radius: 1.0}}
+circle of 1.0; a shape; False True; 2; #Wrap{shape: #Circle{radius: 1.0}}
 a point
 a shape
 `
@@ -236,7 +236,7 @@ struct Wrap {
 
 fn mk() -> Circle {
     io.print("mk")
-    Circle{radius: 2.0}
+    #Circle{radius: 2.0}
 }
 
 fn num() -> Int {
@@ -245,16 +245,16 @@ fn num() -> Int {
 }
 
 fn main() {
-    io.inspect(Wrap{shape: mk(), n: num()})
-    io.inspect(Wrap{n: num(), shape: mk()})
+    io.inspect(#Wrap{shape: mk(), n: num()})
+    io.inspect(#Wrap{n: num(), shape: mk()})
 }
 `)
 	want := `mk
 num
-Wrap{shape: Circle{radius: 2.0}, n: 1}
+#Wrap{shape: #Circle{radius: 2.0}, n: 1}
 num
 mk
-Wrap{shape: Circle{radius: 2.0}, n: 1}
+#Wrap{shape: #Circle{radius: 2.0}, n: 1}
 `
 	if got != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", got, want)

@@ -12,7 +12,7 @@ import (
 // buildRenameEdits returns TextEdits for every occurrence (definition + reference)
 // of the target symbol within a single file analysis.
 //
-// A punned struct-literal field (`{context}`) is one token that is both the
+// A punned struct-literal field (`#{context}`) is one token that is both the
 // field's label and a read of the variable, so renaming either one unpuns
 // it: the field to `sink: context`, the variable to `context: sink`.
 //

@@ -61,8 +61,8 @@ fn decimal_payload(m: Maybe<Decimal>) -> String {
 
 fn field(p: Price) -> String {
   case p {
-    {amount: 1.50d, weight: 2.0} -> "field both"
-    Price{amount: 1.5d} -> "field amount"
+    #{amount: 1.50d, weight: 2.0} -> "field both"
+    #Price{amount: 1.5d} -> "field amount"
     _ -> "field miss"
   }
 }
@@ -140,9 +140,9 @@ fn main() {
   io.print(payload(Some(2.5)))
   io.print(decimal_payload(Some(1.500d)))
   io.print(decimal_payload(Some(1.6d)))
-  io.print(field(Price{amount: 1.5d, weight: 2.0}))
-  io.print(field(Price{amount: 1.50d, weight: 3.0}))
-  io.print(field(Price{amount: 2d, weight: 2.0}))
+  io.print(field(#Price{amount: 1.5d, weight: 2.0}))
+  io.print(field(#Price{amount: 1.50d, weight: 3.0}))
+  io.print(field(#Price{amount: 2d, weight: 2.0}))
   io.print(list_head([1.5, 2.0, 3.0]))
   io.print(list_head([2.0]))
   io.print(decimal_list([1d, 2.00d]))

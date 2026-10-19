@@ -444,7 +444,7 @@ func TestParse_InterfaceBody_TrailingComment_Preserved(t *testing.T) {
 // separator loop (silent data loss in fmt). Now captured on
 // AnonStructType.EndTrivia.
 func TestParse_AnonStructType_TrailingComment_Preserved(t *testing.T) {
-	src := "fn greet(p: {\n  name: String,\n  age: Int,\n  // trailing comment\n}) -> String {\n  p.name\n}\n"
+	src := "fn greet(p: #{\n  name: String,\n  age: Int,\n  // trailing comment\n}) -> String {\n  p.name\n}\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -478,7 +478,7 @@ func TestParse_AnonStructType_TrailingComment_Preserved(t *testing.T) {
 // comments via skipNewlines (silent data loss in fmt). Now captured on
 // StructLit.EndTrivia.
 func TestParse_StructLit_TrailingComment_Preserved(t *testing.T) {
-	src := "fn main() {\n  p = Point{\n    x: 3,\n    y: 4,\n    // trailing comment\n  }\n  p\n}\n"
+	src := "fn main() {\n  p = #Point{\n    x: 3,\n    y: 4,\n    // trailing comment\n  }\n  p\n}\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -513,7 +513,7 @@ func TestParse_StructLit_TrailingComment_Preserved(t *testing.T) {
 // with "expected field name in struct literal". Now captured on the
 // (shared) StructLit.EndTrivia field.
 func TestParse_AnonStructLit_TrailingComment_Preserved(t *testing.T) {
-	src := "fn main() {\n  p = {\n    name: \"alice\",\n    age: 30,\n    // trailing comment\n  }\n  p\n}\n"
+	src := "fn main() {\n  p = #{\n    name: \"alice\",\n    age: 30,\n    // trailing comment\n  }\n  p\n}\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -799,7 +799,7 @@ func TestParse_InterfaceBody_InterMemberComment_Preserved(t *testing.T) {
 // parseAnonStructType now captures inter-field comments on
 // StructField.LeadingComments inside the anon-struct-type body.
 func TestParse_AnonStructType_InterFieldComment_Preserved(t *testing.T) {
-	src := "fn greet(p: {\n  name: String,\n  // a comment between two anon-type fields\n  age: Int,\n}) -> String {\n  p.name\n}\n"
+	src := "fn greet(p: #{\n  name: String,\n  // a comment between two anon-type fields\n  age: Int,\n}) -> String {\n  p.name\n}\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -833,7 +833,7 @@ func TestParse_AnonStructType_InterFieldComment_Preserved(t *testing.T) {
 // StructFieldVal.LeadingComments — previously rejected with "expected
 // field name in struct literal".
 func TestParse_StructLit_InterFieldComment_Preserved(t *testing.T) {
-	src := "fn main() {\n  p = Point{\n    x: 3,\n    // a comment between two literal fields\n    y: 4,\n  }\n  p\n}\n"
+	src := "fn main() {\n  p = #Point{\n    x: 3,\n    // a comment between two literal fields\n    y: 4,\n  }\n  p\n}\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)

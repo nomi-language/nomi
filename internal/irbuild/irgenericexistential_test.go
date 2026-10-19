@@ -47,20 +47,20 @@ fn named(n: Named) -> String {
 }
 
 fn main() {
-    io.print(show(Box{v: 1}))
-    io.print(show(Box{v: "s"}))
-    io.print(show(Tag{v: 2}))
-    io.print(show(Tag{v: "t"}))
-    d: Display = Tag{v: True}
+    io.print(show(#Box{v: 1}))
+    io.print(show(#Box{v: "s"}))
+    io.print(show(#Tag{v: 2}))
+    io.print(show(#Tag{v: "t"}))
+    d: Display = #Tag{v: True}
     io.print(Display.to_string(d))
-    io.print(named(Box{v: 3}))
-    io.print(named(Box{v: "u"}))
-    xs: List<Named> = [Box{v: 4}, Box{v: 5}]
+    io.print(named(#Box{v: 3}))
+    io.print(named(#Box{v: "u"}))
+    xs: List<Named> = [#Box{v: 4}, #Box{v: 5}]
     io.print(xs |> Iter.map(Named.name) |> String.join(", "))
 }
 `
-	const want = "Box{v: 1}\n" +
-		"Box{v: s}\n" +
+	const want = "#Box{v: 1}\n" +
+		"#Box{v: s}\n" +
 		"tag 2\n" +
 		"tag \"t\"\n" +
 		"tag True\n" +

@@ -11,7 +11,7 @@ test "startup environment can be passed to ordinary helpers" {
         }
 
         fn load(startup: Startup, context: Context) -> Config {
-          Config{
+          #Config{
             context,
             name: Map.get(startup.env, "NOMI_ENV") |> Maybe.with_default("dev"),
           }

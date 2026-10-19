@@ -52,7 +52,7 @@ func TestBlockImport_UnknownMemberRejectedAsAtFileLevel(t *testing.T) {
 		{"aliased type", "std/json.Json as J", "  x = J.Number(1.0)\n  dbg x", "type 'J' has no member 'Number'"},
 		{"interface", "std/json.ToJson", "  dbg ToJson.nope(1)", "type 'ToJson' has no member 'nope'"},
 		{"owner function of Duration", "std/duration.Duration", "  dbg Duration.nope(1)", "type 'Duration' has no member 'nope'"},
-		{"record variant field", "std/json.Json", "  x = Json.ShapeError{path: [], nope: 1}\n  dbg x", "Json.ShapeError has no field 'nope'"},
+		{"record variant field", "std/json.Json", "  x = #Json.ShapeError{path: [], nope: 1}\n  dbg x", "Json.ShapeError has no field 'nope'"},
 		{"variant pattern", "std/json.Json", "  x = Json.Null\n  y = case x {\n    Json.Number(n) -> n\n    _ -> 2.0\n  }\n  dbg y", "variant Number not found in enum Json"},
 		{"dot variant pattern", "std/json.Json", "  x = Json.Null\n  y = case x {\n    .Nope -> 1\n    _ -> 2\n  }\n  dbg y", "variant Nope not found in enum Json"},
 	}

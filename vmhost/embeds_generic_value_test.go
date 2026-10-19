@@ -45,8 +45,8 @@ struct Holder<T> {
 
 fn describe(s: Shape) -> String {
   case s {
-    Shape.Circle{r} -> "circle ${r}"
-    Shape.Wrapped({r}) -> "wrapped ${r}"
+    #Shape.Circle{r} -> "circle ${r}"
+    Shape.Wrapped(#{r}) -> "wrapped ${r}"
     Shape.Dot -> "dot"
   }
 }
@@ -65,13 +65,13 @@ fn give(m: Maybe<Circle>) -> Maybe<Shape> {
 fn boxed(b: Box<Shape>) -> String {
   case b {
     Box.Full(s) -> "full ${describe(s)}"
-    Box.Named{value, n} -> "named ${describe(value)} ${n}"
+    #Box.Named{value, n} -> "named ${describe(value)} ${n}"
     Box.Empty -> "empty"
   }
 }
 
 fn main() {
-  c = Circle{r: 1}
+  c = #Circle{r: 1}
   s: Shape = c
   m = Some(c)
   none: Maybe<Circle> = None
@@ -88,7 +88,7 @@ fn main() {
   io.inspect(m != Some(s))
   io.inspect(none == Some(Shape.Dot))
   ok: Result<Circle, Circle> = Ok(c)
-  bad: Result<Circle, Circle> = Err(Circle{r: 2})
+  bad: Result<Circle, Circle> = Err(#Circle{r: 2})
   rs: Result<Shape, Shape> = ok
   rb: Result<Shape, Shape> = bad
   io.inspect(rs)
@@ -96,30 +96,30 @@ fn main() {
   io.inspect(ok == Ok(Shape.Dot))
   io.inspect(ok == Ok(s))
   io.inspect(bad == Err(s))
-  io.inspect(Err(Circle{r: 2}) == rb)
+  io.inspect(Err(#Circle{r: 2}) == rb)
   t = #(1, c)
   tw: #(Int, Shape) = t
   io.inspect(tw)
   io.inspect(t == #(1, Shape.Dot))
   io.inspect(#(1, s) == t)
-  l = [c, Circle{r: 3}]
+  l = [c, #Circle{r: 3}]
   lw: List<Shape> = l
   io.print(lw |> Iter.map(describe) |> String.join(", "))
-  io.inspect(l == [s, Circle{r: 3}])
+  io.inspect(l == [s, #Circle{r: 3}])
   io.inspect([s, Shape.Dot] == l)
   io.inspect(l != [s, Shape.Dot])
-  st = #{c}
+  st = %[c]
   sw: Set<Shape> = st
   io.inspect(Set.contains?(sw, s))
-  mp = %{c => Circle{r: 5}}
+  mp = %{c => #Circle{r: 5}}
   mw: Map<Shape, Shape> = mp
   io.inspect(Map.get(mw, s))
   io.inspect(mp == %{s => Shape.Dot})
-  io.inspect(%{s => Circle{r: 5}} == mp)
+  io.inspect(%{s => #Circle{r: 5}} == mp)
   b = Box.Full(c)
   bw: Box<Shape> = b
   io.print(boxed(bw))
-  nb = Box.Named{value: c, n: 7}
+  nb = #Box.Named{value: c, n: 7}
   io.print(boxed(nb))
   eb: Box<Circle> = Box.Empty
   io.print(boxed(eb))
@@ -131,14 +131,14 @@ fn main() {
   io.print(nw |> Iter.map(take) |> String.join(", "))
   io.inspect(nested == [Some(s), None])
   io.inspect(nested == [Some(Shape.Dot), None])
-  wrapped = Some(Wrapped(Circle{r: 9}))
+  wrapped = Some(Wrapped(#Circle{r: 9}))
   ww: Maybe<Shape> = wrapped
   io.print(take(ww))
-  io.inspect(wrapped == Some(Shape.Wrapped(Circle{r: 9})))
-  h = Holder{value: c}
+  io.inspect(wrapped == Some(Shape.Wrapped(#Circle{r: 9})))
+  h = #Holder{value: c}
   hw: Holder<Shape> = h
   io.print(describe(hw.value))
-  io.inspect(h == Holder{value: Shape.Dot})
+  io.inspect(h == #Holder{value: Shape.Dot})
   mm: Maybe<Maybe<Circle>> = Some(m)
   mmw: Maybe<Maybe<Shape>> = mm
   io.inspect(mmw)
@@ -147,24 +147,24 @@ fn main() {
 	if err != nil {
 		t.Fatalf("run: %v\n%s", err, out)
 	}
-	want := `Some(Circle{r: 1})
+	want := `Some(#Circle{r: 1})
 True
 some circle 1
 none
-Some(Circle{r: 1})
+Some(#Circle{r: 1})
 False
 True
 True
 True
 False
 False
-Ok(Circle{r: 1})
-Err(Circle{r: 2})
+Ok(#Circle{r: 1})
+Err(#Circle{r: 2})
 False
 True
 False
 True
-#(1, Circle{r: 1})
+#(1, #Circle{r: 1})
 False
 True
 circle 1, circle 3
@@ -172,7 +172,7 @@ True
 False
 True
 True
-Some(Circle{r: 5})
+Some(#Circle{r: 5})
 False
 True
 full circle 1
@@ -188,7 +188,7 @@ some wrapped 9
 True
 circle 1
 False
-Some(Some(Circle{r: 1}))
+Some(Some(#Circle{r: 1}))
 `
 	if out != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", out, want)
@@ -217,37 +217,37 @@ enum Chain<T> {
 
 fn describe(s: Shape) -> String {
   case s {
-    Shape.Circle{r} -> "circle ${r}"
+    #Shape.Circle{r} -> "circle ${r}"
     Shape.Dot -> "dot"
   }
 }
 
 fn walk(c: Chain<Shape>) -> String {
   case c {
-    Chain.Link{head, tail} -> "${describe(head)} -> ${walk(tail)}"
+    #Chain.Link{head, tail} -> "${describe(head)} -> ${walk(tail)}"
     Chain.End -> "end"
   }
 }
 
 fn main() {
-  t = Chain.Link{head: Circle{r: 1}, tail: Chain.Link{head: Circle{r: 2}, tail: Chain.End}}
+  t = #Chain.Link{head: #Circle{r: 1}, tail: #Chain.Link{head: #Circle{r: 2}, tail: Chain.End}}
   w: Chain<Shape> = t
   io.print(walk(w))
   io.print(walk(t))
   ts = [t, Chain.End]
   ws: List<Chain<Shape>> = ts
   io.print(ws |> Iter.map(walk) |> String.join(" | "))
-  io.inspect(t == Chain.Link{head: Shape.Dot, tail: Chain.End})
+  io.inspect(t == #Chain.Link{head: Shape.Dot, tail: Chain.End})
   io.inspect(t == w)
-  c = Circle{r: 1}
+  c = #Circle{r: 1}
   v = #[c]
   vw: Vector<Shape> = v
   io.inspect(vw)
   io.inspect(v == #[Shape.Dot])
-  r = {a: c, n: 1}
-  rw: {a: Shape, n: Int} = r
+  r = #{a: c, n: 1}
+  rw: #{a: Shape, n: Int} = r
   io.inspect(rw)
-  io.inspect(r == {a: Shape.Dot, n: 1})
+  io.inspect(r == #{a: Shape.Dot, n: 1})
 }
 `)
 	if err != nil {
@@ -258,9 +258,9 @@ circle 1 -> circle 2 -> end
 circle 1 -> circle 2 -> end | end
 False
 True
-#[Circle{r: 1}]
+#[#Circle{r: 1}]
 False
-{a: Circle{r: 1}, n: 1}
+#{a: #Circle{r: 1}, n: 1}
 False
 `
 	if out != want {
@@ -285,20 +285,20 @@ enum Plain {
 }
 
 fn main() {
-  c = Circle{r: 1}
+  c = #Circle{r: 1}
   s: Plain = c
   io.inspect([c, c] == [s, Plain.Spot])
-  io.inspect([c, c] == [s, Plain.Circle{r: 1}])
+  io.inspect([c, c] == [s, #Plain.Circle{r: 1}])
   io.inspect([s, Plain.Spot] != [c, c])
   cs = [c]
   io.inspect(cs == [Plain.Spot])
   io.inspect(#(c, Plain.Spot) == #(s, Plain.Spot))
-  io.inspect(#(s, Plain.Spot) == #(Circle{r: 2}, Plain.Spot))
+  io.inspect(#(s, Plain.Spot) == #(#Circle{r: 2}, Plain.Spot))
   m = Some(c)
   io.inspect(m == Some(Plain.Spot))
   io.inspect(Some(Plain.Spot) != m)
   io.inspect(%{c => c} == %{s => Plain.Spot})
-  io.inspect(%{s => Plain.Circle{r: 1}} == %{c => c})
+  io.inspect(%{s => #Plain.Circle{r: 1}} == %{c => c})
   io.inspect([Some(c)] == [Some(s), Some(Plain.Spot)])
 }
 `)
@@ -337,9 +337,9 @@ enum Plain {
 }
 
 test "a Maybe value against a wider construction" {
-  c = Circle{r: 1}
+  c = #Circle{r: 1}
   m = Some(c)
-  assert Some(c) == Some(Plain.Circle{r: 1})
+  assert Some(c) == Some(#Plain.Circle{r: 1})
   refute Some(c) == Some(Plain.Spot)
   refute m == Some(Plain.Spot)
   s: Plain = c
@@ -347,10 +347,10 @@ test "a Maybe value against a wider construction" {
 }
 
 test "a list value against a wider literal" {
-  c = Circle{r: 1}
+  c = #Circle{r: 1}
   s: Plain = c
   cs = [c, c]
-  assert cs == [s, Plain.Circle{r: 1}]
+  assert cs == [s, #Plain.Circle{r: 1}]
   refute cs == [s, Plain.Spot]
   w: List<Plain> = cs
   assert w == [s, s]

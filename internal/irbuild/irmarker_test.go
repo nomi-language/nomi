@@ -66,7 +66,7 @@ func TestIRMarker_StructFields(t *testing.T) {
 struct Box { ready: Ready }
 fn read(box: Box) -> Ready { box.ready }
 fn main() {
- dbg read(Box{ready: Ready})
+ dbg read(#Box{ready: Ready})
 }
-`, "dbg line 5: read(Box{ready: Ready}) = Ready\n")
+`, "dbg line 5: read(#Box{ready: Ready}) = Ready\n")
 }

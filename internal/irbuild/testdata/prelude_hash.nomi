@@ -47,10 +47,10 @@ fn main() {
     io.print("err wrap:     ${Result.hash(Err(9223372036854775807))}")
 
     // The payload routes through `Hashable.hash`, in BOTH variant positions.
-    io.print("some written: ${Maybe.hash(Some(Written{x: 1}))}")
-    io.print("err written:  ${Result.hash(Err(Written{x: 1}))}")
-    io.print("some derived: ${Maybe.hash(Some(Derived{a: 2, b: 3}))}")
-    io.print("err derived:  ${Result.hash(Err(Derived{a: 2, b: 3}))}")
+    io.print("some written: ${Maybe.hash(Some(#Written{x: 1}))}")
+    io.print("err written:  ${Result.hash(Err(#Written{x: 1}))}")
+    io.print("some derived: ${Maybe.hash(Some(#Derived{a: 2, b: 3}))}")
+    io.print("err derived:  ${Result.hash(Err(#Derived{a: 2, b: 3}))}")
 
     // Reached through the pipe spelling, and as an operand.
     io.print("piped some:   ${Some(7) |> Maybe.hash()}")

@@ -99,7 +99,7 @@ func TestFormat_MapSpreadNestedDepth(t *testing.T) {
 // too; it used to move below it, to the first field.
 func TestFormat_StructSpreadCommentBeforeTheBase(t *testing.T) {
 	roundTrip(t, `fn main() {
-    d = {
+    d = #{
         // before the base
         ..p, // after the base
         // before x

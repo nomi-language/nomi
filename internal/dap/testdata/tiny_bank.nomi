@@ -6,7 +6,7 @@ struct Account {
 
 impl Account {
     fn deposit(a: Account, n: Int) -> Account {
-        Account{balance: a.balance + n}
+        #Account{balance: a.balance + n}
     }
 }
 
@@ -19,6 +19,6 @@ fn transact(start: Account, amounts: List<Int>) -> Account {
 }
 
 fn main() {
-    a = transact(Account{balance: 0}, [5, 20, 30])
+    a = transact(#Account{balance: 0}, [5, 20, 30])
     io.print("${ident(a.balance)} ${ident("done")}")
 }

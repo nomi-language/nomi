@@ -42,7 +42,7 @@ test "boot can create task groups" {
         }
 
         fn boot() -> BootApp {
-          BootApp{
+          #BootApp{
             context: Context.root(),
             audit: Supervisor.new(
               shutdown_timeout: Duration.seconds(30),
@@ -81,7 +81,7 @@ test "a struct field default may create a task group" {
         }
 
         fn boot() -> BootApp {
-          BootApp{context: Context.root()}
+          #BootApp{context: Context.root()}
         }
 
         fn main() {
@@ -111,7 +111,7 @@ test "a group-owned body must return Unit" {
         }
 
         fn boot() -> BootApp {
-          BootApp{
+          #BootApp{
             context: Context.root(),
             notify: Supervisor.new(
               shutdown_timeout: Duration.seconds(5),
@@ -159,7 +159,7 @@ test "a constructor boot calls may create its own group" {
         fn start() -> Counter {
           inbox = Channel.buffered<Int>(4)
           _ = Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 1)
-          Counter{inbox}
+          #Counter{inbox}
         }
 
         pub struct BootApp {
@@ -169,7 +169,7 @@ test "a constructor boot calls may create its own group" {
         }
 
         fn boot() -> BootApp {
-          BootApp{context: Context.root(), counter: start()}
+          #BootApp{context: Context.root(), counter: start()}
         }
 
         fn main() {
@@ -200,7 +200,7 @@ test "calling that constructor outside boot is rejected" {
         fn start() -> Counter {
           inbox = Channel.buffered<Int>(4)
           _ = Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 1)
-          Counter{inbox}
+          #Counter{inbox}
         }
 
         pub struct BootApp {
@@ -210,7 +210,7 @@ test "calling that constructor outside boot is rejected" {
         }
 
         fn boot() -> BootApp {
-          BootApp{context: Context.root(), counter: start()}
+          #BootApp{context: Context.root(), counter: start()}
         }
 
         fn handler() -> Counter {

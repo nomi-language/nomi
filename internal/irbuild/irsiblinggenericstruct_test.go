@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 // A literal of a generic struct declared in another file runs on the VM under
-// both spellings: the selectively imported `Span{...}` and the file-qualified
+// both spellings: the selectively imported `#Span{...}` and the file-qualified
 // `span.Span{...}` (testdata/sibling_generic_struct).
 //
 // The template table is per file, so both spellings used to miss it: the bare

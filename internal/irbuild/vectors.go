@@ -30,6 +30,7 @@ import (
 //	Vector.compare(#[1], #[2])            Less
 //	Vector.compare(#[1.0], #[2.0])        Less
 //	Iter.sort(#["c", "a", "b"])           [a, b, c]
+
 //
 // Int and Float answer and nothing else does, because `Vector.compare` raises
 // the `Comparable.compare` demand INSIDE std's own generic body where no

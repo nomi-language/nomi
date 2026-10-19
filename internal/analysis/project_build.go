@@ -1264,13 +1264,23 @@ func lookupSymbolDeepSeen(scope *Scope, name string, seen map[*Scope]bool) *Symb
 	if sym := scope.Lookup(name); sym != nil {
 		return sym
 	}
-	for _, sym := range scope.Symbols {
+	// The modules in name order: two of them may declare name, and the
+	// one found must not depend on map order.
+	var modNames []string
+	for modName, sym := range scope.Symbols {
 		real := sym
 		for real != nil && real.Resolved != nil {
 			real = real.Resolved
 		}
-		if real == nil || real.Kind != SymbolModule || real.ModuleScope == nil {
-			continue
+		if real != nil && real.Kind == SymbolModule && real.ModuleScope != nil {
+			modNames = append(modNames, modName)
+		}
+	}
+	slices.Sort(modNames)
+	for _, modName := range modNames {
+		real := scope.Symbols[modName]
+		for real.Resolved != nil {
+			real = real.Resolved
 		}
 		if found := lookupSymbolDeepSeen(real.ModuleScope, name, seen); found != nil {
 			return found

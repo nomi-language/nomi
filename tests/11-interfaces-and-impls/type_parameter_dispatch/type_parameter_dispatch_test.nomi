@@ -52,10 +52,10 @@ fn full_where<T>(x: T) -> String where T: Display and Greet {
 test "type-parameter-qualified dispatch resolves through bounds" {
     assert shout(42) == "42!"
     assert shout("hi") == "hi!"
-    assert greet(Dog{name: "Rex"}) == "woof, I am Rex"
-    assert full(Dog{name: "Rex"}) == "woof, I am Rex - Dog(Rex)"
-    assert full_where(Dog{name: "Rex"}) == "woof, I am Rex - Dog(Rex)"
-    assert greet(Wrapper{value: Dog{name: "Rex"}}) == "wrapped woof, I am Rex"
+    assert greet(#Dog{name: "Rex"}) == "woof, I am Rex"
+    assert full(#Dog{name: "Rex"}) == "woof, I am Rex - Dog(Rex)"
+    assert full_where(#Dog{name: "Rex"}) == "woof, I am Rex - Dog(Rex)"
+    assert greet(#Wrapper{value: #Dog{name: "Rex"}}) == "wrapped woof, I am Rex"
 }
 
 test "impl block where clauses constrain generic receiver impls" {
@@ -78,7 +78,7 @@ test "impl block where clauses constrain generic receiver impls" {
           }
 
           fn main() {
-            _ = Render.render(Wrapped{value: Plain{}})
+            _ = Render.render(#Wrapped{value: #Plain{}})
           }
         """
     )
@@ -164,7 +164,7 @@ test "type-qualified dispatch is ambiguous when multiple interfaces declare the 
         }
 
         fn main() {
-          p = Person{name: "Alice"}
+          p = #Person{name: "Alice"}
           _ = Person.greet(p)
         }
         """

@@ -19,11 +19,11 @@
   (list)
   (list_pattern)
   (map_construction)
-  (map_literal)
-  (map_update)
+  (map_pattern)
   (parameters)
   (paren_expression)
   (set)
+  (set_pattern)
   (struct_body)
   (struct_construction)
   (struct_pattern)
@@ -36,6 +36,7 @@
   (type_parameters)
   (typed_list)
   (vector)
+  (vector_pattern)
   (where_clause)
 ] @indent.begin
 

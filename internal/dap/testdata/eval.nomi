@@ -20,7 +20,7 @@ fn spin(n: Int) -> Int {
 }
 
 fn main() {
-    p = Point{x: 3, y: 4}
+    p = #Point{x: 3, y: 4}
     xs = [1, 2, 3]
     label = "pt"
 

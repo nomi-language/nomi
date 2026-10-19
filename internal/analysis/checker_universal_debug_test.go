@@ -111,7 +111,7 @@ fn show<T>(x: T) -> String where T: Debug {
 }
 
 fn main() -> Unit {
-    io.print(show(P{x: 1}))
+    io.print(show(#P{x: 1}))
 }
 `
 	expectNoErrs(t, checkUniversalDebugProject(t, src))
@@ -131,7 +131,7 @@ fn show<T>(x: T) -> String where T: Display {
 }
 
 fn main() -> Unit {
-    io.print(show(P{x: 1}))
+    io.print(show(#P{x: 1}))
 }
 `
 	errs := checkUniversalDebugProject(t, src)

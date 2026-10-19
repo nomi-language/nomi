@@ -82,15 +82,15 @@ fn port(text: String) -> Result<Int, String> {
 
 fn check(n: Int) -> Check {
     if n > 0 {
-        Check.Valid{addr: "a${n}", score: n}
+        #Check.Valid{addr: "a${n}", score: n}
     } else {
         Check.Invalid("negative")
     }
 }
 
 fn describe(n: Int) -> String {
-    .Valid{addr, score} = check(n) else {
-        .Invalid(_) -> {addr: "unknown", score: 0}
+    #.Valid{addr, score} = check(n) else {
+        .Invalid(_) -> #{addr: "unknown", score: 0}
     }
 
     "${addr}:${score}"

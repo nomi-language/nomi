@@ -53,7 +53,7 @@ func TestRun_AnEnumFieldReadTrapIsTheProgramsFault(t *testing.T) {
 }
 
 fn main() {
-  s = Shape.Rect{height: 2}
+  s = #Shape.Rect{height: 2}
   _ = s.radius
 }
 `)
@@ -98,7 +98,7 @@ struct Console {}
 impl Logger for Console {fn log(logger:Console,msg:String) ->Unit{ _ = logger;io.print("console ${msg}")}}
 struct App {life:Context
 logger:Logger}
-fn boot() ->App{App{life:Context.root(),logger:Console{}}}
+fn boot() ->App{#App{life:Context.root(),logger:#Console{}}}
 fn main(){Logger.log(App.logger,"hi")}
 `)
 	if err != nil || out != "console hi\n" {
@@ -123,7 +123,7 @@ impl Hashable for Bad {
 
 fn main() {
   io.print("start")
-  io.print(Set.size(#{Bad{n: 1}, Bad{n: 4}}))
+  io.print(Set.size(%[#Bad{n: 1}, #Bad{n: 4}]))
 }
 `)
 	if b, blocked := vmhost.IsBlocked(err); blocked {

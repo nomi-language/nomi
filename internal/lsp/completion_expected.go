@@ -265,7 +265,7 @@ func (r *completionRequest) structLitType(h *sentinelHit, hop int, lit *ast.Stru
 }
 
 // variantPayloadType is the anonymous struct of a struct variant's fields
-// (`.Rect{w: 1}` against Shape).
+// (`#.Rect{w: 1}` against Shape).
 func (r *completionRequest) variantPayloadType(enum analysis.Type, variant string) analysis.Type {
 	et, ok := analysis.ResolveTypeVar(enum).(*analysis.EnumType)
 	if !ok {

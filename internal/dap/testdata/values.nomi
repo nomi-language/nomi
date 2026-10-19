@@ -14,8 +14,8 @@ enum Shape {
 fn main() {
     big = (0..1000) |> Iter.to_list()
 
-    p = Point{x: 3, y: 4}
-    s = Shape.Circle{radius: 5}
+    p = #Point{x: 3, y: 4}
+    s = #Shape.Circle{radius: 5}
     n = 1
     n = n + 1
     io.print("${Iter.count(big)} ${p.x} ${n}")

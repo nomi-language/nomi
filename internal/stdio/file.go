@@ -16,7 +16,7 @@
 //
 // # The Go error string still reaches Nomi-observable output
 //
-// `Other{reason}` carries `err.Error()`, which is `os`/`io/fs` text. Having one
+// `#Other{reason}` carries `err.Error()`, which is `os`/`io/fs` text. Having one
 // implementation makes that text consistent, and it does not make the text
 // Nomi's. The real fix is a `std` API change: `IOError` would have to
 // name the failures it means (`PermissionDenied`, `IsADirectory`, …) instead of
@@ -51,7 +51,7 @@ func ReadFile(path string) rt.Result[string, rt.IOError] {
 // EVERY failure is `Other`, INCLUDING absence — which is the asymmetry with
 // ReadFile above, and it is deliberate rather than an oversight. A write to a path whose parent directory does not exist returns
 // ENOENT, so `errors.Is(err, fs.ErrNotExist)` is TRUE for it, and classifying
-// that as `NotFound{path}` would be a wrong answer twice over: the path in hand
+// that as `#NotFound{path}` would be a wrong answer twice over: the path in hand
 // is the file, not the missing directory, and std/io.nomi documents absence for
 // READS as the expected-first-run case ("callers can decide whether to treat
 // absence as expected") while documenting writes the other way — "The parent
@@ -73,8 +73,8 @@ func WriteFile(path, content string) rt.Result[rt.Unit, rt.IOError] {
 // it.
 //
 // The CLASSIFICATION is the observable rule and it lives here once: absence is
-// `NotFound{path}` — carrying the path the caller passed, not the Go error's
-// rendering of it — and everything else is `Other{reason}`. std/io.nomi states
+// `#NotFound{path}` — carrying the path the caller passed, not the Go error's
+// rendering of it — and everything else is `#Other{reason}`. std/io.nomi states
 // the intent this implements: "NotFound carries the path so callers can decide
 // whether to treat absence as expected (e.g., first run of an app that creates
 // its data file on demand)."
@@ -89,7 +89,7 @@ func readError(path string, err error) rt.IOError {
 	return writeError(err)
 }
 
-// writeError is the unconditional `Other{reason}` form, which is also read's
+// writeError is the unconditional `#Other{reason}` form, which is also read's
 // fallback. One function so `Other`'s payload has one encoding.
 func writeError(err error) rt.IOError {
 	return rt.IOError{Tag: rt.TagIOOther, Reason: err.Error()}

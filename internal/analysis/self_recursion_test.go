@@ -56,7 +56,7 @@ impl Display for Foo {
 }
 
 fn main() {
-    io.print(Foo{name: "a"})
+    io.print(#Foo{name: "a"})
 }
 `
 	const disp = "calls Display.to_string(foo), the function being defined, so it never returns\nhelp: Debug.inspect(foo) renders its fields"
@@ -88,7 +88,7 @@ impl Debug for Foo {
 }
 
 fn main() {
-    io.inspect(Foo{name: "a"})
+    io.inspect(#Foo{name: "a"})
 }
 `
 	const dbg = "calls Debug.inspect(foo), the function being defined, so it never returns"
@@ -115,7 +115,7 @@ impl Display for Tree {
     fn to_string(tree: Tree) -> String {
         case tree {
             .Leaf -> "."
-            .Node{left, value, right} -> "(${left} ${value} ${right})"
+            #.Node{left, value, right} -> "(${left} ${value} ${right})"
         }
     }
 }
@@ -137,8 +137,8 @@ impl Debug for Foo {
 }
 
 fn main() {
-    io.print(Tree.Node{left: Tree.Leaf, value: 1, right: Tree.Leaf})
-    io.print(Foo{name: "a"})
+    io.print(#Tree.Node{left: Tree.Leaf, value: 1, right: Tree.Leaf})
+    io.print(#Foo{name: "a"})
 }
 `
 	checkDiagnostics(t, src, nil)
@@ -190,7 +190,7 @@ fn outer(x: Int) -> Int {
 }
 
 fn main() {
-    io.print(spin(1) + grow(1) + arms(1) + branches(1, "s") + piped(1) + Foo.again(Foo{n: 1}) + outer(1))
+    io.print(spin(1) + grow(1) + arms(1) + branches(1, "s") + piped(1) + Foo.again(#Foo{n: 1}) + outer(1))
 }
 `
 	const tail = "with the arguments it was given, so it never returns"
@@ -318,7 +318,7 @@ impl Hashable for P {
 }
 
 fn main() {
-    io.print(P{x: 1} == P{x: 2})
+    io.print(#P{x: 1} == #P{x: 2})
 }
 `
 	const eq = " calls P's `equal?`, the function being defined, with its own arguments, so it calls itself forever\nhelp: compare the fields instead (`a.field == b.field`), or write `derive Equatable for P`"
@@ -397,7 +397,7 @@ impl Equatable for P {
 }
 
 fn main() {
-    _ = P{x: 1} == P{x: 1}
+    _ = #P{x: 1} == #P{x: 1}
 }
 `)
 	var codes []string

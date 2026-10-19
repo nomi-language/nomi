@@ -26,7 +26,7 @@ fn main() {
 }
 
 export fn new_game(word: String) -> Game {
-    Game{word}
+    #Game{word}
 }
 
 fn helper() -> Int {

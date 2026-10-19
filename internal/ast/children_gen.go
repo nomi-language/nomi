@@ -223,6 +223,10 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfSetLit(n, fn)
 		}
+	case *SetPattern:
+		if n != nil {
+			childrenOfSetPattern(n, fn)
+		}
 	case *SimpleType:
 	case *StringInterp:
 		if n != nil {
@@ -301,6 +305,10 @@ func generatedChildren(n Node, fn func(Node)) bool {
 	case *VectorLit:
 		if n != nil {
 			childrenOfVectorLit(n, fn)
+		}
+	case *VectorPattern:
+		if n != nil {
+			childrenOfVectorPattern(n, fn)
 		}
 	case *WildcardPattern:
 	case *With:
@@ -447,6 +455,8 @@ func absent(n Node) bool {
 		return n == nil
 	case *SetLit:
 		return n == nil
+	case *SetPattern:
+		return n == nil
 	case *SimpleType:
 		return n == nil
 	case *StringInterp:
@@ -490,6 +500,8 @@ func absent(n Node) bool {
 	case *Unary:
 		return n == nil
 	case *VectorLit:
+		return n == nil
+	case *VectorPattern:
 		return n == nil
 	case *WildcardPattern:
 		return n == nil
@@ -1251,6 +1263,9 @@ func childrenOfReturn(x *Return, fn func(Node)) {
 }
 
 func childrenOfSetLit(x *SetLit, fn func(Node)) {
+	if !absent(x.TypeName) {
+		fn(x.TypeName)
+	}
 	for _, e1 := range x.Items {
 		if !absent(e1) {
 			fn(e1)
@@ -1258,6 +1273,20 @@ func childrenOfSetLit(x *SetLit, fn func(Node)) {
 	}
 	if !absent(x.Spread) {
 		fn(x.Spread)
+	}
+}
+
+func childrenOfSetPattern(x *SetPattern, fn func(Node)) {
+	if !absent(x.TypeName) {
+		fn(x.TypeName)
+	}
+	for _, e1 := range x.Elems {
+		if !absent(e1) {
+			fn(e1)
+		}
+	}
+	if !absent(x.Rest) {
+		fn(x.Rest)
 	}
 }
 
@@ -1449,6 +1478,9 @@ func childrenOfTupleDestructure(x *TupleDestructure, fn func(Node)) {
 }
 
 func childrenOfTupleLit(x *TupleLit, fn func(Node)) {
+	if !absent(x.TypeName) {
+		fn(x.TypeName)
+	}
 	for _, e1 := range x.Items {
 		if !absent(e1) {
 			fn(e1)
@@ -1457,6 +1489,9 @@ func childrenOfTupleLit(x *TupleLit, fn func(Node)) {
 }
 
 func childrenOfTuplePattern(x *TuplePattern, fn func(Node)) {
+	if !absent(x.TypeName) {
+		fn(x.TypeName)
+	}
 	for _, e1 := range x.Patterns {
 		if !absent(e1) {
 			fn(e1)
@@ -1518,6 +1553,9 @@ func childrenOfUnary(x *Unary, fn func(Node)) {
 }
 
 func childrenOfVectorLit(x *VectorLit, fn func(Node)) {
+	if !absent(x.TypeName) {
+		fn(x.TypeName)
+	}
 	for _, e1 := range x.Items {
 		if !absent(e1) {
 			fn(e1)
@@ -1525,6 +1563,25 @@ func childrenOfVectorLit(x *VectorLit, fn func(Node)) {
 	}
 	if !absent(x.Spread) {
 		fn(x.Spread)
+	}
+}
+
+func childrenOfVectorPattern(x *VectorPattern, fn func(Node)) {
+	if !absent(x.TypeName) {
+		fn(x.TypeName)
+	}
+	for _, e1 := range x.Heads {
+		if !absent(e1) {
+			fn(e1)
+		}
+	}
+	if !absent(x.Rest) {
+		fn(x.Rest)
+	}
+	for _, e2 := range x.Tails {
+		if !absent(e2) {
+			fn(e2)
+		}
 	}
 }
 
@@ -1621,6 +1678,7 @@ var generatedTypes = []any{
 	(*SelfExpr)(nil),
 	(*SelfType)(nil),
 	(*SetLit)(nil),
+	(*SetPattern)(nil),
 	(*SimpleType)(nil),
 	(*StringInterp)(nil),
 	(*StringLit)(nil),
@@ -1643,6 +1701,7 @@ var generatedTypes = []any{
 	(*TypeIdent)(nil),
 	(*Unary)(nil),
 	(*VectorLit)(nil),
+	(*VectorPattern)(nil),
 	(*WildcardPattern)(nil),
 	(*With)(nil),
 	*new(AttachedTestAfter), (*AttachedTestAfter)(nil),

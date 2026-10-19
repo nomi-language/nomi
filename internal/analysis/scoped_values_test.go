@@ -14,7 +14,7 @@ import (
 
 // startupFn is a helper test sources call to build a boot's Startup.
 const startupFn = `
- fn st() -> Startup { Startup{} }
+ fn st() -> Startup { #Startup{} }
  `
 
 // An application's fields are read by naming its type and replaced with
@@ -23,7 +23,7 @@ func TestAppFieldsReadAndReplaced(t *testing.T) {
 	expectNoErrorsT(t, buildProjectForDefaultConfig(`
  struct Services { execution: Context
  port: Int }
- fn boot() -> Services { Services{execution: Context.root(), port: 3} }
+ fn boot() -> Services { #Services{execution: Context.root(), port: 3} }
  fn greet() -> Int { Services.port }
  fn main() {
   with Services.port = 4
@@ -37,7 +37,7 @@ func TestAppFieldsReadAndReplaced(t *testing.T) {
 func TestAppFieldsAppWithoutAContext(t *testing.T) {
 	expectNoErrorsT(t, buildProjectForDefaultConfig(`
  struct App { port: Int }
- fn boot() -> App { App{port: 3} }
+ fn boot() -> App { #App{port: 3} }
  fn main() {
   with App.port = App.port + 1
   _ = App.port
@@ -49,7 +49,7 @@ func TestAppFieldsAppWithoutAContext(t *testing.T) {
 // it; it has no name a read could use.
 func TestAppFieldsAnonymousBootReadsNothing(t *testing.T) {
 	expectNoErrorsT(t, buildProjectForDefaultConfig(`
- fn boot() -> {execution: Context, port: Int} { {execution: Context.root(), port: 3} }
+ fn boot() -> #{execution: Context, port: Int} { #{execution: Context.root(), port: 3} }
  fn main() { _ = 1 }
  `))
 }
@@ -59,7 +59,7 @@ func TestAppFieldsWithoutBoot(t *testing.T) {
 	prefix := `
  struct App { context: Context
  n: Int }
- fn boot() -> App { App{context: Context.root(), n: 1} }
+ fn boot() -> App { #App{context: Context.root(), n: 1} }
  fn main() { _ = 1 }
  `
 	expectNoErrorsT(t, buildProjectForDefaultConfig(prefix+` test "default" { assert True }
@@ -77,7 +77,7 @@ func TestAppFieldsWithoutBoot(t *testing.T) {
 	root := appScopeProject(t, map[string]string{
 		"server.nomi": `pub struct App { context: Context
 n: Int }
-pub fn boot() -> App { App{context: Context.root(), n: 1} }
+pub fn boot() -> App { #App{context: Context.root(), n: 1} }
 fn main() { _ = App.n }`,
 		"main.nomi": `import server.App
 fn main() { _ = App.n }`,
@@ -108,16 +108,16 @@ func TestAppFieldsUnbootedStructIsNotAnApplicationType(t *testing.T) {
 	expectNoErrorsT(t, buildProjectForDefaultConfig(`
  struct Services { context: Context
  port: Int }
- fn boot() -> Services { Services{context: Context.root(), port: 1} }
+ fn boot() -> Services { #Services{context: Context.root(), port: 1} }
  fn main() { _ = Services.port }
  `))
 }
 
 func TestAppFieldsBootValidation(t *testing.T) {
 	for schema, want := range map[string]string{
-		`{a: Context, b: Context}`: "at most one Context-typed field",
-		`Int`:                      "boot must return a struct",
-		`#(Context, Int)`:          "boot must return a struct",
+		`#{a: Context, b: Context}`: "at most one Context-typed field",
+		`Int`:                       "boot must return a struct",
+		`#(Context, Int)`:           "boot must return a struct",
 	} {
 		expectErrorT(t, buildProjectForDefaultConfig(`
  fn boot(startup: Startup) -> `+schema+` { 3 }
@@ -127,17 +127,17 @@ func TestAppFieldsBootValidation(t *testing.T) {
 	expectErrorT(t, buildProjectForDefaultConfig(`
  struct App { a: Context
  b: Context }
- fn boot() -> App { App{a: Context.root(), b: Context.root()} }
+ fn boot() -> App { #App{a: Context.root(), b: Context.root()} }
  fn main() {}
  `), "an application struct may have at most one Context-typed field")
 	// The (Startup, Context) signature is gone.
 	expectErrorT(t, buildProjectForDefaultConfig(`
  struct App { context: Context }
- fn boot(_startup: Startup, context: Context) -> App { App{context} }
+ fn boot(_startup: Startup, context: Context) -> App { #App{context} }
  fn main() {}
  `), bootSignatureMsg)
 	expectErrorT(t, buildProjectForDefaultConfig(` struct Ctx { n: Int }
- fn boot(_startup: Ctx) -> {execution: Context} { {execution: Context.root()} }
+ fn boot(_startup: Ctx) -> #{execution: Context} { #{execution: Context.root()} }
  fn main() {}
  `), bootSignatureMsg)
 }
@@ -146,11 +146,11 @@ func TestAppFieldsBootValidation(t *testing.T) {
 func TestAppFieldsBootOutsideAnEntryFile(t *testing.T) {
 	expectErrorT(t, buildProjectForDefaultConfig(`
  struct App { context: Context }
- fn boot() -> App { App{context: Context.root()} }
+ fn boot() -> App { #App{context: Context.root()} }
  `), "`boot` belongs in an entry file, one that defines `fn main`")
 	expectNoErrorsT(t, buildProjectForDefaultConfig(`
  struct App { context: Context }
- fn boot() -> App { App{context: Context.root()} }
+ fn boot() -> App { #App{context: Context.root()} }
  fn main() {}
  `))
 }
@@ -165,10 +165,10 @@ func TestAppFieldsPublication(t *testing.T) {
  fn call(f: () -> Int) -> Int { f() }
  `
 	for _, c := range []struct{ source, read string }{
-		{`fn boot() -> Services { Services{execution: Context.root(), port: Services.port} } fn main() {}`, "`Services.port` (line 6)"},
-		{`fn boot() -> Services { Services{execution: Context.root(), port: read()} } fn main() {}`, "`Services.port` (line 4)"},
-		{`fn boot() -> Services { Services{execution: Services.execution, port: 1} } fn main() {}`, "`Services.execution` (line 6)"},
-		{`fn boot() -> Services { Services{execution: Context.root(), port: call(fn -> Services.port)} } fn main() {}`, "`Services.port` (line 6)"},
+		{`fn boot() -> Services { #Services{execution: Context.root(), port: Services.port} } fn main() {}`, "`Services.port` (line 6)"},
+		{`fn boot() -> Services { #Services{execution: Context.root(), port: read()} } fn main() {}`, "`Services.port` (line 4)"},
+		{`fn boot() -> Services { #Services{execution: Services.execution, port: 1} } fn main() {}`, "`Services.execution` (line 6)"},
+		{`fn boot() -> Services { #Services{execution: Context.root(), port: call(fn -> Services.port)} } fn main() {}`, "`Services.port` (line 6)"},
 	} {
 		expectErrorT(t, buildProjectForDefaultConfig(prefix+c.source),
 			"boot runs before any application field is published, but code it runs reads "+c.read)
@@ -178,11 +178,11 @@ func TestAppFieldsPublication(t *testing.T) {
  struct Services { context: Context
  read: () -> Int
  port: Int }
- fn boot() -> Services { Services{context:Context.root(),read:fn -> Services.port,port:3} }
+ fn boot() -> Services { #Services{context:Context.root(),read:fn -> Services.port,port:3} }
  fn main() { f = Services.read
  _ = f() }
  `))
-	boot := `fn boot() -> Services { Services{execution:Context.root(),port:1} } `
+	boot := `fn boot() -> Services { #Services{execution:Context.root(),port:1} } `
 	expectErrorT(t, buildProjectForDefaultConfig(prefix+boot+`fn main() { _ = boot }`), "cannot be called or captured")
 	expectErrorT(t, buildProjectForDefaultConfig(prefix+boot+`fn main() {
  with Services.port = "bad"
@@ -195,7 +195,7 @@ func TestAppFieldsEntryBootCalledOnlyOnABootLine(t *testing.T) {
 	prefix := `
  struct App { context: Context
  n: Int }
- fn boot() -> App { App{context: Context.root(), n: 1} }
+ fn boot() -> App { #App{context: Context.root(), n: 1} }
  fn main() {}
  `
 	expectNoErrorsT(t, buildProjectForDefaultConfig(prefix+` group "g" {
@@ -214,9 +214,9 @@ func TestAppFieldsBootLineArgumentReadsNoField(t *testing.T) {
 	expectErrorT(t, buildProjectForDefaultConfig(`
  struct App { context: Context
  n: Int }
- fn boot(_startup: Startup) -> App { App{context: Context.root(), n: 1} }
+ fn boot(_startup: Startup) -> App { #App{context: Context.root(), n: 1} }
  fn main() {}
- fn st() -> Startup { Startup{args: ["${App.n}"]} }
+ fn st() -> Startup { #Startup{args: ["${App.n}"]} }
  group "g" {
   boot boot(st())
   test "reads" { assert App.n == 1 }
@@ -228,7 +228,7 @@ func TestAppFieldsGroupBootMustNameAnEntryBoot(t *testing.T) {
 	expectErrorT(t, buildProjectForDefaultConfig(`
  struct Life { life: Context
  n: Int }
- fn make(_startup: Startup) -> Life { Life{life: Context.root(), n: 1} }
+ fn make(_startup: Startup) -> Life { #Life{life: Context.root(), n: 1} }
  fn main() {}
  `+startupFn+`
  group "custom" {
@@ -240,7 +240,7 @@ func TestAppFieldsGroupBootMustNameAnEntryBoot(t *testing.T) {
 	root := appScopeProject(t, map[string]string{
 		"lib.nomi": `pub struct Life { life: Context
 n: Int }
-pub fn boot() -> Life { Life{life: Context.root(), n: 1} }`,
+pub fn boot() -> Life { #Life{life: Context.root(), n: 1} }`,
 		"lib_test.nomi": `import lib
 group "custom" {
  boot lib.boot()
@@ -256,12 +256,12 @@ func TestAppFieldsEachGroupBootsItsOwnApplication(t *testing.T) {
 	files := map[string]string{
 		"services.nomi": `pub struct Services { execution: Context
 port: Int }
-pub fn boot() -> Services { Services{execution: Context.root(), port: 3} }
+pub fn boot() -> Services { #Services{execution: Context.root(), port: 3} }
 pub fn read() -> Int { Services.port }
 fn main() { _ = read() }`,
 		"other.nomi": `pub struct Other { life: Context
 text: String }
-pub fn boot() -> Other { Other{life: Context.root(), text: "yes"} }
+pub fn boot() -> Other { #Other{life: Context.root(), text: "yes"} }
 fn main() { _ = Other.text }`,
 	}
 	head := `import {
@@ -313,11 +313,11 @@ func TestAppFieldsHelpersNameTheirType(t *testing.T) {
 	files := map[string]string{
 		"a.nomi": `pub struct A { context: Context
 n: Int }
-pub fn boot() -> A { A{context: Context.root(), n: 1} }
+pub fn boot() -> A { #A{context: Context.root(), n: 1} }
 fn main() {}`,
 		"b.nomi": `pub struct B { context: Context
 n: Int }
-pub fn boot() -> B { B{context: Context.root(), n: 2} }
+pub fn boot() -> B { #B{context: Context.root(), n: 2} }
 fn main() {}`,
 		"helpers.nomi": `import {
  a.A
@@ -353,7 +353,7 @@ port:Int }`,
 		"reader.nomi": `import settings.Settings
 pub fn read() -> Int { Settings.port }`,
 		"main.nomi": `import {settings.Settings reader }
- fn boot() -> Settings { Settings{context:Context.root(),port:3} }
+ fn boot() -> Settings { #Settings{context:Context.root(),port:3} }
  fn main() { _ = reader.read() }`,
 	}
 	root := appScopeProject(t, files)
@@ -366,7 +366,7 @@ pub fn read() -> Int { Settings.port }`,
 // carries `//!` tests that read nothing.
 func TestAppFieldsImportedTypeBesideAttachedTests(t *testing.T) {
 	main := `import {settings.Settings reader }
- fn boot() -> Settings { Settings{context:Context.root(),port:3} }
+ fn boot() -> Settings { #Settings{context:Context.root(),port:3} }
  fn main() { _ = reader.read() }`
 	settings := ` pub struct Settings { context:Context
 port:Int }`
@@ -408,7 +408,7 @@ pub fn read() -> Int { Settings.port }`,
 		"twice.nomi": `import reader
 pub fn twice() -> Int { reader.read() * 2 }`,
 		"main.nomi": `import {settings.Settings twice }
- fn boot() -> Settings { Settings{context:Context.root(),port:3} }
+ fn boot() -> Settings { #Settings{context:Context.root(),port:3} }
  fn main() { _ = twice.twice() }`,
 	})
 	expectNoErrorsT(t, appScopeCheckSibling(t, root, "main.nomi", "twice"))
@@ -428,7 +428,7 @@ port:Int }`,
 pub fn read() -> Int { Settings.port }
 `,
 		"main.nomi": `import {settings.Settings reader }
- fn boot() -> Settings { Settings{context:Context.root(),port:3} }
+ fn boot() -> Settings { #Settings{context:Context.root(),port:3} }
  fn main() { _ = reader.read() }`,
 	})
 	expectErrorT(t, appScopeCheckSibling(t, root, "main.nomi", "reader"),
@@ -476,7 +476,7 @@ func TestAppFieldsUnreadByMainWithCustomTests(t *testing.T) {
  struct Life { life: Context
  n: Int }
  fn read() -> Int { 1 }
- fn boot() -> Life { Life{life:Context.root(),n:1} }
+ fn boot() -> Life { #Life{life:Context.root(),n:1} }
  fn main() { _ = read() }
  group "custom" {
   boot boot()
@@ -513,10 +513,10 @@ func TestAppFieldsInterfaceReplacement(t *testing.T) {
  impl Logger for Audit { fn log(_logger: Audit, msg: String) -> Unit { _ = msg } }
  struct App { life: Context
  logger: Logger }
- fn boot() -> App { App{life:Context.root(),logger:Console{}} }
+ fn boot() -> App { #App{life:Context.root(),logger:#Console{}} }
  fn greet() { Logger.log(App.logger,"hello") }
  fn main() {
-  with App.logger = Audit{}
+  with App.logger = #Audit{}
   greet()
  }
  `))
@@ -529,7 +529,7 @@ func TestAppFieldsReplacementSeesTheFieldType(t *testing.T) {
  Debug }
  struct App { context: Context
  level: Level }
- fn boot() -> App { App{context: Context.root(), level: .Info} }
+ fn boot() -> App { #App{context: Context.root(), level: .Info} }
  fn main() {
   with App.level = .Debug
   _ = App.level
@@ -542,7 +542,7 @@ func TestAppFieldsWithTargetsAnApplicationField(t *testing.T) {
  struct App { context: Context
  n: Int }
  struct Point { x: Int }
- fn boot() -> App { App{context: Context.root(), n: 1} }
+ fn boot() -> App { #App{context: Context.root(), n: 1} }
  `
 	expectErrorT(t, buildProjectForDefaultConfig(prefix+`fn main() {
  with Point.x = 1
@@ -564,7 +564,7 @@ func TestAppFieldsTypeMayNotShadowAField(t *testing.T) {
  struct App { context: Context
  port: Int }
  impl App { fn port() -> Int { 1 } }
- fn boot() -> App { App{context: Context.root(), port: 1} }
+ fn boot() -> App { #App{context: Context.root(), port: 1} }
  fn main() { _ = App.port }
  `), "`App` is an application type, so `App.port` reads its field `port`; rename this member")
 	// A type no boot returns is not an application type, and its
@@ -581,7 +581,7 @@ func TestAppFieldsMetadata(t *testing.T) {
 	root := appScopeProject(t, map[string]string{"main.nomi": `
  struct App { execution: Context
  n: Int }
- fn boot() -> App { App{execution:Context.root(),n:3} }
+ fn boot() -> App { #App{execution:Context.root(),n:3} }
  fn main() {
  with App.n = 4
  _ = App.execution

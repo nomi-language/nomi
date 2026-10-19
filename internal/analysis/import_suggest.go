@@ -1,6 +1,8 @@
 package analysis
 
 import (
+	"maps"
+	"slices"
 	"sync/atomic"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -114,8 +116,11 @@ func addTypeSuggestions(fa *FileAnalysis, typeIndex map[string][]string, name st
 func buildStdlibTypeIndex(fa *FileAnalysis) map[string][]string {
 	idx := map[string][]string{}
 	seen := map[*Scope]bool{}
-	for short, scope := range fa.Program().StdlibModuleScopes {
-		indexStdlibScopeTypes(idx, scope, "std/"+short, seen)
+	// In module order, so a name several modules export lists them, and
+	// offers their imports, in the same order on every run.
+	scopes := fa.Program().StdlibModuleScopes
+	for _, short := range slices.Sorted(maps.Keys(scopes)) {
+		indexStdlibScopeTypes(idx, scopes[short], "std/"+short, seen)
 	}
 	return idx
 }

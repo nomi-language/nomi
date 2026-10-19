@@ -95,7 +95,7 @@ func BenchmarkStructs_RecordBoxed(b *testing.B) {
 	}
 }
 
-// Struct spread: `{..p, x: p.x + 1}` 300,000 times.
+// Struct spread: `#{..p, x: p.x + 1}` 300,000 times.
 func BenchmarkStructs_RecordWith(b *testing.B) {
 	d := particleDesc()
 	idx := []int{0}

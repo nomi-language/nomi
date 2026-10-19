@@ -47,11 +47,11 @@ fn describe_alias<T>(value: T) -> String where T: ShowAndTag {
 }
 
 test "interface bounds constrain generic functions" {
-    assert announce(User{name: "Alice"}) == "announce(user:Alice)"
-    assert announce(Tag{label: "v1.0"}) == "announce(tag:v1.0)"
-    assert describe(User{name: "Bob"}) == "[user] user:Bob"
+    assert announce(#User{name: "Alice"}) == "announce(user:Alice)"
+    assert announce(#Tag{label: "v1.0"}) == "announce(tag:v1.0)"
+    assert describe(#User{name: "Bob"}) == "[user] user:Bob"
 }
 
 test "interface-bound aliases name reusable bound conjunctions" {
-    assert describe_alias(User{name: "Bob"}) == "[user] user:Bob"
+    assert describe_alias(#User{name: "Bob"}) == "[user] user:Bob"
 }

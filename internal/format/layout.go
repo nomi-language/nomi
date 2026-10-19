@@ -448,7 +448,7 @@ func fits(d Doc, tail Doc, remaining int) bool {
 func fitsWalk(d Doc, rem *int, inTail bool) bool {
 	if d == nil {
 		// Nil Doc behaves like docNil — important because render constructs
-		// `docConcat{a: v.b, b: tail}` for tail propagation and tail can
+		// `docConcat#{a: v.b, b: tail}` for tail propagation and tail can
 		// itself be nil at the document root.
 		return true
 	}

@@ -30,9 +30,9 @@ pub interface Beta {
 }
 
 pub fn thing(n: Int) -> Thing {
-    Thing{n}
+    #Thing{n}
 }
 
 pub fn other(n: Int) -> Other {
-    Other{n}
+    #Other{n}
 }

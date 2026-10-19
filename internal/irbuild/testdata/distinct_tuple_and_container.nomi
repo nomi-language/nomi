@@ -2,7 +2,7 @@
 //
 // Two things that were separately refused and turn out to share a file:
 //
-//   - `Coord(3, 4)` — the FLAT construction spelling of a tuple-shaped inner.
+//   - `#Coord(3, 4)` — the FLAT construction spelling of a tuple-shaped inner.
 //     The front end accepts it and the builder required exactly one argument,
 //     so it refused under `call arity`, a key holding no arity errors at all.
 //   - `Debug.inspect(items)` for `type Items List<Int>` — the synthesized
@@ -33,9 +33,9 @@ enum Shape {
 fn main() {
     // FLAT construction, and the explicit one-tuple spelling beside it. Nomi has
     // no 1-tuple, so the two arities can never collide.
-    flat = Coord(3, 4)
+    flat = #Coord(3, 4)
     explicit = Coord(#(3, 4))
-    three = Triple(1, 2, 3)
+    three = #Triple(1, 2, 3)
 
     io.print("flat=${Debug.inspect(flat)}")
     io.print("explicit=${Debug.inspect(explicit)}")
@@ -46,13 +46,13 @@ fn main() {
     // the two cannot drift: one helper serves both.
     io.print("variant-flat=${Debug.inspect(Shape.Pos(10, 20))}")
     io.print("variant-explicit=${Debug.inspect(Shape.Pos(#(10, 20)))}")
-    io.print("variant-over-distinct=${Debug.inspect(Shape.Tagged(Coord(7, 8)))}")
+    io.print("variant-over-distinct=${Debug.inspect(Shape.Tagged(#Coord(7, 8)))}")
 
     // A distinct over a reference-typed inner. `List` is `*rt.List[T]` and
     // `Map` is a value struct (`rt.Map`), so the two exercise different
     // conversion paths.
     items = Items([4, 5, 6])
-    kvs = Kvs%{"a" => 1, "b" => 2}
+    kvs = %Kvs{"a" => 1, "b" => 2}
 
     io.print("items=${Debug.inspect(items)}")
     io.print("kvs=${Debug.inspect(kvs)}")
@@ -69,7 +69,7 @@ fn main() {
     io.print("bind-unwrap=${Iter.count(bound)}")
 
     parts = case flat {
-        Coord(cx, cy) -> "${cx},${cy}"
+        #Coord(cx, cy) -> "${cx},${cy}"
     }
 
     io.print("coord-parts=${parts}")

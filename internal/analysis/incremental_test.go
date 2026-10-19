@@ -260,7 +260,7 @@ var orderEdits = []editStep{
 	restore("signature and import back", "settings"),
 	restore("caller and import back", "main"),
 	appendText("declaration added", "shapes", "\npub fn perimeter(circle: Circle) -> Int {\n    circle.radius * 6\n}\n"),
-	replace("body only, uses a declaration from another file", "report", `"area: ${Shape.area(shape)}"`, `"area: ${Shape.area(shape)} ${shapes.perimeter(Circle{radius: 1})}"`),
+	replace("body only, uses a declaration from another file", "report", `"area: ${Shape.area(shape)}"`, `"area: ${Shape.area(shape)} ${shapes.perimeter(#Circle{radius: 1})}"`),
 	replace("import added", "report", "    settings.Settings\n", "    settings.Settings\n    shapes\n"),
 	restore("declaration's use and import removed", "report"),
 	restore("declaration removed", "shapes"),
@@ -471,7 +471,7 @@ pub struct Item {
 }
 
 pub fn make(name: String, weight: Int) -> Item {
-    Item{name: name, weight: util.clamp(weight)}
+    #Item{name: name, weight: util.clamp(weight)}
 }
 
 pub fn heavy(item: Item) -> Bool {
@@ -556,7 +556,7 @@ pub struct Tint {
 }
 
 pub fn describe() -> String {
-    Shade.shade(Tint{level: 2})
+    Shade.shade(#Tint{level: 2})
 }
 `,
 	}}
@@ -571,7 +571,7 @@ var dispatchEdits = []editStep{
 // appTypeBoot is the entry boot of the corpus project app_field_permission,
 // which makes `Settings`, declared in a file the entry imports, the
 // application type that project's other files read fields of.
-const appTypeBoot = "pub fn boot() -> Settings {\n    Settings{context: Context.root(), tag: \"the-real-root\"}\n}\n"
+const appTypeBoot = "pub fn boot() -> Settings {\n    #Settings{context: Context.root(), tag: \"the-real-root\"}\n}\n"
 
 // appTypeEdits remove the entry's boot and put it back. The files that read
 // `Settings.tag` do not import the entry, and what their bodies say turns on
@@ -830,7 +830,7 @@ func TestCheckProgramPrintsWhatTheFrontEndPrints(t *testing.T) {
 	// A derive in an imported file over a field with no impl: the entry's
 	// coherence finds it, and both print it in the file with the derive.
 	deriveElsewhere := incrementalProject{name: "derive in an imported file", entry: "main", texts: map[string]string{
-		"main":  "import {\n    std/io\n    child.Holder\n}\n\nfn main() {\n    io.inspect(Holder{n: 1, o: Opaque{f: fn x -> x}})\n}\n",
+		"main":  "import {\n    std/io\n    child.Holder\n}\n\nfn main() {\n    io.inspect(#Holder{n: 1, o: #Opaque{f: fn x -> x}})\n}\n",
 		"child": "pub struct Opaque {\n    f: (Int) -> Int\n}\n\npub struct Holder {\n    n: Int\n    o: Opaque\n}\n\nderive Equatable for Holder\n",
 	}}
 	for _, p := range append([]incrementalProject{order, withTypeError, deriveElsewhere}, corpus...) {

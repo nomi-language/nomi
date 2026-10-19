@@ -47,7 +47,7 @@ fn json_encode_kind(jv: Json) -> String {
 }
 
 test "bare variants resolve in pattern position and owner selector imports" {
-    hand_built = Json.Obj%{"name" => JStr("Ada"), "age" => JInt(36)}
+    hand_built = %Json.Obj{"name" => JStr("Ada"), "age" => JInt(36)}
     null_jv: Json = Json.Null
 
     json_pattern = case hand_built {
@@ -113,11 +113,11 @@ fn id_color(c: DotColor) -> DotColor {
 test "dot-leading variants resolve from contextual enum types" {
     c1: DotColor = .Red
     s1: DotShape = .Circle(1.0)
-    s2: DotShape = .Rect{w: 4.0, h: 3.0}
-    v1: DotValue = .Obj%{"k" => 1}
+    s2: DotShape = #.Rect{w: 4.0, h: 3.0}
+    v1: DotValue = %.Obj{"k" => 1}
     v2: DotValue = .Arr[1, 2, 3]
     v3: DotValue = .Nil
-    b: DotBox = DotBox{color: .Red, shape: .Origin}
+    b: DotBox = #DotBox{color: .Red, shape: .Origin}
     hit1: Int = paint(.Green)
     c2: DotColor = default_color()
     palette: List<DotColor> = [.Red, .Green, .Blue]
@@ -142,7 +142,7 @@ test "dot-leading variants resolve from contextual enum types" {
     hit4: Float = case s1 {
         .Circle(r) -> r
         .Square(_) -> 0.0
-        .Rect{w, h: _} -> w
+        #.Rect{w, h: _} -> w
         .Origin -> -1.0
     }
 
@@ -153,7 +153,7 @@ test "dot-leading variants resolve from contextual enum types" {
     assert c1 == DotColor.Red
     assert s2.w == 4.0
     assert s2.h == 3.0
-    assert v1 == DotValue.Obj%{"k" => 1}
+    assert v1 == %DotValue.Obj{"k" => 1}
     assert v2 == DotValue.Arr[1, 2, 3]
     assert v3 == DotValue.Nil
     assert b.shape == DotShape.Origin
@@ -299,10 +299,10 @@ test "bare variant construction diagnostics require enum qualification" {
           }
 
           fn main() {
-            bad_map = Pairs%{"a" => 1}
+            bad_map = %Pairs{"a" => 1}
             bad_list = Items[1, 2, 3]
             bad_call = Position(10, 20)
-            bad_imported = Obj%{"k" => Json.Null}
+            bad_imported = %Obj{"k" => Json.Null}
 
             discard(bad_map)
             discard(bad_list)

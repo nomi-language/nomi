@@ -25,7 +25,7 @@ interface Greeter {
 }
 
 fn build_person(name: String) -> Person {
-    Person{name}
+    #Person{name}
 }
 
 struct GeometryPoint {
@@ -39,7 +39,7 @@ enum Axis {
 }
 
 fn origin() -> GeometryPoint {
-    GeometryPoint{x: 0, y: 0}
+    #GeometryPoint{x: 0, y: 0}
 }
 
 fn vertical_axis() -> Axis {
@@ -62,7 +62,7 @@ fn canonical_header_name(name: String) -> String {
 once default_header_name: String = canonical_header_name("content-type")
 
 test "import aliases rename modules functions and variant constructors" {
-    acct = Account{owner: "Ada", balance: 100}
+    acct = #Account{owner: "Ada", balance: 100}
 
     assert Iter.count([acct.balance, 200, 300]) == 3
     assert Just(7) == Some(7)

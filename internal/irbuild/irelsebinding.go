@@ -13,7 +13,7 @@ package irbuild
 // signalling callback's `break` or `continue` (the checker requires it).
 //
 // FALLBACK. The pattern is one variant with a payload whose own pattern always
-// matches (`Some(email)`, `Ok(#(w, h))`, `.Valid{addr, score}`), so an else path
+// matches (`Some(email)`, `Ok(#(w, h))`, `#.Valid{addr, score}`), so an else path
 // may produce a value instead of leaving. A slot of the payload's kind is
 // declared; the variant is tested; the success edge writes the projected
 // payload into the slot and the else's value paths write their fallback into
@@ -143,7 +143,7 @@ func (bl *irScalarBuilder) elseFallback(pattern ast.Node, k kind) (irElseFallbac
 		return irElseFallback{}, false
 	case fb.v.kind == "struct":
 		fb.record = true
-		// `.V{a, b}`: the record's fields bind through the pattern's own
+		// `#.V{a, b}`: the record's fields bind through the pattern's own
 		// fields. `.V(r)` binds the record whole.
 		sp, fields := ast.WithoutAs(fb.inner).(*ast.StructPattern)
 		if !fields && fb.inner != nil {
@@ -173,7 +173,7 @@ func (bl *irScalarBuilder) elseFallback(pattern ast.Node, k kind) (irElseFallbac
 // irPatternAlwaysMatches reports whether p matches every value of kind k: it
 // only binds, through tuples, struct and record fields and wrapping distincts.
 func (g *gen) irPatternAlwaysMatches(p ast.Node, k kind) bool {
-	switch v := p.(type) {
+	switch v := irPattern(p).(type) {
 	case nil, *ast.WildcardPattern, *ast.IdentPattern:
 		return true
 	case *ast.AsPattern:
@@ -212,7 +212,7 @@ func (g *gen) irPatternAlwaysMatches(p ast.Node, k kind) bool {
 		if g.distinctSubPattern(v, k) {
 			return true
 		}
-		// `Wrapped({r})` for `type Wrapped Circle`: a distinct's destructure
+		// `Wrapped(#{r})` for `type Wrapped Circle`: a distinct's destructure
 		// matches when its inner pattern does, as nominalCaseTest tests it.
 		if k.tag != tagNamed || !irDistinctOverValue(k.def) || k.def.rtOpaque || (v.Binding != "" && v.Payload != nil) {
 			return false

@@ -29,7 +29,7 @@ impl Display for Oops {
 }
 
 fn main() -> Result<Unit, Oops> {
-    Err(Oops{code: 7})
+    Err(#Oops{code: 7})
 }
 `, "oops 7"},
 		{"no Display", `struct Oops {
@@ -38,9 +38,9 @@ fn main() -> Result<Unit, Oops> {
 }
 
 fn main() -> Result<Unit, Oops> {
-    Err(Oops{zeta: "z", alpha: 1})
+    Err(#Oops{zeta: "z", alpha: 1})
 }
-`, `Oops{zeta: "z", alpha: 1}`},
+`, `#Oops{zeta: "z", alpha: 1}`},
 		{"Int", "fn main() -> Result<Unit, Int> {\n    Err(42)\n}\n", "42"},
 		{"List of String", "fn main() -> Result<Unit, List<String>> {\n    Err([\"a\", \"b\"])\n}\n", "[a, b]"},
 	} {

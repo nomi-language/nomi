@@ -139,7 +139,7 @@ inherent impl block with host fn, fn, and once items
 ================================================================================
 
 impl Request {
-  pub once Empty = Request{}
+  pub once Empty = #Request{}
 
   pub host fn new(url: String) -> Request
 

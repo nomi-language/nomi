@@ -39,7 +39,7 @@ var nestedForms = []struct {
 		return "fn main() {\n  _x = " + strings.Repeat(`"${`, d) + "1" + strings.Repeat(`}"`, d) + "\n}\n"
 	}},
 	{"anonymous structs", func(d int) string {
-		return "fn main() {\n  _x = " + strings.Repeat("{a: ", d) + "1" + strings.Repeat("}", d) + "\n}\n"
+		return "fn main() {\n  _x = " + strings.Repeat("#{a: ", d) + "1" + strings.Repeat("}", d) + "\n}\n"
 	}},
 	{"maps", func(d int) string {
 		return "fn main() {\n  _x = " + strings.Repeat("%{1 => ", d) + "1" + strings.Repeat("}", d) + "\n}\n"

@@ -218,7 +218,7 @@ type irScalarBuilder struct {
 	boot bool
 	// vmOnly marks a std arity wrapper's body, which only the VM reads. It
 	// admits a std enum field's Go-stated default as its constant, as every
-	// body the test read-back does not spell does (`Backoff.Exponential{}`
+	// body the test read-back does not spell does (`#Backoff.Exponential{}`
 	// in a program).
 	vmOnly bool
 	// body is the named function's own block, the one scope whose app-field
@@ -472,8 +472,19 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 	case *ast.MapLit:
 		return bl.mapMake(t)
 	case *ast.VectorLit:
+		if t.TypeName != nil {
+			// `#Path[1, 2]`, `#.Items[1]`: the type it names over the vector.
+			anon := *t
+			anon.TypeName = nil
+			return bl.attachedVariant(t, t.TypeName, &anon)
+		}
 		return bl.vectorMake(t)
 	case *ast.SetLit:
+		if t.TypeName != nil {
+			anon := *t
+			anon.TypeName = nil
+			return bl.attachedVariant(t, t.TypeName, &anon)
+		}
 		return bl.setMake(t)
 	case *ast.RangeLit:
 		return bl.rangeMake(t)
@@ -489,6 +500,12 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 	case *ast.ListSpreadLit:
 		return bl.listMake(t, t.Heads, t.TailSpread)
 	case *ast.TupleLit:
+		if t.TypeName != nil {
+			// `#Pair(1, "x")`: the distinct type over the tuple.
+			anon := *t
+			anon.TypeName = nil
+			return bl.attachedVariant(t, t.TypeName, &anon)
+		}
 		return bl.tupleMake(t)
 
 	case *ast.StructLit:
@@ -1281,8 +1298,8 @@ func (g *gen) irMonoTemplate(sig *fnSig) *monoTemplate {
 	return sig.irMono
 }
 
-// structCallForm builds the struct call form `Foo({a: 1})` as the brace
-// literal `Foo{a: 1}`: the argument's fields in written order, then the
+// structCallForm builds the struct call form `Foo(#{a: 1})` as the brace
+// literal `#Foo{a: 1}`: the argument's fields in written order, then the
 // omitted fields' defaults. A record VALUE argument is read field by field
 // (structFromRecord). A generic struct's call form is built at the instance
 // its fields solve, as its brace literal is.
@@ -2587,7 +2604,7 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 		var ok bool
 		subj, sk, _, ok = bl.lower(t.Value)
 		if !ok || (sk != kindInt && sk != kindString && sk != kindBool && !irLiteralCaseKind(sk, bl) &&
-			(!irRetainedTupleKind(sk) && !irCaseListKind(sk) && !(sk.tag == tagNamed && irRetainedEnumKind(sk.def)) && !(sk.tag == tagMap && irRetainedMapKind(sk)) && !irNominalCaseKind(sk))) {
+			(!irRetainedTupleKind(sk) && !irCaseListKind(sk) && !irVectorCaseKind(sk) && !irSetCaseKind(sk) && !(sk.tag == tagNamed && irRetainedEnumKind(sk.def)) && !(sk.tag == tagMap && irRetainedMapKind(sk)) && !irNominalCaseKind(sk))) {
 			if ok {
 				irDeclineNote("a tail `case` scrutinee outside retained literal-pattern kinds: " + sk.nomi())
 			}
@@ -2980,7 +2997,7 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 		return v, k, ok
 	}
 	want := bl.g.typeOf(b.TypeAnnotation)
-	// A local interface's existential (`widened: Clock = FakeClock{...}`)
+	// A local interface's existential (`widened: Clock = #FakeClock{...}`)
 	// holds the concrete value, as an interface-typed field does.
 	existential := irExistentialKind(want)
 	if !irCallableValueKind(want) && want != kindUnit && !existential {
@@ -2994,7 +3011,7 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 	if existential {
 		// The VM's existential is the concrete value, so the binding holds
 		// it unchanged at the interface's kind, the checker's type for the
-		// name: a record or tuple built from it (`{d: d}`) then has the
+		// name: a record or tuple built from it (`#{d: d}`) then has the
 		// kind the checker gives it.
 		v, k, _, ok := bl.lowerTypedOperand(b.Value, want)
 		if ok && k != want && !bl.g.irErases(want, k) {

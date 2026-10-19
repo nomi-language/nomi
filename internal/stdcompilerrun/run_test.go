@@ -63,7 +63,7 @@ func TestRunIsTheVMsPipeline(t *testing.T) {
 		// Debug.inspect on a struct with no hand-written impl needs the
 		// synthesis passes, not just the VM.
 		ok(t, "import std/io\n\nstruct P {\n  x: Int\n}\n\nfn main() {\n"+
-			"  io.print(Debug.inspect(P{x: 1}))\n}\n", "P{x: 1}\n")
+			"  io.print(Debug.inspect(#P{x: 1}))\n}\n", "#P{x: 1}\n")
 	})
 	t.Run("no main runs the top level and stops", func(t *testing.T) {
 		ok(t, "fn unused() -> Int {\n  1\n}\n", "")
@@ -100,9 +100,9 @@ func TestRunIsTheVMsPipeline(t *testing.T) {
 		// names no line, so it is given the line of the program's call that
 		// was blocked when it ran out: `timer.sleep` on line 18 (spec, "Where
 		// a trap is reported").
-		src :="import {\n  std/duration.Duration\n  std/io\n  std/timer\n}\n\n" +
+		src := "import {\n  std/duration.Duration\n  std/io\n  std/timer\n}\n\n" +
 			"struct Run {\n  context: Context\n}\n\n" +
-			"fn boot() -> Run {\n  Run{context: Context.root()}\n}\n\n" +
+			"fn boot() -> Run {\n  #Run{context: Context.root()}\n}\n\n" +
 			"fn main() {\n  with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(20))\n" +
 			"  io.print(\"entered\")\n  timer.sleep(Duration.seconds(5))\n  io.print(\"outlasted\")\n}\n"
 		got, err := run(src)

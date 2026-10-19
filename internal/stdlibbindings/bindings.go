@@ -127,7 +127,7 @@ func Types() []TypeBinding {
 // beside it — `stdregex.Compile` against `stdregex.FFICompile` — is not
 // interchangeable with it in either direction: measured, 13 of 14 rt-shaped symbols
 // either error at this boundary or hand Nomi a different value (a struct where
-// the declaration says a tuple, `{tag, ok, err}` where it says a Result). The
+// the declaration says a tuple, `#{tag, ok, err}` where it says a Result). The
 // VM's generated adapters call the FFI-shaped half.
 func Funcs() []Binding {
 	return []Binding{

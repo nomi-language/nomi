@@ -31,7 +31,7 @@ fn main() {
     t: #(Display, Int) = #(3, 4)
     #(td, ti) = t
     io.print("${Display.to_string(td)} ${Int.to_string(ti)}")
-    r: {d: Display, x: Int} = {d: True, x: 2}
+    r: #{d: Display, x: Int} = #{d: True, x: 2}
     io.print(Display.to_string(r.d))
     m: Map<String, Display> = Map.put(Map.empty(), "k", 1.5)
     io.print(Map.get(m, "k") |> Maybe.map(Display.to_string) |> Maybe.with_default(""))

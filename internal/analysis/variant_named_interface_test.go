@@ -50,7 +50,7 @@ func TestTypeNamedDebug_IsOnlyTheReservedNameError(t *testing.T) {
 }
 
 fn main() {
-  a = Debug{n: 1}
+  a = #Debug{n: 1}
 }
 `
 	_, errs := checkProjectWithFiles(t, src, nil)

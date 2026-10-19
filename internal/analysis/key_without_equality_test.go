@@ -19,16 +19,16 @@ func TestKeyWithoutEquality_IsRejectedWhereTheCollectionIsBuilt(t *testing.T) {
 		name, body, want string
 		line, col        int
 	}{
-		{"set literal", "s = #{it}\n  _ = s", iterSet, 4, 7},
+		{"set literal", "s = %[it]\n  _ = s", iterSet, 4, 7},
 		{"map literal", "m = %{it => 1}\n  _ = m", iterKey, 4, 7},
 		{"call", "s = Iter.to_set([it])\n  _ = s", iterSet, 4, 18},
 		{"pipe", "s = [it] |> Iter.to_set()\n  _ = s", iterSet, 4, 12},
-		{"annotated empty set", "s: Set<Iter<Int>> = #{}\n  _ = s", iterSet, 4, 23},
-		{"nested in a payload", "xs = [Some(#{it})]\n  _ = xs", iterSet, 4, 14},
+		{"annotated empty set", "s: Set<Iter<Int>> = %[]\n  _ = s", iterSet, 4, 23},
+		{"nested in a payload", "xs = [Some(%[it])]\n  _ = xs", iterSet, 4, 14},
 		{"generic instance", "s = single(it)\n  _ = s", iterSet, 4, 13},
 		{"function key", "f = fn x: Int -> x + 1\n  m = %{f => 1}\n  _ = m",
 			"`(Int) -> Int` cannot be a Map key: a function value has no equality or hashing", 5, 7},
-		{"key holding an Iter", "m = %{Feed{items: it} => 1}\n  _ = m",
+		{"key holding an Iter", "m = %{#Feed{items: it} => 1}\n  _ = m",
 			"`Feed` cannot be a Map key: it holds `Iter<Int>`, and an Iter has no equality or hashing; " +
 				"materialize it with `Iter.to_list` first", 4, 7},
 	}
@@ -58,7 +58,7 @@ func TestKeyWithoutEquality_IsRejectedWhereTheCollectionIsBuilt(t *testing.T) {
 // One collection type is reported once per body, at the expression that
 // first builds it, and not again where the value is passed along.
 func TestKeyWithoutEquality_IsReportedOncePerBody(t *testing.T) {
-	src := keyWithoutEqualityProgram("s = #{it}\n  t = Set.insert(s, it)\n  _ = t")
+	src := keyWithoutEqualityProgram("s = %[it]\n  t = Set.insert(s, it)\n  _ = t")
 	_, errs := checkSourceWithStdlib(src)
 	n := 0
 	for _, e := range errs {
@@ -75,7 +75,7 @@ func TestKeyWithoutEquality_AdmitsKeysWithEquality(t *testing.T) {
 	for _, body := range []string{
 		// An Iter as a Map VALUE is not looked up by equality.
 		"m = %{\"k\" => it}\n  _ = m",
-		"s = #{[1, 2]}\n  _ = s",
+		"s = %[[1, 2]]\n  _ = s",
 		"s = single(1)\n  _ = s",
 	} {
 		src := keyWithoutEqualityProgram(body)
@@ -97,5 +97,5 @@ func keyWithoutEqualityProgram(body string) string {
 		"  " + body + "\n" +
 		"}\n\n" +
 		"struct Feed {\n  items: Iter<Int>\n}\n\n" +
-		"fn single<T>(x: T) -> Set<T> {\n  #{x}\n}\n"
+		"fn single<T>(x: T) -> Set<T> {\n  %[x]\n}\n"
 }

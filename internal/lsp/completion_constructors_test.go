@@ -50,7 +50,7 @@ func TestCompletion_ConstructorsOfTheExpectedType(t *testing.T) {
 		},
 		{
 			"user struct",
-			"struct Config {\n    port: Int\n}\n\nimpl Config {\n    pub fn default() -> Config {\n        Config{port: 80}\n    }\n\n    pub fn with_port(c: Config, port: Int) -> Config {\n        Config{port: port}\n    }\n}\n\nfn f() -> Int {\n    c: Config = " + cursorMark + "\n    c.port\n}\n",
+			"struct Config {\n    port: Int\n}\n\nimpl Config {\n    pub fn default() -> Config {\n        #Config{port: 80}\n    }\n\n    pub fn with_port(c: Config, port: Int) -> Config {\n        #Config{port: port}\n    }\n}\n\nfn f() -> Int {\n    c: Config = " + cursorMark + "\n    c.port\n}\n",
 			"Config.default", "Config.default()$0",
 			[]string{"Config.with_port"},
 		},

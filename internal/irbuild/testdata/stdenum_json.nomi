@@ -114,13 +114,13 @@ fn main() {
     io.print(describe(Json.Float(2.5)))
     io.print(describe(Json.Bool(True)))
     io.print(describe(Json.Arr[Json.Int(1), Json.Int(2), Json.Int(3)]))
-    io.print(describe(Json.Obj%{"a" => Json.Int(1), "b" => Json.Null}))
+    io.print(describe(%Json.Obj{"a" => Json.Int(1), "b" => Json.Null}))
     io.print(describe(Json.Null))
 
     // --- the empty container shapes: a nil List and a zero Map --------------
     //
     // The empty Obj is reached through `decode` rather than through a literal.
-    // `Json.Obj{}` has no key or value type to solve from, since an empty
+    // `%Json.Obj{}` has no key or value type to solve from, since an empty
     // brace literal in variant position carries none, so the fixture does not
     // spell it. Decoding `{}` produces the same zero Map.
     io.print(describe(Json.Arr[]))
@@ -131,13 +131,13 @@ fn main() {
     }
 
     // --- the nested map pattern ---------------------------------------------
-    io.print(name_of(Json.Obj%{"name" => Json.String("Ada"), "age" => Json.Int(36)}))
-    io.print(name_of(Json.Obj%{"age" => Json.Int(36)}))
+    io.print(name_of(%Json.Obj{"name" => Json.String("Ada"), "age" => Json.Int(36)}))
+    io.print(name_of(%Json.Obj{"age" => Json.Int(36)}))
     io.print(name_of(Json.Int(1)))
 
     // --- encode: a hand-built object keeps its INSERTION order --------------
     io.print(
-        Json.encode(Json.Obj%{"x" => Json.Int(1), "y" => Json.Float(2.5), "ok" => Json.Bool(True)})
+        Json.encode(%Json.Obj{"x" => Json.Int(1), "y" => Json.Float(2.5), "ok" => Json.Bool(True)})
     )
 
     // The documented lossiness: a whole Float loses its point.
@@ -165,10 +165,10 @@ fn main() {
 
     // --- Display and Debug both route through std's own impls --------------
     io.print("display:" + Display.to_string(Json.Int(42)))
-    io.print("display_obj:" + Display.to_string(Json.Obj%{"k" => Json.Bool(False)}))
+    io.print("display_obj:" + Display.to_string(%Json.Obj{"k" => Json.Bool(False)}))
 
     // --- the negative control: a user enum with a container payload --------
     io.print(describe_local(Local.Items[1, 2]))
-    io.print(describe_local(Local.Named%{"k" => 9}))
+    io.print(describe_local(%Local.Named{"k" => 9}))
     io.print(describe_local(Local.Empty))
 }

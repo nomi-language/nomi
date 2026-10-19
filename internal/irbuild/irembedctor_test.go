@@ -26,22 +26,22 @@ enum Shape {
 
 fn area(s: Shape) -> Float {
   case s {
-    Shape.Circle{radius} -> radius
+    #Shape.Circle{radius} -> radius
     Shape.Dot(d) -> d
   }
 }
 
 fn main() {
-  a = Shape.Circle({radius: 2.0})
-  b = Shape.Circle({})
-  c = {radius: 2.5} |> Shape.Circle()
-  e = Shape.Circle{radius: 1.0}
+  a = Shape.Circle(#{radius: 2.0})
+  b = Shape.Circle(#{})
+  c = #{radius: 2.5} |> Shape.Circle()
+  e = #Shape.Circle{radius: 1.0}
   io.inspect(a)
   io.inspect(b)
   io.print(area(c))
   io.print(area(e))
 }
-`, "Circle{radius: 2.0}\nCircle{radius: 3.14}\n2.5\n1.0\n")
+`, "#Circle{radius: 2.0}\n#Circle{radius: 3.14}\n2.5\n1.0\n")
 }
 
 func TestIREmbedCtor_InlineStructVariantCallForms(t *testing.T) {
@@ -54,22 +54,22 @@ enum Shape {
 
 fn area(s: Shape) -> Float {
   case s {
-    Shape.Rectangle{width, height} -> width * height
+    #Shape.Rectangle{width, height} -> width * height
     Shape.Dot(d) -> d
   }
 }
 
 fn main() {
-  a = Shape.Rectangle({width: 4.0, height: 5.0})
-  b = Shape.Rectangle({height: 2.0})
-  c = {width: 1.0, height: 3.0} |> Shape.Rectangle()
-  e: Shape = .Rectangle({height: 4.0})
+  a = Shape.Rectangle(#{width: 4.0, height: 5.0})
+  b = Shape.Rectangle(#{height: 2.0})
+  c = #{width: 1.0, height: 3.0} |> Shape.Rectangle()
+  e: Shape = .Rectangle(#{height: 4.0})
   io.inspect(a)
   io.inspect(b)
   io.print(area(c))
   io.print(area(e))
 }
-`, "Rectangle{width: 4.0, height: 5.0}\nRectangle{width: 2.5, height: 2.0}\n3.0\n10.0\n")
+`, "#Rectangle{width: 4.0, height: 5.0}\n#Rectangle{width: 2.5, height: 2.0}\n3.0\n10.0\n")
 }
 
 func TestIREmbedCtor_EmbeddedMarker(t *testing.T) {
@@ -88,7 +88,7 @@ enum Session {
 
 fn label(s: Session) -> String {
   case s {
-    Session.Live{since} -> "live since ${since}"
+    #Session.Live{since} -> "live since ${since}"
     Session.Expired -> "expired"
   }
 }
@@ -97,7 +97,7 @@ fn main() {
   gone = Session.Expired
   io.inspect(gone)
   io.print(label(gone))
-  io.print(label(Session.Live({since: 3})))
+  io.print(label(Session.Live(#{since: 3})))
 }
 `, "Expired\nexpired\nlive since 3\n")
 }

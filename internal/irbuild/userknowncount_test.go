@@ -39,7 +39,7 @@ fn known(xs: Iter<Int>) -> Maybe<Int> {
 }
 
 fn main() {
-    p = Pair{a: 1, b: 2}
+    p = #Pair{a: 1, b: 2}
     io.inspect(total(p))
     io.inspect(known(p))
     io.inspect(Iter.known_count(p))

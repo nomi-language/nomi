@@ -13,7 +13,7 @@ func TestInstantiationCycle(t *testing.T) {
 	const header = "struct Box<T> {\n  inner: T\n}\n\n"
 	rejected := map[string]string{
 		"direct, through a struct": `fn grow<T>(x: T, n: Int) -> Int {
-  if n == 0 { 0 } else { grow(Box{inner: x}, n - 1) }
+  if n == 0 { 0 } else { grow(#Box{inner: x}, n - 1) }
 }`,
 		"direct, through a tuple": `fn pair<T>(x: T, n: Int) -> Int {
   if n == 0 { 0 } else { pair(#(x, x), n - 1) }
@@ -49,7 +49,7 @@ fn pong<U>(y: U, n: Int) -> Int {
   if n == 0 { 0 } else { swap(b, a, n - 1) }
 }`,
 		"growing but not recursive": `fn wrap<T>(x: T) -> Box<T> {
-  Box{inner: x}
+  #Box{inner: x}
 }
 
 fn twice<T>(x: T) -> Box<Box<T>> {

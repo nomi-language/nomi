@@ -86,8 +86,8 @@ func variantRefAt(fa *analysis.FileAnalysis, local string, line, col int) (ref *
 // JStr}`) at the node `at` that builds or names it, to the def and the
 // variant. A std enum resolves through stdEnumVariantAt. Any other enum
 // resolves through the type the checker gave `at`, so a generic enum's
-// variant gets the instance the checker solved (`Of{value: 1}` is a
-// `Holder<Int>`), as the qualified spelling `shapes.Holder.Of{value: 1}`
+// variant gets the instance the checker solved (`#Of{value: 1}` is a
+// `Holder<Int>`), as the qualified spelling `#shapes.Holder.Of{value: 1}`
 // does. That fallback is for user enums only: a std enum the std paths
 // decline declines here too. A same-file variant is not imported (its reference has no
 // resolution) and declines, as the checker rejects it bare.

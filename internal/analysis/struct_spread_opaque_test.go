@@ -5,19 +5,19 @@ import "testing"
 // OPACITY, for the spread spelling.
 //
 // The opaque-struct update rules guard every patch route to an opaque
-// struct's fields, and the spread form `Counter{..c, value: 9}` is one of
+// struct's fields, and the spread form `#Counter{..c, value: 9}` is one of
 // them. Naming a private field is the exposure wherever the name appears, so
 // the spread form is guarded with the same wording, and this file sits beside
 // opaque_struct_update_test.go, sharing its module fixtures.
 //
-// `{..c}` alone names no field, but it is rejected for its own reason: a
+// `#{..c}` alone names no field, but it is rejected for its own reason: a
 // spread that changes no field is its base value.
 
 func TestOpaqueUpdate_SpreadNamingAFieldFromOutsideIsRefused(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}
 
 fn wreck(c: Counter) -> Counter {
-  {..c, value: -999}
+  #{..c, value: -999}
 }
 `))
 	expectOpaquePatchRefused(t, errs, "value")
@@ -27,7 +27,7 @@ func TestOpaqueUpdate_SpreadNamingNoFieldIsTheNoFieldError(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{Counter}
 
 fn copy(c: Counter) -> Counter {
-  {..c}
+  #{..c}
 }
 `))
 	want := "a struct spread with no fields is its base value; write `c`"
@@ -43,7 +43,7 @@ func TestOpaqueUpdate_SpreadInsideTheDeclaringFileIsAccepted(t *testing.T) {
 	_, errs := opaqueProject(t, map[string]string{
 		"counter.nomi": counterModule + `
 pub fn set_value_by_spread(c: Counter, v: Int) -> Counter {
-  {..c, value: v}
+  #{..c, value: v}
 }
 `,
 		"open.nomi": openModule,
@@ -66,7 +66,7 @@ func TestOpaqueUpdate_SpreadOnATransparentStructIsUntouched(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import open.{Open}
 
 fn shift(o: Open) -> Open {
-  {..o, a: 9}
+  #{..o, a: 9}
 }
 `))
 	if len(errs) != 0 {

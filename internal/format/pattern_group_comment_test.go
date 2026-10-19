@@ -56,7 +56,7 @@ func TestFormat_PatternGroupCommentsStayInParentheses(t *testing.T) {
 		"        .Dynamic((\n" +
 		"            // c6\n" +
 		"            v) as w) -> 1 // t6\n" +
-		"        .Other(Point{x: (\n" +
+		"        .Other(#Point{x: (\n" +
 		"            // c7\n" +
 		"            px)}) -> px // t7\n" +
 		"    }\n" +
@@ -96,7 +96,7 @@ func TestFormat_PatternGroupCommentsStayInParentheses(t *testing.T) {
 		"            // c6\n" +
 		"            v\n" +
 		"        ) as w) -> 1 // t6\n" +
-		"        .Other(Point{x: (\n" +
+		"        .Other(#Point{x: (\n" +
 		"            // c7\n" +
 		"            px\n" +
 		"        )}) -> px // t7\n" +

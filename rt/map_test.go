@@ -186,9 +186,10 @@ func TestMapTupleKey(t *testing.T) {
 // TestMapInsertionOrder pins the ordering rules against output read off
 // `nomi run` rather than guessed:
 //
-//	%{"a" => 1, "b" => 2}                              -> %{a => 1, b => 2}
-//	Map.put(m, "a", 9)                                -> %{a => 9, b => 2}
-//	Map.put(Map.remove(m, "a"), "a", 7)               -> %{b => 2, a => 7}
+//	%{"a" => 1, "b" => 2}                             -> %{a => 1, b => 2}
+
+// Map.put(m, "a", 9)                                -> %{a => 9, b => 2}
+// Map.put(Map.remove(m, "a"), "a", 7)               -> %{b => 2, a => 7}
 func TestMapInsertionOrder(t *testing.T) {
 	h, eq := stringKeys()
 	base := MapOf(h, eq, []MapEntry[string, int64]{{"a", 1}, {"b", 2}})

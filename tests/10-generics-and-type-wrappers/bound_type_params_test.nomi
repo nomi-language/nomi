@@ -28,9 +28,9 @@ pub enum Request {
 }
 
 fn inbox_of() -> Chan<Request> {
-    reply = Chan{sender: Half{slot: 7}, receiver: Half{slot: 7}}
-    msg = Request.Get{reply}
-    Chan{sender: Half{slot: msg}, receiver: Half{slot: msg}}
+    reply = #Chan{sender: #Half{slot: 7}, receiver: #Half{slot: 7}}
+    msg = #Request.Get{reply}
+    #Chan{sender: #Half{slot: msg}, receiver: #Half{slot: msg}}
 }
 
 test "a nested instantiation keeps its own type argument through an inferred scrutinee" {
@@ -39,7 +39,7 @@ test "a nested instantiation keeps its own type argument through an inferred scr
     // The scrutinee is a generic call whose type parameter is solved here,
     // rather than an annotated binding. That is what made this differ.
     got = case recv(inbox.receiver) {
-        Some(Request.Get{reply}) -> {
+        Some(#Request.Get{reply}) -> {
             out: Half<Int> = reply.sender
 
             case recv(out) {
@@ -62,7 +62,7 @@ test "an annotated scrutinee agrees with an inferred one" {
     scrutinee: Maybe<Request> = recv(inbox_of().receiver)
 
     got = case scrutinee {
-        Some(Request.Get{reply}) -> {
+        Some(#Request.Get{reply}) -> {
             out: Half<Int> = reply.receiver
             out.slot
         }

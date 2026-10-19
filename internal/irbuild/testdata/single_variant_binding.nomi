@@ -31,11 +31,11 @@ enum Who {
 fn main() {
     Only.One(p) = Only.One(3)
     io.inspect(p)
-    Rec.Fields(fields) = Rec.Fields{a: 1, b: "x"}
+    Rec.Fields(fields) = #Rec.Fields{a: 1, b: "x"}
     io.inspect(fields)
     Wrap.Hold(s) = Wrap.Hold("held")
     io.print(s)
-    Shape.Circle(c) = Shape.Circle{r: 2}
+    Shape.Circle(c) = #Shape.Circle{r: 2}
     io.inspect(c)
     Who.UserId(name) = Who.UserId("ada")
     io.print(name)

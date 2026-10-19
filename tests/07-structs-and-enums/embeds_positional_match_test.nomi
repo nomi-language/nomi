@@ -9,7 +9,7 @@
 //
 //   - `case s { Shape.Circle(c) -> ... }` would match NO arm and TRAP with
 //     `no matching case branch`, from source the front end accepts. The
-//     `Shape.Circle{r}` spelling is a StructPattern with its own coercion, so
+//     `#Shape.Circle{r}` spelling is a StructPattern with its own coercion, so
 //     the two spellings of one pattern are handled in two places.
 //   - `assert Shape.Circle(c) = value` would MATCH and bind NOTHING, surfacing
 //     one line later as `undefined variable 'c'`, which points at the use
@@ -36,38 +36,38 @@ fn positional(s: Shape) -> Int {
 
 fn struct_form(s: Shape) -> Int {
     case s {
-        Shape.Circle{r} -> r
+        #Shape.Circle{r} -> r
         Shape.Line -> 0
     }
 }
 
 group "a bare struct reaching an embeds enum" {
     test "the positional pattern matches the bare spelling" {
-        coerced: Shape = Circle{r: 1}
+        coerced: Shape = #Circle{r: 1}
 
         assert positional(coerced) == 1
     }
 
     test "the positional pattern matches the enum spelling" {
-        spelled = Shape.Circle{r: 2}
+        spelled = #Shape.Circle{r: 2}
 
         assert positional(spelled) == 2
     }
 
     test "the struct-field pattern matches the bare spelling" {
-        coerced: Shape = Circle{r: 3}
+        coerced: Shape = #Circle{r: 3}
 
         assert struct_form(coerced) == 3
     }
 
     test "the struct-field pattern matches the enum spelling" {
-        spelled = Shape.Circle{r: 4}
+        spelled = #Shape.Circle{r: 4}
 
         assert struct_form(spelled) == 4
     }
 
     test "a destructure of the bare spelling binds its payload" {
-        coerced: Shape = Circle{r: 5}
+        coerced: Shape = #Circle{r: 5}
 
         assert Shape.Circle(c) = coerced
         assert c.r == 5

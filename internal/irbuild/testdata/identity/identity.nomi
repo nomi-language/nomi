@@ -19,7 +19,7 @@ fn heavier(p: Point) -> Int {
 }
 
 fn main() {
-    mine = Point{label: "here", weight: 41}
+    mine = #Point{label: "here", weight: 41}
     io.print("label = ${mine.label}")
     io.print("heavier = ${heavier(mine)}")
 }

@@ -1,6 +1,6 @@
-==========
+================================================================================
 If condition can match a pattern
-==========
+================================================================================
 
 fn main() {
   label = if Some(name) = maybe_name {
@@ -10,7 +10,7 @@ fn main() {
   }
 }
 
----
+--------------------------------------------------------------------------------
 
 (source_file
   (function_definition
@@ -64,7 +64,7 @@ fn host_or(config: Map<String, String>, fallback: String) -> String {
     (body
       (if_expression
         (if_match_condition
-          (struct_pattern
+          (map_pattern
             (string
               (string_content))
             (identifier))
@@ -73,7 +73,7 @@ fn host_or(config: Map<String, String>, fallback: String) -> String {
           (identifier))
         (if_expression
           (if_match_condition
-            (struct_pattern
+            (map_pattern
               (string
                 (string_content))
               (string
@@ -92,9 +92,9 @@ A struct pattern with punned fields in an if condition
 ================================================================================
 
 fn f(p: Point) -> Int {
-    if Point{x, y} = p {
+    if #Point{x, y} = p {
         x + y
-    } else if {x: 0, y} = p {
+    } else if #{x: 0, y} = p {
         y
     } else {
         0
@@ -195,11 +195,11 @@ fn f(xs: List<Int>, m: Map<String, Int>) -> Int {
           (if_expression
             (if_match_condition
               (or_pattern
-                (struct_pattern
+                (map_pattern
                   (string
                     (string_content))
                   (identifier))
-                (struct_pattern
+                (map_pattern
                   (string
                     (string_content))
                   (identifier)))

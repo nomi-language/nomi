@@ -19,7 +19,7 @@ func TestDeriveMissingImplIsPublishedOnTheFileWithTheDerive(t *testing.T) {
 }
 
 fn main() {
-    io.inspect(Holder{n: 1, o: Opaque{f: fn x -> x}})
+    io.inspect(#Holder{n: 1, o: #Opaque{f: fn x -> x}})
 }
 `,
 		"child.nomi": `pub struct Opaque {

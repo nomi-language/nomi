@@ -24,8 +24,8 @@ var incrementalProject = map[string]string{
 }
 
 fn main() {
-    io.print(Shape.area(Circle{radius: 2}))
-    io.print(shapes.describe(Square{side: 3}))
+    io.print(Shape.area(#Circle{radius: 2}))
+    io.print(shapes.describe(#Square{side: 3}))
 }
 `,
 	"shapes.nomi": `pub interface Shape {
@@ -60,7 +60,7 @@ pub fn describe(shape: Shape) -> String {
 	"shapes_test.nomi": `import shapes.{Shape, Circle}
 
 test "a circle's area" {
-    assert Shape.area(Circle{radius: 1}) == 3
+    assert Shape.area(#Circle{radius: 1}) == 3
 }
 `,
 }

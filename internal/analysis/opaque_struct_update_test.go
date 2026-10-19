@@ -12,7 +12,7 @@ import (
 // (`tests/10-generics-and-type-wrappers/opaque_types/counter.nomi`)
 // promises that outside callers "cannot rewrite the `value` field
 // independently of `increments`, and cannot otherwise desync the two
-// numbers"; `Struct.update(c, {value: -999})` would do exactly that.
+// numbers"; `Struct.update(c, #{value: -999})` would do exactly that.
 //
 // The rule is on the PATCH, not on `Struct.update`'s receiver: a patch may not
 // name a field of an opaque struct from outside that struct's defining file.
@@ -32,18 +32,18 @@ const counterModule = `pub opaque struct Counter {
 }
 
 pub fn new() -> Counter {
-  Counter{value: 0, increments: 0}
+  #Counter{value: 0, increments: 0}
 }
 
 pub fn bump(c: Counter) -> Counter {
-  Counter{value: c.value + 1, increments: c.increments + 1}
+  #Counter{value: c.value + 1, increments: c.increments + 1}
 }
 
 pub fn value(c: Counter) -> Int { c.value }
 pub fn increments(c: Counter) -> Int { c.increments }
 
 pub fn set_value_inside(c: Counter, v: Int) -> Counter {
-  Struct.update(c, {value: v})
+  Struct.update(c, #{value: v})
 }
 `
 
@@ -54,7 +54,7 @@ const openModule = `pub struct Open {
   b: Int
 }
 
-pub fn mk() -> Open { Open{a: 1, b: 2} }
+pub fn mk() -> Open { #Open{a: 1, b: 2} }
 `
 
 func opaquePatchFiles(main string) map[string]string {
@@ -92,7 +92,7 @@ func TestOpaqueUpdate_DirectPatchFromOutsideIsRefused(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}
 
 fn wreck(c: Counter) -> Counter {
-  Struct.update(c, {value: -999})
+  Struct.update(c, #{value: -999})
 }
 `))
 	expectOpaquePatchRefused(t, errs, "value")
@@ -105,7 +105,7 @@ func TestOpaqueUpdate_PipedPatchFromOutsideIsRefused(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}
 
 fn wreck(c: Counter) -> Counter {
-  c |> Struct.update({value: -999})
+  c |> Struct.update(#{value: -999})
 }
 `))
 	expectOpaquePatchRefused(t, errs, "value")
@@ -124,7 +124,7 @@ struct Box {
 }
 
 fn wreck(b: Box) -> Box {
-  Struct.update(b, {inner: {.., value: -999}})
+  Struct.update(b, #{inner: #{.., value: -999}})
 }
 `))
 	expectOpaquePatchRefused(t, errs, "value")
@@ -139,7 +139,7 @@ func TestOpaqueUpdate_ThroughAUserPartialParameterIsRefused(t *testing.T) {
 import patcher
 
 fn wreck(c: Counter) -> Counter {
-  patcher.apply(c, {value: -999})
+  patcher.apply(c, #{value: -999})
 }
 `)
 	files["patcher.nomi"] = `pub fn apply<T>(x: T, p: Partial<T>) -> T where T: Struct {
@@ -154,7 +154,7 @@ fn wreck(c: Counter) -> Counter {
 // never reached under a module-only import: `ResolveTypeExpr` failed on the
 // bare name, `checkStructLit` returned nil with NO diagnostic, and execution
 // then resolved the bare name and built a real `Counter` — so
-// `Counter{value: -999, increments: 1}` type-checked clean and ran, rendering
+// `#Counter{value: -999, increments: 1}` type-checked clean and ran, rendering
 // as `<opaque Counter>`. Reporting the resolution failure is what makes the
 // guard reachable. The selective-import spelling (`import counter.{Counter}`)
 // was always refused; this is the spelling that was not.
@@ -162,7 +162,7 @@ func TestOpaqueUpdate_BareStructLiteralUnderAModuleImportIsRefused(t *testing.T)
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter
 
 fn wreck() -> Int {
-  counter.value(Counter{value: -999, increments: 1})
+  counter.value(#Counter{value: -999, increments: 1})
 }
 `))
 	// Under a module-only import the guard is `checkStructLit`'s existing
@@ -179,7 +179,7 @@ fn wreck() -> Int {
 	for i, e := range errs {
 		msgs[i] = e.Message
 	}
-	t.Fatalf("expected the bare `Counter{...}` literal to be reported, got %d errors:\n  %s",
+	t.Fatalf("expected the bare `#Counter{...}` literal to be reported, got %d errors:\n  %s",
 		len(errs), strings.Join(msgs, "\n  "))
 }
 
@@ -191,7 +191,7 @@ func TestOpaqueUpdate_NonOpaqueStructFromAnotherFileStillWorks(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import open.{Open}
 
 fn ok(o: Open) -> Open {
-  Struct.update(o, {a: 42})
+  Struct.update(o, #{a: 42})
 }
 `))
 	opaqueExpectNoErrors(t, errs)
@@ -236,7 +236,7 @@ struct Box {
 }
 
 fn ok(b: Box) -> Box {
-  Struct.update(b, {inner: counter.new()})
+  Struct.update(b, #{inner: counter.new()})
 }
 `))
 	opaqueExpectNoErrors(t, errs)
@@ -254,7 +254,7 @@ struct Box {
 }
 
 fn ok(b: Box) -> Box {
-  Struct.update(b, {label: "y"})
+  Struct.update(b, #{label: "y"})
 }
 `))
 	opaqueExpectNoErrors(t, errs)

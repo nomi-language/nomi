@@ -526,7 +526,7 @@ func (s *vmShaper) argFor(f *ir.Func, t ir.Temp, leaf *probeLeaf, depth int) any
 					}
 				}
 				// A functional update's base is a struct even when nothing
-				// projects out of it; `Struct.update(app, {...})` states no
+				// projects out of it; `Struct.update(app, #{...})` states no
 				// field it reads. The machine requires the base to carry every
 				// field the update replaces.
 				if m, ok := instruction.(*ir.Make); ok && m.Kind() == ir.MakeUpdate {
@@ -984,8 +984,8 @@ func vmProbeArgFailure(fn *ir.Func, err error) bool {
 	if strings.Contains(err.Error(), "reads a field off") || strings.Contains(err.Error(), "variant test reads rt.Context") ||
 		strings.Contains(err.Error(), "iteration reads rt.Context") || strings.Contains(err.Error(), "set receiver is rt.Context") ||
 		strings.Contains(err.Error(), "list test reads rt.Context") || strings.Contains(err.Error(), "is rt.Context, want Vector") ||
-		strings.Contains(err.Error(), "list tail is rt.Context") {
-		// A field read, variant test, iteration, Set operation, list pattern
+		strings.Contains(err.Error(), "list tail is rt.Context") || strings.Contains(err.Error(), "vector test reads rt.Context") {
+		// A field read, variant test, iteration, Set operation, list or vector pattern
 		// or Vector operation on the leaf the probe supplied for a parameter
 		// it cannot build (a nominal type, an `Iter<T>`, a struct whose field
 		// is a Set, a list matched as part of a tuple the body builds or whose

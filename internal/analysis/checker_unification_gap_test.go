@@ -84,8 +84,8 @@ fn main() -> Unit {
 func TestStructsUpdate_ValidPartialPatch_Clean(t *testing.T) {
 	src := `struct User { name: String; age: Int }
 fn main() -> Unit {
-  u = User{name: "Alice", age: 30}
-  updated = Struct.update(u, {name: "Bob"})
+  u = #User{name: "Alice", age: 30}
+  updated = Struct.update(u, #{name: "Bob"})
 }`
 	expectClean(t, checkWithStdlib(src))
 }
@@ -93,8 +93,8 @@ fn main() -> Unit {
 func TestStructsUpdate_BogusPatchField_Rejected(t *testing.T) {
 	src := `struct User { name: String; age: Int }
 fn main() -> Unit {
-  u = User{name: "Alice", age: 30}
-  updated = Struct.update(u, {bogus: 5})
+  u = #User{name: "Alice", age: 30}
+  updated = Struct.update(u, #{bogus: 5})
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "User has no field 'bogus'")
 }
@@ -196,8 +196,8 @@ func TestPartial_UserFunctionAcceptsDeepPartial(t *testing.T) {
 	src := `struct User { name: String; age: Int }
 fn patch(u: User, _p: Partial<User>) -> User { u }
 fn main() -> Unit {
-  base = User{name: "A", age: 1}
-  result = patch(base, {name: "B"})
+  base = #User{name: "A", age: 1}
+  result = patch(base, #{name: "B"})
 }`
 	expectClean(t, checkWithStdlib(src))
 }
@@ -206,8 +206,8 @@ func TestPartial_UserFunctionRejectsBogusPatch(t *testing.T) {
 	src := `struct User { name: String; age: Int }
 fn patch(u: User, _p: Partial<User>) -> User { u }
 fn main() -> Unit {
-  base = User{name: "A", age: 1}
-  result = patch(base, {bogus: 5})
+  base = #User{name: "A", age: 1}
+  result = patch(base, #{bogus: 5})
 }`
 	errs := checkWithStdlib(src)
 	if len(errs) == 0 {

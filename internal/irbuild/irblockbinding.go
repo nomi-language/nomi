@@ -13,7 +13,7 @@ import (
 //
 // want, when it is not kindInvalid, is the position's expected type, which
 // types the tail as it would type the block's value written there:
-// `Hold{v: { io.print("x")  #{} }}` builds its set at the field's
+// `#Hold{v: { io.print("x")  %[] }}` builds its set at the field's
 // `Set<Int>`, and `[1, "a"]` as a tail where a `List<Display>` is expected
 // holds each element as the existential.
 func (bl *irScalarBuilder) blockValue(block *ast.Block, want kind) (ir.Temp, kind, bool, bool) {

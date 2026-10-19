@@ -13,7 +13,7 @@ func TestIRExistentialBindingHoldsTheInterface_Runs(t *testing.T) {
 
 fn main() {
     d: Display = 1
-    rs = [{x: 1, d: d}, {x: 2, d: d}]
+    rs = [#{x: 1, d: d}, #{x: 2, d: d}]
     io.inspect(rs |> Iter.map(.x) |> Iter.to_list())
     io.print(rs |> Iter.map(fn r -> Display.to_string(r.d)) |> String.join(","))
 }
@@ -45,7 +45,7 @@ fn show(x: Display) -> String {
 }
 
 fn main() {
-    h = Holder{ds: [1, "a"]}
+    h = #Holder{ds: [1, "a"]}
     io.print(all(h.ds))
     io.print(all([True, 2.5, "b"]))
     xs = concurrent {

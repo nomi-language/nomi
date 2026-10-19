@@ -32,8 +32,8 @@ impl Shape for Sq {
 import shapes.{Shape, Sq}
 
 fn main() {
-    io.print(Shape.area(Sq{side: 3}, extra: 1))
-    io.print(Shape.area(extra: 4, Sq{side: 3}))
+    io.print(Shape.area(#Sq{side: 3}, extra: 1))
+    io.print(Shape.area(extra: 4, #Sq{side: 3}))
 }
 `, "7\n10\n", map[string]string{"shapes.nomi": shapes})
 	})
@@ -48,7 +48,7 @@ pub interface Shape {
 }
 
 fn main() {
-    io.print(Shape.area(Sq{side: 3}, extra: 1))
+    io.print(Shape.area(#Sq{side: 3}, extra: 1))
 }
 `, "7\n", map[string]string{"sq.nomi": `import main.Shape
 

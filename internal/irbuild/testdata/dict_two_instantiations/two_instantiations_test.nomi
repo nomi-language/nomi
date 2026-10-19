@@ -42,8 +42,8 @@ impl Chooser for Pair<E> {
 }
 
 test "two instantiations of one impl block keep their own bindings" {
-    ints = Pair{a: 10, b: 20}
-    strs = Pair{a: "x", b: "y"}
+    ints = #Pair{a: 10, b: 20}
+    strs = #Pair{a: "x", b: "y"}
 
     assert Chooser.pick(ints) == 10
     assert Chooser.right(ints) == 20

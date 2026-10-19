@@ -25,11 +25,11 @@ func MapKeysSeq[K, V any](m Map[K, V]) Seq[K] {
 }
 
 // FormatSetElems renders ordered elements of either native or boxed sets as
-// the set literal that builds them: `#{1, 2}`.
+// the set literal that builds them: `%[1, 2]`.
 func FormatSetElems[T any](elems []T, render func(T) string) string {
 	parts := make([]string, len(elems))
 	for i, e := range elems {
 		parts[i] = render(e)
 	}
-	return "#{" + strings.Join(parts, ", ") + "}"
+	return "%[" + strings.Join(parts, ", ") + "]"
 }

@@ -58,23 +58,23 @@ fn load_alphabet() -> String {
 }
 
 export fn new_game(word: String) -> Game {
-    Game{word, guesses: []}
+    #Game{word, guesses: []}
 }
 
 export fn guess(game: Game, letter: String) -> Game {
-    {..game, guesses: [letter, ..game.guesses]}
+    #{..game, guesses: [letter, ..game.guesses]}
 }
 
 export fn outcome(game: Game) -> Outcome {
     left = 6 - Iter.count(game.guesses)
-    if left <= 0 { Outcome.Lost } else { Outcome.Playing{left} }
+    if left <= 0 { Outcome.Lost } else { #Outcome.Playing{left} }
 }
 
 export fn describe(o: Outcome) -> String {
     case o {
         Outcome.Won -> "won"
         Outcome.Lost -> "lost"
-        Outcome.Playing{left} -> "${left} left"
+        #Outcome.Playing{left} -> "${left} left"
     }
 }
 

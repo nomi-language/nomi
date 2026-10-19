@@ -791,19 +791,20 @@ func emitNode(n ast.Node) Doc {
 		fills = fills && v.Spread == nil
 		if hasEndTrivia || nodesHaveComments(items) || tooDeep(v, len(v.Items)) || authored && !fills {
 			cs, _ := nodesComments(items)
-			return commentedList("#[", "]", elems, cs, v.EndTrivia, lastComma)
+			return commentedList(shapeOpen("#", v.TypeName, "["), "]", elems, cs, v.EndTrivia, lastComma)
 		}
 		if fills {
-			return filledList("#[", "]", texts, authored)
+			return filledList(shapeOpen("#", v.TypeName, "["), "]", texts, authored)
 		}
-		return bracedList("#[", "]", elems, lastComma)
+		return bracedList(shapeOpen("#", v.TypeName, "["), "]", elems, lastComma)
 	case *ast.SetLit:
+		open := shapeOpen("%", v.TypeName, "[")
 		hasEndTrivia := trailingHasComment(v.EndTrivia)
 		items := setLitItems(v)
 		// `..base` leads, always: a spread anywhere else does not parse.
 		elems := setLitElems(v, emit)
 		if hasEndTrivia || nodesHaveComments(items) || tooDeep(v, len(v.Items)) {
-			return forceBrokenItems("#{", "}", elems, items, v.EndTrivia)
+			return forceBrokenItems(open, "]", elems, items, v.EndTrivia)
 		}
 		first := 0
 		if v.Spread != nil {
@@ -813,12 +814,12 @@ func emitNode(n ast.Node) Doc {
 		}
 		authored := brokenAfterOpen(v.Line, first)
 		if texts, ok := fillTexts(items); ok && v.Spread == nil {
-			return filledList("#{", "}", texts, authored)
+			return filledList(open, "]", texts, authored)
 		}
 		if authored {
-			return forceBrokenItems("#{", "}", elems, items, v.EndTrivia)
+			return forceBrokenItems(open, "]", elems, items, v.EndTrivia)
 		}
-		return emitBracedList("#{", "}", elems)
+		return emitBracedList(open, "]", elems)
 	case *ast.ListSpreadLit:
 		// [head1, head2, ..tail] — emit flat with literal delimiters. We
 		// don't bother with the broken form: spread literals are
@@ -847,10 +848,7 @@ func emitNode(n ast.Node) Doc {
 		parts = append(parts, Text(".."), emit(v.TailSpread), Text("]"))
 		return Concat(parts...)
 	case *ast.MapLit:
-		open := "%{"
-		if v.TypeName != nil {
-			open = v.TypeName.TypeString() + "%{"
-		}
+		open := shapeOpen("%", v.TypeName, "{")
 		hasEndTrivia := trailingHasComment(v.EndTrivia)
 		elems := make([]Doc, 0, len(v.Entries)+1)
 		// `..base` leads, always: a spread anywhere else does not parse.
@@ -978,7 +976,7 @@ func emitNode(n ast.Node) Doc {
 		}
 		return emitBindingValue(Concat(parts...), v.Value)
 	case *ast.StructDestructure:
-		// {x, y} = expr  or  {x: a, y: b} = expr — anonymous only.
+		// #{x, y} = expr  or  #{x: a, y: b} = expr — anonymous only.
 		// Reuse emitPattern by wrapping in a StructPattern with no TypeName.
 		pat := &ast.StructPattern{Fields: v.Fields}
 		return emitBindingValue(emitPattern(pat), v.Value)
@@ -1092,9 +1090,12 @@ func bareStartsDestructure(pattern ast.Node) bool {
 	}
 	switch p := pattern.(type) {
 	case *ast.TuplePattern:
-		if len(p.Patterns) < 2 {
+		// `#Pair(a, b) = v` is a pattern binding; only `#(a, b) = v` is
+		// the tuple destructure.
+		if len(p.Patterns) < 2 || p.TypeName != nil {
 			return false
 		}
+
 		for _, e := range p.Patterns {
 			if !isName(e) {
 				return false
@@ -2158,8 +2159,8 @@ func emitDocsBlockForceBroken(parts []Doc, endTrivia []ast.Trivia) Doc {
 //
 // Only the literal or pattern whose own depth reaches the threshold
 // breaks. Its elements are laid out on their own merits, by width and by
-// their own depth, so in `[R{p: P{x: 0, y: 0}, n: 1}]` the list breaks
-// and the depth-2 `R{...}` stays on one line inside it.
+// their own depth, so in `[#R{p: #P{x: 0, y: 0}, n: 1}]` the list breaks
+// and the depth-2 `#R{...}` stays on one line inside it.
 const maxCompoundDepth = 3
 
 // tooDeep reports whether n, a compound literal or pattern with count
@@ -2179,12 +2180,12 @@ func tooDeep(n ast.Node, count int) bool {
 // The depth grows by 1 for the receiving compound node, plus the max
 // depth of any directly-nested compound payload. So:
 //
-//	Obj%{"k" => v}                          -> 1
-//	Obj%{"k" => Obj%{"k" => v}}              -> 2
-//	Obj%{"k" => Obj%{"k" => Obj%{"k" => v}}}  -> 3
-//	Ok(Obj%{"k" => Obj%{"k" => Obj%{"k" => v}}})  ->  inner Ok(...) is a Call,
+//	Obj{"k" => v}                          -> 1
+//	Obj{"k" => Obj{"k" => v}}              -> 2
+//	Obj{"k" => Obj{"k" => Obj{"k" => v}}}  -> 3
+//	Ok(Obj{"k" => Obj{"k" => Obj{"k" => v}}})  ->  inner Ok(...) is a Call,
 //	  so the outer depth is whatever its payload's depth is: 3.
-//	Some(Obj%{"k" => v})                    ->  Some is a Call (depth 0),
+//	Some(Obj{"k" => v})                    ->  Some is a Call (depth 0),
 //	  payload depth is 1, so the OUTER expression has no compound (returns 0).
 //	  The inner Obj's own compoundDepth is 1 — measured independently
 //	  at the recursive call site inside emitMap.
@@ -2276,7 +2277,7 @@ func compoundDepth(n ast.Node) int {
 		// `Some(x)`, `Ok(...)`, `String(s)`, generic calls — the call
 		// itself doesn't count as compound, but the inner payload's
 		// compound depth still drives the wrapping caller's decision
-		// (e.g. `Ok(Obj{Obj{Obj{v}}})` should break the Obj chain).
+		// (e.g. `Ok(%Obj{%Obj{%Obj{v}}})` should break the Obj chain).
 		d := 0
 		for _, a := range v.Args {
 			if c := compoundDepth(a); c > d {
@@ -2285,13 +2286,13 @@ func compoundDepth(n ast.Node) int {
 		}
 		return d
 	case *ast.EnumPattern:
-		// `Some(x)` / `Ok(Obj{...})` etc. — payload pattern is one node.
+		// `Some(x)` / `Ok(%Obj{...})` etc. — payload pattern is one node.
 		return compoundDepth(v.Payload)
 	case *ast.AsPattern:
-		// `Obj{...} as o` — the name adds no level.
+		// `%Obj{...} as o` — the name adds no level.
 		return compoundDepth(v.Pattern)
 	case *ast.OrPattern:
-		// `Obj{...} or Obj{...}` — the deepest alternative's level.
+		// `%Obj{...} or %Obj{...}` — the deepest alternative's level.
 		d := 0
 		for _, alt := range v.Alternatives {
 			if c := compoundDepth(alt); c > d {
@@ -2360,19 +2361,15 @@ func bracedList(open, close string, elems []Doc, lastComma bool) Doc {
 	))
 }
 
-// emitStructLit renders a struct literal, nominal (`User{...}`) or
-// anonymous (`{...}`). Field punning — where the parser synthesizes
+// emitStructLit renders a struct literal, nominal (`#User{...}`) or with no
+// type name (`#{...}`). Field punning — where the parser synthesizes
 // Value=Ident{Name:FieldName} — is re-emitted as just the field name.
 //
 // Width-based, except that a literal whose source breaks the line after
 // its `{` stays broken even when it would fit flat (brokenAfterOpen).
 func emitStructLit(v *ast.StructLit) Doc {
-	open := "{"
-	if v.TypeName != nil {
-		open = v.TypeName.TypeString() + "{"
-	}
+	open := shapeOpen("#", v.TypeName, "{")
 	hasEndTrivia := trailingHasComment(v.EndTrivia)
-	punnable := structLitFieldsPunnable(v)
 	hasInterFieldTrivia := structFieldValsHaveLeading(v.Fields) || v.Spread != nil && itemComments(v.Spread) != nil
 	elems := make([]Doc, 0, len(v.Fields)+1)
 	// `..head` leads, always. The position rule is the parser's and the
@@ -2382,7 +2379,7 @@ func emitStructLit(v *ast.StructLit) Doc {
 		elems = append(elems, Concat(Text(".."), emit(v.Spread)))
 	}
 	for _, f := range v.Fields {
-		elems = append(elems, emitStructFieldValWithLeading(f, punnable))
+		elems = append(elems, emitStructFieldValWithLeading(f))
 	}
 	// EndTrivia (trailing in-body comment) or any inter-field leading
 	// comment forces the broken form — a `// comment` can't share a
@@ -2444,45 +2441,44 @@ func structLitComments(v *ast.StructLit) []*ast.ItemComments {
 	return out
 }
 
-// structLitFieldsPunnable reports whether this literal's punned fields may be
-// re-emitted in punned form (`{name}` rather than `{name: name}`).
-//
-// A single-field ANONYMOUS literal may NOT. `{name}` re-parses as a BLOCK whose
-// value is `name`, not as a one-field anonymous struct, so punning there is a
-// round-trip violation: the formatter rewrites a working program into a
-// different one: `Struct.update(request, {context: context})` became
-// `Struct.update(request, {context})`, which hands `Struct.update` a `Context`
-// where a `Partial<Request>` belongs — an analysis error, and a runtime
-// "second argument must be a struct".
-//
-// Every other arity and shape is unambiguous: `{a, b}` cannot be a block (a
-// block has no comma-separated statements), and a nominal literal such as
-// `User{name}` is disambiguated by its type name at any arity.
-func structLitFieldsPunnable(v *ast.StructLit) bool {
-	// A SPREAD ALSO DISAMBIGUATES. `{..base, name}` cannot be a block —
-	// a block's first token is never `..` — so the one-field anonymous
-	// case that forced `{name: name}` does not apply here.
-	return v.TypeName != nil || v.Spread != nil || len(v.Fields) > 1
-}
-
 // fieldValueIsPun reports whether a field's value is exactly its own name, the
 // shape both the parser's punning synthesis and an explicit `name: name` land
-// on.
+// on. Parentheses around the name count, `t: (t)`, unless a comment sits in
+// or beside them: emitGroupedExpr drops them around an identifier, so
+// writing `t: t` would leave a second format to pun it.
 func fieldValueIsPun(f ast.StructFieldVal) bool {
-	id, ok := f.Value.(*ast.Ident)
+	v := f.Value
+	for g, ok := v.(*ast.GroupedExpr); ok; g, ok = v.(*ast.GroupedExpr) {
+		if g.Expr == nil || groupedHasComments(g) || nodeHasDangling(g) {
+			return false
+		}
+		v = g.Expr
+	}
+	id, ok := v.(*ast.Ident)
 	return ok && id.Name == f.Name
 }
 
+// patternFieldIsPun reports whether a struct pattern field's pattern is a
+// name pattern for the field's own name with no comment, as `t: (t)` parses.
+func patternFieldIsPun(f ast.StructPatternField) bool {
+	id, ok := f.Pattern.(*ast.IdentPattern)
+	return ok && id.Name == f.Name && itemComments(id) == nil && !nodeHasDangling(id)
+}
+
+// nodeHasDangling reports whether n carries a dangling comment before or
+// after it.
+func nodeHasDangling(n ast.Node) bool {
+	h, ok := n.(ast.HasDangling)
+	return ok && (len(h.GetDanglingBefore()) > 0 || len(h.GetDanglingAfter()) > 0)
+}
+
 // emitStructFieldValWithLeading renders one struct-literal field with
-// its leading-comment block above.
-//
-// Punning is preserved (Value=Ident with same name as field → just the
-// name), but only where the punned form re-parses as the same literal —
-// see structLitFieldsPunnable.
-func emitStructFieldValWithLeading(f ast.StructFieldVal, punnable bool) Doc {
+// its leading-comment block above. Punning is preserved: a value that is
+// the field's own name is written as the name alone.
+func emitStructFieldValWithLeading(f ast.StructFieldVal) Doc {
 	parts := []Doc{}
 	parts = append(parts, emitLeadingComments(withoutBlankTrivia(f.LeadingComments))...)
-	if punnable && fieldValueIsPun(f) {
+	if fieldValueIsPun(f) {
 		parts = append(parts, Text(f.Name))
 		return Concat(parts...)
 	}
@@ -3335,12 +3331,13 @@ func emitPatternNode(n ast.Node) Doc {
 	case *ast.OrPattern:
 		return emitOrPattern(v)
 	case *ast.TuplePattern:
+		open := shapeOpen("#", v.TypeName, "(")
 		elems, cs, ok := patternItems(v.Patterns)
 		if ok {
-			return emitCommentedListNoLastComma("#(", ")", elems, cs)
+			return emitCommentedListNoLastComma(open, ")", elems, cs)
 		}
 		parts := make([]Doc, 0, len(v.Patterns)*2+1)
-		parts = append(parts, Text("#("))
+		parts = append(parts, Text(open))
 		for i, e := range elems {
 			if i > 0 {
 				parts = append(parts, Text(", "))
@@ -3350,13 +3347,15 @@ func emitPatternNode(n ast.Node) Doc {
 		parts = append(parts, Text(")"))
 		return Concat(parts...)
 	case *ast.StructPattern:
-		open := "{"
-		if v.TypeName != nil {
-			open = v.TypeName.TypeString() + "{"
-		}
+		open := shapeOpen("#", v.TypeName, "{")
 		elems := make([]Doc, 0, len(v.Fields))
 		for _, f := range v.Fields {
 			switch {
+			case patternFieldIsPun(f):
+				// `name: (name)`: the parser drops the parentheses and
+				// keeps the name as a pattern, which `name: name` would
+				// read back as a binding, so pun it now.
+				elems = append(elems, Text(f.Name))
 			case f.Pattern != nil:
 				// Value match: `name: <pattern>`.
 				elems = append(elems, Concat(Text(f.Name), Text(": "), emitGroupedPattern(f.Pattern)))
@@ -3385,11 +3384,8 @@ func emitPatternNode(n ast.Node) Doc {
 			// Fast-path: Variant(binding).
 			return Concat(name, Text("("), Text(v.Binding), Text(")"))
 		case v.Payload != nil:
-			// Flat-destructure shorthand `Variant(a, b, ...)` — preserved as
-			// authored. The parser sets Flat=true only when the user wrote
-			// the comma list directly inside the variant's parens (no inner
-			// parens around the tuple). Emit the comma list without
-			// re-parenthesizing so `Pair(a, b)` round-trips intact.
+			// The flat payload of a tuple-payload variant, `.Pos(a, b)`,
+			// keeps its comma list inside the variant's parentheses.
 			if tp, ok := v.Payload.(*ast.TuplePattern); ok && tp.Flat {
 				elems, cs, ok := patternItems(tp.Patterns)
 				if ok {
@@ -3406,11 +3402,9 @@ func emitPatternNode(n ast.Node) Doc {
 				parts = append(parts, Text(")"))
 				return Concat(parts...)
 			}
-			// General: Variant(<nested pattern>) — the payload is a single
-			// pattern. Tuple-payload variants spell their tuple destructuring
-			// explicitly (`Some(#(n, s))`), preserving the 1-arg-constructor
-			// invariant. The flat shorthand above only applies to tuple-
-			// distinct constructors.
+			// Variant(<nested pattern>): the payload is a single pattern.
+			// A distinct type over a tuple is taken apart by the tuple
+			// pattern that names it, `#Pair(a, b)`.
 			elems, cs, ok := patternItems([]ast.Node{v.Payload})
 			if ok {
 				return Concat(name, emitCommentedListNoLastComma("(", ")", elems, cs))
@@ -3460,11 +3454,12 @@ func emitPatternNode(n ast.Node) Doc {
 			return emitCommentedList(open, "]", elems, cs, v.EndTrivia)
 		}
 		return emitBracedList(open, "]", elems)
+	case *ast.VectorPattern:
+		return emitVectorPattern(v)
+	case *ast.SetPattern:
+		return emitSetPattern(v)
 	case *ast.MapPattern:
-		open := "%{"
-		if v.TypeName != nil {
-			open = v.TypeName.TypeString() + "%{"
-		}
+		open := shapeOpen("%", v.TypeName, "{")
 		hasEndTrivia := trailingHasComment(v.EndTrivia)
 		elems := make([]Doc, 0, len(v.Entries))
 		for _, e := range v.Entries {
@@ -3833,14 +3828,14 @@ func emitFuncDefParam(p ast.Param) Doc {
 
 // emitTypeExpr renders a TypeExpr as a Doc. Each type-expression node has
 // its own case so nested anon structs participate in the width budget no
-// matter how deeply they sit (`List<{...}>`, `#(String, {...})`,
-// `(Int, {...}) -> R`, `mod.Foo<{...}>`).
+// matter how deeply they sit (`List<#{...}>`, `#(String, #{...})`,
+// `(Int, #{...}) -> R`, `mod.Foo<#{...}>`).
 //
 // Containers (GenericType, FuncType, QualifiedType) are intentionally
 // *not* wrapped in their own Group — they render as flat text glue with
 // recursive emitTypeExpr calls. This keeps the "outer container stays
 // inline, inner anon struct flows multi-line" shape — same approach
-// Prettier takes for `Promise<{...}>` in TypeScript. Long containers of
+// Prettier takes for `Promise<#{...}>` in TypeScript. Long containers of
 // only-simple types (`#(VeryLongTypeA, VeryLongTypeB, ...)`) therefore
 // don't auto-break at the container; they spill, same as before this
 // change. The escape hatch when that bites is a `typealias` for the
@@ -3879,7 +3874,7 @@ func emitTypeExprNode(t ast.TypeExpr) Doc {
 		return Concat(Text(n.Module), Text("."), emitTypeExpr(n.Member))
 	case *ast.DotVariantType:
 		// Dot-leading variant shorthand used in TypeName slots of
-		// literal-attach forms (`.Obj%{"k" => v}`, `.Arr[...]`, `.Rect{w, h}`)
+		// literal-attach forms (`%.Obj{"k" => v}`, `.Arr[...]`, `#.Rect{w, h}`)
 		// and patterns. Same round-trip-as-written semantics as DotVariant.
 		return Concat(Text("."), Text(n.Name))
 	case *ast.GenericType:
@@ -3965,13 +3960,14 @@ func emitTypeExprNode(t ast.TypeExpr) Doc {
 // shared brace-list helper since the layout is identical to a struct-
 // shaped enum variant payload.
 func emitAnonStructType(t *ast.AnonStructType) Doc {
-	return emitBracedStructFieldsWithEndTrivia(t.Fields, t.EndTrivia)
+	return emitBracedStructFieldsWithEndTrivia("#{", t.Fields, t.EndTrivia)
 }
 
-// emitBracedStructFieldsWithEndTrivia renders a `{field1, field2, ...}`
-// braced list of struct fields. Width-based, with a preserve-user-multi-line escape:
+// emitBracedStructFieldsWithEndTrivia renders a braced list of struct
+// fields after open, `#{` for an anonymous struct type and `{` for a
+// struct-shaped enum variant. Width-based, with a preserve-user-multi-line escape:
 //
-//	flat:                {a: Int, b: String}
+//	flat:                #{a: Int, b: String}
 //	broken (auto):       {
 //	                       a: Int,
 //	                       b: String,
@@ -3987,7 +3983,7 @@ func emitAnonStructType(t *ast.AnonStructType) Doc {
 // Trailing comma appears in any broken form (matches named struct
 // declarations). Empty body renders as `{}` for resilience.
 //
-// Used by both anonymous struct type expressions (`fn f(p: {a: Int}) -> R`)
+// Used by both anonymous struct type expressions (`fn f(p: #{a: Int}) -> R`)
 // and struct-shaped enum variant payloads (`HttpError {status: Int, ...}`)
 // so the brace-bounded-fields layout stays identical wherever it appears.
 //
@@ -3996,12 +3992,12 @@ func emitAnonStructType(t *ast.AnonStructType) Doc {
 // a comment / blank line sits before the closing brace. EndTrivia or any
 // inter-field LeadingComments forces the broken form (a `// comment`
 // cannot share a line with another field or with `}`).
-func emitBracedStructFieldsWithEndTrivia(fields []ast.StructField, endTrivia []ast.Trivia) Doc {
+func emitBracedStructFieldsWithEndTrivia(open string, fields []ast.StructField, endTrivia []ast.Trivia) Doc {
 	if len(fields) == 0 {
 		if len(endTrivia) == 0 {
-			return Text("{}")
+			return Text(open + "}")
 		}
-		return forceBrokenBracedWithEndTrivia("{", "}", nil, endTrivia)
+		return forceBrokenBracedWithEndTrivia(open, "}", nil, endTrivia)
 	}
 	elems := make([]Doc, 0, len(fields))
 	for _, f := range fields {
@@ -4012,14 +4008,14 @@ func emitBracedStructFieldsWithEndTrivia(fields []ast.StructField, endTrivia []a
 		for i, f := range fields {
 			trailing[i] = f.Trailing
 		}
-		return forceBrokenBracedWithTrailing("{", "}", elems, trailing, endTrivia)
+		return forceBrokenBracedWithTrailing(open, "}", elems, trailing, endTrivia)
 	}
 	body := []Doc{LineOrEmpty(), elems[0]}
 	for _, e := range elems[1:] {
 		body = append(body, Text(","), Line(), e)
 	}
 	return Group(Concat(
-		Text("{"),
+		Text(open),
 		Nest(defaultIndent, Concat(body...)),
 		IfBroken(Nil(), Text(",")),
 		LineOrEmpty(),
@@ -4864,7 +4860,7 @@ func emitEnumVariant(v ast.EnumVariant) Doc {
 		// (emitTypeExpr), written `Name (` as a tuple payload is.
 		return Concat(Text(v.Name), Text(" "), emitTypeExpr(v.DataTypeExpr))
 	case "struct":
-		return Concat(Text(v.Name), Text(" "), emitBracedStructFieldsWithEndTrivia(v.Fields, v.EndTrivia))
+		return Concat(Text(v.Name), Text(" "), emitBracedStructFieldsWithEndTrivia("{", v.Fields, v.EndTrivia))
 	default:
 		// bare
 		return Text(v.Name)
@@ -5832,4 +5828,103 @@ func emitDecoratedPipeStage(stage ast.Node, keyword ast.Node, more bool) (Doc, b
 	default:
 		return nil, false
 	}
+}
+
+// shapeOpen is the opening of a literal or pattern of a built-in shape: its
+// symbol, the name of the type built on the shape when there is one, and its
+// bracket. `#{`, `#Point{`, `#.Circle{`, `%Kvs{`, `#Path[`.
+func shapeOpen(sigil string, name ast.TypeExpr, bracket string) string {
+	if name == nil {
+		return sigil + bracket
+	}
+	return sigil + name.TypeString() + bracket
+}
+
+// spreadRestDoc is a vector or set pattern's `..` with what follows it: a
+// name, `_`, or nothing.
+func spreadRestDoc(rest ast.Node) Doc {
+	if rest == nil {
+		return Text("..")
+	}
+	return Concat(Text(".."), emitPattern(rest))
+}
+
+// emitVectorPattern writes `#[heads, ..rest, tails]`. As a list pattern with
+// a spread, one with a `..` stays on one line unless a comment breaks it.
+func emitVectorPattern(v *ast.VectorPattern) Doc {
+	open := shapeOpen("#", v.TypeName, "[")
+	items := append([]ast.Node{}, v.Heads...)
+	if v.Spread && v.Rest != nil {
+		items = append(items, v.Rest)
+	}
+	items = append(items, v.Tails...)
+	elems, cs, commented := patternItems(items)
+	if v.Spread {
+		// The `..` stands between the heads and the tails, with its rest
+		// pattern's Doc when there is one.
+		at := len(v.Heads)
+		spread := Text("..")
+		if v.Rest != nil {
+			spread = Concat(Text(".."), elems[at])
+			elems = append(elems[:at:at], append([]Doc{spread}, elems[at+1:]...)...)
+		} else {
+			elems = append(elems[:at:at], append([]Doc{spread}, elems[at:]...)...)
+			if cs != nil {
+				cs = append(cs[:at:at], append([]*ast.ItemComments{nil}, cs[at:]...)...)
+			}
+		}
+		if commented || trailingHasComment(v.EndTrivia) {
+			return emitCommentedList(open, "]", elems, cs, v.EndTrivia)
+		}
+		parts := make([]Doc, 0, len(elems)*2+2)
+		parts = append(parts, Text(open))
+		for i, e := range elems {
+			if i > 0 {
+				parts = append(parts, Text(", "))
+			}
+			parts = append(parts, e)
+		}
+		parts = append(parts, Text("]"))
+		return Concat(parts...)
+	}
+	if trailingHasComment(v.EndTrivia) || commented || tooDeep(v, len(v.Heads)) || itemsBrokenAfterOpen(v.Line, v.Heads) {
+		return emitCommentedList(open, "]", elems, cs, v.EndTrivia)
+	}
+	return emitBracedList(open, "]", elems)
+}
+
+// emitSetPattern writes `%[elems, ..rest]`. Its elements are expressions.
+func emitSetPattern(v *ast.SetPattern) Doc {
+	open := shapeOpen("%", v.TypeName, "[")
+	elems := make([]Doc, 0, len(v.Elems)+1)
+	for _, e := range v.Elems {
+		elems = append(elems, emit(e))
+	}
+	items := append([]ast.Node{}, v.Elems...)
+	if v.Spread {
+		elems = append(elems, spreadRestDoc(v.Rest))
+		if v.Rest != nil {
+			items = append(items, v.Rest)
+		}
+	}
+	if trailingHasComment(v.EndTrivia) || nodesHaveComments(items) || itemsBrokenAfterOpen(v.Line, v.Elems) {
+		cs, _ := nodesComments(items)
+		if v.Spread && v.Rest == nil && cs != nil {
+			cs = append(cs, nil)
+		}
+		return emitCommentedList(open, "]", elems, cs, v.EndTrivia)
+	}
+	if v.Spread {
+		parts := make([]Doc, 0, len(elems)*2+2)
+		parts = append(parts, Text(open))
+		for i, e := range elems {
+			if i > 0 {
+				parts = append(parts, Text(", "))
+			}
+			parts = append(parts, e)
+		}
+		parts = append(parts, Text("]"))
+		return Concat(parts...)
+	}
+	return emitBracedList(open, "]", elems)
 }

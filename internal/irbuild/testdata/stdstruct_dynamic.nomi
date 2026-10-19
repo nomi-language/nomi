@@ -59,7 +59,7 @@ fn seg(s: PathSegment) -> String {
 }
 
 fn main() {
-    e = DecodeError{
+    e = #DecodeError{
         path: [PathSegment.Field("user"), PathSegment.Index(3)],
         expected: "Int",
         got: "String",
@@ -91,6 +91,6 @@ fn main() {
     io.print("seg_display = " + Display.to_string(PathSegment.Field("k")))
 
     // --- An EMPTY path, which is the nil *List ------------------------------
-    empty = DecodeError{path: [], expected: "List", got: "Int"}
+    empty = #DecodeError{path: [], expected: "List", got: "Int"}
     io.print("empty.display = " + Display.to_string(empty))
 }

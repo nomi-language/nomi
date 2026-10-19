@@ -37,7 +37,7 @@ import (
 // # The instantiation guard
 //
 //	fn deep_grow<T>(x: T, depth: Int) -> Int {
-//	  if depth <= 0 { 0 } else { deep_grow(Box{inner: x}, depth - 1) + 1 }
+//	  if depth <= 0 { 0 } else { deep_grow(#Box{inner: x}, depth - 1) + 1 }
 //	}
 //
 // has an infinite instantiation set: the recursive call binds `T := Box<T>`,

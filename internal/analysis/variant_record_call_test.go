@@ -21,18 +21,18 @@ enum Pay {
 }
 
 fn has() -> Pay {
-    Pay.Has({a: 1, b: "x"})
+    Pay.Has(#{a: 1, b: "x"})
 }
 
 fn circle() -> Pay {
-    Pay.Circle({radius: 1.0})
+    Pay.Circle(#{radius: 1.0})
 }
 `
 	fa, nodes := checkNodes(t, src)
 	for _, u := range UnresolvedExprs(fa, nodes) {
 		t.Errorf("%d:%d: %s %s has %s", u.Line, u.Col, u.Node.NodeType(), u.Where, u.Missing)
 	}
-	want := map[int]string{12: "{a: Int, b: String}", 16: "Circle"}
+	want := map[int]string{12: "#{a: Int, b: String}", 16: "Circle"}
 	for _, node := range nodes {
 		ast.Inspect(node, func(n ast.Node) bool {
 			lit, ok := n.(*ast.StructLit)

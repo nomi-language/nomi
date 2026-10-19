@@ -53,9 +53,9 @@ fn main() {
         1 -> "one"
         _ -> "other"
     })
-    sp = Spot{n: 3}
+    sp = #Spot{n: 3}
     defer show(sp)
-    defer show(Spot{n: 4})
+    defer show(#Spot{n: 4})
     defer io.print(label(x + 1))
     x = 5
     io.print("body ${x}")
@@ -67,5 +67,5 @@ fn main() {
     }
     io.inspect(f(4))
 }
-`, "label 2\nbody 5\n2!\nfirst!\nOk(20)\nfirst!\nErr(\"neg -1\")\n5?\n4\nn=2\nSpot{n: 4}\nSpot{n: 3}\none\npos\n1\n")
+`, "label 2\nbody 5\n2!\nfirst!\nOk(20)\nfirst!\nErr(\"neg -1\")\n5?\n4\nn=2\n#Spot{n: 4}\n#Spot{n: 3}\none\npos\n1\n")
 }

@@ -37,7 +37,7 @@ impl Formatted for User {
 }
 
 fn main() {
-  alice = User{name: "Alice"}
+  alice = #User{name: "Alice"}
   io.print(Formatted.label(alice))
   io.print(Formatted.shout(alice))
   io.print(Formatted.brief(alice))
@@ -77,8 +77,8 @@ impl HasName for Pet {
 }
 
 fn main() {
-  alice = User{name: "Alice", age: 30}
-  rex = Pet{name: "Rex", species: "Dog"}
+  alice = #User{name: "Alice", age: 30}
+  rex = #Pet{name: "Rex", species: "Dog"}
   io.print(HasName.greet(alice))
   io.print(HasName.greet(rex))
 }
@@ -103,12 +103,12 @@ impl Label for Named {
  fn suffix(value: Named) -> String { "override " + value.name }
 }
 fn prefix() -> String { io.print("prefix"); "hello " }
-fn named() -> Named { io.print("named"); Named{name: "Nomi"} }
+fn named() -> Named { io.print("named"); #Named{name: "Nomi"} }
 fn main() {
  io.print(Label.format(prefix(), named()))
- io.print(Label.suffix(Box{value: 1}))
- io.print(Label.suffix(Box{value: "text"}))
- io.print(Label.suffix(Named{name: "Nomi"}))
+ io.print(Label.suffix(#Box{value: 1}))
+ io.print(Label.suffix(#Box{value: "text"}))
+ io.print(Label.suffix(#Named{name: "Nomi"}))
 }
 `, "prefix\nnamed\nhello Nomi\nbox!\nbox!\noverride Nomi\n")
 }
@@ -122,8 +122,8 @@ impl Number {
  fn local(n: Number) -> Int { plus = fn v: Number -> v.value + 10; plus(n) }
 }
 fn main() {
- io.print(Number.double(Number{value: 3}))
- io.print(Number.local(Number{value: 3}))
+ io.print(Number.double(#Number{value: 3}))
+ io.print(Number.local(#Number{value: 3}))
 }
 `, "6\n13\n")
 }
@@ -136,6 +136,6 @@ func TestIRInherited_DbgDefaultOverANominalRuns(t *testing.T) {
 interface Trace { fn trace(value: self) { _ = dbg value } }
 struct Point { x: Int }
 impl Trace for Point {}
-fn main() { Trace.trace(Point{x: 1}) }
-`, "dbg line 2: value = Point{x: 1}\n")
+fn main() { Trace.trace(#Point{x: 1}) }
+`, "dbg line 2: value = #Point{x: 1}\n")
 }

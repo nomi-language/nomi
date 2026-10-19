@@ -57,7 +57,7 @@ func (g *gen) irProjPayload(at ast.Node, subj expr, d *typeDef, v *variantDef, i
 	}
 	if v.kind == "struct" && i < len(v.payloads) && v.payloads[i].nomi != "" {
 		// A struct-shaped variant's payload is keyed by its field name
-		// (`fn span(Cell.Span{hi, lo})`), as a case arm reads it.
+		// (`fn span(#Cell.Span{hi, lo})`), as a case arm reads it.
 		p := ir.NewProjPayloadField(g.irNodePos(at), g.irMint(), g.irHold(subj),
 			g.irTypeSym(d), v.nomi, v.payloads[i].nomi, i, irParamShape(k))
 		return g.irProjExpr(p, k)

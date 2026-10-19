@@ -14,5 +14,5 @@ pub struct NamedWidget {
 }
 
 pub fn make(name: String, grams: Int) -> NamedWidget {
-    NamedWidget{name, weight: Weight{grams}}
+    #NamedWidget{name, weight: #Weight{grams}}
 }

@@ -38,7 +38,7 @@ import (
 // A fact about the language rather than about this builder:
 //
 //	fn deep_grow<T>(x: T, depth: Int) -> Int {
-//	  if depth <= 0 { 0 } else { deep_grow(Box{inner: x}, depth - 1) + 1 }
+//	  if depth <= 0 { 0 } else { deep_grow(#Box{inner: x}, depth - 1) + 1 }
 //	}
 //
 // which `nomi check`s clean and has an answer, and whose instantiation set is

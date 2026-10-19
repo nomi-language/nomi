@@ -9,7 +9,7 @@ import (
 
 // A positional construction has no parameter names: a positional variant's
 // payload (`Some(1)`, `Shape.Sq(2)`), a distinct type's wrapped value
-// (`Id(5)`), and a struct's record call form (`Point({x: 1})`). The checker
+// (`Id(5)`), and a struct's record call form (`Point(#{x: 1})`). The checker
 // knew no names for a variant constructor and skipped the name, so
 // `Some(l: 1)` checked as `Some(1)` against an expected type and the IR
 // builder declined the call ("a type name in value position: Some"); with
@@ -90,12 +90,12 @@ impl Assertable for Same {
     if s.a == s.b {
       None
     } else {
-      Some(l: AssertionDetails{
+      Some(l: #AssertionDetails{
         reason: "values were not equal",
       })
     }
   }
-}`, "l: AssertionDetails", variantNameHint},
+}`, "l: #AssertionDetails", variantNameHint},
 		{"a distinct", `fn f() -> Id {
   Id(n: 5)
 }`, "n: 5", distinctNameHint},
@@ -106,8 +106,8 @@ impl Assertable for Same {
   Shape.Id(n: 3)
 }`, "n: 3", distinctNameHint},
 		{"a struct's call form", `fn f() -> Point {
-  Point(p: {x: 1})
-}`, "p: {x: 1}", "a struct's call form takes one record with the fields in it; write Point({...}) or Point{...}"},
+  Point(p: #{x: 1})
+}`, "p: #{x: 1}", "a struct's call form takes one record with the fields in it; write Point(#{...}) or #Point{...}"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := namedCtorDecls + tc.src + "\nfn main() {\n}\n"
@@ -132,7 +132,7 @@ fn main() {
 `
 	_, errs := checkSourceWithStdlib(src)
 	line, col := lineColOf(t, src, "Rect(w")
-	want := "Shape.Rect is a struct-shaped variant and has no positional form; construct it with Shape.Rect{...} or Shape.Rect({...})"
+	want := "Shape.Rect is a struct-shaped variant and has no positional form; construct it with #Shape.Rect{...} or Shape.Rect(#{...})"
 	for _, e := range errs {
 		if e.Message == want && e.Line == line && e.Col == col {
 			return
@@ -176,9 +176,9 @@ func TestNamedArgToConstructor_PositionalStillChecks(t *testing.T) {
   f = Some(_)
   g: Maybe<Int> = 1 |> Some()
   h: Id = Id(5)
-  i: Two = Two(1, "x")
+  i: Two = #Two(1, "x")
   j: Shape = Shape.Id(3)
-  k: Point = Point({x: 1})
+  k: Point = Point(#{x: 1})
   _ = #(a, b, c, d, e, f(1), g, h, i, j, k)
 }
 `)
@@ -211,13 +211,13 @@ func expectNamedArgError(t *testing.T, src string, errs []analysis.TypeError, at
 
 // An interface-qualified call names the interface method's parameters. The
 // checker knew no names for such a callee and skipped any name:
-// `Struct.update(p, patch: {x: 2})` and `Display.to_string(v: 1)` passed it
+// `Struct.update(p, patch: #{x: 2})` and `Display.to_string(v: 1)` passed it
 // and the IR builder declined them.
 func TestNamedArgToInterfaceFunction_ChecksTheName(t *testing.T) {
 	for _, tc := range []struct{ name, src, at string }{
 		{"Struct.update", `fn f(p: Point) -> Point {
-  Struct.update(p, patch: {x: 2})
-}`, "patch: {x: 2}"},
+  Struct.update(p, patch: #{x: 2})
+}`, "patch: #{x: 2}"},
 		{"Display.to_string", `fn f() -> String {
   Display.to_string(v: 1)
 }`, "v: 1"},
@@ -243,9 +243,9 @@ func TestNamedArgToInterfaceFunction_ChecksTheName(t *testing.T) {
   T.to_string(value: x)
 }
 fn main() {
-  p = Point{x: 1}
-  a: Point = Struct.update(p, updates: {x: 2})
-  b: Point = Struct.update(updates: {x: 3}, original: p)
+  p = #Point{x: 1}
+  a: Point = Struct.update(p, updates: #{x: 2})
+  b: Point = Struct.update(updates: #{x: 3}, original: p)
   c: String = Display.to_string(value: 4)
   _ = #(a, b, c, show(5))
 }

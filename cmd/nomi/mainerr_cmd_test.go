@@ -34,7 +34,7 @@ impl Display for Missing {
 }
 
 fn main() -> Result<Unit, Missing> {
-  Err(Missing{path: "app.toml", line: 3})
+  Err(#Missing{path: "app.toml", line: 3})
 }
 `, "", "error: app.toml is missing (line 3)\n", 1},
 	{"an error type without Display prints its Debug text", `struct Missing {
@@ -43,9 +43,9 @@ fn main() -> Result<Unit, Missing> {
 }
 
 fn main() -> Result<Unit, Missing> {
-  Err(Missing{path: "app.toml", line: 3})
+  Err(#Missing{path: "app.toml", line: 3})
 }
-`, "", "error: Missing{path: \"app.toml\", line: 3}\n", 1},
+`, "", "error: #Missing{path: \"app.toml\", line: 3}\n", 1},
 	{"a try in main leaves with the error", `fn port(text: String) -> Result<Int, String> {
   if text == "" {
     Err("no port given")

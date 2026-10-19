@@ -60,7 +60,7 @@ func (bl *irScalarBuilder) irStatementDrop(at ast.Node, src ir.Temp, k kind) {
 // and therefore needs its own owner for that value.
 //
 // SO IT IS IN THE GRAPH RATHER THAN IN A DELIVERY. `ir.ConstUnit`'s own doc
-// line is "`rt.Unit{}`: the value of a statement", and that is exactly what
+// line is "`#rt.Unit{}`: the value of a statement", and that is exactly what
 // this is: a value, and then the discard of it. Hiding it inside a second Copy
 // spelling would add an `irCopyRole` describing a VALUE rather than a
 // delivery, and it would need the `*ast.Binding` carried to the Copy for

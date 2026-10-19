@@ -15,7 +15,7 @@ test "direct interface calls report missing implementations" {
           }
 
           fn main() {
-            _ = Greeter.hello(Visitor{name: "Ada"})
+            _ = Greeter.hello(#Visitor{name: "Ada"})
           }
         """
     )
@@ -80,7 +80,7 @@ test "generic bound recursion reports missing element implementations" {
           }
 
           fn main() {
-            _ = show([Foo{n: 1}, Foo{n: 2}])
+            _ = show([#Foo{n: 1}, #Foo{n: 2}])
           }
         """
     )

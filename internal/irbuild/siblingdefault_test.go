@@ -73,14 +73,14 @@ func TestSiblingDefaults_LiteralsFillForeignFieldDefaults(t *testing.T) {
 	}
 	want := "" +
 		"base\n" +
-		`Loot{name: "a", drops: None, held: Some(Key), tags: [], item: Coin, hello: "lib", weight: 42, rare: False}` + "\n" +
-		`Loot{name: "b", drops: Some(3), held: Some(Key), tags: [], item: Coin, hello: "lib", weight: 7, rare: False}` + "\n" +
-		`Loot{name: "c", drops: None, held: Some(Key), tags: [], item: Coin, hello: "lib", weight: 42, rare: False}` + "\n" +
-		"Box{value: 1, extra: [], label: None}\n" +
-		`Box{value: "s", extra: [], label: Some("x")}` + "\n" +
-		"Box{value: Local{x: 1}, extra: [], label: None}\n" +
-		`Tagged{name: "t", tags: [], at: None}` + "\n" +
-		`Tagged{name: "inferred", tags: [], at: None}` + "\n" +
+		`#Loot{name: "a", drops: None, held: Some(Key), tags: [], item: Coin, hello: "lib", weight: 42, rare: False}` + "\n" +
+		`#Loot{name: "b", drops: Some(3), held: Some(Key), tags: [], item: Coin, hello: "lib", weight: 7, rare: False}` + "\n" +
+		`#Loot{name: "c", drops: None, held: Some(Key), tags: [], item: Coin, hello: "lib", weight: 42, rare: False}` + "\n" +
+		"#Box{value: 1, extra: [], label: None}\n" +
+		`#Box{value: "s", extra: [], label: Some("x")}` + "\n" +
+		"#Box{value: #Local{x: 1}, extra: [], label: None}\n" +
+		`#Tagged{name: "t", tags: [], at: None}` + "\n" +
+		`#Tagged{name: "inferred", tags: [], at: None}` + "\n" +
 		"main\n"
 	path := fixture("sibling_field_defaults/main.nomi")
 	got := vmReference(path)

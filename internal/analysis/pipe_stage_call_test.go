@@ -24,7 +24,7 @@ struct Box {
 
 impl Box {
   fn make(n: Int) -> Box {
-    Box{n: n}
+    #Box{n: n}
   }
 }
 

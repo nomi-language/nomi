@@ -32,7 +32,7 @@ fn main() {
     io.print("depth = ${depth(two)}")
 
     stop = Loop.Stop
-    cell = Cell{next: stop, weight: 5}
+    cell = #Cell{next: stop, weight: 5}
     _looped = Loop.Go(cell)
     io.print("weight = ${cell.weight}")
 }

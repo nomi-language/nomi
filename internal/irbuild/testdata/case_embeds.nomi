@@ -17,22 +17,22 @@ enum Shape {
 
 fn area(s: Shape) -> Int {
     case s {
-        Shape.Circle{radius} -> radius * radius * 3
-        Shape.Rect{width, height} -> width * height
+        #Shape.Circle{radius} -> radius * radius * 3
+        #Shape.Rect{width, height} -> width * height
         Shape.Point -> 0
     }
 }
 
 fn main() {
     // Qualified construction: the payload is built and wrapped at the same site.
-    io.print("${area(Shape.Circle{radius: 2})}")
+    io.print("${area(#Shape.Circle{radius: 2})}")
     // SUBTYPE COERCION, argument position. `embeds Circle` makes Circle a
     // subtype of Shape (spec §8), so a bare Circle is a legal Shape argument.
     // The builder wraps the bare Circle in its Shape variant at the call, so
     // the `case` in `area` has a tag to switch on.
-    io.print("${area(Circle{radius: 3})}")
+    io.print("${area(#Circle{radius: 3})}")
     // SUBTYPE COERCION, annotated binding.
-    s: Shape = Rect{width: 4, height: 5}
+    s: Shape = #Rect{width: 4, height: 5}
     io.print("${area(s)}")
     io.print("${area(Shape.Point)}")
 }

@@ -50,13 +50,13 @@ fn tuple_param(#(_, n): #(Int, Int), _: Int) -> Int {
     n
 }
 
-fn struct_param(Point{x, y: _y}) -> Int {
-    //                      ^ comment
+fn struct_param(#Point{x, y: _y}) -> Int {
+    //                       ^ comment
     x
 }
 
-fn pad_param(Pad{_w}) -> Int {
-    //           ^ comment
+fn pad_param(#Pad{_w}) -> Int {
+    //            ^ comment
     0
 }
 
@@ -84,8 +84,8 @@ fn wildcard_lambda(xs: List<#(Int, String)>) -> Iter<Int> {
 }
 
 fn struct_lambda(xs: List<Point>) -> Iter<Int> {
-    xs |> Iter.map(fn Point{x, y: _y} -> x)
-    //                            ^ comment
+    xs |> Iter.map(fn #Point{x, y: _y} -> x)
+    //                             ^ comment
 }
 
 fn plain_lambda(xs: List<Int>) -> Iter<Int> {
@@ -149,9 +149,9 @@ fn as_binding(pair: #(Int, Int)) -> Int {
 }
 
 fn struct_as_binding(q: Point) -> Int {
-    {x: _c, y} as p = q
-    //  ^ comment
-    //      ^ variable
+    #{x: _c, y} as p = q
+    //   ^ comment
+    //       ^ variable
     y + p.x
 }
 
@@ -172,8 +172,8 @@ fn nested_destructure(pair: #(#(Int, Int), Int)) -> Int {
 }
 
 fn struct_else(q: Slot) -> Int {
-    {x: Some(_n), y} = q else {
-        //   ^ comment
+    #{x: Some(_n), y} = q else {
+        //    ^ comment
         return 0
     }
 
@@ -226,11 +226,11 @@ fn piped(v: Maybe<Result<#(Int, Int), String>>) -> Int {
 
 fn shapes(shape: Shape) -> Int {
     case shape {
-        .Rect{w: _w, h} -> h
-        //       ^ comment
-        Shape.Ring(Point{x: _px, y}) -> y
-        //                  ^ comment
-        Shape.Tags%{"a" => _tag} -> 0
+        #.Rect{w: _w, h} -> h
+        //        ^ comment
+        Shape.Ring(#Point{x: _px, y}) -> y
+        //                   ^ comment
+        %Shape.Tags{"a" => _tag} -> 0
         //                 ^ comment
         .Items[_first, .._more] -> 0
         //     ^ comment
@@ -287,4 +287,13 @@ test "assertion" {
 test "nested assertion" {
     assert Err(Error.Invalid(_msg)) = parse("x")
     //                       ^ comment
+}
+
+fn vector_arms(v: Vector<Int>, s: Set<Int>) -> Int {
+    case v {
+        #[n, _first, .._more] -> n
+        //   ^ comment
+        //             ^ comment
+        _ -> Set.size(s)
+    }
 }

@@ -36,8 +36,8 @@ fn main() {
     .Has(#(s, t)) -> io.print("tuple ${s} ${t}")
     .Nothing -> io.print("none")
   }
-  case pick(True, Opt.Nothing, Opt.Has(Pt{x: 3, y: 4})) {
-    .Has(Pt{x, y}) -> io.print("struct ${x} ${y}")
+  case pick(True, Opt.Nothing, Opt.Has(#Pt{x: 3, y: 4})) {
+    .Has(#Pt{x, y}) -> io.print("struct ${x} ${y}")
     .Nothing -> io.print("none")
   }
   case pick(True, Opt.Nothing, Opt.Has([1, 2, 3])) {
@@ -45,8 +45,8 @@ fn main() {
     .Has([]) -> io.print("empty")
     .Nothing -> io.print("none")
   }
-  case pick(True, Opt.Nothing, Opt.Has(Shape.Rect{w: 5, h: 6})) {
-    .Has(.Rect{w, h}) -> io.print("struct variant ${w} ${h}")
+  case pick(True, Opt.Nothing, Opt.Has(#Shape.Rect{w: 5, h: 6})) {
+    .Has(#.Rect{w, h}) -> io.print("struct variant ${w} ${h}")
     .Has(.Circle(r)) -> io.print("circle ${r}")
     .Nothing -> io.print("none")
   }
@@ -64,8 +64,8 @@ fn main() {
     .Has(Id(i)) -> io.print("distinct ${i}")
     .Nothing -> io.print("none")
   }
-  case pick(True, Opt.Nothing, Opt.Has(Kvs%{"a" => 10})) {
-    .Has(Kvs%{"a" => v}) -> io.print("map distinct ${v}")
+  case pick(True, Opt.Nothing, Opt.Has(%Kvs{"a" => 10})) {
+    .Has(%Kvs{"a" => v}) -> io.print("map distinct ${v}")
     .Has(_) -> io.print("no a")
     .Nothing -> io.print("none")
   }

@@ -7,23 +7,23 @@ import "testing"
 // `Iter<Int>`. A caller re-derives each of those kinds in its own unit
 // (importKind).
 const crossFileShapes = `pub struct Box {
-  at: {x: Int, y: Int}
+  at: #{x: Int, y: Int}
   size: Int = 1
 }
 
 pub fn make(x: Int) -> Box {
-  Box{at: {x, y: x * 2}}
+  #Box{at: #{x, y: x * 2}}
 }
 
 pub fn width(b: Box) -> Int {
   b.at.x + b.size
 }
 
-pub fn corner(b: Box) -> {x: Int, y: Int} {
+pub fn corner(b: Box) -> #{x: Int, y: Int} {
   b.at
 }
 
-pub fn px(p: {x: Int, y: Int}) -> Int {
+pub fn px(p: #{x: Int, y: Int}) -> Int {
   p.x * 10 + p.y
 }
 
@@ -51,12 +51,12 @@ test "a struct with a record field from another file" {
   b = shapes.make(3)
   assert shapes.width(b) == 4
   assert b.at.y == 6
-  assert shapes.width(Box{at: {x: 1, y: 0}, size: 5}) == 6
+  assert shapes.width(#Box{at: #{x: 1, y: 0}, size: 5}) == 6
 }
 
 test "records in another file's signatures" {
-  assert shapes.corner(shapes.make(2)) == {x: 2, y: 4}
-  assert shapes.px({x: 1, y: 2}) == 12
+  assert shapes.corner(shapes.make(2)) == #{x: 2, y: 4}
+  assert shapes.px(#{x: 1, y: 2}) == 12
   assert shapes.px(shapes.corner(shapes.make(1))) == 12
 }
 

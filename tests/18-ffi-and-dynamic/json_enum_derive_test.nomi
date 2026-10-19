@@ -17,8 +17,8 @@ enum Shape {
 }
 
 derive Equatable for Shape
-derive ToJson for Shape with ToJson.Options{rename_all: Json.Case.Camel}
-derive FromJson for Shape with FromJson.Options{rename_all: Json.Case.Camel}
+derive ToJson for Shape with #ToJson.Options{rename_all: Json.Case.Camel}
+derive FromJson for Shape with #FromJson.Options{rename_all: Json.Case.Camel}
 
 fn decoded(text: String) -> Result<Shape, String> {
     case Json.decode(text) {
@@ -29,8 +29,8 @@ fn decoded(text: String) -> Result<Shape, String> {
 
 test "a derived enum's FromJson reads what its ToJson writes" {
     shapes = [
-        Shape.Circle{radius: 2.5},
-        Shape.Rect{width_px: 3, height_px: 4},
+        #Shape.Circle{radius: 2.5},
+        #Shape.Rect{width_px: 3, height_px: 4},
         Shape.Pair(#(1, "one")),
         Shape.Label("hi"),
         Shape.Dot,
@@ -66,14 +66,14 @@ test "vectors and sets cross as JSON arrays" {
     back: Result<Vector<Int>, Json.ShapeError> = FromJson.from_json(ToJson.to_json(v))
     assert back == Ok(v)
 
-    s = #{"a"}
+    s = %["a"]
     assert Json.encode(ToJson.to_json(s)) == "[\"a\"]"
 
     twice: Result<Set<Int>, Json.ShapeError> = FromJson.from_json(
         Json.Arr([Json.Int(2), Json.Int(2)])
     )
 
-    assert twice == Ok(#{2})
+    assert twice == Ok(%[2])
 }
 
 test "a whole JSON number reads as a Float" {

@@ -33,7 +33,7 @@ import {
 //                  native.go's TypeIdent CALL ladder.
 //   - `JNull`      a BARE variant of the same, in value position. native.go's
 //                  TypeIdent VALUE ladder.
-//   - `JObj{...}`  the map literal-ATTACH form with a bare head. attach.go's
+//   - `%JObj{...}`  the map literal-ATTACH form with a bare head. attach.go's
 //                  attachLit, which is a second reject site for one key.
 //   - `Just(7)`    a carrying variant of a PRELUDE enum — a different resolver
 //                  (prelude.go) reached from the same call-ladder rung.
@@ -88,7 +88,7 @@ fn main() {
     io.print(describe(JNull))
     // The literal-attach form with a bare aliased head, and a nested aliased
     // construction inside its body.
-    io.print(describe(JObj%{"k" => JStr("nested")}))
+    io.print(describe(%JObj{"k" => JStr("nested")}))
 
     // The prelude enums are a second resolver reached from the same rung.
     io.print(maybe_label(Just(7)))

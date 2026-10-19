@@ -19,7 +19,7 @@ func onlyAppFieldError(t *testing.T, errs []analysis.TypeError, want string) {
 const appFieldsRecursionPrefix = `
 struct App { context: Context
 n: Int }
-fn boot() -> App { App{context: Context.root(), n: 1} }
+fn boot() -> App { #App{context: Context.root(), n: 1} }
 fn main() { _ = 1 }
 `
 
@@ -81,6 +81,6 @@ impl Iter<Int> for Bag {
   fn each_while(collection: Bag, yield: (Int) -> Bool) -> Bool { Iter.each_while(collection.items, yield) }
   fn known_count(_collection: Bag) -> Maybe<Int> { Some(App.n) }
 }
-test "default" { assert Iter.count(Bag{items: [1]}) == 1 }
+test "default" { assert Iter.count(#Bag{items: [1]}) == 1 }
 `), "this test has no boot, but code it runs reads `App.n` (line 9)")
 }

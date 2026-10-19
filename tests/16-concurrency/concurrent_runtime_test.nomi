@@ -163,7 +163,7 @@ test "env context timeout cancels blocked channel receives" {
         }
 
         fn load(context: Context) -> Config {
-          Config{context}
+          #Config{context}
         }
 
         fn boot() -> Config {

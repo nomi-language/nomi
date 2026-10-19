@@ -15,19 +15,19 @@ func TestCompletion_AttachedTestBindings(t *testing.T) {
 	}{
 		{
 			"member access on a binding",
-			attachedUser + "//! u = User{name: \"a\", age: 1}\n//! assert u." + cursorMark + "\npub fn double(n: Int) -> Int {\n    n * 2\n}\n",
+			attachedUser + "//! u = #User{name: \"a\", age: 1}\n//! assert u." + cursorMark + "\npub fn double(n: Int) -> Int {\n    n * 2\n}\n",
 			[]string{"name", "age"},
 			nil,
 		},
 		{
 			"member access before a comparison",
-			attachedUser + "//! u = User{name: \"a\", age: 1}\n//! assert u." + cursorMark + " == \"a\"\npub fn double(n: Int) -> Int {\n    n * 2\n}\n",
+			attachedUser + "//! u = #User{name: \"a\", age: 1}\n//! assert u." + cursorMark + " == \"a\"\npub fn double(n: Int) -> Int {\n    n * 2\n}\n",
 			[]string{"name", "age"},
 			nil,
 		},
 		{
 			"a binding in a later assert",
-			attachedUser + "//! user = User{name: \"a\", age: 1}\n//! assert us" + cursorMark + "\npub fn double(n: Int) -> Int {\n    n * 2\n}\n",
+			attachedUser + "//! user = #User{name: \"a\", age: 1}\n//! assert us" + cursorMark + "\npub fn double(n: Int) -> Int {\n    n * 2\n}\n",
 			[]string{"user"},
 			nil,
 		},

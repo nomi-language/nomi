@@ -19,7 +19,7 @@ pub fn saddle_points(matrix: Vector<Vector<Int>>) -> List<Position> {
         |> Iter.filter(fn #(column, height) -> {
             Some(height) == tallest and Vector.at(minima, column) == height
         })
-        |> Iter.map(fn #(column, _height) -> Position{row: row + 1, column: column + 1})
+        |> Iter.map(fn #(column, _height) -> #Position{row: row + 1, column: column + 1})
     })
     |> Iter.to_list()
 }

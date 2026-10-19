@@ -14,5 +14,5 @@ fn main() {
     io.print("clean-first = ${checks.first_message(compiler.check("fn main() { }"))}")
     // `Diagnostic` HERE is own.nomi's struct. A cross-file lookup keyed on the
     // bare name would hand this one to a signature expecting std's.
-    io.print("own = ${own.label_of(Diagnostic{label: "mine"})}")
+    io.print("own = ${own.label_of(#Diagnostic{label: "mine"})}")
 }

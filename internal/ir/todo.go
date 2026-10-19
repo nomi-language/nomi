@@ -13,7 +13,7 @@ import "strconv"
 // IT HAS A DESTINATION, unlike NoMatch, and that is what lets the builder put
 // one anywhere an expression goes. The checker gives `todo` the type its
 // position expects, so to the code around it a `todo` is an operand of that
-// type: `Header{size: todo}` needs a temporary of kind Int to construct with.
+// type: `#Header{size: todo}` needs a temporary of kind Int to construct with.
 // The destination is that temporary. It is typed like any other, and never
 // written, because the instruction always faults first. A call to a function
 // that never returns has the same shape: a destination the graph reads after

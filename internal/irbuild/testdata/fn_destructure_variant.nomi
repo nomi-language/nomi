@@ -7,7 +7,7 @@ import std/io
 // side is a different node (`*ast.StructPattern` with a dotted head, not an
 // `*ast.EnumPattern`) and reached destructureStruct, which had no enum arm at
 // all: `case` owned the whole variant-with-braces shape and the destructuring
-// path did not. So `Box.Extent{wide, tall}` refused as
+// path did not. So `#Box.Extent{wide, tall}` refused as
 // `pattern type mismatch (Box.Extent against Box)` while
 // `Distance.Meters(m)` beside it lowered.
 //
@@ -22,7 +22,7 @@ import std/io
 //     patterns address the EMBEDDED STRUCT's declaration one level below the
 //     enum; a written `struct` variant's address the enum's own deduped payload
 //     SLOTS by name. Two independent readings of "which field is this", so
-//     `Box.Extent{...}` and `Cell.Span{...}` are both here.
+//     `#Box.Extent{...}` and `#Cell.Span{...}` are both here.
 //   - FIELD IDENTITY vs SLOT POSITION. Every multi-field payload below is read
 //     back through a NON-COMMUTATIVE expression, and BOTH multi-field patterns
 //     PERMUTE the pattern order against the declaration order — `ratio` on the
@@ -31,8 +31,8 @@ import std/io
 //     against 706. Measured: with `span` written in declaration order the two
 //     readings coincide and a by-position slot lookup answers 7 as well, so the
 //     permutation is what makes that half of the fixture discriminating at all.
-//   - THE ENUM-WRAPPED AND THE COERCED-BARE SPELLINGS. `Box.Extent{...}` wraps
-//     at the literal, a bare `Extent{...}` at an argument is wrapped by
+//   - THE ENUM-WRAPPED AND THE COERCED-BARE SPELLINGS. `#Box.Extent{...}` wraps
+//     at the literal, a bare `#Extent{...}` at an argument is wrapped by
 //     coerce(); the pattern must address the embedded value either way.
 //     `extent_code` is called both ways for that reason.
 struct Extent {
@@ -76,50 +76,50 @@ fn stretch(Distance.Meters(m)) -> Int {
 }
 
 // Punned brace-shaped `embeds`, read back non-commutatively.
-fn extent_code(Box.Extent{wide, tall}) -> Int {
+fn extent_code(#Box.Extent{wide, tall}) -> Int {
     wide * 100 + tall
 }
 
 // Renamed AND permuted against the declaration order.
-fn ratio(Box.Extent{tall: a, wide: b}) -> String {
+fn ratio(#Box.Extent{tall: a, wide: b}) -> String {
     "${a}/${b}"
 }
 
 // Nested one level below the embedded struct, with a wildcard beside it.
-fn originx(Window.Frame{at: Origin{x, y: _}, scale: _}) -> Int {
+fn originx(#Window.Frame{at: #Origin{x, y: _}, scale: _}) -> Int {
     x
 }
 
 // A written struct-shaped variant: the fields are the enum's own slots. Written
-// `{hi, lo}` against a `{lo, hi}` declaration so a by-position slot lookup
+// `#{hi, lo}` against a `#{lo, hi}` declaration so a by-position slot lookup
 // answers -7 here instead of 7.
-fn span(Cell.Span{hi, lo}) -> Int {
+fn span(#Cell.Span{hi, lo}) -> Int {
     hi - lo
 }
 
 // Non-leading position, so the anonymous parameter has to land in the right
 // slot.
-fn scaled(k: Int, Box.Extent{wide, tall}, bias: Int) -> Int {
+fn scaled(k: Int, #Box.Extent{wide, tall}, bias: Int) -> Int {
     k * (wide + tall) + bias
 }
 
 fn main() {
     io.print("stretch = ${stretch(Distance.Meters(14))}")
-    io.print("extent_code = ${extent_code(Box.Extent{wide: 6, tall: 7})}")
-    io.print("ratio = ${ratio(Box.Extent{wide: 3, tall: 8})}")
-    io.print("originx = ${originx(Window.Frame{at: Origin{x: 5, y: 9}, scale: 2})}")
-    io.print("span = ${span(Cell.Span{lo: 4, hi: 11})}")
-    io.print("scaled = ${scaled(10, Box.Extent{wide: 1, tall: 2}, 5)}")
+    io.print("extent_code = ${extent_code(#Box.Extent{wide: 6, tall: 7})}")
+    io.print("ratio = ${ratio(#Box.Extent{wide: 3, tall: 8})}")
+    io.print("originx = ${originx(#Window.Frame{at: #Origin{x: 5, y: 9}, scale: 2})}")
+    io.print("span = ${span(#Cell.Span{lo: 4, hi: 11})}")
+    io.print("scaled = ${scaled(10, #Box.Extent{wide: 1, tall: 2}, 5)}")
 
     // The coerced-bare spelling of the same call.
-    io.print("coerced = ${extent_code(Extent{wide: 4, tall: 9})}")
+    io.print("coerced = ${extent_code(#Extent{wide: 4, tall: 9})}")
 
     // The lambda entry point into the same destructure().
-    boxes = [Box.Extent{wide: 2, tall: 5}, Box.Extent{wide: 3, tall: 4}]
+    boxes = [#Box.Extent{wide: 2, tall: 5}, #Box.Extent{wide: 3, tall: 4}]
 
     sums =
         boxes
-        |> Iter.map(fn Box.Extent{wide, tall} -> wide * 100 + tall)
+        |> Iter.map(fn #Box.Extent{wide, tall} -> wide * 100 + tall)
         |> Iter.to_list()
 
     io.print("sums = ${sums}")

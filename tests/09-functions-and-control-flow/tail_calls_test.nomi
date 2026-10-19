@@ -57,7 +57,7 @@ test "ordinary non-tail recursion still computes normally" {
 }
 
 test "tail calls run through interface dispatch" {
-    s = Down{}
+    s = #Down{}
 
     assert Stepper.step(s, 100000) == 0
 }

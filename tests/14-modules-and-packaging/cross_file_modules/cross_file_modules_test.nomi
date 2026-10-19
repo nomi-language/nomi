@@ -16,9 +16,9 @@ impl Greeting for Guest {
 }
 
 test "cross-file modules expose public functions types and interfaces" {
-    user = User{name: "Alice", age: 30}
-    point = Point{x: 3, y: 4}
-    guest = Guest{name: "Bob"}
+    user = #User{name: "Alice", age: 30}
+    point = #Point{x: 3, y: 4}
+    guest = #Guest{name: "Bob"}
 
     assert math.double(21) == 42
     assert math.add(10, 20) == 30

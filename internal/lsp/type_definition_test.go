@@ -18,14 +18,14 @@ struct Point {
 fn main() {
     u = users.make()
     m = users.maybe()
-    p = Point{x: 1}
+    p = #Point{x: 1}
     xs = [p]
     pair = #(p, u)
     f = make_point
     io.inspect(#(u.name, p.x, xs, m, pair, f(), make_point()))
 }
 
-fn make_point() -> Point { Point{x: 2} }
+fn make_point() -> Point { #Point{x: 2} }
 `
 
 func TestTypeDefinition(t *testing.T) {
@@ -40,7 +40,7 @@ func TestTypeDefinition(t *testing.T) {
 		}
 	}
 	write("nomi.toml", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	write("models/users.nomi", "pub struct User {\n    name: String\n}\n\npub fn make() -> User { User{name: \"a\"} }\n\npub fn maybe() -> Maybe<User> { None }\n")
+	write("models/users.nomi", "pub struct User {\n    name: String\n}\n\npub fn make() -> User { #User{name: \"a\"} }\n\npub fn maybe() -> Maybe<User> { None }\n")
 	src := strings.Replace(typeDefMain, "import models/users\n", "import models/users\nimport std/io\n", 1)
 	write("main.nomi", src)
 	s := NewServer()
@@ -66,7 +66,7 @@ func TestTypeDefinition(t *testing.T) {
 		{"field declaration", occ(src, "x: Int", 0, 0), "int.nomi", "Int", -1},
 		{"call of another file's function", occ(src, "make()", 0, 0), "users.nomi", "User", 0},
 		{"call of this file's function", occ(src, "make_point()", 0, 0), "main.nomi", "Point", 3},
-		{"type name", occ(src, "Point{x: 1}", 0, 0), "main.nomi", "Point", 3},
+		{"type name", occ(src, "#Point{x: 1}", 0, 1), "main.nomi", "Point", 3},
 		{"tuple", occ(src, "pair = ", 0, 0), "", "", -1},
 		{"function value", occ(src, "f = ", 0, 0), "", "", -1},
 		{"file qualifier", occ(src, "users.make", 0, 0), "", "", -1},

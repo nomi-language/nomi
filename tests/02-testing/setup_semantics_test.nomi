@@ -1,16 +1,16 @@
-fn parent_fixture() -> {inherited: String, value: String} {
-    {inherited: "parent", value: "parent"}
+fn parent_fixture() -> #{inherited: String, value: String} {
+    #{inherited: "parent", value: "parent"}
 }
 
 group "setup semantics" {
     setup parent_fixture()
 
-    test "setup value is bound by the test's pattern", {inherited, value} {
+    test "setup value is bound by the test's pattern", #{inherited, value} {
         assert inherited == "parent"
         assert value == "parent"
     }
 
-    test "a sibling group's setup does not leak into this group", {inherited, value} {
+    test "a sibling group's setup does not leak into this group", #{inherited, value} {
         assert inherited == "parent"
         assert value == "parent"
     }
@@ -19,10 +19,10 @@ group "setup semantics" {
 group "derived setup" {
     setup {
         parent = parent_fixture()
-        {inherited: parent.inherited, value: "child", child_only: "ready"}
+        #{inherited: parent.inherited, value: "child", child_only: "ready"}
     }
 
-    test "a sibling group derives its setup from a shared function", {
+    test "a sibling group derives its setup from a shared function", #{
         inherited,
         value,
         child_only,

@@ -151,16 +151,16 @@ func TestInspectStructIsValueStructValDisplay(t *testing.T) {
 		fields []string
 		want   string
 	}{
-		{"two fields", "Point", []string{"x: 1", `y: "two"`}, `Point{x: 1, y: "two"}`},
+		{"two fields", "Point", []string{"x: 1", `y: "two"`}, `#Point{x: 1, y: "two"}`},
 		// Sorted by field name. Declaration order is not preserved and must
 		// not be.
-		{"out of order", "Point", []string{`y: "two"`, "x: 1"}, `Point{x: 1, y: "two"}`},
+		{"out of order", "Point", []string{`y: "two"`, "x: 1"}, `#Point{x: 1, y: "two"}`},
 		// By the name, not the composed string: `a0: 2` sorts before `a: 1`
 		// as a string (`0` < `:`), and Debug.inspect renders `a` first.
-		{"name is a prefix of another", "", []string{"a0: 2", "a: 1"}, "{a: 1, a0: 2}"},
-		{"prefix name, values reversed", "", []string{"ab: 1", "a: 9"}, "{a: 9, ab: 1}"},
-		{"no fields", "Nothing", nil, "Nothing{}"},
-		{"nested", "Outer", []string{"tag: 9", "p: Point{x: 1}"}, "Outer{p: Point{x: 1}, tag: 9}"},
+		{"name is a prefix of another", "", []string{"a0: 2", "a: 1"}, "#{a: 1, a0: 2}"},
+		{"prefix name, values reversed", "", []string{"ab: 1", "a: 9"}, "#{a: 9, ab: 1}"},
+		{"no fields", "Nothing", nil, "#Nothing{}"},
+		{"nested", "Outer", []string{"tag: 9", "p: #Point{x: 1}"}, "#Outer{p: #Point{x: 1}, tag: 9}"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -16,13 +16,13 @@
 ///
 /// They CANNOT:
 ///
-/// - construct directly: `Counter{value: 0, increments: 0}` is rejected
+/// - construct directly: `#Counter{value: 0, increments: 0}` is rejected
 /// - field-access:        `c.value` is rejected — go through `counter.value(c)`
-/// - destructure:         `case c { Counter{value, ..} -> ... }` is rejected
+/// - destructure:         `case c { #Counter{value, ..} -> ... }` is rejected
 ///
 /// Inside this file — exactly the same as a regular struct — fields
 /// are constructed and read with the usual struct-literal and
-/// field-access syntax (`Counter{...}`, `c.value`).
+/// field-access syntax (`#Counter{...}`, `c.value`).
 pub opaque struct Counter {
     value: Int
     increments: Int
@@ -30,12 +30,12 @@ pub opaque struct Counter {
 
 /// Returns a fresh counter at zero.
 pub fn new() -> Counter {
-    Counter{value: 0, increments: 0}
+    #Counter{value: 0, increments: 0}
 }
 
 /// Returns a new counter with `value` and `increments` both bumped by one.
 pub fn bump(c: Counter) -> Counter {
-    Counter{value: c.value + 1, increments: c.increments + 1}
+    #Counter{value: c.value + 1, increments: c.increments + 1}
 }
 
 /// Reads the counter's current value.

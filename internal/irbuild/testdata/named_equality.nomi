@@ -46,26 +46,30 @@ fn main() -> Unit {
     nan = zero / zero
 
     // No impl at all: structural, field by field.
-    io.print("point same:    ${Bool.to_string(Point{x: 1, y: 2.5} == Point{x: 1, y: 2.5})}")
-    io.print("point diff:    ${Bool.to_string(Point{x: 1, y: 2.5} == Point{x: 1, y: 2.6})}")
+    io.print("point same:    ${Bool.to_string(#Point{x: 1, y: 2.5} == #Point{x: 1, y: 2.5})}")
+    io.print("point diff:    ${Bool.to_string(#Point{x: 1, y: 2.5} == #Point{x: 1, y: 2.6})}")
     // Nomi's Float equality is REFLEXIVE on NaN and IEEE `==` is not, so a
     // struct compared field by field with IEEE `==` would answer False here.
-    io.print("point nan:     ${Bool.to_string(Point{x: 1, y: nan} == Point{x: 1, y: nan})}")
+    io.print("point nan:     ${Bool.to_string(#Point{x: 1, y: nan} == #Point{x: 1, y: nan})}")
 
     // A struct WITH an impl: the impl decides, and it ignores `note`.
     io.print(
-        "money impl:    ${Bool.to_string(Money{cents: 5, note: "a"} == Money{cents: 5, note: "b"})}"
+        "money impl:    ${Bool.to_string(
+            #Money{cents: 5, note: "a"} == #Money{cents: 5, note: "b"}
+        )}"
     )
 
     io.print(
-        "money ne:      ${Bool.to_string(Money{cents: 5, note: "a"} != Money{cents: 6, note: "a"})}"
+        "money ne:      ${Bool.to_string(
+            #Money{cents: 5, note: "a"} != #Money{cents: 6, note: "a"}
+        )}"
     )
 
     // Wallet has no impl, so it compares structurally — and the structural
     // comparison compares its `balance` field with Money's impl. Same cents,
     // different note: the FIELD comparison is True, and so is the WHOLE.
-    a = Wallet{owner: "kim", balance: Money{cents: 5, note: "a"}}
-    b = Wallet{owner: "kim", balance: Money{cents: 5, note: "b"}}
+    a = #Wallet{owner: "kim", balance: #Money{cents: 5, note: "a"}}
+    b = #Wallet{owner: "kim", balance: #Money{cents: 5, note: "b"}}
     io.print("wallet field:  ${Bool.to_string(a.balance == b.balance)}")
     io.print("wallet whole:  ${Bool.to_string(a == b)}")
 

@@ -308,7 +308,7 @@ test "an if without else is Unit" {
 }
 
 test "List.head over struct elements" {
-  assert List.head([P{x: 1}, P{x: 2}]) == Some(P{x: 1})
+  assert List.head([#P{x: 1}, #P{x: 2}]) == Some(#P{x: 1})
 }
 `
 	got, exit := irShapesRun(t, src, []string{"an if without else is Unit", "List.head over struct elements"})

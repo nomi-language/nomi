@@ -31,7 +31,7 @@ impl Display for Point {
 }
 
 fn main() {
-    mine = Point{label: "here"}
+    mine = #Point{label: "here"}
     far = things.origin()
     q = things.quiet(3)
 

@@ -15,7 +15,7 @@ import {
 }
 
 /// Immutable collection of unique `T` values. `a + b` is the union and `a - b`
-/// the difference; a single element is `s + #{x}`.
+/// the difference; a single element is `s + %[x]`.
 pub opaque struct Set<T> {
     items: Map<T, Bool>
 }
@@ -26,28 +26,28 @@ impl Set<T> {
     //! assert Set.size(s) == 0
     //
     pub fn new<T>() -> Set<T> {
-        Set{items: Map.empty()}
+        #Set{items: Map.empty()}
     }
 
     /// Returns a new set with `elem` added (no-op if already present).
-    //! assert Set.insert(#{1, 2}, 3) == #{1, 2, 3}
-    //! assert Set.insert(#{1, 2}, 2) == #{1, 2}
+    //! assert Set.insert(%[1, 2], 3) == %[1, 2, 3]
+    //! assert Set.insert(%[1, 2], 2) == %[1, 2]
     //
     pub fn insert<T>(s: Set<T>, elem: T) -> Set<T> {
-        Set{items: Map.put(s.items, elem, True)}
+        #Set{items: Map.put(s.items, elem, True)}
     }
 
     /// Returns a new set with `elem` removed (no-op if absent).
-    //! assert Set.remove(#{1, 2, 3}, 2) == #{1, 3}
-    //! assert Set.remove(#{1, 2}, 9) == #{1, 2}
+    //! assert Set.remove(%[1, 2, 3], 2) == %[1, 3]
+    //! assert Set.remove(%[1, 2], 9) == %[1, 2]
     //
     pub fn remove<T>(s: Set<T>, elem: T) -> Set<T> {
-        Set{items: Map.remove(s.items, elem)}
+        #Set{items: Map.remove(s.items, elem)}
     }
 
     /// True if `elem` is a member of the set.
-    //! assert Set.contains?(#{1, 2}, 1)
-    //! refute Set.contains?(#{1, 2}, 9)
+    //! assert Set.contains?(%[1, 2], 1)
+    //! refute Set.contains?(%[1, 2], 9)
     //
     pub fn contains?<T>(s: Set<T>, elem: T) -> Bool {
         Map.contains_key?(s.items, elem)
@@ -55,36 +55,36 @@ impl Set<T> {
 
     /// The number of elements. O(1) — the set's own count; the generic count is
     /// `Iter.count`.
-    //! assert Set.size(#{1, 2, 3}) == 3
+    //! assert Set.size(%[1, 2, 3]) == 3
     //
     pub fn size<T>(s: Set<T>) -> Int {
         Map.size(s.items)
     }
 
     /// All elements in either set. `a + b` is the same call.
-    //! assert Set.union(#{1, 2}, #{2, 3}) == #{1, 2, 3}
+    //! assert Set.union(%[1, 2], %[2, 3]) == %[1, 2, 3]
     //
     pub fn union<T>(a: Set<T>, b: Set<T>) -> Set<T> {
-        Set{items: Map.merge(a.items, b.items)}
+        #Set{items: Map.merge(a.items, b.items)}
     }
 
     /// Elements in both sets.
-    //! assert Set.intersection(#{1, 2}, #{2, 3}) == #{2}
+    //! assert Set.intersection(%[1, 2], %[2, 3]) == %[2]
     //
     pub fn intersection<T>(a: Set<T>, b: Set<T>) -> Set<T> {
         Iter.filter(a, fn e -> Set.contains?(b, e)) |> Iter.to_set()
     }
 
     /// Elements in `a` but not `b`. `a - b` is the same call.
-    //! assert Set.difference(#{1, 2, 3}, #{2}) == #{1, 3}
+    //! assert Set.difference(%[1, 2, 3], %[2]) == %[1, 3]
     //
     pub fn difference<T>(a: Set<T>, b: Set<T>) -> Set<T> {
         Iter.filter(a, fn e -> !Set.contains?(b, e)) |> Iter.to_set()
     }
 
     /// True if every element of `a` is also in `b`.
-    //! assert Set.subset?(#{1, 2}, #{1, 2, 3})
-    //! refute Set.subset?(#{1, 4}, #{1, 2, 3})
+    //! assert Set.subset?(%[1, 2], %[1, 2, 3])
+    //! refute Set.subset?(%[1, 4], %[1, 2, 3])
     //
     pub fn subset?<T>(a: Set<T>, b: Set<T>) -> Bool {
         Iter.to_list(a) |> Iter.all?(fn e -> Set.contains?(b, e))
@@ -114,7 +114,7 @@ impl Display for Set<T> where T: Display {
             Iter.map(s, fn e -> "${e}")
             |> String.join(", ")
 
-        "#{" + inner + "}"
+        "%[" + inner + "]"
     }
 }
 
@@ -124,7 +124,7 @@ impl Debug for Set<T> {
             Iter.map(s, fn e -> Debug.inspect(e))
             |> String.join(", ")
 
-        "#{" + inner + "}"
+        "%[" + inner + "]"
     }
 }
 
@@ -146,8 +146,8 @@ impl Hashable for Set<T> where T: Hashable {
 
 impl Add<Set<T>, Set<T>> for Set<T> {
     /// `a + b` is `Set.union(a, b)`.
-    //! assert #{1, 2} + #{2, 3} == #{1, 2, 3}
-    //! assert #{1} + #{2} == #{1, 2}
+    //! assert %[1, 2] + %[2, 3] == %[1, 2, 3]
+    //! assert %[1] + %[2] == %[1, 2]
     //
     fn add(a: Set<T>, rhs: Set<T>) -> Set<T> {
         Set.union(a, rhs)
@@ -158,8 +158,8 @@ impl Summable for Set<T> {
     /// The sum of no Sets: the empty Set. Summing Sets is their union.
     //! empty: Set<Int> = Set.empty_sum()
     //! assert Set.size(empty) == 0
-    //! assert #{1, 2} + Set.empty_sum() == #{1, 2}
-    //! assert Iter.sum([#{1, 2}, #{2, 3}]) == #{1, 2, 3}
+    //! assert %[1, 2] + Set.empty_sum() == %[1, 2]
+    //! assert Iter.sum([%[1, 2], %[2, 3]]) == %[1, 2, 3]
     //
     fn empty_sum() -> Set<T> {
         Set.new()
@@ -168,8 +168,8 @@ impl Summable for Set<T> {
 
 impl Subtract<Set<T>, Set<T>> for Set<T> {
     /// `a - b` is `Set.difference(a, b)`.
-    //! assert #{1, 2, 3} - #{2} == #{1, 3}
-    //! assert #{1, 2} - #{9} == #{1, 2}
+    //! assert %[1, 2, 3] - %[2] == %[1, 3]
+    //! assert %[1, 2] - %[9] == %[1, 2]
     //
     fn subtract(a: Set<T>, rhs: Set<T>) -> Set<T> {
         Set.difference(a, rhs)

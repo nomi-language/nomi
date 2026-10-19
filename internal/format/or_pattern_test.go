@@ -6,7 +6,7 @@ import "testing"
 // position, and is a fixed point.
 func TestFormat_OrPatternRoundTrips(t *testing.T) {
 	for _, src := range []string{
-		"fn f(s: Shape) -> Float {\n    case s {\n        .Circle{r} or .Square{r} when r > 1.0 -> r\n        .Point -> 0.0\n        _ -> 1.0\n    }\n}\n",
+		"fn f(s: Shape) -> Float {\n    case s {\n        #.Circle{r} or #.Square{r} when r > 1.0 -> r\n        .Point -> 0.0\n        _ -> 1.0\n    }\n}\n",
 		"fn f(m: Maybe<Tri>) -> Int {\n    case m {\n        Some(.Equilateral or .Isosceles) -> 1\n        Some(.Scalene) or None -> 0\n    }\n}\n",
 		"fn f(cs: List<Codepoint>) -> Int {\n    case cs {\n        [')' or ']' or '}' as closer, ..rest] -> 1\n        _ -> 0\n    }\n}\n",
 		"fn f(e: Ev) -> Int {\n    case e {\n        .A(n) or .B(n) as whole -> n\n        (.C(n) as c) or (.D(n) as c) -> n\n    }\n}\n",
@@ -34,8 +34,8 @@ func TestFormat_OrPatternNormalizesSpacingAndParens(t *testing.T) {
 // line before the next alternative, which is indented one level. A comment
 // after an `or` stays there.
 func TestFormat_OrPatternBreaksOnePerLine(t *testing.T) {
-	src := "fn f(e: Event) -> Int {\n    case e {\n        .KeyboardPressed{code} or .KeyboardReleased{code} or .KeyboardRepeated{code} or .KeyboardHeld{code} -> code\n        _ -> 0\n    }\n}\n"
-	want := "fn f(e: Event) -> Int {\n    case e {\n        .KeyboardPressed{code} or\n            .KeyboardReleased{code} or\n            .KeyboardRepeated{code} or\n            .KeyboardHeld{code} ->\n            code\n\n        _ ->\n            0\n    }\n}\n"
+	src := "fn f(e: Event) -> Int {\n    case e {\n        #.KeyboardPressed{code} or #.KeyboardReleased{code} or #.KeyboardRepeated{code} or #.KeyboardHeld{code} -> code\n        _ -> 0\n    }\n}\n"
+	want := "fn f(e: Event) -> Int {\n    case e {\n        #.KeyboardPressed{code} or\n            #.KeyboardReleased{code} or\n            #.KeyboardRepeated{code} or\n            #.KeyboardHeld{code} ->\n            code\n\n        _ ->\n            0\n    }\n}\n"
 	formatsKeepingMeaning(t, src, want)
 
 	commented := "fn f(c: Color) -> Int {\n    case c {\n        .Red or // warm\n            .Green ->\n            1\n\n        _ ->\n            0\n    }\n}\n"

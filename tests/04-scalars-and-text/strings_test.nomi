@@ -86,7 +86,7 @@ fn slash_joined(parts: Iter<String>) -> String {
 
 test "join reads any iterator of strings and defaults to no separator" {
     assert String.join(["he", "llo"]) == "hello"
-    assert #{"solo"} |> String.join(", ") == "solo"
+    assert %["solo"] |> String.join(", ") == "solo"
     assert #["x", "y", "z"] |> String.join("+") == "x+y+z"
     assert "héllo" |> String.join(".") == "h.é.l.l.o"
     assert "héllo" |> Iter.map(String.to_upper) |> String.join() == "HÉLLO"
@@ -104,7 +104,7 @@ test "join reads any iterator of strings and defaults to no separator" {
     |> String.join("&") == "k=1"
 
     assert slash_joined(["p", "q"]) == "p/q"
-    assert slash_joined(#{"r"}) == "r"
+    assert slash_joined(%["r"]) == "r"
 }
 
 test "captures lists the groups of the first match, without the whole match" {

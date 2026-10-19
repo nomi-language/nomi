@@ -4,7 +4,7 @@ import {
 }
 
 test "private functions cannot be imported" {
-    diagnostics = compiler.check_project(Project{
+    diagnostics = compiler.check_project(#Project{
         entry_point: "main",
         files: %{
             "main" => """
@@ -27,14 +27,14 @@ test "private functions cannot be imported" {
 }
 
 test "private types cannot be imported through public modules" {
-    diagnostics = compiler.check_project(Project{
+    diagnostics = compiler.check_project(#Project{
         entry_point: "main",
         files: %{
             "main" => """
                 import api.Hidden
 
                 fn main() {
-                  _ = Hidden{name: "Ada"}
+                  _ = #Hidden{name: "Ada"}
                 }
                 """,
             "api" => """
@@ -50,7 +50,7 @@ test "private types cannot be imported through public modules" {
 }
 
 test "private helpers are hidden from imported modules" {
-    diagnostics = compiler.check_project(Project{
+    diagnostics = compiler.check_project(#Project{
         entry_point: "main",
         files: %{
             "main" => """
@@ -75,7 +75,7 @@ test "private helpers are hidden from imported modules" {
                 }
 
                 pub fn make(name: String) -> Widget {
-                  Widget{name}
+                  #Widget{name}
                 }
                 """,
         },

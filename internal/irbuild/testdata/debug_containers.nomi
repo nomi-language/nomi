@@ -12,8 +12,8 @@ import std/io
 // two coincide, so a Debug renderer wrongly built out of the `values:` row's
 // renderer passes every ordinary fixture.
 //
-// `Pt` below is declared `zz` then `a`. Declaration order gives `Pt{zz: 1, a: 2}`
-// and the composed sort gives `Pt{a: 2, zz: 1}`, so the two orders are DIFFERENT
+// `Pt` below is declared `zz` then `a`. Declaration order gives `#Pt{zz: 1, a: 2}`
+// and the composed sort gives `#Pt{a: 2, zz: 1}`, so the two orders are DIFFERENT
 // STRINGS and this file fails if the leaf is the row's function. The permutation
 // is the test.
 //
@@ -65,22 +65,22 @@ fn main() {
     io.print(Debug.inspect([1.5, 2.0]))
 
     // The permuted struct, alone and inside a list.
-    io.print(Debug.inspect(Pt{zz: 1, a: 2}))
-    io.print(Debug.inspect([Pt{zz: 1, a: 2}, Pt{zz: 3, a: 4}]))
+    io.print(Debug.inspect(#Pt{zz: 1, a: 2}))
+    io.print(Debug.inspect([#Pt{zz: 1, a: 2}, #Pt{zz: 3, a: 4}]))
 
     // A hand-written impl, reached through the container.
-    io.print(Debug.inspect([Tag{n: 7}, Tag{n: 8}]))
+    io.print(Debug.inspect([#Tag{n: 7}, #Tag{n: 8}]))
 
     // Nested containers, so the element renderer is applied to its own output.
     io.print(Debug.inspect([[1, 2], [3]]))
 
     io.print(Debug.inspect([
-            [Pt{zz: 5, a: 6}],
+            [#Pt{zz: 5, a: 6}],
         ]))
 
     // A tuple, and a tuple inside a list.
     io.print(Debug.inspect(#(1, "x")))
-    io.print(Debug.inspect(#(Pt{zz: 9, a: 8}, 5.5)))
+    io.print(Debug.inspect(#(#Pt{zz: 9, a: 8}, 5.5)))
     io.print(Debug.inspect([#(1, "x"), #(2, "y")]))
 
     // An empty list, whose rendering comes from its type alone.
@@ -95,7 +95,7 @@ fn main() {
     io.print(Debug.inspect(Ok("s")))
     io.print(Debug.inspect(Err("f")))
     io.print(Debug.inspect(Some(Some(1))))
-    io.print(Debug.inspect(Some(Pt{zz: 1, a: 2})))
+    io.print(Debug.inspect(Some(#Pt{zz: 1, a: 2})))
 
     // A prelude instance INSIDE a container and a container inside one, so the
     // two recursions compose in both directions.

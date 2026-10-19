@@ -5,7 +5,7 @@ pub struct Point {
 }
 
 pub fn at(x: Int, y: Int) -> Point {
-    Point{x, y}
+    #Point{x, y}
 }
 
 impl Equatable for Point {

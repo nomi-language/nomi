@@ -98,10 +98,10 @@ fn main() {
   io.inspect(maybes)
   io.inspect(#[..vector(#[1]), mark(2)])
   io.inspect(#[mark(3), ..vector(#[4])])
-  t = Team{names: names}
+  t = #Team{names: names}
   io.inspect(#[..t.names, "Cy"])
-  io.inspect({..t, names: #["Zed", ..]})
+  io.inspect(#{..t, names: #["Zed", ..]})
   io.inspect(names)
 }
-`, "#[\"Ada\", \"Bo\", \"Noah\"]\n#[\"Noah\", \"Ada\", \"Bo\"]\n#[\"Ada\", \"Bo\", \"Noah\", \"Eve\"]\n#[1, 2]\n#[1]\n#[None]\nvector\n2\n#[1, 2]\nvector\n3\n#[3, 4]\n#[\"Ada\", \"Bo\", \"Cy\"]\nTeam{names: #[\"Zed\", \"Ada\", \"Bo\"]}\n#[\"Ada\", \"Bo\"]\n")
+`, "#[\"Ada\", \"Bo\", \"Noah\"]\n#[\"Noah\", \"Ada\", \"Bo\"]\n#[\"Ada\", \"Bo\", \"Noah\", \"Eve\"]\n#[1, 2]\n#[1]\n#[None]\nvector\n2\n#[1, 2]\nvector\n3\n#[3, 4]\n#[\"Ada\", \"Bo\", \"Cy\"]\n#Team{names: #[\"Zed\", \"Ada\", \"Bo\"]}\n#[\"Ada\", \"Bo\"]\n")
 }

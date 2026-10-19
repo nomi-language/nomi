@@ -80,7 +80,7 @@ func (c *checker) recordTypeQualifiedImplDemand(n *ast.Call, fa *ast.FieldAccess
 	//
 	// Measured, and the measurement is what located the bound. The case
 	// is `derive Display for DisplayBox<T> where T: Display` plus
-	// `DisplayBox.to_string(DisplayBox{value: Plain{...}})`, where
+	// `DisplayBox.to_string(#DisplayBox{value: #Plain{...}})`, where
 	// `Plain` has no Display impl:
 	// 11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi
 	// :: "derive where clauses reject unsatisfied receiver arguments"

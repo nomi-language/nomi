@@ -49,7 +49,7 @@ test "adding empty_sum changes nothing" {
     assert adds_nothing("nomi")
     assert adds_nothing([1, 2])
     assert adds_nothing(#[1, 2])
-    assert adds_nothing(#{1, 2})
+    assert adds_nothing(%[1, 2])
     assert adds_nothing(%{"a" => 1})
     a = try Byte.from_int(97)
     assert adds_nothing(Bytes.from_list([a]))
@@ -73,7 +73,7 @@ test "Iter.sum over each kind of value" {
 
     assert Iter.sum(["a", "b", "c"]) == "abc"
     assert Iter.sum([[1], [], [2, 3]]) == [1, 2, 3]
-    assert Iter.sum([#{1, 2}, #{2, 3}]) == #{1, 2, 3}
+    assert Iter.sum([%[1, 2], %[2, 3]]) == %[1, 2, 3]
     assert Iter.sum([#[1], #[2]]) == #[1, 2]
     assert Iter.sum([Cents(3), Cents(4)]) == Cents(7)
 }

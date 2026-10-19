@@ -86,13 +86,13 @@ impl Stack<T> {
   fn size(s: Stack<T>) -> Int {
     case s.items {
       [] -> 0
-      [_, ..rest] -> 1 + Stack.size(Stack{items: rest})
+      [_, ..rest] -> 1 + Stack.size(#Stack{items: rest})
     }
   }
 }
 fn main() {
-  io.print(Stack.size(Stack{items: [1, 2, 3]}))
-  io.print(Stack.size(Stack{items: 1..=10000 |> Iter.to_list()}))
+  io.print(Stack.size(#Stack{items: [1, 2, 3]}))
+  io.print(Stack.size(#Stack{items: 1..=10000 |> Iter.to_list()}))
 }`, "3\n10000\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })

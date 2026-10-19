@@ -30,8 +30,8 @@ func TestChecker_PatternsResolveABoundTypeVariable(t *testing.T) {
     .Has(#(s, t)) -> s + String.length(t)
     .Nothing -> 0
   }`},
-		{"struct", `case pick(True, Opt.Nothing, Opt.Has(Pt{x: 3, y: 4})) {
-    .Has(Pt{x, y}) -> x + y
+		{"struct", `case pick(True, Opt.Nothing, Opt.Has(#Pt{x: 3, y: 4})) {
+    .Has(#Pt{x, y}) -> x + y
     .Nothing -> 0
   }`},
 		{"list", `case pick(True, Opt.Nothing, Opt.Has([1, 2])) {
@@ -71,7 +71,7 @@ func TestChecker_PatternMismatchThroughATypeVariableIsRejected(t *testing.T) {
     .Nothing -> 0
   }`, "tuple pattern requires a tuple type, got Int"},
 		{"struct", `case pick(True, Opt.Nothing, Opt.Has(5)) {
-    .Has(Pt{x, y}) -> x
+    .Has(#Pt{x, y}) -> x
     .Nothing -> 0
   }`, "struct pattern requires a struct type, got Int"},
 		{"list", `case pick(True, Opt.Nothing, Opt.Has(5)) {

@@ -14,10 +14,10 @@ struct App {
 }
 
 fn boot() -> App {
-    App{
+    #App{
         console: Terminal,
         clock: SystemClock,
-        store: SqliteStore{path: "tasks.db"},
+        store: #SqliteStore{path: "tasks.db"},
     }
 }
 

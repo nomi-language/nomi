@@ -69,13 +69,14 @@ test "an enum holds itself through a Vector" {
 
     assert sum(tree) == 6
     assert depth(tree) == 3
+
     assert Debug.inspect(tree) == "Node(#[Leaf(1), Node(#[Leaf(2), Leaf(3)]), Node(#[])])"
 }
 
 test "a Vector tree compares and hashes by value" {
     assert sample() == sample()
     assert sample() != Tree.Node(#[Tree.Leaf(1)])
-    assert Set.size(#{sample(), sample(), Tree.Leaf(1)}) == 2
+    assert Set.size(%[sample(), sample(), Tree.Leaf(1)]) == 2
 }
 
 test "a Vector tree grows by pushing a kid" {
@@ -87,14 +88,14 @@ test "a Vector tree grows by pushing a kid" {
 }
 
 test "a struct holds itself through a Vector" {
-    leaf = Dir{name: "a", size: 2, kids: #[]}
+    leaf = #Dir{name: "a", size: 2, kids: #[]}
 
-    root = Dir{
+    root = #Dir{
         name: "root",
         size: 1,
         kids: #[
             leaf,
-            Dir{
+            #Dir{
                 name: "b",
                 size: 3,
                 kids: #[
@@ -112,14 +113,14 @@ test "a struct holds itself through a Vector" {
 
 test "an enum and a struct hold each other through Vectors" {
     program = Expr.Block(#[
-        Stmt{
+        #Stmt{
             label: "a",
             body: Expr.Num(1),
         },
-        Stmt{
+        #Stmt{
             label: "b",
             body: Expr.Block(#[
-                Stmt{
+                #Stmt{
                     label: "c",
                     body: Expr.Num(4),
                 },

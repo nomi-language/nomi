@@ -10,8 +10,8 @@ func TestIREmptyMap_ASetValueRuns(t *testing.T) {
 fn main() {
   m: Map<String, Set<Int>> = Map.empty<String, Set<Int>>()
   io.print(Map.size(m))
-  n = Map.put(m, "k", #{1, 2})
-  io.print(Map.get(n, "k") == Some(#{2, 1}))
+  n = Map.put(m, "k", %[1, 2])
+  io.print(Map.get(n, "k") == Some(%[2, 1]))
 }
 `, "0\nTrue\n")
 }

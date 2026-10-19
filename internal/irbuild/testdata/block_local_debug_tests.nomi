@@ -12,5 +12,5 @@ test "a struct declared in a test renders through Debug" {
         a: Int
     }
 
-    assert Debug.inspect([Row{b: 2, a: 1}]) == "[Row{b: 2, a: 1}]"
+    assert Debug.inspect([#Row{b: 2, a: 1}]) == "[#Row{b: 2, a: 1}]"
 }

@@ -78,7 +78,7 @@ fn main() {
 func TestIRIterSort_DecimalsSortByTheirHostCompare(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
- io.inspect(Iter.sort(#{2.5d, 1.5d}))
+ io.inspect(Iter.sort(%[2.5d, 1.5d]))
  io.inspect(Iter.sort([2.50d, 10d, 1.5d]))
 }
 `, "[1.5d, 2.5d]\n[1.5d, 2.50d, 10d]\n")

@@ -313,7 +313,7 @@ fn f(xs: List<Int>) -> Result<Unit, AssertionFailure> {
     subtests 1..3, n {
         assert n > 0
     }
-    subtests #{1, 2}, n {
+    subtests %[1, 2], n {
         assert n > 0
     }
     subtests #[1, 2], n {

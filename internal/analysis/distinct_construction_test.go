@@ -34,7 +34,7 @@ func TestDistinctCtor_AcceptedForms(t *testing.T) {
 		`a: Id = Id(5)`,
 		`a: Id = 5 |> Id()`,
 		`a: Expired = Expired`,
-		`a: Pair = Pair(1, "x")`,
+		`a: Pair = #Pair(1, "x")`,
 		`a: Pair = Pair(#(1, "x"))`,
 		`a: Pair = #(1, "x") |> Pair()`,
 		`a: Callback = Callback(fn s -> s)`,
@@ -110,8 +110,8 @@ fn apply_id(f: (Int) -> Shape) -> Shape {
   f(1)
 }
 
-fn build(f: ({w: Float, h: Float}) -> Shape) -> Shape {
-  f({w: 1.0, h: 2.0})
+fn build(f: (#{w: Float, h: Float}) -> Shape) -> Shape {
+  f(#{w: 1.0, h: 2.0})
 }
 
 `
@@ -119,7 +119,7 @@ fn build(f: ({w: Float, h: Float}) -> Shape) -> Shape {
 		stmt string
 		want string
 	}{
-		{`f = Shape.Rect`, "Shape.Rect is a struct-shaped variant and is not a function value; build it with Shape.Rect{...} or Shape.Rect({...}), inside a lambda where a function is needed"},
+		{`f = Shape.Rect`, "Shape.Rect is a struct-shaped variant and is not a function value; build it with #Shape.Rect{...} or Shape.Rect(#{...}), inside a lambda where a function is needed"},
 		{`f = Shape.Circle`, "Shape.Circle is a struct-shaped variant and is not a function value"},
 		{`f = build(Shape.Rect)`, "Shape.Rect is a struct-shaped variant and is not a function value"},
 	} {
@@ -139,10 +139,10 @@ fn build(f: ({w: Float, h: Float}) -> Shape) -> Shape {
 	}
 	for _, stmt := range []string{
 		`s = apply(Shape.Dot)`,
-		`s = Shape.Rect({w: 1.0, h: 2.0})`,
-		`s = {w: 1.0, h: 2.0} |> Shape.Rect()`,
-		`s = Shape.Rect{w: 1.0, h: 2.0}`,
-		`s = Shape.Circle({radius: 1.0})`,
+		`s = Shape.Rect(#{w: 1.0, h: 2.0})`,
+		`s = #{w: 1.0, h: 2.0} |> Shape.Rect()`,
+		`s = #Shape.Rect{w: 1.0, h: 2.0}`,
+		`s = Shape.Circle(#{radius: 1.0})`,
 		`s = apply_id(Shape.Id)`,
 	} {
 		src := decls + "fn main() {\n  " + stmt + "\n  _ = s\n}\n"

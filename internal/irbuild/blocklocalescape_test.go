@@ -18,14 +18,14 @@ fn main() {
         struct Loc {
             n: Int
         }
-        Loc{n: 1}
+        #Loc{n: 1}
     }
     b = {
         struct Loc {
             s: String
             m: Int
         }
-        Loc{s: "x", m: 2}
+        #Loc{s: "x", m: 2}
     }
     io.inspect(a)
     io.inspect(b)
@@ -48,21 +48,21 @@ fn main() {
         struct P {
             x: Int
         }
-        P{x: 9}
+        #P{x: 9}
     }
     io.inspect(make().x)
     xs = Iter.map([1, 2], fn i -> {
         struct Q {
             i: Int
         }
-        Q{i: i}
+        #Q{i: i}
     }) |> Iter.to_list()
     io.inspect(xs)
     w = {
         struct Box<T> {
             v: T
         }
-        Box{v: 1}
+        #Box{v: 1}
     }
     io.inspect(w.v + 1)
     u = {
@@ -70,7 +70,7 @@ fn main() {
             first: T
             second: T
         }
-        Box{first: "a", second: "b"}
+        #Box{first: "a", second: "b"}
     }
     io.inspect(u)
     o = {
@@ -83,16 +83,16 @@ fn main() {
     io.inspect(o)
 }
 `
-	const want = "Loc{n: 1}\n" +
-		"Loc{s: \"x\", m: 2}\n" +
+	const want = "#Loc{n: 1}\n" +
+		"#Loc{s: \"x\", m: 2}\n" +
 		"3\n" +
 		"True\n" +
 		"[Fast, Slow(3)]\n" +
 		"Meters(4)\n" +
 		"9\n" +
-		"[Q{i: 1}, Q{i: 2}]\n" +
+		"[#Q{i: 1}, #Q{i: 2}]\n" +
 		"2\n" +
-		"Box{first: \"a\", second: \"b\"}\n" +
+		"#Box{first: \"a\", second: \"b\"}\n" +
 		"[Has(2.5), Empty]\n"
 	irRunSource(t, src, want)
 }

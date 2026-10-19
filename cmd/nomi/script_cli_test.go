@@ -18,7 +18,7 @@ struct App {
 
 fn boot(startup: Startup) -> App {
     io.print(startup.args)
-    App{context: Context.root()}
+    #App{context: Context.root()}
 }
 
 fn main() {

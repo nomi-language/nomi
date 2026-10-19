@@ -29,7 +29,7 @@ fn countdown(n: Int) -> Int {
 }
 
 fn main() {
-  io.print(Display.to_string(Card{n: 1}))
+  io.print(Display.to_string(#Card{n: 1}))
   io.print("${countdown(2)}")
   io.print("${Maybe.map(Some(1), fn x -> x + 1)}")
 }
@@ -70,7 +70,7 @@ func TestDebug_FunctionBreakpointsNameFunctionsAsTheStackDoes(t *testing.T) {
 		t.Fatalf("Maybe.map's first statement is at %s, not in std's maybe.nomi", got[2].Pos)
 	}
 	s.run()
-	s.at(s.stop(), vm.StopBreakpoint, "Card.to_string:9 main:22", "c: Card = Card{n: 1}")
+	s.at(s.stop(), vm.StopBreakpoint, "Card.to_string:9 main:22", "c: Card = #Card{n: 1}")
 	for _, n := range []string{"2", "1", "0"} {
 		s.d.Continue()
 		st := s.stop()

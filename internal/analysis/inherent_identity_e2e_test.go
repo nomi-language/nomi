@@ -79,7 +79,7 @@ struct Date {
 
 impl Date {
   pub fn new(a: String, b: String) -> Date {
-    Date{flavor: a + b}
+    #Date{flavor: a + b}
   }
 }
 
@@ -106,11 +106,11 @@ struct Date {
 
 impl Date {
   pub fn new(a: String, b: String) -> Date {
-    Date{flavor: a + b}
+    #Date{flavor: a + b}
   }
 
   pub fn new(a: String) -> Date {
-    Date{flavor: a}
+    #Date{flavor: a}
   }
 }
 
@@ -142,7 +142,7 @@ func TestInherentIdentity_CrossFileDuplicateOnOneTypeStillRejected(t *testing.T)
 
 impl Date {
   pub fn new(a: String) -> Date {
-    Date{flavor: a}
+    #Date{flavor: a}
   }
 }
 `,
@@ -150,7 +150,7 @@ impl Date {
 
 impl Date {
   pub fn new(a: String) -> Date {
-    Date{flavor: a}
+    #Date{flavor: a}
   }
 }
 

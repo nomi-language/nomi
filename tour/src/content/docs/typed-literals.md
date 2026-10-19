@@ -66,7 +66,7 @@ The prefix can be any type, so you have two choices:
 - A new distinct type, like `type Sql String` above. It names the literal
   and holds the value it builds.
 - A type you already have. Then the literal reads like a constructor.
-  `Box"x"` builds a `Box`, the same as `Box{contents: "x"}`:
+  `Box"x"` builds a `Box`, the same as `#Box{contents: "x"}`:
 
 ```nomi-run
 import {
@@ -86,18 +86,18 @@ impl Literal for Box {
             }
         })
 
-        Box{contents: body}
+        #Box{contents: body}
     }
 }
 
 fn main() {
     dbg Box"hello"
-    dbg Box{contents: "world"}
+    dbg #Box{contents: "world"}
 }
 ```
 <!-- expect
-dbg line 23: Box"hello" = Box{contents: "hello"}
-dbg line 24: Box{contents: "world"} = Box{contents: "world"}
+dbg line 23: Box"hello" = #Box{contents: "hello"}
+dbg line 24: #Box{contents: "world"} = #Box{contents: "world"}
 -->
 
 Both lines build a `Box`.

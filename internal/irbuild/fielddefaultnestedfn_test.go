@@ -13,7 +13,7 @@ func TestFieldDefaultNestedFn_RunsOnTheVM(t *testing.T) {
 	const want = "Unit\n" +
 		"8\n" +
 		"one\n" +
-		"Run{label: \"job\"}\n"
+		"#Run{label: \"job\"}\n"
 	got := vmReference(path)
 	if got.stdout != want || got.stderr != "" || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",

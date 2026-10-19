@@ -14,13 +14,13 @@ impl Display for Point {
 }
 
 test "same-named types in two files are distinct types" {
-    mine = Point{label: "here"}
+    mine = #Point{label: "here"}
 
     assert Display.to_string(mine) == "entry(here)"
     assert Display.to_string(shapes.origin()) == "shapes(0, 0)"
 }
 
 test "each same-named type keeps its own Debug rendering" {
-    assert Debug.inspect(Point{label: "here"}) == "Point{label: \"here\"}"
-    assert Debug.inspect(shapes.origin()) == "Point{x: 0, y: 0}"
+    assert Debug.inspect(#Point{label: "here"}) == "#Point{label: \"here\"}"
+    assert Debug.inspect(shapes.origin()) == "#Point{x: 0, y: 0}"
 }

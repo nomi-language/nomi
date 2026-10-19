@@ -70,19 +70,19 @@ pub fn load() -> AppEnv {
   configuration: AppEnv
 }
 
-pub fn build() -> AppEnv { AppEnv{port: 8080} }
+pub fn build() -> AppEnv { #AppEnv{port: 8080} }
 `)
 	prodPath := mustWrite("configuration/prod.nomi", `import {
   configuration: AppEnv
 }
 
-pub fn build() -> AppEnv { AppEnv{port: 8081} }
+pub fn build() -> AppEnv { #AppEnv{port: 8081} }
 `)
 	testPath := mustWrite("configuration/test.nomi", `import {
   configuration: AppEnv
 }
 
-pub fn build() -> AppEnv { AppEnv{port: 8082} }
+pub fn build() -> AppEnv { #AppEnv{port: 8082} }
 `)
 
 	s := NewServer()

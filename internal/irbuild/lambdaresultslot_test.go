@@ -29,14 +29,14 @@ impl Named for Pt {
 
 fn main() {
     fn named() -> Named {
-        case [Pt{x: 5}] {
+        case [#Pt{x: 5}] {
             [p] -> p
             _ -> todo
         }
     }
 
     later: () -> Named = fn -> case 1 {
-        1 -> Pt{x: 7}
+        1 -> #Pt{x: 7}
         _ -> todo
     }
 

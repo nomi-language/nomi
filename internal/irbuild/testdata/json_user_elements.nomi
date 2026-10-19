@@ -46,6 +46,6 @@ fn main() -> Result<Unit, Json.ShapeError> {
     dbg Json.encode(ToJson.to_json([by_key]))
     dbg Json.encode(ToJson.to_json([maybe, none]))
     dbg Iter.sort(notes)
-    dbg Iter.to_set(notes) |> Set.contains?(Note{title: "a"})
+    dbg Iter.to_set(notes) |> Set.contains?(#Note{title: "a"})
     Ok(Unit)
 }

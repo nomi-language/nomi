@@ -21,7 +21,7 @@ test "a todo checks wherever a value is expected" {
             }
 
             fn make(n: Int) -> Point {
-              Point{x: n, y: todo}
+              #Point{x: n, y: todo}
             }
 
             fn main() {

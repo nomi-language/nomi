@@ -38,10 +38,10 @@ func TestInspect_VariantsTuplesAndDistincts(t *testing.T) {
 	if got := childNames(Inspect(rect).Children(0, 5)); got != "w=4 h=5" {
 		t.Errorf("Rect: %s", got)
 	}
-	if got := Inspect(rect).Text(); got != "Rect{h: 5, w: 4}" {
+	if got := Inspect(rect).Text(); got != "#Rect{h: 5, w: 4}" {
 		t.Errorf("Rect's text: %s", got)
 	}
-	if got := Inspect(Cons[any](rect, nil)).Text(); got != "[Rect{h: 5, w: 4}]" {
+	if got := Inspect(Cons[any](rect, nil)).Text(); got != "[#Rect{h: 5, w: 4}]" {
 		t.Errorf("a list of Rect's text: %s", got)
 	}
 	if n := Inspect(shape.NewVariant(2)); n.NumChildren() != 0 || n.Text() != "Dot" {

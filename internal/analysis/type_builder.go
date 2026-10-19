@@ -1325,7 +1325,7 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 			// Struct variant: a struct has no positional form, so neither
 			// does the variant (variant_construction.go). Its constructor as
 			// a value takes the record call form's one argument, the record
-			// of its fields: `f = Shape.Rect` then `f({w: 1.0, h: 2.0})`.
+			// of its fields: `f = Shape.Rect` then `f(#{w: 1.0, h: 2.0})`.
 			vsym.Type = &FuncType{Params: []Type{&AnonStructType{Fields: vd.Fields}}, Return: enumReturnTy}
 		} else {
 			// Bare variant: the enum type itself, e.g. True: Bool

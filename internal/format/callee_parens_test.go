@@ -8,8 +8,8 @@ import "testing"
 func TestFormat_ParenthesizedNameBeforeLessKeepsParens(t *testing.T) {
 	for _, c := range []struct{ src, want string }{
 		{
-			"fn main() {\n    g((f)<Dog>((Dog{weight: 31})))\n}\n",
-			"fn main() {\n    g((f) < Dog > (Dog{weight: 31}))\n}\n",
+			"fn main() {\n    g((f)<Dog>((#Dog{weight: 31})))\n}\n",
+			"fn main() {\n    g((f) < Dog > (#Dog{weight: 31}))\n}\n",
 		},
 		{
 			"fn main() {\n    g(((a.b)) < Dog > (x))\n}\n",

@@ -30,9 +30,9 @@ func TestExtractVariable_CursorTakesInnermostCall(t *testing.T) {
 
 func TestExtractVariable_FieldNameAndCollision(t *testing.T) {
 	decls := "struct User {\n    name: String\n}\n\n"
-	src := fnMainAfter(decls, "name = \"x\"\nu = User{name: \"a\"}\nio.print(\"${«u.name»}${name}\")\n")
+	src := fnMainAfter(decls, "name = \"x\"\nu = #User{name: \"a\"}\nio.print(\"${«u.name»}${name}\")\n")
 	got := checkRefactor(t, src, "Extract variable 'name2'", extract)
-	if want := fnMainAfter(decls, "name = \"x\"\nu = User{name: \"a\"}\nname2 = u.name\nio.print(\"${name2}${name}\")\n"); got != want {
+	if want := fnMainAfter(decls, "name = \"x\"\nu = #User{name: \"a\"}\nname2 = u.name\nio.print(\"${name2}${name}\")\n"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }

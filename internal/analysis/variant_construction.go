@@ -11,10 +11,10 @@ import (
 // The rule: `Enum.V` followed by a construction syntax takes exactly the
 // construction syntaxes the variant's shape takes.
 //
-//   - A struct-shaped variant, declared inline (`Rect {w: Float, h: Float}`) or
+//   - A struct-shaped variant, declared inline (`#Rect {w: Float, h: Float}`) or
 //     embedded (`embeds Circle`), takes a struct's two forms: the brace form
-//     `Shape.Rect{...}` (checkStructVariantLit) and the record call form
-//     `Shape.Rect({...})`, which this file checks. Omitted fields take their
+//     `#Shape.Rect{...}` (checkStructVariantLit) and the record call form
+//     `Shape.Rect(#{...})`, which this file checks. Omitted fields take their
 //     defaults in both. A struct has no positional call form, so neither does
 //     the variant.
 //   - An embedded wrapping distinct takes the distinct's call form:
@@ -226,16 +226,15 @@ func (c *checker) checkArgs(args []ast.Node) {
 	}
 }
 
-// checkStructShapedVariantCall is the record call form `Enum.V({...})` of a
-// struct-shaped variant, inline or embedded. A literal argument (including the
-// empty `{}`, which parses as a zero-statement block) is checked exactly as the
-// brace form `Enum.V{...}` is; an argument whose type is an anonymous record is
+// checkStructShapedVariantCall is the record call form `Enum.V(#{...})` of a
+// struct-shaped variant, inline or embedded. A literal argument is checked
+// exactly as `#Enum.V{...}` is; an argument whose type is an anonymous record is
 // checked by its field types, as a struct's call form checks one.
 func (c *checker) checkStructShapedVariantCall(n *ast.Call, form variantCtor) Type {
 	if len(n.Args) != 1 || isNamedArg(n.Args[0]) {
 		c.checkArgs(n.Args)
 		c.addError(form.line, form.col, fmt.Sprintf(
-			"%s is a struct-shaped variant and has no positional form; construct it with %s{...} or %s({...})",
+			"%s is a struct-shaped variant and has no positional form; construct it with #%s{...} or %s(#{...})",
 			form.label, form.label, form.label))
 		return form.et
 	}
@@ -265,13 +264,13 @@ func (c *checker) checkVariantRecordArg(at ast.Node, argTy Type, form variantCto
 	}
 	if st, ok := form.vd.Embedded.(*StructType); ok && sameNominal(resolveTypeVar(argTy), st) {
 		c.addError(line, col, alreadyBuiltMessage(form, st.Name,
-			form.label+"{...} or "+form.label+"({...})"))
+			"#"+form.label+"{...} or "+form.label+"(#{...})"))
 		return form.et
 	}
 	anon, ok := resolveTypeVar(argTy).(*AnonStructType)
 	if !ok {
 		c.addError(line, col, fmt.Sprintf(
-			"%s expects an anonymous struct literal {...} matching its fields, got %s",
+			"%s expects an anonymous struct literal #{...} matching its fields, got %s",
 			form.label, formatTypeForError(argTy)))
 		return form.et
 	}
@@ -377,7 +376,7 @@ func (c *checker) checkCallee(callee ast.Node) Type {
 // embedded, named anywhere but a call's callee: `f = Shape.Rect`,
 // `Iter.map(recs, Shape.Rect)`. A struct has no function value — `Circle` is
 // not one — so neither does a variant shaped like one. Its record call form
-// `Shape.Rect({...})` is a construction syntax, not a call of a function the
+// `Shape.Rect(#{...})` is a construction syntax, not a call of a function the
 // variant names. A positional variant (`Shape.Dot`) and an embedded distinct
 // (`Shape.Id`) are functions of their payload and stay first-class.
 func (c *checker) rejectStructVariantValue(node ast.Node, ty Type) Type {
@@ -401,7 +400,7 @@ func (c *checker) rejectStructVariantValue(node ast.Node, ty Type) Type {
 		return ty
 	}
 	c.addError(form.line, form.col, fmt.Sprintf(
-		"%s is a struct-shaped variant and is not a function value; build it with %s{...} or %s({...}), inside a lambda where a function is needed",
+		"%s is a struct-shaped variant and is not a function value; build it with #%s{...} or %s(#{...}), inside a lambda where a function is needed",
 		form.label, form.label, form.label))
 	// Untyped, so a later call of the rejected value does not add a second
 	// error about the arguments it was given.
@@ -420,17 +419,12 @@ func alreadyBuiltMessage(form variantCtor, typeName, forms string) string {
 }
 
 // anonStructLitArg is a call-form argument as an anonymous struct literal
-// when it is one. `{}` parses as a zero-statement block and is the empty
-// literal here, as checkStructCallForm treats it.
+// when it is one. A plain `{}` is a block; the empty record is `#{}`.
 func anonStructLitArg(arg ast.Node) (*ast.StructLit, bool) {
 	switch a := arg.(type) {
 	case *ast.StructLit:
 		if a.TypeName == nil && a.Spread == nil {
 			return a, true
-		}
-	case *ast.Block:
-		if len(a.Stmts) == 0 {
-			return &ast.StructLit{Line: a.Line, Col: a.Col}, true
 		}
 	}
 	return nil, false
@@ -456,7 +450,7 @@ func sameNominal(t, want Type) bool {
 
 // Positional construction takes no names. A positional variant's payload
 // (`Some(1)`, `Shape.Sq(2)`), a distinct type's wrapped value (`Id(5)`), and
-// a struct's record call form (`Point({x: 1})`) have no parameter a name
+// a struct's record call form (`Point(#{x: 1})`) have no parameter a name
 // could name, so a named argument there is an error at the name. Without it
 // the name is dropped: `Some(l: 1)` checks as `Some(1)` against an expected
 // type, and the IR builder declines the call.
@@ -464,7 +458,7 @@ func sameNominal(t, want Type) bool {
 const (
 	variantPayloadNameHint = "a variant's payload is positional and has no name; pass it by position"
 	distinctValueNameHint  = "a distinct type's constructor takes the value it wraps by position; pass it without a name"
-	structCallFormNameHint = "a struct's call form takes one record with the fields in it; write %s({...}) or %s{...}"
+	structCallFormNameHint = "a struct's call form takes one record with the fields in it; write %s(#{...}) or #%s{...}"
 )
 
 // reportNamedCtorArgs reports each named argument of a positional

@@ -26,10 +26,10 @@ func TestRender_TheSixRowDebugDisagreements(t *testing.T) {
 		{"Dynamic", Dynamic{Inner: "hello"}, nil, want{row: "<dynamic: string>", display: "<dynamic: string>",
 			debugErr: "Debug on an unrepresented receiver (rt.Dynamic)"}},
 		{"String", `f"\.txt`, nil, want{row: `"f"\.txt"`, display: `f"\.txt`, debug: `"f\"\\.txt"`}},
-		{"struct", point, nil, want{row: "Point{x: 1, y: 2}", display: "Point{x: 1, y: 2}",
+		{"struct", point, nil, want{row: "#Point{x: 1, y: 2}", display: "#Point{x: 1, y: 2}",
 			debugErr: "Debug on an unrepresented receiver (Point)"}},
-		{"record", record, nil, want{row: `{d: 1.50, s: "a"b"}`, display: `{d: 1.50, s: "a"b"}`,
-			debug: `{d: 1.50d, s: "a\"b"}`}},
+		{"record", record, nil, want{row: `#{d: 1.50, s: "a"b"}`, display: `#{d: 1.50, s: "a"b"}`,
+			debug: `#{d: 1.50d, s: "a\"b"}`}},
 		{"hand impl", NewDistinctDesc("ids.Id", ptr(SlotInt)).Make(int64(5)),
 			func(v any) (string, bool, error) {
 				if r, ok := v.(*Record); ok && r.Desc.Name == "ids.Id" {
@@ -108,8 +108,8 @@ func TestRender_RowTextWithHonoursTheHookAtEveryDepth(t *testing.T) {
 		want string
 	}{
 		{id, "#5"},
-		{point, `Point{x: "a", y: #5}`},
-		{list, `[#5, Point{x: "a", y: #5}]`},
+		{point, `#Point{x: "a", y: #5}`},
+		{list, `[#5, #Point{x: "a", y: #5}]`},
 		{"s", `"s"`},
 	} {
 		got, err := RowTextWith(c.v, hook)
@@ -195,20 +195,20 @@ func TestRender_PreludeEnumsCollectionsAndSets(t *testing.T) {
 	}
 	items := MapOf(Hash, Equal, []MapEntry[any, any]{{Key: int64(2), Val: true}, {Key: int64(1), Val: true}})
 	set := NewStructDesc("sets.Set", []FieldSpec{{"items", SlotRef}}).Make(items)
-	if got := RowText(set); got != "#{2, 1}" {
+	if got := RowText(set); got != "%[2, 1]" {
 		t.Errorf("set row %s", got)
 	}
-	if got, err := DebugText(set, nil); err != nil || got != "#{2, 1}" {
+	if got, err := DebugText(set, nil); err != nil || got != "%[2, 1]" {
 		t.Errorf("set debug %s %v", got, err)
 	}
 	// Nested, and with String members, which the row quotes without escaping.
 	strs := NewStructDesc("sets.Set", []FieldSpec{{"items", SlotRef}}).Make(
 		MapOf(Hash, Equal, []MapEntry[any, any]{{Key: `a"b`, Val: true}}))
 	holder := NewStructDesc("m.Holder", []FieldSpec{{"s", SlotRef}}).Make(strs)
-	if got := RowText(holder); got != `Holder{s: #{"a"b"}}` {
+	if got := RowText(holder); got != `#Holder{s: %["a"b"]}` {
 		t.Errorf("nested set row %s", got)
 	}
-	if got := RowText(ConsCell[any, List[any]](set, nil)); got != "[#{2, 1}]" {
+	if got := RowText(ConsCell[any, List[any]](set, nil)); got != "[%[2, 1]]" {
 		t.Errorf("set in list row %s", got)
 	}
 	tuple := TupleDesc(SlotInt, SlotString, SlotRef).Make(int64(1), `\`, Unit{})
@@ -250,7 +250,7 @@ func TestRender_SetMembersRenderThroughTheHook(t *testing.T) {
 		}
 		return "", false, nil
 	}
-	if got, err := DebugText(set, hook); err != nil || got != "#{<Red>}" {
+	if got, err := DebugText(set, hook); err != nil || got != "%[<Red>]" {
 		t.Errorf("set debug %q %v", got, err)
 	}
 }

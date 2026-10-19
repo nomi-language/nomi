@@ -17,15 +17,15 @@ impl Named for Pt {
 }
 
 fn pair() -> #(Int, Named) {
-    #(1, Pt{x: 5})
+    #(1, #Pt{x: 5})
 }
 
 fn gen<A>(a: A) -> #(A, Named) {
-    #(a, Pt{x: 6})
+    #(a, #Pt{x: 6})
 }
 
 fn named_list() -> List<Named> {
-    [Pt{x: 7}]
+    [#Pt{x: 7}]
 }
 
 fn main() {

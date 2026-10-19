@@ -24,8 +24,8 @@ derive Equatable for IOError
 impl Display for IOError {
     fn to_string(e: IOError) -> String {
         case e {
-            IOError.NotFound{path} -> "file not found: ${path}"
-            IOError.Other{reason} -> reason
+            #IOError.NotFound{path} -> "file not found: ${path}"
+            #IOError.Other{reason} -> reason
         }
     }
 }
@@ -141,7 +141,7 @@ pub struct Captured<T> {
 //! assert asked.transcript == "name: \n    > Ada\nhello, Ada\n"
 //
 pub fn capture<T>(input: String, run: () -> T) -> Captured<T> {
-    run_captured(input, run, fn value, output, transcript -> Captured{
+    run_captured(input, run, fn value, output, transcript -> #Captured{
         value,
         output,
         transcript,
@@ -176,7 +176,7 @@ impl Assertable for Replayed {
         if replayed.transcript == replayed.expected and replayed.unread == 0 {
             None
         } else {
-            Some(AssertionDetails{
+            Some(#AssertionDetails{
                 reason: replay_reason(replayed),
                 actual: Some(replayed.transcript),
                 expected: Some(replayed.expected),
@@ -296,7 +296,7 @@ fn replay_reason(replayed: Replayed) -> String {
 //! )
 //
 pub fn replay<T>(script: String, run: () -> T) -> Replayed {
-    run_replayed(script, run, fn _, output, transcript, expected, unread -> Replayed{
+    run_replayed(script, run, fn _, output, transcript, expected, unread -> #Replayed{
         output,
         transcript,
         expected,

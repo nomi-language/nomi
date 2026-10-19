@@ -6,3 +6,10 @@
 (_ "{" "}" @end) @indent
 (_ "[" "]" @end) @indent
 (_ "(" ")" @end) @indent
+; A literal or pattern whose symbol and bracket are one token: `#{`, `#(`,
+; `#[`, `%{`, `%[`.
+(_ "#{" "}" @end) @indent
+(_ "#(" ")" @end) @indent
+(_ "#[" "]" @end) @indent
+(_ "%{" "}" @end) @indent
+(_ "%[" "]" @end) @indent

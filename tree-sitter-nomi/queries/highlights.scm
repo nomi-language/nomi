@@ -101,16 +101,17 @@
   binding: (identifier) @comment
   (#match? @comment "^\\s*_($|[^_])"))
 ; A destructure's nested pattern (`#(#(_a, b), c) = pair`,
-; `{x: Some(_n), y} = q else { ... }`), spelled as an expression.
+; `#{x: Some(_n), y} = q else { ... }`), spelled as an expression.
 (destructuring_binding
   pattern: [
     (call_expression (identifier) @comment)
     (tuple_expression (identifier) @comment)
     (list (identifier) @comment)
+    (vector (identifier) @comment)
     (struct_construction ":" . (identifier) @comment)
     (struct_construction field_name: (identifier) @comment . ["," "}"])
     (anon_struct (anon_struct_field ":" . (identifier) @comment))
-    (map_literal (map_entry (_) . (identifier) @comment))
+    (map_construction (map_entry (_) . (identifier) @comment))
   ]
   (#match? @comment "^\\s*_($|[^_])"))
 ; A test's setup binding, an `if` pattern condition, `x as y`.
@@ -135,6 +136,16 @@
 (list_pattern
   (identifier) @comment
   (#match? @comment "^\\s*_($|[^_])"))
+(vector_pattern
+  (identifier) @comment
+  (#match? @comment "^\\s*_($|[^_])"))
+; The rest of a vector or set pattern (`#[x, .._rest]`, `%["a", .._rest]`).
+(pattern_spread
+  (identifier) @comment
+  (#match? @comment "^\\s*_($|[^_])"))
+(set_pattern
+  ".." . (identifier) @comment
+  (#match? @comment "^\\s*_($|[^_])"))
 (enum_pattern
   (identifier) @comment
   (#match? @comment "^\\s*_($|[^_])"))
@@ -142,10 +153,10 @@
   (identifier) @comment
   (#match? @comment "^\\s*_($|[^_])"))
 ; A map pattern's value; its key (`key => v`) is an expression and is read.
-(struct_pattern
+(map_pattern
   "=>" . (identifier) @comment
   (#match? @comment "^\\s*_($|[^_])"))
-; A punned field binds its name (`{_w}`); a labeled one binds its pattern.
+; A punned field binds its name (`#{_w}`); a labeled one binds its pattern.
 (pattern_field
   . name: (identifier) @comment .
   (#match? @comment "^\\s*_($|[^_])"))
@@ -169,8 +180,9 @@
 ; constructor head, since a guard arm may start with an ordinary call
 ; (`ready(_x) ->`); inside a pattern every call is a variant. A query has no
 ; descendant operator, so the alternation spells out each depth: a discard
-; directly in a call, tuple, list, struct construction, anonymous struct or
-; map value, under at most two calls, tuples or lists (`Ok(Some(#(_a, b)))`).
+; directly in a call, tuple, list, vector, struct construction, anonymous
+; struct or map value, under at most two calls, tuples or lists
+; (`Ok(Some(#(_a, b)))`).
 ; A deeper one keeps its colour. Each depth costs query compile time (the
 ; tour compiles this file once per page), which is what stops it at three.
 ((_ .
@@ -178,10 +190,10 @@
     (call_expression function: [(type_identifier) (type_field_access) (dot_variant)] (identifier) @comment)
     (tuple_expression (identifier) @comment)
     (list (identifier) @comment)
+    (vector (identifier) @comment)
     (struct_construction ":" . (identifier) @comment)
     (struct_construction field_name: (identifier) @comment . ["," "}"])
     (anon_struct (anon_struct_field ":" . (identifier) @comment))
-    (map_literal (map_entry (_) . (identifier) @comment))
     (map_construction (map_entry (_) . (identifier) @comment))
     (call_expression function: [(type_identifier) (type_field_access) (dot_variant)]
       [
@@ -191,7 +203,6 @@
         (struct_construction ":" . (identifier) @comment)
         (struct_construction field_name: (identifier) @comment . ["," "}"])
         (anon_struct (anon_struct_field ":" . (identifier) @comment))
-        (map_literal (map_entry (_) . (identifier) @comment))
         (map_construction (map_entry (_) . (identifier) @comment))
         (call_expression
           [
@@ -201,7 +212,6 @@
             (struct_construction ":" . (identifier) @comment)
             (struct_construction field_name: (identifier) @comment . ["," "}"])
             (anon_struct (anon_struct_field ":" . (identifier) @comment))
-            (map_literal (map_entry (_) . (identifier) @comment))
             (map_construction (map_entry (_) . (identifier) @comment))
           ])
         (tuple_expression
@@ -212,7 +222,6 @@
             (struct_construction ":" . (identifier) @comment)
             (struct_construction field_name: (identifier) @comment . ["," "}"])
             (anon_struct (anon_struct_field ":" . (identifier) @comment))
-            (map_literal (map_entry (_) . (identifier) @comment))
             (map_construction (map_entry (_) . (identifier) @comment))
           ])
         (list
@@ -223,7 +232,6 @@
             (struct_construction ":" . (identifier) @comment)
             (struct_construction field_name: (identifier) @comment . ["," "}"])
             (anon_struct (anon_struct_field ":" . (identifier) @comment))
-            (map_literal (map_entry (_) . (identifier) @comment))
             (map_construction (map_entry (_) . (identifier) @comment))
           ])
       ])
@@ -235,7 +243,6 @@
         (struct_construction ":" . (identifier) @comment)
         (struct_construction field_name: (identifier) @comment . ["," "}"])
         (anon_struct (anon_struct_field ":" . (identifier) @comment))
-        (map_literal (map_entry (_) . (identifier) @comment))
         (map_construction (map_entry (_) . (identifier) @comment))
         (call_expression
           [
@@ -245,7 +252,6 @@
             (struct_construction ":" . (identifier) @comment)
             (struct_construction field_name: (identifier) @comment . ["," "}"])
             (anon_struct (anon_struct_field ":" . (identifier) @comment))
-            (map_literal (map_entry (_) . (identifier) @comment))
             (map_construction (map_entry (_) . (identifier) @comment))
           ])
         (tuple_expression
@@ -256,7 +262,6 @@
             (struct_construction ":" . (identifier) @comment)
             (struct_construction field_name: (identifier) @comment . ["," "}"])
             (anon_struct (anon_struct_field ":" . (identifier) @comment))
-            (map_literal (map_entry (_) . (identifier) @comment))
             (map_construction (map_entry (_) . (identifier) @comment))
           ])
         (list
@@ -267,7 +272,6 @@
             (struct_construction ":" . (identifier) @comment)
             (struct_construction field_name: (identifier) @comment . ["," "}"])
             (anon_struct (anon_struct_field ":" . (identifier) @comment))
-            (map_literal (map_entry (_) . (identifier) @comment))
             (map_construction (map_entry (_) . (identifier) @comment))
           ])
       ])
@@ -279,7 +283,6 @@
         (struct_construction ":" . (identifier) @comment)
         (struct_construction field_name: (identifier) @comment . ["," "}"])
         (anon_struct (anon_struct_field ":" . (identifier) @comment))
-        (map_literal (map_entry (_) . (identifier) @comment))
         (map_construction (map_entry (_) . (identifier) @comment))
         (call_expression
           [
@@ -289,7 +292,6 @@
             (struct_construction ":" . (identifier) @comment)
             (struct_construction field_name: (identifier) @comment . ["," "}"])
             (anon_struct (anon_struct_field ":" . (identifier) @comment))
-            (map_literal (map_entry (_) . (identifier) @comment))
             (map_construction (map_entry (_) . (identifier) @comment))
           ])
         (tuple_expression
@@ -300,7 +302,6 @@
             (struct_construction ":" . (identifier) @comment)
             (struct_construction field_name: (identifier) @comment . ["," "}"])
             (anon_struct (anon_struct_field ":" . (identifier) @comment))
-            (map_literal (map_entry (_) . (identifier) @comment))
             (map_construction (map_entry (_) . (identifier) @comment))
           ])
         (list
@@ -311,7 +312,6 @@
             (struct_construction ":" . (identifier) @comment)
             (struct_construction field_name: (identifier) @comment . ["," "}"])
             (anon_struct (anon_struct_field ":" . (identifier) @comment))
-            (map_literal (map_entry (_) . (identifier) @comment))
             (map_construction (map_entry (_) . (identifier) @comment))
           ])
       ])
@@ -432,27 +432,24 @@
 (enum_pattern
   (type_identifier) @constructor)
 
-; Dot-leading variant shorthand (`.Red`, `.Circle(1.0)`, `.Obj{"k" => v}`)
+; Dot-leading variant shorthand (`.Red`, `.Circle(1.0)`, `%.Obj{"k" => v}`)
 ; — variant identifier is highlighted as a constructor; the leading dot
 ; is a punctuation token (no separate tag needed).
 (dot_variant
   (type_identifier) @constructor)
 
-; Struct construction
-(struct_construction
+; An attached list's head (`Ids[1]`, `JV.Arr[x]`)
+(typed_list
   (type_identifier) @type)
 
-(struct_construction
-  (type_field_access
-    (type_identifier) @type))
-
-; Map construction (TypeName%{key => value, ...})
-(map_construction
-  (type_identifier) @type)
-
-(map_construction
-  (type_field_access
-    (type_identifier) @type))
+; The type name a literal or pattern writes after its shape's symbol
+; (`#Point{..}`, `#geo.Point{..}`, `#Shape.Circle{..}`, `%Kvs{..}`,
+; `#Path[..]`, `#Pair(..)`): a module name, then types. A `.Circle` head is
+; a dot_variant, a constructor.
+(_
+  type: (identifier) @module)
+(_
+  type: (type_identifier) @type)
 
 ; Type field access
 ; Module name (lowercase first position)
@@ -512,8 +509,8 @@
   (identifier) @variable.other.member)
 
 ; Struct update fields. The `:` in the pattern restricts this to the labeled
-; `{..base, x: 9}`, where `x` is a field name and nothing else. A punned
-; `{..base, x}` is deliberately left to the `(identifier) @variable` catch-all,
+; `#{..base, x: 9}`, where `x` is a field name and nothing else. A punned
+; `#{..base, x}` is deliberately left to the `(identifier) @variable` catch-all,
 ; because that `x` is a variable read: it must be in scope or the program does
 ; not compile, and that is the part a reader can get wrong. It also keeps the
 ; captures agreeing with the analyzer's semantic tokens, which classify the
@@ -625,7 +622,10 @@
 "-" @operator
 "*" @operator
 "/" @operator
-"%" @operator
+; `%` is the remainder operator only between operands; a map or set
+; literal starts with it too.
+(binary_expression "%" @operator)
+(lambda_body_binary_expression "%" @operator)
 "==" @operator
 "!=" @operator
 "<" @operator
@@ -637,40 +637,31 @@
 "->" @operator
 
 ; Delimiters. The delimiters of data shape are @type, the colour of a struct
-; name: a literal that builds a value (the braces of a struct, anonymous
-; struct, map, set, struct update or map update, the brackets of a list or
-; vector, a tuple's `#(` and `)`), a constructor call's parentheses, and every
-; pattern's delimiters (tuple, list, struct, map and variant-payload patterns,
-; wherever they appear). Every other delimiter is program structure and is
+; name: a literal that builds a value (a struct's, map's or struct update's
+; braces, a list's, vector's or set's brackets, a tuple's parentheses, each
+; with the `#` or `%` that starts it: `#{`, `#Point{`, `%{`, `%Kvs{`, `#[`,
+; `%[`, `#(`), a constructor call's parentheses, and every pattern's
+; delimiters (tuple, list, vector, set, struct, map and variant-payload
+; patterns, wherever they appear). Every other delimiter is program structure and is
 ; @punctuation.bracket: blocks, declaration bodies, function calls, grouping,
 ; parameter lists and types. A pattern spelled as the expression it looks like
 ; (`Some(#(n, [a])) = found else {...}`, `assert Err(_) = r`) parses as the
 ; literal and call nodes below, so it takes @type with no rule of its own.
-;
-; An anonymous struct literal, a struct pattern and a destructure are captured
-; whole, because the scanner may lex the opening brace as a hidden token that
-; no query can name; every other token inside has a capture of its own, so each
-; visible delimiter is also captured directly.
-[
-  (anon_struct)
-  (struct_update)
-  (struct_pattern)
-  (destructuring_binding)
-] @type
-(anon_struct ["{" "}"] @type)
-(map_literal ["%{" "}"] @type)
-(struct_update ["{" "}"] @type)
-(map_update ["%{" "}"] @type)
-(struct_construction ["{" "}"] @type)
-(map_construction ["%{" "}"] @type)
-(set ["#{" "}"] @type)
+(anon_struct ["#{" "}"] @type)
+(struct_update ["#{" "}"] @type)
+(struct_construction ["#" "{" "}"] @type)
+(map_construction ["%{" "%" "{" "}"] @type)
 (list ["[" "]"] @type)
-(vector ["#[" "]"] @type)
-(tuple_expression ["#(" ")"] @type)
-(struct_pattern ["{" "%{" "}"] @type)
-(destructuring_binding ["#(" ")" "{" "%{" "}"] @type)
-(tuple_pattern ["#(" ")"] @type)
+(vector ["#[" "#" "[" "]"] @type)
+(set ["%[" "%" "[" "]"] @type)
+(tuple_expression ["#(" "#" "(" ")"] @type)
+(struct_pattern ["#{" "#" "{" "}"] @type)
+(map_pattern ["%{" "%" "{" "}"] @type)
+(destructuring_binding ["#(" "#{" "%{" "#" "%" "(" ")" "{" "}"] @type)
+(tuple_pattern ["#(" "#" "(" ")"] @type)
 (list_pattern ["[" "]"] @type)
+(vector_pattern ["#[" "#" "[" "]"] @type)
+(set_pattern ["%[" "%" "[" "]"] @type)
 (enum_pattern ["(" ")"] @type)
 
 ; A constructor call: a call whose head is a PascalCase name, a variant
@@ -684,10 +675,12 @@
   function: [(type_identifier) (type_field_access) (dot_variant)]
   ["(" ")"] @type)
 
-"#[" @punctuation.bracket
 "#{" @punctuation.bracket
 "#(" @punctuation.bracket
+"#[" @punctuation.bracket
 "%{" @punctuation.bracket
+"%[" @punctuation.bracket
+"#" @punctuation.bracket
 ":" @punctuation.delimiter
 "," @punctuation.delimiter
 ";" @punctuation.delimiter

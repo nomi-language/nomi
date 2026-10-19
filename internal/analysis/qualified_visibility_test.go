@@ -16,7 +16,7 @@ struct Hidden {
 
 impl Hidden {
   pub fn make() -> Hidden {
-    Hidden{v: 3}
+    #Hidden{v: 3}
   }
 }
 
@@ -68,7 +68,7 @@ func TestQualifiedPrivateTypeIsRejected(t *testing.T) {
 		},
 		{
 			name: "struct literal",
-			body: "fn f() -> Int {\n  h = other.Hidden{v: 1}\n  h.v\n}\n",
+			body: "fn f() -> Int {\n  h = #other.Hidden{v: 1}\n  h.v\n}\n",
 			want: "file 'other' has no member 'Hidden'",
 		},
 		{
@@ -206,19 +206,19 @@ fn color(c: other.Color) -> Int {
 }
 
 fn demo() -> Int {
-  p = other.ident(Point{x: 1})
-  span = other.Span{start: Point{x: 1}, stop: Point{x: 2}}
-  slot: other.Slot<Point> = other.Slot.Full(Point{x: 3})
+  p = other.ident(#Point{x: 1})
+  span = #other.Span{start: #Point{x: 1}, stop: #Point{x: 2}}
+  slot: other.Slot<Point> = other.Slot.Full(#Point{x: 3})
   points: List<Point> = [p, span.start, span.stop]
-  h: other.Hidden = other.Hidden{v: 1}
-  bare = Hidden{v: 2}
+  h: other.Hidden = #other.Hidden{v: 1}
+  bare = #Hidden{v: 2}
   made = other.Hidden.make()
   m: other.Meters = 4
   n = case slot {
     other.Slot.Full(q) -> q.x
     other.Slot.Empty -> 0
   }
-  Iter.count(points) + h.v + bare.v + made.v + m + n + color(other.Color.Boxed(5)) + area_of(Sq{n: 6})
+  Iter.count(points) + h.v + bare.v + made.v + m + n + color(other.Color.Boxed(5)) + area_of(#Sq{n: 6})
 }
 `
 	errs := buildProjectExpectingErrors(t, entry, map[string]string{"other": sibling})

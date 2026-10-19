@@ -122,12 +122,12 @@ write `\${`. A `$` on its own, `#` and `#{` are ordinary text:
 import std/io
 
 fn main() {
-    io.print("echo \${HOME} costs $5 #{not a set}")
+    io.print("echo \${HOME} costs $5 #{not a struct}")
 }
 
 ```
 <!-- expect
-echo ${HOME} costs $5 #{not a set}
+echo ${HOME} costs $5 #{not a struct}
 -->
 
 Each arithmetic operator comes from an interface: `+` from

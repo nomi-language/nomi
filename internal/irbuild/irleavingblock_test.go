@@ -68,7 +68,7 @@ fn argument(n: Int) -> Int {
 }
 
 fn field(n: Int) -> Int {
-    p = P{a: 1, b: {
+    p = #P{a: 1, b: {
         io.print("field")
         case n {
             0 -> return 7

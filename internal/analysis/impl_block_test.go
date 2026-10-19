@@ -306,7 +306,7 @@ func TestImplBlock_ConcreteReceiverType_GenericResolves(t *testing.T) {
 }
 
 pub fn echo<T>(b: Box<T>) -> Box<T> {
-  copy: Box<T> = Box{item: b.item}
+  copy: Box<T> = #Box{item: b.item}
   copy
 }`
 	tokens := lexer.Lex(src)
@@ -327,7 +327,7 @@ func TestImplBlock_SelfAsBodyTypeRejected(t *testing.T) {
 }
 
 pub fn echo(b: self) -> self {
-  copy: self = Box{item: b.item}
+  copy: self = #Box{item: b.item}
   copy
 }`
 	_, errs := buildTypesFromSource(src)
@@ -453,7 +453,7 @@ func TestImplBlock_SelfAsType_FreeFunctionRejected(t *testing.T) {
 	src := `pub struct Point { x: Int }
 
 fn make() -> Int {
-  p: self = Point{x: 1}
+  p: self = #Point{x: 1}
   p.x
 }`
 	tokens := lexer.Lex(src)
@@ -591,7 +591,7 @@ func TestImplBlock_ModuleFunctionIndexed(t *testing.T) {
   y: Int
 }
 
-pub fn origin() -> Point { Point{x: 0, y: 0} }
+pub fn origin() -> Point { #Point{x: 0, y: 0} }
 fn helper(p: Point) -> Int { p.x }`
 	fa, errs := buildTypesFromSource(src)
 	if len(errs) > 0 {
@@ -623,7 +623,7 @@ func TestImplBlock_ModuleFunctionCall_CrossModule(t *testing.T) {
   y: Int
 }
 
-pub fn origin() -> Point { Point{x: 0, y: 0} }`,
+pub fn origin() -> Point { #Point{x: 0, y: 0} }`,
 	})
 	src := `import geo.{self, Point}
 
@@ -648,7 +648,7 @@ func TestImplBlock_ModuleFunctionCall_CrossModuleResolvesType(t *testing.T) {
   y: Int
 }
 
-pub fn origin() -> Point { Point{x: 0, y: 0} }`,
+pub fn origin() -> Point { #Point{x: 0, y: 0} }`,
 	})
 	src := `import geo
 

@@ -23,13 +23,13 @@ pub enum Holder<T> {
 
 pub fn ring_radius(s: Shape) -> Int {
     case s {
-        .Ring{r} -> r
+        #.Ring{r} -> r
         .Square(n) -> n
     }
 }
 
 pub fn holder_int(h: Holder<Int>) -> Int {
     case h {
-        .Of{value} -> value
+        #.Of{value} -> value
     }
 }

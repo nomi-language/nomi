@@ -104,7 +104,7 @@ func (n Inspected) Type() string {
 
 // Text is the value's one-line rendering: its `values:` row text, which
 // quotes a String and renders a struct's fields structurally (a variant with
-// named fields as `Circle{radius: 5}`), or for a value past
+// named fields as `#Circle{radius: 5}`), or for a value past
 // inspectTextBudget elements, its type and size.
 func (n Inspected) Text() string {
 	if n.entry != nil {
@@ -119,7 +119,7 @@ func (n Inspected) Text() string {
 }
 
 // inspectText is RowText with a variant that has named fields written as its
-// Debug writes it, `Circle{radius: 5}`, at any depth: the row text names the
+// Debug writes it, `#Circle{radius: 5}`, at any depth: the row text names the
 // variant twice.
 func inspectText(v any) string {
 	switch x := v.(type) {

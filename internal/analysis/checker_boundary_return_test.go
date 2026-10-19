@@ -70,14 +70,14 @@ fn main() { f = fn -> { value = try fallible() return value } _ = f() }`)
 }
 
 func TestBoundaryReturn_ContextualInterface(t *testing.T) {
-	for _, tail := range []string{"return Right{}", "Right{}"} {
+	for _, tail := range []string{"return #Right{}", "#Right{}"} {
 		_, errs := checkSourceWithStdlib(`interface Value {}
 struct Left {}
 struct Right {}
 impl Value for Left {}
 impl Value for Right {}
 fn use(f: (Bool) -> Value) -> Value { f(True) }
-fn main() { _ = use(fn b -> { if b { return Left{} } ` + tail + ` }) }`)
+fn main() { _ = use(fn b -> { if b { return #Left{} } ` + tail + ` }) }`)
 		expectClean(t, errs)
 	}
 }

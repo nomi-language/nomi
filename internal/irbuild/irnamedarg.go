@@ -35,7 +35,7 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		return no()
 	}
 	if ti, isType := fa.Object.(*ast.TypeIdent); isType && ti.Name == "Struct" && fa.Field.Name == "update" && !bl.g.isBoundTypeParam("Struct") {
-		// `Struct.update(updates: {x: 1}, original: p)`: the patch must stay
+		// `Struct.update(updates: #{x: 1}, original: p)`: the patch must stay
 		// a literal the merge reads, which a stand-in for an evaluated
 		// temporary is not, so the update places its own arguments.
 		if bl.recording > 0 {

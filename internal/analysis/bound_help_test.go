@@ -56,7 +56,7 @@ fn key<H>(h: H) -> Int where H: Hashable {
 		},
 		{
 			"own interface",
-			`total(Point{x: 1})`,
+			`total(#Point{x: 1})`,
 			"Point does not implement Shape (required by `where S: Shape`)",
 			"write an `impl Shape for Point` block with `fn area(s: Point) -> Float` and `fn scale(s: Point, by: Float) -> Point`",
 		},
@@ -68,7 +68,7 @@ fn key<H>(h: H) -> Int where H: Hashable {
 		},
 		{
 			"derivable interface, own type",
-			`key(Point{x: 1})`,
+			`key(#Point{x: 1})`,
 			"Point does not implement Hashable (required by `where H: Hashable`)",
 			"add `derive Hashable` to `Point` or write an `impl Hashable for Point` block with `fn hash(value: Point) -> Int`",
 		},

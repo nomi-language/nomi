@@ -19,12 +19,12 @@ fn show<T>(r: Result<T, Json.ShapeError>) -> String where T: ToJson {
 }
 
 fn main() {
-    j = Json.Obj%{"title" => Json.String("x")}
+    j = %Json.Obj{"title" => Json.String("x")}
     one: Result<notes.Note, Json.ShapeError> = FromJson.from_json(j)
     io.print(show(one))
     many: Result<List<notes.Note>, Json.ShapeError> = FromJson.from_json(Json.Arr([j, j]))
     io.print(show(many))
-    io.print(show(round(notes.Note{title: "y"})))
+    io.print(show(round(#notes.Note{title: "y"})))
     wrong: Result<List<notes.Note>, Json.ShapeError> = FromJson.from_json(j)
     io.print(show(wrong))
 }

@@ -11,9 +11,9 @@ import (
 // `A{a//!000000\n}` formatted to a literal whose third line was `//!000000`.
 func TestFormat_RefusesAPromptAfterCode(t *testing.T) {
 	for _, src := range []string{
-		"A{a//!000000\n}",
-		"A{a: 1 //! x\n}\n",
-		"fn f() -> A {\n    A{a: 1, //! x\n        b: 2}\n}\n",
+		"#A{a//!000000\n}",
+		"#A{a: 1 //! x\n}\n",
+		"fn f() -> A {\n    #A{a: 1, //! x\n        b: 2}\n}\n",
 		"fn f() -> List<Int> {\n    [\n        1,\n        2, //! x\n    ]\n}\n",
 		"fn f() -> Int { //! x\n    1\n}\n",
 	} {
@@ -32,6 +32,6 @@ func TestFormat_RefusesAPromptAfterCode(t *testing.T) {
 // meaning. The comment ends the field's line, so it stays there, after the
 // comma.
 func TestFormat_CommentAfterPunnedFieldKeepsMeaning(t *testing.T) {
-	formatsKeepingMeaning(t, "A{a// x\n}", "A{\n    a, // x\n}\n")
-	formatsKeepingMeaning(t, "A{a//# x\n}", "A{\n    a, //# x\n}\n")
+	formatsKeepingMeaning(t, "#A{a// x\n}", "#A{\n    a, // x\n}\n")
+	formatsKeepingMeaning(t, "#A{a//# x\n}", "#A{\n    a, //# x\n}\n")
 }

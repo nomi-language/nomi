@@ -39,8 +39,8 @@ struct Holder<T> {
 
 fn describe(s: Shape) -> String {
   case s {
-    Shape.Circle{r} -> "circle ${r}"
-    Shape.Wrapped({r}) -> "wrapped ${r}"
+    #Shape.Circle{r} -> "circle ${r}"
+    Shape.Wrapped(#{r}) -> "wrapped ${r}"
     Shape.Dot -> "dot"
   }
 }
@@ -48,7 +48,7 @@ fn describe(s: Shape) -> String {
 fn take(b: Box<Shape>) -> String {
   case b {
     Box.Full(s) -> "full ${describe(s)}"
-    Box.Named{value} -> "named ${describe(value)}"
+    #Box.Named{value} -> "named ${describe(value)}"
     Box.Empty -> "empty"
   }
 }
@@ -62,15 +62,15 @@ fn single<T>(x: T) -> List<T> {
 }
 
 fn main() {
-  c = Circle{r: 1}
+  c = #Circle{r: 1}
   b: Box<Shape> = Box.Full(c)
   io.print(take(b))
-  n: Box<Shape> = Box.Named{value: Circle{r: 2}}
+  n: Box<Shape> = #Box.Named{value: #Circle{r: 2}}
   io.print(take(n))
-  h: Holder<Shape> = Holder{value: c}
+  h: Holder<Shape> = #Holder{value: c}
   io.print(describe(h.value))
-  io.print(take(Box.Full(Circle{r: 3})))
-  io.print(take(give(Circle{r: 4})))
+  io.print(take(Box.Full(#Circle{r: 3})))
+  io.print(take(give(#Circle{r: 4})))
   l: List<Box<Shape>> = [Box.Full(c), Box.Full(Shape.Dot), Box.Empty]
   io.print(l |> Iter.map(take) |> String.join(", "))
   m: Box<Maybe<Shape>> = Box.Full(Some(c))
@@ -78,7 +78,7 @@ fn main() {
     Box.Full(Some(s)) -> io.print("maybe ${describe(s)}")
     _ -> io.print("maybe miss")
   }
-  w: Box<Shape> = Box.Full(Wrapped(Circle{r: 5}))
+  w: Box<Shape> = Box.Full(Wrapped(#Circle{r: 5}))
   io.print(take(w))
   ss: List<Shape> = single(c)
   io.print(ss |> Iter.map(describe) |> String.join(", "))
@@ -135,11 +135,11 @@ struct Holder<T> {
 }
 
 fn main() {
-  c = Circle{r: 1}
+  c = #Circle{r: 1}
   s: Plain = c
-  io.inspect(Some(Circle{r: 1}) == Some(Plain.Spot))
+  io.inspect(Some(#Circle{r: 1}) == Some(Plain.Spot))
   io.inspect(Some(c) == Some(s))
-  io.inspect(Some(Circle{r: 2}) == Some(s))
+  io.inspect(Some(#Circle{r: 2}) == Some(s))
   io.inspect(Some(s) != Some(c))
   io.inspect(Some(Plain.Spot) == Some(c))
   io.inspect(Ok(c) == Ok(Plain.Spot))
@@ -150,9 +150,9 @@ fn main() {
   io.inspect(#(2, c) == #(1, s))
   io.inspect(Box.Full(c) == Box.Full(s))
   io.inspect(Box.Full(c) != Box.Full(Plain.Spot))
-  io.inspect(Box.Named{value: c} == Box.Named{value: s})
-  io.inspect(Holder{value: c} == Holder{value: s})
-  io.inspect(Holder{value: c} == Holder{value: Plain.Spot})
+  io.inspect(#Box.Named{value: c} == #Box.Named{value: s})
+  io.inspect(#Holder{value: c} == #Holder{value: s})
+  io.inspect(#Holder{value: c} == #Holder{value: Plain.Spot})
   io.inspect(Box.Full(Some(c)) == Box.Full(Some(s)))
   io.inspect([Some(c)] == [Some(s)])
   io.inspect(Some(Wrapped(c)) == Some(s))

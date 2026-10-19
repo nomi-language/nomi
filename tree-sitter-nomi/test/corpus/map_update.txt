@@ -9,7 +9,7 @@ once m = %{..base, "b" => 2}
 (source_file
   (once_binding
     name: (identifier)
-    value: (map_update
+    value: (map_construction
       (map_update_spread
         head: (identifier))
       (map_entry
@@ -28,7 +28,7 @@ once m = %{..f(x), "b" => 2, "c" => 3,}
 (source_file
   (once_binding
     name: (identifier)
-    value: (map_update
+    value: (map_construction
       (map_update_spread
         head: (call_expression
           function: (identifier)
@@ -56,7 +56,7 @@ once m = %{
 (source_file
   (once_binding
     name: (identifier)
-    value: (map_update
+    value: (map_construction
       (map_update_spread
         head: (identifier))
       (map_entry
@@ -65,7 +65,7 @@ once m = %{
         (integer)))))
 
 ================================================================================
-Map update inside a call: the brace is not whitespace-preceded
+Map update inside a call
 ================================================================================
 
 once m = f(%{..base, "b" => 2})
@@ -77,7 +77,7 @@ once m = f(%{..base, "b" => 2})
     name: (identifier)
     value: (call_expression
       function: (identifier)
-      (map_update
+      (map_construction
         (map_update_spread
           head: (identifier))
         (map_entry
@@ -89,7 +89,7 @@ once m = f(%{..base, "b" => 2})
 Nested map update inside a struct update
 ================================================================================
 
-once c = {..cfg, prefs: %{..cfg.prefs, "theme" => "dark"}}
+once c = #{..cfg, prefs: %{..cfg.prefs, "theme" => "dark"}}
 
 --------------------------------------------------------------------------------
 
@@ -101,7 +101,7 @@ once c = {..cfg, prefs: %{..cfg.prefs, "theme" => "dark"}}
         head: (identifier))
       (struct_update_field
         field_name: (identifier)
-        (map_update
+        (map_construction
           (map_update_spread
             head: (field_access
               (identifier)

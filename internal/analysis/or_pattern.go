@@ -217,9 +217,7 @@ func patternText(n ast.Node) string {
 		return s
 	case *ast.StructPattern:
 		var b strings.Builder
-		if p.TypeName != nil {
-			b.WriteString(p.TypeName.TypeString())
-		}
+		b.WriteString(shapeHeadText("#", p.TypeName))
 		b.WriteString("{")
 		for i, f := range p.Fields {
 			if i > 0 {
@@ -237,7 +235,25 @@ func patternText(n ast.Node) string {
 		b.WriteString("}")
 		return b.String()
 	case *ast.TuplePattern:
-		return "#(" + patternListText(p.Patterns) + ")"
+		return shapeHeadText("#", p.TypeName) + "(" + patternListText(p.Patterns) + ")"
+	case *ast.VectorPattern:
+		parts := make([]string, 0, len(p.Heads)+len(p.Tails)+1)
+		for _, h := range p.Heads {
+			parts = append(parts, patternText(h))
+		}
+		if p.Spread {
+			rest := ".."
+			if p.Rest != nil {
+				rest += patternText(p.Rest)
+			}
+			parts = append(parts, rest)
+		}
+		for _, t := range p.Tails {
+			parts = append(parts, patternText(t))
+		}
+		return shapeHeadText("#", p.TypeName) + "[" + strings.Join(parts, ", ") + "]"
+	case *ast.SetPattern:
+		return shapeHeadText("%", p.TypeName) + "[..]"
 	case *ast.ListPattern:
 		parts := make([]string, 0, len(p.Heads)+1)
 		for _, h := range p.Heads {
@@ -252,11 +268,7 @@ func patternText(n ast.Node) string {
 		}
 		return prefix + "[" + strings.Join(parts, ", ") + "]"
 	case *ast.MapPattern:
-		prefix := ""
-		if p.TypeName != nil {
-			prefix = p.TypeName.TypeString()
-		}
-		return prefix + "%{..}"
+		return shapeHeadText("%", p.TypeName) + "{..}"
 	}
 	return "_"
 }
@@ -267,4 +279,14 @@ func patternListText(ps []ast.Node) string {
 		parts[i] = patternText(p)
 	}
 	return strings.Join(parts, ", ")
+}
+
+// shapeHeadText is how a literal or pattern of a built-in shape starts: its
+// symbol and, when it names one, the type built on the shape (`#`, `#Point`,
+// `%Kvs`, `#.Circle`).
+func shapeHeadText(sigil string, name ast.TypeExpr) string {
+	if name == nil {
+		return sigil
+	}
+	return sigil + name.TypeString()
 }

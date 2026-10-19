@@ -50,7 +50,7 @@ struct Outer {
 }
 
 fn base_cfg() -> Cfg {
-    Cfg{clock: FakeClock{t: 1}, port: 80}
+    #Cfg{clock: #FakeClock{t: 1}, port: 80}
 }
 
 test "a struct literal admits a concrete implementer at an interface field" {
@@ -58,54 +58,54 @@ test "a struct literal admits a concrete implementer at an interface field" {
 }
 
 test "an update patch admits a concrete implementer at an interface field" {
-    patched = Struct.update(base_cfg(), {clock: FakeClock{t: 4242}})
+    patched = Struct.update(base_cfg(), #{clock: #FakeClock{t: 4242}})
     assert Clock.at(patched.clock) == 4242
 }
 
 test "an update patch admits a different implementer than the original" {
-    patched = Struct.update(base_cfg(), {clock: RealClock{base: 40, offset: 2}})
+    patched = Struct.update(base_cfg(), #{clock: #RealClock{base: 40, offset: 2}})
     assert Clock.at(patched.clock) == 42
 }
 
 test "an update patch leaves untouched fields alone" {
-    patched = Struct.update(base_cfg(), {clock: FakeClock{t: 9}})
+    patched = Struct.update(base_cfg(), #{clock: #FakeClock{t: 9}})
     assert patched.port == 80
 }
 
 test "a value already widened to the interface is still admitted" {
-    widened: Clock = FakeClock{t: 7}
-    patched = Struct.update(base_cfg(), {clock: widened})
+    widened: Clock = #FakeClock{t: 7}
+    patched = Struct.update(base_cfg(), #{clock: widened})
     assert Clock.at(patched.clock) == 7
 }
 
 test "the widening applies at depth in a nested patch" {
-    base = Outer{
-        inner: Inner{clock: FakeClock{t: 1}, tag: "a"},
+    base = #Outer{
+        inner: #Inner{clock: #FakeClock{t: 1}, tag: "a"},
         port: 80,
     }
 
-    patched = Struct.update(base, {
-        inner: {.., clock: RealClock{base: 100, offset: 5}},
+    patched = Struct.update(base, #{
+        inner: #{.., clock: #RealClock{base: 100, offset: 5}},
     })
 
     assert Clock.at(patched.inner.clock) == 105
 }
 
 test "a nested patch preserves the sibling field it does not name" {
-    base = Outer{
-        inner: Inner{clock: FakeClock{t: 1}, tag: "keep"},
+    base = #Outer{
+        inner: #Inner{clock: #FakeClock{t: 1}, tag: "keep"},
         port: 80,
     }
 
-    patched = Struct.update(base, {
-        inner: {.., clock: FakeClock{t: 2}},
+    patched = Struct.update(base, #{
+        inner: #{.., clock: #FakeClock{t: 2}},
     })
 
     assert patched.inner.tag == "keep"
 }
 
 test "dispatch through the patched field selects the new impl" {
-    patched = Struct.update(base_cfg(), {clock: RealClock{base: 1, offset: 1}})
+    patched = Struct.update(base_cfg(), #{clock: #RealClock{base: 1, offset: 1}})
     assert Clock.at(patched.clock) == 2
     assert Clock.at(base_cfg().clock) == 1
 }

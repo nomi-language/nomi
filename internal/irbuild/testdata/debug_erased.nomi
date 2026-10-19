@@ -6,11 +6,11 @@
 //
 // Every type here is deliberately hostile to the nearest wrong renderer:
 //
-//   - `Rev {zeta, alpha}` is NON-ALPHABETICAL, so declaration order and sorted
+//   - `#Rev {zeta, alpha}` is NON-ALPHABETICAL, so declaration order and sorted
 //     order are two different strings. `Debug.inspect` must answer declaration
 //     order; the assertion `values:` row must answer sorted order.
 //   - `Custom` carries a HAND-WRITTEN `impl Debug`, so a structural renderer
-//     reached through the table is visible as `Custom{...}` instead of
+//     reached through the table is visible as `#Custom{...}` instead of
 //     `CUSTOM-DEBUG`.
 //   - `Meters` is OPAQUE, so Debug must show LESS than the structural walk.
 //   - `Int` and `String` are SCALARS, whose `impl Debug` is std's own.
@@ -76,8 +76,8 @@ fn no_rev(_r: Rev) -> Bool {
 }
 
 test "the four renderings of one value survive erasure" {
-    r = Rev{zeta: 1, alpha: 2}
-    c = Custom{zeta: 3, alpha: 4}
+    r = #Rev{zeta: 1, alpha: 2}
+    c = #Custom{zeta: 3, alpha: 4}
     m = Meters(7)
 
     // Surface 3 through a BARE TYPE PARAMETER. Declaration order for a
@@ -105,13 +105,13 @@ test "the four renderings of one value survive erasure" {
 
     // The single most load-bearing string, asserted rather than only printed:
     // DECLARATION order through the erased route. Sorted order is
-    // `Rev{alpha: 2, zeta: 1}` and is what the `values:` row below answers, so
+    // `#Rev{alpha: 2, zeta: 1}` and is what the `values:` row below answers, so
     // this one comparison separates the two renderers on its own.
-    assert erased_param(r) == "Rev{zeta: 1, alpha: 2}"
+    assert erased_param(r) == "#Rev{zeta: 1, alpha: 2}"
 }
 
 test "the values row is a different renderer from Debug" {
-    r = Rev{zeta: 1, alpha: 2}
+    r = #Rev{zeta: 1, alpha: 2}
 
     assert no_rev(r)
 }

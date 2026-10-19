@@ -14,7 +14,7 @@ impl Display for Seed {
 }
 
 test "a local type and a stdlib type may share a name" {
-    mine = Seed{flavor: "sunflower"}
+    mine = #Seed{flavor: "sunflower"}
     die = Generator.int(1, 6)
     #(roll, _) = Generator.step(die, random.Seed.from_int(123))
 
@@ -36,7 +36,7 @@ impl Display for Error {
 
 test "a local type does not shadow a stdlib type's members" {
     assert Display.to_string(Error.Open) == "open"
-    assert Display.to_string(random.Error.OsEntropy{reason: "x"}) == "OS entropy unavailable: x"
+    assert Display.to_string(#random.Error.OsEntropy{reason: "x"}) == "OS entropy unavailable: x"
 }
 
 // A local type may also declare a TYPE-OWNED FUNCTION on a name the stdlib
@@ -54,7 +54,7 @@ test "a local type does not shadow a stdlib type's members" {
 // type-check this.
 impl Seed {
     pub fn from_int(n: Int) -> Seed {
-        Seed{flavor: "pumpkin ${n}"}
+        #Seed{flavor: "pumpkin ${n}"}
     }
 }
 

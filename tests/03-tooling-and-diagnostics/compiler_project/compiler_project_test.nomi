@@ -5,7 +5,7 @@ import {
 }
 
 test "compiler can check diagnostics across an in-memory project" {
-    diagnostics = compiler.check_project(Project{
+    diagnostics = compiler.check_project(#Project{
         entry_point: "main",
         files: %{
             "main" => """
@@ -30,7 +30,7 @@ test "compiler can check diagnostics across an in-memory project" {
                 }
 
                 pub fn make(name: String) -> Widget {
-                  Widget{name}
+                  #Widget{name}
                 }
                 """,
         },
@@ -41,7 +41,7 @@ test "compiler can check diagnostics across an in-memory project" {
 }
 
 test "compiler project checks manifest entry points" {
-    diagnostics = compiler.check_project(Project{
+    diagnostics = compiler.check_project(#Project{
         entry_point: "main",
         manifest: Some(
             Toml"""

@@ -30,13 +30,13 @@ struct Feet {
 
 impl Zero for Meters {
     fn zero() -> Meters {
-        Meters{n: 0}
+        #Meters{n: 0}
     }
 }
 
 impl Zero for Feet {
     fn zero() -> Feet {
-        Feet{n: 100}
+        #Feet{n: 100}
     }
 }
 

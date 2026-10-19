@@ -69,7 +69,7 @@ fn shape_text(s: Shape) -> String {
     case s {
         .Dot -> "dot"
         .Round(r) -> "round ${r}"
-        .Rect{w} -> "rect ${w}"
+        #.Rect{w} -> "rect ${w}"
         .Wrapped(c) -> "wrapped ${c.radius}"
     }
 }
@@ -106,7 +106,7 @@ fn shapes(s: Shape) -> String {
     case s {
         .Dot -> shape_text(s)
         .Round(_) -> shape_text(s)
-        .Rect{w: _} -> shape_text(s)
+        #.Rect{w: _} -> shape_text(s)
         .Wrapped(_) -> shape_text(s)
     }
 }
@@ -117,8 +117,8 @@ fn main() {
     io.print("${results(Ok(1))} ${results(Err("e"))}")
     io.print(shapes(Shape.Dot))
     io.print(shapes(Shape.Round(1.5)))
-    io.print(shapes(Shape.Rect{w: 3}))
-    io.print(shapes(Shape.Wrapped(Circle{radius: 2.0})))
+    io.print(shapes(#Shape.Rect{w: 3}))
+    io.print(shapes(Shape.Wrapped(#Circle{radius: 2.0})))
 }
 `)
 	want := `yes no

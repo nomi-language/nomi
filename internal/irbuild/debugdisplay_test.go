@@ -15,10 +15,10 @@ import (
 // # The two inputs that make the four renderings distinguishable
 //
 // A non-alphabetical struct and a hand-written `impl Debug`. With
-// `Point {x, y}`, declaration order and sorted order are the same string, so
+// `#Point {x, y}`, declaration order and sorted order are the same string, so
 // wiring `Debug.inspect` to the structural inspector, or the `values:` row to
-// the Display renderer, would pass. With `Rev {zeta, alpha}` they are
-// `Rev{zeta: 1, alpha: 2}` and `Rev{alpha: 2, zeta: 1}` and only one wiring
+// the Display renderer, would pass. With `#Rev {zeta, alpha}` they are
+// `#Rev{zeta: 1, alpha: 2}` and `#Rev{alpha: 2, zeta: 1}` and only one wiring
 // passes.
 //
 // # Every string is spelled out absolutely
@@ -31,9 +31,9 @@ import (
 //
 // Every line is load-bearing and the field ORDER lines are the point:
 //
-//	line 5  Debug.inspect(r) = Rev{zeta: 1, alpha: 2}     DECLARATION order
-//	line 7  Debug.inspect(p) = Plain{zeta: 1, alpha: 2}   DECLARATION order
-//	          the `values:` rows = Rev{alpha: 2, zeta: 1}   SORTED
+//	line 5  Debug.inspect(r) = #Rev{zeta: 1, alpha: 2}     DECLARATION order
+//	line 7  Debug.inspect(p) = #Plain{zeta: 1, alpha: 2}   DECLARATION order
+//	          the `values:` rows = #Rev{alpha: 2, zeta: 1}   SORTED
 //
 // and the precedence lines are the other point:
 //
@@ -69,9 +69,9 @@ func TestDebugDisplay_FourSurfacesArePinnedAbsolutely(t *testing.T) {
 		// Surface 3: Debug dispatch. DECLARATION order for a synthesized body,
 		// the hand-written impl for the type that has one, and the degenerate
 		// name-only body for the opaque type.
-		"  5 Debug.inspect(r)     = Rev{zeta: 1, alpha: 2}\n" +
+		"  5 Debug.inspect(r)     = #Rev{zeta: 1, alpha: 2}\n" +
 		"  6 Debug.inspect(c)     = CUSTOM-DEBUG\n" +
-		"  7 Debug.inspect(p)     = Plain{zeta: 1, alpha: 2}\n" +
+		"  7 Debug.inspect(p)     = #Plain{zeta: 1, alpha: 2}\n" +
 		"  8 Debug.inspect(m)     = <opaque Meters>\n" +
 		// The `host type` rows: a Bool, a Bool through a binding, a container of
 		// them, and the singleton materialized out of the tag by a `case` arm.
@@ -86,7 +86,7 @@ func TestDebugDisplay_FourSurfacesArePinnedAbsolutely(t *testing.T) {
 		"    assert no_rev(r)\n" +
 		"    values:\n" +
 		"      r\n" +
-		"        = Rev{alpha: 2, zeta: 1}\n" +
+		"        = #Rev{alpha: 2, zeta: 1}\n" +
 		"FAIL " + f + " :: values row honours a hand-written impl Debug\n" +
 		"  line 183: assertion failed\n" +
 		"    assert no_custom(c)\n" +
@@ -98,7 +98,7 @@ func TestDebugDisplay_FourSurfacesArePinnedAbsolutely(t *testing.T) {
 		"    assert no_plain(p)\n" +
 		"    values:\n" +
 		"      p\n" +
-		"        = Plain{alpha: 2, zeta: 1}\n" +
+		"        = #Plain{alpha: 2, zeta: 1}\n" +
 		"FAIL " + f + " :: values row for a Bool\n" +
 		"  line 193: assertion failed\n" +
 		"    assert no_bool(b)\n" +

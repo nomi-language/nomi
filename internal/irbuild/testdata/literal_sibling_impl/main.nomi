@@ -74,7 +74,7 @@ fn main() {
 
     // The handler's PARAMETER names a nominal type declared in the sibling, so
     // the element's `*typeDef` is a different pointer here than there.
-    io.print(Int.to_string(Slots"pq${Slot{n: 5}}r${Slot{n: 6}}"))
+    io.print(Int.to_string(Slots"pq${#Slot{n: 5}}r${#Slot{n: 6}}"))
 
     // SOURCE ORDER, printed from inside the slots.
     io.print(Local"${shout("a")}${shout("b")}${shout("c")}")

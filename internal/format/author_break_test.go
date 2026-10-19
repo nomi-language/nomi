@@ -41,13 +41,13 @@ func TestFormat_AuthorBreakAfterBracketKeepsALiteralBroken(t *testing.T) {
 		},
 		{
 			"set",
-			"fn main() {\n    s = #{\n        \"a\", \"b\"}\n}\n",
-			"fn main() {\n    s = #{\n        \"a\",\n        \"b\",\n    }\n}\n",
+			"fn main() {\n    s = %[\n        \"a\", \"b\"]\n}\n",
+			"fn main() {\n    s = %[\n        \"a\",\n        \"b\",\n    ]\n}\n",
 		},
 		{
 			"set without the break",
-			"fn main() {\n    s = #{\"a\",\n        \"b\"}\n}\n",
-			"fn main() {\n    s = #{\"a\", \"b\"}\n}\n",
+			"fn main() {\n    s = %[\"a\",\n        \"b\"]\n}\n",
+			"fn main() {\n    s = %[\"a\", \"b\"]\n}\n",
 		},
 		{
 			"map",
@@ -71,20 +71,20 @@ func TestFormat_AuthorBreakAfterBracketKeepsALiteralBroken(t *testing.T) {
 		},
 		{
 			"struct",
-			"fn main() {\n    p = Point{\n        x: 1, y: 2}\n}\n",
-			"fn main() {\n    p = Point{\n        x: 1,\n        y: 2,\n    }\n}\n",
+			"fn main() {\n    p = #Point{\n        x: 1, y: 2}\n}\n",
+			"fn main() {\n    p = #Point{\n        x: 1,\n        y: 2,\n    }\n}\n",
 		},
 		{
 			// Only the break after the `{` counts: fields on several lines
 			// with the first on the `{` line join.
 			"struct without the break",
-			"fn main() {\n    p = Point{x: 1,\n        y: 2}\n}\n",
-			"fn main() {\n    p = Point{x: 1, y: 2}\n}\n",
+			"fn main() {\n    p = #Point{x: 1,\n        y: 2}\n}\n",
+			"fn main() {\n    p = #Point{x: 1, y: 2}\n}\n",
 		},
 		{
 			"struct with a spread first",
-			"fn main() {\n    p = {\n        ..q, x: 1}\n}\n",
-			"fn main() {\n    p = {\n        ..q,\n        x: 1,\n    }\n}\n",
+			"fn main() {\n    p = #{\n        ..q, x: 1}\n}\n",
+			"fn main() {\n    p = #{\n        ..q,\n        x: 1,\n    }\n}\n",
 		},
 		{
 			"list pattern",
@@ -103,13 +103,13 @@ func TestFormat_AuthorBreakAfterBracketKeepsALiteralBroken(t *testing.T) {
 		},
 		{
 			"struct pattern",
-			"fn f(p: Point) -> Int {\n    case p {\n        Point{\n            x, y} -> x + y\n    }\n}\n",
-			"fn f(p: Point) -> Int {\n    case p {\n        Point{\n            x,\n            y,\n        } -> x + y\n    }\n}\n",
+			"fn f(p: Point) -> Int {\n    case p {\n        #Point{\n            x, y} -> x + y\n    }\n}\n",
+			"fn f(p: Point) -> Int {\n    case p {\n        #Point{\n            x,\n            y,\n        } -> x + y\n    }\n}\n",
 		},
 		{
 			"struct pattern without the break",
-			"fn f(p: Point) -> Int {\n    case p {\n        Point{x,\n            y} -> x + y\n    }\n}\n",
-			"fn f(p: Point) -> Int {\n    case p {\n        Point{x, y} -> x + y\n    }\n}\n",
+			"fn f(p: Point) -> Int {\n    case p {\n        #Point{x,\n            y} -> x + y\n    }\n}\n",
+			"fn f(p: Point) -> Int {\n    case p {\n        #Point{x, y} -> x + y\n    }\n}\n",
 		},
 		{
 			// A kept-broken literal is local: the call around it hugs it,
@@ -201,7 +201,7 @@ func TestFormat_AuthorBreakInArgumentsIsIgnored(t *testing.T) {
 func TestFormat_OrPatternAroundAKeptBrokenPatternStaysBroken(t *testing.T) {
 	src := "fn describe(shape: Shape) -> String {\n" +
 		"    case shape {\n" +
-		"        .Circle{r_rather_long} or .Square{side_rather_long_rather_long_rather_long_rather_long_rather_long: r_rather_long} when r_rather_long > 10.0 -> \"big\"\n" +
+		"        #.Circle{r_rather_long} or #.Square{side_rather_long_rather_long_rather_long_rather_long_rather_long: r_rather_long} when r_rather_long > 10.0 -> \"big\"\n" +
 		"        _ -> \"small\"\n" +
 		"    }\n" +
 		"}\n"

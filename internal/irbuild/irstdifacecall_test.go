@@ -44,12 +44,12 @@ derive Equatable for User
 derive Comparable for User
 
 fn main() {
-  ann = User{first_name: "Ann", age: 41}
-  cara = User{first_name: "Cara", age: 35}
+  ann = #User{first_name: "Ann", age: 41}
+  cara = #User{first_name: "Cara", age: 35}
   io.print(ann < cara)
   io.print(cara <= ann)
-  io.print(User{first_name: "Ann", age: 50} > ann)
-  io.print(ann >= User{first_name: "Ann", age: 41})
+  io.print(#User{first_name: "Ann", age: 50} > ann)
+  io.print(ann >= #User{first_name: "Ann", age: 41})
 }
 `, "True\nFalse\nTrue\nTrue\n")
 }

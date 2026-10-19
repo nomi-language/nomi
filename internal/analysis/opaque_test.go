@@ -45,7 +45,7 @@ func TestOpaque_AllowsPrivateRepresentation(t *testing.T) {
 pub opaque type UserHandle InternalUserData
 
 pub fn create(id: Int, label: String) -> UserHandle {
-  UserHandle(InternalUserData{id: id, label: label})
+  UserHandle(#InternalUserData{id: id, label: label})
 }
 
 pub fn name(h: UserHandle) -> String {

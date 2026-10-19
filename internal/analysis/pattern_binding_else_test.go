@@ -115,14 +115,14 @@ func TestPatternBindingElse_FallbackTypesTheInnerPattern(t *testing.T) {
 }
 
 fn describe(c: Check) -> String {
-    .Valid{addr, score} = c else {
-        .Invalid(_) -> {addr: "unknown", score: 0}
+    #.Valid{addr, score} = c else {
+        .Invalid(_) -> #{addr: "unknown", score: 0}
     }
     "${addr}:${score}"
 }
 
 fn whole(c: Check) -> Int {
-    .Valid(r) = c else { {addr: "none", score: -1} }
+    .Valid(r) = c else { #{addr: "none", score: -1} }
     r.score
 }
 `
@@ -172,11 +172,11 @@ func TestPatternBindingElse_Errors(t *testing.T) {
     n
 }`, "19:15: non-exhaustive `else` on Result: missing Err"},
 		"non-exhaustive struct-variant arms": {`fn f(c: Check) -> Int {
-    .Valid{score} = c else {
-        .Invalid("x") -> {addr: "", score: 0}
+    #.Valid{score} = c else {
+        .Invalid("x") -> #{addr: "", score: 0}
     }
     score
-}`, "19:23: non-exhaustive `else` on Check: missing Invalid"},
+}`, "19:24: non-exhaustive `else` on Check: missing Invalid"},
 		"irrefutable pattern with else": {`fn f(p: #(Int, Int)) -> Int {
     #(x, y) = p else { return 0 }
     x + y
@@ -233,7 +233,7 @@ func TestPatternBindingElse_StructVariantPatternIsNotACatchAll(t *testing.T) {
 	errs := elseErrors(t, elseDecls+`
 fn f(c: Check) -> Int {
     case c {
-        .Valid{score} -> score
+        #.Valid{score} -> score
     }
 }
 `)
@@ -324,12 +324,12 @@ fn main() -> Result<Unit, String> {
 
 // A `case` arm types a struct-shaped variant's paren payload as a binding's
 // `else` fallback does: the record of its fields. `.Valid(r)` binds r to it
-// and `.Valid({addr, score})` matches it, so the arm's body is checked
+// and `.Valid(#{addr, score})` matches it, so the arm's body is checked
 // against those types.
 func TestStructVariantParenPayload_IsTheRecordOfItsFields(t *testing.T) {
 	ok := elseDecls + `fn f(c: Check) -> String {
     case c {
-        .Valid({addr, score: 0}) -> addr
+        .Valid(#{addr, score: 0}) -> addr
         .Valid(r) -> "${r.addr}:${r.score}"
         .Invalid(s) -> s
     }

@@ -194,8 +194,8 @@ struct User {
   age: Int
 }
 
-derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel}
-derive FromJson for User with FromJson.Options{rename_all: Json.Case.Camel}
+derive ToJson for User with #ToJson.Options{rename_all: Json.Case.Camel}
+derive FromJson for User with #FromJson.Options{rename_all: Json.Case.Camel}
 `
 	fa := highlight.Analyze(src, std.Load())
 	if fa == nil {
@@ -203,22 +203,23 @@ derive FromJson for User with FromJson.Options{rename_all: Json.Case.Camel}
 	}
 
 	want := map[analysis.Pos]int{
-		{Line: 8, Col: 29}: len("ToJson"),
-		{Line: 8, Col: 36}: len("Options"),
-		{Line: 8, Col: 56}: len("Json"),
-		{Line: 8, Col: 61}: len("Case"),
-		{Line: 9, Col: 31}: len("FromJson"),
-		{Line: 9, Col: 40}: len("Options"),
-		{Line: 9, Col: 60}: len("Json"),
-		{Line: 9, Col: 65}: len("Case"),
+		{Line: 8, Col: 30}: len("ToJson"),
+		{Line: 8, Col: 37}: len("Options"),
+		{Line: 8, Col: 57}: len("Json"),
+		{Line: 8, Col: 62}: len("Case"),
+		{Line: 9, Col: 32}: len("FromJson"),
+		{Line: 9, Col: 41}: len("Options"),
+		{Line: 9, Col: 61}: len("Json"),
+		{Line: 9, Col: 66}: len("Case"),
 	}
 	got := make(map[analysis.Pos]semtokens.Token)
 	for _, tok := range semtokens.Collect(fa) {
 		got[analysis.Pos{Line: tok.Line, Col: tok.Col}] = tok
-		if tok.Line == 8 && tok.Col <= 53 && tok.Col+tok.Length > 43 {
+		if tok.Line == 8 && tok.Col <= 54 && tok.Col+tok.Length > 44 {
 			t.Fatalf("semantic token bleeds into rename_all at line 8: %+v", tok)
 		}
-		if tok.Line == 9 && tok.Col <= 57 && tok.Col+tok.Length > 47 {
+		if tok.Line == 9 && tok.Col <= 58 && tok.Col+tok.Length > 48 {
+
 			t.Fatalf("semantic token bleeds into rename_all at line 9: %+v", tok)
 		}
 	}
@@ -443,10 +444,10 @@ group "numbers" {
 func TestCollect_MultilineTestContextBindingsUseTheirOwnLines(t *testing.T) {
 	src := `group "setup semantics" {
   setup {
-    {inherited: "parent", value: "child", child_only: "ready"}
+    #{inherited: "parent", value: "child", child_only: "ready"}
   }
 
-  test "setup binds its record", {
+  test "setup binds its record", #{
     inherited,
     value,
     child_only,
@@ -548,7 +549,7 @@ fn ready() -> Int {
 impl Label {
   //! assert Label.wrap("x").text == "[x]"
   fn wrap(text: String) -> Label {
-    Label{text: "[${text}]"}
+    #Label{text: "[${text}]"}
   }
 }
 `

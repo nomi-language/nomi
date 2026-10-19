@@ -13,7 +13,7 @@ func TestStdHostContextShadowDoesNotAnchor(t *testing.T) {
 		name string
 		src  string
 	}{
-		{"a struct", "pub struct Context {\n  n: Int\n}\n\nfn main() -> Unit {\n  _ = Context{n: 1}\n}\n"},
+		{"a struct", "pub struct Context {\n  n: Int\n}\n\nfn main() -> Unit {\n  _ = #Context{n: 1}\n}\n"},
 		{"a distinct newtype", "pub type Context Int\n\nfn main() -> Unit {\n  _ = Context(1)\n}\n"},
 	} {
 		t.Run(shadow.name, func(t *testing.T) {

@@ -50,23 +50,23 @@ fn dx(s: Segment) -> Int {
 }
 
 fn origin() -> Point {
-    Point{x: 0, y: 0}
+    #Point{x: 0, y: 0}
 }
 
 fn main() {
-    s = Segment{from: origin(), to: Point{x: 4, y: 9}}
+    s = #Segment{from: origin(), to: #Point{x: 4, y: 9}}
     io.print("dx = ${dx(s)}")
     io.print("to.y = ${s.to.y}")
     io.print("from.x = ${s.from.x}")
 
-    c = Config{scale: 1.5}
+    c = #Config{scale: 1.5}
     io.print("defaults = ${c.retries} ${c.label} ${c.scale}")
-    full = Config{retries: 7, label: "custom", scale: 0.5}
+    full = #Config{retries: 7, label: "custom", scale: 0.5}
     io.print("given = ${full.retries} ${full.label} ${full.scale}")
 
-    t = Tagged{mark: Marker{}, n: 12}
+    t = #Tagged{mark: #Marker{}, n: 12}
     io.print("tagged = ${t.n}")
 
-    o = Ordered{d: noisy(1), c: noisy(2)}
+    o = #Ordered{d: noisy(1), c: noisy(2)}
     io.print("ordered = ${o.a} ${o.b} ${o.c} ${o.d}")
 }

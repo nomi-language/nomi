@@ -10,10 +10,10 @@ import {
 }
 
 pub fn build(context: Context) -> EffectsApp {
-    EffectsApp{
+    #EffectsApp{
         context,
         logger: ProdLogger,
-        clock: FakeClock{at: 0},
+        clock: #FakeClock{at: 0},
         console: StdConsole,
     }
 }

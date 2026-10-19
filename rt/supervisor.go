@@ -186,7 +186,7 @@ type supervisor struct {
 // `Sender[T]`'s arrangement and is chosen for their two reasons: the field
 // stays unreachable from outside rt, and the value is copyable, so
 // `rt.Supervisor` is the Go type a `stdHostSpecs` row names without every
-// position — a struct field, a parameter, a `Config{}` literal slot — having to
+// position — a struct field, a parameter, a `#Config{}` literal slot — having to
 // spell a pointer.
 type Supervisor struct {
 	s *supervisor

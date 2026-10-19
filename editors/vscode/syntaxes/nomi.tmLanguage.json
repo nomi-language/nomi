@@ -333,9 +333,9 @@
     "operators": {
       "patterns": [
         {
-          "comment": "A map literal's `%{` opens a collection, as `#{` does; only a `%` standing alone is the remainder operator.",
+          "comment": "A map or set literal starts with `%` written right before its bracket or its type name: `%{`, `%[`, `%Kvs{`, `%.Obj{`, `%geo.Tags[`. A `%` with a space after it is the remainder operator.",
           "name": "punctuation.section.nomi",
-          "match": "%(?=\\{)"
+          "match": "%(?=[{\\[.A-Z]|[a-z_][A-Za-z0-9_]*\\.[A-Z])"
         },
         {
           "name": "keyword.operator.pipe.nomi",
@@ -430,8 +430,9 @@
     "punctuation": {
       "patterns": [
         {
+          "comment": "`#` starts a struct, tuple or vector literal: `#{`, `#(`, `#[`, or with the type name right after it, `#Point{`, `#.Circle{`, `#geo.Point{`.",
           "name": "punctuation.section.nomi",
-          "match": "#(?=[\\[{(])"
+          "match": "#(?=[{(\\[.A-Z]|[a-z_][A-Za-z0-9_]*\\.[A-Z])"
         },
         {
           "name": "punctuation.separator.nomi",

@@ -268,7 +268,7 @@ func (g *gen) boundAliasConjuncts(name string) ([]string, bool) {
 
 // aliasNamedDef is the declared type a `typealias` name stands for, when the
 // name is an alias of a named type: `typealias S Shape` makes `S.Num(2)`,
-// `S.Rec{w} -> w` and `S.Dot` name Shape's variants, and `typealias M
+// `#S.Rec{w} -> w` and `S.Dot` name Shape's variants, and `typealias M
 // Maybe<Int>` names that instance. found reports that the name is an alias
 // at all, in the order typeOf resolves one: a block-local alias, then a
 // block-local or module declaration, which shadows a module alias, then a

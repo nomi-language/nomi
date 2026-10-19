@@ -18,8 +18,8 @@ struct Outer {
 }
 interface Named { fn name(value: self) -> String }
 impl Named for Token { fn name(value: Token) -> String { _ = value; "token" } }
-fn main() { io.print(Named.name(Token)); io.inspect(Outer{p: [Point{x: 1}]}) }
-`, "token\nOuter{p: [Point{x: 1}], hooks: %{}}\n")
+fn main() { io.print(Named.name(Token)); io.inspect(#Outer{p: [#Point{x: 1}]}) }
+`, "token\n#Outer{p: [#Point{x: 1}], hooks: %{}}\n")
 }
 
 // An interface-typed parameter is an existential: the call through it is a
@@ -35,7 +35,7 @@ impl Named for Box { fn name(value: Box) -> String { "box " + Int.to_string(valu
 fn describe(value: Named) -> String { Named.name(value) }
 fn main() {
  io.print(describe(Token))
- io.print(describe(Box{n: 2}))
+ io.print(describe(#Box{n: 2}))
 }
 `
 	p, err := AnalyzeSource("main.nomi", src)

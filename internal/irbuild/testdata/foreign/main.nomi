@@ -22,7 +22,7 @@ fn note_of(l: Local) -> String {
 
 fn main() {
     // Constructed HERE, from another file's declaration.
-    here = Point{x: 3, y: 4, tag: "here"}
+    here = #Point{x: 3, y: 4, tag: "here"}
     io.print("here = ${here.x},${here.y},${here.tag}")
 
     // Constructed THERE, returned across the boundary, read here.
@@ -37,7 +37,7 @@ fn main() {
     // declared.
     empty = Reading.Empty
     whole = Reading.Whole(9)
-    labelled = Reading.Labelled{name: "n", at: o}
+    labelled = #Reading.Labelled{name: "n", at: o}
     io.print("match-here = ${tell(empty)}|${tell(whole)}|${tell(labelled)}")
 
     // The same values described by the DECLARING file, so both directions of the
@@ -48,13 +48,13 @@ fn main() {
     // either file; this fixture is about the crossing, not the pattern.
     _bounced = geometry.bounce(Meters(200))
 
-    io.print("local = ${note_of(Local{note: "mine"})}")
+    io.print("local = ${note_of(#Local{note: "mine"})}")
 }
 
 fn tell(r: Reading) -> String {
     case r {
         Reading.Empty -> "e"
         Reading.Whole(n) -> "w${n}"
-        Reading.Labelled{name, at} -> "l${name}${at.tag}"
+        #Reading.Labelled{name, at} -> "l${name}${at.tag}"
     }
 }

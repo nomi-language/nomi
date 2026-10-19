@@ -546,7 +546,7 @@ func (g *stubGen) renderType(te ast.TypeExpr, local map[string]bool, snippet boo
 		for i, f := range t.Fields {
 			fields[i] = esc(f.Name) + ": " + g.renderType(f.TypeAnnotation, local, snippet)
 		}
-		return "{" + strings.Join(fields, ", ") + "}"
+		return "#{" + strings.Join(fields, ", ") + "}"
 	}
 	if te == nil {
 		return ""

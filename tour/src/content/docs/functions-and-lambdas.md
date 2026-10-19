@@ -170,7 +170,7 @@ fn subtract(Dur(a), Dur(b)) -> Dur {
     Dur(a - b)
 }
 
-fn sum_point(Point{x, y}) -> Int {
+fn sum_point(#Point{x, y}) -> Int {
     x + y
 }
 
@@ -181,14 +181,14 @@ fn add_pair(#(a, b): #(Int, Int)) -> Int {
 fn main() {
     Dur(diff) = subtract(Dur(10), Dur(3))
     dbg diff
-    dbg sum_point(Point{x: 4, y: 5})
+    dbg sum_point(#Point{x: 4, y: 5})
     dbg add_pair(#(20, 22))
 }
 
 ```
 <!-- expect
 dbg line 22: diff = 7
-dbg line 23: sum_point(Point{x: 4, y: 5}) = 9
+dbg line 23: sum_point(#Point{x: 4, y: 5}) = 9
 dbg line 24: add_pair(#(20, 22)) = 42
 -->
 
@@ -200,7 +200,7 @@ The pattern must match every possible value of its type. Patterns like that
 are called irrefutable. Tuples, structs, distinct types such as `Dur`, and
 enums with one variant all qualify.
 
-When the pattern names a type, as `Dur(a)` and `Point{x, y}` do, you don't
+When the pattern names a type, as `Dur(a)` and `#Point{x, y}` do, you don't
 write the type again. A tuple or an anonymous struct pattern names no type,
 so it needs one, as in `#(a, b): #(Int, Int)`.
 

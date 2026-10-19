@@ -399,7 +399,7 @@ func RecordOperand(trace *[]AssertionValueContext, expr, value string, suppressR
 // The two are different renderings of the same value. A `values:` row is
 // RowText, a purely structural rendering with no Nomi dispatch in it at all. A
 // user's `impl Display for Point` changes `${p}` and does not change the row,
-// which stays `Point{x: 1, y: 2}`; a user's `impl Debug for Point` does not
+// which stays `#Point{x: 1, y: 2}`; a user's `impl Debug for Point` does not
 // change it either.
 //
 // The consequence for a composite is that the structure is shared with Format*
@@ -423,10 +423,10 @@ func InspectUnit(Unit) string { return "Unit" }
 // A constant, not derived from the type's name. The failing assertion
 //
 //	ch = Channel.buffered<Int>(1)
-//	h = Holder{s: ch.sender}
+//	h = #Holder{s: ch.sender}
 //	assert tag(h) == 2
 //
-// reports `h = Holder{s: <channel>}`. It is not the host-type bare name: `Sender` and
+// reports `h = #Holder{s: <channel>}`. It is not the host-type bare name: `Sender` and
 // `Receiver` are `pub host type` declarations and the auto-Debug for those is
 // a bare name, which would give `Sender`. And it does not
 // distinguish the two halves — a `Receiver<T>` reads `<channel>` as well —
@@ -467,17 +467,18 @@ func FunctionInspectText() string { return "<function>" }
 // InspectSeq is how an `Iter<T>` reads in a `values:` row: IterInspectText.
 func InspectSeq[T any](Seq[T]) string { return IterInspectText() }
 
-// InspectStruct is how a struct-shaped value reads in a `values:` row:
-// `Point{x: 1, y: 2}`, and `Empty{}` for one with no fields. typeName is the
-// declared name with any module qualifier already removed — nothing user-facing
-// shows the qualifier (ShortTypeName). A struct-shaped enum variant is the
-// same shape under the variant's name: `Rect(Rect{height: "z", width: 1})`.
+// InspectStruct is how a struct-shaped value reads in a `values:` row, as
+// the literal that builds it: `#Point{x: 1, y: 2}`, and `#Empty{}` for one
+// with no fields; an anonymous record (typeName "") is `#{x: 1}`. typeName
+// is the declared name with any module qualifier already removed — nothing
+// user-facing shows the qualifier (ShortTypeName). A struct-shaped enum
+// variant is the same shape under the variant's name: `#Rect{height: "z", width: 1}`.
 //
 // fields are `name: value` pairs already rendered by the caller. They are
 // ordered by field name, which is the order `Debug.inspect` renders an
 // anonymous record in. Sorting the whole composed strings instead would put
 // `a0: 2` before `a: 1` (the digit sorts before the `:`), so one record would
-// read `{a: 1, a0: 2}` from `Debug.inspect` and `{a0: 2, a: 1}` in a `values:` row.
+// read `#{a: 1, a0: 2}` from `Debug.inspect` and `#{a0: 2, a: 1}` in a `values:` row.
 // RowText calls this, so a record has one rule.
 //
 // The slice is sorted in place. Callers build it for this call and drop it.
@@ -485,7 +486,7 @@ func InspectStruct(typeName string, fields []string) string {
 	sort.SliceStable(fields, func(i, j int) bool {
 		return inspectFieldName(fields[i]) < inspectFieldName(fields[j])
 	})
-	return typeName + "{" + strings.Join(fields, ", ") + "}"
+	return "#" + typeName + "{" + strings.Join(fields, ", ") + "}"
 }
 
 // inspectFieldName is the name half of a rendered `name: value` pair. A field

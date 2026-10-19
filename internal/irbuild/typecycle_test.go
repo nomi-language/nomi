@@ -67,15 +67,15 @@ derive ToJson for Child
     case s {
         Shape.Empty -> "empty"
         Shape.One(c) -> "one ${c.n}"
-        Shape.Pair{left, right} -> "pair ${left.n} ${right.n}"
+        #Shape.Pair{left, right} -> "pair ${left.n} ${right.n}"
     }
 }
 
 fn main() {
-    leaf = Child{n: 1, parent: None, shape: Shape.Empty, held: [], head: None}
-    two = Child{n: 2, parent: None, shape: Shape.One(leaf), held: [Holder{value: 7, owner: None}], head: Some(Head{lead: leaf, label: "h"})}
-    p = Parent{name: "p", kids: [leaf, two], first: Some(leaf)}
-    c = Child{n: 3, parent: Some(p), shape: Shape.Pair{left: leaf, right: two}, held: [], head: None}
+    leaf = #Child{n: 1, parent: None, shape: Shape.Empty, held: [], head: None}
+    two = #Child{n: 2, parent: None, shape: Shape.One(leaf), held: [#Holder{value: 7, owner: None}], head: Some(#Head{lead: leaf, label: "h"})}
+    p = #Parent{name: "p", kids: [leaf, two], first: Some(leaf)}
+    c = #Child{n: 3, parent: Some(p), shape: #Shape.Pair{left: leaf, right: two}, held: [], head: None}
     io.print(describe(c.shape))
     io.print(describe(two.shape))
     io.print(describe(leaf.shape))
@@ -90,7 +90,7 @@ fn main() {
 	typeCycleWant = `pair 1 2
 one 1
 empty
-Child{n: 2, parent: None, shape: One(Child{n: 1, parent: None, shape: Empty, held: [], head: None}), held: [Holder{value: 7, owner: None}], head: Some(Head{lead: Child{n: 1, parent: None, shape: Empty, held: [], head: None}, label: "h"})}
+#Child{n: 2, parent: None, shape: One(#Child{n: 1, parent: None, shape: Empty, held: [], head: None}), held: [#Holder{value: 7, owner: None}], head: Some(#Head{lead: #Child{n: 1, parent: None, shape: Empty, held: [], head: None}, label: "h"})}
 2
 True
 False
@@ -155,9 +155,9 @@ fn walk(s: Step) -> Int {
 }
 
 fn main() {
-    inner = A{name: "inner", b: None}
-    c = C{a: inner, step: Step.Next(inner)}
-    outer = A{name: "outer", b: Some(B{cs: [c, c]})}
+    inner = #A{name: "inner", b: None}
+    c = #C{a: inner, step: Step.Next(inner)}
+    outer = #A{name: "outer", b: Some(#B{cs: [c, c]})}
     io.inspect(outer)
     io.print(walk(Step.Next(outer)))
     io.print(walk(c.step))
@@ -169,7 +169,7 @@ fn main() {
 		"b.nomi": "import c.C\n\npub struct B {\n    cs: List<C>\n}\n\nderive Equatable for B\n",
 		"c.nomi": "import a.A\n\npub struct C {\n    a: A\n    step: Step\n}\n\nderive Equatable for C\n\n" +
 			"pub enum Step {\n    Stop\n    Next A\n}\n\nderive Equatable for Step\n",
-	}, `A{name: "outer", b: Some(B{cs: [C{a: A{name: "inner", b: None}, step: Next(A{name: "inner", b: None})}, C{a: A{name: "inner", b: None}, step: Next(A{name: "inner", b: None})}]})}
+	}, `#A{name: "outer", b: Some(#B{cs: [#C{a: #A{name: "inner", b: None}, step: Next(#A{name: "inner", b: None})}, #C{a: #A{name: "inner", b: None}, step: Next(#A{name: "inner", b: None})}]})}
 3
 1
 True
@@ -185,7 +185,7 @@ func TestTypeCycle_InterfaceField(t *testing.T) {
 	}
 	typeCycleRun(t, map[string]string{
 		"main.nomi": "import {\n    std/io\n    a.A\n    b.{B, Scorer}\n}\n\n" +
-			"fn main() {\n    b = B{owner: None, bonus: 10}\n    x = A{n: 5, s: b, b: Some(b)}\n    io.print(Scorer.score(x.s, x))\n}\n",
+			"fn main() {\n    b = #B{owner: None, bonus: 10}\n    x = #A{n: 5, s: b, b: Some(b)}\n    io.print(Scorer.score(x.s, x))\n}\n",
 		"a.nomi": "import b.{B, Scorer}\n\npub struct A {\n    n: Int\n    s: Scorer\n    b: Maybe<B>\n}\n",
 		"b.nomi": "import a.A\n\npub interface Scorer {\n    fn score(value: self, a: A) -> Int\n}\n\n" +
 			"pub struct B {\n    owner: Maybe<A>\n    bonus: Int\n}\n\n" +
@@ -206,7 +206,7 @@ func TestTypeCycle_ARefusalReachesTheWholeCycle(t *testing.T) {
 	}
 	entry := stagedProgram(t, "main.nomi", map[string]string{
 		"main.nomi": "import {\n    std/io\n    a.{A, Fine}\n}\n\n" +
-			"fn main() {\n    io.print(Fine{n: 2}.n)\n    x = A{n: 1, bs: []}\n    io.print(x.n)\n}\n",
+			"fn main() {\n    io.print(#Fine{n: 2}.n)\n    x = #A{n: 1, bs: []}\n    io.print(x.n)\n}\n",
 		"a.nomi": "import b.B\n\npub struct A {\n    n: Int\n    bs: List<B>\n}\n\npub struct Fine {\n    n: Int\n}\n",
 		"b.nomi": "import a.A\n\npub enum Big {\n" + variants.String() + "}\n\n" +
 			"pub struct B {\n    big: Maybe<Big>\n    owner: Maybe<A>\n}\n",

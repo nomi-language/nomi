@@ -66,8 +66,8 @@ fn render_away(r: Result<Away, Json.ShapeError>) -> String {
 }
 
 fn main() {
-    local = Local{label: "here"}
-    local_copy = Local{label: "here"}
+    local = #Local{label: "here"}
+    local_copy = #Local{label: "here"}
     away = models.away("there")
     away_copy = models.away("there")
 
@@ -77,10 +77,10 @@ fn main() {
     io.print("local eq ${Bool.to_string(local == local_copy)}")
 
     // Gap one, entry-file route and sibling route.
-    io.print(render(Local.from_json(Json.Obj%{"label" => Json.String("x")})))
-    io.print(render(Local.from_json(Json.Obj%{"nope" => Json.Int(1)})))
-    io.print(render_away(Away.from_json(Json.Obj%{"name" => Json.String("y")})))
-    io.print(render_away(Away.from_json(Json.Obj%{"nope" => Json.Int(2)})))
+    io.print(render(Local.from_json(%Json.Obj{"label" => Json.String("x")})))
+    io.print(render(Local.from_json(%Json.Obj{"nope" => Json.Int(1)})))
+    io.print(render_away(Away.from_json(%Json.Obj{"name" => Json.String("y")})))
+    io.print(render_away(Away.from_json(%Json.Obj{"nope" => Json.Int(2)})))
 
     // Gap two.
     io.print("away eq ${Bool.to_string(away == away_copy)}")

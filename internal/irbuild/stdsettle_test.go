@@ -229,7 +229,7 @@ fn boxed(b: Box) -> Int {
 /// call it emitted would name a function nothing generates.
 fn needs_boxed(n: Int) -> Int {
   case n {
-    0 -> boxed(Box { n: n })
+    0 -> boxed(#Box { n: n })
     _ -> 1 + needs_boxed(n - 1)
   }
 }

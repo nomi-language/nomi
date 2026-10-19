@@ -53,7 +53,7 @@ func TestDeepPartialMatches_NestedAnonStructIsNotAWholeValue(t *testing.T) {
 	person, _ := mkPerson()
 	patch := anon(FieldDef{Name: "address", Type: anon(FieldDef{Name: "city", Type: TypeString})})
 	if pc().deepPartialMatches(patch, person, nil, Pos{}) {
-		t.Fatal("{address: {city: String}} should not match Partial<Person>")
+		t.Fatal("#{address: #{city: String}} should not match Partial<Person>")
 	}
 }
 
@@ -93,7 +93,7 @@ func TestDeepPartialMatches_ResolvesFieldsFromRegistry(t *testing.T) {
 	reg.Register("User", mkUser())
 	thin := &StructType{Name: "User"} // no Fields inline
 	if !pc().deepPartialMatches(anon(FieldDef{Name: "name", Type: TypeString}), thin, reg, Pos{}) {
-		t.Fatal("{name: String} should match Partial<User> via registry lookup")
+		t.Fatal("#{name: String} should match Partial<User> via registry lookup")
 	}
 }
 

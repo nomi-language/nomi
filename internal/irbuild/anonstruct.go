@@ -11,7 +11,7 @@ import (
 //
 // # The representation is a Go anonymous struct, canonicalized by field name
 //
-// `{x: Int, y: String}` becomes `struct { F_x int64; F_y string }`, which is
+// `#{x: Int, y: String}` becomes `struct { F_x int64; F_y string }`, which is
 // collections.go's tuple representation with the positions replaced by names.
 // The argument for it is the same one and it is stronger here: Go's struct type
 // identity is STRUCTURAL, and a Nomi anonymous struct's identity is structural
@@ -21,7 +21,7 @@ import (
 // reconstructing something Go already has.
 //
 // The one thing Go does NOT already have is ORDER-INSENSITIVITY. A Nomi
-// anonymous struct is unordered — `{x: 1, y: 2}` and `{y: 2, x: 1}` are ONE
+// anonymous struct is unordered — `#{x: 1, y: 2}` and `#{y: 2, x: 1}` are ONE
 // type, which analysis.TypesEqual settles by field NAME rather than by position
 // — while a Go struct type is ordered, so the two spellings would be two Go
 // types. Every kind built here is therefore canonicalized by sorting on the
@@ -31,7 +31,7 @@ import (
 //
 // Nominal identity is `(declaring file, name)` and never the shape (types.go's
 // header). A `struct Point { x: Int, y: Int }` lowers
-// to a Go DEFINED type `NomiT_Point`, and `{x: Int, y: Int}` lowers to a bare
+// to a Go DEFINED type `NomiT_Point`, and `#{x: Int, y: Int}` lowers to a bare
 // `struct { F_x int64; F_y int64 }`. The builder's kinds keep the two apart:
 // `tagNamed` carries a *typeDef and `tagAnonStruct` carries a *compKind.
 // testdata/anon_vs_nominal.nomi is the differential pin.
@@ -46,7 +46,7 @@ import (
 //
 // A record renders through rt.InspectStruct, which sorts the `name: value`
 // pairs by field name and omits the type name when there is none, so
-// `{outer: …, count: 3}` inspects as `{count: 3, outer: …}`
+// `#{outer: …, count: 3}` inspects as `#{count: 3, outer: …}`
 // (tests/07-structs-and-enums/anonymous_structs). The inspector passes
 // "" as the type name, so the order comes from rt's sort rather than from the
 // builder's field order. See inspect.go.
@@ -65,7 +65,7 @@ func (g *gen) anonStructKind(names []string, parts []kind) kind {
 		return kindInvalid
 	}
 	var nomi strings.Builder
-	nomi.WriteByte('{')
+	nomi.WriteString("#{")
 	for i, f := range fields {
 		if i > 0 {
 			nomi.WriteString(", ")
@@ -125,7 +125,7 @@ func anonFieldKind(k kind, name string) (kind, bool) {
 
 // --- the type position -------------------------------------------------------
 
-// anonStructTypeOf is the kind an `{name: T, …}` annotation names.
+// anonStructTypeOf is the kind an `#{name: T, …}` annotation names.
 func (g *gen) anonStructTypeOf(t *ast.AnonStructType) kind {
 	names := make([]string, len(t.Fields))
 	parts := make([]kind, len(t.Fields))

@@ -53,12 +53,12 @@ func TestParseMapSpread(t *testing.T) {
 	}
 }
 
-// `{..m}` names nothing that says map, so it parses as the struct spread;
+// `#{..m}` names nothing that says map, so it parses as the struct spread;
 // the checker reads the base's type and words its error for a map.
 func TestParseMapSpreadAloneIsTheStructForm(t *testing.T) {
-	expr := parseExpr(t, "{..m}")
+	expr := parseExpr(t, "#{..m}")
 	if lit, ok := expr.(*ast.StructLit); !ok || lit.Spread == nil {
-		t.Fatalf("expected a struct spread for `{..m}`, got %T", expr)
+		t.Fatalf("expected a struct spread for `#{..m}`, got %T", expr)
 	}
 }
 

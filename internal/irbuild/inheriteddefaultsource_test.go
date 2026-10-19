@@ -35,7 +35,7 @@ pub interface Powered {
     fn label(w: self) -> String
 
     fn origin(w: self) -> Point {
-        {x: 7, y: String.length(Powered.label(w))}
+        #{x: 7, y: String.length(Powered.label(w))}
     }
 }
 `,
@@ -46,7 +46,7 @@ pub interface Powered {
 
 ` + widget + `
 fn main() {
-    p: Point = Powered.origin(Widget{name: "abc"})
+    p: Point = Powered.origin(#Widget{name: "abc"})
     io.print("${p.x},${p.y}")
 }
 `,
@@ -63,7 +63,7 @@ pub interface Powered {
     fn label(w: self) -> String
 
     fn xs(w: self) -> String {
-        [Point{x: 3, y: 4}] |> Iter.map(.x) |> Iter.map(fn n -> Powered.label(w) + "${n}") |> String.join(",")
+        [#Point{x: 3, y: 4}] |> Iter.map(.x) |> Iter.map(fn n -> Powered.label(w) + "${n}") |> String.join(",")
     }
 }
 `,
@@ -74,8 +74,8 @@ pub interface Powered {
 
 ` + widget + `
 fn main() {
-    io.print(Powered.xs(Widget{name: "w"}))
-    io.print(Point{x: 1, y: 1}.x)
+    io.print(Powered.xs(#Widget{name: "w"}))
+    io.print(#Point{x: 1, y: 1}.x)
 }
 `,
 			want: "w3\n1\n",
@@ -103,12 +103,12 @@ pub struct App {
 }
 
 fn boot() -> App {
-    App{context: Context.root(), greeting: "hello"}
+    #App{context: Context.root(), greeting: "hello"}
 }
 
 ` + widget + `
 fn main() {
-    io.print(Powered.greet(Widget{name: "w"}))
+    io.print(Powered.greet(#Widget{name: "w"}))
 }
 `,
 			want: "hello w\n",
@@ -128,7 +128,7 @@ fn main() {
 
 ` + widget + `
 fn main() {
-    Powered.shout(Widget{name: "w"})
+    Powered.shout(#Widget{name: "w"})
 }
 `,
 			want: "w!\n",

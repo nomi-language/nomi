@@ -25,10 +25,10 @@ struct Reading {
 
 fn size(s: Shape) -> String {
     case s {
-        .Circle{r} or .Square{r} when r > 10.0 -> "big"
-        .Circle{r} or .Square{r} -> "radius ${r}"
-        .Rect{w: 0.0} or .Rect{h: 0.0} or .Point -> "flat"
-        .Rect{w, h} -> "${w} by ${h}"
+        #.Circle{r} or #.Square{r} when r > 10.0 -> "big"
+        #.Circle{r} or #.Square{r} -> "radius ${r}"
+        #.Rect{w: 0.0} or #.Rect{h: 0.0} or .Point -> "flat"
+        #.Rect{w, h} -> "${w} by ${h}"
     }
 }
 
@@ -78,8 +78,8 @@ fn off_axis(p: #(Int, Int)) -> Int {
 
 fn reading(r: Reading) -> String {
     case r {
-        Reading{kind: .Equilateral or .Isosceles, n} -> "equal sides ${n}"
-        Reading{n: 1 or 2} -> "small"
+        #Reading{kind: .Equilateral or .Isosceles, n} -> "equal sides ${n}"
+        #Reading{n: 1 or 2} -> "small"
         _ -> "other"
     }
 }
@@ -97,15 +97,15 @@ fn value(.L(n) or .R(n): Side) -> Int {
 }
 
 test "alternatives at the top of an arm share one body" {
-    assert size(Shape.Circle{r: 2.0}) == "radius 2.0"
-    assert size(Shape.Square{r: 3.0}) == "radius 3.0"
-    assert size(Shape.Rect{w: 0.0, h: 4.0}) == "flat"
+    assert size(#Shape.Circle{r: 2.0}) == "radius 2.0"
+    assert size(#Shape.Square{r: 3.0}) == "radius 3.0"
+    assert size(#Shape.Rect{w: 0.0, h: 4.0}) == "flat"
     assert size(Shape.Point) == "flat"
-    assert size(Shape.Rect{w: 2.0, h: 4.0}) == "2.0 by 4.0"
+    assert size(#Shape.Rect{w: 2.0, h: 4.0}) == "2.0 by 4.0"
 }
 
 test "a guard applies to the arm whichever alternative matched" {
-    assert size(Shape.Square{r: 12.0}) == "big"
+    assert size(#Shape.Square{r: 12.0}) == "big"
     assert side(Side.R(3)) == "positive 3"
     assert side(Side.L(-1)) == "left -1"
     assert side(Side.R(-2)) == "right -2"
@@ -128,9 +128,9 @@ test "alternatives nested in a payload, a tuple, a field and a list" {
     assert off_axis(#(0, 5)) == 5
     assert off_axis(#(6, 0)) == 6
     assert off_axis(#(2, 3)) == 6
-    assert reading(Reading{kind: Tri.Equilateral, n: 9}) == "equal sides 9"
-    assert reading(Reading{kind: Tri.Scalene, n: 2}) == "small"
-    assert reading(Reading{kind: Tri.Scalene, n: 7}) == "other"
+    assert reading(#Reading{kind: Tri.Equilateral, n: 9}) == "equal sides 9"
+    assert reading(#Reading{kind: Tri.Scalene, n: 2}) == "small"
+    assert reading(#Reading{kind: Tri.Scalene, n: 7}) == "other"
     assert closer([']', 'a', 'b']) == "] then 2"
     assert closer(['a']) == "short"
     assert closer(['a', 'b']) == "other"
@@ -140,7 +140,7 @@ test "alternatives in each binding position" {
     .L(n) or .R(n) = Side.R(4)
     assert n == 4
 
-    .Circle{r} or .Square{r} = Shape.Square{r: 1.5} else {
+    #.Circle{r} or #.Square{r} = #Shape.Square{r: 1.5} else {
         return
     }
 

@@ -25,11 +25,11 @@ func TestBlockLocalType_SameNamedStructsResolveFieldsToTheDeclarationInScope(t *
 	}
 	// The use (line:col of the field name) and the field it names.
 	want := map[analysis.Pos]analysis.Pos{
-		{Line: 19, Col: 15}: {Line: 15, Col: 9}, // `x` of `Point{x: 3, y: 4}` in first
+		{Line: 19, Col: 16}: {Line: 15, Col: 9}, // `x` of `#Point{x: 3, y: 4}` in first
 		{Line: 20, Col: 7}:  {Line: 15, Col: 9}, // `p.x`
 		{Line: 20, Col: 13}: {Line: 16, Col: 9}, // `p.y`
-		{Line: 28, Col: 11}: {Line: 25, Col: 9}, // `name` of `Point{name: "second"}` in second
-		{Line: 28, Col: 27}: {Line: 25, Col: 9}, // `.name`
+		{Line: 28, Col: 12}: {Line: 25, Col: 9}, // `name` of `#Point{name: "second"}` in second
+		{Line: 28, Col: 28}: {Line: 25, Col: 9}, // `.name`
 	}
 	lib := std.Load()
 	for run := 1; run <= 40; run++ {

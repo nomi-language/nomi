@@ -50,7 +50,7 @@ import (
 //
 // `ch: Channel<Int> = Channel.unbuffered()` records NO CallType: the binding's
 // annotation is not propagated into the constructor's instantiation, the same
-// case `preludeArgs` documents for `Outcome{parsed: Ok(9)}`. The annotation
+// case `preludeArgs` documents for `#Outcome{parsed: Ok(9)}`. The annotation
 // reaches the builder only as a coercion TARGET, so irchannels.go's
 // channelCtorFromTarget takes the instantiation from the target published for
 // the call, and declines when there is none.

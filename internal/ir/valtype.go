@@ -34,7 +34,7 @@ type ValKind uint8
 
 const (
 	// KindAny is an erased position: a bound-free type parameter, or the
-	// element of an untyped literal (`[]`, `#{}`, `None`) whose type argument
+	// element of an untyped literal (`[]`, `%[]`, `None`) whose type argument
 	// Nomi has not fixed at that point. Its value describes itself at run
 	// time.
 	KindAny ValKind = iota + 1
@@ -57,7 +57,7 @@ const (
 	KindDistinct
 	// KindTuple is `#(A, B, ...)`; Elems are the components in order.
 	KindTuple
-	// KindRecord is an anonymous struct `{x: A, y: B}`; Names are the field
+	// KindRecord is an anonymous struct `#{x: A, y: B}`; Names are the field
 	// names in canonical (sorted) order and Elems their types, parallel.
 	KindRecord
 	KindList
@@ -161,7 +161,7 @@ const (
 	VariantBare VariantForm = iota + 1
 	// VariantPositional carries one positional payload: `Circle(5)`.
 	VariantPositional
-	// VariantFields carries named payload fields: `Rect{w: 1, h: 2}`.
+	// VariantFields carries named payload fields: `#Rect{w: 1, h: 2}`.
 	VariantFields
 	// VariantEmbedded is an `embeds` variant: its one payload is the value.
 	VariantEmbedded
@@ -559,7 +559,7 @@ func (t *ValType) write(b *strings.Builder) {
 	case KindTuple:
 		args("#(", ")")
 	case KindRecord:
-		b.WriteString("{")
+		b.WriteString("#{")
 		for i, e := range t.elems {
 			if i > 0 {
 				b.WriteString(", ")

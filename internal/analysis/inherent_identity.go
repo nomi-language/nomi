@@ -12,7 +12,7 @@ package analysis
 //
 //	import std/calendar
 //	struct Date { flavor: String }
-//	impl Date { pub fn new(a: String, b: String) -> Date { Date{flavor: a} } }
+//	impl Date { pub fn new(a: String, b: String) -> Date { #Date{flavor: a} } }
 //
 // is refused: "duplicate type-owned function: `Date.new` is defined 2 times".
 // `std/calendar` declares its own `impl Date { pub fn new(year, month, day) }`,

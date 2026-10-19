@@ -13,5 +13,5 @@ import {
 }
 
 fn main() {
-    io.print(Shout.shout(Doodad{n: 3}))
+    io.print(Shout.shout(#Doodad{n: 3}))
 }

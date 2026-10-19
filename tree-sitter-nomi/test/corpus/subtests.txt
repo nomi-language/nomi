@@ -34,9 +34,9 @@ Subtests rows spanning lines, with a struct pattern
 
 test "points" {
   subtests [
-    Point{x: 1, y: 2},
-    Point{x: 3, y: 4},
-  ], Point{x, y} {
+    #Point{x: 1, y: 2},
+    #Point{x: 3, y: 4},
+  ], #Point{x, y} {
     assert x < y
   }
 }

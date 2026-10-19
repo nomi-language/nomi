@@ -34,7 +34,7 @@ impl Range<T> {
     //! refute Range.bounded?(Range.from(1))
     //
     pub fn from(n: Int) -> Range<Int> {
-        Range{start: n, end: None, inclusive: False}
+        #Range{start: n, end: None, inclusive: False}
     }
 
     /// Returns an unbounded ascending integer range starting at 0.
@@ -43,7 +43,7 @@ impl Range<T> {
     //! refute Range.contains?(Range.naturals(), -1)
     //
     pub fn naturals() -> Range<Int> {
-        Range{start: 0, end: None, inclusive: False}
+        #Range{start: 0, end: None, inclusive: False}
     }
 
     /// Returns a lazy iterable that advances through the range by `by`.
@@ -59,7 +59,7 @@ impl Range<T> {
     //!     |> List.equal?([1.0d, 1.1d, 1.2d, 1.3d])
     //
     pub fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S> {
-        StepByRange{range: r, by}
+        #StepByRange{range: r, by}
     }
 
     /// Whether `n` falls inside the range. Unbounded integer ranges check only
@@ -160,8 +160,8 @@ impl Iter for StepByRange<T, S> where T: Comparable and Steppable<S> {
                         True
                     } else {
                         if yield(r.start) {
-                            each_while(StepByRange{
-                                range: Range{
+                            each_while(#StepByRange{
+                                range: #Range{
                                     start: next,
                                     end: r.end,
                                     inclusive: r.inclusive,
@@ -220,7 +220,7 @@ impl Iter for Range<T> where T: Discrete {
 
                 Some(next) ->
                     if yield(r.start) {
-                        each_while(Range{start: next, end: r.end, inclusive: r.inclusive}, yield)
+                        each_while(#Range{start: next, end: r.end, inclusive: r.inclusive}, yield)
                     } else {
                         False
                     }

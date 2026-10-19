@@ -39,9 +39,9 @@ impl Combine for B {
 }
 
 pub fn a(n: Int) -> A {
-    A{n}
+    #A{n}
 }
 
 pub fn b(n: Int) -> B {
-    B{n}
+    #B{n}
 }

@@ -22,7 +22,7 @@
 //
 // A default is not decoration here. Nomi's own corpus constructs this type as
 //
-//     AssertionDetails{reason: "...", details: [...]}
+//     #AssertionDetails{reason: "...", details: [...]}
 //
 // omitting `actual`, so a lowering that ignored defaults and left a zero
 // value in place would produce a `Maybe` whose Tag is 0 and which is
@@ -86,7 +86,7 @@ fn labels(ds: List<AssertionDetail>) -> String {
 
 fn main() {
     // --- EVERY default taken ------------------------------------------------
-    all_defaults = AssertionDetails{}
+    all_defaults = #AssertionDetails{}
     io.print("all.reason = " + all_defaults.reason)
     io.print("all.actual = " + shown(all_defaults.actual))
     io.print("all.details = " + labels(all_defaults.details))
@@ -94,17 +94,17 @@ fn main() {
     // --- ONE field supplied, two defaulted ----------------------------------
     //
     // The corpus's own shape. `actual` and `details` are both untouched here.
-    only_reason = AssertionDetails{reason: "values were not equal"}
+    only_reason = #AssertionDetails{reason: "values were not equal"}
     io.print("only_reason.reason = " + only_reason.reason)
     io.print("only_reason.actual = " + shown(only_reason.actual))
     io.print("only_reason.details = " + labels(only_reason.details))
 
     // --- The corpus's exact spelling: reason + details, `actual` defaulted ---
-    with_details = AssertionDetails{
+    with_details = #AssertionDetails{
         reason: "values were not equal",
         details: [
-            AssertionDetail{label: "actual", value: "41"},
-            AssertionDetail{label: "expected", value: "42"},
+            #AssertionDetail{label: "actual", value: "41"},
+            #AssertionDetail{label: "expected", value: "42"},
         ],
     }
 
@@ -115,7 +115,7 @@ fn main() {
     // --- NOTHING defaulted, so a lowering that dropped defaults still passes
     //     this row. It is here to separate "defaults are wrong" from "the type
     //     is wrong".
-    explicit = AssertionDetails{
+    explicit = #AssertionDetails{
         reason: "explicit",
         actual: Some("41"),
         details: [],

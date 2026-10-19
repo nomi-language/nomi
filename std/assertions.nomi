@@ -110,7 +110,7 @@ pub struct SubtestFailure {
 
 impl AssertionFailure {
     /// Render this failure the same way `nomi test` and `nomi run` report it.
-    //! failure = AssertionFailure{
+    //! failure = #AssertionFailure{
     //!     line: 7,
     //!     keyword: "assert",
     //!     expression: "False",

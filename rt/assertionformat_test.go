@@ -179,17 +179,17 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 		failure: &AssertionFailure{
 			Line: 21, Keyword: "check", Expr: "same?(left, right)", Reason: "check failed",
 			Values: []AssertionValueContext{
-				{Expr: "left", Value: "Point{a: 1, b: 2}"},
-				{Expr: "right", Value: "Point{a: 9, b: 2}"},
+				{Expr: "left", Value: "#Point{a: 1, b: 2}"},
+				{Expr: "right", Value: "#Point{a: 9, b: 2}"},
 			},
 		},
 		want: "line 21: check failed\n" +
 			"  check same?(left, right)\n" +
 			"  values:\n" +
 			"    left\n" +
-			"      = Point{a: 1, b: 2}\n" +
+			"      = #Point{a: 1, b: 2}\n" +
 			"    right\n" +
-			"      = Point{a: 9, b: 2}",
+			"      = #Point{a: 9, b: 2}",
 	}, {
 		// An operand whose own expression is multi-line.
 		name: "multi-line operand expression",
@@ -211,12 +211,12 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 		name: "binding without pipeline",
 		failure: &AssertionFailure{
 			Line: 40, Keyword: "assert", Expr: "low", Reason: "score too low", Actual: "3",
-			Binding: &AssertionBindingContext{Name: "low", Expr: "Score{points: 3}", Value: "Score{points: 3}"},
+			Binding: &AssertionBindingContext{Name: "low", Expr: "#Score{points: 3}", Value: "#Score{points: 3}"},
 		},
 		want: "line 40: score too low\n" +
 			"  assert low\n" +
 			"  defined as:\n" +
-			"    Score{points: 3}\n" +
+			"    #Score{points: 3}\n" +
 			"  actual: 3",
 	}, {
 		// The binding block with pipeline stages. The stage list is not
@@ -323,13 +323,13 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 		name: "details",
 		failure: &AssertionFailure{
 			Line: 31, Keyword: "check", Expr: "low", Reason: "score too low", Actual: "3",
-			Binding: &AssertionBindingContext{Name: "low", Expr: "Score{points: 3}", Value: "Score{points: 3}"},
+			Binding: &AssertionBindingContext{Name: "low", Expr: "#Score{points: 3}", Value: "#Score{points: 3}"},
 			Details: []AssertionDetailContext{{Label: "threshold", Value: "10"}},
 		},
 		want: "line 31: score too low\n" +
 			"  check low\n" +
 			"  defined as:\n" +
-			"    Score{points: 3}\n" +
+			"    #Score{points: 3}\n" +
 			"  details:\n" +
 			"    threshold\n" +
 			"      = 10\n" +
@@ -340,7 +340,7 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 		name: "every block",
 		failure: &AssertionFailure{
 			Line: 100, Keyword: "assert", Expr: "subject", Reason: "everything failed",
-			Actual: "Wrong{}",
+			Actual: "#Wrong{}",
 			Binding: &AssertionBindingContext{
 				Name: "subject", Expr: "seed\n|> grow()",
 				Pipeline: []AssertionPipelineStage{{Expr: "seed", Value: "0"}},
@@ -350,7 +350,7 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 				{Pipeline: []AssertionPipelineStage{{Expr: "rhs", Value: "2"}}},
 			},
 			Details: []AssertionDetailContext{
-				{Label: "expected", Value: "Right{}"},
+				{Label: "expected", Value: "#Right{}"},
 				{Label: "note", Value: "two rows, in order"},
 			},
 		},
@@ -370,10 +370,10 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 			"      = 2\n" +
 			"  details:\n" +
 			"    expected\n" +
-			"      = Right{}\n" +
+			"      = #Right{}\n" +
 			"    note\n" +
 			"      = two rows, in order\n" +
-			"  actual: Wrong{}",
+			"  actual: #Wrong{}",
 	}, {
 		// An empty Actual is absence, not an empty row. Same rule the Nomi-value
 		// conversion applies when it turns "" into `None`.

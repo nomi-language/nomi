@@ -32,7 +32,7 @@ impl Bounce for Ping {
         if n == 0 {
             acc
         } else {
-            pong(Pong{base: value.base + 1}, n - 1, acc + value.base)
+            pong(#Pong{base: value.base + 1}, n - 1, acc + value.base)
         }
     }
 }
@@ -41,7 +41,7 @@ fn pong(value: Pong, n: Int, acc: Int) -> Int {
     if n == 0 {
         acc
     } else {
-        Bounce.hop(Ping{base: value.base + 1}, n - 1, acc + value.base)
+        Bounce.hop(#Ping{base: value.base + 1}, n - 1, acc + value.base)
     }
 }
 
@@ -61,7 +61,7 @@ impl Up {
         if n == 0 {
             value.step
         } else {
-            Dn.go(Dn{step: value.step + 1}, n - 1)
+            Dn.go(#Dn{step: value.step + 1}, n - 1)
         }
     }
 }
@@ -71,7 +71,7 @@ impl Dn {
         if n == 0 {
             value.step
         } else {
-            Up.go(Up{step: value.step + 1}, n - 1)
+            Up.go(#Up{step: value.step + 1}, n - 1)
         }
     }
 }
@@ -98,7 +98,7 @@ fn swapper(a: Int, b: Int, n: Int) -> Int {
     if n == 0 {
         a - b
     } else {
-        Swap.flip(Flip{}, b, a, n - 1)
+        Swap.flip(#Flip{}, b, a, n - 1)
     }
 }
 
@@ -113,10 +113,10 @@ fn through_table(b: Bounce, n: Int) -> Int {
 }
 
 fn main() {
-    io.print("bounce = ${Bounce.hop(Ping{base: 1}, 6, 0)}")
-    io.print("pong = ${pong(Pong{base: 1}, 6, 0)}")
-    io.print("impl only = ${Up.go(Up{step: 0}, 7)}")
+    io.print("bounce = ${Bounce.hop(#Ping{base: 1}, 6, 0)}")
+    io.print("pong = ${pong(#Pong{base: 1}, 6, 0)}")
+    io.print("impl only = ${Up.go(#Up{step: 0}, 7)}")
     io.print("swap even = ${swapper(3, 8, 4)}")
     io.print("swap odd = ${swapper(3, 8, 5)}")
-    io.print("table = ${through_table(Ping{base: 2}, 3)}")
+    io.print("table = ${through_table(#Ping{base: 2}, 3)}")
 }

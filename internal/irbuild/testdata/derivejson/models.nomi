@@ -7,7 +7,7 @@ pub struct Away {
 }
 
 pub fn away(name: String) -> Away {
-    Away{name}
+    #Away{name}
 }
 
 pub fn name_of(a: Away) -> String {

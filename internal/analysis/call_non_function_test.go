@@ -22,7 +22,7 @@ fn main() {
   pair = #(1, 2)
   _ = pair(3)
   _ = [1](0)
-  p = P{a: 1}
+  p = #P{a: 1}
   _ = p()
   f = fn x: Int -> x + 1
   _ = f(1)
@@ -102,7 +102,7 @@ fn applies<T>(f: (T) -> T, x: T) -> T {
 fn main() {
   _ = evens([1])
   _ = bounded(1)
-  _ = field(Box{v: 1})
+  _ = field(#Box{v: 1})
   _ = piped(1, 2)
   _ = partial(1)
   _ = iface(1)

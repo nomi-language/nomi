@@ -41,7 +41,7 @@
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1},{"expensive":false,"name":"Pipeline","namedVariables":2,"variablesReference":2}]}
 -> variables {"variablesReference":1}
-<- response variables {"variables":[{"declarationLocationReference":1,"name":"p","namedVariables":2,"type":"Point","value":"Point{x: 3, y: 4}","variablesReference":3},{"declarationLocationReference":2,"indexedVariables":3,"name":"xs","type":"List<Int>","value":"[1, 2, 3]","variablesReference":4},{"declarationLocationReference":3,"name":"label","type":"String","value":"\"pt\"","variablesReference":0}]}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"p","namedVariables":2,"type":"Point","value":"#Point{x: 3, y: 4}","variablesReference":3},{"declarationLocationReference":2,"indexedVariables":3,"name":"xs","type":"List<Int>","value":"[1, 2, 3]","variablesReference":4},{"declarationLocationReference":3,"name":"label","type":"String","value":"\"pt\"","variablesReference":0}]}
 -> continue {"threadId":1}
 <- response continue {"allThreadsContinued":true}
 <- event output {"category":"stdout","output":"25 3\n"}

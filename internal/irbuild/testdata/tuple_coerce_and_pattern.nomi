@@ -2,7 +2,7 @@
 //
 // # `untyped:` — an UNTYPED LITERAL nested inside a tuple
 //
-// `[]`, `Map.empty()`, `#{}`, `#[]` and a bare `None` have no type of their own;
+// `[]`, `Map.empty()`, `%[]`, `#[]` and a bare `None` have no type of their own;
 // the checker solves each from context. `coerce` discharged them at the TOP
 // LEVEL only, so `#(0, [])` flowing into a `#(Int, List<Int>)` position was never
 // discharged — and the same absence was reported under THREE different key

@@ -141,7 +141,7 @@ impl Dynamic {
             Ok(inner) ->
                 case sub(inner) {
                     Ok(v) -> Ok(v)
-                    Err(e) -> Err(DecodeError{
+                    Err(e) -> Err(#DecodeError{
                         path: [PathSegment.Field(name), ..e.path],
                         expected: e.expected,
                         got: e.got,
@@ -165,7 +165,7 @@ impl Dynamic {
             Ok(inner) ->
                 case sub(inner) {
                     Ok(v) -> Ok(v)
-                    Err(e) -> Err(DecodeError{
+                    Err(e) -> Err(#DecodeError{
                         path: [PathSegment.Index(i), ..e.path],
                         expected: e.expected,
                         got: e.got,

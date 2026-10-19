@@ -137,7 +137,7 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 // that embeds it (`#[circle, shape]` is a `Vector<Shape>`), as the checker
 // joins them: the embedded ones are widened after every item is lowered.
 // listMakeOf does the same for a list. Items that join no other way
-// (`#{[], [1]}`) take literal at's checked element type (of tagEmptySet or
+// (`%[[], [1]]`) take literal at's checked element type (of tagEmptySet or
 // tagEmptyVector), each coerced to it (literalItemsCoerced).
 //
 // want, when not kindInvalid, is the element kind (literalParts): every item
@@ -176,8 +176,8 @@ func (bl *irScalarBuilder) lowerSameKindItems(at ast.Node, of tag, items []ast.N
 	}
 	elem, joined := irEmbedsJoin(typedKinds)
 	if !joined || !accept(elem) || untypedLiteral(elem) {
-		// Items that differ by an empty collection (`#{[], [1]}`), or are
-		// all empty (`#{[]}` inside `#{#{[]}, #{[1]}}`), take the checked
+		// Items that differ by an empty collection (`%[[], [1]]`), or are
+		// all empty (`%[[]]` inside `%[%[[]], %[[1]]]`), take the checked
 		// element type, as a list's items do.
 		if checked, ok := bl.literalItemsCoerced(at, of, 0, typedItems, typedValues, typedKinds); ok {
 			elem, joined = checked, true

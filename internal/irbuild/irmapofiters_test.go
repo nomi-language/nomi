@@ -23,9 +23,9 @@ fn total(d: Node, key: String) -> Int {
 
 fn main() {
     empty: Map<String, Iter<Int>> = Map.empty()
-    io.inspect(Map.size(Node{f: empty}.f))
+    io.inspect(Map.size(#Node{f: empty}.f))
     runs: Map<String, Iter<Int>> = %{"a" => [1, 2, 3] |> Iter.map(fn x -> x), "b" => (1..=4) |> Iter.filter(fn x -> x > 1)}
-    n = Node{f: runs}
+    n = #Node{f: runs}
     io.inspect(Map.size(n.f))
     io.inspect(total(n, "a"))
     io.inspect(total(n, "b"))

@@ -38,11 +38,11 @@ pub fn greeting() -> String {
 }
 
 pub fn boot() -> Settings {
-    Settings{context: Context.root(), tag: "root"}
+    #Settings{context: Context.root(), tag: "root"}
 }
 
 fn main() {
-    io.print(report.describe(Circle{radius: shapes.unit}))
+    io.print(report.describe(#Circle{radius: shapes.unit}))
     io.print(report.title())
 }
 `,
@@ -96,7 +96,7 @@ pub fn title() -> String {
 }
 
 test "area" {
-    assert Shape.area(Circle{radius: 1}) > 0
+    assert Shape.area(#Circle{radius: 1}) > 0
 }
 `,
 	"settings.nomi": `import main

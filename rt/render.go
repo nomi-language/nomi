@@ -123,7 +123,7 @@ func DisplayText(v any) string {
 // vector's or map's elements, a variant's payload — rendered by elem, which is
 // the engine's Display over a nested value (a declared type's `impl Display`,
 // or this again). The spec's intrinsics table: `#(Display(a), Display(b))`,
-// `{f: Display(v)}`, `[Display(v1), ...]`, `Some(Display(v))`. DisplayText is
+// `#{f: Display(v)}`, `[Display(v1), ...]`, `Some(Display(v))`. DisplayText is
 // the assertion row's rendering, whose nested Strings are quoted.
 func DisplayTextWith(v any, elem func(any) string) string {
 	switch x := v.(type) {
@@ -153,9 +153,15 @@ func displayRecordWith(r *Record, elem func(any) string) string {
 		case VariantBare:
 			return v.Name
 		case VariantPositional:
+			if p, ok := r.Field(0).(*Record); ok && p != nil && p.Desc.Kind == KindStruct && p.Desc.Short == ShortTypeName(v.Name) {
+				// A struct-shaped variant held as its record, `#Rect{w: 1}`,
+				// reads as the same variant held as its fields does.
+				return elem(p)
+			}
 			return FormatVariant(v.Name, elem(r.Field(0)))
 		}
-		return FormatVariant(v.Name, InspectStruct(ShortTypeName(v.Name), namedParts(r, elem)))
+		return InspectStruct(ShortTypeName(v.Name), namedParts(r, elem))
+
 	case KindDistinct:
 		if r.NumFields() == 0 {
 			return r.Desc.Short
@@ -163,7 +169,7 @@ func displayRecordWith(r *Record, elem func(any) string) string {
 		return FormatVariant(r.Desc.Short, elem(r.Field(0)))
 	}
 	if r.Desc.Name == "sets.Set" {
-		// A Set reads as its members, `{1, 2}`, as its Debug does, never as
+		// A Set reads as its members, `%[1, 2]`, as its Debug does, never as
 		// the `items` map it is built on.
 		if keys, ok := setMembers(r); ok {
 			return FormatSetElems(keys, elem)
@@ -212,8 +218,8 @@ func FormatTuple(parts []string) string { return "#(" + strings.Join(parts, ", "
 // rendered payload: `Some(1)`, `Id(5)`.
 func FormatVariant(name, payload string) string { return name + "(" + payload + ")" }
 
-// FormatMapPairs joins rendered key/value pairs in the order given: `%{}` when
-// empty, `%{k => v, w => x}` otherwise. FormatMap is this over an rt.Map.
+// FormatMapPairs joins rendered key/value pairs in the order given: `%{}`
+// when empty, `%{k => v, w => x}` otherwise. FormatMap is this over an rt.Map.
 func FormatMapPairs(keys, vals []string) string {
 	if len(keys) == 0 {
 		return "%{}"
@@ -400,7 +406,7 @@ func debugRecord(r *Record, hook DebugHook) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return "{" + strings.Join(parts, ", ") + "}", nil
+		return "#{" + strings.Join(parts, ", ") + "}", nil
 	}
 	return "", fmt.Errorf("Debug on an unrepresented receiver (%s): a struct's "+
 		"Debug renders its fields in DECLARATION order through its dispatched impl, "+
@@ -429,7 +435,7 @@ func sortedDebugParts(r *Record, hook DebugHook) ([]string, error) {
 	return parts, nil
 }
 
-// debugSet is std's Set Debug: `{a, b}` over the elements in insertion order,
+// debugSet is std's Set Debug: `%[a, b]` over the elements in insertion order,
 // each through the structural Debug without the caller's hook, which is how
 // the VM renders a set.
 func debugSet(r *Record, hook DebugHook) (string, error) {

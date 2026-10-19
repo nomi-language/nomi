@@ -49,15 +49,15 @@ fn main() {
     r = Ok<Int, String>(3)
     io.inspect(Opt.Has(Some(r)))
     io.inspect(Opt.Has(Opt.Has(Some(2))))
-    io.inspect(Holder.Of{value: Some(Some(1))})
-    case Holder.Of{value: #(Shape.Circle(4), [Some("a")])} {
-        .Of{value} -> io.inspect(value)
+    io.inspect(#Holder.Of{value: Some(Some(1))})
+    case #Holder.Of{value: #(Shape.Circle(4), [Some("a")])} {
+        #.Of{value} -> io.inspect(value)
         .Empty -> io.inspect(0)
     }
     io.inspect(Plain.Deep(Some(None)))
     io.inspect(Plain.Pair(#(Shape.Dot, "p")))
-    case Plain.Polygon{sides: #(3, fn x: Int -> x * 2)} {
-        .Polygon{sides: #(n, f)} -> io.inspect(f(n))
+    case #Plain.Polygon{sides: #(3, fn x: Int -> x * 2)} {
+        #.Polygon{sides: #(n, f)} -> io.inspect(f(n))
         _ -> io.inspect(0)
     }
 }
@@ -68,7 +68,7 @@ fn main() {
 		"Has(#(Dot, \"\"))\n" +
 		"Has(Some(Ok(3)))\n" +
 		"Has(Has(Some(2)))\n" +
-		"Of{value: Some(Some(1))}\n" +
+		"#Of{value: Some(Some(1))}\n" +
 		"#(Circle(4), [Some(\"a\")])\n" +
 		"Deep(Some(None))\n" +
 		"Pair(Dot, \"p\")\n" +

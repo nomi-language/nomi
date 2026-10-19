@@ -129,7 +129,7 @@ type FileBodies struct {
 	// References maps each identifier's position to the symbol it refers to.
 	References map[Pos]*Symbol
 	// PunnedFieldLabels maps the position of a punned struct-literal field,
-	// the `context` of `App{context}` or `{context}`, to the field it
+	// the `context` of `#App{context}` or `#{context}`, to the field it
 	// labels. One token there is both the field's label and a read of the
 	// variable, and References holds the variable. Find References and
 	// rename read this map for the field. Nil until a punned label is
@@ -181,10 +181,10 @@ type FileBodies struct {
 	ExprTypes     map[ast.Node]Type
 	ExpectedTypes map[ast.Node]Type
 	// TargetStructs maps a brace literal with no type name and no spread
-	// (`{street: "1 Main", city: "Bath"}`) to the nominal struct it builds
+	// (`#{street: "1 Main", city: "Bath"}`) to the nominal struct it builds
 	// because the position expected that struct (checkTargetTypedStructLit).
 	// The IR builder lowers such a literal exactly as the named literal
-	// `Address{...}`; a brace literal absent from this map is an anonymous
+	// `#Address{...}`; a brace literal absent from this map is an anonymous
 	// struct. Generic structs carry their solved type arguments. Nil until
 	// the first record.
 	TargetStructs map[*ast.StructLit]*StructType

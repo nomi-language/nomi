@@ -59,7 +59,7 @@ struct Run {
 }
 
 fn boot() -> Run {
-  Run{context: Context.root()}
+  #Run{context: Context.root()}
 }
 `, "dbg line 34: result = \"timed out, falling back\"\n"},
 		{"a wider inner rebind keeps the outer deadline", `import {
@@ -92,7 +92,7 @@ struct Run {
 }
 
 fn boot() -> Run {
-  Run{context: Context.root()}
+  #Run{context: Context.root()}
 }
 `, "dbg line 23: outcome = Cancelled\n"},
 		{"the deadline ends with the rebinding activation", `import {
@@ -116,7 +116,7 @@ struct Run {
 }
 
 fn boot() -> Run {
-  Run{context: Context.root()}
+  #Run{context: Context.root()}
 }
 `, "dbg line 14: a = 2\n"},
 		{"a custom boot's Context field and a deadline that does not expire", `import {
@@ -131,7 +131,7 @@ struct App {
 }
 
 fn boot() -> App {
-  App{ctx: Context.root(), label: "app"}
+  #App{ctx: Context.root(), label: "app"}
 }
 
 fn quick() -> Int {
@@ -174,7 +174,7 @@ func TestIRContext_UnsupportedShapesPreserveEmission(t *testing.T) {
 		"_ = Context.with_value(Context.with_timeout(Run.context, Duration.seconds(1)), Some(1))\n 1",
 	} {
 		p, err := AnalyzeSource("main.nomi", "import std/duration.Duration\nfn run() -> Int {\n"+body+"\n}\nfn main() { _ = run() }\n"+
-			"struct Run {\n context: Context\n}\nfn boot() -> Run { Run{context: Context.root()} }")
+			"struct Run {\n context: Context\n}\nfn boot() -> Run { #Run{context: Context.root()} }")
 		if err != nil {
 			t.Fatalf("the front end now rejects this, so the preservation below is untested: %v", err)
 		}
@@ -218,7 +218,7 @@ struct Config {
 }
 
 fn boot() -> Config {
-  Config{context: Context.root()}
+  #Config{context: Context.root()}
 }
 
 fn main() {
@@ -270,7 +270,7 @@ struct Run {
 }
 
 fn boot() -> Run {
-  Run{context: Context.root()}
+  #Run{context: Context.root()}
 }
 `, true},
 	} {

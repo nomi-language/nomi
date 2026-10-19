@@ -9,7 +9,7 @@ import (
 // def that is a wrong ANSWER rather than a build error.
 //
 // `nomi` is what the derived inspector emits and what qualifiedNomiName
-// module-qualifies. A `Box<Int>` renders as `Box{item: 7}`, so an instance's
+// module-qualifies. A `Box<Int>` renders as `#Box{item: 7}`, so an instance's
 // Nomi name is the bare declaration name. Spelling it `Box<Int>` here, which
 // is what stdgenstruct.go chooses for the std family, would re-render every
 // assertion operand and every dispatch identity.
@@ -24,7 +24,7 @@ func TestGenericInstanceNomiNameIsTheBareName(t *testing.T) {
 	inst := onlyGenericInstance(t, g)
 	if inst.nomi != "Box" {
 		t.Fatalf("instance Nomi name is %q, want %q: the derived inspector emits this string and "+
-			"Debug renders `Box{item: 7}` for a Box<Int>, so any other spelling re-renders "+
+			"Debug renders `#Box{item: 7}` for a Box<Int>, so any other spelling re-renders "+
 			"every assertion operand", inst.nomi, "Box")
 	}
 }

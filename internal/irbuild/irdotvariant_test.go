@@ -88,12 +88,12 @@ struct App {
   workers: Supervisor
 }
 fn boot() -> App {
-  App{
+  #App{
     context: Context.root(),
     workers: Supervisor.new(
       max_running: 2,
       restart: .Transient,
-      backoff: .Exponential{max_restarts: 2},
+      backoff: #.Exponential{max_restarts: 2},
       on_give_up: .Exit,
     ),
   }

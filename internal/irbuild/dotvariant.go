@@ -5,7 +5,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// `.Exponential{max_restarts: 2}`, `.Off`, `.Circle(1.0)` — the leading-dot
+// `#.Exponential{max_restarts: 2}`, `.Off`, `.Circle(1.0)` — the leading-dot
 // variant shorthand in EXPRESSION position.
 //
 // # The dot means "the qualified spelling", so that is what is emitted
@@ -76,7 +76,7 @@ import (
 //
 // # What is NOT claimed
 //
-// `.Arr[1, 2, 3]` and `.Obj%{"k" => v}` — the LIST and MAP literal-attach forms
+// `.Arr[1, 2, 3]` and `%.Obj{"k" => v}` — the LIST and MAP literal-attach forms
 // — are not routed here. Their TypeName slot carries a DotVariantType too, but
 // the value under it is a list or a map literal, and those refuse for their own
 // reasons in their own files. Routing them through here would replace one
@@ -102,7 +102,7 @@ func (g *gen) qualifiedDot(t *ast.DotVariant) *ast.FieldAccess {
 }
 
 // dotEnumDef is the declaration of the monomorphic enum the checker resolved a
-// `.Variant` (or `.Variant{...}`, whose node `at` is the struct literal) to,
+// `.Variant` (or `#.Variant{...}`, whose node `at` is the struct literal) to,
 // found from the checked type at `at`, or nil.
 //
 // # THE NAME IS NOT IN THIS FILE'S SCOPE WHEN THE EXPECTED TYPE COMES FROM A CALLEE
@@ -140,7 +140,7 @@ func (g *gen) dotEnumDef(at ast.Node, resolved, variant string) *typeDef {
 // `ResolvedEnum` is a BARE declared name and the file's own tables bind only
 // what the file names. A SELECTIVE import (`import shapes.{Shape}`) puts
 // `Shape` there and the bare name resolves; a WHOLE-FILE import (`import
-// shapes`) binds only the qualifier, so for `b: shapes.Shape = .Ring{r: 7}`
+// shapes`) binds only the qualifier, so for `b: shapes.Shape = #.Ring{r: 7}`
 // the bare `Shape` does not resolve and the module-qualified spelling does.
 //
 // Returns the input unchanged when nothing better is found, so a refusal keeps

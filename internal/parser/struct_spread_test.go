@@ -8,7 +8,7 @@ import (
 	"github.com/nomi-language/nomi/internal/lexer"
 )
 
-// Struct update by spread — `{..base, field: value}`.
+// Struct update by spread — `#{..base, field: value}`.
 //
 // THE MECHANISM IS THE LIST LITERAL'S, MIRRORED. parseListLit detects a bare
 // `..` at element position and reads it as a spread, which is unambiguous
@@ -37,18 +37,17 @@ func TestParseStructSpread(t *testing.T) {
 		spread     string // %T of the head
 		fieldCount int
 	}{
-		{"{..p, a: 9}", "*ast.Ident", 1},
-		{"{..p}", "*ast.Ident", 0},
-		{"{..p, a: 9, b: 8}", "*ast.Ident", 2},
-		{"{..f(y), a: 9}", "*ast.Call", 1},
-		{"{..a.b, c: 2}", "*ast.FieldAccess", 1},
-		// Punning after a spread. `{..p, a}` cannot be a block, so the
-		// one-field ambiguity that blocks `{a}` does not apply.
-		{"{..p, a}", "*ast.Ident", 1},
+		{"#{..p, a: 9}", "*ast.Ident", 1},
+		{"#{..p}", "*ast.Ident", 0},
+		{"#{..p, a: 9, b: 8}", "*ast.Ident", 2},
+		{"#{..f(y), a: 9}", "*ast.Call", 1},
+		{"#{..a.b, c: 2}", "*ast.FieldAccess", 1},
+		// Punning after a spread.
+		{"#{..p, a}", "*ast.Ident", 1},
 		// Trailing comma.
-		{"{..p, a: 9,}", "*ast.Ident", 1},
+		{"#{..p, a: 9,}", "*ast.Ident", 1},
 		// Stacked, newline-separated.
-		{"{\n  ..p\n  a: 9\n}", "*ast.Ident", 1},
+		{"#{\n  ..p\n  a: 9\n}", "*ast.Ident", 1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.src, func(t *testing.T) {
@@ -74,11 +73,11 @@ func TestParseStructSpread(t *testing.T) {
 
 func TestParseStructSpreadRejectsBadPositions(t *testing.T) {
 	cases := map[string]struct{ src, want string }{
-		"after a field":    {"{a: 1, ..p}", "struct spread `..` must be the first element"},
-		"after a pun":      {"{a, ..p}", "struct spread `..` must be the first element"},
-		"two spreads":      {"{..a, ..b}", "struct spread `..` must be the first element"},
-		"named form":       {"Cfg{..p, a: 1}", "struct spread `..` has no named form"},
-		"named form alone": {"Cfg{..p}", "struct spread `..` has no named form"},
+		"after a field":    {"#{a: 1, ..p}", "struct spread `..` must be the first element"},
+		"after a pun":      {"#{a, ..p}", "struct spread `..` must be the first element"},
+		"two spreads":      {"#{..a, ..b}", "struct spread `..` must be the first element"},
+		"named form":       {"#Cfg{..p, a: 1}", "struct spread `..` has no named form"},
+		"named form alone": {"#Cfg{..p}", "struct spread `..` has no named form"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -108,8 +107,8 @@ func TestParseStructSpreadDoesNotDisturbRanges(t *testing.T) {
 // only claims what starts with `..`.
 func TestParseStructSpreadLeavesOtherBracesAlone(t *testing.T) {
 	cases := map[string]string{
-		"anon struct": "x = {a: 1}",
-		"pun":         "x = {a, b}",
+		"anon struct": "x = #{a: 1}",
+		"pun":         "x = #{a, b}",
 		"map":         "x = %{\"a\" => 1}",
 		"block":       "x = {\n  y = 1\n  y\n}",
 	}

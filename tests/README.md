@@ -18,10 +18,10 @@ sequence.
 - App-shaped examples include a real entry file with `fn main` and
   `pub fn boot() -> App`, or `pub fn boot(startup: Startup) -> App` when boot reads
   startup input. A `*_test.nomi` either runs that entry file with
-  `compiler.run_file(RunFile{entry_point: "main"})` and asserts the captured
+  `compiler.run_file(#RunFile{entry_point: "main"})` and asserts the captured
   output (use `RunFile.env` when the app's `boot` reads `startup.env`), or
   imports it and names its boot in a group: `boot main.boot()`, or
-  `boot main.boot(Startup{args: ["-v"]})` for a boot that takes a Startup. A
+  `boot main.boot(#Startup{args: ["-v"]})` for a boot that takes a Startup. A
   test that reads app fields needs such a group, so its directory holds an
   entry file even when the test is the only other file. Every entry's `main`
   must run.

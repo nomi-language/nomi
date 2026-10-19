@@ -27,8 +27,8 @@ struct Depot {
 }
 
 test "a List of a user struct renders in a failure row" {
-    b = Bag{
-        items: [Point{x: 1}, Point{x: 2}],
+    b = #Bag{
+        items: [#Point{x: 1}, #Point{x: 2}],
         label: "left",
     }
 
@@ -37,12 +37,12 @@ test "a List of a user struct renders in a failure row" {
 }
 
 test "the operand itself is the struct carrying the list" {
-    b = Bag{
-        items: [Point{x: 7}],
+    b = #Bag{
+        items: [#Point{x: 7}],
         label: "solo",
     }
 
-    other = Bag{items: [], label: "empty"}
+    other = #Bag{items: [], label: "empty"}
     assert b == other
 }
 
@@ -50,15 +50,15 @@ test "the operand itself is the struct carrying the list" {
 // `Bag.items` is a `List<Point>`, so the Point inspector is reached through two
 // structural components and one named one.
 test "nesting a list inside a list inside a struct" {
-    d = Depot{
+    d = #Depot{
         bags: [
-            Bag{
-                items: [Point{x: 3}],
+            #Bag{
+                items: [#Point{x: 3}],
                 label: "one",
             },
         ],
     }
 
-    empty = Depot{bags: []}
+    empty = #Depot{bags: []}
     assert d == empty
 }

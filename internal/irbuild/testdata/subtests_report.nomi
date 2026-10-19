@@ -28,7 +28,7 @@ test "a row ends at its first failed assertion" {
 }
 
 fn all_ordered(points: List<Point>) -> Result<Unit, AssertionFailure> {
-    subtests points, Point{x, y} {
+    subtests points, #Point{x, y} {
         assert x < y
     }
 
@@ -38,7 +38,7 @@ fn all_ordered(points: List<Point>) -> Result<Unit, AssertionFailure> {
 test "a helper's failed rows fail the test that calls it" {
     assert True
 
-    all_ordered([Point{x: 1, y: 2}, Point{x: 4, y: 3}])
+    all_ordered([#Point{x: 1, y: 2}, #Point{x: 4, y: 3}])
 }
 
 test "a trap in a row fails the test as a trap" {

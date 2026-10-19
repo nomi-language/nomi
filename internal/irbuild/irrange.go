@@ -125,7 +125,7 @@ func (bl *irScalarBuilder) rangeFrom(t *ast.Call, args irQualArgs, method string
 	return n.Dst(), k, false, true
 }
 
-// rangeStructLit builds std/ranges' own `Range{start: n, end: None,
+// rangeStructLit builds std/ranges' own `#Range{start: n, end: None,
 // inclusive: False}`, the body of `Range.from` and `Range.naturals`, as the
 // unbounded Int range rangeFrom builds at a call site. The VM holds a Range
 // as its own record (MakeRange), not as a declared struct, so only this

@@ -7,15 +7,15 @@ import (
 
 // A struct-shaped variant imported by name (`import
 // std/supervisors.Backoff.Exponential`) builds the variant from a bare brace
-// literal, as `Backoff.Exponential{}` does. The checker typed `Exponential{}`
+// literal, as `#Backoff.Exponential{}` does. The checker typed `#Exponential{}`
 // as the variant's constructor function and checked none of its fields.
 func TestDrillThroughStructVariantLit_TypesAsTheEnum(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`import std/supervisors.Backoff
 import std/supervisors.Backoff.Exponential
 
 fn main() {
-  a: Backoff = Exponential{}
-  b: Backoff = Exponential{max_restarts: 3}
+  a: Backoff = #Exponential{}
+  b: Backoff = #Exponential{max_restarts: 3}
   _pair = #(a, b)
 }
 `)
@@ -28,8 +28,8 @@ func TestDrillThroughStructVariantLit_ChecksFields(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`import std/supervisors.Backoff.Exponential
 
 fn main() {
-  _a = Exponential{max_restarts: "three"}
-  _b = Exponential{bogus: 1}
+  _a = #Exponential{max_restarts: "three"}
+  _b = #Exponential{bogus: 1}
 }
 `)
 	var mismatch, unknown bool

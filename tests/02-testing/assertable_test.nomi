@@ -16,11 +16,11 @@ impl Assertable for EqualsAssertion {
         if assertion.actual == assertion.expected {
             None
         } else {
-            Some(AssertionDetails{
+            Some(#AssertionDetails{
                 reason: "values were not equal",
                 details: [
-                    AssertionDetail{label: "actual", value: Debug.inspect(assertion.actual)},
-                    AssertionDetail{label: "expected", value: Debug.inspect(assertion.expected)},
+                    #AssertionDetail{label: "actual", value: Debug.inspect(assertion.actual)},
+                    #AssertionDetail{label: "expected", value: Debug.inspect(assertion.expected)},
                 ],
             })
         }
@@ -28,7 +28,7 @@ impl Assertable for EqualsAssertion {
 }
 
 fn my_equals(actual: Int, expected: Int) -> EqualsAssertion {
-    EqualsAssertion{actual, expected}
+    #EqualsAssertion{actual, expected}
 }
 
 test "custom Assertable values can pass assertions" {

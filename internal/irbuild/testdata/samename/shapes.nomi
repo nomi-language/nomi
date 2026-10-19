@@ -10,7 +10,7 @@ pub struct Point {
 }
 
 pub fn at(x: Int, y: Int) -> Point {
-    Point{x, y}
+    #Point{x, y}
 }
 
 /// `==` on shapes.Point, resolved against SHAPES' declaration.

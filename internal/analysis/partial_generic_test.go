@@ -38,7 +38,7 @@ fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False) -> List<T> {
 func TestPartialGeneric_TypesAsAFunctionOfTheOpenSlots(t *testing.T) {
 	_, errs := checkSourceWithStdlib(partialGenericDecls + `
 fn main() {
-  c = Stdout{prefix: "> "}
+  c = #Stdout{prefix: "> "}
   Iter.each(["a", "b"], Console.write_line(c, _))
   w: (String) -> Unit = Console.write_line(c, _)
   w("c")
@@ -56,7 +56,7 @@ func TestPartialGeneric_RejectsAMismatchedPartial(t *testing.T) {
 	for _, tc := range []struct{ src, want string }{
 		// The partial is a function: binding it where its result is
 		// expected is the mismatch, named with the function type.
-		{`  x: Unit = Console.write_line(Stdout{prefix: ""}, _)`, "expected Unit, got (String) -> Unit"},
+		{`  x: Unit = Console.write_line(#Stdout{prefix: ""}, _)`, "expected Unit, got (String) -> Unit"},
 		// The open slot's type is the one the written arguments solved.
 		{`  p: (String) -> #(Int, Int) = pair(1, _)`, "expected (String) -> #(Int, Int), got (Int) -> #(Int, Int)"},
 	} {

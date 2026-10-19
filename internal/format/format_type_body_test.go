@@ -128,7 +128,7 @@ struct Dog {
 }
 
 fn rename(d: Dog, new_name: String) -> Dog {
-    Dog{name: new_name, breed: d.breed}
+    #Dog{name: new_name, breed: d.breed}
 }
 
 impl Speech for Dog {

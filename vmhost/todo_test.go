@@ -97,9 +97,9 @@ fn first<T>(xs: List<T>, d: T) -> T {
 
 fn header(ready: Bool) -> Header {
     if ready {
-        Header{name: "h", size: 1}
+        #Header{name: "h", size: 1}
     } else {
-        Header{name: "h", size: todo "size"}
+        #Header{name: "h", size: todo "size"}
     }
 }
 

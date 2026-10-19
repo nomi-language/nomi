@@ -609,7 +609,7 @@ func displayValueTypeWithReceiver(t analysis.Type, receiver string) string {
 		for i, f := range v.Fields {
 			parts[i] = f.Name + ": " + displayValueTypeWithReceiver(f.Type, receiver)
 		}
-		return "{" + strings.Join(parts, ", ") + "}"
+		return "#{" + strings.Join(parts, ", ") + "}"
 	default:
 		return t.String()
 	}
@@ -1019,7 +1019,7 @@ func renderTypeExprSubstitutingSelf(te ast.TypeExpr, receiver string) string {
 }
 
 // ParamDisplayName renders a parameter's surface name for a signature: the
-// destructuring pattern (`Dur(x)`, `Point{x, y}`) when the param destructures,
+// destructuring pattern (`Dur(x)`, `#Point{x, y}`) when the param destructures,
 // otherwise the plain name. Destructure params carry a synthetic `__destr_*`
 // Name (a binding slot) that must never reach hover.
 func ParamDisplayName(p ast.Param) string {
@@ -1051,7 +1051,7 @@ func renderParamPattern(n ast.Node) string {
 		return strings.Join(parts, " or ")
 	case *ast.EnumPattern:
 		// `Dur(x)`, `Wrapper.Only(n)`, `Foo(#(a, b))`. A flat tuple payload
-		// (`Foo(a, b)`) renders its elements directly inside the `()` the
+		// (`.Pos(a, b)`) renders its elements directly inside the `()` the
 		// enum supplies — renderParamPattern of a flat TuplePattern omits its
 		// own parens.
 		s := p.Variant.TypeString()
@@ -1064,6 +1064,7 @@ func renderParamPattern(n ast.Node) string {
 		return s
 	case *ast.StructPattern:
 		var b strings.Builder
+		b.WriteString("#")
 		if p.TypeName != nil {
 			b.WriteString(p.TypeName.TypeString())
 		}
@@ -1088,12 +1089,15 @@ func renderParamPattern(n ast.Node) string {
 		for i, el := range p.Patterns {
 			parts[i] = renderParamPattern(el)
 		}
-		inner := strings.Join(parts, ", ")
 		if p.Flat {
 			// Caller (EnumPattern) supplies the surrounding parens.
-			return inner
+			return strings.Join(parts, ", ")
 		}
-		return "#(" + inner + ")"
+		head := "#"
+		if p.TypeName != nil {
+			head += p.TypeName.TypeString()
+		}
+		return head + "(" + strings.Join(parts, ", ") + ")"
 	default:
 		return ""
 	}

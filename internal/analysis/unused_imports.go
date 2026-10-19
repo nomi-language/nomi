@@ -343,8 +343,8 @@ func markQualifiedObjectUses(nodes []ast.Node, byName map[string]int, used []boo
 					}
 				}
 			}
-			// A LITERAL-ATTACH HEAD IS NOT A FieldAccess. `shapes.Circle{r: 1}`
-			// and `shapes.Shape.Ring{r: 2}` are parsed as a StructLit whose
+			// A LITERAL-ATTACH HEAD IS NOT A FieldAccess. `#shapes.Circle{r: 1}`
+			// and `#shapes.Shape.Ring{r: 2}` are parsed as a StructLit whose
 			// TypeName is a QualifiedType holding the whole dotted prefix in
 			// one string, so the FieldAccess arms above never see the module
 			// at all and the import read `unused`. Mark the prefix and every

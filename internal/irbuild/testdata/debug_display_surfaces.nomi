@@ -9,8 +9,8 @@
 //
 //	Display.to_string(v)   the user's `impl Display`         REV-DISPLAY
 //	"${v}"                 the same `impl Display`           REV-DISPLAY
-//	Debug.inspect(v)       Nomi dispatch on `impl Debug`     Rev{zeta: 1, alpha: 2}
-//	assertion `values:`    structural walk                   Rev{alpha: 2, zeta: 1}
+//	Debug.inspect(v)       Nomi dispatch on `impl Debug`     #Rev{zeta: 1, alpha: 2}
+//	assertion `values:`    structural walk                   #Rev{alpha: 2, zeta: 1}
 //
 // # Field ORDER is the load-bearing assertion in this file
 //
@@ -20,9 +20,9 @@
 // declared type, whose body names the fields in the order they were written. The
 // assertion row renders sorted, because it is a structural walk with no Nomi
 // dispatch in it (rt.InspectStruct sorts the composed `name: value` strings).
-// With `Point {x, y}` those two are the same
+// With `#Point {x, y}` those two are the same
 // string and the difference is invisible; with `zeta` before `alpha` they are
-// `{zeta: 1, alpha: 2}` and `{alpha: 2, zeta: 1}` and only one wiring passes.
+// `#{zeta: 1, alpha: 2}` and `#{alpha: 2, zeta: 1}` and only one wiring passes.
 //
 // # A hand-written `impl Debug` is the other distinguishing input
 //
@@ -132,9 +132,9 @@ fn no_bools(_v: List<Bool>) -> Bool {
 }
 
 test "the four renderings of one value" {
-    r = Rev{zeta: 1, alpha: 2}
-    c = Custom{zeta: 1, alpha: 2}
-    p = Plain{zeta: 1, alpha: 2}
+    r = #Rev{zeta: 1, alpha: 2}
+    c = #Custom{zeta: 1, alpha: 2}
+    p = #Plain{zeta: 1, alpha: 2}
     m = Meters(7)
 
     // Display: the user impl, for both types that have one.
@@ -174,17 +174,17 @@ test "the four renderings of one value" {
 // One failing assertion per type, because a `values:` row only exists on a
 // FAILING assertion — a passing one renders nothing and would pin nothing.
 test "values row for a struct with an impl Display" {
-    r = Rev{zeta: 1, alpha: 2}
+    r = #Rev{zeta: 1, alpha: 2}
     assert no_rev(r)
 }
 
 test "values row honours a hand-written impl Debug" {
-    c = Custom{zeta: 1, alpha: 2}
+    c = #Custom{zeta: 1, alpha: 2}
     assert no_custom(c)
 }
 
 test "values row for a struct with no impls at all" {
-    p = Plain{zeta: 1, alpha: 2}
+    p = #Plain{zeta: 1, alpha: 2}
     assert no_plain(p)
 }
 

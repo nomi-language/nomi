@@ -88,8 +88,8 @@ struct Outer {
 }
 fn main() {
   m = %{"a" => 1}
-  io.inspect(Outer{p: [Point{x: Map.size(m)}]})
-  io.inspect(Outer{p: [], hooks: %{"inc" => fn x: Int -> x + 1}})
+  io.inspect(#Outer{p: [#Point{x: Map.size(m)}]})
+  io.inspect(#Outer{p: [], hooks: %{"inc" => fn x: Int -> x + 1}})
 }
-`, "Outer{p: [Point{x: 1}], hooks: %{}}\nOuter{p: [], hooks: %{\"inc\" => <function>}}\n")
+`, "#Outer{p: [#Point{x: 1}], hooks: %{}}\n#Outer{p: [], hooks: %{\"inc\" => <function>}}\n")
 }

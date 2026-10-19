@@ -111,6 +111,18 @@ func (bl *irScalarBuilder) casePatternTest(br *ast.CaseBranch, adHoc bool, subj 
 		return true
 	}
 	switch {
+	case irVectorCaseKind(sk):
+		if !bl.vectorCaseTest(br.Pattern, subj, sk, target, next) {
+			irDeclineNote("a vector case pattern outside the retained element tests")
+			return false
+		}
+		return true
+	case irSetCaseKind(sk):
+		if !bl.setCaseTest(br.Pattern, subj, sk, target, next) {
+			irDeclineNote("a set case pattern outside the retained membership tests")
+			return false
+		}
+		return true
 	case irCaseListKind(sk):
 		if !bl.listCaseTest(br.Pattern, subj, sk, target, next) {
 			irDeclineNote("a list case pattern outside flat bindings and wildcards")

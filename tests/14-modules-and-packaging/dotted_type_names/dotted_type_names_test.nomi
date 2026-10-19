@@ -70,17 +70,17 @@ test "a dotted name is the qualifier in pattern position too" {
     got = case Probe.Reading.Spike(4) {
         Probe.Reading.Steady -> 0
         Probe.Reading.Spike(n) -> n
-        Probe.Reading.Blip{at} -> at
+        #Probe.Reading.Blip{at} -> at
     }
 
     assert got == 4
 }
 
 test "a struct-shaped variant of a dotted enum, built and matched" {
-    b = Probe.Reading.Blip{at: 9}
+    b = #Probe.Reading.Blip{at: 9}
 
     got = case b {
-        Probe.Reading.Blip{at} -> at
+        #Probe.Reading.Blip{at} -> at
         Probe.Reading.Steady -> 0
         Probe.Reading.Spike(n) -> n
     }
@@ -92,7 +92,7 @@ test "nested inside another pattern, and a stdlib dotted enum" {
     inner = case Maybe.Some(Probe.Reading.Steady) {
         Some(Probe.Reading.Steady) -> 1
         Some(Probe.Reading.Spike(n)) -> n
-        Some(Probe.Reading.Blip{at}) -> at
+        Some(#Probe.Reading.Blip{at}) -> at
         None -> 0
     }
 

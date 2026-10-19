@@ -12,14 +12,14 @@ const strayPromptMessage = "a `//!` attached test must start its own line"
 // A `//!` after code on its line is an error, wherever it is: on its own
 // line the same text is an attached-test prompt, so the formatter could not
 // move it to a line of its own. Found by FuzzFormatKeepsMeaning
-// (`A{a//!000000\n}`).
+// (`#A{a//!000000\n}`).
 func TestStrayPrompt_AfterCodeIsAnError(t *testing.T) {
 	cases := map[string]struct {
 		src       string
 		line, col int
 	}{
-		"after a punned field":     {"A{a//!000000\n}\n", 1, 4},
-		"after a field and comma":  {"fn f() -> A {\n  A{a: 1, //! note\n    b: 2}\n}\n", 2, 11},
+		"after a punned field":     {"#A{a//!000000\n}\n", 1, 5},
+		"after a field and comma":  {"fn f() -> A {\n  #A{a: 1, //! note\n    b: 2}\n}\n", 2, 12},
 		"after a statement":        {"fn f() -> Int {\n  x = 1 //! note\n  x\n}\n", 2, 9},
 		"after a block's brace":    {"fn f() -> Int { //! note\n  1\n}\n", 1, 17},
 		"after a declaration":      {"fn f() -> Int {\n  1\n} //! assert f() == 1\n", 3, 3},

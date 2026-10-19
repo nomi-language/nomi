@@ -32,7 +32,7 @@ func TestDbg_MultiLineShapeIsExercised(t *testing.T) {
 		t.Fatalf("the multi-line LIST operand does not wrap, so that arm of "+
 			"rt.Dbg is untested — lengthen the literals in dbg_shapes.nomi\n%s", got.stdout)
 	}
-	if !strings.Contains(got.stdout, "dbg line 73:\n  Rev{\n") {
+	if !strings.Contains(got.stdout, "dbg line 73:\n  #Rev{\n") {
 		t.Fatalf("the multi-line STRUCT operand does not wrap, so that arm of "+
 			"rt.Dbg rests on one operand type\n%s", got.stdout)
 	}

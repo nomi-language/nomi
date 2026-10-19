@@ -7,7 +7,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 // variant, a plain name matched there holds the embedded type. In
 //
 //	case value {
-//	    .Circle{radius} -> area(value)
+//	    #.Circle{radius} -> area(value)
 //	    ...
 //	}
 //

@@ -46,7 +46,7 @@ fn pick<T, K>(x: T, flip: Int = 0, key: (T) -> K) -> K {
 }
 
 fn user() -> User {
-  User{name: "Ann", age: 3, address: Address{city: "Bath"}, greet: fn s -> s}
+  #User{name: "Ann", age: 3, address: #Address{city: "Bath"}, greet: fn s -> s}
 }
 `
 
@@ -87,7 +87,7 @@ func TestFieldAccessor_Accepted(t *testing.T) {
 		{"tuple index", `fn f(p: #(Int, String)) -> String {
   apply(p, .1)
 }`},
-		{"anonymous struct", `fn f(p: {x: Int, y: Int}) -> Int {
+		{"anonymous struct", `fn f(p: #{x: Int, y: Int}) -> Int {
   apply(p, .y)
 }`},
 	}

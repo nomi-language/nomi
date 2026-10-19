@@ -14,13 +14,13 @@
 // pair of lines below is a value on which the two answers differ:
 //
 //	value                dbg says                 the values: row says
-//	Rev{zeta:1,alpha:2}  Rev{zeta: 1, alpha: 2}   Rev{alpha: 2, zeta: 1}
+//	Rev{zeta:1,alpha:2}  #Rev{zeta: 1, alpha: 2}   #Rev{alpha: 2, zeta: 1}
 //	Custom{…}            CUSTOM-DEBUG             CUSTOM-DEBUG (its hand-written impl)
 //	Meters(7)            <opaque Meters>          Meters(7)
 //	double               <function>               <func: double>
 //
 // The struct rows are FIELD ORDER (declaration versus sorted), which is why
-// every struct here declares `zeta` before `alpha` — with `Point {x, y}` the two
+// every struct here declares `zeta` before `alpha` — with `#Point {x, y}` the two
 // orders are one string and the whole file would be vacuous.
 // `TestDbg_DeclarationOrderIsNotSortedOrder` is the anti-vacuity guard.
 //
@@ -73,22 +73,22 @@ fn no_meters(_v: Meters) -> Bool {
 }
 
 test "dbg renders a struct in declaration order" {
-    r = dbg Rev{zeta: 1, alpha: 2}
+    r = dbg #Rev{zeta: 1, alpha: 2}
     refute no_rev(r)
 }
 
 test "the values row for the same struct sorts it" {
-    r = Rev{zeta: 1, alpha: 2}
+    r = #Rev{zeta: 1, alpha: 2}
     assert no_rev(r)
 }
 
 test "dbg honours a hand-written impl Debug" {
-    c = dbg Custom{zeta: 1, alpha: 2}
+    c = dbg #Custom{zeta: 1, alpha: 2}
     refute no_custom(c)
 }
 
 test "the values row for the same value honours that impl" {
-    c = Custom{zeta: 1, alpha: 2}
+    c = #Custom{zeta: 1, alpha: 2}
     assert no_custom(c)
 }
 
@@ -103,23 +103,23 @@ test "the values row for the same opaque value shows the payload" {
 }
 
 test "dbg over containers and prelude instances" {
-    _list = dbg [Rev{zeta: 1, alpha: 2}]
+    _list = dbg [#Rev{zeta: 1, alpha: 2}]
     _pair = dbg #(1, "two")
     _some = dbg Some(42)
     _none: Maybe<Int> = dbg None
-    _rec = dbg {a: 1, a0: 2}
+    _rec = dbg #{a: 1, a0: 2}
     _fn = dbg double
-    refute no_rev(Rev{zeta: 0, alpha: 0})
+    refute no_rev(#Rev{zeta: 0, alpha: 0})
 }
 
 test "a dbg in a test body prints above its own result line" {
     x = dbg 7
     io.print("after the dbg, before the report")
-    refute no_rev(Rev{zeta: x, alpha: x})
+    refute no_rev(#Rev{zeta: x, alpha: x})
 }
 
 test "a dbg above a FAILING assertion, so all three interleave" {
-    r = dbg Rev{zeta: 3, alpha: 4}
+    r = dbg #Rev{zeta: 3, alpha: 4}
     io.print("printed before the failure")
     assert no_rev(r)
 }

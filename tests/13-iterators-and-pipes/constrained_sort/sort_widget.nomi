@@ -3,7 +3,7 @@ pub struct SortWidget {
 }
 
 pub fn make(weight: Int) -> SortWidget {
-    SortWidget{weight}
+    #SortWidget{weight}
 }
 
 impl Comparable for SortWidget {

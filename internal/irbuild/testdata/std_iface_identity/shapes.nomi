@@ -30,9 +30,9 @@ impl Comparable for Point {
 }
 
 pub fn theirs() -> Display {
-    Point{tag: "theirs", weight: 7}
+    #Point{tag: "theirs", weight: 7}
 }
 
 pub fn theirs_ordered() -> Comparable {
-    Point{tag: "theirs", weight: 7}
+    #Point{tag: "theirs", weight: 7}
 }

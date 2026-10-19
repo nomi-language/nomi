@@ -2,7 +2,7 @@
 //# scalars.
 //#
 //# `"${t}"` renders a tuple as `#(Display(a), Display(b), ...)` and a record as
-//# `{f: Display(v), ...}`: each part through its own Display impl, std's for
+//# `#{f: Display(v), ...}`: each part through its own Display impl, std's for
 //# `Maybe`, `Result`, `Set` and the collections, the program's for its own
 //# types. `Display.to_string(t)` and `io.print(t)` give the same text.
 
@@ -71,30 +71,30 @@ test "a tuple holding a Result renders the variant" {
 test "a tuple holding a collection renders its elements by Display" {
     assert "${#(1, [2, 3])}" == "#(1, [2, 3])"
     assert "${#(1, %{"a" => 2})}" == "#(1, %{a => 2})"
-    assert "${#(1, #{2})}" == "#(1, #{2})"
+    assert "${#(1, %[2])}" == "#(1, %[2])"
     maybes: #(List<Maybe<Int>>, String) = #([Some(1), None], "x")
     assert "${maybes}" == "#([Some(1), None], x)"
 }
 
 test "a tuple holding a declared type renders through its impl" {
-    assert "${#(1, Point{x: 2, m: None})}" == "#(1, Point{x: 2, m: None})"
-    assert "${#(Greeter{name: "Ada"}, 2)}" == "#(hi Ada, 2)"
-    assert "${#(Box{value: 4}, Box{value: "s"})}" == "#(box of 4, box of s)"
+    assert "${#(1, #Point{x: 2, m: None})}" == "#(1, #Point{x: 2, m: None})"
+    assert "${#(#Greeter{name: "Ada"}, 2)}" == "#(hi Ada, 2)"
+    assert "${#(#Box{value: 4}, #Box{value: "s"})}" == "#(box of 4, box of s)"
     assert "${#(1, Color.Red)}" == "#(1, Red)"
     assert "${#(1, Id(4))}" == "#(1, Id(4))"
-    assert Display.to_string(#(Greeter{name: "Bo"}, Color.Green)) == "#(hi Bo, Green)"
+    assert Display.to_string(#(#Greeter{name: "Bo"}, Color.Green)) == "#(hi Bo, Green)"
 }
 
 test "a nested tuple renders each level by Display" {
     nested: #(Int, #(Maybe<Int>, String)) = #(1, #(Some(2), "x"))
     assert "${nested}" == "#(1, #(Some(2), x))"
-    assert "${#([Greeter{name: "Cy"}], 2)}" == "#([hi Cy], 2)"
+    assert "${#([#Greeter{name: "Cy"}], 2)}" == "#([hi Cy], 2)"
 }
 
 test "an anonymous record holding a Maybe renders the variant" {
-    r: {a: Int, b: Maybe<Int>} = {a: 1, b: None}
-    assert "${r}" == "{a: 1, b: None}"
-    assert "${{g: Greeter{name: "Di"}, n: 3}}" == "{g: hi Di, n: 3}"
+    r: #{a: Int, b: Maybe<Int>} = #{a: 1, b: None}
+    assert "${r}" == "#{a: 1, b: None}"
+    assert "${#{g: #Greeter{name: "Di"}, n: 3}}" == "#{g: hi Di, n: 3}"
 }
 
 test "a list of tuples holding a Maybe renders each tuple" {

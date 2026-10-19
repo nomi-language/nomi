@@ -55,9 +55,9 @@ pub fn mark_text(s: Stamp) -> String {
 }
 
 pub fn loud() -> App {
-    App{name: "loud", logger: Prod{prefix: "P"}, tag: Mark{n: 1}}
+    #App{name: "loud", logger: #Prod{prefix: "P"}, tag: #Mark{n: 1}}
 }
 
 pub fn hushed() -> App {
-    App{name: "hushed", logger: Quiet{level: 3}, tag: extra.plain()}
+    #App{name: "hushed", logger: #Quiet{level: 3}, tag: extra.plain()}
 }

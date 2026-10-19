@@ -24,7 +24,7 @@ test "a distinct type named as a value is its constructor" {
     assert ids == [Id(1), Id(2)]
     assert make(3) == Id(3)
     assert apply(Id, 4) == Id(4)
-    assert Iter.map([#(1, "a")], Pair) |> Iter.to_list() |> Debug.inspect() == "[Pair(1, \"a\")]"
+    assert Iter.map([#(1, "a")], Pair) |> Iter.to_list() |> Debug.inspect() == "[#Pair(1, \"a\")]"
 }
 
 test "a std variant named as a value is its constructor" {

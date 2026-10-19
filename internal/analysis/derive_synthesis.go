@@ -89,9 +89,9 @@ var synthSupportNames = map[string]bool{
 }
 
 // synthStdDecls are the std declarations derived code names that no prelude
-// import binds: `derive ToJson` builds `Json.Obj{...}` and `Json.String(...)`,
+// import binds: `derive ToJson` builds `%Json.Obj{...}` and `Json.String(...)`,
 // and `derive FromJson` matches `Json.Obj(fields)` and builds
-// `Json.ShapeError{...}`. A file that derives either need import only the
+// `#Json.ShapeError{...}`. A file that derives either need import only the
 // interface, so these names may be absent from its scope. Synthesized code
 // then reaches them through synthSupportScope and synthSupportRegistry, which
 // bind each name to the declaration std's own module scope holds.
@@ -192,7 +192,7 @@ func validateDeriveOptions(ifaceName string, options ast.Node, line, col int) (d
 	}
 	lit, ok := options.(*ast.StructLit)
 	if !ok || lit.TypeName == nil {
-		return opts, []TypeError{{Line: line, Col: col, Message: fmt.Sprintf("`derive %s` options must be `%s.Options{...}`", ifaceName, ifaceName)}}
+		return opts, []TypeError{{Line: line, Col: col, Message: fmt.Sprintf("`derive %s` options must be `#%s.Options{...}`", ifaceName, ifaceName)}}
 	}
 	want := ifaceName + ".Options"
 	if lit.TypeName.TypeString() != want {
@@ -1341,10 +1341,7 @@ func enumVariantPattern(enumName string, v ast.EnumVariant, suffix string, line,
 	case "positional":
 		// DataTypeExpr is either a single type or a FuncType (tuple) for
 		// arity ≥ 2. Single → one ident binding. Tuple → nested tuple
-		// pattern with one ident per arg. Canonical form is
-		// `Variant(#(a0, a1, ...))` (Flat: false); the analyzer rejects
-		// the flat shorthand for variant payloads (checker.go: "variant
-		// pattern '...': multi-binding is not supported").
+		// pattern with one ident per arg: `Variant(#(a0, a1, ...))`.
 		if ft, isTuple := v.DataTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
 			patterns := make([]ast.Node, len(ft.Params))
 			for i := range ft.Params {
@@ -1353,7 +1350,7 @@ func enumVariantPattern(enumName string, v ast.EnumVariant, suffix string, line,
 			}
 			return &ast.EnumPattern{
 				Variant: variantTypeExpr,
-				Payload: &ast.TuplePattern{Patterns: patterns, Flat: false, Line: line, Col: col},
+				Payload: &ast.TuplePattern{Patterns: patterns, Line: line, Col: col},
 				Line:    line,
 				Col:     col,
 			}
@@ -1835,7 +1832,7 @@ func (s *uniquifyState) node(n ast.Node) {
 		// bodies (empty struct, bare enum variant, zero-sized distinct).
 		e.Line, e.Col = s.bump()
 	case *ast.StringInterp:
-		// Debug synthesizer emits these for `"TypeName{... ${dbg(...)}
+		// Debug synthesizer emits these for `"#TypeName{... ${dbg(...)}
 		// ...}"` style bodies. Parts is a slice of StringText (value)
 		// and StringExpr (value) — the StringExpr's inner Expr is a
 		// regular Node and needs walking; StringText is a pure
@@ -2639,7 +2636,7 @@ func mixHashChain(parts []ast.Node, line, col int) ast.Node {
 // Collision note: the `*31 + h` mix is fragile for small-int patterns
 // the way Java's String#hashCode is — e.g. for primitive Int hashes
 // (`Hashable.hash(Int)` returns the value itself), `Hashable.hash(
-// Point{x: 0, y: 31}) == Hashable.hash(Point{x: 1, y: 0}) == 31`.
+// #Point{x: 0, y: 31}) == Hashable.hash(#Point{x: 1, y: 0}) == 31`.
 // Acceptable for v1's structural-hash contract (collisions reduce hash
 // quality but don't violate the equals/hash agreement); upgrade to a
 // proper FNV-1a / SipHash mix if a real workload demands it.
@@ -3075,7 +3072,7 @@ func synthesizeDeriveDisplay(typeNode ast.Node, site synthSite) []ast.Node {
 // each nested value):
 //
 //   - Struct: `TypeName{f1: <iface(value.f1)>, f2: ...}`. Empty struct →
-//     bare static `"TypeName{}"`.
+//     bare static `"#TypeName{}"`.
 //   - Enum: `case value { ... }` with one branch per variant. Variant names
 //     are emitted bare (not `EnumName.Variant`), matching how stringification
 //     works in most languages (Java enum.toString, Rust Debug for enums).
@@ -3084,7 +3081,7 @@ func synthesizeDeriveDisplay(typeNode ast.Node, site synthSite) []ast.Node {
 //   - positional arity ≥2: `"VariantName(<iface(p0)>, <iface(p1)>, ...)"`
 //     (no extra parens around the tuple — the runtime represents the
 //     payload as a tuple, but the output mirrors the construction form).
-//   - struct payload:      `"VariantName{f: <iface>, ...}"`
+//   - struct payload:      `"#VariantName{f: <iface>, ...}"`
 //   - embedded:            `"<iface(inner)>"` — bare delegation; an
 //     embedded variant transparently behaves as the embedded type at
 //     the value level, so its output is the embedded value's output
@@ -3154,10 +3151,10 @@ func stringifyBody(iface string, typeNode ast.Node, wrapping map[string]bool, li
 
 // stringifyStructExpr builds the struct body's interpolation expression. Each
 // field renders as `<name>: ${<iface>.to_string(value.<name>)}`. Empty struct
-// → static `"TypeName{}"` literal.
+// → static `"#TypeName{}"` literal.
 func stringifyStructExpr(iface, typeName string, fields []ast.StructField, line, col int) ast.Node {
 	if len(fields) == 0 {
-		return staticString(typeName+"{}", line, col)
+		return staticString("#"+typeName+"{}", line, col)
 	}
 	exprs := make([]fieldDbg, len(fields))
 	for i, f := range fields {
@@ -3265,7 +3262,8 @@ func stringifyDistinctStmts(iface string, t *ast.TypeDef, line, col int) []ast.N
 		for i := range ft.Params {
 			exprs[i] = fieldAccess(identExpr("inner", line, col), strconv.Itoa(i), line, col)
 		}
-		stmts = append(stmts, exprStmt(stringifyTupleLikeBody(iface, t.Name, exprs, line, col), line, col))
+		// `#Pair(1, "x")`: the literal that builds it.
+		stmts = append(stmts, exprStmt(stringifyTupleLikeBody(iface, "#"+t.Name, exprs, line, col), line, col))
 		return stmts
 	}
 	// Single inner value → `TypeName(<iface inner>)`.
@@ -3283,17 +3281,17 @@ type fieldDbg struct {
 
 // stringifyStructLikeBody emits the interpolation for a record-shaped value:
 //
-//	"TypeName{f1: ${<iface>.to_string(<expr1>)}, f2: ${<iface>.to_string(<expr2>)}, ...}"
+//	"#TypeName{f1: ${<iface>.to_string(<expr1>)}, f2: ${<iface>.to_string(<expr2>)}, ...}"
 //
-// 0 fields collapses to the static `"TypeName{}"` (no interpolation slots).
+// 0 fields collapses to the static `"#TypeName{}"` (no interpolation slots).
 // Reused for top-level structs and enum struct-payload variants.
 func stringifyStructLikeBody(iface, typeName string, fields []fieldDbg, line, col int) ast.Node {
 	if len(fields) == 0 {
-		return staticString(typeName+"{}", line, col)
+		return staticString("#"+typeName+"{}", line, col)
 	}
 	parts := make([]ast.StringPart, 0, 2*len(fields)+2)
-	// Leading "TypeName{f1: "
-	parts = append(parts, ast.StringText{Value: typeName + "{" + fields[0].name + ": "})
+	// Leading "#TypeName{f1: "
+	parts = append(parts, ast.StringText{Value: "#" + typeName + "{" + fields[0].name + ": "})
 	parts = append(parts, ast.StringExpr{Expr: stringifyToStringCall(iface, fields[0].expr, line, col)})
 	for i := 1; i < len(fields); i++ {
 		parts = append(parts, ast.StringText{Value: ", " + fields[i].name + ": "})
@@ -3838,7 +3836,7 @@ func fromJsonStructFieldsExpr(fields []ast.StructField, build func([]ast.StructF
 		// declaration's node with the synthesized body: uniquifyPositions
 		// would restamp the declaration's positions into the synthesized
 		// band, and would refuse any default expression its walker does not
-		// list (`#{}`, a lambda).
+		// list (`%[]`, a lambda).
 		missing = fromJsonStructFieldsExpr(fields, build, opts, idx+1, decoded, line, col)
 	default:
 		missing = errCall(&ast.StructLit{

@@ -8,7 +8,7 @@ import std/json.{FromJson, Json}
 fn decode<T>(source: String) -> Result<T, Json.ShapeError> where T: FromJson {
     case Json.decode(source) {
         Ok(parsed) -> FromJson.from_json<T>(parsed)
-        Err(_) -> Err(Json.ShapeError{path: [], expected: "json", got: "invalid"})
+        Err(_) -> Err(#Json.ShapeError{path: [], expected: "json", got: "invalid"})
     }
 }
 

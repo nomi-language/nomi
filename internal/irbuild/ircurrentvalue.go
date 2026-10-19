@@ -3,9 +3,9 @@ package irbuild
 // A bare `..` (*ast.CurrentValue) in an update literal: the value already at
 // the field or key the literal is written at.
 //
-//	{..user, address: {.., city: "NYC"}}
+//	#{..user, address: #{.., city: "NYC"}}
 //	%{..team, "address" => %{.., "city" => "Atlanta"}}
-//	{..account, transactions: [t, ..]}
+//	#{..account, transactions: [t, ..]}
 //
 // The update that owns the position reads the old value there and records it
 // for the `..` (bl.current) before it lowers the literal, which then lowers as
@@ -115,7 +115,7 @@ func (bl *irScalarBuilder) emptyOf(at ast.Node, k kind) (ir.Temp, kind, bool, bo
 	return v, k, false, true
 }
 
-// updateBuild lowers the struct update `{.., f: v}` at a position that holds
+// updateBuild lowers the struct update `#{.., f: v}` at a position that holds
 // no value: the struct of kind k built from the fields written and, for a
 // declared struct, the defaults of the others. A field written as an update
 // literal holds no value either, and is built the same way.
@@ -221,7 +221,7 @@ func patchHasHole(lit *ast.StructLit) bool {
 	return false
 }
 
-// setUpdate builds `#{..base, x}`: the base, then the elements as a set
+// setUpdate builds `%[..base, x]`: the base, then the elements as a set
 // literal, then `Set.union(base, literal)`, so the base's elements keep their
 // places and new ones follow, as Map.merge orders a map's keys.
 func (bl *irScalarBuilder) setUpdate(t *ast.SetLit) (ir.Temp, kind, bool, bool) {
@@ -257,7 +257,7 @@ func (bl *irScalarBuilder) setUpdate(t *ast.SetLit) (ir.Temp, kind, bool, bool) 
 }
 
 // structUpdateHoles lowers `Struct.update(base, patch)` whose patch updates a
-// field in place (`{address: {.., city: "NYC"}}`) when the patch is evaluated
+// field in place (`#{address: #{.., city: "NYC"}}`) when the patch is evaluated
 // before the base (it is named first) or recorded for an assertion's
 // `values:` row. An update literal reads its field from the base, so it is
 // lowered after the base; every other field keeps its place in the order the

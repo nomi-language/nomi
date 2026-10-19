@@ -37,7 +37,7 @@ const plantedBadFieldDefault = `struct Cfg {
 }
 
 fn main() {
-  _ = Cfg{}.port
+  _ = #Cfg{}.port
 }
 `
 
@@ -245,7 +245,7 @@ func TestFieldDefault_RejectsAtTheDeclaration(t *testing.T) {
 			src: `struct Cfg {
   port: Int = "not an int"
 }
-fn main() { _ = Cfg{}.port }
+fn main() { _ = #Cfg{}.port }
 `,
 			want: "field 'port' of Cfg: expected Int, got String",
 		},
@@ -259,9 +259,9 @@ struct NoClock {
   t: Int
 }
 struct Cfg {
-  clock: Clock = NoClock{t: 7}
+  clock: Clock = #NoClock{t: 7}
 }
-fn main() { _ = Cfg{} }
+fn main() { _ = #Cfg{} }
 `,
 			want: "field 'clock' of Cfg: expected Clock, got NoClock",
 		},
@@ -274,7 +274,7 @@ fn main() { _ = Cfg{} }
 struct Cfg {
   clock: Clock = 5
 }
-fn main() { _ = Cfg{} }
+fn main() { _ = #Cfg{} }
 `,
 			want: "field 'clock' of Cfg: expected Clock, got Int",
 		},
@@ -300,7 +300,7 @@ fn main() { _ = Status.Gone }
   struct Local {
     v: Int = "bad"
   }
-  Local{}.v
+  #Local{}.v
 }
 fn main() { _ = f() }
 `,
@@ -319,7 +319,7 @@ fn main() { _ = f() }
 struct Owner.Options {
   flag: Int = "bad"
 }
-fn main() { _ = Owner{n: 1} }
+fn main() { _ = #Owner{n: 1} }
 `,
 			want: "field 'flag' of Owner.Options: expected Int, got String",
 		},
@@ -389,7 +389,7 @@ pub struct Cfg {
   context: Context = Context.root()
   port: Int = 3000
 }
-fn main() { _ = Cfg{}.port }
+fn main() { _ = #Cfg{}.port }
 `,
 		},
 		{
@@ -403,7 +403,7 @@ pub struct MyApp<T> {
   context: Context = Context.root()
   config: T
 }
-fn main() { _ = MyApp{config: 42}.config }
+fn main() { _ = #MyApp{config: 42}.config }
 `,
 		},
 		{
@@ -422,9 +422,9 @@ impl Clock for FakeClock {
   fn at(c: FakeClock) -> Int { c.t }
 }
 struct Cfg {
-  clock: Clock = FakeClock{t: 1}
+  clock: Clock = #FakeClock{t: 1}
 }
-fn main() { _ = Clock.at(Cfg{}.clock) }
+fn main() { _ = Clock.at(#Cfg{}.clock) }
 `,
 		},
 		{
@@ -440,7 +440,7 @@ fn main() { _ = Clock.at(Cfg{}.clock) }
 struct Cfg {
   restart: Restart = .Temporary
 }
-fn main() { _ = Cfg{} }
+fn main() { _ = #Cfg{} }
 `,
 		},
 		{
@@ -450,7 +450,7 @@ fn main() { _ = Cfg{} }
 			src: `struct Cfg {
   tasks: Map<Int, String> = Map.empty()
 }
-fn main() { _ = Cfg{} }
+fn main() { _ = #Cfg{} }
 `,
 		},
 		{
@@ -461,7 +461,7 @@ fn main() { _ = Cfg{} }
   label: String = "unnamed"
   inner: T
 }
-fn main() { _ = Box{inner: 7}.label }
+fn main() { _ = #Box{inner: 7}.label }
 `,
 		},
 		{
@@ -474,7 +474,7 @@ fn main() { _ = Box{inner: 7}.label }
   items: List<T> = []
   inner: T
 }
-fn main() { _ = Box{inner: 7}.items }
+fn main() { _ = #Box{inner: 7}.items }
 `,
 		},
 		{
@@ -548,12 +548,12 @@ impl Clock for RealClock {
 }
 
 pub struct Cfg {
-  clock: Clock = RealClock{base: 42}
-  spare: Clock = FakeClock{t: 1}
+  clock: Clock = #RealClock{base: 42}
+  spare: Clock = #FakeClock{t: 1}
 }
 
 fn main() {
-  _ = Clock.at(Cfg{}.clock)
+  _ = Clock.at(#Cfg{}.clock)
 }
 `
 	lib := std.Load()
@@ -612,7 +612,7 @@ fn main() {
 //
 // `std` reads 11: std/assertions 3, std/compiler 2, std/json 2,
 // std/startup 2 (`Startup` declares `env` and `args` with empty defaults, so
-// `Startup{}` is an empty Startup) and std/supervisors 2 (the fields of the
+// `#Startup{}` is an empty Startup) and std/supervisors 2 (the fields of the
 // `Backoff.Exponential` record variant).
 //
 // `tour (nomi-run)` reads 1 rather than 2 because the same cutover removed
@@ -623,7 +623,7 @@ fn main() {
 // survivor the census prints is `structs-enums-distinct.md:L29`'s `age@3:3`.
 var fieldDefaultDenominator = map[string]int{
 	"std":             13,
-	"tests":           42,
+	"tests":           44,
 	"tour (nomi-run)": 1,
 	"tour (nomi)":     0,
 }
@@ -811,7 +811,7 @@ pub struct Cfg {
 }
 
 pub fn make() -> Cfg {
-  Cfg{}
+  #Cfg{}
 }
 `
 	const badModuleSrc = `
@@ -821,7 +821,7 @@ pub struct Cfg {
 }
 
 pub fn make() -> Cfg {
-  Cfg{}
+  #Cfg{}
 }
 `
 	const importerSrc = `import cfg

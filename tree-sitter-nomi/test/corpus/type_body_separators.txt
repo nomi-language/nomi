@@ -99,10 +99,9 @@ struct Point {
       (field_definition
         name: (identifier)
         type: (type_identifier))
-      (MISSING "}")))
-  (ERROR
-    (identifier)
-    (type_identifier)))
+      (ERROR
+        (identifier)
+        (type_identifier)))))
 
 ================================================================================
 two interface functions on one line are an error
@@ -123,16 +122,15 @@ interface Named {
         (parameter
           name: (identifier)
           (self_type)))
-      return_type: (type_identifier))
-    (MISSING "}"))
-  (function_definition
-    name: (identifier)
-    (parameters
-      (parameter
-        name: (identifier)
-        (self_type)))
-    return_type: (type_identifier))
-  (ERROR))
+      (ERROR
+        (type_identifier)
+        (identifier)
+        (identifier))
+      return_type: (function_type
+        (ERROR
+          (identifier))
+        (self_type)
+        (type_identifier)))))
 
 ================================================================================
 two enum variants on one line are an error

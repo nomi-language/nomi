@@ -97,14 +97,14 @@ fn mixed<T>(x: T) -> String where T: Display and Greet {
 }
 
 fn main() {
-    io.print(both(Meters{amount: 3}))
-    io.print(both(Label{head: "a", tail: "b"}))
-    io.print(reversed(Meters{amount: 4}))
-    io.print(reversed(Label{head: "c", tail: "d"}))
-    io.print(only_second(Meters{amount: 5}))
-    io.print(only_second(Label{head: "e", tail: "f"}))
-    io.print(relay(Meters{amount: 6}))
-    io.print(relay(Label{head: "g", tail: "h"}))
-    io.print(mixed(Meters{amount: 7}))
-    io.print(mixed(Label{head: "i", tail: "j"}))
+    io.print(both(#Meters{amount: 3}))
+    io.print(both(#Label{head: "a", tail: "b"}))
+    io.print(reversed(#Meters{amount: 4}))
+    io.print(reversed(#Label{head: "c", tail: "d"}))
+    io.print(only_second(#Meters{amount: 5}))
+    io.print(only_second(#Label{head: "e", tail: "f"}))
+    io.print(relay(#Meters{amount: 6}))
+    io.print(relay(#Label{head: "g", tail: "h"}))
+    io.print(mixed(#Meters{amount: 7}))
+    io.print(mixed(#Label{head: "i", tail: "j"}))
 }

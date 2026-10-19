@@ -66,10 +66,10 @@ pub fn show(x: Int, flag: Bool = is_some(None)) -> String {
 
 // A generic type's argument nothing determines is a fresh inference
 // variable in the checker, filled by its position in the builder: a struct
-// variant literal (`Either2.L{a: 1}`), a positional variant (`E.X(1)`), a
+// variant literal (`#Either2.L{a: 1}`), a positional variant (`E.X(1)`), a
 // payload-free one (`E.Z`, an imported `Empty`), a struct whose parameter
-// no field names (`Tag{n: 3}`), and a literal passed where a generic
-// callee's own parameter is expected (`left(Either2.R{b: "s"})`). Two
+// no field names (`#Tag{n: 3}`), and a literal passed where a generic
+// callee's own parameter is expected (`left(#Either2.R{b: "s"})`). Two
 // variants that each fix one argument meet in a list.
 func TestUnsolvedTypeArg_AGenericLiteralWithAnOpenArgumentRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import {
@@ -99,8 +99,8 @@ struct Tag<T> {
 
 fn left<A, B>(e: Either2<A, B>) -> Bool {
     case e {
-        .L{a: _} -> True
-        .R{b: _} -> False
+        #.L{a: _} -> True
+        #.R{b: _} -> False
     }
 }
 
@@ -113,20 +113,20 @@ fn tag<T>(e: E<T, String>) -> String {
 }
 
 fn main() {
-    l = Either2.L{a: 1}
+    l = #Either2.L{a: 1}
     io.inspect(l)
     io.print(left(l))
-    io.print(left(Either2.R{b: "s"}))
-    io.inspect([Either2.L{a: 1}, Either2.R{b: "s"}])
+    io.print(left(#Either2.R{b: "s"}))
+    io.inspect([#Either2.L{a: 1}, #Either2.R{b: "s"}])
     io.print(tag(E.Y("y")))
     io.print(tag(E.Z))
     io.inspect(E.X(1))
     io.inspect(#(E.Z, 1))
     io.inspect(Empty)
     io.inspect(shapes.Holder.Empty)
-    io.inspect(Tag{n: 3})
+    io.inspect(#Tag{n: 3})
 }
-`, "L{a: 1}\nTrue\nFalse\n[L{a: 1}, R{b: \"s\"}]\ny\nz\nX(1)\n#(Z, 1)\nEmpty\nEmpty\nTag{n: 3}\n", map[string]string{"shapes.nomi": `pub enum Holder<T> {
+`, "#L{a: 1}\nTrue\nFalse\n[#L{a: 1}, #R{b: \"s\"}]\ny\nz\nX(1)\n#(Z, 1)\nEmpty\nEmpty\n#Tag{n: 3}\n", map[string]string{"shapes.nomi": `pub enum Holder<T> {
     Of T
     Empty
 }

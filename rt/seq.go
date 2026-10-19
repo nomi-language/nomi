@@ -121,7 +121,7 @@ func FromEach(fr *Frame, start int64, yield func(fr *Frame, item int64) bool) bo
 }
 
 // SeqFrom is `pub fn from(start: Int) -> Iter<Int>`, whose whole body is
-// `Seq{run: fn yield: (Int) -> Bool -> from_each(start, yield)}`.
+// `#Seq{run: fn yield: (Int) -> Bool -> from_each(start, yield)}`.
 func SeqFrom(start int64) Seq[int64] {
 	return Seq[int64]{Run: func(fr *Frame, yield func(fr *Frame, item int64) bool) bool {
 		return FromEach(fr, start, yield)
@@ -133,7 +133,7 @@ func SeqFrom(start int64) Seq[int64] {
 // Each pair below is one Nomi declaration lowered, and the split is the split
 // std itself makes: a `host fn <name>_each` that mediates the protocol, plus a
 // one-line `pub fn <name>` whose entire body is
-// `Seq{run: fn yield -> <name>_each(...)}`.
+// `#Seq{run: fn yield -> <name>_each(...)}`.
 //
 // So `SeqMap` is not a Go reimplementation of `Iter.map` — it is `Iter.map`'s
 // body, which the stdlib lowering path cannot reach because the function is
@@ -156,7 +156,7 @@ func SeqFrom(start int64) Seq[int64] {
 // `continue` are refused by name at the call site. The remaining three
 // collapse into one line here, and that is not a simplification, it is what
 // the signals mean once the callback is a Go func: a returned value is yielded,
-// and a callback whose result kind is `Unit` returns `Unit{}` — so
+// and a callback whose result kind is `Unit` returns `#Unit{}` — so
 // `yield(fr, f(fr, item))` is all three.
 func MapEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) U, yield func(fr *Frame, item U) bool) bool {
 	return src.Run(fr, func(fr *Frame, item T) bool {

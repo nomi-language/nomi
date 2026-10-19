@@ -62,7 +62,7 @@ impl Literal for Doc {
             }
         })
 
-        Doc{body}
+        #Doc{body}
     }
 }
 
@@ -92,7 +92,7 @@ fn main() {
 
     // Heterogeneous slots through an existential: two DIFFERENT types in one
     // list, each dispatching its own `impl Display`.
-    d = Doc"a=${Tick{n: 7}} b=${Tag{name}}"
+    d = Doc"a=${#Tick{n: 7}} b=${#Tag{name}}"
     io.print(d.body)
 
     // Source order: each slot prints as it is evaluated, so a chain built right

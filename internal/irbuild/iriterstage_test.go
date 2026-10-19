@@ -46,7 +46,7 @@ struct Countdown {
 
 impl Iter for Countdown {
   fn each_while(c: Countdown, yield: (Int) -> Bool) -> Bool {
-    if c.from <= 0 { True } else { if yield(c.from) { each_while(Countdown{from: c.from - 1}, yield) } else { False } }
+    if c.from <= 0 { True } else { if yield(c.from) { each_while(#Countdown{from: c.from - 1}, yield) } else { False } }
   }
 }
 
@@ -56,17 +56,17 @@ fn main() {
   io.inspect([1, 2, 3] |> Iter.to_vector())
   io.inspect(#["a", "b"] |> Iter.to_vector())
   three = 3
-  io.inspect(#{3, 1, three} |> Iter.to_vector())
+  io.inspect(%[3, 1, three] |> Iter.to_vector())
   io.inspect(%{"a" => 1, "b" => 2} |> Iter.to_vector())
   io.inspect("hé" |> Iter.to_vector())
   io.inspect(1..=3 |> Iter.to_vector())
   io.inspect(String.to_bytes("ab") |> Iter.to_vector() |> Vector.length())
-  io.inspect(Countdown{from: 2} |> Iter.to_vector())
+  io.inspect(#Countdown{from: 2} |> Iter.to_vector())
   io.inspect(Iter.from(1) |> Iter.filter(fn x -> x % 2 == 0) |> Iter.map(fn x -> x * 10) |> Iter.take(2) |> Iter.to_vector())
   empty: List<Int> = []
   io.inspect(Iter.to_vector(empty))
   io.inspect(collect(1..3))
-  io.inspect(collect(Countdown{from: 1}))
+  io.inspect(collect(#Countdown{from: 1}))
   io.inspect(collect(["p", "q"]))
 }
 `
@@ -87,7 +87,7 @@ struct Countdown {
 
 impl Iter for Countdown {
   fn each_while(c: Countdown, yield: (Int) -> Bool) -> Bool {
-    if c.from <= 0 { True } else { if yield(c.from) { each_while(Countdown{from: c.from - 1}, yield) } else { False } }
+    if c.from <= 0 { True } else { if yield(c.from) { each_while(#Countdown{from: c.from - 1}, yield) } else { False } }
   }
 }
 
@@ -97,16 +97,16 @@ fn main() {
   io.print(String.join(["a", "b", "c"], ", "))
   io.print(String.join(["he", "llo"]))
   io.print("[" + String.join([], "-") + "]")
-  io.print(#{"solo"} |> String.join(", "))
+  io.print(%["solo"] |> String.join(", "))
   io.print(#["x", "y"] |> String.join("+"))
   io.print("héllo" |> String.join("."))
   io.print("héllo" |> Iter.map(String.to_upper) |> String.join())
   io.print(1..=3 |> Iter.map(Int.to_string) |> String.join("-"))
-  io.print(Countdown{from: 3} |> Iter.map(Int.to_string) |> String.join(","))
+  io.print(#Countdown{from: 3} |> Iter.map(Int.to_string) |> String.join(","))
   io.print(Iter.from(1) |> Iter.filter(fn x -> x % 2 == 0) |> Iter.map(Int.to_string) |> Iter.take(3) |> String.join(" "))
   io.print(%{"k" => 1} |> Iter.map(fn #(k, v) -> k + "=" + Int.to_string(v)) |> String.join("&"))
   io.print(joined(["p", "q"]))
-  io.print(joined(#{"r"}))
+  io.print(joined(%["r"]))
 }
 `
 
@@ -121,13 +121,13 @@ func TestIRStringJoin_EverySourceFamily(t *testing.T) {
 const irSetAlgebraSource = `import std/io
 
 fn main() {
-  a = #{1, 2, 3}
-  b = #{2, 3, 4}
+  a = %[1, 2, 3]
+  b = %[2, 3, 4]
   io.inspect(Set.union(a, b))
   io.inspect(Set.intersection(a, b))
   io.inspect(Set.difference(a, b))
-  io.inspect(Set.subset?(#{1, 2}, a))
-  io.inspect(Set.subset?(#{1, 9}, a))
+  io.inspect(Set.subset?(%[1, 2], a))
+  io.inspect(Set.subset?(%[1, 9], a))
   io.inspect(Iter.to_set([5, 4, 5]))
   io.inspect(List.compare([1, 2, 3], [1, 2, 4]))
   io.inspect(List.compare([1, 2], [1, 2]))
@@ -139,7 +139,7 @@ fn main() {
 // order; List.compare and Vector.compare take the element's comparator.
 func TestIRSetAlgebra_AndContainerCompare(t *testing.T) {
 	verifyLambdaProgram(t, irSetAlgebraSource,
-		"#{1, 2, 3, 4}\n#{2, 3}\n#{1}\nTrue\nFalse\n#{5, 4}\nLess\nEqual\nGreater\n")
+		"%[1, 2, 3, 4]\n%[2, 3]\n%[1]\nTrue\nFalse\n%[5, 4]\nLess\nEqual\nGreater\n")
 }
 
 // A bare `None` in a vector or set literal takes the other items' kind,
@@ -151,10 +151,10 @@ fn main() {
   io.inspect(#[Some(1), None])
   io.inspect(#[None, Some("a")])
   one = Some(1)
-  io.inspect(#{Some(1), None, one})
-  io.inspect(Set.size(#{None, Some(2), Some(1 + 1)}))
+  io.inspect(%[Some(1), None, one])
+  io.inspect(Set.size(%[None, Some(2), Some(1 + 1)]))
 }
-`, "#[Some(1), None]\n#[None, Some(\"a\")]\n#{Some(1), None}\n2\n")
+`, "#[Some(1), None]\n#[None, Some(\"a\")]\n%[Some(1), None]\n2\n")
 }
 
 const irLoopShapesSource = `test "a state tuple advances through an if tail" {

@@ -11,7 +11,7 @@ import "strconv"
 // linear with explicit temporaries (ir.go, SHAPE), so a pattern lowers to a
 // STRAIGHT-LINE SEQUENCE and not to one node:
 //
-//	`Shape.Circle{radius: 3.0}`
+//	`#Shape.Circle{radius: 3.0}`
 //	    match variant t1 Shape.Circle     <- this class
 //	    t2 = payload t1 Shape.Circle[0]   <- proj
 //	    t3 = const 3.0                    <- const
@@ -113,6 +113,15 @@ const (
 	// `rest`. It is the test of a string prefix pattern (`"/users/" + id`),
 	// whose `rest` a ProjStrSuffix then reads. Owner: strPrefixTest.
 	MatchStrPrefix
+	// MatchVectorLen asks whether the subject is a vector of EXACTLY `Arity`
+	// elements: the vector pattern with no `..`, `#[a, b]`. Owner:
+	// vectorCaseTest.
+	MatchVectorLen
+	// MatchVectorMin asks whether the subject is a vector of AT LEAST
+	// `Arity` elements: a vector pattern with a `..`, `#[a, ..rest, z]`,
+	// whose heads and tails count. As MatchListMin, `Arity` is never zero.
+	// Owner: vectorCaseTest.
+	MatchVectorMin
 )
 
 func (k MatchKind) String() string {
@@ -127,6 +136,10 @@ func (k MatchKind) String() string {
 		return "listmin"
 	case MatchStrPrefix:
 		return "strprefix"
+	case MatchVectorLen:
+		return "vectorlen"
+	case MatchVectorMin:
+		return "vectormin"
 	}
 	return "match?"
 }
@@ -250,6 +263,37 @@ func NewMatchListMinInto(pos Pos, dst, subj Temp, n int) *Match {
 	return m
 }
 
+// NewMatchVectorLenInto writes whether the vector subj has exactly n
+// elements.
+func NewMatchVectorLenInto(pos Pos, dst, subj Temp, n int) *Match {
+	if n < 0 {
+		panic("ir.NewMatchVectorLenInto: negative element count " + strconv.Itoa(n))
+	}
+	if dst == NoTemp {
+		panic("ir.NewMatchVectorLenInto: an answer needs a destination")
+	}
+	m := newMatch(pos, subj, MatchVectorLen, "NewMatchVectorLenInto")
+	m.idx = n
+	m.dst = dst
+	return m
+}
+
+// NewMatchVectorMinInto writes whether the vector subj has at least n
+// elements. n must be positive, for NewMatchListMin's reason.
+func NewMatchVectorMinInto(pos Pos, dst, subj Temp, n int) *Match {
+	if n < 1 {
+		panic("ir.NewMatchVectorMinInto: a minimum of " + strconv.Itoa(n) +
+			" elements is satisfied by every vector; do not build the test")
+	}
+	if dst == NoTemp {
+		panic("ir.NewMatchVectorMinInto: an answer needs a destination")
+	}
+	m := newMatch(pos, subj, MatchVectorMin, "NewMatchVectorMinInto")
+	m.idx = n
+	m.dst = dst
+	return m
+}
+
 // NewMatchStrPrefixInto writes whether the String subj begins with the
 // String in prefix.
 func NewMatchStrPrefixInto(pos Pos, dst, subj, prefix Temp) *Match {
@@ -329,7 +373,7 @@ func (m *Match) String() string {
 		if m.embeds != nil {
 			s += " embeds " + m.embeds.Name()
 		}
-	case MatchListLen, MatchListMin:
+	case MatchListLen, MatchListMin, MatchVectorLen, MatchVectorMin:
 		s += " " + strconv.Itoa(m.idx)
 	}
 	if m.Answers() {

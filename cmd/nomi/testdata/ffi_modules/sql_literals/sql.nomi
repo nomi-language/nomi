@@ -44,6 +44,6 @@ impl Literal for Sql {
             })
             |> Iter.to_list()
 
-        Query{sql, args}
+        #Query{sql, args}
     }
 }

@@ -10,7 +10,7 @@ pub fn short(s: Status) -> String {
         ticket.Status.Blocked(_) -> "B"
         ticket.Status.Paired(#(a, _)) -> "P${a}"
         ticket.Status.Noted(_) -> "N"
-        ticket.Status.Closed{days} when days > 30 -> "C (old)"
-        ticket.Status.Closed{} -> "C"
+        #ticket.Status.Closed{days} when days > 30 -> "C (old)"
+        #ticket.Status.Closed{} -> "C"
     }
 }

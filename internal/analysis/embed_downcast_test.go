@@ -71,7 +71,7 @@ fn two<T>(a: T, b: T) -> T {
 
 `
 
-const downcastHint = "\nhelp: Shape may hold a variant other than Circle, and only a match narrows it: `case value { .Circle{} -> ... }`"
+const downcastHint = "\nhelp: Shape may hold a variant other than Circle, and only a match narrows it: `case value { #.Circle{} -> ... }`"
 
 // expectExactDiag fails unless one error reads exactly want, message and
 // hints.
@@ -103,51 +103,51 @@ func TestEmbedDowncast_EveryPositionRefusesTheEnum(t *testing.T) {
 			"argument 1: expected Circle, got Shape" + downcastHint},
 		{"an annotated binding", "", "  c: Circle = s\n  _ = c\n",
 			"type mismatch: expected Circle, got Shape" + downcastHint},
-		{"a struct field", "", "  h = Holder{c: s}\n  _ = h\n",
+		{"a struct field", "", "  h = #Holder{c: s}\n  _ = h\n",
 			"field 'c' of Holder: expected Circle, got Shape" + downcastHint},
 		{"a list element", "", "  cs: List<Circle> = [s]\n  _ = cs\n",
 			"list element type mismatch: expected Circle, got Shape" + downcastHint},
 		{"a map value", "", "  m: Map<Int, Circle> = %{1 => s}\n  _ = m\n",
 			"map value type mismatch: expected Circle, got Shape" + downcastHint},
-		{"a set element", "", "  xs: Set<Circle> = #{s}\n  _ = xs\n",
+		{"a set element", "", "  xs: Set<Circle> = %[s]\n  _ = xs\n",
 			"set element type mismatch: expected Circle, got Shape" + downcastHint},
 		{"a tuple element", "", "  p: #(Circle, Int) = #(s, 1)\n  _ = p\n",
 			"type mismatch: expected #(Circle, Int), got #(Shape, Int)" + downcastHint},
-		{"a record field", "", "  r: {c: Circle} = {c: s}\n  _ = r\n",
-			"type mismatch: expected {c: Circle}, got {c: Shape}" + downcastHint},
+		{"a record field", "", "  r: #{c: Circle} = #{c: s}\n  _ = r\n",
+			"type mismatch: expected #{c: Circle}, got #{c: Shape}" + downcastHint},
 		{"a type argument", "", "  m: Maybe<Circle> = Some(s)\n  _ = m\n",
 			"type mismatch: expected Maybe<Circle>, got Maybe<Shape>" + downcastHint},
 		{"a list argument", "", "  ss: List<Shape> = [s]\n  _ = takes(ss)\n",
 			"argument 1: expected List<Circle>, got List<Shape>" + downcastHint},
 		{"a function's result", "", "  f: () -> Circle = fn -> s\n  _ = f\n",
 			"type mismatch: expected () -> Circle, got () -> Shape" + downcastHint},
-		{"a generic call's result", "", "  x: Circle = two(Circle{radius: 1.0}, s)\n  _ = x\n",
+		{"a generic call's result", "", "  x: Circle = two(#Circle{radius: 1.0}, s)\n  _ = x\n",
 			"type mismatch: expected Circle, got Shape" + downcastHint},
-		{"a generic call's result as an argument", "", "  _ = take(two(Circle{radius: 1.0}, s))\n",
+		{"a generic call's result as an argument", "", "  _ = take(two(#Circle{radius: 1.0}, s))\n",
 			"argument 1: expected Circle, got Shape" + downcastHint},
-		{"an if join", "", "  x = if wants(s) { Circle{radius: 1.0} } else { s }\n  _ = take(x)\n",
+		{"an if join", "", "  x = if wants(s) { #Circle{radius: 1.0} } else { s }\n  _ = take(x)\n",
 			"argument 1: expected Circle, got Shape" + downcastHint},
-		{"a case join", "", "  x = case s {\n    .Point -> Circle{radius: 1.0}\n    _ -> s\n  }\n  _ = take(x)\n",
+		{"a case join", "", "  x = case s {\n    .Point -> #Circle{radius: 1.0}\n    _ -> s\n  }\n  _ = take(x)\n",
 			"argument 1: expected Circle, got Shape" + downcastHint},
-		{"a nested list join", "", "  xs = [#(1, Circle{radius: 1.0}), #(2, s)]\n  ys: List<#(Int, Circle)> = xs\n  _ = ys\n",
+		{"a nested list join", "", "  xs = [#(1, #Circle{radius: 1.0}), #(2, s)]\n  ys: List<#(Int, Circle)> = xs\n  _ = ys\n",
 			"type mismatch: expected List<#(Int, Circle)>, got List<#(Int, Shape)>" + downcastHint},
-		{"a list of lists join", "", "  xs = [[Circle{radius: 1.0}], [s]]\n  ys: List<List<Circle>> = xs\n  _ = ys\n",
+		{"a list of lists join", "", "  xs = [[#Circle{radius: 1.0}], [s]]\n  ys: List<List<Circle>> = xs\n  _ = ys\n",
 			"type mismatch: expected List<List<Circle>>, got List<List<Shape>>" + downcastHint},
-		{"a map key join", "", "  m = %{Circle{radius: 1.0} => 1, s => 2}\n  n: Map<Circle, Int> = m\n  _ = n\n",
+		{"a map key join", "", "  m = %{#Circle{radius: 1.0} => 1, s => 2}\n  n: Map<Circle, Int> = m\n  _ = n\n",
 			"type mismatch: expected Map<Circle, Int>, got Map<Shape, Int>" + downcastHint},
-		{"a nested if join", "", "  x = if wants(s) { #(1, Circle{radius: 1.0}) } else { #(2, s) }\n  _ = take(x.1)\n",
+		{"a nested if join", "", "  x = if wants(s) { #(1, #Circle{radius: 1.0}) } else { #(2, s) }\n  _ = take(x.1)\n",
 			"argument 1: expected Circle, got Shape" + downcastHint},
-		{"elements no side of which takes the other", "", "  _ = [#(Circle{radius: 1.0}, s), #(s, Circle{radius: 1.0})]\n",
+		{"elements no side of which takes the other", "", "  _ = [#(#Circle{radius: 1.0}, s), #(s, #Circle{radius: 1.0})]\n",
 			"list element type mismatch: expected #(Circle, Shape), got #(Shape, Circle)" + downcastHint},
 		{"a binding's fallback", "", "  m: Maybe<Circle> = None\n  Some(c) = m else { s }\n  _ = c\n",
 			"the fallback stands in for Some's payload of type Circle, got Shape" + downcastHint},
-		{"a Struct.update patch", "", "  h = Holder{c: Circle{radius: 1.0}}\n  _ = Struct.update(h, {c: s})\n",
+		{"a Struct.update patch", "", "  h = #Holder{c: #Circle{radius: 1.0}}\n  _ = Struct.update(h, #{c: s})\n",
 			"field 'c' of Holder: expected Circle, got Shape" + downcastHint},
 		{"an embedded distinct", "", "  w = Who.Nobody\n  _ = take_id(w)\n",
 			"argument 1: expected Id, got Who\nhelp: Who may hold a variant other than Id, and only a match narrows it: `case value { .Id(_) -> ... }`"},
 		{"a parameter default", "fn d(c: Circle = Shape.Point) -> Float {\n  c.radius\n}\n\n", "  _ = d()\n",
 			"default value for parameter 'c' is Shape, expected Circle"},
-		{"a field default", "struct H {\n  c: Circle = Shape.Point\n}\n\n", "  _ = H{}\n",
+		{"a field default", "struct H {\n  c: Circle = Shape.Point\n}\n\n", "  _ = #H{}\n",
 			"field 'c' of H: expected Circle, got Shape" + downcastHint},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -166,7 +166,7 @@ func TestEmbedDowncast_DeclarationsRefuseTheEnum(t *testing.T) {
 	}{
 		{"a function's tail", "fn get(s: Shape) -> Circle {\n  s\n}\n",
 			"return type mismatch: expected Circle, got Shape" + downcastHint},
-		{"a return", "fn get(s: Shape) -> Circle {\n  if wants(s) {\n    return s\n  }\n  Circle{radius: 1.0}\n}\n",
+		{"a return", "fn get(s: Shape) -> Circle {\n  if wants(s) {\n    return s\n  }\n  #Circle{radius: 1.0}\n}\n",
 			"return type mismatch: expected Circle, got Shape" + downcastHint},
 		{"a result's payload", "fn get(s: Shape) -> Result<Circle, String> {\n  Ok(s)\n}\n",
 			"return type mismatch: expected Result<Circle, String>, got Result<Shape, ?1>" + downcastHint},
@@ -188,7 +188,7 @@ func TestEmbedDowncast_DeclarationsRefuseTheEnum(t *testing.T) {
 
 // The mirror: a Circle still enters every Shape position, a join of a Circle
 // and a Shape is a Shape, `==` compares a Circle with a Shape as two Shapes,
-// and a name matched against `.Circle{}` is a Circle in its arm.
+// and a name matched against `#.Circle{}` is a Circle in its arm.
 func TestEmbedDowncast_WideningAndNarrowingAreAccepted(t *testing.T) {
 	for _, tc := range []struct{ name, body string }{
 		{"an argument", "  _ = wants(c)\n"},
@@ -204,11 +204,11 @@ func TestEmbedDowncast_WideningAndNarrowingAreAccepted(t *testing.T) {
 		{"a nested map join", "  m = %{1 => #(1, s), 2 => #(2, c)}\n  n: Map<Int, #(Int, Shape)> = m\n  _ = n\n"},
 		{"a generic call", "  _ = wants(two(c, s))\n  _ = wants(two(s, c))\n"},
 		{"equality", "  _ = c == s\n  _ = s == c\n"},
-		{"a narrowed arm", "  _ = case s {\n    .Circle{radius: _} -> take(s)\n    .Point -> 0.0\n  }\n"},
-		{"a narrowed if", "  _ = if .Circle{radius: _} = s {\n    take(s)\n  } else {\n    0.0\n  }\n"},
+		{"a narrowed arm", "  _ = case s {\n    #.Circle{radius: _} -> take(s)\n    .Point -> 0.0\n  }\n"},
+		{"a narrowed if", "  _ = if #.Circle{radius: _} = s {\n    take(s)\n  } else {\n    0.0\n  }\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := embedDowncastDecls + "fn main() {\n  s = Shape.Point\n  c = Circle{radius: 1.0}\n" + tc.body + "}\n"
+			src := embedDowncastDecls + "fn main() {\n  s = Shape.Point\n  c = #Circle{radius: 1.0}\n" + tc.body + "}\n"
 			_, errs := checkSourceWithStdlib(src)
 			expectNoStdlibErrors(t, errs)
 		})
@@ -224,7 +224,7 @@ func TestEmbedDowncast_WideningAndNarrowingAreAccepted(t *testing.T) {
 // was reported, and the error the program got was "the type argument U of
 // `Iter.map` is not determined".
 func TestEmbedDowncast_AFunctionOverTheEmbeddedTypeIsRefusedAsACallback(t *testing.T) {
-	takeHint := "\nhelp: pass a function that takes a Shape and matches it first: `fn value -> case value { .Circle{} -> take(value) ... }`"
+	takeHint := "\nhelp: pass a function that takes a Shape and matches it first: `fn value -> case value { #.Circle{} -> take(value) ... }`"
 	for _, tc := range []struct {
 		name, body, want string
 	}{
@@ -237,7 +237,7 @@ func TestEmbedDowncast_AFunctionOverTheEmbeddedTypeIsRefusedAsACallback(t *testi
 		{"Maybe.map", "  _ = Maybe.map(Some(s), take)\n",
 			"argument 2: `take` takes a Circle, but `Maybe.map` calls it with a Shape, and a Shape may hold a variant other than Circle" + takeHint},
 		{"a lambda", "  _ = Iter.map(ss, fn c: Circle -> c.radius) |> Iter.count()\n",
-			"argument 2: the lambda takes a Circle, but `Iter.map` calls it with a Shape, and a Shape may hold a variant other than Circle\nhelp: pass a function that takes a Shape and matches it first: `fn value -> case value { .Circle{} -> ... }`"},
+			"argument 2: the lambda takes a Circle, but `Iter.map` calls it with a Shape, and a Shape may hold a variant other than Circle\nhelp: pass a function that takes a Shape and matches it first: `fn value -> case value { #.Circle{} -> ... }`"},
 		{"a nested parameter", "  nested: List<List<Shape>> = [[s]]\n  _ = Iter.map(nested, takes) |> Iter.count()\n",
 			"argument 2: `takes` takes a List<Circle>, but `Iter.map` calls it with a List<Shape>, and a Shape may hold a variant other than Circle" + downcastHint},
 		{"an embedded distinct", "  _ = Iter.map([Who.Nobody], take_id) |> Iter.count()\n",
@@ -257,7 +257,7 @@ func TestEmbedDowncast_AFunctionOverTheEmbeddedTypeIsRefusedAsACallback(t *testi
 // The mirror: a function over the enum fits where a function over an
 // embedded type is expected, since every Circle is a Shape.
 func TestEmbedDowncast_AFunctionOverTheEnumIsAcceptedAsACallback(t *testing.T) {
-	src := embedDowncastDecls + "fn main() {\n  cs = [Circle{radius: 1.0}]\n  _ = Iter.map(cs, wants) |> Iter.to_list()\n  _ = cs |> Iter.map(wants) |> Iter.count()\n  _ = Maybe.map(Some(Circle{radius: 1.0}), wants)\n}\n"
+	src := embedDowncastDecls + "fn main() {\n  cs = [#Circle{radius: 1.0}]\n  _ = Iter.map(cs, wants) |> Iter.to_list()\n  _ = cs |> Iter.map(wants) |> Iter.count()\n  _ = Maybe.map(Some(#Circle{radius: 1.0}), wants)\n}\n"
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 }
@@ -283,7 +283,7 @@ func TestEmbedDowncast_AComparisonOperandKeepsTheWiderType(t *testing.T) {
 		{"a list of Maybe", "  _ = [Some(c)] == [Some(s), Some(Shape.Point)]\n", "List<Maybe<Shape>>"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := embedDowncastDecls + "fn main() {\n  s = Shape.Point\n  c = Circle{radius: 1.0}\n" + tc.body + "}\n"
+			src := embedDowncastDecls + "fn main() {\n  s = Shape.Point\n  c = #Circle{radius: 1.0}\n" + tc.body + "}\n"
 			fa, errs := checkSourceWithStdlib(src)
 			expectNoStdlibErrors(t, errs)
 			for n, ty := range fa.ExprTypes {
@@ -307,7 +307,7 @@ func TestEmbedDowncast_AComparisonOperandOfAnotherTypeStillFails(t *testing.T) {
 			"list element type mismatch: expected Circle, got Shape" + downcastHint},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := embedDowncastDecls + "fn main() {\n  s = Shape.Point\n  c = Circle{radius: 1.0}\n" + tc.body + "  _ = s\n}\n"
+			src := embedDowncastDecls + "fn main() {\n  s = Shape.Point\n  c = #Circle{radius: 1.0}\n" + tc.body + "  _ = s\n}\n"
 			_, errs := checkSourceWithStdlib(src)
 			expectExactDiag(t, errs, tc.want)
 		})

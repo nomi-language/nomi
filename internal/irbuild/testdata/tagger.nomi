@@ -72,11 +72,11 @@ impl Tagger for Cup {
 }
 
 fn as_box(n: Int) -> Tagger {
-    Box{n}
+    #Box{n}
 }
 
 fn as_cup(n: Int) -> Tagger {
-    Cup{n}
+    #Cup{n}
 }
 
 fn tag_erased(t: Tagger) -> String {
@@ -93,8 +93,8 @@ fn shelf_tag(s: Shelf) -> String {
 
 fn main() {
     // The concrete qualifier: a direct call, receiver statically typed.
-    io.print(Tagger.tag("direct", Box{n: 1}))
-    io.print(Tagger.wrap("(", ")", Cup{n: 2}))
+    io.print(Tagger.tag("direct", #Box{n: 1}))
+    io.print(Tagger.wrap("(", ")", #Cup{n: 2}))
     // The erased receiver: a table probe keyed on the box's identity, with the
     // receiver read from the position the SIGNATURE declared.
     io.print(tag_erased(as_box(3)))
@@ -102,11 +102,11 @@ fn main() {
     io.print(wrap_erased(as_box(5)))
     io.print(wrap_erased(as_cup(6)))
     // The inherited default, and Cup's override of it.
-    io.print(Tagger.describe("d", Box{n: 7}))
-    io.print(Tagger.describe("d", Cup{n: 8}))
+    io.print(Tagger.describe("d", #Box{n: 7}))
+    io.print(Tagger.describe("d", #Cup{n: 8}))
     io.print(Tagger.describe("e", as_box(9)))
     io.print(Tagger.describe("e", as_cup(10)))
     // An existential field: boxed at one position, dispatched at another.
-    io.print(shelf_tag(Shelf{item: Box{n: 11}}))
-    io.print(shelf_tag(Shelf{item: Cup{n: 12}}))
+    io.print(shelf_tag(#Shelf{item: #Box{n: 11}}))
+    io.print(shelf_tag(#Shelf{item: #Cup{n: 12}}))
 }

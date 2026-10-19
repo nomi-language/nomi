@@ -41,7 +41,7 @@ test "map literals support composite expression keys" {
     colors = %{Color.Red => "r", Color.Green => "g"}
     flags = %{True => "yes", False => "no"}
     lists = %{[1, 2] => "x", [3] => "y"}
-    by_point = %{Point{x: 1, y: 2} => "p"}
+    by_point = %{#Point{x: 1, y: 2} => "p"}
     ids = %{Id(5) => "five"}
     base = 1
     numbers = %{base + 1 => "computed"}
@@ -50,7 +50,7 @@ test "map literals support composite expression keys" {
     assert lookup(colors, Color.Red) == "r"
     assert lookup(flags, False) == "no"
     assert lookup(lists, [1, 2]) == "x"
-    assert lookup(by_point, Point{x: 1, y: 2}) == "p"
+    assert lookup(by_point, #Point{x: 1, y: 2}) == "p"
     assert lookup(ids, Id(5)) == "five"
     assert lookup(numbers, 2) == "computed"
 }
@@ -61,7 +61,7 @@ test "map patterns match composite expression keys" {
     options = %{Some(2) => "two", Some(3) => "three"}
     points = %{#(1, 2) => "a", #(3, 4) => "b"}
     lists = %{[1, 2] => "x", [3] => "y"}
-    struct_keyed = %{Point{x: 1, y: 2} => "p"}
+    struct_keyed = %{#Point{x: 1, y: 2} => "p"}
     ids = %{Id(5) => "five"}
     base = 1
     numbers = %{2 => "computed"}
@@ -92,7 +92,7 @@ test "map patterns match composite expression keys" {
     }
 
     by_struct = case struct_keyed {
-        %{Point{x: 1, y: 2} => v} -> v
+        %{#Point{x: 1, y: 2} => v} -> v
         _ -> "?"
     }
 

@@ -791,7 +791,7 @@ func TestIfPatternCondition(t *testing.T) {
 }
 
 func TestIfTypeIdentCondition(t *testing.T) {
-	// Regression: if True { ... } was parsed as struct literal True{...}
+	// Regression: if True { ... } was parsed as struct literal #True{...}
 	expr := parseExpr(t, "if True { 42 }")
 	ifNode, ok := expr.(*ast.If)
 	if !ok {
@@ -1762,7 +1762,7 @@ func TestLambdaTupleDestructureMultiParams(t *testing.T) {
 }
 
 func TestLambdaStructDestructureParam(t *testing.T) {
-	expr := parseExpr(t, "fn {x, y} -> x + y")
+	expr := parseExpr(t, "fn #{x, y} -> x + y")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1790,7 +1790,7 @@ func TestLambdaStructDestructureParam(t *testing.T) {
 }
 
 func TestLambdaStructDestructureRenameParam(t *testing.T) {
-	expr := parseExpr(t, "fn {name: n, age: a} -> n")
+	expr := parseExpr(t, "fn #{name: n, age: a} -> n")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -2184,7 +2184,7 @@ func TestParseEmptyVectorLiteral(t *testing.T) {
 }
 
 func TestParseSetLiteral(t *testing.T) {
-	expr := parseExpr(t, "#{1, 2, 3}")
+	expr := parseExpr(t, "%[1, 2, 3]")
 	set, ok := expr.(*ast.SetLit)
 	if !ok {
 		t.Fatalf("expected *ast.SetLit, got %T", expr)
@@ -2195,7 +2195,7 @@ func TestParseSetLiteral(t *testing.T) {
 }
 
 func TestParseEmptySetLiteral(t *testing.T) {
-	expr := parseExpr(t, "#{}")
+	expr := parseExpr(t, "%[]")
 	set, ok := expr.(*ast.SetLit)
 	if !ok {
 		t.Fatalf("expected *ast.SetLit, got %T", expr)
@@ -2963,7 +2963,7 @@ func TestLexerTryLongestMatch(t *testing.T) {
 }
 
 func TestStructDestructurePunning(t *testing.T) {
-	nodes := parse(t, "{x, y} = point")
+	nodes := parse(t, "#{x, y} = point")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
@@ -2983,7 +2983,7 @@ func TestStructDestructurePunning(t *testing.T) {
 }
 
 func TestStructDestructureRename(t *testing.T) {
-	nodes := parse(t, "{x: a, y: b} = point")
+	nodes := parse(t, "#{x: a, y: b} = point")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
@@ -3018,7 +3018,7 @@ func TestPatternAssertionBindingEnumPattern(t *testing.T) {
 
 func TestCaseAnonStructPattern(t *testing.T) {
 	expr := parseExpr(t, `case point {
-	{x: 1} -> "one"
+	#{x: 1} -> "one"
 	_ -> "other"
 }`)
 	ce, ok := expr.(*ast.Case)
@@ -3039,7 +3039,7 @@ func TestCaseAnonStructPattern(t *testing.T) {
 
 func TestCaseAnonStructPatternBinding(t *testing.T) {
 	expr := parseExpr(t, `case point {
-	{x, y} -> x + y
+	#{x, y} -> x + y
 	_ -> 0
 }`)
 	ce, ok := expr.(*ast.Case)
@@ -3062,11 +3062,11 @@ func TestCaseAnonStructPatternBinding(t *testing.T) {
 }
 
 // `_` in a struct-pattern field position is a wildcard — accepts any
-// value for that field without binding. Both anon (`{a: _}`) and
-// variant-qualified (`Foo.Bar{a: _}`) struct patterns accept it.
+// value for that field without binding. Both anon (`#{a: _}`) and
+// variant-qualified (`#Foo.Bar{a: _}`) struct patterns accept it.
 func TestCaseStructPatternWildcardField(t *testing.T) {
 	expr := parseExpr(t, `case point {
-  {x: 1, y: _} -> "x=1"
+  #{x: 1, y: _} -> "x=1"
   _ -> "other"
 }`)
 	ce, ok := expr.(*ast.Case)
@@ -3090,7 +3090,7 @@ func TestCaseStructPatternWildcardField(t *testing.T) {
 
 func TestCaseStructPatternFloat(t *testing.T) {
 	expr := parseExpr(t, `case point {
-	{score: 3.14} -> "pi"
+	#{score: 3.14} -> "pi"
 	_ -> "other"
 }`)
 	ce, ok := expr.(*ast.Case)
@@ -3112,7 +3112,7 @@ func TestCaseStructPatternFloat(t *testing.T) {
 
 func TestCaseStructPatternNegativeInt(t *testing.T) {
 	expr := parseExpr(t, `case point {
-	{x: -1} -> "negative"
+	#{x: -1} -> "negative"
 	_ -> "other"
 }`)
 	ce, ok := expr.(*ast.Case)
@@ -3134,7 +3134,7 @@ func TestCaseStructPatternNegativeInt(t *testing.T) {
 
 func TestCaseNamedStructPatternFloat(t *testing.T) {
 	expr := parseExpr(t, `case p {
-	Point{score: 3.14} -> "pi"
+	#Point{score: 3.14} -> "pi"
 	_ -> "other"
 }`)
 	ce, ok := expr.(*ast.Case)
@@ -3156,7 +3156,7 @@ func TestCaseNamedStructPatternFloat(t *testing.T) {
 
 func TestCaseNamedStructPatternNegativeInt(t *testing.T) {
 	expr := parseExpr(t, `case p {
-	Point{x: -1} -> "negative"
+	#Point{x: -1} -> "negative"
 	_ -> "other"
 }`)
 	ce, ok := expr.(*ast.Case)
@@ -3179,7 +3179,7 @@ func TestCaseNamedStructPatternNegativeInt(t *testing.T) {
 // Map-distinct call-form pattern: `Kvs(%{"a" => v})` parses as an
 // EnumPattern wrapping an anonymous MapPattern (TypeName=nil). Mirrors
 // `Pair(#(a, b))` for tuple-distinct patterns. The literal-attach form
-// `Kvs%{"a" => v}` (a MapPattern with TypeName=Kvs) is unaffected.
+// `%Kvs{"a" => v}` (a MapPattern with TypeName=Kvs) is unaffected.
 func TestParser_MapPattern_CallForm(t *testing.T) {
 	expr := parseExpr(t, `case kv {
 	Kvs(%{"a" => v}) -> v
@@ -3261,12 +3261,12 @@ func TestMapLiteralWithVariableKeys(t *testing.T) {
 	}
 }
 
-// TypeName%{"k" => v, ...} parses as a MapLit with a TypeName attached, NOT
+// TypeName{"k" => v, ...} parses as a MapLit with a TypeName attached, NOT
 // as a struct literal. The presence of `=>` (instead of `:`) after the first
 // key disambiguates: brace literals with `=>` separators are map literals,
 // brace literals with `:` are struct literals.
 func TestParser_MapLit_TypePrefixed(t *testing.T) {
-	expr := parseExpr(t, `Kvs%{"a" => 1, "b" => 2}`)
+	expr := parseExpr(t, `%Kvs{"a" => 1, "b" => 2}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected MapLit, got %T", expr)
@@ -3282,9 +3282,9 @@ func TestParser_MapLit_TypePrefixed(t *testing.T) {
 	}
 }
 
-// Regression: TypeName{field: value, ...} still parses as a struct literal.
+// Regression: #TypeName{field: value, ...} still parses as a struct literal.
 func TestParser_StructLit_TypePrefixed_StillWorks(t *testing.T) {
-	expr := parseExpr(t, `Foo{a: 1, b: "x"}`)
+	expr := parseExpr(t, `#Foo{a: 1, b: "x"}`)
 	sl, ok := expr.(*ast.StructLit)
 	if !ok {
 		t.Fatalf("expected StructLit, got %T", expr)
@@ -3300,7 +3300,7 @@ func TestParser_StructLit_TypePrefixed_StillWorks(t *testing.T) {
 // A LITERAL BODY ATTACHES TO A MODULE-QUALIFIED NAME. Without that, none of
 // these parsed as a literal: the chain stopped at the member access and the
 // body became a separate anonymous struct or list, which the checker then
-// reported as `non-final expression has type {r: Int}`.
+// reported as `non-final expression has type #{r: Int}`.
 //
 // The boundary is the LITERAL-ATTACH forms specifically. `shapes.Shape.Square(4)`
 // worked throughout because a call is a postfix form; `{` and `[` are only
@@ -3318,14 +3318,14 @@ func TestParser_LiteralAttach_ModuleQualifiedHead(t *testing.T) {
 	}{
 		{
 			name:       "two segments — module plus struct",
-			src:        `shapes.Circle{r: 1}`,
+			src:        `#shapes.Circle{r: 1}`,
 			wantModule: "shapes",
 			wantMember: "Circle",
 			wantFields: 1,
 		},
 		{
 			name:       "three segments — module plus enum, then the variant",
-			src:        `shapes.Shape.Ring{r: 1, k: 2}`,
+			src:        `#shapes.Shape.Ring{r: 1, k: 2}`,
 			wantModule: "shapes.Shape",
 			wantMember: "Ring",
 			wantFields: 2,
@@ -3336,7 +3336,7 @@ func TestParser_LiteralAttach_ModuleQualifiedHead(t *testing.T) {
 			// exports it. The owner is everything but the last segment
 			// either way, so the scan needs no arity rule.
 			name:       "four segments — a module plus a dotted enum name",
-			src:        `telemetry.Probe.Reading.Blip{at: 9}`,
+			src:        `#telemetry.Probe.Reading.Blip{at: 9}`,
 			wantModule: "telemetry.Probe.Reading",
 			wantMember: "Blip",
 			wantFields: 1,
@@ -3410,26 +3410,15 @@ func TestParser_LiteralAttach_ModuleQualifiedHeadLeavesMemberAccessAlone(t *test
 
 	// A SECOND LOWERCASE SEGMENT IS NOT PART OF ANY NOMI NAME, so the scan
 	// must not start at all: the chain is a lowercase head followed by
-	// UPPERCASE segments. `a.b.Outer` stays member access and `{v: 1}` stays
-	// its own anonymous struct — TWO statements, exactly as before the scan
-	// existed. It gets its own assertion because `parseExpr` requires a
-	// single statement and so cannot express a two-statement parse.
-	t.Run("a.b.Outer{v: 1} stays two statements", func(t *testing.T) {
-		nodes, err := Parse(lexer.Lex("fn main() {\n  a.b.Outer{v: 1}\n}\n"))
-		if err != nil {
-			t.Fatalf("parse failed: %v", err)
-		}
-		fn, ok := nodes[0].(*ast.FuncDef)
-		if !ok {
-			t.Fatalf("expected a FuncDef, got %T", nodes[0])
-		}
-		if fn.Body == nil || len(fn.Body.Stmts) != 2 {
-			t.Fatalf("expected 2 statements in the body, got %v", fn.Body)
-		}
-		if _, isLit := fn.Body.Stmts[0].(*ast.StructLit); isLit {
-			t.Fatal("the first statement was taken as a literal-attach")
+	// UPPERCASE segments. `a.b.Outer` stays member access and `{v: 1}` after
+	// it opens a block, a second statement on the line, which is an error.
+	t.Run("a.b.Outer {v: 1} is two statements on one line", func(t *testing.T) {
+		_, err := Parse(lexer.Lex("fn main() {\n  a.b.Outer{v: 1}\n}\n"))
+		if err == nil || !strings.Contains(err.Error(), "right after the end of a statement") {
+			t.Fatalf("Parse = %v, want the second statement refused", err)
 		}
 	})
+
 }
 
 func TestInterfaceDef(t *testing.T) {
@@ -3868,7 +3857,7 @@ func TestParser_EnumDef_EmbedsVariant(t *testing.T) {
 }
 
 // TestParser_EnumDef_StructPayloadVariant verifies the struct-payload
-// variant form (`Rectangle{w: Float, h: Float}`) parses inside an enum body.
+// variant form (`#Rectangle{w: Float, h: Float}`) parses inside an enum body.
 func TestParser_EnumDef_StructPayloadVariant(t *testing.T) {
 	src := "enum Shape {\n  Rectangle{w: Float, h: Float}\n  Point\n}"
 	nodes := parse(t, src)
@@ -5573,11 +5562,11 @@ func TestParseRawTaggedTriple(t *testing.T) {
 
 // TestParser_AnonStructTypeInTuple verifies that an anonymous struct type
 // can appear as an element of a distinct-tuple type:
-// `type Tagged (String, {name: String, age: Int})`. The InnerTypeExpr is a
+// `type Tagged (String, #{name: String, age: Int})`. The InnerTypeExpr is a
 // tuple-form FuncType (Return == nil) whose second element is an
 // AnonStructType with two StructField entries, no defaults.
 func TestParser_AnonStructTypeInTuple(t *testing.T) {
-	nodes := parse(t, "type Tagged #(String, {name: String, age: Int})\n")
+	nodes := parse(t, "type Tagged #(String, #{name: String, age: Int})\n")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -5619,7 +5608,7 @@ func TestParser_AnonStructTypeInTuple(t *testing.T) {
 // TestParser_AnonStructTypeInFunctionParam verifies an anon struct type as
 // a function parameter annotation.
 func TestParser_AnonStructTypeInFunctionParam(t *testing.T) {
-	nodes := parse(t, "fn greet(p: {name: String, age: Int}) -> String { p.name }\n")
+	nodes := parse(t, "fn greet(p: #{name: String, age: Int}) -> String { p.name }\n")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -5646,10 +5635,10 @@ func TestParser_AnonStructTypeInFunctionParam(t *testing.T) {
 }
 
 // TestParser_AnonStructTypeInGenericArg verifies an anon struct type as a
-// generic type argument: `List<{x: Int, y: Int}>`. The function param's
+// generic type argument: `List<#{x: Int, y: Int}>`. The function param's
 // TypeAnnotation is a GenericType whose Params[0] is the AnonStructType.
 func TestParser_AnonStructTypeInGenericArg(t *testing.T) {
-	nodes := parse(t, "fn first(_xs: List<{x: Int, y: Int}>) -> Int { 0 }\n")
+	nodes := parse(t, "fn first(_xs: List<#{x: Int, y: Int}>) -> Int { 0 }\n")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -5704,11 +5693,11 @@ func TestParser_AnonStructType_RejectedAtTopLevelType(t *testing.T) {
 
 // TestParser_AnonStructType_RequiresSeparatorBetweenFields pins the rule
 // that adjacent fields must be separated by a comma or a newline. Run-on
-// fields like `{a: Int b: Int}` are rejected — they're indistinguishable
+// fields like `#{a: Int b: Int}` are rejected — they're indistinguishable
 // from a field type that happens to start with another identifier, and
 // reading them is unpleasant.
 func TestParser_AnonStructType_RequiresSeparatorBetweenFields(t *testing.T) {
-	tokens := lexer.Lex("fn f(p: {a: Int b: Int}) -> Int { p.a }\n")
+	tokens := lexer.Lex("fn f(p: #{a: Int b: Int}) -> Int { p.a }\n")
 	_, err := Parse(tokens)
 	if err == nil {
 		t.Fatal("expected parse error, got nil")
@@ -5958,7 +5947,7 @@ func TestParseTestsBootExpression(t *testing.T) {
 	nodes, err := Parse(lexer.Lex(`group "env" {
   clock Clock.Virtual
   boot server.boot(startup())
-  setup Config{name: "Ada"}
+  setup #Config{name: "Ada"}
 
   test "reads active app" {
     assert AppEnv.label == "test"
@@ -5997,7 +5986,7 @@ func TestParseGroupRejects(t *testing.T) {
 			"write a sibling group instead",
 		},
 		"fn boot": {
-			"group \"g\" {\n  fn boot(startup: Startup) -> App { App{} }\n  test \"t\" { assert true }\n}\n",
+			"group \"g\" {\n  fn boot(startup: Startup) -> App { #App{} }\n  test \"t\" { assert true }\n}\n",
 			"a `group` does not define `fn boot`",
 		},
 		"duplicate clock": {
@@ -6065,9 +6054,9 @@ func TestParseGroupLinesInAnyOrder(t *testing.T) {
 
 func TestParseTestsSetupExpression(t *testing.T) {
 	nodes, err := Parse(lexer.Lex(`group "fixture" {
-  setup Config{name: "Ada"}
+  setup #Config{name: "Ada"}
 
-  test "reads setup", {name} {
+  test "reads setup", #{name} {
     assert name == "Ada"
   }
 }
@@ -6278,7 +6267,7 @@ func TestParseDotVariant_Call(t *testing.T) {
 }
 
 func TestParseDotVariant_StructLit(t *testing.T) {
-	expr := parseExpr(t, ".Rect{w: 4.0, h: 3.0}")
+	expr := parseExpr(t, "#.Rect{w: 4.0, h: 3.0}")
 	sl, ok := expr.(*ast.StructLit)
 	if !ok {
 		t.Fatalf("expected *ast.StructLit, got %T", expr)
@@ -6296,7 +6285,7 @@ func TestParseDotVariant_StructLit(t *testing.T) {
 }
 
 func TestParseDotVariant_MapLit(t *testing.T) {
-	expr := parseExpr(t, `.Obj%{"k" => 1}`)
+	expr := parseExpr(t, `%.Obj{"k" => 1}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected *ast.MapLit, got %T", expr)
@@ -6377,8 +6366,8 @@ func TestParseDotVariant_CallInPattern(t *testing.T) {
 }
 
 func TestParseDotVariant_StructPatternInPattern(t *testing.T) {
-	// case x { .Rect{w, h} -> w * h }
-	src := `case x { .Rect{w, h} -> w * h }`
+	// case x { #.Rect{w, h} -> w * h }
+	src := `case x { #.Rect{w, h} -> w * h }`
 	expr := parseExpr(t, src)
 	cs, ok := expr.(*ast.Case)
 	if !ok {
@@ -6398,8 +6387,8 @@ func TestParseDotVariant_StructPatternInPattern(t *testing.T) {
 }
 
 func TestParseDotVariant_MapPatternInPattern(t *testing.T) {
-	// case x { .Obj%{"k" => v} -> v }
-	src := `case x { .Obj%{"k" => v} -> v }`
+	// case x { %.Obj{"k" => v} -> v }
+	src := `case x { %.Obj{"k" => v} -> v }`
 	expr := parseExpr(t, src)
 	cs, ok := expr.(*ast.Case)
 	if !ok {
@@ -6753,7 +6742,7 @@ func TestParseDeriveWhereClause(t *testing.T) {
 }
 
 func TestParseDeriveOptions(t *testing.T) {
-	nodes := parse(t, `derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel}`)
+	nodes := parse(t, `derive ToJson for User with #ToJson.Options{rename_all: Json.Case.Camel}`)
 	conf, ok := nodes[0].(*ast.ImplConformance)
 	if !ok {
 		t.Fatalf("expected ImplConformance, got %T", nodes[0])
@@ -6774,7 +6763,7 @@ func TestParseDeriveOptions(t *testing.T) {
 }
 
 func TestParseDeriveOptionsBeforeWhereClause(t *testing.T) {
-	nodes := parse(t, `derive ToJson for Box<T> with ToJson.Options{rename_all: Json.Case.Camel} where T: ToJson`)
+	nodes := parse(t, `derive ToJson for Box<T> with #ToJson.Options{rename_all: Json.Case.Camel} where T: ToJson`)
 	conf, ok := nodes[0].(*ast.ImplConformance)
 	if !ok {
 		t.Fatalf("expected ImplConformance, got %T", nodes[0])

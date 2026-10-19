@@ -86,7 +86,7 @@ func TestIterNarrow_EveryPositionRefusesTheIter(t *testing.T) {
 			"`gen` takes a List<T> as its first argument, but the pipe passes an Iter<Int>" + iterHint("Iter.to_list"),
 			"gen"},
 		{"a struct field",
-			"fn main() {\n  _ = Box{xs: it()}\n}\n",
+			"fn main() {\n  _ = #Box{xs: it()}\n}\n",
 			"field 'xs' of Box: expected List<Int>, got Iter<Int>" + iterHint("Iter.to_list"),
 			"it()"},
 		{"a list element",
@@ -144,7 +144,7 @@ impl Area for Sq {
 }
 
 fn some() -> Area {
-  Sq{side: 1}
+  #Sq{side: 1}
 }
 
 fn main() {
@@ -191,18 +191,18 @@ fn as_iter() -> Iter<Int> {
 }
 
 fn as_area() -> Area {
-  Sq{side: 2}
+  #Sq{side: 2}
 }
 
 fn main() {
   _ = total([1, 2])
   _ = [1, 2] |> total()
-  _ = total(#{1, 2})
+  _ = total(%[1, 2])
   _ = bounded([3, 4])
   d: Iter<Int> = [5]
   _ = d
-  _ = Holder{xs: [1]}
-  areas: List<Area> = [Sq{side: 1}, Sq{side: 3}]
+  _ = #Holder{xs: [1]}
+  areas: List<Area> = [#Sq{side: 1}, #Sq{side: 3}]
   _ = areas |> Iter.map(fn a -> Area.area(a)) |> Iter.to_list()
   _ = Area.area(as_area())
   xs: List<Int> = as_iter() |> Iter.to_list()

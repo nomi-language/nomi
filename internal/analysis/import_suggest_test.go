@@ -79,7 +79,7 @@ func TestFindMissingImports_InsideCaseBody(t *testing.T) {
 }
 
 func TestFindMissingImports_InsideStructLiteral(t *testing.T) {
-	got := buildMissing(t, "fn main() {\n  x = {a: io.inspect(42)}\n  x\n}\n")
+	got := buildMissing(t, "fn main() {\n  x = #{a: io.inspect(42)}\n  x\n}\n")
 	if len(got) != 1 || got[0].ModulePath != "std/io" {
 		t.Fatalf("want std/io suggestion inside struct literal, got %+v", got)
 	}
@@ -134,7 +134,7 @@ func TestFindMissingImports_PreludeTypeNoSuggestion(t *testing.T) {
 // A locally-declared type that happens to share a stdlib name must not be
 // flagged (definition positions are excluded; uses of it resolve locally).
 func TestFindMissingImports_LocalTypeDefinitionNoSuggestion(t *testing.T) {
-	got := buildMissing(t, "struct Set {\n  n: Int\n}\n\nfn main() {\n  Set{n: 1}\n}\n")
+	got := buildMissing(t, "struct Set {\n  n: Int\n}\n\nfn main() {\n  #Set{n: 1}\n}\n")
 	if len(got) != 0 {
 		t.Errorf("want none for a locally-defined Set, got %+v", got)
 	}

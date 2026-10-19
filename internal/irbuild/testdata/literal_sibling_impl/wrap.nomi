@@ -20,7 +20,7 @@ pub type Wrap
 
 impl Literal for Wrap {
     fn from_fragments(fragments: List<Fragment<String>>) -> Boxed {
-        Boxed{
+        #Boxed{
             text: Iter.reduce(fragments, fn acc = "", frag -> {
                 case frag {
                     .Static(s) -> acc + s

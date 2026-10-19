@@ -4,7 +4,7 @@ package irbuild
 //
 // A Nomi `return` is `ir.Return`, whose value is a temporary and whose
 // position is the `return`'s own. `emitReturn` reads `HasVal()`, and the Unit
-// spelling is the Go consumer's: `rt.Unit{}` is a Go zero value, not a Nomi
+// spelling is the Go consumer's: `#rt.Unit{}` is a Go zero value, not a Nomi
 // one.
 //
 // THE DIRECTION OF THE EDGE IS READ OFF THE GRAPH. `break` and `continue`

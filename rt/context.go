@@ -80,7 +80,7 @@ import (
 //
 // # The zero value is the root
 //
-// `Context{}` has a nil node, which is a context with no deadline and no
+// `#Context{}` has a nil node, which is a context with no deadline and no
 // parent — exactly `Context.root()`. That is the opposite of the choice
 // `opaque.go` records for `Duration`, where a zero value is a legitimate span
 // and detecting "unset" would double the type; here "unset" and "root" are the

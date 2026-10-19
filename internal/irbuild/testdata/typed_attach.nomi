@@ -1,13 +1,13 @@
 import std/io
 
-// The literal-ATTACH forms: `JV.Obj%{"k" => v}`, `JV.Arr[a, b]`, `Kvs%{"k" => v}`,
+// The literal-ATTACH forms: `%JV.Obj{"k" => v}`, `JV.Arr[a, b]`, `%Kvs{"k" => v}`,
 // `Items[1, 2]` — where a brace or bracket body is the payload of a Map- or
 // List-payload variant, or the inner value of a map- or list-distinct.
 //
 // # Why every attach below is written BESIDE its call form
 //
 // Attach is sugar, and what sugar gets wrong is disagreeing with the form it
-// abbreviates. `JV.Obj%{"a" => v}` and `JV.Obj(%{"a" => v})` must be the same
+// abbreviates. `%JV.Obj{"a" => v}` and `JV.Obj(%{"a" => v})` must be the same
 // value, so each is written next to the other and both are put through the same
 // destructuring, then the RESULTS are compared. A lowering that built the
 // payload correctly but tagged it as the wrong variant, or that dropped a
@@ -25,7 +25,7 @@ import std/io
 //
 // Each container has a producing side and a consuming side:
 //
-//   - map literal `JV.Obj{...}` and map pattern `.Obj{...}`, the pattern
+//   - map literal `%JV.Obj{...}` and map pattern `%.Obj{...}`, the pattern
 //     taking all three head spellings.
 //   - list literal `JV.Arr[...]` and list pattern `.Arr[...]`.
 //
@@ -89,8 +89,8 @@ fn tag(v: JV) -> String {
 // so the pattern is probed with an expression rather than a literal.
 fn obj_sig(v: JV, k: String) -> String {
     case v {
-        .Obj%{k => .Num(n)} -> "${k}=${n}"
-        .Obj%{k => .Obj(_)} -> "${k}=obj"
+        %.Obj{k => .Num(n)} -> "${k}=${n}"
+        %.Obj{k => .Obj(_)} -> "${k}=obj"
         _ -> "no ${k}"
     }
 }
@@ -113,7 +113,7 @@ fn expect_jv(v: JV) -> String {
 
 fn kvs_sig(m: Kvs) -> Int {
     case m {
-        Kvs%{"x" => v} -> v
+        %Kvs{"x" => v} -> v
         _ -> -1
     }
 }
@@ -127,7 +127,7 @@ fn items_sig(xs: Items) -> String {
 
 fn main() {
     // --- map attach, qualified head: flat against its call form --------------
-    obj_flat = JV.Obj%{"a" => JV.Num(1)}
+    obj_flat = %JV.Obj{"a" => JV.Num(1)}
     obj_call = JV.Obj(%{"a" => JV.Num(1)})
     io.print("obj tag = ${tag(obj_flat)}")
     io.print("obj sig = ${obj_sig(obj_flat, "a")}")
@@ -143,19 +143,19 @@ fn main() {
     io.print("arr agree = ${arr_agree}")
 
     // --- the BARE dot head, in expression position ---------------------------
-    io.print("dot obj = ${expect_jv(.Obj%{"b" => .Num(7)})}")
+    io.print("dot obj = ${expect_jv(%.Obj{"b" => .Num(7)})}")
     io.print("dot arr = ${expect_jv(.Arr[.Num(8), .Num(9)])}")
 
     // An ANNOTATED binding is the other way a bare dot gets an expected type,
     // and it is what lets the two head spellings be compared: an argument to a
     // generic comparison would resolve the dot against nothing.
-    dot_obj: JV = .Obj%{"b" => .Num(7)}
+    dot_obj: JV = %.Obj{"b" => .Num(7)}
     dot_arr: JV = .Arr[.Num(8), .Num(9)]
-    io.print("dot obj agree = ${obj_sig(dot_obj, "b") == obj_sig(JV.Obj%{"b" => JV.Num(7)}, "b")}")
+    io.print("dot obj agree = ${obj_sig(dot_obj, "b") == obj_sig(%JV.Obj{"b" => JV.Num(7)}, "b")}")
     io.print("dot arr agree = ${arr_sig(dot_arr) == arr_sig(JV.Arr[JV.Num(8), JV.Num(9)])}")
 
     // --- distinct heads, map and list ----------------------------------------
-    kvs = Kvs%{"x" => 10}
+    kvs = %Kvs{"x" => 10}
     kvs_call = Kvs(%{"x" => 10})
     items = Items[4, 5, 6]
     items_call = Items([4, 5, 6])
@@ -165,13 +165,13 @@ fn main() {
     io.print("items agree = ${items_sig(items) == items_sig(items_call)}")
 
     // --- nesting, where the recursive structural kind shows up ---------------
-    nested = JV.Obj%{
-        "a" => JV.Obj%{"b" => JV.Arr[JV.Num(99)]},
+    nested = %JV.Obj{
+        "a" => %JV.Obj{"b" => JV.Arr[JV.Num(99)]},
     }
 
     inner = case nested {
-        .Obj%{
-            "a" => .Obj%{"b" => .Arr[.Num(n)]},
+        %.Obj{
+            "a" => %.Obj{"b" => .Arr[.Num(n)]},
         } -> n
         _ -> -1
     }
@@ -200,15 +200,15 @@ fn main() {
     // --- the cases that make the variant TAG TEST load-bearing ---------------
     // These are the discriminating ones. `Meta` has the SAME payload type as
     // `Obj` and holds the SAME key, so a lowering that read the payload without
-    // first testing the tag matches `.Obj%{"a" => …}` against a Meta and answers
+    // first testing the tag matches `%.Obj{"a" => …}` against a Meta and answers
     // "obj". Every other arm in this fixture is blind to that: reading the wrong
     // variant's payload normally finds no key, or a shorter list, and falls
     // through to the honest answer.
-    meta = JV.Meta%{"a" => JV.Num(5)}
+    meta = %JV.Meta{"a" => JV.Num(5)}
 
     map_tag_matters = case meta {
-        .Obj%{"a" => .Num(n)} -> "wrongly matched Obj ${n}"
-        .Meta%{"a" => .Num(n)} -> "meta ${n}"
+        %.Obj{"a" => .Num(n)} -> "wrongly matched Obj ${n}"
+        %.Meta{"a" => .Num(n)} -> "meta ${n}"
         _ -> "fell through"
     }
 
@@ -228,7 +228,7 @@ fn main() {
     // And the plain non-match, kept because it covers the ordinary case where
     // the two payload TYPES differ as well.
     wrong_tag = case arr_flat {
-        .Obj%{"a" => .Num(n)} -> "wrongly matched ${n}"
+        %.Obj{"a" => .Num(n)} -> "wrongly matched ${n}"
         _ -> "fell through"
     }
 

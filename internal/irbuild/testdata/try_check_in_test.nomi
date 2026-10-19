@@ -13,7 +13,7 @@
 //     line N: test returned early
 //       try testing.check(1 == 2)
 //       returned:
-//         Err(AssertionFailure{...})
+//         Err(#AssertionFailure{...})
 //
 // The second is a different diagnosis, not a formatting difference: it tells
 // the reader the test exited early and hands them a struct dump, where the

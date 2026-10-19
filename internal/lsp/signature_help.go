@@ -29,6 +29,10 @@ func (s *Server) textDocumentSignatureHelp(ctx *glsp.Context, params *protocol.S
 		return nil, nil
 	}
 
+	// `#Pair(1, ‸`: the elements of the tuple the distinct type wraps.
+	literal := strings.HasPrefix(funcName, "#")
+	funcName = strings.TrimPrefix(funcName, "#")
+
 	// Look up the function symbol.
 	sym := doc.Analysis.ModuleScope.Lookup(funcName)
 
@@ -47,7 +51,13 @@ func (s *Server) textDocumentSignatureHelp(ctx *glsp.Context, params *protocol.S
 		sym = sym.Resolved
 	}
 
-	sig, paramInfos, doc_ := buildSignatureInfo(sym)
+	var sig, doc_ string
+	var paramInfos []protocol.ParameterInformation
+	if literal {
+		sig, paramInfos, doc_ = tupleLiteralSignature(sym)
+	} else {
+		sig, paramInfos, doc_ = buildSignatureInfo(sym)
+	}
 	if sig == "" {
 		return nil, nil
 	}
@@ -76,7 +86,28 @@ func (s *Server) textDocumentSignatureHelp(ctx *glsp.Context, params *protocol.S
 	return result, nil
 }
 
+// tupleLiteralSignature is the signature of `#Pair(...)` for a distinct
+// type over a tuple: `#Pair(Int, String)`, one parameter per element.
+func tupleLiteralSignature(sym *analysis.Symbol) (string, []protocol.ParameterInformation, string) {
+	td, ok := sym.Node.(*ast.TypeDef)
+	if !ok {
+		return "", nil, ""
+	}
+	tuple, ok := td.InnerTypeExpr.(*ast.FuncType)
+	if !ok || tuple.Return != nil {
+		return "", nil, ""
+	}
+	elems := make([]string, len(tuple.Params))
+	infos := make([]protocol.ParameterInformation, len(tuple.Params))
+	for i, p := range tuple.Params {
+		elems[i] = p.TypeString()
+		infos[i] = protocol.ParameterInformation{Label: elems[i]}
+	}
+	return "#" + td.Name + "(" + strings.Join(elems, ", ") + ")", infos, td.Doc
+}
+
 // buildSignatureInfo returns the signature label, parameter infos, and doc for a symbol.
+
 func buildSignatureInfo(sym *analysis.Symbol) (string, []protocol.ParameterInformation, string) {
 	var params []ast.Param
 	var typeParams []ast.TypeParam
@@ -186,6 +217,10 @@ func extractFuncName(content string, parenPos int) string {
 		i--
 	}
 	name := content[i+1 : nameEnd]
+	if i >= 0 && content[i] == '#' && name != "" {
+		// `#Pair(`: a tuple literal named by a distinct type.
+		return "#" + name
+	}
 	return name
 }
 

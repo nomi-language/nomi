@@ -40,7 +40,7 @@ impl Message for Person {
 }
 
 fn main() {
-  _ = Message.message(Person{name: "Ada"})
+  _ = Message.message(#Person{name: "Ada"})
 }
 `
 
@@ -84,7 +84,7 @@ func TestImplReceiver_TheReceiverIsAccepted(t *testing.T) {
 		implReceiverDecls + "impl Greeter for Person {\n  fn greet(p: Person) -> String {\n    p.name\n  }\n}\n" + implReceiverMain,
 		"interface Sized {\n  fn size(value: self) -> Int\n}\n\nstruct Bag<T> {\n  items: List<T>\n}\n\n" +
 			"impl<T> Sized for Bag<T> {\n  fn size(b: Bag<T>) -> Int {\n    Iter.count(b.items)\n  }\n}\n\n" +
-			"fn main() {\n  _ = Sized.size(Bag{items: [1]})\n}\n",
+			"fn main() {\n  _ = Sized.size(#Bag{items: [1]})\n}\n",
 		"interface Twice {\n  fn twice(value: self) -> Int\n}\n\nimpl Twice for Int {\n  fn twice(n: Int) -> Int {\n    n * 2\n  }\n}\n\n" +
 			"fn main() {\n  _ = Twice.twice(2)\n}\n",
 	} {

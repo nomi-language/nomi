@@ -27,13 +27,13 @@ fn main() {
         |> Iter.to_list()
 
     io.print("names ${names}")
-    spans = [tree.Span{start: 1, stop: 2}, tree.Span{start: 5, stop: 9}]
+    spans = [#tree.Span{start: 1, stop: 2}, #tree.Span{start: 5, stop: 9}]
     io.print("widths ${spans |> Iter.map(fn s -> s.stop - s.start) |> Iter.to_list()}")
-    io.print("first ${tree.first(tree.Span{start: 5, stop: 6})}")
-    io.print(Debug.inspect(Maybe.Some(tree.Span{start: 5, stop: 6})))
+    io.print("first ${tree.first(#tree.Span{start: 5, stop: 6})}")
+    io.print(Debug.inspect(Maybe.Some(#tree.Span{start: 5, stop: 6})))
 
     xs =
-        [Tree.Node(Point{x: 1}), Tree.Leaf, Tree.Node(Point{x: 4})]
+        [Tree.Node(#Point{x: 1}), Tree.Leaf, Tree.Node(#Point{x: 4})]
         |> Iter.map(fn t -> {
             case t {
                 Tree.Node(p) -> p.x
@@ -43,7 +43,7 @@ fn main() {
         |> Iter.to_list()
 
     io.print("points ${xs}")
-    corner = tree.Span{start: Point{x: 2}, stop: Point{x: 3}}
+    corner = #tree.Span{start: #Point{x: 2}, stop: #Point{x: 3}}
     io.print("corner ${tree.first(corner).x}")
     io.print(zz.floats())
 }

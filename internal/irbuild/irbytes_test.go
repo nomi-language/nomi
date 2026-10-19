@@ -47,8 +47,8 @@ fn main() {
 
 func TestIRBytes_UserStructFieldDebug(t *testing.T) {
 	verifyLambdaProgram(t, `struct Packet { data: Bytes }
-fn main() { dbg Packet{data: String.to_bytes("a")} return }
-`, "dbg line 2: Packet{data: String.to_bytes(\"a\")} = Packet{data: <<97>>}\n")
+fn main() { dbg #Packet{data: String.to_bytes("a")} return }
+`, "dbg line 2: #Packet{data: String.to_bytes(\"a\")} = #Packet{data: <<97>>}\n")
 }
 
 // A user struct with a Bytes or Byte field is retained, as a std struct's is.
@@ -73,11 +73,11 @@ fn handle(req: Request) -> Result<Bytes, String> { Ok(req.body) }
 fn apply(f: (Request) -> Result<Bytes, String>, r: Request) -> Result<Bytes, String> { f(r) }
 fn main() {
  body = String.to_bytes("xyz")
- r = Request{path: "/", body, flag: first(body)}
+ r = #Request{path: "/", body, flag: first(body)}
  apply(handle, r) |> io.inspect()
  r |> io.inspect()
  (r == r) |> io.inspect()
  Bytes.length(r.body) |> io.print()
 }
-`, "Ok(<<120, 121, 122>>)\nRequest{path: \"/\", body: <<120, 121, 122>>, flag: 120}\nTrue\n3\n")
+`, "Ok(<<120, 121, 122>>)\n#Request{path: \"/\", body: <<120, 121, 122>>, flag: 120}\nTrue\n3\n")
 }

@@ -37,13 +37,13 @@ enum Shape {
 }
 
 test "struct-shaped payload without the name" {
-    s = Shape.Rect{height: 2}
+    s = #Shape.Rect{height: 2}
 
     assert s.radius == 0.0
 }
 
 test "positional struct payload without the name" {
-    s = Shape.Wrap(Circle{radius: 1.0})
+    s = Shape.Wrap(#Circle{radius: 1.0})
 
     assert s.height == 2
 }

@@ -22,7 +22,7 @@ func TestLambda_ConflictingReturnTypesAreRejected(t *testing.T) {
 // contract, at the level `kind`'s `==` sees.
 //
 // Two function types are the same type exactly when their Go types are
-// identical. Without interning, `kind{tag: tagFunc}` would compare equal for
+// identical. Without interning, `kind#{tag: tagFunc}` would compare equal for
 // every function type in the language and `(Int) -> Int` would satisfy a
 // `(String) -> Bool` position.
 func TestLambdaKindsInternByGoType(t *testing.T) {

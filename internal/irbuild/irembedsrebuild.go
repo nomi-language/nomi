@@ -26,7 +26,7 @@ import (
 //     through an adapter function that matches each variant and makes it
 //     again at the wider instance with its payloads converted. The adapter
 //     takes itself as a capture, so an enum holding its own instance
-//     (`Chain<T>` in `Link{head: T, tail: Chain<T>}`) rebuilds its tail by
+//     (`Chain<T>` in `#Link{head: T, tail: Chain<T>}`) rebuilds its tail by
 //     calling itself;
 //   - a List, Set, Vector or Map is mapped through the element's adapter
 //     (`Iter.map`'s operation over the collection's view, then the matching

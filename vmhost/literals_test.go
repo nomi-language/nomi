@@ -106,7 +106,7 @@ func TestBacktickLiteral_EffectfulHandlerIsACompileError(t *testing.T) {
 		"impl Literal for Loud {\n" +
 		"    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Loud, String> {\n" +
 		"        io.print(\"building\")\n" +
-		"        Ok(Loud{n: Iter.count(fragments)})\n" +
+		"        Ok(#Loud{n: Iter.count(fragments)})\n" +
 		"    }\n" +
 		"}\n\n"
 	ds := literalDiagnostics(t, decls+"fn main() {\n    _ = Loud`x`\n}\n")
@@ -148,7 +148,7 @@ func TestBacktickLiteral_InALoopIsBuiltOnce(t *testing.T) {
 		"impl Literal for Slow {\n" +
 		"    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Slow, String> {\n" +
 		"        n = Iter.reduce(1..=1000, fn acc = 0, i -> acc + i)\n" +
-		"        Ok(Slow{n: n + Iter.count(fragments)})\n" +
+		"        Ok(#Slow{n: n + Iter.count(fragments)})\n" +
 		"    }\n" +
 		"}\n\n" +
 		"fn raw() -> Int {\n" +

@@ -71,7 +71,7 @@ fn total<T>(xs: List<T>) -> Int where T: Shape {
 }
 
 fn main() {
-  io.print(total([Square{side: 2}]))
+  io.print(total([#Square{side: 2}]))
   io.print(table)
 }
 `

@@ -84,5 +84,5 @@ test "pipes into dispatch functions preserve interface dispatch" {
         |> Display.to_string()
 
     assert int_text == "5"
-    assert set_text == "#{1, 2, 3}"
+    assert set_text == "%[1, 2, 3]"
 }

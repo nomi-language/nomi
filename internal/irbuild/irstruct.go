@@ -63,7 +63,7 @@ package irbuild
 //
 // An impure field value is forced into an `ir.Copy` at its source position,
 // as `bl.binary` does for an impure left operand and `bl.call` for a non-last
-// argument (`Counter{value: c.value + 1}`).
+// argument (`#Counter{value: c.value + 1}`).
 
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -611,7 +611,7 @@ func irRetainedValueKind(k kind) bool {
 	return k.tag == tagNamed && (irRetainedStructKind(k.def) || irRetainedEnumKind(k.def) || irCompositeDistinct(k.def))
 }
 
-// structMake lowers `Point{x: 3, y: 4}` as an `ir.Make` of kind MakeStruct.
+// structMake lowers `#Point{x: 3, y: 4}` as an `ir.Make` of kind MakeStruct.
 //
 // Every check here is a decline and none is a reject: a declined literal
 // leaves its body unretained.
@@ -627,8 +627,8 @@ func irRetainedValueKind(k kind) bool {
 func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bool) {
 	if t.TypeName == nil {
 		if st := bl.g.targetStruct(t); st != nil {
-			// A target-typed brace literal (`a: Address = {...}`) builds the
-			// nominal struct the checker chose, exactly as `Address{...}`.
+			// A target-typed brace literal (`a: Address = #{...}`) builds the
+			// nominal struct the checker chose, exactly as `#Address{...}`.
 			k := bl.g.project(st)
 			if k.tag != tagNamed || k.def == nil {
 				return ir.NoTemp, kindInvalid, false, false
@@ -652,13 +652,13 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 		}
 		if _, isSimple := tn.Member.(*ast.SimpleType); isSimple {
 			// `span.Span{...}`: another file's generic struct, named through
-			// its module, or this file's dotted one (`Tree.Node{v: 1}`).
+			// its module, or this file's dotted one (`#Tree.Node{v: 1}`).
 			if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Module + "." + tn.Member.TypeString()); isTemplate && tpl.structDecl() != nil {
 				return bl.genericStructMake(t, tpl, instantiate)
 			}
 		}
 		if d, namespaced := bl.g.namespacedType(tn); namespaced {
-			// `Json.ShapeError{...}` builds like a simple struct name.
+			// `#Json.ShapeError{...}` builds like a simple struct name.
 			return bl.structMakeOf(t, d)
 		}
 		return bl.variantStructLit(t, tn.Module, tn.Member.TypeString())
@@ -679,7 +679,7 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 	if d, v, isVariant := bl.g.importedVariantAt(t, tn.Name, tn.Line, tn.Col); isVariant {
 		// A std enum's struct-shaped variant imported by name
 		// (`import std/supervisors.Backoff.Exponential`, then
-		// `Exponential{}`), which the checker types as the variant.
+		// `#Exponential{}`), which the checker types as the variant.
 		return bl.variantStructLitOf(t, d, v)
 	}
 	if a := bl.stdGenStructLitAnchor(tn); a != nil {
@@ -862,7 +862,7 @@ func (bl *irScalarBuilder) declDefault(deflt ast.Node, want kind) (ir.Temp, bool
 }
 
 // stdGenStructLitAnchor is the anchored generic std struct a literal names
-// (`Generator{run: ...}` inside std/random), or nil.
+// (`#Generator{run: ...}` inside std/random), or nil.
 func (bl *irScalarBuilder) stdGenStructLitAnchor(tn *ast.SimpleType) *stdGenStructAnchor {
 	g := bl.g
 	g.loadStdGenStructs()

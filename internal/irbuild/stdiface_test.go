@@ -33,7 +33,7 @@ fn show(d: ToJson) -> String {
 }
 
 fn main() {
-  io.print(show(Mine{n: 1}))
+  io.print(show(#Mine{n: 1}))
 }
 `)
 	if _, anchored := g.stdIfaceNamed("ToJson"); anchored {

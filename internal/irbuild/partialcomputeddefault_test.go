@@ -40,7 +40,7 @@ struct Box {
 
 impl Box {
     fn make(a: Int, b: Int = a * 2) -> Box {
-        Box{v: a + b}
+        #Box{v: a + b}
     }
 }
 
@@ -75,7 +75,7 @@ fn main() {
     io.print(l(1))
     io.inspect(n)
 }
-`, "h:3\nbase\nh:11\n99\nbase\nx:11\ny:5\n#(4, 8, 12)\n#(4, 1, 5)\n#(3, 6, 7)\n#(1, 1)\nBox{v: 3}\n14\n6\n14\n"+
+`, "h:3\nbase\nh:11\n99\nbase\nx:11\ny:5\n#(4, 8, 12)\n#(4, 1, 5)\n#(3, 6, 7)\n#(1, 1)\n#Box{v: 3}\n14\n6\n14\n"+
 		"lib base\nl:42\nl:1\n100\n", map[string]string{"lib.nomi": `import std/io
 
 fn base() -> Int {

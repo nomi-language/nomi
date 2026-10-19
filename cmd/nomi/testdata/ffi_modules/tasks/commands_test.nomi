@@ -54,15 +54,15 @@ fn run_lines(lines: List<String>) -> Result<#(Map<Int, Task>, List<String>), Str
     Iter.reduce(lines, fn state = Ok(#(Map.empty(), [])), line -> {
         #(tasks, _shown) = try state
         command = try commands.parse(line)
-        commands.run(command, tasks, FakeStore{}, FixedClock{at: noon})
+        commands.run(command, tasks, #FakeStore{}, #FixedClock{at: noon})
     })
 }
 
 test "words become commands" {
     assert commands.parse("") == Ok(Command.Blank)
-    assert commands.parse("list done") == Ok(Command.List{status: Some(Status.Done)})
+    assert commands.parse("list done") == Ok(#Command.List{status: Some(Status.Done)})
 
-    assert commands.parse("delete 4") == Ok(Command.Delete{id: 4})
+    assert commands.parse("delete 4") == Ok(#Command.Delete{id: 4})
 }
 
 test "malformed lines are errors" {
@@ -73,7 +73,7 @@ test "malformed lines are errors" {
 test "added tasks are numbered from 1 and stamped by the clock" {
     #(tasks, _shown) = try run_lines(["add first", "add second"])
 
-    assert Map.get(tasks, 2) == Some(Task{id: 2, title: "second", created: noon})
+    assert Map.get(tasks, 2) == Some(#Task{id: 2, title: "second", created: noon})
 }
 
 test "list shows the tasks with a status, in id order" {
@@ -89,8 +89,8 @@ test "an unknown id is an error" {
 }
 
 test "a failed save is an error" {
-    store = FakeStore{error: Some("disk full")}
-    result = commands.run(Command.Add{title: "a"}, Map.empty(), store, FixedClock{at: noon})
+    store = #FakeStore{error: Some("disk full")}
+    result = commands.run(#Command.Add{title: "a"}, Map.empty(), store, #FixedClock{at: noon})
 
     assert result == Err("disk full")
 }

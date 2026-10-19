@@ -12,12 +12,12 @@ enum Tree<T> {
 }
 
 fn main() {
-    box = Box{value: 42}
+    box = #Box{value: 42}
     io.inspect(box)
     io.print(box)
-    io.print("boxed: ${Box{value: "hi"}}")
+    io.print("boxed: ${#Box{value: "hi"}}")
     leaf: Tree<Int> = Tree.Leaf
-    tree: Tree<Int> = Tree.Node{left: leaf, value: 5, right: leaf}
+    tree: Tree<Int> = #Tree.Node{left: leaf, value: 5, right: leaf}
     io.inspect(tree)
     _ = dbg box
 }

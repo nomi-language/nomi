@@ -29,7 +29,7 @@ fn main() {
     io.print(Debug.inspect(r))
     io.print(Debug.inspect(r == Ok(3)))
     io.print(Debug.inspect(r == Ok(4)))
-    s = #{r}
+    s = %[r]
     io.print(Debug.inspect(Set.contains?(s, Ok(3))))
     m = %{r => "three"}
     io.print(Debug.inspect(Map.get(m, Ok(3))))
@@ -67,7 +67,7 @@ fn nothing() -> Maybe<Infallible> {
 fn main() {
     io.print(Debug.inspect(none()))
     io.print(Debug.inspect(nothing()))
-    s: Set<Infallible> = #{}
+    s: Set<Infallible> = %[]
     io.print(Debug.inspect(Set.size(s)))
 }
 `)
@@ -264,7 +264,7 @@ fn main() {
     io.print(Display.to_string(failed))
     io.print("${failed}")
     io.print(Debug.inspect(Map.get(%{failed => 1}, Err("bad"))))
-    io.print(Debug.inspect(Set.contains?(#{failed}, Err("bad"))))
+    io.print(Debug.inspect(Set.contains?(%[failed], Err("bad"))))
 }
 `)
 	if err != nil {
@@ -325,8 +325,8 @@ func TestInfallible_ALiteralBesideAnOpenOkTakesItsType(t *testing.T) {
 
 fn main() {
     q: Result<Int, Infallible> = Ok(3)
-    io.print(Debug.inspect(Set.size(#{q, Ok(4)})))
-    io.print(Debug.inspect(Set.size(#{Ok(4), q, Ok(3)})))
+    io.print(Debug.inspect(Set.size(%[q, Ok(4)])))
+    io.print(Debug.inspect(Set.size(%[Ok(4), q, Ok(3)])))
     io.print(Debug.inspect([q, Ok(4)]))
     io.print(Debug.inspect([Ok(4), q]))
     io.print(Debug.inspect(Map.get(%{q => 1, Ok(4) => 2}, Ok(4))))

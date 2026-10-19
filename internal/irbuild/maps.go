@@ -52,7 +52,7 @@ import (
 //     and structural equality does not dispatch. A `derive Equatable` on a
 //     struct FIELD is likewise not consulted when the containing struct falls
 //     back structurally: for an `Inner` whose impl returns True
-//     unconditionally, `a == b` is True and `Outer{i: a} == Outer{i: b}` is
+//     unconditionally, `a == b` is True and `#Outer{i: a} == #Outer{i: b}` is
 //     False.
 //
 // So every caller here wants structural equality and there is nothing left for a second

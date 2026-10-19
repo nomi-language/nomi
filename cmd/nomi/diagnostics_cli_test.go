@@ -297,7 +297,7 @@ func TestCommands_ReportAnUnusablePathPlainly(t *testing.T) {
 		{[]string{"test", "empty"}, 0, "no test files found in empty\n"},
 		{[]string{"fmt", "missing.nomi"}, 1, "nomi fmt: missing.nomi: no such file or directory\n"},
 		// A file fmt cannot parse is reported once, as a diagnostic.
-		{[]string{"fmt", "bad.nomi"}, 1, "bad.nomi:1:1: expected '}' in struct pattern\n"},
+		{[]string{"fmt", "bad.nomi"}, 1, "bad.nomi:1:7: unexpected token LBRACE in pattern\n"},
 	} {
 		o := runProcess(t, env, dir, "", nomiBin, tc.args...)
 		if got := o.stdout + o.stderr; o.exit != tc.exit || got != tc.out {

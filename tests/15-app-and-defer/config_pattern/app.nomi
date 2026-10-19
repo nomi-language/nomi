@@ -18,7 +18,7 @@ pub struct ConfigApp {
 }
 
 pub fn load(deployment: String) -> ConfigApp {
-    base = ConfigApp{}
+    base = #ConfigApp{}
 
     case deployment {
         "prod" -> prod.configure(base)

@@ -100,7 +100,7 @@ fn main() {
 
     // A Context on a STRUCT FIELD and across a signature boundary in both
     // directions, which is the shape every corpus file that unblocked has.
-    app = App{
+    app = #App{
         context: Context.with_timeout(root, Duration.seconds(-1)),
         name: "svc",
     }

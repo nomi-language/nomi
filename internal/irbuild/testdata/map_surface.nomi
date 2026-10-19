@@ -105,7 +105,9 @@ fn main() {
 
     // An Int-keyed map, so key coercion is not always String.
     grid = %{0 => "first", 1 => "second"}
+
     %{1 => second, 0 => first} = grid else { return }
+
     io.print("grid = ${first} ${second}")
 
     // A LIST key, compared structurally. The lookup uses a FRESH list, so an
@@ -116,7 +118,9 @@ fn main() {
 
     // A TUPLE key.
     by_pair = %{#(1, 2) => "p", #(3, 4) => "q"}
+
     %{#(3, 4) => from_pair} = by_pair else { return }
+
     io.print("pair key = ${from_pair}")
 
     // Entries are read LEFT TO RIGHT, and each key expression is evaluated once.

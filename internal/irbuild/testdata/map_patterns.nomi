@@ -182,8 +182,8 @@ fn nested(m: Map<String, Map<String, Int>>) -> String {
 
 fn variant(j: JV) -> String {
     case j {
-        .Obj%{"a" => .Obj%{"b" => .Num(n)}} -> "deep ${n}"
-        JV.Obj%{"a" => .Num(n)} -> "flat ${n}"
+        %.Obj{"a" => %.Obj{"b" => .Num(n)}} -> "deep ${n}"
+        %JV.Obj{"a" => .Num(n)} -> "flat ${n}"
         .Obj(_) -> "obj"
         .Num(n) -> "num ${n}"
     }
@@ -191,7 +191,7 @@ fn variant(j: JV) -> String {
 
 fn distinct_flat(kv: Kvs) -> String {
     case kv {
-        Kvs%{"a" => v} -> "a=${v}"
+        %Kvs{"a" => v} -> "a=${v}"
         _ -> "?"
     }
 }

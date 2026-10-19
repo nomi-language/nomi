@@ -138,7 +138,7 @@ func TestGeneric_TheBoundFreeLineIsOneImplementation(t *testing.T) {
 	// `A: Debug, B: Debug` in TypeParam.Bounds and nothing in WhereClauses.
 	src := "struct Pair<A, B> {\n  first: A\n  second: B\n}\n\n" +
 		"derive Debug for Pair\n\n" +
-		"fn main() {\n  _ = Pair{first: 1, second: \"a\"}\n}\n"
+		"fn main() {\n  _ = #Pair{first: 1, second: \"a\"}\n}\n"
 	p, err := AnalyzeSource("main", src)
 	if err != nil {
 		t.Fatalf("front end rejected the synthesized-bound witness: %v", err)

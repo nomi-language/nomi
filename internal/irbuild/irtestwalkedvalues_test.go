@@ -28,7 +28,7 @@ impl Literal for Upper {
         .Dynamic(v) -> acc + v
       }
     )
-    Upper{text}
+    #Upper{text}
   }
 }
 
@@ -45,7 +45,7 @@ test "a map" {
 }
 
 test "a set and a vector" {
-  s = #{1, 2, 1 + 1}
+  s = %[1, 2, 1 + 1]
   v = #[1, 2, 3]
   assert Set.size(s) == 2
   assert Vector.length(v) == 4

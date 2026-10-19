@@ -49,7 +49,7 @@ impl Json {
     /// fractional part / exponent; otherwise as `Float`. See the
     /// `Json` doc-comment for the rationale.
     //! assert Json.decode("{\"ok\":true,\"n\":42}") == Result.Ok(
-    //!     Json.Obj%{"ok" => Json.Bool(True), "n" => Json.Int(42)}
+    //!     %Json.Obj{"ok" => Json.Bool(True), "n" => Json.Int(42)}
     //! )
     //!
     //! assert Result.err?(Json.decode("{"))
@@ -63,7 +63,7 @@ impl Json {
     /// The `Int`/`Float` distinction captured by `decode` therefore does
     /// not necessarily survive a text round-trip.
     //! assert Json.encode(
-    //!     Json.Obj%{"ok" => Json.Bool(True), "n" => Json.Int(42)}
+    //!     %Json.Obj{"ok" => Json.Bool(True), "n" => Json.Int(42)}
     //! ) == "{\"ok\":true,\"n\":42}"
     //
     pub host fn encode(jv: Json) -> String
@@ -195,7 +195,7 @@ pub struct Json.ShapeError {
 }
 
 pub fn shape_error_root(expected: String, got: Json) -> Json.ShapeError {
-    Json.ShapeError{
+    #Json.ShapeError{
         path: [],
         expected,
         got: Json.kind(got),
@@ -203,7 +203,7 @@ pub fn shape_error_root(expected: String, got: Json) -> Json.ShapeError {
 }
 
 pub fn shape_error_prepend(e: Json.ShapeError, segment: String) -> Json.ShapeError {
-    Json.ShapeError{
+    #Json.ShapeError{
         path: [segment] + e.path,
         expected: e.expected,
         got: e.got,

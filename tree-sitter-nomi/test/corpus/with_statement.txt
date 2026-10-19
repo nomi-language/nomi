@@ -62,8 +62,8 @@ With a file-qualified target and an unparenthesized struct literal
 
 fn qualified() {
   with app.MyApp.logger = Silent
-  with MyApp.store = FakeStore{}
-  with MyApp.clock = FakeClock{at: 1}
+  with MyApp.store = #FakeStore{}
+  with MyApp.clock = #FakeClock{at: 1}
   run()
 }
 
@@ -167,7 +167,7 @@ With as a function body's last line
 
 fn last() {
   run()
-  with MyApp.clock = FakeClock{at: 1}
+  with MyApp.clock = #FakeClock{at: 1}
 }
 
 --------------------------------------------------------------------------------

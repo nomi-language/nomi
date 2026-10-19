@@ -213,9 +213,9 @@ impl Temperature for Kelvin {
 }
 
 fn main() {
-    io.print(Celsius.against(Celsius{v: 1}, Kelvin{v: 2}))
-    io.print(Kelvin.against(Kelvin{v: 2}, Celsius{v: 1}))
-    io.print(Temperature.against(Celsius{v: 1}, Celsius{v: 3}))
+    io.print(Celsius.against(#Celsius{v: 1}, #Kelvin{v: 2}))
+    io.print(Kelvin.against(#Kelvin{v: 2}, #Celsius{v: 1}))
+    io.print(Temperature.against(#Celsius{v: 1}, #Celsius{v: 3}))
 }
 `})
 	want := "C vs KK vs K\nK vs CC vs C\nC vs CC vs C\n"

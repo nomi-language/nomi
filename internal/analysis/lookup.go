@@ -31,17 +31,28 @@ func (f *FileAnalysis) TokenAt(pos Pos) (sym *Symbol, start Pos, length int, ok 
 		}
 		return len(s.Name)
 	}
-	// Check references (identifier usages)
-	for refPos, s := range f.References {
-		if refPos.Line == pos.Line && pos.Col >= refPos.Col && pos.Col < refPos.Col+span(s) {
-			return s, refPos, span(s), true
+	// Spans can nest (a hint spanning a literal, a name inside it), so of the
+	// entries covering pos the one starting last, the innermost, answers. The
+	// tables are maps, and the first match found would depend on their order.
+	within := func(table map[Pos]*Symbol) (*Symbol, Pos, bool) {
+		var best *Symbol
+		var bestPos Pos
+		for at, s := range table {
+			if s == nil || at.Line != pos.Line || pos.Col < at.Col || pos.Col >= at.Col+span(s) {
+				continue
+			}
+			if best == nil || at.Col > bestPos.Col {
+				best, bestPos = s, at
+			}
 		}
+		return best, bestPos, best != nil
 	}
-	// Check definitions
-	for defPos, s := range f.Definitions {
-		if defPos.Line == pos.Line && pos.Col >= defPos.Col && pos.Col < defPos.Col+span(s) {
-			return s, defPos, span(s), true
-		}
+	// Check references (identifier usages), then definitions.
+	if s, at, found := within(f.References); found {
+		return s, at, span(s), true
+	}
+	if s, at, found := within(f.Definitions); found {
+		return s, at, span(s), true
 	}
 	return nil, Pos{}, 0, false
 }

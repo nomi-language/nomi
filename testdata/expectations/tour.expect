@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover.
-records 146
+records 150
 declared-cases 21
 failing 0
 C bindings-and-expressions.md:L116
@@ -149,7 +149,7 @@ T [log] hello, World
 T [audit] hello, Alice
 T [log] hello, Bob
 T
-C collections.md:L105
+C collections.md:L118
 E 0
 N 0
 H 066faad5a4bc97f6db2b1aee91ec69a2f83a2e3617c7b4bd4e907a5b9b23cdcd
@@ -160,7 +160,16 @@ T dbg line 9: Vector.get(names, 5) = None
 T dbg line 10: Vector.at(names, 1) = "Grace"
 T dbg line 11: names + #["Dorothy"] = #["Ada", "Grace", "Katherine", "Dorothy"]
 T
-C collections.md:L151
+C collections.md:L164
+E 0
+N 0
+H 0e85b8ef3b9e9268d3d7ed690929ace32825b47962b510f1b26b28e37edb0454
+T dbg line 17: ends(#[]) = "empty"
+T dbg line 18: ends(#[7]) = "just 7"
+T dbg line 19: ends(#[1, 2, 3]) = "1 to 3"
+T dbg line 20: sum(#[1, 2, 3, 4]) = 10
+T
+C collections.md:L205
 E 0
 N 0
 H 7d90e5de8b76c61050edf03e6d430c195aac01f1562239e64b40859a8699b5c4
@@ -168,35 +177,44 @@ T dbg line 4: Map.size(config) = 2
 T dbg line 5: Map.get(config, "host") = Some("localhost")
 T dbg line 6: Map.get(config, "user") = None
 T
-C collections.md:L179
+C collections.md:L233
 E 0
 N 0
-H 1c913026c1529d24461785db441534a115009fde72f64b7352951816886e3437
+H af813ad794e415777b30970da146d9bcc5db20c38e47b0eaefb41067fa4b5438
 T dbg line 4: Set.size(s) = 3
 T dbg line 5: Set.contains?(s, 2) = True
 T dbg line 6: Set.contains?(s, 9) = False
-T dbg line 7: s + #{4, 5} = #{1, 2, 3, 4, 5}
-T dbg line 8: s - #{1} = #{2, 3}
+T dbg line 7: s + %[4, 5] = %[1, 2, 3, 4, 5]
+T dbg line 8: s - %[1] = %[2, 3]
 T
-C collections.md:L219
+C collections.md:L272
 E 0
 N 0
-H 5fe513e0d9c0eb1756b2f3513b3fa3ea3fdd696b721ebcb0e5d146d9c19a45a9
+H 1ff27860b8a0d947165cda22986a09ea0f7dd9929aa24c44ba48ba1e91f08ec6
+T dbg line 11: describe(%["admin", "editor", "viewer"]) = "admin, and 2 more"
+T dbg line 12: describe(%["guest"]) = "a guest"
+T dbg line 13: describe(%[]) = "nobody"
+T dbg line 14: describe(%["editor"]) = "someone else"
+T
+C collections.md:L308
+E 0
+N 0
+H eb5e9b422119bf2d0d274002720b28f0f985744a4cabf64f64249f2075019a8f
 T dbg line 7: ["Ada", ..xs] = ["Ada", "Bo"]
 T dbg line 8: #[..v, "Cy"] = #["Bo", "Cy"]
 T dbg line 9: #["Ada", ..v] = #["Ada", "Bo"]
-T dbg line 10: #{..s, "blue"} = #{"red", "blue"}
+T dbg line 10: %[..s, "blue"] = %["red", "blue"]
 T dbg line 11: %{..m, "port" => "9090", "user" => "ada"} = %{"host" => "localhost", "port" => "9090", "user" => "ada"}
 T
-C collections.md:L252
+C collections.md:L341
 E 0
 N 0
-H f82d1b73a696564942d66c6d4a9191257ce8bd5c5add885ba9af5348cdd97b07
-T dbg line 9: {..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: #{.., "blue"}} = Team{members: ["Ada", "Bo"], roster: #["Bo", "Cy"], tags: #{"red", "blue"}}
+H b582aceee56a330f06400342e26c7dacc677d1fe95f781ace7ffa20634c26eb2
+T dbg line 9: #{..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: %[.., "blue"]} = #Team{members: ["Ada", "Bo"], roster: #["Bo", "Cy"], tags: %["red", "blue"]}
 T dbg line 13: %{..teams, "hawks" => %{.., "city" => "Atlanta"}, "kites" => %{.., "city" => "Leeds"}} = %{"hawks" => %{"name" => "Hawks", "city" => "Atlanta"}, "kites" => %{"city" => "Leeds"}}
 T dbg line 14: %{..scores, "ada" => [5, ..], "bob" => [1, ..]} = %{"ada" => [5, 3], "bob" => [1]}
 T
-C collections.md:L293
+C collections.md:L382
 E 0
 N 0
 H 48f4f538f70bf0c6d1657f46f634c215ca968617f50a7ed2393b0b89347d5c5c
@@ -208,7 +226,17 @@ T   |> Iter.take(3)
 T   |> Iter.to_list()
 T   = [0, 1, 2]
 T
-C collections.md:L30
+C collections.md:L409
+E 0
+N 0
+H bbbf1aebc5d22a08b3e3cf28439beb79c4a286b179f64c381b2f3049483e95ee
+T dbg line 5:
+T   'a'..='d'
+T   |> Iter.map(Codepoint.to_string)
+T   |> Iter.to_list()
+T   = ["a", "b", "c", "d"]
+T
+C collections.md:L43
 E 0
 N 0
 H 38c3f88650f97e2369dfd2016660ba3cf833db80121ff20c7d7175241a6b4f26
@@ -220,24 +248,14 @@ T squaring 4
 T squaring 5
 T dbg line 14: result = [16, 25]
 T
-C collections.md:L320
-E 0
-N 0
-H bbbf1aebc5d22a08b3e3cf28439beb79c4a286b179f64c381b2f3049483e95ee
-T dbg line 5:
-T   'a'..='d'
-T   |> Iter.map(Codepoint.to_string)
-T   |> Iter.to_list()
-T   = ["a", "b", "c", "d"]
-T
-C collections.md:L341
+C collections.md:L430
 E 0
 N 0
 H 1ff324bcbd4b480cb8e2658ba66e55daf1682cc823b821251fb37478e104b2a2
 T dbg line 2: Range.contains?("a".."m", "h") = True
 T dbg line 3: Range.contains?(0.0..=1.0, 1.0) = True
 T
-C collections.md:L358
+C collections.md:L447
 E 0
 N 0
 H 4f0bc3c39691320e70722484e57aa754e382d71d460b84477ce557632ad7943e
@@ -247,14 +265,14 @@ T   |> Range.step_by(0.1d)
 T   |> Iter.to_list()
 T   = [1.0d, 1.1d, 1.2d, 1.3d]
 T
-C collections.md:L377
+C collections.md:L466
 E 0
 N 0
 H 43ef97883b36e821c8071cb694da0395cd0bae2256969f3bddb2b4125730ba46
 T dbg line 5: Map.size(m1) = 2
 T dbg line 6: Map.size(m2) = 3
 T
-C collections.md:L73
+C collections.md:L86
 E 0
 N 0
 H f53d3738b6e5a474e130b498522620100f4f9e3b4c35ab6c94dd53b79d901240
@@ -406,9 +424,9 @@ T
 C functions-and-lambdas.md:L161
 E 0
 N 0
-H 2dd345f90f7d867c1f990360e879b4c0045f7be19a25e6aa0bd1d7472f6741ee
+H c27a029891c7432cf7c262c129860a7c469751319f0948f1cdafc8377f219ff1
 T dbg line 22: diff = 7
-T dbg line 23: sum_point(Point{x: 4, y: 5}) = 9
+T dbg line 23: sum_point(#Point{x: 4, y: 5}) = 9
 T dbg line 24: add_pair(#(20, 22)) = 42
 T
 C functions-and-lambdas.md:L209
@@ -489,8 +507,8 @@ T
 C interfaces-and-dispatch.md:L320
 E 0
 N 0
-H c55a9a0f58ad08e6e6f115951dd8920fbd89e5cd3af659c42a17daceaed75064
-T dbg line 14: Point{x: 3, y: 4} = Point{x: 3, y: 4}
+H 5b4d8ccbf44936b6c3c5724fcf316ef7001acd109c5f9fdd6bb5868fb5706ae8
+T dbg line 14: #Point{x: 3, y: 4} = #Point{x: 3, y: 4}
 T dbg line 15: Status.Pending(7) = Pending(7)
 T dbg line 16: Email("a@b.com") = Email("a@b.com")
 T
@@ -528,17 +546,17 @@ T
 C interfaces-and-dispatch.md:L592
 E 0
 N 0
-H 34c5c9d41923611f88ff0f6b4007e863d1fbfa1310b14c310e20dcbb46817ff7
-T dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True
-T dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
-T dbg line 9: %{Point{x: 1, y: 2} => "home"} = %{Point{x: 1, y: 2} => "home"}
+H c2c0c10a76f42369643f1823111f1f6495172318975a84270e10dbfc8afc9a19
+T dbg line 7: #Point{x: 1, y: 2} == #Point{x: 1, y: 2} = True
+T dbg line 8: #Point{x: 1, y: 2} == #Point{x: 1, y: 3} = False
+T dbg line 9: %{#Point{x: 1, y: 2} => "home"} = %{#Point{x: 1, y: 2} => "home"}
 T
 C interfaces-and-dispatch.md:L640
 E 0
 N 0
-H b4e4fc5f4ce7c0de421fbd8dcb5ac4bb712b36fc5369f8b666c6fd3129d8d497
-T dbg line 8: Money{amount: 100} < Money{amount: 250} = True
-T dbg line 11: Iter.sort(ms) = [Money{amount: 1}, Money{amount: 2}, Money{amount: 3}]
+H c28ec0b0d00be6b0bcb91f15e2b02a82c380db8ca91ea3b083e41c50820a9af3
+T dbg line 8: #Money{amount: 100} < #Money{amount: 250} = True
+T dbg line 11: Iter.sort(ms) = [#Money{amount: 1}, #Money{amount: 2}, #Money{amount: 3}]
 T
 C interfaces-and-dispatch.md:L666
 E 0
@@ -558,8 +576,8 @@ T
 C interfaces-and-dispatch.md:L740
 E 0
 N 0
-H f1feaa82465a86d0de7d8507de0eae8cb9fe185341895b9cf5254b4a277df66a
-T dbg line 10: sorted = [User{name: "Ann", age: 41}, User{name: "Cara", age: 35}]
+H 6f47c96660718d8ae0829ad5e2b575de50bde592047b8a353886688e1a27f4f3
+T dbg line 10: sorted = [#User{name: "Ann", age: 41}, #User{name: "Cara", age: 35}]
 T
 C interfaces-and-dispatch.md:L75
 E 0
@@ -630,14 +648,12 @@ N 0
 H 9a92adbc0cee38ef658c71ce1b1bf8c65668f166bfb213644c895ccb1ad07a25
 T 14
 T
-C pattern-matching.md:L130
+C pattern-matching.md:L139
 E 0
 N 0
-H 668f39db329d8e235c72160a1e290f545822e4978ddc325320a25fd9efb2cba2
-T dbg line 23: size(.Square(12.0)) = "big, 12.0 across"
-T dbg line 24: size(.Circle(2.0)) = "2.0 across"
-T dbg line 25: closes(']') = True
-T dbg line 26: closes('x') = False
+H ec8432499410f5b0da09b6197834d5bc860dd63404efddf791781fba23f14d3c
+T dbg line 21: describe(#.Rectangle{width: 2.0, height: 2.0}) = "a square of area 4.0"
+T dbg line 22: describe(.Circle(1.0)) = "a shape of area 3.0"
 T
 C pattern-matching.md:L18
 E 0
@@ -648,28 +664,37 @@ T dbg line 12: classify(-5) = "negative"
 T dbg line 13: classify(500) = "huge"
 T dbg line 14: classify(42) = "regular"
 T
-C pattern-matching.md:L188
+C pattern-matching.md:L184
+E 0
+N 0
+H 668f39db329d8e235c72160a1e290f545822e4978ddc325320a25fd9efb2cba2
+T dbg line 23: size(.Square(12.0)) = "big, 12.0 across"
+T dbg line 24: size(.Circle(2.0)) = "2.0 across"
+T dbg line 25: closes(']') = True
+T dbg line 26: closes('x') = False
+T
+C pattern-matching.md:L242
 E 0
 N 0
 H 2f9fad64f9bcd06c7589a49c63a2fdd88b0a7c4670b943c88235d67ca3663969
 T dbg line 17: name_for(1) = "Alice"
 T dbg line 18: name_for(99) = "unknown"
 T
-C pattern-matching.md:L217
+C pattern-matching.md:L271
 E 0
 N 0
 H 99f6dad58a710c81eb9be6bbcbaa0e2ae21b6ab0fdd9e004db51dbc67ec0f135
 T dbg line 17: label_for(1) = "Alice"
 T dbg line 18: label_for(9) = "unknown"
 T
-C pattern-matching.md:L245
+C pattern-matching.md:L299
 E 0
 N 0
 H 6e61b645b40d3f423638ce3d21fe8639e0278494df8dc771e9a5963b8661fdd5
 T dbg line 16: calculate(100, 5) = Ok(11)
 T dbg line 17: calculate(100, 0) = Err("div by zero")
 T
-C pattern-matching.md:L303
+C pattern-matching.md:L357
 E 0
 N 0
 H d58bc165cf46b3def1a714a99a1e99d66ea16ca542b74ba4ba2eacdd77010347
@@ -678,7 +703,7 @@ T dbg line 13: total(["1", "x", "y"]) = Err("not a number: x")
 T dbg line 16: numbers = [1]
 T dbg line 17: errors = ["not a number: x", "not a number: y"]
 T
-C pattern-matching.md:L343
+C pattern-matching.md:L397
 E 0
 N 0
 H a2bf7852263729ec6b4793e45d0b1b95e3643441a10db5cf5670a4da1e2cd33f
@@ -689,16 +714,18 @@ T
 C pattern-matching.md:L51
 E 0
 N 0
-H 6c084cfa3c4d32836f93e32c46d77f62f5de65623c2dabd5231674d60e374347
+H afd43fbf5afa5b64b15dd6d6a0d24e68bdc90a84eded8a1f3f7127b60c682138
 T dbg line 14: area(.Circle(3.0)) = 28.27431
-T dbg line 15: area(.Rectangle{width: 4.0, height: 5.0}) = 20.0
+T dbg line 15: area(#.Rectangle{width: 4.0, height: 5.0}) = 20.0
 T
-C pattern-matching.md:L85
+C pattern-matching.md:L86
 E 0
 N 0
-H 44a9510e5ef0572e304139764ce93dc7f304c9fa99c7366737984cba56d87116
-T dbg line 21: describe(.Rectangle{width: 2.0, height: 2.0}) = "a square of area 4.0"
-T dbg line 22: describe(.Circle(1.0)) = "a shape of area 3.0"
+H 3fdf80cc6c2b736f536195ba52d9f84a2b34f893863cbc54af58d7882986a093
+T dbg line 25: first_two(["hello", "big", "world"]) = "hello big"
+T dbg line 26: last(#[1, 2, 3]) = Some(3)
+T dbg line 27: access(%["viewer", "editor"]) = "write and read"
+T dbg line 28: access(%["viewer"]) = "read only"
 T
 C pipes.md:L112
 E 0
@@ -793,8 +820,8 @@ T
 C scalars-and-strings.md:L121
 E 0
 N 0
-H 7b8ae3338679260066443051a7869877deda3adfa3a31812a097b549ae7c4de7
-T echo ${HOME} costs $5 #{not a set}
+H 9953e026f3298c19f2d7af35814709dec91b610fa142a4439c8ab428c41c1ed0
+T echo ${HOME} costs $5 #{not a struct}
 T
 C scalars-and-strings.md:L15
 E 0
@@ -909,22 +936,22 @@ T Hello, Nomi!
 T 1 + 2 = 3
 T Hello, Nomi
 T
-C structs-enums-distinct.md:L111
+C structs-enums-distinct.md:L119
 E 0
 N 0
-H 4d2b458690b037da6985a4f18d66f97026d44e4403e883d26c325a32d82603d2
-T dbg line 9: older = User{name: "Alice", age: 31}
-T dbg line 12: {..point, x: 9} = {x: 9, y: 20}
-T dbg line 16: {..alice, age} = User{name: "Alice", age: 32}
+H 43c4d94302caabc4790e0291c3631eaf041d1fbd146cc78884236a3231fcaec1
+T dbg line 9: older = #User{name: "Alice", age: 31}
+T dbg line 12: #{..point, x: 9} = #{x: 9, y: 20}
+T dbg line 16: #{..alice, age} = #User{name: "Alice", age: 32}
 T
-C structs-enums-distinct.md:L143
+C structs-enums-distinct.md:L151
 E 0
 N 0
-H 8acc75629333b1408102ece45d0fea71c205b6d12deb8a2d96f082f031b152ad
-T dbg line 13: {..ada, address: {..ada.address, city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
-T dbg line 14: {..ada, address: {.., city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
+H a021ec7dc9b0c76565d518553359b5e2d4c5968da7086c32beb39e148b1beb54
+T dbg line 13: #{..ada, address: #{..ada.address, city: "NYC"}} = #Person{name: "Ada", address: #Address{street: "1 Main", city: "NYC"}}
+T dbg line 14: #{..ada, address: #{.., city: "NYC"}} = #Person{name: "Ada", address: #Address{street: "1 Main", city: "NYC"}}
 T
-C structs-enums-distinct.md:L188
+C structs-enums-distinct.md:L196
 E 0
 N 0
 H 089d10d46b62826d8a9ff67542e375e3cb7a62e48f849daf4ed49b0b08af9f95
@@ -932,12 +959,12 @@ T dbg line 5: pair = #("Ada", 37)
 T dbg line 6: name = "Ada"
 T dbg line 7: pair.1 = 37
 T
-C structs-enums-distinct.md:L217
+C structs-enums-distinct.md:L225
 E 0
 N 0
-H 96b9697e94d58a32b955a7aec8e4503295c4ec4bbc14daef77220f66ef39b634
+H 0fe3331c5309037f7820db2b382e88aabc663ede51858b29598d9ab7cf83f823
 T dbg line 11:
-T   [User{name: "Alan", age: 41}, User{name: "Ada", age: 36}]
+T   [#User{name: "Alan", age: 41}, #User{name: "Ada", age: 36}]
 T   |> Iter.sort_by(.age)
 T   |> Iter.map(.name)
 T   |> Iter.to_list()
@@ -946,13 +973,13 @@ T
 C structs-enums-distinct.md:L23
 E 0
 N 0
-H cafc7fa47dba626ee5ebf2208b8e6687ae5cde5705b0e5849d9bec936cd5960f
+H 024ae0eb9821940e8c7b474f4037f48c8c6b903194a0709930484242a5ea3d53
 T dbg line 8: alice.name = "Alice"
 T dbg line 9: alice.age = 30
 T dbg line 13: bob.age = 0
-T dbg line 20: carol = User{name: "Carol", age: 28}
+T dbg line 20: carol = #User{name: "Carol", age: 28}
 T
-C structs-enums-distinct.md:L250
+C structs-enums-distinct.md:L258
 E 0
 N 0
 H 3d6ac3fcbf0c99996365e81d5df22af7ccc3df35694c74d9a23623be6559400f
@@ -960,58 +987,68 @@ T dbg line 10: id = Id(42)
 T dbg line 14: n = 42
 T dbg line 16: raw(id) = 42
 T
-C structs-enums-distinct.md:L291
+C structs-enums-distinct.md:L300
+E 0
+N 0
+H 9c9d979a68ef2db62706624bbdfa4a82fb48e9a80d27caaac374f50f16570fbb
+T dbg line 8: p = #Pair(1, "one")
+T dbg line 9: n = 1
+T dbg line 10: word = "one"
+T dbg line 12: #Path[3, 1, 4] = Path(#[3, 1, 4])
+T dbg line 13: %Scores{"ada" => 3} = Scores(%{"ada" => 3})
+T
+C structs-enums-distinct.md:L334
 E 0
 N 0
 H caa2c7537f180822fbe1354f21b84575c40aa9aa16d97536f082e01cd1abf304
 T dbg line 7: state = Expired
 T dbg line 8: Online = Online
 T
-C structs-enums-distinct.md:L317
+C structs-enums-distinct.md:L360
 E 0
 N 0
-H dc5d10561384c90bcfd162c700b3d04eea6cc2ac5744299c64bb221a7d67fb62
+H 8b2ea90fd1ef57e0bdc659c9a502d0d57b9d2cf592cca74a928e6fa6bb4541ad
 T dbg line 14: Direction.North = North
 T dbg line 17: c = Circle(3.0)
-T dbg line 20: r = Rectangle{width: 4.0, height: 5.0}
+T dbg line 20: r = #Rectangle{width: 4.0, height: 5.0}
 T
-C structs-enums-distinct.md:L353
+C structs-enums-distinct.md:L396
 E 0
 N 0
 H 38c6069ff4a4e3f28c2d1c5d6802955c4e74334b35bc0dd40c90dec518aca38e
 T dbg line 21: describe(.North) = "up"
 T dbg line 22: describe(.West) = "left"
 T
-C structs-enums-distinct.md:L394
+C structs-enums-distinct.md:L439
 E 0
 N 0
 H 2173ea1bbc0759a94c9aa3b8ed9eec733df5655d591eb881c020f7cd4a8cc0e5
 T dbg line 18: User.full_name(alice) = "Ada Lovelace"
 T dbg line 21: User.full_name(renamed) = "Augusta Lovelace"
 T
-C structs-enums-distinct.md:L445
+C structs-enums-distinct.md:L490
 E 0
 N 0
-H c2c34c1d0c53993b4411a413b1e27710756f1df5b9d9a071651a1687086dcf10
-T dbg line 22: events = [Click{x: 10, y: 20}, KeyDown{key: "Enter"}, FocusLost]
+H 8d5d0d35282dbe2642fc48f43e9b683e5572d74056060c6b0b09b0255db06a2a
+T dbg line 22: events = [#Click{x: 10, y: 20}, #KeyDown{key: "Enter"}, FocusLost]
 T
-C structs-enums-distinct.md:L491
+C structs-enums-distinct.md:L536
 E 0
 N 0
 H 146e277c6689f3178c5dda691a859dae1ee257987a25d16620ccfa1295befd86
 T dbg line 21: result = %{"evens" => [4, 2], "odds" => [1]}
 T
-C structs-enums-distinct.md:L62
+C structs-enums-distinct.md:L63
 E 0
 N 0
-H 55261e44626589291e1917a4a2e1c0c448a2c51f8ef97e338c87a02c6c1c7276
-T dbg line 14: ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Bath"}}
+H 92e757b56be22e1d81d2cbfe01c092249592d77d18087dc81a89845b56f784ff
+T dbg line 14: ada = #Person{name: "Ada", address: #Address{street: "1 Main", city: "Bath"}}
 T
-C structs-enums-distinct.md:L89
+C structs-enums-distinct.md:L91
 E 0
 N 0
-H 2181111a89a7011c81911202d1c2ed31bb5d4e0bf98ce6f5c2fbfa4bbdf0d8bc
-T dbg line 3: point = {x: 10, y: 20}
+H 93a7a0cc2776436556dff815254ad852dff35d876360f0535b3bd195fc7aae8a
+T dbg line 3: point = #{x: 10, y: 20}
 T dbg line 4: point.x + point.y = 30
 T
 C testing.md:L116
@@ -1173,7 +1210,7 @@ T
 C typed-literals.md:L71
 E 0
 N 0
-H b577794a9db4841a1465f4674128d2f50bc1278de784d49231637bdc6067412f
-T dbg line 23: Box"hello" = Box{contents: "hello"}
-T dbg line 24: Box{contents: "world"} = Box{contents: "world"}
+H e4f8534e7703be56be3dd600773384063dbbb00d63734cece625fde5825c1e23
+T dbg line 23: Box"hello" = #Box{contents: "hello"}
+T dbg line 24: #Box{contents: "world"} = #Box{contents: "world"}
 T

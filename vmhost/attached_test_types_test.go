@@ -16,7 +16,7 @@ struct User {
 
 impl User {
     //! type Tag String
-    //! t: Tag = Tag(User.greet(User{name: "a"}))
+    //! t: Tag = Tag(User.greet(#User{name: "a"}))
     //! Tag(s) = t
     //! io.print(s)
     //! assert t == Tag("hi a")

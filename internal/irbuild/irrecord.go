@@ -18,7 +18,7 @@ func irRetainedRecordKind(k kind) bool {
 }
 
 func (bl *irScalarBuilder) recordMake(t *ast.StructLit) (ir.Temp, kind, bool, bool) {
-	// `{f: #{}, g: 0}` whose set a later use fixes (`r.f` stored in a
+	// `#{f: %[], g: 0}` whose set a later use fixes (`r.f` stored in a
 	// `Set<Int>` field): the checker's type of the record types each
 	// field, as a tuple's does (tupleMake).
 	if k := bl.g.project(bl.g.checkedExprType(t)); t.Spread == nil && len(t.Fields) != 0 && k.tag == tagAnonStruct && irNestedCollection(k) && irFullyTyped(k) {
@@ -32,7 +32,7 @@ func (bl *irScalarBuilder) recordMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 
 // recordMakeOf builds an anonymous record literal; want, when it is a record
 // type with the literal's field names, gives each field the kind its value
-// is lowered against (`{a: []}` where a `{a: List<Int>}` is expected).
+// is lowered against (`#{a: []}` where a `#{a: List<Int>}` is expected).
 func (bl *irScalarBuilder) recordMakeOf(t *ast.StructLit, want kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if t.Spread != nil {
@@ -102,12 +102,12 @@ func (bl *irScalarBuilder) recordRead(at ast.Node, name string, subj ir.Temp, k 
 	return n.Dst(), part, mobile, true
 }
 
-// structSpread lowers `{..base, f: v}` as structSpreadLit does: the base is
+// structSpread lowers `#{..base, f: v}` as structSpreadLit does: the base is
 // forced, then the fields merge as structMerge does.
 func (bl *irScalarBuilder) structSpread(t *ast.StructLit) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if c, missing := bl.currentMissing(t.Spread); missing {
-		// `{.., f: v}` where the position holds no value: build it.
+		// `#{.., f: v}` where the position holds no value: build it.
 		return bl.updateBuild(t, c.k)
 	}
 	base, k, _, ok := bl.lower(t.Spread)
@@ -133,7 +133,7 @@ func irRetainedUpdateKind(k kind) bool {
 
 // structMerge mirrors gen.structMerge over a lowered base: every value but the
 // last is forced, and each is coerced to its field's kind. A field written as
-// an update literal (`address: {.., city: "NYC"}`) has the field projected
+// an update literal (`address: #{.., city: "NYC"}`) has the field projected
 // from this base as its `..` (ircurrentvalue.go). pre, when not nil, holds
 // the values of the fields already lowered, by index (structUpdateHoles).
 func (bl *irScalarBuilder) structMerge(at ast.Node, k kind, base ir.Temp, lit *ast.StructLit) (ir.Temp, bool) {
@@ -219,11 +219,11 @@ func (bl *irScalarBuilder) updateBaseField(at ast.Node, k kind, base ir.Temp, na
 	return p.Dst(), true
 }
 
-// structUpdateCall lowers `Struct.update(base, {f: v})`: std's own `Struct`,
+// structUpdateCall lowers `Struct.update(base, #{f: v})`: std's own `Struct`,
 // a bare anonymous patch, the base forced, then the same merge a spread uses.
 // A `Struct` a type parameter or local interface names declines here. Its
 // arguments may be named by `Struct`'s parameters
-// (`Struct.update(updates: {x: 1}, original: p)`); they are evaluated in
+// (`Struct.update(updates: #{x: 1}, original: p)`); they are evaluated in
 // Nomi's order, positionals first and then named arguments as written.
 func (bl *irScalarBuilder) structUpdateCall(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }

@@ -7,7 +7,46 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/std"
+
+	protocol "github.com/tliron/glsp/protocol_3_16"
 )
+
+// `#Pair(1, ‸` is a tuple literal named by a distinct type: its signature
+// is the tuple's elements, with the one being written active. The call
+// form `Pair(‸` takes the whole tuple and has no element signature.
+func TestSignatureHelp_NamedTupleLiteral(t *testing.T) {
+	help := func(src string) *protocol.SignatureHelp {
+		t.Helper()
+		content, pos := splitCursor(t, src)
+		s := NewServer()
+		uri := "file:///sig_tuple.nomi"
+		s.docs.Open(uri, content)
+		res, err := s.textDocumentSignatureHelp(nil, &protocol.SignatureHelpParams{
+			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},
+				Position:     pos,
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res
+	}
+	decls := "type Pair #(Int, String)\n\nfn main() {\n    "
+	res := help(decls + "_p = #Pair(1, ‸)\n}\n")
+	if res == nil || len(res.Signatures) != 1 {
+		t.Fatalf("signature help = %#v, want one signature", res)
+	}
+	if got := res.Signatures[0].Label; got != "#Pair(Int, String)" {
+		t.Errorf("label = %q, want #Pair(Int, String)", got)
+	}
+	if res.ActiveParameter == nil || *res.ActiveParameter != 1 {
+		t.Errorf("active parameter = %v, want 1", res.ActiveParameter)
+	}
+	if res := help(decls + "_p = Pair(‸)\n}\n"); res != nil {
+		t.Errorf("call form signature = %#v, want none", res)
+	}
+}
 
 func TestFindCallContext(t *testing.T) {
 	tests := []struct {

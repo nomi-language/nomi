@@ -4,7 +4,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 
 // stripSelfTypingAnnotations removes a destructuring parameter's `: T` when
 // the pattern's head already names T: `Dur(x): Dur` becomes `Dur(x)`,
-// `Point{x, y}: Point` becomes `Point{x, y}`, `E.V(x): E` becomes `E.V(x)`.
+// `#Point{x, y}: Point` becomes `#Point{x, y}`, `E.V(x): E` becomes `E.V(x)`.
 // The checker types such a parameter by its head when it has no annotation
 // (analysis.paramPatternType), so the annotation says nothing. The rewrite
 // is syntactic: `nomi fmt` runs without analysis. It covers the parameters
@@ -69,7 +69,7 @@ func patternHeadTypeString(pattern ast.Node) string {
 		}
 	case *ast.StructPattern:
 		if p.TypeName != nil {
-			return p.TypeName.TypeString() // `Point{x, y}` → Point
+			return p.TypeName.TypeString() // `#Point{x, y}` → Point
 		}
 	}
 	return ""

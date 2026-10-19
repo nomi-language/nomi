@@ -6,7 +6,7 @@ import "testing"
 // position, and is a fixed point.
 func TestFormat_AsPatternRoundTrips(t *testing.T) {
 	for _, src := range []string{
-		"fn f(r: Result<Tx, String>) -> Int {\n    case r {\n        Ok(Tx{kind: .Deposit} as t) -> t.end\n        Ok(_) as whole -> 0\n        Err(_) -> 1\n    }\n}\n",
+		"fn f(r: Result<Tx, String>) -> Int {\n    case r {\n        Ok(#Tx{kind: .Deposit} as t) -> t.end\n        Ok(_) as whole -> 0\n        Err(_) -> 1\n    }\n}\n",
 		"fn f(xs: List<Int>) -> Int {\n    case xs {\n        [Some(n) as first, ..rest] as all -> n\n        _ -> 0\n    }\n}\n",
 		"fn f(#(a, b) as pair: #(Int, Int)) -> Int {\n    a + b\n}\n",
 		"fn f(m: Maybe<Int>) -> Int {\n    Some(n) as found = m else { return 0 }\n    #(x, y) as both = #(n, n)\n    if Ok(v) as r = load() { v } else { x }\n}\n",
@@ -35,7 +35,7 @@ func TestFormat_AsPatternNormalizesSpacingAndParens(t *testing.T) {
 // name follows the closing one. The arms then lay out as any case whose arm
 // breaks does.
 func TestFormat_AsPatternNameFollowsABrokenPattern(t *testing.T) {
-	src := "fn f(r: Result<Transaction, String>) -> Int {\n    case r {\n        Ok(Transaction{transaction_type: .Deposit, starting_balance, ending_balance, account_number} as t) -> 1\n        _ -> 0\n    }\n}\n"
-	want := "fn f(r: Result<Transaction, String>) -> Int {\n    case r {\n        Ok(Transaction{\n            transaction_type: .Deposit,\n            starting_balance,\n            ending_balance,\n            account_number,\n        } as t) ->\n            1\n\n        _ ->\n            0\n    }\n}\n"
+	src := "fn f(r: Result<Transaction, String>) -> Int {\n    case r {\n        Ok(#Transaction{transaction_type: .Deposit, starting_balance, ending_balance, account_number} as t) -> 1\n        _ -> 0\n    }\n}\n"
+	want := "fn f(r: Result<Transaction, String>) -> Int {\n    case r {\n        Ok(#Transaction{\n            transaction_type: .Deposit,\n            starting_balance,\n            ending_balance,\n            account_number,\n        } as t) ->\n            1\n\n        _ ->\n            0\n    }\n}\n"
 	formatsKeepingMeaning(t, src, want)
 }

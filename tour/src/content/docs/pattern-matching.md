@@ -57,25 +57,79 @@ enum Shape {
 fn area(s: Shape) -> Float {
     case s {
         .Circle(r) -> r * r * 3.14159
-        .Rectangle{width, height} -> width * height
+        #.Rectangle{width, height} -> width * height
     }
 }
 
 fn main() {
     dbg area(.Circle(3.0))
-    dbg area(.Rectangle{width: 4.0, height: 5.0})
+    dbg area(#.Rectangle{width: 4.0, height: 5.0})
 }
 ```
 <!-- expect
 dbg line 14: area(.Circle(3.0)) = 28.27431
-dbg line 15: area(.Rectangle{width: 4.0, height: 5.0}) = 20.0
+dbg line 15: area(#.Rectangle{width: 4.0, height: 5.0}) = 20.0
 -->
 
 `.Circle(r)` matches a circle and names its radius `r`.
-`.Rectangle{width, height}` matches a rectangle and names both fields.
+`#.Rectangle{width, height}` matches a rectangle and names both fields.
 
-Tuples and structs work the same way: `(a, b) -> ...` and
-`Point{x, y} -> ...`.
+Tuples and structs work the same way: `#(a, b) -> ...` and
+`#Point{x, y} -> ...`. A pattern is written the way the value is built.
+
+### Lists, vectors and sets
+
+A list pattern names items from the front, and `..` stands for the rest. A
+vector pattern is written the same way with `#[...]`, and can also name items
+from the end. A set pattern, `%[...]`, checks which values the set holds:
+
+```nomi-run
+fn first_two(words: List<String>) -> String {
+    case words {
+        [] -> "no words"
+        [only] -> only
+        [a, b, .._] -> "${a} ${b}"
+    }
+}
+
+fn last(v: Vector<Int>) -> Maybe<Int> {
+    case v {
+        #[] -> None
+        #[.., z] -> Some(z)
+    }
+}
+
+fn access(roles: Set<String>) -> String {
+    case roles {
+        %["admin", ..] -> "everything"
+        %["editor", "viewer", ..] -> "write and read"
+        _ -> "read only"
+    }
+}
+
+fn main() {
+    dbg first_two(["hello", "big", "world"])
+    dbg last(#[1, 2, 3])
+    dbg access(%["viewer", "editor"])
+    dbg access(%["viewer"])
+}
+```
+<!-- expect
+dbg line 25: first_two(["hello", "big", "world"]) = "hello big"
+dbg line 26: last(#[1, 2, 3]) = Some(3)
+dbg line 27: access(%["viewer", "editor"]) = "write and read"
+dbg line 28: access(%["viewer"]) = "read only"
+-->
+
+`[a, b, .._]` matches a list of two or more items and ignores the rest;
+`..rest` would name it. A vector pattern may leave the name out, as `#[.., z]`
+does: it matches a vector of at least one item and
+names the last. The compiler checks list and vector arms by length, so
+`first_two` and `last` need no `_` arm.
+
+A set pattern matches when the set holds every value it lists, in any order.
+The values are expressions, looked up rather than bound, so a set pattern
+can never cover every set, and `access` needs its `_` arm.
 
 ### Naming the whole match with `as`
 
@@ -91,33 +145,33 @@ enum Shape {
 fn area(s: Shape) -> Float {
     case s {
         .Circle(r) -> r * r * 3.0
-        .Rectangle{width, height} -> width * height
+        #.Rectangle{width, height} -> width * height
     }
 }
 
 fn describe(s: Shape) -> String {
     case s {
-        .Rectangle{width, height} as square when width == height -> "a square of area ${area(square)}"
+        #.Rectangle{width, height} as sq when width == height -> "a square of area ${area(sq)}"
         other -> "a shape of area ${area(other)}"
     }
 }
 
 fn main() {
-    dbg describe(.Rectangle{width: 2.0, height: 2.0})
+    dbg describe(#.Rectangle{width: 2.0, height: 2.0})
     dbg describe(.Circle(1.0))
 }
 ```
 <!-- expect
-dbg line 21: describe(.Rectangle{width: 2.0, height: 2.0}) = "a square of area 4.0"
+dbg line 21: describe(#.Rectangle{width: 2.0, height: 2.0}) = "a square of area 4.0"
 dbg line 22: describe(.Circle(1.0)) = "a shape of area 3.0"
 -->
 
 The first arm reads `width` and `height`, and passes the whole rectangle to
-`area` as `square`. Without `as`, it would have to build the rectangle again.
+`area` as `sq`. Without `as`, it would have to build the rectangle again.
 
 `as` names the whole pattern to its left. `Ok(x) as r` names the whole `Result`.
-`Ok(Point{x, y} as p)` names only the `Point` inside. The name has the type of
-the value it names, so `square` is a `Shape`.
+`Ok(#Point{x, y} as p)` names only the `Point` inside. The name has the type of
+the value it names, so `sq` is a `Shape`.
 
 `as` works anywhere a pattern does, including `if`, bindings, parameters and
 inside other patterns.
@@ -138,7 +192,7 @@ fn size(s: Shape) -> String {
     case s {
         .Circle(r) or .Square(r) when r > 10.0 -> "big, ${r} across"
         .Circle(r) or .Square(r) -> "${r} across"
-        .Rectangle{width, height} -> "${width} by ${height}"
+        #.Rectangle{width, height} -> "${width} by ${height}"
     }
 }
 

@@ -140,7 +140,7 @@ func TestTerminalAnswersArePinnedAbsolutely(t *testing.T) {
 		seen = append(seen, x)
 		return Unit{}
 	}); got != (Unit{}) {
-		t.Errorf("SeqEach = %+v, want Unit{}", got)
+		t.Errorf("SeqEach = %+v, want #Unit{}", got)
 	}
 	if len(seen) != 4 || seen[0] != 1 || seen[3] != 4 {
 		t.Errorf("SeqEach visited %v, want 1 2 3 4 in order", seen)

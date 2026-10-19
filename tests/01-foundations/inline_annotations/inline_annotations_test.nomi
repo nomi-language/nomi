@@ -50,7 +50,7 @@ test "variant constructors compose with annotations" {
 }
 
 test "user-defined type annotations preserve the intended type" {
-    origin: Point = Point{x: 0, y: 0}
+    origin: Point = #Point{x: 0, y: 0}
     facing: Direction = Direction.North
 
     assert origin.x == 0

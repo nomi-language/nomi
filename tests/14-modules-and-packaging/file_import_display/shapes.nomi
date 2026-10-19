@@ -24,11 +24,11 @@ pub enum Color {
 derive Display for Color
 
 pub fn origin() -> Point {
-    Point{x: 0, y: 0}
+    #Point{x: 0, y: 0}
 }
 
 pub fn price() -> Money {
-    Money{cents: 1250}
+    #Money{cents: 1250}
 }
 
 pub fn red() -> Color {

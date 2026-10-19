@@ -8,7 +8,7 @@
 // this landed:
 //
 //   port: Int = "not an int"      ran, and printed `port=not an int`
-//   clock: Clock = NoClock{...}   ran, and trapped at the first dispatch with
+//   clock: Clock = #NoClock{...}   ran, and trapped at the first dispatch with
 //                                 `Clock.at: no implementation for type 'NoClock'`
 //
 // The second is the one worth reading twice. `NoClock` carries no
@@ -51,7 +51,7 @@ impl Clock for FakeClock {
 // is what makes this the control for that refusal rather than a separate
 // scenario.
 struct Configured {
-    clock: Clock = FakeClock{t: 11}
+    clock: Clock = #FakeClock{t: 11}
     port: Int = 8080
 }
 
@@ -72,7 +72,7 @@ test "a scalar default of the wrong type is refused at the declaration" {
           }
 
           fn main() {
-            _ = Cfg{}.port
+            _ = #Cfg{}.port
           }
         """
     )
@@ -95,11 +95,11 @@ test "an interface-typed default that does not implement is refused at the decla
           }
 
           struct Cfg {
-            ticker: Ticker = NoTicker{t: 7}
+            ticker: Ticker = #NoTicker{t: 7}
           }
 
           fn main() {
-            _ = Cfg{}
+            _ = #Cfg{}
           }
         """
     )
@@ -149,11 +149,11 @@ test "a concrete default for a type-parameter field is refused" {
 }
 
 test "correct defaults still construct, dispatch and solve through a type parameter" {
-    c = Configured{}
+    c = #Configured{}
     assert Clock.at(c.clock) == 11
     assert c.port == 8080
 
-    b = Box{inner: 7}
+    b = #Box{inner: 7}
     assert Iter.count(b.items) == 0
     assert b.label == "unnamed"
     assert b.inner == 7

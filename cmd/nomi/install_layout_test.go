@@ -108,7 +108,7 @@ struct App {
 }
 
 fn boot() -> App {
-  App{port: 8080, context: Context.root()}
+  #App{port: 8080, context: Context.root()}
 }
 
 fn main() {

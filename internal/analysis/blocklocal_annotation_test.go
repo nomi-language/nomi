@@ -17,13 +17,13 @@ func TestBlockLocalType_AnnotationsNameIt(t *testing.T) {
 	rows := []struct {
 		name, body, want string
 	}{
-		{"binding annotations", "  m: Meters = Meters(1)\n  Meters(n) = m\n  b: Box<Int> = Box{v: 2}\n  n + b.v\n}\n", ""},
+		{"binding annotations", "  m: Meters = Meters(1)\n  Meters(n) = m\n  b: Box<Int> = #Box{v: 2}\n  n + b.v\n}\n", ""},
 		{"a lambda parameter", "  g = fn m: Meters -> m\n  Meters(n) = g(Meters(3))\n  n\n}\n", ""},
 		{"a lambda parameter given another type", "  g = fn m: Meters -> m\n  Meters(n) = g(\"x\")\n  n\n}\n",
 			"argument 1: expected Meters, got String"},
 		{"a lambda parameter's use at another type", "  g = fn m: Meters -> m\n  s: String = g(Meters(1))\n  String.length(s)\n}\n",
 			"type mismatch: expected String, got Meters"},
-		{"a binding annotation at another type", "  b: Box<String> = Box{v: 2}\n  String.length(b.v)\n}\n", "Int"},
+		{"a binding annotation at another type", "  b: Box<String> = #Box{v: 2}\n  String.length(b.v)\n}\n", "Int"},
 		{"a lambda parameter naming no type", "  g = fn m: Nope -> 1\n  g(1)\n}\n", "unknown type \"Nope\""},
 	}
 	for _, r := range rows {

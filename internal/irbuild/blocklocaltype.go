@@ -30,7 +30,7 @@ import (
 // ("undefined type"), so hoisting the Go declaration widens a scope nothing can
 // observe: the builder is only ever asked about names the checker approved at
 // the position it approved them. A VALUE of the type may still leave the
-// block (`w = { struct Loc {…}  Loc{n: 1} }`); outside it the checker's type
+// block (`w = { struct Loc {…}  #Loc{n: 1} }`); outside it the checker's type
 // for the value is the declaration's own, and project finds the def by that
 // type rather than by name (blockLocalOfType, blockLocalTemplateOf).
 //
@@ -52,7 +52,7 @@ import (
 // # A block-local type does not shadow a module-level one
 //
 // With `struct Point { label: String }` at file scope, a block-local
-// `struct Point { x: Int, y: Int }` and then `Point{x: 3, y: 4}` reports
+// `struct Point { x: Int, y: Int }` and then `#Point{x: 3, y: 4}` reports
 // "struct 'Point' has no field 'x'" — the literal resolved against the module
 // declaration. So the overlay can never SHADOW `gen.types`; it can only add a
 // name the module scope does not have. It is still consulted first, because that
@@ -551,7 +551,7 @@ func (g *gen) blockImportedNamed(name string) (*typeDef, bool) {
 
 // blockLocalTemplate answers a generic type name from the innermost enclosing
 // block that declares it, or nil. A module-level type of the same name wins,
-// as it does for the checker: `Box{v: 1}` beside a module-level `Box<T>`
+// as it does for the checker: `#Box{v: 1}` beside a module-level `Box<T>`
 // with field `v` and a block-local one with field `w` checks against the
 // module's.
 func (g *gen) blockLocalTemplate(name string) *genericTemplate {
@@ -589,7 +589,7 @@ func (g *gen) blockLocalAlias(name string) (kind, bool) {
 // # AN INSTANCE'S QUALIFIER NAMES ITS TEMPLATE, NOT ITSELF
 //
 // `g.types[owner] == d` is also always false for a MONOMORPHIZED instance, and
-// for a sharper reason: `Holder.Of{value}` over a `Holder<Int>` value has a
+// for a sharper reason: `#Holder.Of{value}` over a `Holder<Int>` value has a
 // qualifier naming the TEMPLATE, while `d` is the instance — a fresh def per
 // argument tuple, deliberately not in `g.types` at all (generictype.go's
 // "the def in `g.types` is left exactly as it was"). So the identity question

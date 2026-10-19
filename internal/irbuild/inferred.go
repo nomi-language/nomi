@@ -331,7 +331,7 @@ func (g *gen) project(t analysis.Type) kind {
 
 	case *analysis.AnonStructType:
 		// A RECORD the checker solved for an unannotated position — a lambda
-		// parameter, a binding. Answered so the annotated `p: {x: Int}` and
+		// parameter, a binding. Answered so the annotated `p: #{x: Int}` and
 		// the inferred one are not two different answers about one position,
 		// which is the rule the Map arm above states.
 		names := make([]string, len(ty.Fields))
@@ -423,7 +423,7 @@ func (g *gen) localNamed(t analysis.Type, origin, name string, shape func(*typeD
 	if bd := g.blockLocalOfType(t); bd != nil {
 		// A type a block of this file declares, found by the checker's
 		// type for its declaration rather than by name, so a value of it
-		// that escapes its block (`w = { struct Loc {…}  Loc{n: 1} }`) is
+		// that escapes its block (`w = { struct Loc {…}  #Loc{n: 1} }`) is
 		// still that type where the name no longer resolves.
 		if !bd.lowerable || !shape(bd) {
 			return kindInvalid

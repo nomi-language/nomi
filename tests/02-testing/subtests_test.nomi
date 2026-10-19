@@ -25,9 +25,9 @@ test "rows from a range" {
 }
 
 test "rows of structs bound by a struct pattern" {
-    points = [Point{x: 1, y: 2}, Point{x: 3, y: 5}]
+    points = [#Point{x: 1, y: 2}, #Point{x: 3, y: 5}]
 
-    subtests points, Point{x, y} {
+    subtests points, #Point{x, y} {
         assert x < y
     }
 }
@@ -57,7 +57,7 @@ test "a row may bind and assert several times" {
 }
 
 fn all_ordered(points: List<Point>) -> Result<Unit, AssertionFailure> {
-    subtests points, Point{x, y} {
+    subtests points, #Point{x, y} {
         assert x < y
     }
 
@@ -65,26 +65,26 @@ fn all_ordered(points: List<Point>) -> Result<Unit, AssertionFailure> {
 }
 
 test "in a function, the failed rows are its Err" {
-    assert all_ordered([Point{x: 1, y: 2}]) == Ok(Unit)
+    assert all_ordered([#Point{x: 1, y: 2}]) == Ok(Unit)
 
-    assert Err(failure) = all_ordered([Point{x: 1, y: 2}, Point{x: 4, y: 3}, Point{x: 6, y: 5}])
+    assert Err(failure) = all_ordered([#Point{x: 1, y: 2}, #Point{x: 4, y: 3}, #Point{x: 6, y: 5}])
 
     assert failure.keyword == "subtests"
     assert failure.reason == "2 of 3 subtests failed"
     assert Iter.count(failure.subtests) == 2
     assert Some(first) = List.head(failure.subtests)
-    assert first.row == "Point{x: 4, y: 3}"
+    assert first.row == "#Point{x: 4, y: 3}"
     assert first.failure.expression == "x < y"
 
     assert AssertionFailure.format(failure) == """
-        subtest Point{x: 4, y: 3}: line 61: assertion failed
+        subtest #Point{x: 4, y: 3}: line 61: assertion failed
           assert x < y
           values:
             x
               = 4
             y
               = 3
-        subtest Point{x: 6, y: 5}: line 61: assertion failed
+        subtest #Point{x: 6, y: 5}: line 61: assertion failed
           assert x < y
           values:
             x
@@ -135,7 +135,7 @@ test "a row may be named by a column it carries" {
 }
 
 fn named_ordered(points: List<Point>) -> Result<Unit, AssertionFailure> {
-    subtests points, Point{x, y}, "${x} before ${y}" {
+    subtests points, #Point{x, y}, "${x} before ${y}" {
         assert x < y
     }
 
@@ -143,7 +143,7 @@ fn named_ordered(points: List<Point>) -> Result<Unit, AssertionFailure> {
 }
 
 test "a failed row's name stands where its row would" {
-    assert Err(failure) = named_ordered([Point{x: 1, y: 2}, Point{x: 4, y: 3}])
+    assert Err(failure) = named_ordered([#Point{x: 1, y: 2}, #Point{x: 4, y: 3}])
 
     assert Some(first) = List.head(failure.subtests)
     assert first.row == "\"4 before 3\""

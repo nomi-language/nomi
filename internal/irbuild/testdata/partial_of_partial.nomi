@@ -38,7 +38,7 @@ fn main() {
     lone = connect("lone", port: _)
     again = lone(port: _)
     io.print(again(8))
-    holder = Holder{f: fn h, p -> connect(h, p)}
+    holder = #Holder{f: fn h, p -> connect(h, p)}
     field = holder.f(_, 9)
     io.print(field("field"))
     io.print(apply_partial(fn h, p -> connect(h, port: p)))

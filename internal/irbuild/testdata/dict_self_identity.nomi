@@ -68,12 +68,12 @@ fn relay<U>(a: U, b: U) -> Int where U: Cmp {
 }
 
 fn main() {
-    io.print(announce(Dog{weight: 30}))
-    io.print(announce(Cat{weight: 4}))
-    io.print(announce<Dog>(Dog{weight: 31}))
-    io.print("${rank(Dog{weight: 30}, Dog{weight: 12})}")
-    io.print("${rank(Cat{weight: 30}, Cat{weight: 12})}")
-    io.print("${rank<Dog>(Dog{weight: 5}, Dog{weight: 1})}")
-    io.print("${relay(Dog{weight: 30}, Dog{weight: 12})}")
-    io.print("${relay(Cat{weight: 30}, Cat{weight: 12})}")
+    io.print(announce(#Dog{weight: 30}))
+    io.print(announce(#Cat{weight: 4}))
+    io.print(announce<Dog>(#Dog{weight: 31}))
+    io.print("${rank(#Dog{weight: 30}, #Dog{weight: 12})}")
+    io.print("${rank(#Cat{weight: 30}, #Cat{weight: 12})}")
+    io.print("${rank<Dog>(#Dog{weight: 5}, #Dog{weight: 1})}")
+    io.print("${relay(#Dog{weight: 30}, #Dog{weight: 12})}")
+    io.print("${relay(#Cat{weight: 30}, #Cat{weight: 12})}")
 }

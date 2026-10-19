@@ -34,7 +34,7 @@ import (
 // not work, because monomorphization rejects programs that are valid:
 //
 //	fn tail_grow<T>(x: T, depth: Int) -> Int {
-//	  if depth <= 0 { 0 } else { tail_grow(Box{inner: x}, depth - 1) }
+//	  if depth <= 0 { 0 } else { tail_grow(#Box{inner: x}, depth - 1) }
 //	}
 //
 // which `nomi check`s clean and runs, and whose instantiation set is infinite.

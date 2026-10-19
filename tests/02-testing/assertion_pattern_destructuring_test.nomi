@@ -18,7 +18,7 @@ test "assert can destructure list tuple struct map type and enum patterns" {
     assert left == "Ada"
     assert right == 36
 
-    assert {name, age} = {name: "Grace", age: 37}
+    assert #{name, age} = #{name: "Grace", age: 37}
     assert name == "Grace"
     assert age == 37
 
@@ -30,7 +30,7 @@ test "assert can destructure list tuple struct map type and enum patterns" {
     assert map_name == "Katherine"
     assert map_role == "mathematician"
 
-    assert Point{x, y} = Point{x: 3, y: 4}
+    assert #Point{x, y} = #Point{x: 3, y: 4}
     assert x == 3
     assert y == 4
 

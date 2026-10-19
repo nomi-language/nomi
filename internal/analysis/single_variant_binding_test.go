@@ -28,7 +28,7 @@ fn f(o: Only, r: Rec, w: Wrap<String>) -> Int {
 `
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
-	for name, want := range map[string]string{"p": "Int", "fields": "{a: Int, b: String}", "s": "String"} {
+	for name, want := range map[string]string{"p": "Int", "fields": "#{a: Int, b: String}", "s": "String"} {
 		var sym *Symbol
 		for _, d := range fa.Definitions {
 			if d.Name == name && d.Kind == SymbolBinding {

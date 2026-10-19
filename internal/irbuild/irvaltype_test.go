@@ -30,7 +30,7 @@ fn area(s: Shape) -> Float {
   case s {
     .Dot -> 0.0
     .Circle(r) -> r * r
-    .Rect{w, h} -> w * h
+    #.Rect{w, h} -> w * h
   }
 }
 
@@ -45,7 +45,7 @@ fn describe(s: Shape) -> String {
 
 fn main() {
   io.print(describe(Shape.Circle(2.0)))
-  io.print(total(Node{value: 1, tag: Tag{name: "a"}}))
+  io.print(total(#Node{value: 1, tag: #Tag{name: "a"}}))
 }
 `
 

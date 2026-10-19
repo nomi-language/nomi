@@ -9,8 +9,8 @@ import "testing"
 // `}` was charged to the line the kept literal opens on.
 func TestFormat_KeptLiteralEndsTheLineBeforeIt(t *testing.T) {
 	long := "a_name_long_enough_that_the_whole_sum_does_not_fit_on_one_line_even_below_the_equals"
-	src := "fn main() {\n    x = A{a} + B{a: 0, b} + " + long + "\n}\n"
-	want := "fn main() {\n    x = A{a} + B{\n        a: 0,\n        b,\n    } + " + long + "\n}\n"
+	src := "fn main() {\n    x = #A{a} + #B{a: 0, b} + " + long + "\n}\n"
+	want := "fn main() {\n    x = #A{a} + #B{\n        a: 0,\n        b,\n    } + " + long + "\n}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("Format error: %v", err)

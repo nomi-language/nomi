@@ -258,14 +258,14 @@ func irNestedEmbeds(k kind) bool {
 // projected, when one of its type arguments holds, below its top, an
 // embedded type's enum (`[#(1, c), #(2, shape)]` is a `List<#(Int, Shape)>`)
 // or a collection (`[#(1, []), #(2, [3])]` is a `List<#(Int, List<Int>)>`), or
-// is a fully typed collection (`[#{}]` is a `List<Set<Int>>` where a later
+// is a fully typed collection (`[%[]]` is a `List<Set<Int>>` where a later
 // use fixes the set's element): its items are then lowered against those
 // parts, so each embedded value is widened, and each empty collection
 // typed, where it sits. It answers nil otherwise; a top-level join of
 // embedded values (`[c, shape]`) is found from the lowered items
 // (irEmbedsJoin, literalItemsCoerced).
 //
-// A type argument the checker left unsolved (`io.inspect([#{}])`, where
+// A type argument the checker left unsolved (`io.inspect([%[]])`, where
 // nothing fixes the set's element) is one no value has, filled as a generic
 // call's is (spec, "Determined type arguments"), so the empty literal in
 // the item is typed at the filled part.
@@ -401,7 +401,7 @@ func (bl *irScalarBuilder) literalPartsOf(ty analysis.Type, of tag) []kind {
 // (checkedLiteralParts), with each lowered item coerced to it in place
 // (coerceEmpty). It is the element kind of a set or vector literal, or a map
 // literal's key or value kind, whose lowered items do not join because one
-// is still an empty collection (`#{[], [1]}`, `%{1 => [], 2 => [1]}`), as a
+// is still an empty collection (`%[[], [1]]`, `%{1 => [], 2 => [1]}`), as a
 // list literal's items take theirs. ok is false when the checked type is not
 // that collection, is itself an untyped literal's, or an item does not
 // coerce; values and kinds are then left as they were.
@@ -659,7 +659,7 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		return bl.tupleMakeWant(tl, want)
 	}
 	if sl, isRecord := at.(*ast.StructLit); isRecord && sl.TypeName == nil && sl.Spread == nil && want.tag == tagAnonStruct && bl.g.targetStruct(sl) == nil {
-		// `{a: []}` where a `{a: List<Int>}` is expected: each field's value
+		// `#{a: []}` where a `#{a: List<Int>}` is expected: each field's value
 		// is lowered against its field type, as a tuple's items are.
 		return bl.recordMakeOf(sl, want)
 	}
@@ -675,9 +675,9 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		// empty collection is typed where it sits.
 		return bl.listMakeOf(ll, ll.Items, nil, want.comp.parts[0])
 	}
-	// `#{c}`, `#[c]` or `%{1 => c}` where a collection holding an embedded
+	// `%[c]`, `#[c]` or `%{1 => c}` where a collection holding an embedded
 	// type's enum is expected: each embedded value widens where it sits.
-	// `#{#(1, [])}` where a `Set<#(Int, List<Int>)>` is: each empty
+	// `%[#(1, [])]` where a `Set<#(Int, List<Int>)>` is: each empty
 	// collection is typed where it sits.
 	if sl, isSet := at.(*ast.SetLit); isSet && len(sl.Items) != 0 {
 		if elem, set := setElem(want); set && want != kindEmptySet && irTypedWithin(elem) {

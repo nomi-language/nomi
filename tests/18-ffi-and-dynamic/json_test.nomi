@@ -5,7 +5,7 @@ import {
 
 fn describe_root(jv: Json) -> String {
     case jv {
-        .Obj%{"name" => .String(n), "tags" => .Arr(ts)} ->
+        %.Obj{"name" => .String(n), "tags" => .Arr(ts)} ->
             "obj with name=${n}, ${Iter.count(ts)} tags"
 
         .Obj(_) ->
@@ -33,7 +33,7 @@ fn describe_root(jv: Json) -> String {
 
 fn extract_first_tag(jv: Json) -> Maybe<String> {
     case jv {
-        .Obj%{"tags" => .Arr[.String(t), .._]} -> Some(t)
+        %.Obj{"tags" => .Arr[.String(t), .._]} -> Some(t)
         _ -> None
     }
 }
@@ -63,7 +63,7 @@ test "Json decode supports nested pattern matching and encode round trip" {
 }
 
 test "Json values can be constructed and encoded by hand" {
-    hand_built = Json.Obj%{"x" => Json.Int(1), "y" => Json.Float(2.5), "ok" => Json.Bool(True)}
+    hand_built = %Json.Obj{"x" => Json.Int(1), "y" => Json.Float(2.5), "ok" => Json.Bool(True)}
 
     assert Json.encode(hand_built) == "{\"x\":1,\"y\":2.5,\"ok\":true}"
 }

@@ -508,7 +508,7 @@ pub struct Effects {
   logger: Logger
 }
 
-pub fn prod() -> Effects { Effects{logger: ProdLogger{}} }
+pub fn prod() -> Effects { #Effects{logger: #ProdLogger{}} }
 `)
 
 	dm := NewDocumentManager()
@@ -543,7 +543,7 @@ func TestDocumentManager_TestProgramSupportFileUsesProgramRoot(t *testing.T) {
 	mustWrite("effects/app/dev.nomi", `import app.DemoApp
 
 pub fn build() -> DemoApp {
-  DemoApp{label: "dev"}
+  #DemoApp{label: "dev"}
 }
 `)
 	appPath := mustWrite("effects/app.nomi", `import app/dev
@@ -671,7 +671,7 @@ func TestDocumentManager_SubdirectoryImportResolvesAgainstProjectRoot(t *testing
 	// Type chosen as `Settings` (not `Config`) — Config is the project's
 	// flat root struct per spec §26/§27; declaring one without a
 	// matching `fn boot() -> Config` is a separate analyzer error.
-	mustWrite("main.nomi", "import types\n\nfn main() { io.inspect(types.Settings{port: 80}.port) }\n")
+	mustWrite("main.nomi", "import types\n\nfn main() { io.inspect(#types.Settings{port: 80}.port) }\n")
 	mustWrite("types.nomi", "pub struct Settings { port: Int }\n")
 	subFoo := mustWrite("sub/uses_types.nomi", "import types.{Settings}\n\npub fn handle(c: Settings) -> Int { c.port }\n")
 

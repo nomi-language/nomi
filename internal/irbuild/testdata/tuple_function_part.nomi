@@ -38,13 +38,13 @@ fn main() {
 
     io.print("list = ${scaled}")
 
-    r = {n: 3, f: fn x: Int -> x * 2}
+    r = #{n: 3, f: fn x: Int -> x * 2}
     h = r.f
     io.print("record = ${h(r.n)}")
-    {n: m, f: k} = r
+    #{n: m, f: k} = r
     io.print("record destructured = ${k(m)}")
 
     io.print("debug = ${Debug.inspect(p)}")
     io.print("record debug = ${Debug.inspect(r)}")
-    io.print("nested debug = ${Debug.inspect(#(Pt{x: 1}, fn x: Int -> x))}")
+    io.print("nested debug = ${Debug.inspect(#(#Pt{x: 1}, fn x: Int -> x))}")
 }

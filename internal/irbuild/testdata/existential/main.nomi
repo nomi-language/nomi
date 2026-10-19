@@ -38,8 +38,8 @@ fn relay(l: Logger, message: String) -> String {
 }
 
 fn main() {
-    prod = App{name: "prod", logger: Prod{prefix: "P"}, clock: Fixed{at: 7}}
-    staging = App{name: "staging", logger: Tagged{tag: "T"}, clock: Zero}
+    prod = #App{name: "prod", logger: #Prod{prefix: "P"}, clock: #Fixed{at: 7}}
+    staging = #App{name: "staging", logger: #Tagged{tag: "T"}, clock: Zero}
     io.print(banner(prod))
     io.print(banner(staging))
     io.print(relay(prod.logger, "again"))

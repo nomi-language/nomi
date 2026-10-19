@@ -94,7 +94,7 @@ fn string_lit(s: String) -> String {
 }
 
 fn struct_field(p: Point) -> String {
-  if Point{x: 0, y} = p {
+  if #Point{x: 0, y} = p {
     "on axis at ${y}"
   } else {
     "off axis"
@@ -143,8 +143,8 @@ fn main() {
   io.print(int_lit(2))
   io.print(string_lit("go"))
   io.print(string_lit("no"))
-  io.print(struct_field(Point{x: 0, y: 4}))
-  io.print(struct_field(Point{x: 1, y: 4}))
+  io.print(struct_field(#Point{x: 0, y: 4}))
+  io.print(struct_field(#Point{x: 1, y: 4}))
   io.print(as_list([7, 8]))
   io.print(as_list([7]))
   io.print(as_map(%{"mode" => "m", "a" => "b"}))

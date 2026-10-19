@@ -21,13 +21,13 @@ struct Box<T> {
 
 impl Blank for Box<T> {
     fn blank() -> Box<T> {
-        Box{items: []}
+        #Box{items: []}
     }
 }
 
 impl Add<Box<T>, Box<T>> for Box<T> {
     fn add(lhs: Box<T>, rhs: Box<T>) -> Box<T> {
-        Box{items: lhs.items + rhs.items}
+        #Box{items: lhs.items + rhs.items}
     }
 }
 
@@ -39,8 +39,8 @@ fn main() {
     io.print([1, 2] + none())
     io.print(none() + ["a"])
     io.print([1] == none())
-    io.print((Box{items: [3]} + Box.blank()).items)
-    io.print((Box.blank() + Box{items: ["b"]}).items)
+    io.print((#Box{items: [3]} + Box.blank()).items)
+    io.print((Box.blank() + #Box{items: ["b"]}).items)
 }
 `, "[1, 2]\n[a]\nFalse\n[3]\n[b]\n")
 }

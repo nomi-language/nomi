@@ -173,7 +173,7 @@ func TestLowerDerives_StructFnItemsAreParseErrors(t *testing.T) {
 	_, err := parser.Parse(lexer.Lex(`struct Dog {
   name: String
 
-  fn rename(d: Dog, n: String) -> Dog { Dog{name: n} }
+  fn rename(d: Dog, n: String) -> Dog { #Dog{name: n} }
 }
 `))
 	if err == nil {

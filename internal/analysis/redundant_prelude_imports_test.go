@@ -137,7 +137,7 @@ func TestRedundantPreludeImport_LoadBearingImportsExempt(t *testing.T) {
 			"struct Tag {\n  body: String\n}\n\n" +
 			"impl Literal for Tag {\n" +
 			"  fn from_fragments(fragments: List<Fragment<String>>) -> Tag {\n" +
-			"    Tag{body: Iter.reduce(fragments, fn acc = \"\", f ->\n" +
+			"    #Tag{body: Iter.reduce(fragments, fn acc = \"\", f ->\n" +
 			"      case f {\n        .Static(s) -> acc + s\n        .Dynamic(v) -> acc + v\n      }\n    )}\n" +
 			"  }\n}\n",
 	}}

@@ -57,11 +57,11 @@ fn main() {
     io.inspect(Iter.map([1, 2], fn n -> pair(n, k)) |> Iter.to_list())
     io.inspect(Iter.map([True], ok) |> Iter.to_list())
     fn attempt() -> Result<Box<Int>, String> {
-        b = try ok(Box{v: 1})
+        b = try ok(#Box{v: 1})
         Ok(b)
     }
     io.inspect(attempt())
-    io.inspect(ok(Box{v: 2.5}))
+    io.inspect(ok(#Box{v: 2.5}))
     io.inspect(both(1, "z"))
     io.inspect(outer("o"))
     io.inspect(outer(Some(1)))
@@ -81,8 +81,8 @@ fn main() {
 		"#(\"y\", 3)\n" +
 		"[#(20, 1), #(20, 2)]\n" +
 		"[Ok(True)]\n" +
-		"Ok(Box{v: 1})\n" +
-		"Ok(Box{v: 2.5})\n" +
+		"Ok(#Box{v: 1})\n" +
+		"Ok(#Box{v: 2.5})\n" +
 		"\"<1><z>\"\n" +
 		"[\"o\", \"o\"]\n" +
 		"[Some(1), Some(1)]\n" +

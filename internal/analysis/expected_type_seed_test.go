@@ -28,7 +28,7 @@ func TestExpectedTypeSeed_StructField(t *testing.T) {
   exits: Map<Direction, Place>
 }
 fn demo() -> Room {
-  Room{exits: Iter.to_map([#(.North, .Cave), #(.East, .Hall)])}
+  #Room{exits: Iter.to_map([#(.North, .Cave), #(.East, .Hall)])}
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
@@ -134,7 +134,7 @@ func TestExpectedTypeSeed_EmptyList_StructField(t *testing.T) {
   words: Map<String, List<Int>>
 }
 fn demo() -> Index {
-  Index{words: Iter.to_map([])}
+  #Index{words: Iter.to_map([])}
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
@@ -212,7 +212,7 @@ func TestExpectedTypeSeed_IterParam_VectorAndSetLiterals(t *testing.T) {
   Iter.to_vector(#[#(.North, .Cave)])
 }
 fn s() -> Set<Direction> {
-  #{.North, .East} |> Iter.to_set()
+  %[.North, .East] |> Iter.to_set()
 }
 fn l() -> List<Direction> {
   Iter.to_list([.North])
@@ -254,7 +254,7 @@ fn w() -> Vector<Maybe<String>> {
   y
 }
 fn s() -> Set<Maybe<Int>> {
-  z = #{None, Some(2)}
+  z = %[None, Some(2)]
   z
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))

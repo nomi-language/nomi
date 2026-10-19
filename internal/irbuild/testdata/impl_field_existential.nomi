@@ -71,7 +71,7 @@ fn read_tally(t: Tally) -> String {
 // with nothing boxed. Boxing here would be the silent answer the existential
 // decision warns about — a performance regression, never a wrong one.
 fn statically_known() -> String {
-    rex = Dog{name: "Rex"}
+    rex = #Dog{name: "Rex"}
     Speech.speak(rex)
 }
 
@@ -83,12 +83,12 @@ fn relay(s: Speech) -> String {
 }
 
 fn main() {
-    kennel = Pen{label: "kennel", occupant: Dog{name: "Rex"}}
-    basket = Pen{label: "basket", occupant: Cat{name: "Whiskers"}}
+    kennel = #Pen{label: "kennel", occupant: #Dog{name: "Rex"}}
+    basket = #Pen{label: "basket", occupant: #Cat{name: "Whiskers"}}
     io.print(describe(kennel))
     io.print(describe(basket))
     io.print(relay(kennel.occupant))
     io.print(relay(basket.occupant))
     io.print(statically_known())
-    io.print(read_tally(Tally{counted: 42}))
+    io.print(read_tally(#Tally{counted: 42}))
 }

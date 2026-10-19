@@ -34,28 +34,28 @@ struct Defaulted {
 }
 
 test "struct literals expose named fields" {
-    user = User{name: "Alice", age: 30}
+    user = #User{name: "Alice", age: 30}
 
     assert user.name == "Alice"
     assert user.age == 30
 }
 
 test "struct update preserves omitted fields" {
-    user = User{name: "Alice", age: 30}
-    updated = Struct.update(user, {name: "Bob"})
+    user = #User{name: "Alice", age: 30}
+    updated = Struct.update(user, #{name: "Bob"})
 
     assert updated.name == "Bob"
     assert updated.age == 30
 }
 
 test "nested struct update merges a `..` field update" {
-    person = Person{
+    person = #Person{
         name: "Alice",
-        address: Address{city: "Boston", zip: "02101"},
+        address: #Address{city: "Boston", zip: "02101"},
     }
 
-    moved = Struct.update(person, {address: {.., city: "NYC"}})
-    replaced = Struct.update(person, {address: Address{city: "NYC", zip: "10001"}})
+    moved = Struct.update(person, #{address: #{.., city: "NYC"}})
+    replaced = Struct.update(person, #{address: #Address{city: "NYC", zip: "10001"}})
 
     assert moved.address.city == "NYC"
     assert moved.address.zip == "02101"
@@ -64,22 +64,22 @@ test "nested struct update merges a `..` field update" {
 }
 
 test "struct patterns match and bind fields" {
-    user = User{name: "Alice", age: 30}
+    user = #User{name: "Alice", age: 30}
 
     greeting = case user {
-        User{name: "Alice"} -> "Hi Alice!"
-        User{name} -> "Hello " + name
+        #User{name: "Alice"} -> "Hi Alice!"
+        #User{name} -> "Hello " + name
     }
 
     assert greeting == "Hi Alice!"
 }
 
 test "struct literals support field defaults and punning" {
-    ok = Response{}
-    not_found = Response{status: 404}
+    ok = #Response{}
+    not_found = #Response{status: 404}
     name = "Bob"
     age = 25
-    bob = User{name, age}
+    bob = #User{name, age}
 
     assert ok.status == 200
     assert ok.body == ""
@@ -89,9 +89,9 @@ test "struct literals support field defaults and punning" {
 }
 
 test "struct call form builds from anonymous struct values" {
-    f1 = Foo{a: 1, b: "x"}
-    f2 = Foo({a: 2, b: "y"})
-    d = Defaulted({a: 7})
+    f1 = #Foo{a: 1, b: "x"}
+    f2 = Foo(#{a: 2, b: "y"})
+    d = Defaulted(#{a: 7})
 
     assert f1.a == 1
     assert f1.b == "x"
@@ -110,7 +110,7 @@ test "missing struct fields report diagnostics" {
           }
 
           fn main() {
-            p = Point{x: 1, y: 2}
+            p = #Point{x: 1, y: 2}
             dbg p.z
           }
         """

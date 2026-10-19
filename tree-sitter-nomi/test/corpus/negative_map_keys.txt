@@ -1,13 +1,13 @@
-==========
+================================================================================
 Negative integer key in map pattern
-==========
+================================================================================
 
 once r = case m {
   %{-2 => v} -> v
   _ -> "no"
 }
 
----
+--------------------------------------------------------------------------------
 
 (source_file
   (once_binding
@@ -15,7 +15,7 @@ once r = case m {
     (case_expression
       (identifier)
       (case_branch
-        (struct_pattern
+        (map_pattern
           (unary_expression
             (integer))
           (identifier))

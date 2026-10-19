@@ -13,9 +13,9 @@ import (
 
 // TestWithToken_OptionsClauseParses pins the derive use. `parseDeriveDecl`
 // reads `token.WITH` after the receiver type, so removing the token breaks
-// every `derive ToJson for T with ToJson.Options{...}` in the repository.
+// every `derive ToJson for T with #ToJson.Options{...}` in the repository.
 func TestWithToken_OptionsClauseParses(t *testing.T) {
-	nodes := parse(t, `derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel}`)
+	nodes := parse(t, `derive ToJson for User with #ToJson.Options{rename_all: Json.Case.Camel}`)
 	d, ok := nodes[0].(*ast.ImplConformance)
 	if !ok {
 		t.Fatalf("expected *ast.ImplConformance, got %T", nodes[0])

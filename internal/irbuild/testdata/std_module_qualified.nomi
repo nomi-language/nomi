@@ -41,7 +41,7 @@ pub struct App {
 }
 
 fn boot() -> App {
-    App{
+    #App{
         context: Context.root(),
         audit: supervisors.Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 2),
     }
@@ -53,8 +53,8 @@ fn twice(t: tasks.Task<Int>) -> Int {
 
 fn describe(e: random.Error) -> String {
     case e {
-        random.Error.OsEntropy{reason} -> "entropy: ${reason}"
-        random.Error.InvalidWeight{weight: w} -> "weight: ${w}"
+        #random.Error.OsEntropy{reason} -> "entropy: ${reason}"
+        #random.Error.InvalidWeight{weight: w} -> "weight: ${w}"
         _ -> "other"
     }
 }
@@ -66,9 +66,9 @@ fn mine(e: Error) -> String {
 }
 
 fn main() {
-    io.print(Task.label(Task{name: "mine"}))
-    io.print(Channel{id: 3}.id)
-    io.print(Supervisor{name: "local"}.name)
+    io.print(Task.label(#Task{name: "mine"}))
+    io.print(#Channel{id: 3}.id)
+    io.print(#Supervisor{name: "local"}.name)
     io.print(mine(Error.Mine))
 
     n = concurrent {
@@ -90,9 +90,9 @@ fn main() {
         Unit
     }
 
-    io.print(describe(random.Error.OsEntropy{reason: "x"}))
-    io.print(describe(random.Error.InvalidWeight{weight: 0.5}))
+    io.print(describe(#random.Error.OsEntropy{reason: "x"}))
+    io.print(describe(#random.Error.InvalidWeight{weight: 0.5}))
     io.print(describe(random.Error.ZeroWeightTotal))
-    io.print(Display.to_string(random.Error.OsEntropy{reason: "a"}))
+    io.print(Display.to_string(#random.Error.OsEntropy{reason: "a"}))
     io.print(json.Json.encode(json.Json.Arr([json.Json.Int(3), json.Json.Null])))
 }

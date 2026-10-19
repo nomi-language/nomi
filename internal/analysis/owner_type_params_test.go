@@ -111,7 +111,7 @@ fn main() {
   _ = Seq.from(3)
   _ = Seq.to_map([#("a", 1)])
   _ = Seq.flatten([[1], [2]])
-  _ = Box.get(Box{v: 1})
+  _ = Box.get(#Box{v: 1})
   _ = Box.seven()
   _ = Iter.from(3)
   _ = Iter.repeat(1)

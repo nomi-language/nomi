@@ -92,7 +92,7 @@ fn main() -> Unit {
     io.print(show_same(same_types(False)))
 
     // A Result as a struct FIELD type, read back out. The value is built by a
-    // function rather than inline because `Outcome{parsed: Ok(9)}` USED TO
+    // function rather than inline because `#Outcome{parsed: Ok(9)}` USED TO
     // record `Result<Int, ?1>` — the checker did not propagate a field's
     // declared type into the constructor's instantiation, so the builder refused
     // it under `prelude constructor with an unsolved type argument`.
@@ -104,7 +104,7 @@ fn main() -> Unit {
     // the fixture pins; the refusal it worked around is gone and
     // TestPrelude_TheUnsolvedTypeArgumentKeyIsUnreachable is where that is
     // asserted.
-    o = Outcome{parsed: parse("1")}
+    o = #Outcome{parsed: parse("1")}
     io.print(render(o.parsed))
 
     io.print(maybe_result(Some(Ok(4))))

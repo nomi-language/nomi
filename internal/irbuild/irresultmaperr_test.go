@@ -82,7 +82,7 @@ struct Problem { tags: List<String> }
 fn convert(r: Result<Int, Problem>) -> Result<Int, String> {
  Result.map_err(r, fn _p: Problem -> "bad")
 }
-fn main() { io.inspect(convert(Err(Problem{tags: ["x"]}))) }
+fn main() { io.inspect(convert(Err(#Problem{tags: ["x"]}))) }
 `, "Err(\"bad\")\n")
 }
 

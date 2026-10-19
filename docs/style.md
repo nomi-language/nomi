@@ -120,7 +120,7 @@ Iter.to_set([1, 2, 3])
   the pipeline first (`inner = xs |> Iter.map(Int.to_string) |> Iter.to_list()`),
   then build the expression from the binding.
 - Pipes work in place inside struct and enum literal fields
-  (`Foo{v: x |> g() |> h()}`), so don't extract a binding just to pipe a field
+  (`#Foo{v: x |> g() |> h()}`), so don't extract a binding just to pipe a field
   value.
 
 ## 2. Blank lines between statements
@@ -161,7 +161,7 @@ fn pad(generation: Int) -> String {
 ```
 
 ```nomi
-s = #{1, 2, 3}
+s = %[1, 2, 3]
 Set.size(s) |> io.print() // expect: 3
 Set.contains?(s, 2) |> io.print() // expect: True
 
@@ -266,13 +266,13 @@ pub struct RetryPolicy {
 }
 
 impl RetryPolicy {
-    pub once default = RetryPolicy{
+    pub once default = #RetryPolicy{
         attempts: 3,
         delay: Duration.seconds(1),
     }
 
     pub fn with_attempts(policy: RetryPolicy, attempts: Int) -> RetryPolicy {
-        {..policy, attempts}
+        #{..policy, attempts}
     }
 }
 
@@ -327,7 +327,7 @@ a yes/no question about its subject; a plain snake_case name is equally fine.
 
 Bindings are bare `name = expr` (optionally `name: T = expr`), never
 `let name = …`. This applies to every binding shape: simple, tuple destructure
-(`#(a, b) = …`), struct destructure (`{a, b} = …`) and distinct destructure
+(`#(a, b) = …`), struct destructure (`#{a, b} = …`) and distinct destructure
 (`Id(n) = …`). File-level values use `once name = …`.
 
 Read binding-position `=` as match-and-bind, not assignment: the value on the
@@ -356,8 +356,8 @@ fields and leave the whole unnamed:
 
 ```nomi
 case result {
-    Ok(Transaction{kind: .Deposit} as t) -> record(t)
-    Ok(Transaction{amount}) -> amount
+    Ok(#Transaction{kind: .Deposit} as t) -> record(t)
+    Ok(#Transaction{amount}) -> amount
     Err(msg) -> msg
 }
 ```
@@ -450,7 +450,7 @@ impl Stack<T> {
     }
 
     pub fn push<T>(stack: Stack<T>, item: T) -> Stack<T> {
-        Stack{items: [item, ..stack.items]}
+        #Stack{items: [item, ..stack.items]}
     }
 }
 
@@ -479,11 +479,11 @@ them as runnable examples. The stdlib does this throughout (`std/sets.nomi`,
 ```nomi
 impl Set<T> {
     /// Returns a new set with `elem` added (no-op if already present).
-    //! assert Set.insert(#{1, 2}, 3) == #{1, 2, 3}
-    //! assert Set.insert(#{1, 2}, 2) == #{1, 2}
+    //! assert Set.insert(%[1, 2], 3) == %[1, 2, 3]
+    //! assert Set.insert(%[1, 2], 2) == %[1, 2]
     //
     pub fn insert<T>(s: Set<T>, elem: T) -> Set<T> {
-        Set{items: Map.put(s.items, elem, True)}
+        #Set{items: Map.put(s.items, elem, True)}
     }
 }
 ```
@@ -696,7 +696,7 @@ assert values
 startup input declares no parameter, `fn boot() -> App`, and its groups write
 `boot server.boot()`. A boot that reads startup takes
 `startup: Startup`. When most of its tests need no input, default the
-parameter, `fn boot(startup: Startup = Startup{}) -> App`, so those groups
+parameter, `fn boot(startup: Startup = #Startup{}) -> App`, so those groups
 write `boot server.boot()` and only the groups that test the inputs build a
 Startup. The runtime still passes the real Startup to `main`'s boot, so the
 default changes nothing outside tests. Leave the parameter required when every
@@ -715,7 +715,7 @@ Startup with only the fields it sets; the rest default to empty:
 import server.Mailer
 
 pub fn startup() -> Startup {
-    Startup{env: %{"SENDER" => "test@example.com"}}
+    #Startup{env: %{"SENDER" => "test@example.com"}}
 }
 
 pub type FakeMailer
@@ -755,7 +755,7 @@ group "signup" {
 ```
 
 A test that needs a different startup builds it from the shared one:
-`{..test_support.startup(), args: ["--dry-run"]}`. Groups do not nest; write
+`#{..test_support.startup(), args: ["--dry-run"]}`. Groups do not nest; write
 sibling groups, and share setup between them through a function.
 
 **A group's lines may be written in any order.** `clock`, `boot` and `setup`
@@ -1031,7 +1031,7 @@ When a value is intentionally ignored, use a discard binder: `_`, or `_name`
 when a label makes the ignored value clearer. Discard binders do not enter
 scope, so `_name` cannot be read later. The same holds inside a pattern: write
 `fn #(_word, count) -> count`, `Some(_) -> True` or `[first, .._]`, and leave a struct
-pattern's unneeded fields out (`.Suspended{reason}`) rather than binding them.
+pattern's unneeded fields out (`#.Suspended{reason}`) rather than binding them.
 
 `assert` and `refute` may stand alone as statements, since the check is the
 reason the expression is there. Use a pattern assertion when a payload matters:
@@ -1095,7 +1095,7 @@ struct Dog {
 
 impl Dog {
     fn rename(_d: Dog, new_name: String) -> Dog {
-        Dog{name: new_name}
+        #Dog{name: new_name}
     }
 }
 
@@ -1169,8 +1169,8 @@ struct Account {
     age: Int
 }
 
-derive ToJson for Account with ToJson.Options{rename_all: Json.Case.Camel}
-derive FromJson for Account with FromJson.Options{rename_all: Json.Case.Camel}
+derive ToJson for Account with #ToJson.Options{rename_all: Json.Case.Camel}
+derive FromJson for Account with #FromJson.Options{rename_all: Json.Case.Camel}
 ```
 
 A `derive` must sit in the same file and scope as the type's declaration, since
@@ -1190,7 +1190,7 @@ pub struct Config {
 }
 
 pub fn boot() -> Config {
-    Config{context: Context.root()}
+    #Config{context: Context.root()}
 }
 ```
 
@@ -1208,7 +1208,7 @@ reader sees the replaced fields before the code that runs under them. Write one
 ```nomi
 fn import_quietly() {
     with Config.logger = Silent
-    with Config.store = FakeStore{}
+    with Config.store = #FakeStore{}
 
     run_import()
 }
@@ -1295,33 +1295,37 @@ count =
 
 ## 17. Leave out a struct literal's type name where the context names it
 
-A brace literal builds the struct its position expects (spec, *Target-typed
+Every struct literal starts with `#`. `#{...}`, one with no type name after
+the `#`, builds the struct its position expects (spec, *Target-typed
 construction*), so where an annotation, a parameter, a field or a return type
-already names the struct, write the fields alone:
+already names the struct, write `#{...}` rather than `#Point{...}`:
 
 ```nomi
-ada = Person{name: "Ada", address: {street: "1 Main", city: "Bath"}}
+ada = #Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}}
 
 fn origin() -> Point {
-    {x: 0, y: 0}
+    #{x: 0, y: 0}
 }
 ```
 
 Write the type name anyway when a reader cannot see the expected type from
 the literal's own line: an argument to a function defined far away, an
 element deep inside a nested call, or a literal whose struct shares field
-names with another struct the reader might expect. `Address{...}` at the top
-of an expression also says what is being built before the fields do, so keep
-it on an unannotated binding (`home = Address{...}`), where leaving it out
+names with another struct the reader might expect. `#Address{...}` at the
+top of an expression also says what is being built before the fields do, so
+keep it on an unannotated binding (`home = #Address{...}`), where `#{...}`
 would make an anonymous struct instead.
 
 ## 18. Use a tuple for a local pairing and a struct once it travels
 
 Use a tuple, `#(a, b)`, for a small, local pairing whose positions are
-obvious: a function returning two values, a map entry. Switch to an anonymous struct (or a
-struct) once a slot is updated, or read by position far from where the tuple
-was built. A named field reads better than `.1`, and an anonymous struct
-already supports a spread update, which a tuple does not: there is no
+obvious: a function returning two values, a map entry. Switch to an anonymous
+struct, `#{x: 1, y: 2}` (or a struct), once a slot is updated, or read by
+position far from where the tuple was built. Both start with `#`, the symbol
+of the indexed and product shapes, which a vector shares (`#[1, 2]`); the
+hashed shapes, maps and sets, start with `%` (`%{"a" => 1}`, `%[1, 2]`). A
+named field reads better than `.1`, and an anonymous struct already supports
+a spread update, which a tuple does not: there is no
 `Tuple.update`, because its result type would depend on a literal index.
 
 ```nomi
@@ -1329,15 +1333,15 @@ fn divide(x: Int, y: Int) -> #(Int, Int) {
     #(x / y, x % y)
 }
 
-fn step(point: {x: Int, y: Int}) -> {x: Int, y: Int} {
-    {..point, y: point.y + 1}
+fn step(point: #{x: Int, y: Int}) -> #{x: Int, y: Int} {
+    #{..point, y: point.y + 1}
 }
 ```
 
 To change part of a nested value inside an update, write the bare `..`
-(`{..user, address: {.., city: "NYC"}}`) rather than repeating the path as a
-base (`{..user.address, city: "NYC"}`); write a brace without `..` only when
-the field gets a whole new value.
+(`#{..user, address: #{.., city: "NYC"}}`) rather than repeating the path as a
+base (`#{..user.address, city: "NYC"}`); write a literal without `..` only
+when the field gets a whole new value.
 
 ## 19. Use a codepoint literal for codepoint work and a string for text
 
@@ -1374,7 +1378,7 @@ fn parse(text: String) -> Header {
 }
 ```
 
-A made-up `Header{name: "", size: 0}` runs and returns a wrong answer that
+A made-up `#Header{name: "", size: 0}` runs and returns a wrong answer that
 nothing flags; `todo` stops the program at the line that is missing, the editor
 lists it as a warning, and `nomi build` refuses to ship it. Give a reason when
 the next step is not obvious from the signature, and keep it to what is left to
@@ -1415,7 +1419,7 @@ labelled = Result.map_err(result, ParseError)
 
 Keep the lambda when it does more than wrap: a computation inside the
 constructor (`fn n -> Id(n + 1)`), a struct-shaped variant, which has no function
-value (`fn w -> Shape.Rect{w: w, h: w}`), or a positional variant over a tuple
+value (`fn w -> #Shape.Rect{w: w, h: w}`), or a positional variant over a tuple
 whose parts arrive as separate arguments.
 
 ## 23. `return` is for leaving early
@@ -1434,7 +1438,7 @@ fn clamp(n: Int) -> Int {
 `fmt` applies this for you. It removes a `return` that is the last thing a
 function, lambda or test body does, including the last expression of each
 branch of a tail `if` and each arm of a tail `case`; a brace value such as
-`return {..p, x: 0}` becomes `{..p, x: 0}`. A bare `return` at the end of a
+`return #{..p, x: 0}` becomes `#{..p, x: 0}`. A bare `return` at the end of a
 `Unit` body goes too when an expression statement comes before it. In a test
 body, a tail `if` or `case` keeps its `return value`s, since its branches'
 values need not share a type there.
@@ -1552,3 +1556,26 @@ Don't return a `Maybe` whose `None` every caller must unwrap with an
 "impossible" arm: that arm is untested code, and it hides the bug a trap would
 report at its line. Don't trap on data from outside the program either; a
 missing key in a config file is something to report, not a crash.
+
+## 29. Take a vector apart with a pattern when its shape decides
+
+When the code branches on a vector's length or reads its first or last
+elements, match it with a vector pattern instead of `Vector.length` and
+`Vector.at`. The pattern says which shapes the code handles, and the
+compiler checks that it handles them all:
+
+```nomi
+fn describe(v: Vector<Int>) -> String {
+    case v {
+        #[] -> "empty"
+        #[only] -> "just ${only}"
+        #[first, .., last] -> "${first} to ${last}"
+    }
+}
+```
+
+Keep `Vector.at` and `Vector.get` for an index that comes from arithmetic,
+such as a grid's row and column. A set pattern tests membership, so reach
+for one when an arm needs several elements present at once
+(`%["admin", "owner", ..]`) or binds the rest; to test one element,
+`Set.contains?` is shorter.

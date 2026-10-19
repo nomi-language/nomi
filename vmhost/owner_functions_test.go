@@ -41,7 +41,7 @@ impl Box<T> {
     fn fourteen() -> Int { Box.seven() * 2 }
     fn bare_fourteen() -> Int { seven() + seven() }
     fn shown<U>(x: U) -> String where U: Display { "<${x}>" }
-    fn mk<T>(x: T) -> Box<T> { Box{v: x} }
+    fn mk<T>(x: T) -> Box<T> { #Box{v: x} }
     fn plus_seven(b: Box<T>) -> Int { seven() + Iter.count([b]) }
 }
 
@@ -79,7 +79,7 @@ fn main() {
     io.inspect(Box.bare_fourteen())
     io.inspect(Box.shown(5))
     io.inspect(Box.get(Box.mk(9)))
-    io.inspect(Box.plus_seven(Box{v: "x"}))
+    io.inspect(Box.plus_seven(#Box{v: "x"}))
     io.inspect(Tree.depth_limit())
     io.inspect(Tree.pair(True))
 }

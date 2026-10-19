@@ -144,7 +144,7 @@ enum Wrapped {
 
 fn sum(w: Wrapped) -> Int {
     case w {
-        Wrapped.Pair(Point{x, y}) -> x + y
+        Wrapped.Pair(#Point{x, y}) -> x + y
         Wrapped.Empty -> 0
     }
 }
@@ -160,21 +160,21 @@ struct Outer {
 
 fn unwrap(o: Outer) -> Int {
     case o {
-        Outer{inner: Inner{v}, tag} -> v + tag
+        #Outer{inner: #Inner{v}, tag} -> v + tag
     }
 }
 
 test "nested struct patterns work inside variants tuples and fields" {
-    pair = #(Point{x: 5, y: 6}, 10)
+    pair = #(#Point{x: 5, y: 6}, 10)
 
     pair_sum = case pair {
-        #(Point{x, y}, n) -> x + y + n
+        #(#Point{x, y}, n) -> x + y + n
     }
 
-    assert sum(Wrapped.Pair(Point{x: 3, y: 4})) == 7
+    assert sum(Wrapped.Pair(#Point{x: 3, y: 4})) == 7
     assert sum(Wrapped.Empty) == 0
     assert pair_sum == 21
-    assert unwrap(Outer{inner: Inner{v: 9}, tag: 1}) == 10
+    assert unwrap(#Outer{inner: #Inner{v: 9}, tag: 1}) == 10
 }
 
 fn classify_int(n: Int) -> String {

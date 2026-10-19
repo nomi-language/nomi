@@ -13,6 +13,6 @@ enum Shape {
   Polygon { sides: Map<String, (Int) -> Int> }
 }
 fn make() -> Shape { .Circle(1.0) }
-fn main() { io.inspect(make()) io.inspect(Shape.Polygon{sides: %{"n" => fn x: Int -> x}}) }
-`, "Circle(1.0)\nPolygon{sides: %{\"n\" => <function>}}\n")
+fn main() { io.inspect(make()) io.inspect(#Shape.Polygon{sides: %{"n" => fn x: Int -> x}}) }
+`, "Circle(1.0)\n#Polygon{sides: %{\"n\" => <function>}}\n")
 }

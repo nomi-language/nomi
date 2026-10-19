@@ -4,11 +4,11 @@ import std/io
 // STRUCT pattern over a NAMED struct, and a TUPLE pattern.
 //
 // testdata/fn_destructure.nomi and fn_destructure_variant.nomi cover the shapes
-// that already lowered: a distinct `Meters(m)`, a typed `Point{x, y}`, and a
+// that already lowered: a distinct `Meters(m)`, a typed `#Point{x, y}`, and a
 // single-variant enum in both its tuple and brace spellings. The two here
 // reached lambda.go's refusals instead:
 //
-//	{x, y}: Point       destructureStruct's p.TypeName == nil arm, which asked
+//	#{x, y}: Point      destructureStruct's p.TypeName == nil arm, which asked
 //	                    for tagAnonStruct and refused a NAMED struct under
 //	                    `anonymous struct type`
 //	#(a, b): #(Int, Int) destructure's default arm, `destructuring parameter`
@@ -19,7 +19,7 @@ import std/io
 //
 // WHICH DERIVATIONS ARE LET DISAGREE HERE
 //
-//   - BY NAME vs BY POSITION. `{y, x}: Point` is PERMUTED against
+//   - BY NAME vs BY POSITION. `#{y, x}: Point` is PERMUTED against
 //     `struct Point { x, y }` and read back through a non-commutative
 //     expression, so a by-position field lookup answers 704 where a by-name one
 //     answers 407. Measured on the sibling fixture: written in declaration
@@ -27,12 +27,12 @@ import std/io
 //     Every multi-field pattern below is permuted for that reason, and the
 //     tuple patterns — whose lookup IS by position — are read back
 //     non-commutatively so a reversal is visible too.
-//   - A SUBSET vs THE WHOLE FIELD SET. `{x}: Point` names ONE of two fields,
+//   - A SUBSET vs THE WHOLE FIELD SET. `#{x}: Point` names ONE of two fields,
 //     which is the property that makes this a different feature from a record
 //     destructure: a record pattern's field set is the whole of its type's, a
 //     named struct's is a subset. `only_x` is that case.
-//   - THE NAMED STRUCT PATH vs THE RECORD PATH. `{x, y}: Point` and
-//     `{x, y}: {x: Int, y: Int}` are the SAME NODE with different annotations,
+//   - THE NAMED STRUCT PATH vs THE RECORD PATH. `#{x, y}: Point` and
+//     `#{x, y}: #{x: Int, y: Int}` are the SAME NODE with different annotations,
 //     dispatched on src.k.tag. Both are here, so a lowering that routed one
 //     into the other's helper answers wrongly for the other.
 //   - COMPOSITION. Four nestings, each mixing the two new shapes with each
@@ -60,33 +60,33 @@ type Dur Int
 
 // The typed-struct spelling. Lowers already; here so the pair is visible and so
 // a "fix" that moved it onto a different answer is caught.
-fn typed(Point{x, y}) -> Int {
+fn typed(#Point{x, y}) -> Int {
     x * 100 + y
 }
 
 // The anonymous-struct spelling over the SAME named struct, PERMUTED.
-fn anon({y, x}: Point) -> Int {
+fn anon(#{y, x}: Point) -> Int {
     x * 100 + y
 }
 
 // A SUBSET of the declared fields.
-fn only_x({x}: Point) -> Int {
+fn only_x(#{x}: Point) -> Int {
     x
 }
 
 // Renamed as well as permuted.
-fn renamed({y: b, x: a}: Point) -> String {
+fn renamed(#{y: b, x: a}: Point) -> String {
     "${a}/${b}"
 }
 
 // A wildcard beside a binding.
-fn dropped({x, y: _}: Point) -> Int {
+fn dropped(#{x, y: _}: Point) -> Int {
     x
 }
 
 // The RECORD path: the same node, annotated with an anonymous struct TYPE
 // rather than a named one, so src.k.tag is tagAnonStruct.
-fn record({y, x}: {x: Int, y: Int}) -> Int {
+fn record(#{y, x}: #{x: Int, y: Int}) -> Int {
     x * 100 + y
 }
 
@@ -102,17 +102,17 @@ fn triple(#(a, _, c): #(Int, String, Int)) -> Int {
 
 // An anon struct pattern nested inside an anon struct pattern, over a named
 // struct at BOTH levels.
-fn nested_struct({scale, at: {y, x}}: Frame) -> Int {
+fn nested_struct(#{scale, at: #{y, x}}: Frame) -> Int {
     (x * 100 + y) * scale
 }
 
 // A tuple pattern nested inside an anon struct pattern.
-fn nested_tuple({tag, pair: #(a, b)}: Boxed) -> String {
+fn nested_tuple(#{tag, pair: #(a, b)}: Boxed) -> String {
     "${tag}:${a - b}"
 }
 
 // An anon struct pattern nested inside a tuple pattern.
-fn tuple_of_struct(#({y, x}, n): #(Point, Int)) -> Int {
+fn tuple_of_struct(#(#{y, x}, n): #(Point, Int)) -> Int {
     (x * 100 + y) + n
 }
 
@@ -129,32 +129,32 @@ fn tuple_of_dur(#(Dur(d), n): #(Dur, Int)) -> Int {
 
 // Non-leading position, so the anonymous parameter has to land in the right
 // slot with an ordinary parameter on each side.
-fn between(k: Int, {y, x}: Point, #(a, b): #(Int, Int)) -> Int {
+fn between(k: Int, #{y, x}: Point, #(a, b): #(Int, Int)) -> Int {
     k * 1000 + (x * 100 + y) + (a - b)
 }
 
 fn main() {
-    io.print("typed = ${typed(Point{x: 4, y: 7})}")
-    io.print("anon = ${anon(Point{x: 4, y: 7})}")
-    io.print("only_x = ${only_x(Point{x: 9, y: 2})}")
-    io.print("renamed = ${renamed(Point{x: 3, y: 8})}")
-    io.print("dropped = ${dropped(Point{x: 6, y: 1})}")
-    io.print("record = ${record({x: 5, y: 2})}")
+    io.print("typed = ${typed(#Point{x: 4, y: 7})}")
+    io.print("anon = ${anon(#Point{x: 4, y: 7})}")
+    io.print("only_x = ${only_x(#Point{x: 9, y: 2})}")
+    io.print("renamed = ${renamed(#Point{x: 3, y: 8})}")
+    io.print("dropped = ${dropped(#Point{x: 6, y: 1})}")
+    io.print("record = ${record(#{x: 5, y: 2})}")
     io.print("pair = ${pair(#(20, 3))}")
     io.print("triple = ${triple(#(4, "mid", 9))}")
-    io.print("nested_struct = ${nested_struct(Frame{at: Point{x: 1, y: 2}, scale: 3})}")
-    io.print("nested_tuple = ${nested_tuple(Boxed{pair: #(30, 4), tag: "t"})}")
-    io.print("tuple_of_struct = ${tuple_of_struct(#(Point{x: 2, y: 5}, 11))}")
+    io.print("nested_struct = ${nested_struct(#Frame{at: #Point{x: 1, y: 2}, scale: 3})}")
+    io.print("nested_tuple = ${nested_tuple(#Boxed{pair: #(30, 4), tag: "t"})}")
+    io.print("tuple_of_struct = ${tuple_of_struct(#(#Point{x: 2, y: 5}, 11))}")
     io.print("tuple_of_tuple = ${tuple_of_tuple(#(#(30, 4), 2))}")
     io.print("tuple_of_dur = ${tuple_of_dur(#(Dur(40), 6))}")
-    io.print("between = ${between(2, Point{x: 3, y: 4}, #(10, 1))}")
+    io.print("between = ${between(2, #Point{x: 3, y: 4}, #(10, 1))}")
 
     // The LAMBDA entry point into the same destructure(), for both new shapes.
-    points = [Point{x: 1, y: 2}, Point{x: 3, y: 4}]
+    points = [#Point{x: 1, y: 2}, #Point{x: 3, y: 4}]
 
     codes =
         points
-        |> Iter.map(fn {y, x}: Point -> x * 100 + y)
+        |> Iter.map(fn #{y, x}: Point -> x * 100 + y)
         |> Iter.to_list()
 
     io.print("lambda_anon = ${codes}")

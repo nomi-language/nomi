@@ -28,7 +28,7 @@ struct App {
 }
 
 fn boot() -> App {
-    App{context: Context.root(), work: Supervisor.new(1)}
+    #App{context: Context.root(), work: Supervisor.new(1)}
 }
 
 fn noisy<T>(label: String, v: T) -> T {

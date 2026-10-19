@@ -70,7 +70,7 @@ test "variant payloads support every payload shape" {
         _ -> 0
     }
 
-    r: Token = Rect{width: 4.0, height: 5.0}
+    r: Token = #Rect{width: 4.0, height: 5.0}
     e: Token = Expired
 
     bag_payload = %{"a" => 1}
@@ -109,7 +109,7 @@ test "variant payloads support every payload shape" {
         |> Pair()
         |> Token.Coord()
         |> Debug.inspect()
-        |> String.equal?("Coord(Pair(1, 2))")
+        |> String.equal?("Coord(#Pair(1, 2))")
 
     assert bag_payload
         |> Token.Bag()
@@ -133,14 +133,14 @@ test "variant payloads support every payload shape" {
         |> Debug.inspect()
         |> String.equal?("Many(Items([4, 5, 6]))")
 
-    assert Circle{radius: 3.0}
+    assert #Circle{radius: 3.0}
         |> Token.Tagged()
         |> Debug.inspect()
-        |> String.equal?("Tagged(Circle{radius: 3.0})")
+        |> String.equal?("Tagged(#Circle{radius: 3.0})")
 
-    assert Token.Card{rank: 7, suit: "hearts"}
+    assert #Token.Card{rank: 7, suit: "hearts"}
         |> Debug.inspect()
-        |> String.equal?("Card{rank: 7, suit: \"hearts\"}")
+        |> String.equal?("#Card{rank: 7, suit: \"hearts\"}")
 
     assert computed == 10
 
@@ -154,19 +154,19 @@ test "variant payloads support every payload shape" {
         |> Debug.inspect()
         |> String.equal?("Inner(None)")
 
-    assert Person{name: "Alice"}
+    assert #Person{name: "Alice"}
         |> Token.Render()
         |> Debug.inspect()
-        |> String.equal?("Render(Person{name: \"Alice\"})")
+        |> String.equal?("Render(#Person{name: \"Alice\"})")
 
-    assert Robot{id: 42}
+    assert #Robot{id: 42}
         |> Token.Render()
         |> Debug.inspect()
-        |> String.equal?("Render(Robot{id: 42})")
+        |> String.equal?("Render(#Robot{id: 42})")
 
     assert r
         |> Debug.inspect()
-        |> String.equal?("Rect{width: 4.0, height: 5.0}")
+        |> String.equal?("#Rect{width: 4.0, height: 5.0}")
 
     assert e
         |> Debug.inspect()
@@ -187,12 +187,12 @@ fn describe(t: Token) -> String {
         Token.Sequence(xs) -> "seq-len=${Iter.count(xs)}"
         Token.Many(Items(xs)) -> "many-len=${Iter.count(xs)}"
         Token.Tagged(c) -> "tagged-r=${c.radius}"
-        Token.Card{rank, suit} -> "card=${rank}-of-${suit}"
+        #Token.Card{rank, suit} -> "card=${rank}-of-${suit}"
         Token.Computation(f) -> "computed=${f(7)}"
         Token.Inner(Some(v)) -> "inner-some=${v}"
         Token.Inner(None) -> "inner-none"
         Token.Render(r) -> "render=${Renderable.render(r)}"
-        Token.Rect{width, height} -> "rect=${width}x${height}"
+        #Token.Rect{width, height} -> "rect=${width}x${height}"
         Token.Expired -> "expired"
     }
 }
@@ -204,24 +204,24 @@ test "variant payloads can be pattern matched by shape" {
     assert describe(Token.Flag(True)) == "flag=True"
     assert describe(Token.User(UserId(7))) == "user=7"
     assert describe(Token.Position(#(10, 20))) == "pos=(10, 20)"
-    assert describe(Token.Coord(Pair(3, 4))) == "coord=(3, 4)"
+    assert describe(Token.Coord(#Pair(3, 4))) == "coord=(3, 4)"
 
     bag_payload = %{"a" => 1}
 
     bag = Token.Bag(bag_payload)
 
     assert describe(bag) == "bag-size=1"
-    assert describe(Token.Counts(Kvs%{"x" => 1})) == "counts-size=1"
+    assert describe(Token.Counts(%Kvs{"x" => 1})) == "counts-size=1"
     assert describe(Token.Sequence([1, 2, 3])) == "seq-len=3"
     assert describe(Token.Many(Items([4, 5]))) == "many-len=2"
-    assert describe(Token.Tagged(Circle{radius: 3.0})) == "tagged-r=3.0"
-    assert describe(Token.Card{rank: 7, suit: "hearts"}) == "card=7-of-hearts"
+    assert describe(Token.Tagged(#Circle{radius: 3.0})) == "tagged-r=3.0"
+    assert describe(#Token.Card{rank: 7, suit: "hearts"}) == "card=7-of-hearts"
     assert describe(Token.Computation(double)) == "computed=14"
     assert describe(Token.Inner(Some(99))) == "inner-some=99"
     assert describe(Token.Inner(None)) == "inner-none"
-    assert describe(Token.Render(Person{name: "Bob"})) == "render=person:Bob"
-    assert describe(Token.Render(Robot{id: 99})) == "render=robot:99"
-    assert describe(Rect{width: 4.0, height: 5.0}) == "rect=4.0x5.0"
+    assert describe(Token.Render(#Person{name: "Bob"})) == "render=person:Bob"
+    assert describe(Token.Render(#Robot{id: 99})) == "render=robot:99"
+    assert describe(#Rect{width: 4.0, height: 5.0}) == "rect=4.0x5.0"
     assert describe(Expired) == "expired"
 }
 
@@ -232,24 +232,24 @@ enum Box {
 
 fn box_area(b: Box) -> Int {
     case b {
-        .Sized({w: 1, h}) -> h
-        .Sized({w, h}) -> w * h
+        .Sized(#{w: 1, h}) -> h
+        .Sized(#{w, h}) -> w * h
         .Empty -> 0
     }
 }
 
 test "a struct-shaped variant's payload matches a record pattern" {
-    assert box_area(Box.Sized{w: 2, h: 3}) == 6
-    assert box_area(Box.Sized{w: 1, h: 3}) == 3
+    assert box_area(#Box.Sized{w: 2, h: 3}) == 6
+    assert box_area(#Box.Sized{w: 1, h: 3}) == 3
     assert box_area(Box.Empty) == 0
 
-    .Sized({w, h: _}) = Box.Sized{w: 4, h: 5} else {
+    .Sized(#{w, h: _}) = #Box.Sized{w: 4, h: 5} else {
         return
     }
 
     assert w == 4
 
-    whole = case Box.Sized{w: 2, h: 7} {
+    whole = case #Box.Sized{w: 2, h: 7} {
         .Sized(r) -> r.w + r.h
         .Empty -> 0
     }

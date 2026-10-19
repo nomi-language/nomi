@@ -13,7 +13,7 @@ import (
 // (`type Expired`) has no call form: it is its own value, written bare.
 //
 // Tuple-distincts keep checkTupleDistinctArgs, which also takes the flat
-// `Pair(1, "x")` form. A call with a `_` placeholder is partial application
+// `#Pair(1, "x")` form. A call with a `_` placeholder is partial application
 // and keeps the ordinary path.
 
 // distinctCtorLabel is how a diagnostic spells the constructor: the callee as

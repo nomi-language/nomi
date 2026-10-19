@@ -35,8 +35,8 @@ fn arm(d: Direction) -> Map<Direction, Place> {
 }
 
 fn main() {
-    io.inspect(Room{exits: Iter.to_map([#(.North, .Cave), #(.East, .Hall)])})
-    io.inspect(Index{words: Iter.to_map([])})
+    io.inspect(#Room{exits: Iter.to_map([#(.North, .Cave), #(.East, .Hall)])})
+    io.inspect(#Index{words: Iter.to_map([])})
     empty: Map<String, List<Int>> = Iter.to_map([])
     io.inspect(empty)
     io.inspect(piped())

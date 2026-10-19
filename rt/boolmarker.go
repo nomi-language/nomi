@@ -42,7 +42,7 @@ package rt
 // # Zero-width, not a leaf with contents
 //
 // Each type has exactly one inhabitant, so naming the type names the value:
-// `rt.BoolTrue{}` is the only `rt.BoolTrue` there is. That is what lets a `case`
+// `#rt.BoolTrue{}` is the only `rt.BoolTrue` there is. That is what lets a `case`
 // arm binding the payload materialize it from a Go `bool` it was never stored
 // in — the payload contributes no information, so there is nothing to recover.
 //
@@ -57,7 +57,7 @@ package rt
 //
 // The Nomi names are `True` and `False`, and the builder carries them on the
 // def's `nomi` field. In Go, `rt.True` as a type beside a language with `true`
-// as a value is a reader trap (`var x rt.True = rt.True{}`), and rt's own
+// as a value is a reader trap (`var x rt.True = #rt.True{}`), and rt's own
 // callers would meet it in signatures. The prefix costs a reader
 // nothing and the mapping is stated in one place, the stdHostSpecs rows.
 type BoolTrue struct{}

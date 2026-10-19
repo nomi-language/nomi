@@ -9,7 +9,7 @@ pub fn flags(n: Int) -> String {
         .Blocked(_) -> "blocked"
         .Paired(#(a, b)) -> "sum ${a + b}"
         .Noted(_) -> "noted"
-        .Closed{reason: "stale"} -> "stale"
-        .Closed{} -> "closed"
+        #.Closed{reason: "stale"} -> "stale"
+        #.Closed{} -> "closed"
     }
 }

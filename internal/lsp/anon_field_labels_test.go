@@ -16,21 +16,21 @@ import (
 // a parameter type and a binding annotation.
 const anonLabelsSrc = `import std/io
 
-fn make(context: Context) -> {logger: String, context: Context} {
-  {logger: "x", context}
+fn make(context: Context) -> #{logger: String, context: Context} {
+  #{logger: "x", context}
 }
 
-fn show(p: {name: String, age: Int}) -> String {
+fn show(p: #{name: String, age: Int}) -> String {
   p.name
 }
 
 fn main() {
   _ = make(Context.root())
-  io.print(show({name: "a", age: 3}))
-  pt: {x: Int, y: Int} = {x: 1, y: 2}
+  io.print(show(#{name: "a", age: 3}))
+  pt: #{x: Int, y: Int} = #{x: 1, y: 2}
   io.print(pt.y)
   age = 4
-  io.print(show({name: "b", age}))
+  io.print(show(#{name: "b", age}))
 }
 `
 
@@ -141,7 +141,7 @@ func TestAnonLiteralLabels_ReferenceTheAnnotatedField(t *testing.T) {
 	}
 }
 
-// A punned label, `{..., context}`, is both the field's label and a read of
+// A punned label, `#{..., context}`, is both the field's label and a read of
 // the variable. References and rename reach it from either; rename unpuns it.
 func TestAnonLiteralLabels_PunnedLabelIsFieldAndVariable(t *testing.T) {
 	src := anonLabelsSrc
@@ -203,8 +203,8 @@ func TestAnonLiteralLabels_UntypedLiteralDeclaresItsOwn(t *testing.T) {
 	src := `import std/io
 
 fn main() {
-  a = {x: 1}
-  b: {x: Int} = {x: 2}
+  a = #{x: 1}
+  b: #{x: Int} = #{x: 2}
   io.print(a.x + b.x)
 }
 `

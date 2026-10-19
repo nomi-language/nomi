@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 366
-declared-cases 1110
+records 368
+declared-cases 1128
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -797,6 +797,20 @@ T ok <root>/tests/06-collections/maps_test.nomi :: map bulk construction and tra
 T ok <root>/tests/06-collections/maps_test.nomi :: maps merge with +
 T test result: ok. 6 passed, 0 failed
 T
+C 06-collections/named_literals_test.nomi
+E 0
+N 8
+H d7f6601407043260ea6b181e0b67ccdd1e296b51b43ee1e8fd00ec57925e2548
+T ok <root>/tests/06-collections/named_literals_test.nomi :: each collection literal builds its named type
+T ok <root>/tests/06-collections/named_literals_test.nomi :: an empty literal takes its element type from the expected type
+T ok <root>/tests/06-collections/named_literals_test.nomi :: each collection renders as it is written
+T ok <root>/tests/06-collections/named_literals_test.nomi :: a punned field alone is a struct
+T ok <root>/tests/06-collections/named_literals_test.nomi :: a brace after a map-shaped name attaches a map, and an empty one is the empty map
+T ok <root>/tests/06-collections/named_literals_test.nomi :: an empty brace builds the struct its position expects from the defaults
+T ok <root>/tests/06-collections/named_literals_test.nomi :: the spreads take the new heads
+T ok <root>/tests/06-collections/named_literals_test.nomi :: map and struct patterns
+T test result: ok. 8 passed, 0 failed
+T
 C 06-collections/sets_test.nomi
 E 0
 N 8
@@ -1113,12 +1127,13 @@ T test result: ok. 1 passed, 0 failed
 T
 C 08-pattern-matching/distinct_sub_patterns_test.nomi
 E 0
-N 3
-H 0a862748e1181cdd4683c3b8584a764986b695fd16976b0bc9fcf034b3d6af0c
+N 4
+H 5f041a2f63ae14cf9c27bb8f3241cffad0e05f4c52b5469174b5eee2f5f12b51
 T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: tuple distinct sub-patterns
 T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: distinct sub-patterns in variants
 T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: list and map distinct sub-patterns
-T test result: ok. 3 passed, 0 failed
+T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: a parameter takes a tuple distinct apart
+T test result: ok. 4 passed, 0 failed
 T
 C 08-pattern-matching/map_binding_else_test.nomi
 E 0
@@ -1217,6 +1232,21 @@ T ok <root>/tests/08-pattern-matching/variant_resolution/variant_resolution_test
 T ok <root>/tests/08-pattern-matching/variant_resolution/variant_resolution_test.nomi :: dot-leading variant diagnostics require a contextual enum type
 T ok <root>/tests/08-pattern-matching/variant_resolution/variant_resolution_test.nomi :: bare variant construction diagnostics require enum qualification
 T test result: ok. 5 passed, 0 failed
+T
+C 08-pattern-matching/vector_set_patterns_test.nomi
+E 0
+N 9
+H 7afe524b92c7c222296aa8ff5bc06560638ff528acaa96508db7bcac6792e669
+T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a vector pattern takes a vector apart from either end
+T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a vector pattern's rest is the elements between its heads and tails
+T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: an exact vector pattern matches only its own length
+T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: vector patterns nest and combine with or and as
+T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a vector pattern names a type over a vector
+T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a set pattern tests membership
+T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a set pattern without a rest matches exactly its elements
+T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a set pattern's elements are values in scope
+T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a set pattern names a type over a set
+T test result: ok. 9 passed, 0 failed
 T
 C 09-functions-and-control-flow/call_semantics_test.nomi
 E 0
@@ -1782,12 +1812,12 @@ T
 C 12-derives-and-standard-interfaces/generic_debug/main.nomi
 E 0
 N 0
-H b6560753a61b40cff408a159d5d32d140bf9986479ad1ce08e6387fd2b882e70
-T Box{value: 42}
-T Box{value: 42}
-T boxed: Box{value: hi}
-T Node{left: Leaf, value: 5, right: Leaf}
-T dbg line 22: box = Box{value: 42}
+H e80473e342733ff695703bfd0fea3f8d4e66fa6c2bc638810bf932a58dd22213
+T #Box{value: 42}
+T #Box{value: 42}
+T boxed: #Box{value: hi}
+T #Node{left: Leaf, value: 5, right: Leaf}
+T dbg line 22: box = #Box{value: 42}
 T
 C 12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi
 E 0
@@ -2196,13 +2226,13 @@ T
 C 14-modules-and-packaging/file_import_display/main.nomi
 E 0
 N 0
-H 716e684e2017f6e12700d3db5a389840842433c62b72959cb2dcb8d93521009d
-T Point{x: 0, y: 0}
+H fb69668473d166417b0d37badc6435689749f0351c8af0e09205e1c55ba841d1
+T #Point{x: 0, y: 0}
 T $12.50
 T Red
-T at Point{x: 0, y: 0} for $12.50
+T at #Point{x: 0, y: 0} for $12.50
 T [$12.50, $12.50]
-T Point{x: 0, y: 0}
+T #Point{x: 0, y: 0}
 T Red
 T
 C 14-modules-and-packaging/file_import_display/shapes.nomi

@@ -6,7 +6,7 @@ pub struct Priority {
 
 /// Constructs a Priority value for the constrained-default example.
 pub fn make(level: Int) -> Priority {
-    Priority{level}
+    #Priority{level}
 }
 
 impl Comparable for Priority {

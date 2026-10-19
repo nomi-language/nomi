@@ -71,7 +71,7 @@ fn note_text(tag: String, s: String) -> String {
 fn main() {
     both = %{True => "yes", False => "no"}
     only_true = %{True => "yes"}
-    points = %{P{x: 1} => "p"}
+    points = %{#P{x: 1} => "p"}
     numbers = %{5 => "five"}
 
     // A variant key against a Bool-keyed map. The key runs, then misses.
@@ -88,7 +88,7 @@ fn main() {
     io.print("struct name:")
 
     b = case points {
-        %{Q{x: 1} => v} -> "matched ${v}"
+        %{#Q{x: 1} => v} -> "matched ${v}"
         _ -> "fell through"
     }
 

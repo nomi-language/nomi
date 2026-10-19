@@ -37,17 +37,17 @@ const namelessHint = "a function type's parameters have no names; pass the argum
 func TestNamedArgThroughFunctionValue_IsAnError(t *testing.T) {
 	for _, tc := range []struct{ name, src, at string }{
 		{"struct field, full call", `fn main() {
-  holder = Holder{f: connect}
+  holder = #Holder{f: connect}
   x = holder.f(port: 1, host: "h")
   _ = x
 }`, "port: 1"},
 		{"struct field, named placeholder", `fn main() {
-  holder = Holder{f: connect}
+  holder = #Holder{f: connect}
   x = holder.f(port: _, host: "h")
   _ = x
 }`, "port: _"},
 		{"struct field, pipe", `fn main() {
-  holder = Holder{f: connect}
+  holder = #Holder{f: connect}
   x = "h" |> holder.f(port: 1)
   _ = x
 }`, "port: 1"},
@@ -149,7 +149,7 @@ func TestNamedArgThroughFunctionValue_DeclaredCalleesKeepNames(t *testing.T) {
   c = connect(_, port: _)
   d: String = c(port: 1, host: "h")
   e: String = c(port: _, host: "h")(9)
-  holder = Holder{f: connect}
+  holder = #Holder{f: connect}
   g: String = holder.f("h", 1)
   _ = #(a, b, d, e, g)
 }

@@ -1,9 +1,9 @@
 // The delimiters of data shape are highlighted as type, the colour of a struct
-// name: a literal that builds a value (struct, anonymous struct, map, set and
-// update braces, list and vector brackets, tuple parentheses), a constructor
-// call's parentheses (`Some(1)`, `Shape.Circle(2)`, `Balance(5)`), and every
-// pattern's delimiters, including a pattern spelled as the expression it
-// looks like. Program structure keeps punctuation.bracket: blocks,
+// name: a literal that builds a value (struct, anonymous struct, map and
+// update braces, list, vector and set brackets, tuple parentheses, and the
+// `#` or `%` a literal starts with), a constructor call's parentheses
+// (`Some(1)`, `Shape.Circle(2)`, `Balance(5)`), and every pattern's
+// delimiters, including a pattern spelled as the expression it looks like. Program structure keeps punctuation.bracket: blocks,
 // declaration bodies, function calls, grouping, parameter lists and types. A
 // string interpolation keeps punctuation.special. The caret lines below each
 // line name the highlight of the token they point at.
@@ -58,9 +58,10 @@ impl Named for Point {
 fn struct_literal() -> Point {
     //           ^ punctuation.bracket
     //                       ^ punctuation.bracket
-    Point{x: 1, y: 2}
-    //   ^ type
-    //              ^ type
+    #Point{x: 1, y: 2}
+    // <- type
+    //    ^ type
+    //               ^ type
 }
 
 fn interpolation() -> String {
@@ -71,42 +72,42 @@ fn interpolation() -> String {
 }
 
 fn variant_literal() -> Shape {
-    Shape.Rect{w: 2, h: 3}
-    //        ^ type
-    //                   ^ type
+    #Shape.Rect{w: 2, h: 3}
+    //         ^ type
+    //                    ^ type
 }
 
 fn dot_variant_literal() -> Shape {
-    .Rect{w: 2, h: 3}
-    //   ^ type
-    //              ^ type
+    #.Rect{w: 2, h: 3}
+    //    ^ type
+    //               ^ type
 }
 
-fn record() -> {a: Int, b: Int} {
-    //         ^ punctuation.bracket
-    //                        ^ punctuation.bracket
-    //                          ^ punctuation.bracket
-    {a: 1, b: 2}
+fn record() -> #{a: Int, b: Int} {
+    //          ^ punctuation.bracket
+    //                         ^ punctuation.bracket
+    //                           ^ punctuation.bracket
+    #{a: 1, b: 2}
     // <- type
-    //         ^ type
+    //          ^ type
 }
 
-fn take(r: {a: Int}) -> Int {
+fn take(r: #{a: Int}) -> Int {
     r.a
 }
 
 fn record_argument() -> Int {
-    take({a: 1})
+    take(#{a: 1})
     //  ^ punctuation.bracket
-    //   ^ type
-    //        ^ type
-    //         ^ punctuation.bracket
+    //    ^ type
+    //         ^ type
+    //          ^ punctuation.bracket
 }
 
 fn record_binding() -> Int {
-    r = {a: 1, b: 2}
-    //  ^ type
-    //             ^ type
+    r = #{a: 1, b: 2}
+    //   ^ type
+    //              ^ type
     r.a + r.b
 }
 
@@ -117,25 +118,26 @@ fn map_literal() -> Map<String, Int> {
 }
 
 fn map_construction() -> Kvs {
-    Kvs%{"k" => 1}
+    %Kvs{"k" => 1}
+    // <- type
     //  ^ type
     //           ^ type
 }
 
 fn struct_update(user: User) -> User {
-    {..user, name: "x"}
+    #{..user, name: "x"}
     // <- type
-    //                ^ type
+    //                 ^ type
 }
 
 fn bare_update(user: User) -> User {
-    {..user, geo: {.., city: "NYC"}, tags: [0, ..]}
+    #{..user, geo: #{.., city: "NYC"}, tags: [0, ..]}
     // <- type
-    //            ^ type
-    //                            ^ type
-    //                                     ^ type
-    //                                           ^ type
-    //                                            ^ type
+    //              ^ type
+    //                              ^ type
+    //                                       ^ type
+    //                                             ^ type
+    //                                              ^ type
 }
 
 fn map_update(m: Map<String, Int>) -> Map<String, Int> {
@@ -163,9 +165,53 @@ fn vector_literal() -> Vector<Int> {
 }
 
 fn set_literal(s: Set<Int>) -> Set<Int> {
-    #{..s, 3}
+    %[..s, 3]
     // <- type
     //      ^ type
+}
+
+type Path Vector<Int>
+
+type Tags Set<String>
+
+type Pair #(Int, Int)
+
+fn named_literals() -> #(Path, Tags, Int) {
+    path = #Path[1, 2]
+    //     ^ type
+    //          ^ type
+    //               ^ type
+    tags = %Tags["a"]
+    //     ^ type
+    //          ^ type
+    //              ^ type
+    pair = #Pair(1, 2)
+    //     ^ type
+    //          ^ type
+    //               ^ type
+    #Pair(a, b) = pair
+    // <- type
+    //   ^ type
+    //        ^ type
+    #(path, tags, a + b)
+}
+
+fn shape_arms(v: Vector<Int>, s: Set<String>) -> Int {
+    from_v = case v {
+        #[a, ..] -> a
+        // <- type
+        //     ^ type
+        _ -> 0
+    }
+
+    from_s = case s {
+        %["a", ..] -> 1
+        // <- type
+        //       ^ type
+        _ -> 0
+    }
+
+    from_v + from_s
 }
 
 fn tuple_literal() -> #(Int, String) {
@@ -225,12 +271,12 @@ fn blocks(xs: List<Int>, n: Int) -> Int {
     }
 }
 
-fn tuple_param(#(a, b): #(Int, Int), Point{x, y}) -> Int {
+fn tuple_param(#(a, b): #(Int, Int), #Point{x, y}) -> Int {
     //          ^ type
     //               ^ type
     //                   ^ punctuation.bracket
-    //                                    ^ type
-    //                                         ^ type
+    //                                     ^ type
+    //                                          ^ type
     a + b + x + y
 }
 
@@ -241,18 +287,18 @@ fn tuple_lambda(pairs: List<#(Int, Int)>) -> Int {
 }
 
 fn struct_lambda(points: List<Point>) -> Int {
-    points |> Iter.map(fn Point{x, y: _y} -> x) |> Iter.reduce(fn s = 0, n -> s + n)
-    //                         ^ type
-    //                                  ^ type
+    points |> Iter.map(fn #Point{x, y: _y} -> x) |> Iter.reduce(fn s = 0, n -> s + n)
+    //                          ^ type
+    //                                   ^ type
 }
 
 fn bindings(pair: #(Int, Int), user: User, m: Map<String, Int>) -> Int {
     #(a, b) = pair
     // <- type
     //    ^ type
-    {name, geo} = user
+    #{name, geo} = user
     // <- type
-    //        ^ type
+    //         ^ type
     %{"k" => v} = m else { return 0 }
     //        ^ type
     //                   ^ punctuation.bracket
@@ -264,13 +310,13 @@ fn nested_bindings(nested: #(#(Int, Int), Int), p: Point) -> Int {
     // <- type
     //      ^ type
     //          ^ type
-    {x: _c, y} as q = p
+    #{x: _c, y} as q = p
     // <- type
-    //       ^ type
+    //        ^ type
     a + b + c + y + q.x
 }
 
-fn else_bindings(found: Maybe<#(Int, List<Int>)>, r: Result<{a: Int}, String>) -> Int {
+fn else_bindings(found: Maybe<#(Int, List<Int>)>, r: Result<#{a: Int}, String>) -> Int {
     Some(#(n, [first, .._rest])) = found else {
         //    ^ type
         //                   ^ type
@@ -278,8 +324,8 @@ fn else_bindings(found: Maybe<#(Int, List<Int>)>, r: Result<{a: Int}, String>) -
         return 0
     }
 
-    Ok({a: 1} as whole) = r else {
-        //  ^ type
+    Ok(#{a: 1} as whole) = r else {
+        //   ^ type
         _ -> return 1
     }
 
@@ -288,11 +334,11 @@ fn else_bindings(found: Maybe<#(Int, List<Int>)>, r: Result<{a: Int}, String>) -
 
 fn case_arms(r: Result<#(Int, Point), String>, v: List<Int>, m: Map<String, Int>) -> Int {
     from_r = case r {
-        Ok(#(0, Point{x, y})) -> x + y
+        Ok(#(0, #Point{x, y})) -> x + y
         //  ^ type
-        //           ^ type
-        //                ^ type
+        //            ^ type
         //                 ^ type
+        //                  ^ type
         Ok(#(n, _)) -> n
         //  ^ type
         //       ^ type
@@ -357,11 +403,11 @@ test "pattern assertion" {
     //                              ^ type
     //                               ^ type
     assert m + first == 3
-    rec: Result<{a: Int, b: Int}, String> = Ok({a: 1, b: 2})
-    assert Ok({a: 1, b}) = rec
+    rec: Result<#{a: Int, b: Int}, String> = Ok(#{a: 1, b: 2})
+    assert Ok(#{a: 1, b}) = rec
     //       ^ type
-    //        ^ type
-    //                ^ type
+    //         ^ type
+    //                 ^ type
     assert b == 2
     e: Result<Int, String> = Err("no")
     //                          ^ type

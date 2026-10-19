@@ -57,7 +57,7 @@ func TestImplRigidTypeParams_Rejected(t *testing.T) {
 	}{
 		{
 			"return type names a concrete type where the interface has the impl's parameter",
-			rigidStoreDecls + "impl Store<String, T> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Maybe<Int> {\n        _ = Map.get(cache.items, key)\n        None\n    }\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T> {\n        Cache{items: Map.put(cache.items, key, value)}\n    }\n}\n",
+			rigidStoreDecls + "impl Store<String, T> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Maybe<Int> {\n        _ = Map.get(cache.items, key)\n        None\n    }\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T> {\n        #Cache{items: Map.put(cache.items, key, value)}\n    }\n}\n",
 			[]string{"impl function 'get': return type Maybe<Int> does not match interface 'Store' return type Maybe<T>"},
 		},
 		{
@@ -123,7 +123,7 @@ func TestImplRigidTypeParams_Accepted(t *testing.T) {
 	for _, tc := range []struct{ name, src string }{
 		{
 			"the impl's parameter where the interface has it",
-			rigidStoreDecls + "impl Store<String, T> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Maybe<T> {\n        Map.get(cache.items, key)\n    }\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T> {\n        Cache{items: Map.put(cache.items, key, value)}\n    }\n}\n",
+			rigidStoreDecls + "impl Store<String, T> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Maybe<T> {\n        Map.get(cache.items, key)\n    }\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T> {\n        #Cache{items: Map.put(cache.items, key, value)}\n    }\n}\n",
 		},
 		{
 			"nested generic over the impl's parameter",
@@ -151,7 +151,7 @@ func TestImplRigidTypeParams_Accepted(t *testing.T) {
 		},
 		{
 			"header without arguments, used consistently",
-			"interface Holder<T> {\n    fn hold(h: self) -> T\n    fn put(h: self, x: T) -> self\n}\n\nstruct Shelf<T> {\n    item: T\n}\n\nimpl Holder for Shelf<T> {\n    fn hold(s: Shelf<T>) -> T {\n        s.item\n    }\n\n    fn put(_h: Shelf<T>, x: T) -> Shelf<T> {\n        Shelf{item: x}\n    }\n}\n",
+			"interface Holder<T> {\n    fn hold(h: self) -> T\n    fn put(h: self, x: T) -> self\n}\n\nstruct Shelf<T> {\n    item: T\n}\n\nimpl Holder for Shelf<T> {\n    fn hold(s: Shelf<T>) -> T {\n        s.item\n    }\n\n    fn put(_h: Shelf<T>, x: T) -> Shelf<T> {\n        #Shelf{item: x}\n    }\n}\n",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

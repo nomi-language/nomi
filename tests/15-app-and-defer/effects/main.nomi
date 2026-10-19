@@ -38,16 +38,16 @@ fn main() {
 
     io.print("active-app-after-load=${EffectsApp.deployment}")
 
-    io.print("fake-clock=${Clock.now(FakeClock{at: 12345})}")
+    io.print("fake-clock=${Clock.now(#FakeClock{at: 12345})}")
 
-    handle = SetupHandle{label: "ready"}
+    handle = #SetupHandle{label: "ready"}
     defer close(handle)
     io.print("cleanup=${handle.label}")
 
     io.print("clock-before=${Clock.now(EffectsApp.clock)}")
 
     {
-        with EffectsApp.clock = FakeClock{at: 4242}
+        with EffectsApp.clock = #FakeClock{at: 4242}
         io.print("clock-inside=${Clock.now(EffectsApp.clock)}")
     }
 

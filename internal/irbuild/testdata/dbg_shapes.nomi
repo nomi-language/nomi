@@ -11,7 +11,7 @@
 //	                Rev{
 //	                  zeta: 100000001,
 //	                }
-//	                = Rev{zeta: 100000001, alpha: 100000002}
+//	                = #Rev{zeta: 100000001, alpha: 100000002}
 //	empty         dbg line N: = 42        NOT reachable from source; see below
 //
 // The MULTI-LINE shape is reached by making the FORMATTER wrap, not by writing
@@ -47,7 +47,7 @@ fn main() {
     a = dbg 41 + 1
     io.print("a=${a}")
 
-    r = Rev{zeta: 1, alpha: 2}
+    r = #Rev{zeta: 1, alpha: 2}
     b = dbg r
     io.print("b=${b.zeta}")
 
@@ -70,7 +70,7 @@ fn main() {
         100000010,
     ]
 
-    f = dbg Rev{
+    f = dbg #Rev{
         zeta: 100000001,
         alpha: 100000002,
     }

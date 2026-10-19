@@ -28,7 +28,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 			"main": "import api.{make, secret}\n\nfn main() {\n  w = make(\"Ada\")\n  _ = secret(w)\n}\n",
 			"api": "pub struct Widget {\n  name: String\n}\n\npub fn label(w: Widget) -> String {\n  w.name\n}\n\n" +
 				"fn secret(w: Widget) -> String {\n  \"secret \" + w.name\n}\n\n" +
-				"pub fn make(name: String) -> Widget {\n  Widget{name}\n}\n",
+				"pub fn make(name: String) -> Widget {\n  #Widget{name}\n}\n",
 		},
 		want: []string{"1:1 'secret' is private and cannot be imported"},
 	}, {
@@ -79,7 +79,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 			"main.nomi": "import api.{make, secret}\n\nfn main() {\n  w = make(\"Ada\")\n  _ = secret(w)\n}\n",
 			"api.nomi": "pub struct Widget {\n  name: String\n}\n\n" +
 				"fn secret(w: Widget) -> String {\n  \"secret \" + w.name\n}\n\n" +
-				"pub fn make(name: String) -> Widget {\n  Widget{name}\n}\n",
+				"pub fn make(name: String) -> Widget {\n  #Widget{name}\n}\n",
 		},
 		want: []string{"1:1 'secret' is private and cannot be imported"},
 	}, {

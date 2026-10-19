@@ -115,7 +115,7 @@ func TestSignatureHelp_LeavesOutExamples(t *testing.T) {
 // call, and a type each show their own examples.
 func TestHover_ImplFunctionsAndTypesShowTheirExamples(t *testing.T) {
 	const source = `/// A point.
-//! assert Point{x: 1}.x == 1
+//! assert #Point{x: 1}.x == 1
 //
 struct Point {
   x: Int
@@ -126,12 +126,12 @@ impl Point {
   //! assert Point.origin().x == 0
   //
   fn origin() -> Point {
-    Point{x: 0}
+    #Point{x: 0}
   }
 }
 
 impl Display for Point {
-  //! assert Display.to_string(Point{x: 2}) == "P2"
+  //! assert Display.to_string(#Point{x: 2}) == "P2"
   //
   fn to_string(p: Point) -> String {
     "P${p.x}"
@@ -149,11 +149,11 @@ fn main() {
 		{"inherent impl function", "p = Point.origin()", "p = Point.▮origin()",
 			"The origin.\n\n**Examples**\n\n```nomi\nassert Point.origin().x == 0\n```"},
 		{"interface impl function", "_ = Display.to_string(p)", "_ = Display.▮to_string(p)",
-			"**Examples**\n\n```nomi\nassert Display.to_string(Point{x: 2}) == \"P2\"\n```"},
+			"**Examples**\n\n```nomi\nassert Display.to_string(#Point{x: 2}) == \"P2\"\n```"},
 		{"interface impl function declaration", "fn to_string(p: Point)", "fn ▮to_string(p: Point)",
-			"**Examples**\n\n```nomi\nassert Display.to_string(Point{x: 2}) == \"P2\"\n```"},
+			"**Examples**\n\n```nomi\nassert Display.to_string(#Point{x: 2}) == \"P2\"\n```"},
 		{"struct", "struct Point {", "struct ▮Point {",
-			"A point.\n\n**Examples**\n\n```nomi\nassert Point{x: 1}.x == 1\n```"},
+			"A point.\n\n**Examples**\n\n```nomi\nassert #Point{x: 1}.x == 1\n```"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

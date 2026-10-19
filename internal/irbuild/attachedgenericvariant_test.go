@@ -13,7 +13,7 @@ import (
 // The literal lowered as a call with no type of its own, so a generic
 // enum's instance was unknown and it declined; an empty payload declined
 // in the imported-variant call. Bare list and map patterns of an imported
-// variant (`Items[x, y]`, `N%{"k" => v}`) match.
+// variant (`Items[x, y]`, `%N{"k" => v}`) match.
 func TestAttachedGenericVariant_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
@@ -28,7 +28,7 @@ import shapes.Bag.{Items as I, Named as N}
 fn first(b: shapes.Bag<Int>) -> String {
     case b {
         Items[x, y] -> "items ${x} ${y}"
-        Named%{"k" => v} -> "named ${v}"
+        %Named{"k" => v} -> "named ${v}"
         I[x] -> "one ${x}"
         _ -> "other"
     }
@@ -37,27 +37,27 @@ fn first(b: shapes.Bag<Int>) -> String {
 fn label(b: shapes.Bag<String>) -> String {
     case b {
         shapes.Bag.Items[s, .._] -> s
-        N%{"k" => v} -> v
+        %N{"k" => v} -> v
         _ -> "-"
     }
 }
 
 fn main() {
     io.print(first(shapes.Bag.Items[1, 2]))
-    io.print(first(shapes.Bag.Named%{"k" => 4}))
+    io.print(first(%shapes.Bag.Named{"k" => 4}))
     io.print(first(Items[3, 4]))
-    io.print(first(Named%{"k" => 5}))
+    io.print(first(%Named{"k" => 5}))
     io.print(first(I[6]))
-    io.print(first(N%{"k" => 7}))
+    io.print(first(%N{"k" => 7}))
     g: shapes.Bag<Int> = Items[]
     io.print(first(g))
     io.print(Int.to_string(shapes.count(Items[])))
     io.print(Int.to_string(shapes.count(Items[1, 2, 3])))
     io.print(label(Items["s", "u"]))
-    io.print(label(N%{"k" => "t"}))
+    io.print(label(%N{"k" => "t"}))
     nested = Items[[1], [2, 3]]
     io.print(Debug.inspect(nested))
-    io.print(Debug.inspect(Named%{"a" => Items["x"]}))
+    io.print(Debug.inspect(%Named{"a" => Items["x"]}))
     io.print(shapes.local())
 }
 `,
@@ -77,14 +77,14 @@ pub fn count(b: Bag<Int>) -> Int {
 
 pub fn local() -> String {
     a = Bag.Items[1, 2]
-    b: Bag<String> = Bag.Named%{"k" => "v"}
+    b: Bag<String> = %Bag.Named{"k" => "v"}
     e: Bag<Int> = Bag.Items[]
     x = case a {
         Bag.Items[p, q] -> p + q
         _ -> 0
     }
     y = case b {
-        Bag.Named%{"k" => v} -> v
+        %Bag.Named{"k" => v} -> v
         _ -> ""
     }
     "${x} ${y} ${count(e)}"

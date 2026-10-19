@@ -14,7 +14,7 @@ func TestOnceCrossFile_InferredTypesReachEveryRead(t *testing.T) {
 	const want = "" +
 		"#(1, [\"a\", \"b\"])\n" +
 		"[[\"a\", \"b\"]]\n" +
-		"Box{items: [\"a\", \"b\"]}\n" +
+		"#Box{items: [\"a\", \"b\"]}\n" +
 		"2\n" +
 		"#(0, [\"a\", \"b\"])\n" +
 		"%{\"k\" => [\"a\", \"b\"]}\n" +

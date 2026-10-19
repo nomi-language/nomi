@@ -55,10 +55,10 @@ fn close(conn: Conn) -> Unit {
 
 fn main() {
   {
-    first = Conn{name: "first"}
+    first = #Conn{name: "first"}
     defer close(first)
 
-    second = Conn{name: "second"}
+    second = #Conn{name: "second"}
     defer close(second)
 
     io.print("body")

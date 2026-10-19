@@ -21,7 +21,7 @@ fn rank(n: Int) -> String {
         Severity.Low -> "low"
         severity.Severity.High(x) when x > 5 -> "very high ${x}"
         .High(x) -> "high ${x}"
-        .Custom{label} -> "custom ${label}"
+        #.Custom{label} -> "custom ${label}"
     }
 }
 

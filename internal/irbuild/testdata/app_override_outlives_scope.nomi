@@ -27,7 +27,7 @@ struct Cfg {
 }
 
 fn boot() -> Cfg {
-    Cfg{
+    #Cfg{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4),
         done: Channel.buffered<String>(8),

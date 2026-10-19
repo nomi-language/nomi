@@ -13,7 +13,7 @@ import (
 // textDocumentDocumentHighlight answers the occurrences in the current
 // file of the symbol under the cursor, matched as references are: a
 // definition (a binding, parameter, pattern name or declaration) is a
-// Write, a use a Read. A punned field label (`{name}`) that reads a
+// Write, a use a Read. A punned field label (`#{name}`) that reads a
 // variable is a Read of it.
 //
 // Editors ask on every cursor rest, so it reads the document's occurrence

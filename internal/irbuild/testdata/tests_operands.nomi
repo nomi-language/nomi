@@ -134,27 +134,27 @@ test "an empty map" {
 }
 
 // NOT named "sorts its fields", because that is what it cannot show:
-// `Point {x, y}` is ALPHABETICAL, so sorted order and
+// `#Point {x, y}` is ALPHABETICAL, so sorted order and
 // declaration order are the same string here and a renderer using either passes.
 // The SORT is genuinely pinned, by the `a struct-shaped enum variant` row below
-// — `Box {w: Int, h: String}` renders `Box(Box{h: "tall", w: 1})`, which only a
+// — `#Box {w: Int, h: String}` renders `Box(#Box{h: "tall", w: 1})`, which only a
 // sorting renderer produces. So this was a misleading NAME, not a coverage hole.
 // `Point` is left alphabetical deliberately rather than reordered: it appears in
 // four other pinned rows here, and the ordering property now has a dedicated
 // home in testdata/debug_display_surfaces.nomi, where `zeta` before `alpha`
 // distinguishes all four renderings at once.
 test "a struct renders every field" {
-    p = Point{x: 1, y: "two"}
+    p = #Point{x: 1, y: "two"}
     assert no_point(p)
 }
 
 test "a struct with no fields" {
-    n = Nothing{}
+    n = #Nothing{}
     assert no_nothing(n)
 }
 
 test "a nested struct" {
-    o = Outer{p: Point{x: 1, y: "two"}, tag: 9}
+    o = #Outer{p: #Point{x: 1, y: "two"}, tag: 9}
     assert no_outer(o)
 }
 
@@ -174,12 +174,12 @@ test "a positional enum variant" {
 }
 
 test "a struct-shaped enum variant" {
-    s = Shape.Box{w: 1, h: "tall"}
+    s = #Shape.Box{w: 1, h: "tall"}
     assert no_shape(s)
 }
 
 test "an embedded struct variant" {
-    s = Shape.Wrapped{n: 4}
+    s = #Shape.Wrapped{n: 4}
     assert no_shape(s)
 }
 
@@ -209,6 +209,6 @@ test "Err" {
 }
 
 test "a prelude enum over a struct" {
-    m = Some(Point{x: 1, y: "two"})
+    m = Some(#Point{x: 1, y: "two"})
     assert no_maybe_point(m)
 }

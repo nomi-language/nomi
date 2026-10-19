@@ -32,11 +32,11 @@ test "tuples holding unit hash through unit's impl" {
 }
 
 test "a derived hash over a struct with a unit field" {
-    a = Tagged{name: "a", marker: Unit}
-    b = Tagged{name: "a", marker: Unit}
+    a = #Tagged{name: "a", marker: Unit}
+    b = #Tagged{name: "a", marker: Unit}
     assert Hashable.hash(a) == Hashable.hash(b)
     assert Equatable.equal?(a, b)
-    refute Hashable.hash(a) == Hashable.hash(Tagged{name: "b", marker: Unit})
+    refute Hashable.hash(a) == Hashable.hash(#Tagged{name: "b", marker: Unit})
 }
 
 test "unit and values holding it key sets and maps" {
@@ -53,18 +53,18 @@ test "unit and values holding it key sets and maps" {
 
     tagged =
         [
-            Tagged{name: "a", marker: Unit},
-            Tagged{name: "a", marker: Unit},
-            Tagged{name: "c", marker: Unit},
+            #Tagged{name: "a", marker: Unit},
+            #Tagged{name: "a", marker: Unit},
+            #Tagged{name: "c", marker: Unit},
         ]
         |> Iter.to_set()
 
     assert Set.size(tagged) == 2
 
     records =
-        [{name: "r", marker: Unit}, {name: "r", marker: Unit}, {name: "s", marker: Unit}]
+        [#{name: "r", marker: Unit}, #{name: "r", marker: Unit}, #{name: "s", marker: Unit}]
         |> Iter.to_set()
 
     assert Set.size(records) == 2
-    assert Set.contains?(records, {name: "s", marker: Unit})
+    assert Set.contains?(records, #{name: "s", marker: Unit})
 }

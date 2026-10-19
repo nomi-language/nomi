@@ -7,7 +7,7 @@ group "math" {
   boot server.boot(startup())
 
   setup {
-    with App.mailer = FakeMailer{}
+    with App.mailer = #FakeMailer{}
     base = 2
     base
   }
@@ -94,8 +94,8 @@ Setup expression bound by a tuple pattern and a name
 ================================================================================
 
 group "env" {
-  boot boot(Startup{env: Map.empty(), args: []})
-  setup #(Env{mode: "test"}, 2)
+  boot boot(#Startup{env: Map.empty(), args: []})
+  setup #(#Env{mode: "test"}, 2)
 
   test "tuple", #(env, n) {
     assert n == 2
@@ -159,9 +159,9 @@ Setup anonymous struct value bound by a struct pattern
 ================================================================================
 
 group "user labels" {
-  setup {name: "Ada", role: "admin"}
+  setup #{name: "Ada", role: "admin"}
 
-  test "uses setup", {name, role} {
+  test "uses setup", #{name, role} {
     assert name == "Ada"
   }
 }
@@ -203,7 +203,7 @@ A boot outside a group stays an ordinary name
 ================================================================================
 
 pub fn boot(startup: Startup) -> App {
-  App{context: Context.root()}
+  #App{context: Context.root()}
 }
 
 fn restart() -> App {
@@ -442,11 +442,11 @@ Boot with no parameter or a defaulted Startup, called with no argument
 ================================================================================
 
 fn boot() -> App {
-  App{}
+  #App{}
 }
 
-fn boot(startup: Startup = Startup{}) -> App {
-  App{}
+fn boot(startup: Startup = #Startup{}) -> App {
+  #App{}
 }
 
 group "defaulted" {
@@ -466,7 +466,7 @@ group "defaulted" {
     return_type: (type_identifier)
     (body
       (struct_construction
-        (type_identifier))))
+        type: (type_identifier))))
   (function_definition
     name: (identifier)
     (parameters
@@ -474,11 +474,11 @@ group "defaulted" {
         name: (identifier)
         (type_identifier)
         (struct_construction
-          (type_identifier))))
+          type: (type_identifier))))
     return_type: (type_identifier)
     (body
       (struct_construction
-        (type_identifier))))
+        type: (type_identifier))))
   (group_declaration
     name: (string
       (string_content))

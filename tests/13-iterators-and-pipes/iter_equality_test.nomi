@@ -22,7 +22,7 @@ test "a value holding an Iter has no equality" {
         }
 
         fn main() {
-          feed = Feed{items: [1]}
+          feed = #Feed{items: [1]}
           _same = #(1, feed) != #(1, feed)
         }
         """
@@ -61,7 +61,7 @@ test "a type with its own Equatable impl compares through it" {
         }
 
         fn main() {
-          feed = Feed{name: "f", items: [1]}
+          feed = #Feed{name: "f", items: [1]}
           _same = feed == feed
         }
         """

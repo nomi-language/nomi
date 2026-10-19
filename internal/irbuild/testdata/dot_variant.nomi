@@ -1,5 +1,5 @@
 //# The leading-dot variant shorthand in every EXPRESSION position it has:
-//# `.V{...}`, bare `.V`, `.V(payload)`, and a parameter DEFAULT.
+//# `#.V{...}`, bare `.V`, `.V(payload)`, and a parameter DEFAULT.
 //#
 //# The discriminator is the RESOLUTION. A dot variant carries only the
 //# variant's NAME; which ENUM it belongs to comes from the expected type at the
@@ -42,14 +42,14 @@ enum Reading {
 
 fn signal(s: Signal) -> String {
     case s {
-        Signal.Go{n} -> "signal-go-${n}"
+        #Signal.Go{n} -> "signal-go-${n}"
         Signal.Halt -> "signal-halt"
     }
 }
 
-fn gear(g: Gear = .Drive{}) -> String {
+fn gear(g: Gear = #.Drive{}) -> String {
     case g {
-        Gear.Drive{n} -> "gear-drive-${n}"
+        #Gear.Drive{n} -> "gear-drive-${n}"
         Gear.Park -> "gear-park"
     }
 }
@@ -62,11 +62,11 @@ fn reading(r: Reading) -> String {
 }
 
 fn main() {
-    io.print(signal(.Go{n: 1}))
-    io.print(signal(.Go{}))
+    io.print(signal(#.Go{n: 1}))
+    io.print(signal(#.Go{}))
     io.print(signal(.Halt))
 
-    io.print(gear(.Drive{n: 2}))
+    io.print(gear(#.Drive{n: 2}))
     io.print(gear(.Park))
     io.print(gear())
 

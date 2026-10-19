@@ -19,7 +19,7 @@ func TestIRSiblingPrivateTypeArg_InstancesOverACallersPrivateTypeRun(t *testing.
 	want := "ident 1\n" +
 		"<p2>\n" +
 		"span 3..4\n" +
-		"Span{start: Point{x: 3}, stop: Point{x: 4}}\n" +
+		"#Span{start: #Point{x: 3}, stop: #Point{x: 4}}\n" +
 		"full 5\n" +
 		"empty\n"
 	got := vmReference(fixture("sibling_private_typearg/main.nomi"))

@@ -35,7 +35,7 @@ test "Display renders primitive user-facing strings" {
     assert Bool.to_string(False) == "False"
     assert String.to_string("hello") == "hello"
     assert String.inspect("hello") == "\"hello\""
-    assert Display.to_string(Greeter{name: "Alice"}) == "hi Alice"
+    assert Display.to_string(#Greeter{name: "Alice"}) == "hi Alice"
 }
 
 test "Display renders standard enum and structured values" {

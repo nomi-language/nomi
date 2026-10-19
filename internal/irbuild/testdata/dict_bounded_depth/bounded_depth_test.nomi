@@ -50,6 +50,6 @@ fn hear<T>(r: Half<T>) -> String where T: Shout {
 }
 
 test "a bounded type parameter at depth is monomorphized per instantiation" {
-    assert hear(Half{slot: Dog{name: "rex"}}) == "woof from rex"
-    assert hear(Half{slot: Cat{name: "mia"}}) == "meow from mia"
+    assert hear(#Half{slot: #Dog{name: "rex"}}) == "woof from rex"
+    assert hear(#Half{slot: #Cat{name: "mia"}}) == "meow from mia"
 }

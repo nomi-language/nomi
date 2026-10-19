@@ -8,7 +8,7 @@ struct Counter {
 }
 
 fn bump(c: Counter) -> Counter {
-    Counter{value: c.value + 1}
+    #Counter{value: c.value + 1}
 }
 
 fn bump_twice(c: Counter) -> Counter {
@@ -38,10 +38,10 @@ impl Label for Tagged {
 }
 
 test "same-owner calls are bare inside impl blocks" {
-    c = bump_twice(Counter{value: 1})
+    c = bump_twice(#Counter{value: 1})
 
     assert c.value == 3
-    assert display(Tagged{name: "ready"}) == "[ready]"
+    assert display(#Tagged{name: "ready"}) == "[ready]"
 }
 
 test "self is not an expression qualifier" {
@@ -60,7 +60,7 @@ test "self is not an expression qualifier" {
           }
 
           fn main() {
-            _ = read(Box{value: 1})
+            _ = read(#Box{value: 1})
           }
         """
     )
@@ -113,7 +113,7 @@ test "ambiguous same-owner interface functions require qualification" {
         }
 
         fn main() {
-          _ = Message.message(Person{name: "Ada"})
+          _ = Message.message(#Person{name: "Ada"})
         }
         """
     )

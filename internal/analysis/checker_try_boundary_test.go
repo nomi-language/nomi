@@ -160,7 +160,7 @@ impl Display for Boom {
   }
 }
 fn r() -> Result<Int, Boom> {
-  Err(Boom{why: "boom"})
+  Err(#Boom{why: "boom"})
 }
 fn f() -> Result<Int, Display> {
   v = try r()

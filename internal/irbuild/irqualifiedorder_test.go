@@ -26,7 +26,7 @@ impl Point {
 }
 fn mark(n: Int) -> Int { io.print(n) return n }
 fn main() {
-  p = Point{x: 0}
+  p = #Point{x: 0}
   result = Point.sum(p, mark(1), mark(2) + 3)
   io.print(result)
 }

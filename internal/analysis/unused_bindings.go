@@ -70,7 +70,7 @@ func CheckUnusedBindings(fa *FileAnalysis) []TypeError {
 			continue
 		}
 		if sym.PatternBody != nil && containsTodo(sym.PatternBody) {
-			// The same for an arm: `.Rect{w, h} -> todo`, as the editor's
+			// The same for an arm: `#.Rect{w, h} -> todo`, as the editor's
 			// fill-arms action writes it.
 			continue
 		}

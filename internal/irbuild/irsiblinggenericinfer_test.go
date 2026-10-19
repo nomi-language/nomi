@@ -22,10 +22,10 @@ func TestIRSiblingGenericInfer_InferredInstancesOfAnotherFilesTemplate(t *testin
 	want := "names [a, -, b]\n" +
 		"widths [1, 4]\n" +
 		"first 5\n" +
-		"Some(Span{start: 5, stop: 6})\n" +
+		"Some(#Span{start: 5, stop: 6})\n" +
 		"points [1, 0, 4]\n" +
 		"corner 2\n" +
-		"Span{start: 1.5, stop: 2.5}\n"
+		"#Span{start: 1.5, stop: 2.5}\n"
 	got := vmReference(fixture("sibling_generic_infer/main.nomi"))
 	if got.stdout != want || got.stderr != "" || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",

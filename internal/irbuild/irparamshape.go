@@ -68,7 +68,7 @@ import "github.com/nomi-language/nomi/internal/ir"
 //	a generic std   `Set<Int>`, `Vector<Int>`, `Sender<T>`. TWO READINGS
 //	instance        DISAGREE and neither is obviously the graph's: this
 //	                builder's def for a `genStructOf` instance carries FIELDS,
-//	                which reads as `ValStruct`, and a Nomi `#{1, 2}` lowers to
+//	                which reads as `ValStruct`, and a Nomi `%[1, 2]` lowers to
 //	                `ir.MakeSet`, which `shapeWritten` reads as
 //	                `ValContainer`. The producer declines rather than picking
 //	                one and making a `Set` parameter contradict a `Set`

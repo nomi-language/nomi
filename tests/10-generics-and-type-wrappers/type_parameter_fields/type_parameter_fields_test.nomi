@@ -22,7 +22,7 @@ fn name_of<T>(x: T) -> String where T: HasName {
 }
 
 test "a bounded type parameter reads through its bound's function requirement" {
-    assert name_of(Tag{name: "Ada"}) == "Ada"
+    assert name_of(#Tag{name: "Ada"}) == "Ada"
 }
 
 test "a bounded type parameter exposes no fields" {

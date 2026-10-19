@@ -13,7 +13,7 @@ import std/io
 typealias Count Int
 typealias Handler (String, String) -> Result<String, String>
 typealias Pairs List<#(Int, String)>
-typealias Row {name: String, size: Int}
+typealias Row #{name: String, size: Int}
 typealias Answer Maybe<Int>
 
 fn bump(n: Count) -> Count {
@@ -52,7 +52,7 @@ fn main() {
     io.print("aliased=${Debug.inspect(aliased)}")
 
     io.print("total=${total([#(1, "a"), #(2, "b")])}")
-    io.print("row=${label({name: "disk", size: 3})}")
+    io.print("row=${label(#{name: "disk", size: 3})}")
     io.print("some=${unwrap_or(Some(7), 0)}")
     io.print("none=${unwrap_or(None, 9)}")
 }

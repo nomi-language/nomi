@@ -20,7 +20,7 @@ test "type-qualified generic impl methods can use explicit targets" {
 
     assert Json.encode(encoded) == "{\"name\":\"Ada\"}"
     assert decoded == users.user("Ada")
-    assert User.from_json(Json.Obj%{"name" => Json.String("Ada")}) == Ok(users.user("Ada"))
+    assert User.from_json(%Json.Obj{"name" => Json.String("Ada")}) == Ok(users.user("Ada"))
 }
 
 test "nested type-qualified impl methods dispatch by receiver" {

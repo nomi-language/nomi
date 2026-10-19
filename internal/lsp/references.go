@@ -133,7 +133,7 @@ func (s *Server) textDocumentReferences(ctx *glsp.Context, params *protocol.Refe
 				appendLoc(makeLocation(fileURI, refPos, refSym.Name))
 			}
 		}
-		// A punned label (`{context}`) references its field as well as the
+		// A punned label (`#{context}`) references its field as well as the
 		// variable References holds there.
 		for labelPos, field := range fa.PunnedFieldLabels {
 			if !analysis.IsSynthesizedLine(labelPos.Line) && matchesAnyTarget(field, targets) {

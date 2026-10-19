@@ -76,13 +76,13 @@ test "String.compare is byte-lexicographic" {
 }
 
 test "the ordering operators dispatch to a user Comparable impl" {
-    low = Priority{level: 1}
-    high = Priority{level: 9}
+    low = #Priority{level: 1}
+    high = #Priority{level: 9}
     assert low < high
     refute high < low
     assert high > low
     assert low <= high
-    assert low <= Priority{level: 1}
+    assert low <= #Priority{level: 1}
     assert high >= low
     refute low >= high
 }
@@ -101,5 +101,5 @@ test "Float compare is a total order and the operators are not" {
 }
 
 test "a failing ordering comparison renders its operands" {
-    assert Priority{level: 9} < Priority{level: 1}
+    assert #Priority{level: 9} < #Priority{level: 1}
 }

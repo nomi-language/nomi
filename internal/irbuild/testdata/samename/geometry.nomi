@@ -10,7 +10,7 @@ pub struct Point {
 }
 
 pub fn at(lat: Float, lon: Float) -> Point {
-    Point{lat, lon}
+    #Point{lat, lon}
 }
 
 /// `==` on geometry.Point, resolved against GEOMETRY's declaration.

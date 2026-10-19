@@ -23,7 +23,7 @@ impl Iter for Countdown {
         if c.from == 0 {
             True
         } else if yield(c.from) {
-            each_while(Countdown{from: c.from - 1}, yield)
+            each_while(#Countdown{from: c.from - 1}, yield)
         } else {
             False
         }
@@ -47,13 +47,13 @@ fn first_of<T>(xs: Iter<T>) -> Maybe<T> {
 }
 
 test "an Iter is a struct field" {
-    feed = Feed{name: "odds", items: [1, 3, 5] |> Iter.map(fn x -> x + 1)}
+    feed = #Feed{name: "odds", items: [1, 3, 5] |> Iter.map(fn x -> x + 1)}
 
     assert Iter.to_list(feed.items) == [2, 4, 6]
 }
 
 test "a struct field takes any source" {
-    feed = Feed{name: "list", items: [1, 2]}
+    feed = #Feed{name: "list", items: [1, 2]}
 
     assert total(feed.items) == 3
 }
@@ -61,7 +61,7 @@ test "a struct field takes any source" {
 test "an Iter is a tuple part and a record field" {
     pair = #(1, [1, 2] |> Iter.map(fn x -> x * 10))
     #(_, tens) = pair
-    record = {label: "r", items: [3] |> Iter.map(fn x -> x + 1)}
+    record = #{label: "r", items: [3] |> Iter.map(fn x -> x + 1)}
 
     assert Iter.to_list(tens) == [10, 20]
     assert Iter.to_list(record.items) == [4]
@@ -122,13 +122,13 @@ test "every source enters an Iter parameter" {
     assert total([1, 2]) == 3
     assert total([]) == 0
     assert total(1..4) == 6
-    assert total(#{5, 6}) == 11
+    assert total(%[5, 6]) == 11
     assert total(v) == 3
-    assert total(Countdown{from: 3}) == 6
+    assert total(#Countdown{from: 3}) == 6
 }
 
 test "storing an Iter does not consume it" {
-    feed = Feed{name: "twice", items: [1, 2] |> Iter.map(fn x -> x * 5)}
+    feed = #Feed{name: "twice", items: [1, 2] |> Iter.map(fn x -> x * 5)}
 
     assert Iter.to_list(feed.items) == [5, 10]
     assert Iter.to_list(feed.items) == [5, 10]
@@ -140,8 +140,8 @@ test "an Iter over a source keeps the source's count" {
 
     assert known([1, 2, 3]) == Some(3)
     assert known(1..4) == Some(3)
-    assert known(#{1, 2}) == Some(2)
-    assert known(Countdown{from: 2}) == None
+    assert known(%[1, 2]) == Some(2)
+    assert known(#Countdown{from: 2}) == None
     assert known(mapped) == None
 }
 
@@ -149,16 +149,16 @@ test "an Iter over a collection inspects as the collection" {
     shown = fn xs: Iter<Int> -> Debug.inspect(xs)
     mapped = [1, 2] |> Iter.map(fn x -> x)
 
-    feed = Feed{name: "f", items: [1] |> Iter.map(fn x -> x)}
+    feed = #Feed{name: "f", items: [1] |> Iter.map(fn x -> x)}
 
     assert shown([1, 2]) == "[1, 2]"
     assert shown(mapped) == "<iter>"
-    assert Debug.inspect(feed) == "Feed{name: \"f\", items: <iter>}"
+    assert Debug.inspect(feed) == "#Feed{name: \"f\", items: <iter>}"
 }
 
 test "a struct holding an Iter compares through its own Equatable" {
-    a = Feed{name: "same", items: [1]}
-    b = Feed{name: "same", items: [2, 3]}
+    a = #Feed{name: "same", items: [1]}
+    b = #Feed{name: "same", items: [2, 3]}
 
     assert a == b
 }

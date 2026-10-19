@@ -19,11 +19,11 @@ fn names(xs: Iter<String>) -> String {
 }
 
 fn main() {
-    io.inspect(total(#{}))
+    io.inspect(total(%[]))
     io.inspect(total(#[]))
     io.inspect(total([]))
-    io.inspect(names(#{}))
-    io.inspect(total(#{1, 2}))
+    io.inspect(names(%[]))
+    io.inspect(total(%[1, 2]))
 }
 `
 	irRunSource(t, src, "0\n0\n0\n\"\"\n2\n")

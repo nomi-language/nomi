@@ -68,7 +68,7 @@ struct Run {
 }
 
 fn boot() -> Run {
-  Run{context: Context.root()}
+  #Run{context: Context.root()}
 }
 `, "entered\n", deadline, 1},
 		{"a later force re-runs the RHS", `import {
@@ -106,7 +106,7 @@ fn main() {
   x: Int
 }
 
-once p: P = P{x: 1}
+once p: P = #P{x: 1}
 
 fn main() {
   dbg p.x

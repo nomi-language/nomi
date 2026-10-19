@@ -621,7 +621,7 @@ func TestImplOnlyImportPublishesWhatTheProgramUses(t *testing.T) {
 	// The derive is there because opening another file type-checks main.nomi
 	// as that file's entry, from a tree the editor parsed but did not lower.
 	files["main.nomi"] = strings.Replace(files["main.nomi"], "fn main() {\n",
-		"derive Equatable for Box\n\nstruct Box {\n    n: Int\n}\n\nfn main() {\n    _ = extra.one()\n    _ = Box{n: 1} == Box{n: 2}\n", 1)
+		"derive Equatable for Box\n\nstruct Box {\n    n: Int\n}\n\nfn main() {\n    _ = extra.one()\n    _ = #Box{n: 1} == #Box{n: 2}\n", 1)
 	dir := writeProject(t, files)
 	lib := std.Load()
 	dm := analysis.NewDocumentManager()

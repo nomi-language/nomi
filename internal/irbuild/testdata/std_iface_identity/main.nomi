@@ -42,11 +42,11 @@ impl Comparable for Point {
 }
 
 fn mine() -> Display {
-    Point{tag: "mine", weight: 41}
+    #Point{tag: "mine", weight: 41}
 }
 
 fn mine_ordered() -> Comparable {
-    Point{tag: "mine", weight: 41}
+    #Point{tag: "mine", weight: 41}
 }
 
 fn render(d: Display) -> String {
@@ -64,7 +64,7 @@ fn boxed(_a: Comparable, _b: Comparable) -> Int {
 // this slice and a fallback that shadowed the working route would take it
 // away — measured by a peer as a real regression, and invisible to the corpus.
 fn order_here() -> String {
-    case Comparable.compare(Point{tag: "a", weight: 1}, Point{tag: "b", weight: 2}) {
+    case Comparable.compare(#Point{tag: "a", weight: 1}, #Point{tag: "b", weight: 2}) {
         Ordering.Less -> "less"
         Ordering.Equal -> "equal"
         Ordering.Greater -> "greater"
@@ -79,5 +79,5 @@ fn main() {
     io.print("${render(mine())}|${render(theirs())}")
     io.print("${boxed(theirs_ordered(), mine_ordered())}")
     io.print(order_here())
-    io.print(Display.to_string(Point{tag: "concrete", weight: 3}))
+    io.print(Display.to_string(#Point{tag: "concrete", weight: 3}))
 }

@@ -8,7 +8,7 @@ import (
 // safe, and nothing asserted it.
 //
 // `rt.Equal` compares a record descriptor's short name, so
-// `alpha.Point{x: 1}` and `beta.Point{x: 1}` are equal there — which
+// `#alpha.Point{x: 1}` and `#beta.Point{x: 1}` are equal there — which
 // contradicts nominal identity. The reason that laxness is not a user-visible
 // wrong answer is that no source can reach it: the checker compares the
 // DECLARING origin and refuses the comparison before it runs. Both routes are
@@ -16,8 +16,8 @@ import (
 // checks, and only the first one was ever quoted.
 func TestNominalEquality_TwoModulesSameNameIsRefused(t *testing.T) {
 	siblings := map[string]string{
-		"alpha": "pub struct Point {\n  x: Int\n}\n\npub fn make() -> Point {\n  Point{x: 1}\n}\n",
-		"beta":  "pub struct Point {\n  x: Int\n}\n\npub fn make() -> Point {\n  Point{x: 1}\n}\n",
+		"alpha": "pub struct Point {\n  x: Int\n}\n\npub fn make() -> Point {\n  #Point{x: 1}\n}\n",
+		"beta":  "pub struct Point {\n  x: Int\n}\n\npub fn make() -> Point {\n  #Point{x: 1}\n}\n",
 	}
 
 	// Route 1: the `==` operator. checker.go's equality arm compares origins.

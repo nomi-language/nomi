@@ -287,9 +287,9 @@ fn bound<T>(x: T) -> String where T: Greet {
 }
 
 fn main() {
-  io.print(called(Dog{name: "Rex"}))
-  io.print(piped(Dog{name: "Rex"}))
-  io.print(bound(Dog{name: "Rex"}))
+  io.print(called(#Dog{name: "Rex"}))
+  io.print(piped(#Dog{name: "Rex"}))
+  io.print(bound(#Dog{name: "Rex"}))
 }`
 	_, errs := checkSourceWithStdlib(src)
 	if len(errs) != 0 {

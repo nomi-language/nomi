@@ -10,13 +10,13 @@ func TestIRNominalList_TourMoneySort(t *testing.T) {
 derive Comparable for Money
 
 fn main() {
-  dbg Money{amount: 100} < Money{amount: 250}
+  dbg #Money{amount: 100} < #Money{amount: 250}
 
-  ms = [Money{amount: 3}, Money{amount: 1}, Money{amount: 2}]
+  ms = [#Money{amount: 3}, #Money{amount: 1}, #Money{amount: 2}]
   Iter.sort(ms) |> dbg
 }
-`, "dbg line 8: Money{amount: 100} < Money{amount: 250} = True\n"+
-		"dbg line 11: Iter.sort(ms) = [Money{amount: 1}, Money{amount: 2}, Money{amount: 3}]\n")
+`, "dbg line 8: #Money{amount: 100} < #Money{amount: 250} = True\n"+
+		"dbg line 11: Iter.sort(ms) = [#Money{amount: 1}, #Money{amount: 2}, #Money{amount: 3}]\n")
 }
 
 // Container Debug calls each nominal element's own impl, custom or derived,
@@ -39,13 +39,13 @@ impl Debug for Tag {
   }
 }
 fn main() {
-  ps = [P{x: 1}, P{x: 2}]
+  ps = [#P{x: 1}, #P{x: 2}]
   io.inspect(ps)
   io.inspect([Tag.Plain, Tag.Count(4)])
-  io.inspect(#(P{x: 3}, Tag.Count(5)))
-  dbg {p: P{x: 4}, n: 1}
+  io.inspect(#(#P{x: 3}, Tag.Count(5)))
+  dbg #{p: #P{x: 4}, n: 1}
   io.print("done")
 }
-`, "[P{x: 1}, P{x: 2}]\n[plain, count=4]\n#(P{x: 3}, count=5)\n"+
-		"dbg line 22: {p: P{x: 4}, n: 1} = {n: 1, p: P{x: 4}}\ndone\n")
+`, "[#P{x: 1}, #P{x: 2}]\n[plain, count=4]\n#(#P{x: 3}, count=5)\n"+
+		"dbg line 22: #{p: #P{x: 4}, n: 1} = #{n: 1, p: #P{x: 4}}\ndone\n")
 }

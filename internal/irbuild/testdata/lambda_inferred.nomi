@@ -106,7 +106,7 @@ fn main() {
     told = apply_unit(fn _u -> "got unit", unit_value())
     io.print("unit = ${told}")
 
-    io.print("point = ${apply_point(fn p -> p.x * p.x + p.y * p.y, Point{x: 3, y: 4})}")
+    io.print("point = ${apply_point(fn p -> p.x * p.x + p.y * p.y, #Point{x: 3, y: 4})}")
 
     io.print(
         "dot = ${apply_shape(

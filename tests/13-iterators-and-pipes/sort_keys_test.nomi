@@ -9,7 +9,7 @@ struct Row {
 }
 
 fn row(name: String, tags: List<String>) -> Row {
-    Row{name, tags}
+    #Row{name, tags}
 }
 
 fn names(rows: List<Row>) -> List<String> {
@@ -23,7 +23,7 @@ test "sort_by takes a container key" {
     assert names(by_tags) == ["a", "b"]
     assert Iter.sort_by([[3, 1], [2]], fn l -> l) == [[2], [3, 1]]
     assert Iter.sort_by(["bb", "a"], fn s -> #[s]) == ["a", "bb"]
-    assert Iter.sort_by(#{3, 1}, fn n -> [n]) == [1, 3]
+    assert Iter.sort_by(%[3, 1], fn n -> [n]) == [1, 3]
     assert Iter.sort_by([2, 1], Direction.Descending, fn n -> [[n]]) == [2, 1]
 }
 

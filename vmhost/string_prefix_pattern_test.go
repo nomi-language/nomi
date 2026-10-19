@@ -76,7 +76,7 @@ fn map_value(m: Map<String, String>) -> String {
 
 fn field(r: Req) -> String {
   case r {
-    Req{path: "/v1/" + rest, n} -> "v1 ${rest} ${n}"
+    #Req{path: "/v1/" + rest, n} -> "v1 ${rest} ${n}"
     _ -> "field miss"
   }
 }
@@ -122,8 +122,8 @@ fn main() {
   io.print(tuple(#("id", 3)))
   io.print(map_value(%{"auth" => "Bearer abc"}))
   io.print(map_value(%{"auth" => "Basic abc"}))
-  io.print(field(Req{path: "/v1/items", n: 2}))
-  io.print(field(Req{path: "/v2/items", n: 2}))
+  io.print(field(#Req{path: "/v1/items", n: 2}))
+  io.print(field(#Req{path: "/v2/items", n: 2}))
   io.print(list_head(["-v", "a", "b"]))
   io.print(list_head(["v"]))
   io.print(as_whole("xyz"))

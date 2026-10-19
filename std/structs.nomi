@@ -7,7 +7,7 @@
 //# `self` apart (`self(n)`) and build one (`self(x)`).
 
 /// The universal struct interface. Every struct value — a named `struct` type
-/// or an anonymous `{...}` — satisfies `Struct`, so its functions are callable on
+/// or an anonymous `#{...}` — satisfies `Struct`, so its functions are callable on
 /// any of them; no non-struct type satisfies it. `Struct` is also usable as a
 /// bound (`fn f<T>(x: T) -> T where T: Struct`) and an existential (`fn f(s: Struct)`).
 pub interface Struct {
@@ -22,11 +22,11 @@ pub interface Struct {
     /// both take the value from `updates`. `updates` is a `Partial<self>`: it
     /// may omit fields, and each field it writes is a whole value, or a
     /// literal with a bare `..` that updates the field's current value
-    /// (`{address: {.., city: "NYC"}}` changes only the city).
+    /// (`#{address: #{.., city: "NYC"}}` changes only the city).
     ///
     /// ```nomi
-    /// original = Point{x: 1, y: 2}
-    /// Struct.update(original, {x: 10})   // → Point{x: 10, y: 2}
+    /// original = #Point{x: 1, y: 2}
+    /// Struct.update(original, #{x: 10})  // → #Point{x: 10, y: 2}
     /// ```
     host fn update(original: self, updates: Partial<self>) -> self
 }

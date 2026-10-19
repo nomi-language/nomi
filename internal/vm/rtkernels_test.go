@@ -60,9 +60,9 @@ func TestRTKernels_RecordedRenderings(t *testing.T) {
 		{"Vector", rt.VectorOf([]any{int64(1), int64(2)}), "#[1, 2]", "", "#[1, 2]", "", true},
 		{"Map in insertion order", mapOf(nil, []rt.MapEntry[any, any]{{Key: "b", Val: int64(1)}, {Key: "a", Val: int64(2)}}),
 			"%{\"b\" => 1, \"a\" => 2}", "", "%{\"b\" => 1, \"a\" => 2}", "", true},
-		{"Set", newSet([]any{int64(3), int64(1)}), "#{3, 1}", "", "#{3, 1}", "", true},
+		{"Set", newSet([]any{int64(3), int64(1)}), "%[3, 1]", "", "%[3, 1]", "", true},
 		{"tuple", rtTuple(int64(1), "a"), "#(1, \"a\")", "", "#(1, \"a\")", "", true},
-		{"anonymous record", rtStruct("", "y", int64(2), "x", "s"), "{x: \"s\", y: 2}", "", "{x: \"s\", y: 2}", "", true},
+		{"anonymous record", rtStruct("", "y", int64(2), "x", "s"), "#{x: \"s\", y: 2}", "", "#{x: \"s\", y: 2}", "", true},
 		{"Some", some(int64(1)), "Some(1)", "", "Some(1)", "", true},
 		{"None", noneValue, "None", "", "None", "", true},
 		{"Ok", rtVariant("results.Result", "Ok", "a"), "Ok(\"a\")", "", "Ok(\"a\")", "<results.Result impl>", true},
@@ -71,13 +71,13 @@ func TestRTKernels_RecordedRenderings(t *testing.T) {
 		{"Outcome", rtVariant("tasks.Outcome", "Completed", rt.Unit{}), "Completed(Unit)", "", "Completed(Unit)", "", true},
 		{"distinct", id, "Id(5)", "", "Id(5)", "<ids.Id impl>", true},
 		{"marker", rtDistinct("status.Ready", nil), "Ready", "", "Ready", "", true},
-		{"named struct", point(1, 2), "Point{x: 1, y: 2}", "", "refuses: Point", "<shapes.Point impl>", true},
+		{"named struct", point(1, 2), "#Point{x: 1, y: 2}", "", "refuses: Point", "<shapes.Point impl>", true},
 		{"user enum", rtVariant("shapes.Shape", "Circle", 1.5), "Circle(1.5)", "", "refuses: Shape.Circle", "<shapes.Shape impl>", true},
 		{"Dynamic", rt.Dynamic{Inner: int64(1)}, "<dynamic: int64>", "", "refuses: rt.Dynamic", "refuses: rt.Dynamic", false},
 		{"refusal inside a prelude payload", listOf([]any{some(point(1, 2))}),
-			"[Some(Point{x: 1, y: 2})]", "", "refuses: Point", "[Some(<shapes.Point impl>)]", true},
+			"[Some(#Point{x: 1, y: 2})]", "", "refuses: Point", "[Some(<shapes.Point impl>)]", true},
 		{"hooked elements", listOf([]any{point(1, 2), id}),
-			"[Point{x: 1, y: 2}, Id(5)]", "", "refuses: Point", "[<shapes.Point impl>, <ids.Id impl>]", true},
+			"[#Point{x: 1, y: 2}, Id(5)]", "", "refuses: Point", "[<shapes.Point impl>, <ids.Id impl>]", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := rt.RowText(tc.v); got != tc.row {

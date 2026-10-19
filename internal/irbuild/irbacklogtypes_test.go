@@ -37,8 +37,8 @@ struct Conf {
   retries: Int
 }
 
-fn conf_defaults() -> {retries: Int, host: String} {
-  {retries: 3, host: "h"}
+fn conf_defaults() -> #{retries: Int, host: String} {
+  #{retries: 3, host: "h"}
 }
 
 enum Color {
@@ -102,7 +102,7 @@ test "bare std variants and attached literals" {
   }
   assert kind == "arr"
   b: Box = .Items[1, 2]
-  p = Box.Pairs%{"k" => 1}
+  p = %Box.Pairs{"k" => 1}
   assert b == Box.Items[1, 2]
   refute p == Box.Empty
   colors: Map<String, Color> = %{"a" => Color.Red}
@@ -135,7 +135,7 @@ test "a filter callback breaks from a tail if" {
 }
 
 test "sets of tuples, lists of maps and branch bindings" {
-  ts = #{#(1, 2), #(3, 4), #(1, 1 + 1)}
+  ts = %[#(1, 2), #(3, 4), #(1, 1 + 1)]
   assert Set.size(ts) == 2
   buckets: List<Map<String, Int>> = []
   assert Iter.count(buckets) == 0
@@ -152,7 +152,7 @@ test "a turbofish names the impl" {
 
 test "the struct call form over a record value" {
   c = Conf(conf_defaults())
-  assert c == Conf{host: "h", port: 8080, retries: 3}
+  assert c == #Conf{host: "h", port: 8080, retries: 3}
 }
 
 test "lists of a distinct compare structurally" {

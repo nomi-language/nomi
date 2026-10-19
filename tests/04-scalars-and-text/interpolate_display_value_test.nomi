@@ -31,7 +31,7 @@ fn show_all(xs: List<Display>) -> String {
 }
 
 test "a Display parameter interpolates through the value's own impl" {
-    assert show(Point{x: 1, y: 2}) == "<(1, 2)>"
+    assert show(#Point{x: 1, y: 2}) == "<(1, 2)>"
     assert show(3) == "<3>"
     assert show("s") == "<s>"
     assert show(1.5) == "<1.5>"
@@ -39,18 +39,18 @@ test "a Display parameter interpolates through the value's own impl" {
 }
 
 test "a type parameter bounded by Display interpolates" {
-    assert show_bounded(Point{x: 3, y: 4}) == "[(3, 4)]"
+    assert show_bounded(#Point{x: 3, y: 4}) == "[(3, 4)]"
     assert show_bounded(2.5) == "[2.5]"
 }
 
 test "a lambda over a list of Display values interpolates each" {
-    xs: List<Display> = [Point{x: 7, y: 8}, Point{x: 9, y: 9}]
+    xs: List<Display> = [#Point{x: 7, y: 8}, #Point{x: 9, y: 9}]
     assert show_all(xs) == "(7, 8),(9, 9)"
 }
 
 test "a Toml literal writes each hole through Display" {
     port = 8080
-    p = Point{x: 1, y: 2}
+    p = #Point{x: 1, y: 2}
     assert Toml.text(Toml"port = ${port}") == "port = 8080"
     assert Toml.text(Toml"at = '${p}'") == "at = '(1, 2)'"
 }

@@ -40,7 +40,7 @@ pub struct Wrap<T> {
 
 impl<T> Wrap<T> {
     pub fn map<U>(w: Wrap<T>, f: (T) -> U) -> Wrap<U> {
-        Wrap { v: f(w.v) }
+        #Wrap { v: f(w.v) }
     }
 }
 
@@ -107,17 +107,17 @@ func TestSiblingGenericImplFunction_Runs(t *testing.T) {
 		},
 		{
 			name: "generic owner instance",
-			body: "    w = Wrap { v: 3 }\n    io.inspect(Wrap.map(w, fn n -> n + 1))\n    io.inspect(leaf.Wrap.map(w, fn n -> \"${n}\"))\n",
-			want: "Wrap{v: 4}\nWrap{v: \"3\"}\n",
+			body: "    w = #Wrap { v: 3 }\n    io.inspect(Wrap.map(w, fn n -> n + 1))\n    io.inspect(leaf.Wrap.map(w, fn n -> \"${n}\"))\n",
+			want: "#Wrap{v: 4}\n#Wrap{v: \"3\"}\n",
 		},
 		{
 			name: "interface impl function",
-			body: "    io.inspect(Pairs.pair(Box { value: 1 }, \"x\"))\n    io.inspect(leaf.Box.pair(Box { value: 1 }, 2))\n",
-			want: "#(Box{value: 1}, \"x\")\n#(Box{value: 1}, 2)\n",
+			body: "    io.inspect(Pairs.pair(#Box { value: 1 }, \"x\"))\n    io.inspect(leaf.Box.pair(#Box { value: 1 }, 2))\n",
+			want: "#(#Box{value: 1}, \"x\")\n#(#Box{value: 1}, 2)\n",
 		},
 		{
 			name: "inherited interface default",
-			body: "    io.inspect(Pairs.second(Box { value: 1 }, 2.5))\n",
+			body: "    io.inspect(Pairs.second(#Box { value: 1 }, 2.5))\n",
 			want: "2.5\n",
 		},
 		{
@@ -127,8 +127,8 @@ func TestSiblingGenericImplFunction_Runs(t *testing.T) {
 		},
 		{
 			name: "member calling a member",
-			body: "    io.inspect(Box.twice(Wrap { v: 1 }))\n",
-			want: "#(Wrap{v: 1}, Wrap{v: 1})\n",
+			body: "    io.inspect(Box.twice(#Wrap { v: 1 }))\n",
+			want: "#(#Wrap{v: 1}, #Wrap{v: 1})\n",
 		},
 		{
 			name: "generic caller",
@@ -138,8 +138,8 @@ func TestSiblingGenericImplFunction_Runs(t *testing.T) {
 		{
 			name: "value",
 			body: "    f: (Int) -> Int = leaf.Box.ident\n    io.inspect(f(7))\n    io.inspect([1, 2] |> Iter.map(Box.ident) |> Iter.to_list())\n" +
-				"    m: (Wrap<Int>, (Int) -> Bool) -> Wrap<Bool> = Wrap.map\n    io.inspect(m(Wrap { v: 3 }, fn n -> n > 2))\n",
-			want: "7\n[1, 2]\nWrap{v: True}\n",
+				"    m: (Wrap<Int>, (Int) -> Bool) -> Wrap<Bool> = Wrap.map\n    io.inspect(m(#Wrap { v: 3 }, fn n -> n > 2))\n",
+			want: "7\n[1, 2]\n#Wrap{v: True}\n",
 		},
 		{
 			name: "partial application",
@@ -151,7 +151,7 @@ func TestSiblingGenericImplFunction_Runs(t *testing.T) {
 			main := "import {\n    std/io\n    leaf\n    leaf.{Box, Wrap, Pairs}\n}\n\n" +
 				"fn uses<P>(x: P) -> P where P: Pairs {\n    x\n}\n\n" +
 				"fn both<T>(x: T) -> #(T, T) {\n    leaf.Box.twice(x)\n}\n\n" +
-				"fn main() {\n    _ = uses(Box { value: 0 })\n    _ = both(Wrap { v: 0 })\n" + tc.body + "}\n"
+				"fn main() {\n    _ = uses(#Box { value: 0 })\n    _ = both(#Wrap { v: 0 })\n" + tc.body + "}\n"
 			got := runSiblingProgram(t, map[string]string{"leaf.nomi": siblingGenericLeaf, "main.nomi": main})
 			if got != tc.want {
 				t.Fatalf("output %q, want %q", got, tc.want)
@@ -172,12 +172,12 @@ pub struct Cell<T> {
 
 impl<T> Cell<T> {
     pub fn pair<U>(c: Cell<T>, u: U) -> Pod<#(T, U)> {
-        Pod { item: #(c.v, u) }
+        #Pod { item: #(c.v, u) }
     }
 }
 
 pub fn round(c: Cell<Int>) -> Cell<#(Int, String)> {
-    Pod.cell(Pod { item: c.v }, "r")
+    Pod.cell(#Pod { item: c.v }, "r")
 }
 `,
 		"b.nomi": `import a.{Cell}
@@ -188,12 +188,12 @@ pub struct Pod<T> {
 
 impl<T> Pod<T> {
     pub fn cell<U>(p: Pod<T>, u: U) -> Cell<#(T, U)> {
-        Cell { v: #(p.item, u) }
+        #Cell { v: #(p.item, u) }
     }
 }
 
 pub fn back(p: Pod<Int>) -> Pod<#(Int, Bool)> {
-    Cell.pair(Cell { v: p.item }, True)
+    Cell.pair(#Cell { v: p.item }, True)
 }
 `,
 		"main.nomi": `import {
@@ -205,8 +205,8 @@ pub fn back(p: Pod<Int>) -> Pod<#(Int, Bool)> {
 }
 
 fn main() {
-    c = Cell { v: 1 }
-    p = Pod { item: 2 }
+    c = #Cell { v: 1 }
+    p = #Pod { item: 2 }
     io.inspect(Pod.cell(p, True))
     io.inspect(Cell.pair(c, "x"))
     io.inspect(a.round(c))
@@ -214,7 +214,7 @@ fn main() {
 }
 `,
 	})
-	want := "Cell{v: #(2, True)}\nPod{item: #(1, \"x\")}\nCell{v: #(1, \"r\")}\nPod{item: #(2, True)}\n"
+	want := "#Cell{v: #(2, True)}\n#Pod{item: #(1, \"x\")}\n#Cell{v: #(1, \"r\")}\n#Pod{item: #(2, True)}\n"
 	if got != want {
 		t.Fatalf("output %q, want %q", got, want)
 	}

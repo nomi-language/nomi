@@ -160,7 +160,7 @@ func fillAt(t *testing.T, marked string) []protocol.CodeAction {
 func TestQuickFixes_OfferedAnywhereInTheSpan(t *testing.T) {
 	for _, tc := range []struct{ name, src, title string }{
 		{"missing function", fillShapeDecls + "impl Shape for Squ‸are {\n}\n", "Implement missing functions"},
-		{"missing field", "struct Point {\n    x: Int\n    y: Int\n}\n\nfn f() -> Point {\n    Poi‸nt{x: 1}\n}\n", "Add missing field 'y'"},
+		{"missing field", "struct Point {\n    x: Int\n    y: Int\n}\n\nfn f() -> Point {\n    #Poi‸nt{x: 1}\n}\n", "Add missing field 'y'"},
 		{"missing arm", "enum Color {\n    Red\n    Green\n}\n\nfn f(c: Color) -> Int {\n    case ‸c {\n        Color.Red -> 1\n    }\n}\n", "Add missing arm .Green"},
 		{"undefined call", "fn f() -> Int {\n    sho‸ut(1)\n}\n", "Generate function 'shout'"},
 	} {
@@ -182,7 +182,7 @@ func TestQuickFixes_OfferedAnywhereInTheSpan(t *testing.T) {
 // A fix finds its node by the diagnostic's range, so a range that starts
 // before the node's own position still reaches it.
 func TestFill_FindsTheNodeInsideTheRange(t *testing.T) {
-	src := "struct Point {\n    x: Int\n    y: Int\n}\n\nfn f() -> Point {\n    Point{x: 1}\n}\n"
+	src := "struct Point {\n    x: Int\n    y: Int\n}\n\nfn f() -> Point {\n    #Point{x: 1}\n}\n"
 	s := NewServer()
 	all := publishedFor(t, s, src, true)
 	d := findDiag(t, all, "missing field 'y' of Point")

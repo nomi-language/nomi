@@ -38,9 +38,9 @@ func TestInterpolationAfterDollar(t *testing.T) {
 	})
 }
 
-// A set literal inside an interpolation is code.
-func TestInterpolationHoldsASetLiteral(t *testing.T) {
-	tokens := Lex(`"${#{1}}"`)
+// A struct literal inside an interpolation is code.
+func TestInterpolationHoldsAStructLiteral(t *testing.T) {
+	tokens := Lex(`"${#{x: 1}}"`)
 	if tokens[0].Type != token.STRING_START || tokens[1].Type != token.HASH || tokens[2].Type != token.LBRACE {
 		t.Fatalf("tokens: %#v", tokens)
 	}

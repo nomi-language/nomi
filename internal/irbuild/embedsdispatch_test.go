@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 // A value of an `embeds` type in a position typed as the enum dispatches as
-// the enum. `b: Shape = Circle{...}` is a Shape (spec §8, Subtype coercion),
+// the enum. `b: Shape = #Circle{...}` is a Shape (spec §8, Subtype coercion),
 // so `Display.to_string(b)` runs Shape's impl: the VM types the value
 // statically.
 //
@@ -79,7 +79,7 @@ impl Comparable for Shape {
 // enum.
 func TestIREmbedsDispatch_StaticTypeDecides(t *testing.T) {
 	verifyLambdaProgram(t, embedsDispatchDecls+`fn make() -> Shape {
-  Circle{radius: 2.0}
+  #Circle{radius: 2.0}
 }
 
 fn same(a: Shape, b: Shape) -> Bool {
@@ -87,12 +87,12 @@ fn same(a: Shape, b: Shape) -> Bool {
 }
 
 fn main() {
-  bound: Shape = Circle{radius: 1.0}
-  q = Shape.Circle{radius: 1.0}
+  bound: Shape = #Circle{radius: 1.0}
+  q = #Shape.Circle{radius: 1.0}
   io.inspect(bound)
   io.inspect(make())
   Equatable.equal?(bound, q) |> io.print()
-  same(Circle{radius: 3.0}, q) |> io.print()
+  same(#Circle{radius: 3.0}, q) |> io.print()
   (bound < q) |> io.print()
 }
 `, "shape-debug\nshape-debug\nshape-eq\nTrue\nshape-eq\nTrue\nshape-cmp\nTrue\n")

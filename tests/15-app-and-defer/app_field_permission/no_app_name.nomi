@@ -9,6 +9,6 @@ pub fn read() -> String {
 }
 
 pub fn ruler_size() -> Int {
-    own = Ruler{size: 7}
+    own = #Ruler{size: 7}
     own.size
 }

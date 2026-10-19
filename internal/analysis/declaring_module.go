@@ -1,6 +1,10 @@
 package analysis
 
-import "strings"
+import (
+	"maps"
+	"slices"
+	"strings"
+)
 
 // declaringModuleIndex returns base-name → short-module-name for every
 // interface, struct, enum, distinct type, and type alias declared in a
@@ -89,7 +93,11 @@ func declaringModuleIndex(
 	// keys, so a project declaration always overwrites a stdlib one.
 	writeDecls := func(stdlib bool) {
 		seen := map[*Scope]bool{}
-		for key, fa := range files {
+		// In key order, so the module named last for a name two modules
+		// declare (declaringModuleOf, the orphan-impl error) is the same
+		// on every run.
+		for _, key := range slices.Sorted(maps.Keys(files)) {
+			fa := files[key]
 			if fa == nil || fa.ModuleScope == nil {
 				continue
 			}

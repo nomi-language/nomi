@@ -21,7 +21,7 @@ func orPatternOf(t *testing.T, n ast.Node, alternatives int) *ast.OrPattern {
 // arm it joins whole patterns, and an `as` after the last alternative names
 // the whole value.
 func TestOrPattern_TopOfAnArm(t *testing.T) {
-	or := orPatternOf(t, caseArmPattern(t, ".Circle{r} or .Square{r}"), 2)
+	or := orPatternOf(t, caseArmPattern(t, "#.Circle{r} or #.Square{r}"), 2)
 	for _, alt := range or.Alternatives {
 		if _, ok := alt.(*ast.StructPattern); !ok {
 			t.Fatalf("alternative: got %T", alt)
@@ -89,13 +89,13 @@ func TestOrPattern_Nested(t *testing.T) {
 	}
 	orPatternOf(t, tp.Patterns[0], 2)
 
-	sp, ok := caseArmPattern(t, "P{kind: .A or .B, n}").(*ast.StructPattern)
+	sp, ok := caseArmPattern(t, "#P{kind: .A or .B, n}").(*ast.StructPattern)
 	if !ok || len(sp.Fields) != 2 {
 		t.Fatal("want a struct pattern")
 	}
 	orPatternOf(t, sp.Fields[0].Pattern, 2)
 
-	sp, ok = caseArmPattern(t, "{x: a or b}").(*ast.StructPattern)
+	sp, ok = caseArmPattern(t, "#{x: a or b}").(*ast.StructPattern)
 	if !ok {
 		t.Fatal("want an anonymous struct pattern")
 	}

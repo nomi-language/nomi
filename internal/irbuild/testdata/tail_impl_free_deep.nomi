@@ -22,7 +22,7 @@ fn bounce(value: Down, n: Int) -> Int {
 }
 
 fn main() {
-    s = Down{}
+    s = #Down{}
 
     io.print("${bounce(s, 100000000)}")
 }

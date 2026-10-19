@@ -623,7 +623,7 @@ struct ProbeIter {
 }
 
 fn broken() -> ProbeIter {
-    ProbeIter{source: 42}
+    #ProbeIter{source: 42}
 }
 `)
 	if len(errs) == 0 {
@@ -653,7 +653,7 @@ struct ProbeIter {
 }
 
 fn good() -> ProbeIter {
-    ProbeIter{source: [1, 2, 3]}
+    #ProbeIter{source: [1, 2, 3]}
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -668,7 +668,7 @@ struct ProbeIter {
 
 fn nested() -> ProbeIter {
     inner = Iter.map([1, 2, 3], fn x -> x * 2)
-    ProbeIter{source: inner}
+    #ProbeIter{source: inner}
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -810,7 +810,7 @@ fn f() -> List<String> {
     [
         String.join(["a", "b", "c"], ", "),
         String.join(["a", "b"]),
-        #{"a"} |> String.join("-"),
+        %["a"] |> String.join("-"),
         #["a", "b"] |> String.join(),
         "héllo" |> Iter.map(String.to_upper) |> String.join(),
         1..=3 |> Iter.map(Int.to_string) |> String.join("-"),
@@ -884,7 +884,7 @@ import std/maps
 struct Callbacks { empty: Int }
 
 fn f() -> Int {
-    maps = Callbacks { empty: 99 }
+    maps = #Callbacks { empty: 99 }
     maps.empty
 }
 `)
@@ -1067,7 +1067,7 @@ impl Iter for Counter {
             True
         } else {
             if yield(c.n) {
-                each_while(Counter{n: c.n - 1}, yield)
+                each_while(#Counter{n: c.n - 1}, yield)
             } else {
                 False
             }
@@ -1076,7 +1076,7 @@ impl Iter for Counter {
 }
 
 fn f() -> List<Int> {
-    Iter.to_list(Counter{n: 5})
+    Iter.to_list(#Counter{n: 5})
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -1095,7 +1095,7 @@ impl Iter for Boxed<T> {
             True
         } else {
             if yield(b.val) {
-                each_while(Boxed{val: b.val, rest: b.rest - 1}, yield)
+                each_while(#Boxed{val: b.val, rest: b.rest - 1}, yield)
             } else {
                 False
             }
@@ -1104,7 +1104,7 @@ impl Iter for Boxed<T> {
 }
 
 fn f() -> List<String> {
-    Iter.to_list(Boxed{val: "x", rest: 3})
+    Iter.to_list(#Boxed{val: "x", rest: 3})
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -1124,7 +1124,7 @@ impl Iter for Counter {
             True
         } else {
             if yield(c.n) {
-                each_while(Counter{n: c.n - 1}, yield)
+                each_while(#Counter{n: c.n - 1}, yield)
             } else {
                 False
             }
@@ -1133,7 +1133,7 @@ impl Iter for Counter {
 }
 
 fn f() -> List<String> {
-    Iter.to_list(Counter{n: 5})
+    Iter.to_list(#Counter{n: 5})
 }
 `)
 	if len(errs) == 0 {
@@ -1405,7 +1405,7 @@ func TestCheckImplMethodDoesNotCollideWithImportedFunction(t *testing.T) {
 struct A { n: Int }
 
 fn main() {
-  a = A{n: 1}
+  a = #A{n: 1}
   inspect(a)
 }
 `
@@ -1459,7 +1459,7 @@ fn main() {
   result = 42
   inspect(result)
 
-  Guest{name: "Bob"}
+  #Guest{name: "Bob"}
   |> Greeting.greet()
   |> inspect()
 }

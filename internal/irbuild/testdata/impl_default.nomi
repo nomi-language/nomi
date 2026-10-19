@@ -58,7 +58,7 @@ fn shout(l: Logger) -> Unit {
 
 fn main() {
     prod = ProdLogger
-    tagged = TaggedLogger{tag: "app"}
+    tagged = #TaggedLogger{tag: "app"}
 
     Logger.info(prod, "inherited default")
     Logger.warn(prod, "final default")

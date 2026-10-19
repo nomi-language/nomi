@@ -8,7 +8,7 @@ import (
 
 // narrowedRead is a read of t, whose binding holds v of kind k, where the
 // checker narrowed t to an embedded type of k's enum (spec §8 *Type
-// Narrowing*): in an arm that matched t against `.Circle{..}`, t is that
+// Narrowing*): in an arm that matched t against `#.Circle{..}`, t is that
 // variant's payload, the Circle. The checker narrows only where the match
 // succeeded, so the projection cannot fail. A read the checker did not
 // narrow is v itself.

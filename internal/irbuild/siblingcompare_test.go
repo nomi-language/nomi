@@ -5,7 +5,7 @@ import "testing"
 // Sibling types imported under aliases order the same way through every
 // route that asks for `Comparable.compare` (testdata/siblingcompare_alias).
 // The range rows are the ones siblingCompareAt answers; it used to decline an
-// aliased receiver, so `Doodad{n: 1}..=Doodad{n: 7}` was "not supported yet".
+// aliased receiver, so `#Doodad{n: 1}..=#Doodad{n: 7}` was "not supported yet".
 // The index it reads is keyed on the type's declaration, so the alias the
 // importing file binds cannot change which impl answers.
 func TestSiblingCompare_AnAliasedTypeImportOrdersARange(t *testing.T) {

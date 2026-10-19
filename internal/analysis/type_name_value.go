@@ -22,7 +22,7 @@ import (
 // A type name called with arguments is construction, and only for the
 // types that have one:
 //
-//   - a struct takes its record: `Point({x: 1})`;
+//   - a struct takes its record: `Point(#{x: 1})`;
 //   - a distinct type takes the value it wraps: `Email("a@b.c")`.
 //
 // A distinct is unwrapped by destructuring (`Id(n) = id`), never by calling
@@ -127,7 +127,7 @@ func typeNameValueHint(name, what string, ty Type) string {
 		if t.Opaque {
 			return "build a value with a function its module exports"
 		}
-		return fmt.Sprintf("build a value with `%s{...}`", name)
+		return fmt.Sprintf("build a value with `#%s{...}`", name)
 	case *EnumType:
 		if len(t.Variants) > 0 {
 			return fmt.Sprintf("a value of `%s` is one of its variants, as in `%s.%s`", name, name, t.Variants[0].Name)
@@ -140,7 +140,7 @@ func typeNameValueHint(name, what string, ty Type) string {
 // `Iter.map(ints, Id)` for `type Id Int`, as its constructor: a function of
 // the one value it wraps, `(Int) -> Id`. A tuple-distinct's constructor takes
 // the tuple, `(#(Int, String)) -> Pair`, as a positional variant over a tuple
-// does: the flat `Pair(1, "x")` is a call form, not a second parameter list.
+// does: the flat `#Pair(1, "x")` is a call form, not a second parameter list.
 // The instantiated type is recorded on the reference (attachCallType), which
 // is what the IR builder reads to build the function. A zero-sized type is
 // its own value and is not a constructor; an opaque one's constructor is
@@ -249,7 +249,7 @@ func (c *checker) calleeNamedType(callee ast.Node, calleeTy Type) (typeNameRef, 
 		if st, isStruct := calleeTy.(*StructType); isStruct {
 			// A struct declared in a block is not in the module's
 			// registry; its name's symbol carries the type. Without this
-			// arm `Cell({c: 1})` was checked as an ordinary call, which
+			// arm `Cell(#{c: 1})` was checked as an ordinary call, which
 			// left a generic struct's type arguments unsolved.
 			return ref, st, true
 		}

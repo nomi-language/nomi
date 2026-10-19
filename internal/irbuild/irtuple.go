@@ -29,7 +29,7 @@ func irCompositePartKind(k kind) bool {
 }
 
 func (bl *irScalarBuilder) tupleMake(t *ast.TupleLit) (ir.Temp, kind, bool, bool) {
-	// `#(1, #{})` whose set a later use fixes (`Hold{v: #(1, #{}).1}` with
+	// `#(1, %[])` whose set a later use fixes (`#Hold{v: #(1, %[]).1}` with
 	// `v: Set<Int>`): the checker's type of the tuple types each component,
 	// as a list literal's checked element does (literalParts).
 	if k := bl.g.project(bl.g.checkedExprType(t)); k.tag == tagTuple && k.comp != nil && len(k.comp.parts) == len(t.Items) &&
@@ -123,7 +123,7 @@ func (bl *irScalarBuilder) destructureBind(t ast.Node, name string, line, col in
 	return true
 }
 
-// structBinding lowers `{x, y: b} = value` over an anonymous record or a
+// structBinding lowers `#{x, y: b} = value` over an anonymous record or a
 // retained struct: each named field is read off the held subject and bound.
 // A field sub-pattern declines.
 func (bl *irScalarBuilder) structBinding(t *ast.StructDestructure) bool {

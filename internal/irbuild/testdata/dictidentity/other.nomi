@@ -32,5 +32,5 @@ fn announce<T>(x: T) -> String where T: Shout {
 }
 
 pub fn other_announced() -> String {
-    announce(Widget{n: 7})
+    announce(#Widget{n: 7})
 }

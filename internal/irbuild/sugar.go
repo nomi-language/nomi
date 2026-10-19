@@ -78,7 +78,7 @@ func (g *gen) paramKind(p ast.Param) kind {
 	// The self-typing rule: a pattern whose head NAMES a type is its own
 	// annotation. See patternParamKind for the reporting version.
 	var head ast.TypeExpr
-	switch pat := ast.WithoutAs(p.Destructure).(type) {
+	switch pat := irPattern(ast.WithoutAs(p.Destructure)).(type) {
 	case *ast.StructPattern:
 		head = pat.TypeName
 	case *ast.EnumPattern:

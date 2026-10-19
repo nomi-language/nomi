@@ -75,9 +75,9 @@ impl Picker for Pair {
 }
 
 fn main() {
-    b = Box{value: 7}
-    t = Tag{label: "hi"}
-    p = Pair{a: 3, b: 9}
+    b = #Box{value: 7}
+    t = #Tag{label: "hi"}
+    p = #Pair{a: 3, b: 9}
 
     io.print(Int.to_string(Announcer.item(b)))
     io.print(Announcer.item(t))

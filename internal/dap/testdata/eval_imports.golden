@@ -15,11 +15,11 @@
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
 -> variables {"variablesReference":1}
-<- response variables {"variables":[{"declarationLocationReference":1,"name":"c","namedVariables":2,"type":"Point","value":"Point{x: 3, y: 3}","variablesReference":2}]}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"c","namedVariables":2,"type":"Point","value":"#Point{x: 3, y: 3}","variablesReference":2}]}
 -> evaluate {"context":"watch","expression":"c.x + c.y","frameId":1}
 <- response evaluate {"result":"6","type":"Int","variablesReference":0}
 -> evaluate {"context":"repl","expression":"geo.corner(c.x)","frameId":1}
-<- response evaluate {"namedVariables":2,"result":"Point{x: 3, y: 3}","type":"Point","variablesReference":3}
+<- response evaluate {"namedVariables":2,"result":"#Point{x: 3, y: 3}","type":"Point","variablesReference":3}
 -> variables {"variablesReference":3}
 <- response variables {"variables":[{"name":"x","type":"Int","value":"3","variablesReference":0},{"name":"y","type":"Int","value":"3","variablesReference":0}]}
 -> evaluate {"context":"repl","expression":"[c, c] |> Iter.count()","frameId":1}

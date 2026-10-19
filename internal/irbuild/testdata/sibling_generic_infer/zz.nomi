@@ -3,5 +3,5 @@
 import tree
 
 pub fn floats() -> String {
-    Debug.inspect(tree.Span{start: 1.5, stop: 2.5})
+    Debug.inspect(#tree.Span{start: 1.5, stop: 2.5})
 }

@@ -20,7 +20,7 @@ impl Number {
  fn sibling(n: Number) -> Int { read(n) + 1 }
 }
 fn main() {
- n = Number{value: 3}
+ n = #Number{value: 3}
  io.print(Number.local(n))
  io.print(Number.different(n))
  io.print(Number.piped(n))
@@ -42,7 +42,7 @@ interface Read {
 }
 struct Number { value: Int }
 impl Read for Number { fn read(n: Number) -> Int { n.value } }
-fn main() { io.print(Read.local(Number{value: 3})) }
+fn main() { io.print(Read.local(#Number{value: 3})) }
 `, "default 7\n")
 }
 
@@ -54,7 +54,7 @@ impl Number {
  fn read(n: Number) -> Int { n.value }
  fn use(n: Number) -> String { read(n.value) }
 }
-fn main() { io.print(Number.use(Number{value: 3})) }
+fn main() { io.print(Number.use(#Number{value: 3})) }
 `, "file 3\n")
 }
 
@@ -67,6 +67,6 @@ interface Read {
 }
 struct Number { value: Int }
 impl Read for Number {}
-fn main() { io.print(Read.use(Number{value: 1})) }
+fn main() { io.print(Read.use(#Number{value: 1})) }
 `, "file 3\n")
 }

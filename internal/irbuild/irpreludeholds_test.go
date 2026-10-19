@@ -44,7 +44,7 @@ fn put(grid: Vector<Vector<Int>>, row: Int, column: Int, value: Int) -> Maybe<Ve
 }
 
 fn sets() -> Result<Vector<Set<Int>>, String> {
-    Ok(#[#{1, 2}])
+    Ok(#[%[1, 2]])
 }
 
 fn lists() -> Result<Int, Vector<List<Int>>> {
@@ -65,7 +65,7 @@ fn main() {
     written = Vector.set(grid, 0, #[5])
     io.inspect(written)
     io.inspect(Maybe.map(Vector.get(grid, 0), fn cells -> Vector.set(grid, 1, cells)))
-    io.inspect(Board{rows: put(grid, 0, 1, 3)})
+    io.inspect(#Board{rows: put(grid, 0, 1, 3)})
     io.inspect(sets())
     io.inspect(lists())
     io.inspect(width(Some(#[%{"a" => 1}, %{"b" => 2}])))
@@ -74,6 +74,6 @@ fn main() {
 }
 `
 	irRunSource(t, src, "Some(#[#[0, 0], #[7, 0]])\nNone\n#[#[5], #[0, 0]]\nSome(#[#[0, 0], #[0, 0]])\n"+
-		"Board{rows: Some(#[#[0, 3], #[0, 0]])}\nOk(#[#{1, 2}])\nErr(#[[1], [2, 3]])\n2\n"+
+		"#Board{rows: Some(#[#[0, 3], #[0, 0]])}\nOk(#[%[1, 2]])\nErr(#[[1], [2, 3]])\n2\n"+
 		"Some(#[#[0, 0], #[0, 0]])\nTrue\n")
 }

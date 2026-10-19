@@ -28,7 +28,7 @@ fn subtract(Dur(x), Dur(y)) -> Dur {
 Typed struct destructuring parameter
 ================================================================================
 
-fn sum_pt(Point{x, y}) -> Int {
+fn sum_pt(#Point{x, y}) -> Int {
   x
 }
 
@@ -40,7 +40,7 @@ fn sum_pt(Point{x, y}) -> Int {
     (parameters
       (parameter
         name: (struct_pattern
-          (type_identifier)
+          type: (type_identifier)
           (pattern_field
             name: (identifier))
           (pattern_field

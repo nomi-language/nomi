@@ -11,9 +11,9 @@ pub struct Task {
 
 impl Task {
     /// One line of a task list: a status box, the id and the title.
-    //! open = Task{id: 3, title: "ship it", created: Instant.from_seconds(0)}
+    //! open = #Task{id: 3, title: "ship it", created: Instant.from_seconds(0)}
     //! assert Task.render(open) == "[ ] 3 ship it"
-    //! assert Task.render({..open, status: Status.Done}) == "[x] 3 ship it"
+    //! assert Task.render(#{..open, status: Status.Done}) == "[x] 3 ship it"
     //
     pub fn render(task: Task) -> String {
         box = case task.status {

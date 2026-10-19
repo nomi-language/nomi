@@ -63,8 +63,8 @@ func TestUndeterminedTypeArgs_Rejected(t *testing.T) {
 		// Summable's empty_sum() makes a T with no element in hand.
 		{"sum over an empty list", "dbg Iter.sum([]) == Iter.sum([])",
 			"the element type of `[]` is not determined: annotate it, as in `xs: List<T> = []` with T filled in", 16},
-		{"sum over an empty set literal", "dbg Iter.sum(#{})",
-			"the element type of `#{}` is not determined: annotate it, as in `xs: Set<T> = #{}`", 16},
+		{"sum over an empty set literal", "dbg Iter.sum(%[])",
+			"the element type of `%[]` is not determined: annotate it, as in `xs: Set<T> = %[]`", 16},
 		{"sum over a call's empty set", "dbg Iter.sum(Set.new())",
 			"the type argument T of `Iter.sum` is not determined: annotate the value passed in, or give the call its type arguments, as in `Iter.sum<T>(…)`", 16},
 	}
@@ -93,7 +93,7 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 		"dbg []",
 		"dbg [[]]",
 		"dbg #([], 1)",
-		"dbg #{}",
+		"dbg %[]",
 		"dbg None",
 		"dbg Ok(1)",
 		"dbg Err(\"x\")",

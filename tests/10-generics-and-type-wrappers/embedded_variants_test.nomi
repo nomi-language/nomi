@@ -42,7 +42,7 @@ enum IntShape {
 }
 
 fn make_circle(r: Float) -> Circle {
-    Circle{radius: r}
+    #Circle{radius: r}
 }
 
 fn circle_area(c: Circle) -> Float {
@@ -52,8 +52,8 @@ fn circle_area(c: Circle) -> Float {
 fn area(s: Shape) -> Float {
     case s {
         Shape.Point -> 0.0
-        Shape.Rectangle{width, height} -> width * height
-        Shape.Circle{radius} -> 3.14 * radius * radius
+        #Shape.Rectangle{width, height} -> width * height
+        #Shape.Circle{radius} -> 3.14 * radius * radius
     }
 }
 
@@ -75,17 +75,17 @@ fn id_value(NumericIdentifier.NumericUserId(n)) -> Int {
     n
 }
 
-fn int_area(IntShape.IntCircle{r}) -> Int {
+fn int_area(#IntShape.IntCircle{r}) -> Int {
     r * r
 }
 
 test "embedded structs coerce to their containing enum" {
     raw_circle = make_circle(5.0)
-    c: Shape = Circle{radius: 5.0}
-    r: Shape = Rectangle{width: 3.0, height: 4.0}
-    c2 = Shape.Circle{radius: 1.0}
+    c: Shape = #Circle{radius: 5.0}
+    r: Shape = #Rectangle{width: 3.0, height: 4.0}
+    c2 = #Shape.Circle{radius: 1.0}
 
-    shapes: List<Shape> = [Circle{radius: 5.0}, Rectangle{width: 3.0, height: 4.0}, Shape.Point]
+    shapes: List<Shape> = [#Circle{radius: 5.0}, #Rectangle{width: 3.0, height: 4.0}, Shape.Point]
 
     areas =
         shapes
@@ -119,5 +119,5 @@ test "embedded variants can destructure directly in parameter position" {
 
     assert id_value(NumericIdentifier.NumericUserId(7)) == 7
     assert id_value(coerced) == 3
-    assert int_area(IntShape.IntCircle{r: 4}) == 16
+    assert int_area(#IntShape.IntCircle{r: 4}) == 16
 }

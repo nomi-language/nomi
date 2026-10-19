@@ -23,7 +23,7 @@ fn main() {
   _ = Map.size(1.5)
   _ = first_or(3, 1)
   _ = Maybe.some?(4)
-  _ = Set.size(#{1})
+  _ = Set.size(%[1])
   _ = first_or([1], 2)
   _ = List.head(1..3 |> Iter.to_list())
 }

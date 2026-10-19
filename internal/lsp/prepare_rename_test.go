@@ -29,7 +29,7 @@ impl Display for User {
 
 fn main() {
     total = double(21)
-    p = User{name: String.trim(" a ")}
+    p = #User{name: String.trim(" a ")}
     n = Iter.map([1, 2], fn x -> x + total) |> Iter.count()
     io.print(Int.to_string(users.make() + total + n) + p.name)
 }
@@ -93,7 +93,7 @@ func TestPrepareRename(t *testing.T) {
 		{"local binding", occ(src, "total", 2, 1), "total", occ(src, "total", 2, 0)},
 		{"lambda parameter", occ(src, "fn x ->", 0, 3), "x", occ(src, "fn x ->", 0, 3)},
 		{"project function in another file", occ(src, "make", 0, 1), "make", occ(src, "make", 0, 0)},
-		{"selectively imported type", occ(src, "User{", 0, 0), "User", occ(src, "User{", 0, 0)},
+		{"selectively imported type", occ(src, "#User{", 0, 1), "User", occ(src, "#User{", 0, 1)},
 		{"project struct field", occ(src, "p.name", 0, 3), "name", occ(src, "p.name", 0, 2)},
 	}
 	for _, c := range accept {

@@ -14,8 +14,8 @@ test "a module-declared zero-sized type round-trips through a Context" {
 }
 
 test "a module-declared struct round-trips through a Context" {
-    c = Context.with_value(Context.root(), Tag{name: "a"})
-    assert Context.value(c, Tag) == Some(Tag{name: "a"})
+    c = Context.with_value(Context.root(), #Tag{name: "a"})
+    assert Context.value(c, Tag) == Some(#Tag{name: "a"})
 }
 
 test "a module-declared enum round-trips through a Context" {

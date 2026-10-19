@@ -92,7 +92,7 @@ fn parse_row(row: List<String>) -> Result<Task, String> {
     malformed = "malformed task row: ${row}"
 
     case row {
-        [id, title, created, status] -> Ok(Task{
+        [id, title, created, status] -> Ok(#Task{
             id: id |> String.to_int() |> try Maybe.to_result(malformed),
             title,
             created: created

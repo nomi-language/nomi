@@ -39,8 +39,8 @@ func TestFormat_ParenthesizedDestructureNameIsTheName(t *testing.T) {
 			&ast.PatternBinding{},
 		},
 		{
-			"fn main() {\n    {x: (a), y} = p\n}\n",
-			"fn main() {\n    {x: a, y} = p\n}\n",
+			"fn main() {\n    #{x: (a), y} = p\n}\n",
+			"fn main() {\n    #{x: a, y} = p\n}\n",
 			&ast.StructDestructure{},
 		},
 		{

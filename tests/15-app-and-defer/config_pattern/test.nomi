@@ -2,7 +2,7 @@
 import app.ConfigApp
 
 pub fn configure(app: ConfigApp) -> ConfigApp {
-    Struct.update(app, {
+    Struct.update(app, #{
         deployment: "test",
         database_url: "postgres://localhost/myapp_test",
         max_connections: 2,

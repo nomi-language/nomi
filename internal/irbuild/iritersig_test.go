@@ -48,12 +48,12 @@ impl Iter for Span {
 }
 
 fn main() {
-  span = Span{lo: 1, hi: 4}
+  span = #Span{lo: 1, hi: 4}
   span |> Iter.to_list() |> io.inspect()
   span |> Iter.map(fn x -> x * 10) |> Iter.take(2) |> Iter.to_list() |> io.inspect()
   Iter.count(span) |> io.print()
   Iter.each_while(span, fn x -> x < 2) |> io.print()
-  Iter.each_while(Span{lo: 3, hi: 3}, fn _x -> False) |> io.print()
+  Iter.each_while(#Span{lo: 3, hi: 3}, fn _x -> False) |> io.print()
   odd = span |> Iter.filter(fn x -> x % 2 == 1)
   odd |> Iter.to_list() |> io.inspect()
   odd |> Iter.to_list() |> io.inspect()

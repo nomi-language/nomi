@@ -113,7 +113,7 @@ type ifaceDef struct {
 	// calls it never.
 	//
 	// A call through a generic interface on a CONCRETE receiver
-	// (`Chooser.left(Pair{a: 10, b: 20})`) does lower, but not through this
+	// (`Chooser.left(#Pair{a: 10, b: 20})`) does lower, but not through this
 	// def: the impl block binds a per-instantiation def that `resolveIface`
 	// resolves under the impl's substitution (ifaceinst.go), and the call
 	// reaches that impl's item directly. This def is the TEMPLATE, and keeping
@@ -468,7 +468,7 @@ func (g *gen) resolveIface(d *ifaceDef) {
 				continue
 			}
 			// paramKind, so a destructuring parameter (`#(a, b): #(Int, Int)`,
-			// `Point{x, y}`) has the kind its annotation or pattern head names;
+			// `#Point{x, y}`) has the kind its annotation or pattern head names;
 			// a default body's prologue reads its names off that value.
 			m.params = append(m.params, g.paramKind(im.Params[j]))
 		}
@@ -1632,7 +1632,7 @@ func (g *gen) qualifierKind(owner string) kind {
 // implements reports whether the PROGRAM lowers an impl of d for k.
 //
 // The program rather than this file, and the difference is what makes a
-// cross-file existential possible at all: `MyApp{logger: ProdLogger}` written
+// cross-file existential possible at all: `#MyApp{logger: ProdLogger}` written
 // in one file boxes a type declared in a second whose `impl Logger` is written
 // in a third, and the box dispatches through a table any of them may have
 // bound into. See existential.go's implIndex — the key is a pair of

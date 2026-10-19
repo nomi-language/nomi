@@ -49,9 +49,9 @@ fn twice(f: (Int) -> Int, n: Int) -> Int {
 }
 
 fn main_like(p: Point) -> Int {
-    q = {..p, y: 2}
-    Point{x, y} = q
-    foo = Foo({a: x})
+    q = #{..p, y: 2}
+    #Point{x, y} = q
+    foo = Foo(#{a: x})
     shifted = twice(fn n -> n + y, foo.a)
     case shifted {
         0 -> 1
@@ -112,7 +112,7 @@ func TestUnresolvedExprs_ReportsAMissingAndAnUnsolvedType(t *testing.T) {
 	}
 }
 
-// TestUnresolvedExprs_APipedStructCallFormIsTyped: `{a: 1} |> Foo()` is the
+// TestUnresolvedExprs_APipedStructCallFormIsTyped: `#{a: 1} |> Foo()` is the
 // struct call form with the piped value as its record, and the pipe has the
 // struct's type. The checker once returned no type for it.
 func TestUnresolvedExprs_APipedStructCallFormIsTyped(t *testing.T) {
@@ -121,7 +121,7 @@ func TestUnresolvedExprs_APipedStructCallFormIsTyped(t *testing.T) {
 }
 
 fn f() -> Int {
-    foo = {a: 1} |> Foo()
+    foo = #{a: 1} |> Foo()
     foo.a
 }
 `)

@@ -20,10 +20,10 @@ import (
 // instantiation set:
 //
 //	fn tail_grow<T>(x: T, depth: Int) -> Int {
-//	  if depth <= 0 { 0 } else { tail_grow(Box{inner: x}, depth - 1) }
+//	  if depth <= 0 { 0 } else { tail_grow(#Box{inner: x}, depth - 1) }
 //	}
 //	fn deep_grow<T>(x: T, depth: Int) -> Int {
-//	  if depth <= 0 { 0 } else { deep_grow(Box{inner: x}, depth - 1) + 1 }
+//	  if depth <= 0 { 0 } else { deep_grow(#Box{inner: x}, depth - 1) + 1 }
 //	}
 //
 // Both `nomi check` clean and have an answer, and a builder that instantiates
@@ -110,7 +110,7 @@ func TestGenerics_InstantiationChainDetectorControls(t *testing.T) {
 		// The tail-position witness from the file header.
 		name:      "tail_grow fires",
 		clause:    "the whole detector",
-		src:       box + "fn tail_grow<T>(x: T, depth: Int) -> Int {\n  if depth <= 0 { 0 } else { tail_grow(Box{inner: x}, depth - 1) }\n}\n",
+		src:       box + "fn tail_grow<T>(x: T, depth: Int) -> Int {\n  if depth <= 0 { 0 } else { tail_grow(#Box{inner: x}, depth - 1) }\n}\n",
 		wantFire:  true,
 		wantRecur: 1,
 	}, {
@@ -118,7 +118,7 @@ func TestGenerics_InstantiationChainDetectorControls(t *testing.T) {
 		// confounder: a detector that only saw the tail shape would miss it.
 		name:      "deep_grow fires",
 		clause:    "the whole detector, non-tail",
-		src:       box + "fn deep_grow<T>(x: T, depth: Int) -> Int {\n  if depth <= 0 { 0 } else { deep_grow(Box{inner: x}, depth - 1) + 1 }\n}\n",
+		src:       box + "fn deep_grow<T>(x: T, depth: Int) -> Int {\n  if depth <= 0 { 0 } else { deep_grow(#Box{inner: x}, depth - 1) + 1 }\n}\n",
 		wantFire:  true,
 		wantRecur: 1,
 	}, {
@@ -146,7 +146,7 @@ func TestGenerics_InstantiationChainDetectorControls(t *testing.T) {
 		// isolates selfCalls rather than growingArgs.
 		name:      "qualified look-alike is not recursion at all",
 		clause:    "selfCalls' *ast.Ident test",
-		src:       "fn wrap<T>(x: T) -> Box<T> {\n  Box{inner: Box.wrap(x)}\n}\n",
+		src:       "fn wrap<T>(x: T) -> Box<T> {\n  #Box{inner: Box.wrap(x)}\n}\n",
 		wantFire:  false,
 		wantRecur: 0,
 	}, {
@@ -294,7 +294,7 @@ func scanNodesForGrowth(where string, nodes []ast.Node) (sites []growthSite, sca
 //
 // The rule: a chain grows when a parameter annotated with a bare type
 // parameter receives a construction. `tail_grow`'s `x: T` receiving
-// `Box{inner: x}` binds `T` to `Box<T>` at every hop, so the set is
+// `#Box{inner: x}` binds `T` to `Box<T>` at every hop, so the set is
 // `Int`, `Box<Int>`, `Box<Box<Int>>`, … without end.
 //
 // A construction at a position annotated `List<T>` is NOT growth and must not be

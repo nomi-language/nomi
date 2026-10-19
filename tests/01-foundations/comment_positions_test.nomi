@@ -46,7 +46,7 @@ fn add(a: Int, b: Int) -> Int {
     // Trailing in-block comment after the last statement.
 }
 
-fn greet(p: {
+fn greet(p: #{
     name: String,
     // Inter-field comment in an anonymous struct type.
     age: Int,
@@ -57,7 +57,7 @@ fn greet(p: {
 
 test "comments are accepted around declarations and expressions" {
     // Nominal struct literal comments attach to the next field or end of body.
-    p = Point{
+    p = #Point{
         x: 3,
         // Inter-field comment in a nominal struct literal.
         y: 4,
@@ -65,8 +65,8 @@ test "comments are accepted around declarations and expressions" {
     }
 
     // Anonymous struct literal comments use the same trivia paths.
-    _q = {
-        name: greet({name: "alice", age: 30}),
+    _q = #{
+        name: greet(#{name: "alice", age: 30}),
         // Inter-field comment in an anonymous struct literal.
         age: 30,
         // Trailing comment inside anon struct literal body.

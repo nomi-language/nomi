@@ -27,11 +27,11 @@ impl Display for Todo {
 }
 
 fn main() {
-    todos = [Todo{title: "milk", done: True}, Todo{title: "eggs", done: False}]
+    todos = [#Todo{title: "milk", done: True}, #Todo{title: "eggs", done: False}]
     todos |> Iter.map(Todo.render) |> Iter.each(io.print)
 
     io.print(
-        [Square{side: 2}, Square{side: 3}]
+        [#Square{side: 2}, #Square{side: 3}]
         |> Iter.map(Square.area)
         |> Iter.to_list()
     )
@@ -45,7 +45,7 @@ fn main() {
     titles: List<String> = todos |> Iter.map(Display.to_string) |> Iter.to_list()
 
     io.print(titles)
-    squares: List<String> = [Square{side: 4}] |> Iter.map(Display.to_string) |> Iter.to_list()
+    squares: List<String> = [#Square{side: 4}] |> Iter.map(Display.to_string) |> Iter.to_list()
 
     io.print(squares)
 

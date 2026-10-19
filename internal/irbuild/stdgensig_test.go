@@ -197,7 +197,7 @@ func TestGenStructSigKindRefusesWhatItCannotShare(t *testing.T) {
 // `Range.from(n: Int) -> Range<Int>` and `Range.naturals() -> Range<Int>` lower.
 //
 // Their signatures are admitted by the `Range` row in the spec table, and their
-// bodies build `Range{start: n, end: None, inclusive: False}`. That literal
+// bodies build `#Range{start: n, end: None, inclusive: False}`. That literal
 // lowers by the rule for every anchored generic std struct: a struct LITERAL of
 // a std-anchored generic struct is built AT THE ANCHOR (stdgenstructlit.go), and
 // the declaring module is exempt from stdGenStructTypeOf's shadowing carve-out,
@@ -221,7 +221,7 @@ func TestStdRangeConstructorsLower(t *testing.T) {
 		if !f.lowerable() {
 			t.Errorf("%s is refused as %q. The likely cause is the "+
 				"anchored-literal path: either stdGenStructLit stopped claiming the "+
-				"`Range{...}` literal, or stdGenStructDeclaringModule stopped exempting "+
+				"`#Range{...}` literal, or stdGenStructDeclaringModule stopped exempting "+
 				"std/ranges from the shadowing carve-out, in which case `Range<Int>` has "+
 				"two representations. See stdgenstructlit.go.", c.key, f.why)
 			continue

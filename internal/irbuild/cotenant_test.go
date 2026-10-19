@@ -35,7 +35,7 @@ func TestCoTenant_APrivateIfaceFieldOfAPublicStructIsAFrontEndError(t *testing.T
 			"pub struct App {\n  name: String\n  logger: Logger\n}\n\n" +
 			"pub struct Prod {\n  prefix: String\n}\n\n" +
 			"impl Logger for Prod {\n  fn log(p: Prod, message: String) -> String { _ = message;\n    p.prefix\n  }\n}\n\n" +
-			"pub fn loud() -> App {\n  App{name: \"loud\", logger: Prod{prefix: \"P\"}}\n}\n\n" +
+			"pub fn loud() -> App {\n  #App{name: \"loud\", logger: #Prod{prefix: \"P\"}}\n}\n\n" +
 			"pub fn origin() -> String {\n  wire.tag\n}\n",
 		"wire.nomi": "import core.{self, App}\n\n" +
 			"pub once tag: String = \"wire\"\n\n" +

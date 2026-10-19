@@ -5,7 +5,7 @@ struct Span<T> {
 
 impl Span<T> {
     fn new<T>(start: T, stop: T) -> Span<T> {
-        Span{start, stop}
+        #Span{start, stop}
     }
 
     fn first<T>(span: Span<T>) -> T {
@@ -13,7 +13,7 @@ impl Span<T> {
     }
 
     fn swap<T>(span: Span<T>) -> Span<T> {
-        Span{start: span.stop, stop: span.start}
+        #Span{start: span.stop, stop: span.start}
     }
 
     fn longer?<T>(span: Span<T>, other: Span<T>) -> Bool where T: Comparable {
@@ -21,7 +21,7 @@ impl Span<T> {
     }
 
     fn map<T, U>(span: Span<T>, f: (T) -> U) -> Span<U> {
-        Span{start: f(span.start), stop: f(span.stop)}
+        #Span{start: f(span.start), stop: f(span.stop)}
     }
 
     fn ends<T>(span: Span<T>) -> List<T> {
@@ -44,14 +44,14 @@ impl Tree<T> {
 }
 
 test "a generic struct with an inherent impl builds from a literal" {
-    numbers = Span{start: 1, stop: 5}
+    numbers = #Span{start: 1, stop: 5}
     assert Span.first(numbers) == 1
-    assert Span.longer?(numbers, Span{start: 1, stop: 3})
+    assert Span.longer?(numbers, #Span{start: 1, stop: 3})
     assert Span.first(Span.swap(numbers)) == 5
 }
 
 test "one inherent impl serves every instance" {
-    words = Span{start: "x", stop: "y"}
+    words = #Span{start: "x", stop: "y"}
     assert Span.first(words) == "x"
     assert Span.ends(words) == ["x", "y"]
     assert Span.map(words, fn w -> String.length(w)).stop == 1

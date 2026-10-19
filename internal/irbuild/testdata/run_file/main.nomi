@@ -77,19 +77,19 @@ fn main() {
     // The construction site the corpus writes. `probe=absent` shows the run
     // source saw no override for that key — which is also what an inherited real
     // process environment gives, since nothing sets it.
-    io.print("default = " + out(RunFile{entry_point: "target"}))
+    io.print("default = " + out(#RunFile{entry_point: "target"}))
 
     // --- 2. THE EXPLICIT-EMPTY PATH, same observation, different derivation --
     // Identical output to row 1 BY CONSTRUCTION. Present so the coincidence is in
     // the fixture rather than in a reader's head; see the header.
-    io.print("explicit_empty = " + out(RunFile{entry_point: "target", env: Map.empty()}))
+    io.print("explicit_empty = " + out(#RunFile{entry_point: "target", env: Map.empty()}))
 
     // --- 3. THE ENV ACTUALLY ARRIVES ---------------------------------------
     // The only row that distinguishes "env is threaded" from "env is dropped".
     // `run_file` and `run` differ here and nowhere else in the signature, so a
     // `run`-shaped implementation of `run_file` passes rows 1 and 2 and fails
     // this one.
-    io.print("with_env = " + out(RunFile{
+    io.print("with_env = " + out(#RunFile{
             entry_point: "target",
             env: %{"NOMI_RUN_FILE_FIXTURE_PROBE" => "arrived"},
         }))
@@ -97,7 +97,7 @@ fn main() {
     // --- 4. A SECOND KEY, so the map is a MAP and not one slot -------------
     // Two entries with only one of them read. A projection that carried the first
     // entry only, or that overwrote, answers row 3's text here too.
-    io.print("two_keys = " + out(RunFile{
+    io.print("two_keys = " + out(#RunFile{
             entry_point: "target",
             env: %{
                 "NOMI_RUN_FILE_FIXTURE_OTHER" => "ignored",
@@ -110,14 +110,14 @@ fn main() {
     // than a fault, so the text is observable and the golden pins it.
     // They are the whole reason stdcompilerrun.RunFileSource exists as one
     // exported function: a second copy of these four messages would drift.
-    io.print("empty = " + out(RunFile{entry_point: ""}))
-    io.print("suffixed = " + out(RunFile{entry_point: "target.nomi"}))
-    io.print("escaping = " + out(RunFile{entry_point: "../target"}))
+    io.print("empty = " + out(#RunFile{entry_point: ""}))
+    io.print("suffixed = " + out(#RunFile{entry_point: "target.nomi"}))
+    io.print("escaping = " + out(#RunFile{entry_point: "../target"}))
 
     // The fourth rejection is the OS's own, and its text embeds the ABSOLUTE path
     // that was tried — so it is read for its shape rather than pinned. See
     // err_mentions.
     io.print(
-        "missing = " + err_mentions(RunFile{entry_point: "no_such_module"}, "no_such_module.nomi")
+        "missing = " + err_mentions(#RunFile{entry_point: "no_such_module"}, "no_such_module.nomi")
     )
 }

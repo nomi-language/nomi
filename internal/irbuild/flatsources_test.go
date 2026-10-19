@@ -26,19 +26,19 @@ impl Iter for Pair {
 fn main() {
     io.inspect(["ab", "cd"] |> Iter.flat_map(fn s -> s) |> Iter.to_list())
     io.inspect([1, 3] |> Iter.flat_map(fn n -> n..n + 2) |> Iter.to_list())
-    io.inspect([1, 3] |> Iter.flat_map(fn n -> #{n}) |> Iter.to_list())
+    io.inspect([1, 3] |> Iter.flat_map(fn n -> %[n]) |> Iter.to_list())
     io.inspect([1, 3] |> Iter.flat_map(fn n -> #[n, n]) |> Iter.to_list())
     io.inspect([1, 3] |> Iter.flat_map(fn n -> %{n => n * 2}) |> Iter.to_list())
-    io.inspect([1, 3] |> Iter.flat_map(fn n -> Pair{a: n, b: n}) |> Iter.count())
+    io.inspect([1, 3] |> Iter.flat_map(fn n -> #Pair{a: n, b: n}) |> Iter.count())
     io.inspect([1, 2, 3] |> Iter.flat_map(fn n -> if n == 2 { continue } else { #[n, n] }) |> Iter.to_list())
     io.inspect([1, 2, 3] |> Iter.flat_map(fn n -> if n == 2 { break "zz" } else { "x" }) |> Iter.to_list())
     io.inspect(Iter.flatten(["ab", "cd"]))
     io.inspect(Iter.flatten([1..3, 5..=6]))
-    io.inspect(Iter.flatten([#{1}, #{2}]))
+    io.inspect(Iter.flatten([%[1], %[2]]))
     io.inspect(Iter.flatten([#[1, 2], #[3]]))
     io.inspect(Iter.flatten(#["ab", "c"]))
     io.inspect(Iter.flatten([String.to_bytes("hi")]))
-    io.inspect(Iter.flatten([Pair{a: 1, b: 2}, Pair{a: 3, b: 4}]))
+    io.inspect(Iter.flatten([#Pair{a: 1, b: 2}, #Pair{a: 3, b: 4}]))
 }
 `
 	const want = "[\"a\", \"b\", \"c\", \"d\"]\n" +

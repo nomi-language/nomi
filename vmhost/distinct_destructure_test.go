@@ -43,7 +43,7 @@ fn main() {
     io.inspect(cents(Balance(3)))
     double = fn Balance(m) -> Balance(m * 2)
     io.inspect(double(balance))
-    Pair(a, b) = Pair(1, "x")
+    #Pair(a, b) = #Pair(1, "x")
     io.inspect(#(a, b))
 }
 `)

@@ -1807,7 +1807,7 @@ func stdParamKind(p ast.Param, anchors stdAnchors) (kind, string) {
 	}
 	// A destructuring parameter's kind is the head's type, and the head is
 	// resolved through the same anchored table an annotation is: nothing else
-	// is admitted, so `Point{x, y}` in a hypothetical std module refuses rather
+	// is admitted, so `#Point{x, y}` in a hypothetical std module refuses rather
 	// than resolving against a declaration this pass cannot see.
 	//
 	// Opaques only, and deliberately not every stdAnchors family: a MONOMORPHIC

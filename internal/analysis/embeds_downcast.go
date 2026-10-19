@@ -10,7 +10,7 @@ import (
 // wherever a Shape is expected. The other direction is never implicit. A
 // Shape may hold a variant other than Circle, so a Shape is a Circle only
 // inside a match arm that says so (the narrowing of a name matched against
-// `.Circle{}`). Every position that knows which way a value flows (an
+// `#.Circle{}`). Every position that knows which way a value flows (an
 // argument, an annotated binding, a field, a return, a list element, an impl
 // function's signature against its interface's) compares with TypeAssignable
 // or UnifyInto, which refuse the downcast, and its diagnostic carries
@@ -108,7 +108,7 @@ func embedsDowncastHint(want, have Type) string {
 		return ""
 	}
 	name := embeddableTypeName(emb)
-	pattern := "." + name + "{}"
+	pattern := "#." + name + "{}"
 	if _, distinct := emb.(*DistinctType); distinct {
 		pattern = "." + name + "(_)"
 	}
@@ -169,7 +169,7 @@ func (c *checker) callbackDowncast(callee, arg ast.Node, want, have Type, label 
 			label, subject, articleFor(takes), takes, by, articleFor(gets), gets, articleFor(et.Name), et.Name, name)
 		hint := mismatchHint(hf.Params[i], passed)
 		if _, top := passed.(*EnumType); top && len(wf.Params) == 1 {
-			pattern := "." + name + "{}"
+			pattern := "#." + name + "{}"
 			if _, distinct := emb.(*DistinctType); distinct {
 				pattern = "." + name + "(_)"
 			}

@@ -149,8 +149,8 @@ func (l *Layout) FieldIndex(name string) int {
 type RecordKind uint8
 
 const (
-	KindStruct   RecordKind = iota + 1 // a named struct: `Point{x: 1}`
-	KindAnon                           // an anonymous record: `{x: 1}`
+	KindStruct   RecordKind = iota + 1 // a named struct: `#Point{x: 1}`
+	KindAnon                           // an anonymous record: `#{x: 1}`
 	KindTuple                          // `#(1, "a")`
 	KindEnum                           // a variant of a named enum
 	KindDistinct                       // a distinct value `Id(5)` or a marker `Expired`
@@ -162,7 +162,7 @@ type VariantShape uint8
 const (
 	VariantBare       VariantShape = iota // `Dot`: no payload
 	VariantPositional                     // `Circle(5)`: one positional payload field
-	VariantFields                         // `Rect{w: 1, h: 2}`: named payload fields
+	VariantFields                         // `#Rect{w: 1, h: 2}`: named payload fields
 	// VariantEmbedded is an `embeds` variant: the one payload field IS the
 	// value. It compares, hashes and renders in a `values:` row as its payload,
 	// while its descriptor stays the enum's, which is what dispatch keys on.
@@ -579,7 +579,7 @@ func sortFieldSpecs(specs []FieldSpec) {
 // Runtime type names carry the declaring module as a qualifier
 // (`shapes.Point`, `calendar.Date`) because that is what keeps two same-named
 // types apart. Nothing user-facing shows it: a value inspects as
-// `Point{x: 1}`, not `shapes.Point{x: 1}`.
+// `#Point{x: 1}`, not `#shapes.Point{x: 1}`.
 //
 // A declared name can contain dots — a namespaced declaration
 // (`pub struct Json.DecodeError`) owns both segments. Module names come from

@@ -334,8 +334,26 @@ func (f *fillRequest) fillFields(t *fillTarget) (string, string, bool) {
 		}
 		return lit.Line, lit.Col, true
 	})
+	if n == nil {
+		// A named literal's diagnostic may stand at its name, after the `#`
+		// (`#.Rect{`, `#geo.Point{`).
+		n = f.find(t, func(n ast.Node) (int, int, bool) {
+			lit, ok := n.(*ast.StructLit)
+			if !ok {
+				return 0, 0, false
+			}
+			switch tn := lit.TypeName.(type) {
+			case *ast.DotVariantType:
+				return tn.Line, tn.Col, true
+			case *ast.QualifiedType:
+				return tn.ModuleLine, tn.ModuleCol, true
+			}
+			return 0, 0, false
+		})
+	}
 	lit, _ := n.(*ast.StructLit)
 	if lit == nil || lit.Spread != nil {
+
 		return "", "", false
 	}
 	missing := f.missingFields(lit)

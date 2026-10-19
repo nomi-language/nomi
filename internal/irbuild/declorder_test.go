@@ -64,7 +64,7 @@ const (
     case p.t {
         Tree.Leaf(n) -> io.print("leaf ${n}")
         Tree.Node(ch) -> io.print("node ${ch.n}")
-        Tree.Both{left, size: _} -> io.print("both ${left.a} ${left.b.n}")
+        #Tree.Both{left, size: _} -> io.print("both ${left.a} ${left.b.n}")
     }
     case p.k {
         Kind.Plain -> io.print("plain")
@@ -74,23 +74,23 @@ const (
 }
 
 fn main() {
-    c = Child{n: 3, m: Meters(5)}
-    show(Parent{t: Tree.Leaf(1), k: Kind.Plain, p: None})
-    show(Parent{t: Tree.Node(c), k: Kind.Holds(c), p: Some(Pair{a: c, b: Mark})})
+    c = #Child{n: 3, m: Meters(5)}
+    show(#Parent{t: Tree.Leaf(1), k: Kind.Plain, p: None})
+    show(#Parent{t: Tree.Node(c), k: Kind.Holds(c), p: Some(#Pair{a: c, b: Mark})})
     io.print(Tree.Node(c) == Tree.Node(c))
-    io.print(Tree.Both{left: Pair{a: 2, b: c}, size: Meters(9)} == Tree.Leaf(2))
-    show(Parent{t: Tree.Both{left: Pair{a: 2, b: c}, size: Meters(9)}, k: Mark, p: None})
+    io.print(#Tree.Both{left: #Pair{a: 2, b: c}, size: Meters(9)} == Tree.Leaf(2))
+    show(#Parent{t: #Tree.Both{left: #Pair{a: 2, b: c}, size: Meters(9)}, k: Mark, p: None})
 }
 `
-	declOrderWant = `Parent{t: Leaf(1), k: Plain, p: None}
+	declOrderWant = `#Parent{t: Leaf(1), k: Plain, p: None}
 leaf 1
 plain
-Parent{t: Node(Child{n: 3, m: Meters(5)}), k: Holds(Child{n: 3, m: Meters(5)}), p: Some(Pair{a: Child{n: 3, m: Meters(5)}, b: Mark})}
+#Parent{t: Node(#Child{n: 3, m: Meters(5)}), k: Holds(#Child{n: 3, m: Meters(5)}), p: Some(#Pair{a: #Child{n: 3, m: Meters(5)}, b: Mark})}
 node 3
 holds 3
 True
 False
-Parent{t: Both{left: Pair{a: 2, b: Child{n: 3, m: Meters(5)}}, size: Meters(9)}, k: Mark, p: None}
+#Parent{t: #Both{left: #Pair{a: 2, b: #Child{n: 3, m: Meters(5)}}, size: Meters(9)}, k: Mark, p: None}
 both 2 3
 mark
 `

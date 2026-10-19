@@ -13,7 +13,7 @@ func TestUnitDbgTail_Accepted(t *testing.T) {
 		"dbg of a generic":   "fn main() {\n    dbg Some(1)\n}\n",
 		"pipe ending in dbg": "fn main() {\n    [1, 2]\n    |> Iter.map(fn n -> n * 2)\n    |> Iter.to_list()\n    |> dbg\n}\n",
 		"written Unit":       "fn show(n: Int) -> Unit {\n    dbg n + 1\n}\n\nfn main() {\n    show(1)\n}\n",
-		"impl function":      "struct Box {\n    n: Int\n}\n\nimpl Box {\n    fn show(b: Box) {\n        dbg b.n\n    }\n}\n\nfn main() {\n    Box.show(Box{n: 1})\n}\n",
+		"impl function":      "struct Box {\n    n: Int\n}\n\nimpl Box {\n    fn show(b: Box) {\n        dbg b.n\n    }\n}\n\nfn main() {\n    Box.show(#Box{n: 1})\n}\n",
 		"nested function":    "fn main() {\n    fn show(n: Int) {\n        n |> dbg\n    }\n    show(2)\n}\n",
 	} {
 		t.Run(name, func(t *testing.T) {

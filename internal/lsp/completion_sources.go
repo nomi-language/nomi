@@ -1,9 +1,11 @@
 package lsp
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/hoverdoc"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
@@ -123,7 +125,9 @@ func sameFileSymbol(fa *analysis.FileAnalysis, sym *analysis.Symbol) bool {
 // variantCandidates offers enum variants after a leading dot. The label is
 // the bare variant name: the dot is already in the source. When the position
 // expects an enum, only its variants resolve there, so only they are
-// offered; otherwise every variant of every enum in scope is. Where the
+// offered; otherwise every variant of every enum in scope is, and a name
+// several enums declare is one item whose detail and documentation name
+// each of them. Where the
 // position expects a function over a struct, the dot starts a field
 // accessor, and the struct's fields are offered instead.
 func (r *completionRequest) variantCandidates() []candidate {
@@ -133,21 +137,65 @@ func (r *completionRequest) variantCandidates() []candidate {
 	if et, ok := analysis.ResolveTypeVar(r.expected).(*analysis.EnumType); ok {
 		return r.enumVariantCandidates(et)
 	}
-	var out []candidate
-	seen := map[string]bool{}
+	type owned struct{ enum, variant *analysis.Symbol }
+	byName := map[string][]owned{}
+	seenEnum := map[*analysis.Symbol]bool{}
 	for _, sym := range r.scope.AllVisible() {
 		enum := realSymbol(sym)
-		if enum.Kind != analysis.SymbolEnum {
+		if enum.Kind != analysis.SymbolEnum || seenEnum[enum] {
 			continue
 		}
+		seenEnum[enum] = true
 		for name, member := range enum.Members {
 			member = realSymbol(member)
-			if member == nil || member.Kind != analysis.SymbolEnumVariant || seen[name] {
+			if member == nil || member.Kind != analysis.SymbolEnumVariant {
 				continue
 			}
-			seen[name] = true
-			out = append(out, candidate{label: name, kind: protocol.CompletionItemKindEnumMember, sym: member, locality: 2})
+			byName[name] = append(byName[name], owned{enum, member})
 		}
+	}
+	var out []candidate
+	for name, owners := range byName {
+		if len(owners) == 1 {
+			out = append(out, candidate{label: name, kind: protocol.CompletionItemKindEnumMember, sym: owners[0].variant, locality: 2})
+			continue
+		}
+		// Accepting the variant inserts the same text whichever enum it
+		// is read as, so a name several enums declare is one item naming
+		// them all, in a fixed order.
+		sort.Slice(owners, func(i, j int) bool {
+			a, b := owners[i].enum, owners[j].enum
+			if a.Name != b.Name {
+				return a.Name < b.Name
+			}
+			if a.SourceFile != b.SourceFile {
+				return a.SourceFile < b.SourceFile
+			}
+			if a.Pos.Line != b.Pos.Line {
+				return a.Pos.Line < b.Pos.Line
+			}
+			return a.Pos.Col < b.Pos.Col
+		})
+		enums := make([]string, len(owners))
+		docs := make([]string, len(owners))
+		for i, o := range owners {
+			enums[i] = o.enum.Name
+			sig, doc := hoverdoc.SignatureAndDoc(o.variant, r.fa)
+			docs[i] = "**" + o.enum.Name + "**"
+			if sig != "" {
+				docs[i] += ": `" + sig + "`"
+			}
+			if doc != "" {
+				docs[i] += "\n\n" + doc
+			}
+		}
+		out = append(out, candidate{
+			label:    name,
+			kind:     protocol.CompletionItemKindEnumMember,
+			locality: 2,
+			detail:   "variant of " + strings.Join(enums, ", "),
+			doc:      strings.Join(docs, "\n\n"),
+		})
 	}
 	return out
 }

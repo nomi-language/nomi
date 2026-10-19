@@ -86,9 +86,9 @@ func (bl *irScalarBuilder) displayHole(at ast.Node, src ir.Temp, k kind, mobile 
 }
 
 // displayComposite renders a tuple or anonymous record with a nominal part
-// (`#(1, None)`, `{a: 1, b: Some(2)}`), which rt.DisplayText cannot render
+// (`#(1, None)`, `#{a: 1, b: Some(2)}`), which rt.DisplayText cannot render
 // alone because a part's text is its own Display impl's. The spec's rule is
-// `#(Display(a), Display(b), ...)` and `{f: Display(v), ...}`: each part is
+// `#(Display(a), Display(b), ...)` and `#{f: Display(v), ...}`: each part is
 // rendered by Display (displayPart), and the same-shaped composite of those
 // Strings is rendered structurally, so rt's tuple and record layout is the
 // one layout. A part with no rendering declines the whole.

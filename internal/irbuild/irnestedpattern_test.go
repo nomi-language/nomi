@@ -51,7 +51,7 @@ fn classify(m: Maybe<Shape>) -> Int {
     Some(Shape.Square(4)) -> 100
     Some(Shape.Square(s)) -> s * s
     Some(.Named("x")) -> 7
-    Some(Shape.Box{w, h}) -> w * h
+    Some(#Shape.Box{w, h}) -> w * h
     Some(Shape.Dot) -> 0
     Some(_) -> 1
     None -> -1
@@ -72,7 +72,7 @@ fn main() {
   io.print(classify(Some(Shape.Square(5))))
   io.print(classify(Some(Shape.Named("x"))))
   io.print(classify(Some(Shape.Named("y"))))
-  io.print(classify(Some(Shape.Box{w: 2, h: 9})))
+  io.print(classify(Some(#Shape.Box{w: 2, h: 9})))
   io.print(classify(Some(Shape.Dot)))
   io.print(classify(None))
   io.print(outcome(Ok(Shape.Circle(1))))
@@ -119,14 +119,14 @@ fn increment(counter: Counter, n: Int) -> Unit {
 }
 
 fn ask(counter: Counter, reply: Channel<Int>) -> Unit {
-  _ = Sender.send(counter.inbox.sender, Request.Get{reply})
+  _ = Sender.send(counter.inbox.sender, #Request.Get{reply})
   Unit
 }
 
 fn handle(counter: Counter, count: Int) -> Int {
   case Receiver.receive(counter.inbox.receiver) {
     Some(Request.Increment(n)) -> count + n
-    Some(Request.Get{reply}) -> {
+    Some(#Request.Get{reply}) -> {
       _ = Sender.send(reply.sender, count)
       count
     }
@@ -136,7 +136,7 @@ fn handle(counter: Counter, count: Int) -> Int {
 }
 
 fn main() {
-  counter = Counter{inbox: Channel.buffered<Request>(8)}
+  counter = #Counter{inbox: Channel.buffered<Request>(8)}
   reply = Channel.buffered<Int>(1)
   increment(counter, 5)
   increment(counter, 7)
@@ -230,7 +230,7 @@ fn report(done: Channel<Int>, n: Int) -> Unit {
 pub fn boot() -> App {
   done = Channel.buffered<Int>(4)
   start(done)
-  App{context: Context.root(), done}
+  #App{context: Context.root(), done}
 }
 
 fn main() {}
@@ -327,15 +327,15 @@ enum Shape {
 
 fn pick(m: Maybe<Shape>) -> Int {
   case m {
-    Some(Shape.Box{w: 2.0, h}) -> h
+    Some(#Shape.Box{w: 2.0, h}) -> h
     Some(_) -> 0
     None -> -1
   }
 }
 
 fn main() {
-  io.print(pick(Some(Shape.Box{w: 2.0, h: 7})))
-  io.print(pick(Some(Shape.Box{w: 2.5, h: 7})))
+  io.print(pick(Some(#Shape.Box{w: 2.0, h: 7})))
+  io.print(pick(Some(#Shape.Box{w: 2.5, h: 7})))
   io.print(pick(Some(Shape.Dot)))
   io.print(pick(None))
 }
@@ -383,7 +383,7 @@ pub struct App {
   s: Supervisor
 }
 fn boot() -> App {
-  App{context: Context.root(), s: Supervisor.new(max_running: 1)}
+  #App{context: Context.root(), s: Supervisor.new(max_running: 1)}
 }
 fn pick() -> Supervisor {
   App.s
@@ -420,7 +420,7 @@ pub struct App {
 }
 fn boot() -> App {
   start()
-  App{context: Context.root(), s: Supervisor.new(max_running: 1)}
+  #App{context: Context.root(), s: Supervisor.new(max_running: 1)}
 }
 fn group(timeout: Duration) -> Supervisor {
   Supervisor.new(shutdown_timeout: timeout, max_running: 1)
@@ -431,7 +431,7 @@ fn start() -> Unit {
       shutdown_timeout: Duration.seconds(5),
       max_running: 1,
       restart: Restart.Temporary,
-      backoff: Backoff.Exponential{
+      backoff: #Backoff.Exponential{
         max_restarts: 3,
         max_elapsed: Duration.minutes(5),
       },

@@ -8,18 +8,18 @@ describes the pipeline as a whole.
 ## Formatter: brace-bounded field constructs
 
 The formatter renders anonymous struct types by width: short shapes stay flat
-(`{name: String, age: Int}`), and long shapes break onto multiple lines with
+(`#{name: String, age: Int}`), and long shapes break onto multiple lines with
 each field indented and trailing-commaed. The break decision happens at the
 anonymous struct itself, so a long parameter annotation breaks its own
 anonymous struct rather than just spilling the parameter list. The same rule
 applies to struct-shaped enum variant payloads (`HttpError {status: Int, ...}`)
-and to struct literals (named `Point{x: 3, y: 4}` and anonymous
-`{x: 3, y: 4}`), since the surface syntax is identical. An anonymous struct
+and to struct literals (named `#Point{x: 3, y: 4}` and anonymous
+`#{x: 3, y: 4}`), since the surface syntax is identical. An anonymous struct
 nested inside another type expression also breaks at its own column:
-`#(String, {long anon})`, `List<{long anon}>` and
-`Map<String, List<{long anon}>>` all keep the outer container inline and flow
+`#(String, #{long anon})`, `List<#{long anon}>` and
+`Map<String, List<#{long anon}>>` all keep the outer container inline and flow
 the inner anonymous struct multi-line. The one exception is an anonymous struct
-inside a function type's parameter list (`({long anon}) -> R`): the function
+inside a function type's parameter list (`(#{long anon}) -> R`): the function
 type wraps its parameter list in a Group so the whole signature including
 `-> R` is fit-checked as one unit, so a too-long signature breaks at the
 parameter list rather than inside the anonymous struct, which then sits flat at
@@ -30,8 +30,8 @@ of the line that follows it, not only the Group's own content. A struct literal
 whose flat form fits at its column but whose trailing siblings push the line
 past the width breaks, instead of staying flat and overflowing. The rest of
 the line ends at the first place it may break, and at the `{` of a
-construct kept multi-line (below), so `A{a} + B{` measures the same whether
-`B{...}` was broken for width or kept broken from the source. Trailing
+construct kept multi-line (below), so `#A{a} + #B{` measures the same whether
+`#B{...}` was broken for width or kept broken from the source. Trailing
 comments (`x = 1 // explanatory note`) are invisible to fits, so the formatter
 does not break code to make room for a comment; the comment can run past the
 width instead.
@@ -45,7 +45,7 @@ break right after the opening bracket keeps one broken.
 
 The preserved shape is local; it does not force the surrounding constructs
 (parameter lists, call argument lists, struct literals containing it) to
-break, so a call can hug it (`f(Point{` on one line). The exception is a
+break, so a call can hug it (`f(#Point{` on one line). The exception is a
 surrounding call argument list or parameter list already written one element
 per line, its first element on a line below its opening bracket: it stays that
 way when it holds an element that breaks whatever the width. Otherwise a list
@@ -56,20 +56,20 @@ one statement (`if`, `else`), and a case arm's body below its `->`
 
 ## Formatter: a line break after a literal's opening bracket
 
-A list, vector, set, map, tuple or struct literal, and a list, map or struct
-pattern, whose source has a line break between its opening bracket and its
+A list, vector, set, map, tuple or struct literal, and a list, vector, set,
+map or struct pattern, whose source has a line break between its opening bracket and its
 first element stays broken, one element per line, even when it would fit on
 one line (`brokenAfterOpen` in `internal/format/list_comments.go`). It is
 Prettier's rule for objects, and the author joins the literal again by
 deleting that one line break. Only that break counts: `[1,\n 2]` and
-`Point{x: 1,\n y: 2}` join when they fit. The parser records the line of the
+`#Point{x: 1,\n y: 2}` join when they fit. The parser records the line of the
 opening bracket on each literal (`Line`), and the formatter compares it with
 the line its first element starts on, the `..` of a leading spread included,
 so the flag needs no field of its own. The broken form puts the first element
 on the line below the bracket, so the next format finds the same break and
 the layout is stable. Without that break the width and depth rules decide. A
-literal written with a spread last (`[a, ..rest]`, a list pattern with a
-`..rest`) is written on one line as before, and every other bracketed form
+literal written with a spread last (`[a, ..rest]`, a list, vector or set
+pattern with a `..`) is written on one line as before, and every other bracketed form
 (call arguments, parameter lists, type argument lists, pipes) is laid out by
 width alone. A kept-broken literal is local, as a struct literal written
 across lines is, so a call hugs it (`f([` on one line).
@@ -101,7 +101,7 @@ A block as a call's last argument hugs its `)` (`})`).
 
 ## Formatter: filled literal lists
 
-A list, vector (`#[...]`) or set (`#{...}`) literal too wide for its line
+A list, vector (`#[...]`) or set (`%[...]`) literal too wide for its line
 breaks after its opening bracket. When every element is a number literal
 (an Int, Float or Decimal literal, alone, after a unary `-` or in
 parentheses the formatter drops), the formatter then fills: it packs as
@@ -123,7 +123,7 @@ impl conformance lists pack their entries with the same function
 
 ## Formatter: compound depth
 
-A list, vector, set, map or struct literal, or a list, map or struct
+A list, vector, set, map or struct literal, or a list, vector, map or struct
 pattern, three compound levels deep breaks one element per line even when it
 fits, since three levels of brackets on one line are hard to match up
 (`maxCompoundDepth` and `compoundDepth` in `internal/format/emit.go`). Each
@@ -132,8 +132,8 @@ pattern's payload, a tuple, an `as` or `or` pattern and parentheses add
 none but pass their contents' depth through, so `[#("a", #[#[0, 1]])]` is
 three deep. Only the literal or pattern that reaches the depth breaks for
 it: its elements are laid out on their own merits, by width and by their
-own depth, so `[R{p: P{x: 0, y: 0}, n: 1}]` breaks the list and keeps
-`R{p: P{x: 0, y: 0}, n: 1}` on one line inside it.
+own depth, so `[#R{p: #P{x: 0, y: 0}, n: 1}]` breaks the list and keeps
+`#R{p: #P{x: 0, y: 0}, n: 1}` on one line inside it.
 
 ## Formatter: comments in lists
 
@@ -145,7 +145,7 @@ after the last item goes below it (`After`). A list item that is a node keeps
 them on its `TriviaCarrier.ItemComments`; a parameter, type parameter and
 struct pattern field have a `Comments` field. A map entry's comments are its
 key's, and a list whose node has an `EndTrivia` (list, vector, set, map and
-struct literals, list and map patterns) keeps the comments before its closing
+struct literals, list, vector, set and map patterns) keeps the comments before its closing
 bracket there. A call or parameter list with no item keeps its comments in
 `Call.EndTrivia` or `ParamsEndTrivia`. The parser's `listComments` places
 them as each list's loop walks it (`internal/parser/list_comments.go`).

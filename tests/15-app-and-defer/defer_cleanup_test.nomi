@@ -17,7 +17,7 @@ test "defer runs on normal exit failed acquire and early return" {
           if name == "bad" {
             Err("open failed")
           } else {
-            Ok(Conn{name})
+            Ok(#Conn{name})
           }
         }
 
@@ -40,7 +40,7 @@ test "defer runs on normal exit failed acquire and early return" {
         }
 
         fn early_return() -> Int {
-          conn = Conn{name: "early"}
+          conn = #Conn{name: "early"}
           defer close(conn)
           return 5
         }

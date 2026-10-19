@@ -48,8 +48,8 @@ impl Farewell for Person {
 }
 
 fn main() {
-    rex = Dog{name: "Rex"}
-    alice = Person{name: "Alice"}
+    rex = #Dog{name: "Rex"}
+    alice = #Person{name: "Alice"}
 
     io.print(Speech.speak(rex))
     io.print(Dog.speak(rex))

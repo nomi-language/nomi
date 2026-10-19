@@ -19,7 +19,7 @@ func TestDestructuredParamCalls_Run(t *testing.T) {
 }
 
 impl Point {
-    pub fn scale(Point{x, y}, by: Int = x, plus: Int = 0) -> Int {
+    pub fn scale(#Point{x, y}, by: Int = x, plus: Int = 0) -> Int {
         x * by + y + plus
     }
 }
@@ -40,7 +40,7 @@ struct Pt<T> {
 }
 
 impl Pt<T> {
-    fn pick<T>(Pt{x, y}: Pt<T>, first: Bool = True, other: T = y) -> T {
+    fn pick<T>(#Pt{x, y}: Pt<T>, first: Bool = True, other: T = y) -> T {
         if first { x } else { other }
     }
 }
@@ -59,13 +59,13 @@ fn main() {
     io.print(lib.area(scale: 3, #(2, 3)))
     io.print(local_area(#(2, 3)))
     io.print(local_area(scale: 1, #(2, 3)))
-    io.print(Point.scale(Point{x: 1, y: 2}, by: 3))
-    io.print(Point.scale(Point{x: 2, y: 2}, plus: 3))
+    io.print(Point.scale(#Point{x: 1, y: 2}, by: 3))
+    io.print(Point.scale(#Point{x: 2, y: 2}, plus: 3))
     io.inspect(swap(keep: True, #(1, "x")))
     io.inspect(swap(#(1, "x")))
     io.inspect(swap(#(1, "x"), fallback: 5, keep: True))
-    io.inspect(Pt.pick(Pt{x: 1, y: 2}, first: False))
-    io.inspect(Pt.pick(Pt{x: "a", y: "b"}, other: "c", first: False))
+    io.inspect(Pt.pick(#Pt{x: 1, y: 2}, first: False))
+    io.inspect(Pt.pick(#Pt{x: "a", y: "b"}, other: "c", first: False))
 }
 `
 	verifyLambdaProgram(t, main, "12\n12\n18\n18\n6\n5\n9\n#(\"x\", 1)\n#(\"x\", 1)\n#(\"x\", 5)\n2\n\"c\"\n",

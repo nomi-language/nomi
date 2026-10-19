@@ -83,7 +83,7 @@ import ascii
 
 fn main() {
   _tag = ascii.tag()
-  _drawn = svg.draw(Point{x: 1, y: 2})
+  _drawn = svg.draw(#Point{x: 1, y: 2})
 }
 `, map[string]string{
 		"shapes": identityShapes,
@@ -154,7 +154,7 @@ import svg
 import ascii
 
 fn main() {
-  p = Point{x: 1, y: 2}
+  p = #Point{x: 1, y: 2}
   _svg = svg.show(p)
   _ascii = ascii.show(p)
 }
@@ -182,7 +182,7 @@ import svg
 import ascii
 
 fn main() {
-  _drawn = svg.show(Point{x: 1, y: 2})
+  _drawn = svg.show(#Point{x: 1, y: 2})
 }
 `, map[string]string{
 		"shapes": identityShapes,
@@ -223,7 +223,7 @@ func TestInterfaceIdentity_OneDeclarationStillSatisfiesItsOwnBound(t *testing.T)
 import svg
 
 fn main() {
-  _drawn = svg.draw(Point{x: 1, y: 2})
+  _drawn = svg.draw(#Point{x: 1, y: 2})
 }
 `, map[string]string{
 		"shapes": identityShapes,

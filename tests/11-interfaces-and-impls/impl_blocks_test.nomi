@@ -14,7 +14,7 @@ struct Dog {
 }
 
 fn rename(d: Dog, new_name: String) -> Dog {
-    Dog{name: new_name, breed: d.breed}
+    #Dog{name: new_name, breed: d.breed}
 }
 
 fn describe(d: Dog) -> String {
@@ -107,8 +107,8 @@ impl Literal for Sql {
 }
 
 test "impl blocks and file functions work on structs" {
-    rex = Dog{name: "Rex", breed: "lab"}
-    whiskers = Cat{name: "Whiskers"}
+    rex = #Dog{name: "Rex", breed: "lab"}
+    whiskers = #Cat{name: "Whiskers"}
     fido = rename(rex, "Fido")
 
     assert Speech.speak(rex) == "Rex says woof"
@@ -126,7 +126,7 @@ test "impl blocks and file functions work on enums" {
 }
 
 test "impl blocks on generic types carry enclosing type parameters" {
-    boxed = Wrapped{value: Point{x: 7}}
+    boxed = #Wrapped{value: #Point{x: 7}}
     unboxed = get(boxed)
 
     assert Describe.describe(boxed) == "Wrapped(Point(7))"
@@ -135,9 +135,9 @@ test "impl blocks on generic types carry enclosing type parameters" {
 }
 
 test "derive declarations coexist with impl blocks and file functions" {
-    rex = Dog{name: "Rex", breed: "lab"}
-    rex_again = Dog{name: "Rex", breed: "lab"}
-    fido = Dog{name: "Fido", breed: "lab"}
+    rex = #Dog{name: "Rex", breed: "lab"}
+    rex_again = #Dog{name: "Rex", breed: "lab"}
+    fido = #Dog{name: "Fido", breed: "lab"}
 
     assert Equatable.equal?(rex, rex_again)
     refute Equatable.equal?(rex, fido)
@@ -152,7 +152,7 @@ test "Literal impl blocks back typed literals" {
 }
 
 test "functions in type bodies are rejected" {
-    diagnostics = compiler.check_project(Project{
+    diagnostics = compiler.check_project(#Project{
         entry_point: "main",
         files: %{
             "main" => """
@@ -186,7 +186,7 @@ test "functions in type bodies are rejected" {
 }
 
 test "old inherent impl block syntax is rejected" {
-    diagnostics = compiler.check_project(Project{
+    diagnostics = compiler.check_project(#Project{
         entry_point: "main",
         files: %{
             "main" => """

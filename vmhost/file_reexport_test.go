@@ -10,7 +10,7 @@ import (
 )
 
 const reexportLeaf = `pub fn make_box(n: Int) -> Box {
-    Box{value: n}
+    #Box{value: n}
 }
 
 pub fn open_box(b: Box) -> Int {
@@ -55,7 +55,7 @@ fn main() {
     b = make_box(7)
     io.inspect(open(b))
     io.inspect(b.value)
-    io.inspect(open(Box{value: 8}))
+    io.inspect(open(#Box{value: 8}))
 }
 `,
 	})

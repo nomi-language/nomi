@@ -18,7 +18,7 @@ import {
 /// omitted spelling and the `Some` spelling must both work and must disagree
 /// about the answer — one project, two manifests, two diagnostic counts.
 fn main() {
-    private_import = compiler.check_project(Project{
+    private_import = compiler.check_project(#Project{
         entry_point: "main",
         files: %{
             "main" => """
@@ -44,7 +44,7 @@ fn main() {
         })}"
     )
 
-    entry_points_ok = compiler.check_project(Project{
+    entry_points_ok = compiler.check_project(#Project{
         entry_point: "main",
         files: %{
             "main" => """
@@ -65,7 +65,7 @@ fn main() {
 
     io.print("no manifest is clean: ${Iter.count(entry_points_ok) == 0}")
 
-    entry_points_wrong = compiler.check_project(Project{
+    entry_points_wrong = compiler.check_project(#Project{
         entry_point: "main",
         manifest: Some(
             Toml"""

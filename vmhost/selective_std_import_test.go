@@ -47,7 +47,7 @@ w[1]
 s
 Ok(Unit)
 Ok("saved")
-Json.ShapeError{path: [], expected: "Int", got: "null"}
+#Json.ShapeError{path: [], expected: "Int", got: "null"}
 True
 False
 `
@@ -91,7 +91,7 @@ fn main() {
 3
 ab!
 [Ok("x"), Ok("y")]
-[Err(NotFound{path: "/nonexistent/q"})]
+[Err(#NotFound{path: "/nonexistent/q"})]
 True
 "Int"
 4

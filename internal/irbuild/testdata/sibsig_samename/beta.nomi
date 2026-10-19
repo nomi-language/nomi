@@ -5,5 +5,5 @@ pub struct Point {
 }
 
 pub fn at(lat: Int, lon: Int) -> Point {
-    Point{lat, lon}
+    #Point{lat, lon}
 }

@@ -179,8 +179,8 @@ pub struct Point {
 derive Equatable for Point
 
 fn main() {
-  p1 = Point{x: 1, y: 2}
-  p2 = Point{x: 1, y: 2}
+  p1 = #Point{x: 1, y: 2}
+  p2 = #Point{x: 1, y: 2}
   result = Equatable.equal?(p1, p2)
   result
 }
@@ -226,11 +226,11 @@ func TestFindReferences_SelectiveImportFollowsResolved(t *testing.T) {
 	mainFile := filepath.Join(dir, "main.nomi")
 
 	os.WriteFile(modelsFile, []byte("struct User { name: String }"), 0644)
-	os.WriteFile(mainFile, []byte("import models.{User}\nfn main() { User{name: \"Alice\"} }"), 0644)
+	os.WriteFile(mainFile, []byte("import models.{User}\nfn main() { #User{name: \"Alice\"} }"), 0644)
 
 	dm := analysis.NewDocumentManager()
 	mainURI := "file://" + mainFile
-	doc := dm.Open(mainURI, "import models.{User}\nfn main() { User{name: \"Alice\"} }")
+	doc := dm.Open(mainURI, "import models.{User}\nfn main() { #User{name: \"Alice\"} }")
 
 	// Find User on the import line — should have Resolved pointing to real symbol
 	sym := doc.Analysis.SymbolAt(analysis.Pos{Line: 1, Col: 17})

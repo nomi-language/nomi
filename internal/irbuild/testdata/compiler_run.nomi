@@ -87,7 +87,7 @@ fn main() {
     // with no hand-written impl needs the synthesis passes, not just evaluation.
     io.print(
         "derive = " + out(
-            "import std/io\n\nstruct P {\n  x: Int\n}\n\nfn main() {\n  io.print(Debug.inspect(P{x: 1}))\n}\n"
+            "import std/io\n\nstruct P {\n  x: Int\n}\n\nfn main() {\n  io.print(Debug.inspect(#P{x: 1}))\n}\n"
         )
     )
 

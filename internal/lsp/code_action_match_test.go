@@ -9,7 +9,7 @@ const matchDecls = "enum Shape {\n    Circle Float\n    Rect {w: Float, h: Float
 func TestPatternMatch_OnBinding(t *testing.T) {
 	src := fnMainAfter(matchDecls, "sh‸ape = make()\nio.inspect(shape)\n")
 	got := checkRefactor(t, src, "Pattern match on 'shape'", rewrite)
-	want := fnMainAfter(matchDecls, "shape = make()\n\ncase shape {\n    .Circle(value) -> todo\n    .Rect{w, h} -> todo\n    .Empty -> todo\n}\n\nio.inspect(shape)\n")
+	want := fnMainAfter(matchDecls, "shape = make()\n\ncase shape {\n    .Circle(value) -> todo\n    #.Rect{w, h} -> todo\n    .Empty -> todo\n}\n\nio.inspect(shape)\n")
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}

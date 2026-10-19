@@ -15,8 +15,8 @@ func TestDebugHostHandle_RendersThroughTheTypesImpl(t *testing.T) {
 	}
 	want := "dbg line 14: re = Regex`\\d+`\n" +
 		"Regex`\\d+`\n" +
-		"Holder{name: \"digits\", re: Regex`\\d+`}\n" +
-		"dbg line 17: (Holder{name: \"digits\", re}) = Holder{name: \"digits\", re: Regex`\\d+`}\n" +
+		"#Holder{name: \"digits\", re: Regex`\\d+`}\n" +
+		"dbg line 17: (#Holder{name: \"digits\", re}) = #Holder{name: \"digits\", re: Regex`\\d+`}\n" +
 		"Some(Regex`\\d+`)\n" +
 		"[Regex`\\d+`]\n" +
 		"#(Regex`\\d+`, 1)\n" +

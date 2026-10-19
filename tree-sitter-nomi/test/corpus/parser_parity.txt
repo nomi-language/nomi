@@ -58,7 +58,7 @@ A pattern assertion binds an identifier, a wildcard or a struct pattern
 test "t" {
     assert n = compute()
     assert Err(_) = parse("x")
-    assert Point{x, y} = Point{x: 3, y: 4}
+    assert #Point{x, y} = #Point{x: 3, y: 4}
 }
 
 --------------------------------------------------------------------------------
@@ -175,7 +175,7 @@ A struct pattern names the whole value with as
 
 fn f(s: Shape) -> Int {
     case s {
-        .Rect{w, h} as r when w == h -> 1
+        #.Rect{w, h} as r when w == h -> 1
         other -> 2
     }
 }
@@ -253,7 +253,7 @@ A renaming struct destructure at a statement start
 ================================================================================
 
 fn f(p: Point) {
-    {x: a, y: b} = p
+    #{x: a, y: b} = p
 }
 
 --------------------------------------------------------------------------------
@@ -498,7 +498,7 @@ A headless brace is classified by its contents
 ================================================================================
 
 fn f() {
-    a = {x: 1}
+    a = #{x: 1}
     m = %{"k" => 1}
     g = fn -> {
         t: Map<String, Int> = Map.empty()
@@ -521,7 +521,7 @@ fn f() {
             (integer))))
       (binding
         (identifier)
-        (map_literal
+        (map_construction
           (map_entry
             (string
               (string_content))

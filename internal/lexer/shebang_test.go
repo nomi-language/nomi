@@ -47,7 +47,7 @@ func TestShebang(t *testing.T) {
 		"#!nomi":                              "#!nomi",
 		"// #!/usr/bin/env nomi\n":            "",
 		" #!/usr/bin/env nomi\n":              "",
-		"#[1, 2]\n":                           "",
+		"#(1, 2)\n":                           "",
 	}
 	for src, want := range cases {
 		if got := Shebang(src); got != want {

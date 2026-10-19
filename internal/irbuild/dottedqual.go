@@ -31,7 +31,7 @@ import (
 //	                         `Probe.Reading` and never `Probe`)
 //
 // The other dotted spellings go through their own arms: the struct-shaped
-// variant literal `Probe.Reading.Blip{at: 9}` (structLit has a
+// variant literal `#Probe.Reading.Blip{at: 9}` (structLit has a
 // *ast.QualifiedType arm), every PATTERN spelling including
 // `Some(Probe.Reading.Spike(n))` nested inside a prelude variant, the
 // dot-shorthand `.Spike(5)` under an annotation, and `==` on two dotted values.

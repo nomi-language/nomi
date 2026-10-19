@@ -105,7 +105,7 @@ const (
 	// unboundedly many Go types. See collections.go.
 	tagList
 	tagTuple
-	// tagAnonStruct is `{x: Int, y: String}` — a RECORD, structural like the
+	// tagAnonStruct is `#{x: Int, y: String}` — a RECORD, structural like the
 	// tuple beside it and canonicalized by field name rather than by position.
 	// Its identity is the interned *compKind, which additionally carries the
 	// field NAMES: a tuple's components are addressed by index and a record's
@@ -133,14 +133,14 @@ const (
 	// exists for the same reason: the checker solves the type from context and
 	// coerce discharges it at the one place that context is known.
 	tagEmptyMap
-	// tagEmptySet is the untyped `#{}` — the FOURTH untyped literal, alongside
+	// tagEmptySet is the untyped `%[]` — the FOURTH untyped literal, alongside
 	// tagEmptyList, tagBareNone and tagEmptyMap, and it exists for exactly
 	// their reason: a set literal with no elements has no element type, the
 	// checker solves it from context, and coerce discharges it at the one place
 	// that context is known.
 	//
 	// It is NOT `Set<Unit>`: `Set<Int>` is a NAMED kind (a generic std struct
-	// instance, tagNamed), so an untyped `#{}` cannot be an instance of it with
+	// instance, tagNamed), so an untyped `%[]` cannot be an instance of it with
 	// a placeholder argument the way `[]` cannot be a `List<Unit>`. See
 	// stdgenstruct.go and sets.go.
 	tagEmptySet
@@ -201,7 +201,7 @@ var (
 	// Go type is the only one an entry-less map can be given, and it is never
 	// wrong because there is no entry to observe. See maps.go.
 	kindEmptyMap = kind{tag: tagEmptyMap}
-	// kindEmptySet is `#{}` before its element type is known — the sentinel
+	// kindEmptySet is `%[]` before its element type is known — the sentinel
 	// kindEmptyMap is one level up. See sets.go.
 	kindEmptySet = kind{tag: tagEmptySet}
 	// kindEmptyVector is `#[]` before its element type is known. See vectors.go.

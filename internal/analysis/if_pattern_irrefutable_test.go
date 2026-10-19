@@ -62,7 +62,7 @@ func TestIfPattern_IrrefutableIsRejected(t *testing.T) {
     0
 }`, "13:8", "Meters", ""},
 		"a struct": {`fn f(p: Pair) -> Int {
-    if Pair{a, b} = p { return a + b }
+    if #Pair{a, b} = p { return a + b }
     0
 }`, "13:8", "Pair", ""},
 		"a single-variant enum": {`fn f(o: Only) -> Int {

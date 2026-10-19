@@ -26,7 +26,7 @@ func TestStdCrossModuleGeneric_NonGenericBodyCallsAnotherModulesGeneric(t *testi
 		"    io.print(Regex.inspect(re))\n"+
 		"    _ = dbg re\n"+
 		"    io.inspect([re])\n"+
-		"    io.inspect(Rule{name: \"n\", re: re})\n"+
+		"    io.inspect(#Rule{name: \"n\", re: re})\n"+
 		"    io.inspect(Some(re))\n"+
 		"    tick = Regex.compile(\"a`b\") |> Result.with_default(re)\n"+
 		"    io.inspect(tick)\n"+
@@ -39,7 +39,7 @@ func TestStdCrossModuleGeneric_NonGenericBodyCallsAnotherModulesGeneric(t *testi
 		"Regex`\\d+`\n" +
 		"dbg line 14: re = Regex`\\d+`\n" +
 		"[Regex`\\d+`]\n" +
-		"Rule{name: \"n\", re: Regex`\\d+`}\n" +
+		"#Rule{name: \"n\", re: Regex`\\d+`}\n" +
 		"Some(Regex`\\d+`)\n" +
 		"Regex\"a`b\"\n" +
 		"Some(\"world\")\n" +

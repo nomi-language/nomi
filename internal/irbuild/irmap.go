@@ -175,7 +175,7 @@ func (bl *irScalarBuilder) mapMake(t *ast.MapLit) (ir.Temp, kind, bool, bool) {
 func (bl *irScalarBuilder) mapMakeOf(t *ast.MapLit, wants []kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if t.TypeName != nil {
-		// `Json.Obj%{"k" => v}` is the variant call over the anonymous map.
+		// `%Json.Obj{"k" => v}` is the variant call over the anonymous map.
 		anon := *t
 		anon.TypeName = nil
 		return bl.attachedVariant(t, t.TypeName, &anon)
@@ -535,7 +535,7 @@ func (bl *irScalarBuilder) mapMapValuesPlan(t *ast.Call, args irQualArgs, method
 
 // emptyCollection recognizes `Set.new()` and `Vector.empty()`, the empty
 // constructors std declares for Set and Vector, as their empty literals:
-// `#{}` and `#[]`. The literal takes its element type from the context, as
+// `%[]` and `#[]`. The literal takes its element type from the context, as
 // `Map.empty()` does; explicit type arguments take the call's checked result.
 func (bl *irScalarBuilder) emptyCollection(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }

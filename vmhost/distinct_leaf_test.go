@@ -44,7 +44,7 @@ W(1.5d)
 [1.5d, 2.5d]
 W(1.5d)
 2.5d
-S{w: W(1.5d)}
+#S{w: W(1.5d)}
 False True
 Some(2)
 True False
@@ -63,7 +63,7 @@ W(1)
 [1, 2]
 W(1)
 2
-S{w: W(1)}
+#S{w: W(1)}
 False True
 Some(2)
 True False
@@ -81,7 +81,7 @@ W(<<97>>)
 [<<97>>, <<98, 99>>]
 W(<<97>>)
 <<98, 99>>
-S{w: W(<<97>>)}
+#S{w: W(<<97>>)}
 False True
 Some(2)
 True False
@@ -92,7 +92,7 @@ Bytes(1)
 			name: "Regex", inner: "Regex", imports: "import std/regex.Regex\n", v1: "Regex`a+`", v2: "Regex`b`",
 			derives: []string{"Display"},
 			want: "Regex`a+`\nRegex`b`\nRegex`a+`\nW(Regex`a+`)\n[W(Regex`a+`), W(Regex`b`)]\n[Regex`a+`, Regex`b`]\n" +
-				"W(Regex`a+`)\nRegex`b`\nS{w: W(Regex`a+`)}\na+\n",
+				"W(Regex`a+`)\nRegex`b`\n#S{w: W(Regex`a+`)}\na+\n",
 		},
 		{
 			name: "Unit", inner: "Unit", v1: "Unit", v2: "Unit",
@@ -104,7 +104,7 @@ W(Unit)
 [Unit, Unit]
 W(Unit)
 Unit
-S{w: W(Unit)}
+#S{w: W(Unit)}
 `,
 		},
 		{
@@ -126,7 +126,7 @@ W(Money(1.5d))
 [Money(1.5d), Money(2.5d)]
 W(Money(1.5d))
 Money(2.5d)
-S{w: W(Money(1.5d))}
+#S{w: W(Money(1.5d))}
 False True
 Some(2)
 True False
@@ -151,27 +151,27 @@ W(Payload(<<97>>))
 [Payload(<<97>>), Payload(<<98>>)]
 W(Payload(<<97>>))
 Payload(<<98>>)
-S{w: W(Payload(<<97>>))}
+#S{w: W(Payload(<<97>>))}
 False True
 Some(2)
 True False
 `,
 		},
 		{
-			name: "an empty struct", inner: "Empty", v1: "Empty{}", v2: "Empty{}",
+			name: "an empty struct", inner: "Empty", v1: "#Empty{}", v2: "#Empty{}",
 			decls: `
 struct Empty {
 }
 `,
-			want: `Empty{}
-Empty{}
-Empty{}
-W(Empty{})
-[W(Empty{}), W(Empty{})]
-[Empty{}, Empty{}]
-W(Empty{})
-Empty{}
-S{w: W(Empty{})}
+			want: `#Empty{}
+#Empty{}
+#Empty{}
+W(#Empty{})
+[W(#Empty{}), W(#Empty{})]
+[#Empty{}, #Empty{}]
+W(#Empty{})
+#Empty{}
+#S{w: W(#Empty{})}
 `,
 		},
 	}
@@ -217,7 +217,7 @@ fn main() {
             Holder.Other -> ` + c.v1 + `
         }
     )
-    io.inspect(S{w: a})
+    io.inspect(#S{w: a})
 `)
 			has := func(d string) bool {
 				for _, x := range c.derives {
@@ -232,7 +232,7 @@ fn main() {
 			}
 			if has("Hashable") {
 				src.WriteString("    io.inspect(Map.get(%{a => 1, b => 2}, b))\n")
-				src.WriteString("    io.print(\"${Set.contains?(#{a}, a)} ${Set.contains?(#{a}, b)}\")\n")
+				src.WriteString("    io.print(\"${Set.contains?(%[a], a)} ${Set.contains?(%[a], b)}\")\n")
 			}
 			if has("Comparable") {
 				src.WriteString("    io.print(\"${a < b} ${b < a}\")\n")

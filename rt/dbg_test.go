@@ -64,8 +64,8 @@ func TestDbg_ThreeShapes(t *testing.T) {
 		},
 		{
 			name: "multi-line operand",
-			expr: "Rev{\n  zeta: 1,\n}",
-			want: "dbg line 7:\n  Rev{\n    zeta: 1,\n  }\n  = 42\n",
+			expr: "#Rev{\n  zeta: 1,\n}",
+			want: "dbg line 7:\n  #Rev{\n    zeta: 1,\n  }\n  = 42\n",
 		},
 		{
 			// A blank source line, such as the one between two case arms, is

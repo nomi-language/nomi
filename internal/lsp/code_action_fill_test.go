@@ -182,16 +182,16 @@ func TestFillFields_OneLine(t *testing.T) {
 	body := func(lit string) string {
 		return fillPointDecls + "fn main() {\n    p = " + lit + "\n    _sum = p.x + p.y + p.z\n}\n"
 	}
-	got := checkFill(t, NewServer(), fillURI, body("Point{x: 1, y: 2}"), "Add missing field 'z'")
-	if want := body("Point{x: 1, y: 2, z: todo}"); got != want {
+	got := checkFill(t, NewServer(), fillURI, body("#Point{x: 1, y: 2}"), "Add missing field 'z'")
+	if want := body("#Point{x: 1, y: 2, z: todo}"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
-	got = checkFill(t, NewServer(), fillURI, body("Point{y: 2}"), "Add missing fields")
-	if want := body("Point{y: 2, x: todo, z: todo}"); got != want {
+	got = checkFill(t, NewServer(), fillURI, body("#Point{y: 2}"), "Add missing fields")
+	if want := body("#Point{y: 2, x: todo, z: todo}"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
-	got = checkFill(t, NewServer(), fillURI, body("Point{}"), "Add missing fields")
-	if want := body("Point{x: todo, y: todo, z: todo}"); got != want {
+	got = checkFill(t, NewServer(), fillURI, body("#Point{}"), "Add missing fields")
+	if want := body("#Point{x: todo, y: todo, z: todo}"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
@@ -200,15 +200,15 @@ func TestFillFields_MultiLine(t *testing.T) {
 	body := func(lit string) string {
 		return fillPointDecls + "fn main() {\n    p = " + lit + "\n\n    _sum = p.x + p.y + p.z\n}\n"
 	}
-	got := checkFill(t, NewServer(), fillURI, body("Point{\n        x: 1,\n        label: \"a\",\n    }"), "Add missing fields")
-	if want := body("Point{\n        x: 1,\n        label: \"a\",\n        y: todo,\n        z: todo,\n    }"); got != want {
+	got := checkFill(t, NewServer(), fillURI, body("#Point{\n        x: 1,\n        label: \"a\",\n    }"), "Add missing fields")
+	if want := body("#Point{\n        x: 1,\n        label: \"a\",\n        y: todo,\n        z: todo,\n    }"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
 
 func TestFillFields_WideLiteralBreaksAsFmtDoes(t *testing.T) {
 	decls := "struct Request {\n    method_name: String\n    destination_address: String\n    request_body_text: String\n}\n\n"
-	src := decls + "fn main() {\n    r = Request{method_name: \"GET\", destination_address: \"https://example.com/a/b/c\"}\n    _m = r.method_name\n}\n"
+	src := decls + "fn main() {\n    r = #Request{method_name: \"GET\", destination_address: \"https://example.com/a/b/c\"}\n    _m = r.method_name\n}\n"
 	got := checkFill(t, NewServer(), fillURI, src, "Add missing field 'request_body_text'")
 	if !strings.Contains(got, "        request_body_text: todo,\n    }") {
 		t.Fatalf("the literal did not break:\n%s", got)
@@ -217,15 +217,15 @@ func TestFillFields_WideLiteralBreaksAsFmtDoes(t *testing.T) {
 
 func TestFillFields_VariantLiteral(t *testing.T) {
 	decls := "enum Shape {\n    Rect {width: Int, height: Int}\n    Dot\n}\n\n"
-	src := decls + "fn make() -> Shape {\n    .Rect{width: 1}\n}\n"
+	src := decls + "fn make() -> Shape {\n    #.Rect{width: 1}\n}\n"
 	got := checkFill(t, NewServer(), fillURI, src, "Add missing field 'height'")
-	if want := decls + "fn make() -> Shape {\n    .Rect{width: 1, height: todo}\n}\n"; got != want {
+	if want := decls + "fn make() -> Shape {\n    #.Rect{width: 1, height: todo}\n}\n"; got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
 
 func TestFillFields_NotOfferedWhenComplete(t *testing.T) {
-	src := fillPointDecls + "fn main() {\n    p = Point{x: 1, y: 2, z: 3}\n    _sum = p.x + p.y + p.z\n}\n"
+	src := fillPointDecls + "fn main() {\n    p = #Point{x: 1, y: 2, z: 3}\n    _sum = p.x + p.y + p.z\n}\n"
 	if got := fillActions(t, NewServer(), fillURI, src); len(got) != 0 {
 		t.Fatalf("offered %d fixes for a complete literal", len(got))
 	}
@@ -237,12 +237,12 @@ func TestFillArms_Missing(t *testing.T) {
 	body := func(arms string) string {
 		return fillColorDecls + "fn f(c: Color) -> Int {\n    case c {\n" + arms + "    }\n}\n"
 	}
-	got := checkFill(t, NewServer(), fillURI, body("        .Red -> 1\n        .Green -> 2\n        .Rgb(n) -> n\n"), "Add missing arm .Named{name,")
-	if want := body("        .Red -> 1\n        .Green -> 2\n        .Rgb(n) -> n\n        .Named{name, code} -> todo\n"); got != want {
+	got := checkFill(t, NewServer(), fillURI, body("        .Red -> 1\n        .Green -> 2\n        .Rgb(n) -> n\n"), "Add missing arm #.Named{name,")
+	if want := body("        .Red -> 1\n        .Green -> 2\n        .Rgb(n) -> n\n        #.Named{name, code} -> todo\n"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 	got = checkFill(t, NewServer(), fillURI, body("        .Green -> 2\n"), "Add missing arms")
-	if want := body("        .Green -> 2\n        .Red -> todo\n        .Rgb(value) -> todo\n        .Named{name, code} -> todo\n"); got != want {
+	if want := body("        .Green -> 2\n        .Red -> todo\n        .Rgb(value) -> todo\n        #.Named{name, code} -> todo\n"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
@@ -258,7 +258,7 @@ func TestFillArms_Nested(t *testing.T) {
 
 func TestFillArms_NotOfferedWhenExhaustive(t *testing.T) {
 	for name, arms := range map[string]string{
-		"every variant": "        .Red -> 1\n        .Green -> 2\n        .Rgb(n) -> n\n        .Named{code, ..} -> code\n",
+		"every variant": "        .Red -> 1\n        .Green -> 2\n        .Rgb(n) -> n\n        #.Named{code, ..} -> code\n",
 		"catch-all":     "        .Red -> 1\n        _ -> 0\n",
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -283,8 +283,8 @@ func TestFill_UnformattedDocumentKeepsItsLayout(t *testing.T) {
 		},
 		{
 			"multi-line literal without a trailing comma",
-			decls + "fn main() {\n    p = Point{\n        x: 1\n    }\n    _s = p.x\n}\n",
-			decls + "fn main() {\n    p = Point{\n        x: 1,\n        y: todo,\n        z: todo,\n    }\n    _s = p.x\n}\n",
+			decls + "fn main() {\n    p = #Point{\n        x: 1\n    }\n    _s = p.x\n}\n",
+			decls + "fn main() {\n    p = #Point{\n        x: 1,\n        y: todo,\n        z: todo,\n    }\n    _s = p.x\n}\n",
 		},
 		{
 			"case",

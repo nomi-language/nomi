@@ -6,5 +6,5 @@ pub struct Money {
 }
 
 pub fn at(cents: Int, note: String) -> Money {
-    Money{cents, note}
+    #Money{cents, note}
 }

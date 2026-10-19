@@ -63,7 +63,7 @@ fn get(a: A) -> Int {
 }
 
 fn main() {
-    io.print("${get(A { b: Box { v: 2 }, e: Shape.Dot(3) })}")
+    io.print("${get(#A { b: #Box { v: 2 }, e: Shape.Dot(3) })}")
 }
 `)
 	if got != "5\n" {
@@ -130,7 +130,7 @@ impl Bag<Int> for Three {
 }
 
 fn main() {
-    io.print("${sum(Three { n: 20 })}")
+    io.print("${sum(#Three { n: 20 })}")
 }
 `)
 	if got != "23\n" {

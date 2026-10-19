@@ -45,16 +45,16 @@ import (
 //
 // The load-bearing lines, and what each one would catch:
 //
-//	1 / 8    Rev{zeta: 1, alpha: 2}  DECLARATION order. Sorted order is
-//	         `Rev{alpha: 2, zeta: 1}` and is what the values: row answers, so a
+//	1 / 8    #Rev{zeta: 1, alpha: 2}  DECLARATION order. Sorted order is
+//	         `#Rev{alpha: 2, zeta: 1}` and is what the values: row answers, so a
 //	         table wired to inspect.go's inspector fails here and only here.
 //	2 / 7 / 9  CUSTOM-DEBUG          a hand-written impl WINS through the table.
-//	         A structural renderer answers `Custom{zeta: 3, alpha: 4}`.
+//	         A structural renderer answers `#Custom{zeta: 3, alpha: 4}`.
 //	3 / 10   <opaque Meters>         Debug shows LESS. The structural walk
 //	         answers `Meters(7)`.
 //	5 / 12   "hi"                    QUOTED. `Display.to_string("hi")` is `hi`,
 //	         so this separates Debug's leaf from Display's at a scalar.
-//	values:  Rev{alpha: 2, zeta: 1}  SORTED, and blind to both impls above.
+//	values:  #Rev{alpha: 2, zeta: 1}  SORTED, and blind to both impls above.
 func TestDebugErased_IsPinnedAbsolutely(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
@@ -64,16 +64,16 @@ func TestDebugErased_IsPinnedAbsolutely(t *testing.T) {
 
 	want := "ok " + f + " :: the four renderings of one value survive erasure\n" +
 		// The BARE TYPE PARAMETER column.
-		"  1 param  Rev    = Rev{zeta: 1, alpha: 2}\n" +
+		"  1 param  Rev    = #Rev{zeta: 1, alpha: 2}\n" +
 		"  2 param  Custom = CUSTOM-DEBUG\n" +
 		"  3 param  Meters = <opaque Meters>\n" +
 		"  4 param  Int    = 42\n" +
 		"  5 param  String = \"hi\"\n" +
 		// The EXISTENTIAL column.
-		"  6 iface  Rev    = Rev{zeta: 1, alpha: 2}\n" +
+		"  6 iface  Rev    = #Rev{zeta: 1, alpha: 2}\n" +
 		"  7 iface  Custom = CUSTOM-DEBUG\n" +
 		// THE NEGATIVE CONTROL: the direct route, unchanged.
-		"  8 direct Rev    = Rev{zeta: 1, alpha: 2}\n" +
+		"  8 direct Rev    = #Rev{zeta: 1, alpha: 2}\n" +
 		"  9 direct Custom = CUSTOM-DEBUG\n" +
 		"  10 direct Meters = <opaque Meters>\n" +
 		"  11 direct Int    = 42\n" +
@@ -84,7 +84,7 @@ func TestDebugErased_IsPinnedAbsolutely(t *testing.T) {
 		"    assert no_rev(r)\n" +
 		"    values:\n" +
 		"      r\n" +
-		"        = Rev{alpha: 2, zeta: 1}\n" +
+		"        = #Rev{alpha: 2, zeta: 1}\n" +
 		"test result: FAILED. 1 passed, 1 failed\n"
 
 	if got := vmReference(path); got.stdout != want || got.exit != 1 {

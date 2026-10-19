@@ -10,16 +10,16 @@ import (
 // Without the checks below, these five programs would all pass `nomi check`
 // clean:
 //
-//	Point{x: "s", y: 1}   where `x: Int`
-//	Holder{p: 3}          where `p: Point`
-//	Box{bogus: 1}         unknown field, and a missing one
-//	Point{bogus: 1}       unknown field, and a missing one
+//	#Point{x: "s", y: 1}   where `x: Int`
+//	#Holder{p: 3}          where `p: Point`
+//	#Box{bogus: 1}         unknown field, and a missing one
+//	#Point{bogus: 1}       unknown field, and a missing one
 //	Box{}                 missing field
 //
 // The unknown NAME and the two wrong VALUES would be reported by nothing.
 //
 // This path goes through `checkStructLitAgainstStruct`, which the
-// constructor-call record form `Point({x: "s"})` already used and which
+// constructor-call record form `Point(#{x: "s"})` already used and which
 // already refused all five in that spelling.
 func TestCheck_StructLit_ValidatesFields(t *testing.T) {
 	const decls = `struct Point {
@@ -43,17 +43,17 @@ struct Weight {
 	}{
 		{
 			name: "a String in a field declared Int",
-			expr: `Point{x: "s", y: 1}`,
+			expr: `#Point{x: "s", y: 1}`,
 			want: []string{"field 'x' of Point: expected Int, got String"},
 		},
 		{
 			name: "an Int in a field declared as another struct",
-			expr: `Holder{p: 3}`,
+			expr: `#Holder{p: 3}`,
 			want: []string{"field 'p' of Holder: expected Point, got Int"},
 		},
 		{
 			name: "an unknown field name, reported as well as the field it displaced",
-			expr: `Box{bogus: 1}`,
+			expr: `#Box{bogus: 1}`,
 			want: []string{
 				"Box has no field 'bogus'",
 				"missing field 'v' of Box",
@@ -61,7 +61,7 @@ struct Weight {
 		},
 		{
 			name: "an unknown field name on a two-field struct",
-			expr: `Point{bogus: 1}`,
+			expr: `#Point{bogus: 1}`,
 			want: []string{
 				"Point has no field 'bogus'",
 				"missing field 'x' of Point",
@@ -70,7 +70,7 @@ struct Weight {
 		},
 		{
 			name: "no fields at all",
-			expr: `Box{}`,
+			expr: `#Box{}`,
 			want: []string{"missing field 'v' of Box"},
 		},
 		{
@@ -80,7 +80,7 @@ struct Weight {
 			// were each refused `expected Float, got Int`. The struct
 			// literal was the only position in the language that accepted it.
 			name: "an Int in a field declared Float, which every other position refuses",
-			expr: `Weight{kg: 1}`,
+			expr: `#Weight{kg: 1}`,
 			want: []string{"field 'kg' of Weight: expected Float, got Int"},
 		},
 	}
@@ -101,8 +101,8 @@ struct Weight {
 // interface-typed field. A bare `TypesEqual` would reject most of the rows
 // below, and every one of them is a shape the language accepts elsewhere.
 //
-// Each row was measured in BOTH spellings at the twin — `Cfg{f: v}` and
-// `Cfg({f: v})` — and the two agreed on every one, which is what established
+// Each row was measured in BOTH spellings at the twin — `#Cfg{f: v}` and
+// `Cfg(#{f: v})` — and the two agreed on every one, which is what established
 // that adopting the call form's rule costs no leniency.
 func TestCheck_StructLit_StaysLenientWhereTheLanguageIs(t *testing.T) {
 	cases := []struct {
@@ -111,23 +111,23 @@ func TestCheck_StructLit_StaysLenientWhereTheLanguageIs(t *testing.T) {
 	}{
 		{
 			name: "an untyped empty list at List<Int>",
-			src:  "struct Cfg {\n  v: List<Int>\n}\nfn main() {\n  _a = Cfg{v: []}\n}\n",
+			src:  "struct Cfg {\n  v: List<Int>\n}\nfn main() {\n  _a = #Cfg{v: []}\n}\n",
 		},
 		{
 			name: "a lambda at a function-typed field, params inferred from the field",
-			src:  "struct Cfg {\n  f: (Int) -> Int\n}\nfn main() {\n  _a = Cfg{f: fn x -> x + 1}\n}\n",
+			src:  "struct Cfg {\n  f: (Int) -> Int\n}\nfn main() {\n  _a = #Cfg{f: fn x -> x + 1}\n}\n",
 		},
 		{
 			name: "an anonymous-struct field",
-			src:  "struct Cfg {\n  v: { a: Int }\n}\nfn main() {\n  _a = Cfg{v: {a: 1}}\n}\n",
+			src:  "struct Cfg {\n  v: #{ a: Int }\n}\nfn main() {\n  _a = #Cfg{v: #{a: 1}}\n}\n",
 		},
 		{
 			name: "a bare type-parameter field, which is what inference binds",
-			src:  "struct Box<T> {\n  v: T\n}\nfn main() {\n  _a = Box{v: 1}\n}\n",
+			src:  "struct Box<T> {\n  v: T\n}\nfn main() {\n  _a = #Box{v: 1}\n}\n",
 		},
 		{
 			name: "a defaulted field omitted",
-			src:  "struct Cfg {\n  port: Int = 80\n}\nfn main() {\n  _a = Cfg{}\n}\n",
+			src:  "struct Cfg {\n  port: Int = 80\n}\nfn main() {\n  _a = #Cfg{}\n}\n",
 		},
 		{
 			name: "a concrete implementer at an interface-typed field",
@@ -144,7 +144,7 @@ struct Cfg {
   c: Clock
 }
 fn main() {
-  _a = Cfg{c: RealClock{t: 1}}
+  _a = #Cfg{c: #RealClock{t: 1}}
 }
 `,
 		},
@@ -174,7 +174,7 @@ struct Cfg {
   c: Clock
 }
 fn main() {
-  _a = Cfg{c: NoClock{t: 1}}
+  _a = #Cfg{c: #NoClock{t: 1}}
 }
 `
 	_, errs := checkSource(src)
@@ -198,26 +198,26 @@ fn main() {
 // field" and "missing required field" have no meaning there.
 //
 // The one place an anonymous struct meets a nominal shape is the
-// constructor-call record form `Cfg({...})`, and that position was already
+// constructor-call record form `Cfg(#{...})`, and that position was already
 // checked by the function this change made shared. It is the SOURCE of the
 // rule, not a new target of it.
 func TestCheck_AnonStruct_IsStructuralAndUnvalidated(t *testing.T) {
 	t.Run("an anon struct literal has no field-name rule to break", func(t *testing.T) {
-		_, errs := checkSource("fn main() {\n  r = {a: 1, b: \"two\"}\n  _x = r.a\n  _y = r.b\n}\n")
+		_, errs := checkSource("fn main() {\n  r = #{a: 1, b: \"two\"}\n  _x = r.a\n  _y = r.b\n}\n")
 		expectNoErrors(t, errs)
 	})
 	t.Run("an anon struct type annotation admits the matching literal", func(t *testing.T) {
-		_, errs := checkSource("fn main() {\n  _r: { a: Int } = {a: 1}\n}\n")
+		_, errs := checkSource("fn main() {\n  _r: #{ a: Int } = #{a: 1}\n}\n")
 		expectNoErrors(t, errs)
 	})
 	t.Run("two anon structs with different fields stay distinct types", func(t *testing.T) {
-		_, errs := checkSource("fn take(_r: { a: Int }) {}\nfn main() {\n  take({b: 1})\n}\n")
+		_, errs := checkSource("fn take(_r: #{ a: Int }) {}\nfn main() {\n  take(#{b: 1})\n}\n")
 		if len(withoutUnusedBindingErrors(errs)) == 0 {
 			t.Fatalf("expected the structural mismatch to be reported, got none")
 		}
 	})
 	t.Run("the constructor-call record form still reports, unchanged", func(t *testing.T) {
-		_, errs := checkSource("struct Cfg {\n  port: Int\n}\nfn main() {\n  _a = Cfg({bogus: 1})\n}\n")
+		_, errs := checkSource("struct Cfg {\n  port: Int\n}\nfn main() {\n  _a = Cfg(#{bogus: 1})\n}\n")
 		expectError(t, errs, "Cfg has no field 'bogus'")
 		expectError(t, errs, "missing field 'port' of Cfg")
 	})
@@ -234,11 +234,11 @@ func TestCheck_AnonStruct_IsStructuralAndUnvalidated(t *testing.T) {
 // are closed in the same words.
 func TestCheck_StructVariantLit_RequiresNonDefaultedFields(t *testing.T) {
 	t.Run("a required variant field omitted is reported", func(t *testing.T) {
-		_, errs := checkSource("enum Shape {\n  Wrap { inner: Int }\n}\nfn main() {\n  _s = Shape.Wrap{}\n}\n")
+		_, errs := checkSource("enum Shape {\n  Wrap { inner: Int }\n}\nfn main() {\n  _s = #Shape.Wrap{}\n}\n")
 		expectError(t, errs, "missing field 'inner' of Shape.Wrap")
 	})
 	t.Run("an unknown name does not excuse the field it displaced", func(t *testing.T) {
-		_, errs := checkSource("enum Shape {\n  Wrap { inner: Int }\n}\nfn main() {\n  _s = Shape.Wrap{bogus: 1}\n}\n")
+		_, errs := checkSource("enum Shape {\n  Wrap { inner: Int }\n}\nfn main() {\n  _s = #Shape.Wrap{bogus: 1}\n}\n")
 		expectError(t, errs, "no field 'bogus' on variant Wrap of enum Shape")
 		expectError(t, errs, "missing field 'inner' of Shape.Wrap")
 	})
@@ -252,11 +252,11 @@ func TestCheck_StructVariantLit_RequiresNonDefaultedFields(t *testing.T) {
 	// `tests/07-structs-and-enums/variant_field_defaults/`, the
 	// corpus file whose subject is exactly this.
 	t.Run("a defaulted variant field may be omitted", func(t *testing.T) {
-		_, errs := checkSource("enum Backoff {\n  Exponential { max_restarts: Int = 10, max_elapsed: Int = 900 }\n}\nfn main() {\n  _b = Backoff.Exponential{}\n}\n")
+		_, errs := checkSource("enum Backoff {\n  Exponential { max_restarts: Int = 10, max_elapsed: Int = 900 }\n}\nfn main() {\n  _b = #Backoff.Exponential{}\n}\n")
 		expectNoErrors(t, errs)
 	})
 	t.Run("a defaulted variant field may still be supplied", func(t *testing.T) {
-		_, errs := checkSource("enum Backoff {\n  Exponential { max_restarts: Int = 10, max_elapsed: Int = 900 }\n}\nfn main() {\n  _b = Backoff.Exponential{max_restarts: 3}\n}\n")
+		_, errs := checkSource("enum Backoff {\n  Exponential { max_restarts: Int = 10, max_elapsed: Int = 900 }\n}\nfn main() {\n  _b = #Backoff.Exponential{max_restarts: 3}\n}\n")
 		expectNoErrors(t, errs)
 	})
 }
@@ -273,7 +273,7 @@ func TestCheck_StructVariantLit_RequiresNonDefaultedFields(t *testing.T) {
 // nil `*StructType` panics.
 //
 // All three are ACCEPTED, with no diagnostic, at the twin and here alike.
-// That is not an endorsement — `E{v: 1}` naming an enum and `Meters{v: 1}`
+// That is not an endorsement — `#E{v: 1}` naming an enum and `#Meters{v: 1}`
 // naming a distinct type both look like holes of the same family as the one
 // the nominal-struct check closes. They are UNCHANGED, which is what this test
 // asserts, and
@@ -285,15 +285,15 @@ func TestCheck_StructLit_NonStructHeadIsUnchanged(t *testing.T) {
 	}{
 		{
 			name: "an interface name",
-			src:  "interface I {\n  fn f(x: self) -> Int\n}\nfn main() {\n  _a = I{v: 1}\n}\n",
+			src:  "interface I {\n  fn f(x: self) -> Int\n}\nfn main() {\n  _a = #I{v: 1}\n}\n",
 		},
 		{
 			name: "an enum name",
-			src:  "enum E {\n  A\n}\nfn main() {\n  _a = E{v: 1}\n}\n",
+			src:  "enum E {\n  A\n}\nfn main() {\n  _a = #E{v: 1}\n}\n",
 		},
 		{
 			name: "a distinct type name",
-			src:  "type Meters Int\nfn main() {\n  _a = Meters{v: 1}\n}\n",
+			src:  "type Meters Int\nfn main() {\n  _a = #Meters{v: 1}\n}\n",
 		},
 	}
 	for _, tc := range cases {

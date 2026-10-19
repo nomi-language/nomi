@@ -54,7 +54,7 @@ func TestCheckMainReturn_AcceptsUnitAndResultOfUnit(t *testing.T) {
 		"fn main() {\n    Unit\n}\n",
 		"fn main() -> Unit {\n    Unit\n}\n",
 		"fn main() -> Result<Unit, String> {\n    Ok(Unit)\n}\n",
-		"struct Missing {\n    path: String\n}\n\nfn main() -> Result<Unit, Missing> {\n    Err(Missing{path: \"app.toml\"})\n}\n",
+		"struct Missing {\n    path: String\n}\n\nfn main() -> Result<Unit, Missing> {\n    Err(#Missing{path: \"app.toml\"})\n}\n",
 	} {
 		_, errs := checkSourceWithStdlib(src)
 		if got := mainReturnErrors(errs); len(got) != 0 {

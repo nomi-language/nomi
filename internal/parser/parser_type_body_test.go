@@ -81,7 +81,7 @@ func TestParseTypeBody_TestItemsRejected(t *testing.T) {
   text: String
 
   test "renders" {
-    assert Label.render(Label{text: "ready"}) == "[ready]"
+    assert Label.render(#Label{text: "ready"}) == "[ready]"
   }
 }`
 	if err := parseError(t, src); !strings.Contains(err.Error(), "tests are declarations outside type bodies") {

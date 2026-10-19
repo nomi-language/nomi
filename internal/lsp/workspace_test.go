@@ -29,9 +29,9 @@ func generatedWorkspace(t testing.TB, projects, perProject int) (string, int) {
 		fmt.Fprintf(&b, "/// Item %d.\npub struct Item%d {\n    id: Int\n    name: String\n}\n\n", i, i)
 		fmt.Fprintf(&b, "/// Makes item %d.\npub fn make_%d(n: Int) -> Item%d {\n", i, i, i)
 		if chained {
-			fmt.Fprintf(&b, "    prev = mod%d.make_%d(n + 1)\n    Item%d{id: prev.id + n, name: \"item %d\"}\n}\n\n", i-1, i-1, i, i)
+			fmt.Fprintf(&b, "    prev = mod%d.make_%d(n + 1)\n    #Item%d{id: prev.id + n, name: \"item %d\"}\n}\n\n", i-1, i-1, i, i)
 		} else {
-			fmt.Fprintf(&b, "    Item%d{id: n, name: \"item %d\"}\n}\n\n", i, i)
+			fmt.Fprintf(&b, "    #Item%d{id: n, name: \"item %d\"}\n}\n\n", i, i)
 		}
 		fmt.Fprintf(&b, "pub fn total_%d(items: List<Item%d>) -> Int {\n    items |> Iter.map(fn it -> it.id) |> Iter.count()\n}\n\n", i, i)
 		fmt.Fprintf(&b, "fn label_%d(it: Item%d) -> String {\n    \"${it.name} #${it.id}\"\n}\n", i, i)

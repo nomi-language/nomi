@@ -115,7 +115,7 @@ func TestParse_StructVariantField_TrailingComment(t *testing.T) {
 }
 
 func TestParse_AnonStructTypeField_TrailingComment(t *testing.T) {
-	src := "fn f(p: {\n    x: Int, // x\n    y: Int // y\n}) -> Int {\n    1\n}\n"
+	src := "fn f(p: #{\n    x: Int, // x\n    y: Int // y\n}) -> Int {\n    1\n}\n"
 	fd := parseOne(t, src).(*ast.FuncDef)
 	anon, ok := fd.Params[0].TypeAnnotation.(*ast.AnonStructType)
 	if !ok {
@@ -158,7 +158,7 @@ func TestParse_TrailingComment_OtherItemPositions(t *testing.T) {
 		"import block": "import {\n    std/math // m\n    std/strings // s\n}\n",
 		"binding":      "fn main() {\n    x = 1 // x\n    y: Int = x + 1 // y\n}\n",
 		"case arm":     "fn f(x: Int) -> Int {\n    case x {\n        1 -> 2 // one\n        _ -> 3 // other\n    }\n}\n",
-		"group":        "group \"g\" {\n    clock Clock.Virtual // c\n    boot server.boot() // b\n    setup {name: \"x\"} // s\n\n    test \"a\", {name} {\n        assert name == \"x\" // a\n    } // end\n}\n",
+		"group":        "group \"g\" {\n    clock Clock.Virtual // c\n    boot server.boot() // b\n    setup #{name: \"x\"} // s\n\n    test \"a\", #{name} {\n        assert name == \"x\" // a\n    } // end\n}\n",
 	} {
 		if _, err := Parse(lexer.Lex(src)); err != nil {
 			t.Errorf("%s: parse failed: %v", name, err)

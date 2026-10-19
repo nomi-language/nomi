@@ -32,10 +32,10 @@ fn find(s: String) -> Maybe<Int> {
 group "an Err in setup" {
   setup {
     n = try parse("")
-    {n: n}
+    #{n: n}
   }
 
-  test "fails", {n} {
+  test "fails", #{n} {
     io.print("unreached ${n}")
     assert n > 0
   }
@@ -44,10 +44,10 @@ group "an Err in setup" {
 group "a None in setup" {
   setup {
     n = try find("")
-    {n: n}
+    #{n: n}
   }
 
-  test "fails", {n} {
+  test "fails", #{n} {
     io.print("unreached ${n}")
     assert n > 0
   }
@@ -56,10 +56,10 @@ group "a None in setup" {
 group "an Ok in setup" {
   setup {
     n = try parse("abc")
-    {n: n}
+    #{n: n}
   }
 
-  test "passes", {n} {
+  test "passes", #{n} {
     io.print("n ${n}")
     assert n == 3
   }

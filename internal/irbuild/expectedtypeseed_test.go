@@ -16,8 +16,8 @@ func TestExpectedTypeSeed_RunsOnTheVM(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	path := fixture("expected_type_seed.nomi")
-	const want = "Room{exits: %{North => Cave, East => Hall}}\n" +
-		"Index{words: %{}}\n" +
+	const want = "#Room{exits: %{North => Cave, East => Hall}}\n" +
+		"#Index{words: %{}}\n" +
 		"%{}\n" +
 		"%{North => Cave}\n" +
 		"%{North => Cave}\n" +

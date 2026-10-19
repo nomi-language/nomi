@@ -15,14 +15,14 @@ func TestRangeUserElements_BuildContainAndStep(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	const want = "" +
-		"Meters{n: 1}..=Meters{n: 7}\n" +
+		"#Meters{n: 1}..=#Meters{n: 7}\n" +
 		"True\n" +
 		"False\n" +
 		"False\n" +
-		"[Meters{n: 1}, Meters{n: 3}, Meters{n: 5}, Meters{n: 7}]\n" +
+		"[#Meters{n: 1}, #Meters{n: 3}, #Meters{n: 5}, #Meters{n: 7}]\n" +
 		// 8 has no further step (8 + 3 > 9), so it is the last element.
-		"[Meters{n: 5}, Meters{n: 8}]\n" +
-		"Some(Meters{n: 5})\n" +
+		"[#Meters{n: 5}, #Meters{n: 8}]\n" +
+		"Some(#Meters{n: 5})\n" +
 		"None\n" +
 		"[Low, Mid, High]\n" +
 		"False\n" +

@@ -20,9 +20,9 @@ package irbuild
 // only when that payload is a struct. That single rule covers three storage
 // shapes the builder keeps apart:
 //
-//	Shape.Rect{radius: 1.5, height: 3}   struct-shaped   one slot per field
+//	#Shape.Rect{radius: 1.5, height: 3}   struct-shaped   one slot per field
 //	Shape.Square{radius: 9.0}            embeds a struct ONE slot, the struct
-//	Shape.Wrap(Circle{radius: 4.0})      positional      ONE slot, the struct
+//	Shape.Wrap(#Circle{radius: 4.0})      positional      ONE slot, the struct
 //
 // and it answers for all three. The last is the one a reader would not predict:
 // a POSITIONAL payload that happens to be a struct is indistinguishable from an
@@ -38,10 +38,10 @@ package irbuild
 // enum_field_read_trap.nomi is the fixture that says so.
 //
 // A field read answers both for a `c: Shape` coerced from a bare Circle and
-// for the same value built as `Shape.Circle{...}`:
+// for the same value built as `#Shape.Circle{...}`:
 // `07-structs-and-enums/enums_test.nomi` has
-// `c = Drawable.Circle2{radius: 5.0}` / `assert c.radius == 5.0`, and
-// `s: Shape = Circle{radius: 7.0}` answers 7.0 through the tagged variant this
+// `c = #Drawable.Circle2{radius: 5.0}` / `assert c.radius == 5.0`, and
+// `s: Shape = #Circle{radius: 7.0}` answers 7.0 through the tagged variant this
 // builder eagerly coerces it into.
 
 // fieldOfKind is the declared field of a receiver kind, or nil.

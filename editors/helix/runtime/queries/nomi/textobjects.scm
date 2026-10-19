@@ -46,21 +46,21 @@
   ((_) @entry.inside . ","? @entry.around) @entry.around)
 
 ; A struct update's entries are its spread and its fields, so `]e` walks
-; `{..base, x: 9}` the same way it walks `Point{x: 1, y: 2}` above.
+; `#{..base, x: 9}` the same way it walks `#Point{x: 1, y: 2}` above.
 (struct_update
   ((_) @entry.inside . ","? @entry.around) @entry.around)
 
-(map_literal
-  ((map_entry) @entry.inside . ","? @entry.around) @entry.around)
-
-; A map update's entries are its spread and its key-value pairs.
-(map_update
+; A map's entries are its key-value pairs, and an update's its spread too.
+(map_construction
   ((_) @entry.inside . ","? @entry.around) @entry.around)
 
 (list
   ((_) @entry.inside . ","? @entry.around) @entry.around)
 
 (vector
+  ((_) @entry.inside . ","? @entry.around) @entry.around)
+
+(set
   ((_) @entry.inside . ","? @entry.around) @entry.around)
 
 (tuple_expression

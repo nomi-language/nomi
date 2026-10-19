@@ -52,11 +52,11 @@ fn main() {
     io.print(show(%{"k" => [True]}))
     io.print(show(#[1.5]))
     io.print(show([Meters(2)]))
-    io.print(show([Box{v: 3}]))
+    io.print(show([#Box{v: 3}]))
     xs: List<Display> = [[1], [2, 3]]
     io.print(xs |> Iter.map(Display.to_string) |> String.join(";"))
-    circle = Circle{r: 2}
-    it: Iter<Shape> = [circle, Circle{r: 1}]
+    circle = #Circle{r: 2}
+    it: Iter<Shape> = [circle, #Circle{r: 1}]
     io.print(Iter.map(it, Shape.area) |> Iter.to_list())
     nested: List<Iter<Shape>> = [[circle]]
     io.print(Iter.count(nested))
@@ -67,7 +67,7 @@ fn main() {
 		"%{k => [True]}\n" +
 		"#[1.5]\n" +
 		"[2 m]\n" +
-		"[Box{v: 3}]\n" +
+		"[#Box{v: 3}]\n" +
 		"[1];[2, 3]\n" +
 		"[6, 3]\n" +
 		"1\n"

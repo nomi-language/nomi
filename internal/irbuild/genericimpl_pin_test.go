@@ -76,7 +76,7 @@ func TestGenericInstanceNomiNamesCollideOnPurpose(t *testing.T) {
 	a, b := g.genericInstOrder[0], g.genericInstOrder[1]
 	if a.nomi != b.nomi {
 		t.Fatalf("two instances of one template render as %q and %q. generictype.go's header "+
-			"records `Box{item: Inner{value: 7}}` as Debug.inspect's answer "+
+			"records `#Box{item: #Inner{value: 7}}` as Debug.inspect's answer "+
 			"-- no type arguments -- so both must be the BARE name %q. If this "+
 			"is a deliberate change, qualifiedNomiName's dispatch identity has to move "+
 			"in the SAME commit",

@@ -20,13 +20,13 @@ struct Shown {
 }
 
 fn main() {
-    io.inspect(Hold{
+    io.inspect(#Hold{
         v: {
             io.print("in the block")
-            #{}
+            %[]
         },
     })
-    s = Shown{
+    s = #Shown{
         v: {
             io.print("in the other block")
             [1, "a"]
@@ -35,5 +35,5 @@ fn main() {
     io.print(s.v |> Iter.map(fn d -> Display.to_string(d)) |> String.join(","))
 }
 `
-	irRunSource(t, src, "in the block\nHold{v: #{}}\nin the other block\n1,a\n")
+	irRunSource(t, src, "in the block\n#Hold{v: %[]}\nin the other block\n1,a\n")
 }

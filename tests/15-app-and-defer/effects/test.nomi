@@ -8,13 +8,13 @@ import {
 }
 
 pub fn build(context: Context) -> EffectsApp {
-    EffectsApp{
+    #EffectsApp{
         context,
         deployment: "test",
         database_url: "postgres://localhost/myapp_test",
         max_connections: 2,
-        logger: TaggedLogger{tag: "test"},
-        clock: FakeClock{at: 0},
+        logger: #TaggedLogger{tag: "test"},
+        clock: #FakeClock{at: 0},
         console: StdConsole,
     }
 }

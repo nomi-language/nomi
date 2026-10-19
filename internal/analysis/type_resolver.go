@@ -71,7 +71,7 @@ func ResolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 //     the block's own (type_builder.go). Supplying them explicitly is allowed and
 //     already arity-checked there. Sites across std/, tests/ and the tour
 //     are this shape.
-//   - A struct LITERAL's type name and a pattern's head. `Box{inner: 1}` takes
+//   - A struct LITERAL's type name and a pattern's head. `#Box{inner: 1}` takes
 //     its argument from the field values, and there is no turbofish on a struct
 //     literal — `Box<Int>{…}` parses as a comparison — so there is no spelling
 //     that would satisfy a rule here. Many sites in the same trees are this shape.
@@ -291,7 +291,7 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 		for _, f := range n.Fields {
 			// Spec §4 again, and the TYPE half of the same gap the literal
 			// path had: a parameter or binding annotated
-			// `{ok?: Int, ok_PRED: Int}` reaches the IR builder without ever
+			// `#{ok?: Int, ok_PRED: Int}` reaches the IR builder without ever
 			// involving an anon struct LITERAL, so checking only the literal
 			// would leave the same collision reachable by a second route.
 			// Shares isSnakeCase with checker.requireSnakeCase rather than

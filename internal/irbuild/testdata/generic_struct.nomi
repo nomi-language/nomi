@@ -8,7 +8,7 @@ import std/io
 //  1. THE RENDERED NAME IS THE BARE DECLARATION NAME. Two instantiations of one
 //     template must BOTH render as `Box`. An instance def carrying `Box<Int>`
 //     as its Nomi name (which is what stdgenstruct.go's genStructNames chooses
-//     for the STD family) would render `Box<Int>{item: 1}` instead.
+//     for the STD family) would render `Box<Int>#{item: 1}` instead.
 //
 //     Read from a FAILING assertion's `values:` row, the surface where the
 //     name is observable. A passing assertion renders nothing, which is why
@@ -85,18 +85,18 @@ fn no_crate(_c: Crate<Inner>) -> Bool {
 }
 
 test "a second instantiation of one template renders as the same Nomi type" {
-    assert no_box_text(Box{item: "s"})
+    assert no_box_text(#Box{item: "s"})
 }
 
 test "and a nested instantiation renders as its own declaration" {
-    assert no_crate(Crate{
-        box: Box{item: Inner{value: 7}},
+    assert no_crate(#Crate{
+        box: #Box{item: #Inner{value: 7}},
     })
 }
 
 test "a nested instantiation resolves through an annotation" {
-    c = Crate{
-        box: Box{item: Inner{value: 41}},
+    c = #Crate{
+        box: #Box{item: #Inner{value: 41}},
     }
 
     io.print(Int.to_string(crate_value(c)))
@@ -104,20 +104,20 @@ test "a nested instantiation resolves through an annotation" {
 }
 
 test "the argument keeps its own dispatch through the instance" {
-    b = Box{item: Inner{value: 7}}
+    b = #Box{item: #Inner{value: 7}}
     io.print(Display.to_string(b.item))
     assert Display.to_string(b.item) == "inner:7"
 }
 
 test "type arguments come from field names and not from field order" {
-    p = Pair{second: "s", first: 7}
+    p = #Pair{second: "s", first: 7}
     assert no_pair(p)
 }
 
 test "a same-shaped monomorphic twin stays a different type" {
-    assert no_box(Box{item: 1})
+    assert no_box(#Box{item: 1})
 }
 
 test "and the twin says so too" {
-    assert no_twin(Twin{item: 1})
+    assert no_twin(#Twin{item: 1})
 }

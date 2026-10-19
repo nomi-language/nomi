@@ -351,7 +351,7 @@ impl Time {
         } else if nanosecond < 0 or nanosecond > 999_999_999 {
             Err(Error.InvalidValue("nanosecond out of range: " + Int.to_string(nanosecond)))
         } else {
-            Ok(Time{hour, minute, second, nanosecond})
+            Ok(#Time{hour, minute, second, nanosecond})
         }
     }
 
@@ -478,7 +478,7 @@ impl NaiveDateTime {
     //! ) == try NaiveDateTime"2026-05-04T14:30:00"
     //
     pub fn of(d: Date, t: Time) -> NaiveDateTime {
-        NaiveDateTime{
+        #NaiveDateTime{
             year: Date.year(d),
             month: Date.month(d),
             day: Date.day(d),
@@ -493,7 +493,7 @@ impl NaiveDateTime {
     //! assert NaiveDateTime.at_midnight(try Date"2026-05-04") == try NaiveDateTime"2026-05-04T00:00:00"
     //
     pub fn at_midnight(d: Date) -> NaiveDateTime {
-        NaiveDateTime{
+        #NaiveDateTime{
             year: Date.year(d),
             month: Date.month(d),
             day: Date.day(d),
@@ -946,7 +946,7 @@ impl Anchored for OffsetDateTime {
 impl Add<Duration, OffsetDateTime> for OffsetDateTime {
     /// Add an exact `Duration`.
     fn add(lhs: OffsetDateTime, rhs: Duration) -> OffsetDateTime {
-        OffsetDateTime{
+        #OffsetDateTime{
             instant_nanos: lhs.instant_nanos + Duration.as_nanos(rhs),
             offset_seconds: lhs.offset_seconds,
         }
@@ -1381,7 +1381,7 @@ impl Anchored for DateTime {
 impl Add<Duration, DateTime> for DateTime {
     /// Add an exact `Duration`.
     fn add(lhs: DateTime, rhs: Duration) -> DateTime {
-        DateTime{
+        #DateTime{
             instant_nanos: lhs.instant_nanos + Duration.as_nanos(rhs),
             zone: lhs.zone,
         }

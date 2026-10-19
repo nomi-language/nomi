@@ -62,8 +62,8 @@ fn ev(e: Ev) -> String {
 
 fn shape(s: Shape) -> String {
     case s {
-        .Circle{r} or .Square{r} -> "round-ish ${r}"
-        .Rect({w: 0.0, h: x} or {w: x, h: 0.0}) -> "flat ${x}"
+        #.Circle{r} or #.Square{r} -> "round-ish ${r}"
+        .Rect(#{w: 0.0, h: x} or #{w: x, h: 0.0}) -> "flat ${x}"
         .Rect(_) or .Point -> "other"
     }
 }
@@ -101,8 +101,8 @@ fn pair(t: #(Int, Int)) -> Int {
 
 fn field(p: P) -> String {
     case p {
-        P{kind: .Equilateral or .Isosceles, n} -> "eq ${n}"
-        P{n: 1 or 2} -> "small"
+        #P{kind: .Equilateral or .Isosceles, n} -> "eq ${n}"
+        #P{n: 1 or 2} -> "small"
         _ -> "other"
     }
 }
@@ -172,10 +172,10 @@ fn main() {
     io.print(ev(Ev.A(-3)))
     io.print(ev(Ev.B(-4)))
     io.print(ev(Ev.C("c")))
-    io.print(shape(Shape.Square{r: 1.5}))
-    io.print(shape(Shape.Rect{w: 0.0, h: 2.0}))
-    io.print(shape(Shape.Rect{w: 3.0, h: 0.0}))
-    io.print(shape(Shape.Rect{w: 3.0, h: 1.0}))
+    io.print(shape(#Shape.Square{r: 1.5}))
+    io.print(shape(#Shape.Rect{w: 0.0, h: 2.0}))
+    io.print(shape(#Shape.Rect{w: 3.0, h: 0.0}))
+    io.print(shape(#Shape.Rect{w: 3.0, h: 1.0}))
     io.print(num(2))
     io.print(num(-2))
     io.print(num(9))
@@ -188,9 +188,9 @@ fn main() {
     io.print(pair(#(0, 7)))
     io.print(pair(#(8, 0)))
     io.print(pair(#(2, 3)))
-    io.print(field(P{kind: Tri.Isosceles, n: 5}))
-    io.print(field(P{kind: Tri.Scalene, n: 2}))
-    io.print(field(P{kind: Tri.Scalene, n: 9}))
+    io.print(field(#P{kind: Tri.Isosceles, n: 5}))
+    io.print(field(#P{kind: Tri.Scalene, n: 2}))
+    io.print(field(#P{kind: Tri.Scalene, n: 9}))
     io.print(entry(%{"k" => 2}))
     io.print(entry(%{"k" => 3}))
     io.print(nested(Some(Ev.B(6))))

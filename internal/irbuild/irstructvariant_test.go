@@ -21,11 +21,11 @@ fn main() {
   c = Shape.Circle(3.0)
   dbg c
 
-  r = Shape.Rectangle{width: 4.0, height: 5.0}
+  r = #Shape.Rectangle{width: 4.0, height: 5.0}
   dbg r
 }
 `, "dbg line 14: Direction.North = North\ndbg line 17: c = Circle(3.0)\n"+
-		"dbg line 20: r = Rectangle{width: 4.0, height: 5.0}\n")
+		"dbg line 20: r = #Rectangle{width: 4.0, height: 5.0}\n")
 }
 
 func TestIRStructVariant_TourDotArea(t *testing.T) {
@@ -37,16 +37,16 @@ func TestIRStructVariant_TourDotArea(t *testing.T) {
 fn area(s: Shape) -> Float {
   case s {
     .Circle(r) -> r * r * 3.14159
-    .Rectangle{width, height} -> width * height
+    #.Rectangle{width, height} -> width * height
   }
 }
 
 fn main() {
   dbg area(.Circle(3.0))
-  dbg area(.Rectangle{width: 4.0, height: 5.0})
+  dbg area(#.Rectangle{width: 4.0, height: 5.0})
 }
 `, "dbg line 14: area(.Circle(3.0)) = 28.27431\n"+
-		"dbg line 15: area(.Rectangle{width: 4.0, height: 5.0}) = 20.0\n")
+		"dbg line 15: area(#.Rectangle{width: 4.0, height: 5.0}) = 20.0\n")
 }
 
 // Written fields evaluate in source order and are forced; omitted fields take
@@ -65,24 +65,24 @@ enum Event {
 }
 fn describe(e: Event) -> String {
   case e {
-    Event.Move{tag, dx: horizontal} -> "${tag}:${horizontal}"
-    .Say{text} -> text
+    #Event.Move{tag, dx: horizontal} -> "${tag}:${horizontal}"
+    #.Say{text} -> text
     _ -> "idle"
   }
 }
 fn total(e: Event) -> Int {
   case e {
-    .Move{dy, dx} -> dx + dy
+    #.Move{dy, dx} -> dx + dy
     _ -> 0
   }
 }
 fn main() {
-  a = Event.Move{tag: "t", dx: mark("dx", 2)}
+  a = #Event.Move{tag: "t", dx: mark("dx", 2)}
   io.print(describe(a))
   io.print(total(a))
-  io.print(describe(.Say{text: "hi"}))
+  io.print(describe(#.Say{text: "hi"}))
   io.print(describe(Event.Idle))
-  io.inspect(Event.Move{dx: 1, dy: 2})
+  io.inspect(#Event.Move{dx: 1, dy: 2})
 }
-`, "dx\ndy\nt:2\n9\nhi\nidle\nMove{dx: 1, dy: 2, tag: \"m\"}\n")
+`, "dx\ndy\nt:2\n9\nhi\nidle\n#Move{dx: 1, dy: 2, tag: \"m\"}\n")
 }

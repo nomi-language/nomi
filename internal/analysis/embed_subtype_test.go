@@ -43,7 +43,7 @@ func TestEmbed_SubtypeCoercion_StructEmbed_Assignment(t *testing.T) {
 	src := `struct Circle { radius: Float }
 enum Shape { embeds Circle; Point }
 fn demo() -> Shape {
-  c: Circle = Circle{radius: 5.0}
+  c: Circle = #Circle{radius: 5.0}
   c
 }`
 	_, errs := checkSource(src)
@@ -55,8 +55,8 @@ func TestEmbed_SubtypeCoercion_StructEmbed_ListElement(t *testing.T) {
 struct Rectangle { width: Float; height: Float }
 enum Shape { embeds Circle; embeds Rectangle; Point }
 fn demo() -> List<Shape> {
-  c: Circle = Circle{radius: 5.0}
-  [c, Rectangle{width: 3.0, height: 4.0}, Shape.Point]
+  c: Circle = #Circle{radius: 5.0}
+  [c, #Rectangle{width: 3.0, height: 4.0}, Shape.Point]
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)

@@ -88,7 +88,7 @@ func (g *gen) hold(e expr) expr {
 // a member name out of a TypeString.
 //
 // A bare head named through an aliased import (`import shapes.Holder.{Of as
-// O}`, then `O{value}`) is the variant the alias names: the member is the
+// O}`, then `#O{value}`) is the variant the alias names: the member is the
 // declaration's own name, read from the analyzer's reference as
 // variantRefAt reads it for construction.
 func (g *gen) patternHead(te ast.TypeExpr) (owner, member string, ok bool) {
@@ -176,6 +176,20 @@ func (g *gen) probePattern(p ast.Node) {
 		// attach.go), so no refusal of its own, for the reason the TuplePattern
 		// arm above gives.
 		g.probeListPattern(pat)
+
+	case *ast.VectorPattern:
+		// Lowered (irvectorpattern.go), so no refusal of its own, for the
+		// reason the TuplePattern arm above gives.
+		for _, sub := range pat.Heads {
+			g.probePattern(sub)
+		}
+		for _, sub := range pat.Tails {
+			g.probePattern(sub)
+		}
+
+	case *ast.SetPattern:
+		// Lowered (irvectorpattern.go); its elements are expressions and
+		// its rest a name, so there is nothing below it to probe.
 
 	case *ast.MapPattern:
 		// Lowered in both spellings (maps.go's mapArm — anonymous, and

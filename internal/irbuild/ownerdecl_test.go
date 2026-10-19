@@ -18,7 +18,7 @@ struct Duration {
 
 impl Duration {
     fn seconds(n: Int) -> Duration {
-        Duration{ms: n * 7}
+        #Duration{ms: n * 7}
     }
 }
 
@@ -32,16 +32,16 @@ fn std_total() -> Int {
 fn main() {
     io.inspect(std_total())
     io.inspect(Duration.seconds(2).ms)
-    io.inspect(Duration{ms: 1})
+    io.inspect(#Duration{ms: 1})
 }
-`, "5000\n14\nDuration{ms: 1}\n")
+`, "5000\n14\n#Duration{ms: 1}\n")
 	out := irTestBodyVM(t, `struct Duration {
     ms: Int
 }
 
 impl Duration {
     fn seconds(n: Int) -> Duration {
-        Duration{ms: n * 7}
+        #Duration{ms: n * 7}
     }
 }
 
@@ -81,9 +81,9 @@ struct Date {
 fn main() {
     io.inspect(Result.ok?(parse("2024-01-02")))
     io.inspect(Result.ok?(parse("not a date")))
-    io.inspect(Date{day: 1})
+    io.inspect(#Date{day: 1})
 }
-`, "True\nFalse\nDate{day: 1}\n")
+`, "True\nFalse\n#Date{day: 1}\n")
 }
 
 // A bare call to a selectively imported prelude method takes the route its

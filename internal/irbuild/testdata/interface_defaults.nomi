@@ -92,7 +92,7 @@ impl Powered for Quiet {
 }
 
 test "an interface default's parameter default is filled, and supplying it is not" {
-    e = Engine{name: "v8"}
+    e = #Engine{name: "v8"}
 
     io.print(Powered.describe(e))
     io.print(Powered.describe(e, Mode.Slow))
@@ -104,7 +104,7 @@ test "an interface default's parameter default is filled, and supplying it is no
 }
 
 test "a default is evaluated in the declaring module's scope, not the caller's" {
-    e = Engine{name: "v8"}
+    e = #Engine{name: "v8"}
     tag = "caller-local"
 
     io.print(Powered.tagged(e))
@@ -116,7 +116,7 @@ test "a default is evaluated in the declaring module's scope, not the caller's" 
 }
 
 test "an impl override supplies its own default value" {
-    q = Quiet{name: "hush"}
+    q = #Quiet{name: "hush"}
 
     io.print(Powered.describe(q))
     io.print(Quiet.describe(q))
@@ -128,7 +128,7 @@ test "an impl override supplies its own default value" {
 }
 
 test "a defaulted argument is evaluated once per call that omits it" {
-    e = Engine{name: "v8"}
+    e = #Engine{name: "v8"}
 
     assert Powered.counted(e) == 7
     assert Powered.counted(e, 3) == 3

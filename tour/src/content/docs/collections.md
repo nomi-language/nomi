@@ -13,6 +13,19 @@ A collection never changes. An operation that adds, removes or replaces
 something gives you a new collection, and the original stays as it was.
 Collections that work this way are called persistent.
 
+A collection literal starts with a symbol that says its shape. `#` marks the
+shapes you read by position: a vector `#[1, 2]`, and also a tuple `#(1, "a")`
+and a struct `#{x: 1}` ([Structs, Enums and Distinct
+Types](/structs-enums-distinct/)). `%` marks the shapes that find a value by
+hashing it: a map `%{"a" => 1}` and a set `%[1, 2]`. A list, the commonest
+collection, has no symbol: `[1, 2]`.
+
+A type you build on a collection writes its name right after the symbol:
+`#Path[1, 2]` for `type Path Vector<Int>`, `%Tags["a"]` for
+`type Tags Set<String>` and `%Scores{"ada" => 3}` for
+`type Scores Map<String, Int>`. A list type writes its name before the
+brackets, `Ids[1, 2]`. [Distinct types](/structs-enums-distinct/) covers these.
+
 Every stdlib function takes the collection it works on as its first argument.
 That is what lets you chain calls with pipes.
 
@@ -132,7 +145,7 @@ You write a vector as `#[a, b, c]`.
 
 A vector is a sequence you can read by position. Use a vector when you look
 items up by index or add them at the end. Use a list when you add items at the
-front or take it apart with patterns.
+front.
 
 Indexes start at 0.
 [`Vector.get`](/reference/vectors/#vectorget) answers `None` when the index is
@@ -145,6 +158,47 @@ index and stops the program the same way.
 `xs + ys` joins two lists, or two vectors.
 [`List.concat`](/reference/lists/#listconcat) and
 [`Vector.concat`](/reference/vectors/#vectorconcat) do the same thing by name.
+
+A vector pattern takes a vector apart, from either end:
+
+```nomi-run
+fn ends(v: Vector<Int>) -> String {
+    case v {
+        #[] -> "empty"
+        #[only] -> "just ${only}"
+        #[first, .., last] -> "${first} to ${last}"
+    }
+}
+
+fn sum(v: Vector<Int>) -> Int {
+    case v {
+        #[] -> 0
+        #[x, ..rest] -> x + sum(rest)
+    }
+}
+
+fn main() {
+    dbg ends(#[])
+    dbg ends(#[7])
+    dbg ends(#[1, 2, 3])
+    dbg sum(#[1, 2, 3, 4])
+}
+
+```
+<!-- expect
+dbg line 17: ends(#[]) = "empty"
+dbg line 18: ends(#[7]) = "just 7"
+dbg line 19: ends(#[1, 2, 3]) = "1 to 3"
+dbg line 20: sum(#[1, 2, 3, 4]) = 10
+-->
+
+The items before the `..` match from the front and the items after it from
+the end. A name after the `..` gets the items in between, as a vector:
+`#[x, ..rest]` binds the first item to `x` and the others to `rest`. Binding
+`rest` copies nothing, so `sum` walks the vector without rebuilding it. A
+pattern with no `..`, such as `#[only]`, matches a vector of exactly that
+length. The compiler checks that the arms cover every length, as it does for
+a list ([Pattern Matching](/pattern-matching/)).
 
 ## Maps
 
@@ -183,8 +237,8 @@ fn main() {
     dbg Set.size(s)
     dbg Set.contains?(s, 2)
     dbg Set.contains?(s, 9)
-    dbg s + #{4, 5}
-    dbg s - #{1}
+    dbg s + %[4, 5]
+    dbg s - %[1]
 }
 
 ```
@@ -192,25 +246,60 @@ fn main() {
 dbg line 4: Set.size(s) = 3
 dbg line 5: Set.contains?(s, 2) = True
 dbg line 6: Set.contains?(s, 9) = False
-dbg line 7: s + #{4, 5} = #{1, 2, 3, 4, 5}
-dbg line 8: s - #{1} = #{2, 3}
+dbg line 7: s + %[4, 5] = %[1, 2, 3, 4, 5]
+dbg line 8: s - %[1] = %[2, 3]
 -->
 
-You write a set as `#{a, b, c}`. A set holds each value once, so the set built
+You write a set as `%[a, b, c]`. A set holds each value once, so the set built
 from `[1, 2, 3, 2, 1]` has three values. It keeps them in the order each one
 first appeared.
 
-If you write the same value twice in a set literal, as in `#{1, 2, 1}`, the
+If you write the same value twice in a set literal, as in `%[1, 2, 1]`, the
 compiler reports an error. It does the same for a key written twice in a map
 literal.
 
-An empty set needs its type written out: `empty: Set<Int> = #{}`.
+An empty set takes its element type from where it is used. On a binding with no
+other use to go by, write the type: `empty: Set<Int> = %[]`.
 
 `a + b` is every value in either set, and `a - b` is the values of `a` that are
 not in `b`. [`Set.union`](/reference/sets/#setunion) and
 [`Set.difference`](/reference/sets/#setdifference) do the same by name. To add
 or remove one value, use [`Set.insert`](/reference/sets/#setinsert) and
 [`Set.remove`](/reference/sets/#setremove).
+
+A set pattern asks whether the set holds certain values:
+
+```nomi-run
+fn describe(roles: Set<String>) -> String {
+    case roles {
+        %["admin", ..others] -> "admin, and ${Set.size(others)} more"
+        %["guest", ..] -> "a guest"
+        %[] -> "nobody"
+        _ -> "someone else"
+    }
+}
+
+fn main() {
+    dbg describe(%["admin", "editor", "viewer"])
+    dbg describe(%["guest"])
+    dbg describe(%[])
+    dbg describe(%["editor"])
+}
+
+```
+<!-- expect
+dbg line 11: describe(%["admin", "editor", "viewer"]) = "admin, and 2 more"
+dbg line 12: describe(%["guest"]) = "a guest"
+dbg line 13: describe(%[]) = "nobody"
+dbg line 14: describe(%["editor"]) = "someone else"
+-->
+
+`%["admin", ..others]` matches a set that holds `"admin"`, and binds the
+other values to `others`. `%["guest", ..]` only checks that `"guest"` is
+there. Without a `..`, as in `%[]`, the set must hold exactly the values
+written. Each value in a set pattern is an expression, so a name there means
+the value it is bound to, not a new binding. No set pattern matches every set,
+so a `case` over a set needs a `_` arm.
 
 ## Spreads
 
@@ -220,13 +309,13 @@ A spread, written `..`, builds a new collection from an existing one:
 fn main() {
     xs = ["Bo"]
     v = #["Bo"]
-    s = #{"red"}
+    s = %["red"]
     m = %{"host" => "localhost", "port" => "8080"}
 
     dbg ["Ada", ..xs]
     dbg #[..v, "Cy"]
     dbg #["Ada", ..v]
-    dbg #{..s, "blue"}
+    dbg %[..s, "blue"]
     dbg %{..m, "port" => "9090", "user" => "ada"}
 }
 
@@ -235,7 +324,7 @@ fn main() {
 dbg line 7: ["Ada", ..xs] = ["Ada", "Bo"]
 dbg line 8: #[..v, "Cy"] = #["Bo", "Cy"]
 dbg line 9: #["Ada", ..v] = #["Ada", "Bo"]
-dbg line 10: #{..s, "blue"} = #{"red", "blue"}
+dbg line 10: %[..s, "blue"] = %["red", "blue"]
 dbg line 11: %{..m, "port" => "9090", "user" => "ada"} = %{"host" => "localhost", "port" => "9090", "user" => "ada"}
 -->
 
@@ -243,7 +332,7 @@ Where the spread goes depends on the collection:
 
 - In a list it goes last, so you add items at the front.
 - In a vector it can go first or last.
-- In a set or a map it goes first. `#{..s, x}` is `s` with `x` added.
+- In a set or a map it goes first. `%[..s, x]` is `s` with `x` added.
   `%{..m, k => v}` is `m` with the entry `k => v` added or replaced.
 
 A spread also works inside a struct or a map that you are updating. There, a
@@ -257,8 +346,8 @@ struct Team {
 }
 
 fn main() {
-    team = Team{members: ["Bo"], roster: #["Bo"], tags: #{"red"}}
-    dbg {..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: #{.., "blue"}}
+    team = #Team{members: ["Bo"], roster: #["Bo"], tags: %["red"]}
+    dbg #{..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: %[.., "blue"]}
 
     teams = %{"hawks" => %{"name" => "Hawks"}}
     scores = %{"ada" => [3]}
@@ -268,7 +357,7 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 9: {..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: #{.., "blue"}} = Team{members: ["Ada", "Bo"], roster: #["Bo", "Cy"], tags: #{"red", "blue"}}
+dbg line 9: #{..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: %[.., "blue"]} = #Team{members: ["Ada", "Bo"], roster: #["Bo", "Cy"], tags: %["red", "blue"]}
 dbg line 13: %{..teams, "hawks" => %{.., "city" => "Atlanta"}, "kites" => %{.., "city" => "Leeds"}} = %{"hawks" => %{"name" => "Hawks", "city" => "Atlanta"}, "kites" => %{"city" => "Leeds"}}
 dbg line 14: %{..scores, "ada" => [5, ..], "bob" => [1, ..]} = %{"ada" => [5, 3], "bob" => [1]}
 -->

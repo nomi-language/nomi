@@ -75,28 +75,28 @@ func TestJudgeAssertableIsPinned(t *testing.T) {
 		// `check failed`, and this is the one row that
 		// distinguishes std's default from the site's fallback.
 		name:   "std's declared default arrives as an authored reason",
-		site:   AssertionSite{Line: 160, Check: true, Expr: "Defaulted{ok: False}"},
+		site:   AssertionSite{Line: 160, Check: true, Expr: "#Defaulted{ok: False}"},
 		answer: &AssertableDetails{Reason: "assertion failed"},
 		want: &AssertionFailure{
-			Line: 160, Keyword: "check", Expr: "Defaulted{ok: False}",
+			Line: 160, Keyword: "check", Expr: "#Defaulted{ok: False}",
 			Reason: "assertion failed",
 		},
 	}, {
 		// An explicitly empty reason is the only route to FailedReason, and the
 		// only case where the keyword decides the words.
 		name:   "an empty reason falls through to the check's own words",
-		site:   AssertionSite{Line: 172, Check: true, Expr: "Silent{ok: False}"},
+		site:   AssertionSite{Line: 172, Check: true, Expr: "#Silent{ok: False}"},
 		answer: &AssertableDetails{Reason: ""},
 		want: &AssertionFailure{
-			Line: 172, Keyword: "check", Expr: "Silent{ok: False}",
+			Line: 172, Keyword: "check", Expr: "#Silent{ok: False}",
 			Reason: "check failed",
 		},
 	}, {
 		name:   "the same empty reason under an assert",
-		site:   AssertionSite{Line: 101, Expr: "Silent{ok: False}"},
+		site:   AssertionSite{Line: 101, Expr: "#Silent{ok: False}"},
 		answer: &AssertableDetails{Reason: ""},
 		want: &AssertionFailure{
-			Line: 101, Keyword: "assert", Expr: "Silent{ok: False}",
+			Line: 101, Keyword: "assert", Expr: "#Silent{ok: False}",
 			Reason: "assertion failed",
 		},
 	}, {
@@ -128,7 +128,7 @@ func TestJudgeAssertableIsPinned(t *testing.T) {
 	}}
 
 	binding := &AssertionBindingContext{
-		Name: "comparison", Expr: "equals(5, 6)", Value: "Equals{actual: 5, expected: 6}",
+		Name: "comparison", Expr: "equals(5, 6)", Value: "#Equals{actual: 5, expected: 6}",
 	}
 	values := []AssertionValueContext{{Expr: "x", Value: "41"}, {Expr: "y", Value: "42"}}
 	for _, c := range cases {

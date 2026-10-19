@@ -6,7 +6,7 @@
 // This program is what makes that keying FALSIFIABLE instead of asserted. Both
 // Points reach the builder, each with its own structural comparator; a bare-name
 // key would let one declaration answer for the other, and the comparator built
-// for `{x: Int, y: Int}` would be applied to `{lat: Float, lon: Float}`.
+// for `#{x: Int, y: Int}` would be applied to `#{lat: Float, lon: Float}`.
 // Each Point's rows below come from its own comparator.
 //
 // The comparison of two same-named types, `shapes.Point ==
@@ -65,6 +65,6 @@ fn main() -> Unit {
     // program-wide off the declaration node, and a mirror's `==` lowers.
     // testdata/sibsig is where the mirror comparison and its two negative
     // halves live.
-    io.print("local same:  ${Bool.to_string(local_same(Point{label: "a"}, Point{label: "a"}))}")
-    io.print("local diff:  ${Bool.to_string(local_same(Point{label: "a"}, Point{label: "b"}))}")
+    io.print("local same:  ${Bool.to_string(local_same(#Point{label: "a"}, #Point{label: "a"}))}")
+    io.print("local diff:  ${Bool.to_string(local_same(#Point{label: "a"}, #Point{label: "b"}))}")
 }

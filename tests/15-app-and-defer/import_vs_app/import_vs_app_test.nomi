@@ -14,7 +14,7 @@ group "imported helpers stay independent of active app fields" {
     // the whole case vacuous — deleting the line left it passing, confirmed by
     // mutation twice.
     test "active app fields do not disturb pure imported helpers" {
-        with ImportApp.clock = FakeClock{at: Instant.from_seconds(4321)}
+        with ImportApp.clock = #FakeClock{at: Instant.from_seconds(4321)}
         now = Clock.now(ImportApp.clock)
         assert helper.format(now) == "epoch=4321"
     }

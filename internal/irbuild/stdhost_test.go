@@ -190,7 +190,7 @@ func TestStdHostIdentityIsGuardedByTheFrontEndFirst(t *testing.T) {
 		t.Errorf("a nil analysis produced %d anchors; it must produce none", len(got))
 	}
 	for _, name := range []string{"Byte", "Bytes"} {
-		src := "struct " + name + " {\n  n: Int\n}\n\nfn main() {\n  _ = " + name + "{n: 1}\n}\n"
+		src := "struct " + name + " {\n  n: Int\n}\n\nfn main() {\n  _ = #" + name + "{n: 1}\n}\n"
 		if _, err := AnalyzeSource("main", src); err == nil {
 			t.Errorf("the front end ACCEPTED a user declaration of %q. This family's "+
 				"identity rests on that being impossible — see the doc comment — so "+

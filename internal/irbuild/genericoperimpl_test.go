@@ -16,7 +16,7 @@ struct Box<T> {
 
 impl Add<T, Box<T>> for Box<T> {
     fn add(b: Box<T>, rhs: T) -> Box<T> {
-        Box{items: b.items + [rhs]}
+        #Box{items: b.items + [rhs]}
     }
 }
 
@@ -25,9 +25,9 @@ fn grow<T>(b: Box<T>, x: T) -> Box<T> {
 }
 
 fn main() {
-    io.print((Box{items: [1]} + 2).items)
-    io.print((Box{items: ["a"]} + "b").items)
-    io.print(grow(Box{items: [True]}, False).items)
+    io.print((#Box{items: [1]} + 2).items)
+    io.print((#Box{items: ["a"]} + "b").items)
+    io.print(grow(#Box{items: [True]}, False).items)
 }
 `, "[1, 2]\n[a, b]\n[True, False]\n")
 }
@@ -41,21 +41,21 @@ fn plus<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hashable {
 
 fn left() -> Set<Int> {
     io.print("left")
-    #{1, 2}
+    %[1, 2]
 }
 
 fn main() {
-    io.print(#{1, 2} + #{2, 3})
-    io.print(#{1, 2} + #{})
-    io.print(#{"a"} + #{"b"})
-    io.print(#{1, 2, 3} - #{2})
-    io.print(#{1, 2} - #{9})
-    io.print(Add.add(#{1}, #{2}))
-    io.print(Subtract.subtract(#{1, 2}, #{1}))
-    io.print(plus(#{"x"}, #{"y"}))
-    io.print(left() + #{3} - #{1})
+    io.print(%[1, 2] + %[2, 3])
+    io.print(%[1, 2] + %[])
+    io.print(%["a"] + %["b"])
+    io.print(%[1, 2, 3] - %[2])
+    io.print(%[1, 2] - %[9])
+    io.print(Add.add(%[1], %[2]))
+    io.print(Subtract.subtract(%[1, 2], %[1]))
+    io.print(plus(%["x"], %["y"]))
+    io.print(left() + %[3] - %[1])
 }
-`, "#{1, 2, 3}\n#{1, 2}\n#{a, b}\n#{1, 3}\n#{1, 2}\n#{1, 2}\n#{2}\n#{x, y}\nleft\n#{2, 3}\n")
+`, "%[1, 2, 3]\n%[1, 2]\n%[a, b]\n%[1, 3]\n%[1, 2]\n%[1, 2]\n%[2]\n%[x, y]\nleft\n%[2, 3]\n")
 }
 
 // A std operator body that calls a bare host member of its receiver's inherent
@@ -78,7 +78,7 @@ fn main() {
     io.print(Add.add(a, #[3]))
     io.print(#["x"] + #["y", "z"])
     io.print(join(#[True], #[False]))
-    io.print(Vector.length(#[Point{x: 1}] + #[Point{x: 2}]))
+    io.print(Vector.length(#[#Point{x: 1}] + #[#Point{x: 2}]))
     io.print(Add.add([1], [2]))
 }
 `, "#[1, 2, 3]\n#[1, 2, 3]\n#[x, y, z]\n#[True, False]\n2\n[1, 2]\n")
@@ -103,8 +103,8 @@ fn main() {
     io.print(%{"a" => 1} + %{"a" => 9, "b" => 2})
     io.print(Add.add(%{"a" => 1}, %{"b" => 2}))
     io.print(merged(%{1 => "x"}, %{2 => "y", 1 => "z"}))
-    io.print(Map.size(%{Point{x: 1} => True} + %{Point{x: 2} => False}))
-    io.print(%{"p" => Point{x: 1}} + %{"p" => Point{x: 2}} == %{"p" => Point{x: 2}})
+    io.print(Map.size(%{#Point{x: 1} => True} + %{#Point{x: 2} => False}))
+    io.print(%{"p" => #Point{x: 1}} + %{"p" => #Point{x: 2}} == %{"p" => #Point{x: 2}})
     e: Map<String, Int> = Map.empty()
     io.print(e + e)
 }

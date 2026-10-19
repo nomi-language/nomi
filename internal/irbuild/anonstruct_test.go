@@ -12,10 +12,10 @@ import (
 // Four claims, each a different way the key could be wrong:
 //
 //   - Two field ORDERINGS of one record are ONE kind. This is what the
-//     canonical sort buys, and without it `{x: 1, y: 2}` and `{y: 2, x: 1}`
+//     canonical sort buys, and without it `#{x: 1, y: 2}` and `#{y: 2, x: 1}`
 //     would be two Go types and neither assignable to the other.
 //   - Two records with the same COMPONENT KINDS and different NAMES are TWO
-//     kinds. `{a: Int, b: Int}` and `{x: Int, y: Int}` have identical `parts`,
+//     kinds. `#{a: Int, b: Int}` and `#{x: Int, y: Int}` have identical `parts`,
 //     so the separation cannot come from the components alone.
 //   - A record and a NOMINAL struct of identical shape are two kinds. Nominal
 //     identity is the *typeDef pointer and a record's is the *compKind, so
@@ -34,7 +34,7 @@ func TestAnonStructIdentityIsTheFieldSet(t *testing.T) {
 		t.Errorf("two orderings of one record are two kinds:\n  %s\n  %s",
 			forward.nomi(), backward.nomi())
 	}
-	if got := forward.nomi(); got != "{x: Int, y: String}" {
+	if got := forward.nomi(); got != "#{x: Int, y: String}" {
 		t.Errorf("canonical Nomi spelling = %q", got)
 	}
 

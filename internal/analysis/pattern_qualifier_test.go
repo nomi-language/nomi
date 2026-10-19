@@ -47,12 +47,12 @@ func TestPatternQualifier_UnknownOrForeignIsRejected(t *testing.T) {
 			"unknown type \"Hu3\"\nhelp: did you mean 'Hue'?"},
 		{"a misspelled enum over a payload", "  s = Shape.Dot(1)\n  _ = case s {\n    Shap.Dot(n) -> n\n    _ -> 0\n  }\n",
 			"unknown type \"Shap\"\nhelp: did you mean 'Shape'?"},
-		{"a misspelled enum over a struct variant", "  s = Shape.Dot(1)\n  _ = case s {\n    Shpe.Rect{w} -> w\n    _ -> 0\n  }\n",
+		{"a misspelled enum over a struct variant", "  s = Shape.Dot(1)\n  _ = case s {\n    #Shpe.Rect{w} -> w\n    _ -> 0\n  }\n",
 			"unknown type \"Shpe\"\nhelp: did you mean 'Shape'?"},
 		// A lower-case qualifier reads as a module. The builder resolved
 		// `ror.Rect` as this file's own `Rect` and recorded it at the
 		// qualifier, which the check took for a resolved module.
-		{"an unknown module over a struct variant", "  s = Shape.Dot(1)\n  _ = case s {\n    ror.Rect{w} -> w\n    _ -> 0\n  }\n",
+		{"an unknown module over a struct variant", "  s = Shape.Dot(1)\n  _ = case s {\n    #ror.Rect{w} -> w\n    _ -> 0\n  }\n",
 			"unknown type \"ror\""},
 		{"an unknown module over a payload", "  s = Shape.Dot(1)\n  _ = case s {\n    ror.Dot(n) -> n\n    _ -> 0\n  }\n",
 			"unknown type \"ror\""},
@@ -100,7 +100,7 @@ func TestPatternQualifier_UnknownOrForeignIsRejected(t *testing.T) {
 func TestPatternQualifier_TheEnumItselfIsAccepted(t *testing.T) {
 	for _, body := range []string{
 		"  c = Color.Red\n  _ = case c {\n    Color.Blue -> 1\n    .Red -> 0\n  }\n",
-		"  s = Shape.Dot(1)\n  _ = case s {\n    Shape.Dot(n) -> n\n    Shape.Rect{w} -> w\n  }\n",
+		"  s = Shape.Dot(1)\n  _ = case s {\n    Shape.Dot(n) -> n\n    #Shape.Rect{w} -> w\n  }\n",
 		"  enum Hue {\n    Warm\n    Cool\n  }\n  h = Hue.Warm\n  _ = case h {\n    Hue.Cool -> 1\n    Hue.Warm -> 0\n  }\n",
 		"  m = Some(1)\n  _ = case m {\n    Maybe.Some(n) -> n\n    Maybe.None -> 0\n  }\n",
 		"  c = Color.Red\n  _ = case c {\n    Tint.Blue -> 1\n    Tint.Red -> 0\n  }\n",
@@ -162,15 +162,15 @@ func TestPatternQualifier_ANameThatIsNotATypeIsRejected(t *testing.T) {
 	for _, tc := range []struct {
 		name, body, at, want string
 	}{
-		{"a variant of another enum", "  s = Shape.Square(1)\n  _ = case s {\n    .Ring{r} -> r\n    Of.Square(n) -> n\n  }\n",
+		{"a variant of another enum", "  s = Shape.Square(1)\n  _ = case s {\n    #.Ring{r} -> r\n    Of.Square(n) -> n\n  }\n",
 			"Of.Square", "`Of` is a variant of Holder, not a type\nhelp: write `Shape.Square`, or `.Square`"},
-		{"a variant of another enum spaced from the variant", "  s = Shape.Square(1)\n  _ = case s {\n    .Ring{r} -> r\n    Of .Square(n) -> n\n  }\n",
+		{"a variant of another enum spaced from the variant", "  s = Shape.Square(1)\n  _ = case s {\n    #.Ring{r} -> r\n    Of .Square(n) -> n\n  }\n",
 			"Of .Square", "`Of` is a variant of Holder, not a type\nhelp: write `Shape.Square`, or `.Square`"},
-		{"a variant of the same enum", "  s = Shape.Square(1)\n  _ = case s {\n    Square.Ring{r} -> r\n    _ -> 0\n  }\n",
+		{"a variant of the same enum", "  s = Shape.Square(1)\n  _ = case s {\n    #Square.Ring{r} -> r\n    _ -> 0\n  }\n",
 			"Square.Ring", "`Square` is a variant of Shape, not a type\nhelp: write `Shape.Ring`, or `.Ring`"},
 		{"the variant itself", "  s = Shape.Square(1)\n  _ = case s {\n    Square.Square(n) -> n\n    _ -> 0\n  }\n",
 			"Square.Square", "`Square` is a variant of Shape, not a type\nhelp: write `Shape.Square`, or `.Square`"},
-		{"a variant of the generic enum matched", "  h = Holder.Of{value: 1}\n  _ = case h {\n    Of.Of{value} -> value\n  }\n",
+		{"a variant of the generic enum matched", "  h = #Holder.Of{value: 1}\n  _ = case h {\n    #Of.Of{value} -> value\n  }\n",
 			"Of.Of", "`Of` is a variant of Holder, not a type\nhelp: write `Holder.Of`, or `.Of`"},
 		{"a prelude variant", "  m = Some(1)\n  _ = case m {\n    Some.Some(n) -> n\n    _ -> 0\n  }\n",
 			"Some.Some", "`Some` is a variant of Maybe, not a type\nhelp: write `Maybe.Some`, or `.Some`"},
@@ -230,9 +230,9 @@ func expectErrorAt(t *testing.T, src string, errs []analysis.TypeError, marker, 
 // the `.Variant` form and a prelude enum's name stay accepted.
 func TestPatternQualifier_TheEnumNameOverAVariantNameIsAccepted(t *testing.T) {
 	for _, body := range []string{
-		"  s = Shape.Square(1)\n  _ = case s {\n    .Ring{r} -> r\n    Shape.Square(n) -> n\n  }\n",
-		"  s = Shape.Square(1)\n  _ = case s {\n    Shape.Ring{r} -> r\n    .Square(n) -> n\n  }\n",
-		"  h = Holder.Of{value: 1}\n  _ = case h {\n    Holder.Of{value} -> value\n  }\n",
+		"  s = Shape.Square(1)\n  _ = case s {\n    #.Ring{r} -> r\n    Shape.Square(n) -> n\n  }\n",
+		"  s = Shape.Square(1)\n  _ = case s {\n    #Shape.Ring{r} -> r\n    .Square(n) -> n\n  }\n",
+		"  h = #Holder.Of{value: 1}\n  _ = case h {\n    #Holder.Of{value} -> value\n  }\n",
 		"  m = Some(1)\n  _ = case m {\n    Maybe.Some(n) -> n\n    Maybe.None -> 0\n  }\n",
 	} {
 		src := variantQualifierDecls + "fn main() {\n" + body + "}\n"

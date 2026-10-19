@@ -94,10 +94,10 @@ enum Drawing {
 
 fn describe(s: Maybe<Shape>) -> String {
   case s {
-    Some(Shape.Box{w: 2, h}) -> "narrow box of height ${h}"
-    Some(Shape.Box{w, h: 0}) -> "flat box of width ${w}"
-    Some(Shape.Named{name: "tri", sides: n}) -> "triangle-ish ${n}"
-    Some(Shape.Named{name, sides: _}) -> "named ${name}"
+    Some(#Shape.Box{w: 2, h}) -> "narrow box of height ${h}"
+    Some(#Shape.Box{w, h: 0}) -> "flat box of width ${w}"
+    Some(#Shape.Named{name: "tri", sides: n}) -> "triangle-ish ${n}"
+    Some(#Shape.Named{name, sides: _}) -> "named ${name}"
     Some(_) -> "other"
     None -> "nothing"
   }
@@ -105,35 +105,35 @@ fn describe(s: Maybe<Shape>) -> String {
 
 fn top(s: Shape) -> Int {
   case s {
-    Shape.Box{w: 1, h: 1} -> 1
-    Shape.Box{w, h} -> w * h
+    #Shape.Box{w: 1, h: 1} -> 1
+    #Shape.Box{w, h} -> w * h
     _ -> 0
   }
 }
 
 fn drawn(d: Drawing) -> String {
   case d {
-    Drawing.Circle{r: 0, tag} -> "point ${tag}"
-    Drawing.Circle{r, tag: "big"} -> "big ${r}"
-    Drawing.Circle{r, tag: _} -> "circle ${r}"
+    #Drawing.Circle{r: 0, tag} -> "point ${tag}"
+    #Drawing.Circle{r, tag: "big"} -> "big ${r}"
+    #Drawing.Circle{r, tag: _} -> "circle ${r}"
     .Blank -> "blank"
   }
 }
 
 fn main() {
-  io.print(describe(Some(Shape.Box{w: 2, h: 5})))
-  io.print(describe(Some(Shape.Box{w: 7, h: 0})))
-  io.print(describe(Some(Shape.Box{w: 7, h: 3})))
-  io.print(describe(Some(Shape.Named{name: "tri", sides: 3})))
-  io.print(describe(Some(Shape.Named{name: "sq", sides: 4})))
+  io.print(describe(Some(#Shape.Box{w: 2, h: 5})))
+  io.print(describe(Some(#Shape.Box{w: 7, h: 0})))
+  io.print(describe(Some(#Shape.Box{w: 7, h: 3})))
+  io.print(describe(Some(#Shape.Named{name: "tri", sides: 3})))
+  io.print(describe(Some(#Shape.Named{name: "sq", sides: 4})))
   io.print(describe(Some(Shape.Dot)))
   io.print(describe(None))
-  io.print(top(Shape.Box{w: 1, h: 1}))
-  io.print(top(Shape.Box{w: 3, h: 4}))
+  io.print(top(#Shape.Box{w: 1, h: 1}))
+  io.print(top(#Shape.Box{w: 3, h: 4}))
   io.print(top(Shape.Dot))
-  io.print(drawn(Circle{r: 0, tag: "o"}))
-  io.print(drawn(Circle{r: 5, tag: "big"}))
-  io.print(drawn(Circle{r: 2, tag: "c"}))
+  io.print(drawn(#Circle{r: 0, tag: "o"}))
+  io.print(drawn(#Circle{r: 5, tag: "big"}))
+  io.print(drawn(#Circle{r: 2, tag: "c"}))
   io.print(drawn(Drawing.Blank))
 }
 `, "narrow box of height 5\nflat box of width 7\nother\ntriangle-ish 3\nnamed sq\nother\nnothing\n1\n12\n0\npoint o\nbig 5\ncircle 2\nblank\n",
@@ -160,7 +160,7 @@ fn get_id(m: Maybe<Req>) -> Int {
 }
 
 fn put_key(m: Maybe<Req>) -> String {
-  if Some(Req.Put{key, value: 0}) = m {
+  if Some(#Req.Put{key, value: 0}) = m {
     "zero " + key
   } else {
     "no"
@@ -189,8 +189,8 @@ fn main() {
   io.print(get_id(Some(Req.Get(4))))
   io.print(get_id(Some(Req.Stop)))
   io.print(get_id(None))
-  io.print(put_key(Some(Req.Put{key: "a", value: 0})))
-  io.print(put_key(Some(Req.Put{key: "a", value: 1})))
+  io.print(put_key(Some(#Req.Put{key: "a", value: 0})))
+  io.print(put_key(Some(#Req.Put{key: "a", value: 1})))
   io.print(put_key(None))
   io.inspect(stopped(Ok(Req.Stop)))
   io.inspect(stopped(Ok(Req.Get(1))))

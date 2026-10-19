@@ -95,7 +95,7 @@ func loadAppProjectWithLeaf(t *testing.T, leaf string) error {
 		"}",
 		"",
 		"fn boot() -> Svc {",
-		"  Svc{context: Context.root(), }",
+		"  #Svc{context: Context.root(), }",
 		"}",
 		"",
 		"fn main() {",

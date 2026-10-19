@@ -1,7 +1,7 @@
 import std/compiler.{self, RunFile}
 
 test "application field reads name the imported application type" {
-    result = compiler.run_file(RunFile{entry_point: "main"})
+    result = compiler.run_file(#RunFile{entry_point: "main"})
 
     assert result == Ok(
         """

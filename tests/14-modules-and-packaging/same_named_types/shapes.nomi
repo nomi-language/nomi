@@ -11,5 +11,5 @@ impl Display for Point {
 }
 
 pub fn origin() -> Point {
-    Point{x: 0, y: 0}
+    #Point{x: 0, y: 0}
 }

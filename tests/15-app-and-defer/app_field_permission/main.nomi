@@ -7,7 +7,7 @@ import {
 }
 
 pub fn boot() -> Settings {
-    Settings{context: Context.root(), tag: "the-real-root"}
+    #Settings{context: Context.root(), tag: "the-real-root"}
 }
 
 fn main() {

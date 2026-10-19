@@ -18,7 +18,7 @@ fn other() -> String {
         label: String
         v: T
     }
-    b = Box{label: "o", v: [1]}
+    b = #Box{label: "o", v: [1]}
     "${b.label}:${Iter.count(b.v)}"
 }
 
@@ -35,25 +35,25 @@ fn main() {
         m: Meters
         o: Opt<T>
     }
-    io.inspect(Box{v: "s"})
-    io.inspect(Box({v: 1.5}))
-    io.inspect(Box{v: Box{v: 2}}.v.v)
+    io.inspect(#Box{v: "s"})
+    io.inspect(Box(#{v: 1.5}))
+    io.inspect(#Box{v: #Box{v: 2}}.v.v)
     case Opt.Has(Meters(3)) {
         .Has(Meters(n)) -> io.inspect(n)
         .Nothing -> io.inspect(0)
     }
-    io.inspect(Tagged{m: Meters(1), o: Opt.Has(True)})
-    io.inspect(Iter.map([1, 2], fn x -> Box{v: x}) |> Iter.to_list())
+    io.inspect(#Tagged{m: Meters(1), o: Opt.Has(True)})
+    io.inspect(Iter.map([1, 2], fn x -> #Box{v: x}) |> Iter.to_list())
     io.inspect([Opt.Has(1), Opt.Nothing])
     io.print(other())
 }
 `
-	const want = "Box{v: \"s\"}\n" +
-		"Box{v: 1.5}\n" +
+	const want = "#Box{v: \"s\"}\n" +
+		"#Box{v: 1.5}\n" +
 		"2\n" +
 		"3\n" +
-		"Tagged{m: Meters(1), o: Has(True)}\n" +
-		"[Box{v: 1}, Box{v: 2}]\n" +
+		"#Tagged{m: Meters(1), o: Has(True)}\n" +
+		"[#Box{v: 1}, #Box{v: 2}]\n" +
 		"[Has(1), Nothing]\n" +
 		"o:1\n"
 	irRunSource(t, src, want)

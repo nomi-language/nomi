@@ -12,17 +12,17 @@ pub struct Point {
 }
 
 pub fn at(x: Int, y: Int) -> Point {
-    Point{x, y}
+    #Point{x, y}
 }
 
 /// A sibling type in RETURN position.
 pub fn origin() -> Point {
-    Point{x: 0, y: 0}
+    #Point{x: 0, y: 0}
 }
 
 /// A sibling type in PARAMETER position, and in the return.
 pub fn shift(p: Point, by: Int) -> Point {
-    Point{x: p.x + by, y: p.y + by}
+    #Point{x: p.x + by, y: p.y + by}
 }
 
 /// A sibling type as a container ELEMENT, in parameter position. `List<Point>`
@@ -45,6 +45,6 @@ pub fn twice(p: Point) -> List<Point> {
 /// one implementation of "which parameters resolve" and it answers this; the
 /// sibling path uses the same answer, so a call the declaring file lowers
 /// also lowers at the call site.
-pub fn sum(Point{x, y}) -> Int {
+pub fn sum(#Point{x, y}) -> Int {
     x + y
 }

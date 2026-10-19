@@ -31,7 +31,7 @@ impl Pairs for Box {
 }
 
 fn main() {
-    b = Box { value: 1 }
+    b = #Box { value: 1 }
     io.inspect(Pairs.second(b, 2.5))
     io.inspect(Box.second(b, "x"))
     io.inspect(Box.second(b, [1, 2]))
@@ -45,7 +45,7 @@ fn main() {
 	})
 	t.Run("another file", func(t *testing.T) {
 		main := "import {\n    std/io\n    leaf\n    leaf.{Box, Pairs}\n}\n\n" +
-			"fn main() {\n    b = Box { value: 1 }\n    io.inspect(Pairs.second(b, 0))\n" +
+			"fn main() {\n    b = #Box { value: 1 }\n    io.inspect(Pairs.second(b, 0))\n" +
 			"    io.inspect(Box.second(b, \"y\"))\n    io.inspect(leaf.Box.second(b, 3))\n}\n"
 		got := runSiblingProgram(t, map[string]string{"leaf.nomi": siblingGenericLeaf, "main.nomi": main})
 		if want := "0\n\"y\"\n3\n"; got != want {

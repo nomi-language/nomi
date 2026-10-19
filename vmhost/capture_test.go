@@ -175,7 +175,7 @@ fn main() {
     io.inspect(run)
     _ = dbg run
     io.print(Debug.inspect([run]))
-    p = io.capture("", fn -> Point{x: 3})
+    p = io.capture("", fn -> #Point{x: 3})
     io.inspect(p)
     io.print(show(p))
     u = io.capture("", fn -> io.write("u"))
@@ -185,12 +185,12 @@ fn main() {
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	want := "Captured{value: 42, output: \"hi\", transcript: \"hi\"}\n" +
-		"dbg line 18: run = Captured{value: 42, output: \"hi\", transcript: \"hi\"}\n" +
-		"[Captured{value: 42, output: \"hi\", transcript: \"hi\"}]\n" +
-		"Captured{value: Point{x: 3}, output: \"\", transcript: \"\"}\n" +
+	want := "#Captured{value: 42, output: \"hi\", transcript: \"hi\"}\n" +
+		"dbg line 18: run = #Captured{value: 42, output: \"hi\", transcript: \"hi\"}\n" +
+		"[#Captured{value: 42, output: \"hi\", transcript: \"hi\"}]\n" +
+		"#Captured{value: #Point{x: 3}, output: \"\", transcript: \"\"}\n" +
 		"3|\n" +
-		"#(Captured{value: Unit, output: \"u\", transcript: \"u\"}, Captured{value: 42, output: \"hi\", transcript: \"hi\"})\n"
+		"#(#Captured{value: Unit, output: \"u\", transcript: \"u\"}, #Captured{value: 42, output: \"hi\", transcript: \"hi\"})\n"
 	if got != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", got, want)
 	}

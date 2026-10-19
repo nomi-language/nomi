@@ -103,7 +103,7 @@ import (
 //
 // It is a value with unexported fields, so the only way to build a usable one
 // is At, AtSynthesized or Spanning, and the only way to name it in a composite
-// literal from outside this package is the empty `ir.Pos{}` — which IsValid
+// literal from outside this package is the empty `#ir.Pos{}` — which IsValid
 // reports false for and which every constructor here panics on. That is the
 // whole enforcement story and its two halves are unequal, so they are stated
 // separately in position_test.go: OMITTING a position is a compile error,
@@ -465,7 +465,7 @@ func (b *Block) Term() Term { return b.term }
 // Append adds one instruction.
 //
 // It rejects a node whose position is invalid. That closes the one hole the
-// type system leaves open: `ir.Const{}` is a legal composite literal outside
+// type system leaves open: `#ir.Const{}` is a legal composite literal outside
 // this package even with every field unexported, so a zero-value node can be
 // built. It cannot be put into a function.
 func (b *Block) Append(in Instr) {

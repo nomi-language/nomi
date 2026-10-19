@@ -38,7 +38,7 @@ func TestAsPattern_BindsLooserThanEveryOtherConstruct(t *testing.T) {
 		t.Fatalf("positions: pattern %d:%d, name %d:%d", whole.Line, whole.Col, whole.NameLine, whole.NameCol)
 	}
 
-	ep, ok := caseArmPattern(t, "Ok(Tx{kind: .Deposit} as t)").(*ast.EnumPattern)
+	ep, ok := caseArmPattern(t, "Ok(#Tx{kind: .Deposit} as t)").(*ast.EnumPattern)
 	if !ok {
 		t.Fatal("want the variant pattern outermost")
 	}
@@ -71,7 +71,7 @@ func TestAsPattern_EveryNestedPosition(t *testing.T) {
 		t.Fatal("want a map pattern")
 	}
 	asPatternOf(t, mp.Entries[0].Pattern, "found")
-	sp, ok := caseArmPattern(t, "Line{from: Point{x, y} as start}").(*ast.StructPattern)
+	sp, ok := caseArmPattern(t, "#Line{from: #Point{x, y} as start}").(*ast.StructPattern)
 	if !ok {
 		t.Fatal("want a struct pattern")
 	}
@@ -93,7 +93,7 @@ func TestAsPattern_StatementAndParameterPositions(t *testing.T) {
 		t.Fatal("want the else")
 	}
 
-	f, ok := parse(t, "fn f(Point{x, y} as p: Point) -> Int { x }")[0].(*ast.FuncDef)
+	f, ok := parse(t, "fn f(#Point{x, y} as p: Point) -> Int { x }")[0].(*ast.FuncDef)
 	if !ok || len(f.Params) != 1 {
 		t.Fatal("want a function with one parameter")
 	}

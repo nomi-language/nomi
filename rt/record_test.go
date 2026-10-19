@@ -59,10 +59,10 @@ func TestRecord_WithCopiesAndLeavesTheReceiverUnchanged(t *testing.T) {
 	d := particleDesc()
 	p := d.Make(int64(1), int64(2), int64(3), int64(4))
 	q := p.With([]int{0, 3}, []any{int64(10), int64(40)})
-	if RowText(p) != "Particle{dx: 3, dy: 4, x: 1, y: 2}" {
+	if RowText(p) != "#Particle{dx: 3, dy: 4, x: 1, y: 2}" {
 		t.Errorf("receiver changed: %s", RowText(p))
 	}
-	if RowText(q) != "Particle{dx: 3, dy: 40, x: 10, y: 2}" {
+	if RowText(q) != "#Particle{dx: 3, dy: 40, x: 10, y: 2}" {
 		t.Errorf("update = %s", RowText(q))
 	}
 	if &p.W[0] == &q.W[0] {
@@ -115,7 +115,7 @@ func TestEqualHash_IdentityIsTheShortNameAndFieldsCompareByName(t *testing.T) {
 	if Equal(a, anon) {
 		t.Error("a named struct equals an anonymous record")
 	}
-	if RowText(anon) != "{x: 1, y: 2}" {
+	if RowText(anon) != "#{x: 1, y: 2}" {
 		t.Errorf("anon row = %s", RowText(anon))
 	}
 }
@@ -129,7 +129,7 @@ func TestEqualHash_AnEmbeddedVariantIsItsPayload(t *testing.T) {
 	if !Equal(widened, circle) || !Equal(circle, widened) || Hash(widened) != Hash(circle) {
 		t.Fatal("an embedded variant is not its payload")
 	}
-	if RowText(widened) != "Circle{r: 2}" {
+	if RowText(widened) != "#Circle{r: 2}" {
 		t.Errorf("row = %s", RowText(widened))
 	}
 	if _, err := DebugText(widened, nil); err == nil ||
@@ -151,7 +151,7 @@ func TestEqualHash_VariantShapesAcrossDescriptors(t *testing.T) {
 	if !Equal(a, b) || Hash(a) != Hash(b) {
 		t.Fatalf("Equal %v, hashes %x %x", Equal(a, b), Hash(a), Hash(b))
 	}
-	if RowText(a) != "Rect(Rect{h: 2, w: 1})" || RowText(a) != RowText(b) {
+	if RowText(a) != "#Rect{h: 2, w: 1}" || RowText(a) != RowText(b) {
 		t.Errorf("rows %s / %s", RowText(a), RowText(b))
 	}
 }

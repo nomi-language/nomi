@@ -47,7 +47,7 @@ struct Run {
 }
 
 fn boot() -> Run {
-    Run{context: Context.root()}
+    #Run{context: Context.root()}
 }
 
 type TraceId String

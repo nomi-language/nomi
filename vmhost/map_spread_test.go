@@ -29,8 +29,8 @@ fn main() {
     io.print(%{..base, "a" => 10})
     io.print(%{..base, "z" => 26, "b" => 20, "c" => 3})
     io.print(base)
-    s = Settings{name: "x", prefs: %{"theme" => "light", "font" => "mono"}}
-    dark = {..s, prefs: %{..s.prefs, "theme" => "dark"}}
+    s = #Settings{name: "x", prefs: %{"theme" => "light", "font" => "mono"}}
+    dark = #{..s, prefs: %{..s.prefs, "theme" => "dark"}}
     io.print(dark.prefs)
     io.print(s.prefs)
     nested = %{"outer" => %{"k" => 1}, "other" => %{"q" => 0}}

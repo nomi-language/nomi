@@ -151,8 +151,8 @@ func TestVMDbg_TheFourShapes(t *testing.T) {
 		},
 		{
 			name:    "3 MULTI-LINE operand text",
-			srcText: "Rev{\n  zeta: 1,\n}",
-			want:    "dbg line 7:\n  Rev{\n    zeta: 1,\n  }\n  = 42\n",
+			srcText: "#Rev{\n  zeta: 1,\n}",
+			want:    "dbg line 7:\n  #Rev{\n    zeta: 1,\n  }\n  = 42\n",
 		},
 		{
 			name:    "4 NEWLINE-PADDED, collapsing into 2 because TrimSpace runs first",
@@ -177,7 +177,7 @@ func TestVMDbg_TheFourShapes(t *testing.T) {
 // stdout over the same inputs, which is the only comparison that can tell one implementation
 // from two that agree today.
 func TestVMDbg_TheLayoutIsRtsAndNotASecondCopy(t *testing.T) {
-	for _, srcText := range []string{"", "41 + 1", "Rev{\n  zeta: 1,\n}", "\n x \n"} {
+	for _, srcText := range []string{"", "41 + 1", "#Rev{\n  zeta: 1,\n}", "\n x \n"} {
 		fromVM := dbgRun(t, 7, srcText, dbgInt(42))
 		fromRT := captureRtDbg(t, func() { fmt.Fprint(os.Stdout, rt.DbgText(os.Stdout, 7, srcText, "42")) })
 		if fromVM != fromRT {

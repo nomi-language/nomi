@@ -31,7 +31,7 @@ struct Money {
 
 impl Money {
   fn sum(a: Money, b: Money) -> Money {
-    Money{cents: a.cents + b.cents}
+    #Money{cents: a.cents + b.cents}
   }
 
   fn double(n: Int) -> Int {
@@ -68,7 +68,7 @@ test "an imported fn" {
 }
 
 test "an owner-qualified impl fn" {
-  assert Iter.reduce([Money{cents: 1}, Money{cents: 2}], fn acc = Money{cents: 0}, m -> Money.sum(acc, m)).cents == 3
+  assert Iter.reduce([#Money{cents: 1}, #Money{cents: 2}], fn acc = #Money{cents: 0}, m -> Money.sum(acc, m)).cents == 3
   assert Iter.map([1, 2], Money.double) |> Iter.to_list() == [2, 4]
 }
 `,
@@ -272,7 +272,7 @@ func TestNamedCallback_LocalOwnerSharingAStdNameWithDefaults(t *testing.T) {
 
 impl Date {
   fn new(year: Int, month: Int = 1, day: Int = 1) -> Date {
-    Date{year, month, day}
+    #Date{year, month, day}
   }
 
   fn same?(a: Date, b: Date, strict: Bool = True) -> Bool {
@@ -296,7 +296,7 @@ test "a failing named call reports the written arguments" {
 }
 `
 	out := irTestBodyVM(t, src, 3)
-	if !strings.Contains(out, "Date.new(y, day: d)\n        = Date{day: 4, month: 1, year: 2026}") {
+	if !strings.Contains(out, "Date.new(y, day: d)\n        = #Date{day: 4, month: 1, year: 2026}") {
 		t.Errorf("the failing case does not report the named call's value:\n%s", out)
 	}
 }

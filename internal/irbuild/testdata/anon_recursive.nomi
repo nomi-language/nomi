@@ -7,7 +7,7 @@ import std/io
 // `Node` through `wrap.inner` without end.
 struct Node {
     n: Int
-    wrap: {inner: Node, depth: Int}
+    wrap: #{inner: Node, depth: Int}
 }
 
 fn depth_of(x: Node) -> Int {

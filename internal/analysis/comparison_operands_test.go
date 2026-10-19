@@ -38,9 +38,9 @@ fn pick(k: Kind) -> Int {
 		{"ordering", "    if k < .Withdrawal and .Deposit <= k { 1 } else { 0 }\n"},
 		{"grouped operand", "    if k == (.Deposit) { 1 } else { 0 }\n"},
 		{"inside a constructor", "    if Some(k) == Some(.Deposit) { 1 } else { 0 }\n"},
-		{"case guard", "    r: Result<Txn, String> = Ok(Txn{kind: k})\n    case r {\n        Ok(t) when t.kind == .Deposit -> 1\n        _ -> 0\n    }\n"},
-		{"brace literal", "    p = Point{x: 1, y: 2}\n    if p == {x: 1, y: 2} { 1 } else { 0 }\n"},
-		{"brace literal reversed", "    p = Point{x: 1, y: 2}\n    if {x: 1, y: 2} != p { 1 } else { 0 }\n"},
+		{"case guard", "    r: Result<Txn, String> = Ok(#Txn{kind: k})\n    case r {\n        Ok(t) when t.kind == .Deposit -> 1\n        _ -> 0\n    }\n"},
+		{"brace literal", "    p = #Point{x: 1, y: 2}\n    if p == #{x: 1, y: 2} { 1 } else { 0 }\n"},
+		{"brace literal reversed", "    p = #Point{x: 1, y: 2}\n    if #{x: 1, y: 2} != p { 1 } else { 0 }\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(decls + tc.body + "}\n")

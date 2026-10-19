@@ -214,7 +214,7 @@ fn same<T>(value: T) -> T {
 }
 
 fn via() -> String {
-  announce(User{name: "Alice"})
+  announce(#User{name: "Alice"})
 }
 
 test "from a named function" {
@@ -222,7 +222,7 @@ test "from a named function" {
 }
 
 test "from a test body" {
-  assert announce(User{name: "Bob"}) == "announce(user:Bob)"
+  assert announce(#User{name: "Bob"}) == "announce(user:Bob)"
   assert same(3) == 3
   assert same("x") == "x"
 }
@@ -244,8 +244,8 @@ func TestIRBacklogCalls_StructCallFormWithALiteral(t *testing.T) {
 }
 
 test "a literal argument" {
-  d = Defaulted({a: 7})
-  e = Defaulted({a: 1, b: "x"})
+  d = Defaulted(#{a: 7})
+  e = Defaulted(#{a: 1, b: "x"})
   assert d.a == 7
   assert d.b == "default"
   assert e.b == "x"

@@ -15,7 +15,7 @@ import std/io
 // working one.
 //
 // THE FOUR UNTYPED LITERALS, NOT THE ONE THE CORPUS NEEDED. `[]`, `None`,
-// `Map.empty()` and `#{}` are the four values whose type the CHECKER solves from
+// `Map.empty()` and `%[]` are the four values whose type the CHECKER solves from
 // context (types.go's untypedLiteral), and the widening delegates to gen.coerce
 // rather than restating a list of tags — so all four are exercised, because a
 // table-driven guard is only as wide as its table and a rule that named only
@@ -148,8 +148,8 @@ fn bound(keep: Bool, n: Int) -> String {
 // An empty SET first.
 fn first_empty_set(t: Tag, n: Int) -> Set<Int> {
     case t {
-        Tag.Drop -> #{}
-        Tag.Keep -> #{n}
+        Tag.Drop -> %[]
+        Tag.Keep -> %[n]
     }
 }
 
@@ -171,7 +171,7 @@ fn describe(t: Tag, s: Shown) -> List<Shown> {
 
 // The CASCADE shape: the case is a struct literal's FIELD VALUE.
 fn bag(t: Tag, n: Int) -> Bag {
-    Bag{
+    #Bag{
         items: case t {
             Tag.Drop -> []
             Tag.Keep -> [n]
@@ -206,11 +206,11 @@ fn main() {
     io.print("first_empty_set = ${first_empty_set(Tag.Drop, 4)} ${first_empty_set(Tag.Keep, 4)}")
 
     shown =
-        describe(Tag.Keep, Amount{cents: 99})
+        describe(Tag.Keep, #Amount{cents: 99})
         |> Iter.map(fn d: Shown -> Shown.to_string(d))
         |> Iter.to_list()
 
-    io.print("describe = ${shown} ${Iter.count(describe(Tag.Drop, Amount{cents: 1}))}")
+    io.print("describe = ${shown} ${Iter.count(describe(Tag.Drop, #Amount{cents: 1}))}")
 
     io.print("bag = ${bag(Tag.Drop, 8).items} ${bag(Tag.Keep, 8).items} ${bag(Tag.Keep, 8).label}")
 }

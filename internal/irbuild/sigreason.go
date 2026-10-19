@@ -162,7 +162,7 @@ func (g *gen) typeRefusal(te ast.TypeExpr) (construct, detail string, ok bool) {
 	case *ast.AnonStructType:
 		// A RECORD lowers (anonstruct.go), so it fails only through a FIELD —
 		// the same shape the FuncType arm above has, and reported the same
-		// way: `{items: Map<Bad, Int>}` names the Bad, because the record is
+		// way: `#{items: Map<Bad, Int>}` names the Bad, because the record is
 		// fine and the field is the work.
 		names := make([]string, len(t.Fields))
 		for i, f := range t.Fields {
@@ -489,7 +489,7 @@ func collectTypeParamNames(v reflect.Value, out map[string]bool) {
 // # Why the reference must not get a key of its own
 //
 // `struct Point` inside a `test` body is refused at ITS position under `struct
-// declaration`, and the `Point{x: 3, y: 4}` six lines down is not a second gap
+// declaration`, and the `#Point{x: 3, y: 4}` six lines down is not a second gap
 // — lowering the declaration is the whole of what makes the reference work.
 // Reported as `non-local type` it would point at a cause nobody lowering it
 // could help, the failure foreign.go's blockedMirror and siblings.go's
@@ -595,7 +595,7 @@ func typeDeclName(n ast.Node) string {
 // what that key means: no such type here.
 //
 // Reached from a CONSTRUCTION site as well as from an annotation, and that is
-// the point rather than reuse: `Project{...}` and `p: Project` are one
+// the point rather than reuse: `#Project{...}` and `p: Project` are one
 // obstacle and report it under one name.
 func (g *gen) unresolvedRefusal(name string) (string, string, bool) {
 	sym := resolvedTypeSymbol(g.fa, name)

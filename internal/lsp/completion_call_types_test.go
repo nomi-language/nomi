@@ -28,7 +28,7 @@ fn pick<T>(a: T, b: T) -> T {
 }
 
 fn to_point(n: Int) -> Point {
-    Point{x: n, y: n}
+    #Point{x: n, y: n}
 }
 `
 

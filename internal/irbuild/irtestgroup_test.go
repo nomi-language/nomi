@@ -103,7 +103,7 @@ pub struct App {
 
 pub fn boot(startup: Startup) -> App {
   io.print("boot ${startup.args}")
-  App{context: Context.root(), label: "booted"}
+  #App{context: Context.root(), label: "booted"}
 }
 
 fn main() {}
@@ -113,10 +113,10 @@ fn show(suffix: String) -> String {
 }
 
 group "group" {
-  boot boot(Startup{args: ["group"]})
-  setup {n: 1, word: "one"}
+  boot boot(#Startup{args: ["group"]})
+  setup #{n: 1, word: "one"}
 
-  test "reads the app and the setup value", {n, word} {
+  test "reads the app and the setup value", #{n, word} {
     io.print(show("!"))
     assert App.label == "booted"
     assert n == 1
@@ -127,7 +127,7 @@ group "group" {
     assert value.n == 1
   }
 
-  test "binds the value with a nested pattern", {n: count, word} {
+  test "binds the value with a nested pattern", #{n: count, word} {
     assert count == 1
     assert word == "one"
   }
@@ -161,20 +161,20 @@ const irTestGroupFailingSource = `pub struct App {
 }
 
 pub fn boot() -> App {
-  App{context: Context.root(), label: "booted"}
+  #App{context: Context.root(), label: "booted"}
 }
 
 fn main() {}
 
 group "group" {
   boot boot()
-  setup {word: "one"}
+  setup #{word: "one"}
 
-  test "a failing qualified call shows its rows", {word} {
+  test "a failing qualified call shows its rows", #{word} {
     assert String.length(word) == 5
   }
 
-  test "a failing app read", {word} {
+  test "a failing app read", #{word} {
     assert App.label == word
   }
 }
@@ -203,7 +203,7 @@ pub struct App {
 }
 
 pub fn boot() -> App {
-  App{context: Context.root(), work: Supervisor.new(max_running: 2)}
+  #App{context: Context.root(), work: Supervisor.new(max_running: 2)}
 }
 
 fn main() {}
@@ -261,7 +261,7 @@ fn zero() -> Int {
 }
 
 pub fn boot() -> App {
-  App{context: Context.root(), n: 10 / zero()}
+  #App{context: Context.root(), n: 10 / zero()}
 }
 
 fn main() {}
@@ -293,7 +293,7 @@ func TestIRTestGroup_ASetupWithReachesTheBody(t *testing.T) {
 }
 
 pub fn boot() -> App {
-  App{context: Context.root(), label: "booted"}
+  #App{context: Context.root(), label: "booted"}
 }
 
 fn main() {}

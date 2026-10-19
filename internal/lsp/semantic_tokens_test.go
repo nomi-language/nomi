@@ -91,7 +91,7 @@ fn ready_label() -> String {
 impl Label {
   //! assert Label.wrap("x").text == "[x]"
   fn wrap(text: String) -> Label {
-    Label{text: "[${text}]"}
+    #Label{text: "[${text}]"}
   }
 }
 `
@@ -118,7 +118,7 @@ impl Label {
 		{14, 14, "Label", true, 1},
 		{15, 6, "wrap", false, 0},
 		{15, 11, "text", false, 6},
-		{16, 21, "text", false, 6},
+		{16, 22, "text", false, 6},
 	}
 	for _, w := range want {
 		var got *decodedSemanticToken
@@ -256,7 +256,7 @@ func decodeSemanticTokenData(data []protocol.UInteger) []decodedSemanticToken {
 }
 
 // TestStructDestructure_PunningHasNoFieldCollision verifies that a punning
-// struct destructure (`{x, y} = point`) registers exactly one symbol per
+// struct destructure (`#{x, y} = point`) registers exactly one symbol per
 // binding position — the SymbolBinding — and does not also register a
 // SymbolField at the same position. The two used to coexist: the analyzer's
 // builder put a SymbolBinding in Definitions and the checker put a
@@ -265,8 +265,8 @@ func decodeSemanticTokenData(data []protocol.UInteger) []decodedSemanticToken {
 // from one LSP run to the next.
 func TestStructDestructure_PunningHasNoFieldCollision(t *testing.T) {
 	src := `fn main() {
-  point = {x: 10, y: 20}
-  {x, y} = point
+  point = #{x: 10, y: 20}
+  #{x, y} = point
 }
 `
 	tokens := lexer.Lex(src)
@@ -274,8 +274,8 @@ func TestStructDestructure_PunningHasNoFieldCollision(t *testing.T) {
 	fa := buildFile(nodes)
 
 	// Locate the binding positions for `x` and `y` on line 3.
-	xPos := analysis.Pos{Line: 3, Col: 4}
-	yPos := analysis.Pos{Line: 3, Col: 7}
+	xPos := analysis.Pos{Line: 3, Col: 5}
+	yPos := analysis.Pos{Line: 3, Col: 8}
 
 	xDef, hasXDef := fa.Definitions[xPos]
 	if !hasXDef {

@@ -45,17 +45,17 @@ fn main() {
   io.inspect([[1], [2]] < [[1], [3]])
   io.inspect(List.compare([True], [False]))
   io.inspect([False] < [True])
-  io.inspect(List.compare([[P{a: 1}]], [[P{a: 2}]]))
+  io.inspect(List.compare([[#P{a: 1}]], [[#P{a: 2}]]))
   io.inspect(List.compare([#[1]], [#[2]]))
-  io.inspect(Vector.compare(#[P{a: 1}], #[P{a: 2}]))
+  io.inspect(Vector.compare(#[#P{a: 1}], #[#P{a: 2}]))
   io.inspect(Vector.compare(#[[1]], #[[1], [0]]))
   io.inspect(Comparable.compare(#[1], #[2]))
   io.inspect(Comparable.compare(True, False))
   io.inspect(Bool.compare(False, True))
   io.inspect(Hashable.hash(True))
   io.inspect(List.hash([[1]]))
-  io.inspect(Set.equal?(#{1, 2}, #{2, 1}))
-  io.inspect(Hashable.hash(#{1, 2}) == Hashable.hash(%{1 => True, 2 => True}))
+  io.inspect(Set.equal?(%[1, 2], %[2, 1]))
+  io.inspect(Hashable.hash(%[1, 2]) == Hashable.hash(%{1 => True, 2 => True}))
   io.inspect(Iter.sort([True, False, True]))
 }
 `)
@@ -76,7 +76,7 @@ func TestLoad_OrderingOverATupleIsACompileError(t *testing.T) {
 		"List.compare([#(1, 2)], [#(1, 3)])",
 		"[#(1, 2)] < [#(1, 3)]",
 		"Comparable.compare(#(1, 2), #(1, 3))",
-		"Iter.sort([{a: 2}, {a: 1}])",
+		"Iter.sort([#{a: 2}, #{a: 1}])",
 	} {
 		_, err := vmhost.Load(writeProgram(t, "import std/io\n\nfn main() {\n  io.inspect("+expr+")\n}\n"))
 		if err == nil {

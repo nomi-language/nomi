@@ -7,7 +7,7 @@ pub fn label(w: Widget) -> String {
 }
 
 pub fn make(name: String) -> Widget {
-    Widget{name}
+    #Widget{name}
 }
 
 pub opaque struct Token {
@@ -19,5 +19,5 @@ pub fn reveal(t: Token) -> String {
 }
 
 pub fn make_token(value: String) -> Token {
-    Token{value}
+    #Token{value}
 }

@@ -22,9 +22,9 @@ pub fn make(n: Int) -> Status {
         3 -> Status.Blocked(7)
         4 -> Status.Blocked(2)
         5 -> Status.Paired(#(3, 4))
-        6 -> Status.Noted(Note{text: "see thread"})
-        7 -> Status.Closed{reason: "duplicate", days: 4}
-        8 -> Status.Closed{reason: "fixed", days: 0}
-        _ -> Status.Closed{reason: "stale", days: 45}
+        6 -> Status.Noted(#Note{text: "see thread"})
+        7 -> #Status.Closed{reason: "duplicate", days: 4}
+        8 -> #Status.Closed{reason: "fixed", days: 0}
+        _ -> #Status.Closed{reason: "stale", days: 45}
     }
 }

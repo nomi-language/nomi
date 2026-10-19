@@ -58,7 +58,7 @@ Arr([Num(1), Arr([Num(2)])])
 	}
 }
 
-// FuzzFrontEndAcceptsSoItLowers found `Holder{items: X[1, 2]}` with nothing
+// FuzzFrontEndAcceptsSoItLowers found `#Holder{items: X[1, 2]}` with nothing
 // named X: the checker typed the literal from the field's List<Int> and the
 // IR builder declined it. The front end rejects it now.
 func TestLoad_UnknownListPrefixIsRejected(t *testing.T) {
@@ -67,7 +67,7 @@ func TestLoad_UnknownListPrefixIsRejected(t *testing.T) {
 }
 
 fn main() {
-  _c = Holder{items: X[1, 2]}
+  _c = #Holder{items: X[1, 2]}
 }
 `))
 	if err == nil {

@@ -7,7 +7,7 @@
 // between them: `Display.to_string: no implementation for type 'Error'`.
 //
 // Every construction shape must stamp the same identity. A struct-shaped
-// variant literal (`Error.InvalidWeight{weight}`) that stamped the enum
+// variant literal (`#Error.InvalidWeight{weight}`) that stamped the enum
 // as spelled at the construction site, while bare and positional variants
 // read the declared enum's qualified name, would give one enum two
 // identities depending on which variant you built, and only one could

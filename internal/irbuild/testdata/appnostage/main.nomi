@@ -5,7 +5,7 @@ import {
 }
 
 fn boot() -> Settings {
-    Settings{context: Context.root(), tag: "booted"}
+    #Settings{context: Context.root(), tag: "booted"}
 }
 
 fn main() {

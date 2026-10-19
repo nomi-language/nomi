@@ -31,13 +31,13 @@ derive Hashable for Shape
 
 fn radius(s: Shape) -> Int {
   case s {
-    .Circle{r: r} -> r
+    #.Circle{r: r} -> r
     .Dot -> 0
   }
 }
 
 fn main() {
-  c = Circle{r: 1}
+  c = #Circle{r: 1}
   s: Shape = .Dot
   m = %{1 => c, 2 => s}
   io.inspect(m)
@@ -45,15 +45,15 @@ fn main() {
   io.inspect(%{c => 1, s => 2})
   io.inspect([c, s])
   io.inspect(#[c, s])
-  io.inspect(#{c, s})
+  io.inspect(%[c, s])
   io.inspect([#(1, c), #(2, s)])
   io.inspect([[c], [s]])
-  io.inspect([#{c}, #{s}])
+  io.inspect([%[c], %[s]])
   io.inspect([#[c], #[s]])
   io.inspect([%{1 => c}, %{2 => s}])
   io.inspect(%{1 => #(1, c), 2 => #(2, s)})
   io.inspect(#[#(1, c), #(2, s)])
-  io.inspect(#{#(1, c), #(2, s)})
+  io.inspect(%[#(1, c), #(2, s)])
   ta: List<#(Int, Shape)> = [#(1, c), #(2, s)]
   io.inspect(ta)
   na: List<List<Shape>> = [[c], [s]]
@@ -62,22 +62,22 @@ fn main() {
 }
 `)
 	want := strings.Join([]string{
-		"%{1 => Circle{r: 1}, 2 => Dot}",
-		"%{1 => Dot, 2 => Circle{r: 1}}",
-		"%{Circle{r: 1} => 1, Dot => 2}",
-		"[Circle{r: 1}, Dot]",
-		"#[Circle{r: 1}, Dot]",
-		"#{Circle{r: 1}, Dot}",
-		"[#(1, Circle{r: 1}), #(2, Dot)]",
-		"[[Circle{r: 1}], [Dot]]",
-		"[#{Circle{r: 1}}, #{Dot}]",
-		"[#[Circle{r: 1}], #[Dot]]",
-		"[%{1 => Circle{r: 1}}, %{2 => Dot}]",
-		"%{1 => #(1, Circle{r: 1}), 2 => #(2, Dot)}",
-		"#[#(1, Circle{r: 1}), #(2, Dot)]",
-		"#{#(1, Circle{r: 1}), #(2, Dot)}",
-		"[#(1, Circle{r: 1}), #(2, Dot)]",
-		"[[Circle{r: 1}], [Dot]]",
+		"%{1 => #Circle{r: 1}, 2 => Dot}",
+		"%{1 => Dot, 2 => #Circle{r: 1}}",
+		"%{#Circle{r: 1} => 1, Dot => 2}",
+		"[#Circle{r: 1}, Dot]",
+		"#[#Circle{r: 1}, Dot]",
+		"%[#Circle{r: 1}, Dot]",
+		"[#(1, #Circle{r: 1}), #(2, Dot)]",
+		"[[#Circle{r: 1}], [Dot]]",
+		"[%[#Circle{r: 1}], %[Dot]]",
+		"[#[#Circle{r: 1}], #[Dot]]",
+		"[%{1 => #Circle{r: 1}}, %{2 => Dot}]",
+		"%{1 => #(1, #Circle{r: 1}), 2 => #(2, Dot)}",
+		"#[#(1, #Circle{r: 1}), #(2, Dot)]",
+		"%[#(1, #Circle{r: 1}), #(2, Dot)]",
+		"[#(1, #Circle{r: 1}), #(2, Dot)]",
+		"[[#Circle{r: 1}], [Dot]]",
 		"[1, 0]",
 		"",
 	}, "\n")

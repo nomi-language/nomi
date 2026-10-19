@@ -20,7 +20,7 @@ test "an impl block inside a test body is rejected" {
                     "q"
                 }
             }
-            assert Q{a: 1}.a == 1
+            assert #Q{a: 1}.a == 1
         }
         """
     )
@@ -39,7 +39,7 @@ test "a derive inside a lambda body is rejected" {
                     v: Int
                 }
                 derive Debug for Q
-                Q{v: x}.v
+                #Q{v: x}.v
             }
             _ = f(1)
         }

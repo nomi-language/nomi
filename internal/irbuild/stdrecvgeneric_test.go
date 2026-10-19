@@ -308,8 +308,8 @@ func TestTypeNamesAnyWalksEveryCompositeForm(t *testing.T) {
 		{"(Int) -> Bool", false},
 		{"(Int) -> T", true},
 		{"(#(K, Int)) -> Bool", true},
-		{"{name: T}", true},
-		{"{name: String}", false},
+		{"#{name: T}", true},
+		{"#{name: String}", false},
 	} {
 		te := parseStdTypeExpr(t, c.src)
 		if got := typeNamesAny(te, tp); got != c.want {

@@ -37,7 +37,7 @@ func TestParseSubtestsStatement(t *testing.T) {
 // The rows may be any expression, broken across lines inside brackets, and
 // the pattern any irrefutable one.
 func TestParseSubtestsRowsAndPatterns(t *testing.T) {
-	src := "fn f() {\n  subtests [\n    Point{x: 1, y: 2},\n  ], Point{x, y} {\n    assert x < y\n  }\n  subtests 1..=3, n {\n    assert n > 0\n  }\n  subtests xs |> Iter.map(g), _ {\n    assert True\n  }\n}"
+	src := "fn f() {\n  subtests [\n    #Point{x: 1, y: 2},\n  ], #Point{x, y} {\n    assert x < y\n  }\n  subtests 1..=3, n {\n    assert n > 0\n  }\n  subtests xs |> Iter.map(g), _ {\n    assert True\n  }\n}"
 	stmts := parse(t, src)[0].(*ast.FuncDef).Body.Stmts
 	if len(stmts) != 3 {
 		t.Fatalf("%d statements, want 3", len(stmts))
@@ -124,7 +124,7 @@ func TestParseSubtestsName(t *testing.T) {
 		"  subtests cases, #(description, year, expected), description {\n    assert year > 0\n  }\n" +
 		"  subtests cases, #(a, b, sum), \"${a} + ${b}\" {\n    assert a + b == sum\n  }\n" +
 		"  subtests cases, Ok(n) or Err(n), label(n) |> String.trim {\n    assert n > 0\n  }\n" +
-		"  subtests cases, n, (Label{text: \"x\"}).text {\n    assert n > 0\n  }\n" +
+		"  subtests cases, n, (#Label{text: \"x\"}).text {\n    assert n > 0\n  }\n" +
 		"  subtests cases, #(_, year), if year > 0 { \"after\" } else { \"before\" } {\n    assert year != 0\n  }\n" +
 		"  subtests cases, #(\n    _description,\n    year\n  ), year {\n    assert year != 0\n  }\n" +
 		"  subtests cases, #(_description, year) {\n    assert year != 0\n  }\n" +

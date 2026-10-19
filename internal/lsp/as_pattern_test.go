@@ -8,8 +8,8 @@ import (
 	"github.com/nomi-language/nomi/internal/parser"
 )
 
-// asPatternSource binds `t` with `as` in a case arm: line 12, column 27 is
-// the name, and line 12, column 33 its first use.
+// asPatternSource binds `t` with `as` in a case arm: line 12, column 28 is
+// the name, and line 12, column 34 its first use.
 const asPatternSource = `struct Tx {
   start: Int
 }
@@ -21,7 +21,7 @@ enum Outcome {
 
 fn start_of(r: Outcome) -> Int {
   case r {
-    .Done(Tx{start: _} as t) -> t.start
+    .Done(#Tx{start: _} as t) -> t.start
     .Failed -> 0
   }
 }
@@ -29,7 +29,7 @@ fn start_of(r: Outcome) -> Int {
 
 func TestAsPattern_HoverOnTheNameShowsTheWholeValuesType(t *testing.T) {
 	file := checkedFile(asPatternSource)
-	for _, pos := range []analysis.Pos{{Line: 12, Col: 27}, {Line: 12, Col: 33}} {
+	for _, pos := range []analysis.Pos{{Line: 12, Col: 28}, {Line: 12, Col: 34}} {
 		sym := file.SymbolAt(pos)
 		if sym == nil {
 			t.Fatalf("no symbol at %v", pos)
@@ -42,22 +42,22 @@ func TestAsPattern_HoverOnTheNameShowsTheWholeValuesType(t *testing.T) {
 
 func TestAsPattern_DefinitionOfAUseIsTheName(t *testing.T) {
 	file := checkedFile(asPatternSource)
-	sym := file.SymbolAt(analysis.Pos{Line: 12, Col: 33})
+	sym := file.SymbolAt(analysis.Pos{Line: 12, Col: 34})
 	if sym == nil {
 		t.Fatal("no symbol at the use of t")
 	}
 	if sym.Resolved != nil {
 		sym = sym.Resolved
 	}
-	if sym.Pos != (analysis.Pos{Line: 12, Col: 27}) || sym.Kind != analysis.SymbolBinding {
-		t.Errorf("definition: got %s at %v (kind %v), want the binding t at 12:27", sym.Name, sym.Pos, sym.Kind)
+	if sym.Pos != (analysis.Pos{Line: 12, Col: 28}) || sym.Kind != analysis.SymbolBinding {
+		t.Errorf("definition: got %s at %v (kind %v), want the binding t at 12:28", sym.Name, sym.Pos, sym.Kind)
 	}
 }
 
 func TestAsPattern_RenameEditsTheNameAndItsUse(t *testing.T) {
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(asPatternSource))
 	fa := buildFile(nodes)
-	sym := fa.SymbolAt(analysis.Pos{Line: 12, Col: 33})
+	sym := fa.SymbolAt(analysis.Pos{Line: 12, Col: 34})
 	if sym == nil {
 		t.Fatal("no symbol at the use of t")
 	}
@@ -88,9 +88,9 @@ func TestAsPattern_SemanticTokensMarkTheNameAVariable(t *testing.T) {
 		} else {
 			col += int(data[i+1])
 		}
-		if line == 12 && col == 27 {
+		if line == 12 && col == 28 {
 			if data[i+2] != 1 || tokenTypes[data[i+3]] != "variable" {
-				t.Errorf("token at 12:27: length %d, type %s; want length 1, variable", data[i+2], tokenTypes[data[i+3]])
+				t.Errorf("token at 12:28: length %d, type %s; want length 1, variable", data[i+2], tokenTypes[data[i+3]])
 			}
 			return
 		}

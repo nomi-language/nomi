@@ -9,7 +9,7 @@ import {
 }
 
 pub fn build(context: Context) -> EffectsApp {
-    EffectsApp{
+    #EffectsApp{
         context,
         deployment: "prod",
         port: 8080,

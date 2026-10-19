@@ -68,7 +68,7 @@ fn main() {
   ages |> Iter.filter(fn p -> p.1 > 30) |> Iter.count() |> io.print()
   Iter.any?(ages, fn p -> p.0 == "bo") |> io.print()
   five = 5
-  s = #{five, 3, five, 9}
+  s = %[five, 3, five, 9]
   s |> Iter.to_list() |> io.inspect()
   Iter.count(s) |> io.print()
   Iter.known_count(s) |> io.inspect()

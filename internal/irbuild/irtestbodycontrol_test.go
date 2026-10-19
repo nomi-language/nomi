@@ -102,10 +102,10 @@ test "debug keeps the range syntax" {
 `
 	out := irTestBodyVM(t, retained, 2) + irTestBodyVM(t, native, 0)
 	for _, want := range []string{
-		"= Range{end: Some(4), inclusive: False, start: 1}",
-		"= Range{end: Some(5), inclusive: True, start: 1}",
-		"= Range{end: None, inclusive: False, start: 3}",
-		"= Range{end: Some(1.5), inclusive: False, start: 0.5}",
+		"= #Range{end: Some(4), inclusive: False, start: 1}",
+		"= #Range{end: Some(5), inclusive: True, start: 1}",
+		"= #Range{end: None, inclusive: False, start: 3}",
+		"= #Range{end: Some(1.5), inclusive: False, start: 0.5}",
 		"  1..4\n  [1..=2, 3..4]\n",
 	} {
 		if !strings.Contains(out, want) {
@@ -430,9 +430,9 @@ test "second, walk-only" {
 }
 
 group "grouped" {
-  setup {n: 5}
+  setup #{n: 5}
 
-  test "third, grouped", {n} {
+  test "third, grouped", #{n} {
     assert n == 5
   }
 }

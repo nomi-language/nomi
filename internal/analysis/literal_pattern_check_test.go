@@ -76,7 +76,7 @@ func TestLiteralPatternMustMatchTheValuesType(t *testing.T) {
 
 fn f(p: P) -> Int {
   case p {
-    P { x: "no" } -> 1
+    #P { x: "no" } -> 1
     _ -> 2
   }
 }

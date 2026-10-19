@@ -16,9 +16,9 @@ struct Outer {
 fn pair<T, U>(a: T, b: U) -> #(T, U) { #(a, b) }
 fn main() {
   io.inspect(pair(1, "a"))
-  io.inspect(Outer{p: [Point{x: 2}]})
+  io.inspect(#Outer{p: [#Point{x: 2}]})
 }
-`, "#(1, \"a\")\nOuter{p: [Point{x: 2}], hooks: %{}}\n")
+`, "#(1, \"a\")\n#Outer{p: [#Point{x: 2}], hooks: %{}}\n")
 }
 
 func TestIRMonoCall_MissingCheckedSignatureKeepsNativeFallback(t *testing.T) {

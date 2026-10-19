@@ -51,7 +51,7 @@ func TestImplBlockProject_ModuleFunctionWithLocalTypeAccepted(t *testing.T) {
   y: Int
 }
 
-pub fn origin() -> Point { Point{x: 0, y: 0} }
+pub fn origin() -> Point { #Point{x: 0, y: 0} }
 
 
 fn main() { origin() }`
@@ -69,8 +69,8 @@ func TestImplBlockProject_Collision_DuplicateModuleFunction(t *testing.T) {
   y: Int
 }
 
-pub fn make() -> Point { Point{x: 0, y: 0} }
-pub fn make() -> Point { Point{x: 1, y: 1} }
+pub fn make() -> Point { #Point{x: 0, y: 0} }
+pub fn make() -> Point { #Point{x: 1, y: 1} }
 
 
 fn main() {}`
@@ -94,7 +94,7 @@ impl Speech for Dog {
 }
 
 fn demo() -> String {
-    Speech.speak(Dog{name: "Rex"})
+    Speech.speak(#Dog{name: "Rex"})
 }`
 	errs := buildImplBlockProject(src)
 	if len(errs) > 0 {

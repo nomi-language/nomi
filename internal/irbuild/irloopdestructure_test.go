@@ -40,19 +40,19 @@ fn main() {
         #(#(mid, hi), "high", n + 1)
     }))
     // A named struct, and an anonymous pattern over it.
-    io.inspect(Iter.loop(fn Point{x, y} = Point{x: 0, y: 10} -> {
+    io.inspect(Iter.loop(fn #Point{x, y} = #Point{x: 0, y: 10} -> {
         if x >= y { break }
-        Point{x: x + 3, y: y - 1}
+        #Point{x: x + 3, y: y - 1}
     }))
-    io.inspect(Iter.loop(fn {x, y}: Point = Point{x: 1, y: 1} -> {
-        if x > 30 { break Point{x, y: y + 100} }
-        Point{x: x * 2, y}
+    io.inspect(Iter.loop(fn #{x, y}: Point = #Point{x: 1, y: 1} -> {
+        if x > 30 { break #Point{x, y: y + 100} }
+        #Point{x: x * 2, y}
     }))
     // A struct nested in a struct, with an as-pattern.
-    io.inspect(Iter.loop(fn Walk{at: Point{x, y} as here, steps} = Walk{at: Point{x: 0, y: 0}, steps: 0} -> {
+    io.inspect(Iter.loop(fn #Walk{at: #Point{x, y} as here, steps} = #Walk{at: #Point{x: 0, y: 0}, steps: 0} -> {
         case steps {
             3 -> break
-            _ -> Walk{at: Point{x: here.x + 1, y: y + x}, steps: steps + 1}
+            _ -> #Walk{at: #Point{x: here.x + 1, y: y + x}, steps: steps + 1}
         }
     }))
     // In a lambda, with a continue-free body ending in a case.
@@ -64,5 +64,5 @@ fn main() {
     })
     io.inspect(sum_to(4))
 }
-`, "120\n#(21, 34)\n#(#(7, 8), \"done\", 7)\nPoint{x: 9, y: 7}\nPoint{x: 32, y: 101}\nWalk{at: Point{x: 3, y: 3}, steps: 3}\n#(5, 10)\n")
+`, "120\n#(21, 34)\n#(#(7, 8), \"done\", 7)\n#Point{x: 9, y: 7}\n#Point{x: 32, y: 101}\n#Walk{at: #Point{x: 3, y: 3}, steps: 3}\n#(5, 10)\n")
 }

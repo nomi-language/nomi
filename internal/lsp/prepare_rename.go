@@ -74,7 +74,7 @@ func renameTarget(dm *analysis.DocumentManager, doc *analysis.DocSnapshot, pos a
 		// A symbol with no SourceFile is this file's own or the standard
 		// library's. This file's is recorded at its own position, spelled
 		// as its name: as a definition, or, for a field an anonymous struct
-		// type declares (`{logger: String}`), as a reference to itself.
+		// type declares (`#{logger: String}`), as a reference to itself.
 		def, isDef := fa.Definitions[target.Pos]
 		isDef = isDef && (def == target || def.Name == target.Name)
 		if !isDef && fa.References[target.Pos] != target {

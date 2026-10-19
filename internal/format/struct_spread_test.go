@@ -2,12 +2,11 @@ package format
 
 import "testing"
 
-// Struct update by spread — `{..base, field: value}`.
+// Struct update by spread — `#{..base, field: value}`.
 //
-// The formatter emitted `Fields` and nothing else before this, so `{..p, x: 9}`
-// came back as `{x: 9}` and `{..p}` as `{}`. That is a rewrite of a working
-// program into a different one, which is the same class of defect the
-// single-field punning rule above `structLitFieldsPunnable` records.
+// The formatter emitted `Fields` and nothing else before this, so `#{..p, x: 9}`
+// came back as `#{x: 9}` and `#{..p}` as `#{}`. That is a rewrite of a working
+// program into a different one.
 //
 // Two layouts, inline and stacked, and the choice is the AUTHOR's: a line
 // break after the `{` keeps the literal stacked (brokenAfterOpen), and the
@@ -20,21 +19,21 @@ func TestFormat_StructSpreadInline(t *testing.T) {
 }
 
 fn main() {
-    p = Point{x: 1, y: 2}
-    a = {..p, x: 9}
-    b = {..p}
-    c = {..p, x: 1, y: 2}
-    d = {..make(), x: 3}
-    e = {..p.inner, x: 4}
+    p = #Point{x: 1, y: 2}
+    a = #{..p, x: 9}
+    b = #{..p}
+    c = #{..p, x: 1, y: 2}
+    d = #{..make(), x: 3}
+    e = #{..p.inner, x: 4}
 }
 `)
 }
 
 func TestFormat_StructSpreadStacked(t *testing.T) {
 	roundTrip(t, `fn main() {
-    p = Point{x: 1, y: 2}
+    p = #Point{x: 1, y: 2}
 
-    c = {
+    c = #{
         ..p,
         x: 11,
         y: 12,
@@ -48,14 +47,14 @@ func TestFormat_StructSpreadStacked(t *testing.T) {
 // spread is carried along, not given a style of its own.
 func TestFormat_StructSpreadStackedMigratesToCommas(t *testing.T) {
 	migrates(t, `fn main() {
-    c = {
+    c = #{
         ..p
         x: 11
         y: 12
     }
 }
 `, `fn main() {
-    c = {
+    c = #{
         ..p,
         x: 11,
         y: 12,
@@ -69,7 +68,7 @@ func TestFormat_StructSpreadStackedMigratesToCommas(t *testing.T) {
 // false and the literal was flattened onto one line.
 func TestFormat_StructSpreadOneFieldStaysStacked(t *testing.T) {
 	roundTrip(t, `fn main() {
-    c = {
+    c = #{
         ..p,
         x: 11,
     }
@@ -77,25 +76,27 @@ func TestFormat_StructSpreadOneFieldStaysStacked(t *testing.T) {
 `)
 }
 
-// Punning is allowed after a spread at any arity. `{..p, name}` cannot be read
-// as a block, so the rule that forces `{name: name}` for a lone anonymous
+// Punning is allowed after a spread at any arity. `#{..p, name}` cannot be read
+// as a block, so the rule that forces `#{name: name}` for a lone anonymous
 // field does not reach here.
 func TestFormat_StructSpreadPunsASingleField(t *testing.T) {
 	migrates(t, `fn main() {
-    c = {..p, name: name}
+    c = #{..p, name: name}
 }
 `, `fn main() {
-    c = {..p, name}
+    c = #{..p, name}
 }
 `)
 }
 
-// Without a spread, a single anonymous field still may NOT pun — the rule
-// structLitFieldsPunnable states. Kept beside the case above so the two cannot
-// drift into one.
-func TestFormat_SingleAnonFieldStillDoesNotPun(t *testing.T) {
-	roundTrip(t, `fn main() {
-    c = {name: name}
+// Without a spread, a single field puns too: `#{name}` is a struct, since a
+// block opens with a plain `{`.
+func TestFormat_SingleAnonFieldPuns(t *testing.T) {
+	formatsKeepingMeaning(t, `fn main() {
+    c = #{name: name}
+}
+`, `fn main() {
+    c = #{name}
 }
 `)
 }

@@ -22,9 +22,9 @@ impl Box<T> {
 }
 
 fn main() {
-    io.print(Box.pick(Box{v: 1}, n: 2))
-    io.print(Box.pick(Box{v: "a"}, n: 5))
-    io.print(Box.pick(Box{v: 1}, other: Some(3), n: 2))
+    io.print(Box.pick(#Box{v: 1}, n: 2))
+    io.print(Box.pick(#Box{v: "a"}, n: 5))
+    io.print(Box.pick(#Box{v: 1}, other: Some(3), n: 2))
 }
 `, "2\n5\n3\n")
 }

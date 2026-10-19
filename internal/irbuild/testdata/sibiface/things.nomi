@@ -105,13 +105,13 @@ pub fn hide(n: Int) -> Hidden {
 }
 
 pub fn origin() -> Point {
-    Point{x: 0, y: 7}
+    #Point{x: 0, y: 7}
 }
 
 pub fn quiet(n: Int) -> Quiet {
-    Quiet{n}
+    #Quiet{n}
 }
 
 pub fn bare(t: String) -> Bare {
-    Bare{tag: t}
+    #Bare{tag: t}
 }

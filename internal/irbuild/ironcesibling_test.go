@@ -54,7 +54,7 @@ fn main() {
   label = "local"
   local_read = fn -> label
   io.print(local_read())
-  cfg = {tag: "record"}
+  cfg = #{tag: "record"}
   io.print(cfg.tag)
 }
 `, "created\nforcing\nservice\nservice\nservice\n3\n99\nlocal\nrecord\n", map[string]string{

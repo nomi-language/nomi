@@ -158,7 +158,7 @@ func TestDebugInfo_AVariableIsDeclaredAtItsName(t *testing.T) {
 }
 
 fn main() {
-  {x, y: why} = P{x: 1, y: 2}
+  #{x, y: why} = #P{x: 1, y: 2}
   m = case Some(x) {
     Some(n) as whole -> #(n, whole)
     None -> #(0, None)
@@ -193,7 +193,7 @@ fn main() {
 			}
 		}
 	}
-	want = []string{"x 7:4-5", "why 7:10-13", "n 9:10-11", "whole 9:16-21", "m 8:3-4", "f 12:3-4", "a 12:12-13", "b 12:15-16"}
+	want = []string{"x 7:5-6", "why 7:11-14", "n 9:10-11", "whole 9:16-21", "m 8:3-4", "f 12:3-4", "a 12:12-13", "b 12:15-16"}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("declarations:\n%s\n\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
@@ -242,12 +242,12 @@ enum Tree<T> {
 }
 
 fn main() {
-  bs = [Box{item: Box{item: "s"}}]
-  tr: Tree<Int> = Tree.Node{value: 1}
+  bs = [#Box{item: #Box{item: "s"}}]
+  tr: Tree<Int> = #Tree.Node{value: 1}
   g = fn b: Box<Int> -> b.item
   o: Maybe<Box<Int>> = None
-  m: Map<String, Box<Int>> = %{"a" => Box{item: 2}}
-  pair = #(Box{item: 1}, [Box{item: 2.5}])
+  m: Map<String, Box<Int>> = %{"a" => #Box{item: 2}}
+  pair = #(#Box{item: 1}, [#Box{item: 2.5}])
   _ = #(bs, tr, g, o, m, pair)
 }
 `

@@ -5,7 +5,7 @@ pub struct Widget {
 }
 
 pub fn make(weight: Int) -> Widget {
-    Widget{weight}
+    #Widget{weight}
 }
 
 impl Comparable for Widget {
@@ -60,7 +60,7 @@ pub struct Backwards {
 }
 
 pub fn back(n: Int) -> Backwards {
-    Backwards{n}
+    #Backwards{n}
 }
 
 impl Comparable for Backwards {
@@ -78,7 +78,7 @@ pub struct Unordered {
 }
 
 pub fn plain(tag: String) -> Unordered {
-    Unordered{tag}
+    #Unordered{tag}
 }
 
 impl Equatable for Unordered {

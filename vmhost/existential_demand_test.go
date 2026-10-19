@@ -118,11 +118,11 @@ fn told<T>(other: T) -> String where T: Scale and Display {
 }
 
 fn main() {
-    io.print(look(Two { n: 1 }, Two { n: 1 }))
-    io.print(told(Two { n: 3 }))
+    io.print(look(#Two { n: 1 }, #Two { n: 1 }))
+    io.print(told(#Two { n: 3 }))
 }
 `})
-	if want := "Two{n: 1} 2 2\ntwo 3 x6\n"; got != want {
+	if want := "#Two{n: 1} 2 2\ntwo 3 x6\n"; got != want {
 		t.Fatalf("output %q, want %q", got, want)
 	}
 }

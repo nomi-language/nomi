@@ -23,7 +23,7 @@ fn handle(req: Request) -> Result<Response, String> {
             Ok(text(200, "hello ${req.method} n=${n}"))
 
         "/echo" ->
-            Ok(Response{
+            Ok(#Response{
                 status: 200,
                 headers: %{"content-type" => "application/octet-stream"},
                 body: req.body,
@@ -44,7 +44,7 @@ fn handle(req: Request) -> Result<Response, String> {
 }
 
 fn text(status: Int, body: String) -> Response {
-    Response{
+    #Response{
         status,
         headers: %{"content-type" => "text/plain"},
         body: String.to_bytes(body),

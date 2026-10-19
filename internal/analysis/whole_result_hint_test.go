@@ -41,7 +41,7 @@ fn take(r: Result<Tx, String>) -> Int {
 			"catch-all arm",
 			`fn withdrawal(input: String) -> Result<Tx, String> {
     case parse_amount(input) {
-        Ok(amount) -> Ok(Tx{amount: amount})
+        Ok(amount) -> Ok(#Tx{amount: amount})
         err -> err
     }
 }
@@ -53,7 +53,7 @@ fn take(r: Result<Tx, String>) -> Int {
 			"as name over Err",
 			`fn withdrawal(input: String) -> Result<Tx, String> {
     case parse_amount(input) {
-        Ok(amount) -> Ok(Tx{amount: amount})
+        Ok(amount) -> Ok(#Tx{amount: amount})
         Err(_) as err -> err
     }
 }
@@ -65,7 +65,7 @@ fn take(r: Result<Tx, String>) -> Int {
 			"return",
 			`fn withdrawal(input: String) -> Result<Tx, String> {
     case parse_amount(input) {
-        Ok(amount) -> Ok(Tx{amount: amount})
+        Ok(amount) -> Ok(#Tx{amount: amount})
         err -> {
             return err
         }
@@ -89,7 +89,7 @@ fn take(r: Result<Tx, String>) -> Int {
 			"maybe catch-all arm",
 			`fn find(input: String) -> Maybe<Tx> {
     case lookup(input) {
-        Some(amount) -> Some(Tx{amount: amount})
+        Some(amount) -> Some(#Tx{amount: amount})
         none -> none
     }
 }
@@ -102,7 +102,7 @@ fn take(r: Result<Tx, String>) -> Int {
 			"error types differ",
 			`fn withdrawal(input: String) -> Result<Tx, String> {
     case parse_flag(input) {
-        Ok(amount) -> Ok(Tx{amount: amount})
+        Ok(amount) -> Ok(#Tx{amount: amount})
         err -> err
     }
 }
@@ -114,7 +114,7 @@ fn take(r: Result<Tx, String>) -> Int {
 			"not a name",
 			`fn withdrawal(input: String) -> Result<Tx, String> {
     case parse_amount(input) {
-        Ok(amount) -> Ok(Tx{amount: amount})
+        Ok(amount) -> Ok(#Tx{amount: amount})
         Err(_) -> parse_amount(input)
     }
 }

@@ -3,7 +3,7 @@ pub struct Member {
 }
 
 pub fn member(name: String) -> Member {
-    Member{name}
+    #Member{name}
 }
 
 impl Debug for Member {

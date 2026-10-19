@@ -49,21 +49,21 @@
   ((_) @parameter.inner . ","? @parameter.outer) @parameter.outer)
 
 ; A struct update's entries are its spread and its fields, so the parameter motions walk
-; `{..base, x: 9}` the same way it walks `Point{x: 1, y: 2}` above.
+; `#{..base, x: 9}` the same way it walks `#Point{x: 1, y: 2}` above.
 (struct_update
   ((_) @parameter.inner . ","? @parameter.outer) @parameter.outer)
 
-(map_literal
-  ((map_entry) @parameter.inner . ","? @parameter.outer) @parameter.outer)
-
-; A map update's entries are its spread and its key-value pairs.
-(map_update
+; A map's entries are its key-value pairs, and an update's its spread too.
+(map_construction
   ((_) @parameter.inner . ","? @parameter.outer) @parameter.outer)
 
 (list
   ((_) @parameter.inner . ","? @parameter.outer) @parameter.outer)
 
 (vector
+  ((_) @parameter.inner . ","? @parameter.outer) @parameter.outer)
+
+(set
   ((_) @parameter.inner . ","? @parameter.outer) @parameter.outer)
 
 (tuple_expression

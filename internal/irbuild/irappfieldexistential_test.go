@@ -18,7 +18,7 @@ struct App {
 }
 
 fn boot(_startup: Startup) -> App {
-    App{context: Context.root(), out: 1, many: [1]}
+    #App{context: Context.root(), out: 1, many: [1]}
 }
 
 fn main() {
@@ -49,7 +49,7 @@ struct App {
 }
 
 fn boot(_startup: Startup) -> App {
-    App{cache: %{"a" => 1}}
+    #App{cache: %{"a" => 1}}
 }
 
 fn size() -> Int {

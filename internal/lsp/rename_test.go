@@ -91,7 +91,7 @@ func TestRename_SelectiveImport(t *testing.T) {
 	mainFile := filepath.Join(dir, "main.nomi")
 
 	modelsSrc := "pub struct User { name: String }"
-	mainSrc := "import models.{User}\nfn main() { User{name: \"Alice\"} }"
+	mainSrc := "import models.{User}\nfn main() { #User{name: \"Alice\"} }"
 	os.WriteFile(modelsFile, []byte(modelsSrc), 0644)
 	os.WriteFile(mainFile, []byte(mainSrc), 0644)
 
@@ -99,8 +99,8 @@ func TestRename_SelectiveImport(t *testing.T) {
 	mainURI := "file://" + mainFile
 	dm.Open(mainURI, mainSrc)
 
-	// Trigger rename at the User use site in main.nomi, line 2 col 13
-	workspaceEdit := collectWorkspaceRename(context.Background(), dm, mainURI, analysis.Pos{Line: 2, Col: 13}, "Person")
+	// Trigger rename at the User use site in main.nomi, line 2 col 14
+	workspaceEdit := collectWorkspaceRename(context.Background(), dm, mainURI, analysis.Pos{Line: 2, Col: 14}, "Person")
 	if workspaceEdit == nil {
 		t.Fatal("expected workspace edit, got nil")
 	}

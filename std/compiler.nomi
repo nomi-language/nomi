@@ -120,7 +120,7 @@ pub host fn hover(source: String) -> Result<Hover, String>
 //! import std/compiler
 //! import std/strings.String
 //!
-//! diagnostics = compiler.check_project(Project{
+//! diagnostics = compiler.check_project(#Project{
 //!     entry_point: "main",
 //!     manifest: Maybe.Some(
 //!         Toml"""
@@ -148,7 +148,7 @@ pub host fn hover(source: String) -> Result<Hover, String>
 //!             }
 //!
 //!             pub fn make(name: String) -> Widget {
-//!               Widget{name}
+//!               #Widget{name}
 //!             }
 //!             """,
 //!     },

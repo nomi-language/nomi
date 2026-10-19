@@ -18,7 +18,7 @@ const genericOperatorBox = `struct Box<T> {
 
 impl Add<T, Box<T>> for Box<T> {
     fn add(b: Box<T>, rhs: T) -> Box<T> {
-        Box{items: b.items + [rhs]}
+        #Box{items: b.items + [rhs]}
     }
 }
 `
@@ -29,17 +29,17 @@ func TestGenericOperatorImpl_Accepted(t *testing.T) {
 		src  string
 	}{
 		{"set union", `fn main() {
-    s: Set<Int> = #{1, 2} + #{3}
+    s: Set<Int> = %[1, 2] + %[3]
     _ = s
 }
 `},
 		{"set difference", `fn main() {
-    s: Set<String> = #{"a", "b"} - #{"a"}
+    s: Set<String> = %["a", "b"] - %["a"]
     _ = s
 }
 `},
 		{"interface-qualified", `fn main() {
-    s: Set<Int> = Add.add(#{1}, #{2})
+    s: Set<Int> = Add.add(%[1], %[2])
     _ = s
 }
 `},
@@ -48,7 +48,7 @@ func TestGenericOperatorImpl_Accepted(t *testing.T) {
 }
 
 fn main() {
-    _ = f(#{1}, #{2})
+    _ = f(%[1], %[2])
 }
 `},
 		{"map merge", `fn main() {
@@ -66,7 +66,7 @@ fn main() {
 `},
 		{"user generic type", genericOperatorBox + `
 fn main() {
-    b: Box<String> = Box{items: ["a"]} + "b"
+    b: Box<String> = #Box{items: ["a"]} + "b"
     _ = b
 }
 `},
@@ -76,7 +76,7 @@ fn grow<T>(b: Box<T>, x: T) -> Box<T> {
 }
 
 fn main() {
-    _ = grow(Box{items: [1]}, 2)
+    _ = grow(#Box{items: [1]}, 2)
 }
 `},
 	}
@@ -96,15 +96,15 @@ func TestGenericOperatorImpl_RightOperandMismatch(t *testing.T) {
 		want string
 	}{
 		{"set plus element", `fn main() {
-    _ = #{1} + 2
+    _ = %[1] + 2
 }
 `, "binary + right operand mismatch: Add expects Set<Int>, got Int"},
 		{"set minus element", `fn main() {
-    _ = #{"a"} - 1
+    _ = %["a"] - 1
 }
 `, "binary - right operand mismatch: Subtract expects Set<String>, got Int"},
 		{"set plus other element type", `fn main() {
-    _ = #{1} + #{"x"}
+    _ = %[1] + %["x"]
 }
 `, "binary + right operand mismatch: Add expects Set<Int>, got Set<String>"},
 		{"map plus key", `fn main() {
@@ -116,12 +116,12 @@ func TestGenericOperatorImpl_RightOperandMismatch(t *testing.T) {
 }
 `, "binary + right operand mismatch: Add expects Map<String, Int>, got Map<String, String>"},
 		{"interface-qualified", `fn main() {
-    _ = Add.add(#{1}, 2)
+    _ = Add.add(%[1], 2)
 }
 `, "argument 2: expected Set<Int>, got Int"},
 		{"user generic type", genericOperatorBox + `
 fn main() {
-    _ = Box{items: [1]} + "x"
+    _ = #Box{items: [1]} + "x"
 }
 `, "binary + right operand mismatch: Add expects Int, got String"},
 	}

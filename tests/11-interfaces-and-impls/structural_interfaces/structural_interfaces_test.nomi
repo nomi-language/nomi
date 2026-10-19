@@ -49,7 +49,7 @@ fn count_shapes(shapes: List<Struct>) -> Int {
 }
 
 test "an interface function requirement dispatches through an existential value" {
-    assert greet(Person{name: "Ada"}) == "Hi Ada"
+    assert greet(#Person{name: "Ada"}) == "Hi Ada"
 }
 
 test "an interface value exposes no fields" {
@@ -88,21 +88,21 @@ test "an interface declares no fields" {
 
 test "an enum's variant shapes render through Debug" {
     ready = Event.Ready(4)
-    card = Event.Card{rank: 2, suit: "hearts"}
-    click: Event = Click{id: 7}
+    card = #Event.Card{rank: 2, suit: "hearts"}
+    click: Event = #Click{id: 7}
 
     assert Debug.inspect(Event.Idle) == "Idle"
     assert Debug.inspect(ready) == "Ready(4)"
-    assert Debug.inspect(card) == "Card{rank: 2, suit: \"hearts\"}"
-    assert Debug.inspect(click) == "Click{id: 7}"
+    assert Debug.inspect(card) == "#Card{rank: 2, suit: \"hearts\"}"
+    assert Debug.inspect(click) == "#Click{id: 7}"
 }
 
 test "Struct is a universal interface for named and anonymous structs" {
-    shapes: List<Struct> = [Dog{name: "Fido"}, Cat{lives: 9}, {tag: "anon"}]
-    moved = Struct.update(Dog{name: "Rex"}, {name: "Max"})
+    shapes: List<Struct> = [#Dog{name: "Fido"}, #Cat{lives: 9}, #{tag: "anon"}]
+    moved = Struct.update(#Dog{name: "Rex"}, #{name: "Max"})
 
-    assert Debug.inspect(echo_struct(Dog{name: "Rex"})) == "Dog{name: \"Rex\"}"
-    assert Debug.inspect(echo_struct({x: 1, y: 2})) == "{x: 1, y: 2}"
+    assert Debug.inspect(echo_struct(#Dog{name: "Rex"})) == "#Dog{name: \"Rex\"}"
+    assert Debug.inspect(echo_struct(#{x: 1, y: 2})) == "#{x: 1, y: 2}"
     assert count_shapes(shapes) == 3
     assert moved.name == "Max"
 }

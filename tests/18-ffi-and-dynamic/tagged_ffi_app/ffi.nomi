@@ -13,7 +13,7 @@ pub opaque struct Box {
 }
 
 pub fn make_box(label: String) -> Box {
-    Box{raw: make_box_raw(label)}
+    #Box{raw: make_box_raw(label)}
 }
 
 pub fn box_label(box: Box) -> String {

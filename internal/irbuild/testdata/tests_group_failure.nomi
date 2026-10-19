@@ -16,23 +16,23 @@
 // of one rule — and the defining expression here reads a value that came out
 // of a `setup`, which is the seam this fixture exists for.
 group "totals" {
-    setup {want: 7}
+    setup #{want: 7}
 
-    test "a failure names its group and its own line", {want} {
+    test "a failure names its group and its own line", #{want} {
         assert (3 + 3) == want
     }
 
-    test "an operand bound from the setup is rendered like any other", {want} {
+    test "an operand bound from the setup is rendered like any other", #{want} {
         got = want * 2
         assert got == 15
     }
 
-    test "a bare name shows how it was defined", {want} {
+    test "a bare name shows how it was defined", #{want} {
         enough? = want > 100
         assert enough?
     }
 
-    test "a passing case beside a failing one still reports ok", {want} {
+    test "a passing case beside a failing one still reports ok", #{want} {
         assert want == 7
     }
 }

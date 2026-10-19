@@ -22,22 +22,22 @@ impl Named for Pt {
 // is a binding's: the embedded and implementor coercion reaches inside a
 // tuple, a list and a type argument at a result as it does at an annotated
 // binding (§8 Embedded Types: "a binding, an argument, a result"). The tail
-// was compared without it, so `#(1, Pt{x: 5})` was rejected as a
-// `#(Int, Named)` result though `t: #(Int, Named) = #(1, Pt{x: 5})` was not.
+// was compared without it, so `#(1, #Pt{x: 5})` was rejected as a
+// `#(Int, Named)` result though `t: #(Int, Named) = #(1, #Pt{x: 5})` was not.
 func TestResultWidening_TailWidensAsABindingDoes(t *testing.T) {
 	src := resultWideningDecls + `fn pair() -> #(Int, Named) {
-    #(1, Pt{x: 5})
+    #(1, #Pt{x: 5})
 }
 
 fn early(n: Int) -> #(Int, Named) {
     if n > 0 {
-        return #(n, Pt{x: n})
+        return #(n, #Pt{x: n})
     }
-    #(0, Pt{x: 0})
+    #(0, #Pt{x: 0})
 }
 
 fn gen<A>(a: A) -> #(A, Named) {
-    #(a, Pt{x: 5})
+    #(a, #Pt{x: 5})
 }
 
 fn bound(t: #(Int, Named)) -> #(Int, Named) {
@@ -45,7 +45,7 @@ fn bound(t: #(Int, Named)) -> #(Int, Named) {
 }
 
 fn binding() -> #(Int, Named) {
-    t: #(Int, Named) = #(1, Pt{x: 5})
+    t: #(Int, Named) = #(1, #Pt{x: 5})
     t
 }
 `

@@ -72,7 +72,7 @@ func TestFuncValueDefaults_ACallThroughTheValuePassesEveryArgument(t *testing.T)
 		{"_ = (parse)(\"1\")", "expected 2 arguments, got 1"},
 		{"_ = \"1\" |> (parse)()", "expected 2 arguments, got 1 (counting the piped value)"},
 		{"_ = pass(parse)(\"1\")", "expected 2 arguments, got 1"},
-		{"b = Holder{f: parse}\n  _ = b.f(\"1\")", "expected 2 arguments, got 1"},
+		{"b = #Holder{f: parse}\n  _ = b.f(\"1\")", "expected 2 arguments, got 1"},
 		{"_ = through(parse)", "expected 2 arguments, got 1 (counting the piped value)"},
 		// A function value's parameters have no names.
 		{"g = parse\n  _ = g(s: \"1\", strict: True)", "no parameter named 's'"},

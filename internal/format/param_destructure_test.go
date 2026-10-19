@@ -41,7 +41,7 @@ func TestFmt_Distinct_AlreadyConcise(t *testing.T) {
 }
 
 func TestFmt_TypedStruct_StripRedundantAnnotation(t *testing.T) {
-	fmtContains(t, "fn f(Point{x, y}: Point) -> Int { x + y }\n", "fn f(Point{x, y}) -> Int")
+	fmtContains(t, "fn f(#Point{x, y}: Point) -> Int { x + y }\n", "fn f(#Point{x, y}) -> Int")
 }
 
 func TestFmt_QualifiedEnum_StripRedundantAnnotation(t *testing.T) {
@@ -55,7 +55,7 @@ func TestFmt_Tuple_KeepsAnnotation(t *testing.T) {
 }
 
 func TestFmt_AnonStruct_KeepsAnnotation(t *testing.T) {
-	fmtContains(t, "fn f({x, y}: Point) -> Int { x + y }\n", "{x, y}: Point")
+	fmtContains(t, "fn f(#{x, y}: Point) -> Int { x + y }\n", "{x, y}: Point")
 }
 
 func TestFmt_Distinct_KeepsMismatchedAnnotation(t *testing.T) {
@@ -70,7 +70,7 @@ func TestFmt_BareHead_KeepsAnnotation(t *testing.T) {
 	cases := []struct{ src, want string }{
 		{"fn render(Label: Label) -> String { \"x\" }\n", "fn render(Label: Label) -> String {\n    \"x\"\n}\n"},
 		{"f = fn Label: Label -> 1\n", "f = fn Label: Label -> 1\n"},
-		{"fn f(Label: Label = Label{}) -> Int { 1 }\n", "fn f(Label: Label = Label{}) -> Int {\n    1\n}\n"},
+		{"fn f(Label: Label = #Label{}) -> Int { 1 }\n", "fn f(Label: Label = #Label{}) -> Int {\n    1\n}\n"},
 		{"fn f(T: Int) -> Int { 1 }\n", "fn f(T: Int) -> Int {\n    1\n}\n"},
 		{"fn f(None: Maybe<Int>) -> Int { 1 }\n", "fn f(None: Maybe<Int>) -> Int {\n    1\n}\n"},
 		{"fn f(Some(x): Maybe<Int>) -> Int { x }\n", "fn f(Some(x): Maybe<Int>) -> Int {\n    x\n}\n"},
@@ -89,8 +89,8 @@ func TestFmt_BareHead_KeepsAnnotation(t *testing.T) {
 func TestFmt_StripRedundantAnnotation_SameMeaning(t *testing.T) {
 	cases := []struct{ src, want string }{
 		{"fn f(Dur(x): Dur) -> Int { x }\n", "fn f(Dur(x)) -> Int {\n    x\n}\n"},
-		{"fn f(Point{x, y}: Point) -> Int { x }\n", "fn f(Point{x, y}) -> Int {\n    x\n}\n"},
-		{"fn f(Point{}: Point) -> Int { 1 }\n", "fn f(Point{}) -> Int {\n    1\n}\n"},
+		{"fn f(#Point{x, y}: Point) -> Int { x }\n", "fn f(#Point{x, y}) -> Int {\n    x\n}\n"},
+		{"fn f(#Point{}: Point) -> Int { 1 }\n", "fn f(#Point{}) -> Int {\n    1\n}\n"},
 		{"fn f(E.V: E) -> Int { 1 }\n", "fn f(E.V) -> Int {\n    1\n}\n"},
 		{"fn f(Dur(x): Dur = Dur(1)) -> Int { x }\n", "fn f(Dur(x) = Dur(1)) -> Int {\n    x\n}\n"},
 		{"f = fn Dur(x): Dur -> x\n", "f = fn Dur(x) -> x\n"},
@@ -135,8 +135,8 @@ func TestFmt_RoundTrip_Stable(t *testing.T) {
 	cases := []string{
 		"fn f(Dur(x)) -> Int {\n    x\n}\n",
 		"fn f(#(a, b): #(Int, Int)) -> Int {\n    a + b\n}\n",
-		"fn f(Point{x, y}) -> Int {\n    x + y\n}\n",
-		"fn f({x, y}: Point) -> Int {\n    x + y\n}\n",
+		"fn f(#Point{x, y}) -> Int {\n    x + y\n}\n",
+		"fn f(#{x, y}: Point) -> Int {\n    x + y\n}\n",
 	}
 	for _, src := range cases {
 		got, err := Format(src)

@@ -19,7 +19,7 @@ struct Point {
 
 fn main() {
     k = 10
-    fn norm(Point{x, y}) -> Int {
+    fn norm(#Point{x, y}) -> Int {
         x * x + y * y + k
     }
     fn count(#(a, b): #(Int, Int)) -> Int {
@@ -39,7 +39,7 @@ fn main() {
             #(b, a)
         }
     }
-    io.print(norm(Point{x: 3, y: 4}))
+    io.print(norm(#Point{x: 3, y: 4}))
     io.print(count(#(3, 0)))
     io.print(pick(#("s", 1)))
     io.inspect(sw(keep: True, #(1, "x")))

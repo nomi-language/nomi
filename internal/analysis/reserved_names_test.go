@@ -304,7 +304,7 @@ fn show<T>(x: T) -> String where T: Display {
 }
 
 fn main() {
-  _s = show(Point { x: 1 })
+  _s = show(#Point { x: 1 })
 }
 `
 	errs := reservedNamesCheckAll(t, control)

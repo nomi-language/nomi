@@ -169,7 +169,7 @@ fn main() {
 import std/json.Json
 
 fn failure() -> Json.DecodeError {
-  Json.DecodeError{message: "bad", line: 2, col: 3, offset: 9}
+  #Json.DecodeError{message: "bad", line: 2, col: 3, offset: 9}
 }
 
 fn position(e: Json.DecodeError) -> String {
@@ -177,7 +177,7 @@ fn position(e: Json.DecodeError) -> String {
 }
 
 fn shape() -> Json.ShapeError {
-  Json.ShapeError{path: ["a", "b"], expected: "Int", got: "String"}
+  #Json.ShapeError{path: ["a", "b"], expected: "Int", got: "String"}
 }
 
 fn depth(e: Json.ShapeError) -> Int {
@@ -190,7 +190,7 @@ fn main() {
   io.print(depth(shape()))
   io.inspect(shape())
 }
-`, "2:3\njson decode error at line 2, col 3: bad\n2\nJson.ShapeError{path: [\"a\", \"b\"], expected: \"Int\", got: \"String\"}\n",
+`, "2:3\njson decode error at line 2, col 3: bad\n2\n#Json.ShapeError{path: [\"a\", \"b\"], expected: \"Int\", got: \"String\"}\n",
 			[]string{"failure", "position", "shape", "depth", "main"}},
 		// Project carries a prelude Maybe over a std distinct type in a field
 		// whose default std declares, and a spread replaces it.
@@ -199,11 +199,11 @@ import std/compiler.Project
 import std/toml.Toml
 
 fn project() -> Project {
-  Project{entry_point: "main", files: %{"main" => "fn main() {}"}}
+  #Project{entry_point: "main", files: %{"main" => "fn main() {}"}}
 }
 
 fn configured(p: Project) -> Project {
-  {..p, manifest: Some(Toml"[module]\nname = \"demo\"\n")}
+  #{..p, manifest: Some(Toml"[module]\nname = \"demo\"\n")}
 }
 
 fn has_manifest?(p: Project) -> Bool {

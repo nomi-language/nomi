@@ -14,7 +14,7 @@ pub struct Config {
 }
 
 pub fn boot() -> Config {
-    Config{
+    #Config{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4),
         done: Channel.buffered<Int>(4),

@@ -17,7 +17,7 @@ func generatedFile(n int) string {
 	b.WriteString("pub struct User {\n    name: String\n    age: Int\n    active?: Bool\n}\n")
 	for i := range n {
 		fmt.Fprintf(&b, "\n/// Function %d.\n", i)
-		fmt.Fprintf(&b, "//! assert f%d([User{name: \"a\", age: %d, active?: True}]) == [\"a\"]\n", i, i)
+		fmt.Fprintf(&b, "//! assert f%d([#User{name: \"a\", age: %d, active?: True}]) == [\"a\"]\n", i, i)
 		fmt.Fprintf(&b, "pub fn f%d(users: List<User>) -> List<String> {\n", i)
 		b.WriteString("    users\n    |> Iter.filter(.active?)\n    |> Iter.map(.name)\n    |> Iter.to_list()\n}\n")
 	}

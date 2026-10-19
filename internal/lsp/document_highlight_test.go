@@ -49,11 +49,11 @@ const highlightSrc = `struct Point {
 fn shift(p: Point, by: Int) -> Point {
     x = p.x + by
     y = p.y + by
-    Point{x, y: y}
+    #Point{x, y: y}
 }
 
 fn main() {
-    total = shift(Point{x: 1, y: 2}, 3)
+    total = shift(#Point{x: 1, y: 2}, 3)
     total = shift(total, 4)
     w = #("é", total.x)
     w
@@ -70,7 +70,7 @@ func TestDocumentHighlight(t *testing.T) {
 		{"parameter", 5, 9, []string{"5:9-10 write", "6:8-9 read", "7:8-9 read"}},
 		{"parameter from a use", 6, 15, []string{"5:19-21 write", "6:14-16 read", "7:14-16 read"}},
 		// A local read by a punned field label.
-		{"punned local", 6, 4, []string{"6:4-5 write", "8:10-11 read"}},
+		{"punned local", 6, 4, []string{"6:4-5 write", "8:11-12 read"}},
 		// A function: its declaration and its calls.
 		{"function", 12, 13, []string{"5:3-8 write", "12:12-17 read", "13:12-17 read"}},
 		// A shadowing binding is its own symbol: the second `total`
@@ -78,7 +78,7 @@ func TestDocumentHighlight(t *testing.T) {
 		{"first binding", 12, 4, []string{"12:4-9 write", "13:18-23 read"}},
 		{"shadowing binding", 13, 4, []string{"13:4-9 write", "14:15-20 read"}},
 		// A field: its declaration and its accesses in this file.
-		{"field", 1, 4, []string{"1:4-5 write", "6:10-11 read", "8:10-11 read", "12:24-25 read", "14:21-22 read"}},
+		{"field", 1, 4, []string{"1:4-5 write", "6:10-11 read", "8:11-12 read", "12:25-26 read", "14:21-22 read"}},
 		// Columns are UTF-16 after a non-ASCII character.
 		{"after non-ASCII", 14, 16, []string{"13:4-9 write", "14:15-20 read"}},
 		// A keyword has no symbol.

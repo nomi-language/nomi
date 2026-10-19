@@ -83,20 +83,20 @@ fn main() {
     io.inspect(t)
     Twice(Meters(n)) = t
     io.inspect(n)
-    io.inspect(Twice2(WP(P{x: 1})))
-    Twice2(WP(p)) = Twice2(WP(P{x: 7}))
+    io.inspect(Twice2(WP(#P{x: 1})))
+    Twice2(WP(p)) = Twice2(WP(#P{x: 7}))
     io.inspect(p.x)
     io.inspect(C(Color.Green))
-    io.print(Display.to_string(WP(P{x: 4})))
-    io.inspect(Ids(#{1, 2}) == Ids(#{2, 1}))
+    io.print(Display.to_string(WP(#P{x: 4})))
+    io.inspect(Ids(%[1, 2]) == Ids(%[2, 1]))
     io.inspect(Vs(#[1, 2]))
     io.inspect(Ms([Meters(1)]))
     io.inspect(first([Wrapped(Some(1))]))
     io.inspect([1, 2] |> Iter.map(fn n -> Wrapped(Some(n))) |> Iter.to_list())
     io.inspect(Map.get(%{Wrapped(Some(1)) => "a"}, Wrapped(Some(1))))
-    h = H{p: WP(P{x: 2}), w: Wrapped(None)}
+    h = #H{p: WP(#P{x: 2}), w: Wrapped(None)}
     io.inspect(h)
-    io.inspect(h == H{p: WP(P{x: 2}), w: Wrapped(Some(1))})
+    io.inspect(h == #H{p: WP(#P{x: 2}), w: Wrapped(Some(1))})
     {
         type Local Maybe<String>
         io.inspect(Local(Some("a")))
@@ -113,7 +113,7 @@ fn main() {
 		"Res(Err(\"no\"))\n" +
 		"Twice(Meters(3))\n" +
 		"3\n" +
-		"Twice2(WP(P{x: 1}))\n" +
+		"Twice2(WP(#P{x: 1}))\n" +
 		"7\n" +
 		"C(Green)\n" +
 		"wp 4\n" +
@@ -123,7 +123,7 @@ fn main() {
 		"Some(Wrapped(Some(1)))\n" +
 		"[Wrapped(Some(1)), Wrapped(Some(2))]\n" +
 		"Some(\"a\")\n" +
-		"H{p: WP(P{x: 2}), w: Wrapped(None)}\n" +
+		"#H{p: WP(#P{x: 2}), w: Wrapped(None)}\n" +
 		"False\n" +
 		"Local(Some(\"a\"))\n"
 	irRunSource(t, src, want)
@@ -172,33 +172,33 @@ fn total(n: Node) -> Int {
 }
 
 fn main() {
-    chain = Node{v: 1, next: Some(Link(Node{v: 2, next: None}))}
+    chain = #Node{v: 1, next: Some(Link(#Node{v: 2, next: None}))}
     io.print(total(chain))
     io.inspect(chain)
-    inner = B(W{b: None})
-    B(w) = B(W{b: Some(inner)})
+    inner = B(#W{b: None})
+    B(w) = B(#W{b: Some(inner)})
     case w.b {
         Some(_) -> io.print("nested")
         None -> io.print("flat")
     }
     _ = dbg w
-    io.print(inner == B(W{b: None}))
+    io.print(inner == B(#W{b: None}))
     io.print(B(w) == inner)
-    t = Tree{kids: [Branch(Tree{kids: []})]}
+    t = #Tree{kids: [Branch(#Tree{kids: []})]}
     io.inspect(t)
-    io.print(t == Tree{kids: [Branch(Tree{kids: []})]})
+    io.print(t == #Tree{kids: [Branch(#Tree{kids: []})]})
     e = Expr.Neg(Boxed(Expr.Lit(3)))
     io.inspect(e)
     io.print(e == Expr.Neg(Boxed(Expr.Lit(3))))
 }
 `
 	want := "3\n" +
-		"Node{v: 1, next: Some(Link(Node{v: 2, next: None}))}\n" +
+		"#Node{v: 1, next: Some(Link(#Node{v: 2, next: None}))}\n" +
 		"nested\n" +
-		"dbg line 46: w = W{b: Some(B(W{b: None}))}\n" +
+		"dbg line 46: w = #W{b: Some(B(#W{b: None}))}\n" +
 		"True\n" +
 		"False\n" +
-		"Tree{kids: [Branch(Tree{kids: []})]}\n" +
+		"#Tree{kids: [Branch(#Tree{kids: []})]}\n" +
 		"True\n" +
 		"Neg(Boxed(Lit(3)))\n" +
 		"True\n"

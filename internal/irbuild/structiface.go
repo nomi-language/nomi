@@ -24,7 +24,7 @@ import (
 //
 //  1. CONFORMANCE IS STRUCTURAL, NOT DECLARED. Spec §"the interface every
 //     struct satisfies": "Every struct value — a named `struct` type or an
-//     anonymous `{...}` — satisfies `Struct`, so its functions are callable on
+//     anonymous `#{...}` — satisfies `Struct`, so its functions are callable on
 //     any of them; no non-struct type satisfies it." There is no
 //     `impl Struct for X` ANYWHERE — the analyzer rejects one outright
 //     ("`Struct` is a built-in structural marker and cannot be implemented",
@@ -43,7 +43,7 @@ import (
 //     `Struct.update` on an ERASED receiver needs the dictionary.
 //
 // That keeps (2) small: `Struct.update` at a CONCRETE receiver
-// (`Struct.update(Point{x: 1, y: 2}, {x: 9})`) lowers with no `*ifaceDef`,
+// (`Struct.update(#Point{x: 1, y: 2}, #{x: 9})`) lowers with no `*ifaceDef`,
 // because it resolves through the stdlib FUNCTION index, and
 // `fn echo<T>(v: T) -> T where T: Struct` lowers too. What this file adds is the
 // existential kind, `fn one(s: Struct) -> Int`.
@@ -244,7 +244,7 @@ func structIfacePartialSelf(te ast.TypeExpr) bool {
 }
 
 // structIfaceSatisfiedBy reports whether k is a value the spec says satisfies
-// `Struct`: "a named `struct` type or an anonymous `{...}`", and nothing else.
+// `Struct`: "a named `struct` type or an anonymous `#{...}`", and nothing else.
 //
 // A named DISTINCT, an ENUM and every scalar answer false. That is the language
 // rule and not a conservatism: 11/structural_interfaces pins the negative half

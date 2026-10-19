@@ -53,7 +53,7 @@ fn main() {
 }
 `, "no impl of `Subtract` for `Map`"},
 		{"right operand of a single impl", `fn main() {
-    _ = #{1} + ‸2
+    _ = %[1] + ‸2
 }
 `, "binary + right operand mismatch: Add expects Set<Int>, got Int"},
 		{"right operand of `and`", `fn main() {
@@ -69,7 +69,7 @@ fn main() {
 }
 `, "unary - operand must be numeric, got String"},
 		{"interface-qualified argument", `fn main() {
-    _ = Add.add(#{1}, ‸2)
+    _ = Add.add(%[1], ‸2)
 }
 `, "argument 2: expected Set<Int>, got Int"},
 		{"interface-qualified missing impl", instantSubtractImports + `

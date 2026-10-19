@@ -63,7 +63,7 @@ func (bl *irScalarBuilder) fieldRead(t *ast.FieldAccess) (ir.Temp, kind, bool, b
 			return no()
 		}
 	case *ast.StructLit, *ast.GroupedExpr, *ast.TupleLit, *ast.If, *ast.Case, *ast.Block, *ast.TaggedString:
-		// `Holder{shape: c}.shape`, `(f(x)).name`, `Box"x".contents`: a
+		// `#Holder{shape: c}.shape`, `(f(x)).name`, `Box"x".contents`: a
 		// field of a value the expression builds, lowered once below and
 		// projected.
 	default:

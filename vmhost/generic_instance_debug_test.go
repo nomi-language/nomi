@@ -51,20 +51,20 @@ enum Tree<T> {
 }
 
 fn main() {
-    io.inspect(#(Box{v: True}, Box{v: ""}))
-    io.inspect([#(Box{v: A{n: 1}}, Box{v: B{s: "x"}})])
-    pair = #(Box{v: A{n: 2}}, Box{v: B{s: "y"}})
+    io.inspect(#(#Box{v: True}, #Box{v: ""}))
+    io.inspect([#(#Box{v: #A{n: 1}}, #Box{v: #B{s: "x"}})])
+    pair = #(#Box{v: #A{n: 2}}, #Box{v: #B{s: "y"}})
     _ = dbg pair
     e: Tree<A> = Tree.Empty
     io.inspect(#(Tree.Leaf(1), Tree.Leaf("a"), e))
-    io.print(Debug.inspect({left: Box{v: 3}, right: Box{v: [B{s: "z"}]}}))
+    io.print(Debug.inspect(#{left: #Box{v: 3}, right: #Box{v: [#B{s: "z"}]}}))
 }
 `)
-	want := "#(Box{v: True}, Box{v: \"\"})\n" +
-		"[#(Box{v: A{n: 1}}, Box{v: B{s: \"x\"}})]\n" +
-		"dbg line 24: pair = #(Box{v: A{n: 2}}, Box{v: B{s: \"y\"}})\n" +
+	want := "#(#Box{v: True}, #Box{v: \"\"})\n" +
+		"[#(#Box{v: #A{n: 1}}, #Box{v: #B{s: \"x\"}})]\n" +
+		"dbg line 24: pair = #(#Box{v: #A{n: 2}}, #Box{v: #B{s: \"y\"}})\n" +
 		"#(Leaf(1), Leaf(\"a\"), Empty)\n" +
-		"{left: Box{v: 3}, right: Box{v: [B{s: \"z\"}]}}\n"
+		"#{left: #Box{v: 3}, right: #Box{v: [#B{s: \"z\"}]}}\n"
 	if got != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", got, want)
 	}

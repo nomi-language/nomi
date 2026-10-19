@@ -18,7 +18,7 @@ fn main() {
     io.inspect(False..=True)
 }
 `
-	const want = "#{1..2, 3..4}\n" +
+	const want = "%[1..2, 3..4]\n" +
 		"Some(\"b\")\n" +
 		"False\n" +
 		"True\n" +

@@ -16,7 +16,7 @@ import (
 // slot's hash is its own type's `Hashable.hash`, so a slot of a declared type
 // with a hand-written impl hashes through it.
 // A record is the same mix over its fields in name order, which is the order
-// its type lists them in, so `{a: 1, b: 2}` and `{b: 2, a: 1}` hash alike.
+// its type lists them in, so `#{a: 1, b: 2}` and `#{b: 2, a: 1}` hash alike.
 //
 // It is lowered as that expression: each slot is projected and bound to a
 // name no program can spell, and the mix is lowered as the Nomi a derive

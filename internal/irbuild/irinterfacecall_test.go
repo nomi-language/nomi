@@ -20,7 +20,7 @@ impl Speech for Dog {
 }
 
 fn main() {
-  rex = Dog{name: "Rex"}
+  rex = #Dog{name: "Rex"}
 
   // Type-qualified — names the implementing type.
   io.print(Dog.speak(rex))
@@ -49,10 +49,10 @@ impl Speech for Dog {
  fn speak(prefix: String, animal: Dog) -> String { prefix + " " + animal.name + " woof" }
 }
 fn prefix() -> String { io.print("prefix"); "hello" }
-fn cat() -> Cat { io.print("cat"); Cat{name: "Milo"} }
+fn cat() -> Cat { io.print("cat"); #Cat{name: "Milo"} }
 fn main() {
  io.print(Speech.speak(prefix(), cat()))
- dog = Dog{name: "Rex"}
+ dog = #Dog{name: "Rex"}
  speak = fn prefix: String -> Speech.speak(prefix, dog)
  io.print(speak("hi"))
 }

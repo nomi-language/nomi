@@ -15,7 +15,7 @@ func TestFormat_DestructurePipeBindingBreaksLikeAPlainBinding(t *testing.T) {
 		{"plain", "pair"},
 		{"tuple", "#(first, rest)"},
 		{"tuple with a wildcard", "#(first, _)"},
-		{"struct", "{first, rest}"},
+		{"struct", "#{first, rest}"},
 		{"map", `%{"first" => first}`},
 		{"distinct", "Pair(pair)"},
 	}

@@ -62,10 +62,10 @@ fn cup_cmp(a: Cup, b: Cup) -> Int {
 }
 
 fn main() {
-    io.print("${Cmp.cmp(Box{n: 9}, Box{n: 4})}")
-    io.print("${Cmp.cmp(Cup{n: 9}, Cup{n: 4})}")
-    io.print("${box_cmp(Box{n: 9}, Box{n: 4})}")
-    io.print("${cup_cmp(Cup{n: 9}, Cup{n: 4})}")
-    io.print("${Cmp.spread(Box{n: 9}, Box{n: 4})}")
-    io.print("${Cmp.spread(Cup{n: 9}, Cup{n: 4})}")
+    io.print("${Cmp.cmp(#Box{n: 9}, #Box{n: 4})}")
+    io.print("${Cmp.cmp(#Cup{n: 9}, #Cup{n: 4})}")
+    io.print("${box_cmp(#Box{n: 9}, #Box{n: 4})}")
+    io.print("${cup_cmp(#Cup{n: 9}, #Cup{n: 4})}")
+    io.print("${Cmp.spread(#Box{n: 9}, #Box{n: 4})}")
+    io.print("${Cmp.spread(#Cup{n: 9}, #Cup{n: 4})}")
 }

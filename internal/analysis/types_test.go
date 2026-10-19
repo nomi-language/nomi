@@ -90,7 +90,7 @@ func TestAnonStructString(t *testing.T) {
 		{Name: "name", Type: TypeString},
 		{Name: "age", Type: TypeInt},
 	}}
-	want := "{name: String, age: Int}"
+	want := "#{name: String, age: Int}"
 	if got := a.String(); got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -381,11 +381,11 @@ func TestAnonStructString_PreservesDeclaredOrder(t *testing.T) {
 	if a.String() == b.String() {
 		t.Errorf("equal anon structs with different declared order should still render differently; both gave %q", a.String())
 	}
-	if a.String() != "{x: Int, y: Float}" {
-		t.Errorf("a.String() = %q, want %q", a.String(), "{x: Int, y: Float}")
+	if a.String() != "#{x: Int, y: Float}" {
+		t.Errorf("a.String() = %q, want %q", a.String(), "#{x: Int, y: Float}")
 	}
-	if b.String() != "{y: Float, x: Int}" {
-		t.Errorf("b.String() = %q, want %q", b.String(), "{y: Float, x: Int}")
+	if b.String() != "#{y: Float, x: Int}" {
+		t.Errorf("b.String() = %q, want %q", b.String(), "#{y: Float, x: Int}")
 	}
 }
 

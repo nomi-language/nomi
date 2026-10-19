@@ -36,12 +36,12 @@ func TestFormat_WithKeepsComments(t *testing.T) {
 // written around one.
 func TestFormat_WithDropsStructLiteralParentheses(t *testing.T) {
 	src := `fn main() {
-    with App.clock = (FakeClock{at: 4242})
+    with App.clock = (#FakeClock{at: 4242})
     tick()
 }
 `
 	want := `fn main() {
-    with App.clock = FakeClock{at: 4242}
+    with App.clock = #FakeClock{at: 4242}
     tick()
 }
 `
@@ -77,22 +77,22 @@ func TestFormat_WithLongValue(t *testing.T) {
 func TestFormat_WithInSetup(t *testing.T) {
 	src := `group "g" {
     setup {
-        with App.store = (FakeStore{})
-        Fixture{a: 1}
+        with App.store = (#FakeStore{})
+        #Fixture{a: 1}
     }
 
-    test "t", {a} {
+    test "t", #{a} {
         assert a == 1
     }
 }
 `
 	want := `group "g" {
     setup {
-        with App.store = FakeStore{}
-        Fixture{a: 1}
+        with App.store = #FakeStore{}
+        #Fixture{a: 1}
     }
 
-    test "t", {a} {
+    test "t", #{a} {
         assert a == 1
     }
 }

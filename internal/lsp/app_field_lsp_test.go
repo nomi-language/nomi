@@ -16,7 +16,7 @@ func TestAppFieldHoverAndDefinition(t *testing.T) {
 struct Services {
   context: Context
  port: Int }
-fn boot() -> Services { Services{context: Context.root(), port: 3} }
+fn boot() -> Services { #Services{context: Context.root(), port: 3} }
 fn main() {
  with Services.port = 4
  _ = Services.context
@@ -81,7 +81,7 @@ struct App {
 }
 
 fn boot() -> App {
-  App{port: 8080, context: Context.root()}
+  #App{port: 8080, context: Context.root()}
 }
 
 fn main() {
@@ -135,11 +135,11 @@ struct App {
 }
 
 fn boot() -> App {
-  App{logger: Logger{prefix: "a"}, context: Context.root()}
+  #App{logger: #Logger{prefix: "a"}, context: Context.root()}
 }
 
 fn main() {
-  with App.logger = Logger{prefix: "b"}
+  with App.logger = #Logger{prefix: "b"}
   Logger.log(App.logger, "m")
 }
 `
@@ -168,7 +168,7 @@ fn main() {
 	}
 	edits := buildRenameEdits(doc.Analysis, sym, symbolIdentity(sym), "log_sink")
 	got := editStarts(edits)
-	wantStarts := []string{"13:2", "18:6", posString(appFieldCursor(t, src, "App.logger", 1)), posString(appFieldCursor(t, src, "App.logger", 2))}
+	wantStarts := []string{"13:2", "18:7", posString(appFieldCursor(t, src, "App.logger", 1)), posString(appFieldCursor(t, src, "App.logger", 2))}
 	sort.Strings(wantStarts)
 	if strings.Join(got, " ") != strings.Join(wantStarts, " ") {
 		t.Errorf("field rename edits at %v, want %v", got, wantStarts)
@@ -200,7 +200,7 @@ func TestAppFieldRename_FieldAndType(t *testing.T) {
 }
 
 fn boot() -> App {
-  App{port: 8080, context: Context.root()}
+  #App{port: 8080, context: Context.root()}
 }
 
 fn main() {

@@ -133,7 +133,7 @@ impl Chooser for Pair<E> {
 }
 
 fn f() {
-  x = Chooser.pick(Pair{a: 1, b: 2})
+  x = Chooser.pick(#Pair{a: 1, b: 2})
   io.print(x)
 }
 

@@ -28,7 +28,7 @@ func TestPinned_StdNameCollision(t *testing.T) {
 		"Task", "Sender", "Receiver", "Channel", "Supervisor"} {
 		// Inherent function, field read, Display.to_string, interpolation
 		// (Display), Debug.inspect.
-		want.WriteString("3\n3\n" + n + "(3)\n" + n + "(3)\n" + n + "{n: 3}\n")
+		want.WriteString("3\n3\n" + n + "(3)\n" + n + "(3)\n#" + n + "{n: 3}\n")
 	}
 	want.WriteString("" +
 		"Task(40)\n" + // Task.spawn(4), a constructor

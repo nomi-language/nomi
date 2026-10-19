@@ -49,9 +49,9 @@ import {
 // # Why a PERMUTED struct is inside a Vector
 //
 // debug_containers.nomi's argument, applied to the Vector arm. `Pt` is declared
-// `zz` then `a`: `Debug.inspect` renders declaration order (`Pt{zz: 1, a: 2}`)
+// `zz` then `a`: `Debug.inspect` renders declaration order (`#Pt{zz: 1, a: 2}`)
 // and an assertion's `values:` row sorts the COMPOSED strings
-// (`Pt{a: 2, zz: 1}`). Those are different strings, so a Vector arm that
+// (`#Pt{a: 2, zz: 1}`). Those are different strings, so a Vector arm that
 // rendered its elements the way the assertion row does fails HERE, and still
 // passes every fixture whose elements are scalars, since a scalar renders the
 // same way in both.
@@ -77,15 +77,15 @@ struct Mono {
 }
 
 fn int_gen() -> Gen<Int> {
-    Gen{run: fn s -> #(s + 1, s)}
+    #Gen{run: fn s -> #(s + 1, s)}
 }
 
 fn text_gen() -> Gen<String> {
-    Gen{run: fn s -> #("v${s}", s)}
+    #Gen{run: fn s -> #("v${s}", s)}
 }
 
 fn mono() -> Mono {
-    Mono{run: fn s -> #(s * 2, s)}
+    #Mono{run: fn s -> #(s * 2, s)}
 }
 
 fn cancelled_int() -> Outcome<Int> {
@@ -107,7 +107,7 @@ fn main() {
 
     // The permuted struct as an element, and a nested Vector so the element
     // renderer is applied to its own output.
-    io.print(Debug.inspect(#[Pt{zz: 1, a: 2}]))
+    io.print(Debug.inspect(#[#Pt{zz: 1, a: 2}]))
     io.print(Debug.inspect(#[#["a"], #["b"]]))
     io.print(Debug.inspect([#[1], #[2]]))
     io.print(Debug.inspect(#[Some(1), Some(2)]))
@@ -154,16 +154,16 @@ fn main() {
     // `Vector.inspect(v)` and `Debug.inspect(v)` are two spellings of the SAME
     // operation: `inspect` is the method name of std's `impl Debug for
     // Vector<T>`, so both must answer through that one body and give the same
-    // string: `#[Pt{zz: 1, a: 2}]`, in declaration order, as the golden record
+    // string: `#[#Pt{zz: 1, a: 2}]`, in declaration order, as the golden record
     // holds.
     //
     // They are pinned side by side because the builder reaches them by different
     // routes and could give them different ELEMENT leaves, which for the permuted
-    // struct is a different string (`#[Pt{a: 2, zz: 1}]`) and therefore a live
+    // struct is a different string (`#[#Pt{a: 2, zz: 1}]`) and therefore a live
     // DIFF rather than a refusal. Nothing in the corpus renders a Vector of a
     // permuted struct by either spelling, so this pair is the only thing that
     // holds the two routes together.
-    pv = #[Pt{zz: 1, a: 2}]
+    pv = #[#Pt{zz: 1, a: 2}]
     io.print(Debug.inspect(pv))
     io.print(Vector.inspect(pv))
 }

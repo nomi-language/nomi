@@ -15,10 +15,10 @@ fn find(s: String) -> Maybe<Int> {
 group "try on a Result in setup" {
     setup {
         n = try parse("abc")
-        {n: n}
+        #{n}
     }
 
-    test "the setup's value reaches the case", {n} {
+    test "the setup's value reaches the case", #{n} {
         assert n == 3
     }
 }
@@ -26,10 +26,10 @@ group "try on a Result in setup" {
 group "try on a Maybe in setup" {
     setup {
         n = try find("abcd")
-        {n: n}
+        #{n}
     }
 
-    test "the setup's value reaches the case", {n} {
+    test "the setup's value reaches the case", #{n} {
         assert n == 4
     }
 }
@@ -38,10 +38,10 @@ group "try in a pipe stage in setup" {
     setup {
         n = "ab" |> try parse()
 
-        {n: n}
+        #{n}
     }
 
-    test "the setup's value reaches the case", {n} {
+    test "the setup's value reaches the case", #{n} {
         assert n == 2
     }
 }
@@ -50,10 +50,10 @@ group "try after other statements in setup" {
     setup {
         base = 10
         extra = try parse("abcde")
-        {total: base + extra}
+        #{total: base + extra}
     }
 
-    test "the setup's earlier bindings reach the try's result", {total} {
+    test "the setup's earlier bindings reach the try's result", #{total} {
         assert total == 15
     }
 }
@@ -61,10 +61,10 @@ group "try after other statements in setup" {
 group "assert in setup" {
     setup {
         assert parse("ab") == Ok(2)
-        {n: 2}
+        #{n: 2}
     }
 
-    test "the setup's assertion held", {n} {
+    test "the setup's assertion held", #{n} {
         assert n == 2
     }
 }

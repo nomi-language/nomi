@@ -68,20 +68,20 @@ fn lesser<T>(a: T, b: T) -> T where T: Comparable {
 fn main() {
     io.inspect(Iter.min([Level.Mid, Level.Low, Level.High]))
     io.inspect(Iter.max([Level.Mid, Level.Low, Level.High]))
-    io.inspect(Iter.min([Card{rank: 2, label: "a"}, Card{rank: 1, label: "b"}, Card{rank: 1, label: "c"}]))
-    io.inspect(Iter.max([Card{rank: 2, label: "a"}, Card{rank: 1, label: "b"}, Card{rank: 2, label: "c"}]))
-    io.inspect(Iter.min_by([Card{rank: 1, label: "x"}, Card{rank: 0, label: "y"}], fn c -> if c.rank == 0 { Level.High } else { Level.Low }))
+    io.inspect(Iter.min([#Card{rank: 2, label: "a"}, #Card{rank: 1, label: "b"}, #Card{rank: 1, label: "c"}]))
+    io.inspect(Iter.max([#Card{rank: 2, label: "a"}, #Card{rank: 1, label: "b"}, #Card{rank: 2, label: "c"}]))
+    io.inspect(Iter.min_by([#Card{rank: 1, label: "x"}, #Card{rank: 0, label: "y"}], fn c -> if c.rank == 0 { Level.High } else { Level.Low }))
     io.inspect(Iter.max_by(["b", "a"], fn s -> if s == "a" { Level.High } else { Level.Low }))
     io.inspect(Iter.min([Suit.Spades, Suit.Clubs]))
-    io.inspect(Iter.max([Hand{size: 3}, Hand{size: 5}]))
-    io.inspect(Iter.min([Pair{a: 2, b: 1}, Pair{a: 1, b: 9}]))
+    io.inspect(Iter.max([#Hand{size: 3}, #Hand{size: 5}]))
+    io.inspect(Iter.min([#Pair{a: 2, b: 1}, #Pair{a: 1, b: 9}]))
     io.inspect(lesser(Suit.Spades, Suit.Clubs))
     io.inspect(lesser(Level.High, Level.Mid))
 }
 `
 	verifyLambdaProgram(t, src, "Some(Low)\nSome(High)\n"+
-		"Some(Card{rank: 1, label: \"b\"})\nSome(Card{rank: 2, label: \"a\"})\n"+
-		"Some(Card{rank: 1, label: \"x\"})\nSome(\"a\")\n"+
-		"Some(Clubs)\nSome(Hand{size: 5})\nSome(Pair{a: 1, b: 9})\n"+
+		"Some(#Card{rank: 1, label: \"b\"})\nSome(#Card{rank: 2, label: \"a\"})\n"+
+		"Some(#Card{rank: 1, label: \"x\"})\nSome(\"a\")\n"+
+		"Some(Clubs)\nSome(#Hand{size: 5})\nSome(#Pair{a: 1, b: 9})\n"+
 		"Clubs\nMid\n", ranks)
 }

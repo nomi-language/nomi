@@ -48,8 +48,8 @@ impl Speech for Cat {
 }
 
 fn main() {
-    io.print(Dog.speak(Dog{name: "Rex"}))
-    io.print(Cat.speak(Cat{name: "Whiskers"}))
+    io.print(Dog.speak(#Dog{name: "Rex"}))
+    io.print(Cat.speak(#Cat{name: "Whiskers"}))
 }
 
 ```
@@ -90,7 +90,7 @@ impl Speech for Dog {
 }
 
 fn main() {
-    rex = Dog{name: "Rex"}
+    rex = #Dog{name: "Rex"}
 
     // Type-qualified — names the implementing type.
     io.print(Dog.speak(rex))
@@ -165,7 +165,7 @@ impl Formatted for User {
 }
 
 fn main() {
-    alice = User{name: "Alice"}
+    alice = #User{name: "Alice"}
     io.print(Formatted.label(alice))
     io.print(Formatted.shout(alice))
     io.print(Formatted.brief(alice))
@@ -331,14 +331,14 @@ enum Status {
 type Email String
 
 fn main() {
-    dbg Point{x: 3, y: 4}
+    dbg #Point{x: 3, y: 4}
     dbg Status.Pending(7)
     dbg Email("a@b.com")
 }
 
 ```
 <!-- expect
-dbg line 14: Point{x: 3, y: 4} = Point{x: 3, y: 4}
+dbg line 14: #Point{x: 3, y: 4} = #Point{x: 3, y: 4}
 dbg line 15: Status.Pending(7) = Pending(7)
 dbg line 16: Email("a@b.com") = Email("a@b.com")
 -->
@@ -370,7 +370,7 @@ impl Display for User {
 }
 
 fn main() {
-    io.print(User{name: "Alice", age: 30})
+    io.print(#User{name: "Alice", age: 30})
 }
 
 ```
@@ -527,11 +527,11 @@ struct User {
     age: Int
 }
 
-derive ToJson for User with ToJson.Options{rename_all: Camel}
-derive FromJson for User with FromJson.Options{rename_all: Camel}
+derive ToJson for User with #ToJson.Options{rename_all: Camel}
+derive FromJson for User with #FromJson.Options{rename_all: Camel}
 
 fn main() -> Result<Unit, Json.ShapeError> {
-    user = User{first_name: "Ada", age: 36}
+    user = #User{first_name: "Ada", age: 36}
     shape = User.to_json(user)
 
     dbg Json.encode(shape)
@@ -596,16 +596,16 @@ struct Point {
 }
 
 fn main() {
-    dbg Point{x: 1, y: 2} == Point{x: 1, y: 2}
-    dbg Point{x: 1, y: 2} == Point{x: 1, y: 3}
-    dbg %{Point{x: 1, y: 2} => "home"}
+    dbg #Point{x: 1, y: 2} == #Point{x: 1, y: 2}
+    dbg #Point{x: 1, y: 2} == #Point{x: 1, y: 3}
+    dbg %{#Point{x: 1, y: 2} => "home"}
 }
 
 ```
 <!-- expect
-dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True
-dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
-dbg line 9: %{Point{x: 1, y: 2} => "home"} = %{Point{x: 1, y: 2} => "home"}
+dbg line 7: #Point{x: 1, y: 2} == #Point{x: 1, y: 2} = True
+dbg line 8: #Point{x: 1, y: 2} == #Point{x: 1, y: 3} = False
+dbg line 9: %{#Point{x: 1, y: 2} => "home"} = %{#Point{x: 1, y: 2} => "home"}
 -->
 
 You still sometimes need `derive Equatable` or `derive Hashable`, for one of
@@ -620,7 +620,7 @@ fn contains<T>(xs: List<T>, needle: T) -> Bool where T: Equatable {
     Iter.any?(xs, fn x -> x == needle)
 }
 
-contains([Point{x: 1, y: 2}], Point{x: 1, y: 2})
+contains([#Point{x: 1, y: 2}], #Point{x: 1, y: 2})
 // error: Point does not implement Equatable (required by `where T: Equatable`)
 ```
 
@@ -645,16 +645,16 @@ struct Money {
 derive Comparable for Money
 
 fn main() {
-    dbg Money{amount: 100} < Money{amount: 250}
+    dbg #Money{amount: 100} < #Money{amount: 250}
 
-    ms = [Money{amount: 3}, Money{amount: 1}, Money{amount: 2}]
+    ms = [#Money{amount: 3}, #Money{amount: 1}, #Money{amount: 2}]
     Iter.sort(ms) |> dbg
 }
 
 ```
 <!-- expect
-dbg line 8: Money{amount: 100} < Money{amount: 250} = True
-dbg line 11: Iter.sort(ms) = [Money{amount: 1}, Money{amount: 2}, Money{amount: 3}]
+dbg line 8: #Money{amount: 100} < #Money{amount: 250} = True
+dbg line 11: Iter.sort(ms) = [#Money{amount: 1}, #Money{amount: 2}, #Money{amount: 3}]
 -->
 
 ### Ranked enums
@@ -744,7 +744,7 @@ struct User {
 }
 
 fn main() {
-    users = [User{name: "Cara", age: 35}, User{name: "Ann", age: 41}]
+    users = [#User{name: "Cara", age: 35}, #User{name: "Ann", age: 41}]
     sorted = users |> Iter.sort_by(.name)
 
     dbg sorted
@@ -752,7 +752,7 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 10: sorted = [User{name: "Ann", age: 41}, User{name: "Cara", age: 35}]
+dbg line 10: sorted = [#User{name: "Ann", age: 41}, #User{name: "Cara", age: 35}]
 -->
 
 Use `derive Comparable` only when the type has one obvious order, and the
@@ -761,7 +761,7 @@ order of its fields or variants gives it:
 - A type that wraps one value, such as `type Score Int` or
   `type Priority Int`.
 - An enum whose variants are in rank order, such as `Severity` above.
-- A struct like `Version{major, minor, patch}`, where comparing field by field
+- A struct like `#Version{major, minor, patch}`, where comparing field by field
   is what the order means. The standard library's `Date` and `Time` are like
   this.
 
@@ -807,10 +807,10 @@ rule forbids.
 
 ### Why not structural field matching?
 
-Why not write `fn greet(v: {name: String})` and accept any struct with a
+Why not write `fn greet(v: #{name: String})` and accept any struct with a
 `name` field? TypeScript, Go and OCaml each allow something like this.
 
-Nomi doesn't. A parameter of type `{x: Int, y: Int}` accepts only values with
+Nomi doesn't. A parameter of type `#{x: Int, y: Int}` accepts only values with
 exactly those fields. It rejects an anonymous struct with more fields. It also
 rejects a named struct, such as a `Point`, even if its fields match.
 
@@ -823,7 +823,7 @@ you three explicit ways instead:
    gives every type that implements it the same way to get a name. Each type
    opts in with an `impl` block.
 2. Build an anonymous struct at the call, such as
-   `distance({x: p.x, y: p.y}, {x: q.x, y: q.y})`. The call shows exactly
+   `distance(#{x: p.x, y: p.y}, #{x: q.x, y: q.y})`. The call shows exactly
    which fields it passes.
 3. Declare a type for the purpose and a function that converts to it, such
    as `fn to_coord(p: Point) -> Coord2D { … }`.

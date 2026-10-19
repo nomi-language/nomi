@@ -12,8 +12,8 @@ struct Outer {
   p: List<Point>
   hooks: Map<String, (Int) -> Int> = Map.empty()
 }
-fn main() { s = #{1, 2} io.inspect(Outer{p: [Point{x: Set.size(s)}]}) }
-`, "Outer{p: [Point{x: 2}], hooks: %{}}\n")
+fn main() { s = %[1, 2] io.inspect(#Outer{p: [#Point{x: Set.size(s)}]}) }
+`, "#Outer{p: [#Point{x: 2}], hooks: %{}}\n")
 }
 
 // A declared distinct is a set element: hashed and compared as `==` is.
@@ -21,7 +21,7 @@ func TestIRSet_DeclaredElementsRun(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 type Meter Int
 fn main() {
-  s = #{Meter(1), Meter(2), Meter(1)}
+  s = %[Meter(1), Meter(2), Meter(1)]
   io.print(Set.size(s))
   io.print(Set.contains?(s, Meter(2)))
 }
@@ -34,7 +34,7 @@ fn add(s: Set<Int>, n: Int) -> Set<Int> { Set.insert(s, n) }
 fn main() {
   one = 1
   two = 2
-  s = #{one, two, 3, two, one}
+  s = %[one, two, 3, two, one]
   io.print(Set.size(s))
   io.print(Set.contains?(s, 2))
   io.print(Set.contains?(s, 9))
@@ -48,30 +48,30 @@ fn main() {
   io.print(has(2))
   io.print(has(4))
 }
-`, "3\nTrue\nFalse\n#{1, 2, 3}\n#{1, 2, 3, 4}\n#{1, 3, 4}\n#{1, 3, 4, 2}\nFalse\nTrue\n")
+`, "3\nTrue\nFalse\n%[1, 2, 3]\n%[1, 2, 3, 4]\n%[1, 3, 4]\n%[1, 3, 4, 2]\nFalse\nTrue\n")
 }
 
 func TestIRSet_EmptyAndScalarSemantics(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn empty() -> Set<Int> { #{} }
+fn empty() -> Set<Int> { %[] }
 fn main() {
-  s: Set<Int> = #{}
+  s: Set<Int> = %[]
   io.inspect(s)
   io.print(Set.size(empty()))
   io.print(Set.contains?(s, 1))
   io.inspect(Set.insert(s, 1))
   nan = 0.0 / 0.0
   zero = 0.0
-  fs = #{nan, nan, -0.0, zero}
+  fs = %[nan, nan, -0.0, zero]
   io.print(Set.size(fs))
   io.print(Set.contains?(fs, nan))
   io.print(Set.contains?(fs, 0.0))
   a = "a"
-  io.inspect(#{a, "b", a})
+  io.inspect(%[a, "b", a])
   yes = True
-  io.inspect(#{yes, False, yes})
+  io.inspect(%[yes, False, yes])
 }
-`, "#{}\n0\nFalse\n#{1}\n2\nTrue\nTrue\n#{\"a\", \"b\"}\n#{True, False}\n")
+`, "%[]\n0\nFalse\n%[1]\n2\nTrue\nTrue\n%[\"a\", \"b\"]\n%[True, False]\n")
 }
 
 func TestIRSet_EvaluationOrder(t *testing.T) {
@@ -79,10 +79,10 @@ func TestIRSet_EvaluationOrder(t *testing.T) {
 fn mark(n: Int) -> Int { io.print(n) n }
 fn set(s: Set<Int>) -> Set<Int> { io.print("set") s }
 fn main() {
-  s = #{mark(1), mark(2), mark(1)}
+  s = %[mark(1), mark(2), mark(1)]
   more = Set.insert(set(s), mark(3))
   io.print(Set.contains?(set(more), mark(2)))
   io.inspect(s)
 }
-`, "1\n2\n1\nset\n3\nset\n2\nTrue\n#{1, 2}\n")
+`, "1\n2\n1\nset\n3\nset\n2\nTrue\n%[1, 2]\n")
 }

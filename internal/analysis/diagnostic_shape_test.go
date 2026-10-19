@@ -70,9 +70,9 @@ func TestDiagnosticShape(t *testing.T) {
 		},
 		{
 			name:    "missing field spans the type name",
-			src:     "struct Person {\n  name: String\n  age: Int\n}\n\nfn f() -> Person {\n  Person{name: \"a\"}\n}\n",
+			src:     "struct Person {\n  name: String\n  age: Int\n}\n\nfn f() -> Person {\n  #Person{name: \"a\"}\n}\n",
 			message: "missing field 'age' of Person",
-			span:    "7:3-7:9",
+			span:    "7:3-7:10",
 		},
 		{
 			name:    "non-exhaustive case spans its head",

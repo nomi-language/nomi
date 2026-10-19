@@ -51,12 +51,12 @@ struct Equals {
 
 impl Assertable for Equals {
     fn failure(e: Equals) -> Maybe<AssertionDetails> {
-        if e.actual == e.expected { None } else { Some(AssertionDetails{
+        if e.actual == e.expected { None } else { Some(#AssertionDetails{
                 reason: "values were not equal",
                 actual: Some(Debug.inspect(e.actual)),
                 details: [
-                    AssertionDetail{label: "actual", value: Debug.inspect(e.actual)},
-                    AssertionDetail{label: "expected", value: Debug.inspect(e.expected)},
+                    #AssertionDetail{label: "actual", value: Debug.inspect(e.actual)},
+                    #AssertionDetail{label: "expected", value: Debug.inspect(e.expected)},
                 ],
             }) }
     }
@@ -71,7 +71,11 @@ struct Defaulted {
 
 impl Assertable for Defaulted {
     fn failure(d: Defaulted) -> Maybe<AssertionDetails> {
-        if d.ok { None } else { Some(AssertionDetails{}) }
+        if d.ok {
+            None
+        } else {
+            Some(#AssertionDetails{})
+        }
     }
 }
 
@@ -84,20 +88,20 @@ impl Assertable for Silent {
         if s.ok {
             None
         } else {
-            Some(AssertionDetails{reason: ""})
+            Some(#AssertionDetails{reason: ""})
         }
     }
 }
 
 fn equals(actual: Int, expected: Int) -> Equals {
-    Equals{actual, expected}
+    #Equals{actual, expected}
 }
 
 // `assert` and `refute` over an Assertable, reached as VALUES so the failure can
 // be read rather than ending the case. The keyword is what changes the reason,
 // and a `check` cannot produce either of these two.
 fn fails_silently() -> Result<Unit, AssertionFailure> {
-    assert Silent{ok: False}
+    assert #Silent{ok: False}
     Ok(Unit)
 }
 
@@ -157,7 +161,7 @@ test "the report shows the authored details, in the order they were answered" {
 }
 
 test "an Assertable answering the declared defaults reports them" {
-    assert Err(failure) = testing.check(Defaulted{ok: False})
+    assert Err(failure) = testing.check(#Defaulted{ok: False})
     // std's field default, NOT the site's `check failed`.
     assert failure.reason == "assertion failed"
     // `None`, so the report prints no `actual:` row at all.
@@ -165,12 +169,12 @@ test "an Assertable answering the declared defaults reports them" {
 
     assert AssertionFailure.format(failure) == """
         line 160: assertion failed
-          check Defaulted{ok: False}
+          check #Defaulted{ok: False}
         """
 }
 
 test "an explicitly empty reason falls back to the site's own words" {
-    assert Err(failure) = testing.check(Silent{ok: False})
+    assert Err(failure) = testing.check(#Silent{ok: False})
     assert failure.reason == "check failed"
 
     assert Err(asserted) = fails_silently()
@@ -202,5 +206,5 @@ test "a bound Assertable subject carries its defining expression" {
     // The binding's value is the SUBJECT rendered by Inspect — fields sorted by
     // their composed `name: value` text — where `actual` above was the
     // Assertable's own string. Two different values in one report.
-    assert context.value == "Equals{actual: 5, expected: 6}"
+    assert context.value == "#Equals{actual: 5, expected: 6}"
 }

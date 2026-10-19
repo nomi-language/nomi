@@ -238,7 +238,7 @@ func TestNestedFunc_BodyIsCheckedInEveryExpressionPosition(t *testing.T) {
 }
 
 fn main() {
-  p = P{x: {
+  p = #P{x: {
     fn bad() -> Int {
       "nope"
     }

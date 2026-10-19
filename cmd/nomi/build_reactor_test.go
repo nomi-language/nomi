@@ -36,12 +36,12 @@ derive ToJson for Shape
 derive FromJson for Shape
 
 export fn moved(p: Point, dx: Int) -> Point {
-    {..p, x: p.x + dx}
+    #{..p, x: p.x + dx}
 }
 
 export fn grow(s: Shape) -> Shape {
     case s {
-        Shape.Circle{radius} -> Shape.Circle{radius: radius * 2}
+        #Shape.Circle{radius} -> #Shape.Circle{radius: radius * 2}
         Shape.Dot -> Shape.Dot
     }
 }

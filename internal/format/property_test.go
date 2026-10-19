@@ -103,19 +103,13 @@ func TestProperty_SemanticallyEquivalent(t *testing.T) {
 }
 
 // TestProperty_SemanticallyEquivalentShapes is TestProperty_SemanticallyEquivalent
-// over SOURCES rather than corpus files, for shapes whose formatted spelling is
-// ambiguous with a different construct.
+// over SOURCES rather than corpus files, for shapes the formatter respells.
 //
 // It exists because the corpus cannot reach these. The corpus is already
 // formatted, so a shape the formatter mangles is committed in its mangled form
 // and then round-trips perfectly: the input that triggers the bug is exactly the
-// input no formatted file contains. That is how a one-field anonymous punned
-// literal went unnoticed. `nomi fmt` re-emitted `{n: n}` as `{n}`, which
-// re-parses as a BLOCK whose value is `n` — not a one-field anonymous struct —
-// so the formatter changed program meaning, the strongest class of formatter
-// bug. It had already broken a stdlib function in the shipped tree, and what
-// found it was an attached `//!` test on that function, not any test in this
-// package.
+// input no formatted file contains. `nomi fmt` writes `#{n: n}` as the punned
+// `#{n}`, which must read back as the same one-field struct.
 //
 // The check is the ROUND TRIP, not the emitted text, deliberately. Pinning the
 // output string would accept a future change that re-broke meaning while
@@ -132,16 +126,14 @@ fn probe(box: Box, n: Int, label: String) -> Box {
 		name string
 		body string
 	}{
-		// The regression. One field, anonymous, punned: `{n}` is a block.
-		{"one field anonymous punned", "  Struct.update(box, {n: n})\n"},
-		// Two fields is unambiguous — a block has no comma-separated
-		// statements — so punning must still be applied here.
-		{"two fields anonymous punned", "  Struct.update(box, {n: n, label: label})\n"},
+		// One field, anonymous, punned: `#{n}` is a struct.
+		{"one field anonymous punned", "  Struct.update(box, #{n: n})\n"},
+		{"two fields anonymous punned", "  Struct.update(box, #{n: n, label: label})\n"},
 		// A type name disambiguates at any arity, including one.
-		{"one field nominal punned", "  Box{n: n, label: label}\n"},
+		{"one field nominal punned", "  #Box{n: n, label: label}\n"},
 		// Not a pun, so never at risk; present so a fix that keyed on arity
 		// alone rather than on punning would show up here.
-		{"one field anonymous not punned", "  Struct.update(box, {n: 1})\n"},
+		{"one field anonymous not punned", "  Struct.update(box, #{n: 1})\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := preamble + tc.body + "}\n"

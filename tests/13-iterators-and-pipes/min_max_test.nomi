@@ -49,10 +49,10 @@ test "a derived Comparable enum orders by variant" {
 
 test "of equal elements, the first wins" {
     cards = [
-        Card{rank: 2, label: "a"},
-        Card{rank: 1, label: "b"},
-        Card{rank: 2, label: "c"},
-        Card{rank: 1, label: "d"},
+        #Card{rank: 2, label: "a"},
+        #Card{rank: 1, label: "b"},
+        #Card{rank: 2, label: "c"},
+        #Card{rank: 1, label: "d"},
     ]
 
     assert Iter.min(cards) |> Maybe.map(fn c -> c.label) == Some("b")

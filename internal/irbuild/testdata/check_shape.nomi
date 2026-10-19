@@ -54,14 +54,14 @@ struct Marker {
 
 fn marker(id: Int) -> Maybe<Marker> {
     if id == 1 {
-        Some(Marker{label: "one", count: 1})
+        Some(#Marker{label: "one", count: 1})
     } else {
         None
     }
 }
 
 fn missing_marker() -> Result<Int, Marker> {
-    Err(Marker{label: "two", count: 2})
+    Err(#Marker{label: "two", count: 2})
 }
 
 test "a passing Maybe check is Ok carrying the Some, not Ok(True)" {
@@ -138,7 +138,7 @@ test "a shape check over a package-local payload uses the per-package instance" 
 
     assert Err(nested) = testing.check(missing_marker())
     assert Some(shown) = nested.actual
-    assert shown == "Err(Marker{count: 2, label: \"two\"})"
+    assert shown == "Err(#Marker{count: 2, label: \"two\"})"
 }
 
 // A bound NAME as the subject: the `defined as:` context, which a shape subject

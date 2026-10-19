@@ -68,14 +68,14 @@ fn start() -> Counter {
             shutdown_timeout: Duration.seconds(5),
             max_running: 1,
             restart: Restart.Permanent,
-            backoff: Backoff.Exponential{
+            backoff: #Backoff.Exponential{
                 max_restarts: 3,
                 max_elapsed: Duration.minutes(5),
             },
         )
         |> Supervisor.spawn(fn -> serve(inbox))
 
-    Counter{inbox}
+    #Counter{inbox}
 }
 
 /// The worker. Runs until its inbox closes or shutdown cancels it.
@@ -93,7 +93,7 @@ fn serve(inbox: Channel<Request>) -> Unit {
             Some(Request.Increment(n)) ->
                 count + n
 
-            Some(Request.Get{reply}) -> {
+            Some(#Request.Get{reply}) -> {
                 // Best-effort: a caller that gave up is not worth crashing over.
                 _ = Sender.send(reply.sender, count)
                 count
@@ -127,7 +127,7 @@ pub fn increment(counter: Counter, n: Int) -> Unit {
 /// if this caller has already given up and stopped listening.
 pub fn get(counter: Counter) -> Int {
     reply = Channel.buffered<Int>(1)
-    _ = Sender.send(counter.inbox.sender, Request.Get{reply})
+    _ = Sender.send(counter.inbox.sender, #Request.Get{reply})
 
     case Receiver.receive(reply.receiver) {
         Some(v) -> v
@@ -162,7 +162,7 @@ pub struct Config {
 }
 
 pub fn boot() -> Config {
-    Config{context: Context.root(), counter: start()}
+    #Config{context: Context.root(), counter: start()}
 }
 
 fn main() {

@@ -3,6 +3,7 @@ package lsp
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"sort"
 
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -269,9 +270,24 @@ func interfaceRefPos(te ast.TypeExpr, fbLine, fbCol int, name string) (line, col
 	return fbLine, fbCol, len(name)
 }
 
+// sameDeclaration reports whether two symbols stand for one declaration:
+// the same symbol, or a per-site copy of it (the checker records copies at
+// call sites), which keeps the declaring AST node. A name and a position do
+// not identify a declaration on their own, since two files can each declare
+// a method `go` at 2:6.
+func sameDeclaration(a, b *analysis.Symbol) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	if a == b {
+		return true
+	}
+	return a.Node != nil && a.Node == b.Node && a.Kind == b.Kind && a.Name == b.Name && a.Pos == b.Pos
+}
+
 // findInterfaceForMethod resolves which interface owns the given method
-// symbol by walking every interface symbol in scope and checking its
-// Members map for a method whose Pos matches. The interface→method
+// symbol by walking every interface symbol in scope and checking whether
+// its Members hold that method (sameDeclaration). The interface→method
 // relationship isn't stored as a back-pointer on the method symbol (an
 // InterfaceMethod AST node carries no parent reference), so the lookup
 // goes through Members instead. Returns "" when no owner is found.
@@ -284,10 +300,8 @@ func (s *Server) findInterfaceForMethod(fa *analysis.FileAnalysis, method *analy
 		if owner.Kind != analysis.SymbolInterface {
 			continue
 		}
-		for _, m := range owner.Members {
-			if m.Pos == method.Pos {
-				return owner.Name
-			}
+		if sameDeclaration(owner.Members[method.Name], method) {
+			return owner.Name
 		}
 	}
 	// Stdlib interfaces aren't in the user file's ModuleScope; check the
@@ -298,10 +312,8 @@ func (s *Server) findInterfaceForMethod(fa *analysis.FileAnalysis, method *analy
 				if parent.Kind != analysis.SymbolInterface {
 					continue
 				}
-				for _, m := range parent.Members {
-					if m.Pos == method.Pos {
-						return parent.Name
-					}
+				if sameDeclaration(parent.Members[method.Name], method) {
+					return parent.Name
 				}
 			}
 		}
@@ -309,29 +321,67 @@ func (s *Server) findInterfaceForMethod(fa *analysis.FileAnalysis, method *analy
 	return ""
 }
 
-func (s *Server) findInterfaceMethodSymbol(fa *analysis.FileAnalysis, ifaceName, methodName string) *analysis.Symbol {
-	if fa != nil && fa.ModuleScope != nil {
-		if iface := fa.ModuleScope.Lookup(ifaceName); iface != nil {
-			if iface.Resolved != nil {
-				iface = iface.Resolved
-			}
-			if iface.Kind == analysis.SymbolInterface {
-				if method := iface.Members[methodName]; method != nil && method.Kind == analysis.SymbolInterfaceMethod {
-					return method
-				}
+// findInterfaceMethodSymbol returns the interface method an impl method
+// implements. The interface is the one the impl's header names, read from
+// the reference the checker recorded at that name, so an interface that
+// only shares the name is never taken. When the header recorded none (a
+// synthesized impl), the interface is looked up by name in the file's
+// scope, then in the std modules in name order.
+func (s *Server) findInterfaceMethodSymbol(fa *analysis.FileAnalysis, impl *analysis.Symbol) *analysis.Symbol {
+	methodOf := func(iface *analysis.Symbol) *analysis.Symbol {
+		for iface != nil && iface.Resolved != nil {
+			iface = iface.Resolved
+		}
+		if iface == nil || iface.Kind != analysis.SymbolInterface {
+			return nil
+		}
+		if method := iface.Members[impl.Name]; method != nil && method.Kind == analysis.SymbolInterfaceMethod {
+			return method
+		}
+		return nil
+	}
+	if fa != nil {
+		if method := methodOf(implHeaderInterface(fa, impl)); method != nil {
+			return method
+		}
+		if fa.ModuleScope != nil {
+			if method := methodOf(fa.ModuleScope.Lookup(impl.ImplInterface)); method != nil {
+				return method
 			}
 		}
 	}
 	if s.std != nil {
-		for _, modScope := range s.std.Modules {
-			iface := modScope.LookupLocal(ifaceName)
-			if iface == nil || iface.Kind != analysis.SymbolInterface {
-				continue
-			}
-			if method := iface.Members[methodName]; method != nil && method.Kind == analysis.SymbolInterfaceMethod {
+		names := make([]string, 0, len(s.std.Modules))
+		for name := range s.std.Modules {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			if method := methodOf(s.std.Modules[name].LookupLocal(impl.ImplInterface)); method != nil {
 				return method
 			}
 		}
 	}
 	return nil
+}
+
+// implHeaderInterface returns the symbol the checker recorded at the
+// interface name of the impl header impl's function belongs to (`ToJson`
+// in `impl json.ToJson for Point`), or nil.
+func implHeaderInterface(fa *analysis.FileAnalysis, impl *analysis.Symbol) *analysis.Symbol {
+	var te ast.TypeExpr
+	switch n := impl.Node.(type) {
+	case *ast.FuncDef:
+		te = n.ImplIface
+	case *ast.ExternFunc:
+		te = n.ImplIface
+	}
+	if te == nil {
+		return nil
+	}
+	line, col, _ := interfaceRefPos(te, 0, 0, "")
+	if line <= 0 || analysis.IsSynthesizedLine(line) {
+		return nil
+	}
+	return fa.References[analysis.Pos{Line: line, Col: col}]
 }

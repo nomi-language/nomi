@@ -55,7 +55,7 @@ fn composite(m: Map<#(Int, Int), String>, flags: Map<Bool, String>) -> String {
 
 fn attached(j: JV) -> String {
   case j {
-    .Obj%{"k" => .Num(n)} -> "obj ${n}"
+    %.Obj{"k" => .Num(n)} -> "obj ${n}"
     .Arr[.Num(a), .Num(b), ..rest] -> "arr ${a} ${b} ${Iter.count(rest)}"
     .Pos(x, y) -> "pos ${x} ${y}"
     _ -> "other"
@@ -70,11 +70,11 @@ fn main() {
   io.print(nested(Some(%{-2 => "neg"})))
   io.print(nested(None))
   io.print(composite(%{#(1, 2) => "a", #(3, 4) => "b"}, %{True => "t"}))
-  io.print(attached(JV.Obj%{"k" => JV.Num(7)}))
+  io.print(attached(%JV.Obj{"k" => JV.Num(7)}))
   io.print(attached(JV.Arr[JV.Num(1), JV.Num(2), JV.Num(3)]))
   io.print(attached(JV.Arr[JV.Num(1)]))
   io.print(attached(JV.Pos(4, 5)))
-  io.inspect(JV.Obj%{"k" => JV.Arr[JV.Num(1), JV.Pos(2, 3)]})
+  io.inspect(%JV.Obj{"k" => JV.Arr[JV.Num(1), JV.Pos(2, 3)]})
 }
 `
 
@@ -133,7 +133,7 @@ fn main() {
   io.inspect(Map.map_keys(%{"a" => 1, "b" => 2, "c" => 3}, fn k -> k == "c"))
   s: Set<Int> = Set.new()
   io.inspect(Set.size(s))
-  io.inspect(#{1, 2} == #{2, 1})
+  io.inspect(%[1, 2] == %[2, 1])
 }
 `
 
@@ -168,11 +168,11 @@ fn height(s: Shape) -> Int {
 }
 
 fn main() {
-  r = Shape.Rect{height: 2}
+  r = #Shape.Rect{height: 2}
   io.print(r.height)
   io.print(r.label)
-  io.print(height(Shape.Circle2{radius: 1.0, height: 9}))
-  w = Shape.Wrap(Circle{radius: 2.5})
+  io.print(height(#Shape.Circle2{radius: 1.0, height: 9}))
+  w = Shape.Wrap(#Circle{radius: 2.5})
   io.print(w.radius)
   io.print(height(w))
 }

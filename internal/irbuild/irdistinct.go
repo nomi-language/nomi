@@ -149,7 +149,7 @@ func irDistinctOverValue(d *typeDef) bool {
 
 // irDistinctOverKind reports whether k is a composite distinct whose inner
 // is a map or a list (inner), which a map or list pattern matches through the
-// distinct (`Kvs%{"a" => v}`, `Stack[a, .._]`, or the bare `[a, .._]`).
+// distinct (`%Kvs{"a" => v}`, `Stack[a, .._]`, or the bare `[a, .._]`).
 func irDistinctOverKind(k kind, inner tag) bool {
 	return k.tag == tagNamed && irCompositeDistinct(k.def) && k.def.inner.tag == inner
 }
@@ -181,7 +181,7 @@ func irRetainedLeafKind(k kind) bool {
 // the caller falls back to `blockInto`, and `gen.call` reaches the same owner
 // and reports there. So every check here is a decline and none is a reject.
 //
-// THE TUPLE-FLAT ARM IS NOT REPRODUCED. `Coord(3, 4)` writes a tuple inner
+// THE TUPLE-FLAT ARM IS NOT REPRODUCED. `#Coord(3, 4)` writes a tuple inner
 // flat, which is the other legal arity; a tuple inner is not a scalar so
 // `irWrappingDistinct` has already declined the declaration.
 func (bl *irScalarBuilder) distinctMake(t *ast.Call, ti *ast.TypeIdent) (ir.Temp, kind, bool, bool) {
@@ -228,33 +228,17 @@ func (bl *irScalarBuilder) distinctMakeOf(t *ast.Call, d *typeDef) (ir.Temp, kin
 	return m.Dst(), out, pure, true
 }
 
-// compositeDistinctMake lowers `Coord(3, 4)` and `Coord(#(3, 4))` over a tuple
-// inner, and `Headers({...})` over a map inner: the inner value, built at the
-// declared inner type, wrapped by MakeDistinct. A tuple inner written flat
-// is one argument per component.
+// compositeDistinctMake lowers `Coord(#(3, 4))` over a tuple inner, and
+// `Headers(%{...})` over a map inner: the inner value, built at the declared
+// inner type, wrapped by MakeDistinct. The named literals `#Coord(3, 4)`,
+// `%Headers{...}` and `#Path[...]` reach it through attachedVariant as the
+// call of the constructor on the anonymous literal.
 func (bl *irScalarBuilder) compositeDistinctMake(t *ast.Call, d *typeDef) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	var src ir.Temp
-	var ok bool
-	var k kind
-	flat := d.inner.tag == tagTuple && len(t.Args) == len(d.inner.comp.parts) && len(t.Args) > 1
-	switch {
-	case flat:
-		values := make([]ir.Temp, len(t.Args))
-		for i, a := range t.Args {
-			v, vk, _, vok := bl.lowerWant(a, d.inner.comp.parts[i])
-			if !vok || vk != d.inner.comp.parts[i] {
-				return no()
-			}
-			values[i] = v
-		}
-		n := ir.NewMakeTuple(bl.g.irNodePos(t), bl.f.NewTemp(), values)
-		bl.b.Append(n)
-		bl.side(n.Dst(), irScalarSide{k: d.inner})
-		src, k, ok = n.Dst(), d.inner, true
-	case len(t.Args) == 1:
-		src, k, _, ok = bl.lowerWant(t.Args[0], d.inner)
+	if len(t.Args) != 1 {
+		return no()
 	}
+	src, k, _, ok := bl.lowerWant(t.Args[0], d.inner)
 	if !ok || k != d.inner {
 		return no()
 	}
@@ -347,7 +331,7 @@ func (g *gen) irTypeSymName(d *typeDef) string {
 	}
 	if spec := d.genStructOf; spec != nil {
 		// A std generic struct instance (`Generator<Int>`) is its
-		// declaration: it renders as `Generator{...}`, and d.nomi
+		// declaration: it renders as `#Generator{...}`, and d.nomi
 		// spells the arguments only to key the instance.
 		return irModuleQualifier(spec.origin) + "." + spec.nomi
 	}

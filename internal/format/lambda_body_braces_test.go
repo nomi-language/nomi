@@ -97,9 +97,9 @@ func TestFormat_LambdaBodyBelowParametersIsBraced(t *testing.T) {
 				"}\n",
 		},
 		"struct field": {
-			"fn f() -> Seq {\n    Seq{run: fn yield: (Int) -> Bool -> if Iter.each_while(first_source, yield) { Iter.each_while(b, yield) } else { False }}\n}\n",
+			"fn f() -> Seq {\n    #Seq{run: fn yield: (Int) -> Bool -> if Iter.each_while(first_source, yield) { Iter.each_while(b, yield) } else { False }}\n}\n",
 			"fn f() -> Seq {\n" +
-				"    Seq{\n" +
+				"    #Seq{\n" +
 				"        run: fn yield: (Int) -> Bool -> {\n" +
 				"            if Iter.each_while(first_source, yield) {\n" +
 				"                Iter.each_while(b, yield)\n" +

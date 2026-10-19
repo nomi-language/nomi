@@ -38,19 +38,19 @@ struct Equals {
 
 impl Assertable for Equals {
     fn failure(e: Equals) -> Maybe<AssertionDetails> {
-        if e.actual == e.expected { None } else { Some(AssertionDetails{
+        if e.actual == e.expected { None } else { Some(#AssertionDetails{
                 reason: "values were not equal",
                 actual: Some(Debug.inspect(e.actual)),
                 details: [
-                    AssertionDetail{label: "actual", value: Debug.inspect(e.actual)},
-                    AssertionDetail{label: "expected", value: Debug.inspect(e.expected)},
+                    #AssertionDetail{label: "actual", value: Debug.inspect(e.actual)},
+                    #AssertionDetail{label: "expected", value: Debug.inspect(e.expected)},
                 ],
             }) }
     }
 }
 
 fn equals(actual: Int, expected: Int) -> Equals {
-    Equals{actual, expected}
+    #Equals{actual, expected}
 }
 
 test "an Assertable that holds keeps the whole file honest" {

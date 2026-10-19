@@ -38,7 +38,7 @@ fn side_effect(m: Maybe<Int>) -> Bool {
 /// An `else` attached to the outermost block instead of a labeled break would
 /// run the then-arm's tail after a deep miss.
 fn deep(s: Maybe<Shape>) -> String {
-    if Some(Shape.Circle{radius: 5}) = s {
+    if Some(#Shape.Circle{radius: 5}) = s {
         "unit circle"
     } else {
         "something else"
@@ -117,8 +117,8 @@ fn main() {
     io.print("${side_effect(Some(1))}")
     io.print("${side_effect(None)}")
 
-    io.print(deep(Some(Shape.Circle{radius: 5})))
-    io.print(deep(Some(Shape.Circle{radius: 9})))
+    io.print(deep(Some(#Shape.Circle{radius: 5})))
+    io.print(deep(Some(#Shape.Circle{radius: 9})))
     io.print(deep(Some(Shape.Dot)))
     io.print(deep(None))
 

@@ -17,7 +17,7 @@ fn identity<T>(x: T) -> T {
 }
 
 fn make_pair<A, B>(a: A, b: B) -> Pair<A, B> {
-    Pair{first: a, second: b}
+    #Pair{first: a, second: b}
 }
 
 fn wrap_list<T>(items: List<T>) -> List<List<T>> {
@@ -25,7 +25,7 @@ fn wrap_list<T>(items: List<T>) -> List<List<T>> {
 }
 
 test "generic structs enums interfaces and functions preserve types" {
-    p = Pair{first: 1, second: "hello"}
+    p = #Pair{first: 1, second: "hello"}
     w = Wrapper.Wrapped(42)
     p2 = make_pair(10, 20)
     nested = wrap_list([1, 2, 3])

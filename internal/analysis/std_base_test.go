@@ -234,8 +234,8 @@ func TestStdBase_AProgramsBuildVisitsNoStdlibFile(t *testing.T) {
 }
 
 fn main() {
-    io.print(Shape.area(Circle{radius: 2}))
-    io.print(Circle{radius: 2} == Circle{radius: 3})
+    io.print(Shape.area(#Circle{radius: 2}))
+    io.print(#Circle{radius: 2} == #Circle{radius: 3})
 }
 `,
 		"shapes.nomi": `pub interface Shape {

@@ -132,7 +132,7 @@ impl Task {
     }
 
     fn spawn(n: Int) -> Task {
-        Task{n: n * 10}
+        #Task{n: n * 10}
     }
 
     fn spawn_all(x: Task) -> Int {
@@ -200,7 +200,7 @@ impl Channel {
     }
 
     fn buffered(n: Int) -> Channel {
-        Channel{n: n * 10}
+        #Channel{n: n * 10}
     }
 }
 
@@ -220,11 +220,11 @@ impl Supervisor {
     }
 
     fn new(n: Int) -> Supervisor {
-        Supervisor{n: n * 10}
+        #Supervisor{n: n * 10}
     }
 
     fn spawn(n: Int) -> Supervisor {
-        Supervisor{n: n * 10}
+        #Supervisor{n: n * 10}
     }
 
     fn spawn_all(x: Supervisor) -> Int {
@@ -239,84 +239,84 @@ impl Display for Supervisor {
 }
 
 fn main() {
-    v_duration = Duration{n: 3}
+    v_duration = #Duration{n: 3}
     v_duration |> Duration.value() |> io.print()
 
     io.print(v_duration.n)
     io.print(Display.to_string(v_duration))
     io.print("${v_duration}")
     io.print(Debug.inspect(v_duration))
-    v_date = Date{n: 3}
+    v_date = #Date{n: 3}
     v_date |> Date.value() |> io.print()
 
     io.print(v_date.n)
     io.print(Display.to_string(v_date))
     io.print("${v_date}")
     io.print(Debug.inspect(v_date))
-    v_request = Request{n: 3}
+    v_request = #Request{n: 3}
     v_request |> Request.value() |> io.print()
 
     io.print(v_request.n)
     io.print(Display.to_string(v_request))
     io.print("${v_request}")
     io.print(Debug.inspect(v_request))
-    v_response = Response{n: 3}
+    v_response = #Response{n: 3}
     v_response |> Response.value() |> io.print()
 
     io.print(v_response.n)
     io.print(Display.to_string(v_response))
     io.print("${v_response}")
     io.print(Debug.inspect(v_response))
-    v_header = Header{n: 3}
+    v_header = #Header{n: 3}
     v_header |> Header.value() |> io.print()
 
     io.print(v_header.n)
     io.print(Display.to_string(v_header))
     io.print("${v_header}")
     io.print(Debug.inspect(v_header))
-    v_json = Json{n: 3}
+    v_json = #Json{n: 3}
     v_json |> Json.value() |> io.print()
 
     io.print(v_json.n)
     io.print(Display.to_string(v_json))
     io.print("${v_json}")
     io.print(Debug.inspect(v_json))
-    v_seed = Seed{n: 3}
+    v_seed = #Seed{n: 3}
     v_seed |> Seed.value() |> io.print()
 
     io.print(v_seed.n)
     io.print(Display.to_string(v_seed))
     io.print("${v_seed}")
     io.print(Debug.inspect(v_seed))
-    v_task = Task{n: 3}
+    v_task = #Task{n: 3}
     v_task |> Task.value() |> io.print()
 
     io.print(v_task.n)
     io.print(Display.to_string(v_task))
     io.print("${v_task}")
     io.print(Debug.inspect(v_task))
-    v_sender = Sender{n: 3}
+    v_sender = #Sender{n: 3}
     v_sender |> Sender.value() |> io.print()
 
     io.print(v_sender.n)
     io.print(Display.to_string(v_sender))
     io.print("${v_sender}")
     io.print(Debug.inspect(v_sender))
-    v_receiver = Receiver{n: 3}
+    v_receiver = #Receiver{n: 3}
     v_receiver |> Receiver.value() |> io.print()
 
     io.print(v_receiver.n)
     io.print(Display.to_string(v_receiver))
     io.print("${v_receiver}")
     io.print(Debug.inspect(v_receiver))
-    v_channel = Channel{n: 3}
+    v_channel = #Channel{n: 3}
     v_channel |> Channel.value() |> io.print()
 
     io.print(v_channel.n)
     io.print(Display.to_string(v_channel))
     io.print("${v_channel}")
     io.print(Debug.inspect(v_channel))
-    v_supervisor = Supervisor{n: 3}
+    v_supervisor = #Supervisor{n: 3}
     v_supervisor |> Supervisor.value() |> io.print()
 
     io.print(v_supervisor.n)
@@ -324,16 +324,16 @@ fn main() {
     io.print("${v_supervisor}")
     io.print(Debug.inspect(v_supervisor))
     io.print(Task.spawn(4))
-    Task{n: 4} |> Task.spawn_all() |> io.print()
+    #Task{n: 4} |> Task.spawn_all() |> io.print()
 
-    Task{n: 4} |> Task.await() |> io.print()
+    #Task{n: 4} |> Task.await() |> io.print()
 
-    Sender{n: 4} |> Sender.send() |> io.print()
+    #Sender{n: 4} |> Sender.send() |> io.print()
 
-    Receiver{n: 4} |> Receiver.receive() |> io.print()
+    #Receiver{n: 4} |> Receiver.receive() |> io.print()
 
     io.print(Channel.buffered(4))
     io.print(Supervisor.new(4))
     io.print(Supervisor.spawn(4))
-    Supervisor{n: 4} |> Supervisor.spawn_all() |> io.print()
+    #Supervisor{n: 4} |> Supervisor.spawn_all() |> io.print()
 }

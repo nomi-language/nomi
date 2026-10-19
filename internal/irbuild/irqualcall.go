@@ -248,7 +248,7 @@ func (g *gen) emptyAtIterParam(k kind, param analysis.Type) kind {
 }
 
 // typeOpenEmpty gives an empty collection literal that no position types
-// (`io.inspect(Map.empty())`, `dbg #{}`) the collection over Int, the fill an
+// (`io.inspect(Map.empty())`, `dbg %[]`) the collection over Int, the fill an
 // open element takes (projectFilledHoles); nothing reads an element, so the
 // value shows as the literal does. Any other value is answered unchanged.
 func (bl *irScalarBuilder) typeOpenEmpty(n ast.Node, src ir.Temp, k kind) (ir.Temp, kind, bool) {

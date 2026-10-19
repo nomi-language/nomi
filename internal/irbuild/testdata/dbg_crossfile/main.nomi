@@ -6,12 +6,12 @@ import {
 }
 
 fn main() {
-    n = notes.Note{title: "x"}
+    n = #notes.Note{title: "x"}
     m = notes.Mood.Loud(3)
     d = notes.meters(4)
     s = notes.secret("k")
-    w = notes.Shown{n: 5}
-    b = notes.Box{v: 1}
+    w = #notes.Shown{n: 5}
+    b = #notes.Box{v: 1}
     dbg n
     dbg m
     dbg d

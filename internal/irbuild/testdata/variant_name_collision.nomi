@@ -4,7 +4,7 @@
 //# Two enums share a variant name, so a struct-shaped variant's declaration
 //# must be keyed by enum and variant, not by the variant name alone. A
 //# variant-name key gives `Signal.Go` and `Gear.Go` one registration, and the
-//# later declaration wins: `Signal.Go{}.n` answers 7 where 3 is correct.
+//# later declaration wins: `#Signal.Go{}.n` answers 7 where 3 is correct.
 //# dot_variant.nomi keeps disjoint names because it tests resolution, not
 //# defaults.
 //#
@@ -12,11 +12,11 @@
 //#
 //# WHAT EACH LINE DISCRIMINATES, because a fixture that only printed defaults
 //# would pass against a registration keyed either way once the counts differ:
-//#   - `Signal.Go{}` and `Gear.Go{}` take DIFFERENT defaults for the SAME field
+//#   - `#Signal.Go{}` and `#Gear.Go{}` take DIFFERENT defaults for the SAME field
 //#     name. A shared registration answers one number twice.
-//#   - `Signal.Go{n: 5}` proves an explicit value still wins, so the fix did not
+//#   - `#Signal.Go{n: 5}` proves an explicit value still wins, so the fix did not
 //#     turn the default path into an override.
-//#   - `Gear.Go{label: "x"}` has a field `Signal.Go` does not, and `Signal.Go`
+//#   - `#Gear.Go{label: "x"}` has a field `Signal.Go` does not, and `Signal.Go`
 //#     requires nothing extra — so a shared registration would raise a spurious
 //#     `missing field` error for one of the two, which is the half of this
 //#     defect that fails LOUDLY rather than silently.
@@ -40,9 +40,9 @@ enum Gear {
 }
 
 fn main() {
-    first = Signal.Go{}
-    second = Gear.Go{label: "top"}
-    explicit = Signal.Go{n: 5}
+    first = #Signal.Go{}
+    second = #Gear.Go{label: "top"}
+    explicit = #Signal.Go{n: 5}
 
     io.print("signal-default ${first.n}")
     io.print("gear-default ${second.n}")

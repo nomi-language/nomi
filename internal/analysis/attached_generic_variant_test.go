@@ -6,7 +6,7 @@ import (
 )
 
 // A generic enum's list- and map-payload variants written in literal-attach
-// form (`shapes.Bag.Items[1, 2]`, `Named%{"a" => 4}`) infer the enum's type
+// form (`shapes.Bag.Items[1, 2]`, `%Named{"a" => 4}`) infer the enum's type
 // arguments from the elements, as the call form `Items([1, 2])` and the
 // struct-variant literal do. The literal checked each element against the
 // declared `T` and reported "shapes.Bag.Items element type: expected T, got
@@ -31,29 +31,29 @@ func TestAttachedGenericVariant_InfersInEverySpelling(t *testing.T) {
 		{"a qualified list variant", "",
 			"    b = shapes.Bag.Items[1, 2]\n    _ = shapes.count(b)\n"},
 		{"a qualified map variant", "",
-			"    b = shapes.Bag.Named%{\"a\" => 4}\n    _ = shapes.count(b)\n"},
+			"    b = %shapes.Bag.Named{\"a\" => 4}\n    _ = shapes.count(b)\n"},
 		{"a bare list variant", "import shapes.Bag.{Items}",
 			"    b = Items[1, 2]\n    _ = shapes.count(b)\n"},
 		{"a bare map variant", "import shapes.Bag.{Named}",
-			"    b = Named%{\"a\" => 4}\n    _ = shapes.count(b)\n"},
+			"    b = %Named{\"a\" => 4}\n    _ = shapes.count(b)\n"},
 		{"aliased variants", "import shapes.Bag.{Items as I, Named as N}",
-			"    _ = shapes.count(I[1])\n    _ = shapes.count(N%{\"a\" => 2})\n"},
+			"    _ = shapes.count(I[1])\n    _ = shapes.count(%N{\"a\" => 2})\n"},
 		{"the expected type of an annotation", "import shapes.Bag.{Items}",
 			"    b: shapes.Bag<Int> = Items[1]\n    _ = shapes.count(b)\n"},
 		{"the expected type of an argument", "import shapes.Bag.{Items, Named}",
-			"    _ = shapes.count(Items[1])\n    _ = shapes.count(Named%{\"a\" => 1})\n"},
+			"    _ = shapes.count(Items[1])\n    _ = shapes.count(%Named{\"a\" => 1})\n"},
 		{"an empty literal under an annotation", "import shapes.Bag.{Items, Named}",
-			"    b: shapes.Bag<Int> = Items[]\n    c: shapes.Bag<String> = shapes.Bag.Named{}\n    _ = shapes.count(b)\n    _ = c\n"},
+			"    b: shapes.Bag<Int> = Items[]\n    c: shapes.Bag<String> = %shapes.Bag.Named{}\n    _ = shapes.count(b)\n    _ = c\n"},
 		{"an empty literal as an argument", "import shapes.Bag.{Items}",
 			"    _ = shapes.count(Items[])\n"},
 		{"nested generics", "import shapes.Bag.{Items, Named}",
-			"    b = Items[[1], [2, 3]]\n    c = Named%{\"a\" => Items[\"x\"]}\n    _ = case b {\n        Items[xs, .._] -> Iter.count(xs)\n        _ -> 0\n    }\n    _ = c\n"},
+			"    b = Items[[1], [2, 3]]\n    c = %Named{\"a\" => Items[\"x\"]}\n    _ = case b {\n        Items[xs, .._] -> Iter.count(xs)\n        _ -> 0\n    }\n    _ = c\n"},
 		{"bare list and map patterns", "import shapes.Bag.{Items, Named}",
-			"    b = Items[1, 2]\n    _ = case b {\n        Items[x, y] -> x + y\n        Named%{\"k\" => v} -> v\n        _ -> 0\n    }\n"},
+			"    b = Items[1, 2]\n    _ = case b {\n        Items[x, y] -> x + y\n        %Named{\"k\" => v} -> v\n        _ -> 0\n    }\n"},
 		{"aliased list and map patterns", "import shapes.Bag.{Items as I, Named as N}",
-			"    b = N%{\"k\" => \"v\"}\n    _ = case b {\n        I[s] -> s\n        N%{\"k\" => v} -> v\n        _ -> \"\"\n    }\n"},
+			"    b = %N{\"k\" => \"v\"}\n    _ = case b {\n        I[s] -> s\n        %N{\"k\" => v} -> v\n        _ -> \"\"\n    }\n"},
 		{"qualified patterns bind the scrutinee's arguments", "",
-			"    b = shapes.Bag.Items[1, 2]\n    _ = case b {\n        shapes.Bag.Items[x, y] -> x + y\n        shapes.Bag.Named%{\"k\" => v} -> v\n        _ -> 0\n    }\n"},
+			"    b = shapes.Bag.Items[1, 2]\n    _ = case b {\n        shapes.Bag.Items[x, y] -> x + y\n        %shapes.Bag.Named{\"k\" => v} -> v\n        _ -> 0\n    }\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := "import shapes\n" + tc.imports + "\n\nfn main() {\n" + tc.body + "}\n"
@@ -79,7 +79,7 @@ func TestAttachedGenericVariant_Rejections(t *testing.T) {
 			"import shapes\n\nfn main() {\n    b: shapes.Bag<String> = shapes.Bag.Items[1]\n    _ = b\n}\n",
 			"shapes.Bag.Items element type: expected String, got Int"},
 		{"an annotation seeds a map value",
-			"import shapes\nimport shapes.Bag.{Named}\n\nfn main() {\n    b: shapes.Bag<String> = Named%{\"a\" => 1}\n    _ = b\n}\n",
+			"import shapes\nimport shapes.Bag.{Named}\n\nfn main() {\n    b: shapes.Bag<String> = %Named{\"a\" => 1}\n    _ = b\n}\n",
 			"Named value type: expected String, got Int"},
 		{"an empty literal with nothing to solve it",
 			"import shapes\nimport shapes.Bag.{Items}\n\nfn main() {\n    b = Items[]\n    _ = b\n}\n",
@@ -88,7 +88,7 @@ func TestAttachedGenericVariant_Rejections(t *testing.T) {
 			"enum Bag<T> {\n    Items List<T>\n    Nothing\n}\n\nfn main() {\n    b = Bag.Items[1]\n    _ = case b {\n        Items[x] -> x\n        _ -> 0\n    }\n}\n",
 			"bare variant 'Items' in pattern position; use '.Items' (or 'Bag.Items')"},
 		{"a bare same-file map variant in a pattern",
-			"enum Bag<T> {\n    Named Map<String, T>\n    Nothing\n}\n\nfn main() {\n    b = Bag.Named%{\"k\" => 1}\n    _ = case b {\n        Named%{\"k\" => v} -> v\n        _ -> 0\n    }\n}\n",
+			"enum Bag<T> {\n    Named Map<String, T>\n    Nothing\n}\n\nfn main() {\n    b = %Bag.Named{\"k\" => 1}\n    _ = case b {\n        %Named{\"k\" => v} -> v\n        _ -> 0\n    }\n}\n",
 			"bare variant 'Named' in pattern position; use '.Named' (or 'Bag.Named')"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -107,8 +107,8 @@ func TestAttachedGenericVariant_Rejections(t *testing.T) {
 // as a list or map pattern's prefix, is a use of its import.
 func TestAttachedGenericVariant_LiteralIsAUseOfTheImport(t *testing.T) {
 	for _, src := range []string{
-		"import shapes\nimport shapes.Bag.{Items, Named}\n\nfn main() {\n    _ = shapes.count(Items[1])\n    _ = shapes.count(Named%{\"a\" => 1})\n}\n",
-		"import shapes\nimport shapes.Bag.{Items, Named}\n\nfn f(b: shapes.Bag<Int>) -> Int {\n    case b {\n        Items[x] -> x\n        Named%{\"k\" => v} -> v\n        _ -> 0\n    }\n}\n\nfn main() {\n    _ = f(shapes.Bag.Nothing)\n}\n",
+		"import shapes\nimport shapes.Bag.{Items, Named}\n\nfn main() {\n    _ = shapes.count(Items[1])\n    _ = shapes.count(%Named{\"a\" => 1})\n}\n",
+		"import shapes\nimport shapes.Bag.{Items, Named}\n\nfn f(b: shapes.Bag<Int>) -> Int {\n    case b {\n        Items[x] -> x\n        %Named{\"k\" => v} -> v\n        _ -> 0\n    }\n}\n\nfn main() {\n    _ = f(shapes.Bag.Nothing)\n}\n",
 	} {
 		_, errs := checkProjectWithFiles(t, src, map[string]string{"shapes.nomi": attachedGenericShapes})
 		for _, e := range errs {

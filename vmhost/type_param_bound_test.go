@@ -194,10 +194,10 @@ impl Holder<Int> for Box<Int> {
 fn main() {
     io.print(wrap(1))
     io.print("${least([3, 1, 2])}")
-    io.print("${Box { value: 4 }}")
-    io.print(Box.show(Box { value: "s" }))
-    io.print(Holder.told(Box { value: 5 }))
-    io.print("${[Box { value: 6 }]}")
+    io.print("${#Box { value: 4 }}")
+    io.print(Box.show(#Box { value: "s" }))
+    io.print(Holder.told(#Box { value: 5 }))
+    io.print("${[#Box { value: 6 }]}")
 }
 `})
 	if want := "<1> 1 1\n[1, 2, 3]\n[4]\nbox s\nholds 5\n[[6]]\n"; got != want {

@@ -23,5 +23,5 @@ impl Debug for Box {
 }
 
 pub fn boxed(w: Int) -> Box {
-    Box{w}
+    #Box{w}
 }

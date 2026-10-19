@@ -27,7 +27,7 @@ fn main() {
     fn txt<T>(x: T) -> String where T: Display {
         T.to_string(x)
     }
-    d = lib.Dog{name: "d"}
+    d = #lib.Dog{name: "d"}
     io.print(show(#(1, "a")))
     io.print(txt(#(2, "b")))
     io.print(show(d))

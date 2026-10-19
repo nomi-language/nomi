@@ -20,7 +20,7 @@ fn main() {
   items: List<Int>
 }
 fn main() {
-  _c = Holder{items: X[1, 2]}
+  _c = #Holder{items: X[1, 2]}
 }`,
 		"iter argument": `fn main() {
   _n = Iter.count(X[1, 2])

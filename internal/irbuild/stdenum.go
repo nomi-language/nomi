@@ -169,13 +169,13 @@ const (
 	// payloadMapStringToEnum carries `Map<String, the spec at ref>`.
 	payloadMapStringToEnum
 	// payloadStructScalar carries ONE NAMED field of one of the five scalars —
-	// the `NotFound {path: String}` shape.
+	// the `#NotFound {path: String}` shape.
 	//
 	// The Nomi field NAME is part of the representation here in a way no other
 	// form's is, and that is what makes this a separate form rather than
 	// payloadScalar with a flag. A positional payload is reached by position, so
 	// `IOError.NotFound(p)` and `Error.InvalidValue(m)` bind identically; a
-	// struct-shaped one is reached by NAME, and `case e { IOError.NotFound{path}
+	// struct-shaped one is reached by NAME, and `case e { #IOError.NotFound{path}
 	// -> … }` binds `path` because the declaration spells it `path`. So the spec
 	// has to state the Nomi name, the shape check has to hold std's declaration
 	// to it, and the variantDef has to carry it — three places a positional row
@@ -295,7 +295,7 @@ func mapOfEnumVariant(name, field string, i int) stdEnumVariantSpec {
 }
 
 // structScalarVariant is a STRUCT-SHAPED payload of one named scalar field:
-// `NotFound {path: String}`, stored in rt's `goField`.
+// `#NotFound {path: String}`, stored in rt's `goField`.
 //
 // Both names are required and they are not interchangeable — `nomiField` is what
 // std declares and what a pattern binds, `goField` is rt's exported field. Two
@@ -457,7 +457,7 @@ func (v *stdEnumVariantSpec) declaredStructShapeOK(fields []ast.StructField) boo
 // declaredStructShapeOK above is the point. That one rejects a default outright
 // because it has nowhere to put it; this one HAS somewhere (the spec's own Go
 // expression), so what it must detect is DISAGREEMENT: a std edit that dropped
-// `= 10` would make `Backoff.Exponential{}` a program the front end rejects
+// `= 10` would make `#Backoff.Exponential{}` a program the front end rejects
 // while this builder still filled a value, and one that ADDED a default to a
 // field the spec thinks is required would make the two paths accept different
 // programs.
@@ -719,7 +719,7 @@ var stdEnumSpecs = []stdEnumSpec{{
 	// DEFAULTS, represented through payloadStructFields with a non-scalar field
 	// type and a Go-stated default.
 	//
-	// `backoff: Backoff = .Exponential{}` is a PARAMETER of `Supervisor.new`, so
+	// `backoff: Backoff = #.Exponential{}` is a PARAMETER of `Supervisor.new`, so
 	// without this row that signature refuses for every caller, including one
 	// that never spells a schedule.
 	origin:   "std/supervisors",
@@ -1221,7 +1221,7 @@ func (g *gen) stdEnumOwns(owner string, d *typeDef) bool {
 	if j, anchored := g.stdEnumByName[owner]; anchored {
 		return i == j
 	}
-	// `random.Error.OsEntropy{reason}`: the enum named through its module's
+	// `#random.Error.OsEntropy{reason}`: the enum named through its module's
 	// qualifier, which binds no bare name here.
 	return strings.Contains(owner, ".") && g.qualifiedStdDef(owner) == d
 }

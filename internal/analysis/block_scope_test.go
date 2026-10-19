@@ -154,7 +154,7 @@ fn main() {
 	t.Run("with", func(t *testing.T) {
 		expectNeverReadAt(t, buildProjectForDefaultConfig(`
 struct App { port: Int }
-fn boot() -> App { App{port: 3} }
+fn boot() -> App { #App{port: 3} }
 fn main() {
   total = App.port
   if True {

@@ -726,7 +726,7 @@ func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.
 		return src, true
 	}
 	if sk == kindEmptyList || sk == kindEmptySet || sk == kindEmptyVector {
-		// `[]`, `#{}` or `#[]` entering an `Iter<T>` is built at T.
+		// `[]`, `%[]` or `#[]` entering an `Iter<T>` is built at T.
 		target := bl.g.listKind(elem)
 		if sk == kindEmptySet {
 			target = bl.g.setKindOf(elem)

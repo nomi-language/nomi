@@ -365,7 +365,7 @@ struct Config {
 }
 
 fn boot() -> Config {
-    Config{
+    #Config{
         context: Context.root(),
         audit: Supervisor.new(
             max_running: 4,
@@ -450,7 +450,7 @@ struct Config {
 }
 
 fn boot() -> Config {
-    Config{
+    #Config{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4),
         written: Channel.buffered<Int>(8),
@@ -785,7 +785,7 @@ struct Config {
 }
 
 fn boot() -> Config {
-    Config{context: Context.root()}
+    #Config{context: Context.root()}
 }
 
 fn slow() -> Int {
@@ -964,7 +964,7 @@ run again:
 
 ```nomi
 fn boot() -> Config {
-    Config{
+    #Config{
         context: Context.root(),
         // A long-lived worker: retry patiently through a long outage,
         // and if it still can't run, take the process down so we get
@@ -972,7 +972,7 @@ fn boot() -> Config {
         workers: Supervisor.new(
             max_running: 8,
             restart: Restart.Transient,
-            backoff: Backoff.Exponential{
+            backoff: #Backoff.Exponential{
                 max_restarts: 60,
                 max_elapsed: Duration.hours(1),
             },
@@ -1052,7 +1052,7 @@ desktop app or an embedded runtime. Use `GiveUp.Report` there, with your own
 monitoring.
 
 `max_restarts` counts restarts, not runs. With
-`Backoff.Exponential{max_restarts: 3, max_elapsed: Duration.minutes(5)}`,
+`#Backoff.Exponential{max_restarts: 3, max_elapsed: Duration.minutes(5)}`,
 the email is sent at most four times: the first try, then three retries
 after waits of 1s, 2s and 4s.
 
@@ -1100,7 +1100,7 @@ fn start() -> Counter {
         Supervisor.new(max_running: 1, restart: Restart.Permanent)
         |> Supervisor.spawn(fn -> serve(inbox))
 
-    Counter{inbox}
+    #Counter{inbox}
 }
 
 fn serve(inbox: Channel<Request>) -> Unit {
@@ -1109,7 +1109,7 @@ fn serve(inbox: Channel<Request>) -> Unit {
             Some(.Increment(n)) ->
                 count + n
 
-            Some(.Get{reply}) -> {
+            Some(#.Get{reply}) -> {
                 _ = Sender.send(reply.sender, count)
                 count
             }
@@ -1131,7 +1131,7 @@ fn increment(counter: Counter, n: Int) -> Unit {
 
 fn get(counter: Counter) -> Int {
     reply = Channel.buffered<Int>(1)
-    _ = Sender.send(counter.inbox.sender, .Get{reply})
+    _ = Sender.send(counter.inbox.sender, #.Get{reply})
 
     case Receiver.receive(reply.receiver) {
         Some(v) -> v
@@ -1146,7 +1146,7 @@ struct Config {
 }
 
 fn boot() -> Config {
-    Config{context: Context.root(), counter: start()}
+    #Config{context: Context.root(), counter: start()}
 }
 
 fn main() {

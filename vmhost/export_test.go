@@ -33,11 +33,11 @@ derive ToJson for Game
 derive FromJson for Game
 
 export fn new_game(word: String) -> Game {
-    Game{word, guesses: []}
+    #Game{word, guesses: []}
 }
 
 export fn guess(game: Game, letter: String) -> Game {
-    {..game, guesses: [letter, ..game.guesses]}
+    #{..game, guesses: [letter, ..game.guesses]}
 }
 
 export fn reset(_: Game) -> Unit {
@@ -137,7 +137,7 @@ struct Plain {
 		{"struct in a list", "export fn count(ps: List<Plain>) -> Int {\n    List.count(ps)\n}\n",
 			"parameter `ps` of exported function `count` cannot cross as JSON: `Plain`, in `List<Plain>`, does not implement `FromJson`",
 			"add `derive FromJson for Plain`", 21},
-		{"result without ToJson", "export fn make(x: Int) -> Plain {\n    Plain{x}\n}\n",
+		{"result without ToJson", "export fn make(x: Int) -> Plain {\n    #Plain{x}\n}\n",
 			"the result of exported function `make` cannot cross as JSON: `Plain` does not implement `ToJson`",
 			"add `derive ToJson for Plain`", 27},
 		{"enum parameter", "export fn won(o: Outcome) -> Bool {\n    o == Won\n}\n",
@@ -219,8 +219,8 @@ struct Point {
     label: Maybe<String>
 }
 
-derive ToJson for Point with ToJson.Options{rename_all: Json.Case.Camel}
-derive FromJson for Point with FromJson.Options{rename_all: Json.Case.Camel}
+derive ToJson for Point with #ToJson.Options{rename_all: Json.Case.Camel}
+derive FromJson for Point with #FromJson.Options{rename_all: Json.Case.Camel}
 
 enum Shape {
     Dot
@@ -251,7 +251,7 @@ export fn counts(new: Map<String, Int>, seen: Set<String>) -> Maybe<Bool> {
 }
 
 export fn hidden() -> Opaque {
-    Opaque{n: 1}
+    #Opaque{n: 1}
 }
 
 export fn reset() {

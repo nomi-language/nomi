@@ -41,12 +41,12 @@ func (t *PartialType) typeTag() {}
 //     `ifaceParamAdmits`; or
 //   - an anon-struct whose every field name exists in `target` (a struct, or
 //     anon struct) and whose every field value is a whole value of the
-//     corresponding `target` field — so `{name}` and `{address: Address}`
-//     match `Partial<Person>` while `{bogus: 5}`, a type-mismatched
-//     `{name: 5}` and `{address: {city: "NYC"}}` (not a whole Address) do not.
+//     corresponding `target` field — so `#{name}` and `#{address: Address}`
+//     match `Partial<Person>` while `#{bogus: 5}`, a type-mismatched
+//     `#{name: 5}` and `#{address: #{city: "NYC"}}` (not a whole Address) do not.
 //
 // The patch is one level deep. A nested partial update is written with a
-// bare `..` (`{address: {.., city: "NYC"}}`), which only a literal patch of a
+// bare `..` (`#{address: #{.., city: "NYC"}}`), which only a literal patch of a
 // `Struct.update` call can hold: the checker checks that literal field by
 // field (checkPatchLit) and hands this walk the patch's type, in which such a
 // field already has the field's whole type.
@@ -130,17 +130,17 @@ func (c *checker) partialPatchOK(arg, target Type, line, col int) bool {
 // the opaque type's name and the first field the patch names.
 //
 // Naming a private field is the exposure, wherever the name appears. Field
-// access (`c.value`), a pattern (`case c { Counter{value} -> ... }`), a struct
-// literal (`Counter{value: 0}`) and the call form (`Counter({value: 0})`) are
-// guarded elsewhere. An update patch (`Struct.update(c, {value: -999})`) is the
+// access (`c.value`), a pattern (`case c { #Counter{value} -> ... }`), a struct
+// literal (`#Counter{value: 0}`) and the call form (`Counter(#{value: 0})`) are
+// guarded elsewhere. An update patch (`Struct.update(c, #{value: -999})`) is the
 // fifth spelling, and this check guards it.
 //
 // A patch reaches a field one level down only through a bare `..`
-// (`Struct.update(box, {inner: {.., value: -999}})`), which is an update
+// (`Struct.update(box, #{inner: #{.., value: -999}})`), which is an update
 // literal of its own and is refused where it is checked
 // (checkStructUpdateLit's opaqueUpdateBlocked). A whole-value replacement
 // names no field and is clean, including replacing an opaque field wholesale
-// (`Struct.update(box, {inner: counter.new()})`).
+// (`Struct.update(box, #{inner: counter.new()})`).
 func (c *checker) opaquePatchField(arg, target Type) (typeName, fieldName string, found bool) {
 	anon, ok := resolveTypeVar(arg).(*AnonStructType)
 	if !ok || len(anon.Fields) == 0 {

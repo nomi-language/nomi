@@ -168,7 +168,7 @@ impl String {
     //! assert "héllo" |> Iter.map(String.to_upper) |> String.join() == "HÉLLO"
     //! assert 1..=3 |> Iter.map(Int.to_string) |> String.join("-") == "1-2-3"
     //! assert #["x", "y"] |> String.join("+") == "x+y"
-    //! assert #{"solo"} |> String.join(", ") == "solo"
+    //! assert %["solo"] |> String.join(", ") == "solo"
     //
     pub host fn join(parts: Iter<String>, separator: String = "") -> String
 

@@ -6,7 +6,7 @@ struct Circle {
 
 /// All four variant kinds. `Nothing` is bare, `Line` positional, `Box`
 /// struct-shaped, and `embeds Circle` embedded — the payload is the Circle
-/// itself, constructed with `Shape.Circle{...}`.
+/// itself, constructed with `#Shape.Circle{...}`.
 ///
 /// The layout this lowers to is the point: `Box`'s two `Int` fields need two
 /// slots because they are live together, while `Line`'s `Float` and
@@ -71,10 +71,10 @@ fn main() {
     positional = Shape.Line(noisyf(2.5))
     io.print("positional = ${pass(positional)}")
 
-    shaped = Shape.Box{w: noisy(3), h: noisy(4)}
+    shaped = #Shape.Box{w: noisy(3), h: noisy(4)}
     io.print("shaped = ${pass(shaped)}")
 
-    embedded = Shape.Circle{radius: noisyf(1.5)}
+    embedded = #Shape.Circle{radius: noisyf(1.5)}
     io.print("embedded = ${pass(embedded)}")
 
     _absent = Reading.Absent
@@ -84,8 +84,8 @@ fn main() {
     _whole = Mixed.Whole(noisy(5))
     _fraction = Mixed.Fraction(noisyf(0.5))
 
-    _defaulted = Request.Get{path: "/health"}
-    _explicit = Request.Get{path: "/retry", retries: noisy(9)}
+    _defaulted = #Request.Get{path: "/health"}
+    _explicit = #Request.Get{path: "/retry", retries: noisy(9)}
 
     _off = Toggle.Off
     _on = Toggle.On

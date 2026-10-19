@@ -16,7 +16,7 @@ func TestAnonStructType_TypeStringCanonical(t *testing.T) {
 		},
 	}
 	got := ast.TypeString()
-	want := "{name: String, age: Int}"
+	want := "#{name: String, age: Int}"
 	if got != want {
 		t.Errorf("TypeString = %q, want %q", got, want)
 	}
@@ -26,7 +26,7 @@ func TestAnonStructType_TypeStringCanonical(t *testing.T) {
 func TestAnonStructType_TypeStringEmpty(t *testing.T) {
 	ast := &AnonStructType{}
 	got := ast.TypeString()
-	want := "{}"
+	want := "#{}"
 	if got != want {
 		t.Errorf("TypeString = %q, want %q", got, want)
 	}
@@ -49,7 +49,7 @@ func TestAnonStructType_TypeStringNested(t *testing.T) {
 		},
 	}
 	got := outer.TypeString()
-	want := "{point: {x: Int, y: Int}, label: String}"
+	want := "#{point: #{x: Int, y: Int}, label: String}"
 	if got != want {
 		t.Errorf("TypeString = %q, want %q", got, want)
 	}

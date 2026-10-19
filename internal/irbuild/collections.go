@@ -195,7 +195,7 @@ func appendInlineDefs(out []*typeDef, k kind) []*typeDef {
 	case tagTuple, tagAnonStruct:
 		// Both are a flat Go struct, so a component of either is stored INLINE
 		// and can make its container's size infinite:
-		// `struct Node { p: {next: Node} }` needs the same boxed edge
+		// `struct Node { p: #{next: Node} }` needs the same boxed edge
 		// `struct Node { pair: #(Int, Node) }` does.
 		for _, p := range k.comp.parts {
 			out = appendInlineDefs(out, p)

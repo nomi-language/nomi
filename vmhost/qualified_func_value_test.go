@@ -46,13 +46,13 @@ func TestQualifiedOwnerFuncValue_Runs(t *testing.T) {
 		{
 			name: "inherent function",
 			imp:  "leaf",
-			body: "    f = leaf.Box.twice\n    io.print(Int.to_string(f(leaf.Box{value: 3})))\n",
+			body: "    f = leaf.Box.twice\n    io.print(Int.to_string(f(#leaf.Box{value: 3})))\n",
 			want: "6\n",
 		},
 		{
 			name: "inherent function passed to Iter.map",
 			imp:  "leaf",
-			body: "    [leaf.Box{value: 1}, leaf.Box{value: 4}]\n        |> Iter.map(leaf.Box.twice)\n        |> Iter.map(Int.to_string)\n        |> String.join(\",\")\n        |> io.print()\n",
+			body: "    [#leaf.Box{value: 1}, #leaf.Box{value: 4}]\n        |> Iter.map(leaf.Box.twice)\n        |> Iter.map(Int.to_string)\n        |> String.join(\",\")\n        |> io.print()\n",
 			want: "2,8\n",
 		},
 		{
@@ -70,7 +70,7 @@ func TestQualifiedOwnerFuncValue_Runs(t *testing.T) {
 		{
 			name: "interface impl function",
 			imp:  "leaf",
-			body: "    s = leaf.Box.to_string\n    io.print(s(leaf.Box{value: 5}))\n",
+			body: "    s = leaf.Box.to_string\n    io.print(s(#leaf.Box{value: 5}))\n",
 			want: "box 5\n",
 		},
 		{
@@ -82,7 +82,7 @@ func TestQualifiedOwnerFuncValue_Runs(t *testing.T) {
 		{
 			name: "partial application",
 			imp:  "leaf",
-			body: "    p = leaf.Box.add(_, 1)\n    io.print(Int.to_string(p(leaf.Box{value: 9})))\n",
+			body: "    p = leaf.Box.add(_, 1)\n    io.print(Int.to_string(p(#leaf.Box{value: 9})))\n",
 			want: "10\n",
 		},
 		{

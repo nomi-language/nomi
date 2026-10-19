@@ -15,7 +15,7 @@
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1},{"expensive":false,"name":"Pipeline","namedVariables":2,"variablesReference":2}]}
 -> variables {"variablesReference":1}
-<- response variables {"variables":[{"declarationLocationReference":1,"indexedVariables":1000,"name":"big","type":"List<Int>","value":"List (1000 items)","variablesReference":3},{"declarationLocationReference":2,"name":"p","namedVariables":2,"type":"Point","value":"Point{x: 3, y: 4}","variablesReference":4},{"declarationLocationReference":3,"name":"s","namedVariables":1,"type":"Shape","value":"Circle{radius: 5}","variablesReference":5},{"declarationLocationReference":4,"name":"n","type":"Int","value":"2","variablesReference":0}]}
+<- response variables {"variables":[{"declarationLocationReference":1,"indexedVariables":1000,"name":"big","type":"List<Int>","value":"List (1000 items)","variablesReference":3},{"declarationLocationReference":2,"name":"p","namedVariables":2,"type":"Point","value":"#Point{x: 3, y: 4}","variablesReference":4},{"declarationLocationReference":3,"name":"s","namedVariables":1,"type":"Shape","value":"#Circle{radius: 5}","variablesReference":5},{"declarationLocationReference":4,"name":"n","type":"Int","value":"2","variablesReference":0}]}
 -> variables {"count":3,"filter":"indexed","start":500,"variablesReference":3}
 <- response variables {"variables":[{"name":"[500]","type":"Int","value":"500","variablesReference":0},{"name":"[501]","type":"Int","value":"501","variablesReference":0},{"name":"[502]","type":"Int","value":"502","variablesReference":0}]}
 -> variables {"filter":"named","variablesReference":3}
@@ -33,11 +33,11 @@
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1},{"expensive":false,"name":"Pipeline","namedVariables":2,"variablesReference":2}]}
 -> variables {"variablesReference":1}
-<- response variables {"variables":[{"declarationLocationReference":1,"indexedVariables":1000,"name":"big","type":"List<Int>","value":"List (1000 items)","variablesReference":3},{"declarationLocationReference":2,"name":"p","namedVariables":2,"type":"Point","value":"Point{x: 3, y: 4}","variablesReference":4},{"declarationLocationReference":3,"name":"s","namedVariables":1,"type":"Shape","value":"Circle{radius: 5}","variablesReference":5},{"declarationLocationReference":5,"name":"n","type":"Int","value":"20","variablesReference":0}]}
+<- response variables {"variables":[{"declarationLocationReference":1,"indexedVariables":1000,"name":"big","type":"List<Int>","value":"List (1000 items)","variablesReference":3},{"declarationLocationReference":2,"name":"p","namedVariables":2,"type":"Point","value":"#Point{x: 3, y: 4}","variablesReference":4},{"declarationLocationReference":3,"name":"s","namedVariables":1,"type":"Shape","value":"#Circle{radius: 5}","variablesReference":5},{"declarationLocationReference":5,"name":"n","type":"Int","value":"20","variablesReference":0}]}
 -> continue {"threadId":1}
 <- response continue {"allThreadsContinued":true}
 <- event output {"category":"stdout","output":"20\n"}
-<- event output {"category":"stdout","output":"Circle{radius: 5}\n"}
+<- event output {"category":"stdout","output":"#Circle{radius: 5}\n"}
 <- event exited {"exitCode":0}
 <- event terminated {}
 -> disconnect {"terminateDebuggee":true}

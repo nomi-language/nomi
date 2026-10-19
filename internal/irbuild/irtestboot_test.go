@@ -24,7 +24,7 @@ pub struct App {
 }
 
 pub fn boot() -> App {
-  App{context: Context.root(), label: "booted"}
+  #App{context: Context.root(), label: "booted"}
 }
 
 fn main() {}

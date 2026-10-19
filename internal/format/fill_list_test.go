@@ -58,8 +58,8 @@ func TestFormat_NumberListFills(t *testing.T) {
 		},
 		{
 			"struct literal field",
-			"fn main() {\n    p = P{xs: [" + sevens + "], y: 1}\n}\n",
-			"fn main() {\n    p = P{\n        xs: [\n" + sevensAt[12] + "        ],\n        y: 1,\n    }\n}\n",
+			"fn main() {\n    p = #P{xs: [" + sevens + "], y: 1}\n}\n",
+			"fn main() {\n    p = #P{\n        xs: [\n" + sevensAt[12] + "        ],\n        y: 1,\n    }\n}\n",
 		},
 		{
 			"pipe head",
@@ -74,8 +74,8 @@ func TestFormat_NumberListFills(t *testing.T) {
 		},
 		{
 			"vector and set",
-			"fn main() {\n    v = #[" + sevens + "]\n    s = #{" + sevens + "}\n}\n",
-			"fn main() {\n    v = #[\n" + sevensAt[8] + "    ]\n\n    s = #{\n" + sevensAt[8] + "    }\n}\n",
+			"fn main() {\n    v = #[" + sevens + "]\n    s = %[" + sevens + "]\n}\n",
+			"fn main() {\n    v = #[\n" + sevensAt[8] + "    ]\n\n    s = %[\n" + sevensAt[8] + "    ]\n}\n",
 		},
 		{
 			"typed list",
@@ -127,8 +127,8 @@ func TestFormat_NumberListFills(t *testing.T) {
 		},
 		{
 			"vector and set written broken after the bracket",
-			"fn main() {\n    v = #[\n1, 2]\n    s = #{\n1, 2}\n}\n",
-			"fn main() {\n    v = #[\n        1, 2,\n    ]\n\n    s = #{\n        1, 2,\n    }\n}\n",
+			"fn main() {\n    v = #[\n1, 2]\n    s = %[\n1, 2]\n}\n",
+			"fn main() {\n    v = #[\n        1, 2,\n    ]\n\n    s = %[\n        1, 2,\n    ]\n}\n",
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) { formatsKeepingMeaning(t, c.src, c.want) })
@@ -183,7 +183,7 @@ func TestFormat_ListFillNeedsNumberLiteralsAndNoComments(t *testing.T) {
 		{"interpolated string", "[" + sevens + ", \"a${x}\"]", "[\n" + onePerLine + "        \"a${x}\",\n    ]"},
 		{"nested list", "[" + sevens + ", [1]]", "[\n" + onePerLine + "        [1],\n    ]"},
 		{"tuple", "[" + sevens + ", #(1, 2)]", "[\n" + onePerLine + "        #(1, 2),\n    ]"},
-		{"struct", "[" + sevens + ", P{x: 1}]", "[\n" + onePerLine + "        P{x: 1},\n    ]"},
+		{"struct", "[" + sevens + ", #P{x: 1}]", "[\n" + onePerLine + "        #P{x: 1},\n    ]"},
 		{"lambda", "[" + sevens + ", fn x -> x]", "[\n" + onePerLine + "        fn x -> x,\n    ]"},
 		{"negated name", "[" + sevens + ", -x]", "[\n" + onePerLine + "        -x,\n    ]"},
 		{
@@ -195,7 +195,7 @@ func TestFormat_ListFillNeedsNumberLiteralsAndNoComments(t *testing.T) {
 		{"leading comment", "[\n        // lead\n        " + sevens + "]", "[\n        // lead\n" + onePerLine + "    ]"},
 		{"end comment", "[" + sevens + "\n    // end\n    ]", "[\n" + onePerLine + "        // end\n    ]"},
 		{"vector spread", "#[..ys, " + sevens + "]", "#[\n        ..ys,\n" + onePerLine + "    ]"},
-		{"set spread", "#{..ys, " + sevens + "}", "#{\n        ..ys,\n" + onePerLine + "    }"},
+		{"set spread", "%[..ys, " + sevens + "]", "%[\n        ..ys,\n" + onePerLine + "    ]"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			formatsKeepingMeaning(t, "fn main() {\n    xs = "+c.src+"\n}\n", "fn main() {\n    xs = "+c.want+"\n}\n")

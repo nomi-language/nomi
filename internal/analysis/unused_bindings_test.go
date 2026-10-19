@@ -203,7 +203,7 @@ struct P {
   y: Int
 }
 fn main() {
-  _ = Iter.map([P{x: 1, y: 2}], fn {x, y} -> x) |> Iter.to_list()
+  _ = Iter.map([#P{x: 1, y: 2}], fn #{x, y} -> x) |> Iter.to_list()
 }
 `, "parameter 'y' is never read"},
 		{"fn tuple", `
@@ -281,7 +281,7 @@ struct P {
 }
 fn f(m: Maybe<Int>, xs: List<Int>, p: #(Int, Int)) -> Int {
   _ = Iter.map([#("a", 1)], fn #(_word, count) -> count) |> Iter.to_list()
-  _ = Iter.map([P{x: 1, y: 2}], fn {x} -> x) |> Iter.to_list()
+  _ = Iter.map([#P{x: 1, y: 2}], fn #{x} -> x) |> Iter.to_list()
   _ = case xs {
     [_, .._rest] -> 1
     [] -> 0

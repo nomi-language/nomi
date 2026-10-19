@@ -12,15 +12,15 @@ import (
 )
 
 // structFieldCandidates offers the fields a struct literal has not written
-// yet, `Point{x: 1, ` offering `y`, with their types. The literal's type is
-// its named type, its spread's (`{..base, `), or the type its position
-// expects, and a bare brace's (`{‸}`, completion_bare_brace.go) the type its
-// position expects. Fields without a default rank first, in declaration
-// order. A patch (a spread, or a bare brace at a field under one) needs no
-// field, so its fields keep declaration order.
+// yet, `#Point{x: 1, ` offering `y`, with their types. The literal's type is
+// its named type, its spread's (`#{..base, `), or the type its position
+// expects (`a: Address = #{‸}`). Fields without a default rank first, in
+// declaration order. A patch (a spread, or a literal with no type name at a
+// field under one) needs no field, so its fields keep declaration order.
 func (r *completionRequest) structFieldCandidates() []candidate {
 	written := map[string]bool{}
-	t, hop := r.braceType, r.braceHop
+	var t analysis.Type
+	hop := 0
 	if lit := r.ctx.structLit; lit != nil {
 		for _, f := range lit.Fields {
 			if !strings.Contains(f.Name, completionSentinel) {
@@ -44,6 +44,28 @@ func (r *completionRequest) structFieldCandidates() []candidate {
 		out = append(out, c)
 	}
 	return out
+}
+
+// underPatch reports whether the literal at hop is a patch: it carries a
+// spread, or it has no type name and stands at a field of a patch, where
+// the base supplies every field it leaves out.
+func underPatch(h *sentinelHit, hop int) bool {
+	for {
+		node, field := h.at(hop)
+		if lit, ok := node.(*ast.StructLit); ok {
+			if lit.Spread != nil {
+				return true
+			}
+			if lit.TypeName != nil {
+				return false
+			}
+		}
+		fv, _ := h.at(hop + 1)
+		if _, ok := fv.(*ast.StructFieldVal); !ok || field != "Value" {
+			return false
+		}
+		hop += 2
+	}
 }
 
 // caseArmCandidates offers the head of a case arm. Over an enum subject it
@@ -184,7 +206,7 @@ func variantNameOf(te ast.TypeExpr) string {
 }
 
 // variantPattern renders the dot-leading pattern that matches v and binds its
-// payload: `.Point`, `.Some(value)`, `.Rect{w, h}`. As a snippet each binding
+// payload: `.Point`, `.Some(value)`, `#.Rect{w, h}`. As a snippet each binding
 // is a placeholder numbered from n; it returns the next free number.
 func variantPattern(v analysis.VariantDef, n int, snippet bool) (string, int) {
 	hole := func(name string) string {
@@ -199,10 +221,10 @@ func variantPattern(v analysis.VariantDef, n int, snippet bool) (string, int) {
 	case analysis.VariantPositional:
 		return "." + v.Name + "(" + hole("value") + ")", n
 	case analysis.VariantStruct:
-		return "." + v.Name + "{" + fieldNames(v.Fields, hole) + "}", n
+		return "#." + v.Name + "{" + fieldNames(v.Fields, hole) + "}", n
 	case analysis.VariantEmbedded:
 		if st, ok := analysis.ResolveTypeVar(v.Embedded).(*analysis.StructType); ok {
-			return "." + v.Name + "{" + fieldNames(st.Fields, hole) + "}", n
+			return "#." + v.Name + "{" + fieldNames(st.Fields, hole) + "}", n
 		}
 		return "." + v.Name + "(" + hole("value") + ")", n
 	}

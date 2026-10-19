@@ -21,7 +21,7 @@ pub enum Status {
 
 pub type UserId Int
 
-once default_box: Box = Box{value: 7}
+once default_box: Box = #Box{value: 7}
 once fallback_status: Status = Status.Ready
 once root_user_id: UserId = UserId(1)
 

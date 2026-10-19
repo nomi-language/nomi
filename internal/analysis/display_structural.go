@@ -5,7 +5,7 @@ import "fmt"
 // Display over the types that have no declaration to hang an impl on.
 //
 // A tuple renders as `#(Display(a), Display(b), ...)` and an anonymous struct
-// as `{f: Display(v), ...}` (the spec's Display and Debug section), so one is
+// as `#{f: Display(v), ...}` (the spec's Display and Debug section), so one is
 // Display exactly when every part is. A function value has no Display at
 // all. Every Display question the checker asks about such a type goes
 // through the two functions below: an interpolation or interface-typed

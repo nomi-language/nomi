@@ -35,7 +35,7 @@ func TestConcurrentScope_UserTaskTypeSpawnIsNotTaskSpawn_OK(t *testing.T) {
 
 impl Task {
   fn spawn(n: Int) -> Task {
-    Task{n: n}
+    #Task{n: n}
   }
 
   fn spawn_all(t: Task) -> Int {
@@ -67,7 +67,7 @@ func TestBootScope_UserSupervisorNewIsNotSupervisorNew_OK(t *testing.T) {
 
 impl Supervisor {
   fn new(name: String) -> Supervisor {
-    Supervisor{name: name}
+    #Supervisor{name: name}
   }
 }
 

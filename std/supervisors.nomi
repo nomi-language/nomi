@@ -56,9 +56,9 @@ pub enum Backoff {
     /// `max_restarts` attempts, or after `max_elapsed` spent trying,
     /// whichever comes first.
     ///
-    /// Both bounds have defaults, so `.Exponential{}` is the built-in
+    /// Both bounds have defaults, so `#.Exponential{}` is the built-in
     /// schedule and what you get by choosing a disposition and nothing
-    /// else. Naming one field keeps the other — `.Exponential{max_restarts:
+    /// else. Naming one field keeps the other — `#.Exponential{max_restarts:
     /// 3}` still gives up after fifteen minutes.
     ///
     /// Those are the two questions worth answering — how many times, and
@@ -181,7 +181,7 @@ pub enum FlushOutcome {
 /// }
 ///
 /// fn boot() -> Config {
-///     Config{context: Context.root(),
+///     #Config{context: Context.root(),
 ///         audit: Supervisor.new(shutdown_timeout: Duration.seconds(30), max_running: 4),
 ///         notify: Supervisor.new(shutdown_timeout: Duration.milliseconds(200), max_running: 50),
 ///     }
@@ -236,7 +236,7 @@ impl Supervisor {
         max_running: Int,
         shutdown_timeout: Duration = Duration.seconds(5),
         restart: Restart = .Temporary,
-        backoff: Backoff = .Exponential{},
+        backoff: Backoff = #.Exponential{},
         on_give_up: GiveUp = .Report,
     ) -> Supervisor {
         Supervisor.new_exact(max_running, shutdown_timeout, restart, backoff, on_give_up)

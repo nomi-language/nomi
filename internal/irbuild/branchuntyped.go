@@ -2,7 +2,7 @@ package irbuild
 
 // An untyped literal in a `case` or `if` arm.
 //
-// `[]`, a bare `None`, `Map.empty()` and `#{}` are the four values whose type
+// `[]`, a bare `None`, `Map.empty()` and `%[]` are the four values whose type
 // the CHECKER solves from context and the builder cannot infer; coerce
 // discharges each of them at the one place a wanted type is known
 // (types.go's coerce, and untypedLiteral for the set).
