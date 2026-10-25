@@ -135,6 +135,10 @@ type typeRegistry struct {
 	// owner's def: an impl another file writes for it is recorded for
 	// dispatch there (irInstanceImpls).
 	erasedInsts map[*typeDef]bool
+	// boxedEnums is every enum declaration with an `embeds` variant some
+	// file boxes into an existential (irboxed.go), whose impls its declaring
+	// file records under the enum's own name for the box's dispatch.
+	boxedEnums map[ast.Node]bool
 	// aliasOwner is the Go-spelled PACKAGE plus mirror name of every foreign
 	// alias some gen has already claimed, so exactly one gen declares it.
 	//
@@ -191,6 +195,18 @@ func buildTypeRegistry(p *Program) *typeRegistry {
 				nomi:    name,
 				decl:    n,
 				isIface: iface,
+			}
+		}
+	}
+	// A std module checked from edited source (a reference editor, `nomi test`
+	// of an edited std file) is the entry in place of its shared copy, and a
+	// module lowered beside it that imports it (std/sql_testing beside an edited
+	// std/sql) names the shared copy's declarations: each of them is the
+	// edited declaration's (implFuncTwins).
+	for i := range p.Modules {
+		for shared, edited := range p.Modules[i].twins {
+			if o := r.byDecl[edited]; o != nil && r.byDecl[shared] == nil {
+				r.byDecl[shared] = o
 			}
 		}
 	}
@@ -503,6 +519,11 @@ func (g *gen) namedType(name string) (*typeDef, bool) {
 	}
 	if d, isForeign := g.foreignType(name); isForeign {
 		return d, true
+	}
+	// A std type imported under another name: `Error as CurrencyError`. See
+	// importalias.go.
+	if k, isAliased := g.aliasedTypeKind(name, nil); isAliased && k.tag == tagNamed && k.def != nil {
+		return k.def, true
 	}
 	// `shapes.Shape` — a declaration named through a WHOLE-FILE import's
 	// qualifier. LAST, so every arm above keeps the answer it had: a local

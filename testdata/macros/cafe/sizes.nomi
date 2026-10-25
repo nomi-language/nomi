@@ -1,0 +1,4 @@
+import choices
+
+/// How big a coffee is.
+pub choices.one_of! Size `small medium large`

@@ -184,7 +184,7 @@ fn main() {
     io.inspect(Iter.take_while(xs, small) |> Iter.to_list())
     Iter.each(xs, show)
     io.inspect(Iter.iterate(1, triple) |> Iter.to_list())
-    io.inspect(Iter.reduce(xs, fn acc = 0, n -> add_odd(acc, n)))
+    io.inspect(Iter.reduce(xs, add_odd, from: 0))
 }
 `, "skip 3\n[10, 20, 40, 500]\n[2, 4]\n[1, 3]\nshow 1\nshow 3\n[1, 3, 9]\n400\n")
 }

@@ -443,7 +443,7 @@ func (s *Server) finishLowering(uri, content string, gen int, diags []protocol.D
 	if !fresh || s.notify == nil || snap.Analysis == nil || !snap.Current() {
 		return
 	}
-	s.publishSnapshot(s.notify, snap)
+	s.publishViewed(s.notify, snap)
 }
 
 // safeLoweringDiagnostics is the server's loweringDiagnostics, through
@@ -496,6 +496,11 @@ func problemDiagnostics(path, content string, problems, err error) []protocol.Di
 			code = &protocol.IntegerOrString{Value: d.Code}
 		}
 		diag := protocol.Diagnostic{Severity: &severity, Source: &source, Code: code, Message: msg}
+		if d.Code == vmhost.CustomCurrencyCallCode {
+			// A hint `nomi check` does not print: the call runs as written.
+			warning := protocol.DiagnosticSeverityWarning
+			diag.Severity = &warning
+		}
 		if samePath(d.Path, path) {
 			diag.Range = lines.utf16Range(errorRange(d.Line, d.Col, d.EndLine, d.EndCol))
 		} else if d.Line > 0 && filepath.IsAbs(d.Path) {

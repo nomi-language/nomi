@@ -46,7 +46,9 @@ pub enum Fragment<T> {
 /// }
 ///
 /// impl Literal for Date {
-///     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Date, Error> { ... }
+///     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Date, Error> {
+///         ...
+///     }
 /// }
 /// ```
 pub interface Literal<I, R> {

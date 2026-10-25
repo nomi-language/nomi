@@ -35,6 +35,8 @@ type Type interface {
 	NumOut() int
 	Out(i int) Type
 	IsVariadic() bool
+	// NumMethod is an interface type's method count.
+	NumMethod() int
 }
 
 // StructField is one field of a struct Type.
@@ -68,6 +70,7 @@ func (r reflectType) In(i int) Type      { return ReflectType(r.t.In(i)) }
 func (r reflectType) NumOut() int        { return r.t.NumOut() }
 func (r reflectType) Out(i int) Type     { return ReflectType(r.t.Out(i)) }
 func (r reflectType) IsVariadic() bool   { return r.t.IsVariadic() }
+func (r reflectType) NumMethod() int     { return r.t.NumMethod() }
 
 func (r reflectType) Field(i int) StructField { return reflectField(r.t.Field(i)) }
 
@@ -130,6 +133,12 @@ func isPredeclared(t Type, name string) bool {
 // isErrorType reports whether t is the predeclared `error`.
 func isErrorType(t Type) bool {
 	return t != nil && t.Kind() == reflect.Interface && t.PkgPath() == "" && t.Name() == "error"
+}
+
+// isEmptyInterface reports whether t is an interface with no methods: `any`,
+// `interface{}`, or a named type over one.
+func isEmptyInterface(t Type) bool {
+	return t != nil && t.Kind() == reflect.Interface && t.NumMethod() == 0 && !isErrorType(t)
 }
 
 // isFrame reports whether t is *rt.Frame.

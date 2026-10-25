@@ -1,0 +1,83 @@
+// Every value held as an interface is Equatable and Hashable, whatever it
+// holds, so a generic bound of either admits it. Each body instantiated at
+// the interface compares and hashes the held values as `==` and a Set do:
+// unequal across concrete types, through a hand-written Equatable otherwise.
+import protocols.{Labeled, Name, Point, Show, Spot}
+
+fn has<T>(xs: List<T>, x: T) -> Bool where T: Equatable {
+    List.contains?(xs, x)
+}
+
+fn same<T>(a: T, b: T) -> Bool where T: Equatable {
+    Equatable.equal?(a, b)
+}
+
+fn kinds<T>(xs: List<T>) -> Int where T: Hashable {
+    xs
+    |> Iter.to_set()
+    |> Set.size()
+}
+
+fn hashes_alike<T>(a: T, b: T) -> Bool where T: Hashable {
+    Hashable.hash(a) == Hashable.hash(b)
+}
+
+test "List.contains? and Iter.contains? find a value by its own equality" {
+    xs: List<Show> = [#Point{x: 1, y: 2}, #Name{text: "Ada"}, 3, [4]]
+    spot: Show = #Spot{x: 1, y: 2}
+    ada: Show = #Name{text: "ADA"}
+    four: Show = [4]
+    assert !List.contains?(xs, spot)
+    assert List.contains?(xs, ada)
+    assert List.contains?(xs, four)
+    assert Iter.contains?(xs, ada)
+    assert !Iter.contains?(xs, spot)
+}
+
+test "a generic function bounded by Equatable takes interface values" {
+    xs: List<Show> = [#Name{text: "Ada"}, 1]
+    ada: Show = #Name{text: "ada"}
+    point: Show = #Point{x: 1, y: 2}
+    spot: Show = #Spot{x: 1, y: 2}
+    assert has(xs, ada)
+    assert !has(xs, point)
+    assert same(ada, #Name{text: "ADA"})
+    assert !same(point, spot)
+    assert Equatable.equal?(ada, ada)
+    assert !Equatable.equal?(point, spot)
+}
+
+test "a generic function bounded by Hashable takes interface values" {
+    xs: List<Show> = [
+        #Name{text: "Ada"},
+        #Name{text: "ADA"},
+        1,
+        #Point{x: 1, y: 2},
+        #Spot{x: 1, y: 2},
+    ]
+
+    assert kinds(xs) == 4
+    ada: Show = #Name{text: "Ada"}
+    assert hashes_alike(ada, #Name{text: "aDa"})
+    assert Hashable.hash(ada) == Hashable.hash(#Name{text: "ADA"})
+}
+
+test "Iter.chunk_by keys by interface values" {
+    xs: List<Show> = [#Name{text: "Ada"}, #Name{text: "ada"}, 1, 1, #Point{x: 0, y: 0}]
+    assert xs |> Iter.chunk_by(&(&1)) |> Iter.count() == 3
+}
+
+test "a derived Equatable and Hashable compare an interface-typed field by its value" {
+    a = #Labeled{label: #Name{text: "Ada"}, count: 1}
+    b = #Labeled{label: #Name{text: "ADA"}, count: 1}
+    c = #Labeled{label: #Point{x: 1, y: 2}, count: 1}
+    d = #Labeled{label: #Spot{x: 1, y: 2}, count: 1}
+    assert a == b
+    assert c != d
+    assert Equatable.equal?(a, b)
+    assert Hashable.hash(a) == Hashable.hash(b)
+    m = %{a => "ada", c => "point"}
+    assert Map.get(m, b) == Some("ada")
+    assert Map.get(m, d) == None
+    assert Set.size(%[a, b, c, d]) == 3
+}

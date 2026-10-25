@@ -8,8 +8,10 @@ import (
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/syntheticextern"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -186,6 +188,12 @@ type DocumentManager struct {
 	// disk holds the project files programs were checked from, as read
 	// (readProjectFile).
 	disk diskTexts
+	// inputs holds the expansion inputs an editor has open
+	// (SetInputOverlay).
+	inputs inputOverlays
+	// Macros runs the macros documents' declarations are written
+	// with; the language server sets vmhost's. Nil runs none.
+	Macros MacroHost
 }
 
 // DocSnapshot is a frozen view of a Document, taken under the manager's
@@ -552,7 +560,11 @@ func (dm *DocumentManager) makeRecordingLoader(rec *loadRecord) FileLoader {
 		if ok {
 			nodes, errs, _ := parser.ParseResilient(lexer.Lex(text))
 			rec.read(filePath, text, len(errs))
-			return syntheticextern.Inject(nodes, decls, false)
+			nodes, err := syntheticextern.Inject(nodes, decls, false)
+			if err != nil {
+				return nil, err
+			}
+			return dm.expandLoaded(projectRoot, modulePath, nodes), nil
 		}
 
 		// Read from disk, lex, and parse.
@@ -563,7 +575,11 @@ func (dm *DocumentManager) makeRecordingLoader(rec *loadRecord) FileLoader {
 		tokens := lexer.Lex(string(data))
 		nodes, errs := parser.ParseWithRecovery(tokens)
 		rec.read(filePath, string(data), len(errs))
-		return syntheticextern.Inject(nodes, decls, false)
+		nodes, err = syntheticextern.Inject(nodes, decls, false)
+		if err != nil {
+			return nil, err
+		}
+		return dm.expandLoaded(projectRoot, modulePath, nodes), nil
 	}
 }
 
@@ -865,6 +881,9 @@ func (dm *DocumentManager) build(uri, content string) builtAnalysis {
 	if injected, err := syntheticextern.Inject(nodes, externs, isFFIEntryPath(docPath)); err == nil {
 		nodes = injected
 	}
+	if root != "" && !dm.isStdlibFile(uri) {
+		nodes = dm.expandDocument(root, docPath, nodes)
+	}
 	// Type-body lowering on the doc's own slice, BEFORE any build below.
 	// The build pipelines lower internally, but their extended slices stay
 	// internal — the CheckTypes / AnalyzeIterSensitivity / MarkTailCalls
@@ -899,7 +918,7 @@ func (dm *DocumentManager) build(uri, content string) builtAnalysis {
 		// the parser had to repair is only partly read, so no type claim
 		// about it is meaningful. Reporting those claims would bury the
 		// real syntax error under invented type errors on the valid half.
-		fa.TypeErrors = suppressInDamagedSpans(fa.TypeErrors, damaged)
+		fa.TypeErrors = suppressInDamagedSpans(RelocateExpansionErrors(nodes, fa.TypeErrors), damaged)
 	}
 	return builtAnalysis{nodes: nodes, errs: errs, damaged: damaged, fa: fa, program: program, stdDiffers: dm.stdDiffers(docPath, content)}
 }
@@ -913,6 +932,16 @@ func (dm *DocumentManager) build(uri, content string) builtAnalysis {
 // program. wantProgram is false when the text already has an error, so
 // that no program is offered and its other files need no check.
 func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, docPath string, wantProgram bool) (fa *FileAnalysis, program *EntryProgram) {
+	// When a macro declined a declaration of the program, the
+	// document reports its own macro declarations' errors alone, as
+	// the front end does (MacroFailed).
+	var declined bool
+	var alone []TypeError
+	defer func() {
+		if declined && fa != nil {
+			fa.TypeErrors, program = alone, nil
+		}
+	}()
 	// Stdlib files (~/.cache/nomi/std/<version>/<mod>.nomi for jump-to-def
 	// materialization, std/<mod>.nomi for direct repo opens) must not
 	// receive the prelude — they import their dependencies by hand, and
@@ -987,6 +1016,9 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 				// IR carries as ir.Call.Tail. Must run
 				// on the same `nodes` slice the doc holds.
 				MarkTailCalls(nodes)
+				// The program's own errors about this file (an orphan or
+				// duplicate impl in it), which the entry carries.
+				fa.TypeErrors = append(fa.TypeErrors, errorsNamingFile(fa.FilePath, fa.Program().Errors)...)
 				fa.TypeErrors = append(fa.TypeErrors, checkErrs...)
 				fa.TypeErrors = append(fa.TypeErrors, iterErrs...)
 				// Concurrency layer 1 structural rules.
@@ -1001,6 +1033,14 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 				// files won't surface until those files are opened.
 				fa.TypeErrors = append(fa.TypeErrors, MissingImpls(fa.Program(), []*FileAnalysis{fa})...)
 				fa.TypeErrors = append(fa.TypeErrors, checkDocImplImports(fa, nodes, entryFA, mainNodes, cache, siblingNodes)...)
+				docChecks := programMacroChecks(relModuleKey(root, mainPath), mainNodes, siblingNodes)[docKey]
+				fa.TypeErrors = append(fa.TypeErrors, docChecks...)
+				files := map[string][]ast.Node{}
+				maps.Copy(files, siblingNodes)
+				files[relModuleKey(root, mainPath)], files[docKey] = mainNodes, nodes
+				if MacroFailed(files) {
+					declined, alone = true, MacroErrorsAlone(nodes, docChecks)
+				}
 				return
 			}
 		}
@@ -1036,9 +1076,10 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	rec := &loadRecord{}
 	docEntryFA, docSiblings, docSiblingNodes := BuildProjectFromEntryWithManifest(fallbackDocPath, prog, dm.primitives, dm.modules, dm.stdlibFAs, root, dm.makeRecordingLoaderWithOverride(uri, nodes, rec), nil, entryModRel, true)
 	fa = docEntryFA
-	// The program's own errors (duplicate and orphan impls) are shown with
+	// The program's own errors (duplicate and orphan impls) are carried by
 	// the document that is its entry, after its build-phase errors, as the
-	// front end reports them.
+	// front end reports them; one about another file names it
+	// (TypeError.File), and that file's document shows it.
 	fa.TypeErrors = append(fa.TypeErrors, fa.Program().Errors...)
 	checkErrs := CheckTypes(fa, prog)
 	checkErrs = append(checkErrs, CheckAppRoots(fa, prog)...)
@@ -1058,8 +1099,22 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	// entry FA, so its post-CheckTypes ImplManifest is what
 	// FinalizeCoherence reads.
 	fa.TypeErrors = append(fa.TypeErrors, FinalizeCoherence(fa)...)
+	// Each macro's whole-module check over the program's declarations
+	// (CheckMacroPrograms): the document's own, and those in no file.
+	extChecks := programMacroChecks(entryModRel, prog, docSiblingNodes)
+	entryExt := append(slices.Clone(extChecks[entryModRel]), extChecks[""]...)
+	files := map[string][]ast.Node{}
+	maps.Copy(files, docSiblingNodes)
+	files[entryModRel] = prog
+	if MacroFailed(files) {
+		declined, alone = true, MacroErrorsAlone(prog, entryExt)
+	}
 	if !importsProjectFile(docSiblings, docSiblingNodes) {
 		fa.TypeErrors = append(fa.TypeErrors, checkDocImplImports(fa, prog, docEntryFA, prog, docSiblings, docSiblingNodes)...)
+		fa.TypeErrors = append(fa.TypeErrors, entryExt...)
+		if len(entryExt) > 0 {
+			return fa, nil
+		}
 		return fa, &EntryProgram{Nodes: prog, Root: root, Manifest: manifestText(root)}
 	}
 	// The document imports other project files. They are checked as the
@@ -1067,14 +1122,35 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	// imports, or when the document is clean so far and its program could
 	// be offered.
 	if len(fa.ImplImports) == 0 && (!wantProgram || len(fa.TypeErrors) > 0) {
+		fa.TypeErrors = append(fa.TypeErrors, entryExt...)
 		return fa, nil
 	}
 	docImplErrs, clean := checkProgramFiles(fa, prog, docSiblings, docSiblingNodes)
 	fa.TypeErrors = append(fa.TypeErrors, docImplErrs...)
+	fa.TypeErrors = append(fa.TypeErrors, entryExt...)
+	for key, es := range extChecks {
+		if key != "" && key != entryModRel && len(es) > 0 {
+			clean = false
+		}
+	}
 	if !wantProgram || !clean || len(fa.TypeErrors) > 0 {
 		return fa, nil
 	}
 	return fa, programOf(prog, root, rec, docSiblings, docSiblingNodes)
+}
+
+// programMacroChecks is CheckMacroPrograms over a build's entry,
+// under entryKey, and its other files: what each macro's ProgramCheck
+// reports, by the key of the file it is in.
+func programMacroChecks(entryKey string, entry []ast.Node, files map[string][]ast.Node) map[string][]TypeError {
+	all := make(map[string][]ast.Node, len(files)+1)
+	for key, nodes := range files {
+		if !IsStdlibKey(key) {
+			all[key] = nodes
+		}
+	}
+	all[entryKey] = entry
+	return CheckProgramDeclarations(all)
 }
 
 // checkProgramFiles runs over an entry's other files what the front end

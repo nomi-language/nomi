@@ -34,6 +34,7 @@ import (
 // quoted (without escaping) and everything else is its DisplayText. Nested
 // values render by this same rule, so a String inside a List is quoted too.
 func RowText(v any) string {
+	v = Unbox(v)
 	if s, ok := v.(string); ok {
 		return InspectString(s)
 	}
@@ -52,6 +53,7 @@ func RowTextWith(v any, hook DebugHook) (string, error) {
 	var first error
 	var elem func(any) string
 	elem = func(x any) string {
+		x = Unbox(x)
 		if s, owned, err := hook(x); owned || err != nil {
 			if err != nil && first == nil {
 				first = err
@@ -75,6 +77,7 @@ func RowTextWith(v any, hook DebugHook) (string, error) {
 // and a container renders its elements by RowText. A user's `impl Display`
 // is the engine's to dispatch before reaching this.
 func DisplayText(v any) string {
+	v = Unbox(v)
 	switch x := v.(type) {
 	case int64:
 		return FormatInt(x)
@@ -126,6 +129,7 @@ func DisplayText(v any) string {
 // `#{f: Display(v)}`, `[Display(v1), ...]`, `Some(Display(v))`. DisplayText is
 // the assertion row's rendering, whose nested Strings are quoted.
 func DisplayTextWith(v any, elem func(any) string) string {
+	v = Unbox(v)
 	switch x := v.(type) {
 	case *List[any]:
 		return FormatListCells[any, List[any]](x, elem)
@@ -244,6 +248,7 @@ type DebugHook func(v any) (text string, owned bool, err error)
 // only a dispatched impl can render: a named struct, a user enum, a Dynamic,
 // an opaque value.
 func DebugText(v any, hook DebugHook) (string, error) {
+	v = Unbox(v)
 	if hook != nil {
 		if s, owned, err := hook(v); owned || err != nil {
 			return s, err

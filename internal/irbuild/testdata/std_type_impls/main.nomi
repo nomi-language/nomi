@@ -1,0 +1,31 @@
+// Calls to another file's impls of its interfaces for std types: qualified by
+// the std type, with an operand of it and with none (`Date.from_v(v)`,
+// `Int.from_v(v)`), by the interface, through a type parameter bound to the
+// std type, and dispatched on values held as the interface.
+import {
+    std/calendar.Date
+    std/instant.Instant
+    std/io
+    lib.{self, ToV, V}
+}
+
+fn all(values: List<ToV>) -> List<V> {
+    values |> Iter.map(&ToV.to_v(&1)) |> Iter.to_list()
+}
+
+fn main() {
+    day = Date`2026-10-19`
+    at = Instant.from_seconds(5)
+    io.print(Date.to_v(day) == V.D(day))
+    io.print(ToV.to_v(1.5d) == V.Dec(1.5d))
+    io.print(Date.from_v(V.D(day)) == Ok(day))
+    io.print(Int.from_v(V.I(3)) == Ok(3))
+    io.print(lib.read<Date>(V.D(day)) == Ok(day))
+    io.print(lib.read<Maybe<Date>>(V.N) == Ok(None))
+    io.print(ToV.to_v(Some(at)) == V.At(at))
+    nothing: Maybe<Decimal> = None
+
+    io.print(
+        all([day, 2.5d, at, Some(day), nothing]) == [V.D(day), V.Dec(2.5d), V.At(at), V.D(day), V.N]
+    )
+}

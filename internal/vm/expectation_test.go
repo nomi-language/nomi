@@ -20,6 +20,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/cldrdata"
+	"github.com/nomi-language/nomi/internal/cldrfull"
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/expectation"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -238,16 +241,24 @@ var vmWholeProgramRoots = map[string]string{
 }
 
 // candidateIDs is the records the VM could in principle produce a whole
-// transcript for, with the two exclusions counted.
+// transcript for, with the three exclusions counted.
 //
 // THE FILTERS ARE PROPERTIES OF THE RECORD AND NOT OF ANY RUN, which is what
-// keeps this from being a comparison that selects the cases it passes. `N` and
-// the digest are read out of the committed artifact before the VM is opened.
-func candidateIDs(s *expectation.Set) (ids []string, reportShaped, empty int) {
+// keeps this from being a comparison that selects the cases it passes. `N`,
+// the exit status and the digest are read out of the committed artifact
+// before the VM is opened.
+//
+// A record with a nonzero exit is a program that stops on purpose (a tour
+// block that reaches a `todo` or returns `Err` from main). vmRun runs `main`
+// bare: it has no vmrunner to print an `Err` from main, and it reads a Run
+// error as a partial run, so it cannot produce that record's transcript.
+func candidateIDs(s *expectation.Set) (ids []string, reportShaped, empty, stops int) {
 	for _, c := range s.Cases {
 		switch {
 		case c.Cases > 0:
 			reportShaped++
+		case c.Exit != 0:
+			stops++
 		case c.Digest == emptyTranscriptDigest:
 			empty++
 		default:
@@ -255,7 +266,7 @@ func candidateIDs(s *expectation.Set) (ids []string, reportShaped, empty int) {
 		}
 	}
 	sort.Strings(ids)
-	return ids, reportShaped, empty
+	return ids, reportShaped, empty, stops
 }
 
 // vmRun is one whole-program attempt: lower path, find the entry, run it.
@@ -307,7 +318,7 @@ func vmRun(path string) (transcript string, reason string) {
 	if err != nil {
 		return "", "the link hook refused it: " + err.Error()
 	}
-	machine := vm.NewProgram(mod, mods, &out)
+	machine := vm.NewProgram(mod, mods, &out).WithLocaleData(programLocales(prog))
 	booted, err := machine.Boot()
 	if err != nil {
 		return "", "the VM could not boot it: " + err.Error()
@@ -316,6 +327,19 @@ func vmRun(path string) (transcript string, reason string) {
 		return "", "the VM ran part of it: " + err.Error()
 	}
 	return out.String(), ""
+}
+
+// programLocales is the CLDR data prog runs with, as vmhost gives it: the
+// locales its nomi.toml lists under [i18n] (`locales` and `partial_locales`), or every locale.
+func programLocales(prog *irbuild.Program) *cldrdata.Data {
+	var locales []string
+	source := ""
+	if prog.Root != "" {
+		if m, err := analysis.LoadManifest(prog.Root); err == nil && m != nil {
+			locales, source = m.CarriedLocales(), m.Source()
+		}
+	}
+	return cldrfull.ForProgram(locales, source)
 }
 
 // vmLink is the module set a harness run hands the machine, given the entry
@@ -385,7 +409,7 @@ func TestVMExpectation_TheVMIsComparedAgainstTheCommittedArtifacts(t *testing.T)
 			if err != nil {
 				t.Fatalf("loading the committed expectation for %s: %v", population, err)
 			}
-			ids, reportShaped, empty := candidateIDs(recorded)
+			ids, reportShaped, empty, stops := candidateIDs(recorded)
 			if population == "tour" {
 				tourCandidates = len(ids)
 			}
@@ -409,8 +433,8 @@ func TestVMExpectation_TheVMIsComparedAgainstTheCommittedArtifacts(t *testing.T)
 			for _, r := range refused {
 				t.Logf("  not comparable %s", r)
 			}
-			t.Logf("%s: %d records, %d report-shaped, %d empty, %d candidates, %d COMPARED",
-				population, len(recorded.Cases), reportShaped, empty, len(ids), len(got.Cases))
+			t.Logf("%s: %d records, %d report-shaped, %d empty, %d stop on purpose, %d candidates, %d COMPARED",
+				population, len(recorded.Cases), reportShaped, empty, stops, len(ids), len(got.Cases))
 		})
 	}
 	if totalComparable == 0 {
@@ -453,7 +477,7 @@ func TestVMExpectation_TheReportShapedPopulationsAreOutByConstruction(t *testing
 		if len(recorded.Cases) == 0 {
 			t.Errorf("%s holds no records, so this check has no subject", population)
 		}
-		ids, reportShaped, empty := candidateIDs(recorded)
+		ids, reportShaped, empty, _ := candidateIDs(recorded)
 		if len(ids) != 0 {
 			t.Errorf("%s now has %d candidate(s) — %v — and this file excludes the whole "+
 				"population. The exclusion is no longer true.", population, len(ids), ids)
@@ -493,7 +517,7 @@ func TestVMExpectation_APlantedDivergenceInVMOutputIsCaught(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loading the tour expectation: %v", err)
 	}
-	ids, _, _ := candidateIDs(recorded)
+	ids, _, _, _ := candidateIDs(recorded)
 	pathFor := vmPathResolver(t, "tour")
 
 	// The clean run first, so the control has its own control: a mutant that
@@ -598,7 +622,7 @@ func TestVMExpectation_APlantedDivergenceInDbgOutputIsCaught(t *testing.T) {
 	// candidate is required to compare (vmRequiredComparable), so the run
 	// below covers the whole population and a new block needs no entry.
 	blocks := tourBlocksByID(t)
-	ids, _, _ := candidateIDs(recorded)
+	ids, _, _, _ := candidateIDs(recorded)
 	var dbgIDs, nonDbgIDs []string
 	for _, id := range ids {
 		if usesDbg(blocks[id]) {
@@ -803,7 +827,7 @@ func TestVMExpectation_ComparableProgramsCoverScalarControlFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loading the tour expectation: %v", err)
 	}
-	ids, _, _ := candidateIDs(recorded)
+	ids, _, _, _ := candidateIDs(recorded)
 	pathFor := vmPathResolver(t, "tour")
 	subsetShapes := map[string]int{}
 	subsetFuncs, subsetRecords := 0, 0
@@ -934,7 +958,7 @@ func tourBlocksByID(t *testing.T) map[string]string {
 			return relErr
 		}
 		for _, b := range doctest.ExtractBlocks(string(body), "nomi-run") {
-			if b.HasInfo("ignore") {
+			if !b.Runs() {
 				continue
 			}
 			out[fmt.Sprintf("%s:L%d", filepath.ToSlash(rel), b.Line)] = b.Code
@@ -991,9 +1015,10 @@ func stageTourBlock(t *testing.T, dir, code string) string {
 }
 
 // tourFileName is an import-path key as a file name, idempotent over a name
-// that already carries the suffix.
+// that already carries the suffix; a message catalog's key is its path,
+// `.toml` included.
 func tourFileName(name string) string {
-	if strings.HasSuffix(name, ".nomi") {
+	if strings.HasSuffix(name, ".nomi") || strings.HasSuffix(name, ".toml") {
 		return name
 	}
 	return name + ".nomi"

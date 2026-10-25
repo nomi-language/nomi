@@ -89,6 +89,15 @@ func (m *Machine) rowText(fr *frame, v any) (string, error) {
 // Display impl answers (`Bytes` reads `Bytes(2)`, a list renders its
 // elements through Display).
 func (m *Machine) displayErased(fr *frame, v any) (string, error) {
+	if r, boxed := v.(*rt.Record); boxed && r != nil && r.Desc.Kind == rt.KindBoxed {
+		// A box names the static type it was held at: an `embeds` enum's
+		// value renders through the enum's impl, recorded under that name,
+		// and not the impl of the struct it embeds.
+		v = rt.Unbox(v)
+		if sym := m.displays[r.Desc.Name]; sym != nil {
+			return m.displayCall(fr, sym, v)
+		}
+	}
 	switch x := v.(type) {
 	case int64, float64, bool, string, rt.Decimal, rt.Byte:
 		return rt.DisplayText(x), nil
@@ -99,19 +108,7 @@ func (m *Machine) displayErased(fr *frame, v any) (string, error) {
 			if sym == nil {
 				break
 			}
-			fn, err := m.resolveFunc(sym, fr.fn.Name())
-			if err != nil {
-				return "", err
-			}
-			out, err := m.callFrom(fr, fn, []any{v})
-			if err != nil {
-				return "", err
-			}
-			text, ok := out.(string)
-			if !ok {
-				return "", fmt.Errorf("vm: %s: Display impl %s returned %T, not a String", fr.fn.Name(), sym.Name(), out)
-			}
-			return text, nil
+			return m.displayCall(fr, sym, v)
 		case rt.KindTuple:
 			return m.displayStructural(fr, v)
 		}
@@ -123,6 +120,23 @@ func (m *Machine) displayErased(fr *frame, v any) (string, error) {
 		return m.displayStructural(fr, v)
 	}
 	return "", fmt.Errorf("vm: %s: Display over an existential holding %T is not implemented", fr.fn.Name(), v)
+}
+
+// displayCall renders v through the recorded Display body sym.
+func (m *Machine) displayCall(fr *frame, sym *ir.Symbol, v any) (string, error) {
+	fn, err := m.resolveFunc(sym, fr.fn.Name())
+	if err != nil {
+		return "", err
+	}
+	out, err := m.callFrom(fr, fn, []any{v})
+	if err != nil {
+		return "", err
+	}
+	text, ok := out.(string)
+	if !ok {
+		return "", fmt.Errorf("vm: %s: Display impl %s returned %T, not a String", fr.fn.Name(), sym.Name(), out)
+	}
+	return text, nil
 }
 
 // displayStructural is Display over a value whose type the builder rendered
@@ -176,8 +190,36 @@ func (m *Machine) dispatchTarget(fr *frame, n *ir.Call, args []any) (*ir.Func, e
 		impl = m.dispatch[n.Callee()][typ]
 	}
 	if impl == nil {
+		if r, isRecord := recv.(*rt.Record); isRecord && r != nil && r.Desc.Kind == rt.KindBoxed {
+			typ = r.Desc.Name
+		}
 		return nil, fmt.Errorf("vm: %s: %s dispatches on %s, and this program's modules did not "+
 			"retain an implementation for it", fr.fn.Name(), n.Callee().Name(), typ)
 	}
-	return m.resolveFunc(impl, fr.fn.Name())
+	fn, err := m.resolveFunc(impl, fr.fn.Name())
+	if err != nil {
+		return nil, err
+	}
+	if rt.Boxed(recv) {
+		unboxSelves(fn, args)
+	}
+	return fn, nil
+}
+
+// unboxSelves opens the boxed existentials a dispatch selected fn for
+// (rt.Box): each operand fn takes at a concrete type, the receiver among
+// them, receives the value inside its box. An operand fn takes as an
+// existential or an erased type parameter keeps its box, which a dispatch
+// inside fn selects by.
+func unboxSelves(fn *ir.Func, args []any) {
+	params := fn.Params()
+	for i, a := range args {
+		if i >= len(params) || !rt.Boxed(a) {
+			continue
+		}
+		if t := fn.TempType(params[i].Temp); t != nil && (t.Kind() == ir.KindIface || t.Kind() == ir.KindAny) {
+			continue
+		}
+		args[i] = rt.Unbox(a)
+	}
 }

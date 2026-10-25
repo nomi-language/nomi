@@ -54,7 +54,7 @@ impl Context {
     /// Return a child context with `value` stored under its Nomi type.
     ///
     /// Context values are intended for request- or execution-scoped metadata
-    /// such as trace IDs, auth subjects, or locale. Prefer explicit app
+    /// such as trace IDs, auth subjects, or request IDs. Prefer explicit app
     /// fields (`MyApp.store`, `MyApp.logger`) for dependencies,
     /// and prefer domain types (`TraceId`, `Subject`) over raw scalars.
     //! type TraceId String

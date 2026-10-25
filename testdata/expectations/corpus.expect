@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 378
-declared-cases 1175
+records 407
+declared-cases 1378
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -429,6 +429,20 @@ H 23f903203043afbad4094cb4f65ee0f3862f4f4a01e424c8cef64441d0ed804b
 T ok <root>/tests/03-tooling-and-diagnostics/unused_import/unused_import_test.nomi :: unused imports report the unused item
 T test result: ok. 1 passed, 0 failed
 T
+C 04-scalars-and-text/code_points_test.nomi
+E 0
+N 8
+H 40f17d9c485dcd6d0a96733e2849f2f787525f4c9b52f28429a38c24f2e2e1cb
+T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: codepoints convert to and from integers and strings
+T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: codepoint construction rejects surrogate values
+T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: codepoint ranges iterate over scalar values
+T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: codepoint ranges skip surrogate values
+T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: letter? is Unicode general category L
+T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: digit? and to_digit read ASCII digits only
+T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: whitespace? is Unicode White_Space
+T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: upper? and lower? are general categories Lu and Ll
+T test result: ok. 8 passed, 0 failed
+T
 C 04-scalars-and-text/codepoint_literals_test.nomi
 E 0
 N 8
@@ -441,20 +455,6 @@ T ok <root>/tests/04-scalars-and-text/codepoint_literals_test.nomi :: ranges ove
 T ok <root>/tests/04-scalars-and-text/codepoint_literals_test.nomi :: codepoint literals are case patterns
 T ok <root>/tests/04-scalars-and-text/codepoint_literals_test.nomi :: codepoint literals match inside variant and tuple patterns
 T ok <root>/tests/04-scalars-and-text/codepoint_literals_test.nomi :: a scanner splits on a codepoint
-T test result: ok. 8 passed, 0 failed
-T
-C 04-scalars-and-text/codepoints_test.nomi
-E 0
-N 8
-H 7817adeee73f10ad6b03d1da9d130e334e1240403cdeeda03642bc0f3675af1f
-T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoints convert to and from integers and strings
-T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoint construction rejects surrogate values
-T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoint ranges iterate over scalar values
-T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoint ranges skip surrogate values
-T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: letter? is Unicode general category L
-T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: digit? and to_digit read ASCII digits only
-T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: whitespace? is Unicode White_Space
-T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: upper? and lower? are general categories Lu and Ll
 T test result: ok. 8 passed, 0 failed
 T
 C 04-scalars-and-text/decimals/decimals_test.nomi
@@ -1528,6 +1528,34 @@ T ok <root>/tests/11-interfaces-and-impls/block_impl_diagnostics_test.nomi :: an
 T ok <root>/tests/11-interfaces-and-impls/block_impl_diagnostics_test.nomi :: a derive inside a lambda body is rejected
 T test result: ok. 2 passed, 0 failed
 T
+C 11-interfaces-and-impls/boxed_existentials/boxed_existentials_test.nomi
+E 0
+N 5
+H 55a11559b94b1811cf3b8b9c1af025db1582cbb56aa9710c6d87ff272ccc3c91
+T ok <root>/tests/11-interfaces-and-impls/boxed_existentials/boxed_existentials_test.nomi :: each container held as the interface dispatches to its instance's impl
+T ok <root>/tests/11-interfaces-and-impls/boxed_existentials/boxed_existentials_test.nomi :: a parameter, a result, a list element, a field and a payload
+T ok <root>/tests/11-interfaces-and-impls/boxed_existentials/boxed_existentials_test.nomi :: a generic interface's instance held by a container
+T ok <root>/tests/11-interfaces-and-impls/boxed_existentials/boxed_existentials_test.nomi :: an embeds enum's struct variant beside its own variant and the struct
+T ok <root>/tests/11-interfaces-and-impls/boxed_existentials/boxed_existentials_test.nomi :: a boxed value compares and renders as the value
+T test result: ok. 5 passed, 0 failed
+T
+C 11-interfaces-and-impls/boxed_existentials/protocols.nomi
+E 1
+N 0
+H 77b1a162a2eba3e46a0e699dcb6004c986f9b9af5baeacc699c4603969c508ec
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/boxed_existentials/protocols.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/boxed_existentials/std_interface_boxes_test.nomi
+E 0
+N 4
+H 1a046e1dbe154613c510dc924ca55dfd72f16f2059fa71a069419deca33e64dd
+T ok <root>/tests/11-interfaces-and-impls/boxed_existentials/std_interface_boxes_test.nomi :: empty lists of different element types held as Display are unequal
+T ok <root>/tests/11-interfaces-and-impls/boxed_existentials/std_interface_boxes_test.nomi :: a container held as Display renders and compares by its value
+T ok <root>/tests/11-interfaces-and-impls/boxed_existentials/std_interface_boxes_test.nomi :: an embeds enum's value held as Display renders through the enum's impl
+T ok <root>/tests/11-interfaces-and-impls/boxed_existentials/std_interface_boxes_test.nomi :: containers held as Debug are boxed too
+T test result: ok. 4 passed, 0 failed
+T
 C 11-interfaces-and-impls/container_impls/container_impls_test.nomi
 E 0
 N 9
@@ -1590,6 +1618,44 @@ N 0
 H 90e32620e9cab1095fca9af2288b3fdc0aec17f875fd01662cf29153c5f541fc
 T --- stderr ---
 T nomi run: <root>/tests/11-interfaces-and-impls/cross_file_impls/things.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi
+E 0
+N 5
+H 50357f38c78fde38593904c591323fdfca36611097a2e1e200e30032c3193736
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi :: List.contains? and Iter.contains? find a value by its own equality
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi :: a generic function bounded by Equatable takes interface values
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi :: a generic function bounded by Hashable takes interface values
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi :: Iter.chunk_by keys by interface values
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi :: a derived Equatable and Hashable compare an interface-typed field by its value
+T test result: ok. 5 passed, 0 failed
+T
+C 11-interfaces-and-impls/existential_equality/existential_equality_test.nomi
+E 0
+N 12
+H e696b0fc4d6aa21e0ef2dc551385eb888f5f81ccbf1ccb7edfc4f5790685b770
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: two values of one struct type compare by its fields
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: values of two concrete types are unequal
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: a hand-written Equatable decides
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: a boxed container compares by the type it was held at, then its value
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: an embeds enum's value is unequal to its embedded struct's
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: an embeds enum's hand-written Equatable decides for its values
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: inside a tuple, a Maybe and a list
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: a Set keeps one of each equal value
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: a Map keyed by interface values
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: a Map keyed by lists of interface values
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: Debug renders each concrete value through its own impl
+T   [Point(1, 2), 3, [4]]
+T   %[Point(1, 2), #Name{text: "Ada"}]
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: std's generic functions over interface values
+T test result: ok. 12 passed, 0 failed
+T
+C 11-interfaces-and-impls/existential_equality/protocols.nomi
+E 1
+N 0
+H 85fbdaed59e529b2454f14021d3eea2969d8ac4b8975f48eab07bcd4514e43e6
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/existential_equality/protocols.nomi declares no `fn main`, so there is no program to run
 T
 C 11-interfaces-and-impls/impl_blocks_test.nomi
 E 0
@@ -2068,15 +2134,32 @@ T nomi run: <root>/tests/13-iterators-and-pipes/constrained_sort/sort_widget.nom
 T
 C 13-iterators-and-pipes/control_flow_test.nomi
 E 0
-N 6
-H 8c440dbfc5a5ce87b0c0f7ad14b99cb7f0c44b521d7064c893ab3f7a6c4ab156
+N 8
+H 1af2f8a8c56befbe525fbefc0988a2696ae0113405f9e2838608b2b2b81e2a9c
 T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: reduce supports break and continue
 T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: map supports break and continue
 T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: filter supports break values
 T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: find returns Maybe values
 T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: each accepts break continue and return in callbacks
 T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: return inside iter callbacks is lambda scoped
-T test result: ok. 6 passed, 0 failed
+T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: reduce with a pattern seed supports continue
+T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: an iter-sensitive function is passed as the callback itself
+T test result: ok. 8 passed, 0 failed
+T
+C 13-iterators-and-pipes/infinite_test.nomi
+E 0
+N 9
+H becc11e8db90b050fe0a9ce9b9cf735a03b58f7e9895b94ddab1dec30fec9d89
+T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: the sources that never end say so
+T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: finite sources do not
+T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: a user source that does not write infinite? behaves as before
+T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: adapters keep it
+T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: adapters that can stop it make it finite or unknown
+T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: zip is infinite only when both sides are, concat when either is
+T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: take counts what it keeps
+T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: terminals that can stop early finish on an infinite source
+T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: Maybe.collect stops an infinite source at the first miss
+T test result: ok. 9 passed, 0 failed
 T
 C 13-iterators-and-pipes/iter_equality_test.nomi
 E 0
@@ -2368,8 +2451,8 @@ T test result: ok. 3 passed, 0 failed
 T
 C 14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi
 E 0
-N 7
-H b4c5f6950014830c8609d9344c34227056d86273da7b89748cabfdf8543c9b7c
+N 9
+H c2c76631108766f58f0176d8551dabf37e647e0458de261e6d53f53716452abd
 T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: a module-qualified struct literal
 T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: a module-qualified struct-VARIANT literal, three segments
 T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: CONTROL — the call form at the same depth, which always worked
@@ -2377,7 +2460,9 @@ T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qual
 T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: the module-qualified variant is the same value the dot form builds
 T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: a GENERIC enum's struct variant infers its argument across a module
 T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: the inferred argument is the field's type, not the declaration's
-T test result: ok. 7 passed, 0 failed
+T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: a struct pattern field names a variant through its module
+T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: a module-qualified field variant in an if condition and a binding with else
+T test result: ok. 9 passed, 0 failed
 T
 C 14-modules-and-packaging/module_qualified_literals/shapes.nomi
 E 1
@@ -2931,8 +3016,8 @@ T
 C 18-ffi-and-dynamic/dynamic_decoder_test.nomi
 E 0
 N 1
-H 56f0e51e107a31d74a1a6a5f589f2c35e637a617b3a32ae9f1d371140dbe67a5
-T ok <root>/tests/18-ffi-and-dynamic/dynamic_decoder_test.nomi :: DecodeError display renders root field and index paths
+H 178e3b2a5eeae3725d85ee030cbf0365c69349f8b9b87951434827fb6cb88b7b
+T ok <root>/tests/18-ffi-and-dynamic/dynamic_decoder_test.nomi :: dynamic.Error display renders root field and index paths
 T test result: ok. 1 passed, 0 failed
 T
 C 18-ffi-and-dynamic/inline_go_block_app/ffi.nomi
@@ -3066,6 +3151,308 @@ H f6aed4f1296b2ae2d5f4c1ee9b973692d81678385d8fb423610cca4d9632996d
 T ok <root>/tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi :: Go time.Time projects to Nomi Instant
 T ok <root>/tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi :: Nomi Instant passes back to Go time.Time
 T test result: ok. 2 passed, 0 failed
+T
+C 19-locales/app_locale/app_locale_test.nomi
+E 0
+N 3
+H 0bdef60a3aeb9426bc73e5fd3e4b7b6f4131eefa7ef6b28b75a7e73a0537d8d0
+T ok <root>/tests/19-locales/app_locale/app_locale_test.nomi :: Polish from LANG / the boot reads the POSIX value
+T ok <root>/tests/19-locales/app_locale/app_locale_test.nomi :: no LANG / the boot falls back to English
+T ok <root>/tests/19-locales/app_locale/app_locale_test.nomi :: pinned in setup / a with line in setup holds for the test
+T test result: ok. 3 passed, 0 failed
+T
+C 19-locales/app_locale/main.nomi
+E 0
+N 0
+H 96b3d6873d97cd04aa0fd9547919ef490c118dc29fcf72ea94882bde7d787eb7
+T pl-PL: Cześć
+T
+C 19-locales/collation_cjk/order_test.nomi
+E 0
+N 4
+H c846ac855b971ae7c29bafc8ebd6f6f5401fd9113bd131b23e5a8e7087b04fb6
+T ok <root>/tests/19-locales/collation_cjk/order_test.nomi :: Chinese sorts by pinyin, Han before Latin
+T ok <root>/tests/19-locales/collation_cjk/order_test.nomi :: Traditional Chinese sorts by stroke count
+T ok <root>/tests/19-locales/collation_cjk/order_test.nomi :: Japanese tells hiragana from katakana only at the quaternary level
+T ok <root>/tests/19-locales/collation_cjk/order_test.nomi :: Korean sorts a Hanja with its reading
+T test result: ok. 4 passed, 0 failed
+T
+C 19-locales/collation_test.nomi
+E 0
+N 7
+H 775f484c08b013615eca945cb97d143bd528cadc7e7a16da6e231ef213ec27d8
+T ok <root>/tests/19-locales/collation_test.nomi :: each language puts its letters in its own order
+T ok <root>/tests/19-locales/collation_test.nomi :: letters made of two characters
+T ok <root>/tests/19-locales/collation_test.nomi :: a locale's alternate orders
+T ok <root>/tests/19-locales/collation_test.nomi :: strength
+T ok <root>/tests/19-locales/collation_test.nomi :: digits, case and punctuation
+T ok <root>/tests/19-locales/collation_test.nomi :: sort keys order as the collator does
+T ok <root>/tests/19-locales/collation_test.nomi :: case in a language
+T test result: ok. 7 passed, 0 failed
+T
+C 19-locales/date_format_test.nomi
+E 0
+N 14
+H bd75f23576a70d43a5cb7300edb10bfdd49884b61f3a186a0ae8d89e73e6bc91
+T ok <root>/tests/19-locales/date_format_test.nomi :: a date is written at a style's length as the locale writes it
+T ok <root>/tests/19-locales/date_format_test.nomi :: a time is written on the locale's clock
+T ok <root>/tests/19-locales/date_format_test.nomi :: a date and time join as the locale joins them, with the zone's offset
+T ok <root>/tests/19-locales/date_format_test.nomi :: a skeleton names the fields, and each locale orders and words them
+T ok <root>/tests/19-locales/date_format_test.nomi :: a time skeleton takes the locale's clock, or the one it names
+T ok <root>/tests/19-locales/date_format_test.nomi :: a fixed pattern writes the same text everywhere and reads it back
+T ok <root>/tests/19-locales/date_format_test.nomi :: a pattern made while the program runs is checked then
+T ok <root>/tests/19-locales/date_format_test.nomi :: a date a reader typed is read by the locale's short style, strictly
+T ok <root>/tests/19-locales/date_format_test.nomi :: lenient reading takes any case, width and punctuation
+T ok <root>/tests/19-locales/date_format_test.nomi :: a date's day of the week
+T ok <root>/tests/19-locales/date_format_test.nomi :: relative time counts in a civil unit, in the count's plural form
+T ok <root>/tests/19-locales/date_format_test.nomi :: a duration is the units it has, joined as one measure
+T ok <root>/tests/19-locales/date_format_test.nomi :: a style is a value a program passes along
+T ok <root>/tests/19-locales/date_format_test.nomi :: a duration's words are long, short or narrow
+T test result: ok. 14 passed, 0 failed
+T
+C 19-locales/list_format_test.nomi
+E 0
+N 4
+H c434595e47b487de4be0e027fc6b898649609f35229cd253d397d7354be6eab8
+T ok <root>/tests/19-locales/list_format_test.nomi :: English uses the Oxford comma in a standard list
+T ok <root>/tests/19-locales/list_format_test.nomi :: styles and widths
+T ok <root>/tests/19-locales/list_format_test.nomi :: Polish and Japanese
+T ok <root>/tests/19-locales/list_format_test.nomi :: an Iter is materialized first
+T test result: ok. 4 passed, 0 failed
+T
+C 19-locales/listed_locales/main.nomi
+E 0
+N 0
+H f4645ab49d4fe8879c282ef8cf3397d1baa65ff100f0c026feac1c4b44b73629
+T [de, pl]
+T 1.234.567
+T 1.234.567
+T 1.234.567
+T a, b i c
+T
+C 19-locales/listed_locales/main_test.nomi
+E 0
+N 4
+H ff50627e2841e7bbad164b680e00633bd43f53c063fac083d4f383f1e6c2db4b
+T ok <root>/tests/19-locales/listed_locales/main_test.nomi :: the listed locales, canonical and in order
+T ok <root>/tests/19-locales/listed_locales/main_test.nomi :: a listed locale formats as itself
+T ok <root>/tests/19-locales/listed_locales/main_test.nomi :: an unlisted locale formats as its nearest listed parent
+T ok <root>/tests/19-locales/listed_locales/main_test.nomi :: an unlisted locale with no listed parent formats as the source locale
+T test result: ok. 4 passed, 0 failed
+T
+C 19-locales/locale_test.nomi
+E 0
+N 9
+H 6a622f79793d366fc8b5d458c0ddb01bf386e6672bb14ccb0f97ad153c604dc6
+T ok <root>/tests/19-locales/locale_test.nomi :: parsing canonicalizes case and deprecated subtags
+T ok <root>/tests/19-locales/locale_test.nomi :: unicode extensions are kept
+T ok <root>/tests/19-locales/locale_test.nomi :: invalid tags are typed errors
+T ok <root>/tests/19-locales/locale_test.nomi :: the parts of a locale
+T ok <root>/tests/19-locales/locale_test.nomi :: POSIX values
+T ok <root>/tests/19-locales/locale_test.nomi :: fallback chains follow CLDR's parent locales
+T ok <root>/tests/19-locales/locale_test.nomi :: negotiation picks the best available locale
+T ok <root>/tests/19-locales/locale_test.nomi :: locales are map keys
+T ok <root>/tests/19-locales/locale_test.nomi :: Debug gives the literal
+T test result: ok. 9 passed, 0 failed
+T
+C 19-locales/message_functions_test.nomi
+E 0
+N 4
+H 551b816d6e011d28e3623545d653bdd5b66577ae678d29846b043415c15c36af
+T ok <root>/tests/19-locales/message_functions_test.nomi :: the money and date functions write in the reader's locale
+T ok <root>/tests/19-locales/message_functions_test.nomi :: each function takes the type it writes
+T ok <root>/tests/19-locales/message_functions_test.nomi :: options are checked by name and value
+T ok <root>/tests/19-locales/message_functions_test.nomi :: a date or an amount does not select
+T test result: ok. 4 passed, 0 failed
+T
+C 19-locales/money_test.nomi
+E 0
+N 10
+H 74f1ee424973d12527d4abd18bd4de2ae19765519abf5736c7ca0c7f7fcb6b02
+T ok <root>/tests/19-locales/money_test.nomi :: an amount is written in its currency as the locale writes it
+T ok <root>/tests/19-locales/money_test.nomi :: the currency shows as its symbol, narrow symbol, code or name
+T ok <root>/tests/19-locales/money_test.nomi :: a custom currency has its own code and minor digits
+T ok <root>/tests/19-locales/money_test.nomi :: a currency is checked when it is made
+T ok <root>/tests/19-locales/money_test.nomi :: amounts add exactly in one currency
+T ok <root>/tests/19-locales/money_test.nomi :: adding two currencies traps and names both
+T ok <root>/tests/19-locales/money_test.nomi :: an amount rounds to its currency's minor digits
+T ok <root>/tests/19-locales/money_test.nomi :: an amount a reader typed is read strictly by default
+T ok <root>/tests/19-locales/money_test.nomi :: lenient reading takes the currency on either side, or none
+T ok <root>/tests/19-locales/money_test.nomi :: a wrong currency reads as a person reads it
+T test result: ok. 10 passed, 0 failed
+T
+C 19-locales/number_format_test.nomi
+E 0
+N 11
+H 0d46925c63e9d74c98bab5d5734108a75fdbfe8649d7d7241a6efa9686a52c50
+T ok <root>/tests/19-locales/number_format_test.nomi :: grouping follows the locale
+T ok <root>/tests/19-locales/number_format_test.nomi :: options are named arguments
+T ok <root>/tests/19-locales/number_format_test.nomi :: signs, digits and percent
+T ok <root>/tests/19-locales/number_format_test.nomi :: a Decimal keeps its scale and a Float rounds half to even
+T ok <root>/tests/19-locales/number_format_test.nomi :: Display is the same everywhere; Localize is not
+T ok <root>/tests/19-locales/number_format_test.nomi :: strict parsing reads what the formatter writes
+T ok <root>/tests/19-locales/number_format_test.nomi :: strict parsing rejects with typed errors
+T ok <root>/tests/19-locales/number_format_test.nomi :: lenient parsing accepts more
+T ok <root>/tests/19-locales/number_format_test.nomi :: a format reads back as its value
+T ok <root>/tests/19-locales/number_format_test.nomi :: a decimal's digits are limited and rounded as the options say
+T ok <root>/tests/19-locales/number_format_test.nomi :: a float reads a percentage back as a fraction
+T test result: ok. 11 passed, 0 failed
+T
+C 19-locales/plural_test.nomi
+E 0
+N 12
+H 8ab26ec9b301052439590399103af24f7321c3ad51ff50d244f458af09a6b9f1
+T ok <root>/tests/19-locales/plural_test.nomi :: English has one and other
+T ok <root>/tests/19-locales/plural_test.nomi :: a Decimal's visible fraction digits count
+T ok <root>/tests/19-locales/plural_test.nomi :: Polish integers are one, few or many, and fractions other
+T ok <root>/tests/19-locales/plural_test.nomi :: Russian
+T ok <root>/tests/19-locales/plural_test.nomi :: Arabic uses all six
+T ok <root>/tests/19-locales/plural_test.nomi :: French counts 0 and 1 as one
+T ok <root>/tests/19-locales/plural_test.nomi :: Welsh
+T ok <root>/tests/19-locales/plural_test.nomi :: Japanese has only other
+T ok <root>/tests/19-locales/plural_test.nomi :: regional locales use their language's rules, or their own
+T ok <root>/tests/19-locales/plural_test.nomi :: English ordinals: 1st 2nd 3rd 4th 11th 21st
+T ok <root>/tests/19-locales/plural_test.nomi :: the categories a locale uses
+T ok <root>/tests/19-locales/plural_test.nomi :: categories display as CLDR's keywords
+T test result: ok. 12 passed, 0 failed
+T
+C 19-locales/shop/cart.nomi
+E 1
+N 0
+H 9ff8574ba64698b75c041b457c949ed26fa8077f7e7cd9e4763119b5e63a77bc
+T --- stderr ---
+T nomi run: <root>/tests/19-locales/shop/cart.nomi declares no `fn main`, so there is no program to run
+T
+C 19-locales/shop/cart_test.nomi
+E 0
+N 11
+H 12cb823c1352d29798f847ab4c3781e932cad81a37cf09d0c61ec74187251968
+T ok <root>/tests/19-locales/shop/cart_test.nomi :: a count selects English's and Polish's plural forms
+T ok <root>/tests/19-locales/shop/cart_test.nomi :: a number is written as the locale writes it
+T ok <root>/tests/19-locales/shop/cart_test.nomi :: an enum selects its variant's arm
+T ok <root>/tests/19-locales/shop/cart_test.nomi :: pt-PT falls back to pt
+T ok <root>/tests/19-locales/shop/cart_test.nomi :: a partial locale falls back to the source for what it lacks
+T ok <root>/tests/19-locales/shop/cart_test.nomi :: an unlisted locale shows the source
+T ok <root>/tests/19-locales/shop/cart_test.nomi :: a placeholder is isolated in a right-to-left locale
+T ok <root>/tests/19-locales/shop/cart_test.nomi :: a message's argument is another message, formatted in the same locale
+T ok <root>/tests/19-locales/shop/cart_test.nomi :: a list of names fills a placeholder
+T ok <root>/tests/19-locales/shop/cart_test.nomi :: the pseudo-locales need no catalog
+T ok <root>/tests/19-locales/shop/cart_test.nomi :: a message is a value: equal when its declaration and arguments are
+T test result: ok. 11 passed, 0 failed
+T
+C 19-locales/shop/loaded_catalog_test.nomi
+E 0
+N 7
+H 606d8ea12c84d881ec1f24dca89c508589c4679515d3bfc7636e705fb5f4fcbf
+T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: a loaded translation comes before the compiled one
+T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: the first catalog that translates a message gives its text
+T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: a rejected entry is never used: the message keeps its compiled text
+T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: an entry is rejected for what the compiler rejects it for
+T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: a noun's entry is checked as the compiler checks it
+T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: loaded nouns and messages agree with the program's
+T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: a catalog names what the program has, in a locale it lists
+T test result: ok. 7 passed, 0 failed
+T
+C 19-locales/shop/locale_load_test.nomi
+E 0
+N 2
+H cf2ac6c8ce5b7c64200ef42b77c4ec9d8ea51b6fae4f065d34bc19cf448e34c4
+T ok <root>/tests/19-locales/shop/locale_load_test.nomi :: every listed locale is loaded already
+T ok <root>/tests/19-locales/shop/locale_load_test.nomi :: a failed load names the locale whose file failed
+T test result: ok. 2 passed, 0 failed
+T
+C 19-locales/shop/order.nomi
+E 1
+N 0
+H 483efbf42d7bd69e8a941fd212710f92954fa60d24b128737712a70287144862
+T --- stderr ---
+T nomi run: <root>/tests/19-locales/shop/order.nomi declares no `fn main`, so there is no program to run
+T
+C 19-locales/shop/order_test.nomi
+E 0
+N 9
+H b2a16c67c3845df136578dcfd080c8e687cf728fcb0c0694fb536f3f87bee2e0
+T ok <root>/tests/19-locales/shop/order_test.nomi :: a noun's gender chooses the words that agree with it
+T ok <root>/tests/19-locales/shop/order_test.nomi :: Portuguese nouns are masculine or feminine
+T ok <root>/tests/19-locales/shop/order_test.nomi :: a message asks a noun for a case
+T ok <root>/tests/19-locales/shop/order_test.nomi :: a noun's form follows a count
+T ok <root>/tests/19-locales/shop/order_test.nomi :: a list is joined as the locale joins one, and the verb agrees with its length
+T ok <root>/tests/19-locales/shop/order_test.nomi :: a total is written as the reader's locale writes an amount in its currency
+T ok <root>/tests/19-locales/shop/order_test.nomi :: a shipping date names the weekday, the month and the day
+T ok <root>/tests/19-locales/shop/order_test.nomi :: a noun formats itself as its nominative for one thing
+T ok <root>/tests/19-locales/shop/order_test.nomi :: a noun is a value: equal when it is the same declaration
+T test result: ok. 9 passed, 0 failed
+T
+C 20-data-access/sql_test.nomi
+E 0
+N 20
+H 6bad6271a0a1fc7589d40e41b71b8338a044a7109737f8ea3b83d8e23cc92922
+T ok <root>/tests/20-data-access/sql_test.nomi :: a literal's slots are parameters, and its text is the SQL around them
+T ok <root>/tests/20-data-access/sql_test.nomi :: a literal with no slots is one part
+T ok <root>/tests/20-data-access/sql_test.nomi :: slots side by side and at either end keep the parts one more than the params
+T ok <root>/tests/20-data-access/sql_test.nomi :: a value never becomes SQL text, whatever it holds
+T ok <root>/tests/20-data-access/sql_test.nomi :: a NULL parameter is Maybe's None
+T ok <root>/tests/20-data-access/sql_test.nomi :: a slot takes any ToSql value, each its own Value
+T ok <root>/tests/20-data-access/sql_test.nomi :: a row reads every std type, and Maybe of each
+T ok <root>/tests/20-data-access/sql_test.nomi :: a statement is a value: equal when its parts and parameters are
+T ok <root>/tests/20-data-access/sql_test.nomi :: each std type round-trips through Value
+T ok <root>/tests/20-data-access/sql_test.nomi :: each std type becomes its own Value variant
+T ok <root>/tests/20-data-access/sql_test.nomi :: NULL round-trips as None, and a Maybe holding a value as that value
+T ok <root>/tests/20-data-access/sql_test.nomi :: from_sql names the type it expected when the value is not one
+T ok <root>/tests/20-data-access/sql_test.nomi :: a row reads by column name
+T ok <root>/tests/20-data-access/sql_test.nomi :: a row reads by position, from 0
+T ok <root>/tests/20-data-access/sql_test.nomi :: a missing column and a position past the end are typed errors
+T ok <root>/tests/20-data-access/sql_test.nomi :: a value of the wrong type is a Decode error naming the column and both types
+T ok <root>/tests/20-data-access/sql_test.nomi :: NULL read as a type that cannot hold it is UnexpectedNull
+T ok <root>/tests/20-data-access/sql_test.nomi :: a constraint error keeps the constraint's name
+T ok <root>/tests/20-data-access/sql_test.nomi :: every error displays as a sentence
+T ok <root>/tests/20-data-access/sql_test.nomi :: a dialect displays its engine's name
+T test result: ok. 20 passed, 0 failed
+T
+C 20-data-access/transactions_test.nomi
+E 0
+N 23
+H 533ec70af8a7697ff4cef2e013f1c3cb774f9bfe26646e054e6e479602691488
+T ok <root>/tests/20-data-access/transactions_test.nomi :: the fake records every statement and answers with no rows
+T ok <root>/tests/20-data-access/transactions_test.nomi :: a fake answers each statement with the function it was given
+T ok <root>/tests/20-data-access/transactions_test.nomi :: each_row stops when the callback answers False
+T ok <root>/tests/20-data-access/transactions_test.nomi :: a transaction commits when its body returns Ok
+T ok <root>/tests/20-data-access/transactions_test.nomi :: a transaction rolls back when its body returns Err, and answers that Err
+T ok <root>/tests/20-data-access/transactions_test.nomi :: a transaction rolls back when its body traps
+T ok <root>/tests/20-data-access/transactions_test.nomi :: a transaction inside a transaction is a savepoint
+T ok <root>/tests/20-data-access/transactions_test.nomi :: a savepoint committed inside a transaction rolled back is rolled back with it
+T ok <root>/tests/20-data-access/transactions_test.nomi :: a finished transaction refuses commit and statements, and its rollback is a no-op
+T ok <root>/tests/20-data-access/transactions_test.nomi :: the fake passes the conformance suite
+T ok <root>/tests/20-data-access/transactions_test.nomi :: the suite names its rules
+T ok <root>/tests/20-data-access/transactions_test.nomi :: the suite closes every connection it opens
+T ok <root>/tests/20-data-access/transactions_test.nomi :: the suite names each rule a broken driver breaks
+T ok <root>/tests/20-data-access/transactions_test.nomi :: the suite names the close rules a driver that never closes breaks
+T ok <root>/tests/20-data-access/transactions_test.nomi :: close ends every transaction, refuses everything after, and a second close is a no-op
+T ok <root>/tests/20-data-access/transactions_test.nomi :: closing a transaction closes its connection
+T ok <root>/tests/20-data-access/transactions_test.nomi :: a closed connection's transaction answers Closed
+T ok <root>/tests/20-data-access/transactions_test.nomi :: sql.with_connection closes the connection on Ok and on Err
+T ok <root>/tests/20-data-access/transactions_test.nomi :: sql.with_connection closes the connection when its body traps
+T ok <root>/tests/20-data-access/transactions_test.nomi :: sql.with_connection answers open's Err and runs no body
+T ok <root>/tests/20-data-access/transactions_test.nomi :: a transaction inside sql.with_connection commits before the close
+T ok <root>/tests/20-data-access/transactions_test.nomi :: a connection setup opens and a defer closes / the connection is open while the test runs
+T ok <root>/tests/20-data-access/transactions_test.nomi :: a connection setup opens and a defer closes / each test has its own connection
+T test result: ok. 23 passed, 0 failed
+T
+C 20-data-access/uuid_test.nomi
+E 0
+N 10
+H c353d1eadc4f3aea7bc69a39cf97735cb4c476029bd89fc5fc70d270ec0c9036
+T ok <root>/tests/20-data-access/uuid_test.nomi :: parsing reads either case and displays lowercase
+T ok <root>/tests/20-data-access/uuid_test.nomi :: invalid text is a typed error
+T ok <root>/tests/20-data-access/uuid_test.nomi :: bytes round trip, most significant first
+T ok <root>/tests/20-data-access/uuid_test.nomi :: v4 has version 4 and the RFC 9562 variant
+T ok <root>/tests/20-data-access/uuid_test.nomi :: v4 values differ
+T ok <root>/tests/20-data-access/uuid_test.nomi :: v7 has version 7 and the RFC 9562 variant
+T ok <root>/tests/20-data-access/uuid_test.nomi :: v7 under a virtual clock / the first 48 bits are the Unix time in milliseconds
+T ok <root>/tests/20-data-access/uuid_test.nomi :: v7 under a virtual clock / a later millisecond sorts after an earlier one
+T ok <root>/tests/20-data-access/uuid_test.nomi :: order is the unsigned order of the bits
+T ok <root>/tests/20-data-access/uuid_test.nomi :: equal UUIDs are one key
+T test result: ok. 10 passed, 0 failed
 T
 C exercism/acronym/acronym.nomi
 E 1

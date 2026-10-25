@@ -30,7 +30,7 @@ func TestDetectImplCollisions_TwoModulesSamePair(t *testing.T) {
 	}
 	files := map[*ast.FuncDef]string{fnA: "app/widgets", fnB: "app/legacy"}
 
-	errs := detectImplCollisions(index, files, nil, nil, nil)
+	errs := detectImplCollisions(index, files, nil, nil, nil, nil)
 	if len(errs) != 1 {
 		t.Fatalf("expected 1 collision error, got %d: %v", len(errs), errs)
 	}
@@ -52,7 +52,7 @@ func TestDetectImplCollisions_MultiReceiverNotACollision(t *testing.T) {
 	}
 	files := map[*ast.FuncDef]string{fnDog: "animals", fnCat: "animals"}
 
-	if errs := detectImplCollisions(index, files, nil, nil, nil); len(errs) != 0 {
+	if errs := detectImplCollisions(index, files, nil, nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no collision for multi-receiver impl, got: %v", errs)
 	}
 }
@@ -67,7 +67,7 @@ func TestDetectImplCollisions_MultiMethodOneImplNotACollision(t *testing.T) {
 	}
 	files := map[*ast.FuncDef]string{fnCompare: "m", fnEquals: "m"}
 
-	if errs := detectImplCollisions(index, files, nil, nil, nil); len(errs) != 0 {
+	if errs := detectImplCollisions(index, files, nil, nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no collision for multi-method impl, got: %v", errs)
 	}
 }
@@ -80,7 +80,7 @@ func TestDetectImplCollisions_NoReceiverTypeSkipped(t *testing.T) {
 	index := map[string]map[string][]*ast.FuncDef{"Display": {"to_string": {fn}}}
 	files := map[*ast.FuncDef]string{fn: "m"}
 
-	if errs := detectImplCollisions(index, files, nil, nil, nil); len(errs) != 0 {
+	if errs := detectImplCollisions(index, files, nil, nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no error for receiver-less FuncDef, got: %v", errs)
 	}
 }
@@ -241,16 +241,16 @@ func TestPopulateQualifiedReceivers_IndexesAllImplMethods(t *testing.T) {
 		ImplFiles: map[*ast.FuncDef]string{fn: "std/calendar"},
 	}
 	PopulateQualifiedReceivers(idx, map[string]*FileAnalysis{"std/calendar": home})
-	if got := idx.QualifiedReceiver[fn]; got != "calendar.Date" {
-		t.Fatalf("qualified receiver = %q, want calendar.Date", got)
+	got := idx.QualifiedReceiver[fn]
+	if got != "std/calendar"+receiverOriginSep+"Date" || receiverDisplay(got) != "calendar.Date" {
+		t.Fatalf("qualified receiver = %q (shown %q), want std/calendar's Date, shown calendar.Date", got, receiverDisplay(got))
 	}
 }
 
-// The collision check's grouping key must be the runtime's dispatch key,
-// or a pair of impls can reach one slot with the guard silent. A
-// namespaced receiver keeps its namespace on both sides: the check sees
-// `json.Json.DecodeError` and `dynamic.DecodeError` as two types, and
-// dispatch derives the same two keys from the runtime type names.
+// The collision check's grouping key is the receiver's declaring module and
+// its whole name. A namespaced receiver keeps its namespace: the check sees
+// std/json's `Json.DecodeError` and another module's `DecodeError` as two
+// types.
 func TestPopulateQualifiedReceivers_KeepsNamespaceSegment(t *testing.T) {
 	fn := implFuncDef("to_string", "Display", "Json.DecodeError")
 	home := &FileAnalysis{ModuleScope: NewScope(nil)}
@@ -266,26 +266,27 @@ func TestPopulateQualifiedReceivers_KeepsNamespaceSegment(t *testing.T) {
 		ImplFiles: map[*ast.FuncDef]string{fn: "std/json"},
 	}
 	PopulateQualifiedReceivers(idx, map[string]*FileAnalysis{"std/json": home})
-	if got := idx.QualifiedReceiver[fn]; got != "json.Json.DecodeError" {
-		t.Fatalf("qualified receiver = %q, want json.Json.DecodeError", got)
+	got := idx.QualifiedReceiver[fn]
+	if got != "std/json"+receiverOriginSep+"Json.DecodeError" || receiverDisplay(got) != "json.Json.DecodeError" {
+		t.Fatalf("qualified receiver = %q (shown %q), want std/json's Json.DecodeError, shown json.Json.DecodeError", got, receiverDisplay(got))
 	}
 }
 
 func TestDetectImplCollisions_NamespacedAndBareReceiverAreDistinct(t *testing.T) {
 	// impl Display for Json.DecodeError (std/json) alongside
-	// impl Display for DecodeError (std/dynamic). Two types, two slots.
+	// impl Display for DecodeError (app/errors). Two types, two slots.
 	fnJSON := implFuncDef("to_string", "Display", "Json.DecodeError")
-	fnDynamic := implFuncDef("to_string", "Display", "DecodeError")
+	fnBare := implFuncDef("to_string", "Display", "DecodeError")
 	index := map[string]map[string][]*ast.FuncDef{
-		"Display": {"to_string": {fnJSON, fnDynamic}},
+		"Display": {"to_string": {fnJSON, fnBare}},
 	}
-	files := map[*ast.FuncDef]string{fnJSON: "std/json", fnDynamic: "std/dynamic"}
+	files := map[*ast.FuncDef]string{fnJSON: "std/json", fnBare: "app/errors"}
 	receivers := map[*ast.FuncDef]string{
-		fnJSON:    "json.Json.DecodeError",
-		fnDynamic: "dynamic.DecodeError",
+		fnJSON: "json.Json.DecodeError",
+		fnBare: "errors.DecodeError",
 	}
 
-	if errs := detectImplCollisions(index, files, receivers, nil, nil); len(errs) != 0 {
+	if errs := detectImplCollisions(index, files, receivers, nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no collision between Json.DecodeError and DecodeError, got: %v", errs)
 	}
 }
@@ -302,7 +303,7 @@ func TestDetectImplCollisions_TwoImplsForOneNamespacedReceiver(t *testing.T) {
 		fnB: "json.Json.DecodeError",
 	}
 
-	errs := detectImplCollisions(index, files, receivers, nil, nil)
+	errs := detectImplCollisions(index, files, receivers, nil, nil, nil)
 	if len(errs) != 1 {
 		t.Fatalf("expected 1 collision error, got %d: %v", len(errs), errs)
 	}

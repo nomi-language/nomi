@@ -19,7 +19,9 @@ import (
 // library. Any other package must be provided by the nearest go.mod above
 // nomiPath (found as findGoModRoot finds the wrapper's project root): the
 // project's own module or a package in it, or a module that go.mod requires
-// or replaces.
+// or replaces. And it must build without cgo, as every Go binding is built
+// (cgoProblem): a package that imports "C", or imports one that does, is
+// refused here.
 func GoImportProblem(nomiPath, importPath string) string {
 	if why := GoImportPathProblem(importPath); why != "" {
 		return why
@@ -39,7 +41,7 @@ func GoImportProblem(nomiPath, importPath string) string {
 		return "the go.mod at " + root + " cannot be read or names no module"
 	}
 	if goModProvidesImportPath(root, importPath) {
-		return ""
+		return cgoProblem(root, importPath)
 	}
 	return "outside the project's own Go module " + f.Module.Mod.Path +
 		", the Go standard library, and every module its go.mod requires or replaces"

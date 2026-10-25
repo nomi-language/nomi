@@ -170,6 +170,9 @@ func runWeb(ctx context.Context, r runWebArgs, stdout, stderr io.Writer) error {
 		stderr: stderr,
 	}
 	name := vmhost.DisplayPath(absPath)
+	// The stamps are read before the first build, so an edit made while it
+	// runs, or as soon as the URL is printed, rebuilds.
+	w := dev.watcher()
 	fmt.Fprintf(stdout, "building %s\n", name)
 	dev.rebuild()
 	srv := &http.Server{Handler: dev, ReadHeaderTimeout: 10 * time.Second}
@@ -187,7 +190,7 @@ func runWeb(ctx context.Context, r runWebArgs, stdout, stderr io.Writer) error {
 	watchDone := make(chan struct{})
 	go func() {
 		defer close(watchDone)
-		dev.watch(ctx)
+		w.run(ctx)
 	}()
 	select {
 	case <-ctx.Done():
@@ -231,7 +234,8 @@ type webDev struct {
 var ansiEscape = regexp.MustCompile("\x1b\\[[0-9;]*m")
 
 // rebuild builds the folder into a fresh directory and serves it, or keeps
-// serving the last good one and reports why the build failed.
+// serving the last good one and reports why the build failed. The pages
+// listening hear of it at the next announce.
 func (d *webDev) rebuild() {
 	d.mu.Lock()
 	d.seq++
@@ -263,11 +267,12 @@ func (d *webDev) rebuild() {
 		}
 		d.buildErr = strings.TrimRight(ansiEscape.ReplaceAllString(text, ""), "\n")
 	}
-	d.publish()
+	d.setError()
 }
 
-// staticChanged tells the pages to reload for a change to the static files,
-// and reports a static file with a generated name, which is not served.
+// staticChanged counts a change to the static files, which the next
+// announce tells the pages to reload for, and reports a static file with a
+// generated name, which is not served.
 func (d *webDev) staticChanged() {
 	_, err := readStatic(d.static)
 	d.mu.Lock()
@@ -278,11 +283,12 @@ func (d *webDev) staticChanged() {
 		d.staticErr = "nomi run --web: " + err.Error()
 		fmt.Fprintln(d.stderr, d.staticErr)
 	}
-	d.publish()
+	d.setError()
 }
 
-// publish sends the state to every page listening. d.mu is held.
-func (d *webDev) publish() {
+// setError joins the build's error and the static files' into the state's.
+// d.mu is held.
+func (d *webDev) setError() {
 	errs := []string{}
 	for _, e := range []string{d.buildErr, d.staticErr} {
 		if e != "" {
@@ -290,6 +296,16 @@ func (d *webDev) publish() {
 		}
 	}
 	d.state.Error = strings.Join(errs, "\n\n")
+}
+
+// announce sends the state to every page listening. The watcher calls it
+// once it has read the files' stamps again after a rebuild or a static
+// change, so a page or a script that edits a file as soon as it hears of
+// one has its edit seen, a file the program has just started importing
+// included.
+func (d *webDev) announce() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	for ch := range d.subs {
 		// A listener behind keeps only the newest state.
 		select {
@@ -309,18 +325,19 @@ func (d *webDev) staticFiles() []string {
 	return files
 }
 
-// watch watches the static files and the program's source files (watch.go)
-// until ctx is done: a static change reloads the pages and a source change
+// watcher watches the static files and the program's source files
+// (watch.go): a static change reloads the pages and a source change
 // rebuilds.
-func (d *webDev) watch(ctx context.Context) {
+func (d *webDev) watcher() *watcher {
 	sources := programFiles(d.entry)
-	watchFiles(ctx,
+	return newWatcher(
 		watchSet{
 			files: d.staticFiles,
 			changed: func(names string) {
 				fmt.Fprintf(d.stdout, "%s changed; reloading\n", names)
 				d.staticChanged()
 			},
+			then: d.announce,
 		},
 		watchSet{
 			files: func() []string { return sources },
@@ -330,6 +347,7 @@ func (d *webDev) watch(ctx context.Context) {
 				// The program may load other files now.
 				sources = programFiles(d.entry)
 			},
+			then: d.announce,
 		},
 	)
 }
@@ -371,6 +389,14 @@ func (d *webDev) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	case webHidden(name) || strings.HasPrefix(name, "__nomi/"):
 		http.NotFound(w, r)
+		return
+	case webLocaleFile(name):
+		if dir == "" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		http.ServeFile(w, r, filepath.Join(dir, filepath.FromSlash(name)))
 		return
 	case slices.Contains(webGenerated, name):
 		if dir == "" {

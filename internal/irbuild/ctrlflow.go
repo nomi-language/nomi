@@ -1,37 +1,26 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // `break` and `continue`, and the one construct that gives them a boundary this
 // builder lowers: `Iter.loop`.
 //
-// # Where a `break` binds, which is three rules and not one
+// # Where a `break` binds
 //
 // A callback's outcome is one of five signals and `Iter.loop` reads all five.
-// What is not obvious is where a `break` BINDS. Nomi's `return` is
-// lambda-scoped, and `break` is not:
-//
-//   - Bare `break` and `continue` are NON-LOCAL. A continue is never caught at
-//     a function boundary, and a break carrying Unit is re-raised there, so
-//     both unwind past every enclosing lambda and `fn` to the nearest
-//     iter-callback boundary.
-//   - `break v` with a non-Unit `v` SPLITS. `v` becomes the enclosing
-//     function's own result and a pending break is armed on the caller; the
-//     enclosing callback then runs TO COMPLETION and its own value becomes the
-//     break's payload. So a `break 700` inside a
-//     lambda nested in a loop callback neither unwinds nor delivers 700 — the
-//     loop ends with whatever the OUTER body evaluated to.
-//   - A `break` with no reachable boundary is a STATIC error, from a whole-file
-//     analysis of break/continue propagation
-//     (analysis/iter_sensitive.go:1152).
-//
-// The consequence for this file is that only the FIRST shape — a control
-// statement lexically inside the callback whose boundary we emitted — is
-// lowered. Everything else takes the `break` / `continue` refusal, because
-// reproducing a payload the language silently rewrites is not something to
-// improvise.
+// A `break` or `continue` binds to the iteration whose callback holds it in
+// its own scope, as `return` binds to the nearest function: nothing unwinds
+// through a call. A named function that uses one (an iter-sensitive function)
+// signals only to an iteration it is directly the callback of, passed as the
+// callback itself or forwarded to as a callback's whole body
+// (irsignalcall.go). The checker rejects a `break` or `continue` anywhere
+// else, and a use of an iter-sensitive function anywhere else
+// (analysis/iter_sensitive.go), so this file lowers a control statement
+// lexically inside the callback whose boundary it emitted, and a forwarding
+// callback's call.
 //
 // # The encoding: Go's own break, because `loop` has no closure
 //
@@ -117,23 +106,26 @@ func ctrlSignalIn(n ast.Node) bool {
 	return false
 }
 
-// callbackCarriesSignal reports whether a call's callback ARGUMENT is a lambda
-// literal whose own body can produce a control signal.
+// callbackCarriesSignal reports whether a call's callback ARGUMENT is a
+// function literal (a lambda, or a capture, which lowers as one) whose own
+// body can produce a control signal: a `break` or `continue` of its own.
 //
 // Separate from ctrlSignalIn because the two answer opposite questions about
-// the same node: ctrlSignalIn stops AT a lambda (it is walking one lambda's own
-// scope), and this one starts INSIDE the callback's. Folding them into one
-// function with a flag makes it easy for a call site to pass the lambda itself
-// and silently get false.
-func callbackCarriesSignal(arg ast.Node) bool {
-	lam, isLambda := arg.(*ast.Lambda)
-	if !isLambda {
-		// A callback reached through a binding is refused for the seed's reason
-		// before this matters, and a non-lambda cannot be walked for a boundary
-		// this builder would own.
-		return false
+// the same node: ctrlSignalIn stops AT a lambda (it is walking one lambda's
+// own scope), and this one starts INSIDE the callback's. Folding them into
+// one function with a flag makes it easy for a call site to pass the lambda
+// itself and silently get false.
+func (g *gen) callbackCarriesSignal(arg ast.Node) bool {
+	switch t := arg.(type) {
+	case *ast.Lambda:
+		return ctrlSignalIn(t.Body)
+	case *ast.Capture:
+		return ctrlSignalIn(t.Body)
 	}
-	return ctrlSignalIn(lam.Body)
+	// A callback reached through a binding is refused for the seed's reason
+	// before this matters, and a non-lambda cannot be walked for a boundary
+	// this builder would own.
+	return false
 }
 
 // irSignallingCallback reports whether owner.method is an operation whose
@@ -160,24 +152,20 @@ func irSeededIterMethod(method string) bool {
 	return method == "reduce" || method == "scan" || method == "map_reduce"
 }
 
-// irNamedCtlForm is the signalling form a named function's own body is lowered
-// under when it uses `break` or `continue` at its own boundary (an
-// iter-sensitive function, spec "Named Functions as Callbacks"). The checker
-// admits such a function only as an iteration callback, so every use of its
-// value is one, and its arity says which: two parameters is a reduction's
-// `(acc, item)`, one is an adapter's or `Iter.each`'s element. Any other
-// arity, or no direct signal, is irCtlNone.
-func irNamedCtlForm(fd *ast.FuncDef) irCtlForm {
-	if fd == nil || fd.Body == nil || !ctrlSignalIn(fd.Body) {
+// namedCtlForm is the signalling form a named function's own body is lowered
+// under when it uses `break` or `continue` in its own scope (an
+// iter-sensitive function, analysis.IterSensitive, spec "Named Functions as
+// Callbacks"), or irCtlNone. The checker admits such a function only as an
+// iteration callback itself, so every caller reads its answer as a signal:
+// an iteration driver, or an `Iter.loop` over it as a named step
+// (signallingCall). It is always the adapter form, whatever its arity,
+// since the loop has to tell its `continue` from a value; a reduction reads
+// the adapter's skip and stop as keeping its accumulator.
+func (g *gen) namedCtlForm(fd *ast.FuncDef) irCtlForm {
+	if !analysis.IterSensitive(fd) {
 		return irCtlNone
 	}
-	switch len(fd.Params) {
-	case 2:
-		return irCtlReduce
-	case 1:
-		return irCtlAdapter
-	}
-	return irCtlNone
+	return irCtlAdapter
 }
 
 // --- Iter.reduce with a control signal ---------------------------------------

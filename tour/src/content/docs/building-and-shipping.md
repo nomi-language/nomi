@@ -9,9 +9,9 @@ way to package it, starting with the most common.
 
 ## Executables
 
-```
-nomi build app.nomi                        # writes ./app
-nomi build app.nomi --target linux/amd64   # for another platform
+```console
+$ nomi build app.nomi                        # writes ./app
+$ nomi build app.nomi --target linux/amd64   # for another platform
 ```
 
 `nomi build` writes one executable file. It needs nothing else installed to
@@ -20,8 +20,8 @@ that runs it. `--target` builds for another platform, the way Go does.
 
 You can also build the program without the VM:
 
-```
-nomi build --no-vm app.nomi                # writes app.nomic
+```console
+$ nomi build --no-vm app.nomi                # writes app.nomic
 ```
 
 `app.nomic` is small, about 1 KB for hello world, because it holds only the
@@ -34,8 +34,8 @@ runs it, the same as `nomi run hi.nomi a b`.
 
 ## Web pages
 
-```
-nomi build app.nomi --web                  # writes a folder
+```console
+$ nomi build app.nomi --web                  # writes a folder
 ```
 
 This writes a folder you can put on any static web host. Opening its page
@@ -61,8 +61,8 @@ replaces the generated page. Your page runs the program with `run` from
 A page can also call functions in your program, as often as it likes. Mark
 each function the page may call with `export`:
 
-```nomi
-import std/json.{ToJson, FromJson}
+```nomi-run no-run
+import std/json.{FromJson, ToJson}
 
 struct Game {
     word: String
@@ -120,17 +120,17 @@ rest of this chapter covers those.
 Here, the VM is downloaded once and each script is a small separate file.
 Build the VM and the scripts:
 
-```
-nomi build-vm --reactor          # nomi-vm-reactor.wasm and nomi-wasi.js
-nomi build --no-vm game.nomi     # game.nomic
-nomi build --no-vm greet.nomi    # greet.nomic
+```console
+$ nomi build-vm --reactor          # nomi-vm-reactor.wasm and nomi-wasi.js
+$ nomi build --no-vm game.nomi     # game.nomic
+$ nomi build --no-vm greet.nomi    # greet.nomic
 ```
 
 The example below uses two scripts. It calls functions in `game.nomic`, the
 game from [Calling Nomi from a page](#calling-nomi-from-a-page), and it runs
 `greet.nomic` from start to finish. Here is `greet.nomi`:
 
-```nomi
+```nomi-run no-run
 import std/io
 
 fn main() {
@@ -171,8 +171,8 @@ the VM inside it. Build a program that has exported functions for
 WebAssembly, and `nomi-wasi.js` is written next to it. Calling `load` with
 nothing loads the program inside:
 
-```
-nomi build game.nomi --target wasip1/wasm -o game.wasm
+```console
+$ nomi build game.nomi --target wasip1/wasm -o game.wasm
 ```
 
 ```js
@@ -188,8 +188,8 @@ console.log(await game.call("new_game", "pipeline")); // { word: "pipeline", gue
 Tools like wasmtime run WebAssembly programs on their own, outside a
 browser. To give one of them a program, build it like this:
 
-```
-nomi build --target wasip1/wasm greet.nomi -o greet.wasm
+```console
+$ nomi build --target wasip1/wasm greet.nomi -o greet.wasm
 ```
 
 Then `echo Ada | wasmtime greet.wasm` prints `Hello, Ada!`. The program's

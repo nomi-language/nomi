@@ -237,8 +237,13 @@ func (bl *irScalarBuilder) siblingFuncRef(ref ast.Node, to int, f *fileFunc, hos
 	if !irCallableValueKind(fk) {
 		return no()
 	}
+	ctl := g.namedCtlForm(f.decl)
+	if ctl != irCtlNone && bl.ctlRefs[ref] != ctl {
+		irDeclineNote("an iter-sensitive function passed where its break or continue cannot be caught: " + f.name)
+		return no()
+	}
 	n := ir.NewRefFunc(g.irNodePos(ref), bl.f.NewTemp(), sym)
 	bl.b.Append(n)
-	bl.side(n.Dst(), irScalarSide{k: fk})
+	bl.side(n.Dst(), irScalarSide{k: fk, ctl: ctl})
 	return n.Dst(), fk, true, true
 }

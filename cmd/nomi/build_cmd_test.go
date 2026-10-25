@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/expectation"
+	"github.com/nomi-language/nomi/internal/nodeenv"
 	"github.com/nomi-language/nomi/vmrunner"
 )
 
@@ -33,6 +34,14 @@ func (o observedRun) transcript() string { return expectation.Transcript(o.stdou
 func buildEnv(cacheRoot string) []string {
 	return append(withoutEnv(withoutEnv(os.Environ(), "NOMI_ENV"), "NOMI_COLOR"),
 		"NOMI_FFIRUN_CACHE_ROOT="+cacheRoot, "NOMI_COLOR=never")
+}
+
+// runNode runs node as runProcess does, with only the part of env Node and
+// the test need (nodeenv.Minimal), so a large caller environment cannot
+// exceed the js/wasm loader's limit.
+func runNode(t *testing.T, env []string, dir, stdin, node string, args ...string) observedRun {
+	t.Helper()
+	return runProcess(t, nodeenv.Minimal(env), dir, stdin, node, args...)
 }
 
 // runProcess runs path with args in dir, over stdin, with env, and answers
@@ -68,6 +77,9 @@ func TestBuildCommand_TheBinaryRunsAsNomiRunDoes(t *testing.T) {
 	cacheRoot := t.TempDir()
 	env := append(buildEnv(cacheRoot), "NOMI_BUILD_TEST=configured")
 	programs := map[string]string{
+		// std/uuid is lowered with the program, so its bodies are in the
+		// image.
+		"uuid.nomi": imagePrograms["uuid.nomi"],
 		"startup.nomi": `import {
  std/io
 }

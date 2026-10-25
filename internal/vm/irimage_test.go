@@ -290,7 +290,7 @@ func TestIRImage_DecodedProgramsMatchTheCommittedRecords(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		ids, _, _ := candidateIDs(recorded)
+		ids, _, _, _ := candidateIDs(recorded)
 		got, refused := vmSubsetOf(t, population, ids, vmPathResolver(t, population))
 		if diffs := recorded.CompareSubset(got); len(diffs) != 0 {
 			t.Errorf("%s: decoded programs disagree with the records:\n%s", population, strings.Join(diffs, "\n"))
@@ -359,7 +359,7 @@ func TestIRImage_PrunedProgramsMatchTheCommittedRecords(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		ids, _, _ := candidateIDs(recorded)
+		ids, _, _, _ := candidateIDs(recorded)
 		got, refused := vmSubsetOf(t, population, ids, vmPathResolver(t, population))
 		if diffs := recorded.CompareSubset(got); len(diffs) != 0 {
 			t.Errorf("%s: pruned programs disagree with the records:\n%s", population, strings.Join(diffs, "\n"))

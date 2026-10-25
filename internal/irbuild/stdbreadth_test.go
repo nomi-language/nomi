@@ -7,7 +7,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// TestStdEnum_StructPayloadShapeIsChecked holds the IOError anchor's SHAPE check
+// TestStdEnum_StructPayloadShapeIsChecked holds the io.Error anchor's SHAPE check
 // against the mutations that would make it lower against a declaration nobody
 // wrote.
 //
@@ -25,10 +25,10 @@ import (
 // being checked is `declaredStructShapeOK` and a program cannot vary std's
 // declaration.
 func TestStdEnum_StructPayloadShapeIsChecked(t *testing.T) {
-	spec := stdEnumSpecForTest(t, "IOError")
+	spec := stdEnumSpecForTest(t, "std/io", "Error")
 	v := &spec.variants[0]
 	if v.form != payloadStructScalar || v.nomiField != "path" {
-		t.Fatalf("IOError's first variant is not the struct-shaped `path` row this test varies: %+v", v)
+		t.Fatalf("io.Error's first variant is not the struct-shaped `path` row this test varies: %+v", v)
 	}
 
 	// The POSITIVE CONTROL first: the declaration std actually carries must be
@@ -63,7 +63,7 @@ func TestStdEnum_StructPayloadShapeIsChecked(t *testing.T) {
 // payload would bind nothing and emit a selector for a field the pattern never
 // mentioned — so both directions are pinned here.
 func TestIOErrorSlotsMatchRTFieldNames(t *testing.T) {
-	i := stdEnumSpecIndexForTest(t, "IOError")
+	i := stdEnumSpecIndexForTest(t, "std/io", "Error")
 	d := stdEnumDefs()[i]
 	for _, v := range d.variants {
 		if len(v.payloads) != 1 {
@@ -77,7 +77,7 @@ func TestIOErrorSlotsMatchRTFieldNames(t *testing.T) {
 		}
 	}
 	// And the Nomi names are the ones std declares, absolutely: these are what
-	// `#IOError.NotFound{path}` binds, and a permuted pair is a wrong answer
+	// `#Error.NotFound{path}` binds, and a permuted pair is a wrong answer
 	// rather than a compile error.
 	want := map[string]string{"NotFound": "path", "Other": "reason"}
 	if len(want) != len(d.variants) {
@@ -136,19 +136,19 @@ type astStructFieldSpec struct {
 	hasDefault bool
 }
 
-func stdEnumSpecForTest(t *testing.T, nomi string) *stdEnumSpec {
+func stdEnumSpecForTest(t *testing.T, origin, nomi string) *stdEnumSpec {
 	t.Helper()
-	return &stdEnumSpecs[stdEnumSpecIndexForTest(t, nomi)]
+	return &stdEnumSpecs[stdEnumSpecIndexForTest(t, origin, nomi)]
 }
 
-func stdEnumSpecIndexForTest(t *testing.T, nomi string) int {
+func stdEnumSpecIndexForTest(t *testing.T, origin, nomi string) int {
 	t.Helper()
 	for i := range stdEnumSpecs {
-		if stdEnumSpecs[i].nomi == nomi {
+		if stdEnumSpecs[i].origin == origin && stdEnumSpecs[i].nomi == nomi {
 			return i
 		}
 	}
-	t.Fatalf("no stdEnumSpecs row named %q", nomi)
+	t.Fatalf("no stdEnumSpecs row named %s.%s", origin, nomi)
 	return -1
 }
 

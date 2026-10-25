@@ -52,7 +52,7 @@ func stdTypeModule(sym *analysis.Symbol) (string, bool) {
 		return "", false
 	}
 	mod, isStd := strings.CutPrefix(origin, "std/")
-	return mod, isStd && mod != ""
+	return mod, isStd && mod != "" && !isProgramStd(mod)
 }
 
 // stdNameTaken reports whether this file's name-keyed tables bind name to a

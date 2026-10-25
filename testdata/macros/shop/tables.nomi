@@ -1,0 +1,7 @@
+import csvdata
+
+/// Each product's price, in cents.
+pub csvdata.table! price(sku: String) -> Maybe<Int> `prices.csv`
+
+/// What each product is called.
+pub csvdata.table! product_name(sku: String) -> Maybe<String> `names.csv`

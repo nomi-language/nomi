@@ -1471,6 +1471,10 @@ func (g *gen) implFunc(d *implDef, it *implItem) {
 	prevSelf := g.implBlock
 	g.implBlock = d
 	defer func() { g.implBlock = prevSelf }()
+	// Another file's call that omits a defaulted parameter this file's
+	// defaults alone can name calls an accessor for it (siblingdefault.go),
+	// built outside the body's scope.
+	defer g.irImplSlotDefaults(d, it)
 
 	g.pushScope()
 	defer g.popScope()

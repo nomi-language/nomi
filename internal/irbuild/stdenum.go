@@ -174,8 +174,8 @@ const (
 	// The Nomi field NAME is part of the representation here in a way no other
 	// form's is, and that is what makes this a separate form rather than
 	// payloadScalar with a flag. A positional payload is reached by position, so
-	// `IOError.NotFound(p)` and `Error.InvalidValue(m)` bind identically; a
-	// struct-shaped one is reached by NAME, and `case e { #IOError.NotFound{path}
+	// `io.Error.NotFound(p)` and `Error.InvalidValue(m)` bind identically; a
+	// struct-shaped one is reached by NAME, and `case e { #io.Error.NotFound{path}
 	// -> … }` binds `path` because the declaration spells it `path`. So the spec
 	// has to state the Nomi name, the shape check has to hold std's declaration
 	// to it, and the variantDef has to carry it — three places a positional row
@@ -437,7 +437,7 @@ func (v *stdEnumVariantSpec) declaredShapeOK(te ast.TypeExpr, specs []stdEnumSpe
 // The default is rejected rather than honoured, and that is the same standard
 // stdstruct.go applies to a defaulted stdlib field: a default is Nomi source
 // belonging to the declaring module, and a shared def has no gen to lower it in.
-// A std edit that gave `IOError.NotFound` a `path: String = ""` therefore
+// A std edit that gave `io.Error.NotFound` a `path: String = ""` therefore
 // produces no anchor and the type keeps refusing, which is a refusal rather than
 // a silently-dropped initializer.
 func (v *stdEnumVariantSpec) declaredStructShapeOK(fields []ast.StructField) bool {
@@ -544,10 +544,10 @@ var stdEnumSpecs = []stdEnumSpec{{
 		scalarVariant("Ambiguous", "Msg", kindString),
 	},
 }, {
-	// std/dynamic's path segment. It is here because `DecodeError.path` is
+	// std/dynamic's path segment. It is here because `Error.path` is
 	// `List<PathSegment>`, so without it that struct's field resolves to
 	// nothing and the whole type refuses as `stdlib type |
-	// std/dynamic.DecodeError`.
+	// std/dynamic.Error`.
 	//
 	// The first row whose two payloads are DIFFERENT Go types. calendar.Error's
 	// five variants all carry a String and share one `Msg` field; `Field String`
@@ -628,12 +628,12 @@ var stdEnumSpecs = []stdEnumSpec{{
 		bareVariant("Null"),
 	},
 }, {
-	// std/io's `IOError`, and the FIRST STRUCT-SHAPED PAYLOAD in this family.
+	// std/io's `Error`, and the FIRST STRUCT-SHAPED PAYLOAD in this family.
 	//
 	// After the Json row, for the reason that row states: rows name each other
 	// POSITIONALLY through the index constants below.
 	//
-	// `Result<String, IOError>` and `Result<Unit, IOError>` are the result types
+	// `Result<String, Error>` and `Result<Unit, Error>` are the result types
 	// of `io.read_file` and `io.write_file`, so without it neither signature
 	// projects.
 	//
@@ -641,7 +641,7 @@ var stdEnumSpecs = []stdEnumSpec{{
 	// over one `Msg`: a struct-shaped payload's field name is part of the
 	// declaration being anchored, so `path` and `reason` get one slot each.
 	origin:   "std/io",
-	nomi:     "IOError",
+	nomi:     "Error",
 	goType:   reflect.TypeFor[rt.IOError](),
 	tagField: "Tag",
 	variants: []stdEnumVariantSpec{
@@ -750,6 +750,172 @@ var stdEnumSpecs = []stdEnumSpec{{
 		bareVariant("ZeroWeightTotal"),
 		structScalarVariant("OsEntropy", "reason", "Reason", kindString),
 	},
+}, {
+	// std/locale's `Error`, the error of `Locale.parse`,
+	// `Locale.from_posix` and the ``Locale`…` `` literal. Random's Error
+	// shape: struct-shaped scalar payloads beside a bare variant, one slot
+	// each. See rt/localeerror.go.
+	origin:   "std/locale",
+	nomi:     "Error",
+	goType:   reflect.TypeFor[rt.LocaleError](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{
+		bareVariant("Empty"),
+		structScalarVariant("Underscore", "suggestion", "Suggestion", kindString),
+		structScalarVariant("Malformed", "text", "Text", kindString),
+		structScalarVariant("UnknownSubtag", "subtag", "Subtag", kindString),
+	},
+}, {
+	// std/locale's `LoadError`, the error of `Locale.load`: two
+	// struct-shaped variants of the same two fields, the locale whose file
+	// failed and why. std/locale.nomi builds it from the host function's
+	// text, so the row only lets the signature lower. See
+	// rt/localeerror.go.
+	origin:   "std/locale",
+	nomi:     "LoadError",
+	goType:   reflect.TypeFor[rt.LocaleLoadError](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{
+		structFieldsVariant("Unreachable",
+			opaqueField("locale", "Locale", opaqueLocale, "Locale", ""),
+			scalarField("reason", "Reason", kindString, ""),
+		),
+		structFieldsVariant("Unreadable",
+			opaqueField("locale", "Locale", opaqueLocale, "Locale", ""),
+			scalarField("reason", "Reason", kindString, ""),
+		),
+	},
+}, {
+	// std/plural's `PluralCategory`, six bare variants. The host functions
+	// answer a category's position as an Int and std/plural.nomi builds the
+	// variant, so the row is what lets `PluralCategory.cardinal`'s result and
+	// `Set<PluralCategory>` cross into user code. See rt/pluralcategory.go.
+	origin:   "std/plural",
+	nomi:     "PluralCategory",
+	goType:   reflect.TypeFor[rt.PluralCategory](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{
+		bareVariant("Zero"), bareVariant("One"), bareVariant("Two"),
+		bareVariant("Few"), bareVariant("Many"), bareVariant("Other"),
+	},
+}, {
+	// std/localize's `NumberParseError`, the error of every `parse_in`. The
+	// host functions answer `Result<_, NumberParseError>` themselves
+	// (internal/stdformat), so the row is both what lets the signature lower
+	// and what the adapter builds. `Unexpected` and `Grouping` share the
+	// `At` slot. See rt/numberformat.go.
+	origin:   "std/localize",
+	nomi:     "NumberParseError",
+	goType:   reflect.TypeFor[rt.NumberParseError](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{
+		bareVariant("Empty"),
+		structFieldsVariant("Unexpected",
+			scalarField("at", "At", kindInt, ""),
+			scalarField("text", "Text", kindString, ""),
+		),
+		structScalarVariant("Grouping", "at", "At", kindInt),
+		bareVariant("OutOfRange"),
+		structScalarVariant("TooManyFractionDigits", "max", "Max", kindInt),
+		structFieldsVariant("WrongCurrency",
+			opaqueField("expected", "Expected", opaqueCurrency, "Currency", ""),
+			scalarField("found", "Found", kindString, ""),
+		),
+	},
+}, {
+	// std/currency's `Error`, the error of `Currency.parse`,
+	// `Currency.custom` and the ``Currency`…` `` literal: four
+	// struct-shaped scalar variants, `IsoCode` and `NotIso` sharing the Code
+	// slot. std/currency.nomi builds it from the host function's answer, so
+	// the row only lets the signatures lower. See rt/currency.go.
+	origin:   "std/currency",
+	nomi:     "Error",
+	goType:   reflect.TypeFor[rt.CurrencyError](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{
+		structScalarVariant("Malformed", "text", "Text", kindString),
+		structScalarVariant("IsoCode", "code", "Code", kindString),
+		structScalarVariant("NotIso", "code", "Code", kindString),
+		structScalarVariant("Digits", "digits", "Digits", kindInt),
+	},
+}, {
+	// std/calendar's `DateStyle`, `TimeStyle`, `Weekday` and `TimeUnit`,
+	// bare enums. std/calendar.nomi turns a style into its CLDR name and a
+	// unit into its position before the crossing, and builds a weekday from
+	// arithmetic, so these rows only let the signatures lower. See
+	// rt/calendarformat.go.
+	origin:   "std/calendar",
+	nomi:     "DateStyle",
+	goType:   reflect.TypeFor[rt.DateStyle](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{bareVariant("Full"), bareVariant("Long"), bareVariant("Medium"), bareVariant("Short")},
+}, {
+	origin:   "std/calendar",
+	nomi:     "TimeStyle",
+	goType:   reflect.TypeFor[rt.TimeStyle](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{bareVariant("Full"), bareVariant("Long"), bareVariant("Medium"), bareVariant("Short")},
+}, {
+	origin:   "std/calendar",
+	nomi:     "Weekday",
+	goType:   reflect.TypeFor[rt.Weekday](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{
+		bareVariant("Monday"), bareVariant("Tuesday"), bareVariant("Wednesday"), bareVariant("Thursday"),
+		bareVariant("Friday"), bareVariant("Saturday"), bareVariant("Sunday"),
+	},
+}, {
+	origin:   "std/calendar",
+	nomi:     "TimeUnit",
+	goType:   reflect.TypeFor[rt.TimeUnit](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{
+		bareVariant("Second"), bareVariant("Minute"), bareVariant("Hour"), bareVariant("Day"),
+		bareVariant("Week"), bareVariant("Month"), bareVariant("Quarter"), bareVariant("Year"),
+	},
+}, {
+	// std/strings' `ListStyle` and `ListWidth`, the bare enums
+	// `String.join_list` takes. std/strings.nomi turns each into its position
+	// before the crossing, so these rows only let the signature lower.
+	origin:   "std/strings",
+	nomi:     "ListStyle",
+	goType:   reflect.TypeFor[rt.ListStyle](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{bareVariant("And"), bareVariant("Or"), bareVariant("Unit")},
+}, {
+	origin:   "std/strings",
+	nomi:     "ListWidth",
+	goType:   reflect.TypeFor[rt.ListWidth](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{bareVariant("Wide"), bareVariant("Short"), bareVariant("Narrow")},
+}, {
+	// std/duration's `DurationWidth`, the bare enum `Duration.format`
+	// takes. std/duration.nomi turns it into its position before the
+	// crossing, so this row only lets the signature lower.
+	origin:   "std/duration",
+	nomi:     "DurationWidth",
+	goType:   reflect.TypeFor[rt.DurationWidth](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{bareVariant("Long"), bareVariant("Short"), bareVariant("Narrow")},
+}, {
+	// std/collation's `Strength` and `CaseFirst`, the bare enums
+	// `Collator.new` takes. std/collation.nomi turns each into its position
+	// before the crossing, so these rows only let the signature lower. See
+	// rt/collation.go.
+	origin:   "std/collation",
+	nomi:     "Strength",
+	goType:   reflect.TypeFor[rt.CollationStrength](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{
+		bareVariant("Primary"), bareVariant("Secondary"), bareVariant("Tertiary"), bareVariant("Quaternary"),
+		bareVariant("Identical"),
+	},
+}, {
+	origin:   "std/collation",
+	nomi:     "CaseFirst",
+	goType:   reflect.TypeFor[rt.CaseFirst](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{bareVariant("Default"), bareVariant("Upper"), bareVariant("Lower"), bareVariant("Off")},
 }}
 
 // opaqueDuration indexes the `Duration` row of opaqueSpecs, which two variant
@@ -760,6 +926,14 @@ var stdEnumSpecs = []stdEnumSpec{{
 // opaqueSpecs fails by name rather than silently repointing both payloads at
 // `Instant` — which is the same int64 underneath and would therefore compile.
 const opaqueDuration = 0
+
+// opaqueLocale indexes the `Locale` row of opaqueSpecs, the type of
+// LoadError's `locale` fields, pinned as opaqueDuration is.
+const opaqueLocale = 7
+
+// opaqueCurrency indexes the `Currency` row of opaqueSpecs, the type of
+// NumberParseError's `expected` field, pinned as opaqueLocale is.
+const opaqueCurrency = 18
 
 // opaquePositionalVariant is scalarVariant for a payload whose type is an
 // opaque std newtype rather than one of the five scalars.
@@ -791,7 +965,7 @@ const stdEnumOrdering = 0
 const stdEnumDirection = 1
 
 // stdEnumPathSegment indexes the PathSegment spec, which std/dynamic's
-// `DecodeError.path` names as its element type. An index rather than a name
+// `Error.path` names as its element type. An index rather than a name
 // lookup for stdEnumOrdering's reason, and pinned by
 // TestStdEnumSpecIndicesNameTheirRow so a row inserted above it fails by name
 // rather than silently repointing the field at another enum.
@@ -990,7 +1164,7 @@ func stdEnumAnchors(fa *analysis.FileAnalysis) (map[*ast.EnumDef]int, map[string
 // `Ordering`, and the module-scope lookup answers nil.
 //
 // Four std files derive Comparable, and three of them (std/bool,
-// std/codepoints, std/duration) never mention `Ordering` in their own source.
+// std/code_points, std/duration) never mention `Ordering` in their own source.
 // Without this route each would refuse as `stdlib function outside the scalar
 // subset` for a signature every element of which has a representation, a key
 // naming a missing representation where the cause is a missing IMPORT.

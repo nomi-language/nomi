@@ -298,7 +298,8 @@ func irStructKeys(sv *rt.Record) []string {
 func TestIRStruct_OneStructNamesOneFieldListEverywhere(t *testing.T) {
 	byType := map[string]string{}
 	seen := 0
-	fns := append(irStructCorpusFuncs(t), irStructStdFuncs(t)...)
+	corpus, program := irStructCorpusFuncsByProgram(t)
+	fns := append(corpus, irStructStdFuncs(t)...)
 	for _, fn := range fns {
 		for _, b := range fn.Blocks() {
 			for _, in := range b.Instrs() {
@@ -308,7 +309,14 @@ func TestIRStruct_OneStructNamesOneFieldListEverywhere(t *testing.T) {
 				}
 				seen++
 				list := strings.Join(n.Names(), ",")
+				// A struct's printed name is its file's name and its own,
+				// so two programs may each hold a `money.Money`: the
+				// corpus's cross_file_derives declares one and std/money
+				// another. A corpus construction is keyed by its program.
 				typ := n.Typ().Name()
+				if rel, ok := program[fn]; ok {
+					typ = rel + ": " + typ
+				}
 				if prior, had := byType[typ]; had && prior != list {
 					t.Errorf("%s: %s is constructed naming [%s] here and [%s] elsewhere. "+
 						"A struct's field names are its DECLARATION's, in declaration "+
@@ -466,9 +474,17 @@ func TestIRStruct_WhichShapesAreRetained(t *testing.T) {
 // `MakeStruct`. Filtered so the identity checks walk tens of functions rather
 // than the whole population twice.
 func irStructCorpusFuncs(t *testing.T) []*ir.Func {
+	fns, _ := irStructCorpusFuncsByProgram(t)
+	return fns
+}
+
+// irStructCorpusFuncsByProgram is irStructCorpusFuncs with the corpus file
+// each function's program came from.
+func irStructCorpusFuncsByProgram(t *testing.T) ([]*ir.Func, map[*ir.Func]string) {
 	t.Helper()
 	_, files := corpusAnalysis(t)
 	var out []*ir.Func
+	program := map[*ir.Func]string{}
 	for _, f := range files {
 		if f.Prog == nil || f.Res == nil {
 			continue
@@ -481,11 +497,12 @@ func irStructCorpusFuncs(t *testing.T) []*ir.Func {
 			for _, fn := range m.Funcs() {
 				if irStructMentions(fn) {
 					out = append(out, fn)
+					program[fn] = f.Rel
 				}
 			}
 		}
 	}
-	return out
+	return out, program
 }
 
 // irStructStdFuncs is the same over `std/`.

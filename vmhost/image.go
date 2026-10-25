@@ -9,9 +9,14 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/cldrdata"
+	"github.com/nomi-language/nomi/internal/cldrfull"
 	"github.com/nomi-language/nomi/internal/compilerhosts"
 	"github.com/nomi-language/nomi/internal/format"
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/internal/mf2"
+	"github.com/nomi-language/nomi/internal/stdformat"
+	"github.com/nomi-language/nomi/internal/stdlibbindings"
 	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/internal/webtypes"
 	"github.com/nomi-language/nomi/std"
@@ -62,19 +67,31 @@ func (p *Program) WebDeclarations() string {
 }
 
 func (p *Program) buildImage(withExports bool) (image []byte, usesCompiler bool, err error) {
+	im, usesCompiler, need, err := p.image(withExports)
+	if err != nil {
+		return nil, false, err
+	}
+	im.Locales = cldrfull.Select(need.selection(p.locales, p.source))
+	image, err = ir.EncodeImage(im, ir.WithFileNames(p.imageName))
+	return image, usesCompiler, err
+}
+
+// image is the image BuildImage writes, without its locale data, and the
+// parts of that data the program reaches.
+func (p *Program) image(withExports bool) (im ir.Image, usesCompiler bool, need localeNeed, err error) {
 	if !withExports || !p.HasExports() {
 		if err := p.RequireMain("build"); err != nil {
-			return nil, false, err
+			return ir.Image{}, false, localeNeed{}, err
 		}
 	}
 	if sites := p.leftovers(); len(sites) > 0 {
-		return nil, false, &LeftoversRemain{Sites: sites}
+		return ir.Image{}, false, localeNeed{}, &LeftoversRemain{Sites: sites}
 	}
 	var roots []*ir.Func
 	if p.HasMain() {
 		mainFn := p.entryFunc("main")
 		if mainFn == nil {
-			return nil, false, p.blockedName("main")
+			return ir.Image{}, false, localeNeed{}, p.blockedName("main")
 		}
 		roots = vm.MainRoots(p.entry, mainFn)
 	}
@@ -82,10 +99,10 @@ func (p *Program) buildImage(withExports bool) (image []byte, usesCompiler bool,
 	if withExports {
 		for _, e := range p.res.Exports {
 			if e.Func == nil {
-				return nil, false, p.blockedName(e.Name)
+				return ir.Image{}, false, localeNeed{}, p.blockedName(e.Name)
 			}
 			if !e.Lowered() {
-				return nil, false, &Blocked{Reasons: []string{fmt.Sprintf(
+				return ir.Image{}, false, localeNeed{}, &Blocked{Reasons: []string{fmt.Sprintf(
 					"[%s] the JSON conversion of its arguments or result is not supported yet", e.Name)}}
 			}
 			x := ir.Export{Name: e.Name, Func: e.Func, Encode: e.Encode}
@@ -108,7 +125,7 @@ func (p *Program) buildImage(withExports bool) (image []byte, usesCompiler bool,
 		}
 	}
 	if found := p.machine(io.Discard).Unretained(roots, boots); len(found) > 0 {
-		return nil, false, p.blocked(found)
+		return ir.Image{}, false, localeNeed{}, p.blocked(found)
 	}
 	// The image carries only what the program can run: the functions the
 	// VM's own walk reaches from main, the boot and the exports. A lowering
@@ -135,15 +152,148 @@ func (p *Program) buildImage(withExports bool) (image []byte, usesCompiler bool,
 	if usesCompiler {
 		root = p.prog.Root
 	}
-	image, err = ir.EncodeImage(ir.Image{
+	return ir.Image{
 		Modules:  mods,
 		Entry:    entry,
 		HostKeys: p.res.HostKeys(),
 		HasMain:  p.HasMain(),
 		Root:     root,
 		Exports:  exports,
-	}, ir.WithFileNames(p.imageName))
-	return image, usesCompiler, err
+	}, usesCompiler, localeNeeds(vm.ReachedCrossings(p.entry, p.res.IRModules(), roots, boots), mods), nil
+}
+
+func init() { cldrfull.Resolver = stdformat.ResolveSkeleton }
+
+// localeNeed is what of the CLDR data an image carries: the parts its
+// crossings read, and the skeletons it formats dates with when all of them
+// are known (nil when none are, or some are made while it runs).
+type localeNeed struct {
+	parts     cldrdata.Parts
+	skeletons []string
+	// currencies are the ISO codes of every currency the program can
+	// format, when all are known (nil when some are made while it runs).
+	currencies []string
+}
+
+// selection is the bundle of need for locales, whose source locale is
+// source ("" for a locale file's bundle, which names none).
+func (need localeNeed) selection(locales []string, source string) cldrdata.Selection {
+	return cldrdata.Selection{Locales: locales, Parts: need.parts, Skeletons: need.skeletons, Currencies: need.currencies,
+		Source: source}
+}
+
+// localeNeeds is the CLDR data an image of mods, which reaches crossings,
+// carries (stdlibbindings.LocaleParts). A program that reaches no crossing
+// that reads locale data carries none.
+//
+// Messages read more than their crossing says: a message's text may use
+// `:currency` or the date functions, so the parts those need are added
+// when the program's message tables use them, and `:datetime`'s fields
+// add their skeletons. A program that loads catalogs while it runs may
+// format any of them, and carries all.
+//
+// A program whose skeletons are all literals (vm.SkeletonLiterals) or
+// message fields carries each one's resolved pattern instead of the
+// locales' available formats.
+//
+// Currency names, and the plural rules that pick a name's form, are
+// carried only when the program can write one (vm.CurrencyNames, or a
+// message whose `:currency` says `currencyDisplay=name`); and a program
+// whose currencies are all literals (vm.CurrencyLiterals) carries the
+// symbols and names of those currencies alone.
+func localeNeeds(crossings []string, mods []*ir.Module) localeNeed {
+	table := stdlibbindings.LocaleParts()
+	reached := map[string]bool{}
+	var need localeNeed
+	for _, c := range crossings {
+		parts := table[c]
+		if c == moneyFormat {
+			parts &^= currencyNames
+		}
+		need.parts |= parts
+		reached[c] = true
+	}
+	funcs := vm.ModuleFuncs(mods)
+	names := reached[moneyFormat] && vm.CurrencyNames(mods, funcs)
+	dynamic := false
+	var skeletons []string
+	if reached["message_format.format_raw"] {
+		messages, _ := vm.MessageTables(mods, funcs, stdMessage)
+		parts, fields, named := messageParts(messages)
+		need.parts |= parts
+		names = names || named
+		skeletons = append(skeletons, fields...)
+		if reached["message_format.load_raw"] {
+			need.parts |= cldrdata.PartCurrencies | cldrdata.PartCurrencyCodes | cldrdata.PartDates | cldrdata.PartSkeletons
+			names = true
+			dynamic = true
+		}
+	}
+	if names {
+		need.parts |= currencyNames | cldrdata.PartListedParents
+	}
+	if need.parts&(cldrdata.PartCurrencies|cldrdata.PartCurrencyNames) != 0 {
+		if codes, made := vm.CurrencyLiterals(mods, funcs); !made {
+			need.currencies = append([]string{}, codes...)
+		}
+	}
+	if need.parts&cldrdata.PartSkeletons != 0 || len(skeletons) > 0 {
+		literals, made := vm.SkeletonLiterals(mods, funcs)
+		skeletons = append(skeletons, literals...)
+		dynamic = dynamic || made
+	}
+	if !dynamic {
+		need.parts &^= cldrdata.PartSkeletons
+		need.skeletons = skeletons
+		if need.skeletons == nil {
+			need.skeletons = []string{}
+		}
+	}
+	return need
+}
+
+// moneyFormat is the crossing behind `Money.format`, and currencyNames
+// the parts it reads only to write a currency's name.
+const (
+	moneyFormat   = "money_format.money_format_raw"
+	currencyNames = cldrdata.PartCurrencyNames | cldrdata.PartPlurals
+)
+
+// messageParts are the parts of the CLDR data the functions message
+// tables' texts use need beyond a message's own crossing, the skeletons
+// their `:datetime` field options name, and whether a `:currency` writes a
+// currency's name: `currencyDisplay=name`, or a variable display.
+func messageParts(tables []string) (cldrdata.Parts, []string, bool) {
+	var parts cldrdata.Parts
+	var skeletons []string
+	names := false
+	for _, text := range tables {
+		t, err := mf2.DecodeTable(text)
+		if err != nil {
+			continue
+		}
+		for _, src := range t.Texts {
+			m, errs := mf2.Parse(src)
+			if len(errs) > 0 {
+				continue
+			}
+			for _, f := range mf2.Functions(m) {
+				switch f.Name {
+				case "currency":
+					parts |= cldrdata.PartCurrencies | cldrdata.PartCurrencyCodes
+					if o, ok := f.Option("currencyDisplay"); ok && (o.Value.Variable || o.Value.Value == "name") {
+						names = true
+					}
+				case "date", "time", "datetime":
+					parts |= cldrdata.PartDates
+					if skel := mf2.Skeleton(f); f.Name == "datetime" && skel != "" {
+						skeletons = append(skeletons, skel)
+					}
+				}
+			}
+		}
+	}
+	return parts, skeletons, names
 }
 
 // imageName is how a built image names a source file, as `go build

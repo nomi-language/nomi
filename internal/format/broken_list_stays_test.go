@@ -179,7 +179,7 @@ func TestFormat_WidthBrokenElseBlockStaysBroken(t *testing.T) {
 // And for a block of one statement, whose short form is `{ stmt }`. Found
 // by FuzzFormatKeepsMeaning: the inner block forces the literal broken.
 func TestFormat_BrokenBlockStaysBroken(t *testing.T) {
-	src := "{#{a:\"\"a:{0;\"\"}}}\n"
+	src := "{#{a:\"\",a:{0;\"\"}}}\n"
 	want := "{\n" +
 		"    #{\n" +
 		"        a: \"\",\n" +

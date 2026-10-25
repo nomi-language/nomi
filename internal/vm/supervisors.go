@@ -144,6 +144,7 @@ func supervisorSpawnAllHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	}
 	var handles *rt.List[rt.Task[rt.Unit]]
 	if err := rtFault(func() {
+		rt.SeqMustEnd(m.hostFrame, source, name)
 		handles = rt.SupervisorSpawnAll(m.hostFrame, sup, source, func(fr *rt.Frame, item any) rt.Unit {
 			m.runTask(f, fr, pos, item)
 			return rt.Unit{}

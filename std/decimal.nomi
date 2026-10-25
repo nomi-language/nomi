@@ -1,6 +1,6 @@
 import {
     add.Add
-    bool.Bool
+    bool.Bool.{self, False, True}
     comparable.{Comparable, Ordering}
     debug.Debug
     display.Display
@@ -9,8 +9,11 @@ import {
     float.Float
     hashable.Hashable
     int.Int
+    locale.Locale
+    localize.NumberParseError
     maybe.Maybe.{self, None, Some}
     multiply.Multiply
+    results.Result.{self, Err, Ok}
     steppable.Steppable
     strings.String
     subtract.Subtract
@@ -160,7 +163,151 @@ impl Decimal {
     pub fn max(a: Decimal, b: Decimal) -> Decimal {
         if a >= b { a } else { b }
     }
+
+    /// `d` as a reader of `locale` writes it, with as many digits after the
+    /// decimal point as its scale has, at least `min_fraction` and at most
+    /// `max_fraction` (0 <= min_fraction <= max_fraction <= 100, else a
+    /// trap). By default every digit of the scale is kept and none rounded:
+    /// `1234.50d` keeps its zero. A digit past `max_fraction` is rounded as
+    /// `mode` says, half to even unless it says otherwise, as `Money.round`
+    /// rounds.
+    //! assert Decimal.format(1234.50d, Locale`de`) == "1.234,50"
+    //! assert Decimal.format(1234567.89d, Locale`en`) == "1,234,567.89"
+    //! assert Decimal.format(-0.5d, Locale`sv`) == "−0,5"
+    //! assert Decimal.format(1234.5d, Locale`en`, grouping: False) == "1234.5"
+    //! assert Decimal.format(1d / 8d, Locale`en`, max_fraction: 2) == "0.12"
+    //! assert Decimal.format(0.125d, Locale`en`, max_fraction: 2, mode: RoundingMode.HalfUp) == "0.13"
+    //! assert Decimal.format(12d, Locale`fr`, min_fraction: 2) == "12,00"
+    //
+    pub fn format(
+        d: Decimal,
+        locale: Locale,
+        min_fraction: Int = 0,
+        max_fraction: Int = Int.max(Decimal.scale(d), min_fraction),
+        grouping: Bool = True,
+        mode: RoundingMode = RoundingMode.HalfEven,
+    ) -> String {
+        shown = Decimal.fraction_digits(d, min_fraction, max_fraction, mode)
+        decimal_format(locale, Display.to_string(shown), min_fraction, max_fraction, grouping)
+    }
+
+    /// `d` as a percentage in `locale`: `d` times 100, with the locale's
+    /// percent sign where the locale puts it, and the digits after the
+    /// decimal point the percentage's scale has (two fewer than `d`'s),
+    /// limited by `min_fraction` and `max_fraction` and rounded by `mode` as
+    /// `Decimal.format` does. By default every digit is kept.
+    //! assert Decimal.format_percent(0.125d, Locale`en`) == "12.5%"
+    //! assert Decimal.format_percent(0.5d, Locale`de`) == "50\u{a0}%"
+    //! assert Decimal.format_percent(0.12345d, Locale`en`, max_fraction: 1) == "12.3%"
+    //! assert Decimal.format_percent(0.12355d, Locale`en`, max_fraction: 2) == "12.36%"
+    //! assert Decimal.format_percent(0.5d, Locale`en`, min_fraction: 1) == "50.0%"
+    //
+    pub fn format_percent(
+        d: Decimal,
+        locale: Locale,
+        min_fraction: Int = 0,
+        max_fraction: Int = Int.max(Decimal.scale(d) - 2, min_fraction),
+        mode: RoundingMode = RoundingMode.HalfEven,
+    ) -> String {
+        percent = Decimal.round(
+            d * 100d,
+            Int.max(Decimal.scale(d) - 2, 0),
+            RoundingMode.Unnecessary,
+        )
+
+        shown = Decimal.fraction_digits(percent, min_fraction, max_fraction, mode)
+        decimal_format_percent(locale, Display.to_string(shown), min_fraction, max_fraction)
+    }
+
+    // `d` at its own scale held between min_fraction and max_fraction,
+    // rounded by mode.
+    fn fraction_digits(
+        d: Decimal,
+        min_fraction: Int,
+        max_fraction: Int,
+        mode: RoundingMode,
+    ) -> Decimal {
+        Decimal.round(d, Int.min(Int.max(Decimal.scale(d), min_fraction), max_fraction), mode)
+    }
+
+    /// Read text a reader of `locale` wrote as a `Decimal`, strictly unless
+    /// `lenient: True`, as `Int.parse_in` reads an `Int`. The digits typed
+    /// after the decimal separator are the scale: `12,50` is `12.50d`.
+    //! assert Decimal.parse_in("1.234,5", Locale`de`) == Ok(1234.5d)
+    //! assert Decimal.parse_in("12,50", Locale`pl`) |> Result.map(&Display.to_string(&1)) == Ok("12.50")
+    //!
+    //! assert Decimal.parse_in("1.234,5", Locale`en`) == Err(
+    //!     #NumberParseError.Unexpected{at: 5, text: ","}
+    //! )
+    //
+    pub fn parse_in(
+        text: String,
+        locale: Locale,
+        lenient: Bool = False,
+    ) -> Result<Decimal, NumberParseError> {
+        Decimal.lift(decimal_parse_in(text, locale, lenient))
+    }
+
+    /// Read a percentage a reader of `locale` wrote, as a fraction:
+    /// `12,5 %` is `0.125d`. The percent sign is required, where the locale
+    /// puts it unless `lenient: True`.
+    //! assert Decimal.parse_percent_in("12,5\u{a0}%", Locale`de`) == Ok(0.125d)
+    //! assert Decimal.parse_percent_in("12.5%", Locale`en`) == Ok(0.125d)
+    //!
+    //! assert Decimal.parse_percent_in("12.5", Locale`en`) == Err(
+    //!     #NumberParseError.Unexpected{at: 4, text: ""}
+    //! )
+    //
+    pub fn parse_percent_in(
+        text: String,
+        locale: Locale,
+        lenient: Bool = False,
+    ) -> Result<Decimal, NumberParseError> {
+        Decimal.lift(decimal_parse_percent_in(text, locale, lenient))
+    }
+
+    // The Decimal of the number text the Go half read.
+    fn lift(read: Result<String, NumberParseError>) -> Result<Decimal, NumberParseError> {
+        case read {
+            Err(e) ->
+                Err(e)
+
+            Ok(text) -> {
+                case Decimal.from_string(text) {
+                    Some(d) -> Ok(d)
+                    None -> Err(NumberParseError.OutOfRange)
+                }
+            }
+        }
+    }
 }
+
+host fn decimal_format(
+    locale: Locale,
+    text: String,
+    min_fraction: Int,
+    max_fraction: Int,
+    grouping: Bool,
+) -> String
+
+host fn decimal_format_percent(
+    locale: Locale,
+    text: String,
+    min_fraction: Int,
+    max_fraction: Int,
+) -> String
+
+host fn decimal_parse_in(
+    text: String,
+    locale: Locale,
+    lenient: Bool,
+) -> Result<String, NumberParseError>
+
+host fn decimal_parse_percent_in(
+    text: String,
+    locale: Locale,
+    lenient: Bool,
+) -> Result<String, NumberParseError>
 
 impl Display for Decimal {
     /// Returns the canonical scale-preserving string form of `d`, matching the

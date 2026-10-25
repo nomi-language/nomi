@@ -50,3 +50,27 @@ func findFunc(t *testing.T, nodes []ast.Node, name string) *ast.FuncDef {
 	t.Fatalf("function %q not found", name)
 	return nil
 }
+
+// A reference editor formats its body as the `//!` prompt it came from is
+// formatted: at the prompt's width, not the four columns narrower a test
+// block's body would have.
+func TestFormatAttachedTestBodyMatchesThePrompt(t *testing.T) {
+	shown := `assert Uuid.parse("6ba7b81g-9dad-11d1-80b4-00c04fd430c8") == Err(#Error.Digit{index: 7, found: "g"})`
+	got, err := FormatAttachedTestBody(shown)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != shown {
+		t.Fatalf("a 98-column assertion that fits a prompt was rewritten:\n%s", got)
+	}
+	got, err = FormatAttachedTestBody("x = 1\n\nassert   x == 1\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "x = 1\n\nassert x == 1"; got != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+	}
+	if _, err := FormatAttachedTestBody("x = (\n"); err == nil {
+		t.Fatal("a body that does not parse formatted without an error")
+	}
+}

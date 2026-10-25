@@ -107,6 +107,7 @@ impl Generator<T> {
     ///
     /// ```nomi
     /// die = Generator.int(1, 6)
+    ///
     /// #(n, _) = die |> Generator.step(Seed.from_int(42))
     /// ```
     //! gen = Generator.constant("heads")
@@ -219,9 +220,8 @@ impl Generator<T> {
     ///
     /// ```nomi
     /// gen = Generator.int(1, 6)
-    /// gen |> Generator.flat_map(fn n ->
-    ///     Generator.list(Generator.bool(), n)
-    /// )
+    ///
+    /// gen |> Generator.flat_map(fn n -> Generator.list(Generator.bool(), n))
     /// ```
     //! gen =
     //!     Generator.constant(3)

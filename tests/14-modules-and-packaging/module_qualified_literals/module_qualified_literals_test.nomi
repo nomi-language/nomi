@@ -66,3 +66,42 @@ test "the inferred argument is the field's type, not the declaration's" {
 
     assert got == 10
 }
+
+// A struct pattern's field may hold a variant named through its module, in
+// each spelling: a payload, a list payload and a brace payload.
+struct Slot {
+    shape: shapes.Shape
+    bag: shapes.Bag
+}
+
+fn describe(slot: Slot) -> Int {
+    case slot {
+        #Slot{shape: shapes.Shape.Square(n), bag: _} -> n
+        #{shape: #shapes.Shape.Ring{r}, bag: shapes.Bag.Items[first, .._rest]} -> r + first
+        #{shape: #shapes.Shape.Ring{r}, bag: _} -> r
+    }
+}
+
+test "a struct pattern field names a variant through its module" {
+    assert describe(#Slot{shape: shapes.Shape.Square(4), bag: shapes.Bag.Items([1])}) == 4
+    assert describe(#Slot{shape: #shapes.Shape.Ring{r: 2}, bag: shapes.Bag.Items([5, 6])}) == 7
+    assert describe(#Slot{shape: #shapes.Shape.Ring{r: 3}, bag: shapes.Bag.Items([])}) == 3
+}
+
+test "a module-qualified field variant in an if condition and a binding with else" {
+    slot = #Slot{shape: shapes.Shape.Square(9), bag: shapes.Bag.Items([])}
+
+    got = if #{shape: shapes.Shape.Square(n), bag: _} = slot {
+        n
+    } else {
+        0
+    }
+
+    assert got == 9
+
+    #Slot{shape: shapes.Shape.Square(m), bag: _} = slot else {
+        return
+    }
+
+    assert m == 9
+}

@@ -413,6 +413,11 @@ func TestStdlibIndexKeysCarryTheirReceiver(t *testing.T) {
 	sort.Strings(modules)
 	claimants := map[string]map[string]bool{}
 	for _, module := range modules {
+		if isProgramStd(module) {
+			// Lowered with each program, so the shared index holds none
+			// of it (programstd.go).
+			continue
+		}
 		anchors := stdAnchorsOf(lib.Files[module])
 		for _, c := range collectStdCandidates(module, lib.Nodes[module], anchors) {
 			f := c.f

@@ -6,79 +6,66 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/frontend"
+	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/vmhost"
 )
 
 // `nomi check` reports a body the compiler accepts and cannot lower as an
 // error at its source, worded for the author, instead of leaving it to
-// `nomi run` to refuse as BLOCKED. The fixture must keep type-checking: if
-// the front end started rejecting it, the error below would be a type error
-// and this test would say nothing about lowering.
+// `nomi run` to refuse as BLOCKED, with advice for the declines whose cause
+// the author can act on. Each case blocks on a planted decline carrying the
+// builder reason the advice is keyed by. The fixture must keep
+// type-checking: if the front end started rejecting it, the error below
+// would be a type error and this test would say nothing about lowering.
 func TestCheck_ReportsWhatTheCompilerCannotLower(t *testing.T) {
 	path := writeProgram(t, `import std/io
 
-fn skip_odd(n: Int) -> Int {
-  if n % 2 == 1 {
-    continue
-  }
+fn planted_decline(n: Int) -> Int {
   n
 }
 
-fn is_big(n: Int) -> Bool {
-  if n > 100 {
-    break True
-  }
-  n > 2
+fn evens(xs: List<Int>) -> Int {
+  planted_decline(Iter.count(xs))
 }
 
-fn evens(xs: List<Int>) -> List<Int> {
-  Iter.map(xs, fn x -> skip_odd(x)) |> Iter.to_list()
-}
-
-fn first_big(xs: List<Int>) -> Maybe<Int> {
-  Iter.find(xs, f: is_big)
-}
-
-fn unused(xs: List<Int>) -> Maybe<Int> {
-  Iter.find(xs, is_big)
+fn unused() -> Int {
+  planted_decline(0)
 }
 
 fn main() {
   io.print(evens([1, 2]))
-  io.print(first_big([1, 5]))
 }
 `)
-	err := vmhost.Check(path)
-	var ds frontend.Diagnostics
-	if !errors.As(err, &ds) {
-		t.Fatalf("Check answered %v; want diagnostics", err)
-	}
-	type want struct {
-		line, col int
-		message   string
-		hint      string
-	}
-	wants := []want{
-		{18, 24, "this call to `skip_odd` is not supported yet, so `fn evens` cannot run",
-			"`skip_odd` uses break or continue, so pass it as the callback itself"},
-		{22, 20, "using `is_big` here is not supported yet, so `fn first_big` cannot run",
+	cases := []struct {
+		reason string
+		hint   string
+	}{
+		{"an iter-sensitive function passed where its break or continue cannot be caught: is_big",
 			"runs as a callback only when the iteration function is named with its owner, as in `Iter.find(xs, is_big)`"},
 	}
-	if len(ds) != len(wants) {
-		t.Fatalf("got %d diagnostics, want %d (an unreached body is not reported):\n%v", len(ds), len(wants), err)
-	}
-	for i, w := range wants {
-		d := ds[i]
-		if d.Path != path || d.Line != w.line || d.Col != w.col || d.Message != w.message {
-			t.Errorf("diagnostic %d = %s:%d:%d %q; want line %d col %d %q", i, d.Path, d.Line, d.Col, d.Message, w.line, w.col, w.message)
+	for _, c := range cases {
+		restore := irbuild.PlantDeclineForTest("planted_decline", c.reason)
+		err := vmhost.Check(path)
+		restore()
+		var ds frontend.Diagnostics
+		if !errors.As(err, &ds) {
+			t.Fatalf("Check answered %v; want diagnostics", err)
 		}
-		if len(d.Hints) != 2 || !strings.Contains(d.Hints[0], w.hint) || d.Hints[1] != gapHint {
-			t.Errorf("diagnostic %d hints %q; want one containing %q, then the gap hint", i, d.Hints, w.hint)
+		if len(ds) != 1 {
+			t.Fatalf("got %d diagnostics, want 1 (an unreached body is not reported):\n%v", len(ds), err)
 		}
-	}
-	for _, internal := range []string{"*ast.", "builder", "not retained", "iter-sensitive", "ident bound"} {
-		if strings.Contains(err.Error(), internal) {
-			t.Errorf("the report names compiler internals (%q):\n%v", internal, err)
+		d := ds[0]
+		const message = "this call to `planted_decline` is not supported yet, so `fn evens` cannot run"
+		if d.Path != path || d.Line != 8 || d.Col != 3 || d.Message != message {
+			t.Errorf("diagnostic = %s:%d:%d %q; want line 8 col 3 %q", d.Path, d.Line, d.Col, d.Message, message)
+		}
+		if len(d.Hints) != 2 || !strings.Contains(d.Hints[0], c.hint) || d.Hints[1] != gapHint {
+			t.Errorf("hints %q; want one containing %q, then the gap hint", d.Hints, c.hint)
+		}
+		for _, internal := range []string{"*ast.", "builder", "not retained", "iter-sensitive", "ident bound"} {
+			if strings.Contains(err.Error(), internal) {
+				t.Errorf("the report names compiler internals (%q):\n%v", internal, err)
+			}
 		}
 	}
 }

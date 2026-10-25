@@ -10,14 +10,14 @@ write it for your own types.
 
 ## The shape
 
-A typed literal starts with a type name: `Sql"..."`, `Date"..."`,
+A typed literal starts with a type name: `Html"..."`, `Date"..."`,
 `Box"..."`, or ``Regex`\d+```. The string can use double quotes, triple
 quotes, or backticks. The type in front decides what value you get.
 
 To make a type usable this way, implement the
 [`Literal`](/reference/literals/#interface-literal) interface for it. Its one
 function is [`from_fragments`](/reference/literals/#literalfrom_fragments).
-When Nomi sees `Sql"..."`, it calls `Sql`'s `from_fragments`. This is an
+When Nomi sees `Html"..."`, it calls `Html`'s `from_fragments`. This is an
 ordinary interface call, so the usual rules about who may implement an
 interface for a type apply:
 
@@ -27,51 +27,62 @@ import {
     std/literals.{Fragment, Literal}
 }
 
-type Sql String
+type Html String
 
-impl Literal for Sql {
-    fn from_fragments(fragments: List<Fragment<String>>) -> Sql {
+// The text with HTML's special characters written as entities.
+fn escape(text: String) -> String {
+    text
+    |> String.replace("&", "&amp;")
+    |> String.replace("<", "&lt;")
+    |> String.replace(">", "&gt;")
+    |> String.replace("\"", "&quot;")
+}
+
+impl Literal for Html {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Html {
         body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
-                .Dynamic(v) -> acc + "'" + v + "'"
+                .Dynamic(v) -> acc + escape(v)
             }
         })
 
-        Sql(body)
+        Html(body)
     }
 }
 
 fn main() {
-    user = "alice"
-    Sql(text) = Sql"SELECT * FROM users WHERE name = ${user}"
+    name = "Tom & <Jerry>"
+    Html(text) = Html"<p>Hello, ${name}</p>"
     io.print(text)
 }
 ```
 <!-- expect
-SELECT * FROM users WHERE name = 'alice'
+<p>Hello, Tom &amp; &lt;Jerry&gt;</p>
 -->
 
 Nomi splits the string into a list of
 [fragments](/reference/literals/#enum-fragment). Plain text becomes a
 `Static(text)` fragment. Each `${...}` becomes a `Dynamic(value)` fragment.
-`from_fragments` walks the list and builds the result. This one puts quotes
-around each dynamic value. A real SQL type would escape the values or pass
-them as query parameters.
+`from_fragments` walks the list and builds the result. This one escapes
+each dynamic value, so a name holding `<` can't add markup to the page.
+
+std/sql's [`Sql`](/reference/sql/#type-sql) literal works the same way, but
+keeps each value apart from the SQL as a query parameter, so a value can
+never change what a query does. The [Databases](/databases/#parameters)
+chapter shows it.
 
 ## The prefix is just a type
 
 The prefix can be any type, so you have two choices:
 
-- A new distinct type, like `type Sql String` above. It names the literal
+- A new distinct type, like `type Html String` above. It names the literal
   and holds the value it builds.
 - A type you already have. Then the literal reads like a constructor.
   `Box"x"` builds a `Box`, the same as `#Box{contents: "x"}`:
 
 ```nomi-run
-import {
-    std/literals.{Fragment, Literal}
-}
+import std/literals.{Fragment, Literal}
 
 struct Box {
     contents: String
@@ -96,24 +107,18 @@ fn main() {
 }
 ```
 <!-- expect
-dbg line 23: Box"hello" = #Box{contents: "hello"}
-dbg line 24: #Box{contents: "world"} = #Box{contents: "world"}
+dbg line 21: Box"hello" = #Box{contents: "hello"}
+dbg line 22: #Box{contents: "world"} = #Box{contents: "world"}
 -->
 
 Both lines build a `Box`.
 
-## Regex literals
-
-A regex literal is a typed literal whose prefix is `Regex`. Use backticks
-when the pattern is fixed, so backslashes stay as they are. Use double
-quotes when the pattern needs `${...}`. The two are compiled at different
-times.
-
-### Backtick literals are checked at compile time
+## Backtick literals are checked at compile time
 
 A backtick string never contains `${...}`, so its text is the same every
 time. If the type's `from_fragments` can fail (it returns a `Result`), Nomi
-runs it while it checks your program:
+runs it while it checks your program. `Regex` from `std/regex` is one such
+type:
 
 - If it returns `Ok(v)`, the literal is the value itself. `` Regex`\d+` `` is
   a `Regex`, not a `Result`. It needs no `try`, and you can use it anywhere,
@@ -128,32 +133,24 @@ A double-quoted literal is built when the program runs, so it stays a
 value, and unwrap it with `try` or `case`:
 
 ```nomi-run
-import {
-    std/regex.Regex
-}
+import std/regex.Regex
 
-once letters = Regex`[A-Za-z]+`
+once digits = Regex`\d+`
 
 fn main() -> Result<Unit, String> {
-    digits: Regex = Regex`\d+`
-    prefixed = try Regex"room ${Regex.pattern(digits)}"
+    word = "floor"
+    floor = try Regex"${word} \\d+"
     text = "room 42, floor 7"
 
-    dbg String.find_all(text, letters)
-    dbg String.contains?(text, digits)
-    dbg String.find(text, digits)
     dbg String.find_all(text, digits)
-    dbg String.contains?(text, prefixed)
+    dbg String.find(text, floor)
 
     Ok(Unit)
 }
 ```
 <!-- expect
-dbg line 12: String.find_all(text, letters) = ["room", "floor"]
-dbg line 13: String.contains?(text, digits) = True
-dbg line 14: String.find(text, digits) = Some("42")
-dbg line 15: String.find_all(text, digits) = ["42", "7"]
-dbg line 16: String.contains?(text, prefixed) = True
+dbg line 10: String.find_all(text, digits) = ["42", "7"]
+dbg line 11: String.find(text, floor) = Some("floor 7")
 -->
 
 This works for every type whose `from_fragments` can fail, including the
@@ -168,35 +165,11 @@ the text alone. If it prints, reads a file or the clock, or never finishes,
 a backtick literal of that type is a compile error. Use double quotes for
 that type instead.
 
-If `from_fragments` cannot fail, as with `Sql` and `Box` above, both kinds of
+If `from_fragments` cannot fail, as with `Html` and `Box` above, both kinds of
 quote give the same type.
 
-A `Regex` is a [`Matcher`](/reference/matcher/). That is why the example can
-pass it to `String.contains?`, `String.find`, `String.find_all` and
-`String.split`, which accept a `Regex` wherever they accept a plain string.
-`String.find` returns the first match. `Regex.replace_all` replaces each
-match, and `$1` in the replacement stands for the first capture group.
+[Scalars & Strings](/scalars-and-strings/#regular-expressions) shows what
+you can do with a `Regex`: find, split, replace and read capture groups.
 
-`String.captures` takes only a `Regex`, because only a regex has capture
-groups. It returns the groups of the first match, from group 1, and
-`String.captures_all` returns them for every match. A group that did not
-take part in the match is `None`:
-
-```nomi-run
-import std/regex.Regex
-
-fn main() {
-    dbg String.captures("ann@home", Regex`(\w+)@(\w+)`)
-    dbg String.captures("b", Regex`(a)|(b)`)
-    dbg "a=1, b=22" |> String.captures_all(Regex`(\w)=(\d+)`)
-}
-```
-<!-- expect
-dbg line 4: String.captures("ann@home", Regex`(\w+)@(\w+)`) = Some([Some("ann"), Some("home")])
-dbg line 5: String.captures("b", Regex`(a)|(b)`) = Some([None, Some("b")])
-dbg line 6: "a=1, b=22" |> String.captures_all(Regex`(\w)=(\d+)`) = [[Some("a"), Some("1")], [Some("b"), Some("22")]]
--->
-
-The next chapter, [FFI & Dynamic](/ffi-and-dynamic/), shows how Nomi calls
-Go code, and how to handle a value whose shape you don't know yet with
-[`Dynamic`](/reference/dynamic/).
+The next chapter, [Macros](/macros/), shows library code that runs while
+your program is checked and writes whole declarations for you.

@@ -60,7 +60,7 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 		}
 	case "step_by":
 		return bl.rangeStepBy(t, args)
-	case "known_count", "each_while":
+	case "known_count", "infinite?", "each_while":
 		// `impl Iter for Range<T>`'s members, named by the type: the Iter
 		// protocol over the Range's view.
 		return bl.iterCall(t, args, method)

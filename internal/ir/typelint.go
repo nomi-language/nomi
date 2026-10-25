@@ -61,6 +61,10 @@ func intrinsicType(in Instr) *ValType {
 		return BoolType
 	case *Concat, *Render:
 		return StringType
+	case *CtlRead:
+		if n.Part() == CtlPartCode {
+			return IntType
+		}
 	case *Arith:
 		return arithDomainType(n.Domain())
 	}

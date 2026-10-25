@@ -70,7 +70,7 @@ func (s *regStack) newFrame() *frame {
 	if fr.trace != nil || fr.stages != nil || fr.deferred != nil || fr.releases != nil || fr.next != nil || fr.bad != nil {
 		fr.trace, fr.stages, fr.deferred, fr.releases, fr.next, fr.bad = nil, nil, nil, nil, nil, nil
 	}
-	fr.guarded, fr.stdEntry = false, 0
+	fr.guarded, fr.stdEntry = false, nil
 	s.nf++
 	if s.nf > s.hw {
 		s.hw = s.nf
@@ -256,11 +256,12 @@ type frame struct {
 	// started or a tail call replaced its function: its next statement is
 	// its function's first, where a function breakpoint stops.
 	entered bool
-	// stdEntry is the line of the program's own call whose tail call into
-	// the standard library replaced this activation's function, or 0: a
-	// trap leaving the activation from the stdlib is reported there
-	// (stdlibfault.go), since the caller's line is gone with it.
-	stdEntry int
+	// stdEntry is the site of the program's own call whose tail call into
+	// the standard library replaced this activation's function, or nil: a
+	// trap leaving the activation from the stdlib is reported at its line
+	// (stdlibfault.go), since the caller's line is gone with it, and a
+	// stopped case's stack shows it (caselimit.go).
+	stdEntry *site
 }
 
 // read is temporary t's value, boxed out of its bank.
@@ -646,6 +647,11 @@ func (m *Machine) fault(fr *frame, pc int, err error) (int, error) {
 		// A compiler bug, not a fault: no handler takes it and it is not
 		// marked as one on the way out.
 		return -1, err
+	}
+	if f := m.fuel; f != nil && f.watch && f.stopped.Load() {
+		// A test case's time limit stopped it: the activation leaves, and
+		// no fault edge takes the stop. See caselimit.go.
+		return -1, stopped(fr, pc, err)
 	}
 	if m.dbg != nil {
 		if errors.Is(err, errAbandon) {

@@ -30,14 +30,17 @@ func TestNomiForGoSpellings(t *testing.T) {
 			t.Errorf("NomiForGoIdent(%q) = %q, want no projection", ident, got)
 		}
 	}
-	if got, ok := NomiForGoStdlibType("time", "Duration"); !ok || got != NomiDuration {
-		t.Errorf("NomiForGoStdlibType(time.Duration) = %q, %v", got, ok)
+	if got, ok := NomiForGoNamedType("time", "Duration"); !ok || got != NomiDuration {
+		t.Errorf("NomiForGoNamedType(time.Duration) = %q, %v", got, ok)
 	}
-	if got, ok := NomiForGoStdlibType("time", "Time"); !ok || got != NomiInstant {
-		t.Errorf("NomiForGoStdlibType(time.Time) = %q, %v", got, ok)
+	if got, ok := NomiForGoNamedType("time", "Time"); !ok || got != NomiInstant {
+		t.Errorf("NomiForGoNamedType(time.Time) = %q, %v", got, ok)
+	}
+	if got, ok := NomiForGoNamedType(RtImportPath, "Dynamic"); !ok || got != NomiDynamic {
+		t.Errorf("NomiForGoNamedType(rt.Dynamic) = %q, %v", got, ok)
 	}
 	// A local type that merely spells `Time` is not time.Time.
-	if got, ok := NomiForGoStdlibType("example.com/app", "Time"); ok {
-		t.Errorf("NomiForGoStdlibType(app.Time) = %q, want no projection", got)
+	if got, ok := NomiForGoNamedType("example.com/app", "Time"); ok {
+		t.Errorf("NomiForGoNamedType(app.Time) = %q, want no projection", got)
 	}
 }

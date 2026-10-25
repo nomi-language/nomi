@@ -29,6 +29,9 @@ import (
 // checked, and the module's own bodies are lowered from them rather than taken
 // from the cached lowering.
 func GenerateEditedStdlibTestIR(module string, nodes []ast.Node, fa *analysis.FileAnalysis) (*Program, *Result, error) {
+	if isProgramStd(module) {
+		return generateProgramStdTestIR(module, nodes, fa)
+	}
 	std := stdlibLowering()
 	v := std.views[module]
 	if v == nil {

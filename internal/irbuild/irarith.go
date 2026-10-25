@@ -79,9 +79,10 @@ func (g *gen) irPos(line, col int) ir.Pos {
 }
 
 // ownPos is p, a position in this gen's file, marked as a stdlib position
-// when this gen lowers a stdlib module (ir.Pos.WithStdlib).
+// when this gen lowers a stdlib module, shared or the program's own
+// (ir.Pos.WithStdlib).
 func (g *gen) ownPos(p ir.Pos) ir.Pos {
-	if g.stdModule != "" {
+	if g.stdModule != "" || g.programStd {
 		return p.WithStdlib()
 	}
 	return p

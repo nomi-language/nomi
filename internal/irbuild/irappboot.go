@@ -359,11 +359,15 @@ func (g *gen) irRecordImpls() {
 	g.irRecordDisplayImpls()
 	g.irRecordRowDebugImpls()
 	g.irRecordKeyImpls()
+	g.irRecordBoxedImpls()
 	for _, d := range append(g.implOrder, g.irInstanceImpls()...) {
 		var typ *ir.Symbol
 		if name, scalar := irDispatchScalarName(d.recv); scalar {
 			typ = g.irTypes().Symbol(irScalarTypeToken{name}, name)
-		} else if d.recv.tag == tagNamed && d.recv.def != nil && (!d.recv.def.isEnum || irDispatchEnum(d.recv.def)) {
+		} else if d.recv.tag == tagNamed && d.recv.def != nil && (!d.recv.def.isEnum || irDispatchEnum(d.recv.def) ||
+			(irBoxedEnum(d.recv) && g.boxedEnumDecl(d.recv.def))) {
+			// An enum with an `embeds` variant dispatches only from a box
+			// that names it (irboxed.go).
 			typ = g.irImplTypeSym(d.recv)
 		}
 		if d.iface == nil || typ == nil {

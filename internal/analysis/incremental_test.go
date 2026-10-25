@@ -14,6 +14,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/std"
+	"github.com/nomi-language/nomi/vmhost"
 )
 
 // The equivalence harness an incremental check is held to. A recheck
@@ -33,11 +34,18 @@ type incrementalProject struct {
 	name  string
 	entry string
 	texts map[string]string
+	// dir, when set, is a directory holding the project's files and its
+	// inputs (catalogs), which a check reads; an edit to an input, a key
+	// ending in `.toml`, writes it there.
+	dir string
 }
 
-// root is where the project's files would be. Nothing is read from there:
-// every file's text is in texts.
+// root is where the project's files would be. Nothing is read from there
+// but a project's inputs: every file's text is in texts.
 func (p incrementalProject) root() string {
+	if p.dir != "" {
+		return p.dir
+	}
 	return "/nomi-incremental/" + strings.ReplaceAll(p.name, "/", "_")
 }
 
@@ -47,6 +55,8 @@ func newManager() *analysis.DocumentManager {
 	lib := std.Shared()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
+	// Macros run on the VM, as the language server runs them.
+	dm.Macros = vmhost.Macros()
 	return dm
 }
 
@@ -101,7 +111,14 @@ func runEdits(tb testing.TB, p incrementalProject, steps []editStep, recheck rec
 	lastDump := analysis.DumpProgramForTest(prev)
 	var outcomes []analysis.RecheckOutcome
 	for i, s := range steps {
+		input := ""
+		if isInputKey(s.key) {
+			input = filepath.Join(p.dir, filepath.FromSlash(s.key))
+		}
 		cur, ok := prev.Texts[s.key]
+		if input != "" {
+			cur, ok = prev.Inputs[input].Text, true
+		}
 		if !ok {
 			tb.Fatalf("%s: step %d (%s) edits %s, which the project does not have", p.name, i+1, s.kind, s.key)
 		}
@@ -115,7 +132,16 @@ func runEdits(tb testing.TB, p incrementalProject, steps []editStep, recheck rec
 		for key, t := range prev.Texts {
 			texts[key] = t
 		}
-		texts[s.key] = text
+		if input != "" {
+			// An input is read from where it is, by the recheck as by the
+			// full check.
+			edit = analysis.ProgramEdit{Input: input, Text: text}
+			if err := os.WriteFile(input, []byte(text), 0o644); err != nil {
+				tb.Fatal(err)
+			}
+		} else {
+			texts[s.key] = text
+		}
 		was := analysis.NodesForTest(prev)
 		got, outcome := recheck(prev, edit)
 		outcomes = append(outcomes, outcome)
@@ -134,6 +160,14 @@ func runEdits(tb testing.TB, p incrementalProject, steps []editStep, recheck rec
 		prev, lastDump = got, want
 	}
 	return "", outcomes
+}
+
+// isInputKey reports whether an edit step's key names an input of the
+// project's expansions, a path from its directory with its extension (a
+// catalog, a macro's table, a macro's own source), rather than a
+// project file's module key, which has none.
+func isInputKey(key string) bool {
+	return filepath.Ext(key) != ""
 }
 
 // bodyOnly reports whether a step of kind changes only bodies, so that the
@@ -163,6 +197,11 @@ var dependentsMayBeFull = map[string]bool{
 	"every file of the program depends on the edited files":                true,
 	"a file that does not import the edited files holds something of them": true,
 	"the program exports functions":                                        true,
+	// A macro's expansion may bring impls the text does not show, and
+	// a program that uses one reads its source from the other module.
+	"the file has declarations a macro expanded": true,
+	"the program reads files of other modules":   true,
+	"a macro's source file changed":              true,
 }
 
 // checkPaths fails tb for each step whose recheck went the wrong way. A
@@ -278,6 +317,10 @@ var orderEdits = []editStep{
 	restore("import back", "settings"),
 	replace("body only, a type error", "shapes", "value.radius + Iter.count(Settings.tag)", "value.radius + Settings.tag"),
 	restore("body only, type error fixed", "shapes"),
+	replace("body only, drains an infinite iterator", "shapes", "value.radius + Iter.count(Settings.tag)", "value.radius + Iter.count(Iter.repeat(Settings.tag))"),
+	restore("body only, infinite iterator gone", "shapes"),
+	replace("body only, the entry drains an infinite iterator", "main", `io.print(report.title())`, "io.print(report.title())\n    _ = Iter.from(0) |> Iter.map(&(&1 + 1)) |> Iter.to_list()"),
+	restore("body only, the entry's infinite iterator gone", "main"),
 	replace("unparseable", "report", "pub fn title() -> String {", "pub fn title(: String {"),
 	replace("unparseable, typing on", "report", "pub fn title(: String {", "pub fn title(n: String {"),
 	restore("parses again", "report"),
@@ -562,6 +605,65 @@ pub fn describe() -> String {
 	}}
 }
 
+// rateProject implements std interfaces for std receivers at a type it
+// declares, which the orphan rule admits through that type: an operator
+// for Decimal and Contains for String, used from the entry.
+func rateProject() incrementalProject {
+	return incrementalProject{name: "rate", entry: "main", texts: map[string]string{
+		"main": `import {
+    std/io
+    rate.Rate
+}
+
+fn main() {
+    r = #Rate{per_unit: 4d}
+    io.print(Decimal.to_string(2.5d * r))
+    io.print(Bool.to_string(String.contains?("x4", r)))
+}
+`,
+		"rate": `pub struct Rate {
+    per_unit: Decimal
+}
+
+impl Multiply<Rate, Decimal> for Decimal {
+    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal {
+        lhs * rhs.per_unit
+    }
+}
+
+impl Contains<Rate> for String {
+    fn contains?(c: String, x: Rate) -> Bool {
+        String.contains?(c, Decimal.to_string(x.per_unit))
+    }
+}
+`,
+	}}
+}
+
+// rateEdits change those impls: a body, a header that moves the local type
+// to a result-only position (an orphan impl), an impl removed and one
+// added in the entry, each followed by the way back.
+var rateEdits = []editStep{
+	replace("impl body only", "rate", "lhs * rhs.per_unit", "rhs.per_unit * lhs"),
+	replace("impl header moves the local type to a result", "rate",
+		"impl Multiply<Rate, Decimal> for Decimal {\n    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal {\n        rhs.per_unit * lhs",
+		"impl Multiply<Decimal, Rate> for Decimal {\n    fn multiply(lhs: Decimal, rhs: Decimal) -> Rate {\n        #Rate{per_unit: lhs * rhs}"),
+	restore("impl header back", "rate"),
+	replace("impl removed", "rate",
+		"impl Contains<Rate> for String {\n    fn contains?(c: String, x: Rate) -> Bool {\n        String.contains?(c, Decimal.to_string(x.per_unit))\n    }\n}\n", ""),
+	restore("impl back", "rate"),
+	replace("impl header names no local type", "rate",
+		"impl Contains<Rate> for String {\n    fn contains?(c: String, x: Rate) -> Bool {\n        String.contains?(c, Decimal.to_string(x.per_unit))",
+		"impl Contains<Decimal> for String {\n    fn contains?(c: String, x: Decimal) -> Bool {\n        String.contains?(c, Decimal.to_string(x))"),
+	// The program's orphan-impl error is about rate, and moves with it.
+	replace("body only, the orphan impl below moves", "rate", "        lhs * rhs.per_unit\n", "        per = rhs.per_unit\n        lhs * per\n"),
+	restore("impl header and body back", "rate"),
+	appendText("impl added in the entry", "main",
+		"\nimpl Add<Rate, Decimal> for Decimal {\n    fn add(lhs: Decimal, rhs: Rate) -> Decimal {\n        lhs + rhs.per_unit\n    }\n}\n"),
+	replace("impl body only in the entry", "main", "lhs + rhs.per_unit", "rhs.per_unit + lhs"),
+	restore("impl removed from the entry", "main"),
+}
+
 // dispatchEdits change the entry's interface while shade holds its impl.
 var dispatchEdits = []editStep{
 	appendText("declaration added, a file the entry imports calls its impl", "main", "\npub fn extra() -> Int {\n    1\n}\n"),
@@ -583,11 +685,81 @@ var appTypeEdits = []editStep{
 	restore("boot back", "main"),
 }
 
+// signalProject is a project whose entry uses another file's functions as
+// iteration callbacks: keep as the callback itself, step as a loop's named
+// step with `from:`, and score called inside a callback's own code. Which of `break`
+// and `continue` a function uses is part of its file's interface
+// (iter_signal.go): it decides where the entry may use it, and whether its
+// loop ever ends.
+func signalProject() incrementalProject {
+	return incrementalProject{name: "signal", entry: "main", texts: map[string]string{
+		"main": `import {
+    std/io
+    lib
+    label
+}
+
+fn main() {
+    io.inspect(Iter.map([1, -2, 3], lib.keep) |> Iter.to_list())
+    io.inspect(Iter.map([1, 2], fn x -> lib.score(x) * 2) |> Iter.to_list())
+    Iter.loop(lib.step, from: 0)
+    io.print(label.text())
+}
+`,
+		"lib": `pub fn keep(n: Int) -> Int {
+    if n < 0 { continue }
+    n * 2
+}
+
+pub fn score(n: Int) -> Int {
+    n + 1
+}
+
+pub fn step(n: Int) -> Int {
+    if n < 0 { continue }
+    n + 1
+}
+`,
+		"label": `pub fn text() -> String {
+    "done"
+}
+`,
+	}}
+}
+
+// signalEdits add and remove `continue` and `break` in another file's
+// function bodies, which changes what the entry may do with them, and
+// change a body keeping its keywords.
+var signalEdits = []editStep{
+	replace("a body gains continue, another file calls it [dependents]", "lib", "    n + 1\n}\n\npub fn step", "    if n > 9 { continue }\n    n + 1\n}\n\npub fn step"),
+	restore("continue removed [dependents]", "lib"),
+	replace("a loop step's body gains break, the loop now ends [dependents]", "lib", "    if n < 0 { continue }\n    n + 1", "    if n < 0 { continue }\n    if n > 3 { break n }\n    n + 1"),
+	restore("break removed [dependents]", "lib"),
+	replace("body only, keeping its keywords", "lib", "    n * 2", "    n * 3"),
+}
+
 func TestIncrementalMatchesFull(t *testing.T) {
 	dm := newManager()
 	recheck := dm.RecheckWithOutcome
 	t.Run("layered", func(t *testing.T) {
 		runChecked(t, layeredProject(), layeredEdits, recheck)
+	})
+	t.Run("signal", func(t *testing.T) {
+		runChecked(t, signalProject(), signalEdits, recheck)
+	})
+	t.Run("messages", func(t *testing.T) {
+		p := messagesProject(t)
+		if errs := fullCheck(p, p.texts).Errors; len(errs["main"])+len(errs["cart"]) > 0 {
+			t.Fatalf("the project does not check: %v", errs)
+		}
+		runChecked(t, p, messagesEdits, recheck)
+	})
+	t.Run("macros", func(t *testing.T) {
+		p := macrosProject(t)
+		if errs := fullCheck(p, p.texts).Errors; len(errs["main"])+len(errs["tables"]) > 0 {
+			t.Fatalf("the project does not check: %v", errs)
+		}
+		runChecked(t, p, macrosEdits, recheck)
 	})
 	t.Run("dispatch", func(t *testing.T) {
 		p := dispatchProject()
@@ -603,6 +775,22 @@ func TestIncrementalMatchesFull(t *testing.T) {
 		if errs := fullCheck(p, p.texts).Errors; len(errs["main"])+len(errs["shade"]) > 0 {
 			t.Errorf("the project does not check: %v", errs)
 		}
+	})
+	t.Run("local type argument", func(t *testing.T) {
+		p := rateProject()
+		if errs := fullCheck(p, p.texts).Errors; len(errs["main"])+len(errs["rate"]) > 0 {
+			t.Fatalf("the project does not check: %v", errs)
+		}
+		// The second step's header is an orphan impl.
+		cur := p.texts["rate"]
+		for _, s := range rateEdits[:2] {
+			cur, _ = s.change(cur, p.texts["rate"])
+		}
+		texts := map[string]string{"main": p.texts["main"], "rate": cur}
+		if dump := analysis.DumpProgramForTest(fullCheck(p, texts)); !strings.Contains(dump, "only results name") {
+			t.Fatalf("the result-only header is not reported as an orphan impl:\n%s", dump)
+		}
+		runChecked(t, p, rateEdits, recheck)
 	})
 	t.Run("order", func(t *testing.T) {
 		p := orderIncremental()

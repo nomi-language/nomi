@@ -63,6 +63,11 @@ func (s *Server) contentForURI(uri protocol.DocumentUri) (string, bool) {
 	if doc := s.docs.Snapshot(string(uri)); doc != nil {
 		return doc.Content, true
 	}
+	if s.followsInput(string(uri)) {
+		// An input's text as the analysis read it: the editor's buffer
+		// when it is open.
+		return s.docs.InputText(uriToPath(string(uri)))
+	}
 	if b, err := os.ReadFile(uriToPath(string(uri))); err == nil {
 		return string(b), true
 	}

@@ -327,3 +327,147 @@ func TestDiagnostics_ASyntaxErrorInAnImportedFileNamesIt(t *testing.T) {
 		}
 	}
 }
+
+// The program's own errors (orphan and duplicate impls, duplicate type-owned
+// functions and impl blocks, inherent impls outside their type's file) are
+// found while the entry is checked, and each is printed at the file its
+// position is in, with that file's source line: here child.nomi, imported by
+// main.nomi. They were printed with main.nomi's path at child.nomi's line.
+func TestDiagnostics_ProgramErrorsNameTheirFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=")
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"shop\"\n")
+	mustWrite(t, filepath.Join(dir, "main.nomi"), `import {
+    std/io
+    child.Box
+    other.Thing
+}
+
+fn main() {
+    io.inspect(#Box{n: 1})
+    io.inspect(#Thing{n: 1})
+}
+
+test "boxes" {
+    assert #Box{n: 1} == #Box{n: 1}
+}
+`)
+	mustWrite(t, filepath.Join(dir, "child.nomi"), `import other.Thing
+
+pub struct Box {
+    n: Int
+}
+
+impl Display for Bool {
+    fn to_string(_b: Bool) -> String {
+        "b"
+    }
+}
+
+impl Box {
+    pub fn a(b: Box) -> Int {
+        b.n
+    }
+
+    pub fn a(b: Box) -> Int {
+        b.n
+    }
+}
+
+impl Box {
+    pub fn c(b: Box) -> Int {
+        b.n
+    }
+}
+
+impl Thing {
+    pub fn zz(t: Thing) -> Int {
+        t.n
+    }
+}
+
+pub interface Shout {
+    fn shout(v: self) -> String
+}
+
+impl Shout for Box {
+    fn shout(_v: Box) -> String {
+        "a"
+    }
+}
+`)
+	mustWrite(t, filepath.Join(dir, "other.nomi"), `import child.{Box, Shout}
+
+pub struct Thing {
+    n: Int
+}
+
+impl Shout for Box {
+    fn shout(_v: Box) -> String {
+        "b"
+    }
+}
+`)
+	wantShort := "child.nomi:8:8: duplicate impl: `Display` is implemented for `bool.Bool` by modules child, std/bool (function `to_string`); a type implements an interface once at each set of type arguments\n" +
+		"child.nomi:40:8: duplicate impl: `Shout` is implemented for `child.Box` by modules child, other (function `shout`); a type implements an interface once at each set of type arguments\n" +
+		"child.nomi:14:12: duplicate type-owned function: `Box.a` is defined 2 times — a type may define each function at most once\n" +
+		"child.nomi:13:1: duplicate type-owned impl: `impl Box { ... }` appears 2 times in file \"child\" — merge its functions into one block\n" +
+		"child.nomi:8:8: orphan impl: `Display` (declared in module \"std\") for `Bool` (declared in module \"std\") cannot be implemented in module \"shop\" (function `to_string`): the interface, the implementing type, or a type heading a type argument the interface's functions take must be declared in the implementing module\n" +
+		"child.nomi:29:1: orphan impl: inherent `impl Thing { ... }` in file \"child\" cannot extend `Thing` — inherent impls must be declared in the same file as their receiver type\n"
+	if o := runProcess(t, env, dir, "", nomiBin, "check", "--format", "short", "main.nomi"); o.exit != 1 || o.stderr != wantShort {
+		t.Errorf("nomi check --format short: exit %d\nstderr:\n%s\nwant stderr:\n%s", o.exit, o.stderr, wantShort)
+	}
+	// Each long diagnostic shows child.nomi's own source line.
+	excerpts := []string{
+		" --> child.nomi:8:8\n  |\n8 |     fn to_string(_b: Bool) -> String {\n",
+		"  --> child.nomi:40:8\n   |\n40 |     fn shout(_v: Box) -> String {\n",
+		"  --> child.nomi:14:12\n   |\n14 |     pub fn a(b: Box) -> Int {\n",
+		"  --> child.nomi:13:1\n   |\n13 | impl Box {\n",
+		"  --> child.nomi:29:1\n   |\n29 | impl Thing {\n",
+	}
+	for _, cmd := range []string{"run", "check", "test"} {
+		o := runProcess(t, env, dir, "", nomiBin, cmd, "main.nomi")
+		out := o.stdout + o.stderr
+		if o.exit != 1 || strings.Contains(out, "--> main.nomi:") {
+			t.Errorf("nomi %s: exit %d, an error at main.nomi:\n%s", cmd, o.exit, out)
+		}
+		for _, want := range excerpts {
+			if !strings.Contains(out, want) {
+				t.Errorf("nomi %s lacks\n%s\nin\n%s", cmd, want, out)
+			}
+		}
+	}
+}
+
+// An orphan impl in another module's file, which the entry's module
+// imports, is printed at that file.
+func TestDiagnostics_AnOrphanImplInAnotherModuleNamesItsFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_DIAGNOSTICS=short")
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "app", "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
+	mustWrite(t, filepath.Join(dir, "app", "go.mod"), "module app\n\ngo 1.27.0\n\nrequire fx v0.0.0\n\nreplace fx => ../fx\n")
+	mustWrite(t, filepath.Join(dir, "app", "main.nomi"), "import {\n    std/io\n    fx/rate.Rate\n}\n\nfn main() {\n    io.inspect(#Rate{per_unit: 4})\n}\n")
+	mustWrite(t, filepath.Join(dir, "fx", "nomi.toml"), "[module]\nname = \"fx\"\n")
+	mustWrite(t, filepath.Join(dir, "fx", "go.mod"), "module fx\n\ngo 1.27.0\n")
+	mustWrite(t, filepath.Join(dir, "fx", "rate.nomi"), "pub struct Rate {\n    per_unit: Int\n}\n\nimpl Display for Bool {\n    fn to_string(_b: Bool) -> String {\n        \"b\"\n    }\n}\n")
+
+	want := "fx/rate.nomi:6:8: duplicate impl: `Display` is implemented for `bool.Bool` by modules fx/rate, std/bool (function `to_string`); a type implements an interface once at each set of type arguments\n" +
+		"fx/rate.nomi:6:8: orphan impl: `Display` (declared in module \"std\") for `Bool` (declared in module \"std\") cannot be implemented in module \"fx\" (function `to_string`): the interface, the implementing type, or a type heading a type argument the interface's functions take must be declared in the implementing module\n"
+	// A path outside the working directory is printed whole.
+	real, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, cmd := range []string{"run", "check"} {
+		o := runProcess(t, env, filepath.Join(dir, "app"), "", nomiBin, cmd, "main.nomi")
+		if got := strings.ReplaceAll(o.stderr, real+string(filepath.Separator), ""); o.exit != 1 || got != want {
+			t.Errorf("nomi %s: exit %d\nstdout:\n%s\nstderr:\n%s\nwant stderr (under the temporary directory):\n%s", cmd, o.exit, o.stdout, o.stderr, want)
+		}
+	}
+}

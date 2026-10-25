@@ -2,6 +2,7 @@ import {
     add.Add
     bool.Bool
     duration.Duration
+    equatable.Equatable
     int.Int
     subtract.Subtract
 }
@@ -72,6 +73,8 @@ impl Instant {
         a < b
     }
 }
+
+derive Equatable for Instant
 
 impl Add<Duration, Instant> for Instant {
     /// Add a Duration to an Instant, returning a new Instant.

@@ -370,20 +370,18 @@ fn main() {
 `, nil)
 		expectSelectionClean(t, errs)
 	})
-	t.Run("std interface at a std receiver", func(t *testing.T) {
+	t.Run("std interface at a std receiver and a std type argument", func(t *testing.T) {
 		// The orphan rule is a module's, so the program is a module on disk.
+		// A type argument the module declares would admit the impl
+		// (orphan_type_args_test.go); a std one does not.
 		root := t.TempDir()
 		files := map[string]string{
 			"nomi.toml": "[module]\nname = \"tags\"\nentry_points = [\"main\"]\n",
 			"go.mod":    "module tags\n\ngo 1.27.0\n",
 			"main.nomi": `
-pub struct Tag {
-    name: String
-}
-
-impl Contains<Tag> for String {
-    fn contains?(c: String, x: Tag) -> Bool {
-        c == x.name
+impl Contains<Int> for String {
+    fn contains?(c: String, x: Int) -> Bool {
+        String.contains?(c, Int.to_string(x))
     }
 }
 

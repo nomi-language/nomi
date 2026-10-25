@@ -30,10 +30,14 @@ func dumpType(t Type) string {
 	return typeVarID.ReplaceAllString(t.String(), "?")
 }
 
-// dumpErrors renders errs in order, prefix starting each.
+// dumpErrors renders errs in order, prefix starting each, with the file an
+// error names as the one its position is in (TypeError.File).
 func dumpErrors(b *strings.Builder, prefix string, errs []TypeError, path func(string) string) {
 	for _, e := range errs {
 		fmt.Fprintf(b, "%s%d:%d-%d:%d %s", prefix, e.Line, e.Col, e.EndLine, e.EndCol, e.Message)
+		if e.File != "" {
+			fmt.Fprintf(b, " (in %s)", path(e.File))
+		}
 		if e.Code != "" {
 			fmt.Fprintf(b, " [%s]", e.Code)
 		}
@@ -128,6 +132,15 @@ func DumpFileForTest(fa *FileAnalysis, errs []TypeError, root string) string {
 	}
 	for n, t := range fa.PatternTypes {
 		lines = append(lines, fmt.Sprintf("pattern %s = %s", at(n), typ(t)))
+	}
+	for n, op := range fa.OperatorImpls {
+		l, c := implMethodPos(op.Method)
+		args := make([]string, len(op.Args))
+		for i, a := range op.Args {
+			args[i] = typ(a)
+		}
+		file, _ := fa.Program().ImplMethodFile(op.Method)
+		lines = append(lines, fmt.Sprintf("operator %s %s = %s<%s> for %s at %q %d:%d derived %v", at(n), n.Op, op.Interface, strings.Join(args, ", "), typ(op.Receiver), file, l, c, op.Derived()))
 	}
 	for n, t := range fa.LambdaPatternTypes {
 		lines = append(lines, fmt.Sprintf("lambda pattern %s = %s", at(n), typ(t)))
@@ -265,7 +278,10 @@ func DumpProgramForTest(p *CheckedProgram) string {
 	}
 	b.WriteString("\n== printed\n")
 	for _, d := range printedDiagnostics(p) {
-		dumpErrors(&b, d.file+":", []TypeError{d.err}, path)
+		// The prefix names the file it is printed in.
+		e := d.err
+		e.File = ""
+		dumpErrors(&b, d.file+":", []TypeError{e}, path)
 	}
 	return b.String()
 }

@@ -169,7 +169,7 @@ func TestEmbedDowncast_DeclarationsRefuseTheEnum(t *testing.T) {
 		{"a return", "fn get(s: Shape) -> Circle {\n  if wants(s) {\n    return s\n  }\n  #Circle{radius: 1.0}\n}\n",
 			"return type mismatch: expected Circle, got Shape" + downcastHint},
 		{"a result's payload", "fn get(s: Shape) -> Result<Circle, String> {\n  Ok(s)\n}\n",
-			"return type mismatch: expected Result<Circle, String>, got Result<Shape, ?1>" + downcastHint},
+			"return type mismatch: expected Result<Circle, String>, got Result<Shape, _>" + downcastHint},
 		{"a try's error", "fn inner() -> Result<Int, Shape> {\n  Err(Shape.Point)\n}\n\nfn outer() -> Result<Int, Circle> {\n  n = try inner()\n  Ok(n)\n}\n",
 			"try error type mismatch: expected Circle, got Shape (the enclosing function returns Result<Int, Circle>); convert the error at the `try`, for example with Result.map_err" + downcastHint},
 		{"an impl parameter", "interface Edge {\n  fn edge(a: self, other: Shape) -> Float\n}\n\nimpl Edge for Circle {\n  fn edge(c: Circle, other: Circle) -> Float {\n    c.radius + other.radius\n  }\n}\n",

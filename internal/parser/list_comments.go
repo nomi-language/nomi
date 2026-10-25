@@ -178,22 +178,47 @@ func (lc *listComments) end() []ast.Trivia {
 	return out
 }
 
-// listSeparators steps over the commas and line breaks after an item of a
-// brace-delimited list whose items a line break may also separate (a map
-// literal or pattern, a struct pattern), taking the comments among them.
-func (p *Parser) listSeparators(lc *listComments) {
+// listSeparators steps over the comma and line breaks after an item of a
+// brace-delimited list (a map literal or pattern, a struct pattern),
+// taking the comments among them. A second comma is an error.
+func (p *Parser) listSeparators(lc *listComments) error {
 	for {
 		p.listAfter(lc)
 		if p.atEnd() {
-			return
+			return nil
 		}
 		switch p.peek().Type {
-		case token.COMMA, token.NEWLINE, token.SEMICOLON, token.BLANK_LINE:
+		case token.COMMA:
+			if err := p.doubledComma(); err != nil {
+				return err
+			}
+			p.advance()
+		case token.NEWLINE, token.SEMICOLON, token.BLANK_LINE:
 			p.advance()
 		default:
-			return
+			return nil
 		}
 	}
+}
+
+// doubledComma is the error at a comma the cursor is on when the last token
+// before it, past line breaks and comments, is a comma too: no list leaves
+// an empty slot between two commas. It answers nil anywhere else.
+func (p *Parser) doubledComma() error {
+	if p.atEnd() || p.peek().Type != token.COMMA {
+		return nil
+	}
+	for i := p.pos - 1; i >= 0; i-- {
+		switch p.tokens[i].Type {
+		case token.NEWLINE, token.SEMICOLON, token.BLANK_LINE, token.COMMENT:
+			continue
+		case token.COMMA:
+			at := p.peek()
+			return errorAt(at.Line, at.Col, "unexpected `,`: there is nothing between these commas")
+		}
+		return nil
+	}
+	return nil
 }
 
 // skipListBreaks steps over the line breaks and blank lines between items
@@ -210,28 +235,52 @@ func (p *Parser) skipListBreaks() {
 	}
 }
 
+// commaSince reports whether a comma was consumed between token index from
+// and the cursor: the separator a struct literal or pattern needs between
+// two fields, where a line break alone does not separate them.
+func (p *Parser) commaSince(from int) bool {
+	for i := from; i < p.pos && i < len(p.tokens); i++ {
+		if p.tokens[i].Type == token.COMMA {
+			return true
+		}
+	}
+	return false
+}
+
+// missingFieldComma is the error at a struct literal's or pattern's field
+// that follows the field prev with no comma between them.
+func missingFieldComma(at token.Token, prev string) error {
+	return errorAt(at.Line, at.Col, "expected `,` or `}` after the field `%s`", prev)
+}
+
+// missingEntryComma is the error at a map literal's or pattern's entry
+// that follows another with no comma between them.
+func missingEntryComma(at token.Token) error {
+	return errorAt(at.Line, at.Col, "expected `,` or `}` after the map entry")
+}
+
 // structLitFieldEnd steps over the separators after a struct literal's
-// field, f: line breaks and a comma (in the anonymous form, any run of
-// them). A comment on the line the field or its comma ends on is f's
+// field, f: line breaks and one comma (a second is an error). A comment on the line the field or its comma ends on is f's
 // Trailing; a comment on a line of its own is left for the next field's
-// LeadingComments or the literal's EndTrivia.
-func (p *Parser) structLitFieldEnd(f *ast.StructFieldVal, anonymous bool) {
+// LeadingComments or the literal's EndTrivia. It reports whether it stepped
+// over a comma.
+func (p *Parser) structLitFieldEnd(f *ast.StructFieldVal) (bool, error) {
+	start := p.pos
 	skipBreaks := func() {
 		for !p.atEnd() && (p.peek().Type == token.NEWLINE || p.peek().Type == token.SEMICOLON) {
 			p.advance()
 		}
 	}
 	skipBreaks()
-	if anonymous {
-		for !p.atEnd() && (p.peek().Type == token.COMMA || p.peek().Type == token.NEWLINE || p.peek().Type == token.SEMICOLON) {
-			p.advance()
-		}
-	} else if !p.atEnd() && p.peek().Type == token.COMMA {
+	if !p.atEnd() && p.peek().Type == token.COMMA {
 		p.advance()
 		skipBreaks()
 	}
+	if err := p.doubledComma(); err != nil {
+		return false, err
+	}
 	if p.atEnd() || p.peek().Type != token.COMMENT {
-		return
+		return p.commaSince(start), nil
 	}
 	prevLine := -1
 	for i := p.pos - 1; i >= 0; i-- {
@@ -244,6 +293,7 @@ func (p *Parser) structLitFieldEnd(f *ast.StructFieldVal, anonymous bool) {
 		f.Trailing = append(f.Trailing, tr...)
 		skipBreaks()
 	}
+	return p.commaSince(start), nil
 }
 
 // unlistItem moves n's ItemComments to its dangling comments, for an item

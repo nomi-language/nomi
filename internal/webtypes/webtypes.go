@@ -103,6 +103,8 @@ export interface NomiLoadOptions {
   stdout?: (text: string) => void;
   /** Default console.error per line. */
   stderr?: (text: string) => void;
+  /** The folder Locale.load fetches <tag>.nomil from; default locales/ beside the module. */
+  locales?: string | URL;
 }
 
 export interface NomiRunOptions extends NomiLoadOptions {

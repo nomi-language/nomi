@@ -148,7 +148,7 @@ to the standard library, such as `internal/abi`.
 A project with Go bindings keeps its Nomi files, its Go files, `nomi.toml` and
 a `go.mod` together in one directory:
 
-```
+```tree
 go-bindings/
 ├── nomi.toml
 ├── go.mod
@@ -157,23 +157,46 @@ go-bindings/
 └── urls.go
 ```
 
-The `go.mod` is an ordinary Go module file. It names your module and your own
-Go dependencies. It says nothing about Nomi:
+The `go.mod` is an ordinary Go module file, the one `nomi new` writes. It
+names your module and your own Go dependencies. It says nothing about Nomi:
 
-```
+```gomod
 module gobindings
 
 go 1.27.0
 ```
 
-To use a third-party Go package, run `go get` in the project directory and
-import the package from your `.go` file.
+To use a third-party Go package, add its module with `nomi add` in the
+project directory: `nomi add github.com/user/gopkg` takes a package's path
+as well as its module's. If you have Go, `go get` works on the same file.
+Then import the package
+in your `.go` file. A `gopkg` can also name a package from a module you added,
+with no adapter file, as long as its functions use the types in the table
+above.
 
-Go bindings need the Go toolchain installed. Your Go code is compiled
-together with Nomi's own Go module. A released `nomi` uses the module at its
-own version, which Go downloads like any other dependency. A `nomi` you built
-from a clone of the repository uses that clone. Programs without Go bindings
-don't need Go.
+Go has a feature called cgo that lets Go code call C code. Nomi builds the Go
+side without it. A `gopkg` naming a package that needs cgo, itself or through
+a package it imports, is a compile error at the `gopkg`.
+
+Go bindings are compiled with Go. Programs without Go bindings don't need Go
+at all. To find a Go, `nomi` tries these in order:
+
+- the `NOMI_GO` environment variable, which names a `go` command or the
+  folder a Go installation lives in;
+- a `go` on your `PATH`;
+- the Go release `nomi` was built with. `nomi` downloads it from go.dev the
+  first time it needs it, which is about 70 MB. It checks the download against
+  a checksum built into `nomi`, and keeps it so it never downloads it again.
+
+The editor's language server never downloads Go. If you have no `go`, run
+`nomi fetch` in the project once. It downloads Go along with the project's
+modules, and the editor uses that Go from then on. A command given
+`--offline` doesn't download Go either.
+
+Your Go code is compiled together with Nomi's own Go module. A `nomi` from a
+release, or from `go install`, uses that module at its own version, which is
+downloaded like any other dependency. So it needs no copy of Nomi's source. A
+`nomi` you built from a clone of the repository uses that clone.
 
 `nomi run`, `nomi test` and `nomi check` compile the Go side for you. The
 first run of a project is slower while that happens. Later runs reuse the
@@ -195,7 +218,7 @@ decoded payload, loosely typed configuration, or data from another runtime.
 Take the value in as `Dynamic`, then decode it into a real type once you
 know what shape to expect. Every function in
 [`std/dynamic`](/reference/dynamic/) that reads a `Dynamic` returns a
-`Result`. Its error is a [`DecodeError`](/reference/dynamic/#struct-decodeerror),
+`Result`. Its error is a [`dynamic.Error`](/reference/dynamic/#struct-error),
 which holds the path to the bad part, what was expected, and what was
 there. So when a payload is wrong, the error tells you where.
 

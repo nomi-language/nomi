@@ -260,7 +260,7 @@ func (bl *irScalarBuilder) siblingMethodPlan(t *ast.Call, args irQualArgs, owner
 			return nil
 		}
 		f := &fileFunc{name: method, params0: w.params, defaults: true}
-		full, ok := bl.siblingDefaultArgs(t, args, f, params, owner)
+		full, ok := bl.siblingDefaultArgs(t, args, &implMemberSite{fn: f}, params, owner)
 		if !ok {
 			return nil
 		}

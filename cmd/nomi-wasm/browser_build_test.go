@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/nodeenv"
 )
 
 // The language tour runs visitors' programs on this binary, so the effects a
@@ -36,8 +38,16 @@ func TestBrowserBuild_EffectsRefuse(t *testing.T) {
 	}
 	wasmDir := filepath.Join(strings.TrimSpace(string(root)), "lib", "wasm")
 	cmd := exec.Command("go", "test", "-count=1", "-v", "-run", "TestBrowser_", "github.com/nomi-language/nomi/internal/stdio")
-	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm",
-		"PATH="+wasmDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	// go_js_wasm_exec hands Node's environment to the test binary, so the
+	// command gets only what go and Node need, not the caller's whole one.
+	var goVars []string
+	for _, kv := range os.Environ() {
+		if name, _, _ := strings.Cut(kv, "="); strings.HasPrefix(name, "GO") || strings.HasPrefix(name, "XDG_") {
+			goVars = append(goVars, name)
+		}
+	}
+	cmd.Env = nodeenv.Minimal(append(os.Environ(), "GOOS=js", "GOARCH=wasm",
+		"PATH="+wasmDir+string(os.PathListSeparator)+os.Getenv("PATH")), append(goVars, "GOOS", "GOARCH")...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("js/wasm go test: %v\n%s", err, out)

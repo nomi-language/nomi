@@ -1,0 +1,59 @@
+// A std container or an `embeds` enum's value held as std's Display or Debug
+// is boxed with the type it had there, as one held as a program interface
+// is: two empty lists of different element types are two values, and an
+// `embeds` enum's value renders and compares as the enum, not as the struct
+// it embeds.
+import protocols.{Circle, Shape}
+
+fn circle_shape(r: Int) -> Shape {
+    #Circle{r}
+}
+
+fn shown(d: Display) -> String {
+    Display.to_string(d)
+}
+
+test "empty lists of different element types held as Display are unequal" {
+    ints: List<Int> = []
+    strings: List<String> = []
+    a: Display = ints
+    b: Display = strings
+    again: Display = ints
+    assert a != b
+    assert a == again
+    s: Set<Display> = %[a, b, again]
+    assert Set.size(s) == 2
+}
+
+test "a container held as Display renders and compares by its value" {
+    a: Display = [1, 2]
+    b: Display = [1, 2]
+    c: Display = Iter.to_vector([1, 2])
+    assert a == b
+    assert a != c
+    assert "${a} ${c}" == "[1, 2] #[1, 2]"
+    assert shown(%{"k" => 1}) == "%{k => 1}"
+    xs: List<Display> = [[1], Iter.to_vector([1]), 1, "x"]
+    assert Set.size(Iter.to_set(xs)) == 4
+}
+
+test "an embeds enum's value held as Display renders through the enum's impl" {
+    shape: Display = circle_shape(1)
+    circle: Display = #Circle{r: 1}
+    assert "${shape}" == "shape circle 1"
+    assert shown(circle_shape(2)) == "shape circle 2"
+    assert "${circle}" == "circle 1"
+    assert shape != circle
+    assert Display.to_string(shape) == "shape circle 1"
+}
+
+test "containers held as Debug are boxed too" {
+    ints: List<Int> = []
+    strings: List<String> = []
+    xs: List<Debug> = [ints, strings, Some(2), [1]]
+    assert Set.size(Iter.to_set(xs)) == 4
+    assert Debug.inspect(xs) == "[[], [], Some(2), [1]]"
+    one: Debug = [1]
+    other: Debug = [1]
+    assert one == other
+}

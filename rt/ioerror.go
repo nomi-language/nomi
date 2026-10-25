@@ -1,6 +1,6 @@
 package rt
 
-// IOError is Nomi's `std/io.IOError`: which filesystem failure `read_file` and
+// IOError is Nomi's `std/io.Error`: which filesystem failure `read_file` and
 // `write_file` report.
 //
 // Here for the reason every shared-def family is here: the type is declared in a
@@ -9,7 +9,7 @@ package rt
 //
 // Its payloads are struct-shaped, unlike the other carrying rows in that
 // family: std declares `#NotFound {path: String}` and `#Other {reason: String}`,
-// which a pattern binds by name (`#IOError.NotFound{path} -> …`) rather than by
+// which a pattern binds by name (`#io.Error.NotFound{path} -> …`) rather than by
 // position. calendar.Error's five, PathSegment's two and Json's six carrying
 // rows are positional.
 //

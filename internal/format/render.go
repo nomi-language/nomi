@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/lexer"
+	"github.com/nomi-language/nomi/internal/parser"
 )
 
 // RenderImports renders a set of import statements/blocks in canonical layout
@@ -77,6 +79,44 @@ func RenderAttachedTestBody(test ast.AttachedTest) string {
 		return ""
 	}
 	return strings.TrimSuffix(Render(emit(test.Body.Stmts[0]), defaultWidth), "\n")
+}
+
+// FormatAttachedTestBody formats body, the text a reference editor holds for
+// an attached test, as `nomi fmt` formats it in its `//!` prompt: written as
+// that prompt above a declaration, formatted, and read back out. The result is
+// what RenderAttachedTestBody shows for the formatted prompt, so an editor
+// that formats its body with this agrees with the page that showed it. An
+// error is the parse error of body, at body's own line numbers.
+func FormatAttachedTestBody(body string) (string, error) {
+	body = strings.TrimRight(body, "\n")
+	if strings.TrimSpace(body) == "" {
+		return "", nil
+	}
+	var src strings.Builder
+	for _, line := range strings.Split(body, "\n") {
+		if strings.TrimSpace(line) == "" {
+			src.WriteString("//!\n")
+		} else {
+			src.WriteString("//! " + line + "\n")
+		}
+	}
+	src.WriteString("fn reference() {}\n")
+	nodes, _, err := parser.ParseFile(lexer.Lex(src.String()))
+	if err != nil {
+		return body, err
+	}
+	normalizeBodies(nodes)
+	stripSelfTypingAnnotations(nodes)
+	gatherLambdaHeaderComments(nodes)
+	var parts []string
+	for _, n := range nodes {
+		for _, test := range ast.AttachedTestsOf(n) {
+			if text := renderBlockBody(attachedTestCanonicalBody(test)); text != "" {
+				parts = append(parts, text)
+			}
+		}
+	}
+	return strings.Join(parts, "\n\n"), nil
 }
 
 func renderBlockBody(block *ast.Block) string {

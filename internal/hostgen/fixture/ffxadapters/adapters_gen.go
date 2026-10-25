@@ -1082,7 +1082,8 @@ func (b *bound) fn61(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 // out65 builds a Map<String, List<String>> from Go map[string][]string.
 func (b *bound) out65(v map[string][]string) (rt.Value, error) {
 	conv := make([]rt.MapEntry[any, any], 0, len(v))
-	for gk, gv := range v {
+	for _, e := range hostadapt.SortedEntries(v) {
+		gk, gv := e.Key, e.Val
 		k, err := b.out31(gk)
 		if err != nil {
 			return nil, fmt.Errorf("key %v: %w", gk, err)
@@ -1236,7 +1237,8 @@ func (b *bound) in73(fr *rt.Frame, v rt.Value) (out map[string][]string, err err
 // out74 builds a Map<String, Int> from Go map[string]int64.
 func (b *bound) out74(v map[string]int64) (rt.Value, error) {
 	conv := make([]rt.MapEntry[any, any], 0, len(v))
-	for gk, gv := range v {
+	for _, e := range hostadapt.SortedEntries(v) {
+		gk, gv := e.Key, e.Val
 		k, err := b.out31(gk)
 		if err != nil {
 			return nil, fmt.Errorf("key %v: %w", gk, err)

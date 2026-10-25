@@ -71,6 +71,9 @@ func (g *gen) literalHandlerDecl(t *ast.TaggedString) (*ast.FuncDef, bool) {
 	if !isFn {
 		return nil, false
 	}
+	if twin, ok := g.twins[fd].(*ast.FuncDef); ok {
+		return twin, true
+	}
 	return fd, true
 }
 

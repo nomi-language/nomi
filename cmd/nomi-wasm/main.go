@@ -9,6 +9,8 @@
 //	nomiFormatTestBody(source)  -> { output: string, error: string }
 //	nomiSemTokens(source)       -> string (JSON)                     // semantic tokens
 //	nomiHover(source, line, col) -> string (markdown)               // LSP hover
+//	nomiHoverIn(source, file, line, col) -> string (markdown)       // hover in one tab of a multi-file source
+//	nomiSemTokensIn(source, ...files) -> string (JSON {file: tokens}) // semantic tokens per tab
 //
 // both running entirely client-side — the engine behind an interactive language
 // tour (no server). The stdlib is //go:embed'd into the binary, so
@@ -160,8 +162,8 @@ func formatSrc(this js.Value, args []js.Value) (res any) {
 	return result(out, "")
 }
 
-// formatTestBody formats args[0] as the body of an ordinary test block, then
-// returns only the formatted body text for the reference-page editor.
+// formatTestBody formats args[0], a reference-page editor's body, as `nomi
+// fmt` formats it in the `//!` prompt the page rendered it from.
 func formatTestBody(this js.Value, args []js.Value) (res any) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -171,12 +173,11 @@ func formatTestBody(this js.Value, args []js.Value) (res any) {
 	if len(args) < 1 {
 		return result("", "no source provided")
 	}
-	wrapped, _ := vmhost.ReferenceTestSource("", args[0].String(), "")
-	out, err := nomiformat.Format(wrapped)
+	out, err := nomiformat.FormatAttachedTestBody(args[0].String())
 	if err != nil {
 		return result("", err.Error())
 	}
-	return result(extractReferenceTestBody(out), "")
+	return result(out, "")
 }
 
 // runStdlibTestBody executes an editable stdlib reference snippet on the VM,
@@ -222,18 +223,6 @@ func appendError(existing, next string) string {
 		return existing
 	}
 	return existing + "\n" + next
-}
-
-func extractReferenceTestBody(src string) string {
-	lines := strings.Split(strings.TrimRight(src, "\n"), "\n")
-	if len(lines) < 2 {
-		return ""
-	}
-	body := lines[1 : len(lines)-1]
-	for i, line := range body {
-		body[i] = strings.TrimPrefix(line, "  ")
-	}
-	return strings.Join(body, "\n")
 }
 
 // writeCaseOutput writes what a case printed under its line, indented two
@@ -320,6 +309,72 @@ func hoverSrc(this js.Value, args []js.Value) (res any) {
 	return hoverdoc.At(fa, nodes, analysis.Pos{Line: line, Col: highlight.ByteCol(src, line, args[2].Int())})
 }
 
+// lastProgram is the analysis of the last multi-file source nomiHoverIn or
+// nomiSemTokensIn was asked about. A run asks for the source's tokens and
+// every hover after it asks about the same source, so one analysis serves
+// them all until the visitor edits a tab.
+var lastProgram struct {
+	source string
+	prog   *highlight.Program
+}
+
+// programOf answers the whole-program analysis of a multi-file source,
+// built as nomiRun builds the program: every tab, nomi.toml and the
+// catalogs included.
+func programOf(src string) *highlight.Program {
+	if lastProgram.prog == nil || lastProgram.source != src {
+		lastProgram.source = src
+		lastProgram.prog = highlight.AnalyzeProgram(src, stdLib, vmhost.Macros())
+	}
+	return lastProgram.prog
+}
+
+// hoverInSrc is hoverSrc for one tab of a multi-file source (args[0], the
+// tabs stitched with `// FILE:` markers): the hover markdown at (args[2],
+// args[3]) in the file args[1] names, positions counted in that file's own
+// text as hoverSrc counts them. The file is analyzed as part of the whole
+// program, so a name it imports from another tab resolves.
+func hoverInSrc(this js.Value, args []js.Value) (res any) {
+	defer func() {
+		if recover() != nil {
+			res = ""
+		}
+	}()
+	if len(args) < 4 {
+		return ""
+	}
+	return programOf(args[0].String()).HoverIn(args[1].String(), args[2].Int(), args[3].Int())
+}
+
+// semTokensInSrc answers the semantic tokens of every Nomi tab of a
+// multi-file source (args[0]) as a JSON object from the tab's file name
+// (args[1..], `cart.nomi`) to its tokens, positions in the tab's own text.
+func semTokensInSrc(this js.Value, args []js.Value) (res any) {
+	defer func() {
+		if recover() != nil {
+			res = "{}"
+		}
+	}()
+	if len(args) < 1 {
+		return "{}"
+	}
+	prog := programOf(args[0].String())
+	out := map[string][]semToken{}
+	for _, name := range args[1:] {
+		toks := prog.SemanticTokensIn(name.String())
+		list := make([]semToken, 0, len(toks))
+		for _, t := range toks {
+			list = append(list, semToken{Line: t.Line, Col: t.Col, Len: t.Length, Type: t.Type})
+		}
+		out[name.String()] = list
+	}
+	data, err := json.Marshal(out)
+	if err != nil {
+		return "{}"
+	}
+	return string(data)
+}
+
 func result(output, errStr string) any {
 	return map[string]any{"output": output, "error": errStr}
 }
@@ -334,6 +389,8 @@ func main() {
 	js.Global().Set("nomiFormatTestBody", js.FuncOf(formatTestBody))
 	js.Global().Set("nomiSemTokens", js.FuncOf(semTokensSrc))
 	js.Global().Set("nomiHover", js.FuncOf(hoverSrc))
+	js.Global().Set("nomiHoverIn", js.FuncOf(hoverInSrc))
+	js.Global().Set("nomiSemTokensIn", js.FuncOf(semTokensInSrc))
 	// The first VM run would otherwise lower the whole standard library inside
 	// its own timed budget. Doing it here makes it part of the worker's cold
 	// load, which the tour client budgets separately (LOAD_BUDGET_MS).

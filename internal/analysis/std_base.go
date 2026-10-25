@@ -133,7 +133,7 @@ func (b *StdBase) fits() bool {
 		}
 	}
 	index, files := CollisionImplIndex(nil, nil, b.index)
-	return len(detectImplCollisions(index, files, b.index.QualifiedReceiver, b.index.ImplBlockInterfaceKey, b.index.ImplIfaceOrigin)) == 0
+	return len(detectImplCollisions(index, files, b.index.QualifiedReceiver, b.index.ImplBlockInterfaceKey, b.index.ImplIfaceOrigin, nil)) == 0
 }
 
 // filesInKeyOrder answers the base's analyses in module-key order.
@@ -676,7 +676,7 @@ func mergeRecordings(base, over []Recording) []Recording {
 // occupy holds no collision (StdBase.fits), and every slot's diagnostics are
 // placed by its interface, method and receiver, so the rest come out as a
 // grouping of every slot gives them.
-func (s *programShare) implCollisions(idx *ProjectImplIndex, own *implTables, receivers map[*ast.FuncDef]string) []TypeError {
+func (s *programShare) implCollisions(idx *ProjectImplIndex, own *implTables, receivers map[*ast.FuncDef]string, pathOf func(key string) string) []TypeError {
 	recvs := map[*ast.FuncDef]string{}
 	keys := map[*ast.FuncDef]string{}
 	note := func(fn *ast.FuncDef) {
@@ -732,7 +732,7 @@ func (s *programShare) implCollisions(idx *ProjectImplIndex, own *implTables, re
 		}
 	}
 	index, files := CollisionImplIndex(own.IfaceMethodImpls, own.IfaceMethodImplFiles, slots)
-	return detectImplCollisions(index, files, recvs, keys, idx.ImplIfaceOrigin)
+	return detectImplCollisions(index, files, recvs, keys, idx.ImplIfaceOrigin, pathOf)
 }
 
 // slotImpl is a stdlib impl function and its place in its (interface,

@@ -117,6 +117,15 @@ fn if_pattern(opt: Maybe<#(Int, Int)>) -> Int {
     //        ^ comment
 }
 
+fn qualified_if_pattern(shape: Shape) -> Int {
+    if Shape.Ring(#Point{x: _px, y}) = shape {
+        //                  ^ comment
+        y
+    } else {
+        0
+    }
+}
+
 fn tuple_binding(pair: #(Int, Int)) -> Int {
     #(i, _h) = pair
     //   ^ comment

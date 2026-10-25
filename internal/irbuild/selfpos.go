@@ -54,7 +54,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 // own and reading it as `none` is what let `FromJson.from_json`'s shape look
 // like an ordinary return. A bare `self` return erases to `any` in the table
 // and is re-boxed by a dictionary-driven call; a return that merely CONTAINS
-// self (`Result<self, DecodeError>`) cannot be erased that way, because the
+// self (`Result<self, Json.DecodeError>`) cannot be erased that way, because the
 // identity to re-box under sits inside a container this builder would have to
 // rebuild. It is refused, and the point of the third value is that the refusal
 // can name the right thing.

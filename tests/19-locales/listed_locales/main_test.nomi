@@ -1,0 +1,32 @@
+import {
+    std/locale.Locale
+    std/plural.PluralCategory
+    main
+}
+
+test "the listed locales, canonical and in order" {
+    assert Locale.available() == [Locale`de`, Locale`pl`]
+}
+
+test "a listed locale formats as itself" {
+    assert main.total(1234567, Locale`de`) == "1.234.567"
+    assert String.join_list(["a", "b", "c"], Locale`pl`) == "a, b i c"
+}
+
+test "an unlisted locale formats as its nearest listed parent" {
+    // de-CH groups with an apostrophe; the program carries only de.
+    assert main.total(1234567, Locale`de-CH`) == "1.234.567"
+    assert main.total(1234567, Locale`de-AT`) == "1.234.567"
+}
+
+test "an unlisted locale with no listed parent formats as the source locale" {
+    // The source locale is de: French and English write as German does.
+    assert main.total(1234567, main.chosen("fr")) == "1.234.567"
+    assert String.join_list(["a", "b", "c"], main.chosen("en")) == "a, b und c"
+    assert PluralCategory.cardinal(1, main.chosen("en")) == PluralCategory.One
+    assert PluralCategory.cardinal(3, Locale`pl`) == PluralCategory.Few
+    // Negotiation and fallbacks answer as CLDR does, whatever is carried.
+    offered = [Locale`de`, main.chosen("fr")]
+    assert Locale.negotiate([main.chosen("fr-CA")], offered, Locale`de`) == main.chosen("fr")
+    assert Locale.fallbacks(main.chosen("fr-CA")) == [main.chosen("fr-CA"), main.chosen("fr")]
+}

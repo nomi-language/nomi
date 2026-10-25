@@ -60,6 +60,31 @@ func TestSiblingDefaults_CallsAcrossFilesFillDefaults(t *testing.T) {
 	}
 }
 
+// Calls to another file's owner functions run
+// (testdata/sibling_impl_defaults): a default naming the declaring file's
+// private function and a type the caller never imported is filled by that
+// file's accessor, whether the call leaves out every slot or a named argument
+// skips one, after the written arguments; and a generic owner function
+// instantiates at Unit.
+func TestSiblingDefaults_OwnerFunctionsFillForeignDefaults(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	want := "" +
+		"default mode\n" +
+		"Named(\"x\") 3\n" +
+		"arg 1\n" +
+		"default mode\n" +
+		"Named(\"x\") 4\n" +
+		"Ok(Unit)\n" +
+		"Ok(2)\n"
+	got := vmReference(fixture("sibling_impl_defaults/main.nomi"))
+	if got.stdout != want || got.stderr != "" || got.exit != 0 {
+		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",
+			got.exit, got.stdout, got.stderr, want)
+	}
+}
+
 // Literals that omit a defaulted field of a type another file declares run
 // (testdata/sibling_field_defaults): each omitted field is filled by the
 // declaring file's accessor, so a default may be a constructor (`None`,

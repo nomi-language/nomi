@@ -1,0 +1,148 @@
+import {
+    std/duration.Duration
+    std/instant.Instant
+    std/random
+    std/testing.Clock
+    std/timer
+    std/uuid.{self, Uuid}
+}
+
+test "parsing reads either case and displays lowercase" {
+    assert Ok(id) = Uuid.parse("6BA7B810-9DAD-11D1-80B4-00C04FD430C8")
+    assert "${id}" == "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+    assert id == Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`
+    assert Debug.inspect(id) == "Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`"
+    assert "${Uuid.nil()}" == "00000000-0000-0000-0000-000000000000"
+    assert "${Uuid`ffffffff-ffff-ffff-ffff-ffffffffffff`}" == "ffffffff-ffff-ffff-ffff-ffffffffffff"
+}
+
+test "invalid text is a typed error" {
+    assert Uuid.parse("") == Err(#uuid.Error.Length{length: 0})
+    assert Uuid.parse("6ba7b8109dad11d180b400c04fd430c8") == Err(#uuid.Error.Length{length: 32})
+
+    assert Uuid.parse("{6ba7b810-9dad-11d1-80b4-00c04fd430c8}") == Err(
+        #uuid.Error.Length{length: 38}
+    )
+
+    assert Uuid.parse("6ba7b810_9dad-11d1-80b4-00c04fd430c8") == Err(
+        #uuid.Error.Separator{index: 8, found: "_"}
+    )
+
+    assert Uuid.parse("6ba7b810-9dad-11d1-80b4a00c04fd430c8") == Err(
+        #uuid.Error.Separator{index: 23, found: "a"}
+    )
+
+    assert Uuid.parse("6ba7b810-9dad-11d1-80b4-00c04fd430cz") == Err(
+        #uuid.Error.Digit{index: 35, found: "z"}
+    )
+
+    assert Uuid.parse("6ba7b810-9dad-11d1-8-b4-00c04fd430c8") == Err(
+        #uuid.Error.Digit{index: 20, found: "-"}
+    )
+
+    assert Err(e) = Uuid.parse("6ba7b81g-9dad-11d1-80b4-00c04fd430c8")
+    assert "${e}" == "expected a hexadecimal digit at index 7 of a UUID, found `g`"
+}
+
+test "bytes round trip, most significant first" {
+    id = Uuid`00112233-4455-6677-8899-aabbccddeeff`
+    bytes = Uuid.to_bytes(id)
+    assert Bytes.length(bytes) == 16
+
+    assert Bytes.to_list(bytes) |> Iter.map(&Byte.to_int(&1)) |> Iter.to_list() == [
+        0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255,
+    ]
+
+    assert Uuid.from_bytes(bytes) == Ok(id)
+    assert Uuid.from_bytes(Bytes.slice(bytes, 0, 15)) == Err(#uuid.Error.Length{length: 15})
+}
+
+// The version is the 13th hex digit; the variant is the top two bits of the
+// 17th, binary 10, so that digit is 8, 9, a or b.
+fn shaped?(id: Uuid, version: Int) -> Bool {
+    text = "${id}"
+
+    Uuid.version(id) == version and String.slice(text, 14, 15) == "${version}" and Set.contains?(
+        %["8", "9", "a", "b"],
+        String.slice(text, 19, 20),
+    )
+}
+
+fn generated(count: Int, make: () -> Result<Uuid, random.Error>) -> List<Uuid> {
+    1..=count
+    |> Iter.flat_map(fn _ -> {
+        case make() {
+            Ok(id) -> [id]
+            Err(_) -> []
+        }
+    })
+    |> Iter.to_list()
+}
+
+test "v4 has version 4 and the RFC 9562 variant" {
+    ids = generated(50, Uuid.v4)
+    assert Iter.count(ids) == 50
+    assert Iter.all?(ids, &shaped?(&1, 4))
+}
+
+test "v4 values differ" {
+    assert Set.size(Iter.to_set(generated(100, Uuid.v4))) == 100
+}
+
+test "v7 has version 7 and the RFC 9562 variant" {
+    ids = generated(50, Uuid.v7)
+    assert Iter.count(ids) == 50
+    assert Iter.all?(ids, &shaped?(&1, 7))
+}
+
+group "v7 under a virtual clock" {
+    clock Clock.Virtual
+
+    test "the first 48 bits are the Unix time in milliseconds" {
+        assert Ok(id) = Uuid.v7()
+        millis = Instant.as_nanos(Instant.now()) / 1000000
+        assert String.slice("${id}", 0, 8) + String.slice("${id}", 9, 13) == hex48(millis)
+    }
+
+    test "a later millisecond sorts after an earlier one" {
+        assert Ok(first) = Uuid.v7()
+        timer.sleep(Duration.milliseconds(1))
+        assert Ok(second) = Uuid.v7()
+        timer.sleep(Duration.seconds(90))
+        assert Ok(third) = Uuid.v7()
+        assert first < second
+        assert second < third
+        assert Iter.sort([third, first, second]) == [first, second, third]
+    }
+}
+
+// 48 bits as 12 lowercase hex digits.
+fn hex48(n: Int) -> String {
+    0..12
+    |> Iter.map(fn i -> {
+        d = Int.bitwise_and(Int.shift_right(n, (11 - i) * 4), 15)
+        String.slice("0123456789abcdef", d, d + 1)
+    })
+    |> String.join()
+}
+
+test "order is the unsigned order of the bits" {
+    low = Uuid`7fffffff-ffff-ffff-ffff-ffffffffffff`
+    high = Uuid`80000000-0000-0000-0000-000000000000`
+    assert low < high
+    assert Uuid`00000000-0000-0000-7fff-ffffffffffff` < Uuid`00000000-0000-0000-8000-000000000000`
+    assert Uuid.nil() < low
+    assert Comparable.compare(high, high) == Ordering.Equal
+}
+
+test "equal UUIDs are one key" {
+    a = Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`
+    b = try Uuid.parse("6BA7B810-9DAD-11D1-80B4-00C04FD430C8")
+    assert a == b
+    assert Hashable.hash(a) == Hashable.hash(b)
+    refute a == Uuid.nil()
+
+    names = %{a => "dns"}
+    assert Map.get(names, b) == Some("dns")
+    assert Set.size(%[a, b, Uuid.nil()]) == 2
+}

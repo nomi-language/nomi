@@ -68,7 +68,7 @@ error:
 
 ```nomi-run
 import {
-    std/calendar.{Error}
+    std/calendar.Error
     std/calendar.Date
 }
 
@@ -180,7 +180,7 @@ row, the test fails if any row failed. The report shows each failed row, then
 how many failed. If the second row were `#("abc", True)`, the test above would
 report:
 
-```text
+```console
 FAIL palindrome_test.nomi :: determines palindromes
   subtest #("abc", True): line 10: assertion failed
     assert palindrome?(line) == known_palindrome
@@ -224,7 +224,7 @@ test "leap years" {
 A failed row's report shows its name in place of the row. If `leap_year?`
 returned `False` for 2000, the test would report:
 
-```text
+```console
 FAIL leap_test.nomi :: leap years
   subtest "year divisible by 400 is leap year": line 13: assertion failed
     assert leap_year?(year) == expected
@@ -295,15 +295,19 @@ import std/io
 
 fn main() {
     io.print("What is your name?")
+
     case io.read_line() {
         Ok(name) -> {
             io.write("Hello, ${name}. Your age: ")
+
             case io.read_line() {
                 Ok(age) -> io.print("${name} is ${age}")
                 Err(_) -> io.print("no age")
             }
         }
-        Err(_) -> io.print("hello, stranger")
+
+        Err(_) ->
+            io.print("hello, stranger")
     }
 }
 
@@ -536,7 +540,7 @@ Add `clock Clock.Virtual` to a group to avoid both. Its tests run under a fake
 clock. Whenever every task in the test is waiting, the clock jumps forward,
 so waiting takes no real time.
 
-```nomi
+```nomi-run
 import {
     std/duration.Duration
     std/testing.Clock
@@ -581,6 +585,20 @@ The fake clock is off by default because it changes how a test behaves:
 
 The first two usually point to a problem in the test. Still, they change
 behaviour, so each group opts in.
+
+## A Test That Never Finishes
+
+`nomi test` gives each test 10 seconds. A test that is still running after
+that is stopped and reported as failed. The report shows the line the test was
+running and the calls that led to it. Then the next test runs as usual.
+
+- The 10 seconds are real time, even in a group with a fake clock.
+- They cover the whole test: its group's `clock`, `boot` and `setup` lines as
+  well as the test's own block.
+- `nomi test --timeout 30s` gives each test 30 seconds instead.
+  `--timeout 0` removes the limit.
+- A test run in the debugger, described next, has no limit, so pausing it
+  never makes it fail.
 
 ## Debugging A Test
 

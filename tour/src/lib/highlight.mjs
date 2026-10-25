@@ -191,6 +191,15 @@ export function render(captures, semTokens, code, options = {}) {
       for (let i = s; i < s + t.len && i < n; i++) cls[i] = c;
     }
   }
+  return emit(code, cls, options);
+}
+
+// emit writes code as HTML with each run of characters of one class in a
+// <span> of that class, and with trailing whitespace marked when
+// options.showTrailingWhitespace is set. It writes every character of code
+// once, so an editor's highlight layer keeps the textarea's lines.
+function emit(code, cls, options) {
+  const n = code.length;
   const trailing = options.showTrailingWhitespace ? trailingWhitespaceChars(code) : null;
   let out = "";
   let i = 0;
@@ -205,4 +214,121 @@ export function render(captures, semTokens, code, options = {}) {
     i = j;
   }
   return out;
+}
+
+// renderToml highlights a TOML file (a multi-file example's `nomi.toml` or
+// message catalog) in the colours the build-time Shiki pass gives a static
+// ```toml block: table names, keys, strings, numbers, booleans and dates,
+// and comments, with punctuation in the default colour. It is a small
+// scanner, not a validating parser: text it does not recognize stays the
+// default colour.
+export function renderToml(code, options = {}) {
+  const n = code.length;
+  const cls = new Array(n).fill("");
+  const mark = (s, e, c) => { for (let k = s; k < e && k < n; k++) cls[k] = c; };
+  const BARE = /[A-Za-z0-9_\-]/;
+  const VALUE = /[A-Za-z0-9_\-.:+]/;
+  // A string from i (on its opening quote) answers its end, past the
+  // closing quote, or the end of the line or text for one left open.
+  const stringEnd = (i) => {
+    const q = code[i];
+    if (code.startsWith(q.repeat(3), i)) {
+      const close = code.indexOf(q.repeat(3), i + 3);
+      if (close < 0) return n;
+      let e = close + 3;
+      while (e < n && code[e] === q && e - close < 5) e++; // up to two quotes before the closing three
+      return e;
+    }
+    let j = i + 1;
+    while (j < n && code[j] !== "\n") {
+      if (q === '"' && code[j] === "\\") { j += 2; continue; }
+      if (code[j] === q) return j + 1;
+      j++;
+    }
+    return j;
+  };
+  const nesting = []; // "{" and "[" of the inline tables and arrays open around i
+  let keyPos = true; // a key may start here
+  let lineStart = true; // only whitespace since the last line break
+  let i = 0;
+  while (i < n) {
+    const ch = code[i];
+    if (ch === "\n") {
+      if (nesting.length === 0) keyPos = true;
+      lineStart = true;
+      i++;
+      continue;
+    }
+    if (ch === " " || ch === "\t" || ch === "\r") { i++; continue; }
+    if (ch === "#") {
+      let e = code.indexOf("\n", i);
+      if (e < 0) e = n;
+      mark(i, e, "toml-comment");
+      i = e;
+      continue;
+    }
+    if (lineStart && nesting.length === 0 && ch === "[") {
+      // A table header: `[name]`, `[[name]]`, `[a."b c".d]`.
+      lineStart = false;
+      let j = i;
+      while (j < n && code[j] === "[") j++;
+      while (j < n && code[j] !== "]" && code[j] !== "\n" && code[j] !== "#") {
+        if (code[j] === '"' || code[j] === "'") {
+          const e = stringEnd(j);
+          mark(j, e, "toml-table");
+          j = e;
+        } else {
+          if (BARE.test(code[j])) cls[j] = "toml-table";
+          j++;
+        }
+      }
+      while (j < n && code[j] === "]") j++;
+      i = j;
+      keyPos = false;
+      continue;
+    }
+    lineStart = false;
+    if (ch === '"' || ch === "'") {
+      const e = stringEnd(i);
+      mark(i, e, keyPos ? "toml-key" : "toml-str");
+      i = e;
+      continue;
+    }
+    if (keyPos && BARE.test(ch)) {
+      let e = i;
+      while (e < n && (BARE.test(code[e]) || code[e] === ".")) e++;
+      mark(i, e, "toml-key");
+      i = e;
+      continue;
+    }
+    if (!keyPos && VALUE.test(ch)) {
+      let e = i;
+      while (e < n && VALUE.test(code[e])) e++;
+      const word = code.slice(i, e);
+      if (/^(true|false|[+-]?(inf|nan)|[+-]?[0-9][0-9A-Za-z_.:+\-]*)$/.test(word)) mark(i, e, "toml-num");
+      i = e;
+      continue;
+    }
+    switch (ch) {
+      case "=":
+        keyPos = false;
+        break;
+      case "{":
+        nesting.push("{");
+        keyPos = true;
+        break;
+      case "[":
+        nesting.push("[");
+        break;
+      case "}":
+      case "]":
+        nesting.pop();
+        break;
+      case ",":
+        keyPos = nesting[nesting.length - 1] === "{";
+        break;
+    }
+    i++;
+  }
+  return emit(code, cls, options);
 }

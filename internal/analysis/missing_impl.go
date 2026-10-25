@@ -205,9 +205,9 @@ func sortRecordings(recs []Recording) {
 // Primary error site: the first user-project Recording (non-stdlib
 // Pos.File), falling back to the first Recording overall if all are
 // stdlib (only reachable when the suppression rule above is bypassed
-// by some yet-unmodeled case; defensive). Remaining Recordings are
-// inlined as `also required at ...` notes in the Message string —
-// structured multi-note TypeError rendering is a later task. DeriveCtx
+// by some yet-unmodeled case; defensive). The message names how the
+// primary site demands the impl, never its position, which the diagnostic
+// itself carries; the remaining Recordings are related locations. DeriveCtx
 // info on each derive-sourced Recording is unpacked into the "via"
 // clause so the diagnostic names the @derive site and the offending
 // component.
@@ -359,7 +359,7 @@ func isStdlibRecording(rec Recording) bool {
 // missingImplError builds the diagnostic for one (Iface, T) pair with
 // at least one Recording. Anchors the primary site at the first user-
 // project Recording (stdlib fallback when every Recording is stdlib),
-// inlines the other Recordings as `also required at` notes, and
+// attaches the other Recordings as related locations, and
 // appends a help line suggesting either derive or a hand-written impl block.
 func missingImplError(iface, typeName string, recs []Recording, typeDecls map[string]Pos) TypeError {
 	// Primary: first user-project Recording, fallback to recs[0].
@@ -373,9 +373,8 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 	primary := recs[primaryIdx]
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "no impl of `%s` for `%s` (required at %s via %s)",
-		iface, typeName,
-		formatRecordingLoc(primary), formatRecordingVia(primary))
+	fmt.Fprintf(&b, "no impl of `%s` for `%s` (required via %s)",
+		iface, typeName, formatRecordingVia(primary))
 
 	e := TypeError{
 		Line:    primary.Pos.Line,
@@ -399,7 +398,32 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 		}
 	}
 
+	if IsStdlibKey(primary.TypeOrigin) {
+		// A std type: the program cannot derive or implement it, so the
+		// help says what to do instead.
+		return e.WithHint(stdTypeHelp(iface, typeName, primary.TypeOrigin, nil))
+	}
 	return e.WithHint(missingImplHelp(iface, typeName))
+}
+
+// readerFormatted are the std types, by origin and name, that have no
+// `Display` because their text is for a reader in a locale, with the call
+// that writes it.
+var readerFormatted = map[string]string{
+	"std/message.Message": "Message.format(m, locale)",
+	"std/message.Noun":    "Localize.localize(noun, locale)",
+}
+
+// stdTypeHelp is the help for typeName, a std type of origin that has no
+// impl of iface, which only std could write. A type formatted for a reader
+// says how to format it; any other gets stdOnlyHelp's.
+func stdTypeHelp(iface, typeName, origin string, implementers []string) string {
+	if iface == "Display" {
+		if how, ok := readerFormatted[origin+"."+typeName]; ok {
+			return fmt.Sprintf("a `%s` is formatted for a reader: `%s`", typeName, how)
+		}
+	}
+	return stdOnlyHelp(typeName, iface, implementers)
 }
 
 // missingImplHelp is the help line for a type that has no impl of iface,
@@ -447,7 +471,8 @@ func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
 	}
 	ownsType := programDeclares(concrete)
 	if !ownsType && IsStdlibKey(bound.Origin) {
-		return stdOnlyHelp(name, bound.Name, c.implementersOf(bound.Name))
+		origin, _ := nominalOrigin(resolveTypeVar(concrete))
+		return stdTypeHelp(bound.Name, name, origin, c.implementersOf(bound.Name))
 	}
 	if _, ok := operatorInterfaceByName(bound.Name); ok {
 		return missingImplHelp(bound.Name, name)
@@ -602,14 +627,53 @@ func pipeBoundCol(n *ast.Binary, stage *ast.Call) int {
 	return n.Col
 }
 
+// callBoundError is boundError for a call whose demands are recorded at
+// demand. When the bound error is reported, the call's own demands for the
+// same type and interface are dropped from the file's manifest: they would
+// otherwise reach DetectMissingImpls and report the one missing impl a
+// second time. `List.contains?(points, p)` with no `Equatable` for Point
+// records (Equatable, Point) through `impl Contains for List<T> where T:
+// Equatable` before the bound check reports it.
+func (c *checker) callBoundError(demand Pos, line, col int, concrete Type, bound *InterfaceType, param string, over ...ast.Node) {
+	if c.boundError(line, col, concrete, bound, param, over...) {
+		c.dropDemandsAt(concrete, bound.Name, demand)
+	}
+}
+
+// dropDemandsAt removes the file's recordings at pos that demand ifaceName
+// of concrete.
+func (c *checker) dropDemandsAt(concrete Type, ifaceName string, pos Pos) {
+	if c == nil || c.fa == nil {
+		return
+	}
+	name := concreteTypeName(resolveTypeVar(concrete))
+	recs := c.fa.ImplManifest[ifaceName][name]
+	if len(recs) == 0 {
+		return
+	}
+	var kept []Recording
+	for _, rec := range recs {
+		if rec.Pos != pos {
+			kept = append(kept, rec)
+		}
+	}
+	if len(kept) == 0 {
+		delete(c.fa.ImplManifest[ifaceName], name)
+		return
+	}
+	c.fa.ImplManifest[ifaceName][name] = kept
+}
+
 // boundError is a call's unmet interface bound: at the call, naming the
-// bound it violates, with the missing-impl help.
-func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType, param string, over ...ast.Node) {
+// bound it violates, with the missing-impl help. It reports whether it
+// reported an error; a bound an impl's own bounds leave unmet is recorded
+// as their demand instead.
+func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType, param string, over ...ast.Node) bool {
 	if c.implBoundsUnmetByNamedTypes(concrete, bound) {
 		// `List<Foo>` has Display only where Foo does: the demand is Foo's,
 		// and the missing-impl report names Foo with its own help.
 		c.recordBoundConformance(concrete, bound.Name, c.recPos(line, col), RecordingKindGenericBoundCheck)
-		return
+		return false
 	}
 	end := TypeError{}
 	for _, n := range over {
@@ -620,6 +684,7 @@ func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType,
 	c.report(TypeError{Line: line, Col: col, EndLine: end.EndLine, EndCol: end.EndCol, Message: fmt.Sprintf(
 		"%s does not implement %s (required by `where %s: %s`)",
 		concrete, boundAt(bound, param, concrete), param, bound)}.WithHint(c.boundHelp(concrete, bound)))
+	return true
 }
 
 // boundAt is bound with the bounded parameter param read as concrete, as
@@ -640,17 +705,6 @@ func boundAt(bound *InterfaceType, param string, concrete Type) *InterfaceType {
 		args[i] = Substitute(a, subs)
 	}
 	return &InterfaceType{Name: bound.Name, TypeArgs: args}
-}
-
-// formatRecordingLoc renders "file:line:col" with an "<unknown>"
-// fallback for the empty-File case (single-file BuildFileWithStdlib
-// recorders).
-func formatRecordingLoc(rec Recording) string {
-	file := rec.Pos.File
-	if file == "" {
-		file = "<unknown>"
-	}
-	return fmt.Sprintf("%s:%d:%d", file, rec.Pos.Line, rec.Pos.Col)
 }
 
 // formatRecordingVia renders the demand-site kind in user-relevant

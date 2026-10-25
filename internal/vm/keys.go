@@ -82,13 +82,15 @@ func (kc *keyCaller) call(sym *ir.Symbol, args []any) any {
 	return out
 }
 
-// EqualRecord implements rt.KeyHooks.
+// EqualRecord implements rt.KeyHooks. Two boxes of one name compare by the
+// impl recorded under that name (an `embeds` enum's), over the values
+// inside.
 func (kc *keyCaller) EqualRecord(a, b *rt.Record) (bool, bool) {
 	sym := kc.m.equates[a.Desc.Name]
 	if sym == nil || a.Desc.Name != b.Desc.Name {
 		return false, false
 	}
-	out := kc.call(sym, []any{a, b})
+	out := kc.call(sym, []any{rt.Unbox(a), rt.Unbox(b)})
 	eq, ok := asBool(out)
 	if !ok {
 		panic(keyFailure{fmt.Errorf("vm: Equatable impl %s returned %T, not a Bool", sym.Name(), out)})
@@ -96,10 +98,11 @@ func (kc *keyCaller) EqualRecord(a, b *rt.Record) (bool, bool) {
 	return eq, true
 }
 
-// HashRecord implements rt.KeyHooks.
+// HashRecord implements rt.KeyHooks. A box hashes by the impl recorded
+// under its name, over the value inside.
 func (kc *keyCaller) HashRecord(r *rt.Record) (uint64, bool) {
 	if sym := kc.m.hashes[r.Desc.Name]; sym != nil {
-		out := kc.call(sym, []any{r})
+		out := kc.call(sym, []any{rt.Unbox(r)})
 		h, ok := out.(int64)
 		if !ok {
 			panic(keyFailure{fmt.Errorf("vm: Hashable impl %s returned %T, not an Int", sym.Name(), out)})
@@ -110,6 +113,17 @@ func (kc *keyCaller) HashRecord(r *rt.Record) (uint64, bool) {
 		return rt.HashString(r.Desc.Name), true
 	}
 	return 0, false
+}
+
+// hashValueHost is `vm.hash_value`, `Hashable.hash` of an interface value:
+// the hash a Map key or Set element of interface type takes, so two values
+// `==` calls equal hash alike.
+func hashValueHost(mach *Machine, _ ir.Pos, args []any) (_ any, err error) {
+	defer recoverKey(&err)
+	if len(args) != 1 {
+		return nil, fmt.Errorf("vm: vm.hash_value: expected 1 operand, got %d", len(args))
+	}
+	return int64(mach.keysOver(nil, args[0]).HashFunc()(args[0])), nil
 }
 
 // recoverKey turns a keyFailure unwinding out of a key kernel into the error

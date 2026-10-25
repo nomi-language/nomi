@@ -5,13 +5,13 @@ import (
 	"testing"
 )
 
-// `import std/io.{self, IOError}` binds `io` as `import std/io` does, so a
+// `import std/io.{self, Error}` binds `io` as `import std/io` does, so a
 // member the file does not have is the same error. It was accepted, and the
 // IR builder declined the call; a member the file has still checks clean.
 func TestSelfImportMissingFileMemberIsRejected(t *testing.T) {
-	errs := checkWithStdlib(`import std/io.{self, IOError}
+	errs := checkWithStdlib(`import std/io.{self, Error}
 
-fn f(e: IOError) -> IOError {
+fn f(e: Error) -> Error {
   e
 }
 

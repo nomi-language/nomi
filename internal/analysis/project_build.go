@@ -988,9 +988,17 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			}
 		}
 		recollect = true
+		// Each error names the file its position is in (TypeError.File),
+		// which need not be the entry.
+		pathOf := func(key string) string {
+			if fa := filesByKey[key]; fa != nil {
+				return fa.FilePath
+			}
+			return ""
+		}
 		var programErrs []TypeError
 		if share != nil {
-			programErrs = append(programErrs, share.implCollisions(implIndex, own, qualifiedImplBlockReceivers)...)
+			programErrs = append(programErrs, share.implCollisions(implIndex, own, qualifiedImplBlockReceivers, pathOf)...)
 		} else {
 			collisionIndex, collisionFiles := CollisionImplIndex(ifaceImpls, ifaceImplFiles, implIndex)
 			collisionIfaceKeys := make(map[*ast.FuncDef]string, len(implBlockInterfaceKeys)+len(implIndex.ImplBlockInterfaceKey))
@@ -1001,18 +1009,18 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 				collisionIfaceKeys[fn] = key
 			}
 			programErrs = append(
-				programErrs, detectImplCollisions(collisionIndex, collisionFiles, qualifiedImplBlockReceivers, collisionIfaceKeys, implIndex.ImplIfaceOrigin)...,
+				programErrs, detectImplCollisions(collisionIndex, collisionFiles, qualifiedImplBlockReceivers, collisionIfaceKeys, implIndex.ImplIfaceOrigin, pathOf)...,
 			)
 		}
 		// Inherent type-function name collisions (two type-body `fn m` items
 		// for one type after lowering).
 		programErrs = append(
-			programErrs, detectInherentImplCollisions(inherentImpls)...,
+			programErrs, detectInherentImplCollisions(inherentImpls, pathOf)...,
 		)
 		// Synthesized inherent-block collisions with the same receiver/signature
 		// in one file.
 		programErrs = append(
-			programErrs, detectInherentImplBlockCollisions(inherentBlocks)...,
+			programErrs, detectInherentImplBlockCollisions(inherentBlocks, pathOf)...,
 		)
 
 		// Orphan rule check fires later in this function (declaringModuleIndex
@@ -1048,9 +1056,23 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		implModuleOf := func(fn *ast.FuncDef) string {
 			return moduleNameFromKey(ifaceImplFiles[fn], ownModule, crossModuleSegments)
 		}
+		facts := &orphanFacts{
+			typeArgs: func(fn *ast.FuncDef, iface, recv string) (*ImplTypeArgs, *InterfaceType) {
+				return implTypeArgsIn(filesByKey[ifaceImplFiles[fn]], fn, iface, recv)
+			},
+			originModule: func(origin string) string {
+				key := origin
+				if origin == OriginEntry {
+					key = ""
+				}
+				return moduleNameFromKey(key, ownModule, crossModuleSegments)
+			},
+		}
 		programErrs = append(
 			programErrs,
-			detectOrphanImpls(ifaceImpls, declModule, implModuleOf, implBlockReceivers)...,
+			detectOrphanImpls(ifaceImpls, declModule, implModuleOf, implBlockReceivers, facts, func(fn *ast.FuncDef) string {
+				return pathOf(ifaceImplFiles[fn])
+			})...,
 		)
 		// Inherent-block orphan rule: the receiver type must be declared in the
 		// same file as the inherent impl. Type-qualified functions are the type's
@@ -1060,7 +1082,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		}
 		programErrs = append(
 			programErrs,
-			detectInherentImplBlockOrphans(inherentBlocks, inherentDeclaredLocally)...,
+			detectInherentImplBlockOrphans(inherentBlocks, inherentDeclaredLocally, pathOf)...,
 		)
 		return programErrs
 	}

@@ -402,15 +402,51 @@ func (g *gen) typeDeclEdges() []int {
 	}
 	for _, n := range g.nodes {
 		ast.Inspect(n, func(m ast.Node) bool {
-			switch m.(type) {
+			switch t := m.(type) {
 			case *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.InterfaceDef, *ast.TypeAlias:
 				names(m)
 				return false
+			case *ast.Block:
+				for _, stmt := range t.Stmts {
+					if imp, ok := stmt.(*ast.ImportStmt); ok {
+						g.blockImportOwners(imp, add)
+					}
+				}
 			}
 			return true
 		})
 	}
 	return out
+}
+
+// blockImportOwners calls add with the owner of each monomorphic struct, enum
+// or distinct type imp, an import at the top of a block, binds: the types
+// bindBlockImports mirrors while this file's types are built, whether or not
+// the block declares a type (`//! import std/sql_testing.Fake` in a prompt of
+// std/sql, whose Fake names sql's Dialect).
+func (g *gen) blockImportOwners(imp *ast.ImportStmt, add func(*typeOwner)) {
+	if g.fa == nil {
+		return
+	}
+	bound := g.srcFA().BlockImportScopes[imp]
+	if bound == nil {
+		return
+	}
+	for _, sym := range bound.Symbols {
+		if sym == nil || sym.Node != ast.Node(imp) {
+			continue
+		}
+		decl := resolveSymbol(sym)
+		if decl == nil {
+			continue
+		}
+		switch decl.Kind {
+		case analysis.SymbolStruct, analysis.SymbolEnum, analysis.SymbolType:
+			if o := g.ownerOfSymbol(decl); o != nil && !o.isIface {
+				add(o)
+			}
+		}
+	}
 }
 
 // typeRefOwnerAt is typeRefOwner for the type name written at line:col,

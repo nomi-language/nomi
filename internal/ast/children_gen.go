@@ -164,6 +164,10 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfInterfaceMethod(n, fn)
 		}
+	case *KeywordDecl:
+		if n != nil {
+			childrenOfKeywordDecl(n, fn)
+		}
 	case *Lambda:
 		if n != nil {
 			childrenOfLambda(n, fn)
@@ -179,6 +183,10 @@ func generatedChildren(n Node, fn func(Node)) bool {
 	case *ListSpreadLit:
 		if n != nil {
 			childrenOfListSpreadLit(n, fn)
+		}
+	case *MacroDecl:
+		if n != nil {
+			childrenOfMacroDecl(n, fn)
 		}
 	case *MapLit:
 		if n != nil {
@@ -426,6 +434,8 @@ func absent(n Node) bool {
 		return n == nil
 	case *InterfaceMethod:
 		return n == nil
+	case *KeywordDecl:
+		return n == nil
 	case *Lambda:
 		return n == nil
 	case *ListLit:
@@ -433,6 +443,8 @@ func absent(n Node) bool {
 	case *ListPattern:
 		return n == nil
 	case *ListSpreadLit:
+		return n == nil
+	case *MacroDecl:
 		return n == nil
 	case *MapLit:
 		return n == nil
@@ -541,6 +553,8 @@ func childrenOfDynamic(v any, fn func(Node)) {
 		if v != nil {
 			childrenOfEnumVariant(v, fn)
 		}
+	case Expansion:
+	case *Expansion:
 	case ItemComments:
 	case *ItemComments:
 	case MapEntry:
@@ -1083,6 +1097,18 @@ func childrenOfInterfaceMethod(x *InterfaceMethod, fn func(Node)) {
 	}
 }
 
+func childrenOfKeywordDecl(x *KeywordDecl, fn func(Node)) {
+	for i1 := range x.Params {
+		childrenOfParam(&x.Params[i1], fn)
+	}
+	if !absent(x.ReturnTypeExpr) {
+		fn(x.ReturnTypeExpr)
+	}
+	if x.Body != nil {
+		fn(x.Body)
+	}
+}
+
 func childrenOfLambda(x *Lambda, fn func(Node)) {
 	for i1 := range x.Params {
 		childrenOfParam(&x.Params[i1], fn)
@@ -1125,6 +1151,12 @@ func childrenOfListSpreadLit(x *ListSpreadLit, fn func(Node)) {
 	}
 	if !absent(x.TailSpread) {
 		fn(x.TailSpread)
+	}
+}
+
+func childrenOfMacroDecl(x *MacroDecl, fn func(Node)) {
+	if !absent(x.Impl) {
+		fn(x.Impl)
 	}
 }
 
@@ -1493,6 +1525,11 @@ func childrenOfTupleDestructure(x *TupleDestructure, fn func(Node)) {
 			fn(e1)
 		}
 	}
+	for _, e2 := range x.Discards {
+		if e2 != nil {
+			fn(e2)
+		}
+	}
 	if !absent(x.Value) {
 		fn(x.Value)
 	}
@@ -1682,10 +1719,12 @@ var generatedTypes = []any{
 	(*IntLit)(nil),
 	(*InterfaceDef)(nil),
 	(*InterfaceMethod)(nil),
+	(*KeywordDecl)(nil),
 	(*Lambda)(nil),
 	(*ListLit)(nil),
 	(*ListPattern)(nil),
 	(*ListSpreadLit)(nil),
+	(*MacroDecl)(nil),
 	(*MapLit)(nil),
 	(*MapPattern)(nil),
 	(*NamedArg)(nil),
@@ -1730,6 +1769,7 @@ var generatedTypes = []any{
 	*new(AttachedTestAfter), (*AttachedTestAfter)(nil),
 	*new(CaseBranch), (*CaseBranch)(nil),
 	*new(EnumVariant), (*EnumVariant)(nil),
+	*new(Expansion), (*Expansion)(nil),
 	*new(ItemComments), (*ItemComments)(nil),
 	*new(MapEntry), (*MapEntry)(nil),
 	*new(MapPatternEntry), (*MapPatternEntry)(nil),

@@ -1,0 +1,26 @@
+// A program whose nomi.toml lists de and pl under [i18n] carries their CLDR
+// data and nothing else. A locale it does not list formats as its nearest
+// listed parent (de-CH as de), or, when none is listed, as the source
+// locale (fr as de). A literal of such a locale is a compile error, so fr
+// is read as text, as a reader's choice would be.
+import {
+    std/io
+    std/locale.Locale
+}
+
+pub fn total(n: Int, locale: Locale) -> String {
+    Int.format(n, locale)
+}
+
+/// The locale `tag` names, or de when it names none.
+pub fn chosen(tag: String) -> Locale {
+    Result.with_default(Locale.parse(tag), Locale`de`)
+}
+
+fn main() {
+    io.print("${Locale.available()}")
+    io.print(total(1234567, Locale`de`))
+    io.print(total(1234567, Locale`de-CH`))
+    io.print(total(1234567, chosen("fr")))
+    io.print(String.join_list(["a", "b", "c"], Locale`pl`))
+}

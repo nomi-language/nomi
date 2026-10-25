@@ -36,6 +36,18 @@ fn main() {
   }
 }
 `,
+	// std/uuid is lowered with the program, so its bodies are in the image.
+	"uuid.nomi": `import {
+  std/io
+  std/uuid.Uuid
+}
+
+fn main() {
+  id = Uuid` + "`0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A`" + `
+  io.print("${id} ${Uuid.version(id)}")
+  io.print(Debug.inspect([id, Uuid.nil()] |> Iter.sort() |> Iter.to_list()))
+}
+`,
 	"trap.nomi": `import std/io
 
 fn main() {
@@ -123,8 +135,8 @@ func TestBuildNoVM_TheRunnerRunsItAsNomiRunDoes(t *testing.T) {
 			"nomi run": runProcess(t, env, dir, input, nomiBin, append([]string{"run", imagePath}, args...)...),
 		}
 		if wasm != "" {
-			runs["wasip1 by path"] = runProcess(t, env, dir, input, node, append([]string{"--no-warnings", script, wasm, imagePath}, args...)...)
-			runs["wasip1 on stdin"] = runProcess(t, env, dir, string(data)+input, node, append([]string{"--no-warnings", script, wasm, "--no-fs", "-"}, args...)...)
+			runs["wasip1 by path"] = runNode(t, env, dir, input, node, append([]string{"--no-warnings", script, wasm, imagePath}, args...)...)
+			runs["wasip1 on stdin"] = runNode(t, env, dir, string(data)+input, node, append([]string{"--no-warnings", script, wasm, "--no-fs", "-"}, args...)...)
 		}
 		for how, got := range runs {
 			if got != want {

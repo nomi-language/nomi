@@ -104,7 +104,7 @@ func testWatch(ctx context.Context, parsed testArgs, stdout, stderr io.Writer, s
 		func() []string { return append(nomiFilesUnder(parsed.root), loaded...) },
 		func() { loaded = testedFiles(parsed.root) },
 		func(ctx context.Context, stdout, stderr io.Writer, stdin io.Reader) {
-			err := testVM(ctx, parsed.root, parsed.opts, parsed.format, stdout, stderr, stdin)
+			err := testVM(ctx, parsed.root, parsed.opts, parsed.format, parsed.timeout, stdout, stderr, stdin)
 			if err != nil && !errors.Is(err, errTestsFailed) {
 				fmt.Fprintln(stderr, err)
 			}
@@ -155,7 +155,8 @@ func nomiFilesUnder(root string) []string {
 
 // watchRuns runs run, and whenever one of files() changes stops it if it is
 // still running, prints the status line and runs it again, until ctx is
-// done. refresh, called as each run starts, updates what files answers.
+// done. refresh, called before each run after the first starts, updates
+// what files answers.
 func watchRuns(ctx context.Context, stdout, stderr io.Writer, stdin io.Reader,
 	files func() []string, refresh func(),
 	run func(ctx context.Context, stdout, stderr io.Writer, stdin io.Reader)) {
@@ -172,16 +173,18 @@ func watchRuns(ctx context.Context, stdout, stderr io.Writer, stdin io.Reader,
 			<-done
 		}
 	}
-	stop := start()
-	watchFiles(ctx, watchSet{
+	var stop func()
+	w := newWatcher(watchSet{
 		files: files,
 		changed: func(names string) {
 			stop()
 			watchSeparator(stderr, names)
-			stop = start()
 			refresh()
 		},
+		then: func() { stop = start() },
 	})
+	stop = start()
+	w.run(ctx)
 	stop()
 }
 

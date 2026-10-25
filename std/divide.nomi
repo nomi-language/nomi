@@ -10,7 +10,9 @@
 /// pub type Scale Decimal
 ///
 /// impl Divide<Scale, Ratio> for Ratio {
-///     fn divide(lhs: Ratio, rhs: Scale) -> Ratio { ... }
+///     fn divide(lhs: Ratio, rhs: Scale) -> Ratio {
+///         ...
+///     }
 /// }
 /// ```
 pub interface Divide<Rhs, Out> {

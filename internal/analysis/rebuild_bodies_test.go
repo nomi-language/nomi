@@ -196,7 +196,7 @@ func TestRebuildBodiesMatchesFull_TourAndSpec(t *testing.T) {
 			return err
 		}
 		for _, b := range doctest.ExtractBlocks(string(data), "nomi-run") {
-			if !b.HasInfo("ignore") {
+			if b.Runs() {
 				projects = append(projects, markedProject(t, fmt.Sprintf("tour/%s:L%d", filepath.Base(path), b.Line), b.Code))
 			}
 		}

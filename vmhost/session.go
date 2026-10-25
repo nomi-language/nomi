@@ -166,6 +166,7 @@ func (s *Session) Check(src string) (*Checked, error) {
 	}
 	lowering.Lock()
 	defer lowering.Unlock()
+	cfg.macros.held.Store(true)
 	prog, err := irbuild.AnalyzeVirtual(replModule, src, fc)
 	if err != nil {
 		return nil, err
@@ -212,7 +213,8 @@ func (s *Session) Run(ctx context.Context, p *Program) error {
 		return nil
 	}
 	if s.m == nil {
-		s.m = vm.NewProgram(p.entry, p.res.IRModules(), s.out).WithHosts(p.hosts...).WithHostLookup(s.lookup)
+		s.m = vm.NewProgram(p.entry, p.res.IRModules(), s.out).WithHosts(p.hosts...).WithHostLookup(s.lookup).
+			WithLocaleData(p.localeData()).WithMessages(p.messages())
 		if s.errOut != nil {
 			s.m = s.m.WithErrorOutput(s.errOut)
 		}

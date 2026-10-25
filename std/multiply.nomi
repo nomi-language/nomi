@@ -11,7 +11,9 @@
 /// pub type Scale Int
 ///
 /// impl Multiply<Scale, Quantity> for Quantity {
-///     fn multiply(lhs: Quantity, rhs: Scale) -> Quantity { ... }
+///     fn multiply(lhs: Quantity, rhs: Scale) -> Quantity {
+///         ...
+///     }
 /// }
 /// ```
 pub interface Multiply<Rhs, Out> {

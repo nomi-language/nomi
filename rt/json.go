@@ -125,7 +125,7 @@ type JsonDecodeError struct {
 // JsonShapeError is Nomi's `std/json.Json.ShapeError`: a mismatch found while
 // converting an already-parsed `Json` tree into a typed Nomi value.
 //
-// Distinct from JsonDecodeError and std says why: a parse error is `DecodeError`
+// Distinct from JsonDecodeError and std says why: a parse error is `Json.DecodeError`
 // and a shape error describes the path inside a well-formed tree where the typed
 // conversion failed. One record with both field sets would let the builder
 // construct either shape for either function, which is a wrong answer rather

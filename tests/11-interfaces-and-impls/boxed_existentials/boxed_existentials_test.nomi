@@ -1,0 +1,89 @@
+// A value held as an interface of the program's own whose runtime value does
+// not name its impl: a std container instance (`List<Int>` and
+// `List<String>` select different bodies) and an enum with an `embeds`
+// variant (a widened value is the embedded struct). Each dispatches to the
+// impl of the type it had where it became an interface value, and is
+// otherwise the value itself.
+import protocols.{Circle, Has, Shape, Show}
+
+struct Holder {
+    s: Show
+}
+
+fn of(s: Show) -> String {
+    Show.loud(s)
+}
+
+fn give(flag: Bool) -> Show {
+    if flag { return [1, 2] }
+    ["a"]
+}
+
+fn circle_shape(r: Int) -> Shape {
+    #Circle{r}
+}
+
+test "each container held as the interface dispatches to its instance's impl" {
+    a: Show = [1, 2]
+    assert Show.show(a) == "[i1 i2]"
+    assert of(#[3]) == "#[i3]!"
+    assert of(%["x", "y"]) == "set of 2!"
+    assert of(%{"k" => 4}) == "k=i4!"
+    assert of(Some("s")) == "some 's'!"
+    r: Result<Int, String> = Ok(5)
+    assert of(r) == "ok i5!"
+}
+
+test "a parameter, a result, a list element, a field and a payload" {
+    assert of(["p"]) == "['p']!"
+    assert Show.show(give(True)) == "[i1 i2]"
+    assert Show.show(give(False)) == "['a']"
+
+    xs: List<Show> = [
+        [1],
+        ["s"],
+        [[2]],
+        7,
+    ]
+
+    assert (xs |> Iter.map(&Show.show(&1)) |> String.join(",")) == "[i1],['s'],[[i2]],i7"
+    h = #Holder{s: [8, 9]}
+    assert Show.show(h.s) == "[i8 i9]"
+    m: Maybe<Show> = Some(#["v"])
+
+    shown = case m {
+        Some(s) -> Show.show(s)
+        None -> "none"
+    }
+
+    assert shown == "#['v']"
+}
+
+test "a generic interface's instance held by a container" {
+    h: Has<Int> = [1, 2, 2]
+    assert Has.count_of(h, 2) == 2
+    assert Has.count_of(h, 5) == 0
+}
+
+test "an embeds enum's struct variant beside its own variant and the struct" {
+    xs: List<Show> = [circle_shape(1), Shape.Dot, #Circle{r: 2}]
+
+    assert (xs
+    |> Iter.map(&Show.show(&1))
+    |> String.join(", ")) == "shape circle 1, shape dot, circle 2"
+
+    s: Show = circle_shape(3)
+    assert of(s) == "shape circle 3!"
+}
+
+test "a boxed value compares and renders as the value" {
+    xs: List<Show> = [[1, 2]]
+    ys: List<Show> = [[1, 2]]
+    zs: List<Show> = [[3]]
+    assert xs == ys
+    assert xs != zs
+    a: Show = [1, 2]
+    assert Debug.inspect(a) == "[1, 2]"
+    s: Show = circle_shape(4)
+    assert Debug.inspect(s) == Debug.inspect(circle_shape(4))
+}

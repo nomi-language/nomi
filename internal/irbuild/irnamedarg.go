@@ -95,8 +95,24 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	for i := range temps {
 		temps[i] = ir.NoTemp
 	}
+	// An iteration operation's callback given by name (`Iter.find(xs, f:
+	// is_big)`) is widened to its signalling form as typeQualCall widens a
+	// positional one, before it is lowered here.
+	ti, typeOwner := fa.Object.(*ast.TypeIdent)
+	signalOwner := typeOwner && len(names) == 2 && bl.signallingOwner(ti.Name, fa.Field.Name) &&
+		(ti.Name != "Iter" || !irSeededIterMethod(fa.Field.Name))
 	for _, i := range plan.order {
 		a := argExpr(t.Args[i])
+		if signalOwner && plan.slots[i] == 1 {
+			if ref := irFuncRefNode(a); ref != nil {
+				defer bl.markCtlRef(ref)()
+			}
+			undo, ok := bl.markSignalCallback(a)
+			if !ok {
+				return no()
+			}
+			defer undo()
+		}
 		src, k, _, ok := bl.lower(a)
 		if !ok || !irCallOperandKind(k) {
 			return no()
@@ -124,6 +140,18 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 			return no()
 		}
 		last = len(temps) - 1
+	}
+	if gap && isFunc {
+		if filledHere, handled := bl.namedSiblingImplFill(t, fa, fd, kinds, temps); handled {
+			// `Fake.new(answer: f)`, whose skipped default names what only
+			// the declaring file can: that file's accessors fill every
+			// omitted slot.
+			if !filledHere {
+				return no()
+			}
+			gap = false
+			last = len(temps) - 1
+		}
 	}
 	if gap && isFunc {
 		// `Date.new(2026, day: 5)`: a slot omitted before a supplied one
@@ -187,9 +215,14 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	// Inside an assertion subject the rows name the written arguments, by
 	// the slots they filled, as a direct call's do (recordCallSlots); the
 	// stand-ins record nothing.
+	//
+	// The positional call goes through the whole dispatch, as a call
+	// written positionally outside an assertion would: one that leaves a
+	// std function's trailing defaults out (`Int.format(n, l, grouping:
+	// False)`) is a std short call, which qualCall alone does not reach.
 	recording := bl.recording
 	bl.recording = 0
-	v, k, mobile, ok := bl.qualCall(positional, fa)
+	v, k, mobile, ok := bl.call(positional)
 	bl.recording = recording
 	if ok {
 		bl.recordCallSlots(t.Args, plan, names, temps, kinds, k)

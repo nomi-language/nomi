@@ -24,7 +24,7 @@ type Inspected struct {
 }
 
 // Inspect wraps v for a debugger.
-func Inspect(v any) Inspected { return Inspected{value: v} }
+func Inspect(v any) Inspected { return Inspected{value: Unbox(v)} }
 
 // InspectChild is one child: its name in the tree and the child itself.
 type InspectChild struct {
@@ -122,6 +122,7 @@ func (n Inspected) Text() string {
 // Debug writes it, `#Circle{radius: 5}`, at any depth: the row text names the
 // variant twice.
 func inspectText(v any) string {
+	v = Unbox(v)
 	switch x := v.(type) {
 	case string:
 		return InspectString(x)

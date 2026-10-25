@@ -185,6 +185,24 @@ const (
 		"impl Show for Map<String, Int> {\n    fn show(m: Map<String, Int>) -> String {\n        \"map${Map.size(m)}\"\n    }\n}\n\n" +
 		"impl Zero for List<T> where T: Zero {\n    fn zero(n: Int) -> List<T> {\n        Iter.repeat(T.zero(n)) |> Iter.take(2) |> Iter.to_list()\n    }\n}\n\n" +
 		"fn shown<T>(x: T) -> String where T: Show {\n    T.loud(x)\n}"
+	// A program's generic interface implemented for a std container.
+	mxHas = "interface Has<T> {\n    fn count_of(value: self, x: T) -> String\n}\n\n" +
+		"impl Has<Int> for List<Int> {\n    fn count_of(xs: List<Int>, x: Int) -> String {\n" +
+		"        if (xs |> Iter.filter(&(&1 == x)) |> Iter.count()) == 2 {\n            \"two\"\n        } else {\n            \"other\"\n        }\n    }\n}"
+	// std interfaces implemented for std receivers at a type argument the
+	// program declares, which the orphan rule admits through it: an
+	// operator on Int and a Contains on String.
+	mxPct = "type Pct Int\n\nstruct Sep {\n    s: String\n}\n\n" +
+		"impl Multiply<Pct, Int> for Int {\n    fn multiply(lhs: Int, rhs: Pct) -> Int {\n        Pct(p) = rhs\n        lhs * p / 100\n    }\n}\n\n" +
+		"impl Contains<Sep> for String {\n    fn contains?(c: String, x: Sep) -> Bool {\n        String.contains?(c, x.s)\n    }\n}\n\n" +
+		"fn scaled<T>(x: T, p: Pct) -> T where T: Multiply<Pct, T> {\n    x * p\n}"
+	// An interface implemented for an enum with an `embeds` variant and for
+	// the struct it embeds.
+	mxSays = mxShape + "\n\ninterface Says {\n    fn says(value: self) -> String\n}\n\n" +
+		"impl Says for Shape {\n    fn says(s: Shape) -> String {\n        case s {\n            #.Spot{n} -> \"shape spot ${n}\"\n            _ -> \"shape other\"\n        }\n    }\n}\n\n" +
+		"impl Says for Spot {\n    fn says(s: Spot) -> String {\n        \"spot ${s.n}\"\n    }\n}\n\n" +
+		"impl Says for Int {\n    fn says(n: Int) -> String {\n        \"int ${n}\"\n    }\n}\n\n" +
+		"fn spot_shape() -> Shape {\n    #Spot{n: 2}\n}"
 )
 
 var mxFeatures = []mxFeature{
@@ -220,6 +238,8 @@ var mxFeatures = []mxFeature{
 		reject: "requires a determinable enum type|resolves only to enum variants|cannot be resolved here|is not determined"},
 	{name: "distinct", decls: "type Meters Int", typ: "Meters", expr: "Meters(3)", want: "Meters(3)"},
 	{name: "unit", typ: "Unit", expr: "Unit", want: "Unit", tags: tagUnit},
+	{name: "message", decls: "message greet(name: String) `Hello, {$name}!`", typ: "Message", expr: `greet("Ann")`,
+		obs: "Message.format($v, Locale`pl`)", want: "Hello, Ann!"},
 	{name: "generic struct", decls: mxBox, typ: "Box<Int>", expr: "#Box{v: 1}", want: "#Box{v: 1}"},
 	{name: "generic enum", decls: mxTree, typ: "Tree<String>", expr: `Tree.Leaf("a")`, want: `Leaf("a")`},
 	{name: "generic bare variant", decls: mxTree, typ: "Tree<Int>", expr: "Tree.Nil", want: "Nil", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
@@ -282,6 +302,12 @@ var mxFeatures = []mxFeature{
 		obs: "gives_text($v)", want: "two", tags: tagExistential | tagWidens},
 	{name: "two-instantiation result", decls: mxTwo, typ: "Int", expr: "Gives.gives(#Two{n: 6})", want: "6",
 		tags: tagExpects, reject: "only the result's type tells them apart"},
+	{name: "local type argument operator", decls: mxPct, typ: "Int",
+		expr: "300 * Pct(50) + Int.multiply(10, Pct(30)) + Multiply.multiply(100, Pct(1)) + scaled(40, Pct(50)) + 2 * 3",
+		want: "180"},
+	{name: "local type argument contains", decls: mxPct, typ: "Bool",
+		expr: `String.contains?("a-b", #Sep{s: "-"}) and Contains.contains?("ab", #Sep{s: "b"}) and String.contains?("ab", "a")`,
+		want: "True"},
 	{name: "container impl call", decls: mxShow, typ: "String",
 		expr: `Show.loud([[1], [2]]) + List.show([3]) + Show.show(%{"a" => 1})`, want: `"[[i1] [i2]]![i3]map1"`, tags: tagCall},
 	{name: "container impl bound", decls: mxShow, typ: "String", expr: "shown(Some([4]))", want: `"some [i4]!"`,
@@ -290,6 +316,41 @@ var mxFeatures = []mxFeature{
 		want: "[[5, 5], [5, 5]]", tags: tagCall},
 	{name: "container existential", decls: mxShow, typ: "Show", expr: "[1, 2]", obs: "Show.loud($v)", want: "[i1 i2]!",
 		tags: tagExistential | tagWidens},
+	// Two instances of one container in one list of existentials: each
+	// element's box names its own instance, whose body differs.
+	{name: "container existential instances", decls: mxShow, typ: "List<Show>", expr: "[[1], [[2]], Some(3)]",
+		obs: `$v |> Iter.map(&Show.show(&1)) |> String.join(",")`, want: "[i1],[[i2]],some i3",
+		tags: tagExistential | tagExpects, reject: "list element type mismatch"},
+	{name: "container generic existential", decls: mxHas, typ: "Has<Int>", expr: "[1, 2, 2]", obs: "Has.count_of($v, 2)",
+		want: "two", tags: tagExistential | tagWidens},
+	// An `embeds` enum's widened struct and its own variant held as the
+	// interface beside the embedded struct, which implements it too.
+	{name: "embeds existential", decls: mxSays, typ: "Says", expr: "spot_shape()", obs: "Says.says($v)",
+		want: "shape spot 2", tags: tagExistential | tagWidens},
+	{name: "embeds existential list", decls: mxSays, typ: "List<Says>", expr: "[spot_shape(), 5, Shape.Dot, #Spot{n: 4}]",
+		obs: `$v |> Iter.map(&Says.says(&1)) |> String.join(",")`, want: "shape spot 2,int 5,shape other,spot 4",
+		tags: tagExistential | tagExpects, reject: "list element type mismatch"},
+	// Interface values compared, and as a Map's keys and a Set's elements:
+	// by the concrete value's type, then its value.
+	{name: "existential equality", decls: mxNamed + "\n\nfn self_equal(n: Named) -> String {\n    \"${n == n} ${n != n}\"\n}",
+		typ: "Named", expr: "#Pt{x: 5}", obs: "self_equal($v)", want: "True False", tags: tagExistential | tagWidens},
+	{name: "existential map key", decls: mxShow, typ: "Map<Show, Int>", expr: "%{[1] => 7, 1 => 8}",
+		obs: "Debug.inspect(Map.get($v, [1]))", want: "Some(7)", tags: tagExistential | tagExpects, reject: "map key type mismatch"},
+	{name: "container existential set", decls: mxShow, typ: "Set<Show>", expr: "%[[1], 1, [1]]",
+		obs: "Debug.inspect(Set.size($v))", want: "2", tags: tagExistential | tagExpects, reject: "set element type mismatch"},
+	// Containers and an `embeds` enum's value held as std's Display: boxed
+	// with the type each had there, so a List and a Vector are two values
+	// and the enum renders through its own impl.
+	{name: "std container existential set", typ: "Set<Display>", expr: "%[[1], Iter.to_vector([1]), [1]]",
+		obs: "Debug.inspect(Set.size($v))", want: "2", tags: tagExistential | tagExpects, reject: "set element type mismatch"},
+	{name: "embeds display existential", decls: mxSays + "\n\nimpl Display for Shape {\n    fn to_string(_s: Shape) -> String {\n        \"a shape\"\n    }\n}\n\n" +
+		"impl Display for Spot {\n    fn to_string(_s: Spot) -> String {\n        \"a spot\"\n    }\n}",
+		typ: "Display", expr: "spot_shape()", obs: "Display.to_string($v)", want: "a shape", tags: tagExistential | tagWidens},
+	// Interface values through an Equatable and a Hashable bound: each
+	// instance compares and hashes them as `==` and a Set do.
+	{name: "existential equality bounds", decls: mxShow + "\n\nfn kinds<T>(xs: List<T>) -> String where T: Equatable and Hashable {\n" +
+		"    \"${Set.size(Iter.to_set(xs))} ${xs |> Iter.filter(&List.contains?(xs, &1)) |> Iter.count()}\"\n}",
+		typ: "List<Show>", expr: "[[1], 1, [1]]", obs: "kinds($v)", want: "2 3", tags: tagExistential | tagExpects, reject: "list element type mismatch"},
 	{name: "existential list", typ: "List<Display>", expr: `[1, "a"]`,
 		obs: `$v |> Iter.map(fn d -> Display.to_string(d)) |> String.join(",")`, want: "1,a",
 		tags: tagExistential | tagExpects, reject: "list element type mismatch"},
@@ -317,6 +378,30 @@ var mxFeatures = []mxFeature{
 		obs: "Debug.inspect(Iter.to_list($v))", want: "[3, 4, 8]", tags: tagIter},
 	{name: "iter map_reduce", typ: "#(List<String>, Int)", expr: `["a", "bb"] |> Iter.map_reduce(fn at = 0, s -> #("${at}${s}", at + 1))`,
 		want: `#(["0a", "1bb"], 2)`},
+	// A seed bound by a pattern, which `continue` keeps whole.
+	{name: "iter reduce pattern seed", typ: "#(Int, List<Int>)",
+		expr: "[1, 2, 3] |> Iter.reduce(fn #(n, xs) = #(0, []), x -> {\n    if x == 2 { continue }\n    #(n + x, xs + [x])\n})",
+		want: "#(4, [1, 3])", tags: tagNested},
+	// A fold's starting value given by name, with a named function.
+	{name: "iter reduce from", typ: "Int", expr: "[1, 2, 3] |> Iter.reduce(Int.add, from: 10)", want: "16"},
+	// An iter-sensitive helper is the callback itself: its `continue` skips
+	// the element and its `break v` answers v and stops, as the callback's
+	// own would. A fold and a loop take their starting value as `from:`.
+	{name: "iter-sensitive callback", decls: "fn skip_two(n: Int) -> Int {\n    if n == 2 { continue }\n    n * 10\n}",
+		typ: "List<Int>", expr: "[1, 2, 3] |> Iter.map(skip_two) |> Iter.to_list()", want: "[10, 30]", tags: tagNested},
+	{name: "iter-sensitive fold break", decls: "fn stop_big(acc: Int, n: Int) -> Int {\n    if n > 2 { break acc * 10 }\n    acc + n\n}",
+		typ: "Int", expr: "[1, 2, 3, 4] |> Iter.reduce(stop_big, from: 0)", want: "30", tags: tagNested},
+	{name: "iter-sensitive loop step", decls: "fn count_up(n: Int) -> Int {\n    if n == 1 { return 3 }\n    if n > 4 { break n * 10 }\n    n + 1\n}",
+		typ: "Int", expr: "Iter.loop(count_up, from: 0)", want: "50", tags: tagNested},
+	// Called anywhere, the whole body of a callback lambda included, its
+	// `continue` would cross the caller's boundary too: rejected in every
+	// context.
+	{name: "iter-sensitive call", decls: "fn skip_two(n: Int) -> Int {\n    if n == 2 { continue }\n    n * 10\n}",
+		typ: "List<Int>", expr: "[1, 2, 3] |> Iter.map(fn x -> {\n    y = skip_two(x)\n    y + 1\n}) |> Iter.to_list()",
+		want: "[11, 31]", tags: tagNested},
+	{name: "iter-sensitive lambda body", decls: "fn skip_two(n: Int) -> Int {\n    if n == 2 { continue }\n    n * 10\n}",
+		typ: "List<Int>", expr: "[1, 2, 3] |> Iter.map(fn x -> skip_two(x)) |> Iter.to_list()",
+		want: "[10, 30]", tags: tagNested},
 	// `Summable.empty_sum()` makes a T with no element, so T must be
 	// determined: by the position over `[]`, or by the inner lists' List.
 	{name: "sum of an empty list", typ: "Int", expr: "Iter.sum([])", want: "0", tags: tagUntyped, reject: mxUnsolved},
@@ -803,12 +888,14 @@ var mxStdImports = []struct{ name, module, item string }{
 	{"Json", "std/json", "Json"},
 	{"ToJson", "std/json", "ToJson"},
 	{"FromJson", "std/json", "FromJson"},
+	{"Message", "std/message", "Message"},
+	{"Locale", "std/locale", "Locale"},
 }
 
 var (
 	mxIdent    = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*`)
-	mxDeclName = regexp.MustCompile(`(?m)^(?:struct|enum|type|interface|fn|once|typealias) ([A-Za-z_][A-Za-z0-9_]*)`)
-	mxPubDecl  = regexp.MustCompile(`(?m)^(struct|enum|type|interface|fn|once|typealias) `)
+	mxDeclName = regexp.MustCompile(`(?m)^(?:struct|enum|type|interface|fn|once|typealias|message) ([A-Za-z_][A-Za-z0-9_]*)`)
+	mxPubDecl  = regexp.MustCompile(`(?m)^(struct|enum|type|interface|fn|once|typealias|message) `)
 	mxStrLit   = regexp.MustCompile(`"(?:[^"\\]|\\.)*"`)
 )
 
@@ -1014,7 +1101,16 @@ var mxCheckerRules = []mxCheckerRule{
 	{match: mxBindsWhollyOpen, want: mxUnsolved,
 		why: "`Iter.sum([])`'s whole type is the T nothing has fixed yet, and the context binds a generic " +
 			"type whose type argument is that T before anything fixes it"},
+	{match: func(c mxCell) bool {
+		return c.f.name == "iter-sensitive call" || c.f.name == "iter-sensitive lambda body"
+	},
+		want: mxIterSensitiveUse,
+		why:  "an iter-sensitive function may only be passed as an iteration callback itself, and this callback calls it"},
 }
+
+// mxIterSensitiveUse matches the rejection of a call to an iter-sensitive
+// function.
+const mxIterSensitiveUse = "uses `continue`, so it cannot be called: pass it as an iteration callback itself"
 
 // mxBindsWhollyOpen matches the sum of an empty list inside a context
 // whose own unannotated binding has a generic type whose type argument is
@@ -1068,9 +1164,7 @@ func checkCell(dir string, c mxCell) mxOutcome {
 var mxKnown = []struct {
 	gap   string
 	match func(c mxCell) bool
-}{
-	{gap: "std container held as a program interface", match: func(c mxCell) bool { return c.f.name == "container existential" }},
-}
+}{}
 
 func mxKnownFor(c mxCell) string {
 	for _, k := range mxKnown {

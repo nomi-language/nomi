@@ -31,7 +31,9 @@ import (
 	"os"
 
 	"github.com/nomi-language/nomi/hostadapt"
+	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/internal/stdmessageformat"
 	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/rt"
 )
@@ -227,7 +229,12 @@ func run(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string,
 	if stdin != nil {
 		in = rt.NewInput(stdin)
 	}
-	m := vm.NewProgram(entry, im.Modules, stdout).WithHosts(hosts...).WithErrorOutput(stderr)
+	locales, err := localeData(im)
+	if err != nil {
+		fmt.Fprintf(stderr, "nomi: %v\n", err)
+		return 1
+	}
+	m := vm.NewProgram(entry, im.Modules, stdout).WithHosts(hosts...).WithErrorOutput(stderr).WithLocaleData(locales).WithMessages(messages(im))
 	if in != nil {
 		m = m.WithInput(in)
 	}
@@ -255,6 +262,30 @@ func run(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string,
 		return 1
 	}
 	return 0
+}
+
+// localeData is the CLDR data image carries (ir.Image.Locales), decoded:
+// the only locale data a runner has, since it links none of its own. An
+// image that carries none answers empty data, so a program that never
+// reached locale data does not read some by accident.
+func localeData(im ir.Image) (*cldrdata.Data, error) {
+	if len(im.Locales) == 0 {
+		return cldrdata.Empty(), nil
+	}
+	d, err := cldrdata.Decode(im.Locales)
+	if err != nil {
+		return nil, fmt.Errorf("the compiled program's locale data cannot be read: %v", err)
+	}
+	return d, nil
+}
+
+// messages is the program's messages: the tables its image carries, which
+// are those of the messages and nouns it reaches, and in a page the locale
+// files it loads.
+func messages(im ir.Image) *stdmessageformat.Runtime {
+	return stdmessageformat.NewRuntime(func() ([]string, []string) {
+		return vm.MessageTables(im.Modules, vm.ModuleFuncs(im.Modules), func(name string) bool { return name == vm.MessageModule })
+	}, localeFetcher())
 }
 
 func entryMain(entry *ir.Module) *ir.Func {

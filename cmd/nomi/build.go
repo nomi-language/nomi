@@ -202,6 +202,7 @@ func build(b buildArgs, stderr io.Writer) error {
 	var image []byte
 	var runner, decls string
 	var reactor bool
+	var localeFiles map[string][]byte
 	if res.FastPath {
 		p, err := vmhost.Load(absPath)
 		if err != nil {
@@ -214,6 +215,16 @@ func build(b buildArgs, stderr io.Writer) error {
 		// to load (`nomi build-vm --reactor`).
 		if b.web || reactor || b.noVM {
 			buildImage = p.BuildExportsImage
+		}
+		if b.web {
+			buildImage = func() ([]byte, bool, error) {
+				web, err := p.BuildWebImage()
+				if err != nil {
+					return nil, false, err
+				}
+				localeFiles = web.Files
+				return web.Image, web.UsesCompiler, nil
+			}
 		}
 		img, usesCompiler, err := buildImage()
 		if err != nil {
@@ -262,7 +273,7 @@ func build(b buildArgs, stderr io.Writer) error {
 		}
 	}
 	if b.web {
-		return writeWebFolder(b, runner, image, decls, static, stderr)
+		return writeWebFolder(b, runner, image, decls, localeFiles, static, stderr)
 	}
 	if err := writeExecutable(b.out, runner, image, b.target); err != nil {
 		return fmt.Errorf("nomi build: %w", err)

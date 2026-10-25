@@ -53,7 +53,9 @@ const viewWait = 50 * time.Millisecond
 // View takes the view lock for reading and answers its release. Hold it
 // while reading an installed analysis (a snapshot's Analysis, Nodes or
 // Program, or anything reached from them), so that no recheck rewrites them
-// meanwhile. It may be taken again while held.
+// meanwhile. Do not take it again while it is held: the second View waits,
+// holding the first, for a recheck that is waiting for the lock, and that
+// recheck gives up after viewWait and checks the whole program afresh.
 //
 // A reader that comes while a recheck waits for the lock waits for the
 // recheck first, so a stream of requests does not keep it out; that wait
@@ -250,6 +252,19 @@ func (dm *DocumentManager) programFor(root, entry, docKey, uri, content, manifes
 			changed = append(changed, k)
 		}
 	}
+	// A file whose expansions read an input that changed is edited, with
+	// its own text unchanged.
+	for _, k := range dm.changedInputs(prev) {
+		if _, own := texts[k]; !own {
+			// A macro's own source changed, a file of another module
+			// the program reads from the disk.
+			reason = "a macro's source file changed"
+			return fresh()
+		}
+		if !slices.Contains(changed, k) {
+			changed = append(changed, k)
+		}
+	}
 	if len(changed) == 0 && prev.Files[docKey] == nil {
 		// The program does not reach the document, so nothing of it is
 		// installed for it.
@@ -323,7 +338,9 @@ func ownNodes(p *CheckedProgram, key string) []ast.Node {
 		return nodes[:min(p.entryOwn, len(nodes))]
 	}
 	start := 0
-	for start < len(nodes) && isPreludeInjectLine(nodes[start].LineNum()) {
+	// A message expansion's hidden imports are the file's own, as a build
+	// of the file alone has them.
+	for start < len(nodes) && isPreludeInjectLine(nodes[start].LineNum()) && nodes[start].LineNum() != messageImportLine {
 		start++
 	}
 	end := min(start+p.Files[key].ownNodes, len(nodes))
@@ -342,7 +359,8 @@ func ownNodes(p *CheckedProgram, key string) []ast.Node {
 //     application-field roots', the iteration and concurrency checks',
 //     coherence over every file, the unused whole-file imports, and the
 //     derive-lowering and duplicate test name errors;
-//   - another file: the build's (derive lowering's among them), CheckTypes',
+//   - another file: the build's (derive lowering's among them), the
+//     program's own that are about it (TypeError.File), CheckTypes',
 //     the application-field roots', the iteration and concurrency checks
 //     over its own nodes, the missing impls its own demands find, its
 //     unused whole-file imports, and its duplicate test names.
@@ -361,20 +379,29 @@ func (dm *DocumentManager) documentBuild(p *CheckedProgram, key, content, manife
 		errs = append(errs, c.entryChecks...)
 		errs = append(errs, entryCoherence(p)...)
 		errs = append(errs, c.implImports[key]...)
+		errs = append(errs, c.entryMacroChecks(p)...)
 		errs = append(errs, c.frontEnd...)
 	} else {
+		errs = append(errs, errorsNamingFile(fa.FilePath, fa.Program().Errors)...)
 		errs = append(errs, c.check[key]...)
 		errs = append(errs, c.appRoots[key]...)
-		errs = append(errs, AnalyzeIterSensitivity(fa, own)...)
 		errs = append(errs, CheckConcurrentScope(fa, own)...)
 		errs = append(errs, CheckBootScope(fa, own)...)
 		errs = append(errs, CheckTaskLifetime(fa, own)...)
 		errs = append(errs, MissingImpls(fa.Program(), []*FileAnalysis{fa})...)
 		errs = append(errs, c.implImports[key]...)
+		errs = append(errs, c.macroChecks[key]...)
 		errs = append(errs, CheckDuplicateTestNames(own)...)
 	}
 	damaged := p.damaged[key]
-	fa.TypeErrors = suppressInDamagedSpans(errs, damaged)
+	if MacroFailed(p.Nodes) && (key == p.Entry || !InUnbuiltMacroModule(p.Nodes, fa.FilePath)) {
+		checks := c.macroChecks[key]
+		if key == p.Entry {
+			checks = c.entryMacroChecks(p)
+		}
+		errs = MacroErrorsAlone(p.Nodes[key], checks)
+	}
+	fa.TypeErrors = suppressInDamagedSpans(RelocateExpansionErrors(p.Nodes[key], errs), damaged)
 	b := builtAnalysis{
 		nodes:      own,
 		errs:       p.Syntax[key],

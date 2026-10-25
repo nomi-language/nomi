@@ -608,7 +608,10 @@ func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, imp
 		return false
 	}
 	if concreteIface, ok := concrete.(*InterfaceType); ok {
-		return sameNominalIdentity(concreteIface.Origin, concreteIface.Name, iface.Origin, iface.Name)
+		// An interface value satisfies its own interface, and Equatable and
+		// Hashable whatever it holds (existentialSatisfies).
+		return sameNominalIdentity(concreteIface.Origin, concreteIface.Name, iface.Origin, iface.Name) ||
+			!concreteIface.DefaultSelf && iface.Name != "Debug" && existentialSatisfies(concreteIface, iface.Name, iface.Origin)
 	}
 	if iface.Name == "Struct" {
 		return isStructShaped(concrete)

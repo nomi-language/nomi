@@ -914,6 +914,10 @@ func emitNode(n ast.Node) Doc {
 		return emitTypeDef(v)
 	case *ast.ExternFunc:
 		return emitExternFunc(v)
+	case *ast.KeywordDecl:
+		return emitKeywordDecl(v)
+	case *ast.MacroDecl:
+		return emitMacroDecl(v)
 	case *ast.ExternType:
 		return emitExternType(v)
 	case *ast.ExternPackage:
@@ -5292,6 +5296,41 @@ func emitExternFunc(v *ast.ExternFunc) Doc {
 	if v.ForeignAlias != "" {
 		parts = append(parts, Text(" go "), Text(v.ForeignAlias), Text("."), Text(v.ForeignName))
 	}
+	return Concat(parts...)
+}
+
+// emitKeywordDecl renders a keyword declaration by the general rule
+// `[pub] [module.]keyword name [(params)] [-> type] [[Tag]raw body]`,
+// writing each part that was written.
+func emitKeywordDecl(v *ast.KeywordDecl) Doc {
+	parts := emitDocBeforeAttachedTests(v.Doc, nil)
+	if v.Public {
+		parts = append(parts, Text("pub "))
+	}
+	parts = append(parts, Text(v.QualifiedKeyword()+" "+v.Name))
+	if v.HasParams {
+		paramDocs := make([]Doc, 0, len(v.Params))
+		for _, p := range v.Params {
+			paramDocs = append(paramDocs, emitFuncDefParam(p))
+		}
+		parts = append(parts, emitParamList(v.Line, paramDocs, v.Params, v.ParamsEndTrivia))
+	}
+	if v.ReturnTypeExpr != nil {
+		parts = append(parts, Text(" -> "), emitTypeExpr(v.ReturnTypeExpr))
+	}
+	if v.Body != nil {
+		parts = append(parts, Text(" "+v.BodyTag), emit(v.Body))
+	}
+	return Concat(parts...)
+}
+
+// emitMacroDecl renders `[pub] macro name: Type`.
+func emitMacroDecl(v *ast.MacroDecl) Doc {
+	parts := emitDocBeforeAttachedTests(v.Doc, nil)
+	if v.Public {
+		parts = append(parts, Text("pub "))
+	}
+	parts = append(parts, Text("macro "+v.Name+": "), emitTypeExpr(v.Impl))
 	return Concat(parts...)
 }
 

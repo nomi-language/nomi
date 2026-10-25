@@ -79,7 +79,7 @@ test "an owner-qualified impl fn" {
 // function) passed as the callback of the iteration operations that catch
 // them. Its body is lowered in the signalling form its arity names: two
 // parameters is a reduction's, one an adapter's or `Iter.each`'s. A
-// reduction reaches it through a seeded lambda that only forwards to it, so
+// reduction takes it as its callback with the starting value as `from:`, so
 // its signals stop the reduction.
 func TestNamedCallback_IterSensitiveFunctionsRun(t *testing.T) {
 	const src = `import std/io
@@ -150,8 +150,8 @@ test "take_while stops with break False" {
 }
 
 test "reduce continues and breaks with the accumulator" {
-  assert Iter.reduce([1, -5, 2, 3, 20, 4], fn total = 0, n -> sum_small(total, n)) == 26
-  assert Iter.reduce([1, 2, 0, 4], fn total = 0, n -> stop_at_zero(total, n)) == 3
+  assert Iter.reduce([1, -5, 2, 3, 20, 4], sum_small, from: 0) == 26
+  assert Iter.reduce([1, 2, 0, 4], stop_at_zero, from: 0) == 3
 }
 
 test "each stops" {
@@ -169,31 +169,34 @@ test "iterate stops" {
 	}
 }
 
-// An iter-sensitive function called directly, even from inside a callback
-// lambda the checker admits, has nowhere to send its signal: the builder
-// declines the caller rather than leaking the signal as a value.
-func TestNamedCallback_IterSensitiveDirectCallDeclines(t *testing.T) {
-	const src = `import std/io
-
-fn skip_odd(n: Int) -> Int {
-  if n % 2 == 1 {
+// An iter-sensitive function in parentheses is the callback itself, as the
+// checker admits it and `nomi fmt` writes it without them.
+func TestNamedCallback_ParenthesizedIterSensitiveFunctionsRun(t *testing.T) {
+	const src = `fn skip_big(n: Int) -> Int {
+  if n > 100 {
     continue
   }
   n
 }
 
-fn evens(xs: List<Int>) -> List<Int> {
-  Iter.map(xs, fn x -> skip_odd(x)) |> Iter.to_list()
+fn stop_at_zero(total: Int, n: Int) -> Int {
+  if n == 0 {
+    break
+  }
+  total + n
 }
 
-fn main() {
-  io.print(evens([1, 2]))
+test "map skips through parentheses" {
+  assert [5, 500, 7] |> Iter.map((skip_big)) |> Iter.to_list() == [5, 7]
+  assert Iter.map([5, 500, 7], f: ((skip_big))) |> Iter.to_list() == [5, 7]
+}
+
+test "reduce stops through parentheses" {
+  assert [1, 2, 0, 4] |> Iter.reduce((stop_at_zero), from: 0) == 3
+  assert Iter.reduce([1, 2, 0, 4], (stop_at_zero), from: 0) == 3
 }
 `
-	declined := irDeclinesOf(t, src)
-	if got := declined["evens"]; !strings.Contains(got, "a direct call to a function that uses break or continue: skip_odd") {
-		t.Fatalf("evens declined for %q; want the direct-call reason (all: %v)", got, declined)
-	}
+	irTestBodyVM(t, src, 2)
 }
 
 // `random.Generator.bool()` names a std module's type whose member is
@@ -297,6 +300,51 @@ test "a failing named call reports the written arguments" {
 `
 	out := irTestBodyVM(t, src, 3)
 	if !strings.Contains(out, "Date.new(y, day: d)\n        = #Date{day: 4, month: 1, year: 2026}") {
+		t.Errorf("the failing case does not report the named call's value:\n%s", out)
+	}
+}
+
+// A named argument that leaves a std function's trailing defaults out is a
+// std short call inside an assertion subject too, as it is outside one: its
+// positional form goes through the whole call dispatch. `String.pad_start`
+// with `width:` named and `fill` left out was BLOCKED there.
+func TestNamedCallback_StdShortCallWithANamedArgumentInAnAssertion(t *testing.T) {
+	const src = `test "a named argument before an omitted trailing default" {
+  assert String.pad_start("7", width: 3) == "  7"
+}
+
+test "a failing one reports the written arguments" {
+  w = 3
+  assert String.pad_start("7", width: w) == "7"
+}
+`
+	out := irTestBodyVM(t, src, 2)
+	if !strings.Contains(out, "String.pad_start(\"7\", width: w)\n        = \"  7\"") {
+		t.Errorf("the failing case does not report the named call's value:\n%s", out)
+	}
+}
+
+// A named argument past a std parameter left to its default (`width:` past
+// `style` in String.join_list) leaves a hole the default fills. Inside an
+// assertion subject it lowers as it does outside one; it was BLOCKED there
+// as "a named argument".
+func TestNamedCallback_StdShortCallWithAHoleInAnAssertion(t *testing.T) {
+	const src = `import {
+    std/locale.Locale
+    std/strings.ListWidth
+}
+
+test "a named argument past an omitted default" {
+  assert String.join_list(["a", "b"], Locale` + "`en`" + `, width: .Short) == "a & b"
+}
+
+test "a failing one still reports the call's value" {
+  w = ListWidth.Short
+  assert String.join_list(["a", "b"], Locale` + "`en`" + `, width: w) == "a and b"
+}
+`
+	out := irTestBodyVM(t, src, 2)
+	if !strings.Contains(out, "= \"a & b\"") {
 		t.Errorf("the failing case does not report the named call's value:\n%s", out)
 	}
 }

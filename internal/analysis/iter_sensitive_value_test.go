@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-const iterSensitiveValueError = "'stop' uses break/continue (directly or transitively), so it can only be " +
-	"called from an iter-callback position or passed directly as an iteration function's callback, not used as a value here"
+// iterSensitiveValueError is the error at a value use of stop.
+var iterSensitiveValueError = iterSensitiveUseError("stop", "`break`", "Iter.map(xs, stop)")
 
 const iterSensitiveStop = `fn stop(x: Int) -> Int {
     if x > 2 {
@@ -45,19 +45,22 @@ func TestIterSensitiveValue_IsRejectedOutsideACallbackSlot(t *testing.T) {
 	}
 }
 
-// Passing it directly as the callback, piped or not, stays legal.
+// Passing it directly as the callback, piped or not, stays legal, and so
+// does passing it in parentheses, which `nomi fmt` drops.
 func TestIterSensitiveValue_AdmitsADirectCallback(t *testing.T) {
 	src := iterSensitiveStop + `
 fn main() {
     _ = [1, 2, 3] |> Iter.map(stop) |> Iter.to_list()
     _ = Iter.map([1], stop) |> Iter.to_list()
-    _ = [1] |> Iter.map(fn x -> stop(x)) |> Iter.to_list()
+    _ = Iter.map([1], f: stop) |> Iter.to_list()
+    _ = [1, 2, 3] |> Iter.map((stop)) |> Iter.to_list()
+    _ = Iter.map([1], f: ((stop))) |> Iter.to_list()
     _ = apply(fn x -> x, 1)
 }
 `
 	_, errs := checkSourceWithStdlib(src)
 	for _, e := range errs {
-		if strings.Contains(e.Message, "break/continue") {
+		if strings.Contains(e.Message, "uses `break`") || strings.Contains(e.Message, "break/continue") {
 			t.Errorf("rejected: %s", e.Message)
 		}
 	}

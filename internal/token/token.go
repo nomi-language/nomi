@@ -304,6 +304,10 @@ func (t TokenType) String() string {
 // (a string literal's closing quote, which its Lexeme leaves out), on line
 // EndLine when that is set and Line otherwise. Zero when unknown; then the
 // token ends len(Lexeme) bytes after Col.
+//
+// Indent is how many bytes of indentation a multi-line raw literal's body
+// lines lost to the indentation rule, so that a byte of Lexeme can be placed
+// back in the source; zero for every other token.
 type Token struct {
 	Type    TokenType
 	Lexeme  string
@@ -313,4 +317,5 @@ type Token struct {
 	Col     int
 	EndLine int
 	EndCol  int
+	Indent  int
 }

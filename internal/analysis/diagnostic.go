@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"path/filepath"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -26,6 +27,48 @@ type RelatedInfo struct {
 
 // HasEnd reports whether e records the end of its span.
 func (e TypeError) HasEnd() bool { return e.EndLine > 0 }
+
+// inFile reports whether e's position is in the file at path: an error that
+// names no file (TypeError.File) is in the file it is reported with.
+func inFile(e TypeError, path string) bool {
+	return e.File == "" || e.File == path || filepath.Clean(e.File) == filepath.Clean(path)
+}
+
+// ErrorsInFile is errs without the errors whose position is in a file other
+// than the one at path (TypeError.File), in order: what the document whose
+// analysis reported errs shows. An entry's analysis carries the program's
+// errors about every file it reaches, and each of those files shows its own.
+func ErrorsInFile(path string, errs []TypeError) []TypeError {
+	var out []TypeError
+	for i, e := range errs {
+		if inFile(e, path) {
+			if out != nil {
+				out = append(out, e)
+			}
+			continue
+		}
+		if out == nil {
+			out = append(make([]TypeError, 0, len(errs)), errs[:i]...)
+		}
+	}
+	if out == nil {
+		return errs
+	}
+	return out
+}
+
+// errorsNamingFile are the errors of errs that name the file at path as the
+// one their position is in (TypeError.File), in order: the program's errors
+// about one of its files other than the entry.
+func errorsNamingFile(path string, errs []TypeError) []TypeError {
+	var out []TypeError
+	for _, e := range errs {
+		if e.File != "" && path != "" && inFile(e, path) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
 
 // WithHint is e with hint added to its hints. An empty hint adds nothing.
 func (e TypeError) WithHint(hint string) TypeError {

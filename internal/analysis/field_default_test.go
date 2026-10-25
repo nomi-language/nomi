@@ -177,7 +177,7 @@ func TestFieldDefault_TreeIsClean(t *testing.T) {
 			{"nomi", "tour (nomi, highlight-only)"},
 		} {
 			for _, b := range doctest.ExtractBlocks(string(data), fence.lang) {
-				if b.HasInfo("ignore") {
+				if !b.Runs() {
 					continue
 				}
 				blockN++
@@ -610,10 +610,16 @@ fn main() {
 // top-level struct `Game` and two on the record variant `Shape.Box`, which a
 // derived FromJson fills when the JSON object lacks the key.
 //
-// `std` reads 11: std/assertions 3, std/compiler 2, std/json 2,
+// `std` reads 24: std/assertions 5, std/compiler 2, std/json 2,
 // std/startup 2 (`Startup` declares `env` and `args` with empty defaults, so
-// `#Startup{}` is an empty Startup) and std/supervisors 2 (the fields of the
-// `Backoff.Exponential` record variant).
+// `#Startup{}` is an empty Startup), std/supervisors 2 (the fields of the
+// `Backoff.Exponential` record variant) and std/macro 11, all on top-level
+// structs: `Action.tool` and `Body.tag_span`, `None` by default so a test
+// builds a value without them, and the empty defaults that let a macro
+// write `#Request{files: [path]}` or `#Expansion{diagnostics: problems}`
+// (`Request.files` and `sites`, `Expansion.source`, `spans` and
+// `diagnostics`, `Diagnostic.hints`, `Action.edits`, and the `config` of
+// `NavigationCall` and `ActionsCall`).
 //
 // `tour (nomi-run)` reads 1 rather than 2 because the same cutover removed
 // the other site. `capabilities-and-context.md`'s "basic shape" block declared
@@ -622,7 +628,7 @@ fn main() {
 // with no default and the `context` default lives on stdlib's `App`. The one
 // survivor the census prints is `structs-enums-distinct.md:L29`'s `age@3:3`.
 var fieldDefaultDenominator = map[string]int{
-	"std":             13,
+	"std":             24,
 	"tests":           44,
 	"tour (nomi-run)": 1,
 	"tour (nomi)":     0,
@@ -681,7 +687,7 @@ func TestFieldDefault_CensusHasNoBlindPosition(t *testing.T) {
 		for _, lang := range []string{"nomi-run", "nomi"} {
 			bucket := "tour (" + lang + ")"
 			for _, b := range doctest.ExtractBlocks(string(data), lang) {
-				if b.HasInfo("ignore") {
+				if !b.Runs() {
 					continue
 				}
 				nodes, _ := parser.ParseWithRecovery(lexer.Lex(b.Code))

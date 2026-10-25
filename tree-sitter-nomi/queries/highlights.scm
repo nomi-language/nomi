@@ -8,6 +8,23 @@
 ; The `#!` interpreter line of an executable script.
 (shebang) @comment
 
+; Keyword declarations: `message cart_items(count: Int) `...``, whose
+; keyword the grammar does not know and whose name is a function's. A
+; macro's keyword is marked with `!` (`sqlkit.query! orders`) and
+; reads as a macro, `!` included; its qualifier is the file it comes from,
+; a module. Nomi's own `message` and `noun` take no `!` and are keywords.
+(keyword_declaration
+  module: (identifier) @module)
+(keyword_declaration
+  keyword: (identifier) @function.macro
+  mark: (macro_mark) @function.macro)
+(keyword_declaration
+  keyword: (identifier) @keyword)
+(keyword_declaration
+  name: (identifier) @function.definition)
+(keyword_declaration
+  name: (type_identifier) @type.definition)
+
 ; Function definitions
 (function_definition
   impl_interface: (type_identifier) @type)
@@ -455,6 +472,16 @@
   type: (identifier) @module)
 (_
   type: (type_identifier) @type)
+
+; A variant a pattern names through its file (`sql.Error.Closed`,
+; `json.Json.Case.Snake`): the file is a module, the last name the variant,
+; and the names between them its type.
+(qualified_variant
+  module: (identifier) @module)
+(qualified_variant
+  (type_identifier) @constructor .)
+(qualified_variant
+  (type_identifier) @type)
 
 ; Type field access
 ; Module name (lowercase first position)

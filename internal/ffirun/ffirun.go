@@ -36,7 +36,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
+
+// TestTimeoutEnv is the environment variable that hands the test wrapper
+// `nomi test --timeout` (vmhost.TestTimeoutFromEnv reads it there).
+const TestTimeoutEnv = "NOMI_TEST_TIMEOUT"
 
 // Result describes what Prepare discovered and produced. The caller
 // is expected to take the fast (in-process) path when FastPath is
@@ -149,6 +154,13 @@ func Prepare(entryPath string) (*Result, error) {
 	if !script {
 		sourceRoot = findNomiPackageRoot(sourceRoot, projectRoot)
 	}
+	return prepareModule(projectRoot, sourceRoot, absEntry)
+}
+
+// prepareModule is Prepare for a program whose files are under sourceRoot,
+// in the Go module at projectRoot; absEntry is its entry, or "" for every
+// binding the module's files declare.
+func prepareModule(projectRoot, sourceRoot, absEntry string) (*Result, error) {
 	discovered, err := discoverForEntry(projectRoot, sourceRoot, absEntry)
 	if err != nil {
 		return nil, err
@@ -296,20 +308,22 @@ const ffiTestResultMarker = "__NOMI_FFI_TEST_RESULT"
 // where a test's own output goes in that mode — is forwarded to this
 // process's stderr instead of being merged into the stream.
 func RunTestVM(r *Result, testAbsPath string, line int, lineSet bool, format string) (passed, failed, blocked int, err error) {
-	return runTestMode(r, "vmtest", testAbsPath, line, lineSet, format, os.Stdout, os.Stderr, os.Stdin)
+	return runTestMode(r, "vmtest", testAbsPath, line, lineSet, format, 0, os.Stdout, os.Stderr, os.Stdin)
 }
 
 // RunTestCapturedVM is RunTestCaptured on the VM.
 func RunTestCapturedVM(r *Result, testAbsPath string, line int, lineSet bool, stdout io.Writer, stdin io.Reader) (passed, failed, blocked int, err error) {
-	return runTestMode(r, "vmtest", testAbsPath, line, lineSet, "text", stdout, os.Stderr, stdin)
+	return runTestMode(r, "vmtest", testAbsPath, line, lineSet, "text", 0, stdout, os.Stderr, stdin)
 }
 
-// RunTestVMWith is RunTestVM with the streams supplied by the caller.
-func RunTestVMWith(r *Result, testAbsPath string, line int, lineSet bool, format string, stdout, stderr io.Writer, stdin io.Reader) (passed, failed, blocked int, err error) {
-	return runTestMode(r, "vmtest", testAbsPath, line, lineSet, format, stdout, stderr, stdin)
+// RunTestVMWith is RunTestVM with the streams supplied by the caller, and
+// each case stopped once it has run for timeout, zero meaning no limit (the
+// wrapper reads it from TestTimeoutEnv).
+func RunTestVMWith(r *Result, testAbsPath string, line int, lineSet bool, format string, timeout time.Duration, stdout, stderr io.Writer, stdin io.Reader) (passed, failed, blocked int, err error) {
+	return runTestMode(r, "vmtest", testAbsPath, line, lineSet, format, timeout, stdout, stderr, stdin)
 }
 
-func runTestMode(r *Result, mode, testAbsPath string, line int, lineSet bool, format string, stdout, stderr io.Writer, stdin io.Reader) (int, int, int, error) {
+func runTestMode(r *Result, mode, testAbsPath string, line int, lineSet bool, format string, timeout time.Duration, stdout, stderr io.Writer, stdin io.Reader) (int, int, int, error) {
 	if r == nil || r.FastPath {
 		return 0, 0, 0, fmt.Errorf("ffirun: RunTest called on a FastPath result")
 	}
@@ -331,6 +345,9 @@ func runTestMode(r *Result, mode, testAbsPath string, line int, lineSet bool, fo
 	cmd.Dir = r.WrapperDir
 	userCwd, _ := os.Getwd()
 	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_USER_CWD="+userCwd)
+	if timeout > 0 {
+		cmd.Env = append(cmd.Env, TestTimeoutEnv+"="+timeout.String())
+	}
 	cmd.Stdin = stdin
 	var outBuf, errOut bytes.Buffer
 	cmd.Stdout = &outBuf

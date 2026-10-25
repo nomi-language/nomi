@@ -1,0 +1,16 @@
+import {
+    std/io
+    sizes.Size
+}
+
+fn ounces(size: Size) -> Int {
+    case size {
+        Size.Small -> 8
+        Size.Medium -> 12
+        Size.Large -> 16
+    }
+}
+
+fn main() {
+    io.print(ounces(Size.Medium))
+}

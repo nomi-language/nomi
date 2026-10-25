@@ -1,0 +1,111 @@
+import {
+    std/json.Json
+    std/macro.{Body, Declaration, ExpandCall, Expansion, Macro, Source, Span, pascal_case}
+}
+
+/// An enum whose variants are the words of the body:
+/// ``choices.one_of! Size `small medium large` ``.
+pub macro one_of: OneOf
+
+type OneOf
+
+impl Macro for OneOf {
+    fn expand(call: ExpandCall) -> Expansion {
+        decl = call.decl
+        type_name = pascal_case(decl.name)
+
+        if type_name != decl.name {
+            return Expansion.error(
+                decl.name_span,
+                "a `one_of` declares a type, so its name is a type name: `${type_name}`",
+            )
+        }
+
+        Some(body) = decl.body else {
+            return Declaration.error(decl, "write the variants as the body: `small medium large`")
+        }
+
+        found = words(body)
+
+        if Some(#(_, span)) = Iter.find(found, fn #(word, _) -> !snake_case?(word)) {
+            return Expansion.error(span, "a variant is a snake_case word, such as `extra_large`")
+        }
+
+        visibility = if decl.public { "pub " } else { "" }
+        start = Source.new() |> Source.add("${visibility}enum ${decl.name} {\n")
+
+        Iter.reduce(
+            found,
+            fn source, #(word, span) -> {
+                source
+                |> Source.add("    ")
+                |> Source.mapped(pascal_case(word), span, hint: Some("each word names one variant"))
+                |> Source.add("\n")
+            },
+            from: start,
+        )
+        |> Source.add("}\n")
+        |> Source.expansion()
+    }
+}
+
+/// The words of the body, separated by spaces or line breaks, each with
+/// its span.
+fn words(body: Body) -> List<#(String, Span)> {
+    pieces = body.text |> String.replace("\n", " ") |> String.split(" ")
+
+    #(found, _) = Iter.reduce(
+        pieces,
+        fn #(found, at), word -> {
+            end = at + String.length(word)
+
+            if word == "" {
+                #(found, end + 1)
+            } else {
+                #([#(word, Body.span_at(body, at, end)), ..found], end + 1)
+            }
+        },
+        from: #([], 0),
+    )
+
+    Iter.reverse(found)
+}
+
+/// Whether `word` is a snake_case name, such as `extra_large`.
+fn snake_case?(word: String) -> Bool {
+    letters = String.to_codepoints(word)
+    lower? = fn c: Codepoint -> c >= 'a' and c <= 'z'
+    first = Iter.first(letters) |> Maybe.map(lower?) |> Maybe.with_default(False)
+    first and Iter.all?(letters, fn c -> lower?(c) or c >= '0' and c <= '9' or c == '_')
+}
+
+/// The call `expand` gets for ``pub choices.one_of! Size `text` ``.
+fn size(text: String) -> ExpandCall {
+    at = #Span{file: "sizes.nomi", line: 4, col: 27, end_line: 4, end_col: 27}
+
+    decl = #Declaration{
+        keyword: "one_of",
+        name: "Size",
+        public: True,
+        params: [],
+        result: None,
+        body: Some(#Body{text, span: at, start_line: 4, start_col: 27, indent_col: 1, tag: None}),
+        doc: "",
+        file: "sizes.nomi",
+        span: at,
+        name_span: at,
+    }
+
+    #ExpandCall{decl, config: Json.Null, inputs: [], sites: []}
+}
+
+test "each word is a variant, and a word that is not a name is an error at the word" {
+    expansion = OneOf.expand(size("small medium large"))
+    assert expansion.source == "pub enum Size {\n    Small\n    Medium\n    Large\n}\n"
+
+    problems = OneOf.expand(size("small 12oz large")).diagnostics
+
+    assert Iter.map(problems, fn d -> #(d.message, d.span.col)) |> Iter.to_list() == [
+        #("a variant is a snake_case word, such as `extra_large`", 33),
+    ]
+}

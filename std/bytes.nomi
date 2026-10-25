@@ -1,6 +1,8 @@
 import {
     add.Add
     bool.Bool
+    comparable.Comparable
+    comparable.Ordering.{self, Equal, Greater, Less}
     contains.Contains
     debug.Debug
     display.Display
@@ -237,6 +239,29 @@ impl Equatable for Bytes {
         a == b
     }
 }
+
+impl Comparable for Bytes {
+    /// Orders octet by octet; a prefix sorts first. A collator's sort keys
+    /// (`Collator.sort_key`) compare this way.
+    //! a = try Byte.from_int(97)
+    //! b = try Byte.from_int(98)
+    //! assert Bytes.from_list([a, b]) < Bytes.from_list([b])
+    //! assert Bytes.from_list([a]) < Bytes.from_list([a, b])
+    //
+    fn compare(a: Bytes, b: Bytes) -> Ordering {
+        n = bytes_compare(a, b)
+
+        case {
+            n < 0 -> Less
+            n > 0 -> Greater
+            _ -> Equal
+        }
+    }
+}
+
+/// -1, 0 or 1 as two byte buffers order. Private helper backing the
+/// `Comparable` impl.
+host fn bytes_compare(a: Bytes, b: Bytes) -> Int
 
 impl Hashable for Bytes {
     /// FNV-1a 64-bit hash of the octets, reinterpreted as an Int, as

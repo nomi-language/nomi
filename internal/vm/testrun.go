@@ -179,7 +179,8 @@ func (m *Machine) RunCases(cases []ir.TestCase) (failures []error, outputs []str
 			continue
 		}
 		i := i
-		inner := m.testFn(fn, group, &caseLimits)
+		limit := m.newCaseLimit()
+		inner := m.limitedTestFn(fn, group, &caseLimits, limit)
 		test.Fn = func(fr *rt.Frame) rt.TestFailure {
 			failure := inner(fr)
 			if len(caseLimits) > 0 {
@@ -189,6 +190,10 @@ func (m *Machine) RunCases(cases []ir.TestCase) (failures []error, outputs []str
 		}
 		if group.VirtualClock {
 			test.Bubble = vclock.RunCase
+			if limit != nil {
+				// The clock runs outside the bubble, in real time.
+				test.Bubble = limit.bubble
+			}
 		}
 		tests[i] = test
 	}
@@ -230,7 +235,29 @@ func (m *Machine) groupLimit(group ir.TestGroup) string {
 }
 
 func (m *Machine) testFn(fn *ir.Func, group ir.TestGroup, unrunnable *[]string) func(*rt.Frame) rt.TestFailure {
+	return m.limitedTestFn(fn, group, unrunnable, nil)
+}
+
+// limitedTestFn is testFn for a case under limit, or none when limit is nil.
+// The case runs on a view whose fuel the limit stops, on a frame the limit
+// cancels (outside a virtual-time bubble, whose clock RunCases starts), and
+// a case the limit stopped fails with a *TimedOut. See caselimit.go.
+func (m *Machine) limitedTestFn(fn *ir.Func, group ir.TestGroup, unrunnable *[]string, limit *caseLimit) func(*rt.Frame) rt.TestFailure {
 	return func(fr *rt.Frame) rt.TestFailure {
+		m := m
+		if limit != nil {
+			view := *m
+			// The stop a task of this case reaches is this case's, so the
+			// case notes task limits on its own (tasks.go's taskLimit).
+			view.fuel, view.tasks = limit.fuel, &taskLimit{}
+			m = &view
+			if !group.VirtualClock {
+				var cancel func()
+				fr, cancel = rt.WithCancel(fr)
+				defer cancel()
+				defer limit.arm(cancel)()
+			}
+		}
 		run := m
 		var err error
 		if group.Boot != nil {
@@ -247,6 +274,11 @@ func (m *Machine) testFn(fn *ir.Func, group ir.TestGroup, unrunnable *[]string) 
 		}
 		if err == nil {
 			return nil
+		}
+		if limit != nil && limit.timedOut.Load() {
+			// Whatever the case answered once its limit ran out is the
+			// stop's doing.
+			return limit.failure(fn, err)
 		}
 		// A `try` whose boundary is the test body: the case ended early, and
 		// the report is an rt.EarlyReturnFailure — the try's line, its text

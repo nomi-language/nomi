@@ -64,6 +64,8 @@ type webServer struct {
 	url    string
 	stderr *bytes.Buffer
 	events chan webState
+	// last is the last event next answered, nil before the first.
+	last *webState
 
 	mu     sync.Mutex
 	stdout strings.Builder
@@ -145,14 +147,21 @@ func startWebServer(t *testing.T, env []string, entry string, flags ...string) *
 	return s
 }
 
-// next answers the next event the server sends.
+// next answers the next event the server sends. Its failure says which
+// event came last and what the server printed, so a change the server never
+// noticed (no "changed" line) reads apart from a slow build.
 func (s *webServer) next() webState {
 	s.t.Helper()
 	select {
 	case state := <-s.events:
+		s.last = &state
 		return state
 	case <-time.After(2 * time.Minute):
-		s.t.Fatalf("no event from the server:\n%s", s.stderr)
+		after := "subscribing"
+		if s.last != nil {
+			after = fmt.Sprintf("the event %+v", *s.last)
+		}
+		s.t.Fatalf("no event from the server in 2 minutes after %s\nstdout:\n%s\nstderr:\n%s", after, s.output(), s.stderr)
 		return webState{}
 	}
 }

@@ -526,6 +526,47 @@ fn constructor_patterns(input: String, r: Result<Int, String>, s: Shape) -> Int 
     number + from_r + from_s
 }
 
+// A variant a pattern names through its file: the file is a module, the
+// names between it and the variant the variant's type.
+fn module_variant_patterns(r: Result<Int, json.Json>, c: json.Json.Case) -> Int {
+    from_r = case r {
+        Err(json.Json.Null) -> 1
+        //  ^ module
+        //       ^ type
+        //            ^ constructor
+        Err(json.Json.Int(n)) -> n
+        //  ^ module
+        //            ^ constructor
+        //               ^ type
+        //                 ^ type
+        Err(json.Json.Arr[_first, .._rest]) -> 2
+        //               ^ type
+        //                               ^ type
+        _ -> 0
+    }
+
+    from_c = case c {
+        json.Json.Case.Snake -> 1
+        // <- module
+        //   ^ type
+        //        ^ type
+        //             ^ constructor
+        json.Json.Case.Camel or json.Json.Case.Kebab -> 2
+        //                      ^ module
+        //                                     ^ constructor
+        _ -> 0
+    }
+
+    if Err(json.Json.Bool(b)) = r {
+        // ^ module
+        //               ^ type
+        //                 ^ type
+        return if b { 1 } else { 0 }
+    }
+
+    from_r + from_c
+}
+
 fn as_pattern(found: Maybe<#(Int, Int)>) -> Int {
     Some(#(a, b)) as m = found else {
         // <- type

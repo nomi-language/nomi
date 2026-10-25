@@ -55,3 +55,23 @@ the module cache like any other dependency, through your `GOPROXY` and
 checksum database. `go install` installs no `nomi-vm`, so `nomi build` and
 `nomi build-vm` build nomi-vm with Go from that module, for `--target` platforms too, and
 caches it. The executable `nomi build` writes needs nothing installed.
+
+## What Nomi needs besides itself
+
+A release archive's `nomi` (once releases are published) and a `go
+install`ed one need nothing else for a project without Go bindings, its
+dependencies included: `nomi` fetches the modules `go.mod` requires through
+the Go module proxy itself (`nomi add`, `nomi fetch`). `nomi new` starts a
+project, and `nomi` writes its `go.mod` and `go.sum` from then on.
+
+A project with Go bindings, its own or a dependency's, is built with Go. With
+a `go` on `PATH`, `nomi` uses it. With none, `nomi` downloads the Go release
+it was built with from go.dev the first time it needs one (about 70 MB),
+checks it against a checksum compiled into `nomi`, and keeps it in
+`~/Library/Caches/nomi/go` on macOS or `~/.cache/nomi/go` on Linux. Set
+`NOMI_GO` to a `go` command, or a Go installation's root, to choose one
+yourself. The editor's language server never downloads modules or Go: run
+`nomi fetch` in the project once, which downloads everything the project
+needs, so the editor finds every module and `--offline` commands need no
+network. Go bindings
+build without cgo, so a Go package that calls C cannot be bound.

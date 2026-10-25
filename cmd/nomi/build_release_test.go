@@ -142,7 +142,7 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 func releaseEnv(t *testing.T, cacheRoot string, extra ...string) []string {
 	t.Helper()
 	env := append([]string{"HOME=" + t.TempDir(), "PATH=" + noGoPath(t), "TERM=dumb",
-		"NOMI_FFIRUN_CACHE_ROOT=" + cacheRoot, "NOMI_COLOR=never"}, extra...)
+		"NOMI_FFIRUN_CACHE_ROOT=" + cacheRoot, "NOMI_COLOR=never"}, append(noManagedGoEnv(t.TempDir()), extra...)...)
 	probe := exec.Command("/usr/bin/env", "go", "version")
 	probe.Env = env
 	if out, err := probe.CombinedOutput(); err == nil {
@@ -547,7 +547,7 @@ func TestBuildFromRelease_WasmTargetsDownloadTheirRunners(t *testing.T) {
 			if node := wasiNode(t); target == "wasip1/wasm" && node != "" {
 				script := filepath.Join(t.TempDir(), "wasi.mjs")
 				mustWrite(t, script, wasiNodeScript)
-				if run := runProcess(t, nil, dir, "", node, "--no-warnings", script, out); run.exit != 0 || run.stdout != "hi\n" {
+				if run := runNode(t, os.Environ(), dir, "", node, "--no-warnings", script, out); run.exit != 0 || run.stdout != "hi\n" {
 					t.Fatalf("the module built on a stripped release runner, run with no file access: exit %d\n%s", run.exit, run.transcript())
 				}
 			}
@@ -583,7 +583,7 @@ func TestBuildFromRelease_WasmTargetsDownloadTheirRunners(t *testing.T) {
 		if node := wasiNode(t); node != "" {
 			script := filepath.Join(t.TempDir(), "reactor.mjs")
 			mustWrite(t, script, reactorNodeScript)
-			if run := runProcess(t, nil, dir, "", node, "--no-warnings", script, out, "call", `["twice", "[21]"]`); run.exit != 0 || run.stdout != "{\"ok\":42}\n" {
+			if run := runNode(t, os.Environ(), dir, "", node, "--no-warnings", script, out, "call", `["twice", "[21]"]`); run.exit != 0 || run.stdout != "{\"ok\":42}\n" {
 				t.Fatalf("the reactor built on a stripped release runner, run with no file access: exit %d\n%s", run.exit, run.transcript())
 			}
 		}

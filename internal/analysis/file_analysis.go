@@ -181,10 +181,16 @@ type FileBodies struct {
 	ExprTypes     map[ast.Node]Type
 	ExpectedTypes map[ast.Node]Type
 	// PatternTypes maps each list, vector, set, map, struct and tuple
-	// pattern the checker checked to the type of the value it matches. The
-	// editor's hover reads it to say what a pattern matches. Nil until the
-	// first record.
+	// pattern, and each `_` pattern, the checker checked to the type of the
+	// value it matches. The editor's hover reads it to say what a pattern
+	// matches and what a `_` discards. Nil until the first record.
 	PatternTypes map[ast.Node]Type
+	// OperatorImpls maps each binary operator the checker resolved to an
+	// impl (`+ - * /` through `Add` and the others, `== !=` through
+	// `Equatable`, `< <= > >=` through `Comparable`) to that impl
+	// (operator_impls.go). The editor's hover names it and go-to-definition
+	// opens its function. Nil until the first record.
+	OperatorImpls map[*ast.Binary]*OperatorImpl
 	// TargetStructs maps a brace literal with no type name and no spread
 	// (`#{street: "1 Main", city: "Bath"}`) to the nominal struct it builds
 	// because the position expected that struct (checkTargetTypedStructLit).

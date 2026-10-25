@@ -185,6 +185,11 @@ func (bl *irScalarBuilder) structMergeVals(k kind, base ir.Temp, lit *ast.Struct
 		if !ok {
 			return nil, nil, false
 		}
+		if vk != fk && bl.g.irBoxedErasure(fk, vk) {
+			// Boxed, as the literal boxes it; see structMakeOf.
+			names[i], vals[i] = f.Name, bl.eraseBoxed(f.Value, v, fk, vk)
+			continue
+		}
 		if vk != fk && bl.g.irErases(fk, vk) {
 			// A concrete implementer at an interface-typed field, admitted
 			// as the literal admits it; see structMakeOf.

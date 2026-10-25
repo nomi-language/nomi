@@ -170,7 +170,7 @@ fn double(n: Int) -> Int {
 errors. They are drawn dimmed so they stand back from the code below. Neovim
 and VS Code show the line under the cursor in full color. The standard
 library uses them for its examples: the reference entry for
-[`String.contains?`](/reference/strings/#stringcontains) is generated from
+[`String.contains?`](/reference/strings/#stringcontains-containsstring) is generated from
 them.
 
 `assert` and `refute` are for tests. Ordinary code reports failure with a
@@ -245,7 +245,7 @@ dbg line 7: compute() = 42
 This version is an error, because nothing uses the `Int` that `compute()`
 returns:
 
-```nomi-run ignore
+```nomi-run error
 fn compute() -> Int {
     42
 }
@@ -255,6 +255,9 @@ fn main() {
     Unit
 }
 ```
+<!-- expect
+main.nomi:6:5: non-final expression has type Int, but only Unit results can be ignored — write `_ = ...` if intentional, use `dbg ...` to inspect it, or move it to the end to return it
+-->
 
 Write `_ = compute()` to discard it on purpose. Moving `compute()` to the
 last line doesn't help either. It would become `main`'s result, and `main`
@@ -282,12 +285,21 @@ dbg line 5: name = "jane"
 Each line reads the previous `name` and binds a new one. When each step
 feeds straight into the next, a pipeline says the same thing more simply:
 
-```nomi
-"  JANE  "
-|> String.trim()
-|> String.to_lower()
-|> dbg
+```nomi-run
+fn main() {
+    "  JANE  "
+    |> String.trim()
+    |> String.to_lower()
+    |> dbg
+}
 ```
+<!-- expect
+dbg line 5:
+  "  JANE  "
+  |> String.trim()
+  |> String.to_lower()
+  = "jane"
+-->
 
 A binding that is replaced before anything reads it is an error. In
 `name = "Jane"` followed by `name = "John"`, the compiler reports that the
@@ -462,13 +474,19 @@ the error appears in the function you changed rather than in some caller.
 from an annotation on the binding, or from the expression on the right and
 what is expected of it there. Later lines don't count:
 
-```nomi
-m = %{} // Map<?, ?> — locally undetermined
+```nomi-run error
+fn main() {
+    m = %{} // Map<?, ?> — locally undetermined
 
-m = Map.put(m, "alice", 90) // K=String, V=Int could be solved
-// from this line — but line 1 is
-// rejected anyway.
+    m = Map.put(m, "alice", 90) // K=String, V=Int could be solved
+    // from this line — but line 1 is
+    // rejected anyway.
+    dbg m
+}
 ```
+<!-- expect
+main.nomi:2:5: binding 'm' type is not locally determined: it has unsolved type parameter(s) — add an annotation (`m: T = …`) or a type argument (`f<T>(…)`)
+-->
 
 The second line would tell the compiler that `m` maps `String` to `Int`.
 Nomi rejects the first line anyway. This is a deliberate rule: someone
@@ -476,11 +494,19 @@ reading from the top should know what `m` is without looking ahead.
 
 The fix is one of the two forms from earlier, an annotation or a turbofish:
 
-```nomi
-m: Map<String, Int> = %{} // LHS annotation
+```nomi-run
+fn main() {
+    scores: Map<String, Int> = %{} // LHS annotation
+    dbg scores
 
-m = Iter.to_map<String, Int>([]) // RHS turbofish
+    ages = Iter.to_map<String, Int>([]) // RHS turbofish
+    dbg ages
+}
 ```
+<!-- expect
+dbg line 3: scores = %{}
+dbg line 6: ages = %{}
+-->
 
 Most lines in a function body need no annotation. You write types at
 signatures, and on the few bindings whose type the line itself doesn't show.

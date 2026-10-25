@@ -1411,6 +1411,8 @@ type TupleDestructure struct {
 	TriviaCarrier
 	SpanCarrier
 	Bindings []*Ident // binding identifiers, nil for wildcard "_"
+	// Discards holds the `_` of each nil entry of Bindings, in order.
+	Discards []*WildcardPattern
 	Value    Node
 	Line     int
 	Col      int
@@ -2021,10 +2023,195 @@ type OnceBinding struct {
 	Doc            string
 	Line           int
 	Col            int
+	// Expansion is set on the value a `noun` declaration expanded into: it
+	// keeps the declaration and the catalogs it read. Nil for a `once` as
+	// the parser reads it.
+	Expansion *Expansion
 }
 
 func (*OnceBinding) NodeType() string { return "OnceBinding" }
 func (n *OnceBinding) LineNum() int   { return n.Line }
+
+// ---------------------------------------------------------------------------
+// Keyword declarations
+// ---------------------------------------------------------------------------
+
+// KeywordDecl is a top-level declaration written by the general rule
+//
+//	[pub] [module.]keyword[!] name [(params)] [-> type] [[Tag]raw body]
+//
+// whose keyword the grammar does not know: `message cart_items(count: Int)
+// `{$count :integer} items“, `sqlkit.query! user(id: Int) Sql`...“. Two
+// names in a row, a marked name and a name, or the same with a qualified
+// keyword, start nothing else at the top of a file, so the rule takes
+// nothing from other declarations. What a declaration means is its
+// keyword's: internal/analysis expands each keyword it builds in
+// (`message`, `noun`) into declarations the checker checks
+// (analysis.ExpandDeclarations), expands a macro's through the
+// macro, and rejects any other.
+//
+// Module is the qualifier of a macro's keyword (`sqlkit` in
+// `sqlkit.query!`), the file API object the macro's file is imported
+// as, at ModuleLine and ModuleCol; empty for a bare keyword. Marked records
+// the `!` written against the keyword, which a macro's keyword takes
+// and a built-in one does not; it is at Col+len(Keyword). Line and Col
+// are the keyword's position; NameLine and NameCol the name's. HasParams
+// records a written parameter list, `()` included. Body is the raw
+// (backtick) string, nil when none is written, positioned at its opening
+// backtick; BodyTag is the typed-literal tag written right before it
+// (`Sql`), empty for none. BodyCol is the column a multi-line body's lines
+// start at once the indentation rule has stripped them (Token.Indent plus
+// one), so that a byte of Body.Value can be placed back in the source, and
+// zero for a one-line body, which starts one past Body.Col.
+type KeywordDecl struct {
+	TriviaCarrier
+	SpanCarrier
+	Module          string
+	ModuleLine      int
+	ModuleCol       int
+	Keyword         string
+	Marked          bool
+	Name            string
+	Public          bool
+	HasParams       bool
+	Params          []Param
+	ParamsEndTrivia []Trivia // the comments in a parameter list with no parameter
+	ReturnTypeExpr  TypeExpr
+	Body            *StringLit
+	BodyTag         string
+	BodyCol         int
+	Doc             string
+	Line            int
+	Col             int
+	NameLine        int
+	NameCol         int
+	// Expansion is set on a declaration a macro expanded
+	// (MacroDecl): the declarations it expanded into follow it in its
+	// file's nodes, and Expansion keeps what they were made of. Nil for a
+	// declaration as the parser reads it, and for a `message`, which is
+	// replaced by the function it declares.
+	Expansion *Expansion
+}
+
+func (*KeywordDecl) NodeType() string { return "KeywordDecl" }
+func (n *KeywordDecl) LineNum() int   { return n.Line }
+
+// QualifiedKeyword is the keyword as written: `sqlkit.query!`, `query!`,
+// or `message`.
+func (n *KeywordDecl) QualifiedKeyword() string {
+	k := n.Keyword
+	if n.Marked {
+		k += "!"
+	}
+	if n.Module == "" {
+		return k
+	}
+	return n.Module + "." + k
+}
+
+// KeywordEndCol is the column after the keyword and its `!`.
+func (n *KeywordDecl) KeywordEndCol() int {
+	end := n.Col + len(n.Keyword)
+	if n.Marked {
+		end++
+	}
+	return end
+}
+
+// StartCol is the column the keyword as written starts at: the
+// qualifier's, or the keyword's when it has none.
+func (n *KeywordDecl) StartCol() int {
+	if n.Module == "" {
+		return n.Col
+	}
+	return n.ModuleCol
+}
+
+// TagCol is the column of the body's tag, which ends at the opening
+// backtick; zero when the body has none.
+func (n *KeywordDecl) TagCol() int {
+	if n.Body == nil || n.BodyTag == "" {
+		return 0
+	}
+	return n.Body.Col - len(n.BodyTag)
+}
+
+// BodyPosition is the source line and byte column of byte offset of
+// n.Body.Value. It assumes the source has no carriage returns, as the
+// lexer's columns do.
+func (n *KeywordDecl) BodyPosition(offset int) (line, col int) {
+	if n.Body == nil {
+		return n.Line, n.Col
+	}
+	text := n.Body.Value
+	if offset > len(text) {
+		offset = len(text)
+	}
+	if !n.Body.Triple {
+		return n.Body.Line, n.Body.Col + 1 + offset
+	}
+	before := text[:offset]
+	nl := 0
+	last := -1
+	for i := 0; i < len(before); i++ {
+		if before[i] == '\n' {
+			nl++
+			last = i
+		}
+	}
+	return n.Body.Line + 1 + nl, n.BodyCol + (offset - last - 1)
+}
+
+// MacroDecl declares a declaration keyword a library adds, and the type
+// whose impls expand it:
+//
+//	[pub] macro name: Type
+//
+// A file that imports the declaring file (`import csvdata`) writes
+// declarations by the general rule (KeywordDecl) with the keyword qualified
+// by it (`csvdata.table! rate ...`), and the compiler
+// expands each by running the type's `Macro` impl (std/macro) on the
+// VM. Line and Col are the `macro` keyword's position, NameLine and
+// NameCol the name's.
+type MacroDecl struct {
+	TriviaCarrier
+	SpanCarrier
+	Name     string
+	Public   bool
+	Impl     TypeExpr
+	Doc      string
+	Line     int
+	Col      int
+	NameLine int
+	NameCol  int
+}
+
+func (*MacroDecl) NodeType() string { return "MacroDecl" }
+func (n *MacroDecl) LineNum() int   { return n.Line }
+
+// Expansion marks a declaration a keyword declaration expanded into: the
+// function a `message` declares, or the `once` a `noun` names. Keyword is
+// the declaration's keyword.
+// What the expanding keyword keeps about the declaration (its body, its
+// inputs, the span map back to them) is Detail, which this package never
+// reads; it is unexported so that no walk of the tree reaches into it.
+type Expansion struct {
+	Keyword string
+	detail  any
+}
+
+// NewExpansion is an Expansion for keyword holding detail.
+func NewExpansion(keyword string, detail any) *Expansion {
+	return &Expansion{Keyword: keyword, detail: detail}
+}
+
+// Detail is what the expanding keyword keeps.
+func (e *Expansion) Detail() any {
+	if e == nil {
+		return nil
+	}
+	return e.detail
+}
 
 // ---------------------------------------------------------------------------
 // Functions
@@ -2080,6 +2267,11 @@ type FuncDef struct {
 	// separate source position to attach to the marker keyword itself.
 	ImplLine int
 	ImplCol  int
+	// Expansion is set on a function a keyword declaration expanded into
+	// (KeywordDecl): its name and parameters are the declaration's, and its
+	// return type and body are positioned in the synthesized band. Nil for
+	// every function the source writes.
+	Expansion *Expansion
 	// ImplIface records the interface this function implements, filled by
 	// analysis for items inside `impl Iface for Type { ... }` blocks.
 	ImplIface TypeExpr

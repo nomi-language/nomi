@@ -79,7 +79,17 @@ func (c *checker) checkQualifiedTypeMember(qt *ast.QualifiedType, seen map[Pos]b
 	if member.Resolved != nil {
 		member = member.Resolved
 	}
-	if member.Public || member.SourceFile == c.fa.FilePath || seen[pos] {
+	if member.Public || seen[pos] {
+		return
+	}
+	if std, ok := stdModuleOfSymbol(fileSym, c.fa.Origin); ok {
+		if !isHiddenImportAlias(segs[0]) && !IsStdlibKey(c.fa.Origin) {
+			seen[pos] = true
+			c.addError(pos.Line, pos.Col, internalToStd(segs[0]+"."+name, std))
+		}
+		return
+	}
+	if member.SourceFile == c.fa.FilePath {
 		return
 	}
 	seen[pos] = true

@@ -47,12 +47,12 @@ func TestIterCallback_AStrayBreakInATestBodyIsReported(t *testing.T) {
 	}
 }
 
-// `Iter.reduce` starts only from its callback lambda's first-parameter
-// default. Every callback without one is rejected at the callback with the
-// seeded form as the help: a function value, a lambda with no default, a
-// partial, a pipe stage, a named function, a slot left open, and
-// `Iter.reduce` named as a value. A seeded lambda, and one forwarding to a
-// named function, are accepted.
+// `Iter.reduce` starts from `from:` or from its callback lambda's
+// first-parameter default, exactly one. A callback without a default and no
+// `from:` is rejected at the callback with both spellings as the help: a
+// function value, a lambda with no default, a partial, a pipe stage, a named
+// function, a slot left open, and `Iter.reduce` named as a value. `from:`
+// with any callback, and a seeded lambda, are accepted.
 func TestIterCallback_ReduceNeedsAStartingValue(t *testing.T) {
 	const prelude = `fn add(a: Int, b: Int) -> Int {
   a + b
@@ -69,16 +69,16 @@ fn main() {
 	for _, c := range []struct {
 		src, at, help string
 	}{
-		{`_ = Iter.reduce(xs, Int.add)`, "11:23", "call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> Int.add(acc, x)`"},
-		{`_ = Iter.reduce(xs, fn a, b -> a + b)`, "11:23", "give the accumulator a starting value: `fn a = <start>, b -> ...`"},
-		{`_ = Iter.reduce(xs, &add(&1, &2))`, "11:23", "pass a lambda whose accumulator has a starting value: `fn acc = <start>, x -> ...`"},
-		{`_ = xs |> Iter.reduce(Int.add)`, "11:25", "call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> Int.add(acc, x)`"},
-		{`_ = Iter.reduce(xs, add)`, "11:23", "call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> add(acc, x)`"},
+		{`_ = Iter.reduce(xs, Int.add)`, "11:23", "give it with `from:`: `Iter.reduce(xs, Int.add, from: <start>)`"},
+		{`_ = Iter.reduce(xs, fn a, b -> a + b)`, "11:23", "give it with `from:`, `Iter.reduce(xs, fn a, b -> ..., from: <start>)`, or as the accumulator's default, `fn a = <start>, b -> ...`"},
+		{`_ = Iter.reduce(xs, &add(&1, &2))`, "11:23", "give it with `from:`: `Iter.reduce(xs, f, from: <start>)`, or pass a lambda whose accumulator has a default: `fn acc = <start>, x -> ...`"},
+		{`_ = xs |> Iter.reduce(Int.add)`, "11:25", "give it with `from:`: `Iter.reduce(xs, Int.add, from: <start>)`"},
+		{`_ = Iter.reduce(xs, add)`, "11:23", "give it with `from:`: `Iter.reduce(xs, add, from: <start>)`"},
 		{`g = &Iter.reduce(&1, add)
-  _ = g(xs)`, "11:24", "call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> add(acc, x)`"},
+  _ = g(xs)`, "11:24", "give it with `from:`: `Iter.reduce(xs, add, from: <start>)`"},
 		{`g = &Iter.reduce(xs, &1)
-  _ = g(add)`, "11:24", "pass the callback here, as a lambda whose accumulator has a starting value: `Iter.reduce(xs, fn acc = <start>, x -> ...)`"},
-		{"_ = apply(Iter.reduce)\n  _ = xs", "11:13", "call it from a lambda with a seeded callback instead: `fn xs, f -> Iter.reduce(xs, fn acc = <start>, x -> f(acc, x))`"},
+  _ = g(add)`, "11:24", "pass the callback here: `Iter.reduce(xs, f, from: <start>)`"},
+		{"_ = apply(Iter.reduce)\n  _ = xs", "11:13", "call it with its starting value instead: `Iter.reduce(xs, f, from: <start>)`"},
 	} {
 		err := checkSource(t, prelude+c.src+"\n}\n")
 		if err == nil {
@@ -94,6 +94,60 @@ fn main() {
 		`_ = Iter.reduce(xs, fn acc = 0, x -> acc + x)`,
 		`_ = xs |> Iter.reduce(fn acc = 0, x -> add(acc, x))`,
 		`_ = Iter.reduce(xs, fn acc = "", n -> acc + Int.to_string(n))`,
+		`_ = Iter.reduce(xs, add, from: 0)`,
+		`_ = Iter.reduce(xs, Int.add, from: 0)`,
+		`_ = xs |> Iter.reduce(add, from: 0)`,
+		`_ = Iter.reduce(xs, &add(&1, &2), from: 0)`,
+		`_ = Iter.reduce(xs, fn acc, x -> acc + x, from: 0)`,
+		`_ = Iter.reduce(xs, fn acc, n -> acc + Int.to_string(n), from: "")`,
+		`_ = Iter.reduce(xs, f: add, from: 0)`,
+		`_ = Iter.reduce(xs, from: 0, add)`,
+	} {
+		if err := checkSource(t, prelude+good+"\n}\n"); err != nil {
+			t.Errorf("%s: rejected: %v", good, err)
+		}
+	}
+}
+
+// Every seeded iteration function takes its starting value exactly once:
+// `from:` beside a seeded lambda is two, reported at `from:` with the help
+// to keep one, and a starting value written positionally is asked for by
+// name.
+func TestIterCallback_ASeededCallTakesOneStartingValue(t *testing.T) {
+	const prelude = `fn add(a: Int, b: Int) -> Int {
+  a + b
+}
+
+fn main() {
+  xs = [1, 2]
+  `
+	for _, c := range []struct {
+		src, at, msg, help string
+	}{
+		{`_ = Iter.reduce(xs, fn acc = 0, x -> acc + x, from: 1)`, "7:55", "`Iter.reduce` has two starting values: `from:` and the default of the callback's first parameter", "keep one: remove `from:`, or remove the default from `acc`"},
+		{`_ = Iter.scan(xs, fn acc = 0, x -> acc + x, from: 1) |> Iter.to_list()`, "7:53", "`Iter.scan` has two starting values: `from:` and the default of the callback's first parameter", "keep one: remove `from:`, or remove the default from `acc`"},
+		{`_ = Iter.map_reduce(xs, fn #(a, b) = #(0, 0), x -> #(x, #(a, b)), from: #(1, 1))`, "7:75", "`Iter.map_reduce` has two starting values: `from:` and the default of the callback's first parameter", "keep one: remove `from:`, or remove the default from `the first parameter`"},
+		{"_ = xs\n  _ = Iter.loop(fn n = 0 -> { break n }, from: 1)", "8:48", "`Iter.loop` has two starting states: `from:` and the default of the callback's parameter", "keep one: remove `from:`, or remove the default from `n`"},
+		{"_ = xs\n  _ = Iter.loop(fn -> { break }, from: 1)", "8:40", "a stateless `Iter.loop` takes no starting state", "remove `from:`, or give the callback a parameter for the state: `fn state -> ...`"},
+		{`_ = Iter.reduce(xs, 0, add)`, "7:23", "`Iter.reduce` takes its starting value by name", "write it as `from:` after the callback: `Iter.reduce(xs, f, from: <start>)`"},
+		{`_ = Iter.scan(xs, fn acc, x -> acc + x) |> Iter.to_list()`, "7:21", "`Iter.scan` needs a starting value", "give it with `from:`, `Iter.scan(xs, fn acc, x -> ..., from: <start>)`, or as the accumulator's default, `fn acc = <start>, x -> ...`"},
+		{`_ = Iter.map_reduce(xs, add)`, "7:27", "`Iter.map_reduce` needs a starting value", "give it with `from:`: `Iter.map_reduce(xs, add, from: <start>)`"},
+	} {
+		err := checkSource(t, prelude+c.src+"\n}\n")
+		if err == nil {
+			t.Errorf("%s: admitted", c.src)
+			continue
+		}
+		got := err.Error()
+		if !strings.Contains(got, c.at+": "+c.msg) || !strings.Contains(got, c.help) || strings.Count(got, c.msg) != 1 {
+			t.Errorf("%s: want one %q at %s with help %q, got\n%s", c.src, c.msg, c.at, c.help, got)
+		}
+	}
+	for _, good := range []string{
+		`_ = Iter.scan(xs, add, from: 0) |> Iter.to_list()`,
+		`_ = Iter.map_reduce(xs, fn n, x -> #(x * n, n + 1), from: 0)`,
+		`_ = Iter.map_reduce(xs, fn #(a, b), x -> #(x, #(a + x, b)), from: #(0, 0))`,
+		"_ = xs\n  _ = Iter.loop(fn n -> { break n }, from: 1)",
 	} {
 		if err := checkSource(t, prelude+good+"\n}\n"); err != nil {
 			t.Errorf("%s: rejected: %v", good, err)
@@ -121,13 +175,13 @@ fn main() {
 		src, msg, at, help string
 	}{
 		{`_ = Iter.scan(xs, max) |> Iter.to_list()`, "`Iter.scan` needs a starting value", "11:21",
-			"call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> max(acc, x)`"},
+			"give it with `from:`: `Iter.scan(xs, max, from: <start>)`"},
 		{`_ = xs |> Iter.scan(fn a, b -> a + b) |> Iter.to_list()`, "`Iter.scan` needs a starting value", "11:23",
-			"give the accumulator a starting value: `fn a = <start>, b -> ...`"},
+			"give it with `from:`, `Iter.scan(xs, fn a, b -> ..., from: <start>)`, or as the accumulator's default, `fn a = <start>, b -> ...`"},
 		{"_ = apply(Iter.scan)\n  _ = xs", "`Iter.scan` needs a starting value", "11:13",
-			"call it from a lambda with a seeded callback instead: `fn xs, f -> Iter.scan(xs, fn acc = <start>, x -> f(acc, x))`"},
+			"call it with its starting value instead: `Iter.scan(xs, f, from: <start>)`"},
 		{`_ = Iter.map_reduce(xs, fn n, x -> #(x, n + 1))`, "`Iter.map_reduce` needs a starting value", "11:27",
-			"give the accumulator a starting value: `fn n = <start>, x -> ...`"},
+			"give it with `from:`, `Iter.map_reduce(xs, fn n, x -> ..., from: <start>)`, or as the accumulator's default, `fn n = <start>, x -> ...`"},
 	} {
 		err := checkSource(t, prelude+c.src+"\n}\n")
 		if err == nil {
@@ -145,6 +199,7 @@ fn main() {
 	for _, good := range []string{
 		`_ = Iter.scan(xs, fn acc = 0, x -> max(acc, x)) |> Iter.to_list()`,
 		`_ = xs |> Iter.map_reduce(fn n = 0, x -> #(x * n, n + 1))`,
+		`_ = Iter.scan(xs, max, from: 0) |> Iter.to_list()`,
 	} {
 		if err := checkSource(t, prelude+good+"\n}\n"); err != nil {
 			t.Errorf("%s: rejected: %v", good, err)
@@ -152,11 +207,12 @@ fn main() {
 	}
 }
 
-// `Iter.loop` starts only from its callback lambda's parameter default, or
-// with no state from a lambda with no parameter. A lambda whose parameter
-// has no default and a function value are rejected at the callback, in a
-// call or a pipe; a seeded lambda, a stateless one and a seeded lambda
-// forwarding to a named function are accepted.
+// `Iter.loop` starts from `from:` or from its callback lambda's parameter
+// default, or with no state from a lambda with no parameter. A lambda whose
+// parameter has no default and a function value, with no `from:`, are
+// rejected at the callback with both spellings as the help; a seeded
+// lambda, a stateless one, and a lambda or a named step with `from:` are
+// accepted.
 func TestIterCallback_LoopNeedsAStartingState(t *testing.T) {
 	const prelude = `fn step(n: Int) -> Int {
   if n > 3 { break n }
@@ -169,9 +225,8 @@ fn main() {
 	for _, c := range []struct {
 		src, at, help string
 	}{
-		{`_ = Iter.loop(step)`, "7:17", "call it from a lambda whose state has a starting value: `fn state = <start> -> step(state)`"},
-		{`_ = step |> Iter.loop()`, "7:7", "call it from a lambda whose state has a starting value: `fn state = <start> -> step(state)`"},
-		{"_ = Iter.loop(fn n: Int -> {\n    if n > 3 { break n }\n    n + 1\n  })", "7:17", "give the state a starting value: `fn n = <start> -> ...`, or take no parameter for a loop with no state: `fn -> ...`"},
+		{`_ = Iter.loop(step)`, "7:17", "give it with `from:`: `Iter.loop(step, from: <start>)`"},
+		{"_ = Iter.loop(fn n: Int -> {\n    if n > 3 { break n }\n    n + 1\n  })", "7:17", "give it with `from:`, `Iter.loop(fn n -> ..., from: <start>)`, or as the parameter's default, `fn n = <start> -> ...`; or take no parameter for a loop with no state: `fn -> ...`"},
 	} {
 		err := checkSource(t, prelude+c.src+"\n}\n")
 		if err == nil {
@@ -184,9 +239,10 @@ fn main() {
 		}
 	}
 	for _, good := range []string{
-		`_ = Iter.loop(fn n = 0 -> step(n))`,
-		"_ = Iter.loop(fn n = 0 -> {\n    if n > 3 { break n }\n    n + 1\n  })\n  _ = Iter.loop(fn m = 0 -> step(m))",
-		"Iter.loop(fn -> { break })\n  _ = Iter.loop(fn m = 0 -> step(m))",
+		`_ = Iter.loop(step, from: 0)`,
+		"_ = Iter.loop(fn n = 0 -> {\n    if n > 3 { break n }\n    n + 1\n  })\n  _ = Iter.loop(step, from: 1)",
+		"Iter.loop(fn -> { break })\n  _ = Iter.loop(f: step, from: 2)",
+		"_ = Iter.loop(fn n: Int -> {\n    if n > 3 { break n }\n    n + 1\n  }, from: 0)\n  _ = Iter.loop(step, from: 0)",
 	} {
 		if err := checkSource(t, prelude+good+"\n}\n"); err != nil {
 			t.Errorf("%s: rejected: %v", good, err)

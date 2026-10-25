@@ -1,9 +1,9 @@
-// `std/codepoints.Codepoint` as an ANCHORED stdlib opaque newtype: the whole
+// `std/code_points.Codepoint` as an ANCHORED stdlib opaque newtype: the whole
 // Nomi-bodied surface plus the two rt externs over it.
 //
 // The point of the fixture is that almost nothing here is an rt implementation.
 // `Codepoint.from_int`'s validation, `next`, `step_by` and `steps_between` are
-// ordinary Nomi source in std/codepoints.nomi and lower to IR. Only
+// ordinary Nomi source in std/code_points.nomi and lower to IR. Only
 // `Codepoint.to_string` (rt.CodepointToString) and `String.to_codepoints`
 // (rt.StringToCodepoints) are rt functions, and both are one expression.
 //
@@ -15,7 +15,7 @@
 // # Why every Codepoint arrives inside a `Maybe`
 //
 // The values under test are mostly outside ASCII, where `Codepoint.from_int`
-// is the only constructor reachable from outside std/codepoints, and it
+// is the only constructor reachable from outside std/code_points, and it
 // answers `Maybe<Codepoint>` because the type validates. A codepoint literal
 // (`'a'`) builds an ASCII one directly; codepoint_literal.nomi covers it. `try`
 // only propagates out of a function that returns `Maybe`/`Result`, so each

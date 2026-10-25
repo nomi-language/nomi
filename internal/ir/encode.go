@@ -47,7 +47,7 @@ import (
 
 // FormatVersion is the version the encoder writes and the only one the
 // decoder reads. Bump it with any change to what is written.
-const FormatVersion = 25
+const FormatVersion = 36
 
 // formatMagic opens every encoded image.
 const formatMagic = "NOMIIR\x00"
@@ -73,6 +73,10 @@ type Image struct {
 	// Exports are the program's exported functions (`export fn`), the
 	// functions a host calls by name, in declaration order.
 	Exports []Export
+	// Locales is the CLDR data the program carries (internal/cldrdata's
+	// text format): the locales its nomi.toml lists, cut to the parts it
+	// reaches. Empty for a program that reaches no locale data.
+	Locales []byte
 }
 
 // Export is one exported function as a host calls it: each argument's JSON
@@ -154,6 +158,7 @@ const (
 	tagTry
 	tagTodo
 	tagSubtests
+	tagCtlRead
 )
 
 const (
@@ -226,6 +231,8 @@ type encoder struct {
 	// (WithFileNames), memoized in named; nil keeps every name.
 	files func(string) string
 	named map[string]string
+	// texts replaces the text of the constants it holds (WithConstTexts).
+	texts map[*Const]string
 	// doneX is how many entries of each list drain has written.
 	doneFn, doneVT, doneTy int
 	err                    error
@@ -240,6 +247,14 @@ type EncodeOption func(*encoder)
 // display only (NewModule), so the graph is unchanged.
 func WithFileNames(rename func(string) string) EncodeOption {
 	return func(e *encoder) { e.files = rename }
+}
+
+// WithConstTexts writes the text of each constant texts holds as texts
+// gives it, and every other constant as it is. A browser build writes its
+// messages' tables with only the locales it embeds, and the rest as files
+// the program loads (vmhost's BuildWebImage); the graph is unchanged.
+func WithConstTexts(texts map[*Const]string) EncodeOption {
+	return func(e *encoder) { e.texts = texts }
 }
 
 // EncodeImage writes im in the current format. The same image gives the same
@@ -302,6 +317,7 @@ func EncodeImage(im Image, opts ...EncodeOption) ([]byte, error) {
 		w.uv(e.str(x.Result))
 		w.uv(e.fn(x.Encode))
 	}
+	w.uv(e.str(string(im.Locales)))
 	e.drain()
 	if e.err != nil {
 		return nil, e.err
@@ -836,7 +852,11 @@ func (e *encoder) instr(w *wbuf, in Instr) {
 		w.byte1(byte(n.kind))
 		w.sv(n.num)
 		w.f64(n.flt)
-		w.uv(e.str(n.text))
+		text := n.text
+		if t, ok := e.texts[n]; ok {
+			text = t
+		}
+		w.uv(e.str(text))
 		w.uv(e.sym(n.typ))
 	case *Bind:
 		w.byte1(tagBind)
@@ -943,6 +963,12 @@ func (e *encoder) instr(w *wbuf, in Instr) {
 		e.pos(w, n.pos)
 		w.temp(n.src)
 		w.uv(e.str(n.text))
+	case *CtlRead:
+		w.byte1(tagCtlRead)
+		e.pos(w, n.pos)
+		w.temp(n.dst)
+		w.temp(n.src)
+		w.byte1(byte(n.part))
 	default:
 		e.fail("unknown instruction %T", in)
 	}

@@ -37,6 +37,9 @@ text = text.replace("@property", "@variable.other.member")
 text = text.replace("@number", "@constant.numeric")
 text = text.replace("@module", "@namespace")
 text = text.replace("(codepoint) @string.special", "(codepoint) @constant.character")
+# A macro's marked keyword (`sqlkit.query!`) is Zed's @function.special,
+# as Zed draws a Rust macro; Helix names it @function.macro.
+text = text.replace("@function.special", "@function.macro")
 text = text.replace(
     '(string_interpolation\n  "#{" @punctuation.special\n  "}" @punctuation.special)',
     '(string_interpolation\n  "#{" @constant.character.escape\n  "}" @constant.character.escape)',
@@ -56,16 +59,21 @@ esac
 
 mkdir -p "$USER_HELIX/runtime/queries" "$USER_HELIX/runtime/grammars"
 USER_QUERIES="$USER_HELIX/runtime/queries/nomi"
-if [[ "$mode" == "--dev" ]]; then
-  rm -rf "$USER_QUERIES"
-  ln -s "$QUERY_DIR" "$USER_QUERIES"
-else
-  if [[ -L "$USER_QUERIES" ]]; then
-    rm "$USER_QUERIES"
+# nomi-catalog is the language of a module's message catalogs, whose
+# queries inherit Helix's TOML ones.
+for lang in nomi nomi-catalog; do
+  user_dir="$USER_HELIX/runtime/queries/$lang"
+  if [[ "$mode" == "--dev" ]]; then
+    rm -rf "$user_dir"
+    ln -s "$HELIX_NOMI/runtime/queries/$lang" "$user_dir"
+  else
+    if [[ -L "$user_dir" ]]; then
+      rm "$user_dir"
+    fi
+    mkdir -p "$user_dir"
+    cp "$HELIX_NOMI/runtime/queries/$lang/"*.scm "$user_dir/"
   fi
-  mkdir -p "$USER_QUERIES"
-  cp "$QUERY_DIR/"*.scm "$USER_QUERIES/"
-fi
+done
 
   mkdir -p "$USER_HELIX"
   touch "$USER_HELIX/languages.toml"

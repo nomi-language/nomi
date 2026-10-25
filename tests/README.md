@@ -138,6 +138,26 @@ Boundary values and decoding fixtures: `Dynamic`, JSON, and FFI-shaped examples.
 `tagged_ffi_app/` is a browsable `nomi run` and `nomi test` fixture for
 Nomi-side Go FFI binding discovery.
 
+### 19-locales
+
+Locales and plural rules: `Locale` parsing, canonicalization, POSIX values,
+CLDR fallback chains and negotiation; plural categories; an app that keeps
+its locale in an application field; locale-aware number formatting and
+parsing and list joining; and a project whose `nomi.toml` lists its locales
+under `[i18n]` (`listed_locales/`), with how an unlisted locale falls back;
+and a shop whose `message` declarations are translated in catalogs
+(`shop/`, with `locales/<tag>/cart.toml`): plurals, an enum selector,
+fallbacks through `pt-PT` and partial locales, right-to-left isolation and
+the pseudo-locales; and its `noun` declarations (`order.nomi`): Polish and
+Portuguese gender agreement, a case form asked for with `case=genitive`, a
+noun's form following a count, `:nomi:list` with the verb agreeing with the
+list's length, and `:nomi:weekday`.
+
+### 20-data-access
+
+Data access vocabulary: `Uuid` parsing, bytes, typed errors, v4 and v7
+generation, v7 ordering under a virtual clock, and UUIDs as map keys.
+
 ## Adding Or Moving A Program
 
 Put the file in the category that owns the behavior being exercised. If a file

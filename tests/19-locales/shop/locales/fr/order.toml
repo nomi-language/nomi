@@ -1,0 +1,10 @@
+# French, a partial locale: the total and the shipping date. French puts a
+# narrow no-break space before a colon.
+
+[order_total]
+source = '''Total: {$total :currency}'''
+text = '''Total : {$total :currency}'''
+
+[ships_on]
+source = '''Ships {$date :datetime weekday=long month=long day=numeric}'''
+text = '''Expédition le {$date :datetime weekday=long month=long day=numeric}'''

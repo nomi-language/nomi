@@ -57,7 +57,7 @@ func installCanonicalStdTypes(cache map[string]*FileAnalysis) {
 	if st, ok := lookup("std/assertions", "AssertionFailure").(*StructType); ok {
 		installAssertionFailureOnce.Do(func() { TypeAssertionFailure = st })
 	}
-	if dt, ok := lookup("std/codepoints", "Codepoint").(*DistinctType); ok {
+	if dt, ok := lookup("std/code_points", "Codepoint").(*DistinctType); ok {
 		installCodepointOnce.Do(func() { TypeCodepoint = dt })
 	}
 	if st, ok := lookup("std/ranges", "Range").(*StructType); ok {

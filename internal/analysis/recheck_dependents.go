@@ -116,6 +116,11 @@ func (dm *DocumentManager) recheckDependents(prev *CheckedProgram, edits []Progr
 		if !ok || pf.implFingerprint != was {
 			return nil, "the impls the file brings changed"
 		}
+		if len(macroExpansions(prev.Nodes[e.Key])) > 0 {
+			// The impls a macro expands to are not in the text the
+			// impls fingerprint reads.
+			return nil, "the file has declarations a macro expanded"
+		}
 		if exportsFunctions(pf.nodes) {
 			return nil, "the program exports functions"
 		}
@@ -236,8 +241,8 @@ func exportsFunctions(nodes []ast.Node) bool {
 
 // holdsFrom reports whether fa's analysis holds something of the files keys
 // name, whose paths are paths and whose impl methods are impls: a symbol one
-// of them defines, a call dispatched to one of their impl methods, or a
-// type-qualified call that reached one of them.
+// of them defines, a call or an operator dispatched to one of their impl
+// methods, or a type-qualified call that reached one of them.
 func holdsFrom(fa *FileAnalysis, keys, paths map[string]bool, impls map[ast.Node]bool) bool {
 	for key := range fa.TypeMethodModules {
 		if keys[key] {
@@ -257,6 +262,11 @@ func holdsFrom(fa *FileAnalysis, keys, paths map[string]bool, impls map[ast.Node
 			if from(sym) {
 				return true
 			}
+		}
+	}
+	for _, op := range fa.OperatorImpls {
+		if impls[op.Method] {
+			return true
 		}
 	}
 	return false

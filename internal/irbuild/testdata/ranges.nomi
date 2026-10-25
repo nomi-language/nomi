@@ -7,7 +7,7 @@
 // Almost every line of behaviour in this file is std's own Nomi source.
 // `Range.contains?` and `bounded?` are `case r.end` in std/ranges.nomi;
 // `Discrete.next`, `Discrete.steps_between` and `Steppable.step_by` at each
-// element type are ordinary Nomi in std/int.nomi, std/codepoints.nomi and
+// element type are ordinary Nomi in std/int.nomi, std/code_points.nomi and
 // std/decimal.nomi and they LOWER, so the VM runs std's own successor
 // predicate rather than a copy of it. What is rt code is
 // rt/range.go: three fields, four walks and a formatter.

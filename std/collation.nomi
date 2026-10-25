@@ -1,0 +1,186 @@
+//# Collation: ordering text as a reader of a language orders it. `<` on
+//# `String` compares bytes, so `"Zorn" < "apple"` and `"Ärlig"` sorts after
+//# every ASCII word. A `Collator` orders strings by the Unicode Collation
+//# Algorithm with the CLDR rules of a locale: in German `ä` sorts with `a`,
+//# in Swedish after `z`, and in Polish `ł` is a letter after `l`.
+//#
+//# Make a collator once and reuse it: sort with
+//# `Iter.sort_with(names, &Collator.compare(sv, &1, &2))`, or keep each
+//# string's `Collator.sort_key` and compare those. A program carries the
+//# collation data of the locales its `nomi.toml` lists; a collator for a
+//# locale it does not carry orders as that locale's nearest listed parent,
+//# or as the root order every language starts from. The Chinese and Korean
+//# tailorings, 160 to 250 KB each, are carried only when the program lists
+//# those locales.
+
+import {
+    bool.Bool.{self, False, True}
+    bytes.Bytes
+    comparable.Ordering.{self, Equal, Greater, Less}
+    debug.Debug
+    equatable.Equatable
+    hashable.Hashable
+    int.Int
+    iter.Iter
+    locale.Locale
+    strings.String
+}
+
+/// Compares strings as readers of one language order them. Make it with
+/// `Collator.new`.
+///
+/// The locale's tag can ask for a different order of the language: a
+/// `-u-co-` keyword picks a CLDR collation type (`de-u-co-phonebk` sorts `ü`
+/// as `ue`, `es-u-co-trad` sorts `ch` after `c`, `zh-Hant` sorts by stroke),
+/// and `-u-kn-true` orders digits by value, `-u-kf-upper` puts upper case
+/// first and `-u-ks-level1` compares base letters only, as the arguments
+/// to `Collator.new` do.
+//! sv = Collator.new(Locale`sv`)
+//! assert Iter.sort_with(["ö", "z", "a", "å"], &Collator.compare(sv, &1, &2)) == ["a", "z", "å", "ö"]
+//
+pub opaque type Collator String
+
+derive Equatable for Collator
+derive Hashable for Collator
+
+/// How fine a difference a collator tells apart. Each level breaks the ties
+/// of the one before it.
+pub enum Strength {
+    /// Base letters only: `a`, `á` and `A` are equal.
+    Primary
+    /// Base letters and accents: `a` and `A` are equal, `á` is not.
+    Secondary
+    /// Letters, accents and case: the default.
+    Tertiary
+    /// Also what `ignore_punctuation` ignores, and Japanese hiragana from
+    /// katakana.
+    Quaternary
+    /// Every difference: strings equal at every level compare by their
+    /// code points.
+    Identical
+}
+
+derive Equatable for Strength
+
+/// Where upper case sorts beside lower case.
+pub enum CaseFirst {
+    /// As the locale's collation puts it: Danish and Maltese upper case
+    /// first, most languages lower case first.
+    Default
+    /// Upper case before lower case.
+    Upper
+    /// Lower case before upper case.
+    Lower
+    /// As the tertiary weights fall, with no rule for case: lower case first
+    /// for most letters, even in Danish.
+    Off
+}
+
+derive Equatable for CaseFirst
+
+impl Collator {
+    /// A collator for `locale`. `strength` is how fine a difference counts;
+    /// `numeric` orders runs of digits by their value (`file9` before
+    /// `file10`); `case_first` moves upper case before or after lower case;
+    /// `ignore_punctuation` ignores spaces and punctuation unless the strings
+    /// are otherwise equal (`de luge` with `deluge`). An argument left at its
+    /// default keeps what the locale's tag and its collation say.
+    //! de = Collator.new(Locale`de`)
+    //! assert Collator.compare(de, "Ärger", "Arzt") == Less
+    //!
+    //! loose = Collator.new(Locale`en`, strength: Strength.Primary)
+    //! assert Collator.compare(loose, "résumé", "RESUME") == Equal
+    //!
+    //! files = Collator.new(Locale`en`, numeric: True)
+    //! assert Collator.compare(files, "file9", "file10") == Less
+    //
+    pub fn new(
+        locale: Locale,
+        strength: Strength = Strength.Tertiary,
+        numeric: Bool = False,
+        case_first: CaseFirst = CaseFirst.Default,
+        ignore_punctuation: Bool = False,
+    ) -> Collator {
+        strength_tag = case strength {
+            Strength.Primary -> 1
+            Strength.Secondary -> 2
+            Strength.Tertiary -> 3
+            Strength.Quaternary -> 4
+            Strength.Identical -> 5
+        }
+
+        case_tag = case case_first {
+            CaseFirst.Default -> 1
+            CaseFirst.Upper -> 2
+            CaseFirst.Lower -> 3
+            CaseFirst.Off -> 4
+        }
+
+        Collator(collator_new_raw(locale, strength_tag, numeric, case_tag, ignore_punctuation))
+    }
+
+    /// Orders `a` and `b` as the collator's locale does.
+    //! sv = Collator.new(Locale`sv`)
+    //! assert Collator.compare(sv, "Zorn", "Åberg") == Less
+    //! assert Collator.compare(Collator.new(Locale`de`), "Zorn", "Åberg") == Greater
+    //
+    pub fn compare(collator: Collator, a: String, b: String) -> Ordering {
+        Collator(spec) = collator
+        n = collator_compare_raw(spec, a, b)
+
+        if n < 0 {
+            Less
+        } else if n > 0 {
+            Greater
+        } else {
+            Equal
+        }
+    }
+
+    /// The bytes that order `text` under the collator: two strings' keys
+    /// compare as `Collator.compare` compares the strings. Compute each
+    /// string's key once to sort or index many strings, or to store the
+    /// order. A key is only meaningful beside keys from the same collator
+    /// and the same version of Nomi.
+    //! pl = Collator.new(Locale`pl`)
+    //! assert Collator.sort_key(pl, "łoś") > Collator.sort_key(pl, "lis")
+    //! assert Collator.sort_key(pl, "łoś") < Collator.sort_key(pl, "mysz")
+    //
+    pub fn sort_key(collator: Collator, text: String) -> Bytes {
+        Collator(spec) = collator
+        collator_sort_key_raw(spec, text)
+    }
+}
+
+impl Debug for Collator {
+    /// The call that makes the collator, its arguments that are not
+    /// defaults included.
+    //! assert Debug.inspect(Collator.new(Locale`sv`)) == "Collator.new(Locale`sv`)"
+    //!
+    //! assert Debug.inspect(
+    //!     Collator.new(Locale`en`, strength: Strength.Primary, numeric: True)
+    //! ) == "Collator.new(Locale`en`, strength: Strength.Primary, numeric: True)"
+    //
+    fn inspect(collator: Collator) -> String {
+        Collator(spec) = collator
+        collator_inspect_raw(spec)
+    }
+}
+
+/// A collator's text: the locale's tag and the arguments' positions.
+host fn collator_new_raw(
+    locale: Locale,
+    strength: Int,
+    numeric: Bool,
+    case_first: Int,
+    ignore_punctuation: Bool,
+) -> String
+
+/// -1, 0 or 1 as the collator a text names orders `a` and `b`.
+host fn collator_compare_raw(collator: String, a: String, b: String) -> Int
+
+/// The sort key of `text` under the collator a text names.
+host fn collator_sort_key_raw(collator: String, text: String) -> Bytes
+
+/// The call that makes the collator a text names.
+host fn collator_inspect_raw(collator: String) -> String

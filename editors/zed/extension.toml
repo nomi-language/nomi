@@ -7,7 +7,11 @@ description = "Syntax highlighting, language server and debugger support for the
 
 [language_servers.nomi-lsp]
 name = "Nomi LSP"
-languages = ["Nomi"]
+# TOML for a module's message catalogs. Zed attaches a server by language,
+# not by path, so nomi-lsp sees every TOML buffer and answers only those
+# under a module's `[i18n].catalogs` directory.
+languages = ["Nomi", "TOML"]
+language_ids = { "Nomi" = "nomi", "TOML" = "toml" }
 
 # `nomi dap` (src/lib.rs get_dap_binary), configured as
 # debug_adapter_schemas/Nomi.json describes.

@@ -44,10 +44,13 @@ type config struct {
 	// session is the REPL session a program is loaded for: it provides the
 	// session's host functions and keeps earlier inputs' imports legal.
 	session *Session
+	// macros runs the macros the program's declarations are
+	// written with (macros.go).
+	macros *macroHost
 }
 
 func newConfig(opts []Option) config {
-	c := config{out: os.Stdout}
+	c := config{out: os.Stdout, macros: &macroHost{}}
 	for _, o := range opts {
 		o(&c)
 	}
@@ -147,6 +150,7 @@ func (c *config) frontendConfig() (frontend.Config, error) {
 		UnmetHint:           "answer them from a host table passed with vmhost.WithHosts.",
 		AllowUnusedImports:  c.session != nil,
 		AllowUnusedBindings: c.allowUnusedBindings,
+		Macros:              c.macros,
 	}, nil
 }
 
@@ -258,6 +262,19 @@ func internalError(err error) error {
 }
 
 func lower(cfg config, analyze func() (*irbuild.Program, error)) (*Program, error) {
+	// Deferred, so a producer panic does not leave every later load waiting
+	// on the lock.
+	lowering.Lock()
+	defer lowering.Unlock()
+	// A macro the front end runs is built while this load holds the
+	// lock (macros.go).
+	cfg.macros.held.Store(true)
+	defer cfg.macros.held.Store(false)
+	return lowerLocked(cfg, analyze)
+}
+
+// lowerLocked is lower for a caller that holds the lowering lock.
+func lowerLocked(cfg config, analyze func() (*irbuild.Program, error)) (*Program, error) {
 	declines := map[string]string{}
 	var details []*irbuild.Decline
 	var prog *irbuild.Program
@@ -272,10 +289,6 @@ func lower(cfg config, analyze func() (*irbuild.Program, error)) (*Program, erro
 				err = &InternalError{Panic: r, Stack: debug.Stack()}
 			}
 		}()
-		// Deferred, so a producer panic does not leave every later load
-		// waiting on the lock.
-		lowering.Lock()
-		defer lowering.Unlock()
 		irbuild.IRDeclineObserved = func(fn, reason string) { declines[fn] = reason }
 		irbuild.IRDeclineAt = func(d *irbuild.Decline) { details = append(details, d) }
 		defer func() { irbuild.IRDeclineObserved, irbuild.IRDeclineAt = nil, nil }()
@@ -513,6 +526,11 @@ func newProgram(prog *irbuild.Program, res *irbuild.Result, declines map[string]
 	}
 	p.hosts = append(p.hosts, compilerhosts.Table(prog.Root, prog.VirtualFiles))
 	p.hosts = append(p.hosts, cfg.hosts...)
+	m := programManifest(prog.Root, cfg.manifest)
+	p.locales, p.webEmbedded = m.CarriedLocales(), m.WebLocales()
+	if p.locales != nil {
+		p.source = m.Source()
+	}
 	entryPath := prog.Entry().Path
 	for _, m := range res.IR {
 		if m.Name() == entryPath {
@@ -520,6 +538,23 @@ func newProgram(prog *irbuild.Program, res *irbuild.Result, declines map[string]
 		}
 	}
 	return p
+}
+
+// programManifest is the program's manifest, whose `[i18n]` says the
+// locales it carries: the staged one, else the one at root, nil when there
+// is none (every locale). The front end already reported a manifest it
+// cannot read, so one is read here as none.
+func programManifest(root string, staged *analysis.Manifest) *analysis.Manifest {
+	if staged != nil {
+		return staged
+	}
+	if root == "" {
+		return nil
+	}
+	if m, err := analysis.LoadManifest(root); err == nil {
+		return m
+	}
+	return nil
 }
 
 // SplitMultiFile splits a tour-style source holding `// FILE: <name>` markers

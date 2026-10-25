@@ -118,19 +118,12 @@ func (bl *irScalarBuilder) ctlReturn(n ast.Node) bool {
 	var r *ir.Return
 	switch t := n.(type) {
 	case *ast.Continue:
-		if bl.ctl == irCtlReduce {
-			r = ir.NewReturn(pos, bl.ctlAcc)
-		} else {
-			r = ir.NewReturnCtl(pos, ir.NoTemp, ir.CtlSkip)
-		}
+		bl.ctlLeave(pos, false)
+		return true
 	case *ast.Break:
 		if isNilNode(t.Value) {
-			if bl.ctl == irCtlReduce {
-				r = ir.NewReturnCtl(pos, bl.ctlAcc, ir.CtlEmitStop)
-			} else {
-				r = ir.NewReturnCtl(pos, ir.NoTemp, ir.CtlStop)
-			}
-			break
+			bl.ctlLeave(pos, true)
+			return true
 		}
 		var val ir.Temp
 		var k kind
@@ -153,6 +146,25 @@ func (bl *irScalarBuilder) ctlReturn(n ast.Node) bool {
 	}
 	bl.b.SetTerm(r)
 	return true
+}
+
+// ctlLeave ends the current block of a signalling callback with its
+// `continue` (brk false) or its bare `break` (brk true): in a reduce, a bare
+// `break` stops with the unchanged accumulator and `continue` keeps going
+// with it; in an adapter, `continue` skips and a bare `break` stops.
+func (bl *irScalarBuilder) ctlLeave(pos ir.Pos, brk bool) {
+	var r *ir.Return
+	switch {
+	case !brk && bl.ctl == irCtlReduce:
+		r = ir.NewReturn(pos, bl.ctlAcc)
+	case !brk:
+		r = ir.NewReturnCtl(pos, ir.NoTemp, ir.CtlSkip)
+	case bl.ctl == irCtlReduce:
+		r = ir.NewReturnCtl(pos, bl.ctlAcc, ir.CtlEmitStop)
+	default:
+		r = ir.NewReturnCtl(pos, ir.NoTemp, ir.CtlStop)
+	}
+	bl.b.SetTerm(r)
 }
 
 // irCtlTailGuard reads a signalling callback's tail `if c { break v } else {

@@ -3,10 +3,14 @@ package vmhost
 import (
 	"errors"
 	"io"
+	"os"
+	"time"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/virtualproject"
+	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/vmrunner"
 
 	"github.com/nomi-language/nomi/rt"
@@ -94,4 +98,43 @@ func splitMultiFile(src string) (string, string, map[string]string, *analysis.Ma
 		return "", "main", nil, nil, err
 	}
 	return project.EntrySource, project.EntryName, project.VirtualFiles, project.Manifest, nil
+}
+
+// TimedOut is the failure of a test case that did not finish within the
+// limit SetTestTimeout gave: the limit, where the case was running when it
+// was stopped (innermost first), and the line it is reported at.
+type TimedOut = vm.TimedOut
+
+// DefaultTestTimeout is how long `nomi test` lets each case run unless
+// `--timeout` says otherwise.
+const DefaultTestTimeout = 10 * time.Second
+
+// TestTimeoutHint is the `help:` line `nomi test` ends a timed-out case's
+// failure with.
+const TestTimeoutHint = "`nomi test --timeout <duration>` sets how long a case may run " +
+	"(10s unless given), and `--timeout 0` removes the limit"
+
+// TestTimeoutEnv carries `nomi test --timeout` to an FFI project's test
+// wrapper, which runs the cases in its own process (TestTimeoutFromEnv).
+const TestTimeoutEnv = ffirun.TestTimeoutEnv
+
+// TestTimeoutFromEnv is the limit TestTimeoutEnv names, or zero (no limit)
+// when it is unset or not a duration.
+func TestTimeoutFromEnv() time.Duration {
+	d, err := time.ParseDuration(os.Getenv(TestTimeoutEnv))
+	if err != nil || d < 0 {
+		return 0
+	}
+	return d
+}
+
+// SetTestTimeout makes every test case the program runs from now on (Test,
+// Cases) stop once it has run for d of wall-clock time, its group's clock,
+// boot and setup included, and fail with a *TimedOut whose text names where
+// it was running and ends with hint as a `help:` line when hint is not
+// empty. Zero means no limit, which is the default. A program with a
+// debugger (SetDebugger) runs with no limit, since a paused case must not
+// time out.
+func (p *Program) SetTestTimeout(d time.Duration, hint string) {
+	p.testTimeout, p.testTimeoutHint = d, hint
 }

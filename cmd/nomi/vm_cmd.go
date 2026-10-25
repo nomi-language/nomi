@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/vmcmd"
@@ -61,13 +62,14 @@ func runEntry(path string) (string, error) {
 // runTestVM is `nomi test` on the VM. Every file's cases that can run, run;
 // a case the VM cannot run is reported BLOCKED with its reasons, and the
 // command exits non-zero when anything failed or was blocked.
-func runTestVM(root string, opts vmhost.TestOptions, format vmhost.TestFormat) error {
-	return testVM(context.Background(), root, opts, format, os.Stdout, os.Stderr, os.Stdin)
+func runTestVM(root string, opts vmhost.TestOptions, format vmhost.TestFormat, timeout time.Duration) error {
+	return testVM(context.Background(), root, opts, format, timeout, os.Stdout, os.Stderr, os.Stdin)
 }
 
 // testVM is runTestVM with the streams supplied. When stop is set, the cases
-// running in process end when it does (vmcmd.Tester.Stop).
-func testVM(stop context.Context, root string, opts vmhost.TestOptions, format vmhost.TestFormat, stdout, stderr io.Writer, stdin io.Reader) error {
+// running in process end when it does (vmcmd.Tester.Stop). timeout is how
+// long each case may run, or zero for no limit (vmcmd.Tester.Timeout).
+func testVM(stop context.Context, root string, opts vmhost.TestOptions, format vmhost.TestFormat, timeout time.Duration, stdout, stderr io.Writer, stdin io.Reader) error {
 	restoreEnv, err := vmhost.DefaultTestEnv()
 	if err != nil {
 		return fmt.Errorf("nomi test: %w", err)
@@ -105,7 +107,7 @@ func testVM(stop context.Context, root string, opts vmhost.TestOptions, format v
 			return errTestsFailed
 		}
 	}
-	tester := &vmcmd.Tester{Out: out, ReportOut: stdout, Stderr: stderr, Stdin: stdin, Rep: rep, Format: format, Stop: stop}
+	tester := &vmcmd.Tester{Out: out, ReportOut: stdout, Stderr: stderr, Stdin: stdin, Rep: rep, Format: format, Stop: stop, Timeout: timeout}
 	for _, file := range files {
 		fileOpts := opts
 		if opts.LineSet && len(files) > 1 {

@@ -1,6 +1,6 @@
 ---
 title: Scalars & Strings
-description: Integers, floats, decimals, booleans, strings and bytes.
+description: Integers, floats, decimals, booleans, strings, bytes and regular expressions.
 ---
 
 Nomi has three number types: [`Int`](/reference/int/),
@@ -9,6 +9,8 @@ basic types are [`Bool`](/reference/bool/),
 [`String`](/reference/strings/#type-string), and
 [`Byte`](/reference/bytes/#type-byte) and
 [`Bytes`](/reference/bytes/#type-bytes) for binary data.
+The chapter ends with [regular expressions](#regular-expressions), which
+the `String` functions take for finding, splitting and replacing text.
 
 ## Numbers, booleans, operators
 
@@ -150,7 +152,7 @@ The [`String` reference](/reference/strings/) lists the rest.
 `String.split`, `String.contains?`, `String.starts_with?`,
 `String.ends_with?`, `String.replace`, `String.find` and `String.find_all`
 take a [`Matcher`](/reference/matcher/) for the text to look for. A `Matcher` is
-either a plain `String` or a [`Regex`](/typed-literals/#regex-literals):
+either a plain `String` or a [`Regex`](/typed-literals/#backtick-literals-are-checked-at-compile-time):
 
 ```nomi-run
 import std/regex.Regex
@@ -178,7 +180,7 @@ Nomi looks at text at four levels:
 - A grapheme is one character as a reader sees it. `é` and many emoji are
   one grapheme even when Unicode builds them from several code points. Nomi
   represents a grapheme as a `String`.
-- A [`Codepoint`](/reference/codepoints/) is one Unicode code point: a
+- A [`Codepoint`](/reference/code_points/) is one Unicode code point: a
   number Unicode assigns to a character. Use it when you need the numbers
   that make up text.
 - [`Bytes`](/reference/bytes/#type-bytes) is immutable binary data, and a
@@ -255,12 +257,12 @@ dbg line 14:
 -->
 
 To classify a codepoint, ask `Codepoint`:
-[`letter?`](/reference/codepoints/#codepointletter),
-[`whitespace?`](/reference/codepoints/#codepointwhitespace),
-[`upper?`](/reference/codepoints/#codepointupper) and
-[`lower?`](/reference/codepoints/#codepointlower) follow Unicode, so `é` and
-`ж` are letters. [`digit?`](/reference/codepoints/#codepointdigit) and
-[`to_digit`](/reference/codepoints/#codepointto_digit) accept only ASCII `0`
+[`letter?`](/reference/code_points/#codepointletter),
+[`whitespace?`](/reference/code_points/#codepointwhitespace),
+[`upper?`](/reference/code_points/#codepointupper) and
+[`lower?`](/reference/code_points/#codepointlower) follow Unicode, so `é` and
+`ж` are letters. [`digit?`](/reference/code_points/#codepointdigit) and
+[`to_digit`](/reference/code_points/#codepointto_digit) accept only ASCII `0`
 to `9`, which is what a phone number or a checksum means.
 
 ```nomi-run
@@ -306,9 +308,7 @@ comparing text from different sources, put both in the same form with
 ## Bytes — binary data
 
 ```nomi-run
-import {
-    std/io
-}
+import std/io
 
 fn main() {
     raw = String.to_bytes("café")
@@ -324,8 +324,8 @@ fn main() {
 }
 ```
 <!-- expect
-dbg line 7: Bytes.length(raw) = 5
-dbg line 8: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 169]
+dbg line 5: Bytes.length(raw) = 5
+dbg line 6: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 169]
 go:café
 -->
 
@@ -403,8 +403,61 @@ A string in backticks is raw. Backslashes and `${...}` are kept as written.
 Use it for text that contains those characters. A raw string can span
 several lines, and its shared indentation is removed the same way.
 
-For regular expressions, use the `Regex` typed literal shown in
-[Typed Literals](/typed-literals/#regex-literals).
+## Regular expressions
+
+[`std/regex`](/reference/regex/) has `Regex`. Write a pattern in backticks,
+as ``Regex`\d+` ``, so its backslashes stay as written. The compiler checks
+the pattern, so ``Regex`[` `` is an error before the program runs
+([Typed Literals](/typed-literals/#backtick-literals-are-checked-at-compile-time) explains how).
+
+A `Regex` is a [`Matcher`](/reference/matcher/), so the `String` functions
+above take one where they take a plain string: `String.contains?` tests for
+a match, `String.find` returns the first, `String.find_all` returns every
+one, and `String.split` and `String.replace` split and replace around them.
+`String.captures` returns the text each group in parentheses matched in the
+first match, `None` for a group that took no part, and `String.captures_all`
+does the same for every match. `String.replace` takes its replacement
+literally, and `Regex.replace_all` reads `$1`, `$2` and so on in it as the
+groups' text:
+
+```nomi-run
+import std/regex.Regex
+
+fn main() -> Result<Unit, String> {
+    text = "Order 1042 shipped 2026-10-25, order 977 on 2026-10-26"
+    date = Regex`(\d{4})-(\d{2})-(\d{2})`
+
+    dbg String.contains?(text, date)
+    dbg String.find(text, Regex`\d+`)
+    dbg String.find_all(text, date)
+    dbg String.captures(text, date)
+    dbg String.split("a, b,c ,  d", Regex`\s*,\s*`)
+    dbg String.replace(text, Regex`\d{3,4} `, "# ")
+    dbg Regex.replace_all(date, text, "$3/$2/$1")
+
+    word = "order"
+    orders = try Regex"(?i)${word} \\d+"
+    dbg String.find_all(text, orders)
+
+    Ok(Unit)
+}
+```
+<!-- expect
+dbg line 7: String.contains?(text, date) = True
+dbg line 8: String.find(text, Regex`\d+`) = Some("1042")
+dbg line 9: String.find_all(text, date) = ["2026-10-25", "2026-10-26"]
+dbg line 10: String.captures(text, date) = Some([Some("2026"), Some("10"), Some("25")])
+dbg line 11: String.split("a, b,c ,  d", Regex`\s*,\s*`) = ["a", "b", "c", "d"]
+dbg line 12: String.replace(text, Regex`\d{3,4} `, "# ") = "Order # shipped 2026-10-25, order # on 2026-10-26"
+dbg line 13: Regex.replace_all(date, text, "$3/$2/$1") = "Order 1042 shipped 25/10/2026, order 977 on 26/10/2026"
+dbg line 17: String.find_all(text, orders) = ["Order 1042", "order 977"]
+-->
+
+A pattern built from a value is written in double quotes, as
+`Regex"(?i)${word} \\d+"` (`(?i)` ignores case). The compiler can't check
+it, since the value is known only when the program runs, so it is a
+`Result` that you unwrap with `try` or `case`. Inside double quotes a backslash starts an escape, so the
+pattern's `\d` is written `\\d`.
 
 [Collections](/collections/) is next. It puts these values into lists, maps
 and sets.

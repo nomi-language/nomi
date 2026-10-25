@@ -47,6 +47,13 @@ func (s *Server) textDocumentImplementation(ctx *glsp.Context, params *protocol.
 		real = real.Resolved
 	}
 
+	// A declaration a keyword declaration expanded into (a `message`'s
+	// function, a `noun`'s value): its implementations are the input spans
+	// its span map names, each catalog entry it was made of.
+	if info := analysis.ExpansionOfNode(real.Node); info != nil {
+		return s.toUTF16Locations(expansionLocations(info)), nil
+	}
+
 	switch real.Kind {
 	case analysis.SymbolInterface:
 		return s.toUTF16Locations(s.implLocationsForInterface(doc.Analysis, real.Name, uri)), nil

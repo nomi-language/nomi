@@ -179,6 +179,7 @@ func TestCompletion_BareBraceWithoutAStructOffersNoFields(t *testing.T) {
 
 // Right after a field's value, with no `,` yet, the outer literal's fields
 // are not offered: `#{..p, address: #{}‸}` once offered Person's `name`.
+// After the comma they are, on the same line or the next.
 func TestCompletion_NoFieldRightAfterAValue(t *testing.T) {
 	for _, src := range []string{
 		"fn f(p: Person) -> Person {\n    #{..p, address: #{}‸}\n}\n",
@@ -186,7 +187,7 @@ func TestCompletion_NoFieldRightAfterAValue(t *testing.T) {
 	} {
 		labelsExclude(t, complete(t, bareBraceDecls+src), "name")
 	}
-	labelsInclude(t, complete(t, bareBraceDecls+"fn f(a: Address) -> Person {\n    #Person{\n        address: a\n        ‸\n    }\n}\n"), "name")
+	labelsInclude(t, complete(t, bareBraceDecls+"fn f(a: Address) -> Person {\n    #Person{\n        address: a,\n        ‸\n    }\n}\n"), "name")
 }
 
 func TestBraceMayOpenLiteral(t *testing.T) {

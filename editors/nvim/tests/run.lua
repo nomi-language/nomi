@@ -389,6 +389,32 @@ test('neotest output shows the coloured report, diagnostics the plain message', 
   eq(results[path].status, 'failed', 'file status')
 end)
 
+-- A case `nomi test --timeout` stopped is a failed record at the line it was
+-- running, its message the limit and then the stack.
+test('neotest shows a timed-out test as failed at the line it was running', function()
+  stub_neotest_lib()
+  local path = write('timeout_test.nomi', source)
+  local message = '  line 7: did not finish within 10s, so it was stopped\n'
+    .. '  it was running:\n'
+    .. '    timeout_test.nomi:7 in spin\n'
+    .. '    timeout_test.nomi:6 in bad\n'
+    .. '  help: `nomi test --timeout <duration>` sets how long a case may run (10s unless given), '
+    .. 'and `--timeout 0` removes the limit'
+  local records = {
+    record({ file = path, line = 1, name = 'a :: ok', status = 'passed', message = '' }),
+    record({ file = path, line = 5, name = 'a :: bad', status = 'failed', message = message, error_line = 7 }),
+    '{"type":"summary","passed":1,"failed":1,"blocked":0}',
+  }
+  local results = run_results(path, records)
+  local bad = results[path .. '::bad']
+  eq(bad.status, 'failed', 'status')
+  eq(bad.short, 'line 7: did not finish within 10s, so it was stopped', 'short')
+  eq(bad.errors[1].line, 6, 'error line')
+  check(bad.errors[1].message:find('timeout_test.nomi:7 in spin', 1, true) ~= nil,
+    'the message carries the stack: ' .. bad.errors[1].message)
+  eq(results[path].status, 'failed', 'file status')
+end)
+
 test('neotest output falls back to plain text without a report', function()
   stub_neotest_lib()
   local path = write('plain_test.nomi', source)
@@ -680,6 +706,41 @@ end)
 
 test('data-shape delimiters read as type, and block, call, grouping, type and interpolation ones do not', function()
   check_highlight_fixture('delimiters.nomi', 'type', 200)
+end)
+
+test('a module with locales has its catalogs under the directory [i18n] names', function()
+  local catalogs = require('nomi.catalogs')
+  eq(catalogs.dir('[module]\nname = "shop"\n\n[i18n]\nlocales = ["en", "pl"]\n'), 'locales', 'default directory')
+  eq(catalogs.dir('[i18n]\nlocales = ["en"]\ncatalogs = "text/catalogs/" # moved\n'), 'text/catalogs', 'named directory')
+  eq(catalogs.dir('[module]\nname = "app"\n'), nil, 'no [i18n]')
+  eq(catalogs.dir('[i18n]\ncatalogs = "locales"\n'), nil, 'no locales')
+end)
+
+test('nomi-lsp attaches to a module\'s catalogs and to no other TOML file', function()
+  local shop = dir .. '/shop'
+  vim.fn.mkdir(shop .. '/locales/pl', 'p')
+  vim.fn.mkdir(shop .. '/config', 'p')
+  vim.fn.writefile({ '[module]', 'name = "shop"', '', '[i18n]', 'locales = ["en", "pl"]' }, shop .. '/nomi.toml')
+  local catalog = shop .. '/locales/pl/cart.toml'
+  local other = shop .. '/config/settings.toml'
+  vim.fn.writefile({ '[cart_items]' }, catalog)
+  vim.fn.writefile({ 'a = 1' }, other)
+  local config = dofile(plugin .. '/lsp/nomi.lua')
+  check(vim.tbl_contains(config.filetypes, 'toml'), 'the config does not name toml')
+  local function root_of(path, filetype)
+    vim.cmd('edit ' .. vim.fn.fnameescape(path))
+    local buf = vim.api.nvim_get_current_buf()
+    vim.bo[buf].filetype = filetype
+    local got = false
+    config.root_dir(buf, function(root)
+      got = root or vim.NIL
+    end)
+    return got
+  end
+  eq(root_of(catalog, 'toml'), shop, 'a catalog\'s root')
+  eq(root_of(other, 'toml'), false, 'another TOML file attaches')
+  eq(root_of(shop .. '/nomi.toml', 'toml'), false, 'the manifest attaches')
+  eq(root_of(shop .. '/cart.nomi', 'nomi'), shop, 'a Nomi file\'s root')
 end)
 
 vim.fn.delete(dir, 'rf')

@@ -20,6 +20,27 @@ pub fn double?(n: Int) -> Int { todo }
 // <~~~~~~~~~~~~~~~~~~--- entity.name.type.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.arrow.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~---- keyword.control.nomi
+pub message cart_items(count: Int) `{$count} items`
+// <--- keyword.declaration.nomi
+// <~~~~------- keyword.declaration.nomi
+// <~~~~~~~~~~~~---------- entity.name.function.nomi
+pub sqlkit.query! orders(user_id: Int) Sql`SELECT id`
+// <--- keyword.declaration.nomi
+// <~~~~------ entity.name.namespace.nomi
+// <~~~~~~~~~~~------ entity.name.function.macro.nomi
+// <~~~~~~~~~~~~~~~~~~------ entity.name.function.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--- string.quoted.other.raw.nomi entity.name.type.literal.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--------- string.quoted.other.raw.nomi
+query! names `x`
+// <------ entity.name.function.macro.nomi
+pub choices.one_of! Size `small medium large`
+// <~~~~------- entity.name.namespace.nomi
+// <~~~~~~~~~~~~------- entity.name.function.macro.nomi
+// <~~~~~~~~~~~~~~~~~~~~---- entity.name.type.nomi
+pub macro table: CsvTable
+// <--- keyword.declaration.nomi
+// <~~~~----- keyword.declaration.nomi
+// <~~~~~~~~~~----- entity.name.function.nomi
 x = 1 // trailing comment
 // <~~~~~~-- comment.line.double-slash.nomi punctuation.definition.comment.nomi
 // <~~~~~~~~~-------- comment.line.double-slash.nomi

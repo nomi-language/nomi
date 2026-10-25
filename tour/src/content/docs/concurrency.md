@@ -152,8 +152,8 @@ cancels the other tasks, waits for them to stop, and returns the error:
 
 ```nomi-run
 import {
-    std/tasks.Task
     std/duration.Duration
+    std/tasks.Task
     std/timer
 }
 
@@ -232,9 +232,7 @@ at once will use up the connection pool.
 `Task.await_all` collects the results in order:
 
 ```nomi-run
-import {
-    std/tasks.Task
-}
+import std/tasks.Task
 
 fn active?(id: Int) -> Bool {
     id != 2
@@ -257,7 +255,7 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 21: results = ["user-3", "user-1"]
+dbg line 19: results = ["user-3", "user-1"]
 -->
 
 At most eight run at a time, however many inputs you pass. With ten
@@ -351,8 +349,8 @@ Make one supervisor for each set of rules your app needs. Build them in
 ```nomi
 import {
     std/channels.{Channel, Receiver, Sender}
-    std/supervisors.{Supervisor}
     std/duration.Duration
+    std/supervisors.Supervisor
 }
 
 struct Config {
@@ -367,14 +365,8 @@ struct Config {
 fn boot() -> Config {
     #Config{
         context: Context.root(),
-        audit: Supervisor.new(
-            max_running: 4,
-            shutdown_timeout: Duration.seconds(30),
-        ),
-        notify: Supervisor.new(
-            max_running: 50,
-            shutdown_timeout: Duration.milliseconds(200),
-        ),
+        audit: Supervisor.new(max_running: 4, shutdown_timeout: Duration.seconds(30)),
+        notify: Supervisor.new(max_running: 50, shutdown_timeout: Duration.milliseconds(200)),
         alerts: Channel.buffered<String>(16),
     }
 }
@@ -436,8 +428,8 @@ tasks under it, and the handler returns before either task finishes:
 ```nomi-run
 import {
     std/channels.{Channel, Receiver, Sender}
-    std/supervisors.{Supervisor}
     std/duration.Duration
+    std/supervisors.Supervisor
     std/timer
 }
 
@@ -629,8 +621,8 @@ finished or was cancelled:
 
 ```nomi-run
 import {
-    std/tasks.Task
     std/duration.Duration
+    std/tasks.Task
     std/timer
 }
 
@@ -775,8 +767,8 @@ outside it:
 
 ```nomi-run
 import {
-    std/tasks.Task
     std/duration.Duration
+    std/tasks.Task
     std/timer
 }
 
@@ -928,6 +920,7 @@ A context deadline around the call is different:
 ```nomi
 // Exceeding this deadline aborts the rest of the block.
 with Config.context = Context.with_timeout(Config.context, Duration.seconds(5))
+
 _ = Supervisor.flush(Config.notify)
 ```
 

@@ -211,6 +211,7 @@ func taskSpawnAllHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	}
 	var handles *rt.List[rt.Task[any]]
 	if err := rtFault(func() {
+		rt.SeqMustEnd(m.hostFrame, src, "Task.spawn_all")
 		handles = rt.TaskSpawnAll(m.hostFrame, src, func(fr *rt.Frame, item any) any {
 			return m.runTask(f, fr, pos, item)
 		}, limit)

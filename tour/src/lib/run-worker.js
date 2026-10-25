@@ -4,11 +4,15 @@
 //
 // Protocol (per request id):
 //   in:  { id, source }                      // run
+//        { id, source, files }               // run a multi-file source; files names its Nomi tabs
 //        { id, op: "format", source }           // formatter
 //        { id, op: "formatTestBody", source }   // formatter for test bodies
 //        { id, op: "hover", source, line, col } // LSP hover (1-based pos)
+//        { id, op: "hover", source, file, line, col } // hover in tab `file` of a multi-file
+//                                                      // source, pos in that tab's own text
 //        { id, op: "stdlibTest", module, context, source } // run stdlib reference test
 //   out: { id, kind: "sem", semtokens }      // analyzer tokens — computed first,
+//                                            // ({ file: tokens } for a multi-file run)
 //        { id, kind: "run", output, error }  // so a hanging run still highlights
 //        { id, op: "format", output, error }  // formatter reply
 //        { id, op: "hover", markdown }        // hover reply
@@ -140,18 +144,26 @@ function handleOne(msg) {
   }
 
   if (msg.op === "hover") {
-    const r = callGo(() => self.nomiHover(msg.source, msg.line, msg.col));
+    const r = callGo(() =>
+      msg.file
+        ? self.nomiHoverIn(msg.source, msg.file, msg.line, msg.col)
+        : self.nomiHover(msg.source, msg.line, msg.col),
+    );
     postMessage({ id: msg.id, op: "hover", markdown: (!r.failure && r.value) || "" });
     return;
   }
 
   // Run. Semantic tokens first: analysis always terminates, so even a program
   // that then hangs in nomiRun gets full (analyzer-refined) highlighting.
-  let semtokens = [];
-  const sem = callGo(() => self.nomiSemTokens(msg.source));
+  // A multi-file source's tokens are each tab's, from one analysis of the
+  // whole program, which the hovers that follow reuse.
+  let semtokens = msg.files ? {} : [];
+  const sem = callGo(() =>
+    msg.files ? self.nomiSemTokensIn(msg.source, ...msg.files) : self.nomiSemTokens(msg.source),
+  );
   if (!sem.failure) {
     try {
-      semtokens = JSON.parse(sem.value || "[]");
+      semtokens = JSON.parse(sem.value || (msg.files ? "{}" : "[]"));
     } catch (_) {}
   }
   postMessage({ id: msg.id, kind: "sem", semtokens });

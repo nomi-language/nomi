@@ -37,6 +37,20 @@ completion = [
 ]
 args = { mode = "test", program = "{0}", line = "{1}" }
 
+# A module's message catalogs, the TOML files under `locales/`: Helix's
+# TOML grammar, and nomi-lsp for their diagnostics, completion, hover and
+# quick fixes. Helix picks a language by path, so a module whose
+# `[i18n].catalogs` names another directory adds its own glob here.
+[[language]]
+name = "nomi-catalog"
+scope = "source.toml.nomi-catalog"
+grammar = "toml"
+file-types = [{ glob = "locales/**/*.toml" }]
+roots = ["nomi.toml"]
+comment-tokens = ["#"]
+indent = { tab-width = 2, unit = "  " }
+language-servers = ["nomi-lsp"]
+
 [[grammar]]
 name = "nomi"
 source = { git = "https://github.com/nomi-language/tree-sitter-nomi", rev = "a1d57604921fc626733bfde97ea171029529a43a" }

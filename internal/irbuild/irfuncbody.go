@@ -40,7 +40,7 @@ type irScalarSide struct {
 	// function that answers a value.
 	deferrable bool
 	// ctl is the signalling form of the iter-sensitive named function an
-	// `ir.Ref` names (irNamedCtlForm), or irCtlNone.
+	// `ir.Ref` names (namedCtlForm), or irCtlNone.
 	ctl irCtlForm
 }
 
@@ -167,11 +167,18 @@ type irScalarBuilder struct {
 	ctlCallbacks map[*ast.Lambda]irCtlForm
 	// ctlRefs marks the named-function arguments an enclosing Iter call
 	// drives in the signalling form their own bodies were lowered under
-	// (irNamedCtlForm). A reference to such a function anywhere else
+	// (namedCtlForm). A reference to such a function anywhere else
 	// declines, because nothing there reads its control answer.
 	ctlRefs map[ast.Node]irCtlForm
-	ctl     irCtlForm
-	ctlAcc  ir.Temp
+	// ctlCaptures marks the capture callbacks an enclosing Iter call widens,
+	// as ctlCallbacks marks lambdas (markCtlCapture).
+	ctlCaptures map[*ast.Capture]bool
+	ctl         irCtlForm
+	ctlAcc      ir.Temp
+	// signalCall is the call a signalling callback's or an inline
+	// Iter.loop's whole body is, or nil: the one place a call to an
+	// iter-sensitive function lowers (irsignalcall.go).
+	signalCall *ast.Call
 	// ctlSeed is a signalling reduce's seed, lowered before its callback.
 	ctlSeed ir.Temp
 	// recording is how deep inside an assertion subject the builder is:
@@ -372,8 +379,16 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 
 	case *ast.StringLit:
 		// The parser supplies decoded text for every string spelling; both
-		// consumers use the same constant node and value.
-		c := ir.NewString(bl.g.irPos(line, col), bl.f.NewTemp(), t.Value)
+		// consumers use the same constant node and value. A message's
+		// compiled texts are written with its parameters' resolved types,
+		// which its expansion could not know.
+		text := t.Value
+		if fd, ok := bl.root.(*ast.FuncDef); ok && fd.Expansion != nil {
+			if table, ok := analysis.MessageTableText(bl.g.fa, fd, t); ok {
+				text = table
+			}
+		}
+		c := ir.NewString(bl.g.irPos(line, col), bl.f.NewTemp(), text)
 		bl.b.Append(c)
 		return c.Dst(), kindString, true, true
 
@@ -734,9 +749,11 @@ func (bl *irScalarBuilder) binary(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	if lk != rk {
-		// A mixed-type operator or arithmetic on a named type is declined;
-		// the body is stubbed and refused if reachable.
-		return ir.NoTemp, kindInvalid, false, false
+		// A std receiver's operator at a right-hand type the program
+		// declares (`d * rate`, `impl Multiply<Rate, Decimal> for
+		// Decimal`) is the program's impl. Any other mixed-type operator
+		// is declined; the body is stubbed and refused if reachable.
+		return bl.userOperatorCall(t, lhs, rhs, lk, rk)
 	}
 	if lk == kindString {
 		// `"a" + "b"` is concatenation, not arithmetic, and `+` is
@@ -1009,6 +1026,9 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 	}
 	if fa, qualified := t.Func.(*ast.FieldAccess); qualified {
+		if bare, own := bl.ownModuleCall(t, fa); own {
+			return bl.call(bare)
+		}
 		if fa.Field != nil {
 			switch owner := bl.stdIntrinsicOwner(fa); {
 			case owner == "Task" && bl.recording == 0:
@@ -1035,6 +1055,21 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 					return v, k, mobile, ok
 				})
 			}
+			if bl.recording > 0 && namedArgNode(t.Args) != nil && bl.stdShortCallShape(t, owner, fa.Field.Name, module) &&
+				bl.stdShortCallLeavesAHole(t, owner, fa.Field.Name, module) {
+				// Inside an assertion subject a named call that leaves out
+				// a default before a written slot
+				// (`String.join_list(xs, l, width: .Short)`) lowers as it
+				// does outside one; its operands record no rows, since the
+				// hole's default sits between them.
+				recording := bl.recording
+				bl.recording = 0
+				v, k, mobile, ok, handled := bl.stdShortCall(t, owner, fa.Field.Name, module)
+				bl.recording = recording
+				if handled {
+					return v, k, mobile, ok
+				}
+			}
 			if v, k, mobile, ok, handled := bl.stdShortCall(t, owner, fa.Field.Name, module); handled {
 				return v, k, mobile, ok
 			}
@@ -1046,7 +1081,10 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			// enters an `Iter<Int>` parameter as it does in a local call.
 			return bl.siblingCall(t, site)
 		}
-		if hasNamed {
+		if hasNamed && !irSeededIterCallee(fa) {
+			// A seeded iteration call places its own `from:` and `f:`
+			// (iterReduceCall, iterLoop), since its callback is lowered in a
+			// signalling form and its seed may come from the callback.
 			return bl.namedQualCall(t, fa)
 		}
 		// Output primitives take rendered text, so insert Render before resolving
@@ -1056,7 +1094,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 		return bl.qualCall(t, fa)
 	}
-	if id, ok := t.Func.(*ast.Ident); ok && !hasNamed && bl.bareIterLoop(id) {
+	if id, ok := t.Func.(*ast.Ident); ok && bl.bareIterLoop(id) {
 		// `import std/iter.Iter.{loop}` then `loop(...)`: Iter.loop.
 		return bl.iterLoop(t)
 	}
@@ -1215,9 +1253,8 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// The result domain is the operand domain. See irCallOperandKind.
 		return no()
 	}
-	if irNamedCtlForm(sig.decl) != irCtlNone {
-		// Its `break` or `continue` would have to leave this caller too.
-		irDeclineNote("a direct call to a function that uses break or continue: " + callee.Name)
+	signalling, ok := bl.iterSensitiveCall(t, sig.decl, callee.Name)
+	if !ok {
 		return no()
 	}
 	plan, planned := argSlotPlan(t.Args, sig.params, sigParamNames(sig))
@@ -1260,6 +1297,9 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	// failure report text.
 	if t != bl.pipedCall {
 		bl.recordCallSlots(t.Args, plan, sigParamNames(sig), args, sig.params, sig.result)
+	}
+	if signalling {
+		return bl.signallingCall(t, sig.decl, bl.g.irFunctionCallee(sig), args, sig.result)
 	}
 	c := ir.NewCall(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), irCallSite(t),
 		bl.g.irFunctionCallee(sig), args...)
@@ -1376,6 +1416,14 @@ func (bl *irScalarBuilder) structFromRecord(t *ast.Call, of func(rec kind) *type
 
 // bareIterLoop reports whether a bare callee name is std's Iter.loop brought
 // into scope by a selective import, and not a local or a file function.
+// irSeededIterCallee reports whether fa names std's `Iter.reduce`, `scan`,
+// `map_reduce` or `loop`: `Iter` is a reserved type name, so the qualified
+// spelling is always std's.
+func irSeededIterCallee(fa *ast.FieldAccess) bool {
+	ti, isType := fa.Object.(*ast.TypeIdent)
+	return isType && ti.Name == "Iter" && fa.Field != nil && (irSeededIterMethod(fa.Field.Name) || fa.Field.Name == "loop")
+}
+
 func (bl *irScalarBuilder) bareIterLoop(id *ast.Ident) bool {
 	name := id.Name
 	if _, local := bl.g.funcs[name]; local {
@@ -2033,13 +2081,15 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 		returnKind: sig.result,
 		sides:      sh.sides,
 		bound:      map[string]ir.Temp{}, boundK: map[string]kind{},
-		synthesized: analysis.IsSynthesizedLine(declLine),
+		// A function a keyword declaration expanded into keeps its name's
+		// position and has the body it was given in the synthesized band.
+		synthesized: analysis.IsSynthesizedLine(declLine) || fd.Expansion != nil,
 		deferOK:     true,
 		boot:        g.irBoot,
 		body:        fd.Body,
 		root:        fd,
 	}
-	if form := irNamedCtlForm(fd); form != irCtlNone && len(sh.paramTemps) == len(fd.Params) {
+	if form := g.namedCtlForm(fd); form != irCtlNone && len(sh.paramTemps) == len(fd.Params) {
 		// An iter-sensitive function signals as a callback lambda does:
 		// `continue` and `break` leave it with rt's control answer.
 		bl.ctl = form
@@ -2451,6 +2501,16 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 			bl.loopJump(bl.b, t, lp, lp.head)
 			return kindDiverged, true
 		}
+	}
+	if ret, isReturn := body.(*ast.Return); isReturn && bl.inTest && bl.setupExit == nil && bl.loop == nil {
+		// `return` ending an arm of a test body's region, a statement or a
+		// value (`dir = case get() { ..., Err(e) -> return Err(e) }`), ends
+		// the case as a `return` statement does (testExit). The arm writes
+		// nothing and never reaches the region's exit.
+		if !bl.testExit(ret) {
+			return kindInvalid, false
+		}
+		return kindDiverged, true
 	}
 	// kindInvalid: sentinel — only ordinary lambdas may infer an unset result.
 	returnKnown := bl.returnKind != kindInvalid || bl.inferReturn != nil
@@ -3007,6 +3067,11 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 		// name: a record or tuple built from it (`#{d: d}`) then has the
 		// kind the checker gives it.
 		v, k, _, ok := bl.lowerTypedOperand(b.Value, want)
+		if ok && k != want && bl.g.irBoxedErasure(want, k) {
+			// A value whose runtime type does not name its impl enters
+			// boxed with the type it has here (irboxed.go).
+			return bl.eraseBoxed(b.Value, v, want, k), want, true
+		}
 		if ok && k != want && !bl.g.irErases(want, k) {
 			irDeclineNote("a value of kind " + k.nomi() + " held as the existential " + want.nomi())
 		}
@@ -3076,6 +3141,18 @@ func (g *gen) lambdaResultWant(lam *ast.Lambda, line, col int) func() {
 	return func() { g.lambdaWantFor, g.lambdaWant = prevFor, prev }
 }
 
+// boundInScope reports whether name is bound in this body or a body
+// enclosing it, rather than naming a module declaration.
+func (bl *irScalarBuilder) boundInScope(name string) bool {
+	for b := bl; b != nil; b = b.parent {
+		if _, ok := b.bound[name]; ok {
+			return true
+		}
+	}
+	_, ok := bl.g.lookup(name)
+	return ok
+}
+
 // identRead reads the value t names, at the type its binding holds.
 func (bl *irScalarBuilder) identRead(t *ast.Ident, line, col int) (ir.Temp, kind, bool, bool) {
 	if held, isBound := bl.bound[t.Name]; isBound {
@@ -3101,6 +3178,12 @@ func (bl *irScalarBuilder) identRead(t *ast.Ident, line, col int) (ir.Temp, kind
 	}
 	if v, k, mobile, ok := bl.onceValue(t); ok {
 		return v, k, mobile, true
+	}
+	if bl.parent != nil && bl.ctlRefs[t] != irCtlNone && !bl.boundInScope(t.Name) {
+		// An iter-sensitive module function passed as a callback inside a
+		// lambda: a reference of its own, which the enclosing Iter call
+		// drives in the signalling form, not a capture of the parent's.
+		return bl.funcRef(t)
 	}
 	if bl.parent != nil {
 		return bl.capture(t)

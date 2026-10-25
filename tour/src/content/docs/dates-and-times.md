@@ -30,7 +30,7 @@ square brackets at the end, a format from RFC 9557:
 
 ```nomi-run
 import {
-    std/calendar.{Error}
+    std/calendar.Error
     std/calendar.Date
     std/calendar.DateTime
 }
@@ -151,7 +151,7 @@ New York and 6 PM in Paris on the same day are equal:
 
 ```nomi-run
 import {
-    std/calendar.{Error}
+    std/calendar.Error
     std/calendar.DateTime
 }
 
@@ -208,6 +208,34 @@ keeps the clock reading, noon, and works out the new UTC offset.
 `+ Duration.hours(24)` moves the moment forward by exactly 24 hours. You
 pick the one you mean.
 
+## Showing a date to a person
+
+`dbg` and `"${date}"` write ISO 8601, `2026-10-20`, the same everywhere. A
+person reads a date the way their language writes it, so `Date.format`
+takes a locale:
+
+```nomi-run
+import {
+    std/calendar.Date
+    std/locale.Locale
+}
+
+fn main() {
+    ships = Date`2026-10-20`
+    dbg Date.format(ships, Locale`en-US`, style: .Long)
+    dbg Date.format(ships, Locale`de`, style: .Long)
+    Unit
+}
+
+```
+<!-- expect
+dbg line 8: Date.format(ships, Locale`en-US`, style: .Long) = "October 20, 2026"
+dbg line 9: Date.format(ships, Locale`de`, style: .Long) = "20. Oktober 2026"
+-->
+
+[Formatting for a Reader](/locales-and-formatting/#dates-and-times) covers
+the styles, choosing the fields, times, and reading dates people type.
+
 :::note[Continue or dig deeper]
 The next chapter, [Typed Literals](/typed-literals/), shows how `Date"…"`
 and `DateTime"…"` work, and how to write literals for your own types. The
@@ -236,8 +264,8 @@ keeps the same moment and shows it in another zone. Noon in New York is
 
 ```nomi-run
 import {
-    std/calendar.{Error}
-    std/calendar.{DateTime}
+    std/calendar.Error
+    std/calendar.DateTime
 }
 
 fn main() -> Result<Unit, Error> {
@@ -266,7 +294,7 @@ The `Disambiguation` argument says which moment to pick:
 
 ```nomi-run
 import {
-    std/calendar.{Error}
+    std/calendar.Error
     std/calendar.{DateTime, Disambiguation}
     std/calendar.NaiveDateTime
     std/instant.Instant
@@ -276,16 +304,8 @@ fn main() -> Result<Unit, Error> {
     // 2026-11-01 01:30 NY happens twice (2am EDT rolls back to 1am EST).
     naive = try NaiveDateTime"2026-11-01T01:30:00"
 
-    earlier = try DateTime.in_zone(
-        naive,
-        "America/New_York",
-        Disambiguation.Earlier,
-    )
-    later = try DateTime.in_zone(
-        naive,
-        "America/New_York",
-        Disambiguation.Later,
-    )
+    earlier = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Earlier)
+    later = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Later)
 
     // Same wall reading, different offsets, different instants.
     dbg earlier
@@ -305,10 +325,10 @@ fn main() -> Result<Unit, Error> {
 
 ```
 <!-- expect
-dbg line 24: earlier = 2026-11-01T01:30:00-04:00[America/New_York]
-dbg line 25: later = 2026-11-01T01:30:00-05:00[America/New_York]
-dbg line 32: later_sec - earlier_sec = 3600
-dbg line 35: earlier == later = False
+dbg line 16: earlier = 2026-11-01T01:30:00-04:00[America/New_York]
+dbg line 17: later = 2026-11-01T01:30:00-05:00[America/New_York]
+dbg line 24: later_sec - earlier_sec = 3600
+dbg line 27: earlier == later = False
 -->
 
 If you pass no mode, you get `Disambiguation.Compatible`. In a fold it picks
@@ -325,10 +345,10 @@ they meant.
 system clock and gives the time in that zone. It is short for
 `Instant.now() |> DateTime.from_instant_in(zone)`:
 
-```nomi-run ignore
+```nomi-run no-run
 import {
-    std/calendar.{Error}
-    std/calendar.{DateTime}
+    std/calendar.Error
+    std/calendar.DateTime
 }
 
 fn main() -> Result<Unit, Error> {

@@ -1,0 +1,128 @@
+import {
+    std/collation.{CaseFirst, Collator, Strength}
+    std/locale.Locale
+}
+
+fn sorted(words: List<String>, collator: Collator) -> List<String> {
+    Iter.sort_with(words, &Collator.compare(collator, &1, &2))
+}
+
+test "each language puts its letters in its own order" {
+    names = ["Öberg", "Zorn", "Ärlig", "Åberg", "Abel"]
+
+    assert sorted(names, Collator.new(Locale`de`)) == ["Abel", "Åberg", "Ärlig", "Öberg", "Zorn"]
+    assert sorted(names, Collator.new(Locale`sv`)) == ["Abel", "Zorn", "Åberg", "Ärlig", "Öberg"]
+    assert sorted(names, Collator.new(Locale`da`)) == ["Abel", "Zorn", "Ärlig", "Öberg", "Åberg"]
+
+    polish = ["Żak", "Zając", "Łukasz", "Lis", "Ślęk", "Sowa", "Ćwik", "Cieślak"]
+
+    assert sorted(polish, Collator.new(Locale`pl`)) == [
+        "Cieślak",
+        "Ćwik",
+        "Lis",
+        "Łukasz",
+        "Sowa",
+        "Ślęk",
+        "Zając",
+        "Żak",
+    ]
+}
+
+test "letters made of two characters" {
+    czech = ["ihned", "chata", "hrad", "cesta"]
+    assert sorted(czech, Collator.new(Locale`cs`)) == ["cesta", "hrad", "chata", "ihned"]
+
+    spanish = ["dama", "chico", "cuna"]
+    assert sorted(spanish, Collator.new(Locale`es`)) == ["chico", "cuna", "dama"]
+    assert sorted(spanish, Collator.new(Locale`es-u-co-trad`)) == ["cuna", "chico", "dama"]
+    assert sorted(["ñu", "nube", "oso"], Collator.new(Locale`es`)) == ["nube", "ñu", "oso"]
+}
+
+test "a locale's alternate orders" {
+    phonebook = Collator.new(Locale`de-u-co-phonebk`)
+    assert sorted(["Muller", "Müller", "Mueller"], phonebook) == ["Mueller", "Müller", "Muller"]
+
+    assert sorted(["Muller", "Müller", "Mueller"], Collator.new(Locale`de`)) == [
+        "Mueller",
+        "Muller",
+        "Müller",
+    ]
+}
+
+test "strength" {
+    primary = Collator.new(Locale`en`, strength: Strength.Primary)
+    assert Collator.compare(primary, "resume", "Résumé") == Ordering.Equal
+
+    secondary = Collator.new(Locale`en`, strength: Strength.Secondary)
+    assert Collator.compare(secondary, "resume", "RESUME") == Ordering.Equal
+    assert Collator.compare(secondary, "resume", "résumé") == Ordering.Less
+
+    tertiary = Collator.new(Locale`en`)
+    assert Collator.compare(tertiary, "resume", "Resume") == Ordering.Less
+    assert Collator.compare(Collator.new(Locale`en-u-ks-level1`), "a", "Á") == Ordering.Equal
+}
+
+test "digits, case and punctuation" {
+    files = ["file10.txt", "file9.txt", "file100.txt"]
+    assert sorted(files, Collator.new(Locale`en`)) == ["file10.txt", "file100.txt", "file9.txt"]
+
+    assert sorted(files, Collator.new(Locale`en`, numeric: True)) == [
+        "file9.txt",
+        "file10.txt",
+        "file100.txt",
+    ]
+
+    assert sorted(files, Collator.new(Locale`en-u-kn-true`)) == [
+        "file9.txt",
+        "file10.txt",
+        "file100.txt",
+    ]
+
+    assert sorted(["b", "B", "a", "A"], Collator.new(Locale`en`)) == ["a", "A", "b", "B"]
+
+    assert sorted(["b", "B", "a", "A"], Collator.new(Locale`en`, case_first: CaseFirst.Upper)) == [
+        "A",
+        "a",
+        "B",
+        "b",
+    ]
+
+    assert sorted(["b", "B", "a", "A"], Collator.new(Locale`da`)) == ["A", "a", "B", "b"]
+
+    assert sorted(["b", "B", "a", "A"], Collator.new(Locale`da`, case_first: CaseFirst.Off)) == [
+        "a",
+        "A",
+        "b",
+        "B",
+    ]
+
+    loose = Collator.new(Locale`en`, ignore_punctuation: True)
+    assert Collator.compare(loose, "de-luge", "deluge") == Ordering.Equal
+
+    assert Collator.compare(
+        Collator.new(Locale`en`, strength: Strength.Tertiary, ignore_punctuation: True),
+        "de luge",
+        "delta",
+    ) == Ordering.Greater
+
+    assert Collator.compare(Collator.new(Locale`en`), "de luge", "delta") == Ordering.Less
+}
+
+test "sort keys order as the collator does" {
+    sv = Collator.new(Locale`sv`)
+    names = ["Öberg", "Zorn", "Åberg"]
+    by_key = Iter.sort_by(names, &Collator.sort_key(sv, &1))
+    assert by_key == sorted(names, sv)
+    assert Collator.sort_key(sv, "Zorn") < Collator.sort_key(sv, "Åberg")
+    assert Collator.new(Locale`sv`) == sv
+}
+
+test "case in a language" {
+    assert String.to_upper_in("istanbul", Locale`tr`) == "İSTANBUL"
+    assert String.to_lower_in("İSTANBUL", Locale`tr`) == "istanbul"
+    assert String.to_lower_in("KIRMIZI", Locale`tr`) == "kırmızı"
+    assert String.to_lower_in("KIRMIZI", Locale`en`) == "kirmizi"
+    assert String.to_upper_in("Straße", Locale`de`) == "STRASSE"
+    assert String.to_lower_in("ΟΔΥΣΣΕΥΣ", Locale`el`) == "οδυσσευς"
+    assert String.fold_case("Straße") == String.fold_case("STRASSE")
+}

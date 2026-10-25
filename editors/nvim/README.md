@@ -6,6 +6,7 @@ Neovim support for Nomi. Requires Neovim 0.11 or newer.
 |---|---|
 | `.nomi`, or an extensionless file whose `#!` line names `nomi` → `nomi` filetype | plain Neovim (`ftdetect/nomi.lua`, `lua/nomi/filetype.lua`) |
 | `nomi-lsp` client: diagnostics, hover, go-to-definition, formatting | plain Neovim (`lsp/nomi.lua`, enabled by `plugin/nomi.lua`) |
+| The same client in a module's message catalogs, the TOML files under its `[i18n].catalogs` directory, and in no other TOML buffer (`lua/nomi/catalogs.lua`) | plain Neovim |
 | Tree-sitter highlighting, including typed-literal injections | plain Neovim plus the compiled `nomi` parser |
 | Dimmed `//!` attached tests, the one under the cursor shown normally (`lua/nomi/attached_tests.lua`) | plain Neovim plus the parser |
 | Tree-sitter folding (`foldmethod=expr`) | plain Neovim plus the parser |
@@ -243,6 +244,9 @@ frame's variables from `nomi dap`, so it needs nothing Nomi-specific.
   loads.
 - **Change the LSP client:** `vim.lsp.config('nomi', { cmd = { '/path/to/nomi-lsp' } })`.
   The root is the nearest directory with `nomi.toml`, then the nearest `.git`.
+  A TOML buffer gets the client only when it is a catalog: under the
+  directory the nearest `nomi.toml` names in `[i18n].catalogs` (`locales`
+  unless it names another), in a module whose `[i18n]` lists locales.
 - **Change buffer options:** put overrides in `after/ftplugin/nomi.lua`.
 
 ### Inlay hints

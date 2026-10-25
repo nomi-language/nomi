@@ -299,6 +299,21 @@ func (bl *irScalarBuilder) stdShortCall(t *ast.Call, owner, method, module strin
 	return v, k, mobile, ok, true
 }
 
+// stdShortCallLeavesAHole reports that a call stdShortCallShape accepts
+// names a slot past one it leaves to its default (`width:` past `style`).
+func (bl *irScalarBuilder) stdShortCallLeavesAHole(t *ast.Call, owner, method, module string) bool {
+	fs := bl.g.stdShortCandidates(owner, method, module)
+	if len(fs) != 1 || fs[0].decl == nil {
+		return false
+	}
+	plan, planned := argSlotPlan(t.Args, fs[0].params, stdParamNames(fs[0]))
+	if !planned {
+		return false
+	}
+	_, contiguous := contiguousSlots(plan)
+	return !contiguous
+}
+
 // stdShortCallShape reports that Owner.method names one lowerable std
 // function and the call writes fewer arguments than it declares. A bare
 // owner the program declares itself (a local `Date` beside std's) names the

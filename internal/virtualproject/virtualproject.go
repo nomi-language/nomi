@@ -11,8 +11,10 @@ import (
 
 // Project is an in-memory Nomi project ready for the analyzer/runtime.
 type Project struct {
-	EntrySource  string
-	EntryName    string
+	EntrySource string
+	EntryName   string
+	// VirtualFiles are the other Nomi sources by module name, and the
+	// message catalogs by their path with `.toml` (`locales/pl/cart.toml`).
 	VirtualFiles map[string]string
 	Manifest     *analysis.Manifest
 }
@@ -140,10 +142,16 @@ func fromFiles(files map[string]string, fallbackEntry string) (Project, error) {
 
 	virtualFiles := map[string]string{}
 	for name, body := range files {
-		if !isNomiSource(name) {
-			return Project{}, fmt.Errorf("unrecognized FILE extension: %q (only .nomi sources and nomi.toml are supported)", name)
+		switch {
+		case isNomiSource(name):
+			virtualFiles[NormalizeModuleName(name)] = body
+		case strings.HasSuffix(name, ".toml"):
+			// A message catalog, which the declaring file's expansion
+			// reads by its path from the module root.
+			virtualFiles[strings.TrimPrefix(name, "./")] = body
+		default:
+			return Project{}, fmt.Errorf("unrecognized FILE extension: %q (only .nomi sources, nomi.toml and catalogs' .toml files are supported)", name)
 		}
-		virtualFiles[NormalizeModuleName(name)] = body
 	}
 	if len(virtualFiles) == 0 {
 		virtualFiles = nil

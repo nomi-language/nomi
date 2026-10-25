@@ -1,0 +1,83 @@
+// A program interface implemented for std types no program file declares: a
+// std struct (Date), a std host type (Decimal), a std opaque type (Instant),
+// and the prelude Maybe over any of them.
+import {
+    std/calendar.Date
+    std/instant.Instant
+}
+
+pub enum V {
+    D Date
+    Dec Decimal
+    At Instant
+    I Int
+    N
+}
+
+derive Equatable for V
+
+pub interface ToV {
+    fn to_v(value: self) -> V
+}
+
+pub interface FromV {
+    fn from_v(value: V) -> Result<self, String>
+}
+
+impl ToV for Date {
+    fn to_v(value: Date) -> V {
+        V.D(value)
+    }
+}
+
+impl FromV for Date {
+    fn from_v(value: V) -> Result<Date, String> {
+        case value {
+            .D(d) -> Ok(d)
+            _ -> Err("Date")
+        }
+    }
+}
+
+impl ToV for Decimal {
+    fn to_v(value: Decimal) -> V {
+        V.Dec(value)
+    }
+}
+
+impl ToV for Instant {
+    fn to_v(value: Instant) -> V {
+        V.At(value)
+    }
+}
+
+impl FromV for Int {
+    fn from_v(value: V) -> Result<Int, String> {
+        case value {
+            .I(n) -> Ok(n)
+            _ -> Err("Int")
+        }
+    }
+}
+
+impl ToV for Maybe<T> where T: ToV {
+    fn to_v(value: Maybe<T>) -> V {
+        case value {
+            Some(v) -> T.to_v(v)
+            None -> V.N
+        }
+    }
+}
+
+impl FromV for Maybe<T> where T: FromV {
+    fn from_v(value: V) -> Result<Maybe<T>, String> {
+        case value {
+            .N -> Ok(None)
+            _ -> T.from_v(value) |> Result.map(Some)
+        }
+    }
+}
+
+pub fn read<T>(value: V) -> Result<T, String> where T: FromV {
+    T.from_v(value)
+}

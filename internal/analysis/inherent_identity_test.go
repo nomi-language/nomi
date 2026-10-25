@@ -78,7 +78,7 @@ func TestDetectInherentImplCollisions_SameNameDifferentOriginsIsNotADuplicate(t 
 	std := inherentRec("Date", "new", "std/calendar", 40)
 	std.ReceiverOrigin = "std/calendar"
 
-	if errs := detectInherentImplCollisions([]InherentMethodRecord{local, std}); len(errs) != 0 {
+	if errs := detectInherentImplCollisions([]InherentMethodRecord{local, std}, nil); len(errs) != 0 {
 		t.Fatalf("two distinct types collided: %+v", errs)
 	}
 }
@@ -92,7 +92,7 @@ func TestDetectInherentImplCollisions_SameOriginTwiceIsStillADuplicate(t *testin
 	second := inherentRec("Date", "new", "", 14)
 	second.ReceiverOrigin = OriginEntry
 
-	errs := detectInherentImplCollisions([]InherentMethodRecord{second, first})
+	errs := detectInherentImplCollisions([]InherentMethodRecord{second, first}, nil)
 	if len(errs) != 1 {
 		t.Fatalf("got %d errors, want 1: %+v", len(errs), errs)
 	}
@@ -113,14 +113,14 @@ func TestDetectInherentImplCollisions_UnresolvedOriginFallsBackToBare(t *testing
 		inherentRec("Date", "new", "", 8),
 		inherentRec("Date", "new", "", 14),
 	}
-	if errs := detectInherentImplCollisions(bothUnresolved); len(errs) != 1 {
+	if errs := detectInherentImplCollisions(bothUnresolved, nil); len(errs) != 1 {
 		t.Fatalf("unpopulated records: got %d errors, want 1: %+v", len(errs), errs)
 	}
 
 	known := inherentRec("Date", "new", "", 8)
 	known.ReceiverOrigin = OriginEntry
 	unknown := inherentRec("Date", "new", "vendor/cookie", 14)
-	if errs := detectInherentImplCollisions([]InherentMethodRecord{known, unknown}); len(errs) != 1 {
+	if errs := detectInherentImplCollisions([]InherentMethodRecord{known, unknown}, nil); len(errs) != 1 {
 		t.Fatalf("one side unresolved: got %d errors, want 1: %+v", len(errs), errs)
 	}
 }
@@ -135,7 +135,7 @@ func TestDetectInherentImplCollisions_ReportsEachOriginSeparately(t *testing.T) 
 		{Receiver: "Date", Method: "new", ReceiverOrigin: "shapes", Fn: &ast.FuncDef{Line: 20, Col: 3}},
 		{Receiver: "Date", Method: "new", ReceiverOrigin: "shapes", Fn: &ast.FuncDef{Line: 26, Col: 3}},
 	}
-	errs := detectInherentImplCollisions(recs)
+	errs := detectInherentImplCollisions(recs, nil)
 	if len(errs) != 2 {
 		t.Fatalf("got %d errors, want 2: %+v", len(errs), errs)
 	}

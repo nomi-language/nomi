@@ -261,6 +261,18 @@ wrapper that is its own module. The toolchain's version is part of the cached
 wrapper's key whenever a binding names a standard library package
 (`internal/ffirun/gostd.go`).
 
+A Go map crosses to Nomi in ascending key order. A Nomi `Map` keeps the order
+its entries were inserted in, and Go iterates a map in a random order, so the
+adapter (`internal/hostgen`'s `mapEntries`) collects the entries and sorts
+them before inserting (`hostadapt.SortedEntries`). A string, integer or float
+key, or a named type over one, sorts by `cmp.Compare`, with NaN first. A bool
+key sorts `false` first. A struct key compares its exported fields in
+declaration order, each by the same rules, and a `time.Time` key or field by
+`Time.Compare`. Any other key type (a pointer, an interface, a channel, an
+array) is refused when the adapter is generated, since its only order is an
+address or a dynamic type and would differ from run to run. A Nomi `Map`
+passed to Go needs no order: a Go map has none.
+
 ## Standard-library adapters
 
 A Go-backed std module keeps its public import, such as `std/regex`. The
@@ -295,8 +307,8 @@ Why std does not use the `go` spelling:
 
 - **It would need a Go toolchain.** A `go`-bound module makes `internal/ffirun`
   stage and build a wrapper, so a program importing it needs a Go toolchain;
-  on a machine without Go, `nomi run` fails with
-  `exec: "go": executable file not found`.
+  on a machine without Go, the first `nomi run` downloads one (the managed
+  toolchain, about 70 MB) and every new set of bindings is a Go build.
   `internal/ffirun/hostkeyword_toolchain_test.go` asserts that no stdlib import
   takes that path.
 - **It pays the FFI projection on every call.** An `rt`-backed `host fn` is

@@ -110,12 +110,12 @@ once p = #{..base, x: 9,}
         (integer)))))
 
 ================================================================================
-Stacked struct update: newline separates the spread from the fields
+Stacked struct update: one element per line, each with its comma
 ================================================================================
 
 once p = #{
-  ..base
-  x: 9
+  ..base,
+  x: 9,
 }
 
 --------------------------------------------------------------------------------

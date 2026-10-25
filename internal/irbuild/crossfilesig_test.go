@@ -92,3 +92,36 @@ test "an Iter from another file" {
 `,
 	}, "main_test.nomi", 2)
 }
+
+// A prelude enum named through its std file's qualifier in a signature
+// (`maybe.Maybe<Int>`, `results.Result<Int, String>`) is the type the bare name
+// is, so another file calls the function and reads its result.
+func TestCrossFileSignature_QualifiedPreludeTypes(t *testing.T) {
+	irBacklogProgramVM(t, map[string]string{
+		"other.nomi": `import {
+  std/maybe
+  std/results
+}
+
+pub fn first(xs: List<Int>) -> maybe.Maybe<Int> {
+  List.head(xs)
+}
+
+pub fn checked(n: Int) -> results.Result<Int, String> {
+  if n > 0 { Ok(n) } else { Err("negative") }
+}
+`,
+		"main_test.nomi": `import other
+
+test "a qualified Maybe in another file's signature" {
+  assert other.first([4, 5]) == Some(4)
+  assert other.first([]) == None
+}
+
+test "a qualified Result in another file's signature" {
+  assert other.checked(2) == Ok(2)
+  assert other.checked(-1) == Err("negative")
+}
+`,
+	}, "main_test.nomi", 2)
+}

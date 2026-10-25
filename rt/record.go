@@ -154,6 +154,7 @@ const (
 	KindTuple                          // `#(1, "a")`
 	KindEnum                           // a variant of a named enum
 	KindDistinct                       // a distinct value `Id(5)` or a marker `Expired`
+	KindBoxed                          // a boxed existential: see Box
 )
 
 // VariantShape is how one enum variant carries its payload.
@@ -591,8 +592,8 @@ func sortFieldSpecs(specs []FieldSpec) {
 //	Json.DecodeError      -> Json.DecodeError
 //
 // Cutting at the last dot instead would collapse `Json.DecodeError` to
-// `DecodeError` and hand std/json's decode error and std/dynamic's one the
-// same dispatch slot.
+// `DecodeError` and hand std/json's decode error and any other file's
+// `DecodeError` the same dispatch slot.
 func ShortTypeName(name string) string {
 	for {
 		dot := strings.Index(name, ".")

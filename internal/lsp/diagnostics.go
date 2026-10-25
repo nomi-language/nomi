@@ -72,6 +72,12 @@ func typeErrorsToDiagnosticsIn(uri string, errs []analysis.TypeError) []protocol
 			diag.Code = &protocol.IntegerOrString{Value: e.Code}
 		}
 		for _, r := range e.Related {
+			// A location in code the compiler generated that no macro's
+			// span map moved (analysis.RelocateExpansionErrors) has no text
+			// to show.
+			if analysis.IsSynthesizedLine(r.Line) {
+				continue
+			}
 			target := uri
 			if r.File != "" {
 				if !filepath.IsAbs(r.File) {
@@ -156,27 +162,12 @@ func buildPublishedDiagnostics(uri string, content string, nodes []ast.Node, par
 }
 
 // errorsInDocument drops the errors whose position is in another file
-// (TypeError.File): the entry's analysis carries a missing impl a derive in
-// an imported file demands, and that file's own analysis reports it where
-// the derive is.
+// (TypeError.File): the entry's analysis carries the program's errors about
+// every file it reaches (a missing impl a derive in an imported file
+// demands, an orphan or duplicate impl there), and that file's own analysis
+// reports each where it is.
 func errorsInDocument(uri string, errs []analysis.TypeError) []analysis.TypeError {
-	path := uriToPath(uri)
-	var out []analysis.TypeError
-	for i, e := range errs {
-		if e.File == "" || e.File == path || filepath.Clean(e.File) == filepath.Clean(path) {
-			if out != nil {
-				out = append(out, e)
-			}
-			continue
-		}
-		if out == nil {
-			out = append(make([]analysis.TypeError, 0, len(errs)), errs[:i]...)
-		}
-	}
-	if out == nil {
-		return errs
-	}
-	return out
+	return analysis.ErrorsInFile(uriToPath(uri), errs)
 }
 
 // buildPublishedDiagnosticsFor is uri's diagnostics: the parser's, the
@@ -269,19 +260,29 @@ func clientRelatedInformation(params *protocol.InitializeParams) bool {
 func (s *Server) publish(notify glsp.NotifyFunc, uri string) {
 	defer s.docs.View()()
 	if snap := s.docs.Snapshot(uri); snap != nil && snap.Analysis != nil {
-		s.publishSnapshot(notify, snap)
+		s.publishViewed(notify, snap)
 	}
 }
 
-// publishSnapshot publishes snap's diagnostics: the parser's and the
+// publishSnapshot publishes snap's diagnostics under the view lock, so a
+// recheck that rewrites its analysis waits, or checks afresh instead. A
+// caller that already holds the view lock calls publishViewed.
+func (s *Server) publishSnapshot(notify glsp.NotifyFunc, snap *analysis.DocSnapshot) {
+	defer s.docs.View()()
+	s.publishViewed(notify, snap)
+}
+
+// publishViewed publishes snap's diagnostics: the parser's and the
 // analysis's, then the static typed literals whose handler rejects them
 // (literal_eval.go), then an open document's code the compiler cannot lower,
 // as its last lowering run found it (lowering.go). Neither part waits: what is
 // not cached yet is evaluated in the background, which publishes again.
-func (s *Server) publishSnapshot(notify glsp.NotifyFunc, snap *analysis.DocSnapshot) {
-	// The snapshot's analysis is read under the view lock, so a recheck
-	// that rewrites it waits, or checks afresh instead.
-	defer s.docs.View()()
+//
+// The caller holds the view lock. Taking it again here would wait, still
+// holding it, for a recheck that is waiting for the lock (View lets a
+// waiting recheck go first), and the recheck would give up and check the
+// whole program afresh.
+func (s *Server) publishViewed(notify glsp.NotifyFunc, snap *analysis.DocSnapshot) {
 	if snap.StdDiffers {
 		notify(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
 			URI:         protocol.DocumentUri(snap.URI),
@@ -313,6 +314,7 @@ func (s *Server) publishSnapshot(notify glsp.NotifyFunc, snap *analysis.DocSnaps
 		URI:         protocol.DocumentUri(snap.URI),
 		Diagnostics: diags,
 	})
+	s.publishInputs(notify, snap.URI, snap.Analysis.TypeErrors)
 }
 
 // stdSyntaxDiagnostic is an error on every document's first line when the

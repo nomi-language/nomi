@@ -7,6 +7,8 @@ import {
     equatable.Equatable
     hashable.Hashable
     int.Int
+    locale.Locale
+    localize.Localize
     multiply.Multiply
     strings.String
     subtract.Subtract
@@ -112,7 +114,47 @@ impl Duration {
     pub fn as_hours(Duration(ns)) -> Int {
         ns / 3_600_000_000_000
     }
+
+    /// The length as a reader of `locale` says it: each unit it has, from
+    /// hours down to nanoseconds, in the plural form the count takes, joined
+    /// as the locale joins the parts of one measure. `width` picks the
+    /// units' long, short or narrow words (`DurationWidth`). Zero is zero seconds; a negative
+    /// length has the locale's minus sign before its first number. Days are
+    /// civil, so a length is counted in hours.
+    //! assert Duration.format(Duration.minutes(90), Locale`en`) == "1 hour, 30 minutes"
+    //! assert Duration.format(Duration.minutes(90), Locale`pl`) == "1 godzina i 30 minut"
+    //! assert Duration.format(Duration.minutes(90), Locale`de`) == "1 Stunde, 30 Minuten"
+    //! assert Duration.format(Duration.seconds(0), Locale`en`) == "0 seconds"
+    //! assert Duration.format(Duration.milliseconds(1500), Locale`en`, width: .Short) == "1 sec, 500 ms"
+    //! assert Duration.format(Duration.minutes(-5), Locale`en`, width: .Narrow) == "-5m"
+    //
+    pub fn format(
+        d: Duration,
+        locale: Locale,
+        width: DurationWidth = DurationWidth.Long,
+    ) -> String {
+        Duration(ns) = d
+
+        width_tag = case width {
+            DurationWidth.Long -> 1
+            DurationWidth.Short -> 2
+            DurationWidth.Narrow -> 3
+        }
+
+        duration_format_raw(locale, ns, width_tag)
+    }
 }
+
+/// How long the words `Duration.format` writes for each unit are, CLDR's
+/// unit widths: `Long` (`1 hour, 30 minutes`), `Short` (`1 hr, 30 min`) or
+/// `Narrow` (`1h 30m`).
+pub enum DurationWidth {
+    Long
+    Short
+    Narrow
+}
+
+derive Equatable for DurationWidth
 
 derive Equatable for Duration
 derive Hashable for Duration
@@ -178,6 +220,15 @@ impl Display for Duration {
     //
     host fn to_string(d: Duration) -> String
 }
+
+impl Localize for Duration {
+    /// The length as `Duration.format` writes it, in long words.
+    fn localize(d: Duration, locale: Locale) -> String {
+        Duration.format(d, locale, DurationWidth.Long)
+    }
+}
+
+host fn duration_format_raw(locale: Locale, nanos: Int, width: Int) -> String
 
 impl Debug for Duration {
     // Debug renders identically to Display for Duration — the compact form is

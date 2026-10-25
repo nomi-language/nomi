@@ -125,6 +125,10 @@ type Tester struct {
 	// Stop, when set, ends the cases running in process when it ends
 	// (vmhost.WithStop). An FFI wrapper's cases run to the end.
 	Stop context.Context
+	// Timeout is how long each case may run before it is stopped and fails
+	// (vmhost.Program.SetTestTimeout), or zero for no limit. An FFI
+	// wrapper is handed it through vmhost.TestTimeoutEnv.
+	Timeout time.Duration
 
 	ffi map[string]*ffirun.Result
 }
@@ -171,7 +175,7 @@ func (t *Tester) File(file string, opts vmhost.TestOptions) int {
 			reportOut = t.Out
 		}
 		passed, failed, blocked, err := ffirun.RunTestVMWith(res, file, opts.Line, opts.LineSet,
-			t.Format.String(), reportOut, t.Stderr, t.Stdin)
+			t.Format.String(), t.Timeout, reportOut, t.Stderr, t.Stdin)
 		t.Rep.Add(passed, failed)
 		t.Rep.AddBlocked(blocked)
 		if err != nil {
@@ -201,6 +205,7 @@ func (t *Tester) loadOptions() []vmhost.Option {
 func (t *Tester) test(p *vmhost.Program, file string, opts vmhost.TestOptions, label func(string) string) int {
 	passed, failed := t.Rep.Counts()
 	blocked := t.Rep.BlockedCount()
+	p.SetTestTimeout(t.Timeout, vmhost.TestTimeoutHint)
 	p.Test(t.Out, t.Rep, file, opts, label)
 	passed2, failed2 := t.Rep.Counts()
 	return passed2 - passed + failed2 - failed + t.Rep.BlockedCount() - blocked

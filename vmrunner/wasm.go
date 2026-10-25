@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 )
 
 // A WebAssembly runner (GOARCH=wasm) cannot carry the image after its last
@@ -125,9 +126,18 @@ func EmbedWasmImage(module, image []byte) ([]byte, error) {
 		return nil, &ImageTooLargeError{Size: len(image), Cap: int(size) - 8}
 	}
 
-	_, countLen := binary.Uvarint(module[data.start:data.end])
-	payload := binary.AppendUvarint(nil, uint64(len(segs)+1))
-	payload = append(payload, module[data.start+countLen:data.end]...)
+	var payload []byte
+	if len(segs)+1 <= maxDataSegments {
+		_, countLen := binary.Uvarint(module[data.start:data.end])
+		payload = binary.AppendUvarint(nil, uint64(len(segs)+1))
+		payload = append(payload, module[data.start+countLen:data.end]...)
+	} else {
+		segs = mergeClosestSegments(segs, len(segs)+1-maxDataSegments)
+		payload = binary.AppendUvarint(nil, uint64(len(segs)+1))
+		for _, s := range segs {
+			payload = appendDataSegment(payload, s.offset, s.data)
+		}
+	}
 	payload = append(payload, 0, 0x41) // active, memory 0, i32.const
 	payload = appendSleb32(payload, int32(uint32(area)))
 	payload = append(payload, 0x0b)
@@ -295,6 +305,55 @@ func memoryMinimumOf(body []byte) uint64 {
 		return 0
 	}
 	return pages * 64 << 10
+}
+
+// maxDataSegments is the most data segments a module may have in a
+// JavaScript engine (the JS API's implementation limit, which V8 enforces;
+// Node refuses a module with more). Go's linker writes at most this many, and
+// a large runner reaches it, so adding the image's segment can need two of
+// the runner's merged first.
+const maxDataSegments = 100000
+
+// mergeClosestSegments merges n pairs of neighbouring segments, the pairs
+// with the smallest gaps between them, filling each gap with zeros. Memory
+// starts zeroed and no segment writes into a gap between neighbours, so the
+// merged module initializes memory to the same bytes.
+func mergeClosestSegments(segs []dataSegment, n int) []dataSegment {
+	sorted := append([]dataSegment(nil), segs...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].offset < sorted[j].offset })
+	gaps := make([]int, 0, len(sorted)-1)
+	for i := 0; i+1 < len(sorted); i++ {
+		gaps = append(gaps, i)
+	}
+	gap := func(i int) uint64 {
+		return sorted[i+1].offset - (sorted[i].offset + uint64(len(sorted[i].data)))
+	}
+	sort.SliceStable(gaps, func(a, b int) bool { return gap(gaps[a]) < gap(gaps[b]) })
+	join := map[int]bool{}
+	for _, i := range gaps[:min(n, len(gaps))] {
+		join[i] = true
+	}
+	out := make([]dataSegment, 0, len(sorted)-len(join))
+	for i := 0; i < len(sorted); i++ {
+		s := dataSegment{offset: sorted[i].offset, data: append([]byte(nil), sorted[i].data...)}
+		for join[i] {
+			s.data = append(s.data, make([]byte, gap(i))...)
+			s.data = append(s.data, sorted[i+1].data...)
+			i++
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
+// appendDataSegment appends one active data segment in memory 0 at a
+// constant address.
+func appendDataSegment(out []byte, offset uint64, data []byte) []byte {
+	out = append(out, 0, 0x41) // active, memory 0, i32.const
+	out = appendSleb32(out, int32(uint32(offset)))
+	out = append(out, 0x0b)
+	out = binary.AppendUvarint(out, uint64(len(data)))
+	return append(out, data...)
 }
 
 // dataSegment is an active data segment: the address it writes data at,

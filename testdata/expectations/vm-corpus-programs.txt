@@ -11,3 +11,5 @@
 15-app-and-defer/with_overrides/app.nomi
 16-concurrency/message_loop/counter_app.nomi
 16-concurrency/supervisors/app.nomi
+19-locales/app_locale/main.nomi
+19-locales/listed_locales/main.nomi

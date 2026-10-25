@@ -1,0 +1,676 @@
+//# Compile-time macros: a library adds a declaration keyword, and the
+//# Nomi code that expands each declaration written with it into ordinary
+//# Nomi declarations, with no change to the compiler.
+//#
+//# A module declares the keyword and the type whose impls expand it:
+//#
+//# ```nomi
+//# pub macro table: CsvTable
+//#
+//# type CsvTable
+//#
+//# impl Macro for CsvTable {
+//#     fn request(call: RequestCall) -> Request {
+//#         ...
+//#     }
+//#
+//#     fn expand(call: ExpandCall) -> Expansion {
+//#         ...
+//#     }
+//# }
+//# ```
+//#
+//# `request` says what the macro reads, and its default asks for nothing,
+//# so a macro that reads no file writes `expand` alone.
+//#
+//# Another module imports the file (`import csvdata`) and writes
+//# declarations by the general rule
+//# `[pub] [file.]keyword! name [(params)] [-> type] [[Tag]raw body]`:
+//#
+//# ```nomi
+//# pub csvdata.table! rate(code: String) -> Maybe<Int> `rates.csv`
+//# ```
+//#
+//# the keyword qualified by the file and marked with `!`, or bare
+//# (`table! rate ...`) after an item import, `import
+//# csvdata.table`. A body may carry a typed literal's tag
+//# (``Sql`SELECT 1` ``), which names its language for editors and reaches
+//# the macro as `Body.tag`. The compiler runs
+//# `request`, reads the files it asks for, runs `expand` and checks the
+//# Nomi source it returns as part of the declaring file. Both run on the VM
+//# while the program is checked, by `nomi check` and the language server
+//# alike, so they may not reach an effect, and each runs under a budget of
+//# steps and of memory, which alone decide whether it succeeds, so it
+//# answers the same on every machine. What they may read is what the
+//# compiler passes in.
+//#
+//# The source joins the declaring file, so a macro keeps to two rules.
+//# Every top-level name it declares is a name of that file: one the file
+//# or another declaration's expansion declares too is an error naming
+//# both, so a macro names a helper after the declaration (`rate_rows`,
+//# not `rows`). And its code names only what it declares, what its own
+//# imports bring (an `import std/strings` at the top of the source), the
+//# prelude, and what the declaration writes (its parameter and result
+//# types, and body text copied with `Source.mapped`): a bare name that
+//# reaches any other name of the declaring file is an error at the
+//# declaration.
+//#
+//# A macro reads its body and inputs as `String`s and finds a piece by its
+//# offsets, as `String.slice` counts them; `Body.span_at`,
+//# `Input.span_at` and `Span.on_line` turn offsets into the span the
+//# piece is mapped from. `Source.string_literal` writes a string the
+//# macro copies as the literal that reads back as it, and `pascal_case`
+//# and `snake_case` name what it makes from its input's words.
+//#
+//# The declaration states what the expansion declares, and the compiler
+//# checks it. A type name (`one_of! Size`) declares that type; a
+//# declaration with parameters or a result type declares that function,
+//# whose parameters end with the declaration's (a macro may add its own
+//# before them) and whose result is the declared type or a `Result` of it;
+//# and what the declaration names is `pub` exactly when the declaration
+//# is, so a macro writes `pub` when `decl.public` is set. The compiler
+//# gives it the declaration's doc comment, so a macro does not copy
+//# `decl.doc`. An expansion that declares anything else is a defect in the
+//# macro, reported at the declaration.
+
+import {
+    bool.Bool.{self, False}
+    bytes.Bytes
+    code_points.Codepoint
+    equatable.Equatable
+    int.Int
+    iter.Iter
+    json.Json
+    lists.List
+    maybe.Maybe.{self, None, Some}
+    results.Result.{Err, Ok}
+    strings.String
+    vectors.Vector
+}
+
+/// A span of source text: in the declaring file or in an input file,
+/// named by its path from the module root. Lines and columns start at 1;
+/// a column counts bytes, and the end is one past the span's last byte.
+pub struct Span {
+    file: String
+    line: Int
+    col: Int
+    end_line: Int
+    end_col: Int
+}
+
+derive Equatable for Span
+
+impl Span {
+    /// The span of graphemes `start` to `end` of `text`, which is line
+    /// `line` of the file `file`, counted as `String.slice` counts them:
+    /// the span of a CSV cell, given the line it is on.
+    //! s = Span.on_line("data/rates.csv", 3, "eur,1.08", 4, 8)
+    //! assert s == #Span{file: "data/rates.csv", line: 3, col: 5, end_line: 3, end_col: 9}
+    //! assert Span.on_line("a.txt", 1, "éx", 1, 2).col == 3
+    //
+    pub fn on_line(file: String, line: Int, text: String, start: Int, end: Int) -> Span {
+        col = 1 + byte_length(String.slice(text, 0, start))
+
+        #Span{
+            file,
+            line,
+            col,
+            end_line: line,
+            end_col: col + byte_length(String.slice(text, start, end)),
+        }
+    }
+
+    /// The span of the whole of line `line` of `file`, whose text is
+    /// `text`.
+    //! assert Span.line("a.txt", 2, "abc") == #Span{
+    //!     file: "a.txt",
+    //!     line: 2,
+    //!     col: 1,
+    //!     end_line: 2,
+    //!     end_col: 4,
+    //! }
+    //
+    pub fn line(file: String, line: Int, text: String) -> Span {
+        #Span{file, line, col: 1, end_line: line, end_col: 1 + byte_length(text)}
+    }
+}
+
+/// The number of bytes of `s`, as a column counts them.
+fn byte_length(s: String) -> Int {
+    Bytes.length(String.to_bytes(s))
+}
+
+/// A type as the declaration writes it. The macro never resolves it:
+/// it writes it into the code it generates, and the checker resolves it
+/// there.
+pub struct TypeText {
+    text: String
+    span: Span
+}
+
+/// One parameter of a declaration.
+pub struct Param {
+    name: String
+    type_text: TypeText
+    span: Span
+}
+
+/// A declaration's raw body: the text between its backticks, without the
+/// indentation a multi-line body's lines share, and where it is. Its first
+/// line starts at `start_line` and `start_col`; each later line starts at
+/// `indent_col` of the next source line. `tag` is the typed-literal tag
+/// written right before the opening backtick, which names the body's
+/// language for editors (`Sql` in ``sqlkit.query! q Sql`SELECT 1` ``), and
+/// `None` for an untagged body; `tag_span` is where the tag is. A macro
+/// that wants one reports a missing or different tag with
+/// `Expansion.error`, at the tag or the body.
+pub struct Body {
+    text: String
+    span: Span
+    start_line: Int
+    start_col: Int
+    indent_col: Int
+    tag: Maybe<String>
+    tag_span: Maybe<Span> = None
+}
+
+impl Body {
+    /// The span of graphemes `start` to `end` of the body's text, counted
+    /// as `String.slice` counts them, on as many lines as they cover: the
+    /// span of a token a macro found at those offsets.
+    //! s = #Span{file: "a.nomi", line: 1, col: 1, end_line: 1, end_col: 1}
+    //! b = #Body{text: "x\ny z", span: s, start_line: 4, start_col: 12, indent_col: 5, tag: None}
+    //! assert Body.span_at(b, 0, 1) == #Span{file: "a.nomi", line: 4, col: 12, end_line: 4, end_col: 13}
+    //! assert Body.span_at(b, 4, 5) == #Span{file: "a.nomi", line: 5, col: 7, end_line: 5, end_col: 8}
+    //! assert Body.span_at(b, 0, 5) == #Span{file: "a.nomi", line: 4, col: 12, end_line: 5, end_col: 8}
+    //
+    pub fn span_at(body: Body, start: Int, end: Int) -> Span {
+        #(line, col) = body_position(body, start)
+        #(end_line, end_col) = body_position(body, end)
+        #Span{file: body.span.file, line, col, end_line, end_col}
+    }
+}
+
+/// The line and column of grapheme `offset` of the body's text.
+fn body_position(body: Body, offset: Int) -> #(Int, Int) {
+    #(line, before) = line_and_before(body.text, offset)
+
+    start = if line == 0 {
+        body.start_col
+    } else {
+        body.indent_col
+    }
+
+    #(body.start_line + line, start + byte_length(before))
+}
+
+/// The line of grapheme `offset` of `text`, counting from 0, and the text
+/// before it on that line.
+fn line_and_before(text: String, offset: Int) -> #(Int, String) {
+    lines = String.split(String.slice(text, 0, offset), "\n")
+    #(Iter.count(lines) - 1, Iter.last(lines) |> Maybe.with_default(""))
+}
+
+/// A declaration written with a macro's keyword, as the parser read
+/// it: ``pub csvdata.table! rates(code: String) -> Maybe<Int> `data/rates.csv` ``.
+/// `keyword` is the keyword alone (`table`), with no qualifier and no
+/// `!`. `name` is the name as written, a type name (`Size`) when the
+/// declaration declares a type, which the macro tells by its case.
+/// `public` is whether it is written `pub`, which what the expansion
+/// declares of `name` must match, and `doc` its doc comment, which the
+/// compiler attaches to that declaration itself. `file` is the declaring
+/// file's path from the module root, `span` is the declaration's keyword
+/// with its `!`, and `name_span` is its name, where the parser read it.
+pub struct Declaration {
+    keyword: String
+    name: String
+    public: Bool
+    params: List<Param>
+    result: Maybe<TypeText>
+    body: Maybe<Body>
+    doc: String
+    file: String
+    span: Span
+    name_span: Span
+}
+
+impl Declaration {
+    /// An expansion that declares nothing and reports `message` at the
+    /// declaration's keyword. `Expansion.error` reports one at a span of
+    /// the declaration, such as its result type or its body's tag.
+    pub fn error(decl: Declaration, message: String) -> Expansion {
+        Expansion.error(decl.span, message)
+    }
+}
+
+/// What `request` asks the compiler to read before `expand` runs:
+/// files under the module root, by path or glob (`data/*.csv`), and the
+/// names and files of the module's declarations written with the
+/// keywords in `sites`. Each is empty unless the macro names some, and
+/// `Macro.request`'s default asks for neither.
+pub struct Request {
+    files: List<String> = []
+    sites: List<String> = []
+}
+
+/// A file the compiler read for a request: its path from the module root
+/// and its text. A requested path that names no file is left out.
+pub struct Input {
+    path: String
+    text: String
+}
+
+impl Input {
+    /// The span of graphemes `start` to `end` of the input's text, counted
+    /// as `String.slice` counts them. It reads the text before `start`, so
+    /// a macro that places many pieces of a large file goes line by line,
+    /// with `Span.on_line`.
+    //! input = #Input{path: "data/a.csv", text: "k,v\nusd,9200\n"}
+    //!
+    //! assert Input.span_at(input, 8, 12) == #Span{
+    //!     file: "data/a.csv",
+    //!     line: 2,
+    //!     col: 5,
+    //!     end_line: 2,
+    //!     end_col: 9,
+    //! }
+    //
+    pub fn span_at(input: Input, start: Int, end: Int) -> Span {
+        #(line, before) = line_and_before(input.text, start)
+        #(end_line, end_before) = line_and_before(input.text, end)
+
+        #Span{
+            file: input.path,
+            line: line + 1,
+            col: 1 + byte_length(before),
+            end_line: end_line + 1,
+            end_col: 1 + byte_length(end_before),
+        }
+    }
+
+    /// The input at `path`, if the compiler read one.
+    //! inputs = [#Input{path: "a.csv", text: "x"}]
+    //! assert Input.find(inputs, "a.csv") == Some(#Input{path: "a.csv", text: "x"})
+    //! assert Input.find(inputs, "b.csv") == None
+    //
+    pub fn find(inputs: List<Input>, path: String) -> Maybe<Input> {
+        Iter.find(inputs, fn input -> input.path == path)
+    }
+}
+
+/// A declaration of a keyword a request named, in the declaring module.
+pub struct Site {
+    keyword: String
+    name: String
+    file: String
+    span: Span
+}
+
+/// What `expand` answers: Nomi declarations, which the checker checks as
+/// part of the declaring file, the span map from ranges of `source` back
+/// to what the user wrote, and what is wrong with the declaration or its
+/// inputs. An error the checker reports inside a mapped range is reported
+/// at the range's span, with its hint; one outside every range is a defect
+/// of the macro and is reported at the declaration.
+///
+/// The source may start with whole-file imports (`import std/strings`),
+/// which only it sees. Its top-level names join the declaring file's.
+///
+/// Each field has a default, so `#Expansion{diagnostics: problems}` is an
+/// expansion that declares nothing and reports `problems`.
+pub struct Expansion {
+    source: String = ""
+    spans: List<SpanMap> = []
+    diagnostics: List<Diagnostic> = []
+}
+
+impl Expansion {
+    /// An expansion that declares nothing and reports `message` at `span`:
+    /// a part of the declaration, such as `decl.result`'s span or its
+    /// body's `tag_span`, or of an input.
+    //! s = #Span{file: "tables.nomi", line: 4, col: 42, end_line: 4, end_col: 45}
+    //! e = Expansion.error(s, "remove `Csv`")
+    //! assert e.source == ""
+    //!
+    //! assert e.diagnostics == [
+    //!     #Diagnostic{span: s, message: "remove `Csv`", hints: []},
+    //! ]
+    //
+    pub fn error(span: Span, message: String) -> Expansion {
+        #Expansion{
+            diagnostics: [#Diagnostic{span, message}],
+        }
+    }
+}
+
+/// Bytes `start` to `end` of an expansion's source, made from `span`.
+pub struct SpanMap {
+    start: Int
+    end: Int
+    span: Span
+    hint: Maybe<String>
+}
+
+/// A problem a macro reports, at a span of the declaration, its body
+/// or an input file.
+pub struct Diagnostic {
+    span: Span
+    message: String
+    hints: List<String> = []
+}
+
+/// An expansion's source as it is written, piece by piece, keeping the
+/// span map: `Source.mapped` records where a piece came from. Each piece
+/// costs what its own length does, so a source of many pieces is written in
+/// time linear in its length.
+//! s = #Span{file: "a.csv", line: 2, col: 3, end_line: 2, end_col: 5}
+//!
+//! src =
+//!     Source.new()
+//!     |> Source.add("fn f() -> Int {\n    ")
+//!     |> Source.mapped("12", s)
+//!     |> Source.add("\n}\n")
+//!
+//! e = Source.expansion(src)
+//! assert e.source == "fn f() -> Int {\n    12\n}\n"
+//! assert e.spans == [#SpanMap{start: 20, end: 22, span: s, hint: None}]
+//
+pub opaque struct Source {
+    // The pieces and the span map, last first.
+    pieces: List<String>
+    length: Int
+    spans: List<SpanMap>
+}
+
+impl Source {
+    /// No source yet.
+    pub fn new() -> Source {
+        #Source{pieces: [], length: 0, spans: []}
+    }
+
+    /// `source` followed by `text`.
+    pub fn add(source: Source, text: String) -> Source {
+        #Source{
+            pieces: [text, ..source.pieces],
+            length: source.length + byte_length(text),
+            spans: source.spans,
+        }
+    }
+
+    /// `source` followed by `text`, which was made from `span`. `hint`,
+    /// when given, is added to an error the checker reports in it.
+    pub fn mapped(source: Source, text: String, span: Span, hint: Maybe<String> = None) -> Source {
+        end = source.length + byte_length(text)
+
+        #Source{
+            pieces: [text, ..source.pieces],
+            length: end,
+            spans: [#SpanMap{start: source.length, end, span, hint}, ..source.spans],
+        }
+    }
+
+    /// `source` followed by `text` written as a Nomi string literal
+    /// (`String.to_literal`), made from `span`, with `hint` as `mapped`
+    /// takes it: a string a macro copies from its input into the code.
+    //! s = #Span{file: "a.csv", line: 2, col: 5, end_line: 2, end_col: 9}
+    //! e = Source.new() |> Source.string_literal("a\tb", s) |> Source.expansion()
+    //! assert e.source == "\"a\\tb\""
+    //! assert e.spans == [#SpanMap{start: 0, end: 6, span: s, hint: None}]
+    //
+    pub fn string_literal(
+        source: Source,
+        text: String,
+        span: Span,
+        hint: Maybe<String> = None,
+    ) -> Source {
+        Source.mapped(source, String.to_literal(text), span, hint)
+    }
+
+    /// The expansion of the source written, with no diagnostics.
+    pub fn expansion(source: Source) -> Expansion {
+        #Expansion{
+            source: String.join(Iter.reverse(source.pieces)),
+            spans: Iter.reverse(source.spans),
+        }
+    }
+}
+
+/// The configuration whose JSON text is `text`, as `request` and
+/// `expand` receive it: `Json.Null` when the text is not JSON.
+//! assert config("{\"dir\":\"data\"}") == %Json.Obj{"dir" => Json.String("data")}
+//! assert config("null") == Json.Null
+//
+pub fn config(text: String) -> Json {
+    case Json.decode(text) {
+        Ok(json) -> json
+        Err(_) -> Json.Null
+    }
+}
+
+/// What `request` is given: the declaration, and the macro module's
+/// table in the declaring module's `nomi.toml`, named after the macro
+/// module (`[csvdata]`), as `Json`, `Json.Null` when there is none.
+pub struct RequestCall {
+    decl: Declaration
+    config: Json
+}
+
+/// What `expand` is given: the declaration and the configuration, as
+/// `request` was given them, the files its request named that the compiler
+/// read, and the declarations of the keywords it named.
+pub struct ExpandCall {
+    decl: Declaration
+    config: Json
+    inputs: List<Input>
+    sites: List<Site>
+}
+
+/// How a macro expands its declarations. `request` says what to read;
+/// `expand` writes the declarations. Each takes one record, so a macro
+/// reads only the fields it needs. `request` asks for nothing unless the
+/// macro writes its own, so a macro that reads no file and no other
+/// declaration writes `expand` alone.
+pub interface Macro {
+    open fn request(call: RequestCall) -> Request {
+        _ = call
+        #Request{}
+    }
+    fn expand(call: ExpandCall) -> Expansion
+}
+
+/// What `check_all` is given: every declaration of the macro's keyword in
+/// the module, the configuration, and the inputs every declaration's
+/// request named.
+pub struct CheckCall {
+    decls: List<Declaration>
+    config: Json
+    inputs: List<Input>
+}
+
+/// A check over every declaration of a macro's keyword in a module,
+/// run once after each is expanded: what no one declaration can decide,
+/// such as two declarations that claim one table.
+pub interface ProgramCheck {
+    fn check_all(call: CheckCall) -> List<Diagnostic>
+}
+
+/// A completion the language server offers inside a declaration's body.
+pub struct Completion {
+    label: String
+    detail: String
+    insert: String
+}
+
+/// A text edit to the declaring file or an input file.
+pub struct Edit {
+    span: Span
+    text: String
+}
+
+/// A quick fix for one diagnostic: edits the language server offers to
+/// apply, and a tool of the macro's module it runs when the person
+/// chooses the fix, after the edits: what a fix needs when only a tool can
+/// make it, such as describing a query against a database and writing the
+/// file the macro reads.
+pub struct Action {
+    title: String
+    edits: List<Edit> = []
+    tool: Maybe<Tool> = None
+}
+
+/// A run of the tool `name` of the macro's own module,
+/// `nomi tool <module> <name> <args>`, in the declaring module's root. A
+/// tool has every effect, so the language server runs one only when the
+/// person chooses the action that names it.
+pub struct Tool {
+    name: String
+    args: List<String>
+}
+
+/// What `hover`, `definition` and `complete` are given: the declaration,
+/// the configuration, as `request` was given it, the inputs its request
+/// named, and a position in the declaring file, inside the declaration's
+/// body.
+pub struct NavigationCall {
+    decl: Declaration
+    config: Json = Json.Null
+    inputs: List<Input>
+    line: Int
+    col: Int
+}
+
+/// What `actions` is given: the declaration, the configuration, the
+/// inputs its request named, and one of the diagnostics reported in it or
+/// its inputs.
+pub struct ActionsCall {
+    decl: Declaration
+    config: Json = Json.Null
+    inputs: List<Input>
+    diagnostic: Diagnostic
+}
+
+/// The language server's questions about a declaration's body. Each
+/// answers nothing unless the macro writes its own, so a macro that offers
+/// only quick fixes writes `actions` alone.
+pub interface Navigation {
+    open fn hover(call: NavigationCall) -> Maybe<String> {
+        _ = call
+        None
+    }
+
+    open fn definition(call: NavigationCall) -> Maybe<Span> {
+        _ = call
+        None
+    }
+
+    open fn complete(call: NavigationCall) -> List<Completion> {
+        _ = call
+        []
+    }
+
+    open fn actions(call: ActionsCall) -> List<Action> {
+        _ = call
+        []
+    }
+}
+
+/// `text`, words in snake_case, kebab-case or separated by spaces, as one
+/// PascalCase name: what a macro names a type or a variant it makes
+/// from a word of its input. Each word's first letter is made upper case
+/// and the rest is kept, so a PascalCase name is left as it is.
+//! assert pascal_case("extra_large") == "ExtraLarge"
+//! assert pascal_case("in-transit") == "InTransit"
+//! assert pascal_case("order items") == "OrderItems"
+//! assert pascal_case("Size") == "Size"
+//! assert pascal_case("é_x") == "ÉX"
+//
+pub fn pascal_case(text: String) -> String {
+    words_of(text)
+    |> Iter.map(fn word -> {
+        String.to_upper(String.slice(word, 0, 1)) + String.slice(word, 1, String.length(word))
+    })
+    |> String.join()
+}
+
+/// `text`, a PascalCase or camelCase name or words in kebab-case or
+/// separated by spaces, as one snake_case name: what a macro names a
+/// function it makes from a type's name. A run of capitals is one word
+/// (`HTTPServer` is `http_server`).
+//! assert snake_case("ExtraLarge") == "extra_large"
+//! assert snake_case("HTTPServer") == "http_server"
+//! assert snake_case("orderItems") == "order_items"
+//! assert snake_case("in-transit") == "in_transit"
+//! assert snake_case("already_snake") == "already_snake"
+//! assert snake_case("Point3D") == "point3_d"
+//
+pub fn snake_case(text: String) -> String {
+    letters = String.to_codepoints(text) |> Iter.to_vector()
+    is = fn i: Int, holds: (Codepoint) -> Bool -> letter?(letters, i, holds)
+
+    0..Vector.length(letters)
+    |> Iter.map(fn i -> {
+        letter = "${Vector.get(letters, i) |> Maybe.with_default('_')}"
+
+        // A capital starts a word after a lower-case letter or a digit, and
+        // ends a run of capitals before a lower-case letter.
+        starts = is(i, Codepoint.upper?) and (is(i - 1, Codepoint.lower?) or is(
+            i - 1,
+            Codepoint.digit?,
+        ) or is(i - 1, Codepoint.upper?) and is(i + 1, Codepoint.lower?))
+
+        if starts {
+            "_" + String.to_lower(letter)
+        } else {
+            String.to_lower(letter)
+        }
+    })
+    |> String.join()
+    |> words_of()
+    |> String.join("_")
+}
+
+/// Whether letter `i` of `letters` is one and `holds` of it.
+fn letter?(letters: Vector<Codepoint>, i: Int, holds: (Codepoint) -> Bool) -> Bool {
+    Vector.get(letters, i) |> Maybe.map(holds) |> Maybe.with_default(False)
+}
+
+/// The words of `text`, separated by `_`, `-` or spaces.
+fn words_of(text: String) -> List<String> {
+    text
+    |> String.replace("-", "_")
+    |> String.replace(" ", "_")
+    |> String.split("_")
+    |> Iter.filter(fn w -> w != "")
+    |> Iter.to_list()
+}
+
+derive Equatable for TypeText
+
+derive Equatable for Param
+
+derive Equatable for Body
+
+derive Equatable for Declaration
+
+derive Equatable for Request
+
+derive Equatable for Input
+
+derive Equatable for Site
+
+derive Equatable for Expansion
+
+derive Equatable for SpanMap
+
+derive Equatable for Diagnostic
+
+derive Equatable for Source
+
+derive Equatable for Completion
+
+derive Equatable for Edit
+
+derive Equatable for Action
+
+derive Equatable for Tool

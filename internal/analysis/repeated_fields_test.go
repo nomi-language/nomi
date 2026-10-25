@@ -120,8 +120,8 @@ derive ToJson for User with #ToJson.Options{rename_all: Json.Case.Camel, rename_
 }
 
 // TestRepeatedDeclaredNames_RejectedAtTheSecondName pins that a name declared
-// twice in one declaration is rejected at the second name, with the line of
-// the first, top-level and block-local. Each was accepted before except the
+// twice in one declaration is rejected at the second name, with the first as
+// a related location, top-level and block-local. Each was accepted before except the
 // anonymous record type: a struct's repeated field reached the IR builder,
 // which declined its literal, and the others kept one of the two silently.
 func TestRepeatedDeclaredNames_RejectedAtTheSecondName(t *testing.T) {
@@ -159,8 +159,16 @@ func TestRepeatedDeclaredNames_RejectedAtTheSecondName(t *testing.T) {
 			_, errs := checkSourceWithStdlib(tc.src)
 			var all []string
 			for _, e := range errs {
-				all = append(all, fmt.Sprintf("%d:%d %s", e.Line, e.Col, e.Message))
-				if e.Message == tc.msg && e.Line == tc.line && e.Col == tc.col {
+				// The first name is a related location; the cases write its
+				// line after the message.
+				msg := e.Message
+				for _, r := range e.Related {
+					if r.Message == "the first is here" {
+						msg += fmt.Sprintf("; the first is at line %d", r.Line)
+					}
+				}
+				all = append(all, fmt.Sprintf("%d:%d %s", e.Line, e.Col, msg))
+				if msg == tc.msg && e.Line == tc.line && e.Col == tc.col {
 					return
 				}
 			}
@@ -199,12 +207,16 @@ fn run() -> Shape {
 	_, errs := checkSourceWithStdlib(src)
 	var got []string
 	for _, e := range errs {
-		got = append(got, fmt.Sprintf("%d:%d %s", e.Line, e.Col, e.Message))
+		line := fmt.Sprintf("%d:%d %s", e.Line, e.Col, e.Message)
+		for _, r := range e.Related {
+			line += fmt.Sprintf(" (%s: %d:%d)", r.Message, r.Line, r.Col)
+		}
+		got = append(got, line)
 	}
 	want := []string{
-		"4:9 field 'w' is declared twice in variant `Shape.Rect`; the first is at line 3",
-		"7:5 variant 'Dot' is declared twice in enum `Shape`; the first is at line 6",
-		"12:5 field 'x' is declared twice in struct `Point`; the first is at line 11",
+		"4:9 field 'w' is declared twice in variant `Shape.Rect` (the first is here: 3:9)",
+		"7:5 variant 'Dot' is declared twice in enum `Shape` (the first is here: 6:5)",
+		"12:5 field 'x' is declared twice in struct `Point` (the first is here: 11:5)",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("want:\n  %s\ngot:\n  %s", strings.Join(want, "\n  "), strings.Join(got, "\n  "))

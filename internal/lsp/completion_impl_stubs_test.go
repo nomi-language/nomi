@@ -172,10 +172,10 @@ func TestCompletion_ImplStubNotInBodiesOrInherentBlocks(t *testing.T) {
 
 func TestCompletion_ImplStubGenericImpl(t *testing.T) {
 	// Iter<T>'s element type is not in the header, so it is a linked
-	// placeholder; the open default follows.
+	// placeholder; the open defaults follow.
 	src := "struct Box<T> {\n    value: T\n}\n\nimpl Iter for Box<T> {\n    " + cursorMark + "\n}\n"
 	items := completeWith(t, true, src)
-	if got := strings.Join(itemLabels(items), ","); got != "each_while,known_count" {
+	if got := strings.Join(itemLabels(items), ","); got != "each_while,known_count,infinite?" {
 		t.Fatalf("items = %s", got)
 	}
 	if got := insertOf(t, items, "each_while"); got != "fn each_while(box: Box<T>, yield: (${1:T}) -> Bool) -> Bool {\n    $0\n}" {
@@ -183,6 +183,9 @@ func TestCompletion_ImplStubGenericImpl(t *testing.T) {
 	}
 	if got := insertOf(t, items, "known_count"); got != "fn known_count(box: Box<T>) -> Maybe<Int> {\n    $0\n}" {
 		t.Fatalf("known_count = %q", got)
+	}
+	if got := insertOf(t, items, "infinite?"); got != "fn infinite?(box: Box<T>) -> Bool {\n    $0\n}" {
+		t.Fatalf("infinite? = %q", got)
 	}
 }
 

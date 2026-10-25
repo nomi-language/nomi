@@ -43,7 +43,7 @@ var builtinCheckedRows = map[string]bool{
 	"decimal.Decimal.round": true, "decimal.Decimal.normalize": true, "decimal.Decimal.scale": true,
 	"strings.String.repeat": true, "int.Int.shift_left": true, "int.Int.shift_right": true,
 	"bytes.Bytes.to_list": true, "bytes.Bytes.from_list": true, "bytes.Bytes.hash": true,
-	"strings.String.normalize": true, "io.read_file": true, "io.write_file": true,
+	"strings.String.normalize": true, "strings.String.to_literal": true, "io.read_file": true, "io.write_file": true,
 	"dynamic.Dynamic.field": true, "dynamic.Dynamic.index": true, "dynamic.Dynamic.path": true,
 	"dynamic.Dynamic.as_string": true, "dynamic.Dynamic.as_int": true, "dynamic.Dynamic.as_float": true,
 	"dynamic.Dynamic.as_bool": true, "dynamic.Dynamic.as_list": true, "dynamic.Dynamic.as_dict": true,
@@ -168,6 +168,7 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 		"bytes.Bytes.from_list":       {{rtList()}, {rtList(rt.Byte(1), rt.Byte(255))}},
 		"bytes.Bytes.hash":            {{rt.Bytes("")}, {rt.Bytes("ab")}, {rt.Bytes("ab\xff")}},
 		"strings.String.normalize":    {},
+		"strings.String.to_literal":   {{sv("")}, {sv("plain é 🙂")}, {sv("a\tb\nc\rd")}, {sv(`q"b\s`)}, {sv("$5 ${x} \\${y}")}, {sv("\x00\x1f\x7f")}},
 		"io.read_file":                {{sv(existing)}, {sv(filepath.Join(dir, "missing.txt"))}, {sv(dir)}},
 		"io.write_file":               {{sv(filepath.Join(dir, "out.txt")), sv("written")}, {sv(filepath.Join(dir, "no", "such", "dir.txt")), sv("x")}},
 	}

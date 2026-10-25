@@ -1,0 +1,10 @@
+# German, a partial locale: the total and the shipping date. The nouns and
+# the other messages show in English.
+
+[order_total]
+source = '''Total: {$total :currency}'''
+text = '''Gesamt: {$total :currency}'''
+
+[ships_on]
+source = '''Ships {$date :datetime weekday=long month=long day=numeric}'''
+text = '''Versand am {$date :datetime weekday=long month=long day=numeric}'''

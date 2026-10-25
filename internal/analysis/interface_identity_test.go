@@ -31,7 +31,11 @@ func buildSiblingProject(t *testing.T, entry string, siblings map[string]string)
 		t.Fatal(err)
 	}
 	for name, src := range siblings {
-		if err := os.WriteFile(filepath.Join(tmp, name+".nomi"), []byte(src), 0o644); err != nil {
+		path := filepath.Join(tmp, filepath.FromSlash(name)+".nomi")
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -316,7 +316,7 @@ func vmReportRun(population, path string, wantCases int) (transcript string,
 	if err != nil {
 		return "", 0, 0, "the link hook refused it: " + err.Error()
 	}
-	m := vm.NewProgram(mod, mods, &out)
+	m := vm.NewProgram(mod, mods, &out).WithLocaleData(programLocales(prog))
 	if population != "tour" {
 		var stderr string
 		stderr, exit, reason = vmReportCaptureStderr(func() (int, string) { return m.RunTests(path) })

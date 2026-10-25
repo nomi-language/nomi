@@ -48,20 +48,34 @@ func Table() hostgen.Table {
 
 // stdRowModule is the std module a stdlib row's `host fn` is declared in. An
 // rt function implements a declaration whose key is module-qualified
-// (`strings.String.trim`), so the module is the key's first segment; any other
-// function lives in a first-party adapter package, which names its module.
+// (`strings.String.trim`), so the module is the key's first segment; so does
+// internal/stdformat, whose functions implement file-level helpers of several
+// modules (`int.int_format`, `strings.join_list_raw`). Any other function
+// lives in a first-party adapter package, which names its module.
 func stdRowModule(row hostgen.FuncRow) (string, error) {
-	if goPackageOf(row.Fn) == rtPackage {
-		module, _, found := strings.Cut(row.Name, ".")
+	module, _, found := strings.Cut(row.Name, ".")
+	if pkg := goPackageOf(row.Fn); pkg == rtPackage || pkg == formatPackage {
 		if !found {
 			return "", fmt.Errorf("the key of an rt row is not module-qualified")
 		}
 		return module, nil
 	}
-	return stdModuleOf(row.Fn)
+	name, err := stdModuleOf(row.Fn)
+	if err != nil {
+		return "", err
+	}
+	// A Go package name runs words together where the module's has an
+	// underscore: internal/stdmessageformat implements std/message_format.
+	if found && strings.ReplaceAll(module, "_", "") == name {
+		return module, nil
+	}
+	return name, nil
 }
 
-const rtPackage = "github.com/nomi-language/nomi/rt"
+const (
+	rtPackage     = "github.com/nomi-language/nomi/rt"
+	formatPackage = "github.com/nomi-language/nomi/internal/stdformat"
+)
 
 // goPackageOf is the import path of the package a function value is declared
 // in, or "" when it has no symbol.
@@ -80,7 +94,8 @@ func goPackageOf(fn any) string {
 }
 
 // stdModuleOf is the std module a first-party adapter function implements,
-// read off its Go package: `internal/std<name>` implements `std/<name>`. Every
+// read off its Go package: `internal/std<name>` implements `std/<name>`, with
+// the module's underscores dropped from the package name. Every
 // first-party adapter package follows that layout, and a binding outside it is
 // refused rather than guessed at.
 func stdModuleOf(fn any) (string, error) {

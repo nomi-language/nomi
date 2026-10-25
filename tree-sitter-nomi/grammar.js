@@ -70,6 +70,10 @@ module.exports = grammar({
   word: $ => $.identifier,
 
   conflicts: $ => [
+    // `kit.record! Point` at the top level: a qualified keyword is a
+    // keyword declaration's or a field access until the `!` or the name
+    // after it decides.
+    [$.keyword_declaration, $._expression],
     // `if #P{x, y} = p {`: a punned field is a struct literal's field or a
     // struct pattern's until the `=` after the `}` decides.
     [$.struct_construction, $.pattern_field],
@@ -92,6 +96,12 @@ module.exports = grammar({
     // `)` decides, as for `Type(...)` above.
     [$.self_type, $.self_expression],
     [$.list, $.list_pattern],
+    // `sql.Error.Closed` after `if` or in a case arm is the pattern or the
+    // expression it looks like, until the `=` or `->` decides.
+    [$._expression, $.qualified_variant],
+    // `fn sql.Error.` starts a function named through an interface or a
+    // lambda whose parameter is `sql.Error.V(n)`, until the `->` decides.
+    [$.function_definition, $.qualified_variant],
     [$._expression, $.pattern_field],
     [$.destructuring_binding, $.pattern_field],
     [$.destructuring_binding, $._expression, $.pattern_field],
@@ -154,7 +164,7 @@ module.exports = grammar({
   rules: {
     // A `#!` interpreter line, allowed only as the file's first line, so a
     // script runs as `./hi.nomi`. The compiler's lexer skips it.
-    source_file: $ => seq(optional($.shebang), statements($)),
+    source_file: $ => seq(optional($.shebang), statements($, $._top_item)),
 
     shebang: _ => token(seq('#!', /.*/)),
 
@@ -178,6 +188,58 @@ module.exports = grammar({
       $.gopkg_declaration,
       $._expression_or_statement,
     ),
+
+    // A top-level item: any item, or a keyword declaration, which starts
+    // nothing in a body.
+    _top_item: $ => choice($.keyword_declaration, $._item),
+
+    // A declaration by the general rule
+    // `[pub] [module.]keyword[!] name [(params)] [-> type] [[Tag]raw body]`,
+    // whose keyword the grammar does not know: `message cart_items(count:
+    // Int) `...``, `noun item `...``, `sqlkit.query! user(id: Int)
+    // Sql`...``. A macro's keyword carries the `!` (the `mark`),
+    // written against it. Two names in a row, a marked name and a name, or
+    // either with a qualified keyword, at the top level start nothing else;
+    // a line break between them ends a statement, as in the Go parser. A
+    // tagged body is a `raw_tagged_string`,
+    // so the typed-literal injections highlight it by its tag.
+    // `macro name: Type` declares a keyword (the Go parser's
+    // ast.MacroDecl); the grammar reads it by this rule with the
+    // implementing type after a colon. The name may be a type name
+    // (`choices.one_of! Size`, `one_of! Size`) when the keyword is marked
+    // or qualified, since a macro's declaration may declare a type; an
+    // unmarked, unqualified name before a type name starts nothing
+    // (`strct Point`).
+    keyword_declaration: $ => prec.right(seq(
+      optional($.pub),
+      choice(
+        seq(
+          optional(seq(field('module', $.identifier), token.immediate('.'))),
+          field('keyword', $.identifier),
+          optional(field('mark', $.macro_mark)),
+          field('name', $.identifier),
+        ),
+        seq(
+          field('module', $.identifier), token.immediate('.'),
+          field('keyword', $.identifier),
+          optional(field('mark', $.macro_mark)),
+          field('name', $.type_identifier),
+        ),
+        seq(
+          field('keyword', $.identifier),
+          field('mark', $.macro_mark),
+          field('name', $.type_identifier),
+        ),
+      ),
+      optional(seq(':', field('implementation', $._type))),
+      optional($.parameters),
+      optional(seq('->', field('return_type', $._type))),
+      optional(field('body', choice($.raw_string, $.raw_tagged_string))),
+    )),
+
+    // The `!` written against a macro's keyword, a node of its own so
+    // highlighters can draw it with the keyword.
+    macro_mark: $ => token.immediate('!'),
 
     // Visibility marker: `pub` makes a top-level declaration part of
     // the module's public surface. Wrapped as an explicit `pub` rule so
@@ -1072,16 +1134,12 @@ module.exports = grammar({
     // are not accepted here and land in the surrounding block/ERROR recovery,
     // matching the Go parser's `struct spread ".." must be the first element`.
     //
-    // Separators are `optional(',')` rather than `commaSep`. `/\s/` is an extra,
-    // so this one spelling covers the inline `#{..base, x: 9}`, the trailing
-    // comma the formatter emits on every multi-line comma list, and the stacked
-    //   #{ \n ..base \n x: 9 \n }
-    // form the Go parser also accepts (its field loop eats a COMMA or NEWLINE
-    // run).
+    // A comma follows the spread and each field but the last, whose comma is
+    // optional, as in every other brace literal.
     struct_update: $ => prec(6, seq(
       '#{',
       $.struct_update_spread,
-      repeat(seq(optional(','), $.struct_update_field)),
+      repeat(seq(',', $.struct_update_field)),
       optional(','),
       '}',
     )),
@@ -1231,6 +1289,7 @@ module.exports = grammar({
       $.identifier,
       $.type_identifier,
       seq($.type_identifier, repeat1(seq(token.immediate('.'), $.type_identifier))),
+      $.qualified_variant,
       $.dot_variant,
       '_',
       // Patterns that name their type, `#.Valid{addr}`, `#Check.Valid{addr}`
@@ -1625,10 +1684,26 @@ module.exports = grammar({
       optional(seq('else', choice($.if_expression, $.body))),
     )),
 
-    if_match_condition: $ => seq(
-      field('pattern', $._case_pattern),
-      '=',
-      field('value', $._expression),
+    // The pattern may be read in its expression spelling, as a case arm's
+    // escape reads it, with its `or` and `as`: in `if Shape.Circle(r) = s` the head `Shape.Circle`
+    // is a type_field_access by static precedence before the `=` shows the
+    // whole is a pattern. Where both readings parse, the pattern wins.
+    if_match_condition: $ => choice(
+      prec.dynamic(20, seq(
+        field('pattern', $._case_pattern),
+        '=',
+        field('value', $._expression),
+      )),
+      seq(
+        field('pattern', choice(
+          $.call_expression,
+          // `Shape.A(n) or Shape.B(n)`, the boolean `or` of their spellings.
+          $.binary_expression,
+          alias($._expression_as_pattern, $.as_pattern),
+        )),
+        '=',
+        field('value', $._expression),
+      ),
     ),
 
     // Application field override, a statement: `with MyApp.logger = #Silent{}`.
@@ -1738,6 +1813,7 @@ module.exports = grammar({
       // overlaps the bare one. (Payload forms are enum_pattern `Type.V(args)`
       // and struct_pattern `#Type.V{fields}`.)
       seq($.type_identifier, repeat1(seq(token.immediate('.'), $.type_identifier))),
+      $.qualified_variant,
       $.dot_variant,
       $.string,
       $.integer,
@@ -1874,6 +1950,16 @@ module.exports = grammar({
       prec(11, seq($.self_type, '(', commaSep($._case_pattern), ')')),
       // Dot-leading: .Variant(args)
       prec(11, seq($.dot_variant, '(', commaSep($._case_pattern), ')')),
+      // Named through a file: sql.Error.Constraint(args)
+      prec(11, seq($.qualified_variant, '(', commaSep($._case_pattern), ')')),
+    ),
+
+    // A variant named through the file that declares its type:
+    // `sql.Error.Closed`, `geo.Deep.Enum.V`. The file is the module, every
+    // segment but the last names the type, and the last is the variant.
+    qualified_variant: $ => seq(
+      field('module', $.identifier),
+      repeat1(seq(token.immediate('.'), $.type_identifier)),
     ),
 
     list_pattern: $ => choice(
@@ -1886,9 +1972,10 @@ module.exports = grammar({
         )),
         ']',
       ),
-      // Dot-leading list-variant pattern: .Variant[a, b, ..rest]
+      // A list-variant pattern: .Variant[a, b, ..rest], Bag.Items[a],
+      // shapes.Bag.Items[a, ..rest]
       seq(
-        $.dot_variant,
+        choice($.dot_variant, $._simple_type, $.qualified_variant),
         '[',
         optional(seq(
           choice(seq('..', $._case_pattern), $._case_pattern),
@@ -1990,7 +2077,7 @@ module.exports = grammar({
       seq(
         '%{',
         choice(
-          seq($.map_update_spread, repeat(seq(optional(','), $.map_entry)), optional(',')),
+          seq($.map_update_spread, repeat(seq(',', $.map_entry)), optional(',')),
           commaSep($.map_entry),
         ),
         '}',
@@ -2155,9 +2242,9 @@ function commaSep1(rule) {
 // item after it, so no item's subtree starts with an empty token: an editor
 // asking for the node at an item's first column (Neovim's get_node) finds
 // the item, not the zero-width separator.
-function statements($) {
+function statements($, item = $._item) {
   const separator = repeat1(choice(';', $._statement_end));
-  const run = seq($._item, repeat($.decorated_item));
+  const run = seq(item, repeat($.decorated_item));
   return seq(
     repeat(';'),
     repeat(seq(run, choice(separator, $._newline_brace))),

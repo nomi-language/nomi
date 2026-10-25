@@ -76,8 +76,8 @@ func TestInitialize_CompletionCapabilities(t *testing.T) {
 	if cp == nil || cp.ResolveProvider == nil || !*cp.ResolveProvider {
 		t.Fatalf("completion provider = %#v, want resolveProvider", caps.CompletionProvider)
 	}
-	if strings.Join(cp.TriggerCharacters, " ") != ". > { } \" ` : , # %" {
-		t.Fatalf("trigger characters = %v, want . > { } \" ` : , # %%", cp.TriggerCharacters)
+	if strings.Join(cp.TriggerCharacters, " ") != ". > { } \" ` : , # % $ [" {
+		t.Fatalf("trigger characters = %v, want . > { } \" ` : , # %% $ [", cp.TriggerCharacters)
 	}
 	if !s.snippetSupport {
 		t.Fatal("the client's snippetSupport was not read")

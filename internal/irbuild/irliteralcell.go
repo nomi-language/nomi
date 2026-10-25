@@ -2,9 +2,12 @@ package irbuild
 
 import (
 	"fmt"
+	"reflect"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/rt"
 )
 
 // A BACKTICK TYPED LITERAL WHOSE HANDLER CAN FAIL.
@@ -26,7 +29,8 @@ import (
 // LiteralSite is one backtick typed literal checked at compile time: where it
 // is, its source text, and the lazy cell whose initializer calls its handler.
 type LiteralSite struct {
-	// Path is the declaring file's path, "" for an in-memory program.
+	// Path is the declaring file's path, or an in-memory file's module
+	// path (`main.nomi`).
 	Path string
 	// Line and Col are the tag's position; EndLine and EndCol are one past
 	// the closing backtick, or 0 when the parser recorded no extent.
@@ -42,6 +46,25 @@ type LiteralSite struct {
 	// `fn main`'s error is rendered; nil for a String error, which is its
 	// own message, and when neither rendering lowers.
 	Render *ir.Func
+	// Locale is whether the literal is std/locale's ``Locale`…` ``, whose
+	// locale the program must carry (vmhost's notCarried).
+	Locale bool
+	// Currency is whether the literal is std/currency's “Currency`…` “ or
+	// std/money's “Money`…` “, whose custom currency its module must
+	// list (vmhost's unlistedCurrency).
+	Currency bool
+}
+
+// currencyLiteralType reports whether ty, a literal's success type, is
+// std/currency's Currency or std/money's Money.
+func currencyLiteralType(ty analysis.Type) bool {
+	switch t := ty.(type) {
+	case *analysis.DistinctType:
+		return t.Origin == "std/currency" && t.Name == "Currency"
+	case *analysis.StructType:
+		return t.Origin == "std/money" && t.Name == "Money"
+	}
+	return false
 }
 
 // literalRenderKey is the identity of a literal's Render function.
@@ -152,9 +175,17 @@ func (g *gen) literalCell(t *ast.TaggedString, k kind) (*ir.Symbol, bool) {
 		g.literalCells = map[*ast.TaggedString]*ir.Symbol{}
 	}
 	g.literalCells[t] = sym
-	site := LiteralSite{Line: t.Line, Col: tagCol, Text: text, Cell: cell, Render: g.literalRender(t, name, k.def.preludeArgs[1])}
+	site := LiteralSite{Line: t.Line, Col: tagCol, Text: text, Cell: cell, Render: g.literalRender(t, name, k.def.preludeArgs[1]),
+		Locale: k.def.preludeArgs[0] == opaqueKindOfGoType(reflect.TypeFor[rt.Locale]())}
 	if g.fa != nil {
 		site.Path = g.fa.FilePath
+	}
+	if fa := g.srcFA(); fa != nil {
+		site.Currency = currencyLiteralType(fa.ExprTypes[t])
+	}
+	if site.Path == "" {
+		// An in-memory file (the tour, the REPL) is named by its module.
+		site.Path = g.nomiPath
 	}
 	if !t.Span.IsZero() {
 		// The span starts at the opening backtick; the diagnostic starts at

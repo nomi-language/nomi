@@ -1,0 +1,25 @@
+# German, a partial locale. `cart_items` was translated from an older
+# English text, so it is left out and the message shows in English;
+# `order_status` is current.
+
+[cart_items]
+source = '''{$count :integer} items'''
+text = '''{$count :integer} Artikel'''
+
+[order_status]
+source = '''
+.input {$status :string}
+.match $status
+Pending {{Your order is waiting to ship}}
+Shipped {{Your order is on its way}}
+Delivered {{Your order was delivered}}
+* {{Your order is on its way}}
+'''
+text = '''
+.input {$status :string}
+.match $status
+Pending {{Ihre Bestellung wartet auf den Versand}}
+Shipped {{Ihre Bestellung ist unterwegs}}
+Delivered {{Ihre Bestellung wurde zugestellt}}
+* {{Ihre Bestellung ist unterwegs}}
+'''

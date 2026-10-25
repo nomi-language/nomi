@@ -12,7 +12,7 @@ package rt
 // against a layout nobody wrote.
 //
 // Neither type has a hand-written method here: `derive Display for
-// PathSegment` and `impl Display for DecodeError` are ordinary Nomi in
+// PathSegment` and `impl Display for Error` are ordinary Nomi in
 // std/dynamic.nomi and lower through the ordinary impl path, so there is one
 // renderer rather than a Go copy that could disagree with it.
 
@@ -53,7 +53,7 @@ type DynamicPathSegment struct {
 	Index int64
 }
 
-// DynamicDecodeError is Nomi's `std/dynamic.DecodeError`: a structured decode
+// DynamicDecodeError is Nomi's `std/dynamic.Error`: a structured decode
 // failure, with the path that located it.
 //
 // `Path` is a List over the enum above, which is why the struct spec for this

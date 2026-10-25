@@ -905,7 +905,7 @@ func (cp *compiler) debugBefore(b *ir.Block, i int, in ir.Instr, marks []ir.Stmt
 // which a caller's frame shows by the pc it saved before it.
 func debugMayCall(in ir.Instr) bool {
 	switch n := in.(type) {
-	case *ir.Const, *ir.Copy, *ir.Bind, *ir.Arith, *ir.Not, *ir.Concat, *ir.Slot:
+	case *ir.Const, *ir.Copy, *ir.Bind, *ir.Arith, *ir.Not, *ir.Concat, *ir.Slot, *ir.CtlRead:
 		return false
 	case *ir.Ref:
 		return n.Kind() == ir.RefOnce

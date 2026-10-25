@@ -78,6 +78,30 @@ func (bl *irScalarBuilder) scalarEqualCall(t *ast.Call, args irQualArgs, owner, 
 	return c.Dst(), kindBool, false, true, true
 }
 
+// irHashValueHost is the VM intrinsic that hashes an interface value as a
+// Map key or Set element of interface type hashes it (vm/keys.go): by the
+// held type's hand-written Hashable when it has one, by its name when only
+// its Equatable is hand-written, structurally otherwise. Two values `==`
+// calls equal hash alike.
+const irHashValueHost = "vm.hash_value"
+
+// existentialHashCall lowers `Hashable.hash(x)` over an interface value to
+// the irHashValueHost call. owned is false for any other call.
+func (bl *irScalarBuilder) existentialHashCall(t *ast.Call, args irQualArgs, owner, method string) (ir.Temp, bool) {
+	if owner != "Hashable" || method != "hash" || len(t.Args) != 1 || !args.ok || len(args.kinds) != 1 || !irExistentialKind(args.kinds[0]) {
+		return ir.NoTemp, false
+	}
+	if d, found := bl.g.ifaceNamed(owner); found && !d.stdShared {
+		// A program's own Hashable.
+		return ir.NoTemp, false
+	}
+	pos := bl.g.irNodePos(t)
+	c := ir.NewHostCall(pos, bl.f.NewTemp(), irCallSite(t), bl.g.irCalleeSym(irHashValueHost, irHashValueHost), args.temps[0])
+	bl.b.Append(c)
+	bl.side(c.Dst(), irScalarSide{k: kindInt})
+	return c.Dst(), true
+}
+
 // structuralEqualCall lowers `Equatable.equal?(a, b)` over two tuples or two
 // records of one kind as `a == b` lowers them: a tuple or a record is
 // Equatable structurally and has no impl to select, so the call and the
@@ -92,6 +116,14 @@ func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs, own
 		return ir.NoTemp, false, false
 	}
 	k := args.kinds[0]
+	if irExistentialKind(k) && irExistentialKind(args.kinds[1]) {
+		// Two interface values: `Equatable.equal?(a, b)` is `a == b`, which
+		// compares them by their run-time types (ir.ValIface).
+		c := ir.NewCompare(bl.g.irNodePos(t), bl.f.NewTemp(), ir.OpEq, ir.ValIface, args.temps[0], args.temps[1])
+		bl.b.Append(c)
+		bl.side(c.Dst(), irScalarSide{k: kindBool})
+		return c.Dst(), true, true
+	}
 	if k != args.kinds[1] || !irRetainedTupleKind(k) && !irRetainedRecordKind(k) {
 		return ir.NoTemp, false, false
 	}

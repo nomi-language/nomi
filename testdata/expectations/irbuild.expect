@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 392
+records 397
 declared-cases 0
-failing 79
+failing 82
 C assert_subject_test.nomi@52b656b5ada294aa
 E 1
 N 0
@@ -881,6 +881,103 @@ T   line 65: assertion failed
 T     assert False
 T test result: FAILED. 4 passed, 1 failed
 T
+C control_test.nomi@517742633c495702
+E 0
+N 0
+H 19754445e4c69a310e32165423ec8f01856350ca7bed9dc209af9fea4dc4c8a6
+S -- control_test.nomi 1432 --
+S import std/io
+S
+S fn skip_odd(n: Int) -> Int {
+S   if n % 2 == 1 {
+S     continue
+S   }
+S   n * 10
+S }
+S
+S fn keep_until_big(n: Int) -> Bool {
+S   if n > 3 {
+S     break
+S   }
+S   n % 2 == 0
+S }
+S
+S fn below_five(n: Int) -> Bool {
+S   if n >= 5 {
+S     break False
+S   }
+S   True
+S }
+S
+S fn sum_small(total: Int, n: Int) -> Int {
+S   if n < 0 {
+S     continue
+S   }
+S   if total > 10 {
+S     break total
+S   }
+S   total + n
+S }
+S
+S fn stop_at_zero(total: Int, n: Int) -> Int {
+S   if n == 0 {
+S     break
+S   }
+S   total + n
+S }
+S
+S fn show_until_three(n: Int) -> Unit {
+S   if n == 3 {
+S     break
+S   }
+S   io.print("each ${n}")
+S }
+S
+S fn double_until(n: Int) -> Int {
+S   if n > 20 {
+S     break
+S   }
+S   n * 2
+S }
+S
+S test "map skips with continue" {
+S   assert Iter.map([1, 2, 3, 4], skip_odd) |> Iter.to_list() == [20, 40]
+S   assert [1, 2, 3, 4] |> Iter.map(skip_odd) |> Iter.to_list() == [20, 40]
+S }
+S
+S test "filter stops with a bare break" {
+S   assert Iter.filter([1, 2, 3, 4, 5, 6], keep_until_big) |> Iter.to_list() == [2]
+S }
+S
+S test "take_while stops with break False" {
+S   assert Iter.take_while([1, 2, 7, 3], below_five) |> Iter.to_list() == [1, 2]
+S }
+S
+S test "reduce continues and breaks with the accumulator" {
+S   assert Iter.reduce([1, -5, 2, 3, 20, 4], sum_small, from: 0) == 26
+S   assert Iter.reduce([1, 2, 0, 4], stop_at_zero, from: 0) == 3
+S }
+S
+S test "each stops" {
+S   Iter.each([1, 2, 3, 4], show_until_three)
+S   assert True
+S }
+S
+S test "iterate stops" {
+S   assert Iter.iterate(1, double_until) |> Iter.to_list() == [1, 2, 4, 8, 16]
+S }
+S
+S
+T ok <dir>/control_test.nomi :: map skips with continue
+T ok <dir>/control_test.nomi :: filter stops with a bare break
+T ok <dir>/control_test.nomi :: take_while stops with break False
+T ok <dir>/control_test.nomi :: reduce continues and breaks with the accumulator
+T ok <dir>/control_test.nomi :: each stops
+T   each 1
+T   each 2
+T ok <dir>/control_test.nomi :: iterate stops
+T test result: ok. 6 passed, 0 failed
+T
 C control_test.nomi@5433bdebe41a9edf
 E 0
 N 0
@@ -1015,6 +1112,40 @@ T   |
 T 6 |         assert P{a: 1}.a == 1
 T   |                 ^
 T
+C control_test.nomi@5a95ebbdf8fa4574
+E 0
+N 0
+H df239d0dfebe598362ed0afb0c018706a170da6d3ac79246095ff3c1b0d2ae4c
+S -- control_test.nomi 523 --
+S fn skip_big(n: Int) -> Int {
+S   if n > 100 {
+S     continue
+S   }
+S   n
+S }
+S
+S fn stop_at_zero(total: Int, n: Int) -> Int {
+S   if n == 0 {
+S     break
+S   }
+S   total + n
+S }
+S
+S test "map skips through parentheses" {
+S   assert [5, 500, 7] |> Iter.map((skip_big)) |> Iter.to_list() == [5, 7]
+S   assert Iter.map([5, 500, 7], f: ((skip_big))) |> Iter.to_list() == [5, 7]
+S }
+S
+S test "reduce stops through parentheses" {
+S   assert [1, 2, 0, 4] |> Iter.reduce((stop_at_zero), from: 0) == 3
+S   assert Iter.reduce([1, 2, 0, 4], (stop_at_zero), from: 0) == 3
+S }
+S
+S
+T ok <dir>/control_test.nomi :: map skips through parentheses
+T ok <dir>/control_test.nomi :: reduce stops through parentheses
+T test result: ok. 2 passed, 0 failed
+T
 C control_test.nomi@63bbe184fd383b6b
 E 1
 N 0
@@ -1060,9 +1191,9 @@ T 9 |     Date{year, month, day}
 T   |         ^
 T
 C control_test.nomi@6914938acaf5dea9
-E 0
+E 1
 N 0
-H 19754445e4c69a310e32165423ec8f01856350ca7bed9dc209af9fea4dc4c8a6
+H c06f2ff3c7c7f734eaa2faae46fe40f2e3bfca624f1fb98a1cf768b7744d6bb3
 S -- control_test.nomi 1472 --
 S import std/io
 S
@@ -1146,15 +1277,21 @@ S   assert Iter.iterate(1, double_until) |> Iter.to_list() == [1, 2, 4, 8, 16]
 S }
 S
 S
-T ok <dir>/control_test.nomi :: map skips with continue
-T ok <dir>/control_test.nomi :: filter stops with a bare break
-T ok <dir>/control_test.nomi :: take_while stops with break False
-T ok <dir>/control_test.nomi :: reduce continues and breaks with the accumulator
-T ok <dir>/control_test.nomi :: each stops
-T   each 1
-T   each 2
-T ok <dir>/control_test.nomi :: iterate stops
-T test result: ok. 6 passed, 0 failed
+T FAIL <dir>/control_test.nomi
+T error: `sum_small` uses `break` and `continue`, so it cannot be called: pass it as an iteration callback itself, as in `Iter.reduce(xs, sum_small, from: <start>)`
+T   --> <dir>/control_test.nomi:69:63
+T    |
+T 69 |   assert Iter.reduce([1, -5, 2, 3, 20, 4], fn total = 0, n -> sum_small(total, n)) == 26
+T    |                                                               ^^^^^^^^^
+T    = help: to decide in this callback instead, return a `Maybe` or an enum from `sum_small` and write `break` and `continue` here
+T
+T error: `stop_at_zero` uses `break`, so it cannot be called: pass it as an iteration callback itself, as in `Iter.reduce(xs, stop_at_zero, from: <start>)`
+T   --> <dir>/control_test.nomi:70:55
+T    |
+T 70 |   assert Iter.reduce([1, 2, 0, 4], fn total = 0, n -> stop_at_zero(total, n)) == 3
+T    |                                                       ^^^^^^^^^^^^
+T    = help: to decide in this callback instead, return a `Maybe` or an enum from `stop_at_zero` and write `break` here
+T test result: FAILED. 0 passed, 1 failed
 T
 C control_test.nomi@6960112d30ff227d
 E 1
@@ -1198,6 +1335,35 @@ S
 S
 T ok <dir>/control_test.nomi :: a literal argument
 T test result: ok. 1 passed, 0 failed
+T
+C control_test.nomi@76453e9371c0a6e9
+E 1
+N 0
+H 003a684a8c0304067875a181388c087543bc27e2bbf3ef9fd4cc8d5bce49dd95
+S -- control_test.nomi 340 --
+S import {
+S     std/locale.Locale
+S     std/strings.ListWidth
+S }
+S
+S test "a named argument past an omitted default" {
+S   assert String.join_list(["a", "b"], Locale`en`, width: .Short) == "a & b"
+S }
+S
+S test "a failing one still reports the call's value" {
+S   w = ListWidth.Short
+S   assert String.join_list(["a", "b"], Locale`en`, width: w) == "a and b"
+S }
+S
+S
+T ok <dir>/control_test.nomi :: a named argument past an omitted default
+T FAIL <dir>/control_test.nomi :: a failing one still reports the call's value
+T   line 12: assertion failed
+T     assert String.join_list(["a", "b"], Locale`en`, width: w) == "a and b"
+T     values:
+T       String.join_list(["a", "b"], Locale`en`, width: w)
+T         = "a & b"
+T test result: FAILED. 1 passed, 1 failed
 T
 C control_test.nomi@830d067e88adfb32
 E 1
@@ -1649,6 +1815,32 @@ S
 S
 T ok <dir>/control_test.nomi :: present, absent and mistyped optional fields
 T test result: ok. 1 passed, 0 failed
+T
+C control_test.nomi@f5d6099dd830e022
+E 1
+N 0
+H 9a98854f1643c34019c0fedc5e2fb0b6c6e0e3ed994e9bc3381b84c8460b2629
+S -- control_test.nomi 225 --
+S test "a named argument before an omitted trailing default" {
+S   assert String.pad_start("7", width: 3) == "  7"
+S }
+S
+S test "a failing one reports the written arguments" {
+S   w = 3
+S   assert String.pad_start("7", width: w) == "7"
+S }
+S
+S
+T ok <dir>/control_test.nomi :: a named argument before an omitted trailing default
+T FAIL <dir>/control_test.nomi :: a failing one reports the written arguments
+T   line 7: assertion failed
+T     assert String.pad_start("7", width: w) == "7"
+T     values:
+T       w
+T         = 3
+T       String.pad_start("7", width: w)
+T         = "  7"
+T test result: FAILED. 1 passed, 1 failed
 T
 C control_test.nomi@fa2377359441a82b
 E 1
@@ -4130,7 +4322,7 @@ T inner y = 900
 T outer(1) = 11
 T adder(3)(4) = 7
 T
-C internal/irbuild/testdata/codepoint.nomi@ae62b67229b01947
+C internal/irbuild/testdata/codepoint.nomi@f9f4ea227eaf0927
 E 0
 N 0
 H c37445a6bcf90c7173fad3efe4fcfc657aaebc15233a1ca40ecd84d31f354336
@@ -5595,16 +5787,16 @@ T   default ran
 T   default ran
 T test result: ok. 4 passed, 0 failed
 T
-C internal/irbuild/testdata/io_files.nomi@6c8beccad8b7d1a4
+C internal/irbuild/testdata/io_files.nomi@3700bec4a5cb5d0e
 E 0
 N 0
-H 203c38e483aa3f47cf607c6cdc4489a77e94b317ddd3c380e1fe0f2a70f29574
+H cc76fa773117913fa0e6e69dad02685bf3371761608421340034593db1f87886
 T ok <dir>/io_files.nomi :: write_file then read_file round-trips the contents
 T ok <dir>/io_files.nomi :: write_file replaces rather than appending
 T ok <dir>/io_files.nomi :: a missing file reads as NotFound carrying the path verbatim
-T ok <dir>/io_files.nomi :: IOError renders through its Display impl
+T ok <dir>/io_files.nomi :: io.Error renders through its Display impl
 T ok <dir>/io_files.nomi :: a write whose parent is not a directory reports Other
-T ok <dir>/io_files.nomi :: IOError values compare by variant and payload
+T ok <dir>/io_files.nomi :: io.Error values compare by variant and payload
 T test result: ok. 6 passed, 0 failed
 T
 C internal/irbuild/testdata/io_inspect_surfaces.nomi@c3d27a32a93659e6
@@ -6954,7 +7146,7 @@ H 4ff5f12ba4d28d29fcee8a449e73034b0ec4f7a2134aefd130f4c2e296216f05
 T label=staged
 T tier=7
 T
-C internal/irbuild/testdata/ranges.nomi@0d5473f2f5c3a135
+C internal/irbuild/testdata/ranges.nomi@6df4ee4f72270d95
 E 0
 N 0
 H a70248c59fc13f38a409040f940d68d8b2ea979d8787ccdefd975015a12d5649
@@ -7401,7 +7593,7 @@ T lt True
 T ge False
 T compare Less
 T
-C internal/irbuild/testdata/std_dynamic_boundary.nomi@fcf24f47754c77c6
+C internal/irbuild/testdata/std_dynamic_boundary.nomi@c88c2ada9576e1a5
 E 0
 N 0
 H 12c16db4de7bf0a0265b1598f57ce80bd46baa34710fb852953ea2fc00dd4072
@@ -7695,7 +7887,7 @@ T explicit.reason = explicit
 T explicit.actual = Some(41)
 T explicit.details = []
 T
-C internal/irbuild/testdata/stdstruct_dynamic.nomi@aa972d7dc605b2d7
+C internal/irbuild/testdata/stdstruct_dynamic.nomi@e75beef6de348f56
 E 0
 N 0
 H 1914e2a91730e19c2b4f41fd69af1ad185608a61a1135873c982e1c58fd9716d
@@ -9355,6 +9547,42 @@ T         = "Bo"
 T       make(who)
 T         = "widget:Bo"
 T test result: FAILED. 2 passed, 1 failed
+T
+C main_test.nomi@f0bbdea5ba395a3e
+E 0
+N 0
+H 37efc40ef9f38b55cfef054ead0df272cd267d110e7d2fbbac2b28ce3fbbf6c5
+S -- main_test.nomi 284 --
+S import other
+S
+S test "a qualified Maybe in another file's signature" {
+S   assert other.first([4, 5]) == Some(4)
+S   assert other.first([]) == None
+S }
+S
+S test "a qualified Result in another file's signature" {
+S   assert other.checked(2) == Ok(2)
+S   assert other.checked(-1) == Err("negative")
+S }
+S
+S -- other.nomi 211 --
+S import {
+S   std/maybe
+S   std/results
+S }
+S
+S pub fn first(xs: List<Int>) -> maybe.Maybe<Int> {
+S   List.head(xs)
+S }
+S
+S pub fn checked(n: Int) -> results.Result<Int, String> {
+S   if n > 0 { Ok(n) } else { Err("negative") }
+S }
+S
+S
+T ok <dir>/main_test.nomi :: a qualified Maybe in another file's signature
+T ok <dir>/main_test.nomi :: a qualified Result in another file's signature
+T test result: ok. 2 passed, 0 failed
 T
 C main_test.nomi@fb726acf8090ddff
 E 0

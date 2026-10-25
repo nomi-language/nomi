@@ -277,6 +277,10 @@ func (g *gen) qualifiedStdKind(t *ast.QualifiedType) (kind, bool) {
 		origin = ty.Origin
 	case *analysis.DistinctType:
 		origin = ty.Origin
+	case *analysis.InterfaceType:
+		// `sql.Conn`, `display.Display`: an existential over the std
+		// interface, as the bare name is.
+		origin = ty.Origin
 	case *analysis.PrimitiveType:
 		return g.qualifiedStdHostKind(sym)
 	default:
@@ -307,6 +311,11 @@ func (g *gen) qualifiedStdGenericKind(qualifier string, gt *ast.GenericType) (ki
 		origin = ty.Origin
 	case *analysis.DistinctType:
 		origin = ty.Origin
+	case *analysis.EnumType:
+		// `maybe.Maybe<Int>`, `result.Result<Int, String>`: a prelude enum
+		// named through its std file's qualifier is the instance the bare
+		// name gives (preludeTypeOf), found by the declaration it binds.
+		return g.qualifiedPreludeKind(sym, gt)
 	default:
 		return kindInvalid, false
 	}
@@ -327,6 +336,34 @@ func (g *gen) qualifiedStdGenericKind(qualifier string, gt *ast.GenericType) (ki
 	// instance for is still the type the qualifier names, and typeOf's caller
 	// reports it.
 	return kindInvalid, true
+}
+
+// qualifiedPreludeKind is the prelude instance a qualified generic enum names
+// (`maybe.Maybe<Int>`): the declaration the qualifier's scope binds selects
+// the anchor, and the arguments instantiate it as preludeTypeOf's do. A
+// generic enum that is no prelude family is not answered here.
+func (g *gen) qualifiedPreludeKind(sym *analysis.Symbol, gt *ast.GenericType) (kind, bool) {
+	g.loadPreludes()
+	decl, isDecl := sym.Node.(*ast.EnumDef)
+	if !isDecl {
+		return kindInvalid, false
+	}
+	a, isPrelude := g.preludeByDecl[decl]
+	if !isPrelude {
+		return kindInvalid, false
+	}
+	if len(gt.Params) != len(a.spec.params) {
+		return kindInvalid, true
+	}
+	args := make([]kind, len(gt.Params))
+	for i, p := range gt.Params {
+		args[i] = g.typeOf(p)
+		// kindInvalid: propagates — typeOf's caller reports the annotation.
+		if args[i] == kindInvalid {
+			return kindInvalid, true
+		}
+	}
+	return g.preludeInstance(a, args), true
 }
 
 // qualifiedStdHostKind is qualifiedStdKind for a monomorphic std `host type`

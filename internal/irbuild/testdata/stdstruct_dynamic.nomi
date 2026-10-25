@@ -2,13 +2,13 @@
 //
 // # What this fixture is for
 //
-// `std/dynamic.DecodeError` was the `stdlib type` key's group A: 3
+// `std/dynamic.Error` was the `stdlib type` key's group A: 3
 // sites in one file, needing NO new capability at all. Every field was already
 // expressible and it carries no default. What was missing was the spec row, and
 // the enum row its `path` element names:
 //
 //     pub enum PathSegment { Field String; Index Int }
-//     pub struct DecodeError {
+//     pub struct Error {
 //       path: List<PathSegment>
 //       expected: String
 //       got: String
@@ -36,7 +36,7 @@
 //
 // `display` is the load-bearing one, and it is not about layout. A stdlib struct
 // crossing into lowered code has to carry the module-qualified type identity std
-// declares, because every impl lookup keys on it. `impl Display for DecodeError`
+// declares, because every impl lookup keys on it. `impl Display for Error`
 // is ordinary Nomi in std/dynamic.nomi, so this row only prints the expected
 // text if the lowered value resolves to THAT impl. An empty or bare identity
 // misses it SILENTLY -- Display would render the anonymous struct form rather
@@ -45,7 +45,7 @@
 // `derive Display for PathSegment` is the same question one level down, and
 // `seg_display` asks it of the enum.
 import {
-    std/dynamic.DecodeError
+    std/dynamic
     std/dynamic.PathSegment
     std/io
 }
@@ -59,7 +59,7 @@ fn seg(s: PathSegment) -> String {
 }
 
 fn main() {
-    e = #DecodeError{
+    e = #dynamic.Error{
         path: [PathSegment.Field("user"), PathSegment.Index(3)],
         expected: "Int",
         got: "String",
@@ -91,6 +91,6 @@ fn main() {
     io.print("seg_display = " + Display.to_string(PathSegment.Field("k")))
 
     // --- An EMPTY path, which is the nil *List ------------------------------
-    empty = #DecodeError{path: [], expected: "List", got: "Int"}
+    empty = #dynamic.Error{path: [], expected: "List", got: "Int"}
     io.print("empty.display = " + Display.to_string(empty))
 }

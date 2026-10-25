@@ -308,15 +308,28 @@ func (c *checker) checkVectorUpdateLit(n *ast.VectorLit, elemTy Type) Type {
 }
 
 // argCheckOrder is the order a generic call's arguments are checked in: as
-// written, except that a `Struct.update` literal patch comes last, so the
+// written, except that a positional function literal (a lambda, a capture,
+// a field accessor) written before a named argument is checked after the
+// named arguments, so `Iter.reduce(xs, fn acc, x -> acc + x, from: 0)` has
+// solved the accumulator's type from `from` before the lambda's parameters
+// are typed; and a `Struct.update` literal patch comes last, so the
 // original, even when named after it, has solved `self` and the patch's
 // fields are checked against it. Arguments are still evaluated as written.
 func (c *checker) argCheckOrder(args []ast.Node) []int {
 	order := make([]int, 0, len(args))
-	var patches []int
+	var literals, patches []int
+	lastNamed := -1
+	for i, arg := range args {
+		if _, ok := arg.(*ast.NamedArg); ok {
+			lastNamed = i
+		}
+	}
 	for i, arg := range args {
 		if na, ok := arg.(*ast.NamedArg); ok {
 			arg = na.Value
+		} else if i < lastNamed && isLambdaArg(arg) {
+			literals = append(literals, i)
+			continue
 		}
 		if lit, ok := arg.(*ast.StructLit); ok && c.structUpdatePatches[lit] {
 			patches = append(patches, i)
@@ -324,5 +337,6 @@ func (c *checker) argCheckOrder(args []ast.Node) []int {
 		}
 		order = append(order, i)
 	}
+	order = append(order, literals...)
 	return append(order, patches...)
 }

@@ -111,6 +111,8 @@ fn decode_list<T>(
     }
 }
 
+derive Equatable for Json
+
 impl Display for Json {
     fn to_string(jv: Json) -> String {
         Json.encode(jv)

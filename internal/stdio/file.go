@@ -8,7 +8,7 @@
 // runtime library exactly the thing that ought to move out of the language.
 // internal/stdlibbindings binds ReadFile and WriteFile as `RtFuncs` rows.
 //
-//   - rt makes no filesystem call. It holds the IOError value (rt/ioerror.go),
+//   - rt makes no filesystem call. It holds the io.Error value (rt/ioerror.go),
 //     which is data. TestRuntimeImportsOnlyItsAllowlist
 //     and TestRuntimeArtifactLinksNoFrontEnd hold.
 //   - This package imports `os`, `errors`, `io/fs` and rt and nothing else, so
@@ -18,7 +18,7 @@
 //
 // `#Other{reason}` carries `err.Error()`, which is `os`/`io/fs` text. Having one
 // implementation makes that text consistent, and it does not make the text
-// Nomi's. The real fix is a `std` API change: `IOError` would have to
+// Nomi's. The real fix is a `std` API change: `io.Error` would have to
 // name the failures it means (`PermissionDenied`, `IsADirectory`, …) instead of
 // having an `Other` variant whose payload is a foreign runtime's prose. Wording
 // the Go string differently would only move the leak. This is the file that
@@ -69,7 +69,7 @@ func WriteFile(path, content string) rt.Result[rt.Unit, rt.IOError] {
 	return rt.Ok[rt.Unit, rt.IOError](rt.Unit{})
 }
 
-// readError classifies a READ failure into the IOError variant std declares for
+// readError classifies a READ failure into the io.Error variant std declares for
 // it.
 //
 // The CLASSIFICATION is the observable rule and it lives here once: absence is

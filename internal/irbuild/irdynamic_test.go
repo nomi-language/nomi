@@ -11,9 +11,9 @@ import "testing"
 func TestIRDynamic_NavigationAndExtractionRunOnTheVM(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 import std/json.Json
-import std/dynamic.{Dynamic, DecodeError}
+import std/dynamic.{self, Dynamic}
 
-fn show_error(e: DecodeError) -> String {
+fn show_error(e: dynamic.Error) -> String {
   "expected " + e.expected + ", got " + e.got
 }
 

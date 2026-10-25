@@ -565,6 +565,7 @@ For a `User` declared in `users.nomi`, you would usually write the type:
 
 ```nomi
 encoded = User.to_json(user)
+
 user = try User.from_json(encoded)
 ```
 
@@ -574,6 +575,7 @@ argument to go by, so this form names the type in `<...>`:
 
 ```nomi
 encoded = ToJson.to_json(user)
+
 user = try FromJson.from_json<User>(encoded)
 ```
 
@@ -616,10 +618,20 @@ types that implement `Equatable`. Built-in `==` doesn't count. `List`'s
 `contains?` is one: `impl Contains for List<T> where T: Equatable`. Without
 the derive, this call is a compile error:
 
-```nomi
-List.contains?([#Point{x: 1, y: 2}], #Point{x: 1, y: 2})
-// error: Point does not implement Equatable (required by `where T: Equatable`)
+```nomi-run error
+struct Point {
+    x: Int
+    y: Int
+}
+
+fn main() {
+    dbg List.contains?([#Point{x: 1, y: 2}], #Point{x: 1, y: 2})
+}
 ```
+<!-- expect
+main.nomi:7:9: Point does not implement Equatable (required by `where T: Equatable`)
+main.nomi:7:9: help: add `derive Equatable` to `Point` or write an `impl Equatable for Point` block with `fn equal?(a: Point, b: Point) -> Bool`
+-->
 
 Add `derive Equatable for Point` and the call compiles.
 
@@ -796,16 +808,68 @@ another file's `Date`.
 ### The orphan rule
 
 Suppose two libraries each wrote `impl Display for Int { … }`. Each would
-compile alone, but a program using both would have two impls. The orphan
-rule prevents this. An `impl Iface for T { ... }` block must be in the Nomi
-module that declares either `Iface` or `T`. Code that declares neither can't
-write the impl.
+compile on its own, but a program that used both would have two impls of
+`Display` for `Int`. The **orphan rule** prevents this. An
+`impl Iface for T { ... }` block must be in the Nomi module that declares
+`Iface` or the one that declares `T`. An impl anywhere else is called an
+orphan impl, and it is a compile error.
 
-A Nomi module is the directory tree that holds its `nomi.toml` and `go.mod`.
-A program with no `nomi.toml`, such as a lone script, is a module of its own,
-so it can't write `impl Display for Int` either. To implement someone else's interface for someone else's type, wrap the type
-in your own. Declare `type MyId Int` in your module, and then
+A Nomi module is a directory with a `nomi.toml`, and everything under it, as
+[Modules & Imports](/modules-and-imports/#nomi-modules) explains. A program
+with no `nomi.toml`, such as a lone script, is a module of its own. It
+declares neither `Display` nor `Int`, so it can't write
+`impl Display for Int` either.
+
+To implement someone else's interface for someone else's type, wrap the type
+in one of your own. Declare `type MyId Int` in your module. Then
 `impl Display for MyId { ... }` is allowed, because `MyId` is yours.
+
+A generic interface, one with type parameters, gives one more way. Take
+`Multiply<Rhs, Out>`, which `*` uses. Its one function is
+`multiply(lhs: self, rhs: Rhs) -> Out`, so `Rhs` is the type of a parameter.
+When a type you declare fills a parameter's slot like that, you may implement
+the interface for someone else's type. A module that declares `Rate` may
+write `impl Multiply<Rate, Decimal> for Decimal`, and then `price * rate`
+works:
+
+```nomi-run
+import std/io
+
+struct Rate {
+    per_unit: Decimal
+}
+
+impl Multiply<Rate, Decimal> for Decimal {
+    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal {
+        lhs * rhs.per_unit
+    }
+}
+
+fn main() {
+    rate = #Rate{per_unit: 4.25d}
+    io.print(Decimal.to_string(12.5d * rate))
+}
+```
+<!-- expect
+53.125
+-->
+
+The program multiplies the `Decimal` 12.5 by a `Rate` of 4.25 and prints the
+result.
+
+Two libraries can't clash this way. No other module can write an impl that
+names your `Rate`. If one library writes `Multiply<Rate, Decimal>` and
+another writes `Multiply<Shares, Decimal>`, those are two impls at different
+type arguments. Each call uses the one that matches the type on the right of
+the `*`.
+
+Your type has to meet two conditions:
+
+- It must be the type argument itself, not inside one. `List<Rate>` doesn't
+  count.
+- It must fill a parameter's slot. `impl Multiply<Decimal, Rate> for Decimal`
+  puts `Rate` in `Out`, which only the result uses, so it is still an orphan
+  impl. It would give an existing `price * 2d` a second possible result type.
 
 Any file can write ordinary functions that take an imported type. But it
 can't add a function, field or variant to that type, or an impl the orphan

@@ -52,3 +52,19 @@ func TestFromSourcesNormalizesEntryAndFileNames(t *testing.T) {
 		t.Fatalf("VirtualFiles missing normalized api key: %#v", project.VirtualFiles)
 	}
 }
+
+// A block's message catalogs are virtual files by their path, `.toml`
+// included; any other kind of file is refused.
+func TestFromMarkedSourceKeepsCatalogsByPath(t *testing.T) {
+	src := "// FILE: main.nomi\nfn main() {}\n\n// FILE: locales/pl/cart.toml\n[cart_count]\n\n// FILE: nomi.toml\n[module]\nname = \"shop\"\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n"
+	p, err := FromMarkedSource(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := p.VirtualFiles["locales/pl/cart.toml"]; got != "[cart_count]\n\n" {
+		t.Errorf("the catalog's virtual file is %q", got)
+	}
+	if _, err := FromMarkedSource("// FILE: main.nomi\nfn main() {}\n// FILE: notes.txt\nhi\n"); err == nil {
+		t.Error("a .txt file was accepted")
+	}
+}

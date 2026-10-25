@@ -2,11 +2,15 @@
 // functions: which Go function implements each std `host fn`. It holds two
 // lists.
 //
-//   - Funcs: the three stdlib modules whose implementation is Go
-//     (std/calendar, std/random and std/regex), in their FFI-shaped surface,
+//   - Funcs: the stdlib modules whose implementation is Go (std/calendar,
+//     std/locale, std/plural, std/random and std/regex), in their FFI-shaped surface,
+//     std/currency's code checks and std/money_format's money formatting,
 //     plus std/strings' `String.captures` and `String.captures_all`, which
-//     take a `Regex` handle and so cannot be RtFuncs rows. The VM calls them
-//     through generated adapters (internal/stdlibadapters).
+//     take a `Regex` handle and so cannot be RtFuncs rows, and the
+//     locale-aware formatting and parsing behind `Int.format`,
+//     `Float.format`, `Decimal.format` and `String.join_list`
+//     (internal/stdformat), which read the program's CLDR data. The VM calls
+//     them through generated adapters (internal/stdlibadapters).
 //   - RtFuncs: the rt functions the VM reaches for std's scalar, text, byte,
 //     JSON, Decimal and concurrency primitives. The VM calls every row
 //     through a generated adapter, and internal/irbuild's IR builder retains a
@@ -79,8 +83,13 @@
 package stdlibbindings
 
 import (
+	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/stdcalendar"
+	"github.com/nomi-language/nomi/internal/stdformat"
 	"github.com/nomi-language/nomi/internal/stdio"
+	"github.com/nomi-language/nomi/internal/stdlocale"
+	"github.com/nomi-language/nomi/internal/stdmessageformat"
+	"github.com/nomi-language/nomi/internal/stdplural"
 	"github.com/nomi-language/nomi/internal/stdrandom"
 	"github.com/nomi-language/nomi/internal/stdregex"
 	"github.com/nomi-language/nomi/internal/stdstrings"
@@ -154,25 +163,36 @@ func Funcs() []Binding {
 		{Name: "OffsetDateTime.to_string", Fn: stdcalendar.FFIOffsetDateTimeToString},
 		{Name: "OffsetDateTime.year", Fn: stdcalendar.FFIOffsetDateTimeYear},
 		{Name: "Time.to_string", Fn: stdcalendar.FFITimeToString},
+		{Name: "calendar.civil_format_fields", Fn: stdformat.FFIFormatCivilFields},
+		{Name: "calendar.civil_format_pattern", Fn: stdformat.FFIFormatCivilPattern},
+		{Name: "calendar.civil_format_style", Fn: stdformat.FFIFormatCivilStyle},
 		{Name: "calendar.date_add_days", Fn: stdcalendar.FFIDateAddDays},
 		{Name: "calendar.date_add_months", Fn: stdcalendar.FFIDateAddMonths},
 		{Name: "calendar.date_add_years", Fn: stdcalendar.FFIDateAddYears},
 		{Name: "calendar.date_new_raw", Fn: stdcalendar.FFIDateNew},
+		{Name: "calendar.date_parse_pattern", Fn: stdformat.FFIParseDatePattern},
 		{Name: "calendar.date_parse_raw", Fn: stdcalendar.FFIDateParse},
+		{Name: "calendar.date_parse_style", Fn: stdformat.FFIParseDateStyle},
+		{Name: "calendar.fields_check", Fn: stdformat.FFICheckFields},
 		{Name: "calendar.naive_add_days", Fn: stdcalendar.FFINaiveAddDays},
 		{Name: "calendar.naive_add_months", Fn: stdcalendar.FFINaiveAddMonths},
 		{Name: "calendar.naive_add_nanos", Fn: stdcalendar.FFINaiveAddNanos},
 		{Name: "calendar.naive_add_years", Fn: stdcalendar.FFINaiveAddYears},
 		{Name: "calendar.naive_between_nanos", Fn: stdcalendar.FFINaiveBetweenNanos},
 		{Name: "calendar.naive_new_exact_raw", Fn: stdcalendar.FFINaiveNewExact},
+		{Name: "calendar.naive_parse_pattern", Fn: stdformat.FFIParseNaivePattern},
 		{Name: "calendar.naive_parse_raw", Fn: stdcalendar.FFINaiveParse},
 		{Name: "calendar.offset_add_months", Fn: stdcalendar.FFIOffsetAddMonths},
 		{Name: "calendar.offset_add_years", Fn: stdcalendar.FFIOffsetAddYears},
 		{Name: "calendar.offset_from_instant_nanos", Fn: stdcalendar.FFIOffsetFromInstant},
 		{Name: "calendar.offset_parse_raw", Fn: stdcalendar.FFIOffsetParse},
 		{Name: "calendar.offset_with_offset_raw", Fn: stdcalendar.FFIOffsetWithOffset},
+		{Name: "calendar.pattern_check", Fn: stdformat.FFICheckPattern},
+		{Name: "calendar.relative_format_raw", Fn: stdformat.FFIFormatRelative},
 		{Name: "calendar.time_add_nanos", Fn: stdcalendar.FFITimeAddNanos},
+		{Name: "calendar.time_parse_pattern", Fn: stdformat.FFIParseTimePattern},
 		{Name: "calendar.time_parse_raw", Fn: stdcalendar.FFITimeParse},
+		{Name: "calendar.time_parse_style", Fn: stdformat.FFIParseTimeStyle},
 		{Name: "calendar.zoned_add_days", Fn: stdcalendar.FFIZonedAddDays},
 		{Name: "calendar.zoned_add_hours", Fn: stdcalendar.FFIZonedAddHours},
 		{Name: "calendar.zoned_add_microseconds", Fn: stdcalendar.FFIZonedAddMicroseconds},
@@ -187,6 +207,44 @@ func Funcs() []Binding {
 		{Name: "calendar.zoned_offset_nanos", Fn: stdcalendar.FFIZonedOffsetNanos},
 		{Name: "calendar.zoned_parse_raw", Fn: stdcalendar.FFIZonedParse},
 		{Name: "calendar.zoned_with_zone_raw", Fn: stdcalendar.FFIZonedWithZone},
+		{Name: "collation.collator_compare_raw", Fn: stdformat.FFICollatorCompare},
+		{Name: "collation.collator_inspect_raw", Fn: stdformat.FFICollatorInspect},
+		{Name: "collation.collator_new_raw", Fn: stdformat.FFICollatorNew},
+		{Name: "collation.collator_sort_key_raw", Fn: stdformat.FFICollatorSortKey},
+		{Name: "currency.currency_check", Fn: stdformat.FFICurrencyCheck},
+		{Name: "currency.currency_code_of", Fn: stdformat.FFICurrencyCodeOf},
+		{Name: "currency.currency_digits_of", Fn: stdformat.FFICurrencyDigitsOf},
+		{Name: "decimal.decimal_format", Fn: stdformat.FFIFormatDecimal, PanicsPropagate: true},
+		{Name: "duration.duration_format_raw", Fn: stdformat.FFIFormatDuration},
+		{Name: "decimal.decimal_format_percent", Fn: stdformat.FFIFormatDecimalPercent, PanicsPropagate: true},
+		{Name: "decimal.decimal_parse_in", Fn: stdformat.FFIParseDecimal},
+		{Name: "decimal.decimal_parse_percent_in", Fn: stdformat.FFIParseDecimalPercent},
+		{Name: "float.float_format", Fn: stdformat.FFIFormatFloat, PanicsPropagate: true},
+		{Name: "float.float_format_percent", Fn: stdformat.FFIFormatFloatPercent, PanicsPropagate: true},
+		{Name: "float.float_parse_in", Fn: stdformat.FFIParseFloat},
+		{Name: "float.float_parse_percent_in", Fn: stdformat.FFIParseFloatPercent},
+		{Name: "int.int_format", Fn: stdformat.FFIFormatInt, PanicsPropagate: true},
+		{Name: "int.int_parse_in", Fn: stdformat.FFIParseInt},
+		{Name: "locale.locale_available", Fn: stdlocale.FFIAvailable},
+		{Name: "locale.locale_load_raw", Fn: stdlocale.FFILoad},
+		{Name: "locale.locale_loaded_raw", Fn: stdlocale.FFILoaded},
+		{Name: "message_format.format_raw", Fn: stdmessageformat.FFIFormat, PanicsPropagate: true},
+		{Name: "message_format.load_raw", Fn: stdmessageformat.FFILoad},
+		{Name: "message_format.noun_raw", Fn: stdmessageformat.FFINoun, PanicsPropagate: true},
+		{Name: "money_format.money_format_raw", Fn: stdformat.FFIFormatMoney},
+		{Name: "money_format.money_mixed", Fn: stdformat.FFIMoneyMixed, PanicsPropagate: true},
+		{Name: "money_format.money_parse_raw", Fn: stdformat.FFIParseMoney},
+		{Name: "locale.locale_fallbacks", Fn: stdlocale.FFIFallbacks},
+		{Name: "locale.locale_from_posix_raw", Fn: stdlocale.FFIFromPosix},
+		{Name: "locale.locale_language", Fn: stdlocale.FFILanguage},
+		{Name: "locale.locale_negotiate", Fn: stdlocale.FFINegotiate},
+		{Name: "locale.locale_parse_raw", Fn: stdlocale.FFIParse},
+		{Name: "locale.locale_region", Fn: stdlocale.FFIRegion},
+		{Name: "locale.locale_script", Fn: stdlocale.FFIScript},
+		{Name: "plural.plural_cardinal_tag", Fn: stdplural.FFICardinalTag},
+		{Name: "plural.plural_cardinal_tags", Fn: stdplural.FFICardinalTags},
+		{Name: "plural.plural_ordinal_tag", Fn: stdplural.FFIOrdinalTag},
+		{Name: "plural.plural_ordinal_tags", Fn: stdplural.FFIOrdinalTags},
 		{Name: "random.between_state", Fn: stdrandom.FFIBetween},
 		{Name: "random.os_state", Fn: stdrandom.FFIFromOS},
 		{Name: "random.require_float_range", Fn: stdrandom.FFIRequireFloatRange, PanicsPropagate: true},
@@ -204,6 +262,62 @@ func Funcs() []Binding {
 		{Name: "Regex.suffix_of?", Fn: stdregex.FFISuffixOf},
 		{Name: "String.captures", Fn: stdstrings.FFICaptures},
 		{Name: "String.captures_all", Fn: stdstrings.FFICapturesAll},
+		{Name: "String.fold_case", Fn: stdstrings.FFIFoldCase},
+		{Name: "String.to_lower_in", Fn: stdstrings.FFIToLowerIn},
+		{Name: "String.to_upper_in", Fn: stdstrings.FFIToUpperIn},
+		{Name: "strings.join_list_raw", Fn: stdformat.FFIJoinList},
+	}
+}
+
+// LocaleParts names, for each Funcs row that reads the program's CLDR data,
+// the parts of it the row reads. `nomi build` writes into an image only the
+// parts of the data the program's reachable crossings name here, so a row
+// that reads data and is missing here would find none in a built program;
+// vmhost's TestEveryRowThatReadsLocaleDataNamesItsParts holds every row
+// whose Go function takes the frame in a locale package to an entry.
+//
+// A row names every part it may read. vmhost narrows money_format_raw's
+// further: it writes a currency's name, which needs PartCurrencyNames and
+// PartPlurals, only for a program that can ask for one.
+func LocaleParts() map[string]cldrdata.Parts {
+	numbers := cldrdata.PartListedParents | cldrdata.PartNumbers
+	plurals := cldrdata.PartListedParents | cldrdata.PartPlurals
+	dates := numbers | cldrdata.PartDates
+	return map[string]cldrdata.Parts{
+		"locale.locale_fallbacks":          cldrdata.PartParents,
+		"locale.locale_available":          cldrdata.PartAvailable,
+		"locale.locale_load_raw":           cldrdata.PartListedParents,
+		"locale.locale_loaded_raw":         cldrdata.PartAvailable,
+		"plural.plural_cardinal_tag":       plurals,
+		"plural.plural_cardinal_tags":      plurals,
+		"plural.plural_ordinal_tag":        plurals,
+		"plural.plural_ordinal_tags":       plurals,
+		"int.int_format":                   numbers,
+		"int.int_parse_in":                 numbers,
+		"float.float_format":               numbers,
+		"float.float_format_percent":       numbers,
+		"float.float_parse_in":             numbers,
+		"float.float_parse_percent_in":     numbers,
+		"decimal.decimal_format":           numbers,
+		"decimal.decimal_format_percent":   numbers,
+		"decimal.decimal_parse_in":         numbers,
+		"decimal.decimal_parse_percent_in": numbers,
+		"strings.join_list_raw":            cldrdata.PartListedParents | cldrdata.PartLists,
+		"collation.collator_compare_raw":   cldrdata.PartListedParents | cldrdata.PartCollation,
+		"collation.collator_sort_key_raw":  cldrdata.PartListedParents | cldrdata.PartCollation,
+		"calendar.civil_format_style":      dates,
+		"calendar.civil_format_fields":     dates | cldrdata.PartSkeletons,
+		"calendar.date_parse_style":        dates,
+		"calendar.time_parse_style":        dates,
+		"calendar.relative_format_raw":     numbers | plurals | cldrdata.PartRelative,
+		"duration.duration_format_raw":     numbers | plurals | cldrdata.PartUnits | cldrdata.PartLists,
+		"currency.currency_check":          cldrdata.PartCurrencyCodes,
+		"currency.currency_digits_of":      cldrdata.PartCurrencyCodes,
+		"money_format.money_format_raw":    numbers | cldrdata.PartCurrencies | cldrdata.PartCurrencyNames | cldrdata.PartPlurals,
+		"money_format.money_parse_raw":     numbers | cldrdata.PartCurrencies,
+		"message_format.format_raw":        cldrdata.PartListedParents | cldrdata.PartPlurals | cldrdata.PartNumbers,
+		"message_format.noun_raw":          cldrdata.PartListedParents | cldrdata.PartPlurals | cldrdata.PartNumbers,
+		"message_format.load_raw":          cldrdata.PartListedParents | cldrdata.PartPlurals | cldrdata.PartGrammar | cldrdata.PartAvailable,
 	}
 }
 
@@ -238,6 +352,7 @@ func RtFuncs() []Binding {
 		{Name: "bytes.Bytes.to_string", Fn: rt.BytesToString},
 		{Name: "bytes.Bytes.hash", Fn: rt.BytesHash},
 		{Name: "bytes.Bytes.contains?", Fn: rt.BytesContains},
+		{Name: "bytes.bytes_compare", Fn: rt.BytesCompare},
 		{Name: "strings.String.to_bytes", Fn: rt.StringToBytes},
 		{Name: "int.Int.to_string", Fn: rt.FormatInt},
 		{Name: "int.Int.to_float", Fn: rt.IntToFloat},
@@ -265,11 +380,11 @@ func RtFuncs() []Binding {
 		{Name: "decimal.Decimal.compare", Fn: rt.DecimalCompare},
 		{Name: "duration.Duration.to_string", Fn: rt.DurationToString},
 		{Name: "instant.Instant.now", Fn: rt.InstantNow},
-		{Name: "codepoints.Codepoint.to_string", Fn: rt.CodepointToString},
-		{Name: "codepoints.Codepoint.letter?", Fn: rt.CodepointIsLetter},
-		{Name: "codepoints.Codepoint.whitespace?", Fn: rt.CodepointIsWhitespace},
-		{Name: "codepoints.Codepoint.upper?", Fn: rt.CodepointIsUpper},
-		{Name: "codepoints.Codepoint.lower?", Fn: rt.CodepointIsLower},
+		{Name: "code_points.Codepoint.to_string", Fn: rt.CodepointToString},
+		{Name: "code_points.Codepoint.letter?", Fn: rt.CodepointIsLetter},
+		{Name: "code_points.Codepoint.whitespace?", Fn: rt.CodepointIsWhitespace},
+		{Name: "code_points.Codepoint.upper?", Fn: rt.CodepointIsUpper},
+		{Name: "code_points.Codepoint.lower?", Fn: rt.CodepointIsLower},
 		{Name: "strings.String.to_codepoints", Fn: rt.StringToCodepoints},
 		{Name: "context.Context.with_timeout", Fn: rt.ContextWithTimeout},
 		{Name: "context.Context.root", Fn: rt.ContextRoot},
@@ -299,6 +414,7 @@ func RtFuncs() []Binding {
 		{Name: "io.read_file", Fn: stdio.ReadFile},
 		{Name: "io.write_file", Fn: stdio.WriteFile},
 		{Name: "strings.String.normalize", Fn: stdstrings.Normalize},
+		{Name: "strings.String.to_literal", Fn: stdstrings.Literal},
 		{Name: "dynamic.Dynamic.field", Fn: rt.DynamicField},
 		{Name: "dynamic.Dynamic.index", Fn: rt.DynamicIndex},
 		{Name: "dynamic.Dynamic.path", Fn: rt.DynamicPath},

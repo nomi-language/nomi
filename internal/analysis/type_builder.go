@@ -397,6 +397,7 @@ func (ft *fileTyping) typeSignatures() {
 func (ft *fileTyping) finish() (declErrs, bodyErrs []TypeError) {
 	declErrs = ft.decls.errors()
 	bodyErrs = buildBodyTypes(ft.fa, ft.reg, ft.nodes)
+	recordMacroContracts(ft.fa, ft.reg, ft.nodes)
 	if ft.fa.kept != nil {
 		ft.fa.kept.types = ft.reg
 	}
@@ -722,6 +723,7 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 		Block:         n,
 		Written:       len(headerArgs) > 0 || headerWritesTypeArgs(n.Interface),
 		Origin:        iface.Origin,
+		File:          declaredOrigin(fa),
 	}
 	if fa.ImplTypeArgs[implTypeName][ifaceName] == nil {
 		fa.ImplTypeArgs[implTypeName][ifaceName] = info
@@ -1850,11 +1852,15 @@ func buildFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef, 
 	if n.ReturnTypeExpr != nil {
 		resolved, err := ResolveDeclaredType(n.ReturnTypeExpr, reg, tp, fa.References)
 		if err != nil {
+			// An unknown type is unknown (nil), not Unit, so the body and the
+			// calls are not also mismatches against a type nobody wrote.
+			retType = nil
 			if te, ok := err.(TypeError); ok {
 				errs = append(errs, te)
 			}
 		} else if te, bad := rejectBoundAliasInValuePosition(resolved, n.ReturnTypeExpr); bad {
 			errs = append(errs, te)
+			retType = nil
 		} else {
 			retType = resolved
 		}
@@ -2212,6 +2218,7 @@ func buildImplBlockTypes(fa *FileAnalysis, stdlib map[string]*Scope, reg *TypeRe
 		if fn.ReturnTypeExpr != nil {
 			resolved, err := ResolveDeclaredType(fn.ReturnTypeExpr, reg, tp, fa.References)
 			if err != nil {
+				retType = nil
 				if known := compilerKnownSynthType(fn.ReturnTypeExpr, reg, tp, fa.References); synthBlock && known != nil {
 					retType = known
 				} else if terr, ok := err.(TypeError); ok {
@@ -2377,6 +2384,9 @@ func buildExternFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.Ext
 	if n.ReturnTypeExpr != nil {
 		resolved, err := ResolveDeclaredType(n.ReturnTypeExpr, reg, tp, fa.References)
 		if err != nil {
+			// An unknown type is unknown (nil), not Unit, so the body and the
+			// calls are not also mismatches against a type nobody wrote.
+			retType = nil
 			if te, ok := err.(TypeError); ok {
 				errs = append(errs, te)
 			}

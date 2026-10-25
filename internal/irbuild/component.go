@@ -119,6 +119,10 @@ func nomiImportGraph(p *Program) [][]bool {
 	}
 	for i := range p.Modules {
 		scopedTypeEdges(p, i, func(j int) { g[i][j] = true })
+		// A std module lowered with the program (programstd.go) names a
+		// sibling bare (`import sql.Conn`), and the program knows it as
+		// `std/sql`.
+		inStd := strings.HasPrefix(p.Modules[i].Name, "std/")
 		for _, node := range p.Modules[i].Nodes {
 			// An `import` at the top of a block is an import too: a
 			// block-local declaration may name a type it binds.
@@ -129,6 +133,9 @@ func nomiImportGraph(p *Program) [][]bool {
 					// resolves to nothing here and contributes no edge, which
 					// is right: only user files become unit packages.
 					if j, ok := byKey[target]; ok && j != i {
+						g[i][j] = true
+					}
+					if j, ok := byKey["std/"+target]; ok && inStd && j != i {
 						g[i][j] = true
 					}
 				}

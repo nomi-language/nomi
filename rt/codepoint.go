@@ -2,7 +2,7 @@ package rt
 
 import "unicode"
 
-// std/codepoints.Codepoint — a Unicode scalar value — and the externs over
+// std/code_points.Codepoint — a Unicode scalar value — and the externs over
 // it.
 //
 // # Why this is an int64 and not an int32
@@ -23,7 +23,7 @@ import "unicode"
 // # What this file does not do
 //
 // It does not validate. `Codepoint.from_int` is ordinary Nomi source in
-// std/codepoints.nomi — the range test and the UTF-16 surrogate-block test are
+// std/code_points.nomi — the range test and the UTF-16 surrogate-block test are
 // Nomi `if` expressions returning `Maybe<Codepoint>` — and it lowers, so the VM
 // runs that predicate rather than a Go copy of it. A second validator here would be the divergence
 // rt/opaque.go's header warns about for formatters.

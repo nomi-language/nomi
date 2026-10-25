@@ -87,6 +87,7 @@ const (
 	resultName   = "results.Result"
 	durationName = "duration.Duration"
 	instantName  = "instant.Instant"
+	dynamicName  = "dynamic.Dynamic"
 )
 
 // String renders the shape the way a declaration spells it, for comments and

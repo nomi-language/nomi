@@ -10,6 +10,7 @@
 //     timeoutMs: 10_000,        // stop the program after this long (exit 124)
 //     signal,                   // an AbortSignal that stops it (exit 130)
 //     worker: true,             // false runs on the page's own thread
+//     locales: "./locales/",    // where Locale.load fetches <tag>.nomil; default beside app.wasm
 //   });
 //
 // A program with exported functions (`export fn`) is loaded once and called
@@ -46,8 +47,12 @@
 // it mounts a terminal on that element and runs the program: this is what
 // the index.html beside it does, with no inline script.
 //
+// A program that lists its locales carries only `[i18n].web_embedded`'s in
+// app.wasm; its Locale.load fetches each other one's locales/<tag>.nomil
+// through globalThis.nomiLocale, which runProgram sets (vmrunner/locales_js.go).
+//
 // Protocol between the page and a worker:
-//   in:  { type: "start", module, image, args, env, stdinKind, stdinText, mode? }
+//   in:  { type: "start", module, image, url, locales, args, env, stdinKind, stdinText, mode? }
 //        { type: "line", line }          // answer to "read": a string, or null for end of input
 //        { type: "call", id, name, args } // mode "call" only: args is the JSON text of the argument array
 //   out: { type: "output", fd, text }    // fd 1 is stdout, fd 2 stderr
@@ -220,6 +225,14 @@ async function runProgram(init, post, requestLine) {
   };
 
   globalThis.nomiImage = init.image;
+  // Locale.load's fetch of a locale file, answering its text.
+  const localeFolder = new URL(init.locales ?? "locales/", init.url);
+  globalThis.nomiLocale = async (tag) => {
+    const href = new URL(`${tag}.nomil`, localeFolder).href;
+    const response = await fetch(href);
+    if (!response.ok) throw new Error(`fetching ${href}: HTTP ${response.status}`);
+    return await response.text();
+  };
   try {
     const instance = await WebAssembly.instantiate(init.module, go.importObject);
     go.run(instance).then(finish, (err) => {
@@ -351,7 +364,7 @@ const timedOut = (ms) => ({ exitCode: 124, fatal: `the program ran for ${ms} ms 
  * loaded or an option is malformed.
  */
 export async function run(url, options = {}) {
-  const { args = [], env = {}, stdout, stderr, stdin, timeoutMs, signal, worker = true } = options;
+  const { args = [], env = {}, stdout, stderr, stdin, timeoutMs, signal, worker = true, locales } = options;
   if (!Array.isArray(args)) throw new TypeError("run: args must be an array of strings");
   if (env === null || typeof env !== "object") throw new TypeError("run: env must be an object");
   if (stdin !== undefined && stdin !== null && typeof stdin !== "string" && typeof stdin !== "function") {
@@ -370,6 +383,8 @@ export async function run(url, options = {}) {
     type: "start",
     module,
     image: image.slice(),
+    url: href,
+    locales: locales === undefined ? undefined : new URL(locales, base).href,
     args: args.map(String),
     env: Object.fromEntries(Object.entries({ NOMI_COLOR: "never", ...env }).map(([k, v]) => [k, String(v)])),
     stdinKind: typeof stdin === "string" ? "text" : typeof stdin === "function" ? "callback" : "none",
@@ -399,7 +414,7 @@ export async function run(url, options = {}) {
  * fails), with the Nomi diagnostic as the Error's message.
  */
 export async function load(url, options = {}) {
-  const { args = [], env = {}, stdout, stderr } = options;
+  const { args = [], env = {}, stdout, stderr, locales } = options;
   if (!Array.isArray(args)) throw new TypeError("load: args must be an array of strings");
   if (env === null || typeof env !== "object") throw new TypeError("load: env must be an object");
   const base = typeof document !== "undefined" ? document.baseURI : import.meta.url;
@@ -410,6 +425,8 @@ export async function load(url, options = {}) {
     mode: "call",
     module,
     image: image.slice(),
+    url: href,
+    locales: locales === undefined ? undefined : new URL(locales, base).href,
     args: args.map(String),
     env: Object.fromEntries(Object.entries({ NOMI_COLOR: "never", ...env }).map(([k, v]) => [k, String(v)])),
     stdinKind: "none",

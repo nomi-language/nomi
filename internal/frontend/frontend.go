@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -25,7 +26,9 @@ import (
 
 // Config is what a Checker resolves a program against.
 type Config struct {
-	// VirtualFiles are in-memory sibling sources by bare module name, consulted
+	// VirtualFiles are in-memory sibling sources by bare module name, and
+	// an in-memory program's message catalogs by their path with `.toml`
+	// (read through a staged VirtualManifest's `[i18n]`), consulted
 	// before disk for a one-segment import (the tour playground and the REPL).
 	VirtualFiles map[string]string
 	// VirtualManifest is a pre-parsed nomi.toml for a program with no project
@@ -57,6 +60,15 @@ type Config struct {
 	// session is the one user: every input's program carries the imports of
 	// the inputs before it, which that input need not use.
 	AllowUnusedImports bool
+	// Macros runs the macros the program's declarations are
+	// written with (analysis.MacroHost); nil runs none, and each such
+	// declaration is an error. vmhost sets it.
+	Macros analysis.MacroHost
+	// MacroDrivers adds to the entry, a macro's file, the hidden
+	// functions the compiler calls to run each macro it declares
+	// (analysis.MacroDrivers). vmhost's macro runner sets it when
+	// it builds a macro module.
+	MacroDrivers bool
 	// AllowUnusedBindings drops unused-binding errors, in the entry and its
 	// siblings. The language server is the one user: it lowers the program
 	// being edited to evaluate its typed literals, and a binding typed but
@@ -104,6 +116,13 @@ type Checker struct {
 	// siblingSyntax holds the syntax errors of every project file the
 	// loader read, by path.
 	siblingSyntax map[string][]parser.ParseError
+	// nodesByPath holds every project file's nodes by its path, for moving
+	// a related location in another file's macro expansion
+	// (relatedInBand).
+	nodesByPath map[string][]ast.Node
+	// rootManifest is the root's nomi.toml once read (manifestRead).
+	rootManifest *analysis.Manifest
+	manifestRead bool
 }
 
 // New returns a Checker over the embedded standard library.
@@ -116,15 +135,81 @@ func New(cfg Config) *Checker {
 func (c *Checker) SetEntry(absPath, root string) {
 	c.entryPath = absPath
 	c.root = root
+	c.manifestRead = false
 }
 
 // VirtualFiles are the configured in-memory siblings.
 func (c *Checker) VirtualFiles() map[string]string { return c.cfg.VirtualFiles }
 
+// manifest is the program's nomi.toml: the staged one, else the one at the
+// root, nil for none.
+func (c *Checker) manifest() *analysis.Manifest {
+	if c.cfg.VirtualManifest != nil {
+		return c.cfg.VirtualManifest
+	}
+	if c.root == "" {
+		return nil
+	}
+	if !c.manifestRead {
+		c.manifestRead = true
+		c.rootManifest, _ = analysis.LoadManifest(c.root)
+	}
+	return c.rootManifest
+}
+
+// site is the expansion site of the project file with module path
+// modulePath: its catalogs are read from disk under the root when the root
+// has a manifest, and from the virtual files for an in-memory program with
+// a staged one, whose module root is the virtual files' `.`.
+func (c *Checker) site(modulePath string) *analysis.ExpansionSite {
+	m := c.manifest()
+	s := &analysis.ExpansionSite{ModulePath: modulePath, Manifest: m, Macros: c.cfg.Macros}
+	switch {
+	case m == nil:
+	case c.cfg.VirtualManifest == nil:
+		s.Root = c.root
+	default:
+		s.Root = "."
+		s.Read = c.virtualInput
+	}
+	return s
+}
+
+// virtualInput reads an input of an in-memory program from its virtual
+// files, by its path from the virtual module root.
+func (c *Checker) virtualInput(path string) (string, bool) {
+	if filepath.IsAbs(path) || !strings.HasSuffix(path, ".toml") {
+		return "", false
+	}
+	text, ok := c.cfg.VirtualFiles[filepath.ToSlash(filepath.Clean(path))]
+	return text, ok
+}
+
 // Loader is the file loader analysis runs with: virtual files first for a
 // one-segment import, then the embedded stdlib and disk, with the synthetic
-// host declarations injected into every loaded file.
+// host declarations injected into every loaded file and its keyword
+// declarations expanded.
 func (c *Checker) Loader() analysis.FileLoader {
+	inner := c.innerLoader()
+	return func(projectRoot string, modulePath []string) ([]ast.Node, error) {
+		nodes, err := inner(projectRoot, modulePath)
+		if err != nil || len(modulePath) > 0 && modulePath[0] == "std" {
+			return nodes, err
+		}
+		site := c.site(strings.Join(modulePath, "/"))
+		if filepath.Clean(projectRoot) != filepath.Clean(c.root) {
+			// A file of another module: its own root and manifest.
+			m, _ := analysis.LoadManifest(projectRoot)
+			site = &analysis.ExpansionSite{ModulePath: strings.Join(modulePath, "/"), Manifest: m, Macros: c.cfg.Macros}
+			if m != nil {
+				site.Root = projectRoot
+			}
+		}
+		return analysis.ExpandDeclarations(nodes, site), nil
+	}
+}
+
+func (c *Checker) innerLoader() analysis.FileLoader {
 	base := std.MakeReportingLoader(c.recordSyntax)
 	synth := c.cfg.SyntheticExterns
 	if len(c.cfg.VirtualFiles) == 0 && len(synth) == 0 {
@@ -196,6 +281,10 @@ func (c *Checker) Prepare(src string, mode Mode) ([]ast.Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	nodes = analysis.ExpandDeclarations(nodes, c.site(c.entryModRel))
+	if c.cfg.MacroDrivers {
+		nodes = append(nodes, analysis.MacroDrivers(nodes)...)
+	}
 	nodes, err = lowerDerives(c.diagPath, src, nodes)
 	if err != nil {
 		return nil, err
@@ -241,9 +330,16 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		c.placeEntry,
 	)
 	c.projectFiles = collectProjectFiles(siblingFAs, siblingNodes)
+	c.nodesByPath = map[string][]ast.Node{fa.FilePath: nodes}
+	for key, sibFA := range siblingFAs {
+		if sibFA.FilePath != "" {
+			c.nodesByPath[sibFA.FilePath] = siblingNodes[key]
+		}
+	}
 	errs := c.buildErrors(fa)
 	// The program's own errors (duplicate and orphan impls) are reported with
-	// the entry's, after its build-phase errors.
+	// the entry's, after its build-phase errors, each in the file it names
+	// (entryDiagnostics).
 	errs = append(errs, c.kept(fa.Program().Errors)...)
 	errs = append(errs, c.kept(analysis.CheckTypes(fa, nodes))...)
 	// A sibling's CheckTypes records the conformance its bodies demand in its
@@ -271,6 +367,9 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		}
 		own := c.buildErrors(sibFA)
 		sibErrs[key] = append(own, c.kept(analysis.CheckTypes(sibFA, siblingNodes[key]))...)
+		// Its break and continue placement, which only its own call sites
+		// decide (analysis.AnalyzeIterSensitivity).
+		sibErrs[key] = append(sibErrs[key], c.kept(analysis.AnalyzeIterSensitivity(sibFA, siblingNodes[key]))...)
 		program = append(program, analysis.ProgramFile{FA: sibFA, Nodes: siblingNodes[key]})
 	}
 	// The application-field roots of every file, now that every file is
@@ -289,7 +388,27 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 	if !c.cfg.AllowUnusedImports {
 		errs = append(errs, implImportErrs[fa]...)
 	}
+	// Each macro's whole-module check, over every declaration of its
+	// keyword the program's files expanded, and the agreement of every
+	// noun with every message.
+	extFiles := map[string][]ast.Node{c.entryModRel: nodes}
+	for _, key := range sibKeys {
+		if !analysis.IsStdlibKey(key) {
+			extFiles[key] = siblingNodes[key]
+		}
+	}
+	extChecks := analysis.CheckProgramDeclarations(extFiles)
+	errs = append(errs, extChecks[c.entryModRel]...)
+	if c.entryModRel != "" {
+		errs = append(errs, extChecks[""]...)
+	}
+	for _, key := range sibKeys {
+		if key != c.entryModRel {
+			sibErrs[key] = append(sibErrs[key], extChecks[key]...)
+		}
+	}
 	var sibDiags Diagnostics
+	sibDiagsOf := map[string]Diagnostics{}
 	for _, key := range sibKeys {
 		sibFA := siblingFAs[key]
 		if _, shared := c.sharedStdlib(key, sibFA); shared {
@@ -299,7 +418,7 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		if sibPath == "" {
 			sibPath = key + ".nomi"
 		}
-		own := sibErrs[key]
+		own := analysis.RelocateExpansionErrors(siblingNodes[key], sibErrs[key])
 		if !c.cfg.AllowUnusedImports {
 			own = append(own, implImportErrs[sibFA]...)
 		}
@@ -307,12 +426,21 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		if len(own) == 0 {
 			continue
 		}
-		sibDiags = append(sibDiags, typeDiagnostics(sibPath, c.sourceOf(sibPath), own)...)
+		sibDiagsOf[key] = c.fileDiagnostics(sibPath, "", own)
+		sibDiags = append(sibDiags, sibDiagsOf[key]...)
 	}
 	// After every file is checked, so the missing-impl check sees every
 	// recording site. Its errors are the program's; they are reported with
 	// the entry's.
 	errs = append(errs, analysis.FinalizeCoherence(fa)...)
+	if c.cfg.VirtualManifest == nil {
+		// The module's catalogs that nothing reads.
+		files := map[string][]ast.Node{c.entryModRel: nodes}
+		for key, n := range siblingNodes {
+			files[key] = n
+		}
+		errs = append(errs, analysis.CheckCatalogTree(c.root, c.manifest(), files)...)
+	}
 	errs = append(errs, analysis.AnalyzeIterSensitivity(fa, nodes)...)
 	errs = append(errs, analysis.CheckConcurrentScope(fa, nodes)...)
 	errs = append(errs, analysis.CheckBootScope(fa, nodes)...)
@@ -344,10 +472,42 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		}
 		return fa, modules, syntax
 	}
+	// A macro that could not expand a declaration is reported alone:
+	// what the rest of the program says follows from what it did not
+	// declare (analysis.MacroFailed).
+	if analysis.MacroFailed(modules) {
+		entryChecks := extChecks[c.entryModRel]
+		if c.entryModRel != "" {
+			entryChecks = append(entryChecks, extChecks[""]...)
+		}
+		alone := c.entryDiagnostics(fa, analysis.MacroErrorsAlone(nodes, entryChecks))
+		for _, key := range sibKeys {
+			sibFA := siblingFAs[key]
+			if _, shared := c.sharedStdlib(key, sibFA); shared || key == c.entryModRel {
+				continue
+			}
+			sibPath := sibFA.FilePath
+			if sibPath == "" {
+				sibPath = key + ".nomi"
+			}
+			// A file of a macro module that did not build keeps its own
+			// errors: they are why its declarations declare nothing.
+			if analysis.InUnbuiltMacroModule(modules, sibFA.FilePath) {
+				alone = append(alone, sibDiagsOf[key]...)
+				continue
+			}
+			own := analysis.MacroErrorsAlone(siblingNodes[key], extChecks[key])
+			if len(own) == 0 {
+				continue
+			}
+			alone = append(alone, c.fileDiagnostics(sibPath, "", own)...)
+		}
+		return fa, modules, alone
+	}
 	if len(errs) == 0 && len(sibDiags) == 0 {
 		return fa, modules, nil
 	}
-	return fa, modules, append(c.entryDiagnostics(fa, errs), sibDiags...)
+	return fa, modules, append(c.entryDiagnostics(fa, analysis.RelocateExpansionErrors(nodes, errs)), sibDiags...)
 }
 
 // entryDiagnostics renders the errors reported with the entry fa, each in
@@ -355,12 +515,21 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 // error says so (TypeError.File), as a derive's missing impl in an imported
 // file does. The order is kept.
 func (c *Checker) entryDiagnostics(fa *analysis.FileAnalysis, errs []analysis.TypeError) Diagnostics {
+	return c.fileDiagnostics(c.diagPath, fa.FilePath, errs)
+}
+
+// fileDiagnostics renders the errors reported with the file at path (also
+// known as alias), each in the file its position is in: path's own, or
+// another file's when the error names it (TypeError.File), as a catalog's
+// errors do. A non-Nomi file is shown with its own text. The order is kept.
+func (c *Checker) fileDiagnostics(path, alias string, errs []analysis.TypeError) Diagnostics {
 	fileOf := func(e analysis.TypeError) string {
-		if e.File == "" || e.File == fa.FilePath || samePath(e.File, c.diagPath) {
+		if e.File == "" || alias != "" && e.File == alias || samePath(e.File, path) {
 			return ""
 		}
 		return e.File
 	}
+	errs = c.relatedInBand(errs)
 	var out Diagnostics
 	for i := 0; i < len(errs); {
 		file := fileOf(errs[i])
@@ -369,11 +538,48 @@ func (c *Checker) entryDiagnostics(fa *analysis.FileAnalysis, errs []analysis.Ty
 			j++
 		}
 		if file == "" {
-			out = append(out, typeDiagnostics(c.diagPath, c.entrySrc, errs[i:j])...)
+			out = append(out, typeDiagnostics(path, c.sourceOf(path), errs[i:j])...)
 		} else {
 			out = append(out, typeDiagnostics(file, c.sourceOf(file), errs[i:j])...)
 		}
 		i = j
+	}
+	return out
+}
+
+// relatedInBand moves each related location of errs that is in another
+// file's macro expansion to what it was made from
+// (analysis.ExpansionRelated), and drops one in code the compiler
+// generated that no expansion holds: a line in the synthesized band is
+// never shown.
+func (c *Checker) relatedInBand(errs []analysis.TypeError) []analysis.TypeError {
+	var out []analysis.TypeError
+	for i, e := range errs {
+		band := false
+		for _, r := range e.Related {
+			band = band || analysis.IsSynthesizedLine(r.Line)
+		}
+		if !band {
+			continue
+		}
+		if out == nil {
+			out = slices.Clone(errs)
+		}
+		var related []analysis.RelatedInfo
+		for _, r := range e.Related {
+			if r.File != "" {
+				if moved, ok := analysis.ExpansionRelated(c.nodesByPath[r.File], r); ok {
+					r = moved
+				}
+			}
+			if !analysis.IsSynthesizedLine(r.Line) {
+				related = append(related, r)
+			}
+		}
+		out[i].Related = related
+	}
+	if out == nil {
+		return errs
 	}
 	return out
 }
@@ -439,14 +645,15 @@ func (c *Checker) AnalyzeStdlibModule(moduleKey string, nodes []ast.Node) (*anal
 	for name, sfa := range c.lib.Files {
 		files[name] = sfa
 	}
-	files[strings.TrimPrefix(moduleKey, "std/")] = fa
-	analysis.AttachStdlibProjectImpls(fa, files)
+	module := strings.TrimPrefix(moduleKey, "std/")
+	files[module] = fa
+	analysis.AttachEditedStdlibImpls(fa, nodes, module, files)
 	var errs []analysis.TypeError
 	errs = append(errs, fa.TypeErrors...)
 	errs = append(errs, analysis.BuildTypes(fa, nodes)...)
 	// Again, now that BuildTypes has typed this file's impls: the index's
 	// function types and receiver identities are read off typed symbols.
-	analysis.AttachStdlibProjectImpls(fa, files)
+	analysis.AttachEditedStdlibImpls(fa, nodes, module, files)
 	errs = append(errs, analysis.CheckTypes(fa, nodes)...)
 	errs = append(errs, analysis.CheckAppRoots(fa, nodes)...)
 	errs = append(errs, analysis.AnalyzeIterSensitivity(fa, nodes)...)
@@ -536,7 +743,25 @@ func (c *Checker) CheckSource(moduleName, src string, mode Mode) (*Project, erro
 	return c.check(moduleName, moduleName, true, src, mode)
 }
 
+// AnalyzeSource is CheckSource for a reader of the program's analyses, such
+// as the tour's hover: the Project holds every file's analysis whenever the
+// entry parsed, the error beside it carries the diagnostics, and it is nil
+// only when the entry did not parse.
+func (c *Checker) AnalyzeSource(moduleName, src string, mode Mode) (*Project, error) {
+	return c.analyze(moduleName, moduleName, true, src, mode)
+}
+
 func (c *Checker) check(path, entryModRel string, placeEntry bool, src string, mode Mode) (*Project, error) {
+	p, err := c.analyze(path, entryModRel, placeEntry, src, mode)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// analyze is check, answering the project beside the error once the
+// entry has been analyzed.
+func (c *Checker) analyze(path, entryModRel string, placeEntry bool, src string, mode Mode) (*Project, error) {
 	c.entryModRel = entryModRel
 	c.placeEntry = placeEntry
 	c.diagPath = c.entryPath
@@ -551,13 +776,17 @@ func (c *Checker) check(path, entryModRel string, placeEntry bool, src string, m
 		return nil, err
 	}
 	fa, modules, err := c.Analyze(nodes)
-	if err != nil {
+	if fa == nil {
 		return nil, err
+	}
+	p := &Project{Path: path, Nodes: nodes, FA: fa, Root: c.root, Files: c.projectFiles}
+	if err != nil {
+		return p, err
 	}
 	if err := c.ValidateHosts(modules); err != nil {
-		return nil, err
+		return p, err
 	}
-	return &Project{Path: path, Nodes: nodes, FA: fa, Root: c.root, Files: c.projectFiles}, nil
+	return p, nil
 }
 
 // CheckStdlibSource checks src as the stdlib module moduleKey ("regex" or

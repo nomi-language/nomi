@@ -17,7 +17,17 @@ end
 ---@type vim.lsp.Config
 return {
   cmd = { cmd },
-  filetypes = { 'nomi' },
-  -- Priority order: the nearest nomi.toml wins over an enclosing .git.
-  root_markers = { 'nomi.toml', '.git' },
+  -- A TOML buffer only when it is one of a module's message catalogs.
+  filetypes = { 'nomi', 'toml' },
+  root_dir = function(bufnr, on_dir)
+    if vim.bo[bufnr].filetype == 'toml' then
+      local root = require('nomi.catalogs').root(vim.api.nvim_buf_get_name(bufnr))
+      if root then
+        on_dir(root)
+      end
+      return
+    end
+    -- Priority order: the nearest nomi.toml wins over an enclosing .git.
+    on_dir(vim.fs.root(bufnr, { 'nomi.toml', '.git' }))
+  end,
 }

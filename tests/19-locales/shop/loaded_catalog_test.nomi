@@ -1,0 +1,327 @@
+import {
+    std/locale.Locale
+    std/message.{Catalog, Message, Rejected}
+    cart
+    order
+}
+
+// A catalog loaded while the program runs names each message by its file
+// and is checked as the compiler checks the program's own.
+fn cart_items(arms: String) -> String {
+    """
+        [cart.cart_items]
+        source = '''
+        .input {$count :integer}
+        .match $count
+        one {{{$count} item in your cart}}
+        * {{{$count} items in your cart}}
+        '''
+        text = '''
+        .input {$count :integer}
+        .match $count
+        ${arms}
+        '''
+        """
+}
+
+fn reasons(text: String, locale: Locale) -> List<String> {
+    #(_, rejected) = Catalog.load(text, locale)
+    rejected |> Iter.map(fn r -> "${r.key}: ${r.reason}") |> Iter.to_list()
+}
+
+test "a loaded translation comes before the compiled one" {
+    pl = Locale`pl`
+
+    text = cart_items(
+        "one {{{$count} rzecz}}\nfew {{{$count} rzeczy}}\nmany {{{$count} rzeczy}}\n* {{{$count} rzeczy}}"
+    )
+
+    #(catalog, rejected) = Catalog.load(text, pl)
+    assert rejected == []
+    assert Catalog.locale(catalog) == pl
+    assert cart.cart_items(3) |> Message.format(pl, catalogs: [catalog]) == "3 rzeczy"
+    // Without the catalog, and in another locale, the compiled texts.
+    assert cart.cart_items(3) |> Message.format(pl) == "3 produkty w koszyku"
+
+    assert cart.cart_items(3)
+    |> Message.format(Locale`pt`, catalogs: [catalog]) == "3 itens no carrinho"
+
+    // A region of the catalog's locale reads it too.
+    assert cart.cart_items(1) |> Message.format(Locale`pl-PL`, catalogs: [catalog]) == "1 rzecz"
+
+    // A message the catalog leaves out keeps its compiled text.
+    assert cart.watching("Ana i Ben")
+    |> Message.format(pl, catalogs: [catalog]) == "Ana i Ben oglądają ten produkt"
+
+    // A message given as an argument is formatted with the same catalogs.
+    assert cart.cart_summary("Ana", cart.cart_items(5))
+    |> Message.format(pl, catalogs: [catalog]) == "Ana, masz 5 rzeczy"
+}
+
+test "the first catalog that translates a message gives its text" {
+    pl = Locale`pl`
+
+    #(first, _) = Catalog.load(
+        cart_items("one {{jedna}}\nfew {{kilka}}\nmany {{wiele}}\n* {{trochę}}"),
+        pl,
+    )
+
+    #(second, _) = Catalog.load(cart_items("one {{1}}\nfew {{2}}\nmany {{5}}\n* {{?}}"), pl)
+    assert cart.cart_items(3) |> Message.format(pl, catalogs: [first, second]) == "kilka"
+    assert cart.cart_items(3) |> Message.format(pl, catalogs: [second, first]) == "2"
+}
+
+test "a rejected entry is never used: the message keeps its compiled text" {
+    pl = Locale`pl`
+
+    // An English-shaped Polish translation.
+    #(catalog, rejected) = Catalog.load(
+        cart_items("one {{{$count} rzecz}}\n* {{{$count} rzeczy}}"),
+        pl,
+    )
+
+    assert rejected == [#Rejected{
+        key: "cart.cart_items",
+        locale: pl,
+        reason: "`cart_items` has no `few` arm; 2, 3 and 4 select `few` in Polish",
+    }]
+
+    assert cart.cart_items(3) |> Message.format(pl, catalogs: [catalog]) == "3 produkty w koszyku"
+}
+
+test "an entry is rejected for what the compiler rejects it for" {
+    pl = Locale`pl`
+
+    stale = """
+        [cart.watching]
+        source = '''{$names} are watching'''
+        text = '''{$names} patrzą'''
+        """
+
+    assert reasons(stale, pl) == [
+        "cart.watching: `watching` was translated from an older English text\n  was: {$names} are watching\n  now: {$names} are watching this item",
+    ]
+
+    unrecorded = """
+        [cart.watching]
+        text = '''{$names} patrzą'''
+        """
+
+    assert reasons(unrecorded, pl) == [
+        "cart.watching: `watching` does not record the English text it was translated from",
+    ]
+
+    no_text = """
+        [cart.watching]
+        source = '''{$names} are watching this item'''
+        """
+
+    assert reasons(no_text, pl) == ["cart.watching: `watching` has no `text`"]
+
+    stray_key = """
+        [cart.watching]
+        source = '''{$names} are watching this item'''
+        text = '''{$names} patrzą'''
+        note = '''for review'''
+        """
+
+    assert reasons(stray_key, pl) == [
+        "cart.watching: `note` is not a key of a message's entry; an entry holds `source` and `text`",
+    ]
+
+    parameter = """
+        [cart.watching]
+        source = '''{$names} are watching this item'''
+        text = '''{$people} patrzą'''
+        """
+
+    assert reasons(parameter, pl) == ["cart.watching: `$people` is not a parameter of `watching`"]
+
+    types = """
+        [cart.watching]
+        source = '''{$names} are watching this item'''
+        text = '''{$names :integer} patrzą'''
+        """
+
+    assert reasons(types, pl) == [
+        "cart.watching: `:integer` formats an `Int`, and `$names` is a `String`",
+    ]
+
+    syntax = """
+        [cart.watching]
+        source = '''{$names} are watching this item'''
+        text = '''{$names patrzą'''
+        """
+
+    assert reasons(syntax, pl) == ["cart.watching: expected `}` to close the expression"]
+
+    variants = """
+        [cart.order_status]
+        source = '''
+        .input {$status :string}
+        .match $status
+        Pending {{Your order is waiting to ship}}
+        Shipped {{Your order is on its way}}
+        Delivered {{Your order was delivered}}
+        * {{Your order is on its way}}
+        '''
+        text = '''
+        .input {$status :string}
+        .match $status
+        Pending {{Czeka}}
+        Shipped {{Wysłane}}
+        * {{Wysłane}}
+        '''
+        """
+
+    assert reasons(variants, pl) == [
+        "cart.order_status: `order_status` has no `Delivered` arm; `.match $status` needs an arm for every variant of `Status`",
+    ]
+}
+
+test "a noun's entry is checked as the compiler checks it" {
+    pl = Locale`pl`
+
+    book = """
+        [order.book]
+        source = '''
+        .input {$count :integer}
+        .match $count
+        one {{book}}
+        * {{books}}
+        '''
+        """
+
+    assert reasons(book + "\nnominative = '''tom'''\ngenitive = '''tomu'''\n", pl) == [
+        "order.book: `book` has no `gender`",
+    ]
+
+    assert reasons(
+        book + "\ngender = \"masculine\"\nnominative = '''tom'''\ngenitive = '''tomu'''\n",
+        pl,
+    ) == [
+        "order.book: `masculine` is not a gender in Polish",
+    ]
+
+    assert reasons(book + "\ngender = \"feminine\"\ngenitive = '''książki'''\n", pl) == [
+        "order.book: `book` has no `nominative` form",
+    ]
+
+    assert reasons(
+        book + "\ngender = \"feminine\"\nnominative = '''książka'''\ngenetive = '''książki'''\n",
+        pl,
+    ) == [
+        "order.book: `genetive` is not a case in Polish, nor a key of a noun's entry",
+    ]
+
+    #(catalog, rejected) = Catalog.load(
+        book + "\ngender = \"feminine\"\nnominative = '''tomik'''\ngenitive = '''tomików'''\n",
+        pl,
+    )
+
+    assert rejected == []
+
+    assert order.has_shipped(order.book)
+    |> Message.format(pl, catalogs: [catalog]) == "Twoja tomik została wysłana."
+
+    assert order.sold_out(order.book) |> Message.format(pl, catalogs: [catalog]) == "Brak tomików."
+}
+
+test "loaded nouns and messages agree with the program's" {
+    pl = Locale`pl`
+
+    // `sold_out` asks every Polish noun for its genitive.
+    no_genitive = """
+        [order.book]
+        source = '''
+        .input {$count :integer}
+        .match $count
+        one {{book}}
+        * {{books}}
+        '''
+        gender = "feminine"
+        nominative = '''tom'''
+        """
+
+    assert reasons(no_genitive, pl) == [
+        "order.book: `book` has no `genitive` form, which `sold_out` asks for",
+    ]
+
+    // No compiled message has an arm for a personal noun.
+    personal = """
+        [order.book]
+        source = '''
+        .input {$count :integer}
+        .match $count
+        one {{book}}
+        * {{books}}
+        '''
+        gender = "personal"
+        nominative = '''tom'''
+        genitive = '''tomu'''
+        """
+
+    assert reasons(personal, pl) == [
+        "order.book: `has_shipped` has no `personal` arm; the noun `order.book` is personal in Polish",
+    ]
+
+    // The program's nouns have no dative.
+    dative = """
+        [order.sold_out]
+        source = '''No {$product :nomi:noun count=2} left.'''
+        text = '''Brak {$product :nomi:noun case=dative count=5}.'''
+        """
+
+    assert reasons(dative, pl) == [
+        "order.sold_out: `book` has no `dative` form, which `sold_out` asks for",
+    ]
+
+    // The program's phone case is neuter.
+    two_genders = """
+        [order.has_shipped]
+        source = '''Your {$product :nomi:noun} has shipped.'''
+        text = '''
+        .input {$product :nomi:gender}
+        .match $product
+        feminine {{Twoja {$product :nomi:noun} jest w drodze.}}
+        inanimate {{Twój {$product :nomi:noun} jest w drodze.}}
+        * {{Przesyłka jest w drodze.}}
+        '''
+        """
+
+    assert reasons(two_genders, pl) == [
+        "order.has_shipped: `has_shipped` has no `neuter` arm; the noun `order.phone_case` is neuter in Polish",
+    ]
+}
+
+test "a catalog names what the program has, in a locale it lists" {
+    pl = Locale`pl`
+
+    entry = """
+        source = '''{$names} are watching this item'''
+        text = '''{$names} patrzą'''
+        """
+
+    assert reasons("[cart.ghost]\n" + entry, pl) == [
+        "cart.ghost: `cart.ghost` is not a message or noun the program uses",
+    ]
+
+    assert reasons("[watching]\n" + entry, pl) == [
+        "watching: `watching` names no file: a catalog loaded while the program runs names each message and noun by its file, `[file.watching]`; the program has `[cart.watching]` or `[order.watching]`",
+    ]
+
+    assert reasons("[cart.watching]\n" + entry, Result.with_default(Locale.parse("es"), pl)) == [
+        "cart.watching: es is not a locale `[i18n]` lists; a catalog loaded while the program runs translates only the locales it was built with",
+    ]
+
+    assert reasons("[cart.watching]\n" + entry, Locale`en`) == [
+        "cart.watching: en is the source locale, whose text is in the `message` declarations",
+    ]
+
+    // A problem outside any table has no key.
+    assert reasons("[cart.watching\n" + entry, pl) == [
+        ": expected `[file.name]`, a message or noun by the name of its file",
+        ": `source` is outside any message: a catalog's keys are in `[file.name]` tables",
+        ": `text` is outside any message: a catalog's keys are in `[file.name]` tables",
+    ]
+}

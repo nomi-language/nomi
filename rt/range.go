@@ -219,7 +219,7 @@ func RangeEachWhile[T any](fr *Frame, r Range[T], cmp func(fr *Frame, a, b T) Or
 func RangeSeq[T any](r Range[T], cmp func(fr *Frame, a, b T) Ordering, next func(fr *Frame, v T) Maybe[T]) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return RangeEachWhile(fr, r, cmp, next, yield)
-	}}
+	}, Endless: rangeEndless(r)}
 }
 
 // StepByRangeSeq is `Range.step_by(r, by)`: `impl Iter for StepByRange<T, S>`'s
@@ -272,7 +272,7 @@ func StepByRangeSeq[T, S any](r Range[T], by S, cmp func(fr *Frame, a, b T) Orde
 			}
 			cur = nxt.Some
 		}
-	}}
+	}, Endless: stepByEndless(r, by, cmp, step)}
 }
 
 // --- rendering --------------------------------------------------------------

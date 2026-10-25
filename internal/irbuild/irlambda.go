@@ -90,30 +90,40 @@ func argsAt(args []ir.Temp, slots []int) []ir.Temp {
 	return out
 }
 
+// lambdaParamKind is the kind a lambda parameter takes: its annotation, the
+// type a pattern names or the checker recorded for it, or the inferred type.
+// kindInvalid is a miss, which the caller declines.
+func (g *gen) lambdaParamKind(p ast.Param) kind {
+	tp, tuple := p.Destructure.(*ast.TuplePattern)
+	tuple = tuple && tp.TypeName == nil // `#Pair(a, b)` names its type
+	switch {
+	case p.TypeAnnotation != nil:
+		return g.typeOf(p.TypeAnnotation)
+	case p.Destructure != nil && !tuple:
+		// A self-typing pattern names its type: `fn Dur(n) ->` takes a Dur,
+		// `fn #Point{x, y} ->` a Point and `fn #Box.Extent{w, h} ->` a Box.
+		// kindInvalid: lookup — the head names no distinct; a struct or enum head may name the type.
+		if k := g.irPatternHeadKind(p.Destructure); k != kindInvalid {
+			return k
+		}
+		return g.irParamPatternKind(p)
+	case tuple:
+		// `fn #(k, v) ->`, `fn #(_, v) ->`, `fn #(a, #(b, _)) ->`: the type the checker
+		// recorded for the whole pattern.
+		return g.irParamPatternKind(p)
+	}
+	_, k := g.inferredParamKind(p)
+	return k
+}
+
 func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	params := make([]kind, len(t.Params))
 	for i, p := range t.Params {
-		tp, tuple := p.Destructure.(*ast.TuplePattern)
-		tuple = tuple && tp.TypeName == nil // `#Pair(a, b)` names its type
 		if po, partial := bl.partialOpen[t]; partial {
 			params[i] = po.kinds[i]
-		} else if p.TypeAnnotation != nil {
-			params[i] = bl.g.typeOf(p.TypeAnnotation)
-		} else if p.Destructure != nil && !tuple {
-			// A self-typing pattern names its type: `fn Dur(n) ->` takes a Dur,
-			// `fn #Point{x, y} ->` a Point and `fn #Box.Extent{w, h} ->` a Box.
-			params[i] = bl.g.irPatternHeadKind(p.Destructure)
-			// kindInvalid: lookup — the head names no distinct; a struct or enum head may name the type, and a miss declines below.
-			if params[i] == kindInvalid {
-				params[i] = bl.g.irParamPatternKind(p)
-			}
-		} else if tuple {
-			// `fn #(k, v) ->`, `fn #(_, v) ->`, `fn #(a, #(b, _)) ->`: the type the checker
-			// recorded for the whole pattern; a miss declines below.
-			params[i] = bl.g.irParamPatternKind(p)
 		} else {
-			_, params[i] = bl.g.inferredParamKind(p)
+			params[i] = bl.g.lambdaParamKind(p)
 		}
 		if !irCallableValueKind(params[i]) && params[i] != kindUnit {
 			irDeclineNote("a lambda parameter outside the domain: " + params[i].nomi())
@@ -719,7 +729,7 @@ func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	if !irCallableValueKind(fk) {
 		return no()
 	}
-	ctl := irNamedCtlForm(sig.decl)
+	ctl := bl.g.namedCtlForm(sig.decl)
 	if ctl != irCtlNone && bl.ctlRefs[t] != ctl {
 		irDeclineNote("an iter-sensitive function passed where its break or continue cannot be caught: " + t.Name)
 		return no()

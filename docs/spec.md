@@ -47,6 +47,7 @@ import std/io
 fn main() {
     total = 2 + 3
     io.print("computed")
+
     [1, 2, 3]
     |> Iter.map(&(&1 * total))
     |> Iter.to_list()
@@ -74,9 +75,9 @@ Nomi rejects redeclaration aggressively, but allows ordinary bindings to shadow 
 - **An ordinary `name = value` binding may shadow a prior same-scope binding or parameter** (Gleam/Rust-style). The newest binding wins for subsequent references, and a shadow may change the type. A closure created before the shadow keeps the value it captured (§23). This is the value-threading idiom:
   ```nomi
   fn normalize(name: String) -> String {
-    name = String.trim(name) // shadow the parameter
-    name = String.to_lower(name) // shadow the local
-    name
+      name = String.trim(name) // shadow the parameter
+      name = String.to_lower(name) // shadow the local
+      name
   }
   ```
   Duplicate `once`, `fn`, `type`, `interface`, `typealias`, duplicate parameters within one signature, and duplicate names within one pattern remain same-scope errors.
@@ -85,7 +86,7 @@ Nomi rejects redeclaration aggressively, but allows ordinary bindings to shadow 
     once max_retries = 3
 
     fn main() {
-        max_retries = 5    // fine — local binding shadows the file-level once binding inside main
+        max_retries = 5 // fine — local binding shadows the file-level once binding inside main
         ...
     }
   ```
@@ -155,7 +156,9 @@ This is deliberately stricter than full inference: a binding's type is *not* res
 A name a pattern binds (in a `case` arm, an `if Pattern = value`, a destructure, or a binding with `else`) is held to a narrower rule, checked once the whole file is: its type must not be wholly unknown. `Maybe.to_result(None, "none")` is `Result<?, String>`, so `Ok(z)` would bind `z` to a type nothing fixes, and that is an error at `z` unless the binding's `else` fallback or a later use of `z` fixes it. A name whose type only contains an unknown part, such as `a` in `#(a, b) = #(None, 1)`, is accepted.
 
 ```nomi
-Ok(z) = Maybe.to_result(None, "none") else { return } // ✗ the type of 'z' is not determined
+Ok(z) = Maybe.to_result(None, "none") else {
+    return
+} // ✗ the type of 'z' is not determined
 
 Some(n) = None else { 0 } // ✓ the fallback makes n an Int
 ```
@@ -211,7 +214,9 @@ Each declaration may carry the optional `pub` modifier. `pub` makes the declarat
 ```nomi
 import std/maybe.Maybe
 
-pub fn parse_input(s: String) -> Result<Config, Error> { ... }
+pub fn parse_input(s: String) -> Result<Config, Error> {
+    ...
+}
 
 pub struct Config {
     host: String
@@ -223,17 +228,21 @@ pub enum Error {
     Truncated
 }
 
-fn validate_internal(c: Config) -> Bool { ... }              // private
+fn validate_internal(c: Config) -> Bool {
+    ...
+} // private
 ```
 
-A file qualifies the declarations it exports. Other files import the file and call through its file API object (`io.print(...)`, `#io.IOError.NotFound{...}`). The file API object is only a qualifier: `io` alone, as a statement, a bound value or an argument, is the error `` `io` is a file, not a value ``. Inside the defining file, sibling declarations remain bare (`IOError`, `print`). Plain imports are lexical aliases only. An item imported with `pub import` is re-exported by the current file and becomes part of its public surface; a file itself is never re-exported, so a file's public surface is its own declarations and the items it lists.
+A file qualifies the declarations it exports. Other files import the file and call through its file API object (`io.print(...)`, `#io.Error.NotFound{...}`). The file API object is only a qualifier: `io` alone, as a statement, a bound value or an argument, is the error `` `io` is a file, not a value ``. Inside the defining file, sibling declarations remain bare (`Error`, `print`). Plain imports are lexical aliases only. An item imported with `pub import` is re-exported by the current file and becomes part of its public surface; a file itself is never re-exported, so a file's public surface is its own declarations and the items it lists.
 
 ```nomi
-pub enum IOError {
+pub enum Error {
     NotFound {path: String}
 }
 
-pub fn print(value: String) -> Unit { ... }
+pub fn print(value: String) -> Unit {
+    ...
+}
 ```
 
 Rules:
@@ -244,6 +253,7 @@ Rules:
 - **Not `export`.** `export fn` (§5, *Exported Functions*) makes a function callable from outside the program, which is a different thing from visible to other files; the two do not combine.
 - **Root-level public functions are file API.** A file can publish root-level `pub fn` and `pub host fn`; callers reach them through the imported file API object (`users.find(...)`, `io.print(...)`). Functions and `once`s declared in an `impl` block are not file API: they are reached through their owner (`Duration.seconds(1)`, `Int.max_value`, `Int.to_string(n)`, `Display.to_string(n)`), and a file-qualified spelling such as `duration.seconds(1)` is an error that names the owner.
 - **Private declarations are invisible to other files.** No other file can name a private function, type or interface in any spelling: a call (`other.helper()`), a type annotation or type argument (`x: other.Hidden`, `List<other.Hidden>`), a struct literal or pattern head (`#other.Hidden{v: 1}`), an enum variant or constructor (`other.Color.Red`), an interface bound or `impl other.Shape for ...` header, or a selective import (`import other.Hidden`). A file-qualified spelling is the error "file 'other' has no member 'Hidden'", and an import is "'Hidden' is private and cannot be imported". A file may still pass its own private type as the type argument of another file's public generic (`other.ident(#Point{x: 1})`, `#other.Span{start: p, stop: q}`): only the declaring file names the type.
+- **Std's internals.** A std file's private declaration is std's own, and so are the internal modules `std/message_format` and `std/money_format`, the host functions behind std/message and std/money. A program naming one is the error `` `message.compiled` is internal to std/message `` (`` `std/money_format` is internal to std/money `` for an import), and the reference does not list them. The function a `message` or `noun` declaration expands into (§41) reaches std/message's private constructors through a hidden import no source can name.
 - **No renames at the declaration site.** A declaration is published under its own name. An imported name is re-exported under its local name, the alias when it has one, by `pub import` (see *Re-exporting imported names* below).
 - **Opaque qualifier.** `pub opaque struct`, `pub opaque enum`, and `pub opaque type Name InnerType` publish the type's *type name* while keeping its construction surface (constructor, destructuring, field access) private. Applies only to types with a representation — using `opaque` on functions, type aliases, interfaces, `once` bindings, or zero-sized `type` declarations is rejected. See §15 *Opaque distinct types*.
 - **Interface implementation functions inherit interface visibility.** A function inside an `impl Iface for Type { ... }` block has no per-function `pub` marker. If the interface is `pub`, other files can call the implementation functions; if the interface is private, those functions stay private too. See §13 for the private-wrapper pattern when you want a public interface's defaults only inside the file.
@@ -267,14 +277,16 @@ A `pub` declaration must not expose private types. The compiler enforces this �
 
 ```nomi
 struct Secret {
-    value: String                      // private — no `pub` modifier on the struct
+    value: String // private — no `pub` modifier on the struct
 }
 
 pub enum Wrapper {
     embeds Secret
 }
 
-pub fn leak() -> Secret { ... }            // error — public function returns private type
+pub fn leak() -> Secret {
+    ...
+} // error — public function returns private type
 
 pub struct Container {
     data: Secret
@@ -291,7 +303,7 @@ A file or module can re-export items it imports, making them part of its own pub
 
 ```nomi
 // Every selected item, re-exported under its imported name.
-pub import std/io.{IOError, print}
+pub import std/io.{print, write}
 
 // An aliased item is re-exported under its alias.
 pub import other.{Helper as Helpr, Thing}
@@ -308,7 +320,7 @@ pub import {
 
 Rules:
 
-- **Items only, never a file.** A facade publishes exactly the items it lists. Re-exporting a file is a compile-time error at the `pub`, in every spelling: `pub import leaf`, `pub import leaf as lf`, and a brace list whose `self` is the file (`pub import std/io.{self, IOError}`) all report `` `leaf` is a file, and a file cannot be re-exported ``, with a hint to list the items or have importers import the file directly. `self` after an owner type (`Bool.{self, False, True}`) is the type, not a file, and re-exports like any item. A file a facade imports is not one of its items either: `import facade.{leaf}` is the error `` `leaf` is a file that `facade` imports, not an item it exports; import `leaf` directly ``.
+- **Items only, never a file.** A facade publishes exactly the items it lists. Re-exporting a file is a compile-time error at the `pub`, in every spelling: `pub import leaf`, `pub import leaf as lf`, and a brace list whose `self` is the file (`pub import std/io.{self, Error}`) all report `` `leaf` is a file, and a file cannot be re-exported ``, with a hint to list the items or have importers import the file directly. `self` after an owner type (`Bool.{self, False, True}`) is the type, not a file, and re-exports like any item. A file a facade imports is not one of its items either: `import facade.{leaf}` is the error `` `leaf` is a file that `facade` imports, not an item it exports; import `leaf` directly ``.
 - **The whole statement.** `pub` re-exports every item the statement selects, and in a block every entry. A file that re-exports some items and imports others privately writes two statements, an `import { ... }` and a `pub import { ... }`; `nomi fmt` groups each run of imports into those two blocks, the private one first.
 - **One name per item.** A re-exported item is public under its local name: the `as` alias when there is one, the imported name otherwise. Importers of the file see the same name the file itself uses.
 - **No globbing.** There is no `import path.*` form. Each re-exported name is enumerated. This keeps the public surface explicit and prevents upstream changes from silently expanding a downstream module's API.
@@ -348,7 +360,7 @@ fn add(x: Int, y: Int) -> Int {
 - Types inferred within function body
 - Function bodies always render across multiple lines — `fn add(x: Int, y: Int) -> Int { x + y }` reformats to the multi-line shape shown above. This matches the dominant convention from gofmt, Prettier, dart format, zig fmt, swift-format, and rustfmt's default. Empty bodies stay flat as `{}`. The rule applies to top-level `fn`s, impl-block functions, and interface default functions; inline expression-position blocks like `if cond { x }` keep their flat form (see §11).
 - Last expression is the return value
-- `return` keyword for early exit — `return value` exits the nearest function boundary with `value`. This applies equally to named functions (`fn name(...)`) and lambdas (`fn ... -> ...`) — no non-local returns. Bare `return` is valid when the function returns `Unit`. A bare `return` that the body would reach its end without is a compiler error: one that is the last statement of a function, lambda or test body, reached through the last statement of a block, either branch of a final `if` or any arm of a final `case` (`` this `return` does nothing: it is the last statement of `reset` ``), and a final `if` or `case` whose every branch is empty or a bare `return` (`` this `if` does nothing: every branch returns and nothing follows it ``). A bare `return` after a `dbg`, or after an assertion outside a test body, is not one: it discards that statement's value. A tail `return value` is legal, and `nomi fmt` rewrites it to `value`. A statement after one that always exits can never run, and is a compiler error at that statement whose help is "remove it". A statement always exits when it is a `return`, `break` or `continue` (`unreachable code after return`); an `if` with an `else` whose every branch always exits (`` unreachable code: the `if` above returns in every branch ``); a `case` whose every arm always exits (`` unreachable code: the `case` above returns in every arm ``); or a block statement that holds one (`unreachable code: the block above always returns`). An `Iter.loop` statement whose callback holds no `break` of its own never finishes, and counts the same way (`unreachable code after a loop that never breaks`, with the help "remove it, or give the loop a `break` that ends it"); see §12 *`loop`*. A `todo` statement is `Unit` and does not exit, so code after a stub stays legal while it is written, and no other call counts as an exit.
+- `return` keyword for early exit — `return value` exits the nearest function boundary with `value`. This applies equally to named functions (`fn name(...)`) and lambdas (`fn ... -> ...`). Nomi has no non-local control flow: `return`, `break` and `continue` each leave only the function they are written in, with no exceptions (§12 *Named Functions as Callbacks*). Bare `return` is valid when the function returns `Unit`. A bare `return` that the body would reach its end without is a compiler error: one that is the last statement of a function, lambda or test body, reached through the last statement of a block, either branch of a final `if` or any arm of a final `case` (`` this `return` does nothing: it is the last statement of `reset` ``), and a final `if` or `case` whose every branch is empty or a bare `return` (`` this `if` does nothing: every branch returns and nothing follows it ``). A bare `return` after a `dbg`, or after an assertion outside a test body, is not one: it discards that statement's value. A tail `return value` is legal, and `nomi fmt` rewrites it to `value`. A statement after one that always exits can never run, and is a compiler error at that statement whose help is "remove it". A statement always exits when it is a `return`, `break` or `continue` (`unreachable code after return`); an `if` with an `else` whose every branch always exits (`` unreachable code: the `if` above returns in every branch ``); a `case` whose every arm always exits (`` unreachable code: the `case` above returns in every arm ``); or a block statement that holds one (`unreachable code: the block above always returns`). An `Iter.loop` statement whose callback holds no `break` of its own, a lambda or a named step passed as the callback, never finishes, and counts the same way (`unreachable code after a loop that never breaks`, with the help "remove it, or give the loop a `break` that ends it"); see §12 *`loop`*. A `todo` statement is `Unit` and does not exit, so code after a stub stays legal while it is written, and no other call counts as an exit.
 - `try x` is sugar for `case x { Ok(val) -> val, Err(e) -> return Err(e) }` (and similarly for `Maybe`). Since `return` exits the nearest function boundary, `try` inside a lambda returns from that lambda, not from an outer function.
 - `defer call(args)` evaluates the call's operands where it stands and runs the call when the block it is written in ends, the most recently registered first. A function's or a lambda's body is such a block, so a `defer` in a lambda runs when that invocation of the lambda ends, and one in an `Iter.loop` or other iteration callback runs at the end of each iteration, before the next starts. Every way out of the block runs them: reaching its end, `return`, a callback's `break` or `continue`, `try` propagating a failure, and a trap.
 - `->` separates the parameter list from the return type: `fn add(x: Int, y: Int) -> Int`. In a generic function the return type comes before the `where` clause: `fn shown<T>(x: T) -> String where T: Display { ... }`.
@@ -366,14 +378,14 @@ fn add(x: Int, y: Int) -> Int {
 - `fn` declarations may also appear inside a function body. A nested `fn` is scoped to its enclosing block — visible to siblings in the same block (and inner blocks) but invisible outside. Nested fns can close over names in scope, just like lambdas. They cannot carry `pub` (only file-level declarations can).
   ```nomi
   fn classify_all(xs: List<Int>) -> List<Int> {
-    fn classify(n: Int) -> Int {
-        // helper, only visible inside classify_all
-        if n < 0 { return 0 }
-        if n > 100 { return 100 }
-        n
-    }
+      fn classify(n: Int) -> Int {
+          // helper, only visible inside classify_all
+          if n < 0 { return 0 }
+          if n > 100 { return 100 }
+          n
+      }
 
-    xs |> Iter.map(classify) |> Iter.to_list()
+      xs |> Iter.map(classify) |> Iter.to_list()
   }
   ```
 - A `struct`, `enum`, `type`, `typealias` or `interface` may also be declared inside a function body, scoped as a nested `fn` is. Its name is a type in every annotation in that block and its inner blocks: a binding's (`m: Meters = Meters(3)`), a lambda parameter's and its default's, a function type, and a type argument (`ident<Meters>(m)`). An `impl` block or a `derive` declaration may not: behavior is declared at module top level, and one inside a body is the error `` an `impl` block must appear at module top-level, not inside a body `` (or `` a `derive` declaration ... ``).
@@ -401,11 +413,15 @@ A default is checked against its parameter's type, on a `fn` and on a `host fn` 
 When a default is **not** trailing, positional args still fill consecutive slots from the start, so to leave a non-trailing default empty you switch to named args for everything after it:
 
 ```nomi
-fn middle(a: Int, b: Int = 10, c: Int) -> Int { ... }
+fn middle(a: Int, b: Int = 10, c: Int) -> Int {
+    ...
+}
 
-middle(1, 2, 3)            // a=1, b=2, c=3
-middle(1, c: 3)            // a=1, b=10 (default), c=3
-middle(1, 2)               // error: missing argument for parameter 'c' (positional can't skip b)
+middle(1, 2, 3) // a=1, b=2, c=3
+
+middle(1, c: 3) // a=1, b=10 (default), c=3
+
+middle(1, 2) // error: missing argument for parameter 'c' (positional can't skip b)
 ```
 
 An omitted default is evaluated once per call, after the written arguments, in parameter order; a default may refer to earlier parameters.
@@ -417,7 +433,9 @@ The one exception is the **trailing-lambda routing** described in the next subse
 **Defaults apply to calls, not to function values.** A function named as a value has its full parameter list, defaulted parameters included, so it does not fit a function type with fewer parameters. Passing it, binding it, or piping it where the shorter type is expected is a compile error that suggests the lambda to write instead, which says which arguments the defaults fill:
 
 ```nomi
-fn parse(s: String, strict: Bool = False) -> Maybe<Int> { ... }
+fn parse(s: String, strict: Bool = False) -> Maybe<Int> {
+    ...
+}
 
 parse("12") // OK — a call; strict = False
 
@@ -616,7 +634,11 @@ failures = Iter.loop(fn attempts = 0 -> {
 Iter.loop(fn state = #(n / 2.0, 0.0) -> {
     #(guess, prev) = state
     diff = guess - prev
-    if diff > -0.0001 and diff < 0.0001 { break state }
+
+    if diff > -0.0001 and diff < 0.0001 {
+        break state
+    }
+
     next = (guess + n / guess) / 2.0
     #(next, guess)
 })
@@ -659,9 +681,9 @@ fn pair(n: Int) -> List<Int> {
 }
 
 fn examples() {
-    f: (Int) -> String = shown      // Int fits Display
-    g: (List<Int>) -> Int = count   // List<Int> fits Iter<Int>
-    h: (Int) -> Iter<Int> = pair    // the result List<Int> fits Iter<Int>
+    f: (Int) -> String = shown // Int fits Display
+    g: (List<Int>) -> Int = count // List<Int> fits Iter<Int>
+    h: (Int) -> Iter<Int> = pair // the result List<Int> fits Iter<Int>
 }
 ```
 
@@ -674,8 +696,11 @@ which `&1`, `&2`, ... stand for its parameters.
 
 ```nomi
 big = Iter.filter(xs, &(&1 > 2)) |> Iter.to_list()
+
 points = Iter.map(xs, &#Point{x: &1, y: 0}) |> Iter.to_list()
+
 lengths = Iter.map(names, &String.length(&1)) |> Iter.to_list()
+
 add: (Int, Int) -> Int = &(&1 + &2)
 ```
 
@@ -834,7 +859,7 @@ A capture routes to a trailing callback as a lambda does
 (`do_thing(5, &(&1 * 2))` past a defaulted parameter, *Lambdas at Call
 Sites* above), and it is no reduction's starting value
 (`Iter.reduce(xs, &(&1 + &2))` is `` `Iter.reduce` needs a starting value
-``). It is an operand like any other value: in `&(&1 > 2) and ready`
+``; `Iter.reduce(xs, &(&1 + &2), from: 0)` gives it one). It is an operand like any other value: in `&(&1 > 2) and ready`
 nothing expects a function of the capture, so it is `` cannot infer type
 for `&1` in `&(&1 > 2)` ``, and the function of the whole condition is
 `&(&1 > 2 and ready)`.
@@ -919,7 +944,7 @@ through `nomi build --web`, a WASI runtime through the reactor `nomi build
 result cross as JSON, through `ToJson` and `FromJson`.
 
 ```nomi
-import std/json.{ToJson, FromJson}
+import std/json.{FromJson, ToJson}
 
 struct Game {
     word: String
@@ -1413,7 +1438,9 @@ fn days_value(days: Civil.Days) -> Int {
 }
 
 impl Add<Civil.Days, Date> for Date {
-    fn add(lhs: Date, rhs: Civil.Days) -> Date { ... }
+    fn add(lhs: Date, rhs: Civil.Days) -> Date {
+        ...
+    }
 }
 ```
 
@@ -1446,7 +1473,7 @@ Nominal record types are declared with `struct` — snake_case field names follo
 
 Struct *declarations* take a single space before `{` (matching every other brace-bodied declaration keyword); struct *construction* uses no space (`#Foo{a: 3, b: "x"}`).
 
-Each name in a declaration is declared once: a struct field, a struct-shaped variant's field, an enum variant, an interface function, or a function's or lambda's parameter declared twice is a compile error at the second (``field 'x' is declared twice in struct `Point`; the first is at line 2``), as a repeated field in an anonymous record type is. Two fields on one line of a struct body, or two functions on one line of an interface body, are a parse error; a semicolon may separate them.
+Each name in a declaration is declared once: a struct field, a struct-shaped variant's field, an enum variant, an interface function, or a function's or lambda's parameter declared twice is a compile error at the second (``field 'x' is declared twice in struct `Point` ``, with a note at the first), as a repeated field in an anonymous record type is. Two fields on one line of a struct body, or two functions on one line of an interface body, are a parse error; a semicolon may separate them.
 
 The newline-separated field layout applies only to **declaration bodies**. Anonymous struct *type expressions* (`#{name: String, age: Int}` in type position), struct construction literals (`#Foo{a: 3}`), struct-shaped enum variant payloads (`Card {rank: Int}`), and pattern syntax all keep their comma-separated shape unchanged.
 
@@ -1466,15 +1493,19 @@ struct User {
 }
 
 fn rename(user: User, name: String) -> User {
-    #User{name: name, age: user.age}
+    #User{name, age: user.age}
 }
 
 impl Display for User {
-    fn to_string(user: User) -> String { ... }
+    fn to_string(user: User) -> String {
+        ...
+    }
 }
 
 impl Serializable for User {
-    fn serialize(user: User) -> String { ... }
+    fn serialize(user: User) -> String {
+        ...
+    }
 }
 ```
 
@@ -1793,6 +1824,7 @@ updated = #{..point, x: 9}
 
 ```nomi
 moved = Struct.update(user, #{address: #{.., city: "NYC"}})
+
 same = #{..user, address: #{.., city: "NYC"}}
 ```
 
@@ -1848,10 +1880,14 @@ pub struct User {
     age: Int
 }
 
-pub fn create(name: String, age: Int) -> User { ... } // file-level function — called as users.create(...)
+pub fn create(name: String, age: Int) -> User {
+    ...
+} // file-level function — called as users.create(...)
 
 impl Display for User {
-    fn to_string(user: User) -> String { ... } // implementation function — called as User.to_string(...) / Display.to_string(...)
+    fn to_string(user: User) -> String {
+        ...
+    } // implementation function — called as User.to_string(...) / Display.to_string(...)
 }
 ```
 
@@ -2099,8 +2135,11 @@ Concrete consequences:
 
 ```nomi
 names = users |> Iter.map(.name) |> Iter.to_list()
+
 oldest = Iter.sort_by(people, .age) |> Iter.last()
+
 cities = users |> Iter.map(.address.city) |> Iter.to_list()
+
 seconds = pairs |> Iter.map(.1) |> Iter.to_list()
 ```
 
@@ -2139,10 +2178,25 @@ fn main() {
         #User{name: "Ada", age: 36, address: #Address{city: "London"}},
         #User{name: "Alan", age: 41, address: #Address{city: "Wilmslow"}},
     ]
-    io.print(users |> Iter.map(.name) |> Iter.to_list())
-    io.print(Iter.sort_by(users, .age) |> Iter.map(.address.city) |> Iter.to_list())
+
+    io.print(
+        users
+        |> Iter.map(.name)
+        |> Iter.to_list()
+    )
+
+    io.print(
+        Iter.sort_by(users, .age)
+        |> Iter.map(.address.city)
+        |> Iter.to_list()
+    )
+
     age: (User) -> Int = .age
-    io.print(Iter.map(users, age) |> Iter.to_list())
+
+    io.print(
+        Iter.map(users, age)
+        |> Iter.to_list()
+    )
 }
 ```
 
@@ -2242,15 +2296,19 @@ id: Identifier = UserId("abc") // id is an Identifier
 **Subtype coercion.** Embedded types are subtypes of their containing enum. A value of type `Circle` (where `Shape` has `embeds Circle`) is also a value of type `Shape`, and flows into `Shape`-typed positions — function arguments, list elements, return values, bindings — without explicit `Shape.Circle(...)` wrapping:
 
 ```nomi
-fn render(s: Shape) -> String { ... }
+fn render(s: Shape) -> String {
+    ...
+}
 
 c = #Circle{radius: 5.0}
-render(c)                                              // Circle -> Shape arg
+
+render(c) // Circle -> Shape arg
 
 shapes: List<Shape> = [c, #Circle{radius: 1.0}, Shape.Point]
-                                                       // each element coerces independently
 
+// each element coerces independently
 uid = UserId("alice")
+
 ids: List<Identifier> = [uid, UserId("bob"), Identifier.Anonymous]
 ```
 
@@ -2263,6 +2321,7 @@ enum Box<T> {
 }
 
 b: Box<Shape> = Box.Full(c) // a Box<Shape>
+
 h: Maybe<Shape> = Some(c)
 ```
 
@@ -2296,13 +2355,18 @@ enum Session {
 // A struct shape, inline or embedded: the brace form and the record call
 // form, piped or not. Omitted fields take their defaults.
 a = #Shape.Circle{radius: 2.0}
+
 b = Shape.Circle(#{radius: 2.0})
-c = Shape.Circle(#{})                       // #Circle{radius: 1.0}
-d = #{height: 3.0} |> Shape.Rectangle()     // #Rectangle{width: 2.0, height: 3.0}
-e = Shape.Rectangle(dimensions)             // a record value, as `Circle(rec)` takes one
+
+c = Shape.Circle(#{}) // #Circle{radius: 1.0}
+
+d = #{height: 3.0} |> Shape.Rectangle() // #Rectangle{width: 2.0, height: 3.0}
+
+e = Shape.Rectangle(dimensions) // a record value, as `Circle(rec)` takes one
 
 // An embedded wrapping distinct: the distinct's call form, from its inner value.
-f = Session.UserId("alice")                 // builds a UserId
+f = Session.UserId("alice") // builds a UserId
+
 g = "bob" |> Session.UserId()
 
 // An embedded zero-sized type: the value, with no arguments.
@@ -2494,7 +2558,9 @@ case result {
         io.print("got ${n}")
         n
     }
-    Err(_) -> 0
+
+    Err(_) ->
+        0
 }
 ```
 
@@ -2668,9 +2734,14 @@ struct Transaction {
 
 fn describe(result: Result<Transaction, String>) -> String {
     case result {
-        Ok(#Transaction{kind: .Deposit} as t) -> "deposited ${t.ending_balance - t.starting_balance}"
-        Ok(t) -> "withdrew ${t.starting_balance - t.ending_balance}"
-        Err(msg) -> msg
+        Ok(#Transaction{kind: .Deposit} as t) ->
+            "deposited ${t.ending_balance - t.starting_balance}"
+
+        Ok(t) ->
+            "withdrew ${t.starting_balance - t.ending_balance}"
+
+        Err(msg) ->
+            msg
     }
 }
 
@@ -2851,7 +2922,10 @@ stand in for, so every path through the `else` leaves:
 
 ```nomi
 fn address(config: Map<String, String>) -> String {
-    %{"host" => host, "port" => port} = config else { return "no address" }
+    %{"host" => host, "port" => port} = config else {
+        return "no address"
+    }
+
     "${host}:${port}"
 }
 
@@ -2860,6 +2934,7 @@ fn port_of(config: Map<String, Int>) -> Int {
         %{"fallback" => fallback} -> return fallback
         _ -> return 80
     }
+
     port
 }
 ```
@@ -2992,7 +3067,9 @@ Ok(user) = load(id) else {
 // A fallback value instead of leaving
 Some(email) = user.email else { "none" }
 
-Ok(#(width, height)) = parse_size(text) else { #(80, 24) }
+Ok(#(width, height)) = parse_size(text) else {
+    #(80, 24)
+}
 
 // Arms mixing a fallback with leaving
 Ok(port) = parse_port(text) else {
@@ -3260,6 +3337,7 @@ Iter.loop(fn -> {
 // count and the last result, since `break` answers the state's type
 #(_, result) = Iter.loop(fn state: #(Int, Result<Data, String>) = #(0, Err("not tried")) -> {
     #(attempts, _) = state
+
     case fetch(url) {
         Ok(data) -> break #(attempts, Ok(data))
         Err(_) when attempts >= 3 -> break #(attempts, Err("gave up"))
@@ -3292,12 +3370,43 @@ fn sum_valid(total: Int, value: Int) -> Int {
     total + value
 }
 
-result = Iter.reduce(values, fn total = 0, value -> sum_valid(total, value))
+result = Iter.reduce(values, sum_valid, from: 0)
 ```
 
-`Iter.reduce` takes its starting value only from its callback lambda's first-parameter default, so a named function is passed to it from a seeded lambda that forwards both parameters, `fn total = 0, value -> sum_valid(total, value)`. The lambda only forwards, so `sum_valid`'s `break` and `continue` act on the reduction. Passing the function itself, `Iter.reduce(values, sum_valid)`, is a compile error (§19).
+Nomi has no non-local control flow. `return`, `break` and `continue` each leave only the function they are written in. `return value` hands a value back to the caller; `continue`, `break` and `break value` hand a signal back to the iteration function that called the callback. There are no exceptions.
 
-Using the keywords makes the function **iter-sensitive**: the analyzer requires every call site to be an iter-callback position (passed as the callback to an iteration function, as above). Calling an iter-sensitive function directly — outside any iteration context — is a compiler error, because `break`/`continue` would have no iteration to control. So is naming one as a value anywhere but directly as an iteration function's callback: `f = stop`, `apply(stop, 1)` and `[stop]` are errors, since a call through the value is a call site the analyzer cannot see. Write `Iter.map(xs, stop)`, or a lambda that calls it in a callback position.
+Using the keywords makes the function **iter-sensitive**, and so it is used in one way only: passed as an iteration callback itself, positional, by name or piped (`Iter.map(xs, keep)`, `Iter.find(xs, f: is_big)`, `xs |> Iter.map(keep)`). A fold or a loop takes its starting value by name, `from:` (§19 *Iter Interface*, *Starting values*, and *`loop`* below): `Iter.reduce(values, sum_valid, from: 0)`, `Iter.loop(step, from: 0)`. The iteration function calls it, so its signal reaches the iteration function.
+
+Any call of it is a compiler error at the call, since the signal would cross the caller's boundary too: as the whole body of a callback lambda (`fn x -> keep(x)`) or a capture (`&keep(&1)`), after a binding, in an `if` or `case` arm, as an argument or an operand, from another function, in a `defer` or a `concurrent` block, or outside every callback. Naming the function as a value (`f = keep`, `apply(keep, 1)`, `[keep]`) is an error too. The error suggests passing the function, in a call its parameters fit: the iteration whose callback holds the call when the function fits that callback, otherwise `Iter.map` for one parameter, or `Iter.reduce` with `from:` for two whose first parameter's type is its result's:
+
+```text
+`keep` uses `continue`, so it cannot be called: pass it as an iteration callback itself, as in `Iter.map(xs, keep)`
+`add_until_zero` uses `break`, so it cannot be called: pass it as an iteration callback itself, as in `Iter.reduce(xs, add_until_zero, from: <start>)`
+```
+
+Inside a callback the help is "to decide in this callback instead, return a `Maybe` or an enum from `keep` and write `continue` here". To decide inside a callback, have the helper answer a `Maybe` or an enum, and write the `continue` in the callback:
+
+```nomi
+import std/io
+
+fn score(n: Int) -> Maybe<Int> {
+    if n < 0 { None } else { Some(n * 2) }
+}
+
+fn main() {
+    doubled =
+        Iter.map([3, -1, 4], fn n -> {
+            Some(s) = score(n) else { continue }
+            io.print("kept ${s}")
+            s
+        })
+        |> Iter.to_list()
+
+    io.inspect(doubled) // [6, 8]
+}
+```
+
+A `break` or `continue` written in a lambda or capture that is not itself an iteration callback, in a nested `fn`, or directly in a `concurrent` block has no iteration to act on, and is a compiler error too. An iter-sensitive function may be `pub`: which of `break` and `continue` a function uses is part of how other files may use it, and each file's uses are checked as the declaring file's are.
 
 Summary:
 
@@ -3318,7 +3427,7 @@ countdown = Iter.loop(fn n = 5 -> {
 })
 ```
 
-The callback's type is `(S) -> S` — one parameter for the current state, returning the next state. The next state is the callback's result, never an operand of `continue`: bare `continue` repeats with the state unchanged, and `continue #(i + 1, s)` is rejected rather than read as a new state. The default value (`n = 5`) provides the initial state and pins the type `S`. This is the same pattern as `Iter.reduce`, where the accumulator parameter's default provides the initial value. That default is the only initial state, so a callback without one is a compile error at the callback, "`Iter.loop` needs a starting state": a lambda whose parameter has no default (`Iter.loop(fn n: Int -> …)`) and a function value (`Iter.loop(step)`). To loop with a named function, call it from a seeded lambda: `Iter.loop(fn n = 0 -> step(n))`.
+The callback's type is `(S) -> S` — one parameter for the current state, returning the next state. The next state is the callback's result, never an operand of `continue`: bare `continue` starts the next round with the state unchanged, and `continue #(i + 1, s)` is rejected rather than read as a new state. A stateless loop's `continue` is the next round of a read loop; a loop with a state and no effect whose `continue` is reached runs forever, as any loop that reaches no `break` does. The default value (`n = 5`) provides the initial state and pins the type `S`. The initial state may be given by name instead, `from:`, with any callback: `Iter.loop(step, from: 5)` over a named function, or `Iter.loop(fn n -> …, from: 5)`. This is the same rule as `Iter.reduce`'s: exactly one of `from:` and the parameter's default gives the initial state. A callback with neither is a compile error at the callback, "`Iter.loop` needs a starting state", whose help names both spellings: a lambda whose parameter has no default (`Iter.loop(fn n: Int -> …)`) and a function value (`Iter.loop(step)`). Both is "`Iter.loop` has two starting states: `from:` and the default of the callback's parameter", at `from:`, and `from:` beside a stateless callback is "a stateless `Iter.loop` takes no starting state". A starting state written positionally (`Iter.loop(step, 5)`) is "`Iter.loop` takes its starting state by name".
 
 `break value` exits the loop and produces the final value. The state type and the break type are the same type `S` — `break "hello"` inside `Iter.loop(fn n = 5 -> …)` is a compile error.
 
@@ -3340,8 +3449,11 @@ Iter.loop(fn -> {
 account = Iter.loop(fn account = #Account{} -> {
     io.print("What is the starting balance?")
     Ok(input) = io.read_line() else { break }
+
     case parse_amount(input) {
-        Ok(amount) -> break #{..account, balance: amount}
+        Ok(amount) ->
+            break #{..account, balance: amount}
+
         Err(msg) -> {
             io.print(msg)
             account
@@ -3355,6 +3467,7 @@ account = Iter.loop(fn account = #Account{} -> {
 // last result, and the loop answers both
 #(_, result) = Iter.loop(fn state: #(Int, Result<Data, String>) = #(0, Err("not tried")) -> {
     #(attempts, _) = state
+
     case fetch(url) {
         Ok(data) -> break #(attempts, Ok(data))
         Err(_) when attempts >= 3 -> break #(attempts, Err("gave up"))
@@ -3395,7 +3508,7 @@ fn square_root(n: Float) -> Float {
 }
 
 fn main() {
-    io.inspect(square_root(2.0))  // 1.4142156862745097
+    io.inspect(square_root(2.0)) // 1.4142156862745097
 }
 ```
 
@@ -3408,7 +3521,7 @@ A loop whose callback holds no `break` of its own never finishes. A `break` insi
 Iteration in Nomi composes from a closed set of primitives. There is no user-defined-iteration-function escape hatch — and we haven't found one we'd need:
 
 - **The `Iter` interface** — implement `each_while` (push each element to a `yield` callback until it returns `False`) on a type, and every `Iter` owner function (`Iter.map`, `Iter.reduce`, `Iter.take_while`, …) applies to values of that type.
-- **`Iter.loop`** — general state-threading; covers anything you'd reach for an imperative loop.
+- **`Iter.loop`** — general state-threading; covers anything you'd reach for an imperative loop. Its starting state is the callback lambda's parameter default or `from:` (`Iter.loop(step, from: 0)`).
 - **Composing existing iter ops via pipes** — `Iter.filter`, `Iter.take_while`, `Iter.reduce`, and the rest chain freely.
 
 Every generic iteration op is an `Iter` owner function; container-specific ops (`Map.map_values`, `Set.union`, …) build on them internally. The set of call-sites that accept `break`/`continue` is the closed list of iter-family functions plus `Iter.loop`, and the analyzer enforces that closure. The lowering target for `break`/`continue`/`return` is the compiler/runtime-internal signal described in "`break` and `continue` in Callbacks" above — not a Nomi type, with no surface spelling.
@@ -3431,7 +3544,10 @@ fn parse_args_acc(args: List<String>, config: Config) -> Config {
             config
 
         ["--port", value, ..rest] ->
-            parse_args_acc(rest, Struct.update(config, #{port: String.to_int(value) |> Maybe.with_default(8080)}))
+            parse_args_acc(
+                rest,
+                Struct.update(config, #{port: String.to_int(value) |> Maybe.with_default(8080)}),
+            )
 
         ["--verbose", ..rest] ->
             parse_args_acc(rest, Struct.update(config, #{verbose: True}))
@@ -3454,7 +3570,13 @@ fn parse_args(args: List<String>) -> Config {
                 break state
 
             ["--port", value, ..rest] ->
-                #(rest, Struct.update(config, #{port: String.to_int(value) |> Maybe.with_default(8080)}))
+                #(
+                    rest,
+                    Struct.update(
+                        config,
+                        #{port: String.to_int(value) |> Maybe.with_default(8080)},
+                    ),
+                )
 
             ["--verbose", ..rest] ->
                 #(rest, Struct.update(config, #{verbose: True}))
@@ -3515,7 +3637,8 @@ fn factorial(n: Int) -> Int {
     factorial_acc(n, 1)
 }
 
-fn factorial_acc(n: Int, acc: Int) -> Int {  // private helper
+fn factorial_acc(n: Int, acc: Int) -> Int {
+    // private helper
     case {
         n <= 1 -> acc
         _ -> factorial_acc(n - 1, n * acc)
@@ -3547,9 +3670,9 @@ fn depth<T>(tree: Tree<T>) -> Int {
 }
 
 fn main() {
-    io.inspect(factorial(5))       // 120
-    io.inspect(factorial_loop(5))  // 120
-    io.inspect(depth(Tree.Node(Tree.Leaf(1), Tree.Leaf(2))))  // 2
+    io.inspect(factorial(5)) // 120
+    io.inspect(factorial_loop(5)) // 120
+    io.inspect(depth(Tree.Node(Tree.Leaf(1), Tree.Leaf(2)))) // 2
 }
 ```
 
@@ -3650,7 +3773,7 @@ An interface body is an item list. Each item's *form* determines its role, on tw
 
 Every bodied/host item is part of the contract (a default), reachable both interface-qualified (`Iter.known_count(xs)`) and type-qualified on an implementor (`List.known_count(xs)`) with full generic inference — the two are the *same* function, selected by the concrete type bound to `self`. Operations that take no `self` are **not** interface functions — put them in an inherent `impl Iface { ... }` block beside the interface and call them owner-qualified (`Iter.from(0)`).
 
-> The example uses `known_count` because, for `Iter`, that is the *only* default — the interface is pure protocol, just `each_while` (required) plus the lone `open` default `known_count`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`scan`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`map_reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.get`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` is the single op that's a dispatched default rather than an owner function, because it's the protocol hook `Iter.count` consults for an O(1) count (see §19).
+> The example uses `known_count` because, for `Iter`, the defaults are protocol hooks — the interface is pure protocol, just `each_while` (required) plus the two `open` defaults `known_count` and `infinite?`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`scan`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`map_reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.get`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` and `infinite?` are the only ops that are dispatched defaults rather than owner functions, because they are the protocol hooks `Iter.count` consults for an O(1) count and every full-consuming terminal consults before it starts (see §19).
 
 A Nomi-bodied default function may give its **trailing parameters default values**, exactly like a free `fn` (`fn announce(value: self, loud: Bool = False) -> String { … }`); a caller omitting the trailing argument gets the default. Defaults are rejected on a required or host-backed function — only a Nomi default body carries the value at runtime.
 
@@ -3856,7 +3979,9 @@ The same interface-implementation form is used whether the implementing type is 
 import users.User
 
 impl Formatted for User {
-    fn format(user: User, style: String) -> String { ... }
+    fn format(user: User, style: String) -> String {
+        ...
+    }
 }
 ```
 
@@ -3868,6 +3993,7 @@ Once accepted, every manual impl feeds the same implementation model: coherence 
 
 ```nomi
 pub opaque type Duration Int
+
 derive Equatable for Duration
 derive Hashable for Duration
 derive Comparable for Duration
@@ -3875,21 +4001,27 @@ derive Comparable for Duration
 struct Box<T> {
     value: T
 }
+
 derive Display for Box<T> where T: Display
 
 struct User {
     first_name: String
     age: Int
 }
+
 derive ToJson for User with #ToJson.Options{rename_all: Json.Case.Camel}
 derive FromJson for User with #FromJson.Options{rename_all: Json.Case.Camel}
 
 impl Debug for Duration {
-    fn inspect(d: Duration) -> String { ... }
+    fn inspect(d: Duration) -> String {
+        ...
+    }
 }
 
 impl Display for Duration {
-    fn to_string(d: Duration) -> String { ... }
+    fn to_string(d: Duration) -> String {
+        ...
+    }
 }
 ```
 
@@ -4050,7 +4182,9 @@ struct User {
 
 impl Formatted for User {
     // ok — the `self` position uses descriptive name "user", non-User param "style" matches
-    fn format(user: User, style: String) -> String { ... }
+    fn format(user: User, style: String) -> String {
+        ...
+    }
 }
 
 struct Report {
@@ -4059,7 +4193,9 @@ struct Report {
 
 impl Formatted for Report {
     // compiler error — "s" doesn't match "style"
-    fn format(report: Report, s: String) -> String { ... }
+    fn format(report: Report, s: String) -> String {
+        ...
+    }
 }
 ```
 
@@ -4078,12 +4214,16 @@ struct Cache<T> {
 
 impl Store<String, T> for Cache<T> {
     // ok — V is T
-    fn get(cache: Cache<T>, key: String) -> Maybe<T> { ... }
+    fn get(cache: Cache<T>, key: String) -> Maybe<T> {
+        ...
+    }
 }
 
 impl Store<String, T> for Shelf<T> {
     // compiler error — return type Maybe<Int> does not match Maybe<T>
-    fn get(shelf: Shelf<T>, key: String) -> Maybe<Int> { ... }
+    fn get(shelf: Shelf<T>, key: String) -> Maybe<Int> {
+        ...
+    }
 }
 ```
 
@@ -4141,10 +4281,7 @@ The bound list is conjunctive — every interface in the list must be satisfied 
 Generic headers introduce names only. Constraints are written in a `where` clause. On functions it appears after the return type; on type declarations it appears after the type parameter list and before the body:
 
 ```nomi
-fn step_by<T, S>(
-    r: Range<T>,
-    by: S,
-) -> Iter<T> where T: Comparable and Steppable<S> {
+fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S> {
     #StepByRange{range: r, by}
 }
 ```
@@ -4169,8 +4306,9 @@ fn render<T>(item: T, style: String) -> String where T: Formatted {
     Formatted.format(item, style)
 }
 
-render(#User{name: "Alice"}, "pretty")       // "User: Alice"
-render(#Report{title: "Q1"}, "pretty")       // "Report: Q1"
+render(#User{name: "Alice"}, "pretty") // "User: Alice"
+
+render(#Report{title: "Q1"}, "pretty") // "Report: Q1"
 ```
 
 `Formatted.format(item, style)` means "call whichever `format` implementation `T` provides." This interface-qualified call form is implemented today and used throughout `std/iter.nomi` (for `Iter.each_while(...)` over a polymorphic `source: Iter<T>` parameter).
@@ -4202,14 +4340,44 @@ its upstream as an existential `Iter<T>`, and typed literals pass
 
 A value of interface type may hold any implementor, and an interface
 requires nothing of its implementors but its own functions; there are no
-supertraits. So the only interfaces a value of type `Scale` can be used at
-are `Scale` itself and `Debug`, and `==` compares it structurally. Using
-another one on it (`Display.to_string(other)`, `"${other}"`, `a < b`, a
-generic call whose bound names another interface, or the same through a
-`List<Scale>`) is an error at the use, `` `other` is a `Scale`, and Scale
-does not require Display of its implementors ``, whose hint writes a type
-parameter bounded by both: `fn f<T>(other: T) -> String where T: Scale and
-Display`.
+supertraits. So the interfaces a value of type `Scale` can be used at are
+`Scale` itself, `Debug`, `Equatable` and `Hashable`. Every type has a
+`Debug`, and equality and hashing need nothing of the implementor (below).
+Using any other one on it (`Display.to_string(other)`, `"${other}"`, `a <
+b`, `Iter.sort(scales)`, a generic call whose bound names another interface,
+or the same through a `List<Scale>`) is an error at the use, `` `other` is a
+`Scale`, and Scale does not require Display of its implementors ``, whose
+hint writes a type parameter bounded by both: `fn f<T>(other: T) -> String
+where T: Scale and Display`. `Comparable` is never satisfied, since two
+values of different types have no order, and its error says so: `` `a` is a
+`Scale`, and Scale does not require Comparable of its implementors: values
+of different types have no order ``.
+
+`==` and `!=` on two values of interface type compare the values they hold,
+and a `Set` element or a `Map` key of interface type (`Set<Scale>`,
+`Map<Scale, Int>`, `Map<List<Scale>, Int>`) matches by the same rule. Two
+values held as different concrete types are unequal: a `Point` and a `Spot`
+with the same fields, an `Int` and a `String`, a `List<Int>` and a
+`List<String>` (each empty), or a value of an enum with an `embeds` variant
+and a value of the struct it embeds. Two values of one concrete type compare
+as `==` on that type does (§30): through its hand-written `impl Equatable`
+when it has one, structurally otherwise. Hashing follows the type's
+hand-written `impl Hashable`, as a key of that type does (`Map<K, V>`).
+This holds for std's `Display` and `Debug` as for an interface of your own:
+two empty lists of different element types held as `Display` are two
+values, and an `embeds` enum's value held as `Display` renders through the
+enum's `impl Display`, not the one of the struct it embeds.
+
+A value of interface type, a generic interface's instance (`Has<Int>`)
+included, therefore satisfies an `Equatable` or `Hashable` bound with that
+meaning: `List.contains?(scales, s)`, `Iter.contains?`, `Iter.chunk_by` with
+an interface-valued key, `Iter.to_set`, a function of your own `where T:
+Equatable` or `where T: Hashable` given a `Scale`, and a `derive Equatable`
+or `derive Hashable` on a struct with a `Scale` field each compare and hash
+the held values that way. `Equatable.equal?(a, b)` on two `Scale` values is
+`a == b`, and `Hashable.hash(s)` is the hash a `Set<Scale>` gives `s`, so two
+values `==` calls equal hash alike. An `Iter<T>` value is the exception: it
+is a function and has no equality (§30).
 
 A call through the interface on such a value needs nothing but the receiver
 to be the implementor. `Sized.same(e)` with `fn same(x: self) -> self`, a
@@ -4260,7 +4428,7 @@ A type may implement one generic interface at several type arguments: `impl Cont
 - **Each writes its type arguments.** An impl whose header leaves them to be inferred beside another impl of the interface for the type is the error `` `Box` implements `Holds` more than once, so each impl writes its type arguments in its header ``, whose help is the header to write (`` write `impl Holds<Int> for Box` ``).
 - **No two overlap.** Either every impl names its interface type arguments with distinct concrete types, or there is exactly one impl, which may be generic in them. `impl Holds<T> for Wrap<T>` beside `impl Holds<Int> for Wrap<T>` is the error `` overlapping impls: `Holds<T>` for `Wrap` is generic in its type arguments, so it covers `Holds<Int>`, which `Wrap` also implements ``. Two impls at the same arguments are a duplicate impl, `` duplicate impl: `Holds<Int>` is implemented for `Box` by modules main (function `holds?`); a type implements an interface once at each set of type arguments ``.
 
-The orphan rule applies to each impl as to any other (§*Foreign Types*): the interface or the receiver is the module's own. A type argument the module declares counts for neither, so `impl Contains<Tag> for String` outside std is an orphan impl.
+The orphan rule applies to each impl as to any other (§*Foreign Types*): the interface, the receiver, or a type heading an input type argument is the module's own. So `impl Contains<Tag> for String` is allowed in the module that declares `Tag`, since `contains?` takes a `Tag`, and `impl Contains<Int> for String` outside std is an orphan impl.
 
 A call takes the impl its arguments' types choose, statically, and calls it directly: `String.contains?(s, "x")`, `Contains.contains?(s, '-')`, a pipe stage `` s |> String.contains?(Regex`\d`) ``, a partial capture `&String.contains?(&1, "x")` where a `(String) -> Bool` is expected, an operator, and a generic call whose bound `where C: Contains<T>` the call solves (`all_present(s, ["a"])` takes `Contains<String>`) all select the same way. A type argument that no parameter names, only the result, is chosen by the type the result is expected to have, as a generic call's result-only type parameter is (§2): with `impl Make<Int> for Factory` and `impl Make<String> for Factory`, `n: Int = Factory.make(f)` calls the first. When the arguments and the expected type do not choose one impl, the call is an error that names the candidates: `Box.holds?(b, .Red)` with `Holds` implemented at `Color` and `Shade` is `` `Holds.holds?` for `Box` has impls at `Color` and `Shade`; the argument's type does not choose one: annotate it ``, an unannotated `Factory.make(f)` is `` `Make.make` for `Factory` has impls at `Int` and `String`; only the result's type tells them apart, and nothing here expects one: annotate the result ``, and an argument no impl takes is `` `Holds.holds?` for `Box` has impls at `Int`, `String` and `Color`, and none takes `Float` ``. An argument whose type its parameter decides (`.Variant`, a partial capture's open `&1` with nothing expected) does not choose.
 
@@ -4303,10 +4471,10 @@ fn first_text(hs: List<Holds<String>>) -> Bool {
 
 fn main() {
     b = #Box{n: 1, s: "a"}
-    io.print(Bool.to_string(Box.holds?(b, 1)))         // True: Holds<Int>
-    io.print(Bool.to_string(Holds.holds?(b, "b")))     // False: Holds<String>
-    io.print(Bool.to_string(held_by(b, "a")))          // True: the bound at String
-    io.print(Bool.to_string(first_text([b])))          // True
+    io.print(Bool.to_string(Box.holds?(b, 1))) // True: Holds<Int>
+    io.print(Bool.to_string(Holds.holds?(b, "b"))) // False: Holds<String>
+    io.print(Bool.to_string(held_by(b, "a"))) // True: the bound at String
+    io.print(Bool.to_string(first_text([b]))) // True
 }
 ```
 
@@ -4383,11 +4551,44 @@ impl Html for User {
 
 Any file that can see the impl calls it through the implementing type or the interface — `User.to_html(user)` or `Html.to_html(user)`. Coherence guarantees at most one `Html` impl for `User` program-wide, so there is never anything to disambiguate by location.
 
-A std generic container is an imported type like any other, so an interface of the module's own may be implemented for it: generically (`impl Show for List<T> where T: Show`), at a partly concrete instance (`impl Show for Map<String, V> where V: Show`) or at a concrete one (`impl Sized for List<Int>`). The call `Show.show([[1], [2]])` takes the `List<T>` impl at `T = List<Int>`, whose `T.show` takes it again at `T = Int`. A concrete instance beside a generic impl of the same interface over the same container is a duplicate impl. A std interface on a std container is an orphan impl.
+A std generic container is an imported type like any other, so an interface of the module's own may be implemented for it: generically (`impl Show for List<T> where T: Show`), at a partly concrete instance (`impl Show for Map<String, V> where V: Show`) or at a concrete one (`impl Sized for List<Int>`). The call `Show.show([[1], [2]])` takes the `List<T>` impl at `T = List<Int>`, whose `T.show` takes it again at `T = Int`. A concrete instance beside a generic impl of the same interface over the same container is a duplicate impl. A std interface on a std container is an orphan impl, unless a type the module declares heads an input type argument (the orphan rule below).
 
 An impl block is part of a program when its file is, and a file is part of a program when some file in the program imports it. Once it is, the impl applies everywhere in the program, including files that do not import its file. A file that holds only impls for types and interfaces declared elsewhere is brought in with an import that names nothing from it (`import html_impls`); that import is used when the program uses one of those impls (§*Unused imports are errors*). The standard library's impls are always part of the program.
 
 **Orphan rule.** An `impl Iface for T { ... }` block must have either `Iface` or `T` declared in the *current Nomi module* (the directory tree rooted at `nomi.toml` + `go.mod`, per the module model in §14 and §31). A program outside any module is one module of its own, rooted at its project root (§26, *Project root discovery*), so `impl Debug for Bool` in a lone script is an orphan impl too. A third-party module that owns neither side cannot write the impl directly — the normal escape is a wrapper (newtype) the module owns. The whole-program collision check is the correctness backstop; the orphan rule is the hygiene layer that makes the common case of "two libraries both implementing `Display` for `Int`" unrepresentable.
+
+**A local type argument.** An impl of a foreign interface for a foreign receiver is also allowed when a type the module declares heads one of the interface's type arguments, and that argument is an *input*. A unit library that declares `Rate` may write `impl Multiply<Rate, Decimal> for Decimal`, and then `d * rate` works wherever the impl is part of the program:
+
+```nomi
+import std/io
+
+struct Rate {
+    per_unit: Decimal
+}
+
+impl Multiply<Rate, Decimal> for Decimal {
+    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal {
+        lhs * rhs.per_unit
+    }
+}
+
+fn main() {
+    rate = #Rate{per_unit: 4.25d}
+    io.print(Decimal.to_string(12.5d * rate)) // 53.125
+    io.print(Decimal.to_string(Decimal.multiply(2d, rate))) // 8.50
+    io.print(Decimal.to_string(2d * 3d)) // 6: std's impl
+}
+```
+
+A type argument is an input when the interface names its type parameter in a parameter type of one of its functions: `Rhs` in `Multiply<Rhs, Out>`, whose `multiply(lhs: self, rhs: Rhs) -> Out` takes it, and `T` in `Contains<T>`. One the interface names only in results, as `Multiply` names `Out`, is not. A type parameter named by both a parameter and a result is an input. The impl must also meet three conditions, which are Rust's (RFC 2451) narrowed to inputs:
+
+- **The local type heads the argument.** `Rate` and `Rate<Int>` count; `List<Rate>` does not, since `List` is std's and std keeps the freedom to implement an interface generically over its own container in that position. The error says `` `Rate` is declared in this module but does not head the type argument `List<Rate>` ``.
+- **No bare type parameter comes first.** Neither the receiver nor a type argument before the local one is a bare type parameter: `impl<T> Multiply<Rate, T> for T` would claim every type as its receiver, std's own included, and is the error ``its receiver is the bare type parameter `T` ``.
+- **Not generic in that position.** `impl Contains<Tagged<T>> for List<T>` names no one concrete argument where the local type stands, and is the error ``the impl is generic in `Contains`'s type parameter `T` (`Tagged<T>`)``.
+
+A local type in a result-only position is still an orphan impl: ``impl Multiply<Decimal, Rate> for Decimal`` is the error `` `Rate` stands in `Multiply`'s type parameter `Out`, which only results name ``, because it would compete for calls that already exist: an unannotated `m * 2d` would have two results to choose between. std's `Literal` admits no impl this way (``a typed literal's handler is chosen by its type alone``): a typed literal's handler is chosen by its type and not by an argument (§*Typed literals*), so a library's `impl Literal<Rate, ..> for Date` would take `Date"2024-01-01"` away from std's impl. Any other impl whose interface and receiver are both foreign is an orphan impl whose message says one of the three must be the module's own.
+
+The rule keeps coherence because only the module that declares `Rate` can write an impl naming it: another module may import `Rate`, but `Rate` is not its own, so its `impl Multiply<Rate, Decimal> for Decimal` is an orphan impl. Two libraries can each add their own instantiation to one std interface and receiver, `Multiply<Rate, Decimal>` in one and `Multiply<Shares, Decimal>` in another, and both stand in one program beside std's `Multiply<Decimal, Decimal>`, because they name distinct concrete type arguments (§*Several instantiations for one type*). A call takes the impl its arguments choose, as for any receiver with several impls, and since the local type is an input, a new impl answers only calls that pass one. An impl generic in that type argument beside them is the overlap error of that section. When the generic impl is std's, the program's impl reports it, since std is checked once apart from every program: `impl Contains<Rate> for List<Rate>` beside std's `impl Contains<T> for List<T>` is ``overlapping impls: std's `Contains<T>` for `List` is generic in its type arguments, so it covers `Contains<Rate>`, which this impl implements``. Between two of the program's own impls the generic one reports it, as above. The cost falls on the owner of the interface and the receiver: once such impls exist, adding an impl generic in that position overlaps them.
 
 ## 14. Files and Imports
 
@@ -4408,7 +4609,13 @@ An impl block is part of a program when its file is, and a file is part of a pro
 > `go.mod`'s `require`/`replace`. A file may also prefix its own module's
 > short name (`import my_app/models/user` inside `my_app`). An import that
 > is the short name alone is an ordinary path: inside module `sqlite`,
-> `import sqlite` names `sqlite.nomi` at the module root. Entry-point
+> `import sqlite` names `sqlite.nomi` at the module root. From another
+> module, a dependency's short name alone names the file of that name at
+> the dependency's root: `import sqlite` is `import sqlite/sqlite` when
+> module `sqlite` holds `sqlite.nomi`, and binds `sqlite` either way. A
+> dependency's name wins over a file of the same name in the importing
+> module. A module with no such file is imported by path (`import
+> sqlite/driver`), and its short name alone names no file. Entry-point
 > declarations live in `nomi.toml`'s `[module].entry_points`. The orphan
 > rule (§13) applies at this boundary.
 
@@ -4548,7 +4755,7 @@ Name collisions between specific imports are a compiler error.
 - Unused imports are a compiler error (see *Unused imports are errors* below)
 - `as` aliases work on imported items: `import std/maybe.Maybe.Some as Just`
 - File API aliases use `as`: `import http/request as req`, then `req.get(...)`.
-- Stdlib files use the `std/` prefix: `import std/io`, `import std/iter`. The `std/` prefix routes to the embedded stdlib filesystem and prevents user modules from shadowing stdlib names. `std` alone, like any other module's short name alone, is a directory and names no file: `import std` and `import std.io` (which selects `io` from a file `std`) are errors whose hint spells `import std/io`.
+- Stdlib files use the `std/` prefix: `import std/io`, `import std/iter`. The `std/` prefix routes to the embedded stdlib filesystem and prevents user modules from shadowing stdlib names. `std` alone, like the short name of any module with no file of that name at its root, is a directory and names no file: `import std` and `import std.io` (which selects `io` from a file `std`) are errors whose hint spells `import std/io`.
 - Variants must come through their enum. `import shape.Circle` (a flat selective variant import) is rejected with a clear error pointing at the owner selector form (`import shape.Shape.Circle`) or the qualified form (`import shape.Shape` then `Shape.Circle`). The owner selector path makes the originating enum visible at the import line, so cross-module collisions are caught at the import rather than silently shadowed.
 - Every user file is preceded conceptually by the imports listed in `std/prelude.nomi`. That file pulls in the primitives (`Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set`), `Bool` (with `True`/`False` variants) from `std/bool`, the `Maybe`/`Some`/`None` and `Result`/`Ok`/`Err` enums, the `Range` struct (so range literals like `1..=10` resolve everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Contains`/`Variants`, plus universal `Debug`), `Ordering`, `Type`, and the application lifecycle types `Startup` and `Context`. Owner functions on those types need no import (`Iter.map`, `String.trim`, `Map.get`, `Result.ok?`). The prelude exports no file API objects, so a file-level function needs its file imported (`import std/io` for `io.print`), and an owner function on a type outside the prelude needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`). The `std/literals` cluster (`Literal`/`Fragment`) and niche/helper types such as `Assertable` and `AssertionFailure` are *not* preluded — their authors import them explicitly. The prelude exports no bare functions — bare names are types, interfaces, and variant constructors only. Anything not listed in the prelude must be imported explicitly. Stdlib files do not receive the prelude — they import their dependencies by hand. See §24 for details.
 - Imports may appear inside a function body. A nested `import` binds names in the enclosing block's scope only and shadows any file-level binding of the same name. The file load itself is cached, so a nested import has no per-call cost beyond the first.
@@ -4580,7 +4787,7 @@ Real value cycles in `once` bindings — where forcing one binding transitively 
 ### File Rules
 
 - One import source per file, derived from the file path (no declaration)
-- An import path that names no file is a compile-time error at the path, in every import form, whether or not the file uses the import: `import lib` with no `lib.nomi` reports ``no module `lib`: no file lib.nomi in this file's directory``. The message names the directory searched, relative to the importing file, and a hint names a sibling file the path is a misspelling of, or a file inside a directory the path names (`sub` is a directory, not a file). `import std/x` with no standard library module `x` is the same error. A selected name the file does not export is an error at the name: `file 'std/io' has no exported name 'nosuchname'`.
+- An import path that names no file is a compile-time error at the path, in every import form, whether or not the file uses the import: `import lib` with no `lib.nomi` reports ``no module `lib`: no file lib.nomi in this file's directory``. The message names the directory searched, relative to the importing file, and a hint names a sibling file the path is a misspelling of, or a file inside a directory the path names (`sub` is a directory, not a file). `import std/x` with no standard library module `x` is the same error. When `go.mod` requires a module the Go module cache does not hold (§31), the hint names it and says to run `nomi fetch`. When the path's first name is neither a file nor a directory there and is no misspelling of one, and the project's `go.mod` has no `require` line for a module of that name, the message says so too (``no module `csvdata`: no file csvdata.nomi in this file's directory, and go.mod has no `require` line for `csvdata` ``), with a hint to run `nomi add`: with the directory, when exactly one directory under the project root (three levels down at most) or beside it holds a Nomi module of that name (`` run `nomi add ../csvdata` to add the module in that directory ``), and with a module path or a directory otherwise; a `replace` of the name with no `require` gives `` go.mod replaces `csvdata` with ../csvdata but does not require it; run `nomi add ../csvdata` ``; a module `go.mod` requires whose directory has no `nomi.toml` is ``no module `csvdata`: go.mod replaces `csvdata` with ./macros/csvdata, which has no nomi.toml``. A declaration whose keyword the failed import would have brought reports nothing more. A selected name the file does not export is an error at the name: `file 'std/io' has no exported name 'nosuchname'`.
 - The `/`-joined segments always name the file: `import utils/inner.Thing` needs `utils/inner.nomi`, and is not a lookup of `inner` inside `utils.nomi`.
 - Files cannot be reopened or split across files
 - Importing `http` does not import `http/request` — each must be imported separately. A facade file can flatten this for its own consumers by re-exporting the items they need (`pub import http/request.{Request, get}` in `http.nomi` lets consumers write `import http.{Request, get}`); it cannot re-export the file `request` itself (see §3 *Re-exporting imported names*).
@@ -4625,6 +4832,7 @@ import {
 req = Request.parse(raw)
 
 client.timeout()
+
 response = get(req)
 ```
 
@@ -4666,7 +4874,7 @@ Resolution rules per `X`:
 - **Scale is display-significant, equality is value-based (Model C).** A `Decimal` remembers its scale for display — `1.50d` prints `"1.50"`, `Decimal.scale(1.50d) == 2` — but `==`, `Comparable`, `Hashable`, and pattern matching are *scale-insensitive*: `1.50d == 1.5d` is `True`, and the two are one `Map`/`Set` key. This is the same value-vs-representation split `Float` already has (`-0.0 == +0.0`, reflexive `NaN == NaN`), not a new principle. Two `==`-equal decimals remain observably distinguishable via `Decimal.scale` / display.
 - **Literals** carry a `d` (or `D`) suffix, and the literal's text determines its scale: `1.50d` → scale 2, `1.5d` → scale 1, `5d` → scale 0. Underscore digit separators are allowed between two digits, as in Int and Float literals (`1_000.00d`; `1__0.5d` and `1_d` are errors); exponent notation is not. Runtime/parsed values come from `Decimal.from_string`.
 
-The arithmetic, conversion, and shaping functions live in `std/decimal` (`from_int` / `from_string` / `to_string` / `to_int` / `to_float` / `from_float` / `divide` / `round` / `normalize` / `scale` / `abs` / `negate` / `sign` / `zero?` / `compare` / `min` / `max`), along with the `RoundingMode` enum (`Up | Down | Ceiling | Floor | HalfUp | HalfDown | HalfEven | Unnecessary`), display/debug/equality/hash/order impls, and the standard arithmetic operator impls. A currency-aware `Money` type and locale-aware formatting are deliberately deferred to later stdlib layers that build on `Decimal` without changing it.
+The arithmetic, conversion, and shaping functions live in `std/decimal` (`from_int` / `from_string` / `to_string` / `to_int` / `to_float` / `from_float` / `divide` / `round` / `normalize` / `scale` / `abs` / `negate` / `sign` / `zero?` / `compare` / `min` / `max`), along with the `RoundingMode` enum (`Up | Down | Ceiling | Floor | HalfUp | HalfDown | HalfEven | Unnecessary`), display/debug/equality/hash/order impls, and the standard arithmetic operator impls. `Decimal.format` and `Decimal.format_percent` (with fraction-digit limits and a `RoundingMode`), `Decimal.parse_in` and `Decimal.parse_percent_in` format and parse it for a locale (§41). `Money` (`std/money`, §41 *Money*) pairs a `Decimal` amount with a `Currency` and builds on `Decimal` without changing it.
 
 `Unit` is the type for functions that don't return a meaningful value. Can be omitted from function signatures:
 
@@ -4741,14 +4949,20 @@ under a real parent type; the full dotted name is the nominal identity.
 type Id Int
 type Status Int
 
-fn id_from_string(s: String) -> Result<Id, String> { ... }
-fn id_to_string(id: Id) -> String { ... }
+fn id_from_string(s: String) -> Result<Id, String> {
+    ...
+}
+
+fn id_to_string(id: Id) -> String {
+    ...
+}
 
 id = Id(42)
 
 // destructuring — mirrors construction syntax
-Id(n) = id         // n is 42, type Int
-Id(_) = id         // assert type without binding
+Id(n) = id // n is 42, type Int
+
+Id(_) = id // assert type without binding
 ```
 
 The call form takes the one value the type wraps, checked against the wrapped type, prefix or piped: `Id(42)` and `42 |> Id()` build an `Id`, and `Id("42")` is an error naming both (`Id wraps Int, so Id(...) takes an Int; got String`). A tuple-distinct's call form takes its one value too, the tuple: `Pair(#(1, "x"))`, or piped, `#(1, "x") |> Pair()`. Its flat call `Pair(1, "x")` is the error `Pair takes one argument, its tuple #(Int, String); got 2`, whose hint names the literal `#Pair(1, "x")`, which builds the type from its elements. `1 |> Pair("x")` is an error too (`Pair takes the piped value as its only argument, got 1 more`).
@@ -5130,7 +5344,11 @@ compile error at the call that grows the type:
 
 ```nomi
 fn grow<T>(x: T, n: Int) -> Int {
-    if n == 0 { 0 } else { grow(#Box{inner: x}, n - 1) } // T = Box<T>: an error
+    if n == 0 {
+        0
+    } else {
+        grow(#Box{inner: x}, n - 1)
+    } // T = Box<T>: an error
 }
 ```
 
@@ -5278,13 +5496,17 @@ Backticks also compose with typed literals (for example, `` Regex`\d+` `` and mu
 A single-quoted literal is a `Codepoint`, the scalar value of one ASCII character:
 
 ```nomi
-'a'           // Codepoint 97
-'\n'          // Codepoint 10
-'\''          // the single quote, Codepoint 39
-'\u{7F}'      // DEL, Codepoint 127
+'a' // Codepoint 97
 
-'a'..='z'     // the 26 lowercase letters, as a Range<Codepoint>
-'0'..'9'      // the digits 0 through 8
+'\n' // Codepoint 10
+
+'\'' // the single quote, Codepoint 39
+
+'\u{7F}' // DEL, Codepoint 127
+
+'a'..='z' // the 26 lowercase letters, as a Range<Codepoint>
+
+'0'..'9' // the digits 0 through 8
 
 case cp {
     '(' -> Open
@@ -5299,7 +5521,7 @@ The literal is infallible: its type is std's `Codepoint` whatever the file has i
 
 **ASCII only (U+0000–U+007F).** For ASCII the codepoint, the UTF-8 byte and the grapheme are the same thing, so `'a'` cannot mean anything other than what it looks like. Above 127 they come apart: `é` is one grapheme, but it is one codepoint (U+00E9) precomposed or two (`e` + U+0301) decomposed, and two UTF-8 bytes either way. A literal there would have to pick one reading, so text stays a `String` (`"é"`), and another scalar value comes from `Codepoint.from_int(0xE9)`, which returns a `Maybe` because it validates.
 
-**What a Codepoint offers.** Besides the literal, `std/codepoints` gives `Codepoint.from_int` and `Codepoint.to_int`, `Codepoint.to_string` (`Display`), `next`, `steps_between` and `step_by` (`Discrete`, `Steppable`), and six classifiers:
+**What a Codepoint offers.** Besides the literal, `std/code_points` gives `Codepoint.from_int` and `Codepoint.to_int`, `Codepoint.to_string` (`Display`), `next`, `steps_between` and `step_by` (`Discrete`, `Steppable`), and six classifiers:
 
 | Function | Answers |
 |---|---|
@@ -5357,13 +5579,17 @@ pub opaque struct Date {
 }
 
 impl Literal for Date {
-    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Date, ParseError> { ... }
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Date, ParseError> {
+        ...
+    }
 }
 
 type Sql
 
 impl Literal for Sql {
-    fn from_fragments(fragments: List<Fragment<Display>>) -> Query { ... }
+    fn from_fragments(fragments: List<Fragment<Display>>) -> Query {
+        ...
+    }
 }
 ```
 
@@ -5386,12 +5612,27 @@ Imports work like any other type: `import std/calendar.DateTime` brings the type
 ```nomi
 type Pick
 
-impl Literal for Pick { fn from_fragments(fragments: List<Fragment<String>>) -> String { ... } }
+impl Literal for Pick {
+    fn from_fragments(fragments: List<Fragment<String>>) -> String {
+        ...
+    }
+}
 
-impl Pick { pub fn from_fragments(fragments: List<Fragment<String>>) -> String { ... } }   // error at `Pick"..."`
+impl Pick {
+    pub fn from_fragments(fragments: List<Fragment<String>>) -> String {
+        ...
+    }
+} // error at `Pick"..."`
 
-interface Other { fn from_fragments(fragments: List<Fragment<String>>) -> Int }
-impl Other for Pick { fn from_fragments(fragments: List<Fragment<String>>) -> Int { ... } } // error at `Pick"..."`
+interface Other {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Int
+}
+
+impl Other for Pick {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Int {
+        ...
+    }
+} // error at `Pick"..."`
 ```
 
 The diagnostic points at the tag, names the rival declaration's line, and says which block to change. It is a rule about the LITERAL and not about the declarations: both programs above are legal so long as nothing writes `Pick"..."`.
@@ -5436,7 +5677,7 @@ fn from_fragments(fragments: List<Fragment<I>>) -> R
 
 At each `${expr}` slot, the analyzer checks that the slot expression's type implements `I`; a mismatch is a type error pointing at the offending slot. The interface in `List<Fragment<I>>` is used as an *existential* — slot values are heterogeneous per element, each implementing `I` in its own way (see §15 on interface-as-existential).
 
-**Coherence.** A typed-literal handler is an ordinary interface impl, so it inherits the impl rules wholesale — nothing typed-literal-specific. At most one `(Literal, <Tag>)` impl program-wide (the coherence check), and the orphan rule requires either `Literal` or the tag type to be declared in the implementing package.
+**Coherence.** A typed-literal handler is an ordinary interface impl, so it inherits the impl rules wholesale — nothing typed-literal-specific. At most one `(Literal, <Tag>)` impl program-wide (the coherence check), and the orphan rule requires either `Literal` or the tag type to be declared in the implementing package. A type argument the package declares does not admit a `Literal` impl, as it admits other impls (§13, *Foreign Types*): the handler is chosen by the tag alone, so a second impl for a tag would take its literals away from the first.
 
 **Raw typed literals.** A backtick delimiter disables `${...}` parsing inside the body. The body becomes a single `Static` fragment containing the verbatim text — no `Dynamic` slots. The same handler signature applies. Useful when `${...}` or backslashes appear literally in the embedded language.
 
@@ -5881,7 +6122,9 @@ generator (`cmd/nomi-docgen`) collects a module's `//#` lines as its page intro:
 //# functions for lazy pipelines over any `Iter<T>`.
 
 /// Returns the next element and remaining list, or None if empty.
-pub fn list_next(list: List<T>) -> Maybe<#(T, List<T>)> { ... }
+pub fn list_next(list: List<T>) -> Maybe<#(T, List<T>)> {
+    ...
+}
 ```
 
 ### Shebang line
@@ -5958,12 +6201,18 @@ same name without implementing `Contains`: `Iter.contains?(source, x)`, where
 `T: Equatable`, scans any iterable, a lazy pipeline included (§*`std/iter`*).
 
 ```nomi
-Set.contains?(%["admin"], "admin")  // True
-Map.contains?(%{"a" => 1}, "a")     // True
-Map.contains?(%{"a" => 1}, 1)       // compile error: 1 is not a key type
-Range.contains?(1..5, 5)            // False: the end is excluded
-List.contains?([1, 2, 3], 2)        // True
-String.contains?("a-b", '-')        // True
+Set.contains?(%["admin"], "admin") // True
+
+Map.contains?(%{"a" => 1}, "a") // True
+
+Map.contains?(%{"a" => 1}, 1) // compile error: 1 is not a key type
+
+Range.contains?(1..5, 5) // False: the end is excluded
+
+List.contains?([1, 2, 3], 2) // True
+
+String.contains?("a-b", '-') // True
+
 Iter.contains?(Iter.from(0), 1_000) // True, and stops there
 ```
 
@@ -6010,9 +6259,9 @@ numbers = [1, 2, 3, 4, 5]
   list = [1, ..[2, ..[3, ..[]]]] // [1, 2, 3]
 
   case list {
-    [] -> "empty"
-    [head, ..tail] -> "head is ${head}"
-    [a, b, ..rest] -> "first two: ${a}, ${b}"
+      [] -> "empty"
+      [head, ..tail] -> "head is ${head}"
+      [a, b, ..rest] -> "first two: ${a}, ${b}"
   }
   ```
 
@@ -6071,9 +6320,9 @@ Iter.flat_map(xs, f) / Iter.flatten(xss) / Iter.zip(a, b) / Iter.with_index(xs)
 
 Iter.chunks(xs, n) / Iter.chunk_by(xs, key)
 
-Iter.reduce(xs, fn acc = start, x -> f(acc, x)) / Iter.each(xs, f) / Iter.find(xs, p)
+Iter.reduce(xs, f, from: start) / Iter.each(xs, f) / Iter.find(xs, p)
 
-Iter.scan(xs, fn acc = start, x -> f(acc, x)) / Iter.map_reduce(xs, fn acc = start, x -> #(out, next))
+Iter.scan(xs, f, from: start) / Iter.map_reduce(xs, fn acc = start, x -> #(out, next))
 
 Iter.min(xs) / Iter.max(xs) / Iter.min_by(xs, key) / Iter.max_by(xs, key) / Iter.sum(xs)
 
@@ -6228,6 +6477,7 @@ updated = Map.merge(ages, %{"Alice" => 31, "Bob" => 26}) // new map with values 
 
 ```nomi
 defaults = %{"theme" => "light", "font" => "mono"}
+
 prefs = %{..defaults, "theme" => "dark", "size" => "12"}
 // %{"theme" => "dark", "font" => "mono", "size" => "12"}
 ```
@@ -6243,6 +6493,7 @@ The rules mirror the struct spread's (§7 *Struct update by spread*):
 
 ```nomi
 team = %{"home" => %{"city" => "Atlanta", "arena" => "State Farm"}}
+
 moved = %{..team, "home" => %{.., "city" => "Decatur"}, "away" => %{.., "city" => "Leeds"}}
 // %{"home" => %{"city" => "Decatur", "arena" => "State Farm"}, "away" => %{"city" => "Leeds"}}
 ```
@@ -6270,7 +6521,11 @@ fn main() {
     dark = #{..s, prefs: %{.., "theme" => "dark"}}
     io.print(dark.prefs)
     teams = %{"home" => %{"city" => "Atlanta"}}
-    io.print(%{..teams, "home" => %{.., "arena" => "State Farm"}, "away" => %{.., "city" => "Leeds"}})
+
+    io.print(
+        %{..teams, "home" => %{.., "arena" => "State Farm"}, "away" => %{.., "city" => "Leeds"}}
+    )
+
     io.print(with_entry(%{1 => "one"}, 2, "two"))
     scores: Map<String, Maybe<Int>> = %{"ada" => Some(3)}
     io.print(%{..scores, "bob" => None})
@@ -6285,7 +6540,9 @@ keeps the earlier entry's position, as `Map.put` would place it.
 
 ```nomi
 x = 1
+
 y = 1
+
 m = %{x => "a", 2 => "c", y => "b"} // %{1 => "b", 2 => "c"}
 ```
 
@@ -6386,11 +6643,11 @@ fn naturals() -> Range<Int>                // unbounded from 0
 fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S>
 ```
 
-Plus the `Iter` protocol for ranges whose endpoint type implements `Discrete`: `Iter.known_count(r)` reports `Some(n)` for bounded discrete ranges that can count steps and `None` for an unbounded one (the safe, non-consuming bounded count). Everything else is generic over iterables — materialize with `Iter.to_list(r)` (hangs on an unbounded range; bound with `Iter.take` first), count with `Iter.count(r)`.
+Plus the `Iter` protocol for ranges whose endpoint type implements `Discrete`: `Iter.known_count(r)` reports `Some(n)` for bounded discrete ranges that can count steps and `None` for an unbounded one (the safe, non-consuming bounded count). Everything else is generic over iterables — materialize with `Iter.to_list(r)` (traps on an unbounded range, which is `Iter.infinite?`; bound with `Iter.take` first), count with `Iter.count(r)`.
 
 ### Iter Interface
 
-The single iteration protocol is `Iter<T>`, defined in `std/iter`. It is pure protocol — two functions, no algorithms:
+The single iteration protocol is `Iter<T>`, defined in `std/iter`. It is pure protocol — three functions, no algorithms:
 
 ```nomi
 interface Iter<T> {
@@ -6402,10 +6659,49 @@ interface Iter<T> {
     open fn known_count(_collection: self) -> Maybe<Int> {
         None
     }
+
+    // True if this iterator never ends on its own, so a terminal that must
+    // reach its end could never answer. False means it may end.
+    open fn infinite?(_collection: self) -> Bool {
+        False
+    }
 }
 ```
 
 `each_while` walks the collection and pushes each element to `yield`; returning `False` from `yield` asks the source to stop, and `each_while` itself answers `True` when the source ran out and `False` when a consumer stopped it. That single Bool is the whole early-termination mechanism: `Iter.take(3)` over an infinite source stops it by refusing a fourth element, and `find`/`any?`/`all?`/`first` stop at the first decisive one. Because `each_while` reads a value it never mutates, Nomi iterators are replayable. An `Iter<T>` is an ordinary value: a binding, a parameter or result, a struct field, a tuple or record part, a `Some`/`Ok` or enum payload, a list element and a closure capture can all hold one. Holding it runs nothing, and each consumer runs it from its start, so a field read twice with `Iter.to_list` yields the same list twice. Any source can enter a position declared `Iter<T>` — a `List`, `Vector`, `Set`, `Map`, `String`, `Bytes`, range or a user type that implements `Iter` — and it keeps its own `known_count` there: `Iter.known_count(xs)` for an `xs: Iter<Int>` holding `[1, 2, 3]` is `Some(3)`. `List`, `Vector`, `Map`, `String` (via the grapheme iterator), and ranges over `Discrete` values all implement `Iter<T>` — so they feed the `Iter` owner functions directly. `List`/`Vector`/`Map`/`Set` and bounded ranges whose element type can count steps override `known_count`; everything else inherits the `None` default.
+
+**Infinite iterators.** `infinite?` says that an iterator never ends. `Iter.repeat`, `Iter.from`, `Iter.iterate` (whose step cannot `break`), `Range.from` and `Range.naturals` (unless the start is within 2^48 of `Int.max_value`, where the range ends), `Range.step_by` of an unbounded range whose step moves, and `Iter.cycle` of a source that is infinite or knows a non-zero count answer `True`; a user type answers `False` unless its `impl Iter` writes `infinite?`. The adapters carry the answer when the pipeline is built, so it costs nothing per element:
+
+| Adapter | Infinite when |
+|---|---|
+| `map`, `filter`, `drop`, `drop_while`, `with_index`, `scan`, `chunk_by`, `flat_map` | the source is, unless the callback can `break` |
+| `chunks(n)` | the source is and `n > 0` |
+| `cycle` | the source is, or knows a count above zero |
+| `concat(a, b)` | either is |
+| `zip(a, b)` | both are |
+| `take`, `take_while` | never |
+
+`filter` of an infinite source stays infinite even when nothing passes, since driving it to its end never finishes either way. `flat_map` is infinite only through its outer source: an inner iterator is not known until it runs. When in doubt the answer is `False`, so a pipeline that might end is never refused. `Iter.take(n)` also answers `known_count`: `n` over an infinite source, and the lesser of `n` and the source's count when it has one.
+
+A terminal that has to reach the end of its source asks `infinite?` before taking anything from it and traps on `True` (§17 *Traps, `Maybe` and `Result`*), naming the terminal the program called and the source that never ends, at the program's own line:
+
+```text
+line 3: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+```
+
+Those terminals are `to_list`, `to_vector`, `to_set`, `to_map`, `count`, `last`, `reverse`, `flatten`, `sort`, `sort_by`, `sort_with`, `partition`, `group_by`, `frequencies`, `min`, `max`, `min_by`, `max_by`, `sum`, `String.join`, `Maybe.values`, `Result.partition`, `Task.spawn_all`, `Supervisor.spawn_all`, and `reduce`, `each` and `map_reduce` when their callback cannot `break`. The terminals that may stop early do not trap: `first`, `find`, `any?`, `all?`, `contains?`, `get`, `empty?`, `not_empty?`, `each_while`, `Maybe.collect`, `Result.collect`, and a `reduce`, `each` or `map_reduce` whose callback can `break`. An iterator that never ends without saying so (a user type that does not write `infinite?`, a `take_while` whose predicate never fails) still runs until it is stopped.
+
+When the whole pipeline is written where the terminal is, the checker reports the trap as a compile error instead, with the same words, at the terminal and naming the source:
+
+```nomi
+fn coins(coin: Int) -> List<Int> {
+    coin
+    |> Iter.repeat()
+    |> Iter.to_list() // error: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; ...
+}
+```
+
+It follows the rules above through pipes, nested calls (`Iter.to_list(Iter.map(Iter.from(0), f))`) and local bindings whose value is such a pipeline, through any number of them (`xs = Iter.from(0)`, then `ys = Iter.map(xs, f)`, then `Iter.sum(ys)`). It reads only what the source spells: a `Range.from` whose start is an `Int` literal at least 2^48 below `Int.max_value`, negative included, `Range.step_by` of such a `Range.from` starting between -2^60 and 2^60, or of `Range.naturals`, by a literal step between -1024 and 1024 other than 0, `Iter.chunks` with a literal size above 0, and `Iter.cycle` of an infinite source or of a non-empty list, vector, set or map literal. A callback with `break` or `continue` in it, or one it cannot see into, ends the analysis, as `take` and `take_while` do. A parameter, a field, a `once`, a function's result and a user `impl Iter` are not followed, and the runtime trap still catches them. The language server offers to put `|> Iter.take(todo)` before such a pipe stage.
 
 Implementing it means walking your own structure and stopping as soon as `yield` says to:
 
@@ -6418,7 +6714,11 @@ impl Iter for Tree {
 
             .Node(left, value, right) ->
                 if each_while(left, yield) {
-                    if yield(value) { each_while(right, yield) } else { False }
+                    if yield(value) {
+                        each_while(right, yield)
+                    } else {
+                        False
+                    }
                 } else {
                     False
                 }
@@ -6442,13 +6742,13 @@ There are **no eager collection-adapter functions** (`List.map`, `Set.filter`, �
 
 ### `std/iter`
 
-The `std/iter` file hosts the `Iter<T>` interface and its owner functions. The protocol surface is only `each_while` (required) and the lone `open` default `known_count` (`Maybe<Int>`; `None` unless a type stores its size). Every generic iteration op lives on `Iter`, reached `Iter.X(...)`:
+The `std/iter` file hosts the `Iter<T>` interface and its owner functions. The protocol surface is only `each_while` (required) and the two `open` defaults `known_count` (`Maybe<Int>`; `None` unless a type stores its size) and `infinite?` (`Bool`; `False` unless the source never ends). Every generic iteration op lives on `Iter`, reached `Iter.X(...)`:
 
 - **Adapters** (lazy, return `Iter<...>` — one closure over the upstream's push loop, allocated when the chain is built rather than rebuilt per element, so pipelines fuse): `map`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`/`chunks`/`chunk_by`.
 - **Terminals** (consume, produce a scalar): `reduce`/`find`/`each`/`any?`/`all?`/`contains?`/`empty?`/`not_empty?`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`sort_with`/`partition`/`group_by`/`frequencies`.
 - **Materializers / constructors** (consume or seed): `to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`/`from`/`repeat`/`iterate`.
 
-Because they're owner functions, `Iter.map` / `Iter.reduce` are not dispatch calls — the protocol functions remain `Iter.each_while` and `Iter.known_count`. `Iter.count` is O(1) on any source that stores or can compute its count (`List`/`Vector`/`Map`/`Set`/bounded countable ranges, via `known_count`) and an O(n) fold otherwise; like every full-consuming terminal it **does not terminate on an infinite source** — bound it with `Iter.take(n)` first.
+Because they're owner functions, `Iter.map` / `Iter.reduce` are not dispatch calls — the protocol functions remain `Iter.each_while`, `Iter.known_count` and `Iter.infinite?`. `Iter.count` is O(1) on any source that stores or can compute its count (`List`/`Vector`/`Map`/`Set`/bounded countable ranges, via `known_count`) and an O(n) fold otherwise; like every full-consuming terminal it traps on an infinite source (*Infinite iterators* above) — bound it with `Iter.take(n)` first.
 
 **Infinite constructors** (return iterators, consume nothing):
 
@@ -6519,12 +6819,13 @@ fn flatten(source: Iter<Iter<U>>) -> List<U>
 
 To join an `Iter<String>` into one `String`, use `String.join(parts, separator)`.
 
-`Iter.reduce` starts from the default of its callback lambda's first parameter: `Iter.reduce(xs, fn sum = 0, x -> sum + x)` is 0 for an empty `xs`. That default is the only starting value. A callback without one is a compile error at the callback, "`Iter.reduce` needs a starting value": a function value (`Iter.reduce(xs, Int.add)`, `xs |> Iter.reduce(add)`), a lambda whose first parameter has no default (`fn a, b -> a + b`), a capture (`&add(&1, &2)`), a callback slot left open (`&Iter.reduce(xs, &1)`) and `Iter.reduce` named as a value. There is no first-element fallback, so a reduction never fails at run time for an empty source. For the least or greatest element, which has no answer for an empty source, use `Iter.min` and `Iter.max`: each answers a `Maybe`, `None` when the source is empty.
+**Starting values.** `Iter.reduce` starts from `from`, or from the default of its callback lambda's first parameter: `Iter.reduce(xs, Int.add, from: 0)` and `Iter.reduce(xs, fn sum = 0, x -> sum + x)` are the same fold, 0 for an empty `xs`. `from:` works with any callback: a named function, a capture, a lambda without a default. Exactly one of the two gives the starting value. A call with neither is a compile error at the callback, "`Iter.reduce` needs a starting value", whose help names both spellings (`` give it with `from:`: `Iter.reduce(xs, add, from: <start>)` ``, and for a lambda also its accumulator's default): a function value (`Iter.reduce(xs, Int.add)`, `xs |> Iter.reduce(add)`), a lambda whose first parameter has no default (`fn a, b -> a + b`), a capture (`&add(&1, &2)`), a callback slot left open (`&Iter.reduce(xs, &1)`) and `Iter.reduce` named as a value. A call with both is "`Iter.reduce` has two starting values: `from:` and the default of the callback's first parameter", at `from:`, with the help "keep one: remove `from:`, or remove the default from `acc`". `from` is given by name: `Iter.reduce(xs, 0, add)` is "`Iter.reduce` takes its starting value by name". The callback is the positional argument after the source wherever `from:` is written, so `Iter.reduce(xs, from: 0, add)` is the same call. There is no first-element fallback, so a reduction never fails at run time for an empty source. For the least or greatest element, which has no answer for an empty source, use `Iter.min` and `Iter.max`: each answers a `Maybe`, `None` when the source is empty.
 
-`Iter.scan` and `Iter.map_reduce` take their starting value the same way, and a callback without one is the same error with their own name ("`Iter.scan` needs a starting value"). `Iter.scan` is lazy: it runs the fold and yields each state after the starting value, one per element, so an empty source yields nothing. `Iter.map_reduce` is eager: its callback answers `#(output, next_state)` for each element, and the call answers the outputs in order with the final state, `#([], start)` for an empty source.
+`Iter.scan` and `Iter.map_reduce` take their starting value the same way, `from:` or the callback lambda's first-parameter default, and the errors are the same with their own names ("`Iter.scan` needs a starting value"). `Iter.scan` is lazy: it runs the fold and yields each state after the starting value, one per element, so an empty source yields nothing. `Iter.map_reduce` is eager: its callback answers `#(output, next_state)` for each element, and the call answers the outputs in order with the final state, `#([], start)` for an empty source.
 
 ```nomi
 [3, 1, 4] |> Iter.scan(fn total = 0, x -> total + x) |> Iter.to_list() // [3, 4, 8]
+
 ["a", "bb"] |> Iter.map_reduce(fn at = 0, s -> #(#(at, s), at + String.length(s))) // #([#(0, "a"), #(1, "bb")], 3)
 ```
 
@@ -6539,10 +6840,15 @@ a later map wins on a shared key.
 
 ```nomi
 Iter.reduce([3, 1, 2], fn sum = 0, n -> sum + n) // 6
+
 Iter.sum([3, 1, 2]) // 6
+
 Iter.sum(["a", "b"]) // "ab"
+
 Iter.min([3, 1, 2]) // Some(1)
+
 Iter.max(["b", "c", "a"]) // Some("c")
+
 Iter.max([]) // None
 ```
 
@@ -6556,7 +6862,7 @@ String.join([1, 2, 3], ", ") // type error: Iter<String> expected, got Iter<Int>
 
 This works for built-in iteration sources (`List`, `Vector`, `Map`, `String`, `Range`) and for any user-defined `Iter` impl — the unifier consults file-local impl element types first, then the package-wide stdlib registry.
 
-`break` and `continue` work in all `Iter` callbacks — same semantics as everywhere else (see §12). Short-circuit terminals (`find`, `any?`, `all?`, `empty?`, `first`) terminate on infinite sources when the predicate permits; full-consuming terminals (`count`, `reduce`, `last`, `sort`, `to_list`, …) do not — bound the source with `Iter.take(n)` first.
+`break` and `continue` work in all `Iter` callbacks — same semantics as everywhere else (see §12). Short-circuit terminals (`find`, `any?`, `all?`, `empty?`, `first`) terminate on infinite sources when the predicate permits; full-consuming terminals (`count`, `reduce`, `last`, `sort`, `to_list`, …) trap on one that is `Iter.infinite?` and never finish on one that never ends without saying so — bound the source with `Iter.take(n)` first.
 
 `Iter.zip` truncates to the shorter iterator:
 
@@ -6659,8 +6965,8 @@ result = concurrent {
 
 ```nomi
 concurrent {
-    user  = Task.spawn(fn -> fetch_user(42))        // Task<Result<User, String>>
-    order = Task.spawn(fn -> fetch_order(101))      // Task<Result<Order, String>>
+    user = Task.spawn(fn -> fetch_user(42)) // Task<Result<User, String>>
+    order = Task.spawn(fn -> fetch_order(101)) // Task<Result<Order, String>>
     ...
 }
 ```
@@ -6669,7 +6975,7 @@ For work that doesn't return `Result`, the task type is the body's return type d
 
 ```nomi
 concurrent {
-    sums = Task.spawn(fn -> Iter.map(numbers, fn n -> n * 2) |> Iter.to_list())   // Task<List<Int>>
+    sums = Task.spawn(fn -> Iter.map(numbers, fn n -> n * 2) |> Iter.to_list()) // Task<List<Int>>
     ...
 }
 ```
@@ -6729,6 +7035,7 @@ Put `with App.context = Context.with_timeout(App.context, d)` before a `concurre
 ```nomi
 fn fetch_both() {
     with App.context = Context.with_timeout(App.context, Duration.milliseconds(50))
+
     concurrent {
         a = Task.spawn(fn -> slow_call())
         b = Task.spawn(fn -> slow_call())
@@ -6976,28 +7283,32 @@ concurrent {
 concurrent {
     ch = Channel.buffered<Page>(10)
 
-    producers = Iter.map(urls, fn url -> {
-        Task.spawn(fn -> {
-            url
-            |> try fetch()
-            |> try parse()
-            |> then &Sender.send(ch.sender, &1)
-            |> Result.map_err(fn _ -> "channel closed")
+    producers =
+        Iter.map(urls, fn url -> {
+            Task.spawn(fn -> {
+                url
+                |> try fetch()
+                |> try parse()
+                |> then &Sender.send(ch.sender, &1)
+                |> Result.map_err(fn _ -> "channel closed")
+            })
         })
-    }) |> Iter.to_list()
+        |> Iter.to_list()
 
-    consumer = Task.spawn(fn -> Iter.loop(fn acc = Ok(0) -> {
-        case Receiver.receive(ch.receiver) {
-            None ->
-                break acc
+    consumer = Task.spawn(fn -> {
+        Iter.loop(fn acc = Ok(0) -> {
+            case Receiver.receive(ch.receiver) {
+                None ->
+                    break acc
 
-            Some(page) -> {
-                count = try acc
-                try database.save(db, page)
-                Ok(count + 1)
+                Some(page) -> {
+                    count = try acc
+                    try database.save(db, page)
+                    Ok(count + 1)
+                }
             }
-        }
-    }))
+        })
+    })
 
     _ = Task.await_all(producers)
     Sender.close(ch.sender)
@@ -7096,6 +7407,7 @@ impl Add<Set<T>, Set<T>> for Set<T> {
 }
 
 %[1, 2] + %[2, 3] // %[1, 2, 3]
+
 %[1] + 2 // error: binary + right operand mismatch: Add expects Set<Int>, got Int
 ```
 
@@ -7182,8 +7494,11 @@ Closures are flat: a lambda, a nested `fn` or a task's body copies the value eac
 
 ```nomi
 x = 1
+
 f = fn -> x
+
 x = 2
+
 f() // 1
 ```
 
@@ -7217,11 +7532,11 @@ host fn abs(n: Int) -> Int
 - `host fn name(params) -> ReturnType` — declares a function signature with no body (implementation is host-provided). Also legal as an impl-block item, where the host key is derived as `module.Type.function`.
 - Host declarations can have doc comments (`///`) like any other declaration.
 - User-facing Go interop binds ordinary Go packages through `gopkg` declarations. A declaration such as `gopkg "example.com/app/ffi" as ffi` introduces a compile-time package handle whose import path is resolved by Go's normal module machinery. The path must be a valid Go import path. A Go standard library package (`gopkg "strings"`) needs no `go.mod` and no Go package of the project's own: its source is the Go toolchain's, and a script binding only the standard library runs from a directory with no `go.mod` at all. A package internal to the standard library (`internal/abi`) is a check error, since no other module may import it. Any other path must be provided by the nearest `go.mod` above the declaring file: a package of the project's own module, or a package of a module that `go.mod` requires or replaces. Any other is a check error at the path, such as `gopkg "callback:= f(s": not a valid Go import path: invalid char ':'`, or one naming the project's module for a path outside all of those. A Go type binding must be opaque. It may remain private as a raw implementation handle (`opaque type RawConn go ffi.Conn`) behind a Nomi facade, or it may be intentionally public as a public opaque foreign type (`pub opaque type Regex go ffi.Regex`) when the module deliberately commits to that Go-backed representation. Public opaque foreign types can be named and passed across the module boundary but cannot be constructed, unwrapped, or inspected structurally. A Go function binding maps an exported Go function into a local Nomi function name: `fn open_raw(path: String) -> Result<RawConn, String> go ffi.OpenRaw`. The alias in `go alias.Symbol` must be one a `gopkg` declaration of the same file introduces; any other is a check error at the alias. A `gopkg` is a top-level declaration, as the bindings that use it are; one inside a body is the error `` a `gopkg` declaration belongs at the top level of a file, beside the `go` bindings that use it; it cannot appear inside a body ``.
-- A program with `gopkg` bindings needs a Go toolchain: `nomi run`, `nomi check` and `nomi test` build a cached Go wrapper that links the bound packages (see [`implementation-notes.md`](implementation-notes.md#go-ffi-wrapper)). Pure-Nomi programs and tests need no toolchain.
+- A program with `gopkg` bindings needs a Go toolchain: `nomi run`, `nomi check` and `nomi test` build a cached Go wrapper that links the bound packages (see [`implementation-notes.md`](implementation-notes.md#go-ffi-wrapper)). With no `go` on `PATH`, `nomi` downloads the Go release it was built with and uses that (§31, *Dependencies*). A bound package may be in a module from the Go module cache, a dependency's included; its adapters are generated from its source there. The wrapper builds with `CGO_ENABLED=0`, so a `gopkg` naming a package that needs cgo, itself or through a package it imports, is a check error at the path: `` gopkg "example.com/app/wrap": needs cgo: it imports example.com/cdriver/internal/csql (...), whose files import "C", and Go bindings build with CGO_ENABLED=0 ``. Pure-Nomi programs and tests need no toolchain.
 - Every std declaration is a bare `host fn` / `host type`, so importing any std module, Go-backed ones such as `std/regex` included, needs no Go toolchain — see "The rule: `host` for the standard library, `go` for user FFI" below. A user's own Go binding is declared in Nomi source with `gopkg` and `go alias.Symbol`; there is no Go-side registration function. A Go program that embeds Nomi answers the `host fn`s its program declares from a host table passed to `vmhost.Load` (`vmhost.WithHosts`). A plain `host type` in such a program is an opaque handle: the table's functions create and read its values, which Nomi code passes around and stores and reads only through those functions, and the type itself needs no registration.
-- Go binding signatures project Nomi `String` → Go `string`, `Bool` → `bool`, `Int` → `int64` (Go `int` and the sized signed widths project to `Int`, as do the unsigned widths other than `uint8` when the value fits `int64`; every narrowing is range-checked in both directions rather than truncated), `Byte` → `uint8` (`Byte` is its own Nomi type, so an `Int` does not fill a `uint8` parameter and a `Byte` does not fill an `int64` one), `Float` → `float64` (a `float32` slot is range-checked; `NaN` and `±Inf` cross unchanged, and `NaN` stays reflexive under Nomi's equality so it remains usable as a map key), `Bytes` → `[]byte`, `Duration` → `time.Duration`, `Instant` → `time.Time` (an `Instant` is nanoseconds since the Unix epoch, so a `time.Time` outside that window is rejected rather than wrapped, and an `Instant` returns to Go as UTC — the projection carries no zone and no monotonic reading, so two round-tripped times are `Equal`, not `==`), `List<T>` → `[]T`, `Map<K, V>` → `map[K]V` (the projected key must be a valid Go map key; a Nomi `Map` iterates in a defined order and a Go map has none, so a Go map projects with its keys in ascending order rather than inheriting Go's randomized walk, and two keys that would collapse into one on either side fail the conversion rather than silently drop an entry), `Maybe<T>` → `*T`, a declared Nomi struct → a Go struct with the matching exported fields (snake_case by default, overridable with a `nomi:"..."` tag), where the Nomi type identity always comes from the declaration at that position — the `host fn`'s declared return type, or the declared parameter type of the Nomi function being called — never from the Go type, because `Point` and `Vec` are one Go shape and a struct with no identity misses every impl keyed on it, bound opaque Go types → their registered Go pointer type, and direct callback parameters `(A, ...) -> R` → `func(A, ...) R`. A user-declared `enum` has no Go projection: the only enums that cross are `Result`, `Maybe`, and `Bool`, as a trailing Go `error`, `*T`, and `bool`, and they are matched on the stdlib type's own runtime identity — a same-named type from another module is a different type and is rejected rather than projected as the stdlib one. The return position is driven by the Go signature: counting the non-`error` results as `N`, `N == 0` projects to `Unit`, `N == 1` to that value, and `N >= 2` to the tuple `#(A, B, ...)`; an optional trailing `error` wraps whatever that produced in `Result<_, String>`, so `error` alone is `Result<Unit, String>`, `#(T, error)` is `Result<T, String>`, and `#(A, B, error)` is `Result<#(A, B), String>`. `N` is uncapped, so a Go function that naturally returns several values needs no carrier struct. Tuples project one way only: a tuple in *parameter* position is rejected because Go has no tuple type to bind it to, and a plain Go struct against a Nomi struct of the same shape already carries several values in both directions. Type/function bindings are preflighted against the Go source of the project's own packages, of packages reached through a local `replace`, and of bound standard library packages (read from the toolchain's GOROOT with this platform's build constraints) for missing bound names, generic Go functions (a binding needs one concrete signature, so bind a non-generic Go function that calls the generic one) and signature mismatches. Unsupported projected shapes fail before program load with a diagnostic that points back to the binding declaration.
-- An opaque distinct type is unwrapped to its representation before the projection table is consulted, so `pub opaque type Meters Int` crosses as whatever `Int` crosses as. That is what gives `Duration` and `Instant` — both `opaque type ... Int` in the stdlib — a second legal Go spelling alongside `time.Duration` and `time.Time`: an `int64` slot carries either one. A distinct type therefore has no *unique* Go spelling, which is what the preflight below relies on.
-- The projection is checked in the FORWARD direction only, and only where it is unique. For each declared Nomi type the boundary computes the Go type it projects to and compares that against the Go type actually bound, read from the bound Go declaration's signature. A declaration whose projection is not unique is skipped rather than guessed: `Dynamic` (every Go type can carry one), `Unit` (no value to carry), an opaque distinct type (see above), a struct (a shape, not a type), a type parameter, a bound opaque Go type, and a Go interface slot at any depth. The inverse direction is deliberately NOT checked: a Go type does not determine the Nomi type it must be — `int64` is `Int` and equally every distinct over `Int`, `any` is `Dynamic` and equally any handle, a Go struct is any Nomi struct with matching fields — so an inverse check would reject declarations that work, which is worse than a mismatch reported late. Disagreements the forward rule proves — a declared `String` against a Go `int64`, in a parameter, a return, a tuple element, a `Result` payload, or a callback's own argument or return — are rejected at load, naming both sides and what the declaration projects to.
+- Go binding signatures project Nomi `String` → Go `string`, `Bool` → `bool`, `Int` → `int64` (Go `int` and the sized signed widths project to `Int`, as do the unsigned widths other than `uint8` when the value fits `int64`; every narrowing is range-checked in both directions rather than truncated), `Byte` → `uint8` (`Byte` is its own Nomi type, so an `Int` does not fill a `uint8` parameter and a `Byte` does not fill an `int64` one), `Float` → `float64` (a `float32` slot is range-checked; `NaN` and `±Inf` cross unchanged, and `NaN` stays reflexive under Nomi's equality so it remains usable as a map key), `Bytes` → `[]byte`, `Duration` → `time.Duration`, `Instant` → `time.Time` (an `Instant` is nanoseconds since the Unix epoch, so a `time.Time` outside that window is rejected rather than wrapped, and an `Instant` returns to Go as UTC — the projection carries no zone and no monotonic reading, so two round-tripped times are `Equal`, not `==`), `List<T>` → `[]T`, `Map<K, V>` → `map[K]V` (the projected key must be a valid Go map key; a Nomi `Map` iterates in a defined order and a Go map has none, so a Go map projects with its keys in ascending order rather than inheriting Go's randomized walk (strings and numbers in their natural order, `false` before `true`, a struct by its exported fields in declaration order; a Go key type with no such order, such as a pointer or an interface, is refused at the binding), and two keys that would collapse into one on either side fail the conversion rather than silently drop an entry), `Maybe<T>` → `*T`, a declared Nomi struct → a Go struct with the matching exported fields (snake_case by default, overridable with a `nomi:"..."` tag), where the Nomi type identity always comes from the declaration at that position — the `host fn`'s declared return type, or the declared parameter type of the Nomi function being called — never from the Go type, because `Point` and `Vec` are one Go shape and a struct with no identity misses every impl keyed on it (so the two names need not agree: a Go `func(Row) bool` binds a Nomi `(RawRow) -> Bool`, and only the fields are compared, at every depth), `Dynamic` → a Go empty interface (`any`, `interface{}`, or a named type over one), which holds the value the `Dynamic` wraps (a `Dynamic` from `Json.to_dynamic` holds the shapes `encoding/json` decodes into: `map[string]any`, `[]any`, `string`, `float64` or `int64`, `bool`, `nil`), or `rt.Dynamic` from `github.com/nomi-language/nomi/rt`, which is the `Dynamic` itself, and nothing else (a Go `int64` slot does not take a `Dynamic`; declare the type the Go value has), bound opaque Go types → their registered Go pointer type, and direct callback parameters `(A, ...) -> R` → `func(A, ...) R`. A user-declared `enum` has no Go projection: the only enums that cross are `Result`, `Maybe`, and `Bool`, as a trailing Go `error`, `*T`, and `bool`, and they are matched on the stdlib type's own runtime identity — a same-named type from another module is a different type and is rejected rather than projected as the stdlib one. The return position is driven by the Go signature: counting the non-`error` results as `N`, `N == 0` projects to `Unit`, `N == 1` to that value, and `N >= 2` to the tuple `#(A, B, ...)`; an optional trailing `error` wraps whatever that produced in `Result<_, String>`, so `error` alone is `Result<Unit, String>`, `#(T, error)` is `Result<T, String>`, and `#(A, B, error)` is `Result<#(A, B), String>`. `N` is uncapped, so a Go function that naturally returns several values needs no carrier struct. Tuples project one way only: a tuple in *parameter* position is rejected because Go has no tuple type to bind it to, and a plain Go struct against a Nomi struct of the same shape already carries several values in both directions. Type/function bindings are preflighted against the Go source of the project's own packages, of packages reached through a local `replace`, and of bound standard library packages (read from the toolchain's GOROOT with this platform's build constraints) for missing bound names, generic Go functions (a binding needs one concrete signature, so bind a non-generic Go function that calls the generic one) and signature mismatches. Unsupported projected shapes fail before program load with a diagnostic that points back to the binding declaration.
+- A distinct type, opaque or not, crosses as its inner type does, at every depth: `type Id Int` crosses as `int64` (or any Go integer width an `Int` takes), `type Ids List<Int>` as `[]int64`, a distinct over a struct as a Go struct with that struct's fields, and `type Outer Inner` over `type Inner Int` as `int64`, in a parameter, a result, a `List`, `Maybe`, `Map` or `Result`, a tuple, a struct field and a callback's own parameters and result. The value Go returns is wrapped in the declared distinct again. That is what gives `Duration` and `Instant` (both `opaque type ... Int` in the stdlib) a second legal Go spelling alongside `time.Duration` and `time.Time`: an `int64` slot carries either one. A marker (`type Expired`, no inner type) holds no value and has no Go projection.
+- The projection is checked in the FORWARD direction only. For each declared Nomi type the boundary computes the Go type it projects to and compares that against the Go type actually bound, read from the bound Go declaration's signature: a scalar by its row of the table above, `Dynamic` against a Go empty interface or `rt.Dynamic`, a `List`, `Maybe`, `Map`, `Result`, tuple or callback by its structure, an opaque binding by the Go type it binds, and a struct of the binding's file field by field. A distinct type declared in the binding's file, and std's `Duration` and `Instant`, is compared through its inner type. The check does not read the declarations of another file: a name declared there fills a Go struct slot on trust, its fields held to the Go struct's by the adapter generator, and fills no other slot, so a binding that passes a distinct of another file declares it in that file. The inverse direction is deliberately NOT checked: a Go type does not determine the Nomi type it must be (`int64` is `Int` and equally every distinct over `Int`, a Go struct is any Nomi struct with matching fields), so an inverse check would reject declarations that work. Disagreements the forward rule proves (a declared `String` against a Go `int64`, a `Dynamic` against a Go `int64`, a `type Name String` against a Go `int64`, in a parameter, a return, a tuple element, a `Result` payload, a struct field, or a callback's own argument or return) are rejected at load, naming both sides and what the declaration projects to.
 
 **The rule: `host` for the standard library, `go` for user FFI.** Every
 declaration in `std/` whose implementation is Go writes `host fn` or
@@ -7243,16 +7558,18 @@ Batteries-included philosophy (like Go): minimize the need for third-party depen
 
 | Module | What it holds |
 |---|---|
-| `int`, `float`, `decimal`, `bool`, `unit`, `codepoints` | Primitives: `Int` (bitwise ops, wrapping arithmetic, `NonZeroInt`/`PositiveInt`), `Float` (special values, rounding), `Decimal` and `RoundingMode`, `Bool`, `Unit`, `Codepoint` |
+| `int`, `float`, `decimal`, `bool`, `unit`, `code_points` | Primitives: `Int` (bitwise ops, wrapping arithmetic, `NonZeroInt`/`PositiveInt`), `Float` (special values, rounding), `Decimal` and `RoundingMode`, `Bool`, `Unit`, `Codepoint` |
 | `strings`, `bytes`, `matcher` | `String` (grapheme-based text, `NormalForm`), `Byte`, `Bytes`, and `Matcher`, what String's search functions accept |
 | `lists`, `vectors`, `maps`, `sets`, `ranges` | `List`, `Vector`, `Map`, `Set`, `Range` and their container-specific owner functions |
 | `iter` | The `Iter` interface and every generic iteration owner function, plus `Iter.loop` |
 | `maybe`, `results` | `Maybe`, `Result`, `Infallible` |
 | `add`, `subtract`, `multiply`, `divide`, `comparable`, `equatable`, `hashable`, `discrete`, `steppable`, `variants`, `display`, `debug`, `structs`, `type` | The core interfaces, `Ordering`, `Direction`, and `Type<T>` |
-| `io` | `print`, `write` (no trailing newline), `inspect`, `read_line`, `read_file`, `write_file`, `IOError`, and `capture`, which runs a function against given input and collects what it prints (§36) |
+| `io` | `print`, `write` (no trailing newline), `inspect`, `read_line`, `read_file`, `write_file`, `Error`, and `capture`, which runs a function against given input and collects what it prints (§36) |
 | `tasks`, `channels`, `supervisors`, `timer`, `context`, `startup` | Structured concurrency (§20), `timer.sleep`, `Context` (§28), `Startup` (§27) |
 | `duration`, `instant`, `calendar` | `Duration`, `Instant` (`Instant.now`), and the civil date-time types (§39) |
 | `random` | Pure, seeded random generation (§40) |
+| `locale`, `plural`, `localize` | `Locale` with a ``Locale`pt-BR` `` typed literal, CLDR fallback chains and negotiation; `PluralCategory` and CLDR's cardinal and ordinal plural rules; `Localize` and `NumberParseError`, for the locale-aware `format`, `format_percent` and `parse_in` functions of `Int`, `Float` and `Decimal` and `String.join_list` (§41) |
+| `collation` | `Collator`, `Strength` and `CaseFirst`: ordering strings as a locale orders them (the Unicode Collation Algorithm with CLDR's tailorings) and their sort keys; `String.to_upper_in`, `to_lower_in` and `fold_case` are in `strings` (§41) |
 | `json`, `toml`, `dynamic` | `Json` with `ToJson`/`FromJson` and their derives, the `Toml` typed literal, `Dynamic` for untyped host data |
 | `regex` | `Regex`, with a `Regex"..."` typed literal. A `Regex` is a `Matcher`, so `String.contains?`, `String.find`, `String.find_all`, `String.split` and the other search functions take one; `String.captures` and `String.captures_all` take only a `Regex` and answer its capture groups; `Regex.replace_all` (`$1` expansion) is its own |
 | `literals` | `Literal` and `Fragment`, for typed-literal authors (§16) |
@@ -7280,16 +7597,16 @@ A program `nomi run` would refuse is refused at build time with the same text, a
 3. A `nomi-vm` downloaded earlier for this release and target.
 4. Download: the target's archive from the release this `nomi` was cut as, verified against the release's checksum file, with only `nomi-vm` extracted and cached. `nomi build` prints the URL it downloads, and with no network the error names it.
 
-A prebuilt `nomi-vm` must come from the same commit as `nomi`; both carry it in their build information, and `nomi build` refuses a `nomi-vm` from another commit. So a release builds executables for every platform with no Go toolchain, and a built binary needs nothing at all. Two kinds of program still need `go`, which builds their own `nomi-vm` from the compiler module at the release's version: a project with Go FFI bindings, whose `nomi-vm` links them, and a program importing `std/compiler`, whose `nomi-vm` links the front end and is not shipped.
+A prebuilt `nomi-vm` must come from the same commit as `nomi`; both carry it in their build information, and `nomi build` refuses a `nomi-vm` from another commit. So a release builds executables for every platform with no Go toolchain, and a built binary needs nothing at all. Two kinds of program still need Go, which builds their own `nomi-vm` from the compiler module at the release's version: a project with Go FFI bindings, whose `nomi-vm` links them, and a program importing `std/compiler`, whose `nomi-vm` links the front end and is not shipped. That Go is the `go` on `PATH`, or, with none, the Go release `nomi` was built with, which `nomi` downloads (§31, *Dependencies*), so neither needs Go installed.
 
 A WebAssembly target, `js/wasm` or `wasip1/wasm`, writes `<name>.wasm` by default. Nothing may follow a module's last section, so the program goes inside the module:
 
 - A `wasip1/wasm` module carries it as one more active data segment, which the WebAssembly engine writes into a 4 MiB area of the `nomi-vm`'s own memory when it instantiates the module. The module reads its program from there, so it needs no file access: `wasmtime run hello.wasm` runs it, and so does a browser's WASI shim with no file system. The area is uninitialized memory in the `nomi-vm`, so it adds nothing to the file; it raises the module's declared initial memory by 4 MiB, to 9.8 MiB for the reactor. A program whose compiled form is larger than the area is refused by `nomi build`, naming the limit.
-- A `js/wasm` module carries it in a custom section named `nomi.image`, which every runtime skips. A module cannot read its own sections, so it looks for the section where its host can supply it: it uses `globalThis.nomiImage` when a loader has set it to the section's bytes (`new Uint8Array(WebAssembly.Module.customSections(module, "nomi.image")[0])`), and otherwise reads the file argv[0] names through the host's `fs`. Go's own loader runs it under Node unchanged: `node "$(go env GOROOT)/lib/wasm/wasm_exec_node.js" hello.wasm`.
+- A `js/wasm` module carries it in a custom section named `nomi.image`, which every runtime skips. A module cannot read its own sections, so it looks for the section where its host can supply it: it uses `globalThis.nomiImage` when a loader has set it to the section's bytes (`new Uint8Array(WebAssembly.Module.customSections(module, "nomi.image")[0])`), and otherwise reads the file argv[0] names through the host's `fs`. Go's own loader runs it under Node unchanged: `node "$(go env GOROOT)/lib/wasm/wasm_exec_node.js" hello.wasm`. That loader hands the module Node's whole environment as `startup.env`, and Go's js/wasm runtime refuses to start when the arguments and environment together pass 8 KB ("total length of command line and environment variables exceeds limit"); in a large environment, run it with only what the program reads, as `env -i PATH="$PATH" node ...`. `nomi.js` passes only the `env` its caller gives.
 
 A `wasip1/wasm` program with at least one `export fn` is written as a WASI reactor instead of a command module (§5, *Exported Functions*): the program is appended to `nomi-vm-reactor`, the same VM linked as a reactor, found, built and downloaded as `nomi-vm` is and checked the same way. `nomi-wasi.js` and `nomi-wasi.d.ts`, the JavaScript host for it, are written beside the module.
 
-The `js/wasm` build keeps the browser build's limits: `io.read_file` and `io.write_file` fail with an `IOError`, even under Node, and a call nests at most 1,000 deep. A command-line program that reads files belongs on `wasip1/wasm`. Every release ships a runner-only archive for each WebAssembly target, so a release `nomi` downloads it as it would any other platform's; the `js/wasm` archive also carries the `wasm_exec.js` of the Go that built its `nomi-vm`, and the `wasip1/wasm` archive carries `nomi-vm-reactor` beside `nomi-vm`.
+The `js/wasm` build keeps the browser build's limits: `io.read_file` and `io.write_file` fail with an `io.Error`, even under Node, and a call nests at most 1,000 deep. A command-line program that reads files belongs on `wasip1/wasm`. Every release ships a runner-only archive for each WebAssembly target, so a release `nomi` downloads it as it would any other platform's; the `js/wasm` archive also carries the `wasm_exec.js` of the Go that built its `nomi-vm`, and the `wasip1/wasm` archive carries `nomi-vm-reactor` beside `nomi-vm`.
 
 ### Compiled programs and nomi-vm
 
@@ -7333,10 +7650,11 @@ Given a path, it reads the `.nomic` file there and passes the words after the pa
 | `app.wasm` | The `js/wasm` module `--target js/wasm` writes, with its memory capped at 1 GiB. |
 | `nomi.js` | An ES module: the loader and its `run` function, with Go's JS support file `wasm_exec.js` from the Go toolchain that built the js/wasm `nomi-vm` inside it. Each run starts this same file as its module worker. |
 | `index.html` | A page that runs `main` with an output pane and an input line. |
+| `locales/<tag>.nomil` | For a program that lists its locales, one file per listed locale `[i18n].web_embedded` leaves out: its CLDR data and translations, which the program loads with `Locale.load` (§41, *Locales in the browser*). |
 
 `nomi.js` keeps `wasm_exec.js`'s text unchanged as the body of a function, which runs only where a program runs: in the worker, or on the page for a `worker: false` run. A page whose programs run in workers gets none of the globals `wasm_exec.js` sets (`Go`, and `fs`, `process` and `path` when missing). Since the worker is a file the host serves and not a `blob:` URL, a policy of `worker-src 'self'` allows it.
 
-The static files are the files of a `web/` folder: the one at the root of the program's project, beside its `nomi.toml`, or, for a file outside a project, the one beside the file. `--static <dir>` names another folder in its place; it must exist, while a missing `web/` folder only means there are no static files. Every file under the folder is copied to the same path in the output, subfolders included (`web/img/logo.png` becomes `img/logo.png`), except files and folders whose names start with a dot. A static file wins over a generated one of the same name, so `web/index.html` replaces the generated page; such a page loads `nomi.js` and calls `run` itself. A static `app.wasm` or `nomi.js` is refused, naming the file: `` nomi build --web: web/app.wasm: the build writes app.wasm, so a static file cannot have that name ``. So is an output folder inside the static folder. A rebuild replaces only the generated files and the static files it copies; anything else in the output folder stays, such as a host's `_headers`, and so does a file copied by an earlier build whose source has since been deleted from `web/`. The one exception is the files earlier versions of `nomi build --web` generated and this one does not, `wasm_exec.js`, `nomi-web.js` and `nomi-worker.js`: a rebuild removes each one whose contents are what such a build wrote (Go's `wasm_exec.js`, or the exact loader or worker it wrote), and leaves a file of that name with any other contents. A static file may have one of those names, and is copied like any other.
+The static files are the files of a `web/` folder: the one at the root of the program's project, beside its `nomi.toml`, or, for a file outside a project, the one beside the file. `--static <dir>` names another folder in its place; it must exist, while a missing `web/` folder only means there are no static files. Every file under the folder is copied to the same path in the output, subfolders included (`web/img/logo.png` becomes `img/logo.png`), except files and folders whose names start with a dot. A static file wins over a generated one of the same name, so `web/index.html` replaces the generated page; such a page loads `nomi.js` and calls `run` itself. A static `app.wasm` or `nomi.js` is refused, naming the file: `` nomi build --web: web/app.wasm: the build writes app.wasm, so a static file cannot have that name ``. So is a static file in `locales/` ending in `.nomil`, which the build writes, and an output folder inside the static folder. A rebuild replaces only the generated files and the static files it copies; anything else in the output folder stays, such as a host's `_headers`, and so does a file copied by an earlier build whose source has since been deleted from `web/`. The one exception is the files earlier versions of `nomi build --web` generated and this one does not, `wasm_exec.js`, `nomi-web.js` and `nomi-worker.js`: a rebuild removes each one whose contents are what such a build wrote (Go's `wasm_exec.js`, or the exact loader or worker it wrote), and leaves a file of that name with any other contents. A static file may have one of those names, and is copied like any other. A rebuild also removes each locale file an earlier build wrote that it does not write.
 
 `--static` without `--web` is a usage error. `--web` with a `--target` other than `js/wasm` is a usage error. A project with Go bindings is refused: `` nomi build --web: this project has Go bindings, and the browser build cannot link them ``. A program importing `std/compiler` builds, and its `app.wasm` is larger because its `nomi-vm` links the front end; `nomi build` says how to serve a module over 20 MB.
 
@@ -7353,16 +7671,17 @@ const { exitCode, fatal } = await run("./app.wasm", {
   stdin: "all of it\n",    // or an async () => string | null; default: end of input
   timeoutMs: 10_000,       // default: none
   signal: controller.signal,
+  locales: "./locales/",   // where Locale.load fetches <tag>.nomil; default beside app.wasm
 });
 ```
 
 `run` fetches and compiles the module once per URL; every later run of it reuses the compiled module. Each run gets a fresh instance in its own worker, so a page stays responsive while a program loops, and `timeoutMs` and `signal` can stop it: the run then resolves with exit code 124 (timeout) or 130 (abort) and a `fatal` text. `worker: false` runs on the page's own thread, one run at a time; a timeout or abort then resolves the run and drops its output, but cannot stop the program. Output reaches the callbacks as written, so a prompt written with `io.write` and no newline appears before the program waits for input. Standard input is a string, served and then ended; an async function, asked for one line at a time, with `null` ending the input; or absent, so `io.read_line` returns `Err("eof")` at once. The environment holds what `env` gives plus `NOMI_COLOR=never`, unless `env` sets it, so diagnostics carry no colour codes; nothing comes from the page's URL or cookies. Arguments and environment together must fit in the 8 KB Go's loader reserves for them.
 
-The exit code is `nomi run`'s: 0, or 1 for a `main` returning `Err`, a trap or a failed assertion. When the Go runtime stops (an allocation past the 1 GiB cap, a deadlock), the run resolves with exit code 2 and Go's own line, such as `fatal error: out of memory`, as `fatal`. The browser build's limits apply as under `--target js/wasm`: file access fails with an `IOError`, a call nests at most 1,000 deep, and no signal arrives. The clock, `std/random`, tasks, channels and `sleep` work; tasks share the worker's one thread, so a task that never yields starves the others.
+The exit code is `nomi run`'s: 0, or 1 for a `main` returning `Err`, a trap or a failed assertion. When the Go runtime stops (an allocation past the 1 GiB cap, a deadlock), the run resolves with exit code 2 and Go's own line, such as `fatal error: out of memory`, as `fatal`. The browser build's limits apply as under `--target js/wasm`: file access fails with an `io.Error`, a call nests at most 1,000 deep, and no signal arrives. The clock, `std/random`, tasks, channels and `sleep` work; tasks share the worker's one thread, so a task that never yields starves the others.
 
 `index.html` loads `nomi.js` with a `<script type="module" src>` and no inline script, so it works under a strict `script-src`. `nomi.js` mounts itself on every element with a `data-nomi-program="app.wasm"` attribute: an output pane with standard error in a distinct colour, an input line that is enabled while the program waits for a line (Enter sends it, Ctrl-D on an empty line ends the input), the exit status, and a button that runs the program again. A page that imports `run` itself needs no such element. The page needs a server, since a browser does not fetch modules from `file:` URLs: `python3 -m http.server -d hello-web` serves one locally. Serve `app.wasm` as `Content-Type: application/wasm`, compressed with brotli or gzip (a hello world is 11 MB, 2 MB with brotli); Cloudflare Pages, Netlify and Vercel do both themselves. Without that content type the loader still works, compiling from the whole response instead of streaming it.
 
-`nomi run --web [--port N] [--open] [--static <dir>] <file>` is the loop for working on such a program. It builds the generated files into a temporary directory and serves them, with the static files served from where they are, by the same rule and with the same precedence and refusals as `nomi build --web`, on `http://localhost:<port>/`, on port 8000 or the next free one up to 8099 unless `--port` names one (`--port 0` takes any free port), with `app.wasm` as `application/wasm` and every response marked `Cache-Control: no-cache`. It prints the URL; `--open` also opens it in the default browser. It then watches the entry, every file the program loads and the project's `nomi.toml`, polling them every 250 ms, and rebuilds once a burst of changes has settled. It polls the static folder too, and a change there reloads the page without a rebuild. The page reloads itself after a successful rebuild. A failed build is printed on the terminal and shown over the page, which keeps running the last build that succeeded until the error is fixed; when the first build fails, the page shows the error alone. A static file given a generated name while the server runs is reported the same way and not served. Every `.html` page served, the generated one or a static one, gets one more script for this, `/__nomi/dev.js`, added before its `</head>` (or at its end when it has none), which listens to the server-sent event stream `/__nomi/events`. Each event is `{"build": n, "static": m, "error": "..."}`: `n` counts the successful builds and `m` the changes to the static files, and a page reloads when either differs from the one it was served at. `nomi build --web` never writes any of this. Ctrl-C stops the server and removes the temporary directory. A project with Go bindings is refused as `--web` refuses it, and the browser program takes no arguments, so a word after the file is a usage error; `--port`, `--open` and `--static` without `--web` are too, and so is `--watch` with `--web`, since `--web` already rebuilds on every change. Without `--web`, `nomi run` takes no flags but `--watch` (§26, *Running again on every change*), and every word after the file is the program's.
+`nomi run --web [--port N] [--open] [--static <dir>] <file>` is the loop for working on such a program. It builds the generated files into a temporary directory and serves them, with the static files served from where they are, by the same rule and with the same precedence and refusals as `nomi build --web`, on `http://localhost:<port>/`, on port 8000 or the next free one up to 8099 unless `--port` names one (`--port 0` takes any free port), with `app.wasm` as `application/wasm`, the locale files as `application/json`, and every response marked `Cache-Control: no-cache`. It prints the URL; `--open` also opens it in the default browser. It then watches the entry, every file the program loads and the project's `nomi.toml`, polling them every 250 ms, and rebuilds once a burst of changes has settled. It polls the static folder too, and a change there reloads the page without a rebuild. The page reloads itself after a successful rebuild. A failed build is printed on the terminal and shown over the page, which keeps running the last build that succeeded until the error is fixed; when the first build fails, the page shows the error alone. A static file given a generated name while the server runs is reported the same way and not served. Every `.html` page served, the generated one or a static one, gets one more script for this, `/__nomi/dev.js`, added before its `</head>` (or at its end when it has none), which listens to the server-sent event stream `/__nomi/events`. Each event is `{"build": n, "static": m, "error": "..."}`: `n` counts the successful builds and `m` the changes to the static files, and a page reloads when either differs from the one it was served at. `nomi build --web` never writes any of this. Ctrl-C stops the server and removes the temporary directory. A project with Go bindings is refused as `--web` refuses it, and the browser program takes no arguments, so a word after the file is a usage error; `--port`, `--open` and `--static` without `--web` are too, and so is `--watch` with `--web`, since `--web` already rebuilds on every change. Without `--web`, `nomi run` takes no flags but `--watch` (§26, *Running again on every change*), and every word after the file is the program's.
 
 ### Future: native code
 
@@ -7574,6 +7893,7 @@ fn main() -> Result<Unit, String> {
     if App.name == "" {
         return Err("the name is empty")
     }
+
     io.print("Hello, ${App.name}!")
     Ok(Unit)
 }
@@ -7729,6 +8049,7 @@ fn publish_quietly() {
         with App.logger = Silent
         warm_cache()
     }
+
     publish()
 }
 ```
@@ -7815,9 +8136,7 @@ A **Context** is an opaque, per-life value carrying deadline information and exe
 Context is installed independently of the application struct and read through its Context field, `Config.context` below:
 
 ```nomi
-import {
-    std/duration.Duration
-}
+import std/duration.Duration
 
 struct Config {
     context: Context
@@ -7849,7 +8168,7 @@ Boot’s declared return type defines the available application fields, and code
 
 ### Context Values
 
-Context values are for request- or execution-scoped metadata that should follow the current unit of work: trace IDs, auth subjects, locale, request IDs, or similar metadata that crosses API boundaries. They are **not** the dependency/capability mechanism; use ordinary payload fields such as `App.store` and `App.logger` for dependencies.
+Context values are for request- or execution-scoped metadata that should follow the current unit of work: trace IDs, auth subjects, request IDs, or similar metadata that crosses API boundaries. They are **not** the dependency/capability mechanism; use ordinary payload fields such as `App.store` and `App.logger` for dependencies. A locale is not a context value either: a function whose output depends on one takes a `Locale` argument, and an application keeps the current one in an application field (§41 *Locales and Plural Rules*).
 
 Values are addressed by their Nomi type:
 
@@ -7857,13 +8176,14 @@ Values are addressed by their Nomi type:
 type TraceId String
 
 with App.context = Context.with_value(App.context, TraceId("trace-123"))
+
 case Context.value(App.context, TraceId) {
     Some(TraceId(id)) -> Logger.info(App.logger, "trace ${id}")
     None -> Logger.info(App.logger, "no trace")
 }
 ```
 
-The value's Nomi type is the context key. `Context.with_value` returns a child context with the value associated to its type; parent contexts are not mutated. `Context.value(context, T)` walks from the current context to its ancestors and returns the nearest value of type `T`. In that second argument position, `T` is a contextual `Type<T>` witness: a bare type name becomes a value only because the function expects `Type<T>`. The type should usually be a domain type (`trace.Id`, `Auth.Subject`, `Locale`) rather than a raw scalar, so unrelated metadata cannot collide on `String`.
+The value's Nomi type is the context key. `Context.with_value` returns a child context with the value associated to its type; parent contexts are not mutated. `Context.value(context, T)` walks from the current context to its ancestors and returns the nearest value of type `T`. In that second argument position, `T` is a contextual `Type<T>` witness: a bare type name becomes a value only because the function expects `Type<T>`. The type should usually be a domain type (`trace.Id`, `Auth.Subject`) rather than a raw scalar, so unrelated metadata cannot collide on `String`.
 
 The usual pattern is to wrap a context value in a tiny file so callers do not traffic in the low-level `Context.value(context, T)` form:
 
@@ -7980,7 +8300,7 @@ struct Point {
 }
 
 #Point{x: 1, y: 2} < #Point{x: 3, y: 4}
-// error: no impl of `Comparable` for `Point` (required at … via ordering operator `<`)
+// error: no impl of `Comparable` for `Point` (required via ordering operator `<`)
 // help: add `derive Comparable` to `Point` or write an `impl Comparable for Point` block
 ```
 
@@ -7989,11 +8309,11 @@ Add `derive Comparable` (field-by-field lexicographic, §38.1) or a hand-written
 ## 31. Module & Dependency Management
 
 A Nomi module's identity is split between `go.mod` (Go-side identity and
-dependencies) and `nomi.toml` (Nomi-side identity and entry points).
-Dependencies on sibling modules through a local `replace` work. Resolution
-without a local `replace`, `nomi add` / `nomi publish`, a registry, and
-compiler-enforced semver are not implemented; each carries a status callout
-below.
+dependencies) and `nomi.toml` (Nomi-side identity and entry points). A
+Nomi module is a Go module, so it is published by pushing a version tag and
+fetched through the Go module proxy, without the `go` command. `nomi
+publish`, a registry, and compiler-enforced semver are not implemented;
+each carries a status callout below.
 
 ### Project config
 
@@ -8001,7 +8321,9 @@ A Nomi module's identity lives in two files at the module root:
 
 - **`go.mod`** — the Go module path (used by `go` tooling and the
   module proxy), dependency graph (`require` / `replace`), and Go
-  version. Standard `go.mod` syntax; nothing Nomi-specific.
+  version. Standard `go.mod` syntax; nothing Nomi-specific. `nomi` writes
+  it (`nomi new`, `nomi add`, `nomi remove`, `nomi update`, `nomi fetch`),
+  and a Nomi project commits it and `go.sum` without editing either.
 - **`nomi.toml`** — the Nomi-side identity (`[module].name`, the
   module's short name used by other modules' import paths) and the
   entry-point inventory (`[module].entry_points`).
@@ -8024,14 +8346,112 @@ replace example.com/shared_kit => ../shared_kit
 ```
 
 The two files are siblings; neither subsumes the other. Cross-module
-dependencies use Go's `require` + `replace` directives: a `require` whose
-`replace` points at a local directory with its own `nomi.toml` makes that
-module importable under its `[module].name`.
+dependencies are Go's `require` directives: a required module whose root
+holds a `nomi.toml` is importable under its `[module].name` (§14). A
+`replace` that points a requirement at a local directory makes that
+directory the module, as in Go; `nomi add ../shared_kit` writes both lines
+above.
 
-> **Status: not yet implemented.** A `require` with no local `replace`
-> is skipped: Nomi does not resolve modules through the Go module proxy,
-> so a dependency must be checked out beside the project and replaced
-> into it. Track via `feature-status.md`.
+### Dependencies
+
+A required module comes from the Go module proxy, as the `go` command
+fetches it, with no Go toolchain needed for a module that is all Nomi:
+
+- **Which modules.** A project needs the modules its `go.mod` requires
+  directly (no `// indirect`), and, for each that is a Nomi module, the
+  modules that module's `go.mod` requires and the project's `go.mod` also
+  lists. Each is taken at the version the project's `go.mod` requires; `nomi
+  add`, `nomi update` and `nomi fetch` keep that list complete, as `go mod
+  tidy` does, and `nomi remove` drops what no module needs any more.
+  `run`, `test`, `check` and `build` download them for a Nomi module (a
+  `nomi.toml` beside its `go.mod`); a Go module that merely holds `.nomi`
+  files leaves its Go dependencies to the `go` command.
+- **Download.** Module zips come from `GOPROXY` (default
+  `https://proxy.golang.org,direct`) through the module proxy protocol, into
+  the Go module cache (`GOMODCACHE`), which the `go` command shares; a module
+  already there is not downloaded again. A module that `GOPROXY`,
+  `GONOPROXY` or `GOPRIVATE` sends `direct` is read from its version control
+  repository by the `go` command.
+- **Verification.** Each zip's hash is checked against `go.sum`. A module
+  `go.sum` does not list is checked against the checksum database
+  (`GOSUMDB`, default `sum.golang.org`; `GONOSUMDB`, `GOPRIVATE` and
+  `GOSUMDB=off` exempt modules as they do for Go). A hash that differs from
+  either is an error and installs nothing.
+- **When `go.sum` changes.** `nomi add`, `nomi update` and `nomi fetch`
+  write the checksums of what they download to `go.sum`, and `nomi remove`
+  and `nomi update` drop the lines of what they took out. `nomi run`, `test`, `check` and `build`
+  download what is missing but, as Go's `-mod=readonly` default, refuse a
+  module `go.sum` does not list and say to run `nomi fetch`;
+  `GOFLAGS=-mod=mod` lets them write it.
+- **The language server** reads only the module cache and never downloads.
+  An import of a module that is required and not in the cache is an error
+  whose hint says to run `nomi fetch`.
+
+A module's Go code (§24's `gopkg` bindings), in the project or in a
+dependency, is built into the program's runner with a Go toolchain: the `go`
+on `PATH`; or, with none, the Go release `nomi` was built with, which `nomi`
+downloads once from go.dev, checks against a SHA-256 compiled into `nomi`,
+and keeps in its cache (`<user cache>/nomi/go/`). `NOMI_GO` names a `go` (or
+a Go root) to use instead of both. The language server uses that toolchain
+only once it is downloaded. Go bindings build with `CGO_ENABLED=0`, so a
+`gopkg` naming a Go package that needs cgo (one whose files, or those of a
+package it imports, import `"C"`) is an error at the `gopkg`.
+
+### Locales: `[i18n]`
+
+`nomi.toml`'s `[i18n]` table names the locales whose CLDR data the program
+carries (§41 *A program's locale data*) and how its messages are translated
+(§41 *Messages*):
+
+```toml
+# nomi.toml
+[i18n]
+source_locale = "en"
+locales = ["en", "pl", "pt", "pt-PT"]
+partial_locales = ["de"]
+catalogs = "locales"
+```
+
+Each entry is a BCP 47 tag, read as `Locale.parse` reads one and kept in its
+canonical spelling (`"PL"` is `pl`), in the order written, which is the
+order `Locale.available()` answers. A program with no `[i18n]` table carries
+every locale. Each of these is an error at the manifest, which `nomi check`,
+`nomi run` and the editor report: an empty list, an entry that is not a tag
+(`"pt_BR"`, whose error suggests `pt-BR`), one listed twice after
+canonicalization, `und` (CLDR's root, which every program carries), and a
+tag for which neither CLDR nor any parent of it but root has data (`qaa`).
+
+`source_locale` is the locale a `message` declaration's own text is in,
+English when it is left out. `partial_locales` are locales whose catalogs may
+leave a message out, which then shows in the source locale; they need
+`locales`, are checked as its entries are, may not repeat one, and the
+program carries their data too. `catalogs` is the directory under the module
+root holding a directory of catalogs per locale, `locales` when it is left
+out; it must stay under the root. `web_embedded` are the locales a browser
+build compiles into `app.wasm` (§41 *Locales in the browser*), the source
+locale when it is left out; it needs `locales`, and each entry must be one
+`locales` or `partial_locales` lists.
+
+### Custom currencies: `[money]`
+
+`nomi.toml`'s `[money]` table lists the custom currencies (§41 *Money*) the
+module's source may write as a literal:
+
+```toml
+# nomi.toml
+[money]
+custom_currencies = ["PTS:0", "BTC:8"]
+```
+
+Each entry is a custom currency as its literal writes it, the code, a colon
+and the minor digits, and must be one `Currency.custom` accepts. Each of
+these is an error at the manifest: an entry with no digits (`"PTS"`), a
+malformed code (`"pts:0"`), an ISO 4217 code (`"EUR:2"`), digits that are not
+a whole number from 0 to 18 written without leading zeros (`"PTS:19"`,
+`"PTS:00"`), and an entry listed twice. A module with no `[money]` table, or
+an empty list, writes no custom currency literal. The table is the module's
+own: a dependency's literals answer to the dependency's `nomi.toml`, and the
+application's list does not reach them.
 
 ### CLI
 
@@ -8045,9 +8465,10 @@ The `nomi` CLI is the single tool:
   `nomi.toml`'s entry_points; see §26).
 - `nomi run --watch <file> [args]` — run the program, and stop it and run
   it again whenever a file it is built from changes (see §26).
-- `nomi test [path] [--line N] [--format text|json] [--watch]` — run tests
-  in a `.nomi` file or discover tests under a directory; `--watch` runs them
-  again on every change; see §36.
+- `nomi test [path] [--line N] [--format text|json] [--timeout <duration>] [--watch]`
+  — run tests in a `.nomi` file or discover tests under a directory;
+  `--watch` runs them again on every change, and a test that runs longer
+  than `--timeout` (10 seconds unless given) is stopped and fails; see §36.
 - `nomi` — the REPL.
 - `nomi check <path>` — type-check and compile without running; code
   the program reaches that the compiler cannot lower is the error at its
@@ -8059,6 +8480,9 @@ The `nomi` CLI is the single tool:
   imports is checked through that importer, as `nomi run` loads it, and
   listed as `ok <file> (through <importer>)`; a file nothing there imports
   is checked on its own.
+  A failed check of a directory prints `FAIL <file>` for each file that
+  holds errors, a file the program imports or an input a macro read, with
+  its errors below it, and an error two programs share once.
 - `nomi build <file> [-o <binary>] [--target <goos>/<goarch>]` — one
   executable: nomi-vm with the program's IR appended. It runs at
   `nomi run` speed without the startup lowering; it is not native code
@@ -8076,29 +8500,74 @@ The `nomi` CLI is the single tool:
   folder on localhost, rebuilding and reloading the page when the source
   changes and reloading it when a static file changes.
 - `nomi fmt [-w|-l|-d] <paths>` — format Nomi source.
+- `nomi expand <file>` — print what the file's declarations written with a
+  macro's keyword expand to (see §45).
+- `nomi tool <module> <name> [args]` — run a module's tool,
+  `tools/<name>.nomi`, with every effect (see §45).
+- `nomi new <module path> [dir]` — start a module in `dir` (a new
+  directory named for the path's last element when left out): a
+  `nomi.toml` whose `name` is that element without a `/vN` suffix, written
+  as an identifier (`hello-world` is `hello_world`), with `entry_points =
+  ["main"]`; a `go.mod` with the `module` line and the `go` line of the Go
+  release `nomi` pins; and a `main.nomi` that prints hello. It refuses a
+  directory with a `go.mod`; in one with a `nomi.toml` and no `go.mod` it
+  writes the `go.mod` alone. It prints what it wrote and the next command.
+- `nomi add <module>[@version]` — require a module in `go.mod` (its latest
+  release when no version is given, else a full version such as `v1.2.3`),
+  with at least the versions of what it requires, download it, and write
+  the checksums to `go.sum`. A Go package's path adds the module that holds
+  it, the longest prefix of the path the proxy has.
+- `nomi add <directory>` — for an argument that starts with `./`, `../` or
+  `/`: require the Nomi module in that directory (`require <its module
+  path> v0.0.0`, from its `go.mod`) and `replace` it with the directory,
+  relative to the project root. A directory without a `go.mod` or a
+  `nomi.toml` is refused.
+- `nomi remove <module>` — take a requirement, and any `replace` of it, out
+  of `go.mod`, with each `// indirect` requirement no remaining module's
+  `go.mod` requires, and their lines out of `go.sum`. `<module>` is the
+  module path or the module's short name. It refuses while a Nomi file of
+  the project imports the module, or binds a Go package of it with
+  `gopkg`, and names the file and line.
+- `nomi update [module]` — move one requirement, or every one not replaced
+  with a directory, to the highest release of its module path, as `go get
+  -u` does: never a new major version (that is another path, `/v2`), and
+  never a pre-release. It raises what the new versions require, writes
+  `go.sum` (dropping the old versions' zip checksums), and prints each
+  change as `<path> <old> -> <new>`.
+- `nomi fetch [--target <goos>/<goarch>]... [dir]` — download everything the
+  project needs: the modules (adding to `go.mod` what a Nomi dependency
+  requires), and, for a project with Go bindings, the Go toolchain when
+  there is no `go`, the Go modules its bindings link, and the runner for
+  each `--target`. A later command with `--offline` then needs no network.
+- `--offline` on `run`, `test`, `check`, `build`, `fetch` and `add` —
+  download nothing; a module or toolchain the caches lack is an error that
+  names it. `GOPROXY=off` refuses module downloads the same way.
 - `nomi version` — print the version.
 
-> **Status: not yet implemented.** The following surface is reserved
-> for future work: `nomi add <module>`, `nomi publish`.
-> For now, add deps by editing `go.mod` directly.
+> **Status: not yet implemented.** `nomi publish` is reserved. Publishing
+> a module is pushing a version tag to its repository, as for any Go
+> module; the module proxy serves it from there.
 
 ### Registry & Distribution
 
-> **Status: not yet implemented.** No Nomi-specific registry. The
-> intent is that distribution rides on the Go module proxy by virtue
-> of a Nomi module being a Go module, so `go.mod`'s `require` lines
-> resolve through the standard Go ecosystem once a module is
-> published to a public location (GitHub, GitLab, etc.); that needs
-> the proxy resolution above. A separate Nomi-side registry is not
-> planned; if Nomi-specific module discovery becomes a need, the
+Distribution rides on the Go module proxy: a Nomi module is a Go module,
+so a module pushed with a version tag to a public repository (GitHub,
+GitLab, etc.) is served by `proxy.golang.org` and fetched as *Dependencies*
+above describes. Several modules may share one repository, each in a
+subdirectory with its own `go.mod` and tags prefixed by it
+(`sqlite/v0.3.0`), as Go lays them out.
+
+> **Status: not yet implemented.** No Nomi-specific registry, and none
+> is planned; if Nomi-specific module discovery becomes a need, the
 > simplest path is metadata indexing on top of existing Go module
 > hosting rather than a parallel registry.
 
 ### Lock File
 
 Nomi has no lock file of its own. A Nomi module's dependencies are Go
-module requirements, so Go's `go.sum` is the artifact that pins them;
-a separate `nomi.lock` is not planned.
+module requirements, so `go.mod` pins their versions and `go.sum` their
+contents, and `nomi` checks every download against it (*Dependencies*
+above); a separate `nomi.lock` is not planned.
 
 ### Compiler-Enforced Semver
 
@@ -8277,7 +8746,7 @@ opaque struct Range<T> where T: Comparable {
 }
 ```
 
-`end` is `None` only when the value is built via `Range.from(N)` or `Range.naturals()`; in that case `inclusive` carries no meaning and is canonically `False`. `Range<T>` implements `Iter<T>` when `T` implements `Discrete`, because iteration needs a successor operation. Bounded discrete ranges terminate; unbounded integer ranges don't, so bound them with `Iter.take(N)` downstream — `Range.from(1) |> Iter.take(10) |> Iter.to_list()`. Non-discrete ranges are interval values: use `Range.contains?("a".."m", "h")`, `Range.bounded?(0.0..=1.0)`, `Range.contains?(1.25d..=2.50d, 1.50d)`, and similar queries.
+`end` is `None` only when the value is built via `Range.from(N)` or `Range.naturals()`; in that case `inclusive` carries no meaning and is canonically `False`. `Range<T>` implements `Iter<T>` when `T` implements `Discrete`, because iteration needs a successor operation. Bounded discrete ranges terminate; unbounded integer ranges don't (they are `Iter.infinite?`, and a terminal that must reach their end traps), so bound them with `Iter.take(N)` downstream — `Range.from(1) |> Iter.take(10) |> Iter.to_list()`. Non-discrete ranges are interval values: use `Range.contains?("a".."m", "h")`, `Range.bounded?(0.0..=1.0)`, `Range.contains?(1.25d..=2.50d, 1.50d)`, and similar queries.
 
 Container-specific functions (`std/ranges`):
 
@@ -8288,7 +8757,7 @@ fn contains?(c: Range<T>, x: T) -> Bool    // Contains impl
 fn bounded?<T>(r: Range<T>) -> Bool
 ```
 
-Plus the `Iter` protocol for ranges whose endpoint type implements `Discrete` — `Iter.known_count(r)` is `Some(n)` for bounded discrete ranges that can count steps, `None` for an unbounded one (the safe bounded count). Generic ops are `Iter` owner functions: `Iter.to_list(r)` (hangs on unbounded; bound with `Iter.take` first), `Iter.count(r)`.
+Plus the `Iter` protocol for ranges whose endpoint type implements `Discrete` — `Iter.known_count(r)` is `Some(n)` for bounded discrete ranges that can count steps, `None` for an unbounded one (the safe bounded count). Generic ops are `Iter` owner functions: `Iter.to_list(r)` (traps on unbounded, which is `Iter.infinite?`; bound with `Iter.take` first), `Iter.count(r)`.
 
 Range operator precedence sits above pipes and below arithmetic — `1+2..5+6` groups as `(1+2)..(5+6)`. Pipe precedence sits above comparison, so `xs |> Iter.to_list() == [1, 2, 3]` groups as `(xs |> Iter.to_list()) == [1, 2, 3]`; range comparisons still group naturally as `(1..5) == (1..5)`. Range operands must have the same `Comparable` type.
 
@@ -8420,6 +8889,30 @@ tests import, changes, as `nomi run --watch` does (§26): tests still running
 are stopped, `<file> changed; running again` is printed on standard error,
 and a file that fails to compile is reported as `nomi test` reports it. A
 new test file under the path is picked up by the next run.
+
+Each test may run for 10 seconds of wall-clock time, counting its group's
+`clock`, `boot` and `setup` with its body; a `group` with
+`clock Clock.Virtual` is held to real time too. `--timeout <duration>`
+changes the limit, written as `30s`, `2m` or `500ms`, and `--timeout 0`
+removes it. A test still running when its limit passes is stopped, tasks it
+started included, and fails; the tests after it run as usual. Its failure
+is at the line it was running in its own file, outside the standard
+library, and lists where it was running, innermost call first, each as
+`<path>:<line> in <function>` (a test body is named by its test):
+
+```text
+FAIL coins_test.nomi :: flips forever
+  line 7: did not finish within 10s, so it was stopped
+  it was running:
+    coins_test.nomi:7 in flips
+    coins_test.nomi:12 in flips forever
+  help: `nomi test --timeout <duration>` sets how long a case may run (10s unless given), and `--timeout 0` removes the limit
+```
+
+A `subtests` table is one test, so its rows share the limit. `nomi run` has
+no limit, and neither has a test run under the debugger (`nomi dap`), where
+a paused test must not time out. Work inside a single call into Go (a Go
+binding, say) cannot be stopped until the call returns.
 
 What a test writes while it runs (`io.print`, `io.write`, `io.inspect` and
 `dbg`) is reported under the test, not where it was written. Each test's
@@ -9038,6 +9531,7 @@ fn greet() -> Result<Unit, String> {
         Ok(name) -> io.print("hello, ${name}")
         Err(_) -> io.print("hello, stranger")
     }
+
     Ok(Unit)
 }
 
@@ -9253,11 +9747,10 @@ impl Config {
     pub fn load(startup: Startup) -> Config {
         base = #Config{context: Context.root()}
 
-        deployment =
-            case Map.get(startup.env, "NOMI_ENV") {
-                Some(value) -> value
-                None -> "dev"
-            }
+        deployment = case Map.get(startup.env, "NOMI_ENV") {
+            Some(value) -> value
+            None -> "dev"
+        }
 
         configured = case deployment {
             "prod" -> prod.configure(base)
@@ -9266,7 +9759,7 @@ impl Config {
         }
 
         Struct.update(configured, #{
-            deployment: deployment,
+            deployment,
             database_url: case Map.get(startup.env, "DATABASE_URL") {
                 Some(value) -> value
                 None -> configured.database_url
@@ -9278,9 +9771,7 @@ impl Config {
 
 ```nomi
 // main.nomi
-import {
-    app.Config
-}
+import app.Config
 
 pub fn boot(startup: Startup) -> Config {
     Config.load(startup)
@@ -9768,6 +10259,12 @@ site. A backtick literal (`` Date`2026-05-04` ``) is parsed at compile
 time: it is a `Date`, and a malformed one is a compile error. See §16
 Typed Literals for the underlying mechanism.
 
+A calendar value writes itself for a reader in a locale with `format` (a
+style) and `format_fields` (a skeleton, `` DateFields`yMMMd` ``), reads what
+a reader typed with `parse_in`, and writes and reads a fixed numeric
+pattern, the same in every locale, with `to_string_with` and `parse_with`
+(`` DatePattern`yyyyMMdd` ``); §41 *Dates and times* gives them.
+
 ### Embedded IANA tzdata
 
 `std/calendar` embeds Go's `time/tzdata` package (≈ 450 KB) so IANA
@@ -9848,9 +10345,10 @@ seed = Seed.from_int(7)
 
 die = Generator.int(1, 6)
 
-#(hand, _) = die
-|> Generator.list(5)
-|> Generator.step(seed) // → [4, 1, 1, 4, 5], reproducibly
+#(hand, _) =
+    die
+    |> Generator.list(5)
+    |> Generator.step(seed) // → [4, 1, 1, 4, 5], reproducibly
 ```
 
 When several draws are known up front, compose them into one generator and
@@ -9860,7 +10358,1867 @@ other work (e.g. across turns of an interactive loop). The applicative
 `step` makes hand-threading the natural move, and `flat_map` + `map` express
 any composite generator when one is needed.
 
-## 41. Open Design Questions
+## 41. Locales and Plural Rules
+
+`std/locale` provides `Locale`, and `std/plural` provides CLDR's plural
+rules. `Int`, `Float`, `Decimal` and `String` format and parse numbers and
+join lists for a locale, `std/currency` and `std/money` provide `Currency`
+and `Money`, the calendar types and `Duration` format and parse dates,
+times and lengths of time, `std/localize` holds the `Localize` interface
+and the parse error, and `std/message` holds the `Message` a `message`
+declaration returns (*Messages* below). All the locale data comes from one pinned CLDR release,
+48.2, and a program carries the locales its `nomi.toml` lists.
+
+### `Locale`
+
+A `Locale` is a canonical [BCP 47](https://www.rfc-editor.org/rfc/rfc5646)
+language tag, Unicode extensions included (`en-US-u-nu-latn`). It is an opaque
+type: values come from parsing, and two spellings of one locale are equal.
+`Locale` is `Equatable` and `Hashable`, so it is a map key, and it is not
+`Comparable`. `Display` gives the tag; `Debug` gives the literal.
+
+The functions are owner functions of `Locale` (`Locale.parse(tag)`):
+
+```nomi
+fn parse(tag: String) -> Result<Locale, Error>
+fn from_posix(value: String) -> Result<Locale, Error>
+fn language(locale: Locale) -> String
+fn script(locale: Locale) -> Maybe<String>
+fn region(locale: Locale) -> Maybe<String>
+fn fallbacks(locale: Locale) -> List<Locale>
+fn negotiate(requested: List<Locale>, available: List<Locale>, default: Locale) -> Locale
+```
+
+- **Parsing canonicalizes.** Case is normalized (`EN-us` is `en-US`,
+  `zh-hant-hk` is `zh-Hant-HK`) and deprecated subtags are replaced (`iw` is
+  `he`, `in` is `id`, `sh` is `sr-Latn`). A failure is a `locale.Error`:
+  `Empty`; `Underscore {suggestion}` for a POSIX spelling such as `pt_BR`,
+  whose suggestion is `pt-BR`; `Malformed {text}` for text that is not a
+  well-formed tag; `UnknownSubtag {subtag}` for a well-formed tag with an
+  unregistered subtag (`xx`).
+- **The typed literal.** `` Locale`pt-BR` `` is a `Locale`. Its handler is
+  `Locale.parse`, so by the raw-literal rule (§16 *Typed literals*) a
+  malformed tag is a compile error at the literal, worded by `locale.Error`'s
+  `Display`:
+  ``typed literal Locale`pt_BR` is invalid: a locale tag separates subtags with `-`, not `_`: write `pt-BR` (Locale.from_posix reads a POSIX value)``.
+  In a program that lists its locales (`[i18n].locales` and
+  `partial_locales`), a literal whose locale's fallback chain reaches none
+  of them is a compile error too, since the program would never format in
+  it: with `en` and `de` listed,
+  ``typed literal Locale`fr`: `fr` is not one of this program's locales (`en`, `de` in nomi.toml's [i18n]): add it there, or format in one of them``.
+  `` Locale`de-CH` `` is valid there, as is any literal in a program that
+  lists no locales. A locale the program only compares or negotiates is
+  parsed while it runs (`Locale.parse("fr")`), which no check refuses.
+- **POSIX values.** `Locale.from_posix` reads what `LANG` and `LC_ALL` hold,
+  `language[_territory][.codeset][@modifier]`. The codeset is dropped.
+  `@latin`, `@cyrillic` and `@devanagari` become the script and `@valencia`
+  the variant; any other modifier (`@euro`) is dropped. `C` and `POSIX`, with
+  or without a codeset, name no language and are `und`. `pl_PL.UTF-8` is
+  `pl-PL`, and `sr_RS@latin` is `sr-Latn-RS`.
+- **Parts.** `Locale.language` is the language subtag, `und` when the tag
+  names none. `Locale.script` and `Locale.region` are the subtags the tag
+  spells; neither guesses a likely one.
+- **Fallback chains.** `Locale.fallbacks` is the chain locale data is looked
+  up along, nearest first: the locale, the locale without its extensions
+  when it has any, then its ancestors by CLDR's parent locales, with root
+  (`und`) excluded. A parent is the one CLDR's parentLocales names, else the
+  tag with its last subtag removed. Two rules refine truncation. A tag with a
+  region and no script whose region implies a different script than the
+  language's own inherits from the language with that script (`zh-TW` goes to
+  `zh-Hant`). A language-and-script tag whose script is not the language's
+  likely one has root as its parent (`ru-Latn` has no ancestor). So `es-MX`
+  is `[es-MX, es-419, es]`, `en-150` is `[en-150, en-001, en]`, `pt-AO` is
+  `[pt-AO, pt-PT, pt]`, `pt-BR` is `[pt-BR, pt]`, and `zh-Hant-HK` is
+  `[zh-Hant-HK, zh-Hant]`, never reaching `zh`.
+- **Negotiation.** `Locale.negotiate` is CLDR language matching: the locale
+  in `available` that best serves a reader who asked for `requested`, in
+  order of preference, or `default` when none is close enough.
+  `[pl-PL]` against `[en, pl, es]` is `pl`; `[ja]` against the same is the
+  default.
+
+### How code gets a locale
+
+Nothing reads a locale implicitly. A function whose output depends on one
+takes it as an argument, and an application keeps the current one in an
+application field (§27), by convention named `locale`. A library cannot read
+application fields, so it takes the `Locale` it needs. A locale is not a
+`Context` value (§28).
+
+```nomi
+pub struct App {
+    locale: Locale
+}
+
+pub fn boot(startup: Startup) -> App {
+    locale =
+        Map.get(startup.env, "LANG")
+        |> Maybe.flat_map(fn value -> Locale.from_posix(value) |> Result.to_maybe())
+        |> Maybe.with_default(Locale`en`)
+
+    #App{locale}
+}
+```
+
+A test group pins the locale through its boot, or overrides it with a `with`
+line in `setup` (§36).
+
+### Plural rules
+
+```nomi
+pub enum PluralCategory {
+    Zero
+    One
+    Two
+    Few
+    Many
+    Other
+}
+
+pub interface PluralOperand {
+    fn plural_operand(value: self) -> Decimal
+}
+```
+
+The functions are owner functions of `PluralCategory`
+(``PluralCategory.cardinal(3, Locale`pl`)``):
+
+```nomi
+fn cardinal<N>(value: N, locale: Locale) -> PluralCategory where N: PluralOperand
+fn ordinal(value: Int, locale: Locale) -> PluralCategory
+fn cardinals(locale: Locale) -> Set<PluralCategory>
+fn ordinals(locale: Locale) -> Set<PluralCategory>
+```
+
+`PluralCategory.cardinal` is the category a count selects, the form of a noun
+it counts; `PluralCategory.ordinal` is the category of an ordinal ("1st",
+"2nd"). `cardinals` and `ordinals` list the categories a locale's rules can
+select, `Other` always among them. `Display` gives CLDR's keyword (`one`,
+`few`).
+
+`Int` and `Decimal` implement `PluralOperand`. A type implements it by giving
+the number as its reader sees it, a `Decimal` whose scale is the number of
+visible fraction digits; the sign does not matter. CLDR's operands (`n`, `i`,
+`v`, `w`, `f`, `t`, `e`) are computed exactly from that Decimal's digits, at
+any size, and `e` is always 0. Visible trailing zeros count: `1d` is `One` in
+English and `1.0d` is `Other`. `Float` does not implement `PluralOperand`,
+because its category depends on how many digits are shown, which a `Float`
+does not carry; round it to a `Decimal` first (`Decimal.from_float`).
+
+| Locale | Cardinal |
+|---|---|
+| `en` | 1 is `One`; 0, 2 and 1.0 are `Other` |
+| `fr` | 0, 1 and 1.5 are `One`; 1000000 is `Many` |
+| `pl` | 1 is `One`; 2–4, 22–24 are `Few`; 0, 5–21, 25 are `Many`; 1.5 is `Other` |
+| `ar` | 0 `Zero`, 1 `One`, 2 `Two`, 3–10 `Few`, 11–99 `Many`, 100 `Other` |
+| `ja` | every number is `Other` |
+
+In English, ordinals 1, 21 and 101 are `One`, 2 and 22 are `Two`, 3 and 23
+are `Few`, and 4 and 11 to 13 are `Other`.
+
+A locale's rules are the first CLDR rule set on its plural fallback chain,
+else root's, under which every number is `Other`. The plural chain follows
+CLDR's parent locales for the plurals component, which in CLDR 48.2 is
+truncation alone: `pt-BR` uses `pt`'s rules, `pt-PT` has its own, and
+`zh-Hant-HK` uses `zh`'s.
+
+### A program's locale data
+
+A program carries the CLDR data of the locales its `nomi.toml` lists under
+`[i18n].locales` (§31 *Locales*), and nothing else. A program with no
+`[i18n]` table, a script outside any project among them, carries every locale
+CLDR has data for. `Locale.available()` lists the carried locales, in the
+manifest's order, or every locale when none is listed:
+
+```nomi
+fn available() -> List<Locale>
+```
+
+Every function that reads locale data (plural rules, number, date, money
+and list formatting, parsing) looks a locale up along its fallback chain
+among the carried locales. A locale whose chain reaches none of them is
+looked up as the source locale (`[i18n].source_locale`, `en` unless the
+manifest says otherwise) when the program lists it, and then in CLDR's
+root. A locale the program does not list is therefore not an error at run
+time: listing `en` and `de`, `de-CH` formats as `de`, and `fr`, read from a
+reader's settings, formats as `en`: `October 20, 2026`, `€12.50`,
+`a, b, and c`, with English plural rules. A program whose source locale is
+not listed formats such a locale as root, which writes bare patterns
+(`2026 M10 20`, `€ 12.50`, `a, b, c`) and whose plural rules make every
+number `Other`. Whether the program carries a locale is
+`Locale.available()`'s question at run time; a literal of one it does not
+carry is a compile error (§41 *Locales*). `Locale.fallbacks` answers from
+CLDR's parent locales for any tag, carried or not, and `Locale.negotiate`
+reads no locale data, so neither depends on what is carried.
+
+The grammatical genders and cases of a locale's nouns, as CLDR's
+grammatical features list them, are carried data too. They are what a
+`noun`'s catalog entries may give (§41 *Nouns and agreement*):
+
+```nomi
+fn genders(locale: Locale) -> List<String>   // pl: animate, inanimate, personal, feminine, neuter
+fn cases(locale: Locale) -> List<String>     // pl: nominative, genitive, ... locative; en: none
+```
+
+`nomi run`, `nomi test`, the REPL and a built program (§25) read the same
+data, so a program prints the same text under each. A built program carries
+the data in its image, cut to the parts it reaches: one that formats numbers
+and never lists items carries no list patterns, and one that reads no locale
+data carries none. The collation data (§41 *Collation and case*) is the root
+order, which a program that compares with a `Collator` carries once, and
+each carried locale's tailoring. The Chinese and Korean tailorings are
+carried only by a program that lists a locale whose collation chain reaches
+them; one that lists no locales sorts Chinese and Korean in the root order.
+
+#### Locales in the browser
+
+A site may offer many locales while each reader reads one, so `nomi build
+--web` does not put them all in `app.wasm`. It compiles in the locales
+`[i18n].web_embedded` names (the source locale unless it says otherwise),
+with CLDR's root, every listed locale's plural rules and grammatical
+features, and every message's source text, and writes each other listed
+locale to `locales/<tag>.nomil` beside it: that locale's numbers and lists
+and its messages' and nouns' translations, with those of each ancestor on
+its fallback chain that is not embedded either, so one file serves the
+locale (`pt-PT`'s holds `pt`'s too). Every locale is still checked when the
+program is built. A program that lists no locales, a program with no
+messages that formats nothing, and every other kind of build carry every
+locale in the program.
+
+```nomi
+fn loaded() -> List<Locale>                       // impl Locale
+fn load(locale: Locale) -> Result<Unit, LoadError>  // impl Locale
+
+pub enum LoadError {
+    Unreachable {locale: Locale, reason: String}   // the file could not be fetched
+    Unreadable {locale: Locale, reason: String}    // another build's file, or no locale file
+}
+```
+
+`Locale.load` fetches the files of the locales on its argument's fallback
+chain that are not loaded yet, and the calling task waits until they arrive
+or fail; the program runs in a module worker, so the page goes on. A file
+another build wrote, such as one a browser cached from the last deploy, is
+refused: the image and its files share a build id. Anywhere but a browser
+build `load` answers `Ok(Unit)` at once, as it does for a locale already
+loaded or one the program does not list. `Locale.loaded()` is
+`Locale.available()` less the locales whose files are not loaded yet.
+
+Until its file is loaded a locale formats as its nearest loaded ancestor,
+or as the source locale when none is loaded: the source text, and the
+source locale's numbers, dates and lists when the image embeds it (it does
+unless `web_embedded` leaves it out), else CLDR's root's. That is a safety
+net, not the way to show a page, which loads the reader's locale before
+formatting in it:
+
+```nomi
+fn choose_language(locale: Locale) -> Result<Unit, LoadError> {
+    try Locale.load(locale)
+    with App.locale = locale
+    render_page()
+    Ok(Unit)
+}
+```
+
+### Formatting numbers
+
+`Display` stays locale-independent: `"${1234567}"` is `1234567` everywhere,
+because that text goes into file names, URLs, headers and CSV. Text for a
+reader comes from owner functions that take a `Locale`, with options as named
+arguments:
+
+```nomi
+// Int
+fn format(n: Int, locale: Locale, grouping: Bool = True, min_digits: Int = 1) -> String
+
+// Float
+fn format(f: Float, locale: Locale, min_fraction: Int = 0, max_fraction: Int = 3, grouping: Bool = True) -> String
+fn format_percent(f: Float, locale: Locale, max_fraction: Int = 0) -> String
+
+// Decimal
+fn format(d: Decimal, locale: Locale, min_fraction: Int = 0, max_fraction: Int = Int.max(Decimal.scale(d), min_fraction), grouping: Bool = True, mode: RoundingMode = RoundingMode.HalfEven) -> String
+fn format_percent(d: Decimal, locale: Locale, min_fraction: Int = 0, max_fraction: Int = Int.max(Decimal.scale(d) - 2, min_fraction), mode: RoundingMode = RoundingMode.HalfEven) -> String
+```
+
+```nomi
+Int.format(1234567, Locale`en`) // "1,234,567"
+
+Int.format(1234567, Locale`de`) // "1.234.567"
+
+Int.format(1234567, Locale`hi`) // "12,34,567"
+
+Int.format(1234567, Locale`ar-EG`) // "١٬٢٣٤٬٥٦٧"
+
+Int.format(1234567, Locale`ar-EG-u-nu-latn`) // "1,234,567"
+
+Float.format(1234.5, Locale`fr`, min_fraction: 2) // "1 234,50" (U+202F)
+
+Float.format_percent(0.256, Locale`de`) // "26 %" (U+00A0)
+
+Decimal.format(1234.50d, Locale`de`) // "1.234,50"
+
+Decimal.format_percent(0.125d, Locale`en`) // "12.5%"
+
+Decimal.format(1d / 8d, Locale`en`, max_fraction: 2) // "0.12"
+```
+
+- **Symbols and patterns** are the locale's CLDR decimal and percent
+  patterns and number symbols: decimal and group separators, plus, minus and
+  percent signs, infinity and NaN. Grouping follows the pattern's sizes
+  (`#,##,##0` groups lakhs), and CLDR's minimum grouping digits: Polish and
+  Spanish group only from five integer digits, so `1234` in `pl` is `1234`
+  and `12345` is `12 345`.
+- **Digits** are the locale's default numbering system's (`ar-EG` writes
+  Arabic-Indic digits). A `-u-nu-` extension naming a numeric system
+  overrides it (`ar-EG-u-nu-latn`, `en-u-nu-arab`), and `-u-nu-native` picks
+  the locale's native system. When the locale has no symbols for that system,
+  its Latin symbols stand.
+- **`Int.format`** pads to `min_digits` digits (1 to 100). **`Float.format`**
+  rounds half to even to at most `max_fraction` digits and pads to at least
+  `min_fraction` (0 to 100, `min_fraction <= max_fraction`); the rounding
+  works on the shortest decimal that reads back as the float, so `1.015`
+  rounds to `1.02`, as the digits a reader sees say. Infinity and NaN are the
+  locale's symbols. An option out of range traps:
+  `Int.format: min_digits must be 1 to 100, got 0`.
+- **`Decimal.format`** writes as many fraction digits as the Decimal's
+  scale has, at least `min_fraction` and at most `max_fraction` (the same
+  bounds as `Float.format`'s, trapping outside them), rounding a digit past
+  `max_fraction` by `mode`, half to even by default as `Money.round` does.
+  By default it writes every digit of the scale and rounds none: `1234.50d`
+  is `1,234.50` in `en`. **`format_percent`** multiplies by 100 (a Decimal
+  exactly: `0.125d` is `12.5%`, a scale two less), then limits and rounds
+  the percentage's digits the same way (`0.12345d` with `max_fraction: 1`
+  is `12.3%`), and places the locale's percent sign where its pattern puts
+  it (`%26` in `tr`).
+
+### Parsing numbers
+
+```nomi
+// Int, Float and Decimal
+fn parse_in(text: String, locale: Locale, lenient: Bool = False) -> Result<Int, NumberParseError>
+// Float and Decimal
+fn parse_percent_in(text: String, locale: Locale, lenient: Bool = False) -> Result<Float, NumberParseError>
+
+pub enum NumberParseError {     // std/localize
+    Empty
+    Unexpected {at: Int, text: String}
+    Grouping {at: Int}
+    OutOfRange
+    TooManyFractionDigits {max: Int}                   // Money.parse_in
+    WrongCurrency {expected: Currency, found: String}  // Money.parse_in
+}
+```
+
+Parsing never guesses the locale: `1.234` is one thousand two hundred
+thirty-four in `de` and one point two three four in `en`.
+
+- **Strict** (the default) accepts what the matching formatter writes for
+  the locale, with three allowances: group separators may be left out, any
+  Unicode space stands for a space the locale writes (a reader cannot type
+  U+202F), and ASCII digits stand for the locale's own. Anything else is an
+  error: a group separator where the pattern puts none is `Grouping` (`en`
+  `12,34,567` is `Grouping{at: 2}`; `hi` `1,234,567` is `Grouping{at: 1}`),
+  and any other text is `Unexpected`, including a group separator after the
+  decimal separator (`en` `1.234,5` is `Unexpected{at: 5, text: ","}`),
+  surrounding space, a leading `+` and a fraction in an `Int`. Text that
+  stops early is `Unexpected` at the text's length with empty `text`
+  (`Decimal.parse_percent_in("12.5", Locale`en`)`). `at` counts grapheme
+  clusters, as `String.length` does.
+- **Lenient** (`lenient: True`) also accepts group separators anywhere in
+  the integer part, space around the text, a leading `+`, a minus sign after
+  the number (`12-`) or parentheses around it (`(12)`), ASCII `-` and `%` for
+  the locale's signs, the percent sign on either side, and leaves out the
+  invisible direction marks some locales' signs carry.
+- **Results.** A number outside the type is `OutOfRange` (an `Int` past
+  64 bits; a `Float` whose digits overflow to infinity). `Decimal.parse_in`
+  keeps the digits typed after the decimal separator as the scale, so `12,50`
+  in `pl` is `12.50d`. `Decimal.parse_percent_in` divides by 100 exactly:
+  `12,5 %` in `de` is `0.125d`, and `Float.parse_percent_in` reads the same
+  text as the nearest `Float` to the fraction, `0.125`. `Float.parse_in`
+  reads the infinity and NaN symbols. A formatted number parses back to its value in either mode.
+
+### Lists
+
+```nomi
+// String
+fn join_list(items: List<String>, locale: Locale, style: ListStyle = ListStyle.And, width: ListWidth = ListWidth.Wide) -> String
+
+pub enum ListStyle {   // std/strings
+    And
+    Or
+    Unit
+}
+
+pub enum ListWidth {   // std/strings
+    Wide
+    Short
+    Narrow
+}
+```
+
+`String.join_list` joins items as a reader of the locale lists them, with
+CLDR's list patterns: `And` for all of the items, `Or` for one of them, and
+`Unit` for the parts of one measure ("5 ft 3 in"); the width picks the
+pattern's wide, short or narrow words. The last two items join by the
+pattern's end form, each earlier one by its middle form and the first by its
+start form, so `en` writes `a, b, and c` and `a and b`, `en-GB` `a, b and c`,
+`pl` `a, b i c` and `ja` `a、b、c`. An `Iter` is materialized first
+(`Iter.to_list()`).
+
+### Collation and case
+
+`<` on `String` compares UTF-8 bytes, and collation is never implicit. A
+`Collator` (`std/collation`) orders strings as readers of a locale order
+them:
+
+```nomi
+// impl Collator
+fn new(locale: Locale, strength: Strength = Strength.Tertiary, numeric: Bool = False, case_first: CaseFirst = CaseFirst.Default, ignore_punctuation: Bool = False) -> Collator
+fn compare(collator: Collator, a: String, b: String) -> Ordering
+fn sort_key(collator: Collator, text: String) -> Bytes
+```
+
+```nomi
+pub opaque type Collator String // std/collation; Equatable, Hashable, Debug
+
+pub enum Strength {
+    Primary // base letters: a = á = A
+    Secondary // and accents: a = A, a < á
+    Tertiary // and case: the default
+    Quaternary // and what ignore_punctuation ignores, hiragana from katakana
+    Identical // and code points
+}
+
+pub enum CaseFirst {
+    Default // as the locale's collation says
+    Upper
+    Lower
+    Off
+}
+```
+
+The order is the Unicode Collation Algorithm (UTS #10) over CLDR's root
+collation, with the locale's CLDR tailoring laid over it (UTS #35 part 5):
+German keeps `ä` with `a`, Swedish puts `å`, `ä` and `ö` after `z`, Polish
+puts `ł` after `l`, Czech `ch` after `h`, Lithuanian `y` with `i`, Chinese
+sorts Han by pinyin before Latin, and Traditional Chinese by stroke count.
+Strings are compared in NFD, so canonically equivalent strings are equal at
+every strength below `Identical`. A Han character a tailoring does not list
+sorts by its code point, the core ideographs before the rest, and an
+unassigned code point after every assigned one.
+
+The locale's tag chooses among a language's collations and sets the
+options: `-u-co-` names a CLDR collation type (`de-u-co-phonebk` sorts `ü`
+as `ue`; `es-u-co-trad` sorts `ch` and `ll` as letters; `zh-u-co-stroke`),
+and `-u-ks-` (`level1` to `level4`, `identic`), `-u-kn-true`, `-u-kf-upper`
+or `-u-kf-lower`, and `-u-ka-shifted` set what `strength`, `numeric`,
+`case_first` and `ignore_punctuation` set. The settings apply in order: the
+tailoring's own (Danish puts upper case first), then the tag's keywords, then
+each argument that is not its default. A locale whose collation the program
+does not carry orders as its nearest carried parent along the collation
+chain (the collations component of CLDR's parent locales, else the main
+ones short of root, else the tag less its last subtag: `zh-Hant` takes
+`zh`'s stroke order), else in the root order.
+
+`numeric: True` orders a run of decimal digits, of any script, by its value
+(`file9` before `file10`). `ignore_punctuation: True` is UTS #10's shifted
+alternate: spaces and punctuation are ignored at the first three levels and
+compared at the quaternary. `Collator.sort_key` answers bytes that compare,
+under `Bytes`' `Comparable` order, as `compare` compares the strings; a key
+is meaningful only beside keys of the same collator and Nomi release.
+
+`String` has case mapping for a language and caseless matching:
+
+```nomi
+// String
+fn to_upper_in(s: String, locale: Locale) -> String
+fn to_lower_in(s: String, locale: Locale) -> String
+fn fold_case(s: String) -> String
+```
+
+`to_upper_in` and `to_lower_in` apply Unicode's full case mappings
+(SpecialCasing: `ß` upper-cases to `SS`, and a capital sigma ending a word
+lower-cases to `ς`) and the rules of the locale's language: Turkish and
+Azeri map `i` to `İ` and `I` to `ı`, and Lithuanian keeps the dot of an
+`i` under an accent. `String.to_upper` and `String.to_lower` stay
+independent of any language. `fold_case` is Unicode's full case folding,
+the same in every language: two strings that differ only in case fold to
+the same string.
+
+### Money
+
+`std/currency` provides `Currency` and `std/money` provides `Money`, the
+types payment, invoicing and exchange-rate libraries share:
+
+```nomi
+pub opaque type Currency String   // std/currency
+
+fn parse(text: String) -> Result<Currency, Error>                  // `EUR`, or `BTC:8`
+fn custom(code: String, minor_digits: Int) -> Result<Currency, Error>
+fn code(currency: Currency) -> String
+fn minor_digits(currency: Currency) -> Int
+fn iso?(currency: Currency) -> Bool
+
+pub struct Money {                // std/money
+    amount: Decimal
+    currency: Currency
+}
+
+pub enum CurrencyDisplay {
+    Symbol
+    Narrow
+    Code
+    Name
+}
+
+fn format(money: Money, locale: Locale, display: CurrencyDisplay = CurrencyDisplay.Symbol) -> String
+fn round(money: Money, mode: RoundingMode = RoundingMode.HalfEven) -> Money
+fn parse_in(text: String, locale: Locale, currency: Currency, lenient: Bool = False) -> Result<Money, NumberParseError>
+
+impl Literal for Money          // Money`12.50 EUR`, Money`1200 PTS:0`
+```
+
+- **ISO currencies.** `` Currency`EUR` `` is an ISO 4217 currency, current
+  or historical, as the pinned CLDR lists it, with its minor digits (EUR 2,
+  JPY 0, BHD 3). A code CLDR does not list is a compile error at the literal:
+  ``typed literal Currency`BTC` is invalid: `BTC` is not an ISO 4217
+  currency: a custom currency names its minor digits, as Currency`BTC:2` ``.
+- **Custom currencies.** `` Currency`BTC:8` `` and `Currency.custom("BTC",
+  8)` make a currency ISO does not list: a code of 1 to 12 of `A`–`Z` and
+  `0`–`9` starting with a letter, that is not an ISO code, and 0 to 18 minor
+  digits. Two custom currencies are equal when their codes and digits are,
+  so `PTS:0` and `PTS:2` are two currencies. The literal checks the same
+  rules when the program is checked (`currency.Error`: `Malformed {text}`,
+  `IsoCode {code}`, `NotIso {code}`, `Digits {digits}`). If a CLDR upgrade
+  lists a custom code as ISO, its literal stops compiling.
+- **Listed custom currencies.** A custom currency needs no setup, so a typo
+  makes another one. In a file of a module (one with a `nomi.toml` above
+  it), a `` Currency`…` `` or `` Money`…` `` literal naming a custom
+  currency must name one its module's `[money].custom_currencies` lists
+  (§31), code and digits; otherwise it is a compile error at the literal
+  that suggests a listed entry with the same code or one edit away:
+  ``typed literal Currency`PST:0`: `PST:0` is a custom currency this module
+  does not list: add it to [money].custom_currencies in nomi.toml``, with
+  ``help: did you mean `PTS:0`? nomi.toml lists it``. A
+  `Currency.custom("PTS", 0)` call whose code and digits are both literals
+  is checked the same way, at the call, and its error's help names the
+  literal form. The editor shows a warning at every such call that is no
+  error, naming the literal (``write Currency`PTS:0`, which the compiler
+  checks``); `nomi check` prints none. A currency made from values while
+  the program runs (`Currency.custom(code, digits)`, `Currency.parse`,
+  `Money.parse_in`) is not checked, and a file in no module (a script, the
+  REPL) and the standard library's own files may name any.
+- **Money literals.** `` Money`1299.50 USD` `` is `#Money{amount: 1299.50d,
+  currency: Currency`USD`}`: the amount, one space and the currency, the
+  text `Display` writes. The amount is what `Decimal.from_string` reads (an
+  optional sign, digits, `_` separators and an optional fraction) and keeps
+  every digit written (`` Money`12.5 EUR` `` has scale 1); the currency is
+  what `` Currency`…` `` reads, so `` Money`1200 PTS:0` `` names a custom
+  one. A backtick literal is checked when the program is checked, and its
+  errors (`money.Error`: `Malformed {text}`, `Amount {text}`, `NoCurrency
+  {amount}`, `NotACurrency {amount, error}`, `Interpolated`) name what is
+  wrong and show the form: ``typed literal Money`12.50` is invalid: `12.50`
+  has no currency: write the amount, one space and the currency, as
+  Money`12.50 EUR` ``. The literal does not interpolate: a double-quoted
+  `Money"${amount} USD"` is `Err(Interpolated)`, whose message says to build
+  `#Money{...}` from the fields.
+- **Arithmetic.** `Money` implements `Add`, `Subtract`, `Multiply<Int,
+  Money>` and `Summable`, all exact. Two amounts in two currencies trap,
+  naming both, as `Int` overflow does: `Money.add: the amounts are in two
+  currencies, EUR and PLN`, and `PTS:0 and PTS:2` for two custom currencies
+  of one code. `Money.empty_sum()` is zero in `XXX`, ISO's code for no
+  currency, which `+` leaves the other amount alone for, so `Iter.sum` of a
+  list of amounts is their total in their currency. Two amounts are equal
+  when their currencies are and their amounts are equal numbers. Std has no
+  exchange rates; a library that converts checks `m.currency` first.
+- **Rounding.** `Money.round` rounds the amount to its currency's minor
+  digits, half to even unless `mode` says otherwise.
+- **Formatting** writes the locale's currency pattern with the currency as
+  `display` says: its `Symbol` (`€`, `US$` in `en-CA`), its `Narrow` symbol
+  (`$`), its ISO `Code`, or its `Name` in the plural form the amount takes,
+  by the locale's unit pattern (`12.50 euros`). The amount shows at least
+  the currency's minor digits and every digit it has, so formatting rounds
+  nothing. A symbol made of letters is kept apart from the digits by CLDR's
+  `alphaNextToNumber` pattern (`BTC 0.50000000` in `en`, U+00A0). A custom
+  currency has no symbol or name in CLDR, so every display writes its code.
+  `Money` implements `Localize` with `format` and `Display` as the amount
+  and the currency as its literal writes them, the same everywhere
+  (`12.50 EUR`, `-5.00 USD`, `1200 PTS:0`).
+- **Parsing.** `Money.parse_in` reads what `format` writes, with the currency's
+  symbol, narrow symbol or code where the pattern puts it, and the
+  allowances of `Decimal.parse_in`; lenient also takes the symbol or code on
+  either side of the number, or none. A different currency is
+  `WrongCurrency` (`12,50 zł` read as euros), and more fraction digits than
+  the currency has is `TooManyFractionDigits`. The digits typed are the
+  amount's scale.
+
+```nomi
+Money.format(Money`12.50 EUR`, Locale`pl`) // "12,50 €" (U+00A0)
+
+Money.format(Money`1500 JPY`, Locale`ja`) // "￥1,500"
+
+Money.format(Money`2 EUR`, Locale`en`, display: .Name) // "2.00 euros"
+
+Money.format(#Money{amount: total, currency: eur}, Locale`en`) // computed values: the fields
+
+Money.parse_in("12,50 €", Locale`pl`, Currency`EUR`) // Ok(12.50 EUR)
+```
+
+### Dates and times
+
+The calendar types write themselves for a reader in three ways, Gregorian
+only:
+
+```nomi
+// Date (DateStyle and DateFields), and alike for Time (TimeStyle,
+// TimeFields), NaiveDateTime and DateTime (both styles, DateTimeFields)
+fn format(d: Date, locale: Locale, style: DateStyle = DateStyle.Medium) -> String
+fn format_fields(d: Date, locale: Locale, fields: DateFields) -> String
+fn parse_in(text: String, locale: Locale, style: DateStyle = DateStyle.Short, lenient: Bool = False) -> Result<Date, Error>
+fn to_string_with(d: Date, pattern: DatePattern) -> String
+fn parse_with(text: String, pattern: DatePattern) -> Result<Date, Error>
+
+fn format(dt: DateTime, locale: Locale, date: DateStyle = DateStyle.Medium, time: TimeStyle = TimeStyle.Short) -> String
+fn weekday(d: Date) -> Weekday
+```
+
+- **Styles.** `DateStyle` and `TimeStyle` are `Full`, `Long`, `Medium` and
+  `Short`, and the locale decides the rest: `Tuesday, October 20, 2026`,
+  `October 20, 2026`, `Oct 20, 2026` and `10/20/26` in `en`. A date and a
+  time join as the locale's date-time pattern for the date's style joins
+  them. A `Full` or `Long` time of a `DateTime` ends with its offset in the
+  locale's GMT format (`GMT+02:00`, `UTC+2` in `fr`); zone names are not
+  std's. A `Time` and a `NaiveDateTime` have no zone, so their `Full` and
+  `Long` times write what `Medium` does.
+- **Skeletons.** `DateFields`, `TimeFields` and `DateTimeFields` name the
+  fields a value shows and their widths as a CLDR skeleton: `y` the year,
+  `M` or `L` the month (`M` its number, `MMM` its short name, `MMMM` its
+  name), `d` the day, `E` the weekday, `G` the era, `j` the hour as the
+  locale writes it (`h` a 12-hour clock's, `H` a 24-hour one's), `m`, `s`
+  and `S`. Each locale's data gives the order, the punctuation and the
+  words: `` DateFields`MMMMd` `` is `October 20` in `en`, `20 października` in
+  `pl` and `10月20日` in `ja`. This is ICU's date-time pattern generator over
+  the locale's available formats (UTS #35, *Matching Skeletons*): the
+  available skeleton with the same fields and the nearest widths, widened to
+  the widths asked for, except a field the locale writes in another form
+  (`ja` writes a month as a number where a skeleton names it); a skeleton
+  with date and time fields no one format covers is the two joined. The
+  literal is checked when the program is checked: a letter that is no
+  field, a field the type does not hold (an hour in a `DateFields`), a field
+  named twice or too wide is a compile error at the literal. When every
+  skeleton a built program uses is a literal, the build resolves each one
+  for each listed locale and the image carries those patterns instead of
+  the locales' available formats.
+- **Fixed patterns.** `DatePattern`, `TimePattern` and `DateTimePattern`
+  are numeric LDML patterns that write the same text in every locale, for
+  file names, logs and protocols: `y` (`yy` two digits), `M`, `d`, `D`, `H`,
+  `m`, `s` (each doubled for two digits), `S` (one per fraction digit), and
+  quoted or non-letter text. A month or weekday name, AM or PM, an era and a
+  zone are words or need them, so a pattern holds none: ``typed literal
+  DatePattern`dd MMM yyyy` is invalid: invalid format: `MMM` writes the
+  month's name, which is a word of a language: a fixed pattern writes
+  numbers, the same in every locale; write it for a reader with a skeleton
+  and a locale, as Date.format_fields(date, locale, DateFields`yMMMd`)``.
+  `parse_with` reads what `to_string_with` writes, a one-digit field
+  standing for a two-digit one. `DatePattern.parse` and its kin check a
+  pattern made while the program runs.
+- **Parsing.** `parse_in` reads text by the locale's pattern at a style,
+  strictly by default: a two-digit field may be written with one digit, any
+  space stands for a space the locale writes, and ASCII digits for the
+  locale's. Lenient also reads names in any width or case, with or without
+  their final period, any spaces and punctuation between fields, a
+  four-digit year where the locale writes two, and spaces around the text.
+  A two-digit year is 2000 plus its digits. Text that does not read is
+  `Error.InvalidFormat`, naming what was expected where, and a value that
+  is no date `Error.InvalidValue` (`month 2 of 2026 has no day 31`).
+- **`Weekday`** is `Monday` to `Sunday`; `Date.weekday` gives the date's.
+- `Date`, `Time`, `NaiveDateTime` and `DateTime` implement `Localize` with
+  `format`'s defaults. `Display` stays ISO 8601.
+
+### Durations and relative time
+
+```nomi
+fn format(d: Duration, locale: Locale, width: DurationWidth = DurationWidth.Long) -> String   // impl Duration
+fn format_relative(count: Int, locale: Locale, unit: TimeUnit, numeric: Bool = False) -> String  // impl TimeUnit
+
+pub enum DurationWidth {   // std/duration
+    Long
+    Short
+    Narrow
+}
+
+pub enum TimeUnit {   // std/calendar
+    Second
+    Minute
+    Hour
+    Day
+    Week
+    Month
+    Quarter
+    Year
+}
+```
+
+`Duration.format` writes each unit the length has, hours down to
+nanoseconds, in the plural form its count takes, with CLDR's duration unit
+patterns at `width`, CLDR's unit widths (`Long`, `Short` or `Narrow` words;
+a list's `ListWidth` is a different set, CLDR's list widths), joined by the locale's
+unit list pattern: `1 hour, 30 minutes` in `en`, `1 godzina i 30 minut` in
+`pl`. A length is counted in hours, since a day is civil; zero is `0
+seconds`. `Duration` implements `Localize` with it.
+
+`TimeUnit.format_relative` writes `count` units from now: `in 3 days` and
+`3 days ago` in `en`, `vor 3 Tagen` in `de`, `za 3 tygodnie` and `za 5
+tygodni` in `pl`, each in the plural form the count takes. Unless `numeric:
+True`, a count the locale has a word for is that word (`yesterday`,
+`vorgestern`). Relative time takes a civil unit and a count, not a
+`Duration`, because a month is no fixed length.
+
+### `Localize`
+
+```nomi
+pub interface Localize {
+    // std/localize
+    fn localize(value: self, locale: Locale) -> String
+}
+```
+
+`Localize` is how a type reads in a locale, as `Display` is how it reads in a
+log line. `Int`, `Float` and `Decimal` implement it with their `format` and
+its defaults, `String` with itself, `Money`, `Date`, `Time`,
+`NaiveDateTime`, `DateTime` and `Duration` with theirs, `Message` with
+`Message.format`, and `Noun` with its nominative for one thing.
+
+### Messages
+
+Text a person reads is declared once, in the program's source language,
+with `message`, and translated in catalogs, one TOML file per locale. The
+text is [MessageFormat 2](https://www.unicode.org/reports/tr35/tr35-messageFormat.html)
+(MF2), the Unicode standard stable since CLDR 47, so translation tools read
+it.
+
+```nomi
+/// How many items the cart holds.
+pub message cart_items(count: Int) `
+    .input {$count :integer}
+    .match $count
+    one {{{$count} item in your cart}}
+    * {{{$count} items in your cart}}
+    `
+```
+
+`message` and `noun` declarations follow the general rule for keyword declarations (§44).
+
+#### The declaration
+
+A `message` declares a function of the same name whose parameters are the
+message's and whose result is a `Message` (`std/message`). It is called like
+any function of its file, `cart.cart_items(3)`, and takes a doc comment and
+`pub`. It writes no `-> type`. Its body is the text in the source locale,
+`[i18n].source_locale` (English unless the manifest says otherwise).
+
+A `Message` is locale-free: it holds which message and its arguments, and
+`Message.format(message, locale)` writes it in a locale. Libraries return
+messages and leave the formatting to the code that knows the reader's
+locale. Two messages are equal when they are the same declaration with equal
+arguments, `Debug` shows `cart.cart_items(3)`, and `Message` implements
+`Localize`, so a message passed to another message is formatted in the same
+locale.
+
+The functions MF2 text formats with are the stable `:string`, `:number`,
+`:integer`, `:percent` and `:currency`, the draft `:date`, `:time` and
+`:datetime`, and four of Nomi's own, in the `nomi:` namespace MF2 gives a
+function an implementation adds (a tool that does not know one still parses
+the text):
+
+| Function | Parameter type | Options |
+|---|---|---|
+| `:integer` | `Int` | `select`, `useGrouping`, `minimumIntegerDigits` |
+| `:number`, `:percent` | `Int`, `Float`, `Decimal` | those, `minimumFractionDigits`, `maximumFractionDigits` |
+| `:string` | `String`, an enum whose variants carry nothing | none |
+| `:currency` | `Money` (std/money) | `currencyDisplay` (`symbol`, `narrowSymbol`, `code`, `name`) |
+| `:date` | `Date`, `NaiveDateTime`, `DateTime` | `style` (`full`, `long`, `medium` when left out, `short`) |
+| `:time` | `Time`, `NaiveDateTime`, `DateTime` | `style` (`short` when left out) |
+| `:datetime` | `Date`, `Time`, `NaiveDateTime`, `DateTime` | `dateStyle`, `timeStyle`, or the fields `weekday`, `era`, `year`, `month`, `day`, `hour`, `minute`, `second`, `fractionalSecondDigits`, with `hourCycle` |
+| `:nomi:noun` | `Noun` | `case` (a case of the locale's language, `nominative` when left out), `count` (a whole number or an `Int` parameter, 1 when left out) |
+| `:nomi:gender` | `Noun` | none |
+| `:nomi:list` | `List<String>` | none |
+| `:nomi:weekday` | `Date` (std/calendar) | none |
+
+`:currency` writes an amount as `Money.format` does. `:date` and `:time`
+write a value at a style, and `:datetime` at its `dateStyle` and
+`timeStyle` or by the fields its options name, as a skeleton
+(`weekday=long month=long day=numeric` is `MMMMEEEEd`; `hour=numeric` is `j`,
+and `hourCycle` makes it `h` or `H`); with neither it writes the date at
+`medium` and the time at `short`. A field the value lacks is an error at the
+option (`` en: `hour` names a time of day, and `$day` is a `Date`, which has
+none ``), and so are styles beside fields. None of these selects: a
+selector by one is an error, whose help points to `:nomi:weekday`.
+
+`:nomi:list` writes the list as `String.join_list` joins it in the locale and
+selects by its length, as a plural selector of an `Int` does. `:nomi:weekday`
+only selects, by the date's day of the week: its keys are `monday` through
+`sunday`, and a selector that names one day needs all seven. A placeholder
+that writes it is an error. `:nomi:noun` and `:nomi:gender` are below.
+
+`select` is `plural` (the default), `ordinal` or `exact`; `useGrouping` is
+`auto`, `always`, `never` or `min2`. A placeholder with no function, `{$name}`,
+writes its value with `Localize`, so its type must implement `Localize`
+(`Int`, `Float`, `Decimal`, `String` and `Message` do). An enum selected or
+written with `:string` reads as its variant's name (`Shipped`), whatever its
+`Debug` says. `:offset` and `:unit` are each `` `:offset` is not supported
+yet ``.
+
+#### Catalogs
+
+Each translation is an entry in a catalog: a TOML file at the declaring
+file's path under the catalog directory, in a directory per locale, so
+`shop/cart.nomi`'s Polish catalog is `locales/pl/shop/cart.toml`. An entry is
+a table named by the message, holding `text`, the translation, and `source`,
+the source text it was translated from:
+
+```toml
+# locales/pl/cart.toml
+[cart_items]
+source = '''
+.input {$count :integer}
+.match $count
+one {{{$count} item in your cart}}
+* {{{$count} items in your cart}}
+'''
+text = '''
+.input {$count :integer}
+.match $count
+one {{{$count} produkt w koszyku}}
+few {{{$count} produkty w koszyku}}
+many {{{$count} produktów w koszyku}}
+* {{{$count} produktu w koszyku}}
+'''
+```
+
+A catalog holds comments, tables with bare or quoted names, and the two keys
+as strings of any TOML kind; `'''` strings need no escaping of MF2's braces.
+`[i18n]` names the locales (§31 *Locales*): `locales` must each have every
+message, and `partial_locales` may leave any out.
+
+#### Nouns and agreement
+
+A message often has to agree with a noun: in Polish "Your book has shipped"
+is "Twoja książka została wysłana" and "Your laptop has shipped" is "Twój
+laptop został wysłany", because the possessive, the auxiliary and the
+participle follow the noun's gender. A `noun` declaration names such a
+thing as a value of std/message's `Noun`:
+
+```nomi
+pub noun book `.input {$count :integer} .match $count one {{book}} * {{books}}`
+
+/// Sent when a parcel leaves the warehouse.
+pub message has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`
+```
+
+The declaration takes no parameters and no `-> type`; its body is its form in
+the source locale, MF2 over one implicit `$count: Int`, how many things the
+text names. `shop.book` is the noun, a `Noun` a message takes as an argument
+and a struct may hold. Its catalog entry, in the same catalog as the file's
+messages, gives the `source` it was translated from, its `gender` where the
+language's nouns have one, and a form per grammatical case, each MF2 over
+`$count`:
+
+```toml
+[book]
+source = '''.input {$count :integer} .match $count one {{book}} * {{books}}'''
+gender = "feminine"
+nominative = '''.input {$count :integer} .match $count one {{książka}} few {{książki}} many {{książek}} * {{książki}}'''
+genitive = '''.input {$count :integer} .match $count one {{książki}} few {{książek}} many {{książek}} * {{książki}}'''
+
+[has_shipped]
+source = '''Your {$product :nomi:noun} has shipped.'''
+text = '''
+.input {$product :nomi:gender}
+.match $product
+feminine {{Twoja {$product :nomi:noun} została wysłana.}}
+inanimate {{Twój {$product :nomi:noun} został wysłany.}}
+* {{Twoja przesyłka została wysłana.}}
+'''
+```
+
+The genders and cases a language has are CLDR's grammatical features:
+Polish has `animate`, `inanimate`,
+`personal`, `feminine` and `neuter`, and seven cases; English has neither, so
+an English noun has only its `nominative`, the form the declaration gives. A
+language CLDR lists no cases for has the `nominative` alone.
+
+`{$product :nomi:noun}` writes the noun's form for `case` and `count` in the
+locale of the message's text. `.input {$product :nomi:gender}` selects by its
+gender there; a placeholder with no function, `{$product}`, and `Localize`
+write its `nominative` for one thing. A noun is formatted only through a
+message or `Localize`, never by `Display`. Two nouns are equal when they are
+the same declaration, and `Debug` shows `shop.book`.
+
+The set of nouns is closed: every `Noun` is a declaration in a file the
+program reaches, so agreement is checked over the whole program, as
+coherence is. A message may be given any noun, so in each locale every noun
+must have every form any message there asks for, and every selector on
+gender needs an arm for every gender any noun there has. A product's own name
+read at run time, such as a title from a database, is a `String`; passing one
+where a `Noun` is wanted is the type error `` expected Noun, got String ``,
+whose hint says a noun is a declaration. A message writes such a name with a
+`String` parameter, in a sentence that does not agree with it.
+
+A `noun` must be declared in a source locale whose language has no
+grammatical gender: the declaration has no place to give one.
+
+#### What the compiler checks
+
+Every check is an error, at the declaration, in its text, or in the catalog
+entry it is about:
+
+1. **Completeness.** Every message has text in every locale `locales`
+   lists: in that locale's catalog, or in a listed ancestor's on its CLDR
+   fallback chain (`pt-PT` may leave out what `pt` says), or because the
+   source locale is that ancestor. A locale in `partial_locales` may leave a
+   message out, and the message then shows in the source locale.
+2. **No stray entries.** A catalog entry that names no message of its file
+   (`` pl: `ghost` is not a message of cart.nomi ``), a catalog file whose
+   Nomi file does not exist, and a catalog directory for a locale `[i18n]`
+   does not list, or for the source locale, whose text is the declarations'.
+3. **Parameters.** Every variable a text reads is a parameter or a variable
+   the text declares (`` pl: `$cnt` is not a parameter of `cart_items` ``),
+   and the source text uses every parameter.
+4. **Types.** Each function takes the type its row above names, and an
+   unannotated placeholder's type implements `Localize`.
+5. **Plural arms.** A plural selector has an arm for every category the
+   locale's rules select for the operand's type, except `other`, which `*`
+   covers: for an `Int` English needs `one`, and Polish `one`, `few` and
+   `many`. An English-shaped Polish translation is
+   `` pl: `cart_items` has no `few` arm; 2, 3 and 4 select `few` in Polish ``.
+   A key that is not one of the locale's categories (or a number) is an
+   error, and a `Float` is no plural operand: its category depends on the
+   digits it shows, which a `Decimal` keeps.
+6. **Enum selectors.** A `:string` selector over an enum has an arm for each
+   variant and no other key, as `case` does.
+7. **Freshness.** An entry's `source` is the declaration's current text,
+   compared as MF2 data models, so layout and the order of declarations do
+   not count. A stale entry in `locales` is an error:
+
+   ```
+   pl: `cart_items` was translated from an older English text
+     was: {$count :integer} items
+     now: {$count :integer} items in your cart
+   help: update the translation, then accept it with the quick fix or `nomi messages accept pl cart_items`
+   ```
+
+   In `partial_locales` a stale entry counts as missing: the message shows
+   in the source locale, never in a translation of the old meaning.
+8. **MF2 validity**, including MF2's mandatory variant whose keys are all
+   `*`, kept even where the other arms cover every value, so catalogs stay
+   valid MF2 for other tools.
+9. **Agreement.** Every noun has a translation in every listed locale, as a
+   message does, recording its `source`, with no `text`. Its entry has a
+   `gender` exactly when the language's nouns have one, and it is one CLDR
+   lists (`` pl: `masculine` is not a gender in Polish ``); every other key
+   is a case of the language (`` pl: `genetive` is not a case in Polish, nor
+   a key of a noun's entry ``), the `nominative` is there, and each form has
+   the plural arms the locale needs. A `case=` names a case of the language
+   (`` en: `genitive` is not a case in English ``). Over the whole program,
+   every noun has each form some message in the locale asks for
+   (`` pl: `laptop` has no `genitive` form, which `sold_out` asks for ``, at
+   the noun's entry), and each selector on gender has an arm for every gender
+   some noun has there, naming the noun that has it
+   (`` pl: `has_shipped` has no `personal` arm; the noun `staff.courier` is
+   personal in Polish ``). A selector on gender in a language with none is
+   `` en: English nouns have no grammatical gender, so `has_shipped` cannot
+   select on `$product`'s ``.
+
+`nomi messages accept <locale> <message>` records a message's current text as
+a translation's `source`, once the translation says what it says.
+
+#### Formatting
+
+`Message.format` writes the text of the requested locale when the program has
+one, else that of the nearest locale on its CLDR fallback chain that has one,
+else the source text, so an unlisted locale shows the source. Numbers are
+written with the requested locale's symbols and patterns, and plural
+categories are its rules', from the CLDR data the program carries (§41 *A
+program's locale data*). In a right-to-left locale each placeholder is
+wrapped in Unicode isolates (U+2068 and U+2069), as MF2 recommends. Each
+message's texts are stored in the function it declares, so a program carries
+the texts of the messages it reaches and no others.
+
+Plural categories are selected by the reader's locale's rules when the text
+is a translation into its language (`pt`'s text read in `pt-PT` selects by
+`pt-PT`'s rules), and by the text's own language's otherwise, since its arms
+are keyed by that language's categories (an unlisted `fr` reads the English
+text by English rules). A noun is written in the locale of the message's
+text: its entry there, or the nearest listed ancestor's, else its source
+form.
+
+Two pseudo-locales need no catalog: `` Locale`en-XA` `` writes the source text
+accented, bracketed and about a third longer (`[3 îţéɱš îñ ýöûŕ çåŕţ one
+two]`), and `` Locale`ar-XB` `` writes it mirrored right to left, so text that
+was not declared as a message stands out and layouts are tried at another
+length and direction.
+
+The language server reports a catalog's errors in the catalog file, open or
+not, and rechecks when a catalog changes. Go to definition on a call of a
+message lands on its declaration, and go to implementations lists its
+catalog entries. Hover on a message shows its signature, its doc comment and
+its text in the source locale and in each listed and partial locale, naming
+the locale whose text a locale with no current translation shows. In a
+catalog it completes the file's message names in a table's header, the
+message's parameters after `$`, and a variant's keys: the plural categories
+the locale's rules select for the selector, the enum's variants, or the
+genders the module's nouns have; in a noun's entry, its `gender` and cases,
+the language's genders as its `gender`, and the cases after `case=`. Hover
+on a noun shows its gender and forms in each locale, and go to
+implementations lists its catalog entries. Its quick fixes add a listed
+locale's missing translation (the source text as `source`, and as `text`
+with every arm the locale needs), mark a stale translation current as `nomi
+messages accept` does, add the plural, enum or gender arms a translation
+lacks, and add each form a noun lacks that the locale's messages ask for, a
+copy of its nominative. An editor attaches the server to the TOML files
+under `[i18n].catalogs`; the server answers no other TOML file.
+
+#### Catalogs loaded at run time
+
+A program can take translations while it runs, from a translation service
+say, so a fixed translation needs no new build. `Catalog.load` reads a
+catalog's TOML for one locale and checks it against the messages and nouns
+the program was compiled with; `Message.format` reads the catalogs it is
+handed before the program's own:
+
+```nomi
+// std/message
+fn load(text: String, locale: Locale) -> #(Catalog, List<Rejected>)  // impl Catalog
+fn format(message: Message, locale: Locale, catalogs: List<Catalog> = []) -> String  // impl Message
+
+pub struct Rejected {
+    key: String       // the table's name, `cart.cart_items`; "" outside any table
+    locale: Locale
+    reason: String    // what the compiler says of the same entry
+}
+```
+
+```nomi
+fn refresh(text: String) -> Catalog {
+    #(catalog, rejected) = Catalog.load(text, Locale`pl`)
+    Iter.each(rejected, fn r -> io.print("${r.locale} ${r.key}: ${r.reason}"))
+    catalog
+}
+
+fn badge(catalog: Catalog) -> String {
+    cart.cart_items(3) |> Message.format(Locale`pl`, catalogs: [catalog])
+}
+```
+
+A loaded catalog holds the translations of any file's declarations, so each
+table names its message or noun by its file, as `Debug` shows it:
+`[cart.cart_items]`. Each entry is held to the checks above: it names a
+message or noun the program uses (`` `cart.ghost` is not a message or noun
+the program uses ``), in a locale `[i18n]` lists other than the source
+locale; its keys are a message's or a noun's; its `source` is the
+declaration's current text, so a stale entry is rejected in every locale;
+its text is valid MF2 that reads only the message's parameters, with the
+types, plural arms and enum arms its signature and the locale's rules need;
+and its nouns and messages agree with the program's in that locale (a loaded
+noun has every form a message there asks for, and a loaded message an arm
+for every gender a noun there has). Completeness is not asked: a catalog may
+translate one message.
+
+`load` answers every entry it rejects, with the first problem the compiler
+would report about it, without the locale it starts with. A rejected entry
+is never used: its message keeps its compiled text, as does every message
+the catalog does not translate. The checks read the declarations' types as
+the compiler resolved them, which the program carries for each message it
+reaches, so an entry for a message the program never formats is rejected as
+one it does not use. At each locale of a fallback chain the first of
+`catalogs` for that locale with an entry gives the text, before the
+program's own; a message passed as an argument of another is formatted with
+the same catalogs. Each catalog is checked against the compiled program, not
+against the other catalogs a call is handed.
+
+## 42. UUIDs
+
+`std/uuid` provides `Uuid`, a 128-bit identifier as
+[RFC 9562](https://www.rfc-editor.org/rfc/rfc9562) defines it. It is an
+opaque type: values come from parsing, from bytes, or from generation.
+`Uuid` is `Equatable`, `Hashable` and `Comparable`. Two UUIDs compare by
+their 128 bits as an unsigned number, which is the order of their text and of
+their bytes. `Display` gives the lowercase hyphenated form
+(`6ba7b810-9dad-11d1-80b4-00c04fd430c8`); `Debug` gives the literal.
+
+The functions are owner functions of `Uuid` (`Uuid.parse(text)`):
+
+```nomi
+fn parse(text: String) -> Result<Uuid, Error>
+fn nil() -> Uuid
+fn from_bytes(data: Bytes) -> Result<Uuid, Error>
+fn to_bytes(id: Uuid) -> Bytes
+fn version(id: Uuid) -> Int
+fn v4() -> Result<Uuid, random.Error>
+fn v7() -> Result<Uuid, random.Error>
+```
+
+- **Parsing** reads the 36-character hyphenated form in either case. Braces,
+  a `urn:uuid:` prefix and the 32 digits without hyphens are not accepted. A
+  failure is a `uuid.Error`: `Length {length}` for text that is not 36
+  characters (or bytes that are not 16), `Separator {index, found}` for a
+  missing hyphen, and `Digit {index, found}` for a character that is not a
+  hexadecimal digit. `index` counts characters from 0.
+- **The typed literal.** `` Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8` `` is a
+  `Uuid`. Its handler is `Uuid.parse`, so by the raw-literal rule (§16
+  *Typed literals*) a malformed UUID is a compile error at the literal.
+- **Bytes** are the 16 bytes most significant first, as a `bytea` or `BLOB`
+  column holds them.
+- **`version`** is the version field: 4 for a random UUID, 7 for a
+  time-ordered one, 0 for the nil UUID.
+- **`v4`** fills 122 bits from the operating system's entropy source and sets
+  the version and the variant. **`v7`** puts the Unix time in milliseconds
+  from `Instant.now` in the first 48 bits and fills the remaining 74 bits
+  that are not version or variant from the entropy source. A v7 UUID made in
+  a later millisecond compares greater, so v7 keys keep a database index in
+  insertion order; two made in the same millisecond are in random order.
+  Under a test group's virtual clock (§36) the time is the virtual one. Both
+  return `Err(.OsEntropy{reason})` when the entropy source is unavailable,
+  as `Seed.from_os` does (§40).
+
+## 43. SQL Databases
+
+`std/sql` is the vocabulary every SQL driver and SQL library shares; it
+holds no driver. A driver module implements `Conn` for its engine, and code
+that reads or writes a database takes a `Conn`, so one function serves a
+connection, a transaction and a test's fake. `std/sql_testing` holds a recording
+fake `Conn` and the conformance suite every driver runs. Both are written in
+Nomi.
+
+### Statements and the `Sql` literal
+
+```nomi
+pub struct Statement {
+    parts: List<String>
+    params: List<Value>
+}
+```
+
+A `Statement` is the SQL text around its parameters (`parts`, always one
+more than `params`) and the parameters themselves, so a driver writes its own
+dialect's placeholders between the parts. `Sql"..."` builds one: `Sql` is the
+tag type, and its `Literal` impl takes `List<Fragment<ToSql>>` (§16 *Typed
+literals*). The text between the slots is the SQL, and each `${...}` slot's
+value, which must implement `ToSql`, becomes a parameter. A value never
+becomes SQL text, so a slot cannot inject SQL whatever it holds:
+
+```nomi
+name = "x'); DROP TABLE users; --"
+
+s = Sql"SELECT id FROM users WHERE name = ${name}"
+// s.parts == ["SELECT id FROM users WHERE name = ", ""]
+// s.params == [Value.Text(name)]
+```
+
+Two slots side by side, or a slot at either end, have an empty part between
+them or beside them. `Statement` is `Equatable`; `Display` writes the SQL with
+`?1`, `?2`, ... for the parameters, numbered from 1 in the order they
+appear, whatever placeholders a driver sends
+(`SELECT id FROM users WHERE name = ?1`).
+
+`a + b` (`impl Add<Statement, Statement> for Statement`) is `a`'s SQL
+followed by `b`'s, with `a`'s parameters then `b`'s: `a`'s last part and
+`b`'s first become one part. `Statement.join(statements, separator)` puts
+`separator`, itself a `Statement`, between each two, and joins no statements
+to the empty statement. Both build a query at run time from `Sql"..."`
+pieces, so a value still reaches the database only as a parameter:
+
+```nomi
+filters = [Sql"status = ${status}", Sql"total >= ${min_total}"]
+
+s = Sql"SELECT id FROM orders WHERE " + Statement.join(filters, Sql" AND ")
+// "${s}" == "SELECT id FROM orders WHERE status = ?1 AND total >= ?2"
+```
+
+`Statement.values(items)`, for any `T: ToSql`, is `(?1, ?2, ...)` for SQL's
+`IN`, and `(NULL)`, which matches no row, for an empty list.
+`Statement.where_all(conditions)` is ` WHERE ` and the conditions joined by
+`AND` (`where_any`: `OR`), each parenthesized when there is more than one,
+and the empty statement for no conditions.
+
+### Values
+
+```nomi
+pub enum Value {
+    Null
+    Int Int
+    Float Float
+    Decimal Decimal
+    Text String
+    Bool Bool
+    Bytes Bytes
+    Date Date
+    Time Time
+    Timestamp NaiveDateTime
+    Timestamptz Instant
+    Uuid Uuid
+    Json Json
+}
+
+pub interface ToSql {
+    fn to_sql(value: self) -> Value
+}
+
+pub interface FromSql {
+    fn from_sql(value: Value) -> Result<self, String>
+}
+```
+
+`Value` is a value as it crosses to or from a database; `Null` is SQL's NULL.
+std implements `ToSql` and `FromSql` for `Int`, `Float`, `Decimal`, `String`,
+`Bool`, `Bytes`, `Date`, `Time`, `NaiveDateTime`, `Instant`, `Uuid` (§42),
+`Json`, `Value` itself, and `Maybe<T>` for any `T` that implements them, whose
+`None` is NULL. Each type maps to its own variant and reads back only from it:
+`Float.from_sql(Value.Int(1))` is an `Err`. `from_sql` answers `Err` with the
+name of the type it expected (`"Int"`). `Value.kind(v)` is the variant's name.
+
+### Rows
+
+A `Row` is one result row: each column's name and value in order, and the SQL
+of the statement that read it, which its errors name. It is opaque; a driver
+builds it with `Row.new`. The functions are owner functions of `Row`:
+
+```nomi
+fn new(query: String, cells: List<#(String, Value)>) -> Row
+fn query(row: Row) -> String
+fn columns(row: Row) -> List<String>
+fn values(row: Row) -> List<Value>
+fn value(row: Row, column: String) -> Result<Value, Error>
+fn value_position(row: Row, position: Int) -> Result<Value, Error>
+fn get<T>(row: Row, column: String) -> Result<T, Error> where T: FromSql
+fn get_position<T>(row: Row, position: Int) -> Result<T, Error> where T: FromSql
+```
+
+A column is found by its name (the first of that name) or by its position
+from 0. A missing name is `Err(.MissingColumn{query, column})`, a position past
+either end `Err(.ColumnPosition{query, position, count})`. `get` reads the
+value as a `T`: NULL read as a type that is not a `Maybe` is
+`Err(.UnexpectedNull{query, column})`, and any other value `T` cannot hold is
+`Err(.Decode{query, column, expected, found})`, where `expected` is what
+`from_sql` answered and `found` the value's `Value.kind`. `T` is inferred from
+the expected type (`n: Int = try Row.get(row, "n")`) or given
+(`Row.get<Int>(row, "n")`).
+
+### Errors
+
+```nomi
+pub enum Error {
+    Connection {message: String}
+    Constraint {kind: ConstraintKind, name: String, table: Maybe<String>, column: Maybe<String>}
+    Serialization {message: String}
+    Database {code: String, message: String}
+    RowCount {query: String, expected: String, found: Int}
+    UnexpectedNull {query: String, column: String}
+    Decode {query: String, column: String, expected: String, found: String}
+    MissingColumn {query: String, column: String}
+    ColumnPosition {query: String, position: Int, count: Int}
+    Finished
+    Closed
+    Timeout
+}
+
+pub enum ConstraintKind {
+    Unique
+    ForeignKey
+    NotNull
+    Check
+    Exclusion
+}
+```
+
+`sql.Error` is every failure. A driver maps its engine's errors to these.
+`Constraint` keeps the violated constraint's name, so a library can map it to
+a field. The name is the same on every engine: the schema's own name for the
+constraint, or the name Postgres gives one the schema leaves unnamed
+(`users_pkey`, `users_email_key`, `orders_user_id_fkey`,
+`orders_status_check`, `users_email_not_null`). A driver whose engine reports
+something else (SQLite reports the columns, or a check's expression) works
+the name out from the schema. `Serialization` means the transaction conflicted with
+another and should run again. `Database` carries the engine's own code (a
+Postgres SQLSTATE, an SQLite result code). `Finished` is an operation on a
+transaction already committed or rolled back; the connection still works.
+`Closed` is an operation on a connection that was closed; the caller needs a
+new connection, which is why it is a variant of its own rather than
+`Finished`. Both enums are `Equatable` and
+`Display`: ``unique constraint `users_email_key` on `users.email` failed``.
+
+### Connections and transactions
+
+```nomi
+pub interface Conn {
+    fn query(conn: self, statement: Statement) -> Result<List<Row>, Error>
+    fn each_row(conn: self, statement: Statement, f: (Row) -> Bool) -> Result<Unit, Error>
+    fn exec(conn: self, statement: Statement) -> Result<Int, Error>
+    fn begin(conn: self) -> Result<Conn, Error>
+    fn commit(tx: self) -> Result<Unit, Error>
+    fn rollback(tx: self) -> Result<Unit, Error>
+    fn ping(conn: self) -> Result<Unit, Error>
+    fn dialect(conn: self) -> Dialect
+    fn close(conn: self) -> Result<Unit, Error>
+}
+
+pub enum Dialect {
+    Sqlite
+    Postgres
+    Other String
+}
+```
+
+Every driver follows these rules, which `std/sql_testing`'s conformance suite
+checks:
+
+- `begin` on a connection starts a transaction. `begin` on a transaction
+  starts a savepoint inside it; the returned `Conn`'s `commit` releases the
+  savepoint and its `rollback` rolls back to it.
+- `commit` or `rollback` of a transaction ends it and every savepoint inside
+  it. After that, `commit` and any statement are `Err(.Finished)`, and
+  `rollback` is a no-op that answers `Ok`.
+- A statement's parameters are sent as values, never spliced into its SQL.
+- `each_row` calls `f` with each row in order and stops when `f` answers
+  `False`; `exec` answers the number of rows the statement changed.
+- A `Timestamptz` compares in time order with the timestamps the database
+  writes itself (`DEFAULT CURRENT_TIMESTAMP`), in `WHERE` and `ORDER BY`.
+- A constraint error's `name` is the constraint's name as Postgres reports
+  it, as `Error.Constraint` says above.
+- `close` closes the connection, whichever of its `Conn`s it is called on:
+  the connection or a transaction or savepoint that `begin` returned. A
+  transaction's `Conn` is a view of its connection, so there is one thing to
+  close, and closing only the transaction would be `rollback`. A transaction
+  still open is rolled back with every savepoint inside it, as SQLite and
+  Postgres do when a connection ends. After that every operation of every
+  `Conn` of the connection, `rollback` included, is `Err(.Closed)`; `dialect`
+  still answers. `close` again is a no-op that answers `Ok`, as `rollback`
+  after a finished transaction is.
+
+`Dialect` names the engine for code whose SQL differs between them; its
+`Display` is `SQLite`, `Postgres` or the other engine's name.
+
+```nomi
+fn transaction<T>(conn: Conn, body: (Conn) -> Result<T, Error>) -> Result<T, Error>
+```
+
+`sql.transaction` runs `body` in a transaction on `conn`: it calls `begin`,
+then `commit` when the body answers `Ok`, or `rollback` when the body answers
+`Err` or traps, and answers the body's result or the `Err` of a `begin` or
+`commit` that failed. On a `conn` that is itself a transaction the
+transaction is a savepoint, so an inner `sql.transaction` that fails rolls back
+only its own work. The rollback is a `defer` that runs whenever the
+transaction is left; after a commit it is the no-op the rules above make it.
+A trap ends the task it happens in (§17 *Traps, `Maybe` and `Result`*), so
+the rollback on a trap is seen from another task, after a spawned task's
+`Failed` outcome.
+
+```nomi
+fn with_connection<C, T>(open: () -> Result<C, Error>, body: (Conn) -> Result<T, Error>) -> Result<T, Error> where C: Conn
+```
+
+`sql.with_connection` opens a connection with `open`, runs `body` on it and
+closes it. It answers the body's result, or the `Err` of an `open` that
+failed (the body does not run) or of a `close` that failed after the body
+answered `Ok`. The close is also a `defer`, so the connection closes when the
+body answers `Err` or traps; after the close on `Ok` it is the no-op the rules
+above make it.
+
+```nomi
+count = sql.with_connection(fn -> sqlite.open("app.db"), fn conn -> {
+    Conn.exec(conn, Sql"DELETE FROM sessions WHERE expired")
+})
+```
+
+```nomi
+fn close_quietly(conn: Conn)
+```
+
+A `defer` call answers `Unit`, so it cannot report a failed close.
+`sql.close_quietly` closes `conn` and drops a failed close, for a `defer` on a
+connection kept past one body, such as one a test group's `setup` opens for
+each test (`defer` in a setup runs when the test finishes, §36). Nothing
+reports or records the dropped error, so code that uses the connection in one
+body runs it in `sql.with_connection`, which answers a failed close.
+`with_connection`'s own `defer` is `close_quietly`.
+
+```nomi
+group "sessions" {
+    setup {
+        conn = try sqlite.open("app.db")
+        defer sql.close_quietly(conn)
+        conn
+    }
+
+    test "deletes expired sessions", conn {
+        assert Conn.exec(conn, Sql"DELETE FROM sessions WHERE expired") == Ok(0)
+    }
+}
+```
+
+### Testing with `std/sql_testing`
+
+`Fake` is a `Conn` that runs no SQL. It records everything sent to it, keeps
+track of which statements took effect, and answers each statement with a
+function the test gives it:
+
+```nomi
+fn new(dialect: Dialect = Dialect.Other("fake"), answer: (Statement, List<Statement>) -> Result<List<Row>, sql.Error> = ...) -> Fake
+fn log(fake: Fake) -> List<String>
+fn statements(fake: Fake) -> List<Statement>
+fn committed(fake: Fake) -> List<Statement>
+fn closed?(fake: Fake) -> Bool
+```
+
+`answer` gets the statement and the statements in effect as the connection
+sees them (the committed ones, then those of each open transaction and
+savepoint); by default it answers no rows. `exec` answers the number of rows
+`answer` gives. A statement answered `Ok` takes effect in the innermost open
+transaction or savepoint; one answered `Err` does not. `log` is everything
+sent, each statement as `Statement`'s `Display` writes it and each
+transaction command as a driver would send it: `BEGIN`, `COMMIT` and
+`ROLLBACK` for a transaction, `SAVEPOINT sp1`, `RELEASE SAVEPOINT sp1` and
+`ROLLBACK TO SAVEPOINT sp1` for a savepoint, numbered by depth, and `CLOSE` for
+the first `close`. `committed` is the statements in effect outside every
+transaction; a close discards those of every transaction still open.
+`closed?` is whether `close` was called on the fake or on a `Conn` its `begin`
+returned. Every `Conn` that `begin` returns shares its connection's record,
+and the fake follows `Conn`'s rules.
+
+```nomi
+fn conformance<C>(open: () -> Result<C, sql.Error>) -> List<Failure> where C: Conn
+fn rules() -> List<String>
+fn conformance_answer(statement: Statement, visible: List<Statement>) -> Result<List<Row>, sql.Error>
+
+pub struct Failure {
+    rule: String
+    message: String
+}
+```
+
+`conformance` runs every rule against connections from `open` and answers
+the rules broken, in the order `rules` lists them; a driver that conforms
+answers `[]`. Each rule opens a fresh connection, closes it when the rule
+ends (a close that fails breaks the rule), creates
+`CREATE TEMPORARY TABLE nomi_conformance (n INTEGER NOT NULL, t TEXT)` on it,
+writes it with `INSERT INTO nomi_conformance (n, t) VALUES (?1, ?2)` and reads
+it with `SELECT n, t FROM nomi_conformance ORDER BY n`. The rules cover
+`ping`, parameters as values (a text holding quotes and `--`), NULL, reading
+a row by name and by position, `each_row` stopping, a transaction seeing its
+own writes, commit and rollback, savepoints (rolled back, committed inside a
+rolled-back transaction, and three deep), rollback after commit and after
+rollback as no-ops, commit and a statement after commit as `Finished`, and
+`sql.transaction` committing on `Ok` and rolling back on `Err`, on a trap and
+in a failed inner transaction, a second close as a no-op, every operation
+after close as `Closed`, closing a transaction closing its connection,
+closing a connection ending its transaction and savepoint, and
+`sql.with_connection` closing on `Ok`, on `Err` and on a trap, an `Instant`
+written an hour before and after `CURRENT_TIMESTAMP` comparing and sorting
+around it, and the names of a unique, primary-key, named check, not-null and
+foreign-key violation, each on temporary tables of its own. The rollback of
+an open transaction by a close is not checked: the suite's table is temporary
+and goes with the connection. `Failure`'s `Display` is
+`rule: message`. `conformance_answer` is an `answer` for `Fake.new` that reads
+the suite's tables back from its inserts in effect and answers each
+constraint error the suite expects, so the suite runs against the fake:
+
+```nomi
+test "the driver conforms" {
+    assert sql_testing.conformance(fn -> Ok(Fake.new(answer: sql_testing.conformance_answer))) == []
+}
+```
+
+## 44. Keyword Declarations
+
+A top-level declaration that starts with a keyword and a name is a
+**keyword declaration**, read by one rule whatever the keyword:
+
+```
+[pub] [file.]keyword[!] name [(params)] [-> type] [[Tag]raw body]
+```
+
+Each part after the name may be left out: `message cart_items(count: Int)
+`...``, `noun item `...``, `sqlkit.database! main` and ``sqlkit.query!
+orders(user_id: Int) Sql`SELECT ...` `` all fit it. A keyword and a name in
+a row start nothing else at the top of a file, and a line break between
+them ends a statement. The name is snake_case, or, after a keyword marked
+with `!` or qualified by its file, a type name, since a macro may declare a
+type: ``pub choices.one_of! Size `small medium large` `` and ``one_of! Size
+`small` `` fit the rule too. An unmarked, unqualified keyword before a type
+name starts no declaration, so `pub strct Point` is `` `strct` declares
+nothing: a type is declared with `struct`, `enum` or `type`, and a macro's
+declaration marks its keyword with `!`: `strct! Point` ``, and `message Hi`
+is `` the name of a `message` is snake_case, not the type name `Hi` ``. The body is a backtick raw string, and may be a
+typed literal's raw form: a tag written right before the opening backtick
+names the body's language, so editors highlight it as they highlight that
+typed literal (`Sql` as SQL). The tag is not a type and needs no import.
+
+The keyword decides what the declaration means. `message` and `noun` are
+built-in declarations (§41, *Messages* and *Nouns and agreement*), never
+macros, written bare and unmarked; their body
+is MessageFormat 2 and takes no tag (`` a `message` body is MessageFormat 2 text and takes no tag: remove
+`Mf2` ``), and `message!` is `` `message` is built in; write it without `!`
+``. Any other keyword is a macro's (§45), marked with a `!` written
+against it, so a reader can tell that a library expands the declaration:
+qualified by the file it comes from (`sqlkit.query!`), or bare after an
+item import. A macro's keyword written without its `!` is the error ``
+`sqlkit.query` is a macro, so it is written `sqlkit.query!`
+``, and a keyword nothing declares is `` unknown declaration keyword
+`database!` ``. `nomi fmt` prints each part that was written, the `!` and
+the tag against what they mark.
+
+## 45. Macros
+
+A library adds a declaration keyword with a **macro**: Nomi code that
+the compiler runs while it checks a program, which expands each declaration
+written with the keyword into ordinary Nomi declarations. The keyword's
+declarations are keyword declarations (§44), so the
+grammar, the formatter and the editors need no change per keyword.
+
+### Declaring a macro
+
+A module declares the keyword and the type whose impls expand it, and
+implements `Macro` from `std/macro` for the type in the same file:
+
+```nomi
+import std/macro.{ExpandCall, Expansion, Macro, Source}
+
+/// A function that answers 42.
+pub macro answer: Answer
+
+type Answer
+
+impl Macro for Answer {
+    fn expand(call: ExpandCall) -> Expansion {
+        decl = call.decl
+        visibility = if decl.public { "pub " } else { "" }
+
+        Source.new()
+        |> Source.add("${visibility}fn ${decl.name}() -> Int {\n    42\n}\n")
+        |> Source.expansion()
+    }
+}
+```
+
+`macro name: Type` names the keyword and the type; the type must be one
+the file declares, and the file must implement `Macro` for it:
+`` `Answer` implements no `Macro` in this file, so the macro
+`answer` has nothing to run `` otherwise. `expand` is the one function
+an impl must write: `request`, which says what to read, has a default
+that asks for nothing, so a macro writes it only when it reads files or
+other declarations (csvdata's `table`, below, asks for its CSV file). A
+`pub` macro is part of the module's public surface, as a `pub` function
+is.
+
+### Using one
+
+A file imports the macro's file from a module its `go.mod` requires
+(`nomi add ../csvdata` adds one in a directory), and writes declarations with the keyword qualified by it and marked with
+`!`, as it calls a function of the file (`io.print`):
+
+```nomi
+import csvdata
+
+/// Exchange rates to the euro, in basis points.
+pub csvdata.table! rate(code: String) -> Maybe<Int> `rates.csv`
+```
+
+A macro's declaration states the type of what it declares, so a reader
+of the declaration sees the real signature, and the compiler holds the
+expansion to it (*What an expansion declares*, below): `rate` answers `None`
+for a code the table does not have, so its declaration says `->
+Maybe<Int>`, and csvdata refuses `-> Int` with `` a table answers `None`
+for a missing key, so write `-> Maybe<Int>` ``.
+
+The qualifier is the file API object the import binds (§14): `csvdata`
+after `import csvdata` (the module's root file `csvdata.nomi`), `ck`
+after `import csvdata as ck`, `tables` after `import csvdata/tables`. A
+qualifier no import binds is `` `kit` names no imported file, so
+`kit.table!` names no macro ``, and a keyword the file does not
+declare as a `pub macro` is `` file `csvdata` has no macro
+`tabel` ``, whose hint lists the file's macros. As with a
+function, an item import brings the keyword in bare instead: after `import
+csvdata.table` the declaration is `pub table! rate(...)`, and
+the import may rename it (`import csvdata.{table as csv}`, then
+`csv! rate(...)`); the usual rules for an item import apply, so an
+unused or clashing one is an error. Nomi's own `message` and `noun` are
+never qualified. A module cannot use a macro it declares, as a Rust crate
+cannot use its own procedural macros: the compiler runs a macro's code
+before it checks the module that uses it, so the declaration is the error
+`` `table` is a macro this module declares, and a module cannot
+use its own macros ``. A file in no module (no `nomi.toml` above it)
+cannot use a macro.
+
+### What a macro is given
+
+The compiler builds the macro's file as a program of its own and runs
+two of its impl's functions. Each takes one record, so a macro reads only
+the fields it uses. `request` is given a `RequestCall`, the `decl` and
+`config` below, and answers what to read: `files`, paths or globs
+(`data/*.csv`) from the declaring module's root, and `sites`, keywords
+whose declarations in the module the macro wants to know. Each is empty
+unless the macro names some (`#Request{files: [path]}`), and the default
+`request` answers `#Request{}`. `expand` is then given an `ExpandCall`,
+whose fields are:
+
+- `decl`, the `Declaration` as the parser read it: its keyword (alone,
+  `table`, with no qualifier or `!`), name, visibility, parameters
+  and result type as written (`TypeText`: the text, which the macro
+  never resolves, and where it is), its raw body (`Body`: the text without
+  the indentation a multi-line body's lines share, where each line starts,
+  so `Body.span_at` places a part of it, its tag, `Some("Sql")` for
+  ``Sql`...` `` and `None` for an untagged body, and the tag's span,
+  `tag_span`), its doc comment, the declaring file's path from the module
+  root, the keyword's position, its `!` included (`span`), and the name's
+  (`name_span`), wherever the parser read it. A macro that wants
+  a tag, or none, says so with `Expansion.error` at the tag or the body:
+  csvdata's `table` body is a path, so ``Csv`rates.csv` `` is `` a
+  table's body is the path of its CSV file and takes no tag: remove
+  `Csv` ``, under `Csv`;
+- `config`, the table of the declaring module's `nomi.toml` named after the
+  macro's module (`[csvdata]`), as `Json`, `Json.Null` when there is
+  none. Nomi reads two tables of `nomi.toml` itself, `[module]` and
+  `[i18n]`, so a macro of a module named `module` or `i18n` cannot be
+  used: a declaration with its keyword is the error `` the macro `gen`
+  cannot be used: its module is named `i18n`, so its settings would be
+  nomi.toml's `[i18n]` table, which is Nomi's own ``, and declares
+  nothing;
+- `inputs`, each requested file that exists, with its text. A path or glob
+  that leaves the module root, by `..` or a symbolic link, is an error at
+  the declaration, and nothing outside it is read;
+- `sites`, the declarations of the requested keywords in the module's
+  files, each with its name, file and position.
+
+A `Span` is a file's path from the module root, and a line, column, end line
+and end column, columns counting bytes. A macro reads its body and inputs
+as `String`s, so it finds a piece by its offsets, counted in graphemes as
+`String.slice` counts them, and `std/macro` turns the offsets into a span:
+`Body.span_at(body, start, end)` for a piece of the body, on as many lines
+as it covers, `Input.span_at(input, start, end)` for a piece of an input,
+and `Span.on_line(file, line, text, start, end)` for a piece of a line
+`text` of an input that the macro reads line by line, as a CSV cell is
+placed. `Span.line` is a whole line.
+
+### What it answers
+
+`expand` answers an `Expansion`: Nomi source text, a span map from byte
+ranges of the source to the spans the user wrote they were made from (each
+with an optional hint), and diagnostics. Each has a default, so
+`#Expansion{diagnostics: problems}` declares nothing and reports
+`problems`. `Source` writes the source piece by piece and keeps the map:
+`Source.add` adds text, `Source.mapped` text that was made from a span
+(with `hint: Some(...)` added to an error in it), and
+`Source.string_literal` a string copied from the input, written as the
+Nomi string literal that reads back as it (`String.to_literal`: quoted,
+with `\n`, `\t`, `\\`, `\"` and `\${` escaped and `\u{...}` for any other
+character that is not printable), so a CSV cell holding a tab, a quote or
+`${` is the string the file holds. `pascal_case` and `snake_case` name
+what a macro makes from its input's words (`extra_large` is
+`ExtraLarge`, `HTTPServer` is `http_server`). The checker checks the
+source as part of the declaring file:
+
+- Its top-level names join the file's: a call of `tables.rate("usd")`
+  reaches the function a `table` in `tables.nomi` declares, and the
+  function with the declaration's name is at the declaration's name for go to
+  definition and hover. A declaration whose name is a type name declares
+  that type: ``pub choices.one_of! Size `small medium large` `` expands to
+  `pub enum Size` with the variants `Small`, `Medium` and `Large`, which
+  another file imports (`import sizes.Size`) and matches on as any enum
+  (`Size.Small -> 8`). Go to definition on `Size` goes to the
+  declaration's name, and on `Size.Small` to the word `small` the macro
+  mapped it from. The `Declaration` says nothing more: a macro that
+  declares a type reads the case of `name` itself, and reports a
+  snake_case name with `Declaration.error`. A `pub` name it declares is public, which another
+  file reaches through the declaring file; any other is private to the
+  declaring file, which may use it. An expansion may declare names besides
+  the declaration's own (sqlkit's `database! main` declares a struct per
+  table), and a macro names such a helper after the declaration
+  (`rate_rows`) so that two declarations in a file do not collide.
+- A name the source declares that the file declares or imports too is an
+  error at the file's declaration, ``  `helper` is declared here and by
+  `gen! answer` on line 6 ``, and one that another declaration's expansion
+  in the file declares is an error at the later declaration, ``  `helper`
+  is declared by `gen! two` here and by `gen! one` on line 6 ``. Either
+  way the expansion that collides declares nothing, so the file's own
+  declaration keeps its meaning, and the program reports the collision
+  alone, as it reports a declaration the macro declined. Expansions in
+  two files never collide: each file is its own scope.
+- The source may start with whole-file imports (`import std/strings`),
+  which only it sees, under names the file's code cannot write; an import
+  with selected names is an error.
+- The source names only what it declares, what its own imports bring, the
+  prelude, and what the declaration writes: the names of its parameter and
+  result types (`Maybe<User>` in `sqlkit.query! user(id: Int) ->
+  Maybe<User>`, which the expansion returns, through the file's import of
+  `User`), and a name of its body that the macro copies into the source
+  with `Source.mapped`. A bare name in the source that reaches any other
+  declaration or import of the declaring file is an error at the
+  declaration, `` the macro `gen` (module genkit) expanded `gen! answer` to
+  code that names `helper`, which this file declares on line 8: a macro's
+  code names only what it declares, what its own imports bring and what
+  the declaration writes, a defect in the macro ``. So a macro's code means
+  the same in every file that uses it, whatever else the file declares.
+  A local binding, a parameter or a type parameter of the source is its
+  own, whatever the file declares. A type the declaration writes is the
+  file's use of its import, whether or not the expansion names it, so an
+  import that only a declaration's types need is not unused.
+- An error the checker reports inside a mapped range is reported at the
+  range's span, with its hint: a Float cell in an Int table is
+  `` case branch type mismatch: expected Maybe<Int>, got Maybe<Float> `` at
+  the cell in the CSV file, with the hint the macro mapped the cell
+  with. The range's hint comes before the checker's own, since it is about
+  what the user wrote and the checker's are about the generated code. An
+  error outside every range is a defect of the macro, reported
+  at the declaration as `` the macro `table` (module csvdata) expanded
+  `csvdata.table! rate` to code with an error, a defect in the macro: ... ``,
+  and a source that does not parse is likewise reported at the declaration.
+  A location an error refers to (the return type a mismatch names) moves
+  the same way: to the span its range was made from, or else to the
+  declaration's name, its note saying it is in the code the macro
+  generated. No position inside the generated source is ever shown.
+- A diagnostic the macro reports is reported at its span: in the
+  declaring file, or in an input file, where the language server publishes
+  it on that file.
+
+### What an expansion declares
+
+The declaration says what the expansion declares, and the compiler checks
+the expansion against it after the macro runs:
+
+- A declaration whose name is a type name (`one_of! Size`) declares a type
+  of that name: a struct, an enum, a distinct type, a type alias or an
+  interface.
+- One that writes a parameter list or a result type (`table! rate(code:
+  String) -> Maybe<Int>`, `query! order_counts()`) declares a
+  function of that name. The function's parameters end with the
+  declaration's: the same names and types, in the same order, and a macro
+  may put parameters of its own before them, which it documents (sqlkit's
+  generated functions take a leading `conn: sql.Conn`). When the
+  declaration writes a result type `T`, the function returns `T` or
+  `Result<T, E>` for any `E` (sqlkit's queries return `Result<T,
+  sql.Error>`). One that writes no result type leaves the result to the
+  macro.
+- One that writes neither (`database! main`) names what the macro makes,
+  and need not declare anything of its name.
+
+What the declaration names is `pub` exactly when the declaration is. Types
+compare as the checker resolves them, so `sqlkit.Rows<Orders>`, written
+through the expansion's own import, is the `Rows<Orders>` a declaration
+writes after `import sqlkit.Rows`. A declaration's other names (sqlkit's
+row structs) are the macro's to name and to make public or not.
+
+What the declaration names also carries the declaration's doc comment: the
+compiler attaches it, in place of any doc comment the macro wrote there, so
+a macro does not copy `decl.doc`, and `nomi expand` prints the expansion
+with it.
+
+An expansion that breaks any of these is a defect in the macro, reported
+at the declaration with what it expected and what the expansion declares:
+`` the macro `hello` (module greet) expanded `greet.hello! say -> Int` to
+`pub fn say() -> String`: its result should be `Int`, a defect in the macro
+``, `` ... to `fn say() -> Int`: it should be `pub`, as the declaration
+is ``, `` ... to code that declares no function `say` ``, `` ... to `pub fn
+say(name: String, loud: Bool) -> Int`: its parameters should end with the
+declaration's, `name: String` ``, `` ... its parameter `name` should be
+`String` ``, `` the macro `one_of` (module choices) expanded `choices.one_of!
+Size` to code that declares no type `Size` ``. The program reports it
+alone, as it reports a declaration the macro declined, so a call of the
+function elsewhere is not an error too.
+
+### Declining a declaration
+
+`Declaration.error(decl, message)` is an expansion that declares nothing and
+reports `message` at the declaration's keyword, and `Expansion.error(span,
+message)` one that reports it at a span the macro has, such as the result
+type's or the tag's. When a macro answers diagnostics
+and no source for a declaration, the declaration declares nothing, and
+the program's other errors (an import of a name it would have declared, a
+call of its function) only follow from that. A program with such a
+declaration reports the diagnostics of its macro declarations, and
+their macros' whole-module checks, alone, as a syntax error in an
+imported file is reported alone. A macro that keeps a declaration's
+signature while reporting an error about it (sqlkit's query whose SQL
+changed since the snapshot) answers source and diagnostics both, and the
+program's errors are reported beside its own.
+
+### How it runs
+
+The macro runs on the VM, in the sandbox a backtick typed literal's
+handler runs in (§16, *Typed literals*): a `request` or `expand` that can reach an effect
+(output, files, the network, the clock, randomness, tasks, channels, the
+running app's fields) is refused before it runs, at the declaration, as
+`` the macro `table` (module csvdata) could not expand `csvdata.table!
+rate`: its `expand` has effects, which a macro may not have while a
+program is checked (...) ``. Each run is held to a budget of 20,000,000
+steps (calls, backward branches and iteration elements) and a growth of
+the heap of 1 GiB; one that passes either, or faults, is an error at the
+declaration that says which: `` `expand` did not finish within its budget
+of 20,000,000 steps (calls, backward branches and iteration elements) ``.
+Those two decide whether a run succeeds, and neither depends on how fast
+the machine is, so a declaration that expands on a laptop expands on a
+slow build server, and a cached expansion is what any machine would
+answer. The compiler also stops a run still going after two minutes, far
+longer than the whole step budget takes, as a guard against a step that
+takes far longer than any should; that is reported as an internal failure,
+not as the macro's answer, is never cached, and the next check runs the
+macro again. A declaration whose run is refused or stopped, or whose
+macro's module does not check, declares nothing, and the program reports
+it alone, as it reports one the macro declined: `` the macro `one_of`
+(module choices) could not expand `choices.one_of! Size`: its module
+does not check: ... `` at the declaration, beside the macro module's own
+errors in its files, and no error at a use of what it would have
+declared. So `nomi check`, `nomi fmt` and the language server run no
+code that acts outside the VM, whatever a checkout's macros are. The code
+a macro writes runs with the program's effects, as any library's code
+does.
+
+An expansion is a function of what it read: the compiler's version, the text
+of every file the macro's program is built from, the declaration, the
+configuration, the requested files' paths and texts, and the sites. The
+compiler caches each expansion under all of them, in memory, so a check runs
+a macro only when one changed. Nothing is kept on disk, so each run of
+`nomi check`, `nomi run` or `nomi build` runs every macro the program
+uses. Every file an expansion read, the
+macro's own source among them, is an input of the declaring file: the
+language server expands the declaration again when one changes, and an
+edit to a table that keeps what the expansion declares rechecks the
+declaring file's bodies alone.
+
+### Whole-module checks and the editor
+
+Two interfaces of `std/macro` are optional, and their functions take one
+record too. A `ProgramCheck` impl's `check_all` is given a `CheckCall`
+(`decls`, `config`, `inputs`) and runs once over every declaration of the
+keyword in a program's files, with the files their requests read, for what
+no one declaration decides (two tables reading one file). A `Navigation`
+impl answers the language server inside a declaration's body, on the VM
+with the same limits: `hover`, `definition` and `complete` are given a
+`NavigationCall` (`decl`, `config`, `inputs`, and the position's `line`
+and `col`), and `actions`, given an `ActionsCall` (`decl`, `config`,
+`inputs`, `diagnostic`), answers the quick fixes for a diagnostic the
+macro reported. Each of the four has a default that answers nothing
+(`None` or `[]`), so an impl writes only the ones it answers: a macro
+that offers only quick fixes writes `actions` alone. A fix is
+a list of edits to the declaring file or an input, and optionally a `Tool`
+of the macro's own module to run: choosing such a fix runs `nomi tool
+<module> <name> <args>` in the declaring module's root, shows what it
+printed, and checks the open files again with what it wrote. The language
+server runs a tool only when someone chooses the fix that names it, so
+sqlkit's fix for a query the snapshot does not describe yet runs its
+`prepare` tool.
+
+### `nomi expand` and `nomi tool`
+
+`nomi expand <file>` prints what each of the file's macro declarations
+expands to, formatted, with what the macro reports. `nomi tool <module>
+<name> [args]` runs the module's tool, the program `tools/<name>.nomi` at its
+root, which its `entry_points` list: an ordinary program with every effect,
+run in the current directory, for a macro's work that needs a
+database, the network or files, such as writing a file the macro then
+reads. A tool runs only when someone runs it. `<module>` is the current
+module's name or one its `go.mod` requires.
+
+## 46. Open Design Questions
 
 1. **Exhaustive struct pattern opt-in.** Struct pattern matching is partial by
    default: unmentioned fields are ignored. A `!..` marker could opt into

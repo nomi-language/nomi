@@ -50,6 +50,7 @@ var frontEndPackages = map[string]string{
 	"github.com/nomi-language/nomi/internal/irbuild":  "the IR builder; a runner decodes the IR `nomi build` lowered",
 	"github.com/nomi-language/nomi/internal/lsp":      "the language server",
 	"github.com/nomi-language/nomi/vmhost":            "the embedding API, which lowers source before it runs it",
+	"github.com/nomi-language/nomi/internal/cldrfull": "every locale's CLDR data; a runner reads only the locales its image carries",
 }
 
 func TestRuntimeArtifactLinksNoFrontEnd(t *testing.T) {

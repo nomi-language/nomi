@@ -341,6 +341,11 @@ var typeBodyInputs = []parityInput{
 // tree-sitter must also mark with an ERROR or MISSING node, so an editor shows
 // the error `nomi check` reports. A type body holds one item per line.
 var rejectedInputs = []parityInput{
+	// A keyword declaration's name is a type name only after a marked or
+	// qualified keyword.
+	{"a misspelled type keyword before a type name", "pub strct Point {\n    x: Int\n}\n"},
+	{"a macro's keyword without its mark before a type name", "pub one_of Size `small`\n"},
+	{"a message named by a type name", "message Hi `Hi`\n"},
 	{"two struct fields on one line", "struct P {\n    x: Int    y: Int\n}\n"},
 	{"a struct field after a default on its line", "struct P {\n    x: Int = 1 y: Int\n}\n"},
 	{"two enum variants on one line", "enum E {\n    A Int B\n}\n"},
@@ -365,9 +370,61 @@ var rejectedInputs = []parityInput{
 	{"a map attach written Kvs{...}", "fn main() {\n    _k = Kvs{\"a\" => 1}\n}\n"},
 	{"a struct pattern written Name{...}", "fn main() {\n    Point{x, y} = p\n}\n"},
 	{"a dot variant struct pattern written .Variant{...}", "fn main() {\n    x = case s {\n        .Circle{r: 1} -> 0\n        _ -> 1\n    }\n}\n"},
+	{"a file-qualified variant struct pattern written file.Type.Variant{...}", "fn main() {\n    x = case r {\n        Err(sql.Error.Constraint{kind}) -> 0\n        _ -> 1\n    }\n}\n"},
 	{"a map pattern written Map{...}", "fn main() {\n    x = case m {\n        Map{\"k\" => v} -> v\n        _ -> 0\n    }\n}\n"},
 	{"a percent with a space before its bracket", "fn main() {\n    _s = % [1, 2]\n}\n"},
 	{"a hash with no shape after its name", "fn main() {\n    _p = #Point\n}\n"},
+	// A struct pattern's or literal's fields are separated by commas.
+	{"a renamed struct pattern field with no comma before the next", "fn main() {\n    x = case r {\n        #{err: a b} -> 0\n        _ -> 1\n    }\n}\n"},
+	{"punned struct pattern fields with no comma", "fn main() {\n    x = case p {\n        #Point{x y} -> 0\n        _ -> 1\n    }\n}\n"},
+	{"struct pattern fields on two lines with no comma", "fn main() {\n    x = case p {\n        #Point{\n            x\n            y\n        } -> 0\n        _ -> 1\n    }\n}\n"},
+	{"struct destructure fields with no comma", "fn main() {\n    #{a b} = p\n}\n"},
+	{"struct literal fields with no comma", "fn main() {\n    _p = #Point{x: 1 y: 2}\n}\n"},
+	{"anonymous struct literal fields with no comma", "fn main() {\n    _p = #{x: 1 y: 2}\n}\n"},
+	{"punned struct literal fields with no comma", "fn main() {\n    _p = #Point{x y}\n}\n"},
+	// So are an update's spread and fields, and a map's entries.
+	{"a struct update with no comma after its spread", "fn main() {\n    _q = #{..p x: 10}\n}\n"},
+	{"struct update fields with no comma", "fn main() {\n    _q = #{..p, x: 10 y: 20}\n}\n"},
+	{"a stacked struct update with no commas", "fn main() {\n    _q = #{\n        ..p\n        x: 7\n        y: 8\n    }\n}\n"},
+	{"a bare struct update with no comma after its spread", "fn main() {\n    _q = #{..p, home: #{.. city: \"NYC\"}}\n}\n"},
+	{"bare struct update fields with no comma", "fn main() {\n    _q = #{..p, home: #{.., city: \"NYC\" zip: \"1\"}}\n}\n"},
+	{"a Struct.update patch's fields with no comma", "fn main() {\n    _q = Struct.update(u, #{home: #{.., city: \"NYC\" zip: \"1\"}})\n}\n"},
+	{"a map update with no comma after its spread", "fn main() {\n    _q = %{..m \"b\" => 2}\n}\n"},
+	{"map update entries with no comma", "fn main() {\n    _q = %{..m, \"a\" => 1 \"b\" => 2}\n}\n"},
+	{"a stacked map update with no commas", "fn main() {\n    _q = %{\n        ..m\n        \"a\" => 1\n    }\n}\n"},
+	{"map literal entries with no comma", "fn main() {\n    _q = %{\"a\" => 1 \"b\" => 2}\n}\n"},
+	{"map pattern entries with no comma", "fn main() {\n    x = case m {\n        %{\"a\" => a \"b\" => b} -> 0\n        _ -> 1\n    }\n}\n"},
+	// No list leaves an empty slot between two commas.
+	{"a doubled comma in a struct literal", "fn main() {\n    _p = #Point{x: 1,, y: 2}\n}\n"},
+	{"a doubled comma in an anonymous struct literal", "fn main() {\n    _p = #{x: 1,, y: 2}\n}\n"},
+	{"a doubled comma after an update's spread", "fn main() {\n    _q = #{..p,, x: 1}\n}\n"},
+	{"a doubled comma between update fields", "fn main() {\n    _q = #{..p, x: 1,, y: 2}\n}\n"},
+	{"a doubled comma after a bare spread", "fn main() {\n    _q = #{..p, home: #{..,, city: \"NYC\"}}\n}\n"},
+	{"a doubled trailing comma in a struct literal", "fn main() {\n    _p = #{x: 1,,}\n}\n"},
+	{"a doubled comma across lines in a struct literal", "fn main() {\n    _p = #{\n        x: 1,\n        ,\n        y: 2,\n    }\n}\n"},
+	{"a doubled comma in a map literal", "fn main() {\n    _m = %{\"a\" => 1,, \"b\" => 2}\n}\n"},
+	{"a doubled comma after a map update's spread", "fn main() {\n    _m = %{..m,, \"b\" => 2}\n}\n"},
+	{"a doubled comma in a set", "fn main() {\n    _s = %[1,, 2]\n}\n"},
+	{"a doubled comma in a list", "fn main() {\n    _l = [1,, 2]\n}\n"},
+	{"a doubled trailing comma in a list", "fn main() {\n    _l = [1,,]\n}\n"},
+	{"a doubled comma in a vector", "fn main() {\n    _v = #[1,, 2]\n}\n"},
+	{"a doubled comma in a tuple", "fn main() {\n    _t = #(1,, 2)\n}\n"},
+	{"a doubled comma in call arguments", "fn main() {\n    _x = f(1,, 2)\n}\n"},
+	{"a doubled comma in named call arguments", "fn main() {\n    _x = f(a: 1,, b: 2)\n}\n"},
+	{"a doubled comma in parameters", "fn f(a: Int,, b: Int) -> Int {\n    a + b\n}\n"},
+	{"a doubled comma in lambda parameters", "fn main() {\n    _f = fn a,, b -> a\n}\n"},
+	{"a doubled comma in a struct pattern", "fn main() {\n    x = case p {\n        #Point{x,, y} -> 0\n        _ -> 1\n    }\n}\n"},
+	{"a doubled comma in a struct destructure", "fn main() {\n    #{a,, b} = p\n}\n"},
+	{"a doubled comma in a tuple pattern", "fn main() {\n    x = case p {\n        #(a,, b) -> 0\n        _ -> 1\n    }\n}\n"},
+	{"a doubled comma in a list pattern", "fn main() {\n    x = case p {\n        [a,, b] -> 0\n        _ -> 1\n    }\n}\n"},
+	{"a doubled comma in a map pattern", "fn main() {\n    x = case m {\n        %{\"a\" => a,, \"b\" => b} -> 0\n        _ -> 1\n    }\n}\n"},
+	{"a doubled comma in a variant pattern", "fn main() {\n    x = case p {\n        Some(a,, b) -> 0\n        _ -> 1\n    }\n}\n"},
+	{"a doubled comma in type arguments", "fn main() {\n    _m: Map<String,, Int> = %{}\n}\n"},
+	{"a doubled comma in type parameters", "fn f<A,, B>(a: A, _b: B) -> A {\n    a\n}\n"},
+	{"a doubled comma in a tuple type", "fn f(p: #(Int,, Int)) -> Int {\n    0\n}\n"},
+	{"a doubled comma in a function type", "fn f(g: (Int,, Int) -> Int) -> Int {\n    0\n}\n"},
+	{"a doubled comma in a variant payload", "enum E {\n    A(Int,, Int)\n}\n"},
+	{"a doubled comma in an import list", "import std/json.{Json,, ToJson}\n"},
 }
 
 // patternInputs put a pattern where the parser reads one: the left side of a
@@ -444,6 +501,14 @@ var patternInputs = []parityInput{
 	{"lambda vector and map patterns", "fn main() {\n    f = fn #[x, ..] -> x\n    g = fn %{\"k\" => v} -> v\n}\n"},
 	{"pattern assertion named patterns", "test \"t\" {\n    assert #Point{x, y} = #Point{x: 3, y: 4}\n    assert #[a, ..] = #[1, 2]\n}\n"},
 	{"self as a value", "interface S {\n    fn f(_t: self, ns: List<Int>) -> Int where self: Distinct<Int> {\n        make = self\n        ns |> Iter.map(self) |> Iter.count()\n    }\n}\n"},
+	// A variant named through the file that declares its type.
+	{"case arm file-qualified variants", "fn main() {\n    x = case r {\n        Err(sql.Error.Closed) -> 1\n        Err(sql.Error.Constraint(k)) -> 2\n        Err(shapes.Bag.Items[a, ..rest]) -> 3\n        Err(sql.Error.Closed or sql.Error.Finished) -> 4\n        Err(sql.Error.Closed as e) -> 5\n        sql.Error.Closed -> 6\n        sql.Error.Constraint(k) when k > 0 -> 7\n        sql.Error.A or sql.Error.B -> 8\n        sql.Error.C(n) as e -> 9\n        shapes.Bag.Items[a] -> 10\n        geo.Deep.Enum.V -> 11\n        [sql.Error.A, ..rest] -> 12\n        %{\"k\" => sql.Error.A} -> 13\n        (sql.Error.A) -> 14\n        _ -> 0\n    }\n}\n"},
+	{"if condition file-qualified variants", "fn main() {\n    if Err(sql.Error.Closed) = r {\n        1\n    }\n    if sql.Error.Constraint(n) = r { n } else { 0 }\n}\n"},
+	{"else arm file-qualified variants", "fn main() {\n    Ok(v) = r else {\n        sql.Error.Closed -> return 1\n        sql.Error.A or sql.Error.B -> return 2\n        Err(sql.Error.C(_)) as e -> return 3\n        shapes.Bag.Items[a] -> return a\n        _ -> return 0\n    }\n    v\n}\n"},
+	{"binding and assertion file-qualified variants", "test \"t\" {\n    Err(sql.Error.Constraint(k)) = r else { return }\n    shapes.Wrap.W(m) = w\n    assert Err(sql.Error.Closed) = r\n}\n"},
+	{"struct pattern field file-qualified variants", "fn main() {\n    x = case s {\n        #{err: sql.Error.Closed} -> 1\n        #Slot{shape: shapes.Shape.Square(n), bag} -> n\n        _ -> 0\n    }\n    if #{err: sql.Error.Closed} = s { 1 } else { 0 }\n}\n"},
+	{"if condition type-qualified variants", "fn main() {\n    if Shape.Circle(r) = s {\n        return r\n    }\n    if Probe.Reading.Steady(r) = s {\n        return r\n    }\n    if Shape.Circle(r) as c = s {\n        return r\n    }\n    if Shape.Circle(r) or Shape.Square(r) = s {\n        return r\n    }\n    if Shape.Circle(#(a, _b)) = s { a } else { 0 }\n}\n"},
+	{"parameter and lambda file-qualified variants", "fn f(shapes.Wrap.W(n)) -> Int {\n    g = fn shapes.Wrap.W(m) -> m\n    n\n}\n"},
 }
 
 // treeSitterCLI returns a function that runs scripts/tree-sitter.sh with its

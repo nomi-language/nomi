@@ -12,7 +12,7 @@ import (
 //
 // # One implementation of each rule
 //
-// Every rule below — the type vocabulary in a `DecodeError`'s `expected`/`got`
+// Every rule below — the type vocabulary in a `dynamic.Error`'s `expected`/`got`
 // fields, the eleven fault messages, the Int-vs-Float acceptance rule, the
 // unsigned range guards, the sorted dict-key order, and the JSON-shaped
 // rendering — lives here once, as `rt/json.go` holds the JSON scanner and
@@ -73,9 +73,9 @@ func dynamicTypeName(v any) string {
 	}
 }
 
-// --- DecodeError construction ----------------------------------------------
+// --- dynamic.Error construction -----------------------------------------
 
-// dynamicErr builds the `Err(DecodeError{…})` these operations return.
+// dynamicErr builds the `Err(#Error{…})` these operations return.
 //
 // `path` is nil for a terminal extractor and one segment for a navigator, which
 // is std/dynamic.nomi's documented single-segment policy: each navigator's error
@@ -367,7 +367,7 @@ func DynamicIsNull(d Dynamic) bool { return d.Inner == nil }
 // DynamicHas is `std/dynamic.Dynamic.has?`: True iff d is a dict with that key.
 //
 // False for a non-dict and for a missing key alike, and the conflation is
-// deliberate: the use case is "decode if present", where allocating a DecodeError to
+// deliberate: the use case is "decode if present", where allocating a dynamic.Error to
 // discriminate two shapes the caller treats identically is waste.
 func DynamicHas(d Dynamic, name string) bool {
 	dict, ok := d.Inner.(map[string]any)

@@ -27,7 +27,12 @@ fn forever() -> Int {
 }
 
 fn endless() -> Int {
-    Iter.count(Iter.repeat(1))
+    Iter.repeat(1)
+    |> Iter.filter(fn x -> {
+        if x < 0 { break }
+        True
+    })
+    |> Iter.count()
 }
 
 fn loud() -> Int {

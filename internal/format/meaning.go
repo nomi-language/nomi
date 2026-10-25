@@ -261,11 +261,16 @@ func bindGroupedName(n any) {
 	switch n := n.(type) {
 	case *ast.AttachedTest:
 		// A trailing empty `//!` prompt line and a bare `//` after the test
-		// both only end the prompt; the formatter writes the second.
+		// both only end the prompt; the formatter writes the second. So does
+		// an empty `///` with no doc text after it, which the formatter
+		// writes as `//` (attachedTestAfterItemIsTrailingDocBlank).
 		n.TrailingPromptBlanks = 0
 		kept := n.After[:0]
-		for _, a := range n.After {
+		for i, a := range n.After {
 			if !a.IsDoc && strings.TrimSpace(strings.TrimPrefix(a.Trivia.Text, "//")) == "" {
+				continue
+			}
+			if a.IsDoc && a.Doc == "" && attachedTestAfterItemIsTrailingDocBlank(n.After, i) {
 				continue
 			}
 			kept = append(kept, a)

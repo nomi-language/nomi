@@ -2,6 +2,7 @@ package irbuild
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -214,7 +215,7 @@ func buildFileIndex(p *Program, reg *typeRegistry) *fileIndex {
 				if d.ImplFunction {
 					continue
 				}
-				shell := fileFuncShell(reg, d)
+				shell := fileFuncShell(reg, d, strings.HasPrefix(m.Name, "std/"))
 				u.funcs[d.Name] = shell
 				// One declaration, one entry. A duplicate `fn` name in one
 				// file is an analyzer error, so the name-keyed table above
@@ -246,7 +247,7 @@ func buildFileIndex(p *Program, reg *typeRegistry) *fileIndex {
 				if !hostCallable(d) {
 					continue
 				}
-				shell := fileFuncShell(reg, hostShellOf(d))
+				shell := fileFuncShell(reg, hostShellOf(d), false)
 				u.funcs[d.Name] = shell
 				x.byDecl[d] = fileSite{unit: i, fn: shell, host: true}
 			}
@@ -323,14 +324,20 @@ func (x *fileIndex) resolveSignatures(gens []*gen) {
 // has no recorded output, so there is no second observation to disagree with.
 // It is a divergence in the ANALYZER's direction, and a named refusal is the
 // only thing that catches it.
-func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef) *fileFunc {
+//
+// A std module lowered with the program (inStd) is the exception: its
+// private functions are what an expansion's hidden import calls
+// (`message$.compiled`), and the analyzer refuses any other file that names
+// one ("`message.compiled` is internal to std/message"), so a call the
+// builder sees is one the language admits.
+func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef, inStd bool) *fileFunc {
 	f := &fileFunc{name: fd.Name, decl: fd}
 	for _, p := range fd.Params {
 		if p.Default != nil {
 			f.defaults = true
 		}
 	}
-	if !fd.Public {
+	if !fd.Public && !inStd {
 		f.why = "private sibling file function"
 		return f
 	}
@@ -737,6 +744,9 @@ func stdFileOfScope(fa *analysis.FileAnalysis, scope *analysis.Scope) (string, b
 		return "", false
 	}
 	for canon, std := range fa.Program().StdlibModuleScopes {
+		if isProgramStd(canon) {
+			continue
+		}
 		if std == scope {
 			return canon, true
 		}

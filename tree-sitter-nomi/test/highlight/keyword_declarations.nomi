@@ -1,0 +1,7 @@
+// A keyword declaration's keyword is a keyword and its name a function's.
+// The caret lines below each line name the highlight of the token they
+// point at.
+/// How many items the cart holds.
+pub message cart_items(count: Int) `{$count :integer} items in your cart`
+//  ^ keyword
+//          ^ function.definition

@@ -22,6 +22,11 @@ func irRetainedMapKind(k kind) bool {
 // a Decimal (scale-insensitive: rt.EqDecimal and rt.HashDecimal), a tuple, a
 // list, or a retained struct or enum (a prelude Maybe among them).
 func irMapKeyKind(k kind) bool {
+	if irExistentialKind(k) {
+		// An interface value: hashed and compared by its run-time type,
+		// as `==` on two of them is (ir.ValIface).
+		return true
+	}
 	if k == kindUnit || isDecimalKind(k) || irScalarLeafKind(k) || irRetainedTupleKind(k) || irRetainedListKind(k) || irRetainedLeafKind(k) || irByteValueKind(k) {
 		return true
 	}
@@ -58,6 +63,23 @@ func irMapKeyKind(k kind) bool {
 		return true
 	}
 	return k.tag == tagNamed && k.def != nil && (irRetainedStructKind(k.def) || irRetainedEnumKind(k.def))
+}
+
+// irHoldsExistential reports whether k is, or is composed of, an interface
+// value: a position a narrower value enters by erasure.
+func irHoldsExistential(k kind) bool {
+	if irExistentialKind(k) {
+		return true
+	}
+	if k.comp == nil {
+		return false
+	}
+	for _, p := range k.comp.parts {
+		if irHoldsExistential(p) {
+			return true
+		}
+	}
+	return false
 }
 
 // irMapKeyOK reports whether the VM's map operations take key as a key: a
@@ -387,7 +409,16 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 			return nil
 		}
 	} else if len(args.kinds) > 1 && args.kinds[1] != key {
-		return nil
+		if !irHoldsExistential(key) {
+			return nil
+		}
+		// A key entering an interface-valued key position (`Map.get(m, p)`
+		// for a `Map<Show, Int>`): erased or boxed as an argument is.
+		v, got, ok := bl.coerceEmpty(t.Args[1], args.temps[1], args.kinds[1], key)
+		if !ok || got != key {
+			return nil
+		}
+		args.temps[1], args.kinds[1] = v, got
 	}
 	if method == "put" && args.kinds[2] != val && !(irExistentialKind(val) && bl.g.irErases(val, args.kinds[2])) {
 		// A value entering an interface's existential value is the value

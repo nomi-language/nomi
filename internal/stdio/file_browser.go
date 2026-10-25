@@ -10,7 +10,7 @@ import "github.com/nomi-language/nomi/rt"
 // page defines `globalThis.fs`. This makes the refusal the build's own rather
 // than a property of the page, and gives it a reason a visitor can read.
 
-// BrowserReason is the IOError reason both functions give in this build.
+// BrowserReason is the io.Error reason both functions give in this build.
 const BrowserReason = "std/io file access is not available in the browser build of Nomi: there is no filesystem here; run the program with `nomi run`"
 
 // ReadFile refuses: the browser build has no filesystem.

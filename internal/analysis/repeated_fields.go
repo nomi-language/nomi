@@ -15,7 +15,7 @@ import (
 // rule for matching one field twice, so each is an error.
 //
 // It also reports a name declared twice in one declaration, at the second
-// name: a field of a struct or of a struct-shaped enum variant, a variant of
+// name, with the first as a related location: a field of a struct or of a struct-shaped enum variant, a variant of
 // an enum, a function of an interface, and a parameter of a function, host
 // function, interface function or lambda. Nothing else rejects these: the
 // checker keeps one of the two, and the IR builder declines what it meets
@@ -40,19 +40,26 @@ func CheckRepeatedFields(nodes []ast.Node) []TypeError {
 		line, col int
 	}
 	names := func(kind, where string, items []named) {
-		first := map[string]int{}
+		first := map[string]named{}
 		for _, it := range items {
 			if it.name == "" || it.name == "_" {
 				continue
 			}
-			if line, ok := first[it.name]; ok {
+			if f, ok := first[it.name]; ok {
 				errs = append(errs, TypeError{
 					Line: it.line, Col: it.col, EndLine: it.line, EndCol: it.col + len(it.name),
-					Message: fmt.Sprintf("%s '%s' is declared twice in %s; the first is at line %d", kind, it.name, where, line),
+					Message: fmt.Sprintf("%s '%s' is declared twice in %s", kind, it.name, where),
+					// A location, not a line number in the text: a macro's
+					// expansion is relocated to what the user wrote, and
+					// its text is not.
+					Related: []RelatedInfo{{
+						Line: f.line, Col: f.col, EndLine: f.line, EndCol: f.col + len(f.name),
+						Message: "the first is here",
+					}},
 				})
 				continue
 			}
-			first[it.name] = it.line
+			first[it.name] = it
 		}
 	}
 	fieldNames := func(fields []ast.StructField) []named {

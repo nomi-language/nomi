@@ -81,6 +81,22 @@ Each value goes through every step before the next value starts. The work stops
 as soon as the final call has what it needs. `Iter.take(2)` has its two values
 once 25 arrives, so nothing after 5 is squared.
 
+Without the `Iter.take(2)`, the program would never finish, so Nomi doesn't
+compile it. The compiler can see that `Range.naturals()` never ends, that
+`Iter.map` and `Iter.filter` don't change that, and that `Iter.to_list`
+needs every value:
+
+```console
+error: `Iter.to_list` of an infinite iterator (`Range.naturals`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+```
+
+Sometimes the compiler can't see where the values come from, for example
+when an endless iterator is passed in as a parameter. Then the program stops
+with the same message when it reaches `Iter.to_list`, before it squares
+anything, instead of running until it runs out of memory. An iterator says
+that it never ends through
+[`Iter.infinite?`](/reference/iter/#iterinfinite).
+
 ## Lists
 
 ```nomi-run
@@ -402,7 +418,7 @@ dbg line 9:
   = [0, 1, 2]
 -->
 
-So does a range of [`Codepoint`](/reference/codepoints/) values. A codepoint is
+So does a range of [`Codepoint`](/reference/code_points/) values. A codepoint is
 the number of one character. An ASCII character in single quotes, such as
 `'a'`, is a codepoint:
 

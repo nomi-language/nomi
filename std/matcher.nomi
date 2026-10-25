@@ -15,8 +15,9 @@ import {
 /// implement it, so the String search functions take any of them:
 ///
 /// ```nomi
-/// String.split("a,b", ",")                     // ["a", "b"]
-/// String.split("a1b22c", Regex`\d+`)           // ["a", "b", "c"]
+/// String.split("a,b", ",") // ["a", "b"]
+///
+/// String.split("a1b22c", Regex`\d+`) // ["a", "b", "c"]
 /// ```
 ///
 /// Each function answers one String operation for `text`, with the matcher

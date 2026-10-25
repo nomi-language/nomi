@@ -42,27 +42,6 @@ func TestFormat_StructSpreadStacked(t *testing.T) {
 `)
 }
 
-// A newline-separated stacked literal lands on the comma-separated canonical
-// form, which is what an ordinary stacked anonymous literal does — the
-// spread is carried along, not given a style of its own.
-func TestFormat_StructSpreadStackedMigratesToCommas(t *testing.T) {
-	migrates(t, `fn main() {
-    c = #{
-        ..p
-        x: 11
-        y: 12
-    }
-}
-`, `fn main() {
-    c = #{
-        ..p,
-        x: 11,
-        y: 12,
-    }
-}
-`)
-}
-
 // A spread plus ONE field, stacked. The regression this guards is specific:
 // with a fields-only multi-line rule there is one field, so `len < 2` returned
 // false and the literal was flattened onto one line.

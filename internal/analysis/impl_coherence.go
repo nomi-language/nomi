@@ -89,8 +89,8 @@ type ProjectImplIndex struct {
 	ImplBlockInterfaceKey map[*ast.FuncDef]string
 
 	// QualifiedReceiver is ImplBlockReceiver with the receiver's
-	// DECLARING module attached (`bool.Bool`, `shapes.Point`) — the
-	// impl's runtime identity rather than its base name.
+	// DECLARING module's key attached (qualifyReceiver: `std/bool` and
+	// `Bool`) — the impl's nominal identity rather than its base name.
 	//
 	// Deliberately separate from ImplBlockReceiver rather than replacing
 	// it. Base names are what the checker, the orphan rule, the
@@ -316,6 +316,14 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 			continue
 		}
 		foldedTables[tables] = true
+		// A set another build listed may hold the impls of a file this
+		// index has another analysis of: the shared stdlib's set holds
+		// those of a std module that stands here checked from edited
+		// source (AttachEditedStdlibImpls). That file's impls are its own
+		// tables' alone.
+		replaced := func(path string) bool {
+			return tables != own && owned[filesByKey[path]]
+		}
 		for fn, recv := range tables.ImplBlockReceiver {
 			if fn != nil && recv != "" {
 				idx.ImplBlockReceiver[fn] = recv
@@ -333,7 +341,7 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 			for methodName, fns := range byMethod {
 				for _, fn := range fns {
 					k := seenKey{iface: ifaceName, method: methodName, fn: fn}
-					if seenImpls[k] {
+					if seenImpls[k] || replaced(tables.IfaceMethodImplFiles[fn]) {
 						continue
 					}
 					seenImpls[k] = true
@@ -347,7 +355,9 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 		// executes earlier in the build pipeline (post Sweep B-ann, pre
 		// Sweep C-types).
 		for fn, path := range tables.IfaceMethodImplFiles {
-			idx.ImplFiles[fn] = path
+			if !replaced(path) {
+				idx.ImplFiles[fn] = path
+			}
 		}
 		// Extern-impl parallel of the unions above. IfaceMethodImplExterns
 		// dedups by the (iface, method, ext) triple; ImplExternFiles
@@ -360,7 +370,7 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 			for methodName, exts := range byMethod {
 				for _, ext := range exts {
 					k := seenExternKey{iface: ifaceName, method: methodName, ext: ext}
-					if seenExterns[k] {
+					if seenExterns[k] || replaced(tables.IfaceMethodImplExternFiles[ext]) {
 						continue
 					}
 					seenExterns[k] = true
@@ -369,7 +379,9 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 			}
 		}
 		for ext, path := range tables.IfaceMethodImplExternFiles {
-			idx.ImplExternFiles[ext] = path
+			if !replaced(path) {
+				idx.ImplExternFiles[ext] = path
+			}
 		}
 		for ext, key := range tables.ImplBlockInterfaceKeyExtern {
 			if ext != nil && key != "" {
@@ -591,8 +603,9 @@ func primitiveOriginIndex(filesByKey map[string]*FileAnalysis) map[string]string
 	return out
 }
 
-// qualifyReceiver renders an impl block's receiver as its runtime
-// identity: the module that DECLARED the receiver type, plus the name.
+// qualifyReceiver renders an impl block's receiver as its nominal
+// identity: the key of the module that DECLARED the receiver type, plus the
+// name, joined by receiverOriginSep (receiverDisplay renders it).
 //
 // Only the per-impl receiver maps (ImplBlockReceiver, keyed by
 // *ast.FuncDef) carry the qualified form. The type-keyed maps —
@@ -610,17 +623,13 @@ func primitiveOriginIndex(filesByKey map[string]*FileAnalysis) map[string]string
 // to no declaration (a type parameter, an unresolved import) stays
 // bare; it has no identity to qualify with.
 //
-// This is the same qualifier a value's runtime type name carries
-// (`bool.Bool`, `shapes.Point`). The two must agree, or registration and
-// lookup miss each other.
-//
 // `primitives` (primitiveOriginIndex) covers the one kind whose declaring
 // module is not recoverable from the type: a built-in *PrimitiveType is a shared
 // singleton with no Origin, so `Int` reached through the prelude had no
 // identity and keyed bare. Nil is accepted — the callers that pass nil
 // (single-file paths) get exactly the previous answer.
 //
-// The program entry's own types key bare, as their runtime type names do.
+// The program entry's own types key bare.
 // entryOrigin is the entry's Origin, its module key (entryOriginOf); the
 // entry is a fact about the program, not about the file that declares the
 // type.
@@ -643,7 +652,25 @@ func qualifyReceiver(fa *FileAnalysis, typeName string, primitives map[string]st
 	if origin == "" || origin == OriginEntry || origin == entryOrigin {
 		return typeName
 	}
-	return lastSegment(origin) + "." + typeName
+	return origin + receiverOriginSep + typeName
+}
+
+// receiverOriginSep joins a qualified receiver's declaring module key to its
+// name. The key is the whole module key, never its last segment: a user
+// module's `sql_literals/sql.nomi` and `std/sql.nomi` both end in `sql`, and
+// each may declare its own `Sql`. A module key may hold any character a path
+// may, so the separator is one no path holds.
+const receiverOriginSep = "\x01"
+
+// receiverDisplay renders a qualified receiver as a diagnostic names it: the
+// declaring module's last segment and the name (`bool.Bool`, `sql.Sql`). A
+// bare receiver renders as itself.
+func receiverDisplay(qualified string) string {
+	origin, name, ok := strings.Cut(qualified, receiverOriginSep)
+	if !ok {
+		return qualified
+	}
+	return lastSegment(origin) + "." + name
 }
 
 // declaringOriginOfType finds the Origin of the type `name` denotes in
@@ -704,6 +731,43 @@ func declaringOriginOfType(fa *FileAnalysis, name string, primitives map[string]
 // any prior index (callers that already went through
 // BuildProject have their richer index; they shouldn't call this).
 func AttachStdlibProjectImpls(fa *FileAnalysis, stdlibFAs map[string]*FileAnalysis) {
+	attachStdlibImpls(fa, stdlibFAs, nil, nil)
+}
+
+// AttachEditedStdlibImpls is AttachStdlibProjectImpls for fa, the stdlib
+// module `module` ("sql") checked from edited source, nodes, which stdlibFAs
+// holds under that name in place of the shared analysis's copy. The index
+// holds the impls nodes declare and none of the shared copy's. The shared
+// analyses list every stdlib impl in one set of tables, the shared copy's
+// among them; an impl function of that copy found there would be the
+// checker's dispatch target (Symbol.DispatchImpl), which the IR builder
+// does not lower, and would be typed by whatever the edited file defines at
+// its line and column (PopulateProjectImplFuncTypes), another declaration
+// once an edit moves the file's lines.
+func AttachEditedStdlibImpls(fa *FileAnalysis, nodes []ast.Node, module string, stdlibFAs map[string]*FileAnalysis) {
+	if fa == nil {
+		return
+	}
+	own := &implTables{
+		IfaceMethodImpls:            map[string]map[string][]*ast.FuncDef{},
+		IfaceMethodImplFiles:        map[*ast.FuncDef]string{},
+		ImplBlockReceiver:           map[*ast.FuncDef]string{},
+		ImplBlockInterfaceKey:       map[*ast.FuncDef]string{},
+		IfaceMethodImplExterns:      map[string]map[string][]*ast.ExternFunc{},
+		IfaceMethodImplExternFiles:  map[*ast.ExternFunc]string{},
+		ImplBlockInterfaceKeyExtern: map[*ast.ExternFunc]string{},
+	}
+	var inherents []InherentMethodRecord
+	IndexImplBlockFuncDefs(nodes, "std/"+module, fa.Definitions, own.IfaceMethodImpls, own.IfaceMethodImplFiles,
+		own.ImplBlockReceiver, own.ImplBlockInterfaceKey, own.IfaceMethodImplExterns, own.IfaceMethodImplExternFiles,
+		own.ImplBlockInterfaceKeyExtern, &inherents)
+	attachStdlibImpls(fa, stdlibFAs, own, map[*FileAnalysis]bool{fa: true})
+}
+
+// attachStdlibImpls is AttachStdlibProjectImpls, where own lists the impls
+// of the analyses owned, each standing in stdlibFAs for the shared
+// analysis's copy of its module.
+func attachStdlibImpls(fa *FileAnalysis, stdlibFAs map[string]*FileAnalysis, own *implTables, owned map[*FileAnalysis]bool) {
 	if fa == nil || len(stdlibFAs) == 0 {
 		return
 	}
@@ -717,13 +781,16 @@ func AttachStdlibProjectImpls(fa *FileAnalysis, stdlibFAs map[string]*FileAnalys
 	if base != nil {
 		idx = base.index
 	} else {
-		idx = stdlibOnlyImplIndex(filesByKey)
+		idx = stdlibOnlyImplIndex(filesByKey, own, owned)
 	}
 	// A new Program in place of the old one, which other code may hold. It
 	// reaches the stdlib files the index folds as well as its own.
 	with := *fa.Program()
 	with.ImplIndex = idx
 	with.stdBase = base
+	if own != nil {
+		with.implTables = *own
+	}
 	files := make(map[string]*FileAnalysis, len(filesByKey)+len(with.filesByKey))
 	for key, sfa := range filesByKey {
 		files[key] = sfa
@@ -740,8 +807,10 @@ func AttachStdlibProjectImpls(fa *FileAnalysis, stdlibFAs map[string]*FileAnalys
 
 // stdlibOnlyImplIndex answers the impl index of the stdlib analyses
 // filesByKey, which are typed: their fold and every identity pass over it.
-func stdlibOnlyImplIndex(filesByKey map[string]*FileAnalysis) *ProjectImplIndex {
-	idx := buildProjectImplIndex(filesByKey, nil, nil)
+// own and owned are buildProjectImplIndex's: a std module's tables and
+// analysis when it was checked from edited source.
+func stdlibOnlyImplIndex(filesByKey map[string]*FileAnalysis, own *implTables, owned map[*FileAnalysis]bool) *ProjectImplIndex {
+	idx := buildProjectImplIndex(filesByKey, own, owned)
 	// PopulateProjectImplFuncTypes fills the post-BuildTypes
 	// ImplFuncTypes index — the stdlib FAs have already been through
 	// BuildTypes during std.Load (via BuildProjectWithCache), so their
@@ -879,6 +948,7 @@ func detectImplCollisions(
 	receivers map[*ast.FuncDef]string,
 	interfaceKeys map[*ast.FuncDef]string,
 	ifaceOrigins map[*ast.FuncDef]string,
+	pathOf func(key string) string,
 ) []TypeError {
 	var errs []TypeError
 	// Deterministic iteration for stable error ordering.
@@ -917,7 +987,7 @@ func detectImplCollisions(
 
 			for _, recv := range receivers {
 				group := byReceiver[recv]
-				displayRecv := implCollisionKeyReceiver(recv)
+				displayRecv := receiverDisplay(implCollisionKeyReceiver(recv))
 				// Universal default Debug gives every type a Debug impl, and
 				// dispatch is keyed by unqualified base name — so a project type
 				// can share a base name with an unrelated stdlib type (e.g. a
@@ -939,7 +1009,7 @@ func detectImplCollisions(
 					if len(bucket) < 2 {
 						continue
 					}
-					errs = append(errs, implCollisionError(iface, method, displayRecv, bucket, files, interfaceKeys))
+					errs = append(errs, implCollisionError(iface, method, displayRecv, bucket, files, interfaceKeys, pathOf))
 				}
 			}
 		}
@@ -1221,6 +1291,7 @@ func implCollisionError(
 	group []*ast.FuncDef,
 	files map[*ast.FuncDef]string,
 	interfaceKeys map[*ast.FuncDef]string,
+	pathOf func(key string) string,
 ) TypeError {
 	mods := make([]string, 0, len(group))
 	seen := map[string]bool{}
@@ -1243,16 +1314,28 @@ func implCollisionError(
 	msg := fmt.Sprintf(
 		"duplicate impl: `%s` is implemented for `%s` by modules %s (function `%s`); a type implements an interface once at each set of type arguments",
 		label, recv, strings.Join(mods, ", "), method)
-	line, col := collisionAnchor(group, files)
+	anchor := collisionAnchor(group, files)
 	return TypeError{
-		Line:    line,
-		Col:     col,
+		Line:    anchor.Line,
+		Col:     anchor.Col,
 		Message: msg,
+		File:    fileAt(pathOf, files[anchor]),
 	}
 }
 
-// collisionAnchor picks the position a reader can act on: a PROJECT impl over
-// a stdlib one, and a real source line over a synthesized one.
+// fileAt is the path of the file with module key key, which a program-level
+// diagnostic names as its file (TypeError.File): pathOf's answer, or "" when
+// there is no pathOf.
+func fileAt(pathOf func(key string) string, key string) string {
+	if pathOf == nil {
+		return ""
+	}
+	return pathOf(key)
+}
+
+// collisionAnchor picks the impl whose position a reader can act on, where
+// the error is reported: a PROJECT impl over a stdlib one, and a real source
+// line over a synthesized one.
 //
 // Both preferences come from a measured case — see implCollisionError's
 // header for the two positions this replaces. IsSynthesizedLine is the
@@ -1261,7 +1344,7 @@ func implCollisionError(
 // Falls back to group[0] when every member is synthesized or homed in std,
 // which is correct there: a stdlib-internal duplicate is a stdlib bug, and
 // `std/...` is a position its maintainer can open.
-func collisionAnchor(group []*ast.FuncDef, files map[*ast.FuncDef]string) (int, int) {
+func collisionAnchor(group []*ast.FuncDef, files map[*ast.FuncDef]string) *ast.FuncDef {
 	best := group[0]
 	bestScore := -1
 	for _, fn := range group {
@@ -1276,7 +1359,7 @@ func collisionAnchor(group []*ast.FuncDef, files map[*ast.FuncDef]string) (int, 
 			best, bestScore = fn, score
 		}
 	}
-	return best.Line, best.Col
+	return best
 }
 
 // distinctInterfaceHeaders is the sorted set of interface headers the group's
@@ -1338,6 +1421,8 @@ func quotedList(items []string) string {
 //     same first-segment / entry-module logic declaringModuleIndex
 //     uses for project files. A "" return means unkeyable —
 //     conservative skip (same posture as funcDefReceiverBaseName == "").
+//   - fileOf: returns the path of the file declaring a given impl
+//     FuncDef, which the error names (TypeError.File); nil names none.
 //
 // Complements detectImplCollisions: collisions reject duplicate
 // (Iface, Type) pairs within one build; the orphan rule prevents
@@ -1349,6 +1434,8 @@ func detectOrphanImpls(
 	declModule map[string][]string,
 	implModuleOf func(*ast.FuncDef) string,
 	receivers map[*ast.FuncDef]string,
+	facts *orphanFacts,
+	fileOf func(*ast.FuncDef) string,
 ) []TypeError {
 	var errs []TypeError
 	ifaceNames := make([]string, 0, len(index))
@@ -1382,6 +1469,13 @@ func detectOrphanImpls(
 				// and TestDetectOrphanImpls_SkipsWhenIfaceUnresolved.
 				// Trade-off: a real orphan is masked when an unrelated
 				// unresolved-name bug coexists in the same build.
+				if ifaceKnown && !recvKnown && facts.bareReceiver(fn, iface, recv) {
+					// `impl<T> Multiply<Rate, T> for T`: a receiver
+					// that is the impl's own type parameter is declared
+					// nowhere, and claims every type, so only a local
+					// interface admits the impl.
+					recvKnown, recvMod = true, ""
+				}
 				if !ifaceKnown || !recvKnown {
 					continue
 				}
@@ -1397,7 +1491,17 @@ func detectOrphanImpls(
 				if declaredInModule(declModule, iface, implMod) || declaredInModule(declModule, recv, implMod) {
 					continue // local on at least one side — rule satisfied
 				}
-				errs = append(errs, orphanImplError(iface, method, recv, ifaceMod, recvMod, implMod, fn))
+				// Neither side is local: a type argument the module
+				// declares may still admit the impl (orphan_type_args.go).
+				admitted, reason := facts.verdict(fn, iface, recv, implMod)
+				if admitted {
+					continue
+				}
+				e := orphanImplError(iface, method, recv, ifaceMod, recvMod, implMod, reason, fn)
+				if fileOf != nil {
+					e.File = fileOf(fn)
+				}
+				errs = append(errs, e)
 			}
 		}
 	}
@@ -1408,13 +1512,24 @@ func detectOrphanImpls(
 // anchored at the FuncDef's position and names both foreign sides plus
 // the offending impl's home file, so the user can see the full
 // triangle that violates the rule.
-func orphanImplError(iface, method, recv, ifaceMod, recvMod, implMod string, fn *ast.FuncDef) TypeError {
+//
+// reason, when not empty, says why a type argument the module declares does
+// not admit the impl either.
+func orphanImplError(iface, method, recv, ifaceMod, recvMod, implMod, reason string, fn *ast.FuncDef) TypeError {
+	why := "the interface, the implementing type, or a type heading a type argument the interface's functions take must be declared in the implementing module"
+	if reason != "" {
+		why = reason
+	}
+	forRecv := fmt.Sprintf("`%s` (declared in module %q)", recv, recvMod)
+	if recvMod == "" {
+		forRecv = fmt.Sprintf("the type parameter `%s`", recv)
+	}
 	return TypeError{
 		Line: fn.Line,
 		Col:  fn.Col,
 		Message: fmt.Sprintf(
-			"orphan impl: `%s` (declared in module %q) for `%s` (declared in module %q) cannot be implemented in module %q (function `%s`) — at least one of the interface or the implementing type must be declared in the implementing module",
-			iface, ifaceMod, recv, recvMod, implMod, method),
+			"orphan impl: `%s` (declared in module %q) for %s cannot be implemented in module %q (function `%s`): %s",
+			iface, ifaceMod, forRecv, implMod, method, why),
 	}
 }
 
@@ -1429,7 +1544,7 @@ func orphanImplError(iface, method, recv, ifaceMod, recvMod, implMod string, fn 
 //
 // Deterministic ordering for stable diagnostics: bare keys sorted, buckets in
 // first-appearance order within a key, position-sorted anchor within a bucket.
-func detectInherentImplCollisions(inherents []InherentMethodRecord) []TypeError {
+func detectInherentImplCollisions(inherents []InherentMethodRecord, pathOf func(key string) string) []TypeError {
 	byKey := map[string][]InherentMethodRecord{}
 	for _, rec := range inherents {
 		if rec.Receiver == "" || rec.Method == "" {
@@ -1468,13 +1583,14 @@ func detectInherentImplCollisions(inherents []InherentMethodRecord) []TypeError 
 				Message: fmt.Sprintf(
 					"duplicate type-owned function: `%s.%s` is defined %d times — a type may define each function at most once",
 					first.Receiver, first.Method, len(bucket)),
+				File: fileAt(pathOf, first.Module),
 			})
 		}
 	}
 	return errs
 }
 
-func detectInherentImplBlockCollisions(blocks []InherentImplBlockRecord) []TypeError {
+func detectInherentImplBlockCollisions(blocks []InherentImplBlockRecord, pathOf func(key string) string) []TypeError {
 	byKey := map[string][]InherentImplBlockRecord{}
 	for _, rec := range blocks {
 		if rec.Signature == "" {
@@ -1508,6 +1624,7 @@ func detectInherentImplBlockCollisions(blocks []InherentImplBlockRecord) []TypeE
 			Message: fmt.Sprintf(
 				"duplicate type-owned impl: `impl %s { ... }` appears %d times in file %q — merge its functions into one block",
 				first.Signature, len(group), displayModuleKey(first.Module)),
+			File: fileAt(pathOf, first.Module),
 		})
 	}
 	return errs
@@ -1520,6 +1637,7 @@ func detectInherentImplBlockCollisions(blocks []InherentImplBlockRecord) []TypeE
 func detectInherentImplBlockOrphans(
 	blocks []InherentImplBlockRecord,
 	declaredLocally func(module, name string) bool,
+	pathOf func(key string) string,
 ) []TypeError {
 	// Deterministic ordering.
 	sorted := append([]InherentImplBlockRecord(nil), blocks...)
@@ -1543,6 +1661,7 @@ func detectInherentImplBlockOrphans(
 				Message: fmt.Sprintf(
 					"orphan impl: inherent `impl %s { ... }` is not allowed — a generic type variable is not a locality anchor; inherent impls require a concrete implementing type declared in this file",
 					rec.Signature),
+				File: fileAt(pathOf, rec.Module),
 			})
 			continue
 		}
@@ -1555,6 +1674,7 @@ func detectInherentImplBlockOrphans(
 			Message: fmt.Sprintf(
 				"orphan impl: inherent `impl %s { ... }` in file %q cannot extend `%s` — inherent impls must be declared in the same file as their receiver type",
 				rec.Signature, displayModuleKey(rec.Module), recv),
+			File: fileAt(pathOf, rec.Module),
 		})
 	}
 	return errs

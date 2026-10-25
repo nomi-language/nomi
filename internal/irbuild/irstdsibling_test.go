@@ -13,7 +13,7 @@ import (
 // TestIRRangeIter_TourCodepointRange; it depends on `Discrete.next` for
 // Codepoint, which calls `Codepoint.to_int` and `Codepoint.from_int`.
 
-// TestIRStdSibling_TypeQualifiedSameModuleCalls runs three std/codepoints
+// TestIRStdSibling_TypeQualifiedSameModuleCalls runs three std/code_points
 // bodies that call their own module's inherent functions by type
 // qualification: `step_by`, `next` and `inspect` all call `Codepoint.to_int`,
 // and the first two call `Codepoint.from_int`.

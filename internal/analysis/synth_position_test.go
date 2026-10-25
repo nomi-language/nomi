@@ -236,17 +236,17 @@ func showSlots(m map[string]int) string {
 // analysis/synth_diag_position_test.go: they still passed, which is the
 // definition of an unexercised fence. The branch exists for the case
 // compilerKnownSynthType's own comment reserves — "a synthesizer emitting an
-// unexpected name still fails loudly" — and a loud failure at line 1074020352
+// unexpected name still fails loudly" — and a loud failure at line 1074036736
 // is not loud, it is unreadable. So the fence is kept and exercised HERE,
 // where the unexpected name can actually be planted.
 //
 // The planted line is synthSlot(synthOriginDecl, 1, synthKindAutoDebug),
-// which is 1074020352, a line number of the kind that reached a user and started this.
+// which is 1074036736, a line number of the kind that reached a user and started this.
 func TestBuildImplBlockTypes_SynthSignatureErrorsReportTheDeclaration(t *testing.T) {
 	const synthLine = 1 << 30 // recomputed below; the literal documents the value
 	planted := synthSlot(synthOriginDecl, 1, synthKindAutoDebug)
-	if planted != 1074020352 {
-		t.Fatalf("slot arithmetic moved: synthSlot(decl, 1, autoDebug) = %d, want 1074020352", planted)
+	if planted != 1074036736 {
+		t.Fatalf("slot arithmetic moved: synthSlot(decl, 1, autoDebug) = %d, want 1074036736", planted)
 	}
 	if !IsSynthesizedLine(planted) || planted < synthLine {
 		t.Fatalf("planted line %d is not in the synth band", planted)

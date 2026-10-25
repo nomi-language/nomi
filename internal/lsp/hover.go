@@ -13,6 +13,12 @@ import (
 // reusable by non-LSP callers (the tour wasm, the reference generator).
 func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
 	uri := string(params.TextDocument.URI)
+	if isInputURI(uri) {
+		if d := s.catalogAt(uri); d != nil {
+			return s.catalogHover(d, params.Position), nil
+		}
+		return nil, nil
+	}
 	doc := s.docs.Snapshot(uri)
 	if doc == nil {
 		return nil, nil
@@ -26,6 +32,10 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 	if doc.Analysis == nil {
 		return nil, nil
 	}
+	// Inside a macro's declaration's body, the macro answers.
+	if h, ok := s.macroHover(doc, pos); ok {
+		return h, nil
+	}
 	// A static typed literal shows its value (literal_eval.go); on its tag,
 	// below the handler's own hover.
 	literal, literalRange, onTag, isLiteral := s.literalHover(doc, posToOffset(lineOffsets(doc.Content), pos.Line, pos.Col))
@@ -36,7 +46,8 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 		}, nil
 	}
 	// The punctuation of a shape literal or pattern, a variant's `.` and
-	// `(`, a pattern's `..rest` and a pipe's `|>` (hoverdoc.SyntaxAt).
+	// `(`, a pattern's `..rest`, a pipe's `|>`, an operator and a discard
+	// `_` (hoverdoc.SyntaxAt).
 	if content, at, n, ok := hoverdoc.SyntaxAt(doc.Analysis, doc.Nodes, pos); ok {
 		return tokenHover(doc.Content, content, at, n), nil
 	}

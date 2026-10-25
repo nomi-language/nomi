@@ -17,7 +17,7 @@ package stdcalendar
 // `readGoPackageSymbols`, which parses the adapter's OWN directory, so a struct
 // it can project is one declared as a `*goast.StructType` there. A
 // `*goast.SelectorExpr` into an imported package reaches
-// `ffitypes.NomiForGoStdlibType` — two rows, `time.Duration` and `time.Time` —
+// `ffitypes.NomiForGoNamedType` — `time.Duration`, `time.Time` and `rt.Dynamic` —
 // and is otherwise "unbound". A type ALIAS does not help: `type Date = rt.Date`
 // classifies as `goTypeNamed`, falls through to the same selector arm, and
 // reports the same thing about `rt.Date`.

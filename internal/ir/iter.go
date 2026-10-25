@@ -251,6 +251,12 @@ const (
 	// the source, the seed and the callback, answering the outputs and the
 	// final state.
 	IterMapReduce
+	// IterInfinite is `Iter.infinite?`: whether the sequence never ends.
+	IterInfinite
+	// IterSort is `Iter.sort`: IterSortWith's operands, the comparator
+	// being the element's `Comparable.compare`. It is its own operation so
+	// a trap names the function the program called.
+	IterSort
 )
 
 // iterOpSpec is one operation's Nomi-level facts: how it is spelled, what it
@@ -354,6 +360,10 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	// `reduce`'s is.
 	IterScan:      {name: "scan", form: IterFormStage, min: 3, max: 3, over: overSeq, signal: true},
 	IterMapReduce: {name: "map_reduce", form: IterFormTerminal, min: 3, max: 3, over: overSeq, signal: true},
+	// `infinite?` reads the sequence's own answer and drives nothing; every
+	// source family reaches it through its view.
+	IterInfinite: {name: "infinite?", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
+	IterSort:     {name: "sort", form: IterFormTerminal, min: 2, max: 3, over: overSeq},
 }
 
 // Name is the operation's Nomi spelling. `IterView` has none, because no
@@ -406,7 +416,9 @@ type Iter struct {
 // source's own `each_while`. A Range view may carry one more operand, the
 // element's `Discrete.steps_between`, when the view enters a declared
 // `Iter<T>` position and must answer the Range's `known_count`, and a user
-// source's view one more, the `known_count` its impl writes.
+// source's view one or two more: the `known_count` its impl writes, then the
+// `infinite?` it writes. A view that carries `infinite?` and inherits
+// `known_count` holds Unit in its place, so each operand has one position.
 func IterViewOperands(d IterDomain) int {
 	switch d {
 	case IterOverRange:
@@ -456,7 +468,8 @@ func newIter(pos Pos, dst Temp, op IterOp, over IterDomain, sig bool, args []Tem
 	if !op.Admits(over) {
 		panic("ir.NewIter: " + op.Name() + " does not run over a " + over.String())
 	}
-	if op == IterView && len(args) != IterViewOperands(over) && !((over == IterOverRange || over == IterOverUserImpl) && len(args) == IterViewOperands(over)+1) {
+	if op == IterView && len(args) != IterViewOperands(over) && !((over == IterOverRange || over == IterOverUserImpl) && len(args) == IterViewOperands(over)+1) &&
+		!(over == IterOverUserImpl && len(args) == IterViewOperands(over)+2) {
 		panic("ir.NewIter: a " + over.String() + " view takes " +
 			strconv.Itoa(IterViewOperands(over)) + " operand(s), got " + strconv.Itoa(len(args)))
 	}

@@ -74,7 +74,8 @@ func (gt *goTypes) pkg(importPath string) (*goSourcePkg, error) {
 		return nil, err
 	}
 	if !readable {
-		return nil, fmt.Errorf("Go package %q is neither in the Go standard library nor local to the project (a local `replace` or the project's own module), so its source is not read", importPath)
+		return nil, fmt.Errorf("Go package %q is not in the Go standard library, the project's own module, a local `replace`, "+
+			"or a required module in the Go module cache, so its source is not read; run `nomi fetch` if go.mod requires it", importPath)
 	}
 	syms, err := src.symbols()
 	if err != nil {
@@ -138,7 +139,7 @@ func (gt *goTypes) resolve(expr goast.Expr, scope goScope) (hostgen.Type, error)
 		case "rune":
 			return &astType{kind: reflect.Int32, name: "int32", str: "int32"}, nil
 		case "error":
-			return &astType{kind: reflect.Interface, name: "error", str: "error"}, nil
+			return &astType{kind: reflect.Interface, name: "error", str: "error", methods: 1}, nil
 		case "any":
 			return &astType{kind: reflect.Interface, str: "interface {}"}, nil
 		}
@@ -226,7 +227,10 @@ func (gt *goTypes) resolve(expr goast.Expr, scope goScope) (hostgen.Type, error)
 		}
 		return t, nil
 	case *goast.InterfaceType:
-		return &astType{kind: reflect.Interface, str: "interface {...}"}, nil
+		if x.Methods == nil || len(x.Methods.List) == 0 {
+			return &astType{kind: reflect.Interface, str: "interface {}"}, nil
+		}
+		return &astType{kind: reflect.Interface, str: "interface {...}", methods: len(x.Methods.List)}, nil
 	case *goast.ChanType:
 		return &astType{kind: reflect.Chan, str: goNodeString(x)}, nil
 	}
@@ -255,7 +259,7 @@ func (gt *goTypes) namedIn(p *goSourcePkg, name string) (hostgen.Type, error) {
 		return nil, err
 	}
 	ut := u.(*astType)
-	t.kind, t.elem, t.key, t.fields, t.in, t.out, t.variadic = ut.kind, ut.elem, ut.key, ut.fields, ut.in, ut.out, ut.variadic
+	t.kind, t.elem, t.key, t.fields, t.in, t.out, t.variadic, t.methods = ut.kind, ut.elem, ut.key, ut.fields, ut.in, ut.out, ut.variadic, ut.methods
 	return t, nil
 }
 
@@ -349,6 +353,8 @@ type astType struct {
 	fields    []hostgen.StructField
 	in, out   []hostgen.Type
 	variadic  bool
+	// methods is an interface's method count.
+	methods int
 }
 
 func (t *astType) Kind() reflect.Kind              { return t.kind }
@@ -364,6 +370,7 @@ func (t *astType) In(i int) hostgen.Type           { return t.in[i] }
 func (t *astType) NumOut() int                     { return len(t.out) }
 func (t *astType) Out(i int) hostgen.Type          { return t.out[i] }
 func (t *astType) IsVariadic() bool                { return t.variadic }
+func (t *astType) NumMethod() int                  { return t.methods }
 
 func (t *astType) FieldByName(name string) (hostgen.StructField, bool) {
 	for _, f := range t.fields {

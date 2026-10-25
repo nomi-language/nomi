@@ -25,7 +25,7 @@ func SeqScan[T, U any](src Seq[T], seed U, f func(fr *Frame, acc U, item T) U) S
 			acc = f(fr, acc, item)
 			return yield(fr, acc)
 		})
-	}}
+	}, Endless: src.Endless}
 }
 
 // SeqScanCtl is SeqScan whose callback can `break` or `continue`. Its Run

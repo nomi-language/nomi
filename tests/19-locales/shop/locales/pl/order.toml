@@ -1,0 +1,124 @@
+# Polish nouns have a gender and seven cases. Each noun gives the gender
+# and the cases the messages ask for: the nominative, and the genitive
+# that `sold_out` asks for after "Brak".
+
+[book]
+source = '''
+.input {$count :integer}
+.match $count
+one {{book}}
+* {{books}}
+'''
+gender = "feminine"
+nominative = '''
+.input {$count :integer}
+.match $count
+one {{książka}}
+few {{książki}}
+many {{książek}}
+* {{książki}}
+'''
+genitive = '''
+.input {$count :integer}
+.match $count
+one {{książki}}
+few {{książek}}
+many {{książek}}
+* {{książki}}
+'''
+
+[laptop]
+source = '''
+.input {$count :integer}
+.match $count
+one {{laptop}}
+* {{laptops}}
+'''
+gender = "inanimate"
+nominative = '''
+.input {$count :integer}
+.match $count
+one {{laptop}}
+few {{laptopy}}
+many {{laptopów}}
+* {{laptopa}}
+'''
+genitive = '''
+.input {$count :integer}
+.match $count
+one {{laptopa}}
+few {{laptopów}}
+many {{laptopów}}
+* {{laptopa}}
+'''
+
+# `etui` does not decline: one form serves every count and case.
+[phone_case]
+source = '''
+.input {$count :integer}
+.match $count
+one {{phone case}}
+* {{phone cases}}
+'''
+gender = "neuter"
+nominative = '''etui'''
+genitive = '''etui'''
+
+[has_shipped]
+source = '''Your {$product :nomi:noun} has shipped.'''
+text = '''
+.input {$product :nomi:gender}
+.match $product
+feminine {{Twoja {$product :nomi:noun} została wysłana.}}
+inanimate {{Twój {$product :nomi:noun} został wysłany.}}
+neuter {{Twoje {$product :nomi:noun} zostało wysłane.}}
+* {{Twoja przesyłka została wysłana.}}
+'''
+
+[sold_out]
+source = '''No {$product :nomi:noun count=2} left.'''
+text = '''Brak {$product :nomi:noun case=genitive count=5}.'''
+
+[in_cart]
+source = '''{$count} {$product :nomi:noun count=$count} in your cart'''
+text = '''{$count} {$product :nomi:noun count=$count} w koszyku'''
+
+[watching]
+source = '''
+.input {$people :nomi:list}
+.match $people
+one {{{$people} is watching this item}}
+* {{{$people} are watching this item}}
+'''
+text = '''
+.input {$people :nomi:list}
+.match $people
+one {{{$people} ogląda ten produkt}}
+few {{{$people} oglądają ten produkt}}
+many {{{$people} oglądają ten produkt}}
+* {{{$people} oglądają ten produkt}}
+'''
+
+[order_total]
+source = '''Total: {$total :currency}'''
+text = '''Razem: {$total :currency}'''
+
+# After the preposition `w` a weekday is in the accusative, which differs
+# from CLDR's nominative for the feminine days (środa, sobota, niedziela),
+# and `w` becomes `we` before `wtorek`. So the translation selects on the
+# day and writes each one's form; the month, after the day, is in the
+# genitive CLDR gives (października).
+[ships_on]
+source = '''Ships {$date :datetime weekday=long month=long day=numeric}'''
+text = '''
+.local $day = {$date :nomi:weekday}
+.match $day
+monday {{Wysyłka w poniedziałek, {$date :datetime month=long day=numeric}}}
+tuesday {{Wysyłka we wtorek, {$date :datetime month=long day=numeric}}}
+wednesday {{Wysyłka w środę, {$date :datetime month=long day=numeric}}}
+thursday {{Wysyłka w czwartek, {$date :datetime month=long day=numeric}}}
+friday {{Wysyłka w piątek, {$date :datetime month=long day=numeric}}}
+saturday {{Wysyłka w sobotę, {$date :datetime month=long day=numeric}}}
+sunday {{Wysyłka w niedzielę, {$date :datetime month=long day=numeric}}}
+* {{Wysyłka: {$date :datetime weekday=long month=long day=numeric}}}
+'''

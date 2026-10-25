@@ -220,3 +220,14 @@ func NewFrame(ctx context.Context) *Frame {
 // Nomi's deadlines interoperate with Go libraries for free, and a
 // debugger reads the active context off a real Go struct.
 func (fr *Frame) Context() context.Context { return fr.ctx }
+
+// WithCancel is fr over a context that also ends when the answered function
+// is called, so a wait on the frame (a timer, a channel, a task) wakes then.
+// A test case's time limit (internal/vm's caselimit.go) ends a case blocked
+// in a wait this way.
+func WithCancel(fr *Frame) (*Frame, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(fr.ctx)
+	child := *fr
+	child.ctx = ctx
+	return &child, cancel
+}

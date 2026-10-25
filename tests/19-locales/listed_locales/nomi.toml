@@ -1,0 +1,7 @@
+[module]
+name = "listedlocales"
+entry_points = ["main"]
+
+[i18n]
+source_locale = "de"
+locales = ["de", "PL"]

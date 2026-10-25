@@ -82,6 +82,13 @@ func planMake(n *ir.Make, dst *ir.ValType, typeOf func(ir.Temp) *ir.ValType) (ma
 			return makePlan{desc: d, fields: []int{0}}, true
 		}
 		return makePlan{desc: distinctDesc(name, slotPtr(operandSlot(0))), fields: []int{0}}, true
+	case ir.MakeExistential:
+		// A boxed existential: the value, under the descriptor whose name
+		// selects its impls (rt.Box).
+		if n.Arity() != 1 {
+			return makePlan{}, false
+		}
+		return makePlan{desc: rt.BoxDesc(n.Typ().Name()), fields: []int{0}}, true
 	case ir.MakeVariant:
 		if n.Embeds() != nil {
 			return makePlan{}, false

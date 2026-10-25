@@ -51,7 +51,9 @@ func (c *checker) checkOrderingAtFileScope(nodes []ast.Node) {
 	for _, node := range nodes {
 		switch n := node.(type) {
 		case *ast.ImportStmt:
-			if state >= stateAfterExport {
+			// A macro expansion's own imports follow its declaration
+			// (hideExpansionImports); no source wrote them there.
+			if state >= stateAfterExport && !IsSynthesizedLine(n.Line) {
 				c.errors = append(c.errors, TypeError{
 					Line:    n.Line,
 					Col:     n.Col,

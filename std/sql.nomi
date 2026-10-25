@@ -1,0 +1,888 @@
+//# SQL databases: the vocabulary every driver and every SQL library
+//# shares. A driver module implements `Conn` for its engine; code that
+//# talks to a database takes a `Conn` and sends `Statement`s, written with
+//# the `Sql"..."` typed literal, whose `${...}` slots become parameters and
+//# never SQL text. Values cross as `Value`, converted by `ToSql` and
+//# `FromSql`, with NULL as `Maybe`'s `None`. A result row is a `Row`, read
+//# by column name or position. Failures are a `sql.Error`, which keeps a
+//# violated constraint's name. `sql.transaction` runs a body in a
+//# transaction, or in a savepoint when the connection already is one, and
+//# `sql.with_connection` runs a body on a connection it opens and closes;
+//# `sql.close_quietly` closes one in a `defer`.
+//#
+//# std holds no driver: drivers are modules of their own, and
+//# `std/sql_testing` has a recording fake `Conn` and the conformance suite
+//# every driver runs.
+
+import {
+    add.Add
+    bool.Bool.{self, True}
+    bytes.Bytes
+    calendar.{Date, NaiveDateTime, Time}
+    decimal.Decimal
+    display.Display
+    equatable.Equatable
+    float.Float
+    instant.Instant
+    int.Int
+    iter.Iter
+    json.Json
+    lists.List
+    literals.{Fragment, Literal}
+    maybe.Maybe.{self, None, Some}
+    results.Result.{self, Err, Ok}
+    strings.String
+    unit.Unit
+    uuid.Uuid
+}
+
+/// A connection to a database, or a transaction on one. A driver
+/// implements it; code that reads or writes a database takes a `Conn`, so
+/// one function serves a connection, a transaction and a test's fake.
+///
+/// Every driver follows these rules, and `std/sql_testing`'s conformance suite
+/// checks each:
+///
+/// - `begin` on a connection starts a transaction; `begin` on a
+///   transaction starts a savepoint inside it, and the returned `Conn`'s
+///   `commit` releases the savepoint and its `rollback` rolls back to it.
+/// - `commit` or `rollback` of a transaction ends it and every savepoint
+///   inside it; after that, `commit` and any statement are
+///   `Err(.Finished)`, and `rollback` is a no-op that returns `Ok`.
+/// - A statement's parameters are sent as values, never spliced into the
+///   SQL text.
+/// - `each_row` calls `f` with each row in order and stops when `f`
+///   returns `False`.
+/// - `exec` answers the number of rows the statement changed.
+/// - A `Timestamptz` compares in time order with the timestamps the
+///   database writes itself (`DEFAULT CURRENT_TIMESTAMP`), in `WHERE` and
+///   `ORDER BY`.
+/// - A constraint error's `name` is the constraint's name as Postgres
+///   reports it (see `Error.Constraint`).
+/// - `close` closes the connection, whichever of its `Conn`s it is called
+///   on: the connection itself or a transaction or savepoint `begin`
+///   returned. A transaction still open is rolled back with every savepoint
+///   inside it, as the engine does when a connection ends. After that,
+///   every operation of every `Conn` of the connection but `dialect`,
+///   `rollback` included, is `Err(.Closed)`, and `close` again is a no-op
+///   that returns `Ok`.
+pub interface Conn {
+    fn query(conn: self, statement: Statement) -> Result<List<Row>, Error>
+    fn each_row(conn: self, statement: Statement, f: (Row) -> Bool) -> Result<Unit, Error>
+    fn exec(conn: self, statement: Statement) -> Result<Int, Error>
+    fn begin(conn: self) -> Result<Conn, Error>
+    fn commit(tx: self) -> Result<Unit, Error>
+    fn rollback(tx: self) -> Result<Unit, Error>
+    fn ping(conn: self) -> Result<Unit, Error>
+    fn dialect(conn: self) -> Dialect
+    fn close(conn: self) -> Result<Unit, Error>
+}
+
+/// A statement and its parameters: `parts` is the SQL around each
+/// parameter, one more than `params`, so a driver writes its own dialect's
+/// placeholders between them. Write one with the `Sql"..."` literal.
+///
+/// `Display` writes the SQL with `?1`, `?2`, ... for the parameters,
+/// numbered from 1 in the order they appear, whatever placeholders a
+/// driver sends.
+//! s = Sql"SELECT name FROM users WHERE id = ${7} AND active = ${True}"
+//! assert s.parts == ["SELECT name FROM users WHERE id = ", " AND active = ", ""]
+//! assert s.params == [Value.Int(7), Value.Bool(True)]
+//! assert "${s}" == "SELECT name FROM users WHERE id = ?1 AND active = ?2"
+//
+pub struct Statement {
+    /// The SQL text before, between and after the parameters.
+    parts: List<String>
+
+    /// The parameters, in the order they appear.
+    params: List<Value>
+}
+
+derive Equatable for Statement
+
+impl Display for Statement {
+    fn to_string(statement: Statement) -> String {
+        statement.parts
+        |> Iter.with_index()
+        |> Iter.map(fn #(index, part) -> if index == 0 { part } else { "?${index}" + part })
+        |> String.join()
+    }
+}
+
+/// The tag of the `Sql"..."` literal, which builds a `Statement`.
+pub type Sql
+
+impl Literal for Sql {
+    /// `Sql"SELECT * FROM users WHERE id = ${id}"` is a `Statement`: the
+    /// text between the slots is its SQL, and each slot's value, which must
+    /// implement `ToSql`, is a parameter. A value never becomes SQL text, so
+    /// a slot cannot inject SQL whatever it holds.
+    //! name = "x'); DROP TABLE users; --"
+    //! s = Sql"SELECT id FROM users WHERE name = ${name}"
+    //! assert s.parts == ["SELECT id FROM users WHERE name = ", ""]
+    //! assert s.params == [Value.Text(name)]
+    //! assert Sql"${1}${2}".parts == ["", "", ""]
+    //
+    fn from_fragments(fragments: List<Fragment<ToSql>>) -> Statement {
+        // A literal leaves out empty text, so two slots side by side, or one
+        // at either end, have no `Static` between them.
+        #(parts, text, params) = Iter.reduce(fragments, fn acc = #([], "", []), fragment -> {
+            #(parts, text, params) = acc
+
+            case fragment {
+                .Static(s) -> #(parts, text + s, params)
+                .Dynamic(value) -> #(parts + [text], "", params + [ToSql.to_sql(value)])
+            }
+        })
+
+        #Statement{parts: parts + [text], params}
+    }
+}
+
+/// `a + b` is `a`'s SQL followed by `b`'s, with both statements'
+/// parameters in order, so a query can be built from pieces at run time.
+/// Each piece is a `Sql"..."` literal, so a value still goes only in a
+/// `${...}` slot and never becomes SQL text.
+//! status = "paid"
+//! s = Sql"SELECT id FROM orders WHERE user_id = ${7}" + Sql" AND status = ${status}"
+//! assert "${s}" == "SELECT id FROM orders WHERE user_id = ?1 AND status = ?2"
+//! assert s.params == [Value.Int(7), Value.Text("paid")]
+//
+impl Add<Statement, Statement> for Statement {
+    fn add(lhs: Statement, rhs: Statement) -> Statement {
+        // `lhs`'s last part and `rhs`'s first are one stretch of SQL.
+        before = lhs.parts |> Iter.take(Iter.count(lhs.parts) - 1) |> Iter.to_list()
+        last = lhs.parts |> Iter.last() |> Maybe.with_default("")
+        first = rhs.parts |> Iter.first() |> Maybe.with_default("")
+        after = rhs.parts |> Iter.drop(1) |> Iter.to_list()
+        #Statement{parts: before + [last + first] + after, params: lhs.params + rhs.params}
+    }
+}
+
+impl Statement {
+    /// The statements one after another, with `separator` between each two:
+    /// a list of placeholders for `IN (...)`, or conditions joined by
+    /// `Sql" AND "`. No statements is the empty statement.
+    //! ids = [3, 5, 8]
+    //! placeholders = ids |> Iter.map(fn id -> Sql"${id}") |> Iter.to_list()
+    //! s = Sql"SELECT name FROM users WHERE id IN (" + Statement.join(placeholders, Sql", ") + Sql")"
+    //! assert "${s}" == "SELECT name FROM users WHERE id IN (?1, ?2, ?3)"
+    //! assert s.params == [Value.Int(3), Value.Int(5), Value.Int(8)]
+    //! assert Statement.join([], Sql" AND ") == Sql""
+    //
+    pub fn join(statements: List<Statement>, separator: Statement) -> Statement {
+        statements
+        |> Iter.with_index()
+        |> Iter.reduce(fn joined = Sql"", #(index, statement) -> {
+            if index == 0 {
+                joined + statement
+            } else {
+                joined + separator + statement
+            }
+        })
+    }
+
+    /// A parenthesized list of parameters for SQL's `IN`: `(?1, ?2, ?3)`.
+    /// An empty list is `(NULL)`, which matches no row, since `IN ()` is not
+    /// SQL.
+    //! s = Sql"SELECT name FROM users WHERE id IN " + Statement.values([3, 5, 8])
+    //! assert "${s}" == "SELECT name FROM users WHERE id IN (?1, ?2, ?3)"
+    //! assert s.params == [Value.Int(3), Value.Int(5), Value.Int(8)]
+    //! nothing: List<Int> = []
+    //! assert "${Statement.values(nothing)}" == "(NULL)"
+    //
+    pub fn values<T>(items: List<T>) -> Statement where T: ToSql {
+        case items {
+            [] ->
+                Sql"(NULL)"
+
+            _ -> {
+                slots = items |> Iter.map(fn item -> Sql"${item}") |> Iter.to_list()
+                Sql"(" + Statement.join(slots, Sql", ") + Sql")"
+            }
+        }
+    }
+
+    /// ` WHERE` and every condition, joined by `AND`, or nothing when there
+    /// are no conditions, so a query's filters can each be optional. With
+    /// more than one condition, each is parenthesized, so one holding an
+    /// `OR` keeps its meaning.
+    //! paid = Sql"status = ${"paid"}"
+    //! big = Sql"total >= ${20}"
+    //! assert "${Sql"SELECT id FROM orders" + Statement.where_all([])}" == "SELECT id FROM orders"
+    //! assert "${Statement.where_all([paid])}" == " WHERE status = ?1"
+    //! assert "${Statement.where_all([paid, big])}" == " WHERE (status = ?1) AND (total >= ?2)"
+    //
+    pub fn where_all(conditions: List<Statement>) -> Statement {
+        where_joined(conditions, Sql" AND ")
+    }
+
+    /// ` WHERE` and every condition, joined by `OR`, or nothing when there
+    /// are none. Each is parenthesized when there is more than one.
+    //! a = Sql"status = ${"paid"}"
+    //! b = Sql"status = ${"shipped"}"
+    //! assert "${Statement.where_any([a, b])}" == " WHERE (status = ?1) OR (status = ?2)"
+    //
+    pub fn where_any(conditions: List<Statement>) -> Statement {
+        where_joined(conditions, Sql" OR ")
+    }
+}
+
+/// ` WHERE` and the conditions joined by `separator`, each parenthesized
+/// when there are several, or nothing for no conditions.
+fn where_joined(conditions: List<Statement>, separator: Statement) -> Statement {
+    case conditions {
+        [] ->
+            Sql""
+
+        [only] ->
+            Sql" WHERE " + only
+
+        _ -> {
+            grouped = conditions |> Iter.map(fn c -> Sql"(" + c + Sql")") |> Iter.to_list()
+            Sql" WHERE " + Statement.join(grouped, separator)
+        }
+    }
+}
+
+/// A value as it crosses to or from a database. `Null` is SQL's NULL;
+/// `Timestamp` is a timestamp without a time zone and `Timestamptz` one
+/// with, which every engine stores as an instant.
+pub enum Value {
+    Null
+    Int Int
+    Float Float
+    Decimal Decimal
+    Text String
+    Bool Bool
+    Bytes Bytes
+    Date Date
+    Time Time
+    Timestamp NaiveDateTime
+    Timestamptz Instant
+    Uuid Uuid
+    Json Json
+}
+
+derive Equatable for Value
+
+impl Value {
+    /// The variant's name, `"Int"` or `"Null"`: what `Error.Decode` reports
+    /// it found.
+    //! assert Value.kind(Value.Text("x")) == "Text"
+    //
+    pub fn kind(value: Value) -> String {
+        case value {
+            .Null -> "Null"
+            .Int(_) -> "Int"
+            .Float(_) -> "Float"
+            .Decimal(_) -> "Decimal"
+            .Text(_) -> "Text"
+            .Bool(_) -> "Bool"
+            .Bytes(_) -> "Bytes"
+            .Date(_) -> "Date"
+            .Time(_) -> "Time"
+            .Timestamp(_) -> "Timestamp"
+            .Timestamptz(_) -> "Timestamptz"
+            .Uuid(_) -> "Uuid"
+            .Json(_) -> "Json"
+        }
+    }
+}
+
+/// A type that can be sent as a parameter. std implements it for `Int`,
+/// `Float`, `Decimal`, `String`, `Bool`, `Bytes`, `Date`, `Time`,
+/// `NaiveDateTime`, `Instant`, `Uuid`, `Json`, `Value` itself, and
+/// `Maybe<T>`, whose `None` is NULL.
+//! assert ToSql.to_sql(Some(3)) == Value.Int(3)
+//! nothing: Maybe<Int> = None
+//! assert ToSql.to_sql(nothing) == Value.Null
+//
+pub interface ToSql {
+    fn to_sql(value: self) -> Value
+}
+
+/// A type that can be read from a column. `from_sql` answers `Err` with
+/// the name of the type it expected (`"Int"`) when the value is not one;
+/// `Row.get` turns that into an `Error.Decode`, or an
+/// `Error.UnexpectedNull` when the value was NULL. std implements it for
+/// the types `ToSql` covers; `Maybe<T>` reads NULL as `None`.
+//! assert Int.from_sql(Value.Int(3)) == Ok(3)
+//! assert Int.from_sql(Value.Text("3")) == Err("Int")
+//! assert String.from_sql(Value.Null) == Err("String")
+//
+pub interface FromSql {
+    fn from_sql(value: Value) -> Result<self, String>
+}
+
+impl ToSql for Value {
+    fn to_sql(value: Value) -> Value {
+        value
+    }
+}
+
+impl FromSql for Value {
+    fn from_sql(value: Value) -> Result<Value, String> {
+        Ok(value)
+    }
+}
+
+impl ToSql for Int {
+    fn to_sql(value: Int) -> Value {
+        Value.Int(value)
+    }
+}
+
+impl FromSql for Int {
+    fn from_sql(value: Value) -> Result<Int, String> {
+        case value {
+            .Int(n) -> Ok(n)
+            _ -> Err("Int")
+        }
+    }
+}
+
+impl ToSql for Float {
+    fn to_sql(value: Float) -> Value {
+        Value.Float(value)
+    }
+}
+
+impl FromSql for Float {
+    fn from_sql(value: Value) -> Result<Float, String> {
+        case value {
+            .Float(x) -> Ok(x)
+            _ -> Err("Float")
+        }
+    }
+}
+
+impl ToSql for Decimal {
+    fn to_sql(value: Decimal) -> Value {
+        Value.Decimal(value)
+    }
+}
+
+impl FromSql for Decimal {
+    fn from_sql(value: Value) -> Result<Decimal, String> {
+        case value {
+            .Decimal(d) -> Ok(d)
+            _ -> Err("Decimal")
+        }
+    }
+}
+
+impl ToSql for String {
+    fn to_sql(value: String) -> Value {
+        Value.Text(value)
+    }
+}
+
+impl FromSql for String {
+    fn from_sql(value: Value) -> Result<String, String> {
+        case value {
+            .Text(s) -> Ok(s)
+            _ -> Err("String")
+        }
+    }
+}
+
+impl ToSql for Bool {
+    fn to_sql(value: Bool) -> Value {
+        Value.Bool(value)
+    }
+}
+
+impl FromSql for Bool {
+    fn from_sql(value: Value) -> Result<Bool, String> {
+        case value {
+            .Bool(b) -> Ok(b)
+            _ -> Err("Bool")
+        }
+    }
+}
+
+impl ToSql for Bytes {
+    fn to_sql(value: Bytes) -> Value {
+        Value.Bytes(value)
+    }
+}
+
+impl FromSql for Bytes {
+    fn from_sql(value: Value) -> Result<Bytes, String> {
+        case value {
+            .Bytes(b) -> Ok(b)
+            _ -> Err("Bytes")
+        }
+    }
+}
+
+impl ToSql for Date {
+    fn to_sql(value: Date) -> Value {
+        Value.Date(value)
+    }
+}
+
+impl FromSql for Date {
+    fn from_sql(value: Value) -> Result<Date, String> {
+        case value {
+            .Date(d) -> Ok(d)
+            _ -> Err("Date")
+        }
+    }
+}
+
+impl ToSql for Time {
+    fn to_sql(value: Time) -> Value {
+        Value.Time(value)
+    }
+}
+
+impl FromSql for Time {
+    fn from_sql(value: Value) -> Result<Time, String> {
+        case value {
+            .Time(t) -> Ok(t)
+            _ -> Err("Time")
+        }
+    }
+}
+
+impl ToSql for NaiveDateTime {
+    fn to_sql(value: NaiveDateTime) -> Value {
+        Value.Timestamp(value)
+    }
+}
+
+impl FromSql for NaiveDateTime {
+    fn from_sql(value: Value) -> Result<NaiveDateTime, String> {
+        case value {
+            .Timestamp(t) -> Ok(t)
+            _ -> Err("NaiveDateTime")
+        }
+    }
+}
+
+impl ToSql for Instant {
+    fn to_sql(value: Instant) -> Value {
+        Value.Timestamptz(value)
+    }
+}
+
+impl FromSql for Instant {
+    fn from_sql(value: Value) -> Result<Instant, String> {
+        case value {
+            .Timestamptz(t) -> Ok(t)
+            _ -> Err("Instant")
+        }
+    }
+}
+
+impl ToSql for Uuid {
+    fn to_sql(value: Uuid) -> Value {
+        Value.Uuid(value)
+    }
+}
+
+impl FromSql for Uuid {
+    fn from_sql(value: Value) -> Result<Uuid, String> {
+        case value {
+            .Uuid(id) -> Ok(id)
+            _ -> Err("Uuid")
+        }
+    }
+}
+
+impl ToSql for Json {
+    fn to_sql(value: Json) -> Value {
+        Value.Json(value)
+    }
+}
+
+impl FromSql for Json {
+    fn from_sql(value: Value) -> Result<Json, String> {
+        case value {
+            .Json(j) -> Ok(j)
+            _ -> Err("Json")
+        }
+    }
+}
+
+impl ToSql for Maybe<T> where T: ToSql {
+    fn to_sql(value: Maybe<T>) -> Value {
+        case value {
+            Some(v) -> T.to_sql(v)
+            None -> Value.Null
+        }
+    }
+}
+
+impl FromSql for Maybe<T> where T: FromSql {
+    fn from_sql(value: Value) -> Result<Maybe<T>, String> {
+        case value {
+            .Null -> Ok(None)
+            _ -> T.from_sql(value) |> Result.map(Some)
+        }
+    }
+}
+
+/// One result row: its columns' names and values, and the SQL of the
+/// statement that read it, which its errors name. A driver builds it with
+/// `Row.new`.
+//! row = Row.new("SELECT id, name FROM users", [#("id", Value.Int(7)), #("name", Value.Null)])
+//! assert Row.columns(row) == ["id", "name"]
+//! id: Int = try Row.get(row, "id")
+//! assert id == 7
+//! assert Row.get_position<Maybe<String>>(row, 1) == Ok(None)
+//
+pub opaque struct Row {
+    query: String
+    columns: List<String>
+    values: List<Value>
+}
+
+derive Equatable for Row
+
+impl Row {
+    /// The row that `query` read, with each column's name and value in
+    /// order.
+    pub fn new(query: String, cells: List<#(String, Value)>) -> Row {
+        #Row{
+            query,
+            columns: cells |> Iter.map(fn #(name, _) -> name) |> Iter.to_list(),
+            values: cells |> Iter.map(fn #(_, value) -> value) |> Iter.to_list(),
+        }
+    }
+
+    /// The SQL of the statement that read the row.
+    pub fn query(row: Row) -> String {
+        row.query
+    }
+
+    /// The column names, in order.
+    pub fn columns(row: Row) -> List<String> {
+        row.columns
+    }
+
+    /// The values, in column order.
+    pub fn values(row: Row) -> List<Value> {
+        row.values
+    }
+
+    /// The value of the first column named `column`, or
+    /// `Err(.MissingColumn)` when there is none.
+    //! row = Row.new("SELECT 1 AS n", [#("n", Value.Int(1))])
+    //! assert Row.value(row, "n") == Ok(Value.Int(1))
+    //! assert Row.value(row, "m") == Err(#Error.MissingColumn{query: "SELECT 1 AS n", column: "m"})
+    //
+    pub fn value(row: Row, column: String) -> Result<Value, Error> {
+        found = Iter.zip(row.columns, row.values) |> Iter.find(fn #(name, _) -> name == column)
+
+        case found {
+            Some(#(_, value)) -> Ok(value)
+            None -> Err(#Error.MissingColumn{query: row.query, column})
+        }
+    }
+
+    /// The value at `position`, counting from 0, or `Err(.ColumnPosition)` when
+    /// the row has no column there.
+    //! row = Row.new("SELECT 1 AS n", [#("n", Value.Int(1))])
+    //! assert Row.value_position(row, 0) == Ok(Value.Int(1))
+    //!
+    //! assert Row.value_position(row, 1) == Err(
+    //!     #Error.ColumnPosition{query: "SELECT 1 AS n", position: 1, count: 1}
+    //! )
+    //
+    pub fn value_position(row: Row, position: Int) -> Result<Value, Error> {
+        case Iter.get(row.values, position) {
+            Some(value) ->
+                Ok(value)
+
+            None ->
+                Err(
+                    #Error.ColumnPosition{
+                        query: row.query,
+                        position,
+                        count: Iter.count(row.columns),
+                    }
+                )
+        }
+    }
+
+    /// The value of the column named `column` as a `T`. A value of another
+    /// type is `Err(.Decode)`, and NULL read as a type that is not a `Maybe`
+    /// is `Err(.UnexpectedNull)`.
+    //! row = Row.new("SELECT n, t", [#("n", Value.Int(1)), #("t", Value.Null)])
+    //! n: Int = try Row.get(row, "n")
+    //! assert n == 1
+    //!
+    //! assert Row.get<String>(row, "n") == Err(
+    //!     #Error.Decode{query: "SELECT n, t", column: "n", expected: "String", found: "Int"}
+    //! )
+    //!
+    //! assert Row.get<String>(row, "t") == Err(#Error.UnexpectedNull{query: "SELECT n, t", column: "t"})
+    //! assert Row.get<Maybe<String>>(row, "t") == Ok(None)
+    //
+    pub fn get<T>(row: Row, column: String) -> Result<T, Error> where T: FromSql {
+        value = try Row.value(row, column)
+        T.from_sql(value) |> Result.map_err(&decode_error(row, column, value, &1))
+    }
+
+    /// The value at `position`, counting from 0, as a `T`, with `get`'s
+    /// errors. The column the errors name is the one at `position`.
+    pub fn get_position<T>(row: Row, position: Int) -> Result<T, Error> where T: FromSql {
+        value = try Row.value_position(row, position)
+
+        column = case Iter.get(row.columns, position) {
+            Some(name) -> name
+            None -> ""
+        }
+
+        T.from_sql(value) |> Result.map_err(&decode_error(row, column, value, &1))
+    }
+}
+
+// The error of reading value, from column of row, as a type whose from_sql
+// answered expected.
+fn decode_error(row: Row, column: String, value: Value, expected: String) -> Error {
+    case value {
+        .Null -> #Error.UnexpectedNull{query: row.query, column}
+        _ -> #Error.Decode{query: row.query, column, expected, found: Value.kind(value)}
+    }
+}
+
+/// The engine a connection talks to, for code that writes SQL that
+/// differs between them.
+pub enum Dialect {
+    Sqlite
+    Postgres
+
+    /// Any other engine, by name.
+    Other String
+}
+
+derive Equatable for Dialect
+
+impl Display for Dialect {
+    //! assert "${Dialect.Postgres}" == "Postgres"
+    //! assert "${Dialect.Other("duckdb")}" == "duckdb"
+    //
+    fn to_string(dialect: Dialect) -> String {
+        case dialect {
+            .Sqlite -> "SQLite"
+            .Postgres -> "Postgres"
+            .Other(name) -> name
+        }
+    }
+}
+
+/// Why a statement or a connection failed. A driver maps its engine's
+/// errors to these; the variants that name a `query` come from reading a
+/// `Row`, and `query` is the SQL of the statement that read it.
+pub enum Error {
+    /// The database cannot be reached, or the connection broke.
+    Connection {message: String}
+
+    /// A constraint rejected the statement. `name` is the constraint's
+    /// name, the same on every engine: the name the schema gives it
+    /// (`CONSTRAINT name`, or a unique index's name), else the name
+    /// Postgres gives a constraint the schema leaves unnamed:
+    /// `<table>_pkey` for a primary key, `<table>_<columns>_key` for a
+    /// unique one (`users_email_key`), `<table>_<columns>_fkey` for a
+    /// foreign key, `<table>_<column>_check` for a check that reads one
+    /// column (`<table>_check` for one that reads several), and
+    /// `<table>_<column>_not_null` for a not-null column. Postgres reports
+    /// these names itself, but for not-null, which it reports by column; a
+    /// driver for an engine that does not (SQLite reports columns or an
+    /// expression) works them out from the schema. `table` and `column`
+    /// are there when the driver knows them.
+    Constraint {kind: ConstraintKind, name: String, table: Maybe<String>, column: Maybe<String>}
+
+    /// The transaction conflicted with another and was rolled back. Run it
+    /// again.
+    Serialization {message: String}
+
+    /// Any other error the engine reports, with its own code (a Postgres
+    /// SQLSTATE, an SQLite result code).
+    Database {code: String, message: String}
+
+    /// A statement read `found` rows where `expected` says how many it
+    /// should have.
+    RowCount {query: String, expected: String, found: Int}
+
+    /// A column held NULL where the type read cannot hold it.
+    UnexpectedNull {query: String, column: String}
+
+    /// A column held a `found` value (a `Value` variant's name) where
+    /// `expected` (the type read) cannot hold it.
+    Decode {query: String, column: String, expected: String, found: String}
+
+    /// No column of the row has the name.
+    MissingColumn {query: String, column: String}
+
+    /// The row has `count` columns, so none is at `position`, which
+    /// counts from 0.
+    ColumnPosition {query: String, position: Int, count: Int}
+
+    /// The transaction was already committed or rolled back. The
+    /// connection still works.
+    Finished
+
+    /// The connection was closed, by `close` on it or on one of its
+    /// transactions. Open a new one.
+    Closed
+
+    /// The statement or the connection ran out of time.
+    Timeout
+}
+
+derive Equatable for Error
+
+impl Display for Error {
+    //! e = #Error.Constraint{kind: .Unique, name: "users_email_key", table: Some("users"), column: None}
+    //! assert "${e}" == "unique constraint `users_email_key` on table `users` failed"
+    //
+    fn to_string(e: Error) -> String {
+        case e {
+            #Error.Connection{message} ->
+                "cannot reach the database: ${message}"
+
+            #Error.Constraint{kind, name, table, column} ->
+                "${kind} constraint `${name}`${place(table, column)} failed"
+
+            #Error.Serialization{message} ->
+                "the transaction conflicted with another and was rolled back: ${message}"
+
+            #Error.Database{code, message} ->
+                "database error ${code}: ${message}"
+
+            #Error.RowCount{query, expected, found} ->
+                "expected ${expected} rows, found ${found}, from `${query}`"
+
+            #Error.UnexpectedNull{query, column} ->
+                "column `${column}` is NULL, from `${query}`"
+
+            #Error.Decode{query, column, expected, found} ->
+                "column `${column}` holds a ${found} value, not a ${expected}, from `${query}`"
+
+            #Error.MissingColumn{query, column} ->
+                "no column named `${column}` in the row from `${query}`"
+
+            #Error.ColumnPosition{query, position, count} ->
+                "no column at position ${position} in a row of ${count} columns from `${query}`"
+
+            Error.Finished ->
+                "the transaction was already committed or rolled back"
+
+            Error.Closed ->
+                "the connection was closed"
+
+            Error.Timeout ->
+                "the database did not answer in time"
+        }
+    }
+}
+
+fn place(table: Maybe<String>, column: Maybe<String>) -> String {
+    case #(table, column) {
+        #(Some(t), Some(c)) -> " on `${t}.${c}`"
+        #(Some(t), None) -> " on table `${t}`"
+        #(None, Some(c)) -> " on column `${c}`"
+        #(None, None) -> ""
+    }
+}
+
+/// The kind of constraint an `Error.Constraint` reports.
+pub enum ConstraintKind {
+    Unique
+    ForeignKey
+    NotNull
+    Check
+    Exclusion
+}
+
+derive Equatable for ConstraintKind
+
+impl Display for ConstraintKind {
+    fn to_string(kind: ConstraintKind) -> String {
+        case kind {
+            .Unique -> "unique"
+            .ForeignKey -> "foreign key"
+            .NotNull -> "not-null"
+            .Check -> "check"
+            .Exclusion -> "exclusion"
+        }
+    }
+}
+
+/// Run `body` in a transaction on `conn`: `begin`, then `commit` when
+/// the body returns `Ok`, or `rollback` when it returns `Err` or traps.
+/// On a `conn` that is itself a transaction, the transaction is a
+/// savepoint, so an inner `sql.transaction` that fails rolls back
+/// only its own work. The answer is the body's, or the `Err` of a `begin` or
+/// `commit` that failed.
+pub fn transaction<T>(conn: Conn, body: (Conn) -> Result<T, Error>) -> Result<T, Error> {
+    tx = try Conn.begin(conn)
+    defer settle(tx)
+    value = try body(tx)
+    try Conn.commit(tx)
+    Ok(value)
+}
+
+/// Open a connection with `open`, run `body` on it, and close it:
+/// after the body returns `Ok`, `Err` or traps, and on every other way
+/// out. The answer is the body's, or the `Err` of an `open` or a
+/// `close` that failed after the body answered `Ok`.
+//! import std/sql_testing.Fake
+//!
+//! fake = Fake.new()
+//!
+//! count = with_connection(fn -> Ok(fake), fn conn -> {
+//!     Conn.exec(conn, Sql"DELETE FROM sessions WHERE expired")
+//! })
+//!
+//! assert count == Ok(0)
+//! assert Fake.closed?(fake)
+//! assert Fake.log(fake) == ["DELETE FROM sessions WHERE expired", "CLOSE"]
+//
+pub fn with_connection<C, T>(
+    open: () -> Result<C, Error>,
+    body: (Conn) -> Result<T, Error>,
+) -> Result<T, Error> where C: Conn {
+    conn: Conn = try open()
+    // After the close on `Ok` this is a no-op (Conn's rules).
+    defer close_quietly(conn)
+    value = try body(conn)
+    try Conn.close(conn)
+    Ok(value)
+}
+
+/// Close `conn` and drop a failed close: `Conn.close` for a `defer`,
+/// which cannot answer anything. Use it for a connection held past one
+/// body, such as one a test group's `setup` opens for each test and
+/// closes when the test ends. Nothing reports or records a close that
+/// fails, so when the code that uses the connection is one body, run it
+/// in `sql.with_connection`, which answers a failed close.
+//! import std/sql_testing.Fake
+//!
+//! fake = Fake.new()
+//!
+//! {
+//!     defer close_quietly(fake)
+//!     refute Fake.closed?(fake)
+//!     _ = Conn.exec(fake, Sql"DELETE FROM t")
+//! }
+//!
+//! assert Fake.closed?(fake)
+//! close_quietly(fake)
+//! assert Fake.log(fake) == ["DELETE FROM t", "CLOSE"]
+//
+pub fn close_quietly(conn: Conn) {
+    _ = Conn.close(conn)
+}
+
+// Rolls tx back when transaction leaves it, by a return, an `Err` or a trap.
+// After a commit the rollback is a no-op (Conn's rules), and a `defer` cannot
+// answer anything, so its result is dropped.
+fn settle(tx: Conn) {
+    _ = Conn.rollback(tx)
+}

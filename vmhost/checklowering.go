@@ -20,8 +20,11 @@ import (
 // whose text is src, as an editor holds it: the program is lowered as `nomi
 // run` lowers it, its backtick typed literals are checked (checkLiterals),
 // and nothing else runs. problems is what Check reports beyond the front
-// end: each literal that fails its check (Code InvalidLiteralCode), then what
-// Program.Unsupported reports; nil when there is none. err is the load's own
+// end: each literal that fails its check (Code InvalidLiteralCode) and each
+// `Currency.custom` call its module does not list (UnlistedCurrencyCode),
+// then what Program.Unsupported reports, then the entry's hints that
+// `nomi check` does not print, each literal `Currency.custom` call that is
+// no error (CustomCurrencyCallCode); nil when there is none. err is the load's own
 // failure: the front end's errors, which an editor reports from its own
 // analysis, or an *InternalError when the compiler panicked. A stdlib file is
 // not a program and answers nil, nil.
@@ -186,6 +189,7 @@ func loweringProblems(p *Program, src string) (problems, err error) {
 		}
 		found = append(found, ds...)
 	}
+	found = append(found, p.currencyCallHints()...)
 	if len(found) == 0 {
 		return nil, nil
 	}

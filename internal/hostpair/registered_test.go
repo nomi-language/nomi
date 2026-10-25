@@ -206,12 +206,15 @@ func TestEveryHostDeclarationInAGoBackedModuleIsRegistered(t *testing.T) {
 	if report.Registered == 0 {
 		t.Fatal("no declaration matched any row; the walk is broken and the zeros above are vacuous")
 	}
-	if report.Silent < 150 {
-		t.Errorf("only %d host declaration(s) in modules with no Go backing; std has ~250, so "+
+	// About 130 since std/int, std/float and std/decimal gained Funcs rows
+	// for locale-aware formatting, which makes their rt-backed declarations
+	// Go-backed modules' rather than silent ones.
+	if report.Silent < 120 {
+		t.Errorf("only %d host declaration(s) in modules with no Go backing; std has ~130, so "+
 			"the walk is not reaching most of the stdlib and the Go-backed set below is a lower bound",
 			report.Silent)
 	}
-	if got, want := strings.Join(report.GoBacked, " "), "calendar random regex strings"; got != want {
+	if got, want := strings.Join(report.GoBacked, " "), "calendar collation currency decimal duration float int locale message_format money_format plural random regex strings"; got != want {
 		t.Errorf("Go-backed std modules derived as %q, want %q. A NEW module here is fine — "+
 			"update this control. A MISSING one means its rows stopped matching its declarations.",
 			got, want)
@@ -225,10 +228,16 @@ func TestEveryHostDeclarationInAGoBackedModuleIsRegistered(t *testing.T) {
 // intrinsics, which this check does not see. std/strings is one:
 // `String.captures` and `String.captures_all` take a `Regex` handle, which
 // only an FFI-shaped Funcs row can carry, while `String.trim` is an rt row and
-// `String.join` an intrinsic. Its Funcs rows must still each claim a
-// declaration (the orphan check), but its other declarations are not missing
-// rows.
-var mixedBackingModules = map[string]bool{"strings": true}
+// `String.join` an intrinsic. std/int, std/float and std/decimal are the
+// others: their locale-aware formatting and parsing helpers
+// (`int.int_format`, ...) are Funcs rows into internal/stdformat, and their
+// arithmetic is rt rows. Their Funcs rows must still each claim a
+// declaration (the orphan check), but their other declarations are not
+// missing rows. std/duration is another: `Duration.format`'s
+// `duration_format_raw` is a Funcs row and `Duration.to_string` an rt row.
+// std/message_format's `format_raw` is a Funcs row and its `variant_name` a
+// VM intrinsic.
+var mixedBackingModules = map[string]bool{"strings": true, "int": true, "float": true, "decimal": true, "duration": true, "message_format": true}
 
 // unregisteredModule is the module of a report.Unregistered entry, which reads
 // "func <module>.<key>" or "type <module>.<name>".

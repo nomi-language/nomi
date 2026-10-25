@@ -561,9 +561,13 @@ func (g *Generator) in(s *Shape, t Type) (string, error) {
 		if err := g.inEnum(&w, s, t); err != nil {
 			return "", err
 		}
+	case s.Kind == SHost && s.Name == dynamicName && isEmptyInterface(t) && g.handles[TypeKey(t)] == "":
+		// A Dynamic is an rt.Dynamic; a Go empty-interface slot takes the
+		// value it wraps.
+		fmt.Fprintf(&w, "\td, ok := v.(rt.Dynamic)\n\tif !ok {\n\t\treturn out, hostadapt.Want(%q, v)\n\t}\n\treturn d.Inner, nil\n", s.String())
 	case s.Kind == SHost && g.handles[TypeKey(t)] == "" && rtHeld[s.Name] != "":
 		if rtHeld[s.Name] != TypeKey(t) {
-			return "", fmt.Errorf("%s crosses as Go %s, not %s", s.Name, rtHeld[s.Name], t)
+			return "", rtHeldRefusal(s, t)
 		}
 		fmt.Fprintf(&w, "\tx, ok := v.(%s)\n\tif !ok {\n\t\treturn out, hostadapt.Want(%q, v)\n\t}\n\treturn x, nil\n", goT, s.String())
 	case s.Kind == SMaybe && t.Kind() == reflect.Pointer && g.handles[TypeKey(t)] == "":
@@ -623,6 +627,17 @@ func (g *Generator) in(s *Shape, t Type) (string, error) {
 				fmt.Fprintf(&w, "\treturn %s, nil\n", x)
 			}
 		}
+	case s.Kind == SDistinct && len(s.Elems) == 1:
+		// A distinct over a type that is no scalar (a struct, a List,
+		// another distinct) holds its inner value in its one ref slot, and
+		// crosses as whatever that value crosses as.
+		inner, err := g.in(s.Elems[0], t)
+		if err != nil {
+			return "", fmt.Errorf("%s over %s: %w", s, s.Elems[0], err)
+		}
+		d := g.distinctDesc(s)
+		fmt.Fprintf(&w, "\tr, err := hostadapt.Record(v, %q)\n\tif err != nil {\n%s\t}\n", s.Name, fail)
+		fmt.Fprintf(&w, "\tx, err := hostadapt.RefField(r, b.%s, 0, 0, \"\")\n\tif err != nil {\n%s\t}\n\treturn b.%s(fr, x)\n", d, fail, inner)
 	case s.Kind == SHost:
 		if got := g.handles[TypeKey(t)]; got != s.Name {
 			return "", fmt.Errorf("Go %s is not registered as host type %s (registered: %q)", t, s.Name, got)
@@ -823,8 +838,13 @@ func (g *Generator) out(s *Shape, t Type) (string, error) {
 		}
 	case s.Kind == SMap && t.Kind() == reflect.Map && g.handles[TypeKey(t)] == "":
 		// A Go map becomes an rt.Map[any, any] over the VM's own hash and
-		// equality, as a Map literal's is; Go's iteration order does not
-		// reach the Nomi value, whose order is the map's.
+		// equality, as a Map literal's is. A Nomi Map keeps insertion order
+		// and Go's iteration order is random, so the entries are inserted in
+		// ascending Go key order (mapEntries).
+		entries, err := g.mapEntries(t)
+		if err != nil {
+			return "", err
+		}
 		kout, err := g.out(s.Elems[0], t.Key())
 		if err != nil {
 			return "", fmt.Errorf("key: %w", err)
@@ -833,7 +853,7 @@ func (g *Generator) out(s *Shape, t Type) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("value: %w", err)
 		}
-		w.WriteString("\tconv := make([]rt.MapEntry[any, any], 0, len(v))\n\tfor gk, gv := range v {\n")
+		fmt.Fprintf(&w, "\tconv := make([]rt.MapEntry[any, any], 0, len(v))\n\tfor _, e := range %s {\n\t\tgk, gv := e.Key, e.Val\n", entries)
 		fmt.Fprintf(&w, "\t\tk, err := b.%s(gk)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"key %%v: %%w\", gk, err)\n\t\t}\n", kout)
 		fmt.Fprintf(&w, "\t\tx, err := b.%s(gv)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"value at %%v: %%w\", gk, err)\n\t\t}\n", vout)
 		w.WriteString("\t\tconv = append(conv, rt.MapEntry[any, any]{Key: k, Val: x})\n\t}\n\treturn rt.MapOf(rt.Hash, rt.Equal, conv), nil\n")
@@ -843,9 +863,13 @@ func (g *Generator) out(s *Shape, t Type) (string, error) {
 		if err := g.outEnum(&w, s, t); err != nil {
 			return "", err
 		}
+	case s.Kind == SHost && s.Name == dynamicName && isEmptyInterface(t) && g.handles[TypeKey(t)] == "":
+		// A Go empty-interface value becomes the Dynamic that wraps it; one
+		// that already holds an rt.Dynamic is that Dynamic.
+		w.WriteString("\tif d, ok := v.(rt.Dynamic); ok {\n\t\treturn d, nil\n\t}\n\treturn rt.Dynamic{Inner: v}, nil\n")
 	case s.Kind == SHost && g.handles[TypeKey(t)] == "" && rtHeld[s.Name] != "":
 		if rtHeld[s.Name] != TypeKey(t) {
-			return "", fmt.Errorf("%s crosses as Go %s, not %s", s.Name, rtHeld[s.Name], t)
+			return "", rtHeldRefusal(s, t)
 		}
 		w.WriteString("\treturn v, nil\n")
 	case s.Kind == SList && t.Kind() == reflect.Slice && !isByteKind(t.Elem()):
@@ -898,6 +922,15 @@ func (g *Generator) out(s *Shape, t Type) (string, error) {
 			}
 		}
 		w.WriteString("\treturn r, nil\n")
+	case s.Kind == SDistinct && len(s.Elems) == 1:
+		// A distinct over a type that is no scalar holds the value Go's
+		// converts to in its one ref slot.
+		d := g.distinctDesc(s)
+		fmt.Fprintf(&w, "\tr := b.%s.New()\n", d)
+		if err := g.store(&w, "r", 0, s.Elems[0], t, "v", false, ""); err != nil {
+			return "", fmt.Errorf("%s over %s: %w", s, s.Elems[0], err)
+		}
+		w.WriteString("\treturn r, nil\n")
 	case s.Kind == SHost:
 		if got := g.handles[TypeKey(t)]; got != s.Name {
 			return "", fmt.Errorf("Go %s is not registered as host type %s (registered: %q)", t, s.Name, got)
@@ -911,7 +944,87 @@ func (g *Generator) out(s *Shape, t Type) (string, error) {
 	return name, nil
 }
 
+// mapEntries answers the expression that lists Go map v's entries in
+// ascending key order. A key of an ordered kind (a string, an integer, a
+// float, or a named type over one) sorts by cmp.Compare. A bool key sorts
+// false first. A struct key compares its exported fields in declaration
+// order, each by these rules, and a time.Time key or field by Time.Compare.
+// Any other key (a pointer, an interface, a channel, an array) is refused:
+// its only order is an address or a dynamic type, which would differ from
+// run to run.
+func (g *Generator) mapEntries(t Type) (string, error) {
+	k := t.Key()
+	if isOrderedKind(k.Kind()) {
+		return "hostadapt.SortedEntries(v)", nil
+	}
+	kT, err := g.typ(k)
+	if err != nil {
+		return "", err
+	}
+	c, err := g.keyCompare(k, "x", "y", k.String())
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("hostadapt.SortedEntriesFunc(v, func(x, y %s) int { return %s })", kT, c), nil
+}
+
+// keyCompare answers an int expression ordering Go values x and y of type t,
+// for mapEntries. key is the map's key type, for the refusal.
+func (g *Generator) keyCompare(t Type, x, y, key string) (string, error) {
+	switch {
+	case isTimeTime(t):
+		return fmt.Sprintf("%s.Compare(%s)", x, y), nil
+	case isOrderedKind(t.Kind()):
+		g.imports["cmp"] = "cmp"
+		return fmt.Sprintf("cmp.Compare(%s, %s)", x, y), nil
+	case t.Kind() == reflect.Bool:
+		return fmt.Sprintf("hostadapt.CompareBool(bool(%s), bool(%s))", x, y), nil
+	case t.Kind() == reflect.Struct:
+		var terms []string
+		for i := range t.NumField() {
+			f := t.Field(i)
+			if !f.Exported {
+				continue
+			}
+			c, err := g.keyCompare(f.Type, x+"."+f.Name, y+"."+f.Name, key)
+			if err != nil {
+				return "", err
+			}
+			terms = append(terms, c)
+		}
+		switch len(terms) {
+		case 0:
+			return "", fmt.Errorf("Go map key %s: struct %s has no exported field to order its keys by, and a Nomi Map keeps the order its entries were inserted in", key, t)
+		case 1:
+			return terms[0], nil
+		}
+		g.imports["cmp"] = "cmp"
+		return "cmp.Or(" + strings.Join(terms, ", ") + ")", nil
+	}
+	return "", fmt.Errorf("Go map key %s: %s has no order that is the same from run to run, and a Nomi Map keeps the order its entries were inserted in; use a key of strings, numbers, bools or structs of them", key, t)
+}
+
+// isOrderedKind reports a kind cmp.Ordered admits.
+func isOrderedKind(k reflect.Kind) bool {
+	switch k {
+	case reflect.String, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64:
+		return true
+	}
+	return false
+}
+
 // --- scalars -----------------------------------------------------------------
+
+// rtHeldRefusal refuses an rt-held host type against Go t, which is not the
+// Go type its value is.
+func rtHeldRefusal(s *Shape, t Type) error {
+	if s.Name == dynamicName {
+		return fmt.Errorf("Dynamic crosses as a Go empty interface (any) or %s, not %s", rtHeld[s.Name], t)
+	}
+	return fmt.Errorf("%s crosses as Go %s, not %s", s.Name, rtHeld[s.Name], t)
+}
 
 func isScalar(s *Shape) bool {
 	switch s.Kind {
@@ -1299,6 +1412,10 @@ func (g *Generator) typ(t Type) (string, error) {
 			sig += " (" + strings.Join(out, ", ") + ")"
 		}
 		return sig, nil
+	case reflect.Interface:
+		if t.NumMethod() == 0 {
+			return "any", nil
+		}
 	}
 	return "", fmt.Errorf("Go %s has no spelling the generator writes", t)
 }

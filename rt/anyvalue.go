@@ -83,7 +83,9 @@ type Keys struct {
 // KeyHooks answers for the records whose type has a hand-written impl.
 // EqualRecord answers a == b for two records when it owns their type (a
 // hand-written `impl Equatable`); HashRecord answers r's hash when it owns
-// r's type.
+// r's type. Each is also asked about a box (two boxes of one name, for
+// EqualRecord), whose Desc.Name is the static type it was boxed at; one
+// that owns that type answers for the values inside.
 type KeyHooks interface {
 	EqualRecord(a, b *Record) (equal, owned bool)
 	HashRecord(r *Record) (hash uint64, owned bool)
@@ -107,7 +109,28 @@ func (k *Keys) HashFunc() func(any) uint64 {
 }
 
 // Equal is Nomi's equality over Values with k's impls; see Keys.
+//
+// Two boxes (Box) are equal when they name one static type and their
+// values are equal by that type's equality: its hand-written impl when the
+// hooks own the box's name, else the values' own. A box and a value that is
+// no box held two different types where they became interface values (a
+// `Shape` and a `Circle` held as `Show`), so they are unequal.
 func (k *Keys) Equal(a, b any) bool {
+	ar, aBox := a.(*Record)
+	aBox = aBox && ar != nil && ar.Desc.Kind == KindBoxed
+	br, bBox := b.(*Record)
+	bBox = bBox && br != nil && br.Desc.Kind == KindBoxed
+	if aBox || bBox {
+		if !aBox || !bBox || ar.Desc.Name != br.Desc.Name {
+			return false
+		}
+		if k != nil && k.Hooks != nil {
+			if eq, owned := k.Hooks.EqualRecord(ar, br); owned {
+				return eq
+			}
+		}
+		a, b = ar.R[0], br.R[0]
+	}
 	a, b = EmbeddedPayload(a), EmbeddedPayload(b)
 	switch av := a.(type) {
 	case int64:
@@ -315,6 +338,16 @@ func Hash(v any) uint64 { return (*Keys)(nil).Hash(v) }
 
 // Hash is the hash consistent with k.Equal; see Keys.
 func (k *Keys) Hash(v any) uint64 {
+	if r, ok := v.(*Record); ok && r != nil && r.Desc.Kind == KindBoxed {
+		// A box hashes as its value, unless the hooks own its static
+		// type's hash (Equal asks them about the box the same way).
+		if k != nil && k.Hooks != nil {
+			if h, owned := k.Hooks.HashRecord(r); owned {
+				return h
+			}
+		}
+		v = r.R[0]
+	}
 	switch x := v.(type) {
 	case int64:
 		return HashInt(x)

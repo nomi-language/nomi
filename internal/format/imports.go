@@ -235,6 +235,15 @@ func combineGroup(group []ast.Node) []ast.Node {
 				v.Entries[0].Leading = append(append([]ast.Trivia(nil), trimBareLeadingBlankTrivia(v.Leading)...), v.Entries[0].Leading...)
 			}
 			blockEnd := append([]ast.Trivia(nil), v.EndTrivia...)
+			if len(v.Entries) == 0 {
+				// An empty block (`import {}`) leaves nothing in the combined
+				// block but its comments, which go on their own lines before
+				// the combined block's `}`.
+				if i > 0 {
+					blockEnd = append(blockEnd, commentTrivia(v.Leading)...)
+				}
+				blockEnd = append(blockEnd, commentTrivia(v.Trailing)...)
+			}
 			if trailingHasComment(v.Trailing) && len(v.Entries) > 0 {
 				// The comment after the block's `}` has no `}` to follow in the
 				// combined block. It ends the block's last entry's line, or,

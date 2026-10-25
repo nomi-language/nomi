@@ -17,7 +17,8 @@ const maxHoverExamples = 5
 // signature and doc, then the declaration's `//!` attached tests as an
 // Examples section. The stdlib reference renders those tests itself, as
 // runnable editors, so it calls RenderWithAnalysis (through Render) and not
-// this.
+// this. A message ends with its text in each locale (MessageTexts), and a
+// noun with its gender and forms in each (NounTexts).
 func RenderForEditor(sym *analysis.Symbol, fa *analysis.FileAnalysis) string {
 	content := RenderWithAnalysis(sym, fa)
 	if content == "" {
@@ -25,6 +26,12 @@ func RenderForEditor(sym *analysis.Symbol, fa *analysis.FileAnalysis) string {
 	}
 	if examples := Examples(sym); examples != "" {
 		content += "\n\n" + examples
+	}
+	if texts := NounTexts(sym); texts != "" {
+		content += "\n\n" + texts
+	}
+	if texts := MessageTexts(sym); texts != "" {
+		content += "\n\n" + texts
 	}
 	return content
 }

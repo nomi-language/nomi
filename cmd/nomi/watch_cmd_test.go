@@ -21,6 +21,40 @@ import (
 	"github.com/nomi-language/nomi/vmrunner"
 )
 
+// TestWatcher_SeesAChangeMadeBeforeItRuns holds a watcher to the stamps it
+// read when made: a change made after newWatcher returns and before run
+// starts polling, as a first build or run's would be, is a change. The
+// session's first edit was lost when the stamps were read on the polling
+// goroutine, which a loaded machine could start after the edit.
+func TestWatcher_SeesAChangeMadeBeforeItRuns(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "a.nomi")
+	mustWrite(t, file, "one")
+	changed := make(chan string, 1)
+	w := newWatcher(watchSet{
+		files:   func() []string { return []string{file} },
+		changed: func(names string) { changed <- names },
+	})
+	mustWrite(t, file, "two, longer")
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		w.run(ctx)
+	}()
+	defer func() {
+		cancel()
+		<-done
+	}()
+	select {
+	case names := <-changed:
+		if names != vmhost.DisplayPath(file) {
+			t.Fatalf("changed %q, want %q", names, vmhost.DisplayPath(file))
+		}
+	case <-time.After(time.Minute):
+		t.Fatal("the watcher never saw the change made before it ran")
+	}
+}
+
 func TestParseRunWatchArgs(t *testing.T) {
 	for _, c := range []struct {
 		args  []string

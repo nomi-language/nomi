@@ -15,9 +15,7 @@ any name you like. A context carries a deadline, explained
 ## The basic shape
 
 ```nomi-run
-import {
-    std/io
-}
+import std/io
 
 struct App {
     port: Int
@@ -93,22 +91,24 @@ field, build an updated copy of it:
 `with App.database = #{..App.database, host: "localhost"}`.
 
 ```nomi-run
-import {
-    std/io
-}
+import std/io
 
 interface Logger {
     fn log(logger: self, msg: String) -> Unit
 }
 
 type Stdout
+
 impl Logger for Stdout {
     fn log(_logger: Stdout, msg: String) -> Unit {
         io.print("[log] ${msg}")
     }
 }
 
-struct PrefixedLogger { tag: String }
+struct PrefixedLogger {
+    tag: String
+}
+
 impl Logger for PrefixedLogger {
     fn log(logger: PrefixedLogger, msg: String) -> Unit {
         io.print("[${logger.tag}] ${msg}")

@@ -1663,10 +1663,10 @@ pub host fn loop(f: (S) -> S) -> S
 }
 
 func TestFormat_AttachedAssertionBreaksWhenPromptedExpressionWraps(t *testing.T) {
-	src := `//! assert Codepoint.step_by(try codepoints.from_int(65), 2) == Some(Codepoint(67))
+	src := `//! assert Codepoint.step_by(try code_points.from_int(65), 2) == Some(Codepoint(67))
 fn step_by() -> Unit { Unit }
 `
-	want := `//! assert Codepoint.step_by(try codepoints.from_int(65), 2) == Some(Codepoint(67))
+	want := `//! assert Codepoint.step_by(try code_points.from_int(65), 2) == Some(Codepoint(67))
 fn step_by() -> Unit {
     Unit
 }
@@ -4330,9 +4330,9 @@ func TestFormat_PubImportSectionSplitsFromImports(t *testing.T) {
 	src := "pub import std/io.{print}\n" +
 		"import std/lists.List\n" +
 		"pub import std/maps.Map\n" +
-		"import std/io.{IOError}\n"
+		"import std/io.{Error}\n"
 	want := "import {\n" +
-		"    std/io.IOError\n" +
+		"    std/io.Error\n" +
 		"    std/lists.List\n" +
 		"}\n" +
 		"pub import {\n" +

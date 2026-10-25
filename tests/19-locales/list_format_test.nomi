@@ -1,0 +1,51 @@
+import {
+    std/locale.Locale
+    std/strings.{ListStyle, ListWidth}
+}
+
+test "English uses the Oxford comma in a standard list" {
+    assert String.join_list(["a", "b", "c"], Locale`en`) == "a, b, and c"
+    assert String.join_list(["a", "b"], Locale`en`) == "a and b"
+    assert String.join_list(["a"], Locale`en`) == "a"
+    assert String.join_list([], Locale`en`) == ""
+    assert String.join_list(["a", "b", "c"], Locale`en-GB`) == "a, b and c"
+}
+
+test "styles and widths" {
+    assert String.join_list(["a", "b", "c"], Locale`en`, style: ListStyle.Or) == "a, b, or c"
+    assert String.join_list(["a", "b", "c"], Locale`en`, width: ListWidth.Short) == "a, b, & c"
+
+    assert String.join_list(
+        ["5 ft", "3 in"],
+        Locale`en`,
+        style: ListStyle.Unit,
+        width: ListWidth.Narrow,
+    ) == "5 ft 3 in"
+
+    assert String.join_list(
+        ["3 quarters", "1 dime", "2 pennies"],
+        Locale`en`,
+        style: ListStyle.Unit,
+    ) == "3 quarters, 1 dime, 2 pennies"
+}
+
+test "Polish and Japanese" {
+    assert String.join_list(["a", "b", "c"], Locale`pl`) == "a, b i c"
+    assert String.join_list(["a", "b"], Locale`pl`, style: ListStyle.Or) == "a lub b"
+
+    assert String.join_list(
+        ["3 ćwierćdolarówki", "1 dziesięciocentówka", "2 centy"],
+        Locale`pl`,
+        style: ListStyle.Unit,
+    ) == "3 ćwierćdolarówki, 1 dziesięciocentówka i 2 centy"
+
+    assert String.join_list(["a", "b", "c"], Locale`ja`) == "a、b、c"
+    assert String.join_list(["a", "b", "c"], Locale`ja`, style: ListStyle.Or) == "a、b、またはc"
+}
+
+test "an Iter is materialized first" {
+    assert [1000, 2000, 3000]
+    |> Iter.map(&Int.format(&1, Locale`de`))
+    |> Iter.to_list()
+    |> String.join_list(Locale`de`) == "1.000, 2.000 und 3.000"
+}

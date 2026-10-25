@@ -177,7 +177,7 @@ fn main() { io.print("x") }
 // checker's. A derive whose interface import fails leaves a name that is
 // not an interface; the builder reported that against the synthesized
 // block's band position (`main.nomi:1431912448:1`, measured by checking
-// std/codepoints.nomi as a user file). It now names the declaration the
+// std/code_points.nomi as a user file). It now names the declaration the
 // block was synthesized for, and a hand-written block keeps its own line.
 func TestSynthDiagnostics_BuilderImplErrorsNameTheDeclaration(t *testing.T) {
 	for _, tc := range []struct {

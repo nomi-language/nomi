@@ -260,6 +260,9 @@ func (d *decoder) image(r *rbuf) Image {
 		}
 		im.Exports = append(im.Exports, x)
 	}
+	if locales := d.str(modSec.uv()); locales != "" {
+		im.Locales = []byte(locales)
+	}
 	for _, s := range []*rbuf{vtSec, tySec, fnSec, modSec} {
 		if s.err != nil {
 			d.fail("%v", s.err)
@@ -703,6 +706,8 @@ func (d *decoder) instr(r *rbuf) Instr {
 		return n
 	case tagTry:
 		return &Try{pos: d.pos(r), src: r.temp(), text: d.str(r.uv())}
+	case tagCtlRead:
+		return &CtlRead{pos: d.pos(r), dst: r.temp(), src: r.temp(), part: CtlPart(r.byte1())}
 	default:
 		d.fail("instruction tag %d", tag)
 		r.fail("instruction")

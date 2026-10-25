@@ -66,7 +66,25 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	nomiBin = binPath
+	// A test that takes Go off PATH must not have `nomi` download the
+	// managed toolchain from go.dev, or keep one in the real cache: every
+	// child process inherits these (noManagedGo for one that inherits
+	// nothing).
+	for _, kv := range noManagedGoEnv(tmp) {
+		k, v, _ := strings.Cut(kv, "=")
+		_ = os.Setenv(k, v)
+	}
 	os.Exit(m.Run())
+}
+
+// noManagedGoEnv is the environment that leaves `nomi` no managed Go
+// toolchain: an empty toolchain cache under dir, and a download URL nothing
+// answers, so a missing `go` stays missing.
+func noManagedGoEnv(dir string) []string {
+	return []string{
+		"NOMI_TOOLCHAIN_ROOT=" + filepath.Join(dir, "no-toolchains"),
+		"NOMI_GO_DOWNLOAD_URL=http://127.0.0.1:1/no-go-download-in-tests",
+	}
 }
 
 // withPlantedDecline makes nomiBin this test binary run as `nomi` with a
@@ -723,8 +741,8 @@ fn main() {
 		}
 	}
 
-	// A type error in the helper is its importer's failure, located in the
-	// helper.
+	// A type error in the helper fails its importer's check, and the
+	// failure is labelled by the file that holds the error, not the importer.
 	mustWrite(t, filepath.Join(dir, "reader.nomi"), `import settings.Settings
 
 pub fn read() -> String {
@@ -741,13 +759,16 @@ pub fn read() -> String {
 		t.Fatalf("nomi check passed a directory with a type error in a helper:\n%s", out)
 	}
 	for _, want := range []string{
-		"FAIL " + filepath.Join(dir, "main.nomi"),
+		"FAIL " + filepath.Join(dir, "reader.nomi") + "\n",
 		"reader.nomi:4:",
-		"FAIL " + filepath.Join(dir, "orphan.nomi"),
+		"FAIL " + filepath.Join(dir, "orphan.nomi") + "\n",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("nomi check output lacks %q:\n%s", want, out)
 		}
+	}
+	if strings.Contains(out, "FAIL "+filepath.Join(dir, "main.nomi")) {
+		t.Errorf("nomi check labelled the importer, which holds no error:\n%s", out)
 	}
 	if strings.Contains(out, filepath.Join(dir, "reader.nomi")+" (through") {
 		t.Errorf("nomi check reported reader.nomi ok through an importer that failed:\n%s", out)

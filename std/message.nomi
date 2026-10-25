@@ -1,0 +1,573 @@
+//# Messages: text a person reads, declared once in the program's source
+//# language and translated in catalogs. A `message` declaration names a
+//# message, its typed parameters and its MessageFormat 2 text:
+//#
+//# ```nomi
+//# pub message cart_items(count: Int) `
+//#     .input {$count :integer}
+//#     .match $count
+//#     one {{{$count} item in your cart}}
+//#     * {{{$count} items in your cart}}
+//#     `
+//# ```
+//#
+//# Each translation is an entry of a catalog, a TOML file per locale beside
+//# the declaring file under `[i18n].catalogs`, which the compiler checks
+//# against the declaration: every listed locale has one, it uses only the
+//# parameters, its plural arms are the ones the locale's rules need, and it
+//# was translated from the current text. The declaration is a function that
+//# returns a `Message`, which holds which message and its arguments and is
+//# formatted in a locale later, with `Message.format`.
+//#
+//# A `noun` declaration names a thing a message talks about, in the source
+//# language, as a `Noun`:
+//#
+//# ```nomi
+//# pub noun book `.input {$count :integer} .match $count one {{book}} * {{books}}`
+//# ```
+//#
+//# Its translation in each catalog gives its grammatical `gender`, where
+//# the language has genders, and a form per grammatical case. A message
+//# writes it with `:nomi:noun` and chooses words that agree with it with
+//# `:nomi:gender`, and the compiler checks that every noun has each form a
+//# message asks for and every message an arm for each gender the program's
+//# nouns have.
+//#
+//# A translation can choose its words by the day of the week of a `Date`
+//# with `:nomi:weekday`, whose keys are `monday` to `sunday`. It only
+//# chooses: a placeholder that writes it is an error, and a `.match` that
+//# names one day names all seven. Polish says "on Wednesday" as "w środę",
+//# the preposition "w" and then the weekday, but writes "we" before
+//# "wtorek" (Tuesday), since "w wtorek" is hard to say:
+//#
+//# ```toml
+//# [ships_on]
+//# source = '''Ships {$date :datetime weekday=long month=long day=numeric}'''
+//# text = '''
+//# .local $day = {$date :nomi:weekday}
+//# .match $day
+//# monday {{Wysyłka w poniedziałek, {$date :datetime month=long day=numeric}}}
+//# tuesday {{Wysyłka we wtorek, {$date :datetime month=long day=numeric}}}
+//# wednesday {{Wysyłka w środę, {$date :datetime month=long day=numeric}}}
+//# thursday {{Wysyłka w czwartek, {$date :datetime month=long day=numeric}}}
+//# friday {{Wysyłka w piątek, {$date :datetime month=long day=numeric}}}
+//# saturday {{Wysyłka w sobotę, {$date :datetime month=long day=numeric}}}
+//# sunday {{Wysyłka w niedzielę, {$date :datetime month=long day=numeric}}}
+//# * {{Wysyłka: {$date :datetime weekday=long month=long day=numeric}}}
+//# '''
+//# ```
+//#
+//# October 20, 2026 is a Tuesday, so it reads "Wysyłka we wtorek, 20
+//# października", and the next day "Wysyłka w środę, 21 października".
+
+import {
+    bool.Bool.False
+    calendar.{Date, Time}
+    currency.Currency
+    debug.Debug
+    decimal.Decimal
+    display.Display
+    equatable.Equatable
+    float.Float
+    int.Int
+    iter.Iter
+    lists.List
+    locale.Locale
+    localize.Localize
+    message_format
+    money.Money
+    strings.String
+}
+
+/// A message with its arguments, in no locale yet: what a `message`
+/// declaration's function returns. Libraries hand one to whoever knows the
+/// reader's locale, which formats it with `Message.format`. Two messages are
+/// equal when they are the same declaration with equal arguments.
+pub opaque struct Message {
+    name: String
+    table: String
+    arguments: List<Argument>
+}
+
+/// One argument of a message, as the formatter reads it. A value of any
+/// other type is held as its `Localize` text in a locale, with its `Debug`
+/// text, which compares and shows it, and its variant's name when a
+/// `:string` names it.
+enum Argument {
+    Integer Int
+    Floating Float
+    Exact Decimal
+    Text String
+    Variant String
+    Localized {shown: String, name: String, localize: (Locale) -> String}
+    Named Noun
+    Items List<String>
+    Day Date
+    Clock Time
+    Moment {key: String, shown: String, localize: (Locale) -> String}
+    Amount Money
+    Nested Message
+}
+
+/// A thing a message talks about, such as a product category: what a
+/// `noun` declaration names. It holds the noun's forms in each locale and
+/// its gender where the language has genders, which a message reads with
+/// `:nomi:noun` and `:nomi:gender`. A `Noun` is made only by a declaration,
+/// so the compiler knows every noun of a program and holds every message to
+/// them; a name read at run time, such as a product's title from a
+/// database, is a `String`, which a message writes with `{$title}` but
+/// cannot agree with. Two nouns are equal when they are the same
+/// declaration.
+///
+/// A noun's entry in a catalog gives the `source` it was translated from,
+/// its `gender` where the language's nouns have one, and a form per
+/// grammatical case, each MessageFormat 2 text over `$count`. The genders
+/// and cases a language has come from CLDR. Polish splits the masculine
+/// three ways, `personal` for people, `animate` for animals and `inanimate`
+/// for things such as a laptop, beside `feminine` and `neuter`, and has
+/// seven cases. The `nominative` is the plain form, "książka" (book), and
+/// the `genitive` is the form after "brak" (no ... left), "Brak książek". A
+/// form that never changes, such as "etui" (phone case), is plain text with
+/// no `.match`. English has no genders and no cases, so an English noun
+/// has only the declaration's text.
+///
+/// ```toml
+/// [book]
+/// source = '''.input {$count :integer} .match $count one {{book}} * {{books}}'''
+/// gender = "feminine"
+/// nominative = '''.input {$count :integer} .match $count one {{książka}} few {{książki}} many {{książek}} * {{książki}}'''
+/// genitive = '''.input {$count :integer} .match $count one {{książki}} few {{książek}} many {{książek}} * {{książki}}'''
+///
+/// [phone_case]
+/// source = '''.input {$count :integer} .match $count one {{phone case}} * {{phone cases}}'''
+/// gender = "neuter"
+/// nominative = '''etui'''
+/// genitive = '''etui'''
+/// ```
+///
+/// A message writes a noun with `{$product :nomi:noun}`: `case=` picks the
+/// form and `count=` how many, so `{$product :nomi:noun case=genitive
+/// count=5}` is "książek". `.input {$product :nomi:gender}` lets `.match`
+/// choose a variant by the noun's gender, as "Twoja książka została
+/// wysłana" and "Twoje etui zostało wysłane" need.
+///
+/// A message can be given any noun the program declares, so the compiler
+/// holds every noun to every message, in each locale: every noun has a
+/// gender the language has; every noun has each form some message asks
+/// for, so adding a message that writes `case=genitive` means every Polish
+/// noun needs a `genitive`; and a `.match` on gender has a variant for every
+/// gender the program's nouns have. Declaring a `personal` noun such as
+/// "kurier" (courier) anywhere in the program makes a message that matches
+/// on gender without a `personal` variant an error:
+/// `` pl: `has_shipped` has no `personal` arm; the noun `staff.courier` is personal in Polish ``.
+/// The editor shows a noun's gender and forms on hover, completes genders
+/// and cases in a catalog, and adds a form a noun lacks as a quick fix.
+pub opaque struct Noun {
+    name: String
+    table: String
+}
+
+impl Equatable for Noun {
+    fn equal?(a: Noun, b: Noun) -> Bool {
+        a.name == b.name
+    }
+}
+
+impl Debug for Noun {
+    /// The noun's qualified name, `shop.book`.
+    fn inspect(noun: Noun) -> String {
+        noun.name
+    }
+}
+
+impl Localize for Noun {
+    /// The noun's nominative for one thing in `locale`, or in the nearest
+    /// locale its catalogs translate it into, else the source's: what a
+    /// placeholder with no function writes.
+    fn localize(noun: Noun, locale: Locale) -> String {
+        message_format.noun_text(noun.table, locale)
+    }
+}
+
+impl Equatable for Argument {
+    fn equal?(a: Argument, b: Argument) -> Bool {
+        case #(a, b) {
+            #(Argument.Integer(x), Argument.Integer(y)) ->
+                x == y
+
+            #(Argument.Floating(x), Argument.Floating(y)) ->
+                x == y
+
+            #(Argument.Exact(x), Argument.Exact(y)) ->
+                x == y
+
+            #(Argument.Text(x), Argument.Text(y)) ->
+                x == y
+
+            #(Argument.Variant(x), Argument.Variant(y)) ->
+                x == y
+
+            #(#Argument.Localized{shown: x, name: m, localize: _}, #Argument.Localized{
+                shown: y,
+                name: n,
+                localize: _,
+            }) ->
+                x == y and m == n
+
+            #(Argument.Named(x), Argument.Named(y)) ->
+                x == y
+
+            #(Argument.Items(x), Argument.Items(y)) ->
+                x == y
+
+            #(Argument.Day(x), Argument.Day(y)) ->
+                x == y
+
+            #(Argument.Clock(x), Argument.Clock(y)) ->
+                x == y
+
+            #(#Argument.Moment{key: x, shown: _, localize: _}, #Argument.Moment{
+                key: y,
+                shown: _,
+                localize: _,
+            }) ->
+                x == y
+
+            #(Argument.Amount(x), Argument.Amount(y)) ->
+                x == y
+
+            #(Argument.Nested(x), Argument.Nested(y)) ->
+                x == y
+
+            _ ->
+                False
+        }
+    }
+}
+
+derive Equatable for Message
+
+impl Message {
+    /// The message's text in `locale`: the translation the program's
+    /// catalogs give for it, or for the nearest locale it falls back to,
+    /// or the declaration's own text, with the arguments formatted as the
+    /// locale writes them. `en-XA` and `ar-XB` are pseudo-locales: the
+    /// source text accented, padded and bracketed, and mirrored right to
+    /// left, for finding text a program does not translate.
+    ///
+    /// `catalogs` are catalogs loaded while the program runs
+    /// (`Catalog.load`). At each locale of the fallback chain the first of
+    /// them for that locale with an entry for the message gives its text,
+    /// before the program's own; a message none of them translates keeps
+    /// its compiled text. A message that is an argument of this one is
+    /// formatted with the same catalogs.
+    pub fn format(message: Message, locale: Locale, catalogs: List<Catalog> = []) -> String {
+        arguments = message.arguments
+        kinds = arguments |> Iter.map(&argument_kind(&1)) |> Iter.to_list()
+        numbers = arguments |> Iter.map(&argument_number(&1)) |> Iter.to_list()
+        keys = arguments |> Iter.map(&argument_key(&1)) |> Iter.to_list()
+        texts = arguments |> Iter.map(&argument_text(&1, locale, catalogs)) |> Iter.to_list()
+        loaded = catalogs |> Iter.map(&catalog_entries(&1)) |> Iter.to_list()
+        message_format.format(message.table, locale, loaded, kinds, numbers, keys, texts)
+    }
+}
+
+/// Translations loaded while the program runs, for one locale: a catalog a
+/// translation service serves, say, so that a fixed translation needs no
+/// new build. `Message.format` reads them before the program's own
+/// catalogs. Those stay the source of truth: a loaded catalog only
+/// translates the messages and nouns the program has, into a locale it
+/// lists.
+pub opaque struct Catalog {
+    locale: Locale
+    entries: String
+}
+
+/// An entry `Catalog.load` refused: its table's name as the catalog writes
+/// it (`cart.cart_items`, or "" for a problem outside any table), the
+/// catalog's locale, and why, in the words the compiler uses for the same
+/// problem in a catalog it reads.
+pub struct Rejected {
+    key: String
+    locale: Locale
+    reason: String
+}
+
+derive Equatable for Rejected
+
+impl Catalog {
+    /// The catalog `text` holds for `locale`, and each entry it rejects.
+    /// `text` is a catalog's TOML, as the program's own catalogs are
+    /// written, with each table naming a message or noun by its file:
+    /// `[cart.cart_items]`, holding its `source` and `text`. The table names
+    /// its file because one loaded catalog can hold the messages of every
+    /// file, where each of the program's own catalogs holds one file's.
+    ///
+    /// Each entry is checked against the program's compiled messages and
+    /// nouns as the compiler checks a catalog: it names one of them, it
+    /// records the declaration's current text as its `source` (a stale
+    /// entry is rejected), its text is valid MessageFormat 2 that reads only
+    /// the message's parameters, with their types and the plural, enum and
+    /// gender arms the locale needs, and its nouns and messages agree with
+    /// the program's. A rejected entry is never used: its message keeps its
+    /// compiled text, so a bad translation never reaches a reader. A Polish
+    /// entry with no `few` variant is rejected with the reason
+    /// `` `cart_items` has no `few` arm; 2, 3 and 4 select `few` in Polish ``.
+    /// A catalog need not translate every message.
+    ///
+    /// Hand the catalog to `Message.format` as `catalogs`; a fixed
+    /// translation then needs no new build:
+    ///
+    /// ```nomi
+    /// fn refresh(text: String) -> Catalog {
+    ///     #(catalog, rejected) = Catalog.load(text, Locale`pl`)
+    ///     Iter.each(rejected, fn r -> io.print("${r.locale} ${r.key}: ${r.reason}"))
+    ///     catalog
+    /// }
+    ///
+    /// fn badge(catalog: Catalog) -> String {
+    ///     cart.cart_items(3) |> Message.format(Locale`pl`, catalogs: [catalog])
+    /// }
+    /// ```
+    pub fn load(text: String, locale: Locale) -> #(Catalog, List<Rejected>) {
+        case message_format.load(text, locale) {
+            [entries, ..rest] -> #(#Catalog{locale, entries}, rejections(rest, locale))
+            [] -> #(#Catalog{locale, entries: ""}, [])
+        }
+    }
+
+    /// The locale the catalog translates into.
+    pub fn locale(catalog: Catalog) -> Locale {
+        catalog.locale
+    }
+}
+
+fn catalog_entries(catalog: Catalog) -> String {
+    catalog.entries
+}
+
+fn rejections(answer: List<String>, locale: Locale) -> List<Rejected> {
+    case answer {
+        [key, reason, ..rest] -> [#Rejected{key, locale, reason}, ..rejections(rest, locale)]
+        _ -> []
+    }
+}
+
+fn argument_kind(argument: Argument) -> Int {
+    case argument {
+        Argument.Integer(_) -> 0
+        Argument.Floating(_) -> 1
+        Argument.Exact(_) -> 2
+        Argument.Text(_) -> 3
+        Argument.Variant(_) -> 4
+        #Argument.Localized{shown: _, name, localize: _} -> if name == "" { 5 } else { 4 }
+        Argument.Named(_) -> 6
+        Argument.Items(_) -> 7
+        Argument.Day(_) -> 8
+        Argument.Amount(_) -> 9
+        Argument.Clock(_) -> 10
+        #Argument.Moment{key: _, shown: _, localize: _} -> 11
+        Argument.Nested(_) -> 5
+    }
+}
+
+fn argument_number(argument: Argument) -> String {
+    case argument {
+        Argument.Integer(n) -> Display.to_string(n)
+        Argument.Floating(f) -> Display.to_string(f)
+        Argument.Exact(d) -> Display.to_string(d)
+        Argument.Items(items) -> Display.to_string(Iter.count(items))
+        Argument.Amount(m) -> Display.to_string(m.amount)
+        _ -> ""
+    }
+}
+
+fn argument_key(argument: Argument) -> String {
+    case argument {
+        Argument.Text(s) -> s
+        Argument.Variant(name) -> name
+        #Argument.Localized{shown: _, name, localize: _} -> name
+        Argument.Day(date) -> Display.to_string(date)
+        Argument.Clock(t) -> Display.to_string(t)
+        #Argument.Moment{key, shown: _, localize: _} -> key
+        Argument.Amount(m) -> currency_key(m.currency)
+        _ -> ""
+    }
+}
+
+// A currency as its literal writes it: `EUR`, or a custom one's `BTC:8`.
+fn currency_key(c: Currency) -> String {
+    if Currency.iso?(c) {
+        Currency.code(c)
+    } else {
+        "${Currency.code(c)}:${Currency.minor_digits(c)}"
+    }
+}
+
+fn argument_text(argument: Argument, locale: Locale, catalogs: List<Catalog>) -> String {
+    case argument {
+        Argument.Integer(n) -> Localize.localize(n, locale)
+        Argument.Floating(f) -> Localize.localize(f, locale)
+        Argument.Exact(d) -> Localize.localize(d, locale)
+        Argument.Text(s) -> s
+        Argument.Variant(name) -> name
+        #Argument.Localized{shown: _, name: _, localize} -> localize(locale)
+        Argument.Named(noun) -> noun.table
+        Argument.Items(items) -> String.join_list(items, locale)
+        Argument.Day(date) -> Localize.localize(date, locale)
+        Argument.Clock(t) -> Localize.localize(t, locale)
+        #Argument.Moment{key: _, shown: _, localize} -> localize(locale)
+        Argument.Amount(m) -> Localize.localize(m, locale)
+        Argument.Nested(inner) -> Message.format(inner, locale, catalogs: catalogs)
+    }
+}
+
+impl Localize for Message {
+    /// A message formats in a locale as `Message.format` does, so a message
+    /// that is the argument of another is formatted in the same locale.
+    fn localize(message: Message, locale: Locale) -> String {
+        Message.format(message, locale)
+    }
+}
+
+impl Debug for Message {
+    /// The message's name and its arguments.
+    fn inspect(message: Message) -> String {
+        arguments = message.arguments |> Iter.map(&argument_shown(&1)) |> String.join(", ")
+        "${message.name}(${arguments})"
+    }
+}
+
+fn argument_shown(argument: Argument) -> String {
+    case argument {
+        Argument.Integer(n) -> Debug.inspect(n)
+        Argument.Floating(f) -> Debug.inspect(f)
+        Argument.Exact(d) -> Debug.inspect(d)
+        Argument.Text(s) -> Debug.inspect(s)
+        Argument.Variant(name) -> name
+        #Argument.Localized{shown, name: _, localize: _} -> shown
+        Argument.Named(noun) -> Debug.inspect(noun)
+        Argument.Items(items) -> Debug.inspect(items)
+        Argument.Day(date) -> Debug.inspect(date)
+        Argument.Clock(t) -> Debug.inspect(t)
+        #Argument.Moment{key: _, shown, localize: _} -> shown
+        Argument.Amount(m) -> Debug.inspect(m)
+        Argument.Nested(inner) -> Debug.inspect(inner)
+    }
+}
+
+// What the function a `message` declaration expands into calls: the
+// compiled texts and the arguments, each wrapped by its parameter's type.
+// They are private, and the expansion reaches them through its hidden
+// `message$` import; a program naming one is told it is internal to
+// std/message. Nomi code builds a Message by calling the declaration's
+// function.
+/// A message `name` whose compiled texts are `table`, with its arguments.
+fn compiled(name: String, table: String, arguments: List<Argument>) -> Message {
+    #Message{name, table, arguments}
+}
+
+/// An `Int` argument. Two arguments are equal when they hold equal values
+/// of one kind.
+//! assert integer(3) == integer(3)
+//! refute integer(3) == text("3")
+//
+fn integer(value: Int) -> Argument {
+    Argument.Integer(value)
+}
+
+/// A `Float` argument.
+fn float(value: Float) -> Argument {
+    Argument.Floating(value)
+}
+
+/// A `Decimal` argument.
+fn decimal(value: Decimal) -> Argument {
+    Argument.Exact(value)
+}
+
+/// A `String` argument.
+fn text(value: String) -> Argument {
+    Argument.Text(value)
+}
+
+/// An argument whose type is an enum with bare variants, by the name of its
+/// variant (`message_format.variant_name`), which `:string` formats and
+/// selects by.
+fn variant(name: String) -> Argument {
+    Argument.Variant(name)
+}
+
+/// An enum argument, by its variant's name, that a placeholder with no
+/// function also formats, with its `Localize`.
+fn localized_variant<T>(name: String, value: T) -> Argument where T: Localize {
+    #Argument.Localized{
+        shown: Debug.inspect(value),
+        name,
+        localize: fn locale -> T.localize(value, locale),
+    }
+}
+
+/// The noun `name` whose forms and genders are `table`: the value a `noun`
+/// declaration names.
+fn compiled_noun(name: String, table: String) -> Noun {
+    #Noun{name, table}
+}
+
+/// A `Noun` argument, which `:nomi:noun` writes and `:nomi:gender` selects
+/// by.
+fn noun(value: Noun) -> Argument {
+    Argument.Named(value)
+}
+
+/// A `List<String>` argument, which `:nomi:list` joins as the locale joins
+/// a list and selects by its length.
+//! assert list(["Anna", "Ben"]) == list(["Anna", "Ben"])
+//
+fn list(items: List<String>) -> Argument {
+    Argument.Items(items)
+}
+
+/// A `Date` argument, which `:date` and `:datetime` write as the locale
+/// writes a date and `:nomi:weekday` selects by its day of the week.
+fn date(value: Date) -> Argument {
+    Argument.Day(value)
+}
+
+/// A `Time` argument, which `:time` and `:datetime` write.
+fn time(value: Time) -> Argument {
+    Argument.Clock(value)
+}
+
+/// A `NaiveDateTime` or `DateTime` argument, which `:date`, `:time` and
+/// `:datetime` write, by its ISO 8601 text, and a placeholder with no
+/// function writes with its `Localize`.
+fn moment<T>(value: T) -> Argument where T: Display and Localize {
+    #Argument.Moment{
+        key: Display.to_string(value),
+        shown: Debug.inspect(value),
+        localize: fn locale -> T.localize(value, locale),
+    }
+}
+
+/// A `Money` argument, which `:currency` writes as the locale writes an
+/// amount.
+fn money(value: Money) -> Argument {
+    Argument.Amount(value)
+}
+
+/// A `Message` argument, which a placeholder formats in the same locale,
+/// with the same catalogs, as the message it is an argument of.
+fn nested(value: Message) -> Argument {
+    Argument.Nested(value)
+}
+
+/// An argument of any other type, which a placeholder formats with its
+/// `Localize`.
+fn localized<T>(value: T) -> Argument where T: Localize {
+    #Argument.Localized{
+        shown: Debug.inspect(value),
+        name: "",
+        localize: fn locale -> T.localize(value, locale),
+    }
+}

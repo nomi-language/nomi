@@ -132,7 +132,7 @@ func TestBuildCommand_ReactorWritesTheWasiLoader(t *testing.T) {
 	}
 	script := filepath.Join(dir, "vm", "drive.mjs")
 	mustWrite(t, script, wasiLoaderScript)
-	got := runProcess(t, nil, dir, "", node, "--no-warnings", script)
+	got := runNode(t, os.Environ(), dir, "", node, "--no-warnings", script)
 	if got.exit != 0 {
 		t.Fatalf("driving nomi-wasi.js: exit %d\n%s", got.exit, got.transcript())
 	}
@@ -289,7 +289,7 @@ func TestBuildCommand_AWasiExportBuildCarriesItsLoader(t *testing.T) {
 	if node == "" {
 		t.Skip("no node 20+; not running nomi-wasi.js")
 	}
-	got := runProcess(t, nil, dir, "", node, "--no-warnings", filepath.Join(dir, "app", "drive.mjs"))
+	got := runNode(t, os.Environ(), dir, "", node, "--no-warnings", filepath.Join(dir, "app", "drive.mjs"))
 	if got.exit != 0 {
 		t.Fatalf("driving nomi-wasi.js: exit %d\n%s", got.exit, got.transcript())
 	}

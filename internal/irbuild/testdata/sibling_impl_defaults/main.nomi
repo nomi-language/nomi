@@ -1,0 +1,29 @@
+// Calls to another file's owner functions: defaults that name the declaring
+// file's private function and a type this file never imported, left out
+// trailing, all of them, or skipped by a named argument, and a generic owner
+// function instantiated at Unit.
+import {
+    std/io
+    lib.{Box, Runner}
+}
+
+fn note(n: Int) -> Int {
+    io.print("arg ${n}")
+    n
+}
+
+fn adder(k: Int) -> (Int) -> Int {
+    fn n -> n + k
+}
+
+fn show(b: Box) {
+    f = b.f
+    io.print("${Debug.inspect(b.mode)} ${f(3)}")
+}
+
+fn main() {
+    show(Box.new())
+    show(Box.new(f: adder(note(1))))
+    io.print(Debug.inspect(Runner.run(1, fn _ -> Ok(Unit))))
+    io.print(Debug.inspect(Runner.run(2, fn n -> Ok(n))))
+}

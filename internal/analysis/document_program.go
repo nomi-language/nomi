@@ -15,11 +15,15 @@ import (
 )
 
 // ProgramEdit replaces the whole text of one project file of a checked
-// program.
+// program, or of one of its expansions' inputs (a catalog).
 type ProgramEdit struct {
 	// Key is the file's module key ("shapes", "lib/geo").
 	Key  string
 	Text string
+	// Input, when set, is the path of the input the edit replaces the text
+	// of, and Key is unused. An input edit edits the files whose expansions
+	// read the input, with their own text unchanged.
+	Input string
 }
 
 // CheckedProgram is one whole program checked as the front end checks it
@@ -50,6 +54,9 @@ type CheckedProgram struct {
 	Nodes map[string][]ast.Node
 	// Syntax holds each file's syntax errors, by module key.
 	Syntax map[string][]parser.ParseError
+	// Inputs holds every input the files' expansions read, by path, with
+	// the text each was read with (expansion.go).
+	Inputs map[string]ExpansionInput
 	// Errors holds each file's diagnostics by module key, in the order the
 	// front end reports them. The program's own (Program.Errors, coherence)
 	// are with the entry's, where the front end reports them.
@@ -135,18 +142,51 @@ func (dm *DocumentManager) recheckLocked(prev *CheckedProgram, edits []ProgramEd
 		panic("analysis: Recheck of a program an earlier Recheck consumed")
 	}
 	var changed []ProgramEdit
+	inputs := map[string]bool{}
+	sourceChanged := false
 	for _, e := range edits {
+		if e.Input != "" {
+			if old, ok := prev.Inputs[e.Input]; !ok || !old.Found || old.Text != e.Text {
+				prev.Inputs[e.Input] = ExpansionInput{Path: e.Input, Text: e.Text, Found: true}
+				inputs[e.Input] = true
+			}
+			continue
+		}
 		if text, ok := prev.Texts[e.Key]; !ok || text != e.Text {
 			changed = append(changed, e)
 		}
 	}
-	if len(changed) == 0 {
+	if len(inputs) > 0 {
+		for _, key := range prev.Keys() {
+			if slices.ContainsFunc(changed, func(e ProgramEdit) bool { return e.Key == key }) {
+				continue
+			}
+			if fa := prev.Files[key]; fa != nil && inputs[filepath.Clean(fa.FilePath)] {
+				// The input is a file of the program too: a macro's
+				// own source, of another module, which the program imports
+				// for its keyword and reads from the disk.
+				sourceChanged = true
+				continue
+			}
+			for _, in := range ExpansionInputs(prev.Nodes[key]) {
+				if inputs[in.Path] {
+					changed = append(changed, ProgramEdit{Key: key, Text: prev.Texts[key]})
+					break
+				}
+			}
+		}
+	}
+	if len(changed) == 0 && !sourceChanged {
 		return prev, RecheckOutcome{Path: RecheckUnchanged}
 	}
 	parsed := parseEdits(changed)
-	next, outcome := dm.recheckIncremental(prev, changed, parsed)
-	if next != nil {
-		return next, outcome
+	outcome := RecheckOutcome{Path: RecheckFull, Reason: "a macro's source file changed"}
+	if !sourceChanged {
+		var next *CheckedProgram
+		next, outcome = dm.recheckIncremental(prev, changed, parsed)
+		if next != nil {
+			return next, outcome
+		}
 	}
 	texts := maps.Clone(prev.Texts)
 	for _, e := range changed {
@@ -251,9 +291,19 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 		Errors:           map[string][]TypeError{},
 		fingerprints:     map[string]string{},
 		implFingerprints: map[string]string{},
+		Inputs:           map[string]ExpansionInput{},
 	}
 	for key, text := range texts {
 		p.Texts[key] = text
+	}
+	for key := range keep {
+		// A kept file is not expanded again: its inputs are what it read.
+		for _, in := range ExpansionInputs(from.Nodes[key]) {
+			if was, ok := from.Inputs[in.Path]; ok {
+				in = was
+			}
+			p.Inputs[in.Path] = in
+		}
 	}
 	var reused map[string]reusedFile
 	var onces *OnceTable
@@ -333,8 +383,13 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 		return pf.nodes
 	}
 
+	manifest, _ := LoadManifest(root)
+	inputs := dm.recordingInputs(p, &mu)
+	expand := func(key string, nodes []ast.Node) []ast.Node {
+		return ExpandDeclarations(nodes, dm.expansionSite(root, key, manifest, inputs))
+	}
 	entryText, _ := text(entry)
-	nodes := parse(entry, entryText)
+	nodes := expand(entry, parse(entry, entryText))
 	var externs []syntheticextern.Decl
 	if reused == nil {
 		externs = dm.syntheticExternsForRoot(root)
@@ -356,8 +411,15 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 	elsewhere := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		nodes, err := base(projectRoot, modulePath)
 		if err == nil {
+			path := filepath.Clean(ResolveModulePath(projectRoot, modulePath))
 			mu.Lock()
-			p.unread = true
+			// A macro's source file, which the program imports for
+			// its keyword, is an input its expansions read from the disk:
+			// an edit to it is seen there (changedInputs), unless an
+			// editor holds another text of it.
+			if in, read := p.Inputs[path]; !read || !in.Found || dm.IsOpen("file://"+path) {
+				p.unread = true
+			}
 			mu.Unlock()
 		}
 		return nodes, err
@@ -382,7 +444,11 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 			return elsewhere(projectRoot, modulePath)
 		}
 		// A file of root: its bindings are the entry's, looked up once.
-		return syntheticextern.Inject(parse(key, src), externs, false)
+		nodes, err := syntheticextern.Inject(parse(key, src), externs, false)
+		if err != nil {
+			return nil, err
+		}
+		return expand(key, nodes), nil
 	}
 	entryFA, siblings, siblingNodes := buildProjectWithCache(prog, primitives, modules, stdlibFAs, root, entryPath, entry, true, loader, nil, reused)
 	if reused != nil {
@@ -442,7 +508,7 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 			c.build[key], c.check[key] = from.checks.build[key], from.checks.check[key]
 		} else {
 			c.build[key] = slices.Clone(fa.TypeErrors)
-			c.check[key] = CheckTypes(fa, siblingNodes[key])
+			c.check[key] = checkSibling(fa, siblingNodes[key])
 		}
 		c.program = append(c.program, ProgramFile{FA: fa, Nodes: siblingNodes[key]})
 		c.checked = append(c.checked, key)
@@ -488,6 +554,13 @@ type programChecks struct {
 	// The program's coherence errors and the entry's own checks: iteration
 	// sensitivity, then the concurrency, boot-scope and task-lifetime rules.
 	coherence, entryChecks []TypeError
+	// catalogTree holds the errors about the module's catalogs that nothing
+	// reads (CheckCatalogTree).
+	catalogTree []TypeError
+	// macroChecks holds what each macro's ProgramCheck reports,
+	// and the agreement of nouns and messages, by module key, "" for the
+	// entry to report (CheckProgramDeclarations).
+	macroChecks map[string][]TypeError
 	// frontEnd holds the derive-lowering and duplicate test name errors the
 	// front end reports before analysis.
 	frontEnd []TypeError
@@ -540,6 +613,17 @@ func (c *programChecks) reduce(p *CheckedProgram) {
 		c.implImports[key] = unused[fa]
 	}
 	c.coherence = FinalizeCoherence(c.entry)
+	m, _ := LoadManifest(p.Root)
+	c.catalogTree = CheckCatalogTree(p.Root, m, p.Nodes)
+	c.macroChecks = CheckProgramDeclarations(p.Nodes)
+}
+
+// checkSibling is a file's check other than the entry's, in the front
+// end's order: CheckTypes, then the placement of its `break` and
+// `continue`, which only its own call sites decide. The entry's placement
+// is among its own checks (checkEntry).
+func checkSibling(fa *FileAnalysis, nodes []ast.Node) []TypeError {
+	return append(CheckTypes(fa, nodes), AnalyzeIterSensitivity(fa, nodes)...)
 }
 
 // checkEntry runs the entry's own checks over its bodies.
@@ -560,9 +644,11 @@ func (c *programChecks) assemble(p *CheckedProgram) {
 	errs = append(errs, c.check[p.Entry]...)
 	errs = append(errs, c.appRoots[p.Entry]...)
 	errs = append(errs, c.implImports[p.Entry]...)
+	errs = append(errs, c.entryMacroChecks(p)...)
 	errs = append(errs, c.coherence...)
+	errs = append(errs, c.catalogTree...)
 	errs = append(errs, c.entryChecks...)
-	p.Errors[p.Entry] = append(errs, c.frontEnd...)
+	p.Errors[p.Entry] = RelocateExpansionErrors(p.Nodes[p.Entry], append(errs, c.frontEnd...))
 	for _, key := range c.checked {
 		if IsStdlibKey(key) {
 			continue
@@ -570,6 +656,27 @@ func (c *programChecks) assemble(p *CheckedProgram) {
 		errs := slices.Clone(c.build[key])
 		errs = append(errs, c.check[key]...)
 		errs = append(errs, c.appRoots[key]...)
-		p.Errors[key] = append(errs, c.implImports[key]...)
+		errs = append(errs, c.macroChecks[key]...)
+		p.Errors[key] = RelocateExpansionErrors(p.Nodes[key], append(errs, c.implImports[key]...))
 	}
+	if MacroFailed(p.Nodes) {
+		p.Errors[p.Entry] = MacroErrorsAlone(p.Nodes[p.Entry], c.entryMacroChecks(p))
+		for _, key := range c.checked {
+			// A file of a macro module that did not build keeps its own
+			// errors (InUnbuiltMacroModule).
+			if fa := p.Files[key]; !IsStdlibKey(key) && (fa == nil || !InUnbuiltMacroModule(p.Nodes, fa.FilePath)) {
+				p.Errors[key] = MacroErrorsAlone(p.Nodes[key], c.macroChecks[key])
+			}
+		}
+	}
+}
+
+// entryMacroChecks are the macros' ProgramCheck diagnostics the
+// entry reports: its own, and those in no file of the program.
+func (c *programChecks) entryMacroChecks(p *CheckedProgram) []TypeError {
+	errs := slices.Clone(c.macroChecks[p.Entry])
+	if p.Entry != "" {
+		errs = append(errs, c.macroChecks[""]...)
+	}
+	return errs
 }

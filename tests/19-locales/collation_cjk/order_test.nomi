@@ -1,0 +1,31 @@
+import {
+    std/collation.Collator
+    std/locale.Locale
+}
+
+fn sorted(words: List<String>, collator: Collator) -> List<String> {
+    Iter.sort_with(words, &Collator.compare(collator, &1, &2))
+}
+
+// A program that lists Chinese and Korean carries their tailorings, which
+// a program that lists no locales leaves out.
+test "Chinese sorts by pinyin, Han before Latin" {
+    assert sorted(["一", "b", "王", "李"], Collator.new(Locale`zh`)) == ["李", "王", "一", "b"]
+    assert sorted(["张伟", "王芳", "李娜"], Collator.new(Locale`zh-CN`)) == ["李娜", "王芳", "张伟"]
+}
+
+test "Traditional Chinese sorts by stroke count" {
+    assert sorted(["李", "王", "一"], Collator.new(Locale`zh-Hant`)) == ["一", "王", "李"]
+    assert sorted(["李", "王", "一"], Collator.new(Locale`zh-TW`)) == ["一", "王", "李"]
+    assert sorted(["李", "王", "一"], Collator.new(Locale`zh-u-co-stroke`)) == ["一", "王", "李"]
+}
+
+test "Japanese tells hiragana from katakana only at the quaternary level" {
+    assert sorted(["カイ", "カー", "カア"], Collator.new(Locale`ja`)) == ["カー", "カア", "カイ"]
+    assert Collator.compare(Collator.new(Locale`ja`), "かあ", "カア") == Ordering.Equal
+    assert Collator.compare(Collator.new(Locale`en`), "かあ", "カア") == Ordering.Less
+}
+
+test "Korean sorts a Hanja with its reading" {
+    assert sorted(["각", "家", "가"], Collator.new(Locale`ko`)) == ["가", "家", "각"]
+}

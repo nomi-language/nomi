@@ -16,7 +16,10 @@
 // # The stdlib
 //
 // The standard library is lowered once per process (stdlibLowering), and a
-// program's IR links every cached stdlib module (Result.IRModules).
+// program's IR links every cached stdlib module (Result.IRModules). The std
+// modules listed in programStdModules are the exception: each is lowered
+// with every program that imports it, as one of the program's own files
+// (programstd.go).
 //
 // # Correctness
 //
@@ -64,6 +67,10 @@ type Module struct {
 	// and no others, so a test declaration anywhere else is refused rather
 	// than lowered into a table nothing reads.
 	DeclaresTests bool
+	// twins maps a declaration of the shared stdlib analysis to this
+	// module's own, when this module is a std module checked from edited
+	// source (programstd.go's implFuncTwins). Nil otherwise.
+	twins map[ast.Node]ast.Node
 }
 
 // Program is a checked Nomi program. Modules[0] is the entry.
@@ -304,6 +311,7 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	hasMain := false
 	// The lowered standard library, built once for the process.
 	std := stdlibLowering()
+	p = withProgramStd(p)
 	// Every type declaration in the program, keyed by the node that declared
 	// it and named program-uniquely, so one module can name both its own
 	// `Point` and a sibling file's. See foreign.go.
@@ -333,6 +341,7 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	// One table of generic stdlib instances for the whole program, so a
 	// sibling file's instances are the entry's too. See stdinst.go.
 	insts := newStdInstances(std)
+	insts.program = gens
 	for _, g := range gens {
 		g.stdInsts = insts
 	}

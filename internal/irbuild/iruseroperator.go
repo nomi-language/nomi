@@ -14,7 +14,7 @@ import (
 // selects it, as callerImplPlan selects an interface impl there.
 func (bl *irScalarBuilder) userOperatorCall(at *ast.Binary, left, right ir.Temp, lk, rk kind) (ir.Temp, kind, bool, bool) {
 	spec, found := operIfaceByOp[at.Op]
-	if !found || lk.def == nil {
+	if !found {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	og := bl.g
@@ -61,7 +61,9 @@ func (s *stdInstances) callerOperImpl(spec *operIfaceSpec, lk, rk kind) (*gen, *
 // gen selects among its own impls at its kinds for the operands, as
 // operImplFor does here. Reports a rival when two fit.
 func (g *gen) siblingOperImpl(spec *operIfaceSpec, lk, rk kind) (*gen, *implItem, []kind, kind, bool) {
-	if lk.tag != tagNamed || lk.def == nil || lk.def.decl == nil || lk.def.instOrigin != nil || lk.def.genericOf != nil || g.reg == nil {
+	named := lk.tag == tagNamed && lk.def != nil && lk.def.decl != nil
+	// kindInvalid: lookup — an operand with no kind has no impl to find, and the caller declines.
+	if g.reg == nil || lk == kindInvalid || (named && (lk.def.instOrigin != nil || lk.def.genericOf != nil)) {
 		return nil, nil, nil, kindInvalid, false
 	}
 	var og *gen
@@ -73,7 +75,7 @@ func (g *gen) siblingOperImpl(spec *operIfaceSpec, lk, rk kind) (*gen, *implItem
 		var recv kind
 		writes := false
 		for _, d := range gg.operOrder {
-			if d.ifaceName == spec.nomi && d.recv.tag == tagNamed && d.recv.def != nil && d.recv.def.decl == lk.def.decl {
+			if d.ifaceName == spec.nomi && sameOperReceiver(d.recv, lk, named) {
 				recv, writes = d.recv, true
 				break
 			}
@@ -109,4 +111,16 @@ func (g *gen) siblingOperImpl(spec *operIfaceSpec, lk, rk kind) (*gen, *implItem
 		return nil, nil, nil, kindInvalid, false
 	}
 	return og, chosen, params, result, false
+}
+
+// sameOperReceiver reports whether an operator impl's receiver, in its own
+// gen's tables, is lk: the one declaration for a type a file declares, the
+// one kind for a scalar or a std host type such as Decimal, whose kinds are
+// process-wide (`impl Multiply<Rate, Decimal> for Decimal` in another
+// module, which the orphan rule admits through `Rate`).
+func sameOperReceiver(recv, lk kind, named bool) bool {
+	if recv == lk {
+		return true
+	}
+	return named && recv.tag == tagNamed && recv.def != nil && recv.def.decl == lk.def.decl
 }

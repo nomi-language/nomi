@@ -29,8 +29,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/cldrdata"
+	"github.com/nomi-language/nomi/internal/cldrfull"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/irbuild"
@@ -67,10 +71,34 @@ type Program struct {
 	// liveTests receives each test case's output as it is written
 	// (StreamTestOutput).
 	liveTests io.Writer
+	// testTimeout and testTimeoutHint are each test case's limit and the
+	// hint its failure ends with (SetTestTimeout).
+	testTimeout     time.Duration
+	testTimeoutHint string
 	// cfg is the configuration the program was loaded with, which a debugger
 	// expression (CompileExpr) is loaded with too.
 	cfg config
+	// locales is the program's nomi.toml `[i18n].locales`, nil when it lists
+	// none: whose CLDR data its machines read and its image carries.
+	locales []string
+	// source is the program's `[i18n].source_locale` when it lists locales,
+	// else "": the locale a locale it does not carry formats as.
+	source string
+	// webEmbedded are the locales a browser build of the program embeds
+	// (analysis.Manifest.WebLocales), nil when it lists no locales.
+	webEmbedded []string
+	// currencyModules is what each directory's module allows custom
+	// currency literals to name, by directory (currencyModuleOf).
+	currencyModules map[string]currencyModule
+	// tables are the message and noun tables the program carries, worked
+	// out once (messageTables).
+	tablesOnce sync.Once
+	tables     [2][]string
 }
+
+// localeData is the CLDR data the program's machines read: the locales
+// its nomi.toml lists, as an image built from it carries them.
+func (p *Program) localeData() *cldrdata.Data { return cldrfull.ForProgram(p.locales, p.source) }
 
 // HostTable is a table of host adapters: bound against a machine's Env, it
 // answers each adapter by the key the program's `host fn` crosses under. A
@@ -170,7 +198,14 @@ func (p *Program) RequireMain(verb string) error {
 }
 
 func (p *Program) machine(out io.Writer) *vm.Machine {
-	m := vm.NewProgram(p.entry, p.res.IRModules(), out).WithHosts(p.hosts...)
+	return p.machineOver(p.entry, out)
+}
+
+// machineOver is machine with entry as the module the machine resolves a
+// callee in first. Only checkLiterals passes another module, for a program
+// whose entry file retained nothing.
+func (p *Program) machineOver(entry *ir.Module, out io.Writer) *vm.Machine {
+	m := vm.NewProgram(entry, p.res.IRModules(), out).WithHosts(p.hosts...).WithLocaleData(p.localeData()).WithMessages(p.messages())
 	if p.errOut != nil {
 		m = m.WithErrorOutput(p.errOut)
 	}
@@ -182,6 +217,9 @@ func (p *Program) machine(out io.Writer) *vm.Machine {
 	}
 	if p.liveTests != nil {
 		m = m.WithLiveTestOutput(p.liveTests)
+	}
+	if p.testTimeout > 0 && p.debugger == nil {
+		m = m.WithCaseLimit(p.testTimeout)
 	}
 	if p.cfg.stop != nil && p.cfg.stop.Done() != nil {
 		m = m.StopOn(p.cfg.stop)
@@ -400,6 +438,10 @@ func (p *Program) Cases(out io.Writer, opts TestOptions) []CaseResult {
 			results[i].blockedBy(&Blocked{Reasons: []string{"[vm] machine limit: " + limits[o.run]}})
 		case o.run >= 0:
 			results[i].Err = internalError(failures[o.run])
+			var timedOut *TimedOut
+			if errors.As(results[i].Err, &timedOut) {
+				timedOut.Hint = p.testTimeoutHint
+			}
 		default:
 			results[i].Err = o.err
 		}

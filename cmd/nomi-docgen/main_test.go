@@ -84,11 +84,7 @@ const tourConfigPath = "../../tour/astro.config.mjs"
 func generatedReferenceModules(t *testing.T) []string {
 	t.Helper()
 	lib := std.Load()
-	candidates := make([]string, 0, len(lib.Modules))
-	for name := range lib.Modules {
-		candidates = append(candidates, name)
-	}
-	sort.Strings(candidates)
+	candidates := referenceCandidates(lib)
 	links := referenceLinksForModules(lib, candidates)
 	var written []string
 	for _, name := range candidates {
@@ -422,11 +418,7 @@ func TestReferenceInteractiveTestsOnTheVM(t *testing.T) {
 		t.Skip("integration; runs every reference editor on the VM; -short")
 	}
 	lib := std.Load()
-	names := make([]string, 0, len(lib.Files))
-	for name := range lib.Files {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := referenceCandidates(lib)
 	links := referenceLinksForModules(lib, names)
 	got := &expectation.Set{
 		Population: "reference",

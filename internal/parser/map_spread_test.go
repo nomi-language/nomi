@@ -22,7 +22,7 @@ func TestParseMapSpread(t *testing.T) {
 		{`%{..f(y), "b" => 2}`, "*ast.Call", 1},
 		{`%{..a.b, "c" => 2}`, "*ast.FieldAccess", 1},
 		{`%{..m, "b" => 2,}`, "*ast.Ident", 1},
-		{"%{\n  ..m\n  \"b\" => 2\n}", "*ast.Ident", 1},
+		{"%{\n  ..m,\n  \"b\" => 2\n}", "*ast.Ident", 1},
 		{"%{\n  ..m,\n  // note\n  \"b\" => 2,\n}", "*ast.Ident", 1},
 		// A key that is not a literal.
 		{`%{..m, k => v}`, "*ast.Ident", 1},

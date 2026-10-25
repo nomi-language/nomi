@@ -153,17 +153,33 @@ func (s *shapeSearch) funcKeyword(fd *ast.FuncDef) {
 
 // noteLambdaArgs records each lambda among call's arguments with the
 // parameter it fills. piped is whether a pipe passes call its first
-// argument.
+// argument. A lambda or capture written as the last positional argument
+// fills the last parameter when no named argument does and the positionals
+// leave it empty, as the checker routes a trailing callback past an empty
+// slot (`Iter.reduce(xs, fn acc = 0, x -> ...)` fills `f`, past `from`).
 func (s *shapeSearch) noteLambdaArgs(call *ast.Call) {
 	piped := s.pipedCalls[call]
+	names := paramNamesOf(s.calleeSymbol(call.Func))
+	lastPositional, positionals, lastNamed := -1, 0, false
+	for i, a := range call.Args {
+		if na, named := a.(*ast.NamedArg); named {
+			lastNamed = lastNamed || (len(names) > 0 && na.Name == names[len(names)-1])
+			continue
+		}
+		lastPositional = i
+		positionals++
+	}
+	if piped {
+		positionals++
+	}
 	positional := 0
-	for _, a := range call.Args {
+	for i, a := range call.Args {
 		var fn ast.Node
 		slot := -1
 		switch a := a.(type) {
 		case *ast.NamedArg:
 			fn = a.Value
-			for j, n := range paramNamesOf(s.calleeSymbol(call.Func)) {
+			for j, n := range names {
 				if n == a.Name {
 					slot = j
 				}
@@ -175,6 +191,12 @@ func (s *shapeSearch) noteLambdaArgs(call *ast.Call) {
 				slot++
 			}
 			positional++
+			switch a.(type) {
+			case *ast.Lambda, *ast.Capture:
+				if i == lastPositional && !lastNamed && positionals < len(names) {
+					slot = len(names) - 1
+				}
+			}
 		}
 		if slot < 0 {
 			continue

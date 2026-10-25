@@ -168,7 +168,7 @@ func TestBuildCommand_Wasip1ReactorServesExportedFunctions(t *testing.T) {
 			line, _ := json.Marshal(c)
 			args = append(args, string(line))
 		}
-		return runProcess(t, env, dir, "", node, args...)
+		return runNode(t, env, dir, "", node, args...)
 	}
 
 	got := drive(reactor, "call",

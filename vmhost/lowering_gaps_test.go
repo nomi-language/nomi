@@ -40,7 +40,167 @@ type loweringGap struct {
 	src    string
 }
 
-var knownLoweringGaps = []loweringGap{}
+var knownLoweringGaps = []loweringGap{
+	{
+		name: "gapTestReturnArmInAssertionSubject",
+		fix: "builder: a `return` ending an arm of a region inside a test's assertion subject " +
+			"(`assert case get() { ..., Err(_) -> return } == \"x\"`) declines: the subject is lowered " +
+			"with its rows recorded and read back, and testExit refuses a return there; outside a " +
+			"subject the same arm ends the case",
+		reason: "a return in a test body the builder reads back",
+		src: `fn get() -> Result<String, String> {
+    Err("x")
+}
+
+test "a return arm in a subject" {
+    assert case get() {
+        Ok(d) -> d
+        Err(_) -> return
+    } == "x"
+}
+`,
+	},
+	{
+		name: "gapStdInterfaceCallThroughItsModule",
+		fix: "builder: a call qualified by a std interface named through its module " +
+			"(`display.Display.to_string(x)`, `sql.Conn.dialect(c)`) declines: qualDottedOwner resolves " +
+			"a module-qualified type owner, and a std interface is not one, so the call never reaches " +
+			"the interface route the bare `Display.to_string(x)` takes",
+		reason: "qualified call with a 3-segment qualifier",
+		noSkip: true,
+		src: `import {
+    std/display
+    std/io
+}
+
+fn main() {
+    io.print(display.Display.to_string(3))
+}
+`,
+	},
+	{
+		name: "gapPartialStdNonliteralDefault",
+		fix: "builder: a partial whose open slot is a std function's parameter with a non-literal " +
+			"default (`style: ListStyle = ListStyle.And`) needs that default as the slot's supplier; " +
+			"partialCalleeDefault reaches only this file's functions, local function values and " +
+			"sibling files' default accessors, and std has none",
+		reason: "a partial's open slot whose default is not a literal, over a callee outside this file's functions",
+		src: `import {
+    std/io
+    std/locale.Locale
+    std/strings.ListStyle
+}
+
+fn main() {
+    names = ["Ann", "Bo"]
+    [ListStyle.And, ListStyle.Or]
+    |> Iter.map(&String.join_list(names, Locale` + "`en`" + `, style: &1))
+    |> Iter.each(fn s -> io.print(s))
+}
+`,
+	},
+	{
+		name: "gapStdGenericInterfaceExistential",
+		fix: "builder: a value held as an instantiation of a std generic interface (`Contains<Int>`) " +
+			"has no kind: ifaceInstTypeOf instantiates only a program interface's template, and std's " +
+			"generic interfaces have no rt dispatch table (stdIfaceSpec.matches refuses type parameters)",
+		reason: "a binding annotation outside the retained value domain: an unsupported type",
+		noSkip: true,
+		src: `import std/io
+
+struct Bag {
+    n: Int
+}
+
+impl Contains<Int> for Bag {
+    fn contains?(c: Bag, x: Int) -> Bool {
+        c.n == x
+    }
+}
+
+fn main() {
+    b: Contains<Int> = #Bag{n: 3}
+    io.print(Bool.to_string(Contains.contains?(b, 3)))
+}
+`,
+	},
+	{
+		name: "gapDebugOfBoxedEmbedsEnumWithItsOwnDebug",
+		fix: "builder: `Debug.inspect(s)` over an interface value that may hold an `embeds` enum " +
+			"with a hand-written `impl Debug` declines in existentialDebugImpls, which cannot name " +
+			"that enum's Debug body as a leaf; the box names the enum, so the renderer could select it",
+		reason: "qualified call, Type.method: Debug.inspect",
+		noSkip: true,
+		src: `import std/io
+
+interface Says {
+    fn says(s: self) -> String
+}
+
+struct Circle {
+    r: Int
+}
+
+enum Shape {
+    embeds Circle
+    Dot
+}
+
+impl Says for Shape {
+    fn says(_s: Shape) -> String {
+        "shape"
+    }
+}
+
+impl Debug for Shape {
+    fn inspect(_s: Shape) -> String {
+        "a shape"
+    }
+}
+
+fn shape(r: Int) -> Shape {
+    #Circle{r}
+}
+
+fn main() {
+    s: Says = shape(4)
+    io.print(Debug.inspect(s))
+}
+`,
+	},
+	{
+		name: "gapSelflessImplOfStdContainerQualifiedByIt",
+		fix: "builder: `Maybe.make(1)` for a program impl of a function with no `self` operand " +
+			"(`impl Make for Maybe<T>`) declines in stdRecvOwnerPlan, which finds the instance from an " +
+			"operand of the owner's type or from the result's head; here neither is a Maybe, and the " +
+			"instance is the `self` inside the checked result `Result<Maybe<Int>, String>`",
+		reason: "qualified call, Type.method: Maybe.make",
+		noSkip: true,
+		src: `import std/io
+
+interface Make {
+    fn make(n: Int) -> Result<self, String>
+}
+
+impl Make for Int {
+    fn make(n: Int) -> Result<Int, String> {
+        Ok(n)
+    }
+}
+
+impl Make for Maybe<T> where T: Make {
+    fn make(n: Int) -> Result<Maybe<T>, String> {
+        T.make(n) |> Result.map(Some)
+    }
+}
+
+fn main() {
+    r: Result<Maybe<Int>, String> = Maybe.make(1)
+    io.print(Debug.inspect(r))
+}
+`,
+	},
+}
 
 // knownGapFor is the known gap every one of reasons matches, or nil.
 func knownGapFor(reasons []string) *loweringGap {

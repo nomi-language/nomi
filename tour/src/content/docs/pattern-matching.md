@@ -331,13 +331,30 @@ In `calculate(100, 0)`, the second `safe_div` fails, so `calculate` returns
 
 `main` can return `Result<Unit, E>`, and then you can use `try` in it:
 
-```nomi
+```nomi-run error
+fn safe_div(a: Int, b: Int) -> Result<Int, String> {
+    if b == 0 {
+        Err("div by zero")
+    } else {
+        Ok(a / b)
+    }
+}
+
+fn calculate(x: Int, y: Int) -> Result<Int, String> {
+    half = try safe_div(x, 2)
+    ratio = try safe_div(half, y)
+    Ok(ratio + 1)
+}
+
 fn main() -> Result<Unit, String> {
     ratio = try calculate(100, 0)
     dbg ratio
     Ok(Unit)
 }
 ```
+<!-- expect
+error: div by zero
+-->
 
 This `main` prints `error: div by zero` to stderr and exits with status 1.
 That is what happens whenever `main` returns an `Err`. The error is printed

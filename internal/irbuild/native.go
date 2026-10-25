@@ -2,6 +2,7 @@ package irbuild
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -398,6 +399,11 @@ type gen struct {
 	// "a user file reaching std" has to be able to recognise the one file the
 	// rule cannot sensibly be applied to. See loadIter's declaresStdIter.
 	stdModule string
+	// programStd is set when this gen lowers a std module listed in
+	// programStdModules with the program (programstd.go): its positions are
+	// stdlib positions, as a shared std module's are, so a trap inside it is
+	// reported at the program's call (ownPos).
+	programStd bool
 	// skipLint is set on the gen lowering one module of the embedded stdlib
 	// when lintEmbeddedStdlib is off; irLint and irLintAdded then do nothing.
 	skipLint bool
@@ -740,6 +746,10 @@ type gen struct {
 	// an interface's existential (irErases), whose per-instance impls
 	// irInstanceImpls records for the VM's dispatch.
 	erasedInstances map[kind]bool
+	// boxes is what this unit boxes into existentials (irboxed.go): each
+	// (interface, kind) pair's plan, the impl entries the boxes dispatch
+	// through, and the enums it boxes when the program has no registry.
+	boxes irBoxes
 	// ownerImpls is the owner functions of each inherent block on a generic
 	// type or an interface, by the owner's name: the functions whose
 	// signature names none of the block's type parameters, built once with
@@ -893,6 +903,8 @@ type gen struct {
 	tests         []loweredTest
 	declaresTests bool
 	inTest        bool
+	// twins is the module's Module.twins.
+	twins map[ast.Node]ast.Node
 	// std is the lowered standard library as this module's call sites see it,
 	// or nil for a module lowered without one. See stdlib.go.
 	std *stdlibIndex
@@ -1051,6 +1063,10 @@ type gen struct {
 func newGen(m *Module, pkg string, std *stdlibIndex, files *fileIndex, unit int, reg *typeRegistry) *gen {
 	g := &gen{nomiPath: m.Path, pkg: pkg, fa: m.FA, funcs: map[string]*fnSig{}, onces: map[string]*onceDef{}, oncesByDecl: map[ast.Node]*onceDef{}, types: map[string]*typeDef{}, blockTypes: map[*ast.Block]*blockTypeDecls{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}, anonTids: map[kind]bool{}, std: std, files: files, fileUnit: unit, reg: reg, foreignDefs: map[ast.Node]*typeDef{}, foreignIfaces: map[ast.Node]*ifaceDef{}, nodes: m.Nodes}
 	g.declaresTests = m.DeclaresTests
+	g.twins = m.twins
+	if name, inStd := strings.CutPrefix(m.Name, "std/"); inStd && isProgramStd(name) {
+		g.programStd = true
+	}
 	// Loaded here rather than on first use, so no builder arm's answer
 	// depends on whether an earlier expression happened to load them
 	// (TestPreludeAnchorsDoNotDependOnOrder).

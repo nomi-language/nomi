@@ -13,8 +13,8 @@ import (
 //
 // A type's runtime identity as a STRING assembled at construction sites and
 // re-parsed at lookup sites fails silently: shortening `json.Json.DecodeError`
-// to `DecodeError` would make two impls share one dispatch slot. Here a Nomi
-// type's identity IS the
+// to `DecodeError` would make it share a dispatch slot with any other file's
+// `DecodeError`. Here a Nomi type's identity IS the
 // `*typeDef` its declaration produced: `kind` carries that pointer, kind
 // equality is Go pointer equality, and two same-named structs declared in two
 // modules are two pointers, two Go type declarations, and two Go packages.
@@ -1168,6 +1168,11 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 		if k, isInst := g.ifaceInstTypeOf(gt.Name, gt.Params); isInst {
 			return k
 		}
+		// A generic std type imported under another name: `Set as Bag`. See
+		// importalias.go.
+		if k, isAliased := g.aliasedTypeKind(gt.Name, gt.Params); isAliased {
+			return k
+		}
 	}
 	if qt, isQualified := te.(*ast.QualifiedType); isQualified {
 		// `shapes.Holder<Int>` — a generic template named through an imported
@@ -1373,6 +1378,11 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 	if d, isForeign := g.foreignType(st.Name); isForeign && d.lowerable {
 		return named(d)
 	}
+	// A std type imported under another name: `Error as CurrencyError`. See
+	// importalias.go.
+	if k, isAliased := g.aliasedTypeKind(st.Name, nil); isAliased {
+		return k
+	}
 	return kindInvalid
 }
 
@@ -1504,6 +1514,12 @@ func embedsVariant(want, from kind) (*typeDef, *variantDef, bool) {
 // type needs `impl Equatable`, and a type-qualified call is refused by name. If
 // any of those is ever lowered, the impl it dispatches to must be lowered in
 // the same change.
+//
+// The code a macro expanded a declaration to, and a macro file's
+// drivers, are in the band and are not synthesized in this sense: the
+// macro wrote them as source, the checker checked them as source, and
+// they are lowered as the file's own (analysis.IsExpansionLine).
 func isSynthesized(n ast.Node) bool {
-	return analysis.IsSynthesizedLine(n.LineNum())
+	line := n.LineNum()
+	return analysis.IsSynthesizedLine(line) && !analysis.IsExpansionLine(line)
 }

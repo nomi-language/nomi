@@ -54,6 +54,10 @@ package rt
 // value and Count its override; both are nil on a pipeline's sequence.
 // internal/irbuild still answers `Iter.count` over a source of a known kind
 // from the kind itself, without a view.
+//
+// Endless is the third, the `infinite?` answer: set on the sources that never
+// end and carried by the adapters (seqendless.go). `Iter.take` sets Count
+// rather than copying nothing: n over an endless source.
 
 // Seq is `opaque struct Seq<T> { run: ((T) -> Bool) -> Bool }`.
 //
@@ -68,6 +72,12 @@ type Seq[T any] struct {
 	// Count is the viewed source's `known_count` override, nil when the
 	// source inherits the declining default.
 	Count func(fr *Frame) Maybe[int64]
+	// Endless answers whether the sequence never ends: the name of the
+	// source that makes it endless (`Iter.repeat`), or "" when it may end.
+	// nil is "". It is the `infinite?` protocol answer (seqendless.go):
+	// each adapter sets it once, when the pipeline is built, from its
+	// upstream's, so nothing is asked per element.
+	Endless func(fr *Frame) string
 }
 
 // --- sources ----------------------------------------------------------------
@@ -125,7 +135,7 @@ func FromEach(fr *Frame, start int64, yield func(fr *Frame, item int64) bool) bo
 func SeqFrom(start int64) Seq[int64] {
 	return Seq[int64]{Run: func(fr *Frame, yield func(fr *Frame, item int64) bool) bool {
 		return FromEach(fr, start, yield)
-	}}
+	}, Endless: endlessFrom}
 }
 
 // --- adapters ---------------------------------------------------------------
@@ -168,7 +178,7 @@ func MapEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) U, yield
 func SeqMap[T, U any](src Seq[T], f func(fr *Frame, item T) U) Seq[U] {
 	return Seq[U]{Run: func(fr *Frame, yield func(fr *Frame, item U) bool) bool {
 		return MapEach(fr, src, f, yield)
-	}}
+	}, Endless: src.Endless}
 }
 
 // FilterEach is `host fn filter_each<T>(source: Iter<T>, pred: (T) -> Bool, yield: (T) -> Bool) -> Bool`.
@@ -189,7 +199,7 @@ func FilterEach[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bool,
 func SeqFilter[T any](src Seq[T], pred func(fr *Frame, item T) bool) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return FilterEach(fr, src, pred, yield)
-	}}
+	}, Endless: src.Endless}
 }
 
 // TakeEach is `host fn take_each<T>(source: Iter<T>, n: Int, yield: (T) -> Bool) -> Bool`.
@@ -233,7 +243,7 @@ func TakeEach[T any](fr *Frame, src Seq[T], n int64, yield func(fr *Frame, item 
 func SeqTake[T any](src Seq[T], n int64) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return TakeEach(fr, src, n, yield)
-	}}
+	}, Count: takeCount(src, n)}
 }
 
 // --- terminals --------------------------------------------------------------

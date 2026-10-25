@@ -667,6 +667,12 @@ func (m *Machine) compareInstr(fr *frame, n *ir.Compare) (err error) {
 			return compareOperandError(fr, n, lhs, rhs)
 		}
 		return m.compareEqual(fr, n, m.keysFor(fr).Equal(lhs, rhs))
+	case ir.ValIface:
+		// Two interface values, each any value: unequal across concrete
+		// types (two boxes of different static types among them), and
+		// otherwise compared as a Map's keys are, through the type's
+		// hand-written impl when the module records one (keys.go).
+		return m.compareEqual(fr, n, m.keysOver(fr, lhs).Equal(lhs, rhs))
 	case ir.ValBool:
 		a, aok := asBool(lhs)
 		b, bok := asBool(rhs)

@@ -123,13 +123,13 @@ var StdlibLoadOrder = []string{
 	"unit", "bool", "maybe", "results",
 	"literals", "assertions", "testing",
 	"discrete", "steppable",
-	"int", "float", "decimal", "codepoints",
+	"int", "float", "decimal", "code_points",
 	"iter", "lists", "vectors", "bytes", "strings", "regex", "maps", "sets", "ranges",
 	"io", "duration", "instant", "timer", "context", "structs", "type",
 	"compiler", "startup", "random", "toml",
-	"calendar",
+	"calendar", "locale", "plural", "localize", "message_format",
 	"dynamic",
-	"json",
+	"json", "uuid", "message",
 	"channels", "tasks", "supervisors",
 }
 

@@ -255,7 +255,7 @@ func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
 // implIdentityFallbackPopulation is every (T, Iface) pair the bare table
 // claims and the identity index cannot judge, measured over the stdlib.
 //
-// They are the impls whose headers write type arguments: the 35 OPERATOR
+// They are the impls whose headers write type arguments: the 38 OPERATOR
 // pairs and String's Contains. One mechanism explains the whole set:
 // `ImplBlockInterfaceKey` spells such an impl with its type arguments
 // (`Add<Days, Date>`, `Contains<Regex>`), while `Impls` and `ImplManifest`
@@ -275,6 +275,31 @@ const implIdentityFallbackPopulation = "Bytes/Add Date/Add Date/Subtract " +
 	"Decimal/Multiply Decimal/Subtract Duration/Add Duration/Divide " +
 	"Duration/Multiply Duration/Subtract Float/Add Float/Divide " +
 	"Float/Multiply Float/Subtract Instant/Add Instant/Subtract Int/Add Int/Divide " +
-	"Int/Multiply Int/Subtract List/Add Map/Add NaiveDateTime/Add " +
+	"Int/Multiply Int/Subtract List/Add Map/Add Money/Add Money/Multiply " +
+	"Money/Subtract NaiveDateTime/Add " +
 	"NaiveDateTime/Subtract OffsetDateTime/Add OffsetDateTime/Subtract " +
-	"Set/Add Set/Subtract String/Add String/Contains Time/Add Time/Subtract Vector/Add"
+	"Set/Add Set/Subtract Statement/Add String/Add String/Contains Time/Add Time/Subtract Vector/Add"
+
+// A user type that shares a name with a std type implementing an operator
+// interface keeps its own inherent function of the operator's name:
+// `Duration.add` here is the struct's own `add`, not std/duration's `Add`.
+func TestImplIdentity_AnInherentOperatorNameIsNotStdsImpl(t *testing.T) {
+	src := `pub struct Duration {
+    seconds: Int
+}
+
+impl Duration {
+    pub fn add(a: Duration, b: Duration) -> Duration {
+        #Duration{seconds: a.seconds + b.seconds}
+    }
+}
+
+fn main() {
+    total = Duration.add(#Duration{seconds: 1}, #Duration{seconds: 2})
+    _ = total.seconds
+}
+`
+	if msgs := implIdentityErrs(t, src); len(msgs) != 0 {
+		t.Fatalf("the user's own Duration.add should check, got %q", msgs)
+	}
+}

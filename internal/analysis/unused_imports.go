@@ -236,7 +236,7 @@ func findUnusedImports(fa *FileAnalysis, nodes []ast.Node) []UnusedImport {
 		// "io", ... — see cloneImportStmtForInject), which would otherwise
 		// satisfy the module-name rule below and mask every dead stdlib
 		// module import in project builds.
-		if IsSynthesizedLine(pos.Line) {
+		if compilerWritten(pos.Line) {
 			continue
 		}
 		if i, ok := bySym[ref]; ok {
@@ -282,6 +282,7 @@ func findUnusedImports(fa *FileAnalysis, nodes []ast.Node) []UnusedImport {
 		}
 	}
 	markQualifiedObjectUses(nodes, byQualifiedObjectName, used)
+	markExpansionTypeUses(nodes, byQualifiedObjectName, used)
 
 	var out []UnusedImport
 	for i, it := range items {
@@ -304,6 +305,16 @@ func findUnusedImports(fa *FileAnalysis, nodes []ast.Node) []UnusedImport {
 	return out
 }
 
+// compilerWritten reports whether a use at line is compiler output rather
+// than the file's own text: a synthesized line, except a macro's
+// expansion, which is code the file's declaration wrote. An expansion names
+// the declaring file's imports when it copies what the declaration says
+// (`query user(id: Int) -> Maybe<User>` generates a function returning
+// `Maybe<User>`), and that is the file's use of `User`.
+func compilerWritten(line int) bool {
+	return IsSynthesizedLine(line) && !IsExpansionLine(line)
+}
+
 type importBindingUseKey struct {
 	name string
 	pos  Pos
@@ -315,13 +326,13 @@ func markQualifiedObjectUses(nodes []ast.Node, byName map[string]int, used []boo
 			if fa, ok := n.(*ast.FieldAccess); ok {
 				switch obj := fa.Object.(type) {
 				case *ast.Ident:
-					if !IsSynthesizedLine(obj.Line) {
+					if !compilerWritten(obj.Line) {
 						if i, ok := byName[obj.Name]; ok {
 							used[i] = true
 						}
 					}
 				case *ast.TypeIdent:
-					if !IsSynthesizedLine(obj.Line) {
+					if !compilerWritten(obj.Line) {
 						if i, ok := byName[obj.Name]; ok {
 							used[i] = true
 						}
@@ -333,7 +344,7 @@ func markQualifiedObjectUses(nodes []ast.Node, byName map[string]int, used []boo
 				// own is not a name the file has. Mark the dotted prefixes
 				// too, so the import that made the qualifier reachable
 				// counts as used.
-				if fa.Field != nil && !IsSynthesizedLine(fa.Field.Line) {
+				if fa.Field != nil && !compilerWritten(fa.Field.Line) {
 					if path := fieldAccessPath(fa); len(path) >= 3 {
 						for end := 2; end < len(path); end++ {
 							if i, ok := byName[strings.Join(path[:end], ".")]; ok {
@@ -349,7 +360,7 @@ func markQualifiedObjectUses(nodes []ast.Node, byName map[string]int, used []boo
 			// one string, so the FieldAccess arms above never see the module
 			// at all and the import read `unused`. Mark the prefix and every
 			// dotted head inside it, the same set the FieldAccess path marks.
-			if qt, ok := n.(*ast.QualifiedType); ok && !IsSynthesizedLine(qt.ModuleLine) {
+			if qt, ok := n.(*ast.QualifiedType); ok && !compilerWritten(qt.ModuleLine) {
 				if i, ok := byName[qt.Module]; ok {
 					used[i] = true
 				}
@@ -358,6 +369,47 @@ func markQualifiedObjectUses(nodes []ast.Node, byName map[string]int, used []boo
 					if i, ok := byName[strings.Join(segs[:end], ".")]; ok {
 						used[i] = true
 					}
+				}
+			}
+			return true
+		})
+	}
+}
+
+// markExpansionTypeUses marks the imports a macro's expansion names
+// as types. The builder records no reference for a type written on a
+// synthesized line (walkTypeExpr), so the uses would otherwise be missed:
+// `query user(id: Int) -> Maybe<User>` imports `User` for the function
+// the expansion writes, and nowhere else. A type name in a file is the
+// file's binding of it, so the name is the use.
+func markExpansionTypeUses(nodes []ast.Node, byName map[string]int, used []bool) {
+	mark := func(name string) {
+		if i, ok := byName[name]; ok {
+			used[i] = true
+		}
+	}
+	for _, n := range nodes {
+		// A type a keyword declaration writes (`query user(id: Int) ->
+		// Maybe<User>`) is the file's use of it, whether or not the
+		// declaration's expansion copies it: one that could not expand
+		// still names what the file imported for it.
+		written := false
+		if _, ok := n.(*ast.KeywordDecl); ok {
+			written = true
+		}
+		ast.Inspect(n, func(n ast.Node) bool {
+			switch t := n.(type) {
+			case *ast.SimpleType:
+				if written || IsExpansionLine(t.Line) {
+					mark(t.Name)
+				}
+			case *ast.GenericType:
+				if written || IsExpansionLine(t.Line) {
+					mark(t.Name)
+				}
+			case *ast.QualifiedType:
+				if written {
+					mark(t.Module)
 				}
 			}
 			return true

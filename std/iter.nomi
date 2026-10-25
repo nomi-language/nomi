@@ -12,7 +12,7 @@
 //#
 //# The **terminals** are also type functions on `Iter` —
 //# `Iter.reduce(xs, f)` — over any `Iter<T>`. The `Iter` interface itself is
-//# just the `#{ each_while, known_count }` protocol. Terminals come in two kinds:
+//# just the `#{ each_while, known_count, infinite? }` protocol. Terminals come in two kinds:
 //# - Streaming: `reduce`, `each`, `find`, `any?`, `all?`, `empty?` produce a
 //# scalar; no concrete collection is ever built.
 //# - Materializing: `to_list`/`to_vector`/`to_set`/`sort`, plus `to_map`,
@@ -25,10 +25,22 @@
 //# the generic form (`Iter.reverse -> List`) stays an `Iter` type function.
 //#
 //# Infinite sequences: `Iter.from(0)` / `Iter.iterate(seed, step)` /
-//# `Iter.repeat(x)` / `Iter.cycle(xs)` produce iterators that don't
-//# terminate on their own. Bound them with `Iter.take(n)` or
-//# `Iter.take_while(pred)` before a materializing terminal, or use
-//# short-circuiting terminals like `Iter.find` / `Iter.any?`.
+//# `Iter.repeat(x)` / `Iter.cycle(xs)` and `Range.from(n)` produce iterators
+//# that don't terminate on their own, and say so: `Iter.infinite?` is True for
+//# them and for every lazy adapter over one that cannot stop it (`map`,
+//# `filter`, `drop`, `with_index`, `zip` of two of them, `concat` with one).
+//# A terminal that has to reach the end (`to_list`, `count`, `reduce`, `sum`,
+//# `max`, `sort`, `String.join`, ...) traps at once on such an iterator instead
+//# of running until memory runs out:
+//#
+//# ```text
+//# line 3: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+//# ```
+//#
+//# Bound them with `Iter.take(n)` or `Iter.take_while(pred)` before such a
+//# terminal, or use one that stops early: `Iter.find`, `any?`, `all?`,
+//# `first`, `get`, `contains?`, `empty?`, or a `reduce` whose callback can
+//# `break`.
 //#
 //# If you want a List back from a List, the spelling is always the explicit
 //# `Iter.map(xs, f) |> Iter.to_list()` — the lazy adapter plus a materialize
@@ -42,6 +54,12 @@
 //# `Iter` also hosts `loop`, the state-threading repetition primitive —
 //# it takes no collection, but its callback speaks the same `break`/`continue`
 //# protocol as every other iteration callback here.
+//#
+//# A named function that uses `break` or `continue` acts only on an
+//# iteration it is directly the callback of, so it is passed as the callback
+//# itself and never called: `Iter.map(xs, keep)`, or with the starting value
+//# by name for a fold, `Iter.reduce(xs, add_until_zero, from: 0)`. See
+//# [helper functions that break or continue](/iteration-and-loops/#helper-functions-that-break-or-continue).
 
 import {
     add.Add
@@ -103,24 +121,43 @@ pub interface Iter<T> {
 
     /// Some(n) if this iterator can report how many elements it yields without
     /// consuming them; None if it can't (a filtered/lazy pipeline) or won't
-    /// terminate (an unbounded source). `Iter.count` uses it for an O(1) count.
+    /// terminate (an unbounded source, which `infinite?` reports). `Iter.count`
+    /// uses it for an O(1) count. `Iter.take(n)` answers it when its source
+    /// does or never ends.
     open fn known_count(_collection: self) -> Maybe<Int> {
         None
+    }
+
+    /// True if this iterator never ends on its own, so a terminal that has to
+    /// reach its end (`Iter.to_list`, `Iter.count`, `Iter.sum`, ...) could
+    /// never answer. Such a terminal traps at once instead of running until
+    /// memory runs out. False means it may end. The sources that never end
+    /// (`Iter.repeat`, `Iter.from`, `Iter.iterate`, `Iter.cycle` of a
+    /// non-empty source, `Range.from`) answer True, and so does every lazy
+    /// adapter over one that cannot stop it; `Iter.take` and `Iter.take_while`
+    /// can.
+    ///
+    /// A type of your own answers False unless its impl writes this function.
+    open fn infinite?(_collection: self) -> Bool {
+        False
     }
 }
 
 impl Iter<T> {
     /// Loops indefinitely, invoking `f` each iteration. The callback either
-    /// carries state (declare its first parameter with a default — that default
-    /// is the initial state, e.g. `fn n = 0 ->`) or is stateless (`fn -> body`). The
-    /// callback's return value becomes the next iteration's state. The state
-    /// type, the `break` value type, and the loop's result type are all one
-    /// type `S`: for a stated callback `S` comes from the default, and a
+    /// carries state or is stateless (`fn -> body`). The starting state is
+    /// `from`, or the default of the callback lambda's parameter
+    /// (`fn n = 0 ->`): exactly one of the two, so a named function is
+    /// passed with `from:` (`Iter.loop(step, from: 0)`). The callback's
+    /// return value becomes the next iteration's state. The state type, the
+    /// `break` value type, and the loop's result type are all one type `S`:
+    /// for a stated callback `S` comes from the starting state, and a
     /// stateless callback has state `Unit`, so it breaks with `break` alone
     /// and the loop answers `Unit`.
     ///
     /// Use `break value` to exit with `value`, or bare `break` to exit with
-    /// the current state. Without an explicit break this loops forever.
+    /// the current state. `continue` starts the next round with the state
+    /// unchanged. Without an explicit break this loops forever.
     //
     //! assert Iter.loop(fn n = 0 -> {
     //!     if n >= 3 {
@@ -131,8 +168,19 @@ impl Iter<T> {
     //! }) == 3
     //!
     //! assert Iter.loop(fn -> { break }) == Unit
+    //!
+    //! assert Iter.loop(
+    //!     fn n -> {
+    //!         if n >= 3 {
+    //!             break n
+    //!         } else {
+    //!             n + 1
+    //!         }
+    //!     },
+    //!     from: 1,
+    //! ) == 3
     //
-    pub host fn loop<S>(f: (S) -> S) -> S
+    pub host fn loop<S>(from: S, f: (S) -> S) -> S
 
     // ---------------------------------------------------------------------------
     // Terminals. Owner functions over any `Iter<T>` — `Iter.reduce(xs, f)`,
@@ -149,27 +197,27 @@ impl Iter<T> {
     // ---------------------------------------------------------------------------
     /// Reduces a collection to a single value by folding.
     ///
-    /// The starting value is the default of the callback lambda's first
-    /// parameter: `fn acc = 0, x -> acc + x`. It is the answer for an empty
-    /// source. A callback without one (a function value such as `Int.add`, or
-    /// `fn a, b -> ...`) is a compile error; to fold with a named function, forward
-    /// to it from a seeded lambda, `fn acc = 0, x -> add(acc, x)`. For the least
-    /// or greatest element use `Iter.min` or `Iter.max`.
+    /// The starting value is `from`, or the default of the callback lambda's
+    /// first parameter: `Iter.reduce(xs, Int.add, from: 0)` and
+    /// `Iter.reduce(xs, fn acc = 0, x -> acc + x)` are the same fold. Exactly
+    /// one of the two gives it; both, or neither, is a compile error. It is
+    /// the answer for an empty source. For the least or greatest element use
+    /// `Iter.min` or `Iter.max`.
     ///
     /// Supports `break` / `break value` / `continue` in the callback.
     //! assert Iter.reduce([1, 2, 3], fn acc = 0, x -> acc + x) == 6
     //! assert Iter.reduce([], fn acc = 0, x -> acc + x) == 0
+    //! assert Iter.reduce([1, 2, 3], Int.add, from: 10) == 16
     //
-    pub host fn reduce<T, U>(source: Iter<T>, f: (U, T) -> U) -> U
+    pub host fn reduce<T, U>(source: Iter<T>, from: U, f: (U, T) -> U) -> U
 
     // `scan` and `map_reduce` are the folds that keep more than the final
-    // state. Both take their starting value as `reduce` does, from the
-    // callback lambda's first-parameter default.
+    // state. Both take their starting value as `reduce` does, from `from`
+    // or the callback lambda's first-parameter default.
     /// Lazy: runs a fold and yields each state after it. The starting value
-    /// is the default of the callback lambda's first parameter, as in
-    /// `Iter.reduce`, and is not itself yielded, so there is one state per
-    /// element and an empty source yields nothing. A callback without a
-    /// starting value is a compile error.
+    /// is `from` or the default of the callback lambda's first parameter, as
+    /// in `Iter.reduce`, and is not itself yielded, so there is one state per
+    /// element and an empty source yields nothing.
     ///
     /// In the callback, `continue` skips the element: no state is yielded
     /// and the state stays as it was. `break value` yields `value` as the
@@ -181,14 +229,14 @@ impl Iter<T> {
     //! peaks = [2, 5, 3, 7] |> Iter.scan(fn peak = 0, x -> Int.max(peak, x)) |> Iter.to_list()
     //! assert peaks == [2, 5, 5, 7]
     //
-    pub host fn scan<T, U>(source: Iter<T>, f: (U, T) -> U) -> Iter<U>
+    pub host fn scan<T, U>(source: Iter<T>, from: U, f: (U, T) -> U) -> Iter<U>
 
     /// Maps each element with a state threaded through, and returns the
     /// outputs in order with the final state. The callback takes the state
     /// and an element and returns `#(output, next_state)`; the starting state
-    /// is the default of its first parameter, as in `Iter.reduce`. An empty
-    /// source answers no outputs and the starting state. Consumes the whole
-    /// iterator.
+    /// is `from` or the default of its first parameter, as in `Iter.reduce`.
+    /// An empty source answers no outputs and the starting state. Consumes the
+    /// whole iterator.
     ///
     /// In the callback, `continue` skips the element: no output, and the
     /// state stays as it was. `break #(output, state)` keeps that output and
@@ -211,7 +259,7 @@ impl Iter<T> {
     //! none: List<String> = []
     //! assert Iter.map_reduce(none, fn n = 0, s -> #(s, n + 1)) == #([], 0)
     //
-    pub host fn map_reduce<T, U, A>(source: Iter<T>, f: (A, T) -> #(U, A)) -> #(List<U>, A)
+    pub host fn map_reduce<T, U, A>(source: Iter<T>, from: A, f: (A, T) -> #(U, A)) -> #(List<U>, A)
 
     /// Returns the first element matching the predicate, or None.
     //
@@ -373,7 +421,7 @@ impl Iter<T> {
     }
 
     /// Returns the last element, or None if the iterator is empty. Terminal;
-    /// consumes the whole iterator (does not terminate on an infinite source).
+    /// consumes the whole iterator, so it traps on an infinite source.
     //
     //! assert Iter.last([1, 2, 3]) == Some(3)
     //! assert Iter.last([]) == None
@@ -463,7 +511,9 @@ impl Iter<T> {
 
     /// Consumes the iterator and materializes its elements into a List. A `List`
     /// argument is returned as-is (O(1) — lists are immutable); any other iterator
-    /// is folded into a fresh List.
+    /// is folded into a fresh List. An infinite iterator (`Iter.infinite?`)
+    /// traps before anything is taken from it, since the List could never be
+    /// finished.
     //
     //! assert Iter.from(0) |> Iter.take(3) |> Iter.to_list() == [0, 1, 2]
     //
@@ -519,28 +569,42 @@ impl Iter<T> {
     }
 
     /// Lazy: yields at most the first `n` elements of `source`. Useful for bounding
-    /// an infinite iterator.
+    /// an infinite iterator: the result is never infinite, and its
+    /// `known_count` is `n` when `source` never ends, or the lesser of `n` and
+    /// the source's own count when it has one.
     //
     //! assert Iter.from(0) |> Iter.take(3) |> Iter.to_list() == [0, 1, 2]
+    //! refute Iter.repeat("x") |> Iter.take(3) |> Iter.infinite?()
+    //! assert Iter.repeat("x") |> Iter.take(3) |> Iter.known_count() == Some(3)
+    //! assert [1, 2] |> Iter.take(5) |> Iter.known_count() == Some(2)
     //
     pub fn take<T>(source: Iter<T>, n: Int) -> Iter<T> {
         #Seq{run: fn yield: (T) -> Bool -> take_each(source, n, yield)}
     }
 
     /// Lazy: cycles through `source` endlessly. Empty source yields nothing.
+    /// It is `infinite?` when `source` is, or when `source` knows its count
+    /// and it is not zero; a source that may be empty (a filtered one) leaves
+    /// it unknown.
     //
     //! assert [1, 2, 3]
     //! |> Iter.cycle()
     //! |> Iter.take(7)
     //! |> Iter.to_list() == [1, 2, 3, 1, 2, 3, 1]
+    //!
+    //! assert [1, 2] |> Iter.cycle() |> Iter.infinite?()
+    //! refute [] |> Iter.cycle() |> Iter.infinite?()
+    //! assert [1, 2] |> Iter.filter(&(&1 > 5)) |> Iter.cycle() |> Iter.to_list() == []
     //
     pub fn cycle<T>(source: Iter<T>) -> Iter<T> {
         #Seq{run: fn yield: (T) -> Bool -> cycle_each(source, yield)}
     }
 
-    /// Lazy: yields all elements of `a`, then all of `b`.
+    /// Lazy: yields all elements of `a`, then all of `b`. Infinite when
+    /// either is.
     //
     //! assert Iter.concat([1, 2], [3, 4]) |> Iter.to_list() == [1, 2, 3, 4]
+    //! assert Iter.concat([1, 2], Iter.from(3)) |> Iter.infinite?()
     //
     pub fn concat<T>(a: Iter<T>, b: Iter<T>) -> Iter<T> {
         // The one adapter that needs no host help: "drive a, then drive b, unless
@@ -557,9 +621,12 @@ impl Iter<T> {
         }
     }
 
-    /// Lazy: pairs elements from two iterators. Stops when either exhausts.
+    /// Lazy: pairs elements from two iterators. Stops when either exhausts,
+    /// so it is infinite only when both are.
     //
     //! assert Iter.zip([1, 2, 3], ["a", "b"]) |> Iter.to_list() == [#(1, "a"), #(2, "b")]
+    //! assert Iter.zip(["a", "b"], Iter.from(0)) |> Iter.to_list() == [#("a", 0), #("b", 1)]
+    //! assert Iter.zip(Iter.repeat("a"), Iter.from(0)) |> Iter.infinite?()
     //
     pub fn zip<T, U>(a: Iter<T>, b: Iter<U>) -> Iter<#(T, U)> {
         // The lone adapter a push protocol cannot express directly: two sources
@@ -578,12 +645,15 @@ impl Iter<T> {
     //! assert Iter.from(1)
     //! |> Iter.take_while(&(&1 < 4))
     //! |> Iter.to_list() == [1, 2, 3]
+    //!
+    //! refute Iter.from(1) |> Iter.take_while(&(&1 < 4)) |> Iter.infinite?()
     //
     pub fn take_while<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T> {
         #Seq{run: fn yield: (T) -> Bool -> take_while_each(source, pred, yield)}
     }
 
-    /// Lazy: applies `f` to each element of `source`.
+    /// Lazy: applies `f` to each element of `source`. Infinite when `source`
+    /// is, unless the callback can `break`.
     //
     //! assert [1, 2, 3] |> Iter.map(&(&1 * 10)) |> Iter.to_list() == [10, 20, 30]
     //
@@ -596,8 +666,13 @@ impl Iter<T> {
     /// then stops, `break False` drops it then stops, bare `break` stops without
     /// deciding, `continue` skips. Append `|> Iter.to_list()` for the strict,
     /// List-returning form.
+    ///
+    /// The filter of an infinite source is infinite even if nothing passes:
+    /// collecting it never finishes either way. A predicate that can `break`
+    /// may end it, so that filter is not known to be infinite.
     //
     //! assert [1, 2, 3, 4] |> Iter.filter(&(&1 > 2)) |> Iter.to_list() == [3, 4]
+    //! assert Iter.from(0) |> Iter.filter(&(&1 % 2 == 0)) |> Iter.infinite?()
     //
     pub fn filter<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T> {
         #Seq{run: fn yield: (T) -> Bool -> filter_each(source, pred, yield)}
@@ -662,6 +737,7 @@ impl Iter<T> {
     /// Infinite iterator yielding start, start+1, start+2, ...
     //
     //! assert Iter.from(10) |> Iter.take(3) |> Iter.to_list() == [10, 11, 12]
+    //! assert Iter.infinite?(Iter.from(10))
     //
     pub fn from(start: Int) -> Iter<Int> {
         #Seq{run: fn yield: (Int) -> Bool -> from_each(start, yield)}
@@ -670,6 +746,7 @@ impl Iter<T> {
     /// Infinite iterator yielding `x` forever.
     //
     //! assert Iter.repeat("ha") |> Iter.take(3) |> Iter.to_list() == ["ha", "ha", "ha"]
+    //! assert Iter.repeat("ha") |> Iter.map(&String.length(&1)) |> Iter.infinite?()
     //
     pub fn repeat<T>(x: T) -> Iter<T> {
         #Seq{run: fn yield: (T) -> Bool -> repeat_each(x, yield)}
@@ -684,9 +761,13 @@ impl Iter<T> {
     /// - `continue`: runtime error — iterate's step *is* the state-advancement,
     /// so `continue` has no next state to fall forward to. Use
     /// `Iter.iterate(...) |> Iter.filter(...)` to skip states.
+    ///
+    /// It is `infinite?` unless the step can `break`, which may end it.
     //! assert Iter.iterate(1, &(&1 * 2))
     //! |> Iter.take(4)
     //! |> Iter.to_list() == [1, 2, 4, 8]
+    //!
+    //! assert Iter.infinite?(Iter.iterate(1, &(&1 * 2)))
     //!
     //! assert Iter.iterate(0, fn n -> {
     //!     if n > 5 {
@@ -740,8 +821,8 @@ impl Iter<T> {
     /// (`List`/`Map`/`Set`/bounded ranges whose element type can count steps);
     /// everything else (lazy pipelines,
     /// `String`) inherits the `None` default and folds in O(n). Because the fold
-    /// runs to exhaustion, `Iter.count` does **not** terminate on an infinite
-    /// source — bound it with `Iter.take(n)` first. For the sized-only,
+    /// runs to exhaustion, `Iter.count` traps on an infinite source — bound it
+    /// with `Iter.take(n)` first. For the sized-only,
     /// non-consuming answer (`None` when unknown or unbounded), use
     /// `Iter.known_count` directly.
     //
@@ -835,8 +916,7 @@ impl Iter<T> {
     /// `Iter.reduce(xs, fn total = T.empty_sum(), x -> total + x)`, so it rounds
     /// Floats as that fold does, and an Int sum past the Int range traps as
     /// `+` does. Summing Maps follows Map's `+`: a later map wins on a shared
-    /// key. Consumes the whole iterator, so it does not end on an infinite
-    /// source.
+    /// key. Consumes the whole iterator, so it traps on an infinite source.
     //
     //! assert Iter.sum([1, 2, 3]) == 6
     //! assert Iter.sum([0.5, 0.25]) == 0.75

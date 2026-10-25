@@ -1,0 +1,320 @@
+import {
+    std/calendar.{Date, NaiveDateTime, Time}
+    std/instant.Instant
+    std/json.Json
+    std/sql.{self, ConstraintKind, Dialect, FromSql, Row, Sql, Statement, ToSql, Value}
+    std/uuid.Uuid
+}
+
+test "a literal's slots are parameters, and its text is the SQL around them" {
+    id = 42
+    name = "Ada"
+    s = Sql"SELECT * FROM users WHERE id = ${id} AND name = ${name}"
+    assert s.parts == ["SELECT * FROM users WHERE id = ", " AND name = ", ""]
+    assert s.params == [Value.Int(42), Value.Text("Ada")]
+    assert "${s}" == "SELECT * FROM users WHERE id = ?1 AND name = ?2"
+}
+
+test "a literal with no slots is one part" {
+    s = Sql"SELECT 1"
+    assert s.parts == ["SELECT 1"]
+    assert s.params == []
+}
+
+test "slots side by side and at either end keep the parts one more than the params" {
+    s = Sql"${1}${2} AND ${3}"
+    assert s.parts == ["", "", " AND ", ""]
+    assert Iter.count(s.params) == 3
+    assert "${s}" == "?1?2 AND ?3"
+}
+
+test "a value never becomes SQL text, whatever it holds" {
+    hostile = "x'); DROP TABLE users; -- \"quoted\""
+    s = Sql"SELECT id FROM users WHERE name = ${hostile}"
+    assert s.parts == ["SELECT id FROM users WHERE name = ", ""]
+    assert s.params == [Value.Text(hostile)]
+    refute Iter.any?(s.parts, &String.contains?(&1, "DROP"))
+    assert "${s}" == "SELECT id FROM users WHERE name = ?1"
+}
+
+test "a NULL parameter is Maybe's None" {
+    nickname: Maybe<String> = None
+    age: Maybe<Int> = Some(36)
+    s = Sql"UPDATE users SET nickname = ${nickname}, age = ${age}"
+    assert s.params == [Value.Null, Value.Int(36)]
+}
+
+test "a slot takes any ToSql value, each its own Value" {
+    day = Date`2026-10-19`
+    at = Instant.from_seconds(1760866200)
+    id = Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a`
+    due: Maybe<Date> = Some(day)
+    paid: Maybe<Instant> = None
+
+    s = Sql"""
+        INSERT INTO orders VALUES (${id}, ${day}, ${Time`09:30:00`}, ${NaiveDateTime`2026-10-19T09:30:00`},
+        ${at}, ${12.50d}, ${2.5}, ${True}, ${Bytes.from_list([])}, ${Json.Int(1)}, ${due}, ${paid})
+        """
+
+    assert s.params == [
+        Value.Uuid(id),
+        Value.Date(day),
+        Value.Time(Time`09:30:00`),
+        Value.Timestamp(NaiveDateTime`2026-10-19T09:30:00`),
+        Value.Timestamptz(at),
+        Value.Decimal(12.50d),
+        Value.Float(2.5),
+        Value.Bool(True),
+        Value.Bytes(Bytes.from_list([])),
+        Value.Json(Json.Int(1)),
+        Value.Date(day),
+        Value.Null,
+    ]
+}
+
+test "a row reads every std type, and Maybe of each" {
+    day = Date`2026-10-19`
+    at = Instant.from_seconds(1760866200)
+
+    row = Row.new("SELECT *", [
+        #("day", Value.Date(day)),
+        #("at", Value.Timestamptz(at)),
+        #("price", Value.Decimal(12.50d)),
+        #("doc", Value.Json(Json.Null)),
+        #("gone", Value.Null),
+    ])
+
+    assert Row.get<Date>(row, "day") == Ok(day)
+    assert Row.get<Maybe<Date>>(row, "day") == Ok(Some(day))
+    assert Row.get<Instant>(row, "at") == Ok(at)
+    assert Row.get<Decimal>(row, "price") == Ok(12.50d)
+    assert Row.get<Json>(row, "doc") == Ok(Json.Null)
+    assert Row.get<Maybe<Decimal>>(row, "gone") == Ok(None)
+
+    assert Row.get<Decimal>(row, "gone") == Err(
+        #sql.Error.UnexpectedNull{query: "SELECT *", column: "gone"}
+    )
+}
+
+test "a statement is a value: equal when its parts and parameters are" {
+    assert Sql"SELECT ${1}" == Sql"SELECT ${1}"
+    assert Sql"SELECT ${1}" != Sql"SELECT ${2}"
+    assert Sql"SELECT ${1}" == #Statement{parts: ["SELECT ", ""], params: [Value.Int(1)]}
+
+    assert Debug.inspect(
+        Sql"SELECT ${1}"
+    ) == "#Statement{parts: [\"SELECT \", \"\"], params: [Int(1)]}"
+}
+
+// to_sql then from_sql answers the value it started with.
+fn round_trips?<T>(value: T) -> Bool where T: ToSql and FromSql and Equatable {
+    T.from_sql(T.to_sql(value)) == Ok(value)
+}
+
+test "each std type round-trips through Value" {
+    assert round_trips?(7)
+    assert round_trips?(-1.5)
+    assert round_trips?(12.50d)
+    assert round_trips?("text with 'quotes'")
+    assert round_trips?(True)
+    assert round_trips?(Bytes.from_list([]))
+    assert round_trips?(Date`2026-10-19`)
+    assert round_trips?(Time`09:30:00`)
+    assert round_trips?(NaiveDateTime`2026-10-19T09:30:00`)
+    at = Instant.from_seconds(1760866200)
+    assert Instant.from_sql(ToSql.to_sql(at)) == Ok(at)
+    assert round_trips?(Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a`)
+    doc = Json.Arr([Json.Int(1), Json.Null])
+    assert Json.from_sql(ToSql.to_sql(doc)) == Ok(doc)
+    assert round_trips?(Value.Null)
+}
+
+test "each std type becomes its own Value variant" {
+    assert ToSql.to_sql(7) == Value.Int(7)
+    assert ToSql.to_sql(-1.5) == Value.Float(-1.5)
+    assert ToSql.to_sql(12.50d) == Value.Decimal(12.50d)
+    assert ToSql.to_sql("a") == Value.Text("a")
+    assert ToSql.to_sql(False) == Value.Bool(False)
+    assert ToSql.to_sql(Date`2026-10-19`) == Value.Date(Date`2026-10-19`)
+    assert ToSql.to_sql(Time`09:30:00`) == Value.Time(Time`09:30:00`)
+
+    assert ToSql.to_sql(NaiveDateTime`2026-10-19T09:30:00`) == Value.Timestamp(
+        NaiveDateTime`2026-10-19T09:30:00`
+    )
+
+    assert ToSql.to_sql(Instant.from_seconds(5)) == Value.Timestamptz(Instant.from_seconds(5))
+    assert ToSql.to_sql(Uuid.nil()) == Value.Uuid(Uuid.nil())
+    assert ToSql.to_sql(Json.Bool(True)) == Value.Json(Json.Bool(True))
+}
+
+test "NULL round-trips as None, and a Maybe holding a value as that value" {
+    nothing: Maybe<Date> = None
+    assert ToSql.to_sql(nothing) == Value.Null
+    assert round_trips?(nothing)
+    assert round_trips?(Some(Date`2026-10-19`))
+    assert round_trips?(Some(Some(3)))
+    assert ToSql.to_sql(Some("x")) == Value.Text("x")
+}
+
+test "from_sql names the type it expected when the value is not one" {
+    assert Int.from_sql(Value.Text("7")) == Err("Int")
+    assert String.from_sql(Value.Int(7)) == Err("String")
+    assert Float.from_sql(Value.Int(7)) == Err("Float")
+    assert Date.from_sql(Value.Null) == Err("Date")
+    assert Uuid.from_sql(Value.Text("0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a")) == Err("Uuid")
+}
+
+fn user_row() -> Row {
+    Row.new("SELECT id, name, nickname FROM users", [
+        #("id", Value.Int(7)),
+        #("name", Value.Text("Ada")),
+        #("nickname", Value.Null),
+    ])
+}
+
+test "a row reads by column name" {
+    row = user_row()
+    id: Int = try Row.get(row, "id")
+    assert id == 7
+    assert Row.get<String>(row, "name") == Ok("Ada")
+    assert Row.get<Maybe<String>>(row, "nickname") == Ok(None)
+    assert Row.value(row, "name") == Ok(Value.Text("Ada"))
+    assert Row.columns(row) == ["id", "name", "nickname"]
+    assert Row.values(row) == [Value.Int(7), Value.Text("Ada"), Value.Null]
+    assert Row.query(row) == "SELECT id, name, nickname FROM users"
+}
+
+test "a row reads by position, from 0" {
+    row = user_row()
+    name: String = try Row.get_position(row, 1)
+    assert name == "Ada"
+    assert Row.get_position<Int>(row, 0) == Ok(7)
+    assert Row.get_position<Maybe<String>>(row, 2) == Ok(None)
+    assert Row.value_position(row, 0) == Ok(Value.Int(7))
+}
+
+test "a missing column and a position past the end are typed errors" {
+    row = user_row()
+    query = "SELECT id, name, nickname FROM users"
+    assert Row.get<Int>(row, "age") == Err(#sql.Error.MissingColumn{query, column: "age"})
+    assert Row.value(row, "Name") == Err(#sql.Error.MissingColumn{query, column: "Name"})
+
+    assert Row.get_position<Int>(row, 3) == Err(
+        #sql.Error.ColumnPosition{query, position: 3, count: 3}
+    )
+
+    assert Row.value_position(row, -1) == Err(
+        #sql.Error.ColumnPosition{query, position: -1, count: 3}
+    )
+}
+
+test "a value of the wrong type is a Decode error naming the column and both types" {
+    row = user_row()
+    query = "SELECT id, name, nickname FROM users"
+
+    assert Row.get<Int>(row, "name") == Err(
+        #sql.Error.Decode{query, column: "name", expected: "Int", found: "Text"}
+    )
+
+    assert Row.get_position<Bool>(row, 0) == Err(
+        #sql.Error.Decode{query, column: "id", expected: "Bool", found: "Int"}
+    )
+}
+
+test "NULL read as a type that cannot hold it is UnexpectedNull" {
+    row = user_row()
+    query = "SELECT id, name, nickname FROM users"
+
+    assert Row.get<String>(row, "nickname") == Err(
+        #sql.Error.UnexpectedNull{query, column: "nickname"}
+    )
+
+    assert Row.get_position<String>(row, 2) == Err(
+        #sql.Error.UnexpectedNull{query, column: "nickname"}
+    )
+}
+
+test "a constraint error keeps the constraint's name" {
+    e = #sql.Error.Constraint{
+        kind: ConstraintKind.Unique,
+        name: "users_email_key",
+        table: Some("users"),
+        column: Some("email"),
+    }
+
+    assert #sql.Error.Constraint{name} = e
+    assert name == "users_email_key"
+    assert "${e}" == "unique constraint `users_email_key` on `users.email` failed"
+
+    assert Debug.inspect(
+        e
+    ) == "#Constraint{kind: Unique, name: \"users_email_key\", table: Some(\"users\"), column: Some(\"email\")}"
+}
+
+test "every error displays as a sentence" {
+    query = "SELECT 1"
+    assert "${#sql.Error.Connection{message: "refused"}}" == "cannot reach the database: refused"
+
+    assert "${#sql.Error.Constraint{
+        kind: .ForeignKey,
+        name: "orders_user_id_fkey",
+        table: None,
+        column: None,
+    }}" == "foreign key constraint `orders_user_id_fkey` failed"
+
+    assert "${#sql.Error.Constraint{
+        kind: .NotNull,
+        name: "c",
+        table: None,
+        column: Some("email"),
+    }}" == "not-null constraint `c` on column `email` failed"
+
+    assert "${#sql.Error.Serialization{
+        message: "conflict",
+    }}" == "the transaction conflicted with another and was rolled back: conflict"
+
+    assert "${#sql.Error.Database{
+        code: "42P01",
+        message: "no such table",
+    }}" == "database error 42P01: no such table"
+
+    assert "${#sql.Error.RowCount{
+        query,
+        expected: "one",
+        found: 2,
+    }}" == "expected one rows, found 2, from `SELECT 1`"
+
+    assert "${#sql.Error.UnexpectedNull{
+        query,
+        column: "n",
+    }}" == "column `n` is NULL, from `SELECT 1`"
+
+    assert "${#sql.Error.Decode{
+        query,
+        column: "n",
+        expected: "Int",
+        found: "Text",
+    }}" == "column `n` holds a Text value, not a Int, from `SELECT 1`"
+
+    assert "${#sql.Error.MissingColumn{
+        query,
+        column: "n",
+    }}" == "no column named `n` in the row from `SELECT 1`"
+
+    assert "${#sql.Error.ColumnPosition{
+        query,
+        position: 4,
+        count: 1,
+    }}" == "no column at position 4 in a row of 1 columns from `SELECT 1`"
+
+    assert "${sql.Error.Finished}" == "the transaction was already committed or rolled back"
+    assert "${sql.Error.Closed}" == "the connection was closed"
+    assert "${sql.Error.Timeout}" == "the database did not answer in time"
+}
+
+test "a dialect displays its engine's name" {
+    assert "${Dialect.Sqlite}" == "SQLite"
+    assert "${Dialect.Postgres}" == "Postgres"
+    assert "${Dialect.Other("duckdb")}" == "duckdb"
+    assert Dialect.Other("duckdb") != Dialect.Sqlite
+}

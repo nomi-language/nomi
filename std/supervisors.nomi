@@ -181,7 +181,8 @@ pub enum FlushOutcome {
 /// }
 ///
 /// fn boot() -> Config {
-///     #Config{context: Context.root(),
+///     #Config{
+///         context: Context.root(),
 ///         audit: Supervisor.new(shutdown_timeout: Duration.seconds(30), max_running: 4),
 ///         notify: Supervisor.new(shutdown_timeout: Duration.milliseconds(200), max_running: 50),
 ///     }
@@ -296,7 +297,8 @@ impl Supervisor {
     /// Bodies return `Unit`, as all supervised work does, so there is
     /// nothing to collect. The handles come back for cancellation, or for
     /// `Task.await_all` when you want to wait for *this* batch rather than
-    /// the supervisor's whole workload.
+    /// the supervisor's whole workload. It consumes the whole source, so a
+    /// source that is `Iter.infinite?` traps before any task is spawned.
     pub host fn spawn_all<T>(
         supervisor: Supervisor,
         source: Iter<T>,

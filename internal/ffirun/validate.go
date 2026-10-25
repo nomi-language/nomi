@@ -9,16 +9,30 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/iancoleman/strcase"
+	"golang.org/x/mod/modfile"
+
 	nomiast "github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ffitypes"
+	"github.com/nomi-language/nomi/internal/modcache"
 )
 
 func validateDiscoveredGoBindings(projectRoot string, packages []DiscoveredPackage) error {
 	var problems []string
+	opaque := map[string]bool{}
+	for _, pkg := range packages {
+		for _, typ := range pkg.Types {
+			localName := typ.LocalName
+			if localName == "" {
+				localName = localTypeNameFromKey(typ.Key)
+			}
+			opaque[localName] = true
+		}
+	}
 	for _, pkg := range packages {
 		if !isFile(filepath.Join(projectRoot, "go.mod")) && !IsStdPackage(pkg.ImportPath) {
 			problems = append(problems, fmt.Sprintf(
@@ -35,8 +49,15 @@ func validateDiscoveredGoBindings(projectRoot string, packages []DiscoveredPacka
 			if !goModProvidesImportPath(projectRoot, pkg.ImportPath) {
 				problems = append(problems, fmt.Sprintf(
 					"%s: Go package %q is not provided by the current Go module, a require, or a replace in go.mod; "+
-						"add it with `go get %s` or add an explicit require/replace",
+						"run `nomi add %s` to add its module",
 					packageLocation(projectRoot, pkg), pkg.ImportPath, pkg.ImportPath))
+			} else {
+				// A required module whose source is not on disk: the
+				// adapters are generated from that source.
+				problems = append(problems, fmt.Sprintf(
+					"%s: Go package %q is in a module go.mod requires, which is not in the Go module cache; "+
+						"run `nomi fetch` to download it",
+					packageLocation(projectRoot, pkg), pkg.ImportPath))
 			}
 			continue
 		}
@@ -46,12 +67,20 @@ func validateDiscoveredGoBindings(projectRoot string, packages []DiscoveredPacka
 				packageLocation(projectRoot, pkg), pkg.ImportPath))
 			continue
 		}
+		if !src.std {
+			if why := cgoProblem(projectRoot, pkg.ImportPath); why != "" {
+				problems = append(problems, fmt.Sprintf("%s: Go package %q %s",
+					packageLocation(projectRoot, pkg), pkg.ImportPath, why))
+				continue
+			}
+		}
 		symbols, err := src.symbols()
 		if err != nil {
 			problems = append(problems, fmt.Sprintf("%s: %v", packageLocation(projectRoot, pkg), err))
 			continue
 		}
 		boundTypes := makeGoTypeBindings(symbols)
+		check := &projectionCheck{boundTypes: boundTypes, goStructs: symbols.structs, opaque: opaque}
 		for _, typ := range pkg.Types {
 			localName := typ.LocalName
 			if localName == "" {
@@ -80,7 +109,7 @@ func validateDiscoveredGoBindings(projectRoot string, packages []DiscoveredPacka
 					pkg.ImportPath, exp.FuncName, exp.Key))
 				continue
 			}
-			problems = append(problems, validateFunctionSignature(projectRoot, pkg.ImportPath, exp, goFunc, boundTypes, symbols.structs)...)
+			problems = append(problems, validateFunctionSignature(projectRoot, pkg.ImportPath, exp, goFunc, check)...)
 		}
 	}
 	if len(problems) == 0 {
@@ -89,7 +118,7 @@ func validateDiscoveredGoBindings(projectRoot string, packages []DiscoveredPacka
 	return fmt.Errorf("nomi FFI binding validation failed:\n  - %s", strings.Join(problems, "\n  - "))
 }
 
-func validateFunctionSignature(projectRoot, importPath string, exp DiscoveredExport, goFunc goFuncSymbol, boundTypes goTypeBindings, goStructs map[string]goStructSymbol) []string {
+func validateFunctionSignature(projectRoot, importPath string, exp DiscoveredExport, goFunc goFuncSymbol, check *projectionCheck) []string {
 	loc := bindingLocation(projectRoot, exp.SourceFile, exp.SourceLine, exp.SourceCol)
 	if goFunc.typ.TypeParams != nil && goFunc.typ.TypeParams.NumFields() > 0 {
 		return []string{fmt.Sprintf(
@@ -97,8 +126,9 @@ func validateFunctionSignature(projectRoot, importPath string, exp DiscoveredExp
 				"write a non-generic Go function that calls it and bind that",
 			loc, exp.FuncName, importPath)}
 	}
+	check.begin(loc, exp.FuncName, importPath, exp)
 	var problems []string
-	goParams, unsupported := goFieldListNomiTypes(goFunc.typ.Params, boundTypes, goFunc.imports, true)
+	goParams, unsupported := goFieldListNomiTypes(goFunc.typ.Params, check.boundTypes, goFunc.imports, true)
 	for _, msg := range unsupported {
 		problems = append(problems, fmt.Sprintf(
 			"%s: Go function %q in package %q has unsupported parameter type: %s",
@@ -114,68 +144,405 @@ func validateFunctionSignature(projectRoot, importPath string, exp DiscoveredExp
 			loc, exp.FuncName, importPath, len(goParams), plural(len(goParams)), len(exp.Params)))
 	} else {
 		for i, want := range goParams {
-			got := ""
-			if exp.Params[i].TypeAnnotation != nil {
-				got = exp.Params[i].TypeAnnotation.TypeString()
-			}
+			declared := exp.Params[i].TypeAnnotation
 			paramLabel := fmt.Sprintf("parameter %d", i+1)
 			if exp.Params[i].Name != "" {
 				paramLabel = fmt.Sprintf("parameter %d %q", i+1, exp.Params[i].Name)
 			}
-			if got == "" {
+			if declared == nil {
 				problems = append(problems, fmt.Sprintf(
 					"%s: signature mismatch for Go function %q in package %q: %s projects to %s, but Nomi has no type annotation",
 					loc, exp.FuncName, importPath, paramLabel, want))
 				continue
 			}
-			if got != want {
+			if !check.matches(want, declared) {
 				problems = append(problems, fmt.Sprintf(
-					"%s: signature mismatch for Go function %q in package %q: %s projects to %s, but Nomi declares %s",
-					loc, exp.FuncName, importPath, paramLabel, want, got))
+					"%s: signature mismatch for Go function %q in package %q: %s projects to %s, but Nomi declares %s%s",
+					loc, exp.FuncName, importPath, paramLabel, want, declared.TypeString(), check.hint(want, declared)))
 				continue
 			}
-			goExpr := goParamExprAt(goFunc.typ.Params, i)
-			problems = append(problems, validateProjectedStructShape(
-				loc, exp.FuncName, importPath, fmt.Sprintf("%s struct", paramLabel),
-				goExpr, exp.Params[i].TypeAnnotation, boundTypes, goStructs, exp.Structs,
-			)...)
+			problems = append(problems, check.slotStructs(paramLabel+" struct", want, declared)...)
 		}
 	}
 
-	wantReturn, returnUnsupported := goResultNomiType(goFunc.typ.Results, boundTypes, goFunc.imports, true)
+	wantReturn, returnUnsupported := goResultNomiType(goFunc.typ.Results, check.boundTypes, goFunc.imports, true)
 	for _, msg := range returnUnsupported {
 		problems = append(problems, fmt.Sprintf(
 			"%s: Go function %q in package %q has unsupported return type: %s",
 			loc, exp.FuncName, importPath, msg))
 	}
-	gotReturn := "Unit"
-	if exp.ReturnType != nil {
-		gotReturn = exp.ReturnType.TypeString()
-	}
-	if len(returnUnsupported) > 0 {
+	if len(returnUnsupported) > 0 || wantReturn == nil {
 		return problems
 	}
-	if wantReturn != "" && gotReturn != wantReturn {
+	declared := exp.ReturnType
+	if declared == nil {
+		declared = &nomiast.SimpleType{Name: ffitypes.NomiUnit}
+	}
+	if !check.matches(wantReturn, declared) {
 		problems = append(problems, fmt.Sprintf(
-			"%s: signature mismatch for Go function %q in package %q: return projects to %s, but Nomi declares %s",
-			loc, exp.FuncName, importPath, wantReturn, gotReturn))
-	} else if wantReturn != "" {
-		// A tuple return puts one Go result behind each element, so the
-		// struct-shape check walks the elements in lockstep with the Go
-		// result list. A non-tuple return is the one-element case.
-		elems := nomiReturnElems(resultOkType(exp.ReturnType))
-		for i, elem := range elems {
-			label := "return struct"
-			if len(elems) > 1 {
-				label = fmt.Sprintf("return element %d struct", i+1)
+			"%s: signature mismatch for Go function %q in package %q: return projects to %s, but Nomi declares %s%s",
+			loc, exp.FuncName, importPath, wantReturn, declared.TypeString(), check.hint(wantReturn, declared)))
+		return problems
+	}
+	return append(problems, check.slotStructs("return struct", wantReturn, declared)...)
+}
+
+// goProjection is the Nomi type a Go type projects to. It is a tree, so a
+// Go struct can stand in it as a shape rather than as a name.
+type goProjection struct {
+	kind goProjectionKind
+	// name is a leaf's Nomi type name (String, Unit, an opaque binding's
+	// local name, or "error", this package's sentinel for the trailing
+	// result) or a generic's (List, Maybe, Map, Result).
+	name string
+	// args are a generic's type arguments, a tuple's elements or a
+	// callback's parameters.
+	args []*goProjection
+	// ret is a callback's result.
+	ret *goProjection
+	// goStruct is a projStruct's Go type name, a struct declared in the
+	// bound package.
+	goStruct string
+}
+
+type goProjectionKind uint8
+
+const (
+	projLeaf goProjectionKind = iota
+	projGeneric
+	projTuple
+	projFunc
+	// projStruct is a Go struct no `opaque type` binds. It projects to a
+	// Nomi struct with the same fields, whatever either is named: the Nomi
+	// type's identity comes from the declaration, never from the Go type.
+	projStruct
+)
+
+func projLeafOf(name string) *goProjection { return &goProjection{kind: projLeaf, name: name} }
+
+func projGenericOf(name string, args ...*goProjection) *goProjection {
+	return &goProjection{kind: projGeneric, name: name, args: args}
+}
+
+func (p *goProjection) isLeaf(name string) bool { return p.kind == projLeaf && p.name == name }
+
+func (p *goProjection) String() string {
+	join := func(ps []*goProjection) string {
+		parts := make([]string, len(ps))
+		for i, a := range ps {
+			parts[i] = a.String()
+		}
+		return strings.Join(parts, ", ")
+	}
+	switch p.kind {
+	case projGeneric:
+		return p.name + "<" + join(p.args) + ">"
+	case projTuple:
+		return "#(" + join(p.args) + ")"
+	case projFunc:
+		return "(" + join(p.args) + ") -> " + p.ret.String()
+	case projStruct:
+		return "a struct (Go " + p.goStruct + ")"
+	}
+	return p.name
+}
+
+// projectionCheck compares the Nomi types a binding declares with the Go
+// types their slots hold, for the bindings of one Go package.
+//
+// Every slot must agree in structure (List with a slice, Maybe with a
+// pointer, a callback with a func, a tuple with the Go results), a scalar
+// with its row of the projection table, and an opaque binding with the Go
+// type it binds. A Go struct that no `opaque type` binds is a shape, not a
+// name: it fills a slot whose declared type names a Nomi struct, whatever
+// either is called. A struct of the declaring file is then held to the Go
+// struct's exported fields, both ways and at every depth. A struct declared
+// in another Nomi file is not read here; the adapter generator holds its
+// fields to the Go struct's. A Go struct in a slot that declares a projected
+// scalar, an opaque binding, a generic, a tuple or a function type is a
+// mismatch, and so is a Nomi struct in a slot whose Go type is no struct.
+//
+// A distinct type crosses as its inner type does, so one the check reads
+// (declared in the binding's file, or std's Duration and Instant) is
+// compared through its inner type, at every depth. Dynamic is a leaf: a Go
+// empty interface or rt.Dynamic projects to it, and nothing else does.
+type projectionCheck struct {
+	boundTypes goTypeBindings
+	goStructs  map[string]goStructSymbol
+	// opaque is every Nomi name an `opaque type ... go` binding declares, in
+	// any bound package: a type that is no struct.
+	opaque map[string]bool
+
+	loc, funcName, importPath string
+	nomiStructs               map[string]*nomiast.StructDef
+	nomiDistincts             map[string]*nomiast.TypeDef
+	// seen is each (Go struct, Nomi struct) pair whose fields the check of
+	// one slot has compared, so a recursive struct ends.
+	seen map[[2]string]bool
+	// unwrapping is each distinct whose inner type the check is comparing,
+	// so a distinct that reaches itself ends.
+	unwrapping map[string]bool
+}
+
+func (c *projectionCheck) begin(loc, funcName, importPath string, exp DiscoveredExport) {
+	c.loc, c.funcName, c.importPath = loc, funcName, importPath
+	c.nomiStructs, c.nomiDistincts = exp.Structs, exp.Distincts
+	c.unwrapping = map[string]bool{}
+}
+
+// stdDistinctInner is the inner type of each std distinct a binding may
+// name: Duration and Instant are `opaque type ... Int`, so an int64 slot
+// carries either one, as well as time.Duration and time.Time.
+var stdDistinctInner = map[string]nomiast.TypeExpr{
+	ffitypes.NomiDuration: &nomiast.SimpleType{Name: ffitypes.NomiInt},
+	ffitypes.NomiInstant:  &nomiast.SimpleType{Name: ffitypes.NomiInt},
+}
+
+// distinct reports whether t names a distinct type the check reads (one
+// declared in the binding's file, or std's Duration and Instant), and its
+// inner type: nil for a marker, which holds no value and has no Go
+// projection.
+func (c *projectionCheck) distinct(t nomiast.TypeExpr) (string, nomiast.TypeExpr, bool) {
+	v, ok := t.(*nomiast.SimpleType)
+	if !ok {
+		return "", nil, false
+	}
+	if d := c.nomiDistincts[v.Name]; d != nil {
+		return v.Name, d.InnerTypeExpr, true
+	}
+	if c.nomiStructs[v.Name] != nil || c.opaque[v.Name] {
+		return "", nil, false
+	}
+	if inner, ok := stdDistinctInner[v.Name]; ok {
+		return v.Name, inner, true
+	}
+	return "", nil, false
+}
+
+// unwrapped calls f with the inner type of the distinct t names, and
+// reports false for a marker or a distinct that reaches itself.
+func (c *projectionCheck) unwrapped(name string, inner nomiast.TypeExpr, f func(nomiast.TypeExpr) bool) bool {
+	if inner == nil || c.unwrapping[name] {
+		return false
+	}
+	c.unwrapping[name] = true
+	defer delete(c.unwrapping, name)
+	return f(inner)
+}
+
+// slotStructs is structs for one parameter or result.
+func (c *projectionCheck) slotStructs(label string, p *goProjection, t nomiast.TypeExpr) []string {
+	c.seen = map[[2]string]bool{}
+	return c.structs(label, p, t)
+}
+
+// projectedNomiNames are the Nomi types the scalar table projects. A slot
+// declaring one holds no struct.
+var projectedNomiNames = map[string]bool{
+	ffitypes.NomiString: true, ffitypes.NomiBool: true, ffitypes.NomiByte: true,
+	ffitypes.NomiInt: true, ffitypes.NomiFloat: true, ffitypes.NomiBytes: true,
+	ffitypes.NomiDuration: true, ffitypes.NomiInstant: true, ffitypes.NomiDynamic: true,
+	ffitypes.NomiUnit: true,
+}
+
+// matches reports whether the declared Nomi type t agrees with the
+// projection p of the Go type in its slot.
+func (c *projectionCheck) matches(p *goProjection, t nomiast.TypeExpr) bool {
+	if t == nil {
+		return false
+	}
+	// A distinct crosses as its inner type does, at any depth; Duration
+	// also fills a time.Duration slot, and Instant a time.Time one.
+	if name, inner, ok := c.distinct(t); ok && !p.isLeaf(name) {
+		return c.unwrapped(name, inner, func(inner nomiast.TypeExpr) bool { return c.matches(p, inner) })
+	}
+	if p.kind == projStruct {
+		return c.namesStruct(t)
+	}
+	switch v := t.(type) {
+	case *nomiast.SimpleType:
+		return p.isLeaf(v.Name)
+	case *nomiast.GenericType:
+		return p.kind == projGeneric && p.name == v.Name && c.allMatch(p.args, v.Params)
+	case *nomiast.FuncType:
+		if v.Return == nil {
+			return p.kind == projTuple && c.allMatch(p.args, v.Params)
+		}
+		return p.kind == projFunc && c.allMatch(p.args, v.Params) && c.matches(p.ret, v.Return)
+	}
+	return p.String() == t.TypeString()
+}
+
+// hint explains a mismatch the projection table alone does not: a Dynamic
+// declared against a Go type that is no empty interface.
+func (c *projectionCheck) hint(p *goProjection, t nomiast.TypeExpr) string {
+	if c.dynamicAgainstConcrete(p, t) {
+		return "; Dynamic crosses only as a Go empty interface (any) or rt.Dynamic, so declare the type the Go value has"
+	}
+	return ""
+}
+
+// dynamicAgainstConcrete reports whether t declares Dynamic somewhere p
+// projects another type.
+func (c *projectionCheck) dynamicAgainstConcrete(p *goProjection, t nomiast.TypeExpr) bool {
+	if name, inner, ok := c.distinct(t); ok && !p.isLeaf(name) {
+		return c.unwrapped(name, inner, func(inner nomiast.TypeExpr) bool { return c.dynamicAgainstConcrete(p, inner) })
+	}
+	switch v := t.(type) {
+	case *nomiast.SimpleType:
+		return v.Name == ffitypes.NomiDynamic && !p.isLeaf(ffitypes.NomiDynamic) && c.nomiStructs[v.Name] == nil
+	case *nomiast.GenericType:
+		return p.kind == projGeneric && c.anyDynamicAgainstConcrete(p.args, v.Params)
+	case *nomiast.FuncType:
+		if c.anyDynamicAgainstConcrete(p.args, v.Params) {
+			return true
+		}
+		return p.kind == projFunc && v.Return != nil && c.dynamicAgainstConcrete(p.ret, v.Return)
+	}
+	return false
+}
+
+func (c *projectionCheck) anyDynamicAgainstConcrete(ps []*goProjection, ts []nomiast.TypeExpr) bool {
+	if len(ps) != len(ts) {
+		return false
+	}
+	for i := range ps {
+		if c.dynamicAgainstConcrete(ps[i], ts[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *projectionCheck) allMatch(ps []*goProjection, ts []nomiast.TypeExpr) bool {
+	if len(ps) != len(ts) {
+		return false
+	}
+	for i := range ps {
+		if !c.matches(ps[i], ts[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// namesStruct reports whether t may name a Nomi struct: a struct of the
+// declaring file, or a bare or qualified name of another file's type, which
+// this check does not read. A projected scalar and an opaque binding are no
+// structs.
+func (c *projectionCheck) namesStruct(t nomiast.TypeExpr) bool {
+	switch v := t.(type) {
+	case *nomiast.SimpleType:
+		if c.nomiStructs[v.Name] != nil {
+			return true
+		}
+		return !projectedNomiNames[v.Name] && !c.opaque[v.Name]
+	case *nomiast.QualifiedType:
+		_, simple := v.Member.(*nomiast.SimpleType)
+		return simple
+	}
+	return false
+}
+
+// structs compares the fields of each Go struct in p with the declaring
+// file's Nomi struct in the same place of t. t must match p.
+func (c *projectionCheck) structs(label string, p *goProjection, t nomiast.TypeExpr) []string {
+	if name, inner, ok := c.distinct(t); ok && !p.isLeaf(name) {
+		var problems []string
+		c.unwrapped(name, inner, func(inner nomiast.TypeExpr) bool {
+			problems = c.structs(label, p, inner)
+			return true
+		})
+		return problems
+	}
+	switch p.kind {
+	case projStruct:
+		if v, ok := t.(*nomiast.SimpleType); ok {
+			return c.structFields(label, p.goStruct, v.Name)
+		}
+	case projGeneric:
+		if v, ok := t.(*nomiast.GenericType); ok {
+			return c.eachStructs(label, p.args, v.Params)
+		}
+	case projTuple, projFunc:
+		v, ok := t.(*nomiast.FuncType)
+		if !ok {
+			return nil
+		}
+		problems := c.eachStructs(label, p.args, v.Params)
+		if p.kind == projFunc {
+			problems = append(problems, c.structs(label, p.ret, v.Return)...)
+		}
+		return problems
+	}
+	return nil
+}
+
+func (c *projectionCheck) eachStructs(label string, ps []*goProjection, ts []nomiast.TypeExpr) []string {
+	var problems []string
+	for i := range ps {
+		problems = append(problems, c.structs(label, ps[i], ts[i])...)
+	}
+	return problems
+}
+
+func (c *projectionCheck) structFields(label, goName, nomiName string) []string {
+	goStruct, ok := c.goStructs[goName]
+	nomiStruct := c.nomiStructs[nomiName]
+	key := [2]string{goName, nomiName}
+	if !ok || nomiStruct == nil || c.seen[key] {
+		return nil
+	}
+	c.seen[key] = true
+	nomiFields := make(map[string]nomiast.TypeExpr, len(nomiStruct.Fields))
+	for _, field := range nomiStruct.Fields {
+		nomiFields[field.Name] = field.TypeAnnotation
+	}
+	var problems []string
+	for _, name := range sortedKeys(goStruct.fields) {
+		nomiFieldType, ok := nomiFields[name]
+		if !ok {
+			problems = append(problems, fmt.Sprintf(
+				"%s: signature mismatch for Go function %q in package %q: %s field %q exists in Go %s but not in Nomi %s",
+				c.loc, c.funcName, c.importPath, label, name, goName, nomiName))
+			continue
+		}
+		projected, err := goExprNomiType(goStruct.fields[name], c.boundTypes, goStruct.imports, true)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf(
+				"%s: Go function %q in package %q has unsupported %s field %q type: %s",
+				c.loc, c.funcName, c.importPath, label, name, err))
+			continue
+		}
+		if !c.matches(projected, nomiFieldType) {
+			declared := ""
+			if nomiFieldType != nil {
+				declared = nomiFieldType.TypeString()
 			}
-			problems = append(problems, validateProjectedStructShape(
-				loc, exp.FuncName, importPath, label,
-				goReturnExprAt(goFunc.typ.Results, i), elem, boundTypes, goStructs, exp.Structs,
-			)...)
+			problems = append(problems, fmt.Sprintf(
+				"%s: signature mismatch for Go function %q in package %q: %s field %q projects to %s, but Nomi %s declares %s%s",
+				c.loc, c.funcName, c.importPath, label, name, projected, nomiName, declared, c.hint(projected, nomiFieldType)))
+			continue
+		}
+		problems = append(problems, c.structs(fmt.Sprintf("%s field %q struct", label, name), projected, nomiFieldType)...)
+	}
+	for _, field := range nomiStruct.Fields {
+		if _, ok := goStruct.fields[field.Name]; !ok {
+			problems = append(problems, fmt.Sprintf(
+				"%s: signature mismatch for Go function %q in package %q: %s field %q exists in Nomi %s but not in Go %s",
+				c.loc, c.funcName, c.importPath, label, field.Name, nomiName, goName))
 		}
 	}
 	return problems
+}
+
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // goResultNomiType projects a Go result list onto the Nomi return type
@@ -189,16 +556,16 @@ func validateFunctionSignature(projectRoot, importPath string, exp DiscoveredExp
 // one Nomi value — and that direction only supports a value plus an
 // optional trailing error. Projecting a tuple here would validate a shape
 // the adapter generator then refuses.
-func goResultNomiType(results *goast.FieldList, boundTypes goTypeBindings, imports map[string]string, allowTuple bool) (string, []string) {
+func goResultNomiType(results *goast.FieldList, boundTypes goTypeBindings, imports map[string]string, allowTuple bool) (*goProjection, []string) {
 	goReturns, unsupported := goFieldListNomiTypes(results, boundTypes, imports, false)
-	hasErr := len(goReturns) > 0 && goReturns[len(goReturns)-1] == "error"
+	hasErr := len(goReturns) > 0 && goReturns[len(goReturns)-1].isLeaf("error")
 	values := goReturns
 	if hasErr {
 		values = values[:len(values)-1]
 	}
 	for i, v := range values {
-		if v == "error" {
-			return "", append(unsupported, fmt.Sprintf("return %d projects to error; error is only supported as the final return", i+1))
+		if v.isLeaf("error") {
+			return nil, append(unsupported, fmt.Sprintf("return %d projects to error; error is only supported as the final return", i+1))
 		}
 	}
 	if !allowTuple && len(values) > 1 {
@@ -206,30 +573,30 @@ func goResultNomiType(results *goast.FieldList, boundTypes goTypeBindings, impor
 		// optional trailing error. Report it the way it has always read so
 		// the Go author sees which slot broke the rule.
 		if len(goReturns) > 2 {
-			return "", append(unsupported, fmt.Sprintf("%d returns (max 2)", len(goReturns)))
+			return nil, append(unsupported, fmt.Sprintf("%d returns (max 2)", len(goReturns)))
 		}
-		return "", append(unsupported, fmt.Sprintf("second return projects to %s, expected error", goReturns[1]))
+		return nil, append(unsupported, fmt.Sprintf("second return projects to %s, expected error", goReturns[1]))
 	}
-	var projected string
+	var projected *goProjection
 	switch len(values) {
 	case 0:
-		projected = "Unit"
+		projected = projLeafOf(ffitypes.NomiUnit)
 	case 1:
 		projected = values[0]
 	default:
-		projected = "#(" + strings.Join(values, ", ") + ")"
+		projected = &goProjection{kind: projTuple, args: values}
 	}
 	if hasErr {
-		return fmt.Sprintf("Result<%s, String>", projected), unsupported
+		return projGenericOf("Result", projected, projLeafOf(ffitypes.NomiString)), unsupported
 	}
 	return projected, unsupported
 }
 
-func goFieldListNomiTypes(fields *goast.FieldList, boundTypes goTypeBindings, imports map[string]string, allowCallbacks bool) ([]string, []string) {
+func goFieldListNomiTypes(fields *goast.FieldList, boundTypes goTypeBindings, imports map[string]string, allowCallbacks bool) ([]*goProjection, []string) {
 	if fields == nil {
 		return nil, nil
 	}
-	var out []string
+	var out []*goProjection
 	var unsupported []string
 	for _, field := range fields.List {
 		typ, err := goExprNomiType(field.Type, boundTypes, imports, allowCallbacks)
@@ -248,219 +615,86 @@ func goFieldListNomiTypes(fields *goast.FieldList, boundTypes goTypeBindings, im
 	return out, unsupported
 }
 
-func goExprNomiType(expr goast.Expr, boundTypes goTypeBindings, imports map[string]string, allowCallbacks bool) (string, error) {
+func goExprNomiType(expr goast.Expr, boundTypes goTypeBindings, imports map[string]string, allowCallbacks bool) (*goProjection, error) {
 	switch v := expr.(type) {
 	case *goast.Ident:
 		return goIdentNomiType(v.Name, boundTypes, allowCallbacks)
 	case *goast.StarExpr:
 		if name, ok := boundGoTypeName(v.X); ok {
 			if binding, bound := boundTypes[name]; bound && binding.explicit {
-				return binding.localName, nil
+				return projLeafOf(binding.localName), nil
 			}
 		}
 		inner, err := goExprNomiType(v.X, boundTypes, imports, allowCallbacks)
 		if err != nil {
-			return "", fmt.Errorf("*%s: %w", goNodeString(v.X), err)
+			return nil, fmt.Errorf("*%s: %w", goNodeString(v.X), err)
 		}
-		return fmt.Sprintf("Maybe<%s>", inner), nil
+		return projGenericOf("Maybe", inner), nil
 	case *goast.ArrayType:
 		elem, err := goExprNomiType(v.Elt, boundTypes, imports, allowCallbacks)
 		if err != nil {
-			return "", fmt.Errorf("[]%s: %w", goNodeString(v.Elt), err)
+			return nil, fmt.Errorf("[]%s: %w", goNodeString(v.Elt), err)
 		}
-		if elem == ffitypes.NomiByte {
-			return ffitypes.NomiBytes, nil
+		if elem.isLeaf(ffitypes.NomiByte) {
+			return projLeafOf(ffitypes.NomiBytes), nil
 		}
-		return fmt.Sprintf("List<%s>", elem), nil
+		return projGenericOf("List", elem), nil
 	case *goast.MapType:
 		key, err := goExprNomiType(v.Key, boundTypes, imports, allowCallbacks)
 		if err != nil {
-			return "", fmt.Errorf("map key %s: %w", goNodeString(v.Key), err)
+			return nil, fmt.Errorf("map key %s: %w", goNodeString(v.Key), err)
 		}
 		if !isProjectedNomiMapKeyType(key) {
-			return "", fmt.Errorf("map key %s projects to %s, which is not supported as an FFI map key; normalize the map in Go or cross it as Dynamic/opaque", goNodeString(v.Key), key)
+			return nil, fmt.Errorf("map key %s projects to %s, which is not supported as an FFI map key; normalize the map in Go or cross it as Dynamic/opaque", goNodeString(v.Key), key)
 		}
 		val, err := goExprNomiType(v.Value, boundTypes, imports, allowCallbacks)
 		if err != nil {
-			return "", fmt.Errorf("map value %s: %w", goNodeString(v.Value), err)
+			return nil, fmt.Errorf("map value %s: %w", goNodeString(v.Value), err)
 		}
-		return fmt.Sprintf("Map<%s, %s>", key, val), nil
+		return projGenericOf("Map", key, val), nil
 	case *goast.FuncType:
 		if !allowCallbacks {
-			return "", fmt.Errorf("function type %s is only supported in direct callback parameter position", goNodeString(expr))
+			return nil, fmt.Errorf("function type %s is only supported in direct callback parameter position", goNodeString(expr))
 		}
 		params, unsupported := goFieldListNomiTypes(v.Params, boundTypes, imports, false)
 		if len(unsupported) > 0 {
-			return "", fmt.Errorf("callback %s: %s", goNodeString(expr), strings.Join(unsupported, "; "))
+			return nil, fmt.Errorf("callback %s: %s", goNodeString(expr), strings.Join(unsupported, "; "))
 		}
 		ret, unsupported := goResultNomiType(v.Results, boundTypes, imports, false)
 		if len(unsupported) > 0 {
-			return "", fmt.Errorf("callback %s: %s", goNodeString(expr), strings.Join(unsupported, "; "))
+			return nil, fmt.Errorf("callback %s: %s", goNodeString(expr), strings.Join(unsupported, "; "))
 		}
-		return fmt.Sprintf("(%s) -> %s", strings.Join(params, ", "), ret), nil
+		return &goProjection{kind: projFunc, args: params, ret: ret}, nil
 	case *goast.InterfaceType:
 		if len(v.Methods.List) == 0 {
-			return ffitypes.NomiDynamic, nil
+			return projLeafOf(ffitypes.NomiDynamic), nil
 		}
-		return "", fmt.Errorf("non-empty interface %s", goNodeString(expr))
+		return nil, fmt.Errorf("non-empty interface %s", goNodeString(expr))
 	case *goast.StructType:
-		return "", fmt.Errorf("anonymous struct type %s", goNodeString(expr))
+		return nil, fmt.Errorf("anonymous struct type %s", goNodeString(expr))
 	case *goast.Ellipsis:
-		return "", fmt.Errorf("variadic type %s", goNodeString(expr))
+		return nil, fmt.Errorf("variadic type %s", goNodeString(expr))
 	case *goast.ChanType:
-		return "", fmt.Errorf("channel type %s is not automatically converted; declare it as an opaque type or normalize it in Go", goNodeString(expr))
+		return nil, fmt.Errorf("channel type %s is not automatically converted; declare it as an opaque type or normalize it in Go", goNodeString(expr))
 	case *goast.SelectorExpr:
 		if importPath, ok := selectorImportPath(v, imports); ok {
-			if nomi, projected := ffitypes.NomiForGoStdlibType(importPath, v.Sel.Name); projected {
-				return nomi, nil
+			if nomi, projected := ffitypes.NomiForGoNamedType(importPath, v.Sel.Name); projected {
+				return projLeafOf(nomi), nil
 			}
 		}
-		return "", fmt.Errorf("unbound named type %s", goNodeString(expr))
+		return nil, fmt.Errorf("unbound named type %s", goNodeString(expr))
 	}
-	return "", fmt.Errorf("unsupported Go type %s", goNodeString(expr))
+	return nil, fmt.Errorf("unsupported Go type %s", goNodeString(expr))
 }
 
-func goParamExprAt(fields *goast.FieldList, idx int) goast.Expr {
-	return goFieldExprAt(fields, idx)
-}
-
-func goReturnExprAt(fields *goast.FieldList, idx int) goast.Expr {
-	return goFieldExprAt(fields, idx)
-}
-
-func goFieldExprAt(fields *goast.FieldList, idx int) goast.Expr {
-	if fields == nil || idx < 0 {
-		return nil
-	}
-	pos := 0
-	for _, field := range fields.List {
-		count := len(field.Names)
-		if count == 0 {
-			count = 1
-		}
-		if idx < pos+count {
-			return field.Type
-		}
-		pos += count
-	}
-	return nil
-}
-
-func resultOkType(t nomiast.TypeExpr) nomiast.TypeExpr {
-	if t == nil {
-		return nil
-	}
-	if q, ok := t.(*nomiast.QualifiedType); ok {
-		return resultOkType(q.Member)
-	}
-	if g, ok := t.(*nomiast.GenericType); ok && g.Name == "Result" && len(g.Params) == 2 {
-		return g.Params[0]
-	}
-	return t
-}
-
-// nomiReturnElems splits a declared return type into the per-Go-result
-// slots it covers: a tuple contributes one element per Go result, any
-// other type is a single slot. The parser spells a tuple as a FuncType
-// with no arrow (nil Return); arity < 2 is Unit (`()`) or collapsed
-// grouping, neither of which is a tuple.
-func nomiReturnElems(t nomiast.TypeExpr) []nomiast.TypeExpr {
-	if q, ok := t.(*nomiast.QualifiedType); ok {
-		return nomiReturnElems(q.Member)
-	}
-	if ft, ok := t.(*nomiast.FuncType); ok && ft.Return == nil && len(ft.Params) >= 2 {
-		return ft.Params
-	}
-	return []nomiast.TypeExpr{t}
-}
-
-func validateProjectedStructShape(loc, funcName, importPath, label string, goExpr goast.Expr, nomiType nomiast.TypeExpr, boundTypes goTypeBindings, goStructs map[string]goStructSymbol, nomiStructs map[string]*nomiast.StructDef) []string {
-	goName, ok := goNamedStructName(goExpr)
-	if !ok {
-		return nil
-	}
-	goStruct, ok := goStructs[goName]
-	if !ok {
-		return nil
-	}
-	nomiName, ok := nomiStructTypeName(nomiType)
-	if !ok {
-		return nil
-	}
-	nomiStruct := nomiStructs[nomiName]
-	if nomiStruct == nil {
-		return nil
-	}
-	nomiFields := nomiStructFieldTypes(nomiStruct)
-	var problems []string
-	for name, goFieldExpr := range goStruct.fields {
-		nomiFieldType, ok := nomiFields[name]
-		if !ok {
-			problems = append(problems, fmt.Sprintf(
-				"%s: signature mismatch for Go function %q in package %q: %s field %q exists in Go %s but not in Nomi %s",
-				loc, funcName, importPath, label, name, goName, nomiName))
-			continue
-		}
-		projected, err := goExprNomiType(goFieldExpr, boundTypes, goStruct.imports, true)
-		if err != nil {
-			problems = append(problems, fmt.Sprintf(
-				"%s: Go function %q in package %q has unsupported %s field %q type: %s",
-				loc, funcName, importPath, label, name, err))
-			continue
-		}
-		if projected != nomiFieldType {
-			problems = append(problems, fmt.Sprintf(
-				"%s: signature mismatch for Go function %q in package %q: %s field %q projects to %s, but Nomi %s declares %s",
-				loc, funcName, importPath, label, name, projected, nomiName, nomiFieldType))
-		}
-	}
-	for name := range nomiFields {
-		if _, ok := goStruct.fields[name]; !ok {
-			problems = append(problems, fmt.Sprintf(
-				"%s: signature mismatch for Go function %q in package %q: %s field %q exists in Nomi %s but not in Go %s",
-				loc, funcName, importPath, label, name, nomiName, goName))
-		}
-	}
-	return problems
-}
-
-func goNamedStructName(expr goast.Expr) (string, bool) {
-	if ident, ok := expr.(*goast.Ident); ok {
-		return ident.Name, true
-	}
-	return "", false
-}
-
-func nomiStructTypeName(t nomiast.TypeExpr) (string, bool) {
-	switch v := t.(type) {
-	case *nomiast.SimpleType:
-		return v.Name, true
-	case *nomiast.QualifiedType:
-		return nomiStructTypeName(v.Member)
-	default:
-		return "", false
-	}
-}
-
-func nomiStructFieldTypes(def *nomiast.StructDef) map[string]string {
-	out := make(map[string]string, len(def.Fields))
-	for _, field := range def.Fields {
-		if field.TypeAnnotation == nil {
-			out[field.Name] = ""
-			continue
-		}
-		out[field.Name] = field.TypeAnnotation.TypeString()
-	}
-	return out
-}
-
-func isProjectedNomiMapKeyType(t string) bool {
-	if t == "" {
+func isProjectedNomiMapKeyType(p *goProjection) bool {
+	switch p.kind {
+	case projFunc:
 		return false
+	case projGeneric:
+		return p.name != "List" && p.name != "Map"
 	}
-	return !strings.HasPrefix(t, "List<") &&
-		!strings.HasPrefix(t, "Map<") &&
-		!strings.HasPrefix(t, "(")
+	return true
 }
 
 // goIdentNomiType projects one Go predeclared type name onto the Nomi
@@ -472,42 +706,42 @@ func isProjectedNomiMapKeyType(t string) bool {
 // `error` is handled here rather than in the table because it is not a
 // Nomi type at all: it is this package's sentinel for the trailing-result
 // slot, which goResultNomiType consumes into the Result layer.
-func goIdentNomiType(name string, boundTypes goTypeBindings, allowCallbacks bool) (string, error) {
+func goIdentNomiType(name string, boundTypes goTypeBindings, allowCallbacks bool) (*goProjection, error) {
 	if name == "error" {
-		return "error", nil
+		return projLeafOf("error"), nil
 	}
 	if nomi, projected := ffitypes.NomiForGoIdent(name); projected {
-		return nomi, nil
+		return projLeafOf(nomi), nil
 	}
 	if binding, ok := boundTypes[name]; ok {
 		return goNamedTypeNomiType(name, binding, boundTypes, allowCallbacks)
 	}
-	return "", fmt.Errorf("unbound named type %s", name)
+	return nil, fmt.Errorf("unbound named type %s", name)
 }
 
-func goNamedTypeNomiType(name string, binding goTypeBinding, boundTypes goTypeBindings, allowCallbacks bool) (string, error) {
+func goNamedTypeNomiType(name string, binding goTypeBinding, boundTypes goTypeBindings, allowCallbacks bool) (*goProjection, error) {
 	if binding.explicit {
-		return binding.localName, nil
+		return projLeafOf(binding.localName), nil
 	}
 	sym := binding.symbol
 	switch sym.kind {
 	case goTypeStruct:
-		return binding.localName, nil
+		return &goProjection{kind: projStruct, goStruct: name}, nil
 	case goTypeInterface:
 		if sym.emptyInterface {
-			return ffitypes.NomiDynamic, nil
+			return projLeafOf(ffitypes.NomiDynamic), nil
 		}
-		return "", fmt.Errorf("named Go interface type %s is not automatically converted; declare it as an opaque type or normalize it in Go", name)
+		return nil, fmt.Errorf("named Go interface type %s is not automatically converted; declare it as an opaque type or normalize it in Go", name)
 	case goTypeFunc:
-		return "", fmt.Errorf("named Go function type %s is not automatically converted; use an unnamed function parameter in the Go adapter or declare it as an opaque type", name)
+		return nil, fmt.Errorf("named Go function type %s is not automatically converted; use an unnamed function parameter in the Go adapter or declare it as an opaque type", name)
 	case goTypeChan:
-		return "", fmt.Errorf("named Go channel type %s is not automatically converted; declare it as an opaque type or normalize it in Go", name)
+		return nil, fmt.Errorf("named Go channel type %s is not automatically converted; declare it as an opaque type or normalize it in Go", name)
 	case goTypeInvalid:
-		return "", fmt.Errorf("unsupported named Go type %s", name)
+		return nil, fmt.Errorf("unsupported named Go type %s", name)
 	}
 	projected, err := goExprNomiType(sym.expr, boundTypes, sym.imports, allowCallbacks)
 	if err != nil {
-		return "", fmt.Errorf("named Go %s type %s: %w", sym.kind, name, err)
+		return nil, fmt.Errorf("named Go %s type %s: %w", sym.kind, name, err)
 	}
 	return projected, nil
 }
@@ -570,6 +804,18 @@ func (s goSource) symbols() (goPackageSymbols, error) {
 	return readGoPackageFiles(s.dir, files)
 }
 
+// GoPackageDir is the directory of the Go package importPath as the project
+// whose go.mod is at projectRoot sees it, when its source is on disk: a
+// package of a module the go.mod replaces with a local directory, of the
+// project's own module, or of a module the go.mod requires whose files are in
+// the Go module cache (put there by `nomi fetch`, or by any go command). A
+// Go standard library package is not answered here (StdPackageDir).
+func GoPackageDir(projectRoot, importPath string) (string, bool) {
+	dir, ok, err := resolveLocalImportDir(projectRoot, importPath)
+	return dir, ok && err == nil
+}
+
+// resolveLocalImportDir is GoPackageDir with go.mod's read error.
 func resolveLocalImportDir(projectRoot, importPath string) (string, bool, error) {
 	f, err := parseProjectGoMod(projectRoot)
 	if err != nil {
@@ -604,7 +850,42 @@ func resolveLocalImportDir(projectRoot, importPath string) (string, bool, error)
 			return filepath.Clean(filepath.Join(projectRoot, filepath.FromSlash(strings.TrimPrefix(suffix, "/")))), true, nil
 		}
 	}
+	if dir, ok := cachedImportDir(f, importPath); ok {
+		return dir, true, nil
+	}
 	return "", false, nil
+}
+
+// cachedImportDir is the directory of importPath in the module cache's copy
+// of the module f requires that provides it (the longest module path that
+// prefixes it), at the version f requires, or false when the cache does not
+// hold that module.
+func cachedImportDir(f *modfile.File, importPath string) (string, bool) {
+	var best *modfile.Require
+	for _, r := range f.Require {
+		if importPathMatchesModule(importPath, r.Mod.Path) && (best == nil || len(r.Mod.Path) > len(best.Mod.Path)) {
+			best = r
+		}
+	}
+	if best == nil {
+		return "", false
+	}
+	cache, err := modcache.Root()
+	if err != nil {
+		return "", false
+	}
+	src := best.Mod
+	for _, r := range f.Replace {
+		if r.Old.Path == src.Path && (r.Old.Version == "" || r.Old.Version == src.Version) && r.New.Version != "" {
+			src = r.New
+		}
+	}
+	root := modcache.Cached(cache, src)
+	if root == "" {
+		return "", false
+	}
+	suffix := strings.TrimPrefix(strings.TrimPrefix(importPath, best.Mod.Path), "/")
+	return filepath.Join(root, filepath.FromSlash(suffix)), true
 }
 
 func goModProvidesImportPath(projectRoot, importPath string) bool {

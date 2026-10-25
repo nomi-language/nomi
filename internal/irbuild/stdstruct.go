@@ -532,7 +532,7 @@ var stdStructSpecs = []stdStructSpec{{
 	// A row whose field reaches the ENUM table rather than another
 	// struct row. See stdListOfEnumField for why that direction is safe.
 	origin: "std/dynamic",
-	nomi:   "DecodeError",
+	nomi:   "Error",
 	goType: reflect.TypeFor[rt.DynamicDecodeError](),
 	fields: []stdStructField{
 		stdListOfEnumField("path", stdEnumPathSegment),
@@ -675,7 +675,7 @@ var stdStructSpecs = []stdStructSpec{{
 	transparent: true,
 }, {
 	// std/json's SHAPE failure, which is a different type from the one above and
-	// std says why: a parse error is `DecodeError` and a shape error describes
+	// std says why: a parse error is `Json.DecodeError` and a shape error describes
 	// the PATH inside a well-formed tree where a typed conversion failed. One
 	// record with both field sets would let the builder construct either shape
 	// for either function — a wrong ANSWER rather than an error, the same
@@ -797,6 +797,20 @@ var stdStructSpecs = []stdStructSpec{{
 	fields: []stdStructField{
 		stdScalarField("row", kindString),
 		stdStructRowField("failure", stdSpecAssertionFailure),
+	},
+	transparent: true,
+}, {
+	// std/locale's fallible-constructor carrier, the calendar carriers'
+	// arrangement: `Locale.parse` and `Locale.from_posix` cross as data and
+	// locale.nomi's `Locale.lift` rebuilds the `Error` variant. The
+	// value is the canonical tag's String, so every field is a scalar.
+	origin: "std/locale",
+	nomi:   "LocaleAttempt",
+	goType: reflect.TypeFor[rt.LocaleResult](),
+	fields: []stdStructField{
+		stdScalarField("value", kindString),
+		stdScalarField("kind", kindInt),
+		stdScalarField("detail", kindString),
 	},
 	transparent: true,
 }}

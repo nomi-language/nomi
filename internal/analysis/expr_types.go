@@ -26,14 +26,14 @@ func (fa *FileAnalysis) recordExpectedType(node ast.Node, t Type) {
 	fa.ExpectedTypes[node] = t
 }
 
-// recordPatternType notes the type of the value a shape pattern matches
-// (FileAnalysis.PatternTypes).
+// recordPatternType notes the type of the value a shape pattern or a `_`
+// matches (FileAnalysis.PatternTypes).
 func (fa *FileAnalysis) recordPatternType(node ast.Node, t Type) {
 	if fa == nil || node == nil || t == nil || IsSynthesizedLine(node.LineNum()) {
 		return
 	}
 	switch node.(type) {
-	case *ast.ListPattern, *ast.VectorPattern, *ast.SetPattern, *ast.MapPattern, *ast.StructPattern, *ast.TuplePattern:
+	case *ast.ListPattern, *ast.VectorPattern, *ast.SetPattern, *ast.MapPattern, *ast.StructPattern, *ast.TuplePattern, *ast.WildcardPattern:
 	default:
 		return
 	}

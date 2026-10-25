@@ -57,7 +57,7 @@ func TestDynamicInspectRenderings(t *testing.T) {
 	}
 }
 
-// TestDynamicTypeNameVocabulary pins the words a DecodeError's `got` field uses.
+// TestDynamicTypeNameVocabulary pins the words a dynamic.Error's `got` field uses.
 //
 // The vocabulary is a Nomi-observable API:
 // a program may compare `e.got` against a literal, so widening or renaming a

@@ -16,6 +16,10 @@ package main
 //	            (vmhost.Program.WebDeclarations)
 //	index.html  a page that mounts a terminal on its data-nomi-program
 //	            element, with no inline script
+//	locales/    for a program that lists its locales, one <tag>.nomil per
+//	            listed locale `[i18n].web_embedded` leaves out: its CLDR
+//	            numbers and lists and its translations, which the
+//	            program's `Locale.load` fetches (vmhost.BuildWebImage)
 //
 // The author's static files are copied in beside them, subfolders included:
 // the files of the program's web/ folder, or of the folder --static names
@@ -49,6 +53,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/localefiles"
 	"github.com/nomi-language/nomi/internal/wasmmem"
 	"github.com/nomi-language/nomi/vmhost"
 	"github.com/nomi-language/nomi/vmrunner"
@@ -68,8 +73,39 @@ var (
 var webFiles = []string{"app.wasm", "nomi.js", "nomi.d.ts", "index.html"}
 
 // webGenerated are the generated names a static file may not take. A static
-// index.html is allowed, and replaces the generated page.
+// index.html is allowed, and replaces the generated page. Neither may a
+// static file be a locale file (webLocaleFile).
 var webGenerated = []string{"app.wasm", "nomi.js", "nomi.d.ts"}
+
+// webLocaleFile reports whether a slash-separated path in the folder is a
+// locale file's: `locales/<tag>.nomil`.
+func webLocaleFile(name string) bool {
+	rest, ok := strings.CutPrefix(name, "locales/")
+	return ok && !strings.Contains(rest, "/") && strings.HasSuffix(rest, ".nomil")
+}
+
+// removeStaleLocales removes each locale file in out's locales/ that a
+// build wrote and this one does not.
+func removeStaleLocales(out string, files map[string][]byte) error {
+	entries, err := os.ReadDir(filepath.Join(out, "locales"))
+	if err != nil {
+		return nil
+	}
+	for _, e := range entries {
+		name := "locales/" + e.Name()
+		if _, ok := files[name]; ok || !webLocaleFile(name) || !e.Type().IsRegular() {
+			continue
+		}
+		path := filepath.Join(out, filepath.FromSlash(name))
+		if data, err := os.ReadFile(path); err != nil || !bytes.HasPrefix(data, localefiles.Magic) {
+			continue
+		}
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // webGlueHead and webGlueTail wrap Go's wasm_exec.js in nomi.js. It is a
 // classic script that sets globalThis.Go (and globalThis.fs, process and path
@@ -209,6 +245,8 @@ func readStatic(dir string) (webStatic, error) {
 		switch {
 		case slices.Contains(webGenerated, name):
 			return s, fmt.Errorf("%s: the build writes %s, so a static file cannot have that name", shown, name)
+		case webLocaleFile(name):
+			return s, fmt.Errorf("%s: the build writes the locale files in locales/, so a static file cannot be one", shown)
 		case strings.HasPrefix(name, "__nomi/"):
 			return s, fmt.Errorf("%s: __nomi/ is nomi run --web's own, so a static file cannot be in it", shown)
 		}
@@ -253,9 +291,9 @@ var errWebGoBindings = errors.New("nomi build --web: " + webGoBindings)
 var webIndexTemplate = template.Must(template.New("index.html").Parse(webIndexHTML))
 
 // writeWebFolder writes the folder b.out for the js/wasm runner at runner,
-// image and the TypeScript declarations decls, and copies the static files
-// in.
-func writeWebFolder(b buildArgs, runner string, image []byte, decls string, static webStatic, stderr io.Writer) error {
+// image, the TypeScript declarations decls and the locale files, and copies
+// the static files in.
+func writeWebFolder(b buildArgs, runner string, image []byte, decls string, locales map[string][]byte, static webStatic, stderr io.Writer) error {
 	wasmExecPath, err := ffirun.WasmExec(runner)
 	if err != nil {
 		return fmt.Errorf("nomi build: %w", err)
@@ -294,6 +332,19 @@ func writeWebFolder(b buildArgs, runner string, image []byte, decls string, stat
 	}
 	if err := removeRetired(b.out, static); err != nil {
 		return fmt.Errorf("nomi build: %w", err)
+	}
+	if err := removeStaleLocales(b.out, locales); err != nil {
+		return fmt.Errorf("nomi build: %w", err)
+	}
+	if len(locales) > 0 {
+		if err := os.MkdirAll(filepath.Join(b.out, "locales"), 0o755); err != nil {
+			return fmt.Errorf("nomi build: %w", err)
+		}
+	}
+	for name, data := range locales {
+		if err := writeFileReplacing(filepath.Join(b.out, filepath.FromSlash(name)), data); err != nil {
+			return fmt.Errorf("nomi build: %w", err)
+		}
 	}
 	for _, name := range webFiles {
 		if name == "index.html" && slices.Contains(static.files, name) {

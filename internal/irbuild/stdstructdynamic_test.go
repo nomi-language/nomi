@@ -7,7 +7,7 @@ import (
 
 // The guards over std/dynamic's struct-over-enum pair.
 //
-// `impl Display for DecodeError` and `derive Display for PathSegment` are
+// `impl Display for Error` and `derive Display for PathSegment` are
 // ordinary Nomi in std/dynamic.nomi, so the text comes from one renderer. What
 // needs proving is the LOWERING around it -- that the spec's layout is the one
 // std declares, that `case` discriminates the enum tag, that the two payload

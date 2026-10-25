@@ -13,12 +13,14 @@
 # commit as `nomi`, which `nomi build` checks against the VCS stamp both carry;
 # this script checks it too. Only the plain nomi-vm ships: std/compiler's variant
 # links the whole front end (6.5 MB gzipped against the plain one's 3.7 MB),
-# so a program importing std/compiler needs Go, which builds its nomi-vm from
-# the compiler module at the release's version.
+# so a program importing std/compiler has its nomi-vm built from the compiler
+# module at the release's version, with the `go` on PATH or the managed Go
+# toolchain (internal/gotoolchain).
 #
 # Built at its tag, every binary carries the tag as its main module's version,
-# and `nomi` builds Go bindings against the compiler module at that version.
-# This script checks the stamp when HEAD carries the tag being released.
+# and `nomi` builds Go bindings against the compiler module at that version,
+# which the Go module proxy serves once the tag is pushed to GitHub. This
+# script checks the stamp when HEAD carries the tag being released.
 #
 # `nomi` is stamped with the release tag
 # (`-X github.com/nomi-language/nomi/internal/ffirun.ReleaseVersion=<version>`): `nomi build --target`
@@ -114,6 +116,15 @@ sha256() {
 		sha256sum "$@"
 	fi
 }
+
+# With no `go` on PATH, `nomi` builds Go bindings with the Go release it was
+# built with, downloaded from go.dev and checked against a checksum compiled
+# into it (internal/gotoolchain/pinned_gen.go). A release built with a Go
+# that file does not pin could not verify its own toolchain.
+if ! go -C "$module_dir" run ./internal/gotoolchain/pingen -check; then
+	echo "release.sh: the Go building this release has no pinned archive checksums" >&2
+	exit 1
+fi
 
 rm -rf "$dist_dir"
 mkdir -p "$dist_dir"

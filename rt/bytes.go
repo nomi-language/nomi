@@ -125,6 +125,10 @@ func BytesSlice(data Bytes, start, end int64) Bytes {
 // BytesConcat is `Bytes.concat`, in argument order.
 func BytesConcat(a, b Bytes) Bytes { return a + b }
 
+// BytesCompare is `impl Comparable for Bytes`: -1, 0 or 1 as a and b order
+// octet by octet, a prefix first.
+func BytesCompare(a, b Bytes) int64 { return StringCompare(string(a), string(b)) }
+
 // BytesContains is `impl Contains<Byte> for Bytes`: whether any octet of data
 // is b. Bytes is a Go string, so the scan is strings.IndexByte, the string
 // form of bytes.IndexByte over the same vectorized search.

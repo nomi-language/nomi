@@ -1,0 +1,353 @@
+//# Money: an exact amount in a currency. A `Money` pairs a `Decimal`
+//# amount with a `Currency` (std/currency), so payment, invoicing and
+//# exchange-rate libraries share one type:
+//#
+//# ```nomi
+//# total = Money`12.50 EUR`
+//#
+//# Money.format(total, Locale`en`) // "€12.50"
+//#
+//# Money.format(total, Locale`pl`) // "12,50 €"
+//# ```
+//#
+//# ``Money`12.50 EUR` `` is `#Money{amount: 12.50d, currency: Currency`EUR`}`:
+//# the amount, one space and the currency, as `Display` writes it, checked
+//# when the program is checked. Build `#Money{...}` from the fields when the
+//# amount or the currency is a value the program computes.
+//#
+//# The amount keeps every digit it has: adding, subtracting and multiplying
+//# are exact, and only `Money.round` rounds, to the currency's minor
+//# digits. Two amounts in different currencies do not add: `+` and `-`
+//# trap and name both, as `Int` overflow traps. Std has no exchange rates;
+//# a library that has them converts and checks the currency first.
+//# `Money.format` writes an amount as a reader of a locale writes it, and
+//# `Money.parse_in` reads one back, strictly by default.
+
+import {
+    add.Add
+    bool.Bool.{self, False, True}
+    currency.{self, Currency}
+    decimal.{Decimal, RoundingMode}
+    display.Display
+    equatable.Equatable
+    hashable.Hashable
+    int.Int
+    iter.Iter
+    lists.List
+    literals.{Fragment, Literal}
+    locale.Locale
+    localize.{Localize, NumberParseError}
+    maybe.Maybe.{None, Some}
+    money_format
+    multiply.Multiply
+    results.Result.{self, Err, Ok}
+    strings.String
+    subtract.Subtract
+    summable.Summable
+}
+
+/// An exact amount in a currency. Two amounts are equal when their
+/// currencies are and their amounts are equal as numbers: `12.5` and
+/// `12.50` euros are one amount. `Display` gives the amount and the
+/// currency as its literal writes them, `12.50 EUR`, the same in every
+/// locale.
+//! price = Money`12.50 EUR`
+//! assert Display.to_string(price) == "12.50 EUR"
+//! assert price == #Money{amount: 12.50d, currency: Currency`EUR`}
+//! assert price == Money`12.5 EUR`
+//
+pub struct Money {
+    amount: Decimal
+    currency: Currency
+}
+
+derive Equatable for Money
+derive Hashable for Money
+
+/// Why the text of a ``Money`…` `` literal is not an amount in a currency.
+pub enum Error {
+    /// `text` is not an amount, one space and a currency.
+    Malformed {text: String}
+    /// `text`, before the space, is not an amount: an optional sign, digits,
+    /// and an optional `.` and more digits.
+    Amount {text: String}
+    /// `amount` is an amount with no currency after it.
+    NoCurrency {amount: String}
+    /// `code`, after the amount `amount`, is not a currency.
+    NotACurrency {amount: String, error: currency.Error}
+    /// The literal interpolates a value, which a `Money` literal does not.
+    Interpolated
+}
+
+derive Equatable for Error
+
+impl Display for Error {
+    /// What is wrong, as a compile error at a ``Money`…` `` literal shows it.
+    //! assert Display.to_string(
+    //!     #Error.NoCurrency{amount: "12.50"}
+    //! ) == "`12.50` has no currency: write the amount, one space and the currency, as Money`12.50 EUR`"
+    //
+    fn to_string(e: Error) -> String {
+        case e {
+            #Error.Malformed{text} ->
+                "`${text}` is not an amount and a currency: write the amount, one space and the currency, as Money`12.50 EUR`"
+
+            #Error.Amount{text} ->
+                "`${text}` is not an amount: write digits with an optional sign and decimal point, as Money`-12.50 EUR`"
+
+            #Error.NoCurrency{amount} ->
+                "`${amount}` has no currency: write the amount, one space and the currency, as Money`${amount} EUR`"
+
+            #Error.NotACurrency{amount, error} ->
+                case error {
+                    #currency.Error.IsoCode{code} ->
+                        "`${code}` is an ISO 4217 currency, whose minor digits CLDR gives: write Money`${amount} ${code}`"
+
+                    #currency.Error.NotIso{code} ->
+                        "`${code}` is not an ISO 4217 currency: a custom currency names its minor digits, as Money`${amount} ${code}:2`"
+
+                    other ->
+                        Display.to_string(other)
+                }
+
+            Error.Interpolated ->
+                "a Money literal does not interpolate: build the value from its fields, as #Money{amount: amount, currency: Currency`EUR`}"
+        }
+    }
+}
+
+/// How `Money.format` shows the currency: its `Symbol` (`€`, `US$` or `$`
+/// as the locale writes it), its `Narrow` symbol (`$` for every dollar),
+/// its `Code` (`EUR`), or its `Name` in the amount's plural form (`12.50
+/// euros`). A custom currency has no symbol or name in CLDR, so every
+/// display writes its code.
+pub enum CurrencyDisplay {
+    Symbol
+    Narrow
+    Code
+    Name
+}
+
+derive Equatable for CurrencyDisplay
+
+impl Money {
+    /// The amount as a reader of `locale` writes it, with the currency where
+    /// the locale's pattern puts it. The amount shows the currency's minor
+    /// digits, more when it has more, and never loses one: format a rounded
+    /// amount (`Money.round`) to round it. A symbol made of letters is kept
+    /// apart from the digits (`BTC 0.50000000`).
+    //! eur = Money`12.5 EUR`
+    //! assert Money.format(eur, Locale`en`) == "€12.50"
+    //! assert Money.format(eur, Locale`pl`) == "12,50\u{a0}€"
+    //! assert Money.format(eur, Locale`de`, display: .Code) == "12,50\u{a0}EUR"
+    //! assert Money.format(eur, Locale`en`, display: .Name) == "12.50 euros"
+    //! assert Money.format(Money`1234 JPY`, Locale`ja`) == "￥1,234"
+    //! assert Money.format(Money`0.5 BTC:8`, Locale`en`) == "BTC\u{a0}0.50000000"
+    //
+    pub fn format(
+        money: Money,
+        locale: Locale,
+        display: CurrencyDisplay = CurrencyDisplay.Symbol,
+    ) -> String {
+        shown = case display {
+            CurrencyDisplay.Symbol -> 0
+            CurrencyDisplay.Narrow -> 1
+            CurrencyDisplay.Code -> 2
+            CurrencyDisplay.Name -> 3
+        }
+
+        money_format.format(money.amount, money.currency, locale, shown)
+    }
+
+    /// The amount rounded to its currency's minor digits, half to even
+    /// unless `mode` says otherwise: what a conversion or a share of a bill
+    /// rounds to before it is charged.
+    //! assert Money.round(Money`53.90875 EUR`) == Money`53.91 EUR`
+    //! assert Money.round(Money`0.125 EUR`) == Money`0.12 EUR`
+    //! assert Money.round(Money`0.125 EUR`, mode: RoundingMode.HalfUp) == Money`0.13 EUR`
+    //! assert Money.round(Money`99.5 JPY`) == Money`100 JPY`
+    //
+    pub fn round(money: Money, mode: RoundingMode = RoundingMode.HalfEven) -> Money {
+        digits = Currency.minor_digits(money.currency)
+        #Money{amount: Decimal.round(money.amount, digits, mode), currency: money.currency}
+    }
+
+    /// Read an amount in `currency` that a reader of `locale` wrote, strictly
+    /// unless `lenient: True`. Strict reads what `Money.format` writes, with
+    /// the currency's symbol, narrow symbol or code where the locale puts
+    /// it, and the allowances `Decimal.parse_in` makes. Lenient also takes
+    /// the symbol or code on either side, or none, and what lenient number
+    /// parsing takes. Either way a different currency is `WrongCurrency`,
+    /// and more digits after the decimal point than the currency has is
+    /// `TooManyFractionDigits`.
+    //! eur = Currency`EUR`
+    //! assert Money.parse_in("12,50 €", Locale`pl`, eur) == Ok(Money`12.50 EUR`)
+    //! assert Money.parse_in("€1,299.50", Locale`en`, eur) == Ok(Money`1299.50 EUR`)
+    //! assert Money.parse_in("12,50", Locale`pl`, eur, lenient: True) == Ok(Money`12.50 EUR`)
+    //!
+    //! assert Money.parse_in("12,50 zł", Locale`pl`, eur) == Err(
+    //!     #NumberParseError.WrongCurrency{expected: eur, found: "zł"}
+    //! )
+    //!
+    //! assert Money.parse_in("€12.505", Locale`en`, eur) == Err(
+    //!     #NumberParseError.TooManyFractionDigits{max: 2}
+    //! )
+    //
+    pub fn parse_in(
+        text: String,
+        locale: Locale,
+        currency: Currency,
+        lenient: Bool = False,
+    ) -> Result<Money, NumberParseError> {
+        amount = try money_format.parse(text, locale, currency, lenient)
+        Ok(#Money{amount, currency})
+    }
+
+    /// Whether the amount is the sum of no amounts, `Money.empty_sum()`.
+    fn empty?(money: Money) -> Bool {
+        money.currency == Currency`XXX` and Decimal.zero?(money.amount)
+    }
+}
+
+impl Add<Money, Money> for Money {
+    /// The sum of two amounts in one currency, exact. Amounts in two
+    /// currencies trap, naming both: `Money.add: the amounts are in two
+    /// currencies, EUR and PLN`. A custom currency is named with its
+    /// digits, so two of one code are told apart (`PTS:0 and PTS:2`).
+    //! assert Money`12.50 EUR` + Money`0.75 EUR` == Money`13.25 EUR`
+    //
+    fn add(lhs: Money, rhs: Money) -> Money {
+        if Money.empty?(lhs) {
+            rhs
+        } else if Money.empty?(rhs) {
+            lhs
+        } else {
+            money_format.require_same("Money.add", lhs.currency, rhs.currency)
+            #Money{amount: lhs.amount + rhs.amount, currency: lhs.currency}
+        }
+    }
+}
+
+impl Subtract<Money, Money> for Money {
+    /// The difference of two amounts in one currency, exact; amounts in two
+    /// currencies trap, as `+` does.
+    //! assert Money`12.50 EUR` - Money`20 EUR` == Money`-7.50 EUR`
+    //
+    fn subtract(lhs: Money, rhs: Money) -> Money {
+        if Money.empty?(rhs) {
+            lhs
+        } else {
+            money_format.require_same("Money.subtract", lhs.currency, rhs.currency)
+            #Money{amount: lhs.amount - rhs.amount, currency: rhs.currency}
+        }
+    }
+}
+
+impl Multiply<Int, Money> for Money {
+    /// The amount times a count, exact: three of a book's price.
+    //! assert Money`12.50 EUR` * 3 == Money`37.50 EUR`
+    //
+    fn multiply(money: Money, rhs: Int) -> Money {
+        #Money{amount: money.amount * Decimal.from_int(rhs), currency: money.currency}
+    }
+}
+
+impl Summable for Money {
+    /// The sum of no amounts: zero in `XXX`, ISO's code for no currency,
+    /// which `+` leaves the other amount alone for. So `Iter.sum` of a
+    /// cart's prices is their total in their currency, and of an empty cart
+    /// zero in no currency.
+    //! import std/iter.Iter
+    //!
+    //! prices = [Money`12.50 EUR`, Money`3 EUR`]
+    //! assert Iter.sum(prices) == Money`15.50 EUR`
+    //! empty: List<Money> = []
+    //! assert Iter.sum(empty) == Money`0 XXX`
+    //
+    fn empty_sum() -> Money {
+        #Money{amount: Decimal.from_int(0), currency: Currency`XXX`}
+    }
+}
+
+impl Localize for Money {
+    /// The amount as `Money.format` writes it, with the currency's symbol.
+    fn localize(money: Money, locale: Locale) -> String {
+        Money.format(money, locale, CurrencyDisplay.Symbol)
+    }
+}
+
+impl Literal for Money {
+    /// ``Money`12.50 EUR` `` is `#Money{amount: 12.50d, currency:
+    /// Currency`EUR`}`: the amount, one space and the currency, as `Display`
+    /// writes them. The amount keeps every digit written, as a `Decimal`
+    /// literal does (``Money`12.5 EUR` `` has one), and the currency is
+    /// what ``Currency`…` `` reads, so a custom one names its minor digits
+    /// (``Money`1200 PTS:0` ``). A raw literal is checked when the program
+    /// is checked, so a malformed amount, an unknown currency or a missing
+    /// one is a compile error at the literal. The literal does not
+    /// interpolate: build `#Money{...}` from a computed amount.
+    //! assert Money`1299.50 USD` == #Money{amount: 1299.50d, currency: Currency`USD`}
+    //! assert Money`-5.00 USD`.amount == -5.00d
+    //! assert Money`1200 PTS:0`.currency == Currency`PTS:0`
+    //! assert Decimal.scale(Money`12.5 EUR`.amount) == 1
+    //! assert Money"12.50" == Err(#Error.NoCurrency{amount: "12.50"})
+    //
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Money, Error> {
+        interpolated = Iter.any?(fragments, fn frag -> {
+            case frag {
+                .Static(_) -> False
+                .Dynamic(_) -> True
+            }
+        })
+
+        if interpolated { return Err(Error.Interpolated) }
+
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        })
+
+        case String.split(body, " ") {
+            [text] ->
+                case Decimal.from_string(text) {
+                    Some(_) -> Err(#Error.NoCurrency{amount: text})
+                    None -> Err(#Error.Malformed{text})
+                }
+
+            [amount_text, code] when amount_text != "" and code != "" -> {
+                amount = case Decimal.from_string(amount_text) {
+                    Some(d) -> d
+                    None -> return Err(#Error.Amount{text: amount_text})
+                }
+
+                case Currency.parse(code) {
+                    Ok(currency) -> Ok(#Money{amount, currency})
+                    Err(error) -> Err(#Error.NotACurrency{amount: amount_text, error})
+                }
+            }
+
+            _ ->
+                Err(#Error.Malformed{text: body})
+        }
+    }
+}
+
+impl Display for Money {
+    /// The amount, every digit, one space and the currency as its literal
+    /// writes it: `12.50 EUR`, or `1200 PTS:0` for a custom currency. A
+    /// ``Money`…` `` literal of the text is the same amount.
+    //! assert Display.to_string(Money`-5.00 USD`) == "-5.00 USD"
+    //! assert Display.to_string(Money`1200 PTS:0`) == "1200 PTS:0"
+    //
+    fn to_string(money: Money) -> String {
+        currency = money.currency
+
+        if Currency.iso?(currency) {
+            "${money.amount} ${currency}"
+        } else {
+            "${money.amount} ${currency}:${Currency.minor_digits(currency)}"
+        }
+    }
+}

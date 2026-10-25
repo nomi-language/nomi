@@ -1229,6 +1229,14 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 			return nil, errorAt(pubTok.Line, pubTok.Col, "an exported function takes no `pub`: write `export fn`")
 		case token.IDENT:
 			if p.peek().Lexeme != "host" {
+				if p.startsKeywordDecl() {
+					return p.parseKeywordDecl(true)
+				}
+				if kw := p.peek(); p.peekAt(1).Type == token.TYPE_IDENT {
+					// `pub strct Point`, or a macro's keyword missing its
+					// `!` before a type name (startsKeywordDecl).
+					return nil, errorAt(kw.Line, kw.Col, "`%s` declares nothing: a type is declared with `struct`, `enum` or `type`, and a macro's declaration marks its keyword with `!`: `%s! %s`", kw.Lexeme, kw.Lexeme, p.peekAt(1).Lexeme)
+				}
 				return nil, errorAt(pubTok.Line, pubTok.Col, "'pub' is not valid before %s", p.peek().Type)
 			}
 			return p.parseHost(true, false)
@@ -1282,6 +1290,13 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	// Top-level derive: derive [<generics>] Iface for Receiver.
 	if p.peek().Type == token.IDENT && p.peek().Lexeme == "derive" {
 		return p.parseDeriveDecl()
+	}
+
+	// A keyword declaration: two names in a row at the top level, or a
+	// qualified name and a name, by the general rule
+	// `[pub] [module.]keyword name [(params)] [-> type] [[Tag]raw body]`.
+	if p.blockDepth == 0 && p.startsKeywordDecl() {
+		return p.parseKeywordDecl(false)
 	}
 
 	// Top-level impl: impl [<generics>] Iface for Receiver { ... }.
@@ -1437,6 +1452,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 			p.listAfter(&lc)
 
 			// Skip comma/newline separators
+			end := p.pos
 			if !p.atEnd() && (p.peek().Type == token.COMMA || p.peek().Type == token.NEWLINE) {
 				p.advance()
 				p.listGap(&lc)
@@ -1444,6 +1460,11 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 
 			if !p.atEnd() && p.peek().Type == token.RBRACE {
 				break
+			}
+			// Two fields need a comma between them. Leave the source to
+			// the struct literal parse below, which reports it.
+			if !p.commaSince(end) {
+				valid = false
 			}
 		}
 
@@ -1473,6 +1494,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		p.advance() // consume LPAREN
 
 		var bindings []*ast.Ident
+		var discards []*ast.WildcardPattern
 		var lc listComments
 		lc.open(p)
 		valid := true
@@ -1498,6 +1520,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 				lc.pending = append(lc.pending, inner...)
 				lc.item(nil)
 				bindings = append(bindings, nil) // nil = wildcard
+				discards = append(discards, &ast.WildcardPattern{Line: t.Line, Col: t.Col})
 			}
 			p.listAfter(&lc)
 
@@ -1524,7 +1547,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 			if err != nil {
 				return nil, err
 			}
-			return p.withBindingElse(savedPos, &ast.TupleDestructure{Bindings: bindings, Value: val, Line: line, Col: col}, val, line, col)
+			return p.withBindingElse(savedPos, &ast.TupleDestructure{Bindings: bindings, Discards: discards, Value: val, Line: line, Col: col}, val, line, col)
 		}
 
 		// Not a tuple destructure — restore position
@@ -2797,6 +2820,9 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 	default:
 		if tok.Problem != "" {
 			return nil, errorAt(tok.Line, tok.Col, "%s", tok.Problem)
+		}
+		if err := p.doubledComma(); err != nil {
+			return nil, err
 		}
 		return nil, errorAt(tok.Line, tok.Col, "unexpected token %s %q", tok.Type, tok.Lexeme)
 	}
@@ -4668,6 +4694,9 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 			if tok.Problem != "" {
 				return nil, nil, errorAt(tok.Line, tok.Col, "%s", tok.Problem)
 			}
+			if err := p.doubledComma(); err != nil {
+				return nil, nil, err
+			}
 			return nil, nil, errorAt(tok.Line, tok.Col, "unexpected token %s %q in case pattern", tok.Type, tok.Lexeme)
 		}
 	} else {
@@ -4910,8 +4939,9 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 // after it. opening is the trivia after the literal's `{`; the comments in
 // it go above the spread, and the opening trivia answered is what is left
 // to lead the first field or entry.
-func (p *Parser) parseUpdateSpread(opening []ast.Trivia) (ast.Node, int, int, []ast.Trivia, error) {
+func (p *Parser) parseUpdateSpread(opening []ast.Trivia) (updateSpread, []ast.Trivia, error) {
 	spreadTok := p.peek()
+	headStart := p.pos + 1
 	p.advance() // consume DOTDOT
 	// A comment between `..` and the head, or ending the spread's
 	// line, goes after the spread's comma: the first ends that line
@@ -4920,18 +4950,22 @@ func (p *Parser) parseUpdateSpread(opening []ast.Trivia) (ast.Node, int, int, []
 	sameAfterDots, ownAfterDots := p.listBoundaryComments()
 	afterDots := append(sameAfterDots, ownAfterDots...)
 	var head ast.Node
-	if p.bareSpreadEnds(token.RBRACE) {
+	if p.bareSpreadEnds(token.RBRACE) || p.fieldAhead() {
 		// `#{.., city: "NYC"}`: no head. The value already at the
-		// field or key this literal is written at is the base.
+		// field or key this literal is written at is the base. A field
+		// right after the `..` (`#{.. city: "NYC"}`) is a bare spread
+		// missing its comma, which the caller reports, since no head
+		// is followed by a `:`.
 		head = &ast.CurrentValue{Line: spreadTok.Line, Col: spreadTok.Col}
 	} else {
 		p.skipNewlines()
 		var err error
 		head, err = p.parseExpr(1)
 		if err != nil {
-			return nil, 0, 0, nil, err
+			return updateSpread{}, nil, err
 		}
 	}
+	headEnd := p.pos
 	// Comments between `{` and `..` stay above the spread, the first
 	// element, rather than moving below it to the first field.
 	if before := commentsOnly(opening); len(before) > 0 {
@@ -4940,23 +4974,86 @@ func (p *Parser) parseUpdateSpread(opening []ast.Trivia) (ast.Node, int, int, []
 			opening = nil
 		}
 	}
-	for !p.atEnd() {
-		t := p.peek().Type
-		if t == token.COMMA || t == token.NEWLINE || t == token.SEMICOLON {
-			p.advance()
-		} else {
-			break
-		}
-	}
 	var spreadField ast.StructFieldVal
-	p.structLitFieldEnd(&spreadField, true)
+	if _, err := p.structLitFieldEnd(&spreadField); err != nil {
+		return updateSpread{}, nil, err
+	}
+	sp := updateSpread{
+		head:      head,
+		line:      spreadTok.Line,
+		col:       spreadTok.Col,
+		separated: p.commaSince(headEnd),
+		label:     p.spreadLabel(headStart, headEnd),
+	}
 	if comments := append(afterDots, spreadField.Trailing...); len(comments) > 0 {
 		if c := nodeComments(head)(); c != nil {
 			c.Trailing = append(c.Trailing, comments[0])
 			c.After = append(c.After, comments[1:]...)
 		}
 	}
-	return head, spreadTok.Line, spreadTok.Col, opening, nil
+	return sp, opening, nil
+}
+
+// updateSpread is the spread that opens an update literal: its head (an
+// *ast.CurrentValue for a bare `..`), the `..`'s position, whether a comma
+// follows it, and how the error for a missing one names it.
+type updateSpread struct {
+	head      ast.Node
+	line, col int
+	separated bool
+	label     string
+}
+
+// missingComma is the error at the field or entry at, which follows the
+// spread with no comma between them.
+func (sp updateSpread) missingComma(at token.Token) error {
+	return errorAt(at.Line, at.Col, "expected `,` or `}` after %s", sp.label)
+}
+
+// nextPastTrivia answers the first token at or after the cursor that is not
+// a line break, comment or blank line, without consuming anything.
+func (p *Parser) nextPastTrivia() (token.Token, bool) {
+	for i := p.pos; i < len(p.tokens); i++ {
+		switch p.tokens[i].Type {
+		case token.NEWLINE, token.COMMENT, token.BLANK_LINE, token.SEMICOLON:
+			continue
+		case token.EOF:
+			return token.Token{}, false
+		}
+		return p.tokens[i], true
+	}
+	return token.Token{}, false
+}
+
+// fieldAhead reports whether the next tokens past line breaks and comments
+// are a field name and its `:`.
+func (p *Parser) fieldAhead() bool {
+	for i := p.pos; i+1 < len(p.tokens); i++ {
+		switch p.tokens[i].Type {
+		case token.NEWLINE, token.COMMENT, token.BLANK_LINE, token.SEMICOLON:
+			continue
+		}
+		return p.tokens[i].Type == token.IDENT && p.tokens[i+1].Type == token.COLON
+	}
+	return false
+}
+
+// spreadLabel names a spread whose head is the tokens from index from up to
+// to: "`..base`" for a name or a field path, "`..`" for a bare spread, and
+// "the spread" for any other head.
+func (p *Parser) spreadLabel(from, to int) string {
+	var b strings.Builder
+	b.WriteString("..")
+	for i := from; i < to && i < len(p.tokens); i++ {
+		switch p.tokens[i].Type {
+		case token.IDENT, token.TYPE_IDENT, token.DOT:
+			b.WriteString(p.tokens[i].Lexeme)
+		case token.NEWLINE, token.COMMENT, token.BLANK_LINE, token.SEMICOLON:
+		default:
+			return "the spread"
+		}
+	}
+	return "`" + b.String() + "`"
 }
 
 // parseAnonStructLit parses a struct literal with no type name,
@@ -4981,12 +5078,15 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 	// only order under which "a later field wins" is true. Hence one
 	// spread, written FIRST, and the diagnostic below is the mirror of
 	// "list spread `..` must be the last element".
+	separated := true
+	var sp updateSpread
 	if !p.atEnd() && p.peek().Type == token.DOTDOT {
 		var err error
-		spread, spreadLine, spreadCol, opening, err = p.parseUpdateSpread(opening)
+		sp, opening, err = p.parseUpdateSpread(opening)
 		if err != nil {
 			return nil, err
 		}
+		spread, spreadLine, spreadCol, separated = sp.head, sp.line, sp.col, sp.separated
 	}
 	for !p.atEnd() && p.peek().Type != token.RBRACE {
 		// Collect trivia before the next field. `}` follows → EndTrivia;
@@ -5007,7 +5107,18 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 		if p.peek().Type == token.DOTDOT {
 			return nil, errorAt(p.peek().Line, p.peek().Col, "struct spread `..` must be the first element")
 		}
+		// The spread and each field are followed by a comma before the
+		// next field; a line break alone does not separate them.
+		if !separated && p.peek().Type == token.IDENT {
+			if len(fields) == 0 {
+				return nil, sp.missingComma(p.peek())
+			}
+			return nil, missingFieldComma(p.peek(), fields[len(fields)-1].Name)
+		}
 		if p.peek().Type != token.IDENT {
+			if err := p.doubledComma(); err != nil {
+				return nil, err
+			}
 			return nil, errorAt(p.peek().Line, p.peek().Col, "expected field name in struct literal")
 		}
 		fieldTok := p.peek()
@@ -5023,7 +5134,10 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 				Line:            fieldTok.Line,
 				Col:             fieldTok.Col,
 			})
-			p.structLitFieldEnd(&fields[len(fields)-1], true)
+			var err error
+			if separated, err = p.structLitFieldEnd(&fields[len(fields)-1]); err != nil {
+				return nil, err
+			}
 			continue
 		}
 		p.advance() // consume COLON
@@ -5032,7 +5146,9 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 			return nil, err
 		}
 		fields = append(fields, ast.StructFieldVal{Name: fieldName, Value: val, LeadingComments: leading, Line: fieldTok.Line, Col: fieldTok.Col})
-		p.structLitFieldEnd(&fields[len(fields)-1], true)
+		if separated, err = p.structLitFieldEnd(&fields[len(fields)-1]); err != nil {
+			return nil, err
+		}
 	}
 	if p.atEnd() || p.peek().Type != token.RBRACE {
 		return nil, errorAt(openTok.Line, openTok.Col, "expected '}' to close struct literal")
@@ -5662,6 +5778,9 @@ func (p *Parser) parseTypeParams() ([]ast.TypeParam, error) {
 }
 
 func (p *Parser) parseTypeParamName() (string, int, int, error) {
+	if err := p.doubledComma(); err != nil {
+		return "", 0, 0, err
+	}
 	if p.atEnd() || (p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT) {
 		line := 0
 		if !p.atEnd() {
@@ -5834,6 +5953,9 @@ func (p *Parser) parseTypeAnnotationInner() (ast.TypeExpr, error) {
 		return &ast.SelfType{Line: tok.Line, Col: tok.Col}, nil
 	}
 	if tok.Type != token.TYPE_IDENT && tok.Type != token.IDENT {
+		if err := p.doubledComma(); err != nil {
+			return nil, err
+		}
 		return nil, errorAt(tok.Line, tok.Col, "expected type name, got %s", tok.Type)
 	}
 
@@ -6454,6 +6576,9 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 	p.advance() // consume first segment
 
 	parseImportNameChain := func() (ast.Node, error) {
+		if err := p.doubledComma(); err != nil {
+			return nil, err
+		}
 		if p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT {
 			return nil, errorAt(tok.Line, tok.Col, "expected name in import list")
 		}
@@ -6731,7 +6856,7 @@ func importFileSegments(path []ast.Node, slashSegments int) int {
 
 // fileReExportError reports a re-export of an import that binds a file:
 // `pub import leaf`, `pub import leaf as lf`, or a brace list whose `self` is
-// the file (`pub import std/io.{self, IOError}`). A facade publishes the items
+// the file (`pub import std/io.{self, Error}`). A facade publishes the items
 // it lists, never a whole file. The parser can tell these apart from an item
 // re-export because the `/`-joined segments always name the file and
 // everything after the first `.` is an item or owner: `self` after an owner
@@ -7248,6 +7373,7 @@ func (p *Parser) parseStructLit(typeName ast.TypeExpr, line, col int) (ast.Node,
 
 	var fields []ast.StructFieldVal
 	var endTrivia []ast.Trivia
+	separated := true
 	for !p.atEnd() && p.peek().Type != token.RBRACE {
 		// Collect trivia before the next field. If `}` follows, it's
 		// the literal's EndTrivia; otherwise it becomes the next field's
@@ -7268,8 +7394,14 @@ func (p *Parser) parseStructLit(typeName ast.TypeExpr, line, col int) (ast.Node,
 		if p.peek().Type == token.DOTDOT {
 			return nil, errorAt(p.peek().Line, p.peek().Col, "struct spread `..` has no named form; write `#{..base, field: value}` — the spread head carries the type")
 		}
+		if !separated && p.peek().Type == token.IDENT {
+			return nil, missingFieldComma(p.peek(), fields[len(fields)-1].Name)
+		}
 		// Expect field name (IDENT)
 		if p.peek().Type != token.IDENT {
+			if err := p.doubledComma(); err != nil {
+				return nil, err
+			}
 			return nil, errorAt(p.peek().Line, p.peek().Col, "expected field name in struct literal")
 		}
 		fieldTok := p.peek()
@@ -7286,7 +7418,10 @@ func (p *Parser) parseStructLit(typeName ast.TypeExpr, line, col int) (ast.Node,
 				Line:            fieldTok.Line,
 				Col:             fieldTok.Col,
 			})
-			p.structLitFieldEnd(&fields[len(fields)-1], false)
+			var err error
+			if separated, err = p.structLitFieldEnd(&fields[len(fields)-1]); err != nil {
+				return nil, err
+			}
 			continue
 		}
 		p.advance() // consume COLON
@@ -7298,7 +7433,9 @@ func (p *Parser) parseStructLit(typeName ast.TypeExpr, line, col int) (ast.Node,
 		}
 
 		fields = append(fields, ast.StructFieldVal{Name: fieldName, Value: val, LeadingComments: leading, Line: fieldTok.Line, Col: fieldTok.Col})
-		p.structLitFieldEnd(&fields[len(fields)-1], false)
+		if separated, err = p.structLitFieldEnd(&fields[len(fields)-1]); err != nil {
+			return nil, err
+		}
 	}
 
 	if p.atEnd() || p.peek().Type != token.RBRACE {
@@ -7759,6 +7896,9 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 		if tok.Problem != "" {
 			return nil, errorAt(tok.Line, tok.Col, "%s", tok.Problem)
 		}
+		if err := p.doubledComma(); err != nil {
+			return nil, err
+		}
 		return nil, errorAt(tok.Line, tok.Col, "unexpected token %s in pattern", tok.Type)
 	}
 }
@@ -7890,10 +8030,16 @@ func (p *Parser) parseMapLit(pct token.Token) (ast.Node, error) {
 	opening := p.collectLeadingTrivia()
 	lit := &ast.MapLit{Line: pct.Line, Col: pct.Col}
 	if !p.atEnd() && p.peek().Type == token.DOTDOT {
-		var err error
-		lit.Spread, lit.SpreadLine, lit.SpreadCol, opening, err = p.parseUpdateSpread(opening)
+		sp, rest, err := p.parseUpdateSpread(opening)
 		if err != nil {
 			return nil, err
+		}
+		opening = rest
+		lit.Spread, lit.SpreadLine, lit.SpreadCol = sp.head, sp.line, sp.col
+		if !sp.separated {
+			if next, ok := p.nextPastTrivia(); ok && next.Type != token.RBRACE {
+				return nil, sp.missingComma(next)
+			}
 		}
 	}
 	entries, endTrivia, err := p.parseMapLitEntries(pct.Line, opening)
@@ -8151,7 +8297,13 @@ func (p *Parser) parseMapPattern(typeName ast.TypeExpr, line, col int) (*ast.Map
 			return nil, err
 		}
 		entries = append(entries, ast.MapPatternEntry{Key: keyNode, Pattern: valPat})
-		p.listSeparators(&lc)
+		end := p.pos
+		if err := p.listSeparators(&lc); err != nil {
+			return nil, err
+		}
+		if !p.commaSince(end) && !p.atEnd() && p.peek().Type != token.RBRACE {
+			return nil, missingEntryComma(p.peek())
+		}
 	}
 	if p.atEnd() || p.peek().Type != token.RBRACE {
 		return nil, p.errorOnLine(line, "expected '}' in map pattern")
@@ -8170,8 +8322,15 @@ func (p *Parser) parseStructPatternBody(typeName ast.TypeExpr, line, col int) (a
 	lc.open(p)
 	p.skipSeparatorsOnly()
 	var fields []ast.StructPatternField
+	separated := true
 	for !p.atEnd() && p.peek().Type != token.RBRACE {
+		if !separated && p.peek().Type == token.IDENT {
+			return nil, missingFieldComma(p.peek(), fields[len(fields)-1].Name)
+		}
 		if p.peek().Type != token.IDENT {
+			if err := p.doubledComma(); err != nil {
+				return nil, err
+			}
 			return nil, errorAt(p.peek().Line, p.peek().Col, "expected field name in struct pattern")
 		}
 		fieldTok := p.peek()
@@ -8186,7 +8345,11 @@ func (p *Parser) parseStructPatternBody(typeName ast.TypeExpr, line, col int) (a
 		}
 		fields = append(fields, spf)
 		lc.item(fieldComments(&fields[len(fields)-1].Comments))
-		p.listSeparators(&lc)
+		end := p.pos
+		if err := p.listSeparators(&lc); err != nil {
+			return nil, err
+		}
+		separated = p.commaSince(end)
 	}
 	if p.atEnd() || p.peek().Type != token.RBRACE {
 		return nil, p.errorOnLine(lbraceLine, "expected '}' in struct pattern")
@@ -8232,11 +8395,13 @@ func (p *Parser) parseTypePrefixedListPattern(typeName ast.TypeExpr, line, col i
 // `field:`) and stores it on spf. A bare identifier is a rename binding
 // (`#{x: y}` binds field x to local y); anything else is a full nested pattern
 // parsed via parseSinglePattern, so struct / enum / tuple / literal / wildcard
-// patterns nest arbitrarily in field position (`#{inner: #Inner{v: vv}}`). The
+// patterns nest arbitrarily in field position (`#{inner: #Inner{v: vv}}`). An
+// identifier followed by `or` starts an or-pattern, and one followed by `.`
+// names a file, as in the variant `#{err: sql.Error.Closed}`. The
 // COLON has already been consumed. Shared by the typed-struct pattern parser
 // (parseTypePrefixedBracePattern) and the case-branch anonymous-struct parser.
 func (p *Parser) parseStructFieldValue(spf *ast.StructPatternField) error {
-	if !p.atEnd() && p.peek().Type == token.IDENT && p.peekAt(1).Type != token.OR {
+	if !p.atEnd() && p.peek().Type == token.IDENT && p.peekAt(1).Type != token.OR && p.peekAt(1).Type != token.DOT {
 		valTok := p.peek()
 		p.advance()
 		spf.Binding = valTok.Lexeme
@@ -8374,7 +8539,13 @@ func (p *Parser) parseMapLitEntries(line int, opening []ast.Trivia) ([]ast.MapEn
 			return nil, nil, err
 		}
 		entries = append(entries, ast.MapEntry{Key: key, Value: val})
-		p.listSeparators(&lc)
+		end := p.pos
+		if err := p.listSeparators(&lc); err != nil {
+			return nil, nil, err
+		}
+		if !p.commaSince(end) && !p.atEnd() && p.peek().Type != token.RBRACE {
+			return nil, nil, missingEntryComma(p.peek())
+		}
 	}
 	if p.atEnd() || p.peek().Type != token.RBRACE {
 		return nil, nil, p.errorOnLine(line, "expected '}' to close map literal")
@@ -9129,6 +9300,9 @@ func (p *Parser) parseWhereClause() ([]ast.WhereConstraint, error) {
 		} else {
 			name, line, col, err = p.parseTypeParamName()
 		}
+		if err := p.doubledComma(); err != nil {
+			return nil, err
+		}
 		if err != nil {
 			return nil, p.errorOnLine(line, "expected a type variable name in `where` clause")
 		}
@@ -9350,6 +9524,10 @@ func attachDoc(node ast.Node, doc string) bool {
 		n.Doc = doc
 	case *ast.OnceBinding:
 		n.Doc = doc
+	case *ast.KeywordDecl:
+		n.Doc = doc
+	case *ast.MacroDecl:
+		n.Doc = doc
 	default:
 		return false
 	}
@@ -9418,6 +9596,172 @@ func (p *Parser) parseOnceBinding(public bool) (ast.Node, error) {
 		Value:          value,
 		Line:           onceTok.Line,
 		Col:            nameTok.Col,
+	}, nil
+}
+
+// ---------------------------------------------------------------------------
+// Keyword declarations
+// ---------------------------------------------------------------------------
+
+// startsKeywordDecl reports whether the cursor is at a keyword
+// declaration's keyword: two names in a row (`message hi`), a name marked
+// with `!` and a name (`query! user`), or either with the keyword
+// qualified (`sqlkit.query! user`). The declared name may be a type name
+// (`choices.one_of! Size`, `one_of! Size`) when the keyword is marked or
+// qualified: a macro's declaration may declare a type. An unmarked,
+// unqualified name before a type name is not one, so a misspelled
+// declaration keyword (`strct Point`) keeps its own error.
+func (p *Parser) startsKeywordDecl() bool {
+	if p.peek().Type != token.IDENT {
+		return false
+	}
+	i := 1
+	if p.peekAt(1).Type == token.DOT && p.peekAt(2).Type == token.IDENT {
+		i = 3
+	}
+	if p.peekAt(i).Type == token.BANG {
+		i++
+	}
+	switch p.peekAt(i).Type {
+	case token.IDENT:
+		return i > 1 || p.peekAt(1).Type == token.IDENT
+	case token.TYPE_IDENT:
+		// `message` and `noun` name a function and a value, so a type
+		// name after them is their declaration's error.
+		return i > 1 || p.peek().Lexeme == "message" || p.peek().Lexeme == "noun"
+	}
+	return false
+}
+
+// parseKeywordDecl parses a declaration by the general rule
+//
+//	[pub] [module.]keyword[!] name [(params)] [-> type] [[Tag]raw body]
+//
+// with the cursor at the keyword, or at its qualifier. The grammar does not
+// know the keyword; the analysis decides what it means (ast.KeywordDecl).
+// It knows only that `message` and `noun` are built in, so they take no
+// `!`.
+func (p *Parser) parseKeywordDecl(public bool) (ast.Node, error) {
+	var modTok token.Token
+	if p.peekAt(1).Type == token.DOT {
+		modTok = p.peek()
+		p.advance() // consume the qualifier
+		p.advance() // consume DOT
+	}
+	kwTok := p.peek()
+	p.advance() // consume the keyword
+	marked := false
+	if bang := p.peek(); bang.Type == token.BANG {
+		if bang.Line != kwTok.Line || bang.Col != kwTok.Col+len(kwTok.Lexeme) {
+			return nil, errorAt(bang.Line, bang.Col, "a macro's keyword is marked with a `!` written against it: `%s!`", kwTok.Lexeme)
+		}
+		p.advance() // consume BANG
+		marked = true
+	}
+	nameTok := p.peek()
+	p.advance() // consume the name
+	if nameTok.Type == token.TYPE_IDENT && !marked && modTok.Lexeme == "" && (kwTok.Lexeme == "message" || kwTok.Lexeme == "noun") {
+		return nil, errorAt(nameTok.Line, nameTok.Col, "the name of a `%s` is snake_case, not the type name `%s`", kwTok.Lexeme, nameTok.Lexeme)
+	}
+	if kwTok.Lexeme == "macro" && modTok.Lexeme == "" && !marked {
+		return p.parseMacroDecl(public, kwTok, nameTok)
+	}
+	if marked && modTok.Lexeme == "" && (kwTok.Lexeme == "message" || kwTok.Lexeme == "noun" || kwTok.Lexeme == "macro") {
+		return nil, errorAt(kwTok.Line, kwTok.Col+len(kwTok.Lexeme), "`%s` is built in; write it without `!`", kwTok.Lexeme)
+	}
+	decl := &ast.KeywordDecl{
+		Module:     modTok.Lexeme,
+		ModuleLine: modTok.Line,
+		ModuleCol:  modTok.Col,
+		Keyword:    kwTok.Lexeme,
+		Marked:     marked,
+		Name:       nameTok.Lexeme,
+		Public:     public,
+		Line:       kwTok.Line,
+		Col:        kwTok.Col,
+		NameLine:   nameTok.Line,
+		NameCol:    nameTok.Col,
+	}
+	written := decl.QualifiedKeyword()
+	if !p.atEnd() && p.peek().Type == token.LPAREN {
+		p.advance() // consume LPAREN
+		params, paramsEnd, err := p.parseFuncParamList(kwTok)
+		if err != nil {
+			return nil, err
+		}
+		if p.atEnd() || p.peek().Type != token.RPAREN {
+			return nil, errorAt(kwTok.Line, kwTok.Col, "expected ')' after parameters")
+		}
+		p.advance() // consume RPAREN
+		decl.HasParams, decl.Params, decl.ParamsEndTrivia = true, params, paramsEnd
+	}
+	if !p.atEnd() && p.peek().Type == token.ARROW {
+		p.advance() // consume ARROW
+		rt, err := p.parseTypeAnnotation()
+		if err != nil {
+			return nil, err
+		}
+		decl.ReturnTypeExpr = rt
+	}
+	if !p.atEnd() {
+		start := p.pos
+		switch tok := p.peek(); tok.Type {
+		case token.RAW_STRING_LITERAL, token.RAW_TAGGED_STRING_LITERAL:
+			p.advance()
+			decl.Body = &ast.StringLit{Value: tok.Lexeme, Raw: true, Line: tok.Line, Col: tok.Col}
+			decl.BodyTag = tok.Tag
+			p.recordSpan(decl.Body, start)
+		case token.RAW_TRIPLE_STRING_LITERAL, token.RAW_TAGGED_TRIPLE_STRING_LITERAL:
+			p.advance()
+			decl.Body = &ast.StringLit{Value: tok.Lexeme, Triple: true, Raw: true, Line: tok.Line, Col: tok.Col, EndLine: tok.EndLine, EndCol: tok.EndCol}
+			decl.BodyTag = tok.Tag
+			decl.BodyCol = tok.Indent + 1
+			p.recordSpan(decl.Body, start)
+		case token.STRING_LITERAL, token.TRIPLE_STRING_LITERAL, token.STRING_START, token.TRIPLE_STRING_START,
+			token.TAGGED_STRING_LITERAL, token.TAGGED_TRIPLE_STRING_LITERAL, token.TAGGED_STRING_START, token.TAGGED_TRIPLE_STRING_START:
+			col := tok.Col - len(tok.Tag)
+			return nil, errorAt(tok.Line, col, "the body of a `%s` declaration is a raw string: write it between backticks", written)
+		}
+		if decl.BodyTag != "" && decl.Module == "" && (decl.Keyword == "message" || decl.Keyword == "noun") {
+			return nil, errorAt(decl.Body.Line, decl.TagCol(), "a `%s` body is MessageFormat 2 text and takes no tag: remove `%s`", decl.Keyword, decl.BodyTag)
+		}
+	}
+	if !p.atEnd() {
+		switch tok := p.peek(); tok.Type {
+		case token.NEWLINE, token.SEMICOLON, token.BLANK_LINE, token.COMMENT, token.EOF:
+		default:
+			return nil, errorAt(tok.Line, tok.Col, "unexpected %s in a `%s` declaration; it is `%s name(params) -> Type `body``, each part after the name optional", tok.Lexeme, written, written)
+		}
+	}
+	return decl, nil
+}
+
+// parseMacroDecl parses `[pub] macro name: Type` (ast.MacroDecl)
+// with the keyword and the name consumed.
+func (p *Parser) parseMacroDecl(public bool, kwTok, nameTok token.Token) (ast.Node, error) {
+	if p.atEnd() || p.peek().Type != token.COLON {
+		return nil, errorAt(nameTok.Line, nameTok.Col, "a `macro` declaration names the type whose impls expand it: write `macro %s: Type`", nameTok.Lexeme)
+	}
+	p.advance() // consume COLON
+	impl, err := p.parseTypeAnnotation()
+	if err != nil {
+		return nil, err
+	}
+	if !p.atEnd() {
+		switch tok := p.peek(); tok.Type {
+		case token.NEWLINE, token.SEMICOLON, token.BLANK_LINE, token.COMMENT, token.EOF:
+		default:
+			return nil, errorAt(tok.Line, tok.Col, "unexpected %s in a `macro` declaration; it is `macro name: Type`", tok.Lexeme)
+		}
+	}
+	return &ast.MacroDecl{
+		Name:     nameTok.Lexeme,
+		Public:   public,
+		Impl:     impl,
+		Line:     kwTok.Line,
+		Col:      kwTok.Col,
+		NameLine: nameTok.Line,
+		NameCol:  nameTok.Col,
 	}, nil
 }
 
@@ -9501,6 +9845,9 @@ func (p *Parser) parseExternFunc(externTok token.Token, public bool, allowImplQu
 	if !p.atEnd() && p.peek().Type != token.RPAREN {
 		for {
 			if p.atEnd() || p.peek().Type != token.IDENT {
+				if err := p.doubledComma(); err != nil {
+					return nil, err
+				}
 				return nil, errorAt(p.peek().Line, p.peek().Col, "expected parameter name")
 			}
 			paramTok := p.peek()

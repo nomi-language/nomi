@@ -10,8 +10,9 @@ import (
 
 // Hover on syntax no symbol covers: the punctuation of a shape-symbol
 // literal or pattern, a variant's leading `.` and opening `(`, a pipe's
-// `|>` (pipes.go), and the `&1` of an operator or a literal that makes it a
-// function (lambdas.go).
+// `|>` (pipes.go), the `&1` of an operator or a literal that makes it a
+// function (lambdas.go), an operator (operators.go), and a discard `_`
+// (discards.go).
 //
 // An editor asks for the hover of the character under the cursor, which on
 // `#Point{`, `%[`, `#.Circle{` or the `]` that ends a long literal is
@@ -29,7 +30,7 @@ func SyntaxAt(fa *analysis.FileAnalysis, nodes []ast.Node, pos analysis.Pos) (co
 	if fa == nil {
 		return "", analysis.Pos{}, 0, false
 	}
-	s := shapeSearch{fa: fa, pos: pos}
+	s := shapeSearch{fa: fa, pos: pos, nodes: nodes}
 	for _, n := range nodes {
 		ast.Inspect(n, func(n ast.Node) bool {
 			s.visit(n)
@@ -60,6 +61,8 @@ type shapeSearch struct {
 	fa   *analysis.FileAnalysis
 	pos  analysis.Pos
 	best *shapeHit
+	// nodes are the file's top-level nodes.
+	nodes []ast.Node
 	// pipeOuter maps a pipe to the pipe the parser built around it for a
 	// prefixed stage (pipes.go).
 	pipeOuter map[*ast.Binary]*ast.Binary
@@ -72,6 +75,10 @@ type shapeSearch struct {
 	lambdaStages  map[*ast.Lambda]string
 	captureArgs   map[*ast.Capture]lambdaArg
 	captureStages map[*ast.Capture]string
+	// refutable are the `_`s that stand where a match may fail, and
+	// conditionArms the `_` arms of a `case` with no subject (discards.go).
+	refutable     map[*ast.WildcardPattern]bool
+	conditionArms map[*ast.WildcardPattern]bool
 }
 
 // claim offers the text at (line, col) of length n for the node n of extent
@@ -178,13 +185,30 @@ func (s *shapeSearch) visit(n ast.Node) {
 		if n.Op == "|>" {
 			s.pipe(n)
 			s.notePipeStage(n.Right)
+		} else {
+			s.operator(n)
 		}
+	case *ast.Unary:
+		s.unary(n)
+	case *ast.RangeLit:
+		s.rangeOp(n)
 	case *ast.Lambda:
 		s.lambda(n)
+		s.discardParams(n.Params, func() *analysis.FuncType {
+			ft, _ := analysis.ResolveTypeVar(s.fa.ExprTypes[n]).(*analysis.FuncType)
+			return ft
+		})
 	case *ast.Capture:
 		s.capture(n)
 	case *ast.FuncDef:
 		s.funcKeyword(n)
+		s.discardParams(n.Params, func() *analysis.FuncType { return s.funcDefType(n) })
+	case *ast.WildcardPattern:
+		s.discard(n)
+	case *ast.Binding:
+		s.discardBinding(n)
+	case *ast.Case, *ast.If, *ast.PatternBinding, *ast.PatternDestructure:
+		s.noteRefutablePositions(n)
 	}
 }
 

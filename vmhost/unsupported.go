@@ -268,9 +268,6 @@ func blockedMessages(b *Blocked) []string {
 // unsupportedHint is advice for the declines whose cause the author can act
 // on, keyed by the lowering's reason, which is never shown itself.
 func unsupportedHint(reason string) string {
-	if name, ok := strings.CutPrefix(reason, "a direct call to a function that uses break or continue: "); ok {
-		return "`" + name + "` uses break or continue, so pass it as the callback itself, as in `Iter.map(xs, " + name + ")`, rather than calling it"
-	}
 	if name, ok := strings.CutPrefix(reason, "an iter-sensitive function passed where its break or continue cannot be caught: "); ok {
 		return "`" + name + "` uses break or continue; so far such a function runs as a callback only when the iteration function is named with its owner, as in `Iter.find(xs, " + name + ")`"
 	}

@@ -218,6 +218,147 @@ impl Literal for Tag {
 	}
 }
 
+// A tag whose name another module's type with its own `impl Literal` also
+// has resolves to its own type's impl: a program's `type Sql` beside
+// std/sql's `Sql`, told apart by the receiver's declaring module rather
+// than by the name, with an imported tag type beside it.
+func TestTypedLiteral_SameNamedTagsOfTwoModules(t *testing.T) {
+	entry := `import {
+  std/literals.{Fragment, Literal}
+  tags.Tag
+}
+
+type Sql
+
+impl Literal for Sql {
+  fn from_fragments(_fragments: List<Fragment<String>>) -> String {
+    "mine"
+  }
+}
+
+fn main() {
+  s: String = Sql"select 1"
+  q: Tag = Tag"hello"
+}`
+	tag := `import std/literals.{Fragment, Literal}
+
+pub type Tag String
+
+impl Literal for Tag {
+  fn from_fragments(_fragments: List<Fragment<String>>) -> Tag {
+    Tag("ok")
+  }
+}
+`
+	siblings := map[string]string{"tags": tag}
+	errs := checkTypedLiteralProject(t, entry, siblings)
+	for _, e := range errs {
+		if strings.Contains(e.Message, "typed-literal") || strings.Contains(e.Message, "expected") {
+			t.Fatalf("expected each tag to resolve to its own type's impl; got %s", e.Error())
+		}
+	}
+}
+
+// A module file named `sql.nomi` that declares its own `Sql` with an `impl
+// Literal` declares a type other than std/sql's `Sql`, though both module
+// keys end in `sql`: a program reaching both has no duplicate impl, and its
+// tag resolves to the module's own handler.
+func TestTypedLiteral_ASqlModuleOfTheProgramIsNotStdSql(t *testing.T) {
+	entry := `import {
+  db/sql.{Query, Sql}
+  std/sql.Value
+}
+
+fn main() {
+  q: Query = Sql"select ${1}"
+  _v = Value.Null
+  _q = q
+}`
+	module := `import std/literals.{Fragment, Literal}
+
+pub struct Query {
+  text: String
+}
+
+pub type Sql
+
+impl Literal for Sql {
+  fn from_fragments(fragments: List<Fragment<Display>>) -> Query {
+    _read = fragments
+    #Query{text: "mine"}
+  }
+}
+`
+	errs := buildSiblingProject(t, entry, map[string]string{"db/sql": module})
+	for _, e := range errs {
+		t.Errorf("expected the module's Sql to be its own type; got %s", e.Error())
+	}
+}
+
+// The mirror of the test above: two impls of one interface for that module's
+// own `Sql` are still a duplicate, named by the module's last segment.
+func TestTypedLiteral_TwoImplsForASqlModulesTypeAreADuplicate(t *testing.T) {
+	entry := `import {
+  db/sql.Sql
+  other
+}
+
+fn main() {
+  io.print(Display.to_string(Sql()))
+  other.touch()
+}`
+	module := `pub type Sql
+
+impl Display for Sql {
+  fn to_string(_value: Sql) -> String {
+    "one"
+  }
+}
+`
+	other := `import db/sql.Sql
+
+impl Display for Sql {
+  fn to_string(_value: Sql) -> String {
+    "two"
+  }
+}
+
+pub fn touch() {}
+`
+	errs := buildSiblingProject(t, entry, map[string]string{"db/sql": module, "other": other})
+	want := "duplicate impl: `Display` is implemented for `sql.Sql` by modules db/sql, other (function `to_string`)"
+	for _, e := range errs {
+		if strings.Contains(e.Message, want) {
+			return
+		}
+	}
+	t.Fatalf("expected %q; got:\n  %s", want, joinMessages(errs))
+}
+
+// A program's distinct `type Sql String` with its own `impl Literal` is one
+// impl of Literal for its type, not a second one beside std/sql's `Sql`, so
+// its header need not write Literal's type arguments.
+func TestTypedLiteral_ADistinctTagIsNotASecondImplOfStdsSameNamedType(t *testing.T) {
+	entry := `import std/literals.{Fragment, Literal}
+
+type Sql String
+
+impl Literal for Sql {
+  fn from_fragments(_fragments: List<Fragment<String>>) -> Sql {
+    Sql("mine")
+  }
+}
+
+fn main() {
+  s: Sql = Sql"select 1"
+}`
+	for _, e := range checkTypedLiteralProject(t, entry, nil) {
+		if strings.Contains(e.Message, "Literal") || strings.Contains(e.Message, "typed-literal") {
+			t.Fatalf("expected Sql's one impl of Literal; got %s", e.Error())
+		}
+	}
+}
+
 // A PascalCase tag pointing at a non-existent name surfaces a precise
 // not-in-scope diagnostic.
 func TestTypedLiteral_TagMustBeAType(t *testing.T) {

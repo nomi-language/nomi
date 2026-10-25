@@ -89,9 +89,114 @@ func (g *gen) irFileSlotDefaults(fd *ast.FuncDef, sig *fnSig) {
 	callee := g.irFunctionCallee(sig)
 	for slot, p := range fd.Params {
 		if p.Default != nil {
-			g.irFileSlotRetain(fd, sig, callee, slot)
+			g.irFileSlotRetain(fd, sig, callee, fd.Name, slot)
 		}
 	}
+}
+
+// irImplSlotDefaults builds the accessors of a `pub` function of an inherent
+// impl block another file may call, `Fake.new()` against `pub fn new(dialect:
+// Dialect = Dialect.Other("fake"))`, for a call whose file cannot name what
+// the defaults name (siblingAccessorArgs). A generic receiver's members, an
+// interface's impl functions and a Go-bound function build none.
+func (g *gen) irImplSlotDefaults(d *implDef, it *implItem) {
+	fd := it.decl
+	if g.irMod == nil || g.files == nil || d.iface != nil || d.ifaceName != "" || it.inherited ||
+		fd == nil || !fd.Public || len(it.params) != len(fd.Params) || !it.lowerable {
+		return
+	}
+	if def := d.recv.def; d.recv.tag != tagNamed || def == nil || def.instOrigin != nil || def.genericOf != nil {
+		return
+	}
+	if _, host := hostExtOf(fd); host {
+		return
+	}
+	// The body's symbol as irImplLower interns it, and the accessors' name as
+	// a call site's siblingFill gives it (implMemberSite.symName).
+	callee := g.irCalleeSym(it, d.ownerName()+"."+it.name)
+	name := d.recv.nomi() + "." + it.name
+	sig := &fnSig{params: it.params, result: it.result, decl: fd, lowerable: true}
+	for slot, p := range fd.Params {
+		if p.Default != nil {
+			g.irFileSlotRetain(fd, sig, callee, name, slot)
+		}
+	}
+}
+
+// accessorDefaults reports whether site's declaring file builds an accessor
+// for each of its defaulted parameters (irImplSlotDefaults).
+func (site *implMemberSite) accessorDefaults() bool {
+	it := site.item
+	return site.iface == "" && !site.synth && site.withheld == nil && it != nil && !it.inherited &&
+		it.decl != nil && it.decl.Public
+}
+
+// siblingAccessorArgs fills the slots a short call to site, a sibling file's
+// inherent impl function, omits, with a call to the accessor its file builds
+// for each (irImplSlotDefaults): the default may name that file's private
+// functions and types, which this file cannot lower. args holds the written
+// operands, in order from the first slot.
+func (bl *irScalarBuilder) siblingAccessorArgs(t *ast.Call, args irQualArgs, site *implMemberSite, params []kind, owning *gen) (irQualArgs, bool) {
+	if !site.accessorDefaults() || len(args.temps) > len(params) {
+		return args, false
+	}
+	temps := make([]ir.Temp, len(params))
+	mobile := make([]bool, len(params))
+	copy(temps, args.temps)
+	copy(mobile, args.mobile)
+	for i := len(args.temps); i < len(temps); i++ {
+		temps[i] = ir.NoTemp
+	}
+	if !bl.siblingImplFill(t, site, owning, params, temps, mobile) {
+		return args, false
+	}
+	return irQualArgs{temps: temps, kinds: append([]kind(nil), params...), mobile: make([]bool, len(temps)), ok: true}, true
+}
+
+// siblingImplFill is siblingFill against site, a sibling file's inherent impl
+// function whose accessors its file builds.
+func (bl *irScalarBuilder) siblingImplFill(at ast.Node, site *implMemberSite, owning *gen, params []kind, temps []ir.Temp, mobile []bool) bool {
+	callee := owning.irCalleeSym(site.item, site.symName)
+	decl := &ast.FuncDef{Name: site.symName, Params: site.fn.params0}
+	return bl.siblingFill(at, owning, callee, decl, params, temps, mobile)
+}
+
+// namedSiblingImplFill fills the slots a named-argument call to a sibling
+// file's inherent impl function leaves out, `Fake.new(answer: f)`, with its
+// file's accessors when a default names what this file cannot
+// (siblingDefaultsAgree). handled is false when the callee is not such a
+// function, or its defaults lower here; ok is whether the slots were filled.
+func (bl *irScalarBuilder) namedSiblingImplFill(t *ast.Call, fa *ast.FieldAccess, fd *ast.FuncDef, kinds []kind, temps []ir.Temp) (ok, handled bool) {
+	g := bl.g
+	ti, isType := fa.Object.(*ast.TypeIdent)
+	if !isType || fa.Field == nil || g.files == nil || g.reg == nil {
+		return false, false
+	}
+	d, found := g.namedType(ti.Name)
+	if !found || d == nil || d.decl == nil || d.instOrigin != nil || d.genericOf != nil {
+		return false, false
+	}
+	site, params, _, owning := g.siblingImplMemberBy(d, fa.Field.Name, "", nil)
+	if site == nil || site.item.decl != fd || !site.accessorDefaults() || len(params) != len(temps) {
+		return false, false
+	}
+	var slots []int
+	for i, tmp := range temps {
+		if tmp == ir.NoTemp {
+			slots = append(slots, i)
+		}
+	}
+	if bl.siblingDefaultsAgree(site.fn, owning, slots) {
+		return false, false
+	}
+	for i, tmp := range temps {
+		if tmp == ir.NoTemp {
+			kinds[i] = params[i]
+		} else if kinds[i] != params[i] {
+			return false, true
+		}
+	}
+	return bl.siblingImplFill(t, site, owning, params, temps, nil), true
 }
 
 // irFileSlotRetain builds the accessor for one defaulted parameter: the
@@ -100,8 +205,8 @@ func (g *gen) irFileSlotDefaults(fd *ast.FuncDef, sig *fnSig) {
 // parameters. A default that does not lower leaves no accessor, and a program
 // that reaches one is reported BLOCKED under the accessor's name, at the
 // default.
-func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, slot int) {
-	name := fileSlotName(fd.Name, slot)
+func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, fn string, slot int) {
+	name := fileSlotName(fn, slot)
 	g.irDeclineOpen(name)
 	defer irDeclineAtNode(fd.Params[slot].Default)
 	for _, k := range sig.params[:slot+1] {
@@ -121,7 +226,7 @@ func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, s
 	short := *fd
 	short.Params = fd.Params[:slot]
 	isig := irFuncSig{result: sig.params[slot], decl: fd, name: name, origin: irFromModule}
-	sh := g.irFuncShellWithCallee(&short, isig, params, g.irFileSlotSym(callee, fd.Name, slot))
+	sh := g.irFuncShellWithCallee(&short, isig, params, g.irFileSlotSym(callee, fn, slot))
 	if sh == nil {
 		irDeclineNote("no function shell")
 		return

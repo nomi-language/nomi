@@ -1,0 +1,32 @@
+import std/message.Message
+
+/// Where an order is.
+pub enum Status {
+    Pending
+    Shipped
+    Delivered
+}
+
+/// How many items the cart holds.
+pub message cart_items(count: Int) `
+    .input {$count :integer}
+    .match $count
+    one {{{$count} item in your cart}}
+    * {{{$count} items in your cart}}
+    `
+
+/// Where the customer's order is.
+pub message order_status(status: Status) `
+    .input {$status :string}
+    .match $status
+    Pending {{Your order is waiting to ship}}
+    Shipped {{Your order is on its way}}
+    Delivered {{Your order was delivered}}
+    * {{Your order is on its way}}
+    `
+
+/// Who is looking at an item: a list of names, already joined.
+pub message watching(names: String) `{$names} are watching this item`
+
+/// A greeting before the cart's contents, another message.
+pub message cart_summary(name: String, items: Message) `{$name}, you have {$items}`

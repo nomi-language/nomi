@@ -1,0 +1,104 @@
+# Portuguese nouns are masculine or feminine, with no cases: each noun has
+# one form, the nominative.
+
+[book]
+source = '''
+.input {$count :integer}
+.match $count
+one {{book}}
+* {{books}}
+'''
+gender = "masculine"
+nominative = '''
+.input {$count :integer}
+.match $count
+one {{livro}}
+many {{livros}}
+* {{livros}}
+'''
+
+[laptop]
+source = '''
+.input {$count :integer}
+.match $count
+one {{laptop}}
+* {{laptops}}
+'''
+gender = "masculine"
+nominative = '''
+.input {$count :integer}
+.match $count
+one {{notebook}}
+many {{notebooks}}
+* {{notebooks}}
+'''
+
+[phone_case]
+source = '''
+.input {$count :integer}
+.match $count
+one {{phone case}}
+* {{phone cases}}
+'''
+gender = "feminine"
+nominative = '''
+.input {$count :integer}
+.match $count
+one {{capa de celular}}
+many {{capas de celular}}
+* {{capas de celular}}
+'''
+
+[has_shipped]
+source = '''Your {$product :nomi:noun} has shipped.'''
+text = '''
+.input {$product :nomi:gender}
+.match $product
+masculine {{Seu {$product :nomi:noun} foi enviado.}}
+feminine {{Sua {$product :nomi:noun} foi enviada.}}
+* {{Seu pedido foi enviado.}}
+'''
+
+[sold_out]
+source = '''No {$product :nomi:noun count=2} left.'''
+text = '''Não há mais {$product :nomi:noun count=2} em estoque.'''
+
+[in_cart]
+source = '''{$count} {$product :nomi:noun count=$count} in your cart'''
+text = '''{$count} {$product :nomi:noun count=$count} no carrinho'''
+
+[watching]
+source = '''
+.input {$people :nomi:list}
+.match $people
+one {{{$people} is watching this item}}
+* {{{$people} are watching this item}}
+'''
+text = '''
+.input {$people :nomi:list}
+.match $people
+one {{{$people} está vendo este item}}
+many {{{$people} estão vendo este item}}
+* {{{$people} estão vendo este item}}
+'''
+
+[order_total]
+source = '''Total: {$total :currency}'''
+text = '''Total: {$total :currency}'''
+
+# Saturday and Sunday are masculine (o sábado, o domingo) and the other
+# days feminine (a segunda-feira), so "on" is `no` or `na` by the day.
+[ships_on]
+source = '''Ships {$date :datetime weekday=long month=long day=numeric}'''
+text = '''
+.local $day = {$date :nomi:weekday}
+.match $day
+monday {{Envio na segunda-feira, {$date :datetime month=long day=numeric}}}
+tuesday {{Envio na terça-feira, {$date :datetime month=long day=numeric}}}
+wednesday {{Envio na quarta-feira, {$date :datetime month=long day=numeric}}}
+thursday {{Envio na quinta-feira, {$date :datetime month=long day=numeric}}}
+friday {{Envio na sexta-feira, {$date :datetime month=long day=numeric}}}
+saturday {{Envio no sábado, {$date :datetime month=long day=numeric}}}
+sunday {{Envio no domingo, {$date :datetime month=long day=numeric}}}
+* {{Envio: {$date :datetime weekday=long month=long day=numeric}}}
+'''

@@ -230,7 +230,7 @@ func DropWhileEach[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bo
 func SeqDropWhile[T any](src Seq[T], pred func(fr *Frame, item T) bool) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return DropWhileEach(fr, src, pred, yield)
-	}}
+	}, Endless: src.Endless}
 }
 
 // --- the two terminals that build a Map -------------------------------------

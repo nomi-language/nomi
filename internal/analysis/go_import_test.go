@@ -17,7 +17,7 @@ func TestGoImport_APathNoModuleProvidesIsRejected(t *testing.T) {
 	}{
 		{"callback:= f(s", "gopkg \"callback:= f(s\": not a valid Go import path: invalid char ':'"},
 		{"example.com/other", "gopkg \"example.com/other\": outside the project's own Go module app, the Go standard library, and every module its go.mod requires or replaces\n" +
-			"help: add it with `go get example.com/other`, or add a require or replace for its module to go.mod"},
+			"help: run `nomi add example.com/other` to add its module"},
 		{"appx", "gopkg \"appx\": outside the project's own Go module app"},
 	} {
 		t.Run(tc.path, func(t *testing.T) {

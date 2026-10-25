@@ -14,18 +14,18 @@ import {
 /// to treat absence as expected (e.g., first run of an app that creates
 /// its data file on demand). `Other` wraps any other failure with its
 /// raw error message.
-pub enum IOError {
+pub enum Error {
     NotFound {path: String}
     Other {reason: String}
 }
 
-derive Equatable for IOError
+derive Equatable for Error
 
-impl Display for IOError {
-    fn to_string(e: IOError) -> String {
+impl Display for Error {
+    fn to_string(e: Error) -> String {
         case e {
-            #IOError.NotFound{path} -> "file not found: ${path}"
-            #IOError.Other{reason} -> reason
+            #Error.NotFound{path} -> "file not found: ${path}"
+            #Error.Other{reason} -> reason
         }
     }
 }
@@ -38,8 +38,9 @@ impl Display for IOError {
 /// other values. Use `io.inspect` for the developer-facing `Debug` form.
 ///
 /// ```nomi
-/// io.print("hello")   // prints: hello
-/// io.print(42)        // prints: 42
+/// io.print("hello") // prints: hello
+///
+/// io.print(42) // prints: 42
 /// ```
 pub host fn print<T>(value: T) -> Unit where T: Display
 
@@ -49,8 +50,9 @@ pub host fn print<T>(value: T) -> Unit where T: Display
 /// same line, or to build one line of output from several writes.
 ///
 /// ```nomi
-/// io.write("> ")      // prints: > (and no newline)
-/// io.read_line()      // the user types on the same line
+/// io.write("> ") // prints: > (and no newline)
+///
+/// io.read_line() // the user types on the same line
 /// ```
 pub host fn write<T>(value: T) -> Unit where T: Display
 
@@ -63,7 +65,7 @@ pub host fn write<T>(value: T) -> Unit where T: Display
 /// while preserving it in an expression or pipeline.
 ///
 /// ```nomi
-/// io.inspect([1, 2, 3])   // prints: [1, 2, 3]
+/// io.inspect([1, 2, 3]) // prints: [1, 2, 3]
 /// ```
 pub host fn inspect<T>(value: T) -> Unit
 
@@ -317,9 +319,9 @@ host fn run_replayed<T>(
 /// Reads the entire contents of `path` into a String.
 ///
 /// ```nomi
-/// io.read_file("notes.txt")   // Ok("...") or Err(io.IOError.NotFound{...})
+/// io.read_file("notes.txt") // Ok("...") or Err(#io.Error.NotFound{...})
 /// ```
-pub host fn read_file(path: String) -> Result<String, IOError>
+pub host fn read_file(path: String) -> Result<String, Error>
 
 /// Writes `content` to `path`, replacing any existing file. The parent
 /// directory must exist; missing parents do not get auto-created.
@@ -327,4 +329,4 @@ pub host fn read_file(path: String) -> Result<String, IOError>
 /// ```nomi
 /// io.write_file("notes.txt", "hello")
 /// ```
-pub host fn write_file(path: String, content: String) -> Result<Unit, IOError>
+pub host fn write_file(path: String, content: String) -> Result<Unit, Error>

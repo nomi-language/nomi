@@ -7,6 +7,7 @@ import (
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/std"
+	"github.com/nomi-language/nomi/vmhost"
 	"os"
 	"path/filepath"
 	"strings"
@@ -238,6 +239,8 @@ func TestWorkspaceFixtureDiagnosticsAreQuietWhenExpectationsMatch(t *testing.T) 
 	}
 	lib := std.Load()
 	dm := analysis.NewDocumentManager()
+	// Macros run as the server runs them, for the macro fixture.
+	dm.Macros = vmhost.Macros()
 	dm.SetWorkspaceRoot(root)
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 

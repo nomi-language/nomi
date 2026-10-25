@@ -1,0 +1,79 @@
+import std/locale.{self, Locale}
+
+test "parsing canonicalizes case and deprecated subtags" {
+    assert Locale.parse("EN-us") == Ok(Locale`en-US`)
+    assert Locale.parse("zh-hant-hk") == Ok(Locale`zh-Hant-HK`)
+    assert Locale.parse("iw") == Ok(Locale`he`)
+    assert Locale.parse("in") == Ok(Locale`id`)
+    assert Locale.parse("sh") == Ok(Locale`sr-Latn`)
+    assert Locale`EN-us` == Locale`en-US`
+}
+
+test "unicode extensions are kept" {
+    assert Ok(l) = Locale.parse("en-US-u-nu-latn")
+    assert "${l}" == "en-US-u-nu-latn"
+}
+
+test "invalid tags are typed errors" {
+    assert Locale.parse("") == Err(locale.Error.Empty)
+    assert Locale.parse("pt_BR") == Err(#locale.Error.Underscore{suggestion: "pt-BR"})
+    assert Locale.parse("en--US") == Err(#locale.Error.Malformed{text: "en--US"})
+    assert Locale.parse("C") == Err(#locale.Error.Malformed{text: "C"})
+    assert Locale.parse("xx") == Err(#locale.Error.UnknownSubtag{subtag: "xx"})
+}
+
+test "the parts of a locale" {
+    assert Locale.language(Locale`zh-Hant-HK`) == "zh"
+    assert Locale.script(Locale`zh-Hant-HK`) == Some("Hant")
+    assert Locale.region(Locale`zh-Hant-HK`) == Some("HK")
+    assert Locale.script(Locale`pt-BR`) == None
+    assert Locale.region(Locale`pl`) == None
+    assert Locale.language(Locale`und`) == "und"
+}
+
+test "POSIX values" {
+    assert Locale.from_posix("pl_PL.UTF-8") == Ok(Locale`pl-PL`)
+    assert Locale.from_posix("en_US@euro") == Ok(Locale`en-US`)
+    assert Locale.from_posix("sr_RS@latin") == Ok(Locale`sr-Latn-RS`)
+    assert Locale.from_posix("C") == Ok(Locale`und`)
+    assert Locale.from_posix("POSIX") == Ok(Locale`und`)
+    assert Locale.from_posix("C.UTF-8") == Ok(Locale`und`)
+    assert Locale.from_posix("") == Err(locale.Error.Empty)
+}
+
+test "fallback chains follow CLDR's parent locales" {
+    assert Locale.fallbacks(Locale`es-MX`) == [Locale`es-MX`, Locale`es-419`, Locale`es`]
+    assert Locale.fallbacks(Locale`es-419`) == [Locale`es-419`, Locale`es`]
+    assert Locale.fallbacks(Locale`pt-PT`) == [Locale`pt-PT`, Locale`pt`]
+    assert Locale.fallbacks(Locale`pt-AO`) == [Locale`pt-AO`, Locale`pt-PT`, Locale`pt`]
+    assert Locale.fallbacks(Locale`en-150`) == [Locale`en-150`, Locale`en-001`, Locale`en`]
+    assert Locale.fallbacks(Locale`zh-Hant-HK`) == [Locale`zh-Hant-HK`, Locale`zh-Hant`]
+    assert Locale.fallbacks(Locale`zh-TW`) == [Locale`zh-TW`, Locale`zh-Hant`]
+
+    assert Locale.fallbacks(Locale`de-CH-u-nu-latn`) == [
+        Locale`de-CH-u-nu-latn`,
+        Locale`de-CH`,
+        Locale`de`,
+    ]
+
+    assert Locale.fallbacks(Locale`und`) == []
+}
+
+test "negotiation picks the best available locale" {
+    available = [Locale`en`, Locale`pl`, Locale`pt-PT`, Locale`es`]
+
+    assert Locale.negotiate([Locale`pl-PL`], available, Locale`en`) == Locale`pl`
+    assert Locale.negotiate([Locale`es-MX`], available, Locale`en`) == Locale`es`
+    assert Locale.negotiate([Locale`de`, Locale`pt-BR`], available, Locale`en`) == Locale`pt-PT`
+    assert Locale.negotiate([Locale`ja`], available, Locale`en`) == Locale`en`
+    assert Locale.negotiate([], available, Locale`pl`) == Locale`pl`
+}
+
+test "locales are map keys" {
+    names = %{Locale`pl` => "polski", Locale`en` => "English"}
+    assert Map.get(names, Locale`PL`) == Some("polski")
+}
+
+test "Debug gives the literal" {
+    assert Debug.inspect(Locale`pt-BR`) == "Locale`pt-BR`"
+}

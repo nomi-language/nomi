@@ -225,6 +225,7 @@ func runTestFileVM(testPath string, args []string, format nomivmhost.TestFormat)
 	if err != nil {
 		rep.FailFile(testPath, err)
 	} else {
+		p.SetTestTimeout(nomivmhost.TestTimeoutFromEnv(), nomivmhost.TestTimeoutHint)
 		p.Test(out, rep, testPath, opts, func(name string) string { return nomivmhost.TestName(testPath, name) })
 	}
 	passed, failed := rep.Counts()

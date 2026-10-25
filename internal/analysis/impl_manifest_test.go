@@ -58,7 +58,7 @@ func TestImplManifestStoresRecording(t *testing.T) {
 // in RecordManifest. Recordings whose Pos.Line lies in the derive-synth
 // fake-AST band (>= 1<<30) come from the generated bodies' internal call
 // sites and would surface a meaningless line number in user diagnostics
-// (e.g. "required at .../main.nomi:1074249728:10 via call site"). The
+// (a missing-impl diagnostic at main.nomi:1074249728:10). The
 // DeriveSynth/DerivePayload recording emitted at the @derive's field walk
 // already covers the same (Iface, T) demand at a real source position, so
 // the synth-body record adds no actionable info and is dropped at recording

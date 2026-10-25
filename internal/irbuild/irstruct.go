@@ -661,6 +661,11 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 			// `#Json.ShapeError{...}` builds like a simple struct name.
 			return bl.structMakeOf(t, d)
 		}
+		if k, isStd := bl.g.qualifiedStdKind(tn); isStd && k.tag == tagNamed && k.def != nil && !k.def.isEnum {
+			// `#dynamic.Error{...}`: a std struct named through its module's
+			// qualifier, which the program's registry does not hold.
+			return bl.structMakeOf(t, k.def)
+		}
 		return bl.variantStructLit(t, tn.Module, tn.Member.TypeString())
 	case *ast.DotVariantType:
 		if tn.ResolvedEnum == "" {
@@ -695,7 +700,21 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 	}
 	d, found := bl.g.namedType(tn.Name)
 	if !found {
-		return no()
+		// Another file's interface default, copied here (namesFrom), names
+		// a struct this file does not (portableDefault): the type the
+		// checker gave the literal there is the struct.
+		if bl.g.namesFromGen() == nil {
+			return no()
+		}
+		st, isStruct := analysis.ResolveTypeVar(bl.g.srcFA().ExprTypes[t]).(*analysis.StructType)
+		if !isStruct {
+			return no()
+		}
+		k := bl.g.project(st)
+		if k.tag != tagNamed || k.def == nil {
+			return no()
+		}
+		d = k.def
 	}
 	return bl.structMakeOf(t, d)
 }
@@ -735,6 +754,11 @@ func (bl *irScalarBuilder) structMakeOf(t *ast.StructLit, d *typeDef) (ir.Temp, 
 		}
 		// Typed by the field, so a bare `None` or `Ok(v)` takes its kind.
 		src, k, mobile, ok := bl.lowerTypedOperand(f.Value, fd.k)
+		if ok && k != fd.k && bl.g.irBoxedErasure(fd.k, k) {
+			// A value whose runtime type does not name its impl enters
+			// boxed (irboxed.go).
+			src, k = bl.eraseBoxed(f.Value, src, fd.k, k), fd.k
+		}
 		erased := bl.g.irErases(fd.k, k)
 		if ok && k != fd.k && !erased && (mobile || irEmbeddedIn(fd.k, k)) {
 			// An empty literal takes the field's kind, and a value of an
@@ -848,6 +872,9 @@ func (bl *irScalarBuilder) declDefault(deflt ast.Node, want kind) (ir.Temp, bool
 		bl.b.Append(cp)
 		bl.side(cp.Dst(), irScalarSide{k: k, copy: irCopyForce})
 		v = cp.Dst()
+	}
+	if k != want && bl.g.irBoxedErasure(want, k) {
+		return bl.eraseBoxed(deflt, v, want, k), true
 	}
 	if k != want && bl.g.irErases(want, k) {
 		// A concrete implementer at an interface-typed field: the VM holds

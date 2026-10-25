@@ -293,6 +293,17 @@
 (_
   type: (type_identifier) @type)
 
+; A variant a pattern names through its file (`sql.Error.Closed`,
+; `json.Json.Case.Snake`): the file is a module, the last name the variant,
+; and the names between them its type. The constructor rule comes after the
+; type rule, since a later pattern wins here.
+(qualified_variant
+  module: (identifier) @module)
+(qualified_variant
+  (type_identifier) @type)
+(qualified_variant
+  (type_identifier) @constructor .)
+
 ; Type field access
 ; Module name (lowercase first position)
 (type_field_access
@@ -379,6 +390,21 @@
   impl_interface: (type_identifier) @type)
 (function_definition
   name: (identifier) @function)
+
+; Keyword declarations: `message cart_items(count: Int) `...``, and
+; `sqlkit.query! ...`, whose qualifier is the macro's file and whose
+; keyword, marked with `!`, reads as a macro, as Zed draws Rust's.
+(keyword_declaration
+  module: (identifier) @module)
+(keyword_declaration
+  keyword: (identifier) @keyword)
+(keyword_declaration
+  keyword: (identifier) @function.special
+  mark: (macro_mark) @function.special)
+(keyword_declaration
+  name: (identifier) @function)
+(keyword_declaration
+  name: (type_identifier) @type)
 (function_definition
   name: (type_identifier) @function)
 

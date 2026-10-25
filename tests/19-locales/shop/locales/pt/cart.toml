@@ -1,0 +1,42 @@
+# Portuguese. pt-PT has no catalog of its own and falls back to pt.
+
+[cart_items]
+source = '''
+.input {$count :integer}
+.match $count
+one {{{$count} item in your cart}}
+* {{{$count} items in your cart}}
+'''
+text = '''
+.input {$count :integer}
+.match $count
+one {{{$count} item no carrinho}}
+many {{{$count} itens no carrinho}}
+* {{{$count} itens no carrinho}}
+'''
+
+[order_status]
+source = '''
+.input {$status :string}
+.match $status
+Pending {{Your order is waiting to ship}}
+Shipped {{Your order is on its way}}
+Delivered {{Your order was delivered}}
+* {{Your order is on its way}}
+'''
+text = '''
+.input {$status :string}
+.match $status
+Pending {{O pedido aguarda envio}}
+Shipped {{O pedido foi enviado}}
+Delivered {{O pedido foi entregue}}
+* {{O pedido foi enviado}}
+'''
+
+[watching]
+source = '''{$names} are watching this item'''
+text = '''{$names} estão vendo este item'''
+
+[cart_summary]
+source = '''{$name}, you have {$items}'''
+text = '''{$name}, você tem {$items}'''

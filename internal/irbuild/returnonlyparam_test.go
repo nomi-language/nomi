@@ -47,3 +47,45 @@ fn main() {
 }
 `, "Some(Heads)\nHeads\nSome(Heads)\n[Heads, Tails]\n2\n")
 }
+
+// A type parameter only the result names is solved through `try` under an
+// annotated binding, where the expected type is `Result<Int, ?E>`, and
+// through an operator, where the call has no expected type at all. The
+// checker records the call at those solutions, so the builder instantiates
+// the callee rather than declining it.
+func TestReturnOnlyParam_SolvedThroughTryAndOperators(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+
+interface FromInt {
+    fn from_int(n: Int) -> self
+}
+
+impl FromInt for Int {
+    fn from_int(n: Int) -> Int {
+        n * 10
+    }
+}
+
+type Row
+
+impl Row {
+    pub fn get<T>(n: Int) -> Result<T, String> where T: FromInt {
+        Ok(T.from_int(n))
+    }
+}
+
+fn annotated() -> Result<Int, String> {
+    n: Int = try Row.get(3)
+    Ok(n + 1)
+}
+
+fn operand() -> Result<Int, String> {
+    Ok(1 + try Row.get(4))
+}
+
+fn main() {
+    io.inspect(annotated())
+    io.inspect(operand())
+}
+`, "Ok(31)\nOk(41)\n")
+}

@@ -1152,8 +1152,9 @@ func (g *gen) leafDistinctBlock() string {
 }
 
 // divergingBlock is a statement block holding an `Iter.loop`, or an
-// Iter.map, filter, each, reduce, find, any?, all?, drop_while or flat_map
-// callback or a Map.map_values one, whose tail `case` or `if`
+// Iter.map, filter, each, reduce (seeded by its lambda or by `from:`), find,
+// any?, all?, drop_while or flat_map callback or a Map.map_values one, or an
+// iter-sensitive helper passed as one, whose tail `case` or `if`
 // leaves in every arm: by `break`, `break v`, `continue` and `return v`, in
 // bare arms and block arms, with a `case` nested in an arm, and as a binding
 // whose arms all leave followed by statements that never run. A loop counts
@@ -1223,7 +1224,46 @@ func (g *gen) divergingBlock(sc []gvar) string {
 	}
 	loop := "Iter.loop(fn di = 0 -> {\n" + loopBody + "\n})"
 	xs := "[1, 2, 3]"
-	switch r.Intn(9) {
+	switch r.Intn(10) {
+	case 8:
+		// An iter-sensitive helper, declared beside the program's helpers,
+		// as the callback itself, positional, piped or by name, a fold's
+		// and a loop's with the starting value as `from:`: its `continue`
+		// skips the element, and its `break` and `break v` stop the
+		// iteration, as the callback's own would.
+		if g.local {
+			// The helpers are nested fns, and only a top-level function may
+			// use `break` or `continue`.
+			return "{\n" + name + " = " + loop + "\nio.inspect(" + name + ")\n}\n"
+		}
+		helper := fmt.Sprintf("dsig%d", g.dn)
+		declare := func(params, body string) {
+			g.helpers = append(g.helpers, "fn "+helper+"("+params+") -> "+body+"\n}")
+		}
+		switch r.Intn(4) {
+		case 0:
+			declare("dacc: Int, dx: Int", "Int {\ncase dx {\n"+
+				arms("dx", "2", []string{"break", "break dacc + 7"}[r.Intn(2)], "return dacc + dx * 10")+"}")
+			call := []string{"Iter.reduce(" + xs + ", " + helper, xs + " |> Iter.reduce(" + helper, "Iter.reduce(" + xs + ", f: " + helper}[r.Intn(3)]
+			return "{\n" + name + " = " + call + ", from: " + src() + ")\nio.inspect(" + name + ")\n}\n"
+		case 1:
+			// The state counts up to the limit, where the helper stops the
+			// loop.
+			declare("di: Int", "Int {\ncase di {\n"+
+				arms("di", limit, []string{"break", "break di + 7"}[r.Intn(2)], "return di + 1")+"}")
+			return "{\n" + name + " = Iter.loop(" + helper + ", from: 0)\nio.inspect(" + name + ")\n}\n"
+		case 2:
+			declare("dx: Int", "Bool {\ncase dx {\n"+
+				arms("dx", "2", []string{"break", "break True", "break False"}[r.Intn(3)], "return dx == 1")+"}")
+			cb := []string{helper, "f: " + helper}[r.Intn(2)]
+			return "{\n" + name + " = Iter.find(" + xs + ", " + cb + ")\nio.inspect(" + name + ")\n}\n"
+		}
+		declare("dx: Int", "Int {\ncase dx {\n"+
+			arms("dx", "2", []string{"break", "break dx + 7"}[r.Intn(2)], "return dx * 10")+"}")
+		if r.Intn(2) == 0 {
+			return "{\n" + name + " = " + xs + " |> Iter.map(" + helper + ") |> Iter.to_list()\nio.inspect(" + name + ")\n}\n"
+		}
+		return "{\n" + name + " = Iter.map(" + xs + ", " + helper + ") |> Iter.to_list()\nio.inspect(" + name + ")\n}\n"
 	case 7:
 		// The other callback positions: find, any?, all?, drop_while,
 		// flat_map and Map.map_values.
@@ -1264,8 +1304,13 @@ func (g *gen) divergingBlock(sc []gvar) string {
 		cb := "fn dx -> case dx {\n" + arms("dx", "2", "break", "continue") + "}"
 		return "{\nIter.each(" + xs + ", " + cb + ")\n}\n"
 	}
-	cb := "fn dacc = " + src() + ", dx -> case dx {\n" + arms("dx", "3", "break dacc + dx", "return dacc + dx") + "}"
-	return "{\n" + name + " = Iter.reduce(" + xs + ", " + cb + ")\nio.inspect(" + name + ")\n}\n"
+	seed := src()
+	body := "case dx {\n" + arms("dx", "3", "break dacc + dx", "return dacc + dx") + "}"
+	if r.Intn(2) == 0 {
+		// The starting value given by name, beside a lambda without one.
+		return "{\n" + name + " = Iter.reduce(" + xs + ", fn dacc, dx -> " + body + ", from: " + seed + ")\nio.inspect(" + name + ")\n}\n"
+	}
+	return "{\n" + name + " = Iter.reduce(" + xs + ", fn dacc = " + seed + ", dx -> " + body + ")\nio.inspect(" + name + ")\n}\n"
 }
 
 // genDisplayValues are concrete values of types that implement Display, as

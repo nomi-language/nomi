@@ -3,6 +3,7 @@ package analysis
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -80,7 +81,8 @@ func StaleForTest(p *CheckedProgram, was map[ast.Node]bool) string {
 	return ""
 }
 
-// BuiltForTest is what one document's build gives the language server.
+// BuiltForTest is what one document's build gives the language server: its
+// diagnostics are those it publishes, without the errors about another file.
 type BuiltForTest struct {
 	TypeErrors             []TypeError
 	Syntax, Damaged, Nodes int
@@ -108,7 +110,7 @@ func BuildForTest(dm *DocumentManager, uri, content string, kept bool) BuiltForT
 	}
 	out := BuiltForTest{Syntax: len(b.errs), Damaged: len(b.damaged), Nodes: len(b.nodes)}
 	if b.fa != nil {
-		out.TypeErrors = b.fa.TypeErrors
+		out.TypeErrors = ErrorsInFile(strings.TrimPrefix(uri, "file://"), b.fa.TypeErrors)
 	}
 	out.setProgram(b.program)
 	return out
@@ -133,7 +135,7 @@ func InstalledForTest(dm *DocumentManager, uri string) BuiltForTest {
 	snap := dm.Snapshot(uri)
 	out := BuiltForTest{Syntax: len(snap.Errors), Damaged: len(snap.Damaged), Nodes: len(snap.Nodes)}
 	if snap.Analysis != nil {
-		out.TypeErrors = snap.Analysis.TypeErrors
+		out.TypeErrors = ErrorsInFile(strings.TrimPrefix(uri, "file://"), snap.Analysis.TypeErrors)
 	}
 	out.setProgram(snap.Program)
 	return out

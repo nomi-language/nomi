@@ -572,6 +572,115 @@ fn main() {
 	}
 }
 
+// A Go struct crosses as a Nomi struct of another name, into a callback,
+// as a parameter and as a result.
+func TestFFIRun_StructUnderAnotherNomiNameRoundTrip(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test invokes go run; skipped in -short mode")
+	}
+	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
+
+	projectRoot := t.TempDir()
+	nomiRoot := repoRoot(t)
+
+	bindingDir := filepath.Join(projectRoot, "rowbinding")
+	if err := os.MkdirAll(bindingDir, 0o755); err != nil {
+		t.Fatalf("mkdir rowbinding: %v", err)
+	}
+	mustWriteHelper(t, filepath.Join(bindingDir, "rows.go"), `package rowbinding
+
+type Row struct {
+	Name  string
+	Count int64
+}
+
+func EachRow(names []string, f func(Row) bool) int64 {
+	seen := int64(0)
+	for i, n := range names {
+		seen++
+		if !f(Row{Name: n, Count: int64(i)}) {
+			break
+		}
+	}
+	return seen
+}
+
+func Bump(r Row) Row {
+	r.Count += 10
+	return r
+}
+`)
+	mustWriteHelper(t, filepath.Join(bindingDir, "go.mod"), `module rowbinding
+
+go 1.26.3
+`)
+	mustWriteHelper(t, filepath.Join(projectRoot, "go.mod"), fmt.Sprintf(`module rowtest
+
+go 1.26.3
+
+require rowbinding v0.0.0
+
+require github.com/nomi-language/nomi v0.0.0
+
+replace rowbinding => ./rowbinding
+
+replace github.com/nomi-language/nomi => %s
+`, nomiRoot))
+	mustWriteHelper(t, filepath.Join(projectRoot, "nomi.toml"), `[module]
+name = "rowtest"
+entry_points = ["main"]
+
+`)
+
+	entryPath := filepath.Join(projectRoot, "main.nomi")
+	mustWriteHelper(t, entryPath, `import {
+  std/io
+}
+
+gopkg "rowbinding" as rows
+
+struct RawRow {
+  name: String
+  count: Int
+}
+
+fn each_row(names: List<String>, f: (RawRow) -> Bool) -> Int go rows.EachRow
+
+fn bump(r: RawRow) -> RawRow go rows.Bump
+
+fn main() {
+  seen = each_row(["a", "b", "c"], fn r -> {
+    io.print("${r.name} ${r.count}")
+    r.name != "b"
+  })
+  io.print("seen ${seen}")
+  bumped = bump(#RawRow{name: "z", count: 1})
+  io.print("${bumped.name} ${bumped.count}")
+}
+`)
+
+	res, err := Prepare(entryPath)
+	if err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	cmd := exec.Command("go", "run", "-mod=mod", res.WrapperPath, wrapperModeFlag, "vmrun", entryPath)
+	cmd.Dir = res.WrapperDir
+	userCwd, _ := os.Getwd()
+	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_USER_CWD="+userCwd)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("go run wrapper: %v\nstdout:\n%s\nstderr:\n%s",
+			err, stdout.String(), stderr.String())
+	}
+	got := strings.TrimSpace(stdout.String())
+	want := "a 0\nb 1\nseen 2\nz 11"
+	if got != want {
+		t.Errorf("got %q, want %q\nstderr:\n%s", got, want, stderr.String())
+	}
+}
+
 func TestFFIRun_TimeDurationProjectsToDuration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test invokes go run; skipped in -short mode")

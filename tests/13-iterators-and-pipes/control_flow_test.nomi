@@ -159,3 +159,39 @@ test "return inside iter callbacks is lambda scoped" {
     assert special_mapped == [10, 20, 300, 40, 50]
     assert sum_classified == 185
 }
+
+test "reduce with a pattern seed supports continue" {
+    kept =
+        [1, 2, 3]
+        |> Iter.reduce(fn #(n, xs) = #(0, []), x -> {
+            if x == 2 { continue }
+            #(n + x, xs + [x])
+        })
+
+    assert kept == #(4, [1, 3])
+}
+
+fn checked_score(n: Int) -> Int {
+    if n < 0 { continue }
+    if n > 100 { break n }
+    n * 2
+}
+
+fn add_checked(acc: Int, n: Int) -> Int {
+    if n < 0 { continue }
+    acc + n
+}
+
+test "an iter-sensitive function is passed as the callback itself" {
+    doubled =
+        [3, -1, 4, 500, 6]
+        |> Iter.map(checked_score)
+        |> Iter.to_list()
+
+    total =
+        [3, -1, 4]
+        |> Iter.reduce(add_checked, from: 0)
+
+    assert doubled == [6, 8, 500]
+    assert total == 7
+}

@@ -57,3 +57,60 @@ once y = Arr[1, 2]
       (list
         (integer)
         (integer)))))
+
+================================================================================
+File-qualified variant patterns
+================================================================================
+
+fn f() {
+  case r {
+    Err(sql.Error.Closed) -> 1
+    Err(sql.Error.Constraint(k)) -> 2
+    json.Json.Case.Snake -> 3
+    shapes.Bag.Items[a, ..rest] -> 4
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (case_expression
+        (identifier)
+        (case_branch
+          (enum_pattern
+            (type_identifier)
+            (qualified_variant
+              (identifier)
+              (type_identifier)
+              (type_identifier)))
+          (integer))
+        (case_branch
+          (enum_pattern
+            (type_identifier)
+            (enum_pattern
+              (qualified_variant
+                (identifier)
+                (type_identifier)
+                (type_identifier))
+              (identifier)))
+          (integer))
+        (case_branch
+          (qualified_variant
+            (identifier)
+            (type_identifier)
+            (type_identifier)
+            (type_identifier))
+          (integer))
+        (case_branch
+          (list_pattern
+            (qualified_variant
+              (identifier)
+              (type_identifier)
+              (type_identifier))
+            (identifier)
+            (identifier))
+          (integer))))))

@@ -32,13 +32,22 @@ package ir
 //     (`equatable` is one of `internal/irbuild`'s program-scoped side tables).
 //     One node with two answers is the shape this package refuses elsewhere.
 //
+// INTERFACE-VALUE EQUALITY IS THE EXCEPTION, because nothing the producer
+// knows names the operands' types: `ValIface` compares two values of one
+// interface type as the VM compares a Map's keys (vm/keys.go). Values of two
+// concrete types are unequal, and values of one type compare through that
+// type's hand-written `impl Equatable` when the module records one, and
+// structurally otherwise. Ordering stays refused: the checker rejects `<`
+// on an interface value.
+//
 // Variant, struct and container equality are explicitly structural. Container equality
 // currently executes lists; its broad shape does not identify the element type.
 // The producer must establish the concrete representation and that
-// no Equatable dispatch applies; the node never performs method selection.
+// no Equatable dispatch applies at the top; the node selects no method but
+// ValIface's.
 // Decimal equality uses rt.EqDecimal's scale-insensitive rule; it never
 // compares the representation. Equality admits Int, Float, Decimal, String,
-// Bool, Variant, Struct and Container; ordering admits Int, Float and Bool,
+// Bool, Variant, Struct, Container and Iface; ordering admits Int, Float and Bool,
 // whose order is std's derived `Comparable for Bool`: False before True, the
 // declaration order of its variants.
 //
@@ -149,7 +158,7 @@ func compareShapeAdmitted(op CompareOp, shape ValShape) bool {
 	switch shape {
 	case ValInt, ValFloat, ValBool:
 		return true
-	case ValString, ValVariant, ValDecimal, ValContainer, ValStruct:
+	case ValString, ValVariant, ValDecimal, ValContainer, ValStruct, ValIface:
 		return !op.Ordering()
 	}
 	return false

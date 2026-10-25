@@ -20,6 +20,7 @@
   "main": "./out/src/extension.js",
   "activationEvents": [
     "onLanguage:nomi",
+    "workspaceContains:**/nomi.toml",
     "onDebugResolve:nomi",
     "onDebugInitialConfigurations"
   ],
@@ -60,6 +61,28 @@
             "description": "Arguments to the nomi CLI, e.g. [\"test\", \"main.nomi\"]."
           }
         }
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "nomi-test",
+        "owner": "nomi",
+        "source": "nomi test",
+        "fileLocation": [
+          "autoDetect",
+          "${cwd}"
+        ],
+        "pattern": [
+          {
+            "regexp": "^FAIL (.+?) :: .+$",
+            "file": 1
+          },
+          {
+            "regexp": "^  line (\\d+): (.+)$",
+            "line": 1,
+            "message": 2
+          }
+        ]
       }
     ],
     "commands": [

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// `std/codepoints.Codepoint` as an anchored stdlib opaque newtype.
+// `std/code_points.Codepoint` as an anchored stdlib opaque newtype.
 //
 // Nine of the eleven declarations over Codepoint are ordinary Nomi bodies that
 // LOWER, so the program runs std's own validation predicate rather than a Go

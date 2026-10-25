@@ -1,0 +1,6 @@
+# Arabic, a partial locale: only `watching` is translated, and each
+# placeholder is isolated in the right-to-left text.
+
+[watching]
+source = '''{$names} are watching this item'''
+text = '''{$names} يشاهدون هذا المنتج'''

@@ -113,7 +113,7 @@ var (
 	// that names itself and answers no field.
 	TypeAssertionFailure Type = &PrimitiveType{Name_: "AssertionFailure"}
 	// TypeCodepoint is overwritten by installCanonicalStdTypes with std's
-	// `pub opaque type Codepoint Int` from codepoints.nomi. It is the type of
+	// `pub opaque type Codepoint Int` from code_points.nomi. It is the type of
 	// a codepoint literal (`'a'`), which has that type whether or not the
 	// file imports `Codepoint`: the literal names std's declaration, never
 	// whatever `Codepoint` the file has in scope. The fallback, a type that

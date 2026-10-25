@@ -1,9 +1,18 @@
 //# Calendar dates, times, civil periods, machine-time projections, and
 //# IANA-zone-aware date-time arithmetic.
+//# A date or time reads as a reader of a locale writes it with `format`, at
+//# a style's length (`Date.format(d, locale, style: .Long)`) or with the
+//# fields a skeleton names (`Date.format_fields(d, locale,
+//# DateFields`yMMMd`)`), and is read back from what a reader typed with
+//# `parse_in`. A fixed numeric pattern, the same in every locale, is for
+//# file names and protocols: `Date.to_string_with(d, DatePattern`yyyyMMdd`)`
+//# and `parse_with`. `TimeUnit.format_relative` writes "in 3 days" or
+//# "yesterday". The calendar is the Gregorian one; the words and patterns
+//# come from CLDR, from the data the program carries.
 
 import {
     add.Add
-    bool.Bool
+    bool.Bool.{self, False, True}
     comparable.{Comparable, Ordering}
     debug.Debug
     display.Display
@@ -15,6 +24,8 @@ import {
     iter.Iter
     lists.List
     literals.{Fragment, Literal}
+    locale.Locale
+    localize.Localize
     results.Result.{self, Err, Ok}
     strings.String
     subtract.Subtract
@@ -212,6 +223,128 @@ impl Date {
     //! assert Date.days_between(try Date"2026-05-07", try Date"2026-05-04") == -3
     //
     pub host fn days_between(earlier: Date, later: Date) -> Int
+
+    /// The day of the week the date falls on.
+    //! assert Date.weekday(Date`2026-10-20`) == Weekday.Tuesday
+    //! assert Date.weekday(Date`2026-10-25`) == Weekday.Sunday
+    //! assert Date.weekday(Date`1969-12-29`) == Weekday.Monday
+    //
+    pub fn weekday(d: Date) -> Weekday {
+        days = Date.days_between(#Date{year: 1970, month: 1, day: 5}, d)
+
+        case (days % 7 + 7) % 7 {
+            0 -> Weekday.Monday
+            1 -> Weekday.Tuesday
+            2 -> Weekday.Wednesday
+            3 -> Weekday.Thursday
+            4 -> Weekday.Friday
+            5 -> Weekday.Saturday
+            _ -> Weekday.Sunday
+        }
+    }
+
+    /// The date as a reader of `locale` writes it, at the length `style`
+    /// says: the locale decides the order, the punctuation and the words.
+    //! d = Date`2026-10-20`
+    //! assert Date.format(d, Locale`en`) == "Oct 20, 2026"
+    //! assert Date.format(d, Locale`en`, style: .Full) == "Tuesday, October 20, 2026"
+    //! assert Date.format(d, Locale`en`, style: .Short) == "10/20/26"
+    //! assert Date.format(d, Locale`pl`, style: .Long) == "20 października 2026"
+    //! assert Date.format(d, Locale`de`, style: .Full) == "Dienstag, 20. Oktober 2026"
+    //! assert Date.format(d, Locale`ja`, style: .Long) == "2026年10月20日"
+    //
+    pub fn format(d: Date, locale: Locale, style: DateStyle = DateStyle.Medium) -> String {
+        civil_format_style(locale, Date.fields_of(d), "${DateStyle.name(style)}/-")
+    }
+
+    /// The date as a reader of `locale` writes the fields `fields` names,
+    /// at their widths: a CLDR skeleton, from which the locale's data gives
+    /// the order, the punctuation and the words. `yMMMd` is a year, a
+    /// month's short name and a day; `MMMMEEEEd` a month's name, a weekday's
+    /// and a day. A literal skeleton is checked when the program is checked.
+    //! d = Date`2026-10-20`
+    //! assert Date.format_fields(d, Locale`en`, DateFields`yMMMd`) == "Oct 20, 2026"
+    //! assert Date.format_fields(d, Locale`pl`, DateFields`yMMMd`) == "20 paź 2026"
+    //! assert Date.format_fields(d, Locale`en`, DateFields`MMMMEEEEd`) == "Tuesday, October 20"
+    //! assert Date.format_fields(d, Locale`pl`, DateFields`MMMMd`) == "20 października"
+    //! assert Date.format_fields(d, Locale`ja`, DateFields`MMMMEEEEd`) == "10月20日火曜日"
+    //
+    pub fn format_fields(d: Date, locale: Locale, fields: DateFields) -> String {
+        DateFields(skeleton) = fields
+        civil_format_fields(locale, Date.fields_of(d), skeleton)
+    }
+
+    /// Read a date a reader of `locale` typed, as `Date.format` writes it at
+    /// `style`, strictly unless `lenient: True`. Strict takes one digit
+    /// for a two-digit day or month, any space for a space the locale
+    /// writes, and ASCII digits for the locale's. Lenient also takes a name
+    /// in any width or case, with or without its final period, any spaces
+    /// and punctuation between the fields, a four-digit year where the
+    /// locale writes two, and spaces around the date. A two-digit year is
+    /// 2000 plus its digits, at every style.
+    //! assert Date.parse_in("4.5.26", Locale`de`) == Ok(Date`2026-05-04`)
+    //! assert Date.parse_in("20.10.26", Locale`de`, style: .Medium) == Ok(Date`2026-10-20`)
+    //! assert Date.parse_in("10/20/26", Locale`en`) == Ok(Date`2026-10-20`)
+    //! assert Date.parse_in("Oct 20, 2026", Locale`en`, style: .Medium) == Ok(Date`2026-10-20`)
+    //!
+    //! assert Date.parse_in("october 20 2026", Locale`en`, style: .Medium, lenient: True) == Ok(
+    //!     Date`2026-10-20`
+    //! )
+    //!
+    //! assert Err(Error.InvalidFormat(_why)) = Date.parse_in("4.5.2026", Locale`de`)
+    //! assert Date.parse_in("4.5.2026", Locale`de`, lenient: True) == Ok(Date`2026-05-04`)
+    //!
+    //! assert Date.parse_in("31.2.26", Locale`de`) == Err(
+    //!     Error.InvalidValue("month 2 of 2026 has no day 31")
+    //! )
+    //
+    pub fn parse_in(
+        text: String,
+        locale: Locale,
+        style: DateStyle = DateStyle.Short,
+        lenient: Bool = False,
+    ) -> Result<Date, Error> {
+        attempt = date_parse_style(text, locale, "${DateStyle.name(style)}/-", lenient)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    /// The date by a fixed numeric pattern: the same text in every locale,
+    /// for file names, logs and protocols.
+    //! assert Date.to_string_with(Date`2026-10-19`, DatePattern`yyyy-MM-dd`) == "2026-10-19"
+    //! assert Date.to_string_with(Date`2026-05-04`, DatePattern`dd/MM/yyyy`) == "04/05/2026"
+    //! assert Date.to_string_with(Date`2026-05-04`, DatePattern`yyyyMMdd`) == "20260504"
+    //
+    pub fn to_string_with(d: Date, pattern: DatePattern) -> String {
+        DatePattern(p) = pattern
+        civil_format_pattern(Date.fields_of(d), p)
+    }
+
+    /// Read a date by a fixed numeric pattern, as `Date.to_string_with`
+    /// writes it. A one-digit day or month stands for a two-digit one.
+    //! assert Date.parse_with("19/10/2026", DatePattern`dd/MM/yyyy`) == Ok(Date`2026-10-19`)
+    //! assert Date.parse_with("20260504", DatePattern`yyyyMMdd`) == Ok(Date`2026-05-04`)
+    //! assert Err(Error.InvalidFormat(_why)) = Date.parse_with("2026-10-19", DatePattern`dd/MM/yyyy`)
+    //
+    pub fn parse_with(text: String, pattern: DatePattern) -> Result<Date, Error> {
+        DatePattern(p) = pattern
+        attempt = date_parse_pattern(text, p)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    // The fields a pattern writes a date by: civil_format_style's list.
+    fn fields_of(d: Date) -> List<Int> {
+        [d.year, d.month, d.day, 0, 0, 0, 0, 0, 1]
+    }
 }
 
 derive Equatable for Date
@@ -375,6 +508,83 @@ impl Time {
     pub fn between(earlier: Time, later: Time) -> Duration {
         Duration.nanoseconds(day_nanos(later) - day_nanos(earlier))
     }
+
+    /// The time of day as a reader of `locale` writes it, at the length
+    /// `style` says: a 12-hour clock with AM and PM in `en`, a 24-hour one
+    /// in `de`. A `Time` has no zone, so `Full` and `Long` write what
+    /// `Medium` does.
+    //! t = Time`21:30:00`
+    //! assert Time.format(t, Locale`en`) == "9:30\u{202f}PM"
+    //! assert Time.format(t, Locale`de`) == "21:30"
+    //! assert Time.format(t, Locale`fr`, style: .Medium) == "21:30:00"
+    //
+    pub fn format(t: Time, locale: Locale, style: TimeStyle = TimeStyle.Short) -> String {
+        civil_format_style(locale, Time.fields_of(t), "-/${TimeStyle.name(style)}")
+    }
+
+    /// The time of day as a reader of `locale` writes the fields `fields`
+    /// names: `jm` is the hour as the locale writes it and the minutes, `Hm`
+    /// a 24-hour clock, `hm` a 12-hour one.
+    //! t = Time`21:30:00`
+    //! assert Time.format_fields(t, Locale`en`, TimeFields`jm`) == "9:30\u{202f}PM"
+    //! assert Time.format_fields(t, Locale`en`, TimeFields`Hm`) == "21:30"
+    //! assert Time.format_fields(t, Locale`de`, TimeFields`hm`) == "9:30\u{202f}PM"
+    //
+    pub fn format_fields(t: Time, locale: Locale, fields: TimeFields) -> String {
+        TimeFields(skeleton) = fields
+        civil_format_fields(locale, Time.fields_of(t), skeleton)
+    }
+
+    /// Read a time of day a reader of `locale` typed, as `Time.format`
+    /// writes it at `style`, strictly unless `lenient: True`, as
+    /// `Date.parse_in` reads a date.
+    //! assert Time.parse_in("9:30\u{202f}PM", Locale`en`) == Ok(Time`21:30:00`)
+    //! assert Time.parse_in("9:30 PM", Locale`en`) == Ok(Time`21:30:00`)
+    //! assert Time.parse_in("9:30 pm", Locale`en`, lenient: True) == Ok(Time`21:30:00`)
+    //! assert Time.parse_in("21:30", Locale`de`) == Ok(Time`21:30:00`)
+    //
+    pub fn parse_in(
+        text: String,
+        locale: Locale,
+        style: TimeStyle = TimeStyle.Short,
+        lenient: Bool = False,
+    ) -> Result<Time, Error> {
+        attempt = time_parse_style(text, locale, "-/${TimeStyle.name(style)}", lenient)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    /// The time of day by a fixed numeric pattern, a 24-hour clock.
+    //! assert Time.to_string_with(Time`09:05:00`, TimePattern`HHmmss`) == "090500"
+    //! assert Time.to_string_with(Time`09:05:00.25`, TimePattern`HH:mm:ss.SSS`) == "09:05:00.250"
+    //
+    pub fn to_string_with(t: Time, pattern: TimePattern) -> String {
+        TimePattern(p) = pattern
+        civil_format_pattern(Time.fields_of(t), p)
+    }
+
+    /// Read a time of day by a fixed numeric pattern.
+    //! assert Time.parse_with("0905", TimePattern`HHmm`) == Ok(Time`09:05:00`)
+    //
+    pub fn parse_with(text: String, pattern: TimePattern) -> Result<Time, Error> {
+        TimePattern(p) = pattern
+        attempt = time_parse_pattern(text, p)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    // The fields a pattern writes a time by.
+    fn fields_of(t: Time) -> List<Int> {
+        [1970, 1, 1, t.hour, t.minute, t.second, t.nanosecond, 0, 2]
+    }
 }
 
 /// Total nanoseconds since midnight. Module-private — backs `Time.between`.
@@ -470,6 +680,71 @@ pub opaque struct NaiveDateTime {
 }
 
 impl NaiveDateTime {
+    /// The date and time as a reader of `locale` writes them, the date at
+    /// the length `date` says and the time at `time`'s, joined as the
+    /// locale joins them.
+    //! dt = NaiveDateTime`2026-10-20T09:30:00`
+    //! assert NaiveDateTime.format(dt, Locale`en`) == "Oct 20, 2026, 9:30\u{202f}AM"
+    //! assert NaiveDateTime.format(dt, Locale`de`, date: .Long) == "20. Oktober 2026, 09:30"
+    //
+    pub fn format(
+        dt: NaiveDateTime,
+        locale: Locale,
+        date: DateStyle = DateStyle.Medium,
+        time: TimeStyle = TimeStyle.Short,
+    ) -> String {
+        civil_format_style(
+            locale,
+            NaiveDateTime.fields_of(dt),
+            "${DateStyle.name(date)}/${TimeStyle.name(time)}",
+        )
+    }
+
+    /// The date and time as a reader of `locale` writes the fields `fields`
+    /// names.
+    //! dt = NaiveDateTime`2026-10-20T09:30:00`
+    //!
+    //! assert NaiveDateTime.format_fields(
+    //!     dt,
+    //!     Locale`en`,
+    //!     DateTimeFields`MMMdjm`,
+    //! ) == "Oct 20, 9:30\u{202f}AM"
+    //
+    pub fn format_fields(dt: NaiveDateTime, locale: Locale, fields: DateTimeFields) -> String {
+        DateTimeFields(skeleton) = fields
+        civil_format_fields(locale, NaiveDateTime.fields_of(dt), skeleton)
+    }
+
+    /// The date and time by a fixed numeric pattern.
+    //! dt = NaiveDateTime`2026-10-19T09:30:00`
+    //! assert NaiveDateTime.to_string_with(dt, DateTimePattern`yyyyMMdd'T'HHmmss`) == "20261019T093000"
+    //
+    pub fn to_string_with(dt: NaiveDateTime, pattern: DateTimePattern) -> String {
+        DateTimePattern(p) = pattern
+        civil_format_pattern(NaiveDateTime.fields_of(dt), p)
+    }
+
+    /// Read a date and time by a fixed numeric pattern.
+    //! assert NaiveDateTime.parse_with("20261019T093000", DateTimePattern`yyyyMMdd'T'HHmmss`) == Ok(
+    //!     NaiveDateTime`2026-10-19T09:30:00`
+    //! )
+    //
+    pub fn parse_with(text: String, pattern: DateTimePattern) -> Result<NaiveDateTime, Error> {
+        DateTimePattern(p) = pattern
+        attempt = naive_parse_pattern(text, p)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    // The fields a pattern writes a date and time by.
+    fn fields_of(dt: NaiveDateTime) -> List<Int> {
+        [dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.nanosecond, 0, 3]
+    }
+
     /// Combine a `Date` and a `Time`. Both parts are already valid, so
     /// this is infallible.
     //! assert NaiveDateTime.of(
@@ -1192,6 +1467,66 @@ pub opaque struct DateTime {
 }
 
 impl DateTime {
+    /// The moment as a reader of `locale` writes its wall clock, the date
+    /// at the length `date` says and the time at `time`'s. `Full` and `Long`
+    /// times end with the zone's offset in the locale's GMT format
+    /// (`GMT+02:00`); zone names are not std's.
+    //! dt = DateTime`2026-10-20T09:30:00+02:00[Europe/Warsaw]`
+    //! assert DateTime.format(dt, Locale`pl`) == "20 paź 2026, 09:30"
+    //!
+    //! assert DateTime.format(
+    //!     dt,
+    //!     Locale`en`,
+    //!     date: .Full,
+    //!     time: .Long,
+    //! ) == "Tuesday, October 20, 2026, 9:30:00\u{202f}AM GMT+2"
+    //
+    pub fn format(
+        dt: DateTime,
+        locale: Locale,
+        date: DateStyle = DateStyle.Medium,
+        time: TimeStyle = TimeStyle.Short,
+    ) -> String {
+        civil_format_style(
+            locale,
+            DateTime.fields_of(dt),
+            "${DateStyle.name(date)}/${TimeStyle.name(time)}",
+        )
+    }
+
+    /// The moment as a reader of `locale` writes the fields `fields` names.
+    //! dt = DateTime`2026-10-20T09:30:00+02:00[Europe/Warsaw]`
+    //! assert DateTime.format_fields(dt, Locale`en`, DateTimeFields`EEEEjm`) == "Tuesday 9:30\u{202f}AM"
+    //
+    pub fn format_fields(dt: DateTime, locale: Locale, fields: DateTimeFields) -> String {
+        DateTimeFields(skeleton) = fields
+        civil_format_fields(locale, DateTime.fields_of(dt), skeleton)
+    }
+
+    /// The moment's wall clock by a fixed numeric pattern.
+    //! dt = DateTime`2026-10-20T09:30:00+02:00[Europe/Warsaw]`
+    //! assert DateTime.to_string_with(dt, DateTimePattern`yyyyMMdd'T'HHmmss`) == "20261020T093000"
+    //
+    pub fn to_string_with(dt: DateTime, pattern: DateTimePattern) -> String {
+        DateTimePattern(p) = pattern
+        civil_format_pattern(DateTime.fields_of(dt), p)
+    }
+
+    // The fields a pattern writes a moment by: its wall clock and offset.
+    fn fields_of(dt: DateTime) -> List<Int> {
+        [
+            DateTime.year(dt),
+            DateTime.month(dt),
+            DateTime.day(dt),
+            DateTime.hour(dt),
+            DateTime.minute(dt),
+            DateTime.second(dt),
+            DateTime.nanosecond(dt),
+            zoned_offset_nanos(dt) / 1_000_000_000,
+            7,
+        ]
+    }
+
     /// Project a naive wall-reading into an IANA zone, returning a
     /// `DateTime` anchored at the resolved instant. Fails on
     /// `UnknownZone` always, and — only when `mode = Reject` — on
@@ -1554,6 +1889,428 @@ impl Comparable for DateTime {
 }
 
 // ============================================================================
+// Text for a reader
+// ============================================================================
+/// A day of the week, Monday first, as ISO 8601 counts them. `Display`
+/// gives its English name, the same in every locale; a message selects by
+/// one with `:nomi:weekday`.
+//! assert Display.to_string(Weekday.Tuesday) == "Tuesday"
+//
+pub enum Weekday {
+    Monday
+    Tuesday
+    Wednesday
+    Thursday
+    Friday
+    Saturday
+    Sunday
+}
+
+derive Equatable for Weekday
+derive Hashable for Weekday
+
+impl Display for Weekday {
+    fn to_string(day: Weekday) -> String {
+        case day {
+            Weekday.Monday -> "Monday"
+            Weekday.Tuesday -> "Tuesday"
+            Weekday.Wednesday -> "Wednesday"
+            Weekday.Thursday -> "Thursday"
+            Weekday.Friday -> "Friday"
+            Weekday.Saturday -> "Saturday"
+            Weekday.Sunday -> "Sunday"
+        }
+    }
+}
+
+/// How much of a date `Date.format` writes, in each locale's way: `Full`
+/// (`Tuesday, October 20, 2026` in `en`), `Long` (`October 20, 2026`),
+/// `Medium` (`Oct 20, 2026`) and `Short` (`10/20/26`).
+pub enum DateStyle {
+    Full
+    Long
+    Medium
+    Short
+}
+
+derive Equatable for DateStyle
+
+impl DateStyle {
+    // CLDR's name for the style.
+    fn name(style: DateStyle) -> String {
+        case style {
+            DateStyle.Full -> "full"
+            DateStyle.Long -> "long"
+            DateStyle.Medium -> "medium"
+            DateStyle.Short -> "short"
+        }
+    }
+}
+
+/// How much of a time of day `Time.format` writes, in each locale's way:
+/// `Short` is hours and minutes, `Medium` adds the seconds, and `Long` and
+/// `Full` the zone's offset, where the value has a zone.
+pub enum TimeStyle {
+    Full
+    Long
+    Medium
+    Short
+}
+
+derive Equatable for TimeStyle
+
+impl TimeStyle {
+    // CLDR's name for the style.
+    fn name(style: TimeStyle) -> String {
+        case style {
+            TimeStyle.Full -> "full"
+            TimeStyle.Long -> "long"
+            TimeStyle.Medium -> "medium"
+            TimeStyle.Short -> "short"
+        }
+    }
+}
+
+/// A unit of civil time, which `TimeUnit.format_relative` counts in. A
+/// month and a year are not fixed lengths of time, so relative time takes
+/// a unit and a count, not a `Duration`.
+pub enum TimeUnit {
+    Second
+    Minute
+    Hour
+    Day
+    Week
+    Month
+    Quarter
+    Year
+}
+
+derive Equatable for TimeUnit
+
+impl TimeUnit {
+    /// `count` units from now, as a reader of `locale` says it: `in 3 days`
+    /// and `3 days ago` in `en`, `za 3 dni` and `3 dni temu` in `pl`, each
+    /// count in the plural form the locale's rules give it. Unless
+    /// `numeric: True`, a count the locale has a word for is that word
+    /// (`yesterday`, `tomorrow`, `vorgestern`).
+    //! assert TimeUnit.format_relative(3, Locale`en`, TimeUnit.Day) == "in 3 days"
+    //! assert TimeUnit.format_relative(-1, Locale`en`, TimeUnit.Day) == "yesterday"
+    //! assert TimeUnit.format_relative(-1, Locale`en`, TimeUnit.Day, numeric: True) == "1 day ago"
+    //! assert TimeUnit.format_relative(-3, Locale`de`, TimeUnit.Day) == "vor 3 Tagen"
+    //! assert TimeUnit.format_relative(3, Locale`pl`, TimeUnit.Week) == "za 3 tygodnie"
+    //! assert TimeUnit.format_relative(5, Locale`pl`, TimeUnit.Week) == "za 5 tygodni"
+    //
+    pub fn format_relative(
+        count: Int,
+        locale: Locale,
+        unit: TimeUnit,
+        numeric: Bool = False,
+    ) -> String {
+        position = case unit {
+            TimeUnit.Second -> 0
+            TimeUnit.Minute -> 1
+            TimeUnit.Hour -> 2
+            TimeUnit.Day -> 3
+            TimeUnit.Week -> 4
+            TimeUnit.Month -> 5
+            TimeUnit.Quarter -> 6
+            TimeUnit.Year -> 7
+        }
+
+        relative_format_raw(locale, count, position, numeric)
+    }
+}
+
+/// The fields a date shows and how wide, as a CLDR skeleton: `y` the year,
+/// `M` the month (`M` its number, `MMM` its short name, `MMMM` its name),
+/// `d` the day, `E` the weekday (`EEEE` its name) and `G` the era. The
+/// locale decides the order, the punctuation and the words
+/// (`Date.format_fields`). A backtick literal is checked when the program
+/// is checked, and its patterns are worked out when the program is built.
+//! assert DateFields.parse("yMMMd") == Ok(DateFields`yMMMd`)
+//! assert Err(Error.InvalidFormat(_why)) = DateFields.parse("yMMMdHH")
+//
+pub opaque type DateFields String
+
+derive Equatable for DateFields
+
+impl DateFields {
+    /// The skeleton `text` names, or why it names none a date has.
+    pub fn parse(text: String) -> Result<DateFields, Error> {
+        reason = fields_check(0, text)
+
+        if reason == "" {
+            Ok(DateFields(text))
+        } else {
+            Err(Error.InvalidFormat(reason))
+        }
+    }
+}
+
+impl Literal for DateFields {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<DateFields, Error> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        })
+
+        DateFields.parse(body)
+    }
+}
+
+impl Debug for DateFields {
+    fn inspect(fields: DateFields) -> String {
+        DateFields(text) = fields
+        "DateFields`${text}`"
+    }
+}
+
+/// The fields a time of day shows, as a CLDR skeleton: `j` the hour as the
+/// locale writes it (a 12-hour clock with AM and PM, or a 24-hour one), `h`
+/// a 12-hour clock's and `H` a 24-hour one's, `m` the minutes, `s` the
+/// seconds and `S` their fraction.
+//! assert TimeFields.parse("jm") == Ok(TimeFields`jm`)
+//
+pub opaque type TimeFields String
+
+derive Equatable for TimeFields
+
+impl TimeFields {
+    /// The skeleton `text` names, or why it names none a time has.
+    pub fn parse(text: String) -> Result<TimeFields, Error> {
+        reason = fields_check(1, text)
+
+        if reason == "" {
+            Ok(TimeFields(text))
+        } else {
+            Err(Error.InvalidFormat(reason))
+        }
+    }
+}
+
+impl Literal for TimeFields {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<TimeFields, Error> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        })
+
+        TimeFields.parse(body)
+    }
+}
+
+impl Debug for TimeFields {
+    fn inspect(fields: TimeFields) -> String {
+        TimeFields(text) = fields
+        "TimeFields`${text}`"
+    }
+}
+
+/// The fields a date and time show, as a CLDR skeleton of `DateFields`'
+/// letters and `TimeFields`'.
+//! assert DateTimeFields.parse("yMMMdjm") == Ok(DateTimeFields`yMMMdjm`)
+//
+pub opaque type DateTimeFields String
+
+derive Equatable for DateTimeFields
+
+impl DateTimeFields {
+    /// The skeleton `text` names, or why it names none.
+    pub fn parse(text: String) -> Result<DateTimeFields, Error> {
+        reason = fields_check(2, text)
+
+        if reason == "" {
+            Ok(DateTimeFields(text))
+        } else {
+            Err(Error.InvalidFormat(reason))
+        }
+    }
+}
+
+impl Literal for DateTimeFields {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<DateTimeFields, Error> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        })
+
+        DateTimeFields.parse(body)
+    }
+}
+
+impl Debug for DateTimeFields {
+    fn inspect(fields: DateTimeFields) -> String {
+        DateTimeFields(text) = fields
+        "DateTimeFields`${text}`"
+    }
+}
+
+/// A fixed numeric pattern for a date, the same text in every locale: `y`
+/// the year (`yyyy` four digits, `yy` two), `M` the month and `d` the day
+/// (doubled for two digits), `D` the day of the year, with anything else,
+/// or text in single quotes, written as it is. A month's or a weekday's
+/// name is a word of a language, so a pattern holds none: `MMM` is a
+/// compile error that points to `Date.format_fields`.
+//! assert DatePattern.parse("yyyy-MM-dd") == Ok(DatePattern`yyyy-MM-dd`)
+//! assert Err(Error.InvalidFormat(_why)) = DatePattern.parse("dd MMM yyyy")
+//
+pub opaque type DatePattern String
+
+derive Equatable for DatePattern
+
+impl DatePattern {
+    /// The pattern `text` is, or why it is not a fixed date pattern.
+    pub fn parse(text: String) -> Result<DatePattern, Error> {
+        reason = pattern_check(0, text)
+
+        if reason == "" {
+            Ok(DatePattern(text))
+        } else {
+            Err(Error.InvalidFormat(reason))
+        }
+    }
+}
+
+impl Literal for DatePattern {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<DatePattern, Error> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        })
+
+        DatePattern.parse(body)
+    }
+}
+
+impl Debug for DatePattern {
+    fn inspect(pattern: DatePattern) -> String {
+        DatePattern(text) = pattern
+        "DatePattern`${text}`"
+    }
+}
+
+/// A fixed numeric pattern for a time of day: `H` the hour of a 24-hour
+/// clock, `m` the minutes, `s` the seconds (each doubled for two digits)
+/// and `S` the fraction of a second, one letter per digit. A 12-hour clock
+/// needs AM or PM, a word, so a pattern has none.
+//! assert TimePattern.parse("HH:mm") == Ok(TimePattern`HH:mm`)
+//
+pub opaque type TimePattern String
+
+derive Equatable for TimePattern
+
+impl TimePattern {
+    /// The pattern `text` is, or why it is not a fixed time pattern.
+    pub fn parse(text: String) -> Result<TimePattern, Error> {
+        reason = pattern_check(1, text)
+
+        if reason == "" {
+            Ok(TimePattern(text))
+        } else {
+            Err(Error.InvalidFormat(reason))
+        }
+    }
+}
+
+impl Literal for TimePattern {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<TimePattern, Error> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        })
+
+        TimePattern.parse(body)
+    }
+}
+
+impl Debug for TimePattern {
+    fn inspect(pattern: TimePattern) -> String {
+        TimePattern(text) = pattern
+        "TimePattern`${text}`"
+    }
+}
+
+/// A fixed numeric pattern for a date and time, of `DatePattern`'s letters
+/// and `TimePattern`'s.
+//! assert DateTimePattern.parse("yyyyMMdd'T'HHmmss") == Ok(DateTimePattern`yyyyMMdd'T'HHmmss`)
+//
+pub opaque type DateTimePattern String
+
+derive Equatable for DateTimePattern
+
+impl DateTimePattern {
+    /// The pattern `text` is, or why it is not a fixed date and time
+    /// pattern.
+    pub fn parse(text: String) -> Result<DateTimePattern, Error> {
+        reason = pattern_check(2, text)
+
+        if reason == "" {
+            Ok(DateTimePattern(text))
+        } else {
+            Err(Error.InvalidFormat(reason))
+        }
+    }
+}
+
+impl Literal for DateTimePattern {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<DateTimePattern, Error> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        })
+
+        DateTimePattern.parse(body)
+    }
+}
+
+impl Debug for DateTimePattern {
+    fn inspect(pattern: DateTimePattern) -> String {
+        DateTimePattern(text) = pattern
+        "DateTimePattern`${text}`"
+    }
+}
+
+impl Localize for Date {
+    /// The date as `Date.format` writes it at its default length.
+    fn localize(d: Date, locale: Locale) -> String {
+        Date.format(d, locale, DateStyle.Medium)
+    }
+}
+
+impl Localize for Time {
+    /// The time of day as `Time.format` writes it at its default length.
+    fn localize(t: Time, locale: Locale) -> String {
+        Time.format(t, locale, TimeStyle.Short)
+    }
+}
+
+impl Localize for NaiveDateTime {
+    /// The date and time as `NaiveDateTime.format` writes them.
+    fn localize(dt: NaiveDateTime, locale: Locale) -> String {
+        NaiveDateTime.format(dt, locale, DateStyle.Medium, TimeStyle.Short)
+    }
+}
+
+impl Localize for DateTime {
+    /// The moment as `DateTime.format` writes it.
+    fn localize(dt: DateTime, locale: Locale) -> String {
+        DateTime.format(dt, locale, DateStyle.Medium, TimeStyle.Short)
+    }
+}
+
+// ============================================================================
 // The Go boundary
 // ============================================================================
 //
@@ -1722,3 +2479,32 @@ host fn zoned_add_milliseconds(d: DateTime, n: Int) -> DateTime
 host fn zoned_add_microseconds(d: DateTime, n: Int) -> DateTime
 
 host fn zoned_add_nanoseconds(d: DateTime, n: Int) -> DateTime
+
+// --- Text for a reader ------------------------------------------------------
+// A value crosses as its fields (`fields_of`): year, month, day, hour,
+// minute, second, nanosecond, UTC offset in seconds, and flags (1 a date,
+// 2 a time, 4 an offset). A style crosses as `<date style>/<time style>`,
+// `-` for a part not written.
+host fn civil_format_style(locale: Locale, fields: List<Int>, spec: String) -> String
+
+host fn civil_format_fields(locale: Locale, fields: List<Int>, skeleton: String) -> String
+
+host fn civil_format_pattern(fields: List<Int>, pattern: String) -> String
+
+host fn date_parse_style(text: String, locale: Locale, spec: String, lenient: Bool) -> DateAttempt
+
+host fn time_parse_style(text: String, locale: Locale, spec: String, lenient: Bool) -> TimeAttempt
+
+host fn date_parse_pattern(text: String, pattern: String) -> DateAttempt
+
+host fn time_parse_pattern(text: String, pattern: String) -> TimeAttempt
+
+host fn naive_parse_pattern(text: String, pattern: String) -> NaiveAttempt
+
+// Why text is not a skeleton (`fields_check`) or a fixed pattern
+// (`pattern_check`) of a kind, 0 a date's, 1 a time's, 2 both's, or "".
+host fn fields_check(kind: Int, text: String) -> String
+
+host fn pattern_check(kind: Int, text: String) -> String
+
+host fn relative_format_raw(locale: Locale, count: Int, unit: Int, numeric: Bool) -> String

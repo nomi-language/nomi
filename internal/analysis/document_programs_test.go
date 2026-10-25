@@ -99,6 +99,7 @@ func TestOpenDocumentEditsMatchFreshBuilds(t *testing.T) {
 		{order, orderEdits},
 		{order, genericEdits("main", order.texts["main"])},
 		{order, genericEdits("shapes", order.texts["shapes"])},
+		{rateProject(), rateEdits},
 	}
 	if _, err := os.Stat(dungeonDir); err == nil {
 		d := dungeonProject(t)

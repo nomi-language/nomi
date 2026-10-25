@@ -154,13 +154,17 @@ var opaqueSpecs = []opaqueSpec{
 	{origin: "std/instant", nomi: "Instant", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.Instant]()},
 	{origin: "std/int", nomi: "NonZeroInt", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.NonZeroInt]()},
 	{origin: "std/int", nomi: "PositiveInt", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.PositiveInt]()},
-	{origin: "std/codepoints", nomi: "Codepoint", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.Codepoint]()},
+	{origin: "std/code_points", nomi: "Codepoint", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.Codepoint]()},
 	{origin: "std/toml", nomi: "Toml", form: formDistinct, inner: kindString, goType: reflect.TypeFor[rt.Toml]()},
 	// std/random's PRNG register. A row with NO extern over it, which this
 	// table's own header says is the normal case rather than the exception:
 	// `Seed.from_int(n: Int) -> Seed` is the Nomi body `Seed(n)`. See
 	// rt/random.go for why no rule belongs beside the type.
 	{origin: "std/random", nomi: "Seed", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.Seed]()},
+	// std/locale's canonical BCP 47 tag. No extern takes or returns it: the
+	// host functions trade in the tag's String, and std/locale's Nomi bodies
+	// wrap and unwrap it. See rt/locale.go.
+	{origin: "std/locale", nomi: "Locale", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.Locale]()},
 	// std/calendar's civil periods. Ten rows for ten declarations rather than
 	// one parameterised entry, because each is a DISTINCT Nomi type with a
 	// distinct rt Go type and the whole point of the family is that
@@ -177,6 +181,23 @@ var opaqueSpecs = []opaqueSpec{
 	{origin: "std/calendar", nomi: "Milliseconds", form: formDistinct, inner: kindInt, goType: reflect.TypeFor[rt.Milliseconds]()},
 	{origin: "std/calendar", nomi: "Microseconds", form: formDistinct, inner: kindInt, goType: reflect.TypeFor[rt.Microseconds]()},
 	{origin: "std/calendar", nomi: "Nanoseconds", form: formDistinct, inner: kindInt, goType: reflect.TypeFor[rt.Nanoseconds]()},
+	// std/currency's code, or custom code and digits (`BTC:8`). The host
+	// functions trade in the code, the digits and whether it is ISO;
+	// std/currency's Nomi bodies wrap and unwrap it. See rt/currency.go.
+	{origin: "std/currency", nomi: "Currency", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.Currency]()},
+	// std/calendar's skeletons and fixed patterns, each the text it was
+	// checked as. The host functions take the text; std/calendar's Nomi
+	// bodies wrap and unwrap it. See rt/calendarformat.go.
+	{origin: "std/calendar", nomi: "DateFields", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.DateFields]()},
+	{origin: "std/calendar", nomi: "TimeFields", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.TimeFields]()},
+	{origin: "std/calendar", nomi: "DateTimeFields", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.DateTimeFields]()},
+	{origin: "std/calendar", nomi: "DatePattern", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.DatePattern]()},
+	{origin: "std/calendar", nomi: "TimePattern", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.TimePattern]()},
+	{origin: "std/calendar", nomi: "DateTimePattern", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.DateTimePattern]()},
+	// std/collation's collator: the locale's tag and its options. The host
+	// functions take the text; std/collation's Nomi bodies wrap and unwrap
+	// it. See rt/collation.go.
+	{origin: "std/collation", nomi: "Collator", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.Collator]()},
 }
 
 // opaqueDefs is the process-wide *typeDef per spec, keyed by spec index.
@@ -201,7 +222,7 @@ func opaqueKind(i int) kind { return named(opaqueDefs()[i]) }
 // the module's anchors.
 func codepointKind() kind {
 	for i := range opaqueSpecs {
-		if opaqueSpecs[i].origin == "std/codepoints" && opaqueSpecs[i].nomi == "Codepoint" {
+		if opaqueSpecs[i].origin == "std/code_points" && opaqueSpecs[i].nomi == "Codepoint" {
 			return opaqueKind(i)
 		}
 	}

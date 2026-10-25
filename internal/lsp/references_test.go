@@ -344,8 +344,8 @@ func TestFindReferences_StdlibInterfaceMethodIncludesStdlibImplDeclarations(t *t
 		t.Fatalf("references request returned error: %v", err)
 	}
 	wantFiles := map[string]bool{
-		"/std/int.nomi":        false,
-		"/std/codepoints.nomi": false,
+		"/std/int.nomi":         false,
+		"/std/code_points.nomi": false,
 	}
 	for _, loc := range locs {
 		for suffix := range wantFiles {

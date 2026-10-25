@@ -2,9 +2,42 @@ package vm
 
 import (
 	"io"
+	"sort"
 
 	"github.com/nomi-language/nomi/internal/ir"
 )
+
+// ReachedCrossings names every crossing into Go that a function PruneImage
+// keeps for the same roots and boots may make, sorted: what a built image
+// asks of the host. `nomi build` reads it to decide which parts of the
+// program's CLDR data the image carries.
+func ReachedCrossings(entry *ir.Module, mods []*ir.Module, roots []*ir.Func, boots []*ir.Symbol) []string {
+	reached, _ := NewProgram(entry, mods, io.Discard).Reached(roots, boots)
+	seen := map[string]bool{}
+	note := func(c *ir.Call) {
+		if c != nil && c.Form() == ir.CalleeDirect && c.Crosses() {
+			seen[c.Callee().Name()] = true
+		}
+	}
+	for f := range reached {
+		for _, b := range f.Blocks() {
+			for _, in := range b.Instrs() {
+				switch n := in.(type) {
+				case *ir.Call:
+					note(n)
+				case *ir.Defer:
+					note(n.Call())
+				}
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for name := range seen {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
 
 // PruneImage is the module set a built image carries: entry and mods with
 // every function this machine's own walk (Reached) cannot reach from roots

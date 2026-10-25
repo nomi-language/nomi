@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/rotation"
 	"github.com/nomi-language/nomi/internal/vm"
@@ -460,7 +461,17 @@ func runBounded(p *Program, plan runPlan, dir string, img *ir.Image) (out runOut
 				mainFn = f
 			}
 		}
-		base = vm.NewProgram(entry, img.Modules, &buf).WithHosts(p.hosts...)
+		// The image's own locale data, as a runner reads it: never the
+		// data compiled into this test binary.
+		locales := cldrdata.Empty()
+		if len(img.Locales) > 0 {
+			d, err := cldrdata.Decode(img.Locales)
+			if err != nil {
+				return runOutcome{class: runCrash, crash: crashImage + ": its locale data does not decode: " + err.Error()}
+			}
+			locales = d
+		}
+		base = vm.NewProgram(entry, img.Modules, &buf).WithHosts(p.hosts...).WithLocaleData(locales)
 	}
 	base = base.WithErrorOutput(&buf).WithInput(rt.NewInput(strings.NewReader("")))
 	m := base.WithLimits(vm.Limits{Steps: runSteps, Deadline: time.Now().Add(runDeadline)})

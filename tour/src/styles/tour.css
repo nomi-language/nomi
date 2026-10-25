@@ -96,16 +96,25 @@ pre.nomi-tour {
   line-height: 1.5;
   white-space: pre;
 }
-pre.nomi-tour.nomi-code-nomi,
-pre.nomi-tour.nomi-code-go,
-pre.nomi-tour.nomi-code-js {
+/* Every other fenced block (```text output, error messages) scrolls inside
+   its box like the highlighted ones, rather than spilling past its border. */
+.sl-markdown-content pre:not(.nomi-tour) {
+  max-width: 100%;
+  overflow-x: auto;
+}
+/* A static block's language chip sits on a wrapper around its <pre>, so it
+   stays in the top-right corner while the <pre> scrolls sideways. */
+.nomi-chip {
   position: relative;
+  margin: 1em 0;
+}
+.nomi-chip > pre.nomi-tour {
+  margin: 0;
   padding-right: 4.75em;
 }
-pre.nomi-tour.nomi-code-nomi::before,
-pre.nomi-tour.nomi-code-go::before,
-pre.nomi-tour.nomi-code-js::before {
+.nomi-chip::before {
   position: absolute;
+  z-index: 1;
   top: 0.55em;
   right: 0.75em;
   padding: 0.2em 0.5em;
@@ -118,19 +127,104 @@ pre.nomi-tour.nomi-code-js::before {
   pointer-events: none;
   text-transform: uppercase;
 }
-pre.nomi-tour.nomi-code-nomi::before {
+.nomi-chip-nomi::before {
   content: "Nomi";
   background: #5b79e3;
 }
-pre.nomi-tour.nomi-code-go::before {
+.nomi-chip-go::before {
   content: "Go";
   background: #25845f;
 }
-pre.nomi-tour.nomi-code-js::before {
+.nomi-chip-js::before {
   content: "JS";
   background: #f0db4f;
   color: #323330;
 }
+.nomi-chip-toml::before {
+  content: "TOML";
+  background: #9c4221;
+}
+.nomi-chip-sql::before {
+  content: "SQL";
+  background: #336791;
+}
+.nomi-chip-gomod::before {
+  content: "go.mod";
+  background: #25845f;
+  text-transform: none;
+}
+.nomi-code-gomod .tree-glyph { color: var(--tok-comment); }
+/* A folder tree: nested lists whose connecting lines are borders. */
+.sl-markdown-content .nomi-filetree,
+.nomi-filetree {
+  background: var(--tour-bg);
+  color: var(--tour-fg);
+  padding: 0.75em 1em;
+  margin: 1em 0;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
+  font-size: 0.9em;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.sl-markdown-content .nomi-filetree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 0.45em;
+}
+.sl-markdown-content .nomi-filetree li {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 1.4em;
+}
+.sl-markdown-content .nomi-filetree li::before,
+.sl-markdown-content .nomi-filetree li::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  border-color: var(--tok-comment);
+  border-style: solid;
+  border-width: 0;
+}
+/* The elbow into this entry. */
+.sl-markdown-content .nomi-filetree li::before {
+  top: 0;
+  height: 0.8em;
+  width: 1em;
+  border-left-width: 1px;
+  border-bottom-width: 1px;
+}
+/* The line down to the next sibling. */
+.sl-markdown-content .nomi-filetree li::after {
+  top: 0.8em;
+  bottom: 0;
+  border-left-width: 1px;
+}
+.sl-markdown-content .nomi-filetree li:last-child::after { display: none; }
+.nomi-filetree .tree-dir { font-weight: 600; }
+.nomi-code-gomod .tok-kw { color: var(--tok-kw); }
+.nomi-code-gomod .tok-num { color: var(--tok-num); }
+.nomi-code-gomod .tok-comment { color: var(--tok-comment); }
+.nomi-chip-csv::before {
+  content: "CSV";
+  background: #217346;
+}
+.nomi-chip-json::before {
+  content: "JSON";
+  background: #7a5c00;
+}
+/* ```console blocks: terminal transcripts and compiler output. */
+.nomi-console .con-prompt,
+.nomi-console .con-gutter,
+.nomi-console .con-location,
+.nomi-console .con-label,
+.nomi-console .con-comment { color: var(--tok-comment); }
+.nomi-console .con-error { color: var(--tour-err); font-weight: 600; }
+.nomi-console .con-warning { color: var(--tok-num); font-weight: 600; }
+.nomi-console .con-ok { color: var(--tour-ok); font-weight: 600; }
+.nomi-console .con-message { font-weight: 600; }
 /* SSR'd runnable blocks keep an inner <code> until the client enhances them;
    keep it flush with the surrounding .nomi-tour (no Starlight code styling). */
 .nomi-tour > code {
@@ -158,6 +252,18 @@ pre.nomi-tour.nomi-code-js::before {
 :root[data-theme="dark"] .nomi-tour span[style*="--shiki-dark"] {
   color: var(--shiki-dark) !important;
 }
+/* A multi-file example's TOML tabs (highlight.mjs's renderToml), in the
+   colours Shiki's one-light and one-dark-pro give a static ```toml block. */
+.nomi-tour .toml-table   { color: #4078f2; }
+.nomi-tour .toml-key     { color: #e45649; }
+.nomi-tour .toml-str     { color: #50a14f; }
+.nomi-tour .toml-num     { color: #986801; }
+.nomi-tour .toml-comment { color: #a0a1a7; font-style: italic; }
+:root[data-theme="dark"] .nomi-tour .toml-table   { color: #61afef; }
+:root[data-theme="dark"] .nomi-tour .toml-key     { color: #e06c75; }
+:root[data-theme="dark"] .nomi-tour .toml-str     { color: #98c379; }
+:root[data-theme="dark"] .nomi-tour .toml-num     { color: #d19a66; }
+:root[data-theme="dark"] .nomi-tour .toml-comment { color: #7f848e; }
 .nomi-out .tok-kw       { color: var(--tok-kw); }
 .nomi-out .tok-str      { color: var(--tok-str); }
 .nomi-out .tok-num      { color: var(--tok-num); }
@@ -183,6 +289,19 @@ pre.nomi-tour.nomi-code-js::before {
   border-radius: 8px;
   overflow: hidden;
   background: var(--tour-divider);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+/* An editable block says so on hover, and shows a ring while it holds the
+   caret; a static block keeps its plain border. */
+.nomi-interactive:hover {
+  border-color: color-mix(in srgb, var(--sl-color-accent) 45%, var(--sl-color-hairline));
+}
+.nomi-interactive:focus-within {
+  border-color: var(--sl-color-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sl-color-accent) 25%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nomi-interactive { transition: none; }
 }
 .nomi-live-controls {
   position: absolute;
@@ -249,6 +368,30 @@ pre.nomi-tour.nomi-code-js::before {
   display: inline-flex;
   opacity: 1;
   transform: translateY(0);
+}
+/* A ```nomi-run error block: the example fails to compile on purpose. The
+   badge says so in words; the colour only repeats it. */
+.nomi-expected-error {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 0.55em;
+  border: 1px solid color-mix(in srgb, var(--tour-err) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tour-bg) 88%, var(--tour-err) 12%);
+  /* Pulled toward the text colour so the small label stays above 4.5:1. */
+  color: color-mix(in srgb, var(--tour-err) 80%, var(--tour-fg));
+  font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
+  font-size: 0.66em;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.nomi-expected-error[hidden] { display: none; }
+.nomi-out .nomi-expected-note {
+  /* Muted, but kept above 4.5:1 on the output panel in both themes. */
+  color: color-mix(in srgb, var(--tour-fg) 70%, var(--tour-out-bg));
+  font-style: italic;
 }
 .nomi-stdlib-test {
   margin: 0.75em 0 1.25em;

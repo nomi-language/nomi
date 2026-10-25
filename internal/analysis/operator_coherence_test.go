@@ -35,7 +35,7 @@ func TestDetectImplCollisions_DistinctInstantiationsAreFine(t *testing.T) {
 			receivers[fn] = "Box"
 			keys[fn] = h
 		}
-		if errs := detectImplCollisions(index, files, receivers, keys, nil); len(errs) != 0 {
+		if errs := detectImplCollisions(index, files, receivers, keys, nil, nil); len(errs) != 0 {
 			t.Errorf("impls of %s for one receiver were reported as colliding: %v", strings.Join(headers, ", "), errs)
 		}
 	}
@@ -49,7 +49,7 @@ func TestDetectImplCollisions_OneHeaderTwiceIsTheDuplicate(t *testing.T) {
 		map[*ast.FuncDef]string{a: "", b: ""},
 		map[*ast.FuncDef]string{a: "Box", b: "Box"},
 		map[*ast.FuncDef]string{a: "Holds<Int>", b: "Holds<Int>"},
-		nil,
+		nil, nil,
 	)
 	if len(errs) != 1 {
 		t.Fatalf("two impls of `Holds<Int>` for `Box` produced %d diagnostics, want 1: %v", len(errs), errs)
@@ -70,7 +70,7 @@ func TestDetectImplCollisions_UnresolvableHeaderFailsOpen(t *testing.T) {
 	receivers := map[*ast.FuncDef]string{fnA: "calendar.Date", fnB: "calendar.Date"}
 	ifaceKeys := map[*ast.FuncDef]string{fnA: "Add<Days, Date>"}
 
-	if errs := detectImplCollisions(index, files, receivers, ifaceKeys, nil); len(errs) != 0 {
+	if errs := detectImplCollisions(index, files, receivers, ifaceKeys, nil, nil); len(errs) != 0 {
 		t.Fatalf("a missing interface header produced a diagnostic; the check must only ever "+
 			"reject on evidence it has, not on an index gap: %v", errs)
 	}

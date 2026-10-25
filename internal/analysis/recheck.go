@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -69,6 +70,10 @@ var bodyFields = map[reflect.Type]map[string]bool{
 	reflect.TypeFor[ast.AttachedTest](): {"Body": true},
 	reflect.TypeFor[ast.TestDecl]():     {"Body": true, "Clock": true, "Boot": true, "Setup": true, "ContextPattern": true},
 	reflect.TypeFor[ast.OnceBinding]():  {"Value": true},
+	// A keyword declaration's body is what its expansion's body is made of
+	// (a `message`'s source text); its name and parameters are its
+	// interface.
+	reflect.TypeFor[ast.KeywordDecl](): {"Body": true},
 }
 
 // triviaTypes are the types that hold comments and the layout around them.
@@ -96,8 +101,9 @@ func isPositionField(f reflect.StructField) bool {
 // depend on: every top-level declaration as the parser wrote it, its
 // visibility, signature, type parameters and bounds, type body, impl and
 // derive headers with their items' signatures, imports, `once` bindings with
-// their values, parameter defaults and interface default bodies, and whether
-// the file has `main` and `boot`. It leaves out what bodyFields name,
+// their values, parameter defaults and interface default bodies, which of
+// `break` and `continue` each function's body uses, and whether the file
+// has `main` and `boot`. It leaves out what bodyFields name,
 // positions and comments. Two texts of a file with the same fingerprint
 // differ only inside bodies, in layout or in comments. nodes are the file's
 // nodes as parsed, before derive lowering consumes any.
@@ -132,6 +138,14 @@ func fingerprintValue(b *strings.Builder, v reflect.Value) {
 			b.WriteByte(':')
 			fingerprintValue(b, v.Field(i))
 			b.WriteByte(' ')
+		}
+		if t == reflect.TypeFor[ast.FuncDef]() && v.CanAddr() {
+			// Which of `break` and `continue` a function's body uses is
+			// part of how other files may use it (iter_signal.go), and of
+			// what they report: an edit that adds or removes one rechecks
+			// the files that import it, as a signature edit does.
+			sig := FuncIterSignals(v.Addr().Interface().(*ast.FuncDef))
+			fmt.Fprintf(b, "iter:%t,%t ", sig.Break, sig.Continue)
 		}
 		b.WriteByte('}')
 	case reflect.Slice, reflect.Array:
@@ -316,6 +330,10 @@ func (g *grafter) fields(o, n reflect.Value) {
 		f := t.Field(i)
 		fo, fn := o.Field(i), n.Field(i)
 		switch {
+		case f.Type == reflect.TypeFor[*ast.Expansion]():
+			// What an expansion keeps is made of its body and its inputs,
+			// as a body is: the new one replaces it.
+			g.set(fo, fn)
 		case body[f.Name]:
 			if !fo.IsNil() {
 				g.oldBodies = append(g.oldBodies, fo.Interface().(ast.Node))
@@ -327,6 +345,12 @@ func (g *grafter) fields(o, n reflect.Value) {
 		case isPositionField(f):
 			if fo.Int() != fn.Int() {
 				g.set(fo, fn)
+			}
+			// The end of an extent in the synthesized band, where an
+			// expansion's code grew or shrank: no declaration is found by
+			// it, so it moves with no place in the text.
+			if f.Name == "EndLine" && IsSynthesizedLine(int(fo.Int())) && IsSynthesizedLine(int(fn.Int())) {
+				continue
 			}
 			if name, ok := strings.CutSuffix(f.Name, "Line"); ok {
 				if col := o.FieldByName(name + "Col"); col.IsValid() && col.Kind() == reflect.Int {
@@ -423,8 +447,9 @@ func (s lineShifts) at(line, col int) (int, int, bool) {
 // other file as the build does, with the prelude imports the kept nodes
 // start with. frontEnd are the entry's derive-lowering and duplicate test
 // name errors.
-func preparedNodes(nodes []ast.Node, entry bool, kept []ast.Node) (prepared []ast.Node, frontEnd []TypeError) {
+func preparedNodes(nodes []ast.Node, entry bool, kept []ast.Node, site *ExpansionSite) (prepared []ast.Node, frontEnd []TypeError) {
 	if entry {
+		nodes = ExpandDeclarations(nodes, site)
 		nodes, lowerErrs := LowerDerives(nodes)
 		testNameErrs := CheckDuplicateTestNames(nodes)
 		prog, _ := SynthesizeDerives(nodes)
@@ -437,7 +462,7 @@ func preparedNodes(nodes []ast.Node, entry bool, kept []ast.Node) (prepared []as
 		}
 		prelude = append(prelude, n)
 	}
-	lowered, _ := LowerDerives(append(prelude, nodes...))
+	lowered, _ := LowerDerives(ExpandDeclarations(append(prelude, nodes...), site))
 	extended, _ := SynthesizeDerives(lowered)
 	return SynthesizeUniversalDebug(extended), nil
 }
@@ -479,6 +504,7 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []Pro
 	}
 	var plan []bodyEdit
 	moves := false
+	manifest, _ := LoadManifest(prev.Root)
 	for _, edit := range edits {
 		key := edit.Key
 		fa, nodes := prev.Files[key], prev.Nodes[key]
@@ -500,7 +526,9 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []Pro
 			return nil, "the file's interface changed"
 		}
 		delete(parsed, key)
-		prepared, frontEnd := preparedNodes(pf.nodes, key == prev.Entry, nodes)
+		var mu sync.Mutex
+		site := dm.expansionSite(prev.Root, key, manifest, dm.recordingInputs(prev, &mu))
+		prepared, frontEnd := preparedNodes(pf.nodes, key == prev.Entry, nodes, site)
 		if len(prepared) != len(nodes) {
 			return nil, "the prepared declarations differ in number"
 		}
@@ -533,7 +561,8 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []Pro
 	}
 	prog := prev.Files[prev.Entry].Program()
 	if moves && len(prog.Errors) > 0 && prog.programErrors == nil {
-		// They name no file, so which of them to move is not known.
+		// They are not moved by the file each names; only working them
+		// out again places them.
 		return nil, "the program has errors of its own and positions move"
 	}
 
@@ -562,8 +591,8 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []Pro
 		}
 	}
 	if moves && prog.programErrors != nil {
-		// They name no file; they are worked out again from the
-		// declarations, which now hold the new positions.
+		// They are worked out again from the declarations, which now
+		// hold the new positions.
 		prog.Errors = prog.programErrors()
 	}
 
@@ -590,6 +619,7 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []Pro
 		implFingerprints: prev.implFingerprints,
 		externs:          prev.externs,
 		damaged:          prev.damaged,
+		Inputs:           prev.Inputs,
 		reachesEntry:     prev.reachesEntry,
 		unread:           prev.unread,
 		entryOwn:         prev.entryOwn,
@@ -610,7 +640,11 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []Pro
 	for _, e := range plan {
 		next.Texts[e.key] = editedText(edits, e.key)
 		c.build[e.key] = slices.Clone(e.fa.TypeErrors)
-		c.check[e.key] = CheckTypes(e.fa, e.nodes)
+		if e.key == prev.Entry {
+			c.check[e.key] = CheckTypes(e.fa, e.nodes)
+		} else {
+			c.check[e.key] = checkSibling(e.fa, e.nodes)
+		}
 		if e.key == prev.Entry {
 			c.frontEnd = e.frontEnd
 			entryEdited = true

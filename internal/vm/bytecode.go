@@ -222,7 +222,7 @@ func (c *code) siteAt(pc int) *site {
 //
 // A distinct over a scalar lives in that scalar's bank, and a zero-sized
 // marker has no storage: the value's identity is its stored type's symbol,
-// which names the declaring module (`codepoints.Codepoint`), and boxing it
+// which names the declaring module (`code_points.Codepoint`), and boxing it
 // builds a record over that type's descriptor (values.go's boxWord).
 func classOf(ty *ir.ValType) bank {
 	if ty == nil {

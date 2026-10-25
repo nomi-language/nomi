@@ -305,7 +305,7 @@ func TestTypeLint_ACellMustStateItsValueType(t *testing.T) {
 
 func TestValType_ClassesAndSpelling(t *testing.T) {
 	point := NewSymbol("shapes.Point")
-	cp := NewSymbol("codepoints.Codepoint")
+	cp := NewSymbol("code_points.Codepoint")
 	cases := []struct {
 		ty    *ValType
 		class RegClass
@@ -319,7 +319,7 @@ func TestValType_ClassesAndSpelling(t *testing.T) {
 		{StringType, ClassStr, "String"},
 		{BytesType, ClassStr, "Bytes"},
 		{DecimalType, ClassRef, "Decimal"},
-		{NewDistinctType(cp, IntType), ClassWord, "codepoints.Codepoint(Int)"},
+		{NewDistinctType(cp, IntType), ClassWord, "code_points.Codepoint(Int)"},
 		{NewDistinctType(NewSymbol("Expired"), nil), ClassNone, "Expired"},
 		{NewStructType(point), ClassRef, "shapes.Point"},
 		{NewEnumType(NewSymbol("maybe.Maybe"), IntType), ClassRef, "maybe.Maybe<Int>"},

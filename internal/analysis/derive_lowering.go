@@ -82,7 +82,12 @@ import (
 //   - `derive Iface for Type` → the structural block synthesizeDeriveFor
 //     produces, with the interface re-pointed at the derive entry's real
 //     position.
+//
+// A `message` no build expanded at its site (ExpandDeclarations) is
+// expanded here with none, as a file with no project: every path that
+// prepares a file for analysis lowers it, and none may leave one.
 func LowerDerives(nodes []ast.Node) ([]ast.Node, []TypeError) {
+	nodes = ExpandDeclarations(nodes, nil)
 	var errs []TypeError
 	out, changed := lowerNodeListDerives(nodes, &errs)
 	if !changed {

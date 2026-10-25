@@ -170,7 +170,7 @@ func (bl *irScalarBuilder) partialApplication(capture *ast.Capture, t *ast.Call)
 			}
 			args = append(args, &ast.NamedArg{Name: names[slot], Value: arg, Line: t.Line, Col: t.Col})
 		}
-		return bl.partialLambda(lam, t, args, slots)
+		return bl.partialLambda(capture, lam, t, args, slots)
 	}
 	var args []ast.Node
 	for slot, p := range params[:last+1] {
@@ -196,12 +196,12 @@ func (bl *irScalarBuilder) partialApplication(capture *ast.Capture, t *ast.Call)
 		}
 		args = append(args, arg)
 	}
-	return bl.partialLambda(lam, t, args, slots)
+	return bl.partialLambda(capture, lam, t, args, slots)
 }
 
 // partialLambda lowers lam, whose body is the call t with args, as the
 // function a partial capture stands for, its parameters taking slots.
-func (bl *irScalarBuilder) partialLambda(lam *ast.Lambda, t *ast.Call, args []ast.Node, slots partialSlots) (ir.Temp, kind, bool, bool) {
+func (bl *irScalarBuilder) partialLambda(capture *ast.Capture, lam *ast.Lambda, t *ast.Call, args []ast.Node, slots partialSlots) (ir.Temp, kind, bool, bool) {
 	lam.Body = &ast.Block{Line: t.Line, Col: t.Col, Stmts: []ast.Node{
 		&ast.Call{Func: t.Func, Args: args, TypeArgs: t.TypeArgs, Line: t.Line, Col: t.Col},
 	}}
@@ -210,7 +210,7 @@ func (bl *irScalarBuilder) partialLambda(lam *ast.Lambda, t *ast.Call, args []as
 	}
 	bl.partialOpen[lam] = slots
 	defer delete(bl.partialOpen, lam)
-	return bl.lambda(lam)
+	return bl.lambdaOfCapture(capture, lam)
 }
 
 // partialSlots is what a partial application's lambda takes at its open

@@ -277,7 +277,7 @@ func (bl *irScalarBuilder) literalParts(at ast.Node, of tag) []kind {
 	}
 	parts := bl.literalPartsOf(ty, of)
 	for _, p := range parts {
-		if irNestedEmbeds(p) || ((irIsCollection(p) || irNestedCollection(p)) && irFullyTyped(p)) {
+		if irNestedEmbeds(p) || ((irIsCollection(p) || irNestedCollection(p)) && irFullyTyped(p)) || irHoldsExistential(p) {
 			return parts
 		}
 	}
@@ -481,6 +481,11 @@ func (bl *irScalarBuilder) coerceEmpty(at ast.Node, v ir.Temp, have, want kind) 
 	if irEmbeddedIn(want, have) {
 		d, variant, _ := embedsVariant(want, have)
 		return bl.embedWiden(at, v, d, variant)
+	}
+	if bl.g.irBoxedErasure(want, have) {
+		// A value whose runtime type does not name its impl enters boxed
+		// with the type it has here (irboxed.go).
+		return bl.eraseBoxed(at, v, want, have), want, true
 	}
 	if bl.g.irErases(want, have) {
 		// A concrete value passed where its interface is expected: the VM's

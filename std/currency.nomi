@@ -1,0 +1,225 @@
+//# Currencies: what an amount of money is counted in. A `Currency` is an
+//# ISO 4217 currency, current or historical, named by its code
+//# (``Currency`EUR` ``, ``Currency`JPY` ``), whose minor digits come from
+//# CLDR: two for the euro, none for the yen. A currency ISO does not list,
+//# such as a cryptocurrency or a shop's loyalty points, is a custom
+//# currency, named by its code and minor digits: ``Currency`BTC:8` ``, or
+//# `Currency.custom("BTC", 8)` while the program runs. Both literal forms
+//# are checked when the program is checked, and in a module a literal's
+//# custom currency must be one its `nomi.toml` lists:
+//#
+//# ```toml
+//# [money]
+//# custom_currencies = ["BTC:8", "PTS:0"]
+//# ```
+//#
+//# Two currencies are equal when their codes and minor digits are, so two
+//# libraries that each define ``Currency`PTS:0` `` share it. `Money`
+//# (std/money) pairs an amount with its currency.
+
+import {
+    bool.Bool
+    debug.Debug
+    display.Display
+    equatable.Equatable
+    hashable.Hashable
+    int.Int
+    iter.Iter
+    lists.List
+    literals.{Fragment, Literal}
+    results.Result.{self, Err, Ok}
+    strings.String
+}
+
+/// A currency: an ISO 4217 code, or a custom code with its minor digits.
+/// `Display` gives the code; `Debug` gives the literal that builds it.
+//! assert Display.to_string(Currency`EUR`) == "EUR"
+//! assert Debug.inspect(Currency`BTC:8`) == "Currency`BTC:8`"
+//! assert Currency`PTS:0` == Currency`PTS:0`
+//! refute Currency`PTS:0` == Currency`PTS:2`
+//
+pub opaque type Currency String
+
+derive Equatable for Currency
+derive Hashable for Currency
+
+/// Why text, or a code and its digits, are not a currency.
+pub enum Error {
+    /// `text` is not a code: a code is 1 to 12 of `A`–`Z` and `0`–`9`,
+    /// starting with a letter.
+    Malformed {text: String}
+    /// `code` is an ISO 4217 currency, whose minor digits CLDR gives, so it
+    /// is not a custom one.
+    IsoCode {code: String}
+    /// `code` is not an ISO 4217 currency, so a custom currency of that code
+    /// names its minor digits.
+    NotIso {code: String}
+    /// `digits` is not a count of minor digits, 0 to 18.
+    Digits {digits: Int}
+}
+
+derive Equatable for Error
+
+impl Display for Error {
+    /// What is wrong, as a compile error at a ``Currency`…` `` literal shows
+    /// it.
+    //! assert Display.to_string(
+    //!     #Error.IsoCode{code: "EUR"}
+    //! ) == "`EUR` is an ISO 4217 currency, whose minor digits CLDR gives: write Currency`EUR`"
+    //!
+    //! assert Display.to_string(
+    //!     #Error.NotIso{code: "BTC"}
+    //! ) == "`BTC` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency`BTC:2`"
+    //
+    fn to_string(e: Error) -> String {
+        case e {
+            #Error.Malformed{text} ->
+                "`${text}` is not a currency code: a code is 1 to 12 of A-Z and 0-9, starting with a letter"
+
+            #Error.IsoCode{code} ->
+                "`${code}` is an ISO 4217 currency, whose minor digits CLDR gives: write Currency`${code}`"
+
+            #Error.NotIso{code} ->
+                "`${code}` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency`${code}:2`"
+
+            #Error.Digits{digits} ->
+                "a currency has 0 to 18 minor digits, not ${digits}"
+        }
+    }
+}
+
+impl Currency {
+    /// Read a currency as its literal writes it: an ISO 4217 code (`EUR`),
+    /// or a custom code and its minor digits (`BTC:8`).
+    //! assert Currency.parse("EUR") == Ok(Currency`EUR`)
+    //! assert Currency.parse("JPY") |> Result.map(&Currency.minor_digits(&1)) == Ok(0)
+    //! assert Currency.parse("PTS:0") == Currency.custom("PTS", 0)
+    //! assert Currency.parse("eur") == Err(#Error.Malformed{text: "eur"})
+    //! assert Currency.parse("EUR:2") == Err(#Error.IsoCode{code: "EUR"})
+    //! assert Currency.parse("BTC") == Err(#Error.NotIso{code: "BTC"})
+    //
+    pub fn parse(text: String) -> Result<Currency, Error> {
+        code = currency_code_of(text)
+
+        if code == text {
+            Currency.iso(code)
+        } else {
+            digits = currency_digits_of(text)
+
+            if digits < 0 {
+                Err(#Error.Malformed{text})
+            } else {
+                Currency.custom(code, digits)
+            }
+        }
+    }
+
+    // The ISO 4217 currency of `code`, current or historical, as the
+    // program's CLDR data lists it: what `parse` reads a bare code as.
+    fn iso(code: String) -> Result<Currency, Error> {
+        case currency_check(code, -1) {
+            0 -> Ok(Currency(code))
+            1 -> Err(#Error.Malformed{text: code})
+            _ -> Err(#Error.NotIso{code})
+        }
+    }
+
+    /// A custom currency: `code`, 1 to 12 of `A`–`Z` and `0`–`9` starting
+    /// with a letter, that is not an ISO 4217 code, with `minor_digits`
+    /// digits after the decimal point, 0 to 18. A three-letter code such as
+    /// `BTC` is allowed; if CLDR ever lists it as ISO, this answers
+    /// `Err(.IsoCode)` and its literal stops compiling.
+    //! assert Currency.custom("BTC", 8) |> Result.map(&Currency.minor_digits(&1)) == Ok(8)
+    //! assert Currency.custom("EUR", 2) == Err(#Error.IsoCode{code: "EUR"})
+    //! assert Currency.custom("POINTS", 19) == Err(#Error.Digits{digits: 19})
+    //! assert Currency.custom("1UP", 0) == Err(#Error.Malformed{text: "1UP"})
+    //
+    pub fn custom(code: String, minor_digits: Int) -> Result<Currency, Error> {
+        if minor_digits < 0 {
+            return Err(#Error.Digits{digits: minor_digits})
+        }
+
+        case currency_check(code, minor_digits) {
+            0 -> Ok(Currency("${code}:${minor_digits}"))
+            1 -> Err(#Error.Malformed{text: code})
+            2 -> Err(#Error.IsoCode{code})
+            _ -> Err(#Error.Digits{digits: minor_digits})
+        }
+    }
+
+    /// The currency's code: `EUR`, or a custom currency's own (`BTC`).
+    //! assert Currency.code(Currency`BTC:8`) == "BTC"
+    //
+    pub fn code(currency: Currency) -> String {
+        Currency(text) = currency
+        currency_code_of(text)
+    }
+
+    /// How many digits the currency has after the decimal point: an ISO
+    /// currency's as CLDR gives them (EUR 2, JPY 0, BHD 3), a custom one's
+    /// as it was made with.
+    //! assert Currency.minor_digits(Currency`EUR`) == 2
+    //! assert Currency.minor_digits(Currency`JPY`) == 0
+    //! assert Currency.minor_digits(Currency`BTC:8`) == 8
+    //
+    pub fn minor_digits(currency: Currency) -> Int {
+        Currency(text) = currency
+        currency_digits_of(text)
+    }
+
+    /// Whether the currency is an ISO 4217 one, not a custom one.
+    //! assert Currency.iso?(Currency`EUR`)
+    //! refute Currency.iso?(Currency`BTC:8`)
+    //
+    pub fn iso?(currency: Currency) -> Bool {
+        Currency(text) = currency
+        !String.contains?(text, ":")
+    }
+}
+
+impl Literal for Currency {
+    /// ``Currency`EUR` `` is the ISO currency of the code, and
+    /// ``Currency`BTC:8` `` the custom currency of a code and its minor
+    /// digits, as `Currency.parse` reads them. A raw literal is checked when
+    /// the program is checked.
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Currency, Error> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        })
+
+        Currency.parse(body)
+    }
+}
+
+impl Display for Currency {
+    /// The code.
+    fn to_string(currency: Currency) -> String {
+        Currency.code(currency)
+    }
+}
+
+impl Debug for Currency {
+    /// The raw literal that builds the currency.
+    fn inspect(currency: Currency) -> String {
+        Currency(text) = currency
+        "Currency`${text}`"
+    }
+}
+
+/// Checks a code and its minor digits, `-1` for an ISO code: 0 when they
+/// make a currency, else 1 for a malformed code, 2 for an ISO code given
+/// digits, 3 for digits out of range and 4 for an ISO code CLDR does not
+/// list.
+host fn currency_check(code: String, digits: Int) -> Int
+
+/// The code of a currency's text: all of an ISO one's (`EUR`), the part
+/// before the `:` of a custom one's (`BTC:8`).
+host fn currency_code_of(text: String) -> String
+
+/// The minor digits of a currency's text: those after a custom one's `:`,
+/// or an ISO code's as the program's CLDR data gives them; -1 when what
+/// follows the `:` is not a whole number of zero or more.
+host fn currency_digits_of(text: String) -> Int

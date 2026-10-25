@@ -1,0 +1,142 @@
+import {
+    std/calendar.{Date, DateTime, Time}
+    std/compiler
+    std/currency.Currency
+    std/locale.Locale
+    std/message.Message
+    std/money.Money
+}
+
+/// A payment's receipt line: the amount by its code, the day at length.
+message paid(
+    total: Money,
+    day: Date,
+) `Paid {$total :currency currencyDisplay=code} on {$day :date style=long}`
+
+/// When a parcel arrives: a time of day, then the date and time together.
+message arrives(
+    at: Time,
+    moment: DateTime,
+) `Arrives at {$at :time}; {$moment :datetime dateStyle=medium timeStyle=short}`
+
+/// The amount with no function writes as Money's Localize does.
+message plain(total: Money, day: Date) `{$total}, {$day}`
+
+/// The weekday and day from `:datetime`'s fields.
+message weekday_and_day(day: Date) `{$day :datetime weekday=short day=numeric}`
+
+fn messages(source: String) -> List<String> {
+    compiler.check(source) |> Iter.map(&(&1.message)) |> Iter.to_list()
+}
+
+test "the money and date functions write in the reader's locale" {
+    total = #Money{amount: 49.9d, currency: Currency`EUR`}
+    day = Date`2026-10-20`
+
+    assert paid(total, day)
+    |> Message.format(Locale`en`) == "Paid EUR\u{a0}49.90 on October 20, 2026"
+
+    // A locale with no catalog of the message writes the source text, with
+    // the values as the reader's locale writes them.
+    assert paid(total, day)
+    |> Message.format(Locale`de`) == "Paid 49,90\u{a0}EUR on 20. Oktober 2026"
+
+    at = Time`14:05:00`
+    moment = DateTime`2026-10-20T14:05:00+02:00[Europe/Warsaw]`
+
+    assert arrives(at, moment)
+    |> Message.format(Locale`en`) == "Arrives at 2:05\u{202f}PM; Oct 20, 2026, 2:05\u{202f}PM"
+
+    assert arrives(at, moment)
+    |> Message.format(Locale`pl`) == "Arrives at 14:05; 20 paź 2026, 14:05"
+
+    assert plain(total, day) |> Message.format(Locale`en`) == "€49.90, Oct 20, 2026"
+    assert weekday_and_day(day) |> Message.format(Locale`en`) == "20 Tue"
+    assert weekday_and_day(day) |> Message.format(Locale`de`) == "Di., 20."
+}
+
+test "each function takes the type it writes" {
+    assert messages(
+        """
+          message total(amount: Decimal) `Total: {$amount :currency}`
+        """
+    ) == [
+        "en: `:currency` formats a `Money`, and `$amount` is a `Decimal`\nhelp: a `Money` (std/money) carries its amount and its currency; pass one as the parameter",
+    ]
+
+    assert messages(
+        """
+          message ships(day: Int) `Ships {$day :date}`
+        """
+    ) == [
+        "en: `:date` formats a calendar value (std/calendar's `Date`, `Time`, `NaiveDateTime` or `DateTime`), and `$day` is an `Int`",
+    ]
+
+    assert messages(
+        """
+          import std/calendar.Time
+
+          message opens(at: Time) `Opens on {$at :date}`
+        """
+    ) == [
+        "en: `:date` writes a date, and `$at` is a `Time`, which has none\nhelp: write it with `:time`",
+    ]
+
+    assert messages(
+        """
+          import std/calendar.Date
+
+          message due(day: Date) `Due {$day :datetime hour=numeric}`
+        """
+    ) == [
+        "en: `hour` names a time of day, and `$day` is a `Date`, which has none",
+    ]
+}
+
+test "options are checked by name and value" {
+    assert messages(
+        """
+          import std/calendar.Date
+
+          message due(day: Date) `Due {$day :datetime month=loud}`
+        """
+    ) == [
+        "en: `month` is `numeric`, `2-digit`, `long`, `short` or `narrow`, not `loud`",
+    ]
+
+    assert messages(
+        """
+          import std/money.Money
+
+          message total(amount: Money) `Total: {$amount :currency currencyDisplay=icon}`
+        """
+    ) == [
+        "en: `currencyDisplay` is `symbol`, `narrowSymbol`, `code` or `name`, not `icon`",
+    ]
+
+    assert messages(
+        """
+          import std/calendar.Date
+
+          message due(day: Date) `Due {$day :datetime dateStyle=long month=long}`
+        """
+    ) == [
+        "en: `:datetime` takes `dateStyle` and `timeStyle`, or the fields it writes (`month=long day=numeric`), not both",
+    ]
+}
+
+test "a date or an amount does not select" {
+    assert messages(
+        """
+          import std/calendar.Date
+
+          message due(day: Date) `
+              .input {$day :date}
+              .match $day
+              * {{due}}
+              `
+        """
+    ) == [
+        "en: `:date` writes a calendar value and selects nothing\nhelp: select by the day of the week with `.input {$day :nomi:weekday}`",
+    ]
+}

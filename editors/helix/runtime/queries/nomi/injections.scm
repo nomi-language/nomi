@@ -91,3 +91,12 @@
   (raw_string_content) @injection.content
   (#not-eq? @injection.language "Toml")
   (#not-eq? @injection.language "Regex"))
+
+; A `message` or `noun` declaration's body is MessageFormat 2, the editor's
+; `mf2` grammar when it has one.
+(keyword_declaration
+  keyword: (identifier) @_keyword
+  body: (raw_string
+    (raw_string_content) @injection.content)
+  (#match? @_keyword "^(message|noun)$")
+  (#set! injection.language "mf2"))

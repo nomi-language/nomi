@@ -1,0 +1,43 @@
+# Polish: four plural forms for an Int count.
+
+[cart_items]
+source = '''
+.input {$count :integer}
+.match $count
+one {{{$count} item in your cart}}
+* {{{$count} items in your cart}}
+'''
+text = '''
+.input {$count :integer}
+.match $count
+one {{{$count} produkt w koszyku}}
+few {{{$count} produkty w koszyku}}
+many {{{$count} produktów w koszyku}}
+* {{{$count} produktu w koszyku}}
+'''
+
+[order_status]
+source = '''
+.input {$status :string}
+.match $status
+Pending {{Your order is waiting to ship}}
+Shipped {{Your order is on its way}}
+Delivered {{Your order was delivered}}
+* {{Your order is on its way}}
+'''
+text = '''
+.input {$status :string}
+.match $status
+Pending {{Zamówienie czeka na wysyłkę}}
+Shipped {{Zamówienie zostało wysłane}}
+Delivered {{Zamówienie zostało dostarczone}}
+* {{Zamówienie zostało wysłane}}
+'''
+
+[watching]
+source = '''{$names} are watching this item'''
+text = '''{$names} oglądają ten produkt'''
+
+[cart_summary]
+source = '''{$name}, you have {$items}'''
+text = '''{$name}, masz {$items}'''

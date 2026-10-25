@@ -1,6 +1,6 @@
 import {
     add.Add
-    bool.Bool
+    bool.Bool.{self, False, True}
     comparable.Comparable
     comparable.Ordering.{self, Equal, Greater, Less}
     debug.Debug
@@ -9,8 +9,11 @@ import {
     equatable.Equatable
     hashable.Hashable
     int.Int
+    locale.Locale
+    localize.NumberParseError
     maybe.Maybe
     multiply.Multiply
+    results.Result.{self, Err, Ok}
     strings.String
     subtract.Subtract
     summable.Summable
@@ -167,7 +170,93 @@ impl Float {
             _ -> a
         }
     }
+
+    /// `f` as a reader of `locale` writes it, rounded half to even to at
+    /// most `max_fraction` digits and padded to at least `min_fraction`
+    /// (0 <= min_fraction <= max_fraction <= 100, else a trap). Rounding
+    /// works on the shortest decimal that reads back as `f`, so `1.015`
+    /// rounds to `1.02`. Infinity and NaN are the locale's symbols.
+    //! assert Float.format(1234567.891, Locale`en`) == "1,234,567.891"
+    //! assert Float.format(1234567.89, Locale`de`) == "1.234.567,89"
+    //! assert Float.format(1.5, Locale`fr`, 2) == "1,50"
+    //! assert Float.format(2.5, Locale`en`, 0, 0) == "2"
+    //! assert Float.format(-1234.5, Locale`en`, 0, 3, False) == "-1234.5"
+    //
+    pub fn format(
+        f: Float,
+        locale: Locale,
+        min_fraction: Int = 0,
+        max_fraction: Int = 3,
+        grouping: Bool = True,
+    ) -> String {
+        float_format(locale, f, min_fraction, max_fraction, grouping)
+    }
+
+    /// `f` as a percentage in `locale`: `f` times 100, with the locale's
+    /// percent sign where the locale puts it.
+    //! assert Float.format_percent(0.256, Locale`en`) == "26%"
+    //! assert Float.format_percent(0.256, Locale`fr`) == "26\u{a0}%"
+    //! assert Float.format_percent(0.256, Locale`tr`) == "%26"
+    //! assert Float.format_percent(0.1234, Locale`en`, 1) == "12.3%"
+    //
+    pub fn format_percent(f: Float, locale: Locale, max_fraction: Int = 0) -> String {
+        float_format_percent(locale, f, max_fraction)
+    }
+
+    /// Read text a reader of `locale` wrote as a `Float`, strictly unless
+    /// `lenient: True`, as `Int.parse_in` reads an `Int`.
+    //! assert Float.parse_in("1.234,5", Locale`de`) == Ok(1234.5)
+    //! assert Float.parse_in("1.234,5", Locale`en`) == Err(#NumberParseError.Unexpected{at: 5, text: ","})
+    //
+    pub fn parse_in(
+        text: String,
+        locale: Locale,
+        lenient: Bool = False,
+    ) -> Result<Float, NumberParseError> {
+        float_parse_in(text, locale, lenient)
+    }
+
+    /// Read a percentage a reader of `locale` wrote, as a fraction:
+    /// `12,5 %` is `0.125`. The percent sign is required, where the locale
+    /// puts it unless `lenient: True`, as `Decimal.parse_percent_in` reads
+    /// one.
+    //! assert Float.parse_percent_in("12,5\u{a0}%", Locale`de`) == Ok(0.125)
+    //! assert Float.parse_percent_in("%50", Locale`tr`) == Ok(0.5)
+    //!
+    //! assert Float.parse_percent_in("12.5", Locale`en`) == Err(
+    //!     #NumberParseError.Unexpected{at: 4, text: ""}
+    //! )
+    //
+    pub fn parse_percent_in(
+        text: String,
+        locale: Locale,
+        lenient: Bool = False,
+    ) -> Result<Float, NumberParseError> {
+        float_parse_percent_in(text, locale, lenient)
+    }
 }
+
+host fn float_format(
+    locale: Locale,
+    f: Float,
+    min_fraction: Int,
+    max_fraction: Int,
+    grouping: Bool,
+) -> String
+
+host fn float_format_percent(locale: Locale, f: Float, max_fraction: Int) -> String
+
+host fn float_parse_in(
+    text: String,
+    locale: Locale,
+    lenient: Bool,
+) -> Result<Float, NumberParseError>
+
+host fn float_parse_percent_in(
+    text: String,
+    locale: Locale,
+    lenient: Bool,
+) -> Result<Float, NumberParseError>
 
 /// Returns the IEEE 754 bit-pattern of `x` reinterpreted as an Int (as if by
 /// Go's `math.Float64bits`). Backs the `Hashable` impl. Two Float values

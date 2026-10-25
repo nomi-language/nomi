@@ -1,6 +1,8 @@
 package lsp
 
 import (
+	"strings"
+
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 
@@ -15,6 +17,15 @@ func (r *completionRequest) memberCandidates() []candidate {
 	if sym := r.symbolOf(obj); sym != nil {
 		switch {
 		case sym.Kind == analysis.SymbolModule:
+			if r.atDeclarationStart() {
+				// `sqlkit.` starting a top-level declaration is a qualified
+				// keyword: the file's macros, each with its `!`.
+				out := scopeMemberCandidates(sym.ModuleScope, isMacro)
+				for i := range out {
+					out[i].label += "!"
+				}
+				return out
+			}
 			return scopeMemberCandidates(sym.ModuleScope, valueSymbol)
 		case sym.Kind == analysis.SymbolInterface:
 			// An interface's own functions, and the owner functions an
@@ -39,6 +50,32 @@ func (r *completionRequest) memberCandidates() []candidate {
 	}
 	t := r.exprType(obj)
 	return fieldCandidates(fieldsOf(t), r.declOf(t))
+}
+
+// isMacro reports whether sym is a macro's keyword.
+func isMacro(sym *analysis.Symbol) bool { return sym.Kind == analysis.SymbolMacro }
+
+// atDeclarationStart reports whether the member being typed is a keyword
+// qualified by a file at the start of a top-level declaration: the line
+// before it is `name.` or `pub name.`, unindented.
+func (r *completionRequest) atDeclarationStart() bool {
+	text := r.doc.Content
+	start := r.ctx.start
+	if start > len(text) {
+		return false
+	}
+	head := text[strings.LastIndexByte(text[:start], '\n')+1 : start]
+	head = strings.TrimPrefix(head, "pub ")
+	name, ok := strings.CutSuffix(head, ".")
+	if !ok || name == "" {
+		return false
+	}
+	for i, c := range name {
+		if !(c == '_' || c >= 'a' && c <= 'z' || i > 0 && c >= '0' && c <= '9') {
+			return false
+		}
+	}
+	return true
 }
 
 // declOf returns the symbol declaring a struct type when it is visible at

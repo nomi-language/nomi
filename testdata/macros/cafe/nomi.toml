@@ -1,0 +1,3 @@
+[module]
+name = "cafe"
+entry_points = ["main"]

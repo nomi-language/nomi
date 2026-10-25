@@ -212,7 +212,9 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 			}
 			return bl.iterAppend(t, ir.IterChunks, ir.IterOverSeq, k, src, args.temps[1]), k, true, true
 		}
-		if key, ok := bl.iterPlainCallback(args, 1, elem); !ok || !irRetainedValueKind(key) {
+		// The machine compares keys as `==` does, so an interface-valued key
+		// compares by its run-time type.
+		if key, ok := bl.iterPlainCallback(args, 1, elem); !ok || !irRetainedValueKind(key) && !irExistentialKind(key) {
 			return no()
 		}
 		return bl.iterAppend(t, ir.IterChunkBy, ir.IterOverSeq, k, src, args.temps[1]), k, true, true

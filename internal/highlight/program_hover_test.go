@@ -1,0 +1,115 @@
+package highlight_test
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/nomi-language/nomi/internal/highlight"
+	"github.com/nomi-language/nomi/std"
+)
+
+// programHoverSrc is the tour's first translating-text example: a call in
+// main.nomi into a message declared in cart.nomi, whose Polish text is a
+// catalog and whose locales the manifest lists.
+const programHoverSrc = `// FILE: main.nomi
+import {
+    std/io
+    std/locale.Locale
+    std/message.Message
+    cart
+}
+
+fn main() {
+    [1, 2]
+    |> Iter.each(fn n -> {
+        badge = cart.cart_count(n)
+        io.print(Message.format(badge, Locale` + "`en`" + `))
+    })
+}
+
+// FILE: cart.nomi
+/// The cart badge, such as "3 items in your cart".
+pub message cart_count(count: Int) ` + "`" + `
+    .input {$count :integer}
+    .match $count
+    one {{{$count} item in your cart}}
+    * {{{$count} items in your cart}}
+    ` + "`" + `
+
+pub fn total(n: Int) -> Int { n * 2 }
+
+// FILE: locales/pl/cart.toml
+[cart_count]
+source = '''
+.input {$count :integer}
+.match $count
+one {{{$count} item in your cart}}
+* {{{$count} items in your cart}}
+'''
+text = '''
+.input {$count :integer}
+.match $count
+one {{{$count} produkt w koszyku}}
+* {{{$count} produktu w koszyku}}
+'''
+
+// FILE: nomi.toml
+[module]
+name = "shop"
+entry_points = ["main"]
+
+[i18n]
+locales = ["en", "pl"]
+`
+
+// colOf is the 1-based column of the first occurrence of sub on line (1-based)
+// of the file name's text in src.
+func colOf(t *testing.T, prog *highlight.Program, name string, line int, sub string) int {
+	t.Helper()
+	f, ok := prog.File(name)
+	if !ok {
+		t.Fatalf("no analysis of %s", name)
+	}
+	lines := strings.Split(f.Source, "\n")
+	i := strings.Index(lines[line-1], sub)
+	if i < 0 {
+		t.Fatalf("%s line %d (%q) has no %q", name, line, lines[line-1], sub)
+	}
+	return i + 1
+}
+
+// TestProgramHoverResolvesAcrossFiles holds the tour's multi-file hover to
+// the whole program: a call in main.nomi into cart.nomi shows the
+// message's signature and doc from cart.nomi, and a declaration inside
+// cart.nomi answers too.
+func TestProgramHoverResolvesAcrossFiles(t *testing.T) {
+	prog := highlight.AnalyzeProgram(programHoverSrc, std.Shared(), nil)
+
+	got := prog.HoverIn("main.nomi", 11, colOf(t, prog, "main.nomi", 11, "cart_count"))
+	if !strings.Contains(got, "cart_count(count: Int)") || !strings.Contains(got, "The cart badge") {
+		t.Errorf("hover on cart.cart_count in main.nomi = %q; want the message's signature and doc", got)
+	}
+
+	got = prog.HoverIn("cart.nomi", 9, colOf(t, prog, "cart.nomi", 9, "total"))
+	if !strings.Contains(got, "fn total(n: Int) -> Int") {
+		t.Errorf("hover on fn total in cart.nomi = %q; want its signature", got)
+	}
+
+	if got := prog.HoverIn("nomi.toml", 1, 2); got != "" {
+		t.Errorf("hover in nomi.toml = %q; want none", got)
+	}
+	if toks := prog.SemanticTokensIn("main.nomi"); len(toks) == 0 {
+		t.Error("main.nomi has no semantic tokens")
+	}
+}
+
+// TestProgramHoverSurvivesAnError holds hover to the program's analyses when
+// the program has a type error: the cross-file call still resolves.
+func TestProgramHoverSurvivesAnError(t *testing.T) {
+	src := strings.Replace(programHoverSrc, "fn main() {\n", "fn main() {\n    x: Int = \"no\"\n", 1)
+	prog := highlight.AnalyzeProgram(src, std.Shared(), nil)
+	got := prog.HoverIn("main.nomi", 12, colOf(t, prog, "main.nomi", 12, "cart_count"))
+	if !strings.Contains(got, "cart_count(count: Int)") {
+		t.Errorf("hover on cart.cart_count with a type error elsewhere = %q; want the message's signature", got)
+	}
+}

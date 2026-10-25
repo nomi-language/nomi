@@ -101,23 +101,8 @@ func isTaskFunctionSymbol(fa *FileAnalysis, sym *Symbol, name string) bool {
 	if sym == nil || sym.Kind != SymbolFunction || sym.Name != name {
 		return false
 	}
-	if sym.OwningType == "Task" {
-		if sym.SourceFile != "" {
-			return isStdTasksFile(sym.SourceFile)
-		}
-		if declaredOutsideStd(fa, sym, "std/tasks") {
-			return false
-		}
-		if fa != nil {
-			if byName := fa.TypeMethods["Task"]; sameSymbolDefinition(sym, byName[name]) {
-				return true
-			}
-			if fa.Program().ImplIndex != nil {
-				if byName := fa.Program().ImplIndex.TypeMethods["Task"]; sameSymbolDefinition(sym, byName[name]) {
-					return true
-				}
-			}
-		}
+	if sym.OwningType == "Task" && isStdOwnerFunction(fa, sym, "Task", "tasks") {
+		return true
 	}
 	if sym.OwningType != "" {
 		return false
@@ -134,6 +119,31 @@ func isTaskFunctionSymbol(fa *FileAnalysis, sym *Symbol, name string) bool {
 	}
 	if sym.SourceFile != "" {
 		return isStdTasksFile(sym.SourceFile)
+	}
+	return false
+}
+
+// isStdOwnerFunction reports whether sym, a function owned by owner, is the
+// one std's module declares (`Task.spawn` of std/tasks), not a user type's
+// function of the same name.
+func isStdOwnerFunction(fa *FileAnalysis, sym *Symbol, owner, module string) bool {
+	if sym == nil || sym.Kind != SymbolFunction || sym.OwningType != owner {
+		return false
+	}
+	if sym.SourceFile != "" {
+		name, ok := stdlibModuleForPath(sym.SourceFile)
+		return ok && name == module
+	}
+	if fa == nil || declaredOutsideStd(fa, sym, "std/"+module) {
+		return false
+	}
+	if byName := fa.TypeMethods[owner]; sameSymbolDefinition(sym, byName[sym.Name]) {
+		return true
+	}
+	if idx := fa.Program().ImplIndex; idx != nil {
+		if byName := idx.TypeMethods[owner]; sameSymbolDefinition(sym, byName[sym.Name]) {
+			return true
+		}
 	}
 	return false
 }

@@ -198,7 +198,7 @@ fn main() {
 				want := runProcess(t, env, dir, "a line\n", nomiBin, append([]string{"run", entry}, args...)...)
 				var got observedRun
 				if target == "js/wasm" {
-					got = runProcess(t, env, dir, "a line\n", node, append([]string{filepath.Join(goroot, "lib", "wasm", "wasm_exec_node.js"), mod}, args...)...)
+					got = runNode(t, env, dir, "a line\n", node, append([]string{filepath.Join(goroot, "lib", "wasm", "wasm_exec_node.js"), mod}, args...)...)
 				} else {
 					if major := nodeMajor(t, node); major < 20 {
 						t.Logf("node %d has no node:wasi preview1; not running the wasip1 module", major)
@@ -206,7 +206,7 @@ fn main() {
 					}
 					script := filepath.Join(t.TempDir(), "wasi.mjs")
 					mustWrite(t, script, wasiNodeScript)
-					got = runProcess(t, env, dir, "a line\n", node, append([]string{"--no-warnings", script, mod}, args...)...)
+					got = runNode(t, env, dir, "a line\n", node, append([]string{"--no-warnings", script, mod}, args...)...)
 				}
 				if got != want {
 					t.Fatalf("%s under node differs from nomi run\n--- nomi run (exit %d) ---\n%s\n--- %s (exit %d) ---\n%s",
@@ -222,7 +222,7 @@ fn main() {
 					script := filepath.Join(t.TempDir(), "wasi-no-argv.mjs")
 					mustWrite(t, script, noArgv)
 					want := runProcess(t, env, dir, "a line\n", nomiBin, "run", entry)
-					got := runProcess(t, env, dir, "a line\n", node, "--no-warnings", script, mod)
+					got := runNode(t, env, dir, "a line\n", node, "--no-warnings", script, mod)
 					if got != want {
 						t.Fatalf("%s with an empty argv differs from nomi run\n--- nomi run (exit %d) ---\n%s\n--- wasip1 (exit %d) ---\n%s",
 							name, want.exit, want.transcript(), got.exit, got.transcript())

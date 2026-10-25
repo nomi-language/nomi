@@ -183,7 +183,7 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, here [
 	args := make([]string, 0, len(w.tps))
 	for _, tp := range w.tps {
 		k, ok := solved[tp.Name]
-		if !ok || !irCallableValueKind(k) {
+		if !ok || (k != kindUnit && !irCallableValueKind(k)) {
 			return nil
 		}
 		frame[tp.Name] = k

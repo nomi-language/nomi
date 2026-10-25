@@ -17,6 +17,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -41,16 +42,35 @@ const usage = `usage:
   nomi <file> [args]                    the same as nomi run, for a file that ends in
                                         .nomi or starts with #!; with a first line of
                                         #!/usr/bin/env nomi it runs as an executable script
-  nomi test [path] [--line N] [--format text|json] [--watch]
+  nomi test [path] [--line N] [--format text|json] [--timeout <duration>] [--watch]
                                         run test files on the VM; --watch runs them
                                         again whenever a .nomi file under path, or a
-                                        file the tests load, changes
+                                        file the tests load, changes; a case that runs
+                                        longer than --timeout (default 10s, 0 for none)
+                                        is stopped and fails
   nomi check [--format full|short] <path>
                                         analyze and lower without running, test
                                         files and their cases included; short prints
                                         path:line:col: lines, not source snippets
                                         (NOMI_DIAGNOSTICS=short does so for every command)
   nomi fmt [-w|-l] <paths>              format source
+  nomi new <module path> [dir]          start a project: nomi.toml, go.mod and a
+                                        main.nomi, in dir (default: the path's last element)
+  nomi add <module>[@version]           add a dependency: its latest release when no
+                                        version is given, downloaded, with its checksums
+                                        recorded in go.sum
+  nomi add <directory>                  add the Nomi module in a directory, such as
+                                        nomi add ../shared
+  nomi remove <module>                  remove a dependency no file imports any more
+  nomi update [module]                  move one dependency, or all of them, to its
+                                        latest release of the same module path
+  nomi fetch [--target <goos>/<goarch>]... [dir]
+                                        download everything the project needs: the
+                                        modules go.mod requires and, for Go bindings,
+                                        Go itself when there is no go on PATH and each
+                                        --target's runner, so --offline works later
+  --offline                             on run, test, check, build, fetch and add:
+                                        download nothing, and name what is missing
   nomi build <file> [-o <out>] [--target <goos>/<goarch>]
                                         build a single executable: nomi-vm with the
                                         program's IR appended (runs at nomi run speed)
@@ -71,10 +91,36 @@ const usage = `usage:
                                         programs in it in a browser or Node
   nomi dap                              serve the Debug Adapter Protocol on stdin and
                                         stdout, for an editor's debugger
+  nomi expand <file>                    print what the file's declarations written
+                                        with a macro's keyword expand to
+  nomi tool <module> <name> [args]      run a module's tool, tools/<name>.nomi:
+                                        a macro's work that needs effects
+  nomi messages accept <locale> <msg>   mark a locale's translation of a message
+                                        current, recording the message's text as
+                                        the source it was translated from
   nomi version                          print the version
 `
 
 func main() {
+	command := ""
+	if len(os.Args) > 1 {
+		command = os.Args[1]
+	}
+	offline := false
+	switch command {
+	case "run", "test", "check", "build", "fetch", "add":
+		var rest []string
+		rest, offline = takeOffline(command, os.Args[2:])
+		os.Args = append([]string{os.Args[0], command}, rest...)
+	}
+	switch command {
+	case "dap", dap.TerminalCommand, "fmt", "messages", "version", "help", "--help", "-h", "new", "remove":
+		// The debugger is started by an editor, which never downloads, and
+		// the others build nothing.
+	default:
+		enableDownloads(offline, os.Stderr)
+	}
+
 	if versionRequested(os.Args) {
 		runVersion()
 	} else if len(os.Args) > 1 && (os.Args[1] == "help" || os.Args[1] == "--help" || os.Args[1] == "-h") {
@@ -123,6 +169,31 @@ func main() {
 			}
 			os.Exit(1)
 		}
+	} else if command == "fetch" {
+		if err := runFetch(os.Args[2:], offline); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	} else if command == "add" {
+		if err := runAdd(os.Args[2:], offline); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	} else if command == "new" {
+		if err := runNew(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	} else if command == "remove" {
+		if err := runRemove(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	} else if command == "update" {
+		if err := runUpdate(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	} else if len(os.Args) > 1 && os.Args[1] == "build-vm" {
 		if err := runBuildVM(os.Args[2:]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -145,6 +216,21 @@ func main() {
 			os.Exit(1)
 		}
 		os.Exit(dap.RunTerminal(os.Args[2], os.Stdin, os.Stdout))
+	} else if command == "expand" {
+		if err := runExpand(os.Args[2:], os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	} else if command == "tool" {
+		if err := runTool(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	} else if command == "messages" {
+		if err := runMessages(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	} else if len(os.Args) > 1 && os.Args[1] == "fmt" {
 		if err := runFmt(os.Args[2:]); err != nil {
 			if !errors.Is(err, errFormatFailed) {
@@ -259,10 +345,11 @@ func runCheck(path string) error {
 		return nil
 	}
 	failed := map[string]bool{}
+	reported := map[string]bool{}
 	for _, file := range files {
 		if err := checkFile(file); err != nil {
 			failed[file] = true
-			vmhost.WriteFailLine(os.Stderr, vmhost.DisplayPath(file), err)
+			writeCheckFailure(os.Stderr, file, err, reported)
 			continue
 		}
 		fmt.Printf("%s %s\n", termcolor.Green("ok"), vmhost.DisplayPath(file))
@@ -288,6 +375,45 @@ func runCheck(path string) error {
 		return errCheckFailed
 	}
 	return nil
+}
+
+// writeCheckFailure writes the failed check of the program entry: a
+// `FAIL <file>` line for each file that holds errors (a file the entry
+// imports, or an input a macro read), in the order its first error
+// comes, with that file's errors below it. An error an earlier entry's
+// check already printed is not printed again (reported keeps them); an
+// entry whose errors were all printed says so. A failure that is not a
+// list of diagnostics is the entry's.
+func writeCheckFailure(w io.Writer, entry string, err error, reported map[string]bool) {
+	var ds vmhost.Diagnostics
+	if !errors.As(err, &ds) || len(ds) == 0 {
+		vmhost.WriteFailLine(w, vmhost.DisplayPath(entry), err)
+		return
+	}
+	var order []string
+	byFile := map[string]vmhost.Diagnostics{}
+	for _, d := range ds {
+		key := d.String()
+		if reported[key] {
+			continue
+		}
+		reported[key] = true
+		path := d.Path
+		if path == "" {
+			path = entry
+		}
+		if _, seen := byFile[path]; !seen {
+			order = append(order, path)
+		}
+		byFile[path] = append(byFile[path], d)
+	}
+	if len(order) == 0 {
+		fmt.Fprintf(w, "FAIL %s: its errors are printed above\n", vmhost.DisplayPath(entry))
+		return
+	}
+	for _, path := range order {
+		vmhost.WriteFailLine(w, vmhost.DisplayPath(path), byFile[path])
+	}
 }
 
 // pathError is err for a path the user named: a missing path says so
@@ -511,12 +637,12 @@ func runTest(args []string) error {
 	if parsed.watch {
 		os.Exit(testWatchCommand(parsed))
 	}
-	return runTestVM(parsed.root, parsed.opts, parsed.format)
+	return runTestVM(parsed.root, parsed.opts, parsed.format, parsed.timeout)
 }
 
 func isStdlibTestPath(path string) bool { return vmcmd.IsStdlibPath(path) }
 
-const testUsage = "usage: nomi test [path] [--line N] [--format text|json] [--watch]"
+const testUsage = "usage: nomi test [path] [--line N] [--format text|json] [--timeout <duration>] [--watch]"
 
 // testArgs is `nomi test`'s parsed command line. Flags may appear in any order
 // around the path.
@@ -526,10 +652,13 @@ type testArgs struct {
 	format vmhost.TestFormat
 	// watch is --watch: run the tests again on every change (watch_cmd.go).
 	watch bool
+	// timeout is --timeout: how long each case may run, or zero for no
+	// limit (vmhost.DefaultTestTimeout unless given).
+	timeout time.Duration
 }
 
 func parseTestArgs(args []string) (testArgs, error) {
-	parsed := testArgs{root: ".", format: vmhost.TestFormatText}
+	parsed := testArgs{root: ".", format: vmhost.TestFormatText, timeout: vmhost.DefaultTestTimeout}
 	usage := func() (testArgs, error) { return testArgs{}, errors.New(testUsage) }
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -547,6 +676,20 @@ func parseTestArgs(args []string) (testArgs, error) {
 			parsed.opts.LineSet = true
 		case arg == "--watch":
 			parsed.watch = true
+		case arg == "--timeout" || strings.HasPrefix(arg, "--timeout="):
+			value, inline := strings.CutPrefix(arg, "--timeout=")
+			if !inline {
+				i++
+				if i >= len(args) {
+					return usage()
+				}
+				value = args[i]
+			}
+			timeout, err := parseTestTimeout(value)
+			if err != nil {
+				return testArgs{}, err
+			}
+			parsed.timeout = timeout
 		case arg == "--format" || strings.HasPrefix(arg, "--format="):
 			value, inline := strings.CutPrefix(arg, "--format=")
 			if !inline {
@@ -571,6 +714,16 @@ func parseTestArgs(args []string) (testArgs, error) {
 		}
 	}
 	return parsed, nil
+}
+
+// parseTestTimeout reads a `--timeout` value: a Go duration (`30s`, `2m`,
+// `500ms`), with `0` for no limit.
+func parseTestTimeout(value string) (time.Duration, error) {
+	d, err := time.ParseDuration(value)
+	if err != nil || d < 0 {
+		return 0, fmt.Errorf("nomi test: invalid --timeout %q: want a duration such as 30s, 2m or 500ms, or 0 for no limit", value)
+	}
+	return d, nil
 }
 
 func discoverTestFiles(root string) ([]string, error) {

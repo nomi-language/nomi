@@ -1,6 +1,6 @@
 import {
     add.Add
-    bool.Bool
+    bool.Bool.{self, False, True}
     comparable.Comparable
     comparable.Ordering.{self, Equal, Greater, Less}
     debug.Debug
@@ -10,8 +10,11 @@ import {
     equatable.Equatable
     float.Float
     hashable.Hashable
+    locale.Locale
+    localize.NumberParseError
     maybe.Maybe.{self, None, Some}
     multiply.Multiply
+    results.Result.{self, Err, Ok}
     steppable.Steppable
     strings.String
     subtract.Subtract
@@ -184,7 +187,49 @@ impl Int {
     pub fn max(a: Int, b: Int) -> Int {
         if a >= b { a } else { b }
     }
+
+    /// `n` as a reader of `locale` writes it: the locale's digits, minus
+    /// sign and group separator, grouped as the locale groups (`hi` writes
+    /// lakhs). `grouping: False` leaves the separators out, and `min_digits`
+    /// pads with zeros to at least that many digits (1 to 100). `Display`
+    /// stays `1234567` everywhere.
+    //! assert Int.format(1234567, Locale`en`) == "1,234,567"
+    //! assert Int.format(1234567, Locale`de`) == "1.234.567"
+    //! assert Int.format(1234567, Locale`pl`) == "1\u{a0}234\u{a0}567"
+    //! assert Int.format(1234567, Locale`hi`) == "12,34,567"
+    //! assert Int.format(1234567, Locale`ar-EG`) == "١٬٢٣٤٬٥٦٧"
+    //! assert Int.format(1234567, Locale`ar-EG-u-nu-latn`) == "1,234,567"
+    //! assert Int.format(1234567, Locale`en`, False) == "1234567"
+    //! assert Int.format(7, Locale`en`, True, 3) == "007"
+    //
+    pub fn format(n: Int, locale: Locale, grouping: Bool = True, min_digits: Int = 1) -> String {
+        int_format(locale, n, grouping, min_digits)
+    }
+
+    /// Read text a reader of `locale` wrote as an `Int`. Strict by default:
+    /// the text must be what `Int.format` writes, except that the group
+    /// separators may be left out, any space stands for the locale's space,
+    /// and ASCII digits for the locale's digits. `lenient: True` also takes
+    /// separators anywhere, surrounding space, `+`, `(12)` and `12-`.
+    //! assert Int.parse_in("1.234.567", Locale`de`) == Ok(1234567)
+    //! assert Int.parse_in("12,34,567", Locale`hi`) == Ok(1234567)
+    //! assert Int.parse_in("1,234", Locale`de`) == Err(#NumberParseError.Unexpected{at: 1, text: ","})
+    //! assert Int.parse_in("12,34,567", Locale`en`) == Err(#NumberParseError.Grouping{at: 2})
+    //! assert Int.parse_in(" 12,34,567 ", Locale`en`, True) == Ok(1234567)
+    //! assert Int.parse_in("", Locale`en`) == Err(NumberParseError.Empty)
+    //
+    pub fn parse_in(
+        text: String,
+        locale: Locale,
+        lenient: Bool = False,
+    ) -> Result<Int, NumberParseError> {
+        int_parse_in(text, locale, lenient)
+    }
 }
+
+host fn int_format(locale: Locale, n: Int, grouping: Bool, min_digits: Int) -> String
+
+host fn int_parse_in(text: String, locale: Locale, lenient: Bool) -> Result<Int, NumberParseError>
 
 impl Display for Int {
     /// Returns the canonical decimal string form of `n`, matching the runtime

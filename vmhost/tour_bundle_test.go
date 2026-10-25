@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/nomi-language/nomi/internal/doctest"
+	"github.com/nomi-language/nomi/internal/nodeenv"
 	"github.com/nomi-language/nomi/internal/wasmmem"
 	"github.com/nomi-language/nomi/vmhost"
 	"io/fs"
@@ -396,16 +397,43 @@ func TestTourWasmAnswersTheTourBlocks(t *testing.T) {
 		t.Fatalf("staged wasm answered %d of %d blocks", len(answers), len(probes))
 	}
 
-	withTests, compared := 0, 0
+	withTests, compared, errors, stops := 0, 0, 0, 0
 	for i, b := range blocks {
 		got := answers[i]
 		if got.Name != b.name {
 			t.Fatalf("answer %d is for %q, expected %q", i, got.Name, b.name)
 		}
 		t.Run(b.name, func(t *testing.T) {
+			if b.block.HasInfo(doctest.InfoError) {
+				// An error block fails on purpose: its expect block holds
+				// what the page shows, the compile error or the run's output
+				// then its failure, which TestTourDoctests holds the
+				// in-process front end and VM to.
+				if got.Error == "" {
+					t.Errorf("block %s is an error block but the staged wasm runs it clean. Fix: %s", b.name, rebuildInstruction)
+					return
+				}
+				if err := doctest.CheckOutput(b.block.Expected, doctest.Shown(got.Output, got.Error)); err != nil {
+					t.Errorf(`STAGED TOUR WASM SHOWS ANOTHER ERROR THAN THE DOCS.
+
+  block %s
+
+%s
+
+Fix: %s`, b.name, err, rebuildInstruction)
+				}
+				return
+			}
 			if got.Error != "" && onlyListedBlocked(got.Error) {
 				// The playground reports these cases BLOCKED on the VM, the
 				// set TestTourDoctests pins as tourBlockedOnVM.
+				return
+			}
+			if got.Error != "" && !b.hasTests && b.block.Expected != nil &&
+				doctest.CheckOutput(b.block.Expected, doctest.Shown(got.Output, got.Error)) == nil {
+				// A block that stops on purpose: its expect block ends with
+				// the failure, as the playground shows it after the output.
+				stops++
 				return
 			}
 			if got.Error != "" {
@@ -440,14 +468,17 @@ TestTourDoctests holds the in-process VM to. Fix: %s`,
 					b.name, err, rebuildInstruction)
 			}
 		})
-		if b.hasTests {
+		switch {
+		case b.block.HasInfo(doctest.InfoError):
+			errors++
+		case b.hasTests:
 			withTests++
-		} else {
+		default:
 			compared++
 		}
 	}
-	t.Logf("staged wasm ran %d tour blocks: %d output-compared against their <!-- expect --> block, %d test-carrying (error channel only)",
-		len(blocks), compared, withTests)
+	t.Logf("staged wasm ran %d tour blocks: %d output-compared against their <!-- expect --> block (%d of them stop on purpose, output and failure compared), %d test-carrying (error channel only), %d error blocks (error compared against their <!-- expect --> block)",
+		len(blocks), compared, stops, withTests, errors)
 }
 
 // TestTourWasmReportsAFailedMain runs a block whose `main` returns `Err`
@@ -480,6 +511,91 @@ func TestTourWasmReportsAFailedMain(t *testing.T) {
 	if got := answers[0]; got.Output != "before\n" || got.Error != "error: boom" {
 		t.Errorf("staged wasm answered output %q, error %q; want output %q, error %q",
 			got.Output, got.Error, "before\n", "error: boom")
+	}
+}
+
+// TestTourWasmHoversAcrossTabs asks the staged wasm for hover in a tab of a
+// multi-file tour block, as run-worker.js does (nomiHoverIn): the call
+// `cart.cart_count(n)` in main.nomi answers the message's signature and
+// doc comment from cart.nomi, which only an analysis of the whole program
+// can resolve, and the declaration in cart.nomi answers in its own tab.
+func TestTourWasmHoversAcrossTabs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; loads a 25MB wasm under node; -short")
+	}
+	if stagedFileMissing(t, "nomi.wasm.gz") || stagedFileMissing(t, "wasm_exec.js") {
+		return
+	}
+	node, err := exec.LookPath("node")
+	if err != nil {
+		if os.Getenv(requireEnv) == "1" {
+			t.Fatalf("node is not on PATH (%s=1 makes this a failure)", requireEnv)
+		}
+		t.Skip("node is not on PATH")
+	}
+	var source string
+	for _, b := range tourRunBlocks(t) {
+		if strings.Contains(b.block.Code, "badge = cart.cart_count(n)") {
+			source = b.block.Code
+			break
+		}
+	}
+	if source == "" {
+		t.Fatal("no tour block calls cart.cart_count(n)")
+	}
+	// The position of sub in the tab file names, in that tab's own lines:
+	// the line after its `// FILE:` marker is the tab's line 1.
+	at := func(file, sub string) (int, int) {
+		line := 0
+		for _, text := range strings.Split(source, "\n") {
+			if strings.HasPrefix(text, "// FILE: ") {
+				if line > 0 {
+					break
+				}
+				if strings.TrimPrefix(text, "// FILE: ") == file {
+					line = 1
+				}
+				continue
+			}
+			if line == 0 {
+				continue
+			}
+			if i := strings.Index(text, sub); i >= 0 {
+				return line, i + 1
+			}
+			line++
+		}
+		t.Fatalf("tab %s has no %q", file, sub)
+		return 0, 0
+	}
+	type hover struct {
+		File string `json:"file"`
+		Line int    `json:"line"`
+		Col  int    `json:"col"`
+	}
+	type probe struct {
+		Name   string `json:"name"`
+		Source string `json:"source"`
+		Hover  hover  `json:"hover"`
+	}
+	callLine, callCol := at("main.nomi", "cart_count")
+	declLine, declCol := at("cart.nomi", "cart_count")
+	answers := runUnderNode(t, node, []probe{
+		{Name: "call", Source: source, Hover: hover{"main.nomi", callLine, callCol}},
+		{Name: "declaration", Source: source, Hover: hover{"cart.nomi", declLine, declCol}},
+		{Name: "manifest", Source: source, Hover: hover{"nomi.toml", 1, 2}},
+	})
+	if len(answers) != 3 {
+		t.Fatalf("staged wasm answered %d of 3 hovers", len(answers))
+	}
+	for _, a := range answers[:2] {
+		if !strings.Contains(a.Output, "cart_count(count: Int)") || !strings.Contains(a.Output, "The cart badge") {
+			t.Errorf("hover on cart_count (%s) answered %q (error %q); want the message's signature and doc. Fix: %s",
+				a.Name, a.Output, a.Error, rebuildInstruction)
+		}
+	}
+	if got := answers[2]; got.Output != "" || got.Error != "" {
+		t.Errorf("hover in nomi.toml answered %q (error %q); want nothing", got.Output, got.Error)
 	}
 }
 
@@ -518,8 +634,8 @@ type tourBlock struct {
 }
 
 // tourRunBlocks enumerates the same population TestTourDoctests does, with the
-// same extractor and the same `ignore` exclusion, so a block cannot be in one
-// instrument and absent from the other.
+// same extractor: every block but a no-run one, error blocks included, so a
+// block cannot be in one instrument and absent from the other.
 func tourRunBlocks(t *testing.T) []tourBlock {
 	t.Helper()
 	root := filepath.Clean("../tour/src/content/docs")
@@ -543,7 +659,14 @@ func tourRunBlocks(t *testing.T) []tourBlock {
 			t.Fatalf("read %s: %v", chapter, err)
 		}
 		for _, b := range doctest.ExtractBlocks(string(data), "nomi-run") {
-			if b.HasInfo("ignore") {
+			if b.HasInfo(doctest.InfoNoRun) {
+				continue
+			}
+			if b.HasInfo(doctest.InfoError) {
+				out = append(out, tourBlock{
+					name:  fmt.Sprintf("%s:L%d", filepath.Base(chapter), b.Line),
+					block: b,
+				})
 				continue
 			}
 			entrySrc, _, _, _, splitErr := vmhost.SplitMultiFile(b.Code)
@@ -602,6 +725,7 @@ func runUnderNode(t *testing.T, node string, probes any) []nodeAnswer {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, node, driver, staged, in)
+	cmd.Env = nodeenv.Minimal(os.Environ())
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -645,6 +769,11 @@ const go = new Go();
   const probes = JSON.parse(fs.readFileSync(process.argv[3], "utf8"));
   const answers = probes.map((p) => {
     try {
+      if (p.hover) {
+        // A hover probe, as run-worker.js asks for one in a multi-file tab.
+        const md = globalThis.nomiHoverIn(p.source, p.hover.file, p.hover.line, p.hover.col);
+        return { name: p.name, output: md, error: "" };
+      }
       const r = globalThis.nomiRun(p.source);
       return { name: p.name, output: r.output, error: r.error };
     } catch (err) {

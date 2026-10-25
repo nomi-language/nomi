@@ -386,7 +386,9 @@ func TestExpectation_Tour(t *testing.T) {
 		What: "one record per runnable ```nomi-run block in tour, keyed " +
 			"chapter:L<line>, run the way the tour playground runs it. N is 1 when the block " +
 			"declares tests and 0 otherwise; a block's own tests run and their report is part " +
-			"of the transcript, which the hidden <!-- expect --> block does not cover.",
+			"of the transcript, which the hidden <!-- expect --> block does not cover. A block " +
+			"that stops on purpose (a todo reached, a trap, an Err from main) is recorded with " +
+			"exit 1 and its failure on stderr, as `nomi run` prints it.",
 	}
 	for _, chapter := range chapters {
 		data, err := os.ReadFile(chapter)
@@ -398,7 +400,10 @@ func TestExpectation_Tour(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, b := range doctest.ExtractBlocks(string(data), "nomi-run") {
-			if b.HasInfo("ignore") {
+			// An error block's diagnostic is held by vmhost's
+			// TestTourDoctests and TestTourWasmAnswersTheTourBlocks; a
+			// no-run block's output differs per run.
+			if !b.Runs() {
 				continue
 			}
 			id := fmt.Sprintf("%s:L%d", filepath.ToSlash(rel), b.Line)
@@ -485,6 +490,7 @@ var failureFixtures = []string{
 	"func_operand_row.nomi",
 	"generic_struct.nomi",
 	"impl_call_operand_row.nomi",
+	"infinite_iter_traps.nomi",
 	"inspect_through_list.nomi",
 	"iter_operand_report.nomi",
 	"ordering.nomi",

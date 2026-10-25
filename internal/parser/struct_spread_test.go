@@ -46,8 +46,8 @@ func TestParseStructSpread(t *testing.T) {
 		{"#{..p, a}", "*ast.Ident", 1},
 		// Trailing comma.
 		{"#{..p, a: 9,}", "*ast.Ident", 1},
-		// Stacked, newline-separated.
-		{"#{\n  ..p\n  a: 9\n}", "*ast.Ident", 1},
+		// Stacked, one element per line, each with its comma.
+		{"#{\n  ..p,\n  a: 9,\n}", "*ast.Ident", 1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.src, func(t *testing.T) {

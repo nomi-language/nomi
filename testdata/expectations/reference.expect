@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
-records 35
-declared-cases 337
+records 45
+declared-cases 467
 failing 0
 C assertions
 E 0
@@ -26,8 +26,8 @@ H c38eff71742a56683ebc1beaadb1f546559e2f2ee154e3040c583e73d9c11969
 T ok enum Bool
 C bytes
 E 0
-N 17
-H 05ee5bafcc0ad6ed2150b3ef54d11ea2db5e4c32084f8aea2b7471a643e88229
+N 18
+H 910c2bfad5a99fa1645048c3b316d7a7f25639c2aaa31fce148a44b8371948b1
 T ok Byte.from_int
 T ok Byte.to_int
 T ok Bytes.length
@@ -44,20 +44,36 @@ T ok Bytes.add (impl Add<Bytes, Bytes> for Bytes)
 T ok Bytes.empty_sum (impl Summable for Bytes)
 T ok Bytes.to_string Display (impl Display for Bytes)
 T ok Bytes.inspect (impl Debug for Bytes)
+T ok Bytes.compare (impl Comparable for Bytes)
 T ok Bytes.hash (impl Hashable for Bytes)
 C calendar
 E 0
-N 27
-H e1eb54a450bdc2b95c75c97950a673b0237fb973cd903f98a6f41556d5f93764
+N 53
+H 52cf6d2e0a94f3e84a7e50d69bf8f5dcf01b2dc6d8d3e8231ca4137cfd94f108
 T ok Date.new
 T ok Date.parse
 T ok Date.days_between
+T ok Date.weekday
+T ok Date.format
+T ok Date.format_fields
+T ok Date.parse_in
+T ok Date.to_string_with
+T ok Date.parse_with
 T ok Date.add Add<Months, Date> (impl Add<Months, Date> for Date)
 T ok Time.new
 T ok Time.parse
 T ok Time.between
+T ok Time.format
+T ok Time.format_fields
+T ok Time.parse_in
+T ok Time.to_string_with
+T ok Time.parse_with
 T ok Time.add (impl Add<Duration, Time> for Time)
 T ok Time.subtract (impl Subtract<Duration, Time> for Time)
+T ok NaiveDateTime.format
+T ok NaiveDateTime.format_fields
+T ok NaiveDateTime.to_string_with
+T ok NaiveDateTime.parse_with
 T ok NaiveDateTime.of
 T ok NaiveDateTime.at_midnight
 T ok NaiveDateTime.to_date
@@ -69,6 +85,9 @@ T ok OffsetDateTime.with_offset
 T ok OffsetDateTime.from_instant
 T ok OffsetDateTime.parse
 T ok OffsetDateTime.between
+T ok DateTime.format
+T ok DateTime.format_fields
+T ok DateTime.to_string_with
 T ok DateTime.in_zone
 T ok DateTime.from_instant_in
 T ok DateTime.now_in
@@ -76,6 +95,14 @@ T ok DateTime.to_offset
 T ok DateTime.with_zone
 T ok DateTime.parse
 T ok DateTime.between
+T ok enum Weekday
+T ok TimeUnit.format_relative
+T ok type DateFields
+T ok type TimeFields
+T ok type DateTimeFields
+T ok type DatePattern
+T ok type TimePattern
+T ok type DateTimePattern
 C channels
 E 0
 N 5
@@ -85,7 +112,7 @@ T ok Channel.unbuffered
 T ok Sender.send
 T ok Sender.close
 T ok Receiver.receive
-C codepoints
+C code_points
 E 0
 N 13
 H 5953dd980aa7374eb62f211ef783b9eca59b6ff4d5c847b6fe5e8e04279f1e0a
@@ -102,6 +129,15 @@ T ok Codepoint.inspect (impl Debug for Codepoint)
 T ok Codepoint.next (impl Discrete for Codepoint)
 T ok Codepoint.steps_between (impl Discrete for Codepoint)
 T ok Codepoint.step_by (impl Steppable for Codepoint)
+C collation
+E 0
+N 5
+H f88d031cfe9b22cba641cdb93bc7af8bb9f0ebee69983907e01fe185d6a6d5fb
+T ok type Collator
+T ok Collator.new
+T ok Collator.compare
+T ok Collator.sort_key
+T ok Collator.inspect (impl Debug for Collator)
 C compiler
 E 0
 N 4
@@ -126,10 +162,21 @@ T ok Context.with_deadline
 T ok Context.with_timeout
 T ok Context.with_value
 T ok Context.value
+C currency
+E 0
+N 7
+H 43a2ad540099e1f4ea5edea5aee6848689031c72aa8801fecb9ad1a8fad2d274
+T ok type Currency
+T ok Currency.parse
+T ok Currency.custom
+T ok Currency.code
+T ok Currency.minor_digits
+T ok Currency.iso?
+T ok Error.to_string (impl Display for Error)
 C decimal
 E 0
-N 18
-H 59eb2962f7a69e0cc9e7a57be178a7052762cbef8d399dc3435ae5736780d14c
+N 22
+H 0e55a1262ad1928f42f7cb725cfd439ba06948a1aa8bfc2489e4d30bdb8c23c9
 T ok Decimal.from_int
 T ok Decimal.from_string
 T ok Decimal.to_int
@@ -145,13 +192,17 @@ T ok Decimal.sign
 T ok Decimal.zero?
 T ok Decimal.min
 T ok Decimal.max
+T ok Decimal.format
+T ok Decimal.format_percent
+T ok Decimal.parse_in
+T ok Decimal.parse_percent_in
 T ok Decimal.to_string (impl Display for Decimal)
 T ok Decimal.empty_sum (impl Summable for Decimal)
 T ok Decimal.step_by (impl Steppable for Decimal)
 C duration
 E 0
-N 19
-H cd79badf06ef85ed411dc4c43c81a0eba9c6009798b83af7693db82708819dd0
+N 20
+H 5071c1c9f615897fc409dc959f8bd989fe794a7cb817e1f52a389f46d40b5696
 T ok Duration.nanoseconds
 T ok Duration.microseconds
 T ok Duration.milliseconds
@@ -164,6 +215,7 @@ T ok Duration.as_millis
 T ok Duration.as_seconds
 T ok Duration.as_minutes
 T ok Duration.as_hours
+T ok Duration.format
 T ok Duration.add (impl Add<Duration, Duration> for Duration)
 T ok Duration.empty_sum (impl Summable for Duration)
 T ok Duration.subtract (impl Subtract<Duration, Duration> for Duration)
@@ -173,8 +225,8 @@ T ok Duration.to_string (impl Display for Duration)
 T ok Duration.inspect (impl Debug for Duration)
 C float
 E 0
-N 17
-H 8e1e412687f3e3661b8900962643b4d919690296dd54ebd61babfcfb5084bf6e
+N 21
+H ba6e0aca7a8cfe5a0e3b71189b85a245721787cdc6fd791c49942ec44f4f43fb
 T ok Float.nan
 T ok Float.positive_infinity
 T ok Float.negative_infinity
@@ -190,6 +242,10 @@ T ok Float.abs
 T ok Float.sign
 T ok Float.min
 T ok Float.max
+T ok Float.format
+T ok Float.format_percent
+T ok Float.parse_in
+T ok Float.parse_percent_in
 T ok Float.to_string (impl Display for Float)
 T ok Float.empty_sum (impl Summable for Float)
 C instant
@@ -207,8 +263,8 @@ T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Insta
 T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
 C int
 E 0
-N 23
-H d3eaa850fc70e798a85049cafd1b951f498606be2f47f36c01d74a94466f9c5f
+N 25
+H 9b43056a06b8f43b7b2094279622e2ab8d33539bd3b894b7cc4ec7db9e515945
 T ok Int.max_value
 T ok Int.min_value
 T ok Int.to_non_zero
@@ -228,6 +284,8 @@ T ok Int.abs
 T ok Int.sign
 T ok Int.min
 T ok Int.max
+T ok Int.format
+T ok Int.parse_in
 T ok Int.to_string (impl Display for Int)
 T ok Int.empty_sum (impl Summable for Int)
 T ok Int.divide Divide<NonZeroInt, Int> (impl Divide<NonZeroInt, Int> for Int)
@@ -307,6 +365,45 @@ T ok List.head
 T ok List.tail
 T ok List.contains? (impl Contains for List<T>)
 T ok List.empty_sum (impl Summable for List<T>)
+C locale
+E 0
+N 13
+H 3f5bab7c6884c9839b6421eda327c003af809892576c9872d33b6cd7b5c298a4
+T ok type Locale
+T ok Locale.parse
+T ok Locale.from_posix
+T ok Locale.language
+T ok Locale.script
+T ok Locale.region
+T ok Locale.fallbacks
+T ok Locale.negotiate
+T ok Locale.available
+T ok Locale.loaded
+T ok Locale.load
+T ok Error.to_string (impl Display for Error)
+T ok LoadError.to_string (impl Display for LoadError)
+C localize
+E 0
+N 3
+H c6f2113efec00b65698dc88633bbe444211b9005ce9d85df8738b9a186ac8639
+T ok interface Localize
+T ok enum NumberParseError
+T ok NumberParseError.to_string (impl Display for NumberParseError)
+C macro
+E 0
+N 11
+H fe77473709067abb0648a3917486c7355d08bc3373e0d9f2a45da7be6042bf18
+T ok Span.on_line
+T ok Span.line
+T ok Body.span_at
+T ok Input.span_at
+T ok Input.find
+T ok Expansion.error
+T ok struct Source
+T ok Source.string_literal
+T ok macro.config
+T ok macro.pascal_case
+T ok macro.snake_case
 C maps
 E 0
 N 13
@@ -342,6 +439,30 @@ T ok Maybe.to_result
 T ok Maybe.flat_map
 T ok Maybe.collect
 T ok Maybe.values
+C money
+E 0
+N 11
+H 29d1f047fc754fcb0419c2585c320a94313f28b0681296f5c97ac3fb9d8eb23d
+T ok struct Money
+T ok Money.format
+T ok Money.round
+T ok Money.parse_in
+T ok Money.add (impl Add<Money, Money> for Money)
+T ok Money.subtract (impl Subtract<Money, Money> for Money)
+T ok Money.multiply (impl Multiply<Int, Money> for Money)
+T ok Money.empty_sum (impl Summable for Money)
+T ok Money.from_fragments (impl Literal for Money)
+T ok Money.to_string (impl Display for Money)
+T ok Error.to_string (impl Display for Error)
+C plural
+E 0
+N 5
+H a5d0489ba568b265e46b0f3dcb24a63fc8af16506a73a9cba727f1eba4b1b758
+T ok enum PluralCategory
+T ok PluralCategory.cardinal
+T ok PluralCategory.ordinal
+T ok PluralCategory.cardinals
+T ok PluralCategory.ordinals
 C random
 E 0
 N 11
@@ -404,10 +525,41 @@ T ok Set.contains? (impl Contains for Set<T>)
 T ok Set.add (impl Add<Set<T>, Set<T>> for Set<T>)
 T ok Set.empty_sum (impl Summable for Set<T>)
 T ok Set.subtract (impl Subtract<Set<T>, Set<T>> for Set<T>)
+C sql
+E 0
+N 17
+H 580dc31b45776f1612efb00e8fbd661d98d23eb6a48cf704a778571f5d3eeb42
+T ok struct Statement
+T ok Statement.join
+T ok Statement.values
+T ok Statement.where_all
+T ok Statement.where_any
+T ok Sql.from_fragments (impl Literal for Sql)
+T ok Value.kind
+T ok interface ToSql
+T ok interface FromSql
+T ok struct Row
+T ok Row.value
+T ok Row.value_position
+T ok Row.get
+T ok Dialect.to_string (impl Display for Dialect)
+T ok Error.to_string (impl Display for Error)
+T ok sql.with_connection
+T ok sql.close_quietly
+C sql_testing
+E 0
+N 6
+H f074506ac4094c3a4439aff397339c7fa247b2d5db4a5350a11a61061cff628b
+T ok struct Fake
+T ok Fake.new
+T ok Fake.committed
+T ok Fake.closed?
+T ok sql_testing.conformance
+T ok sql_testing.rules
 C strings
 E 0
-N 30
-H 0ee9835069765a92f0f0f94dd19b8982f5ba5f9f0e277d78c8f37551cce634b9
+N 35
+H 8218691531b4bcf57913621043c9015ae650dd4db5dcf0994a5b9bb67c9a2c97
 T ok String.contains? Contains<String> (impl Contains<String> for String)
 T ok String.contains? Contains<Regex> (impl Contains<Regex> for String)
 T ok String.contains? Contains<Codepoint> (impl Contains<Codepoint> for String)
@@ -415,6 +567,9 @@ T ok String.starts_with?
 T ok String.ends_with?
 T ok String.to_upper
 T ok String.to_lower
+T ok String.to_upper_in
+T ok String.to_lower_in
+T ok String.fold_case
 T ok String.replace
 T ok String.repeat
 T ok String.reverse
@@ -423,6 +578,7 @@ T ok String.slice
 T ok String.pad_start
 T ok String.pad_end
 T ok String.join
+T ok String.join_list
 T ok String.split
 T ok String.find_all
 T ok String.find
@@ -434,6 +590,7 @@ T ok String.trim
 T ok String.to_int
 T ok String.to_bytes
 T ok String.to_codepoints
+T ok String.to_literal
 T ok String.strip_prefix
 T ok String.strip_suffix
 T ok String.length
@@ -472,6 +629,19 @@ E 0
 N 1
 H d844d8776c7fd46ddf735722ffe49dd805be4b36bcd8cc2ffdf6f6fb8ed07ef4
 T ok type Unit
+C uuid
+E 0
+N 9
+H 99d736f0db9b69259fa74002111e3b2014be729dbf40c8bf7f3bd247df15c73b
+T ok struct Uuid
+T ok Uuid.parse
+T ok Uuid.nil
+T ok Uuid.from_bytes
+T ok Uuid.to_bytes
+T ok Uuid.version
+T ok Uuid.v4
+T ok Uuid.v7
+T ok Uuid.compare (impl Comparable for Uuid)
 C variants
 E 0
 N 1

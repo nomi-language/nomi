@@ -681,6 +681,10 @@
             "named": true
           },
           {
+            "type": "qualified_variant",
+            "named": true
+          },
+          {
             "type": "range_expression",
             "named": true
           },
@@ -2890,6 +2894,10 @@
         },
         {
           "type": "placeholder",
+          "named": true
+        },
+        {
+          "type": "qualified_variant",
           "named": true
         },
         {
@@ -5138,6 +5146,10 @@
           "named": true
         },
         {
+          "type": "qualified_variant",
+          "named": true
+        },
+        {
           "type": "range_expression",
           "named": true
         },
@@ -5628,6 +5640,10 @@
         },
         {
           "type": "or_pattern",
+          "named": true
+        },
+        {
+          "type": "qualified_variant",
           "named": true
         },
         {
@@ -7097,7 +7113,15 @@
             "named": true
           },
           {
+            "type": "binary_expression",
+            "named": true
+          },
+          {
             "type": "boolean",
+            "named": true
+          },
+          {
+            "type": "call_expression",
             "named": true
           },
           {
@@ -7138,6 +7162,10 @@
           },
           {
             "type": "or_pattern",
+            "named": true
+          },
+          {
+            "type": "qualified_variant",
             "named": true
           },
           {
@@ -7816,6 +7844,160 @@
         },
         {
           "type": "where_clause",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "keyword_declaration",
+    "named": true,
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "raw_string",
+            "named": true
+          },
+          {
+            "type": "raw_tagged_string",
+            "named": true
+          }
+        ]
+      },
+      "implementation": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": ".",
+            "named": false
+          },
+          {
+            "type": "anon_struct_type",
+            "named": true
+          },
+          {
+            "type": "function_type",
+            "named": true
+          },
+          {
+            "type": "generic_type",
+            "named": true
+          },
+          {
+            "type": "qualified_type",
+            "named": true
+          },
+          {
+            "type": "self_type",
+            "named": true
+          },
+          {
+            "type": "tuple_type",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
+            "named": true
+          }
+        ]
+      },
+      "keyword": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "mark": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "macro_mark",
+            "named": true
+          }
+        ]
+      },
+      "module": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
+            "named": true
+          }
+        ]
+      },
+      "return_type": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": ".",
+            "named": false
+          },
+          {
+            "type": "anon_struct_type",
+            "named": true
+          },
+          {
+            "type": "function_type",
+            "named": true
+          },
+          {
+            "type": "generic_type",
+            "named": true
+          },
+          {
+            "type": "qualified_type",
+            "named": true
+          },
+          {
+            "type": "self_type",
+            "named": true
+          },
+          {
+            "type": "tuple_type",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "parameters",
+          "named": true
+        },
+        {
+          "type": "pub",
           "named": true
         }
       ]
@@ -9102,6 +9284,10 @@
           "named": true
         },
         {
+          "type": "qualified_variant",
+          "named": true
+        },
+        {
           "type": "set_pattern",
           "named": true
         },
@@ -9522,6 +9708,10 @@
         },
         {
           "type": "placeholder",
+          "named": true
+        },
+        {
+          "type": "qualified_variant",
           "named": true
         },
         {
@@ -10186,6 +10376,10 @@
           },
           {
             "type": "or_pattern",
+            "named": true
+          },
+          {
+            "type": "qualified_variant",
             "named": true
           },
           {
@@ -11376,6 +11570,10 @@
           "named": true
         },
         {
+          "type": "qualified_variant",
+          "named": true
+        },
+        {
           "type": "set_pattern",
           "named": true
         },
@@ -11678,6 +11876,32 @@
     "type": "qualified_type_identifier",
     "named": true,
     "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "type_identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "qualified_variant",
+    "named": true,
+    "fields": {
+      "module": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": true,
       "required": true,
@@ -12944,6 +13168,10 @@
         },
         {
           "type": "interface_definition",
+          "named": true
+        },
+        {
+          "type": "keyword_declaration",
           "named": true
         },
         {
@@ -15258,6 +15486,10 @@
           "named": true
         },
         {
+          "type": "qualified_variant",
+          "named": true
+        },
+        {
           "type": "set_pattern",
           "named": true
         },
@@ -16249,6 +16481,10 @@
           "named": true
         },
         {
+          "type": "qualified_variant",
+          "named": true
+        },
+        {
           "type": "set_pattern",
           "named": true
         },
@@ -16860,6 +17096,10 @@
   },
   {
     "type": "line_comment",
+    "named": true
+  },
+  {
+    "type": "macro_mark",
     "named": true
   },
   {

@@ -18,6 +18,7 @@ func intToInt(int64) int64             { return 0 }
 func withError(int64) (int64, error)   { return 0, nil }
 func intToPtr(int64) *int64            { return nil }
 func twoInts(int64, int64) int64       { return 0 }
+func ptrKeys() map[*int64]int64        { return nil }
 
 // TestUnadaptableBindingsFailGenerationByName plants each way a binding and
 // its declaration can disagree and requires generation to refuse, naming the
@@ -36,6 +37,7 @@ pub host fn wrong_scalar(x: Float) -> Int
 pub host fn hidden_error(x: Int) -> Int
 pub host fn short(x: Int, y: Int) -> Int
 pub host fn user_enum(x: Int) -> Maybe<Maybe<Int>>
+pub host fn ptr_keys() -> Map<Maybe<Int>, Int>
 `
 	// A closure has no name a generated file can call.
 	closure := func(int64, int64) int64 { return 0 }
@@ -51,6 +53,9 @@ pub host fn user_enum(x: Int) -> Maybe<Maybe<Int>>
 		{"t.short", intToInt, "the declaration takes 2 parameter(s)"},
 		{"t.user_enum", intToPtr, "no conversion from Go int64 to Maybe<Int>"},
 		{"t.short", closure, "is not a top-level function"},
+		// A Nomi Map keeps insertion order, and a pointer has no order that
+		// is the same from run to run to insert by.
+		{"t.ptr_keys", ptrKeys, "Go map key *int64: *int64 has no order that is the same from run to run"},
 	}
 	for _, c := range cases {
 		tb := Table{

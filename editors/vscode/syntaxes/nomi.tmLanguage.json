@@ -281,6 +281,63 @@
           "match": "\\bhost\\b(?=\\s+(?:fn|type)\\b)"
         },
         {
+          "comment": "A keyword declaration Nomi builds in (`message cart_items(...)`, `noun item`): its keyword and its name, at the start of a line.",
+          "match": "^(?:(pub)\\s+)?(message|noun|macro)\\s+([a-z_][A-Za-z0-9_?]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.nomi"
+            },
+            "2": {
+              "name": "keyword.declaration.nomi"
+            },
+            "3": {
+              "name": "entity.name.function.nomi"
+            }
+          }
+        },
+        {
+          "comment": "A declaration written with a macro's keyword, marked with `!` and qualified by its file or bare (`sqlkit.query! orders`, `query! orders`): the keyword and its `!` read as a macro.",
+          "match": "^(?:(pub)\\s+)?(?:([a-z_][A-Za-z0-9_]*)(\\.))?([a-z_][A-Za-z0-9_]*!)\\s+([a-z_][A-Za-z0-9_?]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.nomi"
+            },
+            "2": {
+              "name": "entity.name.namespace.nomi"
+            },
+            "3": {
+              "name": "punctuation.accessor.nomi"
+            },
+            "4": {
+              "name": "entity.name.function.macro.nomi"
+            },
+            "5": {
+              "name": "entity.name.function.nomi"
+            }
+          }
+        },
+        {
+          "comment": "One that declares a type (`choices.one_of! Size`): its name reads as a type's.",
+          "match": "^(?:(pub)\\s+)?(?:([a-z_][A-Za-z0-9_]*)(\\.))?([a-z_][A-Za-z0-9_]*!)\\s+([A-Z][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.nomi"
+            },
+            "2": {
+              "name": "entity.name.namespace.nomi"
+            },
+            "3": {
+              "name": "punctuation.accessor.nomi"
+            },
+            "4": {
+              "name": "entity.name.function.macro.nomi"
+            },
+            "5": {
+              "name": "entity.name.type.nomi"
+            }
+          }
+        },
+        {
           "comment": "`variant`, `open` and `derive` are contextual keywords; like the bat syntax, match them everywhere.",
           "name": "keyword.declaration.nomi",
           "match": "\\b(?:pub|opaque|export|once|fn|type|struct|enum|interface|impl|derive|for|go|gopkg|extends|embeds|typealias|extern|import|as|where|with|defer|test|setup|self|variant|open)\\b"

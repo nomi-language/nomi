@@ -394,7 +394,7 @@ func TestPreludeExposesUniversalNames(t *testing.T) {
 		}
 	}
 
-	for _, name := range []string{"assertions", "codepoints", "context", "startup", "decimal", "float", "int", "iter", "maps", "maybe", "ranges", "results", "sets", "strings", "vectors"} {
+	for _, name := range []string{"assertions", "code_points", "context", "startup", "decimal", "float", "int", "iter", "maps", "maybe", "ranges", "results", "sets", "strings", "vectors"} {
 		if sym := lib.Primitives.Lookup(name); sym != nil {
 			t.Errorf("expected file API object %q to require an explicit import", name)
 		}

@@ -1,0 +1,37 @@
+// `nomi tool csvdata create <file.csv>...`: write each table that does
+// not exist yet with a header and no rows, what the quick fix for a
+// missing table runs.
+import std/io
+
+struct App {
+    files: List<String>
+}
+
+fn boot(startup: Startup) -> App {
+    #App{files: startup.args}
+}
+
+fn main() -> Result<Unit, String> {
+    create(App.files)
+}
+
+fn create(paths: List<String>) -> Result<Unit, String> {
+    case paths {
+        [] ->
+            Ok(Unit)
+
+        [path, ..rest] -> {
+            if Result.ok?(io.read_file(path)) {
+                io.print("${path} exists")
+            } else {
+                written =
+                    io.write_file(path, "key,value\n") |> Result.map_err(fn e -> "${path}: ${e}")
+
+                try written
+                io.print("created ${path}")
+            }
+
+            create(rest)
+        }
+    }
+}

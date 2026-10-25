@@ -134,7 +134,7 @@ func TestBuildCommand_ReactorLoadsOneProgramPerInstance(t *testing.T) {
 	}
 	script := filepath.Join(t.TempDir(), "load.mjs")
 	mustWrite(t, script, loadNodeScript)
-	got := runProcess(t, nil, dir, "", node, "--no-warnings", script, "reactor.wasm", "lib.wasm", "counter.nomic", "words.nomic")
+	got := runNode(t, os.Environ(), dir, "", node, "--no-warnings", script, "reactor.wasm", "lib.wasm", "counter.nomic", "words.nomic")
 	if got.exit != 0 {
 		t.Fatalf("driving the reactors: exit %d\n%s", got.exit, got.transcript())
 	}

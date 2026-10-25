@@ -23,7 +23,7 @@ import {
 ///
 /// Inspect via `Dynamic.field`/`index`/`path` navigators and
 /// `Dynamic.as_string`/`as_int`/... extractors. Each step returns
-/// `Result<_, DecodeError>` with a structured path; chain with `try` to
+/// `Result<_, Error>` with a structured path; chain with `try` to
 /// propagate.
 pub host type Dynamic
 
@@ -31,40 +31,40 @@ impl Dynamic {
     /// Drill into a struct/dict-shaped Dynamic by field name. Fails with
     /// `expected="object with field <name>"` if d is a dict but doesn't have the
     /// field, or `expected="object"` if d is not a dict at all.
-    pub host fn field(d: Dynamic, name: String) -> Result<Dynamic, DecodeError>
+    pub host fn field(d: Dynamic, name: String) -> Result<Dynamic, Error>
 
     /// Drill into a list-shaped Dynamic by zero-based index. Fails with
     /// `expected="list with at least <i+1> elements"` if d is a list but the index
     /// is out of bounds, or `expected="list"` if d is not a list at all.
-    pub host fn index(d: Dynamic, i: Int) -> Result<Dynamic, DecodeError>
+    pub host fn index(d: Dynamic, i: Int) -> Result<Dynamic, Error>
 
     /// Convenience: dotted-path navigator. `Dynamic.path(d, "a.b.c")` is
     /// equivalent to
     /// `d |> Dynamic.field("a") |> try |> Dynamic.field("b") |> try |> Dynamic.field("c")`.
     /// Does NOT support index notation (use `index` directly for lists). Empty
     /// segments (e.g. `"a..b"`) error.
-    pub host fn path(d: Dynamic, dotted: String) -> Result<Dynamic, DecodeError>
+    pub host fn path(d: Dynamic, dotted: String) -> Result<Dynamic, Error>
 
     /// Extract a Dynamic as a String. Err on type mismatch.
-    pub host fn as_string(d: Dynamic) -> Result<String, DecodeError>
+    pub host fn as_string(d: Dynamic) -> Result<String, Error>
 
     /// Extract a Dynamic as an Int. Accepts integer-shaped Floats (e.g. JSON's
     /// number 36.0) but rejects values with a fractional part.
-    pub host fn as_int(d: Dynamic) -> Result<Int, DecodeError>
+    pub host fn as_int(d: Dynamic) -> Result<Int, Error>
 
     /// Extract a Dynamic as a Float. Accepts Ints (widening) and Floats.
-    pub host fn as_float(d: Dynamic) -> Result<Float, DecodeError>
+    pub host fn as_float(d: Dynamic) -> Result<Float, Error>
 
     /// Extract a Dynamic as a Bool. Err on type mismatch.
-    pub host fn as_bool(d: Dynamic) -> Result<Bool, DecodeError>
+    pub host fn as_bool(d: Dynamic) -> Result<Bool, Error>
 
     /// Extract a Dynamic as `List<Dynamic>` -- each element is still wrapped, so
     /// per-element decoding composes through `as_list`. Err if d is not a list.
-    pub host fn as_list(d: Dynamic) -> Result<List<Dynamic>, DecodeError>
+    pub host fn as_list(d: Dynamic) -> Result<List<Dynamic>, Error>
 
     /// Extract a Dynamic as `Map<String, Dynamic>` -- each value is still
     /// wrapped, so per-value decoding composes. Err if d is not a dict/object.
-    pub host fn as_dict(d: Dynamic) -> Result<Map<String, Dynamic>, DecodeError>
+    pub host fn as_dict(d: Dynamic) -> Result<Map<String, Dynamic>, Error>
 
     /// True iff d represents a null/nil value at the source (JSON null, Go nil,
     /// etc.). Never errors.
@@ -81,14 +81,10 @@ impl Dynamic {
     ///
     /// ```nomi
     /// d
-    /// |> Dynamic.as_maybe(Dynamic.as_string)
-    /// |> try
+    /// |> try Dynamic.as_maybe(Dynamic.as_string)
     /// // -> Maybe<String> from the value (or None if null).
     /// ```
-    pub fn as_maybe<T>(
-        d: Dynamic,
-        sub: (Dynamic) -> Result<T, DecodeError>,
-    ) -> Result<Maybe<T>, DecodeError> {
+    pub fn as_maybe<T>(d: Dynamic, sub: (Dynamic) -> Result<T, Error>) -> Result<Maybe<T>, Error> {
         if Dynamic.null?(d) {
             Ok(None)
         } else {
@@ -103,23 +99,25 @@ impl Dynamic {
     /// path segment on any error the sub-decoder returns. The chain
     ///
     /// ```nomi
-    /// d |> Dynamic.at_field("user", fn inner -> inner
-    ///     |> Dynamic.at_field("address", fn inner2 -> inner2
-    ///         |> Dynamic.at_field("zip", Dynamic.as_int)))
+    /// d
+    /// |> Dynamic.at_field("user", fn inner -> {
+    ///     inner
+    ///     |> Dynamic.at_field("address", fn inner2 -> {
+    ///         inner2
+    ///         |> Dynamic.at_field("zip", Dynamic.as_int)
+    ///     })
+    /// })
     /// ```
     ///
-    /// produces a `DecodeError` with `path = [Field("user"), Field("address"),
+    /// produces a `Error` with `path = [Field("user"), Field("address"),
     /// Field("zip")]` if `as_int` fails, vs. the raw form
     ///
     /// ```nomi
     /// d
-    ///     |> Dynamic.field("user")
-    ///     |> try
-    ///     |> Dynamic.field("address")
-    ///     |> try
-    ///     |> Dynamic.field("zip")
-    ///     |> try
-    ///     |> Dynamic.as_int()
+    /// |> try Dynamic.field("user")
+    /// |> try Dynamic.field("address")
+    /// |> try Dynamic.field("zip")
+    /// |> Dynamic.as_int()
     /// ```
     ///
     /// which produces an empty-path error because `try` returns Err unchanged. Use
@@ -132,8 +130,8 @@ impl Dynamic {
     pub fn at_field<T>(
         d: Dynamic,
         name: String,
-        sub: (Dynamic) -> Result<T, DecodeError>,
-    ) -> Result<T, DecodeError> {
+        sub: (Dynamic) -> Result<T, Error>,
+    ) -> Result<T, Error> {
         case Dynamic.field(d, name) {
             Err(e) ->
                 Err(e)
@@ -141,7 +139,7 @@ impl Dynamic {
             Ok(inner) ->
                 case sub(inner) {
                     Ok(v) -> Ok(v)
-                    Err(e) -> Err(#DecodeError{
+                    Err(e) -> Err(#Error{
                         path: [PathSegment.Field(name), ..e.path],
                         expected: e.expected,
                         got: e.got,
@@ -153,11 +151,7 @@ impl Dynamic {
     /// List-index counterpart to `at_field`. Same path-accumulation behaviour:
     /// prepends `Index(i)` to any error the sub-decoder returns; navigator failures
     /// (out-of-bounds, non-list) pass through unchanged.
-    pub fn at_index<T>(
-        d: Dynamic,
-        i: Int,
-        sub: (Dynamic) -> Result<T, DecodeError>,
-    ) -> Result<T, DecodeError> {
+    pub fn at_index<T>(d: Dynamic, i: Int, sub: (Dynamic) -> Result<T, Error>) -> Result<T, Error> {
         case Dynamic.index(d, i) {
             Err(e) ->
                 Err(e)
@@ -165,7 +159,7 @@ impl Dynamic {
             Ok(inner) ->
                 case sub(inner) {
                     Ok(v) -> Ok(v)
-                    Err(e) -> Err(#DecodeError{
+                    Err(e) -> Err(#Error{
                         path: [PathSegment.Index(i), ..e.path],
                         expected: e.expected,
                         got: e.got,
@@ -183,7 +177,7 @@ impl Debug for Dynamic {
     host fn inspect(d: Dynamic) -> String
 }
 
-/// One segment of a `DecodeError`'s path. `Field` for a dict-key navigation,
+/// One segment of a `Error`'s path. `Field` for a dict-key navigation,
 /// `Index` for a list-index navigation.
 pub enum PathSegment {
     Field String
@@ -201,14 +195,14 @@ derive Display for PathSegment
 /// when you want path-rich diagnostics; those combinators wrap a navigator +
 /// sub-extractor and prepend the path segment on any error the sub-extractor
 /// returns. `expected` and `got` name the type mismatch.
-pub struct DecodeError {
+pub struct Error {
     path: List<PathSegment>
     expected: String
     got: String
 }
 
-impl Display for DecodeError {
-    fn to_string(e: DecodeError) -> String {
+impl Display for Error {
+    fn to_string(e: Error) -> String {
         // Render the path as `a.b[3].c` for Field/Index sequences; an empty
         // path renders as `<root>`. The path direction is "outer-to-inner"
         // (root first); reduce walks left-to-right and prepends the right

@@ -37,7 +37,7 @@ The repository root is the compiler's Go module,
 | `vmhost/` | The public embedding API. |
 | `vmrunner/` | What `nomi-vm` and a built executable run. Generated FFI runners import it. |
 | `hostadapt/` | Support package that generated FFI wrappers import. |
-| `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `ffirun` (Go FFI wrapper and runner builds), `std*` (Go-backed stdlib adapters), and the tooling behind them. |
+| `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `ffirun` (Go FFI wrapper and runner builds), `gotoolchain` (the `go` builds run, and the managed toolchain), `modcache` and `modfetch` (dependencies), `std*` (Go-backed stdlib adapters), `mf2` (MessageFormat 2) and `catalog` (message catalogs), and the tooling behind them. |
 | `std/` | The standard library's `.nomi` sources, embedded into the binaries. |
 | `rt/` | The runtime library, `github.com/nomi-language/nomi/rt`. The VM runs over it and built executables link it. It may import only the standard library and `github.com/rivo/uniseg` (`TestRuntimeImportsOnlyItsAllowlist`). |
 | `docs/` | The spec, style guide, feature status, roadmap and install guide. |
@@ -86,11 +86,118 @@ also evaluates double-quoted typed literals with no `${...}`, the same way,
 for hovers and diagnostics (`internal/lsp/literal_eval.go`).
 
 - **Front end.** `internal/frontend` parses, injects synthetic host
-  declarations, lowers derives, synthesizes universal `Debug`, and runs
+  declarations, expands keyword declarations, lowers derives, synthesizes
+  universal `Debug`, and runs
   whole-program analysis. The checker (`internal/analysis/checker.go`) is two-phase:
   `BuildTypes` registers types, `CheckTypes` walks bodies. Names resolve
   whole-program, so the import graph may be cyclic and import order never
   matters.
+- **Keyword declarations and their inputs.** A top-level declaration that
+  starts with a keyword and a name (`message cart_items(count: Int)
+  `...``, ``sqlkit.query! orders(user_id: Int) Sql`...` ``) is an
+  `ast.KeywordDecl`, read by one rule whatever the keyword: an optional
+  file qualifier (`Module`), the keyword, an optional `!` (`Marked`, which
+  a macro's keyword needs and `message` and `noun` refuse), and an
+  optional typed-literal tag on the body (`BodyTag`); the name may be a
+  type name only after a marked or qualified keyword (`one_of! Size`,
+  `startsKeywordDecl`), since a macro may declare a type. Every path that
+  prepares a file expands the ones Nomi builds in
+  (`analysis.ExpandDeclarations`, at an `ExpansionSite`: the module root, the
+  file's path under it, the manifest and an `InputReader`; `LowerDerives`
+  expands any left with no site): a `message` becomes the function it
+  declares, in its place, with the declaration's parameter nodes and its
+  name's position, a body in the synthesized band, and two hidden imports
+  (`message$`, `message_format$`) no source can name; a `noun` becomes the
+  `once` of std/message's `Noun` it names, the same way. Those imports
+  are the only way in to std's internals: std/message's private
+  constructors (`compiled`, `integer`, ...) and the internal modules
+  `std/message_format` and `std/money_format`
+  (`analysis.InternalStdModule`), which a program naming is told are
+  internal (`internal/analysis/internal_std.go`) and docgen does not
+  document. The IR builder lowers a call to a std module's private
+  function for that reason (`fileFuncShell`). The expansion reads
+  inputs, the catalogs, and records each with its text
+  (`ExpansionInputs`); `ExpansionOf` and `ExpansionOfNode` are its span map
+  (the declaration and each catalog entry). Agreement of nouns and messages
+  is checked over the whole program beside each macro's program check
+  (`analysis.CheckProgramDeclarations`). An error in an input is a `TypeError` whose `File` is
+  the input, which `nomi check` prints with the input's text and the
+  language server publishes on its URI (`internal/lsp/inputs.go`). A kept
+  program records its inputs (`CheckedProgram.Inputs`); a changed one is an
+  edit to the files that read it with their text unchanged, so a catalog
+  edit that keeps every message's signature rebuilds one file's bodies
+  (`ProgramEdit.Input`, `programFor`, `InputsChanged`).
+- **Macros.** `macro name: Type` (`ast.MacroDecl`, a
+  `SymbolMacro` reached through the file that declares it) adds a
+  keyword whose declarations `ExpandDeclarations` expands through the
+  site's `MacroHost` (`internal/analysis/macro_expand.go`): it
+  resolves the keyword's qualifier (`csvdata.table!` after `import
+  csvdata`, `fileImportNamed`) or item import (`table!` after
+  `import csvdata.table`) to the macro's file (`ImportFile`; one in the declaring module
+  is the staging error) and asks the host, which is vmhost's
+  (`vmhost/macros.go`, set by `frontend.Config.Macros`, which every
+  load's config carries, and by `DocumentManager.Macros` in the language
+  server). The host builds the macro's file as an entry with hidden
+  drivers (`analysis.MacroDrivers`, `name$expand` and friends, under
+  `Config.MacroDrivers`), cached per file while every file it read reads
+  the same; refuses a `request` or `expand` that reaches an effect
+  (`vm.Machine.Effects`); runs them under `macroLimits` (steps and
+  `vm.Limits.Memory`, which alone decide success, and a hang guard,
+  `vm.ErrDeadline`, whose failure is internal and never cached); reads requested files under the
+  declaring module's root through the site's reader; and caches each
+  expansion by a hash of everything it read (compiler version, the build's
+  file texts, the declaration, the `[<module>]` table, the requested files
+  and the sites). A load holds the lowering lock around its front end, so
+  a build inside one lowers under that hold (`macroHost.held`,
+  `lowerNested`). The answer is Nomi source, parsed and kept after the
+  declaration (which keeps `KeywordDecl.Expansion`) at the declaration's
+  band slot of kind `synthKindExpansion`, with the source's own lines
+  (generated line L is band line base+L): the IR builder lowers that kind of
+  slot as code the file wrote (`analysis.IsExpansionLine`), and every
+  file's assembled errors pass through `RelocateExpansionErrors`, which maps
+  a band position to its byte of the source and the span map's span (in an
+  input when the span is there), related locations included; one the map
+  does not cover goes to the declaration, and the front end and the
+  language server drop any band position left (`relatedInBand`). Hygiene
+  (`internal/analysis/macro_hygiene.go`): a top-level name an expansion
+  declares that the file, or an earlier expansion in it, declares or
+  imports too is an error naming both, and that expansion is dropped and
+  declined (`checkExpansionCollisions`, at the end of
+  `ExpandDeclarations`); a bare name its code names that reaches another
+  of the file's names, and that the declaration's types or copied body do
+  not write, is an error at the declaration (`macroHygieneErrors`, in
+  `CheckTypes`: values by `References`, types by the code's type
+  expressions). The contract (`internal/analysis/macro_contract.go`): an
+  expansion declares what its declaration names, a type for a type name
+  and a function for a declaration with parameters or a result, `pub`
+  exactly when the declaration is, the function's parameters ending with
+  the declaration's and its result the declared type or a `Result` of it,
+  types compared resolved; `recordMacroContracts` checks it when the
+  declaring file's signatures are typed (`fileTyping.finish`) and records
+  it with the expansion, so a build that checks none of that file's bodies
+  knows it too, and a mismatch makes `MacroFailed` true. The compiler
+  attaches the declaration's doc comment to what it names
+  (`attachDeclarationDoc`), and `nomi expand` prints it there
+  (`MacroSource`). A
+  declaration the macro declined (diagnostics and no source,
+  `MacroFailed`), whose run the compiler refused or stopped (an
+  effect, a budget, a fault: `MacroResult.Refused`), or whose macro's
+  module did not build (`MacroResult.Unbuilt`), makes the program report its macro declarations'
+  errors alone (`MacroErrorsAlone`), in the front end, the kept
+  program and a document's own build alike; the files of a macro module
+  that did not build keep their own errors (`InUnbuiltMacroModule`). Every file the expansion read, the
+  macro's source included, is an input, so the language server
+  re-expands on a change; a program whose only files of other modules are
+  macros' sources read as inputs is not `unread`, and an edit to one
+  checks the program afresh. `CheckMacroPrograms` runs each
+  macro's `ProgramCheck` over a program's declarations, and the
+  language server asks its `Navigation` inside a body
+  (`internal/lsp/macros.go`); a quick fix whose `Action` names a
+  `Tool` carries the `nomi.runMacroTool` command, which runs `nomi
+  tool` in the declaring module's root only when chosen
+  (`internal/lsp/macro_tools.go`). The fixture is
+  `testdata/macros`: csvdata's `table` used by rates, and choices'
+  `one_of`, which declares an enum, used by cafe.
 - **Language server analysis.** An open document is analyzed as part of a
   whole program the `DocumentManager` keeps per project root and entry
   (`internal/analysis/document_programs.go`): the program of the first entry
@@ -121,7 +228,20 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   functions, impl functions, `once` initializers, test bodies, lambdas, stdlib
   bodies) into an `ir.Func`. Generic functions, types and impls are
   instantiated per type-argument tuple a program reaches; generic stdlib
-  bodies are instantiated per program, never in the shared cache. Every IR
+  bodies are instantiated per program, never in the shared cache. A std
+  module in `programStdModules` is not in the shared cache at all:
+  `GenerateIR` appends each one the program's files import, directly or
+  through another listed module, to the program as one more `Module` built
+  from the shared analysis, and lowers it as it lowers the program's own
+  files (`withProgramStd`). Its types are the program's types, keyed by
+  declaration node in the program's type registry, so one program has one
+  descriptor for each; its interfaces are program interfaces, boxed and
+  dispatched by the VM's ordinary path; nothing of it is cached between
+  programs. Its positions are stdlib positions (`ir.Pos.WithStdlib`), so a
+  trap inside it is reported at the program's call, as one inside a shared
+  module is. `TestProgramStdModulesQualify` holds each listed module to the
+  rule: no `host fn` or `host type`, no shared std module imports it, and it
+  checks and lowers with no decline. Every IR
   temporary has a stored value type (`ir.ValType`), and a retained graph must
   pass `ir.Lint`. The shared stdlib lowering skips lint outside `go test`
   (`lintEmbeddedStdlib`), since it is the same in every process of a binary;
@@ -143,8 +263,22 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   values: scalars, `*rt.Record` for structs, enums, tuples and the like, and
   `rt`'s persistent collections. Tail calls replace the caller's activation.
   Interface dispatch selects an impl body by the runtime type name of the
-  declared `self` operand. The VM links no front end
-  (`TestVM_ReadsTheIRAndNothingElse`).
+  declared `self` operand. A value whose runtime type names no impl (a std
+  container, a value widened into an `embeds` variant) is boxed where it
+  becomes an interface value, a program's or std's `Display` or `Debug`
+  (`ir.MakeExistential`, `rt.Box`, `irbuild/irboxed.go`): the box names the
+  static type, dispatch selects by that name and opens the box for a body
+  that takes the concrete type, an erased Display rendering selects the
+  `impl Display` recorded under that name, and hashing and rendering
+  otherwise see through it (`rt.Unbox`). `==` on two interface values (`ir.ValIface`), a
+  Set element and a Map key compare by run-time type: values of two types
+  (two box names) are unequal, and values of one type compare through its
+  hand-written `Equatable` and `Hashable` when the module records them
+  (`vm/keys.go`, which a box's name reaches too), structurally otherwise.
+  So an interface value satisfies an `Equatable` or `Hashable` bound:
+  `Equatable.equal?` on two is the same `ir.ValIface` comparison, and
+  `Hashable.hash` on one is the `vm.hash_value` intrinsic over the same keys.
+  The VM links no front end (`TestVM_ReadsTheIRAndNothingElse`).
 - **Debugging.** The builder records each function's variables
   (`ir.Func.Vars`: name, temporary, Nomi type, scope) and statement marks
   (`ir.Block.Stmts`: statements, arms, loop iterations, pipe stages); the
@@ -171,19 +305,94 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   standard library, `uniseg` and itself (`TestRuntimeImportsOnlyItsAllowlist`).
   Its internal organization may change freely to serve the VM.
 - **Stdlib.** `std/` is one Nomi module embedded into the binaries. Each
-  process analyzes it once (`std.Shared`) and lowers it once. The analysis
+  process analyzes it once (`std.Shared`) and lowers it once, except the
+  modules listed in `programStdModules` (`internal/irbuild/programstd.go`),
+  which are lowered with each program that imports them. The analysis
   also works out the stdlib's share of a program's impl index and coherence
   facts once (`analysis.StdBase`, `std.StdLib.Base`); a build given those
   analyses folds only its own files and lays them over the base, which no
   build writes (`TestStdBase_*` in `internal/analysis` and `vmhost` hold it
   to a build that folds every file). Stdlib files import each other with
   bare paths (`import iter.Iter`); code outside writes `std/iter`.
+  `std/_fixtures/<name>.nomi` files are test-only modules
+  (`std/_fixtures/<name>`), in the stdlib only of a test binary run with
+  `NOMI_STD_FIXTURES=1` (`std.FixturesLoaded`); a test that needs one runs
+  itself again in a child process with it set. They are always lowered per
+  program.
 - **Host functions.** A stdlib `host fn` is answered either by a VM intrinsic
   (tasks, channels, collection kernels, `io.print`) or by a generated adapter.
   `internal/stdlibbindings` is the one hand-maintained table: `Funcs()` for the
-  Go-backed modules (`std/calendar`, `std/random`, `std/regex`) and
-  `RtFuncs()` for functions over rt values. `internal/stdlibadapters/adapters_gen.go`
-  is generated from it.
+  Go-backed modules (`std/calendar`, `std/collation`, `std/currency`,
+  `std/locale`, `std/money_format`, `std/plural`, `std/random`, `std/regex`,
+  and the formatting and case rows of `std/int`, `std/float`,
+  `std/decimal`, `std/duration` and `std/strings`) and `RtFuncs()` for
+  functions over rt values.
+  `internal/stdlibadapters/adapters_gen.go` is generated from it.
+- **Locale data.** `std/locale`, `std/plural` and the locale-aware
+  formatting and parsing (`internal/stdformat`: `Int.format`,
+  `Decimal.parse_in`, `String.join_list`, `Money.format`, `Date.format`,
+  the skeleton generator, `Duration.format`, ...) read CLDR data that
+  `internal/cldrgen` writes into `internal/cldrfull`: `root.cldr` (plural
+  rules, parent locales, numbering-system digits, ISO 4217 codes and their
+  minor digits) and `locales.cldr` (each locale's number symbols, decimal,
+  percent and currency patterns, list patterns, grammatical features,
+  currency symbols and plural names, Gregorian names, patterns and
+  available formats, relative-time forms and duration units, only what its
+  parents do not already give it). The source is cldr-json 48.2 vendored in
+  `internal/cldrgen/data`: cldr-core supplemental files unchanged, except
+  `currencyData.json`, cut to what is read; `numbers.json` and
+  `listPatterns.json`, every locale's file gathered into one with the keys
+  cldrgen reads; and `currencies.json`, `ca-gregorian.json`,
+  `dateFields.json`, `timeZoneNames.json` and `units.json`, gathered the
+  same way but holding each locale's own values only, those its parent does
+  not give it (cldrgen resolves them along the same chain). `go run
+  ./internal/cldrgen/extract <dir>` writes them all from the unpacked npm
+  packages (cldr-core, cldr-numbers-full, cldr-misc-full, cldr-dates-full,
+  cldr-units-full). `go generate ./internal/cldrfull` rewrites the blobs;
+  `TestGeneratedDataIsCurrent` fails while they are stale. A program carries
+  the locales its `nomi.toml` lists under `[i18n]` (every locale without
+  one), cut to the parts it reaches: `nomi build` writes that bundle into the
+  image (`ir.Image.Locales`, `cldrdata.Data.Select`, the parts each crossing
+  reads in `stdlibbindings.LocaleParts`, and the currency and date parts a
+  program's message texts use), and `nomi run`, `nomi test` and the
+  REPL give the machine the same data from `cldrfull.ForProgram`. A built
+  program whose date skeletons are all literals (`vm.SkeletonLiterals`)
+  and message fields carries each one's pattern resolved per listed locale
+  in place of the locales' available formats (`cldrdata.Selection.Skeletons`,
+  resolved by `stdformat.ResolveSkeleton`, which vmhost installs as
+  `cldrfull.Resolver`). A machine
+  hands it to the adapters on its frames' context
+  (`vm.Machine.WithLocaleData`, `cldrdata.From`); a Go function that reads it
+  takes the `*rt.Frame` first. A locale whose chain reaches no carried
+  locale (or only a browser build's locale whose file is not loaded) is
+  looked up as the source locale before root, when the program lists it
+  (the bundle's `source` record, `cldrdata.Data.SourceFallback`), and a
+  ``Locale`…` `` literal of one is a compile error (`vmhost/literals.go`'s
+  `notCarried`). Runners never link `cldrfull`
+  (`TestRuntimeArtifactLinksNoFrontEnd`). x/text is used only for BCP 47
+  syntax and matching and for Unicode normalization, never inside `rt`.
+- **Collation.** `std/collation`'s `Collator` compares through
+  `internal/stdformat/collate.go` with `internal/collation`, a UCA collator
+  over tables in the locale data: the root collation (a `collation-root`
+  record in `root.cldr`) and each locale's tailorings (`collation` records in
+  its section; the Chinese and Korean ones, over 64 KB each, in
+  `collation-cjk.cldr`, which `cldrfull.Full` leaves out and a bundle for
+  listed locales reads, so only a program that lists them carries them).
+  Tailorings follow their own chain (`stdlocale.CollationFallbacks`).
+  `internal/collation/collgen` builds both when the data is generated: the
+  root from `internal/cldrgen/data/collation/FractionalUCA_SHORT.txt`, and
+  each tailoring by compiling CLDR's rules (`data/collation/rules.txt`, the
+  `collation/*.xml` rules of the types `cldrgen.CollationTypes` names) with
+  a port of ICU's CollationBuilder. `go run ./internal/cldrgen/extract
+  collation <dir>` writes both from the unpacked CLDR source release.
+  `internal/collation`'s conformance tests run CLDR's `CollationTest`
+  files (vendored gzipped) against the root a program carries;
+  `TestCollationMatchesICU` compares every type with ICU when
+  `NOMI_ICU_ORACLE` names a build of `internal/cldrgen/testdata/icuoracle.c`
+  (macOS). `String.to_upper_in`, `to_lower_in` and `fold_case` are
+  `internal/stdstrings/casing.go`, over tables `go generate
+  ./internal/stdstrings` writes from the vendored Unicode `SpecialCasing.txt`
+  and `CaseFolding.txt` (`TestTablesAreCurrent`).
 - **Embedding.** `github.com/nomi-language/nomi/vmhost` is the public Go API: `Load`/`LoadSource` with
   options (`WithHosts`, `WithVirtualFiles`, `WithOutput`, `WithInput`, ...),
   `Program.Run`, `Program.Call`, `Program.Test`, and `Check`. The CLI, REPL,
@@ -206,7 +415,36 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   that checkout in either case. `.nomi` edits need
   no rebuild; Go changes invalidate the cache key. Tests must set
   `NOMI_FFIRUN_CACHE_ROOT`: `cacheRoot()` refuses the real cache under
-  `go test`. The cache is safe to delete.
+  `go test`. The cache is safe to delete. A bound package of a required
+  module is read from the Go module cache (`ffirun.GoPackageDir`), and one
+  that needs cgo is an error at its `gopkg` (`internal/ffirun/cgo.go`):
+  wrappers build with `CGO_ENABLED=0`. The `go` every build runs is
+  `gotoolchain`'s: `NOMI_GO`, else the one on PATH, else the managed
+  toolchain, the Go release `nomi` was built with, downloaded from go.dev
+  (`NOMI_GO_DOWNLOAD_URL`) into `<user cache>/nomi/go/<version>`
+  (`NOMI_TOOLCHAIN_ROOT`, which tests must set; refused under `go test`
+  otherwise) and checked against `internal/gotoolchain/pinned_gen.go`. Only
+  the CLI may download it (`gotoolchain.AllowDownload`). After bumping the
+  Go version, `go generate ./internal/gotoolchain` pins the new archives;
+  `scripts/release.sh` refuses a Go it does not pin.
+- **Modules.** A project's dependencies are the modules its `go.mod`
+  requires. `internal/modcache` answers which it needs and where each is (a
+  local `replace`, or the Go module cache), reading only the disk; the
+  front end's `BuildModuleIndex`, FFI discovery and the language server use
+  it. `internal/modfetch` downloads missing ones through the module proxy
+  protocol and the checksum database with `golang.org/x/mod`, no `go`
+  command, and writes `go.mod` and `go.sum` for `nomi add` and `nomi
+  fetch`, and edits them for `nomi add <directory>` (a `require` and a
+  local `replace`), `nomi remove` and `nomi update`
+  (`internal/modfetch/edit.go`); `nomi new` writes a project's first
+  `go.mod`. A Nomi user never edits `go.mod` or runs `go`, so an error or
+  hint about a missing requirement names the `nomi` command that fixes it,
+  never a directive to write. The CLI installs it as `modcache.SetFetcher`,
+  so `run`, `test`, `check` and `build` download, for a Nomi module, before the front end
+  reads the cache; the language server installs none and never downloads.
+  Under `go test` a download refuses unless `GOMODCACHE` is set; tests
+  serve modules from a `file://` GOPROXY and a fake checksum database
+  (`internal/modfetch`'s tests), never the network.
 - **`nomi build`.** Writes one executable: the `nomi-vm` binary with the
   program's linked IR image appended (`ir.EncodeImage`). The image holds
   only the functions the VM's own reachability walk (`vm.Machine.Reached`,
@@ -241,7 +479,12 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   `internal/webtypes`, from the front end's `irbuild.Result.Exports`) and
   the page, plus the author's static
   files from the program's `web/` folder or `--static <dir>`
-  (`webStaticDir`). A program with `export fn`s records each in the image
+  (`webStaticDir`). A program that lists its locales embeds only
+  `[i18n].web_embedded`'s and gets one `locales/<tag>.nomil` per other
+  listed locale, which `Locale.load` fetches through nomi.js
+  (`vmhost.Program.BuildWebImage`, `internal/localefiles`; the image's
+  message tables are written without those locales' texts,
+  `ir.WithConstTexts`). A program with `export fn`s records each in the image
   (`ir.Image.Exports`: the function, and std/json's `export_argument` and
   `export_result` instantiated at each parameter's and the result's type,
   which convert JSON text). `vmrunner.Start` boots an image once, runs its
@@ -448,7 +691,13 @@ proves a stale recheck fails it. `go test ./internal/analysis -run '^$' -fuzz
 '^FuzzIncrementalMatchesFull$' -fuzztime 5m -fuzzminimizetime 5s -parallel 4`
 mutates a project file and edits it the same way, and
 `TestIncrementalMatchesFullSample` (about 2 seconds) runs a fixed sample of
-those edits under plain `go test`.
+those edits under plain `go test`. Its `messages` project holds catalogs on
+disk, and its `macros` project the macro fixture: an edit step whose
+key has an extension (`locales/pl/cart.toml`, `data/rates.csv`,
+`../csvdata/csvdata.nomi`) writes that input and rechecks with an input
+edit, and `TestOpenDocumentCatalogEditsMatchFreshBuilds` and
+`TestOpenDocumentMacroEditsMatchFreshBuilds` hold open documents to
+fresh builds through the same edits.
 
 **Rotating sets.** Those fixed inputs are the regression baseline; five
 tests check a rotating set beside them, from a start seed that changes
@@ -619,6 +868,19 @@ LSP's `source.fixAll` does.
 every tracked `.nomi` file that `nomi fmt` would change, except the few in its
 `unformattedAllowed` list, whose layout a test depends on.
 
+Examples are held to the formatter too, since the tour's editors format an
+example once the reader edits it. `go test ./vmhost -run
+TestDocExamplesAreFormatted` fails for every ```` ```nomi ```` and
+```` ```nomi-run ```` block (per `// FILE:` file, Nomi files only) in the
+tour, `docs/`, `README.md` and `CONTRIBUTING.md`, every ```` ```nomi ```` fence
+in a std `///` or `//#` comment, and every std `//!` prompt as its reference
+editor formats it (`format.FormatAttachedTestBody`), that `nomi fmt` would
+change. A fragment with `...` is formatted with each `...` held by an
+identifier of the same width; a block that does not parse even so is skipped
+and counted in the log. `NOMI_FORMAT_DOC_EXAMPLES=1` writes the formatted text
+into the sources; a moved line in a tour block moves the `dbg line N` of its
+expect block and its tour.expect key.
+
 ## Language conventions
 
 The spec is canonical; these are the rules most often gotten wrong.
@@ -650,8 +912,9 @@ The spec is canonical; these are the rules most often gotten wrong.
   `Map.get(m, k)`). `duration.seconds(1)` is the checker's "file 'duration'
   has no member 'seconds'" error, whose hint names the owner. `x.field` is only
   field access.
-- **Iteration.** `Iter` is a push protocol (`each_while`, `known_count`), and
-  every generic algorithm is an owner function: `Iter.map`, `Iter.filter`,
+- **Iteration.** `Iter` is a push protocol (`each_while`, `known_count`,
+  `infinite?`), and every generic algorithm is an owner function: `Iter.map`,
+  `Iter.filter`,
   `Iter.reduce`, `Iter.count`. Lazy adapters fuse; materialize explicitly with
   `Iter.to_list()`, `to_set`, `to_map` or `to_vector`, and join an
   `Iter<String>` with `String.join`. There is no `List.map`.
@@ -717,6 +980,29 @@ The spec is canonical; these are the rules most often gotten wrong.
 3. `go generate ./internal/stdlibadapters`.
 4. Add recorded cases for the new row (`internal/stdlibadapters/testdata/*.golden`).
 5. `go test ./internal/hostpair ./internal/stdlibadapters ./internal/hostgen/...`.
+
+A new Go-backed module also needs its package in `hostPackages`
+(`internal/irbuild/stdlib.go`), its crossings in `vm`'s `pureCrossings` when
+they act on nothing outside the machine (a typed literal's handler may only
+reach those), and a row in `stdlibInventory`. In a module lowered once for the
+process, a std type that a public signature names (an enum, an opaque
+distinct, a carrier struct a host function returns) needs an rt Go type and a
+row in `internal/irbuild`'s `stdenum.go`, `opaque.go` or `stdstruct.go`, and
+an interface used as a value needs a `stdIfaceSpecs` row and an rt dispatch
+table; without them, every call whose signature names the type is reported as
+not supported yet. The std modules are lowered once in import order
+(`stdLoweringOrder`), and a body that calls into a module lowered after its
+own is refused, so a foundational module that names a later one's type
+(std/int naming `Locale`) passes the value to its host function rather than
+calling the later module's functions on it (`"${locale}"` would call its
+`Display`); `typeOnlyImportModules` keeps such an import from reordering the
+modules. In a shared module, a function's parameter cannot be an `Iter<T>`
+unless it is generic, and a generic function's defaults cannot be left out at
+a call. A module written only in Nomi (no `host fn`, no `host type`) that no
+shared std module imports needs none of that: add its name to
+`programStdModules` (`internal/irbuild/programstd.go`) and a row in
+`stdlibInventory`, and it is lowered with each program like the program's own
+files (`std/uuid` is).
 
 `TestGeneratedFileIsCurrent` fails until you regenerate, and generation refuses
 a row whose Go signature does not match its declaration. An adapter returning a
@@ -857,7 +1143,21 @@ VS Code has no tree-sitter. See `editors/vscode/README.md`.
 `src/content/docs/*.md`, listed in `astro.config.mjs`'s sidebar. A
 ` ```nomi-run ` block is doctested and becomes a live editor in the browser;
 put its expected output in a hidden `<!-- expect ... -->` block right after
-the fence. Plain ` ```nomi ` blocks are highlighted only. Highlighting,
+the fence. ` ```nomi-run error ` is an example that fails on purpose, either
+to compile or while it runs (a `todo` reached, a trap, an `Err` from
+`main`): its expect block holds what the tour shows, the compile error, or
+the output lines and then the failure (`todo reached at main.nomi:6: ...`,
+`error: div by zero`; `doctest.Shown`, the same text as the page's
+`showOutput`). Copy it from `TestTourDoctests`' failure. The doctest fails
+if the block compiles and runs to the end, or if what it shows differs, and
+the page marks it "Expected error". A block without `error` whose run stops
+fails the doctest, and so does one the VM cannot run. tour.expect records a
+block that stops at run time with exit 1 and its failure on stderr, as
+`nomi run` prints it, and `internal/vm`'s whole-program harness excludes a
+record with a nonzero exit (`candidateIDs`).
+` ```nomi-run no-run ` (output that reads the clock) must compile and is not
+run. Any other word after `nomi-run` fails the doctest. Plain ` ```nomi `
+blocks are highlighted only. Highlighting,
 hovers and runs happen client-side with the same grammar, queries, analyzer
 and VM the editor uses (compiled to wasm).
 
@@ -918,7 +1218,9 @@ Rules enforced by something in the repository:
 - `TestScriptsNameGoPackagesThatExist` and `TestScriptsAreExecutable` hold
   `scripts/` to the tree.
 - `internal/ffirun`'s cache refuses the real user cache under `go test`; set
-  `NOMI_FFIRUN_CACHE_ROOT`.
+  `NOMI_FFIRUN_CACHE_ROOT`. The managed toolchain's cache refuses it too
+  (`NOMI_TOOLCHAIN_ROOT`), and a module download refuses a `GOMODCACHE`
+  the test did not set.
 - The tree-sitter CLI reads a global parser-directories config that may point
   at another checkout; `scripts/tree-sitter.sh` runs it from this checkout's
   `tree-sitter-nomi/`.

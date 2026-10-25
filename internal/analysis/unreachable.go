@@ -200,9 +200,12 @@ func stmtStart(n ast.Node) (int, int) {
 func (fa *FileAnalysis) AlwaysExits(stmt ast.Node) bool { return fa.alwaysExits(stmt) != 0 }
 
 // LoopNeverBreaks reports whether n, a node of fa's file, is a call
-// `Iter.loop(|…| body)` whose callback body holds no `break` of its own. A
-// `break` inside a lambda or a nested `fn` in the body belongs to that
-// callback, not to this loop. In the callback `return v` and `continue` go
+// `Iter.loop(...)` whose callback cannot end it: a lambda or a capture whose
+// body holds no `break` of its own, or any other function value, a named
+// function among them, that is not an iter-sensitive function whose own
+// scope breaks (`Iter.loop(step, from: 0)`). A `break` inside a
+// lambda or a nested `fn` in the body belongs to that callback, not to this
+// loop. In the callback `return v` and `continue` go
 // round again, so nothing reaches the loop's exit: a trap, the task's
 // cancellation or the end of the process stops it, and no code after it
 // runs. The loop still has its state type S, as every `Iter.loop` does; it
@@ -215,24 +218,17 @@ func (fa *FileAnalysis) AlwaysExits(stmt ast.Node) bool { return fa.alwaysExits(
 // function or binding is not one.
 func (fa *FileAnalysis) LoopNeverBreaks(n ast.Node) bool {
 	call, isCall := n.(*ast.Call)
-	if !isCall || call == nil || len(call.Args) != 1 || !fa.isIterLoopCallee(call.Func) {
+	if !isCall || call == nil || !fa.isIterLoopCallee(call.Func) {
 		return false
 	}
-	lam, isLambda := call.Args[0].(*ast.Lambda)
-	if !isLambda || lam == nil || lam.Body == nil {
+	cb, _, positionalSeed := seededCallArgs(call, nil, false)
+	if positionalSeed != nil {
 		return false
 	}
-	breaks := false
-	ast.Inspect(lam.Body, func(m ast.Node) bool {
-		switch m.(type) {
-		case *ast.Break:
-			breaks = true
-		case *ast.Lambda, *ast.FuncDef:
-			return false
-		}
-		return !breaks
-	})
-	return !breaks
+	if lam, ok := cb.(*ast.Lambda); cb == nil || (ok && (lam == nil || lam.Body == nil)) {
+		return false
+	}
+	return !fa.breaksIteration(cb)
 }
 
 // isIterLoopCallee reports whether a call's callee is std's `Iter.loop`.

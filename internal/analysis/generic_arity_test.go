@@ -159,7 +159,7 @@ func TestGenericArity_TreeIsClean(t *testing.T) {
 			{"nomi", "tour (nomi, highlight-only)"},
 		} {
 			for _, b := range doctest.ExtractBlocks(string(data), fence.lang) {
-				if b.HasInfo("ignore") {
+				if !b.Runs() {
 					continue
 				}
 				blockN++

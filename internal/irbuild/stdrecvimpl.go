@@ -425,21 +425,76 @@ func (bl *irScalarBuilder) stdRecvOwnerPlan(t *ast.Call, args irQualArgs, owner,
 			return at(k)
 		}
 	}
+	// kindInvalid: lookup — an owner naming no type tries the checked result.
+	if k := bl.ownerKind(t, owner); k != kindInvalid {
+		// `Date.from_sql(v)`, `Int.from_sql(v)`: a function with no operand
+		// of its owner's type, of an owner that takes no type arguments, is
+		// that owner's.
+		if name, ok := undeclaredRecvOwner(k); ok && name == owner {
+			if _, _, container := stdRecvParts(k); !container {
+				return at(k)
+			}
+		}
+	}
 	if ft := bl.g.checkedCallSignature(t); ft != nil && ft.Return != nil {
 		return at(bl.g.project(ft.Return))
 	}
 	return nil
 }
 
+// ownerKind is the kind of the type t's qualifier names, owner: a builtin
+// scalar or a declared type by this file's tables, else the type the checker
+// bound the qualifier to (a std type no table here holds, `Date`).
+// kindInvalid when it names neither.
+func (bl *irScalarBuilder) ownerKind(t *ast.Call, owner string) kind {
+	// kindInvalid: lookup — a miss asks the checker.
+	if k := bl.g.qualifierKind(owner); k != kindInvalid {
+		return k
+	}
+	fa, qualified := t.Func.(*ast.FieldAccess)
+	if !qualified {
+		return kindInvalid
+	}
+	ti, isType := fa.Object.(*ast.TypeIdent)
+	if !isType || ti.Name != owner {
+		return kindInvalid
+	}
+	sym := bl.g.checkedTypeRef(ti.Line, ti.Col)
+	if sym == nil || sym.Type == nil {
+		return kindInvalid
+	}
+	return bl.g.project(sym.Type)
+}
+
 // undeclaredRecvOwner is the owner a call spells for k when k is a receiver
 // no file of the program declares, whose impls any file may write: a std
-// generic container's head, or a builtin scalar's name.
+// generic container's head, a builtin scalar's name, or a std type's.
 func undeclaredRecvOwner(k kind) (string, bool) {
 	if name, scalar := irDispatchScalarName(k); scalar {
 		return name, true
 	}
+	if name, std := stdNamedRecv(k); std {
+		return name, true
+	}
 	head, _, ok := stdRecvParts(k)
 	return head, ok
+}
+
+// stdNamedRecv is the name of k when k is a std type with no type
+// parameters, `Date`, `Decimal`, `Instant` or `Json`: a process-wide def no
+// file of the program declares (rtDeclared, with no declaration of the
+// program's), whose impls of a program's interface the orphan rule admits in
+// any file, as `impl ToSql for Date` in std/sql.
+func stdNamedRecv(k kind) (string, bool) {
+	if k.tag != tagNamed || k.def == nil {
+		return "", false
+	}
+	d := k.def
+	if !d.rtDeclared || d.decl != nil || d.genStructOf != nil || d.genHostOf != nil || d.preludeOf != nil ||
+		d.genericOf != nil || d.foreign != "" {
+		return "", false
+	}
+	return d.nomi, true
 }
 
 // stdRecvKindCall lowers the call t of method at the container kind k when

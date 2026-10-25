@@ -2,7 +2,7 @@ import {
     add.Add
     bool.Bool
     bytes.{Byte, Bytes}
-    codepoints.Codepoint
+    code_points.Codepoint
     comparable.Comparable
     comparable.Ordering.{self, Equal, Greater, Less}
     contains.Contains
@@ -13,6 +13,7 @@ import {
     int.Int
     iter.Iter
     lists.List
+    locale.Locale
     matcher.Matcher
     maybe.Maybe.{self, None, Some}
     regex.Regex
@@ -99,6 +100,35 @@ impl String {
     //! assert String.to_lower("CAFÉ") == "café"
     //
     pub host fn to_lower(s: String) -> String
+
+    /// Upper-cases `s` as a reader of `locale` writes it. Turkish and Azeri
+    /// upper-case `i` to `İ`; Lithuanian drops the dot it keeps above an
+    /// accented `i`. Every language upper-cases `ß` to `SS`.
+    //! assert String.to_upper_in("istanbul", Locale`tr`) == "İSTANBUL"
+    //! assert String.to_upper_in("istanbul", Locale`en`) == "ISTANBUL"
+    //! assert String.to_upper_in("Straße", Locale`de`) == "STRASSE"
+    //
+    pub host fn to_upper_in(s: String, locale: Locale) -> String
+
+    /// Lower-cases `s` as a reader of `locale` writes it. Turkish and Azeri
+    /// lower-case `I` to dotless `ı` and `İ` to `i`; Lithuanian keeps the dot
+    /// of an `i` under an accent (`Í` is `i̇́`). In every language a capital
+    /// sigma that ends a word becomes `ς`.
+    //! assert String.to_lower_in("DİYARBAKIR", Locale`tr`) == "diyarbakır"
+    //! assert String.to_lower_in("DIYARBAKIR", Locale`en`) == "diyarbakir"
+    //! assert String.to_lower_in("ΟΔΟΣ", Locale`el`) == "οδος"
+    //
+    pub host fn to_lower_in(s: String, locale: Locale) -> String
+
+    /// Folds case for caseless matching: two strings that differ only in
+    /// case fold to the same string, in every language (Unicode's full case
+    /// folding). It is for comparing, not for showing: `ß` folds to `ss`.
+    /// To sort without regard to case, use a `Collator` of secondary
+    /// strength.
+    //! assert String.fold_case("Straße") == String.fold_case("STRASSE")
+    //! assert String.fold_case("ΣΑΣ") == "σασ"
+    //
+    pub host fn fold_case(s: String) -> String
 
     /// Replaces every non-overlapping match of `old` with `new`. `old` is a
     /// `String` or a `Regex`; `new` is literal text either way, so `$1` is not
@@ -197,6 +227,54 @@ impl String {
     //! assert %["solo"] |> String.join(", ") == "solo"
     //
     pub host fn join(parts: Iter<String>, separator: String = "") -> String
+
+    /// Joins `items` into one phrase as a reader of `locale` lists things,
+    /// with CLDR's list patterns: `style` says what the list means (`And`,
+    /// `Or`, or `Unit` for the parts of one measure, such as "3 feet, 2
+    /// inches") and `width` how short its words are. Materialize an `Iter`
+    /// with `Iter.to_list()` first.
+    //! assert String.join_list(["a", "b", "c"], Locale`en`) == "a, b, and c"
+    //!
+    //! assert [1000, 2000]
+    //! |> Iter.map(&Int.format(&1, Locale`de`))
+    //! |> Iter.to_list()
+    //! |> String.join_list(Locale`de`) == "1.000 und 2.000"
+    //!
+    //! assert String.join_list(["a", "b", "c"], Locale`en-GB`) == "a, b and c"
+    //! assert String.join_list(["a", "b"], Locale`en`, ListStyle.Or) == "a or b"
+    //! assert String.join_list(["a", "b", "c"], Locale`en`, ListStyle.And, ListWidth.Short) == "a, b, & c"
+    //! assert String.join_list(["a", "b", "c"], Locale`pl`) == "a, b i c"
+    //! assert String.join_list(["a", "b", "c"], Locale`ja`) == "a、b、c"
+    //!
+    //! assert String.join_list(
+    //!     ["3 quarters", "1 dime"],
+    //!     Locale`en`,
+    //!     ListStyle.Unit,
+    //! ) == "3 quarters, 1 dime"
+    //!
+    //! items: List<String> = []
+    //! assert String.join_list(items, Locale`en`) == ""
+    //
+    pub fn join_list(
+        items: List<String>,
+        locale: Locale,
+        style: ListStyle = ListStyle.And,
+        width: ListWidth = ListWidth.Wide,
+    ) -> String {
+        style_tag = case style {
+            ListStyle.And -> 1
+            ListStyle.Or -> 2
+            ListStyle.Unit -> 3
+        }
+
+        width_tag = case width {
+            ListWidth.Wide -> 1
+            ListWidth.Short -> 2
+            ListWidth.Narrow -> 3
+        }
+
+        join_list_raw(locale, items, style_tag, width_tag)
+    }
 
     /// Splits a string into a list of substrings on every non-overlapping
     /// match of `separator`, a `String` or a `Regex`. The separator itself is
@@ -329,6 +407,18 @@ impl String {
     //
     pub host fn to_codepoints(s: String) -> List<Codepoint>
 
+    /// `s` as a Nomi string literal that reads back as `s`: quoted, with
+    /// `\n`, `\t`, `\\` and `\"` escaped, `\u{...}` for any other
+    /// character that is not printable (a carriage return is `\u{d}`), and
+    /// `${` written `\${`, so nothing in it interpolates. What a program
+    /// that writes Nomi source, such as a macro, writes a string with.
+    //! assert String.to_literal("a\tb") == "\"a\\tb\""
+    //! assert String.to_literal("say \"hi\"") == "\"say \\\"hi\\\"\""
+    //! assert String.to_literal("\${x} costs $5") == "\"\\\${x} costs $5\""
+    //! assert String.to_literal("\u{d}") == "\"\\u{d}\""
+    //
+    pub host fn to_literal(s: String) -> String
+
     /// Strips a prefix from the string. Returns Some(rest) if the prefix matches,
     /// or None otherwise.
     //! assert String.strip_prefix("hello world", "hello ") == Some("world")
@@ -368,6 +458,34 @@ impl String {
     //
     pub host fn length(s: String) -> Int
 }
+
+/// What a list `String.join_list` writes means: CLDR's list pattern types.
+pub enum ListStyle {
+    /// All of the items: "a, b, and c".
+    And
+    /// One of the items: "a, b, or c".
+    Or
+    /// The parts of one measure: "3 feet, 2 inches".
+    Unit
+}
+
+derive Equatable for ListStyle
+
+/// How short the words `String.join_list` writes between items are. English
+/// writes "and" wide and "&" short; many locales write the same at every
+/// width.
+pub enum ListWidth {
+    Wide
+    Short
+    Narrow
+}
+
+derive Equatable for ListWidth
+
+/// Joins items with the list pattern of a style and width (1-based, in
+/// `ListStyle` and `ListWidth` order) for a locale tag. Private helper
+/// behind `String.join_list`.
+host fn join_list_raw(locale: Locale, items: List<String>, style: Int, width: Int) -> String
 
 /// Byte-lexicographic comparison of UTF-8 bytes. Returns -1 if `a < b`,
 /// 1 if `a > b`, 0 if equal. Private helper backing the `Comparable` impl.
@@ -419,7 +537,7 @@ impl Matcher for String {
 impl Matcher for Codepoint {
     // A codepoint matches its own one-codepoint text, so each search is the
     // String matcher's over `Codepoint.to_string(cp)`. Declared here rather
-    // than in std/codepoints so the String host functions are this module's.
+    // than in std/code_points so the String host functions are this module's.
     //! e_acute = try Codepoint.from_int(0xE9)
     //! assert String.contains?("café", e_acute)
     //! refute String.contains?("cafe", e_acute)

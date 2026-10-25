@@ -3,6 +3,7 @@
 This directory provides:
 
 - `languages.toml` for `.nomi` file detection (and an extensionless script whose `#!` line names `nomi`), `nomi-lsp`, `nomi fmt`, the debugger (`nomi dap`), and the external tree-sitter grammar
+- a `nomi-catalog` language for a module's message catalogs, `locales/**/*.toml`: Helix's TOML grammar and queries (`runtime/queries/nomi-catalog/` inherits them), with `nomi-lsp` for the catalog's diagnostics, completion, hover and quick fixes. Helix chooses a language by path, so a module whose `[i18n].catalogs` names another directory adds its own `{ glob = "<dir>/**/*.toml" }` to `file-types`. This block was checked as TOML but not yet run in Helix.
 - tree-sitter highlighting and typed-literal injection queries mirrored from `tree-sitter-nomi/queries/`
 - Helix-specific indentation, textobject, locals, and fold queries
 
@@ -22,8 +23,9 @@ make install-helix
 
 `make install-helix` does three things:
 
-- copies the queries into `~/.config/helix/runtime/queries/nomi/` (or under
-  `$XDG_CONFIG_HOME` when it is set);
+- copies the queries into `~/.config/helix/runtime/queries/nomi/` and
+  `runtime/queries/nomi-catalog/` (or under `$XDG_CONFIG_HOME` when it is
+  set);
 - writes the contents of [`languages.toml`](languages.toml) into your
   `languages.toml` between `# BEGIN NOMI HELIX SUPPORT` and
   `# END NOMI HELIX SUPPORT`, with the grammar source set to this checkout's
@@ -39,8 +41,8 @@ stay in step.
 ### Working on Nomi
 
 `make dev-helix` does the same as `make install-helix`, except that
-`runtime/queries/nomi/` becomes a link to this checkout's
-`editors/helix/runtime/queries/nomi/`, so query changes reach Helix without a
+`runtime/queries/nomi/` and `runtime/queries/nomi-catalog/` become links to
+this checkout's `editors/helix/runtime/queries/`, so query changes reach Helix without a
 reinstall. Run it again after a grammar change, or enable the repository's
 post-merge hook (`make enable-hooks`). Running
 `make install-helix` later replaces the link with a copy.
@@ -53,9 +55,10 @@ at the rev pinned in `languages.toml`. From the repository root, with `nomi`
 and `nomi-lsp` installed as above:
 
 ```sh
-mkdir -p ~/.config/helix/runtime/queries/nomi
+mkdir -p ~/.config/helix/runtime/queries/nomi ~/.config/helix/runtime/queries/nomi-catalog
 cat editors/helix/languages.toml >> ~/.config/helix/languages.toml
 cp editors/helix/runtime/queries/nomi/*.scm ~/.config/helix/runtime/queries/nomi/
+cp editors/helix/runtime/queries/nomi-catalog/*.scm ~/.config/helix/runtime/queries/nomi-catalog/
 hx --grammar fetch
 hx --grammar build
 hx --health nomi

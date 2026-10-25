@@ -4,6 +4,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/hoverdoc"
 	goast "go/ast"
 	goparser "go/parser"
 	gotoken "go/token"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
-	"golang.org/x/mod/modfile"
 )
 
 func (s *Server) textDocumentDefinition(ctx *glsp.Context, params *protocol.DefinitionParams) (any, error) {
@@ -31,8 +31,21 @@ func (s *Server) textDocumentDefinition(ctx *glsp.Context, params *protocol.Defi
 		Col:  utf16ToByteCol(doc.Content, params.Position.Line, params.Position.Character),
 	}
 
+	// Inside a macro's declaration's body, the macro answers.
+	if loc, ok := s.macroDefinition(doc, pos); ok {
+		return s.toUTF16Location(loc), nil
+	}
 	sym := doc.Analysis.SymbolAt(pos)
 	if sym == nil {
+		// An operator: the function of the impl the checker chose for it
+		// (`fn add` of `impl Add<Days, Date> for Date`, std/int's `host
+		// fn add` for `Int + Int`).
+		if impl := hoverdoc.OperatorImplAt(doc.Analysis, doc.Nodes, pos); impl != nil {
+			if loc, ok := s.dispatchImplLocation(doc.Analysis, impl, uri); ok {
+				return s.toUTF16Location(loc), nil
+			}
+			return nil, nil
+		}
 		if loc, ok := s.foreignGoAliasDefinitionLocation(doc.Nodes, pos, uri); ok {
 			return s.toUTF16Location(loc), nil
 		}
@@ -257,7 +270,8 @@ func positionWithinName(pos analysis.Pos, line, col int, name string) bool {
 // builder resolves a `gopkg` through. It need not sit at the Nomi project
 // root: an extensionless script in a module's bin/ is rooted at bin/. A Go
 // standard library package needs no go.mod: its directory is in the Go
-// toolchain's GOROOT.
+// toolchain's GOROOT. A package of a required module is read from the Go
+// module cache when `nomi fetch`, or the go command, put it there.
 func resolveLocalGoImportDir(declaringFile, importPath string) (string, bool) {
 	if dir, ok := ffirun.StdPackageDir(importPath); ok {
 		return dir, true
@@ -266,49 +280,7 @@ func resolveLocalGoImportDir(declaringFile, importPath string) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	f, err := parseGoMod(projectRoot)
-	if err != nil {
-		return "", false
-	}
-	bestPrefix := ""
-	bestDir := ""
-	for _, r := range f.Replace {
-		if r.New.Version != "" || r.New.Path == "" {
-			continue
-		}
-		if importPath != r.Old.Path && !strings.HasPrefix(importPath, r.Old.Path+"/") {
-			continue
-		}
-		target := r.New.Path
-		if !filepath.IsAbs(target) {
-			target = filepath.Join(projectRoot, target)
-		}
-		suffix := strings.TrimPrefix(importPath, r.Old.Path)
-		if len(r.Old.Path) > len(bestPrefix) {
-			bestPrefix = r.Old.Path
-			bestDir = filepath.Join(target, filepath.FromSlash(strings.TrimPrefix(suffix, "/")))
-		}
-	}
-	if bestDir != "" {
-		return filepath.Clean(bestDir), true
-	}
-	if f.Module != nil {
-		modPath := f.Module.Mod.Path
-		if importPath == modPath || strings.HasPrefix(importPath, modPath+"/") {
-			suffix := strings.TrimPrefix(importPath, modPath)
-			return filepath.Clean(filepath.Join(projectRoot, filepath.FromSlash(strings.TrimPrefix(suffix, "/")))), true
-		}
-	}
-	return "", false
-}
-
-func parseGoMod(projectRoot string) (*modfile.File, error) {
-	goModPath := filepath.Join(projectRoot, "go.mod")
-	data, err := os.ReadFile(goModPath)
-	if err != nil {
-		return nil, err
-	}
-	return modfile.Parse(goModPath, data, nil)
+	return ffirun.GoPackageDir(projectRoot, importPath)
 }
 
 // findGoTopLevelDefinition finds the function or type name declares at the
@@ -472,8 +444,14 @@ func (s *Server) definitionLocationForSymbol(uri string, defSym, clickedSym *ana
 	// Location uses defSym so we land at the real definition,
 	// not the click position. The "it" implicit-param check stays on
 	// `clickedSym` because that's specifically about the local binding shape.
-	startLine := toZeroBased(defSym.Pos.Line)
-	startChar := toZeroBased(defSym.Pos.Col)
+	at := defSym.Pos
+	// A declaration a macro's expansion made is where it was made
+	// from: its declaration, or the span its map names.
+	if origin, ok := s.expansionOrigin(targetURI, at); ok {
+		at = origin
+	}
+	startLine := toZeroBased(at.Line)
+	startChar := toZeroBased(at.Col)
 	endChar := startChar + uint32(len(defSym.Name))
 
 	// For the implicit 'it' parameter, the definition points to the lambda's '{'
@@ -532,10 +510,19 @@ func (s *Server) resolveImportDefinition(currentURI string, imp *ast.ImportStmt,
 		// Resolve relative to the project root (so an import in a
 		// sub-directory file resolves against the same root the runtime
 		// uses, not the file's immediate parent).
-		dir := s.docs.FindProjectRoot(uriToPath(currentURI))
-		filePath := filepath.Join(append([]string{dir}, modPath...)...) + ".nomi"
-
-		if _, err := os.Stat(filePath); err != nil {
+		// A drill-through form (`import shape.Shape.{Circle}`) ends in the
+		// type it selects through, which is not a path segment.
+		filePath := ""
+		for i := len(imp.ModulePath); i > 0; i-- {
+			if path, ok := analysis.ImportFile(s.docs.FindProjectRoot(uriToPath(currentURI)), modPath[:i]); ok {
+				filePath = path
+				break
+			}
+			if _, isType := imp.ModulePath[i-1].(*ast.TypeIdent); !isType {
+				break
+			}
+		}
+		if filePath == "" {
 			return nil, nil // file doesn't exist, no definition
 		}
 
@@ -642,6 +629,9 @@ func (s *Server) moduleKeyToURI(key, openDocURI string) protocol.DocumentUri {
 		return protocol.DocumentUri(s.stdFileURI(strings.TrimPrefix(key, "std/")))
 	default:
 		root := s.docs.FindProjectRoot(uriToPath(openDocURI))
+		if path, ok := analysis.ImportFile(root, strings.Split(key, "/")); ok {
+			return protocol.DocumentUri(pathToURI(path))
+		}
 		absPath := filepath.Join(root, filepath.FromSlash(key)) + ".nomi"
 		return protocol.DocumentUri(pathToURI(absPath))
 	}

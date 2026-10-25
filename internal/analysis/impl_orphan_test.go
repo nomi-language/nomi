@@ -22,7 +22,7 @@ func TestDetectOrphanImpls_AllowsLocalIface(t *testing.T) {
 	}
 	declModule := singleDeclModules(map[string]string{"greeter": "myapp", "Dog": "myapp"})
 
-	if errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors, got: %+v", errs)
 	}
 }
@@ -35,7 +35,7 @@ func TestDetectOrphanImpls_AllowsLocalTypeForeignIface(t *testing.T) {
 	}
 	declModule := singleDeclModules(map[string]string{"Display": "std", "Dog": "myapp"})
 
-	if errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors, got: %+v", errs)
 	}
 }
@@ -48,7 +48,7 @@ func TestDetectOrphanImpls_AllowsForeignTypeLocalIface(t *testing.T) {
 	}
 	declModule := singleDeclModules(map[string]string{"Speakable": "myapp", "Int": "std"})
 
-	if errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors, got: %+v", errs)
 	}
 }
@@ -62,7 +62,7 @@ func TestDetectOrphanImpls_RejectsForeignIfaceAndForeignType(t *testing.T) {
 	}
 	declModule := singleDeclModules(map[string]string{"Display": "std", "Pad": "stringkit"})
 
-	errs := detectOrphanImpls(index, declModule, allModule("tools"), nil)
+	errs := detectOrphanImpls(index, declModule, allModule("tools"), nil, nil, nil)
 	if len(errs) != 1 {
 		t.Fatalf("expected 1 orphan error, got %d: %+v", len(errs), errs)
 	}
@@ -83,7 +83,7 @@ func TestDetectOrphanImpls_SkipsUnresolvedNames(t *testing.T) {
 	}
 	declModule := singleDeclModules(map[string]string{}) // both unresolved
 
-	if errs := detectOrphanImpls(index, declModule, allModule("tools"), nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declModule, allModule("tools"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors for unresolved names, got: %+v", errs)
 	}
 }
@@ -99,7 +99,7 @@ func TestDetectOrphanImpls_SkipsWhenRecvUnresolved(t *testing.T) {
 	}
 	declModule := singleDeclModules(map[string]string{"Display": "std"}) // recv unresolved
 
-	if errs := detectOrphanImpls(index, declModule, allModule("tools"), nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declModule, allModule("tools"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors when receiver is unresolved, got: %+v", errs)
 	}
 }
@@ -117,7 +117,7 @@ func TestDetectOrphanImpls_SkipsWhenIfaceUnresolved(t *testing.T) {
 	}
 	declModule := singleDeclModules(map[string]string{"Pad": "stringkit"}) // iface unresolved
 
-	if errs := detectOrphanImpls(index, declModule, allModule("tools"), nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declModule, allModule("tools"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors when interface is unresolved, got: %+v", errs)
 	}
 }
@@ -133,7 +133,7 @@ func TestDetectOrphanImpls_SkipsUnkeyableImpl(t *testing.T) {
 	declModule := singleDeclModules(map[string]string{"Display": "std", "Pad": "stringkit"})
 
 	unkeyable := func(*ast.FuncDef) string { return "" }
-	if errs := detectOrphanImpls(index, declModule, unkeyable, nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declModule, unkeyable, nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors when implModuleOf returns \"\", got: %+v", errs)
 	}
 }
@@ -148,7 +148,7 @@ func TestDetectOrphanImpls_SkipsUnkeyableReceiver(t *testing.T) {
 	}
 	declModule := singleDeclModules(map[string]string{"Display": "std", "Pad": "stringkit"})
 
-	if errs := detectOrphanImpls(index, declModule, allModule("tools"), nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declModule, allModule("tools"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors for receiverless FuncDef, got: %+v", errs)
 	}
 }
@@ -173,7 +173,7 @@ func TestDetectOrphanImpls_MultipleImplsOneOrphan(t *testing.T) {
 		"Pad":     "stringkit",
 	})
 
-	errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil)
+	errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil, nil, nil)
 	if len(errs) != 1 {
 		t.Fatalf("expected 1 orphan error, got %d: %+v", len(errs), errs)
 	}
@@ -200,11 +200,11 @@ func TestDetectOrphanImpls_NameDeclaredInTwoModulesIsLocalToBoth(t *testing.T) {
 		"Dog": {"std", "myapp"},
 	}
 
-	if errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no orphan error for a receiver the impl's module declares, got %+v", errs)
 	}
 	// The same impl in a third module owns neither side, so it is an orphan.
-	if errs := detectOrphanImpls(index, declModule, allModule("other"), nil); len(errs) != 1 {
+	if errs := detectOrphanImpls(index, declModule, allModule("other"), nil, nil, nil); len(errs) != 1 {
 		t.Fatalf("expected 1 orphan error from a module owning neither side, got %d: %+v", len(errs), errs)
 	}
 }

@@ -557,7 +557,7 @@ func tourSeeds(tb testing.TB) []loweringSeed {
 			tb.Fatalf("read %s: %v", chapter, err)
 		}
 		for _, b := range doctest.ExtractBlocks(string(data), "nomi-run") {
-			if b.HasInfo("ignore") {
+			if !b.Runs() {
 				continue
 			}
 			src := b.Code

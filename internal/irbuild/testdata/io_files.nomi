@@ -1,4 +1,4 @@
-// The filesystem pair end to end: write, read back, and both IOError variants
+// The filesystem pair end to end: write, read back, and both io.Error variants
 // reached by pattern.
 //
 // The path is under /tmp and is TRUNCATED FIRST, so a re-run sees the same
@@ -8,14 +8,14 @@
 // writing INTO a path whose parent is a regular file, which is ENOTDIR rather
 // than ENOENT — chosen because ENOENT on a write is classified `Other` too and
 // this fixture should not depend on which of the two produced it.
-import std/io.{self, IOError}
+import std/io
 
 once path: String = "/tmp/nomi-io-files-fixture.txt"
 
-fn describe(e: IOError) -> String {
+fn describe(e: io.Error) -> String {
     case e {
-        #IOError.NotFound{path} -> "missing:${path}"
-        #IOError.Other{reason: _} -> "other"
+        #io.Error.NotFound{path} -> "missing:${path}"
+        #io.Error.Other{reason: _} -> "other"
     }
 }
 
@@ -39,7 +39,7 @@ test "a missing file reads as NotFound carrying the path verbatim" {
     }
 }
 
-test "IOError renders through its Display impl" {
+test "io.Error renders through its Display impl" {
     case io.read_file("/tmp/nomi-io-files-fixture-absent.txt") {
         Ok(_) ->
             assert False
@@ -58,8 +58,8 @@ test "a write whose parent is not a directory reports Other" {
     }
 }
 
-test "IOError values compare by variant and payload" {
-    assert #IOError.NotFound{path: "a"} == #IOError.NotFound{path: "a"}
-    refute #IOError.NotFound{path: "a"} == #IOError.NotFound{path: "b"}
-    refute #IOError.NotFound{path: "a"} == #IOError.Other{reason: "a"}
+test "io.Error values compare by variant and payload" {
+    assert #io.Error.NotFound{path: "a"} == #io.Error.NotFound{path: "a"}
+    refute #io.Error.NotFound{path: "a"} == #io.Error.NotFound{path: "b"}
+    refute #io.Error.NotFound{path: "a"} == #io.Error.Other{reason: "a"}
 }

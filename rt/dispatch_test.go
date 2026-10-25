@@ -35,18 +35,18 @@ func TestTypeIDsAreDistinctAddresses(t *testing.T) {
 // as a cut at the last dot would make them —
 // still get their own slots and their own answers.
 func TestDispatchIgnoresTheDiagnosticName(t *testing.T) {
-	jsonErr := TypeID{Nomi: "DecodeError"}
-	dynamicErr := TypeID{Nomi: "DecodeError"}
+	calendarErr := TypeID{Nomi: "Error"}
+	randomErr := TypeID{Nomi: "Error"}
 
 	m := NewMethod[func(*Frame) string]("Debug.inspect")
-	m.Bind(&jsonErr, func(*Frame) string { return "json" })
-	m.Bind(&dynamicErr, func(*Frame) string { return "dynamic" })
+	m.Bind(&calendarErr, func(*Frame) string { return "calendar" })
+	m.Bind(&randomErr, func(*Frame) string { return "random" })
 
-	if got := m.Get(Dyn{TID: &jsonErr})(nil); got != "json" {
-		t.Fatalf("json slot resolved to %q", got)
+	if got := m.Get(Dyn{TID: &calendarErr})(nil); got != "calendar" {
+		t.Fatalf("calendar slot resolved to %q", got)
 	}
-	if got := m.Get(Dyn{TID: &dynamicErr})(nil); got != "dynamic" {
-		t.Fatalf("dynamic slot resolved to %q", got)
+	if got := m.Get(Dyn{TID: &randomErr})(nil); got != "random" {
+		t.Fatalf("random slot resolved to %q", got)
 	}
 }
 

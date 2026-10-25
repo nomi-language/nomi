@@ -1,0 +1,125 @@
+//# Text for a reader in a locale: the `Localize` interface, and the error
+//# locale-aware number parsing reports.
+//# `Display` is locale-independent: `"${1234}"` is `1234` everywhere, because
+//# that text goes into file names, headers and CSV. Text a person reads goes
+//# through a function that takes a `Locale`: `Int.format`, `Float.format`,
+//# `Decimal.format` and their `format_percent` forms, `String.join_list`, or
+//# `Localize.localize`, which a type implements to say how it reads in a
+//# locale. Each `parse_in` function reads what the matching formatter
+//# writes, strictly by default.
+//# The data comes from CLDR and travels with the program: a program carries
+//# the locales its `nomi.toml` lists under `[i18n]`, and a locale it does not
+//# list formats as its nearest listed parent, or as CLDR's root.
+
+import {
+    bool.Bool.True
+    currency.Currency
+    decimal.{Decimal, RoundingMode}
+    display.Display
+    equatable.Equatable
+    float.Float
+    int.Int
+    locale.Locale
+    results.Result.Err
+    strings.String
+}
+
+/// A value as a reader of `locale` reads it. `Int`, `Float` and `Decimal`
+/// give their `format`, and `String` itself. Std also implements it for
+/// `Money` (`Money.format` with the currency's symbol), `Date`, `Time`,
+/// `NaiveDateTime` and `DateTime` (`format` with its default styles),
+/// `Duration` (`Duration.format` in long words), `Message` (`Message.format`)
+/// and `Noun` (its nominative for one thing).
+//! assert Localize.localize(1234567, Locale`de`) == "1.234.567"
+//! assert Localize.localize("Tak", Locale`pl`) == "Tak"
+//
+pub interface Localize {
+    fn localize(value: self, locale: Locale) -> String
+}
+
+impl Localize for Int {
+    fn localize(n: Int, locale: Locale) -> String {
+        Int.format(n, locale, True, 1)
+    }
+}
+
+impl Localize for Float {
+    fn localize(f: Float, locale: Locale) -> String {
+        Float.format(f, locale, 0, 3, True)
+    }
+}
+
+impl Localize for Decimal {
+    fn localize(d: Decimal, locale: Locale) -> String {
+        Decimal.format(d, locale, 0, Decimal.scale(d), True, RoundingMode.HalfEven)
+    }
+}
+
+impl Localize for String {
+    fn localize(s: String, locale: Locale) -> String {
+        _ = locale
+        s
+    }
+}
+
+/// Why text is not a number in a locale. `at` counts grapheme clusters
+/// from the start of the text, as `String.length` does.
+//! assert Int.parse_in("12,34,567", Locale`en`) == Err(#NumberParseError.Grouping{at: 2})
+//!
+//! assert Display.to_string(
+//!     #NumberParseError.WrongCurrency{expected: Currency`EUR`, found: "zł"}
+//! ) == "expected an amount in EUR, found `zł`"
+//
+pub enum NumberParseError {
+    /// The text is empty, or only spaces when parsing leniently.
+    Empty
+    /// `text` at `at` is not part of a number in the locale. At the end of
+    /// text that stops early, `text` is empty and `at` is the text's length.
+    Unexpected {at: Int, text: String}
+    /// A group separator at `at` where the locale puts none.
+    Grouping {at: Int}
+    /// The number does not fit the type parsed into.
+    OutOfRange
+    /// The amount has more digits after the decimal point than its
+    /// currency's `max` minor digits (`Money.parse_in`).
+    TooManyFractionDigits {max: Int}
+    /// The text names `found` where the amount's currency goes, which is not
+    /// `expected` (`Money.parse_in`).
+    WrongCurrency {expected: Currency, found: String}
+}
+
+derive Equatable for NumberParseError
+
+impl Display for NumberParseError {
+    /// What is wrong, for a person to read.
+    //! assert Display.to_string(#NumberParseError.Unexpected{at: 5, text: ","}) == "unexpected `,` at 5"
+    //!
+    //! assert Display.to_string(
+    //!     #NumberParseError.Unexpected{at: 3, text: ""}
+    //! ) == "the text ends at 3 before the number does"
+    //
+    fn to_string(e: NumberParseError) -> String {
+        case e {
+            NumberParseError.Empty ->
+                "the text is empty"
+
+            #NumberParseError.Unexpected{at, text: ""} ->
+                "the text ends at ${at} before the number does"
+
+            #NumberParseError.Unexpected{at, text} ->
+                "unexpected `${text}` at ${at}"
+
+            #NumberParseError.Grouping{at} ->
+                "a group separator at ${at} where the locale puts none"
+
+            NumberParseError.OutOfRange ->
+                "the number is out of range"
+
+            #NumberParseError.TooManyFractionDigits{max} ->
+                "the amount has more than ${max} digits after the decimal point"
+
+            #NumberParseError.WrongCurrency{expected, found} ->
+                "expected an amount in ${Currency.code(expected)}, found `${found}`"
+        }
+    }
+}

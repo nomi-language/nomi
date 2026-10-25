@@ -1,0 +1,8 @@
+[module]
+name = "shop"
+
+[i18n]
+source_locale = "en"
+locales = ["en", "pl", "pt", "pt-PT"]
+partial_locales = ["ar", "de", "fr", "ja"]
+catalogs = "locales"

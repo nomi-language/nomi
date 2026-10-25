@@ -14,6 +14,7 @@ package ffirun
 
 import (
 	"fmt"
+	"go/build"
 	"go/importer"
 	gotoken "go/token"
 	"go/types"
@@ -43,6 +44,12 @@ func (gt *goTypes) importPkg(path, srcDir string) (*types.Package, error) {
 		return p, nil
 	}
 	if gt.importer == nil {
+		// go/build finds a package of another module by running GOROOT/bin/go
+		// list, and a -trimpath binary (every release) knows no GOROOT of
+		// its own: give it the toolchain's.
+		if root := stdToolchain().root; root != "" && build.Default.GOROOT == "" {
+			build.Default.GOROOT = root
+		}
 		imp, ok := importer.ForCompiler(gotoken.NewFileSet(), "source", nil).(types.ImporterFrom)
 		if !ok {
 			return nil, fmt.Errorf("Go package %q: no source importer", path)
@@ -80,7 +87,7 @@ func (gt *goTypes) fromTypes(t types.Type) (hostgen.Type, error) {
 		obj := x.Obj()
 		if obj.Pkg() == nil {
 			if obj.Name() == "error" {
-				return &astType{kind: reflect.Interface, name: "error", str: "error"}, nil
+				return &astType{kind: reflect.Interface, name: "error", str: "error", methods: 1}, nil
 			}
 			return gt.fromTypes(x.Underlying())
 		}
@@ -107,7 +114,7 @@ func (gt *goTypes) fromTypes(t types.Type) (hostgen.Type, error) {
 			return nil, err
 		}
 		ut := u.(*astType)
-		nt.kind, nt.elem, nt.key, nt.fields, nt.in, nt.out, nt.variadic = ut.kind, ut.elem, ut.key, ut.fields, ut.in, ut.out, ut.variadic
+		nt.kind, nt.elem, nt.key, nt.fields, nt.in, nt.out, nt.variadic, nt.methods = ut.kind, ut.elem, ut.key, ut.fields, ut.in, ut.out, ut.variadic, ut.methods
 		return nt, nil
 	case *types.Basic:
 		switch x.Kind() {
@@ -153,7 +160,7 @@ func (gt *goTypes) fromTypes(t types.Type) (hostgen.Type, error) {
 		if x.Empty() {
 			return &astType{kind: reflect.Interface, str: "interface {}"}, nil
 		}
-		return &astType{kind: reflect.Interface, str: "interface {...}"}, nil
+		return &astType{kind: reflect.Interface, str: "interface {...}", methods: x.NumMethods()}, nil
 	case *types.Signature:
 		return gt.fromSignature(x)
 	case *types.Struct:

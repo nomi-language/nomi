@@ -1,24 +1,21 @@
-// Package gotoolchain answers one question: is there a Go toolchain for the
-// command in front of the user to compile with, and what should the failure say
-// when there is not.
-//
-// # Why this package exists
+// Package gotoolchain answers one question: which Go toolchain the command in
+// front of the user compiles with, and what the failure says when there is
+// none.
 //
 // `nomi run`, `nomi test` and `nomi check` on a project with Go FFI build a
 // wrapper with `go build` (internal/ffirun), and a user who installed a
-// prebuilt `nomi` may have no Go at all. `exec.Command` records ErrNotFound on
-// the command and `CombinedOutput` returns no output, so the raw failure reads
-// `ffirun: building wrapper: exec: "go": executable file not found in $PATH`.
-// This package turns that into a message that says what needed Go and where it
-// looked.
+// prebuilt `nomi` may have no Go at all. The toolchain is, in order:
 //
-// # Why there is no downloader here
+//  1. NOMI_GO, the path of a `go` command (or of a GOROOT holding bin/go);
+//  2. the `go` on PATH, so a Go developer downloads nothing;
+//  3. the managed toolchain (managed.go): the Go release this `nomi` was built
+//     with, downloaded from go.dev once, verified against a SHA-256 compiled
+//     into this binary, and kept in the cache. Only a command the user ran
+//     downloads it (AllowDownload); the language server uses it only once it
+//     is there.
 //
-// Go's own toolchain switching (GOTOOLCHAIN) downloads and verifies the Go
-// version a module asks for, against sum.golang.org, once any `go` launcher is
-// present. What it cannot do is bootstrap, because it is a feature of the `go`
-// command: no `go`, no GOTOOLCHAIN. That residue is this package, and it is a
-// message rather than a download.
+// When none is found the failure says what needed Go, where it looked, and
+// why the managed toolchain was not used.
 package gotoolchain
 
 import (
@@ -26,8 +23,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
+
+// goOverrideEnv names the `go` to use, ahead of PATH and the managed
+// toolchain.
+const goOverrideEnv = "NOMI_GO"
 
 // FindForFFIWrapper resolves the `go` launcher for the Go-FFI path, where
 // `run`, `test` and `check` build a wrapper that links the VM with adapters
@@ -65,6 +67,16 @@ func FindForProjectRunner() (string, error) {
 	})
 }
 
+// FindForModules resolves the `go` launcher for a module GOPROXY sends to its
+// version control repository (`direct`), which only the go command reads.
+func FindForModules() (string, error) {
+	return find(&NotFoundError{
+		Why: "GOPROXY (or GOPRIVATE) sends this module to its version control repository, " +
+			"which nomi reads through `go mod download`",
+		Then: "A module the module proxy serves needs no toolchain",
+	})
+}
+
 // find fills in the lookup result on a prepared error, or returns the launcher.
 //
 // The returned path is handed to exec.Command deliberately. exec.Command
@@ -72,13 +84,45 @@ func FindForProjectRunner() (string, error) {
 // would put the lookup failure back inside CombinedOutput's empty output, which
 // is the defect this package exists to fix.
 func find(notFound *NotFoundError) (string, error) {
+	if override := os.Getenv(goOverrideEnv); override != "" {
+		return overrideGo(override)
+	}
 	path, err := exec.LookPath("go")
 	if err == nil {
 		return path, nil
 	}
+	managed, managedErr := Managed()
+	if managedErr == nil {
+		return managed, nil
+	}
 	notFound.Dirs = searchPath()
 	notFound.Err = err
+	notFound.Managed = managedErr.Error()
 	return "", notFound
+}
+
+// overrideGo is the `go` NOMI_GO names: the command itself, or a GOROOT
+// holding bin/go.
+func overrideGo(path string) (string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", fmt.Errorf("%s=%s: %w", goOverrideEnv, path, err)
+	}
+	if info.IsDir() {
+		bin := filepath.Join(path, "bin", exeName("go"))
+		if _, err := os.Stat(bin); err != nil {
+			return "", fmt.Errorf("%s=%s names a directory with no bin/%s", goOverrideEnv, path, exeName("go"))
+		}
+		return bin, nil
+	}
+	return path, nil
+}
+
+func exeName(name string) string {
+	if runtime.GOOS == "windows" {
+		return name + ".exe"
+	}
+	return name
 }
 
 // NotFoundError is the absence of a Go toolchain, as a type so a caller can
@@ -95,12 +139,14 @@ type NotFoundError struct {
 	Dirs []string
 	// Err is exec.LookPath's error.
 	Err error
+	// Managed is why the managed toolchain was not used.
+	Managed string
 }
 
 func (e *NotFoundError) Unwrap() error { return e.Err }
 
-// Error names the missing prerequisite, the exact places it was looked for, and
-// what needs no toolchain at all.
+// Error names the missing prerequisite, the exact places it was looked for,
+// why nomi did not use its own copy of Go, and what needs no toolchain at all.
 //
 // That last clause is load-bearing rather than reassurance. A toolchain-free
 // `nomi run` is what makes shipping prebuilt binaries worth doing
@@ -118,7 +164,12 @@ func (e *NotFoundError) Error() string {
 		b.WriteString(" (PATH is empty)")
 	}
 	b.WriteString(". ")
-	b.WriteString("Install Go from https://go.dev/dl/ and re-run.")
+	if e.Managed != "" {
+		b.WriteString("nomi's own copy of Go is not available: ")
+		b.WriteString(e.Managed)
+		b.WriteString(". ")
+	}
+	b.WriteString("Install Go from https://go.dev/dl/, or set " + goOverrideEnv + " to a `go` command, and re-run.")
 	if e.Then != "" {
 		b.WriteString(" ")
 		b.WriteString(e.Then)

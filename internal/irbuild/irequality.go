@@ -148,6 +148,8 @@ func (bl *irScalarBuilder) structuralEqual(t *ast.Binary, lhs, rhs ir.Temp, k ki
 		return c.Dst(), true
 	case isDecimalKind(k):
 		return bl.equalityCompare(t, ir.OpEq, ir.ValDecimal, lhs, rhs), true
+	case irExistentialKind(k):
+		return bl.equalityCompare(t, ir.OpEq, ir.ValIface, lhs, rhs), true
 	case irByteValueKind(k):
 		// rt.Equal compares a Byte or Bytes by content, which is the body
 		// of std's own `impl Equatable` for each; binary's bytes route.
@@ -494,21 +496,107 @@ func irEqualityContainerKind(k kind) bool {
 }
 
 // existentialDebugImpls names the Debug body of every type implementing k's
-// interface in this unit, as nestedDebugImpls names a container's leaves.
+// interface in this unit (in every unit of the program, for a std instance
+// body), as nestedDebugImpls names a container's leaves.
 // Any implementer whose Debug the renderer cannot name declines.
 func (bl *irScalarBuilder) existentialDebugImpls(k kind) ([]ir.DebugImpl, bool) {
-	var impls []ir.DebugImpl
+	if s := bl.g.stdInsts; bl.g.stdModule != "" && s != nil && len(s.program) > 0 && k.iface != nil {
+		// A std instance's body at a program's interface or at std's
+		// Display or Debug (`List.inspect<Show>`, `List.inspect<Debug>`):
+		// the implementers and boxes are the program's, in every unit.
+		var impls []ir.DebugImpl
+		seen := map[ir.DebugImpl]bool{}
+		held := false
+		for _, og := range s.program {
+			if og == nil {
+				continue
+			}
+			got, found, ok := (&irScalarBuilder{g: og}).unitExistentialDebugImpls(k, false)
+			if !ok {
+				return nil, false
+			}
+			held = held || found
+			for _, im := range got {
+				if !seen[im] {
+					seen[im] = true
+					impls = append(impls, im)
+				}
+			}
+		}
+		return impls, held
+	}
+	impls, found, ok := bl.unitExistentialDebugImpls(k, true)
+	if !ok {
+		return nil, false
+	}
+	if reg := bl.g.reg; reg != nil && k.iface != nil {
+		// The program's other files implement and box into the interface
+		// too: `struct Pool { conn: Conn }` in the file that declares
+		// Conn, and `impl Conn for Memory` in the file that builds one.
+		seen := make(map[ir.DebugImpl]bool, len(impls))
+		for _, im := range impls {
+			seen[im] = true
+		}
+		for _, og := range reg.gens {
+			if og == nil || og == bl.g {
+				continue
+			}
+			got, held, ok := (&irScalarBuilder{g: og}).unitExistentialDebugImpls(k, false)
+			if !ok {
+				return nil, false
+			}
+			found = found || held
+			for _, im := range got {
+				if !seen[im] {
+					seen[im] = true
+					impls = append(impls, im)
+				}
+			}
+		}
+	}
+	return impls, found
+}
+
+// unitExistentialDebugImpls is existentialDebugImpls over this unit's impls
+// and boxes. same says k's interface is this unit's own def; otherwise an
+// impl of the interface is one of its declaration at k's arguments. found
+// says the unit implements or boxes into the interface; ok is false when
+// some implementer's Debug cannot be named.
+func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls []ir.DebugImpl, found, ok bool) {
+	of := func(d *ifaceDef) bool {
+		if same {
+			return d == k.iface
+		}
+		return d != nil && sameIfaceInstance(d, k.iface)
+	}
 	for _, d := range bl.g.implOrder {
-		if d.iface != k.iface || d.recv.tag != tagNamed || d.recv.def == nil {
+		if !of(d.iface) || d.recv.tag != tagNamed || d.recv.def == nil {
 			continue
 		}
 		nested, ok := bl.nestedDebugImpls(named(d.recv.def))
-		if !ok {
-			return nil, false
+		if !ok && !irDebugValueKind(d.recv) {
+			// A std container instance with no declared leaf (an impl for
+			// `Maybe<Int>` or `Vector<Int>`) renders structurally.
+			return nil, false, false
 		}
 		impls = append(impls, nested...)
 	}
-	return impls, len(impls) != 0
+	// A container or `embeds` enum this unit boxes into the interface
+	// (irboxed.go): the box renders as its value, whose nested declared
+	// types are named as a container's leaves are.
+	boxed := false
+	for _, key := range bl.g.boxes.order {
+		if p := bl.g.boxes.plans[key]; p == nil || !of(key.iface) {
+			continue
+		}
+		nested, ok := bl.nestedDebugImpls(key.have)
+		if !ok && !irDebugValueKind(key.have) {
+			return nil, false, false
+		}
+		impls = append(impls, nested...)
+		boxed = true
+	}
+	return impls, len(impls) != 0 || boxed, true
 }
 
 // recordedPreludeKind is the instance of a's prelude enum the checker

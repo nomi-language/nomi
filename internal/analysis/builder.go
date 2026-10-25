@@ -33,6 +33,9 @@ type ImplTypeArgs struct {
 	// Origin is the interface declaration's build key, so impls of two
 	// same-named interfaces are never candidates for one call.
 	Origin string
+	// File is the Origin of the file that writes the impl: "std/lists" for
+	// std's `impl Contains<T> for List<T>`.
+	File string
 }
 
 // InherentMethodRecord captures one compiler-synthesized type-owned function for
@@ -999,7 +1002,7 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 	if b.loader == nil {
 		return nil, "", nil
 	}
-	modulePath = b.stdlibSiblingPath(modulePath)
+	modulePath = ShortNameImport(b.stdlibSiblingPath(modulePath), b.moduleIndex, b.currentModuleName)
 	loadRoot := b.projectRoot
 	loadPath := modulePath
 	cacheKey := strings.Join(modulePath, "/")
@@ -2374,6 +2377,20 @@ func (b *builder) defineSymbolStub(node ast.Node, scope *Scope) {
 	case *ast.OnceBinding:
 		b.defineOnce(n, scope)
 
+	case *ast.MacroDecl:
+		sym := &Symbol{
+			Name:   n.Name,
+			Kind:   SymbolMacro,
+			Pos:    Pos{Line: n.NameLine, Col: n.NameCol},
+			Public: n.Public,
+			Doc:    n.Doc,
+			Node:   n,
+		}
+		if !b.checkRedeclareInScope(scope, n.Name, n.NameLine, n.NameCol) {
+			scope.Define(sym)
+		}
+		b.define(sym.Pos, sym)
+
 	case *ast.ImplBlock:
 		b.defineImplBlockStub(n, scope)
 
@@ -2465,6 +2482,21 @@ func (b *builder) defineSymbolAnnotations(node ast.Node, scope *Scope) {
 	case *ast.OnceBinding:
 		// Walk the type annotation so its type identifiers are tracked as references.
 		b.walkTypeExpr(n.TypeAnnotation, scope)
+
+	case *ast.MacroDecl:
+		b.walkTypeExpr(n.Impl, scope)
+
+	case *ast.KeywordDecl:
+		// A declaration written with an imported macro's keyword uses
+		// the keyword: hover and go to definition on it reach the
+		// `macro` declaration, and its import is used. A qualified
+		// keyword (`sqlkit.query`) uses the file API object it is
+		// qualified by, as a call of `sqlkit.migrate` does.
+		if n.Module != "" {
+			b.referenceQualifiedKeyword(n, scope)
+		} else if sym := scope.Lookup(n.Keyword); sym != nil && sym.Kind == SymbolMacro {
+			b.file.References[Pos{Line: n.Line, Col: n.Col}] = sym
+		}
 
 	case *ast.ImplBlock:
 		// A synthesized block's header errors name the declaration it
@@ -4182,7 +4214,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 					}
 				}
 			} else {
-				// A file import with `self` (`import std/io.{self, IOError}`):
+				// A file import with `self` (`import std/io.{self, Error}`):
 				// bind the last path segment as the file API object, as
 				// `import std/io` does.
 				last := n.ModulePath[len(n.ModulePath)-1]
@@ -4909,7 +4941,7 @@ func (b *builder) resolveTaggedStringTag(n *ast.TaggedString, scope *Scope) {
 		b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
 			Line:    tagLine,
 			Col:     tagCol,
-			Message: fmt.Sprintf("tag '%s' is not in scope — a typed literal `%s\"...\"` requires `%s` to be a type with an `impl Literal for %s` block", n.Tag, n.Tag, n.Tag, n.Tag),
+			Message: fmt.Sprintf("tag '%s' is not in scope — a typed literal %s requires `%s` to be a type with an `impl Literal for %s` block", n.Tag, taggedStringShape(n), n.Tag, n.Tag),
 		})
 		return
 	}
@@ -4947,6 +4979,20 @@ func (b *builder) resolveTaggedStringTag(n *ast.TaggedString, scope *Scope) {
 			Col:     tagCol,
 			Message: fmt.Sprintf("'%s' is a %s, not a typed-literal tag — a tag must be a type with an `impl Literal for %s` block", n.Tag, kindLabel(real), n.Tag),
 		})
+	}
+}
+
+// taggedStringShape spells a typed literal's form as written, in a code
+// span: T"...", T"""...""", or T`...` for a raw literal, whose backtick
+// needs a doubled-backtick span.
+func taggedStringShape(n *ast.TaggedString) string {
+	switch {
+	case n.Raw:
+		return "``" + n.Tag + "`...` ``"
+	case n.Triple:
+		return "`" + n.Tag + `"""..."""` + "`"
+	default:
+		return "`" + n.Tag + `"..."` + "`"
 	}
 }
 
@@ -5029,6 +5075,25 @@ func (b *builder) synthStdFileQualifier(n *ast.TypeIdent) *Symbol {
 
 // moduleScopeOfSym returns sym's ModuleScope when sym is a file API object
 // (a SymbolModule), or nil.
+// referenceQualifiedKeyword records the references of n's qualified
+// keyword: the file API object at the qualifier, and the macro the file
+// exports at the keyword.
+func (b *builder) referenceQualifiedKeyword(n *ast.KeywordDecl, scope *Scope) {
+	local := scope.Lookup(n.Module)
+	mod := moduleScopeOfSym(local)
+	if mod == nil {
+		return
+	}
+	ref := local
+	if modSym, ok := b.moduleSyms[n.Module]; ok && modSym != nil {
+		ref = modSym
+	}
+	b.file.References[Pos{Line: n.ModuleLine, Col: n.ModuleCol}] = ref
+	if sym := mod.LookupLocal(n.Keyword); sym != nil && sym.Kind == SymbolMacro && sym.Public {
+		b.file.References[Pos{Line: n.Line, Col: n.Col}] = sym
+	}
+}
+
 func moduleScopeOfSym(sym *Symbol) *Scope {
 	if sym == nil || sym.Kind != SymbolModule {
 		return nil

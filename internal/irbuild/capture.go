@@ -75,7 +75,7 @@ func (bl *irScalarBuilder) captureFunc(t *ast.Capture) (ir.Temp, kind, bool, boo
 	bl.partialOpen[lam] = slots
 	defer delete(bl.partialOpen, lam)
 	defer bl.g.substHoles(subst)()
-	return bl.lambda(lam)
+	return bl.lambdaOfCapture(t, lam)
 }
 
 // captureParamName is the name the lambda a capture stands for gives its

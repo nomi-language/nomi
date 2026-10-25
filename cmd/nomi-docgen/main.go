@@ -60,12 +60,7 @@ func main() {
 	must(os.MkdirAll(outDir, 0o755))
 
 	lib := std.Load()
-	names := make([]string, 0, len(lib.Modules))
-	for name := range lib.Modules {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
+	names := referenceCandidates(lib)
 	links := referenceLinksForModules(lib, names)
 	var written []string
 	for _, name := range names {
@@ -80,6 +75,21 @@ func main() {
 	}
 	must(os.WriteFile(filepath.Join(outDir, "index.md"), []byte(renderIndex(written)), 0o644))
 	fmt.Printf("nomi-docgen: wrote %d module pages to %s\n", len(written), outDir)
+}
+
+// referenceCandidates are the std modules a page may be written for,
+// sorted: every module but an internal one (std/money_format), which is
+// std's own plumbing that a program cannot import.
+func referenceCandidates(lib *std.StdLib) []string {
+	names := make([]string, 0, len(lib.Modules))
+	for name := range lib.Modules {
+		if _, internal := analysis.InternalStdModule(name); internal {
+			continue
+		}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func renderModuleWithLinks(lib *std.StdLib, name string, globalLinks referenceLinks) string {

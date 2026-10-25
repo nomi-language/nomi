@@ -68,7 +68,7 @@ func stdBaseSeeds(t *testing.T) []stdBaseSeed {
 			t.Fatal(err)
 		}
 		for _, b := range doctest.ExtractBlocks(string(data), "nomi-run") {
-			if !b.HasInfo("ignore") {
+			if b.Runs() {
 				seeds = append(seeds, stdBaseSeed{name: fmt.Sprintf("tour/%s:L%d", filepath.Base(chapter), b.Line), src: b.Code})
 			}
 		}

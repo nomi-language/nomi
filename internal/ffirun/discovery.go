@@ -8,8 +8,11 @@ import (
 	"sort"
 	"strings"
 
+	"golang.org/x/mod/modfile"
+
 	nomiast "github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
+	"github.com/nomi-language/nomi/internal/modcache"
 	nomiparser "github.com/nomi-language/nomi/internal/parser"
 )
 
@@ -62,9 +65,12 @@ type DiscoveredExport struct {
 	Params      []nomiast.Param
 	ReturnType  nomiast.TypeExpr
 	Structs     map[string]*nomiast.StructDef
-	SourceFile  string
-	SourceLine  int
-	SourceCol   int
+	// Distincts are the declaring file's distinct types (`type Id Int`), by
+	// name.
+	Distincts  map[string]*nomiast.TypeDef
+	SourceFile string
+	SourceLine int
+	SourceCol  int
 	// AlsoDeclaredIn is every other file that declares this binding under the
 	// same Key, for an entry-scoped one (EntryKey != ""). Two files share a Key
 	// only when BindingModule falls back to their base name, with no go.mod
@@ -172,6 +178,11 @@ func collectNomiSourceFiles(projectRoot, sourceRoot string) ([]string, error) {
 		sourceRoot = projectRoot
 	}
 	roots := append([]string{sourceRoot}, localReplaceDirs(projectRoot)...)
+	fetched, err := fetchedNomiDirs(projectRoot)
+	if err != nil {
+		return nil, err
+	}
+	roots = append(roots, fetched...)
 	seenRoots := make(map[string]bool, len(roots))
 	for _, root := range roots {
 		clean, err := filepath.Abs(root)
@@ -256,36 +267,41 @@ func isNomiSourceName(name string) bool {
 	return strings.HasSuffix(name, ".nomi")
 }
 
+// fetchedNomiDirs are the roots of the Nomi modules the project needs that
+// are in the Go module cache (modcache.Load, which in the CLI downloads them
+// first), so a binding a fetched module declares is in the wrapper.
+func fetchedNomiDirs(projectRoot string) ([]string, error) {
+	g, err := modcache.Load(projectRoot)
+	if err != nil || g == nil {
+		return nil, err
+	}
+	var out []string
+	for _, d := range g.Deps {
+		if d.Nomi && !d.Local {
+			out = append(out, d.Dir)
+		}
+	}
+	return out, nil
+}
+
+// localReplaceDirs are the directories the project's go.mod replaces a
+// module with, a `replace` line's or a `replace ( ... )` block's, in the
+// order written. A replacement by another module version is not a directory.
 func localReplaceDirs(projectRoot string) []string {
-	data, err := os.ReadFile(filepath.Join(projectRoot, "go.mod"))
-	if err != nil {
+	f, err := parseProjectGoMod(projectRoot)
+	if err != nil || f == nil {
 		return nil
 	}
 	var out []string
-	for _, line := range strings.Split(string(data), "\n") {
-		trimmed := strings.TrimSpace(line)
-		if !strings.HasPrefix(trimmed, "replace ") || !strings.Contains(trimmed, "=>") {
+	for _, r := range f.Replace {
+		if r.Old.Path == "nomi" || !modfile.IsDirectoryPath(r.New.Path) {
 			continue
 		}
-		parts := strings.Split(trimmed, "=>")
-		if len(parts) != 2 {
-			continue
-		}
-		source := strings.Fields(strings.TrimPrefix(strings.TrimSpace(parts[0]), "replace"))
-		if len(source) == 0 || source[0] == "nomi" {
-			continue
-		}
-		target := strings.Fields(strings.TrimSpace(parts[1]))
-		if len(target) == 0 {
-			continue
-		}
-		dir := target[0]
-		if strings.HasPrefix(dir, ".") {
+		dir := filepath.FromSlash(r.New.Path)
+		if !filepath.IsAbs(dir) {
 			dir = filepath.Join(projectRoot, dir)
 		}
-		if filepath.IsAbs(dir) || strings.HasPrefix(target[0], ".") {
-			out = append(out, filepath.Clean(dir))
-		}
+		out = append(out, filepath.Clean(dir))
 	}
 	return out
 }
@@ -364,8 +380,14 @@ func collectExternPackages(nodes []nomiast.Node, aliases map[string]*nomiast.Ext
 func collectForeignBindings(file string, nodes []nomiast.Node, moduleName, owner string, aliases map[string]*nomiast.ExternPackage, byImportPath map[string]*DiscoveredPackage) {
 	structBindings := make(map[string]*nomiast.StructDef)
 	collectPlainStructBindings(nodes, structBindings)
+	distincts := make(map[string]*nomiast.TypeDef)
+	for _, n := range nodes {
+		if v, ok := n.(*nomiast.TypeDef); ok {
+			distincts[v.Name] = v
+		}
+	}
 	collectForeignTypeBindings(file, nodes, moduleName, owner, aliases, byImportPath)
-	collectForeignFuncBindings(file, nodes, moduleName, owner, aliases, byImportPath, structBindings)
+	collectForeignFuncBindings(file, nodes, moduleName, owner, aliases, byImportPath, structBindings, distincts)
 }
 
 func collectPlainStructBindings(nodes []nomiast.Node, structBindings map[string]*nomiast.StructDef) {
@@ -408,11 +430,11 @@ func collectForeignTypeBindings(file string, nodes []nomiast.Node, moduleName, o
 	}
 }
 
-func collectForeignFuncBindings(file string, nodes []nomiast.Node, moduleName, owner string, aliases map[string]*nomiast.ExternPackage, byImportPath map[string]*DiscoveredPackage, structBindings map[string]*nomiast.StructDef) {
+func collectForeignFuncBindings(file string, nodes []nomiast.Node, moduleName, owner string, aliases map[string]*nomiast.ExternPackage, byImportPath map[string]*DiscoveredPackage, structBindings map[string]*nomiast.StructDef, distincts map[string]*nomiast.TypeDef) {
 	for _, n := range nodes {
 		switch v := n.(type) {
 		case *nomiast.ImplBlock:
-			collectForeignFuncBindings(file, v.Items, moduleName, implOwnerKey(v.Receiver, v.Interface), aliases, byImportPath, structBindings)
+			collectForeignFuncBindings(file, v.Items, moduleName, implOwnerKey(v.Receiver, v.Interface), aliases, byImportPath, structBindings, distincts)
 		case *nomiast.ExternFunc:
 			if v.ForeignAlias == "" || v.ForeignName == "" {
 				continue
@@ -430,6 +452,7 @@ func collectForeignFuncBindings(file string, nodes []nomiast.Node, moduleName, o
 				Params:      v.Params,
 				ReturnType:  v.ReturnTypeExpr,
 				Structs:     cloneStructBindings(structBindings),
+				Distincts:   distincts,
 				SourceFile:  file,
 				SourceLine:  v.ForeignNameLine,
 				SourceCol:   v.ForeignNameCol,

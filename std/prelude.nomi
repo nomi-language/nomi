@@ -11,7 +11,7 @@ pub import {
     // import them explicitly; ordinary call sites only name the prefix type.
     bool.Bool.{self, False, True}
     bytes.{Byte, Bytes}
-    codepoints.Codepoint
+    code_points.Codepoint
     comparable.{Comparable, Ordering}
     contains.Contains
     context.Context

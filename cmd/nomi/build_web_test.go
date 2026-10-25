@@ -476,7 +476,7 @@ func TestBuildWeb(t *testing.T) {
 		}
 		spec, _ := json.Marshal(map[string]any{"runs": runs})
 		harness := filepath.Join(repoRoot(t), "cmd", "nomi", "testdata", "web", "harness.mjs")
-		got := runProcess(t, env, src, "", node, harness, string(spec))
+		got := runNode(t, env, src, "", node, harness, string(spec))
 		if got.exit != 0 {
 			t.Fatalf("the harness: exit %d\n%s", got.exit, got.transcript())
 		}
@@ -555,7 +555,7 @@ func TestBuildWeb(t *testing.T) {
 			map[string]any{"folder": folders["failing.nomi"], "calls": []any{}},
 		}})
 		harness = filepath.Join(repoRoot(t), "cmd", "nomi", "testdata", "web", "load-harness.mjs")
-		got = runProcess(t, env, src, "", node, harness, string(loads))
+		got = runNode(t, env, src, "", node, harness, string(loads))
 		if got.exit != 0 {
 			t.Fatalf("the load harness: exit %d\n%s", got.exit, got.transcript())
 		}
@@ -632,7 +632,7 @@ func TestBuildWeb(t *testing.T) {
 		}
 
 		// Node validates the module the browser would compile.
-		check := runProcess(t, env, src, "", node, "-e",
+		check := runNode(t, env, src, "", node, "-e",
 			`const fs=require("fs");process.exit(WebAssembly.validate(fs.readFileSync(process.argv[1]))?0:3)`,
 			filepath.Join(folders["hello.nomi"], "app.wasm"))
 		if check.exit != 0 {

@@ -5,7 +5,7 @@
 // The test writes an empty file at the start so re-runs are deterministic.
 import {
     std/instant.Instant
-    std/io.{self, IOError}
+    std/io
 }
 
 once test_path: String = "/tmp/nomi-file-store-pattern.tsv"
@@ -117,8 +117,8 @@ fn load_map(path: String) -> Result<Map<Int, TodoTask>, String> {
 
         Err(e) ->
             case e {
-                #IOError.NotFound{path: _} -> Ok(%{})
-                #IOError.Other{reason} -> Err(reason)
+                #io.Error.NotFound{path: _} -> Ok(%{})
+                #io.Error.Other{reason} -> Err(reason)
             }
     }
 }

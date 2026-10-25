@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/bits"
+	"runtime/metrics"
 	"sort"
 	"sync/atomic"
 	"time"
@@ -28,13 +30,45 @@ import (
 // steps; zero means none. A single crossing into Go is not interrupted, so
 // pureCrossings admits only crossings whose cost follows from the size of
 // their operands, which the steps bound.
+//
+// Memory, when not zero, bounds how far the heap grows while the evaluation
+// runs, in bytes: the process's heap objects (runtime/metrics), measured
+// against the heap when it starts. It is read every few steps, more often
+// as the growth nears the bound: a pure crossing at most doubles what its
+// operands hold, so between two reads the heap cannot pass twice the bound.
+// The process's other goroutines grow the same heap, so the bound is
+// approximate; a macro's run sets it as a backstop against one that
+// would take the language server down.
 type Limits struct {
 	Steps    int64
 	Deadline time.Time
+	Memory   int64
+	// Spent, when set, receives the steps the evaluation took.
+	Spent *int64
 }
 
 // ErrLimit is what Evaluate answers when the evaluation used up its Limits.
 var ErrLimit = errors.New("vm: the evaluation reached its step or time limit")
+
+// ErrMemoryLimit is Evaluate's answer when the evaluation grew the heap past
+// Limits.Memory. It is an ErrLimit.
+var ErrMemoryLimit = fmt.Errorf("%w: memory", ErrLimit)
+
+// ErrDeadline is Evaluate's answer when the evaluation was still running at
+// Limits.Deadline. It is an ErrLimit. Unlike the steps, the deadline depends
+// on how fast the machine is, so a caller that must answer the same on every
+// machine tells it from the step limit.
+var ErrDeadline = fmt.Errorf("%w: deadline", ErrLimit)
+
+// heapObjects is the bytes of heap objects now.
+func heapObjects() int64 {
+	s := []metrics.Sample{{Name: "/memory/classes/heap/objects:bytes"}}
+	metrics.Read(s)
+	if s[0].Value.Kind() != metrics.KindUint64 {
+		return 0
+	}
+	return int64(s[0].Value.Uint64())
+}
 
 // fuel is a running evaluation's remaining Limits, shared by every view of the
 // machine it runs on, a task's included, so its counters are atomic. Nil on a
@@ -48,28 +82,83 @@ type fuel struct {
 	stop    <-chan struct{}
 	stopped atomic.Bool
 	ticks   atomic.Uint32
+	// watch says the fuel counts nothing and only answers whether stopped
+	// was set: a test case's time limit (caselimit.go), whose timer sets it.
+	// A step then costs one atomic load, which no task contends for. outer
+	// is the fuel of the machine the case runs on, StopOn's, still burned.
+	watch bool
+	outer *fuel
+	// memory is Limits.Memory, heapBase the heap when the run started,
+	// memoryCheck the steps until the heap is read again, and overMemory
+	// records that the run passed the bound.
+	memory, heapBase int64
+	memoryCheck      atomic.Int32
+	overMemory       atomic.Bool
+	// overDeadline records that the run was stopped at its deadline.
+	overDeadline atomic.Bool
 }
 
 func newFuel(lim Limits) *fuel {
-	f := &fuel{deadline: lim.Deadline}
+	f := &fuel{deadline: lim.Deadline, memory: lim.Memory}
 	f.left.Store(lim.Steps)
+	if f.memory > 0 {
+		f.heapBase = heapObjects()
+		f.memoryCheck.Store(1)
+	}
 	return f
+}
+
+// checkMemory reads the heap when its countdown is done, and answers
+// whether the run is past its bound. The next read is fewer steps away the
+// nearer the growth is to the bound: as many as the times the growth could
+// double before it passes the bound, less one.
+func (f *fuel) checkMemory() bool {
+	if f.memoryCheck.Add(-1) > 0 {
+		return false
+	}
+	grown := max(heapObjects()-f.heapBase, 1)
+	if grown > f.memory {
+		f.overMemory.Store(true)
+		return true
+	}
+	f.memoryCheck.Store(int32(min(max(bits.Len64(uint64(f.memory/grown))-1, 1), 64)))
+	return false
 }
 
 // burn spends one step. Once the steps are gone every later burn fails too,
 // so a program that catches the failure and loops fails again at its next
 // call or backward branch.
 func (f *fuel) burn() error {
+	if f.watch {
+		if f.stopped.Load() {
+			return ErrStopped
+		}
+		if f.outer != nil {
+			return f.outer.burn()
+		}
+		return nil
+	}
 	if f.left.Add(-1) < 0 {
 		if f.stopped.Load() {
 			return ErrStopped
 		}
+		if f.overMemory.Load() {
+			return ErrMemoryLimit
+		}
+		if f.overDeadline.Load() {
+			return ErrDeadline
+		}
 		return ErrLimit
+	}
+	if f.memory > 0 && f.checkMemory() {
+		f.left.Store(-1)
+		return ErrMemoryLimit
 	}
 	if (!f.deadline.IsZero() || f.stop != nil) && f.ticks.Add(1)&1023 == 0 {
 		if !f.deadline.IsZero() && time.Now().After(f.deadline) {
+			f.overDeadline.Store(true)
 			f.left.Store(-1)
-			return ErrLimit
+			return ErrDeadline
 		}
 		select {
 		case <-f.stop:
@@ -154,6 +243,14 @@ func (m *Machine) Evaluate(ctx context.Context, f *ir.Func, args []any, lim Limi
 		}
 		if run.fuel.spent() {
 			result, err = nil, ErrLimit
+			if run.fuel.overMemory.Load() {
+				err = ErrMemoryLimit
+			} else if run.fuel.overDeadline.Load() {
+				err = ErrDeadline
+			}
+		}
+		if lim.Spent != nil {
+			*lim.Spent = lim.Steps - max(run.fuel.left.Load(), 0)
 		}
 	}()
 	return run.callWithFrame(f, args, fr)
@@ -169,7 +266,7 @@ var pureCrossings = map[string]bool{
 	"Result.map_err": true, "Maybe.to_result": true,
 	"Maybe.with_default": true, "Result.with_default": true,
 	"List.head": true, "List.tail": true, "List.concat": true, "List.compare": true, "List.contains?": true,
-	"Vector.compare": true, "vm.unreachable": true,
+	"Vector.compare": true, "vm.unreachable": true, "vm.hash_value": true,
 	"Range.contains?": true, "Range.step_by": true, "Range.known_count": true,
 	"Range.bounded?": true, "Range.contains?Float": true,
 	"Set.size": true, "Set.contains?": true, "Set.insert": true, "Set.remove": true,
@@ -180,6 +277,29 @@ var pureCrossings = map[string]bool{
 	"Map.get": true, "Map.put": true, "Map.size": true,
 	"Map.remove": true, "Map.contains?": true, "Map.merge": true, "Map.keys": true,
 	"Map.values": true, "Map.map_values": true, "Map.map_keys": true, "Map.map_next": true,
+
+	"locale.locale_fallbacks": true, "locale.locale_from_posix_raw": true, "locale.locale_language": true,
+	"locale.locale_negotiate": true, "locale.locale_parse_raw": true, "locale.locale_region": true,
+	"locale.locale_script": true, "locale.locale_available": true,
+	"plural.plural_cardinal_tag": true, "plural.plural_cardinal_tags": true,
+	"plural.plural_ordinal_tag": true, "plural.plural_ordinal_tags": true,
+	// Locale-aware formatting reads the machine's own CLDR data.
+	"int.int_format": true, "int.int_parse_in": true,
+	"float.float_format": true, "float.float_format_percent": true, "float.float_parse_in": true, "float.float_parse_percent_in": true,
+	"decimal.decimal_format": true, "decimal.decimal_format_percent": true,
+	"decimal.decimal_parse_in": true, "decimal.decimal_parse_percent_in": true,
+	"strings.join_list_raw":      true,
+	"collation.collator_new_raw": true, "collation.collator_compare_raw": true, "collation.collator_sort_key_raw": true,
+	"collation.collator_inspect_raw": true,
+	"calendar.civil_format_style":    true, "calendar.civil_format_fields": true, "calendar.civil_format_pattern": true,
+	"calendar.date_parse_style": true, "calendar.time_parse_style": true, "calendar.date_parse_pattern": true,
+	"calendar.time_parse_pattern": true, "calendar.naive_parse_pattern": true, "calendar.fields_check": true,
+	"calendar.pattern_check": true, "calendar.relative_format_raw": true, "duration.duration_format_raw": true,
+	"currency.currency_check": true, "currency.currency_code_of": true, "currency.currency_digits_of": true,
+	"money_format.money_format_raw": true, "money_format.money_parse_raw": true,
+	// A message's formatting, and the intrinsic that names an enum
+	// value's variant.
+	"message_format.format_raw": true, "message_format.variant_name": true,
 
 	"Date.days_between": true, "Date.to_string": true,
 	"DateTime.day": true, "DateTime.hour": true, "DateTime.minute": true, "DateTime.month": true,
@@ -211,6 +331,7 @@ var pureCrossings = map[string]bool{
 	"Regex.contained_in?": true, "Regex.prefix_of?": true, "Regex.suffix_of?": true,
 	"Regex.split_in": true, "Regex.replace_in": true, "Regex.find_all_in": true,
 	"String.captures": true, "String.captures_all": true,
+	"String.to_upper_in": true, "String.to_lower_in": true, "String.fold_case": true,
 
 	"strings.String.contained_in?": true, "strings.String.prefix_of?": true,
 	"strings.String.suffix_of?": true, "strings.String.find_all_in": true,
@@ -219,14 +340,14 @@ var pureCrossings = map[string]bool{
 	"strings.String.hash": true, "strings.string_compare": true, "strings.String.to_int": true,
 	"strings.String.split_in": true, "strings.String.length": true,
 	"strings.String.slice": true, "strings.String.reverse": true, "strings.String.to_bytes": true,
-	"strings.String.to_codepoints": true, "strings.String.normalize": true,
+	"strings.String.to_codepoints": true, "strings.String.normalize": true, "strings.String.to_literal": true,
 	"strings.String.words": true, "strings.String.lines": true,
 	"assertions.AssertionFailure.format": true,
 	// strings.String.repeat is not here: its cost is its Int operand.
 	"bytes.Byte.from_int": true, "bytes.Byte.to_int": true, "bytes.Bytes.length": true,
 	"bytes.Bytes.get": true, "bytes.Bytes.at": true, "bytes.Bytes.slice": true, "bytes.Bytes.concat": true,
 	"bytes.Bytes.to_string": true, "bytes.Bytes.hash": true, "bytes.Bytes.contains?": true,
-	"bytes.Bytes.to_list": true, "bytes.Bytes.from_list": true,
+	"bytes.Bytes.to_list": true, "bytes.Bytes.from_list": true, "bytes.bytes_compare": true,
 	"int.Int.to_string": true, "int.Int.to_float": true, "int.Int.wrapping_add": true,
 	"int.Int.wrapping_sub": true, "int.Int.wrapping_mul": true, "int.Int.bitwise_and": true,
 	"int.Int.bitwise_or": true, "int.Int.bitwise_xor": true, "int.Int.bitwise_not": true,
@@ -242,9 +363,9 @@ var pureCrossings = map[string]bool{
 	"decimal.Decimal.normalize": true, "decimal.Decimal.scale": true,
 	// decimal.Decimal.divide and round are not here: their cost is their
 	// scale operand.
-	"duration.Duration.to_string": true, "codepoints.Codepoint.to_string": true,
-	"codepoints.Codepoint.letter?": true, "codepoints.Codepoint.whitespace?": true,
-	"codepoints.Codepoint.upper?": true, "codepoints.Codepoint.lower?": true,
+	"duration.Duration.to_string": true, "code_points.Codepoint.to_string": true,
+	"code_points.Codepoint.letter?": true, "code_points.Codepoint.whitespace?": true,
+	"code_points.Codepoint.upper?": true, "code_points.Codepoint.lower?": true,
 	"json.Json.decode": true, "json.Json.encode": true, "json.Json.to_dynamic": true,
 	"dynamic.Dynamic.field": true, "dynamic.Dynamic.index": true, "dynamic.Dynamic.path": true,
 	"dynamic.Dynamic.as_string": true, "dynamic.Dynamic.as_int": true,

@@ -39,7 +39,7 @@ import "fmt"
 // A Nomi type's runtime identity must not be a string assembled at
 // construction sites and re-parsed at lookup sites. A short-type-name helper
 // that cuts a type name at its last dot turns the namespaced
-// `json.Json.DecodeError` into `DecodeError`, which is `std/dynamic`'s type.
+// `json.Json.DecodeError` into `DecodeError`, a name any other file may declare.
 // Two impls then share one dispatch slot, Go's map iteration order decides
 // which one wins, and the failure is intermittent with nothing raised.
 //

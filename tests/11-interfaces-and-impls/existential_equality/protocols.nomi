@@ -1,0 +1,160 @@
+// An interface and its implementors, in a file apart from the values held
+// as it: two structs with the same fields, one struct with a hand-written
+// Equatable and Hashable, one with a hand-written Equatable alone, a
+// container's impl and an `embeds` enum's.
+pub interface Show {
+    fn show(value: self) -> String
+}
+
+pub struct Point {
+    x: Int
+    y: Int
+}
+
+pub struct Spot {
+    x: Int
+    y: Int
+}
+
+// Names compare and hash without regard to case.
+pub struct Name {
+    text: String
+}
+
+// Tags compare without regard to case and declare no hash of their own.
+pub struct Tag {
+    text: String
+}
+
+pub struct Circle {
+    r: Int
+}
+
+pub enum Shape {
+    embeds Circle
+    Dot
+}
+
+impl Show for Point {
+    fn show(p: Point) -> String {
+        "point ${p.x} ${p.y}"
+    }
+}
+
+impl Debug for Point {
+    fn inspect(p: Point) -> String {
+        "Point(${p.x}, ${p.y})"
+    }
+}
+
+impl Show for Spot {
+    fn show(s: Spot) -> String {
+        "spot ${s.x} ${s.y}"
+    }
+}
+
+impl Show for Name {
+    fn show(n: Name) -> String {
+        n.text
+    }
+}
+
+impl Equatable for Name {
+    fn equal?(a: Name, b: Name) -> Bool {
+        String.to_lower(a.text) == String.to_lower(b.text)
+    }
+}
+
+impl Hashable for Name {
+    fn hash(n: Name) -> Int {
+        Hashable.hash(String.to_lower(n.text))
+    }
+}
+
+impl Show for Tag {
+    fn show(t: Tag) -> String {
+        "#${t.text}"
+    }
+}
+
+impl Equatable for Tag {
+    fn equal?(a: Tag, b: Tag) -> Bool {
+        String.to_lower(a.text) == String.to_lower(b.text)
+    }
+}
+
+impl Show for Int {
+    fn show(n: Int) -> String {
+        "i${n}"
+    }
+}
+
+impl Show for String {
+    fn show(s: String) -> String {
+        "'${s}'"
+    }
+}
+
+impl Show for List<T> where T: Show {
+    fn show(xs: List<T>) -> String {
+        "[" + (xs |> Iter.map(&T.show(&1)) |> String.join(" ")) + "]"
+    }
+}
+
+impl Show for Circle {
+    fn show(c: Circle) -> String {
+        "circle ${c.r}"
+    }
+}
+
+impl Show for Shape {
+    fn show(s: Shape) -> String {
+        case s {
+            #.Circle{r} -> "shape circle ${r}"
+            .Dot -> "shape dot"
+        }
+    }
+}
+
+// Every circle is one glyph, whatever its radius.
+pub enum Glyph {
+    embeds Circle
+    Blank
+}
+
+impl Show for Glyph {
+    fn show(g: Glyph) -> String {
+        case g {
+            #.Circle{r} -> "glyph circle ${r}"
+            .Blank -> "glyph blank"
+        }
+    }
+}
+
+impl Equatable for Glyph {
+    fn equal?(a: Glyph, b: Glyph) -> Bool {
+        case a {
+            #.Circle{r: _} ->
+                case b {
+                    #.Circle{r: _} -> True
+                    .Blank -> False
+                }
+
+            .Blank ->
+                case b {
+                    #.Circle{r: _} -> False
+                    .Blank -> True
+                }
+        }
+    }
+}
+
+// A struct with an interface-typed field, whose derived impls compare and
+// hash the field by the value it holds.
+pub struct Labeled {
+    label: Show
+    count: Int
+}
+
+derive Equatable for Labeled
+derive Hashable for Labeled

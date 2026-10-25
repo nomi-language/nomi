@@ -3,6 +3,8 @@ package analysis
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -158,6 +160,7 @@ func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoade
 		if len(modPath) == 0 {
 			return walkItem{}, false
 		}
+		modPath = ShortNameImport(modPath, p.ModuleIndex, currentModuleName)
 		key := strings.Join(modPath, "/")
 		// Self-name reference: `import todo/foo` from within todo is
 		// the same as `import foo` — strip the head and resolve
@@ -337,6 +340,55 @@ func SelfNameImport(modPath []string, currentModuleName string) ([]string, bool)
 		return nil, false
 	}
 	return modPath[1:], true
+}
+
+// ShortNameImport answers the path an import written as another module's
+// short name alone names: the file of that name at the module's root, so
+// `import sqlite` is `import sqlite/sqlite` when module `sqlite` holds
+// sqlite.nomi (spec §14). Any other path, a module without such a file, the
+// standard library and the current module's own name are answered as
+// written.
+func ShortNameImport(modPath []string, index ModuleIndex, currentModuleName string) []string {
+	if len(modPath) != 1 || modPath[0] == "std" || modPath[0] == currentModuleName {
+		return modPath
+	}
+	root, ok := index[modPath[0]]
+	if !ok {
+		return modPath
+	}
+	if info, err := os.Stat(filepath.Join(root, modPath[0]+".nomi")); err != nil || info.IsDir() {
+		return modPath
+	}
+	return []string{modPath[0], modPath[0]}
+}
+
+// ImportFile answers the .nomi file that modPath, an import path written in a
+// file of the project rooted at projectRoot (not `std/...`), names as the
+// front end resolves it: through the project's own module name, a
+// dependency's short name (alone, its root file of that name), or a path
+// within the project. It reads only the disk, and answers false when the
+// file does not exist.
+func ImportFile(projectRoot string, modPath []string) (string, bool) {
+	if len(modPath) == 0 {
+		return "", false
+	}
+	current := ""
+	if m, err := LoadManifest(projectRoot); err == nil {
+		current = m.Name
+	}
+	index, _ := BuildModuleIndex(projectRoot)
+	modPath = ShortNameImport(modPath, index, current)
+	root, rest := projectRoot, modPath
+	if r, self := SelfNameImport(modPath, current); self {
+		rest = r
+	} else if dep, ok := index[modPath[0]]; ok && len(modPath) > 1 {
+		root, rest = dep, modPath[1:]
+	}
+	path := ResolveModulePath(root, rest)
+	if info, err := os.Stat(path); err != nil || info.IsDir() {
+		return "", false
+	}
+	return path, true
 }
 
 // fileImports is importsOf of a file's nodes, kept with its analysis

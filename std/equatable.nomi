@@ -25,7 +25,9 @@ import bool.Bool
 /// }
 ///
 /// impl Equatable for Point {
-///     fn equal?(a: Point, b: Point) -> Bool { a.x == b.x and a.y == b.y }
+///     fn equal?(a: Point, b: Point) -> Bool {
+///         a.x == b.x and a.y == b.y
+///     }
 /// }
 /// ```
 ///

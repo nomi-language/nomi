@@ -288,15 +288,15 @@ from several files, so its users import from one place:
 pub import other/parser.Parser
 
 // Re-export several items at once.
-pub import std/io.{IOError, print}
+pub import std/io.{print, write}
 
 // An alias is the name consumers see: `parse_source`, not `parse`.
-pub import other/parser.{parse as parse_source}
+pub import other/parser.parse as parse_source
 
 // A block re-exports every entry.
 pub import {
-    calc.{add, subtract}
     std/comparable.Ordering
+    calc.{add, subtract}
 }
 ```
 
@@ -320,25 +320,100 @@ small function that calls it.
 
 ## Nomi modules
 
-Modules are one of the newer parts of Nomi, and they will change. A directory
-with a `nomi.toml` is a Nomi module, and the files under it import each other.
-The `nomi.toml` alone makes a module. The standard library is one module, with
-a `nomi.toml` and no `go.mod`.
+Modules are one of the newer parts of Nomi, and they will change.
 
-A module you distribute also needs a `go.mod`, because Nomi uses Go's tools to
-fetch dependencies. Create it the way you would for a Go project:
+A directory with a `nomi.toml` is a Nomi module, and the files under it import
+each other. The `nomi.toml` alone makes a module. The standard library is one
+module, with a `nomi.toml` and no `go.mod`.
 
-```text
-mkdir myproject
-cd myproject
-go mod init myproject
-# then add nomi.toml + your .nomi files
+A module that uses other modules, or that you publish for others to use, also
+has a `go.mod` file. Nomi publishes and downloads modules the same way Go
+does, so it keeps Go's file to give the module's full name and list the
+modules it uses. You don't need Go installed, and you don't edit `go.mod`
+yourself: `nomi` writes it. Start a project with `nomi new` and the module's
+full name, which is usually the address of its repository:
+
+```console
+$ nomi new github.com/you/myproject
+wrote myproject/nomi.toml, myproject/go.mod and myproject/main.nomi
+next: cd myproject && nomi run main.nomi
 ```
 
-`nomi.toml` describes the Nomi module, and `go.mod` lists its dependencies.
-To use another module, fetch it with Go's tools, as in
-`go get github.com/user/somelib`. Then import files from `somelib` in your
-Nomi code.
+The project's short name is the last part of the full name, `myproject`.
+The `go.mod` it writes holds the full name and the Go version:
+
+```gomod
+module github.com/you/myproject
+
+go 1.27.0
+```
+
+A module that already has a `nomi.toml` gets its `go.mod` from
+`nomi new github.com/you/myproject .` in its directory.
+
+`nomi.toml` describes the Nomi side of the module: its short name and its
+entry points. `go.mod` lists its **dependencies**, the other modules it uses.
+Commit `go.mod` and `go.sum` with your code. To add a dependency, run `nomi
+add` with the module's full name:
+
+```console
+$ nomi add github.com/user/somelib
+```
+
+`nomi add` does this:
+
+- It adds the module to `go.mod`, at its latest release. To pick a version,
+  write it after an `@`: `nomi add github.com/user/somelib@v1.2.0`.
+- It downloads the module from the Go module proxy, the public server that
+  Go uses to hand out published modules.
+- It writes the module's checksum to `go.sum`. A checksum is a fingerprint of
+  the module's files. A later download that doesn't match it is refused, so
+  everyone who builds the project gets the same code.
+
+A module that isn't published, such as one beside your project, is added by
+its directory. The path starts with `./` or `../`:
+
+```console
+$ nomi add ../shared
+```
+
+`go.mod` then requires the module and points it at that directory:
+
+```gomod
+require example.com/shared v0.0.0
+
+replace example.com/shared => ../shared
+```
+
+Two more commands change the list:
+
+- `nomi remove github.com/user/somelib` takes a dependency out of `go.mod`
+  and `go.sum`. It refuses while a file still imports it, and names the file.
+- `nomi update` moves every dependency to its latest release, and `nomi
+  update github.com/user/somelib` moves one. It prints each change, such as
+  `github.com/user/somelib v1.2.0 -> v1.3.0`. A new major version has a new
+  full name ending in `/v2`, so `nomi update` never takes it; add it with
+  `nomi add github.com/user/somelib/v2`.
+
+Other commands download dependencies too:
+
+- `nomi run`, `nomi test`, `nomi check` and `nomi build` download any
+  dependency in `go.mod` that isn't on your machine yet.
+- `nomi fetch` downloads everything the project needs ahead of time, for
+  example before you go offline.
+- `--offline`, given to any of these commands, downloads nothing. A
+  dependency that isn't on your machine is then an error that names it.
+
+To import a dependency's files, start the path with its short name, the
+`name` in its `nomi.toml`. If `somelib`'s `nomi.toml` says
+`name = "somelib"`, then `import somelib/parse` imports its file
+`parse.nomi`. `import somelib` alone imports the file at its root that has
+the module's name, `somelib.nomi`. If your own module also has a file
+named `somelib.nomi`, the import still means the dependency's file.
+
+To publish a module, push a version tag such as `v0.1.0` to its public
+repository. The Go module proxy then serves that version to anyone who adds
+the module.
 
 A Nomi module is built on a Go module, which is why both use the word
 "module". When the tour says "Go package", it means Go code that a `gopkg`
@@ -353,13 +428,23 @@ works, though it may mean the code should be split differently.
 
 ## The orphan rule
 
-The [orphan rule](/interfaces-and-dispatch/#the-orphan-rule) says an impl must
-be in the Nomi module that declares either the interface or the type. It
-applies to every `impl Iface for T { ... }` block, including generic ones such
-as `impl Iface for Box<T> where T: Bound { ... }`. So you can't write an impl
-of one library's interface for another library's type. If two of your
-dependencies each wrote that same impl, no program could use both of them.
-Breaking the rule is a compile error.
+Modules are where the
+[orphan rule](/interfaces-and-dispatch/#the-orphan-rule) applies. It decides
+which module may write an `impl Iface for T { ... }` block. The impl must be
+in one of these:
+
+- the Nomi module that declares the interface;
+- the Nomi module that declares the type;
+- the Nomi module that declares a type the interface's functions take as a
+  parameter, through a type argument. For example, the module that declares
+  `Rate` may write `impl Multiply<Rate, Decimal> for Decimal`.
+
+The rule covers generic impls too, such as
+`impl Iface for Box<T> where T: Bound { ... }`. So you can't write an impl of
+one library's interface for another library's type, unless one of your types
+is a type argument as above. If two of your dependencies could each write the
+same impl, no program could use both of them. Breaking the rule is a compile
+error.
 
 The next chapter, [App Fields, Defer & Context](/capabilities-and-context/),
 shows how to give code things like a logger or a config without global

@@ -11,12 +11,22 @@ and its forks:
   semantic tokens.
 - The language server, `nomi-lsp`: diagnostics, hover, completion,
   go-to-definition, formatting and the rest of what it serves.
+- Message catalogs: the client also attaches `nomi-lsp` to each module's
+  catalogs, the TOML files under the directory its `nomi.toml` names in
+  `[i18n].catalogs` (`locales/` unless it names another), for their
+  diagnostics, completion of message names, parameters and variant keys,
+  hover, and quick fixes. It attaches to no other TOML file. The extension
+  reads every `nomi.toml` in the workspace when it starts, and restarts the
+  client when a change to one moves the catalogs.
 - Commands: **Nomi: Run File** (`nomi run <file>`), **Nomi: Test File**
   (`nomi test <file>`), **Nomi: Test at Cursor** (`nomi test <file> --line N`
   for the `test`, `group` or `//!` attached test under the cursor) and
   **Nomi: Restart Language Server**. Runs happen in a shared task terminal,
   from the nearest directory holding `nomi.toml` (else `.git`, else the
-  workspace folder). A run still in flight is stopped first.
+  workspace folder). A run still in flight is stopped first. A test run's
+  failures (an assertion, a trap, a test stopped by its time limit) appear
+  in the Problems panel at their lines, through the extension's `$nomi-test`
+  problem matcher.
 - Code lenses from `nomi-lsp`: **Run test**, **Run group** and **Run attached
   test** above each `test`, `group` and `//!` test (the lens command
   `nomi.runTest`, which runs `nomi test <file> --line N`), and **Run** above
@@ -211,6 +221,9 @@ Where it goes further than the bat syntax:
 - `///` and `//#` lines are documentation comments.
 - A typed literal's tag (`Date"..."`, ``Regex`...` ``) is scoped
   `entity.name.type.literal`.
+- A macro's marked keyword at the start of a declaration
+  (`sqlkit.query! orders`) is `entity.name.function.macro`, its qualifier
+  `entity.name.namespace`; a tagged body is a typed literal like any other.
 - `.name` and `.Variant` with no expression before the dot are the field
   accessor and variant shorthand; after an expression, `.name` is a field and
   `.name(` a qualified call.

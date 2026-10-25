@@ -7,6 +7,11 @@
   "fn" @context
   name: (type_identifier) @name) @item
 
+; Keyword declarations (`message cart_items`)
+(keyword_declaration
+  keyword: (identifier) @context
+  name: [(identifier) (type_identifier)] @name) @item
+
 ; Structs
 (struct_definition
   "struct" @context

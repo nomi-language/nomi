@@ -697,6 +697,21 @@ func implBlockMethod(b *ast.ImplBlock, name string) ast.ImplMethodDecl {
 	return nil
 }
 
+// receiversDiffer reports whether two impls are for two nominal types of one
+// name that two modules declare, a program's `type Sql` and std/sql's `Sql`:
+// two receivers, so neither is a second impl of the other's.
+func receiversDiffer(a, b *ImplTypeArgs) bool {
+	if a.Receiver == nil || b.Receiver == nil {
+		return false
+	}
+	ao, aNominal := nominalOrigin(resolveTypeVar(a.Receiver))
+	bo, bNominal := nominalOrigin(resolveTypeVar(b.Receiver))
+	if !aNominal || !bNominal || ao == "" || bo == "" || ao == OriginUnresolved || bo == OriginUnresolved {
+		return false
+	}
+	return ao != bo
+}
+
 // checkImplInstantiations holds one impl block of a generic interface to the
 // rule for a receiver with several impls of it: each writes its type
 // arguments, and they are distinct concrete types. An impl generic in them
@@ -724,7 +739,8 @@ func (c *checker) checkImplInstantiations(n *ast.ImplBlock) {
 	var others []*ImplTypeArgs
 	ownKey := implDeclKey(own)
 	for _, info := range distinctImpls(lookupImplTypeArgSets(recvName, ifaceName, c.implTypeArgSetsContext())) {
-		if info == own || info.Block == n || implDeclKey(info) == ownKey || !sameNominalIdentity(own.Origin, ifaceName, info.Origin, ifaceName) {
+		if info == own || info.Block == n || implDeclKey(info) == ownKey || !sameNominalIdentity(own.Origin, ifaceName, info.Origin, ifaceName) ||
+			receiversDiffer(own, info) {
 			continue
 		}
 		if typesAllEqual(info.Args, own.Args) {
@@ -757,6 +773,7 @@ func (c *checker) checkImplInstantiations(n *ast.ImplBlock) {
 		return
 	}
 	if !ContainsTypeParam(&TupleType{Elems: own.Args}) {
+		c.checkCoveredByStdImpl(n, own, others, header, recvName)
 		return
 	}
 	var rivals []string
@@ -771,6 +788,32 @@ func (c *checker) checkImplInstantiations(n *ast.ImplBlock) {
 	c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf(
 		"overlapping impls: `%s` for `%s` is generic in its type arguments, so it covers %s, which `%s` also implements",
 		header, recvName, quotedAnd(rivals), recvName)}.WithHint(
+		"a receiver implements an interface either once, generic in its type arguments, or once per distinct concrete argument list"))
+}
+
+// checkCoveredByStdImpl reports an impl at concrete type arguments that a
+// std impl generic in them covers: `impl Contains<Rate> for List<Rate>`
+// beside std's `impl Contains<T> for List<T>`, which the orphan rule admits
+// through `Rate`. Between two of the program's own impls the generic one
+// reports the overlap (checkImplInstantiations), but std is checked once,
+// apart from every program, so its impl never sees a program's; the
+// program's impl reports it instead.
+func (c *checker) checkCoveredByStdImpl(n *ast.ImplBlock, own *ImplTypeArgs, others []*ImplTypeArgs, header, recvName string) {
+	if strings.HasPrefix(own.File, "std/") {
+		return
+	}
+	var rivals []string
+	for _, o := range others {
+		if strings.HasPrefix(o.File, "std/") && ContainsTypeParam(&TupleType{Elems: o.Args}) && argsMayOverlap(own.Args, o.Args) {
+			rivals = append(rivals, "`"+(&InterfaceType{Name: TypeExprBaseName(n.Interface), TypeArgs: o.Args}).String()+"`")
+		}
+	}
+	if len(rivals) == 0 {
+		return
+	}
+	c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf(
+		"overlapping impls: std's %s for `%s` is generic in its type arguments, so it covers `%s`, which this impl implements",
+		quotedAnd(rivals), recvName, header)}.WithHint(
 		"a receiver implements an interface either once, generic in its type arguments, or once per distinct concrete argument list"))
 }
 

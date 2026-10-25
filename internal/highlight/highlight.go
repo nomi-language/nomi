@@ -12,10 +12,13 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/frontend"
+	"github.com/nomi-language/nomi/internal/hoverdoc"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/semtokens"
 	"github.com/nomi-language/nomi/internal/textpos"
+	"github.com/nomi-language/nomi/internal/virtualproject"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -94,4 +97,131 @@ func ByteCol(code string, line, col int) int {
 		return col
 	}
 	return textpos.ByteCol(lines[line-1], col-1) + 1
+}
+
+// Program is a multi-file snippet analyzed as one program: the tour's
+// tabbed examples, whose tabs are `// FILE: <name>` sections of one source
+// (internal/virtualproject). Every Nomi file is analyzed as part of the
+// whole program, the manifest and message catalogs included, as the run
+// builds it, so a name one tab imports from another resolves.
+type Program struct {
+	files map[string]ProgramFile
+}
+
+// ProgramFile is one Nomi file of a Program: its text as the tab holds it,
+// its analysis and the syntax trees the analysis was built from.
+type ProgramFile struct {
+	Source string
+	FA     *analysis.FileAnalysis
+	Nodes  []ast.Node
+}
+
+// File answers the file a tab names (`cart.nomi`), or false when the
+// program has no analysis of it.
+func (p *Program) File(name string) (ProgramFile, bool) {
+	if p == nil {
+		return ProgramFile{}, false
+	}
+	f, ok := p.files[virtualproject.NormalizeModuleName(name)]
+	return f, ok && f.FA != nil
+}
+
+// AnalyzeProgram analyzes a source carrying `// FILE:` markers as the
+// in-memory program the run loads (cmd/nomi-wasm's nomiRun): the entry, its
+// virtual siblings, the staged nomi.toml and catalogs, with macros run
+// through macros. A program with errors still answers its files' analyses.
+// A file the program did not reach or could not build (the entry does not
+// parse) is analyzed alone, as a single-file snippet is, so a tab still
+// answers something while its text is broken. It answers nil only when lib
+// is nil.
+func AnalyzeProgram(marked string, lib *std.StdLib, macros analysis.MacroHost) *Program {
+	if lib == nil {
+		return nil
+	}
+	prog := &Program{files: map[string]ProgramFile{}}
+	project, err := virtualproject.FromMarkedSource(marked)
+	if err != nil {
+		return prog
+	}
+	sources := map[string]string{project.EntryName: project.EntrySource}
+	for name, text := range project.VirtualFiles {
+		if !strings.HasSuffix(name, ".toml") {
+			sources[name] = text
+		}
+	}
+	if checked := analyzeProject(project, macros); checked != nil {
+		prog.files[project.EntryName] = ProgramFile{Source: project.EntrySource, FA: checked.FA, Nodes: checked.Nodes}
+		for _, f := range checked.Files {
+			if src, ok := sources[f.Key]; ok {
+				prog.files[f.Key] = ProgramFile{Source: src, FA: f.FA, Nodes: f.Nodes}
+			}
+		}
+	}
+	for name, src := range sources {
+		if _, ok := prog.files[name]; ok {
+			continue
+		}
+		fa, nodes := analyzeAlone(src, lib)
+		prog.files[name] = ProgramFile{Source: src, FA: fa, Nodes: nodes}
+	}
+	return prog
+}
+
+// analyzeProject runs the front end over project, answering every file's
+// analysis whether or not the program has errors, or nil when the entry
+// did not parse or the front end panicked.
+func analyzeProject(project virtualproject.Project, macros analysis.MacroHost) (p *frontend.Project) {
+	defer func() {
+		if recover() != nil {
+			p = nil
+		}
+	}()
+	c := frontend.New(frontend.Config{
+		VirtualFiles:    project.VirtualFiles,
+		VirtualManifest: project.Manifest,
+		Macros:          macros,
+	})
+	p, _ = c.AnalyzeSource(project.EntryName, project.EntrySource, frontend.Mode{Tests: true})
+	return p
+}
+
+// analyzeAlone is AnalyzeNodes, answering no analysis when it panics.
+func analyzeAlone(src string, lib *std.StdLib) (fa *analysis.FileAnalysis, nodes []ast.Node) {
+	defer func() {
+		if recover() != nil {
+			fa, nodes = nil, nil
+		}
+	}()
+	return AnalyzeNodes(src, lib)
+}
+
+// HoverIn answers the hover markdown at (line, col) in the file name names,
+// both 1-based and col in UTF-16 code units, or "" when there is nothing
+// to show.
+func (p *Program) HoverIn(name string, line, col int) (md string) {
+	f, ok := p.File(name)
+	if !ok {
+		return ""
+	}
+	defer func() {
+		if recover() != nil {
+			md = ""
+		}
+	}()
+	return hoverdoc.At(f.FA, f.Nodes, analysis.Pos{Line: line, Col: ByteCol(f.Source, line, col)})
+}
+
+// SemanticTokensIn answers the semantic tokens of the file name names, as
+// SemanticTokens answers them for a snippet.
+func (p *Program) SemanticTokensIn(name string) (toks []semtokens.Token) {
+	f, ok := p.File(name)
+	if !ok {
+		return nil
+	}
+	defer func() {
+		if recover() != nil {
+			toks = nil
+		}
+	}()
+	return semtokens.UTF16(f.Source, semtokens.Collect(f.FA))
 }

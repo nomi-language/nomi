@@ -557,6 +557,21 @@ func (bl *irScalarBuilder) testReturn(r *ast.Return) bool {
 		// A `return` in a group's setup ends the setup, not the case.
 		return bl.setupValue(r, r.Value)
 	}
+	if !bl.testExit(r) {
+		return false
+	}
+	pos := bl.g.irNodePos(r)
+	bl.b = bl.f.NewBlock(pos, "after-return")
+	return true
+}
+
+// testExit ends the case at r, a `return` in a test body outside a group's
+// setup, and leaves the cursor on the terminated block: the value, if any, is
+// the case's verdict (testVerdict) or discarded, and the Return runs every
+// pending deferred call. testReturn continues in a fresh block; an arm that
+// ends in the return (`Err(e) -> return Err(e)` in a binding's `case`) is
+// diverged, and its region's exit is the other arms'.
+func (bl *irScalarBuilder) testExit(r *ast.Return) bool {
 	if bl.recording > 0 {
 		irDeclineNote("a return in a test body the builder reads back")
 		return false
@@ -570,9 +585,7 @@ func (bl *irScalarBuilder) testReturn(r *ast.Return) bool {
 			bl.irStatementDrop(r.Value, val, k)
 		}
 	}
-	pos := bl.g.irNodePos(r)
-	bl.b.SetTerm(ir.NewReturnUnit(pos))
-	bl.b = bl.f.NewBlock(pos, "after-return")
+	bl.b.SetTerm(ir.NewReturnUnit(bl.g.irNodePos(r)))
 	return true
 }
 

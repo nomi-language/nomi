@@ -4,6 +4,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from "vscode-languageclient/node";
 import { AttachedTestDimmer } from "./attachedTestDecorations";
+import { catalogFilters, Manifest } from "./catalogs";
 import {
   debugMainConfiguration,
   debugTestConfiguration,
@@ -16,6 +17,8 @@ import { enclosingTestLine } from "./testLine";
 const installGuide = "https://github.com/nomi-language/nomi/blob/main/docs/install.md";
 
 let client: LanguageClient | undefined;
+/** The catalog filters the running client was started with. */
+let clientCatalogs = "";
 
 /** What activate returns: the smoke test reads the attached-test dimming. */
 export interface NomiExtensionApi {
@@ -45,6 +48,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<NomiEx
     vscode.commands.registerCommand("nomi.restartLanguageServer", () => restartClient()),
     vscode.debug.registerDebugConfigurationProvider("nomi", new NomiDebugConfigurationProvider()),
     vscode.debug.registerDebugAdapterDescriptorFactory("nomi", new NomiDebugAdapterFactory()),
+    catalogWatcher(),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("nomi.lsp.path")) {
         void restartClient();
@@ -74,10 +78,14 @@ async function startClient(): Promise<void> {
   }
 
   const serverOptions: ServerOptions = { command, args: [], transport: TransportKind.stdio };
+  const catalogs = catalogFilters(await workspaceManifests());
+  clientCatalogs = JSON.stringify(catalogs);
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
       { scheme: "file", language: "nomi" },
       { scheme: "untitled", language: "nomi" },
+      // The module's message catalogs, and no other TOML file.
+      ...catalogs,
     ],
   };
   client = new LanguageClient("nomi", "Nomi Language Server", serverOptions, clientOptions);
@@ -86,6 +94,40 @@ async function startClient(): Promise<void> {
   } catch (err) {
     void vscode.window.showErrorMessage(`Nomi: could not start ${command}: ${String(err)}`);
   }
+}
+
+/** Every nomi.toml in the workspace, with the directory holding it. */
+async function workspaceManifests(): Promise<Manifest[]> {
+  const uris = await vscode.workspace.findFiles("**/nomi.toml", "**/node_modules/**");
+  const out: Manifest[] = [];
+  for (const uri of uris) {
+    try {
+      const text = Buffer.from(await vscode.workspace.fs.readFile(uri)).toString("utf8");
+      out.push({ dir: path.dirname(uri.fsPath), text });
+    } catch {
+      // A manifest that cannot be read has no catalogs to attach to.
+    }
+  }
+  return out;
+}
+
+/**
+ * Restarts the client when a manifest change moves the catalogs it attaches
+ * to: a new module, a new `[i18n]` table, another `catalogs` directory.
+ */
+function catalogWatcher(): vscode.Disposable {
+  const watcher = vscode.workspace.createFileSystemWatcher("**/nomi.toml");
+  const recheck = async () => {
+    if (!client) return;
+    const catalogs = JSON.stringify(catalogFilters(await workspaceManifests()));
+    if (catalogs !== clientCatalogs) {
+      await restartClient();
+    }
+  };
+  watcher.onDidCreate(recheck);
+  watcher.onDidChange(recheck);
+  watcher.onDidDelete(recheck);
+  return watcher;
 }
 
 async function stopClient(): Promise<void> {
@@ -220,6 +262,9 @@ async function runNomi(args: string[], file: vscode.Uri): Promise<void> {
     `nomi ${args.map((a) => (a === file.fsPath ? path.basename(a) : a)).join(" ")}`,
     "nomi",
     new vscode.ShellExecution(nomi, args, { cwd: rootOf(file) }),
+    // A failed test (an assertion, a trap, a test stopped by its time
+    // limit) becomes a problem at its line: package.json's nomi-test matcher.
+    args[0] === "test" ? ["$nomi-test"] : [],
   );
   task.presentationOptions = {
     reveal: vscode.TaskRevealKind.Always,

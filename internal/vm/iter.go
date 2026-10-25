@@ -2,6 +2,7 @@ package vm
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/rt"
@@ -155,6 +156,12 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 	if m.fuel != nil {
 		seq = m.metered(seq)
 	}
+	if mustReachEnd(n) {
+		// Before anything is asked of the source: a terminal that has to
+		// reach the end of an endless one traps at once instead of
+		// running until memory runs out.
+		rt.SeqMustEnd(fr.runtime, seq, terminalName(fr, n))
+	}
 	switch n.Op() {
 	case ir.IterMap, ir.IterFilter:
 		callback, err := fr.read(n.Arg(1))
@@ -202,7 +209,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		}
 		if n.Signalling() {
 			fold := func(runtime *rt.Frame, acc, item any) (any, bool) {
-				return reduceOutcome(m.iterInvoke(f, runtime, acc, item))
+				return reduceOutcome(m.iterInvoke(f, runtime, acc, item), acc)
 			}
 			fr.write(n.Dst(), rt.SeqReduceCtl(fr.runtime, seq, seed, fold))
 			return nil
@@ -278,14 +285,14 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			return fmt.Errorf("vm: take requires an Int count")
 		}
 		fr.write(n.Dst(), rt.SeqTake(seq, count))
-	case ir.IterSortWith:
+	case ir.IterSort, ir.IterSortWith:
 		arg, err := fr.read(n.Arg(1))
 		if err != nil {
 			return err
 		}
 		cmp, ok := arg.(*functionValue)
 		if !ok || cmp == nil || cmp.arity != 2 {
-			return fmt.Errorf("vm: sort_with requires a binary comparator")
+			return fmt.Errorf("vm: %s requires a binary comparator", n.Op().Name())
 		}
 		desc, err := sortDescending(fr, n, 2)
 		if err != nil {
@@ -431,6 +438,8 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		fr.write(n.Dst(), maybeOf(rt.SeqLast(fr.runtime, seq)))
 	case ir.IterKnownCount:
 		fr.write(n.Dst(), countValue(rt.SeqKnownCount(fr.runtime, seq)))
+	case ir.IterInfinite:
+		fr.write(n.Dst(), boolValue(rt.SeqInfinite(fr.runtime, seq)))
 	case ir.IterReverse:
 		fr.write(n.Dst(), rt.SeqReverseCells[any, list](fr.runtime, seq))
 	case ir.IterWithIndex:
@@ -725,22 +734,101 @@ func (m *Machine) userView(fr *frame, n *ir.Iter, src any) error {
 	})
 	// A source that inherits known_count's declining default has no
 	// Count; one whose impl writes known_count carries it as operand 2.
+	// One whose impl writes infinite? carries it as operand 3, with Unit
+	// as operand 2 when it inherits known_count.
 	var count func(*rt.Frame) rt.Maybe[int64]
-	if n.NumArgs() == 3 {
+	if n.NumArgs() >= 3 {
 		v, err := fr.read(n.Arg(2))
 		if err != nil {
 			return err
 		}
 		kc, ok := v.(*functionValue)
-		if !ok || kc == nil || kc.arity != 1 {
+		_, inherits := v.(rt.Unit)
+		switch {
+		case inherits && n.NumArgs() == 4:
+		case !ok || kc == nil || kc.arity != 1:
 			return fmt.Errorf("vm: user source view operand 2 is %T, not its known_count", v)
-		}
-		count = func(runtime *rt.Frame) rt.Maybe[int64] {
-			return rangeSteps(m.iterInvoke(kc, runtime, src))
+		default:
+			count = func(runtime *rt.Frame) rt.Maybe[int64] {
+				return rangeSteps(m.iterInvoke(kc, runtime, src))
+			}
 		}
 	}
-	fr.write(n.Dst(), sourceView(view, src, count))
+	view = sourceView(view, src, count)
+	if n.NumArgs() == 4 {
+		v, err := fr.read(n.Arg(3))
+		if err != nil {
+			return err
+		}
+		inf, ok := v.(*functionValue)
+		if !ok || inf == nil || inf.arity != 1 {
+			return fmt.Errorf("vm: user source view operand 3 is %T, not its infinite?", v)
+		}
+		name := rt.ShortTypeName(runtimeTypeName(src))
+		if name == "" {
+			name = "Iter.infinite?"
+		}
+		view = rt.WithEndless(view, func(runtime *rt.Frame) string {
+			result := m.iterInvoke(inf, runtime, src)
+			endless, ok := asBool(result)
+			if !ok {
+				panic(iterationFailure{fmt.Errorf("vm: infinite? returned %T, not Bool", result)})
+			}
+			if endless {
+				return name
+			}
+			return ""
+		})
+	}
+	fr.write(n.Dst(), view)
 	return nil
+}
+
+// mustReachEnd reports whether n is a terminal that has to drive its source
+// to the end, so an endless source can never give its answer: the
+// materializers and folds. One whose callback can `break` (a signalling
+// reduce, each or map_reduce) may stop on its own, and the short-circuiting
+// terminals (`first`, `find`, `any?`, `all?`, `get`, `empty?`,
+// `each_while`) stop early by design.
+func mustReachEnd(n *ir.Iter) bool {
+	switch n.Op() {
+	case ir.IterToList, ir.IterCount, ir.IterLast, ir.IterJoin, ir.IterSort, ir.IterSortWith, ir.IterSortBy,
+		ir.IterPartition, ir.IterGroupBy, ir.IterReverse, ir.IterToSet, ir.IterToVector, ir.IterToMap,
+		ir.IterFlatten, ir.IterFlattenList:
+		return true
+	case ir.IterReduce, ir.IterEach, ir.IterMapReduce:
+		return !n.Signalling()
+	}
+	return false
+}
+
+// terminalName is the operation a program called that runs n: the std
+// function whose body holds n when n is in the standard library
+// (`Iter.max` folds with `Iter.reduce`), and otherwise n's own spelling.
+func terminalName(fr *frame, n *ir.Iter) string {
+	if n.Pos().Stdlib() && fr.fn != nil {
+		if name := stdFuncName(fr.fn.Name()); name != "" {
+			return name
+		}
+	}
+	if n.Op() == ir.IterJoin {
+		return "String.join"
+	}
+	return "Iter." + n.Op().Name()
+}
+
+// stdFuncName is a std function's `Owner.name` from its lowered name, which
+// opens with its file and may carry the type arguments it was instantiated
+// at (`iter.Iter.max<Int>`), or "" for a name that is not one.
+func stdFuncName(name string) string {
+	if i := strings.IndexByte(name, '<'); i >= 0 {
+		name = name[:i]
+	}
+	name = rt.ShortTypeName(name)
+	if strings.Count(name, ".") != 1 || strings.HasSuffix(name, ".") {
+		return ""
+	}
+	return name
 }
 
 // iterOrdering reads a callback's Ordering result inside a sequence driver.
@@ -798,16 +886,25 @@ func (m *Machine) ctlPredicate(f *functionValue, op ir.IterOp) func(*rt.Frame, a
 }
 
 // reduceOutcome reads a reduce callback's answer as rt.SeqReduceCtl's
-// (accumulator, keepGoing) pair. An ordinary return keeps going.
-func reduceOutcome(v any) (any, bool) {
+// (accumulator, keepGoing) pair, acc being the accumulator the callback was
+// given. An ordinary return keeps going. A reduce-form lambda answers its
+// `continue` and bare `break` with the accumulator itself; an iter-sensitive
+// named function, which signals in the adapter form whatever calls it,
+// answers them as CtlSkip and CtlStop, which keep the accumulator.
+func reduceOutcome(v, acc any) (any, bool) {
 	c, ok := v.(*ctlValue)
 	if !ok {
 		return v, true
 	}
-	if c.ctl != ir.CtlEmitStop {
-		panic(iterationFailure{fmt.Errorf("vm: reduce callback answered %s", c.ctl)})
+	switch c.ctl {
+	case ir.CtlEmitStop:
+		return c.v, false
+	case ir.CtlSkip:
+		return acc, true
+	case ir.CtlStop:
+		return acc, false
 	}
-	return c.v, false
+	panic(iterationFailure{fmt.Errorf("vm: reduce callback answered %s", c.ctl)})
 }
 
 // knownCount answers `Iter.known_count` for a family the source's static kind

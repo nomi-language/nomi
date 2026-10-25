@@ -6,7 +6,7 @@
 // and Go source spellings, and nothing in this file mentions reflect or
 // go/ast. internal/ffirun walks a Go signature as go/ast and asks which Nomi
 // type each Go spelling projects to, so it can compare that against the text
-// of the declaration (NomiForGoIdent, NomiForGoStdlibType).
+// of the declaration (NomiForGoIdent, NomiForGoNamedType).
 //
 // One table because there is one spec paragraph. A second copy would be the
 // same knowledge written twice, and the copies would drift on the first spec
@@ -37,9 +37,9 @@ type scalar struct {
 	// Several Go spellings may share one Nomi type, which is why the reverse
 	// direction is lossy.
 	goIdents []string
-	// goStdlib is the qualified stdlib Go spelling that projects to nomi,
-	// as "importPath.Name".
-	goStdlib string
+	// goNamed are the named Go types of another package that project to
+	// nomi, as "importPath.Name".
+	goNamed []string
 }
 
 // intSpellings are the Go integer type names that project to Nomi Int.
@@ -64,19 +64,25 @@ var table = []scalar{
 	// slice whose element projects to Byte, which is container knowledge and
 	// stays there.
 	{nomi: NomiBytes},
-	{nomi: NomiDuration, goStdlib: "time.Duration"},
-	{nomi: NomiInstant, goStdlib: "time.Time"},
-	// Dynamic is the declaration explicitly declining to constrain the slot:
-	// any Go type can carry it.
-	{nomi: NomiDynamic, goIdents: []string{"any"}},
+	{nomi: NomiDuration, goNamed: []string{"time.Duration"}},
+	{nomi: NomiInstant, goNamed: []string{"time.Time"}},
+	// Dynamic crosses as a Go empty interface, which holds the value the
+	// Dynamic wraps, or as the rt.Dynamic that is the Nomi value itself. A
+	// named empty interface is container knowledge, read where the Go
+	// declaration is.
+	{nomi: NomiDynamic, goIdents: []string{"any"}, goNamed: []string{RtImportPath + ".Dynamic"}},
 	// Unit carries no value. How many Go results a declared Unit return
 	// allows is a SHAPE rule, owned by the caller's arity check.
 	{nomi: NomiUnit},
 }
 
+// RtImportPath is the import path of the runtime library, whose rt.Dynamic
+// a binding may name.
+const RtImportPath = "github.com/nomi-language/nomi/rt"
+
 var (
-	byGoIdent  = make(map[string]string, len(table)*3)
-	byGoStdlib = make(map[string]string, 2)
+	byGoIdent = make(map[string]string, len(table)*3)
+	byGoNamed = make(map[string]string, 3)
 )
 
 func init() {
@@ -84,8 +90,8 @@ func init() {
 		for _, ident := range row.goIdents {
 			byGoIdent[ident] = row.nomi
 		}
-		if row.goStdlib != "" {
-			byGoStdlib[row.goStdlib] = row.nomi
+		for _, named := range row.goNamed {
+			byGoNamed[named] = row.nomi
 		}
 	}
 }
@@ -97,11 +103,12 @@ func NomiForGoIdent(name string) (string, bool) {
 	return nomi, ok
 }
 
-// NomiForGoStdlibType maps a qualified stdlib Go type onto the Nomi type it
-// projects to — `time.Duration` -> Duration, `time.Time` -> Instant.
-// importPath is the RESOLVED path of the selector's package, so a local
-// type that merely spells `time.Time` cannot masquerade as one.
-func NomiForGoStdlibType(importPath, name string) (string, bool) {
-	nomi, ok := byGoStdlib[importPath+"."+name]
+// NomiForGoNamedType maps a named Go type of another package onto the Nomi
+// type it projects to: `time.Duration` -> Duration, `time.Time` -> Instant,
+// `rt.Dynamic` -> Dynamic. importPath is the RESOLVED path of the
+// selector's package, so a local type that merely spells `time.Time` cannot
+// masquerade as one.
+func NomiForGoNamedType(importPath, name string) (string, bool) {
+	nomi, ok := byGoNamed[importPath+"."+name]
 	return nomi, ok
 }

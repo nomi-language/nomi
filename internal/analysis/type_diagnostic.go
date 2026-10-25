@@ -64,18 +64,19 @@ func sprintTypes(entry, format string, args []any) string {
 			idx = append(idx, i)
 		}
 	}
-	if len(idx) < 2 {
-		return fmt.Sprintf(format, args...)
-	}
 	// Render each Type once. Every verb these messages use (%s, %v, %q)
 	// formats a Stringer exactly as it formats its String(), so the rendered
-	// text stands in for the Type in the ordinary case.
+	// text stands in for the Type in the ordinary case. A type variable no
+	// solution reached is `_` (renderType).
 	out := make([]any, len(args))
 	copy(out, args)
 	rendered := map[int]string{}
 	for _, i := range idx {
-		rendered[i] = args[i].(Type).String()
+		rendered[i] = renderType(args[i].(Type), entry)
 		out[i] = rendered[i]
+	}
+	if len(idx) < 2 {
+		return fmt.Sprintf(format, out...)
 	}
 	amb := map[string]bool{}
 	collide := map[int]bool{}
@@ -102,6 +103,19 @@ func sprintTypes(entry, format string, args []any) string {
 		out[i] = sb.String()
 	}
 	return fmt.Sprintf(format, out...)
+}
+
+// renderType is t as a diagnostic shows it: its String, except that a type
+// variable the checker never solved, an internal name (`?23`) that means
+// nothing to the reader, is `_`, as in `Maybe<_>`: a Maybe of a type the
+// program does not fix.
+func renderType(t Type, entry string) string {
+	if !containsTypeVar(t) {
+		return t.String()
+	}
+	var sb strings.Builder
+	writeQualifiedType(&sb, t, nil, entry)
+	return sb.String()
 }
 
 // isNilType reports a typed nil (`(*StructType)(nil)` in a Type), whose
@@ -284,7 +298,7 @@ func writeQualifiedType(sb *strings.Builder, t Type, amb map[string]bool, entry 
 			writeQualifiedType(sb, v.Resolved, amb, entry)
 			return
 		}
-		sb.WriteString(v.String())
+		sb.WriteString("_")
 	default:
 		sb.WriteString(t.String())
 	}

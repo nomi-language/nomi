@@ -212,6 +212,11 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 		// Render as `once name: T = value` so the kind, type, and value
 		// (when literal-renderable) are visible at hover.
 		sig = "once " + sym.Name
+		if n, ok := sym.Node.(*ast.OnceBinding); ok && n.Expansion != nil && n.Expansion.Keyword == "noun" {
+			// The value a `noun` declaration names: shown as declared.
+			sig, doc = "noun "+sym.Name+": Noun", n.Doc
+			break
+		}
 		switch {
 		case sym.Type != nil:
 			sig = "once " + sym.Name + ": " + displayBindingType(sym)
@@ -234,6 +239,13 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 		doc = sym.Doc
 		if sym.Type != nil {
 			sig = sym.Name + ": " + displayValueType(sym.Type)
+		}
+	case analysis.SymbolMacro:
+		// A macro's keyword, at its declaration or at a declaration
+		// written with it.
+		if d, ok := sym.Node.(*ast.MacroDecl); ok && d.Impl != nil {
+			sig = "macro " + d.Name + ": " + d.Impl.TypeString()
+			doc = d.Doc
 		}
 	case analysis.SymbolEnumVariant:
 		return renderVariant(sym, false)
@@ -923,6 +935,11 @@ func typeAt(ft *analysis.FuncType, i int) analysis.Type {
 }
 
 func renderTypeExprSelfAware(te ast.TypeExpr, resolved analysis.Type, receiver analysis.Type, receiverName string) string {
+	if q, ok := te.(*ast.QualifiedType); ok && strings.HasSuffix(q.Module, "$") {
+		// A qualifier no source writes, a message expansion's hidden
+		// import: the reader knows the type by its own name.
+		return q.Member.TypeString()
+	}
 	if !typeExprContainsSelf(te) {
 		return te.TypeString()
 	}

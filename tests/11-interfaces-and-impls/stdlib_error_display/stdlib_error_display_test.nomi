@@ -1,8 +1,8 @@
 // A stdlib error must render through its own `impl Display`.
 //
 // Runtime type identity is (declaring file, name), spelled into the value's
-// runtime type name — `random.Error`, not `Error`. Two std modules declare
-// an `Error` (calendar and random), so a value stamped with the BARE name
+// runtime type name — `random.Error`, not `Error`. Several std modules declare
+// an `Error` (calendar, random, uuid), so a value stamped with the BARE name
 // matches two registered impls, and dispatch correctly refuses to guess
 // between them: `Display.to_string: no implementation for type 'Error'`.
 //

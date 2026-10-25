@@ -26,6 +26,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/nodeenv"
 )
 
 // harness drives nomiRun the way the playground's worker does. Node needs
@@ -132,6 +134,7 @@ func TestWasmBuildRunsAConcurrentProgram(t *testing.T) {
 
 	cmd := exec.Command(node, runner, src)
 	cmd.Dir = dir
+	cmd.Env = nodeenv.Minimal(os.Environ())
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("running the program under wasm failed: %v\n%s", err, out)

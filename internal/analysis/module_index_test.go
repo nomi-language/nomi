@@ -93,11 +93,12 @@ func TestBuildModuleIndex_NoGoMod(t *testing.T) {
 	}
 }
 
-// TestBuildModuleIndex_RequireWithoutReplace tests the "no replace"
-// case. Only local-replace deps are supported (no module proxy
-// resolution), so a bare require with no matching replace is silently
-// skipped — not an error.
+// TestBuildModuleIndex_RequireWithoutReplace tests a require with no replace
+// whose module the module cache does not hold. The analysis never downloads,
+// so it is left out of the index, not an error; an import of it reports it
+// missing (TestShortNameImport_FromTheModuleCacheAndMissingFromIt).
 func TestBuildModuleIndex_RequireWithoutReplace(t *testing.T) {
+	t.Setenv("GOMODCACHE", t.TempDir())
 	tmp := t.TempDir()
 	writeFile(t, filepath.Join(tmp, "go.mod"), `module todo
 

@@ -28,10 +28,18 @@ func TestDetectMissingImplsFlagsUnresolvedPair(t *testing.T) {
 	if errs[0].Line != 7 || errs[0].Col != 12 {
 		t.Errorf("expected error at 7:12, got %d:%d", errs[0].Line, errs[0].Col)
 	}
-	for _, want := range []string{"Display", "Pad", "/abs/proj/main.nomi", "derive Display"} {
+	if errs[0].File != "/abs/proj/main.nomi" {
+		t.Errorf("expected error in /abs/proj/main.nomi, got %q", errs[0].File)
+	}
+	for _, want := range []string{"Display", "Pad", "derive Display"} {
 		if !strings.Contains(diagText(errs[0]), want) {
 			t.Errorf("error message missing %q: %s", want, errs[0].Message)
 		}
+	}
+	// The renderer shows the position; a path in the message repeats it,
+	// absolute.
+	if strings.Contains(errs[0].Message, "main.nomi") {
+		t.Errorf("error message holds the path: %s", errs[0].Message)
 	}
 }
 
@@ -129,7 +137,7 @@ func TestDetectMissingImplsAttributesToUserProjectSite(t *testing.T) {
 
 // TestDetectMissingImplsOrderingDeterministic: when a single (Iface, T)
 // pair carries multiple user-project Recordings from different files,
-// the primary error site and the inlined "also required at" notes must
+// the primary error site and the "also required here" related locations must
 // be ordered deterministically across runs. buildProjectImplIndex sorts
 // the Recording slice in-place (by Pos.File, Line, Col, Kind) so map-
 // iteration randomization in upstream folding can't reshuffle the
@@ -169,8 +177,8 @@ func TestDetectMissingImplsOrderingDeterministic(t *testing.T) {
 	if errs[0].Line != 9 || errs[0].Col != 1 {
 		t.Errorf("expected primary site at recA (9:1), got %d:%d", errs[0].Line, errs[0].Col)
 	}
-	if !strings.Contains(errs[0].Message, "/abs/proj/a.nomi:9:1") {
-		t.Errorf("expected primary message to mention a.nomi:9:1; got:\n%s", errs[0].Message)
+	if errs[0].File != "/abs/proj/a.nomi" {
+		t.Errorf("expected primary site in a.nomi; got %q", errs[0].File)
 	}
 	// Related locations come in sorted Pos order: b.nomi before c.nomi.
 	var got []string

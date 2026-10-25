@@ -1,0 +1,530 @@
+import {
+    std/channels.{Channel, Receiver, Sender}
+    std/sql.{self, Conn, Dialect, Row, Sql, Statement, Value}
+    std/sql_testing.{self, Fake}
+    std/tasks.{Outcome, Task}
+}
+
+fn insert(conn: Conn, name: String) -> Result<Unit, sql.Error> {
+    _ = try Conn.exec(conn, Sql"INSERT INTO users (name) VALUES (${name})")
+    Ok(Unit)
+}
+
+fn names(statements: List<Statement>) -> List<Value> {
+    statements |> Iter.flat_map(.params) |> Iter.to_list()
+}
+
+test "the fake records every statement and answers with no rows" {
+    fake = Fake.new()
+    assert Conn.query(fake, Sql"SELECT * FROM users") == Ok([])
+    assert Conn.exec(fake, Sql"DELETE FROM users WHERE id = ${3}") == Ok(0)
+    assert Fake.log(fake) == ["SELECT * FROM users", "DELETE FROM users WHERE id = ?1"]
+
+    assert Fake.statements(fake) == [
+        Sql"SELECT * FROM users",
+        Sql"DELETE FROM users WHERE id = ${3}",
+    ]
+
+    assert Conn.ping(fake) == Ok(Unit)
+    assert Conn.dialect(fake) == Dialect.Other("fake")
+}
+
+test "a fake answers each statement with the function it was given" {
+    fake = Fake.new(
+        dialect: Dialect.Sqlite,
+        answer: fn statement, _ -> {
+            if statement.parts == ["SELECT name FROM users"] {
+                Ok([Row.new("${statement}", [#("name", Value.Text("Ada"))])])
+            } else {
+                Err(
+                    #sql.Error.Constraint{
+                        kind: .Unique,
+                        name: "users_name_key",
+                        table: Some("users"),
+                        column: None,
+                    }
+                )
+            }
+        },
+    )
+
+    assert Conn.dialect(fake) == Dialect.Sqlite
+    assert Ok([row]) = Conn.query(fake, Sql"SELECT name FROM users")
+    assert Row.get<String>(row, "name") == Ok("Ada")
+    assert Err(#sql.Error.Constraint{name}) = insert(fake, "Ada")
+    assert name == "users_name_key"
+
+    // A statement the answer refused took no effect.
+    assert Fake.committed(fake) == [Sql"SELECT name FROM users"]
+}
+
+test "each_row stops when the callback answers False" {
+    rows =
+        [1, 2, 3] |> Iter.map(fn n -> Row.new("SELECT n", [#("n", Value.Int(n))])) |> Iter.to_list()
+
+    fake = Fake.new(answer: fn _, _ -> Ok(rows))
+    seen: Channel<Int> = Channel.buffered(3)
+
+    result = Conn.each_row(fake, Sql"SELECT n", fn row -> {
+        n = Row.get<Int>(row, "n") |> Result.with_default(0)
+        _ = Sender.send(seen.sender, n)
+        n < 2
+    })
+
+    assert result == Ok(Unit)
+    assert Receiver.receive(seen.receiver) == Some(1)
+    assert Receiver.receive(seen.receiver) == Some(2)
+    Sender.close(seen.sender)
+    assert Receiver.receive(seen.receiver) == None
+}
+
+test "a transaction commits when its body returns Ok" {
+    fake = Fake.new()
+
+    answer = sql.transaction(fake, fn tx -> {
+        try insert(tx, "Ada")
+        try insert(tx, "Grace")
+        Ok(2)
+    })
+
+    assert answer == Ok(2)
+
+    assert Fake.log(fake) == [
+        "BEGIN",
+        "INSERT INTO users (name) VALUES (?1)",
+        "INSERT INTO users (name) VALUES (?1)",
+        "COMMIT",
+    ]
+
+    assert names(Fake.committed(fake)) == [Value.Text("Ada"), Value.Text("Grace")]
+}
+
+test "a transaction rolls back when its body returns Err, and answers that Err" {
+    fake = Fake.new()
+
+    answer = sql.transaction<Int>(fake, fn tx -> {
+        try insert(tx, "Ada")
+        Err(sql.Error.Timeout)
+    })
+
+    assert answer == Err(sql.Error.Timeout)
+    assert Fake.log(fake) == ["BEGIN", "INSERT INTO users (name) VALUES (?1)", "ROLLBACK"]
+    assert Fake.committed(fake) == []
+}
+
+test "a transaction rolls back when its body traps" {
+    fake = Fake.new()
+
+    outcome = concurrent {
+        task = Task.spawn(fn -> {
+            sql.transaction(fake, fn tx -> {
+                try insert(tx, "Ada")
+                zero = Iter.count([])
+                Ok(1 / zero)
+            })
+        })
+
+        Task.outcome(task)
+    }
+
+    assert Outcome.Failed(_) = outcome
+    assert Fake.log(fake) == ["BEGIN", "INSERT INTO users (name) VALUES (?1)", "ROLLBACK"]
+    assert Fake.committed(fake) == []
+}
+
+test "a transaction inside a transaction is a savepoint" {
+    fake = Fake.new()
+
+    answer = sql.transaction(fake, fn tx -> {
+        try insert(tx, "Ada")
+
+        inner = sql.transaction(tx, fn sp -> {
+            try insert(sp, "Grace")
+            Ok("kept")
+        })
+
+        failed = sql.transaction(tx, fn sp -> {
+            try insert(sp, "Edsger")
+
+            sql.transaction<Unit>(sp, fn deeper -> {
+                try insert(deeper, "Barbara")
+                Err(sql.Error.Timeout)
+            })
+        })
+
+        Ok(#(inner, failed))
+    })
+
+    assert answer == Ok(#(Ok("kept"), Err(sql.Error.Timeout)))
+
+    assert Fake.log(fake) == [
+        "BEGIN",
+        "INSERT INTO users (name) VALUES (?1)",
+        "SAVEPOINT sp1",
+        "INSERT INTO users (name) VALUES (?1)",
+        "RELEASE SAVEPOINT sp1",
+        "SAVEPOINT sp1",
+        "INSERT INTO users (name) VALUES (?1)",
+        "SAVEPOINT sp2",
+        "INSERT INTO users (name) VALUES (?1)",
+        "ROLLBACK TO SAVEPOINT sp2",
+        "ROLLBACK TO SAVEPOINT sp1",
+        "COMMIT",
+    ]
+
+    // Only the failed savepoints' writes are gone.
+    assert names(Fake.committed(fake)) == [Value.Text("Ada"), Value.Text("Grace")]
+}
+
+test "a savepoint committed inside a transaction rolled back is rolled back with it" {
+    fake = Fake.new()
+    assert Ok(tx) = Conn.begin(fake)
+    assert insert(tx, "Ada") == Ok(Unit)
+    assert Ok(sp) = Conn.begin(tx)
+    assert insert(sp, "Grace") == Ok(Unit)
+    assert Conn.commit(sp) == Ok(Unit)
+    assert Conn.rollback(tx) == Ok(Unit)
+    assert Fake.committed(fake) == []
+}
+
+test "a finished transaction refuses commit and statements, and its rollback is a no-op" {
+    fake = Fake.new()
+    assert Ok(tx) = Conn.begin(fake)
+    assert Conn.commit(tx) == Ok(Unit)
+    assert Conn.rollback(tx) == Ok(Unit)
+    assert Conn.commit(tx) == Err(sql.Error.Finished)
+    assert insert(tx, "Ada") == Err(sql.Error.Finished)
+    assert Conn.begin(tx) |> Result.err?()
+    assert Fake.log(fake) == ["BEGIN", "COMMIT"]
+}
+
+test "the fake passes the conformance suite" {
+    assert sql_testing.conformance(fn -> Ok(Fake.new(answer: sql_testing.conformance_answer))) == []
+}
+
+test "the suite names its rules" {
+    rules = sql_testing.rules()
+    assert Iter.count(rules) == 29
+    assert Iter.contains?(rules, "rollback after commit is a no-op")
+    assert Iter.contains?(rules, "savepoints nest")
+    assert Iter.contains?(rules, "sql.transaction rolls back on a trap")
+    assert Iter.contains?(rules, "closing a transaction closes its connection")
+}
+
+test "the suite closes every connection it opens" {
+    opened: Channel<Fake> = Channel.buffered(Iter.count(sql_testing.rules()))
+
+    open = fn -> {
+        fake = Fake.new(answer: sql_testing.conformance_answer)
+        _ = Sender.send(opened.sender, fake)
+        Ok(fake)
+    }
+
+    assert sql_testing.conformance(open) == []
+    Sender.close(opened.sender)
+
+    fakes = Iter.loop(fn fakes = [] -> {
+        case Receiver.receive(opened.receiver) {
+            Some(fake) -> fakes + [fake]
+            None -> break fakes
+        }
+    })
+
+    assert Iter.count(fakes) == Iter.count(sql_testing.rules())
+    assert Iter.all?(fakes, Fake.closed?)
+}
+
+// A driver that sends rollback and ignores it: everything it rolls back
+// stays.
+struct ForgetsRollback {
+    inner: Conn
+}
+
+impl Conn for ForgetsRollback {
+    fn query(conn: ForgetsRollback, statement: Statement) -> Result<List<Row>, sql.Error> {
+        Conn.query(conn.inner, statement)
+    }
+
+    fn each_row(
+        conn: ForgetsRollback,
+        statement: Statement,
+        f: (Row) -> Bool,
+    ) -> Result<Unit, sql.Error> {
+        Conn.each_row(conn.inner, statement, f)
+    }
+
+    fn exec(conn: ForgetsRollback, statement: Statement) -> Result<Int, sql.Error> {
+        Conn.exec(conn.inner, statement)
+    }
+
+    fn begin(conn: ForgetsRollback) -> Result<Conn, sql.Error> {
+        tx = try Conn.begin(conn.inner)
+        Ok(#ForgetsRollback{inner: tx})
+    }
+
+    fn commit(tx: ForgetsRollback) -> Result<Unit, sql.Error> {
+        Conn.commit(tx.inner)
+    }
+
+    fn rollback(_: ForgetsRollback) -> Result<Unit, sql.Error> {
+        Ok(Unit)
+    }
+
+    fn ping(conn: ForgetsRollback) -> Result<Unit, sql.Error> {
+        Conn.ping(conn.inner)
+    }
+
+    fn dialect(conn: ForgetsRollback) -> Dialect {
+        Conn.dialect(conn.inner)
+    }
+
+    fn close(conn: ForgetsRollback) -> Result<Unit, sql.Error> {
+        Conn.close(conn.inner)
+    }
+}
+
+test "the suite names each rule a broken driver breaks" {
+    open = fn -> {
+        inner: Conn = Fake.new(answer: sql_testing.conformance_answer)
+        Ok(#ForgetsRollback{inner})
+    }
+
+    failures = sql_testing.conformance(open)
+
+    assert Iter.map(failures, .rule) |> Iter.to_list() == [
+        "rollback discards a transaction's writes",
+        "rolling back a savepoint keeps the transaction's writes",
+        "a committed savepoint is rolled back with its transaction",
+        "savepoints nest",
+        "rollback after rollback is a no-op",
+        "sql.transaction rolls back on Err",
+        "sql.transaction rolls back on a trap",
+        "an inner sql.transaction that fails rolls back only its own work",
+        // Its rollback answers Ok even on a closed connection.
+        "every operation after close is Closed",
+        "closing a transaction closes its connection",
+        "closing a connection ends its transaction",
+    ]
+
+    assert Some(first) = Iter.first(failures)
+    assert "${first}" == "rollback discards a transaction's writes: expected the rows [], found [1]"
+}
+
+// A driver whose close answers Ok and closes nothing.
+struct NeverCloses {
+    inner: Conn
+}
+
+impl Conn for NeverCloses {
+    fn query(conn: NeverCloses, statement: Statement) -> Result<List<Row>, sql.Error> {
+        Conn.query(conn.inner, statement)
+    }
+
+    fn each_row(
+        conn: NeverCloses,
+        statement: Statement,
+        f: (Row) -> Bool,
+    ) -> Result<Unit, sql.Error> {
+        Conn.each_row(conn.inner, statement, f)
+    }
+
+    fn exec(conn: NeverCloses, statement: Statement) -> Result<Int, sql.Error> {
+        Conn.exec(conn.inner, statement)
+    }
+
+    fn begin(conn: NeverCloses) -> Result<Conn, sql.Error> {
+        tx = try Conn.begin(conn.inner)
+        Ok(#NeverCloses{inner: tx})
+    }
+
+    fn commit(tx: NeverCloses) -> Result<Unit, sql.Error> {
+        Conn.commit(tx.inner)
+    }
+
+    fn rollback(tx: NeverCloses) -> Result<Unit, sql.Error> {
+        Conn.rollback(tx.inner)
+    }
+
+    fn ping(conn: NeverCloses) -> Result<Unit, sql.Error> {
+        Conn.ping(conn.inner)
+    }
+
+    fn dialect(conn: NeverCloses) -> Dialect {
+        Conn.dialect(conn.inner)
+    }
+
+    fn close(_: NeverCloses) -> Result<Unit, sql.Error> {
+        Ok(Unit)
+    }
+}
+
+test "the suite names the close rules a driver that never closes breaks" {
+    open = fn -> {
+        inner: Conn = Fake.new(answer: sql_testing.conformance_answer)
+        Ok(#NeverCloses{inner})
+    }
+
+    failures = sql_testing.conformance(open)
+
+    assert Iter.map(failures, .rule) |> Iter.to_list() == [
+        "every operation after close is Closed",
+        "closing a transaction closes its connection",
+        "closing a connection ends its transaction",
+        "sql.with_connection closes on Ok",
+        "sql.with_connection closes on Err",
+        "sql.with_connection closes on a trap",
+    ]
+
+    assert Some(first) = Iter.first(failures)
+    assert "${first}" == "every operation after close is Closed: the connection's ping answered Ok, not Closed"
+}
+
+fn closed?<T>(result: Result<T, sql.Error>) -> Bool {
+    case result {
+        Err(sql.Error.Closed) -> True
+        _ -> False
+    }
+}
+
+// Every operation of conn answers Closed.
+fn all_closed?(conn: Conn) -> Bool {
+    [
+        closed?(Conn.ping(conn)),
+        closed?(Conn.query(conn, Sql"SELECT 1")),
+        closed?(Conn.each_row(conn, Sql"SELECT 1", fn _ -> True)),
+        closed?(insert(conn, "Edsger")),
+        closed?(Conn.begin(conn)),
+        closed?(Conn.commit(conn)),
+        closed?(Conn.rollback(conn)),
+    ]
+    |> Iter.all?(fn closed -> closed)
+}
+
+test "close ends every transaction, refuses everything after, and a second close is a no-op" {
+    fake = Fake.new()
+    assert insert(fake, "Ada") == Ok(Unit)
+    assert Ok(tx) = Conn.begin(fake)
+    assert insert(tx, "Grace") == Ok(Unit)
+    assert Ok(sp) = Conn.begin(tx)
+    assert Conn.close(fake) == Ok(Unit)
+    assert Conn.close(fake) == Ok(Unit)
+    assert Fake.closed?(fake)
+
+    // The open transaction's write is gone; the committed one stays.
+    assert names(Fake.committed(fake)) == [Value.Text("Ada")]
+
+    assert all_closed?(fake)
+    assert all_closed?(tx)
+    assert all_closed?(sp)
+
+    assert Conn.dialect(tx) == Dialect.Other("fake")
+
+    assert Fake.log(fake) == [
+        "INSERT INTO users (name) VALUES (?1)",
+        "BEGIN",
+        "INSERT INTO users (name) VALUES (?1)",
+        "SAVEPOINT sp1",
+        "CLOSE",
+    ]
+}
+
+test "closing a transaction closes its connection" {
+    fake = Fake.new()
+    assert Ok(tx) = Conn.begin(fake)
+    assert insert(tx, "Ada") == Ok(Unit)
+    assert Conn.close(tx) == Ok(Unit)
+    assert Fake.closed?(fake)
+    assert Conn.ping(fake) == Err(sql.Error.Closed)
+    assert Fake.committed(fake) == []
+    assert Fake.log(fake) == ["BEGIN", "INSERT INTO users (name) VALUES (?1)", "CLOSE"]
+}
+
+test "a closed connection's transaction answers Closed" {
+    fake = Fake.new()
+    assert Conn.close(fake) == Ok(Unit)
+    assert sql.transaction(fake, fn tx -> insert(tx, "Ada")) == Err(sql.Error.Closed)
+    assert Fake.log(fake) == ["CLOSE"]
+}
+
+test "sql.with_connection closes the connection on Ok and on Err" {
+    kept = Fake.new()
+    assert sql.with_connection(fn -> Ok(kept), fn conn -> insert(conn, "Ada")) == Ok(Unit)
+    assert Fake.log(kept) == ["INSERT INTO users (name) VALUES (?1)", "CLOSE"]
+
+    failed = Fake.new()
+
+    answer = sql.with_connection<Fake, Unit>(fn -> Ok(failed), fn conn -> {
+        try insert(conn, "Ada")
+        Err(sql.Error.Timeout)
+    })
+
+    assert answer == Err(sql.Error.Timeout)
+    assert Fake.log(failed) == ["INSERT INTO users (name) VALUES (?1)", "CLOSE"]
+}
+
+test "sql.with_connection closes the connection when its body traps" {
+    fake = Fake.new()
+
+    outcome = concurrent {
+        task = Task.spawn(fn -> {
+            sql.with_connection(fn -> Ok(fake), fn conn -> {
+                try insert(conn, "Ada")
+                zero = Iter.count([])
+                Ok(1 / zero)
+            })
+        })
+
+        Task.outcome(task)
+    }
+
+    assert Outcome.Failed(_) = outcome
+    assert Fake.closed?(fake)
+}
+
+test "sql.with_connection answers open's Err and runs no body" {
+    refused: Result<Fake, sql.Error> = Err(#sql.Error.Connection{message: "refused"})
+    answer = sql.with_connection(fn -> refused, fn conn -> insert(conn, "Ada"))
+    assert answer == Err(#sql.Error.Connection{message: "refused"})
+}
+
+test "a transaction inside sql.with_connection commits before the close" {
+    fake = Fake.new()
+
+    answer = sql.with_connection(fn -> Ok(fake), fn conn -> {
+        sql.transaction(conn, fn tx -> insert(tx, "Ada"))
+    })
+
+    assert answer == Ok(Unit)
+    assert Fake.log(fake) == ["BEGIN", "INSERT INTO users (name) VALUES (?1)", "COMMIT", "CLOSE"]
+    assert names(Fake.committed(fake)) == [Value.Text("Ada")]
+}
+
+// Registered before the close in the group's setup, so it runs after it: a
+// test's defers run last registered first, once the test has finished. A
+// `defer` cannot assert, so a connection left open traps here, which fails
+// the test as a failed cleanup.
+fn expect_closed(fake: Fake) {
+    if !Fake.closed?(fake) {
+        zero = Iter.count([])
+        _ = 1 / zero
+    }
+}
+
+group "a connection setup opens and a defer closes" {
+    setup {
+        fake = Fake.new()
+        defer expect_closed(fake)
+        defer sql.close_quietly(fake)
+        fake
+    }
+
+    test "the connection is open while the test runs", fake {
+        assert insert(fake, "Ada") == Ok(Unit)
+        refute Fake.closed?(fake)
+    }
+
+    test "each test has its own connection", fake {
+        assert Fake.log(fake) == []
+        assert Conn.ping(fake) == Ok(Unit)
+    }
+}

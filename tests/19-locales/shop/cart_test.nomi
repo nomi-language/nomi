@@ -1,0 +1,92 @@
+import {
+    std/locale.Locale
+    std/message.Message
+    cart
+    cart.Status
+}
+
+test "a count selects English's and Polish's plural forms" {
+    en = Locale`en`
+    pl = Locale`pl`
+    assert cart.cart_items(1) |> Message.format(en) == "1 item in your cart"
+    assert cart.cart_items(2) |> Message.format(en) == "2 items in your cart"
+    assert cart.cart_items(1) |> Message.format(pl) == "1 produkt w koszyku"
+    assert cart.cart_items(2) |> Message.format(pl) == "2 produkty w koszyku"
+    assert cart.cart_items(5) |> Message.format(pl) == "5 produktów w koszyku"
+    assert cart.cart_items(22) |> Message.format(pl) == "22 produkty w koszyku"
+    assert cart.cart_items(25) |> Message.format(pl) == "25 produktów w koszyku"
+}
+
+test "a number is written as the locale writes it" {
+    assert cart.cart_items(1234) |> Message.format(Locale`en`) == "1,234 items in your cart"
+    assert cart.cart_items(1234) |> Message.format(Locale`pl`) == "1234 produkty w koszyku"
+    assert cart.cart_items(12345) |> Message.format(Locale`pl`) == "12\u{a0}345 produktów w koszyku"
+}
+
+test "an enum selects its variant's arm" {
+    assert cart.order_status(Status.Pending)
+    |> Message.format(Locale`en`) == "Your order is waiting to ship"
+
+    assert cart.order_status(Status.Shipped)
+    |> Message.format(Locale`pl`) == "Zamówienie zostało wysłane"
+
+    assert cart.order_status(Status.Delivered)
+    |> Message.format(Locale`pt`) == "O pedido foi entregue"
+}
+
+test "pt-PT falls back to pt" {
+    assert cart.cart_items(3) |> Message.format(Locale`pt-PT`) == "3 itens no carrinho"
+}
+
+test "a partial locale falls back to the source for what it lacks" {
+    de = Locale`de`
+
+    assert cart.order_status(Status.Shipped)
+    |> Message.format(de) == "Ihre Bestellung ist unterwegs"
+
+    // de's cart_items was translated from an older text: English shows.
+    assert cart.cart_items(3) |> Message.format(de) == "3 items in your cart"
+}
+
+test "an unlisted locale shows the source" {
+    assert cart.cart_items(3) |> Message.format(Locale`fr`) == "3 items in your cart"
+}
+
+test "a placeholder is isolated in a right-to-left locale" {
+    ar = Locale`ar`
+    names = String.join_list(["Anna", "Ben", "Chloé"], ar)
+
+    assert cart.watching(names)
+    |> Message.format(ar) == "\u{2068}${names}\u{2069} يشاهدون هذا المنتج"
+}
+
+test "a message's argument is another message, formatted in the same locale" {
+    items = cart.cart_items(3)
+
+    assert cart.cart_summary("Anna", items)
+    |> Message.format(Locale`en`) == "Anna, you have 3 items in your cart"
+
+    assert cart.cart_summary("Anna", items)
+    |> Message.format(Locale`pl`) == "Anna, masz 3 produkty w koszyku"
+}
+
+test "a list of names fills a placeholder" {
+    en = Locale`en`
+    names = String.join_list(["Anna", "Ben", "Chloé"], en)
+
+    assert cart.watching(names)
+    |> Message.format(en) == "Anna, Ben, and Chloé are watching this item"
+}
+
+test "the pseudo-locales need no catalog" {
+    assert cart.cart_items(3) |> Message.format(Locale`en-XA`) == "[3 îţéɱš îñ ýöûŕ çåŕţ one two]"
+
+    assert cart.cart_items(3)
+    |> Message.format(Locale`ar-XB`) == "\u{2068}3\u{2069}\u{202e} items in your cart\u{202c}"
+}
+
+test "a message is a value: equal when its declaration and arguments are" {
+    assert cart.cart_items(3) == cart.cart_items(3)
+    refute cart.cart_items(3) == cart.cart_items(4)
+    assert Debug.inspect(cart.cart_items(3)) == "cart.cart_items(3)"
+}

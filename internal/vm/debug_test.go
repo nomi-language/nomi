@@ -332,6 +332,43 @@ func TestDebug_AShadowedNameShowsTheBindingInForce(t *testing.T) {
 	}
 }
 
+const boxedSrc = `import std/io
+
+interface Show {
+  fn show(value: self) -> String
+}
+
+impl Show for List<T> {
+  fn show(xs: List<T>) -> String {
+    "n${Iter.count(xs)}"
+  }
+}
+
+fn main() {
+  a: Show = [1, 2]
+  xs: List<Show> = [a, ["s"]]
+  io.print(Show.show(a))
+  io.print("${Iter.count(xs)}")
+}
+`
+
+// A container held as an interface is boxed with its static type
+// (rt.Box), and the debugger's locals show the value, not the box.
+func TestDebug_ABoxedExistentialShowsItsValue(t *testing.T) {
+	s := debugProgram(t, boxedSrc)
+	s.breakAt(16)
+	s.run()
+	st := s.stop()
+	s.at(st, vm.StopBreakpoint, "main:16", `a: Show = [1, 2], xs: List<Show> = [[1, 2], ["s"]]`)
+	s.d.Continue()
+	if err := s.finish(); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.out.String(); got != "n2\n2\n" {
+		t.Fatalf("output %q", got)
+	}
+}
+
 const trapSrc = `import std/io
 
 fn ratio(a: Int, b: Int) -> Int {

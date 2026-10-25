@@ -1,0 +1,29 @@
+import {
+    std/locale.{LoadError, Locale}
+    std/message.Message
+    cart
+}
+
+// Outside a browser build the program carries every locale it lists, so
+// there is nothing to load.
+test "every listed locale is loaded already" {
+    assert Locale.loaded() == Locale.available()
+    assert Locale.load(Locale`pl`) == Ok(Unit)
+    // A locale the program does not list has no file to load either.
+    assert Locale.load(Locale`fr`) == Ok(Unit)
+    assert cart.cart_items(2) |> Message.format(Locale`pl`) == "2 produkty w koszyku"
+}
+
+test "a failed load names the locale whose file failed" {
+    stale = #LoadError.Unreadable{
+        locale: Locale`pt`,
+        reason: "it was written by another build of the program",
+    }
+
+    assert Display.to_string(
+        stale
+    ) == "the locale file of pt cannot be read: it was written by another build of the program"
+
+    offline = #LoadError.Unreachable{locale: Locale`pl`, reason: "HTTP 404"}
+    assert Display.to_string(offline) == "the locale file of pl could not be fetched: HTTP 404"
+}

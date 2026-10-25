@@ -75,7 +75,7 @@ func TestExpectation_ADebugMachineRunsEveryProgramAsAPlainOneDoes(t *testing.T) 
 			t.Fatal(err)
 		}
 		for _, b := range doctest.ExtractBlocks(string(data), "nomi-run") {
-			if b.HasInfo("ignore") {
+			if !b.Runs() {
 				continue
 			}
 			block++

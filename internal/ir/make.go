@@ -120,6 +120,13 @@ const (
 	// f: v}`. Operand 0 is the base and `Names` is parallel to the remaining
 	// operands, in source order. Owner: structSpreadLit.
 	MakeUpdate
+	// MakeExistential boxes one value where it becomes an interface value
+	// and its own runtime value does not name the impl a dispatch selects:
+	// a std container (`List<Int>`, whose impl `List<String>`'s differs
+	// from) or a value of an enum with an `embeds` variant. `Typ` is the
+	// symbol the static type's impls are recorded under (Module.Implement),
+	// and the one operand is the value (rt.Box). Owner: eraseBoxed.
+	MakeExistential
 )
 
 func (k MakeKind) String() string {
@@ -146,6 +153,8 @@ func (k MakeKind) String() string {
 		return "range"
 	case MakeUpdate:
 		return "update"
+	case MakeExistential:
+		return "existential"
 	}
 	return "make?"
 }
@@ -251,6 +260,14 @@ func NewMakeUpdate(pos Pos, dst Temp, base Temp, names []string, vals []Temp) *M
 func NewMakeDistinct(pos Pos, dst Temp, typ *Symbol, inner Temp) *Make {
 	m := newMake(pos, dst, MakeDistinct, []Temp{inner}, "NewMakeDistinct")
 	m.typ = requireSym(typ, "NewMakeDistinct")
+	return m
+}
+
+// NewMakeExistential boxes v as a value of the static type whose impls are
+// recorded under typ; see MakeExistential.
+func NewMakeExistential(pos Pos, dst Temp, typ *Symbol, v Temp) *Make {
+	m := newMake(pos, dst, MakeExistential, []Temp{v}, "NewMakeExistential")
+	m.typ = requireSym(typ, "NewMakeExistential")
 	return m
 }
 

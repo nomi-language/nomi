@@ -109,7 +109,11 @@ func boot(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string
 	if err := checkHostKeys(im.HostKeys, hosts); err != nil {
 		return nil, err
 	}
-	m := vm.NewProgram(entry, im.Modules, stdout).WithHosts(hosts...).WithErrorOutput(stderr)
+	locales, err := localeData(im)
+	if err != nil {
+		return nil, err
+	}
+	m := vm.NewProgram(entry, im.Modules, stdout).WithHosts(hosts...).WithErrorOutput(stderr).WithLocaleData(locales).WithMessages(messages(im))
 	if stdin != nil {
 		m = m.WithInput(rt.NewInput(stdin))
 	}

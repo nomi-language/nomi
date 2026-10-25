@@ -27,6 +27,7 @@ import (
 	"github.com/nomi-language/nomi/internal/expectation"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/vm"
+	"github.com/nomi-language/nomi/std"
 
 	"github.com/nomi-language/nomi/rt"
 	"github.com/nomi-language/nomi/rt/vclock"
@@ -768,7 +769,12 @@ func vmCorpusPopulation(t *testing.T) (entries []vmProbeEntry, modules, copies i
 				}
 				seen[key] = true
 				decl := f.Rel
-				if rel, err := filepath.Rel(root, fn.Pos().File()); err == nil &&
+				if name, isStd := std.ImageName(fn.Pos().File()); isStd {
+					// A std module lowered with the program
+					// (programstd.go) is declared in std, not in the
+					// corpus file that reached it.
+					decl = name
+				} else if rel, err := filepath.Rel(root, fn.Pos().File()); err == nil &&
 					!strings.HasPrefix(rel, "..") && filepath.IsAbs(fn.Pos().File()) {
 					decl = filepath.ToSlash(rel)
 				}
@@ -993,6 +999,12 @@ func vmProbeArgFailure(fn *ir.Func, err error) bool {
 		// generic Vector only a host call reads).
 		return true
 	}
+	if strings.Contains(err.Error(), ": expected one Receiver") || strings.Contains(err.Error(), ": expected one Sender") {
+		// A channel half read off a struct the probe built (std/sql_testing's
+		// Fake keeps its state in a Channel field): the probe makes up a
+		// leaf for a handle only `Channel.buffered` creates.
+		return true
+	}
 	for _, p := range fn.Params() {
 		t := fn.TempType(p.Temp)
 		if t == nil {
@@ -1000,6 +1012,29 @@ func vmProbeArgFailure(fn *ir.Func, err error) bool {
 		}
 		if t.Kind() == ir.KindIface {
 			return true
+		}
+		// A distinct parameter of a std type the program does not declare,
+		// held as the distinct (std/message's `Message.format` takes a
+		// `Locale`): no trial leaf is one, so every trial is refused at the
+		// write, the last one with the root Context.
+		if t.Kind() == ir.KindDistinct && strings.Contains(err.Error(), " holds "+t.String()+" and received rt.Context") {
+			return true
+		}
+		// The same for a struct parameter's field the probe fills with a
+		// trial leaf: std/money's `Money` holds a `Decimal` and a
+		// distinct `Currency`, and no trial leaf is either.
+		if t.Kind() == ir.KindStruct && t.Layout() != nil {
+			for _, f := range t.Layout().Fields {
+				if f.Type == nil {
+					continue
+				}
+				if f.Type.Kind() == ir.KindDistinct && strings.Contains(err.Error(), " holds "+f.Type.String()+" and received rt.Context") {
+					return true
+				}
+				if f.Type.Kind() == ir.KindDecimal && strings.Contains(err.Error(), "a Decimal operation's left operand is rt.Context") {
+					return true
+				}
+			}
 		}
 		// A Set, Map or Vector parameter the body compares with `==` gets
 		// the list the probe builds for any container a comparison reads

@@ -20,7 +20,7 @@ func TestFileReExportIsAParseError(t *testing.T) {
 		{"pub import leaf", "leaf", "list the items to re-export, as in `pub import leaf.{name, Type}`, or have importers import `leaf` directly", 1, 1},
 		{"pub import leaf as lf", "leaf", "or have importers import `leaf` directly", 1, 1},
 		{"pub import {\n    std/comparable.Ordering\n    lib/leaf\n}", "leaf", "`pub import lib/leaf.{name, Type}`", 1, 1},
-		{"pub import std/io.{self, IOError}", "io", "remove `self` to re-export only the listed items, or have importers import `std/io` directly", 1, 1},
+		{"pub import std/io.{self, Error}", "io", "remove `self` to re-export only the listed items, or have importers import `std/io` directly", 1, 1},
 		{"pub import std/io.{self}", "io", "remove `self`", 1, 1},
 		// A lowercase segment after a dot is a path step, so this `self`
 		// is the file `std/io` too.

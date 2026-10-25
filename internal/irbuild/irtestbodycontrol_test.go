@@ -8,10 +8,25 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/cldrdata"
+	"github.com/nomi-language/nomi/internal/cldrfull"
 	"github.com/nomi-language/nomi/internal/expectation"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/vm"
 )
+
+// localesOf is the CLDR data the program whose entry is path runs with, as
+// vmhost gives it: the locales its project's nomi.toml lists under [i18n]
+// (`locales` and `partial_locales`), or every locale.
+func localesOf(path string) *cldrdata.Data {
+	var locales []string
+	source := ""
+	if m, err := analysis.LoadManifest(analysis.ProjectRoot(path, "")); err == nil && m != nil {
+		locales, source = m.CarriedLocales(), m.Source()
+	}
+	return cldrfull.ForProgram(locales, source)
+}
 
 // irTestBodyVM lowers src as a `_test.nomi` file, requires exactly
 // wantCases retained cases, and runs them in the VM. The report must equal the
@@ -344,7 +359,7 @@ func TestIRTestBody_RetainedCasesAgree(t *testing.T) {
 			continue
 		}
 		var out bytes.Buffer
-		_, reason := vm.NewProgram(module, f.Res.IRModules(), &out).RunTests(f.Path)
+		_, reason := vm.NewProgram(module, f.Res.IRModules(), &out).WithLocaleData(localesOf(f.Path)).RunTests(f.Path)
 		if reason != "" {
 			limited++
 			t.Logf("LIMIT %s: %s", f.Rel, reason)

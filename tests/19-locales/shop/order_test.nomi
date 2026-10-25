@@ -1,0 +1,124 @@
+import {
+    std/calendar.Date
+    std/currency.Currency
+    std/locale.Locale
+    std/localize.Localize
+    std/message.Message
+    std/money.Money
+    order
+}
+
+test "a noun's gender chooses the words that agree with it" {
+    en = Locale`en`
+    pl = Locale`pl`
+    assert order.has_shipped(order.book) |> Message.format(en) == "Your book has shipped."
+    assert order.has_shipped(order.book) |> Message.format(pl) == "Twoja książka została wysłana."
+    assert order.has_shipped(order.laptop) |> Message.format(pl) == "Twój laptop został wysłany."
+
+    assert order.has_shipped(order.phone_case)
+    |> Message.format(pl) == "Twoje etui zostało wysłane."
+}
+
+test "Portuguese nouns are masculine or feminine" {
+    pt = Locale`pt`
+    assert order.has_shipped(order.book) |> Message.format(pt) == "Seu livro foi enviado."
+
+    assert order.has_shipped(order.phone_case)
+    |> Message.format(pt) == "Sua capa de celular foi enviada."
+
+    // pt-PT has no catalog of its own and falls back to pt, nouns and all.
+    assert order.has_shipped(order.laptop)
+    |> Message.format(Locale`pt-PT`) == "Seu notebook foi enviado."
+}
+
+test "a message asks a noun for a case" {
+    pl = Locale`pl`
+    assert order.sold_out(order.book) |> Message.format(Locale`en`) == "No books left."
+    assert order.sold_out(order.book) |> Message.format(pl) == "Brak książek."
+    assert order.sold_out(order.laptop) |> Message.format(pl) == "Brak laptopów."
+    assert order.sold_out(order.phone_case) |> Message.format(pl) == "Brak etui."
+}
+
+test "a noun's form follows a count" {
+    pl = Locale`pl`
+    assert order.in_cart(1, order.book) |> Message.format(Locale`en`) == "1 book in your cart"
+    assert order.in_cart(3, order.book) |> Message.format(Locale`en`) == "3 books in your cart"
+    assert order.in_cart(1, order.book) |> Message.format(pl) == "1 książka w koszyku"
+    assert order.in_cart(3, order.book) |> Message.format(pl) == "3 książki w koszyku"
+    assert order.in_cart(5, order.book) |> Message.format(pl) == "5 książek w koszyku"
+    assert order.in_cart(22, order.laptop) |> Message.format(pl) == "22 laptopy w koszyku"
+}
+
+test "a list is joined as the locale joins one, and the verb agrees with its length" {
+    en = Locale`en`
+    pl = Locale`pl`
+    one = ["Anna"]
+    three = ["Anna", "Ben", "Chloé"]
+    assert order.watching(one) |> Message.format(en) == "Anna is watching this item"
+
+    assert order.watching(three)
+    |> Message.format(en) == "Anna, Ben, and Chloé are watching this item"
+
+    assert order.watching(one) |> Message.format(pl) == "Anna ogląda ten produkt"
+    assert order.watching(three) |> Message.format(pl) == "Anna, Ben i Chloé oglądają ten produkt"
+
+    assert order.watching(three)
+    |> Message.format(Locale`pt`) == "Anna, Ben e Chloé estão vendo este item"
+}
+
+test "a total is written as the reader's locale writes an amount in its currency" {
+    total = #Money{amount: 12.5d, currency: Currency`EUR`}
+    assert order.order_total(total) |> Message.format(Locale`en`) == "Total: €12.50"
+    assert order.order_total(total) |> Message.format(Locale`pl`) == "Razem: 12,50\u{a0}€"
+    assert order.order_total(total) |> Message.format(Locale`de`) == "Gesamt: 12,50\u{a0}€"
+    assert order.order_total(total) |> Message.format(Locale`fr`) == "Total\u{202f}: 12,50\u{a0}€"
+    assert order.order_total(total) |> Message.format(Locale`ja`) == "合計: €12.50"
+
+    // The yen has no minor digits, and Japanese writes its own sign.
+    yen = #Money{amount: 1500d, currency: Currency`JPY`}
+    assert order.order_total(yen) |> Message.format(Locale`ja`) == "合計: ￥1,500"
+    assert order.order_total(yen) |> Message.format(Locale`en`) == "Total: ¥1,500"
+
+    // A total of three books, summed in their currency.
+    price = #Money{amount: 4.20d, currency: Currency`EUR`}
+    cart = [price, price, price]
+    assert order.order_total(Iter.sum(cart)) |> Message.format(Locale`pl`) == "Razem: 12,60\u{a0}€"
+}
+
+test "a shipping date names the weekday, the month and the day" {
+    pl = Locale`pl`
+    tuesday = Date`2026-10-20`
+    wednesday = Date`2026-10-21`
+    sunday = Date`2026-10-25`
+    assert order.ships_on(tuesday) |> Message.format(Locale`en`) == "Ships Tuesday, October 20"
+    assert order.ships_on(tuesday) |> Message.format(pl) == "Wysyłka we wtorek, 20 października"
+    assert order.ships_on(wednesday) |> Message.format(pl) == "Wysyłka w środę, 21 października"
+    assert order.ships_on(sunday) |> Message.format(pl) == "Wysyłka w niedzielę, 25 października"
+
+    assert order.ships_on(tuesday)
+    |> Message.format(Locale`de`) == "Versand am Dienstag, 20. Oktober"
+
+    assert order.ships_on(tuesday) |> Message.format(Locale`fr`) == "Expédition le mardi 20 octobre"
+    assert order.ships_on(tuesday) |> Message.format(Locale`ja`) == "10月20日火曜日発送"
+    assert order.ships_on(sunday) |> Message.format(Locale`pt`) == "Envio no domingo, 25 de outubro"
+
+    // pt-PT has no catalog of its own: it reads pt's text, and writes the
+    // date as Portugal does.
+    assert order.ships_on(sunday)
+    |> Message.format(Locale`pt-PT`) == "Envio no domingo, 25 de outubro"
+}
+
+test "a noun formats itself as its nominative for one thing" {
+    assert Localize.localize(order.book, Locale`pl`) == "książka"
+    assert Localize.localize(order.laptop, Locale`en`) == "laptop"
+    // A locale the program has no translation for gets the source's.
+    assert Localize.localize(order.book, Locale`fr`) == "book"
+}
+
+test "a noun is a value: equal when it is the same declaration" {
+    assert order.book == order.book
+    refute order.book == order.laptop
+    assert Debug.inspect(order.book) == "order.book"
+    assert order.has_shipped(order.book) == order.has_shipped(order.book)
+    refute order.has_shipped(order.book) == order.has_shipped(order.laptop)
+}

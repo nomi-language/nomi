@@ -107,6 +107,10 @@ const (
 	ValDistinct
 	ValContainer
 	ValFunc
+	// ValIface is an interface value: any of the shapes above, its concrete
+	// type chosen at run time. Only an equality Compare states it, and it
+	// agrees with every operand shape.
+	ValIface
 )
 
 func (s ValShape) String() string {
@@ -135,6 +139,8 @@ func (s ValShape) String() string {
 		return "a container"
 	case ValFunc:
 		return "a function value"
+	case ValIface:
+		return "an interface value"
 	}
 	return "unknown"
 }
@@ -232,6 +238,11 @@ func (s *shapes) written(in Instr, depth int) ValShape {
 	switch n := in.(type) {
 	case *Not:
 		return ValBool
+	case *CtlRead:
+		if n.Part() == CtlPartCode {
+			return ValInt
+		}
+		return ValUnknown
 	case *Compare:
 		// A comparison's answer is a Bool whatever its operands are, which is
 		// why the node states its OPERANDS' shape and not its destination's.
@@ -341,7 +352,7 @@ func (s *shapes) written(in Instr, depth int) ValShape {
 func lintOperandShapes(f *Func, vs *[]Violation) {
 	sh := newShapes(f)
 	report := func(pos Pos, what, position string, got, want ValShape) {
-		if got == ValUnknown || got == want {
+		if got == ValUnknown || got == want || want == ValIface {
 			return
 		}
 		*vs = append(*vs, Violation{Rule: RuleOperandShape, Pos: pos, What: what,

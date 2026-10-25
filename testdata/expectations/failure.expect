@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population failure
 what one record per deliberately-red fixture under internal/irbuild/testdata, run as the command that owns it would. Every record FAILS on purpose, so every record carries its transcript verbatim: this is the only population in the repo with power over a wrong failure message. Membership is measured by TestExpectation_FailureCensus.
-records 52
-declared-cases 247
-failing 52
+records 53
+declared-cases 282
+failing 53
 C anon_struct.nomi
 E 1
 N 1
@@ -645,6 +645,81 @@ T         = Day(14)
 T       day_value(Day.add(ten, four))
 T         = 14
 T test result: FAILED. 0 passed, 7 failed
+T
+C infinite_iter_traps.nomi
+E 1
+N 35
+H 19061d595e2d0afd62474b6b49882f13dacd3a4019de074ba507166791af6122
+T ok <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: a user source that says it is infinite
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: to_list of repeat
+T   line 50: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: to_list of from
+T   line 54: `Iter.to_list` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: count of iterate
+T   line 58: `Iter.count` of an infinite iterator (`Iter.iterate`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: to_set of a cycle
+T   line 66: `Iter.to_set` of an infinite iterator (`Iter.cycle`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: to_list of an unbounded range
+T   line 70: `Iter.to_list` of an infinite iterator (`Range.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: count of naturals
+T   line 74: `Iter.count` of an infinite iterator (`Range.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: to_list of an unbounded step_by
+T   line 82: `Iter.to_list` of an infinite iterator (`Range.step_by`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: to_list of a user source that says it is infinite
+T   line 86: `Iter.to_list` of an infinite iterator (`Ticks`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: through a program function
+T   line 38: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: reduce
+T   line 94: `Iter.reduce` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: each
+T   line 98: `Iter.each` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: last
+T   line 103: `Iter.last` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: sum
+T   line 107: `Iter.sum` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: max
+T   line 111: `Iter.max` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: min_by
+T   line 115: `Iter.min_by` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: frequencies
+T   line 119: `Iter.frequencies` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: sort
+T   line 123: `Iter.sort` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: sort_by
+T   line 127: `Iter.sort_by` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: to_vector
+T   line 131: `Iter.to_vector` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: to_map
+T   line 135: `Iter.to_map` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: partition
+T   line 139: `Iter.partition` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: group_by
+T   line 143: `Iter.group_by` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: reverse
+T   line 147: `Iter.reverse` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: flatten
+T   line 151: `Iter.flatten` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: map_reduce
+T   line 155: `Iter.map_reduce` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: String.join
+T   line 159: `String.join` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: Maybe.values
+T   line 163: `Maybe.values` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: Result.partition
+T   line 168: `Result.partition` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: Task.spawn_all
+T   line 173: `Task.spawn_all` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: through adapters that keep it infinite
+T   line 191: `Iter.to_list` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: zip of two infinite sources
+T   line 195: `Iter.to_list` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: concat with an infinite source
+T   line 199: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: sort_with
+T   line 203: `Iter.sort_with` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: to_list of an unbounded range from a negative start
+T   line 207: `Iter.to_list` of an infinite iterator (`Range.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T test result: FAILED. 1 passed, 34 failed
 T
 C inspect_through_list.nomi
 E 1

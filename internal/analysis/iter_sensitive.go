@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -327,61 +328,48 @@ func hasAllLocal(scope *Scope, names []string) bool {
 	return true
 }
 
-// iterSensitivity tracks per-function iter-sensitivity state through the
-// analysis. Keyed by the definition symbol (the FuncDef's Pos-indexed entry
-// in FileAnalysis.Definitions).
+// iterSensitivity checks where a file places `break`, `continue` and the
+// iter-sensitive functions (iter_signal.go) it uses, its own or another
+// file's.
 type iterSensitivity struct {
 	fa *FileAnalysis
 
-	// funcSyms lists every top-level FuncDef/impl/extend method symbol we're
-	// analyzing in this file, in definition order.
+	// funcSyms lists the file's top-level functions, in definition order.
 	funcSyms []*Symbol
 
-	// funcBody maps each func symbol to its FuncDef node (the body source).
+	// funcBody maps each of them to its declaration.
 	funcBody map[*Symbol]*ast.FuncDef
 
-	// directBC[sym] = true if sym's body contains break/continue at its own
-	// function boundary (not buried inside a nested Lambda or nested FuncDef).
-	directBC map[*Symbol]bool
-
-	// directCalls[sym] = callee symbols called from sym's body, not buried
-	// inside any Lambda or nested FuncDef. These edges drive the transitive
-	// closure of iter-sensitivity.
-	directCalls map[*Symbol]map[*Symbol]bool
-
-	// sensitive[sym] = true after transitive closure.
+	// sensitive marks the ones that are iter-sensitive.
 	sensitive map[*Symbol]bool
 
-	// errors collects diagnostics emitted by validateCallSites.
+	// signals memoizes FuncIterSignals by declaration, this file's or
+	// another's.
+	signals map[*ast.FuncDef]IterSignals
+
+	// errors collects the diagnostics.
 	errors []TypeError
 }
 
-// AnalyzeIterSensitivity collects iter-sensitivity facts and validates
-// break/continue placement across the file. It runs after BuildTypes so that
-// call-site reference symbols are already wired up.
+// AnalyzeIterSensitivity validates the placement of `break`, `continue`
+// and every use of an iter-sensitive function across the file. It runs
+// after BuildTypes so that call-site reference symbols are already wired up.
 func AnalyzeIterSensitivity(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	s := &iterSensitivity{
-		fa:          fa,
-		funcBody:    make(map[*Symbol]*ast.FuncDef),
-		directBC:    make(map[*Symbol]bool),
-		directCalls: make(map[*Symbol]map[*Symbol]bool),
-		sensitive:   make(map[*Symbol]bool),
+		fa:        fa,
+		funcBody:  make(map[*Symbol]*ast.FuncDef),
+		sensitive: make(map[*Symbol]bool),
+		signals:   make(map[*ast.FuncDef]IterSignals),
 	}
-
-	// Collect: every top-level FuncDef (and methods nested in impl/extend).
 	for _, node := range nodes {
 		if fn, ok := node.(*ast.FuncDef); ok {
 			s.collectFunc(fn)
 		}
 	}
-
-	// Transitive closure: a function is iter-sensitive if it has a direct
-	// break/continue OR calls (directly, not via a caught lambda) another
-	// iter-sensitive function.
-	s.computeClosure()
-
-	// Validate call sites and stray break/continue statements.
 	s.validate(nodes)
+
+	// A terminal that must drain a source it can see never ends.
+	s.checkInfiniteIters(nodes)
 
 	return s.errors
 }
@@ -393,570 +381,289 @@ func (s *iterSensitivity) collectFunc(fn *ast.FuncDef) {
 	}
 	s.funcSyms = append(s.funcSyms, sym)
 	s.funcBody[sym] = fn
-	if fn.Body == nil {
-		return
-	}
-	// Walk the body at the function's own boundary. Break/continue encountered
-	// here (and in nested Lambdas that are themselves NOT at iter-callback
-	// positions) count as "direct" for owner — they unwind through owner's
-	// frame. Lambdas directly passed at iter-callback slots are boundaries:
-	// their inner break/continue are caught there and do not propagate.
-	s.walkBody(sym, fn.Body, false)
+	s.sensitive[sym] = s.signalsOf(fn).Any()
 }
 
-// walkCallForSensitivity analyzes a Call's callee and args for iter-sensitivity.
-// When pipeLHS is non-nil the call was reached via `lhs |> call(...)`, so the
-// effective arg vector is [pipeLHS, ...call.Args] and iter-callback slot
-// indices shift by +1 against call.Args.
-func (s *iterSensitivity) walkCallForSensitivity(owner *Symbol, call *ast.Call, pipeLHS ast.Node, caughtHere bool) {
-	if !caughtHere {
-		if callee := s.resolveCalleeSym(call.Func); callee != nil {
-			if s.directCalls[owner] == nil {
-				s.directCalls[owner] = make(map[*Symbol]bool)
-			}
-			s.directCalls[owner][callee] = true
-		}
+func (s *iterSensitivity) signalsOf(fd *ast.FuncDef) IterSignals {
+	if fd == nil {
+		return IterSignals{}
 	}
-	s.walkBody(owner, call.Func, caughtHere)
-	slots := s.slotsForCall(call)
-	slotOffset := 0
-	if pipeLHS != nil {
-		lhsCaught := caughtHere
-		if slots != nil && slots[0] {
-			lhsCaught = true
-		}
-		s.walkBody(owner, pipeLHS, lhsCaught)
-		slotOffset = 1
+	sig, seen := s.signals[fd]
+	if !seen {
+		sig = FuncIterSignals(fd)
+		s.signals[fd] = sig
 	}
-	for i, arg := range call.Args {
-		argCaught := caughtHere
-		if slots != nil && slots[i+slotOffset] {
-			argCaught = true
-		}
-		s.walkBody(owner, arg, argCaught)
-	}
+	return sig
 }
 
-// walkBody walks `n` as part of the outer function's body. The boolean
-// `caughtHere` indicates whether the current position is INSIDE an iter-
-// callback boundary that would catch break/continue before they reach the
-// owner's frame (e.g. inside a lambda passed at an iter-callback slot).
-// When caughtHere is true we still descend to catch nested lambdas that
-// sit at iter-callback positions themselves, but direct break/continue
-// and edges are suppressed for the owner.
-func (s *iterSensitivity) walkBody(owner *Symbol, n ast.Node, caughtHere bool) {
-	if n == nil {
-		return
+// sensitiveFunc is the declaration of the iter-sensitive function an Ident
+// or a file-qualified FieldAccess names, in this file or another, or nil.
+func (s *iterSensitivity) sensitiveFunc(fn ast.Node) *ast.FuncDef {
+	fd := s.fa.topLevelFunc(fn)
+	if !s.signalsOf(fd).Any() {
+		return nil
 	}
-	switch node := n.(type) {
-	case *ast.FuncDef:
-		// A nested fn definition is its own scope — handled separately when we
-		// walk the top-level declarations. Don't descend.
-
-	case *ast.Lambda:
-		// A Lambda's body runs with the enclosing caughtHere flag intact: if
-		// the surrounding caller placed this lambda at an iter-callback slot,
-		// caughtHere will already be true (set by the Call case below).
-		if node.Body != nil {
-			for _, stmt := range node.Body.Stmts {
-				s.walkBody(owner, stmt, caughtHere)
-			}
-		}
-
-	case *ast.Break, *ast.Continue:
-		if !caughtHere {
-			s.directBC[owner] = true
-		}
-		if b, ok := node.(*ast.Break); ok && b.Value != nil {
-			s.walkBody(owner, b.Value, caughtHere)
-		}
-
-	case *ast.Call:
-		s.walkCallForSensitivity(owner, node, nil, caughtHere)
-
-	case *ast.Block:
-		for _, stmt := range node.Stmts {
-			s.walkBody(owner, stmt, caughtHere)
-		}
-	case *ast.ExprStmt:
-		s.walkBody(owner, node.Expr, caughtHere)
-	case *ast.GroupedExpr:
-		s.walkBody(owner, node.Expr, caughtHere)
-	case *ast.Capture:
-		s.walkBody(owner, node.Body, caughtHere)
-	case *ast.If:
-		s.walkBody(owner, node.Cond, caughtHere)
-		s.walkBody(owner, node.Then, caughtHere)
-		s.walkBody(owner, node.Else, caughtHere)
-	case *ast.Binary:
-		// `lhs |> Call(...)` desugars to Call(lhs, ...args). For iter-callback
-		// slot matching to work, we analyze the Call with the LHS prepended
-		// as arg 0 so slots indexed by the callee's arity line up.
-		if node.Op == "|>" {
-			if call, ok := node.Right.(*ast.Call); ok {
-				s.walkCallForSensitivity(owner, call, node.Left, caughtHere)
-				break
-			}
-		}
-		s.walkBody(owner, node.Left, caughtHere)
-		s.walkBody(owner, node.Right, caughtHere)
-	case *ast.Unary:
-		s.walkBody(owner, node.Right, caughtHere)
-	case *ast.Binding:
-		s.walkBody(owner, node.Value, caughtHere)
-	case *ast.TupleDestructure:
-		s.walkBody(owner, node.Value, caughtHere)
-	case *ast.StructDestructure:
-		s.walkBody(owner, node.Value, caughtHere)
-	case *ast.DistinctDestructure:
-		s.walkBody(owner, node.Value, caughtHere)
-	case *ast.PatternBinding:
-		s.walkBody(owner, node.Value, caughtHere)
-		for _, e := range node.ElseNodes() {
-			s.walkBody(owner, e, caughtHere)
-		}
-	case *ast.With:
-		s.walkBody(owner, node.Value, caughtHere)
-	case *ast.Subtests:
-		s.walkBody(owner, node.Rows, caughtHere)
-		s.walkBody(owner, node.Name, caughtHere)
-		s.walkBody(owner, node.Body, caughtHere)
-	case *ast.FieldAccess:
-		s.walkBody(owner, node.Object, caughtHere)
-	case *ast.Return:
-		s.walkBody(owner, node.Value, caughtHere)
-	case *ast.ListLit:
-		for _, item := range node.Items {
-			s.walkBody(owner, item, caughtHere)
-		}
-	case *ast.VectorLit:
-		for _, item := range node.Operands() {
-			s.walkBody(owner, item, caughtHere)
-		}
-	case *ast.SetLit:
-		if node.Spread != nil {
-			s.walkBody(owner, node.Spread, caughtHere)
-		}
-		for _, item := range node.Items {
-			s.walkBody(owner, item, caughtHere)
-		}
-	case *ast.TupleLit:
-		for _, item := range node.Items {
-			s.walkBody(owner, item, caughtHere)
-		}
-	case *ast.MapLit:
-		if node.Spread != nil {
-			s.walkBody(owner, node.Spread, caughtHere)
-		}
-		for _, entry := range node.Entries {
-			s.walkBody(owner, entry.Key, caughtHere)
-			s.walkBody(owner, entry.Value, caughtHere)
-		}
-	case *ast.StructLit:
-		if node.Spread != nil {
-			s.walkBody(owner, node.Spread, caughtHere)
-		}
-		for _, f := range node.Fields {
-			s.walkBody(owner, f.Value, caughtHere)
-		}
-	case *ast.Case:
-		s.walkBody(owner, node.Value, caughtHere)
-		for _, br := range node.Branches {
-			s.walkBody(owner, br.Guard, caughtHere)
-			s.walkBody(owner, br.Body, caughtHere)
-		}
-	case *ast.TryOp:
-		s.walkBody(owner, node.Expr, caughtHere)
-	case *ast.Dbg:
-		s.walkBody(owner, node.Expr, caughtHere)
-	case *ast.Then:
-		s.walkBody(owner, node.Fn(), caughtHere)
-	case *ast.Tap:
-		s.walkBody(owner, node.Fn(), caughtHere)
-	case *ast.Assertion:
-		s.walkBody(owner, node.Expr, caughtHere)
-	case *ast.StringInterp:
-		for _, part := range node.Parts {
-			if se, ok := part.(ast.StringExpr); ok {
-				s.walkBody(owner, se.Expr, caughtHere)
-			}
-		}
-	}
+	return fd
 }
 
-// resolveCalleeSym returns the top-level function Symbol that a call's Func
-// node resolves to, or nil if it resolves to something else (parameter,
-// binding, module, interface, primitive, stdlib, etc.).
-func (s *iterSensitivity) resolveCalleeSym(fn ast.Node) *Symbol {
-	var pos Pos
-	switch n := fn.(type) {
-	case *ast.Ident:
-		pos = Pos{Line: n.Line, Col: n.Col}
-	case *ast.TypeIdent:
-		pos = Pos{Line: n.Line, Col: n.Col}
-	case *ast.FieldAccess:
-		if n.Field == nil {
-			return nil
-		}
-		pos = Pos{Line: n.Field.Line, Col: n.Field.Col}
+// iterSensitiveUseError is the error at a use of the iter-sensitive
+// function fd, named name, that is not an iteration callback itself: a call
+// (called) or a value use. in is the iteration whose callback holds the use
+// ("Iter.reduce"), or "" outside every callback.
+func (s *iterSensitivity) iterSensitiveUseError(at ast.Node, name string, fd *ast.FuncDef, called bool, in string) TypeError {
+	words := s.signalsOf(fd).Words()
+	shape := callbackShape(fd, name, in)
+	var msg string
+	switch {
+	case called && shape != "":
+		msg = fmt.Sprintf("`%s` uses %s, so it cannot be called: pass it as an iteration callback itself, as in `%s`", name, words, shape)
+	case called:
+		msg = fmt.Sprintf("`%s` uses %s, so it cannot be called: pass it as an iteration callback itself", name, words)
+	case shape != "":
+		msg = fmt.Sprintf("`%s` uses %s, so it can only be passed as an iteration callback itself, as in `%s`", name, words, shape)
 	default:
-		return nil
+		msg = fmt.Sprintf("`%s` uses %s, so it can only be passed as an iteration callback itself", name, words)
 	}
-	sym, ok := s.fa.References[pos]
-	if !ok {
-		return nil
+	e := errAt(at, msg)
+	if in != "" {
+		e.Hints = []string{fmt.Sprintf(
+			"to decide in this callback instead, return a `Maybe` or an enum from `%s` and write %s here", name, words)}
 	}
-	real := sym
-	if real.Resolved != nil {
-		real = real.Resolved
-	}
-	if real.Kind != SymbolFunction {
-		return nil
-	}
-	// Only care about functions defined in THIS file — cross-module call-graph
-	// tracking would require loading all imports, which the current analysis
-	// pipeline doesn't do here. Stdlib functions are treated as non-iter-
-	// sensitive (their bodies' break/continue are always inside lambdas, and
-	// their call-site roles are on the hardcoded iter-callback list).
-	if _, ok := s.funcBody[real]; !ok {
-		return nil
-	}
-	return real
+	return e
 }
 
-func (s *iterSensitivity) computeClosure() {
-	// Seed: directBC → sensitive.
-	for sym, v := range s.directBC {
-		if v {
-			s.sensitive[sym] = true
-		}
+// iterCallbackArity is the number of parameters an iteration function's
+// callback takes: two for a fold, one for every other.
+func iterCallbackArity(iteration string) int {
+	if _, fn, ok := strings.Cut(iteration, "."); ok && slices.Contains(seededIterFuncs, fn) {
+		return 2
 	}
-	// Fixed point over directCalls edges.
-	changed := true
-	for changed {
-		changed = false
-		for caller, callees := range s.directCalls {
-			if s.sensitive[caller] {
-				continue
-			}
-			for callee := range callees {
-				if s.sensitive[callee] {
-					s.sensitive[caller] = true
-					changed = true
-					break
-				}
-			}
-		}
-	}
+	return 1
 }
 
-// validate walks the full AST looking for:
-//  1. Break/Continue statements that have no iter-callback boundary catching
-//     them (traced through lambdas and function call sites).
-//  2. Calls to iter-sensitive functions that sit outside iter-callback
-//     boundaries AND whose enclosing function cannot legitimately propagate
-//     the break/continue (because its own call sites are not iter-callback).
-//
-// The validation hinges on the iter-sensitive set computed in Pass 1 plus a
-// scan of every call site — if an iter-sensitive function has any non-iter-
-// callback call site (or zero call sites at all), we surface an error at the
-// first such spot so the user sees a concrete location.
+// callbackShape is a call that passes fd, named name, as an iteration's
+// callback and that its signature fits: the iteration in that holds the use
+// when fd fits its callback, else `Iter.map` for a one-parameter function and
+// `Iter.reduce` for a two-parameter one whose accumulator is its result, or
+// "" when none fits. A fold and `Iter.loop` take their starting value by
+// name.
+func callbackShape(fd *ast.FuncDef, name, in string) string {
+	fits := func(iteration string) bool {
+		if len(fd.Params) != iterCallbackArity(iteration) {
+			return false
+		}
+		ret := ""
+		if fd.ReturnTypeExpr != nil {
+			ret = typeExprHoverString(fd.ReturnTypeExpr)
+		}
+		switch iteration {
+		case "Iter.reduce", "Iter.scan", "Iter.loop":
+			// The callback answers its next state.
+			return fd.Params[0].TypeAnnotation != nil && ret != "" &&
+				typeExprHoverString(fd.Params[0].TypeAnnotation) == ret
+		case "Iter.filter", "Iter.find", "Iter.any?", "Iter.all?", "Iter.take_while", "Iter.drop_while":
+			return ret == "Bool"
+		}
+		return true
+	}
+	write := func(iteration string) string {
+		switch {
+		case iteration == "Iter.loop":
+			return fmt.Sprintf("Iter.loop(%s, from: <start>)", name)
+		case iterCallbackArity(iteration) == 2:
+			return fmt.Sprintf("%s(xs, %s, from: <start>)", iteration, name)
+		case iteration == "Iter.iterate":
+			return fmt.Sprintf("Iter.iterate(seed, %s)", name)
+		case strings.HasPrefix(iteration, "Map."):
+			return fmt.Sprintf("%s(m, %s)", iteration, name)
+		}
+		return fmt.Sprintf("%s(xs, %s)", iteration, name)
+	}
+	if in != "" && fits(in) {
+		return write(in)
+	}
+	for _, iteration := range []string{"Iter.map", "Iter.reduce"} {
+		if fits(iteration) {
+			return write(iteration)
+		}
+	}
+	return ""
+}
+
+// iterationName is the canonical name of the iteration function call calls
+// with a callback slot ("Iter.reduce", "Map.map_values"), or "".
+func (s *iterSensitivity) iterationName(call *ast.Call) string {
+	for _, key := range []string{callSiteKey(call), s.canonicalQualifiedOwnerKey(call), s.canonicalStdlibKey(call)} {
+		if _, ok := iterCallbackSlots[key]; ok {
+			return key
+		}
+	}
+	if sym := s.resolveIterCallbackSymbol(call.Func); sym != nil && sym.OwningType != "" {
+		if key := sym.OwningType + "." + sym.Name; iterCallbackSlots[key] != nil {
+			return key
+		}
+	}
+	return ""
+}
+
+// validate reports every use of an iter-sensitive function that is not an
+// iteration callback itself, an iter-sensitive function of this file that
+// nothing uses, and every `break` or `continue` with no iteration to act on.
 func (s *iterSensitivity) validate(nodes []ast.Node) {
-	// For each iter-sensitive function sym, check its call sites.
-	callSites := s.collectCallSites(nodes)
-
+	used := s.checkUses(nodes)
 	for _, fsym := range s.funcSyms {
-		if !s.sensitive[fsym] {
+		fd := s.funcBody[fsym]
+		if !s.sensitive[fsym] || fd.Public || used[fd] {
 			continue
 		}
-		sites := callSites[fsym]
-		if len(sites) == 0 {
-			// No call sites for an iter-sensitive function — a break somewhere
-			// inside can never be caught. Report at a representative break/
-			// continue location (or at the function definition as a fallback).
-			s.reportNoCallSites(fsym)
-			continue
-		}
-		for _, site := range sites {
-			if !site.inIterCallback {
-				s.errors = append(s.errors, TypeError{
-					Line: site.call.Line, Col: 1,
-					Message: fmt.Sprintf(
-						"'%s' uses break/continue (directly or transitively) and must only be called from an iter-callback position (e.g. as a lambda arg to Iter.map/Iter.filter/Iter.loop/etc.)",
-						fsym.Name,
-					),
-				})
-			}
-		}
+		// Nothing can run this function's break or continue where an
+		// iteration catches it. A `pub` one's uses may be in other files,
+		// each of which checks its own.
+		s.reportNoCallSites(fsym)
 	}
-
-	// Flag stray break/continue statements that aren't inside any function at
-	// all (top-level expressions), and flag break/continue inside lambdas at
-	// non-iter-callback positions whose enclosing function cannot carry
-	// them either (it's not iter-sensitive, or validation would have flagged
-	// its bad call sites above — but a standalone lambda with break at top
-	// level needs its own explicit check).
-	//
-	// The straight-forward case: a break outside any enclosing FuncDef.
-	// (A break inside a FuncDef is handled via the function's own iter-
-	// sensitivity + call-site chain.)
 	s.reportStrayBreaks(nodes)
 }
 
-// callSite records one call to an iter-sensitive function along with the
-// judgement of whether that call sits in an iter-callback position.
-type callSite struct {
-	call           *ast.Call
-	inIterCallback bool
-}
-
-// collectCallSites walks the AST and returns all call sites that reference
-// in-file FuncDef symbols, grouped by the callee.
-func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callSite {
-	result := make(map[*Symbol][]callSite)
-
-	// Walker state: true iff the current position is inside an iter-callback
-	// boundary (a lambda argument at an iter-callback slot, or the body of an
-	// iter-sensitive function whose own call sites are iter-callback — which
-	// we enforce recursively). For the purpose of this pass we only mark
-	// "immediate" iter-callback positions; an iter-sensitive function's body
-	// inherits the flag from its own call sites, so we treat every iter-
-	// sensitive function's body as "in iter" here — its call sites are
-	// validated separately against their own iter-callback context.
-
-	var walk func(n ast.Node, inIter bool)
-	// walkCall analyzes a Call, optionally with a pipe LHS prepended. When
-	// pipeLHS != nil, iter-callback slot indices shift by +1 against call.Args.
-	walkCall := func(call *ast.Call, pipeLHS ast.Node, inIter bool) {
+// checkUses walks the file, reports each use of an iter-sensitive function
+// in a place it may not stand, and answers the iter-sensitive functions it
+// saw used at all.
+//
+// An iter-sensitive function may stand in one place: as an iteration
+// function's callback argument (`Iter.map(xs, keep)`, `Iter.find(xs, f:
+// keep)`, `xs |> Iter.map(keep)`, `Iter.reduce(xs, keep, from: 0)`). Nomi
+// has no non-local control flow, and its `break` and `continue` leave only
+// the function they are written in, as a signal to the iteration function
+// that called it. A call anywhere, the whole body of a callback lambda or
+// a capture (`&keep(&1)`) included, would carry that signal across the
+// caller's boundary too, and a value use is a call nobody can see.
+func (s *iterSensitivity) checkUses(nodes []ast.Node) map[*ast.FuncDef]bool {
+	used := map[*ast.FuncDef]bool{}
+	// in is the iteration whose callback the walk is inside, or "".
+	in := ""
+	var walk func(n ast.Node)
+	walkCall := func(call *ast.Call, pipeLHS ast.Node) {
 		s.checkReduceSeed(call, pipeLHS)
 		s.checkLoopSeed(call, pipeLHS)
-		if callee := s.resolveCalleeSym(call.Func); callee != nil {
-			result[callee] = append(result[callee], callSite{
-				call:           call,
-				inIterCallback: inIter,
-			})
-		}
-		if _, named := call.Func.(*ast.Ident); !named {
-			// A bare callee is the call site recorded above, not a use of
-			// the function as a value.
-			walk(call.Func, inIter)
+		if fd := s.sensitiveFunc(call.Func); fd != nil {
+			used[fd] = true
+			s.errors = append(s.errors, s.iterSensitiveUseError(call.Func, calleeText(call.Func), fd, true, in))
+		} else if _, named := call.Func.(*ast.Ident); !named {
+			walk(call.Func)
 		}
 		slots := s.slotsForCall(call)
-		slotOffset := 0
-		if pipeLHS != nil {
-			lhsInIter := inIter
-			if slots != nil && slots[0] {
-				lhsInIter = true
-			}
-			walk(pipeLHS, lhsInIter)
-			slotOffset = 1
+		iteration := ""
+		if slots != nil {
+			iteration = s.iterationName(call)
 		}
-		for i, arg := range call.Args {
-			argInIter := inIter
-			isIterCbArg := slots != nil && slots[i+slotOffset]
-			if isIterCbArg {
-				argInIter = true
+		args := call.Args
+		if pipeLHS != nil {
+			args = append([]ast.Node{pipeLHS}, call.Args...)
+		}
+		for i, arg := range args {
+			if slots == nil || !isCallbackArg(slots, args, i) {
+				walk(arg)
+				continue
 			}
-			// When an iter-sensitive in-file function is passed as a
-			// direct argument at an iter-callback slot, treat that as
-			// a "call site" for the purpose of call-site validation.
-			if isIterCbArg {
-				if refSym := s.resolveCalleeSym(arg); refSym != nil {
-					result[refSym] = append(result[refSym], callSite{
-						call:           call,
-						inIterCallback: true,
-					})
-					continue
-				}
+			cb := ungroupExpr(unwrapNamedArg(arg))
+			if fd := s.sensitiveFunc(cb); fd != nil {
+				// The function itself is the callback.
+				used[fd] = true
+				continue
 			}
-			walk(arg, argInIter)
+			outer := in
+			in = iteration
+			walk(arg)
+			in = outer
 		}
 	}
-	walk = func(n ast.Node, inIter bool) {
+	walk = func(n ast.Node) {
 		if n == nil {
 			return
 		}
 		switch node := n.(type) {
-		case *ast.FuncDef:
-			sym := s.fa.Definitions[Pos{Line: node.Line, Col: node.Col}]
-			// Inside an iter-sensitive function body, calls to other
-			// iter-sensitive functions are allowed to propagate — the body's
-			// iter-sensitivity is itself validated at the function's call
-			// sites. So walking the body with inIter=true lets the call-site
-			// check skip calls made here (they're propagating through a
-			// validated chain).
-			bodyInIter := false
-			if sym != nil && s.sensitive[sym] {
-				bodyInIter = true
-			}
-			if node.Body != nil {
-				for _, stmt := range node.Body.Stmts {
-					walk(stmt, bodyInIter)
-				}
-			}
-
-		case *ast.Lambda:
-			// A lambda's body inherits the inIter flag as set by the caller
-			// that placed this lambda (the Call case below sets inIter=true
-			// when the lambda occupies an iter-callback slot).
-			if node.Body != nil {
-				for _, stmt := range node.Body.Stmts {
-					walk(stmt, inIter)
-				}
-			}
-
+		case *ast.ImportStmt, *ast.ImportBlock:
+			// Import names are no use of a function.
 		case *ast.Call:
-			walkCall(node, nil, inIter)
-
-		case *ast.Ident:
-			// An iter-sensitive function named anywhere but as a callee or
-			// directly as an iteration function's callback is a value whose
-			// calls no call site records, so its break or continue could run
-			// with no iteration to control (spec §19).
-			if sym := s.resolveCalleeSym(node); sym != nil && s.sensitive[sym] {
-				s.errors = append(s.errors, TypeError{
-					Line: node.Line, Col: node.Col,
-					Message: fmt.Sprintf(
-						"'%s' uses break/continue (directly or transitively), so it can only be called from an iter-callback position or passed directly as an iteration function's callback, not used as a value here",
-						node.Name,
-					),
-				})
-			}
-
-		case *ast.Block:
-			for _, stmt := range node.Stmts {
-				walk(stmt, inIter)
-			}
-		case *ast.ExprStmt:
-			walk(node.Expr, inIter)
-		case *ast.GroupedExpr:
-			walk(node.Expr, inIter)
-		case *ast.Capture:
-			walk(node.Body, inIter)
-		case *ast.If:
-			walk(node.Cond, inIter)
-			walk(node.Then, inIter)
-			walk(node.Else, inIter)
+			walkCall(node, nil)
 		case *ast.Binary:
 			if node.Op == "|>" {
 				if call, ok := node.Right.(*ast.Call); ok {
-					walkCall(call, node.Left, inIter)
+					walkCall(call, node.Left)
 					break
 				}
 			}
-			walk(node.Left, inIter)
-			walk(node.Right, inIter)
-		case *ast.Unary:
-			walk(node.Right, inIter)
-		case *ast.Binding:
-			walk(node.Value, inIter)
-		case *ast.TupleDestructure:
-			walk(node.Value, inIter)
-		case *ast.StructDestructure:
-			walk(node.Value, inIter)
-		case *ast.DistinctDestructure:
-			walk(node.Value, inIter)
-		case *ast.PatternBinding:
-			walk(node.Value, inIter)
-			for _, e := range node.ElseNodes() {
-				walk(e, inIter)
+			walk(node.Left)
+			walk(node.Right)
+		case *ast.FuncDef:
+			// A function's body is no callback's, whatever holds it.
+			outer := in
+			in = ""
+			ast.Children(n, walk)
+			in = outer
+		case *ast.Ident, *ast.FieldAccess:
+			// An iter-sensitive function named anywhere but directly as an
+			// iteration function's callback is a value whose calls nothing
+			// here can see.
+			if fd := s.sensitiveFunc(node); fd != nil {
+				used[fd] = true
+				s.errors = append(s.errors, s.iterSensitiveUseError(node, calleeText(node), fd, false, in))
+				break
 			}
-		case *ast.With:
-			walk(node.Value, inIter)
-		case *ast.Subtests:
-			walk(node.Rows, inIter)
-			walk(node.Name, inIter)
-			walk(node.Body, inIter)
-		case *ast.FieldAccess:
-			walk(node.Object, inIter)
-		case *ast.Return:
-			walk(node.Value, inIter)
-		case *ast.Break:
-			walk(node.Value, inIter)
-		case *ast.ListLit:
-			for _, item := range node.Items {
-				walk(item, inIter)
+			if fa, ok := node.(*ast.FieldAccess); ok {
+				walk(fa.Object)
 			}
-		case *ast.VectorLit:
-			for _, item := range node.Operands() {
-				walk(item, inIter)
-			}
-		case *ast.SetLit:
-			if node.Spread != nil {
-				walk(node.Spread, inIter)
-			}
-			for _, item := range node.Items {
-				walk(item, inIter)
-			}
-		case *ast.TupleLit:
-			for _, item := range node.Items {
-				walk(item, inIter)
-			}
-		case *ast.MapLit:
-			if node.Spread != nil {
-				walk(node.Spread, inIter)
-			}
-			for _, entry := range node.Entries {
-				walk(entry.Key, inIter)
-				walk(entry.Value, inIter)
-			}
-		case *ast.StructLit:
-			if node.Spread != nil {
-				walk(node.Spread, inIter)
-			}
-			for _, f := range node.Fields {
-				walk(f.Value, inIter)
-			}
-		case *ast.Case:
-			walk(node.Value, inIter)
-			for _, br := range node.Branches {
-				walk(br.Guard, inIter)
-				walk(br.Body, inIter)
-			}
-		case *ast.TryOp:
-			walk(node.Expr, inIter)
-		case *ast.Dbg:
-			walk(node.Expr, inIter)
-		case *ast.Then:
-			walk(node.Fn(), inIter)
-		case *ast.Tap:
-			walk(node.Fn(), inIter)
-		case *ast.Assertion:
-			walk(node.Expr, inIter)
-		case *ast.TestDecl:
-			// A test body, its group's boot and setup are call sites like
-			// any function body's.
-			walk(node.Boot, false)
-			walk(node.Setup, false)
-			if node.Body != nil {
-				for _, stmt := range node.Body.Stmts {
-					walk(stmt, false)
-				}
-			}
-		case *ast.StringInterp:
-			for _, part := range node.Parts {
-				if se, ok := part.(ast.StringExpr); ok {
-					walk(se.Expr, inIter)
-				}
-			}
+		default:
+			ast.Children(n, walk)
 		}
 	}
-
 	for _, node := range nodes {
-		walk(node, false)
+		walk(node)
 	}
-	return result
+	return used
 }
 
-// reportNoCallSites emits an error for an iter-sensitive function that has no
-// recorded call sites — its break/continue would always be uncaught.
+// isCallbackArg reports whether args[i], an argument of a call whose
+// callback slots are slots (counting a piped source in args), is the
+// callback: the one named for the callback parameter (`f`, `pred`, `step`),
+// or the positional that fills a callback slot. Positionals fill slots in
+// order around the named ones, so in `Iter.reduce(xs, from: 0, keep)` the
+// callback is `keep`, and in `Iter.map(source: xs, keep)` it is too.
+func isCallbackArg(slots map[int]bool, args []ast.Node, i int) bool {
+	if na, ok := args[i].(*ast.NamedArg); ok {
+		return callbackParamNames[na.Name]
+	}
+	slot := 0
+	for _, a := range args[:i] {
+		if _, named := a.(*ast.NamedArg); !named {
+			slot++
+		}
+	}
+	for _, a := range args {
+		if na, ok := a.(*ast.NamedArg); ok && sourceParamNames[na.Name] {
+			slot++
+		}
+	}
+	return slots[slot]
+}
+
+// callbackParamNames are the names iterCallbackSlots' functions give their
+// callback parameter, and sourceParamNames the names they give the
+// parameter before it.
+var (
+	callbackParamNames = map[string]bool{"f": true, "pred": true, "step": true}
+	sourceParamNames   = map[string]bool{"source": true, "seed": true, "m": true}
+)
+
+// reportNoCallSites emits an error for an iter-sensitive function of this
+// file that nothing uses: its break/continue would always be uncaught.
 func (s *iterSensitivity) reportNoCallSites(sym *Symbol) {
 	// Prefer pointing at the first direct break/continue inside the body.
 	fn := s.funcBody[sym]
 	if fn == nil {
 		return
 	}
-	if line, col, ok := s.findFirstDirectBC(fn.Body); ok {
+	if at := firstOwnSignal(fn.Body); at != nil {
+		line, col := signalPos(at)
 		s.errors = append(s.errors, TypeError{
 			Line: line, Col: col,
 			Message: fmt.Sprintf(
@@ -966,7 +673,6 @@ func (s *iterSensitivity) reportNoCallSites(sym *Symbol) {
 		})
 		return
 	}
-	// Fallback: point at the function definition itself.
 	s.errors = append(s.errors, TypeError{
 		Line: sym.Pos.Line, Col: sym.Pos.Col,
 		Message: fmt.Sprintf(
@@ -976,395 +682,194 @@ func (s *iterSensitivity) reportNoCallSites(sym *Symbol) {
 	})
 }
 
-// findFirstDirectBC searches a function body for the first break/continue
-// that is NOT caught by an intervening iter-callback slot, returning its
-// source position.
-func (s *iterSensitivity) findFirstDirectBC(n ast.Node) (int, int, bool) {
-	var found struct {
-		line int
-		col  int
-		set  bool
+// firstOwnSignal is the first `break` or `continue` in n's own scope
+// (OwnScopeSignals), or nil.
+func firstOwnSignal(n ast.Node) ast.Node {
+	var found ast.Node
+	if n == nil {
+		return nil
 	}
-	var walk func(n ast.Node, caught bool)
-	walk = func(n ast.Node, caught bool) {
-		if found.set || n == nil {
-			return
+	ast.Inspect(n, func(m ast.Node) bool {
+		if found != nil {
+			return false
 		}
-		switch node := n.(type) {
-		case *ast.Break:
-			if !caught {
-				found.line, found.col, found.set = node.Line, node.Col, true
-			}
-		case *ast.Continue:
-			if !caught {
-				found.line, found.col, found.set = node.Line, node.Col, true
-			}
-		case *ast.Lambda:
-			if node.Body != nil {
-				for _, stmt := range node.Body.Stmts {
-					walk(stmt, caught)
-				}
-			}
-		case *ast.FuncDef:
-			// Nested function definition: its own scope — not ours.
-		case *ast.Call:
-			walk(node.Func, caught)
-			slots := s.slotsForCall(node)
-			for i, arg := range node.Args {
-				argCaught := caught
-				if slots != nil && slots[i] {
-					argCaught = true
-				}
-				walk(arg, argCaught)
-			}
-		case *ast.Block:
-			for _, stmt := range node.Stmts {
-				walk(stmt, caught)
-			}
-		case *ast.ExprStmt:
-			walk(node.Expr, caught)
-		case *ast.GroupedExpr:
-			walk(node.Expr, caught)
-		case *ast.Capture:
-			walk(node.Body, caught)
-		case *ast.If:
-			walk(node.Cond, caught)
-			walk(node.Then, caught)
-			walk(node.Else, caught)
-		case *ast.Binary:
-			if node.Op == "|>" {
-				if call, ok := node.Right.(*ast.Call); ok {
-					walk(call.Func, caught)
-					slots := s.slotsForCall(call)
-					lhsCaught := caught
-					if slots != nil && slots[0] {
-						lhsCaught = true
-					}
-					walk(node.Left, lhsCaught)
-					for i, arg := range call.Args {
-						argCaught := caught
-						if slots != nil && slots[i+1] {
-							argCaught = true
-						}
-						walk(arg, argCaught)
-					}
-					break
-				}
-			}
-			walk(node.Left, caught)
-			walk(node.Right, caught)
-		case *ast.Unary:
-			walk(node.Right, caught)
-		case *ast.Binding:
-			walk(node.Value, caught)
-		case *ast.TupleDestructure:
-			walk(node.Value, caught)
-		case *ast.StructDestructure:
-			walk(node.Value, caught)
-		case *ast.DistinctDestructure:
-			walk(node.Value, caught)
-		case *ast.PatternBinding:
-			walk(node.Value, caught)
-			for _, e := range node.ElseNodes() {
-				walk(e, caught)
-			}
-		case *ast.With:
-			walk(node.Value, caught)
-		case *ast.Subtests:
-			walk(node.Rows, caught)
-			walk(node.Name, caught)
-			walk(node.Body, caught)
-		case *ast.FieldAccess:
-			walk(node.Object, caught)
-		case *ast.Return:
-			walk(node.Value, caught)
-		case *ast.ListLit:
-			for _, item := range node.Items {
-				walk(item, caught)
-			}
-		case *ast.VectorLit:
-			for _, item := range node.Operands() {
-				walk(item, caught)
-			}
-		case *ast.SetLit:
-			if node.Spread != nil {
-				walk(node.Spread, caught)
-			}
-			for _, item := range node.Items {
-				walk(item, caught)
-			}
-		case *ast.TupleLit:
-			for _, item := range node.Items {
-				walk(item, caught)
-			}
-		case *ast.MapLit:
-			if node.Spread != nil {
-				walk(node.Spread, caught)
-			}
-			for _, entry := range node.Entries {
-				walk(entry.Key, caught)
-				walk(entry.Value, caught)
-			}
-		case *ast.StructLit:
-			if node.Spread != nil {
-				walk(node.Spread, caught)
-			}
-			for _, f := range node.Fields {
-				walk(f.Value, caught)
-			}
-		case *ast.Case:
-			walk(node.Value, caught)
-			for _, br := range node.Branches {
-				walk(br.Guard, caught)
-				walk(br.Body, caught)
-			}
-		case *ast.TryOp:
-			walk(node.Expr, caught)
-		case *ast.Dbg:
-			walk(node.Expr, caught)
-		case *ast.Then:
-			walk(node.Fn(), caught)
-		case *ast.Tap:
-			walk(node.Fn(), caught)
-		case *ast.Assertion:
-			walk(node.Expr, caught)
-		case *ast.StringInterp:
-			for _, part := range node.Parts {
-				if se, ok := part.(ast.StringExpr); ok {
-					walk(se.Expr, caught)
-				}
-			}
+		switch m.(type) {
+		case *ast.Break, *ast.Continue:
+			found = m
+			return false
+		case *ast.Lambda, *ast.FuncDef, *ast.Capture, *ast.ConcurrentBlock:
+			return false
 		}
-	}
-	walk(n, false)
-	if found.set {
-		return found.line, found.col, true
-	}
-	return 0, 0, false
+		return true
+	})
+	return found
 }
 
-// reportStrayBreaks flags break/continue statements that cannot possibly be
-// caught:
-//   - at top level (no enclosing function at all);
-//   - inside a lambda that lives at a non-iter-callback position AND whose
-//     enclosing function is not iter-sensitive (and therefore does not itself
-//     propagate through a validated chain).
-//
-// For break/continue inside an iter-sensitive function, validation is
-// delegated to that function's call-site check — if every call site is
-// iter-callback, the break is fine; otherwise the call-site error already
-// fires.
+// reportStrayBreaks flags break/continue statements that no iteration can
+// catch: one outside every function and callback, one in a lambda or
+// capture that is not itself an iteration function's callback, one in a
+// function other than a top-level one (an impl's, a nested `fn`), and one
+// in a `concurrent` block, which runs as an activation of its own. A `break`
+// or `continue` in a top-level function's own scope makes it iter-sensitive,
+// and checkUses checks where it is used.
 func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
-	// Track: current enclosing function (if any), and immediate-iter flag.
-	var walk func(n ast.Node, enclosing *Symbol, immediateIter bool)
-	// walkCallValidate analyzes a Call, optionally with a pipe LHS prepended.
-	// When pipeLHS != nil, iter-callback slot indices shift by +1 against
-	// call.Args.
-	walkCallValidate := func(call *ast.Call, pipeLHS ast.Node, enclosing *Symbol, immediateIter bool) {
-		walk(call.Func, enclosing, immediateIter)
+	// A place says whether a signal at the current position is caught, by
+	// a callback's iteration or as an iter-sensitive function's own, and
+	// whether it stands in a `concurrent` block.
+	type place struct {
+		caught     bool
+		concurrent bool
+	}
+	callbacks := map[ast.Node]bool{}
+	var walk func(n ast.Node, in place)
+	walkCall := func(call *ast.Call, pipeLHS ast.Node, in place) {
+		walk(call.Func, in)
 		slots := s.slotsForCall(call)
-		slotOffset := 0
+		args := call.Args
 		if pipeLHS != nil {
-			lhsIter := immediateIter
-			if slots != nil && slots[0] {
-				lhsIter = true
-			}
-			walk(pipeLHS, enclosing, lhsIter)
-			slotOffset = 1
+			args = append([]ast.Node{pipeLHS}, call.Args...)
 		}
-		for i, arg := range call.Args {
-			argIter := immediateIter
-			if slots != nil && slots[i+slotOffset] {
-				argIter = true
+		for i, arg := range args {
+			if slots != nil && isCallbackArg(slots, args, i) {
+				callbacks[unwrapNamedArg(arg)] = true
 			}
-			walk(arg, enclosing, argIter)
+			walk(arg, in)
 		}
 	}
-	walk = func(n ast.Node, enclosing *Symbol, immediateIter bool) {
+	walk = func(n ast.Node, in place) {
 		if n == nil {
 			return
 		}
 		switch node := n.(type) {
 		case *ast.FuncDef:
-			sym := s.fa.Definitions[Pos{Line: node.Line, Col: node.Col}]
+			for _, p := range node.Params {
+				walk(p.Default, place{})
+			}
 			if node.Body != nil {
-				for _, stmt := range node.Body.Stmts {
-					walk(stmt, sym, false)
-				}
+				sym := s.fa.Definitions[Pos{Line: node.Line, Col: node.Col}]
+				walk(node.Body, place{caught: sym != nil && s.sensitive[sym]})
 			}
 		case *ast.Lambda:
-			// immediateIter for the body is inherited from what the caller
-			// passed in (the Call case below sets it true for iter-callback
-			// slot args).
+			// The body of an iteration function's callback catches its
+			// `break` and `continue`. Any other lambda is an activation of
+			// its own that nothing catches them in.
+			for _, p := range node.Params {
+				walk(p.Default, in)
+			}
 			if node.Body != nil {
-				for _, stmt := range node.Body.Stmts {
-					walk(stmt, enclosing, immediateIter)
-				}
+				walk(node.Body, place{caught: callbacks[node]})
 			}
-		case *ast.Break, *ast.Continue:
-			// Covered if (a) we're in an immediate iter-callback boundary,
-			// OR (b) the enclosing function is iter-sensitive (its call
-			// sites carry the validation). If neither: stray break.
-			if immediateIter {
-				break
-			}
-			if enclosing != nil && s.sensitive[enclosing] {
-				break
-			}
-			line, col := 0, 0
-			if b, ok := node.(*ast.Break); ok {
-				line, col = b.Line, b.Col
-			} else if c, ok := node.(*ast.Continue); ok {
-				line, col = c.Line, c.Col
-			}
-			if col == 0 {
-				col = 1
-			}
-			name := "break"
-			if _, ok := node.(*ast.Continue); ok {
-				name = "continue"
-			}
-			s.errors = append(s.errors, TypeError{
-				Line: line, Col: col,
-				Message: fmt.Sprintf(
-					"'%s' can only be used inside an iter-callback (e.g. a lambda passed to Iter.map/Iter.filter/Iter.loop/etc.)",
-					name,
-				),
-			})
-			if b, ok := node.(*ast.Break); ok && b.Value != nil {
-				walk(b.Value, enclosing, immediateIter)
-			}
-		case *ast.Call:
-			walkCallValidate(node, nil, enclosing, immediateIter)
-		case *ast.Block:
-			for _, stmt := range node.Stmts {
-				walk(stmt, enclosing, immediateIter)
-			}
-		case *ast.ExprStmt:
-			walk(node.Expr, enclosing, immediateIter)
-		case *ast.GroupedExpr:
-			walk(node.Expr, enclosing, immediateIter)
 		case *ast.Capture:
-			walk(node.Body, enclosing, immediateIter)
-		case *ast.If:
-			walk(node.Cond, enclosing, immediateIter)
-			walk(node.Then, enclosing, immediateIter)
-			walk(node.Else, enclosing, immediateIter)
-		case *ast.Binary:
-			if node.Op == "|>" {
-				if call, ok := node.Right.(*ast.Call); ok {
-					walkCallValidate(call, node.Left, enclosing, immediateIter)
-					break
-				}
+			walk(node.Body, place{caught: callbacks[node]})
+		case *ast.ConcurrentBlock:
+			if node.Body != nil {
+				walk(node.Body, place{concurrent: true})
 			}
-			walk(node.Left, enclosing, immediateIter)
-			walk(node.Right, enclosing, immediateIter)
-		case *ast.Unary:
-			walk(node.Right, enclosing, immediateIter)
-		case *ast.Binding:
-			walk(node.Value, enclosing, immediateIter)
-		case *ast.TupleDestructure:
-			walk(node.Value, enclosing, immediateIter)
-		case *ast.StructDestructure:
-			walk(node.Value, enclosing, immediateIter)
-		case *ast.DistinctDestructure:
-			walk(node.Value, enclosing, immediateIter)
-		case *ast.PatternBinding:
-			walk(node.Value, enclosing, immediateIter)
-			for _, e := range node.ElseNodes() {
-				walk(e, enclosing, immediateIter)
-			}
-		case *ast.With:
-			walk(node.Value, enclosing, immediateIter)
-		case *ast.Subtests:
-			walk(node.Rows, enclosing, immediateIter)
-			walk(node.Name, enclosing, immediateIter)
-			walk(node.Body, enclosing, immediateIter)
-		case *ast.FieldAccess:
-			walk(node.Object, enclosing, immediateIter)
-		case *ast.Return:
-			walk(node.Value, enclosing, immediateIter)
-		case *ast.ListLit:
-			for _, item := range node.Items {
-				walk(item, enclosing, immediateIter)
-			}
-		case *ast.VectorLit:
-			for _, item := range node.Operands() {
-				walk(item, enclosing, immediateIter)
-			}
-		case *ast.SetLit:
-			if node.Spread != nil {
-				walk(node.Spread, enclosing, immediateIter)
-			}
-			for _, item := range node.Items {
-				walk(item, enclosing, immediateIter)
-			}
-		case *ast.TupleLit:
-			for _, item := range node.Items {
-				walk(item, enclosing, immediateIter)
-			}
-		case *ast.MapLit:
-			if node.Spread != nil {
-				walk(node.Spread, enclosing, immediateIter)
-			}
-			for _, entry := range node.Entries {
-				walk(entry.Key, enclosing, immediateIter)
-				walk(entry.Value, enclosing, immediateIter)
-			}
-		case *ast.StructLit:
-			if node.Spread != nil {
-				walk(node.Spread, enclosing, immediateIter)
-			}
-			for _, f := range node.Fields {
-				walk(f.Value, enclosing, immediateIter)
-			}
-		case *ast.Case:
-			walk(node.Value, enclosing, immediateIter)
-			for _, br := range node.Branches {
-				walk(br.Guard, enclosing, immediateIter)
-				walk(br.Body, enclosing, immediateIter)
-			}
-		case *ast.TryOp:
-			walk(node.Expr, enclosing, immediateIter)
-		case *ast.Dbg:
-			walk(node.Expr, enclosing, immediateIter)
-		case *ast.Then:
-			walk(node.Fn(), enclosing, immediateIter)
-		case *ast.Tap:
-			walk(node.Fn(), enclosing, immediateIter)
-		case *ast.Assertion:
-			walk(node.Expr, enclosing, immediateIter)
 		case *ast.TestDecl:
 			// A `break` in a test body has no iteration to stop unless a
 			// callback position catches it.
-			walk(node.Boot, nil, false)
-			walk(node.Setup, nil, false)
-			if node.Body != nil {
-				for _, stmt := range node.Body.Stmts {
-					walk(stmt, nil, false)
+			ast.Children(n, func(c ast.Node) { walk(c, place{}) })
+		case *ast.Break, *ast.Continue:
+			if !in.caught {
+				s.errors = append(s.errors, strayBreakError(node, in.concurrent))
+			}
+			if b, ok := node.(*ast.Break); ok && b.Value != nil {
+				walk(b.Value, in)
+			}
+		case *ast.Call:
+			walkCall(node, nil, in)
+		case *ast.Binary:
+			if node.Op == "|>" {
+				if call, ok := node.Right.(*ast.Call); ok {
+					walkCall(call, node.Left, in)
+					break
 				}
 			}
-		case *ast.StringInterp:
-			for _, part := range node.Parts {
-				if se, ok := part.(ast.StringExpr); ok {
-					walk(se.Expr, enclosing, immediateIter)
-				}
-			}
+			walk(node.Left, in)
+			walk(node.Right, in)
+		default:
+			ast.Children(n, func(c ast.Node) { walk(c, in) })
 		}
 	}
 	for _, node := range nodes {
-		walk(node, nil, false)
+		walk(node, place{})
 	}
 }
 
+// strayBreakError is the error at a `break` or `continue` nothing catches.
+func strayBreakError(n ast.Node, concurrent bool) TypeError {
+	name := "break"
+	if _, ok := n.(*ast.Continue); ok {
+		name = "continue"
+	}
+	line, col := signalPos(n)
+	msg := fmt.Sprintf(
+		"'%s' can only be used inside an iter-callback (e.g. a lambda passed to Iter.map/Iter.filter/Iter.loop/etc.)",
+		name)
+	if concurrent {
+		msg = fmt.Sprintf(
+			"'%s' cannot leave a `concurrent` block: the block runs as an activation of its own, so no iteration around it sees the signal",
+			name)
+	}
+	return TypeError{Line: line, Col: col, Message: msg}
+}
+
+// signalPos is a `break` or `continue` statement's position.
+func signalPos(n ast.Node) (int, int) {
+	line, col := 0, 0
+	switch t := n.(type) {
+	case *ast.Break:
+		line, col = t.Line, t.Col
+	case *ast.Continue:
+		line, col = t.Line, t.Col
+	}
+	if col == 0 {
+		col = 1
+	}
+	return line, col
+}
+
+// seededCallArgs splits a seeded iteration call (`Iter.reduce`, `scan`,
+// `map_reduce` with withSource, `Iter.loop` without) into what the seed rule
+// reads: the callback (the last positional after the source, or `f:`), the
+// `from:` argument's value, and a starting value written positionally
+// (`Iter.reduce(xs, 0, add)`), each nil when absent. pipeLHS is the piped
+// source, or nil.
+func seededCallArgs(call *ast.Call, pipeLHS ast.Node, withSource bool) (cb, from, positionalSeed ast.Node) {
+	var positional []ast.Node
+	for _, arg := range call.Args {
+		if na, ok := arg.(*ast.NamedArg); ok {
+			switch na.Name {
+			case seedParam:
+				from = na.Value
+			case "f":
+				cb = na.Value
+			}
+			continue
+		}
+		positional = append(positional, arg)
+	}
+	if withSource && pipeLHS == nil && len(positional) > 0 {
+		positional = positional[1:]
+	}
+	if len(positional) > 0 && cb == nil {
+		cb = positional[len(positional)-1]
+		positional = positional[:len(positional)-1]
+	}
+	if len(positional) > 0 {
+		positionalSeed = positional[0]
+	}
+	return cb, from, positionalSeed
+}
+
 // checkReduceSeed reports an `Iter.reduce`, `Iter.scan` or `Iter.map_reduce`
-// whose callback carries no starting value. The only starting value is the
-// callback lambda's first-parameter default (`fn acc = 0, x -> acc + x`), so a
-// function value (`Int.add`), a lambda without a default, a partial
-// application and a callback slot left open (`Iter.reduce(xs, _)`) are all
-// rejected: there is no first-element fallback, and an empty source would
-// have no answer. It runs in this pass because the pass already visits every
-// call.
+// whose starting value is not given exactly once. It is given by name,
+// `from: 0`, with any callback (a named function, a capture, a lambda), or
+// as the callback lambda's first-parameter default (`fn acc = 0, x -> acc +
+// x`). Neither is an error, since there is no first-element fallback and an
+// empty source would have no answer; both is an error, since the call would
+// have two. A callback slot left open (`Iter.reduce(xs, &1)`) is rejected
+// too. It runs in this pass because the pass already visits every call.
 func (s *iterSensitivity) checkReduceSeed(call *ast.Call, pipeLHS ast.Node) {
 	name := ""
 	for _, seeded := range seededIterFuncs {
@@ -1376,60 +881,96 @@ func (s *iterSensitivity) checkReduceSeed(call *ast.Call, pipeLHS ast.Node) {
 	if name == "" {
 		return
 	}
-	n := len(call.Args)
-	if n == 0 || n > 2 || (n == 1 && pipeLHS == nil) {
+	cb, from, positionalSeed := seededCallArgs(call, pipeLHS, true)
+	if positionalSeed != nil {
+		e := errAt(positionalSeed, fmt.Sprintf("`Iter.%s` takes its starting value by name", name))
+		e.Hints = []string{fmt.Sprintf("write it as `from:` after the callback: `Iter.%s(xs, f, from: <start>)`", name)}
+		s.errors = append(s.errors, e)
 		return
 	}
-	cb := call.Args[n-1]
-	if lam, ok := cb.(*ast.Lambda); ok && len(lam.Params) > 0 && lam.Params[0].Default != nil {
+	if cb == nil {
 		return
 	}
 	if _, open := cb.(*ast.Placeholder); open {
-		s.errors = append(s.errors, reduceSeedError(name, cb, fmt.Sprintf("pass the callback here, as a lambda whose accumulator has a starting value: `Iter.%s(xs, fn acc = <start>, x -> ...)`", name)))
+		s.errors = append(s.errors, reduceSeedError(name, cb, fmt.Sprintf("pass the callback here: `Iter.%s(xs, f, from: <start>)`", name)))
 		return
 	}
-	s.errors = append(s.errors, reduceSeedError(name, cb, reduceSeedHints(name, cb)...))
+	lam, isLambda := cb.(*ast.Lambda)
+	defaulted := isLambda && len(lam.Params) > 0 && lam.Params[0].Default != nil
+	switch {
+	case from != nil && defaulted:
+		e := errAt(from, fmt.Sprintf("`Iter.%s` has two starting values: `from:` and the default of the callback's first parameter", name))
+		e.Hints = []string{fmt.Sprintf("keep one: remove `from:`, or remove the default from `%s`", paramText(lam.Params[0]))}
+		s.errors = append(s.errors, e)
+	case from == nil && !defaulted:
+		s.errors = append(s.errors, reduceSeedError(name, cb, reduceSeedHints(name, cb)...))
+	}
 }
 
-// checkLoopSeed reports an `Iter.loop` whose callback carries no starting
-// state. The state starts from the callback lambda's parameter default
-// (`fn n = 0 -> ...`), and a stateless loop is a lambda with no parameter
-// (`fn -> ...`), so a lambda whose parameter has no default and a function
-// value (`Iter.loop(step)`) are rejected: the loop would have no first
-// state to call the callback with.
+// paramText is a lambda parameter's name, or "the first parameter" for a
+// pattern one.
+func paramText(p ast.Param) string {
+	if p.Destructure != nil || p.Name == "" {
+		return "the first parameter"
+	}
+	return p.Name
+}
+
+// checkLoopSeed reports an `Iter.loop` whose starting state is not given
+// exactly once. A loop with state starts from `from` (`Iter.loop(step, from:
+// 0)`, any callback) or from the callback lambda's parameter default (`fn n
+// = 0 -> ...`); a stateless loop is a lambda with no parameter (`fn -> ...`)
+// and takes neither. A callback with state and no starting state would have
+// no first state to call the callback with, and one with both would have
+// two.
 func (s *iterSensitivity) checkLoopSeed(call *ast.Call, pipeLHS ast.Node) {
 	if !s.isIterOwnerCall(call, "loop") {
 		return
 	}
-	var cb ast.Node
-	switch {
-	case len(call.Args) == 1 && pipeLHS == nil:
-		cb = call.Args[0]
-	case len(call.Args) == 0 && pipeLHS != nil:
+	cb, from, positionalSeed := seededCallArgs(call, pipeLHS, false)
+	if pipeLHS != nil && cb == nil {
 		cb = pipeLHS
-	default:
+	}
+	if positionalSeed != nil {
+		e := errAt(positionalSeed, "`Iter.loop` takes its starting state by name")
+		e.Hints = []string{"write it as `from:` after the callback: `Iter.loop(step, from: <start>)`"}
+		s.errors = append(s.errors, e)
 		return
 	}
-	if lam, ok := cb.(*ast.Lambda); ok && (len(lam.Params) == 0 || lam.Params[0].Default != nil) {
+	if cb == nil {
 		return
 	}
 	if _, open := cb.(*ast.Placeholder); open {
 		return
 	}
-	e := errAt(cb, loopSeedMessage)
-	switch n := cb.(type) {
-	case *ast.Lambda:
-		name := "state"
-		if n.Params[0].Destructure == nil {
-			name = n.Params[0].Name
+	lam, isLambda := cb.(*ast.Lambda)
+	stateless := isLambda && len(lam.Params) == 0
+	defaulted := isLambda && len(lam.Params) > 0 && lam.Params[0].Default != nil
+	switch {
+	case from != nil && stateless:
+		e := errAt(from, "a stateless `Iter.loop` takes no starting state")
+		e.Hints = []string{"remove `from:`, or give the callback a parameter for the state: `fn state -> ...`"}
+		s.errors = append(s.errors, e)
+	case from != nil && defaulted:
+		e := errAt(from, "`Iter.loop` has two starting states: `from:` and the default of the callback's parameter")
+		e.Hints = []string{fmt.Sprintf("keep one: remove `from:`, or remove the default from `%s`", paramText(lam.Params[0]))}
+		s.errors = append(s.errors, e)
+	case from == nil && !stateless && !defaulted:
+		e := errAt(cb, loopSeedMessage)
+		switch n := cb.(type) {
+		case *ast.Lambda:
+			name := "state"
+			if n.Params[0].Destructure == nil && n.Params[0].Name != "" {
+				name = n.Params[0].Name
+			}
+			e.Hints = []string{fmt.Sprintf("give it with `from:`, `Iter.loop(fn %s -> ..., from: <start>)`, or as the parameter's default, `fn %s = <start> -> ...`; or take no parameter for a loop with no state: `fn -> ...`", name, name)}
+		case *ast.Ident, *ast.FieldAccess:
+			e.Hints = []string{fmt.Sprintf("give it with `from:`: `Iter.loop(%s, from: <start>)`", calleeText(n))}
+		default:
+			e.Hints = []string{"give it with `from:`: `Iter.loop(step, from: <start>)`, or pass a lambda whose state has a default: `fn state = <start> -> ...`"}
 		}
-		e.Hints = []string{fmt.Sprintf("give the state a starting value: `fn %s = <start> -> ...`, or take no parameter for a loop with no state: `fn -> ...`", name)}
-	case *ast.Ident, *ast.FieldAccess:
-		e.Hints = []string{fmt.Sprintf("call it from a lambda whose state has a starting value: `fn state = <start> -> %s(state)`", calleeText(n))}
-	default:
-		e.Hints = []string{"pass a lambda whose state has a starting value: `fn state = <start> -> ...`"}
+		s.errors = append(s.errors, e)
 	}
-	s.errors = append(s.errors, e)
 }
 
 // loopSeedMessage is the error every unseeded `Iter.loop` reports.
@@ -1446,9 +987,81 @@ func (s *iterSensitivity) isIterOwnerCall(call *ast.Call, name string) bool {
 	return sym != nil && sym.OwningType == "Iter" && sym.Name == name
 }
 
-// seededIterFuncs are the `Iter` owner functions whose callback carries the
-// starting value as its first parameter's default.
+// seededIterFuncs are the `Iter` owner functions that fold with a starting
+// value: `from`, or the callback lambda's first-parameter default.
 var seededIterFuncs = []string{"reduce", "scan", "map_reduce"}
+
+// seedParam is the parameter a seeded iteration function (seededIterFuncs and
+// `Iter.loop`) takes its starting value in, when the callback lambda does not
+// carry it.
+const seedParam = "from"
+
+// routeAroundSeed moves a positional argument the slot routing put in a
+// seeded iteration call's `from` slot to the callback slot, the last, when no
+// other positional argument fills that: the starting value is given by name
+// or by the callback lambda's default, so `Iter.reduce(xs, Int.add, from: 0)`
+// passes `Int.add` as the callback, as a bare name routes there
+// (routesAsTrailingFunc). A starting value written positionally keeps its
+// slot, and checkReduceSeed asks for it by name. slots is the routing of
+// args, -1 for a named argument.
+func (c *checker) routeAroundSeed(call *ast.Call, args []ast.Node, slots []int, nParams int) {
+	seed := c.optionalSeedSlot(call)
+	last := nParams - 1
+	if seed < 0 || seed == last {
+		return
+	}
+	at := -1
+	for i, slot := range slots {
+		if i >= len(args) {
+			break
+		}
+		if _, named := args[i].(*ast.NamedArg); named {
+			continue
+		}
+		switch slot {
+		case last:
+			return
+		case seed:
+			at = i
+		}
+	}
+	if at >= 0 {
+		slots[at] = last
+	}
+}
+
+// seedingIterFunc is the name of the std `Iter` function call calls when it
+// takes a starting value (`reduce`, `scan`, `map_reduce` or `loop`), or "".
+func (fa *FileAnalysis) seedingIterFunc(call *ast.Call) string {
+	if fa == nil || call == nil {
+		return ""
+	}
+	s := &iterSensitivity{fa: fa}
+	for _, name := range append([]string{"loop"}, seededIterFuncs...) {
+		if s.isIterOwnerCall(call, name) {
+			return name
+		}
+	}
+	return ""
+}
+
+// optionalSeedSlot is the index of a seeded iteration call's `from`
+// parameter, or -1 for any other call. The parameter has no default, yet a
+// call may leave it out: the callback lambda's first-parameter default is
+// then the starting value. Which of the two gives it, and that exactly one
+// does, is checkReduceSeed's and checkLoopSeed's to report, so the arity
+// checks count `from` as optional.
+func (c *checker) optionalSeedSlot(call *ast.Call) int {
+	if c.fa.seedingIterFunc(call) == "" {
+		return -1
+	}
+	for i, name := range c.callDefParams(call.Func) {
+		if name == seedParam {
+			return i
+		}
+	}
+	return -1
+}
 
 // reduceSeedError is the error an unseeded call to the seeded `Iter`
 // function name reports: "`Iter.reduce` needs a starting value".
@@ -1458,9 +1071,9 @@ func reduceSeedError(name string, at ast.Node, hints ...string) TypeError {
 	return e
 }
 
-// reduceSeedHints shows the seeded form of cb: its own lambda with a default
-// on the accumulator, or a lambda that calls the named function. A function
-// named `min` or `max` also points at `Iter.min` / `Iter.max`.
+// reduceSeedHints shows the two spellings of cb's starting value: `from:`,
+// and for a lambda its accumulator's default. A function named `min` or `max`
+// also points at `Iter.min` / `Iter.max`.
 func reduceSeedHints(fn string, cb ast.Node) []string {
 	switch n := cb.(type) {
 	case *ast.Lambda:
@@ -1468,13 +1081,13 @@ func reduceSeedHints(fn string, cb ast.Node) []string {
 		if len(n.Params) == 2 && n.Params[0].Destructure == nil && n.Params[1].Destructure == nil {
 			acc, item = n.Params[0].Name, n.Params[1].Name
 		}
-		return []string{fmt.Sprintf("give the accumulator a starting value: `fn %s = <start>, %s -> ...`", acc, item)}
+		return []string{fmt.Sprintf("give it with `from:`, `Iter.%s(xs, fn %s, %s -> ..., from: <start>)`, or as the accumulator's default, `fn %s = <start>, %s -> ...`", fn, acc, item, acc, item)}
 	case *ast.Ident, *ast.FieldAccess:
 		callee := calleeText(n)
 		if callee == "?" || strings.HasPrefix(callee, "?.") {
 			break
 		}
-		hints := []string{fmt.Sprintf("call it from a lambda whose accumulator has a starting value: `fn acc = <start>, x -> %s(acc, x)`", callee)}
+		hints := []string{fmt.Sprintf("give it with `from:`: `Iter.%s(xs, %s, from: <start>)`", fn, callee)}
 		if fn != "reduce" {
 			return hints
 		}
@@ -1486,5 +1099,14 @@ func reduceSeedHints(fn string, cb ast.Node) []string {
 		}
 		return hints
 	}
-	return []string{"pass a lambda whose accumulator has a starting value: `fn acc = <start>, x -> ...`"}
+	return []string{fmt.Sprintf("give it with `from:`: `Iter.%s(xs, f, from: <start>)`, or pass a lambda whose accumulator has a default: `fn acc = <start>, x -> ...`", fn)}
+}
+
+// unwrapNamedArg is the value a call argument passes: a named argument's
+// value, or the argument itself.
+func unwrapNamedArg(arg ast.Node) ast.Node {
+	if na, ok := arg.(*ast.NamedArg); ok {
+		return na.Value
+	}
+	return arg
 }

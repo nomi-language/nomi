@@ -111,7 +111,7 @@ Write a lambda when the body takes more than one step or needs names.
 Two functions in the same scope can't have the same name. Nomi never picks
 between functions by the types of the arguments, so this is an error:
 
-```nomi-run ignore
+```nomi-run error
 type UserId String
 
 fn parse(_text: String) -> Int {
@@ -126,6 +126,11 @@ fn main() {
     Unit
 }
 ```
+<!-- expect
+main.nomi:7:4: 'parse' is already defined in this scope as a function
+main.nomi:7:4: help: pick a different name
+main.nomi:3:4: note: 'parse' is first defined here
+-->
 
 Give each function a name that says what it does, as the standard library
 does: [`String.to_int(text)`](/reference/strings/#stringto_int),
@@ -166,8 +171,10 @@ A parameter can have a default value. A caller can leave that argument out,
 or pass a value to replace the default.
 
 A named function still writes the type of a parameter with a default, as
-`greeting: String` does. A lambda can leave it off, as `y = 10` does, and
-the type comes from the default value.
+`greeting: String` does. Its parameter types are part of its signature,
+which code in other files relies on, so changing a default never changes
+the function's type. A lambda is checked where it stands, so it can leave
+the type off, as `y = 10` does, and the type comes from the default value.
 
 ## Named arguments
 
@@ -282,17 +289,28 @@ not. When both take functions, the arguments fill the parameters in order.
 
 ## Unwritten code
 
-```nomi
+```nomi-run error
+struct Header {
+    title: String
+}
+
 fn parse(text: String) -> Header {
     todo "parse the header"
 }
+
+fn main() {
+    dbg parse("# Notes")
+}
 ```
+<!-- expect
+todo reached at main.nomi:6: parse the header
+-->
 
 `todo` marks a body or a value you haven't written yet. It fits any type, so
 the rest of the program still checks and runs.
 
 If the program reaches it, the program stops with
-`todo reached at main.nomi:2: parse the header`. The editor shows each
+`todo reached at main.nomi:6: parse the header`. The editor shows each
 `todo` as a warning, and `nomi build` refuses a program that still has one.
 
 [Pipes](/pipes/) is next. It shows how `|>` joins these calls into code that

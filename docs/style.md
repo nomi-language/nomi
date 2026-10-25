@@ -162,7 +162,9 @@ fn pad(generation: Int) -> String {
 
 ```nomi
 s = %[1, 2, 3]
+
 Set.size(s) |> io.print() // expect: 3
+
 Set.contains?(s, 2) |> io.print() // expect: True
 
 s
@@ -309,6 +311,31 @@ Types use `PascalCase`; functions, bindings and parameters use `snake_case`
 distinguish it from. A lone `foo_basic` with no `foo_advanced` is noise; call
 it `foo`.
 
+Write an acronym as a word: `Json`, `Toml`, `Uuid`, `HttpClient`, `IoError`.
+
+A file's name is its module's name, and it is `snake_case` like every other
+lowercase name: `std/message_format`, `std/code_points`, `order_lines.nomi`,
+never `orderlines` or `orderLines`. The file qualifier code writes is the
+same name (`code_points.from_int(65)`). A name ends in `_test` only when the
+file holds tests, since `_test.nomi` is what marks a test file; a module that
+helps tests run is named for what it holds, as `std/sql_testing` holds the
+fake `Conn` and the conformance suite.
+
+Don't repeat the file's name in a type the file is about. A module with one
+error type calls it `Error`, and code outside writes it with the file's name:
+`uuid.Error`, `random.Error`, `locale.Error`. Two modules' errors then never
+collide, and `uuid.Error` says no less than `UuidError`. A module with several
+error types names each for what failed: `Json.DecodeError`,
+`NumberParseError`.
+
+```nomi
+import std/uuid.Uuid
+
+fn read_id(text: String) -> Result<Uuid, uuid.Error> {
+    Uuid.parse(text)
+}
+```
+
 Nomi does not overload functions by argument type. When two operations would
 want the same verb, put the distinction in the owner or the name.
 `String.to_int(text)` and `Date.parse(text)` are fine because the owners
@@ -317,6 +344,22 @@ differ; within one owner, pick a name that describes the path, such as
 extensible only through their standard interfaces (`Add`, `Subtract`,
 `Multiply`, `Divide`), with the right-hand and result types in the impl header:
 `impl Add<Months, Date> for Date`.
+
+A function that reads or changes text by a locale's conventions ends in
+`_in` when its name without the suffix is, or would be, the same operation
+by no locale's conventions: `Date.parse` reads ISO 8601 (`2024-03-15`) and
+`Date.parse_in` a reader's (`15.03.24` in `de`), and `Int.parse_in` is to
+`String.to_int` what `Date.parse_in` is to `Date.parse`; `String.to_upper`
+is Unicode's default casing and `String.to_upper_in` the locale's;
+`Money.parse_in` reads what `Money.format` writes, beside the `12.50 EUR`
+its `Display` writes. A function that only means something in a locale
+takes one with no suffix: every `format` and `format_*` (a value's text in
+no locale is its `Display`, not a `format`), `String.join_list`,
+`PluralCategory.cardinal` and `Collator.new`. Either way the locale is the
+second parameter, after the value the function reads or writes, and
+before the options: `Decimal.parse_in(text, locale, lenient: True)`,
+`TimeUnit.format_relative(3, locale, TimeUnit.Day)`. Std follows the rule,
+and a library that formats for a reader should too.
 
 Boolean-returning functions and predicate bindings may end in `?`, in the
 Ruby/Scheme idiom: `empty?`, `valid?`, `Set.contains?`, `String.contains?`. `?` is
@@ -371,6 +414,7 @@ once upto = 400
 once offsets = [#(-1, 0), #(1, 0), #(0, -1), #(0, 1)]
 
 total = Iter.reduce(1..=upto, fn sum = 0, n -> sum + n)
+
 lengths = Iter.reduce(words, fn acc = %{}, word -> Map.put(acc, word, String.length(word)))
 ```
 
@@ -907,12 +951,12 @@ statements, and `fmt` keeps them as an `import` block followed by a
 
 ```nomi
 import {
-    calc.helper
     std/io
+    calc.helper
 }
 pub import {
-    calc.{add, subtract as minus}
     std/comparable.{Comparable, Ordering}
+    calc.{add, subtract as minus}
 }
 ```
 
@@ -1268,9 +1312,7 @@ case load(id) {
 }
 
 // if: only a match does anything
-if Some(email) = user.email {
-    send(email)
-}
+if Some(email) = user.email { send(email) }
 ```
 
 Prefer a binding `else` to a `case` whose failure arm only leaves: the
@@ -1286,15 +1328,16 @@ alone cannot be resolved there.
 
 ```nomi
 // bound for later lines
-Some(user) = Map.get(users, id) else { return Err(.NotFound) }
+Some(user) = Map.get(users, id) else {
+    return Err(.NotFound)
+}
 
 // one stage of a pipe
 count =
     word
     |> String.trim()
     |> String.to_int()
-    |> Maybe.to_result(Error.NotANumber)
-    |> try
+    |> try Maybe.to_result(Error.NotANumber)
 ```
 
 ## 17. Leave out a struct literal's type name where the context names it
@@ -1398,7 +1441,9 @@ to invent:
 
 ```nomi
 names = users |> Iter.map(.name) |> Iter.to_list()
+
 youngest_first = Iter.sort_by(users, .age)
+
 cities = users |> Iter.map(.address.city) |> Iter.to_list()
 ```
 
@@ -1417,7 +1462,9 @@ invent:
 
 ```nomi
 ids = rows |> Iter.map(.id) |> Iter.map(UserId) |> Iter.to_list()
+
 somes: List<Maybe<Int>> = Iter.map(ns, Some) |> Iter.to_list()
+
 labelled = Result.map_err(result, ParseError)
 ```
 
@@ -1467,7 +1514,9 @@ its own file and call that:
 type Balance Int
 
 impl Balance {
-    pub fn cents(Balance(n)) -> Int { n }
+    pub fn cents(Balance(n)) -> Int {
+        n
+    }
 }
 ```
 
@@ -1526,6 +1575,18 @@ states themselves, and it stays lazy, so it can run over an unbounded source
 under a `take`. Use `map_reduce` when each element has its own output and
 the state only carries what the next one needs. Keep `Iter.reduce` when only
 the final state is wanted.
+
+A fold's starting value goes where its callback is written. A lambda carries
+it as its first parameter's default; a named function is passed itself, with
+the starting value as `from:`:
+
+```nomi
+total = Iter.reduce(orders, add_order, from: 0)
+```
+
+not `Iter.reduce(orders, fn total = 0, o -> add_order(total, o))`, a lambda
+that only passes its parameters on. `Iter.loop` takes a named step the same
+way, `Iter.loop(step, from: start)`.
 
 ## 28. Return `Maybe` for data, trap for a broken promise
 
@@ -1636,3 +1697,45 @@ Keep `fn x -> ...` when any of these holds:
 The language allows more than this rule uses: `&(&1 * 2 + 1)`, `&(&1 *
 &1)` and `&f(&2, &1)` are all functions. A parameter used twice or out of
 order reads better as a lambda whose parameters have names.
+
+## 32. Write macros whose errors land on what the user wrote
+
+These rules are for a macro's author (spec, *Macros*) and for code that uses
+one.
+
+- **State the real type in the declaration.** `pub csvdata.table! rate(code:
+  String) -> Maybe<Int>` tells a reader what `rate` is without reading the
+  macro. The compiler holds the expansion to the declaration's name, `pub`,
+  parameters and result, so the signature cannot drift from what the macro
+  generates. A macro that knows a better type says so: csvdata refuses `->
+  Int`, since a missing key answers `None`.
+- **Name helpers after the declaration.** A helper an expansion declares
+  besides the declaration's own name carries that name as its prefix
+  (`price_rows` for `table! price`), so two declarations in one file do not
+  collide.
+- **Map whole expressions with `Source.mapped`.** An error the checker finds
+  inside a mapped range is reported at the span the user wrote, with the
+  range's hint; one outside every range is reported as a defect of the
+  macro. Map the whole expression a piece of input becomes, not only the
+  copied text: csvdata maps `Some(${value})` to the cell, so a `Float` cell
+  in an `Int` table is a type mismatch at that cell. Map the declaration's
+  parameter and result type text too, so a mismatch names the user's type.
+- **Report your own mistakes at a span.** When the macro can tell the input
+  is wrong, answer `Expansion.error(span, message)` at the piece that is
+  wrong (the body, a word of it, the result type, the tag), not a generic
+  error at the keyword. Keep `Declaration.error` for a problem with the
+  declaration as a whole.
+- **Require a body tag only for another language.** A tag names the body's
+  language so editors highlight it: `` sqlkit.query! orders() Sql`SELECT
+  ...` ``. A body that is a path, a list of words or a size takes no tag,
+  and the macro refuses one (`` a table's body is the path of its CSV file
+  and takes no tag: remove `Csv` ``).
+- **Prefer the qualified form in examples.** `csvdata.table! rate` says
+  where the keyword comes from on the line that uses it. An item import
+  (`import csvdata.table`, then `table! rate`) is fine in a file that writes
+  many declarations, but documentation and examples use the qualified form.
+- **Keep settings in the module's table.** A macro reads its settings from
+  the `[<module>]` table of the declaring module's `nomi.toml` (`[csvdata]`
+  with `dir = "data"`), which it receives as `config`. Do not invent another
+  configuration file, and do not put settings that apply to every
+  declaration into each declaration's body.

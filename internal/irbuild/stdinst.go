@@ -91,6 +91,9 @@ type stdInstances struct {
 	// building is the instance whose body is being built, so an instance it
 	// discovers measures its chain from there.
 	building *stdInst
+	// program is the program's own units, which a std instance body at a
+	// program's interface reads the implementers from.
+	program []*gen
 	// caller is the gen whose call asks for an instance. An instance gen
 	// interns its structural kinds, prelude, std generic struct and std
 	// generic host instances in the caller's tables, so `Maybe<Point>` or
@@ -849,6 +852,9 @@ func stdBareFileFunc(fa *analysis.FileAnalysis, id *ast.Ident) (string, string, 
 		return "", "", false
 	}
 	for module, scope := range fa.Program().StdlibModuleScopes {
+		if isProgramStd(module) {
+			continue
+		}
 		if scope != nil && resolveSymbol(scope.Lookup(sym.Name)) == sym {
 			return module, sym.Name, true
 		}
@@ -924,6 +930,14 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 	fa, qualified := t.Func.(*ast.FieldAccess)
 	if !qualified || fa.Field == nil {
 		return no()
+	}
+	if _, std := stdNamedRecv(k); std {
+		// `T.from_sql(v)` at a `Date`: a program's impl for a std type,
+		// which no operand may name. A call std's own impl answers has
+		// no candidate here and is spelled by the owner below.
+		if v, rk, mobile, ok, handled := bl.stdRecvKindCall(t, k, method); handled {
+			return v, rk, mobile, ok, true
+		}
 	}
 	if owner := irKindOwnerName(bl.g, k); owner != "" {
 		call := *t

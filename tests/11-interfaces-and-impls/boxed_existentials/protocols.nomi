@@ -1,0 +1,112 @@
+// The interfaces and their impls, in a file apart from the values held as
+// them: a std container's impls and an `embeds` enum's.
+pub interface Show {
+    fn show(value: self) -> String
+
+    fn loud(value: self) -> String {
+        "${Show.show(value)}!"
+    }
+}
+
+pub interface Has<T> {
+    fn count_of(value: self, x: T) -> Int
+}
+
+impl Show for Int {
+    fn show(n: Int) -> String {
+        "i${n}"
+    }
+}
+
+impl Show for String {
+    fn show(s: String) -> String {
+        "'${s}'"
+    }
+}
+
+impl Show for List<T> where T: Show {
+    fn show(xs: List<T>) -> String {
+        "[" + (xs |> Iter.map(&T.show(&1)) |> String.join(" ")) + "]"
+    }
+}
+
+impl Show for Vector<T> where T: Show {
+    fn show(xs: Vector<T>) -> String {
+        "#[" + (xs |> Iter.map(&T.show(&1)) |> String.join(" ")) + "]"
+    }
+}
+
+impl Show for Set<T> {
+    fn show(s: Set<T>) -> String {
+        "set of ${Set.size(s)}"
+    }
+}
+
+impl Show for Map<String, V> where V: Show {
+    fn show(m: Map<String, V>) -> String {
+        m |> Iter.map(fn #(k, v) -> "${k}=${V.show(v)}") |> String.join(",")
+    }
+}
+
+impl Show for Maybe<T> where T: Show {
+    fn show(m: Maybe<T>) -> String {
+        case m {
+            Some(x) -> "some ${T.show(x)}"
+            None -> "none"
+        }
+    }
+}
+
+impl Show for Result<T, String> where T: Show {
+    fn show(r: Result<T, String>) -> String {
+        case r {
+            Ok(x) -> "ok ${T.show(x)}"
+            Err(e) -> "err ${e}"
+        }
+    }
+}
+
+impl Has<Int> for List<Int> {
+    fn count_of(xs: List<Int>, x: Int) -> Int {
+        xs |> Iter.filter(&(&1 == x)) |> Iter.count()
+    }
+}
+
+pub struct Circle {
+    r: Int
+}
+
+pub enum Shape {
+    embeds Circle
+    Dot
+}
+
+impl Show for Circle {
+    fn show(c: Circle) -> String {
+        "circle ${c.r}"
+    }
+}
+
+impl Show for Shape {
+    fn show(s: Shape) -> String {
+        case s {
+            #.Circle{r} -> "shape circle ${r}"
+            .Dot -> "shape dot"
+        }
+    }
+}
+
+impl Display for Circle {
+    fn to_string(c: Circle) -> String {
+        "circle ${c.r}"
+    }
+}
+
+impl Display for Shape {
+    fn to_string(s: Shape) -> String {
+        case s {
+            #.Circle{r} -> "shape circle ${r}"
+            .Dot -> "shape dot"
+        }
+    }
+}

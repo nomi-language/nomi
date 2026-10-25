@@ -1,0 +1,117 @@
+import {
+    std/locale.Locale
+    std/plural.PluralCategory.{self, Few, Many, One, Other, Two, Zero}
+}
+
+fn cardinals_of(counts: List<Int>, locale: Locale) -> List<PluralCategory> {
+    counts |> Iter.map(fn n -> PluralCategory.cardinal(n, locale)) |> Iter.to_list()
+}
+
+test "English has one and other" {
+    assert cardinals_of([0, 1, 2, 21], Locale`en`) == [Other, One, Other, Other]
+    assert PluralCategory.cardinal(-1, Locale`en`) == One
+}
+
+test "a Decimal's visible fraction digits count" {
+    assert PluralCategory.cardinal(1d, Locale`en`) == One
+    assert PluralCategory.cardinal(1.0d, Locale`en`) == Other
+    assert PluralCategory.cardinal(1.50d, Locale`en`) == Other
+}
+
+test "Polish integers are one, few or many, and fractions other" {
+    assert cardinals_of([1, 2, 4, 5, 12, 14, 21, 22, 25, 0, 112], Locale`pl`) == [
+        One,
+        Few,
+        Few,
+        Many,
+        Many,
+        Many,
+        Many,
+        Few,
+        Many,
+        Many,
+        Many,
+    ]
+
+    assert PluralCategory.cardinal(1.5d, Locale`pl`) == Other
+}
+
+test "Russian" {
+    assert cardinals_of([1, 2, 5, 11, 21, 22, 111], Locale`ru`) == [
+        One,
+        Few,
+        Many,
+        Many,
+        One,
+        Few,
+        Many,
+    ]
+
+    assert PluralCategory.cardinal(1.5d, Locale`ru`) == Other
+}
+
+test "Arabic uses all six" {
+    assert cardinals_of([0, 1, 2, 3, 10, 11, 99, 100, 102], Locale`ar`) == [
+        Zero,
+        One,
+        Two,
+        Few,
+        Few,
+        Many,
+        Many,
+        Other,
+        Other,
+    ]
+}
+
+test "French counts 0 and 1 as one" {
+    assert cardinals_of([0, 1, 2], Locale`fr`) == [One, One, Other]
+    assert PluralCategory.cardinal(1.5d, Locale`fr`) == One
+    assert PluralCategory.cardinal(1000000, Locale`fr`) == Many
+}
+
+test "Welsh" {
+    assert cardinals_of([0, 1, 2, 3, 4, 6, 7], Locale`cy`) == [
+        Zero,
+        One,
+        Two,
+        Few,
+        Other,
+        Many,
+        Other,
+    ]
+}
+
+test "Japanese has only other" {
+    assert cardinals_of([0, 1, 2, 100], Locale`ja`) == [Other, Other, Other, Other]
+    assert PluralCategory.cardinals(Locale`ja`) == %[Other]
+}
+
+test "regional locales use their language's rules, or their own" {
+    assert PluralCategory.cardinal(0, Locale`pt-BR`) == One
+    assert PluralCategory.cardinal(0, Locale`pt-PT`) == Other
+    assert PluralCategory.cardinal(1, Locale`en-GB`) == One
+    assert PluralCategory.cardinal(2, Locale`zh-Hant-HK`) == Other
+    assert PluralCategory.cardinal(1, Locale`und`) == Other
+}
+
+test "English ordinals: 1st 2nd 3rd 4th 11th 21st" {
+    ordinals =
+        [1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101]
+        |> Iter.map(fn n -> PluralCategory.ordinal(n, Locale`en`))
+        |> Iter.to_list()
+
+    assert ordinals == [One, Two, Few, Other, Other, Other, Other, One, Two, Few, One]
+}
+
+test "the categories a locale uses" {
+    assert PluralCategory.cardinals(Locale`pl`) == %[One, Few, Many, Other]
+    assert PluralCategory.cardinals(Locale`en`) == %[One, Other]
+    assert PluralCategory.ordinals(Locale`en`) == %[One, Two, Few, Other]
+    assert PluralCategory.ordinals(Locale`pl`) == %[Other]
+}
+
+test "categories display as CLDR's keywords" {
+    assert "${Few}" == "few"
+    assert "${Other}" == "other"
+}

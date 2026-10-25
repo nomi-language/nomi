@@ -24,7 +24,7 @@ import (
 // qualified name misses every impl and `==` falls back to structural
 // comparison, a wrong answer with no error. The identity is the
 // module-qualified name (`duration.Duration`, `instant.Instant`,
-// `codepoints.Codepoint`), so a VM that stamps a bare `Duration` builds the
+// `code_points.Codepoint`), so a VM that stamps a bare `Duration` builds the
 // wrong value.
 //
 // Every check here passes vacuously if nothing is built, which is why the two

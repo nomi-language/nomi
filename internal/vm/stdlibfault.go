@@ -98,21 +98,21 @@ func place(err error, at ir.Pos, todo bool) error {
 // arises at a program site.
 func (fr *frame) tailInto(fn *ir.Func, pc int) {
 	if !fn.Pos().Stdlib() {
-		fr.stdEntry = 0
+		fr.stdEntry = nil
 		return
 	}
 	if fr.fn.Pos().Stdlib() {
 		return
 	}
 	if st := fr.c.siteAt(pc); st != nil && !st.pos.Stdlib() {
-		fr.stdEntry = st.pos.Line()
+		fr.stdEntry = st
 	}
 }
 
 // leaving places a fault that leaves fr at the program call whose tail call
 // into the stdlib replaced fr's function, if one did.
 func (fr *frame) leaving(err error) error {
-	if fr.stdEntry == 0 {
+	if fr.stdEntry == nil {
 		return err
 	}
 	f, isFault := asFault(err)
@@ -122,7 +122,7 @@ func (fr *frame) leaving(err error) error {
 	var e *rt.Error
 	f.seen, f.placed = true, true
 	if errors.As(f.err, &e) && !e.Awaited {
-		f.at = e.At(fr.stdEntry)
+		f.at = e.At(fr.stdEntry.pos.Line())
 	}
 	return err
 }

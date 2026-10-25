@@ -174,6 +174,37 @@ func TestLoweringDiagnostics_BlockImportedProjectFile(t *testing.T) {
 	}
 }
 
+// A document that imports std/uuid lowers clean, from its text and from its
+// analysis: the module is lowered with the document's program.
+func TestLoweringDiagnostics_AStdModuleLoweredWithTheProgram(t *testing.T) {
+	if testing.Short() {
+		t.Skip("lowers the stdlib; -short")
+	}
+	src := "import {\n    std/io\n    std/uuid.Uuid\n}\n\nfn main() {\n    id = Uuid.nil()\n    io.print(\"${id} ${Uuid.version(id)}\")\n}\n"
+	dir := writeProject(t, map[string]string{
+		"main.nomi": src,
+		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+	})
+	path := filepath.Join(dir, "main.nomi")
+	if d := loweringDiagnostics(path, src, nil); len(d) != 0 {
+		t.Fatalf("lowering diagnostics from the text %+v; want none", d)
+	}
+	s := NewServer()
+	uri := pathToURI(path)
+	s.docs.Open(uri, src)
+	defer s.docs.Close(uri)
+	a, _ := s.loweringAnalysis(uri, src)
+	if a == nil {
+		t.Fatal("the document has no analysis to lower")
+	}
+	if _, ok, _ := analyzedlowering.Check(context.Background(), path, src, a); !ok {
+		t.Fatal("the document's analysis is not lowered")
+	}
+	if d := loweringDiagnostics(path, src, a); len(d) != 0 {
+		t.Fatalf("lowering diagnostics from the analysis %+v; want none", d)
+	}
+}
+
 // A backtick typed literal whose handler answers Err is a compile error,
 // reported once: among the lowering diagnostics, with the invalid-literal
 // code, and not by the editor's own literal evaluation.

@@ -50,6 +50,7 @@ package irbuild
 
 import (
 	"maps"
+	"strconv"
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -160,12 +161,65 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		bl.recording = 0
 		defer func() { bl.recording = saved }()
 	}
-	if len(t.Args) != 1 {
+	_, cb, from, shaped := irSeededArgs(t, false)
+	if !shaped {
 		return no("an Iter.loop call without one callback")
 	}
-	lam, isLambda := t.Args[0].(*ast.Lambda)
+	lam, isLambda := cb.(*ast.Lambda)
+	// step is the call a named step's loop makes each round, or nil.
+	var step *ast.Call
+	// synthetic reports that the callback's parameter is the builder's,
+	// not a variable of the program's.
+	synthetic := false
+	if c, isCapture := cb.(*ast.Capture); isCapture && c.PartialCall() == nil {
+		// `Iter.loop(&(if &1 > 3 { break } else { &1 + 1 }), from: 0)`: the
+		// lambda the capture stands for, inlined as a lambda's body is, its
+		// `&1` read as the state.
+		line, col := nodePos(c)
+		name := captureParamName(c, 1)
+		subst := map[ast.Node]string{}
+		for _, h := range c.Holes() {
+			if ast.HoleNumber(h) != 1 {
+				return no("an Iter.loop capture callback reading past `&1`")
+			}
+			subst[h] = name
+		}
+		defer bl.g.substHoles(subst)()
+		lam = &ast.Lambda{
+			Params: []ast.Param{{Name: name, Line: line, Col: col}},
+			Body:   &ast.Block{Stmts: []ast.Node{c.Body}, Line: line, Col: col},
+			Line:   line, Col: col,
+		}
+		isLambda, synthetic = true, true
+	}
 	if !isLambda {
-		return no("an Iter.loop callback that is not a lambda literal")
+		synthetic = true
+		// `Iter.loop(step, from: 0)`: the loop calls step with its state each
+		// round, as a lambda `fn state -> step(state)` would be inlined; an
+		// iter-sensitive step's signals are the loop's (signallingCall). A
+		// callback written in place (a capture, a field accessor) is made
+		// once, before the loop, and called through its value.
+		if from == nil {
+			return no("an Iter.loop callback that is not a lambda literal, without a starting state")
+		}
+		line, col := nodePos(cb)
+		callee := irFuncRefNode(cb)
+		if callee == nil {
+			v, k, _, ok := bl.lower(cb)
+			if !ok {
+				return ir.NoTemp, kindInvalid, false, false
+			}
+			name := "$step" + strconv.Itoa(line) + "." + strconv.Itoa(col)
+			bl.bound[name], bl.boundK[name] = v, k
+			callee = &ast.Ident{Name: name, Line: line, Col: col}
+		}
+		state := &ast.Ident{Name: "$state", Line: line, Col: col}
+		step = &ast.Call{Func: callee, Args: []ast.Node{state}, Line: line, Col: col}
+		lam = &ast.Lambda{
+			Params: []ast.Param{{Name: "$state", Line: line, Col: col}},
+			Body:   &ast.Block{Stmts: []ast.Node{step}, Line: line, Col: col},
+			Line:   line, Col: col,
+		}
 	}
 	for _, extra := range lam.Params[min(1, len(lam.Params)):] {
 		// `fn a = 0, b = 1 ->`: the loop calls the callback with the state
@@ -175,6 +229,9 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 	}
 	stateless := len(lam.Params) == 0
+	if stateless && from != nil {
+		return no("a stateless Iter.loop given a starting state")
+	}
 	seed, sk, stateName := ir.NoTemp, kindUnit, "$state"
 	var p *ast.Param
 	if stateless {
@@ -186,14 +243,19 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		seed = u.Dst()
 	} else {
 		p = &lam.Params[0]
-		if p.Default == nil {
-			return no("an Iter.loop callback without a seeded state")
+		start := p.Default
+		if (start == nil) == (from == nil) {
+			// The checker requires exactly one starting state.
+			return no("an Iter.loop callback without one starting state")
+		}
+		if start == nil {
+			start = from
 		}
 		if p.Destructure == nil {
 			stateName = p.Name
 		}
 		var ok bool
-		if seed, sk, _, ok = bl.lower(p.Default); !ok {
+		if seed, sk, _, ok = bl.lower(start); !ok {
 			return ir.NoTemp, kindInvalid, false, false
 		}
 	}
@@ -203,16 +265,27 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// parameter and is coerced to it.
 		var ok bool
 		var solved kind
-		if p.Destructure != nil {
+		switch {
+		case from != nil:
+			// The state type the checker solved for the call's `from`.
+			solved = kindInvalid
+			if checked := bl.g.checkedCallSignature(t); checked != nil && len(checked.Params) == 2 {
+				solved = bl.g.projectFilledHoles(checked.Params[0])
+			}
+		case p.Destructure != nil:
 			solved = bl.g.irParamPatternKind(*p)
-		} else {
+		default:
 			_, solved = bl.g.inferredParamKind(*p)
 		}
 		// kindInvalid: lookup — asks whether the checker solved the seed's kind; a miss declines retention.
 		if solved == kindInvalid {
 			return no("an Iter.loop seed whose element type the checker did not solve")
 		}
-		if seed, sk, ok = bl.coerceEmpty(p.Default, seed, sk, solved); !ok {
+		start := p.Default
+		if start == nil {
+			start = from
+		}
+		if seed, sk, ok = bl.coerceEmpty(start, seed, sk, solved); !ok {
 			return no("an Iter.loop seed outside the retained empty-container coercions")
 		}
 	}
@@ -270,7 +343,11 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		bl.b.Append(param)
 		bl.side(param.Dst(), irScalarSide{k: sk})
 		bl.bound[p.Name], bl.boundK[p.Name] = param.Dst(), sk
-		bl.declareBindAt(param, sk, p.Line, p.Col)
+		if !synthetic {
+			// A named step's or a capture's state is no variable of the
+			// program's.
+			bl.declareBindAt(param, sk, p.Line, p.Col)
+		}
 	}
 	for _, extra := range lam.Params[min(1, len(lam.Params)):] {
 		v, k, _, ok := bl.lower(extra.Default)
@@ -311,12 +388,15 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	if final == nil {
 		return no("an Iter.loop body outside the statement shape: " + irDeclineBodyWhy)
 	}
-	outerLoop, outerDefers := bl.loop, bl.openDefers
+	outerLoop, outerDefers, outerSignal := bl.loop, bl.openDefers, bl.signalCall
 	bl.loop = lp
 	lp.defers = &irDeferScope{block: lam.Body, outer: outerDefers}
 	bl.openDefers = lp.defers
+	// A named step's call is the one place a call to an iter-sensitive
+	// function lowers: its signals are the loop's.
+	bl.signalCall = step
 	lowered := bl.loopBody(lead, final, lp, tail)
-	bl.loop, bl.openDefers = outerLoop, outerDefers
+	bl.loop, bl.openDefers, bl.signalCall = outerLoop, outerDefers, outerSignal
 	if !lowered {
 		return ir.NoTemp, kindInvalid, false, false
 	}

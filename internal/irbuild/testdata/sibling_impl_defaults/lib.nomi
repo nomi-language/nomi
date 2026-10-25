@@ -1,0 +1,34 @@
+import std/io
+
+pub enum Mode {
+    Fast
+    Named String
+}
+
+pub struct Box {
+    mode: Mode
+    f: (Int) -> Int
+}
+
+fn same(n: Int) -> Int {
+    n
+}
+
+fn named() -> Mode {
+    io.print("default mode")
+    Mode.Named("x")
+}
+
+impl Box {
+    pub fn new(mode: Mode = named(), f: (Int) -> Int = same) -> Box {
+        #Box{mode, f}
+    }
+}
+
+pub type Runner
+
+impl Runner {
+    pub fn run<T>(n: Int, body: (Int) -> Result<T, String>) -> Result<T, String> {
+        body(n)
+    }
+}

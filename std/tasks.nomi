@@ -92,9 +92,10 @@ impl Task<T> {
     ///
     /// Terminal, not lazy: it consumes the whole source and returns a
     /// `List`. A lazy sequence of tasks would spawn *after* its block had
-    /// exited, with the bodies never running. As with `Iter.to_list`, an
-    /// endless source hangs — `max_running` throttles execution, not
-    /// enqueueing.
+    /// exited, with the bodies never running. As with `Iter.to_list`, a source
+    /// that is `Iter.infinite?` traps before any task is spawned, and one that
+    /// never ends without saying so hangs: `max_running` throttles execution,
+    /// not enqueueing.
     //! results = concurrent {
     //!     [1, 2, 3]
     //!     |> Task.spawn_all(&(&1 * 2), max_running: 2)

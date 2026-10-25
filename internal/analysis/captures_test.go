@@ -188,7 +188,7 @@ func TestCapture_Rejections(t *testing.T) {
 		{"a parameter of the wrong type", "fn f() -> (String) -> Point { &#Point{x: &1, y: 0} }\n",
 			"field 'x' of Point: expected Int, got String"},
 		{"a reduction's callback", "fn f() -> Int { [1, 2] |> Iter.reduce(&(&1 + &2)) }\n",
-			"`Iter.reduce` needs a starting value\nhelp: pass a lambda whose accumulator has a starting value: `fn acc = <start>, x -> ...`"},
+			"`Iter.reduce` needs a starting value\nhelp: give it with `from:`: `Iter.reduce(xs, f, from: <start>)`, or pass a lambda whose accumulator has a default: `fn acc = <start>, x -> ...`"},
 		{"an operand of and", "fn f(ready: Bool) -> (Int) -> Bool { &(&1 > 2) and ready }\n",
 			"cannot infer type for `&1` in `&(&1 > 2)`"},
 	} {

@@ -89,6 +89,9 @@ func StdlibTestModule(file string) string {
 // with one `test` appended (vmhost.StdlibReference), whose other
 // declarations are the same Nomi as the cache's.
 func GenerateStdlibTestIR(module string, nodes []ast.Node, fa *analysis.FileAnalysis) (*Program, *Result, error) {
+	if isProgramStd(module) {
+		return generateProgramStdTestIR(module, nodes, fa)
+	}
 	std := stdlibLowering()
 	v := std.views[module]
 	if v == nil {
@@ -231,7 +234,7 @@ func (bl *irScalarBuilder) testImport(n *ast.ImportStmt) bool {
 		if outer == nil {
 			continue
 		}
-		if real := resolveSymbol(sym); outer != real && !g.stdTypeRebind(real) {
+		if real := resolveSymbol(sym); outer != real && !g.stdTypeRebind(real) && !g.twinOf(real, outer) {
 			return no()
 		}
 	}
@@ -248,6 +251,41 @@ func importPathString(n *ast.ImportStmt) string {
 		parts[i] = ast.ImportNodeName(seg)
 	}
 	return strings.Join(parts, "/")
+}
+
+// ownModuleCall answers the bare call a file's call to one of its own
+// functions through its own file alias is: `sql.with_connection(...)` inside
+// std/sql, in a body, a `//!` prompt or a reference editor (only a std file
+// may name itself; the checker rejects the spelling elsewhere). The checker
+// binds the alias to the file's own module scope, and the function is one
+// this gen declares, so the call lowers as `with_connection(...)` does,
+// generic or not. The copy's callee stands at the field's position, where the checker
+// recorded the reference and its instantiated signature; a piped call stays
+// the piped call. A function the cached std lowering holds as a sibling
+// (stdlibSibling) keeps stdOwnFileQualifier's route.
+func (bl *irScalarBuilder) ownModuleCall(t *ast.Call, fa *ast.FieldAccess) (*ast.Call, bool) {
+	g := bl.g
+	obj, isIdent := fa.Object.(*ast.Ident)
+	if !isIdent || fa.Field == nil || irQualIsLocal(bl, obj.Name) {
+		return nil, false
+	}
+	src := g.srcFA()
+	if scope := moduleScopeOf(src, obj.Name); scope == nil || scope != src.ModuleScope {
+		return nil, false
+	}
+	method := fa.Field.Name
+	if g.funcs[method] == nil || g.stdlibSibling(method) != nil {
+		return nil, false
+	}
+	if _, shadowed := g.lookup(method); shadowed {
+		return nil, false
+	}
+	bare := *t
+	bare.Func = &ast.Ident{Name: method, Line: fa.Field.Line, Col: fa.Field.Col}
+	if bl.pipedCall == t {
+		bl.pipedCall = &bare
+	}
+	return &bare, true
 }
 
 // stdOwnFileQualifier answers a stdlib module's own file alias inside one of

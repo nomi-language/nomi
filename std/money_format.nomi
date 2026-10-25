@@ -1,0 +1,101 @@
+//# The formatting, parsing and checks behind std/money's `Money`: what
+//# `Money.format`, `Money.parse_in` and `Money`'s arithmetic call, over the
+//# CLDR data the program carries. The module is internal to std/money: a
+//# program cannot import it, and uses `Money`.
+
+import {
+    bool.Bool
+    currency.Currency
+    decimal.Decimal
+    display.Display
+    int.Int
+    locale.Locale
+    localize.NumberParseError
+    maybe.Maybe.{None, Some}
+    results.Result.{self, Err, Ok}
+    strings.String
+    unit.Unit
+}
+
+/// `amount` in `currency` as a reader of `locale` writes it, with the
+/// currency shown as `display` says: 0 its symbol, 1 its narrow symbol, 2
+/// its code, 3 its name. What `Money.format` calls.
+pub fn format(amount: Decimal, currency: Currency, locale: Locale, display: Int) -> String {
+    money_format_raw(
+        locale,
+        Display.to_string(amount),
+        Currency.code(currency),
+        Currency.minor_digits(currency),
+        Currency.iso?(currency),
+        display,
+    )
+}
+
+/// The amount in `currency` a reader of `locale` wrote in `text`, strictly
+/// unless `lenient`. What `Money.parse_in` calls.
+pub fn parse(
+    text: String,
+    locale: Locale,
+    currency: Currency,
+    lenient: Bool,
+) -> Result<Decimal, NumberParseError> {
+    read = money_parse_raw(
+        text,
+        locale,
+        Currency.code(currency),
+        Currency.minor_digits(currency),
+        Currency.iso?(currency),
+        lenient,
+    )
+
+    case read {
+        Err(e) ->
+            Err(e)
+
+        Ok(digits) -> {
+            case Decimal.from_string(digits) {
+                Some(d) -> Ok(d)
+                None -> Err(NumberParseError.OutOfRange)
+            }
+        }
+    }
+}
+
+/// Traps unless `a` and `b` are one currency, naming both: amounts in two
+/// currencies do not add. `operation` is the function that was asked
+/// (`Money.add`).
+pub fn require_same(operation: String, a: Currency, b: Currency) -> Unit {
+    if a == b {
+        Unit
+    } else {
+        money_mixed(operation, label(a), label(b))
+    }
+}
+
+fn label(c: Currency) -> String {
+    if Currency.iso?(c) {
+        Currency.code(c)
+    } else {
+        "${Currency.code(c)}:${Currency.minor_digits(c)}"
+    }
+}
+
+host fn money_format_raw(
+    locale: Locale,
+    amount: String,
+    code: String,
+    digits: Int,
+    iso: Bool,
+    display: Int,
+) -> String
+
+host fn money_parse_raw(
+    text: String,
+    locale: Locale,
+    code: String,
+    digits: Int,
+    iso: Bool,
+    lenient: Bool,
+) -> Result<String, NumberParseError>
+
+host fn money_mixed(operation: String, a: String, b: String) -> Unit

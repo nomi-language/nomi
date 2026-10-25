@@ -168,7 +168,7 @@ func (s *Server) publishCurrent(uri string, notify glsp.NotifyFunc) bool {
 		return false
 	}
 	sch.published[uri] = snap.AnalyzedVersion
-	s.publishSnapshot(notify, snap)
+	s.publishViewed(notify, snap)
 	return true
 }
 
@@ -189,7 +189,7 @@ func (s *Server) republishLiterals(uri, content string, notify glsp.NotifyFunc) 
 	if snap.AnalyzedVersion < sch.published[uri] {
 		return
 	}
-	s.publishSnapshot(notify, snap)
+	s.publishViewed(notify, snap)
 }
 
 // awaitAnalysis waits until uri's installed analysis is of its latest

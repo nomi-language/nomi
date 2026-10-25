@@ -1,0 +1,10 @@
+# Japanese, a partial locale: the total and the shipping date. The date
+# comes first, then 発送 (shipping).
+
+[order_total]
+source = '''Total: {$total :currency}'''
+text = '''合計: {$total :currency}'''
+
+[ships_on]
+source = '''Ships {$date :datetime weekday=long month=long day=numeric}'''
+text = '''{$date :datetime weekday=long month=long day=numeric}発送'''

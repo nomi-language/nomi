@@ -352,8 +352,8 @@ func withStdlibTestImports(src string) string {
 	addModule("sets")
 	addModule("strings")
 	addModule("vectors")
-	if strings.Contains(src, "codepoints.") && !strings.Contains(src, "import std/codepoints") {
-		imports = append(imports, "import std/codepoints")
+	if strings.Contains(src, "code_points.") && !strings.Contains(src, "import std/code_points") {
+		imports = append(imports, "import std/code_points")
 	}
 	if len(imports) == 0 {
 		return src
@@ -1025,7 +1025,7 @@ fn f() -> List<#(Int, String)> { Iter.zip([1, 2, 3], ["a", "b"]) |> Iter.to_list
 func TestIterToListOnZipIter(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 fn f() -> List<#(Int, Int)> {
-    Iter.to_list(Iter.zip(Iter.from(0), Iter.from(10)))
+    Iter.to_list(Iter.zip(Iter.from(0), [10, 11]))
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -1306,23 +1306,9 @@ fn main() {
 	}
 }
 
-// Transitive: helper A calls helper B, B has break, A is called from iter — VALID.
-func TestCheckerBreakInTransitiveHelper(t *testing.T) {
-	_, errs := checkSourceWithStdlib(`
-fn inner(x: Int) -> Int {
-    if x > 10 { break x } else { x + 1 }
-}
-fn outer(x: Int) -> Int {
-    inner(x)
-}
-fn f() -> List<Int> {
-    Iter.map([1, 2, 3], outer) |> Iter.to_list()
-}
-`)
-	expectNoStdlibErrors(t, errs)
-}
-
-// Transitive error: B has break, A calls B, A is called from non-iter — INVALID.
+// A helper's break does not pass through another function that calls it:
+// outer calls inner, which breaks, and outer is called from non-iter —
+// INVALID at outer's call (iter_sensitive_call_test.go has the message).
 func TestCheckerBreakInTransitiveHelperCalledFromNonIter(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 fn inner(x: Int) -> Int {

@@ -130,6 +130,22 @@ fn f() {
 		"`try` cannot propagate a Result out of a function returning Unit")
 }
 
+// A declared return type that does not resolve is an error at the type. The
+// function does not return Unit, so its `try` gets no second error saying it
+// does.
+func TestTryBoundary_UnresolvedReturnTypeIsNotUnit(t *testing.T) {
+	src := `fn r() -> Result<Int, String> {
+  Err("boom")
+}
+fn f() -> Result<Int, Missing> {
+  v = try r()
+  Ok(v)
+}`
+	errs := analyzeConcurrentRaw(src)
+	expectConcurrentError(t, errs, `unknown type "Missing"`)
+	expectNoConcurrentError(t, errs, "cannot propagate")
+}
+
 // A test body declares NO result — a propagating `try` there ends the case
 // with `test returned early` rather than returning a value anywhere — so the
 // boundary rule has nothing to say about it and must stay silent.

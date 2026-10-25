@@ -1,0 +1,366 @@
+//# Locales: which language, script and region text is for.
+//# A `Locale` holds a canonical BCP 47 tag such as `pt-BR` or
+//# `zh-Hant-HK`, Unicode extensions included (`en-US-u-nu-latn`). Write a
+//# fixed one as a raw typed literal, ``Locale`pt-BR` ``, which is checked when
+//# the program is checked; parse text with `Locale.parse`, and read a POSIX
+//# value such as `LANG` with `Locale.from_posix`.
+//# Nothing reads a locale implicitly: every function whose output depends on
+//# one takes it as an argument. An application keeps the current locale in an
+//# application field (by convention `App.locale`) and passes it on.
+//# `Locale.fallbacks` gives the chain locale data is looked up along, by
+//# CLDR's parent locales, and `Locale.negotiate` picks the best of the
+//# locales a program offers for the ones a reader asked for.
+//#
+//# A program carries the CLDR data of the locales its `nomi.toml` lists
+//# under `[i18n].locales`, or of every locale when it lists none, and
+//# `nomi build` keeps only the parts of that data the program uses.
+//# Numbers, plurals and lists add under a kilobyte per locale, and dates
+//# about 3 KB more. Money adds 10 to 18 KB, since it carries the symbol and
+//# name of every currency in use. Sorting adds the order every language
+//# starts from, about 265 KB, and a few hundred bytes for most locales (27
+//# KB for Japanese). The Chinese and Korean orders are 160 to 250 KB each,
+//# so a program carries them only when it lists `zh` or `ko`; without them,
+//# Chinese and Korean sort in the basic order.
+
+import {
+    debug.Debug
+    display.Display
+    equatable.Equatable
+    hashable.Hashable
+    int.Int
+    iter.Iter
+    lists.List
+    literals.{Fragment, Literal}
+    maybe.Maybe
+    results.Result.{self, Err, Ok}
+    strings.String
+    unit.Unit
+}
+
+/// A locale: a canonical BCP 47 language tag.
+///
+/// Parsing canonicalizes, so two spellings of one locale are equal:
+/// `EN-us` is `en-US`, and the deprecated `iw` is `he`. `Display` gives the
+/// tag; `Debug` gives the literal that builds it.
+//! assert Display.to_string(Locale`pt-BR`) == "pt-BR"
+//! assert Locale.parse("EN-us") == Ok(Locale`en-US`)
+//! assert Locale`iw` == Locale`he`
+//! assert Debug.inspect(Locale`zh-Hant-HK`) == "Locale`zh-Hant-HK`"
+//
+pub opaque type Locale String
+
+derive Equatable for Locale
+derive Hashable for Locale
+
+/// Why text is not a locale tag.
+pub enum Error {
+    /// The text is empty.
+    Empty
+    /// The text separates subtags with `_`, as a POSIX value does.
+    /// `suggestion` is the tag written with `-`.
+    Underscore {suggestion: String}
+    /// `text` is not a well-formed BCP 47 tag.
+    Malformed {text: String}
+    /// The tag is well-formed, but `subtag` is not a registered subtag.
+    UnknownSubtag {subtag: String}
+}
+
+derive Equatable for Error
+
+/// Why `Locale.load` could not make a locale ready. `locale` is the locale
+/// whose file it is: the one asked for, or an ancestor on its fallback
+/// chain.
+pub enum LoadError {
+    /// The file could not be fetched: the network failed, or the host does
+    /// not serve it.
+    Unreachable {locale: Locale, reason: String}
+    /// The file arrived and is not one this program can read: another build
+    /// wrote it, as a browser may cache from the last deploy, or it is not a
+    /// locale file.
+    Unreadable {locale: Locale, reason: String}
+}
+
+derive Equatable for LoadError
+
+impl Display for LoadError {
+    /// What failed, naming the locale.
+    //! assert Display.to_string(
+    //!     #LoadError.Unreachable{locale: Locale`pl`, reason: "HTTP 404"}
+    //! ) == "the locale file of pl could not be fetched: HTTP 404"
+    //
+    fn to_string(e: LoadError) -> String {
+        case e {
+            #LoadError.Unreachable{locale, reason} ->
+                "the locale file of ${locale} could not be fetched: ${reason}"
+
+            #LoadError.Unreadable{locale, reason} ->
+                "the locale file of ${locale} cannot be read: ${reason}"
+        }
+    }
+}
+
+impl Display for Error {
+    /// What is wrong, as a compile error at a ``Locale`…` `` literal shows it.
+    //! assert Display.to_string(
+    //!     #Error.Underscore{suggestion: "pt-BR"}
+    //! ) == "a locale tag separates subtags with `-`, not `_`: write `pt-BR` (Locale.from_posix reads a POSIX value)"
+    //!
+    //! assert Display.to_string(
+    //!     #Error.UnknownSubtag{subtag: "xx"}
+    //! ) == "`xx` is not a known language, script or region subtag"
+    //
+    fn to_string(e: Error) -> String {
+        case e {
+            Error.Empty ->
+                "a locale tag cannot be empty"
+
+            #Error.Underscore{suggestion} ->
+                "a locale tag separates subtags with `-`, not `_`: write `${suggestion}` (Locale.from_posix reads a POSIX value)"
+
+            #Error.Malformed{text} ->
+                "`${text}` is not a well-formed BCP 47 tag"
+
+            #Error.UnknownSubtag{subtag} ->
+                "`${subtag}` is not a known language, script or region subtag"
+        }
+    }
+}
+
+impl Locale {
+    /// Parse a BCP 47 tag into its canonical `Locale`. Case is normalized,
+    /// deprecated subtags are replaced (`iw` is `he`, `in` is `id`), and
+    /// Unicode extensions are kept. A POSIX value (`pt_BR`) is an error that
+    /// suggests the tag; use `Locale.from_posix` for those.
+    //! assert Locale.parse("zh-hant-hk") == Ok(Locale`zh-Hant-HK`)
+    //! assert Locale.parse("in") == Ok(Locale`id`)
+    //! assert Locale.parse("pt_BR") == Err(#Error.Underscore{suggestion: "pt-BR"})
+    //! assert Locale.parse("") == Err(Error.Empty)
+    //! assert Locale.parse("en--US") == Err(#Error.Malformed{text: "en--US"})
+    //! assert Locale.parse("xx") == Err(#Error.UnknownSubtag{subtag: "xx"})
+    //
+    pub fn parse(tag: String) -> Result<Locale, Error> {
+        Locale.lift(locale_parse_raw(tag))
+    }
+
+    /// Read a POSIX locale value, as `LANG` and `LC_ALL` hold it
+    /// (`language[_territory][.codeset][@modifier]`). The codeset is dropped;
+    /// `@latin`, `@cyrillic` and `@devanagari` become the script and
+    /// `@valencia` the variant, and any other modifier is dropped. `C` and
+    /// `POSIX` name no language, so they are `und`.
+    //! assert Locale.from_posix("pl_PL.UTF-8") == Ok(Locale`pl-PL`)
+    //! assert Locale.from_posix("en_US@euro") == Ok(Locale`en-US`)
+    //! assert Locale.from_posix("sr_RS@latin") == Ok(Locale`sr-Latn-RS`)
+    //! assert Locale.from_posix("C") == Ok(Locale`und`)
+    //! assert Locale.from_posix("POSIX") == Ok(Locale`und`)
+    //
+    pub fn from_posix(value: String) -> Result<Locale, Error> {
+        Locale.lift(locale_from_posix_raw(value))
+    }
+
+    /// The language subtag, `und` when the tag names none.
+    //! assert Locale.language(Locale`zh-Hant-HK`) == "zh"
+    //
+    pub fn language(locale: Locale) -> String {
+        Locale(tag) = locale
+        locale_language(tag)
+    }
+
+    /// The script subtag the tag spells, if any.
+    //! assert Locale.script(Locale`zh-Hant-HK`) == Maybe.Some("Hant")
+    //! assert Locale.script(Locale`pt-BR`) == Maybe.None
+    //
+    pub fn script(locale: Locale) -> Maybe<String> {
+        Locale(tag) = locale
+        locale_script(tag)
+    }
+
+    /// The region subtag the tag spells, if any.
+    //! assert Locale.region(Locale`es-419`) == Maybe.Some("419")
+    //! assert Locale.region(Locale`pl`) == Maybe.None
+    //
+    pub fn region(locale: Locale) -> Maybe<String> {
+        Locale(tag) = locale
+        locale_region(tag)
+    }
+
+    /// The chain locale data is looked up along: the locale itself, the
+    /// locale without its extensions, then its parents by CLDR's parent
+    /// locales, nearest first, root excluded. A parent is not always the tag
+    /// with its last subtag removed: `es-MX` goes to `es-419` before `es`,
+    /// `en-GB` to `en-001` before `en`, and `zh-Hant-HK` never reaches `zh`.
+    //! assert Locale.fallbacks(Locale`es-MX`) == [Locale`es-MX`, Locale`es-419`, Locale`es`]
+    //! assert Locale.fallbacks(Locale`pt-BR`) == [Locale`pt-BR`, Locale`pt`]
+    //! assert Locale.fallbacks(Locale`zh-Hant-HK`) == [Locale`zh-Hant-HK`, Locale`zh-Hant`]
+    //
+    pub fn fallbacks(locale: Locale) -> List<Locale> {
+        Locale(tag) = locale
+        locale_fallbacks(tag) |> Iter.map(fn t -> Locale(t)) |> Iter.to_list()
+    }
+
+    /// The locale in `available` that best serves a reader who asked for
+    /// `requested`, in order of preference, by CLDR language matching; or
+    /// `default` when none is close enough. A web framework parses
+    /// `Accept-Language` into `requested`.
+    //! available = [Locale`en`, Locale`pl`, Locale`es`]
+    //! assert Locale.negotiate([Locale`pl-PL`], available, Locale`en`) == Locale`pl`
+    //! assert Locale.negotiate([Locale`de`, Locale`es-MX`], available, Locale`en`) == Locale`es`
+    //! assert Locale.negotiate([Locale`ja`], available, Locale`en`) == Locale`en`
+    //
+    pub fn negotiate(requested: List<Locale>, available: List<Locale>, default: Locale) -> Locale {
+        Locale(fallback) = default
+        wanted = requested |> Iter.map(fn Locale(t) -> t) |> Iter.to_list()
+        offered = available |> Iter.map(fn Locale(t) -> t) |> Iter.to_list()
+        Locale(locale_negotiate(wanted, offered, fallback))
+    }
+
+    /// The locales the program carries CLDR data for: those its `nomi.toml`
+    /// lists under `[i18n].locales`, in that order, or every locale CLDR has
+    /// data for when it lists none. A locale outside them still formats, as
+    /// its nearest listed parent, else as the source locale
+    /// (`[i18n].source_locale`) when the program lists it, else as CLDR's
+    /// root.
+    //! assert Iter.contains?(Locale.available(), Locale`pl`)
+    //
+    pub fn available() -> List<Locale> {
+        locale_available() |> Iter.map(fn t -> Locale(t)) |> Iter.to_list()
+    }
+
+    /// The locales whose data the program has now: `Locale.available()`,
+    /// less those a browser build keeps in locale files that `Locale.load`
+    /// has not loaded yet. Anywhere but a browser build that is every
+    /// available locale.
+    //! assert Locale.loaded() == Locale.available()
+    //
+    pub fn loaded() -> List<Locale> {
+        locale_loaded_raw() |> Iter.map(fn t -> Locale(t)) |> Iter.to_list()
+    }
+
+    /// Make `locale` ready to format in. A site may offer many locales
+    /// while each visitor reads one, so a browser build (`nomi build
+    /// --web`) compiles only the locales `[i18n].web_embedded` names into
+    /// `app.wasm`, the source locale unless it says otherwise, and keeps
+    /// each other listed locale in a file beside it: `locales/pl.nomil`
+    /// holds Polish numbers, dates and lists and the Polish translations.
+    /// `load` fetches the files of the locales on `locale`'s fallback chain
+    /// that are not loaded yet, and the calling task waits until they arrive
+    /// or fail; the program runs in a worker, so the rest of the page keeps
+    /// working. A file another build wrote, such as one a browser cached
+    /// from the last deploy, is refused, since its text may not fit the new
+    /// program. Anywhere else the program carries every listed locale, and
+    /// `load` answers `Ok(Unit)` at once, as it does for a locale already
+    /// loaded or one the program does not list.
+    ///
+    /// ```toml
+    /// # nomi.toml
+    /// [i18n]
+    /// locales = ["en", "pl", "de"]
+    /// web_embedded = ["en"]
+    /// ```
+    ///
+    /// Until its file is loaded, a locale formats as its nearest loaded
+    /// ancestor, else as the source locale, with the source text and the
+    /// source locale's numbers and dates: a safety net, not a way to show a
+    /// page. Load the reader's locale before formatting in it, so a page is
+    /// never half in one language:
+    ///
+    /// ```nomi
+    /// fn choose_language(locale: Locale) -> Result<Unit, LoadError> {
+    ///     try Locale.load(locale)
+    ///     with App.locale = locale
+    ///     render_page()
+    ///     Ok(Unit)
+    /// }
+    /// ```
+    //! assert Locale.load(Locale`pl`) == Ok(Unit)
+    //
+    pub fn load(locale: Locale) -> Result<Unit, LoadError> {
+        Locale(tag) = locale
+
+        case String.split(locale_load_raw(tag), "\t") {
+            ["unreachable", file, reason] ->
+                Err(#LoadError.Unreachable{locale: Locale(file), reason})
+
+            ["unreadable", file, reason] ->
+                Err(#LoadError.Unreadable{locale: Locale(file), reason})
+
+            _ ->
+                Ok(Unit)
+        }
+    }
+
+    fn lift(attempt: LocaleAttempt) -> Result<Locale, Error> {
+        case attempt.kind {
+            0 -> Ok(Locale(attempt.value))
+            1 -> Err(Error.Empty)
+            2 -> Err(#Error.Underscore{suggestion: attempt.detail})
+            3 -> Err(#Error.Malformed{text: attempt.detail})
+            _ -> Err(#Error.UnknownSubtag{subtag: attempt.detail})
+        }
+    }
+}
+
+impl Literal for Locale {
+    /// ``Locale`pt-BR` `` is the locale `Locale.parse` gives for its text. A
+    /// raw literal is checked when the program is checked, so a malformed tag
+    /// is a compile error at the literal, and so, in a program that lists its
+    /// locales, is a locale whose fallback chain reaches none of them.
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Locale, Error> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        })
+
+        Locale.parse(body)
+    }
+}
+
+impl Display for Locale {
+    /// The canonical BCP 47 tag.
+    fn to_string(locale: Locale) -> String {
+        Locale(tag) = locale
+        tag
+    }
+}
+
+impl Debug for Locale {
+    /// The raw literal that builds the locale.
+    fn inspect(locale: Locale) -> String {
+        Locale(tag) = locale
+        "Locale`${tag}`"
+    }
+}
+
+/// One `Locale.parse` or `Locale.from_posix` as the Go half reports it:
+/// `kind` 0 with the canonical tag in `value`, or the `Error` variant's
+/// position (1 is `Empty`) with its one field in `detail`.
+struct LocaleAttempt {
+    value: String
+    kind: Int
+    detail: String
+}
+
+host fn locale_parse_raw(tag: String) -> LocaleAttempt
+
+host fn locale_from_posix_raw(value: String) -> LocaleAttempt
+
+host fn locale_language(tag: String) -> String
+
+host fn locale_script(tag: String) -> Maybe<String>
+
+host fn locale_region(tag: String) -> Maybe<String>
+
+host fn locale_fallbacks(tag: String) -> List<String>
+
+host fn locale_available() -> List<String>
+
+host fn locale_loaded_raw() -> List<String>
+
+host fn locale_load_raw(tag: String) -> String
+
+host fn locale_negotiate(
+    requested: List<String>,
+    available: List<String>,
+    fallback: String,
+) -> String

@@ -210,8 +210,8 @@ func SeqEachWhile[T any](fr *Frame, src Seq[T], yield func(fr *Frame, item T) bo
 //
 // It consumes the whole source — there is no way to know an element is the last
 // until the next one fails to arrive — so it does not terminate on an infinite
-// source. std says so and this reproduces it rather than guarding it:
-// infiniteness is undecidable, so nothing detects it.
+// source. A source that says it is infinite (Seq.Endless) is refused before
+// this runs, by the caller's SeqMustEnd; one that does not say so runs on.
 func SeqLast[T any](fr *Frame, src Seq[T]) Maybe[T] {
 	out := None[T]()
 	src.Run(fr, func(fr *Frame, item T) bool {
@@ -267,7 +267,7 @@ func DropEach[T any](fr *Frame, src Seq[T], n int64, yield func(fr *Frame, item 
 func SeqDrop[T any](src Seq[T], n int64) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return DropEach(fr, src, n, yield)
-	}}
+	}, Endless: src.Endless}
 }
 
 // WithIndexEach is `host fn with_index_each<T>(source: Iter<T>, yield) -> Bool`.
@@ -292,7 +292,7 @@ func WithIndexEach[T, P any](fr *Frame, src Seq[T], pair func(int64, T) P, yield
 func SeqWithIndex[T, P any](src Seq[T], pair func(int64, T) P) Seq[P] {
 	return Seq[P]{Run: func(fr *Frame, yield func(fr *Frame, item P) bool) bool {
 		return WithIndexEach(fr, src, pair, yield)
-	}}
+	}, Endless: src.Endless}
 }
 
 // SeqConcat is `pub fn concat<T>(a: Iter<T>, b: Iter<T>) -> Iter<T>`.
@@ -306,7 +306,7 @@ func SeqConcat[T any](a, b Seq[T]) Seq[T] {
 			return b.Run(fr, yield)
 		}
 		return false
-	}}
+	}, Endless: endlessEither(a, b)}
 }
 
 // CycleEach is `host fn cycle_each<T>(source: Iter<T>, yield) -> Bool`.
@@ -334,7 +334,7 @@ func CycleEach[T any](fr *Frame, src Seq[T], yield func(fr *Frame, item T) bool)
 func SeqCycle[T any](src Seq[T]) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return CycleEach(fr, src, yield)
-	}}
+	}, Endless: cycleEndless(src)}
 }
 
 // RepeatEach is `host fn repeat_each<T>(x: T, yield) -> Bool`.
@@ -354,7 +354,7 @@ func RepeatEach[T any](fr *Frame, x T, yield func(fr *Frame, item T) bool) bool 
 func SeqRepeat[T any](x T) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return RepeatEach(fr, x, yield)
-	}}
+	}, Endless: endlessRepeat}
 }
 
 // IterateEach is `host fn iterate_each<T>(seed: T, step: (T) -> T, yield) -> Bool`.
@@ -416,7 +416,7 @@ func SeqIterateCtl[T any](seed T, step func(fr *Frame, state T) (T, Ctl)) Seq[T]
 func SeqIterate[T any](seed T, step func(fr *Frame, state T) T) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return IterateEach(fr, seed, step, yield)
-	}}
+	}, Endless: endlessIterate}
 }
 
 // FlatMapEach is `host fn flat_map_each<T, U>(source, f: (T) -> Iter<U>, yield) -> Bool`.
@@ -434,7 +434,7 @@ func FlatMapEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) Seq[
 func SeqFlatMap[T, U any](src Seq[T], f func(fr *Frame, item T) Seq[U]) Seq[U] {
 	return Seq[U]{Run: func(fr *Frame, yield func(fr *Frame, item U) bool) bool {
 		return FlatMapEach(fr, src, f, yield)
-	}}
+	}, Endless: src.Endless}
 }
 
 // FlatMapListEach is FlatMapEach for a callback that answers a List.
@@ -454,7 +454,7 @@ func FlatMapListEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) 
 func SeqFlatMapList[T, U any](src Seq[T], f func(fr *Frame, item T) *List[U]) Seq[U] {
 	return Seq[U]{Run: func(fr *Frame, yield func(fr *Frame, item U) bool) bool {
 		return FlatMapListEach(fr, src, f, yield)
-	}}
+	}, Endless: src.Endless}
 }
 
 // ChunksEach is `host fn chunks_each<T>(source: Iter<T>, size: Int, yield) -> Bool`.
@@ -496,7 +496,7 @@ func ChunksEach[T any](fr *Frame, src Seq[T], size int64, yield func(fr *Frame, 
 func SeqChunks[T any](src Seq[T], size int64) Seq[*List[T]] {
 	return Seq[*List[T]]{Run: func(fr *Frame, yield func(fr *Frame, item *List[T]) bool) bool {
 		return ChunksEach(fr, src, size, yield)
-	}}
+	}, Endless: chunksEndless(src, size)}
 }
 
 // --- zip, the one adapter push cannot express directly -----------------------
@@ -565,7 +565,7 @@ func SeqZip[T, U, P any](left Seq[T], right Seq[U], pair func(T, U) P) Seq[P] {
 			return yield(fr, pair(l, r))
 		})
 		return completed || exhausted
-	}}
+	}, Endless: endlessBoth(left, right)}
 }
 
 // listOf builds a List from a slice, copying nothing that the caller may reuse:
@@ -663,5 +663,5 @@ func ChunkByEach[T, K any](fr *Frame, src Seq[T], key func(fr *Frame, item T) K,
 func SeqChunkBy[T, K any](src Seq[T], key func(fr *Frame, item T) K, eq func(K, K) bool) Seq[*List[T]] {
 	return Seq[*List[T]]{Run: func(fr *Frame, yield func(fr *Frame, item *List[T]) bool) bool {
 		return ChunkByEach(fr, src, key, eq, yield)
-	}}
+	}, Endless: src.Endless}
 }

@@ -31,19 +31,41 @@ import (
 //     this stage" for a Display value piped into a stage that takes a String.
 //   - "Remove the `return`" for a bare return that ends a body
 //     (code_action_useless_return.go).
+//   - "Limit with `Iter.take`" for a pipe stage that drains an infinite
+//     iterator (code_action_infinite.go).
 //   - the fix a parse error carries: braces around a body written over
 //     several lines, `//` for a `///` or `//!` inside a body
 //     (code_action_parse_fix.go).
+//   - "Add the pl translation of `m`" for a `message` a listed locale has
+//     no translation of, and in a catalog, marking a stale translation
+//     current and giving one the arms its locale needs (catalogs.go).
 //
 // and the actions over the requested range (code_action_refactor.go).
 func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeActionParams) (any, error) {
 	uri := string(params.TextDocument.URI)
-	snap := s.docs.Snapshot(uri)
-	if snap == nil || snap.Analysis == nil {
+	only := params.Context.Only
+	if isInputURI(uri) {
+		if d := s.catalogAt(uri); d != nil && kindAllowed(only, protocol.CodeActionKindQuickFix) {
+			if actions := s.catalogActions(d, params.Range, params.Context.Diagnostics); len(actions) > 0 {
+				return actions, nil
+			}
+		}
 		return nil, nil
 	}
-	only := params.Context.Only
-	var actions []protocol.CodeAction
+	// A macro's fixes for what it reported, in a declaring file or
+	// in an input, which is no document.
+	var macroFixes []protocol.CodeAction
+	if kindAllowed(only, protocol.CodeActionKindQuickFix) {
+		macroFixes = s.macroActions(uri, params.Context.Diagnostics)
+	}
+	snap := s.docs.Snapshot(uri)
+	if snap == nil || snap.Analysis == nil {
+		if len(macroFixes) > 0 {
+			return macroFixes, nil
+		}
+		return nil, nil
+	}
+	actions := macroFixes
 	if kindAllowed(only, protocol.CodeActionKindQuickFix) {
 		actions = append(actions, buildRemoveUnusedActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildAddImportActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
@@ -52,7 +74,9 @@ func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeAc
 		actions = append(actions, buildLambdaPipeStageActions(snap.Content, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildPipeToStringActions(snap.Content, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildUselessReturnActions(snap.Content, uri, params.Context.Diagnostics)...)
+		actions = append(actions, buildLimitInfiniteActions(snap.Content, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildParseFixActions(snap.Content, uri, snap.Errors, params.Context.Diagnostics)...)
+		actions = append(actions, s.missingTranslationActions(snap.Nodes, snap.Analysis, params.Range, params.Context.Diagnostics)...)
 	}
 	actions = append(actions, s.buildRefactorActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Range, params.Context.Diagnostics, only)...)
 	if kindAllowed(only, protocol.CodeActionKindSourceOrganizeImports) {

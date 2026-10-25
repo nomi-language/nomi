@@ -20,7 +20,9 @@ import int.Int
 /// }
 ///
 /// impl Hashable for Point {
-///     fn hash(p: Point) -> Int { Hashable.hash(p.x) + Hashable.hash(p.y) * 31 }
+///     fn hash(p: Point) -> Int {
+///         Hashable.hash(p.x) + Hashable.hash(p.y) * 31
+///     }
 /// }
 /// ```
 ///

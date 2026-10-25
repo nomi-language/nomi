@@ -142,6 +142,16 @@ registers the adapter and gives each `nomi run` and `nomi test` task a debug
 entry. Helix's `languages.toml` block adds run and test templates to
 `:debug-start`. The VS Code and Neovim READMEs have the launch settings.
 
+Each editor also attaches `nomi-lsp` to a module's message catalogs, the
+TOML files under its `[i18n].catalogs` directory (`locales/` unless the
+manifest names another), for their diagnostics, completion, hover and quick
+fixes. VS Code and Neovim read each module's `nomi.toml` and attach to its
+catalogs only. Helix's `languages.toml` adds a `nomi-catalog` language for
+`locales/**/*.toml`, using Helix's TOML grammar. Zed attaches a server by
+language, not by path, so the server is sent every TOML buffer and answers
+only catalogs; `"languages": { "TOML": { "language_servers": ["!nomi-lsp",
+"..."] } }` turns that off.
+
 Comments wrap at 100 columns, `nomi fmt`'s line width. Neovim sets
 `textwidth=100`, so a comment breaks as you type and `gw` reflows it (`gq`
 goes to the formatter in most LSP setups, and `nomi fmt` leaves comments

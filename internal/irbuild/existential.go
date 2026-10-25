@@ -528,6 +528,13 @@ func (g *gen) portableDefault(d *ifaceDef, m *ifaceMethod) bool {
 		case there == nil && here == nil:
 			// A parameter, a local, a field label, or a name neither file has.
 			// Nothing for the two scopes to disagree about.
+		case here == nil && there.Kind == analysis.SymbolStruct:
+			// A struct the declaring file names and this one does not
+			// (`#Request{}` in std/macro's `Macro.request`, copied into a
+			// macro that imports no `Request`). A literal's struct is the
+			// type the checker gave it in the declaring file, read from that
+			// file's analysis under namesFrom, so no name of this file can
+			// take its place.
 		case there == nil || here == nil:
 			return false
 		case there.Node != here.Node:

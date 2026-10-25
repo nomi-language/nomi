@@ -202,7 +202,33 @@ var hostPackages = [...]struct{ path, local string }{
 	{regexHostPath, "stdregex"},
 	{randomHostPath, "stdrandom"},
 	{calendarHostPath, "stdcalendar"},
+	{localeHostPath, "stdlocale"},
+	{pluralHostPath, "stdplural"},
+	{formatHostPath, "stdformat"},
+	{messageHostPath, "stdmessageformat"},
 }
+
+// messageHostPath is std/message_format's host implementation, the
+// MessageFormat 2 formatter. Its boundary is String, List<Int> and
+// List<String>; the `Locale` crosses as its tag.
+const messageHostPath = "github.com/nomi-language/nomi/internal/stdmessageformat"
+
+// formatHostPath is the host implementation of locale-aware number and list
+// formatting and number parsing (`Int.format`, `Decimal.parse_in`,
+// `String.join_list`, ...), declared in std/int, std/float, std/decimal and
+// std/strings. Its boundary is String, Int, Float, Bool, List<String> and
+// `Result<_, NumberParseError>`; the `Locale` crosses as its tag.
+const formatHostPath = "github.com/nomi-language/nomi/internal/stdformat"
+
+// pluralHostPath is std/plural's host implementation, CLDR plural rule
+// selection. Its boundary is String, Int and List<Int>; std/plural.nomi
+// turns a category's position back into the `PluralCategory` variant.
+const pluralHostPath = "github.com/nomi-language/nomi/internal/stdplural"
+
+// localeHostPath is std/locale's host implementation, a co-located adapter
+// over golang.org/x/text/language and Nomi's CLDR data. Its boundary is
+// String, Int and List<String>; the `Locale` type itself never crosses.
+const localeHostPath = "github.com/nomi-language/nomi/internal/stdlocale"
 
 // calendarHostPath is std/calendar's implementation, and it is the FIRST row
 // that is the co-located adapter ITSELF rather than a shim beside one.
@@ -782,7 +808,7 @@ func buildStdlibIndex() *stdlibIndex {
 	done := map[string]bool{}
 	for _, name := range stdLoweringOrder(names, lib) {
 		nodes := lib.Nodes[name]
-		if len(nodes) == 0 {
+		if len(nodes) == 0 || isProgramStd(name) {
 			continue
 		}
 		pkg := idx.modulePkg[name]
@@ -886,6 +912,19 @@ func stdLoweringOrder(names []string, lib *std.StdLib) []string {
 // this takes the head and ignores the rest. Reading a two-segment `std/<name>`
 // would match nothing, so stdLoweringOrder would see zero edges and a module
 // could be lowered before the module it imports.
+//
+// An import of std/locale or std/localize that names only types whose
+// representation is process-wide (rows of opaqueSpecs, stdEnumSpecs or
+// stdStructSpecs) is not an edge: such a type is the same def whichever
+// module is lowered first, so naming it needs nothing of its module's
+// lowering. std/int, std/float, std/decimal and std/strings import
+// `locale.Locale` and `localize.NumberParseError` for their formatting
+// functions' signatures and pass the locale straight to a host function;
+// counting those imports as edges would put std/locale, which is written
+// over Int and String, ahead of both. The rule is held to those two modules
+// (typeOnlyImportModules) because the same reading of other std imports
+// would reorder modules that lower correctly today, strings and code_points
+// among them.
 func stdModuleImports(nodes []ast.Node) []string {
 	seen := map[string]bool{}
 	add := func(imp *ast.ImportStmt) {
@@ -894,6 +933,9 @@ func stdModuleImports(nodes []ast.Node) []string {
 		}
 		head, isHead := imp.ModulePath[0].(*ast.Ident)
 		if !isHead {
+			return
+		}
+		if !seen[head.Name] && importsOnlySharedTypes(head.Name, imp) {
 			return
 		}
 		seen[head.Name] = true
@@ -914,6 +956,69 @@ func stdModuleImports(nodes []ast.Node) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// typeOnlyImportModules are the std modules an import of process-wide types
+// only does not make a lowering dependency on. See stdModuleImports.
+var typeOnlyImportModules = map[string]bool{"locale": true, "localize": true}
+
+// importsOnlySharedTypes reports whether imp, an import of std module
+// module, names types only, each with a process-wide def, and module is one
+// of typeOnlyImportModules.
+func importsOnlySharedTypes(module string, imp *ast.ImportStmt) bool {
+	if !typeOnlyImportModules[module] || imp.IncludeParent || imp.ModuleAlias != nil {
+		return false
+	}
+	var names []string
+	for _, seg := range imp.ModulePath[1:] {
+		if id, ok := seg.(*ast.TypeIdent); ok {
+			names = append(names, id.Name)
+		} else {
+			return false
+		}
+	}
+	for _, n := range imp.Names {
+		switch id := n.(type) {
+		case *ast.TypeIdent:
+			names = append(names, id.Name)
+		case *ast.Ident:
+			names = append(names, id.Name)
+		default:
+			return false
+		}
+	}
+	if imp.Braced && len(imp.ModulePath) > 1 {
+		// `mod.Owner.{A, B}` names the owner's members, which are no types.
+		return false
+	}
+	if len(names) == 0 {
+		return false
+	}
+	origin := "std/" + module
+	shared := func(name string) bool {
+		for _, s := range opaqueSpecs {
+			if s.origin == origin && s.nomi == name {
+				return true
+			}
+		}
+		for _, s := range stdEnumSpecs {
+			if s.origin == origin && s.nomi == name {
+				return true
+			}
+		}
+		for _, s := range stdStructSpecs {
+			if s.origin == origin && s.nomi == name {
+				return true
+			}
+		}
+		return false
+	}
+	for _, n := range names {
+		if !shared(n) {
+			return false
+		}
+	}
+	return true
 }
 
 // add files one stdlib function under every spelling a call site may use.

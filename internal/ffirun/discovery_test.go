@@ -308,6 +308,41 @@ fn main() {
 	}
 }
 
+// A `replace ( ... )` block replaces as the one-line form does: the
+// bindings of each module it points at a directory are discovered.
+func TestDiscovery_ReplaceBlockPackageBindings(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"one", "two"} {
+		dir := filepath.Join(root, name)
+		mustWriteHelper(t, filepath.Join(dir, "binding.nomi"), fmt.Sprintf("gopkg \"example.com/%s\" as %s\n\npub fn ping() -> String go %s.Ping\n", name, name, name))
+		mustWriteHelper(t, filepath.Join(dir, "nomi.toml"), fmt.Sprintf("[module]\nname = %q\n", name))
+	}
+	app := filepath.Join(root, "app")
+	mustWriteHelper(t, filepath.Join(app, "go.mod"), `module app
+
+go 1.26.3
+
+require (
+	example.com/one v0.0.0
+	example.com/two v0.0.0
+)
+
+replace (
+	example.com/one => ../one
+	example.com/two v0.0.0 => ../two
+)
+`)
+	mustWriteHelper(t, filepath.Join(app, "main.nomi"), "import {\n    one/binding\n    two/binding as other\n}\n\nfn main() {\n  _ = binding.ping()\n  _ = other.ping()\n}\n")
+
+	got, err := Discover(app)
+	if err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+	if len(got) != 2 || got[0].ImportPath != "example.com/one" || got[1].ImportPath != "example.com/two" {
+		t.Fatalf("expected both replaced modules' bindings, got %+v", got)
+	}
+}
+
 func TestPrepareRejectsExternPackageNotProvidedByGoMod(t *testing.T) {
 	root := t.TempDir()
 	mustWriteHelper(t, filepath.Join(root, "go.mod"), `module app

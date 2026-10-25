@@ -12,15 +12,44 @@ import (
 // I's own functions. A conformance demanded of such a value (an
 // interface-qualified call or pipe, an interpolation, an ordering or
 // arithmetic operator, a generic call bounding it) must therefore be I
-// itself. Debug is universal and `==` falls back to structural equality, so
-// neither needs one. Without the rule a program using Display on a `Scale`
-// value was accepted and then could not run. This is the existential
+// itself. Debug is universal, and `==` and hashing compare the held values by
+// their own types (ir.ValIface, vm/keys.go), so neither Debug nor Equatable
+// nor Hashable needs one (existentialSatisfies). Comparable does: values of
+// two types have no order. Without the rule a program using Display on a
+// `Scale` value was accepted and then could not run. This is the existential
 // counterpart of type_param_bound.go and default_self_bound.go.
+
+// existentialSatisfies reports whether every value of interface type it
+// satisfies the std interface ifaceName, declared by origin ("" when
+// unknown), whatever it holds: Debug, which every type implements, and
+// Equatable and Hashable, which compare and hash the held value by its
+// run-time type (unequal across types, through that type's own equality and
+// hash otherwise). An `Iter<T>` value is a function and has neither
+// (equality_domain.go).
+func existentialSatisfies(it *InterfaceType, ifaceName, origin string) bool {
+	switch ifaceName {
+	case "Debug":
+		return true
+	case "Equatable", "Hashable":
+		return !isStdIterType(it) && (origin == "" || origin == deriveProtocolHomeModule[ifaceName])
+	}
+	return false
+}
+
+// existentialSatisfiesNamed is existentialSatisfies for the interface
+// ifaceName as this file resolves it.
+func (c *checker) existentialSatisfiesNamed(it *InterfaceType, ifaceName string) bool {
+	origin := ""
+	if bound, ok := c.reg.Lookup(ifaceName).(*InterfaceType); ok {
+		origin = bound.Origin
+	}
+	return existentialSatisfies(it, ifaceName, origin)
+}
 
 // checkExistentialDemand reports a conformance to ifaceName demanded of a
 // value of interface type it by rec.
 func (c *checker) checkExistentialDemand(it *InterfaceType, ifaceName string, rec Recording) {
-	if it == nil || it.Name == "" || it.Name == ifaceName || ifaceName == "Debug" || rec.Kind == RecordingKindEqualityOperator {
+	if it == nil || it.Name == "" || it.Name == ifaceName || c.existentialSatisfiesNamed(it, ifaceName) || rec.Kind == RecordingKindEqualityOperator {
 		return
 	}
 	if _, isIface := c.reg.Lookup(ifaceName).(*InterfaceType); !isIface {
@@ -57,17 +86,23 @@ func (c *checker) checkExistentialDemand(it *InterfaceType, ifaceName string, re
 		article = "values of"
 	}
 	msg := fmt.Sprintf("%s %s %s `%s`, and %s does not require %s of its implementors", subject, verb, article, it.String(), it.String(), ifaceName)
+	if ifaceName == "Comparable" {
+		// Equatable and Hashable hold of every interface value; an order
+		// does not, and this says why.
+		msg += ": values of different types have no order"
+	}
 	for _, e := range c.errors {
 		if e.Line == pos.Line && e.Col == pos.Col && e.Message == msg {
 			return
 		}
 	}
-	c.report(TypeError{Line: pos.Line, Col: pos.Col, Message: msg}.WithHint(c.existentialDemandHelp(it, ifaceName, param, rec.Kind == RecordingKindOrderingOperator || rec.Kind == RecordingKindOperator)))
+	c.report(TypeError{Line: pos.Line, Col: pos.Col, Message: msg}.WithHint(c.existentialDemandHelp(it, ifaceName, param, rec.Kind == RecordingKindOrderingOperator || rec.Kind == RecordingKindOperator || ifaceName == "Comparable")))
 }
 
 // existentialDemandHelp suggests a type parameter bounded by both
 // interfaces in place of the interface type. An operator's operands must be
-// one type, so for one every parameter of that type becomes T.
+// one type, as are the values an order compares, so for either every
+// parameter of that type becomes T.
 func (c *checker) existentialDemandHelp(it *InterfaceType, ifaceName, param string, operator bool) string {
 	bound := fmt.Sprintf("T: %s and %s", it.String(), ifaceName)
 	if sig, ok := c.sigWithTypeParamFor(it, param, operator); ok {

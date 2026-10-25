@@ -11,7 +11,7 @@ import (
 // and there is no check to make here.
 func (bl *irScalarBuilder) codepointLiteral(t *ast.CodepointLit) (ir.Temp, kind, bool, bool) {
 	k := codepointKind()
-	// kindInvalid: lookup — std's Codepoint declaration is missing only when std/codepoints is not in the program; the caller names the decline.
+	// kindInvalid: lookup — std's Codepoint declaration is missing only when std/code_points is not in the program; the caller names the decline.
 	if k == kindInvalid {
 		return ir.NoTemp, kindInvalid, false, false
 	}

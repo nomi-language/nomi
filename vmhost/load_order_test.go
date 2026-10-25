@@ -78,15 +78,23 @@ func loadOrderSample(t *testing.T) []loweringSeed {
 		}
 		n = v
 	}
+	// Always in the sample: libraries' impls for std receivers, which the
+	// impl indexes key by a receiver no program file declares.
+	// And a program whose front end builds and runs a macro, whose
+	// build and expansion are cached for the process.
+	fixed := []loweringSeed{
+		{name: "local type argument impls", src: localTypeArgumentProgram},
+		{name: "a macro's expansion", src: macroLoadOrderProgram},
+	}
 	if n >= len(all) {
-		return all
+		return append(all, fixed...)
 	}
 	step := len(all) / n
-	out := make([]loweringSeed, 0, n)
+	out := make([]loweringSeed, 0, n+len(fixed))
 	for i := 0; i < len(all) && len(out) < n; i += step {
 		out = append(out, all[i])
 	}
-	return out
+	return append(out, fixed...)
 }
 
 func loadOrderChild(t *testing.T, mode, outPath string) {

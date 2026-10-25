@@ -1,0 +1,151 @@
+// Values held as an interface compare, hash and render by the concrete
+// value each holds: two are equal when they hold one type and that type's
+// equality says so, its hand-written Equatable when it has one. So `==`, a
+// Set's elements, a Map's keys and std's generic functions over them agree.
+import {
+    std/io
+    protocols.{Circle, Glyph, Name, Point, Shape, Show, Spot, Tag}
+}
+
+fn circle_shape(r: Int) -> Shape {
+    #Circle{r}
+}
+
+test "two values of one struct type compare by its fields" {
+    a: Show = #Point{x: 1, y: 2}
+    b: Show = #Point{x: 1, y: 2}
+    c: Show = #Point{x: 1, y: 3}
+    assert a == b
+    assert a != c
+    assert !(a != b)
+}
+
+test "values of two concrete types are unequal" {
+    point: Show = #Point{x: 1, y: 2}
+    spot: Show = #Spot{x: 1, y: 2}
+    n: Show = 1
+    s: Show = "1"
+    assert point != spot
+    assert n != s
+    assert point != n
+}
+
+test "a hand-written Equatable decides" {
+    a: Show = #Name{text: "Ada"}
+    b: Show = #Name{text: "ADA"}
+    c: Show = #Name{text: "Bob"}
+    assert a == b
+    assert a != c
+}
+
+test "a boxed container compares by the type it was held at, then its value" {
+    ints: List<Int> = []
+    strings: List<String> = []
+    a: Show = [1, 2]
+    b: Show = [1, 2]
+    c: Show = [1, 3]
+    no_ints: Show = ints
+    no_ints_again: Show = ints
+    no_strings: Show = strings
+    assert a == b
+    assert a != c
+    assert no_ints == no_ints_again
+    assert no_ints != no_strings
+}
+
+test "an embeds enum's value is unequal to its embedded struct's" {
+    shape: Show = circle_shape(1)
+    same: Show = circle_shape(1)
+    circle: Show = #Circle{r: 1}
+    dot: Show = Shape.Dot
+    assert shape == same
+    assert shape != circle
+    assert shape != dot
+}
+
+fn circle_glyph(r: Int) -> Glyph {
+    #Circle{r}
+}
+
+test "an embeds enum's hand-written Equatable decides for its values" {
+    small: Show = circle_glyph(1)
+    large: Show = circle_glyph(9)
+    blank: Show = Glyph.Blank
+    assert small == large
+    assert small != blank
+    s: Set<Show> = %[small, large, blank]
+    assert Set.size(s) == 2
+}
+
+test "inside a tuple, a Maybe and a list" {
+    a: Show = #Name{text: "Ada"}
+    b: Show = #Name{text: "ada"}
+    assert #(a, 1) == #(b, 1)
+    left: Maybe<Show> = Some(a)
+    right: Maybe<Show> = Some(b)
+    assert left == right
+    xs: List<Show> = [a, 2]
+    ys: List<Show> = [b, 2]
+    assert xs == ys
+}
+
+test "a Set keeps one of each equal value" {
+    s: Set<Show> = %[
+        #Point{x: 1, y: 2},
+        #Point{x: 1, y: 2},
+        #Spot{x: 1, y: 2},
+        #Name{text: "Ada"},
+        #Name{text: "ada"},
+        1,
+        [1],
+    ]
+
+    assert Set.size(s) == 5
+    assert Set.contains?(s, #Name{text: "ADA"})
+    assert !Set.contains?(s, #Name{text: "Bob"})
+    tags: Set<Show> = %[#Tag{text: "x"}, #Tag{text: "X"}, #Tag{text: "y"}]
+    assert Set.size(tags) == 2
+    assert Set.size(Set.insert(tags, #Tag{text: "Y"})) == 2
+}
+
+test "a Map keyed by interface values" {
+    m: Map<Show, Int> = %{#Point{x: 1, y: 2} => 1, #Name{text: "Ada"} => 2}
+    assert Map.get(m, #Point{x: 1, y: 2}) == Some(1)
+    assert Map.get(m, #Name{text: "ADA"}) == Some(2)
+    assert Map.get(m, #Spot{x: 1, y: 2}) == None
+    renamed = Map.put(m, #Name{text: "ada"}, 3)
+    assert Map.size(renamed) == 2
+    assert Map.get(renamed, #Name{text: "Ada"}) == Some(3)
+    assert Map.size(Map.remove(renamed, #Name{text: "ADA"})) == 1
+}
+
+test "a Map keyed by lists of interface values" {
+    a: Show = #Name{text: "Ada"}
+    m: Map<List<Show>, Int> = %{[a, 1] => 1}
+    assert Map.get(m, [#Name{text: "ADA"}, 1]) == Some(1)
+    assert Map.get(m, [#Name{text: "ADA"}]) == None
+}
+
+test "Debug renders each concrete value through its own impl" {
+    xs: List<Show> = [#Point{x: 1, y: 2}, 3, [4]]
+    assert Debug.inspect(xs) == "[Point(1, 2), 3, [4]]"
+    s: Set<Show> = %[#Point{x: 1, y: 2}, #Name{text: "Ada"}]
+    assert Debug.inspect(s) == "%[Point(1, 2), #Name{text: \"Ada\"}]"
+    io.inspect(xs)
+    io.inspect(s)
+}
+
+test "std's generic functions over interface values" {
+    xs: List<Show> = [#Name{text: "Ada"}, #Name{text: "ADA"}, 1, 1, #Point{x: 0, y: 0}]
+
+    assert Set.size(
+        xs
+        |> Iter.to_set()
+    ) == 3
+
+    counts = xs |> Iter.frequencies()
+    assert Map.get(counts, 1) == Some(2)
+    assert Map.get(counts, #Name{text: "ada"}) == Some(2)
+    groups = xs |> Iter.group_by(&(&1))
+    assert Map.size(groups) == 3
+}

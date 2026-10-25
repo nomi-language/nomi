@@ -33,7 +33,7 @@ import (
 //	  else { Codepoint.from_int(n + 1) }
 //	}
 //
-// — ordinary Nomi in std/codepoints.nomi, with the UTF-16 surrogate-block skip in
+// — ordinary Nomi in std/code_points.nomi, with the UTF-16 surrogate-block skip in
 // it, and the Nomi-bodied half of a std module lowers like any other module.
 // So a program runs std's OWN successor predicate, not a Go copy of it, and
 // rt/range.go contains no arithmetic over any element type. The one thing this
@@ -44,7 +44,7 @@ import (
 //
 //	elem       Comparable.compare   Discrete.next / steps_between   Steppable.step_by
 //	Int        std/int (Nomi)       std/int (Nomi)                  std/int (Nomi)
-//	Codepoint  derive (synth)       std/codepoints (Nomi)           std/codepoints (Nomi)
+//	Codepoint  derive (synth)       std/code_points (Nomi)           std/code_points (Nomi)
 //	Decimal    host fn              --                              std/decimal (Nomi)
 //	String     std/strings          --                              --
 //	Float      std/float            --                              --

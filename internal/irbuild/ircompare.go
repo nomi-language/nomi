@@ -305,6 +305,11 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 	// by an impl call shows its operands too.
 	bl.record(t.Left, lhs, lk, true)
 	bl.record(t.Right, rhs, rk, true)
+	if irExistentialKind(lk) && !op.Ordering() {
+		// Two interface values: the machine compares them by their run-time
+		// types, through a hand-written impl when there is one (ir.ValIface).
+		return bl.equalityCompare(t, op, ir.ValIface, lhs, rhs), kindBool, false, true
+	}
 	if op.Ordering() && lk.tag == tagNamed && !isDecimalKind(lk) {
 		if bl.g.implsByIface["Comparable"][lk] == nil && bl.g.stdCompareAt(lk, stdEnumKind(stdEnumOrdering)) != nil {
 			// A std type's own `impl Comparable` (Date, Time, a Vector

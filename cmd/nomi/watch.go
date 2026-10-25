@@ -35,17 +35,37 @@ type watchSet struct {
 	// by ", ". It runs on the watching goroutine, so the next poll waits for
 	// it.
 	changed func(names string)
+	// then, when set, runs once the set's files have been read again after
+	// changed: an action that starts work which outlives it (a run) starts
+	// it here, so a file changed while the work runs is never taken as the
+	// stamp the next poll compares with.
+	then func()
 }
 
-// watchFiles polls each set's files until ctx is done. Once a set's files
-// have changed and then stayed unchanged for watchSettle, its action runs,
-// sets in the order given. A file that changes while an action runs keeps
-// the stamp it had before, so the next poll sees it.
-func watchFiles(ctx context.Context, sets ...watchSet) {
+// watcher is watched sets and the stamps their files had when it was made.
+type watcher struct {
+	sets []watchSet
+	last []map[string]fileStamp
+}
+
+// newWatcher reads each set's files' stamps now, so a change made after it
+// returns is one the watcher's run sees. Make it before the work whose
+// inputs it watches starts (the first build or run): a change made while
+// that work runs, or as soon as it has finished, is then seen too.
+func newWatcher(sets ...watchSet) *watcher {
 	last := make([]map[string]fileStamp, len(sets))
 	for i, s := range sets {
 		last[i] = stamps(s.files())
 	}
+	return &watcher{sets: sets, last: last}
+}
+
+// run polls each set's files until ctx is done. Once a set's files have
+// changed and then stayed unchanged for watchSettle, its action runs, sets
+// in the order given. A file that changes while an action runs keeps the
+// stamp it had before, so the next poll sees it.
+func (w *watcher) run(ctx context.Context) {
+	sets, last := w.sets, w.last
 	read := func() []map[string]fileStamp {
 		now := make([]map[string]fileStamp, len(sets))
 		for i, s := range sets {
@@ -96,6 +116,9 @@ func watchFiles(ctx context.Context, sets ...watchSet) {
 				if st, ok := now[i][f]; ok {
 					last[i][f] = st
 				}
+			}
+			if s.then != nil {
+				s.then()
 			}
 		}
 	}

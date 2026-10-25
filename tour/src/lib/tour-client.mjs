@@ -6,7 +6,7 @@
 //   run        debounced, in a Web Worker so a runaway program can't freeze the page
 // Served statically from /nomi/ (no bundling); web-tree-sitter + the wasm load
 // lazily when the first example scrolls into view.
-import { render } from "./highlight.mjs";
+import { render, renderToml } from "./highlight.mjs";
 
 const ASSET = (f) => new URL(f, import.meta.url).href;
 const DEBOUNCE_MS = 300;
@@ -184,8 +184,10 @@ function post(msg, cbs) {
   worker.postMessage(msg);
 }
 
-function dispatch(id, source, cbs) {
-  post({ id, source }, cbs);
+// files names a multi-file source's Nomi tabs, whose semantic tokens the
+// worker answers per tab ({ file: tokens }).
+function dispatch(id, source, cbs, files) {
+  post(files ? { id, source, files } : { id, source }, cbs);
 }
 
 function dispatchStdlibTest(id, moduleName, context, source, cbs) {
@@ -207,11 +209,15 @@ function requestFormat(source, cb, op = "format") {
 let hoverSeq = 0;
 let hoverReq = null;
 let hoverCb = null;
-function requestHover(source, line, col, cb) {
+// With file, source is a multi-file source and (line, col) is a position in
+// that tab's own text; the worker analyzes the whole program.
+function requestHover(source, line, col, cb, file) {
   ensureWorker();
   hoverReq = "h" + ++hoverSeq;
   hoverCb = cb;
-  worker.postMessage({ id: hoverReq, op: "hover", source, line, col });
+  const msg = { id: hoverReq, op: "hover", source, line, col };
+  if (file) msg.file = file;
+  worker.postMessage(msg);
 }
 
 // Mirrors the Go-side SplitMultiFile regex: a `// FILE: <name>.<ext>`
@@ -238,6 +244,13 @@ function splitFiles(source) {
   return hasMarker ? files : null;
 }
 
+// fileLanguage names the language a multi-file example's tab holds, by its
+// file name: "toml" for a manifest or message catalog, "nomi" otherwise
+// (the editor highlights anything else as Nomi, as it always has).
+function fileLanguage(name) {
+  return name.endsWith(".toml") ? "toml" : "nomi";
+}
+
 // Stitch a per-tab file list back into the source string the wasm
 // runtime expects — same FILE-marker convention SplitMultiFile parses.
 function stitchFiles(files) {
@@ -251,13 +264,19 @@ const LIVE_HELP_HTML =
   "<p><strong>Interactive code.</strong> Edits run automatically as you type.</p>" +
   "<p>Hover any identifier in the code for its signature and docs.</p>";
 
-function labelStaticGoBlocks(root = document) {
-  for (const pre of root.querySelectorAll("pre.nomi-tour:not(.nomi-code-go):not(.nomi-code-js):not(.nomi-code-nomi)")) {
-    if (pre.querySelector(":scope > span.line")) pre.classList.add("nomi-code-go");
-  }
+// chipped wraps a static block's <pre> in the element that carries its
+// language chip, so the chip stays put while the <pre> scrolls sideways.
+function chipped(pre, chip) {
+  const box = document.createElement("div");
+  box.className = `nomi-chip nomi-chip-${chip}`;
+  box.append(pre);
+  return box;
 }
 
-function attachLiveDot(widget) {
+// attachLiveDot adds the widget's controls: the live dot, the formatting
+// chip and, for a ```nomi-run error block (expectError), the "Expected
+// error" badge.
+function attachLiveDot(widget, expectError = false) {
   const controls = document.createElement("div");
   controls.className = "nomi-live-controls";
   const dot = document.createElement("span");
@@ -275,10 +294,22 @@ function attachLiveDot(widget) {
   formatter.setAttribute("role", "status");
   formatter.setAttribute("aria-live", "polite");
   formatter.textContent = "format";
-  controls.append(formatter, dot);
+  controls.append(formatter);
+  let expectedBadge = null;
+  if (expectError) {
+    expectedBadge = document.createElement("span");
+    expectedBadge.className = "nomi-expected-error";
+    expectedBadge.textContent = "Expected error";
+    expectedBadge.title = "This example fails on purpose.";
+    controls.append(expectedBadge);
+  }
+  controls.append(dot);
   widget.appendChild(controls);
   let formattingTimer;
   return {
+    setExpectedError(shown) {
+      if (expectedBadge) expectedBadge.hidden = !shown;
+    },
     setFormatting(active) {
       clearTimeout(formattingTimer);
       widget.classList.toggle("is-formatting", active);
@@ -292,6 +323,25 @@ function attachLiveDot(widget) {
     },
   };
 }
+
+// expectedErrorTracker follows a ```nomi-run error block as the reader edits
+// it, and answers, for each run, whether its output opens with the "on
+// purpose" heading. The heading describes the example as written, so it
+// shows only while the code is the original and fails. The badge stays until
+// an edit compiles, and comes back with the original code.
+function expectedErrorTracker(original, live) {
+  let compiled = false;
+  return (code, error) => {
+    const asWritten = code === original;
+    if (asWritten) compiled = false;
+    else if (!error) compiled = true;
+    live.setExpectedError(Boolean(error) && (asWritten || !compiled));
+    return Boolean(error) && asWritten;
+  };
+}
+
+// A ```nomi-run error block fails on purpose, to compile or while it runs.
+const EXPECTED_ERROR_HEADING = "This example fails on purpose:";
 
 function mapOffsetThroughFormat(before, after, offset) {
   let prefix = 0;
@@ -388,9 +438,11 @@ async function enhance(pre) {
   const stdlibModule = pre.dataset.nomiStdlibModule || "";
   const stdlibContext = pre.dataset.nomiStdlibContext || "";
 
+  const expectError = pre.dataset.nomiExpect === "error";
+
   const files = isStdlibTest ? null : splitFiles(source);
   if (files && files.length > 1) {
-    return enhanceMultiFile(pre, files, parser, query);
+    return enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError);
   }
 
   const widget = document.createElement("div");
@@ -402,7 +454,8 @@ async function enhance(pre) {
     "</div>" +
     '<pre class="nomi-out" aria-live="polite"></pre>';
   pre.replaceWith(widget);
-  const live = attachLiveDot(widget);
+  const live = attachLiveDot(widget, expectError);
+  const headingFor = expectError ? expectedErrorTracker(source, live) : () => false;
 
   const hl = widget.querySelector(".nomi-hl");
   const ta = widget.querySelector(".nomi-src");
@@ -421,8 +474,12 @@ async function enhance(pre) {
   let cleanFormatSource = null;
   let blockedFormatSource = null;
   let composing = false;
+  // The page's text stays as the page wrote it until the reader edits the
+  // block: a run on load never reformats it.
+  let edited = false;
   const scheduleAutoFormat = (source) => {
     clearTimeout(formatDebounce);
+    if (!edited) return;
     const reason = autoFormatSkipReason(ta, composing);
     if (reason || ta.value !== source) {
       if (reason === "cursor" && ta.value === source) blockedFormatSource = source;
@@ -466,7 +523,7 @@ async function enhance(pre) {
       },
       onRun: (output, error) => {
         if (block.req !== id) return;
-        showOutput(out, output, error, parser, query);
+        showOutput(out, output, error, parser, query, headingFor(code, error));
         cleanFormatSource = error ? null : code;
         if (error) live.setFormatting(false);
         else scheduleAutoFormat(code);
@@ -482,6 +539,7 @@ async function enhance(pre) {
 
   let debounce;
   ta.addEventListener("input", () => {
+    edited = true;
     hideTooltip();
     clearTimeout(formatDebounce);
     cleanFormatSource = null;
@@ -518,32 +576,47 @@ async function enhance(pre) {
     ta.dispatchEvent(new Event("input"));
   });
 
-  // Hover: map the mouse to a (line, col) on the monospace grid, ask the worker
-  // for LSP hover, and show it in a tooltip — the same content Zed shows.
-  const cs = getComputedStyle(ta);
-  const padL = parseFloat(cs.paddingLeft) || 0;
-  const padT = parseFloat(cs.paddingTop) || 0;
-  const lineH = parseFloat(cs.lineHeight) || 20;
-  const charW = measureCharWidth(cs);
+  attachHover(ta, marked, DOMPurify, (line, col, cb) => requestHover(ta.value, line, col, cb));
+
+  paint();
+  run();
+}
+
+// attachHover wires LSP hover to an editor's textarea: map the mouse to a
+// (line, col) on the monospace grid of the textarea's own text, ask
+// `ask(line, col, cb)` for the markdown, and show it in a tooltip, the same
+// content Zed shows. The grid is measured on first use, since a multi-file
+// editor's hidden tabs have no layout until shown.
+function attachHover(ta, marked, DOMPurify, ask) {
+  let grid = null;
   let hoverDebounce;
   let lastCell = "";
   ta.addEventListener("mousemove", (ev) => {
+    if (!grid) {
+      const cs = getComputedStyle(ta);
+      grid = {
+        padL: parseFloat(cs.paddingLeft) || 0,
+        padT: parseFloat(cs.paddingTop) || 0,
+        lineH: parseFloat(cs.lineHeight) || 20,
+        charW: measureCharWidth(cs),
+      };
+    }
     const rect = ta.getBoundingClientRect();
-    const x = ev.clientX - rect.left - padL + ta.scrollLeft;
-    const y = ev.clientY - rect.top - padT + ta.scrollTop;
+    const x = ev.clientX - rect.left - grid.padL + ta.scrollLeft;
+    const y = ev.clientY - rect.top - grid.padT + ta.scrollTop;
     if (x < 0 || y < 0) {
       hideTooltip();
       return;
     }
-    const line = Math.floor(y / lineH) + 1;
-    const col = Math.floor(x / charW) + 1;
+    const line = Math.floor(y / grid.lineH) + 1;
+    const col = Math.floor(x / grid.charW) + 1;
     const cell = line + ":" + col;
     if (cell === lastCell) return; // same grid cell — nothing new to ask
     lastCell = cell;
     const cx = ev.clientX, cy = ev.clientY;
     clearTimeout(hoverDebounce);
     hoverDebounce = setTimeout(() => {
-      requestHover(ta.value, line, col, (md) => {
+      ask(line, col, (md) => {
         if (md) showTooltip(renderHoverMarkdown(md, marked, DOMPurify), cx, cy);
         else hideTooltip();
       });
@@ -551,12 +624,10 @@ async function enhance(pre) {
   });
   ta.addEventListener("mouseleave", () => {
     clearTimeout(hoverDebounce);
+    lastCell = "";
     scheduleHideTooltip();
   });
   ta.addEventListener("scroll", hideTooltip);
-
-  paint();
-  run();
 }
 
 // enhanceMultiFile renders a block split by `// FILE: <name>` markers as a
@@ -567,10 +638,12 @@ async function enhance(pre) {
 // Each tab carries its own textarea + tree-sitter highlight layer, so
 // edits in one tab don't disturb others' state. Tab switching shows
 // exactly one pane at a time; keyboard arrows move focus along the bar.
-// Hover is intentionally skipped in multi-file mode for v1 — wiring the
-// LSP hover through a per-pane offset into the stitched program is
-// future work; static highlighting still works per pane.
-async function enhanceMultiFile(pre, files, parser, query) {
+// Each Nomi tab gets the analyzer's semantic tokens and LSP hover from one
+// analysis of the whole program (every tab, nomi.toml and the catalogs, as
+// the run builds it), so a name one tab imports from another resolves. A
+// tab's text is its file's text, so a position in the tab is a position in
+// that file and needs no offset. TOML tabs get neither.
+async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError) {
   const widget = document.createElement("div");
   widget.className = "nomi-interactive nomi-multifile";
 
@@ -587,7 +660,8 @@ async function enhanceMultiFile(pre, files, parser, query) {
 
   widget.append(tabBar, editors, out);
   pre.replaceWith(widget);
-  const live = attachLiveDot(widget);
+  const live = attachLiveDot(widget, expectError);
+  const headingFor = expectError ? expectedErrorTracker(stitchFiles(files), live) : () => false;
 
   const panes = files.map((file, i) => {
     const btn = document.createElement("button");
@@ -597,6 +671,7 @@ async function enhanceMultiFile(pre, files, parser, query) {
     btn.setAttribute("aria-selected", i === 0 ? "true" : "false");
     btn.tabIndex = i === 0 ? 0 : -1;
     btn.textContent = file.name;
+    const lang = fileLanguage(file.name);
     tabBar.appendChild(btn);
 
     const pane = document.createElement("div");
@@ -612,17 +687,27 @@ async function enhanceMultiFile(pre, files, parser, query) {
     const ta = pane.querySelector(".nomi-src");
     ta.value = file.body;
 
-    return { file, btn, pane, hl, ta, captures: null, code: file.body };
+    return { file, lang, btn, pane, hl, ta, captures: null, code: file.body };
   });
+  // Only the Nomi files go through the formatter: `nomi fmt` would read a
+  // nomi.toml as Nomi statements and space them apart.
+  const nomiPanes = panes.filter((p) => p.lang === "nomi");
 
   const block = { req: 0 };
   let formatDebounce;
   let formatToken = 0;
   let cleanFormatSnapshots = null;
   let blockedFormatSnapshots = null;
+  // As in a single-file editor, the tabs keep the page's text until the
+  // reader edits one of them.
+  let edited = false;
 
   const paint = (p) => {
     p.code = p.ta.value;
+    if (p.lang === "toml") {
+      p.hl.innerHTML = renderToml(p.code, EDITOR_RENDER);
+      return;
+    }
     p.captures = query.captures(parser.parse(p.code).rootNode);
     p.hl.innerHTML = render(p.captures, [], p.code, EDITOR_RENDER);
   };
@@ -657,6 +742,7 @@ async function enhanceMultiFile(pre, files, parser, query) {
 
   const scheduleAutoFormat = (snapshots) => {
     clearTimeout(formatDebounce);
+    if (!edited) return;
     const blockedByCursor = snapshots.some((s) => (
       s.p.ta.value === s.body && autoFormatSkipReason(s.p.ta, s.p.composing) === "cursor"
     ));
@@ -700,6 +786,9 @@ async function enhanceMultiFile(pre, files, parser, query) {
       }
     }, FORMAT_DEBOUNCE_MS);
   };
+  // The tabs as the run reads them; hover sends the same text, so a hover
+  // after a run reuses the worker's analysis of it.
+  const stitchSource = () => stitchFiles(panes.map((p) => ({ name: p.file.name, body: p.ta.value })));
   const maybeScheduleAutoFormat = () => {
     if (!blockedFormatSnapshots || !cleanFormatSnapshots) return;
     if (
@@ -713,17 +802,19 @@ async function enhanceMultiFile(pre, files, parser, query) {
   const run = () => {
     const id = ++reqSeq;
     block.req = id;
-    const snapshots = panes.map((p) => ({ p, body: p.ta.value }));
-    const stitched = stitchFiles(snapshots.map((s) => ({ name: s.p.file.name, body: s.body })));
+    const snapshots = nomiPanes.map((p) => ({ p, body: p.ta.value }));
+    const stitched = stitchSource();
+    const painted = nomiPanes.map((p) => ({ p, code: p.code, captures: p.captures }));
     dispatch(id, stitched, {
-      onSem: () => {
-        // Semantic-token overlay maps to a position in the stitched
-        // program; mapping back to each pane's region is future work.
-        // Syntactic highlight (per pane) still works.
+      onSem: (sem) => {
+        if (block.req !== id) return;
+        for (const { p, code, captures } of painted) {
+          if (p.code === code) p.hl.innerHTML = render(captures, sem?.[p.file.name] || [], code, EDITOR_RENDER);
+        }
       },
       onRun: (output, error) => {
         if (block.req !== id) return;
-        showOutput(out, output, error, parser, query);
+        showOutput(out, output, error, parser, query, headingFor(stitched, error));
         cleanFormatSnapshots = error ? null : snapshots;
         if (error) live.setFormatting(false);
         else scheduleAutoFormat(snapshots);
@@ -734,14 +825,21 @@ async function enhanceMultiFile(pre, files, parser, query) {
         cleanFormatSnapshots = null;
         live.setFormatting(false);
       },
-    });
+    }, nomiPanes.map((p) => p.file.name));
   };
 
   let debounce;
   panes.forEach((p) => {
     p.composing = false;
     paint(p);
+    if (p.lang === "nomi") {
+      attachHover(p.ta, marked, DOMPurify, (line, col, cb) =>
+        requestHover(stitchSource(), line, col, cb, p.file.name),
+      );
+    }
     p.ta.addEventListener("input", () => {
+      edited = true;
+      hideTooltip();
       clearTimeout(formatDebounce);
       cleanFormatSnapshots = null;
       blockedFormatSnapshots = null;
@@ -781,11 +879,23 @@ async function enhanceMultiFile(pre, files, parser, query) {
   run();
 }
 
-function showOutput(out, output, error, parser, query) {
+// showOutput writes a run's output and error into the output panel. With
+// heading, the error is a ```nomi-run error block's intended one, and a muted
+// line saying so comes first. The error starts on the line after the output,
+// with no blank line between, as a terminal shows a failure after what the
+// program printed; internal/doctest's Shown is this text, and a block that
+// stops on purpose holds it in its expect block.
+function showOutput(out, output, error, parser, query, heading = false) {
   out.textContent = "";
+  if (heading) {
+    const note = document.createElement("span");
+    note.className = "nomi-expected-note";
+    note.textContent = EXPECTED_ERROR_HEADING;
+    out.append(note, document.createTextNode("\n"));
+  }
   if (output) appendRunText(out, output, "", parser, query);
   if (error) {
-    if (output) out.appendChild(document.createTextNode("\n"));
+    if (output && !output.endsWith("\n")) out.appendChild(document.createTextNode("\n"));
     appendRunText(out, error, "nomi-err", parser, query);
   }
   if (!output && !error) out.textContent = "(no output)";
@@ -989,11 +1099,10 @@ async function highlightStatic(pre) {
   const out = document.createElement("pre");
   out.className = "nomi-tour nomi-code-nomi";
   out.innerHTML = render(query.captures(parser.parse(code).rootNode), [], code);
-  pre.replaceWith(out);
+  pre.replaceWith(chipped(out, "nomi"));
 }
 
 // --- lazy activation: enhance/highlight each block as it nears the viewport ---
-labelStaticGoBlocks();
 
 const io = new IntersectionObserver(
   (entries) => {

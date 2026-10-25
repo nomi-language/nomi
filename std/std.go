@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"testing"
 )
 
 // The stdlib is one Nomi module: every public module is a flat `<name>.nomi`
@@ -283,8 +284,21 @@ func isEmbeddedFile(path string) bool {
 }
 
 func isEmbeddedStdlibSource(path string) bool {
-	return isEmbeddedFile(path) && !strings.HasPrefix(path, "_fixtures/")
+	if !isEmbeddedFile(path) {
+		return false
+	}
+	rest, fixture := strings.CutPrefix(path, "_fixtures/")
+	return !fixture || (FixturesLoaded() && !strings.Contains(rest, "/"))
 }
+
+// FixturesLoaded reports whether this process's stdlib holds the test-only
+// modules directly under `_fixtures/` (`std/_fixtures/conn`): only in a
+// test binary run with NOMI_STD_FIXTURES=1, which a test sets for a child
+// process of its own, so no other test sees a stdlib with them. The nested
+// tree under `_fixtures/` is never a module.
+var FixturesLoaded = sync.OnceValue(func() bool {
+	return testing.Testing() && os.Getenv("NOMI_STD_FIXTURES") == "1"
+})
 
 // MakeLoader returns the analysis.FileLoader the front end loads with.
 // Stdlib-routed loads use embedded

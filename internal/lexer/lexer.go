@@ -310,7 +310,7 @@ func (l *lexer) scanRawBacktick(tag string) {
 				if tag != "" {
 					kind = token.RAW_TAGGED_TRIPLE_STRING_LITERAL
 				}
-				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: content, Tag: tag, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
+				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: content, Tag: tag, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol, Indent: len(indent)})
 				return
 			}
 
