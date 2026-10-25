@@ -929,13 +929,15 @@ The spec is canonical; these are the rules most often gotten wrong.
 - **Naming.** Types PascalCase; functions, bindings and parameters snake_case.
 - **Values are immutable; closures capture values at creation.** `return` and
   `try` inside a lambda exit the lambda.
-- **Scoped application fields.** `fn boot(startup: Startup) -> App`, in an
-  entry file, returns the app struct, which has at most one `Context` field
-  (boot builds it with `Context.root()`). Its fields are read as `App.field`.
+- **Scoped application fields.** `fn boot(startup: Startup) -> Result<App, E>`,
+  in an entry file, returns the app struct in `Ok` (never bare), which has at
+  most one `Context` field (boot builds it with `Context.root()`); an `Err`
+  stops the program before `main` as main returning `Err` does, and fails a
+  group's test before its body. Its fields are read as `App.field`.
   The statement `with App.field = value` replaces one field from that line to
   the end of its block, as a `defer` there would run; several fields are
-  several lines, and there is no block form. A boot must return the type every
-  field read reachable from its `main` or test names.
+  several lines, and there is no block form. A boot's `Ok` type must be the type
+  every field read reachable from its `main` or test names.
 - **Test groups.** A `group` holds at most one `clock`, `boot` and
   `setup`, in that order, then its tests, and groups do not nest.
   `boot server.boot(startup)` calls an entry's boot. `setup` returns any value,

@@ -77,8 +77,8 @@ struct Config {
     outbox: Channel<String>
 }
 
-fn boot() -> Config {
-    #Config{context: Context.root(), outbox: Channel.buffered<String>(8)}
+fn boot() -> Result<Config, String> {
+    Ok(#Config{context: Context.root(), outbox: Channel.buffered<String>(8)})
 }
 
 fn drain_pending(outbox: Channel<String>) {

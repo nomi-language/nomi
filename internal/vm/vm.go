@@ -81,6 +81,9 @@ type Machine struct {
 	boot *ir.Symbol
 	// testBoots are the `group` boots the program's modules record.
 	testBoots map[*ir.Symbol]bool
+	// bootFailures are the `boot failure` renderers the modules record, by
+	// the entry boot whose `Err` payload each renders.
+	bootFailures map[*ir.Symbol]*ir.Symbol
 	// dispatch is every module's dispatch entries: by interface method, the
 	// implementing body for each declared type name a value carries.
 	dispatch map[*ir.Symbol]map[string]*ir.Symbol
@@ -319,7 +322,7 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 	}, nil)
 	m.initOnceCells(entry, rest)
 	m.addImpls(entry)
-	m.addTestBoots(entry)
+	m.addBoots(entry)
 	m.modules = map[*ir.Module]bool{entry: true}
 	for _, other := range rest {
 		if other == nil || other == entry {
@@ -329,7 +332,7 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		if m.boot == nil {
 			m.boot = other.Boot()
 		}
-		m.addTestBoots(other)
+		m.addBoots(other)
 		m.addImpls(other)
 		for _, f := range other.Funcs() {
 			sym := f.Sym()

@@ -26,8 +26,8 @@ struct App {
 }
 
 `
-	const plainBoot = `fn boot() -> App {
-  #App{label: "booted", context: Context.root()}
+	const plainBoot = `fn boot() -> Result<App, String> {
+  Ok(#App{label: "booted", context: Context.root()})
 }
 
 `
@@ -73,8 +73,8 @@ fn main() {
   io.print(got)
 }
 `, "booted\n"},
-		{"the initializer reads boot's context", "", `fn boot() -> App {
-  #App{label: "booted", context: Context.with_value(Context.root(), Trace("boot-trace"))}
+		{"the initializer reads boot's context", "", `fn boot() -> Result<App, String> {
+  Ok(#App{label: "booted", context: Context.with_value(Context.root(), Trace("boot-trace"))})
 }
 
 `, `once trace: String = case Context.value(App.context, Trace) {

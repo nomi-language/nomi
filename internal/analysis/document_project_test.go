@@ -276,8 +276,8 @@ func TestDocumentManager_AppFieldAccessResolvesAcrossFiles(t *testing.T) {
   greeter
 }
 
-fn boot() -> AppEnv {
-  env.load(Context.root())
+fn boot() -> Result<AppEnv, String> {
+  Ok(env.load(Context.root()))
 }
 
 fn main() {

@@ -942,8 +942,8 @@ func TestBuildProject_AllowsLocalAppFileAlongsideStdApp(t *testing.T) {
   app: EffectsApp
 }
 
-fn boot() -> EffectsApp {
-  #EffectsApp{context: Context.root(), }
+fn boot() -> Result<EffectsApp, String> {
+  Ok(#EffectsApp{context: Context.root(), })
 }
 `)
 	mustWrite("app.nomi", `pub struct EffectsApp {}

@@ -510,6 +510,7 @@ var failureFixtures = []string{
 	"tests_case_subject.nomi",
 	"tests_defined_as.nomi",
 	"tests_fail.nomi",
+	"tests_group_boot_failure.nomi",
 	"tests_group_failure.nomi",
 	"tests_inspect_vs_display.nomi",
 	"tests_lambda_boundary.nomi",

@@ -2002,8 +2002,8 @@ struct AppEnv {
   logger: Logger
 }
 
-fn boot() -> AppEnv {
-  #AppEnv{context: Context.root(), logger: Stdout}
+fn boot() -> Result<AppEnv, String> {
+  Ok(#AppEnv{context: Context.root(), logger: Stdout})
 }
 
 fn greet(name: String) {

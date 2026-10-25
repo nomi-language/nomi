@@ -22,8 +22,8 @@ struct App {
     context: Context
 }
 
-fn boot() -> App {
-    #App{console: #Stdout{prefix: "app> "}, context: Context.root()}
+fn boot() -> Result<App, String> {
+    Ok(#App{console: #Stdout{prefix: "app> "}, context: Context.root()})
 }
 
 fn pair<T>(a: T, b: T) -> #(T, T) {

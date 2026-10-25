@@ -362,13 +362,13 @@ struct Config {
     alerts: Channel<String>
 }
 
-fn boot() -> Config {
-    #Config{
+fn boot() -> Result<Config, String> {
+    Ok(#Config{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4, shutdown_timeout: Duration.seconds(30)),
         notify: Supervisor.new(max_running: 50, shutdown_timeout: Duration.milliseconds(200)),
         alerts: Channel.buffered<String>(16),
-    }
+    })
 }
 ```
 
@@ -441,12 +441,12 @@ struct Config {
     written: Channel<Int>
 }
 
-fn boot() -> Config {
-    #Config{
+fn boot() -> Result<Config, String> {
+    Ok(#Config{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4),
         written: Channel.buffered<Int>(8),
-    }
+    })
 }
 
 fn record_audit(id: Int) -> Unit {
@@ -776,8 +776,8 @@ struct Config {
     context: Context
 }
 
-fn boot() -> Config {
-    #Config{context: Context.root()}
+fn boot() -> Result<Config, String> {
+    Ok(#Config{context: Context.root()})
 }
 
 fn slow() -> Int {
@@ -956,8 +956,8 @@ By default a supervisor restarts nothing. That default is
 run again:
 
 ```nomi
-fn boot() -> Config {
-    #Config{
+fn boot() -> Result<Config, String> {
+    Ok(#Config{
         context: Context.root(),
         // A long-lived worker: retry patiently through a long outage,
         // and if it still can't run, take the process down so we get
@@ -973,7 +973,7 @@ fn boot() -> Config {
         ),
         // One-shot work: the built-in schedule, then give up and report it.
         notify: Supervisor.new(max_running: 50, restart: Restart.Transient),
-    }
+    })
 }
 ```
 
@@ -1138,8 +1138,8 @@ struct Config {
     counter: Counter
 }
 
-fn boot() -> Config {
-    #Config{context: Context.root(), counter: start()}
+fn boot() -> Result<Config, String> {
+    Ok(#Config{context: Context.root(), counter: start()})
 }
 
 fn main() {

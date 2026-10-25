@@ -136,7 +136,15 @@ N 0
 H feb3f2a0bafe122e88593daed538360a0d7305c05830cc884223b5db7f28799b
 T dbg line 6: double(4) = 8
 T
-C capabilities-and-context.md:L159
+C capabilities-and-context.md:L100
+E 0
+N 0
+H 5f09df338ef77e689637977f23cbc2fb9bfe4439c376d5141ebdc569f5f21357
+T [log] hello, World
+T [audit] hello, Alice
+T [log] hello, Bob
+T
+C capabilities-and-context.md:L166
 E 0
 N 0
 H b75b2f17a115c5f167ad8816a1c4f05344d994e1ae0724efce759c370f0de264
@@ -149,7 +157,7 @@ N 0
 H 333179f3c55fb5bf5224cda7f4a76639ad3a798a5254aea2b7f5596736939f64
 T listening on :8080
 T
-C capabilities-and-context.md:L198
+C capabilities-and-context.md:L205
 E 0
 N 0
 H d645e1ea9a0445f2030bde2770d63dac9124c354b0517b60ea713c959337eaac
@@ -157,14 +165,6 @@ T body
 T close second
 T close first
 T after
-T
-C capabilities-and-context.md:L93
-E 0
-N 0
-H 5f09df338ef77e689637977f23cbc2fb9bfe4439c376d5141ebdc569f5f21357
-T [log] hello, World
-T [audit] hello, Alice
-T [log] hello, Bob
 T
 C collections.md:L102
 E 0
@@ -1454,7 +1454,7 @@ T ok quiet by default / takes no arguments
 T ok verbose / reads -v
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L543
+C testing.md:L577
 E 0
 N 1
 H c0acde33b41944882e0c12f7be13c75f744a1586675d7c6330663a0678faed48

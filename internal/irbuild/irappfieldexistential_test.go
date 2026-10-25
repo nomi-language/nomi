@@ -17,8 +17,8 @@ struct App {
     many: List<Display>
 }
 
-fn boot(_startup: Startup) -> App {
-    #App{context: Context.root(), out: 1, many: [1]}
+fn boot(_startup: Startup) -> Result<App, String> {
+    Ok(#App{context: Context.root(), out: 1, many: [1]})
 }
 
 fn main() {
@@ -48,8 +48,8 @@ struct App {
     cache: Map<String, Int>
 }
 
-fn boot(_startup: Startup) -> App {
-    #App{cache: %{"a" => 1}}
+fn boot(_startup: Startup) -> Result<App, String> {
+    Ok(#App{cache: %{"a" => 1}})
 }
 
 fn size() -> Int {

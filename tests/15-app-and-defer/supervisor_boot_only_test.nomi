@@ -41,14 +41,14 @@ test "boot can create task groups" {
           audit: Supervisor
         }
 
-        fn boot() -> BootApp {
-          #BootApp{
+        fn boot() -> Result<BootApp, String> {
+          Ok(#BootApp{
             context: Context.root(),
             audit: Supervisor.new(
               shutdown_timeout: Duration.seconds(30),
               max_running: 4,
             ),
-          }
+          })
         }
 
         fn main() {
@@ -80,8 +80,8 @@ test "a struct field default may create a task group" {
           )
         }
 
-        fn boot() -> BootApp {
-          #BootApp{context: Context.root()}
+        fn boot() -> Result<BootApp, String> {
+          Ok(#BootApp{context: Context.root()})
         }
 
         fn main() {
@@ -110,14 +110,14 @@ test "a group-owned body must return Unit" {
           notify: Supervisor
         }
 
-        fn boot() -> BootApp {
-          #BootApp{
+        fn boot() -> Result<BootApp, String> {
+          Ok(#BootApp{
             context: Context.root(),
             notify: Supervisor.new(
               shutdown_timeout: Duration.seconds(5),
               max_running: 4,
             ),
-          }
+          })
         }
 
         fn send(to: String) -> Result<Unit, String> {
@@ -168,8 +168,8 @@ test "a constructor boot calls may create its own group" {
           counter: Counter
         }
 
-        fn boot() -> BootApp {
-          #BootApp{context: Context.root(), counter: start()}
+        fn boot() -> Result<BootApp, String> {
+          Ok(#BootApp{context: Context.root(), counter: start()})
         }
 
         fn main() {
@@ -209,8 +209,8 @@ test "calling that constructor outside boot is rejected" {
           counter: Counter
         }
 
-        fn boot() -> BootApp {
-          #BootApp{context: Context.root(), counter: start()}
+        fn boot() -> Result<BootApp, String> {
+          Ok(#BootApp{context: Context.root(), counter: start()})
         }
 
         fn handler() -> Counter {

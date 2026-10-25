@@ -366,8 +366,8 @@ struct Run {
   context: Context
 }
 
-fn boot() -> Run {
-  #Run{context: Context.root()}
+fn boot() -> Result<Run, String> {
+  Ok(#Run{context: Context.root()})
 }
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {

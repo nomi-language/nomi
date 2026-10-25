@@ -13,12 +13,12 @@ struct App {
     store: Store
 }
 
-fn boot() -> App {
-    #App{
+fn boot() -> Result<App, String> {
+    Ok(#App{
         console: Terminal,
         clock: SystemClock,
         store: #SqliteStore{path: "tasks.db"},
-    }
+    })
 }
 
 fn main() -> Result<Unit, String> {

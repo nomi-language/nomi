@@ -43,7 +43,7 @@ func (m *Machine) Extend(entry *ir.Module, rest []*ir.Module) {
 		m.modules[entry] = true
 		m.addOnceCells(entry)
 		m.addImpls(entry)
-		m.addTestBoots(entry)
+		m.addBoots(entry)
 	}
 	for _, other := range rest {
 		if other == nil || other == entry || m.modules[other] {
@@ -54,7 +54,7 @@ func (m *Machine) Extend(entry *ir.Module, rest []*ir.Module) {
 			m.boot = other.Boot()
 		}
 		m.addOnceCells(other)
-		m.addTestBoots(other)
+		m.addBoots(other)
 		m.addImpls(other)
 		m.linkFuncs(other)
 	}

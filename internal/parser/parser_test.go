@@ -5995,7 +5995,7 @@ func TestParseGroupRejects(t *testing.T) {
 			"write a sibling group instead",
 		},
 		"fn boot": {
-			"group \"g\" {\n  fn boot(startup: Startup) -> App { #App{} }\n  test \"t\" { assert true }\n}\n",
+			"group \"g\" {\n  fn boot(startup: Startup) -> Result<App, String> { Ok(#App{}) }\n  test \"t\" { assert true }\n}\n",
 			"a `group` does not define `fn boot`",
 		},
 		"duplicate clock": {

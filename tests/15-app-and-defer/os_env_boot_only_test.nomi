@@ -17,8 +17,8 @@ test "startup environment can be passed to ordinary helpers" {
           }
         }
 
-        fn boot(startup: Startup) -> Config {
-          load(startup, Context.root())
+        fn boot(startup: Startup) -> Result<Config, String> {
+          Ok(load(startup, Context.root()))
         }
 
         fn main() {

@@ -21,8 +21,8 @@ struct Cfg {
   tag: String
 }
 
-fn boot() -> Cfg {
-  #Cfg{context: Context.root(), tag: "hi"}
+fn boot() -> Result<Cfg, String> {
+  Ok(#Cfg{context: Context.root(), tag: "hi"})
 }
 
 fn main() {
@@ -109,8 +109,8 @@ func TestAnalyze_AppFieldReadHovers(t *testing.T) {
 	}
 	// The type name in the read hovers as the type's declaration does.
 	ownerPos := appFieldCol(t, appFieldHoverSrc, "Cfg.tag", 1)
-	cfgPos := appFieldCol(t, appFieldHoverSrc, ") -> Cfg", 1)
-	cfgPos.Col += len(") -> ")
+	cfgPos := appFieldCol(t, appFieldHoverSrc, "Result<Cfg", 1)
+	cfgPos.Col += len("Result<")
 	wantCfg := "```nomi\nstruct Cfg {\n    context: Context\n    tag: String\n}\n```"
 	if typeName := hoverdoc.At(fa, nil, cfgPos); typeName != wantCfg {
 		t.Fatalf("CONTROL: hover on the type name `Cfg` = %q, want %q", typeName, wantCfg)
@@ -151,8 +151,8 @@ struct App {
   context: Context
 }
 
-fn boot() -> App {
-  #App{logger: "app", context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{logger: "app", context: Context.root()})
 }
 
 fn label() -> String {

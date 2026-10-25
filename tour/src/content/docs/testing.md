@@ -426,8 +426,8 @@ struct Config {
     env: String
 }
 
-fn boot(startup: Startup) -> Config {
-    #Config{env: Map.get(startup.env, "APP_ENV") |> Maybe.with_default("dev")}
+fn boot(startup: Startup) -> Result<Config, String> {
+    Ok(#Config{env: Map.get(startup.env, "APP_ENV") |> Maybe.with_default("dev")})
 }
 
 fn main() {
@@ -468,8 +468,8 @@ struct Config {
     verbose: Bool
 }
 
-fn boot(startup: Startup = #Startup{}) -> Config {
-    #Config{verbose: List.contains?(startup.args, "-v")}
+fn boot(startup: Startup = #Startup{}) -> Result<Config, String> {
+    Ok(#Config{verbose: List.contains?(startup.args, "-v")})
 }
 
 fn main() {
@@ -530,8 +530,42 @@ group "welcome email" {
 ```
 
 Here `test_support.startup()` builds the inputs this group needs. If
-`server.nomi` declares `pub fn boot(startup: Startup = #Startup{}) -> App`, a group
+`server.nomi` declares
+`pub fn boot(startup: Startup = #Startup{}) -> Result<App, String>`, a group
 that needs no input writes `boot server.boot()`.
+
+### A boot that fails
+
+A `boot` returns a `Result`, and a group's `boot` line takes it. When `boot`
+returns `Err`, each test in the group fails before its setup and body run.
+The report is the one a `try` gives when it ends a test early: the `boot`
+line, and the `Err` it returned. The cleanup `boot` deferred still runs when
+the test ends.
+
+```nomi
+group "without a database path" {
+    boot server.boot(#Startup{})
+
+    test "never gets this far" {
+        assert server.ready?()
+    }
+}
+```
+
+If `server.boot` returns `Err("DATABASE_PATH is not set")` for an empty
+`Startup`, `nomi test` reports:
+
+```text
+FAIL server_test.nomi :: without a database path / never gets this far
+  line 2: test returned early
+    boot server.boot(#Startup{})
+    returned:
+      Err("DATABASE_PATH is not set")
+```
+
+A test that checks how `boot` fails calls the code `boot` calls, such as the
+function that reads the settings, and asserts on its `Err`, since a group's
+`boot` line runs only to start a test.
 
 ## Virtual Time
 

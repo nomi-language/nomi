@@ -37,8 +37,8 @@ pub fn greeting() -> String {
     "hello"
 }
 
-pub fn boot() -> Settings {
-    #Settings{context: Context.root(), tag: "root"}
+pub fn boot() -> Result<Settings, String> {
+    Ok(#Settings{context: Context.root(), tag: "root"})
 }
 
 fn main() {

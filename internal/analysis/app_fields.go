@@ -11,8 +11,9 @@ import (
 
 // Application fields.
 //
-// An entry's boot, `fn boot() -> App` or `fn boot(startup: Startup) -> App` in a
-// file that defines `fn main`, returns the application value: a struct with
+// An entry's boot, `fn boot() -> Result<App, E>` or
+// `fn boot(startup: Startup) -> Result<App, E>` in a file that defines
+// `fn main`, returns the application value in `Ok` (BootAppType): a struct with
 // at most one field of std/context's Context type. Code reads one of its
 // fields by naming the type,
 // `MyApp.logger`, and replaces one from a statement to the end of its block
@@ -560,6 +561,11 @@ func (w *appReadWalker) inspect(aw *appWalk, owner *FileAnalysis, node ast.Node)
 		}
 		if invocation, ok := n.(*ast.Call); ok {
 			w.invoke(aw, owner, invocation.Func, map[*Symbol]bool{})
+			if callee := w.resolve(owner, invocation.Func); callee != nil && callee.Kind == SymbolEnumVariant {
+				// A variant constructor (a boot's `Ok(#App{...})`) stores
+				// its payload and runs nothing it holds.
+				return
+			}
 			// A callback supplied to an executing function may be invoked
 			// before it returns. Its requirements belong to this scope.
 			for _, arg := range invocation.Args {

@@ -21,8 +21,8 @@ struct App {
   context: Context
 }
 
-fn boot() -> App {
-  #App{port: 8080, context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{port: 8080, context: Context.root()})
 }
 
 fn main() {
@@ -56,8 +56,8 @@ struct App {
   context: Context
 }
 
-fn boot() -> App {
-  #App{logger: Stdout, context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{logger: Stdout, context: Context.root()})
 }
 
 fn main() {
@@ -86,8 +86,8 @@ struct App {
 
 fn base() -> Int { 8000 }
 
-fn boot() -> App {
-  #App{name: "api", port: base() + 80, context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{name: "api", port: base() + 80, context: Context.root()})
 }
 
 fn address() -> String { "${App.name}:${App.port}" }
@@ -109,8 +109,8 @@ struct App {
   context: Context
 }
 
-fn boot() -> App {
-  #App{config: #Config{host: "localhost", port: 5432}, context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{config: #Config{host: "localhost", port: 5432}, context: Context.root()})
 }
 
 fn main() {
@@ -126,8 +126,8 @@ struct App {
   context: Context
 }
 
-fn boot() -> App {
-  #App{level: 1, label: "base", context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{level: 1, label: "base", context: Context.root()})
 }
 
 fn show() -> String { "${App.label}@${App.level}" }
@@ -172,8 +172,8 @@ struct App {
   context: Context
 }
 
-fn boot() -> App {
-  #App{shape: #Square{side: 3}, context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{shape: #Square{side: 3}, context: Context.root()})
 }
 
 fn report(label: String) -> Unit {
@@ -210,8 +210,8 @@ struct Ports {
   execution: Context
 }
 
-fn boot() -> Ports {
-  #Ports{port: 8080, execution: Context.root()}
+fn boot() -> Result<Ports, String> {
+  Ok(#Ports{port: 8080, execution: Context.root()})
 }
 
 fn note(s: String) -> Unit {
@@ -248,8 +248,8 @@ fn main() {
 func TestIRAppBoot_AnonymousBootRuns(t *testing.T) {
 	verifyDeferProgram(t, `import std/io
 
-fn boot() -> #{port: Int, execution: Context} {
-  #{port: 8080, execution: Context.root()}
+fn boot() -> Result<#{port: Int, execution: Context}, String> {
+  Ok(#{port: 8080, execution: Context.root()})
 }
 
 fn main() {
@@ -278,8 +278,8 @@ struct App {
   context: Context
 }
 
-fn boot() -> App {
-  #App{named: #Plain{label: "p"}, context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{named: #Plain{label: "p"}, context: Context.root()})
 }
 
 fn show() -> String { Named.name(App.named) }
@@ -303,8 +303,8 @@ struct App {
   context: Context
 }
 
-fn boot() -> App {
-  #App{label: "base", context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{label: "base", context: Context.root()})
 }
 
 fn label() -> String { App.label }
@@ -365,8 +365,8 @@ struct App {
   context: Context
 }
 
-fn boot() -> App {
-  #App{label: "base", context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{label: "base", context: Context.root()})
 }
 
 fn label() -> String { App.label }
@@ -413,8 +413,8 @@ struct App {
   context: Context
 }
 
-fn boot(_startup: Startup) -> App {
-  #App{label: "base", context: Context.root()}
+fn boot(_startup: Startup) -> Result<App, String> {
+  Ok(#App{label: "base", context: Context.root()})
 }
 
 fn label() -> String { App.label }
@@ -459,8 +459,8 @@ struct App {
   context: Context
 }
 
-fn boot(_startup: Startup) -> App {
-  #App{label: "base", context: Context.root()}
+fn boot(_startup: Startup) -> Result<App, String> {
+  Ok(#App{label: "base", context: Context.root()})
 }
 
 fn label() -> String { App.label }
@@ -530,8 +530,8 @@ struct App {
   context: Context
 }
 
-fn boot() -> App {
-  #App{label: "base", context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{label: "base", context: Context.root()})
 }
 
 fn label() -> String { App.label }

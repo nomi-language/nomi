@@ -15,7 +15,7 @@ func TestUnusedParameterBodies(t *testing.T) {
 		{"interface default", `interface Answer { fn answer(value: self) -> Int { 42 } }`, "value"},
 		{"default argument", `fn answer(value: Int = 1) -> Int { 42 }`, "value"},
 		{"boot", `
-fn boot(startup: Startup) -> #{context: Context} { #{context: Context.root()} }`, "startup"},
+fn boot(startup: Startup) -> Result<#{context: Context}, String> { Ok(#{context: Context.root()}) }`, "startup"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			expectUnusedBindingContaining(t, unusedParameterErrors(t, tc.source), "parameter '"+tc.parameter+"' is never read")

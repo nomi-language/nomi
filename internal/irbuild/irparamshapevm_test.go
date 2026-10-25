@@ -30,10 +30,12 @@ package irbuild
 // reader can see how much of the population each covers.
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/rt"
 )
 
@@ -212,7 +214,9 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 		}
 		if boot.isBoot {
 			counted[fn] = true
-			if boot.err == nil {
+			// A boot that returned `Err` ran its body to that answer.
+			var bootErr *vm.BootError
+			if boot.err == nil || errors.As(boot.err, &bootErr) {
 				ran++
 			} else {
 				failed = append(failed, fn.Name()+": "+boot.err.Error())

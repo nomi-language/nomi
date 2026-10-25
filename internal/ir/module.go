@@ -147,6 +147,9 @@ type Module struct {
 	// mainFailure renders the payload of an `Err` this unit's `fn main`
 	// returns, or nil. See SetMainFailure.
 	mainFailure *Symbol
+	// bootFailure renders the payload of an `Err` this unit's entry boot
+	// returns. See SetBootFailure.
+	bootFailure BootFailure
 	// testBoots are the boots this unit's test groups declare. Each may
 	// name a declaration the unit did not retain.
 	testBoots []*Symbol
@@ -319,6 +322,32 @@ func (m *Module) MainFailure() *Symbol {
 		return nil
 	}
 	return m.mainFailure
+}
+
+// BootFailure pairs an entry boot with the function that renders the payload
+// of an `Err` it returns: one parameter of the boot's error type, answering
+// a String. A run whose boot returns `Err` prints that String and fails, as a
+// main that returns `Err` does; a test case under the boot fails with it.
+type BootFailure struct {
+	Boot, Render *Symbol
+}
+
+// SetBootFailure records render as the renderer of boot's `Err` payload. boot
+// is the entry boot this unit declares, the program's or the one a test
+// group starts. The builder records it only when it retained render.
+func (m *Module) SetBootFailure(boot, render *Symbol) {
+	if boot == nil || render == nil {
+		panic("ir.Module.SetBootFailure(nil)")
+	}
+	m.bootFailure = BootFailure{Boot: boot, Render: render}
+}
+
+// BootFailureOf is what SetBootFailure recorded, or the zero BootFailure.
+func (m *Module) BootFailureOf() BootFailure {
+	if m == nil {
+		return BootFailure{}
+	}
+	return m.bootFailure
 }
 
 // AddTestBoot records sym as a boot one of this unit's test groups
@@ -498,12 +527,12 @@ func (m *Module) String() string { return "module " + m.name }
 // function keep accepts, each `once` cell whose initializer it accepts, and
 // each dispatch, Display, row Debug, Equatable and Hashable entry whose body
 // keepBody accepts (an entry names its body by Symbol, which may be declared
-// in another module). The boot and the main failure renderer are kept as names (a
+// in another module). The boot and the main and boot failure renderers are kept as names (a
 // consumer resolves them); the tests and the test boots are dropped, since a
 // built program runs no test. m itself is not changed: the stdlib's modules
 // are shared by every program a process lowers.
 func (m *Module) Pruned(keep func(*Func) bool, keepBody func(*Symbol) bool) *Module {
-	out := &Module{name: m.name, boot: m.boot, mainFailure: m.mainFailure}
+	out := &Module{name: m.name, boot: m.boot, mainFailure: m.mainFailure, bootFailure: m.bootFailure}
 	for _, f := range m.funcs {
 		if keep(f) {
 			out.funcs = append(out.funcs, f)
@@ -538,6 +567,6 @@ func (m *Module) Pruned(keep func(*Func) bool, keepBody func(*Symbol) bool) *Mod
 // Empty reports whether m holds nothing a consumer could run or look up.
 func (m *Module) Empty() bool {
 	return len(m.funcs) == 0 && len(m.cells) == 0 && len(m.tests) == 0 && m.boot == nil &&
-		m.mainFailure == nil && len(m.testBoots) == 0 && len(m.impls) == 0 && len(m.displays) == 0 &&
+		m.mainFailure == nil && m.bootFailure.Boot == nil && len(m.testBoots) == 0 && len(m.impls) == 0 && len(m.displays) == 0 &&
 		len(m.rowDebugs) == 0 && len(m.equates) == 0 && len(m.hashes) == 0
 }

@@ -39,8 +39,8 @@ fn build(context: Context) -> BootApp {
     }
 }
 
-fn boot() -> BootApp {
-    build(Context.root())
+fn boot() -> Result<BootApp, String> {
+    Ok(build(Context.root()))
 }
 
 fn main() {

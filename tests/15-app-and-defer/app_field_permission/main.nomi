@@ -6,8 +6,8 @@ import {
     settings.Settings
 }
 
-pub fn boot() -> Settings {
-    #Settings{context: Context.root(), tag: "the-real-root"}
+pub fn boot() -> Result<Settings, String> {
+    Ok(#Settings{context: Context.root(), tag: "the-real-root"})
 }
 
 fn main() {

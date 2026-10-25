@@ -23,8 +23,8 @@ pub struct App {
   label: String
 }
 
-pub fn boot() -> App {
-  #App{context: Context.root(), label: "booted"}
+pub fn boot() -> Result<App, String> {
+  Ok(#App{context: Context.root(), label: "booted"})
 }
 
 fn main() {}

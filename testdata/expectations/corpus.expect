@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 407
+records 409
 declared-cases 1378
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
@@ -2602,6 +2602,24 @@ T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: field replacem
 T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: boot takes at most one Startup
 T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: boot may take no parameter, or a Startup with a default
 T test result: ok. 10 passed, 0 failed
+T
+C 15-app-and-defer/boot_failure/debug_error.nomi
+E 1
+N 0
+H 889e2d0a208507517df40268cbf9fdafe993c09f67864abdbb88141f8170d1fa
+T boot cleanup
+T --- stderr ---
+T error: TooLong(3)
+T
+C 15-app-and-defer/boot_failure/main.nomi
+E 1
+N 0
+H 7c0440bcfc2aaa793dad9111f5c8cf69821bb09e86748bd9e556d646f98e53d1
+T opened the log
+T released the port
+T closed the log
+T --- stderr ---
+T error: missing setting NOMI_BOOT_FAILURE_FIXTURE_PORT
 T
 C 15-app-and-defer/config_pattern/app.nomi
 E 1

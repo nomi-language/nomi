@@ -40,6 +40,12 @@ func (m *Machine) Start(ctx context.Context, args []string) (s *Started, err err
 	}()
 	run, err := m.bootOn(fr, args)
 	if err != nil {
+		// The program never started: shut down what boot started and run
+		// the cleanup it registered, as Main does. Its first failure stays
+		// the error.
+		if stopErr := (&Started{fr: fr}).Stop(); stopErr != nil {
+			err = fmt.Errorf("%w; cleanup error: %v", err, stopErr)
+		}
 		return nil, err
 	}
 	return &Started{run: run, fr: fr}, nil

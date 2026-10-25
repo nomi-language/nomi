@@ -75,13 +75,13 @@ pub fn drain_alerts() -> List<String> {
     })
 }
 
-pub fn boot() -> Config {
-    #Config{
+pub fn boot() -> Result<Config, String> {
+    Ok(#Config{
         context: Context.root(),
         notify: Supervisor.new(shutdown_timeout: Duration.milliseconds(200), max_running: 4),
         audit: Supervisor.new(shutdown_timeout: Duration.seconds(5), max_running: 2),
         alerts: Channel.buffered<String>(16),
-    }
+    })
 }
 
 fn main() {

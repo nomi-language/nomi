@@ -26,13 +26,13 @@ struct Cfg {
     tag: String
 }
 
-fn boot() -> Cfg {
-    #Cfg{
+fn boot() -> Result<Cfg, String> {
+    Ok(#Cfg{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4),
         done: Channel.buffered<String>(8),
         tag: "root",
-    }
+    })
 }
 
 // PRODUCER 1: `Supervisor.spawn`. The supervisor owns the task, not the call

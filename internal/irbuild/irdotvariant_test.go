@@ -87,8 +87,8 @@ struct App {
   context: Context
   workers: Supervisor
 }
-fn boot() -> App {
-  #App{
+fn boot() -> Result<App, String> {
+  Ok(#App{
     context: Context.root(),
     workers: Supervisor.new(
       max_running: 2,
@@ -96,7 +96,7 @@ fn boot() -> App {
       backoff: #.Exponential{max_restarts: 2},
       on_give_up: .Exit,
     ),
-  }
+  })
 }
 fn main() {
   io.print("booted")

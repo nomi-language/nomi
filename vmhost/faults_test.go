@@ -98,7 +98,7 @@ struct Console {}
 impl Logger for Console {fn log(logger:Console,msg:String) ->Unit{ _ = logger;io.print("console ${msg}")}}
 struct App {life:Context
 logger:Logger}
-fn boot() ->App{#App{life:Context.root(),logger:#Console{}}}
+fn boot() ->Result<App, String>{Ok(#App{life:Context.root(),logger:#Console{}})}
 fn main(){Logger.log(App.logger,"hi")}
 `)
 	if err != nil || out != "console hi\n" {

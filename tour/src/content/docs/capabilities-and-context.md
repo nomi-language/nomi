@@ -3,10 +3,10 @@ title: "App Fields, Defer & Context"
 description: "Give a whole program settings and services through app fields, replace one for part of the program with `with`, clean up with `defer`, and set deadlines with a context."
 ---
 
-A program can define a function named `boot`. It returns a struct that holds
-the things the program needs everywhere, such as settings or a logger. Any
-code can then read one of the struct's fields through the struct's type name,
-as in `App.port`. These are called app fields.
+A program can define a function named `boot`. It builds a struct that holds
+the things the program needs everywhere, such as settings or a logger, and
+returns it in `Ok`. Any code can then read one of the struct's fields through
+the struct's type name, as in `App.port`. These are called app fields.
 
 The struct may have one field of type [`Context`](/reference/context/), with
 any name you like. A context carries a deadline, explained
@@ -22,8 +22,8 @@ struct App {
     context: Context
 }
 
-fn boot() -> App {
-    #App{port: 8080, context: Context.root()}
+fn boot() -> Result<App, String> {
+    Ok(#App{port: 8080, context: Context.root()})
 }
 
 fn main() {
@@ -35,6 +35,13 @@ listening on :8080
 -->
 
 `Startup` and `Context` are available everywhere, so you don't import them.
+
+`boot` always returns a `Result`: `Ok` with the struct, or `Err` when the
+program cannot start, for example because a setting is missing or a database
+does not open. The error type is yours to choose; `String` is the plainest.
+A `boot` that cannot fail still returns `Result`, so adding a step that can
+fail later does not change its signature, and `try` works in its body. A
+`boot` that returns the struct without a `Result` is a compile error.
 
 `boot` goes in the same file as `main`. This `boot` takes no parameter. To
 read the environment or the command-line arguments, declare
@@ -58,8 +65,8 @@ struct Server {
     execution: Context
 }
 
-fn boot() -> Server {
-    #Server{port: 8080, execution: Context.root()}
+fn boot() -> Result<Server, String> {
+    Ok(#Server{port: 8080, execution: Context.root()})
 }
 
 fn bounded_work() {
@@ -70,8 +77,8 @@ fn bounded_work() {
 
 Nomi finds the context field by its type, not its name.
 
-`main` runs with the struct its file's `boot` returns. A test runs with the
-one its group's `boot` line returns (see
+`main` runs with the struct its file's `boot` returns in `Ok`. A test runs with
+the one its group's `boot` line returns (see
 [Testing](/testing/#booting-the-application)). Code that reads `Server.port`
 must run under a `boot` that returns a `Server`. Code that reads no app field
 runs under any `boot`, or none.
@@ -120,8 +127,8 @@ struct App {
     context: Context
 }
 
-fn boot() -> App {
-    #App{logger: Stdout, context: Context.root()}
+fn boot() -> Result<App, String> {
+    Ok(#App{logger: Stdout, context: Context.root()})
 }
 
 fn main() {
@@ -163,8 +170,8 @@ struct App {
     greeting: String
 }
 
-fn boot() -> App {
-    #App{greeting: "hello"}
+fn boot() -> Result<App, String> {
+    Ok(#App{greeting: "hello"})
 }
 
 fn greet() -> String {
@@ -229,7 +236,7 @@ after
 -->
 
 Opening something can fail. When it returns a `Result`, open it with `try`
-and then defer the cleanup: `db = try Sqlite.temp(); defer Sqlite.close(db)`.
+and then defer the cleanup: `conn = try connect(address); defer close(conn)`.
 If opening fails, `try` returns before the `defer` line runs, so there is
 nothing to close. Calls deferred earlier in the block still run.
 
@@ -241,8 +248,47 @@ runs when that test finishes. A `defer` inside a function `boot` calls, or
 inside a nested block, runs when that function or block ends, as usual. So
 if a helper opens something and returns it, `boot` must defer its cleanup.
 
-If `boot` fails, `main` doesn't run. In a test, the setup and body don't
-run. Any work already started is shut down, and the deferred cleanup runs.
+`boot` fails by returning `Err`. Then `main` doesn't run. Any work already
+started is shut down, the cleanup `boot` deferred runs, and the program
+prints `error: ` and the error on stderr and exits with status 1, just as
+when `main` returns `Err`. The error prints through its `Display` impl when
+it has one; a `String` prints as itself. A trap in `boot` stops the program
+the same way a trap anywhere does.
+
+```nomi-run error
+import std/io
+
+struct App {
+    database: String
+}
+
+fn setting(startup: Startup, key: String) -> Result<String, String> {
+    case Map.get(startup.env, key) {
+        Some(value) -> Ok(value)
+        None -> Err("${key} is not set")
+    }
+}
+
+fn boot(startup: Startup) -> Result<App, String> {
+    io.print("opening the log")
+    defer io.print("closing the log")
+    database = try setting(startup, "TOUR_DATABASE_PATH")
+    Ok(#App{database})
+}
+
+fn main() {
+    io.print("using ${App.database}")
+}
+```
+<!-- expect
+opening the log
+closing the log
+error: TOUR_DATABASE_PATH is not set
+-->
+
+In a test, a `boot` that returns `Err` fails the test before its setup and
+body run, and the cleanup `boot` deferred runs when the test ends (see
+[Testing](/testing/#a-boot-that-fails)).
 
 App fields can't be read until `boot` has returned. So `boot` builds the
 struct from its `startup` parameter, if it has one, and from the functions
@@ -251,8 +297,8 @@ it calls.
 ## Context and concurrency
 
 A [`Context`](/reference/context/) carries a deadline and values that apply to
-the work done under it. `boot` returns `Context.root()`, or a narrower context
-made from it. The program can still be cancelled from outside, for example by
+the work done under it. `boot` builds it with `Context.root()`, or a narrower
+context made from it. The program can still be cancelled from outside, for example by
 the test runner, and the earliest deadline still applies.
 
 To set a deadline for the rest of a block, replace the context field:

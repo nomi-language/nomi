@@ -148,6 +148,7 @@ var vmReportWithValueRows = []string{
 }
 
 var vmReportWithSourceFragment = []string{
+	"tests_group_boot_failure.nomi",
 	"subtests_report.nomi",
 	"subtests_names_report.nomi",
 	"untyped_list_report.nomi",

@@ -6,7 +6,9 @@ import (
 )
 
 // A `fn main` declared to return `Result<T, E>` fails when it returns
-// `Err(e)`: the run prints e and exits 1. The text is e's Display rendering
+// `Err(e)`: the run prints e and exits 1. An entry boot, which always returns
+// `Result<App, E>`, fails the same way, and its renderer is the `boot
+// failure` function irBuildBootFailure records with ir.Module.SetBootFailure. The text is e's Display rendering
 // when E implements Display (a String prints as itself), and its Debug
 // rendering otherwise.
 //
@@ -51,26 +53,60 @@ func (g *gen) irBuildMainFailure() {
 		return
 	}
 	errK := result.def.preludeArgs[1]
-	g.irDeclineOpen(irMainFailureName)
-	if !irCallOperandKind(errK) {
-		irDeclineNote("an error type outside the call domain: " + errK.nomi())
+	if sym := g.irBuildFailureRender(main, irMainFailureKey{main: main}, irMainFailureName, errK); sym != nil {
+		g.irMod.SetMainFailure(sym)
+	}
+}
+
+// irBootFailureKey is the identity of an entry boot's `boot failure`
+// function.
+type irBootFailureKey struct{ boot *ast.FuncDef }
+
+// irBootFailureName is the `boot failure` function's display name.
+const irBootFailureName = "boot failure"
+
+// irBuildBootFailure builds and records the `boot failure` function of entry
+// boot fd, whose error type is errK, once fd itself is retained: the VM
+// renders the payload of an `Err` the boot returns through it, as it renders
+// main's (ir.Module.SetBootFailure).
+func (g *gen) irBuildBootFailure(fd *ast.FuncDef, errK kind) {
+	if g.irMod == nil {
 		return
 	}
-	sym := g.irCalleeSym(irMainFailureKey{main: main}, irMainFailureName)
-	at := ast.Node(main.ReturnTypeExpr)
-	fn, ok := g.irErrorRenderFunc(main, irMainFailureName, sym, errK, at, false)
+	boot := g.irCalleeSym(fd, fd.Name)
+	if g.irMod.FuncFor(boot) == nil {
+		return
+	}
+	if sym := g.irBuildFailureRender(fd, irBootFailureKey{boot: fd}, irBootFailureName, errK); sym != nil {
+		g.irMod.SetBootFailure(boot, sym)
+	}
+}
+
+// irBuildFailureRender builds the function name, keyed by key, that renders
+// an error of kind errK for decl's failure (Display, else Debug), adds it to
+// this unit's module and answers its symbol, or nil when errK has no
+// rendering this builder can lower.
+func (g *gen) irBuildFailureRender(decl *ast.FuncDef, key any, name string, errK kind) *ir.Symbol {
+	g.irDeclineOpen(name)
+	if !irCallOperandKind(errK) {
+		irDeclineNote("an error type outside the call domain: " + errK.nomi())
+		return nil
+	}
+	sym := g.irCalleeSym(key, name)
+	at := ast.Node(decl.ReturnTypeExpr)
+	fn, ok := g.irErrorRenderFunc(decl, name, sym, errK, at, false)
 	if !ok {
-		fn, ok = g.irErrorRenderFunc(main, irMainFailureName, sym, errK, at, true)
+		fn, ok = g.irErrorRenderFunc(decl, name, sym, errK, at, true)
 	}
 	if !ok {
 		irDeclineNote("an error type with no rendering: " + errK.nomi())
-		return
+		return nil
 	}
 	g.irModule().AddFunc(fn)
 	if err := g.irLintAdded(); err != nil {
-		panic("irbuild: main failure: " + err.Error())
+		panic("irbuild: " + name + ": " + err.Error())
 	}
-	g.irMod.SetMainFailure(sym)
+	return sym
 }
 
 // irErrorRenderFunc builds the function name, sym, over one parameter of

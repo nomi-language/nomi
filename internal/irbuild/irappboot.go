@@ -13,17 +13,19 @@ import (
 // value.
 //
 // irBootRetain builds an entry file's boot as an ordinary `ir.Func` taking
-// a Startup and answering the app value, which only the VM reads; `irbuild.go`
-// records the entry unit's boot on its module with `ir.Module.SetBoot`,
+// a Startup and answering its declared `Result<App, E>`, which only the VM
+// reads: an `Ok` publishes the app, and an `Err` is rendered by the boot's
+// `boot failure` function (mainfailure.go) and fails the run or the case;
+// `irbuild.go` records the entry unit's boot on its module with `ir.Module.SetBoot`,
 // retained or not, so a VM can refuse a program whose boot it cannot run.
 //
 // A Context is a retained value kind: `Context.root()`, a field of the
 // declared result struct and `Context.with_timeout` make, pass or derive one;
 // every other Context operation keeps its boundary. A field of a local interface's
 // type takes a concrete value that
-// is erased to the interface's existential. `defer`, `try` and inline loops keep their boundaries,
-// because boot's cleanup and failure reporting are program-lifetime rules the
-// retained body does not model. An anonymous record result is not retained.
+// is erased to the interface's existential. A `try` in the body propagates to
+// the boot's own Result, as in any function; a `defer` there is the app's
+// cleanup, which the VM hands to rt when boot answers (vm.deferToBootCleanup).
 //
 // The entry boot a `group`'s `boot` line calls is the same function,
 // recorded on the test file's module with `ir.Module.AddTestBoot`; the VM
@@ -282,12 +284,18 @@ func (g *gen) irBootRetain(fd *ast.FuncDef) {
 		return
 	}
 	result := g.typeOf(fd.ReturnTypeExpr)
+	app, errK, isResult := g.irBootResultParts(result)
+	if !isResult {
+		g.irDeclineOpen(fd.Name)
+		irDeclineNote("a boot result that is not a Result: " + result.nomi())
+		return
+	}
 	// A named application struct, or an anonymous record
 	// (`#{tag: String, execution: Context}`), whose fields the VM's boot
 	// publishes by name alike.
-	if !(result.tag == tagNamed && irBootStructKind(result.def)) && !irBootRecordKind(result) {
+	if !(app.tag == tagNamed && irBootStructKind(app.def)) && !irBootRecordKind(app) {
 		g.irDeclineOpen(fd.Name)
-		irDeclineNote("a boot result whose fields are not all retained values: " + result.nomi())
+		irDeclineNote("a boot result whose fields are not all retained values: " + app.nomi())
 		return
 	}
 	g.pushScope()
@@ -312,6 +320,18 @@ func (g *gen) irBootRetain(fd *ast.FuncDef) {
 	defer func() { g.irBoot, g.result = previous, previousResult }()
 	g.irBodyObserve(irBodyModuleFn, true)
 	g.irScalarLower(fd, sig, nil, sh, result)
+	g.irBuildBootFailure(fd, errK)
+}
+
+// irBootResultParts splits a boot's declared result, `Result<App, E>`, into
+// the application kind and the error kind. ok is false for any other kind.
+func (g *gen) irBootResultParts(result kind) (app, errK kind, ok bool) {
+	anchor, _ := g.preludeNamed("Result")
+	if anchor == nil || result.tag != tagNamed || result.def == nil || result.def.preludeOf == nil ||
+		result.def.preludeOf.spec != anchor.spec || len(result.def.preludeArgs) != 2 {
+		return kindInvalid, kindInvalid, false
+	}
+	return result.def.preludeArgs[0], result.def.preludeArgs[1], true
 }
 
 // irDeclaresBoot reports whether this program starts an app: a program boot,

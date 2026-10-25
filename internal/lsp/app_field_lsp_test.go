@@ -16,7 +16,7 @@ func TestAppFieldHoverAndDefinition(t *testing.T) {
 struct Services {
   context: Context
  port: Int }
-fn boot() -> Services { #Services{context: Context.root(), port: 3} }
+fn boot() -> Result<Services, String> { Ok(#Services{context: Context.root(), port: 3}) }
 fn main() {
  with Services.port = 4
  _ = Services.context
@@ -80,8 +80,8 @@ struct App {
   context: Context
 }
 
-fn boot() -> App {
-  #App{port: 8080, context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{port: 8080, context: Context.root()})
 }
 
 fn main() {
@@ -101,7 +101,7 @@ fn main() {
 	wantDefinitionAt(t, "`port` of `App.port`", appFieldDefinition(t, server, uri, name), uri, 5, 2, "port")
 
 	// The type name hovers exactly as the `App` in boot's return type does.
-	typeName := protocol.Position{Line: 9, Character: uint32(strings.Index(strings.Split(src, "\n")[9], ") -> App") + 5)}
+	typeName := protocol.Position{Line: 9, Character: uint32(strings.Index(strings.Split(src, "\n")[9], "Result<App") + 7)}
 	wantApp := appFieldHover(t, server, uri, typeName)
 	if !strings.HasPrefix(wantApp, "```nomi\nstruct App {") || !strings.HasSuffix(wantApp, "The running application.") {
 		t.Fatalf("CONTROL: hover on the type name `App` = %q, want the struct and its doc", wantApp)
@@ -134,8 +134,8 @@ struct App {
   context: Context
 }
 
-fn boot() -> App {
-  #App{logger: #Logger{prefix: "a"}, context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{logger: #Logger{prefix: "a"}, context: Context.root()})
 }
 
 fn main() {
@@ -168,7 +168,7 @@ fn main() {
 	}
 	edits := buildRenameEdits(doc.Analysis, sym, symbolIdentity(sym), "log_sink")
 	got := editStarts(edits)
-	wantStarts := []string{"13:2", "18:7", posString(appFieldCursor(t, src, "App.logger", 1)), posString(appFieldCursor(t, src, "App.logger", 2))}
+	wantStarts := []string{"13:2", "18:10", posString(appFieldCursor(t, src, "App.logger", 1)), posString(appFieldCursor(t, src, "App.logger", 2))}
 	sort.Strings(wantStarts)
 	if strings.Join(got, " ") != strings.Join(wantStarts, " ") {
 		t.Errorf("field rename edits at %v, want %v", got, wantStarts)
@@ -199,8 +199,8 @@ func TestAppFieldRename_FieldAndType(t *testing.T) {
   context: Context
 }
 
-fn boot() -> App {
-  #App{port: 8080, context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{port: 8080, context: Context.root()})
 }
 
 fn main() {

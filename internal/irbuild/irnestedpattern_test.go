@@ -227,10 +227,10 @@ fn report(done: Channel<Int>, n: Int) -> Unit {
   Unit
 }
 
-pub fn boot() -> App {
+pub fn boot() -> Result<App, String> {
   done = Channel.buffered<Int>(4)
   start(done)
-  #App{context: Context.root(), done}
+  Ok(#App{context: Context.root(), done})
 }
 
 fn main() {}
@@ -382,8 +382,8 @@ pub struct App {
   context: Context
   s: Supervisor
 }
-fn boot() -> App {
-  #App{context: Context.root(), s: Supervisor.new(max_running: 1)}
+fn boot() -> Result<App, String> {
+  Ok(#App{context: Context.root(), s: Supervisor.new(max_running: 1)})
 }
 fn pick() -> Supervisor {
   App.s
@@ -418,9 +418,9 @@ pub struct App {
   context: Context
   s: Supervisor
 }
-fn boot() -> App {
+fn boot() -> Result<App, String> {
   start()
-  #App{context: Context.root(), s: Supervisor.new(max_running: 1)}
+  Ok(#App{context: Context.root(), s: Supervisor.new(max_running: 1)})
 }
 fn group(timeout: Duration) -> Supervisor {
   Supervisor.new(shutdown_timeout: timeout, max_running: 1)

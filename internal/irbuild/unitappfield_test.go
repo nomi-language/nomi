@@ -15,8 +15,8 @@ struct App {
     n: Int
 }
 
-fn boot() -> App {
-    #App{v: Unit, n: 1}
+fn boot() -> Result<App, String> {
+    Ok(#App{v: Unit, n: 1})
 }
 
 fn show() -> String {

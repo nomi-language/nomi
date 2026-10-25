@@ -16,10 +16,10 @@ func TestStartupCLIInputs(t *testing.T) {
 struct Settings {
   context: Context
 }
-fn boot(startup: Startup) -> Settings {
+fn boot(startup: Startup) -> Result<Settings, String> {
  io.print(Map.get(startup.env, "NOMI_STARTUP_CLI_TEST"))
  io.print(startup.args)
- #Settings{context: Context.root(), }
+ Ok(#Settings{context: Context.root(), })
 }
 fn main() {
   Unit

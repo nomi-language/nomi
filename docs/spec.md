@@ -7199,12 +7199,12 @@ struct Config {
     notify: Supervisor
 }
 
-fn boot() -> Config {
-    #Config{
+fn boot() -> Result<Config, String> {
+    Ok(#Config{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4, shutdown_timeout: Duration.seconds(30)),
         notify: Supervisor.new(max_running: 50),
-    }
+    })
 }
 ```
 
@@ -7885,8 +7885,8 @@ struct App {
     name: String
 }
 
-fn boot(startup: Startup) -> App {
-    #App{name: List.head(startup.args) |> Maybe.with_default("world")}
+fn boot(startup: Startup) -> Result<App, String> {
+    Ok(#App{name: List.head(startup.args) |> Maybe.with_default("world")})
 }
 
 fn main() -> Result<Unit, String> {
@@ -7900,7 +7900,7 @@ fn main() -> Result<Unit, String> {
 ```
 
 ```nomi
-// app-backed program — fn boot returns Config, including its Context field.
+// app-backed program — fn boot returns Ok(Config), including its Context field.
 // Code reads fields as `Config.logger` and `Config.port`.
 import std/io
 
@@ -7927,8 +7927,8 @@ fn run() {
     Logger.log(Config.logger, "INFO", "running")
 }
 
-fn boot() -> Config {
-    #Config{context: Context.root(), logger: StdoutLogger}
+fn boot() -> Result<Config, String> {
+    Ok(#Config{context: Context.root(), logger: StdoutLogger})
 }
 
 fn main() {
@@ -7937,19 +7937,24 @@ fn main() {
 }
 ```
 
-`fn boot() -> Config` declares its application type
-explicitly. `Config` is an ordinary developer-defined struct, and helpers that
-construct it use ordinary return-type checking. A `group` runs the same
-boot by naming it on its `boot` line (§36).
+`fn boot() -> Result<Config, String>` declares its application type
+explicitly, as the `Ok` type of its result. `Config` is an ordinary
+developer-defined struct, and helpers that construct it use ordinary
+return-type checking. A `group` runs the same boot by naming it on its `boot`
+line (§36).
 
 ## 27. Scoped application fields
 
 An entry file, one that defines `fn main`, may define a boot, either
-`fn boot() -> App` or `fn boot(startup: Startup) -> App`. A boot that needs no
-startup input takes no parameter. Boot builds the application value, an
-ordinary struct, and returns it. The struct name is not reserved, and no
-interface implementation is required. The struct an entry boot of the project
-returns is an *application type*. It may declare at most one top-level field of
+`fn boot() -> Result<App, E>` or `fn boot(startup: Startup) -> Result<App, E>`,
+for any error type `E`. A boot that needs no startup input takes no parameter.
+Boot builds the application value, an ordinary struct, and returns it in `Ok`,
+or returns `Err` when the program cannot start. A boot that cannot fail still
+returns a `Result`, so adding a step that can fail never changes its
+signature, and `try` works in its body as in any function that returns a
+`Result`. The struct name is not reserved, and no interface implementation is
+required. The struct in the `Ok` of an entry boot of the project is an
+*application type*. It may declare at most one top-level field of
 the nominal `std/context.Context` type, under any name. Boot receives no
 context: one that wants a Context field builds it with `Context.root()` or a
 deriver such as `Context.with_timeout(Context.root(), d)`. An application
@@ -7973,7 +7978,7 @@ is empty, and `#Startup{args: ["-v"]}` has arguments and an empty env.
 
 The runtime calls a boot that takes no parameter with no arguments, and passes
 the process's Startup to a boot that takes one. The parameter may have a
-default, `fn boot(startup: Startup = #Startup{}) -> App`. The runtime always
+default, `fn boot(startup: Startup = #Startup{}) -> Result<App, E>`. The runtime always
 passes the real Startup, so the default serves only a `group`'s `boot`
 line that passes none (§36).
 
@@ -7983,8 +7988,8 @@ struct App {
     execution: Context
 }
 
-fn boot() -> App {
-    #App{logger: Stdout, execution: Context.root()}
+fn boot() -> Result<App, String> {
+    Ok(#App{logger: Stdout, execution: Context.root()})
 }
 
 fn audit() {
@@ -7997,9 +8002,11 @@ fn audit() {
 The boot's signature is checked. A boot that takes anything but no parameter
 or one `Startup` (two parameters, or a parameter of another type such as
 `Context`) is
-`` boot must be `fn boot() -> App` or `fn boot(startup: Startup) -> App`, taking no parameter or one Startup and returning the application struct ``;
-one that returns something other than a struct is
-`boot must return a struct, the application type`; a struct with two Context
+`` boot must be `fn boot() -> Result<App, E>` or `fn boot(startup: Startup) -> Result<App, E>`, taking no parameter or one Startup and returning the application struct in a Result ``;
+one that returns anything but a `Result` of a struct, the struct bare included,
+is `` boot must return `Result<App, E>`: the application struct, or the error that stops the program ``
+at its result annotation, with help that names the `Result` to declare and the
+`Ok(...)` to wrap the value in; a struct with two Context
 fields is `an application struct may have at most one Context-typed field`. A
 `fn boot` in a file without `fn main` is
 `` `boot` belongs in an entry file, one that defines `fn main`; a `group` names an entry's boot with `boot entry.boot(startup)` ``.
@@ -8080,8 +8087,8 @@ struct App {
     greeting: String
 }
 
-fn boot() -> App {
-    #App{greeting: "hello"}
+fn boot() -> Result<App, String> {
+    Ok(#App{greeting: "hello"})
 }
 
 fn greet() -> String {
@@ -8129,6 +8136,42 @@ cleanup. Deferred calls retain evaluated arguments and the scoped environment at
 registration; cleanup failures do not hide the initial failure or prevent
 remaining cleanup.
 
+A boot that returns `Err(e)` is that failure. `main` does not run, the cleanup
+boot registered with `defer` runs (most recent first), and the program fails as
+one whose `main` returned `Err(e)` does (§26): `nomi run`, an executable from
+`nomi build` and a `.nomic` file print `error: ` followed by `e`'s text to
+stderr and exit with status 1, the text being `Display.to_string(e)` when `e`'s
+type implements `Display` and `Debug.inspect(e)` otherwise. A program with
+exported functions answers that error in place of the booted program (§5). In
+a `group`, a boot that returns `Err` fails each test it serves before the
+test's body runs, with the report of a `try` that ended the test early: the
+`boot` line, and the `Err` it returned (§36). A trap in boot is a fault, as a
+trap anywhere is.
+
+```nomi
+import std/io
+
+struct App {
+    name: String
+}
+
+fn name_from(args: List<String>) -> Result<String, String> {
+    case List.head(args) {
+        Some(name) -> Ok(name)
+        None -> Err("pass a name")
+    }
+}
+
+fn boot(startup: Startup) -> Result<App, String> {
+    defer io.print("boot cleanup")
+    name = try name_from(startup.args)
+    Ok(#App{name})
+}
+```
+
+Run with no arguments, a program with this boot prints `boot cleanup` and
+then `error: pass a name` on stderr, and exits 1; its `main` does not run.
+
 ## 28. Context
 
 A **Context** is an opaque, per-life value carrying deadline information and execution-scoped metadata through a call chain. Unlike dependency handlers such as `Logger` or `Clock`, Context is short-lived: one context per request, per worker, or per sub-life the program defines. A deadline is the only state a Context carries; a task being stopped — `Task.cancel`, a supervisor drain, shutdown — travels on task ownership and is acted on at the safe points described in §20, never written back onto the Context value.
@@ -8144,8 +8187,8 @@ struct Config {
     port: Int = 8080
 }
 
-fn boot() -> Config {
-    #Config{context: Context.root()}
+fn boot() -> Result<Config, String> {
+    Ok(#Config{context: Context.root()})
 }
 
 fn handler(req: Request) -> Response {
@@ -9080,9 +9123,9 @@ pub struct App {
     sender: String
 }
 
-pub fn boot(startup: Startup = #Startup{}) -> App {
+pub fn boot(startup: Startup = #Startup{}) -> Result<App, String> {
     sender = Map.get(startup.env, "SENDER") |> Maybe.with_default("noreply")
-    #App{mailer: SmtpMailer, sender}
+    Ok(#App{mailer: SmtpMailer, sender})
 }
 
 pub fn welcome(to: String) -> Result<Unit, String> {
@@ -9707,7 +9750,7 @@ total =
 
 ## 37. Configuration
 
-Configuration is ordinary Nomi code. There is no special config syntax, no implicit environment-variable mapping, and no required wrapper module. A package typically puts its payload struct in `app.nomi`; that struct carries runtime dependencies and config data, and exposes a `load` function that constructs the value returned directly by `fn boot`.
+Configuration is ordinary Nomi code. There is no special config syntax, no implicit environment-variable mapping, and no required wrapper module. A package typically puts its payload struct in `app.nomi`; that struct carries runtime dependencies and config data, and exposes a `load` function that constructs the value `fn boot` returns in `Ok`.
 
 ### Structure
 
@@ -9773,8 +9816,8 @@ impl Config {
 // main.nomi
 import app.Config
 
-pub fn boot(startup: Startup) -> Config {
-    Config.load(startup)
+pub fn boot(startup: Startup) -> Result<Config, String> {
+    Ok(Config.load(startup))
 }
 
 fn main() {
@@ -10449,13 +10492,13 @@ pub struct App {
     locale: Locale
 }
 
-pub fn boot(startup: Startup) -> App {
+pub fn boot(startup: Startup) -> Result<App, String> {
     locale =
         Map.get(startup.env, "LANG")
         |> Maybe.flat_map(fn value -> Locale.from_posix(value) |> Result.to_maybe())
         |> Maybe.with_default(Locale`en`)
 
-    #App{locale}
+    Ok(#App{locale})
 }
 ```
 

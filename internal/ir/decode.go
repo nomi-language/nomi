@@ -414,10 +414,14 @@ func (d *decoder) module(r *rbuf) *Module {
 			tc.group.Boot = d.sym(r.uv())
 			tc.group.Startup = d.sym(r.uv())
 			tc.group.VirtualClock = r.bool1()
+			tc.group.BootLine = int(r.uv())
+			tc.group.BootText = d.str(r.uv())
 		}
 	}
 	m.boot = d.sym(r.uv())
 	m.mainFailure = d.sym(r.uv())
+	m.bootFailure.Boot = d.sym(r.uv())
+	m.bootFailure.Render = d.sym(r.uv())
 	m.testBoots = d.symList(r)
 	if n, isNil := r.slen(); !isNil {
 		m.impls = make([]Impl, n)

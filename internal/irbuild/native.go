@@ -1470,8 +1470,8 @@ func (g *gen) funcDecl(fd *ast.FuncDef) {
 	// value, so it lowers to a staging function the generated `main` calls
 	// rather than to a Go function anything could call. AHEAD of every clause
 	// below because those clauses refuse a SIGNATURE, and this declaration's
-	// signature is the one thing about it that is never lowered — `fn boot():
-	// App` names a stdlib interface with no method table, and stageProgramApp's
+	// signature is the one thing about it that is never lowered — `fn boot() ->
+	// Result<App, E>` names a stdlib interface with no method table, and stageProgramApp's
 	// comment gives the whole reason that annotation does not have to be
 	// represented. See appfield.go.
 	if g.isProgramBoot(fd) {

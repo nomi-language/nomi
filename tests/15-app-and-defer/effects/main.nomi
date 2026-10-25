@@ -15,13 +15,13 @@ fn close(_value: SetupHandle) -> Unit {
     Unit
 }
 
-pub fn boot(startup: Startup) -> EffectsApp {
+pub fn boot(startup: Startup) -> Result<EffectsApp, String> {
     deployment = case Map.get(startup.env, "NOMI_ENV") {
         Some(value) -> value
         None -> "dev"
     }
 
-    app.load(deployment, Context.root())
+    Ok(app.load(deployment, Context.root()))
 }
 
 fn main() {

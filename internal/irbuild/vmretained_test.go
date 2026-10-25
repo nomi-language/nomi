@@ -837,7 +837,9 @@ type vmProbeResult struct {
 // each synthesized argument vector until one runs.
 func vmProbe(e vmProbeEntry) vmProbeResult {
 	if isBoot, err := vmStartBoot(e.mod, e.links, e.fn); isBoot {
-		return vmProbeResult{ran: err == nil, err: err, boot: true}
+		// A boot that returned `Err` ran its body to the answer it gives.
+		var failed *vm.BootError
+		return vmProbeResult{ran: err == nil || errors.As(err, &failed), err: err, boot: true}
 	}
 	m := vmProgram(e.mod, e.links)
 	var lastErr error
@@ -849,6 +851,15 @@ func vmProbe(e vmProbeEntry) vmProbeResult {
 		lastErr = err
 		if vmHardFailure(err) {
 			break
+		}
+	}
+	if e.mod.Boot() != nil {
+		// A program whose boot returns `Err` never publishes its app, so a
+		// function that reads it (its `main`) cannot run: that is the
+		// boot's answer, not the function's failure.
+		var failed *vm.BootError
+		if _, err := vm.NewProgram(e.mod, e.links, io.Discard).WithHosts(testHosts).Boot(); errors.As(err, &failed) {
+			return vmProbeResult{err: err}
 		}
 	}
 	return vmProbeResult{err: lastErr}
@@ -968,6 +979,7 @@ func vmCheckBuckets(t *testing.T, failures map[string][]string) {
 		"BOOT: creatable only while boot runs":                     true,
 		vmProbeShapeClass:                                          true,
 		"TODO: the body is not written yet":                        true,
+		vmBootErrClass:                                             true,
 		vmProbeArgClass:                                            true,
 		vmNeverParamClass:                                          true,
 	}
@@ -1275,11 +1287,17 @@ func vmClassify(err error) string {
 		return "BOOT: creatable only while boot runs"
 	case strings.Contains(s, "todo reached at"):
 		return "TODO: the body is not written yet"
+	case errors.As(err, new(*vm.BootError)):
+		return vmBootErrClass
 	case strings.Contains(s, "names a field Probe"):
 		return vmProbeShapeClass
 	}
 	return "OTHER: " + vmFirstWords(s, 10)
 }
+
+// vmBootErrClass is a function of a program whose boot returns `Err` that
+// does not run without the app the boot never publishes (its `main`).
+const vmBootErrClass = "BOOT ERR: reads the app a boot that returns Err never publishes"
 
 // vmUnlinkedClass is a crossing into a project's own Go-bound `host fn`. That
 // binding is reachable only inside ffirun's wrapper binary, which links the

@@ -42,6 +42,21 @@ type loweringGap struct {
 
 var knownLoweringGaps = []loweringGap{
 	{
+		name: "gapIntLiteralInGenericFloatTupleSlot",
+		fix: "checker: an Int where a generic call expects a tuple with a Float element " +
+			"(`Generator.weighted(#(-10, \"bad\"), [])` against `#(Float, T)`, or a `fn weight<T>(pair: " +
+			"#(Float, T))` of your own given `#(10, \"x\")`) is accepted, though the same argument to a " +
+			"non-generic `#(Float, String)` parameter is the error `expected #(Float, String), got " +
+			"#(Int, String)`; the builder then finds the call's type arguments unsolved",
+		reason: "outside the domain: random.Generator.weighted",
+		src: `import std/random.Generator
+
+test "an Int in a Float tuple slot" {
+    assert Generator.weighted(#(-10, "bad"), []) |> Result.err?()
+}
+`,
+	},
+	{
 		name: "gapTestReturnArmInAssertionSubject",
 		fix: "builder: a `return` ending an arm of a region inside a test's assertion subject " +
 			"(`assert case get() { ..., Err(_) -> return } == \"x\"`) declines: the subject is lowered " +

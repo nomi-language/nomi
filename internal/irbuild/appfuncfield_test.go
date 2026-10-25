@@ -37,16 +37,16 @@ fn plus(a: Int, b: Int) -> Int {
   a + b
 }
 
-fn boot() -> App {
+fn boot() -> Result<App, String> {
   k = 7
-  #App{
+  Ok(#App{
     steps: double,
     add: &plus(100, &1),
     scale: fn x -> x * k,
     cfg: #Cfg{f: fn x -> x + 1},
     hook: Some(fn x -> x - 1),
     context: Context.root(),
-  }
+  })
 }
 
 fn tripled(n: Int) -> Int {
@@ -83,8 +83,8 @@ pub struct App {
   steps: (Int) -> Int
 }
 
-pub fn boot() -> App {
-  #App{context: Context.root(), steps: fn x -> x * 2}
+pub fn boot() -> Result<App, String> {
+  Ok(#App{context: Context.root(), steps: fn x -> x * 2})
 }
 
 fn main() {}
@@ -153,8 +153,8 @@ fn double(x: Int) -> Int {
   x * 2
 }
 
-fn boot() -> App {
-  #App{steps: double, context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{steps: double, context: Context.root()})
 }
 
 fn main() {

@@ -715,8 +715,8 @@ pub fn read() -> String {
     settings.Settings
 }
 
-pub fn boot() -> Settings {
-    #Settings{context: Context.root(), tag: "root"}
+pub fn boot() -> Result<Settings, String> {
+    Ok(#Settings{context: Context.root(), tag: "root"})
 }
 
 fn main() {
@@ -1179,14 +1179,14 @@ test "nomi test defaults NOMI_ENV" {
       name: String
     }
 
-    fn boot(startup: Startup) -> Env {
+    fn boot(startup: Startup) -> Result<Env, String> {
       name =
         case Map.get(startup.env, "NOMI_ENV") {
           Some(value) -> value
           None -> "missing"
         }
 
-      #Env{context: Context.root(), name}
+      Ok(#Env{context: Context.root(), name})
     }
 
     fn main() {

@@ -1,0 +1,21 @@
+// A boot's error with no Display impl prints as its Debug text, as main's
+// does.
+import std/io
+
+struct App {
+    name: String
+}
+
+enum StartError {
+    NoName
+    TooLong Int
+}
+
+fn boot() -> Result<App, StartError> {
+    defer io.print("boot cleanup")
+    Err(StartError.TooLong(3))
+}
+
+fn main() {
+    io.print("main runs for ${App.name}")
+}

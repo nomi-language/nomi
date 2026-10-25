@@ -9,13 +9,13 @@ pub struct App {
     locale: Locale
 }
 
-pub fn boot(startup: Startup) -> App {
+pub fn boot(startup: Startup) -> Result<App, String> {
     locale =
         Map.get(startup.env, "LANG")
         |> Maybe.flat_map(fn value -> Locale.from_posix(value) |> Result.to_maybe())
         |> Maybe.with_default(Locale`en`)
 
-    #App{locale}
+    Ok(#App{locale})
 }
 
 pub fn greeting(locale: Locale) -> String {

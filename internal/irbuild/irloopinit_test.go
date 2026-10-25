@@ -95,7 +95,7 @@ pub struct App {
     stepped: Int
 }
 
-fn boot() -> App {
+fn boot() -> Result<App, String> {
     ch = Channel.buffered<Int>(10)
     Iter.each([1, 0, 2, 7, 4, 9, 6], fn n -> {
         _ = Sender.send(ch.sender, n)
@@ -116,7 +116,7 @@ fn boot() -> App {
         if n >= k { break n }
         n + 3
     })
-    #App{context: Context.root(), total: total, stepped: steps(10)}
+    Ok(#App{context: Context.root(), total: total, stepped: steps(10)})
 }
 
 fn main() {
@@ -179,13 +179,13 @@ pub struct App {
     base: Int
 }
 
-pub fn boot() -> App {
+pub fn boot() -> Result<App, String> {
     base = Iter.loop(fn i = 0 -> {
         if i == 1 { return 6 }
         if i > 5 { break i * 10 }
         i + 1
     })
-    #App{context: Context.root(), base: base}
+    Ok(#App{context: Context.root(), base: base})
 }
 
 fn main() {}

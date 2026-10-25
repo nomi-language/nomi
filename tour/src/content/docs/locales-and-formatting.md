@@ -608,8 +608,8 @@ struct Request {
 
 once shop = [Locale`en`, Locale`de`, Locale`pl`]
 
-fn boot() -> App {
-    #App{locale: Locale`en`}
+fn boot() -> Result<App, String> {
+    Ok(#App{locale: Locale`en`})
 }
 
 fn main() {

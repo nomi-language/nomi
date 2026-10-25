@@ -56,7 +56,9 @@ type TestCase struct {
 // parameter's default; a runner calls it before the boot, on the same frame.
 // It is nil for a boot that takes no parameter. VirtualClock marks a group whose
 // `clock` declaration names `Clock.Virtual`: the case, its boot and its
-// cleanup run in a virtual-time bubble.
+// cleanup run in a virtual-time bubble. BootLine and BootText are the
+// `boot` line's source line and text, which a case whose boot returns `Err`
+// reports, as a `try` that ended the case early is reported.
 //
 // The group's `setup` and a case's pattern are not here: the producer lowers
 // them into the body, where the value they produce flows as ordinary
@@ -65,6 +67,8 @@ type TestGroup struct {
 	Boot         *Symbol
 	Startup      *Symbol
 	VirtualClock bool
+	BootLine     int
+	BootText     string
 }
 
 // Name is the case's reported name.

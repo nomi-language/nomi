@@ -21,9 +21,9 @@ struct App {
   context: Context
 }
 
-fn boot(startup: Startup) -> App {
+fn boot(startup: Startup) -> Result<App, String> {
   io.print("args: ${startup.args}")
-  #App{context: Context.root()}
+  Ok(#App{context: Context.root()})
 }
 
 fn main() {

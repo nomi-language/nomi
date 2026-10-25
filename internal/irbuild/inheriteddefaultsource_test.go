@@ -102,8 +102,8 @@ pub struct App {
     greeting: String
 }
 
-fn boot() -> App {
-    #App{context: Context.root(), greeting: "hello"}
+fn boot() -> Result<App, String> {
+    Ok(#App{context: Context.root(), greeting: "hello"})
 }
 
 ` + widget + `

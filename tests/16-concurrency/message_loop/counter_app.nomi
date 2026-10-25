@@ -161,8 +161,8 @@ pub struct Config {
     counter: Counter
 }
 
-pub fn boot() -> Config {
-    #Config{context: Context.root(), counter: start()}
+pub fn boot() -> Result<Config, String> {
+    Ok(#Config{context: Context.root(), counter: start()})
 }
 
 fn main() {

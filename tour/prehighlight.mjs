@@ -7,7 +7,8 @@
 //
 //   node prehighlight.mjs [dist-dir]
 //
-// - language-nomi (static): emit the final <pre class="nomi-tour"> directly.
+// - language-nomi (static): emit the final <pre class="nomi-tour"> directly,
+//   inside the chip wrapper the client's highlightStatic gives it.
 // - language-nomi-run / language-nomi-test (runnable): keep <pre><code> (the
 //   client still finds + turns it into the editor) but highlight inside and add
 //   the .nomi-tour class so it's styled pre-enhancement.
@@ -57,7 +58,7 @@ function processHtml(html) {
   const highlighted = html.replace(BLOCK, (_m, preAttrs, lang, codeAttrs, body) => {
     const hl = highlight(decode(body).replace(/\n$/, ""));
     return lang === "nomi"
-      ? `<pre class="nomi-tour nomi-code-nomi">${hl}</pre>`
+      ? `<div class="nomi-chip nomi-chip-nomi"><pre class="nomi-tour nomi-code-nomi">${hl}</pre></div>`
       : `<pre class="nomi-tour"${preAttrs}><code class="language-${lang}"${codeAttrs}>${hl}</code></pre>`;
   });
   return highlighted.replace(

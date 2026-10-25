@@ -262,6 +262,14 @@ func (m *Machine) limitedTestFn(fn *ir.Func, group ir.TestGroup, unrunnable *[]s
 		var err error
 		if group.Boot != nil {
 			run, err = m.bootTestOn(group, fr)
+			var failed *BootError
+			if errors.As(err, &failed) {
+				// A boot that returned `Err` ends the case before its body,
+				// reported as a `try` on the `boot` line that returned the
+				// `Err` would be. rt's case cleanup runs what boot deferred.
+				return &rt.EarlyReturnFailure{Line: group.BootLine, Expr: group.BootText,
+					Value: rt.RowText(failed.result)}
+			}
 		}
 		if err == nil {
 			// A case with no boot runs on the frame rt hands it, which

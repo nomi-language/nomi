@@ -49,6 +49,7 @@ func (g *gen) irTestGroup(c testCaseDecl) (ir.TestGroup, bool) {
 			return ir.TestGroup{}, false
 		}
 		group.Boot = owner.irCalleeSym(fd, fd.Name)
+		group.BootLine, group.BootText = t.BootLine, "boot "+renderNode(t.Boot)
 		group.Startup = startup
 		g.irRecordTestBoot(group.Boot)
 	}

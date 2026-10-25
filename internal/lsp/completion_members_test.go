@@ -185,8 +185,8 @@ impl App {
     }
 }
 
-fn boot(_startup: Startup) -> App {
-    #App{port: 3, context: Context.root()}
+fn boot(_startup: Startup) -> Result<App, String> {
+    Ok(#App{port: 3, context: Context.root()})
 }
 `
 

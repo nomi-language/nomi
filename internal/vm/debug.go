@@ -1050,6 +1050,12 @@ func (d *Debugger) leave(th *thread) {
 // crossIn records that fr's thread is calling into Go through name, and
 // answers what crossOut restores.
 func (d *Debugger) crossIn(fr *frame, name string) (*thread, *frame, string) {
+	if fr.stk == nil {
+		// A boot's deferred call run as the app's cleanup, on a frame
+		// detached from boot's finished activation (deferToBootCleanup):
+		// no thread is calling.
+		return nil, nil, ""
+	}
 	th := fr.stk.thread
 	if th == nil {
 		return nil, nil, ""

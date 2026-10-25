@@ -39,8 +39,8 @@ pub struct Cfg {
   name: String = "dev"
 }
 
-fn boot() -> Cfg {
-  #Cfg{context: Context.root(), }
+fn boot() -> Result<Cfg, String> {
+  Ok(#Cfg{context: Context.root(), })
 }
 `
 	// THE POSITIVE CONTROL, first: boot plus main in the entry analyzes clean.

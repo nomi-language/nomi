@@ -40,11 +40,11 @@ pub struct App {
     audit: supervisors.Supervisor
 }
 
-fn boot() -> App {
-    #App{
+fn boot() -> Result<App, String> {
+    Ok(#App{
         context: Context.root(),
         audit: supervisors.Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 2),
-    }
+    })
 }
 
 fn twice(t: tasks.Task<Int>) -> Int {

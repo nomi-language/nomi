@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"fmt"
 	"maps"
 	"slices"
 	"sort"
@@ -1217,7 +1218,7 @@ func inferAppStruct(bootFn *ast.FuncDef, fas []*FileAnalysis) (Type, *Symbol) {
 		if !ok {
 			continue
 		}
-		st := ft.Return
+		st := BootAppType(ft.Return)
 		if !isScopedSchema(st) {
 			return nil, nil
 		}
@@ -1237,12 +1238,50 @@ func inferAppStruct(bootFn *ast.FuncDef, fas []*FileAnalysis) (Type, *Symbol) {
 
 // bootSignatureMsg rejects an entry boot that takes anything but no parameter
 // or one Startup.
-const bootSignatureMsg = "boot must be `fn boot() -> App` or `fn boot(startup: Startup) -> App`, taking no parameter or one Startup and returning the application struct"
+const bootSignatureMsg = "boot must be `fn boot() -> Result<App, E>` or `fn boot(startup: Startup) -> Result<App, E>`, taking no parameter or one Startup and returning the application struct in a Result"
+
+// BootResultMsg rejects an entry boot whose result is not a Result of the
+// application struct.
+const BootResultMsg = "boot must return `Result<App, E>`: the application struct, or the error that stops the program"
+
+// BootResultCode tags BootResultMsg's diagnostic for the language server's
+// quick fix.
+const BootResultCode = "boot-result"
+
+// BootAppType is the application type a boot's result names: the Ok type of
+// a `Result<App, E>`. Any other result answers itself, so a boot rejected for
+// returning the struct bare still types the program's field reads.
+func BootAppType(result Type) Type {
+	if et, ok := resolveTypeVar(result).(*EnumType); ok && et.Name == "Result" &&
+		(et.Origin == "std/results" || et.Origin == "") && len(et.TypeArgs) == 2 {
+		return et.TypeArgs[0]
+	}
+	return result
+}
+
+// reportBootResult reports a boot whose result is not `Result<App, E>`, at
+// its result annotation. app is the struct it returns bare, or nil.
+func reportBootResult(fa *FileAnalysis, fn *ast.FuncDef, app Type) {
+	e := TypeError{Line: fn.Line, Col: fn.Col}
+	if fn.ReturnTypeExpr != nil {
+		e = errAt(fn.ReturnTypeExpr, "")
+	}
+	e.Message, e.Code = BootResultMsg, BootResultCode
+	name := "App"
+	if app != nil {
+		name = typeLabel(app)
+	}
+	e.Hints = []string{fmt.Sprintf("declare `-> Result<%s, String>`, or another error type, and wrap the value boot answers in `Ok(...)`", name)}
+	fa.BootErrors = append(fa.BootErrors, e)
+}
 
 // validateScopedBootSignature checks an entry boot's signature: it takes no
-// parameter or one `Startup`, which may have a default, and returns a struct
-// or an anonymous record with at most one Context-typed field. It answers the
-// struct a valid boot returns, which is an application type, or nil.
+// parameter or one `Startup`, which may have a default, and returns a
+// `Result` whose Ok type is a struct or an anonymous record with at most one
+// Context-typed field. It answers the struct a valid boot returns, which is
+// an application type, or nil. A boot that returns the struct bare is an
+// error at its annotation and still answers the struct, so the program's
+// field reads resolve and report nothing more.
 func validateScopedBootSignature(fa *FileAnalysis, fn *ast.FuncDef, contextType Type) *StructType {
 	sym := fa.Definitions[Pos{Line: fn.Line, Col: fn.Col}]
 	if sym == nil {
@@ -1262,11 +1301,13 @@ func validateScopedBootSignature(fa *FileAnalysis, fn *ast.FuncDef, contextType 
 			return report(bootSignatureMsg)
 		}
 	}
-	if !isScopedSchema(ft.Return) {
-		return report("boot must return a struct, the application type")
+	app := BootAppType(ft.Return)
+	if !isScopedSchema(app) {
+		reportBootResult(fa, fn, nil)
+		return nil
 	}
 	contexts := 0
-	for _, field := range SchemaFields(ft.Return) {
+	for _, field := range SchemaFields(app) {
 		if SameScopedType(field.Type, contextType) {
 			contexts++
 		}
@@ -1274,7 +1315,10 @@ func validateScopedBootSignature(fa *FileAnalysis, fn *ast.FuncDef, contextType 
 	if contexts > 1 {
 		return report("an application struct may have at most one Context-typed field")
 	}
-	st, _ := ft.Return.(*StructType)
+	if app == ft.Return {
+		reportBootResult(fa, fn, app)
+	}
+	st, _ := app.(*StructType)
 	return st
 }
 

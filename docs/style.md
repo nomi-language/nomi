@@ -740,11 +740,18 @@ assert values
     |> Iter.all?(valid?)
 ```
 
+**A boot's error is the error of what it calls.** A boot returns
+`Result<App, E>`. When its steps fail with one error type, such as a
+database's `sql.Error`, make that `E` and `try` each step. A boot whose steps
+fail with different types converts them at each `try` with `Result.map_err`
+to a type of its own. A boot that cannot fail says `Result<App, String>` and
+returns `Ok(...)`.
+
 **Boot with no startup input when the tests need none.** A boot that reads no
-startup input declares no parameter, `fn boot() -> App`, and its groups write
+startup input declares no parameter, `fn boot() -> Result<App, E>`, and its groups write
 `boot server.boot()`. A boot that reads startup takes
 `startup: Startup`. When most of its tests need no input, default the
-parameter, `fn boot(startup: Startup = #Startup{}) -> App`, so those groups
+parameter, `fn boot(startup: Startup = #Startup{}) -> Result<App, E>`, so those groups
 write `boot server.boot()` and only the groups that test the inputs build a
 Startup. The runtime still passes the real Startup to `main`'s boot, so the
 default changes nothing outside tests. Leave the parameter required when every
@@ -1237,8 +1244,8 @@ pub struct Config {
     context: Context
 }
 
-pub fn boot() -> Config {
-    #Config{context: Context.root()}
+pub fn boot() -> Result<Config, String> {
+    Ok(#Config{context: Context.root()})
 }
 ```
 

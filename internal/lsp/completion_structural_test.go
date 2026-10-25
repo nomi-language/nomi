@@ -96,7 +96,7 @@ func TestCompletion_CaseWithCatchAllHasNothingMissing(t *testing.T) {
 
 func TestCompletion_TestGroupBootOffersEntryBoots(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"server.nomi": "struct App {\n    port: Int\n}\n\nfn boot(_startup: Startup) -> App {\n    #App{port: 1}\n}\n\nfn main() {\n}\n",
+		"server.nomi": "struct App {\n    port: Int\n}\n\nfn boot(_startup: Startup) -> Result<App, String> {\n    Ok(#App{port: 1})\n}\n\nfn main() {\n}\n",
 		"helper.nomi": "pub fn startup() -> Startup {\n    #Startup{env: %{}, args: []}\n}\n",
 	})
 	s := NewServer()

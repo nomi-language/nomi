@@ -101,9 +101,9 @@ pub struct App {
   label: String
 }
 
-pub fn boot(startup: Startup) -> App {
+pub fn boot(startup: Startup) -> Result<App, String> {
   io.print("boot ${startup.args}")
-  #App{context: Context.root(), label: "booted"}
+  Ok(#App{context: Context.root(), label: "booted"})
 }
 
 fn main() {}
@@ -160,8 +160,8 @@ const irTestGroupFailingSource = `pub struct App {
   label: String
 }
 
-pub fn boot() -> App {
-  #App{context: Context.root(), label: "booted"}
+pub fn boot() -> Result<App, String> {
+  Ok(#App{context: Context.root(), label: "booted"})
 }
 
 fn main() {}
@@ -202,8 +202,8 @@ pub struct App {
   work: Supervisor
 }
 
-pub fn boot() -> App {
-  #App{context: Context.root(), work: Supervisor.new(max_running: 2)}
+pub fn boot() -> Result<App, String> {
+  Ok(#App{context: Context.root(), work: Supervisor.new(max_running: 2)})
 }
 
 fn main() {}
@@ -260,8 +260,8 @@ fn zero() -> Int {
   0
 }
 
-pub fn boot() -> App {
-  #App{context: Context.root(), n: 10 / zero()}
+pub fn boot() -> Result<App, String> {
+  Ok(#App{context: Context.root(), n: 10 / zero()})
 }
 
 fn main() {}
@@ -292,8 +292,8 @@ func TestIRTestGroup_ASetupWithReachesTheBody(t *testing.T) {
   label: String
 }
 
-pub fn boot() -> App {
-  #App{context: Context.root(), label: "booted"}
+pub fn boot() -> Result<App, String> {
+  Ok(#App{context: Context.root(), label: "booted"})
 }
 
 fn main() {}

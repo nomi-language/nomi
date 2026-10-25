@@ -131,11 +131,11 @@ T   |
 T 9 |   App{context: Context.root(), label: "booted"}
 T   |      ^
 T
-C boot_test.nomi@f805601d5f081b8a
+C boot_test.nomi@dffeda41822645cb
 E 0
 N 0
 H 2d97a44397a38f77696a7107a7d7154763e40891069701280f1cfba175a4c9a5
-S -- boot_test.nomi 345 --
+S -- boot_test.nomi 365 --
 S import std/io
 S
 S pub struct App {
@@ -143,8 +143,8 @@ S   context: Context
 S   label: String
 S }
 S
-S pub fn boot() -> App {
-S   #App{context: Context.root(), label: "booted"}
+S pub fn boot() -> Result<App, String> {
+S   Ok(#App{context: Context.root(), label: "booted"})
 S }
 S
 S fn main() {}
@@ -2180,145 +2180,11 @@ T   |
 T 7 |   App{context: Context.root(), label: "booted"}
 T   |      ^
 T
-C group_test.nomi@18a5806334901e84
-E 0
-N 0
-H 1a684ae52eb5443ab1db810b2a2cf2e83c63f6f03504a22e0e59cb410a2c70c0
-S -- group_test.nomi 552 --
-S pub struct App {
-S   context: Context
-S   label: String
-S }
-S
-S pub fn boot() -> App {
-S   #App{context: Context.root(), label: "booted"}
-S }
-S
-S fn main() {}
-S
-S fn label() -> String {
-S   App.label
-S }
-S
-S group "group" {
-S   boot boot()
-S
-S   test "plain" {
-S     assert App.label == "booted"
-S   }
-S }
-S
-S group "overridden" {
-S   boot boot()
-S   setup {
-S     with App.label = "set up"
-S   }
-S
-S   test "reads the setup's override" {
-S     assert App.label == "set up"
-S     assert label() == "set up"
-S   }
-S
-S   test "reads its own override" {
-S     with App.label = "own"
-S     assert label() == "own"
-S   }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: group / plain
-T ok <dir>/group_test.nomi :: overridden / reads the setup's override
-T ok <dir>/group_test.nomi :: overridden / reads its own override
-T test result: ok. 3 passed, 0 failed
-T
-C group_test.nomi@27a5f1c031772ff7
-E 0
-N 0
-H 350efb91cc8aa888cdfe1c8f9e305e4e5cc50526e58f2273a291512d3e7c10a0
-S -- group_test.nomi 276 --
-S import {
-S   server.{self, App}
-S }
-S
-S group "defaulted" {
-S   boot server.boot()
-S
-S   test "reads the default" {
-S     assert App.first == "default"
-S   }
-S }
-S
-S group "given" {
-S   boot server.boot(#Startup{args: ["given"]})
-S
-S   test "reads the argument" {
-S     assert App.first == "given"
-S   }
-S }
-S
-S -- server.nomi 298 --
-S import std/io
-S
-S pub struct App {
-S   first: String
-S }
-S
-S fn default_startup() -> Startup {
-S   #Startup{args: ["default"]}
-S }
-S
-S pub fn boot(startup: Startup = default_startup()) -> App {
-S   io.print("boot ${startup.args}")
-S   #App{first: Iter.first(startup.args) |> Maybe.with_default("none")}
-S }
-S
-S fn main() {}
-S
-S
-T ok <dir>/group_test.nomi :: defaulted / reads the default
-T   boot [default]
-T ok <dir>/group_test.nomi :: given / reads the argument
-T   boot [given]
-T test result: ok. 2 passed, 0 failed
-T
-C group_test.nomi@2efed8d4c22f4f33
-E 1
-N 0
-H d30e279a268202cc1bc9ad18c95461eafffab0e4c8e68cf71b717b775c9b9aab
-S -- group_test.nomi 256 --
-S pub struct App {
-S   context: Context
-S   n: Int
-S }
-S
-S fn zero() -> Int {
-S   0
-S }
-S
-S pub fn boot() -> App {
-S   #App{context: Context.root(), n: 10 / zero()}
-S }
-S
-S fn main() {}
-S
-S group "group" {
-S   boot boot()
-S
-S   test "never reaches its body" {
-S     assert App.n == 10
-S   }
-S }
-S
-S
-T FAIL <dir>/group_test.nomi :: group / never reaches its body
-T   line 11: division by zero
-T test result: FAILED. 0 passed, 1 failed
-T
-C group_test.nomi@46abf0b690908657
+C group_test.nomi@0d8529565bafb70a
 E 1
 N 0
 H 2e7cbd02625b424f2f68da1c20fb11a74804c9ebb4ccb0a218f8a5d705114678
-S -- group_test.nomi 1139 --
+S -- group_test.nomi 1159 --
 S import {
 S   std/channels.{Channel, Receiver, Sender}
 S   std/duration.Duration
@@ -2329,8 +2195,8 @@ S   context: Context
 S   done: Channel<Int>
 S }
 S
-S pub fn boot() -> App {
-S   #App{context: Context.root(), done: Channel.buffered<Int>(4)}
+S pub fn boot() -> Result<App, String> {
+S   Ok(#App{context: Context.root(), done: Channel.buffered<Int>(4)})
 S }
 S
 S fn main() {}
@@ -2403,295 +2269,11 @@ T         = Duration(1000000000)
 T ok <dir>/group_test.nomi :: channel equality / a closed channel answers None
 T test result: FAILED. 2 passed, 4 failed
 T
-C group_test.nomi@4969131adc2bbd75
-E 0
-N 0
-H 98afb7ef4d52deb592cc504b06e20f03e8c5f2f0e6be9c92f520b0554853bb20
-S -- group_test.nomi 971 --
-S import {
-S   std/channels.{Channel, Receiver, Sender}
-S   std/duration.Duration
-S   std/supervisors.{Restart, Supervisor}
-S   std/testing.Clock
-S }
-S
-S pub struct App {
-S   context: Context
-S   done: Channel<Int>
-S }
-S
-S fn group(timeout: Duration) -> Supervisor {
-S   Supervisor.new(shutdown_timeout: timeout, max_running: 2, restart: Restart.Temporary)
-S }
-S
-S fn start(done: Channel<Int>) -> Unit {
-S   _ = Supervisor.spawn(group(Duration.seconds(1)), fn -> report(done, 1))
-S   _ = group(Duration.seconds(2)) |> Supervisor.spawn(fn -> report(done, 2))
-S   Unit
-S }
-S
-S fn report(done: Channel<Int>, n: Int) -> Unit {
-S   _ = Sender.send(done.sender, n)
-S   Unit
-S }
-S
-S pub fn boot() -> App {
-S   done = Channel.buffered<Int>(4)
-S   start(done)
-S   #App{context: Context.root(), done}
-S }
-S
-S fn main() {}
-S
-S group "spawn over a called supervisor" {
-S   clock Clock.Virtual
-S
-S   boot boot()
-S
-S   test "both tasks report" {
-S     a = Receiver.receive(App.done.receiver)
-S     b = Receiver.receive(App.done.receiver)
-S     assert a != b
-S   }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: spawn over a called supervisor / both tasks report
-T test result: ok. 1 passed, 0 failed
-T
-C group_test.nomi@4e485edfede2a70c
-E 0
-N 0
-H e8994ff90edd03de4b314b360c40e4b743f9aba4b4910c4f8d4b3eb54324ef10
-S -- group_test.nomi 1256 --
-S import std/io
-S
-S fn main() {}
-S
-S group "plain return" {
-S   setup {
-S     x = 1
-S     return x + 1
-S   }
-S
-S   test "binds the returned value", v {
-S     assert v == 2
-S   }
-S }
-S
-S group "early return" {
-S   setup {
-S     flag = True
-S     if flag {
-S       io.print("early")
-S       return "early"
-S     }
-S     io.print("late")
-S     "late"
-S   }
-S
-S   test "binds the early value", v {
-S     io.print("body sees ${v}")
-S     assert v == "early"
-S   }
-S }
-S
-S group "falls past an early return" {
-S   setup {
-S     flag = False
-S     if flag {
-S       return #(1, "one")
-S     }
-S     #(2, "two")
-S   }
-S
-S   test "binds the tail value", #(n, s) {
-S     assert n == 2
-S     assert s == "two"
-S   }
-S }
-S
-S group "return in a case arm" {
-S   setup {
-S     case Some(3) {
-S       Some(n) -> return n * 10
-S       None -> {}
-S     }
-S     0
-S   }
-S
-S   test "binds the arm's value", v {
-S     assert v == 30
-S   }
-S }
-S
-S group "return from a block" {
-S   setup {
-S     {
-S       defer io.print("block closed")
-S       io.print("in block")
-S       return 7
-S     }
-S   }
-S
-S   test "runs the block's defer first", v {
-S     io.print("body")
-S     assert v == 7
-S   }
-S }
-S
-S group "bare return in a Unit setup" {
-S   setup {
-S     io.print("before")
-S     if True {
-S       return
-S     }
-S     io.print("never")
-S   }
-S
-S   test "runs the body" {
-S     io.print("body after a bare return")
-S     assert True
-S   }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: plain return / binds the returned value
-T ok <dir>/group_test.nomi :: early return / binds the early value
-T   early
-T   body sees early
-T ok <dir>/group_test.nomi :: falls past an early return / binds the tail value
-T ok <dir>/group_test.nomi :: return in a case arm / binds the arm's value
-T ok <dir>/group_test.nomi :: return from a block / runs the block's defer first
-T   in block
-T   block closed
-T   body
-T ok <dir>/group_test.nomi :: bare return in a Unit setup / runs the body
-T   before
-T   body after a bare return
-T test result: ok. 6 passed, 0 failed
-T
-C group_test.nomi@508200a721137622
-E 0
-N 0
-H 236157263803fe1ce52c0756ac47ff1846250a9cdb21ccb4902b0a258d0cde29
-S -- group_test.nomi 674 --
-S import {
-S   std/duration.Duration
-S   std/io
-S   std/supervisors.Supervisor
-S   std/testing.Clock
-S   std/timer
-S }
-S
-S pub struct App {
-S   context: Context
-S   work: Supervisor
-S }
-S
-S pub fn boot() -> App {
-S   #App{context: Context.root(), work: Supervisor.new(max_running: 2)}
-S }
-S
-S fn main() {}
-S
-S fn slow() -> Unit {
-S   timer.sleep(Duration.minutes(10))
-S   io.print("slow work done")
-S }
-S
-S group "virtual" {
-S   clock Clock.Virtual
-S
-S   boot boot()
-S
-S   test "an hour passes at once" {
-S     timer.sleep(Duration.minutes(60))
-S     assert 1 == 1
-S   }
-S
-S   test "a group's work is flushed in virtual time" {
-S     _ = Supervisor.spawn(App.work, fn -> slow())
-S     _ = Supervisor.flush(App.work)
-S     assert 2 == 2
-S   }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: virtual / an hour passes at once
-T ok <dir>/group_test.nomi :: virtual / a group's work is flushed in virtual time
-T   slow work done
-T test result: ok. 2 passed, 0 failed
-T
-C group_test.nomi@5a035ccac6c08aed
-E 1
-N 0
-H 62f77379b7b04ea411c86879d7c74d09fca8f63f872b0c302b4c2ede7bc81d78
-S -- group_test.nomi 1138 --
-S import {
-S   std/channels.{Channel, Receiver, Sender}
-S   std/duration.Duration
-S }
-S
-S pub struct App {
-S   context: Context
-S   done: Channel<Int>
-S }
-S
-S pub fn boot() -> App {
-S   App{context: Context.root(), done: Channel.buffered<Int>(4)}
-S }
-S
-S fn main() {}
-S
-S group "channel equality" {
-S   boot boot()
-S
-S   test "a received value equals Some" {
-S     _ = Sender.send(App.done.sender, 1)
-S     assert Receiver.receive(App.done.receiver) == Some(1)
-S   }
-S
-S   test "a failing receive shows the call's row and both operands" {
-S     _ = Sender.send(App.done.sender, 2)
-S     assert Receiver.receive(App.done.receiver) == Some(1)
-S   }
-S
-S   test "a piped receive records no call row" {
-S     _ = Sender.send(App.done.sender, 3)
-S     assert App.done.receiver |> Receiver.receive() == Some(1)
-S   }
-S
-S   test "a piped qualified call records no call row" {
-S     s = "abc"
-S     assert s |> String.length() == 4
-S   }
-S
-S   test "std equality shows its operands" {
-S     d = Duration.seconds(2)
-S     assert d == Duration.seconds(1)
-S   }
-S
-S   test "a closed channel answers None" {
-S     Sender.close(App.done.sender)
-S     none: Maybe<Int> = None
-S     assert Receiver.receive(App.done.receiver) == none
-S   }
-S }
-S
-S
-T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
-T   --> <dir>/group_test.nomi:12:6
-T    |
-T 12 |   App{context: Context.root(), done: Channel.buffered<Int>(4)}
-T    |      ^
-T
-C group_test.nomi@5de43da8f249a806
+C group_test.nomi@2643edb100e8c1e3
 E 0
 N 0
 H e019c6e21c78ff249c81afe7868bda70b47a34ab26570bb52c25d9e725941521
-S -- counter_app.nomi 6127 --
+S -- counter_app.nomi 6147 --
 S //# A single long-lived worker owning mutable state, driven by messages.
 S //#
 S //# This is the shape you reach for when several callers need to share
@@ -2855,8 +2437,8 @@ S     // adding a second server adds one more field and nothing else.
 S     counter: Counter
 S }
 S
-S pub fn boot() -> Config {
-S     #Config{context: Context.root(), counter: start()}
+S pub fn boot() -> Result<Config, String> {
+S     Ok(#Config{context: Context.root(), counter: start()})
 S }
 S
 S fn main() {
@@ -2939,53 +2521,322 @@ T test result: ok. 4 passed, 0 failed
 T --- stderr ---
 T nomi: background task errored (attempt 1): line 104: division by zero — retrying in <jitter>
 T
-C group_test.nomi@5fd840af27c7b3ae
-E 1
+C group_test.nomi@444ee4fa308de3ba
+E 0
 N 0
-H d2828260e9fe2cf37a29fbd48d677362d38216981faf9116c3810a922ccf609f
-S -- group_test.nomi 373 --
+H 948b5dec549328c30d9c542c0d6ad177d80e5f6e8ade95edf28086511cc9082d
+S -- group_test.nomi 133 --
+S import {
+S   server.{self, App}
+S }
+S
+S group "group" {
+S   boot server.boot()
+S
+S   test "reads the app" {
+S     assert App.label == "zero"
+S   }
+S }
+S
+S -- server.nomi 151 --
+S import std/io
+S
+S pub struct App {
+S   label: String
+S }
+S
+S pub fn boot() -> Result<App, String> {
+S   io.print("boot")
+S   Ok(#App{label: "zero"})
+S }
+S
+S fn main() {}
+S
+S
+T ok <dir>/group_test.nomi :: group / reads the app
+T   boot
+T test result: ok. 1 passed, 0 failed
+T
+C group_test.nomi@4e485edfede2a70c
+E 0
+N 0
+H e8994ff90edd03de4b314b360c40e4b743f9aba4b4910c4f8d4b3eb54324ef10
+S -- group_test.nomi 1256 --
+S import std/io
+S
+S fn main() {}
+S
+S group "plain return" {
+S   setup {
+S     x = 1
+S     return x + 1
+S   }
+S
+S   test "binds the returned value", v {
+S     assert v == 2
+S   }
+S }
+S
+S group "early return" {
+S   setup {
+S     flag = True
+S     if flag {
+S       io.print("early")
+S       return "early"
+S     }
+S     io.print("late")
+S     "late"
+S   }
+S
+S   test "binds the early value", v {
+S     io.print("body sees ${v}")
+S     assert v == "early"
+S   }
+S }
+S
+S group "falls past an early return" {
+S   setup {
+S     flag = False
+S     if flag {
+S       return #(1, "one")
+S     }
+S     #(2, "two")
+S   }
+S
+S   test "binds the tail value", #(n, s) {
+S     assert n == 2
+S     assert s == "two"
+S   }
+S }
+S
+S group "return in a case arm" {
+S   setup {
+S     case Some(3) {
+S       Some(n) -> return n * 10
+S       None -> {}
+S     }
+S     0
+S   }
+S
+S   test "binds the arm's value", v {
+S     assert v == 30
+S   }
+S }
+S
+S group "return from a block" {
+S   setup {
+S     {
+S       defer io.print("block closed")
+S       io.print("in block")
+S       return 7
+S     }
+S   }
+S
+S   test "runs the block's defer first", v {
+S     io.print("body")
+S     assert v == 7
+S   }
+S }
+S
+S group "bare return in a Unit setup" {
+S   setup {
+S     io.print("before")
+S     if True {
+S       return
+S     }
+S     io.print("never")
+S   }
+S
+S   test "runs the body" {
+S     io.print("body after a bare return")
+S     assert True
+S   }
+S }
+S
+S
+T ok <dir>/group_test.nomi :: plain return / binds the returned value
+T ok <dir>/group_test.nomi :: early return / binds the early value
+T   early
+T   body sees early
+T ok <dir>/group_test.nomi :: falls past an early return / binds the tail value
+T ok <dir>/group_test.nomi :: return in a case arm / binds the arm's value
+T ok <dir>/group_test.nomi :: return from a block / runs the block's defer first
+T   in block
+T   block closed
+T   body
+T ok <dir>/group_test.nomi :: bare return in a Unit setup / runs the body
+T   before
+T   body after a bare return
+T test result: ok. 6 passed, 0 failed
+T
+C group_test.nomi@500bb4aae042a731
+E 0
+N 0
+H 0a5fde324db6f998faf15d5b5166759a09335b74e58d8dd0afe02f5bdbacb723
+S -- group_test.nomi 733 --
+S import std/io
+S
 S pub struct App {
 S   context: Context
 S   label: String
 S }
 S
-S pub fn boot() -> App {
-S   #App{context: Context.root(), label: "booted"}
+S pub fn boot(startup: Startup) -> Result<App, String> {
+S   io.print("boot ${startup.args}")
+S   Ok(#App{context: Context.root(), label: "booted"})
 S }
 S
 S fn main() {}
 S
-S group "group" {
-S   boot boot()
-S   setup #{word: "one"}
+S fn show(suffix: String) -> String {
+S   App.label + suffix
+S }
 S
-S   test "a failing qualified call shows its rows", #{word} {
-S     assert String.length(word) == 5
+S group "group" {
+S   boot boot(#Startup{args: ["group"]})
+S   setup #{n: 1, word: "one"}
+S
+S   test "reads the app and the setup value", #{n, word} {
+S     io.print(show("!"))
+S     assert App.label == "booted"
+S     assert n == 1
+S     assert word == "one"
 S   }
 S
-S   test "a failing app read", #{word} {
-S     assert App.label == word
+S   test "binds the value with a name", value {
+S     assert value.n == 1
+S   }
+S
+S   test "binds the value with a nested pattern", #{n: count, word} {
+S     assert count == 1
+S     assert word == "one"
 S   }
 S }
 S
 S
-T FAIL <dir>/group_test.nomi :: group / a failing qualified call shows its rows
-T   line 17: assertion failed
-T     assert String.length(word) == 5
-T     values:
-T       word
-T         = "one"
-T       String.length(word)
-T         = 3
-T FAIL <dir>/group_test.nomi :: group / a failing app read
-T   line 21: assertion failed
-T     assert App.label == word
-T     values:
-T       App.label
-T         = "booted"
-T       word
-T         = "one"
-T test result: FAILED. 0 passed, 2 failed
+T ok <dir>/group_test.nomi :: group / reads the app and the setup value
+T   boot [group]
+T   booted!
+T ok <dir>/group_test.nomi :: group / binds the value with a name
+T   boot [group]
+T ok <dir>/group_test.nomi :: group / binds the value with a nested pattern
+T   boot [group]
+T test result: ok. 3 passed, 0 failed
+T
+C group_test.nomi@532b8e4b5d147d44
+E 0
+N 0
+H 1a684ae52eb5443ab1db810b2a2cf2e83c63f6f03504a22e0e59cb410a2c70c0
+S -- group_test.nomi 572 --
+S pub struct App {
+S   context: Context
+S   label: String
+S }
+S
+S pub fn boot() -> Result<App, String> {
+S   Ok(#App{context: Context.root(), label: "booted"})
+S }
+S
+S fn main() {}
+S
+S fn label() -> String {
+S   App.label
+S }
+S
+S group "group" {
+S   boot boot()
+S
+S   test "plain" {
+S     assert App.label == "booted"
+S   }
+S }
+S
+S group "overridden" {
+S   boot boot()
+S   setup {
+S     with App.label = "set up"
+S   }
+S
+S   test "reads the setup's override" {
+S     assert App.label == "set up"
+S     assert label() == "set up"
+S   }
+S
+S   test "reads its own override" {
+S     with App.label = "own"
+S     assert label() == "own"
+S   }
+S }
+S
+S
+T ok <dir>/group_test.nomi :: group / plain
+T ok <dir>/group_test.nomi :: overridden / reads the setup's override
+T ok <dir>/group_test.nomi :: overridden / reads its own override
+T test result: ok. 3 passed, 0 failed
+T
+C group_test.nomi@5a035ccac6c08aed
+E 1
+N 0
+H 62f77379b7b04ea411c86879d7c74d09fca8f63f872b0c302b4c2ede7bc81d78
+S -- group_test.nomi 1138 --
+S import {
+S   std/channels.{Channel, Receiver, Sender}
+S   std/duration.Duration
+S }
+S
+S pub struct App {
+S   context: Context
+S   done: Channel<Int>
+S }
+S
+S pub fn boot() -> App {
+S   App{context: Context.root(), done: Channel.buffered<Int>(4)}
+S }
+S
+S fn main() {}
+S
+S group "channel equality" {
+S   boot boot()
+S
+S   test "a received value equals Some" {
+S     _ = Sender.send(App.done.sender, 1)
+S     assert Receiver.receive(App.done.receiver) == Some(1)
+S   }
+S
+S   test "a failing receive shows the call's row and both operands" {
+S     _ = Sender.send(App.done.sender, 2)
+S     assert Receiver.receive(App.done.receiver) == Some(1)
+S   }
+S
+S   test "a piped receive records no call row" {
+S     _ = Sender.send(App.done.sender, 3)
+S     assert App.done.receiver |> Receiver.receive() == Some(1)
+S   }
+S
+S   test "a piped qualified call records no call row" {
+S     s = "abc"
+S     assert s |> String.length() == 4
+S   }
+S
+S   test "std equality shows its operands" {
+S     d = Duration.seconds(2)
+S     assert d == Duration.seconds(1)
+S   }
+S
+S   test "a closed channel answers None" {
+S     Sender.close(App.done.sender)
+S     none: Maybe<Int> = None
+S     assert Receiver.receive(App.done.receiver) == none
+S   }
+S }
+S
+S
+T --- stderr ---
+T error: unexpected LBRACE "{" right after the end of a statement
+T   --> <dir>/group_test.nomi:12:6
+T    |
+T 12 |   App{context: Context.root(), done: Channel.buffered<Int>(4)}
+T    |      ^
 T
 C group_test.nomi@67686e76ba1040e9
 E 1
@@ -3046,201 +2897,6 @@ T   --> <dir>/group_test.nomi:31:6
 T    |
 T 31 |   App{context: Context.root(), done}
 T    |      ^
-T
-C group_test.nomi@75bdae8ac814ca74
-E 1
-N 0
-H f44bd0356376d2afbfc53acf8e319819882c1fc46c8d3f0b32858764cb41163b
-S -- group_test.nomi 1888 --
-S import {
-S   std/channels.{Channel, Receiver, Sender}
-S   std/duration.Duration
-S   std/supervisors.Supervisor
-S   std/tasks.{Outcome, Task}
-S   std/testing.Clock
-S   std/timer
-S }
-S
-S pub struct App {
-S   context: Context
-S   work: Supervisor
-S   alerts: Channel<String>
-S }
-S
-S fn report(message: String) -> Unit {
-S   case Sender.send(App.alerts.sender, message) {
-S     Ok(_) -> Unit
-S     Err(_) -> Unit
-S   }
-S }
-S
-S fn slow() -> Unit {
-S   timer.sleep(Duration.seconds(30))
-S   report("SHOULD NOT ARRIVE")
-S }
-S
-S fn drain() -> List<String> {
-S   Sender.close(App.alerts.sender)
-S   Iter.loop(fn seen = [] ->
-S     case Receiver.receive(App.alerts.receiver) {
-S       Some(message) -> [message, ..seen]
-S       None -> break seen
-S     }
-S   )
-S }
-S
-S pub fn boot() -> App {
-S   #App{
-S     context: Context.root(),
-S     work: Supervisor.new(max_running: 2),
-S     alerts: Channel.buffered<String>(8),
-S   }
-S }
-S
-S fn main() {}
-S
-S group "tasks" {
-S   clock Clock.Virtual
-S
-S   boot boot()
-S
-S   test "a cancelled task reports Cancelled" {
-S     doomed = Supervisor.spawn(App.work, fn -> slow())
-S     Task.cancel(doomed)
-S     cancelled: Outcome<Unit> = .Cancelled
-S     assert Task.outcome(doomed) == cancelled
-S   }
-S
-S   test "a failing outcome comparison shows its rows" {
-S     done = Supervisor.spawn(App.work, fn -> report("quick"))
-S     _ = Supervisor.flush(App.work)
-S     cancelled: Outcome<Unit> = .Cancelled
-S     assert Task.outcome(done) == cancelled
-S   }
-S
-S   test "any and all over a drained list" {
-S     _ = Supervisor.spawn(App.work, fn -> report("audited 7"))
-S     _ = Supervisor.flush(App.work)
-S     seen = drain()
-S     assert Iter.any?(seen, fn m -> m == "audited 7")
-S     assert Iter.all?(seen, fn m -> String.contains?(m, "audited"))
-S     refute Iter.any?(seen, fn m -> m == "missing")
-S   }
-S
-S   test "a failing any shows its operand" {
-S     _ = Supervisor.spawn(App.work, fn -> report("x"))
-S     _ = Supervisor.flush(App.work)
-S     assert drain() |> Iter.all?(fn m -> m == "y")
-S   }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: tasks / a cancelled task reports Cancelled
-T FAIL <dir>/group_test.nomi :: tasks / a failing outcome comparison shows its rows
-T   line 64: assertion failed
-T     assert Task.outcome(done) == cancelled
-T     values:
-T       done
-T         = <task>
-T       Task.outcome(done)
-T         = Completed(Unit)
-T       cancelled
-T         = Cancelled
-T ok <dir>/group_test.nomi :: tasks / any and all over a drained list
-T FAIL <dir>/group_test.nomi :: tasks / a failing any shows its operand
-T   line 79: assertion failed
-T     assert drain() |> Iter.all?(fn m -> m == "y")
-T test result: FAILED. 2 passed, 2 failed
-T
-C group_test.nomi@78bc9cb2d33d9691
-E 0
-N 0
-H 0a5fde324db6f998faf15d5b5166759a09335b74e58d8dd0afe02f5bdbacb723
-S -- group_test.nomi 713 --
-S import std/io
-S
-S pub struct App {
-S   context: Context
-S   label: String
-S }
-S
-S pub fn boot(startup: Startup) -> App {
-S   io.print("boot ${startup.args}")
-S   #App{context: Context.root(), label: "booted"}
-S }
-S
-S fn main() {}
-S
-S fn show(suffix: String) -> String {
-S   App.label + suffix
-S }
-S
-S group "group" {
-S   boot boot(#Startup{args: ["group"]})
-S   setup #{n: 1, word: "one"}
-S
-S   test "reads the app and the setup value", #{n, word} {
-S     io.print(show("!"))
-S     assert App.label == "booted"
-S     assert n == 1
-S     assert word == "one"
-S   }
-S
-S   test "binds the value with a name", value {
-S     assert value.n == 1
-S   }
-S
-S   test "binds the value with a nested pattern", #{n: count, word} {
-S     assert count == 1
-S     assert word == "one"
-S   }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: group / reads the app and the setup value
-T   boot [group]
-T   booted!
-T ok <dir>/group_test.nomi :: group / binds the value with a name
-T   boot [group]
-T ok <dir>/group_test.nomi :: group / binds the value with a nested pattern
-T   boot [group]
-T test result: ok. 3 passed, 0 failed
-T
-C group_test.nomi@83269b4452d30876
-E 0
-N 0
-H 948b5dec549328c30d9c542c0d6ad177d80e5f6e8ade95edf28086511cc9082d
-S -- group_test.nomi 133 --
-S import {
-S   server.{self, App}
-S }
-S
-S group "group" {
-S   boot server.boot()
-S
-S   test "reads the app" {
-S     assert App.label == "zero"
-S   }
-S }
-S
-S -- server.nomi 131 --
-S import std/io
-S
-S pub struct App {
-S   label: String
-S }
-S
-S pub fn boot() -> App {
-S   io.print("boot")
-S   #App{label: "zero"}
-S }
-S
-S fn main() {}
-S
-S
-T ok <dir>/group_test.nomi :: group / reads the app
-T   boot
-T test result: ok. 1 passed, 0 failed
 T
 C group_test.nomi@896d792273b0bfe6
 E 1
@@ -3389,6 +3045,39 @@ T    |
 T 10 |   App{context: Context.root(), label: "booted"}
 T    |      ^
 T
+C group_test.nomi@a6837664e3d183e1
+E 1
+N 0
+H d30e279a268202cc1bc9ad18c95461eafffab0e4c8e68cf71b717b775c9b9aab
+S -- group_test.nomi 276 --
+S pub struct App {
+S   context: Context
+S   n: Int
+S }
+S
+S fn zero() -> Int {
+S   0
+S }
+S
+S pub fn boot() -> Result<App, String> {
+S   Ok(#App{context: Context.root(), n: 10 / zero()})
+S }
+S
+S fn main() {}
+S
+S group "group" {
+S   boot boot()
+S
+S   test "never reaches its body" {
+S     assert App.n == 10
+S   }
+S }
+S
+S
+T FAIL <dir>/group_test.nomi :: group / never reaches its body
+T   line 11: division by zero
+T test result: FAILED. 0 passed, 1 failed
+T
 C group_test.nomi@b278ac1ab1980715
 E 0
 N 0
@@ -3441,6 +3130,54 @@ S
 T ok <dir>/group_test.nomi :: virtual clock / a short-circuit cancels its siblings
 T ok <dir>/group_test.nomi :: virtual clock / time passes in the bubble
 T test result: ok. 2 passed, 0 failed
+T
+C group_test.nomi@b45dfa70823c1f8d
+E 1
+N 0
+H d2828260e9fe2cf37a29fbd48d677362d38216981faf9116c3810a922ccf609f
+S -- group_test.nomi 393 --
+S pub struct App {
+S   context: Context
+S   label: String
+S }
+S
+S pub fn boot() -> Result<App, String> {
+S   Ok(#App{context: Context.root(), label: "booted"})
+S }
+S
+S fn main() {}
+S
+S group "group" {
+S   boot boot()
+S   setup #{word: "one"}
+S
+S   test "a failing qualified call shows its rows", #{word} {
+S     assert String.length(word) == 5
+S   }
+S
+S   test "a failing app read", #{word} {
+S     assert App.label == word
+S   }
+S }
+S
+S
+T FAIL <dir>/group_test.nomi :: group / a failing qualified call shows its rows
+T   line 17: assertion failed
+T     assert String.length(word) == 5
+T     values:
+T       word
+T         = "one"
+T       String.length(word)
+T         = 3
+T FAIL <dir>/group_test.nomi :: group / a failing app read
+T   line 21: assertion failed
+T     assert App.label == word
+T     values:
+T       App.label
+T         = "booted"
+T       word
+T         = "one"
+T test result: FAILED. 0 passed, 2 failed
 T
 C group_test.nomi@bc63065b08a8b8a8
 E 1
@@ -3532,6 +3269,217 @@ T    |
 T 15 |   App{context: Context.root(), work: Supervisor.new(max_running: 2)}
 T    |      ^
 T
+C group_test.nomi@ca4ea6ff8f0ded79
+E 0
+N 0
+H 350efb91cc8aa888cdfe1c8f9e305e4e5cc50526e58f2273a291512d3e7c10a0
+S -- group_test.nomi 276 --
+S import {
+S   server.{self, App}
+S }
+S
+S group "defaulted" {
+S   boot server.boot()
+S
+S   test "reads the default" {
+S     assert App.first == "default"
+S   }
+S }
+S
+S group "given" {
+S   boot server.boot(#Startup{args: ["given"]})
+S
+S   test "reads the argument" {
+S     assert App.first == "given"
+S   }
+S }
+S
+S -- server.nomi 318 --
+S import std/io
+S
+S pub struct App {
+S   first: String
+S }
+S
+S fn default_startup() -> Startup {
+S   #Startup{args: ["default"]}
+S }
+S
+S pub fn boot(startup: Startup = default_startup()) -> Result<App, String> {
+S   io.print("boot ${startup.args}")
+S   Ok(#App{first: Iter.first(startup.args) |> Maybe.with_default("none")})
+S }
+S
+S fn main() {}
+S
+S
+T ok <dir>/group_test.nomi :: defaulted / reads the default
+T   boot [default]
+T ok <dir>/group_test.nomi :: given / reads the argument
+T   boot [given]
+T test result: ok. 2 passed, 0 failed
+T
+C group_test.nomi@d80fadf488ed8ca6
+E 1
+N 0
+H f44bd0356376d2afbfc53acf8e319819882c1fc46c8d3f0b32858764cb41163b
+S -- group_test.nomi 1908 --
+S import {
+S   std/channels.{Channel, Receiver, Sender}
+S   std/duration.Duration
+S   std/supervisors.Supervisor
+S   std/tasks.{Outcome, Task}
+S   std/testing.Clock
+S   std/timer
+S }
+S
+S pub struct App {
+S   context: Context
+S   work: Supervisor
+S   alerts: Channel<String>
+S }
+S
+S fn report(message: String) -> Unit {
+S   case Sender.send(App.alerts.sender, message) {
+S     Ok(_) -> Unit
+S     Err(_) -> Unit
+S   }
+S }
+S
+S fn slow() -> Unit {
+S   timer.sleep(Duration.seconds(30))
+S   report("SHOULD NOT ARRIVE")
+S }
+S
+S fn drain() -> List<String> {
+S   Sender.close(App.alerts.sender)
+S   Iter.loop(fn seen = [] ->
+S     case Receiver.receive(App.alerts.receiver) {
+S       Some(message) -> [message, ..seen]
+S       None -> break seen
+S     }
+S   )
+S }
+S
+S pub fn boot() -> Result<App, String> {
+S   Ok(#App{
+S     context: Context.root(),
+S     work: Supervisor.new(max_running: 2),
+S     alerts: Channel.buffered<String>(8),
+S   })
+S }
+S
+S fn main() {}
+S
+S group "tasks" {
+S   clock Clock.Virtual
+S
+S   boot boot()
+S
+S   test "a cancelled task reports Cancelled" {
+S     doomed = Supervisor.spawn(App.work, fn -> slow())
+S     Task.cancel(doomed)
+S     cancelled: Outcome<Unit> = .Cancelled
+S     assert Task.outcome(doomed) == cancelled
+S   }
+S
+S   test "a failing outcome comparison shows its rows" {
+S     done = Supervisor.spawn(App.work, fn -> report("quick"))
+S     _ = Supervisor.flush(App.work)
+S     cancelled: Outcome<Unit> = .Cancelled
+S     assert Task.outcome(done) == cancelled
+S   }
+S
+S   test "any and all over a drained list" {
+S     _ = Supervisor.spawn(App.work, fn -> report("audited 7"))
+S     _ = Supervisor.flush(App.work)
+S     seen = drain()
+S     assert Iter.any?(seen, fn m -> m == "audited 7")
+S     assert Iter.all?(seen, fn m -> String.contains?(m, "audited"))
+S     refute Iter.any?(seen, fn m -> m == "missing")
+S   }
+S
+S   test "a failing any shows its operand" {
+S     _ = Supervisor.spawn(App.work, fn -> report("x"))
+S     _ = Supervisor.flush(App.work)
+S     assert drain() |> Iter.all?(fn m -> m == "y")
+S   }
+S }
+S
+S
+T ok <dir>/group_test.nomi :: tasks / a cancelled task reports Cancelled
+T FAIL <dir>/group_test.nomi :: tasks / a failing outcome comparison shows its rows
+T   line 64: assertion failed
+T     assert Task.outcome(done) == cancelled
+T     values:
+T       done
+T         = <task>
+T       Task.outcome(done)
+T         = Completed(Unit)
+T       cancelled
+T         = Cancelled
+T ok <dir>/group_test.nomi :: tasks / any and all over a drained list
+T FAIL <dir>/group_test.nomi :: tasks / a failing any shows its operand
+T   line 79: assertion failed
+T     assert drain() |> Iter.all?(fn m -> m == "y")
+T test result: FAILED. 2 passed, 2 failed
+T
+C group_test.nomi@ddef3c4ccece2f56
+E 0
+N 0
+H 98afb7ef4d52deb592cc504b06e20f03e8c5f2f0e6be9c92f520b0554853bb20
+S -- group_test.nomi 991 --
+S import {
+S   std/channels.{Channel, Receiver, Sender}
+S   std/duration.Duration
+S   std/supervisors.{Restart, Supervisor}
+S   std/testing.Clock
+S }
+S
+S pub struct App {
+S   context: Context
+S   done: Channel<Int>
+S }
+S
+S fn group(timeout: Duration) -> Supervisor {
+S   Supervisor.new(shutdown_timeout: timeout, max_running: 2, restart: Restart.Temporary)
+S }
+S
+S fn start(done: Channel<Int>) -> Unit {
+S   _ = Supervisor.spawn(group(Duration.seconds(1)), fn -> report(done, 1))
+S   _ = group(Duration.seconds(2)) |> Supervisor.spawn(fn -> report(done, 2))
+S   Unit
+S }
+S
+S fn report(done: Channel<Int>, n: Int) -> Unit {
+S   _ = Sender.send(done.sender, n)
+S   Unit
+S }
+S
+S pub fn boot() -> Result<App, String> {
+S   done = Channel.buffered<Int>(4)
+S   start(done)
+S   Ok(#App{context: Context.root(), done})
+S }
+S
+S fn main() {}
+S
+S group "spawn over a called supervisor" {
+S   clock Clock.Virtual
+S
+S   boot boot()
+S
+S   test "both tasks report" {
+S     a = Receiver.receive(App.done.receiver)
+S     b = Receiver.receive(App.done.receiver)
+S     assert a != b
+S   }
+S }
+S
+S
+T ok <dir>/group_test.nomi :: spawn over a called supervisor / both tasks report
+T test result: ok. 1 passed, 0 failed
+T
 C group_test.nomi@e4204a715390286e
 E 1
 N 0
@@ -3568,6 +3516,58 @@ T  --> <dir>/group_test.nomi:7:6
 T   |
 T 7 |   App{context: Context.root(), label: "booted"}
 T   |      ^
+T
+C group_test.nomi@f5f4504162698fbe
+E 0
+N 0
+H 236157263803fe1ce52c0756ac47ff1846250a9cdb21ccb4902b0a258d0cde29
+S -- group_test.nomi 694 --
+S import {
+S   std/duration.Duration
+S   std/io
+S   std/supervisors.Supervisor
+S   std/testing.Clock
+S   std/timer
+S }
+S
+S pub struct App {
+S   context: Context
+S   work: Supervisor
+S }
+S
+S pub fn boot() -> Result<App, String> {
+S   Ok(#App{context: Context.root(), work: Supervisor.new(max_running: 2)})
+S }
+S
+S fn main() {}
+S
+S fn slow() -> Unit {
+S   timer.sleep(Duration.minutes(10))
+S   io.print("slow work done")
+S }
+S
+S group "virtual" {
+S   clock Clock.Virtual
+S
+S   boot boot()
+S
+S   test "an hour passes at once" {
+S     timer.sleep(Duration.minutes(60))
+S     assert 1 == 1
+S   }
+S
+S   test "a group's work is flushed in virtual time" {
+S     _ = Supervisor.spawn(App.work, fn -> slow())
+S     _ = Supervisor.flush(App.work)
+S     assert 2 == 2
+S   }
+S }
+S
+S
+T ok <dir>/group_test.nomi :: virtual / an hour passes at once
+T ok <dir>/group_test.nomi :: virtual / a group's work is flushed in virtual time
+T   slow work done
+T test result: ok. 2 passed, 0 failed
 T
 C internal/irbuild/testdata/anon_recursive.nomi@0e5e1c431c7c10ca
 E 0
@@ -3615,7 +3615,7 @@ T       rec
 T         = #{x: 1, y: 2}
 T test result: FAILED. 0 passed, 2 failed
 T
-C internal/irbuild/testdata/app_fields.nomi@a7db9c443cb2e3d6
+C internal/irbuild/testdata/app_fields.nomi@2b2ec9d7f8265219
 E 0
 N 0
 H 7ef896e652c3cf6733ae111b5434bc308b4ca1835f7401521b811dcc7774a4e7
@@ -3629,7 +3629,7 @@ T ok <dir>/app_fields.nomi :: app fields / a later case does not see an earlier 
 T ok <dir>/app_fields.nomi :: an override in a setup / reaches the test body
 T test result: ok. 8 passed, 0 failed
 T
-C internal/irbuild/testdata/app_override_outlives_scope.nomi@adfc8ad23a535824
+C internal/irbuild/testdata/app_override_outlives_scope.nomi@4476cce1768b60df
 E 0
 N 0
 H f0c4785ad586ae053e983f9508cd3ef5582fa69cb578e4aa03f88c7f5c7960ec
@@ -4435,7 +4435,7 @@ T passed remaining = Some(0s)
 T returned remaining = Some(0s)
 T name = svc
 T
-C internal/irbuild/testdata/context_render_fault.nomi@7e2b5b70eab958dc
+C internal/irbuild/testdata/context_render_fault.nomi@9aeb3807dddfa9d1
 E 1
 N 0
 H fd96a4c8f5e2d0789bfd78bbdc48fe6ad865e9b6ed1760d72245e4fe977cb8e7
@@ -4579,7 +4579,7 @@ T       r
 T         = #Rev{alpha: 4, zeta: 3}
 T test result: FAILED. 5 passed, 4 failed
 T
-C internal/irbuild/testdata/deadline_blocking_wait.nomi@b393b370b484f63a
+C internal/irbuild/testdata/deadline_blocking_wait.nomi@fbcef9aab728062e
 E 0
 N 0
 H 99041651e44e3948c0b6db44037aee8b5eb003b29854425587e7c7da9631798a
@@ -7139,7 +7139,7 @@ T annotated = 11
 T annotated_err = no
 T moved = 4
 T
-C internal/irbuild/testdata/program_boot_supervisor.nomi@b885e46a0465b84b
+C internal/irbuild/testdata/program_boot_supervisor.nomi@a94b3afb3144b557
 E 0
 N 0
 H 4ff5f12ba4d28d29fcee8a449e73034b0ec4f7a2134aefd130f4c2e296216f05
@@ -10129,7 +10129,7 @@ H 8a57c41f6038372c81d0861b50ece456653c0489a46d51dc2e03789560b87c15
 T ok <dir>/defer_cleanup_test.nomi :: defer runs on normal exit failed acquire and early return
 T test result: ok. 1 passed, 0 failed
 T
-C tests/15-app-and-defer/effects/main.nomi@1d0493be938bfd11
+C tests/15-app-and-defer/effects/main.nomi@ac8faad8d005d68f
 E 0
 N 0
 H 8e835e79d2fe27c7feabcfd38fff8829d60a226662ccab1c3822542f98020511
@@ -10151,7 +10151,7 @@ T [INFO] hello, Ada
 T [WARN] config checked
 T console ready
 T
-C tests/16-concurrency/supervisors/supervisors_test.nomi@4d946aceb9fea65e
+C tests/16-concurrency/supervisors/supervisors_test.nomi@d46298533a2adc0c
 E 0
 N 0
 H d2caeccdfc0a9c5e2d9a1ecff6e49c162eb0c8e7eaa586b4fe9f2ddebefe06fe

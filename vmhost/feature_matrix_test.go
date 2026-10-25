@@ -800,7 +800,7 @@ var mxShells = []*mxContext{
 			"body\n" + want + "\n" + want + "\n\n--- ok: <nil>"
 	}},
 	{name: "with", shell: func(b *mxBuild, e, obs, want string) (string, []string, string) {
-		decls := []string{"struct App {\n    v: " + b.typ + "\n}", "fn boot() -> App {\n    #App{v: " + mxIndentTail(mxIndentTail(e)) + "}\n}"}
+		decls := []string{"struct App {\n    v: " + b.typ + "\n}", "fn boot() -> Result<App, String> {\n    Ok(#App{v: " + mxIndentTail(mxIndentTail(e)) + "})\n}"}
 		return "fn main() {\n    with App.v = " + mxIndentTail(e) + "\n    got = App.v\n    io.print(" + mxObs(obs, "got") + ")\n}",
 			decls, want + "\n\n--- ok: <nil>"
 	}},

@@ -1,0 +1,37 @@
+// A group whose boot returns `Err` fails each case before its body runs,
+// reported as a `try` on the `boot` line that returned the `Err`, and the
+// cleanup the boot registered runs when the case ends.
+import std/io
+
+struct App {
+    name: String
+}
+
+fn boot(startup: Startup = #Startup{}) -> Result<App, String> {
+    defer io.print("first cleanup")
+    defer io.print("second cleanup")
+
+    case List.head(startup.args) {
+        Some(name) -> Ok(#App{name})
+        None -> Err("no name was passed")
+    }
+}
+
+fn main() {}
+
+group "a boot that fails" {
+    boot boot()
+
+    test "never runs its body" {
+        io.print("the body ran")
+        assert App.name == ""
+    }
+}
+
+group "a boot that works" {
+    boot boot(#Startup{args: ["ann"]})
+
+    test "reads the app" {
+        assert App.name == "ann"
+    }
+}

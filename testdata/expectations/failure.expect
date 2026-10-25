@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population failure
 what one record per deliberately-red fixture under internal/irbuild/testdata, run as the command that owns it would. Every record FAILS on purpose, so every record carries its transcript verbatim: this is the only population in the repo with power over a wrong failure message. Membership is measured by TestExpectation_FailureCensus.
-records 53
-declared-cases 282
-failing 53
+records 54
+declared-cases 284
+failing 54
 C anon_struct.nomi
 E 1
 N 1
@@ -1243,6 +1243,22 @@ T     values:
 T       double(3)
 T         = 6
 T test result: FAILED. 0 passed, 1 failed
+T
+C tests_group_boot_failure.nomi
+E 1
+N 2
+H 3535e0cf5f8762e549c95a900f81a9c5384fd91ef8f82e6a1cf6d8e556e68603
+T FAIL <root>/internal/irbuild/testdata/tests_group_boot_failure.nomi :: a boot that fails / never runs its body
+T   second cleanup
+T   first cleanup
+T   line 23: test returned early
+T     boot boot()
+T     returned:
+T       Err("no name was passed")
+T ok <root>/internal/irbuild/testdata/tests_group_boot_failure.nomi :: a boot that works / reads the app
+T   second cleanup
+T   first cleanup
+T test result: FAILED. 1 passed, 1 failed
 T
 C tests_group_failure.nomi
 E 1

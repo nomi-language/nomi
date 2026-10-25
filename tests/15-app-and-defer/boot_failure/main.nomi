@@ -1,0 +1,38 @@
+// A boot that returns `Err` stops the program before `main`: the cleanup it
+// registered runs, most recent first, and the run prints `error: ` and the
+// error's Display text on stderr and exits 1.
+import std/io
+
+struct App {
+    port: Int
+    context: Context
+}
+
+struct ConfigError {
+    key: String
+}
+
+impl Display for ConfigError {
+    fn to_string(error: ConfigError) -> String {
+        "missing setting ${error.key}"
+    }
+}
+
+fn setting(startup: Startup, key: String) -> Result<String, ConfigError> {
+    case Map.get(startup.env, key) {
+        Some(value) -> Ok(value)
+        None -> Err(#ConfigError{key})
+    }
+}
+
+fn boot(startup: Startup) -> Result<App, ConfigError> {
+    defer io.print("closed the log")
+    io.print("opened the log")
+    defer io.print("released the port")
+    port = try setting(startup, "NOMI_BOOT_FAILURE_FIXTURE_PORT")
+    Ok(#App{port: String.length(port), context: Context.root()})
+}
+
+fn main() {
+    io.print("main runs on port ${App.port}")
+}

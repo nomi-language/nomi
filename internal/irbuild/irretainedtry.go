@@ -14,9 +14,6 @@ func (bl *irScalarBuilder) tryValue(t *ast.TryOp, operand, whole ast.Node) (ir.T
 	// lambda's own activation; either's kind settles after its body, and
 	// the builder checks each try against it then.
 	concurrent := recorded && bl.concTries != nil && boundary == bl.tryBoundary
-	// A try in boot's own body leaves boot with the failing value, which the
-	// VM reports as the program's failure (internal/vm/boot.go). The operand is forwarded unchanged.
-	boot := recorded && boundary == "fn boot" && bl.boot && bl.parent == nil
 	// A try whose boundary is a VM-only TEST body ends the case with a
 	// report rather than returning a value, so no boundary kind is involved:
 	// the VM's runner builds the rt.EarlyReturnFailure tryTestGuard emits,
@@ -28,10 +25,10 @@ func (bl *irScalarBuilder) tryValue(t *ast.TryOp, operand, whole ast.Node) (ir.T
 	if !recorded || (bl.inTest && !testBoundary) || isNilNode(operand) {
 		return no()
 	}
-	if !concurrent && !testBoundary && !boot && (!strings.HasPrefix(boundary, "fn ") || boundary == "fn boot" || bl.parent != nil || bl.inferReturn != nil) {
+	if !concurrent && !testBoundary && (!strings.HasPrefix(boundary, "fn ") || bl.parent != nil || bl.inferReturn != nil) {
 		return no()
 	}
-	if !concurrent && !testBoundary && !boot && !irTryBoundaryKind(bl.returnKind) {
+	if !concurrent && !testBoundary && !irTryBoundaryKind(bl.returnKind) {
 		return no()
 	}
 	src, k, pure, ok := bl.lower(operand)
@@ -51,7 +48,7 @@ func (bl *irScalarBuilder) tryValue(t *ast.TryOp, operand, whole ast.Node) (ir.T
 		if _, anchored := assertionFailureKind(); !anchored {
 			return no()
 		}
-	} else if !concurrent && !boot && !irTryFits(bl.returnKind, d, carried) {
+	} else if !concurrent && !irTryFits(bl.returnKind, d, carried) {
 		return no()
 	}
 	if !pure {

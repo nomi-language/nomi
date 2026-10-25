@@ -13,12 +13,12 @@ pub struct Config {
     done: Channel<Int>
 }
 
-pub fn boot() -> Config {
-    #Config{
+pub fn boot() -> Result<Config, String> {
+    Ok(#Config{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4),
         done: Channel.buffered<Int>(4),
-    }
+    })
 }
 
 fn background() -> Unit {

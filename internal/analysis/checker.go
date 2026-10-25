@@ -2290,10 +2290,8 @@ func (c *checker) checkFunc(fn *ast.FuncDef) {
 			// Interface subtyping at the return-type boundary: a
 			// concrete struct that `impl`s the declared interface type
 			// satisfies the declaration, including the interface's type
-			// arguments. Most prominent use: `fn boot() -> App {
-			// #AppEnv{...} }` — AppEnv is concrete, App is the
-			// interface, and an `impl App for AppEnv` block makes
-			// the substitution legal. This is narrow on purpose — we
+			// arguments: `fn make() -> Shape { #Circle{...} }` with an
+			// `impl Shape for Circle` block. This is narrow on purpose — we
 			// don't allow arbitrary concrete-where-interface elsewhere,
 			// only at function return positions.
 			if !matched {
@@ -13319,9 +13317,6 @@ func (c *checker) unwrapTryResult(ty Type, at, operand ast.Node) Type {
 // checkAssertionBoundaryAt spells it for `assert` — the same question about the
 // same boundary, so it must not grow a second encoding.
 func (c *checker) checkTryBoundary(operand *EnumType, at ast.Node) {
-	if c.currentFnDecl != nil && c.fa.Program().BootFunctions[c.currentFnDecl] && c.tryBoundary == "fn boot" {
-		return
-	}
 	if c.tryUnwinds != nil {
 		return
 	}

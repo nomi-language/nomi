@@ -1250,6 +1250,7 @@
 15-app-and-defer/app_field_permission/imports_app.nomi:payload_of	ran
 15-app-and-defer/app_field_permission/imports_app.nomi:read	ran
 15-app-and-defer/app_field_permission/main.nomi:boot	ran
+15-app-and-defer/app_field_permission/main.nomi:boot failure	ran
 15-app-and-defer/app_field_permission/main.nomi:main	ran
 15-app-and-defer/app_field_permission/no_app_name.nomi:Ruler.inspect	ran
 15-app-and-defer/app_field_permission/no_app_name.nomi:read	ran
@@ -1259,6 +1260,18 @@
 15-app-and-defer/app_field_permission/own_app_struct.nomi:read	ran
 15-app-and-defer/app_field_permission/settings.nomi:Settings.inspect	ran
 15-app-and-defer/app_root_identity_test.nomi:has_diagnostic?	ran
+15-app-and-defer/boot_failure/debug_error.nomi:App.inspect	ran
+15-app-and-defer/boot_failure/debug_error.nomi:StartError.inspect	ran
+15-app-and-defer/boot_failure/debug_error.nomi:boot	ran
+15-app-and-defer/boot_failure/debug_error.nomi:boot failure	ran
+15-app-and-defer/boot_failure/debug_error.nomi:main	BOOT ERR: reads the app a boot that returns Err never publishes
+15-app-and-defer/boot_failure/main.nomi:App.inspect	ran
+15-app-and-defer/boot_failure/main.nomi:ConfigError.inspect	ran
+15-app-and-defer/boot_failure/main.nomi:ConfigError.to_string	ran
+15-app-and-defer/boot_failure/main.nomi:boot	ran
+15-app-and-defer/boot_failure/main.nomi:boot failure	ran
+15-app-and-defer/boot_failure/main.nomi:main	BOOT ERR: reads the app a boot that returns Err never publishes
+15-app-and-defer/boot_failure/main.nomi:setting	ran
 15-app-and-defer/config_pattern/app.nomi:ConfigApp.inspect	ran
 15-app-and-defer/config_pattern/app.nomi:load	ran
 15-app-and-defer/config_pattern/prod.nomi:configure	ran
@@ -1279,6 +1292,7 @@
 15-app-and-defer/deadline_floor/deadline_floor_test.nomi:escape_program	ran
 15-app-and-defer/deadline_floor/supervisor_app.nomi:background	ran
 15-app-and-defer/deadline_floor/supervisor_app.nomi:boot	ran
+15-app-and-defer/deadline_floor/supervisor_app.nomi:boot failure	ran
 15-app-and-defer/deadline_floor/supervisor_app.nomi:handler	ran
 15-app-and-defer/deadline_floor/supervisor_app.nomi:main	ran
 15-app-and-defer/effects/app.nomi:EffectsApp.database_url default	ran
@@ -1304,6 +1318,7 @@
 15-app-and-defer/effects/log.nomi:TaggedLogger.warn	ran
 15-app-and-defer/effects/main.nomi:SetupHandle.inspect	ran
 15-app-and-defer/effects/main.nomi:boot	ran
+15-app-and-defer/effects/main.nomi:boot failure	ran
 15-app-and-defer/effects/main.nomi:close	ran
 15-app-and-defer/effects/main.nomi:main	ran
 15-app-and-defer/effects/prod.nomi:build	ran
@@ -1330,12 +1345,14 @@
 15-app-and-defer/import_vs_app/helper.nomi:format	ran
 15-app-and-defer/import_vs_app/import_app.nomi:ImportApp.inspect	ran
 15-app-and-defer/import_vs_app/import_app.nomi:boot	ran
+15-app-and-defer/import_vs_app/import_app.nomi:boot failure	ran
 15-app-and-defer/import_vs_app/import_app.nomi:main	ran
 15-app-and-defer/import_vs_app/wallclock.nomi:FakeClock.inspect	ran
 15-app-and-defer/import_vs_app/wallclock.nomi:FakeClock.now	ran
 15-app-and-defer/with_overrides/app.nomi:App.inspect	ran
 15-app-and-defer/with_overrides/app.nomi:Level.inspect	ran
 15-app-and-defer/with_overrides/app.nomi:boot	ran
+15-app-and-defer/with_overrides/app.nomi:boot failure	ran
 15-app-and-defer/with_overrides/app.nomi:main	ran
 15-app-and-defer/with_overrides/with_overrides_test.nomi:debug_level	ran
 15-app-and-defer/with_overrides/with_overrides_test.nomi:label	ran
@@ -1351,6 +1368,7 @@
 16-concurrency/concurrent_runtime_test.nomi:short_fail	ran
 16-concurrency/message_loop/counter_app.nomi:Config.inspect	LINKING: a declaration this module did not retain
 16-concurrency/message_loop/counter_app.nomi:boot	ran
+16-concurrency/message_loop/counter_app.nomi:boot failure	ran
 16-concurrency/message_loop/counter_app.nomi:explode	ran
 16-concurrency/message_loop/counter_app.nomi:get	BLOCKED: waits on a channel nothing in isolation answers
 16-concurrency/message_loop/counter_app.nomi:increment	ran
@@ -1358,6 +1376,7 @@
 16-concurrency/message_loop/counter_app.nomi:serve	ran
 16-concurrency/message_loop/counter_app.nomi:start	BOOT: creatable only while boot runs
 16-concurrency/supervisors/app.nomi:boot	ran
+16-concurrency/supervisors/app.nomi:boot failure	ran
 16-concurrency/supervisors/app.nomi:drain_alerts	ran
 16-concurrency/supervisors/app.nomi:main	ran
 16-concurrency/supervisors/app.nomi:record_audit	ran
@@ -1449,6 +1468,7 @@
 19-locales/app_locale/app_locale_test.nomi:literal Locale`pl-PL` at 10:30 failure	ran
 19-locales/app_locale/main.nomi:App.inspect	ran
 19-locales/app_locale/main.nomi:boot	ran
+19-locales/app_locale/main.nomi:boot failure	ran
 19-locales/app_locale/main.nomi:greeting	ran
 19-locales/app_locale/main.nomi:literal Locale`en` at 16:31 failure	ran
 19-locales/app_locale/main.nomi:literal Locale`pl-PL` at 31:23 failure	ran

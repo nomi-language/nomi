@@ -652,6 +652,52 @@ editor also helps you write it:
 - Go to definition on a table or a column opens that migration line.
 - Completion offers the tables and their columns.
 
+### In an application
+
+The shop's `main` opens a database for one run. A program that serves
+requests opens it once, in its [`boot`](/capabilities-and-context/), and
+keeps the connection in an app field, so every handler reads it as
+`App.db`:
+
+```nomi
+import {
+    std/sql.{self, Conn, Error}
+    queries
+    schema
+    sqlite
+    sqlkit
+}
+
+pub struct App {
+    db: Conn
+    context: Context
+}
+
+pub fn boot(startup: Startup) -> Result<App, Error> {
+    path = Map.get(startup.env, "SHOP_DATABASE") |> Maybe.with_default("shop.db")
+    db = try sqlite.open(path)
+    defer sql.close_quietly(db)
+    try sqlkit.migrate(db, schema.migrations)
+    Ok(#App{db, context: Context.root()})
+}
+
+pub fn sign_up(email: String) -> Result<Int, Error> {
+    queries.insert_user(App.db, email, None)
+}
+```
+
+`boot` returns a `Result`, so each step that can fail is a `try`. If the file
+does not open or a migration fails, `boot` returns the `Err`, `main` does
+not run, and the program prints `error: ` and the error and exits 1. The
+`defer` in `boot` closes the database when the program ends, after `main`
+and the tasks it started have finished, or right away when a later step of
+`boot` fails.
+
+A test runs under the same `boot` from its group's `boot` line, for example
+`boot server.boot(#Startup{env: %{"SHOP_DATABASE" => ":memory:"}})`, which
+gives each test a fresh in-memory database. A test that builds its own
+database instead replaces the field with `with App.db = db` in its `setup`.
+
 ### Testing with the schema
 
 A test group's `setup` runs before each test and hands it a value, as the

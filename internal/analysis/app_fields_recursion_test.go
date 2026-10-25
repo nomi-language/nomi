@@ -19,7 +19,7 @@ func onlyAppFieldError(t *testing.T, errs []analysis.TypeError, want string) {
 const appFieldsRecursionPrefix = `
 struct App { context: Context
 n: Int }
-fn boot() -> App { #App{context: Context.root(), n: 1} }
+fn boot() -> Result<App, String> { Ok(#App{context: Context.root(), n: 1}) }
 fn main() { _ = 1 }
 `
 

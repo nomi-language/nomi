@@ -29,11 +29,11 @@ struct Config {
   written: Channel<Int>
 }
 
-fn boot() -> Config {
-  #Config{context: Context.root(),
+fn boot() -> Result<Config, String> {
+  Ok(#Config{context: Context.root(),
     audit: Supervisor.new(max_running: 4),
     written: Channel.buffered<Int>(8),
-  }
+  })
 }
 
 fn record_audit(id: Int) -> Unit {
@@ -87,12 +87,12 @@ fn retrying() -> Supervisor {
   Supervisor.new(max_running: 3, shutdown_timeout: Duration.seconds(2), restart: Restart.Transient)
 }
 
-fn boot() -> App {
-  #App{context: Context.root(),
+fn boot() -> Result<App, String> {
+  Ok(#App{context: Context.root(),
     work: Supervisor.new(2, Duration.seconds(1)),
     retry: retrying(),
     label: "app",
-  }
+  })
 }
 
 fn nap() -> Unit {
@@ -125,8 +125,8 @@ fn jobs() -> Supervisor {
   Supervisor.new(max_running: 1)
 }
 
-fn boot() -> App {
-  #App{context: Context.root(), jobs: jobs()}
+fn boot() -> Result<App, String> {
+  Ok(#App{context: Context.root(), jobs: jobs()})
 }
 
 fn main() {
@@ -173,8 +173,8 @@ struct App {
   settings: Settings
 }
 
-fn boot() -> App {
-  #App{context: Context.root(), settings: #Settings{label: "x", n: 2}}
+fn boot() -> Result<App, String> {
+  Ok(#App{context: Context.root(), settings: #Settings{label: "x", n: 2}})
 }
 
 fn main() {
@@ -255,8 +255,8 @@ fn gives_up() -> Supervisor {
   Supervisor.new(max_running: 4, on_give_up: GiveUp.Exit)
 }
 
-fn boot() -> App {
-  #App{context: Context.root(), a: permanent(), b: reordered(), c: exits(), d: gives_up()}
+fn boot() -> Result<App, String> {
+  Ok(#App{context: Context.root(), a: permanent(), b: reordered(), c: exits(), d: gives_up()})
 }
 
 fn nap() -> Unit {
@@ -292,8 +292,8 @@ struct App {
   seen: Channel<Int>
 }
 
-fn boot() -> App {
-  #App{context: Context.root(), audit: Supervisor.new(max_running: 2), seen: Channel.buffered<Int>(8)}
+fn boot() -> Result<App, String> {
+  Ok(#App{context: Context.root(), audit: Supervisor.new(max_running: 2), seen: Channel.buffered<Int>(8)})
 }
 
 fn record(id: Int) -> Unit {
@@ -351,8 +351,8 @@ fn gives_up() -> Supervisor {
   Supervisor.new(max_running: 4, on_give_up: GiveUp.Exit)
 }
 
-fn boot() -> App {
-  #App{context: Context.root(), s: gives_up()}
+fn boot() -> Result<App, String> {
+  Ok(#App{context: Context.root(), s: gives_up()})
 }
 
 fn main() {
@@ -392,8 +392,8 @@ struct App {
   context: Context
   s: Supervisor
 }
-fn boot() -> App {
-  #App{context: Context.root(), s: Supervisor.new(max_running: 1)}
+fn boot() -> Result<App, String> {
+  Ok(#App{context: Context.root(), s: Supervisor.new(max_running: 1)})
 }
 fn ok() -> Result<Unit, String> { Ok(Unit) }
 fn show() -> Unit {

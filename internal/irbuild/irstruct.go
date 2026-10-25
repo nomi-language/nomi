@@ -364,6 +364,13 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 		// enum's value, an embedded variant as its payload record.
 		return irRetainedEnumKind(k.def)
 	}
+	if k.tag == tagAnonStruct && !irKindReaches(k, outer) && irRetainedRecordKind(k) {
+		// `spare: #{context: Context}`: a record of retained values that
+		// reaches no type this walk is deciding, held as the record. An
+		// application struct a boot returns in its `Ok` may hold one, as it
+		// did when boot returned the struct bare.
+		return true
+	}
 	if k.tag != tagTuple && k.tag != tagList && k.tag != tagSeq && k.tag != tagMap {
 		_, vector := vectorElem(k)
 		_, set := setElem(k)

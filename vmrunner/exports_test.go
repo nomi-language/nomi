@@ -221,6 +221,31 @@ func TestInstance_AFailingMainIsTheStartError(t *testing.T) {
 	}
 }
 
+// A boot that returns `Err` is the error Start and Boot answer, in place of
+// an Instance, with the text `nomi run` prints, and the cleanup it
+// registered has run.
+func TestInstance_AFailingBootIsTheStartError(t *testing.T) {
+	src := "import std/io\n\nstruct App {\n    n: Int\n}\n\nfn boot() -> Result<App, String> {\n    defer io.print(\"cleanup\")\n    Err(\"no database\")\n}\n\n" +
+		"fn main() {\n    io.print(\"main ran\")\n}\n\nexport fn one() -> Int {\n    App.n\n}\n"
+	for name, open := range map[string]func([]byte, *bytes.Buffer, *bytes.Buffer) (*vmrunner.Instance, error){
+		"Start": func(image []byte, out, errOut *bytes.Buffer) (*vmrunner.Instance, error) {
+			return vmrunner.Start(image, out, errOut, nil)
+		},
+		"Boot": func(image []byte, out, errOut *bytes.Buffer) (*vmrunner.Instance, error) {
+			return vmrunner.Boot(image, out, errOut, nil, nil)
+		},
+	} {
+		var out, errOut bytes.Buffer
+		in, err := open(webImage(t, src), &out, &errOut)
+		if in != nil || err == nil || err.Error() != "error: no database" {
+			t.Fatalf("%s answered %v, %v; want no instance and the boot's failure", name, in, err)
+		}
+		if out.String() != "cleanup\n" {
+			t.Fatalf("%s: output %q; want boot's cleanup and no main", name, out.String())
+		}
+	}
+}
+
 func TestInstance_ExportsListsSignatures(t *testing.T) {
 	in, _ := start(t, hangman)
 	var got []string

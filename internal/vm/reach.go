@@ -71,6 +71,9 @@ func (m *Machine) Reached(roots []*ir.Func, boots []*ir.Symbol) (map[*ir.Func]bo
 			continue
 		}
 		w.symbol(sym, "boot", NotRetained)
+		if render := m.bootFailures[sym]; render != nil {
+			w.symbol(render, "boot failure", NotRetained)
+		}
 	}
 	for _, f := range roots {
 		w.push(f)

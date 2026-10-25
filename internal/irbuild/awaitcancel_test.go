@@ -66,8 +66,8 @@ struct Run {
   context: Context
 }
 
-fn boot() -> Run {
-  #Run{context: Context.root()}
+fn boot() -> Result<Run, String> {
+  Ok(#Run{context: Context.root()})
 }
 `, "", true},
 		{"await inside a task", `import {

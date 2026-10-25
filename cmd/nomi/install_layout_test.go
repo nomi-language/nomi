@@ -107,8 +107,8 @@ struct App {
   context: Context
 }
 
-fn boot() -> App {
-  #App{port: 8080, context: Context.root()}
+fn boot() -> Result<App, String> {
+  Ok(#App{port: 8080, context: Context.root()})
 }
 
 fn main() {

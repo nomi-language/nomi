@@ -363,7 +363,7 @@ func TestRunWeb_Refusals(t *testing.T) {
 		}
 	}
 	// Without --web, a flag after the file is still the program's.
-	mustWrite(t, filepath.Join(dir, "args.nomi"), "import std/io\n\nstruct App {\n  context: Context\n}\n\nfn boot(startup: Startup) -> App {\n  io.print(startup.args)\n  #App{context: Context.root()}\n}\n\nfn main() {\n}\n")
+	mustWrite(t, filepath.Join(dir, "args.nomi"), "import std/io\n\nstruct App {\n  context: Context\n}\n\nfn boot(startup: Startup) -> Result<App, String> {\n  io.print(startup.args)\n  Ok(#App{context: Context.root()})\n}\n\nfn main() {\n}\n")
 	if got := runProcess(t, env, dir, "", nomiBin, "run", "args.nomi", "--web"); got.exit != 0 || got.stdout != "[--web]\n" {
 		t.Fatalf("nomi run args.nomi --web: exit %d\n%s", got.exit, got.transcript())
 	}

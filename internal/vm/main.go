@@ -13,8 +13,9 @@ import (
 // Main runs the program as `nomi run` does: boot (when the program records
 // one), then `main`, on one rt frame. Shutdown is three steps in order — the
 // supervisor drain runs whether `main` returned or faulted, then boot cleanup,
-// then a supervisor's recorded fatal is read — and a boot failure is wrapped
-// as `boot() failed`.
+// then a supervisor's recorded fatal is read. A boot that returns `Err` fails
+// the run as main returning it does, without running main, and any other
+// boot failure is wrapped as `boot() failed`.
 //
 // handleSignals installs rt's SIGINT/SIGTERM handler after boot; only a caller
 // that owns the process passes true.
@@ -61,19 +62,19 @@ func (m *Machine) mainResultError(result any) error {
 	if f, isFailure := nomiFailureOf(payload); isFailure {
 		return &assertFailure{failure: f.Report()}
 	}
-	text, err := m.mainFailureText(payload)
+	text, err := m.failureText(m.mod.MainFailure(), payload)
 	if err != nil {
 		return err
 	}
 	return &MainError{Text: text}
 }
 
-// mainFailureText renders an `Err` payload main returned through the entry
-// module's `main failure` function (ir.Module.SetMainFailure). A module with
-// none, because the builder could not render main's error type, gets the
-// payload's structural text.
-func (m *Machine) mainFailureText(payload any) (string, error) {
-	sym := m.mod.MainFailure()
+// failureText renders an `Err` payload main or a boot returned through sym,
+// the entry module's `main failure` function (ir.Module.SetMainFailure) or
+// the boot's `boot failure` function (ir.Module.SetBootFailure). A nil sym,
+// because the builder could not render the error type, gets the payload's
+// structural text.
+func (m *Machine) failureText(sym *ir.Symbol, payload any) (string, error) {
 	if sym == nil {
 		return rt.RowText(payload), nil
 	}
@@ -150,7 +151,8 @@ func (m *Machine) entry(ctx context.Context, args []string, handleSignals bool, 
 
 // bootOn answers the machine whose calls run on fr: this one when the
 // program records no boot, and otherwise the view boot published its app
-// in, booted with the program arguments args. A boot failure is wrapped as
+// in, booted with the program arguments args. A boot that returns `Err` is a
+// *MainError, as main returning it is; any other boot failure is wrapped as
 // `boot() failed`.
 func (m *Machine) bootOn(fr *rt.Frame, args []string) (*Machine, error) {
 	run := *m
@@ -160,8 +162,10 @@ func (m *Machine) bootOn(fr *rt.Frame, args []string) (*Machine, error) {
 	}
 	booted, bootErr := m.bootWith(m.boot, startupValue(args, m.hostEnv), fr)
 	if bootErr != nil {
-		if failed, isFailed := bootErr.(*bootFailed); isFailed {
-			return nil, &Fault{err: failed}
+		if failed, isFailed := bootErr.(*BootError); isFailed {
+			// main does not run, and the run fails as one whose main
+			// returned the same `Err` does.
+			return nil, &MainError{Text: failed.Text}
 		}
 		if _, internal := AsCompilePanic(bootErr); internal {
 			return nil, bootErr

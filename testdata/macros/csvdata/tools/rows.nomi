@@ -7,8 +7,8 @@ struct App {
     files: List<String>
 }
 
-fn boot(startup: Startup) -> App {
-    #App{files: startup.args}
+fn boot(startup: Startup) -> Result<App, String> {
+    Ok(#App{files: startup.args})
 }
 
 fn main() -> Result<Unit, String> {

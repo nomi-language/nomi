@@ -101,10 +101,10 @@ struct App {
   context: Context
 }
 
-fn boot(startup: Startup) -> App {
+fn boot(startup: Startup) -> Result<App, String> {
   io.print(startup.args)
   io.print(Map.get(startup.env, "NAME"))
-  #App{context: Context.root()}
+  Ok(#App{context: Context.root()})
 }
 
 fn main() {

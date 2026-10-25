@@ -234,8 +234,8 @@ struct Config {
   notify: Supervisor
 }
 
-fn boot() -> Config {
-  #Config{context: Context.root(), notify: Supervisor.new(` + groupArgs + `)}
+fn boot() -> Result<Config, String> {
+  Ok(#Config{context: Context.root(), notify: Supervisor.new(` + groupArgs + `)})
 }
 ` + rest
 }

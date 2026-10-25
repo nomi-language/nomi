@@ -673,7 +673,7 @@ var dispatchEdits = []editStep{
 // appTypeBoot is the entry boot of the corpus project app_field_permission,
 // which makes `Settings`, declared in a file the entry imports, the
 // application type that project's other files read fields of.
-const appTypeBoot = "pub fn boot() -> Settings {\n    #Settings{context: Context.root(), tag: \"the-real-root\"}\n}\n"
+const appTypeBoot = "pub fn boot() -> Result<Settings, String> {\n    Ok(#Settings{context: Context.root(), tag: \"the-real-root\"})\n}\n"
 
 // appTypeEdits remove the entry's boot and put it back. The files that read
 // `Settings.tag` do not import the entry, and what their bodies say turns on

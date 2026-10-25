@@ -69,7 +69,15 @@ func (m *Machine) bootTestOn(group ir.TestGroup, root *rt.Frame) (*Machine, erro
 	return m.bootWith(group.Boot, startup, root)
 }
 
-func (m *Machine) addTestBoots(mod *ir.Module) {
+// addBoots records the test-group boots mod declares and the renderer of its
+// entry boot's `Err` payload.
+func (m *Machine) addBoots(mod *ir.Module) {
+	if bf := mod.BootFailureOf(); bf.Boot != nil {
+		if m.bootFailures == nil {
+			m.bootFailures = map[*ir.Symbol]*ir.Symbol{}
+		}
+		m.bootFailures[bf.Boot] = bf.Render
+	}
 	for _, sym := range mod.TestBoots() {
 		if m.testBoots == nil {
 			m.testBoots = map[*ir.Symbol]bool{}
@@ -78,9 +86,11 @@ func (m *Machine) addTestBoots(mod *ir.Module) {
 	}
 }
 
-// bootWith runs boot sym on root and publishes its app. A boot that takes no
-// parameter is called with none; one that takes a Startup receives startup,
-// which must then be non-nil.
+// bootWith runs boot sym on root and publishes the app its `Ok` holds. A
+// boot that takes no parameter is called with none; one that takes a Startup
+// receives startup, which must then be non-nil. A boot that returns `Err`
+// publishes nothing and answers a *BootError; the cleanup it registered
+// with `defer` is already rt's boot cleanup, which the caller runs.
 func (m *Machine) bootWith(sym *ir.Symbol, startup any, root *rt.Frame) (*Machine, error) {
 	f, err := m.resolveFunc(sym, "boot")
 	if err != nil {
@@ -101,16 +111,22 @@ func (m *Machine) bootWith(sym *ir.Symbol, startup any, root *rt.Frame) (*Machin
 	if err != nil {
 		return nil, err
 	}
-	if e, isEnum := enumRecord(app); isEnum && ((e.Desc.Name == "results.Result" && variantName(e) == "Err") ||
-		(e.Desc.Name == "maybe.Maybe" && variantName(e) == "None")) {
-		// A `try` in boot's body left it with the failing value, which is
-		// reported as the program's failure.
-		text, err := rt.DebugText(e, nil)
+	result, isRec := enumRecord(app)
+	if !isRec || !isEnum(result, "results.Result") {
+		return nil, fmt.Errorf("vm: boot answered %T, not a Result", app)
+	}
+	payload, has := payloadOf(result)
+	if !has {
+		return nil, fmt.Errorf("vm: boot answered %s with no payload", variantName(result))
+	}
+	if variantName(result) == "Err" {
+		text, err := m.failureText(m.bootFailures[sym], payload)
 		if err != nil {
 			return nil, err
 		}
-		return nil, &bootFailed{text: "boot failed: " + text}
+		return nil, &BootError{Text: text, result: result}
 	}
+	app = payload
 	s, isStruct := app.(*rt.Record)
 	if !isStruct || s == nil || (s.Desc.Kind != rt.KindStruct && s.Desc.Kind != rt.KindAnon) {
 		return nil, fmt.Errorf("vm: boot answered %T, not an application struct", app)
@@ -178,11 +194,16 @@ func (m *Machine) deferToBootCleanup(fr *frame) {
 	}
 }
 
-// bootFailed is a boot that answered the failing value of a `try`: the
-// program's failure, reported as `boot failed: <value>`.
-type bootFailed struct{ text string }
+// BootError is a boot that returned `Err`, which Boot and BootTest answer.
+// Text is the payload's text, rendered as main's is (failureText), and
+// result the `Err` itself, which a test case reports as it reports a `try`
+// that ended it early. Main, Call and Start answer it as a *MainError.
+type BootError struct {
+	Text   string
+	result *rt.Record
+}
 
-func (b *bootFailed) Error() string { return b.text }
+func (b *BootError) Error() string { return "error: " + b.Text }
 
 // appField reads one published application field through the activation's
 // scoped lineage.

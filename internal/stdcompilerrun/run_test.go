@@ -102,7 +102,7 @@ func TestRunIsTheVMsPipeline(t *testing.T) {
 		// a trap is reported").
 		src := "import {\n  std/duration.Duration\n  std/io\n  std/timer\n}\n\n" +
 			"struct Run {\n  context: Context\n}\n\n" +
-			"fn boot() -> Run {\n  #Run{context: Context.root()}\n}\n\n" +
+			"fn boot() -> Result<Run, String> {\n  Ok(#Run{context: Context.root()})\n}\n\n" +
 			"fn main() {\n  with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(20))\n" +
 			"  io.print(\"entered\")\n  timer.sleep(Duration.seconds(5))\n  io.print(\"outlasted\")\n}\n"
 		got, err := run(src)

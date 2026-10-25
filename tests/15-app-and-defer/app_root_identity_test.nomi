@@ -16,8 +16,8 @@ test "an ordinary named application exposes scoped fields" {
           context: Context
         }
 
-        fn boot() -> Settings {
-          #Settings{tag: "base", context: Context.root()}
+        fn boot() -> Result<Settings, String> {
+          Ok(#Settings{tag: "base", context: Context.root()})
         }
 
         fn show() {
@@ -52,8 +52,8 @@ test "an application may rename its Context field" {
           execution: Context
         }
 
-        fn boot() -> Named {
-          #Named{tag: "named", execution: Context.root()}
+        fn boot() -> Result<Named, String> {
+          Ok(#Named{tag: "named", execution: Context.root()})
         }
 
         fn main() {
@@ -73,8 +73,8 @@ test "an anonymous application boots, and code that reads no field runs under it
           std/io
         }
 
-        fn boot() -> #{tag: String, execution: Context} {
-          #{tag: "anonymous", execution: Context.root()}
+        fn boot() -> Result<#{tag: String, execution: Context}, String> {
+          Ok(#{tag: "anonymous", execution: Context.root()})
         }
 
         fn main() {
@@ -93,8 +93,8 @@ test "an unavailable field is rejected" {
           context: Context
         }
 
-        fn boot() -> App {
-          #App{context: Context.root()}
+        fn boot() -> Result<App, String> {
+          Ok(#App{context: Context.root()})
         }
 
         fn main() {
@@ -117,8 +117,8 @@ test "an application needs no Context field" {
           tag: String
         }
 
-        fn boot() -> App {
-          #App{tag: "no context"}
+        fn boot() -> Result<App, String> {
+          Ok(#App{tag: "no context"})
         }
 
         fn main() {
@@ -138,8 +138,8 @@ test "boot rejects two Context fields" {
           second: Context
         }
 
-        fn boot() -> App {
-          #App{first: Context.root(), second: Context.root()}
+        fn boot() -> Result<App, String> {
+          Ok(#App{first: Context.root(), second: Context.root()})
         }
 
         fn main() {}
@@ -159,8 +159,8 @@ test "boot takes no Context parameter" {
           context: Context
         }
 
-        fn boot(context: Context) -> App {
-          #App{context}
+        fn boot(context: Context) -> Result<App, String> {
+          Ok(#App{context})
         }
 
         fn main() {}
@@ -169,7 +169,7 @@ test "boot takes no Context parameter" {
 
     assert has_diagnostic?(
         diagnostics,
-        "boot must be `fn boot() -> App` or `fn boot(startup: Startup) -> App`, taking no parameter or one Startup and returning the application struct",
+        "boot must be `fn boot() -> Result<App, E>` or `fn boot(startup: Startup) -> Result<App, E>`, taking no parameter or one Startup and returning the application struct in a Result",
     )
 }
 
@@ -185,8 +185,8 @@ test "field replacement preserves the declared field type" {
           context: Context
         }
 
-        fn boot() -> App {
-          #App{tag: "base", context: Context.root()}
+        fn boot() -> Result<App, String> {
+          Ok(#App{tag: "base", context: Context.root()})
         }
 
         fn main() {
@@ -206,8 +206,8 @@ test "boot takes at most one Startup" {
           port: Int
         }
 
-        fn boot(startup: Startup, _port: Int) -> App {
-          #App{port: Iter.count(startup.args)}
+        fn boot(startup: Startup, _port: Int) -> Result<App, String> {
+          Ok(#App{port: Iter.count(startup.args)})
         }
 
         fn main() {}
@@ -216,7 +216,7 @@ test "boot takes at most one Startup" {
 
     assert has_diagnostic?(
         diagnostics,
-        "boot must be `fn boot() -> App` or `fn boot(startup: Startup) -> App`, taking no parameter or one Startup and returning the application struct",
+        "boot must be `fn boot() -> Result<App, E>` or `fn boot(startup: Startup) -> Result<App, E>`, taking no parameter or one Startup and returning the application struct in a Result",
     )
 }
 
@@ -227,8 +227,8 @@ test "boot may take no parameter, or a Startup with a default" {
           port: Int
         }
 
-        fn boot() -> App {
-          #App{port: 8080}
+        fn boot() -> Result<App, String> {
+          Ok(#App{port: 8080})
         }
 
         fn main() {}
@@ -241,8 +241,8 @@ test "boot may take no parameter, or a Startup with a default" {
           port: Int
         }
 
-        fn boot(startup: Startup = #Startup{}) -> App {
-          #App{port: Iter.count(startup.args)}
+        fn boot(startup: Startup = #Startup{}) -> Result<App, String> {
+          Ok(#App{port: Iter.count(startup.args)})
         }
 
         fn main() {}
