@@ -119,7 +119,7 @@ test "a format reads back as its value" {
 
 test "a decimal's digits are limited and rounded as the options say" {
     en = Locale`en`
-    assert Decimal.format(1d / 8d, en, max_fraction: 2) == "0.12"
+    assert Decimal.format(0.125d, en, max_fraction: 2) == "0.12"
     assert Decimal.format(0.125d, en, max_fraction: 2, mode: .HalfUp) == "0.13"
     assert Decimal.format(12d, Locale`de`, min_fraction: 2) == "12,00"
 

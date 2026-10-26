@@ -27,7 +27,7 @@ pub type Terminal
 
 impl Console for Terminal {
     fn read_line(_console: Terminal) -> Maybe<String> {
-        io.read_line() |> Result.to_maybe()
+        io.read_line() |> Result.with_default(None)
     }
 
     fn write_line(_console: Terminal, line: String) {

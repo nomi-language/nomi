@@ -87,7 +87,7 @@ func TestLoopState_StatelessBreakValueRejected(t *testing.T) {
 
 fn main() {
   Iter.loop(fn -> {
-    Ok(line) = io.read_line() else { break }
+    Ok(Some(line)) = io.read_line() else { break }
     case String.to_int(line) {
       Some(v) -> break v
       None -> continue

@@ -255,14 +255,20 @@ pre.nomi-tour {
 /* A multi-file example's TOML tabs (highlight.mjs's renderToml), in the
    colours Shiki's one-light and one-dark-pro give a static ```toml block. */
 .nomi-tour .toml-table   { color: #4078f2; }
-.nomi-tour .toml-key     { color: #e45649; }
-.nomi-tour .toml-str     { color: #50a14f; }
-.nomi-tour .toml-num     { color: #986801; }
+.nomi-tour .toml-key,
+.nomi-tour .json-key     { color: #e45649; }
+.nomi-tour .toml-str,
+.nomi-tour .json-str     { color: #50a14f; }
+.nomi-tour .toml-num,
+.nomi-tour .json-num     { color: #986801; }
 .nomi-tour .toml-comment { color: #a0a1a7; font-style: italic; }
 :root[data-theme="dark"] .nomi-tour .toml-table   { color: #61afef; }
-:root[data-theme="dark"] .nomi-tour .toml-key     { color: #e06c75; }
-:root[data-theme="dark"] .nomi-tour .toml-str     { color: #98c379; }
-:root[data-theme="dark"] .nomi-tour .toml-num     { color: #d19a66; }
+:root[data-theme="dark"] .nomi-tour .toml-key,
+:root[data-theme="dark"] .nomi-tour .json-key     { color: #e06c75; }
+:root[data-theme="dark"] .nomi-tour .toml-str,
+:root[data-theme="dark"] .nomi-tour .json-str     { color: #98c379; }
+:root[data-theme="dark"] .nomi-tour .toml-num,
+:root[data-theme="dark"] .nomi-tour .json-num     { color: #d19a66; }
 :root[data-theme="dark"] .nomi-tour .toml-comment { color: #7f848e; }
 .nomi-out .tok-kw       { color: var(--tok-kw); }
 .nomi-out .tok-str      { color: var(--tok-str); }
@@ -282,7 +288,8 @@ pre.nomi-tour {
 .nomi-interactive {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr; /* code on top, output stacked below */
+  grid-template-columns: minmax(0, 1fr); /* code on top, output stacked below */
+  grid-template-areas: "main" "out";
   gap: 1px;
   margin: 1em 0;
   border: 1px solid var(--sl-color-hairline);
@@ -303,6 +310,9 @@ pre.nomi-tour {
 @media (prefers-reduced-motion: reduce) {
   .nomi-interactive { transition: none; }
 }
+/* A single-file block's controls sit in its code's top-right corner; a
+   multi-file block's take the right end of its bar, beside the tabs or the
+   open file's name, so they never cover either. */
 .nomi-live-controls {
   position: absolute;
   top: 0;
@@ -311,6 +321,12 @@ pre.nomi-tour {
   align-items: center;
   gap: 0.45em;
   z-index: 3;
+}
+.nomi-bar > .nomi-live-controls {
+  position: static;
+  flex: none;
+  margin-left: auto;
+  padding: 0 0.45em;
 }
 /* Live indicator on every runnable widget — a pulsing accent dot at
    top-right with a hover tooltip explaining the interactive behavior.
@@ -388,10 +404,49 @@ pre.nomi-tour {
   white-space: nowrap;
 }
 .nomi-expected-error[hidden] { display: none; }
-.nomi-out .nomi-expected-note {
-  /* Muted, but kept above 4.5:1 on the output panel in both themes. */
-  color: color-mix(in srgb, var(--tour-fg) 70%, var(--tour-out-bg));
-  font-style: italic;
+/* A ```nomi-run manual block's Run button, in the live dot's place: the
+   example runs once when shown, then when the reader presses it. It is
+   filled while the code has changed since the last run, and dimmed while a
+   run is in flight. */
+.nomi-run-button {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  margin: 0;
+  padding: 0 0.6em;
+  border: 1px solid color-mix(in srgb, var(--sl-color-accent) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tour-bg) 88%, var(--sl-color-accent) 12%);
+  color: var(--sl-color-accent);
+  font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
+  font-size: 0.66em;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.nomi-run-button::before {
+  content: "\25B6"; /* a play triangle */
+  margin-right: 0.4em;
+  font-size: 0.85em;
+}
+.nomi-run-button:hover,
+.nomi-run-button.is-stale {
+  background: var(--sl-color-accent);
+  border-color: var(--sl-color-accent);
+  color: var(--sl-color-black);
+}
+.nomi-run-button.is-running {
+  opacity: 0.6;
+  cursor: progress;
+}
+.nomi-run-button:focus-visible {
+  outline: 2px solid var(--sl-color-accent);
+  outline-offset: 1px;
+}
+/* A tab whose file is under a directory: the directory is muted. */
+.nomi-tab .nomi-tab-dir {
+  opacity: 0.6;
 }
 .nomi-stdlib-test {
   margin: 0.75em 0 1.25em;
@@ -610,6 +665,400 @@ pre.nomi-tour {
 }
 .nomi-editors > .nomi-editor[hidden] {
   display: none !important;
+}
+
+/* The widget's parts. Starlight spaces adjacent blocks in the page's
+   content apart; inside a widget nothing is. */
+.nomi-interactive :where(div, nav, ul, li, button, pre, textarea) {
+  margin: 0;
+}
+.nomi-main {
+  grid-area: main;
+  position: relative;
+  min-width: 0;
+  background: var(--tour-bg);
+}
+/* Beside a file tree taller than the code, the open editor fills the
+   column, so its horizontal scrollbar sits at the block's bottom edge
+   rather than under the last line of code. */
+.nomi-has-tree:not(.is-modal) .nomi-main {
+  display: flex;
+  flex-direction: column;
+}
+.nomi-has-tree:not(.is-modal) .nomi-editors {
+  flex: 1 1 auto;
+  grid-template-rows: minmax(0, 1fr);
+}
+.nomi-bar {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  background: var(--tour-out-bg);
+}
+.nomi-bar > .nomi-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The button that opens a block in the large view. */
+.nomi-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: color-mix(in srgb, var(--tour-fg) 70%, transparent);
+  cursor: pointer;
+}
+.nomi-expand:hover {
+  border-color: color-mix(in srgb, var(--sl-color-accent) 45%, transparent);
+  color: var(--sl-color-accent);
+}
+.nomi-expand:focus-visible {
+  outline: 2px solid var(--sl-color-accent);
+  outline-offset: 1px;
+}
+
+/* The output area: a header with its heading and a manual block's Run
+   button, over what the run printed. */
+.nomi-out-panel {
+  grid-area: out;
+  min-width: 0;
+  background: var(--tour-out-bg);
+}
+.nomi-out-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  min-height: 1.9em;
+  padding: 0.3em 0.45em 0 1em;
+}
+.nomi-out-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--sl-font);
+  font-size: 0.78em;
+  font-weight: 600;
+  /* Muted, but kept above 4.5:1 on the output panel in both themes. */
+  color: color-mix(in srgb, var(--tour-fg) 70%, var(--tour-out-bg));
+}
+.nomi-out-title.is-expected { font-style: italic; }
+.nomi-out-panel > .nomi-out { padding-top: 0.2em; }
+
+/* A larger block's file tree: a column beside the editor. */
+.nomi-interactive.nomi-has-tree {
+  grid-template-columns: 11rem minmax(0, 1fr);
+  grid-template-areas: "tree main" "out out";
+}
+.nomi-tree {
+  grid-area: tree;
+  min-width: 0;
+  padding: 0.35em 0;
+  overflow: auto;
+  background: var(--tour-out-bg);
+  font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
+  font-size: 0.82em;
+  line-height: 1.5;
+}
+.nomi-tree ul {
+  list-style: none;
+  padding: 0;
+}
+.nomi-tree ul[hidden] { display: none; }
+.nomi-tree li { padding: 0; }
+.nomi-tree-folder,
+.nomi-tree-file {
+  display: block;
+  width: 100%;
+  padding: 0.2em 0.75em 0.2em calc(0.75em + var(--depth, 0) * 0.9em);
+  border: 0;
+  background: transparent;
+  color: var(--tour-fg);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.nomi-tree-folder {
+  font-weight: 700;
+  opacity: 0.8;
+}
+.nomi-tree-folder::before {
+  content: "\25BE"; /* a down triangle: open */
+  display: inline-block;
+  width: 1em;
+  margin-left: -0.15em;
+  opacity: 0.7;
+}
+.nomi-tree-folder[aria-expanded="false"]::before { content: "\25B8"; }
+.nomi-tree-file { padding-left: calc(1.75em + var(--depth, 0) * 0.9em); }
+/* A setup file (go.mod, nomi.toml) is listed, quieter. */
+.nomi-tree-file.is-setup { opacity: 0.6; }
+.nomi-tree-folder:hover,
+.nomi-tree-file:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--tour-fg) 7%, transparent);
+}
+.nomi-tree-file.is-active {
+  opacity: 1;
+  background: color-mix(in srgb, var(--sl-color-accent) 16%, transparent);
+  box-shadow: inset 2px 0 0 var(--tour-caret);
+}
+.nomi-tree-folder:focus-visible,
+.nomi-tree-file:focus-visible {
+  outline: 2px solid var(--tour-caret);
+  outline-offset: -2px;
+}
+/* The bar over a tree's editor names the open file; on a narrow screen
+   that name is the button that opens the tree as a menu. */
+.nomi-path,
+.nomi-filemenu {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.45em 1em;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--tour-fg);
+  font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
+  font-size: 0.82em;
+  line-height: normal;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nomi-path .nomi-tab-dir,
+.nomi-filemenu .nomi-tab-dir { opacity: 0.6; }
+.nomi-path-single { color: color-mix(in srgb, var(--tour-fg) 60%, transparent); }
+/* The lock a read-only file's tab, tree entry and path carry; its title
+   says why the file can't be edited. */
+.nomi-ro {
+  display: inline-block;
+  margin-left: 0.5em;
+  opacity: 0.6;
+  line-height: 0;
+  vertical-align: -0.1em;
+}
+.nomi-ro > svg { width: 0.85em; height: 0.85em; }
+/* A read-only file's editor sits on the bar's shade and keeps the arrow
+   cursor, so it doesn't look like a place to type. */
+.nomi-editor.is-readonly { background: var(--tour-out-bg); }
+.nomi-editor.is-readonly > textarea.nomi-src { cursor: default; }
+.nomi-filemenu {
+  display: none;
+  cursor: pointer;
+}
+.nomi-filemenu::after {
+  content: "\25BE";
+  margin-left: 0.5em;
+  opacity: 0.7;
+}
+.nomi-filemenu:focus-visible {
+  outline: 2px solid var(--tour-caret);
+  outline-offset: -2px;
+}
+@media (max-width: 640px) {
+  .nomi-interactive.nomi-has-tree {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "main" "out";
+  }
+  .nomi-has-tree .nomi-path { display: none; }
+  .nomi-has-tree .nomi-filemenu { display: block; }
+  .nomi-has-tree .nomi-tree { display: none; }
+  .nomi-interactive.is-tree-open { overflow: visible; }
+  .nomi-interactive.is-tree-open .nomi-bar { border-radius: 7px 7px 0 0; }
+  .nomi-interactive.is-tree-open .nomi-out-panel { border-radius: 0 0 7px 7px; }
+  .nomi-has-tree.is-tree-open .nomi-tree {
+    display: block;
+    position: absolute;
+    left: 0.5em;
+    z-index: 4;
+    min-width: 13rem;
+    max-width: calc(100% - 1em);
+    max-height: 60vh;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 6px;
+    background: var(--sl-color-bg);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  }
+}
+
+/* The large view: a modal <dialog> the widget itself is moved into. */
+html.nomi-modal-open,
+html.nomi-modal-open body {
+  overflow: hidden;
+}
+.nomi-modal-placeholder {
+  margin: 1em 0;
+  border: 1px dashed var(--sl-color-hairline);
+  border-radius: 8px;
+}
+dialog.nomi-modal {
+  width: calc(100vw - 2rem);
+  max-width: 120rem;
+  height: calc(100vh - 2rem);
+  height: calc(100dvh - 2rem);
+  max-height: none;
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 10px;
+  background: var(--sl-color-bg);
+  color: var(--sl-color-text);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+dialog.nomi-modal::backdrop {
+  background: rgb(0 0 0 / 0.55);
+}
+.nomi-modal-frame {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.nomi-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem 0.5rem 1rem;
+  border-bottom: 1px solid var(--sl-color-hairline);
+}
+.nomi-modal-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  color: var(--sl-color-white);
+  font-family: var(--sl-font);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nomi-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sl-color-text);
+  cursor: pointer;
+}
+.nomi-modal-close:hover {
+  border-color: var(--sl-color-accent);
+  color: var(--sl-color-accent);
+}
+.nomi-modal-close:focus-visible {
+  outline: 2px solid var(--sl-color-accent);
+  outline-offset: 1px;
+}
+.nomi-modal-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0.75rem;
+}
+/* In the large view the editor, the tree and the output sit side by side,
+   each scrolling on its own. */
+.nomi-interactive.is-modal {
+  --nomi-tree-w: 13rem;
+  --nomi-out-w: 30%;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  grid-template-columns: minmax(0, 1fr) 4px var(--nomi-out-w);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "main split-out out";
+}
+.nomi-interactive.nomi-has-tree.is-modal {
+  grid-template-columns: var(--nomi-tree-w) 4px minmax(0, 1fr) 4px var(--nomi-out-w);
+  grid-template-areas: "tree split-tree main split-out out";
+}
+/* The large view's panes are resized by dragging the bars between them, or
+   by focusing a bar and pressing the arrow keys. */
+.nomi-split {
+  background: var(--tour-divider);
+  cursor: col-resize;
+  touch-action: none;
+}
+.nomi-split[data-split="tree"] { grid-area: split-tree; }
+.nomi-split[data-split="out"] { grid-area: split-out; }
+.nomi-split:hover,
+.nomi-split:focus-visible,
+.nomi-split.is-dragging {
+  background: var(--sl-color-accent);
+  outline: none;
+}
+.is-modal .nomi-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.is-modal .nomi-main > .nomi-editor {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+}
+.is-modal .nomi-editors {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+}
+.is-modal .nomi-editors > .nomi-editor {
+  flex: 1 0 auto;
+  overflow: visible;
+}
+.is-modal .nomi-out-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.is-modal .nomi-out {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+}
+.is-modal .nomi-expand { display: none; }
+@media (max-width: 900px) {
+  .nomi-split { display: none; }
+  .nomi-interactive.is-modal {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(6rem, 40%);
+    grid-template-areas: "main" "out";
+  }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  .nomi-interactive.nomi-has-tree.is-modal {
+    grid-template-columns: 11rem minmax(0, 1fr);
+    grid-template-areas: "tree main" "out out";
+  }
+}
+@media (max-width: 640px) {
+  dialog.nomi-modal {
+    width: calc(100vw - 1rem);
+    height: calc(100dvh - 1rem);
+  }
+  .nomi-modal-body { padding: 0.5rem; }
+  .nomi-interactive.nomi-has-tree.is-modal {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "main" "out";
+  }
 }
 
 /* Hover tooltip (LSP hover via nomiHover) — same content as Zed. */

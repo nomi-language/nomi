@@ -1,7 +1,7 @@
 // nomi.js loads and runs a Nomi program built by `nomi build --web`.
 //
 //   import { run } from "./nomi.js";
-//   const { exitCode, fatal } = await run("./app.wasm", {
+//   const { exitCode, fatal, files } = await run("./app.wasm", {
 //     args: [],                 // Startup.args
 //     env: {},                  // Startup.env; NOMI_COLOR=never unless set here
 //     stdout: (text) => {},     // text as written; default console.log per line
@@ -11,7 +11,14 @@
 //     signal,                   // an AbortSignal that stops it (exit 130)
 //     worker: true,             // false runs on the page's own thread
 //     locales: "./locales/",    // where Locale.load fetches <tag>.nomil; default beside app.wasm
+//     files: { "data/prices.csv": csvText },  // the files std/fs sees: string or Uint8Array
 //   });
+//   // files: every file in the program's file system when it ended, by
+//   // path, as Uint8Array
+//
+// The program's file system is in memory. It starts with the `files` the
+// run is given, by path (relative to the program's working directory,
+// /work), and run answers every file in it when the program ends.
 //
 // A program with exported functions (`export fn`) is loaded once and called
 // any number of times:
@@ -52,12 +59,12 @@
 // through globalThis.nomiLocale, which runProgram sets (vmrunner/locales_js.go).
 //
 // Protocol between the page and a worker:
-//   in:  { type: "start", module, image, url, locales, args, env, stdinKind, stdinText, mode? }
+//   in:  { type: "start", module, image, url, locales, args, env, stdinKind, stdinText, files, mode? }
 //        { type: "line", line }          // answer to "read": a string, or null for end of input
 //        { type: "call", id, name, args } // mode "call" only: args is the JSON text of the argument array
 //   out: { type: "output", fd, text }    // fd 1 is stdout, fd 2 stderr
 //        { type: "read" }                // the program reads stdin and wants a line
-//        { type: "exit", code, fatal? }  // the program ended
+//        { type: "exit", code, fatal?, files? } // the program ended; files when it returned them
 //        { type: "ready", exports }      // mode "call": main ran and calls can start
 //        { type: "failed", message }     // mode "call": the program could not start (main failed)
 //        { type: "result", id, value }   // a call's result as JSON text
@@ -220,11 +227,20 @@ async function runProgram(init, post, requestLine) {
     } else if (exitCode !== 0) {
       fatal = fatalLines(stderrHead);
     }
-    post(fatal ? { type: "exit", code: exitCode, fatal } : { type: "exit", code: exitCode });
+    const exit = { type: "exit", code: exitCode };
+    if (fatal) exit.fatal = fatal;
+    // The runner leaves the program's files here as it exits
+    // (vmrunner/files_js.go).
+    if (globalThis.nomiFilesOut) exit.files = globalThis.nomiFilesOut;
+    post(exit);
     resolveDone();
   };
 
   globalThis.nomiImage = init.image;
+  // The files the program's file system starts with, which the runner reads
+  // before main.
+  globalThis.nomiFiles = init.files ?? {};
+  globalThis.nomiFilesOut = undefined;
   // Locale.load's fetch of a locale file, answering its text.
   const localeFolder = new URL(init.locales ?? "locales/", init.url);
   globalThis.nomiLocale = async (tag) => {
@@ -359,13 +375,22 @@ const ABORTED = { exitCode: 130, fatal: "the run was aborted" };
 const timedOut = (ms) => ({ exitCode: 124, fatal: `the program ran for ${ms} ms and was stopped` });
 
 /**
- * Runs the Nomi program at url and resolves with { exitCode, fatal? } when
- * it ends, times out or is aborted. Rejects only when the module cannot be
+ * Runs the Nomi program at url and resolves with { exitCode, fatal?, files? }
+ * when it ends, times out or is aborted: files is every file in its
+ * in-memory file system when it ended, absent when it was stopped. Rejects only when the module cannot be
  * loaded or an option is malformed.
  */
 export async function run(url, options = {}) {
-  const { args = [], env = {}, stdout, stderr, stdin, timeoutMs, signal, worker = true, locales } = options;
+  const { args = [], env = {}, stdout, stderr, stdin, timeoutMs, signal, worker = true, locales, files = {} } = options;
   if (!Array.isArray(args)) throw new TypeError("run: args must be an array of strings");
+  if (files === null || typeof files !== "object" || Array.isArray(files)) {
+    throw new TypeError("run: files must be an object of paths to strings or Uint8Arrays");
+  }
+  for (const [path, data] of Object.entries(files)) {
+    if (typeof data !== "string" && !(data instanceof Uint8Array)) {
+      throw new TypeError(`run: files["${path}"] must be a string or a Uint8Array`);
+    }
+  }
   if (env === null || typeof env !== "object") throw new TypeError("run: env must be an object");
   if (stdin !== undefined && stdin !== null && typeof stdin !== "string" && typeof stdin !== "function") {
     throw new TypeError("run: stdin must be a string, an async function, or absent");
@@ -389,6 +414,7 @@ export async function run(url, options = {}) {
     env: Object.fromEntries(Object.entries({ NOMI_COLOR: "never", ...env }).map(([k, v]) => [k, String(v)])),
     stdinKind: typeof stdin === "string" ? "text" : typeof stdin === "function" ? "callback" : "none",
     stdinText: typeof stdin === "string" ? stdin : "",
+    files,
   };
   const io = {
     out: sink(stdout, (line) => console.log(line)),
@@ -519,6 +545,14 @@ function guard(finish, timeoutMs, signal) {
   };
 }
 
+// exitResult is what run resolves with for a program's exit message.
+function exitResult(msg) {
+  const result = { exitCode: msg.code };
+  if (msg.fatal) result.fatal = msg.fatal;
+  if (msg.files) result.files = msg.files;
+  return result;
+}
+
 function runInWorker(init, io, timeoutMs, signal) {
   return new Promise((resolve) => {
     // This module, from its own URL: a file the host serves, so a strict
@@ -546,7 +580,7 @@ function runInWorker(init, io, timeoutMs, signal) {
           if (!done) worker.postMessage({ type: "line", line });
         });
       } else if (msg.type === "exit") {
-        finish(msg.fatal ? { exitCode: msg.code, fatal: msg.fatal } : { exitCode: msg.code });
+        finish(exitResult(msg));
       }
     };
     worker.onerror = (e) => {
@@ -580,7 +614,7 @@ function runOnThisThread(init, io, timeoutMs, signal) {
         const post = (msg) => {
           if (done) return;
           if (msg.type === "output") (msg.fd === 2 ? io.err : io.out).write(msg.text);
-          else if (msg.type === "exit") finish(msg.fatal ? { exitCode: msg.code, fatal: msg.fatal } : { exitCode: msg.code });
+          else if (msg.type === "exit") finish(exitResult(msg));
         };
         const requestLine = () => (done ? Promise.resolve(null) : io.readLine());
         runProgram(init, post, requestLine).catch((err) =>

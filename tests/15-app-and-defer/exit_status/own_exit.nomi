@@ -1,0 +1,9 @@
+// Only std/process's `Exit` chooses the status. A program's own type named
+// `Exit` is an ordinary error: `error: ` and its Debug text, exit 1.
+struct Exit {
+    code: Int
+}
+
+fn main() -> Result<Unit, Exit> {
+    Err(#Exit{code: 9})
+}

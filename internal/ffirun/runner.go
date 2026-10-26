@@ -369,7 +369,7 @@ func ProjectRunner(r *Result, target Target, compiler bool) (string, error) {
 	}
 	rec := runnerRecord{Compiler: want.Compiler, Target: target.String(), Variant: variant, Project: want}
 	bin := filepath.Join(dir, runnerBinaryBaseName)
-	if runnerCached(dir, bin, rec) {
+	if runnerCached(dir, bin, rec) && (!target.needsWasmExec() || fileExists(filepath.Join(dir, WasmExecName))) {
 		return bin, nil
 	}
 	src, err := renderMain(r.projectRoot, r.discovered, mainKind{Runner: true, Compiler: compiler})
@@ -389,26 +389,71 @@ func ProjectRunner(r *Result, target Target, compiler bool) (string, error) {
 	env := append(os.Environ(), "GOOS="+target.GOOS, "GOARCH="+target.GOARCH)
 	clean := &Result{WrapperPath: mainPath, WrapperDir: dir}
 	if err := goBuildInto(gotoolchain.FindForProjectRunner, dir, bin, dir, env, []string{"build", "-mod=mod", "-trimpath", "-o"}, mainPath, clean); err != nil {
+		// A bound package that does not build for target is reported at
+		// its `gopkg`, not as the compiler's output (target.go).
+		if problem := targetBuildProblem(r, dir, env, target, err); problem != nil {
+			return "", problem
+		}
 		return "", err
+	}
+	// A js/wasm runner is loaded by the wasm_exec.js of the toolchain that
+	// built it, as a pure-Nomi one is (sourceRunner).
+	if target.needsWasmExec() {
+		if err := copyGorootWasmExec(gotoolchain.FindForProjectRunner, dir, dir, env); err != nil {
+			return "", err
+		}
 	}
 	return bin, writeRunnerRecord(dir, rec)
 }
 
-// BuiltImage is what the wrapper reports about the image BuildImageVM
-// wrote.
+// ImageBuild is the image BuildImageVM builds: one for a build for Target,
+// refused as Command (`nomi build --web`) when the program reaches a
+// capability class the target lacks and Allowed does not name
+// (vmhost.Program.CheckTarget). Web builds the image a browser folder
+// carries (vmhost.Program.BuildWebImage), with its exported functions, its
+// TypeScript declarations and its locale files.
+type ImageBuild struct {
+	Command string
+	Target  Target
+	Web     bool
+	Allowed []string
+}
+
+// BuiltImage is the image BuildImageVM built and what the wrapper reported
+// about it.
 type BuiltImage struct {
+	Image []byte
 	// UsesCompiler is set when the program reaches std/compiler's hosts.
 	UsesCompiler bool
 	// HasExports is set when the program declares an `export fn`.
 	HasExports bool
+	// UsesFiles is set, for a web build, when the program reaches the
+	// `files` class (vmhost.WebFilesNote).
+	UsesFiles bool
+	// Declarations is a web build's nomi.d.ts (vmhost.Program.WebDeclarations).
+	Declarations string
+	// LocaleFiles are a web build's locale files by their path in the
+	// folder, `locales/<tag>.nomil`.
+	LocaleFiles map[string][]byte
 }
 
 // BuildImageVM lowers the FFI project's entry in its wrapper (the in-process
-// compiler cannot bind the project's Go) and writes its IR image to
-// imagePath. When the program cannot be built, ok is false and stderr is what
-// the wrapper reported: a front-end error, or `nomi run`'s BLOCKED lines.
-func BuildImageVM(r *Result, entryAbsPath, imagePath string) (built BuiltImage, stderr string, ok bool, err error) {
-	cmd, err := commandMode(r, "vmimage", entryAbsPath, imagePath)
+// compiler cannot bind the project's Go) and answers the image spec asks
+// for. When the program cannot be built, ok is false and stderr is what the
+// wrapper reported: a front-end error, `nomi run`'s BLOCKED lines, or the
+// target's refusal.
+func BuildImageVM(r *Result, entryAbsPath string, spec ImageBuild) (built BuiltImage, stderr string, ok bool, err error) {
+	dir, err := os.MkdirTemp("", "nomi-image-")
+	if err != nil {
+		return built, "", false, err
+	}
+	defer os.RemoveAll(dir)
+	kind := "image"
+	if spec.Web {
+		kind = "web"
+	}
+	args := append([]string{dir, kind, spec.Command, spec.Target.GOOS, spec.Target.GOARCH}, spec.Allowed...)
+	cmd, err := commandMode(r, "vmimage", entryAbsPath, args...)
 	if err != nil {
 		return built, "", false, err
 	}
@@ -422,6 +467,29 @@ func BuildImageVM(r *Result, entryAbsPath, imagePath string) (built BuiltImage, 
 	}
 	built.UsesCompiler = strings.Contains(out.String(), "__NOMI_IMAGE_USES_COMPILER")
 	built.HasExports = strings.Contains(out.String(), "__NOMI_IMAGE_HAS_EXPORTS")
+	built.UsesFiles = strings.Contains(out.String(), "__NOMI_IMAGE_USES_FILES")
+	if built.Image, err = os.ReadFile(filepath.Join(dir, "image")); err != nil {
+		return built, "", false, fmt.Errorf("ffirun: reading the wrapper's image: %w", err)
+	}
+	if !spec.Web {
+		return built, "", true, nil
+	}
+	decls, err := os.ReadFile(filepath.Join(dir, "nomi.d.ts"))
+	if err != nil {
+		return built, "", false, fmt.Errorf("ffirun: reading the wrapper's nomi.d.ts: %w", err)
+	}
+	built.Declarations = string(decls)
+	locales, _ := os.ReadDir(filepath.Join(dir, "locales"))
+	for _, e := range locales {
+		data, err := os.ReadFile(filepath.Join(dir, "locales", e.Name()))
+		if err != nil {
+			return built, "", false, fmt.Errorf("ffirun: reading the wrapper's locale file: %w", err)
+		}
+		if built.LocaleFiles == nil {
+			built.LocaleFiles = map[string][]byte{}
+		}
+		built.LocaleFiles["locales/"+e.Name()] = data
+	}
 	return built, "", true, nil
 }
 
@@ -473,9 +541,9 @@ func goBuildInto(findGo func() (string, error), dir, bin, workDir string, env, a
 	if err != nil {
 		_ = os.Remove(tmpPath)
 		if clean != nil {
-			return wrapperCommandError(clean, "building nomi-vm", err, out)
+			return &goBuildFailure{err: wrapperCommandError(clean, "building nomi-vm", err, out), output: string(out)}
 		}
-		return fmt.Errorf("ffirun: building nomi-vm: %w\n%s", err, strings.TrimRight(string(out), "\n"))
+		return &goBuildFailure{err: fmt.Errorf("ffirun: building nomi-vm: %w\n%s", err, strings.TrimRight(string(out), "\n")), output: string(out)}
 	}
 	if err := os.Rename(tmpPath, bin); err != nil {
 		_ = os.Remove(tmpPath)

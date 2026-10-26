@@ -103,7 +103,7 @@ type forcing struct {
 func (fr *Frame) forcingOnce(cell *onceID) *Frame {
 	child := &Frame{ctx: fr.ctx, forcing: &forcing{cell: cell, next: fr.forcing},
 		booted: fr.booted, inTask: fr.inTask, underDeadline: fr.underDeadline, park: fr.park, capture: fr.capture,
-		debug: fr.debug}
+		files: fr.files, debug: fr.debug}
 	if fr.booted != nil {
 		child.scopedFields, child.scopedContext = fr.booted.fields, fr.booted.context
 	}

@@ -383,12 +383,14 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 	var taskFields map[string]any
 	var booted *bootedApp
 	var capture *Capture
+	var files any
 	taskContext := ContextWithoutDeadline(ActiveContext(fr))
 	if fr != nil {
 		forcing = fr.forcing
 		taskFields = fr.scopedFields
 		booted = fr.booted
 		capture = fr.capture
+		files = fr.files
 
 	}
 
@@ -412,7 +414,7 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 		g.park.live.Add(1)
 		defer g.park.live.Add(-1)
 
-		g.runWithRestarts(t, body, taskCtx, forcing, taskFields, taskContext, booted, capture)
+		g.runWithRestarts(t, body, taskCtx, forcing, taskFields, taskContext, booted, capture, files)
 	}()
 
 	return Task[Unit]{t: t}
@@ -432,7 +434,7 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 //
 // Every restart inherits the spawn site's fields and detached Context, so it
 // reads the same configuration as the first attempt.
-func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, taskCtx context.Context, forcing *forcing, fields map[string]any, scopedContext Context, booted *bootedApp, capture *Capture) {
+func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, taskCtx context.Context, forcing *forcing, fields map[string]any, scopedContext Context, booted *bootedApp, capture *Capture, files any) {
 	// attempt counts failures across the task's whole life and is what
 	// `max_restarts` refers to.
 	//
@@ -448,7 +450,7 @@ func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, task
 
 	for {
 		runStart := time.Now()
-		taskFrame := &Frame{ctx: taskCtx, forcing: forcing, scopedFields: fields, scopedContext: &scopedContext, booted: booted, inTask: true, park: g.park, capture: capture}
+		taskFrame := &Frame{ctx: taskCtx, forcing: forcing, scopedFields: fields, scopedContext: &scopedContext, booted: booted, inTask: true, park: g.park, capture: capture, files: files}
 		outcome, failure := runSupervisedBody(body, taskFrame)
 		ranFor := Duration(time.Since(runStart))
 

@@ -1,7 +1,10 @@
 // `nomi tool csvdata rows <file.csv>...`: how many rows each table has. A
 // tool runs with every effect a program has: this one reads files, which
 // the macro may not do itself.
-import std/io
+import {
+    std/fs
+    std/io
+}
 
 struct App {
     files: List<String>
@@ -21,7 +24,7 @@ fn report(paths: List<String>) -> Result<Unit, String> {
             Ok(Unit)
 
         [path, ..rest] -> {
-            text = case io.read_file(path) {
+            text = case fs.read_text(path) {
                 Ok(t) -> t
                 Err(e) -> return Err("${path}: ${e}")
             }

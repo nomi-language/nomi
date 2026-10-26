@@ -78,4 +78,8 @@ fn main() {
 
     g = 5 |> dbg double()
     io.print("g=${g}")
+
+    // A String is its literal, so a multi-line one reads on one line.
+    h = dbg "first\nsecond\tthird"
+    io.print("h=${h}")
 }

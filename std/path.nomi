@@ -1,0 +1,409 @@
+//# Paths, as `String`s. A Nomi path uses `/` on every operating system, so
+//# a program and its tests behave the same everywhere: on Windows std/fs
+//# accepts `\` too and answers `/`, and a drive is written `C:/Users`.
+//# These functions read the text alone; none of them looks at the file
+//# system, so a typed literal's handler and a macro may call them.
+//#
+//# ```nomi
+//# path.join("data", "log.txt") // "data/log.txt"
+//#
+//# path.parent("data/log.txt") // Some("data")
+//#
+//# path.base("data/log.txt") // "log.txt"
+//#
+//# path.extension("log.tar.gz") // Some("gz")
+//#
+//# path.stem("log.txt") // "log"
+//#
+//# path.clean("a/./b/../c") // "a/c"
+//#
+//# path.absolute?("/etc") // True
+//#
+//# path.relative("/a/b", "/a/c/d") // Some("../c/d")
+//#
+//# path.match?("src/**/*.nomi", "src/x/y.nomi") // True
+//# ```
+
+import {
+    bool.Bool.{self, False, True}
+    code_points.Codepoint
+    iter.Iter
+    lists.List
+    maybe.Maybe.{self, None, Some}
+    strings.String
+}
+
+/// `base` and `name` joined with a `/`, then cleaned (`clean`). An empty
+/// side is left out, so `join("", "a")` is `"a"`, and two empty sides are
+/// `""`.
+///
+/// ```nomi
+/// path.join("data", "log.txt") // "data/log.txt"
+/// ```
+//! assert join("data", "log.txt") == "data/log.txt"
+//! assert join("data/", "/log.txt") == "data/log.txt"
+//! assert join("a/b", "../c") == "a/c"
+//! assert join("", "a") == "a"
+//! assert join("/", "etc") == "/etc"
+//! assert join("", "") == ""
+//
+pub fn join(base: String, name: String) -> String {
+    join_all([base, name])
+}
+
+/// Every part joined with `/`, then cleaned, leaving out the empty ones;
+/// `""` when every part is empty.
+///
+/// ```nomi
+/// path.join_all(["data", "2026", "log.txt"]) // "data/2026/log.txt"
+/// ```
+//! assert join_all(["data", "2026", "log.txt"]) == "data/2026/log.txt"
+//! assert join_all(["/srv", "", "www"]) == "/srv/www"
+//! assert join_all([]) == ""
+//
+pub fn join_all(parts: List<String>) -> String {
+    kept = parts |> Iter.filter(fn part -> part != "") |> Iter.to_list()
+
+    case kept {
+        [] -> ""
+        _ -> String.join(kept, "/") |> clean()
+    }
+}
+
+/// The shortest path that names what `p` names, by reading the text alone:
+/// repeated `/`s become one, each `.` goes, and each `..` takes away the
+/// name before it. A `..` at the start of a relative path stays, and one
+/// right after the root goes. A trailing `/` goes, except on `/` itself. An
+/// empty path is `"."`. This is Go's `path.Clean`.
+///
+/// ```nomi
+/// path.clean("a/./b/../c") // "a/c"
+/// ```
+//! assert clean("a/./b/../c") == "a/c"
+//! assert clean("a//b/") == "a/b"
+//! assert clean("../../a") == "../../a"
+//! assert clean("/../a") == "/a"
+//! assert clean("a/..") == "."
+//! assert clean("") == "."
+//! assert clean("/") == "/"
+//! assert clean("./") == "."
+//
+pub fn clean(p: String) -> String {
+    rooted = String.starts_with?(p, "/")
+
+    kept =
+        String.split(p, "/")
+        |> Iter.reduce(fn stack = [], part -> step(stack, part, rooted))
+        |> Iter.reverse()
+
+    text = String.join(kept, "/")
+
+    case #(rooted, text) {
+        #(True, _) -> "/${text}"
+        #(False, "") -> "."
+        _ -> text
+    }
+}
+
+/// One name of a path read onto the names kept so far, the last first.
+fn step(stack: List<String>, part: String, rooted: Bool) -> List<String> {
+    case #(part, stack) {
+        #("" or ".", _) -> stack
+        #("..", [last, ..rest]) when last != ".." -> rest
+        #("..", _) when rooted -> stack
+        _ -> [part, ..stack]
+    }
+}
+
+/// The names of a clean path, the last first, with `/` and `.` naming
+/// nothing.
+fn names_reversed(clean_path: String) -> List<String> {
+    String.split(clean_path, "/")
+    |> Iter.filter(fn part -> part != "" and part != ".")
+    |> Iter.reverse()
+}
+
+/// Whether `p` starts at the root: `/` first, or a drive such as `C:/`.
+///
+/// ```nomi
+/// path.absolute?("/etc") // True
+/// ```
+//! assert absolute?("/etc")
+//! assert absolute?("C:/Users")
+//! refute absolute?("etc/hosts")
+//! refute absolute?("")
+//
+pub fn absolute?(p: String) -> Bool {
+    String.starts_with?(p, "/") or drive?(p)
+}
+
+/// Whether `p` starts with a drive letter, a colon and `/`.
+fn drive?(p: String) -> Bool {
+    case String.to_codepoints(String.slice(p, 0, 3)) {
+        [letter, ':', '/'] -> Codepoint.letter?(letter)
+        _ -> False
+    }
+}
+
+/// The directory `p` is in, after cleaning it, or `None` when `p` names no
+/// directory above itself: a lone name, `/`, `.` or an empty path.
+///
+/// ```nomi
+/// path.parent("data/log.txt") // Some("data")
+/// ```
+//! assert parent("data/log.txt") == Some("data")
+//! assert parent("/etc") == Some("/")
+//! assert parent("a/b/") == Some("a")
+//! assert parent("log.txt") == None
+//! assert parent("/") == None
+//! assert parent("") == None
+//
+pub fn parent(p: String) -> Maybe<String> {
+    cleaned = clean(p)
+    rooted = String.starts_with?(cleaned, "/")
+
+    case #(names_reversed(cleaned), rooted) {
+        #([], _) -> None
+        #([_], True) -> Some("/")
+        #([_], False) -> None
+        #([_, ..above], True) -> Some("/${String.join(Iter.reverse(above), "/")}")
+        #([_, ..above], False) -> Some(String.join(Iter.reverse(above), "/"))
+    }
+}
+
+/// The last name in `p`, after cleaning it: `"log.txt"` for
+/// `"data/log.txt"`. `/` is `"/"`, and an empty path is `"."`.
+///
+/// ```nomi
+/// path.base("data/log.txt") // "log.txt"
+/// ```
+//! assert base("data/log.txt") == "log.txt"
+//! assert base("data/") == "data"
+//! assert base("/") == "/"
+//! assert base("") == "."
+//
+pub fn base(p: String) -> String {
+    cleaned = clean(p)
+
+    case names_reversed(cleaned) {
+        [last, .._] -> last
+        [] -> cleaned
+    }
+}
+
+/// What follows the last `.` in the last name of `p`, or `None` when there
+/// is none to follow. A name that starts with its only `.` (`.bashrc`) has
+/// no extension, and neither does a name that ends in `.`.
+///
+/// ```nomi
+/// path.extension("log.tar.gz") // Some("gz")
+/// ```
+//! assert extension("log.tar.gz") == Some("gz")
+//! assert extension("data/notes.txt") == Some("txt")
+//! assert extension("Makefile") == None
+//! assert extension(".bashrc") == None
+//! assert extension("x.") == None
+//
+pub fn extension(p: String) -> Maybe<String> {
+    case String.split(base(p), ".") |> Iter.reverse() {
+        [_] or [] -> None
+        [_, ""] -> None
+        ["", .._] -> None
+        [ext, .._] -> Some(ext)
+    }
+}
+
+/// The last name in `p` without its extension (`extension`).
+///
+/// ```nomi
+/// path.stem("log.txt") // "log"
+/// ```
+//! assert stem("log.txt") == "log"
+//! assert stem("data/log.tar.gz") == "log.tar"
+//! assert stem(".bashrc") == ".bashrc"
+//! assert stem("Makefile") == "Makefile"
+//
+pub fn stem(p: String) -> String {
+    name = base(p)
+
+    case extension(name) {
+        Some(ext) -> String.strip_suffix(name, ".${ext}") |> Maybe.with_default(name)
+        None -> name
+    }
+}
+
+/// The path that leads from the directory `from` to `to`, both cleaned, or
+/// `None` when there is none to write: one is absolute and the other is
+/// not, or `from` climbs above where `to` starts with `..`s it cannot undo.
+/// The same path is `"."`.
+///
+/// ```nomi
+/// path.relative("/a/b", "/a/c/d") // Some("../c/d")
+/// ```
+//! assert relative("/a/b", "/a/c/d") == Some("../c/d")
+//! assert relative("a", "a/b/c") == Some("b/c")
+//! assert relative("a/b", "a/b") == Some(".")
+//! assert relative("a/b/c", "a") == Some("../..")
+//! assert relative("/a", "b") == None
+//! assert relative("../a", "b") == None
+//
+pub fn relative(from: String, to: String) -> Maybe<String> {
+    start = clean(from)
+    end = clean(to)
+
+    if String.starts_with?(start, "/") != String.starts_with?(end, "/") {
+        None
+    } else {
+        climb(
+            names_reversed(start)
+            |> Iter.reverse(),
+            names_reversed(end)
+            |> Iter.reverse(),
+        )
+    }
+}
+
+/// The relative path between two lists of names, the first name first.
+fn climb(from: List<String>, to: List<String>) -> Maybe<String> {
+    case #(from, to) {
+        #([a, ..from_rest], [b, ..to_rest]) when a == b ->
+            climb(from_rest, to_rest)
+
+        _ when Iter.contains?(from, "..") ->
+            None
+
+        _ -> {
+            up = from |> Iter.map(fn _ -> "..") |> Iter.to_list()
+
+            case List.concat(up, to) {
+                [] -> Some(".")
+                names -> Some(String.join(names, "/"))
+            }
+        }
+    }
+}
+
+/// Whether `p` matches the glob `pattern`, a name at a time. In a name, `*`
+/// matches any run of characters, `?` any one, and `[abc]` one of a set,
+/// with ranges (`[a-z]`) and `!` first for the characters not in it. A
+/// `**` name matches any number of names, none included. A name that starts
+/// with `.` matches only a pattern name that starts with `.`, so `*` does
+/// not reach hidden files. Neither side is cleaned.
+///
+/// ```nomi
+/// path.match?("src/**/*.nomi", "src/x/y.nomi") // True
+/// ```
+//! assert match?("src/**/*.nomi", "src/x/y.nomi")
+//! assert match?("src/**/*.nomi", "src/y.nomi")
+//! assert match?("*.txt", "notes.txt")
+//! refute match?("*.txt", "data/notes.txt")
+//! assert match?("log-?.txt", "log-1.txt")
+//! assert match?("[a-c]*", "beta")
+//! refute match?("[!a-c]*", "beta")
+//! refute match?("*", ".hidden")
+//! assert match?(".*", ".hidden")
+//! assert match?("**", "a/b/c")
+//
+pub fn match?(pattern: String, p: String) -> Bool {
+    match_names(String.split(pattern, "/"), String.split(p, "/"))
+}
+
+fn match_names(patterns: List<String>, names: List<String>) -> Bool {
+    case #(patterns, names) {
+        #([], []) ->
+            True
+
+        #(["**", ..rest], []) ->
+            match_names(rest, [])
+
+        #(["**", ..rest], [name, ..more]) ->
+            if match_names(rest, names) {
+                True
+            } else {
+                !String.starts_with?(name, ".") and match_names(patterns, more)
+            }
+
+        #([pattern, ..rest], [name, ..more]) ->
+            if hidden_matches?(pattern, name) and match_name(
+                String.to_codepoints(pattern),
+                String.to_codepoints(name),
+            ) {
+                match_names(rest, more)
+            } else {
+                False
+            }
+
+        _ ->
+            False
+    }
+}
+
+/// A name that starts with `.` needs a pattern that starts with `.`.
+fn hidden_matches?(pattern: String, name: String) -> Bool {
+    !String.starts_with?(name, ".") or String.starts_with?(pattern, ".")
+}
+
+/// Whether one name matches one pattern name, codepoint by codepoint.
+fn match_name(pattern: List<Codepoint>, name: List<Codepoint>) -> Bool {
+    case #(pattern, name) {
+        #([], []) ->
+            True
+
+        #(['*', ..rest], []) ->
+            match_name(rest, [])
+
+        #(['*', ..rest], [_, ..more]) ->
+            if match_name(rest, name) {
+                True
+            } else {
+                match_name(pattern, more)
+            }
+
+        #(['?', ..rest], [_, ..more]) ->
+            match_name(rest, more)
+
+        #(['[', ..set], [c, ..more]) ->
+            case in_set(set, c) {
+                Some(#(True, rest)) -> match_name(rest, more)
+                Some(#(False, _)) -> False
+                None -> c == '[' and match_name(set, more)
+            }
+
+        #([want, ..rest], [c, ..more]) when want == c ->
+            match_name(rest, more)
+
+        _ ->
+            False
+    }
+}
+
+/// Reads a set after its `[`: whether c is in it, and the pattern after its
+/// `]`, or `None` when the set never closes, so the `[` is itself.
+fn in_set(set: List<Codepoint>, c: Codepoint) -> Maybe<#(Bool, List<Codepoint>)> {
+    case set {
+        ['!', ..items] ->
+            case set_items(items, c, False) {
+                Some(#(found, rest)) -> Some(#(!found, rest))
+                None -> None
+            }
+
+        _ ->
+            set_items(set, c, False)
+    }
+}
+
+fn set_items(items: List<Codepoint>, c: Codepoint, found: Bool) -> Maybe<#(Bool, List<Codepoint>)> {
+    case items {
+        [] ->
+            None
+
+        [']', ..rest] ->
+            Some(#(found, rest))
+
+        [low, '-', high, ..rest] when high != ']' ->
+            set_items(rest, c, found or (c >= low and c <= high))
+
+        [item, ..rest] ->
+            set_items(rest, c, found or c == item)
+    }
+}

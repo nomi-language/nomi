@@ -61,10 +61,10 @@ func Run(ctx context.Context, absPath string, stdout, stderr io.Writer, stdin io
 	if err := p.Run(ctx, stdout, args, handleSignals); err != nil {
 		if blocked, ok := vmhost.IsBlocked(err); ok {
 			blocked.Write(stderr, vmhost.DisplayPath(absPath))
-		} else {
-			vmhost.WriteFailure(stderr, err)
+			return 1
 		}
-		return 1
+		vmhost.WriteFailure(stderr, err)
+		return vmhost.ExitCode(err)
 	}
 	return 0
 }

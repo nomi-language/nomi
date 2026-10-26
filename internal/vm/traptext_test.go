@@ -179,9 +179,9 @@ func TestTrapText_TheVMRetypesNone(t *testing.T) {
 // A ZERO IS VALIDATED BY PLANTING A POSITIVE, and the specific way the check
 // above could be vacuous is a string extractor that misses the spelling a
 // new copy would actually use. Three spellings are planted and all three
-// must be found: a plain literal, a CONCATENATION of adjacent literals (which
-// is how rt itself spells the non-terminating text, and a per-literal scan
-// cannot see it), and a raw-string literal.
+// must be found: a plain literal, a CONCATENATION of adjacent literals (a
+// long text wraps that way, and a per-literal scan cannot see it), and a
+// raw-string literal.
 func TestTrapText_APlantedCopyIsFound(t *testing.T) {
 	const planted = `package fourthengine
 
@@ -190,8 +190,8 @@ import "fmt"
 func a(line int) error { return fmt.Errorf("line %d: modulo not supported on floats", line) }
 
 func b(line int) error {
-	return fmt.Errorf("line %d: non-terminating decimal division; use "+
-		"Decimal.divide(a, b, scale, mode) for explicit rounding", line)
+	return fmt.Errorf("line %d: modulo is not "+
+		"defined on Decimal", line)
 }
 
 func c() string { return ` + "`line %d: division by zero`" + ` }
@@ -204,7 +204,7 @@ func d() string { return "line %d: nothing rt owns" }
 	}
 	for _, want := range []string{
 		"line %d: modulo not supported on floats",
-		"line %d: non-terminating decimal division; use Decimal.divide(a, b, scale, mode) for explicit rounding",
+		"line %d: modulo is not defined on Decimal",
 		"line %d: division by zero",
 	} {
 		if !got[want] {
@@ -329,9 +329,9 @@ func staticStringsFile(t *testing.T, path string) map[string]bool {
 
 // staticStringsIn is every compile-time-constant string in one Go source.
 //
-// IT FOLDS `+` OVER ADJACENT LITERALS, which is not optional: rt spells
-// `DecimalNonTerminatingText` as two literals joined by `+`, and a copy could
-// spell the same text as one. A per-literal scan sees two different strings
+// IT FOLDS `+` OVER ADJACENT LITERALS, which is not optional: rt may spell a
+// long text as two literals joined by `+`, and a copy could spell the same
+// text as one. A per-literal scan sees two different strings
 // and reports the drift as absent, which is precisely the false negative this
 // instrument exists to prevent.
 //

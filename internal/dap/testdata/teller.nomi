@@ -3,12 +3,12 @@ import std/io
 fn teller() {
     io.print("Welcome to the bank")
     io.write("Name: ")
-    name = io.read_line() |> Result.with_default("nobody")
+    name = io.read_line() |> Result.with_default(None) |> Maybe.with_default("nobody")
 
     io.print("Hello, ${name}")
     io.write("Deposit: ")
     io.print("noted")
-    amount = io.read_line() |> Result.with_default("0")
+    amount = io.read_line() |> Result.with_default(None) |> Maybe.with_default("0")
 
     io.print("Deposited ${amount}")
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/hostgen"
@@ -69,8 +70,16 @@ func stdRowModule(row hostgen.FuncRow) (string, error) {
 	if found && strings.ReplaceAll(module, "_", "") == name {
 		return module, nil
 	}
+	if found && slices.Contains(alsoImplements[name], module) {
+		return module, nil
+	}
 	return name, nil
 }
+
+// alsoImplements are the std modules an adapter package implements besides
+// its own: internal/stdio is std/io's, and std/fs_host's, the Go-backed half
+// of std/fs.
+var alsoImplements = map[string][]string{"io": {"fs_host"}}
 
 const (
 	rtPackage     = "github.com/nomi-language/nomi/rt"

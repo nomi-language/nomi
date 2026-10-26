@@ -5,6 +5,7 @@ package doctest
 import (
 	"errors"
 	"fmt"
+	"path"
 	"strings"
 )
 
@@ -29,7 +30,32 @@ const (
 	// from run to run (it reads the clock), so a doctest checks it and does
 	// not run it.
 	InfoNoRun = "no-run"
+	// InfoManual marks a block whose run is expensive (a macro expands in
+	// it), so the tour runs it only when the reader presses its Run button,
+	// not on every edit. A doctest runs it like any other block, and it
+	// combines with InfoError and InfoExpand.
+	InfoManual = "manual"
+	// InfoExpand marks a block whose output is not its run but what `nomi
+	// expand` prints for its first section (vmhost.ExpandMarked): the
+	// expansion of each macro declaration in that file. A doctest compares
+	// that text with the expect block.
+	InfoExpand = "expand"
+	// InfoReadOnly, followed by a glob (`read-only:photos/*`), marks the
+	// data files the glob matches as files whose contents the program never
+	// reads: only their names matter to the example, so the tour shows them
+	// read-only. The glob is path.Match's, over each file's path as its
+	// `// FILE:` line writes it; the word may repeat.
+	InfoReadOnly = "read-only:"
 )
+
+// infoWords are the words a ```nomi-run fence may carry.
+var infoWords = []string{InfoError, InfoNoRun, InfoManual, InfoExpand}
+
+// InfoWords answers the words a ```nomi-run fence may carry after its
+// language, for a message naming them.
+func InfoWords() []string {
+	return append(append([]string(nil), infoWords...), InfoReadOnly+"<glob>")
+}
 
 // HasInfo reports whether word appears in the block's info string after the
 // language token (e.g. "error").
@@ -42,22 +68,50 @@ func (b Block) HasInfo(word string) bool {
 	return false
 }
 
-// Runs reports whether a doctest runs the block and compares its output:
-// it carries neither InfoError nor InfoNoRun.
+// Runs reports whether a doctest runs the block and compares its run's
+// output: it carries none of InfoError, InfoNoRun and InfoExpand.
 func (b Block) Runs() bool {
-	return !b.HasInfo(InfoError) && !b.HasInfo(InfoNoRun)
+	return !b.HasInfo(InfoError) && !b.HasInfo(InfoNoRun) && !b.HasInfo(InfoExpand)
 }
 
-// UnknownInfo answers the block's info words that are neither InfoError nor
-// InfoNoRun, so a misspelt word fails a doctest instead of being dropped.
+// UnknownInfo answers the block's info words that are not InfoWords, so a
+// misspelt word fails a doctest instead of being dropped.
 func (b Block) UnknownInfo() []string {
 	var unknown []string
 	for _, w := range b.Info {
-		if w != InfoError && w != InfoNoRun {
+		glob, marked := strings.CutPrefix(w, InfoReadOnly)
+		known := marked && glob != ""
+		for _, k := range infoWords {
+			known = known || w == k
+		}
+		if !known {
 			unknown = append(unknown, w)
 		}
 	}
 	return unknown
+}
+
+// ReadOnlyGlobs answers the globs of the block's InfoReadOnly words, in
+// order.
+func (b Block) ReadOnlyGlobs() []string {
+	var globs []string
+	for _, w := range b.Info {
+		if glob, ok := strings.CutPrefix(w, InfoReadOnly); ok && glob != "" {
+			globs = append(globs, glob)
+		}
+	}
+	return globs
+}
+
+// MarkedReadOnly reports whether one of the block's InfoReadOnly globs
+// matches name, a file's path as its `// FILE:` line writes it.
+func (b Block) MarkedReadOnly(name string) bool {
+	for _, glob := range b.ReadOnlyGlobs() {
+		if ok, _ := path.Match(glob, name); ok {
+			return true
+		}
+	}
+	return false
 }
 
 // ExtractBlocks returns every fenced ``` code block in markdown whose info

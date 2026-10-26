@@ -1,0 +1,11 @@
+// An `Exit` with code 0 ends the program successfully and still prints its
+// message; one with no message prints nothing.
+import {
+    std/io
+    std/process.Exit
+}
+
+fn main() -> Result<Unit, Exit> {
+    io.print("nothing to do")
+    Err(#Exit{code: 0, message: "done early"})
+}

@@ -645,7 +645,7 @@ func TestRunInputClassifies(t *testing.T) {
 		{"a failed test case", "test \"t\" {\n    assert 1 == 2\n}\n", runTrap, ""},
 		{"recursion past the budget", "import std/io\n\nfn spin(n: Int) -> Int {\n    spin(n + 1)\n}\n\nfn main() {\n    io.print(spin(0))\n}\n", runTooLong, "it may loop"},
 		{"pure std functions", "import std/io\n\nfn main() {\n    io.print(String.pad_start(\"7\", 3, \"0\"))\n    io.inspect(String.words(\"a b\"))\n    io.inspect(String.lines(\"a\\nb\"))\n}\n", runOK, ""},
-		{"a file read", "import std/io\n\nfn main() {\n    io.inspect(io.read_file(\"x\"))\n}\n", runSkipped, "it reaches outside the machine"},
+		{"a file read", "import {\n    std/fs\n    std/io\n}\n\nfn main() {\n    io.inspect(fs.read_text(\"x\"))\n}\n", runSkipped, "it reaches outside the machine"},
 		{"a rejection", "fn main() {\n    x = \n}\n", runSkipped, "the front end rejects it"},
 		{"a planted compile panic", "import std/io\n\nfn " + plantedTarget + "() -> Int {\n    1\n}\n\nfn main() {\n    io.print(" + plantedTarget + "())\n}\n", runCrash, ""},
 	}

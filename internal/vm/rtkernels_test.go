@@ -51,7 +51,7 @@ func TestRTKernels_RecordedRenderings(t *testing.T) {
 		{"large Float", 1e21, "1.0e21", "", "1.0e21", "", true},
 		{"NaN", math.NaN(), "NaN", "", "NaN", "", true},
 		{"Bool", true, "True", "", "True", "", true},
-		{"String", "a\"b\\c\td\n", "\"a\"b\\c\td\n\"", "a\"b\\c\td\n", "\"a\\\"b\\\\c\td\n\"", "", true},
+		{"String", "a\"b\\c\td\n", "\"a\\\"b\\\\c\\td\\n\"", "a\"b\\c\td\n", "\"a\\\"b\\\\c\\td\\n\"", "", true},
 		{"Byte", rt.Byte(7), "7", "", "7", "", true},
 		{"Bytes", rt.Bytes("\x01\xff"), "<<1, 255>>", "", "<<1, 255>>", "", true},
 		{"Unit", rt.Unit{}, "Unit", "", "Unit", "", true},

@@ -207,9 +207,9 @@ func TestRunWatch_RunsAgainOnEveryChange(t *testing.T) {
 
 	// A run waiting for input is stopped, and the line typed next is the
 	// next run's.
-	writeSource(t, app, "import std/io\n\nfn main() {\n  io.print(\"waiting\")\n  case io.read_line() {\n    Ok(line) -> io.print(\"got ${line}\")\n    Err(e) -> io.print(e)\n  }\n}\n")
+	writeSource(t, app, "import std/io\n\nfn main() {\n  io.print(\"waiting\")\n  case io.read_line() {\n    Ok(Some(line)) -> io.print(\"got ${line}\")\n    _ -> io.print(\"eof\")\n  }\n}\n")
 	at = out.await(t, ctx, at, "running again\nwaiting\n")
-	writeSource(t, app, "import std/io\n\nfn main() {\n  io.print(\"reading again\")\n  case io.read_line() {\n    Ok(line) -> io.print(\"got ${line}\")\n    Err(e) -> io.print(e)\n  }\n}\n")
+	writeSource(t, app, "import std/io\n\nfn main() {\n  io.print(\"reading again\")\n  case io.read_line() {\n    Ok(Some(line)) -> io.print(\"got ${line}\")\n    _ -> io.print(\"eof\")\n  }\n}\n")
 	at = out.await(t, ctx, at, "app.nomi changed; running again\nreading again\n")
 	if _, err := io.WriteString(typed, "typed\n"); err != nil {
 		t.Fatal(err)

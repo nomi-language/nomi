@@ -42,7 +42,7 @@ func TestVMTupleDebug_ComposesDebugAndRejectsUnsupportedChildren(t *testing.T) {
 	}{
 		{"empty", nil, "#()"},
 		{"singleton", []any{int64(1)}, "#(1)"},
-		{"nested and escaping", []any{rtTuple("a\nb", "a\"b"), int64(42)}, "#(#(\"a\nb\", \"a\\\"b\"), 42)"},
+		{"nested and escaping", []any{rtTuple("a\nb", "a\"b"), int64(42)}, "#(#(\"a\\nb\", \"a\\\"b\"), 42)"},
 		{"unsupported child", []any{int64(1), rtStruct("Point")}, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -89,6 +89,11 @@ binary, so `0.1 + 0.2` is not quite `0.3`.
 exactly. Use it when a rounding error would be a bug, as with money. A
 decimal literal ends in `d`.
 
+`Decimal` has `+`, `-` and `*` but no `/`, since 10 divided by 3 never ends
+in base 10. `Decimal.divide(10d, 3d, 2, RoundingMode.HalfEven)` rounds to the
+number of digits and the rounding you name, and `Decimal.divide_exact(10d, 4d)`
+returns `Some(2.5d)`, or `None` when the quotient never ends.
+
 ## Strings — interpolation and concatenation
 
 ```nomi-run

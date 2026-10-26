@@ -59,7 +59,7 @@ const (
 //
 // Examples of what does (✓) and doesn't (✗) match:
 //
-//	io.print(1d / 0d) // expect runtime-error: decimal …   ✓
+//	io.print(1 / 0) // expect runtime-error: division …    ✓
 //	  // expect type-error: refutable pattern…             ✓
 //	// The `// expect runtime-error:` directive below…     ✗  (inside prose)
 //	/// doc `// expect runtime-error:` …                   ✗  (doc comment)

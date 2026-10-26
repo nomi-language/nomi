@@ -29,7 +29,7 @@ func irRetainedListKind(k kind) bool {
 // Debug, equality and patterns keep their narrower scalar-list checks.
 func irListTransportKind(k kind) bool {
 	return k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 &&
-		(irRetainedLeafKind(k.comp.parts[0]) || irListTransportKind(k.comp.parts[0]) || irRetainedVectorKind(k.comp.parts[0]) || irRetainedSetKind(k.comp.parts[0]) || irRetainedRecordKind(k.comp.parts[0]) || isDecimalKind(k.comp.parts[0]) || irNominalElemKind(k.comp.parts[0]) || irPreludeElemKind(k.comp.parts[0]) || irLeafTupleKind(k.comp.parts[0]) || irRetainedTupleKind(k.comp.parts[0]) || irListMapElemKind(k.comp.parts[0]) || irDynamicKind(k.comp.parts[0]) || irByteElemKind(k.comp.parts[0]) || irExistentialKind(k.comp.parts[0]) || irConcHandleKind(k.comp.parts[0]) || k.comp.parts[0] == kindUnit || (k.comp.parts[0].tag == tagFunc && irCallableValueKind(k.comp.parts[0])))
+		(irRetainedLeafKind(k.comp.parts[0]) || irListTransportKind(k.comp.parts[0]) || irRetainedVectorKind(k.comp.parts[0]) || irRetainedSetKind(k.comp.parts[0]) || irRetainedRecordKind(k.comp.parts[0]) || isDecimalKind(k.comp.parts[0]) || irNominalElemKind(k.comp.parts[0]) || irPreludeElemKind(k.comp.parts[0]) || irLeafTupleKind(k.comp.parts[0]) || irRetainedTupleKind(k.comp.parts[0]) || irListMapElemKind(k.comp.parts[0]) || irDynamicKind(k.comp.parts[0]) || irByteValueKind(k.comp.parts[0]) || irStreamKind(k.comp.parts[0]) || irExistentialKind(k.comp.parts[0]) || irConcHandleKind(k.comp.parts[0]) || k.comp.parts[0] == kindUnit || (k.comp.parts[0].tag == tagFunc && irCallableValueKind(k.comp.parts[0])))
 }
 
 // irByteElemKind is std's Byte as a list element (`Bytes.to_list`, a list

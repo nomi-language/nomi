@@ -198,10 +198,7 @@ func (c *checker) checkSelfCall(n *ast.Call) Type {
 	if argTy == nil {
 		return selfTy
 	}
-	line, col := nodeLineCol(n.Args[0])
-	if line == 0 {
-		line, col = n.Args[0].LineNum(), 1
-	}
+	line, col := startOf(n.Args[0])
 	matches := false
 	if ContainsTypeParam(inner) {
 		matches = c.unify(inner, argTy, map[*TypeParam_]Type{}) == nil

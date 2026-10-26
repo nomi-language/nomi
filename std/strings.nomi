@@ -409,9 +409,16 @@ impl String {
 
     /// `s` as a Nomi string literal that reads back as `s`: quoted, with
     /// `\n`, `\t`, `\\` and `\"` escaped, `\u{...}` for any other
-    /// character that is not printable (a carriage return is `\u{d}`), and
-    /// `${` written `\${`, so nothing in it interpolates. What a program
-    /// that writes Nomi source, such as a macro, writes a string with.
+    /// character that is not printable (a carriage return is `\u{d}`, a
+    /// no-break space `\u{a0}`), and `${` written `\${`, so nothing in it
+    /// interpolates. Letters, combining marks and emoji are written as they
+    /// are. So are the invisible characters that are part of something
+    /// visible: an emoji's zero-width joiners, variation selectors and tags
+    /// (`"👩‍💻"`), and a zero-width joiner or non-joiner between two
+    /// non-ASCII letters or marks, as in a Devanagari conjunct or a
+    /// Persian word. One anywhere else (`a\u{200d}b`, at either end, beside
+    /// a space) is escaped. What a program that writes Nomi source, such as
+    /// a macro, writes a string with, and a String's `Debug`.
     //! assert String.to_literal("a\tb") == "\"a\\tb\""
     //! assert String.to_literal("say \"hi\"") == "\"say \\\"hi\\\"\""
     //! assert String.to_literal("\${x} costs $5") == "\"\\\${x} costs $5\""
@@ -607,20 +614,13 @@ impl Summable for String {
 }
 
 impl Debug for String {
+    /// The string as a Nomi literal that reads back as it:
+    /// `String.to_literal`.
+    //! assert String.inspect("a\nb\tc") == "\"a\\nb\\tc\""
+    //! assert Debug.inspect(["x\ny"]) == "[\"x\\ny\"]"
+    //
     fn inspect(s: String) -> String {
-        escaped =
-            Iter.map(s, fn g -> {
-                if g == "\\" {
-                    "\\\\"
-                } else if g == "\"" {
-                    "\\\""
-                } else {
-                    g
-                }
-            })
-            |> String.join()
-
-        "\"" + escaped + "\""
+        String.to_literal(s)
     }
 }
 

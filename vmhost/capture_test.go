@@ -30,8 +30,8 @@ func TestCapture_RedirectsOnlyInsideTheCall(t *testing.T) {
 
 fn echo() -> Int {
     case io.read_line() {
-        Ok(line) -> io.print("got " + line)
-        Err(e) -> io.print("err " + e)
+        Ok(Some(line)) -> io.print("got " + line)
+        _ -> io.print("err eof")
     }
     _ = dbg 5
     7
@@ -185,12 +185,12 @@ fn main() {
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	want := "#Captured{value: 42, output: \"hi\", transcript: \"hi\"}\n" +
-		"dbg line 18: run = #Captured{value: 42, output: \"hi\", transcript: \"hi\"}\n" +
-		"[#Captured{value: 42, output: \"hi\", transcript: \"hi\"}]\n" +
-		"#Captured{value: #Point{x: 3}, output: \"\", transcript: \"\"}\n" +
+	want := "#Captured{value: 42, output: \"hi\", errors: \"\", transcript: \"hi\"}\n" +
+		"dbg line 18: run = #Captured{value: 42, output: \"hi\", errors: \"\", transcript: \"hi\"}\n" +
+		"[#Captured{value: 42, output: \"hi\", errors: \"\", transcript: \"hi\"}]\n" +
+		"#Captured{value: #Point{x: 3}, output: \"\", errors: \"\", transcript: \"\"}\n" +
 		"3|\n" +
-		"#(#Captured{value: Unit, output: \"u\", transcript: \"u\"}, #Captured{value: 42, output: \"hi\", transcript: \"hi\"})\n"
+		"#(#Captured{value: Unit, output: \"u\", errors: \"\", transcript: \"u\"}, #Captured{value: 42, output: \"hi\", errors: \"\", transcript: \"hi\"})\n"
 	if got != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", got, want)
 	}

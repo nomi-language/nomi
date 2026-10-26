@@ -144,10 +144,15 @@ func Main(opts ...Option) {
 		fmt.Fprintf(os.Stderr, "nomi: %v\n", err)
 		os.Exit(1)
 	}
+	// A page's `run` hands the program its files and takes them back
+	// (files_js.go); elsewhere both do nothing.
+	seedPageFiles()
 	if serveCalls(image, opts) {
 		return
 	}
-	os.Exit(Run(image, os.Stdout, os.Stderr, os.Stdin, args, true, opts...))
+	code := Run(image, os.Stdout, os.Stderr, os.Stdin, args, true, opts...)
+	returnPageFiles()
+	os.Exit(code)
 }
 
 // ProgramArgs answers the program's arguments: os.Args after the runner's own
@@ -259,7 +264,7 @@ func run(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string,
 	}
 	if failure != nil {
 		WriteFailure(stderr, failure)
-		return 1
+		return vm.ExitCode(failure)
 	}
 	return 0
 }
@@ -354,6 +359,15 @@ func WriteBlocked(w io.Writer, label string, reasons []string) {
 // diagnostics with their source lines, an assertion failure with its
 // operands and stages, anything else as its text.
 func WriteFailure(w io.Writer, err error) {
+	var exit *vm.Exit
+	if errors.As(err, &exit) {
+		// `Err(#Exit{...})` from main: its message alone, and nothing when
+		// it is empty.
+		if exit.Message != "" {
+			fmt.Fprintln(w, exit.Message)
+		}
+		return
+	}
 	var rd rt.Renderer
 	if errors.As(err, &rd) {
 		rd.Render(w)

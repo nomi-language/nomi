@@ -365,6 +365,9 @@ is printed with `Debug`.
 type is a compile error, because nothing would use the value. To show a value,
 print it with `io.print` and return `Ok(Unit)`.
 
+To exit with a status other than 1, return an `Exit` from `std/process`, as
+[Input & Output](/input-and-output/#exit-codes) shows.
+
 Inside a lambda, `try` returns from the lambda, not from the function around
 it, just as `return` does.
 

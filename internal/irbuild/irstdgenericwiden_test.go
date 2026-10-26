@@ -23,14 +23,14 @@ enum Shape {
 
 fn main() {
     c = #Circle{r: 2}
-    w: Captured<Shape> = #Captured{value: c, output: "", transcript: ""}
+    w: Captured<Shape> = #Captured{value: c, output: "", errors: "", transcript: ""}
     io.inspect(w)
-    k: Vector<Captured<Shape>> = #[#Captured{value: c, output: "", transcript: ""}]
+    k: Vector<Captured<Shape>> = #[#Captured{value: c, output: "", errors: "", transcript: ""}]
     io.print(Vector.length(k))
-    ka = #Captured{value: c, output: "", transcript: ""}
-    kb = #Captured{value: Shape.Dot, output: "", transcript: ""}
+    ka = #Captured{value: c, output: "", errors: "", transcript: ""}
+    kb = #Captured{value: Shape.Dot, output: "", errors: "", transcript: ""}
     io.print(Vector.length(#[ka, kb]))
 }
 `
-	irRunSource(t, src, "#Captured{value: #Circle{r: 2}, output: \"\", transcript: \"\"}\n1\n2\n")
+	irRunSource(t, src, "#Captured{value: #Circle{r: 2}, output: \"\", errors: \"\", transcript: \"\"}\n1\n2\n")
 }

@@ -335,6 +335,34 @@ func TestRunWeb_BrokenAtStart(t *testing.T) {
 	s.stop()
 }
 
+// TestRunWeb_GoBindings serves a project with Go bindings, whose app.wasm
+// links them, and rebuilds when its Go file changes.
+func TestRunWeb_GoBindings(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; builds a js/wasm runner with Go bindings; -short")
+	}
+	tmp := t.TempDir()
+	env := append(webFFIEnv(t), "TMPDIR="+tmp)
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "go.mod"), "module answer\n\n"+repoGoLine(t)+"\n")
+	goFile := filepath.Join(dir, "answer.go")
+	mustWrite(t, goFile, "package answer\n\nfunc Answer() int64 {\n\treturn 41\n}\n")
+	entry := filepath.Join(dir, "main.nomi")
+	mustWrite(t, entry, "import std/io\n\ngopkg \"answer\"\n\nfn answer() -> Int go answer.Answer\n\nfn main() {\n    io.print(answer())\n}\n")
+	s := startWebServer(t, env, entry)
+	if state := s.next(); state != (webState{Build: 1}) {
+		t.Fatalf("first state %+v, want build 1 and no error", state)
+	}
+	if module, typ := s.get("app.wasm"); typ != "application/wasm" || len(module) < 1<<20 {
+		t.Fatalf("/app.wasm: %d bytes of %s", len(module), typ)
+	}
+	mustWrite(t, goFile, "package answer\n\nfunc Answer() int64 {\n\treturn 42\n}\n")
+	if state := s.next(); state != (webState{Build: 2}) {
+		t.Fatalf("after the Go edit: %+v, want build 2", state)
+	}
+	s.stop()
+}
+
 // TestRunWeb_Refusals checks what `nomi run --web` refuses before it
 // serves anything.
 func TestRunWeb_Refusals(t *testing.T) {
@@ -343,12 +371,10 @@ func TestRunWeb_Refusals(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, "a_test.nomi"), "test \"x\" {\n}\n")
 	mustWrite(t, filepath.Join(dir, "site", "a.nomi"), "fn main() {\n}\n")
 	mustWrite(t, filepath.Join(dir, "site", "web", "app.wasm"), "mine")
-	project := filepath.Join(repoRoot(t), "cmd", "nomi", "testdata", "go_bindings")
 	for _, c := range []struct {
 		args []string
 		want string
 	}{
-		{[]string{"run", "--web", filepath.Join(project, "main.nomi")}, "nomi run --web: this project has Go bindings, and the browser build cannot link them"},
 		{[]string{"run", "--web", filepath.Join(dir, "missing.nomi")}, "nomi run: " + filepath.Join(dir, "missing.nomi") + ": no such file or directory"},
 		{[]string{"run", "--web", filepath.Join(dir, "a_test.nomi")}, "is a test file; use `nomi test"},
 		{[]string{"run", "--open", filepath.Join(dir, "a.nomi")}, "--port, --open and --static need --web"},

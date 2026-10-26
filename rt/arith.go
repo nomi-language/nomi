@@ -66,6 +66,12 @@ func divByZeroText(line int) string {
 	return fmt.Sprintf("line %d: division by zero", line)
 }
 
+// divByZeroMessage is divByZeroText without its position. A host function's
+// trap carries no line and the VM writes the call's in front, so
+// `Decimal.divide_exact` trapping with it reads as Int's `/` does.
+// TestDivByZeroMessageIsTheIntText holds the two to one text.
+const divByZeroMessage = "division by zero"
+
 // A fault's line is the source line of the operator, passed in by the caller
 // rather than recovered from the frame or the Go stack. That is what makes
 // `fn add(a, b) { a + b }` report the line of `a + b` and not the line of the
@@ -101,7 +107,7 @@ func WrapMulInt(a, b int64) int64 { return a * b }
 // --- Float arithmetic ------------------------------------------------------
 
 // FloatModuloText is the fault `%` on Float reports. Exported for the reason
-// the three Decimal texts below are: a caller that needs the string rather
+// DecimalModuloText below is: a caller that needs the string rather
 // than the trap (internal/vm does) calls this instead of retyping it.
 func FloatModuloText(line int) string {
 	return fmt.Sprintf("line %d: modulo not supported on floats", line)
@@ -117,33 +123,17 @@ func FloatModuloError(line int) error { return positioned(line, FloatModuloText(
 // and a product's is the sum of them. There is deliberately no wrapping form
 // and no overflow check, which is why the type exists beside Int.
 //
-// `/` is exact-or-trap: a quotient with a
-// terminating base-10 expansion is returned at its preferred scale, and one
-// without — `10d / 3d` — is a trap naming `Decimal.divide`, because silently
-// choosing a precision is how money code acquires a rounding policy nobody
-// wrote down. A zero divisor is a distinct fault from a non-terminating one and
-// says so.
+// There is no `/`. Whether an exact quotient terminates depends on the
+// divisor's value, so an operator that trapped on `10d / 3d` would pass tests
+// that divide by 2 and stop in production on 3. Division is `Decimal.divide`,
+// which names its rounding, or `Decimal.divide_exact` (decimalstd.go), which
+// answers None for a quotient that does not terminate.
 //
-// These carry the same `line int` as the Int family and for the same reason:
-// a fault blames the operator, so the caller passes the operator's own line.
-// The three fault texts below live here once. `internal/vm`'s
+// ModDecimal carries the same `line int` as the Int family and for the same
+// reason: a fault blames the operator, so the caller passes the operator's
+// own line. Its fault text lives here once. `internal/vm`'s
 // `TestTrapText_OneHomePerText` derives every `line %d:` text this package
 // declares and fails if the VM spells one a second time.
-
-// DecimalDivByZeroText is the fault a zero Decimal divisor reports. Distinct
-// from divByZeroText: Int's `/` says "division by zero", and a Decimal program
-// that hit the Int text would be told about the wrong type.
-func DecimalDivByZeroText(line int) string {
-	return fmt.Sprintf("line %d: decimal division by zero", line)
-}
-
-// DecimalNonTerminatingText is the fault an inexact Decimal `/` reports. It
-// names the escape hatch, because the fault is not that the program is wrong
-// but that it has not said which rounding it wants.
-func DecimalNonTerminatingText(line int) string {
-	return fmt.Sprintf("line %d: non-terminating decimal division; use "+
-		"Decimal.divide(a, b, scale, mode) for explicit rounding", line)
-}
 
 // DecimalModuloText is the fault `%` on Decimal reports. The checker rejects it,
 // so this is the runtime backstop, kept because it costs one function.
@@ -159,20 +149,6 @@ func SubDecimal(a, b Decimal) Decimal { return a.Sub(b) }
 
 // MulDecimal is Nomi's `*` on Decimal. Exact; never fails.
 func MulDecimal(a, b Decimal) Decimal { return a.Mul(b) }
-
-// DivDecimal is Nomi's `/` on Decimal: exact, or a trap naming the explicit
-// path. Not the same shape as Float's `/`, which cannot fail, nor as Int's,
-// which fails only on a zero divisor or the one overflowing pair.
-func DivDecimal(a, b Decimal, line int) Decimal {
-	if b.IsZero() {
-		trapAt(line, DecimalDivByZeroText(line))
-	}
-	q, exact := a.DivExact(b)
-	if !exact {
-		trapAt(line, DecimalNonTerminatingText(line))
-	}
-	return q
-}
 
 // NegDecimal is Nomi's unary `-` on Decimal.
 //

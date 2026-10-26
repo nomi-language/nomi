@@ -1,0 +1,127 @@
+//# The Go-backed half of std/fs and std/fs_testing: each crossing into
+//# the file system the running call reaches (internal/stdio). It is
+//# internal; a program imports std/fs, which builds its values from these
+//# and gives them their documentation.
+
+import {
+    bool.Bool
+    bytes.Bytes
+    int.Int
+    io.{Error, File, Reader, Writer}
+    lists.List
+    maps.Map
+    results.Result
+    strings.String
+    unit.Unit
+}
+
+/// The whole file at `path`.
+pub host fn read(path: String) -> Result<Bytes, Error>
+
+/// The whole file at `path` as text.
+pub host fn read_text(path: String) -> Result<String, Error>
+
+/// `data` into `path`, in the write mode at position `mode` of
+/// `fs.WriteMode` (Replace 0, ReplaceAtomically 1, Append 2, New 3).
+pub host fn write(path: String, data: Bytes, mode: Int) -> Result<Unit, Error>
+
+/// A reader over the file at `path`.
+pub host fn open(path: String) -> Result<Reader, Error>
+
+/// A writer over the file at `path`, in the write mode at position `mode`.
+pub host fn create(path: String, mode: Int) -> Result<Writer, Error>
+
+/// Gives up a writer still open: an atomic write leaves the old file as it
+/// was, and any other writer is closed. A closed writer is left alone.
+pub host fn discard(w: Writer) -> Unit
+
+/// The entries of `dir`, sorted by name, each its kind's letter (`f`, `d`,
+/// `l`, `o`) and its name, or `!` and the name with U+FFFD for each bad
+/// sequence when it is not UTF-8.
+pub host fn list(dir: String) -> Result<List<String>, Error>
+
+pub host fn create_dir(path: String, parents: Bool) -> Result<Unit, Error>
+
+pub host fn remove(path: String) -> Result<Unit, Error>
+
+pub host fn remove_all(path: String) -> Result<Unit, Error>
+
+pub host fn rename(from: String, to: String) -> Result<Unit, Error>
+
+pub host fn copy(from: String, to: String) -> Result<Unit, Error>
+
+/// The kind's position in `fs.Kind`, the size, the modification time in
+/// nanoseconds since the Unix epoch, and the permission bits.
+pub host fn metadata(path: String) -> Result<List<Int>, Error>
+
+/// As `metadata`, describing a symlink at `path` as itself.
+pub host fn link_metadata(path: String) -> Result<List<Int>, Error>
+
+/// A symlink at `path` whose target is `target`.
+pub host fn create_symlink(path: String, target: String) -> Result<Unit, Error>
+
+/// The target of the symlink at `path`.
+pub host fn read_link(path: String) -> Result<String, Error>
+
+/// The permission bits of what `path` names become `mode`.
+pub host fn set_mode(path: String, mode: Int) -> Result<Unit, Error>
+
+/// A file on `path` for reads and writes at a position, opened as the
+/// access at position `access` of `fs.Access` (Read 0, ReadWrite 1,
+/// Create 2).
+pub host fn open_file(path: String, access: Int) -> Result<File, Error>
+
+/// The file system the running call reaches, confined to `dir`.
+pub host fn within(dir: String) -> Result<FileSystem, Error>
+
+/// Lets go of a file system `within` made.
+pub host fn release(files: FileSystem) -> Unit
+
+pub host fn temp_dir() -> String
+
+/// A fresh directory under the temporary directory.
+pub host fn make_temp_dir() -> Result<String, Error>
+
+pub host fn current_dir() -> Result<String, Error>
+
+/// A file system a call runs against: an in-memory one for
+/// `fs_testing.run`, or a directory `fs.within` confines a call to.
+pub host type FileSystem
+
+/// A sandbox whose working directory is `cwd`, holding `files`, `dirs`
+/// and the symlinks `links` maps to their targets.
+pub host fn new_sandbox(
+    cwd: String,
+    files: Map<String, Bytes>,
+    dirs: List<String>,
+    links: Map<String, String>,
+) -> FileSystem
+
+/// The `nth` operation at position `operation` of `fs_testing.Operation`,
+/// from 1, on `path` fails with `error`; every one when `nth` is 0.
+pub host fn sandbox_fail(
+    sandbox: FileSystem,
+    path: String,
+    operation: Int,
+    error: Error,
+    nth: Int,
+) -> Unit
+
+/// Every file in the sandbox, by absolute path.
+pub host fn sandbox_files(sandbox: FileSystem) -> Map<String, Bytes>
+
+/// Each operation on the sandbox, in order.
+pub host fn sandbox_log(sandbox: FileSystem) -> List<String>
+
+/// The handles on the sandbox still open.
+pub host fn sandbox_open(sandbox: FileSystem) -> List<String>
+
+/// Runs `body` with `files` as the file system every `std/fs` call in it
+/// reaches, its tasks' included, and answers what it returned.
+pub fn run_in<T>(files: FileSystem, body: () -> T) -> T {
+    run_on(files, body, fn value -> value)
+}
+
+/// Calls `body` on a frame that reaches `files` and hands its value to
+/// `finish` on the caller's. Answered by the VM.
+host fn run_on<T>(files: FileSystem, body: () -> T, finish: (T) -> T) -> T

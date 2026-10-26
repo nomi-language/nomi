@@ -479,6 +479,7 @@ float.nomi:float.Float.parse_in arity 2	ran
 float.nomi:float.Float.parse_in default 3	ran
 float.nomi:float.Float.parse_percent_in arity 2	ran
 float.nomi:float.Float.parse_percent_in default 3	ran
+fs_host.nomi:FileSystem.inspect	ran
 instant.nomi:Instant.Add<Duration, Instant>.add	ran
 instant.nomi:Instant.Subtract<Duration, Instant>.subtract	ran
 instant.nomi:Instant.Subtract<Instant, Duration>.subtract	ran
@@ -522,8 +523,21 @@ int.nomi:int.Int.parse_in default 3	ran
 io.nomi:Error.equal?	ran
 io.nomi:Error.inspect	ran
 io.nomi:Error.to_string	ran
+io.nomi:File.close_quietly	ran
+io.nomi:File.inspect	ran
+io.nomi:File.read	ran
+io.nomi:Reader.close_quietly	ran
+io.nomi:Reader.inspect	ran
+io.nomi:Reader.read	ran
 io.nomi:Replayed.failure	ran
 io.nomi:Replayed.inspect	ran
+io.nomi:Writer.close_quietly	ran
+io.nomi:Writer.inspect	ran
+io.nomi:code_text	ran
+io.nomi:io.File.read arity 1	ran
+io.nomi:io.File.read default 2	ran
+io.nomi:io.Reader.read arity 1	ran
+io.nomi:io.Reader.read default 2	ran
 io.nomi:replay_reason	ran
 json.nomi:Bool.from_json	ran
 json.nomi:Bool.to_json	ran

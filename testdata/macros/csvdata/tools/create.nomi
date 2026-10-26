@@ -1,7 +1,10 @@
 // `nomi tool csvdata create <file.csv>...`: write each table that does
 // not exist yet with a header and no rows, what the quick fix for a
 // missing table runs.
-import std/io
+import {
+    std/fs
+    std/io
+}
 
 struct App {
     files: List<String>
@@ -21,11 +24,12 @@ fn create(paths: List<String>) -> Result<Unit, String> {
             Ok(Unit)
 
         [path, ..rest] -> {
-            if Result.ok?(io.read_file(path)) {
+            if fs.exists?(path) == Ok(True) {
                 io.print("${path} exists")
             } else {
                 written =
-                    io.write_file(path, "key,value\n") |> Result.map_err(fn e -> "${path}: ${e}")
+                    fs.write_text(path, "key,value\n", mode: .New)
+                    |> Result.map_err(fn e -> "${path}: ${e}")
 
                 try written
                 io.print("created ${path}")

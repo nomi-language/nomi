@@ -511,7 +511,7 @@ func (bl *irScalarBuilder) effectFree(t ir.Temp) bool {
 // Prelude wrappers can carry one represented user enum. Its own payloads are
 // scalar leaves, so this does not recursively admit nominal layouts.
 func irRetainedPreludePayload(k kind) bool {
-	if k == kindUnit || irRetainedRangeKind(k) || irByteValueKind(k) || isDecimalKind(k) || irHostHandleKind(k) || irDynamicKind(k) || irStdMarkerKind(k) || irRetainedLeafKind(k) || irRetainedListKind(k) || irRetainedVectorKind(k) || irLeafTupleKind(k) {
+	if k == kindUnit || irRetainedRangeKind(k) || irByteValueKind(k) || isDecimalKind(k) || irHostHandleKind(k) || irStreamKind(k) || irDynamicKind(k) || irStdMarkerKind(k) || irRetainedLeafKind(k) || irRetainedListKind(k) || irRetainedVectorKind(k) || irLeafTupleKind(k) {
 		return true
 	}
 	if irRetainedTupleKind(k) {

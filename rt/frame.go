@@ -113,6 +113,11 @@ type Frame struct {
 	// Dynamic context like `scope`, carried to every child frame and task
 	// frame. See capture.go.
 	capture *Capture
+	// files is the file system std/fs reaches from this lineage when a call
+	// replaced it (`fs_testing.run`, `fs.within`: an rt.FileSystem), or nil
+	// for the machine's own. Dynamic
+	// context like capture, and carried the same way. See files.go.
+	files   any
 	startup *Startup
 	// debug is a debugger's record of the thread this lineage runs on, or
 	// nil (internal/vm's debug.go). Every child frame on the same goroutine

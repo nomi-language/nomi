@@ -31,10 +31,10 @@ package vm
 // by name what only a dispatched impl can render (a named struct, a user
 // enum). Before it does either, it asks this machine's hook, which calls the
 // Debug impl the `ir.Render` names for a nominal value's type
-// (`debugImplHook`). A String is rt.DebugString: two escapes over grapheme
-// clusters, which is where the Row discipline (`rt.RowText`, no escaping)
-// disagrees with Debug; internal/ir/render.go records that disagreement and
-// five others, and rt/render_test.go pins all six.
+// (`debugImplHook`). A String is rt.StringLiteral, the literal
+// `String.to_literal` writes, which the Row discipline (`rt.RowText`) writes
+// too; internal/ir/render.go records where Row and Debug disagree, and
+// rt/render_test.go pins each.
 
 import (
 	"fmt"

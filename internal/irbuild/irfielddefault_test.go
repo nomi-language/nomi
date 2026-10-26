@@ -63,7 +63,7 @@ fn main() {
   dbg #Point{x: -1, label: "a\nb", ok: False}
 }
 `, "dbg line 7: #Point{x: 3} = #Point{x: 3, label: \"origin \\\"0\\\"\", ok: True}\n"+
-		"dbg line 8: #Point{x: -1, label: \"a\\nb\", ok: False} = #Point{x: -1, label: \"a\nb\", ok: False}\n")
+		"dbg line 8: #Point{x: -1, label: \"a\\nb\", ok: False} = #Point{x: -1, label: \"a\\nb\", ok: False}\n")
 }
 
 func TestIRNominalDebug_TourDbgKinds(t *testing.T) {

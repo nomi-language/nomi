@@ -9,7 +9,7 @@ import (
 
 // Hover on an operator: what it does at that site. An arithmetic operator
 // shows its operand and result types, what the operator does on them (Int
-// traps on overflow, Decimal division is exact or traps) and the impl the
+// traps on overflow, Decimal has no division) and the impl the
 // checker chose (FileAnalysis.OperatorImpls), named with its file. `==` and
 // `!=` say whether equality is structural or an `Equatable` impl's, the
 // ordering operators name the `Comparable` impl, `and` and `or` say when
@@ -169,7 +169,7 @@ func arithmeticNote(op string, t analysis.Type) string {
 		return "IEEE 754: never traps."
 	case analysis.TypeDecimal:
 		if op == "/" {
-			return "Exact or traps; use `Decimal.divide` to round."
+			return "Decimal has no `/`; use `Decimal.divide` to round or `Decimal.divide_exact`."
 		}
 		return "Exact: never rounds."
 	case analysis.TypeString:

@@ -1,0 +1,7 @@
+// An `Exit` with an empty message prints nothing to stderr; `code` defaults
+// to 1 when only the message is given, and here the code is given alone.
+import std/process.Exit
+
+fn main() -> Result<Unit, Exit> {
+    Err(#Exit{code: 7})
+}

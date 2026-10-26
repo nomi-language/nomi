@@ -8,6 +8,7 @@
 package highlight
 
 import (
+	"path/filepath"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -134,13 +135,20 @@ func (p *Program) File(name string) (ProgramFile, bool) {
 // parse) is analyzed alone, as a single-file snippet is, so a tab still
 // answers something while its text is broken. It answers nil only when lib
 // is nil.
-func AnalyzeProgram(marked string, lib *std.StdLib, macros analysis.MacroHost) *Program {
+//
+// A source that names modules is written under dir and analyzed from
+// there, as the run loads it (vmhost.LoadMarked); see analyzeFiles.
+func AnalyzeProgram(marked, dir string, lib *std.StdLib, macros analysis.MacroHost) *Program {
 	if lib == nil {
 		return nil
 	}
 	prog := &Program{files: map[string]ProgramFile{}}
 	project, err := virtualproject.FromMarkedSource(marked)
 	if err != nil {
+		return prog
+	}
+	if project.Files != nil {
+		analyzeFiles(prog, project, dir, lib, macros)
 		return prog
 	}
 	sources := map[string]string{project.EntryName: project.EntrySource}
@@ -183,6 +191,63 @@ func analyzeProject(project virtualproject.Project, macros analysis.MacroHost) (
 	})
 	p, _ = c.AnalyzeSource(project.EntryName, project.EntrySource, frontend.Mode{Tests: true})
 	return p
+}
+
+// analyzeFiles fills prog from a project that names modules, written
+// under dir: the entry's program, then each Nomi file it did not reach
+// (a file of another module, such as a macro's) as the entry of its own
+// module's program, and a file neither answers alone. Each is keyed by its
+// path from the root, as its tab names it.
+func analyzeFiles(prog *Program, project virtualproject.Project, dir string, lib *std.StdLib, macros analysis.MacroHost) {
+	root, err := project.Write(dir)
+	if err == nil {
+		analyzeFile := func(name string) (p *frontend.Project) {
+			defer func() {
+				if recover() != nil {
+					p = nil
+				}
+			}()
+			c := frontend.New(frontend.Config{Macros: macros})
+			p, _ = c.AnalyzeFileSource(filepath.Join(root, filepath.FromSlash(name)), project.Files[name], frontend.Mode{Tests: true})
+			return p
+		}
+		keep := func(p *frontend.Project, name string) {
+			prog.files[virtualproject.NormalizeModuleName(name)] = ProgramFile{Source: project.Files[name], FA: p.FA, Nodes: p.Nodes}
+			for _, f := range p.Files {
+				rel, err := filepath.Rel(root, f.Path)
+				if f.Path == "" || err != nil {
+					continue
+				}
+				rel = filepath.ToSlash(rel)
+				key := virtualproject.NormalizeModuleName(rel)
+				if _, done := prog.files[key]; done {
+					continue
+				}
+				if src, ok := project.Files[rel]; ok && f.FA != nil {
+					prog.files[key] = ProgramFile{Source: src, FA: f.FA, Nodes: f.Nodes}
+				}
+			}
+		}
+		if p := analyzeFile(project.EntryName); p != nil {
+			keep(p, project.EntryName)
+		}
+		for name := range project.Files {
+			if _, done := prog.files[virtualproject.NormalizeModuleName(name)]; done || !strings.HasSuffix(name, ".nomi") {
+				continue
+			}
+			if p := analyzeFile(name); p != nil {
+				keep(p, name)
+			}
+		}
+	}
+	for name, src := range project.Files {
+		key := virtualproject.NormalizeModuleName(name)
+		if _, done := prog.files[key]; done || !strings.HasSuffix(name, ".nomi") {
+			continue
+		}
+		fa, nodes := analyzeAlone(src, lib)
+		prog.files[key] = ProgramFile{Source: src, FA: fa, Nodes: nodes}
+	}
 }
 
 // analyzeAlone is AnalyzeNodes, answering no analysis when it panics.

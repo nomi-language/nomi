@@ -392,6 +392,12 @@ func hostModuleOf(nomiPath, importPath string) (dir, modPath, why string) {
 	if ffirun.IsStdPackage(importPath) {
 		return "", "std", ""
 	}
+	// An in-memory file's binding is answered by the host table its program
+	// is loaded with (the tour's linked Go, internal/tourgo), and the front
+	// end refuses one nothing answers.
+	if ffirun.InMemoryFile(nomiPath) {
+		return "", importPath, ""
+	}
 	root, ok := goModRootAbove(filepath.Dir(nomiPath))
 	if !ok {
 		return "", "", "no go.mod above the declaring file"

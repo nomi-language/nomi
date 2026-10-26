@@ -1,8 +1,11 @@
 package irbuild
 
 import (
+	"sync"
+
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/std"
 )
 
 // A `fn main` declared to return `Result<T, E>` fails when it returns
@@ -53,9 +56,36 @@ func (g *gen) irBuildMainFailure() {
 		return
 	}
 	errK := result.def.preludeArgs[1]
+	if isStdExitKind(errK) {
+		g.irMod.SetMainExit()
+	}
 	if sym := g.irBuildFailureRender(main, irMainFailureKey{main: main}, irMainFailureName, errK); sym != nil {
 		g.irMod.SetMainFailure(sym)
 	}
+}
+
+// stdExitDecl is std/process's `Exit` declaration in the process's one
+// stdlib analysis, which every program's lowering of std/process reads
+// (programStdModuleNodes), so a kind names it exactly when its def's
+// declaration is this node.
+var stdExitDecl = sync.OnceValue(func() *ast.StructDef {
+	for _, n := range std.Shared().Nodes["process"] {
+		if sd, isStruct := n.(*ast.StructDef); isStruct && sd.Name == "Exit" {
+			return sd
+		}
+	}
+	return nil
+})
+
+// isStdExitKind reports whether k is std/process's Exit, which a main or a
+// boot answers in its `Err` to choose the exit status. Identity is the
+// declaration: a program's own `Exit` is another type.
+func isStdExitKind(k kind) bool {
+	if k.tag != tagNamed || k.def == nil {
+		return false
+	}
+	decl, isStruct := k.def.decl.(*ast.StructDef)
+	return isStruct && decl != nil && decl == stdExitDecl()
 }
 
 // irBootFailureKey is the identity of an entry boot's `boot failure`
@@ -79,6 +109,9 @@ func (g *gen) irBuildBootFailure(fd *ast.FuncDef, errK kind) {
 	}
 	if sym := g.irBuildFailureRender(fd, irBootFailureKey{boot: fd}, irBootFailureName, errK); sym != nil {
 		g.irMod.SetBootFailure(boot, sym)
+		if isStdExitKind(errK) {
+			g.irMod.SetBootExit()
+		}
 	}
 }
 

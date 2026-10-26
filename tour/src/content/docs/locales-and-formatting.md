@@ -186,16 +186,17 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 8: Money.format(usd, Locale`en-US`, display: .Code) = "USD 5.00"
+dbg line 8: Money.format(usd, Locale`en-US`, display: .Code) = "USD\u{a0}5.00"
 dbg line 9: Money.format(usd, Locale`en-US`, display: .Name) = "5.00 US dollars"
 dbg line 10: Money.format(usd, Locale`en-CA`) = "US$5.00"
 dbg line 11: Money.format(usd, Locale`en-CA`, display: .Narrow) = "$5.00"
 -->
 
-Canadian English writes `US$` for the US dollar, since `$` alone would mean
-the Canadian dollar. `.Narrow` drops the `US`, for a page where the
-currency is clear. A [custom currency](/money/#custom-currencies) has no
-symbol or name in CLDR, so it is always shown by its code.
+After `USD` is a no-break space, which `dbg` writes `\u{a0}`. Canadian
+English writes `US$` for the US dollar, since `$` alone would mean the
+Canadian dollar. `.Narrow` drops the `US`, for a page where the currency is
+clear. A [custom currency](/money/#custom-currencies) has no symbol or name
+in CLDR, so it is always shown by its code.
 
 ## Dates and times
 

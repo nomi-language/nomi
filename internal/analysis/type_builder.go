@@ -1751,10 +1751,7 @@ func buildTypeAlias(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeAlias) []Typ
 				// Aliasing an alias: splice the inner bounds in.
 				ifaces = append(ifaces, t.Bounds...)
 			default:
-				errs = append(errs, TypeError{
-					Line: b.LineNum(), Col: 1,
-					Message: fmt.Sprintf("interface-bound alias entry must be an interface, got %s", resolved),
-				})
+				errs = append(errs, errAt(b, fmt.Sprintf("interface-bound alias entry must be an interface, got %s", resolved)))
 			}
 		}
 		ba := &BoundAliasType{Name_: n.Name, Bounds: ifaces}

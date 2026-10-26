@@ -145,6 +145,7 @@ var vmReportWithValueRows = []string{
 	"iter_operand_report.nomi",
 	"subtests_report.nomi",
 	"subtests_names_report.nomi",
+	"string_literal_report.nomi",
 }
 
 var vmReportWithSourceFragment = []string{
@@ -196,6 +197,7 @@ var vmReportWithSourceFragment = []string{
 	"iter_operand_report.nomi",
 	"pipe_stages.nomi",
 	"ordering.nomi",
+	"string_literal_report.nomi",
 }
 
 // vmReportRoots are the populations whose record ids are paths, with the

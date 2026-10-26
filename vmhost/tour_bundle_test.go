@@ -120,6 +120,7 @@ directory missing one of them was assembled some other way. Fix: %s`,
 //	highlights.scm        ../tree-sitter-nomi/queries/highlights.scm
 //	highlight.mjs         ../tour/src/lib/highlight.mjs
 //	run-worker.js         ../tour/src/lib/run-worker.js
+//	go-memfs.js           ../tour/src/lib/go-memfs.js
 //	tour-client.mjs       ../tour/src/lib/tour-client.mjs
 //
 // The wasm is staged gzipped because Cloudflare Pages refuses files over
@@ -161,6 +162,7 @@ func TestTourWasmBundleIsTheCurrentSources(t *testing.T) {
 		{"highlights.scm", "../tree-sitter-nomi/queries/highlights.scm", "the committed highlight queries"},
 		{"highlight.mjs", "../tour/src/lib/highlight.mjs", "the committed client highlighter"},
 		{"run-worker.js", "../tour/src/lib/run-worker.js", "the committed run worker"},
+		{"go-memfs.js", "../tour/src/lib/go-memfs.js", "the committed file system the worker gives Go"},
 		{"tour-client.mjs", "../tour/src/lib/tour-client.mjs", "the committed tour client"},
 	} {
 		c := c
@@ -387,10 +389,13 @@ func TestTourWasmAnswersTheTourBlocks(t *testing.T) {
 	type probe struct {
 		Name   string `json:"name"`
 		Source string `json:"source"`
+		// Expand asks for nomiExpand, as the page asks for a ```nomi-run
+		// expand block's output.
+		Expand bool `json:"expand,omitempty"`
 	}
 	probes := make([]probe, 0, len(blocks))
 	for _, b := range blocks {
-		probes = append(probes, probe{Name: b.name, Source: b.block.Code})
+		probes = append(probes, probe{Name: b.name, Source: b.block.Code, Expand: b.block.HasInfo(doctest.InfoExpand)})
 	}
 	answers := runUnderNode(t, node, probes)
 	if len(answers) != len(probes) {
@@ -404,6 +409,18 @@ func TestTourWasmAnswersTheTourBlocks(t *testing.T) {
 			t.Fatalf("answer %d is for %q, expected %q", i, got.Name, b.name)
 		}
 		t.Run(b.name, func(t *testing.T) {
+			if b.block.HasInfo(doctest.InfoExpand) {
+				// The output is the first tab's expansion, which
+				// TestTourDoctests holds vmhost.ExpandMarked to.
+				if got.Error != "" {
+					t.Errorf("block %s does not expand in the staged wasm: %s. Fix: %s", b.name, got.Error, rebuildInstruction)
+					return
+				}
+				if err := doctest.CheckOutput(b.block.Expected, got.Output); err != nil {
+					t.Errorf("STAGED TOUR WASM EXPANDS BLOCK %s TO SOMETHING ELSE THAN THE DOCS.\n\n%s\n\nFix: %s", b.name, err, rebuildInstruction)
+				}
+				return
+			}
 			if b.block.HasInfo(doctest.InfoError) {
 				// An error block fails on purpose: its expect block holds
 				// what the page shows, the compile error or the run's output
@@ -758,6 +775,7 @@ const { webcrypto } = require("node:crypto");
 if (!globalThis.crypto) globalThis.crypto = webcrypto;
 const dir = process.argv[2];
 require(path.join(dir, "wasm_exec.js")); // sets globalThis.Go
+require(path.join(dir, "go-memfs.js")); // the worker's file system for Go, as run-worker.js loads it
 const go = new Go();
 (async () => {
   const wasm = zlib.gunzipSync(fs.readFileSync(path.join(dir, "nomi.wasm.gz")));
@@ -774,7 +792,7 @@ const go = new Go();
         const md = globalThis.nomiHoverIn(p.source, p.hover.file, p.hover.line, p.hover.col);
         return { name: p.name, output: md, error: "" };
       }
-      const r = globalThis.nomiRun(p.source);
+      const r = p.expand ? globalThis.nomiExpand(p.source) : globalThis.nomiRun(p.source);
       return { name: p.name, output: r.output, error: r.error };
     } catch (err) {
       return { name: p.name, output: "", error: "host threw: " + String(err) };

@@ -1332,7 +1332,7 @@ func TestTestCommand_FailedReplayNumbersTheScript(t *testing.T) {
 fn main() {
     io.print("")
     io.print("What is the starting balance?")
-    balance = io.read_line() |> Result.with_default("0") |> String.to_int() |> Maybe.with_default(0)
+    balance = io.read_line() |> Result.with_default(None) |> Maybe.with_default("0") |> String.to_int() |> Maybe.with_default(0)
     io.print("Your starting balance is ${balance}")
     prompt(balance)
 }
@@ -1341,7 +1341,7 @@ fn prompt(balance: Int) {
     io.print("")
     io.print("Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)")
     case io.read_line() {
-        Ok(line) -> case String.split(line, " ") {
+        Ok(Some(line)) -> case String.split(line, " ") {
             ["deposit", n] -> case String.to_int(n) {
                 Some(amount) -> {
                     io.print("${amount} deposited, new balance is ${balance + amount}")
@@ -1351,7 +1351,7 @@ fn prompt(balance: Int) {
             }
             _ -> prompt(balance)
         }
-        Err(_) -> {}
+        _ -> {}
     }
 }
 
@@ -1460,8 +1460,8 @@ test "one line" {
 	for _, want := range []string{
 		"    assert n == 1_000\n    values:\n      n\n        = 999\nFAIL ",
 		"    assert n == limit\n    values:\n      n\n        = 999\n      limit\n        = 1000\nFAIL ",
-		"    assert out == \"a\\nc\" and True\n    values:\n      out\n        = \"a\nb\"\n      out == \"a\\nc\"\n        = False\nFAIL ",
-		"    refute out == \"a\\nb\"\n    values:\n      out\n        = \"a\nb\"\nFAIL ",
+		"    assert out == \"a\\nc\" and True\n    values:\n      out\n        = \"a\\nb\"\n      out == \"a\\nc\"\n        = False\nFAIL ",
+		"    refute out == \"a\\nb\"\n    values:\n      out\n        = \"a\\nb\"\nFAIL ",
 		"    assert out == \"abc\"\n    values:\n      out\n        = \"abc \"\ntest result:",
 	} {
 		if !strings.Contains(out, want) {

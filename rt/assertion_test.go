@@ -132,13 +132,13 @@ func TestRecordOperandSuppressesRedundantRows(t *testing.T) {
 	}
 }
 
-// TestInspectStringQuotes pins the one rendering rule rt owns for assertion
+// TestStringLiteralQuotes pins the one rendering rule rt owns for assertion
 // reports that Format* does not: a String shows its quotes, so a failing
 // comparison cannot be misread as being about an identifier. RowText calls
 // this rather than restating it.
-func TestInspectStringQuotes(t *testing.T) {
-	if got := InspectString("ok"); got != `"ok"` {
-		t.Fatalf("InspectString(%q) = %q", "ok", got)
+func TestStringLiteralQuotes(t *testing.T) {
+	if got := StringLiteral("ok"); got != `"ok"` {
+		t.Fatalf("StringLiteral(%q) = %q", "ok", got)
 	}
 }
 
@@ -181,7 +181,7 @@ func TestFormatListAndMapServeBothRenderings(t *testing.T) {
 	if got := FormatList(xs, FormatString); got != "[file.txt, b]" {
 		t.Fatalf("Display rendering = %q", got)
 	}
-	if got := FormatList(xs, InspectString); got != `["file.txt", "b"]` {
+	if got := FormatList(xs, StringLiteral); got != `["file.txt", "b"]` {
 		t.Fatalf("Inspect rendering = %q", got)
 	}
 
@@ -190,7 +190,7 @@ func TestFormatListAndMapServeBothRenderings(t *testing.T) {
 	if got := FormatMap(m, FormatString, FormatInt); got != "%{a => 1}" {
 		t.Fatalf("Display rendering = %q", got)
 	}
-	if got := FormatMap(m, InspectString, InspectInt); got != `%{"a" => 1}` {
+	if got := FormatMap(m, StringLiteral, InspectInt); got != `%{"a" => 1}` {
 		t.Fatalf("Inspect rendering = %q", got)
 	}
 }

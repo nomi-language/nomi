@@ -33,6 +33,7 @@ import (
 	"github.com/nomi-language/nomi/internal/expectation"
 	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/frontend"
+	"github.com/nomi-language/nomi/internal/tourgo"
 	"github.com/nomi-language/nomi/internal/vmcmd"
 	"github.com/nomi-language/nomi/std"
 	"github.com/nomi-language/nomi/vmhost"
@@ -426,22 +427,30 @@ func TestExpectation_Tour(t *testing.T) {
 // runs the program, then its tests, into the same buffer.
 func runTourBlock(b doctest.Block) (observed, bool) {
 	var out bytes.Buffer
-	entrySrc, entryName, virtualFiles, manifest, err := vmhost.SplitMultiFile(b.Code)
+	// The block's data files seed the in-memory file system it runs
+	// against, and a block that names modules is written as its files
+	// under a directory of its own, as the tour's runner does.
+	dir, err := os.MkdirTemp("", "nomi-tour-block-")
 	if err != nil {
 		return observed{stderr: err.Error() + "\n", exit: 1}, false
 	}
-	hasTests, err := vmhost.SourceContainsTests(entrySrc)
+	defer os.RemoveAll(dir)
+	// Its `go` bindings, answered by the Go the tour links (internal/tourgo).
+	hosts, err := tourgo.MarkedHosts(b.Code)
 	if err != nil {
 		return observed{stderr: err.Error() + "\n", exit: 1}, false
 	}
-	p, err := vmhost.LoadSource(entryName, entrySrc,
-		vmhost.WithVirtualFiles(virtualFiles), vmhost.WithVirtualManifest(manifest))
+	p, hasTests, err := vmhost.LoadMarked(b.Code, dir, vmhost.WithHosts(hosts))
 	if err != nil {
 		return observed{stdout: out.String(), stderr: err.Error() + "\n", exit: 1}, hasTests
 	}
+	// What the program writes to standard error (io.eprint) is part of its
+	// transcript, ahead of any failure the run ends with.
+	var errOut bytes.Buffer
+	p.SetErrorOutput(&errOut)
 	if err := p.Run(context.Background(), &out, nil, false); err != nil {
-		var errOut bytes.Buffer
 		if blocked, ok := vmhost.IsBlocked(err); ok {
+			_, entryName, _, _, _ := vmhost.SplitMultiFile(b.Code)
 			blocked.Write(&errOut, entryName)
 		} else {
 			vmhost.WriteFailure(&errOut, err)
@@ -449,7 +458,7 @@ func runTourBlock(b doctest.Block) (observed, bool) {
 		return observed{stdout: out.String(), stderr: errOut.String(), exit: 1}, hasTests
 	}
 	if !hasTests {
-		return observed{stdout: out.String()}, false
+		return observed{stdout: out.String(), stderr: errOut.String()}, false
 	}
 	rep := vmhost.NewTestReport(&out)
 	for _, c := range p.Cases(&out, vmhost.TestOptions{}) {
@@ -503,6 +512,7 @@ var failureFixtures = []string{
 	"siblings/report_test.nomi",
 	"std_enum_modes.nomi",
 	"stdlib_trap_tests.nomi",
+	"string_literal_report.nomi",
 	"subtests_names_report.nomi",
 	"subtests_report.nomi",
 	"tests_attached.nomi",

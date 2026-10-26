@@ -1,0 +1,6 @@
+// An exit code an exit status cannot hold is a trap, and the program exits 1.
+import std/process.Exit
+
+fn main() -> Result<Unit, Exit> {
+    Err(#Exit{code: 256, message: "too big"})
+}

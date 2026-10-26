@@ -5,9 +5,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/nomi-language/nomi/internal/doctest"
+	"github.com/nomi-language/nomi/internal/tourgo"
+	"github.com/nomi-language/nomi/internal/virtualproject"
 	"github.com/nomi-language/nomi/vmhost"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -22,7 +25,9 @@ import (
 // which fails on purpose: it must fail to compile, or compile and stop while
 // it runs, and its expect block holds what the tour shows (the compile
 // error, or the output then the failure: doctest.Shown). A ```nomi-run no-run
-// block must compile and is not run. Any other info word fails. Plain
+// block must compile and is not run. A `read-only:<glob>` word marks data
+// files the run must not read, and the run must read every data file not
+// marked (checkTourReads). Any other info word fails. Plain
 // ```nomi blocks are highlighted-only snippets.
 // Content lives in the Astro Starlight site at tour/src/content/docs/.
 //
@@ -65,8 +70,16 @@ func TestTourDoctests(t *testing.T) {
 			b := b
 			name := fmt.Sprintf("%s:'L%d", filepath.Base(chapter), b.Line)
 			if unknown := b.UnknownInfo(); len(unknown) > 0 {
-				t.Errorf("%s: ```nomi-run carries %q; the words a tour block may carry are %q and %q",
-					name, unknown, doctest.InfoError, doctest.InfoNoRun)
+				t.Errorf("%s: ```nomi-run carries %q; the words a tour block may carry are %q",
+					name, unknown, doctest.InfoWords())
+				continue
+			}
+			if msg := readOnlyGlobErrors(b); msg != "" {
+				t.Errorf("%s: %s", name, msg)
+				continue
+			}
+			if b.HasInfo(doctest.InfoExpand) {
+				t.Run(name, func(t *testing.T) { checkTourExpandBlock(t, b) })
 				continue
 			}
 			if b.HasInfo(doctest.InfoError) {
@@ -75,7 +88,7 @@ func TestTourDoctests(t *testing.T) {
 			}
 			if b.HasInfo(doctest.InfoNoRun) {
 				t.Run(name, func(t *testing.T) {
-					if msg := tourCompileError(b.Code); msg != "" {
+					if msg := tourCompileError(t, b.Code); msg != "" {
 						t.Fatalf("a no-run tour block must compile:\n%s\n\nerror:\n%s", b.Code, msg)
 					}
 					if b.Expected != nil {
@@ -86,26 +99,24 @@ func TestTourDoctests(t *testing.T) {
 			}
 			runnable++
 			t.Run(name, func(t *testing.T) {
+				files, data := tourFileSystem(t, b)
 				var out bytes.Buffer
 				// Mirror the tour playground: `// FILE: <name>` markers
-				// split the block into virtual sibling files (plus an
-				// optional `// FILE: nomi.toml` manifest); with no
-				// markers, the block is a single-file program.
-				entrySrc, entryName, virtualFiles, manifest, splitErr := vmhost.SplitMultiFile(b.Code)
-				if splitErr != nil {
-					t.Fatalf("SplitMultiFile failed for tour block:\n%s\n\nerror: %v", b.Code, splitErr)
-				}
-				hasTests, err := vmhost.SourceContainsTests(entrySrc)
-				if err != nil {
-					t.Fatalf("SourceContainsTests failed for tour block:\n%s\n\nerror: %v", b.Code, err)
-				}
+				// split the block into files (vmhost.LoadMarked, as the
+				// playground's nomiRun loads it); with no markers, the
+				// block is a single-file program.
 				// The VM, as the playground's nomiRun runs a block: one
 				// lowering serves the program and its tests.
-				p, err := vmhost.LoadSource(entryName, entrySrc,
-					vmhost.WithVirtualFiles(virtualFiles),
-					vmhost.WithVirtualManifest(manifest))
+				// Standard error interleaves with the output, as the tour's
+				// runner shows it (cmd/nomi-wasm's nomiRun).
+				// Its `go` bindings, as the playground answers them.
+				hosts, err := tourgo.MarkedHosts(b.Code)
 				if err != nil {
-					t.Fatalf("LoadSource failed for tour block:\n%s\n\nerror: %v", b.Code, err)
+					t.Fatalf("the tour links no Go for this block's bindings:\n%s\n\nerror: %v", b.Code, err)
+				}
+				p, hasTests, err := vmhost.LoadMarked(b.Code, t.TempDir(), vmhost.WithHosts(hosts), vmhost.WithErrorOutput(&out), vmhost.WithFileSystem(files))
+				if err != nil {
+					t.Fatalf("LoadMarked failed for tour block:\n%s\n\nerror: %v", b.Code, err)
 				}
 				// A run that stops (a `todo` reached, a trap, an `Err` from
 				// main) is compared as the tour shows it: the output, then
@@ -148,6 +159,7 @@ func TestTourDoctests(t *testing.T) {
 					}
 					t.Fatalf("tour block output mismatch:\n%s\n\n%s", b.Code, err)
 				}
+				checkTourReads(t, b, files, data)
 			})
 		}
 	}
@@ -162,9 +174,9 @@ func TestTourDoctests(t *testing.T) {
 // line for line: the compile error, or the run's output then its failure.
 func checkTourErrorBlock(t *testing.T, b doctest.Block) {
 	t.Helper()
-	msg := tourCompileError(b.Code)
+	msg := tourCompileError(t, b.Code)
 	if msg == "" {
-		msg = tourRunFailure(t, b.Code)
+		msg = tourRunFailure(t, b)
 	}
 	if msg == "" {
 		t.Fatalf("an error tour block compiles and runs; drop `error` from its fence or make it fail again:\n%s", b.Code)
@@ -180,22 +192,45 @@ func checkTourErrorBlock(t *testing.T, b doctest.Block) {
 	}
 }
 
+// checkTourExpandBlock holds a ```nomi-run expand block to what the tour
+// shows for it: what `nomi expand` prints for its first tab.
+func checkTourExpandBlock(t *testing.T, b doctest.Block) {
+	t.Helper()
+	if b.HasInfo(doctest.InfoError) || b.HasInfo(doctest.InfoNoRun) {
+		t.Fatalf("an expand tour block shows an expansion, which neither fails nor goes unrun; drop `error` and `no-run`:\n%s", b.Code)
+	}
+	text, err := vmhost.ExpandMarked(b.Code, t.TempDir())
+	if err != nil {
+		t.Fatalf("an expand tour block does not expand:\n%s\n\nerror: %v", b.Code, err)
+	}
+	if strings.Contains(text, "-->") {
+		t.Fatalf("the expansion holds `-->`, which would end the hidden <!-- expect --> comment in the page:\n%s", text)
+	}
+	if b.Expected == nil {
+		t.Fatalf("an expand tour block needs a hidden <!-- expect ... --> block holding its expansion:\n%s\n\nexpansion:\n%s", b.Code, text)
+	}
+	if err := doctest.CheckOutput(b.Expected, text); err != nil {
+		t.Fatalf("an expand tour block expands to something else:\n%s\n\n%s\n\nthe whole expansion:\n%s", b.Code, err, text)
+	}
+}
+
 // tourRunFailure runs a block that compiles and answers what the tour shows
 // when the run stops (the output, then the failure), or "" when it runs to
 // the end.
-func tourRunFailure(t *testing.T, code string) string {
+func tourRunFailure(t *testing.T, b doctest.Block) string {
 	t.Helper()
-	entrySrc, entryName, virtualFiles, manifest, err := vmhost.SplitMultiFile(code)
-	if err != nil {
-		t.Fatalf("SplitMultiFile failed for tour block:\n%s\n\nerror: %v", code, err)
-	}
-	p, err := vmhost.LoadSource(entryName, entrySrc,
-		vmhost.WithVirtualFiles(virtualFiles),
-		vmhost.WithVirtualManifest(manifest))
-	if err != nil {
-		t.Fatalf("LoadSource failed for tour block:\n%s\n\nerror: %v", code, err)
-	}
+	code := b.Code
+	files, data := tourFileSystem(t, b)
+	defer checkTourReads(t, b, files, data)
 	var out bytes.Buffer
+	hosts, err := tourgo.MarkedHosts(code)
+	if err != nil {
+		t.Fatalf("the tour links no Go for this block's bindings:\n%s\n\nerror: %v", code, err)
+	}
+	p, _, err := vmhost.LoadMarked(code, t.TempDir(), vmhost.WithHosts(hosts), vmhost.WithErrorOutput(&out), vmhost.WithFileSystem(files))
+	if err != nil {
+		t.Fatalf("LoadMarked failed for tour block:\n%s\n\nerror: %v", code, err)
+	}
 	err = p.Run(context.Background(), &out, nil, false)
 	if err == nil {
 		return ""
@@ -206,19 +241,105 @@ func tourRunFailure(t *testing.T, code string) string {
 	return doctest.Shown(out.String(), vmhost.FormatFailure(err))
 }
 
+// tourFileSystem is the in-memory file system a block runs on, seeded
+// with its data files as LoadMarked seeds it, and the data files whose
+// reads checkTourReads holds to the block's `read-only:` marks, by their
+// paths as the block's `// FILE:` lines write them: every section that is
+// not a Nomi source, a nomi.toml, a message catalog (a `.toml` the
+// compiler reads, which an edit can change the output of) or a Go file
+// (which the tour compiles ahead of time and shows read-only by its kind).
+// A block that names modules (one with a go.mod section) is left out: it
+// is written to disk, and its data files are a macro's inputs, which the
+// compiler reads, not the run.
+func tourFileSystem(t *testing.T, b doctest.Block) (*vmhost.MemoryFiles, []string) {
+	t.Helper()
+	seed, err := vmhost.DataFiles(b.Code)
+	if err != nil {
+		t.Fatalf("the block's files do not split:\n%s\n\nerror: %v", b.Code, err)
+	}
+	files := vmhost.NewMemoryFiles(vmhost.DataFileBytes(seed))
+	names := virtualproject.FileNames(b.Code)
+	for _, name := range names {
+		if path.Base(name) == "go.mod" {
+			return files, nil
+		}
+	}
+	var data []string
+	for _, name := range names {
+		if tourDataFile(name) {
+			data = append(data, name)
+		}
+	}
+	return files, data
+}
+
+// tourDataFile reports whether a block's file named name is data the run
+// may read: not a Nomi source, a manifest, a catalog or Go.
+func tourDataFile(name string) bool {
+	return !strings.HasSuffix(name, ".nomi") && !strings.HasSuffix(name, ".toml") &&
+		!strings.HasSuffix(name, ".go") && path.Base(name) != "go.mod" && path.Base(name) != "go.sum"
+}
+
+// checkTourReads holds a block's run to the tour's rule for its data
+// files: a file is editable only when an edit can change what the example
+// prints. So a data file marked `read-only:` must not be read, and one not
+// marked must be. A read is an open of the file's contents that succeeded
+// (vmhost.MemoryFiles.Read): listing a directory, a file's metadata, a
+// missing file and a path `fs.within` refuses are not reads.
+func checkTourReads(t *testing.T, b doctest.Block, files *vmhost.MemoryFiles, data []string) {
+	t.Helper()
+	read := map[string]bool{}
+	for _, p := range files.Read() {
+		read[p] = true
+	}
+	for _, name := range data {
+		was := read[path.Clean(name)]
+		switch marked := b.MarkedReadOnly(name); {
+		case marked && was:
+			t.Errorf("%s is marked read-only, but the example reads it", name)
+		case !marked && !was:
+			t.Errorf("%s is editable, but the example never reads it: mark it read-only:%s, or drop it", name, name)
+		}
+	}
+}
+
+// readOnlyGlobErrors answers what is wrong with a block's `read-only:`
+// globs, or "": each must be a path.Match pattern that matches one of the
+// block's files at least, and none may match a Nomi source, since an edit
+// to one changes the program.
+func readOnlyGlobErrors(b doctest.Block) string {
+	names := virtualproject.FileNames(b.Code)
+	var errs []string
+	for _, glob := range b.ReadOnlyGlobs() {
+		if _, err := path.Match(glob, ""); err != nil {
+			errs = append(errs, fmt.Sprintf("read-only:%s is not a glob: %v", glob, err))
+			continue
+		}
+		matched := false
+		for _, name := range names {
+			if ok, _ := path.Match(glob, name); ok {
+				matched = true
+				if strings.HasSuffix(name, ".nomi") {
+					errs = append(errs, fmt.Sprintf("read-only:%s matches %s, a Nomi source, whose edits change the program", glob, name))
+				}
+			}
+		}
+		if !matched {
+			errs = append(errs, fmt.Sprintf("read-only:%s matches no file of the block", glob))
+		}
+	}
+	return strings.Join(errs, "\n")
+}
+
 // tourCompileError is the error text the tour's runner (cmd/nomi-wasm's
 // nomiRun) shows for a block that does not compile, or "" when it compiles.
-func tourCompileError(code string) string {
-	entrySrc, entryName, virtualFiles, manifest, err := vmhost.SplitMultiFile(code)
+func tourCompileError(t *testing.T, code string) string {
+	t.Helper()
+	hosts, err := tourgo.MarkedHosts(code)
 	if err != nil {
 		return err.Error()
 	}
-	if _, err := vmhost.SourceContainsTests(entrySrc); err != nil {
-		return err.Error()
-	}
-	if _, err := vmhost.LoadSource(entryName, entrySrc,
-		vmhost.WithVirtualFiles(virtualFiles),
-		vmhost.WithVirtualManifest(manifest)); err != nil {
+	if _, _, err := vmhost.LoadMarked(code, t.TempDir(), vmhost.WithHosts(hosts)); err != nil {
 		return err.Error()
 	}
 	return ""

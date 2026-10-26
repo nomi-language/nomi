@@ -2,15 +2,15 @@
 // what it returned and everything it printed.
 import {
     std/duration.Duration
-    std/io
+    std/io.{self, Reader, Writer}
     std/tasks.Task
     std/timer
 }
 
 fn read_words(acc: List<String>) -> List<String> {
     case io.read_line() {
-        Ok(line) -> read_words(acc + String.split(line, " "))
-        Err(_) -> acc
+        Ok(Some(line)) -> read_words(acc + String.split(line, " "))
+        _ -> acc
     }
 }
 
@@ -46,12 +46,12 @@ test "print, write and inspect are captured byte for byte" {
     assert run.output == "line\nno newline [1, 2]\n3\n"
 }
 
-test "read_line reads the input a line at a time, then Err at the end" {
+test "read_line reads the input a line at a time, then None at the end" {
     run = io.capture("one\n\nlast", fn -> {
         [io.read_line(), io.read_line(), io.read_line(), io.read_line()]
     })
 
-    assert run.value == [Ok("one"), Ok(""), Ok("last"), Err("eof")]
+    assert run.value == [Ok(Some("one")), Ok(Some("")), Ok(Some("last")), Ok(None)]
     assert run.output == ""
 }
 
@@ -68,7 +68,7 @@ test "an inner capture keeps its own output" {
         #(inner.value, io.read_line())
     })
 
-    assert outer.value == #(Ok("inner"), Ok("outer"))
+    assert outer.value == #(Ok(Some("inner")), Ok(Some("outer")))
     assert outer.output == "ab"
 }
 
@@ -96,4 +96,78 @@ test "two tasks capturing at once do not see each other's output" {
     }
 
     assert both == #(String.repeat("a", 20), String.repeat("b", 20))
+}
+
+test "stderr is captured apart from stdout and the transcript" {
+    run = io.capture("Ada", fn -> {
+        io.eprint("warning: first")
+        io.write("name: ")
+
+        case io.read_line() {
+            Ok(Some(name)) -> io.print("hi ${name}")
+            _ -> io.ewrite("no name")
+        }
+    })
+
+    assert run.output == "name: hi Ada\n"
+    assert run.errors == "warning: first\n"
+    assert run.transcript == "name: \n    > Ada\nhi Ada\n"
+}
+
+test "the stream handles reach the capture" {
+    run = io.capture("one\n", fn -> {
+        _ = Writer.print(io.stdout, "to stdout")
+        _ = Writer.write(io.stderr, String.to_bytes("to stderr"))
+        Reader.read_line(io.stdin)
+    })
+
+    assert run.value == Ok(Some("one"))
+    assert run.output == "to stdout\n"
+    assert run.errors == "to stderr"
+}
+
+test "a replay ignores what the program writes to stderr" {
+    warned = fn -> {
+        io.eprint("warning: no config file")
+        io.print("ready")
+    }
+
+    assert io.replay(
+        """
+        ready
+        """,
+        warned,
+    )
+}
+
+test "an inner capture keeps its own errors" {
+    outer = io.capture("", fn -> {
+        io.eprint("outer")
+        inner = io.capture("", fn -> io.eprint("inner"))
+        inner.errors
+    })
+
+    assert outer.value == "inner\n"
+    assert outer.errors == "outer\n"
+}
+
+test "a stream read before a capture writes into the capture" {
+    out = io.stdout
+    input = io.stdin
+
+    run = io.capture("typed\n", fn -> {
+        _ = Writer.print(out, "before")
+
+        concurrent {
+            t = Task.spawn(fn -> {
+                _ = Writer.print(out, "from a task")
+                Reader.read_line(input)
+            })
+
+            Task.await(t)
+        }
+    })
+
+    assert run.value == Ok(Some("typed"))
+    assert run.output == "before\nfrom a task\n"
 }

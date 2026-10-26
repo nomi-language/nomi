@@ -39,7 +39,7 @@ fn main() {
   io.inspect(Vector.get(v, 0))
   io.inspect(#["a\nb", "quoted \"text\""])
 }
-`, "#[]\n0\n#[1]\n#[1, 2, 3]\n#[1]\n#[1]\nNone\n#[\"a\nb\", \"quoted \\\"text\\\"\"]\n")
+`, "#[]\n0\n#[1]\n#[1, 2, 3]\n#[1]\n#[1]\nNone\n#[\"a\\nb\", \"quoted \\\"text\\\"\"]\n")
 }
 
 // A Vector of a wrapping distinct is an ordinary vector value; the

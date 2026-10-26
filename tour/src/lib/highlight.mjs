@@ -222,6 +222,37 @@ function emit(code, cls, options) {
 // and comments, with punctuation in the default colour. It is a small
 // scanner, not a validating parser: text it does not recognize stays the
 // default colour.
+// renderJson colours a JSON tab: object keys, strings, and numbers and the
+// literals true, false and null. Text that is not JSON keeps the colours of
+// whatever parts of it read as JSON.
+export function renderJson(code, options = {}) {
+  const n = code.length;
+  const cls = new Array(n).fill("");
+  const mark = (s, e, c) => { for (let k = s; k < e && k < n; k++) cls[k] = c; };
+  let i = 0;
+  while (i < n) {
+    const ch = code[i];
+    if (ch === '"') {
+      let j = i + 1;
+      while (j < n && code[j] !== '"' && code[j] !== "\n") j += code[j] === "\\" ? 2 : 1;
+      const e = Math.min(n, j + 1);
+      let k = e;
+      while (k < n && (code[k] === " " || code[k] === "\t" || code[k] === "\r" || code[k] === "\n")) k++;
+      mark(i, e, code[k] === ":" ? "json-key" : "json-str");
+      i = e;
+      continue;
+    }
+    const word = /^(-?\d+(\.\d+)?([eE][+-]?\d+)?|true|false|null)\b/.exec(code.slice(i, i + 64));
+    if (word && !/[A-Za-z0-9_]/.test(code[i - 1] ?? "")) {
+      mark(i, i + word[0].length, "json-num");
+      i += word[0].length;
+      continue;
+    }
+    i++;
+  }
+  return emit(code, cls, options);
+}
+
 export function renderToml(code, options = {}) {
   const n = code.length;
   const cls = new Array(n).fill("");

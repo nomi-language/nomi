@@ -3,10 +3,11 @@
 // run-on-type example using the same analyzer and grammar as Zed:
 //   syntax     web-tree-sitter (grammar + queries/highlights.scm) on this thread
 //   semantics  the analyzer's tokens, from the Nomi wasm (async overlay)
-//   run        debounced, in a Web Worker so a runaway program can't freeze the page
+//   run        debounced, in a Web Worker so a runaway program can't freeze the page;
+//              a ```nomi-run manual block runs once when shown, then on its Run button
 // Served statically from /nomi/ (no bundling); web-tree-sitter + the wasm load
 // lazily when the first example scrolls into view.
-import { render, renderToml } from "./highlight.mjs";
+import { render, renderJson, renderToml } from "./highlight.mjs";
 
 const ASSET = (f) => new URL(f, import.meta.url).href;
 const DEBOUNCE_MS = 300;
@@ -185,9 +186,13 @@ function post(msg, cbs) {
 }
 
 // files names a multi-file source's Nomi tabs, whose semantic tokens the
-// worker answers per tab ({ file: tokens }).
-function dispatch(id, source, cbs, files) {
-  post(files ? { id, source, files } : { id, source }, cbs);
+// worker answers per tab ({ file: tokens }). With expand, the run's output
+// is what `nomi expand` prints for the first tab (a ```nomi-run expand
+// block).
+function dispatch(id, source, cbs, files, expand = false) {
+  const msg = files ? { id, source, files } : { id, source };
+  if (expand) msg.op = "expand";
+  post(msg, cbs);
 }
 
 function dispatchStdlibTest(id, moduleName, context, source, cbs) {
@@ -245,10 +250,550 @@ function splitFiles(source) {
 }
 
 // fileLanguage names the language a multi-file example's tab holds, by its
-// file name: "toml" for a manifest or message catalog, "nomi" otherwise
-// (the editor highlights anything else as Nomi, as it always has).
+// file name: "nomi" for a Nomi source, "toml" for a manifest or message
+// catalog, and "text" for a data file the program reads (`notes.txt`),
+// which the run puts in the program's in-memory file system. "go" is a Go
+// file the example binds, which the tour links ahead of time, so its tab is
+// read-only (rehype-shiki.mjs highlights it at build time).
 function fileLanguage(name) {
-  return name.endsWith(".toml") ? "toml" : "nomi";
+  if (name.endsWith(".nomi")) return "nomi";
+  if (name.endsWith(".go")) return "go";
+  if (name.endsWith(".json")) return "json";
+  return name.endsWith(".toml") ? "toml" : "text";
+}
+
+// tabLabel writes a tab's file name into btn, a file under a directory
+// (`macros/csvdata/csvdata.nomi`, a module of its own in the block) with
+// the directory muted, so the file's own name reads first.
+function tabLabel(btn, name) {
+  const slash = name.lastIndexOf("/");
+  if (slash < 0) {
+    btn.textContent = name;
+    return;
+  }
+  const dir = document.createElement("span");
+  dir.className = "nomi-tab-dir";
+  dir.textContent = name.slice(0, slash + 1);
+  btn.append(dir, document.createTextNode(name.slice(slash + 1)));
+}
+
+// A setup file says how the project builds rather than what it does; a
+// file tree lists it muted and the block never opens on it.
+const SETUP_FILES = new Set(["go.mod", "go.sum", "nomi.toml"]);
+function isSetupFile(name) {
+  return SETUP_FILES.has(name.slice(name.lastIndexOf("/") + 1));
+}
+
+// usesTree says whether a multi-file block shows a file tree beside its
+// editor rather than a tab strip above it: when it has more than four
+// files, or any file under a directory.
+function usesTree(files) {
+  return files.length > 4 || files.some((f) => f.name.includes("/"));
+}
+
+// A file in a live example is editable only when an edit can change what
+// the example prints. readOnlyReason answers why a file is not, the
+// tooltip its lock carries, or "" for an editable file: a Go file (the
+// tour compiles it ahead of time), go.mod and go.sum, a nomi.toml whose
+// only table is [module], and a data file the block's fence marks with a
+// `read-only:<glob>` word (globs, from data-nomi-read-only), whose
+// contents the program never reads. vmhost's TestTourDoctests holds a
+// marked file to that: a run that reads one fails, and so does a run that
+// never reads a data file left editable.
+function readOnlyReason(file, lang, globs) {
+  const base = file.name.slice(file.name.lastIndexOf("/") + 1);
+  if (lang === "go") return "The tour compiles this Go ahead of time";
+  if (base === "go.mod" || base === "go.sum") return "Managed by nomi add and nomi remove";
+  if (base === "nomi.toml" && onlyModuleTable(file.body)) {
+    return "Only names the module; an edit can't change the output";
+  }
+  if (globs.some((glob) => globMatch(glob, file.name))) return "Only its name matters to this example";
+  return "";
+}
+
+// onlyModuleTable reports whether a nomi.toml's only table header is
+// [module]: comments, blank lines and the module's keys may surround it.
+function onlyModuleTable(text) {
+  return text.split("\n").every((line) => {
+    const t = line.replace(/#.*$/, "").trim();
+    return !t.startsWith("[") || t === "[module]";
+  });
+}
+
+// globMatch is Go's path.Match, which the doctest matches a fence's
+// `read-only:` glob with, over a file's path as its `// FILE:` line writes
+// it: `*` is any run of characters but `/`, `?` one of them, `[...]` a
+// class (`[^...]` its complement, `a-z` a range), and `\` escapes. A
+// malformed glob matches nothing; the doctest rejects it.
+function globMatch(glob, name) {
+  let re = "^";
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i];
+    if (c === "*") re += "[^/]*";
+    else if (c === "?") re += "[^/]";
+    else if (c === "\\") {
+      if (++i >= glob.length) return false;
+      re += escapeRegExp(glob[i]);
+    } else if (c === "[") {
+      const end = glob.indexOf("]", i + 1);
+      if (end <= i + 1) return false;
+      let body = glob.slice(i + 1, end);
+      let negate = false;
+      if (body.startsWith("^")) {
+        negate = true;
+        body = body.slice(1);
+        if (body === "") return false;
+      }
+      re += (negate ? "[^" : "[") + body.replace(/[\]\\^]/g, "\\$&") + "]";
+      i = end;
+    } else re += escapeRegExp(c);
+  }
+  try {
+    return new RegExp(re + "$").test(name);
+  } catch {
+    return false;
+  }
+}
+
+function escapeRegExp(c) {
+  return c.replace(/[.*+?^${}()|[\]\\/-]/g, "\\$&");
+}
+
+const LOCK_ICON =
+  '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">' +
+  '<rect x="3" y="7" width="10" height="7.5" rx="1.5" fill="currentColor"/>' +
+  '<path d="M5.25 7V5a2.75 2.75 0 0 1 5.5 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+
+// readOnlyMark is the muted lock a read-only file's tab, tree entry and
+// path carry, so a file that can't be edited says so before it is
+// clicked; its tooltip says why.
+function readOnlyMark(reason) {
+  const ro = document.createElement("span");
+  ro.className = "nomi-ro";
+  ro.setAttribute("role", "img");
+  ro.setAttribute("aria-label", "Read-only");
+  ro.title = reason;
+  ro.innerHTML = LOCK_ICON;
+  return ro;
+}
+
+// tabsNav lays a block's files out as a tab strip in its bar: one tab per
+// file, arrows move along it. select(i, focus) shows file i's pane.
+function tabsNav(widget, bar, panes, first, select) {
+  const tabBar = document.createElement("div");
+  tabBar.className = "nomi-tabs";
+  tabBar.setAttribute("role", "tablist");
+  bar.append(tabBar);
+  const btns = panes.map((p, i) => {
+    const btn = document.createElement("button");
+    btn.className = "nomi-tab";
+    btn.type = "button";
+    btn.setAttribute("role", "tab");
+    tabLabel(btn, p.file.name);
+    if (p.readOnly) {
+      btn.title = p.readOnly;
+      btn.append(readOnlyMark(p.readOnly));
+    }
+    p.pane.setAttribute("role", "tabpanel");
+    tabBar.appendChild(btn);
+    btn.addEventListener("click", () => {
+      activate(i);
+      select(i, true);
+    });
+    return btn;
+  });
+  const activate = (i) => {
+    btns.forEach((btn, j) => {
+      const active = i === j;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-selected", String(active));
+      btn.tabIndex = active ? 0 : -1;
+    });
+  };
+  activate(first);
+  tabBar.addEventListener("keydown", (ev) => {
+    if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+    const at = btns.indexOf(document.activeElement);
+    if (at < 0) return;
+    ev.preventDefault();
+    const next = (at + (ev.key === "ArrowLeft" ? -1 : 1) + btns.length) % btns.length;
+    activate(next);
+    select(next, false);
+    btns[next].focus();
+  });
+}
+
+// treeNav lays a block's files out as a tree in a column beside the editor:
+// each directory a folder, open at first, setup files muted after the
+// others. The bar names the open file. On a narrow screen the tree is a
+// menu that the bar's file button opens.
+let navSeq = 0;
+function treeNav(widget, bar, panes, first, select) {
+  const nav = document.createElement("nav");
+  nav.className = "nomi-tree";
+  nav.id = "nomi-tree-" + ++navSeq;
+  nav.setAttribute("aria-label", "Files");
+
+  const menu = document.createElement("button");
+  menu.type = "button";
+  menu.className = "nomi-filemenu";
+  menu.setAttribute("aria-expanded", "false");
+  menu.setAttribute("aria-controls", nav.id);
+  const path = document.createElement("span");
+  path.className = "nomi-path";
+  bar.append(menu, path);
+
+  // Folders, from the files' paths, in the block's order.
+  const root = { dirs: new Map(), files: [] };
+  panes.forEach((p, i) => {
+    const parts = p.file.name.split("/");
+    let node = root;
+    for (const dir of parts.slice(0, -1)) {
+      if (!node.dirs.has(dir)) node.dirs.set(dir, { dirs: new Map(), files: [] });
+      node = node.dirs.get(dir);
+    }
+    node.files.push(i);
+  });
+  const fileBtns = [];
+  const build = (node, depth) => {
+    const ul = document.createElement("ul");
+    for (let [name, child] of node.dirs) {
+      // A directory holding only one directory reads as one folder
+      // (`macros/choices`).
+      while (child.files.length === 0 && child.dirs.size === 1) {
+        const [[inner, grandchild]] = child.dirs;
+        name += "/" + inner;
+        child = grandchild;
+      }
+      const li = document.createElement("li");
+      const folder = document.createElement("button");
+      folder.type = "button";
+      folder.className = "nomi-tree-folder";
+      folder.setAttribute("aria-expanded", "true");
+      folder.style.setProperty("--depth", depth);
+      folder.textContent = name + "/";
+      const sub = build(child, depth + 1);
+      folder.addEventListener("click", () => {
+        const open = folder.getAttribute("aria-expanded") !== "true";
+        folder.setAttribute("aria-expanded", String(open));
+        sub.hidden = !open;
+      });
+      li.append(folder, sub);
+      ul.append(li);
+    }
+    const order = [...node.files.filter((i) => !isSetupFile(panes[i].file.name)),
+      ...node.files.filter((i) => isSetupFile(panes[i].file.name))];
+    for (const i of order) {
+      const p = panes[i];
+      const li = document.createElement("li");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "nomi-tree-file" +
+        (isSetupFile(p.file.name) ? " is-setup" : "") +
+        (p.readOnly ? " is-readonly" : "");
+      btn.style.setProperty("--depth", depth);
+      btn.textContent = p.file.name.slice(p.file.name.lastIndexOf("/") + 1);
+      if (p.readOnly) {
+        btn.title = p.readOnly;
+        btn.append(readOnlyMark(p.readOnly));
+      }
+      btn.addEventListener("click", () => {
+        activate(i);
+        setOpen(false);
+        select(i, true);
+      });
+      fileBtns[i] = btn;
+      li.append(btn);
+      ul.append(li);
+    }
+    return ul;
+  };
+  nav.append(build(root, 0));
+
+  const activate = (i) => {
+    fileBtns.forEach((btn, j) => {
+      btn.classList.toggle("is-active", i === j);
+      if (i === j) btn.setAttribute("aria-current", "true");
+      else btn.removeAttribute("aria-current");
+    });
+    const p = panes[i];
+    for (const el of [path, menu]) {
+      el.textContent = "";
+      tabLabel(el, p.file.name);
+      if (p.readOnly) el.append(readOnlyMark(p.readOnly));
+    }
+    menu.setAttribute("aria-label", `File: ${p.file.name}. Choose another file`);
+  };
+  activate(first);
+
+  // The narrow-screen menu: the tree drops down under the bar.
+  const onOutside = (ev) => {
+    if (!nav.contains(ev.target) && !menu.contains(ev.target)) setOpen(false);
+  };
+  const setOpen = (open) => {
+    if (open === widget.classList.contains("is-tree-open")) return;
+    widget.classList.toggle("is-tree-open", open);
+    menu.setAttribute("aria-expanded", String(open));
+    if (open) {
+      const wr = widget.getBoundingClientRect();
+      nav.style.top = bar.getBoundingClientRect().bottom - wr.top - widget.clientTop + "px";
+      document.addEventListener("pointerdown", onOutside, true);
+      (nav.querySelector(".nomi-tree-file.is-active") || nav.querySelector("button"))?.focus();
+    } else {
+      document.removeEventListener("pointerdown", onOutside, true);
+    }
+  };
+  menu.addEventListener("click", () => setOpen(!widget.classList.contains("is-tree-open")));
+  widget.closeFileMenu = () => {
+    if (!widget.classList.contains("is-tree-open")) return false;
+    setOpen(false);
+    menu.focus();
+    return true;
+  };
+
+  nav.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && widget.closeFileMenu()) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      return;
+    }
+    const btn = ev.target.closest("button");
+    if (!btn) return;
+    if (btn.classList.contains("nomi-tree-folder")) {
+      const open = btn.getAttribute("aria-expanded") === "true";
+      if ((ev.key === "ArrowLeft" && open) || (ev.key === "ArrowRight" && !open)) {
+        ev.preventDefault();
+        btn.click();
+        return;
+      }
+    }
+    if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp" && ev.key !== "Home" && ev.key !== "End") return;
+    const shown = [...nav.querySelectorAll("button")].filter((b) => b.getClientRects().length > 0);
+    const at = shown.indexOf(btn);
+    if (at < 0) return;
+    ev.preventDefault();
+    const next = ev.key === "Home" ? 0
+      : ev.key === "End" ? shown.length - 1
+      : Math.min(shown.length - 1, Math.max(0, at + (ev.key === "ArrowDown" ? 1 : -1)));
+    shown[next].focus();
+  });
+  widget.prepend(nav);
+}
+
+// --- the large view: one shared <dialog> the widget is moved into ---
+let modal = null;
+function modalDialog() {
+  if (modal) return modal;
+  const dialog = document.createElement("dialog");
+  dialog.className = "nomi-modal";
+  dialog.setAttribute("aria-labelledby", "nomi-modal-title");
+  const frame = document.createElement("div");
+  frame.className = "nomi-modal-frame";
+  const head = document.createElement("div");
+  head.className = "nomi-modal-head";
+  const title = document.createElement("h2");
+  title.className = "nomi-modal-title";
+  title.id = "nomi-modal-title";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "nomi-modal-close";
+  close.setAttribute("aria-label", "Close");
+  close.title = "Close (Esc)";
+  close.innerHTML = CLOSE_ICON;
+  head.append(title, close);
+  const body = document.createElement("div");
+  body.className = "nomi-modal-body";
+  frame.append(head, body);
+  dialog.append(frame);
+  document.body.append(dialog);
+  modal = { dialog, title, body, current: null };
+
+  close.addEventListener("click", () => dialog.close());
+  // A click on the backdrop lands on the dialog itself, since the frame
+  // fills it. A drag that starts in the editor and ends outside does not
+  // count.
+  let downOnBackdrop = false;
+  dialog.addEventListener("pointerdown", (ev) => {
+    downOnBackdrop = ev.target === dialog;
+  });
+  dialog.addEventListener("click", (ev) => {
+    if (ev.target === dialog && downOnBackdrop) dialog.close();
+    downOnBackdrop = false;
+  });
+  // Esc closes an open file menu first, then the view.
+  dialog.addEventListener("cancel", (ev) => {
+    if (modal.current?.widget.closeFileMenu?.()) ev.preventDefault();
+  });
+  dialog.addEventListener("close", closeModal);
+  return modal;
+}
+
+// scrollState records where each scrolled element in root is scrolled to;
+// moving an element out of the document and back resets its scroll.
+function scrollState(root) {
+  const state = [];
+  for (const el of [root, ...root.querySelectorAll("*")]) {
+    if (el.scrollTop || el.scrollLeft) state.push([el, el.scrollTop, el.scrollLeft]);
+  }
+  return () => {
+    for (const [el, top, left] of state) {
+      el.scrollTop = top;
+      el.scrollLeft = left;
+    }
+  };
+}
+
+// blockTitle names a block in the large view by the heading of the section
+// it is in.
+function blockTitle(el) {
+  for (; el && el !== document.body; el = el.parentElement) {
+    for (let s = el.previousElementSibling; s; s = s.previousElementSibling) {
+      const h = s.matches("h1, h2, h3, h4") ? s : [...s.querySelectorAll("h1, h2, h3, h4")].pop();
+      if (h) return h.textContent.trim();
+    }
+  }
+  return document.title;
+}
+
+// openModal moves the widget, not a copy of it, into the large view, so its
+// edits, its run and its output carry over, and closeModal puts it back.
+function openModal(widget, opener) {
+  const m = modalDialog();
+  if (m.current) return;
+  hideTooltip();
+  widget.closeFileMenu?.();
+  const restoreScroll = scrollState(widget);
+  const focused = widget.contains(document.activeElement) ? document.activeElement : null;
+  const placeholder = document.createElement("div");
+  placeholder.className = "nomi-modal-placeholder";
+  placeholder.style.height = widget.offsetHeight + "px";
+  widget.replaceWith(placeholder);
+  m.title.textContent = blockTitle(placeholder);
+  m.body.append(widget);
+  widget.classList.add("is-modal");
+  m.current = { widget, placeholder, opener, restoreScroll };
+  document.documentElement.classList.add("nomi-modal-open");
+  m.dialog.showModal();
+  // The bars measure the panes, so they go in once the dialog is shown.
+  addSplitters(widget);
+  restoreScroll();
+  const editor = focused?.matches("textarea")
+    ? focused
+    : widget.querySelector(".nomi-editor:not([hidden]) textarea");
+  editor?.focus({ preventScroll: true });
+}
+
+function closeModal() {
+  const m = modal;
+  if (!m?.current) return;
+  // The page's view of the widget comes back scrolled as it was left.
+  const { widget, placeholder, opener, restoreScroll } = m.current;
+  hideTooltip();
+  widget.closeFileMenu?.();
+  m.current = null;
+  widget.classList.remove("is-modal");
+  removeSplitters(widget);
+  placeholder.replaceWith(widget);
+  document.documentElement.classList.remove("nomi-modal-open");
+  restoreScroll();
+  opener.focus({ preventScroll: true });
+}
+
+// --- resizing the large view's panes ---
+
+// The widths a reader chose for the file tree and the output, in pixels,
+// kept for the rest of the visit.
+const SPLIT_KEYS = { tree: "nomi-split-tree", out: "nomi-split-out" };
+const SPLIT_PROPS = { tree: "--nomi-tree-w", out: "--nomi-out-w" };
+function savedWidth(which) {
+  try {
+    const n = Number(sessionStorage.getItem(SPLIT_KEYS[which]));
+    return n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+function saveWidth(which, px) {
+  try {
+    sessionStorage.setItem(SPLIT_KEYS[which], String(Math.round(px)));
+  } catch {}
+}
+
+// clampWidth keeps the tree between 8rem and 24rem, the output at least
+// 12rem wide, and the editor at least 20rem wide between them.
+function clampWidth(widget, which, px) {
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const total = widget.getBoundingClientRect().width;
+  const tree = widget.querySelector('.nomi-split[data-split="tree"]') ? paneWidth(widget, "tree") : 0;
+  const out = paneWidth(widget, "out");
+  const room = total - 20 * rem - (which === "tree" ? out : tree);
+  const min = which === "tree" ? 8 * rem : 12 * rem;
+  const max = which === "tree" ? Math.min(24 * rem, room) : room;
+  return Math.max(min, Math.min(max, px));
+}
+function paneWidth(widget, which) {
+  const pane = widget.querySelector(which === "tree" ? ".nomi-tree" : ".nomi-out-panel");
+  return pane ? pane.getBoundingClientRect().width : 0;
+}
+function setWidth(widget, which, px) {
+  const w = clampWidth(widget, which, px);
+  widget.style.setProperty(SPLIT_PROPS[which], w + "px");
+  widget.querySelector(`.nomi-split[data-split="${which}"]`)?.setAttribute("aria-valuenow", String(Math.round(w)));
+  return w;
+}
+
+// addSplitters puts a bar between the tree and the editor (when the block
+// has a tree) and between the editor and the output.
+function addSplitters(widget) {
+  const kinds = widget.classList.contains("nomi-has-tree") ? ["tree", "out"] : ["out"];
+  for (const which of kinds) {
+    const bar = document.createElement("div");
+    bar.className = "nomi-split";
+    bar.dataset.split = which;
+    bar.tabIndex = 0;
+    bar.setAttribute("role", "separator");
+    bar.setAttribute("aria-orientation", "vertical");
+    bar.setAttribute("aria-label", which === "tree" ? "Resize the file list" : "Resize the output");
+    widget.append(bar);
+    bar.addEventListener("pointerdown", (ev) => {
+      ev.preventDefault();
+      bar.setPointerCapture(ev.pointerId);
+      bar.classList.add("is-dragging");
+      const move = (e) => {
+        const rect = widget.getBoundingClientRect();
+        setWidth(widget, which, which === "tree" ? e.clientX - rect.left : rect.right - e.clientX);
+      };
+      const up = (e) => {
+        bar.releasePointerCapture(e.pointerId);
+        bar.classList.remove("is-dragging");
+        bar.removeEventListener("pointermove", move);
+        bar.removeEventListener("pointerup", up);
+        bar.removeEventListener("pointercancel", up);
+        saveWidth(which, paneWidth(widget, which));
+      };
+      bar.addEventListener("pointermove", move);
+      bar.addEventListener("pointerup", up);
+      bar.addEventListener("pointercancel", up);
+    });
+    // Arrow keys move the bar 16px, 64px with Shift; Left always moves it left.
+    bar.addEventListener("keydown", (ev) => {
+      if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+      ev.preventDefault();
+      const step = (ev.shiftKey ? 64 : 16) * (ev.key === "ArrowLeft" ? -1 : 1);
+      const now = paneWidth(widget, which);
+      saveWidth(which, setWidth(widget, which, which === "tree" ? now + step : now - step));
+    });
+  }
+  for (const which of kinds) {
+    const saved = savedWidth(which);
+    if (saved) setWidth(widget, which, saved);
+    else widget.querySelector(`.nomi-split[data-split="${which}"]`).setAttribute("aria-valuenow", String(Math.round(paneWidth(widget, which))));
+  }
+}
+
+function removeSplitters(widget) {
+  for (const bar of widget.querySelectorAll(".nomi-split")) bar.remove();
+  for (const prop of Object.values(SPLIT_PROPS)) widget.style.removeProperty(prop);
 }
 
 // Stitch a per-tab file list back into the source string the wasm
@@ -263,6 +808,11 @@ function stitchFiles(files) {
 const LIVE_HELP_HTML =
   "<p><strong>Interactive code.</strong> Edits run automatically as you type.</p>" +
   "<p>Hover any identifier in the code for its signature and docs.</p>";
+// The same tooltip for a ```nomi-run manual block's Run button: the block
+// runs once when it is shown, and after an edit only when asked.
+const MANUAL_HELP_HTML =
+  "<p><strong>Interactive code.</strong> This example takes a moment to run, so edits run when you press <strong>Run</strong> (or Ctrl+Enter).</p>" +
+  "<p>Hover any identifier in the code for its signature and docs.</p>";
 
 // chipped wraps a static block's <pre> in the element that carries its
 // language chip, so the chip stays put while the <pre> scrolls sideways.
@@ -273,18 +823,71 @@ function chipped(pre, chip) {
   return box;
 }
 
-// attachLiveDot adds the widget's controls: the live dot, the formatting
-// chip and, for a ```nomi-run error block (expectError), the "Expected
-// error" badge.
-function attachLiveDot(widget, expectError = false) {
+// outputPanel builds the output area: a header holding its heading (and,
+// for a ```nomi-run manual block, the Run button) over the <pre> a run
+// writes into.
+let panelSeq = 0;
+function outputPanel(label) {
+  const panel = document.createElement("div");
+  panel.className = "nomi-out-panel";
+  panel.setAttribute("role", "region");
+  const head = document.createElement("div");
+  head.className = "nomi-out-head";
+  const title = document.createElement("span");
+  title.className = "nomi-out-title";
+  title.id = "nomi-out-" + ++panelSeq;
+  title.textContent = label;
+  panel.setAttribute("aria-labelledby", title.id);
+  head.append(title);
+  const out = document.createElement("pre");
+  out.className = "nomi-out";
+  out.setAttribute("aria-live", "polite");
+  panel.append(head, out);
+  return {
+    panel,
+    head,
+    out,
+    // setHeading names what the output shows: a ```nomi-run error block's
+    // intended failure gets the "on purpose" heading in place of the label.
+    setHeading(onPurpose) {
+      title.textContent = onPurpose ? EXPECTED_ERROR_HEADING : label;
+      title.classList.toggle("is-expected", onPurpose);
+    },
+  };
+}
+
+const EXPAND_ICON =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">' +
+  '<path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const CLOSE_ICON =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">' +
+  '<path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+
+// attachControls adds the widget's controls to host: the live dot (a
+// ```nomi-run manual block, onRun, has the Run button in its output
+// header instead), the formatting chip, for a ```nomi-run error block
+// (expectError) the "Expected error" badge, and the button that opens the
+// widget in the large view.
+function attachControls(widget, host, output, expectError = false, onRun = null) {
   const controls = document.createElement("div");
   controls.className = "nomi-live-controls";
-  const dot = document.createElement("span");
-  dot.className = "nomi-live";
-  dot.setAttribute("role", "note");
-  dot.setAttribute("aria-label", "Interactive code: edits run automatically; hover any identifier for its signature.");
-  dot.tabIndex = 0;
-  const show = () => showAnchoredTooltip(LIVE_HELP_HTML, dot);
+  let dot;
+  if (onRun) {
+    dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "nomi-run-button";
+    dot.textContent = "Run";
+    dot.setAttribute("aria-label", "Run this example. Edits run when you press Run or Ctrl+Enter.");
+    dot.addEventListener("click", onRun);
+    output.head.append(dot);
+  } else {
+    dot = document.createElement("span");
+    dot.className = "nomi-live";
+    dot.setAttribute("role", "note");
+    dot.setAttribute("aria-label", "Interactive code: edits run automatically; hover any identifier for its signature.");
+    dot.tabIndex = 0;
+  }
+  const show = () => showAnchoredTooltip(onRun ? MANUAL_HELP_HTML : LIVE_HELP_HTML, dot);
   dot.addEventListener("mouseenter", show);
   dot.addEventListener("mouseleave", scheduleHideTooltip);
   dot.addEventListener("focus", show);
@@ -303,10 +906,27 @@ function attachLiveDot(widget, expectError = false) {
     expectedBadge.title = "This example fails on purpose.";
     controls.append(expectedBadge);
   }
-  controls.append(dot);
-  widget.appendChild(controls);
+  if (!onRun) controls.append(dot);
+  const expandBtn = document.createElement("button");
+  expandBtn.type = "button";
+  expandBtn.className = "nomi-expand";
+  expandBtn.setAttribute("aria-label", "Open large");
+  expandBtn.title = "Open large";
+  expandBtn.innerHTML = EXPAND_ICON;
+  expandBtn.addEventListener("click", () => openModal(widget, expandBtn));
+  controls.append(expandBtn);
+  host.appendChild(controls);
   let formattingTimer;
   return {
+    controls,
+    // setRunning marks a manual block's Run button while its run is in
+    // flight, and setStale while its code has changed since the last run.
+    setRunning(active) {
+      if (onRun) dot.classList.toggle("is-running", active);
+    },
+    setStale(stale) {
+      if (onRun) dot.classList.toggle("is-stale", stale);
+    },
     setExpectedError(shown) {
       if (expectedBadge) expectedBadge.hidden = !shown;
     },
@@ -404,13 +1024,7 @@ function autoFormatSkipReason(ta, composing) {
 // mouse. Used for the live-indicator dot where the tooltip should sit in
 // a predictable place rather than wherever the cursor entered the dot.
 function showAnchoredTooltip(html, anchor) {
-  if (!tipEl) {
-    tipEl = document.createElement("div");
-    tipEl.className = "nomi-hover";
-    tipEl.addEventListener("mouseenter", () => clearTimeout(hideTimer));
-    tipEl.addEventListener("mouseleave", hideTooltip);
-    document.body.appendChild(tipEl);
-  }
+  tooltip();
   clearTimeout(hideTimer);
   tipEl.innerHTML = html;
   tipEl.style.display = "block";
@@ -439,27 +1053,40 @@ async function enhance(pre) {
   const stdlibContext = pre.dataset.nomiStdlibContext || "";
 
   const expectError = pre.dataset.nomiExpect === "error";
+  // ```nomi-run manual: run once when shown, then when the reader asks.
+  // ```nomi-run expand: the output is `nomi expand` of the first tab.
+  const manual = pre.dataset.nomiManual === "1";
+  const expand = pre.dataset.nomiExpand === "1";
 
   const files = isStdlibTest ? null : splitFiles(source);
   if (files && files.length > 1) {
-    return enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError);
+    // ```nomi-run read-only:<glob>: the data files only named, never read.
+    const readOnlyGlobs = (pre.dataset.nomiReadOnly || "").split(" ").filter(Boolean);
+    return enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError, manual, expand, readOnlyGlobs);
   }
 
   const widget = document.createElement("div");
   widget.className = "nomi-interactive" + (isStdlibTest ? " nomi-stdlib-test" : "");
+  // A single-file block has the same bar as a multi-file one: the file's
+  // name on the left (a stdlib reference example has none) and the block's
+  // controls on the right, above the code rather than over it.
   widget.innerHTML =
+    '<div class="nomi-main">' +
+    '<div class="nomi-bar"><span class="nomi-path nomi-path-single"></span></div>' +
     '<div class="nomi-editor">' +
     '<pre class="nomi-tour nomi-hl" aria-hidden="true"></pre>' +
-    '<textarea class="nomi-src" rows="1" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>' +
+    '<textarea class="nomi-src" rows="1" spellcheck="false" autocapitalize="off" autocorrect="off" aria-label="Code"></textarea>' +
     "</div>" +
-    '<pre class="nomi-out" aria-live="polite"></pre>';
+    "</div>";
+  const out = outputPanel(expand ? "Expansion" : "Output");
+  widget.append(out.panel);
   pre.replaceWith(widget);
-  const live = attachLiveDot(widget, expectError);
+  if (!isStdlibTest) widget.querySelector(".nomi-path-single").textContent = "main.nomi";
+  const live = attachControls(widget, widget.querySelector(".nomi-bar"), out, expectError, manual ? () => run() : null);
   const headingFor = expectError ? expectedErrorTracker(source, live) : () => false;
 
   const hl = widget.querySelector(".nomi-hl");
   const ta = widget.querySelector(".nomi-src");
-  const out = widget.querySelector(".nomi-out");
   ta.value = source;
 
   const block = { hl, ta, out, captures: null, code: "", req: 0 };
@@ -514,15 +1141,18 @@ async function enhance(pre) {
     block.req = id;
     const code = block.code;
     const captures = block.captures;
+    live.setStale(false);
+    live.setRunning(true);
     const runner = isStdlibTest
       ? (callbacks) => dispatchStdlibTest(id, stdlibModule, stdlibContext, code, callbacks)
-      : (callbacks) => dispatch(id, code, callbacks);
+      : (callbacks) => dispatch(id, code, callbacks, undefined, expand);
     runner({
       onSem: (sem) => {
         if (block.req === id) hl.innerHTML = render(captures, sem, code, EDITOR_RENDER);
       },
       onRun: (output, error) => {
         if (block.req !== id) return;
+        live.setRunning(false);
         showOutput(out, output, error, parser, query, headingFor(code, error));
         cleanFormatSource = error ? null : code;
         if (error) live.setFormatting(false);
@@ -530,6 +1160,7 @@ async function enhance(pre) {
       },
       onFail: (reason) => {
         if (block.req !== id) return;
+        live.setRunning(false);
         showError(out, reason);
         cleanFormatSource = null;
         live.setFormatting(false);
@@ -548,7 +1179,8 @@ async function enhance(pre) {
     live.setFormatting(false);
     paint();
     clearTimeout(debounce);
-    debounce = setTimeout(run, DEBOUNCE_MS);
+    if (manual) live.setStale(true);
+    else debounce = setTimeout(run, DEBOUNCE_MS);
   });
   ta.addEventListener("compositionstart", () => {
     composing = true;
@@ -568,6 +1200,11 @@ async function enhance(pre) {
     if (document.activeElement === ta) maybeScheduleAutoFormat();
   });
   ta.addEventListener("keydown", (ev) => {
+    if (manual && ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
+      ev.preventDefault();
+      run();
+      return;
+    }
     if (ev.key !== "Tab") return;
     ev.preventDefault();
     const s = ta.selectionStart, e = ta.selectionEnd;
@@ -631,53 +1268,51 @@ function attachHover(ta, marked, DOMPurify, ask) {
 }
 
 // enhanceMultiFile renders a block split by `// FILE: <name>` markers as a
-// tabbed editor: one tab per file, a shared output panel below, and a
-// single Run dispatch that stitches all panes back together with the
-// FILE markers (matching the convention runtime.SplitMultiFile parses).
+// editor with one pane per file, picked from a tab strip (tabsNav) or, for a
+// larger block, a file tree (treeNav, usesTree), a shared output panel
+// below, and a single Run dispatch that stitches all panes back together
+// with the FILE markers (matching the convention runtime.SplitMultiFile
+// parses).
 //
-// Each tab carries its own textarea + tree-sitter highlight layer, so
-// edits in one tab don't disturb others' state. Tab switching shows
-// exactly one pane at a time; keyboard arrows move focus along the bar.
-// Each Nomi tab gets the analyzer's semantic tokens and LSP hover from one
+// Each file carries its own textarea + tree-sitter highlight layer, so
+// edits in one file don't disturb others' state, and exactly one pane
+// shows at a time. Each Nomi tab gets the analyzer's semantic tokens and LSP hover from one
 // analysis of the whole program (every tab, nomi.toml and the catalogs, as
 // the run builds it), so a name one tab imports from another resolves. A
 // tab's text is its file's text, so a position in the tab is a position in
 // that file and needs no offset. TOML tabs get neither.
-async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError) {
+async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError, manual, expand, readOnlyGlobs) {
+  const tree = usesTree(files);
   const widget = document.createElement("div");
-  widget.className = "nomi-interactive nomi-multifile";
+  widget.className = "nomi-interactive nomi-multifile" + (tree ? " nomi-has-tree" : "");
 
-  const tabBar = document.createElement("div");
-  tabBar.className = "nomi-tabs";
-  tabBar.setAttribute("role", "tablist");
-
+  const main = document.createElement("div");
+  main.className = "nomi-main";
+  const bar = document.createElement("div");
+  bar.className = "nomi-bar";
   const editors = document.createElement("div");
   editors.className = "nomi-editors";
+  main.append(bar, editors);
+  const out = outputPanel(expand ? "Expansion" : "Output");
+  widget.append(main, out.panel);
 
-  const out = document.createElement("pre");
-  out.className = "nomi-out";
-  out.setAttribute("aria-live", "polite");
+  // The Go files' highlighting, which the build put in the block (one hidden
+  // span per file, rehype-shiki.mjs).
+  const goHighlight = {};
+  for (const span of pre.querySelectorAll("span[data-nomi-file]")) {
+    goHighlight[span.dataset.nomiFile] = span.innerHTML;
+  }
 
-  widget.append(tabBar, editors, out);
-  pre.replaceWith(widget);
-  const live = attachLiveDot(widget, expectError);
-  const headingFor = expectError ? expectedErrorTracker(stitchFiles(files), live) : () => false;
+  // The block opens on its first file, the one the prose is about, unless
+  // that is a setup file (go.mod, nomi.toml), which is never opened first.
+  let first = files.findIndex((f) => !isSetupFile(f.name));
+  if (first < 0) first = 0;
 
   const panes = files.map((file, i) => {
-    const btn = document.createElement("button");
-    btn.className = "nomi-tab" + (i === 0 ? " is-active" : "");
-    btn.type = "button";
-    btn.setAttribute("role", "tab");
-    btn.setAttribute("aria-selected", i === 0 ? "true" : "false");
-    btn.tabIndex = i === 0 ? 0 : -1;
-    btn.textContent = file.name;
     const lang = fileLanguage(file.name);
-    tabBar.appendChild(btn);
-
     const pane = document.createElement("div");
     pane.className = "nomi-editor";
-    pane.setAttribute("role", "tabpanel");
-    if (i !== 0) pane.hidden = true;
+    if (i !== first) pane.hidden = true;
     pane.innerHTML =
       '<pre class="nomi-tour nomi-hl" aria-hidden="true"></pre>' +
       '<textarea class="nomi-src" rows="1" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>';
@@ -686,11 +1321,28 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
     const hl = pane.querySelector(".nomi-hl");
     const ta = pane.querySelector(".nomi-src");
     ta.value = file.body;
+    ta.setAttribute("aria-label", file.name);
+    const readOnly = readOnlyReason(file, lang, readOnlyGlobs);
+    if (readOnly) {
+      ta.readOnly = true;
+      pane.classList.add("is-readonly");
+    }
 
-    return { file, lang, btn, pane, hl, ta, captures: null, code: file.body };
+    return { file, lang, readOnly, pane, hl, ta, captures: null, code: file.body };
   });
+
+  const nav = (tree ? treeNav : tabsNav)(widget, bar, panes, first, (i, focus) => {
+    panes.forEach((p, j) => {
+      p.pane.hidden = i !== j;
+    });
+    if (focus) panes[i].ta.focus();
+  });
+
+  pre.replaceWith(widget);
+  const live = attachControls(widget, bar, out, expectError, manual ? () => run() : null);
+  const headingFor = expectError ? expectedErrorTracker(stitchFiles(files), live) : () => false;
   // Only the Nomi files go through the formatter: `nomi fmt` would read a
-  // nomi.toml as Nomi statements and space them apart.
+  // nomi.toml or a data file as Nomi statements and space them apart.
   const nomiPanes = panes.filter((p) => p.lang === "nomi");
 
   const block = { req: 0 };
@@ -698,7 +1350,7 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
   let formatToken = 0;
   let cleanFormatSnapshots = null;
   let blockedFormatSnapshots = null;
-  // As in a single-file editor, the tabs keep the page's text until the
+  // As in a single-file editor, the files keep the page's text until the
   // reader edits one of them.
   let edited = false;
 
@@ -708,37 +1360,21 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
       p.hl.innerHTML = renderToml(p.code, EDITOR_RENDER);
       return;
     }
+    if (p.lang === "json") {
+      p.hl.innerHTML = renderJson(p.code, EDITOR_RENDER);
+      return;
+    }
+    if (p.lang === "text") {
+      p.hl.innerHTML = render([], [], p.code, EDITOR_RENDER);
+      return;
+    }
+    if (p.lang === "go") {
+      p.hl.innerHTML = goHighlight[p.file.name] ?? render([], [], p.code, EDITOR_RENDER);
+      return;
+    }
     p.captures = query.captures(parser.parse(p.code).rootNode);
     p.hl.innerHTML = render(p.captures, [], p.code, EDITOR_RENDER);
   };
-
-  const activate = (i) => {
-    panes.forEach((p, j) => {
-      const active = i === j;
-      p.btn.classList.toggle("is-active", active);
-      p.btn.setAttribute("aria-selected", String(active));
-      p.btn.tabIndex = active ? 0 : -1;
-      p.pane.hidden = !active;
-    });
-  };
-
-  panes.forEach((p, i) => {
-    p.btn.addEventListener("click", () => {
-      activate(i);
-      p.ta.focus();
-    });
-  });
-
-  tabBar.addEventListener("keydown", (ev) => {
-    if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
-    const activeIdx = panes.findIndex((p) => p.btn === document.activeElement);
-    if (activeIdx < 0) return;
-    ev.preventDefault();
-    const step = ev.key === "ArrowLeft" ? -1 : 1;
-    const nextIdx = (activeIdx + step + panes.length) % panes.length;
-    activate(nextIdx);
-    panes[nextIdx].btn.focus();
-  });
 
   const scheduleAutoFormat = (snapshots) => {
     clearTimeout(formatDebounce);
@@ -805,6 +1441,8 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
     const snapshots = nomiPanes.map((p) => ({ p, body: p.ta.value }));
     const stitched = stitchSource();
     const painted = nomiPanes.map((p) => ({ p, code: p.code, captures: p.captures }));
+    live.setStale(false);
+    live.setRunning(true);
     dispatch(id, stitched, {
       onSem: (sem) => {
         if (block.req !== id) return;
@@ -814,6 +1452,7 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
       },
       onRun: (output, error) => {
         if (block.req !== id) return;
+        live.setRunning(false);
         showOutput(out, output, error, parser, query, headingFor(stitched, error));
         cleanFormatSnapshots = error ? null : snapshots;
         if (error) live.setFormatting(false);
@@ -821,11 +1460,12 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
       },
       onFail: (reason) => {
         if (block.req !== id) return;
+        live.setRunning(false);
         showError(out, reason);
         cleanFormatSnapshots = null;
         live.setFormatting(false);
       },
-    }, nomiPanes.map((p) => p.file.name));
+    }, nomiPanes.map((p) => p.file.name), expand);
   };
 
   let debounce;
@@ -847,7 +1487,8 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
       live.setFormatting(false);
       paint(p);
       clearTimeout(debounce);
-      debounce = setTimeout(run, DEBOUNCE_MS);
+      if (manual) live.setStale(true);
+      else debounce = setTimeout(run, DEBOUNCE_MS);
     });
     p.ta.addEventListener("compositionstart", () => {
       p.composing = true;
@@ -867,7 +1508,12 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
       if (document.activeElement === p.ta) maybeScheduleAutoFormat();
     });
     p.ta.addEventListener("keydown", (ev) => {
-      if (ev.key !== "Tab") return;
+      if (manual && ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
+        ev.preventDefault();
+        run();
+        return;
+      }
+      if (ev.key !== "Tab" || p.ta.readOnly) return;
       ev.preventDefault();
       const s = p.ta.selectionStart, e = p.ta.selectionEnd;
       p.ta.value = p.ta.value.slice(0, s) + "    " + p.ta.value.slice(e);
@@ -879,20 +1525,16 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
   run();
 }
 
-// showOutput writes a run's output and error into the output panel. With
-// heading, the error is a ```nomi-run error block's intended one, and a muted
-// line saying so comes first. The error starts on the line after the output,
-// with no blank line between, as a terminal shows a failure after what the
-// program printed; internal/doctest's Shown is this text, and a block that
-// stops on purpose holds it in its expect block.
-function showOutput(out, output, error, parser, query, heading = false) {
+// showOutput writes a run's output and error into the output panel, and its
+// heading: with heading, the error is a ```nomi-run error block's intended
+// one, and the panel's header says so. The error starts on the line after the
+// output, with no blank line between, as a terminal shows a failure after
+// what the program printed; internal/doctest's Shown is this text, and a
+// block that stops on purpose holds it in its expect block.
+function showOutput(panel, output, error, parser, query, heading = false) {
+  const out = panel.out;
+  panel.setHeading(heading);
   out.textContent = "";
-  if (heading) {
-    const note = document.createElement("span");
-    note.className = "nomi-expected-note";
-    note.textContent = EXPECTED_ERROR_HEADING;
-    out.append(note, document.createTextNode("\n"));
-  }
   if (output) appendRunText(out, output, "", parser, query);
   if (error) {
     if (output && !output.endsWith("\n")) out.appendChild(document.createTextNode("\n"));
@@ -1022,7 +1664,9 @@ function classForRunLine(line, fallbackClass) {
   return fallbackClass;
 }
 
-function showError(out, msg) {
+function showError(panel, msg) {
+  const out = panel.out;
+  panel.setHeading(false);
   out.textContent = "";
   const s = document.createElement("span");
   s.className = "nomi-err";
@@ -1047,7 +1691,10 @@ function measureCharWidth(cs) {
 
 let tipEl = null;
 let hideTimer = null;
-function showTooltip(html, x, y) {
+// tooltip answers the shared tooltip element, inside the open large view
+// while there is one: a modal <dialog> sits in the top layer, above
+// anything in the page's body whatever its z-index.
+function tooltip() {
   if (!tipEl) {
     tipEl = document.createElement("div");
     tipEl.className = "nomi-hover";
@@ -1056,8 +1703,14 @@ function showTooltip(html, x, y) {
     // dismisses it. Editor `mousemove` may re-show it over the same token.
     tipEl.addEventListener("mouseenter", () => clearTimeout(hideTimer));
     tipEl.addEventListener("mouseleave", hideTooltip);
-    document.body.appendChild(tipEl);
   }
+  const host = modal?.current ? modal.dialog : document.body;
+  if (tipEl.parentNode !== host) host.appendChild(tipEl);
+  return tipEl;
+}
+
+function showTooltip(html, x, y) {
+  tooltip();
   clearTimeout(hideTimer);
   tipEl.innerHTML = html;
   tipEl.style.display = "block";

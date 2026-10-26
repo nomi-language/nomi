@@ -16,20 +16,20 @@ const (
 
 // captureHost is `run_captured(input, run, finish)`: call run on a frame
 // whose `io.capture` target reads input and collects output, close the
-// capture on every path, then hand run's value, the output and the
-// transcript to finish, which builds the `Captured<T>` in Nomi (so this host
+// capture on every path, then hand run's value, the output, the error output
+// and the transcript to finish, which builds the `Captured<T>` in Nomi (so this host
 // never needs the instantiated struct's layout).
 //
 // A trap in run propagates unchanged and its partial output is dropped with
 // the closed capture. finish runs on the caller's frame, outside the capture.
 func captureHost(m *Machine, _ ir.Pos, args []any) (any, error) {
-	input, run, finish, err := captureOperands(m, captureKey, args, 3)
+	input, run, finish, err := captureOperands(m, captureKey, args, 4)
 	if err != nil {
 		return nil, err
 	}
 	inner, c := rt.EnterCapture(m.hostFrame, input)
 	return m.runCaptured(inner, c, run, finish, func(v any, r rt.CaptureResult) []any {
-		return []any{v, r.Output, r.Transcript}
+		return []any{v, r.Output, r.Errors, r.Transcript}
 	})
 }
 

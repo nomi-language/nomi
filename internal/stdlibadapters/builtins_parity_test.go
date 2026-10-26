@@ -40,10 +40,15 @@ const builtinGoldenPath = "testdata/builtins.golden"
 var builtinCheckedRows = map[string]bool{
 	"decimal.Decimal.from_int": true, "decimal.Decimal.from_string": true, "decimal.Decimal.to_int": true,
 	"decimal.Decimal.to_float": true, "decimal.Decimal.from_float": true, "decimal.Decimal.divide": true,
-	"decimal.Decimal.round": true, "decimal.Decimal.normalize": true, "decimal.Decimal.scale": true,
+	"decimal.Decimal.divide_exact": true,
+	"decimal.Decimal.round":        true, "decimal.Decimal.normalize": true, "decimal.Decimal.scale": true,
 	"strings.String.repeat": true, "int.Int.shift_left": true, "int.Int.shift_right": true,
 	"bytes.Bytes.to_list": true, "bytes.Bytes.from_list": true, "bytes.Bytes.hash": true,
-	"strings.String.normalize": true, "strings.String.to_literal": true, "io.read_file": true, "io.write_file": true,
+	"strings.String.normalize": true, "strings.String.to_literal": true,
+	"fs_host.read": true, "fs_host.read_text": true, "fs_host.write": true, "fs_host.list": true,
+	"fs_host.create_dir": true, "fs_host.remove": true, "fs_host.remove_all": true, "fs_host.rename": true,
+	"fs_host.copy": true, "fs_host.metadata": true, "fs_host.link_metadata": true, "fs_host.create_symlink": true,
+	"fs_host.read_link": true, "fs_host.set_mode": true,
 	"dynamic.Dynamic.field": true, "dynamic.Dynamic.index": true, "dynamic.Dynamic.path": true,
 	"dynamic.Dynamic.as_string": true, "dynamic.Dynamic.as_int": true, "dynamic.Dynamic.as_float": true,
 	"dynamic.Dynamic.as_bool": true, "dynamic.Dynamic.as_list": true, "dynamic.Dynamic.as_dict": true,
@@ -56,10 +61,25 @@ var contextCheckedRows = map[string]bool{
 	"context.Context.deadline": true, "context.Context.deadline_remaining": true, "context.Context.with_deadline": true,
 	// Reads the frame's input: TestRtFuncs_ReadLineReadsTheFramesInput.
 	"io.read_line": true,
+	// The standard streams: TestRtFuncs_StreamsReachTheFramesStreams.
+	"io.standard_input": true, "io.standard_output": true, "io.standard_error": true,
+	"io.Reader.read_line": true, "io.Writer.write": true, "io.Writer.write_text": true,
+	// Streams over handles and the sandbox: TestRtFuncs_HandlesAndSandboxes.
+	"io.read_up_to": true, "io.Reader.read_all": true, "io.Reader.read_all_text": true,
+	"io.Reader.copy_to": true, "io.Reader.close": true, "io.Reader.from_bytes": true, "io.Reader.from_text": true,
+	"io.Writer.flush": true, "io.Writer.close": true,
+	"fs_host.open": true, "fs_host.create": true, "fs_host.discard": true, "fs_host.temp_dir": true,
+	"fs_host.make_temp_dir": true, "fs_host.current_dir": true, "fs_host.new_sandbox": true,
+	"fs_host.sandbox_fail": true, "fs_host.sandbox_files": true, "fs_host.sandbox_log": true, "fs_host.sandbox_open": true,
+	// A File on the disk and in a sandbox, and fs.within's crossings:
+	// TestRtFuncs_FilesAndWithin.
+	"fs_host.open_file": true, "fs_host.within": true, "fs_host.release": true, "io.file_read": true,
+	"io.File.read_at": true, "io.File.write": true, "io.File.write_at": true, "io.File.seek": true,
+	"io.File.position": true, "io.File.size": true, "io.File.truncate": true, "io.File.close": true,
 }
 
 // TestRtFuncs_ReadLineReadsTheFramesInput: `io.read_line` answers each line of
-// the input the frame's context carries, then Err("eof"), and Err("eof") at
+// the input the frame's context carries, then Ok(None), and Ok(None) at
 // once over a frame with no input.
 func TestRtFuncs_ReadLineReadsTheFramesInput(t *testing.T) {
 	table, err := Bind(&hostadapt.Env{})
@@ -68,9 +88,9 @@ func TestRtFuncs_ReadLineReadsTheFramesInput(t *testing.T) {
 	}
 	fr := rt.NewFrame(rt.WithInput(context.Background(), rt.NewInput(strings.NewReader("one\ntwo"))))
 	for _, want := range []string{
-		"results.Result/4.Ok{0=String(\"one\")}",
-		"results.Result/4.Ok{0=String(\"two\")}",
-		"results.Result/4.Err{0=String(\"eof\")}",
+		"results.Result/4.Ok{0=maybe.Maybe/4.Some{0=String(\"one\")}}",
+		"results.Result/4.Ok{0=maybe.Maybe/4.Some{0=String(\"two\")}}",
+		"results.Result/4.Ok{0=maybe.Maybe/4.None{}}",
 	} {
 		got, err := table["io.read_line"](fr, nil)
 		if err != nil || canonText(got, false) != want {
@@ -78,8 +98,51 @@ func TestRtFuncs_ReadLineReadsTheFramesInput(t *testing.T) {
 		}
 	}
 	got, err := table["io.read_line"](rt.NewFrame(context.Background()), nil)
-	if err != nil || canonText(got, false) != "results.Result/4.Err{0=String(\"eof\")}" {
+	if err != nil || canonText(got, false) != "results.Result/4.Ok{0=maybe.Maybe/4.None{}}" {
 		t.Errorf("read_line with no input answered %s, %v", canonText(got, false), err)
+	}
+}
+
+// TestRtFuncs_StreamsReachTheFramesStreams: the crossings behind `io.stdin`,
+// `io.stdout` and `io.stderr` answer the three handles, `Reader.read_line` on stdin reads
+// what `io.read_line` reads, and `Writer.write` and std/io's `write_text`
+// write to the output and error writers the frame's context carries.
+func TestRtFuncs_StreamsReachTheFramesStreams(t *testing.T) {
+	table, err := Bind(&hostadapt.Env{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out, errs strings.Builder
+	ctx := rt.WithStreams(rt.WithInput(context.Background(), rt.NewInput(strings.NewReader("line\n"))), &out, &errs)
+	fr := rt.NewFrame(ctx)
+	handle := func(key string) any {
+		v, err := table[key](fr, nil)
+		if err != nil {
+			t.Fatalf("%s: %v", key, err)
+		}
+		return v
+	}
+	stdin, stdout, stderr := handle("io.standard_input"), handle("io.standard_output"), handle("io.standard_error")
+	got, err := table["io.Reader.read_line"](fr, []any{stdin})
+	if want := "results.Result/4.Ok{0=maybe.Maybe/4.Some{0=String(\"line\")}}"; err != nil || canonText(got, false) != want {
+		t.Errorf("Reader.read_line answered %s, %v; want %s", canonText(got, false), err, want)
+	}
+	for _, call := range []struct {
+		key  string
+		args []any
+	}{
+		{"io.Writer.write", []any{stdout, rt.Bytes("a")}},
+		{"io.Writer.write_text", []any{stdout, "b\n"}},
+		{"io.Writer.write", []any{stderr, rt.Bytes("c")}},
+		{"io.Writer.write_text", []any{stderr, "d\n"}},
+	} {
+		got, err := table[call.key](fr, call.args)
+		if want := "results.Result/4.Ok{0=Unit}"; err != nil || canonText(got, false) != want {
+			t.Errorf("%s answered %s, %v; want %s", call.key, canonText(got, false), err, want)
+		}
+	}
+	if out.String() != "ab\n" || errs.String() != "cd\n" {
+		t.Errorf("stdout %q, stderr %q; want \"ab\\n\" and \"cd\\n\"", out.String(), errs.String())
 	}
 }
 
@@ -143,34 +206,75 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 	golden := readOutcomes(t, builtinGoldenPath)
 	dir := t.TempDir()
 	existing := filepath.Join(dir, "in.txt")
+	binary := filepath.Join(dir, "binary.dat")
+	if err := os.WriteFile(binary, []byte("ok\xff"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(existing, []byte("read me"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	// The files std/fs's rows read, list, move and remove. Each case
+	// works on paths of its own, since the cases run in key order.
+	for name, data := range map[string]string{"sub/a.txt": "a", "sub/b.txt": "bb", "full/x": "x", "ren-a.txt": "r", "dated.txt": "1234567", "mode.txt": "m"} {
+		p := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(data), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	dated := filepath.Join(dir, "dated.txt")
+	if err := os.Chmod(dated, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(dated, time.Unix(1700000000, 0), time.Unix(1700000000, 0)); err != nil {
+		t.Fatal(err)
+	}
+	in := func(name string) string { return filepath.Join(dir, name) }
 	iv := func(n int64) any { return n }
 	fv := func(x float64) any { return x }
 	sv := func(s string) any { return s }
 	decimals := []any{dec(t, "1.50"), dec(t, "-0.001"), dec(t, "42"), dec(t, "123456789012345678901234.5"), dec(t, "0")}
 	modes := []string{"HalfEven", "HalfUp", "Down", "Floor", "Ceiling", "Up", "Unnecessary"}
 	cases := map[string][][]any{
-		"decimal.Decimal.from_int":    {{iv(0)}, {iv(-5)}, {iv(math.MaxInt64)}, {iv(math.MinInt64)}},
-		"decimal.Decimal.from_string": {{sv("1.50")}, {sv("abc")}, {sv("-0.001")}, {sv("")}, {sv("1e5")}, {sv(" 2")}},
-		"decimal.Decimal.to_float":    {},
-		"decimal.Decimal.to_int":      {},
-		"decimal.Decimal.normalize":   {},
-		"decimal.Decimal.scale":       {},
-		"decimal.Decimal.from_float":  {},
-		"decimal.Decimal.divide":      {},
-		"decimal.Decimal.round":       {},
-		"strings.String.repeat":       {{sv("ab"), iv(3)}, {sv("x"), iv(0)}, {sv("é"), iv(2)}, {sv("x"), iv(-1)}},
-		"int.Int.shift_left":          {{iv(1), iv(3)}, {iv(1), iv(63)}, {iv(1), iv(64)}, {iv(-8), iv(1)}, {iv(1), iv(-1)}},
-		"int.Int.shift_right":         {{iv(8), iv(3)}, {iv(-8), iv(1)}, {iv(1), iv(64)}, {iv(1), iv(-1)}},
-		"bytes.Bytes.to_list":         {{rt.Bytes("")}, {rt.Bytes("ab\xff")}},
-		"bytes.Bytes.from_list":       {{rtList()}, {rtList(rt.Byte(1), rt.Byte(255))}},
-		"bytes.Bytes.hash":            {{rt.Bytes("")}, {rt.Bytes("ab")}, {rt.Bytes("ab\xff")}},
-		"strings.String.normalize":    {},
-		"strings.String.to_literal":   {{sv("")}, {sv("plain é 🙂")}, {sv("a\tb\nc\rd")}, {sv(`q"b\s`)}, {sv("$5 ${x} \\${y}")}, {sv("\x00\x1f\x7f")}},
-		"io.read_file":                {{sv(existing)}, {sv(filepath.Join(dir, "missing.txt"))}, {sv(dir)}},
-		"io.write_file":               {{sv(filepath.Join(dir, "out.txt")), sv("written")}, {sv(filepath.Join(dir, "no", "such", "dir.txt")), sv("x")}},
+		"decimal.Decimal.from_int":     {{iv(0)}, {iv(-5)}, {iv(math.MaxInt64)}, {iv(math.MinInt64)}},
+		"decimal.Decimal.from_string":  {{sv("1.50")}, {sv("abc")}, {sv("-0.001")}, {sv("")}, {sv("1e5")}, {sv(" 2")}},
+		"decimal.Decimal.to_float":     {},
+		"decimal.Decimal.to_int":       {},
+		"decimal.Decimal.normalize":    {},
+		"decimal.Decimal.scale":        {},
+		"decimal.Decimal.from_float":   {},
+		"decimal.Decimal.divide":       {},
+		"decimal.Decimal.divide_exact": {},
+		"decimal.Decimal.round":        {},
+		"strings.String.repeat":        {{sv("ab"), iv(3)}, {sv("x"), iv(0)}, {sv("é"), iv(2)}, {sv("x"), iv(-1)}},
+		"int.Int.shift_left":           {{iv(1), iv(3)}, {iv(1), iv(63)}, {iv(1), iv(64)}, {iv(-8), iv(1)}, {iv(1), iv(-1)}},
+		"int.Int.shift_right":          {{iv(8), iv(3)}, {iv(-8), iv(1)}, {iv(1), iv(64)}, {iv(1), iv(-1)}},
+		"bytes.Bytes.to_list":          {{rt.Bytes("")}, {rt.Bytes("ab\xff")}},
+		"bytes.Bytes.from_list":        {{rtList()}, {rtList(rt.Byte(1), rt.Byte(255))}},
+		"bytes.Bytes.hash":             {{rt.Bytes("")}, {rt.Bytes("ab")}, {rt.Bytes("ab\xff")}},
+		"strings.String.normalize":     {},
+		"strings.String.to_literal":    {{sv("")}, {sv("plain é 🙂")}, {sv("a\tb\nc\rd")}, {sv(`q"b\s`)}, {sv("$5 ${x} \\${y}")}, {sv("\x00\x1f\x7f")}},
+		"fs_host.read":                 {{sv(existing)}, {sv(binary)}, {sv(in("missing.txt"))}, {sv(dir)}, {sv("")}, {sv("a\x00b")}},
+		"fs_host.read_text":            {{sv(existing)}, {sv(in("missing.txt"))}, {sv(dir)}, {sv(binary)}, {sv("")}, {sv("a\x00b")}},
+		"fs_host.write": {{sv(in("out.txt")), rt.Bytes("written"), iv(0)}, {sv(in("no/such/dir.txt")), rt.Bytes("x"), iv(0)},
+			{sv(""), rt.Bytes("x"), iv(0)}, {sv(dir), rt.Bytes("x"), iv(0)}, {sv(existing), rt.Bytes("x"), iv(3)},
+			{sv(in("log.txt")), rt.Bytes("a"), iv(2)}, {sv(in("log.txt")), rt.Bytes("b"), iv(2)}, {sv(in("atomic.txt")), rt.Bytes("new"), iv(1)}},
+		"fs_host.list":       {{sv(in("sub"))}, {sv(in("none"))}, {sv(existing)}},
+		"fs_host.create_dir": {{sv(in("made")), false}, {sv(in("made")), false}, {sv(in("deep/er")), true}, {sv(in("x/y")), false}},
+		"fs_host.remove":     {{sv(in("full"))}, {sv(in("none"))}, {sv(in("sub/b.txt"))}},
+		"fs_host.remove_all": {{sv(in("full"))}, {sv(in("none"))}},
+		"fs_host.rename":     {{sv(in("ren-a.txt")), sv(in("ren-b.txt"))}, {sv(in("none")), sv(in("x"))}, {sv(existing), sv(in("no/dir/x"))}},
+		"fs_host.copy":       {{sv(existing), sv(in("copy.txt"))}, {sv(in("none")), sv(in("x"))}, {sv(dir), sv(in("x"))}},
+		"fs_host.metadata":   {{sv(dated)}, {sv(in("none"))}},
+		// Cases run in key order: create_symlink makes the link read_link
+		// reads. A link's own modification time is not set here, so
+		// link_metadata's Ok case is a file's.
+		"fs_host.create_symlink": {{sv(in("link-a")), sv("in.txt")}, {sv(in("link-a")), sv("x")}, {sv(in("no/l")), sv("x")}, {sv(in("l")), sv("")}},
+		"fs_host.link_metadata":  {{sv(dated)}, {sv(in("none"))}},
+		"fs_host.read_link":      {{sv(in("link-a"))}, {sv(existing)}, {sv(in("none"))}},
+		"fs_host.set_mode":       {{sv(in("mode.txt")), iv(0o600)}, {sv(in("mode.txt")), iv(0o1000)}, {sv(in("mode.txt")), iv(-1)}, {sv(in("none")), iv(0o600)}},
 	}
 	// A Json tree is the one the json.Json.decode adapter builds (held to the
 	// recorded hosts' outcomes in the RtFuncs suite), rebuilt as another
@@ -225,7 +329,11 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 			cases["decimal.Decimal.divide"] = append(cases["decimal.Decimal.divide"], []any{d, dec(t, "3"), iv(2), mode(m)})
 		}
 		cases["decimal.Decimal.divide"] = append(cases["decimal.Decimal.divide"], []any{d, dec(t, "0"), iv(2), mode("HalfEven")})
+		for _, by := range []string{"4", "8", "3", "0.25", "-2", "0"} {
+			cases["decimal.Decimal.divide_exact"] = append(cases["decimal.Decimal.divide_exact"], []any{d, dec(t, by)})
+		}
 	}
+	cases["decimal.Decimal.divide_exact"] = append(cases["decimal.Decimal.divide_exact"], []any{dec(t, "10.00"), dec(t, "4")})
 	for _, x := range []float64{0.1, 3.14159, -2.5, math.NaN(), math.Inf(1), 1e300} {
 		for _, m := range []string{"HalfEven", "Floor", "Unnecessary"} {
 			cases["decimal.Decimal.from_float"] = append(cases["decimal.Decimal.from_float"], []any{fv(x), iv(2), mode(m)})

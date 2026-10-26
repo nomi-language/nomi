@@ -458,9 +458,10 @@ func irUserStructFieldKind(k kind) bool {
 		// A list of existentials (`params: List<Display>`), the concrete
 		// values themselves.
 		return true
-	case irContextKind(k), irSupervisorKind(k):
-		// A Context field (`struct Config { context: Context }`) or a
-		// Supervisor field (`audit: Supervisor`), the rt value itself.
+	case irContextKind(k), irSupervisorKind(k), irStreamKind(k):
+		// A Context field (`struct Config { context: Context }`), a
+		// Supervisor field (`audit: Supervisor`) or a stream field (`log:
+		// io.Writer`), the rt value itself.
 		return true
 	case irHostHandleKind(k):
 		// A Go handle field (`struct Box { raw: RawBox }`), the rt.HostHandle
@@ -599,7 +600,7 @@ func irRetainedFieldKind(k kind) bool {
 // represented user enum without embedded variants; recursive nominal layouts
 // remain outside the retained domain.
 func irRetainedValueKind(k kind) bool {
-	if irRetainedRangeKind(k) || irHostHandleKind(k) || irConcHandleKind(k) || irContextKind(k) || irSupervisorKind(k) || irDynamicKind(k) || irTypeWitnessKind(k) {
+	if irRetainedRangeKind(k) || irHostHandleKind(k) || irConcHandleKind(k) || irContextKind(k) || irSupervisorKind(k) || irStreamKind(k) || irDynamicKind(k) || irTypeWitnessKind(k) {
 		return true
 	}
 	if irByteValueKind(k) || isDecimalKind(k) || irRetainedLeafKind(k) || irRetainedSeqKind(k) || irRetainedListKind(k) || irListTransportKind(k) || irRetainedMapKind(k) || irMapTransportKind(k) || irRetainedVectorKind(k) || irRetainedSetKind(k) || irRetainedTupleKind(k) || irRetainedRecordKind(k) {

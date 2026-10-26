@@ -116,13 +116,10 @@ func (e *AssertionFailure) diffShows(row AssertionValueContext) bool {
 	return s == diffShownLines(e.Diff.Actual) || s == diffShownLines(e.Diff.Expected)
 }
 
-// rowString is the String a row's text renders (InspectString), or false
+// rowString is the String a row's text renders (StringLiteral), or false
 // when the row is not a String's.
 func rowString(value string) (string, bool) {
-	if len(value) < 2 || value[0] != '"' || value[len(value)-1] != '"' {
-		return "", false
-	}
-	return value[1 : len(value)-1], true
+	return UnquoteStringLiteral(value)
 }
 
 // diffShownLines is s as diffShows compares it.
@@ -387,8 +384,9 @@ func RecordOperand(trace *[]AssertionValueContext, expr, value string, suppressR
 }
 
 // How a value reads in an assertion report. Distinct from Format*: a String
-// shows its quotes, so `assert name == "ok"` can show `name = "no"` rather than
-// an unquoted word that could be mistaken for an identifier.
+// is its literal (StringLiteral, the text its Debug writes), so `assert name
+// == "ok"` can show `name = "no"` rather than an unquoted word that could be
+// mistaken for an identifier, and a newline in it reads `\n`.
 //
 // RowText (render.go) is these functions plus a dispatch over rt's value
 // kinds; it calls down here for the scalar rows rather than restating them, so
@@ -403,12 +401,11 @@ func RecordOperand(trace *[]AssertionValueContext, expr, value string, suppressR
 // change it either.
 //
 // The consequence for a composite is that the structure is shared with Format*
-// and only the element rendering differs: `FormatListCells(xs, InspectString)`
+// and only the element rendering differs: `FormatListCells(xs, StringLiteral)`
 // is exactly a List's Inspect, and `FormatListCells(xs, FormatInt)` is exactly
 // its Display. So there is no InspectList and there must not be one — the two
 // spellings of `[a, b, c]` would be one rule in two places. What a composite
 // needs beyond a renderer argument is below.
-func InspectString(v string) string { return `"` + v + `"` }
 
 // InspectUnit is how the one `Unit` value reads in a `values:` row, and it is
 // the only spelling of it: RowText calls this. The text is the Unit literal,

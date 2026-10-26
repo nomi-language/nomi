@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 409
-declared-cases 1378
+records 420
+declared-cases 1415
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -167,6 +167,21 @@ T ok <root>/tests/01-foundations/shadowing_test.nomi :: bindings can shadow para
 T ok <root>/tests/01-foundations/shadowing_test.nomi :: bindings can shadow with a different type
 T test result: ok. 3 passed, 0 failed
 T
+C 01-foundations/standard_streams/streams.nomi
+E 0
+N 0
+H 2ddea6a62124dd1521eec9ca37951f48af915cd73b939f6c32593db7a8931a2f
+T out: print
+T out: write
+T out: Writer.print
+T end of input
+T --- stderr ---
+T err: eprint
+T err: ewrite
+T err: Writer.print
+T err: Writer.write
+T notes.txt: not found
+T
 C 01-foundations/triple_quoted_strings_test.nomi
 E 0
 N 8
@@ -276,17 +291,58 @@ T ok <root>/tests/02-testing/attached_tests_test.nomi :: done_label //! test lin
 T ok <root>/tests/02-testing/attached_tests_test.nomi :: attached test declarations remain ordinary declarations
 T test result: ok. 6 passed, 0 failed
 T
+C 02-testing/fs_disk_test.nomi
+E 0
+N 8
+H 326fc6875f551a235fcf967d37ff32b4d03e12093ab6831dfab1b246c540a869
+T ok <root>/tests/02-testing/fs_disk_test.nomi :: the disk keeps the rules the sandbox models
+T ok <root>/tests/02-testing/fs_disk_test.nomi :: a temporary directory is gone afterwards
+T ok <root>/tests/02-testing/fs_disk_test.nomi :: each write mode
+T ok <root>/tests/02-testing/fs_disk_test.nomi :: a writer buffers until it closes, and a reader reads it back
+T ok <root>/tests/02-testing/fs_disk_test.nomi :: a listing is sorted and names each entry's kind
+T ok <root>/tests/02-testing/fs_disk_test.nomi :: metadata answers the size, and copy and rename move contents
+T ok <root>/tests/02-testing/fs_disk_test.nomi :: errors name the path the program passed
+T ok <root>/tests/02-testing/fs_disk_test.nomi :: symlinks, modes, a File and within on the disk
+T test result: ok. 8 passed, 0 failed
+T
+C 02-testing/fs_sandbox_test.nomi
+E 0
+N 16
+H 31d62bfe021c1d29cb32ce5cdfe577ae0c698039d56f90416a2edaf608c5bb8c
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: sorts the lines into the output file
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: a missing input is NotFound
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: a full disk leaves the old output in place
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: a failure can name only the nth operation
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: tasks started inside the run reach its sandbox
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: two tasks in two sandboxes do not see each other's files
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: a nested run takes over for its own call
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: a reader left open shows in open
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: with_writer streams a copy with a header
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: directories list sorted, and remove and rename act on them
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: the sandbox's rules are the disk's
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: WriteMode is a value
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: an injected failure's operation is a value
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: walk and glob find the files under a directory
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: a task inside within is confined too
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: a File handle left open is in ran.open
+T test result: ok. 16 passed, 0 failed
+T
 C 02-testing/io_capture_test.nomi
 E 0
-N 6
-H 28d710a26589ad6ab5858b78da58fa5ff8d0cc3e9e13597b9c8033e8849e3b2e
+N 11
+H 2b9684d14f1131de0a2d24a47c3e87bd4996a6edd683152e30b6ea17f8f2c0dd
 T ok <root>/tests/02-testing/io_capture_test.nomi :: a program's main runs against the given input
 T ok <root>/tests/02-testing/io_capture_test.nomi :: print, write and inspect are captured byte for byte
-T ok <root>/tests/02-testing/io_capture_test.nomi :: read_line reads the input a line at a time, then Err at the end
+T ok <root>/tests/02-testing/io_capture_test.nomi :: read_line reads the input a line at a time, then None at the end
 T ok <root>/tests/02-testing/io_capture_test.nomi :: an inner capture keeps its own output
 T ok <root>/tests/02-testing/io_capture_test.nomi :: tasks started inside the capture are captured
 T ok <root>/tests/02-testing/io_capture_test.nomi :: two tasks capturing at once do not see each other's output
-T test result: ok. 6 passed, 0 failed
+T ok <root>/tests/02-testing/io_capture_test.nomi :: stderr is captured apart from stdout and the transcript
+T ok <root>/tests/02-testing/io_capture_test.nomi :: the stream handles reach the capture
+T ok <root>/tests/02-testing/io_capture_test.nomi :: a replay ignores what the program writes to stderr
+T ok <root>/tests/02-testing/io_capture_test.nomi :: an inner capture keeps its own errors
+T ok <root>/tests/02-testing/io_capture_test.nomi :: a stream read before a capture writes into the capture
+T test result: ok. 11 passed, 0 failed
 T
 C 02-testing/setup_semantics_test.nomi
 E 0
@@ -459,10 +515,10 @@ T test result: ok. 8 passed, 0 failed
 T
 C 04-scalars-and-text/decimals/decimals_test.nomi
 E 0
-N 11
-H b7007d081e538d175a57999ccffadcffce7d47979c9692e19db1599b1f4d33df
+N 13
+H 66ceecb2bde5dc3d200a2bfb11c6b31172d0e9c09f75f81e4484cc81da783dc9
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal literals preserve display scale
-T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal operators are exact when the result terminates
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal operators are exact
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal rounding and shaping functions are explicit
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal conversions are explicit
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal debug and comparisons are scale insensitive where appropriate
@@ -470,9 +526,11 @@ T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal ran
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal set and map keys are scale insensitive
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal arithmetic supports money-shaped totals
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal arithmetic rejects mixed numeric types
-T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal division by zero is a runtime error
-T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: non-terminating decimal division is a runtime error
-T test result: ok. 11 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal has no division operator
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: divide_exact keeps the quotient's scale when it terminates
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: divide_exact is None when the quotient does not terminate
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: divide_exact by zero is a runtime error
+T test result: ok. 13 passed, 0 failed
 T
 C 04-scalars-and-text/decimals/test_helpers.nomi
 E 1
@@ -565,6 +623,16 @@ T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a function of your ow
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a matcher prints what each call finds
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a value that is not a matcher is rejected
 T test result: ok. 13 passed, 0 failed
+T
+C 04-scalars-and-text/path_test.nomi
+E 0
+N 4
+H 05dc61574f366b69a6cbb84ffc28711188e830863d1e84ff3cbbba4fe09e86cd
+T ok <root>/tests/04-scalars-and-text/path_test.nomi :: join and clean
+T ok <root>/tests/04-scalars-and-text/path_test.nomi :: the parts of a path
+T ok <root>/tests/04-scalars-and-text/path_test.nomi :: absolute and relative
+T ok <root>/tests/04-scalars-and-text/path_test.nomi :: globs match a name at a time
+T test result: ok. 4 passed, 0 failed
 T
 C 04-scalars-and-text/random_test.nomi
 E 0
@@ -2802,6 +2870,58 @@ N 0
 H 391d24512888ffe44f741bc90dcbc31a320f22948bdfea60288d14721f16d797
 T --- stderr ---
 T nomi run: <root>/tests/15-app-and-defer/effects/test.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/exit_status/boot_exit.nomi
+E 4
+N 0
+H 8bf5c29a4c3b378b49a89926c8f6229af1ec38276e0b92490585706676b29bb7
+T released the port
+T --- stderr ---
+T no port configured
+T
+C 15-app-and-defer/exit_status/exit_test.nomi
+E 0
+N 2
+H 9c7ba2d5d2966061dd0987a3e7747547688831be1e72c38c170261ca8c1957f3
+T ok <root>/tests/15-app-and-defer/exit_status/exit_test.nomi :: main asks to exit with status 2
+T ok <root>/tests/15-app-and-defer/exit_status/exit_test.nomi :: an Exit's code defaults to 1 and its message to nothing
+T test result: ok. 2 passed, 0 failed
+T
+C 15-app-and-defer/exit_status/exit_zero.nomi
+E 0
+N 0
+H a25b8ab6ffa4491b29a6d00f4d9a9ea6aa987c75b916818d0371c698fcbccb0d
+T nothing to do
+T --- stderr ---
+T done early
+T
+C 15-app-and-defer/exit_status/main_exit.nomi
+E 3
+N 0
+H e297ade860974585c9401756ad254e73de884533a314186ab7b846669be0d275
+T starting
+T --- stderr ---
+T boot cleanup
+T usage: count <file>
+T
+C 15-app-and-defer/exit_status/out_of_range.nomi
+E 1
+N 0
+H 64f619b8852dac5aea29223abb5bb676612b923873d87daed3cb0b17fc0ce571
+T --- stderr ---
+T exit code 256 is outside 0 to 255
+T
+C 15-app-and-defer/exit_status/own_exit.nomi
+E 1
+N 0
+H 6476f963d94e04569461a2293c1eb13e4c14ae4fa16bfa2a63f2ae253893df33
+T --- stderr ---
+T error: #Exit{code: 9}
+T
+C 15-app-and-defer/exit_status/silent_exit.nomi
+E 7
+N 0
+H e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 T
 C 15-app-and-defer/file_store_pattern_test.nomi
 E 0

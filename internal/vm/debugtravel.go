@@ -95,6 +95,7 @@ package vm
 import (
 	"errors"
 	"fmt"
+	"github.com/nomi-language/nomi/rt"
 	"io"
 	"path/filepath"
 	"strconv"
@@ -479,14 +480,69 @@ const (
 var liveCrossings = map[string]bool{
 	"Context.with_value": true, "Context.value": true,
 	captureKey: true, replayKey: true,
+	// `fs_testing.run`'s sandbox lives in the machine: a replay builds it
+	// again, and the file operations inside run against it again
+	// (fileCrossingKind). A body `fs.within` runs over the disk runs again
+	// too, and its file operations are answered from the recording.
+	sandboxKey: true, "fs_host.new_sandbox": true, "fs_host.sandbox_fail": true,
+	"fs_host.sandbox_files": true, "fs_host.sandbox_log": true, "fs_host.sandbox_open": true,
+	// A reader over data the program holds reads nothing outside it.
+	"io.Reader.from_bytes": true, "io.Reader.from_text": true,
 }
 
 // readLineKey is `io.read_line`, which reads the program's input, or the
 // input of the `io.capture` or `io.replay` call it runs inside.
 const readLineKey = "io.read_line"
 
+// readerReadLineKey is `Reader.read_line`, which on standard input reads what
+// `io.read_line` reads.
+const readerReadLineKey = "io.Reader.read_line"
+
 // outputCrossings write to the program's output.
-var outputCrossings = map[string]bool{"io.print": true, "io.write": true, "io.inspect": true, dbgKey: true}
+var outputCrossings = map[string]bool{"io.print": true, "io.write": true, "io.inspect": true, dbgKey: true,
+	"io.eprint": true, "io.ewrite": true, "io.Writer.write": true, "io.Writer.write_text": true}
+
+// fileCrossingKind is how a replay treats a std/fs crossing, or a stream
+// crossing whose first operand is a handle (not a standard stream), made on
+// fr with operands args: it runs again when the program holds what it acts
+// on (a sandbox `fs_testing.run` installed, which the replay builds again,
+// or a reader over the program's own data), and is otherwise answered from
+// the recording, so stepping back never reads a file whose contents may have
+// changed or writes one twice. ok is false for every other crossing.
+func fileCrossingKind(fr *rt.Frame, name string, args []any) (kind crossingKind, ok bool) {
+	held := fr.FilesHeld()
+	if strings.HasPrefix(name, "fs_host.") || strings.HasPrefix(name, "io.File.") || name == "io.file_read" {
+		if held {
+			return crossLive, true
+		}
+		return crossAnswered, true
+	}
+	if !strings.HasPrefix(name, "io.Reader.") && !strings.HasPrefix(name, "io.Writer.") && name != "io.read_up_to" {
+		return 0, false
+	}
+	if len(args) == 0 {
+		return 0, false
+	}
+	switch h := args[0].(type) {
+	case rt.Reader:
+		if h.Standard() {
+			return 0, false
+		}
+		if held || h.Held() {
+			return crossLive, true
+		}
+	case rt.Writer:
+		if h.Standard() {
+			return 0, false
+		}
+		if held {
+			return crossLive, true
+		}
+	default:
+		return 0, false
+	}
+	return crossAnswered, true
+}
 
 func kindOfCrossing(name string) crossingKind {
 	switch {
@@ -505,7 +561,7 @@ func kindOfCrossing(name string) crossingKind {
 // cross is one crossing out of a debug machine: fr's thread calls name,
 // which call performs. It shows on the thread's stack while it runs, and is
 // recorded, or answered from the log in a replay.
-func (d *Debugger) cross(fr *frame, name string, call func() (any, error)) (any, error) {
+func (d *Debugger) cross(fr *frame, name string, args []any, call func() (any, error)) (any, error) {
 	th, prev, prevName := d.crossIn(fr, name)
 	defer d.crossOut(th, prev, prevName)
 	if th == nil || th.pass == nil || d.ttOff.Load() {
@@ -516,7 +572,10 @@ func (d *Debugger) cross(fr *frame, name string, call func() (any, error)) (any,
 		return nil, errAbandon
 	}
 	kind := kindOfCrossing(name)
-	if kind == crossAnswered && name == readLineKey && fr.runtime.ReadsCaptured() {
+	if k, isFile := fileCrossingKind(fr.runtime, name, args); isFile && kind != crossLive {
+		kind = k
+	}
+	if kind == crossAnswered && (name == readLineKey || name == readerReadLineKey) && fr.runtime.ReadsCaptured() {
 		// An `io.capture` or `io.replay` answers this read from its own
 		// input, which a replay builds again: the read runs again too, so the
 		// capture's transcript and script position are as they were.

@@ -112,11 +112,15 @@ export interface NomiRunOptions extends NomiLoadOptions {
   timeoutMs?: number;
   signal?: AbortSignal;
   worker?: boolean;
+  /** The files the program's in-memory file system starts with, by path from its working directory. */
+  files?: Record<string, string | Uint8Array>;
 }
 
 export interface NomiRunResult {
   exitCode: number;
   fatal?: string;
+  /** Every file in the program's file system when it ended, by path; absent when it was stopped. */
+  files?: Record<string, Uint8Array>;
 }
 
 /** Starts the program at url in a worker, runs its main when it has one, and resolves when its exported functions can be called. */

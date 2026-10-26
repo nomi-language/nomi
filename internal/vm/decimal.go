@@ -37,8 +37,6 @@ func (m *Machine) decimalArith(fr *frame, n *ir.Arith, lhs, rhs any) (err error)
 		result = rt.SubDecimal(a, b)
 	case ir.OpMul:
 		result = rt.MulDecimal(a, b)
-	case ir.OpDiv:
-		result = rt.DivDecimal(a, b, n.Pos().Line())
 	case ir.OpNeg:
 		result = rt.NegDecimal(a)
 	case ir.OpRem:

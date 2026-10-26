@@ -1,0 +1,153 @@
+// std/fs on the real disk, inside a temporary directory fs.with_temp_dir
+// makes and removes: each WriteMode, streams, listings, metadata and the
+// errors that name their path.
+import {
+    std/fs.{self, Kind}
+    std/fs_testing
+    std/io.{self, File, Reader, Writer}
+    std/path
+}
+
+test "the disk keeps the rules the sandbox models" {
+    assert fs.with_temp_dir(fn dir -> Ok(fs_testing.conformance(dir))) == Ok([])
+}
+
+test "a temporary directory is gone afterwards" {
+    made = fs.with_temp_dir(fn dir -> {
+        try fs.write_text(path.join(dir, "x.txt"), "x")
+        Ok(dir)
+    })
+
+    case made {
+        Ok(dir) -> assert fs.exists?(dir) == Ok(False)
+        Err(e) -> assert Display.to_string(e) == "no error"
+    }
+}
+
+test "each write mode" {
+    got = fs.with_temp_dir(fn dir -> {
+        p = path.join(dir, "notes.txt")
+        try fs.write_text(p, "milk\n")
+        try fs.write_text(p, "eggs\n", mode: .Append)
+        refused = fs.write_text(p, "x", mode: .New)
+        try fs.write_text(path.join(dir, "atomic.txt"), "whole", mode: .ReplaceAtomically)
+
+        Ok(
+            #(
+                try fs.read_text(p),
+                refused == Err(#io.Error.AlreadyExists{path: p}),
+                try fs.read_text(path.join(dir, "atomic.txt")),
+            )
+        )
+    })
+
+    assert got == Ok(#("milk\neggs\n", True, "whole"))
+}
+
+test "a writer buffers until it closes, and a reader reads it back" {
+    got = fs.with_temp_dir(fn dir -> {
+        p = path.join(dir, "out.txt")
+        w = try fs.create(p)
+        try Writer.print(w, "one")
+        try Writer.write(w, String.to_bytes("two\n"))
+        try Writer.close(w)
+
+        lines = try fs.with_reader(p, fn r -> {
+            first = try Reader.read_line(r)
+            rest = try Reader.read_all_text(r)
+            Ok(#(first, rest))
+        })
+
+        Ok(lines)
+    })
+
+    assert got == Ok(#(Some("one"), "two\n"))
+}
+
+test "a listing is sorted and names each entry's kind" {
+    got = fs.with_temp_dir(fn dir -> {
+        try fs.write_text(path.join(dir, "b.txt"), "")
+        try fs.create_dir(path.join(dir, "a"))
+
+        entries = try fs.list(dir)
+
+        Ok(
+            entries
+            |> Iter.map(fn e -> #(e.name, e.kind))
+            |> Iter.to_list()
+        )
+    })
+
+    assert got == Ok([#("a", Kind.Directory), #("b.txt", Kind.File)])
+}
+
+test "metadata answers the size, and copy and rename move contents" {
+    got = fs.with_temp_dir(fn dir -> {
+        a = path.join(dir, "a.txt")
+        try fs.write_text(a, "four")
+        try fs.copy(a, path.join(dir, "b.txt"))
+        try fs.rename(a, path.join(dir, "c.txt"))
+        size = (try fs.metadata(path.join(dir, "b.txt"))).size
+        Ok(#(size, try fs.exists?(a), try fs.read_text(path.join(dir, "c.txt"))))
+    })
+
+    assert got == Ok(#(4, False, "four"))
+}
+
+test "errors name the path the program passed" {
+    got = fs.with_temp_dir(fn dir -> {
+        missing = path.join(dir, "none/x.txt")
+        try fs.write_text(path.join(dir, "kept.txt"), "")
+
+        Ok([
+            fs.read_text(missing) == Err(#io.Error.NotFound{path: missing}),
+            fs.write_text(missing, "x") == Err(#io.Error.NotFound{path: path.join(dir, "none")}),
+            fs.remove(dir) == Err(#io.Error.DirectoryNotEmpty{path: dir}),
+            fs.read_text(dir) == Err(#io.Error.IsADirectory{path: dir}),
+        ])
+    })
+
+    assert got == Ok([True, True, True, True])
+}
+
+test "symlinks, modes, a File and within on the disk" {
+    got = fs.with_temp_dir(fn dir -> {
+        try fs.create_dir(path.join(dir, "site/pages"), parents: True)
+        try fs.write_text(path.join(dir, "site/pages/a.txt"), "a")
+        try fs.write_text(path.join(dir, "secret.txt"), "s")
+        try fs.create_symlink(path.join(dir, "site/current"), target: "pages")
+        try fs.set_mode(path.join(dir, "secret.txt"), 0o600)
+
+        walked =
+            fs.walk(path.join(dir, "site"))
+            |> Iter.map(fn e -> Result.map(e, fn e -> #(e.name, e.kind)))
+            |> Result.collect()
+
+        patched = fs.with_file(path.join(dir, "site/pages/a.txt"), access: .ReadWrite, fn f -> {
+            try File.write_at(f, 1, String.to_bytes("bc"))
+            File.size(f)
+        })
+
+        inside = fs.within(path.join(dir, "site"), fn -> {
+            Ok(#(fs.read_text("current/a.txt"), Result.ok?(fs.read_text("../secret.txt"))))
+        })
+
+        Ok(
+            #(
+                try walked,
+                try patched,
+                try inside,
+                (try fs.metadata(path.join(dir, "secret.txt"))).mode,
+            )
+        )
+    })
+
+    assert got == Ok(
+        #(
+            [#("current", Kind.Symlink), #("pages", Kind.Directory), #("a.txt", Kind.File)],
+            3,
+            #(Ok("abc"), False),
+            0o600,
+        )
+    )
+}

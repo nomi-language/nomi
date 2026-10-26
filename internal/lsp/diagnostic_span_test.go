@@ -100,6 +100,19 @@ func TestPublishedDiagnostics_EmbedsEnum(t *testing.T) {
 	}
 }
 
+// A wrong argument count is published over the call when it is short, and
+// over the extra arguments when it passes too many.
+func TestPublishedDiagnostics_ArityIsAtTheCall(t *testing.T) {
+	src := "fn main() {\n    _ = Decimal.round(1d)\n    _ = String.trim(\"a\", \"b\")\n}\n"
+	diags := publishedFor(t, NewServer(), src, true)
+	if got := rangeText(findDiag(t, diags, "expected 3 arguments, got 1").Range); got != "1:8-1:25" {
+		t.Errorf("too-few range %s, want 1:8-1:25", got)
+	}
+	if got := rangeText(findDiag(t, diags, "expected 1 arguments, got 2").Range); got != "2:25-2:28" {
+		t.Errorf("too-many range %s, want 2:25-2:28", got)
+	}
+}
+
 func TestClientRelatedInformation(t *testing.T) {
 	yes := true
 	params := &protocol.InitializeParams{}

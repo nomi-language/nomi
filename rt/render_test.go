@@ -25,10 +25,10 @@ func TestRender_TheSixRowDebugDisagreements(t *testing.T) {
 		{"Decimal", dec, nil, want{row: "1.50", display: "1.50", debug: "1.50d"}},
 		{"Dynamic", Dynamic{Inner: "hello"}, nil, want{row: "<dynamic: string>", display: "<dynamic: string>",
 			debugErr: "Debug on an unrepresented receiver (rt.Dynamic)"}},
-		{"String", `f"\.txt`, nil, want{row: `"f"\.txt"`, display: `f"\.txt`, debug: `"f\"\\.txt"`}},
+		{"String", `f"\.txt`, nil, want{row: `"f\"\\.txt"`, display: `f"\.txt`, debug: `"f\"\\.txt"`}},
 		{"struct", point, nil, want{row: "#Point{x: 1, y: 2}", display: "#Point{x: 1, y: 2}",
 			debugErr: "Debug on an unrepresented receiver (Point)"}},
-		{"record", record, nil, want{row: `#{d: 1.50, s: "a"b"}`, display: `#{d: 1.50, s: "a"b"}`,
+		{"record", record, nil, want{row: `#{d: 1.50, s: "a\"b"}`, display: `#{d: 1.50, s: "a\"b"}`,
 			debug: `#{d: 1.50d, s: "a\"b"}`}},
 		{"hand impl", NewDistinctDesc("ids.Id", ptr(SlotInt)).Make(int64(5)),
 			func(v any) (string, bool, error) {
@@ -201,18 +201,18 @@ func TestRender_PreludeEnumsCollectionsAndSets(t *testing.T) {
 	if got, err := DebugText(set, nil); err != nil || got != "%[2, 1]" {
 		t.Errorf("set debug %s %v", got, err)
 	}
-	// Nested, and with String members, which the row quotes without escaping.
+	// Nested, and with String members, which the row writes as literals.
 	strs := NewStructDesc("sets.Set", []FieldSpec{{"items", SlotRef}}).Make(
 		MapOf(Hash, Equal, []MapEntry[any, any]{{Key: `a"b`, Val: true}}))
 	holder := NewStructDesc("m.Holder", []FieldSpec{{"s", SlotRef}}).Make(strs)
-	if got := RowText(holder); got != `#Holder{s: %["a"b"]}` {
+	if got := RowText(holder); got != `#Holder{s: %["a\"b"]}` {
 		t.Errorf("nested set row %s", got)
 	}
 	if got := RowText(ConsCell[any, List[any]](set, nil)); got != "[%[2, 1]]" {
 		t.Errorf("set in list row %s", got)
 	}
 	tuple := TupleDesc(SlotInt, SlotString, SlotRef).Make(int64(1), `\`, Unit{})
-	if RowText(tuple) != `#(1, "\", Unit)` {
+	if RowText(tuple) != `#(1, "\\", Unit)` {
 		t.Errorf("tuple row %s", RowText(tuple))
 	}
 	if got, _ := DebugText(tuple, nil); got != `#(1, "\\", Unit)` {
@@ -220,21 +220,6 @@ func TestRender_PreludeEnumsCollectionsAndSets(t *testing.T) {
 	}
 	if got := RowText(Map[any, any]{}); got != "%{}" {
 		t.Errorf("empty map %s", got)
-	}
-}
-
-func TestDebugString_EscapesTwoCharactersOverGraphemes(t *testing.T) {
-	cases := map[string]string{
-		"a\tb\n":   "\"a\tb\n\"",
-		`\`:        `"\\"`,
-		"\\́":      "\"\\́\"", // a backslash with a combining mark is one cluster
-		`say "hi"`: `"say \"hi\""`,
-		"":         `""`,
-	}
-	for in, want := range cases {
-		if got := DebugString(in); got != want {
-			t.Errorf("DebugString(%q) = %q, want %q", in, got, want)
-		}
 	}
 }
 

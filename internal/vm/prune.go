@@ -39,6 +39,68 @@ func ReachedCrossings(entry *ir.Module, mods []*ir.Module, roots []*ir.Func, boo
 	return out
 }
 
+// CrossingSite is one call into Go that a program's reachable code makes:
+// the callee's host key, the call's position, and the functions from a root
+// to the one that holds the call, outermost first (`main`, `publish`).
+type CrossingSite struct {
+	Name  string
+	Pos   ir.Pos
+	Chain []string
+}
+
+// ReachedCrossingSites is every direct call into Go in the functions
+// PruneImage keeps for roots and boots whose host key keep accepts, in
+// position order: what `nomi build` checks against its target's capability
+// classes. Like the walk, it over-approximates: a call in a branch the
+// program never takes counts.
+func ReachedCrossingSites(entry *ir.Module, mods []*ir.Module, roots []*ir.Func, boots []*ir.Symbol, keep func(name string) bool) []CrossingSite {
+	w := reachWalk{m: NewProgram(entry, mods, io.Discard), seen: map[*ir.Func]bool{}, found: map[string]Unretained{},
+		parent: map[*ir.Func]*ir.Func{}}
+	reached, _ := w.run(roots, boots)
+	chain := func(f *ir.Func) []string {
+		var names []string
+		for g := f; g != nil; g = w.parent[g] {
+			names = append([]string{g.Name()}, names...)
+			if len(names) > len(reached) {
+				break
+			}
+		}
+		return names
+	}
+	var out []CrossingSite
+	note := func(f *ir.Func, c *ir.Call) {
+		if c != nil && c.Form() == ir.CalleeDirect && c.Crosses() && keep(c.Callee().Name()) {
+			out = append(out, CrossingSite{Name: c.Callee().Name(), Pos: c.Pos(), Chain: chain(f)})
+		}
+	}
+	for f := range reached {
+		for _, b := range f.Blocks() {
+			for _, in := range b.Instrs() {
+				switch n := in.(type) {
+				case *ir.Call:
+					note(f, n)
+				case *ir.Defer:
+					note(f, n.Call())
+				}
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		a, b := out[i].Pos, out[j].Pos
+		if a.File() != b.File() {
+			return a.File() < b.File()
+		}
+		if a.Line() != b.Line() {
+			return a.Line() < b.Line()
+		}
+		if a.Col() != b.Col() {
+			return a.Col() < b.Col()
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out
+}
+
 // PruneImage is the module set a built image carries: entry and mods with
 // every function this machine's own walk (Reached) cannot reach from roots
 // and boots removed, and every module left with nothing dropped. The entry is

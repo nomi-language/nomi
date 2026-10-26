@@ -50,6 +50,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -84,6 +85,9 @@ type Machine struct {
 	// bootFailures are the `boot failure` renderers the modules record, by
 	// the entry boot whose `Err` payload each renders.
 	bootFailures map[*ir.Symbol]*ir.Symbol
+	// bootExits are the entry boots whose error type is std/process's Exit
+	// (ir.BootFailure.Exit).
+	bootExits map[*ir.Symbol]bool
 	// dispatch is every module's dispatch entries: by interface method, the
 	// implementing body for each declared type name a value carries.
 	dispatch map[*ir.Symbol]map[string]*ir.Symbol
@@ -102,14 +106,17 @@ type Machine struct {
 	// out serializes output independently of the runtime once cells' locks.
 	// Declaration maps are fixed after New; each frame belongs to one activation.
 	out *syncWriter
-	// errOut is where the runtime's own diagnostics go, or nil for os.Stderr.
-	// See WithErrorOutput.
-	errOut io.Writer
+	// errOut is the program's standard error, serialized, where `io.eprint`
+	// and the runtime's own diagnostics go, or nil for os.Stderr. See
+	// WithErrorOutput.
+	errOut *syncWriter
 	// liveTests receives each test case's output as it is written. See
 	// WithLiveTestOutput.
 	liveTests io.Writer
 	// input is what `io.read_line` reads, or nil for no input. See WithInput.
 	input *rt.Input
+	// files is the file system std/fs reaches (WithFiles), or nil.
+	files any
 	// locales holds the CLDR data the program carries, which loading a
 	// locale file replaces (std/locale's Locale.load), or nil for
 	// cldrdata.Default. See WithLocaleData.
@@ -190,12 +197,29 @@ func (m *Machine) WithHostEnv(env map[string]string) *Machine {
 	return m
 }
 
-// WithErrorOutput sets where the runtime's own diagnostics go — a supervised
-// task's failure report — instead of os.Stderr. A host that captures a program's error stream
-// passes it here.
+// WithErrorOutput sets the program's standard error, where `io.eprint`,
+// `io.ewrite` and the runtime's own diagnostics (a supervised task's failure
+// report) go, instead of os.Stderr. A host that captures a program's error
+// stream passes it here. Writes to it are serialized as writes to the output
+// are, so two tasks never split a line.
 func (m *Machine) WithErrorOutput(w io.Writer) *Machine {
-	m.errOut = w
+	m.errOut = nil
+	if w != nil {
+		m.errOut = &syncWriter{w: w}
+	}
 	return m
+}
+
+// stderr serializes a machine's writes to os.Stderr when it was given no
+// error output.
+var stderr = &syncWriter{w: os.Stderr}
+
+// errorOutput is the machine's standard error, serialized.
+func (m *Machine) errorOutput() *syncWriter {
+	if m.errOut != nil {
+		return m.errOut
+	}
+	return stderr
 }
 
 // WithLiveTestOutput makes RunCases write each case's output to w as the
@@ -213,6 +237,15 @@ func (m *Machine) WithLiveTestOutput(w io.Writer) *Machine {
 // that share one input share it.
 func (m *Machine) WithInput(in *rt.Input) *Machine {
 	m.input = in
+	return m
+}
+
+// WithFiles sets the file system the program's std/fs calls reach, an
+// internal/stdio Backend, unless a call replaces it (`fs_testing.run`).
+// Without it they reach the build's default: the operating system's, or in
+// a js/wasm build the process's in-memory one.
+func (m *Machine) WithFiles(files any) *Machine {
+	m.files = files
 	return m
 }
 
@@ -244,8 +277,12 @@ func (m *Machine) withDiagnostics(ctx context.Context) context.Context {
 	if m.errOut != nil {
 		ctx = rt.WithDiagnosticOutput(ctx, m.errOut)
 	}
+	ctx = rt.WithStreams(ctx, m.out, m.errorOutput())
 	if m.input != nil {
 		ctx = rt.WithInput(ctx, m.input)
+	}
+	if m.files != nil {
+		ctx = rt.WithFiles(ctx, m.files)
 	}
 	if m.locales != nil {
 		ctx = cldrdata.WithStore(ctx, m.locales)
@@ -424,10 +461,16 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"io.print":   outputHost("io.print", "\n"),
 		"io.write":   outputHost("io.write", ""),
 		"io.inspect": outputHost("io.inspect", "\n"),
-		// `io.capture` and `io.replay`: the three above and `io.read_line` go to the
+		// The stderr pair, `io.eprint` and `io.ewrite`.
+		"io.eprint": errorOutputHost("io.eprint", "\n"),
+		"io.ewrite": errorOutputHost("io.ewrite", ""),
+		// `io.capture` and `io.replay`: the five above and `io.read_line` go to the
 		// capture in force on the calling frame. See capture.go.
 		captureKey: captureHost,
 		replayKey:  replayHost,
+		// `fs_testing.run`: std/fs calls go to the sandbox on the calling
+		// frame. See sandbox.go.
+		sandboxKey: sandboxHost,
 		// `dbg` is `rt.DbgText(w, line, expr, rendered)`: rt's layout and
 		// colour rule, called rather than transcribed. See dbg.go in this
 		// package for the two facts that are this consumer's own: which
@@ -457,6 +500,27 @@ func outputHost(name, end string) hostFn {
 		line := s + end
 		if !rt.CaptureWrite(m.hostFrame, line) {
 			io.WriteString(m.out, line)
+		}
+		return rt.Unit{}, nil
+	}
+}
+
+// errorOutputHost is outputHost for stderr: the rendered operand and end go
+// to the `io.capture` in force on the calling frame, whose `errors` they
+// join, or to the machine's error output (rt.WriteError).
+func errorOutputHost(name, end string) hostFn {
+	return func(m *Machine, _ ir.Pos, args []any) (any, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("vm: %s: expected one rendered operand, got %d", name, len(args))
+		}
+		s, ok := args[0].(string)
+		if !ok {
+			return nil, fmt.Errorf("vm: %s: the operand is the RENDERED text and arrived as %T; the producer emits an ir.Render before the call", name, args[0])
+		}
+		if m.hostFrame != nil {
+			rt.WriteError(m.hostFrame, s+end)
+		} else {
+			io.WriteString(m.errorOutput(), s+end)
 		}
 		return rt.Unit{}, nil
 	}
@@ -737,8 +801,7 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 			return nil
 		}
 		// The Row discipline is `rt.RowText`, which AGREES with Debug on
-		// three of these four kinds and disagrees on a String with a
-		// backslash or a quote in it — plus a Decimal, a Dynamic, a struct,
+		// these four kinds and disagrees on a Decimal, a Dynamic, a struct,
 		// a record and a hand-written impl. render.go's six measured
 		// disagreements are why a consumer must not substitute one for
 		// another, so the one discipline with no assertion surface behind it
@@ -924,7 +987,7 @@ func (m *Machine) invoke(fr *frame, n *ir.Call, args []any, fn any) (any, error)
 		if m.dbg != nil {
 			// Recorded, or answered from the recording in a replay
 			// (debugtravel.go).
-			return m.dbg.cross(fr, name, func() (any, error) { return m.crossInto(fr, n, name, args) })
+			return m.dbg.cross(fr, name, args, func() (any, error) { return m.crossInto(fr, n, name, args) })
 		}
 		return m.crossInto(fr, n, name, args)
 	}

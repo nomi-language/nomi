@@ -16,7 +16,7 @@ fn main() {
  out.inspect([[1], [2, 3]])
  empty = fn -> { out.print("empty") [] }
  out.inspect(empty())
-}`, "plain\n\"quoted\"\ntext\n\"a\nb\t\\\"\\\\z\"\n42\nTrue\n1.5\n[[1], [2, 3]]\nempty\n[]\n"},
+}`, "plain\n\"quoted\"\ntext\n\"a\\nb\\t\\\"\\\\z\"\n42\nTrue\n1.5\n[[1], [2, 3]]\nempty\n[]\n"},
 		{"multiline and lambda", `import std/io
 fn main() {
  show = fn x: String -> { io.inspect(x) }

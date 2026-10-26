@@ -1,0 +1,30 @@
+// A `main` that returns `Err(#Exit{...})` prints the message to stderr with
+// no `error: ` before it and exits with the code. Boot's cleanup runs first,
+// so its line comes before the message.
+import {
+    std/io
+    std/process.Exit
+}
+
+struct App {
+    name: String
+}
+
+fn boot() -> Result<App, Exit> {
+    defer io.eprint("boot cleanup")
+    Ok(#App{name: "count"})
+}
+
+fn count(path: Maybe<String>) -> Result<Int, Exit> {
+    case path {
+        Some(p) -> Ok(String.length(p))
+        None -> Err(#Exit{code: 3, message: "usage: ${App.name} <file>"})
+    }
+}
+
+fn main() -> Result<Unit, Exit> {
+    io.print("starting")
+    n = try count(None)
+    io.print("never printed: ${n}")
+    Ok(Unit)
+}

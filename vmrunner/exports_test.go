@@ -262,7 +262,7 @@ func TestInstance_ExportsListsSignatures(t *testing.T) {
 // Boot does not run main; Main runs it over the stdin Boot was given, as
 // often as it is asked, on the booted program.
 func TestInstance_BootLeavesMainToTheHost(t *testing.T) {
-	src := "import std/io\n\nfn main() {\n    case io.read_line() {\n        Ok(line) -> io.print(\"main read ${line}\")\n        Err(_) -> io.print(\"main read nothing\")\n    }\n}\n\n" +
+	src := "import std/io\n\nfn main() {\n    case io.read_line() {\n        Ok(Some(line)) -> io.print(\"main read ${line}\")\n        _ -> io.print(\"main read nothing\")\n    }\n}\n\n" +
 		"export fn one() -> Int {\n    1\n}\n"
 	var out, errOut bytes.Buffer
 	in, err := vmrunner.Boot(webImage(t, src), &out, &errOut, strings.NewReader("a line\n"), nil)

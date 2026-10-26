@@ -124,9 +124,11 @@ func edit(t *testing.T, path, old, new string) {
 	}
 }
 
-// Every command the Macros chapter shows prints what the chapter quotes,
-// run on the fixture projects testdata/macros/shop and cafe laid out as
-// the chapter lays them out, and the chapter's sources are the fixtures'.
+// Every command the Macros chapter shows in a console block prints what
+// the chapter quotes, run on the fixture projects testdata/macros/shop and
+// cafe laid out as the chapter lays them out, and the chapter's sources are
+// the fixtures'. What its ```nomi-run blocks print (a run, an expansion,
+// an error) is vmhost's TestTourDoctests' to check.
 func TestMacroChapter_QuotesWhatTheCommandsPrint(t *testing.T) {
 	data, err := os.ReadFile(macroChapter)
 	if err != nil {
@@ -143,33 +145,8 @@ func TestMacroChapter_QuotesWhatTheCommandsPrint(t *testing.T) {
 		setup  func(root string)
 	}{
 		{"nomi add csvdata", "shop", macroCopied, nil},
-		{"nomi run", "shop", macroAdded, nil},
-		{"nomi expand tables.nomi", "shop", macroAdded, nil},
-		{"a price in dollars", "shop", macroAdded, func(root string) {
-			edit(t, filepath.Join(root, "data", "prices.csv"), "tote,1800", "tote,18.00")
-		}},
-		{"a tag and a missing file", "shop", macroAdded, func(root string) {
-			tables := filepath.Join(root, "tables.nomi")
-			edit(t, tables, "Maybe<Int> `prices.csv`", "Maybe<Int> Csv`prices.csv`")
-			edit(t, tables, "`names.csv`", "`name.csv`")
-		}},
-		{"a name declared twice", "shop", macroAdded, func(root string) {
-			tables := filepath.Join(root, "tables.nomi")
-			data, _ := os.ReadFile(tables)
-			text := string(data) + "\nfn price(sku: String) -> Int {\n    String.length(sku)\n}\n"
-			if err := os.WriteFile(tables, []byte(text), 0o644); err != nil {
-				t.Fatal(err)
-			}
-		}},
 		{"nomi new choices", "cafe", macroBare, nil},
 		{"nomi add choices", "cafe", macroCopied, nil},
-		{"nomi expand sizes.nomi", "cafe", macroAdded, nil},
-		{"a repeated word", "cafe", macroAdded, func(root string) {
-			edit(t, filepath.Join(root, "sizes.nomi"), "`small medium large`", "`small medium small`")
-		}},
-		{"a word that is not a name", "cafe", macroAdded, func(root string) {
-			edit(t, filepath.Join(root, "sizes.nomi"), "`small medium large`", "`small 12oz large`")
-		}},
 		{"nomi test", "cafe", macroAdded, nil},
 	}
 
@@ -231,9 +208,18 @@ func TestMacroChapter_QuotesWhatTheCommandsPrint(t *testing.T) {
 		}
 	}
 
-	// The sources the chapter shows are the fixtures': each file whole, and
-	// choices.nomi as the macro and then its tests.
+	// The sources the chapter shows are the fixtures': each file whole, as
+	// a ```nomi block or a tab of a ```nomi-run block, and choices.nomi as
+	// the macro, in a tab without the import its tests need, and then its
+	// tests.
 	nomiBlocks := fences(t, chapter, "nomi")
+	for _, info := range []string{"nomi-run manual", "nomi-run manual expand", "nomi-run manual error"} {
+		for _, block := range fences(t, chapter, info) {
+			for _, section := range regexp.MustCompile(`(?m)^// FILE: .*\n`).Split(block, -1) {
+				nomiBlocks = append(nomiBlocks, strings.TrimRight(section, "\n")+"\n")
+			}
+		}
+	}
 	csvBlocks := fences(t, chapter, "csv")
 	has := func(blocks []string, text string) bool {
 		for _, b := range blocks {
@@ -255,6 +241,11 @@ func TestMacroChapter_QuotesWhatTheCommandsPrint(t *testing.T) {
 	if !ok {
 		t.Fatal("choices.nomi has no test helper")
 	}
+	const testImports = "import {\n    std/json.Json\n    std/macro.{Body, Declaration, ExpandCall, Expansion, Macro, Source, Span, pascal_case}\n}\n"
+	if !strings.HasPrefix(macro, testImports) {
+		t.Fatalf("choices.nomi does not start with the imports the chapter drops std/json from:\n%s", macro)
+	}
+	macro = "import std/macro.{Body, Declaration, ExpandCall, Expansion, Macro, Source, Span, pascal_case}\n" + strings.TrimPrefix(macro, testImports)
 	for name, text := range map[string]string{
 		"shop/tables.nomi":             read("shop", "tables.nomi"),
 		"shop/main.nomi":               read("shop", "main.nomi"),

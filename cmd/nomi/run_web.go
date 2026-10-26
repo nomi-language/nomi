@@ -148,9 +148,6 @@ func runWeb(ctx context.Context, r runWebArgs, stdout, stderr io.Writer) error {
 	if _, err := readStatic(static); err != nil {
 		return fmt.Errorf("nomi run --web: %w", err)
 	}
-	if res, err := ffirun.Prepare(absPath); hasGoBindings(res, err) {
-		return errors.New("nomi run --web: " + webGoBindings)
-	}
 	root, err := os.MkdirTemp("", "nomi-web-")
 	if err != nil {
 		return err
@@ -329,7 +326,7 @@ func (d *webDev) staticFiles() []string {
 // (watch.go): a static change reloads the pages and a source change
 // rebuilds.
 func (d *webDev) watcher() *watcher {
-	sources := programFiles(d.entry)
+	sources := webSourceFiles(d.entry)
 	return newWatcher(
 		watchSet{
 			files: d.staticFiles,
@@ -345,11 +342,28 @@ func (d *webDev) watcher() *watcher {
 				fmt.Fprintf(d.stdout, "%s changed; rebuilding\n", names)
 				d.rebuild()
 				// The program may load other files now.
-				sources = programFiles(d.entry)
+				sources = webSourceFiles(d.entry)
 			},
 			then: d.announce,
 		},
 	)
+}
+
+// webSourceFiles are the files whose change rebuilds the page: the
+// program's files, and the go.mod and Go files beside them, which a project
+// with Go bindings links into app.wasm.
+func webSourceFiles(entry string) []string {
+	files := programFiles(entry)
+	dirs := map[string]bool{}
+	for _, f := range files {
+		dirs[filepath.Dir(f)] = true
+	}
+	for dir := range dirs {
+		goFiles, _ := filepath.Glob(filepath.Join(dir, "*.go"))
+		files = append(files, goFiles...)
+		files = append(files, filepath.Join(dir, "go.mod"))
+	}
+	return files
 }
 
 // webPlaceholder is the page served before any build has succeeded: the dev

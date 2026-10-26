@@ -62,7 +62,7 @@ func (sess *session) capturedVariables(r *godap.VariablesRequest, ref varRef) {
 		end := min(total, start+count)
 		for i := start; i < end; i++ {
 			out = append(out, variable{Variable: godap.Variable{Name: "[" + strconv.Itoa(i) + "]", Type: "String",
-				Value: rt.InspectString(ref.lines[i])}})
+				Value: rt.StringLiteral(ref.lines[i])}})
 		}
 		if capped {
 			out = append(out, variable{Variable: godap.Variable{Name: "…",
@@ -109,7 +109,7 @@ func (sess *session) textVariable(name, text string) godap.Variable {
 		lines = strings.Split(strings.TrimSuffix(text, "\n"), "\n")
 	}
 	v := sess.linesVariable(name, lines)
-	v.Type, v.Value = "String", rt.InspectString(text)
+	v.Type, v.Value = "String", rt.StringLiteral(text)
 	return v
 }
 
@@ -118,7 +118,7 @@ func (sess *session) listVariable(name string, lines []string) godap.Variable {
 	v := sess.linesVariable(name, lines)
 	quoted := make([]string, len(lines))
 	for i, l := range lines {
-		quoted[i] = rt.InspectString(l)
+		quoted[i] = rt.StringLiteral(l)
 	}
 	v.Type, v.Value = "List<String>", "["+strings.Join(quoted, ", ")+"]"
 	return v

@@ -77,6 +77,12 @@ func (m *Machine) addBoots(mod *ir.Module) {
 			m.bootFailures = map[*ir.Symbol]*ir.Symbol{}
 		}
 		m.bootFailures[bf.Boot] = bf.Render
+		if bf.Exit {
+			if m.bootExits == nil {
+				m.bootExits = map[*ir.Symbol]bool{}
+			}
+			m.bootExits[bf.Boot] = true
+		}
 	}
 	for _, sym := range mod.TestBoots() {
 		if m.testBoots == nil {
@@ -124,7 +130,15 @@ func (m *Machine) bootWith(sym *ir.Symbol, startup any, root *rt.Frame) (*Machin
 		if err != nil {
 			return nil, err
 		}
-		return nil, &BootError{Text: text, result: result}
+		failed := &BootError{Text: text, result: result}
+		if m.bootExits[sym] {
+			exit := exitOf(payload)
+			if _, isFault := exit.(*Fault); isFault {
+				return nil, exit
+			}
+			failed.exit = exit.(*Exit)
+		}
+		return nil, failed
 	}
 	app = payload
 	s, isStruct := app.(*rt.Record)
@@ -201,6 +215,9 @@ func (m *Machine) deferToBootCleanup(fr *frame) {
 type BootError struct {
 	Text   string
 	result *rt.Record
+	// exit is the Exit the payload asks for, when the boot's error type is
+	// std/process's Exit; a run exits with it as it does main's.
+	exit *Exit
 }
 
 func (b *BootError) Error() string { return "error: " + b.Text }

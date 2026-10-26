@@ -847,7 +847,7 @@ impl Multiply<Rate, Decimal> for Decimal {
 
 fn main() {
     rate = #Rate{per_unit: 4.25d}
-    io.print(Decimal.to_string(12.5d * rate))
+    io.print(12.5d * rate)
 }
 ```
 <!-- expect

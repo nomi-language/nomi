@@ -2,6 +2,7 @@ package ffirun
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 
 	"golang.org/x/mod/module"
@@ -45,6 +46,20 @@ func GoImportProblem(nomiPath, importPath string) string {
 	}
 	return "outside the project's own Go module " + f.Module.Mod.Path +
 		", the Go standard library, and every module its go.mod requires or replaces"
+}
+
+// InMemoryFile reports whether nomiPath names a file the front end holds in
+// memory rather than one on disk: a relative path (a virtual sibling of a
+// source string, such as a tour block's `urls.nomi`) with no file there. No
+// Go module provides such a file's `gopkg`; the host table its program is
+// loaded with answers its bindings, or the front end reports them unanswered
+// (frontend.ValidateHosts).
+func InMemoryFile(nomiPath string) bool {
+	if filepath.IsAbs(nomiPath) {
+		return false
+	}
+	_, err := os.Stat(nomiPath)
+	return err != nil
 }
 
 // GoImportPathProblem is GoImportProblem's first half, which needs no file:

@@ -256,7 +256,8 @@ func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
 // claims and the identity index cannot judge, measured over the stdlib.
 //
 // They are the impls whose headers write type arguments: the 38 OPERATOR
-// pairs and String's Contains. One mechanism explains the whole set:
+// pairs, String's Contains, and std/fs's `Lines`, `Chunks` and `Walk` as
+// `Iter<Result<...>>`. One mechanism explains the whole set:
 // `ImplBlockInterfaceKey` spells such an impl with its type arguments
 // (`Add<Days, Date>`, `Contains<Regex>`), while `Impls` and `ImplManifest`
 // both key the bare name (`Add`), so the two spellings never meet and none
@@ -270,15 +271,15 @@ func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
 // load-bearing: 13 of its keys ask qualified and are served bare, and a
 // too-wide rule there costs 13 corpus files and 3 std tests. It is a named
 // follow-on with a known mechanism, not an oversight.
-const implIdentityFallbackPopulation = "Bytes/Add Date/Add Date/Subtract " +
-	"DateTime/Add DateTime/Subtract Decimal/Add Decimal/Divide " +
+const implIdentityFallbackPopulation = "Bytes/Add Chunks/Iter Date/Add Date/Subtract " +
+	"DateTime/Add DateTime/Subtract Decimal/Add " +
 	"Decimal/Multiply Decimal/Subtract Duration/Add Duration/Divide " +
 	"Duration/Multiply Duration/Subtract Float/Add Float/Divide " +
 	"Float/Multiply Float/Subtract Instant/Add Instant/Subtract Int/Add Int/Divide " +
-	"Int/Multiply Int/Subtract List/Add Map/Add Money/Add Money/Multiply " +
+	"Int/Multiply Int/Subtract Lines/Iter List/Add Map/Add Money/Add Money/Multiply " +
 	"Money/Subtract NaiveDateTime/Add " +
 	"NaiveDateTime/Subtract OffsetDateTime/Add OffsetDateTime/Subtract " +
-	"Set/Add Set/Subtract Statement/Add String/Add String/Contains Time/Add Time/Subtract Vector/Add"
+	"Set/Add Set/Subtract Statement/Add String/Add String/Contains Time/Add Time/Subtract Vector/Add Walk/Iter"
 
 // A user type that shares a name with a std type implementing an operator
 // interface keeps its own inherent function of the operator's name:

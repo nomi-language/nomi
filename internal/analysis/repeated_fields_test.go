@@ -56,7 +56,7 @@ func TestRepeatedFields_RejectedAtTheSecondName(t *testing.T) {
 		{"variant pattern", "    s: Shape = #.Rect{w: 1, h: 3}\n    case s {\n        #.Rect{w: 1, w: 2, h} -> h\n        _ -> 2\n    }", 2, 22, "field 'w' is given twice in this Rect pattern"},
 		{"anonymous pattern", "    p = #Point{x: 1, y: 1}\n    case p {\n        #{x: 1, x: 2} -> 1\n        _ -> 2\n    }", 2, 17, "field 'x' is given twice in this struct pattern"},
 		{"destructuring binding", "    #{x: a, x: _b} = #Point{x: 1, y: 2}\n    a", 0, 13, "field 'x' is given twice in this struct pattern"},
-		{"named argument", "    f(a: 1, a: 2, b: 3)", 0, 1, "parameter 'a' already has a value"},
+		{"named argument", "    f(a: 1, a: 2, b: 3)", 0, 13, "parameter 'a' already has a value"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

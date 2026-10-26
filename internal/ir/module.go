@@ -147,6 +147,9 @@ type Module struct {
 	// mainFailure renders the payload of an `Err` this unit's `fn main`
 	// returns, or nil. See SetMainFailure.
 	mainFailure *Symbol
+	// mainExit says main's error type is std/process's Exit. See
+	// SetMainExit.
+	mainExit bool
 	// bootFailure renders the payload of an `Err` this unit's entry boot
 	// returns. See SetBootFailure.
 	bootFailure BootFailure
@@ -324,12 +327,25 @@ func (m *Module) MainFailure() *Symbol {
 	return m.mainFailure
 }
 
+// SetMainExit records that this unit's `fn main` returns `Result<T, Exit>`
+// with std/process's Exit: a run whose main returns `Err` exits with the
+// payload's code and prints its message, rather than printing `error: ` and
+// the rendered payload and exiting 1. Only the builder can tell that the
+// error type is std's Exit and not another type of that name.
+func (m *Module) SetMainExit() { m.mainExit = true }
+
+// MainExits reports what SetMainExit recorded.
+func (m *Module) MainExits() bool { return m != nil && m.mainExit }
+
 // BootFailure pairs an entry boot with the function that renders the payload
 // of an `Err` it returns: one parameter of the boot's error type, answering
 // a String. A run whose boot returns `Err` prints that String and fails, as a
 // main that returns `Err` does; a test case under the boot fails with it.
+// Exit says the error type is std/process's Exit, which a run exits with as
+// it does main's (SetMainExit).
 type BootFailure struct {
 	Boot, Render *Symbol
+	Exit         bool
 }
 
 // SetBootFailure records render as the renderer of boot's `Err` payload. boot
@@ -341,6 +357,10 @@ func (m *Module) SetBootFailure(boot, render *Symbol) {
 	}
 	m.bootFailure = BootFailure{Boot: boot, Render: render}
 }
+
+// SetBootExit records that the boot SetBootFailure recorded returns
+// std/process's Exit as its error (BootFailure.Exit).
+func (m *Module) SetBootExit() { m.bootFailure.Exit = true }
 
 // BootFailureOf is what SetBootFailure recorded, or the zero BootFailure.
 func (m *Module) BootFailureOf() BootFailure {
@@ -532,7 +552,7 @@ func (m *Module) String() string { return "module " + m.name }
 // built program runs no test. m itself is not changed: the stdlib's modules
 // are shared by every program a process lowers.
 func (m *Module) Pruned(keep func(*Func) bool, keepBody func(*Symbol) bool) *Module {
-	out := &Module{name: m.name, boot: m.boot, mainFailure: m.mainFailure, bootFailure: m.bootFailure}
+	out := &Module{name: m.name, boot: m.boot, mainFailure: m.mainFailure, mainExit: m.mainExit, bootFailure: m.bootFailure}
 	for _, f := range m.funcs {
 		if keep(f) {
 			out.funcs = append(out.funcs, f)

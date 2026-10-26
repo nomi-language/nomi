@@ -303,6 +303,9 @@ var stdGenStructSpecs = []stdGenStructSpec{
 			nomi: "output", decl: "String",
 			kindOf: func(*gen, []kind) kind { return kindString },
 		}, {
+			nomi: "errors", decl: "String",
+			kindOf: func(*gen, []kind) kind { return kindString },
+		}, {
 			nomi: "transcript", decl: "String",
 			kindOf: func(*gen, []kind) kind { return kindString },
 		}},

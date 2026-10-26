@@ -21,6 +21,43 @@ func TestFormatEscapesOnlyTheInterpolationOpener(t *testing.T) {
 	}
 }
 
+// An emoji typed into a string stays as typed, its zero-width joiners,
+// variation selectors and regional indicators included, in a plain literal
+// and beside an interpolation; a joiner that joins no emoji is written as
+// its escape, so it stays visible.
+func TestFormatKeepsAnEmojiAsTyped(t *testing.T) {
+	for _, source := range []string{
+		"value = \"dev 👩‍💻 ❤️ 🇵🇱 é\"\n",
+		"value = \"${n} 👨‍👩‍👧\"\n",
+		"value = \"a\\u{200d}b\"\n",
+	} {
+		got := formatOnce(t, source)
+		if got != source {
+			t.Fatalf("got %q, want %q", got, source)
+		}
+	}
+	if got := formatOnce(t, "value = \"a‍b\"\n"); got != "value = \"a\\u{200d}b\"\n" {
+		t.Fatalf("a lone joiner: got %q", got)
+	}
+}
+
+// A joiner or non-joiner typed inside a word of a script that uses them
+// stays as typed: a Devanagari conjunct and a Persian word.
+func TestFormatKeepsAScriptJoinerAsTyped(t *testing.T) {
+	for _, source := range []string{
+		"value = \"क्‍ष\"\n",
+		"value = \"می‌خواهم\"\n",
+		"value = \"${n} می‌خواهم\"\n",
+	} {
+		if got := formatOnce(t, source); got != source {
+			t.Fatalf("got %q, want %q", got, source)
+		}
+	}
+	if got := formatOnce(t, "value = \"a‌b\"\n"); got != "value = \"a\\u{200c}b\"\n" {
+		t.Fatalf("a non-joiner between ASCII letters: got %q", got)
+	}
+}
+
 // A `$` written before an interpolation stays text.
 func TestFormatDollarBeforeInterpolation(t *testing.T) {
 	source := `value = "$${n} and $"` + "\n"

@@ -28,9 +28,12 @@ package main
 // names start with a dot are left out.
 //
 // The runner is the one `--target js/wasm` writes, so it carries the tour's
-// policy: file access refused (internal/stdio/file_browser.go) and call depth
-// capped at 1,000 (rt/calldepth_js.go). A project with Go bindings is refused
-// before anything is built.
+// policy: files in memory only (internal/stdio/default_js.go) and call depth
+// capped at 1,000 (rt/calldepth_js.go). A project with Go bindings gets the
+// runner a native build of it gets, built for js/wasm: the generated adapters
+// and the bound Go packages linked beside the VM (ffirun.ProjectRunner), and
+// the image lowered in its wrapper (ffirun.BuildImageVM). A bound package
+// that does not build for js/wasm is an error at its `gopkg`.
 //
 // A build over a folder an earlier build wrote removes the files earlier
 // builds generated and this one does not (webRetired), but only those whose
@@ -41,7 +44,6 @@ import (
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -282,11 +284,6 @@ func checkWebOut(out, static string) error {
 
 // webLargeModule is the size over which `--web` says how to serve app.wasm.
 const webLargeModule = 20 << 20
-
-// webGoBindings is why a browser build refuses a project with Go bindings.
-const webGoBindings = "this project has Go bindings, and the browser build cannot link them"
-
-var errWebGoBindings = errors.New("nomi build --web: " + webGoBindings)
 
 var webIndexTemplate = template.Must(template.New("index.html").Parse(webIndexHTML))
 

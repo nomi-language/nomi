@@ -3529,7 +3529,7 @@ func (b *builder) walkTypeDeclDecoratorArgs(decorators []ast.Decorator, scope *S
 				continue // unknown protocols error in the synthesizer; Debug needs no import
 			}
 			if scope.Lookup(name) == nil {
-				line, col := te.LineNum(), 1
+				line, col := startOf(te)
 				if st, ok := te.(*ast.SimpleType); ok {
 					line, col = st.Line, st.Col
 				}

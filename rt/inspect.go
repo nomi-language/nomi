@@ -125,7 +125,7 @@ func inspectText(v any) string {
 	v = Unbox(v)
 	switch x := v.(type) {
 	case string:
-		return InspectString(x)
+		return StringLiteral(x)
 	case *Record:
 		if x != nil && x.Desc.Kind == KindEnum && x.Variant().Shape == VariantFields {
 			return InspectStruct(ShortTypeName(x.Variant().Name), namedParts(x, inspectText))

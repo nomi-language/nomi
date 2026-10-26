@@ -247,15 +247,17 @@ name it `_` as usual.
 [`io.capture`](/reference/io/) runs a function and gives it the text you pass
 as its input. It returns what the function returned, in `value`, and
 everything it printed, in `output`. Pass it `main` to check what a program
-prints for some input.
+prints for some input. For code that reads or writes files, `fs_testing.run`
+does the same with a file system in memory, as
+[Input & Output](/input-and-output/#testing-code-that-uses-files) shows.
 
 ```nomi-run
 import std/io
 
 fn main() {
     case io.read_line() {
-        Ok(name) -> io.print("hello, ${name}")
-        Err(_) -> io.print("hello, stranger")
+        Ok(Some(name)) -> io.print("hello, ${name}")
+        _ -> io.print("hello, stranger")
     }
 }
 
@@ -274,10 +276,37 @@ hello, stranger
 -->
 
 Inside the call, `io.read_line` reads the text you passed, one line at a
-time. When the text runs out, it returns `Err("eof")`. `io.print`, `io.write`
+time. When the text runs out, it returns `Ok(None)`. `io.print`, `io.write`
 and `io.inspect` write to `output` instead of the terminal. This includes
 anything printed by tasks the function starts. `dbg` still prints to the
 terminal, so you can debug the function as usual.
+
+What the function writes to standard error, with `io.eprint` and
+`io.ewrite`, goes to `errors` instead, kept apart from `output`:
+
+```nomi-run
+import std/io
+
+fn parse_count(text: String) -> Int {
+    case String.to_int(text) {
+        Some(n) ->
+            n
+
+        None -> {
+            io.eprint("warning: ${text} is not a number, counting 0")
+            0
+        }
+    }
+}
+
+test "a bad count warns on stderr" {
+    run = io.capture("", fn -> parse_count("ten"))
+
+    assert run.value == 0
+    assert run.output == ""
+    assert run.errors == "warning: ten is not a number, counting 0\n"
+}
+```
 
 Some programs ask a question, read the answer, then ask another.
 [`io.replay`](/reference/io/) tests such a program against a script of the
@@ -297,16 +326,16 @@ fn main() {
     io.print("What is your name?")
 
     case io.read_line() {
-        Ok(name) -> {
+        Ok(Some(name)) -> {
             io.write("Hello, ${name}. Your age: ")
 
             case io.read_line() {
-                Ok(age) -> io.print("${name} is ${age}")
-                Err(_) -> io.print("no age")
+                Ok(Some(age)) -> io.print("${name} is ${age}")
+                _ -> io.print("no age")
             }
         }
 
-        Err(_) ->
+        _ ->
             io.print("hello, stranger")
     }
 }
@@ -341,7 +370,9 @@ under it. If an indented output line starts with `> `, write a backslash
 before the `>`, as in `    \> quoted`, so it is not read as input.
 
 Trailing spaces and the final newline are ignored. An input line the program
-never reads fails the test.
+never reads fails the test. A script holds standard output only: what the
+program writes to standard error is left out of the comparison, so a warning
+never fails a replay. Check it with `io.capture`'s `errors`.
 
 When a replay fails, the report shows a diff, with each line's number in the
 file. A `-` line is in the script but the program didn't print it. A `+` line

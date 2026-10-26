@@ -220,7 +220,7 @@ concurrent {
         |> Iter.to_list()
 
     handles
-    |> Iter.map(fn h -> Task.await(h))
+    |> Iter.map(&Task.await(&1))
     |> Iter.to_list()
 }
 ```
@@ -232,30 +232,41 @@ at once will use up the connection pool.
 `Task.await_all` collects the results in order:
 
 ```nomi-run
-import std/tasks.Task
-
-fn active?(id: Int) -> Bool {
-    id != 2
+// FILE: main.nomi
+import {
+    std/fs
+    std/io
+    std/tasks.Task
 }
 
-fn fetch_user(id: Int) -> String {
-    "user-${Display.to_string(id)}"
+// How many words a file holds.
+fn words(path: String) -> Result<Int, io.Error> {
+    path
+    |> try fs.read_text()
+    |> String.words()
+    |> Iter.count()
+    |> Ok()
 }
 
 fn main() {
-    results = concurrent {
-        [3, 2, 1]
-        |> Iter.filter(active?)
-        |> Task.spawn_all(fetch_user, max_running: 8)
+    counts = concurrent {
+        ["b.txt", "a.txt", "missing.txt"]
+        |> Task.spawn_all(words, max_running: 8)
         |> Task.await_all()
     }
 
-    dbg results
+    dbg counts
 }
 
+// FILE: a.txt
+the cat sat
+on the mat
+
+// FILE: b.txt
+a dog
 ```
 <!-- expect
-dbg line 19: results = ["user-3", "user-1"]
+dbg line 23: counts = [Ok(2), Ok(6), Err(#NotFound{path: "missing.txt"})]
 -->
 
 At most eight run at a time, however many inputs you pass. With ten
@@ -263,7 +274,9 @@ thousand ids, the rest wait their turn instead of opening ten thousand
 connections.
 
 Results come back in the order the tasks were started, not the order they
-finished. Here that is `3`, then `1`, the same order as the filtered input.
+finished: `b.txt`, `a.txt`, then `missing.txt`, the order of the input.
+`words` returns a `Result`, so the file that isn't there is an `Err` in the
+list, and the other two still finish.
 
 `max_running` is required. For work that only uses the CPU, the number of
 cores is a good choice. For most other work, the limit protects something
@@ -290,9 +303,9 @@ concurrent {
 This runs eight database queries at a time, then fifty API calls at a time.
 One limit for the whole block couldn't do both.
 
-If the function returns a `Result`, you get a list of `Result`s back. A task
-that returns `Err` still finished normally, so it doesn't stop the batch.
-You decide what to do when some succeed and some don't:
+A function that returns a `Result` gives a list of `Result`s, as `words`
+did. A task that returns `Err` still finished normally, so it doesn't stop
+the batch. You decide what to do when some succeed and some don't:
 
 ```nomi
 outcomes = concurrent {
@@ -461,7 +474,7 @@ fn record_audit(id: Int) -> Unit {
 
 fn handle_order(id: Int) -> String {
     _ = Supervisor.spawn(Config.audit, fn -> record_audit(id))
-    "order ${Display.to_string(id)} accepted"
+    "order ${id} accepted"
 }
 
 // Both ids are on the channel by the time this runs, but in whichever

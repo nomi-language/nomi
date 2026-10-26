@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/wasmmem"
+	"github.com/nomi-language/nomi/vmhost"
 	"github.com/nomi-language/nomi/vmrunner"
 )
 
@@ -90,8 +92,8 @@ export fn one() -> Int {
 fn main() {
   io.write("What is your name? ")
   case io.read_line() {
-    Ok(name) -> io.print("Hello, ${name}! héllo ✓")
-    Err(e) -> io.print("no name: ${e}")
+    Ok(Some(name)) -> io.print("Hello, ${name}! héllo ✓")
+    _ -> io.print("no name")
   }
 }
 `,
@@ -130,10 +132,16 @@ fn main() {
   io.print(String.length(big))
 }
 `,
-	"file.nomi": `import std/io
+	"file.nomi": `import {
+  std/fs
+  std/io
+}
 
-fn main() {
-  io.print(io.read_file("data.txt"))
+fn main() -> Result<Unit, io.Error> {
+  text = try fs.read_text("data.txt")
+  try fs.write_text("out/shout.txt", String.to_upper(text))
+  io.print(text)
+  Ok(Unit)
 }
 `,
 }
@@ -154,7 +162,14 @@ func TestBuildWeb(t *testing.T) {
 	folders := map[string]string{}
 	for name := range webPrograms {
 		folder := filepath.Join(out, strings.TrimSuffix(name, ".nomi")+"-web")
-		if b := runProcess(t, env, src, "", nomiBin, "build", "--web", filepath.Join(src, name), "-o", folder); b.exit != 0 || b.stderr != "" {
+		args := []string{"build", "--web", filepath.Join(src, name), "-o", folder}
+		// A program that reaches std/fs builds, with a note that it sees
+		// only the files run's `files` option gives it.
+		wantStderr := ""
+		if name == "file.nomi" {
+			wantStderr = vmhost.WebFilesNote + "\n"
+		}
+		if b := runProcess(t, env, src, "", nomiBin, args...); b.exit != 0 || b.stderr != wantStderr {
 			t.Fatalf("nomi build --web %s: exit %d\n%s", name, b.exit, b.transcript())
 		}
 		folders[name] = folder
@@ -414,15 +429,12 @@ func TestBuildWeb(t *testing.T) {
 		hello := filepath.Join(src, "hello.nomi")
 		file := filepath.Join(t.TempDir(), "taken")
 		mustWrite(t, file, "")
-		project := filepath.Join(repoRoot(t), "cmd", "nomi", "testdata", "go_bindings")
 		for _, c := range []struct {
 			args []string
 			want string
 		}{
 			{[]string{"build", "--web", "--target", "linux/amd64", hello}, "--web builds for js/wasm, so it cannot take --target linux/amd64"},
 			{[]string{"build", "--web", hello, "-o", file}, "--web writes a folder, and " + file + " is a file"},
-			{[]string{"build", "--web", filepath.Join(project, "main.nomi"), "-o", filepath.Join(t.TempDir(), "w")},
-				"nomi build --web: this project has Go bindings, and the browser build cannot link them"},
 		} {
 			got := runProcess(t, env, src, "", nomiBin, c.args...)
 			if got.exit == 0 || !strings.Contains(got.stderr, c.want) {
@@ -452,12 +464,14 @@ func TestBuildWeb(t *testing.T) {
 			TimeoutMs    int               `json:"timeoutMs,omitempty"`
 			AbortAfterMs int               `json:"abortAfterMs,omitempty"`
 			Worker       *bool             `json:"worker,omitempty"`
+			Files        map[string]string `json:"files,omitempty"`
 		}
 		type webResult struct {
 			Stdout, Stderr, Fatal string
 			ExitCode              int
 			Events                []string
 			Fetches               int
+			Files                 map[string]string
 		}
 		str := func(s string) *string { return &s }
 		no := false
@@ -470,9 +484,10 @@ func TestBuildWeb(t *testing.T) {
 			5:  {Folder: folders["trap.nomi"]},
 			6:  {Folder: folders["spin.nomi"], TimeoutMs: 300},
 			7:  {Folder: folders["spin.nomi"], AbortAfterMs: 300},
-			8:  {Folder: folders["file.nomi"]},
+			8:  {Folder: folders["file.nomi"], Files: map[string]string{"data.txt": "seeded\n", "out/keep.txt": "kept"}},
 			9:  {Folder: folders["oom.nomi"]},
 			10: {Folder: folders["exports.nomi"]},
+			11: {Folder: folders["file.nomi"]},
 		}
 		spec, _ := json.Marshal(map[string]any{"runs": runs})
 		harness := filepath.Join(repoRoot(t), "cmd", "nomi", "testdata", "web", "harness.mjs")
@@ -527,8 +542,15 @@ func TestBuildWeb(t *testing.T) {
 		if r := results[7]; r.ExitCode != 130 || r.Fatal != "the run was aborted" {
 			t.Fatalf("abort: %+v", r)
 		}
-		if r := results[8]; r.ExitCode != 0 || !strings.Contains(r.Stdout, "std/io file access is not available in the browser build of Nomi") {
-			t.Fatalf("file access: %+v, want the browser build's refusal", r)
+		// A page's files are the program's: it reads one run's `files`
+		// gave, and run answers every file when it ends.
+		if r := results[8]; r.ExitCode != 0 || r.Stdout != "seeded\n\n" ||
+			!maps.Equal(r.Files, map[string]string{"data.txt": "seeded\n", "out/keep.txt": "kept", "out/shout.txt": "SEEDED\n"}) {
+			t.Fatalf("files: %+v, want the seeded file read and the written one returned", r)
+		}
+		// Without them the file is not there.
+		if r := results[11]; r.ExitCode != 1 || r.Stderr != "error: data.txt: not found\n" || len(r.Files) != 0 {
+			t.Fatalf("no files: %+v, want NotFound", r)
 		}
 		// An allocation past the 1 GiB memory cap stops Go, and run reports
 		// Go's reason.

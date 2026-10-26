@@ -2,6 +2,7 @@ package vmhost
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -81,6 +82,16 @@ func WriteFailure(w io.Writer, err error) {
 // FormatFailure is a program's failure as plain, uncoloured text with no
 // trailing newline, for a host that shows it in its own UI (the tour).
 func FormatFailure(err error) string {
+	var exit *Exit
+	if errors.As(err, &exit) {
+		// The message the program prints, then the status it exits with,
+		// which a page has no other way to show.
+		status := fmt.Sprintf("exit status %d", exit.Code)
+		if exit.Message == "" {
+			return status
+		}
+		return exit.Message + "\n" + status
+	}
 	var assertionErr *rt.AssertionFailure
 	if errors.As(err, &assertionErr) {
 		return rt.FormatAssertionFailure(assertionErr)

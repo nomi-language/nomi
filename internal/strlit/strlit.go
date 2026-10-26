@@ -1,68 +1,31 @@
-// Package strlit is the single source of truth for Nomi string-literal escape
-// handling. The lexer (decode: source escape -> rune) and the formatter
-// (encode: rune -> source escape) both derive from the simpleEscapes table
-// here, so the two directions cannot drift out of being inverses. Letting them
-// drift — the formatter using Go's strconv.Quote conventions while the lexer
-// expected the braced \u{...} form — is exactly what corrupted strings
-// containing format characters before this package existed.
+// Package strlit is Nomi string-literal escape handling for the lexer, the
+// parser and the formatter. The escape table and the encoder are rt's
+// (rt/stringliteral.go), which every place that shows a String as code calls,
+// so the lexer's decoding and every encoder read one table.
 package strlit
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
-	"unicode"
 	"unicode/utf8"
+
+	"github.com/nomi-language/nomi/rt"
 )
-
-// simpleEscapes maps the character after a backslash to the rune it decodes
-// to, for the single-character escapes Nomi supports. The \u{HEX} form is not
-// single-character and is handled separately by both the lexer and
-// EncodeStringBody.
-var simpleEscapes = map[byte]rune{
-	'n':  '\n',
-	't':  '\t',
-	'\\': '\\',
-	'"':  '"',
-}
-
-// runeToSimple is the reverse of simpleEscapes, used by EncodeStringBody so the
-// encode side is derived from the same table the decode side uses.
-var runeToSimple = func() map[rune]byte {
-	m := make(map[rune]byte, len(simpleEscapes))
-	for b, r := range simpleEscapes {
-		m[r] = b
-	}
-	return m
-}()
 
 // DecodeSimple returns the rune a single-character escape decodes to (the
 // argument is the character following the backslash) and whether it is a
 // recognized escape. The lexer uses this and rejects the input when ok is
 // false and the escape is not the \u{...} form.
 func DecodeSimple(after byte) (rune, bool) {
-	r, ok := simpleEscapes[after]
-	return r, ok
+	return rt.DecodeStringEscape(after)
 }
 
 // EncodeStringBody re-encodes a decoded string into the body of a single-line
-// Nomi string literal (no surrounding quotes), emitting only escapes the lexer
-// accepts: the simpleEscapes table, plus \u{HEX} for any other non-printable
-// rune. Printable runes — including non-ASCII letters, emoji, and combining
-// marks — pass through verbatim.
+// Nomi string literal (no surrounding quotes and no `${` rule):
+// rt.StringLiteralBody.
 func EncodeStringBody(s string) string {
-	var b strings.Builder
-	for _, r := range s {
-		if esc, ok := runeToSimple[r]; ok {
-			b.WriteByte('\\')
-			b.WriteByte(esc)
-		} else if unicode.IsPrint(r) {
-			b.WriteRune(r)
-		} else {
-			fmt.Fprintf(&b, `\u{%x}`, r)
-		}
-	}
-	return b.String()
+	return rt.StringLiteralBody(s)
 }
 
 // DecodeUnicodeEscape decodes the hex digits between the braces of a

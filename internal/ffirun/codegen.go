@@ -36,7 +36,7 @@ package main
 import (
 	stdfmt "fmt"
 	stdos "os"
-{{- if .HasEntryScopedKeys}}
+{{- if or .HasEntryScopedKeys (not .Runner)}}
 	stdfilepath "path/filepath"
 {{- end}}
 {{- if not .Runner}}
@@ -60,6 +60,7 @@ import (
 const ffiTestResultMarker = "__NOMI_FFI_TEST_RESULT"
 const imageUsesCompilerMarker = "__NOMI_IMAGE_USES_COMPILER"
 const imageHasExportsMarker = "__NOMI_IMAGE_HAS_EXPORTS"
+const imageUsesFilesMarker = "__NOMI_IMAGE_USES_FILES"
 const wrapperModeFlag = "--nomi-wrapper-mode"
 {{end}}
 {{if .Runner}}
@@ -161,28 +162,37 @@ func runProgramVM(entryPath string, args []string) {
 	if err := p.Run(stdcontext.Background(), stdos.Stdout, args, true); err != nil {
 		if blocked, ok := nomivmhost.IsBlocked(err); ok {
 			blocked.Write(stdos.Stderr, nomivmhost.DisplayPath(entryPath))
-		} else {
-			nomivmhost.WriteFailure(stdos.Stderr, err)
+			stdos.Exit(1)
 		}
-		stdos.Exit(1)
+		nomivmhost.WriteFailure(stdos.Stderr, err)
+		stdos.Exit(nomivmhost.ExitCode(err))
 	}
 }
 
 // buildImageVM is nomi build's half of the wrapper: lower the entry with the
-// project's bindings and write its IR image to args[0], or report what
-// nomi run would report and write nothing.
+// project's bindings and write what the build needs into the folder
+// args[0]: the IR image as image and, for a browser build (args[1] is web),
+// the image a page loads (BuildWebImage), with nomi.d.ts and the locale
+// files beside it. A program that reaches a capability class the target
+// args[3]/args[4] lacks, and args[5:] does not allow, is refused as the
+// command args[2] names (CheckTarget). Otherwise it reports what nomi run
+// would report and writes nothing.
 func buildImageVM(entryPath string, args []string) {
-	if len(args) < 1 {
-		stdfmt.Fprintln(stdos.Stderr, "usage: nomi-ffi-wrapper --nomi-wrapper-mode vmimage <entry.nomi> <image>")
+	if len(args) < 5 {
+		stdfmt.Fprintln(stdos.Stderr, "usage: nomi-ffi-wrapper --nomi-wrapper-mode vmimage <entry.nomi> <folder> <image|web> <command> <goos> <goarch> [class...]")
 		stdos.Exit(1)
 	}
+	out, web, command, goos, goarch, allowed := args[0], args[1] == "web", args[2], args[3], args[4], args[5:]
 	p, err := nomivmhost.Load(entryPath, nomivmhost.WithHosts(nomiHostTable(entryPath)))
 	if err != nil {
 		nomivmhost.WriteFailure(stdos.Stderr, err)
 		stdos.Exit(1)
 	}
-	image, usesCompiler, err := p.BuildImage()
-	if err != nil {
+	if refused := p.CheckTarget(command, goos, goarch, web, allowed); refused != nil {
+		refused.Write(stdos.Stderr)
+		stdos.Exit(1)
+	}
+	failed := func(err error) {
 		if blocked, ok := nomivmhost.IsBlocked(err); ok {
 			blocked.Write(stdos.Stderr, nomivmhost.DisplayPath(entryPath))
 		} else {
@@ -190,10 +200,34 @@ func buildImageVM(entryPath string, args []string) {
 		}
 		stdos.Exit(1)
 	}
-	if err := stdos.WriteFile(args[0], image, 0o644); err != nil {
-		stdfmt.Fprintln(stdos.Stderr, err)
-		stdos.Exit(1)
+	write := func(name string, data []byte) {
+		path := stdfilepath.Join(out, stdfilepath.FromSlash(name))
+		if err := stdos.MkdirAll(stdfilepath.Dir(path), 0o755); err != nil {
+			failed(err)
+		}
+		if err := stdos.WriteFile(path, data, 0o644); err != nil {
+			failed(err)
+		}
 	}
+	var image []byte
+	var usesCompiler bool
+	if web {
+		built, err := p.BuildWebImage()
+		if err != nil {
+			failed(err)
+		}
+		image, usesCompiler = built.Image, built.UsesCompiler
+		for name, data := range built.Files {
+			write(name, data)
+		}
+		write("nomi.d.ts", []byte(p.WebDeclarations()))
+		if p.Uses(nomivmhost.ClassFiles, true) {
+			stdfmt.Println(imageUsesFilesMarker)
+		}
+	} else if image, usesCompiler, err = p.BuildImage(); err != nil {
+		failed(err)
+	}
+	write("image", image)
 	if usesCompiler {
 		stdfmt.Println(imageUsesCompilerMarker)
 	}

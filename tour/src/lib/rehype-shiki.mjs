@@ -168,6 +168,51 @@ function goModBlock(code) {
   return chipped("nomi-tour nomi-code-gomod", "gomod", children);
 }
 
+// A multi-file ```nomi-run block's Go files (`// FILE: urltools.go`), which
+// its editor shows read-only: the tour links that Go ahead of time
+// (internal/tourgo). Shiki highlights each here, at build time, into a hidden
+// span inside the block's <pre> named by the file, which tour-client.mjs
+// moves into the file's tab. The text is the section as the client's
+// splitFiles cuts it: its lines up to the next marker, trailing blank lines
+// dropped.
+const FILE_MARKER = /^\s*\/\/\s*FILE:\s*([A-Za-z0-9_.\-/]+\.[A-Za-z0-9]+)\s*$/;
+
+function goSections(source) {
+  const sections = [];
+  let current = null;
+  for (const line of source.split("\n")) {
+    const m = FILE_MARKER.exec(line);
+    if (m) {
+      current = { name: m[1], lines: [] };
+      sections.push(current);
+    } else if (current) {
+      current.lines.push(line);
+    }
+  }
+  return sections
+    .filter((s) => s.name.endsWith(".go"))
+    .map((s) => ({ name: s.name, code: s.lines.join("\n").replace(/\n+$/, "") }));
+}
+
+async function goFileSpans(source) {
+  const spans = [];
+  for (const { name, code } of goSections(source)) {
+    const root = await codeToHast(code, {
+      lang: "go",
+      themes: { light: "one-light", dark: "one-dark-pro" },
+    });
+    const pre = root.children?.find((node) => node.type === "element" && node.tagName === "pre");
+    const codeNode = pre?.children?.find((node) => node.type === "element" && node.tagName === "code");
+    spans.push({
+      type: "element",
+      tagName: "span",
+      properties: { hidden: true, dataNomiFile: name },
+      children: codeNode?.children || [],
+    });
+  }
+  return spans;
+}
+
 function chipped(preClass, chip, children) {
   return {
     type: "element",
@@ -180,6 +225,7 @@ function chipped(preClass, chip, children) {
 export default function rehypeShiki() {
   return async function transform(tree) {
     const edits = [];
+    const goFiles = [];
 
     function visit(node, parent) {
       if (!node || !node.children) return;
@@ -207,11 +253,23 @@ export default function rehypeShiki() {
             setCodeLabel(child, "Nomi");
             // ```nomi-run error: the example fails to compile on purpose.
             // The fence's words after the language arrive as the code
-            // node's meta; the client reads this attribute to show the
-            // "Expected error" badge.
+            // node's meta; the client reads these attributes to show the
+            // "Expected error" badge, to give a ```nomi-run manual block a
+            // Run button, to show a ```nomi-run expand block's expansion as
+            // its output, and to make the data files a `read-only:<glob>`
+            // word matches read-only.
             const words = String(code.data?.meta || "").split(/\s+/);
-            if (hasClass(code, "language-nomi-run") && words.includes("error")) {
-              child.properties = { ...(child.properties || {}), dataNomiExpect: "error" };
+            if (hasClass(code, "language-nomi-run")) {
+              const props = { ...(child.properties || {}) };
+              if (words.includes("error")) props.dataNomiExpect = "error";
+              if (words.includes("manual")) props.dataNomiManual = "1";
+              if (words.includes("expand")) props.dataNomiExpand = "1";
+              const readOnly = words.filter((w) => w.startsWith("read-only:")).map((w) => w.slice("read-only:".length));
+              if (readOnly.length) props.dataNomiReadOnly = readOnly.join(" ");
+              child.properties = props;
+            }
+            if (hasClass(code, "language-nomi-run")) {
+              goFiles.push({ pre: child, source: textContent(code) });
             }
           }
         }
@@ -222,6 +280,9 @@ export default function rehypeShiki() {
     visit(tree, null);
     for (const edit of edits) {
       edit.parent.children[edit.index] = await highlight(edit.code, SHIKI_LANGS[edit.fence]);
+    }
+    for (const { pre, source } of goFiles) {
+      pre.children.push(...(await goFileSpans(source)));
     }
   };
 }

@@ -5,12 +5,12 @@ fn main() {
 
     count = Iter.loop(fn seen = 0 -> {
         case io.read_line() {
-            Ok(line) -> {
+            Ok(Some(line)) -> {
                 io.print("got ${line}")
                 seen + 1
             }
 
-            Err(_) ->
+            _ ->
                 break seen
         }
     })

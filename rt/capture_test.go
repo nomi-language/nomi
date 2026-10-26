@@ -14,14 +14,14 @@ func TestCapture_ReadsItsOwnInput(t *testing.T) {
 	inner, c := EnterCapture(root, "one\r\ntwo\nlast")
 	defer c.Close()
 	for _, want := range []string{"one", "two", "last"} {
-		if got := ReadLine(inner); got.Tag != TagOk || got.Ok != want {
-			t.Fatalf("ReadLine = %+v, want Ok(%q)", got, want)
+		if got, ok := lineOf(ReadLine(inner)); !ok || got != want {
+			t.Fatalf("ReadLine = %q, want Ok(Some(%q))", got, want)
 		}
 	}
-	if got := ReadLine(inner); got.Tag != TagErr || got.Err != "eof" {
-		t.Fatalf("ReadLine past the capture's input = %+v, want Err(eof)", got)
+	if got := ReadLine(inner); !atEnd(got) {
+		t.Fatalf("ReadLine past the capture's input = %+v, want Ok(None)", got)
 	}
-	if got := ReadLine(root); got.Tag != TagOk || got.Ok != "real" {
+	if got := ReadLine(root); got.Tag != TagOk || got.Ok.Some != "real" {
 		t.Fatalf("ReadLine on the program's frame = %+v, want Ok(\"real\")", got)
 	}
 }
@@ -48,8 +48,8 @@ func TestCapture_NestsAndFallsBackWhenClosed(t *testing.T) {
 	if CaptureWrite(innerFr, "d") {
 		t.Fatal("a write past two closed captures was taken by one of them")
 	}
-	if got := ReadLine(innerFr); got.Tag != TagErr {
-		t.Fatalf("ReadLine past closed captures over no input = %+v, want Err", got)
+	if got := ReadLine(innerFr); !atEnd(got) {
+		t.Fatalf("ReadLine past closed captures over no input = %+v, want Ok(None)", got)
 	}
 }
 
@@ -88,12 +88,12 @@ func TestCapture_TranscriptWritesReadsIn(t *testing.T) {
 	CaptureWrite(inner, "What is your name?\n")
 	ReadLine(inner)
 	CaptureWrite(inner, "\nHello, Ada. Your age: ")
-	if got := ReadLine(inner); got.Ok != "36" {
+	if got := ReadLine(inner); got.Ok.Some != "36" {
 		t.Fatalf("ReadLine = %+v, want Ok(\"36\")", got)
 	}
 	CaptureWrite(inner, "Ada is 36\nmore? ")
-	if got := ReadLine(inner); got.Tag != TagErr {
-		t.Fatalf("ReadLine past the input = %+v, want Err", got)
+	if got := ReadLine(inner); !atEnd(got) {
+		t.Fatalf("ReadLine past the input = %+v, want Ok(None)", got)
 	}
 	CaptureWrite(inner, "bye")
 	got := c.Close()
@@ -117,7 +117,7 @@ func TestCapture_APromptStartingWithTheMarkerIsOutput(t *testing.T) {
 	CaptureWrite(inner, "Exits: north.\n")
 	for {
 		CaptureWrite(inner, "> ")
-		if ReadLine(inner).Tag != TagOk {
+		if _, ok := lineOf(ReadLine(inner)); !ok {
 			break
 		}
 		CaptureWrite(inner, "ok\n")
@@ -182,7 +182,7 @@ func TestReplay_FeedsTheScriptsInputLines(t *testing.T) {
 	var read []string
 	for range 4 {
 		CaptureWrite(inner, "amount: ")
-		read = append(read, ReadLine(inner).Ok)
+		read = append(read, ReadLine(inner).Ok.Some)
 	}
 	if got, want := strings.Join(read, "|"), "500|25|| 7"; got != want {
 		t.Fatalf("reads = %q, want %q", got, want)
@@ -197,8 +197,8 @@ func TestReplay_FeedsTheScriptsInputLines(t *testing.T) {
 	}
 	inner, c = EnterReplay(root, ParseReplayScript("    > only"))
 	ReadLine(inner)
-	if r := ReadLine(inner); r.Tag != TagErr || r.Err != "eof" {
-		t.Fatalf("a read past the script = %+v, want Err(eof)", r)
+	if r := ReadLine(inner); !atEnd(r) {
+		t.Fatalf("a read past the script = %+v, want Ok(None)", r)
 	}
 	if got := c.Close(); got.Unread != 0 || got.Transcript != "    > only\n" {
 		t.Fatalf("closed replay = %+v", got)

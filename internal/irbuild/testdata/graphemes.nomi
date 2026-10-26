@@ -18,9 +18,9 @@ fn report(label: String, s: String) {
 
 fn main() {
     report("combining acute", "héllo")
-    report("zwj family", "👩\u{200d}👧")
+    report("zwj family", "👩‍👧")
     report("flag", "🇺🇸")
-    report("four-person family", "👨\u{200d}👩\u{200d}👧\u{200d}👦")
+    report("four-person family", "👨‍👩‍👧‍👦")
 
     // The clamping and inversion cases, which std/strings declares no error for.
     io.print(String.slice("hello", 1, 4))

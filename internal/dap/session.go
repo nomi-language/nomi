@@ -473,6 +473,8 @@ func (sess *session) run(pass *vm.Pass) int {
 	if pass != nil {
 		out, errOut = pass.Gate(out), pass.Gate(errOut)
 	}
+	// The program's own stderr (`io.eprint`) is gated as its stdout is.
+	sess.p.SetErrorOutput(errOut)
 	if !sess.test {
 		err := sess.p.Run(context.Background(), out, sess.args.Args, false)
 		if err == nil {
@@ -480,10 +482,10 @@ func (sess *session) run(pass *vm.Pass) int {
 		}
 		if blocked, ok := vmhost.IsBlocked(err); ok {
 			blocked.Write(errOut, vmhost.DisplayPath(sess.path))
-		} else {
-			vmhost.WriteFailure(errOut, err)
+			return 1
 		}
-		return 1
+		vmhost.WriteFailure(errOut, err)
+		return vmhost.ExitCode(err)
 	}
 	if restore, err := vmhost.DefaultTestEnv(); err == nil {
 		defer restore()

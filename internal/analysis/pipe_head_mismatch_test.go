@@ -19,7 +19,7 @@ type Celsius Decimal
 
 impl Celsius {
   fn to_fahrenheit(Celsius(n)) -> Fahrenheit {
-    Fahrenheit(n * 9d / 5d + 32d)
+    Fahrenheit(n * 1.8d + 32d)
   }
 }
 

@@ -6,10 +6,9 @@ import (
 )
 
 // A function value never fills a generic parameter whose shape is not a
-// function, and the reverse (func_value_shape.go). The permissive fallback
-// for generic argument mismatches let `Maybe.with_default(f, 0)` through
-// with `f: (String) -> Maybe<Int>`, and the program was BLOCKED at run time
-// with "a lambda parameter outside the domain".
+// function, and the reverse (reportGenericArgMismatch): `Maybe.with_default(f,
+// 0)` with `f: (String) -> Maybe<Int>` is an argument mismatch, not a call the
+// builder declines with "a lambda parameter outside the domain".
 
 func TestFuncValueShape_MismatchIsRejected(t *testing.T) {
 	for _, tc := range []struct {

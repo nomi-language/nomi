@@ -709,8 +709,8 @@ func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 		}
 	}
 	if sig == nil {
-		// `print` after `import std/io.print`, `read_file` after
-		// `import std/io.read_file`.
+		// `print` after `import std/io.print`, `read_line` after
+		// `import std/io.read_line`.
 		if v, k, mobile, ok, handled := bl.stdBareFuncRef(t); handled {
 			return v, k, mobile, ok
 		}

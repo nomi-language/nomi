@@ -31,6 +31,8 @@
 01-foundations/once_bindings/test_helpers.nomi:hover_signature	ran
 01-foundations/redeclarations/test_helpers.nomi:has_diagnostic?	ran
 01-foundations/redeclarations/test_helpers.nomi:hover_signature	ran
+01-foundations/standard_streams/streams.nomi:main	ran
+01-foundations/standard_streams/streams.nomi:main failure	ran
 02-testing/assert_refute_test.nomi:fails_assertion	ran
 02-testing/assert_refute_test.nomi:fails_check	ran
 02-testing/assertable_test.nomi:EqualsAssertion.failure	ran
@@ -50,6 +52,7 @@
 02-testing/attached_tests_test.nomi:done_label	ran
 02-testing/attached_tests_test.nomi:ready_label	ran
 02-testing/attached_tests_test.nomi:render	ran
+02-testing/fs_sandbox_test.nomi:sort_file	ran
 02-testing/io_capture_test.nomi:main	ran
 02-testing/io_capture_test.nomi:main failure	ran
 02-testing/io_capture_test.nomi:read_words	ran
@@ -1323,6 +1326,27 @@
 15-app-and-defer/effects/main.nomi:main	ran
 15-app-and-defer/effects/prod.nomi:build	ran
 15-app-and-defer/effects/test.nomi:build	ran
+15-app-and-defer/exit_status/boot_exit.nomi:App.inspect	ran
+15-app-and-defer/exit_status/boot_exit.nomi:boot	ran
+15-app-and-defer/exit_status/boot_exit.nomi:boot failure	ran
+15-app-and-defer/exit_status/boot_exit.nomi:main	BOOT ERR: reads the app a boot that returns Err never publishes
+15-app-and-defer/exit_status/exit_test.nomi:main	ran
+15-app-and-defer/exit_status/exit_test.nomi:main failure	ran
+15-app-and-defer/exit_status/exit_zero.nomi:main	ran
+15-app-and-defer/exit_status/exit_zero.nomi:main failure	ran
+15-app-and-defer/exit_status/main_exit.nomi:App.inspect	ran
+15-app-and-defer/exit_status/main_exit.nomi:boot	ran
+15-app-and-defer/exit_status/main_exit.nomi:boot failure	ran
+15-app-and-defer/exit_status/main_exit.nomi:count	ran
+15-app-and-defer/exit_status/main_exit.nomi:main	ran
+15-app-and-defer/exit_status/main_exit.nomi:main failure	ran
+15-app-and-defer/exit_status/out_of_range.nomi:main	ran
+15-app-and-defer/exit_status/out_of_range.nomi:main failure	ran
+15-app-and-defer/exit_status/own_exit.nomi:Exit.inspect	ran
+15-app-and-defer/exit_status/own_exit.nomi:main	ran
+15-app-and-defer/exit_status/own_exit.nomi:main failure	ran
+15-app-and-defer/exit_status/silent_exit.nomi:main	ran
+15-app-and-defer/exit_status/silent_exit.nomi:main failure	ran
 15-app-and-defer/file_store_pattern_test.nomi:FileStore.delete	ran
 15-app-and-defer/file_store_pattern_test.nomi:FileStore.inspect	ran
 15-app-and-defer/file_store_pattern_test.nomi:FileStore.load	ran
@@ -2181,6 +2205,190 @@ exercism/wordy/wordy.nomi:answer	ran
 exercism/wordy/wordy.nomi:apply	ran
 exercism/wordy/wordy.nomi:evaluate	ran
 exercism/wordy/wordy.nomi:operand	ran
+std/fs.nomi:Access.equal?	ran
+std/fs.nomi:Access.inspect	ran
+std/fs.nomi:Chunks.each_while	ran
+std/fs.nomi:Chunks.inspect	ran
+std/fs.nomi:Entry.equal?	ran
+std/fs.nomi:Entry.inspect	ran
+std/fs.nomi:Kind.equal?	ran
+std/fs.nomi:Kind.inspect	ran
+std/fs.nomi:Lines.each_while	ran
+std/fs.nomi:Lines.inspect	ran
+std/fs.nomi:Metadata.equal?	ran
+std/fs.nomi:Metadata.inspect	ran
+std/fs.nomi:Walk.each_while	ran
+std/fs.nomi:Walk.inspect	ran
+std/fs.nomi:WriteMode.equal?	ran
+std/fs.nomi:WriteMode.inspect	ran
+std/fs.nomi:chunks	ran
+std/fs.nomi:chunks default 2	ran
+std/fs.nomi:copy	ran
+std/fs.nomi:create	ran
+std/fs.nomi:create default 2	ran
+std/fs.nomi:create_dir	ran
+std/fs.nomi:create_dir default 2	ran
+std/fs.nomi:create_symlink	ran
+std/fs.nomi:current_dir	ran
+std/fs.nomi:decoded	ran
+std/fs.nomi:each_chunk	ran
+std/fs.nomi:each_line	ran
+std/fs.nomi:exists?	ran
+std/fs.nomi:glob	ran
+std/fs.nomi:glob_split	ran
+std/fs.nomi:kind_at	ran
+std/fs.nomi:lines	ran
+std/fs.nomi:link_metadata	ran
+std/fs.nomi:list	ran
+std/fs.nomi:listed	ran
+std/fs.nomi:metadata	ran
+std/fs.nomi:metadata_of	ran
+std/fs.nomi:mode_code	ran
+std/fs.nomi:open	ran
+std/fs.nomi:open_file	ran
+std/fs.nomi:open_file default 2	ran
+std/fs.nomi:read	ran
+std/fs.nomi:read_link	ran
+std/fs.nomi:read_text	ran
+std/fs.nomi:remove	ran
+std/fs.nomi:remove_all	ran
+std/fs.nomi:remove_quietly	ran
+std/fs.nomi:rename	ran
+std/fs.nomi:set_mode	ran
+std/fs.nomi:temp_dir	ran
+std/fs.nomi:walk	ran
+std/fs.nomi:walk_dir	ran
+std/fs.nomi:walk_entries	ran
+std/fs.nomi:walk_matches	PROBE: a synthesized argument is not a value of the declared type
+std/fs.nomi:wild?	ran
+std/fs.nomi:with_file	ran
+std/fs.nomi:with_file default 2	ran
+std/fs.nomi:with_reader	ran
+std/fs.nomi:with_reader	ran
+std/fs.nomi:with_temp_dir	ran
+std/fs.nomi:with_temp_dir	ran
+std/fs.nomi:with_temp_dir	ran
+std/fs.nomi:with_temp_dir	ran
+std/fs.nomi:with_temp_dir	ran
+std/fs.nomi:with_temp_dir	ran
+std/fs.nomi:with_temp_dir	ran
+std/fs.nomi:with_temp_dir	ran
+std/fs.nomi:with_writer	ran
+std/fs.nomi:with_writer	ran
+std/fs.nomi:with_writer default 2	ran
+std/fs.nomi:within	ran
+std/fs.nomi:within	ran
+std/fs.nomi:within	ran
+std/fs.nomi:within	ran
+std/fs.nomi:within	ran
+std/fs.nomi:write	ran
+std/fs.nomi:write default 3	ran
+std/fs.nomi:write_text	ran
+std/fs.nomi:write_text default 3	ran
+std/fs_testing.nomi:ConformanceFailure.inspect	ran
+std/fs_testing.nomi:Failure.inspect	ran
+std/fs_testing.nomi:Failure.nth default	ran
+std/fs_testing.nomi:Operation.equal?	ran
+std/fs_testing.nomi:Operation.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Sandbox.binary default	ran
+std/fs_testing.nomi:Sandbox.cwd default	ran
+std/fs_testing.nomi:Sandbox.dirs default	ran
+std/fs_testing.nomi:Sandbox.failures default	ran
+std/fs_testing.nomi:Sandbox.files default	ran
+std/fs_testing.nomi:Sandbox.inspect	ran
+std/fs_testing.nomi:Sandbox.links default	ran
+std/fs_testing.nomi:bytes_of	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:check	ran
+std/fs_testing.nomi:conformance	ran
+std/fs_testing.nomi:first	ran
+std/fs_testing.nomi:names	ran
+std/fs_testing.nomi:operation_code	ran
+std/fs_testing.nomi:rule_append	ran
+std/fs_testing.nomi:rule_atomic	ran
+std/fs_testing.nomi:rule_atomic_failure	ran
+std/fs_testing.nomi:rule_closed	ran
+std/fs_testing.nomi:rule_copy	ran
+std/fs_testing.nomi:rule_copy_rename_link	ran
+std/fs_testing.nomi:rule_create_dir	ran
+std/fs_testing.nomi:rule_dangling	ran
+std/fs_testing.nomi:rule_dir	ran
+std/fs_testing.nomi:rule_exists	ran
+std/fs_testing.nomi:rule_file	ran
+std/fs_testing.nomi:rule_file_missing	ran
+std/fs_testing.nomi:rule_file_read_only	ran
+std/fs_testing.nomi:rule_glob	ran
+std/fs_testing.nomi:rule_invalid_text	ran
+std/fs_testing.nomi:rule_lines	ran
+std/fs_testing.nomi:rule_lines_twice	ran
+std/fs_testing.nomi:rule_link_loop	ran
+std/fs_testing.nomi:rule_list_file	ran
+std/fs_testing.nomi:rule_metadata	ran
+std/fs_testing.nomi:rule_missing_parent	ran
+std/fs_testing.nomi:rule_new	ran
+std/fs_testing.nomi:rule_read_dir	ran
+std/fs_testing.nomi:rule_read_link_file	ran
+std/fs_testing.nomi:rule_remove_all	ran
+std/fs_testing.nomi:rule_remove_all_missing	ran
+std/fs_testing.nomi:rule_remove_full	ran
+std/fs_testing.nomi:rule_remove_link	ran
+std/fs_testing.nomi:rule_remove_missing	ran
+std/fs_testing.nomi:rule_rename	ran
+std/fs_testing.nomi:rule_rename_missing	ran
+std/fs_testing.nomi:rule_replace	ran
+std/fs_testing.nomi:rule_set_mode	ran
+std/fs_testing.nomi:rule_sorted	ran
+std/fs_testing.nomi:rule_symlink	ran
+std/fs_testing.nomi:rule_walk	ran
+std/fs_testing.nomi:rule_walk_missing	ran
+std/fs_testing.nomi:rule_within	ran
+std/fs_testing.nomi:rule_within_escape	ran
+std/fs_testing.nomi:rule_within_missing	ran
+std/fs_testing.nomi:rules	ran
+std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
+std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
+std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
+std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
+std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
+std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
+std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
+std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
+std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
+std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
+std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
+std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
+std/fs_testing.nomi:text	ran
+std/fs_testing.nomi:text	ran
+std/fs_testing.nomi:text	ran
+std/fs_testing.nomi:under	ran
 std/message.nomi:Argument.equal?	ran
 std/message.nomi:Argument.inspect	ran
 std/message.nomi:Catalog.inspect	ran
@@ -2242,6 +2450,28 @@ std/money.nomi:Money.subtract	PROBE: a synthesized argument is not a value of th
 std/money.nomi:Money.to_string	ran
 std/money.nomi:literal Currency`XXX` at 208:27 failure	ran
 std/money.nomi:literal Currency`XXX` at 268:55 failure	ran
+std/path.nomi:absolute?	ran
+std/path.nomi:base	ran
+std/path.nomi:clean	ran
+std/path.nomi:climb	ran
+std/path.nomi:drive?	ran
+std/path.nomi:extension	ran
+std/path.nomi:hidden_matches?	ran
+std/path.nomi:in_set	ran
+std/path.nomi:join	ran
+std/path.nomi:join_all	ran
+std/path.nomi:match?	ran
+std/path.nomi:match_name	PROBE: a synthesized argument is not a value of the declared type
+std/path.nomi:match_names	PROBE: a synthesized argument is not a value of the declared type
+std/path.nomi:names_reversed	ran
+std/path.nomi:parent	ran
+std/path.nomi:relative	ran
+std/path.nomi:set_items	ran
+std/path.nomi:stem	ran
+std/path.nomi:step	PROBE: a synthesized argument is not a value of the declared type
+std/process.nomi:Exit.code default	ran
+std/process.nomi:Exit.inspect	ran
+std/process.nomi:Exit.message default	ran
 std/sql.nomi:Bool.from_sql	ran
 std/sql.nomi:Bool.to_sql	ran
 std/sql.nomi:Bytes.from_sql	ran

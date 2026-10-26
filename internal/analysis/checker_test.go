@@ -1,6 +1,8 @@
 package analysis
 
 import (
+	"fmt"
+
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
@@ -4144,6 +4146,51 @@ func TestNaming_ImportTypeNameUnderscore_Rejected(t *testing.T) {
 	src := `import std/maybe.{Some_Thing}`
 	_, errs := checkSource(src)
 	expectError(t, errs, "PascalCase")
+}
+
+// A wrong argument count on a call of another file's `pub fn` is placed as
+// any call's is: over the extra arguments, or over the call when it is
+// short (TestArityErrorsAreAtTheCall covers the other call forms).
+func TestArity_FileQualifiedUserFunctionIsAtTheCall(t *testing.T) {
+	for _, tc := range []struct{ call, message, span string }{
+		{"other.g(1, 2)", "expected 1 arguments, got 2", "4:18-4:19"},
+		{"other.g()", "expected 1 arguments, got 0", "4:7-4:16"},
+	} {
+		src := "import other\n\nfn main() {\n  _ = " + tc.call + "\n}\n"
+		_, errs := checkSourceWithModules(t, src, map[string]string{
+			"other": "pub fn g(a: Int) -> Int {\n  a\n}\n",
+		})
+		found := false
+		for _, e := range errs {
+			if e.Message != tc.message {
+				continue
+			}
+			found = true
+			if got := fmt.Sprintf("%d:%d-%d:%d", e.Line, e.Col, e.EndLine, e.EndCol); got != tc.span {
+				t.Errorf("%s: span = %s, want %s", tc.call, got, tc.span)
+			}
+		}
+		if !found {
+			t.Errorf("%s: no error %q; got %v", tc.call, tc.message, errs)
+		}
+	}
+}
+
+// Importing a private item is reported at the item's name.
+func TestPrivateImportIsAtTheName(t *testing.T) {
+	src := "import other.{h}\n\nfn main() {\n  _ = h()\n}\n"
+	_, errs := checkSourceWithModules(t, src, map[string]string{
+		"other": "fn h() -> Int {\n  1\n}\n",
+	})
+	for _, e := range errs {
+		if e.Message == "'h' is private and cannot be imported" {
+			if got := fmt.Sprintf("%d:%d-%d:%d", e.Line, e.Col, e.EndLine, e.EndCol); got != "1:15-1:16" {
+				t.Errorf("span = %s, want 1:15-1:16", got)
+			}
+			return
+		}
+	}
+	t.Fatalf("no private-import error; got %v", errs)
 }
 
 func TestNaming_TypeImportAliasSnakeCase_Rejected(t *testing.T) {

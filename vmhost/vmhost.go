@@ -113,6 +113,16 @@ type HostTable = vm.HostTable
 // exiting 1.
 type MainError = vm.MainError
 
+// Exit is the error Run answers when `main` (or the entry boot) returns
+// `Err(#Exit{code, message})` with std/process's Exit: the run should end
+// with status Code, printing Message and a newline to stderr when it is not
+// empty (WriteFailure does). Code 0 is a successful end.
+type Exit = vm.Exit
+
+// ExitCode is the status a run that answered err exits with, as `nomi run`
+// exits: 0 for nil, an Exit's code, and 1 for any other failure.
+func ExitCode(err error) int { return vm.ExitCode(err) }
+
 // Blocked is the error a program answers when it reaches something the VM
 // cannot run.
 //
@@ -197,6 +207,11 @@ func (p *Program) RequireMain(verb string) error {
 	return errors.New(msg)
 }
 
+// SetErrorOutput replaces the program's standard error (WithErrorOutput)
+// for the runs that start after it: a debugger gives each pass of a time
+// travel its own, which drops what a replay writes again.
+func (p *Program) SetErrorOutput(w io.Writer) { p.errOut = w }
+
 func (p *Program) machine(out io.Writer) *vm.Machine {
 	return p.machineOver(p.entry, out)
 }
@@ -211,6 +226,9 @@ func (p *Program) machineOver(entry *ir.Module, out io.Writer) *vm.Machine {
 	}
 	if p.input != nil {
 		m = m.WithInput(p.input)
+	}
+	if p.cfg.files != nil {
+		m = m.WithFiles(p.cfg.files.m)
 	}
 	if p.debugger != nil {
 		m = m.WithDebugger(p.debugger)

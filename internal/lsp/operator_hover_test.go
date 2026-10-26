@@ -54,7 +54,7 @@ func TestHover_Operators(t *testing.T) {
 		{"Int %", "fn main() {\n  io.inspect(-7 ▮% 3)\n}\n",
 			[]string{"`Int` % `Int` → `Int`", "Remainder: takes the dividend's sign; `Int.modulo` takes the divisor's."}, []string{"impl"}},
 		{"Decimal /", "fn main() {\n  io.inspect(10d ▮/ 4d)\n}\n",
-			[]string{"`Decimal` / `Decimal` → `Decimal`", "Exact or traps; use `Decimal.divide` to round."}, nil},
+			[]string{"Decimal has no `/`; use `Decimal.divide` to round or `Decimal.divide_exact`."}, nil},
 		{"Decimal +", "fn main() {\n  io.inspect(1.50d ▮+ 1.5d)\n}\n",
 			[]string{"Exact: never rounds."}, nil},
 		{"Float +", "fn main() {\n  io.inspect(1.0 ▮+ 2.0)\n}\n",

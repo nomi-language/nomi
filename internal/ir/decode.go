@@ -422,6 +422,8 @@ func (d *decoder) module(r *rbuf) *Module {
 	m.mainFailure = d.sym(r.uv())
 	m.bootFailure.Boot = d.sym(r.uv())
 	m.bootFailure.Render = d.sym(r.uv())
+	m.mainExit = r.bool1()
+	m.bootFailure.Exit = r.bool1()
 	m.testBoots = d.symList(r)
 	if n, isNil := r.slen(); !isNil {
 		m.impls = make([]Impl, n)

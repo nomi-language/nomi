@@ -11,6 +11,7 @@
 //        { id, op: "hover", source, file, line, col } // hover in tab `file` of a multi-file
 //                                                      // source, pos in that tab's own text
 //        { id, op: "stdlibTest", module, context, source } // run stdlib reference test
+//        { id, op: "expand", source, files }    // `nomi expand` of the first tab, as the output
 //   out: { id, kind: "sem", semtokens }      // analyzer tokens — computed first,
 //                                            // ({ file: tokens } for a multi-file run)
 //        { id, kind: "run", output, error }  // so a hanging run still highlights
@@ -43,6 +44,10 @@
 // `worker error:` seen there is not evidence. Verify with a real browser, or
 // not at all.
 importScripts("./wasm_exec.js"); // sets self.Go
+// The in-memory file system Go's `os` reads and writes, where a block that
+// names modules is written as its files (go-memfs.js). After wasm_exec.js,
+// whose fs stub it fills in.
+importScripts("./go-memfs.js");
 
 // A visitor's program can stop the Go runtime in this worker. A deadlock ("all
 // goroutines are asleep") or an allocation past the module's 1 GiB memory cap
@@ -173,7 +178,9 @@ function handleOne(msg) {
     : callGo(() =>
         msg.op === "stdlibTest"
           ? self.nomiRunStdlibTest(msg.module, msg.source, msg.context || "")
-          : self.nomiRun(msg.source),
+          : msg.op === "expand"
+            ? self.nomiExpand(msg.source)
+            : self.nomiRun(msg.source),
       );
   const res = r.failure ? { output: "", error: r.failure } : r.value;
   postMessage({ id: msg.id, kind: "run", output: res.output, error: res.error });

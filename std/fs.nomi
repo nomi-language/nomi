@@ -1,0 +1,1154 @@
+//# Files and directories. Every function takes a path as a `String`
+//# (std/path works on them) and answers a `Result` whose error is
+//# `io.Error`, which names the path it is about: `NotFound`,
+//# `AlreadyExists`, `IsADirectory` and the rest.
+//#
+//# The functions reach the file system the running call is given. A
+//# program run by `nomi run` or built by `nomi build` reaches the
+//# operating system's. A program in the browser reaches an in-memory one
+//# the page seeds through `run`'s `files` option. Inside
+//# `fs_testing.run` a call reaches a sandbox in memory, so a test checks
+//# what a function reads and writes without touching the disk.
+//#
+//# ```nomi
+//# import {
+//#     std/fs
+//#     std/io
+//# }
+//#
+//# fn main() -> Result<Unit, io.Error> {
+//#     try fs.write_text("notes.txt", "milk\n")
+//#     try fs.write_text("notes.txt", "eggs\n", mode: .Append)
+//#     io.print(try fs.read_text("notes.txt"))
+//#     Ok(Unit)
+//# }
+//# ```
+
+import {
+    bool.Bool.{self, False, True}
+    bytes.Bytes
+    equatable.Equatable
+    fs_host
+    instant.Instant
+    int.Int
+    io.{Error, File, Reader, Writer}
+    iter.Iter
+    lists.List
+    maybe.Maybe.{self, None, Some}
+    path
+    results.Result.{self, Err, Ok}
+    strings.String
+    unit.Unit
+}
+
+/// How a write treats what is already at its path.
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"log.txt" => "a\n"}}, fn -> {
+//!     _ = write_text("log.txt", "b\n", mode: WriteMode.Append)
+//!     write_text("log.txt", "c\n", mode: WriteMode.New)
+//! })
+//!
+//! assert ran.value == Err(#Error.AlreadyExists{path: "log.txt"})
+//! assert fs_testing.text(ran, "/work/log.txt") == Some("a\nb\n")
+//
+pub enum WriteMode {
+    /// Create the file, or empty it when it exists, and write from the
+    /// start.
+    Replace
+    /// Write a temporary file beside the path and rename it over the path
+    /// when the write ends, so a reader sees the old contents or the new,
+    /// never part of either. A write that fails leaves the old file as it
+    /// was.
+    ReplaceAtomically
+    /// Create the file when it is missing, and write at its end.
+    Append
+    /// Fail with `AlreadyExists` when something is at the path.
+    New
+}
+
+derive Equatable for WriteMode
+
+/// What a path names.
+pub enum Kind {
+    File
+    Directory
+    Symlink
+    /// A device, a socket, a pipe: something that is none of the others.
+    Other
+}
+
+derive Equatable for Kind
+
+/// One entry of a directory, from `fs.list`.
+pub struct Entry {
+    /// The path as the caller would write it: the directory and the name
+    /// joined with `/`.
+    path: String
+    /// The entry's own name, with no directory.
+    name: String
+    kind: Kind
+}
+
+derive Equatable for Entry
+
+/// What `fs.metadata` answers about a path.
+pub struct Metadata {
+    kind: Kind
+    /// The size in bytes; 0 for a directory.
+    size: Int
+    /// When the contents last changed.
+    modified: Instant
+    /// The permission bits, such as `0o644`.
+    mode: Int
+}
+
+derive Equatable for Metadata
+
+/// The write mode as its crossing carries it.
+fn mode_code(mode: WriteMode) -> Int {
+    case mode {
+        WriteMode.Replace -> 0
+        WriteMode.ReplaceAtomically -> 1
+        WriteMode.Append -> 2
+        WriteMode.New -> 3
+    }
+}
+
+/// The whole file at `path`, as bytes.
+///
+/// ```nomi
+/// data = try fs.read("photo.png")
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{binary: %{"b.bin" => String.to_bytes("ab")}}, fn -> read("b.bin"))
+//! assert ran.value == Ok(String.to_bytes("ab"))
+//
+pub fn read(path: String) -> Result<Bytes, Error> {
+    fs_host.read(path)
+}
+
+/// The whole file at `path`, as text. Bytes that are not UTF-8 are
+/// `InvalidText`, with the offset of the first bad one. Nothing at the
+/// path is `NotFound`, which a program that makes its data file on first
+/// run treats as empty.
+///
+/// ```nomi
+/// case fs.read_text("notes.txt") {
+///     Ok(text) -> io.print(text)
+///     Err(#io.Error.NotFound{path: _}) -> io.print("no notes yet")
+///     Err(e) -> io.eprint("cannot read the notes: ${e}")
+/// }
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"notes.txt" => "milk"}}, fn -> {
+//!     [read_text("notes.txt"), read_text("todo.txt")]
+//! })
+//!
+//! assert ran.value == [Ok("milk"), Err(#Error.NotFound{path: "todo.txt"})]
+//
+pub fn read_text(path: String) -> Result<String, Error> {
+    fs_host.read_text(path)
+}
+
+/// Writes `data` to `path`. By default it replaces the file; `mode` says
+/// otherwise (`WriteMode`). The directory must exist: a missing one is
+/// `NotFound` naming the directory. A new file's permissions are `0o644`.
+///
+/// ```nomi
+/// try fs.write("out.bin", data)
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{}, fn -> {
+//!     [write("a.bin", String.to_bytes("a")), write("missing/b.bin", String.to_bytes("b"))]
+//! })
+//!
+//! assert ran.value == [Ok(Unit), Err(#Error.NotFound{path: "missing"})]
+//! assert ran.files == %{"/work/a.bin" => String.to_bytes("a")}
+//
+pub fn write(
+    path: String,
+    data: Bytes,
+    mode: WriteMode = WriteMode.Replace,
+) -> Result<Unit, Error> {
+    fs_host.write(path, data, mode_code(mode))
+}
+
+/// Writes `text` to `path` as UTF-8, as `fs.write` writes bytes.
+///
+/// ```nomi
+/// try fs.write_text("log.txt", "started\n", mode: .Append)
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"out.txt" => "old"}}, fn -> {
+//!     write_text("out.txt", "new", mode: WriteMode.ReplaceAtomically)
+//! })
+//!
+//! assert ran.value == Ok(Unit)
+//! assert fs_testing.text(ran, "/work/out.txt") == Some("new")
+//
+pub fn write_text(
+    path: String,
+    text: String,
+    mode: WriteMode = WriteMode.Replace,
+) -> Result<Unit, Error> {
+    fs_host.write(path, String.to_bytes(text), mode_code(mode))
+}
+
+/// Each line of the file at `path`, without its `\n` and a `\r` before it.
+/// Each run of the iterator opens the file, reads it and closes it, so it
+/// can run more than once, and a consumer that stops early closes the file
+/// when it stops. A failure (the file is missing, a line is not UTF-8) is
+/// the last item.
+///
+/// ```nomi
+/// names = try Result.collect(fs.lines("names.txt"))
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"in.txt" => "pear\u{d}\napple"}}, fn -> {
+//!     each = lines("in.txt")
+//!     #(Result.collect(each), Iter.first(each), Result.collect(lines("none.txt")))
+//! })
+//!
+//! assert ran.value == #(
+//!     Ok(["pear", "apple"]),
+//!     Some(Ok("pear")),
+//!     Err(#Error.NotFound{path: "none.txt"}),
+//! )
+//!
+//! assert ran.open == []
+//
+pub fn lines(path: String) -> Iter<Result<String, Error>> {
+    #Lines{path}
+}
+
+/// The file at `path` in pieces of at most `size` bytes, as `fs.lines`
+/// reads it: each run opens the file again.
+///
+/// ```nomi
+/// pieces = fs.chunks("big.bin", size: 4096) |> Iter.count()
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"a.txt" => "abcde"}}, fn -> {
+//!     chunks("a.txt", size: 2) |> Result.collect()
+//! })
+//!
+//! assert ran.value == Ok([String.to_bytes("ab"), String.to_bytes("cd"), String.to_bytes("e")])
+//
+pub fn chunks(path: String, size: Int = 65536) -> Iter<Result<Bytes, Error>> {
+    #Chunks{path, size}
+}
+
+struct Lines {
+    path: String
+}
+
+impl Iter<Result<String, Error>> for Lines {
+    fn each_while(lines: Lines, yield: (Result<String, Error>) -> Bool) -> Bool {
+        case fs_host.open(lines.path) {
+            Err(e) ->
+                yield(Err(e))
+
+            Ok(r) -> {
+                defer Reader.close_quietly(r)
+                // Bound rather than returned, so the call is not a tail
+                // call, which would run the deferred close first.
+                more = each_line(r, yield)
+                more
+            }
+        }
+    }
+}
+
+/// Hands each line left in r to yield until it stops or the lines end.
+fn each_line(r: Reader, yield: (Result<String, Error>) -> Bool) -> Bool {
+    case Reader.read_line(r) {
+        Ok(Some(line)) ->
+            if yield(Ok(line)) {
+                each_line(r, yield)
+            } else {
+                False
+            }
+
+        Ok(None) ->
+            True
+
+        Err(e) ->
+            yield(Err(e))
+    }
+}
+
+struct Chunks {
+    path: String
+    size: Int
+}
+
+impl Iter<Result<Bytes, Error>> for Chunks {
+    fn each_while(chunks: Chunks, yield: (Result<Bytes, Error>) -> Bool) -> Bool {
+        case fs_host.open(chunks.path) {
+            Err(e) ->
+                yield(Err(e))
+
+            Ok(r) -> {
+                defer Reader.close_quietly(r)
+                more = each_chunk(r, chunks.size, yield)
+                more
+            }
+        }
+    }
+}
+
+fn each_chunk(r: Reader, size: Int, yield: (Result<Bytes, Error>) -> Bool) -> Bool {
+    case Reader.read(r, max: size) {
+        Ok(Some(chunk)) ->
+            if yield(Ok(chunk)) {
+                each_chunk(r, size, yield)
+            } else {
+                False
+            }
+
+        Ok(None) ->
+            True
+
+        Err(e) ->
+            yield(Err(e))
+    }
+}
+
+/// A reader over the file at `path`. Close it when done; `fs.with_reader`
+/// does that for you.
+///
+/// ```nomi
+/// r = try fs.open("notes.txt")
+///
+/// defer Reader.close_quietly(r)
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"a.txt" => "one\ntwo\n"}}, fn -> {
+//!     r = try open("a.txt")
+//!     first = Reader.read_line(r)
+//!     _ = Reader.close(r)
+//!     first
+//! })
+//!
+//! assert ran.value == Ok(Some("one"))
+//
+pub fn open(path: String) -> Result<Reader, Error> {
+    fs_host.open(path)
+}
+
+/// A writer over the file at `path`, which `mode` treats as `fs.write`
+/// does. What is written is buffered until `Writer.flush` or
+/// `Writer.close`; close it, or use `fs.with_writer`, which closes it and
+/// reports a failed close.
+///
+/// ```nomi
+/// w = try fs.create("out.txt", mode: .New)
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{}, fn -> {
+//!     w = try create("out.txt")
+//!     _ = Writer.print(w, "hello")
+//!     Writer.close(w)
+//! })
+//!
+//! assert ran.value == Ok(Unit)
+//! assert fs_testing.text(ran, "/work/out.txt") == Some("hello\n")
+//
+pub fn create(path: String, mode: WriteMode = WriteMode.Replace) -> Result<Writer, Error> {
+    fs_host.create(path, mode_code(mode))
+}
+
+/// Opens `path`, runs `body` with the reader, and closes it on every exit:
+/// an `Ok`, an `Err` and a trap alike.
+///
+/// ```nomi
+/// first = try fs.with_reader("names.txt", fn r -> Reader.read_line(r))
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"a.txt" => "x\n"}}, fn -> {
+//!     with_reader("a.txt", fn r -> Reader.read_all_text(r))
+//! })
+//!
+//! assert ran.value == Ok("x\n")
+//! assert ran.open == []
+//
+pub fn with_reader<T>(path: String, body: (Reader) -> Result<T, Error>) -> Result<T, Error> {
+    r = try open(path)
+    defer Reader.close_quietly(r)
+    // Bound rather than returned: a tail call would run the deferred close
+    // before body.
+    value = body(r)
+    value
+}
+
+/// Creates `path`, runs `body` with the writer, and on an `Ok` flushes and
+/// closes it and reports a failed close. On an `Err` or a trap it closes
+/// the writer, and with `ReplaceAtomically` the old file is untouched.
+///
+/// ```nomi
+/// fn prepend_header(input: String, output: String) -> Result<Int, io.Error> {
+///     fs.with_reader(input, fn r -> {
+///         fs.with_writer(output, mode: .ReplaceAtomically, fn w -> {
+///             try Writer.write_text(w, "# generated\n")
+///             Reader.copy_to(r, w)
+///         })
+///     })
+/// }
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"out.txt" => "old"}}, fn -> {
+//!     with_writer<Unit>("out.txt", mode: WriteMode.ReplaceAtomically, fn w -> {
+//!         try Writer.write_text(w, "half")
+//!         Err(Error.TimedOut)
+//!     })
+//! })
+//!
+//! assert ran.value == Err(Error.TimedOut)
+//! assert fs_testing.text(ran, "/work/out.txt") == Some("old")
+//! assert ran.open == []
+//
+pub fn with_writer<T>(
+    path: String,
+    mode: WriteMode = WriteMode.Replace,
+    body: (Writer) -> Result<T, Error>,
+) -> Result<T, Error> {
+    w = try create(path, mode)
+    defer fs_host.discard(w)
+    value = try body(w)
+    try Writer.close(w)
+    Ok(value)
+}
+
+/// How `fs.open_file` opens a file.
+pub enum Access {
+    /// Reads only; a write is `PermissionDenied`. The file must exist.
+    Read
+    /// Reads and writes. The file must exist.
+    ReadWrite
+    /// Reads and writes, making the file, empty, when it is missing. An
+    /// existing file keeps its contents.
+    Create
+}
+
+derive Equatable for Access
+
+/// A `File` on `path` for reads and writes at a position (`io.File`):
+/// `File.read_at`, `File.write_at`, `File.seek`. Close it when done;
+/// `fs.with_file` does that for you.
+///
+/// ```nomi
+/// f = try fs.open_file("index.db", access: .ReadWrite)
+///
+/// defer File.close_quietly(f)
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{}, fn -> {
+//!     [
+//!         Result.map(open_file("none.bin"), fn _ -> Unit),
+//!         Result.map(open_file(".", access: Access.Create), fn _ -> Unit),
+//!     ]
+//! })
+//!
+//! assert ran.value == [Err(#Error.NotFound{path: "none.bin"}), Err(#Error.IsADirectory{path: "."})]
+//!
+//! edited = fs_testing.run(#Sandbox{files: %{"a.txt" => "abcdef"}}, fn -> {
+//!     f = try open_file("a.txt", access: Access.ReadWrite)
+//!     defer File.close_quietly(f)
+//!     head = try File.read(f, max: 2)
+//!     tail = try File.read_at(f, 4, max: 8)
+//!     try File.write(f, String.to_bytes("XY"))
+//!     try File.write_at(f, 8, String.to_bytes("!"))
+//!     at = try File.position(f)
+//!     size = try File.size(f)
+//!     try File.seek(f, 0)
+//!     whole = try File.read(f)
+//!     try File.truncate(f, 3)
+//!     Ok(#(head, tail, at, size, whole))
+//! })
+//!
+//! assert edited.value == Ok(
+//!     #(
+//!         Some(String.to_bytes("ab")),
+//!         Some(String.to_bytes("ef")),
+//!         4,
+//!         9,
+//!         Some(String.to_bytes("abXYef\u{0}\u{0}!")),
+//!     )
+//! )
+//!
+//! assert fs_testing.text(edited, "/work/a.txt") == Some("abX")
+//! assert edited.open == []
+//!
+//! read_only = fs_testing.run(#Sandbox{files: %{"a.txt" => "a"}}, fn -> {
+//!     with_file("a.txt", fn f -> File.write(f, String.to_bytes("b")))
+//! })
+//!
+//! assert read_only.value == Err(#Error.PermissionDenied{path: "a.txt"})
+//
+pub fn open_file(path: String, access: Access = Access.Read) -> Result<File, Error> {
+    code = case access {
+        Access.Read -> 0
+        Access.ReadWrite -> 1
+        Access.Create -> 2
+    }
+
+    fs_host.open_file(path, code)
+}
+
+/// Opens `path` as `fs.open_file` does, runs `body` with the file, and
+/// closes it on every exit. A failed close after an `Ok` body is the
+/// answer.
+///
+/// ```nomi
+/// fn patch_header(db: String, header: Bytes) -> Result<Unit, io.Error> {
+///     fs.with_file(db, fn f -> File.write_at(f, 0, header), access: .ReadWrite)
+/// }
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"db" => "v1-data"}}, fn -> {
+//!     with_file("db", fn f -> File.write_at(f, 0, String.to_bytes("v2")), access: Access.ReadWrite)
+//! })
+//!
+//! assert ran.value == Ok(Unit)
+//! assert fs_testing.text(ran, "/work/db") == Some("v2-data")
+//! assert ran.open == []
+//
+pub fn with_file<T>(
+    path: String,
+    access: Access = Access.Read,
+    body: (File) -> Result<T, Error>,
+) -> Result<T, Error> {
+    f = try open_file(path, access)
+    defer File.close_quietly(f)
+    value = try body(f)
+    try File.close(f)
+    Ok(value)
+}
+
+/// Runs `body` with every std/fs call in it, and in the tasks it starts,
+/// confined to the directory `dir`. Inside, a relative path is under
+/// `dir`, an absolute path must be under it, `fs.current_dir()` answers it,
+/// and a path that leads outside it, by `..` or through a symlink, is
+/// `InvalidPath` instead of reaching what is there. An absolute symlink is
+/// refused for the same reason, wherever it points. `fs.with_temp_dir` is
+/// `Unsupported`, since its directory is elsewhere. A `within` inside
+/// another confines the call further.
+///
+/// It is how a program handles paths it was given (an archive's entries, a
+/// request's file name) without reaching files it did not mean to. On the
+/// disk it is Go's `os.Root`; in memory, the same rules.
+///
+/// ```nomi
+/// fn extract(dest: String, entries: List<#(String, Bytes)>) -> Result<Unit, io.Error> {
+///     fs.within(dest, fn -> {
+///         Iter.each(entries, fn #(name, data) -> fs.write(name, data))
+///         Ok(Unit)
+///     })
+/// }
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"secret.txt" => "s", "site/index.html" => "<p>"}}, fn -> {
+//!     within("site", fn -> Ok([read_text("index.html"), read_text("../secret.txt")]))
+//! })
+//!
+//! escaped = #Error.InvalidPath{
+//!     path: "../secret.txt",
+//!     reason: "the path leads outside the directory fs.within confines calls to",
+//! }
+//!
+//! assert ran.value == Ok([Ok("<p>"), Err(escaped)])
+//
+pub fn within<T>(dir: String, body: () -> Result<T, Error>) -> Result<T, Error> {
+    confined = try fs_host.within(dir)
+    defer fs_host.release(confined)
+    value = fs_host.run_in(confined, body)
+    value
+}
+
+/// The entries of the directory `dir`, sorted by name, so a listing is the
+/// same on every file system and every run. An entry whose name is not
+/// UTF-8 fails the listing with `InvalidPath`.
+///
+/// ```nomi
+/// entries = try fs.list("photos")
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"d/b.txt" => "", "d/a.txt" => ""}, dirs: ["d/sub"]}, fn -> {
+//!     list("d")
+//! })
+//!
+//! assert ran.value == Ok([
+//!     #Entry{path: "d/a.txt", name: "a.txt", kind: Kind.File},
+//!     #Entry{path: "d/b.txt", name: "b.txt", kind: Kind.File},
+//!     #Entry{path: "d/sub", name: "sub", kind: Kind.Directory},
+//! ])
+//
+pub fn list(dir: String) -> Result<List<Entry>, Error> {
+    listed(dir) |> Result.flat_map(fn entries -> Result.collect(entries))
+}
+
+/// The entries of dir, each decoded, or why the directory cannot be listed.
+fn listed(dir: String) -> Result<List<Result<Entry, Error>>, Error> {
+    coded = try fs_host.list(dir)
+
+    Ok(
+        coded
+        |> Iter.map(fn entry -> decoded(dir, entry))
+        |> Iter.to_list()
+    )
+}
+
+/// An entry as the listing crossing writes it: its kind's letter, then its
+/// name, or `!` and the name when it is not UTF-8.
+fn decoded(dir: String, coded: String) -> Result<Entry, Error> {
+    joined = fn name: String -> {
+        if String.ends_with?(dir, "/") {
+            "${dir}${name}"
+        } else {
+            "${dir}/${name}"
+        }
+    }
+
+    case String.strip_prefix(coded, "!") {
+        Some(name) ->
+            Err(#Error.InvalidPath{path: joined(name), reason: "the name is not UTF-8"})
+
+        None -> {
+            #(kind, name) = case #(
+                String.strip_prefix(coded, "f"),
+                String.strip_prefix(coded, "d"),
+                String.strip_prefix(coded, "l"),
+            ) {
+                #(Some(name), _, _) -> #(Kind.File, name)
+                #(_, Some(name), _) -> #(Kind.Directory, name)
+                #(_, _, Some(name)) -> #(Kind.Symlink, name)
+                _ -> #(Kind.Other, String.strip_prefix(coded, "o") |> Maybe.with_default(coded))
+            }
+
+            Ok(#Entry{path: joined(name), name, kind})
+        }
+    }
+}
+
+/// Every entry under `root`, depth first: each directory's entries in
+/// name order, and a directory's own entries right after it. A symlink is
+/// an entry of kind `Symlink` and is not followed, so a walk never leaves
+/// the tree or meets a cycle. Each run of the iterator lists the
+/// directories again, as `fs.lines` reads its file again. A directory that
+/// cannot be listed is an `Err` item where its entries would be, and the
+/// walk goes on with the next entry; a name that is not UTF-8 is an
+/// `InvalidPath` item.
+///
+/// ```nomi
+/// sources =
+///     fs.walk("src")
+///     |> Iter.filter(fn e -> Result.map(e, fn e -> e.kind == fs.Kind.File) == Ok(True))
+///     |> Iter.count()
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{
+//!     files: %{"d/b.txt" => "", "d/a/x.txt" => ""},
+//!     links: %{"d/c" => "a"},
+//! }, fn -> {
+//!     walk("d") |> Iter.map(fn e -> Result.map(e, fn e -> e.path)) |> Iter.to_list()
+//! })
+//!
+//! assert ran.value == [Ok("d/a"), Ok("d/a/x.txt"), Ok("d/b.txt"), Ok("d/c")]
+//!
+//! assert fs_testing.run(#Sandbox{}, fn -> Result.collect(walk("none"))).value == Err(
+//!     #Error.NotFound{path: "none"}
+//! )
+//
+pub fn walk(root: String) -> Iter<Result<Entry, Error>> {
+    #Walk{root, depth: -1}
+}
+
+/// A walk that goes `depth` directories down at most, or every one when
+/// `depth` is negative.
+struct Walk {
+    root: String
+    depth: Int
+}
+
+impl Iter<Result<Entry, Error>> for Walk {
+    fn each_while(w: Walk, yield: (Result<Entry, Error>) -> Bool) -> Bool {
+        walk_dir(w.root, w.depth, yield)
+    }
+}
+
+/// Hands each entry under dir to yield, as `walk` orders them, until it
+/// stops.
+fn walk_dir(dir: String, depth: Int, yield: (Result<Entry, Error>) -> Bool) -> Bool {
+    case listed(dir) {
+        Err(e) -> yield(Err(e))
+        Ok(entries) -> walk_entries(entries, depth, yield)
+    }
+}
+
+fn walk_entries(
+    entries: List<Result<Entry, Error>>,
+    depth: Int,
+    yield: (Result<Entry, Error>) -> Bool,
+) -> Bool {
+    case entries {
+        [] ->
+            True
+
+        [Ok(entry), ..rest] ->
+            if !yield(Ok(entry)) {
+                False
+            } else if entry.kind == Kind.Directory and depth != 0 {
+                if walk_dir(entry.path, depth - 1, yield) {
+                    walk_entries(rest, depth, yield)
+                } else {
+                    False
+                }
+            } else {
+                walk_entries(rest, depth, yield)
+            }
+
+        [Err(e), ..rest] ->
+            if yield(Err(e)) {
+                walk_entries(rest, depth, yield)
+            } else {
+                False
+            }
+    }
+}
+
+/// The paths that match `pattern`, sorted. In a name, `*` matches any run
+/// of characters, `?` any one and `[abc]` one of a set; a `**` name
+/// matches any number of directories, none included. A name that starts
+/// with `.` matches only a pattern name that starts with `.`. This is
+/// `path.match?`'s rule, applied to the paths `fs.walk` finds under the
+/// longest part of the pattern with no wildcard, so a symlink matches as
+/// itself and is not followed. A pattern with no wildcard answers the path
+/// when something is there. Nothing under a missing directory is `Ok([])`.
+///
+/// ```nomi
+/// sources = try fs.glob("src/**/*.nomi")
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! files = %{
+//!     "src/main.nomi" => "",
+//!     "src/lib/a.nomi" => "",
+//!     "src/lib/a.txt" => "",
+//!     "src/.hidden.nomi" => "",
+//! }
+//!
+//! ran = fs_testing.run(#Sandbox{files}, fn -> {
+//!     [glob("src/**/*.nomi"), glob("src/*.nomi"), glob("src/lib/a.txt"), glob("none/*")]
+//! })
+//!
+//! assert ran.value == [
+//!     Ok(["src/lib/a.nomi", "src/main.nomi"]),
+//!     Ok(["src/main.nomi"]),
+//!     Ok(["src/lib/a.txt"]),
+//!     Ok([]),
+//! ]
+//
+pub fn glob(pattern: String) -> Result<List<String>, Error> {
+    names = String.split(pattern, "/") |> Iter.to_list()
+    #(fixed, rest) = glob_split(names, [])
+
+    base = case #(fixed, String.starts_with?(pattern, "/")) {
+        #([], _) -> ""
+        #([""], True) -> "/"
+        _ -> String.join(fixed, "/")
+    }
+
+    case rest {
+        [] ->
+            case exists?(base) {
+                Ok(True) -> Ok([base])
+                Ok(False) -> Ok([])
+                Err(e) -> Err(e)
+            }
+
+        _ -> {
+            depth = if Iter.contains?(rest, "**") {
+                -1
+            } else {
+                Iter.count(rest) - 1
+            }
+
+            root = if base == "" { "." } else { base }
+
+            found = walk_matches(#Walk{root, depth}, base, pattern)
+
+            case found {
+                Ok(paths) ->
+                    Ok(Iter.sort(paths))
+
+                Err(#Error.NotFound{path: _}) when base != "" and exists?(base) == Ok(False) ->
+                    Ok([])
+
+                Err(e) ->
+                    Err(e)
+            }
+        }
+    }
+}
+
+/// The leading names of a pattern with no wildcard, and the names from the
+/// first that has one.
+fn glob_split(names: List<String>, fixed: List<String>) -> #(List<String>, List<String>) {
+    case names {
+        [] ->
+            #(fixed, [])
+
+        [name, ..rest] ->
+            if wild?(name) {
+                #(fixed, names)
+            } else {
+                glob_split(rest, fixed + [name])
+            }
+    }
+}
+
+fn wild?(name: String) -> Bool {
+    String.contains?(name, "*") or String.contains?(name, "?") or String.contains?(name, "[")
+}
+
+/// The paths of the walk that match pattern, written as the pattern writes
+/// them: under base, or bare when base is empty.
+fn walk_matches(w: Walk, base: String, pattern: String) -> Result<List<String>, Error> {
+    w
+    |> Iter.map(fn item -> {
+        Result.map(item, fn e -> {
+            if base == "" {
+                String.strip_prefix(e.path, "./") |> Maybe.with_default(e.path)
+            } else {
+                e.path
+            }
+        })
+    })
+    |> Iter.filter(fn item -> {
+        case item {
+            Ok(p) -> path.match?(pattern, p)
+            Err(_) -> True
+        }
+    })
+    |> Result.collect()
+}
+
+/// Makes the directory `path`. Its parent must exist unless `parents` is
+/// `True`, which makes every missing directory above it too and is content
+/// when the directory is already there.
+///
+/// ```nomi
+/// try fs.create_dir("out/2026", parents: True)
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{}, fn -> {
+//!     [create_dir("a/b"), create_dir("a/b", parents: True), create_dir("a")]
+//! })
+//!
+//! assert ran.value == [
+//!     Err(#Error.NotFound{path: "a"}),
+//!     Ok(Unit),
+//!     Err(#Error.AlreadyExists{path: "a"}),
+//! ]
+//
+pub fn create_dir(path: String, parents: Bool = False) -> Result<Unit, Error> {
+    fs_host.create_dir(path, parents)
+}
+
+/// Removes a file or an empty directory. A directory with entries is
+/// `DirectoryNotEmpty`; `fs.remove_all` removes it and what it holds.
+///
+/// ```nomi
+/// try fs.remove("old.txt")
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"d/x" => ""}}, fn -> {
+//!     [remove("d"), remove("d/x"), remove("d"), remove("d")]
+//! })
+//!
+//! assert ran.value == [
+//!     Err(#Error.DirectoryNotEmpty{path: "d"}),
+//!     Ok(Unit),
+//!     Ok(Unit),
+//!     Err(#Error.NotFound{path: "d"}),
+//! ]
+//
+pub fn remove(path: String) -> Result<Unit, Error> {
+    fs_host.remove(path)
+}
+
+/// Removes `path` and everything under it. Nothing at the path is `Ok`.
+///
+/// ```nomi
+/// try fs.remove_all("build")
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"build/a/b.o" => "", "keep.txt" => ""}}, fn -> {
+//!     [remove_all("build"), remove_all("build")]
+//! })
+//!
+//! assert ran.value == [Ok(Unit), Ok(Unit)]
+//! assert ran.files == %{"/work/keep.txt" => String.to_bytes("")}
+//
+pub fn remove_all(path: String) -> Result<Unit, Error> {
+    fs_host.remove_all(path)
+}
+
+/// Moves `from` to `to`, replacing a file at `to`.
+///
+/// ```nomi
+/// try fs.rename("draft.txt", "final.txt")
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"a.txt" => "a", "b.txt" => "b"}}, fn -> {
+//!     rename("a.txt", "b.txt")
+//! })
+//!
+//! assert ran.value == Ok(Unit)
+//! assert ran.files == %{"/work/b.txt" => String.to_bytes("a")}
+//
+pub fn rename(from: String, to: String) -> Result<Unit, Error> {
+    fs_host.rename(from, to)
+}
+
+/// Copies the file at `from` to `to`, replacing a file at `to`.
+///
+/// ```nomi
+/// try fs.copy("config.toml", "config.toml.bak")
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"a.txt" => "a"}}, fn -> copy("a.txt", "b.txt"))
+//! assert ran.value == Ok(Unit)
+//! assert fs_testing.text(ran, "/work/b.txt") == Some("a")
+//
+pub fn copy(from: String, to: String) -> Result<Unit, Error> {
+    fs_host.copy(from, to)
+}
+
+/// What is at `path`, following symlinks.
+///
+/// ```nomi
+/// size = (try fs.metadata("big.bin")).size
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"a.txt" => "four"}}, fn -> {
+//!     m = try metadata("a.txt")
+//!     Ok(#(m.kind, m.size))
+//! })
+//!
+//! assert ran.value == Ok(#(Kind.File, 4))
+//
+pub fn metadata(path: String) -> Result<Metadata, Error> {
+    fields = try fs_host.metadata(path)
+    metadata_of(path, fields)
+}
+
+/// What is at `path`, a symlink described as itself rather than as what it
+/// points to, which `fs.metadata` follows. A symlink's size is its
+/// target's length in bytes.
+///
+/// ```nomi
+/// is_link = (try fs.link_metadata("current")).kind == .Symlink
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"a.txt" => "four"}, links: %{"b" => "a.txt"}}, fn -> {
+//!     followed = try metadata("b")
+//!     link = try link_metadata("b")
+//!     Ok(#(followed.kind, followed.size, link.kind, link.size))
+//! })
+//!
+//! assert ran.value == Ok(#(Kind.File, 4, Kind.Symlink, 5))
+//
+pub fn link_metadata(path: String) -> Result<Metadata, Error> {
+    fields = try fs_host.link_metadata(path)
+    metadata_of(path, fields)
+}
+
+fn metadata_of(path: String, fields: List<Int>) -> Result<Metadata, Error> {
+    case fields {
+        [kind, size, modified, mode] ->
+            Ok(#Metadata{kind: kind_at(kind), size, modified: Instant.from_nanos(modified), mode})
+
+        _ ->
+            Err(#Error.Other{operation: "metadata", path, code: "EINVAL"})
+    }
+}
+
+/// Makes a symlink at `path` that points to `target`, as written: a
+/// relative target is resolved from the symlink's own directory when the
+/// link is followed, not from the working directory. The target need not
+/// exist. Something already at `path` is `AlreadyExists`.
+///
+/// ```nomi
+/// try fs.create_symlink("current", target: "releases/2026-10")
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"releases/v2/app" => "v2"}}, fn -> {
+//!     try create_symlink("current", target: "releases/v2")
+//!     Ok(#(read_text("current/app"), create_symlink("current", target: "x")))
+//! })
+//!
+//! assert ran.value == Ok(#(Ok("v2"), Err(#Error.AlreadyExists{path: "current"})))
+//
+pub fn create_symlink(path: String, target: String) -> Result<Unit, Error> {
+    fs_host.create_symlink(path, target)
+}
+
+/// The target of the symlink at `path`, as it was written. Something that
+/// is not a symlink is `Other` with the code `EINVAL`.
+///
+/// ```nomi
+/// release = try fs.read_link("current")
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"a.txt" => ""}, links: %{"b" => "a.txt"}}, fn -> {
+//!     [read_link("b"), read_link("a.txt")]
+//! })
+//!
+//! assert ran.value == [
+//!     Ok("a.txt"),
+//!     Err(#Error.Other{operation: "readlink", path: "a.txt", code: "EINVAL"}),
+//! ]
+//
+pub fn read_link(path: String) -> Result<String, Error> {
+    fs_host.read_link(path)
+}
+
+/// Sets the permission bits of what `path` names, following a symlink:
+/// `0o644`, `0o755`, `0o600`, from 0 to `0o777`. A mode outside that
+/// range is `Other` with the code `EINVAL`. In memory (the browser, a
+/// sandbox) the bits are kept and answered by `fs.metadata`, but nothing
+/// is refused because of them.
+///
+/// ```nomi
+/// try fs.set_mode("deploy.sh", 0o755)
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"run.sh" => ""}}, fn -> {
+//!     try set_mode("run.sh", 0o755)
+//!     Ok((try metadata("run.sh")).mode)
+//! })
+//!
+//! assert ran.value == Ok(0o755)
+//
+pub fn set_mode(path: String, mode: Int) -> Result<Unit, Error> {
+    fs_host.set_mode(path, mode)
+}
+
+fn kind_at(position: Int) -> Kind {
+    case position {
+        0 -> Kind.File
+        1 -> Kind.Directory
+        2 -> Kind.Symlink
+        _ -> Kind.Other
+    }
+}
+
+/// Whether something is at `path`. It answers a `Result` because a refusal
+/// (`PermissionDenied`) is not absence: only `NotFound` is `Ok(False)`.
+///
+/// ```nomi
+/// if try fs.exists?("config.toml") { ... }
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{files: %{"a.txt" => ""}}, fn -> {
+//!     [exists?("a.txt"), exists?("b.txt"), exists?(".")]
+//! })
+//!
+//! assert ran.value == [Ok(True), Ok(False), Ok(True)]
+//
+pub fn exists?(path: String) -> Result<Bool, Error> {
+    case fs_host.metadata(path) {
+        Ok(_) -> Ok(True)
+        Err(#Error.NotFound{path: _}) -> Ok(False)
+        Err(e) -> Err(e)
+    }
+}
+
+/// The directory temporary files go in: the operating system's (`/tmp`,
+/// or what `TMPDIR` names), or `/tmp` in memory.
+///
+/// ```nomi
+/// fs.temp_dir() // "/tmp"
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! assert fs_testing.run(#Sandbox{}, fn -> temp_dir()).value == "/tmp"
+//
+pub fn temp_dir() -> String {
+    fs_host.temp_dir()
+}
+
+/// Makes a fresh directory under `fs.temp_dir()`, runs `body` with its
+/// path, then removes it and everything in it, on every exit. It is how a
+/// test exercises the real file system; a named temporary file is
+/// `fs.create(path.join(dir, "x"), mode: .New)` inside it.
+///
+/// ```nomi
+/// fs.with_temp_dir(fn dir -> fs.write_text(path.join(dir, "x.txt"), "x"))
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(#Sandbox{}, fn -> {
+//!     with_temp_dir(fn dir -> {
+//!         try write_text("${dir}/x.txt", "x")
+//!         read_text("${dir}/x.txt")
+//!     })
+//! })
+//!
+//! assert ran.value == Ok("x")
+//! assert ran.files == %{}
+//
+pub fn with_temp_dir<T>(body: (String) -> Result<T, Error>) -> Result<T, Error> {
+    dir = try fs_host.make_temp_dir()
+    defer remove_quietly(dir)
+    value = body(dir)
+    value
+}
+
+fn remove_quietly(dir: String) -> Unit {
+    _ = fs_host.remove_all(dir)
+}
+
+/// The directory relative paths are resolved against: the program's
+/// working directory, or the sandbox's (`/work` by default). There is no
+/// way to change it, since it would change what every relative path in
+/// every task means.
+///
+/// ```nomi
+/// here = try fs.current_dir()
+/// ```
+//! import std/fs_testing.{self, Sandbox}
+//!
+//! assert fs_testing.run(#Sandbox{cwd: "/home/ada"}, fn -> current_dir()).value == Ok("/home/ada")
+//
+pub fn current_dir() -> Result<String, Error> {
+    fs_host.current_dir()
+}

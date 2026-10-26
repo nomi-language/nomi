@@ -23,7 +23,7 @@ import {
 
 fn main() {
     price = Money`19.99 USD`
-    io.print("${price}")
+    io.print(price)
     dbg price.amount
     dbg price.currency
 
@@ -76,13 +76,13 @@ fn main() {
     book = Money`12.50 USD`
     pen = Money`2.35 USD`
 
-    io.print("${book + pen}")
-    io.print("${book - pen}")
-    io.print("${book * 3}")
-    io.print("${Iter.sum([book, pen, pen])}")
+    io.print(book + pen)
+    io.print(book - pen)
+    io.print(book * 3)
+    io.print(Iter.sum([book, pen, pen]))
 
     empty: List<Money> = []
-    io.print("${Iter.sum(empty)}")
+    io.print(Iter.sum(empty))
 }
 
 ```
@@ -113,7 +113,7 @@ fn main() {
     price = Money`12.50 USD`
     fee = Money`2.00 EUR`
     total = price + fee
-    io.print("${total}")
+    io.print(total)
 }
 
 ```
@@ -140,13 +140,13 @@ import {
 fn main() {
     total = Money`10.00 USD`
     third = #{..total, amount: total.amount |> Decimal.divide(3d, 6, .HalfEven)}
-    io.print("${third}")
-    io.print("${Money.round(third)}")
+    io.print(third)
+    io.print(Money.round(third))
 
-    io.print("${Money.round(Money`0.125 USD`)}")
-    io.print("${Money.round(Money`0.135 USD`)}")
-    io.print("${Money.round(Money`0.125 USD`, mode: .HalfUp)}")
-    io.print("${Money.round(Money`1234.5 JPY`)}")
+    io.print(Money.round(Money`0.125 USD`))
+    io.print(Money.round(Money`0.135 USD`))
+    io.print(Money.round(Money`0.125 USD`, mode: .HalfUp))
+    io.print(Money.round(Money`1234.5 JPY`))
 }
 
 ```
@@ -188,7 +188,7 @@ import {
 
 fn main() {
     points = Money`1200 PTS:0` + Money`300 PTS:0`
-    io.print("${points}")
+    io.print(points)
     io.print(Money.format(points, Locale`en-US`))
     dbg Currency.parse("PTS:0") == Ok(points.currency)
 }
@@ -222,7 +222,7 @@ the program is checked, and it suggests a listed one that is close. With
 error: typed literal Money`5 PST:0`: `PST:0` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml
  --> main.nomi:7:17
   |
-7 |     io.print("${Money`5 PST:0`}")
+7 |     io.print(Money`5 PST:0`)
   |                 ^^^^^^^^^^^^
   = help: did you mean `PTS:0`? nomi.toml lists it
 ```

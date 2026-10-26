@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -25,10 +26,15 @@ import (
 	"github.com/nomi-language/nomi/internal/cldrfull"
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/expectation"
+	"github.com/nomi-language/nomi/internal/frontend"
+	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/internal/lexer"
+	"github.com/nomi-language/nomi/internal/stdio"
 	"github.com/nomi-language/nomi/internal/token"
+	"github.com/nomi-language/nomi/internal/virtualproject"
+	"github.com/nomi-language/nomi/internal/tourgo"
 	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/rt"
 	"github.com/nomi-language/nomi/vmhost"
@@ -280,7 +286,9 @@ func candidateIDs(s *expectation.Set) (ids []string, reportShaped, empty, stops 
 // transcript compared against a whole one would report a producer's retention
 // boundary as a wrong answer.
 func vmRun(path string) (transcript string, reason string) {
-	prog, err := irbuild.Analyze(path)
+	// A program written with a macro (a tour block whose go.mod requires a
+	// macro module) expands it as every load does.
+	prog, err := irbuild.AnalyzeFile(path, frontend.Config{Macros: vmhost.Macros()})
 	if err != nil {
 		return "", "the front end refuses this program, so the record is a diagnostic"
 	}
@@ -313,20 +321,32 @@ func vmRun(path string) (transcript string, reason string) {
 	// callee may sit in the module next door (vmLinkedRecords' three
 	// modules-and-imports.md blocks). Running the entry's module alone would report them
 	// as a retention boundary when nothing is missing but the link.
-	var out bytes.Buffer
+	var out, errOut bytes.Buffer
 	mod, mods, err := vmLink(mod, res.IRModules())
 	if err != nil {
 		return "", "the link hook refused it: " + err.Error()
 	}
-	machine := vm.NewProgram(mod, mods, &out).WithLocaleData(programLocales(prog))
+	machine := vm.NewProgram(mod, mods, &out).WithLocaleData(programLocales(prog)).WithErrorOutput(&errOut)
+	if files := tourFiles(path); files != nil {
+		machine = machine.WithFiles(files)
+	}
+	if hosts, ok := tourHosts.Load(path); ok {
+		machine = machine.WithHosts(hosts.(vm.HostTable))
+	}
 	booted, err := machine.Boot()
 	if err != nil {
 		return "", "the VM could not boot it: " + err.Error()
 	}
-	if _, err := booted.Run("main"); err != nil {
+	result, err := booted.Run("main")
+	if err != nil {
 		return "", "the VM ran part of it: " + err.Error()
 	}
-	return out.String(), ""
+	if r, isRecord := result.(*rt.Record); isRecord && r.Desc.Name == "results.Result" && r.Desc.Variants[r.Tag].Name == "Err" {
+		// What main's `Err` prints (an Exit's message, an error's text) is
+		// a runner's to print, and this runs main bare.
+		return "", "main returned Err, which only a runner reports"
+	}
+	return expectation.Transcript(out.String(), errOut.String()), ""
 }
 
 // programLocales is the CLDR data prog runs with, as vmhost gives it: the
@@ -726,7 +746,9 @@ func TestVMExpectation_SiblingCallRecordsRunOnlyWhenLinked(t *testing.T) {
 			if !ok {
 				t.Fatalf("%s could not be staged", id)
 			}
-			prog, err := irbuild.Analyze(path)
+			// A program written with a macro (a tour block whose go.mod requires a
+			// macro module) expands it as every load does.
+			prog, err := irbuild.AnalyzeFile(path, frontend.Config{Macros: vmhost.Macros()})
 			if err != nil {
 				t.Fatalf("the front end refuses %s: %v", id, err)
 			}
@@ -839,7 +861,9 @@ func TestVMExpectation_ComparableProgramsCoverScalarControlFlow(t *testing.T) {
 		if _, reason := vmRun(path); reason != "" {
 			continue
 		}
-		prog, err := irbuild.Analyze(path)
+		// A program written with a macro (a tour block whose go.mod requires a
+		// macro module) expands it as every load does.
+		prog, err := irbuild.AnalyzeFile(path, frontend.Config{Macros: vmhost.Macros()})
 		if err != nil {
 			t.Fatalf("%s lowered a moment ago and no longer analyzes: %v", id, err)
 		}
@@ -978,6 +1002,17 @@ func tourBlocksByID(t *testing.T) map[string]string {
 // stageTourBlock writes one block's files to dir and answers its entry path.
 func stageTourBlock(t *testing.T, dir, code string) string {
 	t.Helper()
+	// A block that names modules is its files already, as the tour's
+	// runner writes them (vmhost.LoadMarked).
+	if project, err := virtualproject.FromMarkedSource(code); err == nil && project.Files != nil {
+		root, err := project.Write(dir)
+		if err != nil {
+			t.Fatalf("staging a tour block: %v", err)
+		}
+		entry := filepath.Join(root, filepath.FromSlash(project.EntryName))
+		tourDataFiles.Store(entry, project.DataFiles)
+		return entry
+	}
 	entrySrc, entryName, virtual, manifest, splitErr := vmhost.SplitMultiFile(code)
 	if splitErr != nil {
 		t.Fatalf("splitting a tour block: %v", splitErr)
@@ -1011,7 +1046,53 @@ func stageTourBlock(t *testing.T, dir, code string) string {
 	if err := os.WriteFile(entry, []byte(entrySrc), 0o644); err != nil {
 		t.Fatalf("staging the entry: %v", err)
 	}
+	// The block's data files are the in-memory file system it runs
+	// against, as the tour's runner gives it (vmRun).
+	data, err := vmhost.DataFiles(code)
+	if err != nil {
+		t.Fatalf("a tour block's data files: %v", err)
+	}
+	tourDataFiles.Store(entry, data)
+	// A block's `go` bindings run on the Go the tour links
+	// (internal/tourgo), answered by the table tourgo gives the tour's
+	// runner. The front end checks a file on disk against the go.mod above
+	// it, so a go.mod names the block's own Go package as its module.
+	hosts, err := tourgo.Hosts(entryName, entrySrc, virtual)
+	if err != nil {
+		t.Fatalf("a tour block's Go bindings: %v", err)
+	}
+	if hosts != nil {
+		tourHosts.Store(entry, vm.HostTable(hosts))
+		for _, b := range tourgo.GoBindings(entryName, entrySrc, virtual) {
+			if !ffirun.IsStdPackage(b.ImportPath) {
+				if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module "+b.ImportPath+"\n"), 0o644); err != nil {
+					t.Fatalf("staging the go.mod: %v", err)
+				}
+			}
+		}
+	}
 	return entry
+}
+
+// tourDataFiles is each staged tour block's data files, by its entry path.
+var tourDataFiles sync.Map // string -> map[string]string
+
+// tourHosts is each staged tour block's host table for its `go` bindings,
+// by its entry path.
+var tourHosts sync.Map // string -> vm.HostTable
+
+// tourFiles is the in-memory file system a staged tour block runs against,
+// or nil for a program that is not one.
+func tourFiles(path string) any {
+	data, ok := tourDataFiles.Load(path)
+	if !ok {
+		return nil
+	}
+	m := stdio.NewMemory("/work")
+	for name, text := range data.(map[string]string) {
+		m.Put(name, []byte(text))
+	}
+	return m
 }
 
 // tourFileName is an import-path key as a file name, idempotent over a name

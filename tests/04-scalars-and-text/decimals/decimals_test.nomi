@@ -11,11 +11,10 @@ test "decimal literals preserve display scale" {
     assert Decimal.to_string(1_000.00d) == "1000.00"
 }
 
-test "decimal operators are exact when the result terminates" {
+test "decimal operators are exact" {
     assert Decimal.to_string(1.50d + 1.5d) == "3.00"
     assert Decimal.to_string(2.50d - 1d) == "1.50"
     assert Decimal.to_string(1.50d * 1.5d) == "2.250"
-    assert Decimal.to_string(10.00d / 4d) == "2.50"
 }
 
 test "decimal rounding and shaping functions are explicit" {
@@ -129,28 +128,53 @@ test "decimal arithmetic rejects mixed numeric types" {
     assert test_helpers.has_diagnostic?(diagnostics, "binary + type mismatch: Int vs Decimal")
 }
 
-test "decimal division by zero is a runtime error" {
-    result =
+test "decimal has no division operator" {
+    diagnostics =
         """
+            fn half(a: Decimal, b: Decimal) -> Decimal {
+              a / b
+            }
+
             fn main() {
-              _ = 1d / 0d
+              dbg 1d / 3d
+              dbg 1d / 3
+              dbg 1 / 3d
             }
             """
-        |> compiler.run()
+        |> compiler.check()
 
-    assert Err(message) = result
-    assert String.contains?(message, "decimal division by zero")
+    message = "Decimal has no `/`: write `Decimal.divide(a, b, scale, mode)` to round, or `Decimal.divide_exact(a, b)` for a quotient that must terminate"
+
+    positions =
+        diagnostics
+        |> Iter.map(fn d -> #(d.line, d.col))
+        |> Iter.to_list()
+
+    assert positions == [#(2, 5), #(6, 10), #(7, 10), #(8, 9)]
+    assert Iter.all?(diagnostics, fn d -> d.message == message)
 }
 
-test "non-terminating decimal division is a runtime error" {
+test "divide_exact keeps the quotient's scale when it terminates" {
+    assert Decimal.divide_exact(10.00d, 4d) == Some(2.50d)
+    assert Decimal.divide_exact(10.00d, 4d) |> Maybe.map(Decimal.to_string) == Some("2.50")
+    assert Decimal.divide_exact(1d, 8d) |> Maybe.map(Decimal.to_string) == Some("0.125")
+    assert Decimal.divide_exact(-7.5d, 2.5d) == Some(-3d)
+}
+
+test "divide_exact is None when the quotient does not terminate" {
+    assert Decimal.divide_exact(10d, 3d) == None
+    assert Decimal.divide_exact(2d, 6d) == None
+}
+
+test "divide_exact by zero is a runtime error" {
     result =
         """
             fn main() {
-              _ = 10d / 3d
+              _ = Decimal.divide_exact(1d, 0d)
             }
             """
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains?(message, "non-terminating decimal division")
+    assert String.contains?(message, "line 2: division by zero")
 }

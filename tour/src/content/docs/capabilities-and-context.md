@@ -203,42 +203,50 @@ spawned.
 in reverse order, last one first:
 
 ```nomi-run
-import std/io
-
-struct Conn {
-    name: String
+import {
+    std/fs
+    std/io.{self, Writer}
 }
 
-fn close(conn: Conn) -> Unit {
-    io.print("close ${conn.name}")
+fn close(w: Writer, name: String) -> Unit {
+    io.print("close ${name}")
+    Writer.close_quietly(w)
 }
 
-fn main() {
+fn main() -> Result<Unit, io.Error> {
     {
-        first = #Conn{name: "first"}
-        defer close(first)
+        notes = try fs.create("notes.txt")
+        defer close(notes, "notes.txt")
 
-        second = #Conn{name: "second"}
-        defer close(second)
+        log = try fs.create("log.txt")
+        defer close(log, "log.txt")
 
+        notes |> try Writer.print("buy milk")
+        log |> try Writer.print("wrote a note")
         io.print("body")
     }
 
-    io.print("after")
+    io.write(try fs.read_text("notes.txt"))
+    io.write(try fs.read_text("log.txt"))
+    Ok(Unit)
 }
-
 ```
 <!-- expect
 body
-close second
-close first
-after
+close log.txt
+close notes.txt
+buy milk
+wrote a note
 -->
 
+`log.txt` closes before `notes.txt`, the reverse of the order they were
+opened in. Both run when the inner block ends, before `main` reads the
+files back, so each file holds what was written to it.
+
 Opening something can fail. When it returns a `Result`, open it with `try`
-and then defer the cleanup: `conn = try connect(address); defer close(conn)`.
-If opening fails, `try` returns before the `defer` line runs, so there is
-nothing to close. Calls deferred earlier in the block still run.
+and then defer the cleanup, as `main` does with `fs.create`. If opening
+fails, `try` returns before the `defer` line runs, so there is nothing to
+close. Calls deferred earlier in the block still run.
 
 ## Boot cleanup and initialization
 
@@ -252,8 +260,10 @@ if a helper opens something and returns it, `boot` must defer its cleanup.
 started is shut down, the cleanup `boot` deferred runs, and the program
 prints `error: ` and the error on stderr and exits with status 1, just as
 when `main` returns `Err`. The error prints through its `Display` impl when
-it has one; a `String` prints as itself. A trap in `boot` stops the program
-the same way a trap anywhere does.
+it has one; a `String` prints as itself. A `boot` whose error is an
+[`Exit`](/input-and-output/#exit-codes) prints its
+message and exits with its code, as `main` would. A trap in `boot` stops the
+program the same way a trap anywhere does.
 
 ```nomi-run error
 import std/io
@@ -310,3 +320,6 @@ The deadline limits anything that waits: timer sleeps, channel sends and
 receives, waiting for a task, and flushing a supervisor. See
 [Concurrency](/concurrency/) for how tasks are owned and cancelled, and
 [Testing](/testing/) for how each test gets its own `boot` and clock.
+
+[Input & Output](/input-and-output/) is next. It prints, reads input and
+sets the exit status.

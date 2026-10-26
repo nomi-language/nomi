@@ -2,6 +2,7 @@ package irbuild
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -1676,9 +1677,16 @@ const (
 	printKey   = "io.print"
 	writeKey   = "io.write"
 	inspectKey = "io.inspect"
+	// eprintKey and ewriteKey are the stderr pair: print and write to the
+	// error stream, rendered the same way.
+	eprintKey = "io.eprint"
+	ewriteKey = "io.ewrite"
 )
+
+// outputKeys are std/io's output primitives.
+var outputKeys = []string{printKey, writeKey, inspectKey, eprintKey, ewriteKey}
 
 // isOutputKey reports whether key is one of std/io's output primitives.
 func isOutputKey(key string) bool {
-	return key == printKey || key == writeKey || key == inspectKey
+	return slices.Contains(outputKeys, key)
 }

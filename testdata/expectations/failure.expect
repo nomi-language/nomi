@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population failure
 what one record per deliberately-red fixture under internal/irbuild/testdata, run as the command that owns it would. Every record FAILS on purpose, so every record carries its transcript verbatim: this is the only population in the repo with power over a wrong failure message. Membership is measured by TestExpectation_FailureCensus.
-records 54
-declared-cases 284
-failing 54
+records 55
+declared-cases 288
+failing 55
 C anon_struct.nomi
 E 1
 N 1
@@ -368,7 +368,7 @@ T
 C decimal.nomi
 E 1
 N 14
-H edbf6015e97924737a1ccc1a068d33a971ba9fc2a4b1aec39c8f5575f515b098
+H c24b182d35922cf1987f6464ec729119d055c37323f9d8a93357023766f40b6f
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: literals keep their scale and render it
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: arithmetic is exact, which is what a Float cannot be
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: equality is scale-insensitive while scale is significant
@@ -377,7 +377,7 @@ T ok <root>/internal/irbuild/testdata/decimal.nomi :: Debug appends d where Disp
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: sign, abs and negate preserve scale in both directions
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: normalize strips fractional zeros only
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: every rounding mode, on a tie and on both signs
-T ok <root>/internal/irbuild/testdata/decimal.nomi :: divide rounds at a named scale where the operator is exact-or-trap
+T ok <root>/internal/irbuild/testdata/decimal.nomi :: divide rounds at a named scale
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: conversions are explicit and total only where they can be
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: Int64's boundary round-trips, and one step past it does not
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: min and max pick by value, not by scale
@@ -943,7 +943,7 @@ T
 C pipe_stages.nomi
 E 1
 N 4
-H 3704c10c949ea2ce75d604bccd301485601c04a31dac8fa6e5facdb844eb52e3
+H 8cb058a54efa51fe0c97a2c4bdc9b2b0ea9e7f6be93a6dde06aacdaeb6792148
 T FAIL <root>/internal/irbuild/testdata/pipe_stages.nomi :: a pipeline-bound name prints its stages uncompacted
 T   line 62: assertion failed
 T     assert found
@@ -976,14 +976,11 @@ T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stages.nomi :: a piped check carries its stages on the whole-subject row
 T   line 75: pattern did not match
 T     assert Ok(True) = piped_check()
-T     actual: Err(#AssertionFailure{actual: None, binding: None, details: [], expression: ""Ada Lovelace"
-T |> String.contains?("Grace")", keyword: "check", line: 43, reason: "check failed", subtests: [], values: [#AssertionValue{expression: ""Ada Lovelace"
-T |> String.contains?("Grace")", pipeline: [#AssertionPipelineStage{expression: ""Ada Lovelace"", value: ""Ada Lovelace""}, #AssertionPipelineStage{expression: ""Ada Lovelace"
-T |> String.contains?("Grace")", value: "False"}], value: "False"}]})
+T     actual: Err(#AssertionFailure{actual: None, binding: None, details: [], expression: "\"Ada Lovelace\"\n|> String.contains?(\"Grace\")", keyword: "check", line: 43, reason: "check failed", subtests: [], values: [#AssertionValue{expression: "\"Ada Lovelace\"\n|> String.contains?(\"Grace\")", pipeline: [#AssertionPipelineStage{expression: "\"Ada Lovelace\"", value: "\"Ada Lovelace\""}, #AssertionPipelineStage{expression: "\"Ada Lovelace\"\n|> String.contains?(\"Grace\")", value: "False"}], value: "False"}]})
 T FAIL <root>/internal/irbuild/testdata/pipe_stages.nomi :: an unpiped check beside it carries no pipeline at all
 T   line 79: pattern did not match
 T     assert Ok(True) = unpiped_check()
-T     actual: Err(#AssertionFailure{actual: None, binding: None, details: [], expression: "String.contains?("Ada Lovelace", "Grace")", keyword: "check", line: 52, reason: "check failed", subtests: [], values: [#AssertionValue{expression: ""Ada Lovelace"", pipeline: [], value: ""Ada Lovelace""}, #AssertionValue{expression: ""Grace"", pipeline: [], value: ""Grace""}]})
+T     actual: Err(#AssertionFailure{actual: None, binding: None, details: [], expression: "String.contains?(\"Ada Lovelace\", \"Grace\")", keyword: "check", line: 52, reason: "check failed", subtests: [], values: [#AssertionValue{expression: "\"Ada Lovelace\"", pipeline: [], value: "\"Ada Lovelace\""}, #AssertionValue{expression: "\"Grace\"", pipeline: [], value: "\"Grace\""}]})
 T test result: FAILED. 0 passed, 4 failed
 T
 C scalar_operator_traps.nomi
@@ -1062,6 +1059,47 @@ T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a host functio
 T   line 24: strings.String.repeat: negative count -2
 T ok <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: the next case still runs
 T test result: FAILED. 1 passed, 4 failed
+T
+C string_literal_report.nomi
+E 1
+N 4
+H dcefb9e7c84614a54a68881206e78587e86a524f550351873e37fc2b7a440d4f
+T FAIL <root>/internal/irbuild/testdata/string_literal_report.nomi :: dbg of a multi-line string reads on one line
+T   dbg line 10: poem() = "roses\tred\nviolets \"blue\""
+T   dbg line 11: ["a\nb", "\${x}"] = ["a\nb", "\${x}"]
+T   line 12: assertion failed
+T     assert poem() == ""
+T     expected "" (-) and actual poem() (+) differ
+T
+T         + │ roses	red
+T         + │ violets "blue"
+T FAIL <root>/internal/irbuild/testdata/string_literal_report.nomi :: two multi-line strings show a line diff
+T   line 18: assertion failed
+T     assert actual == expected
+T     expected expected (-) and actual actual (+) differ
+T
+T           │ one
+T         - │ three
+T         + │ two
+T FAIL <root>/internal/irbuild/testdata/string_literal_report.nomi :: two multi-line strings beside another check show both rows escaped
+T   line 24: assertion failed
+T     assert actual == expected and String.length(actual) > 0
+T     values:
+T       actual
+T         = "one\ntwo"
+T       expected
+T         = "one\nthree"
+T       actual == expected
+T         = False
+T FAIL <root>/internal/irbuild/testdata/string_literal_report.nomi :: lists of multi-line strings show their rows escaped
+T   line 30: assertion failed
+T     assert actual == expected
+T     values:
+T       actual
+T         = ["one\ntwo", "a\\b"]
+T       expected
+T         = ["one\nthree", "a\\b"]
+T test result: FAILED. 0 passed, 4 failed
 T
 C subtests_names_report.nomi
 E 1

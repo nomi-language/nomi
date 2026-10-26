@@ -540,6 +540,11 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		if v, k, mobile, ok := bl.ownerOnceValue(t); ok {
 			return v, k, mobile, true
 		}
+		if t.Field != nil {
+			if v, k, mobile, ok := bl.stdFileOnceValue(t, t.Field.Line, t.Field.Col); ok {
+				return v, k, mobile, true
+			}
+		}
 		if index, ok := irTupleIndex(t); ok {
 			return bl.tupleRead(t, index)
 		}
@@ -1472,7 +1477,7 @@ func stdBareOutputKey(fa *analysis.FileAnalysis, id *ast.Ident) (string, bool) {
 	if io == nil {
 		return "", false
 	}
-	for _, key := range []string{printKey, writeKey, inspectKey} {
+	for _, key := range outputKeys {
 		if resolveSymbol(io.Lookup(strings.TrimPrefix(key, "io."))) == sym {
 			return key, true
 		}
@@ -1494,7 +1499,7 @@ func (bl *irScalarBuilder) ownOutputKey(id *ast.Ident, key *string) bool {
 	if sym == nil {
 		return false
 	}
-	for _, k := range []string{printKey, writeKey, inspectKey} {
+	for _, k := range outputKeys {
 		if resolveSymbol(bl.g.fa.ModuleScope.Lookup(strings.TrimPrefix(k, "io."))) == sym {
 			*key = k
 			return true
@@ -3177,6 +3182,9 @@ func (bl *irScalarBuilder) identRead(t *ast.Ident, line, col int) (ir.Temp, kind
 		return bl.funcRef(t)
 	}
 	if v, k, mobile, ok := bl.onceValue(t); ok {
+		return v, k, mobile, true
+	}
+	if v, k, mobile, ok := bl.stdFileOnceValue(t, t.Line, t.Col); ok {
 		return v, k, mobile, true
 	}
 	if bl.parent != nil && bl.ctlRefs[t] != irCtlNone && !bl.boundInScope(t.Name) {

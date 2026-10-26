@@ -23,7 +23,7 @@ fn main() {
 		{"debug escaping", `import std/io
 fn main() {
   io.inspect(#("a\nb", "a\"b", "a\\b"))
-}`, "#(\"a\nb\", \"a\\\"b\", \"a\\\\b\")\n"},
+}`, "#(\"a\\nb\", \"a\\\"b\", \"a\\\\b\")\n"},
 		{"a distinct element", `import std/io
 type Email String
 fn main() {

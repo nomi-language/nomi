@@ -54,7 +54,7 @@ test "arithmetic is exact, which is what a Float cannot be" {
     assert Decimal.to_string(1.50d + 1.5d) == "3.00"
     assert Decimal.to_string(2.50d - 1d) == "1.50"
     assert Decimal.to_string(1.50d * 1.5d) == "2.250"
-    assert Decimal.to_string(10.00d / 4d) == "2.50"
+    assert Decimal.divide_exact(10.00d, 4d) |> Maybe.map(Decimal.to_string) == Some("2.50")
 
     // Negative direction, and a subtraction that crosses zero.
     assert Decimal.to_string(1d - 2.5d) == "-1.5"
@@ -148,7 +148,7 @@ test "every rounding mode, on a tie and on both signs" {
     assert Decimal.to_string(Decimal.round(1350d, -2, HalfEven)) == "1400"
 }
 
-test "divide rounds at a named scale where the operator is exact-or-trap" {
+test "divide rounds at a named scale" {
     assert Decimal.to_string(Decimal.divide(10d, 3d, 4, HalfEven)) == "3.3333"
     assert Decimal.to_string(Decimal.divide(10d, 3d, 0, HalfEven)) == "3"
     assert Decimal.to_string(Decimal.divide(10.00d, 4d, 2, Down)) == "2.50"

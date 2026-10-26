@@ -19,7 +19,7 @@ import (
 // irOpWantExplicitPos is how many rt operations take the Nomi position as an
 // argument. The VM checks Int arithmetic itself and builds the fault from rt's
 // error constructors, so those are not among them.
-const irOpWantExplicitPos = 3
+const irOpWantExplicitPos = 2
 
 // irOpParse parses every non-test Go source in dir.
 func irOpParse(dir string) ([]*goast.File, *token.FileSet, error) {
@@ -54,7 +54,7 @@ func irOpParse(dir string) ([]*goast.File, *token.FileSet, error) {
 // concurrent scope, two phase flags) and no position, so there is no third
 // mechanism.
 var irOpExplicitPosition = []string{
-	"DivDecimal", "ModDecimal", "DeferBootAt",
+	"ModDecimal", "DeferBootAt",
 }
 
 // TestIRRtOperationsThatTakeAPosition checks that the rt functions taking a
@@ -72,13 +72,13 @@ func TestIRRtOperationsThatTakeAPosition(t *testing.T) {
 		}
 	}
 	if len(withLine) == 0 {
-		t.Fatal("no rt function takes a `line int`, which cannot be true while rt.DivDecimal exists; " +
+		t.Fatal("no rt function takes a `line int`, which cannot be true while rt.ModDecimal exists; " +
 			"the signature scanner is broken and every count below would be a false zero")
 	}
 
 	// A known line-carrier must be found and a known non-carrier must not.
-	if !withLine["DivDecimal"] {
-		t.Errorf("rt.DivDecimal(a, b Decimal, line int) was not recognized as carrying a position")
+	if !withLine["ModDecimal"] {
+		t.Errorf("rt.ModDecimal(a, b Decimal, line int) was not recognized as carrying a position")
 	}
 	if withLine["AddOverflows"] {
 		t.Errorf("rt.AddOverflows(a, b int64) was recognized as carrying a position; the scanner " +

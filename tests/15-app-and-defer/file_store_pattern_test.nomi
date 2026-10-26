@@ -4,6 +4,7 @@
 //
 // The test writes an empty file at the start so re-runs are deterministic.
 import {
+    std/fs
     std/instant.Instant
     std/io
 }
@@ -111,20 +112,20 @@ impl Store for FileStore {
 }
 
 fn load_map(path: String) -> Result<Map<Int, TodoTask>, String> {
-    case io.read_file(path) {
+    case fs.read_text(path) {
         Ok(content) ->
             deserialize(content)
 
         Err(e) ->
             case e {
                 #io.Error.NotFound{path: _} -> Ok(%{})
-                #io.Error.Other{reason} -> Err(reason)
+                other -> Err(Display.to_string(other))
             }
     }
 }
 
 fn write_all(path: String, tasks: Map<Int, TodoTask>) -> Result<Unit, String> {
-    case io.write_file(path, serialize(tasks)) {
+    case fs.write_text(path, serialize(tasks)) {
         Ok(_) -> Ok(Unit)
         Err(e) -> Err(Display.to_string(e))
     }
@@ -198,14 +199,14 @@ fn deserialize_one(line: String) -> Result<TodoTask, String> {
 // --- Tests -------------------------------------------------------
 test "file store pattern saves reloads and deletes tasks" {
     // Start from an empty file.
-    case io.write_file(test_path, "") {
+    case fs.write_text(test_path, "") {
         _ -> Unit
     }
 
-    fs = #FileStore{path: test_path}
+    store = #FileStore{path: test_path}
 
     // Load on an empty file.
-    assert Ok(empty) = Store.load(fs)
+    assert Ok(empty) = Store.load(store)
     assert Map.size(empty) == 0
 
     // Save two tasks.
@@ -223,8 +224,8 @@ test "file store pattern saves reloads and deletes tasks" {
         priority: Priority.High,
     }
 
-    assert Store.save(fs, t1) == Ok(t1)
-    assert Store.save(fs, t2) == Ok(t2)
+    assert Store.save(store, t1) == Ok(t1)
+    assert Store.save(store, t2) == Ok(t2)
 
     // Reload with a fresh FileStore value pointing at the same path.
     fs2 = #FileStore{path: test_path}
@@ -238,8 +239,8 @@ test "file store pattern saves reloads and deletes tasks" {
     assert loaded_t2.priority == Priority.High
 
     // Delete t1, reload, and expect only t2.
-    assert Store.delete(fs, 1) == Ok(Unit)
-    assert Ok(after) = Store.load(fs)
+    assert Store.delete(store, 1) == Ok(Unit)
+    assert Ok(after) = Store.load(store)
     assert Map.size(after) == 1
     assert Map.get(after, 1) == None
     assert Some(remaining) = Map.get(after, 2)

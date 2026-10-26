@@ -18,7 +18,7 @@ package vm
 // WHAT THIS CONSUMER OWNS is the same short list every other class leaves it:
 // how a value READS in a row, and where the failure GOES.
 //
-//   - THE READING IS `rt.RowText`, which bottoms out in `rt.InspectString`/`InspectInt`/`InspectFloat`/
+//   - THE READING IS `rt.RowText`, which bottoms out in `rt.StringLiteral`/`InspectInt`/`InspectFloat`/
 //     `InspectBool` — so the quoting of a String and the shaping of a Float
 //     have one home.
 //   - THE DESTINATION IS AN UNWIND. `assert`, `refute` and `testing.check`
@@ -548,12 +548,8 @@ func operandString(fn *ir.Func, t ir.Temp, text string, rows []rt.AssertionValue
 		if row.Expr != text || len(row.Pipeline) > 0 {
 			continue
 		}
-		// A String's row is rt.InspectString: quoted, not escaped.
-		v := row.Value
-		if len(v) < 2 || v[0] != '"' || v[len(v)-1] != '"' {
-			return "", false
-		}
-		return v[1 : len(v)-1], true
+		// A String's row is rt.StringLiteral, the literal its Debug writes.
+		return rt.UnquoteStringLiteral(row.Value)
 	}
 	return "", false
 }

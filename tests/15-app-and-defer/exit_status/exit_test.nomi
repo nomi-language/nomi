@@ -1,0 +1,15 @@
+// A test checks an exit as a value: `main` returns the `Exit` and nothing
+// ends the test.
+import std/process.Exit
+
+fn main() -> Result<Unit, Exit> {
+    Err(#Exit{code: 2, message: "usage: count <file>"})
+}
+
+test "main asks to exit with status 2" {
+    assert main() == Err(#Exit{code: 2, message: "usage: count <file>"})
+}
+
+test "an Exit's code defaults to 1 and its message to nothing" {
+    assert #Exit{} == #Exit{code: 1, message: ""}
+}

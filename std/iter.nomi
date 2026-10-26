@@ -334,7 +334,7 @@ impl Iter<T> {
     //! assert Iter.each([1, 2, 3], fn _n -> Unit) == Unit
     //
     pub fn each<T>(source: Iter<T>, f: (T) -> Unit) {
-        case reduce(source, fn _acc = 0, item -> f(item)) {
+        case reduce(source, fn _acc = Unit, item -> f(item)) {
             _ -> Unit
         }
     }

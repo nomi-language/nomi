@@ -57,6 +57,12 @@ var wrapperImportAliases = []string{
 
 // generateAdapters generates the adapters for every discovered binding.
 func generateAdapters(projectRoot string, packages []DiscoveredPackage) (*wrapperAdapters, error) {
+	return generateAdaptersNamed(projectRoot, packages, adapterPrefix)
+}
+
+// generateAdaptersNamed is generateAdapters with the generated declarations
+// named with prefix.
+func generateAdaptersNamed(projectRoot string, packages []DiscoveredPackage, prefix string) (*wrapperAdapters, error) {
 	src, err := resolveCompilerSource()
 	if err != nil {
 		return nil, err
@@ -113,7 +119,7 @@ func generateAdapters(projectRoot string, packages []DiscoveredPackage) (*wrappe
 	}
 	g := hostgen.New("main", base.ms.Resolver(), handles)
 	g.SetOwnPackage("main")
-	g.SetPrefix(adapterPrefix)
+	g.SetPrefix(prefix)
 	g.Reserve(wrapperImportAliases...)
 	preset := map[string]string{}
 	for _, pkg := range packages {

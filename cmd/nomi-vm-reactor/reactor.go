@@ -190,9 +190,9 @@ func nomiLoad(ptr unsafe.Pointer, size int32) uint64 {
 }
 
 // nomiMain runs the program's `fn main` over WASI stdin, stdout and
-// stderr, and answers the exit status `nomi run` would: 0, or 1 after the
-// failure is written to stderr. A program with no `fn main` answers 1 and
-// says so.
+// stderr, and answers the exit status `nomi run` would: 0, an Exit's code,
+// or 1, after the failure is written to stderr. A program with no `fn main`
+// answers 1 and says so.
 //
 //go:wasmexport nomi_main
 func nomiMain() int32 {
@@ -201,8 +201,10 @@ func nomiMain() int32 {
 		err = in.Main()
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return 1
+		if text := err.Error(); text != "" {
+			fmt.Fprintf(os.Stderr, "%s\n", text)
+		}
+		return int32(vmrunner.ExitCode(err))
 	}
 	return 0
 }

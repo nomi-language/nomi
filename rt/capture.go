@@ -8,8 +8,11 @@ import (
 )
 
 // Capture is one `io.capture` or `io.replay` call in force: the input
-// `io.read_line` reads and the output `io.print`, `io.write` and `io.inspect`
-// append to, for the dynamic extent of the call. `dbg` is not redirected.
+// `io.read_line` reads, the output `io.print`, `io.write` and `io.inspect`
+// append to, and the error output `io.eprint` and `io.ewrite` append to, for
+// the dynamic extent of the call. `dbg` is not redirected. The error output
+// is kept apart (CaptureResult.Errors) and is not in the transcript, so a
+// replay script, which is the transcript, never mentions it.
 //
 // It rides the frame, so it is per lineage and not per machine: a task
 // spawned inside the call inherits it with the rest of the spawner's frame,
@@ -64,6 +67,8 @@ type Capture struct {
 	// expected is the replay script as ReplayText spells it.
 	expected string
 	out      strings.Builder
+	// errs is what was written to stderr.
+	errs strings.Builder
 	// tr holds the finished transcript lines; line is the output line in
 	// progress, which a read may end.
 	tr     strings.Builder
@@ -88,6 +93,8 @@ const (
 type CaptureResult struct {
 	// Output is everything written, byte for byte.
 	Output string
+	// Errors is everything written to stderr, byte for byte.
+	Errors string
 	// Transcript is Output with each line read written in (see Capture).
 	Transcript string
 	// Unread is how many of a replay script's input lines no read reached.
@@ -156,7 +163,7 @@ func (c *Capture) Close() CaptureResult {
 	if c.line.Len() > 0 {
 		tr += outputLine(c.line.String())
 	}
-	return CaptureResult{Output: c.out.String(), Transcript: tr, Unread: len(c.script) - c.next}
+	return CaptureResult{Output: c.out.String(), Errors: c.errs.String(), Transcript: tr, Unread: len(c.script) - c.next}
 }
 
 // CaptureWrite appends s to the frame's innermost open capture and reports
@@ -170,6 +177,30 @@ func CaptureWrite(fr *Frame, s string) bool {
 		c.mu.Lock()
 		if !c.closed {
 			c.write(s)
+			c.mu.Unlock()
+			return true
+		}
+		c.mu.Unlock()
+	}
+	return false
+}
+
+// CaptureErrorWrite is CaptureWrite for stderr: it appends s to the frame's
+// innermost open capture's error output and reports whether one took it. A
+// test case's capture takes it into the case's output, where the report
+// shows what the case printed.
+func CaptureErrorWrite(fr *Frame, s string) bool {
+	if fr == nil {
+		return false
+	}
+	for c := fr.capture; c != nil; c = c.outer {
+		c.mu.Lock()
+		if !c.closed {
+			if c.test {
+				c.write(s)
+			} else {
+				c.errs.WriteString(s)
+			}
 			c.mu.Unlock()
 			return true
 		}
@@ -263,25 +294,25 @@ func (fr *Frame) ReadsCaptured() bool {
 }
 
 // readLine is `io.read_line` inside the capture: the next line of its input,
-// written into the transcript after the prompt it ends, or Err("eof"), which
-// writes nothing and leaves the prompt in place.
-func (c *Capture) readLine() Result[string, string] {
+// written into the transcript after the prompt it ends, or Ok(None) at the
+// end of the input, which writes nothing and leaves the prompt in place.
+func (c *Capture) readLine() Result[Maybe[string], IOError] {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	var text string
 	indent := InputIndent
 	if c.replay {
 		if c.next >= len(c.script) {
-			return Err[string]("eof")
+			return Ok[Maybe[string], IOError](None[string]())
 		}
 		text, indent = c.script[c.next], c.indents[c.next]
 		c.next++
 	} else {
 		r := c.in.readLine()
-		if r.Tag != TagOk {
+		if r.Tag != TagOk || r.Ok.Tag != TagSome {
 			return r
 		}
-		text = r.Ok
+		text = r.Ok.Some
 	}
 	if c.line.Len() > 0 {
 		c.endLine()
@@ -290,7 +321,7 @@ func (c *Capture) readLine() Result[string, string] {
 	c.tr.WriteString(InputMarker)
 	c.tr.WriteString(text)
 	c.tr.WriteByte('\n')
-	return Ok[string, string](text)
+	return Ok[Maybe[string], IOError](Some(text))
 }
 
 // CaptureView is what an open `io.capture` or `io.replay` call holds so
@@ -300,6 +331,8 @@ type CaptureView struct {
 	Replay bool
 	// Output is everything written so far, byte for byte.
 	Output string
+	// Errors is everything written to stderr so far.
+	Errors string
 	// Transcript is the transcript so far: for a replay as ReplayText spells
 	// it, and for a capture as CaptureResult.Transcript does. An output line
 	// in progress is its last line.
@@ -354,7 +387,7 @@ func (c *Capture) View() CaptureView {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	finished, partial := c.tr.String(), c.line.String()
-	v := CaptureView{Replay: c.replay, Output: c.out.String(), Transcript: finished + outputLine(partial)}
+	v := CaptureView{Replay: c.replay, Output: c.out.String(), Errors: c.errs.String(), Transcript: finished + outputLine(partial)}
 	if !c.replay {
 		return v
 	}

@@ -37,6 +37,10 @@ var rtHeld = map[string]string{
 	"context.Context":        TypeKey(ReflectType(reflect.TypeFor[rt.Context]())),
 	"supervisors.Supervisor": TypeKey(ReflectType(reflect.TypeFor[rt.Supervisor]())),
 	"dynamic.Dynamic":        TypeKey(ReflectType(reflect.TypeFor[rt.Dynamic]())),
+	"io.Reader":              TypeKey(ReflectType(reflect.TypeFor[rt.Reader]())),
+	"io.Writer":              TypeKey(ReflectType(reflect.TypeFor[rt.Writer]())),
+	"io.File":                TypeKey(ReflectType(reflect.TypeFor[rt.File]())),
+	"fs_host.FileSystem":     TypeKey(ReflectType(reflect.TypeFor[rt.FileSystem]())),
 }
 
 // rtGenericBase is the generic type an rt instantiation instantiates, or "".

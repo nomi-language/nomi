@@ -91,7 +91,7 @@ fn twice(n: Int) -> Int {
 
 fn main() {
     t = Instant.as_nanos(Instant.now())
-    line = Result.with_default(io.read_line(), "none")
+    line = Result.with_default(io.read_line(), None) |> Maybe.with_default("none")
     x = twice(3)
     io.print("${line} ${x}")
     y = x + 1
@@ -349,13 +349,13 @@ func TestTravel_ADivergedReplayStops(t *testing.T) {
 	s.breakAt(14)
 	s.runPasses()
 	st := s.stop()
-	s.d.RenameCrossingForTest(1, "io.read_file")
+	s.d.RenameCrossingForTest(1, "fs_host.read_text")
 	if err := s.d.StepBack(st.Thread); err != nil {
 		t.Fatal(err)
 	}
 	st = s.stop()
 	if st.Reason != vm.StopDiverged || st.Pos.Line() != 11 ||
-		!strings.Contains(st.Text, "(dbg.nomi:11), where the recording has io.read_file at statement") {
+		!strings.Contains(st.Text, "(dbg.nomi:11), where the recording has fs_host.read_text at statement") {
 		t.Fatalf("stop %+v", st)
 	}
 	if off := s.d.TravelOff(); !strings.Contains(off, "diverged") {

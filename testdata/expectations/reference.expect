@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
-records 45
-declared-cases 467
+records 49
+declared-cases 535
 failing 0
 C assertions
 E 0
@@ -175,14 +175,15 @@ T ok Currency.iso?
 T ok Error.to_string (impl Display for Error)
 C decimal
 E 0
-N 22
-H 0e55a1262ad1928f42f7cb725cfd439ba06948a1aa8bfc2489e4d30bdb8c23c9
+N 23
+H 6e9f5960af6325e6164644bbe4e6a240fe6697a3a85b83a12bf994bc6fb47a88
 T ok Decimal.from_int
 T ok Decimal.from_string
 T ok Decimal.to_int
 T ok Decimal.to_float
 T ok Decimal.from_float
 T ok Decimal.divide
+T ok Decimal.divide_exact
 T ok Decimal.round
 T ok Decimal.normalize
 T ok Decimal.scale
@@ -248,6 +249,49 @@ T ok Float.parse_in
 T ok Float.parse_percent_in
 T ok Float.to_string (impl Display for Float)
 T ok Float.empty_sum (impl Summable for Float)
+C fs
+E 0
+N 31
+H a438675eec3acb40f6f33c4f5c2e29fd86c7855644cd491776459b6245ea88fd
+T ok enum WriteMode
+T ok fs.read
+T ok fs.read_text
+T ok fs.write
+T ok fs.write_text
+T ok fs.lines
+T ok fs.chunks
+T ok fs.open
+T ok fs.create
+T ok fs.with_reader
+T ok fs.with_writer
+T ok fs.open_file
+T ok fs.with_file
+T ok fs.within
+T ok fs.list
+T ok fs.walk
+T ok fs.glob
+T ok fs.create_dir
+T ok fs.remove
+T ok fs.remove_all
+T ok fs.rename
+T ok fs.copy
+T ok fs.metadata
+T ok fs.link_metadata
+T ok fs.create_symlink
+T ok fs.read_link
+T ok fs.set_mode
+T ok fs.exists?
+T ok fs.temp_dir
+T ok fs.with_temp_dir
+T ok fs.current_dir
+C fs_testing
+E 0
+N 4
+H 458375fabb879509f545c6c60e1460dd56b475dfa669b64603c90eaafa7cf772
+T ok struct Failure
+T ok fs_testing.run
+T ok fs_testing.text
+T ok fs_testing.conformance
 C instant
 E 0
 N 9
@@ -292,8 +336,28 @@ T ok Int.divide Divide<NonZeroInt, Int> (impl Divide<NonZeroInt, Int> for Int)
 T ok PositiveInt.to_non_zero
 C io
 E 0
-N 2
-H 8d003f82f7c1edb78ca7c0847107704c2ac91cefad71ed8dec7742e2a76d1b24
+N 22
+H 9e727c09a537cafc9562ff50ba8721344040679598b028f121f8ca01020bbea8
+T ok enum Error
+T ok io.eprint
+T ok io.ewrite
+T ok io.read_line
+T ok Reader.read_line
+T ok Reader.read
+T ok Reader.read_all
+T ok Reader.read_all_text
+T ok Reader.copy_to
+T ok Reader.close
+T ok Reader.close_quietly
+T ok Reader.from_bytes
+T ok Reader.from_text
+T ok Writer.write
+T ok Writer.write_text
+T ok Writer.print
+T ok Writer.flush
+T ok Writer.close
+T ok Writer.close_quietly
+T ok io.stdout
 T ok io.capture
 T ok io.replay
 C iter
@@ -454,6 +518,20 @@ T ok Money.empty_sum (impl Summable for Money)
 T ok Money.from_fragments (impl Literal for Money)
 T ok Money.to_string (impl Display for Money)
 T ok Error.to_string (impl Display for Error)
+C path
+E 0
+N 10
+H b908d89dcc209670c9e8e57159763836d5eb0299cabfcfa1308a7dabbb640cb2
+T ok path.join
+T ok path.join_all
+T ok path.clean
+T ok path.absolute?
+T ok path.parent
+T ok path.base
+T ok path.extension
+T ok path.stem
+T ok path.relative
+T ok path.match?
 C plural
 E 0
 N 5
@@ -463,6 +541,11 @@ T ok PluralCategory.cardinal
 T ok PluralCategory.ordinal
 T ok PluralCategory.cardinals
 T ok PluralCategory.ordinals
+C process
+E 0
+N 1
+H a978df8c7f4582ae68e0d4c156cd5fa980bf7f781206b5e9ba1cb1c18391deb4
+T ok struct Exit
 C random
 E 0
 N 11
@@ -558,8 +641,8 @@ T ok sql_testing.conformance
 T ok sql_testing.rules
 C strings
 E 0
-N 35
-H 8218691531b4bcf57913621043c9015ae650dd4db5dcf0994a5b9bb67c9a2c97
+N 36
+H 9d24083d57c565fa492d9f05e9b5432b436850cbc5c7fa1ff522f56725354b65
 T ok String.contains? Contains<String> (impl Contains<String> for String)
 T ok String.contains? Contains<Regex> (impl Contains<Regex> for String)
 T ok String.contains? Contains<Codepoint> (impl Contains<Codepoint> for String)
@@ -595,6 +678,7 @@ T ok String.strip_prefix
 T ok String.strip_suffix
 T ok String.length
 T ok String.empty_sum (impl Summable for String)
+T ok String.inspect (impl Debug for String)
 C summable
 E 0
 N 1

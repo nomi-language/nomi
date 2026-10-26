@@ -14,7 +14,7 @@ import (
 func TestIRDecimal_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn sum(a: Decimal, b: Decimal) -> Decimal { a + b }
-fn divide(a: Decimal, b: Decimal) -> Decimal { a / b }
+fn divide(a: Decimal, b: Decimal) -> Decimal { Decimal.divide_exact(a, b) |> Maybe.with_default(0d) }
 fn main() {
   io.print(sum(0.1d, 0.2d) == 0.3d)
   io.print(1.50d == 1.5d)
@@ -43,14 +43,15 @@ fn main() {
 `, "left\nright\n3.75\na\nb\nTrue\n-3.75d\n")
 }
 
+// A zero divisor of `Decimal.divide_exact` traps with Int's `/` text at the
+// call's line.
 func TestIRDecimal_DivisionFaults(t *testing.T) {
 	for _, tc := range []struct{ divisor, want string }{
-		{"0d", "line 3: decimal division by zero"},
-		{"3d", "line 3: non-terminating decimal division; use Decimal.divide(a, b, scale, mode) for explicit rounding"},
+		{"0d", "line 3: division by zero"},
 	} {
 		t.Run(tc.divisor, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "main.nomi")
-			src := "fn divide() -> Decimal {\n  n = 1d\n  n / " + tc.divisor + "\n}\nfn main() { _ = divide() }\n"
+			src := "fn divide() -> Maybe<Decimal> {\n  n = 1d\n  Decimal.divide_exact(n, " + tc.divisor + ")\n}\nfn main() { _ = divide() }\n"
 			if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 				t.Fatal(err)
 			}

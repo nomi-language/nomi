@@ -360,7 +360,7 @@ var pureCrossings = map[string]bool{
 	"decimal.Decimal.compare": true, "decimal.Decimal.from_int": true,
 	"decimal.Decimal.from_string": true, "decimal.Decimal.to_int": true,
 	"decimal.Decimal.to_float": true, "decimal.Decimal.from_float": true,
-	"decimal.Decimal.normalize": true, "decimal.Decimal.scale": true,
+	"decimal.Decimal.normalize": true, "decimal.Decimal.scale": true, "decimal.Decimal.divide_exact": true,
 	// decimal.Decimal.divide and round are not here: their cost is their
 	// scale operand.
 	"duration.Duration.to_string": true, "code_points.Codepoint.to_string": true,

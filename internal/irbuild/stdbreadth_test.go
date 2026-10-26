@@ -65,27 +65,37 @@ func TestStdEnum_StructPayloadShapeIsChecked(t *testing.T) {
 func TestIOErrorSlotsMatchRTFieldNames(t *testing.T) {
 	i := stdEnumSpecIndexForTest(t, "std/io", "Error")
 	d := stdEnumDefs()[i]
-	for _, v := range d.variants {
-		if len(v.payloads) != 1 {
-			t.Fatalf("%s carries %d payloads, want 1", v.nomi, len(v.payloads))
-		}
-		if v.kind != "struct" {
-			t.Errorf("%s is a %q variant, want struct", v.nomi, v.kind)
-		}
-		if v.payloads[0].nomi == "" {
-			t.Errorf("%s's payload has no Nomi field name, so a struct pattern binds nothing", v.nomi)
-		}
+	// The Nomi names are the ones std declares, absolutely and in order:
+	// these are what `#Error.NotFound{path}` binds, and a permuted pair is a
+	// wrong answer rather than a compile error. A bare variant binds none.
+	want := map[string][]string{
+		"NotFound": {"path"}, "AlreadyExists": {"path"}, "PermissionDenied": {"path"},
+		"NotADirectory": {"path"}, "IsADirectory": {"path"}, "DirectoryNotEmpty": {"path"},
+		"InvalidPath": {"path", "reason"}, "InvalidText": {"path", "offset"},
+		"NoSpace": {"path"}, "ReadOnly": {"path"},
+		"TooManyOpen": nil, "Closed": nil, "BrokenPipe": nil, "TimedOut": nil,
+		"Unsupported": {"operation", "target"}, "Other": {"operation", "path", "code"},
 	}
-	// And the Nomi names are the ones std declares, absolutely: these are what
-	// `#Error.NotFound{path}` binds, and a permuted pair is a wrong answer
-	// rather than a compile error.
-	want := map[string]string{"NotFound": "path", "Other": "reason"}
 	if len(want) != len(d.variants) {
 		t.Fatalf("%d variants, want %d", len(d.variants), len(want))
 	}
 	for _, v := range d.variants {
-		if got := want[v.nomi]; got != v.payloads[0].nomi {
-			t.Errorf("%s binds %q, std declares %q", v.nomi, v.payloads[0].nomi, got)
+		fields, known := want[v.nomi]
+		if !known {
+			t.Errorf("variant %s is not one std declares", v.nomi)
+			continue
+		}
+		if len(v.payloads) != len(fields) {
+			t.Errorf("%s carries %d payloads, want %d", v.nomi, len(v.payloads), len(fields))
+			continue
+		}
+		if len(fields) > 0 && v.kind != "struct" {
+			t.Errorf("%s is a %q variant, want struct", v.nomi, v.kind)
+		}
+		for j, name := range fields {
+			if v.payloads[j].nomi != name {
+				t.Errorf("%s's payload %d binds %q, std declares %q", v.nomi, j, v.payloads[j].nomi, name)
+			}
 		}
 	}
 }
@@ -111,7 +121,7 @@ func TestIOHostPackageIsTheFourthAndCarriesNoCompilerCode(t *testing.T) {
 	if !found {
 		t.Fatalf("%s is not in hostPackages, so hostCallName cannot resolve its symbols", ioHostPath)
 	}
-	for _, name := range []string{"io.read_file", "io.write_file"} {
+	for _, name := range []string{"fs_host.read_text", "fs_host.write", "fs_host.open", "fs_host.list"} {
 		h, ok := stdlibHostFuncs[name]
 		if !ok {
 			t.Errorf("%s is not bound", name)

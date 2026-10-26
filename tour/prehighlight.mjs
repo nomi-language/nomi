@@ -53,13 +53,15 @@ function highlight(code) {
   return render(captures, sem, code);
 }
 
-const BLOCK = /<pre([^>]*)><code class="language-(nomi(?:-run|-test)?)"([^>]*)>([\s\S]*?)<\/code><\/pre>/g;
+// A multi-file block's Go files follow its <code> as hidden spans
+// (rehype-shiki.mjs's goFileSpans), which are kept as they are.
+const BLOCK = /<pre([^>]*)><code class="language-(nomi(?:-run|-test)?)"([^>]*)>([\s\S]*?)<\/code>((?:<span hidden[\s\S]*?)?)<\/pre>/g;
 function processHtml(html) {
-  const highlighted = html.replace(BLOCK, (_m, preAttrs, lang, codeAttrs, body) => {
+  const highlighted = html.replace(BLOCK, (_m, preAttrs, lang, codeAttrs, body, goFiles) => {
     const hl = highlight(decode(body).replace(/\n$/, ""));
     return lang === "nomi"
       ? `<div class="nomi-chip nomi-chip-nomi"><pre class="nomi-tour nomi-code-nomi">${hl}</pre></div>`
-      : `<pre class="nomi-tour"${preAttrs}><code class="language-${lang}"${codeAttrs}>${hl}</code></pre>`;
+      : `<pre class="nomi-tour"${preAttrs}><code class="language-${lang}"${codeAttrs}>${hl}</code>${goFiles}</pre>`;
   });
   return highlighted.replace(
     /<pre class="nomi-tour"([^>]*)><span class="line">/g,

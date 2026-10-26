@@ -323,10 +323,10 @@ func (v Decimal) Compare(b Decimal) int {
 // denominator has a prime factor other than 2 or 5). The result's preferred
 // scale is a.Scale - b.Scale, expanded as far as needed for exactness (and
 // never below the preferred scale). Callers must check IsZero on b first —
-// DivExact on a zero divisor returns ok=false (no panic), but the operator
-// path should raise a distinct division-by-zero error.
+// DivExact on a zero divisor returns ok=false (no panic), but a caller
+// should raise a distinct division-by-zero error.
 //
-// Backs the exact-or-trap `/` operator.
+// Backs `Decimal.divide_exact` (DecimalDivideExact).
 func (v Decimal) DivExact(b Decimal) (Decimal, bool) {
 	if b.IsZero() {
 		return Decimal{}, false

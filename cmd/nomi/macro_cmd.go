@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
-	"github.com/nomi-language/nomi/internal/format"
 	"github.com/nomi-language/nomi/vmhost"
 )
 
@@ -37,31 +36,8 @@ func runExpand(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if len(exps) == 0 {
-		fmt.Fprintf(out, "// %s declares nothing a macro expands\n", args[0])
-		return nil
-	}
-	for i, x := range exps {
-		if i > 0 {
-			fmt.Fprintln(out)
-		}
-		fmt.Fprintf(out, "// %s %s (line %d), expanded by the macro %s of module %s\n", x.Keyword, x.Name, x.Line, x.Macro, x.Module)
-		for _, e := range x.Errors {
-			fmt.Fprintf(out, "// error: %s\n", e)
-		}
-		if x.Source == "" {
-			continue
-		}
-		src := x.Source
-		if formatted, err := format.Format(src); err == nil {
-			src = formatted
-		}
-		fmt.Fprint(out, src)
-		if !strings.HasSuffix(src, "\n") {
-			fmt.Fprintln(out)
-		}
-	}
-	return nil
+	_, err = io.WriteString(out, vmhost.FormatExpansions(args[0], exps))
+	return err
 }
 
 // toolPath is the file of the tool name of the module named module, as

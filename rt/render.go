@@ -16,7 +16,7 @@ import (
 //
 //	a Decimal   Row `1.50`               Debug `1.50d`
 //	a Dynamic   Row `<dynamic: string>`  Debug refuses; std's impl is dispatched
-//	a String    Row `"a"b"` unescaped    Debug `"a\"b"`, and Display is raw
+//	a String    Row and Debug `"a\"b"` (StringLiteral), and Display is raw
 //	a struct    Row sorted fields        Debug refuses a named struct; its impl,
 //	                                     which prints declaration order, is dispatched
 //	a record    Row Row leaves           Debug Debug leaves (both sorted by name)
@@ -31,12 +31,12 @@ import (
 // files in testdata/expectations pin what programs print.
 
 // RowText is how a Value reads in an assertion's `values:` row: a String is
-// quoted (without escaping) and everything else is its DisplayText. Nested
+// its literal (StringLiteral) and everything else is its DisplayText. Nested
 // values render by this same rule, so a String inside a List is quoted too.
 func RowText(v any) string {
 	v = Unbox(v)
 	if s, ok := v.(string); ok {
-		return InspectString(s)
+		return StringLiteral(s)
 	}
 	return DisplayText(v)
 }
@@ -61,7 +61,7 @@ func RowTextWith(v any, hook DebugHook) (string, error) {
 			return s
 		}
 		if s, ok := x.(string); ok {
-			return InspectString(s)
+			return StringLiteral(s)
 		}
 		switch x.(type) {
 		case *List[any], Vector[any], Map[any, any], *Record:
@@ -276,7 +276,7 @@ func DebugText(v any, hook DebugHook) (string, error) {
 	case bool:
 		return FormatBool(t), nil
 	case string:
-		return DebugString(t), nil
+		return StringLiteral(t), nil
 	case *List[any]:
 		var renderErr error
 		text := FormatListCells[any, List[any]](t, func(element any) string {
@@ -459,35 +459,4 @@ func debugSet(r *Record, hook DebugHook) (string, error) {
 		return s
 	})
 	return text, renderErr
-}
-
-// DebugString is std's `impl Debug for String`, transcribed:
-//
-//	Iter.map(s, fn g -> if g == "\\" { "\\\\" } else if g == "\"" { "\\\"" } else { g })
-//	|> String.join()  and then wrapped in quotes
-//
-// Two escapes and no more: a newline and a tab pass through raw, as std's
-// impl above does. strconv.Quote would escape both and be wrong.
-//
-// Over grapheme clusters, which is `Iter.map(s, …)`'s own unit: a backslash
-// followed by a combining mark is one cluster, so it passes through unescaped,
-// where a byte-wise replace would escape the backslash and split the
-// character.
-func DebugString(s string) string {
-	var b strings.Builder
-	b.Grow(len(s) + 2)
-	b.WriteByte('"')
-	EachGraphemeCluster(s, func(cluster string) bool {
-		switch cluster {
-		case `\`:
-			b.WriteString(`\\`)
-		case `"`:
-			b.WriteString(`\"`)
-		default:
-			b.WriteString(cluster)
-		}
-		return true
-	})
-	b.WriteByte('"')
-	return b.String()
 }

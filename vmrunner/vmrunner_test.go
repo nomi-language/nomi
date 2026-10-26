@@ -45,7 +45,7 @@ func executable(t *testing.T, runner, img []byte) string {
 }
 
 func TestRun_RunsTheImageAsNomiRunDoes(t *testing.T) {
-	img := image(t, "import std/io\n\nfn main() {\n  io.print(\"hi\")\n  case io.read_line() {\n    Ok(l) -> io.print(l)\n    Err(e) -> io.print(e)\n  }\n}\n")
+	img := image(t, "import std/io\n\nfn main() {\n  io.print(\"hi\")\n  case io.read_line() {\n    Ok(Some(l)) -> io.print(l)\n    _ -> io.print(\"none\")\n  }\n}\n")
 	var out, errOut bytes.Buffer
 	code := vmrunner.Run(img, &out, &errOut, strings.NewReader("typed\n"), nil, false)
 	if code != 0 || out.String() != "hi\ntyped\n" || errOut.Len() != 0 {
@@ -76,8 +76,8 @@ func TestRun_WriteAddsNoNewlineAndPrecedesTheRead(t *testing.T) {
 fn main() {
   io.write("> ")
   case io.read_line() {
-    Ok(l) -> io.print("got ${l}")
-    Err(e) -> io.print(e)
+    Ok(Some(l)) -> io.print("got ${l}")
+    _ -> io.print("none")
   }
   io.write(1)
   io.write([2, 3])

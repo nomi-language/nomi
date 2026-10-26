@@ -30,7 +30,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 				"fn secret(w: Widget) -> String {\n  \"secret \" + w.name\n}\n\n" +
 				"pub fn make(name: String) -> Widget {\n  #Widget{name}\n}\n",
 		},
-		want: []string{"1:1 'secret' is private and cannot be imported"},
+		want: []string{"1:19 'secret' is private and cannot be imported"},
 	}, {
 		name:     "a manifest produces the entry-point diagnostics, both directions",
 		entry:    "main",
@@ -81,7 +81,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 				"fn secret(w: Widget) -> String {\n  \"secret \" + w.name\n}\n\n" +
 				"pub fn make(name: String) -> Widget {\n  #Widget{name}\n}\n",
 		},
-		want: []string{"1:1 'secret' is private and cannot be imported"},
+		want: []string{"1:19 'secret' is private and cannot be imported"},
 	}, {
 		name:  "a single-file project checks against the standard library",
 		entry: "main",

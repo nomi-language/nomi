@@ -37,3 +37,28 @@ func (bl *irScalarBuilder) runCaptured(t *ast.Call, key string, rest ...kind) (i
 	}
 	return bl.concHostEmit(t, key, funcResult(finish), args.temps...)
 }
+
+// runOnFiles lowers std/fs_host's private `run_on(files, body, finish)`,
+// the one call `fs_host.run_in`'s body makes, as a crossing the VM answers
+// (internal/vm/sandbox.go): body runs on a frame whose file system is files
+// (a sandbox, or the directory `fs.within` confines it to), and finish,
+// which takes body's value, gives the result.
+func (bl *irScalarBuilder) runOnFiles(t *ast.Call, key string) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	if namedArgNode(t.Args) != nil || len(t.Args) != 3 {
+		return no()
+	}
+	args := bl.irQualLowerArgs(t)
+	if !args.ok {
+		return no()
+	}
+	body, finish := args.kinds[1], args.kinds[2]
+	if body.tag != tagFunc || body.comp == nil || len(funcParams(body)) != 0 {
+		return no()
+	}
+	if finish.tag != tagFunc || finish.comp == nil || len(funcParams(finish)) != 1 ||
+		funcParams(finish)[0] != funcResult(body) {
+		return no()
+	}
+	return bl.concHostEmit(t, key, funcResult(finish), args.temps...)
+}

@@ -54,21 +54,3 @@ func iterMaterializeHint(want, have Type) string {
 	}
 	return fmt.Sprintf("an Iter is not a collection; materialize it with `|> %s()`", fn)
 }
-
-// ifaceNarrows reports whether arg, an interface type, is passed where
-// param, a concrete type, is expected. A concrete type stands where its
-// interface is expected, never the reverse: an Iter is not a List.
-func ifaceNarrows(param, arg Type) bool {
-	if _, ok := resolveTV(arg).(*InterfaceType); !ok {
-		return false
-	}
-	p := resolveTV(param)
-	if p == nil || p == TypeAny || p == TypeInfallible {
-		return false
-	}
-	switch p.(type) {
-	case *InterfaceType, *TypeParam_, *TypeVar, *PartialType, *BoundAliasType:
-		return false
-	}
-	return true
-}

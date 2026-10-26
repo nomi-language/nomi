@@ -111,6 +111,28 @@ type Binding struct {
 	// (std/random's range checks); unset on the other Funcs rows, whose
 	// adapters recover.
 	PanicsPropagate bool
+	// Class is the capability the function needs from the target it runs on
+	// (ClassFiles), or "" for one every target has. `nomi build` refuses a
+	// target that lacks a class the program reaches (Classes).
+	Class string
+}
+
+// ClassFiles is the capability class of a function that reads or writes the
+// file system. A js/wasm module lacks it.
+const ClassFiles = "files"
+
+// Classes is the capability class of every host function that has one, by
+// its key.
+func Classes() map[string]string {
+	out := map[string]string{}
+	for _, rows := range [][]Binding{Funcs(), RtFuncs()} {
+		for _, b := range rows {
+			if b.Class != "" {
+				out[b.Name] = b.Class
+			}
+		}
+	}
+	return out
 }
 
 // TypeBinding pairs a Nomi `host type` name with a typed nil of the Go
@@ -400,6 +422,7 @@ func RtFuncs() []Binding {
 		{Name: "decimal.Decimal.to_float", Fn: rt.DecimalToFloat},
 		{Name: "decimal.Decimal.from_float", Fn: rt.DecimalFromFloat},
 		{Name: "decimal.Decimal.divide", Fn: rt.DecimalDivide},
+		{Name: "decimal.Decimal.divide_exact", Fn: rt.DecimalDivideExact},
 		{Name: "decimal.Decimal.round", Fn: rt.DecimalRound},
 		{Name: "decimal.Decimal.normalize", Fn: rt.DecimalNormalize},
 		{Name: "decimal.Decimal.scale", Fn: rt.DecimalScale},
@@ -411,8 +434,6 @@ func RtFuncs() []Binding {
 		{Name: "context.Context.with_deadline", Fn: rt.ContextWithDeadline},
 		{Name: "bytes.Bytes.to_list", Fn: rt.BytesToList},
 		{Name: "bytes.Bytes.from_list", Fn: rt.BytesFromList},
-		{Name: "io.read_file", Fn: stdio.ReadFile},
-		{Name: "io.write_file", Fn: stdio.WriteFile},
 		{Name: "strings.String.normalize", Fn: stdstrings.Normalize},
 		{Name: "strings.String.to_literal", Fn: stdstrings.Literal},
 		{Name: "dynamic.Dynamic.field", Fn: rt.DynamicField},
@@ -429,6 +450,58 @@ func RtFuncs() []Binding {
 		{Name: "dynamic.Dynamic.inspect", Fn: rt.DynamicInspect},
 		{Name: "json.Json.to_dynamic", Fn: rt.JsonToDynamic},
 		{Name: "io.read_line", Fn: rt.ReadLine},
+		{Name: "io.standard_input", Fn: rt.IOStdin},
+		{Name: "io.standard_output", Fn: rt.IOStdout},
+		{Name: "io.standard_error", Fn: rt.IOStderr},
+		{Name: "io.Reader.read_line", Fn: rt.ReaderReadLine},
+		{Name: "io.read_up_to", Fn: rt.ReaderRead},
+		{Name: "io.Reader.read_all", Fn: rt.ReaderReadAll},
+		{Name: "io.Reader.read_all_text", Fn: rt.ReaderReadAllText},
+		{Name: "io.Reader.copy_to", Fn: rt.ReaderCopyTo},
+		{Name: "io.Reader.close", Fn: rt.ReaderClose},
+		{Name: "io.Reader.from_bytes", Fn: rt.ReaderFromBytes},
+		{Name: "io.Reader.from_text", Fn: rt.ReaderFromText},
+		{Name: "io.Writer.write", Fn: rt.WriterWrite},
+		{Name: "io.Writer.write_text", Fn: rt.WriterWriteText},
+		{Name: "io.Writer.flush", Fn: rt.WriterFlush},
+		{Name: "io.Writer.close", Fn: rt.WriterClose},
+		{Name: "fs_host.read", Fn: stdio.Read, Class: ClassFiles},
+		{Name: "fs_host.read_text", Fn: stdio.ReadText, Class: ClassFiles},
+		{Name: "fs_host.write", Fn: stdio.Write, Class: ClassFiles},
+		{Name: "fs_host.open", Fn: stdio.Open, Class: ClassFiles},
+		{Name: "fs_host.create", Fn: stdio.Create, Class: ClassFiles},
+		{Name: "fs_host.discard", Fn: rt.WriterDiscard},
+		{Name: "fs_host.list", Fn: stdio.List, Class: ClassFiles},
+		{Name: "fs_host.create_dir", Fn: stdio.CreateDir, Class: ClassFiles},
+		{Name: "fs_host.remove", Fn: stdio.Remove, Class: ClassFiles},
+		{Name: "fs_host.remove_all", Fn: stdio.RemoveAll, Class: ClassFiles},
+		{Name: "fs_host.rename", Fn: stdio.Rename, Class: ClassFiles},
+		{Name: "fs_host.copy", Fn: stdio.Copy, Class: ClassFiles},
+		{Name: "fs_host.metadata", Fn: stdio.Metadata, Class: ClassFiles},
+		{Name: "fs_host.link_metadata", Fn: stdio.LinkMetadata, Class: ClassFiles},
+		{Name: "fs_host.create_symlink", Fn: stdio.CreateSymlink, Class: ClassFiles},
+		{Name: "fs_host.read_link", Fn: stdio.ReadLink, Class: ClassFiles},
+		{Name: "fs_host.set_mode", Fn: stdio.SetMode, Class: ClassFiles},
+		{Name: "fs_host.open_file", Fn: stdio.OpenFile, Class: ClassFiles},
+		{Name: "fs_host.within", Fn: stdio.Within, Class: ClassFiles},
+		{Name: "fs_host.release", Fn: stdio.Release},
+		{Name: "io.file_read", Fn: rt.FileRead},
+		{Name: "io.File.read_at", Fn: rt.FileReadAt},
+		{Name: "io.File.write", Fn: rt.FileWrite},
+		{Name: "io.File.write_at", Fn: rt.FileWriteAt},
+		{Name: "io.File.seek", Fn: rt.FileSeek},
+		{Name: "io.File.position", Fn: rt.FilePosition},
+		{Name: "io.File.size", Fn: rt.FileSize},
+		{Name: "io.File.truncate", Fn: rt.FileTruncate},
+		{Name: "io.File.close", Fn: rt.FileClose},
+		{Name: "fs_host.temp_dir", Fn: stdio.TempDir, Class: ClassFiles},
+		{Name: "fs_host.make_temp_dir", Fn: stdio.MakeTempDir, Class: ClassFiles},
+		{Name: "fs_host.current_dir", Fn: stdio.CurrentDir, Class: ClassFiles},
+		{Name: "fs_host.new_sandbox", Fn: stdio.NewSandbox},
+		{Name: "fs_host.sandbox_fail", Fn: stdio.SandboxFail},
+		{Name: "fs_host.sandbox_files", Fn: stdio.SandboxFiles},
+		{Name: "fs_host.sandbox_log", Fn: stdio.SandboxLog},
+		{Name: "fs_host.sandbox_open", Fn: stdio.SandboxOpen},
 	}
 	for i := range rows {
 		rows[i].PanicsPropagate = true

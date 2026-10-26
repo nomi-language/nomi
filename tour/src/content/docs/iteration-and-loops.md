@@ -77,7 +77,7 @@ import std/io
 
 fn main() {
     Iter.loop(fn -> {
-        Ok(line) = io.read_line() else { break }
+        Ok(Some(line)) = io.read_line() else { break }
         if line == "" { continue }
         if line == "quit" { break }
         io.print(line)

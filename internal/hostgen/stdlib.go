@@ -177,8 +177,8 @@ func FindHostFunc(ms *Modules, module, key string) (HostFunc, error) {
 	}
 	if len(found) > 1 {
 		// An inherent declaration and an interface impl's may both answer a
-		// fallback spelling (`decimal.Decimal.divide` is the inherent
-		// `divide` and, less specifically, `impl Divide<Decimal, Decimal>`'s).
+		// fallback spelling (`decimal.Decimal.f` for an inherent `f` and,
+		// less specifically, for an impl's `f` on Decimal).
 		// The declaration whose most specific key is this one wins, which is
 		// the front end's rule: inherent beats interface impl.
 		var exact []HostFunc

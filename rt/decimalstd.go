@@ -92,15 +92,30 @@ func DecimalFromFloat(f float64, scale int64, mode RoundingMode) Maybe[Decimal] 
 	return Some(rounded)
 }
 
-// DecimalDivide is `Decimal.divide`: the explicit-rounding division, as opposed
-// to the `/` operator, which is exact-or-trap. Traps on a zero divisor and on
-// RoundUnnecessary when the exact quotient does not fit at scale.
+// DecimalDivide is `Decimal.divide`: the explicit-rounding division. Traps on
+// a zero divisor and on RoundUnnecessary when the exact quotient does not fit
+// at scale.
 func DecimalDivide(a, b Decimal, scale int64, mode RoundingMode) Decimal {
 	res, err := a.DivRound(b, int32(scale), mode)
 	if err != nil {
 		decimalFault("Decimal.divide", err)
 	}
 	return res
+}
+
+// DecimalDivideExact is `Decimal.divide_exact`: the exact quotient at its
+// preferred scale (DivExact), or None when it does not terminate in base 10.
+// A zero divisor traps with Int's `/` text, which the VM prefixes with the
+// call's line.
+func DecimalDivideExact(a, b Decimal) Maybe[Decimal] {
+	if b.IsZero() {
+		Trap(divByZeroMessage)
+	}
+	q, exact := a.DivExact(b)
+	if !exact {
+		return None[Decimal]()
+	}
+	return Some(q)
 }
 
 // DecimalRound is `Decimal.round`: quantize to exactly scale digits.

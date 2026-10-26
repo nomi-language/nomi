@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ffirun"
@@ -35,7 +36,7 @@ import (
 // A program the front end rejects, or one the VM would block, is refused with
 // the text `nomi run` prints, and nothing is written.
 
-const buildUsage = "usage: nomi build <file.nomi> [-o <out>] [--target <goos>/<goarch> | --web [--static <dir>] | --no-vm]"
+const buildUsage = "usage: nomi build <file.nomi> [-o <out>] [--target <goos>/<goarch> | --web [--static <dir>] | --no-vm] [--allow-unsupported <class>]"
 
 // errBuildRefused is a build that already reported why on stderr.
 var errBuildRefused = errors.New("build refused")
@@ -55,7 +56,13 @@ type buildArgs struct {
 	// noVM writes the program alone as a .nomic file, for a nomi-vm that
 	// does not embed it (vmrunner/imagefile.go).
 	noVM bool
+	// allowUnsupported are the capability classes (`files`) the build may
+	// reach although its target lacks them (vmhost.CheckTarget).
+	allowUnsupported []string
 }
+
+// capabilityClasses are the classes --allow-unsupported names.
+var capabilityClasses = []string{vmhost.ClassFiles}
 
 func parseBuildArgs(args []string) (buildArgs, error) {
 	var b buildArgs
@@ -89,6 +96,19 @@ func parseBuildArgs(args []string) (buildArgs, error) {
 			}
 		case arg == "--web":
 			b.web = true
+		case arg == "--allow-unsupported" || strings.HasPrefix(arg, "--allow-unsupported="):
+			v, inline := strings.CutPrefix(arg, "--allow-unsupported=")
+			if !inline {
+				var err error
+				if v, err = value(); err != nil {
+					return b, err
+				}
+			}
+			if !slices.Contains(capabilityClasses, v) {
+				return b, fmt.Errorf("nomi build: --allow-unsupported takes a capability class (%s); got %q",
+					strings.Join(capabilityClasses, ", "), v)
+			}
+			b.allowUnsupported = append(b.allowUnsupported, v)
 		case arg == "--no-vm":
 			b.noVM = true
 		case arg == "--static" || strings.HasPrefix(arg, "--static="):
@@ -190,9 +210,6 @@ func build(b buildArgs, stderr io.Writer) error {
 		}
 	}
 	res, err := ffirun.Prepare(absPath)
-	if b.web && hasGoBindings(res, err) {
-		return errWebGoBindings
-	}
 	if b.noVM && hasGoBindings(res, err) {
 		return errNoVMGoBindings
 	}
@@ -210,6 +227,15 @@ func build(b buildArgs, stderr io.Writer) error {
 			return errBuildRefused
 		}
 		reactor = b.target == wasip1 && p.HasExports()
+		if !b.noVM {
+			if refused := p.CheckTarget(buildCommand(b), b.target.GOOS, b.target.GOARCH, b.web || reactor, b.allowUnsupported); refused != nil {
+				refused.Write(stderr)
+				return errBuildRefused
+			}
+			if b.web && p.Uses(vmhost.ClassFiles, true) {
+				fmt.Fprintln(stderr, vmhost.WebFilesNote)
+			}
+		}
 		buildImage := p.BuildImage
 		// A .nomic carries the exported functions too, for a reactor
 		// to load (`nomi build-vm --reactor`).
@@ -248,13 +274,15 @@ func build(b buildArgs, stderr io.Writer) error {
 		if err := ffirun.CheckProjectBuild(); err != nil {
 			return fmt.Errorf("nomi build: %w", err)
 		}
-		dir, err := os.MkdirTemp("", "nomi-build-")
-		if err != nil {
-			return err
-		}
-		defer os.RemoveAll(dir)
-		imagePath := filepath.Join(dir, "image")
-		built, report, ok, err := ffirun.BuildImageVM(res, absPath, imagePath)
+		// The wrapper lowers the program with the project's bindings, and
+		// the runner links them: for --web a js/wasm module, as for
+		// --target js/wasm.
+		built, report, ok, err := ffirun.BuildImageVM(res, absPath, ffirun.ImageBuild{
+			Command: buildCommand(b),
+			Target:  b.target,
+			Web:     b.web,
+			Allowed: b.allowUnsupported,
+		})
 		if err != nil {
 			return fmt.Errorf("nomi build: %w", err)
 		}
@@ -265,8 +293,12 @@ func build(b buildArgs, stderr io.Writer) error {
 		if b.target == wasip1 && built.HasExports {
 			return errReactorGoBindings
 		}
-		if image, err = os.ReadFile(imagePath); err != nil {
-			return err
+		image = built.Image
+		if b.web {
+			if built.UsesFiles {
+				fmt.Fprintln(stderr, vmhost.WebFilesNote)
+			}
+			decls, localeFiles = built.Declarations, built.LocaleFiles
 		}
 		if runner, err = ffirun.ProjectRunner(res, b.target, built.UsesCompiler); err != nil {
 			return fmt.Errorf("nomi build: %w", err)
@@ -284,6 +316,15 @@ func build(b buildArgs, stderr io.Writer) error {
 		}
 	}
 	return nil
+}
+
+// buildCommand is the build as a report names it: `nomi build --web`, or
+// `nomi build --target goos/goarch`.
+func buildCommand(b buildArgs) string {
+	if b.web {
+		return "nomi build --web"
+	}
+	return "nomi build --target " + b.target.GOOS + "/" + b.target.GOARCH
 }
 
 // programEntry is the absolute path of entry, the program `nomi <cmd>`
@@ -308,7 +349,7 @@ func programEntry(cmd, entry string) (string, error) {
 }
 
 // hasGoBindings reports whether ffirun.Prepare's answer is a project with Go
-// bindings, which a browser build cannot link.
+// bindings, which only a runner built with them can answer.
 func hasGoBindings(res *ffirun.Result, err error) bool {
 	return err == nil && !res.FastPath || ffirun.NeedsCompilerSource(err)
 }

@@ -1593,10 +1593,13 @@ func (c *checker) checkMainReturn(fn *ast.FuncDef) {
 // ffirun.GoImportProblem is the rule, the one a run's FFI validation applies;
 // before this the checker accepted such a path and the IR builder declined
 // every body bound through it. A file with no path (an untitled editor
-// buffer, a source string) gets the import path check only.
+// buffer, a source string) gets the import path check only, and so does an
+// in-memory sibling such as a tour block's (ffirun.InMemoryFile): the host
+// table its program is loaded with answers its bindings, as the IR builder
+// lowers them (hostModuleOf).
 func (c *checker) checkGoImport(n *ast.ExternPackage) {
 	why := ffirun.GoImportPathProblem(n.ImportPath)
-	if why == "" && c.fa.FilePath != "" {
+	if why == "" && c.fa.FilePath != "" && !ffirun.InMemoryFile(c.fa.FilePath) {
 		why = ffirun.GoImportProblem(c.fa.FilePath, n.ImportPath)
 	}
 	if why == "" {
@@ -2869,7 +2872,7 @@ func (c *checker) checkImportVisibility(n *ast.ImportStmt) {
 				}
 				continue
 			}
-			c.addError(nameNode.LineNum(), 1, fmt.Sprintf(
+			c.addErrorAt(nameNode, fmt.Sprintf(
 				"'%s' is private and cannot be imported", origName))
 		}
 	}
@@ -4444,11 +4447,11 @@ func (c *checker) checkMapLitExpecting(n *ast.MapLit, keyTy, valTy Type) Type {
 	for _, entry := range n.Entries {
 		kt := c.checkNodeExpecting(entry.Key, keyTy)
 		if kt != nil && !c.litOpenElemFits(keyTy, kt) && !c.litElemFits(keyTy, kt, entry.Key) {
-			c.addMismatch(n.Line, 1, keyTy, kt, c.typef("map key type mismatch: expected %s, got %s", keyTy, kt))
+			c.addMismatchAt(entry.Key, keyTy, kt, c.typef("map key type mismatch: expected %s, got %s", keyTy, kt))
 		}
 		vt := c.checkNodeExpecting(entry.Value, valTy)
 		if vt != nil && !c.litOpenElemFits(valTy, vt) && !c.litElemFits(valTy, vt, entry.Value) {
-			c.addMismatch(n.Line, 1, valTy, vt, c.typef("map value type mismatch: expected %s, got %s", valTy, vt))
+			c.addMismatchAt(entry.Value, valTy, vt, c.typef("map value type mismatch: expected %s, got %s", valTy, vt))
 		}
 	}
 	return &MapType{Key: keyTy, Val: valTy}
@@ -6722,6 +6725,10 @@ func (c *checker) checkOperatorBinary(n *ast.Binary, left, right, expected Type)
 	if !ok {
 		return left
 	}
+	if n.Op == "/" && decimalDivision(left, right) {
+		c.addError(n.Line, n.Col, decimalDivisionMessage)
+		return TypeDecimal
+	}
 	if result, ok := c.checkOperatorInterface(n, opIface, left, right, expected); ok {
 		return result
 	}
@@ -6742,6 +6749,33 @@ func (c *checker) checkOperatorBinary(n *ast.Binary, left, right, expected Type)
 	c.addError(n.Line, n.Col, fmt.Sprintf(
 		"binary %s operands must use a left-hand type that implements %s, got %s", n.Op, opIface.Interface, left))
 	return left
+}
+
+// decimalDivisionMessage is the error at a `/` with a Decimal operand.
+// Decimal has no `/`: whether an exact quotient terminates depends on the
+// divisor's value, so an operator that stopped the program on `10d / 3d`
+// would pass tests that divide by 2 and stop in production on 3. The two
+// functions it names are the divisions std/decimal declares.
+const decimalDivisionMessage = "Decimal has no `/`: write `Decimal.divide(a, b, scale, mode)` to round, " +
+	"or `Decimal.divide_exact(a, b)` for a quotient that must terminate"
+
+// decimalDivision reports whether `left / right` divides a Decimal: a
+// Decimal on the left, or one on the right of an Int, a Float or a value
+// whose type is not known yet. A Decimal on the right of any other type is
+// that type's own `Divide` impl to answer (`impl Divide<Decimal, Money> for
+// Money`).
+func decimalDivision(left, right Type) bool {
+	l, r := resolveTypeVar(left), resolveTypeVar(right)
+	if l == TypeDecimal {
+		return true
+	}
+	if r != TypeDecimal {
+		return false
+	}
+	if _, unknown := l.(*TypeVar); unknown {
+		return true
+	}
+	return l == TypeInt || l == TypeFloat
 }
 
 func (c *checker) checkOperatorInterface(n *ast.Binary, opIface operatorInterface, left, right, expected Type) (Type, bool) {
@@ -7062,11 +7096,11 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 		// so its count is checked here (`x |> f()` for a two-parameter f).
 		if got := len(pipeCall.Args) + argShift; got > len(ft.Params) {
 			if ft.DefaultCount > 0 {
-				c.addError(pipeCall.Line, 1, fmt.Sprintf(
-					"expected %d to %d arguments, got %d (counting the piped value)", len(ft.Params)-ft.DefaultCount, len(ft.Params), got))
+				c.report(arityError(pipeCall, pipeCall.Args, len(ft.Params), argShift, fmt.Sprintf(
+					"expected %d to %d arguments, got %d (counting the piped value)", len(ft.Params)-ft.DefaultCount, len(ft.Params), got)))
 			} else {
-				c.addError(pipeCall.Line, 1, fmt.Sprintf(
-					"expected %d arguments, got %d (counting the piped value)", len(ft.Params), got))
+				c.report(arityError(pipeCall, pipeCall.Args, len(ft.Params), argShift, fmt.Sprintf(
+					"expected %d arguments, got %d (counting the piped value)", len(ft.Params), got)))
 			}
 		} else if ft.DefaultCount > 0 && got < len(ft.Params) && c.calleeIsNamelessValue(pipeCall.Func) && !c.calleeCopiesADeclaration(pipeCall.Func) {
 			// Defaults belong to a declaration, as in checkCall: a pipe
@@ -7079,17 +7113,17 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 				// Reported: the callee holds a named function whose
 				// defaults apply only to a call of it by name.
 			} else if ft.DefaultCount > 0 {
-				c.addError(pipeCall.Line, 1, fmt.Sprintf(
-					"expected %d to %d arguments, got %d (counting the piped value)", fewest, len(ft.Params), got))
+				c.report(errAt(pipeCall, fmt.Sprintf(
+					"expected %d to %d arguments, got %d (counting the piped value)", fewest, len(ft.Params), got)))
 			} else {
-				c.addError(pipeCall.Line, 1, fmt.Sprintf(
-					"expected %d arguments, got %d (counting the piped value)", fewest, got))
+				c.report(errAt(pipeCall, fmt.Sprintf(
+					"expected %d arguments, got %d (counting the piped value)", fewest, got)))
 			}
 		}
 		pipeSlots = computePipeArgSlots(pipeCall.Args, argShift, c.callDefParams(pipeCall.Func), ft.Params)
 		c.routeAroundSeed(pipeCall, pipeCall.Args, pipeSlots, len(ft.Params))
 		for _, na := range positionalNamedConflicts(pipeCall.Args, pipeSlots, c.callDefParams(pipeCall.Func), argShift) {
-			c.addError(na.Line, 1, fmt.Sprintf("parameter '%s' already has a value", na.Name))
+			c.report(errAt(na, fmt.Sprintf("parameter '%s' already has a value", na.Name)))
 		}
 		c.checkRequiredSlotsFilled(pipeCall, pipeCall.Args, pipeSlots, pipedSlot, ft.Params)
 	}
@@ -7756,6 +7790,23 @@ func interfaceBoundNames(bounds []*InterfaceType) string {
 	return strings.Join(names, ", ")
 }
 
+// arityError is msg, a wrong argument count at call, placed where the
+// count goes wrong: over the arguments past the callee's last parameter
+// when there are too many, and over the call when there are too few. args
+// are the arguments the call writes, params the callee's parameter count,
+// and shift the arguments it passes that args does not hold (1 for a pipe
+// stage's piped value).
+func arityError(call *ast.Call, args []ast.Node, params, shift int, msg string) TypeError {
+	if first := params - shift; first >= 0 && first < len(args) {
+		e := errAt(args[first], msg)
+		if sp, ok := spanOf(args[len(args)-1]); ok && e.EndLine > 0 {
+			e.EndLine, e.EndCol = sp.EndLine, sp.EndCol
+		}
+		return e
+	}
+	return errAt(call, msg)
+}
+
 func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 	if _, ok := n.Func.(*ast.SelfExpr); ok {
 		return c.checkSelfCall(n)
@@ -8014,11 +8065,11 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 			// Reported: the callee holds a named function whose defaults
 			// apply only to a call of it by name.
 		} else if ft.DefaultCount > 0 {
-			c.addError(n.Line, 1, fmt.Sprintf(
-				"expected %d to %d arguments, got %d", minArgs, len(ft.Params), len(n.Args)))
+			c.report(arityError(n, n.Args, len(ft.Params), 0, fmt.Sprintf(
+				"expected %d to %d arguments, got %d", minArgs, len(ft.Params), len(n.Args))))
 		} else {
-			c.addError(n.Line, 1, fmt.Sprintf(
-				"expected %d arguments, got %d", len(ft.Params), len(n.Args)))
+			c.report(arityError(n, n.Args, len(ft.Params), 0, fmt.Sprintf(
+				"expected %d arguments, got %d", len(ft.Params), len(n.Args))))
 		}
 	}
 
@@ -8031,7 +8082,7 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 	posSlots := computePositionalSlots(n.Args, ft.Params, c.callDefParams(n.Func))
 	if !isDispatch {
 		for _, na := range positionalNamedConflicts(n.Args, posSlots, c.callDefParams(n.Func), 0) {
-			c.addError(na.Line, 1, fmt.Sprintf("parameter '%s' already has a value", na.Name))
+			c.report(errAt(na, fmt.Sprintf("parameter '%s' already has a value", na.Name)))
 		}
 		if len(n.Args) >= minArgs && len(n.Args) <= len(ft.Params) {
 			c.checkRequiredSlotsFilled(n, n.Args, posSlots, -1, ft.Params)
@@ -8246,6 +8297,11 @@ func (c *checker) checkOperatorInterfaceCall(n *ast.Call, expected Type) (Type, 
 	if left == nil || right == nil {
 		return nil, true
 	}
+	if opIface.Op == "/" && decimalDivision(left, right) {
+		at := operandPos(n, n.Line, n.Col)
+		c.addError(at.Line, at.Col, decimalDivisionMessage)
+		return TypeDecimal, true
+	}
 	rhsExpected, result, matched, ambiguous, _ := c.selectOperatorImpl(opIface, left, right, expected)
 	if len(ambiguous) > 0 {
 		at := operandPos(n, n.Line, n.Col)
@@ -8408,11 +8464,11 @@ func (c *checker) isTestingCheckCall(n *ast.Call) bool {
 func (c *checker) checkTestingCheckCall(n *ast.Call) Type {
 	line, col := testingCheckKeywordPos(n)
 	if len(n.Args) != 1 {
-		c.addError(n.Line, 1, fmt.Sprintf("testing.check expects 1 argument, got %d", len(n.Args)))
+		c.report(arityError(n, n.Args, 1, 0, fmt.Sprintf("testing.check expects 1 argument, got %d", len(n.Args))))
 		return c.resultType(TypeUnit, c.assertionFailureType())
 	}
 	if _, ok := n.Args[0].(*ast.NamedArg); ok {
-		c.addError(n.Line, 1, "testing.check expects a positional argument")
+		c.report(errAt(n.Args[0], "testing.check expects a positional argument"))
 		return c.resultType(TypeUnit, c.assertionFailureType())
 	}
 
@@ -8509,8 +8565,7 @@ func (c *checker) checkRequiredSlotsFilled(call *ast.Call, args []ast.Node, slot
 				break
 			}
 		}
-		line, col := stmtStart(call)
-		c.addError(line, col, msg)
+		c.report(errAt(call, msg))
 		return
 	}
 }
@@ -8951,48 +9006,9 @@ func containsTypeVar(t Type) bool {
 	return false
 }
 
-// shouldReportUnifyError decides whether a failed unification in a generic
-// call should surface as a user-visible type error. We report when the
-// parameter's shape is statically fixed by the signature — interface-typed
-// parameters with fixed type-arg shapes (e.g. Iter<#(K, V)>) and
-// anon-struct parameters whose fields commit to a constructed shape (e.g.
-// #{tail: List<T>}). Other unification failures — partially-solved lambda
-// bodies, bare-TypeParam parameters, etc. — are left for downstream checks
-// to surface so we don't regress historically permissive inference paths.
-func shouldReportUnifyError(paramTy, argTy Type) bool {
-	switch p := paramTy.(type) {
-	case *InterfaceType:
-		if len(p.TypeArgs) == 0 {
-			return false
-		}
-		for _, a := range p.TypeArgs {
-			switch a.(type) {
-			case *TupleType, *PrimitiveType, *ListType, *MapType, *StructType, *EnumType, *DistinctType:
-				return true
-			}
-		}
-		return false
-	case *AnonStructType:
-		// *AnonStructType in the inner switch covers nested anon-struct
-		// fields (e.g. #{pair: #{a: Int, b: Int}}); the InterfaceType branch
-		// omits it because anon-struct interface type-args are unused today.
-		for _, f := range p.Fields {
-			switch f.Type.(type) {
-			case *TupleType, *PrimitiveType, *ListType, *MapType, *StructType, *EnumType, *DistinctType, *AnonStructType:
-				return true
-			}
-		}
-		return false
-	}
-	return false
-}
-
 // isSolvedParam reports whether a parameter type, after substituting the
 // type params solved by earlier arguments, has become fully concrete (no
-// unsolved type param and no inference var). When it has, a later argument
-// that fails to unify is a genuine multi-occurrence conflict — the type var
-// was pinned by an earlier argument — and must be enforced, rather than left
-// to the permissive `shouldReportUnifyError` fallback.
+// unsolved type param and no inference var).
 func isSolvedParam(substituted Type) bool {
 	return substituted != nil && !ContainsTypeParam(substituted) && !containsTypeVar(substituted)
 }
@@ -9078,14 +9094,12 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 		}
 	}
 	substituted := Substitute(param, subs)
-	// An interface value never stands where a concrete type is expected,
-	// whatever the type variables solve to: `fn f<T>(xs: List<T>)` called
-	// with an Iter.
-	if ifaceNarrows(substituted, argTy) {
-		c.report(expectedGot(substituted).WithHint(mismatchHint(substituted, argTy)))
-		return
-	}
-	if isSolvedParam(substituted) {
+	// A parameter the earlier arguments made concrete, or that holds only
+	// the enclosing function's own type parameters (rigid here), admits the
+	// relations argSatisfiesConcreteParam names beyond unification: an
+	// interface impl, a patch for a Partial<T>, any function for a
+	// Unit-result callback (`Iter.each(xs, fn _x -> 5)` in a generic body).
+	if substituted != nil && !c.containsForeignTypeParam(substituted) && !containsTypeVar(substituted) {
 		if !c.argSatisfiesConcreteParam(argTy, substituted, line, col) {
 			hint := c.defaultedFuncValueHint(substituted, argTy, arg)
 			if hint == "" {
@@ -9095,38 +9109,17 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 		}
 		return
 	}
-	// A function value with the wrong number of parameters never unifies,
-	// whatever the type variables solve to. The permissive fallback below
-	// let `Maybe.map(m, parse)` through for a `parse` with a defaulted second
-	// parameter, and the program was BLOCKED at run time.
-	if funcArityDiffers(substituted, argTy) {
-		c.report(expectedGot(substituted).WithHint(c.defaultedFuncValueHint(substituted, argTy, arg)).WithHint(mismatchHint(substituted, argTy)))
+	// A patch for a Partial<T> whose T no argument has solved yet
+	// (`Struct.update(updates: p, original: u)`, the patch named first) is
+	// not judged here: what it may hold depends on the struct T becomes.
+	if pt, ok := resolveTV(substituted).(*PartialType); ok && (ContainsTypeParam(pt.Inner) || containsTypeVar(pt.Inner)) {
 		return
 	}
-	// A function value is never a non-function, and the reverse: no
-	// substitution turns `(String) -> Maybe<Int>` into a `Maybe<T>`. The
-	// permissive fallback below let `Maybe.with_default(f, 0)` through, and
-	// the program was BLOCKED at run time (func_value_shape.go).
-	if funcShapeDiffers(substituted, argTy) {
-		c.report(expectedGot(substituted))
-		return
-	}
-	// The same holds for any two different type constructors: no
-	// substitution makes a `Set<T>` of Unit or a `List<T>` of a String. The
-	// fallback below let `Set.size({})` through, and the program could not
-	// run.
-	if headDiffers(substituted, argTy) {
-		c.report(expectedGot(substituted))
-		return
-	}
-	if !shouldReportUnifyError(param, argTy) {
-		return
-	}
-	if pipe != nil {
-		c.report(c.pipeHeadMismatch(pipe, substituted, argTy).WithHint(mismatchHint(substituted, argTy)))
-		return
-	}
-	c.addMismatch(line, col, substituted, argTy, c.typef("%s: expected %s, got %s", label, substituted, argTy))
+	// Every other failed unification is the argument's error: the parameter
+	// still holds a type parameter, and no solution of it makes the argument
+	// fit (`#(Float, T)` given `#(Int, String)`, `Set<T>` given Unit,
+	// `Maybe<T>` given a function), so the call could never be lowered.
+	c.report(expectedGot(substituted).WithHint(c.defaultedFuncValueHint(substituted, argTy, arg)).WithHint(mismatchHint(substituted, argTy)))
 }
 
 // functionJoinHint explains a rejected argument whose function type would be
@@ -9436,11 +9429,11 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		if c.tooFewThroughFuncValue(n, len(ft.Params), len(n.Args), false) {
 			// Reported, as in checkCall.
 		} else if ft.DefaultCount > 0 {
-			c.addError(n.Line, 1, fmt.Sprintf(
-				"expected %d to %d arguments, got %d", minArgs, len(ft.Params), len(n.Args)))
+			c.report(arityError(n, n.Args, len(ft.Params), 0, fmt.Sprintf(
+				"expected %d to %d arguments, got %d", minArgs, len(ft.Params), len(n.Args))))
 		} else {
-			c.addError(n.Line, 1, fmt.Sprintf(
-				"expected %d arguments, got %d", len(ft.Params), len(n.Args)))
+			c.report(arityError(n, n.Args, len(ft.Params), 0, fmt.Sprintf(
+				"expected %d arguments, got %d", len(ft.Params), len(n.Args))))
 		}
 	}
 
@@ -9453,8 +9446,8 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	if n.TypeArgs != nil {
 		tps := collectOrderedTypeParams(ft)
 		if len(n.TypeArgs) != len(tps) {
-			c.addError(n.Line, 1, fmt.Sprintf(
-				"expected %d type argument(s), got %d", len(tps), len(n.TypeArgs)))
+			c.report(errAt(n, fmt.Sprintf(
+				"expected %d type argument(s), got %d", len(tps), len(n.TypeArgs))))
 		}
 		// A type argument that names no type is the error an annotation
 		// naming it gives (`unknown type "Nope"`); ignoring it let
@@ -9548,7 +9541,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	posSlots := computePositionalSlots(n.Args, ft.Params, defParams)
 	c.routeAroundSeed(n, n.Args, posSlots, len(ft.Params))
 	for _, na := range positionalNamedConflicts(n.Args, posSlots, c.callDefParams(n.Func), 0) {
-		c.addError(na.Line, 1, fmt.Sprintf("parameter '%s' already has a value", na.Name))
+		c.report(errAt(na, fmt.Sprintf("parameter '%s' already has a value", na.Name)))
 	}
 	if len(n.Args) >= minArgs && len(n.Args) <= len(ft.Params) {
 		c.checkRequiredSlotsFilled(n, n.Args, posSlots, -1, ft.Params)
@@ -9562,7 +9555,10 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		arg := n.Args[i]
 		slot := i
 		label := positionalArgLabel(i)
-		errLine, errCol := n.Line, 1
+		errLine, errCol := nodeLineCol(arg)
+		if errLine == 0 {
+			errLine, errCol = n.Line, 1
+		}
 		if na, ok := arg.(*ast.NamedArg); ok {
 			slot = namedArgSlot(na.Name, defParams)
 			label = namedArgLabel(na.Name)
@@ -10493,13 +10489,13 @@ func (c *checker) checkTupleDistinctArgs(n *ast.Call, dt *DistinctType, inner *T
 		// exactly one argument).
 		if _, isTuple := resolveTypeVar(argTy).(*TupleType); isTuple {
 			if err := c.unify(inner, argTy, nil); err != nil {
-				c.addError(n.Line, 1, err.Error())
+				c.report(errAt(n.Args[0], err.Error()))
 			}
 			return
 		}
 		// Single non-tuple arg.
 		if argTy != nil {
-			c.addMismatch(n.Line, 1, inner, argTy, c.typef("%s wraps %s, got %s", dt.Name, inner, argTy))
+			c.addMismatch(argLine, argCol, inner, argTy, c.typef("%s wraps %s, got %s", dt.Name, inner, argTy))
 		}
 		return
 	}
@@ -10509,8 +10505,8 @@ func (c *checker) checkTupleDistinctArgs(n *ast.Call, dt *DistinctType, inner *T
 	for _, arg := range n.Args {
 		c.checkNode(arg)
 	}
-	c.report(TypeError{Line: n.Line, Col: 1, Message: fmt.Sprintf(
-		"%s takes one argument, its tuple %s; got %d", dt.Name, inner, len(n.Args))}.WithHint(fmt.Sprintf(
+	c.report(arityError(n, n.Args, 1, 0, fmt.Sprintf(
+		"%s takes one argument, its tuple %s; got %d", dt.Name, inner, len(n.Args))).WithHint(fmt.Sprintf(
 		"build it from the elements with `#%s(...)`, or from a tuple with `%s(#(...))`", dt.Name, dt.Name)))
 }
 
@@ -10544,9 +10540,9 @@ func (c *checker) checkStructCallForm(n *ast.Call, st *StructType) Type {
 		for _, arg := range n.Args {
 			c.checkNode(arg)
 		}
-		c.addError(n.Line, 1, fmt.Sprintf(
+		c.report(arityError(n, n.Args, 1, 0, fmt.Sprintf(
 			"%s takes 1 argument, got %d; expected %s(#{...}) with the struct's fields",
-			st.Name, len(n.Args), st.Name))
+			st.Name, len(n.Args), st.Name)))
 		return st
 	}
 
@@ -10577,7 +10573,7 @@ func (c *checker) checkStructCallForm(n *ast.Call, st *StructType) Type {
 	if anon, ok := resolveTypeVar(argTy).(*AnonStructType); ok {
 		return c.checkAnonStructTypeAgainstStruct(arg, anon, st)
 	}
-	c.addError(arg.LineNum(), 1, fmt.Sprintf(
+	c.addErrorAt(arg, fmt.Sprintf(
 		"%s expects an anonymous struct literal #{...} matching its fields, got %s",
 		st.Name, formatTypeForError(argTy)))
 	return st
@@ -10623,10 +10619,7 @@ func (c *checker) checkPipedStructCallForm(call *ast.Call, piped ast.Node, piped
 	if anon, ok := resolveTypeVar(pipedTy).(*AnonStructType); ok {
 		return c.checkAnonStructTypeAgainstStruct(piped, anon, st)
 	}
-	line, col := nodeLineCol(piped)
-	if line == 0 {
-		line, col = piped.LineNum(), 1
-	}
+	line, col := startOf(piped)
 	c.addError(line, col, fmt.Sprintf(
 		"%s expects an anonymous struct literal #{...} matching its fields, got %s",
 		st.Name, formatTypeForError(pipedTy)))
@@ -10658,13 +10651,7 @@ func (c *checker) checkAnonStructTypeAgainstStruct(at ast.Node, anon *AnonStruct
 	subs := map[*TypeParam_]Type{}
 	canInferArgs := len(st.TypeParamDefs) > 0 && len(st.TypeArgs) == 0
 
-	// nodeLineCol gives the argument's own column where it knows one; the
-	// non-literal arm's existing refusal used `arg.LineNum()` with column 1
-	// and that stays the fallback for a node shape it has no case for.
-	line, col := nodeLineCol(at)
-	if line == 0 {
-		line, col = at.LineNum(), 1
-	}
+	line, col := startOf(at)
 
 	provided := make(map[string]bool, len(anon.Fields))
 	for _, f := range anon.Fields {
@@ -12270,7 +12257,7 @@ func (c *checker) outerValueNamed(n *ast.If, p *ast.IdentPattern) *Symbol {
 
 func (c *checker) checkIfWithConditionType(n *ast.If, condTy Type, expected Type) Type {
 	if condTy != nil && !TypesEqual(condTy, TypeBool) {
-		c.addError(n.Line, 1, fmt.Sprintf(
+		c.addErrorAt(n.Cond, fmt.Sprintf(
 			"if condition must be Bool, got %s", condTy))
 	}
 	return c.checkIfBranches(n, condTy, expected, false, nil, nil)
@@ -12326,7 +12313,7 @@ func (c *checker) checkIfBranches(n *ast.If, condTy Type, expected Type, pattern
 		// pre-existing stdlib shapes.
 		if err := c.unify(thenTy, elseTy, nil); err != nil {
 			if !TypesEqual(thenTy, elseTy) {
-				c.addError(n.Line, 1, c.typef(
+				c.addErrorAt(valueExpr(n.Else), c.typef(
 					"if/else branch type mismatch: then is %s, else is %s", thenTy, elseTy))
 			}
 		} else {
@@ -13563,7 +13550,7 @@ func (c *checker) checkListLit(n *ast.ListLit) Type {
 			}
 			itemLine, itemCol := nodeLineCol(item)
 			if !c.argMatchesParam(ty, lt.Elem, c.recPos(itemLine, itemCol), RecordingKindCallSite) {
-				c.addMismatch(item.LineNum(), 1, lt.Elem, ty, c.typef("%s element type: expected %s, got %s", typeName, lt.Elem, ty))
+				c.addMismatchAt(item, lt.Elem, ty, c.typef("%s element type: expected %s, got %s", typeName, lt.Elem, ty))
 			}
 		}
 		return dt
@@ -13857,7 +13844,7 @@ func (c *checker) checkListSpreadLit(n *ast.ListSpreadLit) Type {
 		if elemTy == nil {
 			elemTy = ht
 		} else if err := UnifyWithImpls(elemTy, ht, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
-			c.addError(n.Line, 1, c.typef(
+			c.addErrorAt(h, c.typef(
 				"list element type mismatch: %s vs %s", elemTy, ht))
 		}
 	}
@@ -13877,7 +13864,7 @@ func (c *checker) checkListSpreadLit(n *ast.ListSpreadLit) Type {
 			if elemTy == nil {
 				elemTy = lt.Elem
 			} else if err := UnifyWithImpls(elemTy, lt.Elem, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
-				c.addError(n.Line, 1, c.typef(
+				c.addErrorAt(n.TailSpread, c.typef(
 					"list spread tail element type mismatch: %s vs %s", elemTy, lt.Elem))
 			}
 		}
@@ -14004,12 +13991,12 @@ func (c *checker) checkMapLit(n *ast.MapLit) Type {
 			kt := c.checkNodeExpecting(entry.Key, mt.Key)
 			keyLine, keyCol := nodeLineCol(entry.Key)
 			if kt != nil && !c.argMatchesParam(kt, mt.Key, c.recPos(keyLine, keyCol), RecordingKindCallSite) {
-				c.addMismatch(entry.Key.LineNum(), 1, mt.Key, kt, c.typef("%s key type: expected %s, got %s", typeName, mt.Key, kt))
+				c.addMismatchAt(entry.Key, mt.Key, kt, c.typef("%s key type: expected %s, got %s", typeName, mt.Key, kt))
 			}
 			vt := c.checkNodeExpecting(entry.Value, mt.Val)
 			valLine, valCol := nodeLineCol(entry.Value)
 			if vt != nil && !c.argMatchesParam(vt, mt.Val, c.recPos(valLine, valCol), RecordingKindCallSite) {
-				c.addMismatch(entry.Value.LineNum(), 1, mt.Val, vt, c.typef("%s value type: expected %s, got %s", typeName, mt.Val, vt))
+				c.addMismatchAt(entry.Value, mt.Val, vt, c.typef("%s value type: expected %s, got %s", typeName, mt.Val, vt))
 			}
 		}
 		return dt
@@ -14022,14 +14009,14 @@ func (c *checker) checkMapLit(n *ast.MapLit) Type {
 		if kt != nil {
 			joined, ok := c.joinLitElem(keyTy, kt)
 			if !ok {
-				c.addMismatch(n.Line, 1, keyTy, kt, c.typef("map key type mismatch: expected %s, got %s", keyTy, kt))
+				c.addMismatchAt(entry.Key, keyTy, kt, c.typef("map key type mismatch: expected %s, got %s", keyTy, kt))
 			}
 			keyTy = joined
 		}
 		if vt != nil {
 			joined, ok := c.joinLitElem(valTy, vt)
 			if !ok {
-				c.addMismatch(n.Line, 1, valTy, vt, c.typef("map value type mismatch: expected %s, got %s", valTy, vt))
+				c.addMismatchAt(entry.Value, valTy, vt, c.typef("map value type mismatch: expected %s, got %s", valTy, vt))
 			}
 			valTy = joined
 		}

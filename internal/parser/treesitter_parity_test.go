@@ -203,6 +203,26 @@ func pinnedGap(in parityInput) (string, bool) {
 	return "", false
 }
 
+// blockFileMarker is a tour block's `// FILE: <name>` marker.
+var blockFileMarker = regexp.MustCompile(`^\s*//\s*FILE:\s*([A-Za-z0-9_.\-/]+\.[A-Za-z0-9]+)\s*$`)
+
+// withoutDataFiles is a multi-file block with its `// FILE:` sections that
+// are not Nomi (a data file the program reads, `notes.txt`) left out, marker
+// and text, since the editor highlights those as plain text.
+func withoutDataFiles(code string) string {
+	var kept []string
+	keep := true
+	for _, line := range strings.Split(code, "\n") {
+		if m := blockFileMarker.FindStringSubmatch(line); m != nil {
+			keep = strings.HasSuffix(m[1], ".nomi") || strings.HasSuffix(m[1], ".toml")
+		}
+		if keep {
+			kept = append(kept, line)
+		}
+	}
+	return strings.Join(kept, "\n")
+}
+
 // parityInputs collects the tracked .nomi files and the Markdown blocks the
 // parser accepts.
 func parityInputs(t *testing.T) []parityInput {
@@ -237,8 +257,9 @@ func parityInputs(t *testing.T) []parityInput {
 		}
 		for _, lang := range langs {
 			for _, b := range doctest.ExtractBlocks(string(data), lang) {
-				if parses(b.Code) {
-					inputs = append(inputs, parityInput{name: fmt.Sprintf("%s: line %d", rel, b.Line), code: b.Code + "\n"})
+				code := withoutDataFiles(b.Code)
+				if parses(code) {
+					inputs = append(inputs, parityInput{name: fmt.Sprintf("%s: line %d", rel, b.Line), code: code + "\n"})
 				}
 			}
 		}

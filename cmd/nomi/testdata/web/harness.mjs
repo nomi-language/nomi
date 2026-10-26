@@ -8,9 +8,9 @@
 //
 // usage: node harness.mjs '<json>' where json is
 //   { runs: [{ folder, contentType?, stdin?, stdinLines?, args?, env?,
-//              timeoutMs?, abortAfterMs?, worker? }] }
+//              timeoutMs?, abortAfterMs?, worker?, files? }] }
 // and it prints one JSON array of { stdout, stderr, exitCode, fatal,
-// events, fetches }.
+// events, fetches, files }, files decoded as UTF-8 text.
 import { pathToFileURL } from "node:url";
 import { fetches, setContentType } from "./browser.mjs";
 
@@ -36,6 +36,7 @@ for (const r of spec.runs) {
     },
     timeoutMs: r.timeoutMs,
     worker: r.worker,
+    files: r.files,
   };
   if (typeof r.stdin === "string") options.stdin = r.stdin;
   if (Array.isArray(r.stdinLines)) {
@@ -61,6 +62,7 @@ for (const r of spec.runs) {
     exitCode: result.exitCode,
     fatal: result.fatal ?? "",
     events,
+    files: Object.fromEntries(Object.entries(result.files ?? {}).map(([path, data]) => [path, new TextDecoder().decode(data)])),
     // nomi.js resolves app.wasm against its own import.meta.url, which
     // Node gives with symlinks resolved (/private/var for /var on macOS).
     fetches: [...fetches]

@@ -1011,6 +1011,12 @@ func vmProbeArgFailure(fn *ir.Func, err error) bool {
 		// generic Vector only a host call reads).
 		return true
 	}
+	if strings.Contains(err.Error(), ": arg ") && strings.Contains(err.Error(), ", got rt.Context") {
+		// A host call's argument read off a struct the probe built, whose
+		// field it filled with the root Context (std/fs_testing's `run`
+		// hands `Sandbox.dirs`, a List, to `fs_host.new_sandbox`).
+		return true
+	}
 	if strings.Contains(err.Error(), ": expected one Receiver") || strings.Contains(err.Error(), ": expected one Sender") {
 		// A channel half read off a struct the probe built (std/sql_testing's
 		// Fake keeps its state in a Channel field): the probe makes up a
@@ -1331,14 +1337,17 @@ func vmFirstWords(s string, n int) string {
 // builds: an idle Supervisor, which std's flush bodies receive, an empty
 // Map, which a generic body handing its parameters to Map.get receives as
 // both the map and the key, and a root Context, which std's deadline bodies
-// hand to Context.deadline. A `Type<T>` witness is typed per parameter
-// (vmLeafForType), because it shares signatures with a Context.
+// hand to Context.deadline, an empty Reader and standard output, which
+// std/io's stream bodies hand to their host calls, and a File that is not
+// open, which File's bodies hand to theirs (each answers Closed). A `Type<T>` witness is
+// typed per parameter (vmLeafForType), because it shares signatures with a
+// Context.
 //
 // Built per call rather than once: the supervisor joins rt's supervisor
 // registry, and a probe in a virtual-time bubble (vmInBubble) must hold one
 // its own bubble created and drains.
 func vmHandleLeaves() []any {
-	return []any{vm.IdleSupervisor(), vmEmptyMap(), rt.ContextRoot()}
+	return []any{vm.IdleSupervisor(), vmEmptyMap(), rt.ReaderFromText(""), rt.IOStdout(), rt.File{}, rt.ContextRoot()}
 }
 
 // vmChannelHalves are a closed channel's Sender and Receiver, handles no

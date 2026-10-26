@@ -285,7 +285,7 @@ func implHeader(entry apiEntry) string {
 
 // sharedImplHeadings returns the heading labels that more than one entry on
 // a page would carry, such as `Instant.subtract` for Instant's two Subtract
-// impls, or `Decimal.divide` for the inherent function and the Divide impl.
+// impls, or `Bytes.to_string` for the inherent function and the Display impl.
 // An impl entry under such a heading adds the implemented interface so each
 // one says which impl it documents.
 func sharedImplHeadings(moduleName string, entries []apiEntry) map[string]bool {

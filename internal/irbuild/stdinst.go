@@ -873,7 +873,11 @@ func (bl *irScalarBuilder) stdGenericSiblingCall(t *ast.Call, name string) (ir.T
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	if g.stdModule == "io" && name == "run_captured" {
-		v, k, mobile, ok := bl.runCaptured(t, "io.run_captured", kindString, kindString)
+		v, k, mobile, ok := bl.runCaptured(t, "io.run_captured", kindString, kindString, kindString)
+		return v, k, mobile, ok, true
+	}
+	if g.stdModule == "fs_host" && name == "run_on" {
+		v, k, mobile, ok := bl.runOnFiles(t, "fs_host.run_on")
 		return v, k, mobile, ok, true
 	}
 	if g.stdModule == "io" && name == "run_replayed" {

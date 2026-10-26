@@ -200,6 +200,31 @@ func TestDivExact(t *testing.T) {
 	}
 }
 
+// TestDivByZeroMessageIsTheIntText holds `Decimal.divide_exact`'s zero-divisor
+// trap, which the VM prefixes with the call's line, to Int's `/` fault.
+func TestDivByZeroMessageIsTheIntText(t *testing.T) {
+	if got, want := "line 7: "+divByZeroMessage, divByZeroText(7); got != want {
+		t.Errorf("divide_exact's fault reads %q, Int's %q", got, want)
+	}
+	defer func() {
+		p := recover()
+		e, ok := p.(*Error)
+		if !ok || e.Msg != divByZeroMessage {
+			t.Errorf("DecimalDivideExact(1, 0) panicked with %#v, want the division-by-zero trap", p)
+		}
+	}()
+	DecimalDivideExact(mustParse(t, "1"), mustParse(t, "0"))
+}
+
+func TestDecimalDivideExact(t *testing.T) {
+	if got := DecimalDivideExact(mustParse(t, "10.00"), mustParse(t, "4")); got.Tag != TagSome || got.Some.Display() != "2.50" {
+		t.Errorf("divide_exact(10.00, 4) = %#v, want Some(2.50)", got)
+	}
+	if got := DecimalDivideExact(mustParse(t, "10"), mustParse(t, "3")); got.Tag != TagNone {
+		t.Errorf("divide_exact(10, 3) = %#v, want None", got)
+	}
+}
+
 func TestDivExactReducedDenominator(t *testing.T) {
 	// 6/8 reduces to 3/4 — denom 4 = 2^2, terminating → 0.75.
 	a := mustParse(t, "6")

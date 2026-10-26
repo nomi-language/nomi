@@ -1,0 +1,34 @@
+//# The running program's process: how it ends. A `main` that returns
+//# `Err(#Exit{code: 2, message: "usage: count <file>"})` prints the message
+//# to stderr and exits with status 2. There is no function that exits on
+//# the spot: returning `Exit` through `try` ends the program the way
+//# returning from `main` does, so `defer`s run and supervisors drain first.
+
+import {
+    int.Int
+    strings.String
+}
+
+/// What a `main` or an entry boot answers in its `Err` to end the program
+/// with a status of its choosing. The program prints `message` and a
+/// newline to stderr when it is not empty, with no `error: ` before it, and
+/// exits with `code`. A `code` outside 0 to 255 is a trap. An `Exit` with
+/// code 0 ends the program successfully, its message printed all the same.
+///
+/// ```nomi
+/// import std/process.Exit
+///
+/// fn main() -> Result<Unit, Exit> {
+///     Err(#Exit{code: 2, message: "usage: count <file>"})
+/// }
+/// ```
+//! failed = #Exit{message: "no input"}
+//! assert failed.code == 1
+//! assert #Exit{} == #Exit{code: 1, message: ""}
+//
+pub struct Exit {
+    /// The exit status, 0 to 255.
+    code: Int = 1
+    /// What to print to stderr before exiting; nothing when empty.
+    message: String = ""
+}

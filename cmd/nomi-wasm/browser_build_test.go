@@ -16,8 +16,9 @@ import (
 // program can reach here are the tour's attack surface. The one that would
 // reach outside the worker is replaced in the browser build:
 //
-//   - io.read_file / io.write_file (nomi/stdio file_browser.go): refused by the
-//     build rather than by wasm_exec.js's fs shim happening to answer ENOSYS.
+//   - std/fs (nomi/stdio default_js.go): every file operation goes to an
+//     in-memory file system, by the build rather than by wasm_exec.js's fs
+//     shim happening to answer ENOSYS.
 //
 // This test holds the replacement in place from an ordinary host `go test`.
 
@@ -25,7 +26,7 @@ import (
 // js/wasm when Node is available, so their behaviour is checked by the
 // ordinary `go test ./...` and not only by someone remembering the GOOS=js
 // invocation.
-func TestBrowserBuild_EffectsRefuse(t *testing.T) {
+func TestBrowserBuild_FilesStayInMemory(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds js/wasm test binaries")
 	}
@@ -53,7 +54,7 @@ func TestBrowserBuild_EffectsRefuse(t *testing.T) {
 		t.Fatalf("js/wasm go test: %v\n%s", err, out)
 	}
 	for _, name := range []string{
-		"TestBrowser_FileAccessRefuses",
+		"TestBrowser_FilesStayInMemory",
 	} {
 		if !strings.Contains(string(out), "--- PASS: "+name) {
 			t.Errorf("js/wasm run did not pass %s:\n%s", name, out)

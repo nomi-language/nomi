@@ -21,7 +21,8 @@ fn main() {
     io.print(Decimal.to_string(1.50d))
     io.print(Decimal.to_string(1.50d + 1.5d))
     io.print(Decimal.to_string(1.50d * 1.5d))
-    io.print(Decimal.to_string(10.00d / 4d))
+    quarter = Decimal.divide_exact(10.00d, 4d) |> Maybe.with_default(0d)
+    io.print(Decimal.to_string(quarter))
 
     // Display against Debug on ONE value: the `d` is the whole difference.
     io.print(Decimal.to_string(1.50d))

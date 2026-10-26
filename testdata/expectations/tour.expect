@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it.
-records 186
-declared-cases 22
+records 205
+declared-cases 24
 failing 0
 C bindings-and-expressions.md:L116
 E 0
@@ -160,11 +160,12 @@ T
 C capabilities-and-context.md:L205
 E 0
 N 0
-H d645e1ea9a0445f2030bde2770d63dac9124c354b0517b60ea713c959337eaac
+H 739a5054de56d2d841f5e16136ec0d6ee23e2db4ff76a232efc58537b8589d7c
 T body
-T close second
-T close first
-T after
+T close log.txt
+T close notes.txt
+T buy milk
+T wrote a note
 T
 C collections.md:L102
 E 0
@@ -300,7 +301,7 @@ H 43ef97883b36e821c8071cb694da0395cd0bae2256969f3bddb2b4125730ba46
 T dbg line 5: Map.size(m1) = 2
 T dbg line 6: Map.size(m2) = 3
 T
-C concurrency.md:L1072
+C concurrency.md:L1085
 E 0
 N 1
 H b5ece5663547001fffabd203b304a7b81953bf7644e40b5e36742793f8a185a1
@@ -317,8 +318,8 @@ T
 C concurrency.md:L234
 E 0
 N 0
-H 350404658a4bc407e07cc42032ae22289a4ec6e5067bc651a6c11875f3f59b09
-T dbg line 19: results = ["user-3", "user-1"]
+H 9efd7d4231a871f92b9ee933c848007455f1e26f6bc901f03e3576b507332f2a
+T dbg line 23: counts = [Ok(2), Ok(6), Err(#NotFound{path: "missing.txt"})]
 T
 C concurrency.md:L30
 E 0
@@ -326,7 +327,7 @@ N 0
 H c31b6ae62ff1f91268d14d0e4b44d9f8d44d51dca1a08675df3af07e09d6cd15
 T dbg line 15: total = 120
 T
-C concurrency.md:L428
+C concurrency.md:L441
 E 0
 N 0
 H ad282d706a9e9d433ca68ed831859804de7e6e7390f4438f5541cd0d9fbbbf3b
@@ -334,7 +335,7 @@ T dbg line 49: handle_order(1) = "order 1 accepted"
 T dbg line 50: handle_order(2) = "order 2 accepted"
 T dbg line 54: audited_total() = 3
 T
-C concurrency.md:L622
+C concurrency.md:L635
 E 0
 N 0
 H a863eda0833fa93e145d571d5dbb459b9a44a775bbff5d2031874287e59d30da
@@ -346,7 +347,7 @@ N 0
 H 3339a05f5c0b79fd6335143f1aedae34dbda7764e5aebea63f3f6ec5a2c7882b
 T dbg line 40: total = 60
 T
-C concurrency.md:L768
+C concurrency.md:L781
 E 0
 N 0
 H daf67897ba4a63cc77d1260d20a68e49a1bf3dcb5864bc498d510432a94d2b74
@@ -437,6 +438,28 @@ T dbg line 14: jan31 + Months(1) = 2026-02-28
 T dbg line 15: jan31 - Months(1) = 2025-12-31
 T dbg line 16: leap + Years(1) = 2025-02-28
 T
+C ffi-and-dynamic.md:L148
+E 0
+N 0
+H 7aea34fb4595f432050d3c577f09659e2801420722e0fda73286182eb0dc27c2
+T HI
+T Ok(42)
+T
+C ffi-and-dynamic.md:L263
+E 0
+N 0
+H 2c21e19edb192e58adc0591f7f0f39f5afbc13ce53d62b78b9f9c20f215a74f2
+T Ada is 36
+T user 1: decode error at [1].age: expected Int, got String
+T
+C ffi-and-dynamic.md:L32
+E 0
+N 0
+H c418f9870799c22c5d9c4e071311233d0cded72acbe7ffc5522d2e4fd38b9601
+T example.com/search tags=[go, nomi]
+T a+b%2Bc
+T Err(invalid URL escape "%zz")
+T
 C functions-and-lambdas.md:L12
 E 0
 N 0
@@ -522,6 +545,111 @@ N 0
 H d59ad04725cb4d783d88d6f4bb9d8aa14026593801d2642735e7ac2a2b926600
 T dbg line 10: first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6]) = [1, 1]
 T dbg line 13: first_two_sorted(["banana", "apple", "cherry"]) = ["apple", "banana"]
+T
+C input-and-output.md:L115
+E 0
+N 0
+H a2b165846c9eee6cf7eb3f700604662da4df8611e54589820005778f08c0d9a9
+T 0 arguments: 
+T
+C input-and-output.md:L18
+E 0
+N 0
+H 62e9fad045e03207c746f0cd2350440a0131308652efc1f1cd6c0d35f87b9a44
+T hello
+T no newline, so this continues the line
+T #{langs: ["en", "fr"], name: "Ada"}
+T #(1, x)
+T
+C input-and-output.md:L187
+E 0
+N 0
+H 02f31e29fba6312ade5eb26dfafa7965b7f3c5dc27d76700c7d6cbe05901df94
+T bread
+T milk
+T nothing yet
+T
+C input-and-output.md:L223
+E 0
+N 0
+H 9a99ee5f06ecd57afeda01cb5386e5896ef9825352f6cc02294aa484dfe8175c
+T no settings.toml, so the defaults
+T logs: not found
+T
+C input-and-output.md:L257
+E 0
+N 0
+H 974a58981b02310245ce79b57d0ccca67a773686957218f69e46afd054629b32
+T 4 lines
+T 2 errors
+T Some(Ok(INFO started))
+T
+C input-and-output.md:L310
+E 0
+N 0
+H 62124cfe31ac4a595ce1808c4d395f93c4f3b07e1a4de813e7473144897cec5e
+T copied 15 bytes
+T name,price
+T apple,3
+T pear,4
+T
+C input-and-output.md:L364
+E 0
+N 0
+H a0ed10c8e4291ee06c8d1aa253634d252c4c928c7f055cc701f9265cfad3742c
+T Ok(3)
+T Ok(2)
+T
+C input-and-output.md:L398
+E 0
+N 0
+H 47852bb9f3ba8222f228520f8ad4e384705c5daa10b164cd436f9fd83507c787
+T photos/2026 Directory
+T photos/alps.jpg File
+T photos/beach.jpg File
+T Some(jpg)
+T notes.txt
+T photos/alps.jpg
+T True
+T
+C input-and-output.md:L453
+E 0
+N 0
+H 5b03d0c916a290485d6f7ad3fe182ddbb94936f415ef1a3dd34e51104cf845be
+T notes/2026 Directory
+T notes/2026/budget.csv File
+T notes/2026/trip.md File
+T notes/todo.md File
+T [notes/2026/trip.md, notes/todo.md]
+T
+C input-and-output.md:L498
+E 0
+N 0
+H 53d04b5d618e6eda85f5687eff79cc52e3040cd1d800a9032cec162115e1cd9b
+T Ok(home)
+T Err(invalid path "../private.txt": the path leads outside the directory fs.within confines calls to)
+T
+C input-and-output.md:L536
+E 0
+N 1
+H c5dd1c6210a5cc1978f4c1bdc5765a3df9f6f7b1f3cdac0f7fcc37aec17d308e
+T ok sorts the lines into the output file
+T ok a full disk leaves the old output in place
+T test result: ok. 2 passed, 0 failed
+T
+C input-and-output.md:L54
+E 0
+N 0
+H 089a1a56f4089f7a1f16363957d69535ab18636f9aa797bdcd8746d1bc119b18
+T 3 items
+T --- stderr ---
+T 0 items
+T
+C input-and-output.md:L82
+E 0
+N 0
+H aab5c9d0af7dacba01e83c352170d8a7b4ff14a83ba39f77e22029b3d29456d0
+T dbg line 14: run.value = Ok(3)
 T
 C interfaces-and-dispatch.md:L135
 E 0
@@ -695,13 +823,13 @@ T
 C locales-and-formatting.md:L172
 E 0
 N 0
-H 300fc1d98c1597c816bb36fd92d3a12e6b0557377cb87becf7b718bd79199f3c
-T dbg line 8: Money.format(usd, Locale`en-US`, display: .Code) = "USD 5.00"
+H 8e2149f81ebb4b3cfcdccc7286e01cf2e9bb6bc5678ef846ec294884b5092476
+T dbg line 8: Money.format(usd, Locale`en-US`, display: .Code) = "USD\u{a0}5.00"
 T dbg line 9: Money.format(usd, Locale`en-US`, display: .Name) = "5.00 US dollars"
 T dbg line 10: Money.format(usd, Locale`en-CA`) = "US$5.00"
 T dbg line 11: Money.format(usd, Locale`en-CA`, display: .Narrow) = "$5.00"
 T
-C locales-and-formatting.md:L208
+C locales-and-formatting.md:L209
 E 0
 N 0
 H bbf1e0c3c15c425fff37d20b2b89c8db9bbcd9749d6288b5e803c077addb606a
@@ -714,14 +842,14 @@ T 20.10.26
 T 20.10.2026, 17:30
 T 20. Oktober 2026, 17:30:00 GMT-4
 T
-C locales-and-formatting.md:L254
+C locales-and-formatting.md:L255
 E 0
 N 0
 H 426718416f00660d1108273849f97396db08b2ec28103e1008d120f6a428bc4a
 T en-US: Tuesday, October 20 | Oct 2026
 T de: Dienstag, 20. Oktober | Okt. 2026
 T
-C locales-and-formatting.md:L303
+C locales-and-formatting.md:L304
 E 0
 N 0
 H c0b327732921d72916148ad1e50d7582ca8ace33c49ca1cec9435770e54796c7
@@ -743,7 +871,7 @@ T hi: 12,34,567 sold, 1,299.50, 15% off
 T ar-EG: ١٬٢٣٤٬٥٦٧ sold, ١٬٢٩٩٫٥٠, ١٥٪؜ off
 T ar-EG-u-nu-latn: 1,234,567 sold, 1,299.50, 15‎%‎ off
 T
-C locales-and-formatting.md:L343
+C locales-and-formatting.md:L344
 E 0
 N 0
 H ffdd21e418ca7dec7e0e72f173809a0ef23afbbe95d56b6d3d8c90aded557709
@@ -755,7 +883,7 @@ T dbg line 15: String.join_list(["S", "M", "L"], Locale`en-US`, style: .Or) = "S
 T dbg line 16: String.join_list(["S", "M", "L"], Locale`pl`, style: .Or) = "S, M lub L"
 T dbg line 17: String.join_list(["2 lb", "3 oz"], Locale`en-US`, style: .Unit) = "2 lb, 3 oz"
 T
-C locales-and-formatting.md:L395
+C locales-and-formatting.md:L396
 E 0
 N 0
 H 09adc9fc08a02163c2716023eb196b910af9e736671555d7e98fe62da8dbf86c
@@ -768,7 +896,7 @@ T dbg line 12: Int.parse_in(" 3 ", Locale`en-US`) = Err(#Unexpected{at: 0, text:
 T dbg line 13: Int.parse_in(" 3 ", Locale`en-US`, lenient: True) = Ok(3)
 T not a quantity: unexpected `.` at 1
 T
-C locales-and-formatting.md:L445
+C locales-and-formatting.md:L446
 E 0
 N 0
 H b261b58eb9fe8268b25527cad08ca0b366d9db0f3cefe48eb39e39658173b1dd
@@ -785,7 +913,7 @@ T dbg line 22: Date.parse_in("10/20/2026", us, lenient: True) = Ok(2026-10-20)
 T dbg line 23: Date.parse_in("2/31/26", us) = Err(InvalidValue("month 2 of 2026 has no day 31"))
 T dbg line 24: Date.parse_in("Oct 20, 2026", us, style: .Medium) = Ok(2026-10-20)
 T
-C locales-and-formatting.md:L513
+C locales-and-formatting.md:L514
 E 0
 N 0
 H ddfcb3e63e7941d5f7a1408796d07c9129ad23ca7b57dae9d7e7bcbdea9e3a0b
@@ -794,7 +922,7 @@ T dbg line 5: Locale.parse("pt_BR") = Err(#Underscore{suggestion: "pt-BR"})
 T dbg line 6: Locale.from_posix("pl_PL.UTF-8") = Ok(Locale`pl-PL`)
 T dbg line 7: Locale.fallbacks(Locale`es-MX`) = [Locale`es-MX`, Locale`es-419`, Locale`es`]
 T
-C locales-and-formatting.md:L555
+C locales-and-formatting.md:L556
 E 0
 N 0
 H de7262b3296091d1275aa5fa9cae608a1340bb25bc5348439158a76f5a22f830
@@ -803,21 +931,21 @@ T dbg line 11: page_locale([Locale`de-AT`]) = Locale`de`
 T dbg line 12: page_locale([Locale`ja`, Locale`pl`]) = Locale`pl`
 T dbg line 13: page_locale([Locale`ja`]) = Locale`en`
 T
-C locales-and-formatting.md:L594
+C locales-and-formatting.md:L595
 E 0
 N 0
 H f08f52da162cf50ad134e649f7ea5b6b8ef21d8420370a7782f25606cf84a3b1
 T /cart in de: 1.299,50
 T /cart in en: 1,299.50
 T
-C locales-and-formatting.md:L664
+C locales-and-formatting.md:L665
 E 0
 N 0
 H 22fb84e53d4ac3ffacef140a51bce73268d4e51a676f0b43bb171c0c30a5c06d
 T dbg line 4: Iter.contains?(Locale.available(), Locale`pl`) = True
 T dbg line 5: Iter.count(Locale.available()) = 765
 T
-C locales-and-formatting.md:L711
+C locales-and-formatting.md:L712
 E 0
 N 0
 H af70d3bcc308c04e446d3671a57f8ef3fb15b06d9d539a871a2232e0fd11c026
@@ -826,7 +954,7 @@ T sv: Abel, Śliwa, Sowa, Żak, Zorn, Åberg, Ärlig, Öberg
 T pl: Abel, Åberg, Ärlig, Öberg, Sowa, Śliwa, Zorn, Żak
 T bytes: Abel, Sowa, Zorn, Ärlig, Åberg, Öberg, Śliwa, Żak
 T
-C locales-and-formatting.md:L757
+C locales-and-formatting.md:L758
 E 0
 N 0
 H f4047f95f8500cba2230db4c85ee9ec70701e682d1ba9c25cc817f65aa6f4dd5
@@ -835,7 +963,7 @@ T dbg line 5: String.to_upper_in("istanbul", Locale`tr`) = "İSTANBUL"
 T dbg line 6: String.to_lower_in("KIRMIZI", Locale`tr`) = "kırmızı"
 T dbg line 7: String.fold_case("Straße") == String.fold_case("STRASSE") = True
 T
-C locales-and-formatting.md:L786
+C locales-and-formatting.md:L787
 E 0
 N 0
 H 498402278768b3d0b340ff445408ae9c2ed61aeaac533c11f5938658c2b81a8b
@@ -854,6 +982,18 @@ T dbg line 9: Decimal.format(2.665d, Locale`en-US`, max_fraction: 2) = "2.66"
 T dbg line 10: Decimal.format(2.665d, Locale`en-US`, max_fraction: 2, mode: .HalfUp) = "2.67"
 T dbg line 11: Int.format(1234567, Locale`en-US`, grouping: False) = "1234567"
 T dbg line 12: Int.format(7, Locale`en-US`, min_digits: 2) = "07"
+T
+C macros.md:L121
+E 0
+N 0
+H 12018085cbc23245c2f14e763ba64cbb234cf649d626c6b9b2adcf404aa4c733
+T Coffee mug: 1450 cents
+T
+C macros.md:L1682
+E 0
+N 0
+H a1fb50e6c86fae1679ef3351296fd6713411a08cf8dd1790a4fd05fae8688164
+T 12
 T
 C modules-and-imports.md:L120
 E 0
@@ -981,7 +1121,7 @@ H 6e61b645b40d3f423638ce3d21fe8639e0278494df8dc771e9a5963b8661fdd5
 T dbg line 16: calculate(100, 5) = Ok(11)
 T dbg line 17: calculate(100, 0) = Err("div by zero")
 T
-C pattern-matching.md:L374
+C pattern-matching.md:L377
 E 0
 N 0
 H d58bc165cf46b3def1a714a99a1e99d66ea16ca542b74ba4ba2eacdd77010347
@@ -990,7 +1130,7 @@ T dbg line 13: total(["1", "x", "y"]) = Err("not a number: x")
 T dbg line 16: numbers = [1]
 T dbg line 17: errors = ["not a number: x", "not a number: y"]
 T
-C pattern-matching.md:L414
+C pattern-matching.md:L417
 E 0
 N 0
 H a2bf7852263729ec6b4793e45d0b1b95e3643441a10db5cf5670a4da1e2cd33f
@@ -1104,13 +1244,13 @@ H 2876bfc0caac1aefa2e0bbe450a2ecc97317495c62355a74ae265d0bd8f46996
 T dbg line 6: 10 |> then &divide(100, &1) = 10
 T dbg line 7: 100 |> then &divide(y: 4, x: &1) = 25
 T
-C scalars-and-strings.md:L123
+C scalars-and-strings.md:L128
 E 0
 N 0
 H 9953e026f3298c19f2d7af35814709dec91b610fa142a4439c8ab428c41c1ed0
 T echo ${HOME} costs $5 #{not a struct}
 T
-C scalars-and-strings.md:L157
+C scalars-and-strings.md:L162
 E 0
 N 0
 H aab58eb806f599ab71671f3b75185381fda4981448c818ce3eef309001135e64
@@ -1130,7 +1270,7 @@ T dbg line 6: -(3 + 4) = -7
 T dbg line 7: 42 > 10 = True
 T dbg line 8: True and !False = True
 T
-C scalars-and-strings.md:L199
+C scalars-and-strings.md:L204
 E 0
 N 0
 H cff6393d182403018e5caea07c68973571060a71844d3567a0734c3cb596e6db
@@ -1143,7 +1283,7 @@ T   |> Iter.map(Codepoint.to_int)
 T   |> Iter.to_list()
 T   = [99, 97, 102, 233]
 T
-C scalars-and-strings.md:L232
+C scalars-and-strings.md:L237
 E 0
 N 0
 H a97a2e7423efe650e12b847e990d065c63e2c8038cb9fe248e84a7a5365902c9
@@ -1154,7 +1294,7 @@ T   |> Iter.map(kind)
 T   |> Iter.to_list()
 T   = ["a", "comma", "space", "b"]
 T
-C scalars-and-strings.md:L268
+C scalars-and-strings.md:L273
 E 0
 N 0
 H eae8f3109ecc025c2a41c9cbe8776658c511899325e41be9c3c63c1efaa1ad56
@@ -1172,7 +1312,7 @@ T   |> Iter.map(Codepoint.to_digit)
 T   |> Maybe.values()
 T   = [5, 5, 5, 0, 1]
 T
-C scalars-and-strings.md:L310
+C scalars-and-strings.md:L315
 E 0
 N 0
 H 1b5bde9ad561d4b30bcdc16febfa87be031bcbe6ca8905f1190ea023321d1b13
@@ -1180,7 +1320,7 @@ T dbg line 5: Bytes.length(raw) = 5
 T dbg line 6: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 169]
 T go:café
 T
-C scalars-and-strings.md:L348
+C scalars-and-strings.md:L353
 E 0
 N 0
 H 6b7fa18b982141013e7f33144f4ded532201bb493dbbdcea608b7e16f022455e
@@ -1188,7 +1328,7 @@ T SELECT *
 T FROM users
 T WHERE name = 'Alice'
 T
-C scalars-and-strings.md:L375
+C scalars-and-strings.md:L380
 E 0
 N 0
 H 6e0610ac3a3c4d4b78b33e733d23365a0b7af665a34bfc86fbd364392d3bed15
@@ -1198,7 +1338,7 @@ T SELECT *
 T FROM invoices
 T WHERE total > ${MIN_TOTAL}
 T
-C scalars-and-strings.md:L423
+C scalars-and-strings.md:L428
 E 0
 N 0
 H 229a106b0ad7c67d236145262f7ea75c486e424d469847d5b275edafc5e4040f
@@ -1228,7 +1368,7 @@ T dbg line 3: 0.1 + 0.2 == 0.3 = False
 T dbg line 6: 0.1d + 0.2d == 0.3d = True
 T dbg line 9: 19.99d + 5.00d + 2.50d + 0.99d = 28.48d
 T
-C scalars-and-strings.md:L94
+C scalars-and-strings.md:L99
 E 0
 N 0
 H 12bd532039fc4747d0e08b76d79b7f867e8f4b93beb1643ff270a34277f6eec8
@@ -1393,7 +1533,7 @@ H c8686871c85e80a4afd39b03eaa975daf7c13f00e537a10c6ca1d0a501b66956
 T ok leap years
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L252
+C testing.md:L254
 E 0
 N 1
 H a529d2aef3956d5ef189622e65532fffad58bf2db7f89c3238addc7971a12287
@@ -1402,13 +1542,11 @@ T ok greets the name it reads
 T ok greets a stranger when there is no input
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L293
+C testing.md:L287
 E 0
 N 1
-H 11e6df1f55bd27672717d56bebed415683122c04b2efa0e8ef7dc0976d009a56
-T What is your name?
-T hello, stranger
-T ok asks for a name, then an age
+H 689a5fa4b60f419109c4e4ef868b48fafd7281d6aa30e37edb55433bff24140d
+T ok a bad count warns on stderr
 T test result: ok. 1 passed, 0 failed
 T
 C testing.md:L31
@@ -1419,7 +1557,16 @@ T ok assert checks successful results
 T ok refute checks result errors
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L356
+C testing.md:L322
+E 0
+N 1
+H 11e6df1f55bd27672717d56bebed415683122c04b2efa0e8ef7dc0976d009a56
+T What is your name?
+T hello, stranger
+T ok asks for a name, then an age
+T test result: ok. 1 passed, 0 failed
+T
+C testing.md:L387
 E 0
 N 1
 H 29f9191f9f1843ac32f0130f1f324909f10c53f3ca9cfbdb082f6f379d988540
@@ -1428,7 +1575,7 @@ T  -5.0 C |   23.0 F
 T ok converts to Fahrenheit
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L385
+C testing.md:L416
 E 0
 N 1
 H f2bd4d358a0711cb60aa46191c1246f835d81388acdd02b91f70b68200206fc8
@@ -1436,7 +1583,7 @@ T ok user labels / setup value is explicit
 T ok user labels / a test may ignore the setup value
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L422
+C testing.md:L453
 E 0
 N 1
 H 6f7cc69cd602b57272358318906f7cbbca164ac2f14b83912bd321c886fd9426
@@ -1445,7 +1592,7 @@ T ok app-backed behavior / reads the booted field
 T ok app-backed behavior / a with line replaces a field for the rest of the body
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L464
+C testing.md:L495
 E 0
 N 1
 H 5e5a6007494211f6690adb2b128d0333f87e2c428ddeb5a37b336cbbc10b226e
@@ -1454,18 +1601,18 @@ T ok quiet by default / takes no arguments
 T ok verbose / reads -v
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L577
-E 0
-N 1
-H c0acde33b41944882e0c12f7be13c75f744a1586675d7c6330663a0678faed48
-T ok retry policy / gives up after backing off
-T test result: ok. 1 passed, 0 failed
-T
 C testing.md:L58
 E 0
 N 1
 H 96e900cd5cd8591ae7f3c64c60673a9c8aee4155fb7162ba0bc6184787f16285
 T ok assert can destructure expected shapes
+T test result: ok. 1 passed, 0 failed
+T
+C testing.md:L608
+E 0
+N 1
+H c0acde33b41944882e0c12f7be13c75f744a1586675d7c6330663a0678faed48
+T ok retry policy / gives up after backing off
 T test result: ok. 1 passed, 0 failed
 T
 C testing.md:L69

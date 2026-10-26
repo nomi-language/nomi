@@ -658,7 +658,7 @@ func MapHash[K, V any](m Map[K, V], hashKey func(K) uint64, hashVal func(V) uint
 // Display.to_string, so `${%{"a" => 1}}` is `%{a => 1}`. An assertion's
 // `values:` row renders them with Inspect, so the same map is `%{"a" => 1}`
 // there. Both are this function:
-// pass the identity for the first and InspectString for the second. There is
+// pass the identity for the first and StringLiteral for the second. There is
 // deliberately no InspectMap, for the reason there is no InspectList.
 func FormatMap[K, V any](m Map[K, V], renderKey func(K) string, renderVal func(V) string) string {
 	if m.n == 0 {

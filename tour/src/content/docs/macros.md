@@ -111,9 +111,15 @@ dir = "data"
 ```
 
 Each table becomes a function that answers `Some(value)` for a key in the
-file and `None` for any other key. You call it like any function:
+file and `None` for any other key. You call it like any function. This
+example is the whole shop: `main.nomi`, the files above, and the csvdata
+module under `macros/csvdata/`, each in a tab. Running a macro takes a
+moment, so this example runs when you press Run. Change the price on the
+`mug` row of `data/prices.csv`, or the sku in `main.nomi`, and run it
+again:
 
-```nomi
+```nomi-run manual
+// FILE: main.nomi
 import {
     std/io
     tables
@@ -125,12 +131,277 @@ fn main() {
     cents = tables.price(sku) |> Maybe.with_default(0)
     io.print("${name}: ${cents} cents")
 }
-```
 
-```console
-$ nomi run main.nomi
-Coffee mug: 1450 cents
+// FILE: tables.nomi
+import csvdata
+
+/// Each product's price, in cents.
+pub csvdata.table! price(sku: String) -> Maybe<Int> `prices.csv`
+
+/// What each product is called.
+pub csvdata.table! product_name(sku: String) -> Maybe<String> `names.csv`
+
+// FILE: data/prices.csv
+sku,cents
+mug,1450
+poster,2200
+tote,1800
+
+// FILE: data/names.csv
+sku,name
+mug,Coffee mug
+poster,Concert poster
+tote,Tote bag
+
+// FILE: nomi.toml
+[module]
+name = "shop"
+entry_points = ["main"]
+
+[csvdata]
+dir = "data"
+
+// FILE: go.mod
+module shop
+
+go 1.27.0
+
+require csvdata v0.0.0
+
+replace csvdata => ./macros/csvdata
+
+// FILE: macros/csvdata/csvdata.nomi
+// `table`: a lookup function whose rows are a CSV file's. The body names
+// the file, under the directory `dir` of the module's `[csvdata]` table.
+// Its first row is a header; every other row is a key and a value.
+import {
+    std/json.Json
+    std/macro.{Body, Declaration, Diagnostic, ExpandCall, Expansion, Input, Macro}
+    std/macro.{Request, RequestCall, Source, Span}
+}
+
+/// A lookup function over the rows of a CSV file.
+pub macro table: CsvTable
+
+type CsvTable
+
+/// One row of a table: its line, its key and value cells and their text.
+struct Row {
+    line: Int
+    key: String
+    value: String
+    text: String
+}
+
+impl Macro for CsvTable {
+    fn request(call: RequestCall) -> Request {
+        case table_path(call.decl, call.config) {
+            Some(path) -> #Request{files: [path]}
+            None -> #Request{}
+        }
+    }
+
+    fn expand(call: ExpandCall) -> Expansion {
+        decl = call.decl
+
+        param = case decl.params {
+            [p] -> p
+            _ -> return Declaration.error(decl, "a table takes one parameter, its key")
+        }
+
+        result = case decl.result {
+            Some(t) -> t
+            None -> return Declaration.error(decl, "a table names its result type: `-> Maybe<Int>`")
+        }
+
+        value_type = case maybe_argument(result.text) {
+            Some(t) ->
+                t
+
+            None ->
+                return Expansion.error(
+                    result.span,
+                    "a table answers `None` for a missing key, so write `-> Maybe<${result.text}>`",
+                )
+        }
+
+        path = case table_path(decl, call.config) {
+            Some(p) -> p
+            None -> return Declaration.error(decl, "a table names its CSV file in backticks")
+        }
+
+        case decl.body {
+            Some(#Body{tag: Some(tag), tag_span: Some(span)}) ->
+                return Expansion.error(
+                    span,
+                    "a table's body is the path of its CSV file and takes no tag: remove `${tag}`",
+                )
+
+            _ -> {}
+        }
+
+        input = case Input.find(call.inputs, path) {
+            Some(i) -> i
+            None -> return #Expansion{
+                diagnostics: [
+                    #Diagnostic{
+                        span: body_span(decl),
+                        message: "no file ${path}",
+                        hints: ["the path is under the module root, after `[csvdata].dir`"],
+                    },
+                ],
+            }
+        }
+
+        #(rows, problems) = read_rows(input)
+
+        if !Iter.empty?(problems) {
+            return #Expansion{diagnostics: problems}
+        }
+
+        quote_keys = param.type_text.text == "String"
+        quote_values = value_type == "String"
+        visibility = if decl.public { "pub " } else { "" }
+
+        header =
+            Source.new()
+            |> Source.add("${visibility}fn ${decl.name}(")
+            |> Source.mapped(param.name, param.span)
+            |> Source.add(": ")
+            |> Source.mapped(param.type_text.text, param.type_text.span)
+            |> Source.add(") -> ")
+            |> Source.mapped(result.text, result.span)
+            |> Source.add(" {\n    case ${param.name} {\n")
+
+        arms = Iter.reduce(
+            rows,
+            fn src, row -> {
+                key_end = String.length(row.key)
+                key_span = Span.on_line(input.path, row.line, row.text, 0, key_end)
+                value_start = key_end + 1
+                value_end = value_start + String.length(row.value)
+                value_span = Span.on_line(input.path, row.line, row.text, value_start, value_end)
+                key_hint = Some("keys of `${decl.name}` are of type `${param.type_text.text}`")
+
+                value = if quote_values {
+                    String.to_literal(row.value)
+                } else {
+                    row.value
+                }
+
+                src
+                |> Source.add("        ")
+                |> key_cell(quote_keys, row.key, key_span, key_hint)
+                |> Source.add(" -> ")
+                |> Source.mapped(
+                    "Some(${value})",
+                    value_span,
+                    hint: Some("values of `${decl.name}` are of type `${value_type}`"),
+                )
+                |> Source.add("\n")
+            },
+            from: header,
+        )
+
+        arms
+        |> Source.add("        _ -> None\n    }\n}\n")
+        |> Source.expansion()
+    }
+}
+
+/// source followed by the key `text`, made from `span`: a string literal
+/// when `quoted`, else the text as it is.
+fn key_cell(source: Source, quoted: Bool, text: String, span: Span, hint: Maybe<String>) -> Source {
+    if quoted {
+        Source.string_literal(source, text, span, hint)
+    } else {
+        Source.mapped(source, text, span, hint)
+    }
+}
+
+/// The file decl reads: its body, under the configuration's `dir`.
+fn table_path(decl: Declaration, config: Json) -> Maybe<String> {
+    dir = case config {
+        Json.Obj(fields) ->
+            case Map.get(fields, "dir") {
+                Some(Json.String(d)) -> d + "/"
+                _ -> ""
+            }
+
+        _ ->
+            ""
+    }
+
+    decl.body
+    |> Maybe.map(fn body -> String.trim(body.text))
+    |> Maybe.flat_map(fn text -> if text == "" { None } else { Some(dir + text) })
+}
+
+/// The type argument of `text` when it is `Maybe<T>`: `T`.
+fn maybe_argument(text: String) -> Maybe<String> {
+    text
+    |> String.strip_prefix("Maybe<")
+    |> Maybe.flat_map(fn rest -> String.strip_suffix(rest, ">"))
+}
+
+/// The span of decl's body, or of decl when it has none.
+fn body_span(decl: Declaration) -> Span {
+    case decl.body {
+        Some(body) -> body.span
+        None -> decl.span
+    }
+}
+
+/// The rows of a CSV input after its header, and what is wrong with them.
+fn read_rows(input: Input) -> #(List<Row>, List<Diagnostic>) {
+    #(rows, problems) =
+        input.text
+        |> String.lines()
+        |> Iter.with_index()
+        |> Iter.drop(1)
+        |> Iter.reduce(
+            fn acc: #(List<Row>, List<Diagnostic>), #(index, text) -> {
+                #(rows, problems) = acc
+                line = index + 1
+
+                case String.split(text, ",") {
+                    [""] ->
+                        acc
+
+                    [key, value] ->
+                        #([#Row{line, key, value, text}, ..rows], problems)
+
+                    cells -> {
+                        count = Iter.count(cells)
+
+                        problem = #Diagnostic{
+                            span: Span.line(input.path, line, text),
+                            message: "this row has ${count} cells; a table row is a key and a value",
+                        }
+
+                        #(rows, [problem, ..problems])
+                    }
+                }
+            },
+            from: #([], []),
+        )
+
+    // Each list was built last first.
+    #(Iter.reverse(rows), Iter.reverse(problems))
+}
+
+// FILE: macros/csvdata/nomi.toml
+[module]
+name = "csvdata"
+
+// FILE: macros/csvdata/go.mod
+module csvdata
+
+go 1.27.0
 ```
+<!-- expect
+Coffee mug: 1450 cents
+-->
 
 In the editor, go to definition on `tables.price` jumps to the `table!`
 declaration in `tables.nomi`.
@@ -140,8 +411,278 @@ declaration in `tables.nomi`.
 `nomi expand <file>` prints what each macro declaration in a file became,
 its *expansion*:
 
-```console
-$ nomi expand tables.nomi
+This example shows what `nomi expand tables.nomi` prints for its first
+tab. Add a row to a CSV file and run it again to see the new case:
+
+```nomi-run manual expand
+// FILE: tables.nomi
+import csvdata
+
+/// Each product's price, in cents.
+pub csvdata.table! price(sku: String) -> Maybe<Int> `prices.csv`
+
+/// What each product is called.
+pub csvdata.table! product_name(sku: String) -> Maybe<String> `names.csv`
+
+// FILE: data/prices.csv
+sku,cents
+mug,1450
+poster,2200
+tote,1800
+
+// FILE: data/names.csv
+sku,name
+mug,Coffee mug
+poster,Concert poster
+tote,Tote bag
+
+// FILE: nomi.toml
+[module]
+name = "shop"
+entry_points = ["main"]
+
+[csvdata]
+dir = "data"
+
+// FILE: go.mod
+module shop
+
+go 1.27.0
+
+require csvdata v0.0.0
+
+replace csvdata => ./macros/csvdata
+
+// FILE: macros/csvdata/csvdata.nomi
+// `table`: a lookup function whose rows are a CSV file's. The body names
+// the file, under the directory `dir` of the module's `[csvdata]` table.
+// Its first row is a header; every other row is a key and a value.
+import {
+    std/json.Json
+    std/macro.{Body, Declaration, Diagnostic, ExpandCall, Expansion, Input, Macro}
+    std/macro.{Request, RequestCall, Source, Span}
+}
+
+/// A lookup function over the rows of a CSV file.
+pub macro table: CsvTable
+
+type CsvTable
+
+/// One row of a table: its line, its key and value cells and their text.
+struct Row {
+    line: Int
+    key: String
+    value: String
+    text: String
+}
+
+impl Macro for CsvTable {
+    fn request(call: RequestCall) -> Request {
+        case table_path(call.decl, call.config) {
+            Some(path) -> #Request{files: [path]}
+            None -> #Request{}
+        }
+    }
+
+    fn expand(call: ExpandCall) -> Expansion {
+        decl = call.decl
+
+        param = case decl.params {
+            [p] -> p
+            _ -> return Declaration.error(decl, "a table takes one parameter, its key")
+        }
+
+        result = case decl.result {
+            Some(t) -> t
+            None -> return Declaration.error(decl, "a table names its result type: `-> Maybe<Int>`")
+        }
+
+        value_type = case maybe_argument(result.text) {
+            Some(t) ->
+                t
+
+            None ->
+                return Expansion.error(
+                    result.span,
+                    "a table answers `None` for a missing key, so write `-> Maybe<${result.text}>`",
+                )
+        }
+
+        path = case table_path(decl, call.config) {
+            Some(p) -> p
+            None -> return Declaration.error(decl, "a table names its CSV file in backticks")
+        }
+
+        case decl.body {
+            Some(#Body{tag: Some(tag), tag_span: Some(span)}) ->
+                return Expansion.error(
+                    span,
+                    "a table's body is the path of its CSV file and takes no tag: remove `${tag}`",
+                )
+
+            _ -> {}
+        }
+
+        input = case Input.find(call.inputs, path) {
+            Some(i) -> i
+            None -> return #Expansion{
+                diagnostics: [
+                    #Diagnostic{
+                        span: body_span(decl),
+                        message: "no file ${path}",
+                        hints: ["the path is under the module root, after `[csvdata].dir`"],
+                    },
+                ],
+            }
+        }
+
+        #(rows, problems) = read_rows(input)
+
+        if !Iter.empty?(problems) {
+            return #Expansion{diagnostics: problems}
+        }
+
+        quote_keys = param.type_text.text == "String"
+        quote_values = value_type == "String"
+        visibility = if decl.public { "pub " } else { "" }
+
+        header =
+            Source.new()
+            |> Source.add("${visibility}fn ${decl.name}(")
+            |> Source.mapped(param.name, param.span)
+            |> Source.add(": ")
+            |> Source.mapped(param.type_text.text, param.type_text.span)
+            |> Source.add(") -> ")
+            |> Source.mapped(result.text, result.span)
+            |> Source.add(" {\n    case ${param.name} {\n")
+
+        arms = Iter.reduce(
+            rows,
+            fn src, row -> {
+                key_end = String.length(row.key)
+                key_span = Span.on_line(input.path, row.line, row.text, 0, key_end)
+                value_start = key_end + 1
+                value_end = value_start + String.length(row.value)
+                value_span = Span.on_line(input.path, row.line, row.text, value_start, value_end)
+                key_hint = Some("keys of `${decl.name}` are of type `${param.type_text.text}`")
+
+                value = if quote_values {
+                    String.to_literal(row.value)
+                } else {
+                    row.value
+                }
+
+                src
+                |> Source.add("        ")
+                |> key_cell(quote_keys, row.key, key_span, key_hint)
+                |> Source.add(" -> ")
+                |> Source.mapped(
+                    "Some(${value})",
+                    value_span,
+                    hint: Some("values of `${decl.name}` are of type `${value_type}`"),
+                )
+                |> Source.add("\n")
+            },
+            from: header,
+        )
+
+        arms
+        |> Source.add("        _ -> None\n    }\n}\n")
+        |> Source.expansion()
+    }
+}
+
+/// source followed by the key `text`, made from `span`: a string literal
+/// when `quoted`, else the text as it is.
+fn key_cell(source: Source, quoted: Bool, text: String, span: Span, hint: Maybe<String>) -> Source {
+    if quoted {
+        Source.string_literal(source, text, span, hint)
+    } else {
+        Source.mapped(source, text, span, hint)
+    }
+}
+
+/// The file decl reads: its body, under the configuration's `dir`.
+fn table_path(decl: Declaration, config: Json) -> Maybe<String> {
+    dir = case config {
+        Json.Obj(fields) ->
+            case Map.get(fields, "dir") {
+                Some(Json.String(d)) -> d + "/"
+                _ -> ""
+            }
+
+        _ ->
+            ""
+    }
+
+    decl.body
+    |> Maybe.map(fn body -> String.trim(body.text))
+    |> Maybe.flat_map(fn text -> if text == "" { None } else { Some(dir + text) })
+}
+
+/// The type argument of `text` when it is `Maybe<T>`: `T`.
+fn maybe_argument(text: String) -> Maybe<String> {
+    text
+    |> String.strip_prefix("Maybe<")
+    |> Maybe.flat_map(fn rest -> String.strip_suffix(rest, ">"))
+}
+
+/// The span of decl's body, or of decl when it has none.
+fn body_span(decl: Declaration) -> Span {
+    case decl.body {
+        Some(body) -> body.span
+        None -> decl.span
+    }
+}
+
+/// The rows of a CSV input after its header, and what is wrong with them.
+fn read_rows(input: Input) -> #(List<Row>, List<Diagnostic>) {
+    #(rows, problems) =
+        input.text
+        |> String.lines()
+        |> Iter.with_index()
+        |> Iter.drop(1)
+        |> Iter.reduce(
+            fn acc: #(List<Row>, List<Diagnostic>), #(index, text) -> {
+                #(rows, problems) = acc
+                line = index + 1
+
+                case String.split(text, ",") {
+                    [""] ->
+                        acc
+
+                    [key, value] ->
+                        #([#Row{line, key, value, text}, ..rows], problems)
+
+                    cells -> {
+                        count = Iter.count(cells)
+
+                        problem = #Diagnostic{
+                            span: Span.line(input.path, line, text),
+                            message: "this row has ${count} cells; a table row is a key and a value",
+                        }
+
+                        #(rows, [problem, ..problems])
+                    }
+                }
+            },
+            from: #([], []),
+        )
+
+    // Each list was built last first.
+    #(Iter.reverse(rows), Iter.reverse(problems))
+}
+
+// FILE: macros/csvdata/nomi.toml
+[module]
+name = "csvdata"
+
+// FILE: macros/csvdata/go.mod
+module csvdata
+
+go 1.27.0
+```
+<!-- expect
 // csvdata.table! price (line 4), expanded by the macro table of module csvdata
 /// Each product's price, in cents.
 pub fn price(sku: String) -> Maybe<Int> {
@@ -163,7 +704,7 @@ pub fn product_name(sku: String) -> Maybe<String> {
         _ -> None
     }
 }
-```
+-->
 
 ## Errors
 
@@ -175,18 +716,294 @@ never points into generated code; it is reported at something you wrote.
 csvdata links each value it writes to its cell in the CSV file. If someone
 writes a price in dollars instead of cents, the error points at the cell:
 
-```console
-$ nomi check .
-FAIL data/prices.csv
-error: case branch type mismatch: expected Maybe<Int>, got Maybe<Float>
- --> data/prices.csv:4:6
-  |
-4 | tote,18.00
-  |      ^^^^^
-  = help: values of `price` are of type `Int`
-```
+```nomi-run manual error
+// FILE: data/prices.csv
+sku,cents
+mug,1450
+poster,2200
+tote,18.00
 
-`FAIL` names the file that holds the errors, here the CSV file.
+// FILE: main.nomi
+import {
+    std/io
+    tables
+}
+
+fn main() {
+    sku = "mug"
+    name = tables.product_name(sku) |> Maybe.with_default(sku)
+    cents = tables.price(sku) |> Maybe.with_default(0)
+    io.print("${name}: ${cents} cents")
+}
+
+// FILE: tables.nomi
+import csvdata
+
+/// Each product's price, in cents.
+pub csvdata.table! price(sku: String) -> Maybe<Int> `prices.csv`
+
+/// What each product is called.
+pub csvdata.table! product_name(sku: String) -> Maybe<String> `names.csv`
+
+// FILE: data/names.csv
+sku,name
+mug,Coffee mug
+poster,Concert poster
+tote,Tote bag
+
+// FILE: nomi.toml
+[module]
+name = "shop"
+entry_points = ["main"]
+
+[csvdata]
+dir = "data"
+
+// FILE: go.mod
+module shop
+
+go 1.27.0
+
+require csvdata v0.0.0
+
+replace csvdata => ./macros/csvdata
+
+// FILE: macros/csvdata/csvdata.nomi
+// `table`: a lookup function whose rows are a CSV file's. The body names
+// the file, under the directory `dir` of the module's `[csvdata]` table.
+// Its first row is a header; every other row is a key and a value.
+import {
+    std/json.Json
+    std/macro.{Body, Declaration, Diagnostic, ExpandCall, Expansion, Input, Macro}
+    std/macro.{Request, RequestCall, Source, Span}
+}
+
+/// A lookup function over the rows of a CSV file.
+pub macro table: CsvTable
+
+type CsvTable
+
+/// One row of a table: its line, its key and value cells and their text.
+struct Row {
+    line: Int
+    key: String
+    value: String
+    text: String
+}
+
+impl Macro for CsvTable {
+    fn request(call: RequestCall) -> Request {
+        case table_path(call.decl, call.config) {
+            Some(path) -> #Request{files: [path]}
+            None -> #Request{}
+        }
+    }
+
+    fn expand(call: ExpandCall) -> Expansion {
+        decl = call.decl
+
+        param = case decl.params {
+            [p] -> p
+            _ -> return Declaration.error(decl, "a table takes one parameter, its key")
+        }
+
+        result = case decl.result {
+            Some(t) -> t
+            None -> return Declaration.error(decl, "a table names its result type: `-> Maybe<Int>`")
+        }
+
+        value_type = case maybe_argument(result.text) {
+            Some(t) ->
+                t
+
+            None ->
+                return Expansion.error(
+                    result.span,
+                    "a table answers `None` for a missing key, so write `-> Maybe<${result.text}>`",
+                )
+        }
+
+        path = case table_path(decl, call.config) {
+            Some(p) -> p
+            None -> return Declaration.error(decl, "a table names its CSV file in backticks")
+        }
+
+        case decl.body {
+            Some(#Body{tag: Some(tag), tag_span: Some(span)}) ->
+                return Expansion.error(
+                    span,
+                    "a table's body is the path of its CSV file and takes no tag: remove `${tag}`",
+                )
+
+            _ -> {}
+        }
+
+        input = case Input.find(call.inputs, path) {
+            Some(i) -> i
+            None -> return #Expansion{
+                diagnostics: [
+                    #Diagnostic{
+                        span: body_span(decl),
+                        message: "no file ${path}",
+                        hints: ["the path is under the module root, after `[csvdata].dir`"],
+                    },
+                ],
+            }
+        }
+
+        #(rows, problems) = read_rows(input)
+
+        if !Iter.empty?(problems) {
+            return #Expansion{diagnostics: problems}
+        }
+
+        quote_keys = param.type_text.text == "String"
+        quote_values = value_type == "String"
+        visibility = if decl.public { "pub " } else { "" }
+
+        header =
+            Source.new()
+            |> Source.add("${visibility}fn ${decl.name}(")
+            |> Source.mapped(param.name, param.span)
+            |> Source.add(": ")
+            |> Source.mapped(param.type_text.text, param.type_text.span)
+            |> Source.add(") -> ")
+            |> Source.mapped(result.text, result.span)
+            |> Source.add(" {\n    case ${param.name} {\n")
+
+        arms = Iter.reduce(
+            rows,
+            fn src, row -> {
+                key_end = String.length(row.key)
+                key_span = Span.on_line(input.path, row.line, row.text, 0, key_end)
+                value_start = key_end + 1
+                value_end = value_start + String.length(row.value)
+                value_span = Span.on_line(input.path, row.line, row.text, value_start, value_end)
+                key_hint = Some("keys of `${decl.name}` are of type `${param.type_text.text}`")
+
+                value = if quote_values {
+                    String.to_literal(row.value)
+                } else {
+                    row.value
+                }
+
+                src
+                |> Source.add("        ")
+                |> key_cell(quote_keys, row.key, key_span, key_hint)
+                |> Source.add(" -> ")
+                |> Source.mapped(
+                    "Some(${value})",
+                    value_span,
+                    hint: Some("values of `${decl.name}` are of type `${value_type}`"),
+                )
+                |> Source.add("\n")
+            },
+            from: header,
+        )
+
+        arms
+        |> Source.add("        _ -> None\n    }\n}\n")
+        |> Source.expansion()
+    }
+}
+
+/// source followed by the key `text`, made from `span`: a string literal
+/// when `quoted`, else the text as it is.
+fn key_cell(source: Source, quoted: Bool, text: String, span: Span, hint: Maybe<String>) -> Source {
+    if quoted {
+        Source.string_literal(source, text, span, hint)
+    } else {
+        Source.mapped(source, text, span, hint)
+    }
+}
+
+/// The file decl reads: its body, under the configuration's `dir`.
+fn table_path(decl: Declaration, config: Json) -> Maybe<String> {
+    dir = case config {
+        Json.Obj(fields) ->
+            case Map.get(fields, "dir") {
+                Some(Json.String(d)) -> d + "/"
+                _ -> ""
+            }
+
+        _ ->
+            ""
+    }
+
+    decl.body
+    |> Maybe.map(fn body -> String.trim(body.text))
+    |> Maybe.flat_map(fn text -> if text == "" { None } else { Some(dir + text) })
+}
+
+/// The type argument of `text` when it is `Maybe<T>`: `T`.
+fn maybe_argument(text: String) -> Maybe<String> {
+    text
+    |> String.strip_prefix("Maybe<")
+    |> Maybe.flat_map(fn rest -> String.strip_suffix(rest, ">"))
+}
+
+/// The span of decl's body, or of decl when it has none.
+fn body_span(decl: Declaration) -> Span {
+    case decl.body {
+        Some(body) -> body.span
+        None -> decl.span
+    }
+}
+
+/// The rows of a CSV input after its header, and what is wrong with them.
+fn read_rows(input: Input) -> #(List<Row>, List<Diagnostic>) {
+    #(rows, problems) =
+        input.text
+        |> String.lines()
+        |> Iter.with_index()
+        |> Iter.drop(1)
+        |> Iter.reduce(
+            fn acc: #(List<Row>, List<Diagnostic>), #(index, text) -> {
+                #(rows, problems) = acc
+                line = index + 1
+
+                case String.split(text, ",") {
+                    [""] ->
+                        acc
+
+                    [key, value] ->
+                        #([#Row{line, key, value, text}, ..rows], problems)
+
+                    cells -> {
+                        count = Iter.count(cells)
+
+                        problem = #Diagnostic{
+                            span: Span.line(input.path, line, text),
+                            message: "this row has ${count} cells; a table row is a key and a value",
+                        }
+
+                        #(rows, [problem, ..problems])
+                    }
+                }
+            },
+            from: #([], []),
+        )
+
+    // Each list was built last first.
+    #(Iter.reverse(rows), Iter.reverse(problems))
+}
+
+// FILE: macros/csvdata/nomi.toml
+[module]
+name = "csvdata"
+
+// FILE: macros/csvdata/go.mod
+module csvdata
+
+go 1.27.0
+```
+<!-- expect
+data/prices.csv:4:6: case branch type mismatch: expected Maybe<Int>, got Maybe<Float>
+data/prices.csv:4:6: help: values of `price` are of type `Int`
+-->
+
+The error names the file that holds it, here the CSV file, with the line
+and column of the cell.
 
 ### The macro's own errors
 
@@ -194,22 +1011,292 @@ A macro reports mistakes it finds itself at the part of the declaration
 they are about. Here the first table has a tag and the second names a file
 that does not exist:
 
-```console
-$ nomi check .
-FAIL tables.nomi
-error: a table's body is the path of its CSV file and takes no tag: remove `Csv`
- --> tables.nomi:4:53
-  |
-4 | pub csvdata.table! price(sku: String) -> Maybe<Int> Csv`prices.csv`
-  |                                                     ^^^
+```nomi-run manual error
+// FILE: tables.nomi
+import csvdata
 
-error: no file data/name.csv
- --> tables.nomi:7:64
-  |
-7 | pub csvdata.table! product_name(sku: String) -> Maybe<String> `name.csv`
-  |                                                                ^^^^^^^^
-  = help: the path is under the module root, after `[csvdata].dir`
+/// Each product's price, in cents.
+pub csvdata.table! price(sku: String) -> Maybe<Int> Csv`prices.csv`
+
+/// What each product is called.
+pub csvdata.table! product_name(sku: String) -> Maybe<String> `name.csv`
+
+// FILE: main.nomi
+import {
+    std/io
+    tables
+}
+
+fn main() {
+    sku = "mug"
+    name = tables.product_name(sku) |> Maybe.with_default(sku)
+    cents = tables.price(sku) |> Maybe.with_default(0)
+    io.print("${name}: ${cents} cents")
+}
+
+// FILE: data/prices.csv
+sku,cents
+mug,1450
+poster,2200
+tote,1800
+
+// FILE: data/names.csv
+sku,name
+mug,Coffee mug
+poster,Concert poster
+tote,Tote bag
+
+// FILE: nomi.toml
+[module]
+name = "shop"
+entry_points = ["main"]
+
+[csvdata]
+dir = "data"
+
+// FILE: go.mod
+module shop
+
+go 1.27.0
+
+require csvdata v0.0.0
+
+replace csvdata => ./macros/csvdata
+
+// FILE: macros/csvdata/csvdata.nomi
+// `table`: a lookup function whose rows are a CSV file's. The body names
+// the file, under the directory `dir` of the module's `[csvdata]` table.
+// Its first row is a header; every other row is a key and a value.
+import {
+    std/json.Json
+    std/macro.{Body, Declaration, Diagnostic, ExpandCall, Expansion, Input, Macro}
+    std/macro.{Request, RequestCall, Source, Span}
+}
+
+/// A lookup function over the rows of a CSV file.
+pub macro table: CsvTable
+
+type CsvTable
+
+/// One row of a table: its line, its key and value cells and their text.
+struct Row {
+    line: Int
+    key: String
+    value: String
+    text: String
+}
+
+impl Macro for CsvTable {
+    fn request(call: RequestCall) -> Request {
+        case table_path(call.decl, call.config) {
+            Some(path) -> #Request{files: [path]}
+            None -> #Request{}
+        }
+    }
+
+    fn expand(call: ExpandCall) -> Expansion {
+        decl = call.decl
+
+        param = case decl.params {
+            [p] -> p
+            _ -> return Declaration.error(decl, "a table takes one parameter, its key")
+        }
+
+        result = case decl.result {
+            Some(t) -> t
+            None -> return Declaration.error(decl, "a table names its result type: `-> Maybe<Int>`")
+        }
+
+        value_type = case maybe_argument(result.text) {
+            Some(t) ->
+                t
+
+            None ->
+                return Expansion.error(
+                    result.span,
+                    "a table answers `None` for a missing key, so write `-> Maybe<${result.text}>`",
+                )
+        }
+
+        path = case table_path(decl, call.config) {
+            Some(p) -> p
+            None -> return Declaration.error(decl, "a table names its CSV file in backticks")
+        }
+
+        case decl.body {
+            Some(#Body{tag: Some(tag), tag_span: Some(span)}) ->
+                return Expansion.error(
+                    span,
+                    "a table's body is the path of its CSV file and takes no tag: remove `${tag}`",
+                )
+
+            _ -> {}
+        }
+
+        input = case Input.find(call.inputs, path) {
+            Some(i) -> i
+            None -> return #Expansion{
+                diagnostics: [
+                    #Diagnostic{
+                        span: body_span(decl),
+                        message: "no file ${path}",
+                        hints: ["the path is under the module root, after `[csvdata].dir`"],
+                    },
+                ],
+            }
+        }
+
+        #(rows, problems) = read_rows(input)
+
+        if !Iter.empty?(problems) {
+            return #Expansion{diagnostics: problems}
+        }
+
+        quote_keys = param.type_text.text == "String"
+        quote_values = value_type == "String"
+        visibility = if decl.public { "pub " } else { "" }
+
+        header =
+            Source.new()
+            |> Source.add("${visibility}fn ${decl.name}(")
+            |> Source.mapped(param.name, param.span)
+            |> Source.add(": ")
+            |> Source.mapped(param.type_text.text, param.type_text.span)
+            |> Source.add(") -> ")
+            |> Source.mapped(result.text, result.span)
+            |> Source.add(" {\n    case ${param.name} {\n")
+
+        arms = Iter.reduce(
+            rows,
+            fn src, row -> {
+                key_end = String.length(row.key)
+                key_span = Span.on_line(input.path, row.line, row.text, 0, key_end)
+                value_start = key_end + 1
+                value_end = value_start + String.length(row.value)
+                value_span = Span.on_line(input.path, row.line, row.text, value_start, value_end)
+                key_hint = Some("keys of `${decl.name}` are of type `${param.type_text.text}`")
+
+                value = if quote_values {
+                    String.to_literal(row.value)
+                } else {
+                    row.value
+                }
+
+                src
+                |> Source.add("        ")
+                |> key_cell(quote_keys, row.key, key_span, key_hint)
+                |> Source.add(" -> ")
+                |> Source.mapped(
+                    "Some(${value})",
+                    value_span,
+                    hint: Some("values of `${decl.name}` are of type `${value_type}`"),
+                )
+                |> Source.add("\n")
+            },
+            from: header,
+        )
+
+        arms
+        |> Source.add("        _ -> None\n    }\n}\n")
+        |> Source.expansion()
+    }
+}
+
+/// source followed by the key `text`, made from `span`: a string literal
+/// when `quoted`, else the text as it is.
+fn key_cell(source: Source, quoted: Bool, text: String, span: Span, hint: Maybe<String>) -> Source {
+    if quoted {
+        Source.string_literal(source, text, span, hint)
+    } else {
+        Source.mapped(source, text, span, hint)
+    }
+}
+
+/// The file decl reads: its body, under the configuration's `dir`.
+fn table_path(decl: Declaration, config: Json) -> Maybe<String> {
+    dir = case config {
+        Json.Obj(fields) ->
+            case Map.get(fields, "dir") {
+                Some(Json.String(d)) -> d + "/"
+                _ -> ""
+            }
+
+        _ ->
+            ""
+    }
+
+    decl.body
+    |> Maybe.map(fn body -> String.trim(body.text))
+    |> Maybe.flat_map(fn text -> if text == "" { None } else { Some(dir + text) })
+}
+
+/// The type argument of `text` when it is `Maybe<T>`: `T`.
+fn maybe_argument(text: String) -> Maybe<String> {
+    text
+    |> String.strip_prefix("Maybe<")
+    |> Maybe.flat_map(fn rest -> String.strip_suffix(rest, ">"))
+}
+
+/// The span of decl's body, or of decl when it has none.
+fn body_span(decl: Declaration) -> Span {
+    case decl.body {
+        Some(body) -> body.span
+        None -> decl.span
+    }
+}
+
+/// The rows of a CSV input after its header, and what is wrong with them.
+fn read_rows(input: Input) -> #(List<Row>, List<Diagnostic>) {
+    #(rows, problems) =
+        input.text
+        |> String.lines()
+        |> Iter.with_index()
+        |> Iter.drop(1)
+        |> Iter.reduce(
+            fn acc: #(List<Row>, List<Diagnostic>), #(index, text) -> {
+                #(rows, problems) = acc
+                line = index + 1
+
+                case String.split(text, ",") {
+                    [""] ->
+                        acc
+
+                    [key, value] ->
+                        #([#Row{line, key, value, text}, ..rows], problems)
+
+                    cells -> {
+                        count = Iter.count(cells)
+
+                        problem = #Diagnostic{
+                            span: Span.line(input.path, line, text),
+                            message: "this row has ${count} cells; a table row is a key and a value",
+                        }
+
+                        #(rows, [problem, ..problems])
+                    }
+                }
+            },
+            from: #([], []),
+        )
+
+    // Each list was built last first.
+    #(Iter.reverse(rows), Iter.reverse(problems))
+}
+
+// FILE: macros/csvdata/nomi.toml
+[module]
+name = "csvdata"
+
+// FILE: macros/csvdata/go.mod
+module csvdata
+
+go 1.27.0
 ```
+<!-- expect
+tables.nomi:4:53: a table's body is the path of its CSV file and takes no tag: remove `Csv`
+tables.nomi:7:64: no file data/name.csv
+tables.nomi:7:64: help: the path is under the module root, after `[csvdata].dir`
+-->
 
 csvdata also refuses `-> Int`, with
 ``a table answers `None` for a missing key, so write `-> Maybe<Int>` ``
@@ -224,16 +1311,295 @@ don't also get an error for each call.
 The names a macro declares join your file's top-level names. If
 `tables.nomi` also declares a `fn price` of its own, both claim the name:
 
-```console
-$ nomi check .
-FAIL tables.nomi
-error: `price` is declared here and by `csvdata.table! price` on line 4
- --> tables.nomi:9:4
-  |
-9 | fn price(sku: String) -> Int {
-  |    ^^^^^
-  = help: rename one of them
+```nomi-run manual error
+// FILE: tables.nomi
+import csvdata
+
+/// Each product's price, in cents.
+pub csvdata.table! price(sku: String) -> Maybe<Int> `prices.csv`
+
+/// What each product is called.
+pub csvdata.table! product_name(sku: String) -> Maybe<String> `names.csv`
+
+fn price(sku: String) -> Int {
+    0
+}
+
+// FILE: main.nomi
+import {
+    std/io
+    tables
+}
+
+fn main() {
+    sku = "mug"
+    name = tables.product_name(sku) |> Maybe.with_default(sku)
+    cents = tables.price(sku) |> Maybe.with_default(0)
+    io.print("${name}: ${cents} cents")
+}
+
+// FILE: data/prices.csv
+sku,cents
+mug,1450
+poster,2200
+tote,1800
+
+// FILE: data/names.csv
+sku,name
+mug,Coffee mug
+poster,Concert poster
+tote,Tote bag
+
+// FILE: nomi.toml
+[module]
+name = "shop"
+entry_points = ["main"]
+
+[csvdata]
+dir = "data"
+
+// FILE: go.mod
+module shop
+
+go 1.27.0
+
+require csvdata v0.0.0
+
+replace csvdata => ./macros/csvdata
+
+// FILE: macros/csvdata/csvdata.nomi
+// `table`: a lookup function whose rows are a CSV file's. The body names
+// the file, under the directory `dir` of the module's `[csvdata]` table.
+// Its first row is a header; every other row is a key and a value.
+import {
+    std/json.Json
+    std/macro.{Body, Declaration, Diagnostic, ExpandCall, Expansion, Input, Macro}
+    std/macro.{Request, RequestCall, Source, Span}
+}
+
+/// A lookup function over the rows of a CSV file.
+pub macro table: CsvTable
+
+type CsvTable
+
+/// One row of a table: its line, its key and value cells and their text.
+struct Row {
+    line: Int
+    key: String
+    value: String
+    text: String
+}
+
+impl Macro for CsvTable {
+    fn request(call: RequestCall) -> Request {
+        case table_path(call.decl, call.config) {
+            Some(path) -> #Request{files: [path]}
+            None -> #Request{}
+        }
+    }
+
+    fn expand(call: ExpandCall) -> Expansion {
+        decl = call.decl
+
+        param = case decl.params {
+            [p] -> p
+            _ -> return Declaration.error(decl, "a table takes one parameter, its key")
+        }
+
+        result = case decl.result {
+            Some(t) -> t
+            None -> return Declaration.error(decl, "a table names its result type: `-> Maybe<Int>`")
+        }
+
+        value_type = case maybe_argument(result.text) {
+            Some(t) ->
+                t
+
+            None ->
+                return Expansion.error(
+                    result.span,
+                    "a table answers `None` for a missing key, so write `-> Maybe<${result.text}>`",
+                )
+        }
+
+        path = case table_path(decl, call.config) {
+            Some(p) -> p
+            None -> return Declaration.error(decl, "a table names its CSV file in backticks")
+        }
+
+        case decl.body {
+            Some(#Body{tag: Some(tag), tag_span: Some(span)}) ->
+                return Expansion.error(
+                    span,
+                    "a table's body is the path of its CSV file and takes no tag: remove `${tag}`",
+                )
+
+            _ -> {}
+        }
+
+        input = case Input.find(call.inputs, path) {
+            Some(i) -> i
+            None -> return #Expansion{
+                diagnostics: [
+                    #Diagnostic{
+                        span: body_span(decl),
+                        message: "no file ${path}",
+                        hints: ["the path is under the module root, after `[csvdata].dir`"],
+                    },
+                ],
+            }
+        }
+
+        #(rows, problems) = read_rows(input)
+
+        if !Iter.empty?(problems) {
+            return #Expansion{diagnostics: problems}
+        }
+
+        quote_keys = param.type_text.text == "String"
+        quote_values = value_type == "String"
+        visibility = if decl.public { "pub " } else { "" }
+
+        header =
+            Source.new()
+            |> Source.add("${visibility}fn ${decl.name}(")
+            |> Source.mapped(param.name, param.span)
+            |> Source.add(": ")
+            |> Source.mapped(param.type_text.text, param.type_text.span)
+            |> Source.add(") -> ")
+            |> Source.mapped(result.text, result.span)
+            |> Source.add(" {\n    case ${param.name} {\n")
+
+        arms = Iter.reduce(
+            rows,
+            fn src, row -> {
+                key_end = String.length(row.key)
+                key_span = Span.on_line(input.path, row.line, row.text, 0, key_end)
+                value_start = key_end + 1
+                value_end = value_start + String.length(row.value)
+                value_span = Span.on_line(input.path, row.line, row.text, value_start, value_end)
+                key_hint = Some("keys of `${decl.name}` are of type `${param.type_text.text}`")
+
+                value = if quote_values {
+                    String.to_literal(row.value)
+                } else {
+                    row.value
+                }
+
+                src
+                |> Source.add("        ")
+                |> key_cell(quote_keys, row.key, key_span, key_hint)
+                |> Source.add(" -> ")
+                |> Source.mapped(
+                    "Some(${value})",
+                    value_span,
+                    hint: Some("values of `${decl.name}` are of type `${value_type}`"),
+                )
+                |> Source.add("\n")
+            },
+            from: header,
+        )
+
+        arms
+        |> Source.add("        _ -> None\n    }\n}\n")
+        |> Source.expansion()
+    }
+}
+
+/// source followed by the key `text`, made from `span`: a string literal
+/// when `quoted`, else the text as it is.
+fn key_cell(source: Source, quoted: Bool, text: String, span: Span, hint: Maybe<String>) -> Source {
+    if quoted {
+        Source.string_literal(source, text, span, hint)
+    } else {
+        Source.mapped(source, text, span, hint)
+    }
+}
+
+/// The file decl reads: its body, under the configuration's `dir`.
+fn table_path(decl: Declaration, config: Json) -> Maybe<String> {
+    dir = case config {
+        Json.Obj(fields) ->
+            case Map.get(fields, "dir") {
+                Some(Json.String(d)) -> d + "/"
+                _ -> ""
+            }
+
+        _ ->
+            ""
+    }
+
+    decl.body
+    |> Maybe.map(fn body -> String.trim(body.text))
+    |> Maybe.flat_map(fn text -> if text == "" { None } else { Some(dir + text) })
+}
+
+/// The type argument of `text` when it is `Maybe<T>`: `T`.
+fn maybe_argument(text: String) -> Maybe<String> {
+    text
+    |> String.strip_prefix("Maybe<")
+    |> Maybe.flat_map(fn rest -> String.strip_suffix(rest, ">"))
+}
+
+/// The span of decl's body, or of decl when it has none.
+fn body_span(decl: Declaration) -> Span {
+    case decl.body {
+        Some(body) -> body.span
+        None -> decl.span
+    }
+}
+
+/// The rows of a CSV input after its header, and what is wrong with them.
+fn read_rows(input: Input) -> #(List<Row>, List<Diagnostic>) {
+    #(rows, problems) =
+        input.text
+        |> String.lines()
+        |> Iter.with_index()
+        |> Iter.drop(1)
+        |> Iter.reduce(
+            fn acc: #(List<Row>, List<Diagnostic>), #(index, text) -> {
+                #(rows, problems) = acc
+                line = index + 1
+
+                case String.split(text, ",") {
+                    [""] ->
+                        acc
+
+                    [key, value] ->
+                        #([#Row{line, key, value, text}, ..rows], problems)
+
+                    cells -> {
+                        count = Iter.count(cells)
+
+                        problem = #Diagnostic{
+                            span: Span.line(input.path, line, text),
+                            message: "this row has ${count} cells; a table row is a key and a value",
+                        }
+
+                        #(rows, [problem, ..problems])
+                    }
+                }
+            },
+            from: #([], []),
+        )
+
+    // Each list was built last first.
+    #(Iter.reverse(rows), Iter.reverse(problems))
+}
+
+// FILE: macros/csvdata/nomi.toml
+[module]
+name = "csvdata"
+
+// FILE: macros/csvdata/go.mod
+module csvdata
+
+go 1.27.0
 ```
+<!-- expect
+tables.nomi:9:4: `price` is declared here and by `csvdata.table! price` on line 4
+tables.nomi:9:4: help: rename one of them
+-->
 
 The table declares nothing, so your own `price` keeps its meaning. A
 `price` declared in another file does not clash, since each file has its
@@ -255,7 +1621,8 @@ points you to `nomi expand`.
 The CSV files are inputs of `tables.nomi`, and so is the macro's own
 source. In the editor, saving `data/prices.csv` expands the tables again
 and updates every error that depends on them, and an error in the CSV file
-shows in the CSV file.
+shows in the CSV file. The examples on this page do the same when you
+press Run after editing a CSV tab or the macro's own tab.
 
 `nomi check`, `nomi run` and `nomi build` keep nothing on disk between
 runs. Each run reads the files again and runs every macro in the program.
@@ -308,13 +1675,13 @@ projects, publish its module like any Nomi module, as
 
 ### The macro
 
-This is `macros/choices/choices.nomi`:
+This is `macros/choices/choices.nomi`, in the first tab of the café below.
+`main.nomi` uses the `Size` that `sizes.nomi` declares. The macro's tab
+is editable too: change what `expand` writes and run the example again.
 
-```nomi
-import {
-    std/json.Json
-    std/macro.{Body, Declaration, ExpandCall, Expansion, Macro, Source, Span, pascal_case}
-}
+```nomi-run manual
+// FILE: macros/choices/choices.nomi
+import std/macro.{Body, Declaration, ExpandCall, Expansion, Macro, Source, Span, pascal_case}
 
 /// An enum whose variants are the words of the body:
 /// ``choices.one_of! Size `small medium large` ``.
@@ -391,11 +1758,61 @@ fn snake_case?(word: String) -> Bool {
     first = Iter.first(letters) |> Maybe.map(lower?) |> Maybe.with_default(False)
     first and Iter.all?(letters, fn c -> lower?(c) or c >= '0' and c <= '9' or c == '_')
 }
+
+// FILE: sizes.nomi
+import choices
+
+/// How big a coffee is.
+pub choices.one_of! Size `small medium large`
+
+// FILE: main.nomi
+import {
+    std/io
+    sizes.Size
+}
+
+fn ounces(size: Size) -> Int {
+    case size {
+        Size.Small -> 8
+        Size.Medium -> 12
+        Size.Large -> 16
+    }
+}
+
+fn main() {
+    io.print(ounces(Size.Medium))
+}
+
+// FILE: nomi.toml
+[module]
+name = "cafe"
+entry_points = ["main"]
+
+// FILE: go.mod
+module cafe
+
+go 1.27.0
+
+require choices v0.0.0
+
+replace choices => ./macros/choices
+
+// FILE: macros/choices/nomi.toml
+[module]
+name = "choices"
+
+// FILE: macros/choices/go.mod
+module choices
+
+go 1.27.0
 ```
+<!-- expect
+12
+-->
 
 `pub macro one_of: OneOf` declares the keyword and the type that expands
 it. The file must implement `Macro` for that type, and `pub` lets other
-modules use the keyword. (The test at the end of the file uses `Json`.)
+modules use the keyword.
 
 The compiler calls `expand` once for each declaration. Its `ExpandCall`
 holds `decl`, the declaration as you wrote it: its name, whether it is
@@ -412,8 +1829,118 @@ checks each word, and writes an enum with one variant per word.
 `pascal_case` makes `Small` from `small` and `ExtraLarge` from
 `extra_large`:
 
-```console
-$ nomi expand sizes.nomi
+This is what `nomi expand sizes.nomi` prints:
+
+```nomi-run manual expand
+// FILE: sizes.nomi
+import choices
+
+/// How big a coffee is.
+pub choices.one_of! Size `small medium large`
+
+// FILE: macros/choices/choices.nomi
+import std/macro.{Body, Declaration, ExpandCall, Expansion, Macro, Source, Span, pascal_case}
+
+/// An enum whose variants are the words of the body:
+/// ``choices.one_of! Size `small medium large` ``.
+pub macro one_of: OneOf
+
+type OneOf
+
+impl Macro for OneOf {
+    fn expand(call: ExpandCall) -> Expansion {
+        decl = call.decl
+        type_name = pascal_case(decl.name)
+
+        if type_name != decl.name {
+            return Expansion.error(
+                decl.name_span,
+                "a `one_of` declares a type, so its name is a type name: `${type_name}`",
+            )
+        }
+
+        Some(body) = decl.body else {
+            return Declaration.error(decl, "write the variants as the body: `small medium large`")
+        }
+
+        found = words(body)
+
+        if Some(#(_, span)) = Iter.find(found, fn #(word, _) -> !snake_case?(word)) {
+            return Expansion.error(span, "a variant is a snake_case word, such as `extra_large`")
+        }
+
+        visibility = if decl.public { "pub " } else { "" }
+        start = Source.new() |> Source.add("${visibility}enum ${decl.name} {\n")
+
+        Iter.reduce(
+            found,
+            fn source, #(word, span) -> {
+                source
+                |> Source.add("    ")
+                |> Source.mapped(pascal_case(word), span, hint: Some("each word names one variant"))
+                |> Source.add("\n")
+            },
+            from: start,
+        )
+        |> Source.add("}\n")
+        |> Source.expansion()
+    }
+}
+
+/// The words of the body, separated by spaces or line breaks, each with
+/// its span.
+fn words(body: Body) -> List<#(String, Span)> {
+    pieces = body.text |> String.replace("\n", " ") |> String.split(" ")
+
+    #(found, _) = Iter.reduce(
+        pieces,
+        fn #(found, at), word -> {
+            end = at + String.length(word)
+
+            if word == "" {
+                #(found, end + 1)
+            } else {
+                #([#(word, Body.span_at(body, at, end)), ..found], end + 1)
+            }
+        },
+        from: #([], 0),
+    )
+
+    Iter.reverse(found)
+}
+
+/// Whether `word` is a snake_case name, such as `extra_large`.
+fn snake_case?(word: String) -> Bool {
+    letters = String.to_codepoints(word)
+    lower? = fn c: Codepoint -> c >= 'a' and c <= 'z'
+    first = Iter.first(letters) |> Maybe.map(lower?) |> Maybe.with_default(False)
+    first and Iter.all?(letters, fn c -> lower?(c) or c >= '0' and c <= '9' or c == '_')
+}
+
+// FILE: nomi.toml
+[module]
+name = "cafe"
+entry_points = ["main"]
+
+// FILE: go.mod
+module cafe
+
+go 1.27.0
+
+require choices v0.0.0
+
+replace choices => ./macros/choices
+
+// FILE: macros/choices/nomi.toml
+[module]
+name = "choices"
+
+// FILE: macros/choices/go.mod
+module choices
+
+go 1.27.0
+```
+<!-- expect
 // choices.one_of! Size (line 4), expanded by the macro one_of of module choices
 /// How big a coffee is.
 pub enum Size {
@@ -421,7 +1948,7 @@ pub enum Size {
     Medium
     Large
 }
-```
+-->
 
 It writes `pub` when the declaration has it, because the compiler checks
 that the two match. A version that always left `pub` out would get an error at each
@@ -445,16 +1972,120 @@ whose offsets count graphemes, as `String.slice` does, and `one_of` maps each va
 a word twice and the checker's error lands on the second one, with the
 hint the macro gave and a note at the first:
 
-```console
-$ nomi check sizes.nomi
-error: variant 'Small' is declared twice in enum `Size`
- --> sizes.nomi:4:40
-  |
-4 | pub choices.one_of! Size `small medium small`
-  |                                        ^^^^^
-  = help: each word names one variant
-  = note: the first is here: sizes.nomi:4:27
+```nomi-run manual error
+// FILE: sizes.nomi
+import choices
+
+/// How big a coffee is.
+pub choices.one_of! Size `small medium small`
+
+// FILE: macros/choices/choices.nomi
+import std/macro.{Body, Declaration, ExpandCall, Expansion, Macro, Source, Span, pascal_case}
+
+/// An enum whose variants are the words of the body:
+/// ``choices.one_of! Size `small medium large` ``.
+pub macro one_of: OneOf
+
+type OneOf
+
+impl Macro for OneOf {
+    fn expand(call: ExpandCall) -> Expansion {
+        decl = call.decl
+        type_name = pascal_case(decl.name)
+
+        if type_name != decl.name {
+            return Expansion.error(
+                decl.name_span,
+                "a `one_of` declares a type, so its name is a type name: `${type_name}`",
+            )
+        }
+
+        Some(body) = decl.body else {
+            return Declaration.error(decl, "write the variants as the body: `small medium large`")
+        }
+
+        found = words(body)
+
+        if Some(#(_, span)) = Iter.find(found, fn #(word, _) -> !snake_case?(word)) {
+            return Expansion.error(span, "a variant is a snake_case word, such as `extra_large`")
+        }
+
+        visibility = if decl.public { "pub " } else { "" }
+        start = Source.new() |> Source.add("${visibility}enum ${decl.name} {\n")
+
+        Iter.reduce(
+            found,
+            fn source, #(word, span) -> {
+                source
+                |> Source.add("    ")
+                |> Source.mapped(pascal_case(word), span, hint: Some("each word names one variant"))
+                |> Source.add("\n")
+            },
+            from: start,
+        )
+        |> Source.add("}\n")
+        |> Source.expansion()
+    }
+}
+
+/// The words of the body, separated by spaces or line breaks, each with
+/// its span.
+fn words(body: Body) -> List<#(String, Span)> {
+    pieces = body.text |> String.replace("\n", " ") |> String.split(" ")
+
+    #(found, _) = Iter.reduce(
+        pieces,
+        fn #(found, at), word -> {
+            end = at + String.length(word)
+
+            if word == "" {
+                #(found, end + 1)
+            } else {
+                #([#(word, Body.span_at(body, at, end)), ..found], end + 1)
+            }
+        },
+        from: #([], 0),
+    )
+
+    Iter.reverse(found)
+}
+
+/// Whether `word` is a snake_case name, such as `extra_large`.
+fn snake_case?(word: String) -> Bool {
+    letters = String.to_codepoints(word)
+    lower? = fn c: Codepoint -> c >= 'a' and c <= 'z'
+    first = Iter.first(letters) |> Maybe.map(lower?) |> Maybe.with_default(False)
+    first and Iter.all?(letters, fn c -> lower?(c) or c >= '0' and c <= '9' or c == '_')
+}
+
+// FILE: nomi.toml
+[module]
+name = "cafe"
+entry_points = ["main"]
+
+// FILE: go.mod
+module cafe
+
+go 1.27.0
+
+require choices v0.0.0
+
+replace choices => ./macros/choices
+
+// FILE: macros/choices/nomi.toml
+[module]
+name = "choices"
+
+// FILE: macros/choices/go.mod
+module choices
+
+go 1.27.0
 ```
+<!-- expect
+sizes.nomi:4:40: variant 'Small' is declared twice in enum `Size`
+sizes.nomi:4:40: help: each word names one variant
+sizes.nomi:4:27: note: the first is here
+-->
 
 Map each piece the checker might reject. Text added with `Source.add` has
 no place in the user's files, so an error in it is reported as a bug in
@@ -474,14 +2105,118 @@ expansion and not in your file, the compiler would call it a defect in
 the macro. So `one_of` checks each word itself and reports a bad one
 under the word:
 
-```console
-$ nomi check sizes.nomi
-error: a variant is a snake_case word, such as `extra_large`
- --> sizes.nomi:4:33
-  |
-4 | pub choices.one_of! Size `small 12oz large`
-  |                                 ^^^^
+```nomi-run manual error
+// FILE: sizes.nomi
+import choices
+
+/// How big a coffee is.
+pub choices.one_of! Size `small 12oz large`
+
+// FILE: macros/choices/choices.nomi
+import std/macro.{Body, Declaration, ExpandCall, Expansion, Macro, Source, Span, pascal_case}
+
+/// An enum whose variants are the words of the body:
+/// ``choices.one_of! Size `small medium large` ``.
+pub macro one_of: OneOf
+
+type OneOf
+
+impl Macro for OneOf {
+    fn expand(call: ExpandCall) -> Expansion {
+        decl = call.decl
+        type_name = pascal_case(decl.name)
+
+        if type_name != decl.name {
+            return Expansion.error(
+                decl.name_span,
+                "a `one_of` declares a type, so its name is a type name: `${type_name}`",
+            )
+        }
+
+        Some(body) = decl.body else {
+            return Declaration.error(decl, "write the variants as the body: `small medium large`")
+        }
+
+        found = words(body)
+
+        if Some(#(_, span)) = Iter.find(found, fn #(word, _) -> !snake_case?(word)) {
+            return Expansion.error(span, "a variant is a snake_case word, such as `extra_large`")
+        }
+
+        visibility = if decl.public { "pub " } else { "" }
+        start = Source.new() |> Source.add("${visibility}enum ${decl.name} {\n")
+
+        Iter.reduce(
+            found,
+            fn source, #(word, span) -> {
+                source
+                |> Source.add("    ")
+                |> Source.mapped(pascal_case(word), span, hint: Some("each word names one variant"))
+                |> Source.add("\n")
+            },
+            from: start,
+        )
+        |> Source.add("}\n")
+        |> Source.expansion()
+    }
+}
+
+/// The words of the body, separated by spaces or line breaks, each with
+/// its span.
+fn words(body: Body) -> List<#(String, Span)> {
+    pieces = body.text |> String.replace("\n", " ") |> String.split(" ")
+
+    #(found, _) = Iter.reduce(
+        pieces,
+        fn #(found, at), word -> {
+            end = at + String.length(word)
+
+            if word == "" {
+                #(found, end + 1)
+            } else {
+                #([#(word, Body.span_at(body, at, end)), ..found], end + 1)
+            }
+        },
+        from: #([], 0),
+    )
+
+    Iter.reverse(found)
+}
+
+/// Whether `word` is a snake_case name, such as `extra_large`.
+fn snake_case?(word: String) -> Bool {
+    letters = String.to_codepoints(word)
+    lower? = fn c: Codepoint -> c >= 'a' and c <= 'z'
+    first = Iter.first(letters) |> Maybe.map(lower?) |> Maybe.with_default(False)
+    first and Iter.all?(letters, fn c -> lower?(c) or c >= '0' and c <= '9' or c == '_')
+}
+
+// FILE: nomi.toml
+[module]
+name = "cafe"
+entry_points = ["main"]
+
+// FILE: go.mod
+module cafe
+
+go 1.27.0
+
+require choices v0.0.0
+
+replace choices => ./macros/choices
+
+// FILE: macros/choices/nomi.toml
+[module]
+name = "choices"
+
+// FILE: macros/choices/go.mod
+module choices
+
+go 1.27.0
 ```
+<!-- expect
+sizes.nomi:4:33: a variant is a snake_case word, such as `extra_large`
+-->
 
 A lower-case name, `one_of! size`, gets
 ``a `one_of` declares a type, so its name is a type name: `Size` ``
@@ -491,7 +2226,7 @@ under `size`.
 
 `expand` is an ordinary Nomi function, so a test can call it with an
 `ExpandCall` it builds and check what comes back. This test goes at the
-end of `choices.nomi`:
+end of `choices.nomi`, which then imports `std/json.Json` too:
 
 ```nomi
 /// The call `expand` gets for ``pub choices.one_of! Size `text` ``.

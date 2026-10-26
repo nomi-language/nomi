@@ -12,7 +12,7 @@ fn main() {
     }
 
     case line {
-        Ok(text) -> io.print("read ${text}")
-        Err(_) -> io.print("no input")
+        Ok(Some(text)) -> io.print("read ${text}")
+        _ -> io.print("no input")
     }
 }

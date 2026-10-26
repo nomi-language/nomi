@@ -5,6 +5,7 @@
 //
 //	nomiRun(source)             -> { output: string, error: string } // run a program on the VM
 //	nomiRunStdlibTest(module, body, context) -> { output: string, error: string }
+//	nomiExpand(source)          -> { output: string, error: string } // `nomi expand` of a block's first tab
 //	nomiFormat(source)          -> { output: string, error: string } // format source
 //	nomiFormatTestBody(source)  -> { output: string, error: string }
 //	nomiSemTokens(source)       -> string (JSON)                     // semantic tokens
@@ -31,12 +32,18 @@ import (
 	nomiformat "github.com/nomi-language/nomi/internal/format"
 	"github.com/nomi-language/nomi/internal/highlight"
 	"github.com/nomi-language/nomi/internal/hoverdoc"
+	"github.com/nomi-language/nomi/internal/tourgo"
 	"github.com/nomi-language/nomi/std"
 	"github.com/nomi-language/nomi/vmhost"
 )
 
 // stdLib backs nomiHighlight's semantic layer; loaded once at startup.
 var stdLib *std.StdLib
+
+// projectDir is where a source that names modules is written as its files
+// for the front end to read (vmhost.LoadMarked): a directory of the
+// in-memory file system the tour's worker gives Go (go-memfs.js).
+const projectDir = "/tour"
 
 // run executes args[0] as a Nomi program and returns a JS object
 // `{ output: string, error: string }`. error is "" on success.
@@ -54,24 +61,24 @@ func run(this js.Value, args []js.Value) (res any) {
 	src := args[0].String()
 
 	// Multi-file convention: `// FILE: <name>` markers split the source
-	// into virtual sibling files (and an optional `// FILE: nomi.toml`
-	// manifest). With no markers, this is a no-op and the input behaves
-	// as a single-file program named "main".
-	entrySrc, entryName, virtualFiles, manifest, splitErr := vmhost.SplitMultiFile(src)
-	if splitErr != nil {
-		return result("", splitErr.Error())
-	}
-
-	hasTests, err := vmhost.SourceContainsTests(entrySrc)
-	if err != nil {
-		return result(buf.String(), err.Error())
-	}
-
+	// into files (an optional `// FILE: nomi.toml` manifest, catalogs,
+	// data files, and with a `go.mod` modules of its own); with no markers
+	// the input is a single-file program named "main" (vmhost.LoadMarked).
 	// The VM runs the block: one front-end pass and one IR lowering serve
 	// both the program and its tests, as `nomi run` and `nomi test` do.
-	p, err := vmhost.LoadSource(entryName, entrySrc,
-		vmhost.WithVirtualFiles(virtualFiles),
-		vmhost.WithVirtualManifest(manifest))
+	// Standard error is shown in the output panel, interleaved with
+	// standard output as a terminal shows them. The block's data files
+	// (`// FILE: notes.txt`) seed an in-memory file system of its own, which
+	// its std/fs calls reach, so every run starts from the files the block
+	// shows.
+	// Its `go` bindings are answered by the Go this binary links for the
+	// tour's examples (internal/tourgo); one it does not link is an error
+	// at the binding.
+	hosts, err := tourgo.MarkedHosts(src)
+	if err != nil {
+		return result("", err.Error())
+	}
+	p, hasTests, err := vmhost.LoadMarked(src, projectDir, vmhost.WithHosts(hosts), vmhost.WithErrorOutput(&buf))
 	if err != nil {
 		return result(buf.String(), err.Error())
 	}
@@ -89,6 +96,25 @@ func run(this js.Value, args []js.Value) (res any) {
 	}
 
 	return result(buf.String(), errText)
+}
+
+// expand answers what `nomi expand` prints for the first tab of args[0], a
+// source that names modules (vmhost.ExpandMarked): a ```nomi-run expand
+// block's output.
+func expand(this js.Value, args []js.Value) (res any) {
+	defer func() {
+		if r := recover(); r != nil {
+			res = result("", fmt.Sprintf("%v", r))
+		}
+	}()
+	if len(args) < 1 {
+		return result("", "no source provided")
+	}
+	text, err := vmhost.ExpandMarked(args[0].String(), projectDir)
+	if err != nil {
+		return result("", err.Error())
+	}
+	return result(text, "")
 }
 
 // formatCaseResults renders the VM's case results as `nomi test` does: a case the
@@ -324,7 +350,7 @@ var lastProgram struct {
 func programOf(src string) *highlight.Program {
 	if lastProgram.prog == nil || lastProgram.source != src {
 		lastProgram.source = src
-		lastProgram.prog = highlight.AnalyzeProgram(src, stdLib, vmhost.Macros())
+		lastProgram.prog = highlight.AnalyzeProgram(src, projectDir, stdLib, vmhost.Macros())
 	}
 	return lastProgram.prog
 }
@@ -385,6 +411,7 @@ func main() {
 	stdLib = std.Shared()
 	js.Global().Set("nomiRun", js.FuncOf(run))
 	js.Global().Set("nomiRunStdlibTest", js.FuncOf(runStdlibTestBody))
+	js.Global().Set("nomiExpand", js.FuncOf(expand))
 	js.Global().Set("nomiFormat", js.FuncOf(formatSrc))
 	js.Global().Set("nomiFormatTestBody", js.FuncOf(formatTestBody))
 	js.Global().Set("nomiSemTokens", js.FuncOf(semTokensSrc))

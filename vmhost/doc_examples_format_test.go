@@ -235,7 +235,9 @@ func (d *docTally) checkBlock(t *testing.T, file string, line int, code string, 
 		return
 	}
 	for _, p := range parts {
-		if strings.HasSuffix(p.name, ".toml") {
+		// A manifest, a catalog or a data file the program reads is not
+		// Nomi, and the tour's editor formats only the Nomi files.
+		if !strings.HasSuffix(p.name, ".nomi") {
 			continue
 		}
 		d.checkUnit(t, file, line+p.line, strings.Join(p.body, "\n"), inner)

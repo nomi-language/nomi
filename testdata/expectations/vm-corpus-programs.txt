@@ -2,6 +2,7 @@
 # A record that leaves this list stopped comparing; name the cause.
 # Regenerate with:
 #   NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/vm -run 'TestVMExpectation_TheVMIsComparedAgainstTheCommittedArtifacts|TestVMReport_TheVMIsComparedAgainstTheReportShapedRecords' -count=1
+01-foundations/standard_streams/streams.nomi
 12-derives-and-standard-interfaces/generic_debug/main.nomi
 14-modules-and-packaging/file_import_display/main.nomi
 15-app-and-defer/app_field_permission/main.nomi

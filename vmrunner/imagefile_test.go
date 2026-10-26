@@ -28,8 +28,8 @@ fn boot(startup: Startup) -> Result<App, String> {
 
 fn main() {
   case io.read_line() {
-    Ok(line) -> io.print("read: ${line}")
-    Err(e) -> io.print("no line: ${e}")
+    Ok(Some(line)) -> io.print("read: ${line}")
+    _ -> io.print("no line")
   }
 }
 `

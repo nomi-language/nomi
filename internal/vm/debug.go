@@ -1091,7 +1091,7 @@ func (th *thread) blockedInGo() bool {
 // debugCallAdapter is opHost's adapter call on a debug machine, recorded as
 // a crossing.
 func (m *Machine) debugCallAdapter(fr *frame, h *hostCall, args []any) (any, error) {
-	return m.dbg.cross(fr, h.call.Callee().Name(), func() (any, error) { return callAdapter(h.fn, fr.runtime, args) })
+	return m.dbg.cross(fr, h.call.Callee().Name(), args, func() (any, error) { return callAdapter(h.fn, fr.runtime, args) })
 }
 
 // stmt is the statement hook: fr is at statement mark i. It answers an

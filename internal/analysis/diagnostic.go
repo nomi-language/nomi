@@ -109,6 +109,23 @@ func errAt(n ast.Node, msg string) TypeError {
 	return e
 }
 
+// startOf is where a diagnostic about n starts: n's own position, else the
+// start of its extent. A node that records neither (one a lowering
+// synthesized with only a line) answers its line and column 1, the one
+// place a diagnostic has no column to give.
+func startOf(n ast.Node) (int, int) {
+	if n == nil {
+		return 0, 0
+	}
+	if line, col := nodeLineCol(n); line > 0 {
+		return line, col
+	}
+	if sp, ok := spanOf(n); ok {
+		return sp.StartLine, sp.StartCol
+	}
+	return n.LineNum(), 1
+}
+
 // relatedAt is a related location over n's extent in the diagnostic's own
 // file.
 func relatedAt(n ast.Node, msg string) (RelatedInfo, bool) {

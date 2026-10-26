@@ -1083,7 +1083,7 @@ system, or any runner that only calls its exports, runs it.
   | `nomi_alloc` | `(len: i32) -> i32` | reserves `len` bytes and returns a pointer the runner writes into |
   | `nomi_call` | `(name_ptr, name_len, args_ptr, args_len: i32) -> i64` | calls the exported function named by the UTF-8 name with the JSON array of arguments; returns the result's pointer in the high 32 bits and its length in the low 32 bits |
   | `nomi_free` | `(ptr, len: i32)` | releases a buffer from `nomi_alloc` or a result from `nomi_call` or `nomi_load` |
-  | `nomi_main` | `() -> i32` | runs `main` over WASI stdin, stdout and stderr and returns the exit status, 0 or 1 |
+  | `nomi_main` | `() -> i32` | runs `main` over WASI stdin, stdout and stderr and returns the exit status `nomi run` would exit with |
   | `nomi_load` | `(ptr, len: i32) -> i64` | boots the compiled program (`.nomic`) at `ptr` in a reactor that has none, or with `len` 0 the program built into the module; returns its result as `nomi_call` does |
 
 The result is UTF-8 JSON: `{"ok": value}` on success, with `null` for a
@@ -3438,7 +3438,7 @@ A stateless callback (`fn ->`) has state `Unit`. The loop answers `Unit`, every 
 ```nomi
 // Echo lines until "quit" or the end of the input.
 Iter.loop(fn -> {
-    Ok(line) = io.read_line() else { break }
+    Ok(Some(line)) = io.read_line() else { break }
     if line == "quit" { break }
     io.print(line)
 })
@@ -3448,7 +3448,7 @@ Iter.loop(fn -> {
 // Read an opening balance. The end of the input keeps the account as it is.
 account = Iter.loop(fn account = #Account{} -> {
     io.print("What is the starting balance?")
-    Ok(input) = io.read_line() else { break }
+    Ok(Some(input)) = io.read_line() else { break }
 
     case parse_amount(input) {
         Ok(amount) ->
@@ -3478,9 +3478,9 @@ account = Iter.loop(fn account = #Account{} -> {
 // reading input
 lines = Iter.loop(fn lines = [] -> {
     case io.read_line() {
-        Ok("") -> break lines
-        Ok(line) -> [line, ..lines]
-        Err(_) -> break lines
+        Ok(Some("")) -> break lines
+        Ok(Some(line)) -> [line, ..lines]
+        _ -> break lines
     }
 })
 ```
@@ -4870,11 +4870,12 @@ Resolution rules per `X`:
 `Decimal` is the third blessed numeric type: an arbitrary-precision, **exact base-10** number (mantissa × 10⁻ˢᶜᵃˡᵉ), for money and any value where `0.1 + 0.2 == 0.3` must hold (it does not in `Float`). It is the shopspring/`BigDecimal` family — but with the famous `BigDecimal` footguns removed. Like `Int` and `Float` it is a *blessed primitive*, not a stdlib type: it participates in the built-in arithmetic and comparison operators (§22). Key properties:
 
 - **Exact-by-default.** `+ - *` never round — scale grows as needed (`1.50d + 1.5d == 3.00d`; `1.50d * 1.5d == 2.250d`). Only `Decimal.divide` and `Decimal.round` round, and they always name a `RoundingMode` explicitly — there is no hidden global precision/rounding context (rejecting Python's mutable `getcontext()` and Java's per-op `MathContext`).
-- **No special values.** Unlike `Float`, `Decimal` has no NaN and no ±Infinity. Division by zero is a runtime error (like `Int`), not an Infinity.
+- **No `/`.** Whether an exact quotient terminates depends on the divisor's value: `10d` by `4d` is `2.50d`, `10d` by `3d` has no finite answer. An operator that answered the first and trapped on the second would let `total / count` pass tests that divide by 2, 4 or 5 and stop in production on 3, so `Decimal` has `+ - *` and no `/`. A division names what it does when the quotient does not terminate: `Decimal.divide(a, b, scale, mode)` rounds to `scale` digits by `mode`, and `Decimal.divide_exact(a, b)` answers `Some` of the exact quotient (`Decimal.divide_exact(10.00d, 4d) == Some(2.50d)`) or `None` (`Decimal.divide_exact(10d, 3d) == None`). `a / b` with a `Decimal` operand is a compile error that names both.
+- **No special values.** Unlike `Float`, `Decimal` has no NaN and no ±Infinity. Division by zero (`Decimal.divide` or `Decimal.divide_exact` with a zero `b`) is a runtime error (like `Int`), not an Infinity.
 - **Scale is display-significant, equality is value-based (Model C).** A `Decimal` remembers its scale for display — `1.50d` prints `"1.50"`, `Decimal.scale(1.50d) == 2` — but `==`, `Comparable`, `Hashable`, and pattern matching are *scale-insensitive*: `1.50d == 1.5d` is `True`, and the two are one `Map`/`Set` key. This is the same value-vs-representation split `Float` already has (`-0.0 == +0.0`, reflexive `NaN == NaN`), not a new principle. Two `==`-equal decimals remain observably distinguishable via `Decimal.scale` / display.
 - **Literals** carry a `d` (or `D`) suffix, and the literal's text determines its scale: `1.50d` → scale 2, `1.5d` → scale 1, `5d` → scale 0. Underscore digit separators are allowed between two digits, as in Int and Float literals (`1_000.00d`; `1__0.5d` and `1_d` are errors); exponent notation is not. Runtime/parsed values come from `Decimal.from_string`.
 
-The arithmetic, conversion, and shaping functions live in `std/decimal` (`from_int` / `from_string` / `to_string` / `to_int` / `to_float` / `from_float` / `divide` / `round` / `normalize` / `scale` / `abs` / `negate` / `sign` / `zero?` / `compare` / `min` / `max`), along with the `RoundingMode` enum (`Up | Down | Ceiling | Floor | HalfUp | HalfDown | HalfEven | Unnecessary`), display/debug/equality/hash/order impls, and the standard arithmetic operator impls. `Decimal.format` and `Decimal.format_percent` (with fraction-digit limits and a `RoundingMode`), `Decimal.parse_in` and `Decimal.parse_percent_in` format and parse it for a locale (§41). `Money` (`std/money`, §41 *Money*) pairs a `Decimal` amount with a `Currency` and builds on `Decimal` without changing it.
+The arithmetic, conversion, and shaping functions live in `std/decimal` (`from_int` / `from_string` / `to_string` / `to_int` / `to_float` / `from_float` / `divide` / `divide_exact` / `round` / `normalize` / `scale` / `abs` / `negate` / `sign` / `zero?` / `compare` / `min` / `max`), along with the `RoundingMode` enum (`Up | Down | Ceiling | Floor | HalfUp | HalfDown | HalfEven | Unnecessary`), display/debug/equality/hash/order impls, and the `Add`, `Subtract` and `Multiply` impls. `Decimal.format` and `Decimal.format_percent` (with fraction-digit limits and a `RoundingMode`), `Decimal.parse_in` and `Decimal.parse_percent_in` format and parse it for a locale (§41). `Money` (`std/money`, §41 *Money*) pairs a `Decimal` amount with a `Currency` and builds on `Decimal` without changing it.
 
 `Unit` is the type for functions that don't return a meaningful value. Can be omitted from function signatures:
 
@@ -5368,7 +5369,7 @@ String.length("café") // 4 (not 5 — é is one grapheme)
 
 Iter.to_list("café") // ["c", "a", "f", "é"] — a String iterates by grapheme
 
-String.length("👨\u{200d}👩\u{200d}👧") // 1 (family emoji is one grapheme)
+String.length("👨‍👩‍👧") // 1 (family emoji is one grapheme)
 
 Iter.to_list("héllo") // ["h", "é", "l", "l", "o"]
 
@@ -5384,7 +5385,7 @@ String.to_codepoints("café")
 |> Iter.map(Codepoint.to_int)
 |> Iter.to_list() // [99, 97, 102, 233] — Unicode scalar values
 
-String.to_codepoints("👨\u{200d}👩\u{200d}👧")
+String.to_codepoints("👨‍👩‍👧")
 |> Iter.map(Codepoint.to_int)
 |> Iter.to_list() // [128104, 8205, 128105, 8205, 128103]
 ```
@@ -5897,10 +5898,10 @@ The result is a two-tier story: **Debug = universal floor (always available), Di
 |---|---|---|
 | `Int`, `Float`, `Bool` | numeric / variant form — `42`, `3.14`, `True` / `False` | identical |
 | `Unit` | no Display impl; rendering one is a compile error | `Unit` |
-| `String` | raw text, no quotes | `"..."` with `\` and `"` escaped |
+| `String` | raw text, no quotes | its literal, `String.to_literal`: `"..."` with `\n`, `\t`, `\\`, `\"` and `\${` escaped and `\u{...}` for any other character that is not printable |
 | `Infallible` | uninhabited; can never be called | — |
 
-Numeric / Bool primitives have no user-vs-developer distinction. String is the one primitive where the split matters: Display gives the bare text so `"hello ${name}"` doesn't double-quote; Debug gives the round-trippable literal so `io.inspect("a\"b")` reveals the escape.
+Numeric / Bool primitives have no user-vs-developer distinction. String is the one primitive where the split matters: Display gives the bare text so `"hello ${name}"` doesn't double-quote; Debug gives the round-trippable literal so `io.inspect("a\"b")` reveals the escape, and a newline, tab or other control character shows as its escape rather than raw: `dbg "a\nb"` prints `"a\nb"` on one line. A carriage return is `\u{d}` and NUL `\u{0}`, since Nomi has no `\r` or `\0` escape; a `$` or `{` alone, non-ASCII letters, combining marks and emoji are written as they are, an emoji's zero-width joiners, variation selectors and tags included (`"👩‍💻"`, not `"👩\u{200d}💻"`). A zero-width joiner or non-joiner between two non-ASCII letters or combining marks is part of the word and is written as it is too: a Devanagari conjunct (`"क्‍ष"`, a joiner after a virama) or a Persian word (`"می‌خواهم"`). Any other zero-width joiner, non-joiner or variation selector (`"a\u{200d}b"`, one at either end of the string, beside a space or punctuation, or doubled), and a no-break space (`\u{a0}`, `\u{202f}`), are escaped, so an invisible character stays visible. `nomi fmt` writes string literals by the same rule. The same literal is what a String reads as inside a container's Debug, an assertion's `values:` row and the debugger's variable view.
 
 #### Stdlib intrinsics
 
@@ -6022,8 +6023,9 @@ APIs written in Nomi:
 
 - **`Maybe` or `Result`** when the outcome depends on data the caller does not
   control or cannot cheaply check: a key that may be absent (`Map.get`),
-  parsing (`String.to_int`), input, I/O, or a position that may legitimately be
-  off the edge (`Vector.get`, `Iter.first`).
+  parsing (`String.to_int`), input, I/O, a position that may legitimately be
+  off the edge (`Vector.get`, `Iter.first`), or a quotient whose termination
+  depends on the divisor's value (`Decimal.divide_exact`; Decimal has no `/`).
 - **A trap** when the caller broke a promise it could have checked: a divisor
   it chose (`/`, §22), arithmetic past 64 bits (§22 *Integer overflow traps*),
   an index it computed (`Vector.at`, `Vector.set`), a range whose bounds it
@@ -6032,9 +6034,8 @@ APIs written in Nomi:
   handle.
 - **Every trapping operation has a total way around it**: a sibling that
   returns `Maybe`, or a cheap check the caller can make first. `Int.divide`
-  takes a `NonZeroInt` that `Int.to_non_zero` makes, `Decimal.divide` takes a
-  scale and a rounding mode where `/` would trap on a quotient that does not
-  terminate, `Vector.get` answers `None` where `Vector.at` traps, and
+  takes a `NonZeroInt` that `Int.to_non_zero` makes, `Vector.get` answers
+  `None` where `Vector.at` traps, and
   `Vector.length` is the check before `Vector.set`. When wrapping is the
   intent, `Int.wrapping_add`, `Int.wrapping_sub` and `Int.wrapping_mul` never
   overflow.
@@ -6102,7 +6103,7 @@ fn main() {
         2, // the step
     )
 
-    io.print("${total}")
+    io.print(total)
 }
 ```
 
@@ -7454,7 +7455,7 @@ fn main() {
 
 A lambda of the program that faults while a std function runs it (`Iter.map(xs, fn x -> 10 / x)`) is the program's code, so the fault names the lambda's line. A fault whose text names no line (a host function's own fault, such as `String.repeat` with a negative count) is given the line of the program's call. A `todo` names its own file and line instead (§*Unwritten Code*). The same line is printed by `nomi run`, `nomi test`, a built executable, the REPL and `compiler.run`'s `Err`; the debugger stops where the fault happened, in std's frame when it is std's, and its exception text is the one the program prints.
 
-**Decimal arithmetic.** `Decimal` is the third blessed operator type (§*Primitive Types*): `+ - * /` and `< > <= >= == !=` work on two `Decimal` operands and yield a `Decimal` / `Bool`. `+ - *` are always **exact** — they never round; the scale grows as needed (`1.50d + 1.5d == 3.00d`, `1.50d * 1.5d == 2.250d`). The `/` operator is **exact-or-trap**: a quotient that terminates in base 10 just works at its preferred scale (`10.00d / 4d == 2.50d`), but a non-terminating quotient (`10d / 3d`) raises a runtime error pointing at `Decimal.divide(a, b, scale, mode)` — the explicit-rounding division path — rather than silently rounding. Division by zero is a runtime error (no Infinity). Both are traps by the rule in §17 *Traps, `Maybe` and `Result`*, and `Decimal.divide` is the total route for a quotient that may not terminate. There is **no `%`** on `Decimal`. Equality and comparison are value-based and scale-insensitive (`1.50d == 1.5d` is `True`); scale is preserved only for display (`Decimal.scale(1.50d) == 2`, `Decimal.to_string(1.50d) == "1.50"`). Decimal literals carry the `1.50d` / `1.50D` suffix.
+**Decimal arithmetic.** `Decimal` is the third blessed operator type (§*Primitive Types*): `+ - *` and `< > <= >= == !=` work on two `Decimal` operands and yield a `Decimal` / `Bool`. `+ - *` are always **exact** — they never round; the scale grows as needed (`1.50d + 1.5d == 3.00d`, `1.50d * 1.5d == 2.250d`). There is **no `/`** on `Decimal`: whether a quotient terminates in base 10 depends on the divisor's value, so an operator would work on `10.00d / 4d` and fail on `10d / 3d`, and a program dividing by a count would pass its tests and stop in production. `a / b` with a `Decimal` on either side (`1d / 3d`, `x / y`, `1d / 3`, `1 / 3d`) is a compile error at the operator, ``Decimal has no `/`: write `Decimal.divide(a, b, scale, mode)` to round, or `Decimal.divide_exact(a, b)` for a quotient that must terminate``, and so is `Divide.divide` on decimals. `Decimal.divide` rounds to the scale and `RoundingMode` it is given; `Decimal.divide_exact` answers `Some` of the exact quotient at its preferred scale (the dividend's scale less the divisor's, or more when the quotient needs more digits: `Decimal.divide_exact(10.00d, 4d) == Some(2.50d)`, `Decimal.divide_exact(1d, 8d) == Some(0.125d)`) and `None` for one that does not terminate (`Decimal.divide_exact(10d, 3d) == None`), by the rule in §17 *Traps, `Maybe` and `Result`*. Either with a zero divisor is a runtime error (no Infinity); `divide_exact`'s reads `division by zero`, as `Int`'s `/` does. There is **no `%`** on `Decimal`. Equality and comparison are value-based and scale-insensitive (`1.50d == 1.5d` is `True`); scale is preserved only for display (`Decimal.scale(1.50d) == 2`, `Decimal.to_string(1.50d) == "1.50"`). Decimal literals carry the `1.50d` / `1.50D` suffix.
 
 **Comparison:**
 `==` `!=` `<` `>` `<=` `>=`
@@ -7531,7 +7532,7 @@ host fn abs(n: Int) -> Int
 - `host type Name` — declares a host-provided type with no user-visible fields or body. Host operations live as file/module `host fn` declarations or impl-block items. Derives are sibling `derive Iface for Name` declarations. Manual interface implementations live in sibling `impl Iface for Name { ... }` blocks.
 - `host fn name(params) -> ReturnType` — declares a function signature with no body (implementation is host-provided). Also legal as an impl-block item, where the host key is derived as `module.Type.function`.
 - Host declarations can have doc comments (`///`) like any other declaration.
-- User-facing Go interop binds ordinary Go packages through `gopkg` declarations. A declaration such as `gopkg "example.com/app/ffi" as ffi` introduces a compile-time package handle whose import path is resolved by Go's normal module machinery. The path must be a valid Go import path. A Go standard library package (`gopkg "strings"`) needs no `go.mod` and no Go package of the project's own: its source is the Go toolchain's, and a script binding only the standard library runs from a directory with no `go.mod` at all. A package internal to the standard library (`internal/abi`) is a check error, since no other module may import it. Any other path must be provided by the nearest `go.mod` above the declaring file: a package of the project's own module, or a package of a module that `go.mod` requires or replaces. Any other is a check error at the path, such as `gopkg "callback:= f(s": not a valid Go import path: invalid char ':'`, or one naming the project's module for a path outside all of those. A Go type binding must be opaque. It may remain private as a raw implementation handle (`opaque type RawConn go ffi.Conn`) behind a Nomi facade, or it may be intentionally public as a public opaque foreign type (`pub opaque type Regex go ffi.Regex`) when the module deliberately commits to that Go-backed representation. Public opaque foreign types can be named and passed across the module boundary but cannot be constructed, unwrapped, or inspected structurally. A Go function binding maps an exported Go function into a local Nomi function name: `fn open_raw(path: String) -> Result<RawConn, String> go ffi.OpenRaw`. The alias in `go alias.Symbol` must be one a `gopkg` declaration of the same file introduces; any other is a check error at the alias. A `gopkg` is a top-level declaration, as the bindings that use it are; one inside a body is the error `` a `gopkg` declaration belongs at the top level of a file, beside the `go` bindings that use it; it cannot appear inside a body ``.
+- User-facing Go interop binds ordinary Go packages through `gopkg` declarations. A declaration such as `gopkg "example.com/app/ffi" as ffi` introduces a compile-time package handle whose import path is resolved by Go's normal module machinery. The path must be a valid Go import path. A Go standard library package (`gopkg "strings"`) needs no `go.mod` and no Go package of the project's own: its source is the Go toolchain's, and a script binding only the standard library runs from a directory with no `go.mod` at all. A package internal to the standard library (`internal/abi`) is a check error, since no other module may import it. Any other path must be provided by the nearest `go.mod` above the declaring file: a package of the project's own module, or a package of a module that `go.mod` requires or replaces. Any other is a check error at the path, such as `gopkg "callback:= f(s": not a valid Go import path: invalid char ':'`, or one naming the project's module for a path outside all of those. A file held in memory rather than on disk (a sibling an embedder passes with the source it loads, such as a tour example's tab) has no `go.mod` above it: its bindings are answered by the host table its program is loaded with, and one the table does not answer is a load error naming it. A Go type binding must be opaque. It may remain private as a raw implementation handle (`opaque type RawConn go ffi.Conn`) behind a Nomi facade, or it may be intentionally public as a public opaque foreign type (`pub opaque type Regex go ffi.Regex`) when the module deliberately commits to that Go-backed representation. Public opaque foreign types can be named and passed across the module boundary but cannot be constructed, unwrapped, or inspected structurally. A Go function binding maps an exported Go function into a local Nomi function name: `fn open_raw(path: String) -> Result<RawConn, String> go ffi.OpenRaw`. The alias in `go alias.Symbol` must be one a `gopkg` declaration of the same file introduces; any other is a check error at the alias. A `gopkg` is a top-level declaration, as the bindings that use it are; one inside a body is the error `` a `gopkg` declaration belongs at the top level of a file, beside the `go` bindings that use it; it cannot appear inside a body ``.
 - A program with `gopkg` bindings needs a Go toolchain: `nomi run`, `nomi check` and `nomi test` build a cached Go wrapper that links the bound packages (see [`implementation-notes.md`](implementation-notes.md#go-ffi-wrapper)). With no `go` on `PATH`, `nomi` downloads the Go release it was built with and uses that (§31, *Dependencies*). A bound package may be in a module from the Go module cache, a dependency's included; its adapters are generated from its source there. The wrapper builds with `CGO_ENABLED=0`, so a `gopkg` naming a package that needs cgo, itself or through a package it imports, is a check error at the path: `` gopkg "example.com/app/wrap": needs cgo: it imports example.com/cdriver/internal/csql (...), whose files import "C", and Go bindings build with CGO_ENABLED=0 ``. Pure-Nomi programs and tests need no toolchain.
 - Every std declaration is a bare `host fn` / `host type`, so importing any std module, Go-backed ones such as `std/regex` included, needs no Go toolchain — see "The rule: `host` for the standard library, `go` for user FFI" below. A user's own Go binding is declared in Nomi source with `gopkg` and `go alias.Symbol`; there is no Go-side registration function. A Go program that embeds Nomi answers the `host fn`s its program declares from a host table passed to `vmhost.Load` (`vmhost.WithHosts`). A plain `host type` in such a program is an opaque handle: the table's functions create and read its values, which Nomi code passes around and stores and reads only through those functions, and the type itself needs no registration.
 - Go binding signatures project Nomi `String` → Go `string`, `Bool` → `bool`, `Int` → `int64` (Go `int` and the sized signed widths project to `Int`, as do the unsigned widths other than `uint8` when the value fits `int64`; every narrowing is range-checked in both directions rather than truncated), `Byte` → `uint8` (`Byte` is its own Nomi type, so an `Int` does not fill a `uint8` parameter and a `Byte` does not fill an `int64` one), `Float` → `float64` (a `float32` slot is range-checked; `NaN` and `±Inf` cross unchanged, and `NaN` stays reflexive under Nomi's equality so it remains usable as a map key), `Bytes` → `[]byte`, `Duration` → `time.Duration`, `Instant` → `time.Time` (an `Instant` is nanoseconds since the Unix epoch, so a `time.Time` outside that window is rejected rather than wrapped, and an `Instant` returns to Go as UTC — the projection carries no zone and no monotonic reading, so two round-tripped times are `Equal`, not `==`), `List<T>` → `[]T`, `Map<K, V>` → `map[K]V` (the projected key must be a valid Go map key; a Nomi `Map` iterates in a defined order and a Go map has none, so a Go map projects with its keys in ascending order rather than inheriting Go's randomized walk (strings and numbers in their natural order, `false` before `true`, a struct by its exported fields in declaration order; a Go key type with no such order, such as a pointer or an interface, is refused at the binding), and two keys that would collapse into one on either side fail the conversion rather than silently drop an entry), `Maybe<T>` → `*T`, a declared Nomi struct → a Go struct with the matching exported fields (snake_case by default, overridable with a `nomi:"..."` tag), where the Nomi type identity always comes from the declaration at that position — the `host fn`'s declared return type, or the declared parameter type of the Nomi function being called — never from the Go type, because `Point` and `Vec` are one Go shape and a struct with no identity misses every impl keyed on it (so the two names need not agree: a Go `func(Row) bool` binds a Nomi `(RawRow) -> Bool`, and only the fields are compared, at every depth), `Dynamic` → a Go empty interface (`any`, `interface{}`, or a named type over one), which holds the value the `Dynamic` wraps (a `Dynamic` from `Json.to_dynamic` holds the shapes `encoding/json` decodes into: `map[string]any`, `[]any`, `string`, `float64` or `int64`, `bool`, `nil`), or `rt.Dynamic` from `github.com/nomi-language/nomi/rt`, which is the `Dynamic` itself, and nothing else (a Go `int64` slot does not take a `Dynamic`; declare the type the Go value has), bound opaque Go types → their registered Go pointer type, and direct callback parameters `(A, ...) -> R` → `func(A, ...) R`. A user-declared `enum` has no Go projection: the only enums that cross are `Result`, `Maybe`, and `Bool`, as a trailing Go `error`, `*T`, and `bool`, and they are matched on the stdlib type's own runtime identity — a same-named type from another module is a different type and is rejected rather than projected as the stdlib one. The return position is driven by the Go signature: counting the non-`error` results as `N`, `N == 0` projects to `Unit`, `N == 1` to that value, and `N >= 2` to the tuple `#(A, B, ...)`; an optional trailing `error` wraps whatever that produced in `Result<_, String>`, so `error` alone is `Result<Unit, String>`, `#(T, error)` is `Result<T, String>`, and `#(A, B, error)` is `Result<#(A, B), String>`. `N` is uncapped, so a Go function that naturally returns several values needs no carrier struct. Tuples project one way only: a tuple in *parameter* position is rejected because Go has no tuple type to bind it to, and a plain Go struct against a Nomi struct of the same shape already carries several values in both directions. Type/function bindings are preflighted against the Go source of the project's own packages, of packages reached through a local `replace`, and of bound standard library packages (read from the toolchain's GOROOT with this platform's build constraints) for missing bound names, generic Go functions (a binding needs one concrete signature, so bind a non-generic Go function that calls the generic one) and signature mismatches. Unsupported projected shapes fail before program load with a diagnostic that points back to the binding declaration.
@@ -7564,7 +7565,10 @@ Batteries-included philosophy (like Go): minimize the need for third-party depen
 | `iter` | The `Iter` interface and every generic iteration owner function, plus `Iter.loop` |
 | `maybe`, `results` | `Maybe`, `Result`, `Infallible` |
 | `add`, `subtract`, `multiply`, `divide`, `comparable`, `equatable`, `hashable`, `discrete`, `steppable`, `variants`, `display`, `debug`, `structs`, `type` | The core interfaces, `Ordering`, `Direction`, and `Type<T>` |
-| `io` | `print`, `write` (no trailing newline), `inspect`, `read_line`, `read_file`, `write_file`, `Error`, and `capture`, which runs a function against given input and collects what it prints (§36) |
+| `io` | Standard output and error (`print`, `write` with no trailing newline, `inspect`, `eprint`, `ewrite`), `read_line`, the stream types `Reader` and `Writer` with the standard streams as values, `File` (reads and writes at a position), `Error`, and `capture` and `replay`, which run a function against given input and collect what it prints (§36); *Standard streams* below |
+| `fs`, `path` | Files and directories by path (`read_text`, `write_text` with a `WriteMode`, `lines`, `with_reader`, `with_writer`, `list`, `walk`, `glob`, `metadata`, symlinks, `open_file`, `within`, ...), and paths as `String`s with `/` on every system; *Files* below |
+| `fs_testing` | `fs_testing.run`, which runs a function against an in-memory sandbox, and the conformance rules every file system std/fs reaches keeps (§36) |
+| `process` | `Exit`, what a `main` or a boot returns in its `Err` to choose the exit status (§26, *Entry callbacks*) |
 | `tasks`, `channels`, `supervisors`, `timer`, `context`, `startup` | Structured concurrency (§20), `timer.sleep`, `Context` (§28), `Startup` (§27) |
 | `duration`, `instant`, `calendar` | `Duration`, `Instant` (`Instant.now`), and the civil date-time types (§39) |
 | `random` | Pure, seeded random generation (§40) |
@@ -7577,6 +7581,39 @@ Batteries-included philosophy (like Go): minimize the need for third-party depen
 | `compiler` | The compiler as a library: `check`, `run`, `hover` |
 
 Not in the stdlib: math functions beyond the numeric types' own (no trigonometry or logarithms), cryptography and networking (no HTTP client or server; bind a Go package with `gopkg`, as Host And Foreign Declarations above describes).
+
+### Standard streams
+
+`io.print(x)` and `io.write(x)` write `x`'s `Display` text to standard output, `print` with a newline after it; `io.inspect(x)` writes its `Debug` text and a newline. `io.eprint(x)` and `io.ewrite(x)` are `print` and `write` for standard error. Each call is one write: two tasks printing at once never interleave inside a line.
+
+`io.read_line() -> Result<Maybe<String>, io.Error>` reads the next line of standard input, without its `\n` and a `\r` before it. It answers `Ok(None)` at the end of the input, so a loop ends on `Ok(Some(line)) = io.read_line() else { break }` and a `try io.read_line()` does not treat the end as a failure. A last line with no newline is still a line. A line that is not UTF-8 is `Err(#io.Error.InvalidText{path: "<stdin>", offset})`, `offset` the byte offset of its first bad sequence within the line; the lines after it read as usual.
+
+The three standard streams are also values: `once` constants `io.stdin: Reader`, `io.stdout: Writer` and `io.stderr: Writer`, of the host types `io.Reader` and `io.Writer`, written with no parentheses (`Writer.print(io.stderr, "warning")`). A stream value names the stream outside the program and never changes; using it moves the stream on, and where a use goes is decided when it is made, so a value read before an `io.capture` began writes into the capture inside it. `Reader.read_line(r)` on standard input answers what `io.read_line()` answers and reads from the same buffer. A write to `io.stdout` lands in order with `io.print`'s. Inside `io.capture` the handles reach the capture as `io.print` and `io.read_line` do.
+
+A `Reader` is read with `Reader.read_line(r) -> Result<Maybe<String>, io.Error>` (the next line, as `io.read_line` reads one), `Reader.read(r, max: 65536) -> Result<Maybe<Bytes>, io.Error>` (at least one and at most `max` bytes, `Ok(None)` at the end; `max` below 1 is a trap), `Reader.read_all(r) -> Result<Bytes, io.Error>` and `Reader.read_all_text(r) -> Result<String, io.Error>` (everything left; bytes that are not UTF-8 are `InvalidText` with the offset from where the read began), and `Reader.copy_to(r, w) -> Result<Int, io.Error>`, which writes everything left to a writer a piece at a time and answers the byte count. `Reader.from_bytes(data)` and `Reader.from_text(text)` read data the program holds. A `Writer` is written with `Writer.write(w, bytes)`, `Writer.write_text(w, text)` and `Writer.print(w, x)` (`x`'s `Display` text and a newline), each `-> Result<Unit, io.Error>`. A one-shot stream is not an `Iter`, since an `Iter` can run again from its start; a loop pulls it inside `Iter.loop`.
+
+A writer over a file is buffered: `Writer.flush(w)` sends what it holds on, and `Writer.close(w)` flushes and closes, answering the error of a write the buffer held or of the close, since a failed close of a written file can lose data. `Reader.close(r)` closes a reader. An operation on a closed stream, a second close included, is `Closed`; closing a standard stream does nothing. `Reader.close_quietly` and `Writer.close_quietly` close and drop the result, the form for a `defer`. A stream the program no longer holds is closed when the runtime collects it, and what a writer the program never closed has buffered is flushed when the program ends. Each call on a stream is atomic, so two tasks sharing one never interleave inside a call.
+
+`io.Error` is one error type for files and the standard streams. Each variant a program branches on names the path it is about, the path as the program passed it: `NotFound`, `AlreadyExists`, `PermissionDenied`, `NotADirectory`, `IsADirectory`, `DirectoryNotEmpty`, `NoSpace` and `ReadOnly` hold `{path}`; `InvalidPath {path, reason}` is an empty path or one holding a NUL byte; `InvalidText {path, offset}` is text that is not UTF-8; `TooManyOpen`, `Closed`, `BrokenPipe` and `TimedOut` hold nothing; `Unsupported {operation, target}` is an operation the target cannot do (*Capability classes*, §25); and `Other {operation, path, code}` is any other failure, with the operation (`"open"`, `"read"`), the path and the operating system's error code (`"EIO"`), never the operating system's wording. Its `Display` is a sentence, such as `notes.txt: not found` or `read a.txt: input/output error (EIO)`.
+
+### Files
+
+`std/fs`'s functions take paths as `String`s and answer `Result<_, io.Error>`; an empty path or one holding a NUL byte is `InvalidPath`, and every error names the path as the program passed it. A relative path is resolved against the working directory, `fs.current_dir() -> Result<String, io.Error>`, which a program cannot change.
+
+- `fs.read(path) -> Result<Bytes, io.Error>` and `fs.read_text(path) -> Result<String, io.Error>` read a whole file; bytes that are not UTF-8 are `InvalidText` with the offset from the file's start. A directory is `IsADirectory`.
+- `fs.write(path, data, mode: WriteMode = .Replace)` and `fs.write_text(path, text, mode: .Replace)` write one, `-> Result<Unit, io.Error>`. `WriteMode` is `Replace` (create, or empty an existing file), `ReplaceAtomically` (write a temporary file beside it and rename it over the path when the write ends, so a reader sees the old contents or the new; a write that fails leaves the old file), `Append` (create when missing, write at the end) and `New` (fail with `AlreadyExists` when something is at the path). A new file's permissions are `0o644`, and an atomic write keeps the old file's. A write into a missing directory is `NotFound` naming the directory.
+- `fs.lines(path) -> Iter<Result<String, io.Error>>` is the file's lines, each without its `\n` and a `\r` before it, a last line with no newline included; `fs.chunks(path, size: 65536) -> Iter<Result<Bytes, io.Error>>` is the file in pieces of at most `size` bytes. Each run of the iterator opens the file, reads it and closes it, so it can run again and reads the file again; a consumer that stops early closes the file as it stops. A failure, a missing file or a line that is not UTF-8, is the last item.
+- `fs.open(path) -> Result<Reader, io.Error>` and `fs.create(path, mode: .Replace) -> Result<Writer, io.Error>` open a file as a stream. `fs.with_reader(path, body)` opens it, calls `body: (Reader) -> Result<T, io.Error>` and closes the reader however `body` ends. `fs.with_writer(path, mode: .Replace, body)` creates it and calls `body: (Writer) -> Result<T, io.Error>`; after an `Ok` it closes the writer and answers a failed close as its error, and after an `Err` or a trap it gives the write up, so an atomic write leaves the old file. `body` is the last parameter, so a lambda written last routes to it whether or not `mode` is named before it (§5, *Lambdas at Call Sites*).
+- `fs.open_file(path, access: Access = .Read) -> Result<io.File, io.Error>` opens a file for reads and writes at a position. `Access` is `Read` (a write is `PermissionDenied`), `ReadWrite` (the file must exist) or `Create` (made empty when missing, kept when not). An `io.File` is not a stream: it has no buffer, every call is one operation on the file, and a write is in the file when the call returns. `File.read(f, max: 65536)` and `File.write(f, data)` start at the file's position and move it past what they read or wrote; `File.read_at(f, position, max)` and `File.write_at(f, position, data)` name their own and leave it; `File.seek(f, position)`, `File.position(f)`, `File.size(f)` and `File.truncate(f, size)` move, read and change it, all `-> Result<_, io.Error>`. A read at or past the end is `Ok(None)`, and a write past the end fills the gap with zero bytes. `File.close` closes it, after which every call is `Closed`; `fs.with_file(path, access: .Read, body)` opens it, calls `body: (io.File) -> Result<T, io.Error>` and closes it however `body` ends, answering a failed close after an `Ok`.
+- `fs.list(dir) -> Result<List<Entry>, io.Error>` is a directory's entries sorted by name, each an `Entry {path, name, kind}` whose `path` is `dir` and `name` joined with `/` and whose `kind` is a `Kind` (`File`, `Directory`, `Symlink`, `Other`). A name that is not UTF-8 fails the listing with `InvalidPath`, naming the entry with U+FFFD in place of each bad sequence. A symlink is listed as `Symlink` whatever it points to. `fs.create_dir(path, parents: False)` makes a directory; with `parents: True` it makes the missing ones above it and is content when the directory exists. `fs.remove(path)` removes a file, a symlink or an empty directory (`DirectoryNotEmpty` otherwise), `fs.remove_all(path)` removes a tree, following no symlink in it, and is `Ok` when nothing is there, `fs.rename(from, to)` replaces a file at `to` and moves a symlink rather than what it points to, and `fs.copy(from, to)` copies a file over `to`, reading through a symlink at `from`.
+- `fs.walk(root) -> Iter<Result<Entry, io.Error>>` is every entry under `root`, depth first: each directory's entries in name order, a directory's own entries right after it. It follows no symlink. Each run lists the directories again; a directory that cannot be listed is an `Err` item where its entries would be and the walk goes on, and a name that is not UTF-8 is an `InvalidPath` item. `fs.glob(pattern) -> Result<List<String>, io.Error>` is the paths that match `pattern` by `path.match?`'s rule (`*` within a name, `?`, `[set]`, a `**` name for any number of directories, a name starting with `.` only for a pattern name starting with `.`), sorted: the entries `fs.walk` finds under the longest leading part of the pattern with no wildcard, no deeper than the pattern reaches when it has no `**`. A pattern with no wildcard answers itself when something is at it, and nothing under a missing directory is `Ok([])`.
+- `fs.metadata(path) -> Result<Metadata, io.Error>` follows symlinks and answers `Metadata {kind, size, modified: Instant, mode}`; `fs.link_metadata(path)` describes a symlink as itself (`kind: Symlink`, the size of its target's text). `fs.create_symlink(path, target)` makes a symlink at `path` to `target` as written, which need not exist (a relative target is resolved from the link's directory when followed), `fs.read_link(path) -> Result<String, io.Error>` is that target (`Other` with code `EINVAL` for anything else), and `fs.set_mode(path, mode)` sets the permission bits, 0 to `0o777` (`Other` with `EINVAL` outside), following a symlink. Reads, writes, `metadata` and `exists?` follow symlinks; a path through more than 40 is `Other` with code `ELOOP`. `fs.exists?(path) -> Result<Bool, io.Error>` is `Ok(False)` for `NotFound` alone, since a refusal is not absence.
+- `fs.temp_dir() -> String` is where temporary directories go, and `fs.with_temp_dir(body)` makes a fresh one, calls `body: (String) -> Result<T, io.Error>` with its path, and removes it and everything in it however `body` ends.
+- `fs.within(dir, body)` calls `body: () -> Result<T, io.Error>` with every std/fs call in it, and in the tasks it starts, confined to the directory `dir` (`NotFound` or `NotADirectory` when `dir` is not one). Inside, a relative path is under `dir`, an absolute path must be under it, and `fs.current_dir()` answers `dir` made absolute. A path that leads outside `dir`, by `..` or through a symlink, and any absolute symlink, is `InvalidPath` with the reason `the path leads outside the directory fs.within confines calls to`, and reaches nothing. `fs.with_temp_dir` inside is `Unsupported {operation: "fs.with_temp_dir", target: "fs.within"}`. A `within` inside another confines further. On the operating system's file system it is Go's `os.Root`, which resolves each name under the directory as it opens it, so a symlink changed during the call cannot lead out either.
+
+The functions reach the file system the running call is given. A native program and a `wasip1/wasm` module reach the operating system's (under WASI, the directories the runner opens for it). A `js/wasm` module reaches one in memory, whose working directory is `/work`: empty under Go's Node loader, and seeded by `run`'s `files` option in the browser (§25, *Web pages*). Inside `fs_testing.run` (§36) every call reaches that call's sandbox. Tasks reach the file system of the frame they were started on.
+
+`std/path` reads paths as text and never touches the file system, so a typed literal's handler and a macro may call it. A path uses `/` on every operating system; on Windows std/fs accepts `\` too and answers `/`, and a drive is written `C:/Users`. `path.join(base, name)` and `path.join_all(parts)` join with `/` and clean; `path.clean(p)` is Go's `path.Clean` (repeated `/`s, `.` and `..` resolved by reading the text, `"."` for an empty path); `path.parent(p) -> Maybe<String>`, `path.base(p)`, `path.extension(p) -> Maybe<String>` (`Some("gz")` for `log.tar.gz`, `None` for `.bashrc`) and `path.stem(p)` take a path apart; `path.absolute?(p)` is a leading `/` or a drive; `path.relative(from, to) -> Maybe<String>` is the path from one directory to another; and `path.match?(pattern, p)` matches a glob a name at a time, `*` and `?` within a name, `[a-z]` and `[!abc]` sets, `**` any number of names, a name starting with `.` only by a pattern name starting with `.`.
 
 ## 25. Compilation
 
@@ -7606,7 +7643,13 @@ A WebAssembly target, `js/wasm` or `wasip1/wasm`, writes `<name>.wasm` by defaul
 
 A `wasip1/wasm` program with at least one `export fn` is written as a WASI reactor instead of a command module (§5, *Exported Functions*): the program is appended to `nomi-vm-reactor`, the same VM linked as a reactor, found, built and downloaded as `nomi-vm` is and checked the same way. `nomi-wasi.js` and `nomi-wasi.d.ts`, the JavaScript host for it, are written beside the module.
 
-The `js/wasm` build keeps the browser build's limits: `io.read_file` and `io.write_file` fail with an `io.Error`, even under Node, and a call nests at most 1,000 deep. A command-line program that reads files belongs on `wasip1/wasm`. Every release ships a runner-only archive for each WebAssembly target, so a release `nomi` downloads it as it would any other platform's; the `js/wasm` archive also carries the `wasm_exec.js` of the Go that built its `nomi-vm`, and the `wasip1/wasm` archive carries `nomi-vm-reactor` beside `nomi-vm`.
+A project with Go bindings builds for a WebAssembly target as for any other: its `nomi-vm`, with the bound Go packages and the generated adapters linked in, is built for `js/wasm` or `wasip1/wasm`. Every bound package, and every package it imports, must build for that target. One that does not is an error at its `gopkg`, naming the target, the import chain to the package that does not build, and why: it has no Go files for the target, or Go's first compile error there. For example, `modernc.org/libc` has no files for either WebAssembly target, so a binding that reaches `modernc.org/sqlite` reads `` main.nomi:3:8: Go package "sq" does not build for js/wasm: it imports modernc.org/libc/sys/types (sq → modernc.org/sqlite → modernc.org/libc/sys/types), which has no Go files for js/wasm (build constraints exclude every one) ``. A project with Go bindings and an `export fn` is refused for `wasip1/wasm`, since the reactor does not link a project's bindings.
+
+The `js/wasm` build keeps the browser build's limits: its file system is in memory, empty under Node, and a call nests at most 1,000 deep. A command-line program that reads real files belongs on `wasip1/wasm`. Every release ships a runner-only archive for each WebAssembly target, so a release `nomi` downloads it as it would any other platform's; the `js/wasm` archive also carries the `wasm_exec.js` of the Go that built its `nomi-vm`, and the `wasip1/wasm` archive carries `nomi-vm-reactor` beside `nomi-vm`.
+
+### Capability classes
+
+A std host function that acts outside the program in a way some target cannot has a capability class: `files` for std/fs's. Every target has `files` today: a `js/wasm` module's are in memory. `nomi build` walks what `main`, the boot and the exported functions can reach, the walk that prunes the image, and refuses a program that reaches a call of a class its target lacks, writing nothing and listing each call with the functions it is reached through, followed by a hint to build for another target or pass `--allow-unsupported <class>`. The walk counts a call in a branch the program never takes, so `--allow-unsupported <class>` (repeatable) builds anyway, and such a call answers `Err(#io.Error.Unsupported{operation, target})` when it runs; it never traps. `--no-vm` names no target and is not checked. A project with Go bindings is checked the same way, over the std calls it reaches. A Go binding itself carries no class: what a bound Go function does is opaque to the compiler, and whether its package builds for the target is Go's answer (above). A bound function that reads a file in a `js/wasm` module reaches Go's in-memory file system there, as std/fs's calls do. `nomi build --web` of a program that reaches `files` prints one line, `` nomi build --web: this program uses files; in the browser it sees only the files run's "files" option gives it ``.
 
 ### Compiled programs and nomi-vm
 
@@ -7656,7 +7699,7 @@ Given a path, it reads the `.nomic` file there and passes the words after the pa
 
 The static files are the files of a `web/` folder: the one at the root of the program's project, beside its `nomi.toml`, or, for a file outside a project, the one beside the file. `--static <dir>` names another folder in its place; it must exist, while a missing `web/` folder only means there are no static files. Every file under the folder is copied to the same path in the output, subfolders included (`web/img/logo.png` becomes `img/logo.png`), except files and folders whose names start with a dot. A static file wins over a generated one of the same name, so `web/index.html` replaces the generated page; such a page loads `nomi.js` and calls `run` itself. A static `app.wasm` or `nomi.js` is refused, naming the file: `` nomi build --web: web/app.wasm: the build writes app.wasm, so a static file cannot have that name ``. So is a static file in `locales/` ending in `.nomil`, which the build writes, and an output folder inside the static folder. A rebuild replaces only the generated files and the static files it copies; anything else in the output folder stays, such as a host's `_headers`, and so does a file copied by an earlier build whose source has since been deleted from `web/`. The one exception is the files earlier versions of `nomi build --web` generated and this one does not, `wasm_exec.js`, `nomi-web.js` and `nomi-worker.js`: a rebuild removes each one whose contents are what such a build wrote (Go's `wasm_exec.js`, or the exact loader or worker it wrote), and leaves a file of that name with any other contents. A static file may have one of those names, and is copied like any other. A rebuild also removes each locale file an earlier build wrote that it does not write.
 
-`--static` without `--web` is a usage error. `--web` with a `--target` other than `js/wasm` is a usage error. A project with Go bindings is refused: `` nomi build --web: this project has Go bindings, and the browser build cannot link them ``. A program importing `std/compiler` builds, and its `app.wasm` is larger because its `nomi-vm` links the front end; `nomi build` says how to serve a module over 20 MB.
+`--static` without `--web` is a usage error. `--web` with a `--target` other than `js/wasm` is a usage error. A project with Go bindings builds: `app.wasm` is its own `nomi-vm`, with the bound Go packages linked in, built for `js/wasm` as `--target js/wasm` builds it (*Standalone executables* above), and a bound package that does not build for `js/wasm` is an error at its `gopkg`. A program importing `std/compiler` builds, and its `app.wasm` is larger because its `nomi-vm` links the front end; `nomi build` says how to serve a module over 20 MB.
 
 A page runs the program with `run`:
 
@@ -7672,16 +7715,18 @@ const { exitCode, fatal } = await run("./app.wasm", {
   timeoutMs: 10_000,       // default: none
   signal: controller.signal,
   locales: "./locales/",   // where Locale.load fetches <tag>.nomil; default beside app.wasm
+  files: { "data/prices.csv": csvText },  // the program's files, string or Uint8Array; default none
 });
+// files: every file in the program's file system when it ended, by path, as Uint8Array
 ```
 
-`run` fetches and compiles the module once per URL; every later run of it reuses the compiled module. Each run gets a fresh instance in its own worker, so a page stays responsive while a program loops, and `timeoutMs` and `signal` can stop it: the run then resolves with exit code 124 (timeout) or 130 (abort) and a `fatal` text. `worker: false` runs on the page's own thread, one run at a time; a timeout or abort then resolves the run and drops its output, but cannot stop the program. Output reaches the callbacks as written, so a prompt written with `io.write` and no newline appears before the program waits for input. Standard input is a string, served and then ended; an async function, asked for one line at a time, with `null` ending the input; or absent, so `io.read_line` returns `Err("eof")` at once. The environment holds what `env` gives plus `NOMI_COLOR=never`, unless `env` sets it, so diagnostics carry no colour codes; nothing comes from the page's URL or cookies. Arguments and environment together must fit in the 8 KB Go's loader reserves for them.
+`run` fetches and compiles the module once per URL; every later run of it reuses the compiled module. Each run gets a fresh instance in its own worker, so a page stays responsive while a program loops, and `timeoutMs` and `signal` can stop it: the run then resolves with exit code 124 (timeout) or 130 (abort) and a `fatal` text. `worker: false` runs on the page's own thread, one run at a time; a timeout or abort then resolves the run and drops its output, but cannot stop the program. Output reaches the callbacks as written, so a prompt written with `io.write` and no newline appears before the program waits for input. Standard input is a string, served and then ended; an async function, asked for one line at a time, with `null` ending the input; or absent, so `io.read_line` returns `Ok(None)` at once. The environment holds what `env` gives plus `NOMI_COLOR=never`, unless `env` sets it, so diagnostics carry no colour codes; nothing comes from the page's URL or cookies. Arguments and environment together must fit in the 8 KB Go's loader reserves for them.
 
-The exit code is `nomi run`'s: 0, or 1 for a `main` returning `Err`, a trap or a failed assertion. When the Go runtime stops (an allocation past the 1 GiB cap, a deadlock), the run resolves with exit code 2 and Go's own line, such as `fatal error: out of memory`, as `fatal`. The browser build's limits apply as under `--target js/wasm`: file access fails with an `io.Error`, a call nests at most 1,000 deep, and no signal arrives. The clock, `std/random`, tasks, channels and `sleep` work; tasks share the worker's one thread, so a task that never yields starves the others.
+The exit code is `nomi run`'s: 0, an `Exit`'s code (§26, *Entry callbacks*), or 1 for a `main` returning any other `Err`, a trap or a failed assertion. When the Go runtime stops (an allocation past the 1 GiB cap, a deadlock), the run resolves with exit code 2 and Go's own line, such as `fatal error: out of memory`, as `fatal`. The browser build's limits apply as under `--target js/wasm`: the program's file system is in memory (*Files*, §24), a call nests at most 1,000 deep, and no signal arrives. The file system starts with the files `files` gives, by path from its working directory `/work`, and the run resolves with `files`, every file in it when the program ended, by the same paths (absolute for a file outside `/work`); a run stopped by `timeoutMs` or `signal` has no `files`. The clock, `std/random`, tasks, channels and `sleep` work; tasks share the worker's one thread, so a task that never yields starves the others.
 
 `index.html` loads `nomi.js` with a `<script type="module" src>` and no inline script, so it works under a strict `script-src`. `nomi.js` mounts itself on every element with a `data-nomi-program="app.wasm"` attribute: an output pane with standard error in a distinct colour, an input line that is enabled while the program waits for a line (Enter sends it, Ctrl-D on an empty line ends the input), the exit status, and a button that runs the program again. A page that imports `run` itself needs no such element. The page needs a server, since a browser does not fetch modules from `file:` URLs: `python3 -m http.server -d hello-web` serves one locally. Serve `app.wasm` as `Content-Type: application/wasm`, compressed with brotli or gzip (a hello world is 11 MB, 2 MB with brotli); Cloudflare Pages, Netlify and Vercel do both themselves. Without that content type the loader still works, compiling from the whole response instead of streaming it.
 
-`nomi run --web [--port N] [--open] [--static <dir>] <file>` is the loop for working on such a program. It builds the generated files into a temporary directory and serves them, with the static files served from where they are, by the same rule and with the same precedence and refusals as `nomi build --web`, on `http://localhost:<port>/`, on port 8000 or the next free one up to 8099 unless `--port` names one (`--port 0` takes any free port), with `app.wasm` as `application/wasm`, the locale files as `application/json`, and every response marked `Cache-Control: no-cache`. It prints the URL; `--open` also opens it in the default browser. It then watches the entry, every file the program loads and the project's `nomi.toml`, polling them every 250 ms, and rebuilds once a burst of changes has settled. It polls the static folder too, and a change there reloads the page without a rebuild. The page reloads itself after a successful rebuild. A failed build is printed on the terminal and shown over the page, which keeps running the last build that succeeded until the error is fixed; when the first build fails, the page shows the error alone. A static file given a generated name while the server runs is reported the same way and not served. Every `.html` page served, the generated one or a static one, gets one more script for this, `/__nomi/dev.js`, added before its `</head>` (or at its end when it has none), which listens to the server-sent event stream `/__nomi/events`. Each event is `{"build": n, "static": m, "error": "..."}`: `n` counts the successful builds and `m` the changes to the static files, and a page reloads when either differs from the one it was served at. `nomi build --web` never writes any of this. Ctrl-C stops the server and removes the temporary directory. A project with Go bindings is refused as `--web` refuses it, and the browser program takes no arguments, so a word after the file is a usage error; `--port`, `--open` and `--static` without `--web` are too, and so is `--watch` with `--web`, since `--web` already rebuilds on every change. Without `--web`, `nomi run` takes no flags but `--watch` (§26, *Running again on every change*), and every word after the file is the program's.
+`nomi run --web [--port N] [--open] [--static <dir>] <file>` is the loop for working on such a program. It builds the generated files into a temporary directory and serves them, with the static files served from where they are, by the same rule and with the same precedence and refusals as `nomi build --web`, on `http://localhost:<port>/`, on port 8000 or the next free one up to 8099 unless `--port` names one (`--port 0` takes any free port), with `app.wasm` as `application/wasm`, the locale files as `application/json`, and every response marked `Cache-Control: no-cache`. It prints the URL; `--open` also opens it in the default browser. It then watches the entry, every file the program loads, the project's `nomi.toml`, and the `go.mod` and Go files beside the program's files, polling them every 250 ms, and rebuilds once a burst of changes has settled. It polls the static folder too, and a change there reloads the page without a rebuild. The page reloads itself after a successful rebuild. A failed build is printed on the terminal and shown over the page, which keeps running the last build that succeeded until the error is fixed; when the first build fails, the page shows the error alone. A static file given a generated name while the server runs is reported the same way and not served. Every `.html` page served, the generated one or a static one, gets one more script for this, `/__nomi/dev.js`, added before its `</head>` (or at its end when it has none), which listens to the server-sent event stream `/__nomi/events`. Each event is `{"build": n, "static": m, "error": "..."}`: `n` counts the successful builds and `m` the changes to the static files, and a page reloads when either differs from the one it was served at. `nomi build --web` never writes any of this. Ctrl-C stops the server and removes the temporary directory. A project with Go bindings is served as `--web` builds it. The browser program takes no arguments, so a word after the file is a usage error; `--port`, `--open` and `--static` without `--web` are too, and so is `--watch` with `--web`, since `--web` already rebuilds on every change. Without `--web`, `nomi run` takes no flags but `--watch` (§26, *Running again on every change*), and every word after the file is the program's.
 
 ### Future: native code
 
@@ -7865,6 +7910,18 @@ fn main() -> Result<Unit, String> {
 ```
 
 prints `error: config file not found` to stderr and exits 1.
+
+To choose the exit status, `main` returns std/process's `Exit`, a struct with the fields `code: Int = 1` and `message: String = ""`, in its `Err`. A `main` declared `-> Result<Unit, Exit>` that returns `Err(e)` prints `e.message` and a newline to stderr when it is not empty, with no `error: ` before it, and exits with `e.code`; an `Exit` with code 0 exits 0, its message printed all the same. A code outside 0 to 255 is a trap, `exit code 300 is outside 0 to 255`, and exits 1. The same holds for an entry boot declared `-> Result<App, Exit>` that returns `Err`: main does not run and the program exits with the code. Before the program exits, supervised tasks drain and boot's deferred calls run, as when `main` returns `Ok`, so the message prints after them. Only std's `Exit` does this: a program's own type named `Exit` is an ordinary error and prints with `error: `. There is no function that exits on the spot; returning `Exit` through `try` ends the program from anywhere `main` calls. A test checks an exit as a value: `assert main() == Err(#Exit{code: 2, message: "usage: count <file>"})`.
+
+```
+import std/process.Exit
+
+fn main() -> Result<Unit, Exit> {
+    Err(#Exit{code: 2, message: "usage: count <file>"})
+}
+```
+
+prints `usage: count <file>` to stderr and exits 2.
 
 `fn boot` is optional and belongs to the same entry file as `fn main` (§27). A program with no boot runs under a root context and publishes no application fields.
 
@@ -9563,16 +9620,17 @@ operation.
 
 `io.capture(input, run)` calls `run`, a function of no arguments, with
 `input` as its standard input, and answers an `io.Captured<T>`: `value` is
-what `run` returned, `output` is everything it printed, and `transcript` is
-the output with each line `run` read written in where it was read.
+what `run` returned, `output` is everything it printed to stdout, `errors` is
+everything it printed to stderr, and `transcript` is the output with each
+line `run` read written in where it was read.
 
 ```nomi
 import std/io
 
 fn greet() -> Result<Unit, String> {
     case io.read_line() {
-        Ok(name) -> io.print("hello, ${name}")
-        Err(_) -> io.print("hello, stranger")
+        Ok(Some(name)) -> io.print("hello, ${name}")
+        _ -> io.print("hello, stranger")
     }
 
     Ok(Unit)
@@ -9587,10 +9645,16 @@ test "greets by name" {
 
 While `run` runs, `io.read_line` reads `input` one line at a time with the
 line ending stripped, as it reads stdin (`\n` or `\r\n`; a last line with no
-newline is still a line), and answers `Err("eof")` once the input is used up.
+newline is still a line), and answers `Ok(None)` once the input is used up.
 `io.print`, `io.write` and `io.inspect` append exactly what they would have
-written to stdout to `output`. `dbg`, `io.read_file`, `io.write_file` and the
-runtime's own diagnostics are not redirected. A program's `main` can be
+written to stdout to `output`, and `io.eprint` and `io.ewrite` what they would
+have written to stderr to `errors`; writes through `io.stdout` and
+`io.stderr` go to the same places, and `Reader.read_line(io.stdin)` reads
+`input`. `errors` is not in the transcript. `dbg`, files and the runtime's
+own diagnostics are not redirected; `fs_testing.run` gives a call files of
+its own (*Files in tests*). In a
+test case outside any `io.capture`, stderr is part of the case's output, which
+the report shows under the case. A program's `main` can be
 passed as `run`, which is how a test checks what a program prints for an
 input.
 
@@ -9641,16 +9705,19 @@ when no line sits left of it. Every line of the script follows one rule:
   literal does not process escapes, so the script writes `\>` as it is.
 
 Every script is accepted. Once the script's input lines are used up,
-`io.read_line` answers `Err("eof")`.
+`io.read_line` answers `Ok(None)`. A script holds standard output only:
+what `run` writes to stderr is captured, kept out of the transcript and
+dropped, so it neither appears in a diff nor fails the replay. A test that
+checks stderr uses `io.capture`'s `errors`.
 
 ```nomi
 import std/io
 
 fn main() {
     io.print("What is your name?")
-    name = io.read_line() |> Result.with_default("")
+    name = io.read_line() |> Result.with_default(None) |> Maybe.with_default("")
     io.write("Hello, ${name}. Your age: ")
-    age = io.read_line() |> Result.with_default("")
+    age = io.read_line() |> Result.with_default(None) |> Maybe.with_default("")
     io.print("${name} is ${age}")
 }
 
@@ -9747,6 +9814,65 @@ total =
     |> Iter.sum()
     |> dbg
 ```
+
+### Files in tests
+
+`fs_testing.run(sandbox, body)` calls `body`, a function of no arguments,
+with an in-memory file system built from `sandbox`, and answers a
+`fs_testing.Ran<T>`: `value` is what `body` returned, `files` is every file in
+the sandbox afterwards by absolute path (`Map<String, Bytes>`; directories and
+symlinks are not files), `log` is each operation in order as `<operation>
+<absolute path>` (`read`, `write`, `open`, `list`, `metadata`,
+`link_metadata`, `create_dir`, `create_symlink`, `read_link`, `set_mode`,
+`remove`, `remove_all`, and `rename <from> to <to>`), the path as named
+before any symlink in it is followed, and `open` is the absolute path of
+each reader, writer or `File` still open. Nothing touches the disk. `fs_testing.text(ran, path)` is a file's text,
+`None` when it is missing or not UTF-8.
+
+```nomi
+import {
+    std/fs
+    std/fs_testing.{self, Sandbox}
+}
+
+test "appends a line" {
+    ran = fs_testing.run(#Sandbox{files: %{"log.txt" => "a\n"}}, fn -> {
+        fs.write_text("log.txt", "b\n", mode: .Append)
+    })
+
+    assert ran.value == Ok(Unit)
+    assert fs_testing.text(ran, "/work/log.txt") == Some("a\nb\n")
+    assert ran.open == []
+}
+```
+
+A `Sandbox` holds `files` (text by path), `binary` (`Bytes` by path), `dirs`
+(directories that exist), `links` (symlinks by path, each to its target),
+`failures` and `cwd`, the working directory relative
+paths resolve against, `/work` unless given; the directories above every file
+exist. A `Failure {path, operation, error, nth: None}` makes an operation on
+`path` answer `Err(error)` instead of happening, every time, or only the `nth`
+matching time when `nth` is `Some(n)`. `operation` is an `Operation`: `Read`
+(opening a file to read it), `Write` (each write of data to a file open for
+writing, a `File`'s included), `Create` (opening a file to write it, making a
+directory, making a symlink), `Remove`, `Rename` (matched on the path renamed
+from), `List`, `Metadata` (with `link_metadata`, `read_link` and `set_mode`)
+or `Close`. The sandbox keeps permission bits and answers them, and refuses
+nothing because of them. An atomic write whose `Write` fails leaves the old file in the
+sandbox.
+
+As with `io.capture`, the sandbox lasts for the call and follows its tasks,
+two tasks running their own `fs_testing.run` at once never see each other's
+files, and an inner `run` takes over for its own call. A trap in `body`
+propagates. `fs_testing.conformance(root) -> List<ConformanceFailure>` runs
+std/fs's rules (each `WriteMode`, `NotFound` for a missing parent, sorted
+listings, `remove` of a directory with entries, `remove_all` of a missing
+path, `rename` over a file, an atomic write that fails, line splitting,
+`InvalidText`, closed handles, `exists?`, walks and globs, symlinks followed
+and not, a dangling one and a loop, `set_mode`, a `File`'s reads and writes
+at a position, and `fs.within`'s confinement) in fresh directories under the
+empty directory `root`, and answers the ones broken; std's own tests run it
+against a sandbox and, inside `fs.with_temp_dir`, against the disk.
 
 ## 37. Configuration
 
@@ -10701,7 +10827,7 @@ Decimal.format(1234.50d, Locale`de`) // "1.234,50"
 
 Decimal.format_percent(0.125d, Locale`en`) // "12.5%"
 
-Decimal.format(1d / 8d, Locale`en`, max_fraction: 2) // "0.12"
+Decimal.format(0.125d, Locale`en`, max_fraction: 2) // "0.12"
 ```
 
 - **Symbols and patterns** are the locale's CLDR decimal and percent

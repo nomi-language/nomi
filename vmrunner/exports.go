@@ -225,6 +225,10 @@ func (in *Instance) Call(name string, argsJSON []byte) ([]byte, error) {
 	return []byte(text), nil
 }
 
+// ExitCode is the status a host exits with for Main's error: 0 for nil,
+// the code of a main that returned `Err(#Exit{...})`, else 1.
+func ExitCode(err error) int { return vm.ExitCode(err) }
+
 // ErrNoMain is Main on a program with no `fn main`.
 var ErrNoMain = errors.New("this program has no `fn main`; it is called through its exported functions")
 
@@ -311,6 +315,11 @@ func failureError(err error) error {
 	failure, limit := vm.ProgramFailure(err)
 	if limit {
 		return fmt.Errorf("the VM cannot run this program: machine limit: %v", failure)
+	}
+	var exit *vm.Exit
+	if errors.As(failure, &exit) {
+		// Its text is the message, and ExitCode reads its status.
+		return exit
 	}
 	var b strings.Builder
 	WriteFailure(&b, failure)

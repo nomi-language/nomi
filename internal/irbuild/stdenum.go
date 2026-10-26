@@ -633,20 +633,48 @@ var stdEnumSpecs = []stdEnumSpec{{
 	// After the Json row, for the reason that row states: rows name each other
 	// POSITIONALLY through the index constants below.
 	//
-	// `Result<String, Error>` and `Result<Unit, Error>` are the result types
-	// of `io.read_file` and `io.write_file`, so without it neither signature
-	// projects.
+	// `Result<String, Error>`, `Result<Unit, Error>` and
+	// `Result<Maybe<String>, Error>` are the result types of `io.read_line`,
+	// the stream functions and std/fs's crossings, so without it
+	// none of those signatures projects.
 	//
-	// TWO PAYLOAD FIELDS AND NO SHARING, unlike calendar.Error's five variants
-	// over one `Msg`: a struct-shaped payload's field name is part of the
-	// declaration being anchored, so `path` and `reason` get one slot each.
+	// Sixteen variants over six payload slots: every `path` shares Path, and
+	// `Unsupported` and `Other` share Operation, by the dedup rule. The bare
+	// variants are the failures that name no path.
 	origin:   "std/io",
 	nomi:     "Error",
 	goType:   reflect.TypeFor[rt.IOError](),
 	tagField: "Tag",
 	variants: []stdEnumVariantSpec{
 		structScalarVariant("NotFound", "path", "Path", kindString),
-		structScalarVariant("Other", "reason", "Reason", kindString),
+		structScalarVariant("AlreadyExists", "path", "Path", kindString),
+		structScalarVariant("PermissionDenied", "path", "Path", kindString),
+		structScalarVariant("NotADirectory", "path", "Path", kindString),
+		structScalarVariant("IsADirectory", "path", "Path", kindString),
+		structScalarVariant("DirectoryNotEmpty", "path", "Path", kindString),
+		structFieldsVariant("InvalidPath",
+			scalarField("path", "Path", kindString, ""),
+			scalarField("reason", "Reason", kindString, ""),
+		),
+		structFieldsVariant("InvalidText",
+			scalarField("path", "Path", kindString, ""),
+			scalarField("offset", "Offset", kindInt, ""),
+		),
+		structScalarVariant("NoSpace", "path", "Path", kindString),
+		structScalarVariant("ReadOnly", "path", "Path", kindString),
+		bareVariant("TooManyOpen"),
+		bareVariant("Closed"),
+		bareVariant("BrokenPipe"),
+		bareVariant("TimedOut"),
+		structFieldsVariant("Unsupported",
+			scalarField("operation", "Operation", kindString, ""),
+			scalarField("target", "Target", kindString, ""),
+		),
+		structFieldsVariant("Other",
+			scalarField("operation", "Operation", kindString, ""),
+			scalarField("path", "Path", kindString, ""),
+			scalarField("code", "Code", kindString, ""),
+		),
 	},
 }, {
 	// std/supervisors' `Restart`: whether a stopped supervised task runs again.

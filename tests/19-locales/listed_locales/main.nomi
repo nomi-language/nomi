@@ -18,7 +18,7 @@ pub fn chosen(tag: String) -> Locale {
 }
 
 fn main() {
-    io.print("${Locale.available()}")
+    io.print(Locale.available())
     io.print(total(1234567, Locale`de`))
     io.print(total(1234567, Locale`de-CH`))
     io.print(total(1234567, chosen("fr")))

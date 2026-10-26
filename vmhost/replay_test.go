@@ -15,8 +15,8 @@ const bankProgram = `import std/io
 fn main() -> Result<Unit, String> {
     io.print("What is the starting balance?")
     balance = case io.read_line() {
-        Ok(line) -> String.to_int(line) |> Maybe.with_default(0)
-        Err(_) -> 0
+        Ok(Some(line)) -> String.to_int(line) |> Maybe.with_default(0)
+        _ -> 0
     }
     io.print("Your starting balance: ${balance}")
     io.print("")
@@ -28,7 +28,7 @@ fn main() -> Result<Unit, String> {
 fn loop(balance: Int) -> Unit {
     io.write("amount: ")
     case io.read_line() {
-        Ok(line) -> case String.split(line, " ") {
+        Ok(Some(line)) -> case String.split(line, " ") {
             ["deposit", n] -> {
                 amount = String.to_int(n) |> Maybe.with_default(0)
                 io.print("${amount} deposited, new balance is ${balance + amount}")
@@ -39,7 +39,7 @@ fn loop(balance: Int) -> Unit {
                 loop(balance)
             }
         }
-        Err(_) -> io.print("bye")
+        _ -> io.print("bye")
     }
 }
 `
@@ -107,9 +107,9 @@ func TestReplay_APartialLinePromptIsOutput(t *testing.T) {
 
 fn main() {
     io.print("What is your name?")
-    name = io.read_line() |> Result.with_default("")
+    name = io.read_line() |> Result.with_default(None) |> Maybe.with_default("")
     io.write("Hello, ${name}. Your age: ")
-    age = io.read_line() |> Result.with_default("")
+    age = io.read_line() |> Result.with_default(None) |> Maybe.with_default("")
     io.print("${name} is ${age}")
 }
 
@@ -147,15 +147,15 @@ fn main() {
 fn play() {
     io.write("> ")
     case io.read_line() {
-        Ok("north") -> {
+        Ok(Some("north")) -> {
             io.print("You are in an old armory.")
             play()
         }
-        Ok(word) -> {
+        Ok(Some(word)) -> {
             io.print("I don't know how to '${word}'.")
             play()
         }
-        Err(_) -> io.print("Bye.")
+        _ -> io.print("Bye.")
     }
 }
 

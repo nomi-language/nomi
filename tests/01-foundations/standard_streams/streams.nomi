@@ -1,0 +1,25 @@
+// Standard output and standard error, through the io functions and through
+// the stream handles. A run's record holds the two streams apart.
+import std/io.{self, Reader, Writer}
+
+fn main() -> Result<Unit, io.Error> {
+    io.print("out: print")
+    io.eprint("err: eprint")
+    io.write("out: write")
+    io.ewrite("err: ewrite")
+    io.print("")
+    io.eprint("")
+    try Writer.print(io.stdout, "out: Writer.print")
+    try Writer.print(io.stderr, "err: Writer.print")
+    try Writer.write(io.stderr, String.to_bytes("err: Writer.write\n"))
+    io.eprint(#io.Error.NotFound{path: "notes.txt"})
+
+    // The corpus runs with no input: the first read is the end.
+    case Reader.read_line(io.stdin) {
+        Ok(Some(line)) -> io.print("read ${line}")
+        Ok(None) -> io.print("end of input")
+        Err(e) -> io.eprint(e)
+    }
+
+    Ok(Unit)
+}

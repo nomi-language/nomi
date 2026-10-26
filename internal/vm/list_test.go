@@ -50,7 +50,7 @@ func TestListDebugUsesElementDebugRatherThanInspect(t *testing.T) {
 	pos := ir.At("list.nomi", 1, 1)
 	fn := ir.NewFunc(pos, "render")
 	list := fn.AddParam(ir.NewSymbol("list"), ir.ValContainer)
-	fn.SetType(list, ir.NewListType(ir.StringType))
+	fn.SetType(list, ir.NewListType(ir.DecimalType))
 	block := fn.NewBlock(pos, "entry")
 	result := fn.NewTemp()
 	block.Append(ir.NewRenderDebug(pos, result, list))
@@ -60,12 +60,18 @@ func TestListDebugUsesElementDebugRatherThanInspect(t *testing.T) {
 	if err := ir.LintModule(mod); err != nil {
 		t.Fatal(err)
 	}
-	input := rtList("a\nb\t\"\\z")
+	// A Decimal element separates the two: its Debug is `1.50d` and its row
+	// `1.50`. A String would not, since both write its literal.
+	dec, err := rt.ParseDecimal("1.50")
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := rtList(dec)
 	got, err := vm.New(mod, io.Discard).Run("render", input)
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = "[\"a\nb\t\\\"\\\\z\"]"
+	const want = "[1.50d]"
 	if got != want {
 		t.Fatalf("Debug = %q, want %q", got, want)
 	}

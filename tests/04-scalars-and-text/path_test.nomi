@@ -1,0 +1,34 @@
+// std/path: paths as Strings with `/` on every system, read as text alone.
+import std/path
+
+test "join and clean" {
+    assert path.join("data", "2026/log.txt") == "data/2026/log.txt"
+    assert path.join_all(["/srv", "www", "..", "logs"]) == "/srv/logs"
+    assert path.clean("./a//b/./c/..") == "a/b"
+    assert path.clean("../x") == "../x"
+}
+
+test "the parts of a path" {
+    p = "reports/2026/summary.tar.gz"
+
+    assert path.parent(p) == Some("reports/2026")
+    assert path.base(p) == "summary.tar.gz"
+    assert path.extension(p) == Some("gz")
+    assert path.stem(p) == "summary.tar"
+}
+
+test "absolute and relative" {
+    assert path.absolute?("/home/ada")
+    refute path.absolute?("notes.txt")
+    assert path.relative("/home/ada", "/home/ada/notes/today.txt") == Some("notes/today.txt")
+    assert path.relative("/home/ada/notes", "/home/bo") == Some("../../bo")
+}
+
+test "globs match a name at a time" {
+    nomi =
+        ["src/main.nomi", "src/lib/util.nomi", "src/.hidden.nomi", "README.md"]
+        |> Iter.filter(fn p -> path.match?("src/**/*.nomi", p))
+        |> Iter.to_list()
+
+    assert nomi == ["src/main.nomi", "src/lib/util.nomi"]
+}

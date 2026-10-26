@@ -127,7 +127,7 @@ test "primitive operator interface functions dispatch directly" {
 
     assert Subtract.subtract(9.5, 4.0) == 5.5
     assert Multiply.multiply(1.5d, 2.0d) == 3.00d
-    assert Divide.divide(10.00d, 4d) == 2.50d
+    assert Subtract.subtract(10.00d, 4d) == 6.00d
 }
 
 test "Add can choose a different rhs type" {

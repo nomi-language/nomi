@@ -627,8 +627,11 @@ fn main() {
 // `impl App for MyApp`; migrated, the payload is `struct Config { port: Int }`
 // with no default and the `context` default lives on stdlib's `App`. The one
 // survivor the census prints is `structs-enums-distinct.md:L29`'s `age@3:3`.
+//
+// `std` reads 33 since std/fs_testing's `Sandbox` gained `links`, an empty
+// map by default, so `#Sandbox{}` still has no symlinks.
 var fieldDefaultDenominator = map[string]int{
-	"std":             24,
+	"std":             33,
 	"tests":           44,
 	"tour (nomi-run)": 1,
 	"tour (nomi)":     0,

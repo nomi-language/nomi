@@ -96,7 +96,7 @@ fn main() {
  xs = ["a\nb\t\"\\z"]
  dbg xs
  Unit
-}`, "dbg line 3: xs = [\"a\nb\t\\\"\\\\z\"]\n"},
+}`, "dbg line 3: xs = [\"a\\nb\\t\\\"\\\\z\"]\n"},
 		{"multiline elements", `import std/io
 fn mark(n: Int) -> Int { io.print(n) n }
 fn main() {

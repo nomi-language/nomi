@@ -20,7 +20,7 @@ import (
 // parameter function whose body is that call over its parameter, at the kind
 // the checker instantiated the reference at.
 //
-// Any other top-level std function (`io.read_file`, `json.shape_error_root`)
+// Any other top-level std function (`io.read_line`, `json.shape_error_root`)
 // is named the same way: a function of the referenced signature whose body is
 // the call stdFilePlan plans over its parameters. A selective import names
 // both kinds bare (`print` after `import std/io.print`, `next_line` after

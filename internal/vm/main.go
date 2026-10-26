@@ -62,6 +62,9 @@ func (m *Machine) mainResultError(result any) error {
 	if f, isFailure := nomiFailureOf(payload); isFailure {
 		return &assertFailure{failure: f.Report()}
 	}
+	if m.mod.MainExits() {
+		return exitOf(payload)
+	}
 	text, err := m.failureText(m.mod.MainFailure(), payload)
 	if err != nil {
 		return err
@@ -128,6 +131,9 @@ func (m *Machine) entry(ctx context.Context, args []string, handleSignals bool, 
 			}()
 			rt.RunBootCleanup(fr)
 		}()
+		// What a writer the program never closed buffered reaches its file,
+		// as a process exit flushes buffered output.
+		rt.FlushOpenWriters()
 		if err == nil {
 			if fatal := rt.SupervisorFatal(); fatal != nil {
 				err = &Fault{err: fatal}
@@ -165,6 +171,9 @@ func (m *Machine) bootOn(fr *rt.Frame, args []string) (*Machine, error) {
 		if failed, isFailed := bootErr.(*BootError); isFailed {
 			// main does not run, and the run fails as one whose main
 			// returned the same `Err` does.
+			if failed.exit != nil {
+				return nil, failed.exit
+			}
 			return nil, &MainError{Text: failed.Text}
 		}
 		if _, internal := AsCompilePanic(bootErr); internal {
@@ -200,6 +209,10 @@ func ProgramFailure(err error) (failure error, limit bool) {
 	}
 	var mainErr *MainError
 	if errors.As(err, &mainErr) {
+		return err, false
+	}
+	var exit *Exit
+	if errors.As(err, &exit) {
 		return err, false
 	}
 	return err, true

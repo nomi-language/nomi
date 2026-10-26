@@ -52,7 +52,7 @@ fn later(day: Date) -> #(Date, Date) {
 }
 
 fn sizes(n: Int, d: Decimal, f: Float) -> #(Int, Decimal, Float) {
-  #(n / 3 + n % 3 - -n, d / 2d, f * 2.0)
+  #(n / 3 + n % 3 - -n, d * 2d, f * 2.0)
 }
 
 fn main() {
@@ -84,8 +84,8 @@ fn main() {
 		{"Int /", "  #(n / 3", "/", 1, "`Int` / `Int` → `Int`\n\nTruncates toward zero; traps on division by zero.\n\n`impl Divide<Int, Int> for Int` in `std/int`."},
 		{"Int %", "  #(n / 3", "%", 1, "`Int` % `Int` → `Int`\n\nRemainder: takes the dividend's sign; `Int.modulo` takes the divisor's. Traps on division by zero."},
 		{"unary - on Int", "  #(n / 3", "-n", 1, "Negation: `Int` → `Int`\n\nChecked: traps on `Int.min_value`."},
-		{"Decimal /", "  #(n / 3", "/", 2, "`Decimal` / `Decimal` → `Decimal`\n\nExact or traps; use `Decimal.divide` to round.\n\n`impl Divide<Decimal, Decimal> for Decimal` in `std/decimal`."},
-		{"Float *", "  #(n / 3", "*", 1, "`Float` * `Float` → `Float`\n\nIEEE 754: never traps.\n\n`impl Multiply<Float, Float> for Float` in `std/float`."},
+		{"Decimal *", "  #(n / 3", "*", 1, "`Decimal` * `Decimal` → `Decimal`\n\nExact: never rounds.\n\n`impl Multiply<Decimal, Decimal> for Decimal` in `std/decimal`."},
+		{"Float *", "  #(n / 3", "*", 2, "`Float` * `Float` → `Float`\n\nIEEE 754: never traps.\n\n`impl Multiply<Float, Float> for Float` in `std/float`."},
 		{"a user Add", "  m = #Money", "+", 1, "`Money` + `Money` → `Money`\n\n`impl Add<Money, Money> for Money` in this file."},
 		{"Date + Days", "  #(day + Days", "+", 1, "`Date` + `Days` → `Date`\n\n`impl Add<Days, Date> for Date` in `std/calendar`."},
 		{"Date + Months", "  #(day + Days", "+", 2, "`Date` + `Months` → `Date`\n\n`impl Add<Months, Date> for Date` in `std/calendar`."},

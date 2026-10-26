@@ -258,10 +258,7 @@ func (c *checker) checkStructShapedVariantCall(n *ast.Call, form variantCtor) Ty
 // variant's call form, given its type: the piped value of `rec |> Shape.V()`
 // or the argument of `Shape.V(rec)`.
 func (c *checker) checkVariantRecordArg(at ast.Node, argTy Type, form variantCtor) Type {
-	line, col := nodeLineCol(at)
-	if line == 0 {
-		line, col = at.LineNum(), 1
-	}
+	line, col := startOf(at)
 	if st, ok := form.vd.Embedded.(*StructType); ok && sameNominal(resolveTypeVar(argTy), st) {
 		c.addError(line, col, alreadyBuiltMessage(form, st.Name,
 			"#"+form.label+"{...} or "+form.label+"(#{...})"))
@@ -329,10 +326,7 @@ func (c *checker) checkDistinctEmbedArg(at ast.Node, argTy Type, form variantCto
 	if argTy == nil {
 		return
 	}
-	line, col := nodeLineCol(at)
-	if line == 0 {
-		line, col = at.LineNum(), 1
-	}
+	line, col := startOf(at)
 	if sameNominal(resolveTypeVar(argTy), dt) {
 		c.addError(line, col, alreadyBuiltMessage(form, dt.Name,
 			fmt.Sprintf("%s(<%s>)", form.label, dt.Inner)))

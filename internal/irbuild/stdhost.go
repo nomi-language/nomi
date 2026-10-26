@@ -298,6 +298,21 @@ var stdHostSpecs = []stdHostSpec{
 	// operand `<Regex>`. TestStdHostHandleRowsMatchTheBindingsTypeTable asserts
 	// that correspondence in both directions.
 	{origin: "std/regex", nomi: "Regex", goType: reflect.TypeFor[rt.Regex](), handle: true},
+	// `Reader` and `Writer`, std/io's streams, origin-identified for the
+	// reason `Supervisor` is: a `pub host type` with rt's representation, a
+	// one-field struct over an unexported stream, so the value is copyable
+	// and nothing a program lowers reaches inside it. Their functions are
+	// RtFuncs rows (rt/streams.go).
+	{origin: "std/io", nomi: "Reader", goType: reflect.TypeFor[rt.Reader]()},
+	{origin: "std/io", nomi: "Writer", goType: reflect.TypeFor[rt.Writer]()},
+	// `File`, std/io's handle for reads and writes at a position, for the
+	// same reason (rt/filehandle.go).
+	{origin: "std/io", nomi: "File", goType: reflect.TypeFor[rt.File]()},
+	// `FileSystem`, std/fs_host's file system a call runs against
+	// (`fs_testing.run`'s sandbox, `fs.within`'s directory), for the reason
+	// `Reader` is: rt's struct over the backend internal/stdio builds, which
+	// rt carries and does not name.
+	{origin: "std/fs_host", nomi: "FileSystem", goType: reflect.TypeFor[rt.FileSystem]()},
 }
 
 // stdHostDefs is the process-wide *typeDef per spec, keyed by spec index.

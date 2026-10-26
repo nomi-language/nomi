@@ -45,6 +45,18 @@ func TestDbg_MultiLineShapeIsExercised(t *testing.T) {
 	}
 }
 
+// TestDbg_AMultiLineStringReadsAsItsLiteral: a String's Debug is
+// `String.to_literal`, so `dbg` of one holding a newline and a tab prints one
+// line, its value escaped, while Display (`io.print`) prints the raw text.
+func TestDbg_AMultiLineStringReadsAsItsLiteral(t *testing.T) {
+	got := vmReference(fixture("dbg_shapes.nomi"))
+	want := "dbg line 83: \"first\\nsecond\\tthird\" = \"first\\nsecond\\tthird\"\n" +
+		"h=first\nsecond\tthird\n"
+	if !strings.Contains(got.stdout, want) {
+		t.Fatalf("dbg of a multi-line String does not print its literal; want\n%s\nin\n%s", want, got.stdout)
+	}
+}
+
 // TestDbg_DeclarationOrderIsNotSortedOrder is the anti-vacuity guard on
 // dbg_surfaces.nomi's structs, the same one debugdisplay_test.go carries for its
 // own fixture and for the same reason: alphabetical fields make declaration

@@ -737,6 +737,20 @@ func (c *Checker) CheckFileSource(path, src string, mode Mode) (*Project, error)
 	return c.check(path, moduleName, !mode.Tests, src, mode)
 }
 
+// AnalyzeFileSource is CheckFileSource for a reader of the program's
+// analyses, as AnalyzeSource is CheckSource's.
+func (c *Checker) AnalyzeFileSource(path, src string, mode Mode) (*Project, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	moduleName := c.PrepareFile(path, absPath)
+	if analysis.IsForeignStdlibDir(c.root) {
+		return nil, ForeignStdlibError(absPath, c.root)
+	}
+	return c.analyze(path, moduleName, !mode.Tests, src, mode)
+}
+
 // CheckSource checks an in-memory entry named moduleName. Its siblings come
 // from Config.VirtualFiles.
 func (c *Checker) CheckSource(moduleName, src string, mode Mode) (*Project, error) {

@@ -4,7 +4,6 @@ import {
     comparable.{Comparable, Ordering}
     debug.Debug
     display.Display
-    divide.Divide
     equatable.Equatable
     float.Float
     hashable.Hashable
@@ -25,11 +24,14 @@ import {
 //# quantization (every rounding op names a `RoundingMode`), sign/scale/abs
 //# helpers, and the value-based (scale-insensitive) arithmetic/`Equatable`/`Comparable`/
 //# `Hashable` impls. `+ - *` are exact; only `Decimal.divide` and
-//# `Decimal.round` round.
+//# `Decimal.round` round. There is no `/`: `Decimal.divide` names its
+//# rounding, and `Decimal.divide_exact` answers `None` for a quotient that
+//# does not terminate.
 
 /// Arbitrary-precision exact base-10 number. The third blessed numeric type
-/// alongside `Int` and `Float`: `+ - *` are always exact, `/` is exact-or-trap,
-/// and there is no implicit conversion to/from `Int` or `Float`. Literals carry
+/// alongside `Int` and `Float`: `+ - *` are always exact, there is no `/`
+/// (`Decimal.divide` and `Decimal.divide_exact` divide), and there is no
+/// implicit conversion to/from `Int` or `Float`. Literals carry
 /// a `d` suffix (`1.50d`); scale is significant for display (`1.50d` prints
 /// "1.50") but equality is scale-insensitive (`1.50d == 1.5d`).
 pub host type Decimal
@@ -77,15 +79,27 @@ impl Decimal {
     //
     pub host fn from_float(f: Float, scale: Int, mode: RoundingMode) -> Maybe<Decimal>
 
-    /// Divides `a / b` to exactly `scale` fractional digits, rounding the quotient
-    /// with `mode`. This is the explicit-rounding division path — unlike the `/`
-    /// operator (exact-or-trap), `divide` always returns a value at the named scale.
-    /// Runtime error on a zero `b`, or when `mode` is `Unnecessary` and the exact
-    /// quotient does not fit at `scale`.
+    /// Divides `a` by `b` to exactly `scale` fractional digits, rounding the
+    /// quotient with `mode`. It always returns a value at the named scale;
+    /// `divide_exact` is the division that never rounds. Runtime error on a
+    /// zero `b`, or when `mode` is `Unnecessary` and the exact quotient does
+    /// not fit at `scale`.
     //! assert Decimal.divide(10d, 3d, 2, RoundingMode.HalfEven) == 3.33d
     //! assert Decimal.divide(10.00d, 4d, 2, RoundingMode.Down) == 2.50d
     //
     pub host fn divide(a: Decimal, b: Decimal, scale: Int, mode: RoundingMode) -> Decimal
+
+    /// Divides `a` by `b` exactly: `Some` of the quotient when it terminates in
+    /// base 10, `None` when it does not (`10d` by `3d`). A quotient's scale is
+    /// `a`'s scale less `b`'s, or more when the quotient needs more digits
+    /// (`1d` by `8d` is `0.125d`), and never below zero. Runtime error on a
+    /// zero `b`, as Int's `/` gives.
+    //! assert Decimal.divide_exact(10.00d, 4d) == Some(2.50d)
+    //! assert Decimal.divide_exact(10.00d, 4d) |> Maybe.map(Decimal.to_string) == Some("2.50")
+    //! assert Decimal.divide_exact(1d, 8d) == Some(0.125d)
+    //! assert Decimal.divide_exact(10d, 3d) == None
+    //
+    pub host fn divide_exact(a: Decimal, b: Decimal) -> Maybe<Decimal>
 
     /// Quantizes `d` to exactly `scale` fractional digits using `mode`. Increasing
     /// the scale pads trailing zeros (always exact); decreasing it rounds. A
@@ -175,7 +189,7 @@ impl Decimal {
     //! assert Decimal.format(1234567.89d, Locale`en`) == "1,234,567.89"
     //! assert Decimal.format(-0.5d, Locale`sv`) == "−0,5"
     //! assert Decimal.format(1234.5d, Locale`en`, grouping: False) == "1234.5"
-    //! assert Decimal.format(1d / 8d, Locale`en`, max_fraction: 2) == "0.12"
+    //! assert Decimal.format(0.125d, Locale`en`, max_fraction: 2) == "0.12"
     //! assert Decimal.format(0.125d, Locale`en`, max_fraction: 2, mode: RoundingMode.HalfUp) == "0.13"
     //! assert Decimal.format(12d, Locale`fr`, min_fraction: 2) == "12,00"
     //
@@ -340,10 +354,6 @@ impl Subtract<Decimal, Decimal> for Decimal {
 
 impl Multiply<Decimal, Decimal> for Decimal {
     host fn multiply(lhs: Decimal, rhs: Decimal) -> Decimal
-}
-
-impl Divide<Decimal, Decimal> for Decimal {
-    host fn divide(lhs: Decimal, rhs: Decimal) -> Decimal
 }
 
 impl Debug for Decimal {

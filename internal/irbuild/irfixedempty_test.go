@@ -58,7 +58,7 @@ fn main() {
     io.inspect(#(a, b, c))
     io.print(#(1, []) == #(1, [2]))
     io.print(#(1, []) == #(1, []))
-    k: Captured<List<Int>> = #Captured{value: [], output: "", transcript: ""}
+    k: Captured<List<Int>> = #Captured{value: [], output: "", errors: "", transcript: ""}
     io.inspect(k.value)
 }
 `

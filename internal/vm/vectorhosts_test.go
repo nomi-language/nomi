@@ -34,7 +34,7 @@ func TestVectorHostsValidateOperands(t *testing.T) {
 func TestVectorDebugPropagatesUnsupportedElement(t *testing.T) {
 	v := rt.VectorOf([]any{"a\nb\t\"\\z"})
 	got, err := debugText(v)
-	if err != nil || got != "#[\"a\nb\t\\\"\\\\z\"]" {
+	if err != nil || got != "#[\"a\\nb\\t\\\"\\\\z\"]" {
 		t.Fatalf("Debug: %q, %v", got, err)
 	}
 	v = rt.VectorOf([]any{rtStruct("Point", "x", int64(1))})

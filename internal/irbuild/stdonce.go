@@ -6,13 +6,17 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// A `once` binding declared inside a stdlib `impl` block, read as
-// `Type.name` — `Int.max_value`, `Int.min_value`.
+// A `once` binding of a stdlib module: one declared inside an `impl` block,
+// read as `Type.name` (`Int.max_value`, `Int.min_value`), and one declared at
+// file level, read file-qualified (`io.stdin`, `io.stdout`, `io.stderr`).
 //
-// # The population is TWO
+// # The population is FIVE
 //
-// Those two are the ONLY `once` bindings in the whole of std/*.nomi (int.nomi:32
-// and int.nomi:39). User code reads them
+// Int's two and std/io's three standard streams are the only `once`
+// bindings in std/*.nomi. A stream's value is a marker naming the stream
+// (rt.IOStdout), so caching it changes nothing about where a write goes:
+// that is decided at each write, which is why `io.capture` still redirects
+// a stream read before it began. User code reads Int's two
 // (01-foundations/once_bindings/once_bindings_test.nomi), and so do two stdlib
 // bodies: `impl Discrete for Int`'s `next` (int.nomi:203) and `impl Steppable
 // for Int`'s `step_by` (int.nomi:221-223), which lower only because these do.
@@ -65,9 +69,9 @@ type stdOnce struct {
 	key    string
 	module string
 	// recv is the impl block's receiver type name ("Int"). Empty for a
-	// top-level `once`, which std declares none of; the field exists
-	// because collectStdOnces walks top level too and refusing to represent
-	// the shape would be a silent hole rather than a refusal.
+	// file-level `once` (std/io's `stdin`, `stdout` and `stderr`), which a
+	// program reads file-qualified (`io.stdout`) and its own module bare;
+	// stdFileOnceValue resolves both through the checker.
 	recv string
 	name string
 	pub  bool
@@ -221,6 +225,12 @@ func (x *stdlibIndex) addOnce(o *stdOnce) {
 		return
 	}
 	key := o.nomiName()
+	if o.recv == "" {
+		// A file-level binding (`io.stdout`) is reached through the checker's
+		// record of its declaration (stdFileOnceValue), never by spelling,
+		// so its key carries the module and two modules' names cannot meet.
+		key = o.key
+	}
 	if _, taken := x.byOnce[key]; taken {
 		return
 	}
@@ -314,6 +324,50 @@ func (bl *irScalarBuilder) stdOnceValue(t *ast.FieldAccess) (ir.Temp, kind, bool
 		return no()
 	}
 	n := ir.NewRefOnce(g.irNodePos(t), bl.f.NewTemp(), o.irCell)
+	bl.b.Append(n)
+	bl.side(n.Dst(), irScalarSide{k: o.k})
+	return n.Dst(), o.k, false, true
+}
+
+// stdFileOnceValue reads a file-level stdlib `once` (`io.stdout`, or bare
+// `stdout` inside std/io), at the name's position: the checker records the
+// binding's declaration there whatever qualifier spelled the module, so the
+// read resolves through that record and the declaration, not the text.
+func (bl *irScalarBuilder) stdFileOnceValue(at ast.Node, line, col int) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	g := bl.g
+	fa := g.srcFA()
+	if fa == nil {
+		return no()
+	}
+	sym := fa.References[analysis.Pos{Line: line, Col: col}]
+	for sym != nil && sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym == nil || sym.Kind != analysis.SymbolOnce || sym.OwningType != "" {
+		return no()
+	}
+	ob, isOnce := sym.Node.(*ast.OnceBinding)
+	if !isOnce {
+		return no()
+	}
+	var o *stdOnce
+	for _, c := range g.stdOnces {
+		if c.decl == ob {
+			o = c
+		}
+	}
+	if o == nil && g.std != nil {
+		for _, c := range g.std.byOnce {
+			if c.decl == ob {
+				o = c
+			}
+		}
+	}
+	if o == nil || o.recv != "" || !o.settled || o.irCell == nil || !irRetainedValueKind(o.k) {
+		return no()
+	}
+	n := ir.NewRefOnce(g.irNodePos(at), bl.f.NewTemp(), o.irCell)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: o.k})
 	return n.Dst(), o.k, false, true

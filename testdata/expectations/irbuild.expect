@@ -11,13 +11,13 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 397
+records 395
 declared-cases 0
 failing 82
 C assert_subject_test.nomi@52b656b5ada294aa
 E 1
 N 0
-H 83d880d572ff94a1095c2d4123a55e46336ec720e5e069c1b0ee604059febae8
+H 551775025202016cc34349633d658b50421fff488a9b232266cae18f8aeab75d
 S -- assert_subject_test.nomi 1114 --
 S
 S import {
@@ -82,10 +82,7 @@ T   line 45: assertion failed
 T     assert result == Ok(True)
 T     values:
 T       result
-T         = Err(#AssertionFailure{actual: None, binding: None, details: [], expression: "[1, 2]
-T |> Iter.any?(fn x -> x > 2)", keyword: "check", line: 41, reason: "check failed", subtests: [], values: [#AssertionValue{expression: "[1, 2]
-T |> Iter.any?(fn x -> x > 2)", pipeline: [#AssertionPipelineStage{expression: "[1, 2]", value: "[1, 2]"}, #AssertionPipelineStage{expression: "[1, 2]
-T |> Iter.any?(fn x -> x > 2)", value: "False"}], value: "False"}]})
+T         = Err(#AssertionFailure{actual: None, binding: None, details: [], expression: "[1, 2]\n|> Iter.any?(fn x -> x > 2)", keyword: "check", line: 41, reason: "check failed", subtests: [], values: [#AssertionValue{expression: "[1, 2]\n|> Iter.any?(fn x -> x > 2)", pipeline: [#AssertionPipelineStage{expression: "[1, 2]", value: "[1, 2]"}, #AssertionPipelineStage{expression: "[1, 2]\n|> Iter.any?(fn x -> x > 2)", value: "False"}], value: "False"}]})
 T FAIL <dir>/assert_subject_test.nomi :: a failing shape assertion shows the value
 T   line 49: refute failed
 T     refute find(1)
@@ -4274,14 +4271,14 @@ T
 C internal/irbuild/testdata/check_project.nomi@7f0fe24b1bc2aca5
 E 0
 N 0
-H 8a7387e24053852d10a8579ceb451d2cf990f87f65d2b29058c8ae8948925683
+H 19845bdd207b1256a62fdd3a196cdc90f7743bfd4ac294e00e18aba02eaaaa67
 T private import count is 1: True
 T private import says private: True
 T no manifest is clean: True
 T a manifest naming the wrong entry gives 2: True
 T it names main: True
 T it names other: True
-T first diagnostic line is 1, col 1
+T first diagnostic line is 1, col 12
 T
 C internal/irbuild/testdata/check_shape.nomi@60ab139a1a953452
 E 0
@@ -4504,10 +4501,10 @@ T app+prod+test
 T app-label|prod-label|test-label
 T app|prod|test
 T
-C internal/irbuild/testdata/dbg_shapes.nomi@28304c412a215ae4
+C internal/irbuild/testdata/dbg_shapes.nomi@82985d44d64ee80e
 E 0
 N 0
-H aa7b8013e1d9113f6ab64a91c8d72da122a9c513a650ea2c007b7b9afcc5998d
+H e197a1612965d01e2ef8a045cb7d5c2bb1b22eb64c5beb1ccadb4885c0d47ac2
 T dbg line 47: 41 + 1 = 42
 T a=42
 T dbg line 51: r = #Rev{zeta: 1, alpha: 2}
@@ -4530,6 +4527,9 @@ T   = #Rev{zeta: 100000001, alpha: 100000002}
 T f=100000001
 T dbg line 79: 5 |> double() = 10
 T g=10
+T dbg line 83: "first\nsecond\tthird" = "first\nsecond\tthird"
+T h=first
+T second	third
 T
 C internal/irbuild/testdata/dbg_surfaces.nomi@0d2a033fbae77e7c
 E 1
@@ -4740,10 +4740,10 @@ T       r
 T         = #Rev{alpha: 2, zeta: 1}
 T test result: FAILED. 1 passed, 1 failed
 T
-C internal/irbuild/testdata/decimal.nomi@864626fc44500179
+C internal/irbuild/testdata/decimal.nomi@cd095987315d11fb
 E 1
 N 0
-H 229e2c21371263be449205c45d5461e37e77734ba2f8911a0e42eeabaaefe6dc
+H ec3e6a57ca80527803f2c89b71c6623739fff37a65226ee991e9cf5c2a2c245d
 T ok <dir>/decimal.nomi :: literals keep their scale and render it
 T ok <dir>/decimal.nomi :: arithmetic is exact, which is what a Float cannot be
 T ok <dir>/decimal.nomi :: equality is scale-insensitive while scale is significant
@@ -4752,7 +4752,7 @@ T ok <dir>/decimal.nomi :: Debug appends d where Display does not, and that is t
 T ok <dir>/decimal.nomi :: sign, abs and negate preserve scale in both directions
 T ok <dir>/decimal.nomi :: normalize strips fractional zeros only
 T ok <dir>/decimal.nomi :: every rounding mode, on a tie and on both signs
-T ok <dir>/decimal.nomi :: divide rounds at a named scale where the operator is exact-or-trap
+T ok <dir>/decimal.nomi :: divide rounds at a named scale
 T ok <dir>/decimal.nomi :: conversions are explicit and total only where they can be
 T ok <dir>/decimal.nomi :: Int64's boundary round-trips, and one step past it does not
 T ok <dir>/decimal.nomi :: min and max pick by value, not by scale
@@ -4795,7 +4795,7 @@ T set has absent = False
 T returned = %{0.99 => 1, 19.99 => 2}
 T total = 2
 T
-C internal/irbuild/testdata/decimal_render.nomi@31e6a146c76f086c
+C internal/irbuild/testdata/decimal_render.nomi@a9737508f303babf
 E 0
 N 0
 H 8c31c62013b19d31f7b8835102ee8c32aff6a65c071f9db87f3f31f242b9dbff
@@ -5787,17 +5787,18 @@ T   default ran
 T   default ran
 T test result: ok. 4 passed, 0 failed
 T
-C internal/irbuild/testdata/io_files.nomi@3700bec4a5cb5d0e
+C internal/irbuild/testdata/io_files.nomi@cfd1cbfb8395b7fb
 E 0
 N 0
-H cc76fa773117913fa0e6e69dad02685bf3371761608421340034593db1f87886
-T ok <dir>/io_files.nomi :: write_file then read_file round-trips the contents
-T ok <dir>/io_files.nomi :: write_file replaces rather than appending
+H dd8356d4f779f2137b3891009fadf347eca97c9da12145fedc6cbda1478172f5
+T ok <dir>/io_files.nomi :: write_text then read_text round-trips the contents
+T ok <dir>/io_files.nomi :: write_text replaces rather than appending
+T ok <dir>/io_files.nomi :: Append appends
 T ok <dir>/io_files.nomi :: a missing file reads as NotFound carrying the path verbatim
 T ok <dir>/io_files.nomi :: io.Error renders through its Display impl
-T ok <dir>/io_files.nomi :: a write whose parent is not a directory reports Other
+T ok <dir>/io_files.nomi :: a write whose parent is not a directory reports NotADirectory
 T ok <dir>/io_files.nomi :: io.Error values compare by variant and payload
-T test result: ok. 6 passed, 0 failed
+T test result: ok. 7 passed, 0 failed
 T
 C internal/irbuild/testdata/io_inspect_surfaces.nomi@c3d27a32a93659e6
 E 0
@@ -6910,7 +6911,7 @@ T
 C internal/irbuild/testdata/pipe_stages.nomi@823d3c285e649c76
 E 1
 N 0
-H c9899481656c6c5d86dacf3922e217dc6dbfa6a3766955194e0bf4fe6db3642b
+H ee8cc02ee15cc8c097d8361ce9705f08effeb1e5409e0425439db13dbd05c820
 T FAIL <dir>/pipe_stages.nomi :: a pipeline-bound name prints its stages uncompacted
 T   line 62: assertion failed
 T     assert found
@@ -6943,14 +6944,11 @@ T         = False
 T FAIL <dir>/pipe_stages.nomi :: a piped check carries its stages on the whole-subject row
 T   line 75: pattern did not match
 T     assert Ok(True) = piped_check()
-T     actual: Err(#AssertionFailure{actual: None, binding: None, details: [], expression: ""Ada Lovelace"
-T |> String.contains?("Grace")", keyword: "check", line: 43, reason: "check failed", subtests: [], values: [#AssertionValue{expression: ""Ada Lovelace"
-T |> String.contains?("Grace")", pipeline: [#AssertionPipelineStage{expression: ""Ada Lovelace"", value: ""Ada Lovelace""}, #AssertionPipelineStage{expression: ""Ada Lovelace"
-T |> String.contains?("Grace")", value: "False"}], value: "False"}]})
+T     actual: Err(#AssertionFailure{actual: None, binding: None, details: [], expression: "\"Ada Lovelace\"\n|> String.contains?(\"Grace\")", keyword: "check", line: 43, reason: "check failed", subtests: [], values: [#AssertionValue{expression: "\"Ada Lovelace\"\n|> String.contains?(\"Grace\")", pipeline: [#AssertionPipelineStage{expression: "\"Ada Lovelace\"", value: "\"Ada Lovelace\""}, #AssertionPipelineStage{expression: "\"Ada Lovelace\"\n|> String.contains?(\"Grace\")", value: "False"}], value: "False"}]})
 T FAIL <dir>/pipe_stages.nomi :: an unpiped check beside it carries no pipeline at all
 T   line 79: pattern did not match
 T     assert Ok(True) = unpiped_check()
-T     actual: Err(#AssertionFailure{actual: None, binding: None, details: [], expression: "String.contains?("Ada Lovelace", "Grace")", keyword: "check", line: 52, reason: "check failed", subtests: [], values: [#AssertionValue{expression: ""Ada Lovelace"", pipeline: [], value: ""Ada Lovelace""}, #AssertionValue{expression: ""Grace"", pipeline: [], value: ""Grace""}]})
+T     actual: Err(#AssertionFailure{actual: None, binding: None, details: [], expression: "String.contains?(\"Ada Lovelace\", \"Grace\")", keyword: "check", line: 52, reason: "check failed", subtests: [], values: [#AssertionValue{expression: "\"Ada Lovelace\"", pipeline: [], value: "\"Ada Lovelace\""}, #AssertionValue{expression: "\"Grace\"", pipeline: [], value: "\"Grace\""}]})
 T test result: FAILED. 0 passed, 4 failed
 T
 C internal/irbuild/testdata/pipes.nomi@c18db5971fb99262
@@ -9179,34 +9177,6 @@ T 0
 T --- stderr ---
 T line 5: division by zero
 T
-C main.nomi@7baf7353f5b95950
-E 1
-N 0
-H ff57c8c6c9ec3e8bc89fc71f3d35a918aa77b8869b0c3ce3edd852377cf2d92f
-S -- main.nomi 61 --
-S import std/io
-S fn main() {
-S  io.print(Divide.divide(1d, 3d))
-S }
-S
-S
-T --- stderr ---
-T line 3: non-terminating decimal division; use Decimal.divide(a, b, scale, mode) for explicit rounding
-T
-C main.nomi@aeb020460b63fa82
-E 1
-N 0
-H 9c01b95290c287fb943f06f343dc12886f6c8f442bb9d3c9462b8ecbe5b6689b
-S -- main.nomi 61 --
-S import std/io
-S fn main() {
-S  io.print(Divide.divide(1d, 0d))
-S }
-S
-S
-T --- stderr ---
-T line 3: decimal division by zero
-T
 C main.nomi@b01385b9248f4d13
 E 1
 N 0
@@ -10092,7 +10062,7 @@ T ok <dir>/type_argument_inference_test.nomi :: generic interface type arguments
 T ok <dir>/type_argument_inference_test.nomi :: generic interface type arguments project through bounds
 T test result: ok. 2 passed, 0 failed
 T
-C tests/12-derives-and-standard-interfaces/add_test.nomi@54131402625a0858
+C tests/12-derives-and-standard-interfaces/add_test.nomi@77c10abbe32eed29
 E 0
 N 0
 H 38c4a41ef62e680068ef18d3f599594fa603c6db4667e425f53afe007bb0f1c0

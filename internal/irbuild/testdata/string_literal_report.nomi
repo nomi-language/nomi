@@ -1,0 +1,31 @@
+// A String shown as code is its literal (`String.to_literal`): `dbg`, a
+// container's Debug and an assertion's `values:` rows escape a newline, a
+// tab, a quote, a backslash and `${`, so each value reads on one line and
+// pastes back as the same String. Each test fails on purpose.
+fn poem() -> String {
+    "roses\tred\nviolets \"blue\""
+}
+
+test "dbg of a multi-line string reads on one line" {
+    dbg poem()
+    dbg ["a\nb", "\${x}"]
+    assert poem() == ""
+}
+
+test "two multi-line strings show a line diff" {
+    actual = "one\ntwo"
+    expected = "one\nthree"
+    assert actual == expected
+}
+
+test "two multi-line strings beside another check show both rows escaped" {
+    actual = "one\ntwo"
+    expected = "one\nthree"
+    assert actual == expected and String.length(actual) > 0
+}
+
+test "lists of multi-line strings show their rows escaped" {
+    actual = ["one\ntwo", "a\\b"]
+    expected = ["one\nthree", "a\\b"]
+    assert actual == expected
+}

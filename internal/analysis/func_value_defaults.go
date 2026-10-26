@@ -166,9 +166,9 @@ func (c *checker) tooFewThroughFuncValue(call *ast.Call, want, got int, piped bo
 		}
 	}
 	list := strings.Join(args, ", ")
-	c.report(TypeError{Line: call.Line, Col: 1, Message: fmt.Sprintf(
+	c.report(errAt(call, fmt.Sprintf(
 		"expected %d arguments, got %d%s: `%s` holds the function `%s` as a value, and defaults apply only to a call of `%s` by name",
-		want, got, counting, holder, name, name)}.WithHint(fmt.Sprintf(
+		want, got, counting, holder, name, name)).WithHint(fmt.Sprintf(
 		"call `%s` directly, or bind a lambda that leaves the rest to its defaults: `%s = fn %s -> %s(%s)`",
 		name, holder, list, name, list)))
 	return true

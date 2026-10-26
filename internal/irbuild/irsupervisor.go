@@ -38,6 +38,15 @@ func irSupervisorKind(k kind) bool {
 	return k == stdHostOriginKind("std/supervisors", "Supervisor")
 }
 
+// irStreamKind reports std/io's Reader, Writer or File, an rt.Reader,
+// rt.Writer or rt.File value only host calls look inside (rt/streams.go,
+// rt/filehandle.go), or std/fs_host's FileSystem, the rt.FileSystem
+// `fs_testing.run` and `fs.within` build (rt/files.go).
+func irStreamKind(k kind) bool {
+	return k == stdHostOriginKind("std/io", "Reader") || k == stdHostOriginKind("std/io", "Writer") ||
+		k == stdHostOriginKind("std/io", "File") || k == stdHostOriginKind("std/fs_host", "FileSystem")
+}
+
 // supervisorSpawn lowers `Supervisor.spawn(sup, body)`: a supervisor, a
 // zero-parameter function whose result is Unit (a lambda literal or any other
 // function value), and a `Task<Unit>` handle. Its owner resolved to std's

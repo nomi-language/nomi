@@ -96,25 +96,21 @@ func TestEveryScalarHostFnIsBoundOrDeclared(t *testing.T) {
 		"strings.String.Add<String, String>.add":      "operator impl; String `+` is lowered natively as concatenation",
 		"int.Int.Divide<Int, Int>.divide":             "operator impl; `/` on Int is lowered natively and the divide-by-zero trap carries the operator's line",
 
-		// The Decimal operator impls, unbound for a STRUCTURAL reason. A row is
-		// a named rt symbol of exactly the Nomi arity, so it has NOWHERE TO PUT
-		// A LINE: a bound `Divide.divide(1d, 0d)` would print
-		// `line 0: decimal division by zero`, because the only way a row can
-		// name a position is to bake one in.
+		// The Decimal operator impls, unbound for the reason the Int ones
+		// are: they lower through scalararith.go's arm, the same operation as
+		// the operator spelling, so a row would be a second path to it.
 		//
-		// They lower through scalararith.go's arm instead, which has `t.Line`.
 		// The nine Int/Float/String siblings are unbound for the same reason
-		// and are exempted in TestStdlibRefusesUnmappedHostFnsByName. These four
+		// and are exempted in TestStdlibRefusesUnmappedHostFnsByName. These three
 		// are here because they have scalar signatures and that test does not
 		// see them.
 		//
 		// EXPIRY: a stdlibBinding shape that can carry a call-site position.
-		// TestScalarArith_TheThirteenKeysStayUnbound is the other half of this
+		// TestScalarArith_TheTwelveKeysStayUnbound is the other half of this
 		// and fires on the same event.
 		"decimal.Decimal.Add<Decimal, Decimal>.add":           "the row cannot carry the call's line; scalararith.go lowers it",
 		"decimal.Decimal.Subtract<Decimal, Decimal>.subtract": "the row cannot carry the call's line; scalararith.go lowers it",
 		"decimal.Decimal.Multiply<Decimal, Decimal>.multiply": "the row cannot carry the call's line; scalararith.go lowers it",
-		"decimal.Decimal.Divide<Decimal, Decimal>.divide":     "the row cannot carry the call's line; scalararith.go lowers it",
 
 		// Three iteration protocol hosts, which count here because a std
 		// signature's function type projects. None is a crossing a program
@@ -442,8 +438,7 @@ func TestStdlibIndexKeysCarryTheirReceiver(t *testing.T) {
 	// Two: no key may be claimed by two DIFFERENT receivers. Stated over
 	// receivers rather than over declarations because std legitimately declares
 	// one name twice for ONE receiver — `bytes.Bytes.to_string` (inherent plus
-	// `impl Display`) and `decimal.Decimal.divide` (inherent plus
-	// `impl Divide`) — and markAmbiguous already reports that pair as ambiguous
+	// `impl Display`) — and markAmbiguous already reports that pair as ambiguous
 	// rather than ordering it. Two different receivers under one key is the
 	// collapse and nothing else, so this needs no allowlist and no maintenance.
 	for key, recvs := range claimants {

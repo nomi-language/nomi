@@ -465,7 +465,9 @@ impl Speech for Dog {
 
 **`io.print` takes any `Display` value; don't pre-stringify.** It dispatches
 `Display.to_string` itself (the same path `${...}` interpolation uses), so write
-`x |> io.print()` or `io.print(x)`, not `x |> Int.to_string() |> io.print()`.
+`x |> io.print()` or `io.print(x)`, not `x |> Int.to_string() |> io.print()`
+and not `io.print("${x}")`, a string that is one interpolation and nothing
+else. Interpolate when the line has text around the value (`"total: ${x}"`).
 That includes a value whose static type is the `Display` interface itself:
 `io.print(v)` and `"${v}"` render it through the value's own impl. The one
 case that stringifies before printing is feeding `+` concatenation

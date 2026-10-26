@@ -328,6 +328,24 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   `std/decimal`, `std/duration` and `std/strings`) and `RtFuncs()` for
   functions over rt values.
   `internal/stdlibadapters/adapters_gen.go` is generated from it.
+- **Files.** `std/fs`, `std/path` and `std/fs_testing` are lowered with
+  each program; std/fs's crossings are the internal module `std/fs_host`
+  (`files` class), answered by `internal/stdio` over a `Backend`: the
+  operating system's (`osfs.go`, one implementation over `osOps` for the
+  whole disk and for an `*os.Root`; every path through `ospath.go`, `/` on
+  every system) or an in-memory one (`memfs.go`, which resolves symlinks
+  a name at a time). Each `rt.Frame` carries the backend it reaches as an
+  opaque slot (`rt/files.go`): the machine's (`vm.Machine.WithFiles`,
+  `vmhost.WithFileSystem`), else the build's (the disk natively, one
+  in-memory file system on js/wasm, `default_js.go`). `fs_testing.run` and
+  `fs.within` replace it for their body (`fs_host.run_on`, a VM intrinsic,
+  `internal/vm/sandbox.go`, over an `rt.FileSystem`; `within`'s is
+  `Backend.Within`), and tasks inherit it as they inherit `io.capture`. A
+  stream over a file is an rt handle (`rt.NewReader`, `rt.NewWriter`) over
+  the io.Reader or io.Writer stdio opens, and `io.File` one over its
+  positional reads and writes (`rt.NewFile`). `fs_testing.conformance` holds the in-memory backend to the disk;
+  std's tests run it against both. A test that touches the disk does it
+  inside `fs.with_temp_dir` or a Go `t.TempDir()`.
 - **Locale data.** `std/locale`, `std/plural` and the locale-aware
   formatting and parsing (`internal/stdformat`: `Int.format`,
   `Decimal.parse_in`, `String.join_list`, `Money.format`, `Date.format`,
@@ -497,6 +515,12 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   where they are on localhost, polls both, and rebuilds on a source change
   or only reloads on a static one; the reload script (`web/nomi-dev.js`)
   is added to each `.html` page only as it is served, never written.
+  A project with Go bindings gets its own runner for a WebAssembly target
+  as for any other (`ffirun.ProjectRunner`; `--web`'s image, nomi.d.ts and
+  locale files come from the wrapper's `vmimage` mode, `ffirun.BuildImageVM`);
+  a bound package that does not build for the target is reported at its
+  `gopkg` with the import chain (`internal/ffirun/target.go`). A Go binding
+  carries no capability class: Go's build decides.
   `--target wasip1/wasm` of a program with an `export fn` appends it to
   `cmd/nomi-vm-reactor` instead, the VM linked `-buildmode=c-shared` as a
   WASI reactor that exports `_initialize` and the generic call ABI
@@ -978,7 +1002,10 @@ The spec is canonical; these are the rules most often gotten wrong.
 1. Declare the `host fn` in `std/<module>.nomi`. A first-party
    facade names no Go symbol.
 2. Add a row to `internal/stdlibbindings`: `Funcs()` for an adapter package's
-   function, `RtFuncs()` for a function over rt values.
+   function, `RtFuncs()` for a function over rt values. A function that acts
+   outside the machine in a way some target cannot gets the row's `Class`
+   (`files`), which `nomi build` checks against the target
+   (`vmhost.TargetLacks`, `vmhost.Program.CheckTarget`).
 3. `go generate ./internal/stdlibadapters`.
 4. Add recorded cases for the new row (`internal/stdlibadapters/testdata/*.golden`).
 5. `go test ./internal/hostpair ./internal/stdlibadapters ./internal/hostgen/...`.
@@ -1145,7 +1172,12 @@ VS Code has no tree-sitter. See `editors/vscode/README.md`.
 `src/content/docs/*.md`, listed in `astro.config.mjs`'s sidebar. A
 ` ```nomi-run ` block is doctested and becomes a live editor in the browser;
 put its expected output in a hidden `<!-- expect ... -->` block right after
-the fence. ` ```nomi-run error ` is an example that fails on purpose, either
+the fence. A block runs against an in-memory file system, never the disk;
+each of its `// FILE: <name>` sections that is not a Nomi source or
+`nomi.toml` (`// FILE: notes.txt`) is a file it starts with, by its path
+from `/work`, which the tour's editor shows as a plain-text tab and the
+doctest, the tour wasm and the expectation harnesses all seed
+(`vmhost.DataFiles`). ` ```nomi-run error ` is an example that fails on purpose, either
 to compile or while it runs (a `todo` reached, a trap, an `Err` from
 `main`): its expect block holds what the tour shows, the compile error, or
 the output lines and then the failure (`todo reached at main.nomi:6: ...`,
@@ -1158,10 +1190,56 @@ block that stops at run time with exit 1 and its failure on stderr, as
 `nomi run` prints it, and `internal/vm`'s whole-program harness excludes a
 record with a nonzero exit (`candidateIDs`).
 ` ```nomi-run no-run ` (output that reads the clock) must compile and is not
-run. Any other word after `nomi-run` fails the doctest. Plain ` ```nomi `
+run. ` ```nomi-run manual ` is a block whose run is expensive (a macro
+expands in it): the page runs it once when it is shown, and after an edit
+only when the reader presses its Run button (or Ctrl+Enter); the doctest
+runs it like any block, and it combines with `error`. ` ```nomi-run expand `
+shows what `nomi expand` prints for its first tab instead of a run
+(`vmhost.ExpandMarked`); the doctest compares that with the expect block,
+and tour.expect does not record it. A file in a live example is editable
+only when an edit can change what it prints: Go files, `go.mod`, `go.sum`
+and a `nomi.toml` whose only table is `[module]` are read-only by kind
+(tour-client.mjs's `readOnlyReason`), and ` ```nomi-run read-only:<glob> `
+(repeatable; Go's `path.Match` over the `// FILE:` path) marks data files
+the example only names. For a block on the in-memory file system the
+doctest fails a marked file the run reads, an unmarked data file it never
+reads (a successful open of the contents is a read, a listing or metadata
+is not) and a glob that matches no file. Any other word after `nomi-run`
+fails the doctest. A block with a `// FILE: go.mod` section is a project of
+modules (a root module that requires and replaces one under it, such as a
+macro's `macros/csvdata/`): `vmhost.LoadMarked` writes its files under a
+directory and loads them from there, as the same files on disk load, so
+module resolution, a macro's build and the inputs it reads need nothing
+special. The doctest and harnesses use a temporary directory; the browser
+uses `/tour` in the in-memory file system `tour/src/lib/go-memfs.js` gives
+Go's `os` in the worker. Diagnostics name files by their path from the
+project root. The editor opens on a block's first file that is not a
+setup file (`go.mod`, `go.sum`, `nomi.toml`). A block of up to four files,
+none under a directory, picks files from a tab strip; a larger one, or one
+with a file under a directory, from a file tree beside the editor
+(`usesTree` in `tour/src/lib/tour-client.mjs`), which lists setup files
+muted and is a menu above the editor on a narrow screen. A manual block's
+Run button sits in its output header. Every runnable block has an "Open
+large" button that moves the editor itself into a modal `<dialog>` and back,
+so its edits and output carry over. Plain ` ```nomi `
 blocks are highlighted only. Highlighting,
 hovers and runs happen client-side with the same grammar, queries, analyzer
 and VM the editor uses (compiled to wasm).
+
+A block with `go` bindings runs too. The tour links the Go its blocks bind
+into the tour wasm (`internal/tourgo`): a block's Go file (`// FILE:
+urltools.go`) is `internal/tourgo/<package>/<file>.go`, byte for byte
+(`TestTourGoFilesAreTheLinkedSources`), shown in a read-only tab that
+`rehype-shiki.mjs` highlights at build time. `go generate ./internal/tourgo`
+writes `linked_gen.go` from the blocks (ffirun's adapters for each, and
+`linked`, the one list of linked Go functions with the declaration each was
+generated for); `TestGeneratedFileIsCurrent` (`internal/tourgo/tourgogen`)
+fails while it is stale, so after editing such a block's bindings or its Go,
+regenerate. Every runner of tour blocks (`cmd/nomi-wasm`, the doctests, the
+expectation and VM harnesses) loads a block with `tourgo.Hosts`, which
+rekeys the linked adapters to the edited program's keys and refuses a
+binding the tour does not link, at the binding: ``this example's Go code is
+fixed in the tour: `urltools.Foo` is not available``.
 
 The stdlib reference (`src/content/docs/reference/`, gitignored) is generated
 by `cmd/nomi-docgen` from `///` doc comments and `//#` module comments in

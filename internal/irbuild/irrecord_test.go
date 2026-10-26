@@ -41,7 +41,7 @@ fn main() {
   io.inspect(record)
   inner = record.a
   io.inspect(inner.x)
-}`, "#{a: #{x: [1, 2], y: True}, z: #(1, \"a\nb\")}\n[1, 2]\n"},
+}`, "#{a: #{x: [1, 2], y: True}, z: #(1, \"a\\nb\")}\n[1, 2]\n"},
 		{"parameter and result", `import std/io
 fn record(n: Int) -> #{x: Int, y: Int} { #{y: n + 1, x: n} }
 fn sum(p: #{x: Int, y: Int}) -> Int { p.x + p.y }

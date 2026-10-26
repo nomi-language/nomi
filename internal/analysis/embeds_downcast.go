@@ -190,3 +190,8 @@ func (c *checker) callbackDowncast(callee, arg ast.Node, want, have Type, label 
 func (c *checker) addMismatch(line, col int, want, have Type, msg string) {
 	c.report(TypeError{Line: line, Col: col, Message: msg}.WithHint(mismatchHint(want, have)))
 }
+
+// addMismatchAt is addMismatch over n's extent: the value that does not fit.
+func (c *checker) addMismatchAt(n ast.Node, want, have Type, msg string) {
+	c.report(errAt(n, msg).WithHint(mismatchHint(want, have)))
+}

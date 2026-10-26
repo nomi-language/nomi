@@ -107,6 +107,6 @@ gzip -9 -n -c "$OUT/nomi.wasm" > "$SITE_NOMI/nomi.wasm.gz"
 cp "$OUT/wasm_exec.js" "$OUT/tree-sitter-nomi.wasm" \
    "$OUT/web-tree-sitter.wasm" "$OUT/web-tree-sitter.js" "$OUT/highlights.scm" \
    "$OUT/marked.esm.js" "$OUT/purify.es.mjs" "$SITE_NOMI/"
-cp "$SITE_LIB/highlight.mjs" "$SITE_LIB/run-worker.js" "$SITE_LIB/tour-client.mjs" "$SITE_NOMI/"
+cp "$SITE_LIB/highlight.mjs" "$SITE_LIB/run-worker.js" "$SITE_LIB/go-memfs.js" "$SITE_LIB/tour-client.mjs" "$SITE_NOMI/"
 
 echo "done → $OUT (+ $SITE_NOMI)"

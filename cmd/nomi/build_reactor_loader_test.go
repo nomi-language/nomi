@@ -49,7 +49,7 @@ export fn divide(a: Int, b: Int) -> Int {
 const wasiGreet = `import std/io
 
 fn main() {
-    Ok(name) = io.read_line() else { return }
+    Ok(Some(name)) = io.read_line() else { return }
     io.print("Hello, ${String.trim(name)}!")
 }
 `

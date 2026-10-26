@@ -95,10 +95,7 @@ func (c *checker) checkDistinctInner(at ast.Node, argTy Type, ctor string, dt *D
 	if argTy == nil {
 		return
 	}
-	line, col := nodeLineCol(at)
-	if line == 0 {
-		line, col = at.LineNum(), 1
-	}
+	line, col := startOf(at)
 	if ContainsTypeParam(dt.Inner) {
 		if err := c.unify(dt.Inner, argTy, map[*TypeParam_]Type{}); err != nil {
 			c.addError(line, col, distinctArgMessage(ctor, dt, argTy))

@@ -219,11 +219,10 @@ func captureRtDbg(t *testing.T, f func()) string {
 // kinds `bl.dbg` admits against literal Debug renderings.
 //
 // THE STRING ROW IS THE ONE THAT DISCRIMINATES. std's `impl Debug for String`
-// escapes a backslash and a double quote AND NOTHING ELSE — a tab and a
-// newline pass through raw — so `strconv.Quote` is wrong here and so is
-// `rt.RowText` (the assertion row), which quotes without escaping at all. The
-// literal below is the Debug rendering of
-// `"he said \"hi\" and a \\ and a\ttab"`, tab included.
+// is `String.to_literal` (rt.StringLiteral): a backslash, a double quote, a
+// tab and a newline are escaped, `${` is written `\${`, and any other
+// character that is not printable is `\u{...}`. `strconv.Quote` agrees on the
+// first four and is wrong on the last two (`${` raw, NUL as `\x00`).
 func TestVMDbg_TheDebugRenderingMatchesStdDebug(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -237,11 +236,11 @@ func TestVMDbg_TheDebugRenderingMatchesStdDebug(t *testing.T) {
 		{"Unit", func(p ir.Pos, d ir.Temp) ir.Instr { return ir.NewUnit(p, d) }, "Unit"},
 		{"String, plain", func(p ir.Pos, d ir.Temp) ir.Instr { return ir.NewString(p, d, "hi") }, `"hi"`},
 		{
-			name: "String, with a quote, a backslash and a TAB",
+			name: "String, with a quote, a backslash, a TAB, a newline, ${ and NUL",
 			operand: func(p ir.Pos, d ir.Temp) ir.Instr {
-				return ir.NewString(p, d, "he said \"hi\" and a \\ and a\ttab")
+				return ir.NewString(p, d, "he said \"hi\" and a \\ and a\ttab\n${x}\x00")
 			},
-			want: `"he said \"hi\" and a \\ and a` + "\t" + `tab"`,
+			want: `"he said \"hi\" and a \\ and a\ttab\n\${x}\u{0}"`,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -259,27 +258,30 @@ func TestVMDbg_TheDebugRenderingMatchesStdDebug(t *testing.T) {
 //
 // `internal/irbuild`'s `debugRendering` header records reaching for the
 // assertion row's renderer as its MUTANT 1, and `internal/ir/render.go` lists
-// six measured disagreements between the three disciplines. `rt.RowText` is
-// the row, it is one call away in the package this engine renders with, and it AGREES with Debug on three of the four admitted kinds — so a
-// test whose strings are all plain would pass for the wrong renderer.
+// the measured disagreements between the three disciplines. `rt.RowText` is
+// the row, it is one call away in the package this engine renders with, and
+// it AGREES with Debug on a String (both write its literal) — so a test whose
+// operands are all Strings would pass for the wrong renderer.
 //
-// So the rival is run side by side and required to DIFFER on the one input
-// that separates them. Without this the whole rendering table above is
-// satisfiable by the wrong implementation.
+// So the rival is run side by side and required to DIFFER on a Decimal, which
+// the row writes `1.50` and Debug `1.50d`. Without this the whole rendering
+// table above is satisfiable by the wrong implementation.
 func TestVMDbg_TheRowDisciplineWouldHaveBeenAWrongStringAndItIsReachable(t *testing.T) {
-	subject := "a \\ and a \" in it"
 	debug := dbgRun(t, 7, "x", func(p ir.Pos, d ir.Temp) ir.Instr {
-		return ir.NewString(p, d, subject)
+		return ir.NewDecimal(p, d, "1.50")
 	})
-	row := "dbg line 7: x = " + rt.RowText(subject) + "\n"
+	dec, err := rt.ParseDecimal("1.50")
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := "dbg line 7: x = " + rt.RowText(dec) + "\n"
 	if debug == row {
 		t.Fatal("the Debug rendering and the assertion ROW rendering produced the same " +
-			"string for a String holding a backslash and a quote, so this engine " +
-			"cannot be shown to have chosen the right one")
+			"string for a Decimal, so this engine cannot be shown to have chosen the right one")
 	}
-	// AND THE DEBUG ANSWER IS THE ESCAPED ONE, which is the half that says
+	// AND THE DEBUG ANSWER IS THE SUFFIXED ONE, which is the half that says
 	// which of the two differing answers this engine gave.
-	if want := "dbg line 7: x = " + `"a \\ and a \" in it"` + "\n"; debug != want {
+	if want := "dbg line 7: x = 1.50d\n"; debug != want {
 		t.Fatalf("\n want %q\n  got %q", want, debug)
 	}
 }

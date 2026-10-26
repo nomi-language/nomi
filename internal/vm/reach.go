@@ -66,6 +66,12 @@ func (m *Machine) Unretained(roots []*ir.Func, boots []*ir.Symbol) []Unretained 
 // misses is one a built program cannot call.
 func (m *Machine) Reached(roots []*ir.Func, boots []*ir.Symbol) (map[*ir.Func]bool, []Unretained) {
 	w := reachWalk{m: m, seen: map[*ir.Func]bool{}, found: map[string]Unretained{}}
+	return w.run(roots, boots)
+}
+
+// run is Reached's walk over w, which may record parents.
+func (w *reachWalk) run(roots []*ir.Func, boots []*ir.Symbol) (map[*ir.Func]bool, []Unretained) {
+	m := w.m
 	for _, sym := range boots {
 		if sym == nil {
 			continue
@@ -81,6 +87,7 @@ func (m *Machine) Reached(roots []*ir.Func, boots []*ir.Symbol) (map[*ir.Func]bo
 	for len(w.queue) > 0 {
 		f := w.queue[len(w.queue)-1]
 		w.queue = w.queue[:len(w.queue)-1]
+		w.cur = f
 		w.visit(f)
 	}
 	out := make([]Unretained, 0, len(w.found))
@@ -107,6 +114,11 @@ type reachWalk struct {
 	keys bool
 	// effects collects what Effects reports; nil for Unretained's walk.
 	effects map[string]bool
+	// parent, when set, records for each function the function whose visit
+	// first reached it; a root and a boot have none. cur is the function
+	// being visited.
+	parent map[*ir.Func]*ir.Func
+	cur    *ir.Func
 }
 
 // keyBodies queues every recorded Equatable and Hashable body, once.
@@ -132,6 +144,9 @@ func (w *reachWalk) push(f *ir.Func) {
 		return
 	}
 	w.seen[f] = true
+	if w.parent != nil && w.cur != nil {
+		w.parent[f] = w.cur
+	}
 	w.queue = append(w.queue, f)
 }
 

@@ -25,9 +25,32 @@ integrations such as SQL, SQLite and HTTP can be shared Nomi modules backed
 by Go adapter code in the same way.
 
 `gopkg` is not a Nomi import. It names a Go package, and only `go` bindings
-use that name:
+use that name. Here `urls.nomi` binds the functions of the Go package in
+`urltools.go`, which is regular Go, and `main.nomi` calls them like any
+other Nomi functions:
 
-```nomi
+```nomi-run
+// FILE: main.nomi
+import {
+    std/io
+    urls
+}
+
+fn main() -> Result<Unit, String> {
+    url = try urls.parse("https://example.com/search?tag=go&tag=nomi&q=hello+world")
+
+    tags =
+        url.query
+        |> Map.get("tag")
+        |> Maybe.with_default([])
+
+    io.print("${url.host}${url.path} tags=${tags}")
+    io.print(urls.escape_query("a b+c"))
+    io.print(urls.unescape_query("%zz"))
+    Ok(Unit)
+}
+
+// FILE: urls.nomi
 gopkg "urltools"
 
 pub struct ParsedURL {
@@ -45,11 +68,8 @@ pub fn unescape_query(value: String) -> Result<String, String> go urltools.Unesc
 pub fn parse_query(raw: String) -> Result<Map<String, List<String>>, String> go urltools.ParseQuery
 
 pub fn parse(raw: String) -> Result<ParsedURL, String> go urltools.Parse
-```
 
-The Go file is regular Go:
-
-```go
+// FILE: urltools.go
 package urltools
 
 import "net/url"
@@ -88,6 +108,11 @@ func Parse(raw string) (ParsedURL, error) {
 	}, nil
 }
 ```
+<!-- expect
+example.com/search tags=[go, nomi]
+a+b%2Bc
+Err(invalid URL escape "%zz")
+-->
 
 The Nomi signature decides what the function looks like to Nomi code. The Go
 function's job is to match it. Nomi writes the code that calls the Go
@@ -120,7 +145,7 @@ pass it as `Dynamic` and decode it on the Nomi side.
 A Go standard library package needs no adapter file and no `go.mod`. Bind its
 functions directly:
 
-```nomi
+```nomi-run
 import std/io
 
 gopkg "strings"
@@ -136,6 +161,10 @@ fn main() {
     io.print(parse_int("42"))
 }
 ```
+<!-- expect
+HI
+Ok(42)
+-->
 
 This runs from any directory, as a `.nomi` file or as a `#!` script. The Go
 function must still use the types in the table above. A function that takes
@@ -204,10 +233,14 @@ result until the project's Go code, its `go.mod`, or Nomi itself changes.
 Editing `.nomi` files doesn't trigger a recompile.
 
 `nomi build` compiles the Go side into the executable it writes, so the
-program runs without Nomi or Go installed.
+program runs without Nomi or Go installed. `nomi build --web` compiles it
+into the page's WebAssembly module the same way, as long as every Go package
+it uses builds for WebAssembly ([Web pages](/building-and-shipping/#web-pages)).
 
-The examples on this site run in your browser, which can't compile Go. So
-the examples that use Go bindings are shown here but don't run.
+The examples on this page run in your browser, which can't compile Go. So
+the site compiles the Go they bind ahead of time, and an example's Go file is
+read-only. You can edit its Nomi files and call the bound functions however
+you like, but binding a Go function the site did not compile is an error.
 
 ## Dynamic Values
 
@@ -222,9 +255,66 @@ know what shape to expect. Every function in
 which holds the path to the bad part, what was expected, and what was
 there. So when a payload is wrong, the error tells you where.
 
-If the data's format has its own type, use that instead. For JSON,
-[`std/json`](/reference/json/) decodes into a [`Json`](/reference/json/#enum-json)
-enum, which you can match on directly with `case`.
+For JSON, [`std/json`](/reference/json/) decodes text into a
+[`Json`](/reference/json/#enum-json) enum, which you can match on directly
+with `case`. To read it into types of your own, `Json.to_dynamic` turns it
+into a `Dynamic`. Here a file of users has one bad entry:
+
+```nomi-run
+// FILE: main.nomi
+import {
+    std/dynamic.{self, Dynamic}
+    std/fs
+    std/io
+    std/json.Json
+}
+
+struct User {
+    name: String
+    age: Int
+}
+
+// One user, from a value read as Dynamic.
+fn user(d: Dynamic) -> Result<User, dynamic.Error> {
+    name = try Dynamic.at_field(d, "name", Dynamic.as_string)
+    age = try Dynamic.at_field(d, "age", Dynamic.as_int)
+    Ok(#User{name, age})
+}
+
+// Print each user, or why it could not be read.
+fn print_users(users: Dynamic, count: Int) {
+    0..count
+    |> Iter.each(fn i -> {
+        case Dynamic.at_index(users, i, user) {
+            Ok(u) -> io.print("${u.name} is ${u.age}")
+            Err(e) -> io.print("user ${i}: ${e}")
+        }
+    })
+}
+
+fn main() -> Result<Unit, String> {
+    text = fs.read_text("users.json") |> try Result.map_err(fn e -> "${e}")
+    users = Json.decode(text) |> try Result.map_err(fn e -> "${e}") |> Json.to_dynamic()
+
+    count = Dynamic.as_list(users) |> try Result.map_err(fn e -> "${e}") |> Iter.count()
+    print_users(users, count)
+    Ok(Unit)
+}
+
+// FILE: users.json
+[
+    {"name": "Ada", "age": 36},
+    {"name": "Grace", "age": "unknown"}
+]
+```
+<!-- expect
+Ada is 36
+user 1: decode error at [1].age: expected Int, got String
+-->
+
+`user` reads one entry with `Dynamic.at_field`, which adds the field's name
+to the path of any error, and `Dynamic.at_index` adds the entry's position.
+So the second entry's error says where it is, `[1].age`, and what was wrong.
 
 Use `Dynamic` where data comes in from outside. Inside your program, give
 data real types.

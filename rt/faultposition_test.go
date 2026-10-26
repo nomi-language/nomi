@@ -78,8 +78,6 @@ func positionedFaults() []positionedFault {
 		}},
 		{"DivByZeroError", func(l int) string { return DivByZeroError(l).Error() }},
 		{"FloatModuloText", FloatModuloText},
-		{"DecimalDivByZeroText", DecimalDivByZeroText},
-		{"DecimalNonTerminatingText", DecimalNonTerminatingText},
 		{"DecimalModuloText", DecimalModuloText},
 		{"AssertionFailure.Error", func(l int) string {
 			return (&AssertionFailure{Line: l, Reason: "assertion failed"}).Error()
@@ -107,20 +105,18 @@ func positionedFaults() []positionedFault {
 // and a producer that accidentally passed a count, an index or a boolean could
 // land on it. Seven is reachable only by carrying a real position.
 var wantAtLine7 = map[string]string{
-	"DeferredCleanupError":      "line 7: deferred cleanup failed: failure",
-	"OverflowError":             "line 7: integer overflow: 9223372036854775807 + 1",
-	"DivByZeroError":            "line 7: division by zero",
-	"FloatModuloText":           "line 7: modulo not supported on floats",
-	"DecimalDivByZeroText":      "line 7: decimal division by zero",
-	"DecimalNonTerminatingText": "line 7: non-terminating decimal division; use Decimal.divide(a, b, scale, mode) for explicit rounding",
-	"DecimalModuloText":         "line 7: modulo is not defined on Decimal",
-	"AssertionFailure.Error":    "line 7: assertion failed",
-	"EarlyReturnFailure.Error":  "line 7: test returned early",
-	"NoCaseMatchError":          "line 7: no matching case branch",
-	"EnumFieldMissingError":     "line 7: variant 'Rect' has no field 'radius'",
-	"EnumFieldAccessError":      "line 7: cannot access field 'height' on variant 'Point'",
-	"CallDepthError":            "line 7: stack overflow: more than 100000 nested calls",
-	"UnreachableError":          "line 7: unreachable: a reason",
+	"DeferredCleanupError":     "line 7: deferred cleanup failed: failure",
+	"OverflowError":            "line 7: integer overflow: 9223372036854775807 + 1",
+	"DivByZeroError":           "line 7: division by zero",
+	"FloatModuloText":          "line 7: modulo not supported on floats",
+	"DecimalModuloText":        "line 7: modulo is not defined on Decimal",
+	"AssertionFailure.Error":   "line 7: assertion failed",
+	"EarlyReturnFailure.Error": "line 7: test returned early",
+	"NoCaseMatchError":         "line 7: no matching case branch",
+	"EnumFieldMissingError":    "line 7: variant 'Rect' has no field 'radius'",
+	"EnumFieldAccessError":     "line 7: cannot access field 'height' on variant 'Point'",
+	"CallDepthError":           "line 7: stack overflow: more than 100000 nested calls",
+	"UnreachableError":         "line 7: unreachable: a reason",
 	// DbgText ends in a newline: it is a whole rendered line rather than a
 	// message a caller wraps.
 	"DbgText": "dbg line 7: 41 + 1 = 42\n",
@@ -212,7 +208,7 @@ func TestFaultPosition_EveryOwnedTextIsListed(t *testing.T) {
 // It parses rather than greps, for the reason `internal/vm`'s scanner gives:
 // every file here discusses these texts in prose, and a textual scan reports
 // each discussion as a declaration. It also folds `+` over adjacent literals,
-// because DecimalNonTerminatingText is spelled as two.
+// so a text spelled as two is found whole.
 func ownedPositionedTexts(t *testing.T) []string {
 	t.Helper()
 	ents, err := os.ReadDir(".")
