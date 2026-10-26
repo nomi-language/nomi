@@ -167,6 +167,20 @@ type checker struct {
 	// automatically.
 	expectedAt   Type
 	expectedEnum *EnumType
+	// firstLitElem is the bare variant being checked as an element of a
+	// collection literal with no expected type and no typed element before
+	// it (checkLitElem), whose error says to qualify it.
+	firstLitElem *ast.DotVariant
+	// inFirstLitElem is true while the first element of such a literal is
+	// checked, and false inside a later one: a bare variant refused in it
+	// is the one to qualify, and the hint says so.
+	inFirstLitElem bool
+	// unresolvedVariants counts the bare variants refused for want of an
+	// enum (reportUnresolvedVariant), and quietVariants, while above zero,
+	// keeps those refusals from being reported: checkLitElem sets it for
+	// the elements after one that had one.
+	unresolvedVariants int
+	quietVariants      int
 	// currentValues is what each bare `..` checked so far stands for,
 	// recorded by the update that owns its position (current_value.go).
 	currentValues map[*ast.CurrentValue]currentAt
@@ -629,11 +643,11 @@ func (c *checker) resolveVariantPrefixInValuePos(typeExpr ast.TypeExpr, line, co
 		// by checkNodeExpecting. Diagnostics mirror checkDotVariant's so the
 		// user sees the same message whether they wrote a bare `.Variant`
 		// or a literal-attach `#.Variant{...}`.
-		if c.expectedEnum == nil {
-			c.errors = append(c.errors, c.dotVariantNoEnumError(t.Name, t.Line, t.Col))
+		if c.stagedEnum() == nil {
+			c.reportUnresolvedVariant(c.dotVariantNoEnumError(t.Name, t.Line, t.Col), t.Name, nil)
 			return nil, nil, "", false
 		}
-		et := c.expectedEnum
+		et := c.stagedEnum()
 		for i := range et.Variants {
 			if et.Variants[i].Name == t.Name {
 				vd := &et.Variants[i]
@@ -868,6 +882,50 @@ func dotVariantNoEnumMessage(variantName string, expectedAt Type) string {
 	return "." + variantName + " resolves only to enum variants, but the expected type at this position is " + expectedAt.String()
 }
 
+// stagedEnum is the enum a dot-leading variant resolves against: the one
+// checkNodeExpecting staged, or the expected type itself when it is an
+// inference variable solved to an enum since (`[[], [Color.Red], [.Green]]`,
+// whose element type `[]` left open until `[Color.Red]` solved it). So a
+// variant is never refused because its expected type "is" the enum it
+// names.
+func (c *checker) stagedEnum() *EnumType {
+	if c.expectedEnum != nil {
+		return c.expectedEnum
+	}
+	et, _ := resolveTypeVar(c.expectedAt).(*EnumType)
+	return et
+}
+
+// reportUnresolvedVariant reports e, the refusal of a dot-leading variant
+// named name that no enum resolves (dv when it is a `.Variant` expression).
+//
+// A refusal because nothing at the position determines a type (no expected
+// type, or one still open) is counted (unresolvedVariants), and is not
+// reported while an earlier element of the literal it is in had one
+// (quietVariants): those later ones resolve once the first is qualified. A
+// variant refused that way in a literal's first element gets the hint to
+// qualify it, since the later elements take the enum it names. A refusal
+// against a type that is not an enum is its own error, and always reported.
+func (c *checker) reportUnresolvedVariant(e TypeError, name string, dv *ast.DotVariant) {
+	if c.expectedAt == nil || c.expectedTypeIsOpen() {
+		c.unresolvedVariants++
+		if c.quietVariants > 0 {
+			return
+		}
+		switch {
+		case dv != nil && c.firstLitElem == dv:
+			e = e.WithHint("qualify the first element of the literal, and the bare variants after it take its enum")
+		case c.inFirstLitElem && c.expectedAt == nil:
+			written := "this variant"
+			if enums := c.enumsForVariant(name); len(enums) == 1 {
+				written = "`" + enums[0] + "." + name + "`"
+			}
+			e = e.WithHint("qualify " + written + " in the literal's first element, and the bare variants at its place in the later elements take its enum")
+		}
+	}
+	c.errors = append(c.errors, e)
+}
+
 // dotVariantNoEnumError is the error for a `.Variant` at line and col that no
 // expected enum resolves. A position whose expected type is still open, a
 // type parameter of the function being called that nothing has solved
@@ -932,7 +990,7 @@ func enumHasVariant(et *EnumType, name string) bool {
 // minus the lookup-by-EnumName step; here the enum identity comes from
 // the staged expected, not from the AST.
 func (c *checker) checkDotVariant(n *ast.DotVariant) Type {
-	if c.expectedEnum == nil {
+	if c.stagedEnum() == nil {
 		e := c.dotVariantNoEnumError(n.Name, n.Line, n.Col)
 		// `f: (Float) -> Shape = .Circle`: a dot-leading variant is never a
 		// function value, since only an expected enum resolves it. The
@@ -942,10 +1000,10 @@ func (c *checker) checkDotVariant(n *ast.DotVariant) Type {
 				e = e.WithHint(fmt.Sprintf("a constructor as a function value is written qualified, `%s.%s`", et.Name, n.Name))
 			}
 		}
-		c.errors = append(c.errors, e)
+		c.reportUnresolvedVariant(e, n.Name, n)
 		return nil
 	}
-	et := c.expectedEnum
+	et := c.stagedEnum()
 	for i := range et.Variants {
 		if et.Variants[i].Name == n.Name {
 			vd := &et.Variants[i]
@@ -1396,6 +1454,9 @@ func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 				c.checkImportVisibility(entry)
 			}
 		case *ast.ImplBlock:
+			if synthesizedForRefusedDecl(c.fa, n) {
+				continue
+			}
 			c.checkImplBlock(n)
 		case *ast.ImplConformance:
 			if n.Options != nil {
@@ -1507,6 +1568,9 @@ func (c *checker) checkNamespaceItems(items []ast.Node) {
 				c.checkImportVisibility(entry)
 			}
 		case *ast.ImplBlock:
+			if synthesizedForRefusedDecl(c.fa, n) {
+				continue
+			}
 			c.checkImplBlock(n)
 		case *ast.TestDecl:
 			c.checkTestDecl(n)
@@ -1598,9 +1662,9 @@ func (c *checker) checkMainReturn(fn *ast.FuncDef) {
 // table its program is loaded with answers its bindings, as the IR builder
 // lowers them (hostModuleOf).
 func (c *checker) checkGoImport(n *ast.ExternPackage) {
-	why := ffirun.GoImportPathProblem(n.ImportPath)
+	why, fix := ffirun.GoImportPathProblem(n.ImportPath), ""
 	if why == "" && c.fa.FilePath != "" && !ffirun.InMemoryFile(c.fa.FilePath) {
-		why = ffirun.GoImportProblem(c.fa.FilePath, n.ImportPath)
+		why, fix = ffirun.GoImportProblemFix(c.fa.FilePath, n.ImportPath)
 	}
 	if why == "" {
 		return
@@ -1610,8 +1674,8 @@ func (c *checker) checkGoImport(n *ast.ExternPackage) {
 		line, col = n.Line, n.Col
 	}
 	e := TypeError{Line: line, Col: col, Message: fmt.Sprintf("gopkg %q: %s", n.ImportPath, why)}
-	if strings.HasPrefix(why, "outside ") {
-		e = e.WithHint(fmt.Sprintf("run `nomi add %s` to add its module", n.ImportPath))
+	if fix != "" {
+		e = e.WithHint(fix)
 	}
 	c.report(e)
 }
@@ -4135,7 +4199,7 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 	prevAt := c.expectedAt
 	prevEnum := c.expectedEnum
 	c.expectedAt = expected
-	c.expectedEnum, _ = expected.(*EnumType)
+	c.expectedEnum, _ = resolveTypeVar(expected).(*EnumType)
 	defer func() {
 		c.expectedAt = prevAt
 		c.expectedEnum = prevEnum
@@ -8292,11 +8356,147 @@ func (c *checker) checkOperatorInterfaceCall(n *ast.Call, expected Type) (Type, 
 	if !ok {
 		return nil, false
 	}
+	// A partial (`&Int.add(7, &1)`): each open operand takes the expected
+	// function's parameter of its number, and the call is a function of its
+	// open operands whose result is the impl's.
+	var open [2]*ast.Placeholder
+	for i, arg := range n.Args {
+		if ph, isOpen := arg.(*ast.Placeholder); isOpen {
+			open[i] = ph
+		}
+	}
+	partial := open[0] != nil || open[1] != nil
+	if partial {
+		written := [2]Type{c.checkNode(n.Args[0]), c.checkNode(n.Args[1])}
+		expectedFn, _ := resolveTypeVar(expected).(*FuncType)
+		expected = nil
+		if expectedFn != nil && concreteOperand(expectedFn.Return) != nil {
+			expected = expectedFn.Return
+		}
+		ty, handled := c.checkPartialOperatorCall(n, opIface, open, written, expectedFn, expected)
+		return ty, handled
+	}
 	left := c.checkNode(n.Args[0])
 	right := c.checkNode(n.Args[1])
 	if left == nil || right == nil {
 		return nil, true
 	}
+	return c.finishOperatorInterfaceCall(n, opIface, left, right, expected)
+}
+
+// concreteOperand is t when it names a type with no open variable or type
+// parameter in it, else nil.
+func concreteOperand(t Type) Type {
+	t = resolveTypeVar(t)
+	if t == nil || isUnresolvedVar(t) || containsTypeVar(t) || ContainsTypeParam(t) {
+		return nil
+	}
+	return t
+}
+
+// checkPartialOperatorCall types `&Int.add(7, &1)` and its siblings: an
+// open operand's type is the expected function's parameter of its number,
+// else, for an open right operand, the right operand of the one impl the
+// left operand's type has. The result is a function of the open operands,
+// in the order of their numbers.
+func (c *checker) checkPartialOperatorCall(n *ast.Call, opIface operatorInterface, open [2]*ast.Placeholder, written [2]Type, expectedFn *FuncType, expected Type) (Type, bool) {
+	operand := func(i int) Type {
+		if open[i] == nil {
+			return written[i]
+		}
+		if expectedFn != nil && open[i].N >= 1 && open[i].N <= len(expectedFn.Params) {
+			return concreteOperand(expectedFn.Params[open[i].N-1])
+		}
+		if i == 0 && expectedFn == nil {
+			// `&Int.divide(&1, nz)`: the left operand of a type's operator
+			// function is that type.
+			if fa, ok := n.Func.(*ast.FieldAccess); ok {
+				if ref, ok := typeNameRefOf(fa.Object); ok {
+					if what, ty, ok := c.namedType(ref); ok && what == "type" {
+						return concreteOperand(ty)
+					}
+				}
+			}
+		}
+		return nil
+	}
+	left, right := operand(0), operand(1)
+	if left == nil {
+		if expectedFn == nil {
+			c.reportUninferredOperand(n, opIface, open[0], nil, nil)
+		}
+		return nil, true
+	}
+	if right == nil && open[1] != nil {
+		var cands []implCandidate
+		if concreteTypeName(resolveTypeVar(left)) != "" {
+			for _, cand := range c.implCandidates(resolveTypeVar(left), opIface.Interface, OriginUnresolved) {
+				if len(cand.args) == 2 {
+					cands = append(cands, cand)
+				}
+			}
+		}
+		if len(cands) != 1 {
+			if expectedFn == nil {
+				c.reportUninferredOperand(n, opIface, open[1], left, cands)
+			}
+			return nil, true
+		}
+		right = cands[0].args[0]
+	}
+	if right == nil {
+		return nil, true
+	}
+	result, _ := c.finishOperatorInterfaceCall(n, opIface, left, right, expected)
+	if result == nil {
+		return nil, true
+	}
+	c.recordPartialOperatorCallType(n, &FuncType{Params: []Type{left, right}, Return: result})
+	var params []Type
+	switch {
+	case open[0] != nil && open[1] != nil && open[1].N < open[0].N:
+		params = []Type{right, left}
+	case open[0] != nil && open[1] != nil:
+		params = []Type{left, right}
+	case open[0] != nil:
+		params = []Type{left}
+	default:
+		params = []Type{right}
+	}
+	return &FuncType{Params: params, Return: result}, true
+}
+
+// recordPartialOperatorCallType records the signature of the impl a
+// partial operator call selected, `(Int, NonZeroInt) -> Int` for
+// `&Int.divide(12, &1)` over a NonZeroInt, as the call type of its function
+// reference. The reference's own type names one impl's signature, whichever
+// the call selected, so without it a partial over a type with several impls
+// of the operator could take the parameters of the wrong one.
+func (c *checker) recordPartialOperatorCallType(n *ast.Call, ft *FuncType) {
+	var pos Pos
+	switch f := n.Func.(type) {
+	case *ast.FieldAccess:
+		if f.Field == nil {
+			return
+		}
+		pos = Pos{Line: f.Field.Line, Col: f.Field.Col}
+	case *ast.Ident:
+		pos = Pos{Line: f.Line, Col: f.Col}
+	default:
+		return
+	}
+	existing := c.fa.References[pos]
+	if existing == nil {
+		return
+	}
+	proxy := *existing
+	proxy.CallType = ft
+	c.fa.References[pos] = &proxy
+}
+
+// finishOperatorInterfaceCall selects the impl of an operator function's
+// call `Type.add(a, b)` from its operands' types and answers its result.
+func (c *checker) finishOperatorInterfaceCall(n *ast.Call, opIface operatorInterface, left, right, expected Type) (Type, bool) {
 	if opIface.Op == "/" && decimalDivision(left, right) {
 		at := operandPos(n, n.Line, n.Col)
 		c.addError(at.Line, at.Col, decimalDivisionMessage)
@@ -13564,9 +13764,10 @@ func (c *checker) checkListLit(n *ast.ListLit) Type {
 	}
 
 	var elemTy Type
+	var pos litPosition
 	itemTys := make([]Type, 0, len(n.Items))
 	for _, item := range n.Items {
-		ty := c.checkNode(item)
+		ty := c.checkLitElem(&pos, item, elemTy)
 		if ty == nil {
 			continue
 		}
@@ -13578,6 +13779,12 @@ func (c *checker) checkListLit(n *ast.ListLit) Type {
 		elemTy = joined
 	}
 
+	// A bare variant no enum resolved leaves the literal's type undecided,
+	// and that variant's error is the one to report (checkLitElem): a type
+	// with a hole in it would be refused again where it is used.
+	if pos.unresolved {
+		return nil
+	}
 	if elemTy == nil {
 		elemTy = c.freshTypeVar()
 	}
@@ -13727,6 +13934,101 @@ func (c *checker) joinLitElem(have, ty Type) (Type, bool) {
 	return embedsJoin(have, ty)
 }
 
+// checkLitElem checks item, one more element of a collection literal
+// written with no expected type (a list, vector or set item, a map key or
+// value), after elements whose joined type is have (nil before the first).
+// When have has an enum in it (enumInType), item is checked against have as
+// against an expected type, so a bare variant in it resolves against the
+// enum the earlier elements fixed: `[Color.Red, .Green]`,
+// `%{N.A => 0, .C => 1}`, `[%{N.A => 0}, %{.C => 1}]`. Resolution runs left
+// to right, so a bare variant before every qualified one resolves against
+// nothing (`[.Red, Color.Green]` is refused at `.Red`).
+//
+// pos is the literal's state at this position. Once an element has a bare
+// variant no enum resolves, the elements after it report none: the fix is
+// to qualify that one (`[#(.Small, ...), #(.Large, ...)]` is one error, at
+// `.Small`), and the later ones would resolve once it is.
+func (c *checker) checkLitElem(pos *litPosition, item ast.Node, have Type) Type {
+	first := !pos.started
+	pos.started = true
+	if pos.unresolved {
+		c.quietVariants++
+		defer func() { c.quietVariants-- }()
+	}
+	prevFirst := c.inFirstLitElem
+	c.inFirstLitElem = first && have == nil
+	defer func() { c.inFirstLitElem = prevFirst }()
+	before := c.unresolvedVariants
+	defer func() { pos.unresolved = pos.unresolved || c.unresolvedVariants > before }()
+	if have != nil && enumInType(have, 0) {
+		return c.checkNodeExpecting(item, have)
+	}
+	if dv := bareVariantOf(item); dv != nil && have == nil {
+		prev := c.firstLitElem
+		c.firstLitElem = dv
+		defer func() { c.firstLitElem = prev }()
+	}
+	return c.checkNode(item)
+}
+
+// litPosition is what checkLitElem keeps about one position of a collection
+// literal (its items, or a map's keys or values) across its elements.
+type litPosition struct {
+	started bool
+	// unresolved is true once an element had a bare variant no enum
+	// resolves.
+	unresolved bool
+}
+
+// bareVariantOf is the dot-leading variant item is, written bare (`.Red`) or
+// applied (`.Circle(1.0)`), or nil.
+func bareVariantOf(item ast.Node) *ast.DotVariant {
+	switch n := item.(type) {
+	case *ast.DotVariant:
+		return n
+	case *ast.Call:
+		dv, _ := n.Func.(*ast.DotVariant)
+		return dv
+	}
+	return nil
+}
+
+// enumInType reports whether ty is an enum or has one among its element
+// types: a list's, vector's or set's element, a map's key or value, a tuple's
+// elements, or a type argument of a generic type.
+func enumInType(ty Type, depth int) bool {
+	if depth > 8 {
+		return false
+	}
+	switch t := resolveTypeVar(ty).(type) {
+	case *EnumType:
+		return true
+	case *ListType:
+		return enumInType(t.Elem, depth+1)
+	case *MapType:
+		return enumInType(t.Key, depth+1) || enumInType(t.Val, depth+1)
+	case *TupleType:
+		for _, e := range t.Elems {
+			if enumInType(e, depth+1) {
+				return true
+			}
+		}
+	case *StructType:
+		for _, a := range t.TypeArgs {
+			if enumInType(a, depth+1) {
+				return true
+			}
+		}
+	case *DistinctType:
+		for _, a := range t.TypeArgs {
+			if enumInType(a, depth+1) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // litElemFits reports whether an element of type ty, written at item, fits a
 // collection literal whose expected element type is want: assignable to it,
 // conforming to it when it is an interface (`List<Display>` admits any
@@ -13756,8 +14058,9 @@ func (c *checker) checkVectorLit(n *ast.VectorLit) Type {
 	}
 
 	var elemTy Type
+	var pos litPosition
 	for _, item := range n.Items {
-		ty := c.checkNode(item)
+		ty := c.checkLitElem(&pos, item, elemTy)
 		if ty == nil {
 			continue
 		}
@@ -13766,6 +14069,9 @@ func (c *checker) checkVectorLit(n *ast.VectorLit) Type {
 			c.report(errAt(item, c.typef("vector element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(mismatchHint(elemTy, ty)))
 		}
 		elemTy = joined
+	}
+	if pos.unresolved {
+		return nil
 	}
 	if elemTy == nil {
 		elemTy = c.freshTypeVar()
@@ -13798,8 +14104,9 @@ func (c *checker) checkSetLit(n *ast.SetLit) Type {
 	}
 
 	var elemTy Type
+	var pos litPosition
 	for _, item := range n.Items {
-		ty := c.checkNode(item)
+		ty := c.checkLitElem(&pos, item, elemTy)
 		if ty == nil {
 			continue
 		}
@@ -13808,6 +14115,9 @@ func (c *checker) checkSetLit(n *ast.SetLit) Type {
 			c.report(errAt(item, c.typef("set element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(mismatchHint(elemTy, ty)))
 		}
 		elemTy = joined
+	}
+	if pos.unresolved {
+		return nil
 	}
 	if elemTy == nil {
 		elemTy = c.freshTypeVar()
@@ -13836,8 +14146,9 @@ func (c *checker) checkSetLitExpecting(n *ast.SetLit, elemTy Type) Type {
 // into a discarded local subs map.
 func (c *checker) checkListSpreadLit(n *ast.ListSpreadLit) Type {
 	var elemTy Type
+	var pos litPosition
 	for _, h := range n.Heads {
-		ht := c.checkNode(h)
+		ht := c.checkLitElem(&pos, h, elemTy)
 		if ht == nil {
 			continue
 		}
@@ -13868,6 +14179,9 @@ func (c *checker) checkListSpreadLit(n *ast.ListSpreadLit) Type {
 					"list spread tail element type mismatch: %s vs %s", elemTy, lt.Elem))
 			}
 		}
+	}
+	if pos.unresolved {
+		return nil
 	}
 	if elemTy == nil {
 		elemTy = c.freshTypeVar()
@@ -14003,9 +14317,10 @@ func (c *checker) checkMapLit(n *ast.MapLit) Type {
 	}
 
 	var keyTy, valTy Type
+	var keyPos, valPos litPosition
 	for _, entry := range n.Entries {
-		kt := c.checkNode(entry.Key)
-		vt := c.checkNode(entry.Value)
+		kt := c.checkLitElem(&keyPos, entry.Key, keyTy)
+		vt := c.checkLitElem(&valPos, entry.Value, valTy)
 		if kt != nil {
 			joined, ok := c.joinLitElem(keyTy, kt)
 			if !ok {
@@ -14020,6 +14335,9 @@ func (c *checker) checkMapLit(n *ast.MapLit) Type {
 			}
 			valTy = joined
 		}
+	}
+	if keyPos.unresolved || valPos.unresolved {
+		return nil
 	}
 	if keyTy == nil {
 		keyTy = c.freshTypeVar()
@@ -16190,14 +16508,14 @@ func (c *checker) checkStructLit(n *ast.StructLit) Type {
 	// against c.expectedEnum staged by checkNodeExpecting. Same diagnostics
 	// as the call-form / list-form dot-leading paths.
 	if dvt, ok := n.TypeName.(*ast.DotVariantType); ok {
-		if c.expectedEnum == nil {
-			c.errors = append(c.errors, c.dotVariantNoEnumError(dvt.Name, dvt.Line, dvt.Col))
+		if c.stagedEnum() == nil {
+			c.reportUnresolvedVariant(c.dotVariantNoEnumError(dvt.Name, dvt.Line, dvt.Col), dvt.Name, nil)
 			for _, f := range n.Fields {
 				c.checkNode(f.Value)
 			}
 			return nil
 		}
-		et := c.expectedEnum
+		et := c.stagedEnum()
 		var vd *VariantDef
 		for i := range et.Variants {
 			if et.Variants[i].Name == dvt.Name {

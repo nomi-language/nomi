@@ -162,13 +162,25 @@ func resolveSpec(spec *hostadapt.DescSpec) (*rt.TypeDesc, error) {
 
 // callAdapter calls a bound adapter on runtime. An rt trap the Go function
 // raises becomes this machine's fault, which is what an rt trap anywhere else
-// in an activation is; any other panic keeps unwinding, which is what a
-// cancelled task's unwind must do.
+// in an activation is, and a hostadapt.Unwind its failure; any other panic
+// keeps unwinding, which is what a cancelled task's unwind must do.
 func callAdapter(fn hostadapt.Func, runtime *rt.Frame, args []any) (v any, err error) {
 	defer func() {
 		if p := recover(); p != nil {
 			if fault, ok := p.(*rt.Error); ok {
 				v, err = nil, &Fault{err: fault}
+				return
+			}
+			// A runtime callback's Nomi failure (a Reader.from_fn function
+			// that trapped) is this call's failure, unchanged.
+			if u, ok := p.(hostadapt.Unwind); ok {
+				v, err = nil, u.Err
+				return
+			}
+			// A sequence a read pulls (a Reader.from_chunks reader's)
+			// failed in one of its callbacks.
+			if failure, ok := p.(iterationFailure); ok {
+				v, err = nil, failure.err
 				return
 			}
 			panic(p)

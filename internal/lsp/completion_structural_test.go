@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -101,7 +102,7 @@ func TestCompletion_TestGroupBootOffersEntryBoots(t *testing.T) {
 	})
 	s := NewServer()
 	s.snippetSupport = true
-	uri := "file://" + filepath.Join(dir, "server_test.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "server_test.nomi"))
 	items := completeIn(t, s, uri, "import server\n\ngroup \"g\" {\n    boot "+cursorMark+"\n}\n").Items
 	if len(items) == 0 || items[0].Label != "server.boot" {
 		t.Fatalf("want server.boot first, got %v", itemLabels(items))

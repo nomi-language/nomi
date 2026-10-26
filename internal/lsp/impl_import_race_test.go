@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/sourcegraph/jsonrpc2"
 )
 
@@ -36,8 +37,8 @@ func TestRPC_ImplImportCheckWhileSiblingIsRead(t *testing.T) {
 	// A dot variant in hop: checking hop records its enum on the node.
 	files["hop.nomi"] += "\nfn order() -> Ordering {\n    .Less\n}\n"
 	dir := writeProject(t, files)
-	declsURI := "file://" + filepath.Join(dir, "decls.nomi")
-	hopURI := "file://" + filepath.Join(dir, "hop.nomi")
+	declsURI := fileuri.FromPath(filepath.Join(dir, "decls.nomi"))
+	hopURI := fileuri.FromPath(filepath.Join(dir, "hop.nomi"))
 
 	s := NewServer()
 	s.sched.delay = 1 // analyze each edit at once, to overlap builds with requests

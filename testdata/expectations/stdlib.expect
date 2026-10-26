@@ -12,7 +12,7 @@
 population stdlib
 what one record per stdlib module carrying `//!` prompt cases, run as `nomi test std/<module>` runs it. N is the module's prompt-case count.
 records 51
-declared-cases 542
+declared-cases 545
 failing 0
 C assertions
 E 0
@@ -281,7 +281,7 @@ T
 C fs
 E 0
 N 31
-H 898d91f1c8f8050340859735695a1a0ba4aae32770091d3b4df1b392ddb79a1e
+H 18ab28b0d282d3070b81b518b5eced05c3fae199d4a47a144c821f7652d5ed65
 T ok <root>/std/fs.nomi :: WriteMode //! test lines 45-53
 T ok <root>/std/fs.nomi :: read //! test lines 123-126
 T ok <root>/std/fs.nomi :: read_text //! test lines 144-150
@@ -310,9 +310,9 @@ T ok <root>/std/fs.nomi :: create_symlink //! test lines 1008-1015
 T ok <root>/std/fs.nomi :: read_link //! test lines 1027-1036
 T ok <root>/std/fs.nomi :: set_mode //! test lines 1051-1058
 T ok <root>/std/fs.nomi :: exists? //! test lines 1079-1085
-T ok <root>/std/fs.nomi :: temp_dir //! test lines 1101-1103
-T ok <root>/std/fs.nomi :: with_temp_dir //! test lines 1117-1127
-T ok <root>/std/fs.nomi :: current_dir //! test lines 1148-1150
+T ok <root>/std/fs.nomi :: temp_dir //! test lines 1104-1106
+T ok <root>/std/fs.nomi :: with_temp_dir //! test lines 1122-1132
+T ok <root>/std/fs.nomi :: current_dir //! test lines 1153-1155
 T test result: ok. 31 passed, 0 failed
 T
 C fs_testing
@@ -373,31 +373,34 @@ T test result: ok. 25 passed, 0 failed
 T
 C io
 E 0
-N 22
-H 5e0900991642f47e017af73fb7937335dc985172b77e249e38778f410fed612c
-T ok <root>/std/io.nomi :: Error //! test lines 27-34
-T ok <root>/std/io.nomi :: eprint //! test lines 198-204
-T ok <root>/std/io.nomi :: ewrite //! test lines 214-219
-T ok <root>/std/io.nomi :: read_line //! test lines 235-236
-T ok <root>/std/io.nomi :: stdout //! test lines 258-263
-T ok <root>/std/io.nomi :: impl / read_line //! test lines 289-303
-T ok <root>/std/io.nomi :: impl / read //! test lines 318-321
-T ok <root>/std/io.nomi :: impl / read_all //! test lines 332-335
-T ok <root>/std/io.nomi :: impl / read_all_text //! test lines 346-353
-T ok <root>/std/io.nomi :: impl / copy_to //! test lines 364-368
-T ok <root>/std/io.nomi :: impl / close //! test lines 378-381
-T ok <root>/std/io.nomi :: impl / close_quietly //! test lines 394-397
-T ok <root>/std/io.nomi :: impl / from_bytes //! test lines 409-410
-T ok <root>/std/io.nomi :: impl / from_text //! test lines 419-420
-T ok <root>/std/io.nomi :: impl / write //! test lines 435-439
-T ok <root>/std/io.nomi :: impl / write_text //! test lines 448-451
-T ok <root>/std/io.nomi :: impl / print //! test lines 461-470
-T ok <root>/std/io.nomi :: impl / flush //! test lines 482-484
-T ok <root>/std/io.nomi :: impl / close //! test lines 496-498
-T ok <root>/std/io.nomi :: impl / close_quietly //! test lines 511-514
-T ok <root>/std/io.nomi :: capture //! test lines 647-670
-T ok <root>/std/io.nomi :: replay //! test lines 759-844
-T test result: ok. 22 passed, 0 failed
+N 25
+H dec67f547dd935956f55dc132554b08099486fc4be371c02e070049634b551ae
+T ok <root>/std/io.nomi :: Error //! test lines 28-35
+T ok <root>/std/io.nomi :: eprint //! test lines 199-205
+T ok <root>/std/io.nomi :: ewrite //! test lines 215-220
+T ok <root>/std/io.nomi :: read_line //! test lines 237-238
+T ok <root>/std/io.nomi :: stdout //! test lines 260-265
+T ok <root>/std/io.nomi :: impl / read_line //! test lines 291-305
+T ok <root>/std/io.nomi :: impl / read //! test lines 320-323
+T ok <root>/std/io.nomi :: impl / read_all //! test lines 334-337
+T ok <root>/std/io.nomi :: impl / read_all_text //! test lines 348-355
+T ok <root>/std/io.nomi :: impl / copy_to //! test lines 366-370
+T ok <root>/std/io.nomi :: impl / close //! test lines 380-383
+T ok <root>/std/io.nomi :: impl / close_quietly //! test lines 396-399
+T ok <root>/std/io.nomi :: impl / from_bytes //! test lines 411-412
+T ok <root>/std/io.nomi :: impl / from_text //! test lines 421-422
+T ok <root>/std/io.nomi :: impl / from_fn //! test lines 436-443
+T ok <root>/std/io.nomi :: impl / from_chunks //! test lines 454-461
+T ok <root>/std/io.nomi :: impl / from_text_chunks //! test lines 471-476
+T ok <root>/std/io.nomi :: impl / write //! test lines 491-495
+T ok <root>/std/io.nomi :: impl / write_text //! test lines 504-507
+T ok <root>/std/io.nomi :: impl / print //! test lines 517-526
+T ok <root>/std/io.nomi :: impl / flush //! test lines 538-540
+T ok <root>/std/io.nomi :: impl / close //! test lines 552-554
+T ok <root>/std/io.nomi :: impl / close_quietly //! test lines 567-570
+T ok <root>/std/io.nomi :: capture //! test lines 703-726
+T ok <root>/std/io.nomi :: replay //! test lines 815-900
+T test result: ok. 25 passed, 0 failed
 T
 C iter
 E 0
@@ -702,25 +705,25 @@ T
 C sql
 E 0
 N 18
-H 4cdf1f0eff6b3c009d93c1611e8964e3e4faa9c68aa02a2b94f7475b1ace1b2a
-T ok <root>/std/sql.nomi :: Statement //! test lines 88-91
-T ok <root>/std/sql.nomi :: impl / from_fragments //! test lines 120-124
-T ok <root>/std/sql.nomi :: impl //! test lines 146-149
-T ok <root>/std/sql.nomi :: impl / join //! test lines 166-171
-T ok <root>/std/sql.nomi :: impl / values //! test lines 188-192
-T ok <root>/std/sql.nomi :: impl / where_all //! test lines 210-214
-T ok <root>/std/sql.nomi :: impl / where_any //! test lines 222-224
-T ok <root>/std/sql.nomi :: impl / kind //! test line 272
-T ok <root>/std/sql.nomi :: ToSql //! test lines 297-299
-T ok <root>/std/sql.nomi :: FromSql //! test lines 310-312
-T ok <root>/std/sql.nomi :: Row //! test lines 531-535
-T ok <root>/std/sql.nomi :: impl / value //! test lines 573-575
-T ok <root>/std/sql.nomi :: impl / value_position //! test lines 588-593
-T ok <root>/std/sql.nomi :: impl / get //! test lines 614-623
-T ok <root>/std/sql.nomi :: impl / to_string //! test lines 666-667
-T ok <root>/std/sql.nomi :: impl / to_string //! test lines 741-742
-T ok <root>/std/sql.nomi :: with_connection //! test lines 835-845
-T ok <root>/std/sql.nomi :: close_quietly //! test lines 865-877
+H 70a10df71836f2916059227e4865abaf1b2f14d6d10c7338f94c1045e2fa2cb6
+T ok <root>/std/sql.nomi :: Statement //! test lines 89-92
+T ok <root>/std/sql.nomi :: impl / from_fragments //! test lines 121-125
+T ok <root>/std/sql.nomi :: impl //! test lines 147-150
+T ok <root>/std/sql.nomi :: impl / join //! test lines 167-172
+T ok <root>/std/sql.nomi :: impl / values //! test lines 189-193
+T ok <root>/std/sql.nomi :: impl / where_all //! test lines 211-215
+T ok <root>/std/sql.nomi :: impl / where_any //! test lines 223-225
+T ok <root>/std/sql.nomi :: impl / kind //! test line 273
+T ok <root>/std/sql.nomi :: ToSql //! test lines 298-300
+T ok <root>/std/sql.nomi :: FromSql //! test lines 311-313
+T ok <root>/std/sql.nomi :: Row //! test lines 532-536
+T ok <root>/std/sql.nomi :: impl / value //! test lines 574-576
+T ok <root>/std/sql.nomi :: impl / value_position //! test lines 589-594
+T ok <root>/std/sql.nomi :: impl / get //! test lines 615-624
+T ok <root>/std/sql.nomi :: impl / to_string //! test lines 667-668
+T ok <root>/std/sql.nomi :: impl / to_string //! test lines 742-743
+T ok <root>/std/sql.nomi :: with_connection //! test lines 836-846
+T ok <root>/std/sql.nomi :: close_quietly //! test lines 866-878
 T test result: ok. 18 passed, 0 failed
 T
 C sql_testing

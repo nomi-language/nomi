@@ -112,7 +112,7 @@ function ensureWorker() {
       clearTimeout(p.loadTimer);
       clearTimeout(p.runTimer);
       pending.delete(m.id);
-      p.cbs.onRun?.(m.output, m.error);
+      p.cbs.onRun?.(m.output, m.error, m.written);
     }
   };
   // A worker-level script error (a missing or broken `/nomi/` asset, so
@@ -188,10 +188,13 @@ function post(msg, cbs) {
 // files names a multi-file source's Nomi tabs, whose semantic tokens the
 // worker answers per tab ({ file: tokens }). With expand, the run's output
 // is what `nomi expand` prints for the first tab (a ```nomi-run expand
-// block).
-function dispatch(id, source, cbs, files, expand = false) {
+// block). Tools run in the block's project before the run (a ```nomi-run
+// tool:<module>/<name> block), and the run's answer carries the files they
+// wrote.
+function dispatch(id, source, cbs, files, expand = false, tools = []) {
   const msg = files ? { id, source, files } : { id, source };
   if (expand) msg.op = "expand";
+  if (tools.length) msg.tools = tools;
   post(msg, cbs);
 }
 
@@ -621,8 +624,9 @@ function modalDialog() {
     downOnBackdrop = false;
   });
   // Esc closes an open file menu first, then the view.
+  // An editor's first Esc readies Tab to leave it instead (tabKeys).
   dialog.addEventListener("cancel", (ev) => {
-    if (modal.current?.widget.closeFileMenu?.()) ev.preventDefault();
+    if (escapeClaimed || modal.current?.widget.closeFileMenu?.()) ev.preventDefault();
   });
   dialog.addEventListener("close", closeModal);
   return modal;
@@ -807,12 +811,14 @@ function stitchFiles(files) {
 // accent indicator in the widget's top-right corner.
 const LIVE_HELP_HTML =
   "<p><strong>Interactive code.</strong> Edits run automatically as you type.</p>" +
-  "<p>Hover any identifier in the code for its signature and docs.</p>";
+  "<p>Hover any identifier in the code for its signature and docs.</p>" +
+  "<p>Tab indents. Press Esc, then Tab, to move focus out of the editor.</p>";
 // The same tooltip for a ```nomi-run manual block's Run button: the block
 // runs once when it is shown, and after an edit only when asked.
 const MANUAL_HELP_HTML =
   "<p><strong>Interactive code.</strong> This example takes a moment to run, so edits run when you press <strong>Run</strong> (or Ctrl+Enter).</p>" +
-  "<p>Hover any identifier in the code for its signature and docs.</p>";
+  "<p>Hover any identifier in the code for its signature and docs.</p>" +
+  "<p>Tab indents. Press Esc, then Tab, to move focus out of the editor.</p>";
 
 // chipped wraps a static block's <pre> in the element that carries its
 // language chip, so the chip stays put while the <pre> scrolls sideways.
@@ -1040,6 +1046,71 @@ function showAnchoredTooltip(html, anchor) {
   tipEl.style.top = top + "px";
 }
 
+// --- Tab in an editor ---
+// Tab indents in an editor, so it cannot also move focus. As in CodeMirror,
+// Esc and then Tab (or Shift+Tab) leaves the editor; any other key indents
+// again. In the large view a second Esc closes it, as Esc does from any
+// other control there. Each widget has one hint, which describes its
+// editors to a screen reader and shows while one of them has focus.
+const TAB_HINT = "Tab indents. Esc then Tab leaves the editor.";
+const TAB_HINT_LEAVING = "Tab now moves focus out of the editor.";
+const TAB_HINT_LEAVING_MODAL = "Tab now moves focus out of the editor. Esc closes the large view.";
+let tabHintCount = 0;
+// escapeClaimed is set while an editor's Esc keydown is dispatched, so the
+// large view's cancel, which that Esc would fire, leaves the view open.
+let escapeClaimed = false;
+
+function tabHint(main) {
+  // A span: the page's rule that spaces apart adjacent blocks in the
+  // content leaves spans alone.
+  const hint = document.createElement("span");
+  hint.className = "nomi-tab-hint";
+  hint.id = `nomi-tab-hint-${++tabHintCount}`;
+  hint.setAttribute("aria-live", "polite");
+  hint.textContent = TAB_HINT;
+  main.append(hint);
+  return hint;
+}
+
+// tabKeys makes Tab indent ta, unless Esc came just before it, or ta is
+// read-only, when Tab moves focus as it does anywhere else.
+function tabKeys(ta, hint) {
+  ta.setAttribute("aria-describedby", hint.id);
+  let leaving = false;
+  const setLeaving = (on) => {
+    if (leaving === on) return;
+    leaving = on;
+    hint.classList.toggle("is-leaving", on);
+    hint.textContent = !on ? TAB_HINT : ta.closest(".is-modal") ? TAB_HINT_LEAVING_MODAL : TAB_HINT_LEAVING;
+  };
+  ta.addEventListener("blur", () => setLeaving(false));
+  ta.addEventListener("keydown", (ev) => {
+    if (ev.ctrlKey || ev.altKey || ev.metaKey || ev.isComposing) return;
+    if (ev.key === "Shift") return;
+    if (ta.readOnly) return;
+    if (ev.key === "Escape" && !leaving) {
+      ev.preventDefault();
+      setLeaving(true);
+      escapeClaimed = true;
+      setTimeout(() => {
+        escapeClaimed = false;
+      });
+      return;
+    }
+    if (ev.key === "Tab" && leaving) {
+      setLeaving(false);
+      return;
+    }
+    setLeaving(false);
+    if (ev.key !== "Tab") return;
+    ev.preventDefault();
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    ta.value = ta.value.slice(0, s) + "    " + ta.value.slice(e);
+    ta.selectionStart = ta.selectionEnd = s + 4;
+    ta.dispatchEvent(new Event("input"));
+  });
+}
+
 // --- per-block wiring ---
 async function enhance(pre) {
   if (pre.dataset.enhanced) return;
@@ -1062,7 +1133,13 @@ async function enhance(pre) {
   if (files && files.length > 1) {
     // ```nomi-run read-only:<glob>: the data files only named, never read.
     const readOnlyGlobs = (pre.dataset.nomiReadOnly || "").split(" ").filter(Boolean);
-    return enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError, manual, expand, readOnlyGlobs);
+    // ```nomi-run tool:<module>/<name>: `nomi tool <module> <name>` runs
+    // in the block's project before each run.
+    const tools = (pre.dataset.nomiTools || "")
+      .split(" ")
+      .filter(Boolean)
+      .map((w) => ({ module: w.slice(0, w.indexOf("/")), name: w.slice(w.indexOf("/") + 1) }));
+    return enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError, manual, expand, readOnlyGlobs, tools);
   }
 
   const widget = document.createElement("div");
@@ -1203,15 +1280,9 @@ async function enhance(pre) {
     if (manual && ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
       ev.preventDefault();
       run();
-      return;
     }
-    if (ev.key !== "Tab") return;
-    ev.preventDefault();
-    const s = ta.selectionStart, e = ta.selectionEnd;
-    ta.value = ta.value.slice(0, s) + "    " + ta.value.slice(e);
-    ta.selectionStart = ta.selectionEnd = s + 4;
-    ta.dispatchEvent(new Event("input"));
   });
+  tabKeys(ta, tabHint(widget.querySelector(".nomi-main")));
 
   attachHover(ta, marked, DOMPurify, (line, col, cb) => requestHover(ta.value, line, col, cb));
 
@@ -1281,7 +1352,7 @@ function attachHover(ta, marked, DOMPurify, ask) {
 // the run builds it), so a name one tab imports from another resolves. A
 // tab's text is its file's text, so a position in the tab is a position in
 // that file and needs no offset. TOML tabs get neither.
-async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError, manual, expand, readOnlyGlobs) {
+async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError, manual, expand, readOnlyGlobs, tools = []) {
   const tree = usesTree(files);
   const widget = document.createElement("div");
   widget.className = "nomi-interactive nomi-multifile" + (tree ? " nomi-has-tree" : "");
@@ -1293,6 +1364,7 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
   const editors = document.createElement("div");
   editors.className = "nomi-editors";
   main.append(bar, editors);
+  const hint = tabHint(main);
   const out = outputPanel(expand ? "Expansion" : "Output");
   widget.append(main, out.panel);
 
@@ -1321,6 +1393,9 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
     const hl = pane.querySelector(".nomi-hl");
     const ta = pane.querySelector(".nomi-src");
     ta.value = file.body;
+    // Setting the value leaves the caret at the end, and focusing the pane
+    // later would scroll the textarea and the page to it.
+    ta.setSelectionRange(0, 0);
     ta.setAttribute("aria-label", file.name);
     const readOnly = readOnlyReason(file, lang, readOnlyGlobs);
     if (readOnly) {
@@ -1335,7 +1410,7 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
     panes.forEach((p, j) => {
       p.pane.hidden = i !== j;
     });
-    if (focus) panes[i].ta.focus();
+    if (focus) panes[i].ta.focus({ preventScroll: true });
   });
 
   pre.replaceWith(widget);
@@ -1450,9 +1525,19 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
           if (p.code === code) p.hl.innerHTML = render(captures, sem?.[p.file.name] || [], code, EDITOR_RENDER);
         }
       },
-      onRun: (output, error) => {
+      onRun: (output, error, written) => {
         if (block.req !== id) return;
         live.setRunning(false);
+        // The files the block's tools wrote (a snapshot `prepare`
+        // refreshed) replace their tabs' text, as the tool replaces them
+        // on disk.
+        for (const p of panes) {
+          const text = written?.[p.file.name];
+          if (text !== undefined && text !== p.ta.value) {
+            p.ta.value = text;
+            paint(p);
+          }
+        }
         showOutput(out, output, error, parser, query, headingFor(stitched, error));
         cleanFormatSnapshots = error ? null : snapshots;
         if (error) live.setFormatting(false);
@@ -1465,7 +1550,7 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
         cleanFormatSnapshots = null;
         live.setFormatting(false);
       },
-    }, nomiPanes.map((p) => p.file.name), expand);
+    }, nomiPanes.map((p) => p.file.name), expand, tools);
   };
 
   let debounce;
@@ -1511,15 +1596,9 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
       if (manual && ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
         ev.preventDefault();
         run();
-        return;
       }
-      if (ev.key !== "Tab" || p.ta.readOnly) return;
-      ev.preventDefault();
-      const s = p.ta.selectionStart, e = p.ta.selectionEnd;
-      p.ta.value = p.ta.value.slice(0, s) + "    " + p.ta.value.slice(e);
-      p.ta.selectionStart = p.ta.selectionEnd = s + 4;
-      p.ta.dispatchEvent(new Event("input"));
     });
+    tabKeys(p.ta, hint);
   });
 
   run();
@@ -1775,3 +1854,54 @@ const io = new IntersectionObserver(
 document
   .querySelectorAll("pre > code.language-nomi, pre > code.language-nomi-run, pre > code.language-nomi-test")
   .forEach((code) => io.observe(code.parentElement));
+
+// --- the Examples intro's filter (generated by cmd/nomi-docgen/examples.go) ---
+// The page ships the selects hidden and the whole table, so without this
+// script a reader sees every example. Each row carries data-subject and
+// data-chapters; a select picks one value per kind, and a row shows when it
+// matches both. The choice lives in the URL (?subject=, ?chapter=), so an
+// example page's subject link opens the table filtered to it.
+function filterExamples(controls, table) {
+  const rows = [...table.querySelectorAll("tbody tr")];
+  const selects = [...controls.querySelectorAll("select[data-filter]")];
+  const count = controls.querySelector("[data-examples-count]");
+  const known = (kind, value) =>
+    selects.some((s) => s.dataset.filter === kind && [...s.options].some((o) => o.value === value));
+  const params = new URLSearchParams(location.search);
+  const chosen = {};
+  for (const kind of ["subject", "chapter"]) {
+    const value = params.get(kind) || "";
+    chosen[kind] = known(kind, value) ? value : "";
+  }
+  const apply = () => {
+    for (const s of selects) s.value = chosen[s.dataset.filter];
+    let shown = 0;
+    for (const row of rows) {
+      const match =
+        (!chosen.subject || row.dataset.subject === chosen.subject) &&
+        (!chosen.chapter || row.dataset.chapters.split(" ").includes(chosen.chapter));
+      row.hidden = !match;
+      if (match) shown++;
+    }
+    count.textContent = shown === rows.length ? `Showing all ${rows.length} examples.` : `Showing ${shown} of ${rows.length} examples.`;
+  };
+  controls.addEventListener("change", (e) => {
+    const s = e.target.closest("select[data-filter]");
+    if (!s) return;
+    chosen[s.dataset.filter] = s.value;
+    const url = new URL(location.href);
+    for (const kind of ["subject", "chapter"]) {
+      if (chosen[kind]) url.searchParams.set(kind, chosen[kind]);
+      else url.searchParams.delete(kind);
+    }
+    history.replaceState(history.state, "", url);
+    apply();
+  });
+  apply();
+  controls.hidden = false;
+}
+{
+  const controls = document.querySelector("[data-examples-filter]");
+  const table = document.querySelector("table[data-examples]");
+  if (controls && table) filterExamples(controls, table);
+}

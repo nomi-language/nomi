@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -41,7 +42,7 @@ func TestModules_TheServerReportsAMissingModuleAndNeverDownloads(t *testing.T) {
 	src := "import {\n    greet\n    std/io\n}\n\nfn main() {\n    io.print(greet.hello(\"you\"))\n}\n"
 	path := filepath.Join(dir, "main.nomi")
 	write(path, src)
-	uri := "file://" + path
+	uri := fileuri.FromPath(path)
 
 	s := NewServer()
 	snap := s.docs.Open(uri, src)

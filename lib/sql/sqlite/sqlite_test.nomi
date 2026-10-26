@@ -1,0 +1,373 @@
+import {
+    std/calendar.{Date, NaiveDateTime, Time}
+    std/duration.Duration
+    std/instant.Instant
+    std/json.Json
+    std/sql.{self, Conn, ConstraintKind, Dialect, Row, Sql, Value}
+    std/sql_testing
+    std/uuid.Uuid
+    sqlite
+}
+
+test "the driver passes std/sql_testing's conformance suite" {
+    failures = sql_testing.conformance(fn -> sqlite.memory())
+    assert failures == []
+}
+
+test "the conformance suite runs every rule" {
+    assert Iter.count(sql_testing.rules()) == 29
+}
+
+test "a connection says it is SQLite" {
+    db = try sqlite.memory()
+    defer sql.close_quietly(db)
+    assert Conn.dialect(db) == Dialect.Sqlite
+}
+
+fn values_db() -> Result<Conn, sql.Error> {
+    db = try sqlite.memory()
+
+    _ = try Conn.exec(
+        db,
+        Sql"""
+        CREATE TABLE v (
+            i INTEGER, f REAL, d DECIMAL(12, 2), t TEXT, b BOOLEAN, x BLOB,
+            day DATE, at TIME, ts DATETIME, tz TIMESTAMPTZ, id UUID, j JSON
+        )
+        """,
+    )
+
+    Ok(db)
+}
+
+test "every Value reads back as the Value it was written as" {
+    db = try values_db()
+    defer sql.close_quietly(db)
+    day = try Date"2026-10-19"
+    at = try Time"12:30:05"
+    ts = try NaiveDateTime"2026-10-19T12:30:05"
+    tz = Instant.from_seconds(1_760_000_000)
+    id = try Uuid"0192f4c8-6f0e-7b39-9d6a-3c1f2b5e8a10"
+    j = try Json.decode("{\"a\":[1,2]}")
+    bytes = String.to_bytes("hi")
+
+    _ = try Conn.exec(
+        db,
+        Sql"""
+        INSERT INTO v VALUES (${7}, ${2.5}, ${12.25d}, ${"text"}, ${True}, ${bytes},
+        ${day}, ${at}, ${ts}, ${tz}, ${id}, ${j})
+        """,
+    )
+
+    rows = try Conn.query(db, Sql"SELECT * FROM v")
+
+    Some(row) = Iter.first(rows) else {
+        None -> return Err(#sql.Error.Database{code: "", message: "no row"})
+    }
+
+    assert Row.values(row) == [
+        Value.Int(7),
+        Value.Float(2.5),
+        Value.Decimal(12.25d),
+        Value.Text("text"),
+        Value.Bool(True),
+        Value.Bytes(bytes),
+        Value.Date(day),
+        Value.Time(at),
+        Value.Timestamp(ts),
+        Value.Timestamptz(tz),
+        Value.Uuid(id),
+        Value.Json(j),
+    ]
+}
+
+test "NULL reads back as Null in a column of every type" {
+    db = try values_db()
+    defer sql.close_quietly(db)
+    nothing: Maybe<Int> = None
+    _ = try Conn.exec(db, Sql"INSERT INTO v (i, day) VALUES (${nothing}, ${nothing})")
+    rows = try Conn.query(db, Sql"SELECT i, day, j FROM v")
+    assert rows |> Iter.map(Row.values) |> Iter.to_list() == [[Value.Null, Value.Null, Value.Null]]
+}
+
+test "an expression's column has no declared type and keeps its storage class" {
+    db = try sqlite.memory()
+    defer sql.close_quietly(db)
+    rows = try Conn.query(db, Sql"SELECT count(*) AS n, 'x' || ${"y"} AS s, 1.5 AS f")
+
+    assert rows |> Iter.map(Row.values) |> Iter.to_list() == [
+        [Value.Int(1), Value.Text("xy"), Value.Float(1.5)],
+    ]
+}
+
+fn money_db() -> Result<Conn, sql.Error> {
+    db = try sqlite.memory()
+    _ = try Conn.exec(db, Sql"CREATE TABLE m (id INTEGER PRIMARY KEY, amount DECIMAL(12, 2))")
+    Ok(db)
+}
+
+// The text of each amount, which shows its scale: `==` on Decimal does not.
+fn amounts(db: Conn) -> Result<List<String>, sql.Error> {
+    rows = try Conn.query(db, Sql"SELECT amount FROM m ORDER BY id")
+
+    rows
+    |> Iter.map(fn row -> Row.get<Decimal>(row, "amount") |> Result.map(fn d -> "${d}"))
+    |> Result.collect()
+}
+
+// The message of a SQLITE_MISMATCH error, or what the result was instead.
+fn mismatch<T>(result: Result<T, sql.Error>) -> String {
+    case result {
+        Err(#sql.Error.Database{code: "SQLITE_MISMATCH", message}) -> message
+        Err(e) -> "another error: ${e}"
+        Ok(_) -> "Ok"
+    }
+}
+
+test "a Decimal reads back at its column's scale" {
+    db = try money_db()
+    defer sql.close_quietly(db)
+
+    _ = try Conn.exec(
+        db,
+        Sql"INSERT INTO m (amount) VALUES (${12.50d}), (${12.5d}), (${7d}), (${0.10d}), (${-3.05d})",
+    )
+
+    // SQLite keeps them as the REALs 12.5, 7 and 0.1: the scale is the column's.
+    assert try amounts(db) == ["12.50", "12.50", "7.00", "0.10", "-3.05"]
+    _ = try Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (${9_999_999_999_999.99d})")
+    assert try amounts(db) |> Iter.last() == Some("9999999999999.99")
+}
+
+test "a Decimal SQLite would round is refused when it is written" {
+    db = try money_db()
+    defer sql.close_quietly(db)
+    big = 123_456_789_012_345_678.91d
+
+    assert mismatch(
+        Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (${big})")
+    ) == "parameter ?1 is the Decimal 123456789012345678.91, of 20 digits: SQLite stores a decimal as a 64-bit float, exact to 15 digits, and would round it; keep the amount as INTEGER minor units (cents), or write its text as a String into a TEXT column"
+
+    // 2^53 + 1 cents: one digit too many for a float to hold.
+    assert mismatch(Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (${90_071_992_547_409.93d})"))
+        |> String.starts_with?("parameter ?1 is the Decimal 90071992547409.93, of 16 digits")
+
+    assert try amounts(db) == []
+}
+
+test "a stored value that is not exactly a decimal of the column's scale is refused" {
+    db = try money_db()
+    defer sql.close_quietly(db)
+    _ = try Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (12.555)")
+
+    assert mismatch(
+        amounts(db)
+    ) == "the column `amount` is DECIMAL(12, 2) and holds 12.555, which has more than 2 decimals: SQLite does not round a DECIMAL column to its scale, so round the value before writing it"
+
+    // Written by SQL the driver did not bind: SQLite rounds it to a float.
+    _ = try Conn.exec(db, Sql"DELETE FROM m")
+    _ = try Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (90071992547409.93)")
+
+    assert mismatch(amounts(db))
+        |> String.starts_with?("the column `amount` is DECIMAL(12, 2) and holds 90071992547409.94")
+}
+
+fn users_db() -> Result<Conn, sql.Error> {
+    db = try sqlite.memory()
+
+    _ = try Conn.exec(
+        db,
+        Sql"""
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            handle TEXT,
+            age INTEGER CONSTRAINT age_positive CHECK (age > 0)
+        )
+        """,
+    )
+
+    _ = try Conn.exec(db, Sql"CREATE UNIQUE INDEX users_handle_key ON users (handle)")
+
+    _ = try Conn.exec(
+        db,
+        Sql"""
+        CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users (id))
+        """,
+    )
+
+    _ = try Conn.exec(db, Sql"INSERT INTO users (email, handle) VALUES ('a@example.com', 'a')")
+    Ok(db)
+}
+
+fn constraint(result: Result<Int, sql.Error>) -> Maybe<sql.Error> {
+    case result {
+        Err(e) -> Some(e)
+        Ok(_) -> None
+    }
+}
+
+test "a UNIQUE column's violation has Postgres's name for it, and names the table and column" {
+    db = try users_db()
+    defer sql.close_quietly(db)
+    e = constraint(Conn.exec(db, Sql"INSERT INTO users (email) VALUES ('a@example.com')"))
+
+    assert e == Some(
+        #sql.Error.Constraint{
+            kind: ConstraintKind.Unique,
+            name: "users_email_key",
+            table: Some("users"),
+            column: Some("email"),
+        }
+    )
+}
+
+test "a unique index's violation names the index" {
+    db = try users_db()
+    defer sql.close_quietly(db)
+
+    e = constraint(
+        Conn.exec(db, Sql"INSERT INTO users (email, handle) VALUES ('b@example.com', 'a')")
+    )
+
+    assert e == Some(
+        #sql.Error.Constraint{
+            kind: ConstraintKind.Unique,
+            name: "users_handle_key",
+            table: Some("users"),
+            column: Some("handle"),
+        }
+    )
+}
+
+test "NOT NULL, CHECK and foreign key violations are constraint errors" {
+    db = try users_db()
+    defer sql.close_quietly(db)
+    nothing: Maybe<String> = None
+
+    assert constraint(Conn.exec(db, Sql"INSERT INTO users (email) VALUES (${nothing})")) == Some(
+        #sql.Error.Constraint{
+            kind: ConstraintKind.NotNull,
+            name: "users_email_not_null",
+            table: Some("users"),
+            column: Some("email"),
+        }
+    )
+
+    assert constraint(
+        Conn.exec(db, Sql"INSERT INTO users (email, age) VALUES ('c@example.com', 0)")
+    ) == Some(
+        #sql.Error.Constraint{
+            kind: ConstraintKind.Check,
+            name: "age_positive",
+            table: Some("users"),
+            column: Some("age"),
+        }
+    )
+
+    assert constraint(Conn.exec(db, Sql"INSERT INTO orders (user_id) VALUES (99)")) == Some(
+        #sql.Error.Constraint{
+            kind: ConstraintKind.ForeignKey,
+            name: "orders_user_id_fkey",
+            table: Some("orders"),
+            column: Some("user_id"),
+        }
+    )
+
+    assert constraint(
+        Conn.exec(db, Sql"INSERT INTO users (id, email) VALUES (1, 'd@example.com')")
+    ) == Some(
+        #sql.Error.Constraint{
+            kind: ConstraintKind.Unique,
+            name: "users_pkey",
+            table: Some("users"),
+            column: Some("id"),
+        }
+    )
+}
+
+test "SQL the engine rejects is a Database error with its message" {
+    db = try sqlite.memory()
+    defer sql.close_quietly(db)
+
+    assert Conn.query(db, Sql"SELECT nope FROM nowhere") == Err(
+        #sql.Error.Database{code: "SQLITE_ERROR", message: "no such table: nowhere"}
+    )
+}
+
+test "exec answers the rows a statement changed" {
+    db = try users_db()
+    defer sql.close_quietly(db)
+
+    _ = try Conn.exec(
+        db,
+        Sql"INSERT INTO users (email) VALUES ('b@example.com'), ('c@example.com')",
+    )
+
+    assert Conn.exec(db, Sql"UPDATE users SET age = 30") == Ok(3)
+}
+
+fn events_db() -> Result<Conn, sql.Error> {
+    db = try sqlite.memory()
+
+    _ = try Conn.exec(
+        db,
+        Sql"CREATE TABLE events (n INTEGER, at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+    )
+
+    Ok(db)
+}
+
+fn ns(db: Conn, statement: sql.Statement) -> Result<List<Int>, sql.Error> {
+    rows = try Conn.query(db, statement)
+    rows |> Iter.map(fn row -> Row.get<Int>(row, "n")) |> Result.collect()
+}
+
+test "an Instant compares in time order with CURRENT_TIMESTAMP" {
+    db = try events_db()
+    defer sql.close_quietly(db)
+    now = Instant.now()
+    hour_ago = now - Duration.hours(1)
+    hour_later = now + Duration.hours(1)
+    _ = try Conn.exec(db, Sql"INSERT INTO events (n, at) VALUES (1, ${hour_ago})")
+    _ = try Conn.exec(db, Sql"INSERT INTO events (n) VALUES (2)")
+    _ = try Conn.exec(db, Sql"INSERT INTO events (n, at) VALUES (3, ${hour_later})")
+    assert try ns(db, Sql"SELECT n FROM events WHERE at > ${hour_ago} ORDER BY n") == [2, 3]
+    assert try ns(db, Sql"SELECT n FROM events WHERE at < ${hour_later} ORDER BY n") == [1, 2]
+    assert try ns(db, Sql"SELECT n FROM events ORDER BY at") == [1, 2, 3]
+    assert try ns(db, Sql"SELECT n FROM events ORDER BY at DESC") == [3, 2, 1]
+}
+
+test "an Instant is written as SQLite writes a timestamp, and either form reads back" {
+    db = try events_db()
+    defer sql.close_quietly(db)
+    whole = Instant.from_seconds(1_760_000_000)
+    half = whole + Duration.milliseconds(500)
+    _ = try Conn.exec(db, Sql"INSERT INTO events (n, at) VALUES (1, ${whole}), (2, ${half})")
+    _ = try Conn.exec(db, Sql"INSERT INTO events (n, at) VALUES (3, '2025-10-09T08:53:20+00:00')")
+    texts = try Conn.query(db, Sql"SELECT '' || at AS text FROM events ORDER BY n")
+
+    assert texts |> Iter.map(fn row -> Row.get<String>(row, "text")) |> Iter.to_list() == [
+        Ok("2025-10-09 08:53:20"),
+        Ok("2025-10-09 08:53:20.5"),
+        Ok("2025-10-09T08:53:20+00:00"),
+    ]
+
+    rows = try Conn.query(db, Sql"SELECT at FROM events ORDER BY n")
+
+    assert rows |> Iter.map(fn row -> Row.get<Instant>(row, "at")) |> Iter.to_list() == [
+        Ok(whole),
+        Ok(half),
+        Ok(whole),
+    ]
+}
+
+test "a path that cannot be opened is a Connection error" {
+    opened = case sqlite.open("/nonexistent/dir/x.db") {
+        Err(#sql.Error.Connection{message: _}) -> "Connection"
+        Err(e) -> "${e}"
+        Ok(_) -> "Ok"
+    }
+
+    assert opened == "Connection"
+}

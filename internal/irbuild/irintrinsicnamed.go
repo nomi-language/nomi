@@ -35,6 +35,8 @@ func (bl *irScalarBuilder) namedIntrinsic(t *ast.Call, fa *ast.FieldAccess) bool
 		// `Supervisor.new` and `flush` are Nomi-bodied with defaults, and
 		// take the ordinary qualified-call route.
 		return fa.Field.Name == "spawn" || fa.Field.Name == "spawn_all"
+	case "Reader":
+		return fa.Field.Name == "from_chunks" || fa.Field.Name == "from_text_chunks"
 	}
 	ti, isType := fa.Object.(*ast.TypeIdent)
 	if !isType || ti.Name != "Context" || (fa.Field.Name != "value" && fa.Field.Name != "with_value") {

@@ -21,6 +21,23 @@ func TestFormatEscapesOnlyTheInterpolationOpener(t *testing.T) {
 	}
 }
 
+// A carriage return is written `\r`, as the formatter writes every other
+// escape from the string's value: a `\u{d}` or `\u{D}` becomes `\r`.
+func TestFormatWritesACarriageReturnAsR(t *testing.T) {
+	for source, want := range map[string]string{
+		"value = \"a\\rb\"\n":          "value = \"a\\rb\"\n",
+		"value = \"a\\u{d}b\"\n":       "value = \"a\\rb\"\n",
+		"value = \"a\\u{D}\\u{a}\"\n":  "value = \"a\\r\\n\"\n",
+		"value = \"${n}\\u{000d}\"\n":  "value = \"${n}\\r\"\n",
+		"value = Sql\"a\\u{d}${n}\"\n": "value = Sql\"a\\r${n}\"\n",
+	} {
+		got := formatOnce(t, source)
+		if got != want {
+			t.Errorf("Format(%q) = %q, want %q", source, got, want)
+		}
+	}
+}
+
 // An emoji typed into a string stays as typed, its zero-width joiners,
 // variation selectors and regional indicators included, in a plain literal
 // and beside an interpolation; a joiner that joins no emoji is written as

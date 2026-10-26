@@ -1,0 +1,40 @@
+//# The Atbash cipher: each letter swaps with its mirror in the alphabet, `a`
+//# with `z`, `b` with `y`, and so on. Digits pass through unchanged, and
+//# everything else is dropped.
+
+/// Each lowercase letter and its mirror.
+once mirror = Iter.zip('a'..='z', Iter.reverse('a'..='z')) |> Iter.to_map()
+
+/// The ciphertext of `phrase`, in lowercase groups of five.
+pub fn encode(phrase: String) -> String {
+    phrase
+    |> translate()
+    |> Iter.chunks(5)
+    |> Iter.map(&String.join(&1))
+    |> String.join(" ")
+}
+
+/// The plaintext of `phrase`, with no spaces.
+pub fn decode(phrase: String) -> String {
+    phrase |> translate() |> String.join()
+}
+
+/// Each letter and digit of `text` in cipher order. The cipher is its own
+/// inverse, so this both encodes and decodes.
+fn translate(text: String) -> List<String> {
+    text
+    |> String.to_lower()
+    |> String.to_codepoints()
+    |> Iter.map(swap)
+    |> Maybe.values()
+    |> Iter.map(Codepoint.to_string)
+    |> Iter.to_list()
+}
+
+fn swap(cp: Codepoint) -> Maybe<Codepoint> {
+    if Codepoint.digit?(cp) {
+        Some(cp)
+    } else {
+        Map.get(mirror, cp)
+    }
+}

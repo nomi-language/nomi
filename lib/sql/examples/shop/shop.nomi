@@ -1,0 +1,30 @@
+// The shop's operations, over any `Conn`: a connection, a transaction, or
+// a test's.
+import {
+    std/sql.{self, Conn, Error}
+    queries
+    sqlkit.Rows
+}
+
+/// Register a user and place their first order, in one transaction: if
+/// the order fails, the user is not registered either.
+pub fn sign_up_with_order(conn: Conn, email: String, total: Decimal) -> Result<Int, Error> {
+    sql.transaction(conn, fn tx -> {
+        user_id = try queries.insert_user(tx, email, None)
+        queries.insert_order(tx, user_id, total)
+    })
+}
+
+/// Place an order and mark it paid, in one transaction.
+pub fn place_paid_order(conn: Conn, user_id: Int, total: Decimal) -> Result<Int, Error> {
+    sql.transaction(conn, fn tx -> {
+        order_id = try queries.insert_order(tx, user_id, total)
+        _ = try queries.set_status(tx, order_id, .Paid)
+        Ok(order_id)
+    })
+}
+
+/// The total of every order, read one row at a time.
+pub fn total_of_all_orders(conn: Conn) -> Result<Decimal, Error> {
+    queries.all_orders(conn) |> Rows.fold(0d, fn sum, order -> sum + order.total)
+}

@@ -1,5 +1,7 @@
 # List Ops
 
+Subject: Collections & Algorithms
+
 Implement append, concatenate, filter, length, map, both folds and reverse without the built-in list functions.
 
 Adapted from Exercism problem-specifications (MIT), exercises/list-ops.
@@ -11,10 +13,10 @@ Adapted from Exercism problem-specifications (MIT), exercises/list-ops.
 - Both folds call `f(accumulator, item)`, the argument order the canonical data's reimplemented cases fix.
 - The direction-dependent fold cases use `Float` lists, since `el / acc` on the canonical numbers is fractional and Nomi has one `/` per type.
 - The functions are file-level and called `list_ops.map(...)`; the names do not clash with `Iter.map` because file qualification keeps them apart.
-- The file comment is `//#`: a plain `//` comment above the first declaration is joined to it by `nomi fmt`.
+- The file comment is `//#`, the file-comment form style §7 gives for every file: a plain `//` comment above the first declaration is joined to it by `nomi fmt`.
 - `concat([])` needs a typed empty list (`List<List<Int>>`), which the checker asks for by name; `append([], [])` and the other empty cases need nothing.
 - The "list of nested lists" input is one literal. It is three lists deep, so `nomi fmt` writes it one inner list per line, each on one line.
 
 ## Friction
 
-- [idiom] A plain `//` file comment followed by a blank line and a `///` doc comment loses the blank line under `nomi fmt` and reads as part of the doc. `//#` keeps it, but `style.md` does not say that `//#` is the file-comment form for files outside `std/`.
+None.

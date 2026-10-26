@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -149,7 +150,7 @@ func TestCompletion_UserFileMembersAndImports(t *testing.T) {
 		"main.nomi":     "fn main() {\n}\n",
 	})
 	s := NewServer()
-	uri := "file://" + filepath.Join(dir, "main.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 
 	items := completeIn(t, s, uri, "import server\n\nfn main() {\n    server."+cursorMark+"\n}\n").Items
 	labelsInclude(t, items, "start", "Config")

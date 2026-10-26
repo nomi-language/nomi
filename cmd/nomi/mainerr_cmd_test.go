@@ -127,7 +127,7 @@ func TestBuildCommand_MainErrFailsTheBinary(t *testing.T) {
 			dir := t.TempDir()
 			entry := filepath.Join(dir, "main.nomi")
 			mustWrite(t, entry, tc.src)
-			bin := filepath.Join(t.TempDir(), "app")
+			bin := exe(filepath.Join(t.TempDir(), "app"))
 			if b := runProcess(t, env, dir, "", nomiBin, "build", entry, "-o", bin); b.exit != 0 {
 				t.Fatalf("nomi build: exit %d\n%s", b.exit, b.transcript())
 			}
@@ -220,7 +220,7 @@ func TestBootErrFailsEveryWayAProgramRuns(t *testing.T) {
 		t.Skip("integration; builds a runner; -short")
 	}
 	env := buildEnv(t.TempDir())
-	runner := filepath.Join(t.TempDir(), "nomi-vm")
+	runner := exe(filepath.Join(t.TempDir(), "nomi-vm"))
 	if b := runProcess(t, env, t.TempDir(), "", nomiBin, "build-vm", "-o", runner); b.exit != 0 {
 		t.Fatalf("nomi build-vm: exit %d\n%s", b.exit, b.transcript())
 	}
@@ -229,7 +229,7 @@ func TestBootErrFailsEveryWayAProgramRuns(t *testing.T) {
 			dir := t.TempDir()
 			entry := filepath.Join(dir, "main.nomi")
 			mustWrite(t, entry, tc.src)
-			bin := filepath.Join(t.TempDir(), "app")
+			bin := exe(filepath.Join(t.TempDir(), "app"))
 			if b := runProcess(t, env, dir, "", nomiBin, "build", entry, "-o", bin); b.exit != 0 {
 				t.Fatalf("nomi build: exit %d\n%s", b.exit, b.transcript())
 			}

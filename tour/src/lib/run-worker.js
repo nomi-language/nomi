@@ -12,9 +12,11 @@
 //                                                      // source, pos in that tab's own text
 //        { id, op: "stdlibTest", module, context, source } // run stdlib reference test
 //        { id, op: "expand", source, files }    // `nomi expand` of the first tab, as the output
+//        { id, source, files, tools }        // run tools ([{ module, name }]) first
 //   out: { id, kind: "sem", semtokens }      // analyzer tokens — computed first,
 //                                            // ({ file: tokens } for a multi-file run)
-//        { id, kind: "run", output, error }  // so a hanging run still highlights
+//        { id, kind: "run", output, error, written } // so a hanging run still highlights;
+//                                            // written: the files the tools wrote, by path
 //        { id, op: "format", output, error }  // formatter reply
 //        { id, op: "hover", markdown }        // hover reply
 //   out: { type: "ready" }                   // wasm loaded, queued work flushed
@@ -107,6 +109,50 @@ onmessage = (e) => {
   handle(e.data);
 };
 
+// SQLite's official WebAssembly build (sqlite.org's sqlite-wasm, staged in
+// ./sqlite/ by scripts/build-tour-wasm.sh), which the browser build of the
+// sqlite driver calls (internal/tourgo: a block that `import sqlite`s runs
+// the driver module's Go side, which reaches SQLite through
+// globalThis.sqlite3). It is about 1.3 MB, so it is loaded only when a run
+// needs it, once per worker, and before the run's semantic tokens are
+// posted, which starts the page's run budget: loading is not the program's
+// time. Its OPFS file systems are left out: a block's database lives in the
+// worker's memory and writes nothing to the visitor's storage.
+let sqlitePromise = null;
+function loadSqlite() {
+  sqlitePromise ??= (async () => {
+    self.sqlite3ApiConfig = {
+      disable: { vfs: { opfs: true, "opfs-vfs": true, "opfs-wl": true, "opfs-sahpool": true } },
+    };
+    importScripts("./sqlite/sqlite3.js"); // sets self.sqlite3InitModule
+    self.sqlite3 = await self.sqlite3InitModule({
+      print() {},
+      printErr() {},
+      locateFile: (file) => "./sqlite/" + file,
+    });
+  })().catch((err) => {
+    // The driver answers a Connection error that says the build is not
+    // loaded; the reason is here.
+    console.error("loading SQLite's WebAssembly build:", err);
+  });
+  return sqlitePromise;
+}
+
+// needs answers the loads a run of msg waits for: the modules it imports
+// that need more than the Nomi wasm (nomiTourModules).
+function needs(msg) {
+  if (msg.op === "format" || msg.op === "formatTestBody" || msg.op === "hover" || msg.op === "stdlibTest") return null;
+  let modules = [];
+  try {
+    modules = JSON.parse(self.nomiTourModules(msg.source) || "[]");
+  } catch (_) {}
+  return modules.includes("sqlite") && !sqlitePromise ? loadSqlite() : null;
+}
+
+// waiting holds the messages that arrived while a load needs() started was
+// under way, in order, the one that started it first.
+let waiting = null;
+
 // callGo runs one exported Go function and returns { value }, or { failure }
 // when the call stopped the runtime or threw out of it, marking this instance
 // dead.
@@ -131,9 +177,23 @@ function callGo(fn) {
 }
 
 function handle(msg) {
+  if (waiting) {
+    waiting.push(msg);
+    return;
+  }
   // A message queued behind the one that stopped the runtime gets no answer
   // here; the page re-sends it to the replacement worker.
   if (dead) return;
+  const load = needs(msg);
+  if (load) {
+    waiting = [msg];
+    load.then(() => {
+      const msgs = waiting;
+      waiting = null;
+      for (const m of msgs) handle(m);
+    });
+    return;
+  }
   handleOne(msg);
   if (dead) postMessage({ type: "exited" });
 }
@@ -158,13 +218,34 @@ function handleOne(msg) {
     return;
   }
 
+  // A ```nomi-run tool:<module>/<name> block's tools run first, each on the
+  // source the one before left, as a reader runs `nomi tool` before `nomi
+  // run`: the files they write replace the block's (posted back as
+  // `written`, for the page's tabs), and what they print comes before the
+  // run's output. A tool that fails is the run's failure.
+  let source = msg.source;
+  let printed = "";
+  const written = {};
+  for (const t of msg.tools || []) {
+    const r = callGo(() => self.nomiTool(source, t.module, t.name));
+    const res = r.failure ? { output: "", error: r.failure } : r.value;
+    printed += res.output;
+    if (res.error) {
+      postMessage({ id: msg.id, kind: "sem", semtokens: msg.files ? {} : [] });
+      postMessage({ id: msg.id, kind: "run", output: printed, error: res.error, written });
+      return;
+    }
+    source = res.source;
+    Object.assign(written, res.files);
+  }
+
   // Run. Semantic tokens first: analysis always terminates, so even a program
   // that then hangs in nomiRun gets full (analyzer-refined) highlighting.
   // A multi-file source's tokens are each tab's, from one analysis of the
   // whole program, which the hovers that follow reuse.
   let semtokens = msg.files ? {} : [];
   const sem = callGo(() =>
-    msg.files ? self.nomiSemTokensIn(msg.source, ...msg.files) : self.nomiSemTokens(msg.source),
+    msg.files ? self.nomiSemTokensIn(source, ...msg.files) : self.nomiSemTokens(source),
   );
   if (!sem.failure) {
     try {
@@ -179,9 +260,9 @@ function handleOne(msg) {
         msg.op === "stdlibTest"
           ? self.nomiRunStdlibTest(msg.module, msg.source, msg.context || "")
           : msg.op === "expand"
-            ? self.nomiExpand(msg.source)
-            : self.nomiRun(msg.source),
+            ? self.nomiExpand(source)
+            : self.nomiRun(source),
       );
   const res = r.failure ? { output: "", error: r.failure } : r.value;
-  postMessage({ id: msg.id, kind: "run", output: res.output, error: res.error });
+  postMessage({ id: msg.id, kind: "run", output: printed + res.output, error: res.error, written });
 }

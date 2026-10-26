@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -95,7 +96,7 @@ func TestProgramStd_APromptImportsAnotherProgramStdModule(t *testing.T) {
 		t.Errorf("output %q, want %q", cases[0].Output, want)
 	}
 
-	p, err := LoadStdlib(strings.TrimPrefix(std.Load().FileURI("sql"), "file://"))
+	p, err := LoadStdlib(fileuri.ToPath(std.Load().FileURI("sql")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,6 +109,48 @@ func TestProgramStd_APromptImportsAnotherProgramStdModule(t *testing.T) {
 	}
 	if !sawPrompt {
 		t.Errorf("std/sql has no with_connection prompt, which imports std/sql_testing")
+	}
+}
+
+// A reference editor of a std module lowered once for the process imports a
+// module lowered with its program and runs: std/io's editor calling
+// path.join, and building a Sandbox for fs_testing.run over fs.read_text;
+// std/strings' editor calling Uuid.nil. A shared module never imports a
+// listed module itself, so the editor's import is the only way in, and the
+// listed modules are lowered with the editor as a program's files are
+// (irbuild's generateStdlibTestIRWithProgramStd). Each was blocked: "qualified
+// call, file.fn: path.join", "a struct literal: Sandbox", "qualified call,
+// Type.method: Uuid.nil". A false assertion over path.join fails, so the
+// case ran.
+func TestProgramStd_ASharedModulesEditorImportsAListedModule(t *testing.T) {
+	for _, c := range []struct{ module, body, want string }{
+		{"io", "import std/path\nprint(path.join(\"data\", \"log.txt\"))\nassert path.join(\"a/\", \"/b\") == \"a/b\"\n", "data/log.txt\n"},
+		{"io", "import std/fs\nimport std/fs_testing.{self, Sandbox}\n" +
+			"ran = fs_testing.run(#Sandbox{files: %{\"a.txt\" => \"x\"}}, fn -> fs.read_text(\"a.txt\"))\n" +
+			"assert ran.value == Result.Ok(\"x\")\n" +
+			"print(fs_testing.text(ran, \"/work/a.txt\"))\n", "Some(x)\n"},
+		{"strings", "import std/io\nimport std/uuid.Uuid\nio.print(Uuid.nil())\nassert Uuid.version(Uuid.nil()) == 0\n", "00000000-0000-0000-0000-000000000000\n"},
+	} {
+		var out strings.Builder
+		cases, err := StdlibReference(c.module, c.body, "", &out)
+		if err != nil {
+			t.Errorf("std/%s: the front end rejects the editor, so nothing is tested: %v\n%s", c.module, err, c.body)
+			continue
+		}
+		if len(cases) != 1 || cases[0].Err != nil || len(cases[0].Blocked) > 0 {
+			t.Errorf("std/%s: want one passing case, got %+v\n%s", c.module, cases, c.body)
+			continue
+		}
+		if cases[0].Output != c.want {
+			t.Errorf("std/%s: output %q, want %q", c.module, cases[0].Output, c.want)
+		}
+	}
+	cases, err := StdlibReference("io", "import std/path\nassert path.join(\"a\", \"b\") == \"a/c\"\n", "", io.Discard)
+	if err != nil {
+		t.Fatalf("the front end rejects the failing editor: %v", err)
+	}
+	if len(cases) != 1 || cases[0].Err == nil || len(cases[0].Blocked) > 0 {
+		t.Errorf("a false assertion over path.join: want one failing case, got %+v", cases)
 	}
 }
 
@@ -241,7 +284,7 @@ func TestProgramStd_AnEditedModuleRunsWhereverItsCodeSits(t *testing.T) {
 			t.Fatalf("no std/%s", module)
 		}
 		want := passingCases(t, module+" embedded", func() (*Program, error) {
-			return LoadStdlib(strings.TrimPrefix(std.Load().FileURI(module), "file://"))
+			return LoadStdlib(fileuri.ToPath(std.Load().FileURI(module)))
 		})
 		if want == 0 {
 			t.Fatalf("std/%s has no passing case to compare", module)

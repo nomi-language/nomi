@@ -1,0 +1,3 @@
+[module]
+name = "shop"
+entry_points = ["main"]

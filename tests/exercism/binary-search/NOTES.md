@@ -1,5 +1,7 @@
 # Binary Search
 
+Subject: Collections & Algorithms
+
 Find a value's index in a sorted array by repeatedly halving the range it could be in.
 
 Adapted from Exercism problem-specifications (MIT), exercises/binary-search.
@@ -19,4 +21,4 @@ None.
 
 ## Indexing
 
-One indexed read, `Vector.at(items, middle)` in `search`. Its index is in range by construction, so the read returns the element itself and the function has no arm for a miss. `Vector.at` was added as a result of this exercise: before it, the only read was the `Maybe`-returning `Vector.get`, and `search` needed an `else` that could not run.
+One indexed read, `Vector.at(items, middle)` in `search`. Its index is in range by construction, so the read returns the element itself and the function has no arm for a miss.

@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -51,6 +52,9 @@ func pathWithout(t *testing.T, dirs []string, omit ...string) string {
 // A go in one of the directories does not reach the PATH, and the other
 // commands there do.
 func TestPathWithout_DropsGoAndKeepsTheRest(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("probes the PATH with /usr/bin/env and shell scripts")
+	}
 	fake := t.TempDir()
 	for _, name := range []string{"go", "gofmt", "tool"} {
 		if err := os.WriteFile(filepath.Join(fake, name), []byte("#!/bin/sh\necho "+name+"\n"), 0o755); err != nil {

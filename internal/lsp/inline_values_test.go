@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/std"
@@ -73,7 +74,7 @@ func TestInlineValues_AnsweredOverRPC(t *testing.T) {
 	if err := os.WriteFile(path, []byte(inlineValueSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + path
+	uri := fileuri.FromPath(path)
 	s := NewServer()
 	c := startRPC(t, s, dir)
 	c.open(uri, inlineValueSrc)

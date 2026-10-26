@@ -5227,18 +5227,21 @@ func emitOptionalTypeBody(parts []Doc, hasBody bool, items []ast.Node, endTrivia
 	return append(parts, Text(" "), emitMultilineBracedListWithEndTrivia("{", "}", members, false, endTrivia))
 }
 
-// emitOnceBinding renders `[pub ]once name: T = expr`.
+// emitOnceBinding renders `[pub ]once name: T = expr`. The value is laid
+// out as a binding's is (emitBindingValue), so a pipe breaks after `=` into
+// the indented stacked form.
 func emitOnceBinding(v *ast.OnceBinding) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
 	parts = append(parts, emitAttachedTests(v.AttachedTests)...)
+	target := []Doc{}
 	if v.Public {
-		parts = append(parts, Text("pub "))
+		target = append(target, Text("pub "))
 	}
-	parts = append(parts, Text("once "), Text(v.Name))
+	target = append(target, Text("once "), Text(v.Name))
 	if v.TypeAnnotation != nil {
-		parts = append(parts, Text(": "), emitTypeExpr(v.TypeAnnotation))
+		target = append(target, Text(": "), emitTypeExpr(v.TypeAnnotation))
 	}
-	parts = append(parts, Text(" = "), emit(v.Value))
+	parts = append(parts, emitBindingValue(Concat(target...), v.Value))
 	return Concat(parts...)
 }
 

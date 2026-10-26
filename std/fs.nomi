@@ -210,7 +210,7 @@ pub fn write_text(
 /// ```
 //! import std/fs_testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(#Sandbox{files: %{"in.txt" => "pear\u{d}\napple"}}, fn -> {
+//! ran = fs_testing.run(#Sandbox{files: %{"in.txt" => "pear\r\napple"}}, fn -> {
 //!     each = lines("in.txt")
 //!     #(Result.collect(each), Iter.first(each), Result.collect(lines("none.txt")))
 //! })
@@ -1093,7 +1093,10 @@ pub fn exists?(path: String) -> Result<Bool, Error> {
 }
 
 /// The directory temporary files go in: the operating system's (`/tmp`,
-/// or what `TMPDIR` names), or `/tmp` in memory.
+/// or what `TMPDIR` names), or `/tmp` in memory. A wasip1 module reaches
+/// only the directories its runtime preopens, so there it is the first of
+/// `TMPDIR`, `/tmp` and the working directory that is preopened, and `/tmp`
+/// when none is.
 ///
 /// ```nomi
 /// fs.temp_dir() // "/tmp"
@@ -1109,7 +1112,9 @@ pub fn temp_dir() -> String {
 /// Makes a fresh directory under `fs.temp_dir()`, runs `body` with its
 /// path, then removes it and everything in it, on every exit. It is how a
 /// test exercises the real file system; a named temporary file is
-/// `fs.create(path.join(dir, "x"), mode: .New)` inside it.
+/// `fs.create(path.join(dir, "x"), mode: .New)` inside it. In a wasip1
+/// module whose runtime preopened none of those directories it answers
+/// `Unsupported` and does not call `body`.
 ///
 /// ```nomi
 /// fs.with_temp_dir(fn dir -> fs.write_text(path.join(dir, "x.txt"), "x"))

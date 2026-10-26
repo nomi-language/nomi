@@ -106,6 +106,9 @@ type Machine struct {
 	// out serializes output independently of the runtime once cells' locks.
 	// Declaration maps are fixed after New; each frame belongs to one activation.
 	out *syncWriter
+	// fileName names a source file in a run-time failure's text
+	// (WithFileNames); nil leaves it to rt.DisplayPath.
+	fileName func(string) string
 	// errOut is the program's standard error, serialized, where `io.eprint`
 	// and the runtime's own diagnostics go, or nil for os.Stderr. See
 	// WithErrorOutput.
@@ -208,6 +211,28 @@ func (m *Machine) WithErrorOutput(w io.Writer) *Machine {
 		m.errOut = &syncWriter{w: w}
 	}
 	return m
+}
+
+// WithFileNames makes name how the machine names a source file in the text
+// of a run-time failure: the `todo reached at <file>:<line>` of a `todo`,
+// and each frame of a timed-out case's stack. Without it a file is named by
+// rt.DisplayPath, its path from the working directory when it is under it.
+// A host that loaded the program from files it wrote for it (vmhost's
+// LoadMarked) names them by their path from the project root, as its
+// diagnostics do.
+func (m *Machine) WithFileNames(name func(string) string) *Machine {
+	m.fileName = name
+	return m
+}
+
+// fileNameOf is how m names file in a run-time failure's text: as
+// WithFileNames names it, else as the front end read it, which rt shows
+// through DisplayPath (a name already relative is shown as it is).
+func (m *Machine) fileNameOf(file string) string {
+	if m.fileName != nil {
+		return m.fileName(file)
+	}
+	return file
 }
 
 // stderr serializes a machine's writes to os.Stderr when it was given no
@@ -468,6 +493,10 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		// capture in force on the calling frame. See capture.go.
 		captureKey: captureHost,
 		replayKey:  replayHost,
+		// `Reader.from_chunks`: a reader that pulls its chunks from an
+		// Iter. See readers.go.
+		readerFromChunksKey:     readerFromChunksHost(readerFromChunksKey),
+		readerFromTextChunksKey: readerFromChunksHost(readerFromTextChunksKey),
 		// `fs_testing.run`: std/fs calls go to the sandbox on the calling
 		// frame. See sandbox.go.
 		sandboxKey: sandboxHost,
@@ -851,7 +880,7 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 	case *ir.Todo:
 		// A `todo` was reached. The text is rt's, and this returns it for
 		// NoMatch's reason; the destination is never written.
-		return rt.TodoError(n.Pos().File(), n.Pos().Line(), n.Reason())
+		return rt.TodoError(m.fileNameOf(n.Pos().File()), n.Pos().Line(), n.Reason())
 
 	case *ir.Assert:
 		// See assert.go in this package for which half of an assertion is

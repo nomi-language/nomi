@@ -1,0 +1,88 @@
+import {
+    protein_translation
+    protein_translation.{AminoAcid, Error}
+}
+
+test "proteins" {
+    cases = [
+        #("Empty RNA sequence results in no proteins", "", []),
+        #("Methionine RNA sequence", "AUG", [AminoAcid.Methionine]),
+        #("Phenylalanine RNA sequence 1", "UUU", [.Phenylalanine]),
+        #("Phenylalanine RNA sequence 2", "UUC", [.Phenylalanine]),
+        #("Leucine RNA sequence 1", "UUA", [.Leucine]),
+        #("Leucine RNA sequence 2", "UUG", [.Leucine]),
+        #("Serine RNA sequence 1", "UCU", [.Serine]),
+        #("Serine RNA sequence 2", "UCC", [.Serine]),
+        #("Serine RNA sequence 3", "UCA", [.Serine]),
+        #("Serine RNA sequence 4", "UCG", [.Serine]),
+        #("Tyrosine RNA sequence 1", "UAU", [.Tyrosine]),
+        #("Tyrosine RNA sequence 2", "UAC", [.Tyrosine]),
+        #("Cysteine RNA sequence 1", "UGU", [.Cysteine]),
+        #("Cysteine RNA sequence 2", "UGC", [.Cysteine]),
+        #("Tryptophan RNA sequence", "UGG", [.Tryptophan]),
+        #("STOP codon RNA sequence 1", "UAA", []),
+        #("STOP codon RNA sequence 2", "UAG", []),
+        #("STOP codon RNA sequence 3", "UGA", []),
+        #(
+            "Sequence of two protein codons translates into proteins",
+            "UUUUUU",
+            [.Phenylalanine, .Phenylalanine],
+        ),
+        #(
+            "Sequence of two different protein codons translates into proteins",
+            "UUAUUG",
+            [.Leucine, .Leucine],
+        ),
+        #(
+            "Translate RNA strand into correct protein list",
+            "AUGUUUUGG",
+            [.Methionine, .Phenylalanine, .Tryptophan],
+        ),
+        #("Translation stops if STOP codon at beginning of sequence", "UAGUGG", []),
+        #("Translation stops if STOP codon at end of two-codon sequence", "UGGUAG", [.Tryptophan]),
+        #(
+            "Translation stops if STOP codon at end of three-codon sequence",
+            "AUGUUUUAA",
+            [.Methionine, .Phenylalanine],
+        ),
+        #(
+            "Translation stops if STOP codon in middle of three-codon sequence",
+            "UGGUAGUGG",
+            [.Tryptophan],
+        ),
+        #(
+            "Translation stops if STOP codon in middle of six-codon sequence",
+            "UGGUGUUAUUAAUGGUUU",
+            [.Tryptophan, .Cysteine, .Tyrosine],
+        ),
+        #(
+            "Sequence of two non-STOP codons does not translate to a STOP codon",
+            "AUGAUG",
+            [.Methionine, .Methionine],
+        ),
+        #(
+            "Incomplete RNA sequence can translate if valid until a STOP codon",
+            "UUCUUCUAAUGGU",
+            [.Phenylalanine, .Phenylalanine],
+        ),
+    ]
+
+    subtests cases, #(description, strand, expected), description {
+        assert protein_translation.proteins(strand) == Ok(expected)
+    }
+}
+
+test "invalid codons" {
+    cases = [
+        #(
+            "Unknown amino acids, not part of a codon, can't translate",
+            "XYZ",
+            Error.InvalidCodon("XYZ"),
+        ),
+        #("Incomplete RNA sequence can't translate", "AUGU", .InvalidCodon("U")),
+    ]
+
+    subtests cases, #(description, strand, expected), description {
+        assert protein_translation.proteins(strand) == Err(expected)
+    }
+}

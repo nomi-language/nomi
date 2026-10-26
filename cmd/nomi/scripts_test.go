@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"regexp"
 	"strings"
 	"testing"
@@ -167,6 +168,9 @@ func TestReleaseScriptNamesGoPackagesThatExist(t *testing.T) {
 // files as `./scripts/<name>.sh`, which is exec-bit sensitive, so the failure
 // mode is a release job that dies with "Permission denied" on a tag push.
 func TestScriptsAreExecutable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows has no executable bit to read; git keeps the scripts' mode, which the Unix jobs check")
+	}
 	root, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("resolving repo root: %v", err)

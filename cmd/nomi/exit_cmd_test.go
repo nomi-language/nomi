@@ -102,7 +102,7 @@ func TestBuildCommand_ExitSetsTheBinarysStatus(t *testing.T) {
 			dir := t.TempDir()
 			entry := filepath.Join(dir, "main.nomi")
 			mustWrite(t, entry, tc.src)
-			bin := filepath.Join(t.TempDir(), "app")
+			bin := exe(filepath.Join(t.TempDir(), "app"))
 			if b := runProcess(t, env, dir, "", nomiBin, "build", entry, "-o", bin); b.exit != 0 {
 				t.Fatalf("nomi build: exit %d\n%s", b.exit, b.transcript())
 			}

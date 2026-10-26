@@ -1,0 +1,35 @@
+import grains
+
+group "returns the number of grains on the square" {
+    test "counts the grains" {
+        cases = [
+            #("grains on square 1", 1, 1d),
+            #("grains on square 2", 2, 2d),
+            #("grains on square 3", 3, 4d),
+            #("grains on square 4", 4, 8d),
+            #("grains on square 16", 16, 32768d),
+            #("grains on square 32", 32, 2147483648d),
+            #("grains on square 64", 64, 9223372036854775808d),
+        ]
+
+        subtests cases, #(description, square, expected), description {
+            assert grains.square(square) == Ok(expected)
+        }
+    }
+
+    test "rejects squares off the board" {
+        cases = [
+            #("square 0 is invalid", 0),
+            #("negative square is invalid", -1),
+            #("square greater than 64 is invalid", 65),
+        ]
+
+        subtests cases, #(description, square), description {
+            assert grains.square(square) == Err("square must be between 1 and 64")
+        }
+    }
+}
+
+test "returns the total number of grains on the board" {
+    assert grains.total() == 18446744073709551615d
+}

@@ -1,0 +1,635 @@
+//# Reading a query's SQL body without parsing SQL: a tokenizer that knows
+//# strings, quoted names, comments and `@name` parameters, and what is read
+//# from its tokens. The macro and `nomi tool sqlkit prepare` both read
+//# a body here, so the SQL the tool describes is the SQL the generated
+//# function sends.
+
+/// What a token is.
+pub enum Kind {
+    /// A name, a keyword or a number.
+    Word
+
+    /// A quoted name, `"order_count!"`.
+    Quoted
+
+    /// A string literal, `'paid'`.
+    Text
+
+    /// A parameter, `@user_id`.
+    Param
+
+    /// A `${...}` left in the body. A raw body has no interpolation, so it
+    /// is an error that suggests `@name`.
+    Interpolation
+
+    /// Whitespace or a comment.
+    Space
+
+    /// Any other character.
+    Punct
+}
+
+derive Equatable for Kind
+
+/// One token: its kind, its text as written, and where it is in the body,
+/// by grapheme from the start.
+pub struct Token {
+    kind: Kind
+    text: String
+    start: Int
+    end: Int
+}
+
+derive Equatable for Token
+
+/// The tokens of `text`.
+//! tokens = sqltext.tokens("SELECT 'a b' -- c\n, @x")
+//! kinds = tokens |> Iter.map(fn t -> t.kind) |> Iter.to_list()
+//!
+//! // The comment is a space token of its own, and so is the newline after it.
+//! assert kinds == [
+//!     Kind.Word,
+//!     Kind.Space,
+//!     Kind.Text,
+//!     Kind.Space,
+//!     Kind.Space,
+//!     Kind.Space,
+//!     Kind.Punct,
+//!     Kind.Space,
+//!     Kind.Param,
+//! ]
+//
+pub fn tokens(text: String) -> List<Token> {
+    chars = Iter.to_vector(text)
+    scan(text, chars, 0, [])
+}
+
+fn scan(text: String, chars: Vector<String>, i: Int, acc: List<Token>) -> List<Token> {
+    case Vector.get(chars, i) {
+        None ->
+            Iter.reverse(acc)
+
+        Some(c) -> {
+            #(kind, end) = token_at(chars, i, c)
+            token = #Token{kind, text: String.slice(text, i, end), start: i, end}
+            scan(text, chars, end, [token, ..acc])
+        }
+    }
+}
+
+fn at(chars: Vector<String>, i: Int) -> String {
+    Vector.get(chars, i) |> Maybe.with_default("")
+}
+
+fn token_at(chars: Vector<String>, i: Int, c: String) -> #(Kind, Int) {
+    next = at(chars, i + 1)
+
+    if space?(c) {
+        #(Kind.Space, skip(chars, i + 1, space?))
+    } else if c == "-" and next == "-" {
+        #(Kind.Space, skip(chars, i + 2, fn ch -> ch != "\n" and ch != "\r\n"))
+    } else if c == "/" and next == "*" {
+        #(Kind.Space, block_end(chars, i + 2))
+    } else if c == "'" {
+        #(Kind.Text, quote_end(chars, i + 1, "'"))
+    } else if c == "\"" {
+        #(Kind.Quoted, quote_end(chars, i + 1, "\""))
+    } else if c == "@" and name_start?(next) {
+        #(Kind.Param, skip(chars, i + 2, word?))
+    } else if c == "@" and next == "@" {
+        // Postgres's `@@` is an operator, so `@@name` is not a parameter.
+        #(Kind.Punct, i + 2)
+    } else if c == "$" and next == "{" {
+        close = skip(chars, i + 2, fn ch -> ch != "}")
+        #(Kind.Interpolation, Int.min(close + 1, Vector.length(chars)))
+    } else if word?(c) {
+        #(Kind.Word, skip(chars, i + 1, word?))
+    } else {
+        #(Kind.Punct, i + 1)
+    }
+}
+
+fn space?(c: String) -> Bool {
+    c == " " or c == "\n" or c == "\t" or c == "\r\n" or c == "\r"
+}
+
+fn word?(c: String) -> Bool {
+    String.contains?(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_",
+        c,
+    ) and c != ""
+}
+
+fn name_start?(c: String) -> Bool {
+    String.contains?("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_", c) and c != ""
+}
+
+fn skip(chars: Vector<String>, i: Int, keep: (String) -> Bool) -> Int {
+    case Vector.get(chars, i) {
+        Some(c) when keep(c) -> skip(chars, i + 1, keep)
+        _ -> i
+    }
+}
+
+fn block_end(chars: Vector<String>, i: Int) -> Int {
+    case Vector.get(chars, i) {
+        None -> i
+        Some("*") when at(chars, i + 1) == "/" -> i + 2
+        Some(_) -> block_end(chars, i + 1)
+    }
+}
+
+// The end of a quoted run whose opening quote is before i; a doubled
+// quote is the quote itself.
+fn quote_end(chars: Vector<String>, i: Int, quote: String) -> Int {
+    case Vector.get(chars, i) {
+        None -> i
+        Some(c) when c == quote and at(chars, i + 1) == quote -> quote_end(chars, i + 2, quote)
+        Some(c) when c == quote -> i + 1
+        Some(_) -> quote_end(chars, i + 1, quote)
+    }
+}
+
+/// The name a parameter, `@user_id`, holds.
+//! assert sqltext.marker_name("@user_id") == "user_id"
+//
+pub fn marker_name(text: String) -> String {
+    cut_prefix(text, "@")
+}
+
+/// A result column's name override in its quoted alias, as sqlx writes
+/// them: `"name!"` asserts the column is never NULL, `"name?"` that it may
+/// be, and `"name: Type"` (or `"name!: Type"`) gives its Nomi type.
+pub struct Override {
+    column: String
+    nullable: Maybe<Bool>
+    type_text: Maybe<String>
+    token: Token
+}
+
+/// The override a quoted name holds, if it holds one.
+//! t = #Token{kind: Kind.Quoted, text: "\"n!: Int\"", start: 0, end: 9}
+//! o = sqltext.override(t)
+//!
+//! assert o |> Maybe.map(fn x -> #(x.column, x.nullable, x.type_text)) == Some(
+//!     #("n", Some(False), Some("Int"))
+//! )
+//!
+//! assert sqltext.override(#{..t, text: "\"n\""}) == None
+//
+pub fn override(token: Token) -> Maybe<Override> {
+    if token.kind != Kind.Quoted { return None }
+    inner = token.text |> cut_prefix("\"") |> cut_suffix("\"")
+
+    #(head, type_text) = case String.split(inner, ":") {
+        [name, ty] -> #(String.trim(name), Some(String.trim(ty)))
+        _ -> #(inner, None)
+    }
+
+    #(column, nullable) = if String.ends_with?(head, "!") {
+        #(cut_suffix(head, "!"), Some(False))
+    } else if String.ends_with?(head, "?") {
+        #(cut_suffix(head, "?"), Some(True))
+    } else {
+        #(head, None)
+    }
+
+    if nullable == None and type_text == None {
+        None
+    } else {
+        Some(#Override{column, nullable, type_text, token})
+    }
+}
+
+/// Every override the body's quoted names hold.
+pub fn overrides(tokens: List<Token>) -> List<Override> {
+    tokens |> Iter.flat_map(fn t -> override(t) |> listed()) |> Iter.to_list()
+}
+
+/// The text a token is sent as: a quoted name without its override.
+fn sent(token: Token) -> String {
+    case override(token) {
+        Some(o) -> "\"${o.column}\""
+        None -> token.text
+    }
+}
+
+/// The SQL a body sends, as std/sql's `Statement` keeps it: the text
+/// around each `@name` parameter, one more than there are parameters. Runs of
+/// whitespace and comments become one space, and the ends are trimmed, so
+/// the SQL does not depend on how the body is indented.
+//! tokens = sqltext.tokens("\n  SELECT id  -- the key\n  FROM t WHERE a = @a AND b = @b\n")
+//! assert sqltext.parts(tokens) == ["SELECT id FROM t WHERE a = ", " AND b = ", ""]
+//
+pub fn parts(tokens: List<Token>) -> List<String> {
+    pieces = pieces(tokens)
+
+    #(done, current) = Iter.reduce(
+        pieces,
+        fn acc, piece -> {
+            #(done, current) = acc
+            #(token, text) = piece
+
+            if token.kind == Kind.Param {
+                #([current, ..done], "")
+            } else {
+                #(done, current + text)
+            }
+        },
+        from: #([], ""),
+    )
+
+    Iter.reverse([current, ..done])
+}
+
+/// Each token that is sent and the text it is sent as: a space for a run
+/// of spaces between other tokens, nothing at either end.
+fn pieces(tokens: List<Token>) -> List<#(Token, String)> {
+    solid = tokens |> Iter.filter(fn t -> t.kind != Kind.Space) |> Iter.to_list()
+
+    #(out, _) = Iter.reduce(
+        tokens,
+        fn acc: #(List<#(Token, String)>, Int), token -> {
+            #(out, seen) = acc
+
+            if token.kind == Kind.Space {
+                // A space is sent once between two tokens that are sent.
+                case out {
+                    [#(last, _), .._] when last.kind != Kind.Space and seen < Iter.count(solid) ->
+                        #([#(token, " "), ..out], seen)
+
+                    _ ->
+                        acc
+                }
+            } else {
+                #([#(token, sent(token)), ..out], seen + 1)
+            }
+        },
+        from: #([], 0),
+    )
+
+    Iter.reverse(out)
+}
+
+/// The SQL a body sends with its parameters written as `?1`, `?2`, ..., as the
+/// SQLite driver writes them: what `prepare` describes and the snapshot
+/// keeps.
+//! assert sqltext.sqlite_sql(["SELECT ", " + ", ""]) == "SELECT ?1 + ?2"
+//
+pub fn sqlite_sql(parts: List<String>) -> String {
+    parts
+    |> Iter.with_index()
+    |> Iter.map(fn #(i, part) -> if i == 0 { part } else { "?${i}" + part })
+    |> String.join()
+}
+
+/// The token of the SQL `sqlite_sql` writes at byte `offset`: where an
+/// error SQLite reports at that offset is in the body.
+//! tokens = sqltext.tokens("SELECT  @x, nope")
+//! assert sqltext.token_at_offset(tokens, 11) |> Maybe.map(fn t -> t.text) == Some("nope")
+//
+pub fn token_at_offset(tokens: List<Token>, offset: Int) -> Maybe<Token> {
+    #(found, _, _) = Iter.reduce(
+        pieces(tokens),
+        fn acc, piece -> {
+            #(found, at, params) = acc
+            #(token, text) = piece
+
+            #(width, next_params) = if token.kind == Kind.Param {
+                #(byte_length("?${params + 1}"), params + 1)
+            } else {
+                #(byte_length(text), params)
+            }
+
+            if found == None and offset < at + width and token.kind != Kind.Space {
+                break #(Some(token), at + width, next_params)
+            }
+
+            #(found, at + width, next_params)
+        },
+        from: #(None, 0, 0),
+    )
+
+    case found {
+        Some(t) -> Some(t)
+        None -> tokens |> Iter.filter(fn t -> t.kind != Kind.Space) |> Iter.last()
+    }
+}
+
+fn byte_length(s: String) -> Int {
+    Bytes.length(String.to_bytes(s))
+}
+
+/// The `@name` parameters, in order.
+pub fn markers(tokens: List<Token>) -> List<Token> {
+    tokens |> Iter.filter(fn t -> t.kind == Kind.Param) |> Iter.to_list()
+}
+
+/// The `${...}` left in the body, in order.
+pub fn interpolations(tokens: List<Token>) -> List<Token> {
+    tokens |> Iter.filter(fn t -> t.kind == Kind.Interpolation) |> Iter.to_list()
+}
+
+/// The result columns a body writes after its first `SELECT` (or its
+/// `RETURNING`) at the top level, each as the tokens from its first to its
+/// last, split at the commas outside parentheses. A `*` is one item, so
+/// the list may be shorter than the columns.
+//! tokens = sqltext.tokens("SELECT a, f(b, c) AS d FROM t")
+//! items = sqltext.select_items(tokens) |> Iter.map(fn i -> sqltext.text_of(i)) |> Iter.to_list()
+//! assert items == ["a", "f(b, c) AS d"]
+//
+pub fn select_items(tokens: List<Token>) -> List<List<Token>> {
+    #(items, current, _, state) = Iter.reduce(
+        tokens,
+        fn acc, token -> {
+            #(items, current, depth, state) = acc
+
+            upper = if token.kind == Kind.Word {
+                String.to_upper(token.text)
+            } else {
+                ""
+            }
+
+            case state {
+                // 0: before the list; 1: in it; 2: after it.
+                0 ->
+                    if depth == 0 and (upper == "SELECT" or upper == "RETURNING") {
+                        #(items, [], depth, 1)
+                    } else {
+                        #(items, current, depth + nesting(token), 0)
+                    }
+
+                1 ->
+                    if depth == 0 and ends_list?(upper) {
+                        break #([current, ..items], [], depth, 2)
+                    } else if depth == 0 and token.text == "," and token.kind == Kind.Punct {
+                        #([current, ..items], [], depth, 1)
+                    } else if upper == "DISTINCT" and Iter.empty?(solid(current)) {
+                        #(items, current, depth, 1)
+                    } else {
+                        #(items, [token, ..current], depth + nesting(token), 1)
+                    }
+
+                _ ->
+                    acc
+            }
+        },
+        from: #([], [], 0, 0),
+    )
+
+    all = if state == 1 {
+        [current, ..items]
+    } else {
+        items
+    }
+
+    all
+    |> Iter.reverse()
+    |> Iter.map(fn item -> item |> Iter.reverse() |> trim())
+    |> Iter.filter(fn item -> !Iter.empty?(item))
+    |> Iter.to_list()
+}
+
+fn nesting(token: Token) -> Int {
+    if token.kind != Kind.Punct {
+        0
+    } else if token.text == "(" {
+        1
+    } else if token.text == ")" {
+        -1
+    } else {
+        0
+    }
+}
+
+fn ends_list?(upper: String) -> Bool {
+    Iter.contains?(
+        [
+            "FROM",
+            "WHERE",
+            "GROUP",
+            "ORDER",
+            "LIMIT",
+            "UNION",
+            "EXCEPT",
+            "INTERSECT",
+            "WINDOW",
+            "HAVING",
+        ],
+        upper,
+    )
+}
+
+fn solid(tokens: List<Token>) -> List<Token> {
+    tokens |> Iter.filter(fn t -> t.kind != Kind.Space) |> Iter.to_list()
+}
+
+/// The tokens without the spaces at either end.
+fn trim(tokens: List<Token>) -> List<Token> {
+    tokens
+    |> Iter.drop_while(fn t -> t.kind == Kind.Space)
+    |> Iter.reverse()
+    |> Iter.drop_while(fn t -> t.kind == Kind.Space)
+    |> Iter.reverse()
+}
+
+/// The type a select item casts its whole value to, as written:
+/// `DECIMAL(12, 2)` of `CAST(sum(total) AS DECIMAL(12, 2)) AS revenue`. An
+/// item that is not one `CAST`, with or without a name, has none.
+//! cast = fn text: String -> {
+//!     sqltext.select_items(sqltext.tokens(text)) |> Iter.first() |> Maybe.flat_map(sqltext.cast_type)
+//! }
+//!
+//! assert cast("SELECT CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue!\" FROM o") == Some(
+//!     "DECIMAL(12, 2)"
+//! )
+//!
+//! assert cast("SELECT cast(x as numeric(5,1)) r FROM o") == Some("numeric(5,1)")
+//! assert cast("SELECT CAST(x AS INTEGER) + 1 FROM o") == None
+//! assert cast("SELECT total FROM o") == None
+//
+pub fn cast_type(item: List<Token>) -> Maybe<String> {
+    words = solid(item) |> Iter.to_vector()
+
+    text_at = fn i: Int -> {
+        Vector.get(words, i) |> Maybe.map(fn t -> String.to_upper(t.text)) |> Maybe.with_default("")
+    }
+
+    if text_at(0) != "CAST" or text_at(1) != "(" {
+        return None
+    }
+
+    // The closing parenthesis, and the last `AS` directly inside the cast.
+    #(close, as_at, _) = Iter.reduce(
+        Iter.with_index(words)
+        |> Iter.drop(2),
+        fn acc, #(i, t) -> {
+            #(close, as_at, depth) = acc
+
+            if close >= 0 {
+                acc
+            } else {
+                after = depth + nesting(t)
+
+                if after == 0 {
+                    #(i, as_at, after)
+                } else if depth == 1 and String.to_upper(t.text) == "AS" and t.kind == Kind.Word {
+                    #(close, i, after)
+                } else {
+                    #(close, as_at, after)
+                }
+            }
+        },
+        from: #(-1, -1, 1),
+    )
+
+    rest = Vector.length(words) - close - 1
+
+    named = rest == 0 or (rest == 1 and text_at(close + 1) != "") or (rest == 2 and text_at(
+        close + 1
+    ) == "AS")
+
+    case #(Vector.get(words, as_at), Vector.get(words, close)) {
+        #(Some(a), Some(c)) when as_at >= 0 and close > as_at + 1 and named -> {
+            inside =
+                item
+                |> Iter.filter(fn t -> t.start > a.start and t.start < c.start)
+                |> Iter.to_list()
+
+            Some(text_of(trim(inside)))
+        }
+
+        _ ->
+            None
+    }
+}
+
+/// The text of a run of tokens, as written.
+pub fn text_of(tokens: List<Token>) -> String {
+    tokens |> Iter.map(fn t -> t.text) |> String.join()
+}
+
+/// The tokens of the `FROM` and `JOIN` clauses that name a table, each
+/// with the name it goes by in the query: `FROM orders o` is
+/// `#("orders", "o")`.
+//! tokens = sqltext.tokens(
+//!     "SELECT 1 FROM orders o LEFT JOIN users AS u ON u.id = o.user_id JOIN items"
+//! )
+//!
+//! assert sqltext.table_names(tokens) == [#("orders", "o"), #("users", "u"), #("items", "items")]
+//
+pub fn table_names(tokens: List<Token>) -> List<#(String, String)> {
+    words = solid(tokens) |> Iter.to_vector()
+    count = Vector.length(words)
+
+    Iter.from(0)
+    |> Iter.take(count)
+    |> Iter.flat_map(fn i -> {
+        upper = String.to_upper(word_at(words, i))
+
+        if upper == "FROM" or upper == "JOIN" {
+            table = word_at(words, i + 1)
+            next = word_at(words, i + 2)
+
+            alias = if String.to_upper(next) == "AS" {
+                word_at(words, i + 3)
+            } else if name?(next) and !keyword?(next) {
+                next
+            } else {
+                table
+            }
+
+            if name?(table) { [#(table, alias)] } else { [] }
+        } else {
+            []
+        }
+    })
+    |> Iter.to_list()
+}
+
+fn word_at(words: Vector<Token>, i: Int) -> String {
+    case Vector.get(words, i) {
+        Some(t) when t.kind == Kind.Word -> t.text
+        Some(t) when t.kind == Kind.Quoted -> t.text |> cut_prefix("\"") |> cut_suffix("\"")
+        _ -> ""
+    }
+}
+
+fn keyword?(word: String) -> Bool {
+    Iter.contains?(
+        [
+            "ON",
+            "USING",
+            "WHERE",
+            "JOIN",
+            "LEFT",
+            "RIGHT",
+            "FULL",
+            "INNER",
+            "OUTER",
+            "CROSS",
+            "NATURAL",
+            "GROUP",
+            "ORDER",
+            "LIMIT",
+            "UNION",
+            "HAVING",
+            "WINDOW",
+            "EXCEPT",
+            "INTERSECT",
+        ],
+        String.to_upper(word),
+    )
+}
+
+/// Whether the body joins with `RIGHT` or `FULL`, whose left side may be
+/// NULL, which `prepare` does not track table by table.
+pub fn right_or_full_join?(tokens: List<Token>) -> Bool {
+    Iter.any?(tokens, fn t -> {
+        t.kind == Kind.Word and (String.to_upper(t.text) == "RIGHT" or String.to_upper(
+            t.text
+        ) == "FULL")
+    })
+}
+
+/// Whether `word` can be a Nomi field name: lower case letters, digits
+/// and `_`, not starting with a digit.
+//! assert sqltext.name?("order_count")
+//! refute sqltext.name?("count(*)")
+//! refute sqltext.name?("2x")
+//
+pub fn name?(word: String) -> Bool {
+    first = String.slice(word, 0, 1)
+
+    word != "" and !String.contains?("0123456789", first) and Iter.all?(word, fn c -> {
+        String.contains?("abcdefghijklmnopqrstuvwxyz0123456789_", c)
+    })
+}
+
+/// `s` without `prefix`, or `s` when it does not start with it.
+pub fn cut_prefix(s: String, prefix: String) -> String {
+    String.strip_prefix(s, prefix) |> Maybe.with_default(s)
+}
+
+/// `s` without `suffix`, or `s` when it does not end with it.
+pub fn cut_suffix(s: String, suffix: String) -> String {
+    String.strip_suffix(s, suffix) |> Maybe.with_default(s)
+}
+
+/// The value a `Maybe` holds, as a list of none or one.
+pub fn listed<T>(m: Maybe<T>) -> List<T> {
+    case m {
+        Some(v) -> [v]
+        None -> []
+    }
+}
+
+/// The line, counting from 0, and the text before it on that line, of
+/// grapheme `index` of `text`: what `Body.span` places a token by.
+//! assert sqltext.position("ab\ncd", 4) == #(1, "c")
+//
+pub fn position(text: String, index: Int) -> #(Int, String) {
+    before = String.slice(text, 0, index)
+    lines = String.split(before, "\n")
+    #(Iter.count(lines) - 1, Iter.last(lines) |> Maybe.with_default(""))
+}

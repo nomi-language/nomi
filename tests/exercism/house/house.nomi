@@ -1,0 +1,36 @@
+//# The nursery rhyme "This is the House that Jack Built".
+
+/// Each verse's new phrase, in the order the rhyme adds them. A phrase ends
+/// with what its subject did to the subject of the phrase before it.
+once phrases = [
+    "the house that Jack built",
+    "the malt that lay in",
+    "the rat that ate",
+    "the cat that killed",
+    "the dog that worried",
+    "the cow with the crumpled horn that tossed",
+    "the maiden all forlorn that milked",
+    "the man all tattered and torn that kissed",
+    "the priest all shaven and shorn that married",
+    "the rooster that crowed in the morn that woke",
+    "the farmer sowing his corn that kept",
+    "the horse and the hound and the horn that belonged to",
+]
+
+/// The verses `start` to `end`, both included, counting from 1.
+pub fn recite(start: Int, end: Int) -> List<String> {
+    start..=end
+    |> Iter.map(verse)
+    |> Iter.to_list()
+}
+
+/// Verse `number` embeds every earlier phrase, newest first.
+fn verse(number: Int) -> String {
+    embedded =
+        phrases
+        |> Iter.take(number)
+        |> Iter.reverse()
+        |> String.join(" ")
+
+    "This is ${embedded}."
+}

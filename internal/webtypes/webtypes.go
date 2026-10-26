@@ -105,6 +105,8 @@ export interface NomiLoadOptions {
   stderr?: (text: string) => void;
   /** The folder Locale.load fetches <tag>.nomil from; default locales/ beside the module. */
   locales?: string | URL;
+  /** A module imported where the program runs, its default export awaited before the program starts. */
+  setup?: string | URL;
 }
 
 export interface NomiRunOptions extends NomiLoadOptions {

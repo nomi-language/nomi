@@ -678,6 +678,33 @@ pre.nomi-tour {
   min-width: 0;
   background: var(--tour-bg);
 }
+/* How to leave an editor by keyboard (tabKeys in tour-client.mjs): shown
+   in the editor's bottom right corner while an editable one has focus. It
+   stays rendered when hidden, so a screen reader hears it change. */
+.nomi-tab-hint {
+  display: block;
+  position: absolute;
+  right: 0.5em;
+  bottom: 0.35em;
+  z-index: 2;
+  max-width: calc(100% - 1em);
+  padding: 0.1em 0.5em;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--tour-out-bg) 92%, transparent);
+  color: color-mix(in srgb, var(--tour-fg) 72%, transparent);
+  font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
+  font-size: 0.7em;
+  line-height: 1.5;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+.nomi-main:has(textarea.nomi-src:focus:not([readonly])) .nomi-tab-hint {
+  opacity: 1;
+}
+.nomi-tab-hint.is-leaving {
+  color: var(--sl-color-accent);
+}
 /* Beside a file tree taller than the code, the open editor fills the
    column, so its horizontal scrollbar sits at the block's bottom edge
    rather than under the last line of code. */
@@ -1162,4 +1189,76 @@ dialog.nomi-modal::backdrop {
   /* No `max-width` here on purpose. Starlight already caps `.copy > *` at
      50ch, and this sentence is 45 characters — a tighter cap only forces a
      wrap that orphans the last word under the mark. */
+}
+
+/* The Examples intro's filter (tour-client.mjs's filterExamples): a select
+   per kind and the count, on one line that wraps on a narrow screen. The
+   page ships it hidden; the script shows it. Starlight spaces a Markdown
+   block's siblings apart, so its children get no margin of their own. */
+.sl-markdown-content .nomi-examples-filter[hidden] { display: none; }
+.sl-markdown-content .nomi-examples-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+}
+.sl-markdown-content .nomi-examples-filter > * { margin: 0; }
+.sl-markdown-content .nomi-examples-filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: var(--sl-text-sm);
+}
+.sl-markdown-content .nomi-examples-filter select {
+  font: inherit;
+  font-weight: 400;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.375rem;
+  background: var(--sl-color-bg);
+  color: var(--sl-color-text);
+  cursor: pointer;
+}
+.sl-markdown-content .nomi-examples-filter select:focus-visible {
+  outline: 2px solid var(--sl-color-text-accent);
+  outline-offset: 2px;
+}
+/* The rough edges badge: starting an example page's credit line, and in
+   the Examples table, where the name column is narrow, on its own line
+   under the name and aligned with it. */
+.sl-markdown-content .nomi-rough-badge {
+  display: inline-block;
+  margin-inline-end: 0.25rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--sl-color-orange);
+  border-radius: 999px;
+  color: var(--sl-color-orange-high);
+  font-size: var(--sl-text-xs);
+  line-height: 1.5;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.sl-markdown-content td .nomi-rough-badge {
+  display: table;
+  margin: 0.3rem 0 0;
+}
+.sl-markdown-content .nomi-rough-badge:hover {
+  background: var(--sl-color-orange-low);
+}
+.sl-markdown-content .nomi-examples-count {
+  color: var(--sl-color-gray-3);
+  font-size: var(--sl-text-sm);
+}
+
+/* Starlight sizes every sidebar group label alike. A group inside a group
+   (the Examples subjects) is set at its links' size, still bold, so it
+   reads as a heading under its parent. */
+.sidebar-content ul ul .group-label .large {
+  font-size: inherit;
+}
+@media (min-width: 50rem) {
+  .sidebar-content ul ul .group-label .large {
+    font-size: var(--sl-text-sm);
+  }
 }

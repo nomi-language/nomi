@@ -1,5 +1,7 @@
 # Hamming
 
+Subject: Strings & Text
+
 Count the positions at which two DNA strands differ; strands of different
 lengths are an error.
 

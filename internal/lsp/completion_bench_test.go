@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -35,7 +36,7 @@ func BenchmarkCompletion(b *testing.B) {
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)
 	s.docs.IndexWorkspace(context.Background())
-	uri := "file://" + filepath.Join(dir, "main.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 
 	cases := map[string]string{
 		"prefixed expression": "fn main() {\n" + body.String() + "    fn_4" + cursorMark + "\n}\n",

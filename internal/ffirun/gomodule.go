@@ -24,28 +24,34 @@ import (
 // (cgoProblem): a package that imports "C", or imports one that does, is
 // refused here.
 func GoImportProblem(nomiPath, importPath string) string {
+	why, _ := GoImportProblemFix(nomiPath, importPath)
+	return why
+}
+
+// GoImportProblemFix is GoImportProblem with the `nomi` command that fixes
+// the problem, or "" when no command does (unprovided).
+func GoImportProblemFix(nomiPath, importPath string) (why, fix string) {
 	if why := GoImportPathProblem(importPath); why != "" {
-		return why
+		return why, ""
 	}
 	if IsStdPackage(importPath) {
 		if stdInternal(importPath) {
-			return "internal to the Go standard library, which no other module may import"
+			return "internal to the Go standard library, which no other module may import", ""
 		}
-		return ""
+		return "", ""
 	}
 	root, ok := findGoModRoot(filepath.Dir(nomiPath))
 	if !ok {
-		return "no go.mod above the declaring file, so no Go module provides it"
+		return unprovided(nomiPath, importPath)
 	}
 	f, err := parseProjectGoMod(root)
 	if err != nil || f.Module == nil || f.Module.Mod.Path == "" {
-		return "the go.mod at " + root + " cannot be read or names no module"
+		return "the go.mod at " + root + " cannot be read or names no module", ""
 	}
 	if goModProvidesImportPath(root, importPath) {
-		return cgoProblem(root, importPath)
+		return cgoProblem(root, importPath), ""
 	}
-	return "outside the project's own Go module " + f.Module.Mod.Path +
-		", the Go standard library, and every module its go.mod requires or replaces"
+	return unprovided(nomiPath, importPath)
 }
 
 // InMemoryFile reports whether nomiPath names a file the front end holds in

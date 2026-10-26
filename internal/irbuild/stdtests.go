@@ -25,12 +25,14 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/std"
 )
 
 // stdModuleTestCases collects a stdlib module's cases in the order and under
@@ -117,27 +119,16 @@ func generateStdlibTestIR(std *stdlibIndex, v *stdModuleView, nodes []ast.Node, 
 	for c := range v.withCycles {
 		offer[c] = true
 	}
-	g := newStdGen(v.module, v.path, v.pkg, nodes, fa, v.cands, offer, v.onces, std)
+	newCasesGen := func(in *programBuild) *gen {
+		return newStdGenIn(v.module, v.path, v.pkg, nodes, fa, v.cands, offer, v.onces, std, in)
+	}
+	if listed := listedStdModulesOfCases(nodes); len(listed) > 0 {
+		return generateStdlibTestIRWithProgramStd(v, nodes, fa, listed, newCasesGen, extra)
+	}
+	g := newCasesGen(nil)
 	insts := newStdInstances(std)
 	g.stdInsts = insts
-	withSelf := func(c testCaseDecl) func() {
-		prev := g.implSelf
-		g.implSelf = c.self
-		return func() { g.implSelf = prev }
-	}
-	cases := stdModuleTestCases(nodes)
-	bodies := make([]*ast.Block, 0, len(cases))
-	for _, c := range cases {
-		bodies = append(bodies, c.body)
-	}
-	g.declareCaseBlockTypes(bodies)
-	for _, c := range cases {
-		undo := withSelf(c)
-		g.testCase(c)
-		undo()
-	}
-	// The VM-only retries resolve bare same-owner calls the same way.
-	g.irRetryWalkOnlyTestBodiesWith(withSelf)
+	g.lowerStdCases(nodes)
 	var irMods []*ir.Module
 	if g.irMod != nil {
 		irMods = append(irMods, g.irMod)
@@ -166,6 +157,85 @@ func generateStdlibTestIR(std *stdlibIndex, v *stdModuleView, nodes []ast.Node, 
 		HasTests: true,
 	}
 	return prog, &Result{IR: irMods, irLibraries: libs, Literals: g.literalSites}, nil
+}
+
+// lowerStdCases builds the `//!` and `test` cases of nodes, a stdlib
+// module's, on g, each with its owning type as its self type.
+func (g *gen) lowerStdCases(nodes []ast.Node) {
+	withSelf := func(c testCaseDecl) func() {
+		prev := g.implSelf
+		g.implSelf = c.self
+		return func() { g.implSelf = prev }
+	}
+	cases := stdModuleTestCases(nodes)
+	bodies := make([]*ast.Block, 0, len(cases))
+	for _, c := range cases {
+		bodies = append(bodies, c.body)
+	}
+	g.declareCaseBlockTypes(bodies)
+	for _, c := range cases {
+		undo := withSelf(c)
+		g.testCase(c)
+		undo()
+	}
+	// The VM-only retries resolve bare same-owner calls the same way.
+	g.irRetryWalkOnlyTestBodiesWith(withSelf)
+}
+
+// listedStdModulesOfCases is each module in programStdModules that the cases
+// of nodes, a shared stdlib module's, import (`//! import std/path`). A
+// shared module itself imports none (TestProgramStdModulesQualify), so every
+// one is a case's.
+func listedStdModulesOfCases(nodes []ast.Node) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, name := range importedStdModules(nodes, true) {
+		if isProgramStd(name) && !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// generateStdlibTestIRWithProgramStd builds the cases of a shared stdlib
+// module whose cases import listed std modules (listed). Those modules are
+// lowered as a program's files are (GenerateIR, withProgramStd), and the
+// cases are built on the module's own gen inside that program
+// (Program.stdCases): a call or a type of a listed module resolves as a
+// sibling file's, and everything else as the module's cases always do.
+func generateStdlibTestIRWithProgramStd(v *stdModuleView, nodes []ast.Node, fa *analysis.FileAnalysis, listed []string, newCasesGen func(*programBuild) *gen, extra []*ir.Module) (*Program, *Result, error) {
+	lib := std.Shared()
+	p := &Program{}
+	for _, name := range listed {
+		p.Modules = append(p.Modules, Module{
+			Path:  lib.SourcePath(name),
+			Name:  "std/" + name,
+			Nodes: programStdModuleNodes()[name],
+			FA:    lib.Files[name],
+		})
+	}
+	p.stdCases = func(b *programBuild) *gen {
+		g := newCasesGen(b)
+		g.lowerStdCases(nodes)
+		return g
+	}
+	// The refusal is the listed modules' own cases, which no module here is
+	// the entry of; a body the cases reach and the builder declined blocks
+	// its case as anywhere else.
+	res, _, err := GenerateIR(p)
+	if err != nil {
+		return nil, nil, err
+	}
+	// An edited module's own lowering links after the cached modules, as
+	// generateStdlibTestIR links it, and before the program's instances.
+	cached := len(stdlibLowering().irModules)
+	res.irLibraries = append(append(slices.Clip(res.irLibraries[:cached]), extra...), res.irLibraries[cached:]...)
+	prog := &Program{
+		Modules:  []Module{{Path: v.path, Name: v.module, Nodes: nodes, FA: fa, DeclaresTests: true}},
+		HasTests: true,
+	}
+	return prog, res, nil
 }
 
 // stdTestOwnType reports that a test body of a stdlib module is being built.

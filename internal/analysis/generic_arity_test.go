@@ -12,6 +12,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/doctest"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -97,7 +98,7 @@ func TestGenericArity_TreeIsClean(t *testing.T) {
 		if err := os.WriteFile(path, []byte(plantedUnderApplication), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		doc := newManager(dir).Open("file://"+path, plantedUnderApplication)
+		doc := newManager(dir).Open(fileuri.FromPath(path), plantedUnderApplication)
 		if doc == nil || doc.Analysis == nil {
 			t.Fatal("planted positive did not analyze")
 		}
@@ -125,7 +126,7 @@ func TestGenericArity_TreeIsClean(t *testing.T) {
 				return readErr
 			}
 			dm := newManager(projectRootFor(root, path))
-			doc := dm.Open("file://"+path, string(content))
+			doc := dm.Open(fileuri.FromPath(path), string(content))
 			if doc == nil || doc.Analysis == nil {
 				return nil
 			}
@@ -172,7 +173,7 @@ func TestGenericArity_TreeIsClean(t *testing.T) {
 				if readErr != nil {
 					t.Fatal(readErr)
 				}
-				doc := newManager(dir).Open("file://"+entry, string(content))
+				doc := newManager(dir).Open(fileuri.FromPath(entry), string(content))
 				if doc == nil || doc.Analysis == nil {
 					continue
 				}
@@ -471,7 +472,7 @@ func diagnosticsFor(t *testing.T, src string) []analysis.TypeError {
 		t.Fatal(err)
 	}
 	dm.SetWorkspaceRoot(dir)
-	doc := dm.Open("file://"+path, src)
+	doc := dm.Open(fileuri.FromPath(path), src)
 	if doc == nil || doc.Analysis == nil {
 		t.Fatal("source did not analyze")
 	}

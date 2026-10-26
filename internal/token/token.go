@@ -298,7 +298,7 @@ func (t TokenType) String() string {
 //
 // Problem is set only on an ILLEGAL token whose lexer diagnosis is a
 // complete message (a malformed codepoint literal); the parser reports it
-// verbatim instead of "unexpected token".
+// verbatim instead of an "unexpected" error naming the token.
 //
 // EndCol is one past the source text of the last token a lexer step produced
 // (a string literal's closing quote, which its Lexeme leaves out), on line

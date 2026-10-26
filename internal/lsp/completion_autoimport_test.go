@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -145,7 +146,7 @@ func TestCompletion_AutoImportProjectFiles(t *testing.T) {
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)
 	s.docs.IndexWorkspace(context.Background())
-	uri := "file://" + filepath.Join(dir, "main.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 
 	items := completeIn(t, s, uri, "fn main() {\n    start_s"+cursorMark+"\n}\n").Items
 	it := mustItem(t, items, "server.start_server")

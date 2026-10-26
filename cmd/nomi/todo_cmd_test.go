@@ -49,7 +49,7 @@ pub fn size() -> Int {
 		t.Fatalf("nomi run with an unreached todo: exit %d\n%s", r.exit, r.transcript())
 	}
 
-	bin := filepath.Join(t.TempDir(), "app")
+	bin := exe(filepath.Join(t.TempDir(), "app"))
 	b := runProcess(t, env, dir, "", nomiBin, "build", entry, "-o", bin)
 	want := "nomi build: 2 todos remain:\n" +
 		"  header.nomi:2:5 todo \"parse the header\"\n" +

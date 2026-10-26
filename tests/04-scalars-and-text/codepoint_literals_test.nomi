@@ -24,7 +24,7 @@ test "escapes are the string escapes with the single quote in place of the doubl
     assert Codepoint.to_int('\'') == 39
     assert Codepoint.to_int('"') == 34
     assert Codepoint.to_int('\u{0}') == 0
-    assert Codepoint.to_int('\u{D}') == 13
+    assert Codepoint.to_int('\r') == 13
     assert Codepoint.to_int('\u{7F}') == 127
 }
 

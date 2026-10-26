@@ -297,5 +297,11 @@ func CallbackFailure(err error, goType string) string {
 		err, goType)
 }
 
+// Unwind is the panic value of a frame-taking Go callback (`func(fr
+// *rt.Frame, ...)`) whose Nomi function failed: the failure, a trap
+// included, unwinds to the host call the callback runs inside, and the
+// engine answers that call with Err as its own failure.
+type Unwind struct{ Err error }
+
 // Slot answers a pointer to s, for a DescSpec's Inner.
 func Slot(s rt.SlotType) *rt.SlotType { return &s }

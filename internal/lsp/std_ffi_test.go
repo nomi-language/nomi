@@ -11,6 +11,7 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 
 	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
 const stdFFIText = `import std/io
@@ -43,7 +44,7 @@ func TestRPC_StdLibraryGoBindings(t *testing.T) {
 	if err := os.WriteFile(path, []byte(stdFFIText), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + path
+	uri := fileuri.FromPath(path)
 	s := NewServer()
 	c := startRPC(t, s, dir)
 	c.open(uri, stdFFIText)
@@ -77,7 +78,7 @@ func TestRPC_StdLibraryGoBindings(t *testing.T) {
 		}
 		stdDir, _ := ffirun.StdPackageDir("strings")
 		want := filepath.Join(filepath.Dir(stdDir), wantFile)
-		if string(loc.URI) != "file://"+want {
+		if string(loc.URI) != fileuri.FromPath(want) {
 			t.Errorf("definition of %s = %+v; want %s", symbol, loc, want)
 		}
 	}

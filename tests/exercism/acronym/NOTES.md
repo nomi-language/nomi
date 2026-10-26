@@ -1,5 +1,7 @@
 # Acronym
 
+Subject: Strings & Text
+
 Build an acronym from the first letter of each word of a phrase, treating
 hyphens as word separators and ignoring other punctuation.
 

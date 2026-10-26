@@ -1,0 +1,561 @@
+// `nomi tool sqlkit prepare [--check]`, run at the root of a module that
+// uses sqlkit: for each database `[sqlkit.database.<name>]` configures (or,
+// with none configured, the module's one `database` declaration), apply
+// its migrations to a fresh in-memory SQLite database, describe every
+// `query` declaration of the module against it, and write the snapshot the
+// `query` and `database` macros read. With `--check` it writes nothing
+// and fails when a snapshot is not what it would write, for CI.
+//
+// A query SQLite rejects is recorded with SQLite's error, which the
+// compiler reports at the query; a migration SQLite rejects stops the tool
+// at the migration's line. A DECIMAL column SQLite cannot keep exactly (more
+// than 15 digits) or at its scale (none declared) is a warning.
+import {
+    std/fs
+    std/io
+    std/macro
+    sqlite/describe.{self, Migration}
+    sqlkit/databases.{self, Database}
+    sqlkit/snapshot.{self, Column, Query, QueryError, Snapshot, Table, TableColumn}
+    sqlkit/sqltext.{self, Kind, Token}
+    sqlkit/types
+}
+
+gopkg "github.com/nomi-language/nomi/lib/sql/sqlkit/toolside"
+
+fn config_text(root: String) -> Result<String, String> go toolside.Config
+
+fn list_files(
+    root: String,
+    dir: String,
+    suffix: String,
+) -> Result<List<String>, String> go toolside.Files
+
+struct App {
+    args: List<String>
+}
+
+fn boot(startup: Startup) -> Result<App, String> {
+    Ok(#App{args: startup.args})
+}
+
+fn main() -> Result<Unit, String> {
+    check = case App.args {
+        [] -> False
+        ["--check"] -> True
+        _ -> return Err("usage: nomi tool sqlkit prepare [--check]")
+    }
+
+    text = try config_text(".")
+    files = try sources(".")
+    dbs = try databases.of_module(macro.config(text), database_names(files))
+    found = files |> Iter.flat_map(fn #(file, text) -> declarations(file, text)) |> Iter.to_list()
+    stale = try prepare_all(dbs, dbs, found, check, [])
+
+    if check and !Iter.empty?(stale) {
+        Err("${String.join(stale, ", ")} would change: run `nomi tool sqlkit prepare`")
+    } else {
+        Ok(Unit)
+    }
+}
+
+fn prepare_all(
+    all: List<Database>,
+    dbs: List<Database>,
+    found: List<Found>,
+    check: Bool,
+    stale: List<String>,
+) -> Result<List<String>, String> {
+    case dbs {
+        [] ->
+            Ok(Iter.reverse(stale))
+
+        [db, ..rest] -> {
+            mine =
+                found
+                |> Iter.filter(fn q -> databases.for_file(all, q.file) == Ok(db))
+                |> Iter.to_list()
+
+            changed = try prepare(db, mine, check)
+
+            prepare_all(
+                all,
+                rest,
+                found,
+                check,
+                if changed {
+                    [db.snapshot, ..stale]
+                } else {
+                    stale
+                },
+            )
+        }
+    }
+}
+
+/// A `query` declaration as the tool finds it in a file.
+struct Found {
+    file: String
+    name: String
+    body: String
+}
+
+/// Every `.nomi` file of the module under root, with its text.
+fn sources(root: String) -> Result<List<#(String, String)>, String> {
+    files = try list_files(root, "", ".nomi")
+
+    files
+    |> Iter.map(fn file -> {
+        case fs.read_text(file) {
+            Ok(text) -> Ok(#(file, text))
+            Err(e) -> Err("${file}: ${e}")
+        }
+    })
+    |> Result.collect()
+}
+
+/// The names of the module's `database` declarations: at the start of a
+/// line, after an optional `pub`, a word ending in `database!`
+/// (`sqlkit.database!`, or `database!` after `import sqlkit.database`) and
+/// the name.
+fn database_names(files: List<#(String, String)>) -> List<String> {
+    files
+    |> Iter.flat_map(fn #(_, text) -> String.split(text, "\n"))
+    |> Iter.flat_map(fn line -> {
+        words = sqltext.cut_prefix(line, "pub ") |> String.words() |> Iter.to_list()
+
+        case words {
+            [keyword, name, .._] when String.ends_with?(keyword, "database!") -> {
+                [name |> Iter.take_while(fn c -> sqltext.name?(c)) |> String.join()]
+            }
+
+            _ ->
+                []
+        }
+    })
+    |> Iter.filter(fn name -> name != "")
+    |> Iter.to_list()
+}
+
+/// The heads a declaration of sqlkit's `query` macro starts with in the
+/// file, each with its `!`: `sqlkit.query!` after `import sqlkit`,
+/// `sk.query!` after `import sqlkit as sk`, and `query!` (or the name an
+/// `import sqlkit.{query as q}` gives it) after an item import.
+fn keywords(text: String) -> List<String> {
+    single =
+        String.split(text, "sqlkit.query")
+        |> Iter.drop(1)
+        |> Iter.map(fn after -> alias("query" + after))
+
+    grouped =
+        String.split(text, "sqlkit.{")
+        |> Iter.drop(1)
+        |> Iter.flat_map(fn after -> {
+            inside = String.split(after, "}") |> Iter.first() |> Maybe.with_default("")
+
+            String.split(inside, ",")
+            |> Iter.map(fn item -> alias(String.trim(item)))
+            |> Iter.filter(fn _ -> True)
+            |> Iter.to_list()
+        })
+
+    items =
+        Iter.concat(single, grouped)
+        |> Iter.filter(fn name -> name != "")
+        |> Iter.map(fn name -> name + "!")
+
+    renamed =
+        String.split(text, "sqlkit as ")
+        |> Iter.drop(1)
+        |> Iter.map(fn after -> String.words(after) |> Iter.first() |> Maybe.with_default(""))
+        |> Iter.filter(fn name -> name != "")
+        |> Iter.map(fn name -> name + ".query!")
+
+    qualified = if String.contains?(text, "sqlkit.query!") {
+        ["sqlkit.query!"]
+    } else {
+        []
+    }
+
+    Iter.concat(qualified, Iter.concat(items, renamed)) |> Iter.to_list()
+}
+
+// `query` or `query as q` at the start of item: the name it binds, or ""
+// for anything else.
+fn alias(item: String) -> String {
+    words = item |> String.words() |> Iter.to_list()
+
+    case words {
+        ["query", "as", name, .._] ->
+            name
+
+        ["query", .._] ->
+            "query"
+
+        _ ->
+            if String.starts_with?(item, "query\n") or item == "query" {
+                "query"
+            } else {
+                ""
+            }
+    }
+}
+
+/// The `query` declarations of one file: at the start of a line, the
+/// keyword with its `!` (after `pub`), the name, and the body between the
+/// first two backticks after it.
+fn declarations(file: String, text: String) -> List<Found> {
+    names = keywords(text)
+    if Iter.empty?(names) { return [] }
+    lines = String.split(text, "\n") |> Iter.to_vector()
+    count = Vector.length(lines)
+
+    Iter.from(0)
+    |> Iter.take(count)
+    |> Iter.flat_map(fn i -> {
+        line = Vector.get(lines, i) |> Maybe.with_default("")
+        head = sqltext.cut_prefix(line, "pub ")
+
+        keyword = Iter.find(names, fn k -> String.starts_with?(head, k + " "))
+
+        case keyword {
+            None ->
+                []
+
+            Some(k) -> {
+                rest = String.slice(head, String.length(k) + 1, String.length(head))
+                name = rest |> Iter.take_while(fn c -> sqltext.name?(c)) |> String.join()
+                after = lines |> Iter.drop(i) |> String.join("\n")
+
+                case String.split(after, "`") {
+                    [_, body, .._] when name != "" -> [#Found{file, name, body}]
+                    _ -> []
+                }
+            }
+        }
+    })
+    |> Iter.to_list()
+}
+
+/// Describe db's queries and write its snapshot, or with check compare it.
+/// Answers whether the snapshot changed.
+fn prepare(db: Database, found: List<Found>, check: Bool) -> Result<Bool, String> {
+    paths = try list_files(".", db.migrations, ".sql")
+
+    read =
+        paths
+        |> Iter.map(fn path -> {
+            fs.read_text(path)
+            |> Result.map(fn text -> #Migration{path, text})
+            |> Result.map_err(fn e -> "${path}: ${e}")
+        })
+        |> Result.collect()
+
+    migrations = try read
+
+    sorted = found |> Iter.sort_by(fn q -> "${q.file}\u{0}${q.name}")
+    tokens = sorted |> Iter.map(fn q -> sqltext.tokens(q.body)) |> Iter.to_list()
+    statements = tokens |> Iter.map(fn t -> sqltext.sqlite_sql(sqltext.parts(t))) |> Iter.to_list()
+    described = describe.describe(migrations, statements)
+
+    if described.error != "" {
+        text =
+            migrations
+            |> Iter.find(fn m -> m.path == described.migration)
+            |> Maybe.map(fn m -> m.text)
+            |> Maybe.with_default("")
+
+        line = line_of_byte(text, described.offset)
+        return Err("${described.migration}:${line}: ${described.error}")
+    }
+
+    tables = described.tables |> Iter.map(fn t -> table(t, migrations)) |> Iter.to_list()
+
+    Iter.each(tables, fn t -> {
+        Iter.each(t.columns, fn c -> {
+            case decimal_warning(t.name, c) {
+                Some(w) ->
+                    io.print("warning: ${c.migration}:${c.line}: ${w}")
+
+                None -> {}
+            }
+        })
+    })
+
+    queries =
+        Iter.zip(Iter.zip(sorted, tokens), Iter.zip(statements, described.statements))
+        |> Iter.map(fn #(#(q, toks), #(sql, s)) -> query(q, toks, sql, s))
+        |> Iter.to_list()
+
+    snap = #Snapshot{
+        format: snapshot.format,
+        database: db.name,
+        dialect: "sqlite",
+        migrations: migrations
+        |> Iter.map(fn m -> #(m.path, m.text))
+        |> Iter.to_list()
+        |> snapshot.migrations_checksum(),
+        tables,
+        queries,
+    }
+
+    text = Snapshot.write(snap)
+    old = fs.read_text(db.snapshot) |> Result.with_default("")
+    errors = queries |> Iter.filter(fn q -> q.error != None) |> Iter.count()
+
+    summary = "${Iter.count(tables)} tables, ${Iter.count(
+        queries
+    )} queries (${errors} SQLite rejects)"
+
+    if check {
+        if old == text {
+            io.print("${db.snapshot} is up to date: ${summary}")
+        } else {
+            io.print("${db.snapshot} is out of date")
+        }
+
+        return Ok(old != text)
+    }
+
+    if old == text {
+        io.print("${db.snapshot} is up to date: ${summary}")
+    } else {
+        written = fs.write_text(db.snapshot, text) |> Result.map_err(fn e -> "${db.snapshot}: ${e}")
+        try written
+        io.print("wrote ${db.snapshot}: ${summary}")
+    }
+
+    Ok(old != text)
+}
+
+/// What is wrong with a `DECIMAL` or `NUMERIC` column SQLite cannot keep
+/// exactly, or keep at its scale. SQLite has no decimal type: it stores
+/// such a column's values as 64-bit floats, exact to 15 digits, and the
+/// driver refuses a value it cannot write or read exactly.
+fn decimal_warning(table: String, c: TableColumn) -> Maybe<String> {
+    is_decimal = types.of(c.type_name) |> Maybe.map(fn f -> f.reader == "numeric") == Some(True)
+    if !is_decimal { return None }
+
+    case types.precision_and_scale(c.type_name) {
+        None ->
+            Some(
+                "`${table}.${c.name}` is ${c.type_name} with no scale, so a value reads back at its shortest scale (12.5, not 12.50): declare DECIMAL(p, s)"
+            )
+
+        Some(#(p, _)) when p > 15 ->
+            Some(
+                "`${table}.${c.name}` is ${c.type_name}, but SQLite stores a DECIMAL as a 64-bit float, exact to 15 digits, and the driver refuses a longer value: declare at most DECIMAL(15, s), or keep the amount as INTEGER minor units (cents)"
+            )
+
+        _ ->
+            None
+    }
+}
+
+/// The line, from 1, of byte `offset` of text.
+fn line_of_byte(text: String, offset: Int) -> Int {
+    if offset < 0 { return 1 }
+    bytes = String.to_bytes(text)
+
+    before =
+        Bytes.slice(bytes, 0, Int.min(offset, Bytes.length(bytes)))
+        |> Bytes.to_string()
+        |> Result.with_default("")
+
+    Iter.count(String.split(before, "\n"))
+}
+
+/// The line, from 1, where token `index` of tokens starts in text.
+fn line_at(text: String, index: Int) -> Int {
+    #(line, _) = sqltext.position(text, index)
+    line + 1
+}
+
+fn table(t: describe.Table, migrations: List<Migration>) -> Table {
+    values = enum_values(t.sql)
+    migration_text = text_of(migrations, t.migration)
+    table_line = line_of_word(migration_text, t.name, "")
+
+    columns =
+        t.columns
+        |> Iter.map(fn c -> {
+            column_text = text_of(migrations, c.migration)
+
+            #TableColumn{
+                name: c.name,
+                type_name: c.declared,
+                nullable: !c.not_null and !(c.primary_key and String.to_upper(
+                    c.declared
+                ) == "INTEGER"),
+                primary_key: c.primary_key,
+                has_default: c.has_default,
+                values: Map.get(values, c.name) |> Maybe.with_default([]),
+                migration: c.migration,
+                line: line_of_word(column_text, c.name, t.name),
+            }
+        })
+        |> Iter.to_list()
+
+    #Table{name: t.name, migration: t.migration, line: table_line, columns}
+}
+
+fn text_of(migrations: List<Migration>, path: String) -> String {
+    migrations
+    |> Iter.find(fn m -> m.path == path)
+    |> Maybe.map(fn m -> m.text)
+    |> Maybe.with_default("")
+}
+
+/// The line, from 1, of the first word `word` in text after the first word
+/// `after` (anywhere when `after` is ""), or 1.
+fn line_of_word(text: String, word: String, after: String) -> Int {
+    tokens = sqltext.tokens(text)
+
+    start = if after == "" {
+        0
+    } else {
+        tokens
+        |> Iter.find(fn t -> t.kind == Kind.Word and same?(t.text, after))
+        |> Maybe.map(fn t -> t.end)
+        |> Maybe.with_default(0)
+    }
+
+    tokens
+    |> Iter.find(fn t -> {
+        t.start >= start and (t.kind == Kind.Word or t.kind == Kind.Quoted) and same?(
+            unquote(t.text),
+            word,
+        )
+    })
+    |> Maybe.map(fn t -> line_at(text, t.start))
+    |> Maybe.with_default(1)
+}
+
+fn same?(a: String, b: String) -> Bool {
+    String.to_lower(a) == String.to_lower(b)
+}
+
+fn unquote(text: String) -> String {
+    text |> sqltext.cut_prefix("\"") |> sqltext.cut_suffix("\"")
+}
+
+/// The values each column's `CHECK (column IN ('a', 'b'))` allows, from
+/// the table's `CREATE TABLE` statement.
+fn enum_values(create: String) -> Map<String, List<String>> {
+    words = sqltext.tokens(create) |> Iter.filter(fn t -> t.kind != Kind.Space) |> Iter.to_vector()
+    count = Vector.length(words)
+
+    Iter.from(0)
+    |> Iter.take(count)
+    |> Iter.flat_map(fn i -> {
+        at = fn k: Int -> {
+            Vector.get(words, i + k) |> Maybe.map(fn t -> t.text) |> Maybe.with_default("")
+        }
+
+        if same?(at(0), "CHECK") and at(1) == "(" and same?(at(3), "IN") and at(4) == "(" {
+            values = read_values(words, i + 5, [])
+
+            case values {
+                Some(vs) -> [#(unquote(at(2)), vs)]
+                None -> []
+            }
+        } else {
+            []
+        }
+    })
+    |> Iter.to_map()
+}
+
+// The string literals from i to the closing parenthesis, or None when
+// something else is there.
+fn read_values(words: Vector<Token>, i: Int, acc: List<String>) -> Maybe<List<String>> {
+    case Vector.get(words, i) {
+        Some(t) when t.kind == Kind.Text -> {
+            value =
+                t.text
+                |> sqltext.cut_prefix("'")
+                |> sqltext.cut_suffix("'")
+                |> String.replace("''", "'")
+
+            read_values(words, i + 1, [value, ..acc])
+        }
+
+        Some(t) when t.text == "," ->
+            read_values(words, i + 1, acc)
+
+        Some(t) when t.text == ")" and !Iter.empty?(acc) ->
+            Some(Iter.reverse(acc))
+
+        _ ->
+            None
+    }
+}
+
+/// A query's entry in the snapshot.
+fn query(found: Found, tokens: List<Token>, sql: String, s: describe.Statement) -> Query {
+    if s.error != "" {
+        return #Query{
+            file: found.file,
+            name: found.name,
+            sql,
+            params: 0,
+            columns: [],
+            error: Some(#QueryError{message: s.error, offset: s.offset}),
+        }
+    }
+
+    // The tables an outer join may leave out: SQLite's plan marks each
+    // `LEFT-JOIN`; a RIGHT or FULL join may leave out any of them.
+    outer =
+        s.plan
+        |> Iter.filter(fn line -> String.contains?(line, "LEFT-JOIN"))
+        |> Iter.map(plan_alias)
+        |> Iter.to_list()
+
+    names = sqltext.table_names(tokens)
+
+    nullable_tables =
+        names
+        |> Iter.filter(fn #(_, a) -> Iter.contains?(outer, a))
+        |> Iter.map(fn #(t, _) -> t)
+        |> Iter.to_list()
+
+    all_outer = sqltext.right_or_full_join?(tokens)
+    items = sqltext.select_items(tokens) |> Iter.to_vector()
+    aligned = Vector.length(items) == Iter.count(s.columns)
+
+    columns =
+        s.columns
+        |> Iter.with_index()
+        |> Iter.map(fn #(i, c) -> {
+            from_table = c.table != "" and c.origin != ""
+            outer_joined = all_outer or Iter.contains?(nullable_tables, c.table)
+
+            // SQLite declares no type for an expression; one `CAST` to a type
+            // declares it, which is how a sum keeps its DECIMAL scale.
+            cast = if aligned and c.declared == "" and !from_table {
+                Vector.get(items, i) |> Maybe.flat_map(sqltext.cast_type)
+            } else {
+                None
+            }
+
+            #Column{
+                name: c.name,
+                type_name: Maybe.with_default(cast, c.declared),
+                table: c.table,
+                column: c.origin,
+                nullable: !from_table or !c.not_null or outer_joined,
+            }
+        })
+        |> Iter.to_list()
+
+    #Query{file: found.file, name: found.name, sql, params: s.params, columns, error: None}
+}
+
+// The table a plan line names: `SEARCH u USING ...` names `u`.
+fn plan_alias(line: String) -> String {
+    case String.words(line) |> Iter.to_list() {
+        [_, name, .._] -> name
+        _ -> ""
+    }
+}

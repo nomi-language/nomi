@@ -1,0 +1,25 @@
+import {
+    resistor_color_duo
+    resistor_color_duo.Color
+}
+
+test "value" {
+    cases = [
+        #("Brown and black", [Color.Brown, .Black], 10),
+        #("Blue and grey", [.Blue, .Grey], 68),
+        #("Yellow and violet", [.Yellow, .Violet], 47),
+        #("White and red", [.White, .Red], 92),
+        #("Orange and orange", [.Orange, .Orange], 33),
+        #("Ignore additional colors", [.Green, .Brown, .Orange], 51),
+        #("Black and brown, one-digit", [.Black, .Brown], 1),
+    ]
+
+    subtests cases, #(description, bands, expected), description {
+        assert resistor_color_duo.value(bands) == Some(expected)
+    }
+}
+
+// Not a canonical case: the exercise always gives at least two bands.
+test "fewer than two bands have no value" {
+    assert resistor_color_duo.value([Color.Brown]) == None
+}

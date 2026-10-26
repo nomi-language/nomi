@@ -256,8 +256,9 @@ export default function rehypeShiki() {
             // node's meta; the client reads these attributes to show the
             // "Expected error" badge, to give a ```nomi-run manual block a
             // Run button, to show a ```nomi-run expand block's expansion as
-            // its output, and to make the data files a `read-only:<glob>`
-            // word matches read-only.
+            // its output, to make the data files a `read-only:<glob>`
+            // word matches read-only, and to run a `tool:<module>/<name>`
+            // word's tool before each run.
             const words = String(code.data?.meta || "").split(/\s+/);
             if (hasClass(code, "language-nomi-run")) {
               const props = { ...(child.properties || {}) };
@@ -266,6 +267,9 @@ export default function rehypeShiki() {
               if (words.includes("expand")) props.dataNomiExpand = "1";
               const readOnly = words.filter((w) => w.startsWith("read-only:")).map((w) => w.slice("read-only:".length));
               if (readOnly.length) props.dataNomiReadOnly = readOnly.join(" ");
+              // ```nomi-run tool:<module>/<name>: the tools each run runs first.
+              const tools = words.filter((w) => w.startsWith("tool:")).map((w) => w.slice("tool:".length));
+              if (tools.length) props.dataNomiTools = tools.join(" ");
               child.properties = props;
             }
             if (hasClass(code, "language-nomi-run")) {

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/sourcegraph/jsonrpc2"
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -265,7 +266,9 @@ func (h *rpcHandler) glspContext(ctx context.Context, conn *jsonrpc2.Conn, req *
 		},
 	}
 	if req.Params != nil {
-		gctx.Params = *req.Params
+		// A document is keyed by its URI, and a Windows client spells one
+		// URI several ways (fileuri.Canonical).
+		gctx.Params = fileuri.CanonicalJSON(*req.Params)
 	}
 	return gctx
 }

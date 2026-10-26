@@ -1,5 +1,7 @@
 # Collatz Conjecture
 
+Subject: Numbers & Math
+
 Count the Collatz steps that take a positive integer to 1.
 
 Adapted from Exercism problem-specifications (MIT), exercises/collatz-conjecture.

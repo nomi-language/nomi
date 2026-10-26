@@ -1,0 +1,7 @@
+// The shop's database: `User` and `Order` rows, the `OrderStatus` enum,
+// and `migrations`, all generated from db/main.snapshot.json (see them with
+// `nomi expand schema.nomi`).
+import sqlkit
+
+/// The shop's SQLite database.
+pub sqlkit.database! main

@@ -119,6 +119,10 @@ type reachWalk struct {
 	// being visited.
 	parent map[*ir.Func]*ir.Func
 	cur    *ir.Func
+	// via, recorded with parent, is the instruction of parent's body that
+	// reached each function; at is the instruction being visited.
+	via map[*ir.Func]ir.Instr
+	at  ir.Instr
 }
 
 // keyBodies queues every recorded Equatable and Hashable body, once.
@@ -146,6 +150,9 @@ func (w *reachWalk) push(f *ir.Func) {
 	w.seen[f] = true
 	if w.parent != nil && w.cur != nil {
 		w.parent[f] = w.cur
+		if w.via != nil {
+			w.via[f] = w.at
+		}
 	}
 	w.queue = append(w.queue, f)
 }
@@ -170,6 +177,7 @@ func (w *reachWalk) symbol(sym *ir.Symbol, from string, kind UnretainedKind) {
 func (w *reachWalk) visit(f *ir.Func) {
 	for _, b := range f.Blocks() {
 		for _, in := range b.Instrs() {
+			w.at = in
 			if w.effects != nil {
 				if e := effectOf(in, f.Name()); e != "" {
 					w.effects[e] = true

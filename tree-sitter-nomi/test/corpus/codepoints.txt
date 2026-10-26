@@ -20,12 +20,17 @@ once quote = '\''
 once backslash = '\\'
 once newline = '\n'
 once tab = '\t'
+once cr = '\r'
 once del = '\u{7F}'
 once dquote = '"'
 
 ---
 
 (source_file
+  (once_binding
+    (identifier)
+    (codepoint
+      (escape_sequence)))
   (once_binding
     (identifier)
     (codepoint

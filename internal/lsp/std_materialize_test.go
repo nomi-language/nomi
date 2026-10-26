@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/stdcache"
 	"github.com/nomi-language/nomi/std"
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -77,7 +78,7 @@ func (c *rpcClient) definition(uri string, pos protocol.Position) protocol.Locat
 // lineAt is line (zero-based) of the file uri names.
 func lineAt(t *testing.T, uri protocol.DocumentUri, line uint32) string {
 	t.Helper()
-	data, err := os.ReadFile(strings.TrimPrefix(string(uri), "file://"))
+	data, err := os.ReadFile(fileuri.ToPath(string(uri)))
 	if err != nil {
 		t.Fatalf("definition target: %v", err)
 	}
@@ -106,7 +107,7 @@ func TestStdMaterialize_TwoServersWriteTwoVersions(t *testing.T) {
 	if err := os.WriteFile(path, []byte(someImport), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + path
+	uri := fileuri.FromPath(path)
 	somePos := protocol.Position{Line: 0, Character: 24}
 
 	a := startRPC(t, materializedServer(cacheRoot, current), dir)
@@ -119,8 +120,8 @@ func TestStdMaterialize_TwoServersWriteTwoVersions(t *testing.T) {
 	b.waitDiagnostics(uri)
 	locB := b.definition(uri, somePos)
 
-	pathA := strings.TrimPrefix(string(locA.URI), "file://")
-	pathB := strings.TrimPrefix(string(locB.URI), "file://")
+	pathA := fileuri.ToPath(string(locA.URI))
+	pathB := fileuri.ToPath(string(locB.URI))
 	if filepath.Base(pathA) != "maybe.nomi" || filepath.Base(pathB) != "maybe.nomi" {
 		t.Fatalf("definitions land in %s and %s, want maybe.nomi", pathA, pathB)
 	}
@@ -178,7 +179,7 @@ func TestStdBuffer_ChangedTextStaysInItsOwnBuffer(t *testing.T) {
 			if err := os.WriteFile(path, []byte(regexUser), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			uri := "file://" + path
+			uri := fileuri.FromPath(path)
 			s := materializedServer(filepath.Join(t.TempDir(), "std"), stdSourceFS(t))
 			c := startRPC(t, s, dir)
 			c.open(uri, regexUser)
@@ -186,10 +187,10 @@ func TestStdBuffer_ChangedTextStaysInItsOwnBuffer(t *testing.T) {
 				t.Fatalf("the user file reports %v before any std buffer is open", p.msgs)
 			}
 
-			stdURI := "file://" + filepath.Join(stdRoot, "regex.nomi")
+			stdURI := fileuri.FromPath(filepath.Join(stdRoot, "regex.nomi"))
 			if shape == "materialized" {
 				stdURI = string(c.definition(uri, protocol.Position{Line: 0, Character: 18}).URI)
-				if !strings.HasSuffix(stdURI, "/regex.nomi") || strings.HasPrefix(stdURI, "file://"+stdRoot) {
+				if !strings.HasSuffix(stdURI, "/regex.nomi") || strings.HasPrefix(stdURI, fileuri.FromPath(stdRoot)) {
 					t.Fatalf("definition of Regex lands in %s, want the materialized regex.nomi", stdURI)
 				}
 			}
@@ -248,7 +249,7 @@ func TestStdCheckout_ChangedFileJumpsToTheMaterializedCopy(t *testing.T) {
 	if err := os.WriteFile(path, []byte(someAndRegex), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + path
+	uri := fileuri.FromPath(path)
 	c := startRPC(t, s, dir)
 	c.open(uri, someAndRegex)
 	c.waitDiagnostics(uri)
@@ -260,7 +261,7 @@ func TestStdCheckout_ChangedFileJumpsToTheMaterializedCopy(t *testing.T) {
 	jump := func(pos protocol.Position, under, rel, name string) {
 		t.Helper()
 		loc := c.definition(uri, pos)
-		got := strings.TrimPrefix(string(loc.URI), "file://")
+		got := fileuri.ToPath(string(loc.URI))
 		if r, err := filepath.Rel(under, got); err != nil || r != rel {
 			t.Fatalf("definition of %s lands in %s, want %s under %s", name, got, rel, under)
 		}

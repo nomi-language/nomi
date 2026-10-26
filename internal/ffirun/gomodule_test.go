@@ -49,7 +49,7 @@ func TestGoImportProblem_NoGoMod(t *testing.T) {
 		t.Skip("a go.mod above the temp directory provides a module")
 	}
 	nomiPath := filepath.Join(t.TempDir(), "main.nomi")
-	want := "no go.mod above the declaring file, so no Go module provides it"
+	want := "not in the Go standard library, and no go.mod above the declaring file provides it"
 	if why := GoImportProblem(nomiPath, "example.com/x"); why != want {
 		t.Fatalf("got %q, want %q", why, want)
 	}

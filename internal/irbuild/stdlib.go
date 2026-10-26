@@ -432,7 +432,36 @@ func kindOfGoType(t reflect.Type) kind {
 	if k := mapKindOfGoType(t); k != kindInvalid {
 		return k
 	}
+	// kindInvalid: lookup — "not a frame-taking Go callback", so fall through.
+	if k := funcKindOfGoType(t); k != kindInvalid {
+		return k
+	}
 	return preludeKindOfGoType(t)
+}
+
+// funcKindOfGoType is the function kind of a frame-taking Go callback, `func(fr
+// *rt.Frame, A...) R`, or kindInvalid. The frame is the callback's own
+// threading, as it is a host function's (hostFnFor), so it takes no Nomi
+// parameter: `func(*rt.Frame) rt.Result[rt.Maybe[rt.Bytes], rt.IOError]` is
+// `() -> Result<Maybe<Bytes>, Error>`. A callback without the frame is not
+// admitted: the generated adapter would call it back on the frame of the
+// call that made it, which a value kept past that call (a Reader.from_fn
+// reader) has left.
+func funcKindOfGoType(t reflect.Type) kind {
+	if t == nil || t.Kind() != reflect.Func || t.IsVariadic() || t.NumOut() != 1 ||
+		t.NumIn() == 0 || t.In(0) != reflect.TypeFor[*rt.Frame]() {
+		return kindInvalid
+	}
+	params := make([]kind, 0, t.NumIn()-1)
+	for i := 1; i < t.NumIn(); i++ {
+		k := kindOfGoType(t.In(i))
+		// kindInvalid: propagates — a parameter outside the representable set.
+		if k == kindInvalid {
+			return kindInvalid
+		}
+		params = append(params, k)
+	}
+	return funcKindIn(nil, params, kindOfGoType(t.Out(0)))
 }
 
 // listKindOfGoType is the kind an rt signature's `*rt.List[T]` names, or
@@ -2377,6 +2406,14 @@ func callArityMin(f *stdFunc) int {
 // Nomi's own import graph cannot supply that guarantee — std/strings and std/iter
 // import each other.
 func newStdGen(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAnalysis, cands []*stdCandidate, settled map[*stdCandidate]bool, onces []*stdOnce, earlier *stdlibIndex) *gen {
+	return newStdGenIn(module, path, pkg, nodes, fa, cands, settled, onces, earlier, nil)
+}
+
+// newStdGenIn is newStdGen for a gen inside a program's lowering (in, nil
+// for none): a shared module's cases that import listed std modules
+// (stdtests.go). It joins the program before its types are built, since a
+// case's block import of a listed module's type is bound then.
+func newStdGenIn(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAnalysis, cands []*stdCandidate, settled map[*stdCandidate]bool, onces []*stdOnce, earlier *stdlibIndex, in *programBuild) *gen {
 	g := &gen{nomiPath: path, pkg: pkg, // stdModule, so this gen can answer "which stdlib module am I". The
 		// module name is the caller's — buildStdlibIndex takes it from
 		// std.Load()'s keys — and a user gen never reaches this constructor, so
@@ -2393,6 +2430,14 @@ func newStdGen(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAnal
 		// TestStdModuleView_PopulatesNodes and
 		// TestIterAnchor_DeclaringModuleFailsProvenanceAndNotShape hold it.
 		nodes: nodes, funcs: map[string]*fnSig{}, types: map[string]*typeDef{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}, anonTids: map[kind]bool{}}
+	if in != nil {
+		g.reg, g.files, g.impls, g.stdInsts = in.reg, in.files, in.impls, in.insts
+		// Past the program's units: every file of the program is another
+		// file to this gen, and none is its own.
+		g.fileUnit = in.units
+		g.foreignDefs = map[ast.Node]*typeDef{}
+		g.foreignIfaces = map[ast.Node]*ifaceDef{}
+	}
 	// Eager for newGen's reason.
 	g.loadPreludes()
 	g.pushScope()

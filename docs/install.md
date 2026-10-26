@@ -62,7 +62,8 @@ A release archive's `nomi` (once releases are published) and a `go
 install`ed one need nothing else for a project without Go bindings, its
 dependencies included: `nomi` fetches the modules `go.mod` requires through
 the Go module proxy itself (`nomi add`, `nomi fetch`). `nomi new` starts a
-project, and `nomi` writes its `go.mod` and `go.sum` from then on.
+project (`nomi init` makes an existing directory one), and `nomi` writes its
+`go.mod` and `go.sum` from then on.
 
 A project with Go bindings, its own or a dependency's, is built with Go. With
 a `go` on `PATH`, `nomi` uses it. With none, `nomi` downloads the Go release
@@ -75,3 +76,22 @@ yourself. The editor's language server never downloads modules or Go: run
 needs, so the editor finds every module and `--offline` commands need no
 network. Go bindings
 build without cgo, so a Go package that calls C cannot be bound.
+
+## Windows
+
+Nomi builds for Windows (amd64) and has not yet been run there. Every
+package cross-compiles, and CI has Windows jobs that run the whole test
+suite, which have not reported yet; treat Windows as untested. The commands
+above are the same in PowerShell, and install `nomi.exe` and
+`nomi-lsp.exe` to `%USERPROFILE%\go\bin`. Set Git's `core.autocrlf` to
+`false` before cloning if you will run the tests, since their recorded
+output has LF line ends; Nomi itself reads source with either.
+
+Where Windows differs:
+
+- `nomi build` with no `-o` writes `<entry>.exe`.
+- The managed Go toolchain is kept in `%LocalAppData%\nomi\go`.
+- Paths in a Nomi program use `/`, and std/fs also takes `\`; a drive is
+  `C:/Users`.
+- The debugger's integrated terminal needs Windows 10 version 1803 or later
+  (it connects over a Unix socket).

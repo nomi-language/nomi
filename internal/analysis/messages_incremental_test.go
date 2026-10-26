@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
 // messagesProject is a project with a `message` file and its catalogs, in a
@@ -63,7 +64,9 @@ var messagesEdits = []editStep{
 // document.
 func TestOpenDocumentCatalogEditsMatchFreshBuilds(t *testing.T) {
 	p := messagesProject(t)
-	uri := func(key string) string { return "file://" + filepath.Join(p.dir, filepath.FromSlash(key)+".nomi") }
+	uri := func(key string) string {
+		return fileuri.FromPath(filepath.Join(p.dir, filepath.FromSlash(key)+".nomi"))
+	}
 	dm := newManager()
 	cur := map[string]string{}
 	for key, text := range p.texts {
@@ -89,7 +92,7 @@ func TestOpenDocumentCatalogEditsMatchFreshBuilds(t *testing.T) {
 			}
 			dm.InputsChanged(path)
 		} else {
-			if err := os.WriteFile(strings.TrimPrefix(uri(s.key), "file://"), []byte(text), 0o644); err != nil {
+			if err := os.WriteFile(fileuri.ToPath(uri(s.key)), []byte(text), 0o644); err != nil {
 				t.Fatal(err)
 			}
 			dm.Update(uri(s.key), text)

@@ -362,7 +362,8 @@ fn ping() -> String go missing.Ping
 	wantParts := []string{
 		"nomi FFI binding validation failed",
 		`main.nomi:1:8`,
-		`Go package "example.com/missing/pkg" is not provided`,
+		`Go package "example.com/missing/pkg" is outside the project's own Go module app`,
+		"run `nomi add example.com/missing/pkg` to add its module",
 	}
 	for _, want := range wantParts {
 		if !strings.Contains(msg, want) {

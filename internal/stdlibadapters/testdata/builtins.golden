@@ -455,7 +455,7 @@
 "strings.String.repeat#3(\"x\", -1)"	"fault strings.String.repeat: negative count -1"
 "strings.String.to_literal#0(\"\")"	"value String(\"\\\"\\\"\")"
 "strings.String.to_literal#1(\"plain é 🙂\")"	"value String(\"\\\"plain é 🙂\\\"\")"
-"strings.String.to_literal#2(\"a\\tb\\nc\\u{d}d\")"	"value String(\"\\\"a\\\\tb\\\\nc\\\\u{d}d\\\"\")"
+"strings.String.to_literal#2(\"a\\tb\\nc\\rd\")"	"value String(\"\\\"a\\\\tb\\\\nc\\\\rd\\\"\")"
 "strings.String.to_literal#3(\"q\\\"b\\\\s\")"	"value String(\"\\\"q\\\\\\\"b\\\\\\\\s\\\"\")"
 "strings.String.to_literal#4(\"$5 \\${x} \\\\\\${y}\")"	"value String(\"\\\"$5 \\\\${x} \\\\\\\\\\\\${y}\\\"\")"
 "strings.String.to_literal#5(\"\\u{0}\\u{1f}\\u{7f}\")"	"value String(\"\\\"\\\\u{0}\\\\u{1f}\\\\u{7f}\\\"\")"

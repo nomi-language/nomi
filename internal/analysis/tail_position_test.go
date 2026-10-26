@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 )
@@ -551,7 +552,7 @@ func TestMarkTailCalls_RunsViaLSPDocumentPipeline(t *testing.T) {
 	}
 
 	dm := NewDocumentManager()
-	doc := dm.Open("file://"+path, src)
+	doc := dm.Open(fileuri.FromPath(path), src)
 	if doc == nil {
 		t.Fatal("Open returned nil document")
 	}

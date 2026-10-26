@@ -13,16 +13,16 @@ import (
 // binding it where a `(String) -> Maybe<Int>` is expected is a mismatch (spec
 // §5, *Default Arguments*: "Defaults apply to calls, not to function values").
 // A call through the value passes every argument: after `g = parse`, `g("1")`
-// is an error. A lambda that calls it states which arguments the defaults
-// fill. A lambda's own defaults and a partial's open defaults belong to
-// the name the value is bound to and its copies: a call through any other
+// is an error. A capture or lambda that calls it states which arguments the
+// defaults fill. A lambda's own defaults and a partial's open defaults belong
+// to the name the value is bound to and its copies: a call through any other
 // value with no declaration behind it passes every argument (checkCall,
 // calleeIsNamelessValue, calleeCopiesADeclaration).
 
 // defaultedFuncValueHint is the hint appended to a mismatch between an
 // expected function type and a function value that has the expected
 // parameters plus defaulted ones, or "" for any other mismatch. arg is the
-// value's expression, used to name it in the suggested lambda and, for a
+// value's expression, used to name it in the suggested capture and, for a
 // named function, to count its defaults, which its value's type does not
 // carry (funcValueType).
 func (c *checker) defaultedFuncValueHint(expected, got Type, arg ast.Node) string {
@@ -55,13 +55,17 @@ func (c *checker) defaultedFuncValueHint(expected, got Type, arg ast.Node) strin
 	if name == "" {
 		name = "f"
 	}
-	params := make([]string, n)
-	for i := range params {
-		params[i] = string(rune('a' + i))
+	if n == 0 {
+		// A capture uses at least `&1`, so a function of no arguments is a
+		// lambda.
+		return "defaults do not apply to a function value, so pass a lambda that calls it: fn -> " + name + "()"
 	}
-	list := strings.Join(params, ", ")
-	return "defaults do not apply to a function value, so pass a lambda that calls it: fn " +
-		list + " -> " + name + "(" + list + ")"
+	holes := make([]string, n)
+	for i := range holes {
+		holes[i] = fmt.Sprintf("&%d", i+1)
+	}
+	return "defaults do not apply to a function value, so pass a capture that calls it: &" +
+		name + "(" + strings.Join(holes, ", ") + ")"
 }
 
 // namedFuncParams answers the declared parameters of the function node names

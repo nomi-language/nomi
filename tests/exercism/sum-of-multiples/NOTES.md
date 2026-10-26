@@ -1,5 +1,7 @@
 # Sum of Multiples
 
+Subject: Numbers & Math
+
 Sum the distinct multiples, below a limit, of any of a list of factors.
 
 Adapted from Exercism problem-specifications (MIT), exercises/sum-of-multiples.

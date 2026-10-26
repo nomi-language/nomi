@@ -1,5 +1,7 @@
 # Saddle Points
 
+Subject: Grids & Matrices
+
 Find the cells of a grid that are the largest in their row and the smallest in their column.
 
 Adapted from Exercism problem-specifications (MIT), exercises/saddle-points.

@@ -1,5 +1,7 @@
 # Triangle
 
+Subject: Numbers & Math
+
 Classify a triangle by its three side lengths as equilateral, isosceles or scalene.
 
 Adapted from Exercism problem-specifications (MIT), exercises/triangle.

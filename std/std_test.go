@@ -2,6 +2,7 @@ package std
 
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -127,7 +128,7 @@ func TestNestedStdlibSourceVisibility(t *testing.T) {
 	lib := &StdLib{}
 	uri := lib.FileURI(fixtureModule)
 	wantPath := materialized().Location("_fixtures/nested/deeper/module.nomi")
-	if uri != "file://"+wantPath {
+	if uri != fileuri.FromPath(wantPath) {
 		t.Fatalf("FileURI(%s) = %q, want file URI for %q", fixtureModule, uri, wantPath)
 	}
 	materialized, err := os.ReadFile(wantPath)
@@ -152,7 +153,7 @@ func TestFileURI_UsesTheWorktreeSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StdlibPath: %v", err)
 	}
-	want := "file://" + filepath.Join(stdRoot, "regex.nomi")
+	want := fileuri.FromPath(filepath.Join(stdRoot, "regex.nomi"))
 	if uri != want {
 		t.Fatalf("FileURI(regex) = %q, want %q", uri, want)
 	}

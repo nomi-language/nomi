@@ -17,9 +17,9 @@ once numerals = [
 /// `number` in Roman numerals. Each numeral, largest first, is written as
 /// many times as it fits into what is left.
 pub fn roman(number: Int) -> String {
-    #(_, text) = Iter.reduce(numerals, fn #(left, text) = #(number, ""), #(value, symbol) -> {
-        #(left % value, text + String.repeat(symbol, left / value))
+    #(parts, _left) = Iter.map_reduce(numerals, fn left = number, #(value, symbol) -> {
+        #(String.repeat(symbol, left / value), left % value)
     })
 
-    text
+    String.join(parts)
 }

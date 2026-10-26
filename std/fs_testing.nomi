@@ -517,7 +517,7 @@ fn rule_lines(dir: String) -> Maybe<String> {
     p = path.join(dir, "lines.txt")
 
     first([
-        check("write", fs.write_text(p, "one\ntwo\u{d}\n\nlast"), Ok(Unit)),
+        check("write", fs.write_text(p, "one\ntwo\r\n\nlast"), Ok(Unit)),
         check(
             "lines",
             fs.lines(p)

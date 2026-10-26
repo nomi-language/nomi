@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -112,7 +113,7 @@ func TestCompletion_NamedArgumentsOfImportedFunctions(t *testing.T) {
 	})
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)
-	uri := "file://" + filepath.Join(dir, "main.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 
 	items := completeIn(t, s, uri, "import net\n\nfn main() {\n    x = net.dial(\"h\", ‸)\n}\n").Items
 	if got := namedLabels(itemLabels(items)); !slices.Equal(got, []string{"retries:"}) {

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/analyzedlowering"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/vmhost"
 	"github.com/tliron/glsp"
@@ -52,7 +53,7 @@ func openLoweringDoc(t *testing.T, src string) (*Server, string, string, chan []
 		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	path := filepath.Join(dir, "main.nomi")
-	uri := "file://" + path
+	uri := fileuri.FromPath(path)
 	s := NewServer()
 	published := make(chan []protocol.Diagnostic, 64)
 	s.notify = func(method string, params any) {

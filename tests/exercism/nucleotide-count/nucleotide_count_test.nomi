@@ -1,25 +1,27 @@
 import nucleotide_count.{self, Nucleotide}
 
-test "empty strand" {
-    assert nucleotide_count.counts("") == Ok(%{Nucleotide.A => 0, .C => 0, .G => 0, .T => 0})
-}
+test "nucleotide counts" {
+    cases = [
+        #("empty strand", "", Ok(%{Nucleotide.A => 0, .C => 0, .G => 0, .T => 0})),
+        #(
+            "can count one nucleotide in single-character input",
+            "G",
+            Ok(%{Nucleotide.A => 0, .C => 0, .G => 1, .T => 0}),
+        ),
+        #(
+            "strand with repeated nucleotide",
+            "GGGGGGG",
+            Ok(%{Nucleotide.A => 0, .C => 0, .G => 7, .T => 0}),
+        ),
+        #(
+            "strand with multiple nucleotides",
+            "AGCTTTTCATTCTGACTGCAACGGGCAATATGTCTCTGTGTGGATTAAAAAAAGAGTGTCTGATAGCAGC",
+            Ok(%{Nucleotide.A => 20, .C => 12, .G => 17, .T => 21}),
+        ),
+        #("strand with invalid nucleotides", "AGXXACT", Err("Invalid nucleotide in strand")),
+    ]
 
-test "can count one nucleotide in single-character input" {
-    assert nucleotide_count.counts("G") == Ok(%{Nucleotide.A => 0, .C => 0, .G => 1, .T => 0})
-}
-
-test "strand with repeated nucleotide" {
-    assert nucleotide_count.counts("GGGGGGG") == Ok(%{Nucleotide.A => 0, .C => 0, .G => 7, .T => 0})
-}
-
-test "strand with multiple nucleotides" {
-    strand = "AGCTTTTCATTCTGACTGCAACGGGCAATATGTCTCTGTGTGGATTAAAAAAAGAGTGTCTGATAGCAGC"
-
-    assert nucleotide_count.counts(strand) == Ok(
-        %{Nucleotide.A => 20, .C => 12, .G => 17, .T => 21}
-    )
-}
-
-test "strand with invalid nucleotides" {
-    assert nucleotide_count.counts("AGXXACT") == Err("Invalid nucleotide in strand")
+    subtests cases, #(description, strand, expected), description {
+        assert nucleotide_count.counts(strand) == expected
+    }
 }

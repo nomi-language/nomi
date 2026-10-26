@@ -361,11 +361,11 @@ impl String {
     /// The lines of `s`, split on `\n` or `\r\n` with the terminator removed.
     /// Unlike `split(s, "\n")`, a final terminator does not add an empty last
     /// line; a lone `\r` is not a terminator.
-    //! assert String.lines("a\nb\u{d}\nc\n") == ["a", "b", "c"]
+    //! assert String.lines("a\nb\r\nc\n") == ["a", "b", "c"]
     //! assert String.lines("a\n\nb") == ["a", "", "b"]
     //! assert String.lines("") == []
     //! assert String.lines("\n") == [""]
-    //! assert String.lines("a\u{d}b") == ["a\u{d}b"]
+    //! assert String.lines("a\rb") == ["a\rb"]
     //! assert String.lines("é\n🙂") == ["é", "🙂"]
     //
     pub host fn lines(s: String) -> List<String>
@@ -408,9 +408,9 @@ impl String {
     pub host fn to_codepoints(s: String) -> List<Codepoint>
 
     /// `s` as a Nomi string literal that reads back as `s`: quoted, with
-    /// `\n`, `\t`, `\\` and `\"` escaped, `\u{...}` for any other
-    /// character that is not printable (a carriage return is `\u{d}`, a
-    /// no-break space `\u{a0}`), and `${` written `\${`, so nothing in it
+    /// `\n`, `\r`, `\t`, `\\` and `\"` escaped, `\u{...}` for any other
+    /// character that is not printable (NUL is `\u{0}`, a no-break space
+    /// `\u{a0}`), and `${` written `\${`, so nothing in it
     /// interpolates. Letters, combining marks and emoji are written as they
     /// are. So are the invisible characters that are part of something
     /// visible: an emoji's zero-width joiners, variation selectors and tags
@@ -422,7 +422,7 @@ impl String {
     //! assert String.to_literal("a\tb") == "\"a\\tb\""
     //! assert String.to_literal("say \"hi\"") == "\"say \\\"hi\\\"\""
     //! assert String.to_literal("\${x} costs $5") == "\"\\\${x} costs $5\""
-    //! assert String.to_literal("\u{d}") == "\"\\u{d}\""
+    //! assert String.to_literal("\r") == "\"\\r\""
     //
     pub host fn to_literal(s: String) -> String
 

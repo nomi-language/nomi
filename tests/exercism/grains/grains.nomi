@@ -1,0 +1,21 @@
+//# Grains of wheat on a chessboard, doubling from one grain on the first
+//# square. The 64th square holds 2^63 grains, one more than `Int` holds, so
+//# the counts are `Decimal`s.
+
+/// The grains on `square`, numbered from 1 to 64.
+pub fn square(square: Int) -> Result<Decimal, String> {
+    if square < 1 or square > 64 {
+        return Err("square must be between 1 and 64")
+    }
+
+    Ok(grains_on(square))
+}
+
+/// The grains on the whole board.
+pub fn total() -> Decimal {
+    1..=64 |> Iter.map(grains_on) |> Iter.sum()
+}
+
+fn grains_on(square: Int) -> Decimal {
+    Iter.reduce(2..=square, fn grains = 1d, _ -> grains * 2d)
+}

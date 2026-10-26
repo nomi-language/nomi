@@ -227,42 +227,6 @@ func TestBuildCommand_Wasip1ReactorServesExportedFunctions(t *testing.T) {
 	}
 }
 
-// TestBuildCommand_Wasip1ReactorRefusesGoBindings: a project with Go
-// bindings and an `export fn` would be a reactor, which links no project's
-// bindings, so its wasip1 build is refused and writes nothing.
-func TestBuildCommand_Wasip1ReactorRefusesGoBindings(t *testing.T) {
-	if testing.Short() {
-		t.Skip("integration; builds an FFI wrapper; -short")
-	}
-	dir := t.TempDir()
-	if goModAbove(dir) {
-		t.Skip("a go.mod above the temp directory")
-	}
-	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, `import std/io
-
-gopkg "strings" as strings
-
-fn upper(s: String) -> String go strings.ToUpper
-
-fn main() {
-    io.print(upper("hi"))
-}
-
-export fn shout(s: String) -> String {
-    upper(s)
-}
-`)
-	out := filepath.Join(dir, "main.wasm")
-	got := runProcess(t, buildEnv(t.TempDir()), dir, "", nomiBin, "build", "--target", "wasip1/wasm", entry, "-o", out)
-	if got.exit == 0 || !strings.Contains(got.stderr, "a reactor cannot link a project's Go bindings yet") {
-		t.Fatalf("exit %d:\n%s", got.exit, got.transcript())
-	}
-	if _, err := os.Stat(out); !os.IsNotExist(err) {
-		t.Fatalf("a refused build wrote %s (%v)", out, err)
-	}
-}
-
 // reactorNodeScript drives a reactor under node:wasi. argv: the module,
 // then "main" to call nomi_main and exit with its status, or "call" and one
 // JSON [name, argsJSON] per call, each answer written as a line. It runs

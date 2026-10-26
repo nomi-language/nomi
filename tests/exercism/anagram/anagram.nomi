@@ -1,12 +1,12 @@
 /// The candidates that are anagrams of `subject`, in their original order.
 /// Letter case does not matter, and a word is not an anagram of itself.
 pub fn find(subject: String, candidates: List<String>) -> List<String> {
-    subject = String.to_lower(subject)
+    subject = String.fold_case(subject)
     letters = Iter.sort(subject)
 
     candidates
     |> Iter.filter(fn candidate -> {
-        candidate = String.to_lower(candidate)
+        candidate = String.fold_case(candidate)
         candidate != subject and Iter.sort(candidate) == letters
     })
     |> Iter.to_list()

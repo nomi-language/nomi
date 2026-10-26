@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/std"
@@ -97,7 +98,7 @@ func TestSelectiveInspectFixture_BareImportedInspectIsClean(t *testing.T) {
 
 func TestSelectiveInspectFixture_ServerFixAllKeepsBareImportedInspect(t *testing.T) {
 	content := readSelectiveInspectFixture(t)
-	uri := "file://" + mustAbsPath(t, selectiveInspectFixturePath)
+	uri := fileuri.FromPath(mustAbsPath(t, selectiveInspectFixturePath))
 
 	server := NewServer()
 	server.docs.Open(uri, content)
@@ -139,7 +140,7 @@ func TestStdMap_ServerFixAllKeepsSomeImport(t *testing.T) {
 	if !strings.Contains(content, "maybe.Maybe.{self, None, Some}") {
 		t.Fatal("std map fixture should include Maybe.Some import")
 	}
-	uri := "file://" + mustAbsPath(t, path)
+	uri := fileuri.FromPath(mustAbsPath(t, path))
 
 	server := NewServer()
 	server.docs.Open(uri, content)

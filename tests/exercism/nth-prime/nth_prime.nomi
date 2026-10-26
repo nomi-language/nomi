@@ -1,0 +1,18 @@
+//# The nth prime number, found by trial division.
+
+/// The `n`th prime, counting 2 as the first, or `None` when `n` is less than
+/// one, since there is no zeroth prime.
+pub fn prime(n: Int) -> Maybe<Int> {
+    if n < 1 { return None }
+
+    Iter.from(2)
+    |> Iter.filter(prime?)
+    |> Iter.get(n - 1)
+}
+
+/// Whether `number` has no divisor between 2 and its square root.
+fn prime?(number: Int) -> Bool {
+    Iter.from(2)
+    |> Iter.take_while(fn d -> d * d <= number)
+    |> Iter.all?(fn d -> number % d != 0)
+}

@@ -1,5 +1,7 @@
 # Game of Life
 
+Subject: Grids & Matrices
+
 Compute the next generation of a Conway's Game of Life board.
 
 Adapted from Exercism problem-specifications (MIT), exercises/game-of-life.

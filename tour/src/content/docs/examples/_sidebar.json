@@ -1,0 +1,318 @@
+[
+	{
+		"label": "About the examples",
+		"link": "/examples/"
+	},
+	{
+		"label": "Strings & Text",
+		"collapsed": true,
+		"items": [
+			{
+				"label": "Acronym",
+				"link": "/examples/acronym/"
+			},
+			{
+				"label": "Anagram",
+				"link": "/examples/anagram/"
+			},
+			{
+				"label": "Bob",
+				"link": "/examples/bob/"
+			},
+			{
+				"label": "Diamond",
+				"link": "/examples/diamond/"
+			},
+			{
+				"label": "Hamming",
+				"link": "/examples/hamming/"
+			},
+			{
+				"label": "House",
+				"link": "/examples/house/"
+			},
+			{
+				"label": "Isogram",
+				"link": "/examples/isogram/"
+			},
+			{
+				"label": "Nucleotide Count",
+				"link": "/examples/nucleotide-count/"
+			},
+			{
+				"label": "Pangram",
+				"link": "/examples/pangram/"
+			},
+			{
+				"label": "Pig Latin",
+				"link": "/examples/pig-latin/"
+			},
+			{
+				"label": "Proverb",
+				"link": "/examples/proverb/"
+			},
+			{
+				"label": "Reverse String",
+				"link": "/examples/reverse-string/"
+			},
+			{
+				"label": "Scrabble Score",
+				"link": "/examples/scrabble-score/"
+			},
+			{
+				"label": "Series",
+				"link": "/examples/series/"
+			},
+			{
+				"label": "Twelve Days",
+				"link": "/examples/twelve-days/"
+			},
+			{
+				"label": "Two-fer",
+				"link": "/examples/two-fer/"
+			},
+			{
+				"label": "Word Count",
+				"link": "/examples/word-count/"
+			}
+		]
+	},
+	{
+		"label": "Numbers & Math",
+		"collapsed": true,
+		"items": [
+			{
+				"label": "All Your Base",
+				"link": "/examples/all-your-base/"
+			},
+			{
+				"label": "Allergies",
+				"link": "/examples/allergies/"
+			},
+			{
+				"label": "Armstrong Numbers",
+				"link": "/examples/armstrong-numbers/"
+			},
+			{
+				"label": "Collatz Conjecture",
+				"link": "/examples/collatz-conjecture/"
+			},
+			{
+				"label": "Difference of Squares",
+				"link": "/examples/difference-of-squares/"
+			},
+			{
+				"label": "Eliud's Eggs",
+				"link": "/examples/eliuds-eggs/"
+			},
+			{
+				"label": "Grains",
+				"link": "/examples/grains/"
+			},
+			{
+				"label": "Largest Series Product",
+				"link": "/examples/largest-series-product/"
+			},
+			{
+				"label": "Nth Prime",
+				"link": "/examples/nth-prime/"
+			},
+			{
+				"label": "Pascal's Triangle",
+				"link": "/examples/pascals-triangle/"
+			},
+			{
+				"label": "Perfect Numbers",
+				"link": "/examples/perfect-numbers/"
+			},
+			{
+				"label": "Prime Factors",
+				"link": "/examples/prime-factors/"
+			},
+			{
+				"label": "Raindrops",
+				"link": "/examples/raindrops/"
+			},
+			{
+				"label": "Secret Handshake",
+				"link": "/examples/secret-handshake/"
+			},
+			{
+				"label": "Sieve",
+				"link": "/examples/sieve/"
+			},
+			{
+				"label": "Space Age",
+				"link": "/examples/space-age/"
+			},
+			{
+				"label": "Sum of Multiples",
+				"link": "/examples/sum-of-multiples/"
+			},
+			{
+				"label": "Triangle",
+				"link": "/examples/triangle/"
+			}
+		]
+	},
+	{
+		"label": "Collections & Algorithms",
+		"collapsed": true,
+		"items": [
+			{
+				"label": "Binary Search",
+				"link": "/examples/binary-search/"
+			},
+			{
+				"label": "ETL",
+				"link": "/examples/etl/"
+			},
+			{
+				"label": "List Ops",
+				"link": "/examples/list-ops/"
+			},
+			{
+				"label": "Sublist",
+				"link": "/examples/sublist/"
+			},
+			{
+				"label": "Tournament",
+				"link": "/examples/tournament/"
+			}
+		]
+	},
+	{
+		"label": "Parsing & Validation",
+		"collapsed": true,
+		"items": [
+			{
+				"label": "ISBN Verifier",
+				"link": "/examples/isbn-verifier/"
+			},
+			{
+				"label": "Luhn",
+				"link": "/examples/luhn/"
+			},
+			{
+				"label": "Matching Brackets",
+				"link": "/examples/matching-brackets/"
+			},
+			{
+				"label": "Phone Number",
+				"link": "/examples/phone-number/"
+			},
+			{
+				"label": "Wordy",
+				"link": "/examples/wordy/"
+			}
+		]
+	},
+	{
+		"label": "Encoding & Ciphers",
+		"collapsed": true,
+		"items": [
+			{
+				"label": "Affine Cipher",
+				"link": "/examples/affine-cipher/"
+			},
+			{
+				"label": "Atbash Cipher",
+				"link": "/examples/atbash-cipher/"
+			},
+			{
+				"label": "Protein Translation",
+				"link": "/examples/protein-translation/"
+			},
+			{
+				"label": "Resistor Color",
+				"link": "/examples/resistor-color/"
+			},
+			{
+				"label": "Resistor Color Duo",
+				"link": "/examples/resistor-color-duo/"
+			},
+			{
+				"label": "Resistor Color Trio",
+				"link": "/examples/resistor-color-trio/"
+			},
+			{
+				"label": "RNA Transcription",
+				"link": "/examples/rna-transcription/"
+			},
+			{
+				"label": "Roman Numerals",
+				"link": "/examples/roman-numerals/"
+			},
+			{
+				"label": "Rotational Cipher",
+				"link": "/examples/rotational-cipher/"
+			},
+			{
+				"label": "Run-Length Encoding",
+				"link": "/examples/run-length-encoding/"
+			}
+		]
+	},
+	{
+		"label": "Grids & Matrices",
+		"collapsed": true,
+		"items": [
+			{
+				"label": "Game of Life",
+				"link": "/examples/game-of-life/"
+			},
+			{
+				"label": "Kindergarten Garden",
+				"link": "/examples/kindergarten-garden/"
+			},
+			{
+				"label": "Minesweeper",
+				"link": "/examples/minesweeper/"
+			},
+			{
+				"label": "Saddle Points",
+				"link": "/examples/saddle-points/"
+			},
+			{
+				"label": "Spiral Matrix",
+				"link": "/examples/spiral-matrix/"
+			},
+			{
+				"label": "Transpose",
+				"link": "/examples/transpose/"
+			}
+		]
+	},
+	{
+		"label": "Games & Simulation",
+		"collapsed": true,
+		"items": [
+			{
+				"label": "Darts",
+				"link": "/examples/darts/"
+			},
+			{
+				"label": "Queen Attack",
+				"link": "/examples/queen-attack/"
+			},
+			{
+				"label": "Robot Simulator",
+				"link": "/examples/robot-simulator/"
+			}
+		]
+	},
+	{
+		"label": "Dates & Time",
+		"collapsed": true,
+		"items": [
+			{
+				"label": "Clock",
+				"link": "/examples/clock/"
+			},
+			{
+				"label": "Leap",
+				"link": "/examples/leap/"
+			}
+		]
+	}
+]

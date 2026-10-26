@@ -679,6 +679,10 @@ func (b *builder) checkReservedTypeName(scope *Scope, name, kind string, line, c
 	if existing := scope.Parent.Lookup(name); existing == nil {
 		return
 	}
+	if b.file.reservedNames == nil {
+		b.file.reservedNames = map[string]bool{}
+	}
+	b.file.reservedNames[name] = true
 	article, remedy := reservedNameRemedy(kind, name)
 	b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
 		Line: line,
@@ -690,16 +694,53 @@ func (b *builder) checkReservedTypeName(scope *Scope, name, kind string, line, c
 	})
 }
 
-// reservedNameRemedy picks the article and the actionable advice for a
-// reserved-name diagnostic. The distinct-type escape hatch is real for the
-// data kinds and meaningless for an interface — `type MyDisplay Display`
-// does not wrap a contract — so pointing an interface author at it would be
-// advice that cannot be followed.
+// reservedNameRemedy picks the article and the advice for a reserved-name
+// diagnostic: a new name, shown in the declaration the author wrote
+// (`enum MyUnit { ... }`). A declaration named after a built-in declares a
+// new type, so the advice never wraps the built-in in a distinct type
+// (`type MyUnit Unit`), which would not be the enum or struct written.
 func reservedNameRemedy(kind, name string) (article, remedy string) {
-	if kind == "interface" {
-		return "an", fmt.Sprintf("pick a different name (e.g. `My%s`)", name)
+	renamed := "My" + name
+	switch kind {
+	case "struct":
+		return "a", fmt.Sprintf("pick a different name (e.g. `struct %s { ... }`)", renamed)
+	case "enum":
+		return "an", fmt.Sprintf("pick a different name (e.g. `enum %s { ... }`)", renamed)
+	case "interface":
+		return "an", fmt.Sprintf("pick a different name (e.g. `interface %s { ... }`)", renamed)
+	case "typealias":
+		return "a", fmt.Sprintf("pick a different name (e.g. `typealias %s ...`)", renamed)
 	}
-	return "a", fmt.Sprintf("use a distinct type (`type My%s %s`) for a domain-specific variant", name, name)
+	return "a", fmt.Sprintf("pick a different name (e.g. `type %s ...`)", renamed)
+}
+
+// synthesizedForRefusedDecl reports whether blk is an impl the compiler
+// synthesized (a derive, or the universal Debug) for a type whose
+// declaration fa refused for its reserved name. The name still names the
+// prelude's type, so the block would implement an interface for that type:
+// an orphan impl, a duplicate one, a body that does not fit it. The refusal
+// is the one error, and every pass skips the block.
+func synthesizedForRefusedDecl(fa *FileAnalysis, blk *ast.ImplBlock) bool {
+	if fa == nil || len(fa.reservedNames) == 0 || blk == nil || blk.SynthOriginLine <= 0 {
+		return false
+	}
+	return fa.reservedNames[TypeExprBaseName(blk.Receiver)]
+}
+
+// withoutRefusedSynthImpls is nodes without the blocks
+// synthesizedForRefusedDecl names, or nodes itself when there are none.
+func withoutRefusedSynthImpls(fa *FileAnalysis, nodes []ast.Node) []ast.Node {
+	if fa == nil || len(fa.reservedNames) == 0 {
+		return nodes
+	}
+	out := make([]ast.Node, 0, len(nodes))
+	for _, n := range nodes {
+		if blk, ok := n.(*ast.ImplBlock); ok && synthesizedForRefusedDecl(fa, blk) {
+			continue
+		}
+		out = append(out, n)
+	}
+	return out
 }
 
 func splitQualifiedDeclName(name string) (string, string, bool) {

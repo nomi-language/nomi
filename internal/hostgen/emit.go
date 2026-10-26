@@ -690,25 +690,36 @@ func (g *Generator) callback(w *bytes.Buffer, s *Shape, t Type, goT string) erro
 	if t.IsVariadic() {
 		return fmt.Errorf("a variadic Go callback has no Nomi projection")
 	}
-	if t.NumIn() != len(s.Elems) {
-		return fmt.Errorf("the Nomi function takes %d argument(s) and Go %s takes %d", len(s.Elems), t, t.NumIn())
+	// A Go callback whose first parameter is *rt.Frame calls back on the
+	// frame its caller hands it, not on the frame of the host call that made
+	// it: a callback a handle keeps (Reader.from_fn's) runs later, on
+	// whichever task reads the handle.
+	first := 0
+	if t.NumIn() > 0 && isFrame(t.In(0)) {
+		first = 1
+	}
+	if t.NumIn()-first != len(s.Elems) {
+		return fmt.Errorf("the Nomi function takes %d argument(s) and Go %s takes %d", len(s.Elems), t, t.NumIn()-first)
 	}
 	numOut := t.NumOut()
 	lastErr := numOut > 0 && isErrorType(t.Out(numOut-1))
 	if numOut > 2 || (numOut == 2 && !lastErr) {
 		return fmt.Errorf("a Go callback returns nothing, one value, or a value and an error; %s does not", t)
 	}
-	params := make([]string, t.NumIn())
-	operands := make([]string, t.NumIn())
+	params := make([]string, 0, t.NumIn())
+	if first == 1 {
+		params = append(params, "fr *rt.Frame")
+	}
+	operands := make([]string, len(s.Elems))
 	var pre bytes.Buffer
-	for i := range t.NumIn() {
-		pt, err := g.typ(t.In(i))
+	for i := range len(s.Elems) {
+		pt, err := g.typ(t.In(first + i))
 		if err != nil {
 			return err
 		}
-		params[i] = fmt.Sprintf("p%d %s", i, pt)
+		params = append(params, fmt.Sprintf("p%d %s", i, pt))
 		if isScalar(s.Elems[i]) {
-			x, fallible, err := g.widen(s.Elems[i], t.In(i), fmt.Sprintf("p%d", i))
+			x, fallible, err := g.widen(s.Elems[i], t.In(first+i), fmt.Sprintf("p%d", i))
 			if err != nil {
 				return fmt.Errorf("argument %d: %w", i, err)
 			}
@@ -720,7 +731,7 @@ func (g *Generator) callback(w *bytes.Buffer, s *Shape, t Type, goT string) erro
 			}
 			continue
 		}
-		conv, err := g.out(s.Elems[i], t.In(i))
+		conv, err := g.out(s.Elems[i], t.In(first+i))
 		if err != nil {
 			return fmt.Errorf("argument %d: %w", i, err)
 		}
@@ -743,6 +754,12 @@ func (g *Generator) callback(w *bytes.Buffer, s *Shape, t Type, goT string) erro
 	}
 	// failWith is the callbackErrorReturns rule for an error held in errExpr.
 	failWith := func(errExpr string) string {
+		if !lastErr && first == 1 {
+			// A frame-taking callback is the runtime's own (rt's), called
+			// inside a host call the engine made, so the Nomi failure
+			// unwinds to that call and is its failure.
+			return fmt.Sprintf("\t\t\tpanic(hostadapt.Unwind{Err: %s})\n", errExpr)
+		}
 		if !lastErr {
 			return fmt.Sprintf("\t\t\tpanic(hostadapt.CallbackFailure(%s, %q))\n", errExpr, t.String())
 		}

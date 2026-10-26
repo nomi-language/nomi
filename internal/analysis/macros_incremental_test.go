@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
 // macrosProject is the macro fixture (testdata/macros): module
@@ -104,7 +105,7 @@ func TestMacroWhoseModuleDoesNotCheckIsReportedAlone(t *testing.T) {
 	if err := os.WriteFile(src, []byte(text), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := func(key string) string { return "file://" + filepath.Join(p.dir, key+".nomi") }
+	uri := func(key string) string { return fileuri.FromPath(filepath.Join(p.dir, key+".nomi")) }
 	for _, kept := range []bool{true, false} {
 		dm := newManager()
 		for _, key := range []string{"main", "tables"} {
@@ -146,7 +147,9 @@ func withEffect(cur, _ string) (string, bool) {
 // analysis of it gives.
 func TestOpenDocumentMacroEditsMatchFreshBuilds(t *testing.T) {
 	p := macrosProject(t)
-	uri := func(key string) string { return "file://" + filepath.Join(p.dir, filepath.FromSlash(key)+".nomi") }
+	uri := func(key string) string {
+		return fileuri.FromPath(filepath.Join(p.dir, filepath.FromSlash(key)+".nomi"))
+	}
 	dm := newManager()
 	cur := map[string]string{}
 	for key, text := range p.texts {
@@ -174,7 +177,7 @@ func TestOpenDocumentMacroEditsMatchFreshBuilds(t *testing.T) {
 			}
 			dm.InputsChanged(path)
 		} else {
-			if err := os.WriteFile(strings.TrimPrefix(uri(s.key), "file://"), []byte(text), 0o644); err != nil {
+			if err := os.WriteFile(fileuri.ToPath(uri(s.key)), []byte(text), 0o644); err != nil {
 				t.Fatal(err)
 			}
 			dm.Update(uri(s.key), text)

@@ -612,8 +612,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	var inherentBlocks []InherentImplBlockRecord
 	declaredTypesByFile := make(map[string]map[string]bool)
 	for _, fb := range all {
-		IndexImplBlockFuncDefs(fb.nodes, fb.key, fb.fa.Definitions, ifaceImpls, ifaceImplFiles, implBlockReceivers, implBlockInterfaceKeys, ifaceImplExterns, ifaceImplExternFiles, implBlockInterfaceKeysExtern, &inherentImpls)
-		collectInherentImplBlocks(fb.nodes, fb.key, &inherentBlocks)
+		implNodes := withoutRefusedSynthImpls(fb.fa, fb.nodes)
+		IndexImplBlockFuncDefs(implNodes, fb.key, fb.fa.Definitions, ifaceImpls, ifaceImplFiles, implBlockReceivers, implBlockInterfaceKeys, ifaceImplExterns, ifaceImplExternFiles, implBlockInterfaceKeysExtern, &inherentImpls)
+		collectInherentImplBlocks(implNodes, fb.key, &inherentBlocks)
 		names := make(map[string]bool)
 		collectDeclaredTypeNames(fb.nodes, names)
 		declaredTypesByFile[fb.key] = names
@@ -985,7 +986,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		if recollect {
 			inherentBlocks = nil
 			for _, fb := range all {
-				collectInherentImplBlocks(fb.nodes, fb.key, &inherentBlocks)
+				collectInherentImplBlocks(withoutRefusedSynthImpls(fb.fa, fb.nodes), fb.key, &inherentBlocks)
 			}
 		}
 		recollect = true
@@ -1085,7 +1086,11 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			programErrs,
 			detectInherentImplBlockOrphans(inherentBlocks, inherentDeclaredLocally, pathOf)...,
 		)
-		return programErrs
+		return repointSynthBandErrors(programErrs, func(each func(path string, nodes []ast.Node)) {
+			for _, fb := range all {
+				each(pathOf(fb.key), fb.nodes)
+			}
+		})
 	}
 	programErrs := programErrors()
 
@@ -1459,4 +1464,44 @@ func findContextTypeFromCache(cache map[string]*FileAnalysis) Type {
 		return sym.Resolved.Type
 	}
 	return sym.Type
+}
+
+// repointSynthBandErrors moves each program error whose position is in an
+// impl the compiler synthesized (a derive, the universal Debug) onto the
+// declaration it was synthesized for, as repointSynthErrors does for a
+// file's own errors. The coherence checks anchor an error at the impl
+// function, whose position is in the synthesized band, a line no one can
+// navigate to. A macro's expansion is left to RelocateExpansionErrors.
+//
+// files calls each with every file's path, as the errors name it, and nodes.
+func repointSynthBandErrors(errs []TypeError, files func(each func(path string, nodes []ast.Node))) []TypeError {
+	band := false
+	for _, e := range errs {
+		band = band || IsSynthesizedLine(e.Line) && !IsExpansionLine(e.Line)
+	}
+	if !band {
+		return errs
+	}
+	type slotKey struct {
+		file string
+		base int
+	}
+	origins := map[slotKey]*ast.ImplBlock{}
+	files(func(path string, nodes []ast.Node) {
+		for _, n := range nodes {
+			if blk, ok := n.(*ast.ImplBlock); ok && blk.SynthOriginLine > 0 && IsSynthesizedLine(blk.Line) {
+				origins[slotKey{path, synthSlotBase(blk.Line)}] = blk
+			}
+		}
+	})
+	out := slices.Clone(errs)
+	for i, e := range out {
+		if !IsSynthesizedLine(e.Line) || IsExpansionLine(e.Line) {
+			continue
+		}
+		if blk := origins[slotKey{e.File, synthSlotBase(e.Line)}]; blk != nil {
+			repointSynthErrors(blk, out[i:i+1])
+		}
+	}
+	return out
 }

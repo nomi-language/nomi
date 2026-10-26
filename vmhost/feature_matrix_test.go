@@ -260,6 +260,8 @@ var mxFeatures = []mxFeature{
 		tags: tagFn | tagCall},
 	{name: "named partial", decls: mxAdd3, typ: "(Int) -> Int", expr: "&add3(1, b: &1)", obs: "Debug.inspect($v(2))",
 		want: "103", tags: tagFn | tagCall},
+	{name: "operator function partial", typ: "(Int) -> Int", expr: "&Int.add(7, &1)", obs: "Debug.inspect($v(2))",
+		want: "9", tags: tagFn | tagCall},
 	{name: "operator capture", typ: "(Int) -> Bool", expr: "&(&1 > 2)", obs: "Debug.inspect($v(3))", want: "True",
 		tags: tagFn | tagExpects | tagCall, reject: "cannot infer type for `&1`"},
 	{name: "struct capture", decls: mxPoint, typ: "(Int) -> Point", expr: "&#Point{x: &1, y: 5}",

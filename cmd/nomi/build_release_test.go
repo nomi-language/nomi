@@ -103,11 +103,11 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 			env      []string
 			extra    []string
 		}{
-			{filepath.Join(b.install, "nomi"), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
-			{filepath.Join(b.install, "nomi-vm"), "./cmd/nomi-vm", nil, []string{"-ldflags", "-s -w"}},
-			{filepath.Join(b.bare, "nomi"), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
-			{filepath.Join(b.mismatch, "nomi"), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
-			{filepath.Join(b.mismatch, "nomi-vm"), "./cmd/nomi-vm", nil, []string{"-buildvcs=false", "-ldflags", "-s -w"}},
+			{exe(filepath.Join(b.install, "nomi")), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
+			{exe(filepath.Join(b.install, "nomi-vm")), "./cmd/nomi-vm", nil, []string{"-ldflags", "-s -w"}},
+			{exe(filepath.Join(b.bare, "nomi")), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
+			{exe(filepath.Join(b.mismatch, "nomi")), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
+			{exe(filepath.Join(b.mismatch, "nomi-vm")), "./cmd/nomi-vm", nil, []string{"-buildvcs=false", "-ldflags", "-s -w"}},
 			{b.crossRunner, "./cmd/nomi-vm", []string{"GOOS=" + goos, "GOARCH=" + goarch}, []string{"-ldflags", "-s -w"}},
 			{b.wasmRunners["js/wasm"], "./cmd/nomi-vm", []string{"GOOS=js", "GOARCH=wasm"}, []string{"-ldflags", "-s -w"}},
 			{b.wasmRunners["wasip1/wasm"], "./cmd/nomi-vm", []string{"GOOS=wasip1", "GOARCH=wasm"}, []string{"-ldflags", "-s -w"}},
@@ -123,7 +123,7 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 				return
 			}
 		}
-		info, err := buildinfo.ReadFile(filepath.Join(b.install, "nomi"))
+		info, err := buildinfo.ReadFile(exe(filepath.Join(b.install, "nomi")))
 		if err != nil {
 			releaseErr = err
 			return
@@ -169,7 +169,7 @@ func TestBuildFromRelease_TheInstalledRunnerBuildsEveryProgram(t *testing.T) {
 		ffiRefusal = "no Go toolchain: this project has Go FFI, so `nomi build` compiles a nomi-vm"
 		compilerRefusal = "no Go toolchain: `nomi build` builds nomi-vm"
 	}
-	built := buildMatchesRecords(t, filepath.Join(b.install, "nomi"), env,
+	built := buildMatchesRecords(t, exe(filepath.Join(b.install, "nomi")), env,
 		[]recordPopulation{{"corpus", "tests"}},
 		func(stderr string) bool {
 			switch {
@@ -226,8 +226,8 @@ fn main() {
 }
 `)
 	env := releaseEnv(t, t.TempDir())
-	out := filepath.Join(t.TempDir(), "levels")
-	got := runProcess(t, env, dir, "", filepath.Join(b.install, "nomi"), "build", entry, "-o", out)
+	out := exe(filepath.Join(t.TempDir(), "levels"))
+	got := runProcess(t, env, dir, "", exe(filepath.Join(b.install, "nomi")), "build", entry, "-o", out)
 	if got.exit != 0 {
 		t.Fatalf("exit %d:\n%s", got.exit, got.transcript())
 	}
@@ -244,9 +244,9 @@ func TestBuildFromRelease_AMismatchedRunnerIsRefused(t *testing.T) {
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "hello.nomi")
 	mustWrite(t, entry, releaseHello)
-	out := filepath.Join(t.TempDir(), "hello")
-	got := runProcess(t, releaseEnv(t, t.TempDir()), dir, "", filepath.Join(b.mismatch, "nomi"), "build", entry, "-o", out)
-	want := "the nomi-vm at " + filepath.Join(b.mismatch, "nomi-vm") + " was built from an unrecorded commit and this nomi from commit "
+	out := exe(filepath.Join(t.TempDir(), "hello"))
+	got := runProcess(t, releaseEnv(t, t.TempDir()), dir, "", exe(filepath.Join(b.mismatch, "nomi")), "build", entry, "-o", out)
+	want := "the nomi-vm at " + exe(filepath.Join(b.mismatch, "nomi-vm")) + " was built from an unrecorded commit and this nomi from commit "
 	if got.exit == 0 || !strings.Contains(got.stderr, want) ||
 		!strings.Contains(got.stderr, "Install nomi and nomi-vm from one release archive") {
 		t.Fatalf("exit %d, want the refusal %q:\n%s", got.exit, want, got.transcript())
@@ -273,8 +273,8 @@ fn main() {
   io.print(Debug.inspect(compiler.check("fn main() {\n  missing\n}\n")))
 }
 `)
-	out := filepath.Join(t.TempDir(), "nested")
-	got := runProcess(t, releaseEnv(t, t.TempDir()), dir, "", filepath.Join(b.install, "nomi"), "build", entry, "-o", out)
+	out := exe(filepath.Join(t.TempDir(), "nested"))
+	got := runProcess(t, releaseEnv(t, t.TempDir()), dir, "", exe(filepath.Join(b.install, "nomi")), "build", entry, "-o", out)
 	want := []string{"this program imports std/compiler", "Releases ship only the plain nomi-vm"}
 	if b.versioned {
 		want = []string{"no Go toolchain: `nomi build` builds nomi-vm", "Install Go"}
@@ -298,7 +298,7 @@ fn main() {
 // refusal names NOMI_COMPILER_SOURCE.
 func TestBuildFromRelease_GoBindingsRefuseWithoutGo(t *testing.T) {
 	b := releaseBuild(t)
-	nomi := filepath.Join(b.install, "nomi")
+	nomi := exe(filepath.Join(b.install, "nomi"))
 	info, err := buildinfo.ReadFile(nomi)
 	if err != nil {
 		t.Fatal(err)
@@ -397,7 +397,7 @@ func localRelease(t *testing.T, b fakeReleaseBuild, corruptSum bool) (*httptest.
 // installs nothing, and an unreachable release names the URL.
 func TestBuildFromRelease_CrossTargetDownloadsTheRunner(t *testing.T) {
 	b := releaseBuild(t)
-	nomi := filepath.Join(b.install, "nomi")
+	nomi := exe(filepath.Join(b.install, "nomi"))
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "hello.nomi")
 	mustWrite(t, entry, releaseHello)
@@ -527,7 +527,7 @@ func wasmRelease(t *testing.T, b fakeReleaseBuild) *httptest.Server {
 // beside the command runner under its own name.
 func TestBuildFromRelease_WasmTargetsDownloadTheirRunners(t *testing.T) {
 	b := releaseBuild(t)
-	nomi := filepath.Join(b.install, "nomi")
+	nomi := exe(filepath.Join(b.install, "nomi"))
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "hello.nomi")
 	mustWrite(t, entry, releaseHello)

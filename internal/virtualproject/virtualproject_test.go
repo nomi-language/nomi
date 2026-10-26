@@ -31,6 +31,12 @@ func TestFromMarkedSourceKeepsAProjectOfModulesAsItsFiles(t *testing.T) {
 	if err != nil || string(data) != "[module]\nname = \"csvdata\"\n" {
 		t.Errorf("macros/csvdata/nomi.toml holds %q (%v)", data, err)
 	}
+	// With no `fn main`, the entry is the first root file the block marks,
+	// the tab it opens on, not the first by name.
+	tests, err := FromMarkedSource("// FILE: shop_test.nomi\ntest \"x\" {}\n\n// FILE: queries.nomi\n\n// FILE: go.mod\nmodule shop\n")
+	if err != nil || tests.EntryName != "shop_test.nomi" {
+		t.Errorf("a block of tests enters at %q (%v)", tests.EntryName, err)
+	}
 	if _, err := FromMarkedSource("// FILE: go.mod\nmodule a\n// FILE: ../x.nomi\n"); err == nil {
 		t.Error("a section outside the project is accepted")
 	}
@@ -84,6 +90,35 @@ func TestFromSourcesNormalizesEntryAndFileNames(t *testing.T) {
 	}
 	if _, ok := project.VirtualFiles["api"]; !ok {
 		t.Fatalf("VirtualFiles missing normalized api key: %#v", project.VirtualFiles)
+	}
+}
+
+// A block with no `fn main` that shows a solution before its test file is
+// entered at the test file, so a run runs its tests.
+func TestFromMarkedSourceEntersATestFileWhenThereIsNoMain(t *testing.T) {
+	project, err := FromMarkedSource(`// FILE: two_fer.nomi
+pub fn two_fer(name: String = "you") -> String {
+    "One for ${name}, one for me."
+}
+
+// FILE: two_fer_test.nomi
+import two_fer.two_fer
+
+test "no name given" {
+    assert two_fer() == "One for you, one for me."
+}
+`)
+	if err != nil {
+		t.Fatalf("FromMarkedSource: %v", err)
+	}
+	if project.EntryName != "two_fer_test" {
+		t.Fatalf("EntryName = %q, want two_fer_test", project.EntryName)
+	}
+	if project.First != "two_fer.nomi" {
+		t.Fatalf("First = %q, want two_fer.nomi", project.First)
+	}
+	if _, ok := project.VirtualFiles["two_fer"]; !ok {
+		t.Fatalf("VirtualFiles missing two_fer: %#v", project.VirtualFiles)
 	}
 }
 

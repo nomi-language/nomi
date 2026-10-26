@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -195,7 +196,8 @@ func TestDownloadRunner(t *testing.T) {
 		if want := srv.URL + "/v9.9.9/nomi_v9.9.9_linux_amd64.tar.gz"; !strings.Contains(progress.String(), want) {
 			t.Fatalf("progress %q does not name %s", progress.String(), want)
 		}
-		if info, _ := os.Stat(dest); info.Mode().Perm()&0o100 == 0 {
+		// Windows has no executable bit; a file runs by its .exe name.
+		if info, _ := os.Stat(dest); runtime.GOOS != "windows" && info.Mode().Perm()&0o100 == 0 {
 			t.Fatalf("the runner is not executable: %v", info.Mode())
 		}
 	})

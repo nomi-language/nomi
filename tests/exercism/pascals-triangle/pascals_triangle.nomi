@@ -1,0 +1,16 @@
+//# The first rows of Pascal's triangle.
+
+/// The first `count` rows of Pascal's triangle, starting from `[1]`.
+pub fn rows(count: Int) -> List<List<Int>> {
+    Iter.iterate([1], next_row)
+    |> Iter.take(count)
+    |> Iter.to_list()
+}
+
+/// The row below `row`: each value is the sum of the two above it, with a
+/// zero standing in past either end.
+fn next_row(row: List<Int>) -> List<Int> {
+    Iter.zip([0, ..row], Iter.concat(row, [0]))
+    |> Iter.map(fn #(left, right) -> left + right)
+    |> Iter.to_list()
+}

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -54,7 +55,7 @@ fn main() {
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	src, _ := os.ReadFile(mainPath)
-	doc := dm.Open("file://"+mainPath, string(src))
+	doc := dm.Open(fileuri.FromPath(mainPath), string(src))
 	if len(doc.Errors) != 0 {
 		t.Fatalf("unexpected parse errors: %+v", doc.Errors)
 	}
@@ -130,9 +131,9 @@ pub struct B {
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	src, _ := os.ReadFile(aPath)
-	dm.Open("file://"+aPath, string(src))
+	dm.Open(fileuri.FromPath(aPath), string(src))
 
-	doc := dm.Get("file://" + aPath)
+	doc := dm.Get(fileuri.FromPath(aPath))
 	if doc == nil || doc.Analysis == nil {
 		t.Fatal("expected analysis to be populated")
 	}
@@ -186,9 +187,9 @@ pub fn pong(n: Int) -> Int {
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	src, _ := os.ReadFile(aPath)
-	dm.Open("file://"+aPath, string(src))
+	dm.Open(fileuri.FromPath(aPath), string(src))
 
-	doc := dm.Get("file://" + aPath)
+	doc := dm.Get(fileuri.FromPath(aPath))
 	if doc == nil || doc.Analysis == nil {
 		t.Fatal("expected analysis to be populated")
 	}
@@ -243,9 +244,9 @@ impl I for T {
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	src, _ := os.ReadFile(aPath)
-	dm.Open("file://"+aPath, string(src))
+	dm.Open(fileuri.FromPath(aPath), string(src))
 
-	doc := dm.Get("file://" + aPath)
+	doc := dm.Get(fileuri.FromPath(aPath))
 	if doc == nil || doc.Analysis == nil {
 		t.Fatal("expected analysis to be populated")
 	}
@@ -322,9 +323,9 @@ impl Logger for ProdLogger {
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	src, _ := os.ReadFile(greeterPath)
-	dm.Open("file://"+greeterPath, string(src))
+	dm.Open(fileuri.FromPath(greeterPath), string(src))
 
-	doc := dm.Get("file://" + greeterPath)
+	doc := dm.Get(fileuri.FromPath(greeterPath))
 	if doc == nil || doc.Analysis == nil {
 		t.Fatal("expected analysis to be populated")
 	}

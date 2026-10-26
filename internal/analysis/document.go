@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/syntheticextern"
@@ -434,7 +435,7 @@ func (dm *DocumentManager) Snapshot(uri string) *DocSnapshot {
 // walking upward from the file looking for a project marker. See
 // FindProjectRoot for the rule. Falls back to the file's own directory.
 func (dm *DocumentManager) projectRootFromURI(uri string) string {
-	path := strings.TrimPrefix(uri, "file://")
+	path := fileuri.ToPath(uri)
 	return dm.FindProjectRoot(path)
 }
 
@@ -546,7 +547,7 @@ func (dm *DocumentManager) makeRecordingLoader(rec *loadRecord) FileLoader {
 		// sibling), and request handlers read installed nodes without the
 		// build lock. The text is the one its installed analysis was built
 		// from, so the two agree; before its first analysis, its latest.
-		uri := "file://" + filePath
+		uri := fileuri.FromPath(filePath)
 		dm.mu.RLock()
 		doc, ok := dm.docs[uri]
 		var text string
@@ -669,7 +670,7 @@ func isFFIEntryPath(path string) bool {
 // Neither is urgent; revisit if a third entry point grows or if the
 // stdlib filesystem layout changes.
 func (dm *DocumentManager) isStdlibFile(uri string) bool {
-	_, ok := stdlibModuleForPath(strings.TrimPrefix(uri, "file://"))
+	_, ok := stdlibModuleForPath(fileuri.ToPath(uri))
 	return ok
 }
 
@@ -876,7 +877,7 @@ func (dm *DocumentManager) build(uri, content string) builtAnalysis {
 	// and `damaged` names the declarations that were repaired.
 	nodes, errs, damaged := parser.ParseResilient(tokens)
 	root := dm.projectRootFromURI(uri)
-	docPath := strings.TrimPrefix(uri, "file://")
+	docPath := fileuri.ToPath(uri)
 	externs := dm.syntheticExternsForRoot(root)
 	if injected, err := syntheticextern.Inject(nodes, externs, isFFIEntryPath(docPath)); err == nil {
 		nodes = injected
@@ -1069,7 +1070,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	// the lowering check reads them (EntryProgram). The document's own
 	// Nodes stay the source's declarations. Synthesis only appends, so
 	// they are a prefix of prog.
-	fallbackDocPath := strings.TrimPrefix(uri, "file://")
+	fallbackDocPath := fileuri.ToPath(uri)
 	entryModRel := relModuleKey(root, fallbackDocPath)
 	prog, _ := SynthesizeDerives(nodes)
 	prog = SynthesizeUniversalDebug(prog)
@@ -1346,7 +1347,7 @@ func (dm *DocumentManager) makeRecordingLoaderWithOverride(openURI string, openN
 	base := dm.makeRecordingLoader(rec)
 	return func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		filePath := filepath.Join(projectRoot, filepath.Join(modulePath...)) + ".nomi"
-		if "file://"+filePath == openURI {
+		if fileuri.FromPath(filePath) == openURI {
 			if rec != nil {
 				rec.mu.Lock()
 				rec.reachedEntry = true

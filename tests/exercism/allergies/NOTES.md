@@ -1,5 +1,7 @@
 # Allergies
 
+Subject: Numbers & Math
+
 Decode an allergy score into the allergens it includes.
 
 Adapted from Exercism problem-specifications (MIT), exercises/allergies.

@@ -12,8 +12,12 @@ import (
 // instead of the disk: the one the browser build gives every program, and
 // the one the tour runs each block against. Its working directory is
 // `/work`, which relative paths resolve against, and `/tmp` exists. It is
-// internal/stdio's Memory, the same file system `fs_testing.run` uses.
-type MemoryFiles struct{ m *stdio.Memory }
+// internal/stdio's Memory, the same file system `fs_testing.run` uses. It
+// is a FileSystem, so an embedder can wrap it as it can DiskFiles.
+type MemoryFiles struct {
+	backendFiles
+	m *stdio.Memory
+}
 
 // NewMemoryFiles is an in-memory file system holding files, by path; a
 // relative path is under `/work`, and the directories above each file
@@ -28,7 +32,7 @@ func NewMemoryFiles(files map[string][]byte) *MemoryFiles {
 	for _, p := range paths {
 		m.Put(p, files[p])
 	}
-	return &MemoryFiles{m: m}
+	return &MemoryFiles{backendFiles: backendFiles{m}, m: m}
 }
 
 // Files is every file it holds now, by path: relative to `/work` for one
@@ -47,13 +51,6 @@ func (f *MemoryFiles) Read() []string {
 		}
 	}
 	return read
-}
-
-// WithFileSystem makes the program's std/fs calls reach files rather than
-// the disk, for every run of the program. `fs_testing.run` still replaces it
-// for its own call.
-func WithFileSystem(files *MemoryFiles) Option {
-	return func(c *config) { c.files = files }
 }
 
 // DataFiles are the files a marked source's `// FILE: <name>` sections hold

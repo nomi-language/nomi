@@ -1,6 +1,13 @@
 package vmhost_test
 
-import "testing"
+import (
+	"bytes"
+	"context"
+	"strings"
+	"testing"
+
+	"github.com/nomi-language/nomi/vmhost"
+)
 
 // Each capture (`&(&1 > 2)`, `&(0..&1)`, `&(-&1)`, `&#Point{x: &1, y: 0}`,
 // `&#(&1, 0)`) runs as the lambda it stands for, in each place a function
@@ -347,5 +354,73 @@ x:80/30
 `
 	if got != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// A partial capture of an operator interface's function (`&Int.add(7, &1)`)
+// is a function of its open operands, typed by the impl its written operand
+// and the expected parameter choose, so a generic std callee such as
+// `Maybe.map` solves its result type from it. Before, the checker gave the
+// capture no type, and `Maybe.map`'s `U` stayed open: "this call to
+// `Maybe.map` is not supported yet". Each case is its own program, since a
+// program's first decline hides the rest.
+func TestCaptureFunc_AnOperatorFunctionsPartialIsAFunctionOfItsOpenOperands(t *testing.T) {
+	cases := []struct{ expr, want string }{
+		{"Maybe.map(Some(2), &Int.add(7, &1))", "Some(9)"},
+		{"Maybe.map(Some(2), &Int.add(&1, 7))", "Some(9)"},
+		{"Maybe.map(Some(2), &Int.subtract(7, &1))", "Some(5)"},
+		{"Maybe.map(Some(2), &Int.subtract(&1, 7))", "Some(-5)"},
+		{"Maybe.map(Some(2), &Int.multiply(7, &1))", "Some(14)"},
+		{"Maybe.map(Some(2), &Int.divide(10, &1))", "Some(5)"},
+		{"Maybe.map(Some(2.5), &Float.add(1.0, &1))", "Some(3.5)"},
+		{"Maybe.map(Some(2.5), &Float.divide(&1, 2.0))", "Some(1.25)"},
+		{"Result.map(ok(), &Int.add(7, &1))", "Ok(9)"},
+		{"Result.map(ok(), &Int.multiply(&1, 3))", "Ok(6)"},
+		{"Result.map_err(err(), &Int.add(7, &1))", "Err(11)"},
+		{"Result.map_err(err(), &Int.subtract(&1, 1))", "Err(3)"},
+		{"Iter.reduce([1, 2, 3], &Int.subtract(&2, &1), from: 10)", "-8"},
+		{"(&Int.add(7, &1))(1)", "8"},
+		// Int has two Divide impls; the open operand's expected type picks
+		// `Divide<NonZeroInt, Int>`.
+		{"Int.to_non_zero(4) |> Maybe.map(&Int.divide(12, &1))", "Some(3)"},
+		{"Maybe.map(Int.to_non_zero(4), &Int.divide(12, &1))", "Some(3)"},
+		{"Int.to_non_zero(4) |> Maybe.to_result(\"zero\") |> Result.map(&Int.divide(12, &1))", "Ok(3)"},
+		{"Int.to_non_zero(0) |> Maybe.to_result(\"zero\") |> Result.map(&Int.divide(12, &1))", "Err(\"zero\")"},
+		{"Int.to_non_zero(4) |> Maybe.flat_map(fn d -> Maybe.map(Some(20), &Int.divide(&1, d)))", "Some(5)"},
+		// With nothing expected, the left operand of `Int.subtract` is Int.
+		{"(&Int.subtract(&1, 1))(9)", "8"},
+	}
+	for _, c := range cases {
+		t.Run(c.expr, func(t *testing.T) {
+			src := `import std/io
+
+fn ok() -> Result<Int, String> {
+    Ok(2)
+}
+
+fn err() -> Result<Int, Int> {
+    Err(4)
+}
+
+fn main() {
+    _ = #(ok(), err())
+    io.inspect(` + c.expr + `)
+}
+`
+			p, err := vmhost.LoadSource("main.nomi", src)
+			if err != nil {
+				t.Fatalf("the front end rejects the program: %v", err)
+			}
+			if u := p.Unsupported(); u != nil {
+				t.Fatalf("the program does not lower: %v", u)
+			}
+			var out bytes.Buffer
+			if err := p.Run(context.Background(), &out, nil, false); err != nil {
+				t.Fatalf("run: %v", err)
+			}
+			if got := strings.TrimSpace(out.String()); got != c.want {
+				t.Fatalf("output %q, want %q", got, c.want)
+			}
+		})
 	}
 }

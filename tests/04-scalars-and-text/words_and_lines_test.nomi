@@ -23,7 +23,7 @@ test "words treats Unicode spaces as whitespace and keeps non-ASCII words whole"
 }
 
 test "lines counts the non-empty lines of a text" {
-    text = "first\n\nsecond\u{d}\n   \nthird\n"
+    text = "first\n\nsecond\r\n   \nthird\n"
     assert String.lines(text) == ["first", "", "second", "   ", "third"]
     assert count_non_empty_lines(text) == 3
     assert count_non_empty_lines("") == 0

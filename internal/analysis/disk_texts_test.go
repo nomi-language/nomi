@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
 // diskProject is layeredProject written to disk with only its entry open in
@@ -36,7 +37,7 @@ func (d *diskProject) path(key string) string {
 	return filepath.Join(d.dir, filepath.FromSlash(key)+".nomi")
 }
 
-func (d *diskProject) uri(key string) string { return "file://" + d.path(key) }
+func (d *diskProject) uri(key string) string { return fileuri.FromPath(d.path(key)) }
 
 // write replaces key's file with text, last modified at.
 func (d *diskProject) write(key, text string, at time.Time) {

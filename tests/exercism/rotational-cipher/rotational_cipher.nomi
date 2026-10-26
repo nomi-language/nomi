@@ -1,0 +1,19 @@
+//# The rotational (Caesar) cipher over the Latin alphabet.
+
+/// `text` with every Latin letter moved `key` places along the alphabet,
+/// wrapping from `z` to `a` and keeping its case. Everything else is kept.
+pub fn rotate(text: String, key: Int) -> String {
+    cipher = Map.merge(shifted('a'..='z', key), shifted('A'..='Z', key))
+
+    text
+    |> String.to_codepoints()
+    |> Iter.map(fn letter -> Map.get(cipher, letter) |> Maybe.with_default(letter))
+    |> Iter.map(Codepoint.to_string)
+    |> String.join()
+}
+
+/// Maps each letter of `alphabet` to the letter `key` places after it.
+fn shifted(alphabet: Range<Codepoint>, key: Int) -> Map<Codepoint, Codepoint> {
+    rotated = alphabet |> Iter.cycle() |> Iter.drop(Int.modulo(key, 26))
+    Iter.zip(alphabet, rotated) |> Iter.to_map()
+}

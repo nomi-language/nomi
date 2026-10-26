@@ -38,11 +38,19 @@ type Project struct {
 	// First is the path of the source's first section, the tab a reader
 	// sees first (`tables.nomi`), when it has any.
 	First string
+	// TestFiles are the block's other Nomi files that declare tests (in a
+	// block of modules, its root module's), by their marked paths in block
+	// order. A block runs their tests after the entry's, as `nomi test`
+	// runs every test file of a project: each enters the program on its
+	// own (FromMarkedSourceAt).
+	TestFiles []string
 }
 
 var (
 	fileMarker      = regexp.MustCompile(`^\s*//\s*FILE:\s*([A-Za-z0-9_.\-/]+\.[A-Za-z0-9]+)\s*$`)
 	hasTopLevelMain = regexp.MustCompile(`(?m)^fn\s+main\b`)
+	// declaresTests matches a file with a top-level `test` or `group`.
+	declaresTests = regexp.MustCompile(`(?m)^(test|group)\s+"`)
 )
 
 // FileNames answers the path of each file src's `// FILE:` lines mark, as
@@ -61,10 +69,25 @@ func FileNames(src string) []string {
 // With no markers, the whole input is returned as a single-file project named
 // "main".
 func FromMarkedSource(src string) (Project, error) {
+	return fromMarked(src, "")
+}
+
+// FromMarkedSourceAt is the project of src entered at the marked file
+// entry, whatever file declares `fn main`: how a block runs the tests of
+// one of its TestFiles.
+func FromMarkedSourceAt(src, entry string) (Project, error) {
+	if entry == "" {
+		return Project{}, fmt.Errorf("no entry given")
+	}
+	return fromMarked(src, entry)
+}
+
+func fromMarked(src, forced string) (Project, error) {
 	files := map[string]string{}
 	currentName := ""
-	firstNomiName := ""
+	var nomiNames []string
 	firstName := ""
+	var order []string
 	var currentBuf strings.Builder
 	flush := func() {
 		if currentName == "" {
@@ -80,11 +103,12 @@ func FromMarkedSource(src string) (Project, error) {
 		if m := fileMarker.FindStringSubmatch(trimmed); m != nil {
 			flush()
 			currentName = m[1]
+			order = append(order, currentName)
 			if firstName == "" {
 				firstName = currentName
 			}
-			if firstNomiName == "" && isNomiSource(currentName) {
-				firstNomiName = currentName
+			if isNomiSource(currentName) {
+				nomiNames = append(nomiNames, currentName)
 			}
 			hasMarker = true
 			continue
@@ -98,15 +122,65 @@ func FromMarkedSource(src string) (Project, error) {
 	if !hasMarker {
 		return Project{EntrySource: src, EntryName: "main"}, nil
 	}
+	if forced != "" {
+		if _, ok := files[forced]; !ok || !isNomiSource(forced) {
+			return Project{}, fmt.Errorf("// FILE: %s is not a Nomi file of the block", forced)
+		}
+	}
 	var project Project
 	var err error
+	var entry string
+	candidates := nomiNames
 	if namesModules(files) {
-		project, err = fromModuleFiles(files)
+		project, entry, candidates, err = fromModuleFiles(files, order, forced)
 	} else {
-		project, err = fromFiles(files, firstNomiName)
+		entry = forced
+		if entry == "" {
+			entry = entryOf(files)
+		}
+		if entry == "" {
+			entry = fallbackEntry(files, nomiNames)
+		}
+		project, err = fromFiles(files, entry)
+		if !isNomiSource(entry) {
+			entry = ""
+		}
 	}
 	project.First = path.Clean(firstName)
+	if err == nil && forced == "" {
+		for _, name := range candidates {
+			if path.Clean(name) != path.Clean(entry) && declaresTests.MatchString(files[name]) {
+				project.TestFiles = append(project.TestFiles, name)
+			}
+		}
+	}
 	return project, err
+}
+
+// entryOf is a block's file that declares `fn main`, the first by name, or
+// "" when none does.
+func entryOf(files map[string]string) string {
+	for _, name := range sortedFileNames(files) {
+		if isNomiSource(name) && hasTopLevelMain.MatchString(files[name]) {
+			return name
+		}
+	}
+	return ""
+}
+
+// fallbackEntry is the entry of a block with no `fn main`: its first Nomi
+// file that declares tests, so a block that shows a solution before its
+// test file runs those tests, else its first Nomi file.
+func fallbackEntry(files map[string]string, nomiNames []string) string {
+	for _, name := range nomiNames {
+		if declaresTests.MatchString(files[name]) {
+			return name
+		}
+	}
+	if len(nomiNames) > 0 {
+		return nomiNames[0]
+	}
+	return ""
 }
 
 // namesModules reports whether a block's sections include a `go.mod`, at
@@ -123,17 +197,18 @@ func namesModules(files map[string]string) bool {
 // fromModuleFiles is the project of a block that names modules: its files
 // as they would be on disk, and its entry, the first file of the root
 // module (one in no directory holding a `nomi.toml` or `go.mod` of its own)
-// that declares `fn main`, else the root module's first Nomi file.
-func fromModuleFiles(marked map[string]string) (Project, error) {
+// that declares `fn main`, else fallbackEntry over the root module's Nomi
+// files in the block's order (order is the sections' paths as marked).
+func fromModuleFiles(marked map[string]string, order []string, forced string) (Project, string, []string, error) {
 	files := make(map[string]string, len(marked))
 	moduleDirs := map[string]bool{}
 	for name, body := range marked {
 		clean := path.Clean(name)
 		if strings.HasPrefix(clean, "/") || clean == ".." || strings.HasPrefix(clean, "../") {
-			return Project{}, fmt.Errorf("// FILE: %s is outside the project", name)
+			return Project{}, "", nil, fmt.Errorf("// FILE: %s is outside the project", name)
 		}
 		if _, dup := files[clean]; dup {
-			return Project{}, fmt.Errorf("// FILE: %s is marked twice", name)
+			return Project{}, "", nil, fmt.Errorf("// FILE: %s is marked twice", name)
 		}
 		if isNomiSource(clean) {
 			files[clean] = body
@@ -152,23 +227,27 @@ func fromModuleFiles(marked map[string]string) (Project, error) {
 		}
 		return true
 	}
-	entry := ""
-	for _, name := range sortedFileNames(files) {
-		if isNomiSource(name) && inRoot(name) && hasTopLevelMain.MatchString(files[name]) {
-			entry = name
-			break
+	var roots []string
+	for _, name := range order {
+		if name = path.Clean(name); isNomiSource(name) && inRoot(name) {
+			roots = append(roots, name)
 		}
 	}
-	if entry == "" {
+	entry := path.Clean(forced)
+	if forced == "" {
+		entry = ""
 		for _, name := range sortedFileNames(files) {
-			if isNomiSource(name) && inRoot(name) {
+			if isNomiSource(name) && inRoot(name) && hasTopLevelMain.MatchString(files[name]) {
 				entry = name
 				break
 			}
 		}
 	}
 	if entry == "" {
-		return Project{}, fmt.Errorf("no Nomi file is in the block's root module")
+		entry = fallbackEntry(files, roots)
+	}
+	if entry == "" {
+		return Project{}, "", nil, fmt.Errorf("no Nomi file is in the block's root module")
 	}
 	data := map[string]string{}
 	for name, body := range files {
@@ -176,7 +255,7 @@ func fromModuleFiles(marked map[string]string) (Project, error) {
 			data[name] = body
 		}
 	}
-	return Project{EntrySource: files[entry], EntryName: entry, DataFiles: data, Files: files}, nil
+	return Project{EntrySource: files[entry], EntryName: entry, DataFiles: data, Files: files}, entry, roots, nil
 }
 
 // FromSources builds a virtual project from a map keyed by import path without
@@ -204,7 +283,10 @@ func FromSources(entryPoint string, sources map[string]string, manifest *analysi
 	}, nil
 }
 
-func fromFiles(files map[string]string, fallbackEntry string) (Project, error) {
+// fromFiles is the project of a block that names no modules, entered at
+// entry when it is one of its Nomi files, else at its first Nomi file by
+// name.
+func fromFiles(files map[string]string, entry string) (Project, error) {
 	files = cloneFiles(files)
 	var manifest *analysis.Manifest
 	if tomlSrc, ok := files["nomi.toml"]; ok {
@@ -218,26 +300,10 @@ func fromFiles(files map[string]string, fallbackEntry string) (Project, error) {
 
 	entrySource := ""
 	entryName := ""
-	for _, name := range sortedFileNames(files) {
-		body := files[name]
-		if !isNomiSource(name) {
-			continue
-		}
-		if hasTopLevelMain.MatchString(body) {
-			entrySource = body
-			entryName = NormalizeModuleName(name)
-			delete(files, name)
-			break
-		}
-	}
-	if entrySource == "" {
-		if fallbackEntry != "" {
-			if body, ok := files[fallbackEntry]; ok && isNomiSource(fallbackEntry) {
-				entrySource = body
-				entryName = NormalizeModuleName(fallbackEntry)
-				delete(files, fallbackEntry)
-			}
-		}
+	if body, ok := files[entry]; ok && isNomiSource(entry) {
+		entrySource = body
+		entryName = NormalizeModuleName(entry)
+		delete(files, entry)
 	}
 	if entrySource == "" {
 		for _, name := range sortedFileNames(files) {

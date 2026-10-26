@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -96,7 +97,7 @@ func TestRPC_ExtensionlessScriptGoBindings(t *testing.T) {
 		}
 	}
 	text := scriptFFIFiles["bin/hi"]
-	uri := "file://" + filepath.Join(dir, "bin", "hi")
+	uri := fileuri.FromPath(filepath.Join(dir, "bin", "hi"))
 	s := NewServer()
 	c := startRPC(t, s, dir)
 	c.open(uri, text)

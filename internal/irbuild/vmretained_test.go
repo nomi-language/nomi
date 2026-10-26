@@ -841,7 +841,11 @@ func vmProbe(e vmProbeEntry) vmProbeResult {
 		var failed *vm.BootError
 		return vmProbeResult{ran: err == nil || errors.As(err, &failed), err: err, boot: true}
 	}
-	m := vmProgram(e.mod, e.links)
+	// Made-up arguments can send a loop that the program's own callers
+	// bound around forever (all-your-base's digits_of in base 1), so each
+	// call has a step budget. A spinning goroutine never blocks, so the
+	// bubble's virtual clock cannot end it.
+	m := vmProgram(e.mod, e.links).WithLimits(vm.Limits{Steps: vmProbeSteps})
 	var lastErr error
 	for _, args := range vmArgShapes(e.mod, e.fn, e.links...) {
 		_, err := vmRunSymV(m, e.fn.Sym(), args...)
@@ -1002,13 +1006,14 @@ func vmProbeArgFailure(fn *ir.Func, err error) bool {
 	if strings.Contains(err.Error(), "reads a field off") || strings.Contains(err.Error(), "variant test reads rt.Context") ||
 		strings.Contains(err.Error(), "iteration reads rt.Context") || strings.Contains(err.Error(), "set receiver is rt.Context") ||
 		strings.Contains(err.Error(), "list test reads rt.Context") || strings.Contains(err.Error(), "is rt.Context, want Vector") ||
-		strings.Contains(err.Error(), "list tail is rt.Context") || strings.Contains(err.Error(), "vector test reads rt.Context") {
-		// A field read, variant test, iteration, Set operation, list or vector pattern
-		// or Vector operation on the leaf the probe supplied for a parameter
-		// it cannot build (a nominal type, an `Iter<T>`, a struct whose field
-		// is a Set, a list matched as part of a tuple the body builds or whose
-		// shape only a callee more than four call edges away states, or a
-		// generic Vector only a host call reads).
+		strings.Contains(err.Error(), "list tail is rt.Context") || strings.Contains(err.Error(), "vector test reads rt.Context") ||
+		strings.Contains(err.Error(), "range receiver is rt.Context") {
+		// A field read, variant test, iteration, Set operation, list or vector pattern,
+		// Vector operation or Range operation on the leaf the probe supplied for
+		// a parameter it cannot build (a nominal type, an `Iter<T>`, a struct
+		// whose field is a Set, a list matched as part of a tuple the body builds
+		// or whose shape only a callee more than four call edges away states, a
+		// generic Vector only a host call reads, or a `Range<Codepoint>`).
 		return true
 	}
 	if strings.Contains(err.Error(), ": arg ") && strings.Contains(err.Error(), ", got rt.Context") {
@@ -1167,13 +1172,18 @@ func vmFirstGroupBoot(mod *ir.Module) (ir.TestGroup, bool) {
 	return ir.TestGroup{}, false
 }
 
+// vmProbeSteps is a probe call's step budget: far more than any corpus body
+// takes on its made-up arguments, and a moment of CPU.
+const vmProbeSteps = 20_000_000
+
 // vmRan reports whether a probe's run executed the body, and it counts the
-// call-depth fault as a run. A probe calls a recursive body on arguments it
-// made up, and one that recurses past rt.MaxCallDepth on them was executed by
-// the machine: the fault is that body's answer on those arguments, as a
-// division by zero would be, and not a construct this machine cannot run.
+// call-depth fault and the step budget's end as a run. A probe calls a body
+// on arguments it made up, and one that recurses past rt.MaxCallDepth or
+// loops past vmProbeSteps on them was executed by the machine: the limit is
+// that body's answer on those arguments, as a division by zero would be, and
+// not a construct this machine cannot run.
 func vmRan(err error) bool {
-	if err == nil {
+	if err == nil || errors.Is(err, vm.ErrLimit) {
 		return true
 	}
 	var fault *vm.Fault

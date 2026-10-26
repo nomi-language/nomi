@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/format"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -157,7 +158,7 @@ func TestFillFunctions_ImportedInterface(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"engine.nomi": "pub interface Powered {\n    fn label(e: self) -> String\n\n    open fn describe(e: self, _loud: Bool = False) -> String {\n        Powered.label(e)\n    }\n}\n",
 	})
-	uri := "file://" + filepath.Join(dir, "main.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	decls := "struct Motor {\n    name: String\n}\n\n"
 	got := checkFill(t, NewServer(), uri, "import engine.Powered\n\n"+decls+"impl Powered for Motor {\n}\n", "Implement missing function 'label'")
 	if !strings.Contains(got, "impl Powered for Motor {\n    fn label(motor: Motor) -> String {\n        todo\n    }\n}\n") {

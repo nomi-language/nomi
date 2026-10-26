@@ -66,7 +66,7 @@ func TestFFI_StdLibraryBindings(t *testing.T) {
 						strings.Join(args, " "), r.exit, r.stdout, stdBindingWant, r.stderr)
 				}
 			}
-			built := filepath.Join(t.TempDir(), "hi")
+			built := exe(filepath.Join(t.TempDir(), "hi"))
 			if b := runProcess(t, env, t.TempDir(), "", nomiBin, "build", entry, "-o", built); b.exit != 0 {
 				t.Fatalf("nomi build: exit %d\n%s", b.exit, b.transcript())
 			}

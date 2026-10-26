@@ -364,6 +364,15 @@ func (bl *irScalarBuilder) stdFileOnceValue(at ast.Node, line, col int) (ir.Temp
 			}
 		}
 	}
+	if o == nil && fa.Definitions[analysis.Pos{Line: ob.Line, Col: ob.Col}] == sym {
+		// The module's own binding read bare in its source checked anew
+		// (a reference editor's `stdout` in std/io, vmhost.StdlibReference):
+		// the checker records the edited copy's declaration, and the cell is
+		// the shared copy's. A file declares one file-level `once` of a name.
+		if c := g.stdOnces[ob.Name]; c != nil && c.recv == "" {
+			o = c
+		}
+	}
 	if o == nil || o.recv != "" || !o.settled || o.irCell == nil || !irRetainedValueKind(o.k) {
 		return no()
 	}

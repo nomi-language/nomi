@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -108,7 +109,7 @@ func TestCompletion_ParamTypeImported(t *testing.T) {
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)
 	s.docs.IndexWorkspace(context.Background())
-	uri := "file://" + filepath.Join(dir, "main.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 
 	items := completeIn(t, s, uri, "import world.Monster\n\nfn slay(monster"+cursorMark+") {}\n\nfn main() {\n}\n").Items
 	wantParamItem(t, items, "monster: Monster", "monster: Monster")

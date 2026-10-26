@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/std"
 	"github.com/nomi-language/nomi/vmhost"
 )
@@ -40,7 +41,7 @@ func TestStdlibPrompt_CachedAndFreshPathsShareTheModuleScope(t *testing.T) {
 	}
 	promptLine := strings.Count(before, "\n") + 1
 
-	path := strings.TrimPrefix(std.Load().FileURI("regex"), "file://")
+	path := fileuri.ToPath(std.Load().FileURI("regex"))
 	cachedProg, err := vmhost.LoadStdlib(path)
 	if err != nil {
 		t.Fatalf("cached path (LoadStdlib): %v", err)

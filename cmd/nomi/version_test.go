@@ -148,7 +148,7 @@ func TestVersionFlag_EveryBuildPathReportsItsRevision(t *testing.T) {
 		name:    "go build -o",
 		stamped: true,
 		build: func(t *testing.T, dir string) string {
-			bin := filepath.Join(dir, "nomi")
+			bin := exe(filepath.Join(dir, "nomi"))
 			mustRunGo(t, root, nil, "build", "-o", bin, "./cmd/nomi")
 			return bin
 		},
@@ -157,13 +157,13 @@ func TestVersionFlag_EveryBuildPathReportsItsRevision(t *testing.T) {
 		stamped: true,
 		build: func(t *testing.T, dir string) string {
 			mustRunGo(t, root, []string{"GOBIN=" + dir}, "install", "./cmd/nomi")
-			return filepath.Join(dir, "nomi")
+			return exe(filepath.Join(dir, "nomi"))
 		},
 	}, {
 		name:    "release shape: -trimpath -ldflags -s -w",
 		stamped: true,
 		build: func(t *testing.T, dir string) string {
-			bin := filepath.Join(dir, "nomi")
+			bin := exe(filepath.Join(dir, "nomi"))
 			mustRunGo(t, root, nil, "build", "-trimpath", "-ldflags", "-s -w", "-o", bin, "./cmd/nomi")
 			return bin
 		},
@@ -171,7 +171,7 @@ func TestVersionFlag_EveryBuildPathReportsItsRevision(t *testing.T) {
 		name:    "no vcs information",
 		stamped: false,
 		build: func(t *testing.T, dir string) string {
-			bin := filepath.Join(dir, "nomi")
+			bin := exe(filepath.Join(dir, "nomi"))
 			mustRunGo(t, root, nil, "build", "-buildvcs=false", "-o", bin, "./cmd/nomi")
 			return bin
 		},

@@ -3,7 +3,7 @@
 // least one `export fn`. It is built with `-buildmode=c-shared`, so it
 // exports Go's `_initialize` instead of `_start`, and a runner calls the
 // program's exported functions through a generic ABI over linear memory
-// (reactor.go):
+// (nomi/vmrunner/reactor):
 //
 //	nomi_alloc(len: i32) -> i32
 //	nomi_call(name_ptr, name_len, args_ptr, args_len: i32) -> i64
@@ -25,9 +25,3 @@
 // it does for nomi-vm. On any target but wasip1 it is a stub that says what
 // it is (other.go).
 package main
-
-import "github.com/nomi-language/nomi/vmrunner"
-
-// options are the runner's host options: std/compiler's hosts when built
-// with the nomi_compiler tag, nothing otherwise.
-var options []vmrunner.Option

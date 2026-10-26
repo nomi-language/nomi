@@ -945,6 +945,9 @@ var stdIntrinsicTypes = []struct{ origin, nomi string }{
 	{"std/channels", "Sender"},
 	{"std/channels", "Receiver"},
 	{"std/supervisors", "Supervisor"},
+	// Only `Reader.from_chunks` and `Reader.from_text_chunks` are
+	// intrinsics; every other Reader call takes the ordinary route.
+	{"std/io", "Reader"},
 }
 
 // stdDeclaringSymbol is the symbol a std module declares under name, read from
@@ -1049,6 +1052,13 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 				return bl.supervisorSpawn(t)
 			case owner == "Supervisor" && fa.Field.Name == "spawn_all":
 				return bl.supervisorSpawnAll(t)
+			case owner == "Reader" && (fa.Field.Name == "from_chunks" || fa.Field.Name == "from_text_chunks"):
+				if bl.recording > 0 {
+					return bl.recordedQualCall(t, func() (ir.Temp, kind, bool, bool) {
+						return bl.readerFromChunks(t, fa.Field.Name)
+					})
+				}
+				return bl.readerFromChunks(t, fa.Field.Name)
 			}
 		}
 		if owner, module, isStdOwner := bl.stdShortOwner(fa); isStdOwner {

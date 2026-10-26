@@ -1,0 +1,82 @@
+//# Which plants each child of a kindergarten class looks after, from a
+//# diagram of the cups on the windowsill.
+
+/// A plant grown in the class's garden.
+pub enum Plant {
+    Grass
+    Clover
+    Radishes
+    Violets
+}
+
+impl Plant {
+    /// The plant a diagram writes as `letter`, or `None` for a letter that
+    /// names no plant.
+    pub fn from_letter(letter: String) -> Maybe<Plant> {
+        case letter {
+            "G" -> Some(.Grass)
+            "C" -> Some(.Clover)
+            "R" -> Some(.Radishes)
+            "V" -> Some(.Violets)
+            _ -> None
+        }
+    }
+}
+
+/// A child of the class, in the alphabetical order cups are handed out.
+pub enum Student {
+    Alice
+    Bob
+    Charlie
+    David
+    Eve
+    Fred
+    Ginny
+    Harriet
+    Ileana
+    Joseph
+    Kincaid
+    Larry
+}
+
+derive Variants for Student
+
+/// Two rows of cups, the row nearest the window first.
+pub opaque struct Garden {
+    rows: List<List<Plant>>
+}
+
+impl Garden {
+    /// Reads a diagram of one line per row of cups, or `None` when a letter
+    /// names no plant.
+    pub fn parse(diagram: String) -> Maybe<Garden> {
+        diagram
+        |> String.lines()
+        |> Iter.map(parse_row)
+        |> Maybe.collect()
+        |> Maybe.map(&#Garden{rows: &1})
+    }
+
+    /// The plants in `student`'s cups: two in each row, left to right, the
+    /// row nearest the window first.
+    pub fn plants(garden: Garden, student: Student) -> List<Plant> {
+        first_cup = 2 * position(student)
+
+        garden.rows
+        |> Iter.flat_map(fn row -> row |> Iter.drop(first_cup) |> Iter.take(2))
+        |> Iter.to_list()
+    }
+}
+
+fn parse_row(row: String) -> Maybe<List<Plant>> {
+    row
+    |> Iter.map(Plant.from_letter)
+    |> Maybe.collect()
+}
+
+/// How many students come before `student` in the class.
+fn position(student: Student) -> Int {
+    Student.variants()
+    |> Iter.take_while(&(&1 != student))
+    |> Iter.count()
+}

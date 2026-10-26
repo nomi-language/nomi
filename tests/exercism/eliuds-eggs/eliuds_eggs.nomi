@@ -1,0 +1,8 @@
+/// Counts the 1 bits in the binary form of a non-negative `number`: the
+/// eggs in Eliud's coop, one bit per nest.
+pub fn egg_count(number: Int) -> Int {
+    Iter.iterate(number, &Int.shift_right(&1, 1))
+    |> Iter.take_while(&(&1 > 0))
+    |> Iter.map(&Int.bitwise_and(&1, 1))
+    |> Iter.sum()
+}

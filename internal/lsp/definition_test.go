@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"os"
@@ -1204,7 +1205,7 @@ func TestFindDefinition_OnStdlibImplMethodResolvesToInterfaceMethod(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + absRange
+	uri := fileuri.FromPath(absRange)
 	s := NewServer()
 	s.docs.Open(uri, src)
 

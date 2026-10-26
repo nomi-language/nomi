@@ -1,0 +1,40 @@
+//# A checksum of text that every run and every machine computes the same:
+//# 64-bit FNV-1a over its UTF-8 bytes, as 16 hex digits. `sqlkit.migrate`
+//# records one per migration it applies, and the snapshot records one of
+//# the migrations it was prepared from. It tells changed text from the
+//# text it was taken of; it is not a defense against someone who wants
+//# two texts to collide.
+
+// FNV-1a's 64-bit offset basis, 0xcbf29ce484222325, as a signed Int.
+once offset_basis: Int = -3_750_763_034_362_895_579
+
+// FNV-1a's 64-bit prime, 0x100000001b3.
+once prime: Int = 1_099_511_628_211
+
+/// The checksum of `text`.
+//! assert checksum.of("") == "cbf29ce484222325"
+//! assert checksum.of("a") == "af63dc4c8601ec8c"
+//! assert checksum.of("foobar") == "85944171f73967e8"
+//
+pub fn of(text: String) -> String {
+    hash = Iter.reduce(
+        String.to_bytes(text),
+        fn h, b -> Int.wrapping_mul(Int.bitwise_xor(h, Byte.to_int(b)), prime),
+        from: offset_basis,
+    )
+
+    hex(hash)
+}
+
+// The 16 hex digits of n's 64 bits, most significant first.
+fn hex(n: Int) -> String {
+    digits = "0123456789abcdef"
+
+    Iter.from(0)
+    |> Iter.take(16)
+    |> Iter.map(fn k -> {
+        nibble = Int.bitwise_and(Int.shift_right(n, 60 - 4 * k), 15)
+        String.slice(digits, nibble, nibble + 1)
+    })
+    |> String.join()
+}

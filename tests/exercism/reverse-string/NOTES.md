@@ -1,5 +1,7 @@
 # Reverse String
 
+Subject: Strings & Text
+
 Reverse a string by its characters as a reader sees them, so combining marks
 stay on their letters.
 

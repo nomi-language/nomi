@@ -348,8 +348,17 @@ module github.com/you/myproject
 go 1.27.0
 ```
 
-A module that already has a `nomi.toml` gets its `go.mod` from
-`nomi new github.com/you/myproject .` in its directory.
+To make a directory that already holds your files a project, run `nomi init`
+in it with the full name. It writes the `nomi.toml` and `go.mod` the
+directory lacks and no source file, lists each file with a `fn main` as an
+entry point, and never replaces a file. A directory that already has a
+`go.mod` needs no name, since `go.mod` holds it:
+
+```console
+$ nomi init github.com/you/myproject
+wrote nomi.toml and go.mod
+next: nomi run main.nomi
+```
 
 `nomi.toml` describes the Nomi side of the module: its short name and its
 entry points. `go.mod` lists its **dependencies**, the other modules it uses.

@@ -14,6 +14,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/doctest"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/std"
@@ -115,7 +116,7 @@ func TestFieldDefault_TreeIsClean(t *testing.T) {
 		if err := os.WriteFile(path, []byte(plantedBadFieldDefault), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		doc := newManager(dir).Open("file://"+path, plantedBadFieldDefault)
+		doc := newManager(dir).Open(fileuri.FromPath(path), plantedBadFieldDefault)
 		if doc == nil || doc.Analysis == nil {
 			t.Fatal("planted positive did not analyze")
 		}
@@ -143,7 +144,7 @@ func TestFieldDefault_TreeIsClean(t *testing.T) {
 				return readErr
 			}
 			dm := newManager(projectRootFor(root, path))
-			doc := dm.Open("file://"+path, string(content))
+			doc := dm.Open(fileuri.FromPath(path), string(content))
 			if doc == nil || doc.Analysis == nil {
 				return nil
 			}
@@ -190,7 +191,7 @@ func TestFieldDefault_TreeIsClean(t *testing.T) {
 				if readErr != nil {
 					t.Fatal(readErr)
 				}
-				doc := newManager(dir).Open("file://"+entry, string(content))
+				doc := newManager(dir).Open(fileuri.FromPath(entry), string(content))
 				if doc == nil || doc.Analysis == nil {
 					continue
 				}
@@ -565,7 +566,7 @@ fn main() {
 		t.Fatal(err)
 	}
 	dm.SetWorkspaceRoot(dir)
-	doc := dm.Open("file://"+path, src)
+	doc := dm.Open(fileuri.FromPath(path), src)
 	if doc == nil || doc.Analysis == nil {
 		t.Fatal("source did not analyze")
 	}
@@ -859,11 +860,11 @@ fn main() {
 		// them, so its planted positive did not fire and its zero was
 		// vacuous.
 		entry := filepath.Join(dir, "main.nomi")
-		if doc := dm.Open("file://"+entry, importerSrc); doc == nil || doc.Analysis == nil {
+		if doc := dm.Open(fileuri.FromPath(entry), importerSrc); doc == nil || doc.Analysis == nil {
 			t.Fatal("importer did not analyze")
 		}
 		modPath := filepath.Join(dir, "cfg.nomi")
-		modDoc := dm.Open("file://"+modPath, module)
+		modDoc := dm.Open(fileuri.FromPath(modPath), module)
 		if modDoc == nil || modDoc.Analysis == nil {
 			t.Fatal("module did not analyze")
 		}

@@ -1,0 +1,47 @@
+//# Translates an RNA strand, three nucleotides at a time, into the amino
+//# acids of its protein.
+
+/// The amino acids the exercise's codons stand for.
+pub enum AminoAcid {
+    Methionine
+    Phenylalanine
+    Leucine
+    Serine
+    Tyrosine
+    Cysteine
+    Tryptophan
+}
+
+/// Why a strand does not translate.
+pub enum Error {
+    /// A codon before the first STOP that stands for nothing, given as it
+    /// appears in the strand: three letters, or fewer at the strand's end.
+    InvalidCodon String
+}
+
+/// The amino acids `strand`'s codons stand for, up to its first STOP codon.
+/// Whatever follows a STOP is not read.
+pub fn proteins(strand: String) -> Result<List<AminoAcid>, Error> {
+    strand
+    |> Iter.chunks(3)
+    |> Iter.map(&String.join(&1))
+    |> Iter.map(translate)
+    |> Iter.take_while(&(&1 != Ok(None)))
+    |> Result.collect()
+    |> Result.map(Maybe.values)
+}
+
+/// The amino acid `codon` stands for, `None` for a STOP codon.
+fn translate(codon: String) -> Result<Maybe<AminoAcid>, Error> {
+    case codon {
+        "AUG" -> Ok(Some(.Methionine))
+        "UUU" or "UUC" -> Ok(Some(.Phenylalanine))
+        "UUA" or "UUG" -> Ok(Some(.Leucine))
+        "UCU" or "UCC" or "UCA" or "UCG" -> Ok(Some(.Serine))
+        "UAU" or "UAC" -> Ok(Some(.Tyrosine))
+        "UGU" or "UGC" -> Ok(Some(.Cysteine))
+        "UGG" -> Ok(Some(.Tryptophan))
+        "UAA" or "UAG" or "UGA" -> Ok(None)
+        _ -> Err(.InvalidCodon(codon))
+    }
+}

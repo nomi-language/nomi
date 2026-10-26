@@ -434,6 +434,13 @@ argument (`describe(.North)`), a return value, a list element
 (`walk: List<Direction> = [.North, .East]`) and an annotated binding
 (`d: Direction = .North`).
 
+In a list, vector, set or map with no annotation, the first element can name
+the enum for the rest. In `walk = [Direction.North, .East, .East]` the first
+element makes the list a `List<Direction>`, and each bare variant after it is
+a `Direction`. A map's keys and values work the same way, each on its own:
+`%{Direction.North => 1, .South => 2}`. The compiler reads left to right, so
+`[.North, Direction.East]` is an error at `.North`.
+
 ## Type-Owned Functions
 
 ```nomi-run

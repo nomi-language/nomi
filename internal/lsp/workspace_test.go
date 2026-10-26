@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"fmt"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/tliron/glsp"
 	"path/filepath"
 	"runtime"
@@ -144,7 +145,7 @@ func TestWorkspaceScan_KeepsNoAnalyses(t *testing.T) {
 
 	// Requests that analyze closed files fill a bounded cache.
 	for i := range 40 {
-		if s.docs.Analyzed("file://"+filepath.Join(root, "project0", fmt.Sprintf("mod%d.nomi", i))) == nil {
+		if s.docs.Analyzed(fileuri.FromPath(filepath.Join(root, "project0", fmt.Sprintf("mod%d.nomi", i)))) == nil {
 			t.Fatalf("no analysis of mod%d", i)
 		}
 	}
@@ -171,7 +172,7 @@ func crossFileProject(t *testing.T) (string, *Server) {
 
 func TestReferences_IntoClosedFiles(t *testing.T) {
 	dir, s := crossFileProject(t)
-	libURI := "file://" + filepath.Join(dir, "lib.nomi")
+	libURI := fileuri.FromPath(filepath.Join(dir, "lib.nomi"))
 	src := "/// Doubles n.\npub fn double(n: Int) -> Int {\n    n * 2\n}\n\npub struct Pair {\n    a: Int\n}\n"
 	s.docs.Open(libURI, src)
 
@@ -195,14 +196,14 @@ func TestReferences_IntoClosedFiles(t *testing.T) {
 		t.Errorf("references by file = %v", count)
 	}
 	// c.nomi and main.nomi never spell double, so they were not analyzed.
-	if s.docs.IsOpen("file://"+filepath.Join(dir, "c.nomi")) || s.docs.Get("file://"+filepath.Join(dir, "a.nomi")) != nil {
+	if s.docs.IsOpen(fileuri.FromPath(filepath.Join(dir, "c.nomi"))) || s.docs.Get(fileuri.FromPath(filepath.Join(dir, "a.nomi"))) != nil {
 		t.Error("references opened a closed file")
 	}
 }
 
 func TestRename_IntoClosedFiles(t *testing.T) {
 	dir, s := crossFileProject(t)
-	libURI := "file://" + filepath.Join(dir, "lib.nomi")
+	libURI := fileuri.FromPath(filepath.Join(dir, "lib.nomi"))
 	s.docs.Open(libURI, "/// Doubles n.\npub fn double(n: Int) -> Int {\n    n * 2\n}\n\npub struct Pair {\n    a: Int\n}\n")
 
 	edit, err := s.textDocumentRename(nil, &protocol.RenameParams{
@@ -226,7 +227,7 @@ func TestRename_IntoClosedFiles(t *testing.T) {
 
 func TestDefinition_SelectiveImportIntoClosedFile(t *testing.T) {
 	dir, s := crossFileProject(t)
-	bURI := "file://" + filepath.Join(dir, "b.nomi")
+	bURI := fileuri.FromPath(filepath.Join(dir, "b.nomi"))
 	s.docs.Open(bURI, "import lib.{double}\n\npub fn six(n: Int) -> Int {\n    double(n) + double(n) + double(n)\n}\n")
 
 	res, err := s.textDocumentDefinition(nil, &protocol.DefinitionParams{
@@ -243,7 +244,7 @@ func TestDefinition_SelectiveImportIntoClosedFile(t *testing.T) {
 		t.Fatalf("definition = %#v", res)
 	}
 	want := protocol.Location{
-		URI:   protocol.DocumentUri("file://" + filepath.Join(dir, "lib.nomi")),
+		URI:   protocol.DocumentUri(fileuri.FromPath(filepath.Join(dir, "lib.nomi"))),
 		Range: protocol.Range{Start: protocol.Position{Line: 1, Character: 7}, End: protocol.Position{Line: 1, Character: 13}},
 	}
 	if *loc != want {
@@ -261,7 +262,7 @@ func TestWorkspaceSymbol_ReadsTheIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(syms) != 1 || syms[0].Name != "double" || syms[0].Kind != protocol.SymbolKindFunction ||
-		syms[0].Location.URI != protocol.DocumentUri("file://"+filepath.Join(dir, "lib.nomi")) ||
+		syms[0].Location.URI != protocol.DocumentUri(fileuri.FromPath(filepath.Join(dir, "lib.nomi"))) ||
 		syms[0].Location.Range.Start != (protocol.Position{Line: 1, Character: 7}) {
 		t.Errorf("workspace symbols for dbl = %+v", syms)
 	}
@@ -283,12 +284,12 @@ func TestClosedDiagnostics_PublishedAndRepublished(t *testing.T) {
 	s.docs.SetWorkspaceRoot(dir)
 	s.scanWorkspace()
 	waitClosedDiagnostics(t, s, time.Minute)
-	userURI := "file://" + filepath.Join(dir, "user.nomi")
+	userURI := fileuri.FromPath(filepath.Join(dir, "user.nomi"))
 	if diags, ok := published()[userURI]; !ok || len(diags) != 0 {
 		t.Fatalf("user.nomi: published %v %v, want an empty list", ok, diagMessages(diags))
 	}
 
-	libURI := "file://" + filepath.Join(dir, "lib.nomi")
+	libURI := fileuri.FromPath(filepath.Join(dir, "lib.nomi"))
 	s.docs.Open(libURI, "pub fn halve(n: Int) -> Int {\n    n / 2\n}\n")
 	s.docs.UpdateImportEdges(libURI)
 	s.propagateAsync(libURI)
@@ -314,7 +315,7 @@ func TestDidClose_RepublishesDiskThenReopenPublishes(t *testing.T) {
 	s, published := recordingServer()
 	s.docs.SetWorkspaceRoot(dir)
 	ctx := &glsp.Context{Notify: s.notify}
-	uri := "file://" + filepath.Join(dir, "lib.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "lib.nomi"))
 	waitFor := func(what string, ok func([]protocol.Diagnostic) bool) {
 		t.Helper()
 		deadline := time.Now().Add(time.Minute)

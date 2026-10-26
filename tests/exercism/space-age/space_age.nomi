@@ -1,0 +1,46 @@
+//# How old someone would be on each planet of the Solar System.
+
+once earth_year_seconds = 31_557_600.0
+
+/// A planet of the Solar System.
+pub enum Planet {
+    Mercury
+    Venus
+    Earth
+    Mars
+    Jupiter
+    Saturn
+    Uranus
+    Neptune
+}
+
+impl Planet {
+    /// The planet named `name`, such as `"Mars"`, or `None` for a name that
+    /// is not one of the eight.
+    pub fn parse(name: String) -> Maybe<Planet> {
+        Planet.variants() |> Iter.find(&("${&1}" == name))
+    }
+
+    /// How long the planet takes to orbit the Sun, in Earth years.
+    pub fn orbital_period(planet: Planet) -> Float {
+        case planet {
+            .Mercury -> 0.2408467
+            .Venus -> 0.61519726
+            .Earth -> 1.0
+            .Mars -> 1.8808158
+            .Jupiter -> 11.862615
+            .Saturn -> 29.447498
+            .Uranus -> 84.016846
+            .Neptune -> 164.79132
+        }
+    }
+}
+
+derive Display for Planet
+derive Variants for Planet
+
+/// The age, in the planet's years, of someone `seconds` old.
+pub fn age(planet: Planet, seconds: Int) -> Float {
+    earth_years = Int.to_float(seconds) / earth_year_seconds
+    earth_years / Planet.orbital_period(planet)
+}

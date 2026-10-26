@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -258,6 +259,9 @@ func TestTestWatch_RunsTheTestsAgainOnEveryChange(t *testing.T) {
 }
 
 func TestRunWatch_CtrlCExitsWithTheSignalsStatus(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Go cannot send a child Ctrl-C on Windows")
+	}
 	dir := t.TempDir()
 	app := filepath.Join(dir, "app.nomi")
 	writeSource(t, app, "import std/io\n\nfn spin(n: Int) -> Int {\n  spin(n + 1)\n}\n\nfn main() {\n  io.print(\"spinning\")\n  io.print(spin(0))\n}\n")

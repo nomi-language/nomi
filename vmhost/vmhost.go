@@ -63,6 +63,15 @@ type Program struct {
 	env map[string]string
 	// errOut is the runtime's diagnostic output, or nil for os.Stderr.
 	errOut io.Writer
+	// fileNames names a source file in a run-time failure's text
+	// (vm.Machine.WithFileNames), or is nil for its path from the working
+	// directory. LoadMarked sets it for a project it wrote under a
+	// directory.
+	fileNames func(string) string
+	// blockTests are the programs of a marked block's other test files,
+	// each entered at its file (LoadMarked); Cases runs theirs after the
+	// entry's.
+	blockTests []*Program
 	// input is what `io.read_line` reads, shared by every machine this
 	// program opens, or nil for no input.
 	input *rt.Input
@@ -224,11 +233,14 @@ func (p *Program) machineOver(entry *ir.Module, out io.Writer) *vm.Machine {
 	if p.errOut != nil {
 		m = m.WithErrorOutput(p.errOut)
 	}
+	if p.fileNames != nil {
+		m = m.WithFileNames(p.fileNames)
+	}
 	if p.input != nil {
 		m = m.WithInput(p.input)
 	}
 	if p.cfg.files != nil {
-		m = m.WithFiles(p.cfg.files.m)
+		m = m.WithFiles(p.cfg.files)
 	}
 	if p.debugger != nil {
 		m = m.WithDebugger(p.debugger)
@@ -385,7 +397,20 @@ func (r *CaseResult) blockedBy(b *Blocked) {
 // receives only output written outside every case: a task that outlives the
 // case that started it. When the file declares
 // duplicate case names it answers those as failures and runs nothing.
+//
+// A program LoadMarked loads from a block with tests in more than one file
+// answers the entry's cases and then each other test file's, in block
+// order, as `nomi test` runs every test file of a project.
 func (p *Program) Cases(out io.Writer, opts TestOptions) []CaseResult {
+	results := p.entryCases(out, opts)
+	for _, t := range p.blockTests {
+		results = append(results, t.Cases(out, opts)...)
+	}
+	return results
+}
+
+// entryCases is Cases for the entry's own cases.
+func (p *Program) entryCases(out io.Writer, opts TestOptions) []CaseResult {
 	plan, duplicates := frontend.SelectTests(p.prog.Entry().Nodes, opts)
 	if len(duplicates) > 0 {
 		results := make([]CaseResult, len(duplicates))

@@ -80,7 +80,7 @@ test "digit? and to_digit read ASCII digits only" {
 test "whitespace? is Unicode White_Space" {
     // Space, tab, newline, carriage return, no-break space U+00A0 and the
     // ideographic space U+3000.
-    assert String.to_codepoints(" \t\n\u{d}\u{a0}\u{3000}") |> Iter.all?(Codepoint.whitespace?)
+    assert String.to_codepoints(" \t\n\r\u{a0}\u{3000}") |> Iter.all?(Codepoint.whitespace?)
     // A letter, a digit, an emoji and the zero-width space U+200B.
     assert !(String.to_codepoints("a7🙂\u{200b}") |> Iter.any?(Codepoint.whitespace?))
 }

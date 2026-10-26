@@ -1,0 +1,73 @@
+//# The resistance a resistor's first three color bands give, in the largest
+//# metric unit that keeps it whole.
+
+/// A band color, in value order: black is 0 and white is 9.
+pub enum Color {
+    Black
+    Brown
+    Red
+    Orange
+    Yellow
+    Green
+    Blue
+    Violet
+    Grey
+    White
+}
+
+/// The unit a resistance is written in, each a thousand times the one before.
+pub enum Magnitude {
+    Ohms
+    Kiloohms
+    Megaohms
+    Gigaohms
+}
+
+/// A resistance as the label on a resistor reads it: `33 kiloohms`.
+pub struct Resistance {
+    value: Int
+    unit: Magnitude
+}
+
+/// The resistance the first three bands give: two digits, then the number
+/// of zeros after them. Bands after the third are ignored. `None` when there
+/// are fewer than three bands.
+pub fn label(bands: List<Color>) -> Maybe<Resistance> {
+    [first, second, zeros, .._] = bands else {
+        return None
+    }
+
+    ohms = (digit(first) * 10 + digit(second)) * power_of_ten(digit(zeros))
+    Some(in_largest_unit(ohms))
+}
+
+/// `ohms` in the largest unit that keeps the value whole.
+fn in_largest_unit(ohms: Int) -> Resistance {
+    [Magnitude.Kiloohms, .Megaohms, .Gigaohms]
+    |> Iter.reduce(fn resistance = #Resistance{value: ohms, unit: .Ohms}, unit -> {
+        if resistance.value != 0 and resistance.value % 1000 == 0 {
+            #{value: resistance.value / 1000, unit}
+        } else {
+            resistance
+        }
+    })
+}
+
+fn power_of_ten(exponent: Int) -> Int {
+    Iter.reduce(1..=exponent, fn n = 1, _ -> n * 10)
+}
+
+fn digit(color: Color) -> Int {
+    case color {
+        .Black -> 0
+        .Brown -> 1
+        .Red -> 2
+        .Orange -> 3
+        .Yellow -> 4
+        .Green -> 5
+        .Blue -> 6
+        .Violet -> 7
+        .Grey -> 8
+        .White -> 9
+    }
+}

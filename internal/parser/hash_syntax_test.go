@@ -548,5 +548,5 @@ func TestOldCollectionSpellingsFail(t *testing.T) {
 func TestShapeSymbolRefusals(t *testing.T) {
 	wantParseError(t, "type Wrap #{x: Int}", "a type over an anonymous struct is a struct: write `struct Wrap { ... }`")
 	wantParseError(t, "s = #{1, 2}", "expected field name in struct literal")
-	wantParseError(t, "s = % [1, 2]", "unexpected token")
+	wantParseError(t, "s = % [1, 2]", "unexpected `%`: a map or set literal writes `%` right before its `{` or `[`")
 }

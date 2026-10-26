@@ -6,18 +6,24 @@
 //	nomiRun(source)             -> { output: string, error: string } // run a program on the VM
 //	nomiRunStdlibTest(module, body, context) -> { output: string, error: string }
 //	nomiExpand(source)          -> { output: string, error: string } // `nomi expand` of a block's first tab
+//	nomiTool(source, module, name) -> { output, error, source, files } // `nomi tool` in a block's project
 //	nomiFormat(source)          -> { output: string, error: string } // format source
 //	nomiFormatTestBody(source)  -> { output: string, error: string }
 //	nomiSemTokens(source)       -> string (JSON)                     // semantic tokens
 //	nomiHover(source, line, col) -> string (markdown)               // LSP hover
 //	nomiHoverIn(source, file, line, col) -> string (markdown)       // hover in one tab of a multi-file source
 //	nomiSemTokensIn(source, ...files) -> string (JSON {file: tokens}) // semantic tokens per tab
+//	nomiTourModules(source)     -> string (JSON [name])             // modules the tour links that source imports
 //
 // both running entirely client-side — the engine behind an interactive language
 // tour (no server). The stdlib is //go:embed'd into the binary, so
 // `import std/io` and friends work in the browser with no filesystem.
 //
-//	GOOS=js GOARCH=wasm go build -o nomi.wasm ./cmd/nomi-wasm
+//	GOWORK=$PWD/internal/tourgo/tour.work GOOS=js GOARCH=wasm go build -o nomi.wasm ./cmd/nomi-wasm
+//
+// The workspace adds the tour modules under lib/ (the sqlite driver), whose
+// Go side internal/tourgo links and the compiler's go.mod does not require;
+// scripts/build-tour-wasm.sh builds it so.
 package main
 
 import (
@@ -32,6 +38,7 @@ import (
 	nomiformat "github.com/nomi-language/nomi/internal/format"
 	"github.com/nomi-language/nomi/internal/highlight"
 	"github.com/nomi-language/nomi/internal/hoverdoc"
+	"github.com/nomi-language/nomi/internal/semtokens"
 	"github.com/nomi-language/nomi/internal/tourgo"
 	"github.com/nomi-language/nomi/std"
 	"github.com/nomi-language/nomi/vmhost"
@@ -58,7 +65,10 @@ func run(this js.Value, args []js.Value) (res any) {
 	if len(args) < 1 {
 		return result("", "no source provided")
 	}
-	src := args[0].String()
+	// A block that imports a module the tour links (`import sqlite`) gets
+	// the module's files attached, as a project that names modules
+	// (tourgo.Source).
+	src := tourgo.Source(args[0].String())
 
 	// Multi-file convention: `// FILE: <name>` markers split the source
 	// into files (an optional `// FILE: nomi.toml` manifest, catalogs,
@@ -110,11 +120,50 @@ func expand(this js.Value, args []js.Value) (res any) {
 	if len(args) < 1 {
 		return result("", "no source provided")
 	}
-	text, err := vmhost.ExpandMarked(args[0].String(), projectDir)
+	text, err := vmhost.ExpandMarked(tourgo.Source(args[0].String()), projectDir)
 	if err != nil {
 		return result("", err.Error())
 	}
 	return result(text, "")
+}
+
+// tool runs `nomi tool <args[1]> <args[2]>` in the project of args[0], a
+// block that imports a module the tour links (vmhost.ToolMarked), and
+// returns `{ output, error, source, files }`: what the tool printed, its
+// failure, the block's source with each of its files the tool changed put
+// in, and those files by path (a ```nomi-run tool:<module>/<name> block,
+// whose run follows with the source). A file the tool wrote among the
+// attached modules' is left out.
+func tool(this js.Value, args []js.Value) (res any) {
+	var buf bytes.Buffer
+	defer func() {
+		if r := recover(); r != nil {
+			res = result(buf.String(), fmt.Sprintf("%v", r))
+		}
+	}()
+	if len(args) < 3 {
+		return result("", "source, module and tool name required")
+	}
+	src := args[0].String()
+	attached := tourgo.Source(src)
+	hosts, err := tourgo.ToolHosts(attached, args[2].String())
+	if err != nil {
+		return result("", err.Error())
+	}
+	written, err := vmhost.ToolMarked(attached, projectDir, args[1].String(), args[2].String(), &buf, vmhost.WithHosts(hosts), vmhost.WithErrorOutput(&buf))
+	if err != nil {
+		return result(buf.String(), formatRunError(err))
+	}
+	files := map[string]any{}
+	for name, text := range written {
+		files[name] = text
+	}
+	return map[string]any{
+		"output": buf.String(),
+		"error":  "",
+		"source": vmhost.ReplaceSections(src, written),
+		"files":  files,
+	}
 }
 
 // formatCaseResults renders the VM's case results as `nomi test` does: a case the
@@ -297,7 +346,15 @@ func semTokensSrc(this js.Value, args []js.Value) (res any) {
 	if len(args) < 1 {
 		return "[]"
 	}
-	toks := highlight.SemanticTokens(args[0].String(), stdLib)
+	src := args[0].String()
+	var toks []semtokens.Token
+	if tourgo.Source(src) != src {
+		// A block that imports a module the tour links is analyzed as the
+		// project nomiRun loads, so the module's names resolve.
+		toks = programOf(src).SemanticTokensIn(attachedEntry)
+	} else {
+		toks = highlight.SemanticTokens(src, stdLib)
+	}
 	out := make([]semToken, 0, len(toks))
 	for _, t := range toks {
 		out = append(out, semToken{Line: t.Line, Col: t.Col, Len: t.Length, Type: t.Type})
@@ -327,6 +384,9 @@ func hoverSrc(this js.Value, args []js.Value) (res any) {
 		return ""
 	}
 	src := args[0].String()
+	if tourgo.Source(src) != src {
+		return programOf(src).HoverIn(attachedEntry, args[1].Int(), args[2].Int())
+	}
 	fa, nodes := highlight.AnalyzeNodes(src, stdLib)
 	if fa == nil {
 		return ""
@@ -345,14 +405,38 @@ var lastProgram struct {
 }
 
 // programOf answers the whole-program analysis of a multi-file source,
-// built as nomiRun builds the program: every tab, nomi.toml and the
-// catalogs included.
+// built as nomiRun builds the program: every tab, nomi.toml, the catalogs
+// and the modules the tour links that it imports included.
 func programOf(src string) *highlight.Program {
 	if lastProgram.prog == nil || lastProgram.source != src {
 		lastProgram.source = src
-		lastProgram.prog = highlight.AnalyzeProgram(src, projectDir, stdLib, vmhost.Macros())
+		lastProgram.prog = highlight.AnalyzeProgram(tourgo.Source(src), projectDir, stdLib, vmhost.Macros())
 	}
 	return lastProgram.prog
+}
+
+// attachedEntry is a single-file block's file once tourgo.Source has
+// attached the modules it imports.
+const attachedEntry = "main.nomi"
+
+// tourModules answers the names of the modules the tour links that the
+// source args[0] imports, as a JSON array: the worker loads what a
+// module's Go side needs in the page (SQLite's WebAssembly build for
+// sqlite) before it runs the source.
+func tourModules(this js.Value, args []js.Value) (res any) {
+	defer func() {
+		if recover() != nil {
+			res = "[]"
+		}
+	}()
+	if len(args) < 1 {
+		return "[]"
+	}
+	data, err := json.Marshal(tourgo.Imported(args[0].String()))
+	if err != nil {
+		return "[]"
+	}
+	return string(data)
 }
 
 // hoverInSrc is hoverSrc for one tab of a multi-file source (args[0], the
@@ -412,12 +496,14 @@ func main() {
 	js.Global().Set("nomiRun", js.FuncOf(run))
 	js.Global().Set("nomiRunStdlibTest", js.FuncOf(runStdlibTestBody))
 	js.Global().Set("nomiExpand", js.FuncOf(expand))
+	js.Global().Set("nomiTool", js.FuncOf(tool))
 	js.Global().Set("nomiFormat", js.FuncOf(formatSrc))
 	js.Global().Set("nomiFormatTestBody", js.FuncOf(formatTestBody))
 	js.Global().Set("nomiSemTokens", js.FuncOf(semTokensSrc))
 	js.Global().Set("nomiHover", js.FuncOf(hoverSrc))
 	js.Global().Set("nomiHoverIn", js.FuncOf(hoverInSrc))
 	js.Global().Set("nomiSemTokensIn", js.FuncOf(semTokensInSrc))
+	js.Global().Set("nomiTourModules", js.FuncOf(tourModules))
 	// The first VM run would otherwise lower the whole standard library inside
 	// its own timed budget. Doing it here makes it part of the worker's cold
 	// load, which the tour client budgets separately (LOAD_BUDGET_MS).

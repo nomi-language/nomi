@@ -46,7 +46,21 @@ const (
 	// read-only. The glob is path.Match's, over each file's path as its
 	// `// FILE:` line writes it; the word may repeat.
 	InfoReadOnly = "read-only:"
+	// InfoTool, followed by a module and a tool's name
+	// (`tool:sqlkit/prepare`), marks a block whose every run first runs
+	// `nomi tool <module> <name>` in the block's project, as a reader on
+	// their machine would before `nomi run`: the files the tool writes
+	// replace the block's, in its editor too, and what it prints comes
+	// before the run's output (vmhost.ToolMarked). The module is one the
+	// tour links (tourgo.Modules); the word may repeat, and the tools run
+	// in order.
+	InfoTool = "tool:"
 )
+
+// Tool is one InfoTool word's tool: `nomi tool <Module> <Name>`.
+type Tool struct {
+	Module, Name string
+}
 
 // infoWords are the words a ```nomi-run fence may carry.
 var infoWords = []string{InfoError, InfoNoRun, InfoManual, InfoExpand}
@@ -54,7 +68,7 @@ var infoWords = []string{InfoError, InfoNoRun, InfoManual, InfoExpand}
 // InfoWords answers the words a ```nomi-run fence may carry after its
 // language, for a message naming them.
 func InfoWords() []string {
-	return append(append([]string(nil), infoWords...), InfoReadOnly+"<glob>")
+	return append(append([]string(nil), infoWords...), InfoReadOnly+"<glob>", InfoTool+"<module>/<name>")
 }
 
 // HasInfo reports whether word appears in the block's info string after the
@@ -81,6 +95,10 @@ func (b Block) UnknownInfo() []string {
 	for _, w := range b.Info {
 		glob, marked := strings.CutPrefix(w, InfoReadOnly)
 		known := marked && glob != ""
+		if tool, ok := strings.CutPrefix(w, InfoTool); ok {
+			module, name, cut := strings.Cut(tool, "/")
+			known = cut && module != "" && name != ""
+		}
 		for _, k := range infoWords {
 			known = known || w == k
 		}
@@ -101,6 +119,19 @@ func (b Block) ReadOnlyGlobs() []string {
 		}
 	}
 	return globs
+}
+
+// Tools answers the tools of the block's InfoTool words, in order.
+func (b Block) Tools() []Tool {
+	var tools []Tool
+	for _, w := range b.Info {
+		if tool, ok := strings.CutPrefix(w, InfoTool); ok {
+			if module, name, cut := strings.Cut(tool, "/"); cut && module != "" && name != "" {
+				tools = append(tools, Tool{Module: module, Name: name})
+			}
+		}
+	}
+	return tools
 }
 
 // MarkedReadOnly reports whether one of the block's InfoReadOnly globs

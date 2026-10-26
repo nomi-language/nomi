@@ -1,5 +1,7 @@
 # Matching Brackets
 
+Subject: Parsing & Validation
+
 Check that every bracket, brace and parenthesis in a string is closed by its own kind, in order.
 
 Adapted from Exercism problem-specifications (MIT), exercises/matching-brackets.

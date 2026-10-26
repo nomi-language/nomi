@@ -1,5 +1,7 @@
 # Prime Factors
 
+Subject: Numbers & Math
+
 Break a natural number into its prime factors, smallest first.
 
 Adapted from Exercism problem-specifications (MIT), exercises/prime-factors.

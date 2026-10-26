@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"path/filepath"
 	"testing"
 )
@@ -168,7 +169,7 @@ func TestCompletion_MemberOfImportedGenericCall(t *testing.T) {
 		"main.nomi": "fn main() {\n}\n",
 	})
 	s := NewServer()
-	uri := "file://" + filepath.Join(dir, "main.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 
 	items := completeIn(t, s, uri, "import geo.Point\nimport util\n\nfn f(points: List<Point>, p: Point) -> Int {\n    util.first(points, p)."+cursorMark+"\n}\n").Items
 	labelsInclude(t, items, "x", "y")

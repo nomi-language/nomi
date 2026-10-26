@@ -15,6 +15,7 @@ import (
 	modzip "golang.org/x/mod/zip"
 
 	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
 // versionedTestVersion is the version the test publishes this tree as. It
@@ -50,7 +51,7 @@ func TestVersionedInstallRunsAGoFFIProject(t *testing.T) {
 	publishModule(t, root, proxy, versionedTestVersion)
 
 	parentModCache := goEnv(t, goBin, "GOMODCACHE")
-	goProxy := "file://" + filepath.ToSlash(proxy) + ",file://" +
+	goProxy := fileuri.FromPath(filepath.ToSlash(proxy)) + ",file://" +
 		filepath.ToSlash(filepath.Join(parentModCache, "cache", "download"))
 	cacheRoot := filepath.Join(tmp, "nomi-cache")
 	gobin := filepath.Join(tmp, "bin")
@@ -76,7 +77,7 @@ func TestVersionedInstallRunsAGoFFIProject(t *testing.T) {
 	if out, err := install.CombinedOutput(); err != nil {
 		t.Fatalf("go install: %v\n%s", err, out)
 	}
-	nomi := filepath.Join(gobin, "nomi")
+	nomi := exe(filepath.Join(gobin, "nomi"))
 	info, err := buildinfo.ReadFile(nomi)
 	if err != nil {
 		t.Fatal(err)
@@ -119,9 +120,9 @@ func TestVersionedInstallRunsAGoFFIProject(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(tmp, "out"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	exe := filepath.Join(tmp, "out", "shouter")
-	run(proj, nomi, "build", "main.nomi", "-o", exe)
-	if got := run(tmp, exe); got != "QUIET" {
+	out := exe(filepath.Join(tmp, "out", "shouter"))
+	run(proj, nomi, "build", "main.nomi", "-o", out)
+	if got := run(tmp, out); got != "QUIET" {
 		t.Fatalf("the built FFI executable printed %q, want QUIET", got)
 	}
 

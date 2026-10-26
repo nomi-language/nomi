@@ -58,6 +58,7 @@ func DecodeUnicodeEscape(hex string) (rune, string) {
 // inside the other.
 var codepointEscapes = map[byte]rune{
 	'n':  '\n',
+	'r':  '\r',
 	't':  '\t',
 	'\\': '\\',
 	'\'': '\'',
@@ -112,7 +113,7 @@ func DecodeCodepoint(body string) (rune, string) {
 			return 0, `invalid escape \" in codepoint literal; write '"' without a backslash`
 		}
 		r, _ := utf8.DecodeRuneInString(body[i-1:])
-		return 0, fmt.Sprintf(`invalid escape \%c in codepoint literal; the escapes are \n, \t, \\, \' and \u{...}`, r)
+		return 0, fmt.Sprintf(`invalid escape \%c in codepoint literal; the escapes are \n, \r, \t, \\, \' and \u{...}`, r)
 	}
 	for _, r := range decoded {
 		if r > 0x7F {

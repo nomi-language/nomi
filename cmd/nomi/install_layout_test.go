@@ -45,7 +45,7 @@ func TestInstalledBinaryRunsWithoutASourceTree(t *testing.T) {
 	pkgDir := filepath.Dir(thisFile)
 
 	dir := t.TempDir()
-	bin := filepath.Join(dir, "nomi")
+	bin := exe(filepath.Join(dir, "nomi"))
 	build := exec.Command("go", "build", "-trimpath", "-o", bin, ".")
 	build.Dir = pkgDir
 	if out, err := build.CombinedOutput(); err != nil {
@@ -226,7 +226,7 @@ func buildTrimmedNomi(t *testing.T) (bin, dir string) {
 		t.Fatal("runtime.Caller failed")
 	}
 	dir = t.TempDir()
-	bin = filepath.Join(dir, "nomi")
+	bin = exe(filepath.Join(dir, "nomi"))
 	build := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-o", bin, ".")
 	build.Dir = filepath.Dir(thisFile)
 	if out, err := build.CombinedOutput(); err != nil {

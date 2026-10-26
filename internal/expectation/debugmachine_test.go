@@ -8,6 +8,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/expectation"
+	"github.com/nomi-language/nomi/internal/tourgo"
 	"github.com/nomi-language/nomi/internal/vm"
 )
 
@@ -75,7 +76,9 @@ func TestExpectation_ADebugMachineRunsEveryProgramAsAPlainOneDoes(t *testing.T) 
 			t.Fatal(err)
 		}
 		for _, b := range doctest.ExtractBlocks(string(data), "nomi-run") {
-			if !b.Runs() {
+			// A block that imports a module only the browser links has
+			// no record (TestExpectation_Tour).
+			if !b.Runs() || len(tourgo.Unlinked(b.Code)) > 0 {
 				continue
 			}
 			block++

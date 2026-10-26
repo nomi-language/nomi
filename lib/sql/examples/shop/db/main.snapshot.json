@@ -1,0 +1,144 @@
+{
+  "format": 2,
+  "database": "main",
+  "dialect": "sqlite",
+  "migrations": "fd5b73c2f9a9f117",
+  "tables": [
+    {
+      "name": "orders",
+      "migration": "db/migrations/20261019120000_users_and_orders.sql",
+      "line": 8,
+      "columns": [
+        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 9},
+        {"name": "user_id", "type_name": "INTEGER", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 10},
+        {"name": "status", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": true, "values": ["pending", "paid", "shipped", "cancelled"], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 11},
+        {"name": "total", "type_name": "DECIMAL(12, 2)", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 14},
+        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 15},
+        {"name": "shipped_on", "type_name": "DATE", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261102090000_orders_shipped_on.sql", "line": 1}
+      ]
+    },
+    {
+      "name": "users",
+      "migration": "db/migrations/20261019120000_users_and_orders.sql",
+      "line": 1,
+      "columns": [
+        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 2},
+        {"name": "email", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 3},
+        {"name": "name", "type_name": "TEXT", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 4},
+        {"name": "created_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 5}
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "file": "queries.nomi",
+      "name": "all_orders",
+      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id",
+      "params": 0,
+      "columns": [
+        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
+        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
+        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
+        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
+        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
+        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
+      ],
+      "error": null
+    },
+    {
+      "file": "queries.nomi",
+      "name": "insert_order",
+      "sql": "INSERT INTO orders (user_id, total) VALUES (?1, ?2) RETURNING id",
+      "params": 2,
+      "columns": [
+        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false}
+      ],
+      "error": null
+    },
+    {
+      "file": "queries.nomi",
+      "name": "insert_user",
+      "sql": "INSERT INTO users (email, name) VALUES (?1, ?2) RETURNING id",
+      "params": 2,
+      "columns": [
+        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false}
+      ],
+      "error": null
+    },
+    {
+      "file": "queries.nomi",
+      "name": "order",
+      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ?1",
+      "params": 1,
+      "columns": [
+        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
+        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
+        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
+        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
+        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
+        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
+      ],
+      "error": null
+    },
+    {
+      "file": "queries.nomi",
+      "name": "order_counts",
+      "sql": "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
+      "params": 0,
+      "columns": [
+        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
+        {"name": "last_order", "type_name": "", "table": "", "column": "", "nullable": true},
+        {"name": "orders", "type_name": "", "table": "", "column": "", "nullable": true}
+      ],
+      "error": null
+    },
+    {
+      "file": "queries.nomi",
+      "name": "orders_for_user",
+      "sql": "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ?1 ORDER BY o.placed_at DESC, o.id DESC LIMIT ?2",
+      "params": 2,
+      "columns": [
+        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
+        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
+        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
+        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
+        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false}
+      ],
+      "error": null
+    },
+    {
+      "file": "queries.nomi",
+      "name": "revenue_since",
+      "sql": "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ?1 GROUP BY u.id, u.email ORDER BY revenue DESC",
+      "params": 1,
+      "columns": [
+        {"name": "user_id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
+        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
+        {"name": "order_count", "type_name": "", "table": "", "column": "", "nullable": true},
+        {"name": "revenue", "type_name": "DECIMAL(12, 2)", "table": "", "column": "", "nullable": true}
+      ],
+      "error": null
+    },
+    {
+      "file": "queries.nomi",
+      "name": "set_status",
+      "sql": "UPDATE orders SET status = ?1 WHERE id = ?2",
+      "params": 2,
+      "columns": [],
+      "error": null
+    },
+    {
+      "file": "queries.nomi",
+      "name": "user_by_email",
+      "sql": "SELECT id, email, name, created_at FROM users WHERE email = ?1",
+      "params": 1,
+      "columns": [
+        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
+        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
+        {"name": "name", "type_name": "TEXT", "table": "users", "column": "name", "nullable": true},
+        {"name": "created_at", "type_name": "TIMESTAMPTZ", "table": "users", "column": "created_at", "nullable": false}
+      ],
+      "error": null
+    }
+  ]
+}

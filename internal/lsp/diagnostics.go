@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/testdirectives"
@@ -489,7 +490,7 @@ func diagnosticMatchesExpectedTypeError(err analysis.TypeError, expected string)
 //     application field with no entry boot that returns its type, which the
 //     analyzer rejects.
 func isExpectedDiagnosticFixture(uri string) bool {
-	path := strings.TrimPrefix(uri, "file://")
+	path := fileuri.ToPath(uri)
 	path = strings.ReplaceAll(path, "\\", "/")
 	return strings.Contains(path, "/internal/analysis/testdata/orphan_violator") ||
 		strings.Contains(path, "/internal/irbuild/testdata/")

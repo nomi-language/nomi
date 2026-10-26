@@ -19,9 +19,9 @@ package irbuild
 
 import (
 	"sort"
-	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -90,7 +90,7 @@ func TestIRIterAnchorReachesEveryStdModule(t *testing.T) {
 			continue
 		}
 		modules++
-		path := strings.TrimPrefix(lib.FileURI(name), "file://")
+		path := fileuri.ToPath(lib.FileURI(name))
 		v := stdModuleContext(name, path, full.modulePkg[name], nodes, lib.Files[name], full)
 		g := v.gen(full)
 

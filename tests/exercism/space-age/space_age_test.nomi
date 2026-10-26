@@ -1,0 +1,35 @@
+import {
+    space_age
+    space_age.Planet
+}
+
+test "age" {
+    cases = [
+        #("age on Earth", Planet.Earth, 1000000000, 31.69),
+        #("age on Mercury", .Mercury, 2134835688, 280.88),
+        #("age on Venus", .Venus, 189839836, 9.78),
+        #("age on Mars", .Mars, 2129871239, 35.88),
+        #("age on Jupiter", .Jupiter, 901876382, 2.41),
+        #("age on Saturn", .Saturn, 2000000000, 2.15),
+        #("age on Uranus", .Uranus, 1210123456, 0.46),
+        #("age on Neptune", .Neptune, 1821023456, 0.35),
+    ]
+
+    subtests cases, #(description, planet, seconds, expected), description {
+        assert to_hundredths(space_age.age(planet, seconds)) == expected
+    }
+}
+
+// Not canonical: the canonical data names planets only as inputs to `age`.
+test "planet names" {
+    assert Planet.parse("Neptune") == Some(.Neptune)
+}
+
+test "invalid planet causes error" {
+    assert Planet.parse("Sun") == None
+}
+
+/// The canonical ages are given to two decimal places.
+fn to_hundredths(years: Float) -> Float {
+    Float.round(years * 100.0) / 100.0
+}

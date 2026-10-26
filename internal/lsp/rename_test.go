@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"os"
@@ -54,7 +55,7 @@ func TestRename_CrossFile(t *testing.T) {
 	os.WriteFile(mainFile, []byte(mainSrc), 0644)
 
 	dm := analysis.NewDocumentManager()
-	mainURI := "file://" + mainFile
+	mainURI := fileuri.FromPath(mainFile)
 	dm.Open(mainURI, mainSrc)
 
 	// Rename at the call site "double" in main.nomi.
@@ -64,7 +65,7 @@ func TestRename_CrossFile(t *testing.T) {
 	}
 
 	// Expect edits in both files
-	mathURI := "file://" + mathFile
+	mathURI := fileuri.FromPath(mathFile)
 	mathEdits := workspaceEdit.Changes[mathURI]
 	mainEdits := workspaceEdit.Changes[mainURI]
 
@@ -96,7 +97,7 @@ func TestRename_SelectiveImport(t *testing.T) {
 	os.WriteFile(mainFile, []byte(mainSrc), 0644)
 
 	dm := analysis.NewDocumentManager()
-	mainURI := "file://" + mainFile
+	mainURI := fileuri.FromPath(mainFile)
 	dm.Open(mainURI, mainSrc)
 
 	// Trigger rename at the User use site in main.nomi, line 2 col 14
@@ -105,7 +106,7 @@ func TestRename_SelectiveImport(t *testing.T) {
 		t.Fatal("expected workspace edit, got nil")
 	}
 
-	modelsURI := "file://" + modelsFile
+	modelsURI := fileuri.FromPath(modelsFile)
 	modelsEdits := workspaceEdit.Changes[modelsURI]
 	mainEdits := workspaceEdit.Changes[mainURI]
 

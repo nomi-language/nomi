@@ -21,10 +21,18 @@ fn apply(f: (String) -> Maybe<Int>, s: String) -> Maybe<Int> {
 fn two(a: String, b: Int) -> Int {
   String.length(a) + b
 }
+
+fn three(a: String, b: Int, strict: Bool = False) -> Int {
+  if strict { 0 } else { String.length(a) + b }
+}
+
+fn seed(n: Int = 1) -> Int {
+  n
+}
 `
 
 func TestFuncValueDefaults_RejectedWhereFewerParametersAreExpected(t *testing.T) {
-	const hint = "\nhelp: defaults do not apply to a function value, so pass a lambda that calls it: fn a -> parse(a)"
+	const hint = "\nhelp: defaults do not apply to a function value, so pass a capture that calls it: &parse(&1)"
 	for _, tc := range []struct{ stmt, want string }{
 		{`_ = Maybe.map(Some("1"), parse)`, "argument 2: expected (String) -> U, got (String, Bool) -> Maybe<Int>" + hint},
 		{`_ = Iter.map(["1"], parse)`, "argument 2: expected (String) -> U, got (String, Bool) -> Maybe<Int>" + hint},
@@ -32,6 +40,13 @@ func TestFuncValueDefaults_RejectedWhereFewerParametersAreExpected(t *testing.T)
 		{`f: (String) -> Maybe<Int> = parse`, "type mismatch: expected (String) -> Maybe<Int>, got (String, Bool) -> Maybe<Int>" + hint},
 		{`_ = apply(parse, "1")`, "argument 1: expected (String) -> Maybe<Int>, got (String, Bool) -> Maybe<Int>" + hint},
 		{`_ = apply(f: parse, s: "1")`, "argument 'f': expected (String) -> Maybe<Int>, got (String, Bool) -> Maybe<Int>" + hint},
+		// The capture has a hole for each parameter the position expects; a
+		// position that expects none gets a lambda, since a capture uses at
+		// least `&1`.
+		{`f: (String, Int) -> Int = three`, "type mismatch: expected (String, Int) -> Int, got (String, Int, Bool) -> Int" +
+			"\nhelp: defaults do not apply to a function value, so pass a capture that calls it: &three(&1, &2)"},
+		{`f: () -> Int = seed`, "type mismatch: expected () -> Int, got (Int) -> Int" +
+			"\nhelp: defaults do not apply to a function value, so pass a lambda that calls it: fn -> seed()"},
 		// No defaults: the generic path reports any arity mismatch now.
 		{`_ = Iter.map(["1"], two)`, "argument 2: expected (String) -> U, got (String, Int) -> Int"},
 	} {

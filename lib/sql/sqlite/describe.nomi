@@ -1,0 +1,74 @@
+//# Asking SQLite about a schema and its statements, for tools such as
+//# `nomi tool sqlkit prepare`: `describe.describe(migrations, statements)`
+//# applies the migrations to a fresh in-memory database and answers its
+//# tables and, for each statement, its result columns (with the table
+//# column each one reads, from SQLite's column metadata), its parameter
+//# count and query plan, or the error that stopped it from preparing and
+//# the byte SQLite gave for it.
+
+gopkg "github.com/nomi-language/nomi/lib/sql/sqlite/goside"
+
+/// One migration: its path and its SQL.
+pub struct Migration {
+    path: String
+    text: String
+}
+
+/// A column of a table as the schema declares it, and the migration that
+/// last created or changed it.
+pub struct TableColumn {
+    name: String
+    declared: String
+    not_null: Bool
+    primary_key: Bool
+    has_default: Bool
+    migration: String
+}
+
+/// A table: its name, the `CREATE TABLE` statement SQLite keeps for it,
+/// its columns, and the migration that created it.
+pub struct Table {
+    name: String
+    sql: String
+    columns: List<TableColumn>
+    migration: String
+}
+
+/// A result column: its name, the declared type of the table column it
+/// reads (`""` for an expression), that table and column, and whether that
+/// column is `NOT NULL` (or an `INTEGER PRIMARY KEY`).
+pub struct Column {
+    name: String
+    declared: String
+    table: String
+    origin: String
+    not_null: Bool
+}
+
+/// What SQLite says of a statement: its columns, parameter count and query
+/// plan lines, or its error and the byte the error is at (-1 for none).
+pub struct Statement {
+    columns: List<Column>
+    params: Int
+    plan: List<String>
+    error: String
+    offset: Int
+}
+
+/// The tables the migrations build and each statement's description; or,
+/// when a migration fails, its error (with `migration` naming it and
+/// `offset` the byte of its text) and nothing else.
+pub struct Description {
+    tables: List<Table>
+    statements: List<Statement>
+    error: String
+    migration: String
+    offset: Int
+}
+
+/// Apply `migrations` in order to a fresh in-memory database and describe
+/// each of `statements` against the schema they build.
+pub fn describe(
+    migrations: List<Migration>,
+    statements: List<String>,
+) -> Description go goside.Describe

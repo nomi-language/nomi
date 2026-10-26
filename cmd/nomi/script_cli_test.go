@@ -184,7 +184,7 @@ fn main() {}
 			t.Errorf("nomi %s: exit %d, stdout %q, want %q\nstderr:\n%s", strings.Join(args, " "), r.exit, r.stdout, want, r.stderr)
 		}
 	}
-	built := filepath.Join(t.TempDir(), "up")
+	built := exe(filepath.Join(t.TempDir(), "up"))
 	if b := runProcess(t, env, t.TempDir(), "", nomiBin, "build", script, "-o", built); b.exit != 0 {
 		t.Fatalf("nomi build <script>: exit %d\n%s", b.exit, b.transcript())
 	}
@@ -242,7 +242,7 @@ func Upper(s string) string { return strings.ToUpper(s) }
 		dir := project("hi", filepath.Join("bin", "hi"))
 		run(env, dir, "run", "hi")
 		run(env, dir, "run", filepath.Join("bin", "hi"))
-		built := filepath.Join(t.TempDir(), "hi")
+		built := exe(filepath.Join(t.TempDir(), "hi"))
 		if b := runProcess(t, env, dir, "", nomiBin, "build", filepath.Join("bin", "hi"), "-o", built); b.exit != 0 {
 			t.Fatalf("nomi build bin/hi: exit %d\n%s", b.exit, b.transcript())
 		}

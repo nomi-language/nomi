@@ -55,6 +55,8 @@ type caseLimit struct {
 	fuel *fuel
 	// timedOut says the timer fired, rather than an outer stop (StopOn).
 	timedOut atomic.Bool
+	// fileName is the machine's (WithFileNames).
+	fileName func(string) string
 }
 
 // newCaseLimit is the limit of one case on m, or nil when m has none.
@@ -62,7 +64,7 @@ func (m *Machine) newCaseLimit() *caseLimit {
 	if m.caseLimit <= 0 || m.dbg != nil {
 		return nil
 	}
-	return &caseLimit{d: m.caseLimit, fuel: &fuel{watch: true, outer: m.fuel}}
+	return &caseLimit{d: m.caseLimit, fuel: &fuel{watch: true, outer: m.fuel}, fileName: m.fileName}
 }
 
 // arm starts the case's clock, which also calls cancel, when not nil, as it
@@ -138,11 +140,13 @@ type TimedOut struct {
 	// Hint, when set, is a last `help:` line, which the command that set
 	// the limit supplies.
 	Hint string
+	// fileName names a stack frame's file in Error's text (WithFileNames).
+	fileName func(string) string
 }
 
 // failure is the failure of the case fn, stopped by its limit with err.
 func (l *caseLimit) failure(fn *ir.Func, err error) *TimedOut {
-	t := &TimedOut{Limit: l.d}
+	t := &TimedOut{Limit: l.d, fileName: l.fileName}
 	var in *interruption
 	if errors.As(err, &in) {
 		t.Stack = in.frames
@@ -176,7 +180,11 @@ func (t *TimedOut) Error() string {
 				}
 				continue
 			}
-			at := fmt.Sprintf("%s:%d", rt.DisplayPath(f.Pos.File()), f.Pos.Line())
+			name := rt.DisplayPath(f.Pos.File())
+			if t.fileName != nil {
+				name = t.fileName(f.Pos.File())
+			}
+			at := fmt.Sprintf("%s:%d", name, f.Pos.Line())
 			if f.Name == "" {
 				fmt.Fprintf(&b, "\n  %s", at)
 			} else {

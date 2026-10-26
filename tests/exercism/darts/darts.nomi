@@ -1,0 +1,13 @@
+/// The points a dart landing at `x`, `y` scores on a target centred on the
+/// origin: 10 inside radius 1, 5 inside radius 5, 1 inside radius 10, and
+/// nothing outside. A dart on a circle's edge counts as inside it.
+pub fn score(x: Float, y: Float) -> Int {
+    distance_squared = x * x + y * y
+
+    case distance_squared {
+        d when d <= 1.0 -> 10
+        d when d <= 25.0 -> 5
+        d when d <= 100.0 -> 1
+        _ -> 0
+    }
+}

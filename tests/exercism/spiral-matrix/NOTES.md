@@ -1,5 +1,7 @@
 # Spiral Matrix
 
+Subject: Grids & Matrices
+
 Fill a square grid with 1 to n² in a clockwise spiral from the top left corner.
 
 Adapted from Exercism problem-specifications (MIT), exercises/spiral-matrix.

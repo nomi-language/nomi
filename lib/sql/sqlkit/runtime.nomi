@@ -1,0 +1,544 @@
+//# What the functions a `query` declaration generates call: binding a
+//# parameter, reading a column of each SQL type family, and the result
+//# shapes. Generated code imports it under a name the program cannot
+//# write; nothing else needs it.
+//#
+//# A column reader is generic in the type it reads, which the field it
+//# fills decides, and bounded by the column's family, so a field of a type
+//# the column cannot hold fails to check at the column.
+
+import {
+    std/decimal.RoundingMode
+    std/sql.{self, Conn, FromSql, Row, Statement, ToSql, Value}
+    sqlkit.{
+        Changed,
+        Rows,
+        SqlBool,
+        SqlBytes,
+        SqlDate,
+        SqlFloat,
+        SqlInt,
+        SqlJson,
+        SqlNumeric,
+        SqlText,
+        SqlTime,
+        SqlTimestamp,
+        SqlTimestamptz,
+        SqlUuid
+    }
+}
+
+/// The statement of a query: its SQL around each parameter, and the
+/// parameters.
+pub fn statement(parts: List<String>, params: List<Value>) -> Statement {
+    #Statement{parts, params}
+}
+
+/// A parameter's value.
+pub fn bind<T>(value: T) -> Value where T: ToSql {
+    T.to_sql(value)
+}
+
+/// The value of the column at `position` as a `T`, with the error naming
+/// `query`, the query's name, rather than its SQL.
+fn read<T>(query: String, row: Row, position: Int) -> Result<T, sql.Error> where T: FromSql {
+    first = Row.get_position<T>(row, position)
+
+    case first {
+        Ok(v) ->
+            Ok(v)
+
+        Err(e) -> {
+            // An expression's value has whatever storage class SQLite gave it:
+            // `sum` over DECIMAL columns may be an integer. A number reads as
+            // a wider number type when the type read is one.
+            widened =
+                Row.value_position(row, position)
+                |> Result.to_maybe()
+                |> Maybe.map(widenings)
+                |> Maybe.with_default([])
+                |> Iter.map(fn v -> T.from_sql(v))
+                |> Iter.find(Result.ok?)
+
+            case widened {
+                Some(Ok(v)) -> Ok(v)
+                _ -> Err(named(query, e))
+            }
+        }
+    }
+}
+
+/// The values a number may also be read as.
+fn widenings(value: Value) -> List<Value> {
+    case value {
+        .Int(n) ->
+            [Value.Float(Int.to_float(n)), Value.Decimal(Decimal.from_int(n))]
+
+        .Float(x) ->
+            shortest(x)
+            |> Maybe.map(fn d -> [Value.Decimal(d)])
+            |> Maybe.with_default([])
+
+        _ ->
+            []
+    }
+}
+
+/// The digits of d at its scale, from its first nonzero digit before the
+/// point through every digit after it: 4 for `12.50d`, 2 for `0.05d`.
+//! assert runtime.digits(12.50d) == 4
+//! assert runtime.digits(0.05d) == 2
+//! assert runtime.digits(-100d) == 3
+//! assert runtime.digits(123_456_789_012_345_678_901.5d) == 22
+//
+pub fn digits(d: Decimal) -> Int {
+    whole = String.split("${Decimal.abs(d)}", ".") |> Iter.first() |> Maybe.with_default("")
+    Iter.count(Iter.drop_while(whole, fn c -> c == "0")) + Decimal.scale(d)
+}
+
+/// The decimal of at most 15 digits, at `scale`, that x is the float of, if
+/// there is one: what a `DECIMAL(p, s)` value SQLite answered as a float was.
+//! assert runtime.exact(12.5, 2) == Some(12.50d)
+//! assert runtime.exact(0.1 + 0.2, 2) == None
+//! assert runtime.exact(12.555, 2) == None
+//
+pub fn exact(x: Float, scale: Int) -> Maybe<Decimal> {
+    case Decimal.from_float(x, scale, RoundingMode.HalfEven) {
+        Some(d) when Decimal.to_float(d) == x and digits(d) <= exact_digits() -> Some(d)
+        _ -> None
+    }
+}
+
+/// The shortest decimal of at most 15 digits that x is the float of, if
+/// there is one.
+//! assert runtime.shortest(12.5) == Some(12.5d)
+//! assert runtime.shortest(0.1 + 0.2) == None
+//
+pub fn shortest(x: Float) -> Maybe<Decimal> {
+    Iter.from(0)
+    |> Iter.take(exact_digits() + 1)
+    |> Iter.map(fn s -> exact(x, s))
+    |> Iter.find(fn d -> d != None)
+    |> Maybe.flat_map(fn d -> d)
+}
+
+// How many decimal digits a 64-bit float holds exactly: a decimal of at
+// most this many digits converts to a float whose shortest decimal form is
+// that decimal again. SQLite has no decimal type and keeps a `DECIMAL`
+// value, and computes with one, as such a float.
+fn exact_digits() -> Int {
+    15
+}
+
+/// The row with the number at `position` as a `Decimal` at `scale`, which a
+/// `DECIMAL(p, s)` column or `CAST(... AS DECIMAL(p, s))` declares: SQLite
+/// answers an expression's value as an integer or a float, and a float is
+/// read only when it is exactly a decimal of that scale and at most 15
+/// digits. One that is not is an error rather than a rounded value: it is
+/// what SQLite's floating-point arithmetic made of the decimals (a sum of
+/// many), or more digits than a float holds.
+fn at_scale(query: String, row: Row, position: Int, scale: Int) -> Result<Row, sql.Error> {
+    value = try (Row.value_position(row, position) |> Result.map_err(fn e -> named(query, e)))
+    columns = Row.columns(row)
+    column = columns |> Iter.drop(position) |> Iter.first() |> Maybe.with_default("")
+    place = "the column `${column}` of `${query}`, read at scale ${scale},"
+
+    scaled = case value {
+        .Int(n) -> {
+            d = Decimal.round(Decimal.from_int(n), scale, RoundingMode.HalfEven)
+
+            if digits(d) <= exact_digits() {
+                Ok(d)
+            } else {
+                Err(
+                    "${place} holds ${n}, of ${digits(
+                        d
+                    )} digits at that scale, more than the ${exact_digits()} SQLite keeps exactly"
+                )
+            }
+        }
+
+        .Float(x) ->
+            case exact(x, scale) {
+                Some(d) ->
+                    Ok(d)
+
+                None ->
+                    Err(
+                        "${place} holds the float ${x}, which is not exactly a decimal of that scale and at most ${exact_digits()} digits: SQLite computes with DECIMAL values as 64-bit floats; keep amounts you add up in SQL as INTEGER minor units (cents) to add them exactly"
+                    )
+            }
+
+        .Decimal(d) -> {
+            rounded = Decimal.round(d, scale, RoundingMode.HalfEven)
+
+            if rounded == d {
+                Ok(rounded)
+            } else {
+                Err("${place} holds ${d}, which has more decimals than that")
+            }
+        }
+
+        _ ->
+            return Ok(row)
+    }
+
+    case scaled {
+        Ok(d) -> {
+            values =
+                Row.values(row)
+                |> Iter.with_index()
+                |> Iter.map(fn #(i, v) -> if i == position { Value.Decimal(d) } else { v })
+
+            Ok(
+                Row.new(
+                    Row.query(row),
+                    Iter.zip(columns, values)
+                    |> Iter.to_list(),
+                )
+            )
+        }
+
+        Err(message) ->
+            Err(#sql.Error.Database{code: "sqlkit", message})
+    }
+}
+
+fn named(query: String, e: sql.Error) -> sql.Error {
+    case e {
+        #sql.Error.UnexpectedNull{query: _, column} ->
+            #sql.Error.UnexpectedNull{query, column}
+
+        #sql.Error.Decode{query: _, column, expected, found} ->
+            #sql.Error.Decode{query, column, expected, found}
+
+        #sql.Error.MissingColumn{query: _, column} ->
+            #sql.Error.MissingColumn{query, column}
+
+        #sql.Error.ColumnPosition{query: _, position, count} ->
+            #sql.Error.ColumnPosition{query, position, count}
+
+        other ->
+            other
+    }
+}
+
+/// An expression's column, of no family: any `FromSql` type.
+pub fn value<T>(query: String, row: Row, position: Int) -> Result<T, sql.Error> where T: FromSql {
+    read(query, row, position)
+}
+
+pub fn value_null<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<Maybe<T>, sql.Error> where T: FromSql {
+    read(query, row, position)
+}
+
+pub fn int<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<T, sql.Error> where T: SqlInt and FromSql {
+    read(query, row, position)
+}
+
+pub fn int_null<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<Maybe<T>, sql.Error> where T: SqlInt and FromSql {
+    read(query, row, position)
+}
+
+pub fn float<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<T, sql.Error> where T: SqlFloat and FromSql {
+    read(query, row, position)
+}
+
+pub fn float_null<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<Maybe<T>, sql.Error> where T: SqlFloat and FromSql {
+    read(query, row, position)
+}
+
+pub fn numeric<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<T, sql.Error> where T: SqlNumeric and FromSql {
+    read(query, row, position)
+}
+
+/// A `DECIMAL(p, s)` column, or an expression `CAST` to one, read at its
+/// scale `s` (see `at_scale`).
+pub fn numeric_scaled<T>(
+    query: String,
+    row: Row,
+    position: Int,
+    scale: Int,
+) -> Result<T, sql.Error> where T: SqlNumeric and FromSql {
+    read(query, try at_scale(query, row, position, scale), position)
+}
+
+pub fn numeric_scaled_null<T>(
+    query: String,
+    row: Row,
+    position: Int,
+    scale: Int,
+) -> Result<Maybe<T>, sql.Error> where T: SqlNumeric and FromSql {
+    read(query, try at_scale(query, row, position, scale), position)
+}
+
+pub fn numeric_null<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<Maybe<T>, sql.Error> where T: SqlNumeric and FromSql {
+    read(query, row, position)
+}
+
+pub fn text<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<T, sql.Error> where T: SqlText and FromSql {
+    read(query, row, position)
+}
+
+pub fn text_null<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<Maybe<T>, sql.Error> where T: SqlText and FromSql {
+    read(query, row, position)
+}
+
+pub fn bool<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<T, sql.Error> where T: SqlBool and FromSql {
+    read(query, row, position)
+}
+
+pub fn bool_null<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<Maybe<T>, sql.Error> where T: SqlBool and FromSql {
+    read(query, row, position)
+}
+
+pub fn bytes<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<T, sql.Error> where T: SqlBytes and FromSql {
+    read(query, row, position)
+}
+
+pub fn bytes_null<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<Maybe<T>, sql.Error> where T: SqlBytes and FromSql {
+    read(query, row, position)
+}
+
+pub fn date<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<T, sql.Error> where T: SqlDate and FromSql {
+    read(query, row, position)
+}
+
+pub fn date_null<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<Maybe<T>, sql.Error> where T: SqlDate and FromSql {
+    read(query, row, position)
+}
+
+pub fn time<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<T, sql.Error> where T: SqlTime and FromSql {
+    read(query, row, position)
+}
+
+pub fn time_null<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<Maybe<T>, sql.Error> where T: SqlTime and FromSql {
+    read(query, row, position)
+}
+
+pub fn timestamp<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<T, sql.Error> where T: SqlTimestamp and FromSql {
+    read(query, row, position)
+}
+
+pub fn timestamp_null<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<Maybe<T>, sql.Error> where T: SqlTimestamp and FromSql {
+    read(query, row, position)
+}
+
+pub fn timestamptz<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<T, sql.Error> where T: SqlTimestamptz and FromSql {
+    read(query, row, position)
+}
+
+pub fn timestamptz_null<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<Maybe<T>, sql.Error> where T: SqlTimestamptz and FromSql {
+    read(query, row, position)
+}
+
+pub fn uuid<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<T, sql.Error> where T: SqlUuid and FromSql {
+    read(query, row, position)
+}
+
+pub fn uuid_null<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<Maybe<T>, sql.Error> where T: SqlUuid and FromSql {
+    read(query, row, position)
+}
+
+pub fn json<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<T, sql.Error> where T: SqlJson and FromSql {
+    read(query, row, position)
+}
+
+pub fn json_null<T>(
+    query: String,
+    row: Row,
+    position: Int,
+) -> Result<Maybe<T>, sql.Error> where T: SqlJson and FromSql {
+    read(query, row, position)
+}
+
+/// The rows of statement, each read by decode.
+fn rows_of<T>(
+    conn: Conn,
+    statement: Statement,
+    decode: (Row) -> Result<T, sql.Error>,
+) -> Result<List<T>, sql.Error> {
+    rows = try Conn.query(conn, statement)
+    rows |> Iter.map(decode) |> Result.collect()
+}
+
+/// `-> T`: exactly one row.
+pub fn one<T>(
+    conn: Conn,
+    query: String,
+    statement: Statement,
+    decode: (Row) -> Result<T, sql.Error>,
+) -> Result<T, sql.Error> {
+    rows = try rows_of(conn, statement, decode)
+
+    case rows {
+        [row] -> Ok(row)
+        _ -> Err(#sql.Error.RowCount{query, expected: "exactly one", found: Iter.count(rows)})
+    }
+}
+
+/// `-> Maybe<T>`: at most one row.
+pub fn optional<T>(
+    conn: Conn,
+    query: String,
+    statement: Statement,
+    decode: (Row) -> Result<T, sql.Error>,
+) -> Result<Maybe<T>, sql.Error> {
+    rows = try rows_of(conn, statement, decode)
+
+    case rows {
+        [] -> Ok(None)
+        [row] -> Ok(Some(row))
+        _ -> Err(#sql.Error.RowCount{query, expected: "at most one", found: Iter.count(rows)})
+    }
+}
+
+/// `-> List<T>`: every row.
+pub fn list<T>(
+    conn: Conn,
+    query: String,
+    statement: Statement,
+    decode: (Row) -> Result<T, sql.Error>,
+) -> Result<List<T>, sql.Error> {
+    _ = query
+    rows_of(conn, statement, decode)
+}
+
+/// `-> Rows<T>`: the rows, streamed when folded.
+pub fn rows<T>(
+    conn: Conn,
+    query: String,
+    statement: Statement,
+    decode: (Row) -> Result<T, sql.Error>,
+) -> Rows<T> {
+    Rows.new(conn, query, statement, decode)
+}
+
+/// A statement that returns no rows: the number of rows it changed, what a
+/// `-> Changed` query answers.
+pub fn exec(conn: Conn, statement: Statement) -> Result<Changed, sql.Error> {
+    Conn.exec(conn, statement) |> Result.map(fn rows -> #Changed{rows})
+}
+
+/// A statement that returns no rows, run for its effect alone: what a
+/// `-> Unit` query answers.
+pub fn run(conn: Conn, statement: Statement) -> Result<Unit, sql.Error> {
+    _ = try Conn.exec(conn, statement)
+    Ok(Unit)
+}
+
+/// The text of a text value: what a generated enum reads.
+pub fn text_of(value: Value) -> Maybe<String> {
+    case value {
+        .Text(s) -> Some(s)
+        _ -> None
+    }
+}
+
+/// The error of a query the snapshot does not describe, which a program
+/// with one does not run: the generated function keeps its signature, so
+/// its callers still check.
+pub fn undescribed(query: String) -> sql.Error {
+    #sql.Error.Database{code: "sqlkit", message: "`${query}` is not described by the snapshot"}
+}
+
+/// `undescribed` for a `-> Rows<T>` query.
+pub fn undescribed_rows<T>(conn: Conn, query: String) -> Rows<T> {
+    Rows.new(conn, query, statement(["SELECT 1 WHERE 0"], []), fn _ -> Err(undescribed(query)))
+}

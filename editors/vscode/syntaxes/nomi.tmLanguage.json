@@ -135,7 +135,7 @@
         {
           "comment": "Codepoint literal: 'a', '\\n', '\\'', '\\u{7F}'.",
           "name": "constant.character.nomi",
-          "match": "(')(?:(\\\\(?:[nt\\\\']|u\\{[0-9a-fA-F]+\\}))|[^'\\\\\\n])(')",
+          "match": "(')(?:(\\\\(?:[nrt\\\\']|u\\{[0-9a-fA-F]+\\}))|[^'\\\\\\n])(')",
           "captures": {
             "1": {
               "name": "punctuation.definition.string.begin.nomi"
@@ -173,7 +173,7 @@
             },
             {
               "name": "constant.character.escape.nomi",
-              "match": "\\\\(?:[nt\\\\\"]|\\$\\{)"
+              "match": "\\\\(?:[nrt\\\\\"]|\\$\\{)"
             },
             {
               "name": "invalid.illegal.escape.nomi",

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/stdcache"
@@ -186,7 +187,7 @@ func (lib *StdLib) FileURI(moduleName string) string {
 	if !ok {
 		return MaterializedURI(moduleName + ".nomi")
 	}
-	return "file://" + navigator().Path(physicalPath)
+	return fileuri.FromPath(navigator().Path(physicalPath))
 }
 
 // sourcePaths maps the path positions name each embedded module's source by
@@ -250,7 +251,7 @@ func PositionPath(path string) string {
 // ~/.cache/nomi/std/<version>/, where <version> is a hash of the embedded
 // files (internal/stdcache). It writes the directory first if it is missing.
 func MaterializedURI(rel string) string {
-	return "file://" + materialized().Path(rel)
+	return fileuri.FromPath(materialized().Path(rel))
 }
 
 // ReadFile reads a stdlib .nomi file by logical module name: "maybe" maps to

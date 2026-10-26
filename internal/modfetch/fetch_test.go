@@ -18,6 +18,7 @@ import (
 	"golang.org/x/mod/sumdb/note"
 	modzip "golang.org/x/mod/zip"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/modcache"
 )
 
@@ -33,7 +34,7 @@ func newTestProxy(t *testing.T) *testProxy {
 	return &testProxy{dir: t.TempDir(), sums: map[string]string{}}
 }
 
-func (p *testProxy) url() string { return "file://" + filepath.ToSlash(p.dir) }
+func (p *testProxy) url() string { return fileuri.FromPath(filepath.ToSlash(p.dir)) }
 
 // publish writes path@version to the proxy with files (go.mod among them),
 // as a proxy serves a pushed tag, and records its go.sum hashes.

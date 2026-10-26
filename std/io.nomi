@@ -4,6 +4,7 @@ import {
     display.Display
     equatable.Equatable
     int.Int
+    iter.Iter
     maybe.Maybe.{self, None, Some}
     results.Result
     strings.String
@@ -224,7 +225,8 @@ pub host fn ewrite<T>(value: T) -> Unit where T: Display
 /// before it. Answers `Ok(None)` at the end of the input, and `Err` when the
 /// read fails: `InvalidText` for a line that is not UTF-8. A last line with
 /// no newline is still a line. Inside `io.capture` it reads the capture's
-/// input instead.
+/// input instead. A task cancelled while the read waits for input stops
+/// there at once, and the input that arrives later is the next read's.
 ///
 /// ```nomi
 /// case io.read_line() {
@@ -232,7 +234,7 @@ pub host fn ewrite<T>(value: T) -> Unit where T: Display
 ///     _ -> io.print("hello, stranger")
 /// }
 /// ```
-//! lines = capture("one\ntwo\u{d}\n", fn -> [read_line(), read_line(), read_line()])
+//! lines = capture("one\ntwo\r\n", fn -> [read_line(), read_line(), read_line()])
 //! assert lines.value == [Result.Ok(Some("one")), Result.Ok(Some("two")), Result.Ok(None)]
 //
 pub host fn read_line() -> Result<Maybe<String>, Error>
@@ -294,7 +296,7 @@ impl Reader {
     //!
     //! assert run.value == [Result.Ok(Some("a")), Result.Ok(Some("b")), Result.Ok(None)]
     //!
-    //! r = Reader.from_text("one\u{d}\ntwo")
+    //! r = Reader.from_text("one\r\ntwo")
     //!
     //! assert [Reader.read_line(r), Reader.read_line(r), Reader.read_line(r)] == [
     //!     Result.Ok(Some("one")),
@@ -420,6 +422,60 @@ impl Reader {
     //! assert Reader.read_all_text(r) == Result.Ok("pear\napple\n")
     //
     pub host fn from_text(text: String) -> Reader
+
+    /// A reader that calls `next` each time it needs more bytes: `Ok(Some(chunk))`
+    /// is the next chunk, `Ok(None)` the end of the stream, and `Err(e)` a
+    /// failure the read that asked answers with. An empty chunk is skipped.
+    /// `next` runs when a read needs it, on the task that reads, so a
+    /// reader adapts any source a function can pull from. `next` must not
+    /// read the reader it feeds.
+    ///
+    /// ```nomi
+    /// yes = Reader.from_fn(fn -> Ok(Some(String.to_bytes("y\n"))))
+    /// ```
+    //! inner = Reader.from_text("a\nb\n")
+    //! one_byte_at_a_time = Reader.from_fn(fn -> Reader.read(inner, max: 1))
+    //!
+    //! assert Reader.read_line(one_byte_at_a_time) == Result.Ok(Some("a"))
+    //! assert Reader.read_all_text(one_byte_at_a_time) == Result.Ok("b\n")
+    //!
+    //! failing = Reader.from_fn(fn -> Result.Err(Error.TimedOut))
+    //! assert Reader.read_line(failing) == Result.Err(Error.TimedOut)
+    //
+    pub host fn from_fn(next: () -> Result<Maybe<Bytes>, Error>) -> Reader
+
+    /// A reader over a sequence of chunks, pulled one at a time as reads
+    /// need them, so the sequence may be long or never end. The sequence
+    /// runs on the task of the first read. Closing the reader stops it.
+    ///
+    /// ```nomi
+    /// r = Reader.from_chunks([String.to_bytes("ab"), String.to_bytes("c\n")])
+    /// ```
+    //! r = Reader.from_chunks([String.to_bytes("one\ntw"), String.to_bytes("o\n")])
+    //! assert Reader.read_line(r) == Result.Ok(Some("one"))
+    //! assert Reader.read_line(r) == Result.Ok(Some("two"))
+    //! assert Reader.read_line(r) == Result.Ok(None)
+    //!
+    //! endless = Reader.from_chunks(Iter.repeat(String.to_bytes("y\n")))
+    //! assert Reader.read_line(endless) == Result.Ok(Some("y"))
+    //! assert Reader.close(endless) == Result.Ok(Unit)
+    //
+    pub host fn from_chunks(chunks: Iter<Bytes>) -> Reader
+
+    /// A reader over a sequence of text chunks, as `from_chunks` is over
+    /// bytes.
+    ///
+    /// ```nomi
+    /// r = Reader.from_text_chunks(["pear\n", "apple\n"])
+    /// ```
+    //! r = Reader.from_text_chunks(
+    //!     Iter.from(1)
+    //!     |> Iter.map(fn n -> "${n}\n")
+    //! )
+    //!
+    //! assert [Reader.read_line(r), Reader.read_line(r)] == [Result.Ok(Some("1")), Result.Ok(Some("2"))]
+    //
+    pub host fn from_text_chunks(chunks: Iter<String>) -> Reader
 }
 
 /// Up to max bytes from r, for `Reader.read`.

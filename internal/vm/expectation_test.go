@@ -26,15 +26,15 @@ import (
 	"github.com/nomi-language/nomi/internal/cldrfull"
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/expectation"
-	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/stdio"
 	"github.com/nomi-language/nomi/internal/token"
-	"github.com/nomi-language/nomi/internal/virtualproject"
 	"github.com/nomi-language/nomi/internal/tourgo"
+	"github.com/nomi-language/nomi/internal/virtualproject"
 	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/rt"
 	"github.com/nomi-language/nomi/vmhost"
@@ -1002,8 +1002,12 @@ func tourBlocksByID(t *testing.T) map[string]string {
 // stageTourBlock writes one block's files to dir and answers its entry path.
 func stageTourBlock(t *testing.T, dir, code string) string {
 	t.Helper()
+	// A block that imports a module the tour links gets its files, as the
+	// tour's runner attaches them (tourgo.Source).
+	code = tourgo.Source(code)
 	// A block that names modules is its files already, as the tour's
-	// runner writes them (vmhost.LoadMarked).
+	// runner writes them (vmhost.LoadMarked), and its `go` bindings and
+	// its modules' are answered as the runner answers them.
 	if project, err := virtualproject.FromMarkedSource(code); err == nil && project.Files != nil {
 		root, err := project.Write(dir)
 		if err != nil {
@@ -1011,6 +1015,13 @@ func stageTourBlock(t *testing.T, dir, code string) string {
 		}
 		entry := filepath.Join(root, filepath.FromSlash(project.EntryName))
 		tourDataFiles.Store(entry, project.DataFiles)
+		hosts, err := tourgo.MarkedHosts(code)
+		if err != nil {
+			t.Fatalf("a tour block's Go bindings: %v", err)
+		}
+		if hosts != nil {
+			tourHosts.Store(entry, vm.HostTable(hosts))
+		}
 		return entry
 	}
 	entrySrc, entryName, virtual, manifest, splitErr := vmhost.SplitMultiFile(code)

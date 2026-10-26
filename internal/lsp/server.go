@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/stdcache"
 	"github.com/nomi-language/nomi/std"
 	"github.com/nomi-language/nomi/vmhost"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/tliron/commonlog"
@@ -155,7 +155,7 @@ func NewServer() *Server {
 // stdFileURI is the file go-to-definition and links open for a std module.
 func (s *Server) stdFileURI(module string) string {
 	if s.stdNav != nil {
-		return "file://" + s.stdNav.Path(module+".nomi")
+		return fileuri.FromPath(s.stdNav.Path(module + ".nomi"))
 	}
 	return s.std.FileURI(module)
 }
@@ -236,7 +236,7 @@ func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams
 
 	// Store workspace root for scanning
 	if params.RootURI != nil {
-		root := strings.TrimPrefix(string(*params.RootURI), "file://")
+		root := fileuri.ToPath(string(*params.RootURI))
 		s.docs.SetWorkspaceRoot(root)
 	}
 
@@ -541,11 +541,11 @@ func (s *Server) workspaceDidChangeWatchedFiles(ctx *glsp.Context, params *proto
 }
 
 func isNomiURI(uri string) bool {
-	return filepath.Ext(strings.TrimPrefix(uri, "file://")) == ".nomi"
+	return filepath.Ext(fileuri.ToPath(uri)) == ".nomi"
 }
 
 func isFFIInputURI(uri string) bool {
-	path := strings.TrimPrefix(uri, "file://")
+	path := fileuri.ToPath(uri)
 	base := filepath.Base(path)
 	return filepath.Ext(path) == ".go" || base == "go.mod" || base == "go.sum"
 }

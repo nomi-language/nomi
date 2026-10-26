@@ -24,6 +24,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -68,6 +69,9 @@ var contextCheckedRows = map[string]bool{
 	"io.read_up_to": true, "io.Reader.read_all": true, "io.Reader.read_all_text": true,
 	"io.Reader.copy_to": true, "io.Reader.close": true, "io.Reader.from_bytes": true, "io.Reader.from_text": true,
 	"io.Writer.flush": true, "io.Writer.close": true,
+	// Calls back into Nomi on each read's frame: rt's
+	// TestPullReaders_* and vmhost's TestReaderSources_*.
+	"io.Reader.from_fn": true,
 	"fs_host.open": true, "fs_host.create": true, "fs_host.discard": true, "fs_host.temp_dir": true,
 	"fs_host.make_temp_dir": true, "fs_host.current_dir": true, "fs_host.new_sandbox": true,
 	"fs_host.sandbox_fail": true, "fs_host.sandbox_files": true, "fs_host.sandbox_log": true, "fs_host.sandbox_open": true,
@@ -345,7 +349,7 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	compared, faults := 0, 0
+	compared, faults, skipped := 0, 0, 0
 	var lines []string
 	for _, key := range keys {
 		fn := table[key]
@@ -355,6 +359,13 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 		}
 		for n, args := range cases[key] {
 			label := strings.ReplaceAll(fmt.Sprintf("%s#%d%s", key, n, hostArgText(args)), dir, "<dir>")
+			// The cases on files were recorded on a Unix file system: its
+			// modes, its error texts and paths that come back with dir's
+			// spelling. Windows answers each differently.
+			if runtime.GOOS == "windows" && strings.Contains(label, "<dir>") {
+				skipped++
+				continue
+			}
 			got := classify(func() (rt.Value, error) { return fn(rt.NewFrame(context.Background()), args) })
 			text := strings.ReplaceAll(goldenOutcome(got, false), dir, "<dir>")
 			lines = append(lines, strconv.Quote(label)+"\t"+strconv.Quote(text))
@@ -373,9 +384,11 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 			}
 		}
 	}
-	updateOutcomes(t, builtinGoldenPath, lines)
-	if len(lines) != len(golden) {
-		t.Errorf("%d argument sets ran and %s records %d", len(lines), builtinGoldenPath, len(golden))
+	if skipped == 0 {
+		updateOutcomes(t, builtinGoldenPath, lines)
+	}
+	if len(lines)+skipped != len(golden) {
+		t.Errorf("%d argument sets ran, %d were skipped, and %s records %d", len(lines), skipped, builtinGoldenPath, len(golden))
 	}
 	t.Logf("%d rows, %d argument sets agree with the recorded builtins, %d of them as the same trap", len(keys), compared, faults)
 	if faults == 0 {

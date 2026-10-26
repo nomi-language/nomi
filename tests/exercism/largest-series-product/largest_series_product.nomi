@@ -1,0 +1,36 @@
+//# The largest product of a run of adjacent digits in a string of digits.
+
+/// Why a string and span have no largest product.
+pub enum Error {
+    SpanTooLong
+    NotADigit
+    NegativeSpan
+}
+
+/// The largest product of `span` adjacent digits in `digits`. A span of zero
+/// has the empty product, 1.
+pub fn largest_product(digits: String, span: Int) -> Result<Int, Error> {
+    if span < 0 { return Err(.NegativeSpan) }
+
+    Some(numbers) =
+        digits
+        |> String.to_codepoints()
+        |> Iter.map(Codepoint.to_digit)
+        |> Maybe.collect()
+    else {
+        return Err(.NotADigit)
+    }
+
+    last_start = Iter.count(numbers) - span
+
+    if last_start < 0 { return Err(.SpanTooLong) }
+
+    0..=last_start
+    |> Iter.map(fn start -> numbers |> Iter.drop(start) |> Iter.take(span) |> product())
+    |> Iter.reduce(fn largest = 0, candidate -> Int.max(largest, candidate))
+    |> Ok()
+}
+
+fn product(numbers: Iter<Int>) -> Int {
+    Iter.reduce(numbers, fn total = 1, n -> total * n)
+}

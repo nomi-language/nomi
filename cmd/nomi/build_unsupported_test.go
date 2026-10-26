@@ -12,8 +12,8 @@ import (
 // Every target has files: a js/wasm module's are in memory, so `nomi build
 // --target js/wasm` builds a program that reaches std/fs, and `--web` builds
 // it with a note that the page's `run` gives it its files. The refusal of a
-// class a target lacks is held by vmhost's TestRefuse_NamesEachCallSite
-// until a target lacks one (processes).
+// class a target lacks is held by vmhost's TestCheckTarget_* over a test
+// target that lacks files, until a real target lacks one (processes).
 
 const filesProgram = `import {
     std/fs

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -100,7 +101,7 @@ func TestDocumentManager_StdlibFileJsonDiagnostics(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	uri := "file://" + filepath.Clean(jsonPath)
+	uri := fileuri.FromPath(filepath.Clean(jsonPath))
 	dm.Open(uri, string(src))
 
 	doc := dm.Get(uri)
@@ -132,7 +133,7 @@ func TestDocumentManager_StdlibFileCalendarCivilUnitDiagnostics(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	uri := "file://" + filepath.Clean(calendarPath)
+	uri := fileuri.FromPath(filepath.Clean(calendarPath))
 	dm.Open(uri, string(src))
 
 	doc := dm.Get(uri)
@@ -165,7 +166,7 @@ func TestDocumentManager_StdlibFileCalendarCivilUnitQualifiedTypeReferences(t *t
 	}
 	src := string(srcBytes)
 
-	uri := "file://" + filepath.Clean(calendarPath)
+	uri := fileuri.FromPath(filepath.Clean(calendarPath))
 	dm.Open(uri, src)
 
 	doc := dm.Get(uri)

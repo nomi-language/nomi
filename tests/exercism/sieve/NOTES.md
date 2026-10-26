@@ -1,5 +1,7 @@
 # Sieve
 
+Subject: Numbers & Math
+
 List the primes up to a limit with the Sieve of Eratosthenes.
 
 Adapted from Exercism problem-specifications (MIT), exercises/sieve.
@@ -13,4 +15,4 @@ Adapted from Exercism problem-specifications (MIT), exercises/sieve.
 
 ## Friction
 
-- [verbose] Fixed: `nomi fmt` put each element of a long `List<Int>` literal on its own line, so the 168 expected primes took 170 lines. It now fills number literals across the width, and they take 11.
+None.

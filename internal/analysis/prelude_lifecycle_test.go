@@ -2,6 +2,7 @@ package analysis_test
 
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/std"
 	"os"
 	"path/filepath"
@@ -34,7 +35,7 @@ func TestPreludeLifecycleProject(t *testing.T) {
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	dm.SetWorkspaceRoot(root)
-	doc := dm.Open("file://"+path, src)
+	doc := dm.Open(fileuri.FromPath(path), src)
 	if doc.Analysis == nil {
 		t.Fatal("no project analysis")
 	}

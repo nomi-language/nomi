@@ -1,0 +1,85 @@
+import house
+
+/// Each canonical verse on its own: its description, its number and its text.
+once verses = [
+    #("verse one - the house that jack built", 1, "This is the house that Jack built."),
+    #(
+        "verse two - the malt that lay",
+        2,
+        "This is the malt that lay in the house that Jack built.",
+    ),
+    #(
+        "verse three - the rat that ate",
+        3,
+        "This is the rat that ate the malt that lay in the house that Jack built.",
+    ),
+    #(
+        "verse four - the cat that killed",
+        4,
+        "This is the cat that killed the rat that ate the malt that lay in the house that Jack built.",
+    ),
+    #(
+        "verse five - the dog that worried",
+        5,
+        "This is the dog that worried the cat that killed the rat that ate the malt that lay in the house that Jack built.",
+    ),
+    #(
+        "verse six - the cow with the crumpled horn",
+        6,
+        "This is the cow with the crumpled horn that tossed the dog that worried the cat that killed the rat that ate the malt that lay in the house that Jack built.",
+    ),
+    #(
+        "verse seven - the maiden all forlorn",
+        7,
+        "This is the maiden all forlorn that milked the cow with the crumpled horn that tossed the dog that worried the cat that killed the rat that ate the malt that lay in the house that Jack built.",
+    ),
+    #(
+        "verse eight - the man all tattered and torn",
+        8,
+        "This is the man all tattered and torn that kissed the maiden all forlorn that milked the cow with the crumpled horn that tossed the dog that worried the cat that killed the rat that ate the malt that lay in the house that Jack built.",
+    ),
+    #(
+        "verse nine - the priest all shaven and shorn",
+        9,
+        "This is the priest all shaven and shorn that married the man all tattered and torn that kissed the maiden all forlorn that milked the cow with the crumpled horn that tossed the dog that worried the cat that killed the rat that ate the malt that lay in the house that Jack built.",
+    ),
+    #(
+        "verse 10 - the rooster that crowed in the morn",
+        10,
+        "This is the rooster that crowed in the morn that woke the priest all shaven and shorn that married the man all tattered and torn that kissed the maiden all forlorn that milked the cow with the crumpled horn that tossed the dog that worried the cat that killed the rat that ate the malt that lay in the house that Jack built.",
+    ),
+    #(
+        "verse 11 - the farmer sowing his corn",
+        11,
+        "This is the farmer sowing his corn that kept the rooster that crowed in the morn that woke the priest all shaven and shorn that married the man all tattered and torn that kissed the maiden all forlorn that milked the cow with the crumpled horn that tossed the dog that worried the cat that killed the rat that ate the malt that lay in the house that Jack built.",
+    ),
+    #(
+        "verse 12 - the horse and the hound and the horn",
+        12,
+        "This is the horse and the hound and the horn that belonged to the farmer sowing his corn that kept the rooster that crowed in the morn that woke the priest all shaven and shorn that married the man all tattered and torn that kissed the maiden all forlorn that milked the cow with the crumpled horn that tossed the dog that worried the cat that killed the rat that ate the malt that lay in the house that Jack built.",
+    ),
+]
+
+test "single verses" {
+    subtests verses, #(description, number, expected), description {
+        assert house.recite(number, number) == [expected]
+    }
+}
+
+test "several verses" {
+    cases = [
+        #("multiple verses", 4, 8),
+        #("full rhyme", 1, 12),
+    ]
+
+    subtests cases, #(description, start, end), description {
+        expected =
+            verses
+            |> Iter.drop(start - 1)
+            |> Iter.take(end - start + 1)
+            |> Iter.map(.2)
+            |> Iter.to_list()
+
+        assert house.recite(start, end) == expected
+    }
+}

@@ -9,6 +9,13 @@
 # The tour job builds the tour's wasm bundle, which the go job lacks (the
 # TestTourWasm* tests skip there), and checks it as `make test-tour` does.
 #
+# The lib job vets and tests the Go side of the modules under lib/, each a
+# Go module of its own. The go job's cmd/nomi TestLibModules runs their
+# Nomi tests, and downloads modernc.org/sqlite, which they require.
+#
+# The windows and windows-irbuild jobs run the go and irbuild jobs' tests on
+# Windows.
+#
 # Not covered here: the tree-sitter grammar tests (scripts/tree-sitter.sh
 # test) and the VS Code smoke test, which downloads VS Code.
 
@@ -43,6 +50,23 @@ jobs:
       - name: go test
         run: go test -count=1 -timeout 40m $(go list ./... | grep -v '/internal/irbuild$')
 
+  lib:
+    # The modules under lib/ are Go modules of their own, which the root's
+    # go vet and go test do not reach. cmd/nomi's TestLibModules (in the go
+    # job) runs their Nomi tests; this runs their Go side.
+    name: go vet and go test of lib/
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go -C lib/sql/sqlite vet ./...
+      - run: GOOS=js GOARCH=wasm go -C lib/sql/sqlite vet ./...
+      - run: go -C lib/sql/sqlite test -count=1 ./...
+      - run: go -C lib/sql/sqlkit vet ./...
+
   irbuild:
     name: go test ./internal/irbuild
     runs-on: ubuntu-latest
@@ -53,6 +77,38 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go test -count=1 -timeout 40m ./internal/irbuild
+
+  # The Windows jobs run what the go and irbuild jobs run, split the same
+  # way. Git would check the tree out with CRLF line ends, which every
+  # golden file and doctest compares byte for byte, so autocrlf is off
+  # before the checkout. No Node: the js/wasm tests skip, as do the tour,
+  # VS Code and tree-sitter checks, which run on Linux only.
+  windows:
+    name: go vet and go test on Windows (all but irbuild)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - name: go test
+        shell: bash
+        run: go test -count=1 -timeout 55m $(go list ./... | grep -v '/internal/irbuild$')
+
+  windows-irbuild:
+    name: go test ./internal/irbuild on Windows
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test -count=1 -timeout 55m ./internal/irbuild
 
   vscode:
     name: VS Code extension

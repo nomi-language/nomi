@@ -1,0 +1,36 @@
+//# How two lists relate: equal, one inside the other, or neither.
+
+/// How the first list relates to the second.
+pub enum Relation {
+    Equal
+    Sublist
+    Superlist
+    Unequal
+}
+
+/// How `first` relates to `second`. One list is inside another when its
+/// elements appear there in order and next to each other.
+pub fn sublist<T>(first: List<T>, second: List<T>) -> Relation where T: Equatable {
+    if first == second {
+        .Equal
+    } else if contains_run?(second, first) {
+        .Sublist
+    } else if contains_run?(first, second) {
+        .Superlist
+    } else {
+        .Unequal
+    }
+}
+
+/// Whether `run` appears in `list` with its elements next to each other.
+fn contains_run?<T>(list: List<T>, run: List<T>) -> Bool where T: Equatable {
+    case list {
+        _ when starts_with?(list, run) -> True
+        [] -> False
+        [_, ..rest] -> contains_run?(rest, run)
+    }
+}
+
+fn starts_with?<T>(list: List<T>, prefix: List<T>) -> Bool where T: Equatable {
+    Iter.take(list, Iter.count(prefix)) |> Iter.to_list() == prefix
+}

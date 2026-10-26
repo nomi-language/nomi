@@ -38,7 +38,7 @@ contexts:
       push: triple_string
     # A codepoint literal: one character or one escape in single quotes,
     # `'a'`, `'\n'`, `'\''`, `'\u{7F}'`.
-    - match: '('')(?:(\\(?:[nt\\'']|u\{[0-9a-fA-F]+\}))|[^''\\\n])('')'
+    - match: '('')(?:(\\(?:[nrt\\'']|u\{[0-9a-fA-F]+\}))|[^''\\\n])('')'
       scope: constant.character.nomi
       captures:
         1: punctuation.definition.string.begin.nomi
@@ -52,7 +52,7 @@ contexts:
     - meta_scope: string.quoted.double.nomi
     - match: '\\u\{[0-9a-fA-F]+\}'
       scope: constant.character.escape.unicode.nomi
-    - match: '\\([nt\\"]|\$\{)'
+    - match: '\\([nrt\\"]|\$\{)'
       scope: constant.character.escape.nomi
     - match: '\$\{'
       scope: punctuation.section.interpolation.begin.nomi

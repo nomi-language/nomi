@@ -31,7 +31,8 @@ import (
 // main), and one with at least one `export fn` is a WASI reactor
 // (nomi-vm-reactor: `_initialize`, nomi_alloc, nomi_call, nomi_free and
 // nomi_main), whose image carries the exported functions as `--web`'s does,
-// with nomi-wasi.js and nomi-wasi.d.ts written beside it.
+// with nomi-wasi.js and nomi-wasi.d.ts written beside it. A project with Go
+// bindings gets its own reactor, which links them (ffirun.ProjectRunner).
 //
 // A program the front end rejects, or one the VM would block, is refused with
 // the text `nomi run` prints, and nothing is written.
@@ -290,9 +291,9 @@ func build(b buildArgs, stderr io.Writer) error {
 			fmt.Fprint(stderr, report)
 			return errBuildRefused
 		}
-		if b.target == wasip1 && built.HasExports {
-			return errReactorGoBindings
-		}
+		// The wrapper built a reactor's image with its exported functions,
+		// and the project's runner is then its reactor variant.
+		reactor = b.target == wasip1 && built.HasExports
 		image = built.Image
 		if b.web {
 			if built.UsesFiles {
@@ -300,7 +301,7 @@ func build(b buildArgs, stderr io.Writer) error {
 			}
 			decls, localeFiles = built.Declarations, built.LocaleFiles
 		}
-		if runner, err = ffirun.ProjectRunner(res, b.target, built.UsesCompiler); err != nil {
+		if runner, err = ffirun.ProjectRunner(res, b.target, ffirun.Variant{Compiler: built.UsesCompiler, Reactor: reactor}); err != nil {
 			return fmt.Errorf("nomi build: %w", err)
 		}
 	}
@@ -437,13 +438,6 @@ func writeAtomic(out string, perm os.FileMode, write func(io.Writer) error) erro
 // wasip1 is the target whose module is a WASI reactor when the program has
 // an `export fn`.
 var wasip1 = ffirun.Target{GOOS: "wasip1", GOARCH: "wasm"}
-
-// errReactorGoBindings is a wasip1 build of an FFI project with an `export
-// fn`: its module would be a reactor, and the reactor is only the shared
-// nomi-vm-reactor, which links no project's Go bindings.
-var errReactorGoBindings = errors.New("nomi build: this project has Go bindings and an `export fn`, so its " +
-	"wasip1 module would be a WASI reactor, and a reactor cannot link a project's Go bindings yet. " +
-	"Move the exported functions into a program without Go bindings, or remove `export` to build a command module")
 
 // errNoVMGoBindings is `nomi build --no-vm` for an FFI project: its Go
 // bindings need a runner built with them, which the shared nomi-vm is not.

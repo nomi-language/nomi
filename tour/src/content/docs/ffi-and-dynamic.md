@@ -12,9 +12,15 @@ when something is wrong.
 
 A Nomi module can call functions from ordinary Go packages. The usual steps:
 
+- Work in a project: a directory with a `nomi.toml` and a `go.mod`, whose
+  module path names your Go code. `nomi new <module path>` starts one in a
+  new directory, and `nomi init <module path>` makes the current directory
+  one. A binding to the [Go standard library](#binding-the-go-standard-library)
+  needs neither.
 - Write Go adapter code in a normal `.go` file.
 - Name the Go package in your Nomi file with `gopkg`.
-- Bind each Nomi function to a Go function with `go package.Function`.
+- Bind each Nomi function to a Go function with `go package.Function`. Each
+  Go type maps to a Nomi type: see [Go and Nomi types](#go-and-nomi-types).
 - Give the rest of your Nomi code functions and types that fit your
   program, rather than the Go package's own shapes.
 - Work with `nomi run`, `nomi check` and `nomi test` as usual.
@@ -114,6 +120,8 @@ a+b%2Bc
 Err(invalid URL escape "%zz")
 -->
 
+## Go and Nomi types
+
 The Nomi signature decides what the function looks like to Nomi code. The Go
 function's job is to match it. Nomi writes the code that calls the Go
 function and converts values in both directions. The table below lists the
@@ -134,7 +142,8 @@ pass it as `Dynamic` and decode it on the Nomi side.
 | `*T` | `Maybe<T>` | A pointer to a Go type you bound with `opaque type` crosses as that opaque type instead. |
 | two or more return values | a Nomi tuple | `func(string, string) (string, string)` binds to `#(String, String)`. |
 | a trailing `error` | `Result<_, String>` | `#(T, error)` becomes `Result<T, String>`, and a lone `error` becomes `Result<Unit, String>`. The `Err` holds the Go error's message. |
-| exported Go structs | Nomi `struct` | Exported Go fields match Nomi fields by name: `RawQuery` matches `raw_query`. |
+| exported Go structs | Nomi `struct` | Exported Go fields match Nomi fields by name: `RawQuery` matches `raw_query`. The struct may come from another package your adapter imports, such as `model.User`, used directly or through an alias like `type User = model.User`. |
+| a Go type alias | the alias's target | `type ID = core.ID` crosses as whatever `core.ID` is. |
 | a `func(A) R` parameter | a Nomi function `(A) -> R` | Pass a lambda or a named function, and Go calls it. The Go function may return nothing (`(A) -> Unit`), one value, or a value and an `error` (`(A) -> Result<R, String>`). |
 | a Go value Nomi only holds | `opaque type` | Nomi stores it and passes it back, but can't look inside. |
 | a value of unknown shape | `Dynamic` | Nomi decodes it or matches on it. |
@@ -167,7 +176,7 @@ Ok(42)
 -->
 
 This runs from any directory, as a `.nomi` file or as a `#!` script. The Go
-function must still use the types in the table above. A function that takes
+function must still use the types in [Go and Nomi types](#go-and-nomi-types). A function that takes
 an `io.Reader`, or a generic one such as `slices.Max`, needs a small adapter
 of your own, like `urltools` above. You can't bind a package that is internal
 to the standard library, such as `internal/abi`.
@@ -186,7 +195,9 @@ go-bindings/
 └── urls.go
 ```
 
-The `go.mod` is an ordinary Go module file, the one `nomi new` writes. It
+`nomi new` writes `nomi.toml` and `go.mod` for a new project, and `nomi
+init` writes them in a directory that already holds your files, as in the
+steps at the top of this page. The `go.mod` is an ordinary Go module file. It
 names your module and your own Go dependencies. It says nothing about Nomi:
 
 ```gomod
@@ -195,13 +206,18 @@ module gobindings
 go 1.27.0
 ```
 
+The module path is also the `gopkg` path of the Go code in the project
+directory, so `urls.nomi` binds `urls.go` with `gopkg "gobindings"`. Go code
+in a subdirectory adds the subdirectory to the path:
+`gopkg "gobindings/adapters"`.
+
 To use a third-party Go package, add its module with `nomi add` in the
 project directory: `nomi add github.com/user/gopkg` takes a package's path
 as well as its module's. If you have Go, `go get` works on the same file.
 Then import the package
 in your `.go` file. A `gopkg` can also name a package from a module you added,
-with no adapter file, as long as its functions use the types in the table
-above.
+with no adapter file, as long as its functions use the types in
+[Go and Nomi types](#go-and-nomi-types).
 
 Go has a feature called cgo that lets Go code call C code. Nomi builds the Go
 side without it. A `gopkg` naming a package that needs cgo, itself or through

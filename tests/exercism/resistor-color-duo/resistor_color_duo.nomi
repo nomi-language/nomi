@@ -1,0 +1,39 @@
+//# The two-digit value a resistor's first two color bands give.
+
+/// A band color, in value order: black is 0 and white is 9.
+pub enum Color {
+    Black
+    Brown
+    Red
+    Orange
+    Yellow
+    Green
+    Blue
+    Violet
+    Grey
+    White
+}
+
+/// The value the first two bands read as digits give, ignoring any band
+/// after them, or `None` when there are fewer than two bands.
+pub fn value(bands: List<Color>) -> Maybe<Int> {
+    case bands {
+        [first, second, .._] -> Some(digit(first) * 10 + digit(second))
+        _ -> None
+    }
+}
+
+fn digit(color: Color) -> Int {
+    case color {
+        .Black -> 0
+        .Brown -> 1
+        .Red -> 2
+        .Orange -> 3
+        .Yellow -> 4
+        .Green -> 5
+        .Blue -> 6
+        .Violet -> 7
+        .Grey -> 8
+        .White -> 9
+    }
+}

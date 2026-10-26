@@ -1,0 +1,393 @@
+//# SQLite for `std/sql`: `sqlite.open(path)` and `sqlite.memory()` answer a
+//# `Conn` to one SQLite database, over the pure-Go `modernc.org/sqlite`, so
+//# a program that uses it builds with no C compiler and cross-compiles to
+//# every target Go's SQLite port supports. A browser build runs on SQLite's
+//# official WebAssembly build instead, which the page loads as
+//# `globalThis.sqlite3` before the program opens a database (README.md).
+//#
+//# Parameters are bound as `?1`, `?2`, ..., never spliced into the SQL.
+//# Values cross by SQLite's storage classes, and a column's declared type
+//# picks the `Value` it reads as: `BOOLEAN` reads as `Bool`, `DATE`, `TIME`,
+//# `DATETIME`/`TIMESTAMP` and `TIMESTAMPTZ` as the calendar values and
+//# `Instant`, `DECIMAL`/`NUMERIC` as `Decimal`, `UUID` as `Uuid` and `JSON`
+//# as `Json`. A value is written as the text or integer that type reads
+//# back; an `Instant` as SQLite's own timestamps are, in UTC with no offset
+//# (`2026-10-24 16:59:52`), so it compares in time order with
+//# `CURRENT_TIMESTAMP`. A transaction is `BEGIN`; a transaction inside one
+//# is a savepoint. Foreign keys are enforced, and a constraint error names
+//# the constraint as Postgres does (`users_email_key`). A file database
+//# waits up to 5 seconds for a lock another connection holds.
+//#
+//# SQLite has no decimal type: it stores a `DECIMAL(p, s)` column's values
+//# as 64-bit floats, exact to 15 digits. A `Decimal` reads back from one at
+//# the column's scale (`12.50d`, not `12.5d`), and the driver refuses, with
+//# `Error.Database` coded `SQLITE_MISMATCH`, a `Decimal` of more than 15
+//# digits it would write and a stored value that is not exactly a decimal
+//# of the column's scale.
+
+import {
+    std/calendar.{Date, NaiveDateTime, OffsetDateTime, Time}
+    std/duration.Duration
+    std/instant.Instant
+    std/json.Json
+    std/sql.{self, Conn, ConstraintKind, Dialect, Row, Statement, Value}
+    std/uuid.Uuid
+}
+
+gopkg "github.com/nomi-language/nomi/lib/sql/sqlite/goside"
+
+opaque type Handle go goside.Conn
+
+// A value as it crosses to Go: kind 0 null, 1 int, 2 float, 3 text,
+// 4 bytes, 5 a decimal's text.
+struct Cell {
+    kind: Int
+    int: Int
+    float: Float
+    text: String
+    bytes: Bytes
+}
+
+// An error as Go reports it: kind 0 none, 1 connection, 2 constraint,
+// 3 database, 4 finished, 5 closed.
+struct Failure {
+    kind: Int
+    code: String
+    message: String
+    constraint: Int
+    name: String
+    table: String
+    column: String
+}
+
+struct Answer {
+    columns: List<String>
+    types: List<String>
+    rows: List<List<Cell>>
+    changed: Int
+    failure: Failure
+}
+
+struct RawRow {
+    columns: List<String>
+    types: List<String>
+    cells: List<Cell>
+}
+
+struct Level {
+    depth: Int
+    token: Int
+    failure: Failure
+}
+
+fn open_raw(path: String) -> Result<Handle, String> go goside.Open
+
+fn run_raw(
+    h: Handle,
+    depth: Int,
+    token: Int,
+    parts: List<String>,
+    params: List<Cell>,
+) -> Answer go goside.Run
+
+fn exec_raw(
+    h: Handle,
+    depth: Int,
+    token: Int,
+    parts: List<String>,
+    params: List<Cell>,
+) -> Answer go goside.Exec
+
+fn each_row_raw(
+    h: Handle,
+    depth: Int,
+    token: Int,
+    parts: List<String>,
+    params: List<Cell>,
+    f: (RawRow) -> Bool,
+) -> Failure go goside.EachRow
+
+fn begin_raw(h: Handle, depth: Int, token: Int) -> Level go goside.Begin
+
+fn commit_raw(h: Handle, depth: Int, token: Int) -> Failure go goside.Commit
+
+fn rollback_raw(h: Handle, depth: Int, token: Int) -> Failure go goside.Rollback
+
+fn ping_raw(h: Handle, depth: Int, token: Int) -> Failure go goside.Ping
+
+fn close_raw(h: Handle) -> Failure go goside.Close
+
+/// A connection to one SQLite database, or a transaction or savepoint on
+/// it: what `open` and `memory` answer, and what `Conn.begin` answers on
+/// one. `depth` is 0 for the connection, 1 for a transaction and more for
+/// each savepoint inside it.
+pub opaque struct SqliteConn {
+    handle: Handle
+    depth: Int
+    token: Int
+}
+
+/// Open the SQLite database at `path`, creating it when it does not
+/// exist. `":memory:"` is a fresh in-memory database, as `memory()` is.
+/// A path that cannot be opened is `Err(.Connection)`.
+pub fn open(path: String) -> Result<Conn, sql.Error> {
+    case open_raw(path) {
+        Ok(handle) -> Ok(#SqliteConn{handle, depth: 0, token: 0})
+        Err(message) -> Err(#sql.Error.Connection{message})
+    }
+}
+
+/// A fresh in-memory database, which lives as long as its connection:
+/// what a test opens for each case.
+pub fn memory() -> Result<Conn, sql.Error> {
+    open(":memory:")
+}
+
+impl Conn for SqliteConn {
+    fn query(conn: SqliteConn, statement: Statement) -> Result<List<Row>, sql.Error> {
+        answer = run_raw(conn.handle, conn.depth, conn.token, statement.parts, cells(statement))
+        try failed(answer.failure)
+        query = "${statement}"
+
+        rows =
+            answer.rows
+            |> Iter.map(fn row -> to_row(query, answer.columns, answer.types, row))
+            |> Iter.to_list()
+
+        Ok(rows)
+    }
+
+    fn each_row(
+        conn: SqliteConn,
+        statement: Statement,
+        f: (Row) -> Bool,
+    ) -> Result<Unit, sql.Error> {
+        query = "${statement}"
+
+        failure = each_row_raw(conn.handle, conn.depth, conn.token, statement.parts, cells(
+            statement
+        ), fn raw -> {
+            f(to_row(query, raw.columns, raw.types, raw.cells))
+        })
+
+        failed(failure)
+    }
+
+    fn exec(conn: SqliteConn, statement: Statement) -> Result<Int, sql.Error> {
+        answer = exec_raw(conn.handle, conn.depth, conn.token, statement.parts, cells(statement))
+        try failed(answer.failure)
+        Ok(answer.changed)
+    }
+
+    fn begin(conn: SqliteConn) -> Result<Conn, sql.Error> {
+        level = begin_raw(conn.handle, conn.depth, conn.token)
+        try failed(level.failure)
+        Ok(#SqliteConn{handle: conn.handle, depth: level.depth, token: level.token})
+    }
+
+    fn commit(tx: SqliteConn) -> Result<Unit, sql.Error> {
+        failed(commit_raw(tx.handle, tx.depth, tx.token))
+    }
+
+    fn rollback(tx: SqliteConn) -> Result<Unit, sql.Error> {
+        failed(rollback_raw(tx.handle, tx.depth, tx.token))
+    }
+
+    fn ping(conn: SqliteConn) -> Result<Unit, sql.Error> {
+        failed(ping_raw(conn.handle, conn.depth, conn.token))
+    }
+
+    fn dialect(conn: SqliteConn) -> Dialect {
+        _ = conn
+        Dialect.Sqlite
+    }
+
+    fn close(conn: SqliteConn) -> Result<Unit, sql.Error> {
+        failed(close_raw(conn.handle))
+    }
+}
+
+/// `Ok` for no failure, else the `sql.Error` it is.
+fn failed(failure: Failure) -> Result<Unit, sql.Error> {
+    case failure.kind {
+        0 -> Ok(Unit)
+        1 -> Err(#sql.Error.Connection{message: failure.message})
+        2 -> Err(constraint_error(failure))
+        4 -> Err(sql.Error.Finished)
+        5 -> Err(sql.Error.Closed)
+        _ -> Err(#sql.Error.Database{code: failure.code, message: failure.message})
+    }
+}
+
+fn constraint_error(failure: Failure) -> sql.Error {
+    kind = case failure.constraint {
+        0 -> ConstraintKind.Unique
+        1 -> ConstraintKind.ForeignKey
+        2 -> ConstraintKind.NotNull
+        _ -> ConstraintKind.Check
+    }
+
+    #sql.Error.Constraint{
+        kind,
+        name: failure.name,
+        table: present(failure.table),
+        column: present(failure.column),
+    }
+}
+
+fn present(text: String) -> Maybe<String> {
+    if text == "" { None } else { Some(text) }
+}
+
+fn cells(statement: Statement) -> List<Cell> {
+    statement.params |> Iter.map(to_cell) |> Iter.to_list()
+}
+
+fn cell(kind: Int) -> Cell {
+    #Cell{kind, int: 0, float: 0.0, text: "", bytes: Bytes.from_list([])}
+}
+
+fn text_cell(text: String) -> Cell {
+    #{..cell(3), text}
+}
+
+/// The cell a value is written as: what its declared type reads back.
+fn to_cell(value: Value) -> Cell {
+    case value {
+        .Null -> cell(0)
+        .Int(n) -> #{..cell(1), int: n}
+        .Float(x) -> #{..cell(2), float: x}
+        .Decimal(d) -> #{..cell(5), text: "${d}"}
+        .Text(s) -> text_cell(s)
+        .Bool(b) -> #{..cell(1), int: if b { 1 } else { 0 }}
+        .Bytes(b) -> #{..cell(4), bytes: b}
+        .Date(d) -> text_cell("${d}")
+        .Time(t) -> text_cell("${t}")
+        .Timestamp(t) -> text_cell(String.replace("${t}", "T", " "))
+        .Timestamptz(i) -> text_cell(utc_text(i))
+        .Uuid(id) -> text_cell("${id}")
+        .Json(j) -> text_cell(Json.encode(j))
+    }
+}
+
+/// An instant as SQLite's own timestamps are written, in UTC with no
+/// offset (`2026-10-24 16:59:52`, and `2026-10-24 16:59:52.5` with a
+/// fraction): `CURRENT_TIMESTAMP` writes that form, and SQLite compares
+/// timestamps as text, so an instant written any other way would not
+/// compare in time order with the database's own.
+fn utc_text(i: Instant) -> String {
+    "${OffsetDateTime.from_instant(i, Duration.hours(0))}"
+    |> String.replace("T", " ")
+    |> String.replace("+00:00", "")
+}
+
+fn to_row(query: String, columns: List<String>, types: List<String>, cells: List<Cell>) -> Row {
+    values =
+        Iter.zip(types, cells)
+        |> Iter.map(fn #(declared, c) -> to_value(declared, c))
+        |> Iter.to_list()
+
+    Row.new(
+        query,
+        Iter.zip(columns, values)
+        |> Iter.to_list(),
+    )
+}
+
+/// The value a cell reads as, by its column's declared type: a cell the
+/// type cannot read keeps its storage class.
+fn to_value(declared: String, c: Cell) -> Value {
+    plain = stored(c)
+
+    typed = case #(affinity(declared), plain) {
+        #("BOOL", .Int(n)) ->
+            Some(Value.Bool(n != 0))
+
+        #("DECIMAL", .Text(s)) ->
+            Decimal.from_string(s) |> Maybe.map(Value.Decimal)
+
+        #("DATE", .Text(s)) ->
+            Date.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Date)
+
+        #("TIME", .Text(s)) ->
+            Time.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Time)
+
+        #("TIMESTAMP", .Text(s)) ->
+            NaiveDateTime.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Timestamp)
+
+        #("TIMESTAMPTZ", .Text(s)) ->
+            instant(s) |> Maybe.map(Value.Timestamptz)
+
+        #("UUID", .Text(s)) ->
+            Uuid.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Uuid)
+
+        #("JSON", .Text(s)) ->
+            Json.decode(s) |> Result.to_maybe() |> Maybe.map(Value.Json)
+
+        _ ->
+            None
+    }
+
+    Maybe.with_default(typed, plain)
+}
+
+fn stored(c: Cell) -> Value {
+    case c.kind {
+        1 ->
+            Value.Int(c.int)
+
+        2 ->
+            Value.Float(c.float)
+
+        3 ->
+            Value.Text(c.text)
+
+        4 ->
+            Value.Bytes(c.bytes)
+
+        5 ->
+            Decimal.from_string(c.text)
+            |> Maybe.map(Value.Decimal)
+            |> Maybe.with_default(Value.Text(c.text))
+
+        _ ->
+            Value.Null
+    }
+}
+
+/// The declared type a value is read by: `BOOLEAN` and `BOOL` as `BOOL`,
+/// `DECIMAL` and `NUMERIC` (with or without a precision) as `DECIMAL`,
+/// `DATETIME` as `TIMESTAMP`, and the other names as they are.
+fn affinity(declared: String) -> String {
+    upper = declared |> String.to_upper() |> String.trim()
+
+    name = case String.split(upper, "(") {
+        [first, .._] -> String.trim(first)
+        _ -> upper
+    }
+
+    case name {
+        "BOOLEAN" -> "BOOL"
+        "NUMERIC" -> "DECIMAL"
+        "DATETIME" -> "TIMESTAMP"
+        _ -> name
+    }
+}
+
+/// The instant a timestamp's text names: SQLite's own form, with no offset,
+/// which `CURRENT_TIMESTAMP` and `utc_text` write, is UTC, and RFC 3339
+/// text with an offset is read too.
+fn instant(text: String) -> Maybe<Instant> {
+    case OffsetDateTime.parse(String.replace(text, " ", "T")) {
+        Ok(odt) ->
+            Some(OffsetDateTime.to_instant(odt))
+
+        Err(_) ->
+            NaiveDateTime.parse(text)
+            |> Result.to_maybe()
+            |> Maybe.flat_map(fn naive -> {
+                OffsetDateTime.with_offset(naive, Duration.hours(0)) |> Result.to_maybe()
+            })
+            |> Maybe.map(OffsetDateTime.to_instant)
+    }
+}

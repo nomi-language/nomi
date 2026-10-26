@@ -1,0 +1,44 @@
+//# Nicomachus' classification of positive integers by their aliquot sum.
+
+/// Where a number stands against the sum of its divisors other than itself.
+pub enum Classification {
+    Perfect
+    Abundant
+    Deficient
+}
+
+/// Why a number has no classification.
+pub enum Error {
+    NotPositive
+}
+
+/// Classifies `number` by its aliquot sum: perfect when the two are equal,
+/// abundant when the sum is greater, deficient when it is less.
+pub fn classify(number: Int) -> Result<Classification, Error> {
+    if number < 1 { return Err(.NotPositive) }
+
+    case Int.compare(aliquot_sum(number), number) {
+        .Equal -> Ok(.Perfect)
+        .Greater -> Ok(.Abundant)
+        .Less -> Ok(.Deficient)
+    }
+}
+
+/// The sum of `number`'s divisors other than itself. Divisors come in pairs
+/// `d` and `number / d`, so the search stops at the square root.
+fn aliquot_sum(number: Int) -> Int {
+    divisors =
+        Iter.from(1)
+        |> Iter.take_while(fn d -> d * d <= number)
+        |> Iter.filter(fn d -> number % d == 0)
+        |> Iter.map(fn d -> divisor_pair(number, d))
+        |> Iter.sum()
+
+    divisors - number
+}
+
+/// `d` plus the divisor it pairs with, counted once when the two are equal.
+fn divisor_pair(number: Int, d: Int) -> Int {
+    other = number / d
+    if other == d { d } else { d + other }
+}

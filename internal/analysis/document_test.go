@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
 func TestDocumentManager_OpenAndGet(t *testing.T) {
@@ -77,7 +78,7 @@ func TestDocumentManager_CloseIndexesTheDiskText(t *testing.T) {
 
 	dm := NewDocumentManager()
 	dm.SetWorkspaceRoot(dir)
-	uri := "file://" + filePath
+	uri := fileuri.FromPath(filePath)
 
 	doc := dm.Open(uri, "fn editor_version() -> Int { 2 }")
 	if doc.Analysis.ModuleScope.Lookup("editor_version") == nil {
@@ -133,7 +134,7 @@ func TestDocumentManager_AnalyzedClosedFile(t *testing.T) {
 	os.WriteFile(mathFile, []byte("/// Doubles a number.\nfn double(n: Int) -> Int { n + n }"), 0644)
 
 	dm := NewDocumentManager()
-	snap := dm.Analyzed("file://" + mathFile)
+	snap := dm.Analyzed(fileuri.FromPath(mathFile))
 	if snap == nil || snap.Analysis == nil {
 		t.Fatal("expected an analysis")
 	}
@@ -144,14 +145,14 @@ func TestDocumentManager_AnalyzedClosedFile(t *testing.T) {
 	if sym.Kind != SymbolFunction {
 		t.Errorf("expected SymbolFunction, got %v", sym.Kind)
 	}
-	if again := dm.Analyzed("file://" + mathFile); again != snap {
+	if again := dm.Analyzed(fileuri.FromPath(mathFile)); again != snap {
 		t.Error("expected the second request to reuse the cached analysis")
 	}
 
 	// A change on disk is a new text: the cache entry no longer answers.
 	os.WriteFile(mathFile, []byte("fn triple(n: Int) -> Int { n + n + n }"), 0644)
-	dm.IndexFile("file://" + mathFile)
-	snap = dm.Analyzed("file://" + mathFile)
+	dm.IndexFile(fileuri.FromPath(mathFile))
+	snap = dm.Analyzed(fileuri.FromPath(mathFile))
 	if snap.Analysis.ModuleScope.LookupLocal("triple") == nil {
 		t.Error("expected the analysis of the new disk text")
 	}
@@ -163,9 +164,9 @@ func TestDocumentManager_AnalyzedUsesOpenDoc(t *testing.T) {
 	os.WriteFile(mathFile, []byte("fn disk() -> Int { 1 }"), 0644)
 
 	dm := NewDocumentManager()
-	dm.Open("file://"+mathFile, "fn in_memory() -> Int { 2 }")
+	dm.Open(fileuri.FromPath(mathFile), "fn in_memory() -> Int { 2 }")
 
-	snap := dm.Analyzed("file://" + mathFile)
+	snap := dm.Analyzed(fileuri.FromPath(mathFile))
 	if snap == nil || !snap.Open {
 		t.Fatal("expected the open document's snapshot")
 	}
@@ -183,7 +184,7 @@ func TestDocumentManager_ClosedCacheIsBounded(t *testing.T) {
 	for i := range closedCacheSize + 5 {
 		path := filepath.Join(dir, fmt.Sprintf("f%d.nomi", i))
 		os.WriteFile(path, []byte(fmt.Sprintf("fn f%d() -> Int { %d }", i, i)), 0644)
-		uris = append(uris, "file://"+path)
+		uris = append(uris, fileuri.FromPath(path))
 	}
 	for _, uri := range uris {
 		if dm.Analyzed(uri) == nil {
@@ -219,7 +220,7 @@ func TestDocumentManager_IndexWorkspace(t *testing.T) {
 	uris := dm.IndexWorkspace(context.Background())
 	var rels []string
 	for _, uri := range uris {
-		rel, _ := filepath.Rel(dir, strings.TrimPrefix(uri, "file://"))
+		rel, _ := filepath.Rel(dir, fileuri.ToPath(uri))
 		rels = append(rels, rel)
 	}
 	sort.Strings(rels)
@@ -227,16 +228,16 @@ func TestDocumentManager_IndexWorkspace(t *testing.T) {
 		t.Fatalf("indexed %q, want %q", got, want)
 	}
 	for rel, want := range map[string]bool{"lib/text.nomi": true, "lib/testdata/c.nomi": false, "_scratch/a.nomi": false, "x.go": false} {
-		if got := dm.Covers("file://" + filepath.Join(dir, rel)); got != want {
+		if got := dm.Covers(fileuri.FromPath(filepath.Join(dir, rel))); got != want {
 			t.Errorf("Covers(%s) = %v, want %v", rel, got, want)
 		}
 	}
-	if dm.Covers("file://" + filepath.Join(filepath.Dir(dir), "elsewhere.nomi")) {
+	if dm.Covers(fileuri.FromPath(filepath.Join(filepath.Dir(dir), "elsewhere.nomi"))) {
 		t.Error("Covers a file outside the workspace root")
 	}
 
-	mathURI := "file://" + filepath.Join(dir, "math.nomi")
-	mainURI := "file://" + filepath.Join(dir, "main.nomi")
+	mathURI := fileuri.FromPath(filepath.Join(dir, "math.nomi"))
+	mainURI := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	if dm.Get(mathURI) != nil {
 		t.Error("indexing must not open or analyze a file")
 	}
@@ -262,9 +263,9 @@ func TestDocumentManager_PropagateChange(t *testing.T) {
 	dm.SetWorkspaceRoot(dir)
 	dm.IndexWorkspace(context.Background())
 
-	mathURI := "file://" + filepath.Join(dir, "math.nomi")
-	mainURI := "file://" + filepath.Join(dir, "main.nomi")
-	appURI := "file://" + filepath.Join(dir, "app.nomi")
+	mathURI := fileuri.FromPath(filepath.Join(dir, "math.nomi"))
+	mainURI := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
+	appURI := fileuri.FromPath(filepath.Join(dir, "app.nomi"))
 
 	// With main.nomi open, a change to math.nomi re-analyzes main.nomi
 	// and names app.nomi, which imports main.nomi and is closed.
@@ -290,9 +291,9 @@ func TestDocumentManager_UpdateRebuildsImportEdges(t *testing.T) {
 	dm.SetWorkspaceRoot(dir)
 	dm.IndexWorkspace(context.Background())
 
-	mathURI := "file://" + filepath.Join(dir, "math.nomi")
-	utilsURI := "file://" + filepath.Join(dir, "utils.nomi")
-	mainURI := "file://" + filepath.Join(dir, "main.nomi")
+	mathURI := fileuri.FromPath(filepath.Join(dir, "math.nomi"))
+	utilsURI := fileuri.FromPath(filepath.Join(dir, "utils.nomi"))
+	mainURI := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 
 	// Initially main imports math
 	deps := dm.ReverseDeps(mathURI)
@@ -326,7 +327,7 @@ func TestDocumentManager_CrossFileHover(t *testing.T) {
 	os.WriteFile(mainFile, []byte("import math\nfn main() { math.double(21) }"), 0644)
 
 	dm := NewDocumentManager()
-	mainURI := "file://" + mainFile
+	mainURI := fileuri.FromPath(mainFile)
 	doc := dm.Open(mainURI, "import math\nfn main() { math.double(21) }")
 
 	var doubleSym *Symbol
@@ -355,8 +356,8 @@ func TestDocumentManager_CrossFileDiagnostics(t *testing.T) {
 	dm.SetWorkspaceRoot(dir)
 	dm.IndexWorkspace(context.Background())
 
-	mathURI := "file://" + filepath.Join(dir, "math.nomi")
-	mainURI := "file://" + filepath.Join(dir, "main.nomi")
+	mathURI := fileuri.FromPath(filepath.Join(dir, "math.nomi"))
+	mainURI := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 
 	// Change math.nomi to have a parse error
 	dm.Update(mathURI, "pub fn double(x: Int) -> Int { x * ")
@@ -513,9 +514,9 @@ pub fn prod() -> Effects { #Effects{logger: #ProdLogger{}} }
 
 	dm := NewDocumentManager()
 	src, _ := os.ReadFile(effectsPath)
-	dm.Open("file://"+effectsPath, string(src))
+	dm.Open(fileuri.FromPath(effectsPath), string(src))
 
-	doc := dm.Get("file://" + effectsPath)
+	doc := dm.Get(fileuri.FromPath(effectsPath))
 	if doc == nil || doc.Analysis == nil {
 		t.Fatal("expected analysis to be populated")
 	}
@@ -567,9 +568,9 @@ test "app support resolves from the test program root" {
 	dm := NewDocumentManager()
 	dm.SetWorkspaceRoot(tmp)
 	src, _ := os.ReadFile(appPath)
-	dm.Open("file://"+appPath, string(src))
+	dm.Open(fileuri.FromPath(appPath), string(src))
 
-	doc := dm.Get("file://" + appPath)
+	doc := dm.Get(fileuri.FromPath(appPath))
 	if doc == nil || doc.Analysis == nil {
 		t.Fatal("expected analysis to be populated")
 	}
@@ -676,9 +677,9 @@ func TestDocumentManager_SubdirectoryImportResolvesAgainstProjectRoot(t *testing
 	subFoo := mustWrite("sub/uses_types.nomi", "import types.{Settings}\n\npub fn handle(c: Settings) -> Int { c.port }\n")
 
 	dm := NewDocumentManager()
-	dm.Open("file://"+subFoo, "import types.{Settings}\n\npub fn handle(c: Settings) -> Int { c.port }\n")
+	dm.Open(fileuri.FromPath(subFoo), "import types.{Settings}\n\npub fn handle(c: Settings) -> Int { c.port }\n")
 
-	doc := dm.Get("file://" + subFoo)
+	doc := dm.Get(fileuri.FromPath(subFoo))
 	if doc == nil || doc.Analysis == nil {
 		t.Fatal("expected analysis to be populated")
 	}
@@ -727,7 +728,7 @@ func TestIndexFile_LeavesOpenDocAlone(t *testing.T) {
 	if err := os.WriteFile(filePath, []byte("fn disk() -> Int { 1 }"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + filePath
+	uri := fileuri.FromPath(filePath)
 
 	dm := NewDocumentManager()
 	editorContent := "fn editor() -> Int { 2 }"

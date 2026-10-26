@@ -161,7 +161,7 @@ func TestSyntaxErrorStillRefusedByRunAndCheck(t *testing.T) {
 		t.Fatal("the fixture is supposed to have a syntax error; it parsed cleanly")
 	}
 	var pe parser.ParseError
-	if !errors.As(parseErr, &pe) || !strings.Contains(pe.Message, "unexpected token RBRACE") {
+	if !errors.As(parseErr, &pe) || !strings.Contains(pe.Message, "unexpected `}`") {
 		t.Fatalf("unexpected diagnostic from the strict parser: %q", parseErr)
 	}
 	// The command line names the file, then the parser's line, column and

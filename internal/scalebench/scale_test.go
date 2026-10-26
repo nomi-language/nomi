@@ -26,6 +26,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/analyzedlowering"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/projectgen"
 	"github.com/nomi-language/nomi/std"
@@ -63,7 +64,7 @@ func (p *project) path(key string) string {
 	return filepath.Join(p.dir, filepath.FromSlash(key)+".nomi")
 }
 
-func (p *project) uri(key string) string { return "file://" + p.path(key) }
+func (p *project) uri(key string) string { return fileuri.FromPath(p.path(key)) }
 
 // newManager is a document manager over the process's stdlib, as the
 // language server makes one.

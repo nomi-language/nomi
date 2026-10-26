@@ -1,5 +1,7 @@
 # Minesweeper
 
+Subject: Grids & Matrices
+
 Write the count of adjacent mines into each empty square of a minesweeper board.
 
 Adapted from Exercism problem-specifications (MIT), exercises/minesweeper.

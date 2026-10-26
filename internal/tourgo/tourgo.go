@@ -188,15 +188,23 @@ func (p Problems) Error() string { return strings.Join(p, "\n") }
 // fixed opens every problem's message.
 const fixed = "this example's Go code is fixed in the tour: "
 
-// MarkedHosts is Hosts for a tour block as written, `// FILE:` sections and
-// all: what every runner of tour blocks passes to vmhost.LoadMarked as
+// MarkedHosts is Hosts for a tour block as Source answers it, `// FILE:`
+// sections and all, with the bindings of the modules Source attached to it:
+// what every runner of tour blocks passes to vmhost.LoadMarked as
 // vmhost.WithHosts.
 func MarkedHosts(src string) (func(*hostadapt.Env) (map[string]hostadapt.Func, error), error) {
 	project, err := virtualproject.FromMarkedSource(src)
 	if err != nil {
 		return nil, err
 	}
-	return Hosts(project.EntryName, project.EntrySource, project.VirtualFiles)
+	hosts, err := Hosts(project.EntryName, project.EntrySource, project.VirtualFiles)
+	if err != nil {
+		return nil, err
+	}
+	if mods := carried(project); len(mods) > 0 {
+		return withModules(hosts, mods), nil
+	}
+	return hosts, nil
 }
 
 // Hosts is the host table that answers the program's `go` bindings with the

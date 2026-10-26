@@ -843,7 +843,12 @@ func expansionAt(exps map[int]*macroExpansion, file string, line int) *macroExpa
 	if file != "" || !IsSynthesizedLine(line) {
 		return nil
 	}
-	return exps[synthLineBase+(line-synthLineBase)/synthLineStride*synthLineStride]
+	return exps[synthSlotBase(line)]
+}
+
+// synthSlotBase is the first line of the synthesized slot that holds line.
+func synthSlotBase(line int) int {
+	return synthLineBase + (line-synthLineBase)/synthLineStride*synthLineStride
 }
 
 // relocate moves te, an error at a position in e's generated code.

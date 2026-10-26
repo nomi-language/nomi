@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -151,7 +152,7 @@ func TestCompletion_ConstructorImportsItsOwner(t *testing.T) {
 	s.snippetSupport = true
 	s.docs.SetWorkspaceRoot(dir)
 	s.docs.IndexWorkspace(context.Background())
-	uri := "file://" + filepath.Join(dir, "main.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	list := completeIn(t, s, uri, "import lib\n\nfn f() -> Int {\n    lib.wait("+cursorMark+")\n}\n")
 	it := mustItem(t, list.Items, "Duration.seconds")
 	wantEdit(t, onlyEdit(t, it), 1, 0, 1, 0, "import std/duration.Duration\n")

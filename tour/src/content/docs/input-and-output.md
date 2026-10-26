@@ -387,7 +387,36 @@ Ok(2)
 
 `Reader.from_text` and `Reader.from_bytes` make a reader over data the
 program already holds, which is how a test feeds a function that takes a
-`Reader`.
+`Reader`. A reader can also make its bytes as it is read.
+`Reader.from_chunks` reads an `Iter` of `Bytes`, and
+`Reader.from_text_chunks` one of `String`, pulling a chunk only when a read
+needs it, so the sequence can be endless. `Reader.from_fn` calls a function
+for each chunk, which answers `Ok(Some(chunk))`, `Ok(None)` at the end or an
+`io.Error`:
+
+```nomi-run
+import std/io.{self, Reader}
+
+fn main() {
+    lines = Iter.from(1) |> Iter.map(fn n -> "${n}\n")
+    numbers = Reader.from_text_chunks(lines)
+    io.print(Reader.read_line(numbers))
+    io.print(Reader.read_line(numbers))
+
+    source = Reader.from_text("slow\n")
+    trickle = Reader.from_fn(fn -> Reader.read(source, max: 2))
+    io.print(Reader.read_all_text(trickle))
+}
+```
+<!-- expect
+Ok(Some(1))
+Ok(Some(2))
+Ok(slow
+)
+-->
+
+The function or the sequence runs on the task that reads, inside whatever
+`io.capture` that read is in.
 
 ## Directories and paths
 

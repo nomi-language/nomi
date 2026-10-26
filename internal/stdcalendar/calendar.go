@@ -11,8 +11,9 @@
 // `ParseDate` / `ParseTime` / `ParseNaiveDateTime` / `ParseOffsetDateTime` /
 // `ParseZonedDateTime` are the one place each spelling is accepted. The VM
 // reaches them through the FFI projection: std/calendar.nomi declares bare
-// `host fn`s, internal/stdlibbindings pairs each with the FFI-shaped wrapper
-// in ffi.go, and internal/stdlibadapters generates the VM's adapter for each.
+// `host fn`s, internal/stdlibbindings pairs each with a function here or in
+// boundary.go over rt's calendar structs, and internal/stdlibadapters generates
+// the VM's adapter for each.
 // The pairing is held to the declarations by
 // internal/hostpair.TestEveryHostDeclarationInAGoBackedModuleIsRegistered.
 //

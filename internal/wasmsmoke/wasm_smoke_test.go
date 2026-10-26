@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/nodeenv"
+	"github.com/nomi-language/nomi/internal/tourgo"
 )
 
 // harness drives nomiRun the way the playground's worker does. Node needs
@@ -104,11 +105,15 @@ func TestWasmBuildRunsAConcurrentProgram(t *testing.T) {
 	}
 	dir := t.TempDir()
 
-	// The tour's build flags (scripts/build-tour-wasm.sh), so this smokes
-	// the binary the tour ships.
+	// The tour's build flags and workspace (scripts/build-tour-wasm.sh), so
+	// this smokes the binary the tour ships.
 	build := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-o", filepath.Join(dir, "nomi.wasm"), "./cmd/nomi-wasm")
 	build.Dir = "../.."
-	build.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
+	work, err := filepath.Abs(filepath.Join("../..", tourgo.GoWork))
+	if err != nil {
+		t.Fatal(err)
+	}
+	build.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm", "GOWORK="+work)
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("building nomi.wasm: %v\n%s", err, out)
 	}

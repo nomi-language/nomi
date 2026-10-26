@@ -54,6 +54,12 @@ type FileDecls struct {
 	// (for stdlib) points into the per-process materialization cache.
 	// A nominal type's identity is (Origin, Name); see nominal_identity.go.
 	Origin string
+	// reservedNames holds each type name this file declares that the
+	// language reserves (checkReservedTypeName): the declaration is refused
+	// and the name keeps naming the prelude's type, so an impl the compiler
+	// synthesized for that declaration would be an impl for the prelude's
+	// type. Every pass skips such a block (synthesizedForRefusedDecl).
+	reservedNames map[string]bool
 	// DispatchNames tracks function names defined by impl/extend blocks.
 	// These are runtime-dispatched and should not be type-checked at call sites.
 	DispatchNames map[string]bool

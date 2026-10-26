@@ -88,7 +88,7 @@ func TestCodepointLiteralErrorsReportTheLexerDiagnosis(t *testing.T) {
 		{"x = ''", 1, 5, `empty codepoint literal ''; a codepoint literal holds exactly one ASCII character`},
 		{"x = 'é'", 1, 5, `codepoint literal 'é' is U+00E9, not ASCII: a codepoint literal is ASCII only (U+0000–U+007F); write "é" as a string, or use Codepoint.from_int for another scalar value`},
 		{"x = 'a", 1, 5, `unterminated codepoint literal; close it with '`},
-		{`x = '\q'`, 1, 5, `invalid escape \q in codepoint literal; the escapes are \n, \t, \\, \' and \u{...}`},
+		{`x = '\q'`, 1, 5, `invalid escape \q in codepoint literal; the escapes are \n, \r, \t, \\, \' and \u{...}`},
 		{"case c {\n    'ab' -> 1\n    _ -> 2\n}", 2, 5, `codepoint literal 'ab' holds more than one character; write "ab" as a string`},
 		{"case c {\n    Some('é') -> 1\n    _ -> 2\n}", 2, 10, `codepoint literal 'é' is U+00E9, not ASCII: a codepoint literal is ASCII only (U+0000–U+007F); write "é" as a string, or use Codepoint.from_int for another scalar value`},
 	}

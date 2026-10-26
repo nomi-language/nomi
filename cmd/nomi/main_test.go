@@ -53,7 +53,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	defer os.RemoveAll(tmp)
-	binPath := filepath.Join(tmp, "nomi")
+	binPath := exe(filepath.Join(tmp, "nomi"))
 	build := exec.Command("go", "build", "-o", binPath, ".")
 	if out, err := build.CombinedOutput(); err != nil {
 		fmt.Fprintf(os.Stderr, "TestMain: build nomi: %v\n%s", err, out)
@@ -75,6 +75,16 @@ func TestMain(m *testing.M) {
 		_ = os.Setenv(k, v)
 	}
 	os.Exit(m.Run())
+}
+
+// exe is path with the executable suffix of this system: a test that
+// builds an executable and runs it by path names it so, since Windows runs
+// only a file whose name ends in .exe.
+func exe(path string) string {
+	if runtime.GOOS == "windows" {
+		return path + ".exe"
+	}
+	return path
 }
 
 // noManagedGoEnv is the environment that leaves `nomi` no managed Go
@@ -297,7 +307,7 @@ fn main() {
 	if err != nil || out != want {
 		t.Fatalf("nomi run: %v\ngot:\n%s\nwant:\n%s", err, out, want)
 	}
-	bin := filepath.Join(t.TempDir(), "twoutil")
+	bin := exe(filepath.Join(t.TempDir(), "twoutil"))
 	if out, err := runNomi(t, cacheRoot, "build", "-o", bin, entry); err != nil {
 		t.Fatalf("nomi build: %v\n%s", err, out)
 	}
@@ -480,7 +490,7 @@ fn main() {
 }
 `)
 	// The diagnostic names the file, line and column, as compilers do.
-	wantDiag := "error: unexpected token RBRACE \"}\"\n --> " + entry + ":6:1\n"
+	wantDiag := "error: unexpected `}`\n --> " + entry + ":6:1\n"
 
 	out, err := runNomi(t, t.TempDir(), "run", entry)
 	if err == nil {

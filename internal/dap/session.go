@@ -195,6 +195,7 @@ func (s *Server) prepare(args launchArgs) (*session, error) {
 	if err != nil {
 		return nil, err
 	}
+	path = clientPath(path)
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("%s: no such file or directory", args.Program)

@@ -408,10 +408,9 @@ const newUsage = "usage: nomi new <module path> [dir]"
 
 // runNew is `nomi new <module path> [dir]`: start a Nomi module in dir
 // (default: a new directory named for the path's last element) with a
-// nomi.toml, a go.mod and a main.nomi that prints hello. It refuses a
-// directory that already holds a go.mod. In a directory that holds a
-// nomi.toml and no go.mod, it writes the go.mod alone, so a module can
-// take dependencies.
+// nomi.toml, a go.mod and a main.nomi that prints hello, keeping a
+// main.nomi already there. It refuses a directory that holds a nomi.toml
+// or a go.mod, which `nomi init` finishes making a project.
 func runNew(args []string) error {
 	var pos []string
 	for _, arg := range args {
@@ -424,40 +423,32 @@ func runNew(args []string) error {
 		return errors.New(newUsage)
 	}
 	path := pos[0]
-	if err := module.CheckImportPath(path); err != nil {
-		return fmt.Errorf("nomi new: %q is not a module path: %v; a module path is usually its repository's address, such as github.com/you/project", path, err)
-	}
-	name := moduleName(path)
-	if name == "" || name == "std" {
-		return fmt.Errorf("nomi new: %s gives no usable module name (its last element names the module); choose another path", path)
+	name, err := checkModulePath("new", path)
+	if err != nil {
+		return err
 	}
 	dir := name
 	if len(pos) == 2 {
 		dir = pos[1]
 	}
+	for _, f := range []string{"go.mod", "nomi.toml"} {
+		if isRegular(filepath.Join(dir, f)) {
+			return fmt.Errorf("nomi new: %s already holds a %s; run `nomi init` in it to make it a project", dir, f)
+		}
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("nomi new: %w", err)
 	}
-	if isRegular(filepath.Join(dir, "go.mod")) {
-		return fmt.Errorf("nomi new: %s already holds a go.mod", dir)
-	}
 	files := []struct{ name, text string }{
-		{"nomi.toml", fmt.Sprintf("[module]\nname = %q\nentry_points = [\"main\"]\n", name)},
-		{"go.mod", fmt.Sprintf("module %s\n\ngo %s\n", path, gotoolchain.GoLine())},
+		{"nomi.toml", manifestText(name, []string{"main"})},
+		{"go.mod", goModText(path)},
 		{"main.nomi", "import std/io\n\nfn main() {\n    io.print(\"hello\")\n}\n"},
 	}
 	var wrote, kept []string
-	keptManifest := false
 	for _, f := range files {
 		target := filepath.Join(dir, f.name)
 		if _, err := os.Stat(target); err == nil {
-			if f.name == "nomi.toml" {
-				keptManifest = true
-			}
 			kept = append(kept, f.name)
-			continue
-		}
-		if keptManifest && f.name == "main.nomi" {
 			continue
 		}
 		if err := os.WriteFile(target, []byte(f.text), 0o644); err != nil {
@@ -467,16 +458,9 @@ func runNew(args []string) error {
 	}
 	fmt.Printf("wrote %s\n", joinAnd(wrote))
 	if len(kept) > 0 {
-		verb := "were"
-		if len(kept) == 1 {
-			verb = "was"
-		}
-		fmt.Printf("kept %s, which %s already there\n", joinAnd(kept), verb)
+		fmt.Printf("kept %s, which was already there\n", joinAnd(kept))
 	}
 	run := "nomi run main.nomi"
-	if keptManifest {
-		run = "nomi add <module>"
-	}
 	if abs, err := filepath.Abs(dir); err == nil {
 		if wd, err := os.Getwd(); err == nil && !same(abs, wd) {
 			run = "cd " + dir + " && " + run
@@ -547,7 +531,7 @@ func goModRoot(cmd, dir string) (string, error) {
 		d = parent
 	}
 	return "", fmt.Errorf("nomi %s: no go.mod in %s or above it, so there is no project to change; "+
-		"start one with `nomi new <module path>`, or run `nomi new <module path> .` in a module that has only a nomi.toml", cmd, vmDisplay(abs))
+		"start one with `nomi new <module path>`, or make this directory one with `nomi init <module path>`", cmd, vmDisplay(abs))
 }
 
 func isRegular(path string) bool {

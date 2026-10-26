@@ -56,6 +56,10 @@ const usage = `usage:
   nomi fmt [-w|-l] <paths>              format source
   nomi new <module path> [dir]          start a project: nomi.toml, go.mod and a
                                         main.nomi, in dir (default: the path's last element)
+  nomi init [module path]               make the current directory a project: write the
+                                        nomi.toml and go.mod it lacks (the path is go.mod's
+                                        when there is one), listing each file with a fn main
+                                        as an entry point
   nomi add <module>[@version]           add a dependency: its latest release when no
                                         version is given, downloaded, with its checksums
                                         recorded in go.sum
@@ -114,7 +118,7 @@ func main() {
 		os.Args = append([]string{os.Args[0], command}, rest...)
 	}
 	switch command {
-	case "dap", dap.TerminalCommand, "fmt", "messages", "version", "help", "--help", "-h", "new", "remove":
+	case "dap", dap.TerminalCommand, "fmt", "messages", "version", "help", "--help", "-h", "new", "init", "remove":
 		// The debugger is started by an editor, which never downloads, and
 		// the others build nothing.
 	default:
@@ -181,6 +185,11 @@ func main() {
 		}
 	} else if command == "new" {
 		if err := runNew(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	} else if command == "init" {
+		if err := runInit(os.Args[2:]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

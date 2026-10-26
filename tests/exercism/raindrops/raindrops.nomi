@@ -6,7 +6,7 @@ pub fn convert(number: Int) -> String {
     drops =
         sounds
         |> Iter.filter(fn #(factor, _sound) -> number % factor == 0)
-        |> Iter.map(fn #(_factor, sound) -> sound)
+        |> Iter.map(.1)
         |> String.join()
 
     if drops == "" { "${number}" } else { drops }

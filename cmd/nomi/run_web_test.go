@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"regexp"
 	"strings"
 	"sync"
@@ -201,6 +202,14 @@ func (s *webServer) status(path string) int {
 // stop sends the server SIGINT, as Ctrl-C does, and waits for it.
 func (s *webServer) stop() {
 	s.t.Helper()
+	if runtime.GOOS == "windows" {
+		// Go cannot send a child Ctrl-C on Windows. What the test checked
+		// before this point stands; the clean exit and what follows it do not
+		// run.
+		_ = s.cmd.Process.Kill()
+		_ = s.cmd.Wait()
+		s.t.Skip("Windows: no Ctrl-C to send the server, so its clean exit is not checked")
+	}
 	if err := s.cmd.Process.Signal(syscall.SIGINT); err != nil {
 		s.t.Fatal(err)
 	}

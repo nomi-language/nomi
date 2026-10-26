@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/std"
 	"github.com/nomi-language/nomi/vmhost"
 )
@@ -104,7 +105,7 @@ func TestStdlibBacklog_CasesRunOnTheVM(t *testing.T) {
 	for _, c := range stdlibBacklogCases {
 		out, seen := reports[c.module]
 		if !seen {
-			path := strings.TrimPrefix(std.Load().FileURI(c.module), "file://")
+			path := fileuri.ToPath(std.Load().FileURI(c.module))
 			p, err := vmhost.LoadStdlib(path)
 			if err != nil {
 				t.Fatalf("std/%s: lowering its prompt cases: %v", c.module, err)

@@ -111,6 +111,9 @@ type readState struct {
 	// held marks a reader over data the program holds (from_bytes,
 	// from_text), which reads nothing outside the machine.
 	held bool
+	// pull is the source of a reader whose chunks the program makes as
+	// they are read (from_fn, from_chunks), or nil.
+	pull *pullReader
 }
 
 // writeHandle is a Writer's state behind the value, as readHandle is.
@@ -343,6 +346,7 @@ func ReaderReadLine(fr *Frame, r Reader) Result[Maybe[string], IOError] {
 		if st.closed {
 			return Err[Maybe[string]](IOError{Tag: TagIOClosed})
 		}
+		st.at(fr)
 		line, err := st.r.ReadString('\n')
 		if err != nil && !errors.Is(err, io.EOF) {
 			return Err[Maybe[string]](st.fail("read", err))
@@ -375,6 +379,7 @@ func ReaderRead(fr *Frame, r Reader, max int64) Result[Maybe[Bytes], IOError] {
 		if st.closed {
 			return Err[Maybe[Bytes]](IOError{Tag: TagIOClosed})
 		}
+		st.at(fr)
 		return readSome(st.r, max, st.fail)
 	}
 	return Err[Maybe[Bytes]](IOError{Tag: TagIOClosed})
@@ -414,6 +419,7 @@ func ReaderReadAll(fr *Frame, r Reader) Result[Bytes, IOError] {
 		if st.closed {
 			return Err[Bytes](IOError{Tag: TagIOClosed})
 		}
+		st.at(fr)
 		data, err := io.ReadAll(st.r)
 		if err != nil {
 			return Err[Bytes](st.fail("read", err))
@@ -585,11 +591,7 @@ func stdinRead(fr *Frame, max int64) Result[Maybe[Bytes], IOError] {
 	if in == nil {
 		return Ok[Maybe[Bytes], IOError](None[Bytes]())
 	}
-	in.mu.Lock()
-	defer in.mu.Unlock()
-	return readSome(in.r, max, func(op string, err error) IOError {
-		return IOError{Tag: TagIOOther, Operation: op, Path: StdinPath, Code: ErrnoName(err)}
-	})
+	return in.readSome(fr, max)
 }
 
 // stdinReadAll is `Reader.read_all` on standard input.

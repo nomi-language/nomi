@@ -10,7 +10,8 @@ package ffirun
 // linked with -buildmode=c-shared as a WASI reactor (Variant). An FFI project's runner
 // is generated like its wrapper (renderMain with mainKind.Runner) so it links
 // the project's Go bindings through the same generated adapters, and it is
-// cached per project, target and variant.
+// cached per project, target and variant; its reactor variant imports
+// nomi/vmrunner/reactor for the call ABI, as cmd/nomi-vm-reactor does.
 //
 // Both are keyed on the compiler identity (identity.go), because a runner is
 // a binary linking the compiler's VM and rt: a warm cache must not serve one
@@ -44,7 +45,7 @@ const runnerBinaryBaseName = "nomi-vm"
 // directory and in the wasip1 release archive.
 const reactorBinaryBaseName = "nomi-vm-reactor"
 
-// Variant is which runner a pure-Nomi program is appended to.
+// Variant is which runner a program is appended to.
 type Variant struct {
 	// Compiler links std/compiler's hosts, and with them the front end.
 	Compiler bool
@@ -350,29 +351,34 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 	return nil
 }
 
-// ProjectRunner answers the path of the cached runner for r's FFI project:
-// the project's Go bindings and their generated adapters linked beside the
-// VM, built for target.
-func ProjectRunner(r *Result, target Target, compiler bool) (string, error) {
+// ProjectRunner answers the path of the cached runner of variant v for r's
+// FFI project: the project's Go bindings and their generated adapters linked
+// beside the VM, built for target. The reactor variant is a wasip1 module
+// linked -buildmode=c-shared that exports the call ABI
+// (nomi/vmrunner/reactor) instead of `_start`.
+func ProjectRunner(r *Result, target Target, v Variant) (string, error) {
 	if r == nil || r.FastPath {
 		return "", fmt.Errorf("ffirun: ProjectRunner called on a FastPath result")
+	}
+	if v.Reactor && (target.GOOS != "wasip1" || target.GOARCH != "wasm") {
+		return "", fmt.Errorf("ffirun: only wasip1/wasm has a reactor nomi-vm, not %s", target)
 	}
 	want, err := computeHashes(r.projectRoot, r.discovered, r.allRequires)
 	if err != nil {
 		return "", err
 	}
-	variant := variantName(compiler)
+	variant := v.name()
 	dir, err := cacheDirForKey(r.projectRoot+"\x00vm\x00"+variant+"\x00"+target.String(),
 		r.projectRoot, cacheKindRunner)
 	if err != nil {
 		return "", err
 	}
 	rec := runnerRecord{Compiler: want.Compiler, Target: target.String(), Variant: variant, Project: want}
-	bin := filepath.Join(dir, runnerBinaryBaseName)
+	bin := filepath.Join(dir, v.binaryName())
 	if runnerCached(dir, bin, rec) && (!target.needsWasmExec() || fileExists(filepath.Join(dir, WasmExecName))) {
 		return bin, nil
 	}
-	src, err := renderMain(r.projectRoot, r.discovered, mainKind{Runner: true, Compiler: compiler})
+	src, err := renderMain(r.projectRoot, r.discovered, mainKind{Runner: true, Compiler: v.Compiler, Reactor: v.Reactor})
 	if err != nil {
 		return "", err
 	}
@@ -388,7 +394,11 @@ func ProjectRunner(r *Result, target Target, compiler bool) (string, error) {
 	}
 	env := append(os.Environ(), "GOOS="+target.GOOS, "GOARCH="+target.GOARCH)
 	clean := &Result{WrapperPath: mainPath, WrapperDir: dir}
-	if err := goBuildInto(gotoolchain.FindForProjectRunner, dir, bin, dir, env, []string{"build", "-mod=mod", "-trimpath", "-o"}, mainPath, clean); err != nil {
+	args := []string{"build", "-mod=mod", "-trimpath"}
+	if v.Reactor {
+		args = append(args, "-buildmode=c-shared")
+	}
+	if err := goBuildInto(gotoolchain.FindForProjectRunner, dir, bin, dir, env, append(args, "-o"), mainPath, clean); err != nil {
 		// A bound package that does not build for target is reported at
 		// its `gopkg`, not as the compiler's output (target.go).
 		if problem := targetBuildProblem(r, dir, env, target, err); problem != nil {

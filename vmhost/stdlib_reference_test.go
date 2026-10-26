@@ -72,3 +72,26 @@ func TestStdlibSource_RecheckedDurationIsTheSharedDuration(t *testing.T) {
 		}
 	}
 }
+
+// A reference editor of std/io reads the module's own file-level `once`
+// bindings bare, as code in the module does: `stdout` in a capture and
+// `stderr` bound first. The editor's source is checked afresh, so the checker
+// records the fresh copy's declaration at the name, and the read must still
+// reach the cached module's cell; it was "an ident bound nowhere this builder
+// can see" and the case was blocked.
+func TestStdlibReference_ReadsTheModulesOwnOnceBare(t *testing.T) {
+	body := "w = stderr\n" +
+		"run = capture(\"\", fn -> {\n" +
+		"    _ = Writer.print(stdout, \"out\")\n" +
+		"    _ = Writer.print(w, \"err\")\n" +
+		"})\n" +
+		"assert run.output == \"out\\n\"\n" +
+		"assert run.errors == \"err\\n\"\n"
+	cases, err := vmhost.StdlibReference("io", body, "", io.Discard)
+	if err != nil {
+		t.Fatalf("the front end rejects the editor, so nothing below is tested: %v", err)
+	}
+	if len(cases) != 1 || cases[0].Err != nil || len(cases[0].Blocked) > 0 {
+		t.Fatalf("want one passing case, got %+v", cases)
+	}
+}

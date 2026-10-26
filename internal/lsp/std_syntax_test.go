@@ -15,13 +15,13 @@ func TestStdSyntaxDiagnostic(t *testing.T) {
 		t.Fatalf("the embedded std parses, but the server reports %q", d.Message)
 	}
 	broken := &std.StdLib{SyntaxErrors: map[string][]parser.ParseError{
-		"io": {{Line: 12, Col: 5, Message: "unexpected token AND"}},
+		"io": {{Line: 12, Col: 5, Message: "unexpected `and`"}},
 	}}
 	d, ok := stdSyntaxDiagnostic(broken)
 	if !ok {
 		t.Fatal("no diagnostic for a std with a syntax error")
 	}
-	if !strings.Contains(d.Message, "std/io.nomi:12:5: unexpected token AND") {
+	if !strings.Contains(d.Message, "std/io.nomi:12:5: unexpected `and`") {
 		t.Errorf("message %q does not name the std file's error", d.Message)
 	}
 }

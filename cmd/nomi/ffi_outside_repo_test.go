@@ -62,7 +62,7 @@ func TestFFI_AProjectOutsideTheRepositoryRuns(t *testing.T) {
 				t.Fatalf("nomi check: exit %d\n%s", check.exit, check.transcript())
 			}
 
-			bin := filepath.Join(t.TempDir(), "gobindings")
+			bin := exe(filepath.Join(t.TempDir(), "gobindings"))
 			if b := runProcess(t, env, root, "", nomiBin, "build", entry, "-o", bin); b.exit != 0 {
 				t.Fatalf("nomi build: exit %d\n%s", b.exit, b.transcript())
 			}

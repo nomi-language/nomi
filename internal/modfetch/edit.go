@@ -33,7 +33,7 @@ func AddLocal(root, dir string, opts Options) (Added, error) {
 	}
 	data, err := os.ReadFile(filepath.Join(abs, "go.mod"))
 	if errors.Is(err, os.ErrNotExist) {
-		return Added{}, fmt.Errorf("%s has no go.mod, so it has no module path; run `nomi new <module path> %s` to give it one", dir, dir)
+		return Added{}, fmt.Errorf("%s has no go.mod, so it has no module path; run `nomi init <module path>` in %s to give it one", dir, dir)
 	}
 	if err != nil {
 		return Added{}, err

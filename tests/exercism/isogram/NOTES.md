@@ -1,5 +1,7 @@
 # Isogram
 
+Subject: Strings & Text
+
 Decide whether a word or phrase repeats no letter, ignoring case; spaces and
 hyphens may repeat.
 
@@ -7,7 +9,8 @@ Adapted from Exercism problem-specifications (MIT), exercises/isogram.
 
 ## Choices
 
-- The letters are the lower-cased phrase's codepoints filtered by
+- The letters are the case-folded phrase's codepoints (`String.fold_case`,
+  which is for comparing, rather than `String.to_lower`) filtered by
   `Codepoint.letter?`, which keeps every Unicode letter and drops everything
   else. `String.find_all(Regex`\pL`)` keeps the same codepoints in one stage
   instead of three, but a reader has to know `\pL`, and the filter says

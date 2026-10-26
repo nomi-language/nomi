@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -89,10 +90,10 @@ pub fn build() -> AppEnv { #AppEnv{port: 8082} }
 	s.docs.SetWorkspaceRoot(tmp)
 	s.docs.IndexWorkspace(context.Background())
 
-	configURI := "file://" + configPath
-	devURI := "file://" + devPath
-	prodURI := "file://" + prodPath
-	testURI := "file://" + testPath
+	configURI := fileuri.FromPath(configPath)
+	devURI := fileuri.FromPath(devPath)
+	prodURI := fileuri.FromPath(prodPath)
+	testURI := fileuri.FromPath(testPath)
 
 	// Before the fix, ScanWorkspace would not record dev/prod/test as
 	// dependents of configuration.nomi because their imports lived inside
@@ -216,8 +217,8 @@ fn main() { greeter.hello() }
 	s.docs.SetWorkspaceRoot(tmp)
 	s.docs.IndexWorkspace(context.Background())
 
-	greetURI := "file://" + greetPath
-	mainURI := "file://" + mainPath
+	greetURI := fileuri.FromPath(greetPath)
+	mainURI := fileuri.FromPath(mainPath)
 
 	// Capture publish notifications.
 	var mu sync.Mutex

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -78,6 +79,10 @@ func TestTourDoctests(t *testing.T) {
 				t.Errorf("%s: %s", name, msg)
 				continue
 			}
+			if tools := b.Tools(); len(tools) > 0 {
+				t.Run(name, func(t *testing.T) { checkTourToolBlock(t, b, tools) })
+				continue
+			}
 			if b.HasInfo(doctest.InfoExpand) {
 				t.Run(name, func(t *testing.T) { checkTourExpandBlock(t, b) })
 				continue
@@ -97,6 +102,20 @@ func TestTourDoctests(t *testing.T) {
 				})
 				continue
 			}
+			if unlinked := tourgo.Unlinked(b.Code); len(unlinked) > 0 {
+				// A block that imports a tour module runs only on the
+				// module's browser build, which TestTourWasmAnswersTheTourBlocks
+				// runs under Node; here it must compile.
+				t.Run(name, func(t *testing.T) {
+					if msg := tourCompileError(t, b.Code); msg != "" {
+						t.Fatalf("a tour block that imports %v must compile:\n%s\n\nerror:\n%s", unlinked, b.Code, msg)
+					}
+					if b.Expected == nil {
+						t.Fatalf("a tour block that imports %v needs a hidden <!-- expect ... --> block, which the staged wasm is held to:\n%s", unlinked, b.Code)
+					}
+				})
+				continue
+			}
 			runnable++
 			t.Run(name, func(t *testing.T) {
 				files, data := tourFileSystem(t, b)
@@ -110,11 +129,14 @@ func TestTourDoctests(t *testing.T) {
 				// Standard error interleaves with the output, as the tour's
 				// runner shows it (cmd/nomi-wasm's nomiRun).
 				// Its `go` bindings, as the playground answers them.
-				hosts, err := tourgo.MarkedHosts(b.Code)
+				// The modules the tour links that it imports, attached
+				// as the playground attaches them (tourgo.Source).
+				src := tourgo.Source(b.Code)
+				hosts, err := tourgo.MarkedHosts(src)
 				if err != nil {
 					t.Fatalf("the tour links no Go for this block's bindings:\n%s\n\nerror: %v", b.Code, err)
 				}
-				p, hasTests, err := vmhost.LoadMarked(b.Code, t.TempDir(), vmhost.WithHosts(hosts), vmhost.WithErrorOutput(&out), vmhost.WithFileSystem(files))
+				p, hasTests, err := vmhost.LoadMarked(src, t.TempDir(), vmhost.WithHosts(hosts), vmhost.WithErrorOutput(&out), vmhost.WithFileSystem(files))
 				if err != nil {
 					t.Fatalf("LoadMarked failed for tour block:\n%s\n\nerror: %v", b.Code, err)
 				}
@@ -192,6 +214,31 @@ func checkTourErrorBlock(t *testing.T, b doctest.Block) {
 	}
 }
 
+// checkTourToolBlock holds a ```nomi-run tool:<module>/<name> block to
+// what this binary can check of it. Its tools are tour modules' (the block
+// imports each one), whose Go side only the tour's wasm links, so the
+// block's run, which the tools' files feed, is
+// TestTourWasmAnswersTheTourBlocks' to compare with its expect block,
+// which it must have.
+func checkTourToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool) {
+	t.Helper()
+	if b.HasInfo(doctest.InfoExpand) || b.HasInfo(doctest.InfoNoRun) {
+		t.Fatalf("a tool runs before the block's run, so a block with a tool: word is run; drop `expand` and `no-run`:\n%s", b.Code)
+	}
+	imported := tourgo.Imported(b.Code)
+	for _, tool := range tools {
+		if !slices.Contains(imported, tool.Module) {
+			t.Fatalf("the block runs a tool of %s, which is not a tour module it imports (it imports %v):\n%s", tool.Module, imported, b.Code)
+		}
+	}
+	if len(tourgo.Unlinked(b.Code)) == 0 {
+		t.Fatalf("this binary links the Go of every module the block imports, so it could run the block's tools; check its run here:\n%s", b.Code)
+	}
+	if b.Expected == nil {
+		t.Fatalf("a block with a tool: word needs a hidden <!-- expect ... --> block, which the staged wasm is held to:\n%s", b.Code)
+	}
+}
+
 // checkTourExpandBlock holds a ```nomi-run expand block to what the tour
 // shows for it: what `nomi expand` prints for its first tab.
 func checkTourExpandBlock(t *testing.T, b doctest.Block) {
@@ -199,7 +246,7 @@ func checkTourExpandBlock(t *testing.T, b doctest.Block) {
 	if b.HasInfo(doctest.InfoError) || b.HasInfo(doctest.InfoNoRun) {
 		t.Fatalf("an expand tour block shows an expansion, which neither fails nor goes unrun; drop `error` and `no-run`:\n%s", b.Code)
 	}
-	text, err := vmhost.ExpandMarked(b.Code, t.TempDir())
+	text, err := vmhost.ExpandMarked(tourgo.Source(b.Code), t.TempDir())
 	if err != nil {
 		t.Fatalf("an expand tour block does not expand:\n%s\n\nerror: %v", b.Code, err)
 	}
@@ -223,11 +270,12 @@ func tourRunFailure(t *testing.T, b doctest.Block) string {
 	files, data := tourFileSystem(t, b)
 	defer checkTourReads(t, b, files, data)
 	var out bytes.Buffer
-	hosts, err := tourgo.MarkedHosts(code)
+	src := tourgo.Source(code)
+	hosts, err := tourgo.MarkedHosts(src)
 	if err != nil {
 		t.Fatalf("the tour links no Go for this block's bindings:\n%s\n\nerror: %v", code, err)
 	}
-	p, _, err := vmhost.LoadMarked(code, t.TempDir(), vmhost.WithHosts(hosts), vmhost.WithErrorOutput(&out), vmhost.WithFileSystem(files))
+	p, _, err := vmhost.LoadMarked(src, t.TempDir(), vmhost.WithHosts(hosts), vmhost.WithErrorOutput(&out), vmhost.WithFileSystem(files))
 	if err != nil {
 		t.Fatalf("LoadMarked failed for tour block:\n%s\n\nerror: %v", code, err)
 	}
@@ -335,11 +383,12 @@ func readOnlyGlobErrors(b doctest.Block) string {
 // nomiRun) shows for a block that does not compile, or "" when it compiles.
 func tourCompileError(t *testing.T, code string) string {
 	t.Helper()
-	hosts, err := tourgo.MarkedHosts(code)
+	src := tourgo.Source(code)
+	hosts, err := tourgo.MarkedHosts(src)
 	if err != nil {
 		return err.Error()
 	}
-	if _, _, err := vmhost.LoadMarked(code, t.TempDir(), vmhost.WithHosts(hosts)); err != nil {
+	if _, _, err := vmhost.LoadMarked(src, t.TempDir(), vmhost.WithHosts(hosts)); err != nil {
 		return err.Error()
 	}
 	return ""

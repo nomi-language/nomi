@@ -8,6 +8,7 @@
 #   tree-sitter-nomi.wasm  the grammar (parser + scanner), via the tree-sitter CLI
 #   highlights.scm       the grammar's highlight queries (same file Zed uses)
 #   web-tree-sitter.{js,wasm}  the web-tree-sitter runtime, vendored from npm
+#   sqlite/sqlite3.{js,wasm}   SQLite's official WebAssembly build, from sqlite.org
 #
 # So the tour examples highlight from the exact grammar + queries Zed uses,
 # with the analyzer's semantic tokens overlaid — no separate highlight definition.
@@ -41,7 +42,12 @@ echo "==> nomi wasm"
 # directory layout and home directory. With it those paths are module-relative
 # (github.com/nomi-language/nomi/...), and the bytes no longer depend on where
 # the checkout lives.
-GOOS=js GOARCH=wasm go build -C "$ROOT" -trimpath -buildvcs=false -o "$OUT/nomi.wasm" ./cmd/nomi-wasm
+#
+# GOWORK too, also matched by the rebuild: the tour links the sqlite
+# driver's browser build from lib/sql/sqlite, a module the compiler's go.mod
+# does not require, through the workspace internal/tourgo/tour.work
+# (internal/tourgo/modules.go).
+GOWORK="$ROOT/internal/tourgo/tour.work" GOOS=js GOARCH=wasm go build -C "$ROOT" -trimpath -buildvcs=false -o "$OUT/nomi.wasm" ./cmd/nomi-wasm
 # Declare a 1 GiB maximum on the module's memory (Go's linker declares none),
 # so a visitor's program that allocates without bound fails with Go's "out of
 # memory" instead of taking the tab to 4 GiB. See internal/wasmmem;
@@ -78,6 +84,41 @@ cp "$VENDOR/node_modules/web-tree-sitter/web-tree-sitter.wasm" "$OUT/"
 cp "$VENDOR/node_modules/marked/lib/marked.esm.js" "$OUT/marked.esm.js"
 cp "$VENDOR/node_modules/dompurify/dist/purify.es.mjs" "$OUT/purify.es.mjs"
 
+# SQLite's official WebAssembly build, which the Databases chapter's blocks
+# run on: the browser build of the sqlite driver
+# (lib/sql/sqlite/goside/sqlite_js.go) calls its C API, and run-worker.js loads
+# it the first time a run imports sqlite. From sqlite.org's download page,
+# pinned by version and by checksum: sqlite.org lists the zip's SHA3-256,
+# and SQLITE_WASM_SHA256 is the SHA-256 of the same file, which `shasum`
+# and `sha256sum` check everywhere. SQLite is public domain; the Emscripten
+# glue in sqlite3.js is MIT and University of Illinois/NCSA licensed, as
+# the file's own header says. Only sqlite3.js and sqlite3.wasm are staged.
+SQLITE_WASM_VERSION="3540100" # SQLite 3.54.1
+SQLITE_WASM_URL="https://sqlite.org/2026/sqlite-wasm-$SQLITE_WASM_VERSION.zip"
+SQLITE_WASM_SHA3_256="87e24f6a4588692310b7942dc2fa7c7275bb9ba2e01d553e4115aa4a904a0050"
+SQLITE_WASM_SHA256="85ebce90b6d189442b29e11d193337b5e63203aae9b6590dbe89a601b9891da2"
+echo "==> vendor sqlite-wasm $SQLITE_WASM_VERSION ($SQLITE_WASM_URL)"
+SQLITE_ZIP="$VENDOR/sqlite-wasm-$SQLITE_WASM_VERSION.zip"
+if [ ! -f "$SQLITE_ZIP" ]; then
+  curl -fsSL -o "$SQLITE_ZIP.part" "$SQLITE_WASM_URL"
+  mv "$SQLITE_ZIP.part" "$SQLITE_ZIP"
+fi
+if command -v sha256sum >/dev/null; then
+  GOT_SHA256="$(sha256sum "$SQLITE_ZIP" | cut -d' ' -f1)"
+else
+  GOT_SHA256="$(shasum -a 256 "$SQLITE_ZIP" | cut -d' ' -f1)"
+fi
+if [ "$GOT_SHA256" != "$SQLITE_WASM_SHA256" ]; then
+  echo "sqlite-wasm-$SQLITE_WASM_VERSION.zip has SHA-256 $GOT_SHA256, not $SQLITE_WASM_SHA256" >&2
+  rm -f "$SQLITE_ZIP"
+  exit 1
+fi
+rm -rf "$OUT/sqlite"
+mkdir -p "$OUT/sqlite"
+unzip -q -j -o "$SQLITE_ZIP" \
+  "sqlite-wasm-$SQLITE_WASM_VERSION/jswasm/sqlite3.js" \
+  "sqlite-wasm-$SQLITE_WASM_VERSION/jswasm/sqlite3.wasm" -d "$OUT/sqlite"
+
 # Generate the stdlib API reference (tour/src/content/docs/reference/) from
 # the stdlib's /// doc comments — Nomi's godoc. Gitignored; regenerated here.
 echo "==> generate stdlib reference (cmd/nomi-docgen)"
@@ -85,6 +126,13 @@ REF_DIR="$ROOT/tour/src/content/docs/reference"
 mkdir -p "$REF_DIR"
 rm -f "$REF_DIR"/*.md
 go run -C "$ROOT" ./cmd/nomi-docgen "$REF_DIR"
+
+# The Examples pages (tour/src/content/docs/examples/), from the Exercism
+# solutions in tests/exercism. They are committed, since the doctests and
+# tour.expect read them; this keeps a build current with the exercises, and
+# TestExamplePagesAreCurrent fails while the committed pages are stale.
+echo "==> generate examples (cmd/nomi-docgen -examples)"
+go run -C "$ROOT" ./cmd/nomi-docgen -examples "$ROOT/tests/exercism" "$ROOT/tour/src/content/docs/examples"
 
 # Stage assets for the Starlight tour (tour): built wasm/grammar from $OUT,
 # plus the committed client JS from the site's src/lib. The Starlight build
@@ -107,6 +155,8 @@ gzip -9 -n -c "$OUT/nomi.wasm" > "$SITE_NOMI/nomi.wasm.gz"
 cp "$OUT/wasm_exec.js" "$OUT/tree-sitter-nomi.wasm" \
    "$OUT/web-tree-sitter.wasm" "$OUT/web-tree-sitter.js" "$OUT/highlights.scm" \
    "$OUT/marked.esm.js" "$OUT/purify.es.mjs" "$SITE_NOMI/"
+rm -rf "$SITE_NOMI/sqlite"
+cp -R "$OUT/sqlite" "$SITE_NOMI/sqlite"
 cp "$SITE_LIB/highlight.mjs" "$SITE_LIB/run-worker.js" "$SITE_LIB/go-memfs.js" "$SITE_LIB/tour-client.mjs" "$SITE_NOMI/"
 
 echo "done → $OUT (+ $SITE_NOMI)"

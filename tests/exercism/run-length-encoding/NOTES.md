@@ -1,5 +1,7 @@
 # Run-Length Encoding
 
+Subject: Encoding & Ciphers
+
 Encode runs of repeated characters as a count and the character, and decode them back.
 
 Adapted from Exercism problem-specifications (MIT), exercises/run-length-encoding.

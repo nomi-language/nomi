@@ -17,6 +17,7 @@ import (
 	"github.com/nomi-language/nomi/internal/compilerhosts"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/irbuild"
+	"github.com/nomi-language/nomi/internal/stdio"
 	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/rt"
 	"github.com/nomi-language/nomi/std"
@@ -34,7 +35,7 @@ type config struct {
 	errOut       io.Writer
 	env          map[string]string
 	input        io.Reader
-	files        *MemoryFiles
+	files        stdio.Backend
 	stop         context.Context
 	// lowering, when set, stops a lowering when it is done (CheckLowering):
 	// the load answers its error.

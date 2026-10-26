@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
 // An open document is analyzed as part of a whole program, checked as the
@@ -136,7 +137,7 @@ func (dm *DocumentManager) forgetPrograms() {
 // the build. The caller holds analyzeMu.
 func (dm *DocumentManager) buildOpen(uri, content string) (builtAnalysis, func()) {
 	none := func() {}
-	docPath := strings.TrimPrefix(uri, "file://")
+	docPath := fileuri.ToPath(uri)
 	root := dm.projectRootFromURI(uri)
 	docKey := relModuleKey(root, docPath)
 	if dm.isStdlibFile(uri) || !filepath.IsAbs(docPath) || filepath.Ext(docPath) != ".nomi" ||
@@ -172,11 +173,11 @@ func (dm *DocumentManager) openTexts(root, uri, content string) map[string]strin
 	dm.mu.RLock()
 	defer dm.mu.RUnlock()
 	texts := map[string]string{}
-	if key := relModuleKey(root, strings.TrimPrefix(uri, "file://")); key != "" {
+	if key := relModuleKey(root, fileuri.ToPath(uri)); key != "" {
 		texts[key] = content
 	}
 	for u, doc := range dm.docs {
-		path := strings.TrimPrefix(u, "file://")
+		path := fileuri.ToPath(u)
 		if !strings.HasPrefix(u, "file://") || filepath.Ext(path) != ".nomi" {
 			continue
 		}

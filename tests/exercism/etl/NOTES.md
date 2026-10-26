@@ -1,5 +1,7 @@
 # ETL
 
+Subject: Collections & Algorithms
+
 Turn a Scrabble score table keyed by score into one keyed by lower-case letter.
 
 Adapted from Exercism problem-specifications (MIT), exercises/etl.

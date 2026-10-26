@@ -3,7 +3,7 @@
 pub fn pangram?(sentence: String) -> Bool {
     letters =
         sentence
-        |> String.to_lower()
+        |> String.fold_case()
         |> String.to_codepoints()
         |> Iter.to_set()
 

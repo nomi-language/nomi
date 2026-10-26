@@ -80,3 +80,17 @@ After.`
 		t.Fatalf("expected hidden output %#v, got %#v", want, blocks[0].Expected)
 	}
 }
+
+func TestToolInfo(t *testing.T) {
+	blocks := ExtractBlocks("```nomi-run manual tool:sqlkit/prepare tool:sqlkit tool:/x\nx\n```\n", "nomi-run")
+	if len(blocks) != 1 {
+		t.Fatalf("expected one block, got %d", len(blocks))
+	}
+	b := blocks[0]
+	if got, want := b.UnknownInfo(), []string{"tool:sqlkit", "tool:/x"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("UnknownInfo() = %#v, want %#v: a tool: word names a module and a tool", got, want)
+	}
+	if got, want := b.Tools(), []Tool{{Module: "sqlkit", Name: "prepare"}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Tools() = %#v, want %#v", got, want)
+	}
+}

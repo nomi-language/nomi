@@ -775,6 +775,40 @@ func TestString_ValidEscapesAreNotIllegal(t *testing.T) {
 	}
 }
 
+// `\r` is a carriage return in every string form that processes escapes:
+// plain, interpolated (before and after the interpolation) and typed.
+func TestString_CarriageReturnEscape(t *testing.T) {
+	cases := []struct {
+		src  string
+		kind token.TokenType
+		want string
+	}{
+		{`"a\rb"`, token.STRING_LITERAL, "a\rb"},
+		{`"\r\n"`, token.STRING_LITERAL, "\r\n"},
+		{`"a\r${x}"`, token.STRING_START, "a\r"},
+		{`"${x}\rb"`, token.STRING_END, "\rb"},
+		{`Sql"a\rb"`, token.TAGGED_STRING_LITERAL, "a\rb"},
+		{`Sql"a\r${x}"`, token.TAGGED_STRING_START, "a\r"},
+	}
+	for _, c := range cases {
+		found := false
+		for _, tok := range Lex(c.src) {
+			if tok.Type == token.ILLEGAL {
+				t.Fatalf("Lex(%q): ILLEGAL %q", c.src, tok.Problem)
+			}
+			if tok.Type == c.kind {
+				found = true
+				if tok.Lexeme != c.want {
+					t.Errorf("Lex(%q) %s = %q, want %q", c.src, c.kind, tok.Lexeme, c.want)
+				}
+			}
+		}
+		if !found {
+			t.Errorf("Lex(%q) has no %s token", c.src, c.kind)
+		}
+	}
+}
+
 func TestString_SurrogateEscapeIsIllegal(t *testing.T) {
 	// \u{D800}..\u{DFFF} are surrogate code points, not Unicode scalar values;
 	// reject them rather than silently coercing to U+FFFD (as Rust does).

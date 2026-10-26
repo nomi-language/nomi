@@ -1237,13 +1237,13 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 					// `!` before a type name (startsKeywordDecl).
 					return nil, errorAt(kw.Line, kw.Col, "`%s` declares nothing: a type is declared with `struct`, `enum` or `type`, and a macro's declaration marks its keyword with `!`: `%s! %s`", kw.Lexeme, kw.Lexeme, p.peekAt(1).Lexeme)
 				}
-				return nil, errorAt(pubTok.Line, pubTok.Col, "'pub' is not valid before %s", p.peek().Type)
+				return nil, errorAt(pubTok.Line, pubTok.Col, "'pub' is not valid before %s", tokenShown(p.peek()))
 			}
 			return p.parseHost(true, false)
 		case token.EXTERN:
 			return nil, errorAt(pubTok.Line, pubTok.Col, "runtime-provided declarations use `host`, not `extern`")
 		default:
-			return nil, errorAt(pubTok.Line, pubTok.Col, "'pub' is not valid before %s", p.peek().Type)
+			return nil, errorAt(pubTok.Line, pubTok.Col, "'pub' is not valid before %s", tokenShown(p.peek()))
 		}
 	}
 
@@ -1619,7 +1619,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 
 		if p.peek().Type != token.EQ {
 			got := p.peek()
-			return nil, errorAt(got.Line, got.Col, "expected `=` after binding name%s, got %s", annotationContext(typeAnn), got.Type)
+			return nil, errorAt(got.Line, got.Col, "expected `=` after binding name%s, got %s", annotationContext(typeAnn), tokenShown(got))
 		}
 		p.advance() // consume EQ
 
@@ -2440,9 +2440,9 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 	switch tok.Type {
 	case token.INT:
 		p.advance()
-		val, err := strconv.ParseInt(tok.Lexeme, 0, 64)
+		val, err := intLiteralValue(tok, p.negatedLiteral(p.pos-1), false)
 		if err != nil {
-			return nil, errorAt(tok.Line, tok.Col, "invalid integer %q", tok.Lexeme)
+			return nil, err
 		}
 		return &ast.IntLit{Value: val, Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
 
@@ -2809,6 +2809,9 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		lc.item(nodeComments(expr))
 		p.listGap(&lc)
 		if p.atEnd() || p.peek().Type != token.RPAREN {
+			if binaryOnlyOperator(p.peek().Type) {
+				return nil, p.unexpectedToken(p.peek())
+			}
 			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ')' after expression")
 		}
 		// The comments inside the parentheses stay the expression's
@@ -2824,7 +2827,7 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		if err := p.doubledComma(); err != nil {
 			return nil, err
 		}
-		return nil, errorAt(tok.Line, tok.Col, "unexpected token %s %q", tok.Type, tok.Lexeme)
+		return nil, p.unexpectedToken(tok)
 	}
 }
 
@@ -3135,7 +3138,7 @@ func (p *Parser) parseHashLit() (ast.Node, error) {
 func (p *Parser) parsePercentLit() (ast.Node, error) {
 	tok := p.peek()
 	if !p.percentOpensLiteral(0) {
-		return nil, errorAt(tok.Line, tok.Col, "unexpected token %s %q", tok.Type, tok.Lexeme)
+		return nil, p.unexpectedToken(tok)
 	}
 	p.advance() // consume PERCENT
 	switch p.peek().Type {
@@ -3398,7 +3401,7 @@ func (p *Parser) parseStringInterp() (ast.Node, error) {
 		if cur.Problem != "" {
 			return nil, errorAt(cur.Line, cur.Col, "%s", cur.Problem)
 		}
-		return nil, errorAt(cur.Line, cur.Col, "unexpected token %s in interpolated string", cur.Type)
+		return nil, errorAt(cur.Line, cur.Col, "unexpected %s in interpolated string", tokenShown(cur))
 	}
 
 	interp := &ast.StringInterp{Parts: parts, Triple: triple, Line: tok.Line, Col: tok.Col}
@@ -3464,7 +3467,7 @@ func (p *Parser) parseTaggedStringInterp() (ast.Node, error) {
 		if cur.Problem != "" {
 			return nil, errorAt(cur.Line, cur.Col, "%s", cur.Problem)
 		}
-		return nil, errorAt(cur.Line, cur.Col, "unexpected token %s in interpolated tagged string", cur.Type)
+		return nil, errorAt(cur.Line, cur.Col, "unexpected %s in interpolated tagged string", tokenShown(cur))
 	}
 
 	return &ast.TaggedString{
@@ -4250,7 +4253,7 @@ func (p *Parser) statementEnds() error {
 			return nil
 		}
 	}
-	return errorAt(next.Line, next.Col, "unexpected %s %q right after the end of a statement", next.Type, next.Lexeme)
+	return errorAt(next.Line, next.Col, "unexpected %s right after the end of a statement", tokenShown(next))
 
 }
 
@@ -4573,9 +4576,9 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 			pattern = &ast.WildcardPattern{Line: tok.Line, Col: tok.Col}
 		case token.INT:
 			p.advance()
-			val, e := strconv.ParseInt(tok.Lexeme, 0, 64)
+			val, e := intLiteralValue(tok, false, true)
 			if e != nil {
-				return nil, nil, errorAt(tok.Line, tok.Col, "invalid integer %q", tok.Lexeme)
+				return nil, nil, e
 			}
 			pattern = &ast.IntLit{Value: val, Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}
 		case token.FLOAT:
@@ -4697,7 +4700,7 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 			if err := p.doubledComma(); err != nil {
 				return nil, nil, err
 			}
-			return nil, nil, errorAt(tok.Line, tok.Col, "unexpected token %s %q in case pattern", tok.Type, tok.Lexeme)
+			return nil, nil, errorAt(tok.Line, tok.Col, "unexpected %s in case pattern", tokenShown(tok))
 		}
 	} else {
 		// Ad-hoc conditionals: _ is wildcard, otherwise parse as expression
@@ -4868,7 +4871,7 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 				p.listGap(&lc)
 				continue
 			}
-			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or '->' after lambda parameter, got %s", p.peek().Type)
+			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or '->' after lambda parameter, got %s", tokenShown(p.peek()))
 		}
 	}
 
@@ -5956,7 +5959,7 @@ func (p *Parser) parseTypeAnnotationInner() (ast.TypeExpr, error) {
 		if err := p.doubledComma(); err != nil {
 			return nil, err
 		}
-		return nil, errorAt(tok.Line, tok.Col, "expected type name, got %s", tok.Type)
+		return nil, errorAt(tok.Line, tok.Col, "expected type name, got %s", tokenShown(tok))
 	}
 
 	name := tok.Lexeme
@@ -6130,7 +6133,7 @@ func (p *Parser) parseAnonStructType() (ast.TypeExpr, error) {
 		}
 		// Field name
 		if p.peek().Type != token.IDENT {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "expected field name in anonymous struct type, got %s", p.peek().Type)
+			return nil, errorAt(p.peek().Line, p.peek().Col, "expected field name in anonymous struct type, got %s", tokenShown(p.peek()))
 		}
 		nameTok := p.peek()
 		p.advance()
@@ -6189,7 +6192,7 @@ func (p *Parser) parseAnonStructType() (ast.TypeExpr, error) {
 	endSeparators:
 		fields[len(fields)-1].Trailing = trailing
 		if !p.atEnd() && p.peek().Type != token.RBRACE && p.peek().Type != token.COMMENT && p.peek().Type != token.BLANK_LINE && !sawSeparator {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or newline between fields in anonymous struct type, got %s", p.peek().Type)
+			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or newline between fields in anonymous struct type, got %s", tokenShown(p.peek()))
 		}
 	}
 
@@ -6301,7 +6304,7 @@ func (p *Parser) parseEnumBody(public bool, opaque bool, name string, typeParams
 			}
 			return nil, errorAt(tk.Line, tk.Col, "enum bodies hold only variants")
 		default:
-			return nil, errorAt(tk.Line, tk.Col, "expected variant name or 'embeds' in enum `%s` body, got %s", name, tk.Type)
+			return nil, errorAt(tk.Line, tk.Col, "expected variant name or 'embeds' in enum `%s` body, got %s", name, tokenShown(tk))
 		}
 
 		p.skipEnumVariantTrailingSeparators()
@@ -6575,6 +6578,10 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 	segments = append(segments, p.makeImportNode(p.peek()))
 	p.advance() // consume first segment
 
+	// listPrefix and listOpen are the path before the selector list being
+	// read and the token index of its `{`, for the nested-list error.
+	var listPrefix string
+	var listOpen int
 	parseImportNameChain := func() (ast.Node, error) {
 		if err := p.doubledComma(); err != nil {
 			return nil, err
@@ -6588,6 +6595,9 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 		p.advance() // consume first name segment
 		for !p.atEnd() && p.peek().Type == token.DOT {
 			p.advance() // consume DOT
+			if p.peek().Type == token.LBRACE {
+				return nil, p.nestedImportListError(listPrefix, listOpen)
+			}
 			if p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT {
 				return nil, errorAt(tok.Line, tok.Col, "expected import name after '.'")
 			}
@@ -6601,7 +6611,10 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 		}
 		return &ast.Ident{Name: name, Line: last.Line, Col: last.Col}, nil
 	}
-	parseBraceList := func() (names []ast.Node, aliases []ast.Node, includeParent bool, selfLine int, selfCol int, err error) {
+	// parseBraceList reads a selector list after its `{`; prefix is the
+	// path before it, as an import entry writes it.
+	parseBraceList := func(prefix string) (names []ast.Node, aliases []ast.Node, includeParent bool, selfLine int, selfCol int, err error) {
+		listPrefix, listOpen = prefix, p.pos-1
 		var lc listComments
 		lc.open(p)
 		for {
@@ -6680,7 +6693,7 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 	parseSelectorClause := func() (*ast.ImportStmt, error) {
 		if p.peek().Type == token.LBRACE {
 			p.advance() // consume LBRACE
-			names, aliases, includeParent, selfLine, selfCol, err := parseBraceList()
+			names, aliases, includeParent, selfLine, selfCol, err := parseBraceList(importPathText(segments, len(segments)))
 			if err != nil {
 				return nil, err
 			}
@@ -6696,11 +6709,11 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 			p.advance() // consume DOT
 			if p.peek().Type == token.LBRACE {
 				p.advance() // consume LBRACE
-				names, aliases, includeParent, selfLine, selfCol, err := parseBraceList()
+				path := append(append([]ast.Node(nil), segments...), selector...)
+				names, aliases, includeParent, selfLine, selfCol, err := parseBraceList(importPathText(path, len(segments)))
 				if err != nil {
 					return nil, err
 				}
-				path := append(append([]ast.Node(nil), segments...), selector...)
 				return &ast.ImportStmt{ModulePath: path, FileSegments: importFileSegments(path, len(segments)), Names: names, Aliases: aliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}, nil
 			}
 			if p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT {
@@ -6765,7 +6778,7 @@ loop:
 			// to Names; it's a flag on the ImportStmt. selfLine/selfCol
 			// pin the marker's source position so the analyzer can
 			// register a hover/go-to-def target at it.
-			names, aliases, includeParent, selfLine, selfCol, err := parseBraceList()
+			names, aliases, includeParent, selfLine, selfCol, err := parseBraceList(importPathText(segments, len(segments)))
 			if err != nil {
 				return nil, err
 			}
@@ -7241,7 +7254,7 @@ func (p *Parser) parseStructBody(public bool, opaque bool, name string, typePara
 		case tk.Type == token.IDENT:
 			// Bare field — parsed below.
 		default:
-			return nil, errorAt(tk.Line, tk.Col, "expected field name in struct `%s` body, got %s", name, tk.Type)
+			return nil, errorAt(tk.Line, tk.Col, "expected field name in struct `%s` body, got %s", name, tokenShown(tk))
 		}
 
 		if err := rejectAttachedTestsOnNonDeclaration(attachedTests, "a struct field"); err != nil {
@@ -7641,9 +7654,9 @@ func (p *Parser) parseNegativeLiteralPattern() (ast.Node, error) {
 	switch next.Type {
 	case token.INT:
 		p.advance()
-		val, err := strconv.ParseInt(next.Lexeme, 0, 64)
+		val, err := intLiteralValue(next, true, true)
 		if err != nil {
-			return nil, errorAt(next.Line, next.Col, "invalid integer %q", next.Lexeme)
+			return nil, err
 		}
 		return &ast.IntLit{Value: -val, Lexeme: "-" + next.Lexeme, Line: minusTok.Line, Col: minusTok.Col}, nil
 	case token.FLOAT:
@@ -7804,9 +7817,9 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 		return p.parsePercentPattern()
 	case token.INT:
 		p.advance()
-		val, err := strconv.ParseInt(tok.Lexeme, 0, 64)
+		val, err := intLiteralValue(tok, p.negatedLiteral(p.pos-1), true)
 		if err != nil {
-			return nil, errorAt(tok.Line, tok.Col, "invalid integer %q", tok.Lexeme)
+			return nil, err
 		}
 		return &ast.IntLit{Value: val, Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
 	case token.FLOAT:
@@ -7899,7 +7912,7 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 		if err := p.doubledComma(); err != nil {
 			return nil, err
 		}
-		return nil, errorAt(tok.Line, tok.Col, "unexpected token %s in pattern", tok.Type)
+		return nil, errorAt(tok.Line, tok.Col, "unexpected %s in pattern", tokenShown(tok))
 	}
 }
 
@@ -8080,7 +8093,7 @@ func (p *Parser) parseHashPattern() (ast.Node, error) {
 		p.advance() // consume HASH
 		var ok bool
 		if typeName, ok = p.parseLiteralHead(tok); !ok {
-			return nil, errorAt(tok.Line, tok.Col, "unexpected token %s in pattern", tok.Type)
+			return nil, errorAt(tok.Line, tok.Col, "unexpected %s in pattern", tokenShown(tok))
 		}
 	}
 	switch {
@@ -8110,14 +8123,14 @@ func (p *Parser) parseHashPattern() (ast.Node, error) {
 func (p *Parser) parsePercentPattern() (ast.Node, error) {
 	tok := p.peek()
 	if !p.percentOpensLiteral(0) {
-		return nil, errorAt(tok.Line, tok.Col, "unexpected token %s in pattern", tok.Type)
+		return nil, errorAt(tok.Line, tok.Col, "unexpected %s in pattern", tokenShown(tok))
 	}
 	p.advance() // consume PERCENT
 	var typeName ast.TypeExpr
 	if t := p.peek().Type; t != token.LBRACE && t != token.LBRACKET {
 		var ok bool
 		if typeName, ok = p.parseLiteralHead(tok); !ok {
-			return nil, errorAt(tok.Line, tok.Col, "unexpected token %s in pattern", tok.Type)
+			return nil, errorAt(tok.Line, tok.Col, "unexpected %s in pattern", tokenShown(tok))
 		}
 	}
 	switch {
@@ -8663,7 +8676,7 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 			// gone — ops are defaults; host-backed defaults are `host fn`.)
 			return nil, errorAt(p.peek().Line, p.peek().Col, "'pub' is not allowed on interface methods — a method's visibility is the interface's; drop 'pub' (it becomes a default), or use 'host fn' for a host-backed default")
 		default:
-			return nil, errorAt(p.peek().Line, p.peek().Col, "expected 'fn', 'open fn' or 'host fn' inside interface body, got %s", p.peek().Type)
+			return nil, errorAt(p.peek().Line, p.peek().Col, "expected 'fn', 'open fn' or 'host fn' inside interface body, got %s", tokenShown(p.peek()))
 		}
 		// An interface body is newline-separated, as every type body is: a
 		// second function on a member's last line is an error.
@@ -8884,7 +8897,7 @@ func (p *Parser) parseImplBlockBody(blockNoun string, allowPub bool) ([]ast.Node
 			}
 			items = append(items, item)
 		default:
-			return nil, nil, closeTok, errorAt(tk.Line, tk.Col, "an %s body holds only `fn` / `host fn` implementation items, got %s", blockNoun, tk.Type)
+			return nil, nil, closeTok, errorAt(tk.Line, tk.Col, "an %s body holds only `fn` / `host fn` implementation items, got %s", blockNoun, tokenShown(tk))
 		}
 
 		p.skipEnumVariantTrailingSeparators()
@@ -9108,9 +9121,9 @@ func (p *Parser) parseImplBlockItem(allowPub bool, allowImplQualifier bool, bloc
 	case token.IDENT:
 		if p.peek().Lexeme != "host" {
 			if allowPub {
-				return nil, errorAt(p.peek().Line, p.peek().Col, "%s admits only 'fn' / 'pub fn' / 'host fn' / 'pub host fn' declarations here, got %s", blockNoun, p.peek().Type)
+				return nil, errorAt(p.peek().Line, p.peek().Col, "%s admits only 'fn' / 'pub fn' / 'host fn' / 'pub host fn' declarations here, got %s", blockNoun, tokenShown(p.peek()))
 			}
-			return nil, errorAt(p.peek().Line, p.peek().Col, "impl block body admits only 'fn' / 'host fn' declarations, got %s", p.peek().Type)
+			return nil, errorAt(p.peek().Line, p.peek().Col, "impl block body admits only 'fn' / 'host fn' declarations, got %s", tokenShown(p.peek()))
 		}
 		// Only `host fn` is admitted — `host type` is a type
 		// declaration, not a method, and has no place in a block body.
@@ -9122,9 +9135,9 @@ func (p *Parser) parseImplBlockItem(allowPub bool, allowImplQualifier bool, bloc
 		return nil, errorAt(p.peek().Line, p.peek().Col, "runtime-provided declarations use `host fn`, not `extern fn`")
 	default:
 		if allowPub {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "%s admits only 'fn' / 'pub fn' / 'host fn' / 'pub host fn' declarations here, got %s", blockNoun, p.peek().Type)
+			return nil, errorAt(p.peek().Line, p.peek().Col, "%s admits only 'fn' / 'pub fn' / 'host fn' / 'pub host fn' declarations here, got %s", blockNoun, tokenShown(p.peek()))
 		}
-		return nil, errorAt(p.peek().Line, p.peek().Col, "impl block body admits only 'fn' / 'host fn' declarations, got %s", p.peek().Type)
+		return nil, errorAt(p.peek().Line, p.peek().Col, "impl block body admits only 'fn' / 'host fn' declarations, got %s", tokenShown(p.peek()))
 	}
 }
 

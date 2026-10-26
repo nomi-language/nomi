@@ -2,7 +2,9 @@ package vm
 
 import (
 	"io"
+	"path"
 	"sort"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -42,10 +44,17 @@ func ReachedCrossings(entry *ir.Module, mods []*ir.Module, roots []*ir.Func, boo
 // CrossingSite is one call into Go that a program's reachable code makes:
 // the callee's host key, the call's position, and the functions from a root
 // to the one that holds the call, outermost first (`main`, `publish`).
+//
+// When the call is in the standard library, At is the first call in the
+// program's own code that reaches it, Via that call's callee (`fs.read_text`
+// for a crossing inside std/fs's `read_text`), and Chain ends at the
+// function holding that call. Otherwise At is Pos and Via is Name.
 type CrossingSite struct {
 	Name  string
 	Pos   ir.Pos
 	Chain []string
+	At    ir.Pos
+	Via   string
 }
 
 // ReachedCrossingSites is every direct call into Go in the functions
@@ -55,7 +64,7 @@ type CrossingSite struct {
 // program never takes counts.
 func ReachedCrossingSites(entry *ir.Module, mods []*ir.Module, roots []*ir.Func, boots []*ir.Symbol, keep func(name string) bool) []CrossingSite {
 	w := reachWalk{m: NewProgram(entry, mods, io.Discard), seen: map[*ir.Func]bool{}, found: map[string]Unretained{},
-		parent: map[*ir.Func]*ir.Func{}}
+		parent: map[*ir.Func]*ir.Func{}, via: map[*ir.Func]ir.Instr{}}
 	reached, _ := w.run(roots, boots)
 	chain := func(f *ir.Func) []string {
 		var names []string
@@ -69,9 +78,23 @@ func ReachedCrossingSites(entry *ir.Module, mods []*ir.Module, roots []*ir.Func,
 	}
 	var out []CrossingSite
 	note := func(f *ir.Func, c *ir.Call) {
-		if c != nil && c.Form() == ir.CalleeDirect && c.Crosses() && keep(c.Callee().Name()) {
-			out = append(out, CrossingSite{Name: c.Callee().Name(), Pos: c.Pos(), Chain: chain(f)})
+		if c == nil || c.Form() != ir.CalleeDirect || !c.Crosses() || !keep(c.Callee().Name()) {
+			return
 		}
+		site := CrossingSite{Name: c.Callee().Name(), Pos: c.Pos(), At: c.Pos(), Via: c.Callee().Name()}
+		// Out of the standard library: up the reaching calls to the first
+		// one the program's own code makes.
+		holder := f
+		for steps := 0; site.At.Stdlib() && steps <= len(reached); steps++ {
+			up, in := w.parent[holder], w.via[holder]
+			if up == nil || in == nil {
+				break
+			}
+			site.At, site.Via = in.Pos(), reachingName(in, holder)
+			holder = up
+		}
+		site.Chain = chain(holder)
+		out = append(out, site)
 	}
 	for f := range reached {
 		for _, b := range f.Blocks() {
@@ -86,7 +109,7 @@ func ReachedCrossingSites(entry *ir.Module, mods []*ir.Module, roots []*ir.Func,
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {
-		a, b := out[i].Pos, out[j].Pos
+		a, b := out[i].At, out[j].At
 		if a.File() != b.File() {
 			return a.File() < b.File()
 		}
@@ -99,6 +122,26 @@ func ReachedCrossingSites(entry *ir.Module, mods []*ir.Module, roots []*ir.Func,
 		return out[i].Name < out[j].Name
 	})
 	return out
+}
+
+// reachingName is the name of what in, the instruction that reached f,
+// calls: its callee, or f's own name for a function value or reference. A
+// std file's function is named as a program calls it: `fs.read_text`, and
+// `Reader.read` for one owned by a type.
+func reachingName(in ir.Instr, f *ir.Func) string {
+	name := f.Name()
+	switch n := in.(type) {
+	case *ir.Call:
+		name = n.Callee().Name()
+	case *ir.Defer:
+		if c := n.Call(); c != nil {
+			name = c.Callee().Name()
+		}
+	}
+	if f.Pos().Stdlib() && !strings.Contains(name, ".") {
+		name = strings.TrimSuffix(path.Base(f.Pos().File()), ".nomi") + "." + name
+	}
+	return name
 }
 
 // PruneImage is the module set a built image carries: entry and mods with

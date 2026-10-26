@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/sourcegraph/jsonrpc2"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
@@ -56,7 +57,7 @@ func startRPC(t testing.TB, s *Server, root string) *rpcClient {
 	t.Cleanup(func() { c.conn.Close() })
 	var res json.RawMessage
 	if err := c.conn.Call(context.Background(), "initialize", map[string]any{
-		"rootUri": "file://" + root,
+		"rootUri": fileuri.FromPath(root),
 		"capabilities": map[string]any{"textDocument": map[string]any{
 			"completion": map[string]any{"completionItem": map[string]any{"snippetSupport": true}},
 		}},
@@ -162,7 +163,7 @@ func datesFixture(t testing.TB) (dir, uri, text string) {
 	if !strings.HasSuffix(text, "\n") {
 		text += "\n"
 	}
-	return dir, "file://" + path, text
+	return dir, fileuri.FromPath(path), text
 }
 
 // typedIn is dates_test.nomi with a test whose body is typed appended,
@@ -374,7 +375,7 @@ func TestRPC_LiteralDiagnosticsFollowTheLatestEdit(t *testing.T) {
 	if err := os.WriteFile(path, []byte(invalid), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + path
+	uri := fileuri.FromPath(path)
 	s := NewServer()
 	c := startRPC(t, s, dir)
 	c.open(uri, invalid)

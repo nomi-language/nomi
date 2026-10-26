@@ -798,3 +798,53 @@ func (fa *FileAnalysis) recordPlaceholder(line, col, n int) {
 	}
 	fa.Placeholders[Pos{Line: line, Col: col}] = 1 + len(fmt.Sprint(n))
 }
+
+// reportUninferredOperand is the error for a partial operator call whose
+// open operand hole nothing gives a type to (`inv = &Int.divide(12, &1)`):
+// no function type is expected where the capture stands, and the left
+// operand's type (left, nil when it is the open one) has no impl of the
+// operator or several (cands), so the right operand could be any of their
+// right-hand types. Only the capture whose call n is reports it; an `&N`
+// outside a capture has its own error.
+func (c *checker) reportUninferredOperand(n *ast.Call, opIface operatorInterface, hole *ast.Placeholder, left Type, cands []implCandidate) {
+	if len(c.captures) == 0 || c.captures[len(c.captures)-1].PartialCall() != n {
+		return
+	}
+	capture := c.captures[len(c.captures)-1]
+	src := format.RenderNode(capture)
+	holes := capture.Holes()
+	params, perHole := numberedNames(capture.Body, holes)
+	paramTys := make([]string, len(params))
+	for i := range paramTys {
+		paramTys[i] = "T"
+		if len(params) > 1 {
+			paramTys[i] = fmt.Sprintf("T%d", i+1)
+		}
+	}
+	if ph, isOpen := n.Args[0].(*ast.Placeholder); isOpen && left != nil && ph.N >= 1 && ph.N <= len(paramTys) {
+		paramTys[ph.N-1] = c.typef("%s", left)
+	}
+	result := "R"
+	var rights []string
+	for _, cand := range cands {
+		rights = append(rights, "`"+c.typef("%s", cand.args[0])+"`")
+	}
+	if len(cands) > 1 {
+		if hole.N >= 1 && hole.N <= len(paramTys) {
+			paramTys[hole.N-1] = c.typef("%s", cands[0].args[0])
+		}
+		result = c.typef("%s", cands[0].args[1])
+	}
+	annotated := make([]string, len(params))
+	for i, name := range params {
+		annotated[i] = name + ": " + paramTys[i]
+	}
+	lambda := "fn " + strings.Join(annotated, ", ") + " -> " + renderWithHoles(ungroupExpr(capture.Body), holes, perHole)
+	hint := fmt.Sprintf("annotate the binding with the function's type, as in `f: (%s) -> %s = %s`, or write a lambda with an annotated parameter, as in `%s`",
+		strings.Join(paramTys, ", "), result, src, lambda)
+	if len(cands) > 1 {
+		hint = fmt.Sprintf("`%s` has %d `%s` impls, whose right operands are %s, so only the function expected where the capture stands can pick one; %s",
+			c.typef("%s", left), len(cands), opIface.Interface, joinAnd(rights), hint)
+	}
+	c.report(errAt(hole, "cannot infer type for `&"+fmt.Sprint(hole.N)+"` in `"+src+"`").WithHint(hint))
+}

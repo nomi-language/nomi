@@ -10,6 +10,7 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
 // Diagnostics in files that are not Nomi: a `message`'s catalogs, and any
@@ -148,7 +149,7 @@ func (s *Server) inputDiagnosticsOf(errs []analysis.TypeError) map[string][]prot
 	}
 	out := map[string][]protocol.Diagnostic{}
 	for path, errs := range byFile {
-		uri := "file://" + path
+		uri := fileuri.FromPath(path)
 		content, _ := s.contentForURI(protocol.DocumentUri(uri))
 		diags := buildDiagnostics(uri, nil, errs)
 		if content != "" {
@@ -235,7 +236,7 @@ func expansionLocations(info *analysis.ExpansionInfo) []protocol.Location {
 	var out []protocol.Location
 	for _, in := range info.Inputs {
 		out = append(out, protocol.Location{
-			URI:   protocol.DocumentUri("file://" + in.Path),
+			URI:   protocol.DocumentUri(fileuri.FromPath(in.Path)),
 			Range: errorRange(in.Line, in.Col, in.EndLine, in.EndCol),
 		})
 	}

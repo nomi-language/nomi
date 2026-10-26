@@ -1,5 +1,7 @@
 # Luhn
 
+Subject: Parsing & Validation
+
 Decide whether a string of digits and spaces passes the Luhn checksum.
 
 Adapted from Exercism problem-specifications (MIT), exercises/luhn.

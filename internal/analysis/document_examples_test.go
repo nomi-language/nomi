@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -29,7 +30,7 @@ func TestDocumentManager_LambdaPassedAsCommandBuilderIsTyped(t *testing.T) {
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	dm.SetWorkspaceRoot(root)
 
-	doc := dm.Open("file://"+path, string(content))
+	doc := dm.Open(fileuri.FromPath(path), string(content))
 	if doc.Analysis == nil {
 		t.Fatal("expected analysis")
 	}

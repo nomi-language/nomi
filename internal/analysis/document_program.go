@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/syntheticextern"
@@ -417,7 +418,7 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 			// its keyword, is an input its expansions read from the disk:
 			// an edit to it is seen there (changedInputs), unless an
 			// editor holds another text of it.
-			if in, read := p.Inputs[path]; !read || !in.Found || dm.IsOpen("file://"+path) {
+			if in, read := p.Inputs[path]; !read || !in.Found || dm.IsOpen(fileuri.FromPath(path)) {
 				p.unread = true
 			}
 			mu.Unlock()

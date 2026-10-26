@@ -5,8 +5,9 @@ package main
 import (
 	"github.com/nomi-language/nomi/vmrunner"
 	"github.com/nomi-language/nomi/vmrunner/compiler"
+	"github.com/nomi-language/nomi/vmrunner/reactor"
 )
 
 func init() {
-	options = append(options, vmrunner.WithCompiler(compiler.Table))
+	reactor.Use(vmrunner.WithCompiler(compiler.Table))
 }

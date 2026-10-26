@@ -35,11 +35,11 @@ package irbuild
 
 import (
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -66,7 +66,7 @@ func stdIterGen(t *testing.T) (*gen, []ast.Node, *analysis.FileAnalysis) {
 	}
 	sort.Strings(names)
 	pkg := stdPackage(sort.SearchStrings(names, "iter"))
-	path := strings.TrimPrefix(lib.FileURI("iter"), "file://")
+	path := fileuri.ToPath(lib.FileURI("iter"))
 
 	full := stdlibLowering()
 	v := stdModuleContext("iter", path, pkg, nodes, fa, full)

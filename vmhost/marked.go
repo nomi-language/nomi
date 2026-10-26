@@ -26,9 +26,16 @@ import (
 // nomi.toml, a macro's file and the inputs it reads. So it is written as
 // those files under dir, which is emptied first, and loaded from there as
 // the same files written by hand would be. A diagnostic names a file by its
-// path from dir, as the source marks it. The browser build passes a
+// path from dir, as the source marks it, and so does a run-time failure (a
+// `todo` reached, a timed-out case's stack). The browser build passes a
 // directory of the in-memory file system its worker gives Go
 // (tour/src/lib/go-memfs.js); a test passes a temporary one.
+//
+// The block's tests are every Nomi file's that declares them, as `nomi
+// test` runs a project's: the entry's, and each other test file's
+// (virtualproject.Project.TestFiles), loaded entered at that file, whose
+// cases the program's Cases answers after the entry's. hasTests reports
+// whether any file declares tests.
 func LoadMarked(src, dir string, opts ...Option) (p *Program, hasTests bool, err error) {
 	project, err := virtualproject.FromMarkedSource(src)
 	if err != nil {
@@ -38,21 +45,58 @@ func LoadMarked(src, dir string, opts ...Option) (p *Program, hasTests bool, err
 	if err != nil {
 		return nil, false, err
 	}
+	p, root, err := loadMarkedProject(project, dir, "", opts)
+	if err != nil {
+		return nil, false, err
+	}
+	for _, name := range project.TestFiles {
+		tp, err := virtualproject.FromMarkedSourceAt(src, name)
+		if err != nil {
+			return nil, false, err
+		}
+		t, _, err := loadMarkedProject(tp, dir, root, opts)
+		if err != nil {
+			return nil, false, err
+		}
+		p.blockTests = append(p.blockTests, t)
+	}
+	return p, hasTests || len(project.TestFiles) > 0, nil
+}
+
+// loadMarkedProject loads a block's project at its entry. A project that
+// names modules is written under dir, unless root is where an earlier load
+// of the same block wrote it, and answers the root it is loaded from.
+func loadMarkedProject(project virtualproject.Project, dir, root string, opts []Option) (*Program, string, error) {
 	opts = append([]Option{WithFileSystem(NewMemoryFiles(DataFileBytes(project.DataFiles)))}, opts...)
 	if project.Files == nil {
 		opts = append([]Option{WithVirtualFiles(project.VirtualFiles), WithVirtualManifest(project.Manifest)}, opts...)
 		p, err := LoadSource(project.EntryName, project.EntrySource, opts...)
-		return p, hasTests, err
+		return p, "", err
 	}
-	root, err := project.Write(dir)
+	if root == "" {
+		var err error
+		if root, err = project.Write(dir); err != nil {
+			return nil, "", err
+		}
+	}
+	p, err := Load(filepath.Join(root, filepath.FromSlash(project.EntryName)), opts...)
 	if err != nil {
-		return nil, false, err
+		return nil, "", &underRoot{err: err, root: root}
 	}
-	p, err = Load(filepath.Join(root, filepath.FromSlash(project.EntryName)), opts...)
-	if err != nil {
-		return nil, false, &underRoot{err: err, root: root}
+	p.fileNames = func(path string) string { return pathFromRoot(path, root) }
+	return p, root, nil
+}
+
+// pathFromRoot is how a run of a project written under root names one of
+// its files: by its slash-separated path from root, as the source marks it
+// and its diagnostics name it. A file outside root (a stdlib module) is
+// named by its path from the working directory, as any run names it.
+func pathFromRoot(path, root string) string {
+	if rel, err := filepath.Rel(root, path); err == nil && filepath.IsAbs(path) && rel != ".." &&
+		!strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return filepath.ToSlash(rel)
 	}
-	return p, hasTests, nil
+	return DisplayPath(path)
 }
 
 // ExpandMarked answers what `nomi expand` prints for the first section of a

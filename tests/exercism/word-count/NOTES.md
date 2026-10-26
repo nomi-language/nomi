@@ -1,5 +1,7 @@
 # Word Count
 
+Subject: Strings & Text
+
 Count how many times each word occurs in a sentence, ignoring case and
 punctuation but keeping apostrophes inside contractions.
 

@@ -45,6 +45,9 @@ import (
 
 {{range .Packages}}	{{.Alias}} "{{.ImportPath}}"
 {{end}}{{if .Runner}}	nomivmrunner "github.com/nomi-language/nomi/vmrunner"
+{{- if .Reactor}}
+	nomivmreactor "github.com/nomi-language/nomi/vmrunner/reactor"
+{{- end}}
 {{- if .Compiler}}
 	nomivmrunnercompiler "github.com/nomi-language/nomi/vmrunner/compiler"
 {{- end}}
@@ -63,7 +66,26 @@ const imageHasExportsMarker = "__NOMI_IMAGE_HAS_EXPORTS"
 const imageUsesFilesMarker = "__NOMI_IMAGE_USES_FILES"
 const wrapperModeFlag = "--nomi-wrapper-mode"
 {{end}}
-{{if .Runner}}
+{{if .Reactor}}
+// init gives the project's WASI reactor the adapters generated below. The
+// module is linked -buildmode=c-shared: '_initialize' runs package
+// initialization, and the program 'nomi build' embedded in its memory boots
+// on the first call into nomi/vmrunner/reactor's exports.
+func init() {
+	nomivmreactor.Use(nomivmrunner.WithEntryHosts(func(entry string) nomivmrunner.HostTable {
+		return nomiHostTable(entry)
+	}){{if .Compiler}}, nomivmrunner.WithCompiler(nomivmrunnercompiler.Table){{end}})
+}
+
+// main is never called in a c-shared module; a main package needs one.
+func main() {}
+
+// The wrapper's own modes use these; the runner has none.
+var (
+	_ = stdfmt.Sprint
+	_ = stdos.Exit
+)
+{{else if .Runner}}
 // main is the project's runner: the program 'nomi build' appended to this
 // executable, run on the VM with the adapters generated below.
 func main() {
@@ -188,7 +210,10 @@ func buildImageVM(entryPath string, args []string) {
 		nomivmhost.WriteFailure(stdos.Stderr, err)
 		stdos.Exit(1)
 	}
-	if refused := p.CheckTarget(command, goos, goarch, web, allowed); refused != nil {
+	// A wasip1 program with an 'export fn' is a reactor, whose image
+	// records its exported functions, as a browser build's does.
+	reactor := !web && goos == "wasip1" && goarch == "wasm" && p.HasExports()
+	if refused := p.CheckTarget(command, goos, goarch, web || reactor, allowed); refused != nil {
 		refused.Write(stdos.Stderr)
 		stdos.Exit(1)
 	}
@@ -223,6 +248,10 @@ func buildImageVM(entryPath string, args []string) {
 		write("nomi.d.ts", []byte(p.WebDeclarations()))
 		if p.Uses(nomivmhost.ClassFiles, true) {
 			stdfmt.Println(imageUsesFilesMarker)
+		}
+	} else if reactor {
+		if image, usesCompiler, err = p.BuildExportsImage(); err != nil {
+			failed(err)
 		}
 	} else if image, usesCompiler, err = p.BuildImage(); err != nil {
 		failed(err)
@@ -393,10 +422,13 @@ func renderWrapper(projectPath string, packages []DiscoveredPackage) ([]byte, er
 // mainKind is which generated main package renderMain writes: the FFI
 // wrapper (the zero value), or the project's `nomi build` runner, which
 // links nomi/vmrunner instead of nomi/vmhost and so no front end, and
-// std/compiler's hosts only when Compiler is set.
+// std/compiler's hosts only when Compiler is set. A Reactor runner is the
+// wasip1 reactor (nomi/vmrunner/reactor's exports), linked
+// -buildmode=c-shared; Reactor implies Runner.
 type mainKind struct {
 	Runner   bool
 	Compiler bool
+	Reactor  bool
 }
 
 func renderMain(projectPath string, packages []DiscoveredPackage, kind mainKind) ([]byte, error) {
@@ -412,9 +444,11 @@ func renderMain(projectPath string, packages []DiscoveredPackage, kind mainKind)
 		Adapters           *wrapperAdapters
 		Runner             bool
 		Compiler           bool
+		Reactor            bool
 	}{
-		Runner:             kind.Runner,
+		Runner:             kind.Runner || kind.Reactor,
 		Compiler:           kind.Compiler,
+		Reactor:            kind.Reactor,
 		TemplateHash:       templateHash,
 		ProjectPath:        projectPath,
 		Packages:           packages,

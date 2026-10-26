@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"os"
@@ -90,7 +91,7 @@ func TestFindReferences_CrossFile(t *testing.T) {
 	os.WriteFile(mainFile, []byte("import math\nfn main() { math.double(21) }"), 0644)
 
 	dm := analysis.NewDocumentManager()
-	mainURI := "file://" + mainFile
+	mainURI := fileuri.FromPath(mainFile)
 
 	// Open main file
 	doc := dm.Open(mainURI, "import math\nfn main() { math.double(21) }")
@@ -108,7 +109,7 @@ func TestFindReferences_CrossFile(t *testing.T) {
 	}
 
 	// Analyze math.nomi and check for definition match
-	mathSnap := dm.Analyzed("file://" + mathFile)
+	mathSnap := dm.Analyzed(fileuri.FromPath(mathFile))
 	if mathSnap == nil || mathSnap.Analysis == nil {
 		t.Fatal("expected analysis for math.nomi")
 	}
@@ -188,7 +189,7 @@ fn main() {
 	os.WriteFile(mainFile, []byte(src), 0644)
 
 	s := NewServer()
-	uri := "file://" + mainFile
+	uri := fileuri.FromPath(mainFile)
 	s.docs.Open(uri, src)
 
 	// `equal?` at the call site sits on line 13; the identifier starts
@@ -229,7 +230,7 @@ func TestFindReferences_SelectiveImportFollowsResolved(t *testing.T) {
 	os.WriteFile(mainFile, []byte("import models.{User}\nfn main() { #User{name: \"Alice\"} }"), 0644)
 
 	dm := analysis.NewDocumentManager()
-	mainURI := "file://" + mainFile
+	mainURI := fileuri.FromPath(mainFile)
 	doc := dm.Open(mainURI, "import models.{User}\nfn main() { #User{name: \"Alice\"} }")
 
 	// Find User on the import line — should have Resolved pointing to real symbol
@@ -277,7 +278,7 @@ func TestFindReferences_InterfaceMethodIncludesImplDeclarations(t *testing.T) {
 	}
 
 	s := NewServer()
-	uri := "file://" + mainFile
+	uri := fileuri.FromPath(mainFile)
 	s.docs.Open(uri, src)
 
 	params := &protocol.ReferenceParams{
@@ -329,7 +330,7 @@ func TestFindReferences_StdlibInterfaceMethodIncludesStdlibImplDeclarations(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + absDiscrete
+	uri := fileuri.FromPath(absDiscrete)
 	s := NewServer()
 	s.docs.Open(uri, src)
 

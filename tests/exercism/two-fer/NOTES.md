@@ -1,5 +1,7 @@
 # Two-fer
 
+Subject: Strings & Text
+
 Say who gets one of two cookies: "One for Alice, one for me.", or "you" when
 no name is given.
 

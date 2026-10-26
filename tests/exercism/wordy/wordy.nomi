@@ -63,21 +63,13 @@ fn operand(total: Int, operation: Operation, words: List<String>) -> Result<Int,
 
 fn apply(operation: Operation, a: Int, b: Int) -> Result<Int, Error> {
     case operation {
-        .Plus ->
-            Ok(a + b)
-
-        .Minus ->
-            Ok(a - b)
-
-        .Times ->
-            Ok(a * b)
-
-        .DividedBy -> {
-            Some(divisor) = Int.to_non_zero(b) else {
-                return Err(.DivisionByZero)
-            }
-
-            Ok(Int.divide(a, divisor))
-        }
+        .Plus -> Ok(a + b)
+        .Minus -> Ok(a - b)
+        .Times -> Ok(a * b)
+        .DividedBy -> divide(a, b)
     }
+}
+
+fn divide(a: Int, b: Int) -> Result<Int, Error> {
+    Int.to_non_zero(b) |> Maybe.map(&Int.divide(a, &1)) |> Maybe.to_result(Error.DivisionByZero)
 }

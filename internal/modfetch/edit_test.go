@@ -55,7 +55,7 @@ func TestAddLocal_RefusesADirectoryThatIsNotANomiModule(t *testing.T) {
 	noGoMod := filepath.Join(app, "nogomod")
 	writeFile(t, filepath.Join(noGoMod, "nomi.toml"), "[module]\nname = \"nogomod\"\n")
 	_, err := AddLocal(app, noGoMod, Options{})
-	if err == nil || !strings.Contains(err.Error(), "has no go.mod") || !strings.Contains(err.Error(), "nomi new <module path>") {
+	if err == nil || !strings.Contains(err.Error(), "has no go.mod") || !strings.Contains(err.Error(), "nomi init <module path>") {
 		t.Errorf("AddLocal of a directory with no go.mod: %v", err)
 	}
 

@@ -171,8 +171,7 @@ func TestStdHostKindLookupsAgree(t *testing.T) {
 // program outright with
 //
 //	type name 'Bytes' is reserved by the language and cannot be redeclared as
-//	a struct; use a distinct type (`type MyBytes Bytes`) for a domain-specific
-//	variant
+//	a struct; pick a different name (e.g. `struct MyBytes { ... }`)
 //
 // which is a strictly stronger guarantee than any check this builder could
 // make, and it is the reason a singleton POINTER is sufficient identity here

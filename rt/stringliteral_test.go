@@ -8,7 +8,7 @@ func TestStringLiteral_EscapesWhatWouldNotReadBack(t *testing.T) {
 	cases := []struct{ in, want string }{
 		{"a\nb", `"a\nb"`},
 		{"a\tb", `"a\tb"`},
-		{"a\rb", `"a\u{d}b"`},
+		{"a\rb", `"a\rb"`},
 		{`a\b`, `"a\\b"`},
 		{`say "hi"`, `"say \"hi\""`},
 		{"${x}", `"\${x}"`},
@@ -60,7 +60,7 @@ func TestStringLiteral_EscapesWhatWouldNotReadBack(t *testing.T) {
 		{"ی‌‌خ", `"ی\u{200c}\u{200c}خ"`},
 		{"USD 5.00", `"USD\u{a0}5.00"`},
 		{"3:45 PM", `"3:45\u{202f}PM"`},
-		{"\r\n", `"\u{d}\n"`},
+		{"\r\n", `"\r\n"`},
 		{"", `""`},
 	}
 	for _, c := range cases {

@@ -151,6 +151,11 @@ type Backend interface {
 	CurrentDir() (string, *rt.IOError)
 }
 
+// Default is the file system a program reaches when its host gives it none:
+// the operating system's natively and on wasip1, the process's in-memory
+// one on js/wasm.
+func Default() Backend { return defaultBackend() }
+
 // backendOf is the file system fr reaches.
 func backendOf(fr *rt.Frame) Backend {
 	if b, ok := rt.FilesOf(fr).(Backend); ok {
@@ -185,6 +190,16 @@ func escapes(path string) *rt.IOError {
 // whose confinement it would leave.
 func withinTempDir() *rt.IOError {
 	return &rt.IOError{Tag: rt.TagIOUnsupported, Operation: "fs.with_temp_dir", Target: "fs.within"}
+}
+
+// noTempDirTarget is what a WASI module with no directory to make a
+// temporary one in is, for noTempDir's sentence.
+const noTempDirTarget = "wasip1/wasm with no preopened directory (TMPDIR, /tmp or the working directory)"
+
+// noTempDir is the error a temporary directory gets in a WASI module whose
+// runtime preopened no directory to make it in (osTempDir).
+func noTempDir() *rt.IOError {
+	return &rt.IOError{Tag: rt.TagIOUnsupported, Operation: "fs.with_temp_dir", Target: noTempDirTarget}
 }
 
 // loopLimit is how many symlinks one path may pass through before it is

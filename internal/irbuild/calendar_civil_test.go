@@ -1,7 +1,6 @@
 package irbuild
 
 import (
-	"github.com/nomi-language/nomi/internal/stdcalendar"
 	"github.com/nomi-language/nomi/internal/stdlibbindings"
 	"reflect"
 	goruntime "runtime"
@@ -55,11 +54,11 @@ func TestCalendarUnitsAreNominallyDistinctAtTheGoLevel(t *testing.T) {
 	// The receiver each key prefix names, which is the half of the signature
 	// that carries information across an Int boundary.
 	receiver := map[string]reflect.Type{
-		"date":   reflect.TypeFor[stdcalendar.Date](),
-		"time":   reflect.TypeFor[stdcalendar.Time](),
-		"naive":  reflect.TypeFor[stdcalendar.NaiveDateTime](),
-		"offset": reflect.TypeFor[stdcalendar.OffsetDateTime](),
-		"zoned":  reflect.TypeFor[stdcalendar.DateTime](),
+		"date":   reflect.TypeFor[rt.Date](),
+		"time":   reflect.TypeFor[rt.Time](),
+		"naive":  reflect.TypeFor[rt.NaiveDateTime](),
+		"offset": reflect.TypeFor[rt.OffsetDateTime](),
+		"zoned":  reflect.TypeFor[rt.DateTime](),
 	}
 	// The vacuity gate is not a total, so adding a rung needs no edit here: the
 	// filter must match something, and every row it matched must survive the

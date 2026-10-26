@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 )
@@ -106,7 +107,7 @@ func (dm *DocumentManager) IndexWorkspace(ctx context.Context) []string {
 		if ctx.Err() != nil {
 			return uris
 		}
-		if uri := "file://" + path; dm.IndexFile(uri) {
+		if uri := fileuri.FromPath(path); dm.IndexFile(uri) {
 			uris = append(uris, uri)
 		}
 		runtime.Gosched()
@@ -122,7 +123,7 @@ func (dm *DocumentManager) IndexFile(uri string) bool {
 	if dm.IsOpen(uri) {
 		return false
 	}
-	path := strings.TrimPrefix(uri, "file://")
+	path := fileuri.ToPath(uri)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false
@@ -194,7 +195,7 @@ func TopLevelDecls(nodes []ast.Node) []IndexedDecl {
 func (dm *DocumentManager) Indexed(dir string) []*IndexedFile {
 	prefix := ""
 	if dir != "" {
-		prefix = "file://" + strings.TrimSuffix(dir, string(filepath.Separator)) + string(filepath.Separator)
+		prefix = strings.TrimSuffix(fileuri.FromPath(strings.TrimSuffix(dir, string(filepath.Separator))), "/") + "/"
 	}
 	dm.mu.RLock()
 	var out []*IndexedFile
@@ -212,7 +213,7 @@ func (dm *DocumentManager) Indexed(dir string) []*IndexedFile {
 // open document's latest analyzed nodes, the index entry of a closed file,
 // or a parse of the file on disk, which is not kept.
 func (dm *DocumentManager) FileDecls(path string) []IndexedDecl {
-	uri := "file://" + path
+	uri := fileuri.FromPath(path)
 	dm.mu.RLock()
 	doc, open := dm.docs[uri]
 	var nodes []ast.Node
@@ -312,7 +313,7 @@ func (dm *DocumentManager) Analyzed(uri string) *DocSnapshot {
 	if snap := dm.Snapshot(uri); snap != nil {
 		return snap
 	}
-	path := strings.TrimPrefix(uri, "file://")
+	path := fileuri.ToPath(uri)
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil
@@ -349,7 +350,7 @@ func (dm *DocumentManager) AnalyzeClosed(uri string) *DocSnapshot {
 // buildClosed analyzes the disk text of uri as an open document's text
 // would be analyzed.
 func (dm *DocumentManager) buildClosed(uri string, foreground bool) *DocSnapshot {
-	data, err := os.ReadFile(strings.TrimPrefix(uri, "file://"))
+	data, err := os.ReadFile(fileuri.ToPath(uri))
 	if err != nil {
 		return nil
 	}
@@ -444,7 +445,7 @@ func (dm *DocumentManager) setImportsLocked(uri string, imports []string) {
 	}
 	uris := make([]string, 0, len(imports))
 	for _, imp := range imports {
-		impURI := "file://" + imp
+		impURI := fileuri.FromPath(imp)
 		uris = append(uris, impURI)
 		dm.reverseDeps[impURI] = append(dm.reverseDeps[impURI], uri)
 	}
@@ -491,7 +492,7 @@ func (dm *DocumentManager) Importers(uri string) []string {
 // no index entry.
 func (dm *DocumentManager) Covers(uri string) bool {
 	root := dm.WorkspaceRoot()
-	path := strings.TrimPrefix(uri, "file://")
+	path := fileuri.ToPath(uri)
 	if root == "" || filepath.Ext(path) != ".nomi" {
 		return false
 	}

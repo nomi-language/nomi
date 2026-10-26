@@ -3,6 +3,7 @@ package dap
 import (
 	"errors"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -220,7 +221,7 @@ func (sess *session) setBreakpoints(r *godap.SetBreakpointsRequest) {
 			reqs = append(reqs, godap.SourceBreakpoint{Line: l})
 		}
 	}
-	file := std.PositionPath(a.Source.Path)
+	file := std.PositionPath(clientPath(a.Source.Path))
 	out := make([]godap.Breakpoint, len(reqs))
 	var specs []vm.BreakpointSpec
 	var plain []int
@@ -275,6 +276,16 @@ func (sess *session) landedFile(file string) string { return filepath.Clean(file
 
 // sameFile reports whether two absolute paths name the same file.
 func sameFile(a, b string) bool { return filepath.Clean(a) == filepath.Clean(b) }
+
+// clientPath is a path a client sent, spelled as the program's files are:
+// on Windows a client may write the drive in lower case (VS Code writes
+// `c:\`), so the drive letter is upper-cased there.
+func clientPath(p string) string {
+	if runtime.GOOS == "windows" && len(p) >= 2 && p[1] == ':' {
+		return strings.ToUpper(p[:1]) + p[1:]
+	}
+	return p
+}
 
 // source is the DAP source of a position's file, and whether it is the
 // standard library's.

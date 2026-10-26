@@ -42,6 +42,41 @@ func TestGroupedImportPath_IsAnErrorAtTheBrace(t *testing.T) {
 	}
 }
 
+// A selector list inside another is an error at the inner `{`, and its hint
+// spells the outer list's entries as an import block, `self` as the path
+// itself.
+func TestNestedImportList_IsAnErrorAtTheInnerBrace(t *testing.T) {
+	const msg = "a selector list cannot hold another list"
+	cases := []struct {
+		src       string
+		line, col int
+		block     []string
+	}{
+		{"import nucleotide_count.{self, Nucleotide.{A, C, G, T}}\n", 1, 43, []string{"nucleotide_count", "nucleotide_count.Nucleotide.{A, C, G, T}"}},
+		{"import std/calendar.{Date, Weekday.{Monday as Mon}}\n", 1, 36, []string{"std/calendar.Date", "std/calendar.Weekday.{Monday as Mon}"}},
+		{"import a/b.C.{self, D.{E}}\n", 1, 23, []string{"a/b.C", "a/b.C.D.{E}"}},
+		{"import {\n    shapes.{\n        self,\n        Shape.{Circle, Square}\n    }\n}\n", 4, 15, []string{"shapes", "shapes.Shape.{Circle, Square}"}},
+	}
+	for _, tc := range cases {
+		_, errs := ParseWithRecovery(lexer.Lex(tc.src))
+		if len(errs) == 0 {
+			t.Errorf("%q parses", tc.src)
+			continue
+		}
+		e := errs[0]
+		hint := "give each entry its own line in an import block:\nimport {\n    " +
+			strings.Join(tc.block, "\n    ") + "\n}"
+		if e.Line != tc.line || e.Col != tc.col || e.Message != msg || len(e.Hints) != 1 || e.Hints[0] != hint {
+			t.Errorf("%q: got %d:%d %q hints %q\nwant %d:%d %q hint %q", tc.src, e.Line, e.Col, e.Message, e.Hints, tc.line, tc.col, msg, hint)
+		}
+		// The hint's block parses.
+		block := strings.TrimPrefix(hint, "give each entry its own line in an import block:\n") + "\n"
+		if _, errs := ParseWithRecovery(lexer.Lex(block)); len(errs) != 0 {
+			t.Errorf("%q: the hint's block does not parse: %v", tc.src, errs)
+		}
+	}
+}
+
 // Braces after a `.` still select names.
 func TestGroupedImportPath_SelectorsStayValid(t *testing.T) {
 	for _, src := range []string{

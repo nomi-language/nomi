@@ -1,0 +1,12 @@
+// The Go workspace every js/wasm build of cmd/nomi-wasm runs in
+// (GOWORK=internal/tourgo/tour.work): the compiler's module and the tour
+// modules (tourgo.Modules), whose Go packages linked_modules_gen.go
+// imports. The compiler's go.mod requires none of them. See modules.go.
+
+go 1.27.0
+
+use (
+	../..
+	../../lib/sql/sqlite
+	../../lib/sql/sqlkit
+)

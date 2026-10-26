@@ -92,7 +92,7 @@ T
 C boot_test.nomi@45e87c0f44fc5e50
 E 1
 N 0
-H f6d44d3496e162da8d2efd465b94ee4e099c7f3ad38c748645112e5350361264
+H 85db942e6672eb1bcae5f52cc767a9672a75c8cbbfec4c3677776e83b59d4ab8
 S -- boot_test.nomi 344 --
 S import std/io
 S
@@ -122,7 +122,7 @@ S }
 S
 S
 T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
+T error: unexpected `{` right after the end of a statement
 T  --> <dir>/boot_test.nomi:9:6
 T   |
 T 9 |   App{context: Context.root(), label: "booted"}
@@ -329,7 +329,7 @@ T
 C control_test.nomi@0db447c6ee4b0156
 E 1
 N 0
-H 93bc1ee069874109facbc3bb4b874b587f623be7a813a143ace53d1bca86c383
+H 3b58dc5a6b186795883a9279d48e798313251e0952bdb0038643aaadeaed475a
 S -- control_test.nomi 325 --
 S struct Q {
 S     f: (Int) -> Int
@@ -353,7 +353,7 @@ S }
 S
 S
 T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
+T error: unexpected `{` right after the end of a statement
 T   --> <dir>/control_test.nomi:11:10
 T    |
 T 11 |     p = P{t: #(fn x -> x + 1, 1), q: Q{f: fn x -> x + 100}}
@@ -588,7 +588,7 @@ T
 C control_test.nomi@432b14dc56346e27
 E 1
 N 0
-H f001e2d5d6175169c38a829534a11855b3f221c822e8d9996853245e40a5e4d4
+H 84a3d847742d157ee9e49b417bc7486717d9e6a00239a4fb4aa6f1c57017a92f
 S -- control_test.nomi 428 --
 S struct Duration {
 S     ms: Int
@@ -613,7 +613,7 @@ S }
 S
 S
 T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
+T error: unexpected `{` right after the end of a statement
 T  --> <dir>/control_test.nomi:7:17
 T   |
 T 7 |         Duration{ms: n * 7}
@@ -1064,7 +1064,7 @@ T
 C control_test.nomi@57ec78ce0df66f9d
 E 1
 N 0
-H e65357c11af28afa0446a239c053be191fb9bf360c963939aaab20cfdc4b05d4
+H 149a0c2ae69c1fcb3f4fcfff5169cd385e82ccf4b33065c9469868a856ac7af5
 S -- control_test.nomi 612 --
 S test "statement blocks declare types" {
 S     {
@@ -1103,7 +1103,7 @@ S }
 S
 S
 T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
+T error: unexpected `{` right after the end of a statement
 T  --> <dir>/control_test.nomi:6:17
 T   |
 T 6 |         assert P{a: 1}.a == 1
@@ -1146,7 +1146,7 @@ T
 C control_test.nomi@63bbe184fd383b6b
 E 1
 N 0
-H eaf21f450323f15d84b7a5594193e075f87b3c7ff0c33cf0d4372c063afc9078
+H 12f428d5137fb237a90fe914a5776a988427c482db968964a2cc64eb0511ba2c
 S -- control_test.nomi 653 --
 S struct Date {
 S   year: Int
@@ -1181,7 +1181,7 @@ S }
 S
 S
 T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
+T error: unexpected `{` right after the end of a statement
 T  --> <dir>/control_test.nomi:9:9
 T   |
 T 9 |     Date{year, month, day}
@@ -1570,7 +1570,7 @@ T
 C control_test.nomi@b81cba0f931a45fa
 E 1
 N 0
-H 63eae9778e4fbe6b80a39c2281f3a9e09d299861b03d7f3e9d60f5817637c0bd
+H 82b2f6faa5f594be3039b285af007cca1b194040eb1b79b1af49824c317e5f98
 S -- control_test.nomi 1003 --
 S import {
 S   std/io
@@ -1632,7 +1632,7 @@ S }
 S
 S
 T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
+T error: unexpected `{` right after the end of a statement
 T   --> <dir>/control_test.nomi:18:10
 T    |
 T 18 |     Upper{text}
@@ -2127,7 +2127,7 @@ T
 C group_test.nomi@0096f54cfe4db215
 E 1
 N 0
-H 8be30f395634e64abb8b724fbb3bf82a7c7ad73786bed4881db9e272f3a5ef21
+H 6440ff90bf512c922e370a7a74130948309ee37942530e918cafe3a74d6567c6
 S -- group_test.nomi 551 --
 S pub struct App {
 S   context: Context
@@ -2171,7 +2171,7 @@ S }
 S
 S
 T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
+T error: unexpected `{` right after the end of a statement
 T  --> <dir>/group_test.nomi:7:6
 T   |
 T 7 |   App{context: Context.root(), label: "booted"}
@@ -2774,7 +2774,7 @@ T
 C group_test.nomi@5a035ccac6c08aed
 E 1
 N 0
-H 62f77379b7b04ea411c86879d7c74d09fca8f63f872b0c302b4c2ede7bc81d78
+H f2c7d2ed74329c4a00850ec0b541a509e9c96f1488bb02178270ca7ef5fcca35
 S -- group_test.nomi 1138 --
 S import {
 S   std/channels.{Channel, Receiver, Sender}
@@ -2829,7 +2829,7 @@ S }
 S
 S
 T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
+T error: unexpected `{` right after the end of a statement
 T   --> <dir>/group_test.nomi:12:6
 T    |
 T 12 |   App{context: Context.root(), done: Channel.buffered<Int>(4)}
@@ -2838,7 +2838,7 @@ T
 C group_test.nomi@67686e76ba1040e9
 E 1
 N 0
-H 52143496dbe2b2f17c6e645bef17837347c02d1eda0e5cf9853c9ff155e78f15
+H 9969b0aa3552ad61648b11907e6d39177d3df74ae2cc00535289a2fb6fe6cefd
 S -- group_test.nomi 970 --
 S import {
 S   std/channels.{Channel, Receiver, Sender}
@@ -2889,7 +2889,7 @@ S }
 S
 S
 T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
+T error: unexpected `{` right after the end of a statement
 T   --> <dir>/group_test.nomi:31:6
 T    |
 T 31 |   App{context: Context.root(), done}
@@ -2898,7 +2898,7 @@ T
 C group_test.nomi@896d792273b0bfe6
 E 1
 N 0
-H 46f32b7da08e69ebf252110569c90d8f171752edbb0f81629e9b255dd7a6c35f
+H e20159588fbdc89dceb298142a1f5d14ffb8c58f172d3fb1f4656645964756d6
 S -- group_test.nomi 1887 --
 S import {
 S   std/channels.{Channel, Receiver, Sender}
@@ -2984,7 +2984,7 @@ S }
 S
 S
 T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
+T error: unexpected `{` right after the end of a statement
 T   --> <dir>/group_test.nomi:39:6
 T    |
 T 39 |   App{
@@ -2993,7 +2993,7 @@ T
 C group_test.nomi@8b5f68cfae1069f4
 E 1
 N 0
-H 45240871f91f27685dac6ef989fcca3da86be4fa09f7590da8250521727525b4
+H 8fc64a7771fc80e822ce52bdcf8d2898072e9e87b62a8faa9afbb7f900cab17c
 S -- group_test.nomi 711 --
 S import std/io
 S
@@ -3036,7 +3036,7 @@ S }
 S
 S
 T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
+T error: unexpected `{` right after the end of a statement
 T   --> <dir>/group_test.nomi:10:6
 T    |
 T 10 |   App{context: Context.root(), label: "booted"}
@@ -3179,7 +3179,7 @@ T
 C group_test.nomi@bc63065b08a8b8a8
 E 1
 N 0
-H c193d0a3af3de8161e9bb8999bbd86ebd15468bee79beb2320baa471f155604e
+H 15130b2d83324a4a3a8e299acf89bcb3097cf3cd389b9e9d4a7fb2cee54c6fc7
 S -- group_test.nomi 255 --
 S pub struct App {
 S   context: Context
@@ -3206,7 +3206,7 @@ S }
 S
 S
 T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
+T error: unexpected `{` right after the end of a statement
 T   --> <dir>/group_test.nomi:11:6
 T    |
 T 11 |   App{context: Context.root(), n: 10 / zero()}
@@ -3215,7 +3215,7 @@ T
 C group_test.nomi@c6db47ba21710f64
 E 1
 N 0
-H 37b4c764684b02e5f10d1b1f52c3715e76b6e61ff3e1525596407c654185c3be
+H dc2eb9e163b0f157c0284609af83b317095c6ddb2b1e204b8969011d0d058f7d
 S -- group_test.nomi 673 --
 S import {
 S   std/duration.Duration
@@ -3260,7 +3260,7 @@ S }
 S
 S
 T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
+T error: unexpected `{` right after the end of a statement
 T   --> <dir>/group_test.nomi:15:6
 T    |
 T 15 |   App{context: Context.root(), work: Supervisor.new(max_running: 2)}
@@ -3480,7 +3480,7 @@ T
 C group_test.nomi@e4204a715390286e
 E 1
 N 0
-H 8be30f395634e64abb8b724fbb3bf82a7c7ad73786bed4881db9e272f3a5ef21
+H 6440ff90bf512c922e370a7a74130948309ee37942530e918cafe3a74d6567c6
 S -- group_test.nomi 372 --
 S pub struct App {
 S   context: Context
@@ -3508,7 +3508,7 @@ S }
 S
 S
 T --- stderr ---
-T error: unexpected LBRACE "{" right after the end of a statement
+T error: unexpected `{` right after the end of a statement
 T  --> <dir>/group_test.nomi:7:6
 T   |
 T 7 |   App{context: Context.root(), label: "booted"}
@@ -4362,7 +4362,7 @@ T
 C internal/irbuild/testdata/compiler_hover.nomi@185b57674a8d59f3
 E 0
 N 0
-H 40c5087822493ca5144da8216e91ddec6e56152ba714f06567a58101b2f374dc
+H 1c4c0fc5a30b983334d71bc4b74332b4a22bed81f975b64a6e7e84fc304e5b59
 T binding = answer: Int
 T declaration = fn double(n: Int) -> Int
 T stdlib = fn trim(s: String) -> String
@@ -4372,7 +4372,7 @@ T markdown_starts_fenced = True
 T markdown_contains_signature = True
 T no_marker = compiler.hover source must contain one "ˇ" marker, found none
 T two_markers = compiler.hover source must contain one "ˇ" marker, found multiple
-T parse_error = line 1, col 10: unexpected token LBRACE in pattern
+T parse_error = line 1, col 10: unexpected `{` in pattern
 T type_error = line 2, col 16: type mismatch: expected Int, got String
 T no_target = no hover target at line 4, col 1
 T

@@ -10,9 +10,10 @@
 //# `sql.with_connection` runs a body on a connection it opens and closes;
 //# `sql.close_quietly` closes one in a `defer`.
 //#
-//# std holds no driver: drivers are modules of their own, and
-//# `std/sql_testing` has a recording fake `Conn` and the conformance suite
-//# every driver runs.
+//# std holds no driver: drivers are modules of their own, such as the
+//# SQLite driver (`nomi add github.com/nomi-language/nomi/lib/sql/sqlite`,
+//# https://nomi-lang.org/databases/), and `std/sql_testing` has a recording
+//# fake `Conn` and the conformance suite every driver runs.
 
 import {
     add.Add

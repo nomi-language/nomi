@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/analyzedlowering"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/frontend"
 )
 
@@ -22,7 +23,7 @@ func openLoweringRPC(t *testing.T, src string, delay time.Duration) (*Server, *r
 		"main.nomi": src,
 		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
-	uri := "file://" + filepath.Join(dir, "main.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	s := NewServer()
 	s.lowering.delay = delay
 	c := startRPC(t, s, dir)
@@ -172,7 +173,7 @@ func TestLoweringOnEdit_OneRunPerQuietPeriod(t *testing.T) {
 	const delay = 250 * time.Millisecond
 	dir := writeProject(t, map[string]string{"main.nomi": lowerOnEditSource("open"), "nomi.toml": entryToml})
 	cl.path = filepath.Join(dir, "main.nomi")
-	uri := "file://" + cl.path
+	uri := fileuri.FromPath(cl.path)
 	s := NewServer()
 	s.lowering.delay = delay
 	c := startRPC(t, s, dir)
@@ -210,7 +211,7 @@ func TestLoweringOnEdit_StaleRunIsDropped(t *testing.T) {
 	cl.block[v1] = release
 	dir := writeProject(t, map[string]string{"main.nomi": v1, "nomi.toml": entryToml})
 	cl.path = filepath.Join(dir, "main.nomi")
-	uri := "file://" + cl.path
+	uri := fileuri.FromPath(cl.path)
 	s := NewServer()
 	s.lowering.delay = 20 * time.Millisecond
 	c := startRPC(t, s, dir)
@@ -269,7 +270,7 @@ func TestLoweringOnEdit_SupersededRunPublishesNothing(t *testing.T) {
 	cl.finishStopped[v1] = finish
 	dir := writeProject(t, map[string]string{"main.nomi": v1, "nomi.toml": entryToml})
 	cl.path = filepath.Join(dir, "main.nomi")
-	uri := "file://" + cl.path
+	uri := fileuri.FromPath(cl.path)
 	s := NewServer()
 	s.lowering.delay = 20 * time.Millisecond
 	c := startRPC(t, s, dir)
@@ -322,7 +323,7 @@ func TestRecover_LoweringOnEditPanic(t *testing.T) {
 			cl := installCountingLowering(t)
 			dir := writeProject(t, map[string]string{"main.nomi": lowerOnEditSource("open"), "nomi.toml": entryToml})
 			cl.path = filepath.Join(dir, "main.nomi")
-			uri := "file://" + cl.path
+			uri := fileuri.FromPath(cl.path)
 			s := NewServer()
 			s.lowering.delay = 20 * time.Millisecond
 			c := startRPC(t, s, dir)

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
@@ -22,7 +23,7 @@ func openLiteralDoc(t testing.TB, src string) (*Server, *analysis.DocSnapshot) {
 		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	s := NewServer()
-	uri := "file://" + filepath.Join(dir, "main.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	s.docs.Open(uri, src)
 	snap := s.docs.Snapshot(uri)
 	if snap == nil || snap.Analysis == nil {

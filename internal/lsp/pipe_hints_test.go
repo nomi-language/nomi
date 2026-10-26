@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/std"
@@ -345,7 +346,7 @@ func TestPipeHints_RangedRequestOnLargeFile(t *testing.T) {
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)
 	s.docs.IndexWorkspace(context.Background())
-	uri := "file://" + filepath.Join(dir, "main.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	s.docs.Open(uri, src.String())
 	before := s.docs.Snapshot(uri)
 	if before == nil || before.Analysis == nil {

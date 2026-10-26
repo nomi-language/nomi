@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -231,7 +232,7 @@ func TestCompletion_ImplStubImportedInterface(t *testing.T) {
 	src := "import engine.{Powered}\n\nstruct Motor {\n    name: String\n}\n\nimpl Powered for Motor {\n    " + cursorMark + "\n}\n"
 	s := NewServer()
 	s.snippetSupport = true
-	items := completeIn(t, s, "file://"+filepath.Join(dir, "main.nomi"), src).Items
+	items := completeIn(t, s, fileuri.FromPath(filepath.Join(dir, "main.nomi")), src).Items
 	if got := strings.Join(itemLabels(items), ","); got != "label,describe" {
 		t.Fatalf("items = %s", got)
 	}
@@ -240,6 +241,6 @@ func TestCompletion_ImplStubImportedInterface(t *testing.T) {
 	}
 
 	qualified := "import engine\n\nstruct Motor {\n    name: String\n}\n\nimpl engine.Powered for Motor {\n    " + cursorMark + "\n}\n"
-	items = completeIn(t, s, "file://"+filepath.Join(dir, "main.nomi"), qualified).Items
+	items = completeIn(t, s, fileuri.FromPath(filepath.Join(dir, "main.nomi")), qualified).Items
 	labelsInclude(t, items, "label", "describe")
 }

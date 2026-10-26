@@ -8,6 +8,11 @@
 // not turned into runnable editors). Output is generated, not committed.
 //
 //	go run ./cmd/nomi-docgen <reference-output-dir>
+//
+// With -examples it writes the tour's Examples section instead, from the
+// Exercism solutions (examples.go). Those pages are committed.
+//
+//	go run ./cmd/nomi-docgen -examples tests/exercism tour/src/content/docs/examples
 package main
 
 import (
@@ -52,8 +57,12 @@ var declKind = map[analysis.SymbolKind]bool{
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: nomi-docgen <reference-output-dir>")
+	if len(os.Args) == 4 && os.Args[1] == "-examples" {
+		must(writeExamples(os.Args[2], os.Args[3]))
+		return
+	}
+	if len(os.Args) != 2 {
+		fmt.Fprintln(os.Stderr, "usage: nomi-docgen <reference-output-dir>\n       nomi-docgen -examples <exercism-dir> <examples-output-dir>")
 		os.Exit(1)
 	}
 	outDir := os.Args[1]

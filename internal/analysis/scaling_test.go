@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/projectgen"
 )
 
@@ -176,7 +177,7 @@ func bodyEditsReadNoClosedFile(t *testing.T, p *projectgen.Project) {
 	dm.SetWorkspaceRoot(dir)
 	for _, kind := range []projectgen.EditKind{projectgen.BodyLeaf, projectgen.BodyHub, projectgen.BodyEntry} {
 		key, text := p.Edit(kind, 0)
-		uri := "file://" + filepath.Join(dir, filepath.FromSlash(key)+".nomi")
+		uri := fileuri.FromPath(filepath.Join(dir, filepath.FromSlash(key)+".nomi"))
 		dm.Open(uri, p.Files[key])
 		bodies, _, _, _ := dm.ProgramChecks()
 		reads := analysis.DiskReadsForTest(func() { dm.Update(uri, text) })

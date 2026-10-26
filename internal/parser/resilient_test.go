@@ -153,7 +153,7 @@ func TestParseResilient_KeepsFunctionWithHalfTypedBody(t *testing.T) {
 	if len(found) != 1 {
 		t.Fatalf("want exactly 1 *ast.ErrorNode in the recovered tree, got %d", len(found))
 	}
-	if !strings.Contains(found[0].Message, "unexpected token RBRACE") {
+	if !strings.Contains(found[0].Message, "unexpected `}`") {
 		t.Errorf("error node should carry the failing production's message, got %q", found[0].Message)
 	}
 }

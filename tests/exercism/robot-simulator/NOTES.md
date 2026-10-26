@@ -1,5 +1,7 @@
 # Robot Simulator
 
+Subject: Games & Simulation
+
 Move a robot around a grid by a string of turn and advance instructions.
 
 Adapted from Exercism problem-specifications (MIT), exercises/robot-simulator.

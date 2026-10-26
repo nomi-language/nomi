@@ -211,6 +211,10 @@ const game = await app.load();
 console.log(await game.call("new_game", "pipeline")); // { word: "pipeline", guesses: [] }
 ```
 
+A program with Go bindings builds this way too, with its Go code compiled
+into the file. A `.nomic` file can't carry Go code, so this is the only way
+to ship such a program to `nomi-wasi.js`.
+
 ### One program for a WASI runner
 
 Tools like wasmtime run WebAssembly programs on their own, outside a

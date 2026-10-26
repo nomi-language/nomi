@@ -465,6 +465,7 @@ func TestBuildWeb(t *testing.T) {
 			AbortAfterMs int               `json:"abortAfterMs,omitempty"`
 			Worker       *bool             `json:"worker,omitempty"`
 			Files        map[string]string `json:"files,omitempty"`
+			Setup        string            `json:"setup,omitempty"`
 		}
 		type webResult struct {
 			Stdout, Stderr, Fatal string
@@ -488,7 +489,16 @@ func TestBuildWeb(t *testing.T) {
 			9:  {Folder: folders["oom.nomi"]},
 			10: {Folder: folders["exports.nomi"]},
 			11: {Folder: folders["file.nomi"]},
+			12: {Folder: folders["hello.nomi"], Stdin: str("Di\n"), Setup: "./setup-ok.mjs"},
+			13: {Folder: folders["hello.nomi"], Setup: "./setup-fail.mjs"},
+			14: {Folder: folders["hello.nomi"], Setup: "./setup-fail.mjs", Worker: &no},
 		}
+		// A setup module beside nomi.js, which a run imports where the
+		// program runs and awaits before it starts.
+		mustWrite(t, filepath.Join(folders["hello.nomi"], "setup-ok.mjs"),
+			"export default async () => {\n  await new Promise((resolve) => setTimeout(resolve, 5));\n};\n")
+		mustWrite(t, filepath.Join(folders["hello.nomi"], "setup-fail.mjs"),
+			"export default async () => {\n  throw new Error(\"no database\");\n};\n")
 		spec, _ := json.Marshal(map[string]any{"runs": runs})
 		harness := filepath.Join(repoRoot(t), "cmd", "nomi", "testdata", "web", "harness.mjs")
 		got := runNode(t, env, src, "", node, harness, string(spec))
@@ -547,6 +557,15 @@ func TestBuildWeb(t *testing.T) {
 		if r := results[8]; r.ExitCode != 0 || r.Stdout != "seeded\n\n" ||
 			!maps.Equal(r.Files, map[string]string{"data.txt": "seeded\n", "out/keep.txt": "kept", "out/shout.txt": "SEEDED\n"}) {
 			t.Fatalf("files: %+v, want the seeded file read and the written one returned", r)
+		}
+		// A run waits for its setup module, and one whose setup fails never
+		// starts, in a worker or on the page.
+		same(12, "hello.nomi", "Di\n")
+		for _, i := range []int{13, 14} {
+			if r := results[i]; r.ExitCode != 2 || r.Stdout != "" || !strings.HasPrefix(r.Fatal, "the setup module ") ||
+				!strings.HasSuffix(r.Fatal, "setup-fail.mjs failed: no database") {
+				t.Fatalf("run %d with a failing setup: %+v", i, r)
+			}
 		}
 		// Without them the file is not there.
 		if r := results[11]; r.ExitCode != 1 || r.Stderr != "error: data.txt: not found\n" || len(r.Files) != 0 {

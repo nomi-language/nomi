@@ -160,3 +160,14 @@ test "captures_all finds the matches find_all finds" {
         [Some("6"), None],
     ]
 }
+
+test "a carriage return is written \\r in a string and in its Debug" {
+    assert String.to_codepoints("a\rb") == ['a', '\r', 'b']
+
+    assert String.to_codepoints("x${1}\r") |> Iter.map(Codepoint.to_int) |> Iter.to_list() == [
+        120, 49, 13,
+    ]
+
+    assert String.lines("one\r\ntwo") == ["one", "two"]
+    assert Debug.inspect("a\rb") == "\"a\\rb\""
+}

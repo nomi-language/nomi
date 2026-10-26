@@ -92,7 +92,9 @@ func TestCodegen_NoDeps(t *testing.T) {
 // TestCodegen_TheProjectRunnerLinksNoFrontEnd: `nomi build`'s runner for an
 // FFI project is the wrapper's generated adapters with vmrunner's main, so it
 // imports nomi/vmrunner and never nomi/vmhost (which lowers source, and so
-// links the front end); std/compiler's hosts only when asked.
+// links the front end); std/compiler's hosts only when asked. The reactor
+// runner hands the same hosts to nomi/vmrunner/reactor from init and has an
+// empty main, since a c-shared module never calls it.
 func TestCodegen_TheProjectRunnerLinksNoFrontEnd(t *testing.T) {
 	pkgs := []DiscoveredPackage{{
 		ImportPath: "github.com/foo/sqlite",
@@ -102,8 +104,9 @@ func TestCodegen_TheProjectRunnerLinksNoFrontEnd(t *testing.T) {
 				SourceFile: "/abs/project/sqlite.nomi", SourceLine: 5, SourceCol: 14, EntryKey: "open_raw"},
 		},
 	}}
-	for _, compiler := range []bool{false, true} {
-		got, err := renderMain("/abs/project", pkgs, mainKind{Runner: true, Compiler: compiler})
+	for _, kind := range []mainKind{{Runner: true}, {Runner: true, Compiler: true}, {Reactor: true}, {Reactor: true, Compiler: true}} {
+		compiler := kind.Compiler
+		got, err := renderMain("/abs/project", pkgs, kind)
 		if err != nil {
 			t.Fatalf("renderMain: %v", err)
 		}
@@ -117,6 +120,11 @@ func TestCodegen_TheProjectRunnerLinksNoFrontEnd(t *testing.T) {
 		}
 		if strings.Contains(src, `"github.com/nomi-language/nomi/vmrunner/compiler"`) != compiler {
 			t.Fatalf("compiler=%v, but the runner's std/compiler import disagrees:\n%s", compiler, src)
+		}
+		reactor := strings.Contains(src, `"github.com/nomi-language/nomi/vmrunner/reactor"`) &&
+			strings.Contains(src, "nomivmreactor.Use(") && strings.Contains(src, "func main() {}")
+		if reactor != kind.Reactor || strings.Contains(src, "nomivmrunner.Main(") == kind.Reactor {
+			t.Fatalf("reactor=%v, but the runner's main disagrees:\n%s", kind.Reactor, src)
 		}
 	}
 }

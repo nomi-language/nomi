@@ -7334,6 +7334,10 @@
                         },
                         {
                           "type": "STRING",
+                          "value": "r"
+                        },
+                        {
+                          "type": "STRING",
                           "value": "t"
                         },
                         {
@@ -7633,6 +7637,10 @@
               {
                 "type": "STRING",
                 "value": "n"
+              },
+              {
+                "type": "STRING",
+                "value": "r"
               },
               {
                 "type": "STRING",

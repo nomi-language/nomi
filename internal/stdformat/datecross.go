@@ -24,48 +24,48 @@ func answerKind(answer string) (int64, string) {
 	return 1, answer[1:]
 }
 
-func dateAttempt(answer string) stdcalendar.DateAttempt {
+func dateAttempt(answer string) rt.CalendarDateResult {
 	if kind, text := answerKind(answer); kind != 0 {
-		return stdcalendar.DateAttempt{Kind: kind, Reason: text}
+		return rt.CalendarDateResult{Kind: kind, Reason: text}
 	}
-	return stdcalendar.FFIDateParse(answer[1:])
+	return stdcalendar.BoundDateParse(answer[1:])
 }
 
-func timeAttempt(answer string) stdcalendar.TimeAttempt {
+func timeAttempt(answer string) rt.CalendarTimeResult {
 	if kind, text := answerKind(answer); kind != 0 {
-		return stdcalendar.TimeAttempt{Kind: kind, Reason: text}
+		return rt.CalendarTimeResult{Kind: kind, Reason: text}
 	}
-	return stdcalendar.FFITimeParse(answer[1:])
+	return stdcalendar.BoundTimeParse(answer[1:])
 }
 
-func naiveAttempt(answer string) stdcalendar.NaiveAttempt {
+func naiveAttempt(answer string) rt.CalendarNaiveResult {
 	if kind, text := answerKind(answer); kind != 0 {
-		return stdcalendar.NaiveAttempt{Kind: kind, Reason: text}
+		return rt.CalendarNaiveResult{Kind: kind, Reason: text}
 	}
-	return stdcalendar.FFINaiveParse(answer[1:])
+	return stdcalendar.BoundNaiveParse(answer[1:])
 }
 
 // FFIParseDateStyle is `calendar.date_parse_style`.
-func FFIParseDateStyle(fr *rt.Frame, text, locale, spec string, lenient bool) stdcalendar.DateAttempt {
+func FFIParseDateStyle(fr *rt.Frame, text, locale, spec string, lenient bool) rt.CalendarDateResult {
 	return dateAttempt(ParseStyle(stdlocale.Data(fr), text, locale, spec, lenient))
 }
 
 // FFIParseTimeStyle is `calendar.time_parse_style`.
-func FFIParseTimeStyle(fr *rt.Frame, text, locale, spec string, lenient bool) stdcalendar.TimeAttempt {
+func FFIParseTimeStyle(fr *rt.Frame, text, locale, spec string, lenient bool) rt.CalendarTimeResult {
 	return timeAttempt(ParseStyle(stdlocale.Data(fr), text, locale, spec, lenient))
 }
 
 // FFIParseDatePattern is `calendar.date_parse_pattern`.
-func FFIParseDatePattern(text, pattern string) stdcalendar.DateAttempt {
+func FFIParseDatePattern(text, pattern string) rt.CalendarDateResult {
 	return dateAttempt(ParsePattern(text, pattern, true, false))
 }
 
 // FFIParseTimePattern is `calendar.time_parse_pattern`.
-func FFIParseTimePattern(text, pattern string) stdcalendar.TimeAttempt {
+func FFIParseTimePattern(text, pattern string) rt.CalendarTimeResult {
 	return timeAttempt(ParsePattern(text, pattern, false, true))
 }
 
 // FFIParseNaivePattern is `calendar.naive_parse_pattern`.
-func FFIParseNaivePattern(text, pattern string) stdcalendar.NaiveAttempt {
+func FFIParseNaivePattern(text, pattern string) rt.CalendarNaiveResult {
 	return naiveAttempt(ParsePattern(text, pattern, true, true))
 }

@@ -1,0 +1,58 @@
+//# The lyrics of "The Twelve Days of Christmas".
+
+once ordinals = #[
+    "first",
+    "second",
+    "third",
+    "fourth",
+    "fifth",
+    "sixth",
+    "seventh",
+    "eighth",
+    "ninth",
+    "tenth",
+    "eleventh",
+    "twelfth",
+]
+
+once first_gift = "a Partridge in a Pear Tree"
+
+/// The gifts of the second day to the twelfth, in order.
+once later_gifts = [
+    "two Turtle Doves",
+    "three French Hens",
+    "four Calling Birds",
+    "five Gold Rings",
+    "six Geese-a-Laying",
+    "seven Swans-a-Swimming",
+    "eight Maids-a-Milking",
+    "nine Ladies Dancing",
+    "ten Lords-a-Leaping",
+    "eleven Pipers Piping",
+    "twelve Drummers Drumming",
+]
+
+/// The verses for days `start` to `end`, both included, counting from 1.
+pub fn recite(start: Int, end: Int) -> List<String> {
+    start..=end
+    |> Iter.map(verse)
+    |> Iter.to_list()
+}
+
+fn verse(day: Int) -> String {
+    ordinal = Vector.at(ordinals, day - 1)
+    "On the ${ordinal} day of Christmas my true love gave to me: ${gifts(day)}."
+}
+
+/// Every gift given on `day`, newest first.
+fn gifts(day: Int) -> String {
+    if day == 1 { return first_gift }
+
+    later =
+        later_gifts
+        |> Iter.take(day - 1)
+        |> Iter.reverse()
+        |> String.join(", ")
+
+    "${later}, and ${first_gift}"
+}

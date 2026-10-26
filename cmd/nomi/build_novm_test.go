@@ -95,7 +95,7 @@ func TestBuildNoVM_TheRunnerRunsItAsNomiRunDoes(t *testing.T) {
 	for name, src := range imagePrograms {
 		mustWrite(t, filepath.Join(dir, name), src)
 	}
-	runner := filepath.Join(t.TempDir(), "nomi-vm")
+	runner := exe(filepath.Join(t.TempDir(), "nomi-vm"))
 	if b := runProcess(t, env, dir, "", nomiBin, "build-vm", "-o", runner); b.exit != 0 {
 		t.Fatalf("nomi build-vm: exit %d\n%s", b.exit, b.transcript())
 	}
@@ -204,7 +204,7 @@ func TestBuildNoVM_AnEmbeddedProgramStillWins(t *testing.T) {
 	env := buildEnv(t.TempDir())
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "echo.nomi"), imagePrograms["echo.nomi"])
-	bin := filepath.Join(t.TempDir(), "echo")
+	bin := exe(filepath.Join(t.TempDir(), "echo"))
 	if b := runProcess(t, env, dir, "", nomiBin, "build", "echo.nomi", "-o", bin); b.exit != 0 {
 		t.Fatalf("nomi build: exit %d\n%s", b.exit, b.transcript())
 	}

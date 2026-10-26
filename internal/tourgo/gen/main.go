@@ -1,5 +1,6 @@
-// Command gen writes internal/tourgo/linked_gen.go (tourgogen.File). `go
-// generate ./internal/tourgo` runs it in that folder.
+// Command gen writes internal/tourgo/linked_gen.go (tourgogen.File),
+// linked_modules_gen.go (ModulesFile) and modules_sources_gen.go
+// (SourcesFile). `go generate ./internal/tourgo` runs it in that folder.
 package main
 
 import (
@@ -31,5 +32,19 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile("linked_gen.go", data, 0o644)
+	if err := os.WriteFile("linked_gen.go", data, 0o644); err != nil {
+		return err
+	}
+	modules, err := tourgogen.ModulesFile(root, work)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(tourgogen.ModulesFileName, modules, 0o644); err != nil {
+		return err
+	}
+	sources, err := tourgogen.SourcesFile(root)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(tourgogen.SourcesFileName, sources, 0o644)
 }

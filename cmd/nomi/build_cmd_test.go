@@ -148,7 +148,7 @@ fn main() {
 			dir := t.TempDir()
 			entry := filepath.Join(dir, name)
 			mustWrite(t, entry, src)
-			bin := filepath.Join(t.TempDir(), "app")
+			bin := exe(filepath.Join(t.TempDir(), "app"))
 			if b := runProcess(t, env, dir, "", nomiBin, "build", entry, "-o", bin); b.exit != 0 {
 				t.Fatalf("nomi build: exit %d\n%s", b.exit, b.transcript())
 			}
@@ -189,7 +189,7 @@ func TestBuildCommand_AnEntryThatDeclaresAGoBindingRuns(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, "binding.go"), "package entryffi\n\nfunc Answer() int64 {\n\treturn 42\n}\n")
 	entry := filepath.Join(dir, "app.nomi")
 	mustWrite(t, entry, "import std/io\n\ngopkg \"entryffi\" as ffi\n\nfn answer() -> Int go ffi.Answer\n\nfn main() {\n  io.print(answer())\n}\n")
-	bin := filepath.Join(t.TempDir(), "app")
+	bin := exe(filepath.Join(t.TempDir(), "app"))
 	if b := runProcess(t, env, dir, "", nomiBin, "build", entry, "-o", bin); b.exit != 0 {
 		t.Fatalf("nomi build: exit %d\n%s", b.exit, b.transcript())
 	}
@@ -211,7 +211,7 @@ func TestBuildCommand_DefaultOutputIsTheEntryName(t *testing.T) {
 	if b := runProcess(t, env, dir, "", nomiBin, "build", entry); b.exit != 0 {
 		t.Fatalf("nomi build: exit %d\n%s", b.exit, b.transcript())
 	}
-	if got := runProcess(t, env, t.TempDir(), "", filepath.Join(dir, "greet")); got.stdout != "hi\n" || got.exit != 0 {
+	if got := runProcess(t, env, t.TempDir(), "", exe(filepath.Join(dir, "greet"))); got.stdout != "hi\n" || got.exit != 0 {
 		t.Fatalf("./greet printed %q, exit %d", got.transcript(), got.exit)
 	}
 }
@@ -232,7 +232,7 @@ func TestBuildCommand_RefusesWhatRunRefuses(t *testing.T) {
 	testFile := filepath.Join(dir, "thing_test.nomi")
 	mustWrite(t, testFile, "test \"t\" {\n  assert 1 == 1\n}\n")
 
-	bin := filepath.Join(t.TempDir(), "app")
+	bin := exe(filepath.Join(t.TempDir(), "app"))
 	run := runProcess(t, env, dir, "", nomiBin, "run", broken)
 	build := runProcess(t, env, dir, "", nomiBin, "build", broken, "-o", bin)
 	if run.exit == 0 || build.exit != run.exit || build.stderr != run.stderr || build.stdout != "" {
@@ -263,7 +263,7 @@ func TestBuildCommand_NoGoToolchainSaysSo(t *testing.T) {
 	entry := filepath.Join(dir, "hello.nomi")
 	mustWrite(t, entry, "import std/io\n\nfn main() {\n  io.print(\"hi\")\n}\n")
 	env := append(withoutEnv(buildEnv(t.TempDir()), "PATH"), "PATH="+t.TempDir())
-	bin := filepath.Join(t.TempDir(), "hello")
+	bin := exe(filepath.Join(t.TempDir(), "hello"))
 	b := runProcess(t, env, dir, "", nomiBin, "build", entry, "-o", bin)
 	if b.exit == 0 || !strings.Contains(b.stderr, "no Go toolchain: `nomi build` builds nomi-vm") ||
 		!strings.Contains(b.stderr, "`nomi run` needs no toolchain") {
@@ -350,7 +350,7 @@ func buildMatchesRecords(t *testing.T, nomi string, env []string, pops []recordP
 			rec := rec
 			entry := filepath.Join(repoRoot(t), pop.dir, filepath.FromSlash(rec.ID))
 			t.Run(pop.name+"/"+rec.ID, func(t *testing.T) {
-				bin := filepath.Join(t.TempDir(), "app")
+				bin := exe(filepath.Join(t.TempDir(), "app"))
 				b := runProcess(t, env, t.TempDir(), "", nomi, "build", entry, "-o", bin)
 				if strings.HasPrefix(rec.Transcript, "<not run>") {
 					t.Fatalf("the recorder did not run this program, so the build has nothing to match:\n%s", rec.Transcript)

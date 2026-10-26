@@ -2,9 +2,9 @@ package irbuild
 
 import (
 	"sort"
-	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -48,7 +48,7 @@ func TestStdModuleView_BindsPhaseOneNotPhaseTwo(t *testing.T) {
 		t.Fatalf("std.Load() carries no nodes or analysis for std/%s", module)
 	}
 	pkg := stdPackage(sort.SearchStrings(names, module))
-	path := strings.TrimPrefix(lib.FileURI(module), "file://")
+	path := fileuri.ToPath(lib.FileURI(module))
 
 	v := stdModuleContext(module, path, pkg, nodes, fa, full)
 
@@ -62,8 +62,7 @@ func TestStdModuleView_BindsPhaseOneNotPhaseTwo(t *testing.T) {
 		if len(ns) == 0 || mfa == nil {
 			continue
 		}
-		mv := stdModuleContext(name, strings.TrimPrefix(lib.FileURI(name), "file://"),
-			stdPackage(sort.SearchStrings(names, name)), ns, mfa, full)
+		mv := stdModuleContext(name, fileuri.ToPath(lib.FileURI(name)), stdPackage(sort.SearchStrings(names, name)), ns, mfa, full)
 		if len(mv.withCycles) != len(mv.settled) {
 			differ = true
 			break

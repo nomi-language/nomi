@@ -128,7 +128,7 @@ func TestDiagnostics_HalfTypedBodyReportsOnlyTheSyntaxError(t *testing.T) {
 	if len(doc.Damaged) != 1 {
 		t.Fatalf("want exactly the first declaration marked damaged, got %+v", doc.Damaged)
 	}
-	if len(doc.Errors) != 1 || !strings.Contains(doc.Errors[0].Message, "unexpected token RBRACE") {
+	if len(doc.Errors) != 1 || !strings.Contains(doc.Errors[0].Message, "unexpected `}`") {
 		t.Fatalf("the syntax error must still be reported, got %+v", doc.Errors)
 	}
 

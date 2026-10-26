@@ -102,7 +102,8 @@ func CurrencyLiterals(mods []*ir.Module, funcs []*ir.Func) (codes []string, dyna
 			switch {
 			case isos[c.Callee()] && !in(parses):
 				dynamic = true
-			case parses[c.Callee()] && !in(handlers) && !in(moneyHandlers):				dynamic = true
+			case parses[c.Callee()] && !in(handlers) && !in(moneyHandlers):
+				dynamic = true
 			case handlers[c.Callee()] && c.NumArgs() == 1:
 				text, static := literalText(f, c.Arg(0))
 				if !static {

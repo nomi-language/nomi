@@ -3,7 +3,7 @@
 pub fn isogram?(phrase: String) -> Bool {
     letters =
         phrase
-        |> String.to_lower()
+        |> String.fold_case()
         |> String.to_codepoints()
         |> Iter.filter(Codepoint.letter?)
         |> Iter.to_list()

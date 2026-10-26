@@ -237,7 +237,7 @@ func (l *lexer) scanLineComment() {
 		for !l.atEnd() && l.peek() != '\n' {
 			l.advance()
 		}
-		text := l.source[textStart:l.pos]
+		text := strings.TrimSuffix(l.source[textStart:l.pos], "\r")
 		l.tokens = append(l.tokens, token.Token{
 			Type: token.DOC_COMMENT, Lexeme: text, Line: startLine, Col: startCol,
 		})
@@ -249,7 +249,7 @@ func (l *lexer) scanLineComment() {
 		l.advance()
 	}
 	l.tokens = append(l.tokens, token.Token{
-		Type: token.COMMENT, Lexeme: l.source[start:l.pos], Line: startLine, Col: startCol,
+		Type: token.COMMENT, Lexeme: strings.TrimSuffix(l.source[start:l.pos], "\r"), Line: startLine, Col: startCol,
 	})
 }
 
@@ -283,6 +283,7 @@ func (l *lexer) scanRawBacktick(tag string) {
 	stripAttachedPrompts := l.inTestPromptedLine
 	l.advance() // consume opening backtick
 
+	l.skipCRBeforeLF()
 	if !l.atEnd() && l.peek() == '\n' {
 		l.advance()
 		if stripAttachedPrompts {
@@ -327,6 +328,11 @@ func (l *lexer) scanRawBacktick(tag string) {
 				l.illegalString(invalidUTF8InString, startLine, startCol)
 				return
 			}
+			continue
+		}
+		if ch == '\r' && l.peekAt(1) == '\n' {
+			// A CRLF line end is a line end, as LF is.
+			l.advance()
 			continue
 		}
 		buf = append(buf, byte(ch))
@@ -416,12 +422,12 @@ func (l *lexer) scanString(tag string) {
 				// `\${` writes a literal `${`; only that pair needs escaping.
 				buf = append(buf, '$')
 			} else if r, ok := strlit.DecodeSimple(byte(esc)); ok {
-				// Simple escape (\n, \t, \\, \") decoded via the shared strlit
+				// Simple escape (\n, \r, \t, \\, \") decoded via the shared strlit
 				// table, so the lexer and the formatter's encoder can't drift.
 				buf = append(buf, []byte(string(r))...)
 			} else {
 				// Unknown escape — reject it rather than silently keeping the
-				// backslash literal. Valid escapes: \n \t \\ \" and \u{HEX}.
+				// backslash literal. Valid escapes: \n \r \t \\ \" and \u{HEX}.
 				l.illegalString(`invalid escape \`+string(rune(esc)), startLine, startCol)
 				return
 			}
@@ -590,6 +596,7 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 	l.advance()
 
 	// Skip leading newline immediately after opening """
+	l.skipCRBeforeLF()
 	if !l.atEnd() && l.peek() == '\n' {
 		l.advance()
 		if stripAttachedPrompts {
@@ -759,6 +766,11 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 		}
 		// No escape processing — backslashes are literal in both
 		// regular and raw triple-quoted strings.
+		if ch == '\r' && l.peekAt(1) == '\n' {
+			// A CRLF line end is a line end, as LF is.
+			l.advance()
+			continue
+		}
 		buf = append(buf, byte(ch))
 		l.advance()
 		if stripAttachedPrompts && ch == '\n' {
@@ -768,6 +780,15 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 
 	l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: string(buf),
 		Problem: `unterminated triple-quoted string; close it with """`, Line: startLine, Col: startCol})
+}
+
+// skipCRBeforeLF steps over the CR of a CRLF line end, so a multi-line
+// string in a file saved with CRLF (Git's checkout on Windows) holds the
+// text it holds with LF.
+func (l *lexer) skipCRBeforeLF() {
+	if !l.atEnd() && l.peek() == '\r' && l.peekAt(1) == '\n' {
+		l.advance()
+	}
 }
 
 func (l *lexer) skipAttachedTestPromptPrefix() bool {

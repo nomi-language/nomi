@@ -10,6 +10,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/doctest"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -96,7 +97,7 @@ func TestTryBoundary_TreeIsClean(t *testing.T) {
 			// workspace rooted at the file's own project so sibling imports
 			// resolve the way they do in production.
 			dm := newManager(projectRootFor(root, path))
-			doc := dm.Open("file://"+path, string(content))
+			doc := dm.Open(fileuri.FromPath(path), string(content))
 			if doc == nil || doc.Analysis == nil {
 				return nil
 			}
@@ -149,7 +150,7 @@ func TestTryBoundary_TreeIsClean(t *testing.T) {
 					t.Fatal(readErr)
 				}
 				dm := newManager(dir)
-				doc := dm.Open("file://"+entry, string(content))
+				doc := dm.Open(fileuri.FromPath(entry), string(content))
 				if doc == nil || doc.Analysis == nil {
 					continue
 				}

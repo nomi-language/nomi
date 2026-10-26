@@ -1,5 +1,7 @@
 # Transpose
 
+Subject: Grids & Matrices
+
 Transpose lines of text, padding short lines on the left of a column with spaces and never on the right.
 
 Adapted from Exercism problem-specifications (MIT), exercises/transpose.

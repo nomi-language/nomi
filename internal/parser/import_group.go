@@ -85,3 +85,54 @@ func (p *Parser) groupedImportPaths(prefix string) []string {
 	}
 	return nil
 }
+
+// importPathText spells path as an import entry writes it: its first
+// fileSegments joined by `/`, the rest by `.`.
+func importPathText(path []ast.Node, fileSegments int) string {
+	var b strings.Builder
+	for i, seg := range path {
+		switch {
+		case i == 0:
+		case i < fileSegments:
+			b.WriteString("/")
+		default:
+			b.WriteString(".")
+		}
+		b.WriteString(ast.ImportNodeName(seg))
+	}
+	return b.String()
+}
+
+// nestedImportListError is the error for a selector list inside another,
+// `import nucleotide_count.{self, Nucleotide.{A, C, G, T}}`, at the inner
+// `{` (the parser's position). prefix is the path before the outer list and
+// open the token index of its `{`. The hint spells the outer list's entries
+// as an import block, one entry per line, when it can read them, and a
+// fixed example when it cannot.
+func (p *Parser) nestedImportListError(prefix string, open int) error {
+	inner := p.peek()
+	saved := p.pos
+	p.pos = open
+	paths := p.groupedImportPaths(prefix + ".")
+	p.pos = saved
+	for i, path := range paths {
+		if path == prefix+".self" {
+			paths[i] = prefix
+		}
+	}
+	if len(paths) == 0 {
+		paths = []string{"nucleotide_count", "nucleotide_count.Nucleotide.{A, C, G, T}"}
+	}
+	var hint strings.Builder
+	hint.WriteString("give each entry its own line in an import block:\nimport {")
+	for _, path := range paths {
+		hint.WriteString("\n    " + path)
+	}
+	hint.WriteString("\n}")
+	return ParseError{
+		Line:    inner.Line,
+		Col:     inner.Col,
+		Message: "a selector list cannot hold another list",
+		Hints:   []string{hint.String()},
+	}
+}

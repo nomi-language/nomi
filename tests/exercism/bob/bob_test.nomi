@@ -29,7 +29,7 @@ test "bob's responses" {
         #("shouting with no exclamation mark", "I HATE THE DENTIST", "Whoa, chill out!"),
         #("prolonged silence", "          ", "Fine. Be that way!"),
         #("alternate silence", "\t\t\t\t\t\t\t\t\t\t", "Fine. Be that way!"),
-        #("other whitespace", "\n\u{d} \t", "Fine. Be that way!"),
+        #("other whitespace", "\n\r \t", "Fine. Be that way!"),
         #("talking forcefully", "Hi there!", "Whatever."),
         #(
             "using acronyms in regular speech",

@@ -2081,12 +2081,29 @@
 20-data-access/uuid_test.nomi:literal Uuid`ffffffff-ffff-ffff-ffff-ffffffffffff` at 16:15 failure	ran
 20-data-access/uuid_test.nomi:shaped?	ran
 exercism/acronym/acronym.nomi:abbreviate	ran
+exercism/affine-cipher/affine_cipher.nomi:Error.inspect	ran
+exercism/affine-cipher/affine_cipher.nomi:Key.inspect	ran
+exercism/affine-cipher/affine_cipher.nomi:decode	PROBE: a synthesized struct lacks a field read through a container
+exercism/affine-cipher/affine_cipher.nomi:encode	PROBE: a synthesized struct lacks a field read through a container
+exercism/affine-cipher/affine_cipher.nomi:inverse	ran
+exercism/affine-cipher/affine_cipher.nomi:shift	ran
+exercism/affine-cipher/affine_cipher.nomi:translate	PROBE: a synthesized argument is not a value of the declared type
+exercism/all-your-base/all_your_base.nomi:Error.inspect	ran
+exercism/all-your-base/all_your_base.nomi:digits_of	ran
+exercism/all-your-base/all_your_base.nomi:rebase	ran
 exercism/allergies/allergies.nomi:Allergen.inspect	ran
 exercism/allergies/allergies.nomi:Allergen.variants	ran
 exercism/allergies/allergies.nomi:allergic_to?	ran
 exercism/allergies/allergies.nomi:list	ran
 exercism/allergies/allergies.nomi:value	ran
 exercism/anagram/anagram.nomi:find	ran
+exercism/armstrong-numbers/armstrong_numbers.nomi:armstrong?	ran
+exercism/armstrong-numbers/armstrong_numbers.nomi:digits_of	ran
+exercism/armstrong-numbers/armstrong_numbers.nomi:power	ran
+exercism/atbash-cipher/atbash_cipher.nomi:decode	ran
+exercism/atbash-cipher/atbash_cipher.nomi:encode	ran
+exercism/atbash-cipher/atbash_cipher.nomi:swap	ran
+exercism/atbash-cipher/atbash_cipher.nomi:translate	ran
 exercism/binary-search/binary_search.nomi:find	PROBE: a synthesized argument is not a value of the declared type
 exercism/binary-search/binary_search.nomi:search	ran
 exercism/bob/bob.nomi:response	ran
@@ -2100,13 +2117,40 @@ exercism/clock/clock.nomi:two_digits	ran
 exercism/clock/clock.nomi:wrap	ran
 exercism/collatz-conjecture/collatz_conjecture.nomi:next	ran
 exercism/collatz-conjecture/collatz_conjecture.nomi:steps	ran
+exercism/darts/darts.nomi:score	ran
+exercism/diamond/diamond.nomi:row	PROBE: a synthesized argument is not a value of the declared type
+exercism/diamond/diamond.nomi:rows	ran
+exercism/difference-of-squares/difference_of_squares.nomi:difference_of_squares	ran
+exercism/difference-of-squares/difference_of_squares.nomi:square_of_sum	ran
+exercism/difference-of-squares/difference_of_squares.nomi:sum_of_squares	ran
+exercism/eliuds-eggs/eliuds_eggs.nomi:egg_count	ran
 exercism/etl/etl.nomi:transform	ran
 exercism/game-of-life/game_of_life.nomi:cell_at	PROBE: a synthesized argument is not a value of the declared type
 exercism/game-of-life/game_of_life.nomi:live_neighbours	PROBE: a synthesized argument is not a value of the declared type
 exercism/game-of-life/game_of_life.nomi:next_state	ran
 exercism/game-of-life/game_of_life.nomi:tick	PROBE: a synthesized argument is not a value of the declared type
+exercism/grains/grains.nomi:grains_on	ran
+exercism/grains/grains.nomi:square	ran
+exercism/grains/grains.nomi:total	ran
 exercism/hamming/hamming.nomi:distance	ran
+exercism/house/house.nomi:recite	ran
+exercism/house/house.nomi:verse	ran
+exercism/isbn-verifier/isbn_verifier.nomi:checksum	ran
+exercism/isbn-verifier/isbn_verifier.nomi:valid?	ran
+exercism/isbn-verifier/isbn_verifier.nomi:value	ran
 exercism/isogram/isogram.nomi:isogram?	ran
+exercism/kindergarten-garden/kindergarten_garden.nomi:Garden.inspect	ran
+exercism/kindergarten-garden/kindergarten_garden.nomi:Garden.parse	ran
+exercism/kindergarten-garden/kindergarten_garden.nomi:Garden.plants	ran
+exercism/kindergarten-garden/kindergarten_garden.nomi:Plant.from_letter	ran
+exercism/kindergarten-garden/kindergarten_garden.nomi:Plant.inspect	ran
+exercism/kindergarten-garden/kindergarten_garden.nomi:Student.inspect	ran
+exercism/kindergarten-garden/kindergarten_garden.nomi:Student.variants	ran
+exercism/kindergarten-garden/kindergarten_garden.nomi:parse_row	ran
+exercism/kindergarten-garden/kindergarten_garden.nomi:position	ran
+exercism/largest-series-product/largest_series_product.nomi:Error.inspect	ran
+exercism/largest-series-product/largest_series_product.nomi:largest_product	ran
+exercism/largest-series-product/largest_series_product.nomi:product	PROBE: a synthesized argument is not a value of the declared type
 exercism/leap/leap.nomi:leap_year?	ran
 exercism/list-ops/list_ops.nomi:append	PROBE: a synthesized argument is not a value of the declared type
 exercism/list-ops/list_ops.nomi:append	PROBE: a synthesized argument is not a value of the declared type
@@ -2141,6 +2185,8 @@ exercism/matching-brackets/matching_brackets.nomi:paired?	ran
 exercism/minesweeper/minesweeper.nomi:annotate	ran
 exercism/minesweeper/minesweeper.nomi:annotate_square	PROBE: a synthesized argument is not a value of the declared type
 exercism/minesweeper/minesweeper.nomi:mines_in_row	ran
+exercism/nth-prime/nth_prime.nomi:prime	ran
+exercism/nth-prime/nth_prime.nomi:prime?	ran
 exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.equal?	ran
 exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.hash	ran
 exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.inspect	ran
@@ -2148,17 +2194,47 @@ exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.parse	ran
 exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.variants	ran
 exercism/nucleotide-count/nucleotide_count.nomi:counts	ran
 exercism/pangram/pangram.nomi:pangram?	ran
+exercism/pascals-triangle/pascals_triangle.nomi:next_row	ran
+exercism/pascals-triangle/pascals_triangle.nomi:rows	ran
+exercism/perfect-numbers/perfect_numbers.nomi:Classification.inspect	ran
+exercism/perfect-numbers/perfect_numbers.nomi:Error.inspect	ran
+exercism/perfect-numbers/perfect_numbers.nomi:aliquot_sum	ran
+exercism/perfect-numbers/perfect_numbers.nomi:classify	ran
+exercism/perfect-numbers/perfect_numbers.nomi:divisor_pair	ran
 exercism/phone-number/phone_number.nomi:Error.inspect	ran
 exercism/phone-number/phone_number.nomi:clean	ran
 exercism/phone-number/phone_number.nomi:national	ran
 exercism/phone-number/phone_number.nomi:separator?	ran
+exercism/pig-latin/pig_latin.nomi:consonants	ran
+exercism/pig-latin/pig_latin.nomi:onset_length	ran
+exercism/pig-latin/pig_latin.nomi:translate	ran
+exercism/pig-latin/pig_latin.nomi:translate_word	ran
 exercism/prime-factors/prime_factors.nomi:factors	ran
 exercism/prime-factors/prime_factors.nomi:factors_from	ran
+exercism/protein-translation/protein_translation.nomi:AminoAcid.inspect	ran
+exercism/protein-translation/protein_translation.nomi:Error.inspect	ran
+exercism/protein-translation/protein_translation.nomi:proteins	ran
+exercism/protein-translation/protein_translation.nomi:translate	ran
+exercism/proverb/proverb.nomi:recite	ran
 exercism/queen-attack/queen_attack.nomi:Error.inspect	ran
 exercism/queen-attack/queen_attack.nomi:Queen.can_attack?	ran
 exercism/queen-attack/queen_attack.nomi:Queen.inspect	ran
 exercism/queen-attack/queen_attack.nomi:Queen.new	ran
 exercism/raindrops/raindrops.nomi:convert	ran
+exercism/resistor-color-duo/resistor_color_duo.nomi:Color.inspect	ran
+exercism/resistor-color-duo/resistor_color_duo.nomi:digit	ran
+exercism/resistor-color-duo/resistor_color_duo.nomi:value	ran
+exercism/resistor-color-trio/resistor_color_trio.nomi:Color.inspect	ran
+exercism/resistor-color-trio/resistor_color_trio.nomi:Magnitude.inspect	ran
+exercism/resistor-color-trio/resistor_color_trio.nomi:Resistance.inspect	ran
+exercism/resistor-color-trio/resistor_color_trio.nomi:digit	ran
+exercism/resistor-color-trio/resistor_color_trio.nomi:in_largest_unit	ran
+exercism/resistor-color-trio/resistor_color_trio.nomi:label	ran
+exercism/resistor-color-trio/resistor_color_trio.nomi:power_of_ten	ran
+exercism/resistor-color/resistor_color.nomi:Color.inspect	ran
+exercism/resistor-color/resistor_color.nomi:Color.variants	ran
+exercism/resistor-color/resistor_color.nomi:color_code	ran
+exercism/resistor-color/resistor_color.nomi:colors	ran
 exercism/reverse-string/reverse_string.nomi:reverse	ran
 exercism/rna-transcription/rna_transcription.nomi:complement	ran
 exercism/rna-transcription/rna_transcription.nomi:to_rna	ran
@@ -2172,6 +2248,8 @@ exercism/robot-simulator/robot_simulator.nomi:Robot.move	ran
 exercism/robot-simulator/robot_simulator.nomi:advance	ran
 exercism/robot-simulator/robot_simulator.nomi:step	ran
 exercism/roman-numerals/roman_numerals.nomi:roman	ran
+exercism/rotational-cipher/rotational_cipher.nomi:rotate	ran
+exercism/rotational-cipher/rotational_cipher.nomi:shifted	PROBE: a synthesized argument is not a value of the declared type
 exercism/run-length-encoding/run_length_encoding.nomi:decode	ran
 exercism/run-length-encoding/run_length_encoding.nomi:decode_run	ran
 exercism/run-length-encoding/run_length_encoding.nomi:encode	ran
@@ -2180,7 +2258,23 @@ exercism/saddle-points/saddle_points.nomi:Position.inspect	ran
 exercism/saddle-points/saddle_points.nomi:column_minima	PROBE: a synthesized argument is not a value of the declared type
 exercism/saddle-points/saddle_points.nomi:column_minimum	PROBE: a synthesized argument is not a value of the declared type
 exercism/saddle-points/saddle_points.nomi:saddle_points	PROBE: a synthesized argument is not a value of the declared type
+exercism/scrabble-score/scrabble_score.nomi:letter_value	ran
+exercism/scrabble-score/scrabble_score.nomi:score	ran
+exercism/secret-handshake/secret_handshake.nomi:Action.inspect	ran
+exercism/secret-handshake/secret_handshake.nomi:Action.variants	ran
+exercism/secret-handshake/secret_handshake.nomi:bit	ran
+exercism/secret-handshake/secret_handshake.nomi:commands	ran
+exercism/secret-handshake/secret_handshake.nomi:set?	ran
+exercism/series/series.nomi:Error.inspect	ran
+exercism/series/series.nomi:slices	ran
 exercism/sieve/sieve.nomi:primes	ran
+exercism/space-age/space_age.nomi:Planet.inspect	ran
+exercism/space-age/space_age.nomi:Planet.orbital_period	ran
+exercism/space-age/space_age.nomi:Planet.parse	ran
+exercism/space-age/space_age.nomi:Planet.to_string	ran
+exercism/space-age/space_age.nomi:Planet.variants	ran
+exercism/space-age/space_age.nomi:age	ran
+exercism/space-age/space_age_test.nomi:to_hundredths	ran
 exercism/spiral-matrix/spiral_matrix.nomi:cell_at	PROBE: a synthesized argument is not a value of the declared type
 exercism/spiral-matrix/spiral_matrix.nomi:empty?	PROBE: a synthesized argument is not a value of the declared type
 exercism/spiral-matrix/spiral_matrix.nomi:fill	PROBE: a synthesized argument is not a value of the declared type
@@ -2188,7 +2282,23 @@ exercism/spiral-matrix/spiral_matrix.nomi:set_cell	PROBE: a synthesized argument
 exercism/spiral-matrix/spiral_matrix.nomi:spiral_matrix	ran
 exercism/spiral-matrix/spiral_matrix.nomi:step	ran
 exercism/spiral-matrix/spiral_matrix.nomi:turn	ran
+exercism/sublist/sublist.nomi:Relation.inspect	ran
+exercism/sublist/sublist.nomi:contains_run?	ran
+exercism/sublist/sublist.nomi:starts_with?	ran
+exercism/sublist/sublist.nomi:sublist	ran
 exercism/sum-of-multiples/sum_of_multiples.nomi:sum	ran
+exercism/tournament/tournament.nomi:Error.inspect	ran
+exercism/tournament/tournament.nomi:Outcome.inspect	ran
+exercism/tournament/tournament.nomi:Outcome.parse	ran
+exercism/tournament/tournament.nomi:Outcome.reverse	ran
+exercism/tournament/tournament.nomi:Standing.inspect	ran
+exercism/tournament/tournament.nomi:Standing.played	ran
+exercism/tournament/tournament.nomi:Standing.points	ran
+exercism/tournament/tournament.nomi:count	PROBE: a synthesized argument is not a value of the declared type
+exercism/tournament/tournament.nomi:line	PROBE: a synthesized argument is not a value of the declared type
+exercism/tournament/tournament.nomi:parse_row	ran
+exercism/tournament/tournament.nomi:standing	PROBE: a synthesized argument is not a value of the declared type
+exercism/tournament/tournament.nomi:tally	ran
 exercism/transpose/transpose.nomi:padded_rows	ran
 exercism/transpose/transpose.nomi:transpose	ran
 exercism/triangle/triangle.nomi:Kind.inspect	ran
@@ -2196,6 +2306,9 @@ exercism/triangle/triangle.nomi:equilateral?	ran
 exercism/triangle/triangle.nomi:isosceles?	ran
 exercism/triangle/triangle.nomi:kind	ran
 exercism/triangle/triangle.nomi:scalene?	ran
+exercism/twelve-days/twelve_days.nomi:gifts	ran
+exercism/twelve-days/twelve_days.nomi:recite	ran
+exercism/twelve-days/twelve_days.nomi:verse	ran
 exercism/two-fer/two_fer.nomi:two_fer	ran
 exercism/two-fer/two_fer.nomi:two_fer default 1	ran
 exercism/word-count/word_count.nomi:count_words	ran
@@ -2203,6 +2316,7 @@ exercism/wordy/wordy.nomi:Error.inspect	ran
 exercism/wordy/wordy.nomi:Operation.inspect	ran
 exercism/wordy/wordy.nomi:answer	ran
 exercism/wordy/wordy.nomi:apply	ran
+exercism/wordy/wordy.nomi:divide	ran
 exercism/wordy/wordy.nomi:evaluate	ran
 exercism/wordy/wordy.nomi:operand	ran
 std/fs.nomi:Access.equal?	ran

@@ -2,9 +2,9 @@ package irbuild
 
 import (
 	"sort"
-	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -37,8 +37,7 @@ func TestStdModuleView_PopulatesNodes(t *testing.T) {
 		if len(nodes) == 0 || fa == nil {
 			continue
 		}
-		v := stdModuleContext(name, strings.TrimPrefix(lib.FileURI(name), "file://"),
-			stdPackage(sort.SearchStrings(names, name)), nodes, fa, full)
+		v := stdModuleContext(name, fileuri.ToPath(lib.FileURI(name)), stdPackage(sort.SearchStrings(names, name)), nodes, fa, full)
 		g := v.gen(full)
 		if len(g.nodes) != len(nodes) {
 			t.Fatalf("std/%s: the gen carries %d nodes, the module has %d — every `g.nodes` reader in "+

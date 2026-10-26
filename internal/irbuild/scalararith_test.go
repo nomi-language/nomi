@@ -194,7 +194,7 @@ func TestScalarArith_TheTwelveKeysStayUnbound(t *testing.T) {
 //
 //	pub interface Add<Rhs, Out> { … }
 //	  -> type name 'Add' is reserved by the language and cannot be redeclared
-//	     as an interface; pick a different name (e.g. `MyAdd`)
+//	     as an interface; pick a different name (e.g. `interface MyAdd { ... }`)
 //	pub type Int Bool
 //	  -> type name 'Int' is reserved by the language and cannot be redeclared
 //	     as a distinct type; …

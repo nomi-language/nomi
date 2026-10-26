@@ -53,7 +53,7 @@ func TestEncodeStringBody_NonPrintableUsesBracedHex(t *testing.T) {
 // The whole point of the package: decode and encode share one table, so every
 // simple escape round-trips. This is what strconv.Quote (Go's table) failed.
 func TestSimpleEscapes_DecodeIsInverseOfEncode(t *testing.T) {
-	for _, r := range []rune{'\n', '\t', '\\', '"'} {
+	for _, r := range []rune{'\n', '\r', '\t', '\\', '"'} {
 		enc := EncodeStringBody(string(r)) // e.g. `\n`
 		if len(enc) != 2 || enc[0] != '\\' {
 			t.Fatalf("expected a 2-char escape for %q, got %q", r, enc)

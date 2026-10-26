@@ -1558,7 +1558,7 @@ module.exports = grammar({
       "'",
       choice(
         alias(token.immediate(/[^'\\\n]/), $.codepoint_content),
-        alias(token.immediate(seq('\\', choice('n', 't', '\\', "'", /u\{[0-9a-fA-F]+\}/))), $.escape_sequence),
+        alias(token.immediate(seq('\\', choice('n', 'r', 't', '\\', "'", /u\{[0-9a-fA-F]+\}/))), $.escape_sequence),
       ),
       token.immediate("'"),
     ),
@@ -1656,7 +1656,7 @@ module.exports = grammar({
     // (no interpolation, backslash is literal text).
     string_interpolation: $ => seq('${', $._expression, '}'),
     // `\${` writes a literal `${`; `\$` is valid only before `{`.
-    escape_sequence: $ => token.immediate(seq('\\', choice('n', 't', '\\', '"', '${', /u\{[0-9a-fA-F]+\}/))),
+    escape_sequence: $ => token.immediate(seq('\\', choice('n', 'r', 't', '\\', '"', '${', /u\{[0-9a-fA-F]+\}/))),
 
     boolean: $ => choice('true', 'false'),
 

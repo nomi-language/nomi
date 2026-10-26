@@ -63,7 +63,7 @@ test "size" {
 		t.Fatalf("nomi test does not run the dbg: exit %d\n%s", tr.exit, tr.transcript())
 	}
 
-	bin := filepath.Join(t.TempDir(), "app")
+	bin := exe(filepath.Join(t.TempDir(), "app"))
 	b := runProcess(t, env, dir, "", nomiBin, "build", entry, "-o", bin)
 	want := "nomi build: 1 todo and 2 dbgs remain:\n" +
 		"  main.nomi:8:9 dbg header.size()\n" +

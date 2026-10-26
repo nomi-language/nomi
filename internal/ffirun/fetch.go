@@ -21,7 +21,7 @@ func Fetch(projectRoot string, targets []Target) error {
 		return err
 	}
 	for _, t := range targets {
-		if _, err := ProjectRunner(r, t, false); err != nil {
+		if _, err := ProjectRunner(r, t, Variant{}); err != nil {
 			return fmt.Errorf("the runner for %s: %w", t, err)
 		}
 	}

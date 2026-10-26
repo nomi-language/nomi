@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"os"
 	"path/filepath"
 	"testing"
@@ -101,8 +102,8 @@ func TestReverseDeps(t *testing.T) {
 	dm := NewDocumentManager()
 	dm.SetWorkspaceRoot(dir)
 
-	mathURI := "file://" + filepath.Join(dir, "math.nomi")
-	mainURI := "file://" + filepath.Join(dir, "main.nomi")
+	mathURI := fileuri.FromPath(filepath.Join(dir, "math.nomi"))
+	mainURI := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	dm.IndexFile(mathURI)
 	dm.IndexFile(mainURI)
 
@@ -132,8 +133,8 @@ func TestReverseDeps_BlockFormImport(t *testing.T) {
 	dm := NewDocumentManager()
 	dm.SetWorkspaceRoot(dir)
 
-	mathURI := "file://" + filepath.Join(dir, "math.nomi")
-	mainURI := "file://" + filepath.Join(dir, "main.nomi")
+	mathURI := fileuri.FromPath(filepath.Join(dir, "math.nomi"))
+	mainURI := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	dm.IndexFile(mathURI)
 	dm.IndexFile(mainURI)
 

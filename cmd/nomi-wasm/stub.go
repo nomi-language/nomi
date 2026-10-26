@@ -9,5 +9,5 @@ package main
 import "fmt"
 
 func main() {
-	fmt.Println("nomi-wasm must be built with GOOS=js GOARCH=wasm; see cmd/nomi-wasm/main.go")
+	fmt.Println("nomi-wasm must be built with GOOS=js GOARCH=wasm in the internal/tourgo/tour.work workspace; see cmd/nomi-wasm/main.go")
 }

@@ -182,3 +182,5 @@ group "group" {
 group {
 // <----- keyword.declaration.nomi
 }
+cr = "a\rb"
+// <~~~~~~~-- string.quoted.double.nomi constant.character.escape.nomi

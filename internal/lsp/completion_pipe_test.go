@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"path/filepath"
 	"testing"
 )
@@ -76,7 +77,7 @@ func TestCompletion_PipeOffersImportedFileFunctions(t *testing.T) {
 		"main.nomi": "fn main() {\n}\n",
 	})
 	s := NewServer()
-	uri := "file://" + filepath.Join(dir, "main.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	items := completeIn(t, s, uri, "import text\n\nfn main() {\n    \"a\" |> "+cursorMark+"\n}\n").Items
 	labelsInclude(t, items, "text.shout")
 	labelsExclude(t, items, "text.twice")
@@ -92,7 +93,7 @@ func TestCompletion_PipeOwnerLookupReadsClosedFiles(t *testing.T) {
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)
 	s.docs.IndexWorkspace(context.Background())
-	uri := "file://" + filepath.Join(dir, "main.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	items := completeIn(t, s, uri, "import lib\n\nfn main() {\n    lib.pause() |> "+cursorMark+"\n}\n").Items
 	labelsInclude(t, items, "Duration.as_seconds")
 }
@@ -129,7 +130,7 @@ func TestCompletion_PipeKeywordStages(t *testing.T) {
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)
 	s.docs.IndexWorkspace(context.Background())
-	uri := "file://" + filepath.Join(dir, "main.nomi")
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	items = completeIn(t, s, uri, "import lib\n\nfn main() {\n    _ = \"a\" |> "+cursorMark+"\n}\n").Items
 	labelsBefore(t, items, "lib.shout", "dbg")
 }

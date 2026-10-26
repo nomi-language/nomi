@@ -179,10 +179,12 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 	agreed := 0
 	var disagreed []string
 	counted := map[*ir.Func]bool{}
-	// run makes the machine and calls fn in a bubble.
+	// run makes the machine and calls fn in a bubble, with the step budget
+	// vmProbe gives a call.
 	run := func(e vmProbeEntry, args []any) error {
 		err, answered, bubbleErr := vmInBubble(func() error {
-			_, err := vmRunSymV(vmProgram(e.mod, e.links), e.fn.Sym(), args...)
+			m := vmProgram(e.mod, e.links).WithLimits(vm.Limits{Steps: vmProbeSteps})
+			_, err := vmRunSymV(m, e.fn.Sym(), args...)
 			return err
 		})
 		if !answered {

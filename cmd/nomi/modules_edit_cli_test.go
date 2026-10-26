@@ -74,7 +74,8 @@ func mustRead(t *testing.T, path string) string {
 }
 
 // `nomi new` writes nomi.toml, go.mod and a main.nomi that runs, in a new
-// directory named for the path, and refuses one that has a go.mod.
+// directory named for the path, and refuses one that has a go.mod or a
+// nomi.toml, naming `nomi init`.
 func TestModules_NewStartsAProject(t *testing.T) {
 	c := newModuleCLI(t)
 	work := t.TempDir()
@@ -98,17 +99,24 @@ func TestModules_NewStartsAProject(t *testing.T) {
 	}
 
 	_, stderr, err := c.run(work, "new", "github.com/you/hello-world/v2", "hello_world")
-	if err == nil || stderr != "nomi new: hello_world already holds a go.mod" {
+	if err == nil || stderr != "nomi new: hello_world already holds a go.mod; run `nomi init` in it to make it a project" {
 		t.Errorf("nomi new over a project: %v\n%s", err, stderr)
 	}
 
-	// In the current directory, the next command needs no cd; a module
-	// with only a nomi.toml gets its go.mod and keeps the manifest.
+	// In the current directory, the next command needs no cd, and a
+	// main.nomi already there is kept.
+	app := filepath.Join(work, "app")
+	mustWrite(t, filepath.Join(app, "main.nomi"), "fn main() {\n}\n")
+	out = c.must(app, "new", "example.com/app", ".")
+	if out != "wrote nomi.toml and go.mod\nkept main.nomi, which was already there\nnext: nomi run main.nomi" {
+		t.Errorf("nomi new . printed\n%s", out)
+	}
+
 	lib := filepath.Join(work, "lib")
 	mustWrite(t, filepath.Join(lib, "nomi.toml"), "[module]\nname = \"lib\"\n")
-	out = c.must(lib, "new", "example.com/lib", ".")
-	if out != "wrote go.mod\nkept nomi.toml, which was already there\nnext: nomi add <module>" {
-		t.Errorf("nomi new beside a nomi.toml printed\n%s", out)
+	_, stderr, err = c.run(lib, "new", "example.com/lib", ".")
+	if err == nil || stderr != "nomi new: . already holds a nomi.toml; run `nomi init` in it to make it a project" {
+		t.Errorf("nomi new beside a nomi.toml: %v\n%s", err, stderr)
 	}
 	if got := mustRead(t, filepath.Join(lib, "nomi.toml")); got != "[module]\nname = \"lib\"\n" {
 		t.Errorf("nomi new rewrote a nomi.toml:\n%s", got)
@@ -155,7 +163,7 @@ func TestModules_AddALocalModule(t *testing.T) {
 	bare := filepath.Join(app, "bare")
 	mustWrite(t, filepath.Join(bare, "nomi.toml"), "[module]\nname = \"bare\"\n")
 	_, stderr, err = c.run(app, "add", "./bare")
-	if err == nil || stderr != "nomi add: ./bare has no go.mod, so it has no module path; run `nomi new <module path> ./bare` to give it one" {
+	if err == nil || stderr != "nomi add: ./bare has no go.mod, so it has no module path; run `nomi init <module path>` in ./bare to give it one" {
 		t.Errorf("nomi add of a directory with no go.mod: %v\n%s", err, stderr)
 	}
 }

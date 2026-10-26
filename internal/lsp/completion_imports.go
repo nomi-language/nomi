@@ -8,6 +8,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 
@@ -108,7 +109,7 @@ func (r *completionRequest) filePublicNames(segs []string) []candidate {
 		return nil
 	}
 	path := filepath.Join(append([]string{r.projectRoot()}, segs...)...) + ".nomi"
-	if snap := r.s.docs.Snapshot("file://" + path); snap != nil && snap.Analysis != nil {
+	if snap := r.s.docs.Snapshot(fileuri.FromPath(path)); snap != nil && snap.Analysis != nil {
 		return scopeMemberCandidates(snap.Analysis.ModuleScope, func(*analysis.Symbol) bool { return true })
 	}
 	data, err := os.ReadFile(path)

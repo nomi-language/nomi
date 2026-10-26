@@ -32,6 +32,7 @@ import (
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/expectation"
 	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/tourgo"
 	"github.com/nomi-language/nomi/internal/vmcmd"
@@ -314,7 +315,7 @@ func TestExpectation_Stdlib(t *testing.T) {
 			"`nomi test std/<module>` runs it. N is the module's prompt-case count.",
 	}
 	for _, module := range stdlibModulesWithPrompts(t) {
-		path := strings.TrimPrefix(std.Load().FileURI(module), "file://")
+		path := fileuri.ToPath(std.Load().FileURI(module))
 		if !vmcmd.IsStdlibPath(path) {
 			t.Fatalf("std/%s resolves to %s, which `nomi test` would not run as a stdlib module", module, path)
 		}
@@ -389,7 +390,9 @@ func TestExpectation_Tour(t *testing.T) {
 			"declares tests and 0 otherwise; a block's own tests run and their report is part " +
 			"of the transcript, which the hidden <!-- expect --> block does not cover. A block " +
 			"that stops on purpose (a todo reached, a trap, an Err from main) is recorded with " +
-			"exit 1 and its failure on stderr, as `nomi run` prints it.",
+			"exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports " +
+			"a module whose Go side only the browser links (sqlite) has no record; the staged " +
+			"wasm is held to its expect block.",
 	}
 	for _, chapter := range chapters {
 		data, err := os.ReadFile(chapter)
@@ -405,6 +408,13 @@ func TestExpectation_Tour(t *testing.T) {
 			// TestTourDoctests and TestTourWasmAnswersTheTourBlocks; a
 			// no-run block's output differs per run.
 			if !b.Runs() {
+				continue
+			}
+			// A block that imports a tour module (sqlite) runs only on
+			// the module's browser build, which this binary does not
+			// link; TestTourWasmAnswersTheTourBlocks holds the staged
+			// wasm to its expect block.
+			if len(tourgo.Unlinked(b.Code)) > 0 {
 				continue
 			}
 			id := fmt.Sprintf("%s:L%d", filepath.ToSlash(rel), b.Line)
@@ -436,11 +446,14 @@ func runTourBlock(b doctest.Block) (observed, bool) {
 	}
 	defer os.RemoveAll(dir)
 	// Its `go` bindings, answered by the Go the tour links (internal/tourgo).
-	hosts, err := tourgo.MarkedHosts(b.Code)
+	// The modules the tour links that it imports are attached as the
+	// tour's runner attaches them (tourgo.Source).
+	src := tourgo.Source(b.Code)
+	hosts, err := tourgo.MarkedHosts(src)
 	if err != nil {
 		return observed{stderr: err.Error() + "\n", exit: 1}, false
 	}
-	p, hasTests, err := vmhost.LoadMarked(b.Code, dir, vmhost.WithHosts(hosts))
+	p, hasTests, err := vmhost.LoadMarked(src, dir, vmhost.WithHosts(hosts))
 	if err != nil {
 		return observed{stdout: out.String(), stderr: err.Error() + "\n", exit: 1}, hasTests
 	}

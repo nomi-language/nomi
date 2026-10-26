@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/std"
@@ -265,7 +266,7 @@ func TestWorkspaceFixtureDiagnosticsAreQuietWhenExpectationsMatch(t *testing.T) 
 	})
 	var noisy []string
 	for _, path := range paths {
-		doc := dm.AnalyzeClosed("file://" + path)
+		doc := dm.AnalyzeClosed(fileuri.FromPath(path))
 		if doc == nil || doc.Analysis == nil {
 			continue
 		}
@@ -297,7 +298,7 @@ func TestStdlibSameOwnerPipeCallPublishesCleanly(t *testing.T) {
 	dm := analysis.NewDocumentManager()
 	dm.SetWorkspaceRoot(root)
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
-	doc := dm.Open("file://"+path, string(content))
+	doc := dm.Open(fileuri.FromPath(path), string(content))
 	if doc.Analysis == nil {
 		t.Fatal("expected analysis to be non-nil")
 	}
@@ -423,7 +424,7 @@ func TestDocumentManager_DiscardBindingSuppressesIgnoredExpressionDiagnostic(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc := dm.Open("file://"+path, string(content))
+	doc := dm.Open(fileuri.FromPath(path), string(content))
 	if doc.Analysis == nil {
 		t.Fatal("expected analysis to be non-nil")
 	}
@@ -453,7 +454,7 @@ func TestImportedFileBuildErrorsPublishOnThatFile(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		doc := dm.Open("file://"+path, string(content))
+		doc := dm.Open(fileuri.FromPath(path), string(content))
 		if doc.Analysis == nil {
 			t.Fatalf("%s: no analysis", name)
 		}
@@ -494,7 +495,7 @@ func TestMissingImportPublishesOnTheImportLine(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		doc := dm.Open("file://"+path, string(content))
+		doc := dm.Open(fileuri.FromPath(path), string(content))
 		if doc.Analysis == nil {
 			t.Fatalf("%s: no analysis", name)
 		}
@@ -632,7 +633,7 @@ func TestImplOnlyImportPublishesWhatTheProgramUses(t *testing.T) {
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	open := func(name string) (*analysis.Document, []string) {
 		path := filepath.Join(dir, name)
-		doc := dm.Open("file://"+path, files[name])
+		doc := dm.Open(fileuri.FromPath(path), files[name])
 		if doc.Analysis == nil {
 			t.Fatalf("%s: no analysis", name)
 		}

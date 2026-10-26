@@ -1,5 +1,7 @@
 # Bob
 
+Subject: Strings & Text
+
 Answer a remark the way a lackadaisical teenager would, depending on whether
 it is a question, a shout, both, or silence.
 
@@ -21,15 +23,12 @@ Adapted from Exercism problem-specifications (MIT), exercises/bob.
   (`remark = String.trim(remark)`), per style §11.
 - Replies are plain Strings, since the canonical data compares strings and
   nothing else consumes them.
+- The "other whitespace" case writes its remark `"\n\r \t"`, the escapes the
+  canonical data uses, so the test reads as the specification does.
 - The case "multiple line question" (uuid 66953780) is left out because
   canonical data replaces it with uuid 2c7278ac, which is included under the
   same description.
 
 ## Friction
 
-- [feature] Nomi strings have no `\r` escape; the "other whitespace" case
-  writes `"\n\u{d} \t"`, and `nomi fmt` lower-cases the hex I wrote as
-  `\u{D}`. Rust, Go, Elixir and Gleam all accept `"\n\r \t"`. The spec lists
-  the omission as deliberate, but carriage returns turn up in any text read
-  from a Windows file or a network protocol, and `\u{d}` is harder to
-  recognize.
+None.

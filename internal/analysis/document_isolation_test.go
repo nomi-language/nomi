@@ -7,6 +7,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -39,8 +40,8 @@ func TestDocumentManager_BuildLeavesOtherDocumentsNodesAlone(t *testing.T) {
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	dm.SetWorkspaceRoot(dir)
-	hop := "file://" + filepath.Join(dir, "hop.nomi")
-	decls := "file://" + filepath.Join(dir, "decls.nomi")
+	hop := fileuri.FromPath(filepath.Join(dir, "hop.nomi"))
+	decls := fileuri.FromPath(filepath.Join(dir, "decls.nomi"))
 	dm.Open(hop, files["hop.nomi"])
 	dm.Open(decls, files["decls.nomi"])
 	if fa := dm.Snapshot(decls).Analysis; fa == nil || len(fa.ImplImports) == 0 {

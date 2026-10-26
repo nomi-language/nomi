@@ -8,7 +8,7 @@
 //
 // usage: node harness.mjs '<json>' where json is
 //   { runs: [{ folder, contentType?, stdin?, stdinLines?, args?, env?,
-//              timeoutMs?, abortAfterMs?, worker?, files? }] }
+//              timeoutMs?, abortAfterMs?, worker?, files?, setup? }] }
 // and it prints one JSON array of { stdout, stderr, exitCode, fatal,
 // events, fetches, files }, files decoded as UTF-8 text.
 import { pathToFileURL } from "node:url";
@@ -37,6 +37,7 @@ for (const r of spec.runs) {
     timeoutMs: r.timeoutMs,
     worker: r.worker,
     files: r.files,
+    setup: r.setup,
   };
   if (typeof r.stdin === "string") options.stdin = r.stdin;
   if (Array.isArray(r.stdinLines)) {

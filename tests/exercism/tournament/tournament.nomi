@@ -1,0 +1,115 @@
+//# Tallies a small football competition into a league table.
+
+import std/comparable.Direction
+
+/// Why the results could not be tallied.
+pub enum Error {
+    /// A row is not `home;away;outcome` with an outcome of `win`, `draw` or
+    /// `loss`.
+    InvalidRow String
+}
+
+/// How a match ended for one of its teams.
+enum Outcome {
+    Win
+    Draw
+    Loss
+}
+
+impl Outcome {
+    fn parse(word: String) -> Maybe<Outcome> {
+        case word {
+            "win" -> Some(.Win)
+            "draw" -> Some(.Draw)
+            "loss" -> Some(.Loss)
+            _ -> None
+        }
+    }
+
+    /// How the match ended for the other team.
+    fn reverse(outcome: Outcome) -> Outcome {
+        case outcome {
+            .Win -> .Loss
+            .Draw -> .Draw
+            .Loss -> .Win
+        }
+    }
+}
+
+/// One team's line of the table.
+struct Standing {
+    team: String
+    won: Int
+    drawn: Int
+    lost: Int
+}
+
+impl Standing {
+    fn played(standing: Standing) -> Int {
+        standing.won + standing.drawn + standing.lost
+    }
+
+    fn points(standing: Standing) -> Int {
+        3 * standing.won + standing.drawn
+    }
+}
+
+/// The league table for `rows`, one match per row written
+/// `home;away;outcome`, where the outcome is the home team's. Teams are
+/// ordered by points, most first, and then by name.
+pub fn tally(rows: List<String>) -> Result<List<String>, Error> {
+    results =
+        rows
+        |> Iter.map(parse_row)
+        |> try Result.collect()
+        |> Iter.flatten()
+
+    standings =
+        results
+        |> Iter.group_by(.0)
+        |> Iter.map(fn #(team, outcomes) -> standing(team, Iter.map(outcomes, .1)))
+        |> Iter.sort_by(.team)
+        |> Iter.sort_by(Direction.Descending, Standing.points)
+
+    table = Iter.map(standings, fn s -> {
+        numbers = [Standing.played(s), s.won, s.drawn, s.lost, Standing.points(s)]
+        line(s.team, Iter.map(numbers, Int.to_string))
+    })
+
+    Ok([line("Team", ["MP", "W", "D", "L", "P"]), ..Iter.to_list(table)])
+}
+
+/// The outcome of the match in `row` for each of its two teams.
+fn parse_row(row: String) -> Result<List<#(String, Outcome)>, Error> {
+    [home, away, word] = String.split(row, ";") else {
+        return Err(.InvalidRow(row))
+    }
+
+    Some(outcome) = Outcome.parse(word) else {
+        return Err(.InvalidRow(row))
+    }
+
+    Ok([#(home, outcome), #(away, Outcome.reverse(outcome))])
+}
+
+fn standing(team: String, outcomes: Iter<Outcome>) -> Standing {
+    #Standing{
+        team,
+        won: count(outcomes, .Win),
+        drawn: count(outcomes, .Draw),
+        lost: count(outcomes, .Loss),
+    }
+}
+
+fn count(outcomes: Iter<Outcome>, wanted: Outcome) -> Int {
+    outcomes
+    |> Iter.filter(&(&1 == wanted))
+    |> Iter.count()
+}
+
+/// A line of the table: the team's name in a column of 30, then each
+/// cell right-aligned in a column of 2.
+fn line(team: String, cells: Iter<String>) -> String {
+    columns = cells |> Iter.map(&String.pad_start(&1, 2)) |> String.join(" | ")
+    "${String.pad_end(team, 30)} | ${columns}"
+}

@@ -4,6 +4,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/hoverdoc"
 	goast "go/ast"
 	goparser "go/parser"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -637,8 +639,11 @@ func (s *Server) moduleKeyToURI(key, openDocURI string) protocol.DocumentUri {
 	}
 }
 
-// uriToPath converts a file:// URI to a filesystem path.
+// uriToPath converts a file:// URI to a filesystem path, unescaping it.
 func uriToPath(uri string) string {
+	if runtime.GOOS == "windows" {
+		return fileuri.ToPath(uri)
+	}
 	if strings.HasPrefix(uri, "file://") {
 		parsed, err := url.Parse(uri)
 		if err == nil {
@@ -650,5 +655,5 @@ func uriToPath(uri string) string {
 
 // pathToURI converts a filesystem path to a file:// URI.
 func pathToURI(path string) string {
-	return "file://" + path
+	return fileuri.FromPath(path)
 }

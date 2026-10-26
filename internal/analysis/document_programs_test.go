@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
 // writeProject writes p's files under a new directory and answers it.
@@ -71,7 +72,7 @@ func TestOpenDocumentProgramsMatchTheirOwnBuilds(t *testing.T) {
 			}
 			sort.Strings(keys)
 			for _, key := range keys {
-				uri := "file://" + filepath.Join(dir, filepath.FromSlash(key)+".nomi")
+				uri := fileuri.FromPath(filepath.Join(dir, filepath.FromSlash(key)+".nomi"))
 				own := renderBuild(analysis.BuildForTest(newManager(), uri, p.texts[key], false))
 				kept := renderBuild(analysis.BuildForTest(newManager(), uri, p.texts[key], true))
 				if own != kept {
@@ -117,7 +118,7 @@ func TestOpenDocumentEditsMatchFreshBuilds(t *testing.T) {
 	for _, r := range runs {
 		t.Run(r.p.name, func(t *testing.T) {
 			dir := writeProject(t, r.p)
-			uri := func(key string) string { return "file://" + filepath.Join(dir, filepath.FromSlash(key)+".nomi") }
+			uri := func(key string) string { return fileuri.FromPath(filepath.Join(dir, filepath.FromSlash(key)+".nomi")) }
 			dm := newManager()
 			cur := map[string]string{}
 			for key, text := range r.p.texts {
@@ -133,7 +134,7 @@ func TestOpenDocumentEditsMatchFreshBuilds(t *testing.T) {
 					t.Fatalf("step %d (%s) does not apply to %s", i+1, s.kind, s.key)
 				}
 				cur[s.key] = text
-				if err := os.WriteFile(strings.TrimPrefix(uri(s.key), "file://"), []byte(text), 0o644); err != nil {
+				if err := os.WriteFile(fileuri.ToPath(uri(s.key)), []byte(text), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				bodies, _, _, _ := dm.ProgramChecks()
@@ -151,7 +152,7 @@ func TestOpenDocumentEditsMatchFreshBuilds(t *testing.T) {
 					docs = append(docs, doc.URI)
 				}
 				for _, u := range docs {
-					key := strings.TrimSuffix(strings.TrimPrefix(u, "file://"+dir+"/"), ".nomi")
+					key := strings.TrimSuffix(strings.TrimPrefix(u, fileuri.FromPath(dir)+"/"), ".nomi")
 					installed := analysis.InstalledForTest(dm, u)
 					got := renderBuild(installed)
 					want := renderBuild(analysis.BuildForTest(newManager(), u, cur[key], false))
@@ -180,7 +181,7 @@ func TestOpenDocumentAfterSeveralFilesChange(t *testing.T) {
 	p := layeredProject()
 	dir := writeProject(t, p)
 	path := func(key string) string { return filepath.Join(dir, key+".nomi") }
-	uri := "file://" + path("main")
+	uri := fileuri.FromPath(path("main"))
 	dm := newManager()
 	dm.Open(uri, p.texts["main"])
 	for i, change := range []struct {
@@ -245,7 +246,7 @@ func BenchmarkOpenDocumentEdit(b *testing.B) {
 			}
 			b.Run(name, func(b *testing.B) {
 				dir := writeProject(b, p)
-				uri := func(key string) string { return "file://" + filepath.Join(dir, key+".nomi") }
+				uri := func(key string) string { return fileuri.FromPath(filepath.Join(dir, key+".nomi")) }
 				dm := newManager()
 				for key, text := range p.texts {
 					dm.Open(uri(key), text)

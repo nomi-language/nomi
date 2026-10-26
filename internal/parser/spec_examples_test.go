@@ -63,7 +63,7 @@ var specDivergences = map[string]string{
 		"only the GENERIC form is refused, as a hard parse error at the `<` (`expected type name, got LT`). " +
 		"`ast.TypeAlias` has no type-parameter field to hold one. §15 Type Aliases carries the callout.",
 	"Rectangle #(Float, Float)    // payload is a tuple": "a trailing `//` comment on an enum variant line. A parser INCONSISTENCY, not a language rule: " +
-		"all four variant kinds reject one (bare -> `expected type name, got COMMENT`; positional, struct-shaped and " +
+		"all four variant kinds reject one (bare -> `expected type name, got a comment`; positional, struct-shaped and " +
 		"`embeds` -> `enum variants are newline- or semicolon-separated`), while a struct field and an interface " +
 		"requirement line both accept one. Two arms are implicated — `parser.go:5330`'s same-line separator check " +
 		"excludes RBRACE/NEWLINE/SEMICOLON/COMMA but not COMMENT, and `parseEnumVariant` reads a same-line COMMENT " +

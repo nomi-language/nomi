@@ -1,0 +1,35 @@
+/// Why a number cannot be rebased.
+pub enum Error {
+    InvalidInputBase
+    InvalidDigit
+    InvalidOutputBase
+}
+
+/// The digits, most significant first, of the number that `digits` writes
+/// in `input_base`, written in `output_base`. Zero, and an empty list of
+/// digits, come out as `[0]`.
+pub fn rebase(input_base: Int, digits: List<Int>, output_base: Int) -> Result<List<Int>, Error> {
+    if input_base < 2 {
+        return Err(.InvalidInputBase)
+    }
+
+    if Iter.any?(digits, fn d -> d < 0 or d >= input_base) {
+        return Err(.InvalidDigit)
+    }
+
+    if output_base < 2 {
+        return Err(.InvalidOutputBase)
+    }
+
+    number = Iter.reduce(digits, fn total = 0, d -> total * input_base + d)
+    Ok(digits_of(number, output_base))
+}
+
+fn digits_of(number: Int, base: Int) -> List<Int> {
+    if number == 0 { return [0] }
+
+    Iter.iterate(number, &(&1 / base))
+    |> Iter.take_while(&(&1 > 0))
+    |> Iter.map(&(&1 % base))
+    |> Iter.reverse()
+}

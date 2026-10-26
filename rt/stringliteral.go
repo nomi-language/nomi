@@ -21,6 +21,7 @@ import (
 // handled beside the table.
 var stringEscapes = map[byte]rune{
 	'n':  '\n',
+	'r':  '\r',
 	't':  '\t',
 	'\\': '\\',
 	'"':  '"',
@@ -43,9 +44,9 @@ func DecodeStringEscape(after byte) (rune, bool) {
 }
 
 // StringLiteral is s as a Nomi string literal that reads back as s: quoted,
-// with `\n`, `\t`, `\\` and `\"` escaped, `\u{...}` for any other rune that
-// is not printable (a carriage return is `\u{d}`, NUL `\u{0}`, DEL
-// `\u{7f}`, a no-break space `\u{a0}`), and `${` written `\${`, so nothing in
+// with `\n`, `\r`, `\t`, `\\` and `\"` escaped, `\u{...}` for any other rune
+// that is not printable (NUL `\u{0}`, DEL `\u{7f}`, a no-break space
+// `\u{a0}`), and `${` written `\${`, so nothing in
 // it interpolates. A `$` or a `{` alone, a non-ASCII letter, a combining mark
 // and an emoji pass through as they are, the joiners and tags inside an emoji
 // included (partOfEmoji), and so does a zero-width joiner or non-joiner

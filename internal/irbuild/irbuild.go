@@ -99,6 +99,24 @@ type Program struct {
 	// way leaves its work unfinished, and every later question answers
 	// true.
 	halted bool
+	// stdCases, when set, lowers a shared std module's `//!` cases against
+	// the program, whose modules are the listed std modules the cases import
+	// (stdtests.go's generateStdlibTestIRWithProgramStd). GenerateIR calls
+	// it once every module's bodies are lowered, and links the gen it
+	// answers first.
+	stdCases func(b *programBuild) *gen
+}
+
+// programBuild is what a GenerateIR call shares among its gens, for a gen
+// made outside the call (Program.stdCases).
+type programBuild struct {
+	reg   *typeRegistry
+	files *fileIndex
+	impls *implIndex
+	insts *stdInstances
+	// units is the number of the program's files, so a gen made outside
+	// the call can take a unit index none of them has.
+	units int
 }
 
 // ErrStopped is GenerateIR's error when Program.Stop stopped it.
@@ -395,6 +413,13 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	if len(unsupported) > 0 {
 		refusal = newUnsupportedError(unsupported, masked)
 	}
+	// A shared std module's cases, lowered once the listed modules they
+	// call are. Their gen is linked first, as an entry is; it records no
+	// boot and no impls, which belong to the module's cached lowering.
+	var cases *gen
+	if p.stdCases != nil {
+		cases = p.stdCases(&programBuild{reg: reg, files: files, impls: impls, insts: insts, units: len(gens)})
+	}
 	// The VM links by IR symbol, so it links every cached stdlib module, in
 	// package order.
 	stdPkgs := make([]string, 0, len(std.irModules))
@@ -423,7 +448,11 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	var irMods []*ir.Module
 	var literals []LiteralSite
 	hostKeys := map[string]bool{}
-	for _, g := range gens {
+	linked := gens
+	if cases != nil {
+		linked = append([]*gen{cases}, gens...)
+	}
+	for _, g := range linked {
 		literals = append(literals, g.literalSites...)
 		for _, key := range g.irHostKeys {
 			hostKeys[key] = true

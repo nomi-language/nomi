@@ -39,6 +39,7 @@ The repository root is the compiler's Go module,
 | `hostadapt/` | Support package that generated FFI wrappers import. |
 | `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `ffirun` (Go FFI wrapper and runner builds), `gotoolchain` (the `go` builds run, and the managed toolchain), `modcache` and `modfetch` (dependencies), `std*` (Go-backed stdlib adapters), `mf2` (MessageFormat 2) and `catalog` (message catalogs), and the tooling behind them. |
 | `std/` | The standard library's `.nomi` sources, embedded into the binaries. |
+| `lib/` | First-party Nomi modules outside std, each its own nested Go module with its own `go.mod` and `nomi.toml`: `lib/sql/sqlite` (the SQLite driver), `lib/sql/sqlkit` (checked SQL), `lib/sql/examples/shop`. The compiler's module neither contains nor requires them. |
 | `rt/` | The runtime library, `github.com/nomi-language/nomi/rt`. The VM runs over it and built executables link it. It may import only the standard library and `github.com/rivo/uniseg` (`TestRuntimeImportsOnlyItsAllowlist`). |
 | `docs/` | The spec, style guide, feature status, roadmap and install guide. |
 | `tour/` | The Astro Starlight site at nomi-lang.org: the tour and the generated stdlib reference. |
@@ -319,6 +320,23 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   `NOMI_STD_FIXTURES=1` (`std.FixturesLoaded`); a test that needs one runs
   itself again in a child process with it set. They are always lowered per
   program.
+- **std and lib.** std holds what Go's standard library can back with no
+  third-party code: `std/fs`, `std/sql`'s vocabulary, later `std/http` over
+  `net/http`. `lib/` holds first-party modules that need third-party Go
+  code or are opinionated layers over std: database drivers
+  (`lib/sql/sqlite`, over modernc.org/sqlite), `lib/sql/sqlkit`, later an
+  HTTP router or framework. Each is its own module with its own `go.mod`
+  and `nomi.toml`, nested in this repository, so the compiler's module
+  excludes it and its requirements never enter the compiler's go.mod. It is
+  versioned with nomi's commits (no tags; a module that requires a sibling
+  `replace`s it with the sibling's directory, and requires the published
+  commit for users: after a push to `main`, `scripts/pin-lib.sh <commit>`
+  writes that commit's pseudo-version into each such require, and
+  `--verify` adds sqlkit from the proxy into a fresh project), tested by nomi's checks (`TestLibModules` in
+  `cmd/nomi` runs each one's Nomi tests and the driver's Go tests; CI's lib
+  job vets and tests their Go side), and added by users with `nomi add
+  github.com/nomi-language/nomi/lib/...`. The tour links a lib module's
+  browser build through a workspace (see "The tour and stdlib reference").
 - **Host functions.** A stdlib `host fn` is answered either by a VM intrinsic
   (tasks, channels, collection kernels, `io.print`) or by a generated adapter.
   `internal/stdlibbindings` is the one hand-maintained table: `Funcs()` for the
@@ -415,7 +433,9 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   options (`WithHosts`, `WithVirtualFiles`, `WithOutput`, `WithInput`, ...),
   `Program.Run`, `Program.Call`, `Program.Test`, and `Check`. The CLI, REPL,
   tour wasm and FFI wrapper all go through it. A plain user `host fn` or
-  `host type` is answered by an embedder's host table.
+  `host type` is answered by an embedder's host table. An embedder's own
+  files are a `vmhost.FileSystem` (`WithFileSystem`, `vmhost/filesystem.go`,
+  adapted to stdio's `Backend`); `DiskFiles` and `NewMemoryFiles` are two.
 - **Go FFI.** A Nomi file declares `gopkg` handles and `go alias.Symbol`
   bindings. A Go standard library package needs no `go.mod`; its source is
   read from `go env GOROOT` and the toolchain version keys the cache
@@ -455,9 +475,15 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   fetch`, and edits them for `nomi add <directory>` (a `require` and a
   local `replace`), `nomi remove` and `nomi update`
   (`internal/modfetch/edit.go`); `nomi new` writes a project's first
-  `go.mod`. A Nomi user never edits `go.mod` or runs `go`, so an error or
-  hint about a missing requirement names the `nomi` command that fixes it,
-  never a directive to write. The CLI installs it as `modcache.SetFetcher`,
+  `go.mod` in a new directory, and `nomi init` writes the `nomi.toml` and
+  `go.mod` an existing directory lacks (`cmd/nomi/init_cmd.go`). A Nomi user
+  never edits `go.mod` or runs `go`, so an error or hint about a missing
+  requirement names the `nomi` command that fixes it, never a directive to
+  write. A `gopkg` no go.mod provides is explained by
+  `ffirun.GoImportProblemFix` (`internal/ffirun/unprovided.go`), for the
+  checker and a run's FFI validation alike: Go code beside the file in a
+  directory that is not a project names `nomi init`, a missing dependency
+  `nomi add`. The CLI installs it as `modcache.SetFetcher`,
   so `run`, `test`, `check` and `build` download, for a Nomi module, before the front end
   reads the cache; the language server installs none and never downloads.
   Under `go test` a download refuses unless `GOMODCACHE` is set; tests
@@ -526,6 +552,13 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   WASI reactor that exports `_initialize` and the generic call ABI
   `nomi_alloc`, `nomi_call`, `nomi_free`, `nomi_load` and `nomi_main`
   (`ffirun.Variant`); a program without one stays a command module.
+  A project with Go bindings and an `export fn` gets the reactor variant
+  of its own runner (`ffirun.ProjectRunner` with `Variant.Reactor`): the
+  generated main imports `vmrunner/reactor`, which holds the ABI's
+  `//go:wasmexport` functions that `cmd/nomi-vm-reactor` imports too, and
+  passes its host table to `reactor.Use` from `init`; it is linked
+  `-buildmode=c-shared`, and the wrapper's `vmimage` mode builds its image
+  with the exported functions.
   `nomi build-vm --reactor` (`cmd/nomi/build_vm.go`) copies out
   `nomi-vm-reactor` with nothing embedded; its
   image area's length is zero, so a runner compiles it once, instantiates
@@ -594,6 +627,15 @@ make test-tour                 # tour doctests, wasm bundle, grammar
 and `TestTestCommand_VMStdlib` run `nomi test tests` and `nomi test std` and
 require no failed or blocked case, and as many passing cases as
 `corpus.expect` and `stdlib.expect` declare.
+
+The modules under `lib/` are Go modules of their own, which root `go test
+./...` and `go vet ./...` skip. `TestLibModules` (`cmd/nomi`) runs `nomi
+test` on `lib/sql/sqlite` and `lib/sql/sqlkit`, `nomi tool sqlkit prepare
+--check` and `nomi test .` in `lib/sql/examples/shop`, and `go test ./...`
+in `lib/sql/sqlite`, after `go mod download` there puts modernc.org/sqlite
+in the Go module cache (from the network when it is missing). By hand: `go
+test -C lib/sql/sqlite ./...`, and `go vet` the same way in `lib/sql/sqlite`
+and `lib/sql/sqlkit`.
 
 A program the front end accepts must lower. `go test ./vmhost -run '^$' -fuzz
 '^FuzzFrontEndAcceptsSoItLowers$' -fuzztime 5m` mutates the corpus files, tour
@@ -775,8 +817,15 @@ benchmarks for profiling one: `go test ./internal/scalebench -run '^$'
 
 CI (`.github/workflows/test.yml`, on pushes to `main` and on pull requests)
 runs `go vet ./...` and `go test ./...` with `internal/irbuild` as its own
-job, builds the tour bundle and runs `TestTourWasm*` against it, and runs
-`make test-vscode`'s tests. It does not run the tree-sitter tests.
+job, builds the tour bundle and runs `TestTourWasm*` against it, vets and
+tests the Go side of the `lib/` modules in their own job, and runs `make
+test-vscode`'s tests. It does not run the tree-sitter tests. Two Windows
+jobs run the same `go vet` and `go test`, irbuild apart, with no Node and
+with `core.autocrlf` off so golden files keep LF. A test that builds an
+executable and runs it names it with `exe()` (`cmd/nomi/main_test.go`),
+since Windows runs only a `.exe`, and a test that cannot hold on Windows
+skips there with its reason. A file URI goes through `internal/fileuri`,
+never `"file://" + path`.
 
 **Verification cadence.** Full runs happen once, right before a batch is
 squashed to `main`, not per change. The whole `go test ./internal/irbuild
@@ -1204,7 +1253,15 @@ and a `nomi.toml` whose only table is `[module]` are read-only by kind
 the example only names. For a block on the in-memory file system the
 doctest fails a marked file the run reads, an unmarked data file it never
 reads (a successful open of the contents is a read, a listing or metadata
-is not) and a glob that matches no file. Any other word after `nomi-run`
+is not) and a glob that matches no file. ` ```nomi-run tool:<module>/<name> `
+(repeatable) runs `nomi tool <module> <name>` in the block's project before
+each run, as a reader runs `sqlkit prepare` before `nomi run`
+(`vmhost.ToolMarked`, nomi-wasm's `nomiTool`): the files it writes replace
+the block's, in its tabs too, and what it prints comes before the run's
+output. The module is a tour module the block imports, whose Go side only
+the tour's wasm links, so the doctest only checks the block's words and
+expect block, and `TestTourWasmAnswersTheTourBlocks` runs the tools and
+the block. Any other word after `nomi-run`
 fails the doctest. A block with a `// FILE: go.mod` section is a project of
 modules (a root module that requires and replaces one under it, such as a
 macro's `macros/csvdata/`): `vmhost.LoadMarked` writes its files under a
@@ -1214,7 +1271,13 @@ special. The doctest and harnesses use a temporary directory; the browser
 uses `/tour` in the in-memory file system `tour/src/lib/go-memfs.js` gives
 Go's `os` in the worker. Diagnostics name files by their path from the
 project root. The editor opens on a block's first file that is not a
-setup file (`go.mod`, `go.sum`, `nomi.toml`). A block of up to four files,
+setup file (`go.mod`, `go.sum`, `nomi.toml`). A block's entry is its first
+file with a `fn main` (in a block of modules, its root module's), else its
+first Nomi file in block order that declares tests, else its first Nomi
+file. A block runs the tests of every Nomi file that declares them, the
+entry's and then each other test file's in block order, each loaded entered
+at its file (`Project.TestFiles`, `vmhost.LoadMarked`), as `nomi test`
+runs a project's. A block of up to four files,
 none under a directory, picks files from a tab strip; a larger one, or one
 with a file under a directory, from a file tree beside the editor
 (`usesTree` in `tour/src/lib/tour-client.mjs`), which lists setup files
@@ -1241,11 +1304,63 @@ rekeys the linked adapters to the edited program's keys and refuses a
 binding the tour does not link, at the binding: ``this example's Go code is
 fixed in the tour: `urltools.Foo` is not available``.
 
+A block may also import a module the tour links (`tourgo.Modules`: today
+`sqlite`, the driver in `lib/sql/sqlite`, and `sqlkit`, from
+`lib/sql/sqlkit`), with nothing in the block that says where it comes
+from. Every runner loads a block through
+`tourgo.Source`, which attaches each such module it imports as a project
+that names modules (a go.mod requiring it, its files under
+`tour_modules/<name>/`), and `tourgo.MarkedHosts` adds the module's adapters
+(`linkedModules` in `linked_modules_gen.go`, built for js only). The
+module's Nomi files reach the tour from `modules_sources_gen.go`, since a
+nested module's files cannot be embedded by the compiler's module; both
+generated files come from the module's directory under `lib/`, by `go
+generate ./internal/tourgo`, and `TestGeneratedFileIsCurrent` fails while
+either is stale. The compiler's go.mod does not require the module: a Nomi
+module it required would be a dependency of every program whose go.mod is
+the compiler's (the corpus), linked into its wrapper, and the driver's
+module requires modernc.org/sqlite. A replace in the compiler's go.mod would
+also break `go install github.com/nomi-language/nomi/cmd/nomi@latest`.
+Instead every js/wasm build of `cmd/nomi-wasm` runs in the Go workspace
+`internal/tourgo/tour.work` (`GOWORK`; `scripts/build-tour-wasm.sh`,
+`vmhost`'s rebuild and `internal/wasmsmoke` set it), which puts the module's
+directory beside the compiler's, so `linked_modules_gen.go` imports
+`lib/sql/sqlite/goside` from the tree; that package's js/wasm build (the
+browser driver, which calls SQLite's official WebAssembly build through
+`globalThis.sqlite3`) imports no modernc.org/sqlite. A js/wasm build without
+the workspace fails at that import. The workspace's checksums are
+`internal/tourgo/tour.work.sum`, which the go command writes as it needs
+them (go.mod checksums only); commit it when it moves.
+`TestTourWorkspaceUsesEveryModule` holds `tour.work` to `tourgo.Modules`. Outside the browser no binary links a
+tour module's Go side: the doctests only compile a block that imports one
+(`tourgo.Unlinked`), tour.expect has no record of it, and
+`TestTourWasmAnswersTheTourBlocks` runs it on the staged wasm under Node,
+held to its expect block. `TestTourWasmRunsTheSqliteDriversTests` runs the
+driver's own `sqlite_test.nomi` there, and `TestLibModules` runs it natively.
+The tour's worker loads SQLite's WebAssembly build (staged in
+`public/nomi/sqlite/` by `scripts/build-tour-wasm.sh`, pinned by version and
+checksum) the first time a run imports sqlite, before the run's budget
+starts.
+
 The stdlib reference (`src/content/docs/reference/`, gitignored) is generated
 by `cmd/nomi-docgen` from `///` doc comments and `//#` module comments in
 `std/*.nomi`. Edit those comments, never the generated pages. `docgen` does not
 prune: after renaming or removing a stdlib module, delete its old reference
 page.
+
+The Examples section (`src/content/docs/examples/`, committed) is generated
+by `go run ./cmd/nomi-docgen -examples tests/exercism
+tour/src/content/docs/examples` (`cmd/nomi-docgen/examples.go`), which
+`scripts/build-tour-wasm.sh` also runs: one page per `tests/exercism/<slug>/`
+(NOTES.md's title, first paragraph, `## Choices`, and `## Friction` as "Rough
+edges", which lists only what is still true, so a fix deletes its item and
+the generator refuses one that says `Fixed:`; and one block holding the
+exercise's files, solution first) and an intro page whose table lists the
+chapters each solution's tokens show it uses. It removes the page of an
+exercise that is gone. The pages are committed because the doctests and
+tour.expect read every page under `src/content/docs`;
+`TestExamplePagesAreCurrent` fails while one is stale, missing or left over.
+Edit the exercise, then regenerate the pages and tour.expect.
 
 Needs Node 22+. `NODE22_BIN` in the Makefile defaults to Homebrew's path;
 override it elsewhere.

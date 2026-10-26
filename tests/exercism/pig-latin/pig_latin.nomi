@@ -1,0 +1,39 @@
+//# Translates English words to Pig Latin.
+
+once vowels = %["a", "e", "i", "o", "u", "y"]
+
+/// `phrase` in Pig Latin, word by word: a word's leading consonants move to
+/// its end, and every word ends in `ay`.
+pub fn translate(phrase: String) -> String {
+    phrase
+    |> String.words()
+    |> Iter.map(translate_word)
+    |> String.join(" ")
+}
+
+fn translate_word(word: String) -> String {
+    onset = onset_length(Iter.to_list(word))
+    String.slice(word, onset, String.length(word)) + String.slice(word, 0, onset) + "ay"
+}
+
+/// How many letters at the start of a word move to its end: the consonants
+/// before its first vowel, with a `u` after a `q` counted with the `q`. A
+/// `y` is a consonant only as the first letter, and a word that starts with
+/// `xr` or `yt` keeps its start, as one that starts with a vowel does.
+fn onset_length(letters: List<String>) -> Int {
+    case letters {
+        ["x", "r", .._] or ["y", "t", .._] -> 0
+        ["y", ..rest] -> 1 + consonants(rest)
+        _ -> consonants(letters)
+    }
+}
+
+/// How many consonants `letters` starts with, where `y` is a vowel and `qu`
+/// is two consonants.
+fn consonants(letters: List<String>) -> Int {
+    case letters {
+        ["q", "u", .._] -> 2
+        [letter, ..rest] when !Set.contains?(vowels, letter) -> 1 + consonants(rest)
+        _ -> 0
+    }
+}

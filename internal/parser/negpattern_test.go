@@ -9,7 +9,7 @@ import (
 // grammar allows them — not just inside struct fields. Regression coverage
 // for the Go-parser/grammar divergence where the top-level case-arm parser and
 // parseSinglePattern (tuple / list / map-value element patterns) rejected a
-// leading MINUS with "unexpected token MINUS in (case) pattern".
+// leading MINUS with "unexpected `-` in (case) pattern".
 
 func TestCaseTopLevelNegativeInt(t *testing.T) {
 	expr := parseExpr(t, "case n {\n -2 -> \"neg\"\n _ -> \"other\"\n}")

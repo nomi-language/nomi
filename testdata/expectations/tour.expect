@@ -10,9 +10,9 @@
 # S <source line>, only for a record that carries its own program
 # T <transcript line>, verbatim
 population tour
-what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it.
-records 205
-declared-cases 24
+what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a module whose Go side only the browser links (sqlite) has no record; the staged wasm is held to its expect block.
+records 272
+declared-cases 90
 failing 0
 C bindings-and-expressions.md:L116
 E 0
@@ -353,7 +353,7 @@ N 0
 H daf67897ba4a63cc77d1260d20a68e49a1bf3dcb5864bc498d510432a94d2b74
 T dbg line 39: result = "timed out, falling back"
 T
-C databases.md:L104
+C databases.md:L106
 E 0
 N 0
 H fb0fb87c8b13e4d213d94d62c461a66b3cd9516aac084addedd72e2268885023
@@ -361,7 +361,7 @@ T dbg line 7: statement.parts = ["SELECT id, name FROM users WHERE email = ", ""
 T dbg line 8: statement.params = [Text("x' OR '1'='1")]
 T dbg line 9: "${statement}" = "SELECT id, name FROM users WHERE email = ?1"
 T
-C databases.md:L145
+C databases.md:L147
 E 0
 N 0
 H 0f6aeac07907d2010a9b6396f89b54ee5f039298d8f2edb1826249f286540f91
@@ -438,21 +438,601 @@ T dbg line 14: jan31 + Months(1) = 2026-02-28
 T dbg line 15: jan31 - Months(1) = 2025-12-31
 T dbg line 16: leap + Years(1) = 2025-02-28
 T
-C ffi-and-dynamic.md:L148
+C examples/acronym.md:L12
+E 0
+N 1
+H 50a1249eace921dda6f55466b80cd73b0a2d94d7054e091491ec97c0f5d62d49
+T ok abbreviates phrases
+T test result: ok. 1 passed, 0 failed
+T
+C examples/affine-cipher.md:L12
+E 0
+N 1
+H c1fc1b200b702181c76d6e3833bef4c27c01a04c7126e175d0064490b6b1a26e
+T ok encode / encodes
+T ok encode / encode with a not coprime to m
+T ok decode / decodes
+T ok decode / decode with a not coprime to m
+T test result: ok. 4 passed, 0 failed
+T
+C examples/all-your-base.md:L12
+E 0
+N 1
+H f2f78e740b93d9efca7baf09404df026e1eec74ec82c44693b57ee9e357bd96e
+T ok rebases digits
+T test result: ok. 1 passed, 0 failed
+T
+C examples/allergies.md:L12
+E 0
+N 1
+H 6ae81004d94d93045947a96b97875858093ad3306f6d7cb9965bb9fcd5bd1023
+T ok testing for eggs allergy / allergic_to? eggs
+T ok testing for peanuts allergy / allergic_to? peanuts
+T ok testing for shellfish allergy / allergic_to? shellfish
+T ok testing for strawberries allergy / allergic_to? strawberries
+T ok testing for tomatoes allergy / allergic_to? tomatoes
+T ok testing for chocolate allergy / allergic_to? chocolate
+T ok testing for pollen allergy / allergic_to? pollen
+T ok testing for cats allergy / allergic_to? cats
+T ok list when: / list
+T test result: ok. 9 passed, 0 failed
+T
+C examples/anagram.md:L12
+E 0
+N 1
+H f58419c629069cfcee50b5b520e8de22bfbee281355bb6ef66439e52771342b8
+T ok finds anagrams
+T test result: ok. 1 passed, 0 failed
+T
+C examples/armstrong-numbers.md:L12
+E 0
+N 1
+H 838017876d41f4ab81ca86998804a7c5dfbb4310ceff36065f5d71478ca77f0b
+T ok recognizes Armstrong numbers
+T test result: ok. 1 passed, 0 failed
+T
+C examples/atbash-cipher.md:L12
+E 0
+N 1
+H 7f9cc54be1058f067bf5bc75c54ec350cab11a461ec86b4cd7f1b56d8ff8a585
+T ok encode / encodes
+T ok decode / decodes
+T test result: ok. 2 passed, 0 failed
+T
+C examples/binary-search.md:L12
+E 0
+N 1
+H 404ab4b1f799403b0bd73a36b9b41aece57481421f290c4febbec0fec3454fe3
+T ok finds a value
+T ok reports a missing value
+T test result: ok. 2 passed, 0 failed
+T
+C examples/bob.md:L12
+E 0
+N 1
+H f926e57dce0e1eeb72877581fcec8bd417ebf52a2a4edba4e8c498e2f6664c23
+T ok bob's responses
+T test result: ok. 1 passed, 0 failed
+T
+C examples/clock.md:L12
+E 0
+N 1
+H b38e25f4591514e5110737855e7820bb2a3409905a31263d0c3a875af89e081d
+T ok Create a new clock with an initial time / create
+T ok Add minutes / add
+T ok Subtract minutes / subtract
+T ok Compare two clocks for equality / equal
+T test result: ok. 4 passed, 0 failed
+T
+C examples/collatz-conjecture.md:L12
+E 0
+N 1
+H 3a287f0d2a25057531ca8c9cf0874c0bacb113d3f11c215b44f213c43194a7d7
+T ok counts the steps
+T ok zero is an error
+T ok negative value is an error
+T test result: ok. 3 passed, 0 failed
+T
+C examples/darts.md:L12
+E 0
+N 1
+H d24140fec06b951927fb992dac9c8a82b158b2a9e7b800c5d794eb8b93c5d686
+T ok scores a toss
+T test result: ok. 1 passed, 0 failed
+T
+C examples/diamond.md:L12
+E 0
+N 1
+H 4f069fdd61846b56d3034e676d2fa4f62a498fb57b412c85a0bdd9e6ed75757c
+T ok Degenerate case with a single 'A' row
+T ok Degenerate case with no row containing 3 distinct groups of spaces
+T ok Smallest non-degenerate case with odd diamond side length
+T ok Smallest non-degenerate case with even diamond side length
+T ok Largest possible diamond
+T test result: ok. 5 passed, 0 failed
+T
+C examples/difference-of-squares.md:L12
+E 0
+N 1
+H 69c1bbbf797ee9c30d4cbcf4009d5c9a07b3fad1c3e2221de3907d94ef6d019c
+T ok Square the sum of the numbers up to the given number / square of sum
+T ok Sum the squares of the numbers up to the given number / sum of squares
+T ok Subtract sum of squares from square of sums / difference of squares
+T test result: ok. 3 passed, 0 failed
+T
+C examples/eliuds-eggs.md:L12
+E 0
+N 1
+H d5026dc0960332a075f0fdb715c134da957324b31333549bc8c325f4b259d088
+T ok counts the eggs
+T test result: ok. 1 passed, 0 failed
+T
+C examples/etl.md:L12
+E 0
+N 1
+H 2c263fbde82116f021ab5d2b4e6a991dc36667d5e23e069a06717cb497f1755f
+T ok single letter
+T ok single score with multiple letters
+T ok multiple scores with multiple letters
+T ok multiple scores with differing numbers of letters
+T test result: ok. 4 passed, 0 failed
+T
+C examples/game-of-life.md:L12
+E 0
+N 1
+H 02e0bf14779528972a99d2ed18c83233547461a19027140bc9f92e1ba6e92054
+T ok tick
+T test result: ok. 1 passed, 0 failed
+T
+C examples/grains.md:L12
+E 0
+N 1
+H f4256c515d232b1dd067c2889afbcc20957697fafd89528755dbb16cb63139dd
+T ok returns the number of grains on the square / counts the grains
+T ok returns the number of grains on the square / rejects squares off the board
+T ok returns the total number of grains on the board
+T test result: ok. 3 passed, 0 failed
+T
+C examples/hamming.md:L12
+E 0
+N 1
+H 760be61ba2d1be423ad732374ce6f7f925bc0c60561c15256ee59cad745a0131
+T ok hamming distance
+T test result: ok. 1 passed, 0 failed
+T
+C examples/house.md:L12
+E 0
+N 1
+H 833cfaf554abd8b3791e69509b4abab5fc5bb00843b44d1ed56e1cf842a506eb
+T ok single verses
+T ok several verses
+T test result: ok. 2 passed, 0 failed
+T
+C examples/isbn-verifier.md:L12
+E 0
+N 1
+H 86013a51b63f8f44c947ee5525fcc40c3e65f320f4ff27765a38f1acb414d77a
+T ok verifies ISBN-10 numbers
+T test result: ok. 1 passed, 0 failed
+T
+C examples/isogram.md:L12
+E 0
+N 1
+H 34219d1c7390bba68de9db791ca61377ce0625ea3c4c116db06352bdc267b724
+T ok isograms
+T test result: ok. 1 passed, 0 failed
+T
+C examples/kindergarten-garden.md:L12
+E 0
+N 1
+H ca3ee2e669b98ff9448ad8f96fb76ae9778abcb61d88e2059b4face74d39023e
+T ok partial garden / plants
+T ok partial garden / multiple students for the same garden with three students
+T ok full garden / plants
+T ok a letter that names no plant
+T test result: ok. 4 passed, 0 failed
+T
+C examples/largest-series-product.md:L12
+E 0
+N 1
+H 6a588a0fbc612013db8ceed2c0af558a38e437b665a69c9ecf527b39b7cc11ac
+T ok largest product
+T ok rejects
+T test result: ok. 2 passed, 0 failed
+T
+C examples/leap.md:L12
+E 0
+N 1
+H c8686871c85e80a4afd39b03eaa975daf7c13f00e537a10c6ca1d0a501b66956
+T ok leap years
+T test result: ok. 1 passed, 0 failed
+T
+C examples/list-ops.md:L12
+E 0
+N 1
+H e0259552568aa4d94692550a647eb339c4b93b5cfb9d128647b99c10f65032e1
+T ok append entries to a list and return the new list / empty lists
+T ok append entries to a list and return the new list / list to empty list
+T ok append entries to a list and return the new list / empty list to list
+T ok append entries to a list and return the new list / non-empty lists
+T ok concatenate a list of lists / empty list
+T ok concatenate a list of lists / list of lists
+T ok concatenate a list of lists / list of nested lists
+T ok filter list returning only values that satisfy the filter function / empty list
+T ok filter list returning only values that satisfy the filter function / non-empty list
+T ok returns the length of a list / empty list
+T ok returns the length of a list / non-empty list
+T ok return a list of elements whose values equal the list value transformed by the mapping function / empty list
+T ok return a list of elements whose values equal the list value transformed by the mapping function / non-empty list
+T ok folds (reduces) the given list from the left with a function / empty list
+T ok folds (reduces) the given list from the left with a function / direction independent function applied to non-empty list
+T ok folds (reduces) the given list from the left with a function / direction dependent function applied to non-empty list
+T ok folds (reduces) the given list from the right with a function / empty list
+T ok folds (reduces) the given list from the right with a function / direction independent function applied to non-empty list
+T ok folds (reduces) the given list from the right with a function / direction dependent function applied to non-empty list
+T ok reverse the elements of the list / empty list
+T ok reverse the elements of the list / non-empty even-length list
+T ok reverse the elements of the list / non-empty odd-length list
+T ok reverse the elements of the list / list of lists is not flattened
+T test result: ok. 23 passed, 0 failed
+T
+C examples/luhn.md:L12
+E 0
+N 1
+H d868b79f6a87ea3f3db3b60d8cbc691d039c2bc51014092baca4e997f5c33679
+T ok validates numbers with the Luhn checksum
+T test result: ok. 1 passed, 0 failed
+T
+C examples/matching-brackets.md:L12
+E 0
+N 1
+H 8140550128095091bb2d83034e98070b16ba2f1775c16af8eab8434188e89978
+T ok checks bracket pairing
+T test result: ok. 1 passed, 0 failed
+T
+C examples/minesweeper.md:L12
+E 0
+N 1
+H 0c2a30464d491a3c7d0e87118bb180bf0a89270f1e9bc77f83c67603aba0f26f
+T ok no rows
+T ok no columns
+T ok no mines
+T ok minefield with only mines
+T ok mine surrounded by spaces
+T ok space surrounded by mines
+T ok horizontal line
+T ok horizontal line, mines at edges
+T ok vertical line
+T ok vertical line, mines at edges
+T ok cross
+T ok large minefield
+T test result: ok. 12 passed, 0 failed
+T
+C examples/nth-prime.md:L12
+E 0
+N 1
+H 580ca710bd694d4c9391fbcfc176a79a7f0fe9b254f27722867be6a580fa9d75
+T ok prime
+T test result: ok. 1 passed, 0 failed
+T
+C examples/nucleotide-count.md:L12
+E 0
+N 1
+H b9e1ed59a8c440dcd82ce52182527330df22718b2240e1298c9d77f06a505ef6
+T ok nucleotide counts
+T test result: ok. 1 passed, 0 failed
+T
+C examples/pangram.md:L12
+E 0
+N 1
+H 87f86c550737ecd9d388d618d399ae8413ac9345a0a528a184ec5416fd9a246c
+T ok pangrams
+T test result: ok. 1 passed, 0 failed
+T
+C examples/pascals-triangle.md:L12
+E 0
+N 1
+H 8664c3cf17b41339c61c814b87b7976b0e0a3466ce6b57f4f875a875b0c8a8b4
+T ok rows
+T test result: ok. 1 passed, 0 failed
+T
+C examples/perfect-numbers.md:L12
+E 0
+N 1
+H 119f6896d89fda26bd636d66272ec8c4063dcd7e16f033e24627af2a4f99c2fe
+T ok Perfect numbers / classify
+T ok Abundant numbers / classify
+T ok Deficient numbers / classify
+T ok Invalid inputs / classify
+T test result: ok. 4 passed, 0 failed
+T
+C examples/phone-number.md:L12
+E 0
+N 1
+H d206e5e068480e777eafe0d930cbb4c097595e5692976961d8dc6df3b94f1a85
+T ok cleans phone numbers
+T test result: ok. 1 passed, 0 failed
+T
+C examples/pig-latin.md:L12
+E 0
+N 1
+H b72396203be8126a1b4f48ddfd9c9a1634ef16178067bf0ca98b59d537ceab65
+T ok ay is added to words that start with vowels / translate
+T ok first letter and ay are moved to the end of words that start with consonants / translate
+T ok some letter clusters are treated like a single consonant / translate
+T ok some letter clusters are treated like a single vowel / translate
+T ok position of y in a word determines if it is a consonant or a vowel / translate
+T ok phrases are translated / a whole phrase
+T test result: ok. 6 passed, 0 failed
+T
+C examples/prime-factors.md:L12
+E 0
+N 1
+H 01641212d0a4a8ff83b0b3c630768622cab6096583d34c4db493b151d42f4f1c
+T ok factors
+T test result: ok. 1 passed, 0 failed
+T
+C examples/protein-translation.md:L12
+E 0
+N 1
+H b9647a7921835657de9c5cf72aa44d8eac0ec84b29ad1645f207d946bbcababd
+T ok proteins
+T ok invalid codons
+T test result: ok. 2 passed, 0 failed
+T
+C examples/proverb.md:L12
+E 0
+N 1
+H 474a8bc437e89c356504cf1b41b3eb8172f65ff5713599f49bb3cd01b468a3a7
+T ok zero pieces
+T ok one piece
+T ok two pieces
+T ok three pieces
+T ok full proverb
+T ok four pieces modernized
+T test result: ok. 6 passed, 0 failed
+T
+C examples/queen-attack.md:L12
+E 0
+N 1
+H a51bc1ec3633211ed04d5a26d1728c82a917910064bf3620c2a655c9c1d86e23
+T ok Test creation of Queens with valid and invalid positions / queen with a valid position
+T ok Test creation of Queens with valid and invalid positions / invalid positions
+T ok Test the ability of one queen to attack another / can_attack?
+T test result: ok. 3 passed, 0 failed
+T
+C examples/raindrops.md:L12
+E 0
+N 1
+H b91899a391ae8251e9abdb137b35e64c28c8eff267d735e5e76fa63875bbfd35
+T ok raindrop sounds
+T test result: ok. 1 passed, 0 failed
+T
+C examples/resistor-color-duo.md:L12
+E 0
+N 1
+H 9e6593da85beee89da01ec70eb2a2139d9c660db201a1d68465cec666dfb35fc
+T ok value
+T ok fewer than two bands have no value
+T test result: ok. 2 passed, 0 failed
+T
+C examples/resistor-color-trio.md:L12
+E 0
+N 1
+H 6b7d22c60c25397dd7a47e0e90c923604151a9f57ec7374a7230200f65b98e0e
+T ok label
+T ok fewer than three bands have no label
+T test result: ok. 2 passed, 0 failed
+T
+C examples/resistor-color.md:L12
+E 0
+N 1
+H 082d190bf2191e5291c7502551514bdcb462a31764c15622dc2329410473420e
+T ok Color codes / color_code
+T ok Colors
+T test result: ok. 2 passed, 0 failed
+T
+C examples/reverse-string.md:L12
+E 0
+N 1
+H bbfbcf3b7ee71a791d75697e3c00dcd75501bf95943115745510b8e3f5770c8e
+T ok reverses strings
+T test result: ok. 1 passed, 0 failed
+T
+C examples/rna-transcription.md:L12
+E 0
+N 1
+H e6befc3728e98072597701e5dbff374bb2a6ee721ba8d8c6bc9e5a60cbc798cb
+T ok transcribes DNA to RNA
+T test result: ok. 1 passed, 0 failed
+T
+C examples/robot-simulator.md:L12
+E 0
+N 1
+H d9c3b202f465f176c9479c77e0b65fbe4af10e7cfd8f15d5374cb6f24eb73064
+T ok Create robot / at origin facing north
+T ok Create robot / at negative position facing south
+T ok Rotating clockwise / move
+T ok Rotating counter-clockwise / move
+T ok Moving forward one / move
+T ok Follow series of instructions / move
+T test result: ok. 6 passed, 0 failed
+T
+C examples/roman-numerals.md:L12
+E 0
+N 1
+H 084697a82a1c09142765c60a1c58f5d21632a1964face84d4d1cf425c1d3d40b
+T ok converts to Roman numerals
+T test result: ok. 1 passed, 0 failed
+T
+C examples/rotational-cipher.md:L12
+E 0
+N 1
+H 4b14dad856c84e7eeeffa27fdfd7ec7ae111a16965f5ebf7bb00d7a17f80e468
+T ok rotate
+T test result: ok. 1 passed, 0 failed
+T
+C examples/run-length-encoding.md:L12
+E 0
+N 1
+H 6feb28d1974ec22d35fa39a690e4e2674ea7384c325b944c9c5863f9915c04d3
+T ok run-length encode a string / encodes
+T ok run-length decode a string / decodes
+T ok encode and then decode / encode followed by decode gives original string
+T test result: ok. 3 passed, 0 failed
+T
+C examples/saddle-points.md:L12
+E 0
+N 1
+H b6847e7eda837964b8f47f0dbd275c16e0db90c961f8b302e1eb87dbf94b02c1
+T ok saddle_points
+T test result: ok. 1 passed, 0 failed
+T
+C examples/scrabble-score.md:L12
+E 0
+N 1
+H c73edf767d154535643130e326a9139668cd5e3f259dd31f50f76d88888fc5bf
+T ok score
+T test result: ok. 1 passed, 0 failed
+T
+C examples/secret-handshake.md:L12
+E 0
+N 1
+H d77ee2beba99ee80937cafd85b1823d65ea75709d76c8a61a5a599cd7165b1d0
+T ok commands
+T test result: ok. 1 passed, 0 failed
+T
+C examples/series.md:L12
+E 0
+N 1
+H fc9f2b586a35ab691a57e1e99b2f1bf9dc564b8beb25b4d40e3c1569aa9deaed
+T ok slices
+T ok errors
+T test result: ok. 2 passed, 0 failed
+T
+C examples/sieve.md:L12
+E 0
+N 1
+H 076a0fbbb8c93f8c94409540d54558518f2ba803e53f0e762d511fd56856c541
+T ok no primes under two
+T ok find first prime
+T ok find primes up to 10
+T ok limit is prime
+T ok find primes up to 1000
+T test result: ok. 5 passed, 0 failed
+T
+C examples/space-age.md:L12
+E 0
+N 1
+H d9537e1bfbfabb69b5c47885d25fcd43188b713d91d35ac1b308301d307b9460
+T ok age
+T ok planet names
+T ok invalid planet causes error
+T test result: ok. 3 passed, 0 failed
+T
+C examples/spiral-matrix.md:L12
+E 0
+N 1
+H 08e70f53696785188815dfc763c143539276838e19753a1eb14b585ec85f2a80
+T ok spiral_matrix
+T test result: ok. 1 passed, 0 failed
+T
+C examples/sublist.md:L12
+E 0
+N 1
+H 861c8200bfb949eec721b2969bfb4b7f3f977ec66f8aebf06419533370f0242b
+T ok sublist
+T test result: ok. 1 passed, 0 failed
+T
+C examples/sum-of-multiples.md:L12
+E 0
+N 1
+H 1a97ac686796bb19083a16641be34982761bd03a685afd6fe5f731dcd9db8237
+T ok sums the multiples
+T test result: ok. 1 passed, 0 failed
+T
+C examples/tournament.md:L12
+E 0
+N 1
+H ab429cc33b3204c4d59ad78d3c7a2cb8d8859b8c74a99b27cdac3dc3e2d8379b
+T ok just the header if no input
+T ok a win is three points, a loss is zero points
+T ok a win can also be expressed as a loss
+T ok a different team can win
+T ok a draw is one point each
+T ok There can be more than one match
+T ok There can be more than one winner
+T ok There can be more than two teams
+T ok typical input
+T ok incomplete competition (not all pairs have played)
+T ok ties broken alphabetically
+T ok ensure points sorted numerically
+T ok a row that is not a match is an error
+T test result: ok. 13 passed, 0 failed
+T
+C examples/transpose.md:L12
+E 0
+N 1
+H d64386b0eb1ea130ddccc77be73f04a7cfeb41e632ed17b66b679fd62d8de7de
+T ok transpose
+T test result: ok. 1 passed, 0 failed
+T
+C examples/triangle.md:L12
+E 0
+N 1
+H 08ff25ee4bbb1c8e52b7c4a5122be7b5208753fc406c4253585aadc1d36e29e9
+T ok equilateral triangle / equilateral?
+T ok isosceles triangle / isosceles?
+T ok scalene triangle / scalene?
+T test result: ok. 3 passed, 0 failed
+T
+C examples/twelve-days.md:L12
+E 0
+N 1
+H 3a1661f24a09e2a761b12818884f524139f7a220aa8d775db3887b94deb3a284
+T ok verse / single verses
+T ok lyrics / several verses
+T test result: ok. 2 passed, 0 failed
+T
+C examples/two-fer.md:L12
+E 0
+N 1
+H e85325a42111580846948864cceb16dc233721c9ce9ab9207076e4597fa80a8c
+T ok no name given
+T ok a name given
+T ok another name given
+T test result: ok. 3 passed, 0 failed
+T
+C examples/word-count.md:L12
+E 0
+N 1
+H 4b5a15a164187b561297d0bc82ed4b188c21af9fc4cfd34e214c2edc3274bd4a
+T ok counts words
+T test result: ok. 1 passed, 0 failed
+T
+C examples/wordy.md:L12
+E 0
+N 1
+H a3064a28a0f23ef5d2476cefb26b525dd96057938e5e14684f918bcb2433b81c
+T ok answers word problems
+T ok division by zero
+T test result: ok. 2 passed, 0 failed
+T
+C ffi-and-dynamic.md:L157
 E 0
 N 0
 H 7aea34fb4595f432050d3c577f09659e2801420722e0fda73286182eb0dc27c2
 T HI
 T Ok(42)
 T
-C ffi-and-dynamic.md:L263
+C ffi-and-dynamic.md:L279
 E 0
 N 0
 H 2c21e19edb192e58adc0591f7f0f39f5afbc13ce53d62b78b9f9c20f215a74f2
 T Ada is 36
 T user 1: decode error at [1].age: expected Int, got String
 T
-C ffi-and-dynamic.md:L32
+C ffi-and-dynamic.md:L38
 E 0
 N 0
 H c418f9870799c22c5d9c4e071311233d0cded72acbe7ffc5522d2e4fd38b9601
@@ -600,7 +1180,16 @@ H a0ed10c8e4291ee06c8d1aa253634d252c4c928c7f055cc701f9265cfad3742c
 T Ok(3)
 T Ok(2)
 T
-C input-and-output.md:L398
+C input-and-output.md:L397
+E 0
+N 0
+H 1fe662c9d5dd3641c0455541a3ae7531452e73124bda90c3140b3efef095e3f2
+T Ok(Some(1))
+T Ok(Some(2))
+T Ok(slow
+T )
+T
+C input-and-output.md:L427
 E 0
 N 0
 H 47852bb9f3ba8222f228520f8ad4e384705c5daa10b164cd436f9fd83507c787
@@ -612,7 +1201,7 @@ T notes.txt
 T photos/alps.jpg
 T True
 T
-C input-and-output.md:L453
+C input-and-output.md:L482
 E 0
 N 0
 H 5b03d0c916a290485d6f7ad3fe182ddbb94936f415ef1a3dd34e51104cf845be
@@ -622,20 +1211,12 @@ T notes/2026/trip.md File
 T notes/todo.md File
 T [notes/2026/trip.md, notes/todo.md]
 T
-C input-and-output.md:L498
+C input-and-output.md:L527
 E 0
 N 0
 H 53d04b5d618e6eda85f5687eff79cc52e3040cd1d800a9032cec162115e1cd9b
 T Ok(home)
 T Err(invalid path "../private.txt": the path leads outside the directory fs.within confines calls to)
-T
-C input-and-output.md:L536
-E 0
-N 1
-H c5dd1c6210a5cc1978f4c1bdc5765a3df9f6f7b1f3cdac0f7fcc37aec17d308e
-T ok sorts the lines into the output file
-T ok a full disk leaves the old output in place
-T test result: ok. 2 passed, 0 failed
 T
 C input-and-output.md:L54
 E 0
@@ -644,6 +1225,14 @@ H 089a1a56f4089f7a1f16363957d69535ab18636f9aa797bdcd8746d1bc119b18
 T 3 items
 T --- stderr ---
 T 0 items
+T
+C input-and-output.md:L565
+E 0
+N 1
+H c5dd1c6210a5cc1978f4c1bdc5765a3df9f6f7b1f3cdac0f7fcc37aec17d308e
+T ok sorts the lines into the output file
+T ok a full disk leaves the old output in place
+T test result: ok. 2 passed, 0 failed
 T
 C input-and-output.md:L82
 E 0
@@ -1459,20 +2048,20 @@ H 38c6069ff4a4e3f28c2d1c5d6802955c4e74334b35bc0dd40c90dec518aca38e
 T dbg line 21: describe(.North) = "up"
 T dbg line 22: describe(.West) = "left"
 T
-C structs-enums-distinct.md:L439
+C structs-enums-distinct.md:L446
 E 0
 N 0
 H 2173ea1bbc0759a94c9aa3b8ed9eec733df5655d591eb881c020f7cd4a8cc0e5
 T dbg line 18: User.full_name(alice) = "Ada Lovelace"
 T dbg line 21: User.full_name(renamed) = "Augusta Lovelace"
 T
-C structs-enums-distinct.md:L490
+C structs-enums-distinct.md:L497
 E 0
 N 0
 H 8d5d0d35282dbe2642fc48f43e9b683e5572d74056060c6b0b09b0255db06a2a
 T dbg line 22: events = [#Click{x: 10, y: 20}, #KeyDown{key: "Enter"}, FocusLost]
 T
-C structs-enums-distinct.md:L536
+C structs-enums-distinct.md:L543
 E 0
 N 0
 H 146e277c6689f3178c5dda691a859dae1ee257987a25d16620ccfa1295befd86

@@ -34,8 +34,13 @@ const ClassFiles = stdlibbindings.ClassFiles
 // provide, sorted. None lacks one yet: `processes` will be the first,
 // which js/wasm and wasip1 lack.
 func TargetLacks(goos, goarch string) []string {
-	return nil
+	return testTargets[goos+"/"+goarch]
 }
+
+// testTargets are targets only tests build for, each with the classes it
+// lacks (LackingTargetForTest), so the refusal is tested through
+// CheckTarget before a real target lacks a class.
+var testTargets map[string][]string
 
 // WebFilesNote is the line `nomi build --web` prints when the program
 // reaches the `files` class.
@@ -48,18 +53,25 @@ func (p *Program) Uses(class string, withExports bool) bool {
 }
 
 // CapabilityUse is one call a program's reachable code makes to a host
-// function of a capability class.
+// function of a capability class, reported at the program's own call that
+// reaches it: a crossing inside the standard library is reported at the
+// call of the std function that leads to it (`fs.read_text(path)` in
+// `main`), not inside std.
 type CapabilityUse struct {
 	// Class is the function's class (ClassFiles).
 	Class string
-	// Callee is its key (`fs_host.read_text`, the crossing std/fs's
-	// `read_text` makes).
+	// Crossing is the host function's key (`fs_host.read_text`, the
+	// crossing std/fs's `read_text` makes).
+	Crossing string
+	// Callee is what the program's own call at Site calls: a std
+	// function (`fs.read_text`), or Crossing itself when the program's
+	// code makes the crossing.
 	Callee string
-	// Site is the call's position, `file:line:col`, the file named as a
+	// Site is that call's position, `file:line:col`, the file named as a
 	// built image names it.
 	Site string
-	// Chain is the functions from a root to the one that makes the call,
-	// outermost first.
+	// Chain is the functions from a root to the one that holds the call
+	// at Site, outermost first.
 	Chain []string
 }
 
@@ -94,10 +106,11 @@ func (p *Program) CapabilityUses(withExports bool) []CapabilityUse {
 	out := make([]CapabilityUse, len(sites))
 	for i, s := range sites {
 		out[i] = CapabilityUse{
-			Class:  classes[s.Name],
-			Callee: s.Name,
-			Site:   fmt.Sprintf("%s:%d:%d", p.imageName(s.Pos.File()), s.Pos.Line(), s.Pos.Col()),
-			Chain:  s.Chain,
+			Class:    classes[s.Name],
+			Crossing: s.Name,
+			Callee:   s.Via,
+			Site:     fmt.Sprintf("%s:%d:%d", p.imageName(s.At.File()), s.At.Line(), s.At.Col()),
+			Chain:    s.Chain,
 		}
 	}
 	return out
@@ -166,7 +179,11 @@ func (u *Unsupported) Write(w io.Writer) {
 		if len(c.Chain) > 1 {
 			from += " through " + strings.Join(c.Chain[1:], ", ")
 		}
-		fmt.Fprintf(w, "  %s: `%s` (reached from %s)\n", c.Site, c.Callee, from)
+		what := "`" + c.Callee + "`"
+		if c.Callee != c.Crossing {
+			what += " calls `" + c.Crossing + "`"
+		}
+		fmt.Fprintf(w, "  %s: %s (reached from %s)\n", c.Site, what, from)
 		if !slices.Contains(classes, c.Class) {
 			classes = append(classes, c.Class)
 		}
