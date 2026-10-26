@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/BurntSushi/toml v1.6.0
-	github.com/nomi-language/nomi/lib/sql/sqlite v0.0.0-00010101000000-000000000000
+	github.com/nomi-language/nomi/lib/sql/sqlite v0.0.0-20261026231947-3434642c92e9
 )
 
 require (
